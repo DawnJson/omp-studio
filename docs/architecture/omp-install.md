@@ -8,7 +8,7 @@ omp-studio 用哪个 omp、怎么判断由谁更新、自己管理时怎么下�
 
 1. 按 `PATH` 的顺序，对每个目录用 `PATHEXT` 里的扩展名找 `omp`，取第一个命中的。这和用户在终端里敲 `omp` 得到的是同一个。
 2. 执行 `omp --version`，输出形如 `omp/18.12.0`，用 `^omp/(\S+)` 解析。
-3. 读 exe 上两级目录的 `manager.json`。存在且 `manager`、`name` 都是字符串，就是受管的；不存在就是用户自己装的。
+3. 读 exe 上两级目录的 `manager.json`。`manager` 是字符串就算受管，显示名取 `name`，没有 `name` 就用 `manager`，和 omp 自己的判断一致（源码 `managedInstallName`）；文件不存在就是用户自己装的。
 
 | 安装方式 | exe 路径 | 上两级的 `manager.json` |
 |---|---|---|
@@ -22,7 +22,8 @@ install.ps1 的布局下，上两级是 `%LOCALAPPDATA%` 本身，别的程序�
 omp 的 `omp update` 用 `which omp` 找 exe，再读那个 exe 的 `manager.json`，**不看当前运行的是哪个 exe**。
 
 - 受管目录在 PATH 最前面时，`omp update`、`--check`、`--force` 都只打印 `<路径> is installed and kept up to date by <name>; update it from <name>.`，退出码 0，不动文件。
-- PATH 上找不到 omp 时，`manager.json` 不起作用，`omp update` 会走 bun 路径，执行 `bun add -g @oh-my-pi/pi-coding-agent`，往用户的 bun 全局目录装一份 omp。阶段 0 验证时实测踩到过。
+- PATH 上找不到 omp 时，`manager.json` 不起作用，`omp update` 会走 bun 路径，执行 `bun add -g @oh-my-pi/pi-coding-agent`，往用户的 bun 全局目录装一份 omp。阶段 0 验证时实测踩到过（本机装了 bun）。
+- 没测（推测）：PATH 上有别的 omp 时，`omp update` 会作用在那个 omp 上；没装 bun 的机器上的行为。
 
 因此：
 

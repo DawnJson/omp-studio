@@ -45,15 +45,16 @@
 
 ## 要注意的地方
 
-- **子代理是后台作业**（`detached: true`）。主会话的 `task` 工具调用在打印 `Spawned…` 时就结束了，比子代理的 `started` 还早，所以泳道的起止只能看 lifecycle 帧。
+- **本次实测的子代理都是后台作业**（`detached: true`）。主会话的 `task` 工具调用在打印 `Spawned…` 时就结束了，比子代理的 `started` 还早，所以泳道的起止只能看 lifecycle 帧。`rpc.md` 提到子代理也有前台的，前台子代理（`detached: false`）的时序没测。
 - **`index` 不是全局序号**。嵌套的子代理 `index` 也从 0 开始，泳道的行用 `id` 做键。
-- **嵌套关系**：顶层子代理的 `parentToolCallId` 是主会话那次 `task` 调用的 id；嵌套的子代理的 `parentToolCallId` 是父代理自己事件流里那次 `task` 调用的 id。用户给子代理起的名字带点号时，点号规则会出错，要用 `parentToolCallId` 反查。
+- **嵌套关系**：顶层子代理的 `parentToolCallId` 是主会话那次 `task` 调用的 id；嵌套的子代理的 `parentToolCallId` 是父代理自己事件流里那次 `task` 调用的 id。用户给子代理起的名字带点号时，点号规则会出错，要用 `parentToolCallId` 反查。嵌套样本不干净（主代理自己写了临时 agent 定义才派成功，见 `problem.md` 第 5 题），结构结论可用，细节要再验证。
 - **`get_subagents` 只返回运行中的子代理**，结束后就查不到了。主进程要在收到 `started` 时自己记下 `id` 和 `sessionFile`。子代理结束后仍能用 `id` 调 `get_subagent_messages` 拿到完整记录。
-- **流量**：events 级别下，子代理的 `message_update` 每帧都是完整快照，不受 `set_event_filter` 的 `messageUpdates: "delta"` 影响。两个只读一个文件的子代理，11 秒产生 2.27 MB；一次嵌套测试产生 29.8 MB，最大单帧 193 KB。泳道本身用 `progress` 级别就够，用户展开某个子代理的详情时再升到 `events`。
+- **流量**：events 级别下，子代理的 `message_update` 每帧都是完整快照；按 `rpc.md`，它不受 `set_event_filter` 的 `messageUpdates: "delta"` 影响（没有实测）。两个只读一个文件的子代理，11 秒产生 2.27 MB；一次嵌套测试产生 29.8 MB，最大单帧 193 KB。泳道本身用 `progress` 级别就够，用户展开某个子代理的详情时再升到 `events`。
 
 ## 没测到的
 
 - `aborted` 和失败态的帧形状。
+- 前台子代理（`detached: false`）的时序。
 - 父代理不等子代理就结束时，`prompt_result` 和 `session_settled` 的先后。
 - 运行中在 `progress` 和 `events` 之间切换订阅级别。
 - `get_session_stats` 是否包含子代理的 token 和费用。

@@ -2,7 +2,7 @@
 
 主进程怎么启动 omp、收发帧、关闭 omp。协议本身以 omp 文档 `rpc.md` 为准，这里只记实测到的行为和要注意的地方。
 
-实测版本：omp 18.12.0（Tern 管理），另用 install.ps1 装的 18.8.7 跑过同一流程；Electron 44.9.0。日期 2026-10-17。
+实测版本：在 Electron 44.9.0 主进程里跑的是 omp 18.12.0（Tern 管理）；install.ps1 装的 18.8.7 只在纯 Node 脚本里跑过同一流程。日期 2026-10-17。
 
 ## 启动
 
@@ -50,8 +50,8 @@ sequenceDiagram
 ## 读帧
 
 - stdout 按 `\n` 切行，每行 `JSON.parse`。协商 v2 之后，超过 1 MiB 的逻辑帧会拆成连续的 `rpc_chunk`，按 `rpc.md` 的规则校验 `chunkId`、`index`、`count`、`byteLength` 再重组。实测几次运行里最大的帧是 193 KB，还没触发过分块，重组逻辑要用单元测试覆盖。
-- `message_update` 默认每帧都带完整的消息快照。一轮带 bash 工具的短对话就录到 550 KB。阶段 2 做对话流时考虑 `set_event_filter` 的 `messageUpdates: "delta"`。子代理转发的 `message_update` 不受这个设置影响，见 `subagents.md`。
-- `prompt` 的应答只表示消息被接收，一轮跑完要看同 id 的 `prompt_result`；整个会话安静下来看 `session_settled`。
+- `message_update` 默认每帧都带完整的消息快照。一轮带 bash 工具的短对话就录到 550 KB。阶段 2 做对话流时考虑 `set_event_filter` 的 `messageUpdates: "delta"`。按 `rpc.md`，子代理转发的 `message_update` 不受这个设置影响，见 `subagents.md`。
+- `prompt` 的应答只表示消息被接收。应答里带 `data.agentInvoked: false` 时（比如同步完成的内置斜杠命令，或插件命令出错），这条 prompt 已经完成，**后面不会再有 `prompt_result`**；否则一轮跑完要看同 id 的 `prompt_result`。整个会话安静下来看 `session_settled`。
 
 ## 类型从哪来
 
@@ -60,7 +60,7 @@ npm 包 `@oh-my-pi/pi-coding-agent` 里有 `rpc-wire.generated.ts`，可以 `imp
 - 只引 `modes/rpc/wire/rpc-wire.generated`，不要引 `modes/rpc/rpc-types`（会拉进 1493 个文件）。
 - `RpcResponse.data` 是 `unknown`，按命令对应结果类型要用 `RpcWireCommands[K]["result"]`。
 - `rpc_chunk` 的帧类型不在 generated 文件里。
-- omp 自带的 `RpcFrameDecoder`（`rpc-frame.ts`）不依赖 Bun，但包里只有 `.ts` 源码，Node 不能直接从 `node_modules` 加载，需要拷贝或打包。
+- omp 自带的 `RpcFrameDecoder`（`rpc-frame.ts`）不依赖 Bun，但包里只有 `.ts` 源码，Node 不能直接从 `node_modules` 加载。它还依赖 `@oh-my-pi/pi-utils/type-guards`，拷贝时要一起拷并改 import 路径，或者用打包器处理。
 
 ## 关闭和进程树
 
@@ -68,6 +68,6 @@ npm 包 `@oh-my-pi/pi-coding-agent` 里有 `rpc-wire.generated.ts`，可以 `imp
 |---|---|---|
 | 空闲时关闭 stdin | 约 0.1 s 退出，退出码 0 | 无残留 |
 | bash 工具运行中关闭 stdin | 取消工具（`tool_execution_end.isError: true`），约 0.1 s 退出，退出码 0 | 被结束，无残留 |
-| bash 工具运行中强杀主进程 | 自己退出 | **`PING.EXE` 和它的 `conhost.exe` 留下成为孤儿** |
+| bash 工具运行中强杀主进程（主进程里 `process.kill(process.pid, "SIGKILL")`） | 自己退出 | **`PING.EXE` 和它的 `conhost.exe` 留下成为孤儿** |
 
-所以正常退出路径（关窗口、退出应用、自动更新重启）都要先关闭 stdin，再等 omp 退出，超时后按进程树结束（`taskkill /T /F /PID`）。主进程崩溃或被强杀时这些代码都不会运行，只能靠操作系统回收进程树，比如 Windows Job Object 的 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`。Node 和 Electron 没有这个 API，具体做法属于新增依赖，待仓库所有者决定。omp 在强杀这条路径上为什么不结束子进程，原因没查（推测是 stdout 断开后走了直接退出的分支）。
+所以正常退出路径（关窗口、退出应用、自动更新重启）都要先关闭 stdin，**期间继续读 stdout**（`rpc.md` 要求，否则 omp 可能一直等输出被读走而不退出），再等 omp 退出，超时后按进程树结束（`taskkill /T /F /PID`）。主进程崩溃或被强杀时这些代码都不会运行，只能靠操作系统回收进程树（比如 Windows Job Object 的 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`，Node 和 Electron 没有这个 API，属于新增依赖），或者查清 omp 在这条路径上为什么不结束子进程后给官方提 PR。原因没查，推测是 stdout 断开后走了直接退出的分支。怎么做待仓库所有者决定，见 `problem.md` 末尾的"待仓库所有者决定"。
