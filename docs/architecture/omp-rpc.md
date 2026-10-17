@@ -2,6 +2,27 @@
 
 主进程怎么启动 omp、收发帧、关闭 omp。协议本身以 omp 文档 `rpc.md` 为准，这里只记实测到的行为和要注意的地方。
 
+## 代码
+
+|文件|职责|
+|---|---|
+|`src/main/omp/discover.ts`|按 PATH 和 PATHEXT 找 `omp`（Windows 上只接受 `.exe`/`.com`，见 `omp-install.md`），执行 `omp --version`，读 exe 上两级目录的 `manager.json`|
+|`src/main/omp/frame-decoder.ts`|stdout 字节 → 逻辑帧：按 `\n` 切行、严格 UTF-8、`rpc_chunk` 校验和重组。任何不合规的字节都抛 `RpcProtocolError`|
+|`src/main/omp/omp-connection.ts`|`OmpConnection`：启动、握手、`request`（按 id 对应应答）、`prompt`（等到这一条完成）、`onFrame`（其余帧）、`close`|
+|`src/main/omp/wire/rpc-wire.generated.ts`|从 omp tag 拷贝的 wire 类型，见下文"类型从哪来"|
+
+`OmpConnection` 的约定：
+
+- `spawn` 返回时还没开始读 stdout，在同一段同步代码里挂 `onFrame` 不会漏掉握手期间的帧。
+- `ready`：收到 `ready` 帧；它声明支持 v2 时再协商 v2，并把重组上限设成 `maxReassembledFrameBytes`。等 `ready` 和协商共用一个截止时间（默认 30 s）；超时、协商失败或 omp 提前退出时 reject，并已结束 omp。
+- `prompt(params)`：应答带 `agentInvoked: false` 时直接返回 `{ agentInvoked: false }`；否则返回同 id 的 `prompt_result`。`prompt_result` 同时也从 `onFrame` 发出，排在这一轮所有事件之后。应答 `success: false` 时以 `RpcCommandError` reject；按 `rpc.md`，这之后同 id 的 `prompt_result` 仍可能到来，只从 `onFrame` 发出。`abort_and_prompt` 也以 `prompt_result` 结束，目前只能用 `request` 发、自己从 `onFrame` 等结果。
+- `onFrame` 会收到不认识 `type` 的帧（`rpc.md`：未知帧当作未知通知），类型标注是 `RpcServerFrame`，但处理时要有默认分支。监听器或 `tap` 抛错按致命错误处理：结束 omp，错误放进 `exited.error`。
+- 协议错误（stdout 不是合规的 NDJSON）时按进程树结束 omp，`exited` 里的 `error` 是那个 `RpcProtocolError`。
+- omp 退出后，所有未完成的 `request` 和 `prompt` 都以 `OmpExitedError` reject，之后的调用也一样。
+- `close(timeoutMs = 5000)`：关 stdin，继续读 stdout，等 omp 退出；超时后用 `%SystemRoot%\System32\taskkill.exe /T /F` 结束进程树，`exited.killed` 为 true。omp 本身已经退出、只是孙进程还拿着它的 stdout 时，不再 taskkill（pid 可能已被复用），2 s 后直接销毁管道。测试覆盖了"omp 和它起的子进程都被结束"。
+- `spawn` 参数非法（比如传入 `.cmd`）时 Node 会同步抛错，这个异常不走 `ready`/`exited`。
+- `tap`：收发的每个逻辑帧都会经过它，录制回放用（见 `rpc-replay.md`）。
+
 实测版本：在 Electron 44.9.0 主进程里跑的是 omp 18.12.0（Tern 管理）；install.ps1 装的 18.8.7 只在纯 Node 脚本里跑过同一流程。日期 2026-10-17。
 
 ## 启动
@@ -49,7 +70,7 @@ sequenceDiagram
 
 ## 读帧
 
-- stdout 按 `\n` 切行，每行 `JSON.parse`。协商 v2 之后，超过 1 MiB 的逻辑帧会拆成连续的 `rpc_chunk`，按 `rpc.md` 的规则校验 `chunkId`、`index`、`count`、`byteLength` 再重组。实测几次运行里最大的帧是 193 KB，还没触发过分块，重组逻辑要用单元测试覆盖。
+- stdout 按 `\n` 切行，每行 `JSON.parse`。协商 v2 之后，超过 1 MiB 的逻辑帧会拆成连续的 `rpc_chunk`，按 `rpc.md` 的规则校验 `chunkId`、`index`、`count`、`byteLength` 再重组。普通对话里最大的帧约 193 KB，不会分块。发一条 1.4 MB 的用户消息时，收到的最大逻辑帧有 1 400 155 字符，超过 `maxFrameBytes`，只能是分块传来再重组的；在 Electron 44.9.0 主进程里实测正常，这一轮 `prompt_result` 为 `completed`（omp 18.12.0）。具体是哪一帧没有记录，推测是这条用户消息的 `message_start`/`message_end`。`read` 工具读 2 MB 的文件不会产生大帧，omp 自己截断了输出（最大帧约 112 KB）。
 - `message_update` 默认每帧都带完整的消息快照。一轮带 bash 工具的短对话就录到 550 KB。阶段 2 做对话流时考虑 `set_event_filter` 的 `messageUpdates: "delta"`。按 `rpc.md`，子代理转发的 `message_update` 不受这个设置影响，见 `subagents.md`。
 - `prompt` 的应答只表示消息被接收。应答里带 `data.agentInvoked: false` 时（比如同步完成的内置斜杠命令，或插件命令出错），这条 prompt 已经完成，**后面不会再有 `prompt_result`**；否则一轮跑完要看同 id 的 `prompt_result`。整个会话安静下来看 `session_settled`。
 

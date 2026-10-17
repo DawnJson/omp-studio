@@ -104,7 +104,9 @@ flowchart LR
 
 ### 阶段 2：骨架和对话
 
-- [ ] 验证工具（先于界面代码）：Playwright 启动 Electron 并截图；RPC 录制回放的假 omp
+- [x] 主进程 omp 连接：找 PATH 上的 omp 并读管理者、启动、协商 v2、`rpc_chunk` 重组、按 id 对应应答、等 `prompt_result`、关闭和按进程树结束（`docs/architecture/omp-rpc.md`）
+- [x] 验证工具：RPC 录制回放的假 omp（`docs/architecture/rpc-replay.md`）
+- [ ] 验证工具（先于界面代码）：Playwright 启动 Electron 并截图
 - [ ] 应用外壳、单实例、窗口状态记忆、i18n 基础设施
 - [ ] omp 子进程放进 Windows Job Object，主进程崩溃或被强杀也不留孤儿进程（`problem.md` 第 4 题；用哪个原生模块先提出来确认）
 - [ ] 查清 omp 在宿主被强杀时为什么不结束 bash 等子进程；是 omp 的缺陷就给官方提 PR（`problem.md` 第 4 题）

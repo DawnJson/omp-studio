@@ -21,11 +21,33 @@ omp 自己的协议和接口以 omp 文档为准：`rpc.md`（RPC 协议）、`e
 
 ## 当前阶段
 
-阶段 0：技术验证。仓库里还没有代码和构建命令。
+阶段 0 已完成，结论在 `problem.md`。阶段 1（设计规范）由仓库所有者主导；阶段 2 里不涉及界面的主进程部分可以先做。阶段 1 的设计规范确定之前不写界面代码，写出来的都要推倒重来。
 
-- 第一次提交 `package.json` 时，在本文件里加一个"命令"表，列出安装、开发、测试、打包各用什么命令。之后命令有变化就同步更新。
-- 阶段 0 的产物是**结论**，不是产品代码。每个结论写进 `problem.md` 对应的小节，包括 omp 版本、复现步骤和观察到的现象。验证用的临时脚本，结论写完就删掉。
-- 不要在阶段 0 提前搭 UI 框架或设计体系。阶段 1 的设计规范确定之前，写出来的 UI 代码都要推倒重来。
+## 技术栈
+
+仓库所有者 2026-10-17 确认。要换其中任何一项先停下来问。
+
+|项|选择|说明|
+|---|---|---|
+|包管理器|npm|随 Node 自带，锁文件 `package-lock.json`。开发依赖一律 `--save-exact`|
+|语言|TypeScript 7（`tsc` 只做类型检查）|`strict`、`nodenext`、`erasableSyntaxOnly`；源码 import 带 `.ts` 后缀，Node 24 和 Electron 44 都能直接运行 `.ts`|
+|测试|Vitest|和 electron-vite 同属 Vite 体系，原生支持 TypeScript 和 ESM|
+|构建|electron-vite|做应用外壳时再装|
+|打包|electron-builder|阶段 7 再装|
+|状态管理、i18n 库|未定|做界面前再定|
+
+## 命令
+
+在仓库根目录用 pwsh 运行。
+
+|做什么|命令|
+|---|---|
+|安装依赖|`npm ci`|
+|类型检查|`npm run typecheck`|
+|测试|`npm test`|
+|录制 RPC 回放|`npm run rpc:record -- <名字> "<prompt>"`，写到 `fixtures/rpc/<名字>.ndjson`。会调真实模型；在别的 worktree 里用 `$env:STUDIO_ENV_FILE` 指向 `.env`；录制里出现用户名会拒绝写入，这时用 `$env:STUDIO_SCRATCH_DIR` 换临时目录，见 `docs/architecture/rpc-replay.md`|
+|更新 RPC 类型|`npm run rpc:update-wire -- <omp 版本>`|
+|开发、打包|还没有，做应用外壳时补上|
 
 ## 什么时候先停下来问
 

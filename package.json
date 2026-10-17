@@ -1,0 +1,24 @@
+{
+  "name": "omp-studio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "oh-my-pi (omp) 的桌面端",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "rpc:update-wire": "node scripts/update-rpc-wire.ts",
+    "rpc:record": "node scripts/record-rpc.ts"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "electron": "44.9.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}
