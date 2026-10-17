@@ -43,7 +43,7 @@ Tern 不触发止损（它是终端，不是 Codex 式桌面端），但 omp-stu
 | 起点 | 从零写，只参考别人的代码 | fork 会继承竞品的设计包袱。RPC 对接、Windows 进程管理可以参考 omp-desktop、gooey-pi 的实现（都是 MIT） |
 | 外壳 | **Electron** | Codex 和 Claude 桌面版在 Windows 和 macOS 上都是 Electron；两个平台同一个 Chromium，打磨一次就行。Tauri 在 mac 上换成 WKWebView，要再调一遍 |
 | 接 omp 的方式 | 子进程 `omp --mode rpc-ui`，NDJSON over stdio，协商协议 v2 | omp 的 SDK 要求 Bun，Electron 主进程是 Node，用不了 SDK |
-| omp 来源 | **安装包不带 omp。** PATH 上已经有 omp 就直接用（见下一行）；没有时才照 Tern 的做法自己管理一份官方 omp：从官方构建服务（`build.stencil.so`）下载原版 exe 并校验 sha256，放进应用数据目录的 `omp/versions/<版本>.exe`（保留最近 3 个），`omp/bin/omp.exe` 是当前版本，写 `omp/manager.json` 让 omp 不自己更新；后台跟最新稳定版，优先下载差量补丁；问一次要不要加进 PATH。和终端共用 `~/.omp` | Tern 就是这么做的（本机实测，细节见 `problem.md` 第 2 题）。安装包小 |
+| omp 来源 | **安装包不带 omp。** PATH 上已经有 omp 就直接用（见下一行）；没有时才照 Tern 的做法自己管理一份官方 omp：从官方构建服务（`build.stencil.so`）下载原版 exe 并校验 sha256，放进应用数据目录的 `omp/versions/<版本>.exe`（保留最近 3 个），`omp/bin/omp.exe` 是当前版本，写 `omp/manager.json`；**自管的 omp 由 omp-studio 自己检查和更新，从不对它执行 `omp update`**（阶段 0 实测：`manager.json` 只在 exe 是 PATH 上的 `omp` 时才拦得住 `omp update`）；后台跟最新稳定版，优先下载差量补丁（omp-studio 自带 HDiffPatch 实现，补丁不可用时退回全量）；问一次要不要加进 PATH。和终端共用 `~/.omp` | Tern 就是这么做的（本机实测，细节见 `problem.md` 第 2 题）。安装包小 |
 | 已有 omp | **PATH 上已经有 omp 就直接用它，不另外下载，不碰 PATH。** 有管理者的（exe 上两级目录有 `manager.json`，比如 Tern）由管理者更新；用户自己装的（install.ps1、bun、npm、brew 等）由用户自己更新。启动时检查版本，低于支持的最低版本就提示升级，按钮执行 `omp update`（omp 会按自己的安装方式升级；brew、mise、nix 它只打印指引） | 终端和桌面端始终是同一个 omp，不会版本错位；不和用户的包管理器、Tern 抢 |
 | 上游策略 | 只用官方正式版；缺的能力用自己写的 omp 插件补；补不了就给官方提 PR；**不 fork，也不打补丁** | 跑的是官方原版 exe，复用 Tern 时还是别人管理的 exe，补丁没地方打 |
 | 界面语言 | 中英双语，第一天就做 | 设计规范同时覆盖两种字体和文案长度 |
@@ -158,7 +158,7 @@ flowchart LR
 | 做完再公开，几个月没有外部反馈，做出只有自己喜欢的东西 | 阶段 2 结束就开始内测 |
 | 范围大，研究生工作一忙就停 | 阶段之间独立、每个阶段都能用；阶段完成就打 tag |
 | omp 上游变化把 RPC 对接搞坏（跟最新版，新版本会直接到用户手上） | 用 wire schema 生成的类型，按 schema 的解码规则容忍未知字段和帧；启动时检查 `protocolVersion`；CI 每天用最新正式版跑 RPC 集成测试，出问题当天修；保留最近 3 个版本，可以退回上一个 |
-| 用 `manager.json` 判断 PATH 上的 omp 由谁更新，这个约定没写进 omp 文档 | 判断错了影响也小：升级按钮执行的 `omp update` 碰到受管的 omp 只会提示去管理者那里更新，不改文件。阶段 0 验证 |
+| 用 `manager.json` 判断 PATH 上的 omp 由谁更新，这个约定没写进 omp 文档 | 判断错了影响也小：升级按钮执行的 `omp update` 碰到受管的 omp 只会提示去管理者那里更新，不改文件。阶段 0 已实测，`omp update` 只认 PATH 上那个 omp 的 `manager.json`，所以升级按钮只对 PATH 上的 omp 用 |
 | 用户自己装的 omp 版本不受我们控制，可能很旧 | 定一个支持的最低版本，低于它就提示升级；CI 同时跑最低版本和最新版 |
 | 插件补不了的能力只能等上游 | 尽早提 PR；阶段 0 先把要用的能力逐个跑通 |
 

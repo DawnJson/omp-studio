@@ -173,8 +173,8 @@
 
 |#|决策点|备选方案|涉及的文字|
 |---|---|---|---|
-|1|自管 omp 的更新方式。实测 `manager.json` 只在 exe 是 PATH 上的 `omp` 时才拦得住 `omp update`（第 2 题）|A. 自管 exe 一律由 omp-studio 自己检查和更新，从不调 `omp update`（推荐）；B. 把自管目录加进 PATH，再依赖 `manager.json`|`PLAN.md` 第 3 节"omp 来源"一行的"写 `omp/manager.json` 让 omp 不自己更新"；第 7 节风险表"用 `manager.json` 判断…"一行|
-|2|差量补丁要不要做。要做就得自己带一个 HDiffPatch 实现（第 2 题）|A. 先只做全量下载（222 MB）；B. 引入 HDiffPatch 实现，属于新增依赖|`PLAN.md` 第 3 节"优先下载差量补丁"；阶段 2 "omp 管理"复选框|
+|1|自管 omp 的更新方式。实测 `manager.json` 只在 exe 是 PATH 上的 `omp` 时才拦得住 `omp update`（第 2 题）|**已定（2026-10-17）**：自管 exe 一律由 omp-studio 自己检查和更新，从不调 `omp update`|已改 `PLAN.md` 第 3 节"omp 来源"和第 7 节风险表|
+|2|差量补丁要不要做（第 2 题）|**已定（2026-10-17）**：做，omp-studio 自带 HDiffPatch 实现，补丁不可用时退回全量。具体用哪个库在阶段 2 开工前再提出来确认|已改 `PLAN.md` 第 3 节"omp 来源"|
 |3|natives 目录要不要隔离（第 2 题）|A. 不设 `PI_NATIVES_DIR`，和终端共用 `~/.omp/natives`；B. 设到 omp-studio 自己的数据目录，代价是每个版本多占约 115 MB|无，新决策|
 |4|主进程崩溃时的孤儿进程（第 4 题）|A. Job Object，属于新增依赖；B. 查清原因后给 omp 提 PR；可以两者都做|`AGENTS.md`"omp 的边界"里"不能留下孤儿进程"一条|
 |5|RPC 类型的来源（第 3 题）|A. 从 omp 的 tag 拷贝 `rpc-wire.generated.ts`（推荐）；B. 装 npm 包作 devDependency（约 1.06 GB）；C. 从 schema 自己生成|阶段 0 结束时的技术栈决定|
