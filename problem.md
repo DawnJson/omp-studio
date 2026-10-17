@@ -1,7 +1,7 @@
 # 待验证问题
 
-阶段 0（技术验证）要回答的三个问题。背景和整体决策见 `PLAN.md`。
-每个问题回答后，把结论、验证用的 omp 版本和复现步骤写在对应小节的"结论"里。
+阶段 0（技术验证）要回答的问题。第 1–3 题是计划阶段就列出的关键问题；第 4、5 题对应 `PLAN.md` 阶段 0 里另外两个复选框，验证时补上。背景和整体决策见 `PLAN.md`。
+每个问题回答后，把结论、验证用的 omp 版本和复现步骤写在对应小节的"结论"里。实测的协议细节写在 `docs/architecture/` 下对应的文件里。
 
 ---
 
@@ -28,7 +28,16 @@
 
 **备选方案**：不走 annotations，直接把评论格式化成一条带 `文件:行号` 引用的用户消息，通过 RPC 的 `steer` 或 `prompt` 发送。
 
-**结论**：未验证
+**结论**：部分通，可用。**建议评审闭环不依赖 annotations，宿主自己把评论格式化成一条用户消息发送**（即上面的备选方案）。仓库所有者确认后，再改 `PLAN.md` 阶段 3 里"走阶段 0 验证过的插件通道"这句。
+
+- 实测环境：omp 18.12.0（Tern 管理），模型 `deepseek/deepseek-v4-flash`，2026-10-17。
+- 复现：单文件插件 `export default function (pi) { pi.registerCommand("studio-review", { handler: async (args, ctx) => ctx.annotations.submit({ source: { kind: "file", path }, notes, deliver }) }) }`，用 `omp --mode rpc-ui --extension <插件绝对路径>` 加载，再通过 RPC `prompt` 发 `/studio-review <json>`。
+- 不确定 1（行号）：文件源和文本源的 note 只有单个 `line`，**没有结束行**。`line` 在 agent 收到的消息里不是数字，会被渲染成该行源码的引用；行范围只能由插件写进 note 文本。`kind: "file"` 会把**整个文件**嵌进用户消息（31 行的文件约 1.1 KB，纯文本方式约 0.2 KB）。agent 改对了位置。
+- 不确定 2（宿主怎么调用）：用 `prompt` 发 slash 命令，可行。命令能在 `get_available_commands` 里发现（`source: "extension"`）。**插件出错时 `prompt` 仍返回 `success: true`**，`prompt_result.agentInvoked` 为 `false`，错误只出现在 `extension_error` 帧里。没有"宿主直接调插件"的 RPC 命令。
+- 不确定 3（运行中提交）：`deliver` 为 `auto` 或 `send` 时不会 steer，而是排进 followUp，当前这一轮结束后才处理。`paste` 只发 `set_editor_text`，不触发 agent。想要 steer，就用 `deliver: "none"` 拿回文本，再由插件调 `pi.sendUserMessage(text, { deliverAs: "steer" })`。
+- 备选方案实测：直接 `prompt` 一句带 `calc.js:12-16` 的话，agent 的改动和 annotations 方式一样，消息小得多，行范围也由宿主完全控制；运行中用 RPC 自带的 `steer` 或 `follow_up` 就能选投递方式。
+- 没测：同一文件多条 note 的渲染、`kind: "diff"` 和 `review: true`、`file` 源能否读到 worktree 外的文件（路径没被拦截，宿主必须自己限制在 worktree 内）。
+- 细节见 `docs/architecture/review-comments.md`。
 
 ---
 
@@ -64,7 +73,17 @@
 - 直接用 PATH 上的 omp 走不通：始终自己管理一份，不放上 PATH。
 - 自己管理也走不通（比如 exe 离开安装位置就跑不起来）：退回原计划，安装包自带固定版本。
 
-**结论**：未验证
+**结论**：通，但有一个影响计划的坑：**`omp update` 只认 PATH 上那个 `omp` 的 `manager.json`**。
+
+- 实测环境：自管的官方 exe 18.12.0（中途换入 18.11.3）、Tern 管理的 18.12.0、install.ps1 装的 18.8.7，2026-10-17。
+- 不确定 1：通。exe 放在任意目录、从子进程 env 的 PATH 里去掉其他 omp、用绝对路径启动，v2 协商、grep（原生实现）、bash、`prompt_result` 都正常，cwd 带空格和中文也没问题。原生 addon 解压到 `PI_NATIVES_DIR\<版本>\`（不设时是 `~/.omp/natives/<版本>`，每个版本约 115 MB），exe 旁边不需要别的文件。
+- 不确定 2：**部分通**。omp 的 `omp update` 用 `which omp` 找 exe，再读那个 exe 上两级目录的 `manager.json`，而不是看当前运行的 exe。自管目录在 PATH 最前面时，`update`、`update --check`、`update --force` 都只提示"由 omp-studio 负责更新"，不动文件；**自管 exe 不在 PATH 上时 `manager.json` 不起作用，`omp update` 会走 bun 路径，往用户的 bun 全局目录装一份 omp**（实测踩到过，已清理）。所以 omp-studio 自己管理的 exe 一律由 omp-studio 用构建服务更新，**不要对它执行 `omp update`**。受管时 `--check` 也被拦住，检查新版本同样要自己请求构建服务。
+- 不确定 3：通。运行中的 exe 可以改名；改名后放入新版本，正在运行的子进程继续响应 `get_state` 和新 prompt，新起的子进程拿到新版本。改名后的 `.old-…` 文件要等进程退出才能删除。这是在自管副本上模拟的，没有碰 Tern 的文件。
+- 不确定 4：从源码（`packages/coding-agent/src/cli/build-service.ts`）找到了接口：在全量接口后面加 `?from_version=<已装版本>`，应答多一个 `patch` 字段 `{ format: "file", from_sha256, size, sha256, url }`，格式是 HDiffPatch 单流，omp 用 `@oh-my-pi/pi-natives` 的 `applyBinaryPatch` 应用。补丁没生成好时返回 `patch_pending`。**没有线上实测**。omp-studio 要用补丁，就得自己带一个 HDiffPatch 实现，这需要决策；否则只用全量下载（222 MB）。
+- PATH 发现：按 PATH 和 PATHEXT 找第一个 `omp`，执行 `omp --version`（输出 `omp/<版本>`），读 exe 上两级的 `manager.json`。本机 Tern 的读到 `{"manager":"tern","name":"Tern"}`；install.ps1 的上两级是 `%LOCALAPPDATA%` 本身，没有 `manager.json`，即未受管。本机 PATH 上同时有 Tern 的 18.12.0 和 install.ps1 的 18.8.7，取第一个，和终端里敲 `omp` 的结果一致。
+- install.ps1 目录里的 `omp.exe.<时间戳>.<pid>.<序号>.bak` 是上次 `omp update` 留下的旧 exe（根据源码 `sweepStaleUpdateArtifacts` 推测），omp-studio 不要碰。
+- 没测：启动时的更新提示（只在交互 TUI 里出现）、低于 18.8.7 的版本、读取 `~/.omp` 里已有终端会话（按规则没有在真实目录下运行）。
+- 细节见 `docs/architecture/omp-install.md`。
 
 ---
 
@@ -90,4 +109,47 @@
 - 从 omp 仓库对应版本的 tag 拷贝 `rpc-wire.generated.ts`（或用 `rpc-wire.schema.json` 自己生成类型），放进本仓库，升级 omp 时一起更新。
 - 参考 Rust 或 Go 客户端的传输层，用 TypeScript 写自己的进程传输层（v2 协商、分块重组、按 id 对应响应）。
 
-**结论**：未验证
+**结论**：通。推荐**拷贝生成文件进仓库**，不装 npm 包。用哪种方式由仓库所有者在阶段 0 结束时决定（属于技术栈选择）。
+
+- 实测环境：`@oh-my-pi/pi-coding-agent@18.12.0`（npm 上的 latest，与本机 omp 同版本），TypeScript 5.9.3，Node 24，2026-10-17。
+- 包里有 `src/modes/rpc/wire/rpc-wire.generated.ts` 和对应的 `dist/types/.../rpc-wire.generated.d.ts`。`import type … from "@oh-my-pi/pi-coding-agent/modes/rpc/wire/rpc-wire.generated"` 在 bundler、node16、nodenext 三种 moduleResolution 下 `tsc --noEmit` 都是 0 错误。文件没有任何 import，不会带进 Bun 类型，也不需要 `skipLibCheck`。不要引 `modes/rpc/rpc-types`：它会拉进 1493 个文件，不开 `skipLibCheck` 会报 37–45 个错误。
+- 运行时：包里只发 `.ts` 源码，Node 24 拒绝加载 `node_modules` 下的 `.ts`。`rpc-frame.ts`（`RpcFrameDecoder`）本身不依赖 Bun，拷出来或用 esbuild 打包后能在 Node 下运行，3 MiB 帧分 13 块重组正确。
+- `rpc-wire.schema.json` 在包里（`src/modes/rpc/wire/`，124 KB），但 `exports` 访问不到，只能按文件路径读。
+- 装整个包的代价：144 个包、约 1.06 GB（含 116 MB 的 win32 原生包）。
+- GitHub tag `v18.12.0` 下 `packages/coding-agent/src/modes/rpc/wire/rpc-wire.generated.ts` 与 npm 包里的文件逐字节相同，所以可以不装包，直接按 omp 版本从 tag 拷贝 `rpc-wire.generated.ts`（49 KB）和 `rpc-wire.schema.json`，文件头记下来源版本。CI 可以下载对应 tag 做 diff，及时发现协议变化。
+- 坑：`RpcResponse.data` 是 `unknown`，要用 `RpcWireCommands[K]["result"]` 自己对应到命令；`rpc_chunk` 的帧类型不在 generated 文件里。
+- 细节见 `docs/architecture/omp-rpc.md`。
+
+---
+
+## 4. Electron 主进程能否启动 omp 并完整收到一轮流式事件
+
+对应 `PLAN.md` 阶段 0 第 1 个复选框。
+
+**结论**：通。另外发现一个必须在阶段 2 处理的问题：**主进程被强杀时，omp 会退出，但 bash 工具起的孙进程会留下来成为孤儿**。
+
+- 实测环境：Electron 44.9.0（Node 24.22.0），PATH 上 Tern 管理的 omp 18.12.0，模型 `deepseek/deepseek-v4-flash`，临时 `PI_CODING_AGENT_DIR`，cwd 是带空格和中文的临时目录，2026-10-17。
+- 复现：在 Electron 主进程里用 `child_process.spawn(ompPath, ["--mode", "rpc-ui", "--model", model], { stdio: "pipe", windowsHide: true })` 启动，key 通过 env 传入；按 `\n` 切行并重组 `rpc_chunk`；收到 `ready` 后发 `negotiate_protocol`，成功后发 `prompt`（让 agent 读一个文件），等到 `prompt_result` 和 `session_settled`，最后关闭 stdin。
+- 正常路径：约 0.65 秒收到 `ready`，协商在 30 ms 内成功，prompt 立即应答，约 3 秒收到 `prompt_result { status: "completed" }`。关闭 stdin 后 omp 约 0.1 秒退出，退出码 0，没有残留进程。
+- bash 工具运行中关闭 stdin（`ping -n 60`）：omp 取消工具（`tool_execution_end.isError: true`），ping 被结束，omp 退出码 0，没有残留。
+- **主进程被强杀**（bash 工具运行中）：omp 自己退出了，但 `PING.EXE` 和它的 `conhost.exe` 一直留着，要手动结束。所以只靠"关 stdin"不足以满足"不能留下孤儿进程"，主进程还需要让操作系统在它死掉时回收整棵进程树（比如 Windows Job Object 的 `KILL_ON_JOB_CLOSE`）。Node 和 Electron 没有现成的 API，要加原生模块或辅助程序，**属于新增依赖，需要仓库所有者决定**。omp 在这条路径上为什么不结束子进程，原因没查（推测是 stdout 断开后走了直接退出的分支）。
+- 细节见 `docs/architecture/omp-rpc.md`。
+
+---
+
+## 5. 子代理泳道需要的数据能否拿到
+
+对应 `PLAN.md` 阶段 0 第 4 个复选框。
+
+**结论**：通，但要绕开三处缺口：**子代理帧都没有时间戳**；**没有显式的父 id 和深度字段**；**`get_subagents` 只列出运行中的子代理**。
+
+- 实测环境：omp 18.12.0（Tern 管理），模型 `deepseek/deepseek-v4-flash`，`set_subagent_subscription: "events"`，一次并行派 2 个子代理、一次嵌套两层，2026-10-17。
+- 开始和结束时间：用主进程收到 `subagent_lifecycle` 中 `status: "started"` 和 `"completed"` 两帧的时间。`progress.durationMs` 可以用来校准时长。子代理是后台作业（`detached: true`），父 `task` 工具调用在子代理开始前就已经结束，不能拿它的起止当泳道的起止。
+- 模型：在 `subagent_progress.payload.progress` 的 `resolvedModel`（如 `deepseek/deepseek-v4-flash:high`）和 `resolvedThinkingLevel` 里。
+- 状态：实测有 `started`、`completed`（lifecycle）和 `running`、`completed`（progress）；`aborted` 和失败态没测到。
+- 工具调用：`subagent_event` 里的 `tool_execution_start` 和 `tool_execution_end` 带 `toolCallId`、`toolName`、`args`、`intent`，没有时间戳。不开 events 时，`progress.recentTools[]` 也有最近几次调用（只有结束时间）。
+- 费用和 token：`progress` 里有累计的 `tokens`、`cost`、`requests`、`contextTokens`；每次请求的明细在子代理 `message_end` 的 `usage` 里。
+- 嵌套：子代理 id 用点号表示层级（`Outer-3.Inner`），`parentToolCallId` 指向父代理那次 `task` 调用。`index` 只在同一个父代理下面有意义。
+- 流量：events 级别下 `subagent_event` 里的 `message_update` 每帧都是完整快照，不受 `messageUpdates: "delta"` 影响；一次嵌套测试录到 29.8 MB。泳道本身用 `progress` 级别就够，展开某个子代理的详情时再升到 `events`（中途切换级别没测）。
+- 没测：`aborted` 和失败态的帧、父代理不等子代理就结束时 `prompt_result` 与 `session_settled` 的先后、`get_session_stats` 是否包含子代理的费用。
+- 细节见 `docs/architecture/subagents.md`。
