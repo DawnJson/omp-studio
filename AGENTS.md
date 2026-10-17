@@ -43,10 +43,10 @@ omp 自己的协议和接口以 omp 文档为准：`rpc.md`（RPC 协议）、`e
 - **只用 omp 官方原版 exe，不 fork，不打补丁。** 缺的能力先写 omp-studio 自己的 omp 插件；插件补不了就给官方提 PR，等合并。
 - **PATH 上已经有 omp 就直接用它，只读。** 不管它是 Tern 管理的，还是用户用 install.ps1、bun、npm、brew 装的，都不要改它的目录、替换它的 exe、改写 `manager.json`，也不要把别的 omp 放到它前面。唯一的例外是用户点了升级按钮时执行 `omp update`。开发机上就装着 Tern，调试时同样不能碰 `%LOCALAPPDATA%\Tern\omp\`。
 - **只有 PATH 上没有 omp 时才自己管理一份**，照 Tern 的做法，细节和实测记录见 `problem.md` 第 2 题：从 `build.stencil.so` 下载、按 size 和 sha256 校验、`omp/versions/` 保留最近 3 个版本、`omp/bin/omp.exe` 是当前版本、`omp/manager.json` 声明由 omp-studio 管理。替换正在运行的 exe 时先改名再放新的。
-- **RPC 类型从 omp 的 wire schema 生成，不手写。** 怎么拿到生成的类型见 `problem.md` 第 3 题。新用到的 RPC 命令或事件，如果 schema 里没有，说明它不是公开协议，先停下来问。
+- **RPC 类型从 omp 的 wire schema 生成，不手写。** 做法：按所用 omp 版本，从官方仓库 tag `v<版本>` 的 `packages/coding-agent/src/modes/rpc/wire/` 拷贝 `rpc-wire.generated.ts` 进本仓库，文件头写明来源版本，omp 升级时一起更新；不装 `@oh-my-pi/pi-coding-agent` npm 包。细节见 `problem.md` 第 3 题。新用到的 RPC 命令或事件，如果 schema 里没有，说明它不是公开协议，先停下来问。
 - **启动参数用 `--mode rpc-ui`。** omp-desktop 记录过 `--rpc` 会退回 TUI 模式，往 stdout 输出 ANSI 控制字符。
 - **启动后先协商协议 v2**（`negotiate_protocol`），并处理 `rpc_chunk` 分块重组。不要假设一行就是一个完整事件。
-- **会话和 stdin 绑定。** stdin 关闭后 omp 会释放会话。主进程退出、窗口关闭、自动更新重启这几条路径，都要明确地关掉子进程，不能留下孤儿进程。
+- **会话和 stdin 绑定。** stdin 关闭后 omp 会释放会话。主进程退出、窗口关闭、自动更新重启这几条路径，都要明确地关掉子进程，不能留下孤儿进程。关 stdin 不够：主进程崩溃或被强杀时，omp 起的孙进程会留下来（`problem.md` 第 4 题），所以 omp 子进程要放进 Windows Job Object（`KILL_ON_JOB_CLOSE`），由系统兜底回收整棵进程树。用哪个原生模块实现，开工前先提出来确认。
 - **`~/.omp` 和终端版 omp 共用。** 只通过 omp 的 RPC 命令修改其中的内容，不要自己写它的配置或会话文件，否则终端版和桌面版会互相写坏数据。只读可以。
 - **omp 的 exe 不提交进 git，也不打进安装包。**
 

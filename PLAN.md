@@ -86,11 +86,11 @@ flowchart LR
 
 在 Windows 上把下面几件事各跑通一次，每一项都给出能复现的结论。背景、验证方法、备选方案和结论都在 `problem.md`（每项后面括号里是对应的题号）：
 
-- [x] Electron 主进程启动官方 omp exe（`--mode rpc-ui`），协商 v2，发一个 prompt，完整收到流式事件，直到 `prompt_result`。（第 4 题；另发现主进程被强杀时会留下孤儿进程，待决定）
+- [x] Electron 主进程启动官方 omp exe（`--mode rpc-ui`），协商 v2，发一个 prompt，完整收到流式事件，直到 `prompt_result`。（第 4 题；另发现主进程被强杀时会留下孤儿进程，已定：Job Object 兜底，同时查原因给 omp 提 PR）
 - [x] 从官方构建服务下载 Windows exe，放在应用数据目录下运行，确认原生 addon 解压和 grep、bash 等工具都正常。（第 2 题）
-- [x] 确认 `rpc-wire.generated.ts` 能不能从 npm 包直接引用；不能就自己从 omp 仓库生成或拷贝，随 omp 升级一起更新。（第 3 题，部分通：类型能引用，运行时代码不能；推荐拷贝，待决定）
+- [x] 确认 `rpc-wire.generated.ts` 能不能从 npm 包直接引用；不能就自己从 omp 仓库生成或拷贝，随 omp 升级一起更新。（第 3 题，部分通：类型能引用，运行时代码不能；已定：从 omp 的 tag 拷贝）
 - [x] 打开 `set_subagent_subscription: "events"`，跑一个会派子代理的任务，确认泳道图需要的开始时间、结束时间、模型、工具调用都拿得到。（第 5 题；帧里没有时间戳，用主进程接收时间）
-- [x] 写一个最小的 omp 插件，在 RPC 模式下调用 `ctx.annotations.submit`，确认能带上文件和行号，agent 也能收到。（第 1 题，部分通：只能带单行，没有行范围；建议改用宿主自己格式化消息，待决定）
+- [x] 写一个最小的 omp 插件，在 RPC 模式下调用 `ctx.annotations.submit`，确认能带上文件和行号，agent 也能收到。（第 1 题，部分通：只能带单行，没有行范围；已定：改用宿主自己格式化消息）
 - [x] 能找到 PATH 上的 omp，读出版本和管理者（`manager.json`），并能直接用 Tern 管理的、install.ps1 装的 omp 跑通上面的流程。（第 2 题；Tern 的在 Electron 和 Node 脚本里都跑过，install.ps1 的 18.8.7 只在 Node 脚本里跑过）
 
 **出口条件**：任何一项不通，先回到这份计划重新评估（比如要等上游合并 PR，或者换一种实现方式）。
@@ -106,6 +106,8 @@ flowchart LR
 
 - [ ] 验证工具（先于界面代码）：Playwright 启动 Electron 并截图；RPC 录制回放的假 omp
 - [ ] 应用外壳、单实例、窗口状态记忆、i18n 基础设施
+- [ ] omp 子进程放进 Windows Job Object，主进程崩溃或被强杀也不留孤儿进程（`problem.md` 第 4 题；用哪个原生模块先提出来确认）
+- [ ] 查清 omp 在宿主被强杀时为什么不结束 bash 等子进程；是 omp 的缺陷就给官方提 PR（`problem.md` 第 4 题）
 - [ ] 侧栏任务列表（按项目分组、状态点、跨项目显示"等你确认"）
 - [ ] 对话流：流式 Markdown、过程折叠、结论、改动卡片
 - [ ] 输入框：模型、思考强度、worktree、审批模式；steer 和 follow-up 消息队列
@@ -119,7 +121,7 @@ flowchart LR
 ### 阶段 3：diff 评审
 
 - [ ] 全屏评审模式：文件树、统一 / 并排 diff、暂存、丢弃
-- [ ] 逐行评论、待发送队列、"发给 agent 修改"（走阶段 0 验证过的插件通道）
+- [ ] 逐行评论、待发送队列、"发给 agent 修改"（宿主把评论格式化成一条带 `文件:行范围` 的用户消息，用 `prompt`、`steer` 或 `follow_up` 发送，不走 annotations 插件，见 `problem.md` 第 1 题）
 - [ ] agent 的改动说明面板
 
 ### 阶段 4：worktree 和 git
@@ -170,8 +172,8 @@ flowchart LR
 
 详细的验证方法和备选方案见 `problem.md`。
 
-- `ctx.annotations.submit` 在 RPC 模式下能否精确对应到行（阶段 0 验证）。
-- 官方 omp exe 放在应用数据目录下能否正常运行、能否直接用 Tern 管理的 omp（阶段 0 验证）。
+- ~~`ctx.annotations.submit` 在 RPC 模式下能否精确对应到行~~：阶段 0 已验证，只能对应单行，评审改用宿主自己格式化消息（`problem.md` 第 1 题）。
+- ~~官方 omp exe 放在应用数据目录下能否正常运行、能否直接用 Tern 管理的 omp~~：阶段 0 已验证，都能（`problem.md` 第 2 题）。
 - 差异化：已经在用 Tern 的 omp 重度用户为什么还要装 omp-studio。阶段 1 之前要有答案，先问内测候选人。
 - "竞品在 Windows 上更粗糙"：推测，没有实际装过竞品对比。阶段 1 前装 gooey-pi 和 oh-my-pi-gui 实测。
 - "竞品不好看是因为 agent 写的、用了默认样式"：推测，不影响决策。

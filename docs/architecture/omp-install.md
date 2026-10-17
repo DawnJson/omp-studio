@@ -41,7 +41,7 @@ GET https://build.stencil.so/api/products/omp/versions/<version>/windows-x86_64
 - 应答顶层有 `build`、`file`、`download`。`build` 里有 `version`、`commit`、`notes`、`files[]` 等；`file` 是匹配当前 target 的那一项，含 `name`、`size`、`sha256`；`download` 是 10 分钟有效的带签名直链，不要写进日志。
 - 边下载边算 sha256，和 `file.size`、`file.sha256` 都对上才用。18.12.0 是 222,411,264 字节，sha256 与 Tern 的 `state.json` 记录一致。
 - 目录：`omp\versions\<版本>.exe`、`omp\bin\omp.exe`（当前版本）、`omp\manager.json` = `{"manager":"omp-studio","name":"omp-studio"}`。
-- exe 放在任意目录、用绝对路径启动都正常，grep 和 bash 工具也正常。原生 addon 解压到 `PI_NATIVES_DIR\<版本>\`，不设这个变量时是 `~/.omp/natives/<版本>`，每个版本约 115 MB。要不要隔离 natives 目录还没定。
+- exe 放在任意目录、用绝对路径启动都正常，grep 和 bash 工具也正常。原生 addon 解压到 `PI_NATIVES_DIR\<版本>\`，不设这个变量时是 `~/.omp/natives/<版本>`，每个版本约 115 MB。**已定：不设 `PI_NATIVES_DIR`**，和终端、Tern 用同一个目录。这样自管目录被加进 PATH 后，终端里运行的 omp 和 omp-studio 用的是同一份解压结果，不会存两份。代价是 omp-studio 删旧版本 exe 时不能顺手删 `~/.omp/natives` 里对应的目录（终端可能还在用），旧目录要靠 omp 自己清理（omp 会不会清理没测）。
 
 ## 差量补丁（只读了源码，没有线上实测）
 

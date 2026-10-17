@@ -114,7 +114,7 @@
 - 从 omp 仓库对应版本的 tag 拷贝 `rpc-wire.generated.ts`（或用 `rpc-wire.schema.json` 自己生成类型），放进本仓库，升级 omp 时一起更新。
 - 参考 Rust 或 Go 客户端的传输层，用 TypeScript 写自己的进程传输层（v2 协商、分块重组、按 id 对应响应）。
 
-**结论**：部分通。类型可以直接从 npm 包 `import type`；运行时代码不能直接从包里 import。推荐**拷贝生成文件进仓库**，不装 npm 包。用哪种方式由仓库所有者在阶段 0 结束时决定（属于技术栈选择）。
+**结论**：部分通。类型可以直接从 npm 包 `import type`；运行时代码不能直接从包里 import。**已定（2026-10-17）：从 omp 的 tag 拷贝生成文件进仓库，不装 npm 包。**
 
 - 复现：在空目录里 `npm install @oh-my-pi/pi-coding-agent@18.12.0 --ignore-scripts`；写一个 `.ts` 文件 `import type { RpcWireCommands, RpcServerFrame, ReadyEvent } from "@oh-my-pi/pi-coding-agent/modes/rpc/wire/rpc-wire.generated"` 并实际使用；`tsc --noEmit --strict`，`moduleResolution` 分别取 bundler、node16、nodenext，`skipLibCheck` 开关都试；运行时用 `node` 直接 import `@oh-my-pi/pi-coding-agent/modes/rpc/rpc-frame`，再用 `esbuild --bundle --platform=node --format=esm` 打包后运行。
 - 实测环境：`@oh-my-pi/pi-coding-agent@18.12.0`（npm 上的 latest，与本机 omp 同版本），TypeScript 5.9.3，Node 24，2026-10-17。
@@ -167,16 +167,16 @@
 
 ---
 
-## 待仓库所有者决定
+## 仓库所有者的决定
 
-阶段 0 的结论里，下面这些要仓库所有者拍板。确认之前，`PLAN.md` 和 `AGENTS.md` 里相关的句子保持原样。
+阶段 0 结论里需要仓库所有者拍板的点，2026-10-17 已全部确认，并已同步到 `PLAN.md`、`AGENTS.md` 和 `docs/architecture/`。
 
-|#|决策点|备选方案|涉及的文字|
+|#|决策点|决定|改了哪里|
 |---|---|---|---|
 |1|自管 omp 的更新方式。实测 `manager.json` 只在 exe 是 PATH 上的 `omp` 时才拦得住 `omp update`（第 2 题）|**已定（2026-10-17）**：自管 exe 一律由 omp-studio 自己检查和更新，从不调 `omp update`|已改 `PLAN.md` 第 3 节"omp 来源"和第 7 节风险表|
 |2|差量补丁要不要做（第 2 题）|**已定（2026-10-17）**：做，omp-studio 自带 HDiffPatch 实现，补丁不可用时退回全量。具体用哪个库在阶段 2 开工前再提出来确认|已改 `PLAN.md` 第 3 节"omp 来源"|
-|3|natives 目录要不要隔离（第 2 题）|A. 不设 `PI_NATIVES_DIR`，和终端共用 `~/.omp/natives`；B. 设到 omp-studio 自己的数据目录，代价是每个版本多占约 115 MB|无，新决策|
-|4|主进程崩溃时的孤儿进程（第 4 题）|A. Job Object，属于新增依赖；B. 查清原因后给 omp 提 PR；可以两者都做|`AGENTS.md`"omp 的边界"里"不能留下孤儿进程"一条|
-|5|RPC 类型的来源（第 3 题）|A. 从 omp 的 tag 拷贝 `rpc-wire.generated.ts`（推荐）；B. 装 npm 包作 devDependency（约 1.06 GB）；C. 从 schema 自己生成|阶段 0 结束时的技术栈决定|
-|6|评审评论的发送通道（第 1 题）|A. 宿主自己格式化成一条用户消息（推荐）；B. 用 annotations 插件|`PLAN.md` 阶段 3 "走阶段 0 验证过的插件通道"|
-|7|验证时 `bun add -g` 对真实环境的副作用（第 2 题）|请确认 `pro-image-mcp` 还能正常运行；有问题就重装它|无|
+|3|natives 目录要不要隔离（第 2 题）|**已定**：不设 `PI_NATIVES_DIR`，和终端、Tern 共用 `~/.omp/natives`。自管 exe 加进 PATH 后，终端和 omp-studio 用同一份解压结果|已改 `docs/architecture/omp-install.md`|
+|4|主进程崩溃时的孤儿进程（第 4 题）|**已定**：两者都做。omp 子进程放进 Job Object（用哪个原生模块开工前再确认）；同时查清原因，是 omp 的缺陷就提 PR|已改 `AGENTS.md`"omp 的边界"；`PLAN.md` 阶段 2 加了两个复选框|
+|5|RPC 类型的来源（第 3 题）|**已定**：从 omp 的 tag 拷贝 `rpc-wire.generated.ts`|已改 `AGENTS.md`"omp 的边界"|
+|6|评审评论的发送通道（第 1 题）|**已定**：宿主自己格式化成一条用户消息，不走 annotations 插件|已改 `PLAN.md` 阶段 3、第 9 节|
+|7|验证时 `bun add -g` 对真实环境的副作用（第 2 题）|仓库所有者确认目前没发现问题|无|

@@ -6,7 +6,7 @@ diff 评审里攒下的逐行评论，怎么一次发给 agent。验证过程见
 
 ## 两种做法
 
-| | 宿主自己格式化消息（推荐） | omp 插件调 `ctx.annotations.submit` |
+| | 宿主自己格式化消息（**已采用**） | omp 插件调 `ctx.annotations.submit` |
 |---|---|---|
 | 行范围 | 宿主完全控制，如 `calc.js:12-16` | note 只有单个 `line`，范围只能写进 note 文本 |
 | 消息大小 | 只有评论本身（实测约 0.2 KB） | `source: { kind: "file" }` 会嵌入整个文件（31 行约 1.1 KB） |
