@@ -1,0 +1,25 @@
+# 凭据
+.env
+.env.*
+!.env.example
+
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+out/
+release/
+*.tsbuildinfo
+
+# 界面核对截图（仓库所有者看完再删）
+screenshots/
+
+# omp 的 exe 不进 git
+*.exe
+*.exe.old-*
+
+# 日志和系统文件
+*.log
+.DS_Store
+Thumbs.db
