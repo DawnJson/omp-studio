@@ -6,7 +6,7 @@ omp-studio 用哪个 omp、怎么判断由谁更新、自己管理时怎么下�
 
 ## 发现 PATH 上的 omp
 
-1. 按 `PATH` 的顺序，对每个目录用 `PATHEXT` 里的扩展名找 `omp`，取第一个命中的。这和用户在终端里敲 `omp` 得到的是同一个。Windows 上命中的如果不是 `.exe`/`.com`（比如 npm 全局安装生成的 `omp.cmd`），报 `UnsupportedOmpLauncherError`，不跳过它去找后面的：不用 shell 启动不了脚本（Node spawn 会报 EINVAL），而跳过的话用的就不是终端里那个 omp。npm 装的 omp 在 Windows 上是不是 `.cmd` shim 没有实测；**怎么支持这种安装方式待仓库所有者决定**。
+1. 按 `PATH` 的顺序，对每个目录用 `PATHEXT` 里的扩展名找 `omp`，取第一个命中的。这和用户在终端里敲 `omp` 得到的是同一个。Windows 上命中的如果不是 `.exe`/`.com`（比如 npm 全局安装生成的 `omp.cmd`），报 `UnsupportedOmpLauncherError`，不跳过它去找后面的：不用 shell 启动不了脚本（Node spawn 会报 EINVAL），而跳过的话用的就不是终端里那个 omp。**已定（2026-10-18）**：遇到这个错误，照 Tern 的做法问用户要不要接管；同意就下载官方 exe 自己管理，并放到用户 PATH 最前面，原来那份不动。界面和下载在阶段 2 的"omp 管理"里做。npm 装的 omp 在 Windows 上是不是 `.cmd` shim 没有实测。
 2. 执行 `omp --version`，输出形如 `omp/18.12.0`，用 `^omp/(\S+)` 解析。
 3. 读 exe 上两级目录的 `manager.json`。`manager` 是字符串就算受管，显示名取 `name`，没有 `name` 就用 `manager`，和 omp 自己的判断一致（源码 `managedInstallName`）；文件不存在就是用户自己装的。
 

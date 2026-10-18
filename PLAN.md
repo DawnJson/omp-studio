@@ -45,6 +45,7 @@ Tern 不触发止损（它是终端，不是 Codex 式桌面端），但 omp-stu
 | 接 omp 的方式 | 子进程 `omp --mode rpc-ui`，NDJSON over stdio，协商协议 v2 | omp 的 SDK 要求 Bun，Electron 主进程是 Node，用不了 SDK |
 | omp 来源 | **安装包不带 omp。** PATH 上已经有 omp 就直接用（见下一行）；没有时才照 Tern 的做法自己管理一份官方 omp：从官方构建服务（`build.stencil.so`）下载原版 exe 并校验 sha256，放进应用数据目录的 `omp/versions/<版本>.exe`（保留最近 3 个），`omp/bin/omp.exe` 是当前版本，写 `omp/manager.json`；**自管的 omp 由 omp-studio 自己检查和更新，从不对它执行 `omp update`**（阶段 0 实测：`manager.json` 只在 exe 是 PATH 上的 `omp` 时才拦得住 `omp update`）；后台跟最新稳定版，优先下载差量补丁（omp-studio 自带 HDiffPatch 实现，补丁不可用时退回全量）；问一次要不要加进 PATH。和终端共用 `~/.omp` | Tern 就是这么做的（本机实测，细节见 `problem.md` 第 2 题）。安装包小 |
 | 已有 omp | **PATH 上已经有 omp 就直接用它，不另外下载，不碰 PATH。** 有管理者的（exe 上两级目录有 `manager.json`，比如 Tern）由管理者更新；用户自己装的（install.ps1、bun、npm、brew 等）由用户自己更新。启动时检查版本，低于支持的最低版本就提示升级，按钮执行 `omp update`（omp 会按自己的安装方式升级；brew、mise、nix 它只打印指引） | 终端和桌面端始终是同一个 omp，不会版本错位；不和用户的包管理器、Tern 抢 |
+| PATH 上的 omp 用不了 | **照 Tern 的做法问用户要不要接管**（仓库所有者 2026-10-18 确定）。PATH 上第一个 omp 是 `omp.cmd` 这类脚本（npm 装的通常是这样）时，omp-studio 不用 shell 就启动不了它。这时弹窗问用户要不要由 omp-studio 下载并管理一份官方 omp；同意就按上面"omp 来源"那一行自己管理一份，并把它的 `bin` 放到用户 PATH 最前面，原来那份不删不改；拒绝就提示这种安装方式用不了 | 和 Tern 一致：Tern 能识别 Homebrew、Mise、Npm、Bun、install.ps1 几种来源，先问再接管，接管后放到 PATH 最前面（本机日志和 `tern.exe` 里的文字） |
 | 上游策略 | 只用官方正式版；缺的能力用自己写的 omp 插件补；补不了就给官方提 PR；**不 fork，也不打补丁** | 跑的是官方原版 exe，复用 Tern 时还是别人管理的 exe，补丁没地方打 |
 | 界面语言 | 中英双语，第一天就做 | 设计规范同时覆盖两种字体和文案长度 |
 | 仓库 | 独立仓库 `E:\work\code\omp-studio`，内测期间私有，公开时 MIT | |
@@ -116,7 +117,7 @@ flowchart LR
 - [ ] 审批和 ask 对话框（`extension_ui_request`）
 - [ ] 会话历史：读 `~/.omp`，能接着终端里的会话继续
 - [ ] 应用内登录和模型设置
-- [ ] omp 管理：PATH 上已有 omp 时的版本检查和升级提示；没有 omp 时的首次下载和校验、后台更新（差量补丁、多进程加锁、替换正在运行的 exe）
+- [ ] omp 管理：PATH 上已有 omp 时的版本检查和升级提示；PATH 上的 omp 是脚本时询问是否接管；没有 omp 或用户同意接管时的首次下载和校验、放进 PATH、后台更新（差量补丁、多进程加锁、替换正在运行的 exe）
 
 完成后开始内测。
 
