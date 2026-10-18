@@ -310,10 +310,10 @@ export class OmpManager {
   async checkUpdate(): Promise<string | null> {
     const status = this.#status;
     if (status.state !== "ready" || status.source.kind !== "studio_managed") throw new Error("only the omp that omp-studio manages is updated by omp-studio");
-    const build = await fetchBuild({ fetch: this.#deps.fetch, baseUrl: this.#deps.baseUrl });
+    const build = await fetchBuild({ fetch: this.#deps.fetch, baseUrl: this.#deps.baseUrl, fromVersion: status.version });
     if (compareVersions(build.version, status.version) <= 0) return null;
-    // 后台下载不切到 installing（那会把界面换成准备页），做完直接把 ready 的版本换掉。
-    await this.#withLock(() => installBuild(this.#layout, { fetch: this.#deps.fetch, build }));
+    // 后台下载不切到 installing（那会把界面换成准备页），做完直接把 ready 的版本换掉。补丁从当前的 bin/omp.exe 做。
+    await this.#withLock(() => installBuild(this.#layout, { fetch: this.#deps.fetch, build, fromExe: this.#layout.binExe }));
     const install = await this.#deps.inspect(this.#layout.binExe);
     this.#stagedUpdate = install.version;
     await this.#refreshReady((current) => ({ ...current, version: install.version, belowMinimum: isBelowMinimum(install.version), stagedUpdate: install.version }));

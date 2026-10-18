@@ -43,13 +43,13 @@ GET https://build.stencil.so/api/products/omp/versions/<version>/windows-x86_64
 - 目录：`omp\versions\<版本>.exe`、`omp\bin\omp.exe`（当前版本）、`omp\manager.json` = `{"manager":"omp-studio","name":"omp-studio"}`。
 - exe 放在任意目录、用绝对路径启动都正常，grep 和 bash 工具也正常。原生 addon 解压到 `PI_NATIVES_DIR\<版本>\`，不设这个变量时是 `~/.omp/natives/<版本>`，每个版本约 115 MB。**已定：不设 `PI_NATIVES_DIR`**，和终端、Tern 用同一个目录。这样自管目录被加进 PATH 后，终端里运行的 omp 和 omp-studio 用的是同一份解压结果，不会存两份。代价是 omp-studio 删旧版本 exe 时不能顺手删 `~/.omp/natives` 里对应的目录（终端可能还在用），旧目录要靠 omp 自己清理（omp 会不会清理没测）。
 
-## 差量补丁（只读了源码，没有线上实测）
+## 差量补丁（2026-10-18 线上实测）
 
-来源：omp 源码 `packages/coding-agent/src/cli/build-service.ts`。
+来源：omp 源码 `packages/coding-agent/src/cli/build-service.ts`，实测 `build.stencil.so`。
 
 - 在上面两个接口后加 `?from_version=<已装版本>`。请求头 `Accept: application/json`、`User-Agent: omp/<版本>`。
-- 应答多一个 `patch`：`{ format: "file", from_sha256, size, sha256, url }`。补丁只能用在 sha256 等于 `from_sha256` 的文件上，补丁本身也要校验 `sha256`。
-- 格式是 HDiffPatch 单流（`HDIFFSF20`），omp 用 `@oh-my-pi/pi-natives` 的 `applyBinaryPatch` 应用。omp-studio 要用补丁，就得自己带一个 HDiffPatch 实现。
+- 应答多一个 `patch`：`{ format: "file", from_sha256, size, sha256, url }`。补丁只能用在 sha256 等于 `from_sha256` 的文件上，补丁本身也要校验 `sha256`。实测 18.12.0 → 18.12.1：补丁约 30 MB（全量 222 MB），头是 `HDIFFSF20&zstd\0`。
+- 格式是 HDiffPatch 单流（`HDIFFSF20`），omp 用 `@oh-my-pi/pi-natives` 的 `applyBinaryPatch` 应用。omp-studio 自带一个 TypeScript 移植（`src/main/omp-manager/hpatch.ts`，移植自 HDiffPatch v5.1.3，MIT），只支持不压缩和 zstd（Node 自带 `zlib.createZstdDecompress`），其他压缩类型抛 `HPatchFormatError`。
 - 补丁还没生成时返回 `patch_pending`，下次检查才有。404 且 `{"error":"no_build"}` 表示该 target 没有发布。
 - `PI_BUILD_URL` 可以改服务地址。
 
@@ -76,7 +76,7 @@ Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次�
 - **下载**：`net.fetch`（系统代理）→ `…/latest/windows-x86_64?channel=stable`，`PI_BUILD_URL` 可改服务地址（omp 自己也认）。2026-10-18 实测应答：`build.version`（当时 18.12.1）、`file.{name,size,sha256,url}`、`download`（绝对地址的签名直链，字符串）。边下边算 sha256，size 和 sha256 都对上才从 `.partial` 改名；对不上删掉并报 `verify` 错误。`test/omp-manager-install.test.ts` 用本地假服务器覆盖损坏、长度不对、进度、目录有空格和中文。
 - **换 exe**：先复制到 `bin\.omp.exe.new-<pid>`，旧的改名为 `.omp.exe.old-<时间戳>`，新的改名到位，失败回滚。`.old-*` 每次启动清理，删不掉的留着。`versions\` 保留最近 3 个（当前版本一定留）。
 - **后台更新**：自管时每小时请求一次最新版，更新了就在后台下载换掉 `bin\omp.exe`，状态里 `stagedUpdate` 是装上的版本；不切到 `installing`（那会把界面换成准备页）。`update.lock` 用 `open(…, "wx")` 独占，超过 30 分钟的残留当作崩溃遗留。设置 → omp 的"检查更新"走同一条路径（`checkOmpUpdate`）。
-- **没有做差量补丁**（决策 D5）：本版只做全量下载（约 220 MB），应答里的 `patch` 字段不读。要做时在 `build-service.ts` 加 `?from_version=` 和补丁应用，`installBuild` 的调用方不用改。
+- **差量补丁**：后台更新带 `fromVersion` 请求；`installBuild` 收到 `patch` 且当前 `bin\omp.exe` 的 sha256 等于 `from_sha256` 时，下载补丁到 `versions\<版本>.exe.patch`（按 size + sha256 校验），应用到 `.partial`，结果再按完整文件的 size + sha256 校验通过才改名。补丁的任何一步失败（起点不对、格式不支持、数据损坏、结果对不上）都退回全量下载，不报错。首次安装没有起点，总是全量。`pruneVersions` 顺带清掉残留的 `.patch`。实测（2026-10-18，Tern 的 18.12.0 副本 → 18.12.1）：只请求了补丁，约 7.6 秒，结果 sha256 和官方一致。测试用的补丁由 `test/hpatch-encoder.ts` 手工编码。
 - **升级按钮**（`upgradePathOmp`）只在"用户自装且拒绝了接管"时对 PATH 上那个 omp 执行 `omp update`（不用 shell，输出原样返回，界面显示末 3 行）。自管、他人管理的会被拒绝。
 - **启动子进程**时 `getOmpExecutable()` 返回 `{ path, managedBin }`，自管时 `managedBin` 非空，调用方把它前置到子进程 PATH，让 `omp update` 认到 `manager.json`。
 

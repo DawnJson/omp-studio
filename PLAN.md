@@ -116,7 +116,7 @@ flowchart LR
 - [x] 审批和 ask 对话框（`extension_ui_request`）（带超时的门和 ask 门只有单测，没有回放 fixture 覆盖）
 - [x] 会话历史：读 `~/.omp`，能接着终端里的会话继续（恢复走 `resume-history` 回放验证；真实终端会话恢复没实测）
 - [x] 应用内登录和模型设置，含 omp 全部设置（555 项，经 `omp config`）（OAuth 没有真实账号实测）
-- [ ] omp 管理：PATH 上已有 omp 时的版本检查和升级提示；PATH 上的 omp 是脚本时询问是否接管；没有 omp 或用户同意接管时的首次下载和校验、放进 PATH、后台更新（差量补丁、多进程加锁、替换正在运行的 exe）（除差量补丁外已完成，目前全量下载；真实下载和 `omp update` 没实测）
+- [x] omp 管理：PATH 上已有 omp 时的版本检查和升级提示；PATH 上的 omp 是脚本时询问是否接管；没有 omp 或用户同意接管时的首次下载和校验、放进 PATH、后台更新（差量补丁、多进程加锁、替换正在运行的 exe）（差量补丁用自带的 HDiffPatch TS 移植，补丁失败退回全量；实测 2026-10-18 真实构建服务 18.12.0 → 18.12.1 走补丁、sha256 一致；`omp update` 没实测）
 - [x] 审批模式跟随 omp 自己的配置：没在输入框里选过时不传 `--approval-mode`，用 `config.yml` 里的设置；用户选过才覆盖（仓库所有者 2026-10-18 要求，推翻 spec 决策 1"每次显式传 write"；改时同步 `docs/design/spec.md` 和 `src/main/tasks/task-pool.ts`）（输入框胶囊和设置里多了"跟随 omp"；实测 omp 18.12.1：agent 目录 `config.yml` 设 `always-ask`，命令行不带 `--approval-mode`，write 工具弹出审批门）
 - [x] omp-studio 管理 omp 时和 Tern 一样做管理者：自己管的那份（PATH 上没有 omp 时下载的，或用户同意接管后下载的）装好后**直接**把 `bin` 放到用户 PATH 最前面，不再单独问"要不要加进 PATH"（去掉 `askAddToPath`）（仓库所有者 2026-10-18 要求；改时同步 `docs/architecture/omp-install.md`、`src/main/omp-manager/`）（IPC `answerAddToPath` 换成设置页用的 `addManagedOmpToPath`；真实下载写注册表只在单测里用假 PATH 验证）
 - [x] 有别的管理者（如 Tern）时也问一次要不要接管，和用户自装的同一个弹窗；同意后自己管一份并放到 PATH 最前面，Tern 的目录和 `manager.json` 不碰；拒绝就继续用 Tern 的（仓库所有者 2026-10-18 定）。开工前先实测：omp-studio 的 bin 排在前面后，Tern 会不会把自己再放回最前面、Tern 自己的终端里用的是哪个 omp、Tern 的"接管"提示会不会把 omp-studio 那份当成别人的 omp 来处理（三个问题按 Tern 0.9.4 的日志、`state.json` 和 `tern.exe` 文字回答，没在真实 PATH 上排序后实测，结论和推测见 `docs/architecture/omp-install.md`"和 Tern 并存"；拒绝路径在开发机的 Tern 上 e2e 跑过）

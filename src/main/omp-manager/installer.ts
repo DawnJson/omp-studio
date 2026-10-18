@@ -3,9 +3,13 @@
 //   <root>/versions/<版本>.exe    保留最近 3 个
 //   <root>/bin/omp.exe           当前版本（用户 PATH 指向 bin）
 // 不碰 ~/.omp/natives/<版本>：终端可能还在用（omp-install.md）。
+import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import { copyFile, mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { downloadVerified, type BuildInfo, type FetchFn } from "./build-service.ts";
+import { pipeline } from "node:stream/promises";
+import { downloadVerified, VerifyError, type BuildInfo, type BuildPatch, type FetchFn } from "./build-service.ts";
+import { applySingleStreamPatch } from "./hpatch.ts";
 import { compareVersions } from "./version.ts";
 
 export const KEEP_VERSIONS = 3;
@@ -36,12 +40,14 @@ function versionExe(layout: ManagedLayout, version: string): string {
 export interface InstallOptions {
   fetch: FetchFn;
   build: BuildInfo;
+  /** 当前装着的 exe。build 带补丁且补丁正是从它做出来的（sha256 对得上）时，先试补丁。 */
+  fromExe?: string | undefined;
   onProgress?: ((receivedBytes: number, totalBytes: number) => void) | undefined;
   onVerifying?: (() => void) | undefined;
   signal?: AbortSignal | undefined;
 }
 
-/** 下载校验 build 对应的版本，写 manager.json，把它换成当前版本，清理旧版本。返回装好的版本号。 */
+/** 下载校验 build 对应的版本（能用补丁就用补丁），写 manager.json，把它换成当前版本，清理旧版本。返回装好的版本号。 */
 export async function installBuild(layout: ManagedLayout, options: InstallOptions): Promise<string> {
   const { build } = options;
   await mkdir(layout.versionsDir, { recursive: true });
@@ -49,12 +55,60 @@ export async function installBuild(layout: ManagedLayout, options: InstallOption
   const target = versionExe(layout, build.version);
   // 同版本已经校验过地放在 versions/ 里就不重复下载（下载总是先写 .partial，改名才算校验通过）。
   if (!(await stat(target).then((s) => s.isFile(), () => false))) {
-    await downloadVerified({ fetch: options.fetch, build, dest: target, onProgress: options.onProgress, onVerifying: options.onVerifying, signal: options.signal });
+    const patched = build.patch !== null && options.fromExe !== undefined && (await installFromPatch(options, build.patch, options.fromExe, target));
+    if (!patched) {
+      await downloadVerified({
+        fetch: options.fetch,
+        source: { url: build.downloadUrl, size: build.file.size, sha256: build.file.sha256 },
+        dest: target,
+        onProgress: options.onProgress,
+        onVerifying: options.onVerifying,
+        signal: options.signal,
+      });
+    }
   }
   await writeFile(layout.managerJson, JSON.stringify({ manager: "omp-studio", name: "omp-studio" }) + "\n", "utf8");
   await activateVersion(layout, build.version);
   await pruneVersions(layout, build.version);
   return build.version;
+}
+
+/**
+ * 下补丁（约 30 MB，全量 220 MB）并应用到 fromExe，结果和 build 的 size、sha256 都对上才改名成 target。
+ * 补丁不适用或任何一步失败都返回 false，由调用方退回全量下载（PLAN 第 3 节：补丁不可用时退回全量）；用户取消照常抛出。
+ */
+async function installFromPatch(options: InstallOptions, patch: BuildPatch, fromExe: string, target: string): Promise<boolean> {
+  const { signal } = options;
+  const patchFile = `${target}.patch`;
+  const partial = `${target}.partial`;
+  try {
+    if ((await hashFile(fromExe)).sha256 !== patch.fromSha256) return false;
+    await downloadVerified({ fetch: options.fetch, source: patch, dest: patchFile, signal });
+    await applySingleStreamPatch({ oldPath: fromExe, patchPath: patchFile, outPath: partial, signal });
+    const result = await hashFile(partial);
+    if (result.size !== options.build.file.size || result.sha256 !== options.build.file.sha256) throw new VerifyError("the patched file does not match the build");
+    await rename(partial, target);
+    return true;
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    console.warn("omp patch update failed, downloading the full build instead:", error instanceof Error ? error.message : error);
+    return false;
+  } finally {
+    await rm(patchFile, { force: true });
+    await rm(partial, { force: true });
+  }
+}
+
+async function hashFile(file: string): Promise<{ size: number; sha256: string }> {
+  const hash = createHash("sha256");
+  let size = 0;
+  await pipeline(createReadStream(file), async function* (chunks: AsyncIterable<Buffer>) {
+    for await (const chunk of chunks) {
+      hash.update(chunk);
+      size += chunk.length;
+    }
+  });
+  return { size, sha256: hash.digest("hex") };
 }
 
 /**
@@ -90,11 +144,11 @@ export async function sweepOldBinaries(layout: ManagedLayout): Promise<void> {
   await Promise.all(names.filter((name) => name.startsWith(".omp.exe.old-") || name.startsWith(".omp.exe.new-")).map((name) => rm(path.join(layout.binDir, name), { force: true }).catch(() => {})));
 }
 
-/** versions/ 里只留最近 KEEP_VERSIONS 个（按版本号），当前版本一定保留；遗留的 .partial 一并删掉。 */
+/** versions/ 里只留最近 KEEP_VERSIONS 个（按版本号），当前版本一定保留；遗留的 .partial 和补丁一并删掉。 */
 export async function pruneVersions(layout: ManagedLayout, currentVersion: string): Promise<void> {
   const ext = path.extname(layout.binExe);
   const names = await readdir(layout.versionsDir);
-  await Promise.all(names.filter((name) => name.endsWith(".partial")).map((name) => rm(path.join(layout.versionsDir, name), { force: true })));
+  await Promise.all(names.filter((name) => name.endsWith(".partial") || name.endsWith(".patch")).map((name) => rm(path.join(layout.versionsDir, name), { force: true })));
   const versions = names.filter((name) => name.endsWith(ext)).map((name) => name.slice(0, name.length - ext.length));
   // 当前版本一定留，占一个名额；其余按版本号从新到旧补满。
   const kept = [currentVersion, ...versions.filter((version) => version !== currentVersion).sort((a, b) => compareVersions(b, a))].slice(0, KEEP_VERSIONS);

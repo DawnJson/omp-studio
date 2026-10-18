@@ -1,6 +1,6 @@
 // 官方构建服务（build.stencil.so）：查版本、下载并按 size + sha256 校验。接口见 docs/architecture/omp-install.md "自己管理时的下载"。
 // 这里只收 `fetch` 实现作参数：应用里传 electron 的 net.fetch（走系统代理），测试里传指向本地假服务器的 fetch。
-// 本版只做全量下载；差量补丁（`?from_version=` 的 `patch` 字段）没有实现，见文档。
+// 带 `?from_version=` 时应答多一个 `patch`（HDiffPatch 单流补丁，应用在 hpatch.ts），补丁的下载同样按 size + sha256 校验。
 import { createHash } from "node:crypto";
 import { createWriteStream } from "node:fs";
 import { rename, rm } from "node:fs/promises";
@@ -18,11 +18,26 @@ export interface BuildFile {
   sha256: string;
 }
 
+/** 一个可下载、可校验的文件：size 和 sha256 都对上才算下载成功。 */
+export interface Download {
+  /** 带签名的直链，10 分钟有效。不写日志，不进错误信息。 */
+  url: string;
+  size: number;
+  sha256: string;
+}
+
+/** 从 fromSha256 那个 exe 到这次 build 的补丁。 */
+export interface BuildPatch extends Download {
+  fromSha256: string;
+}
+
 export interface BuildInfo {
   version: string;
   file: BuildFile;
   /** 带签名的直链，10 分钟有效。不写日志，不进错误信息。 */
   downloadUrl: string;
+  /** 只有请求时带了 fromVersion、且服务已经生成好补丁时才有。 */
+  patch: BuildPatch | null;
 }
 
 export class BuildServiceError extends Error {
@@ -57,6 +72,8 @@ export interface FetchBuildOptions {
   target?: string | undefined;
   /** 指定版本；不给就取 stable 的最新版。 */
   version?: string | undefined;
+  /** 已装的版本：服务据此附上从它到最新版的补丁。 */
+  fromVersion?: string | undefined;
   signal?: AbortSignal | undefined;
 }
 
@@ -65,7 +82,7 @@ export async function fetchBuild(options: FetchBuildOptions): Promise<BuildInfo>
   const target = options.target ?? buildTarget();
   const url = options.version
     ? `${base}/api/products/omp/versions/${encodeURIComponent(options.version)}/${target}`
-    : `${base}/api/products/omp/latest/${target}?channel=stable`;
+    : `${base}/api/products/omp/latest/${target}?channel=stable${options.fromVersion ? `&from_version=${encodeURIComponent(options.fromVersion)}` : ""}`;
   const response = await options.fetch(url, { headers: { Accept: "application/json", "User-Agent": "omp-studio" }, signal: options.signal });
   if (response.status === 404) throw new BuildServiceError("no_build", `no omp build is published for ${target}`);
   if (!response.ok) throw new BuildServiceError("http", `build service answered ${response.status}`);
@@ -79,12 +96,22 @@ export async function fetchBuild(options: FetchBuildOptions): Promise<BuildInfo>
   if (typeof version !== "string" || typeof name !== "string" || typeof size !== "number" || typeof sha256 !== "string" || typeof download !== "string") {
     throw new BuildServiceError("format", "the build service answer is missing version, file or download");
   }
-  return { version, file: { name, size, sha256: sha256.toLowerCase() }, downloadUrl: new URL(download, base).toString() };
+  return { version, file: { name, size, sha256: sha256.toLowerCase() }, downloadUrl: new URL(download, base).toString(), patch: parsePatch(field(json, "patch"), base) };
+}
+
+/** 只认 `format: "file"`（整文件补丁，2026-10-18 实测）；别的格式、字段不全、补丁还没生成好（`patch_pending`）都当没有补丁。 */
+function parsePatch(patch: unknown, base: string): BuildPatch | null {
+  const url = field(patch, "url");
+  const size = field(patch, "size");
+  const sha256 = field(patch, "sha256");
+  const fromSha256 = field(patch, "from_sha256");
+  if (field(patch, "format") !== "file" || typeof url !== "string" || typeof size !== "number" || typeof sha256 !== "string" || typeof fromSha256 !== "string") return null;
+  return { url: new URL(url, base).toString(), size, sha256: sha256.toLowerCase(), fromSha256: fromSha256.toLowerCase() };
 }
 
 export interface DownloadOptions {
   fetch: FetchFn;
-  build: BuildInfo;
+  source: Download;
   /** 最终文件；下载先写到 `<dest>.partial`，校验通过才改名。 */
   dest: string;
   onProgress?: ((receivedBytes: number, totalBytes: number) => void) | undefined;
@@ -95,9 +122,9 @@ export interface DownloadOptions {
 
 /** 流式下载，边下边算 sha256。size 和 sha256 都对上才把 partial 改名为 dest，否则删掉 partial 并抛 VerifyError。 */
 export async function downloadVerified(options: DownloadOptions): Promise<void> {
-  const { build, dest } = options;
+  const { source, dest } = options;
   const partial = `${dest}.partial`;
-  const response = await options.fetch(build.downloadUrl, { signal: options.signal });
+  const response = await options.fetch(source.url, { signal: options.signal });
   if (!response.ok || !response.body) throw new BuildServiceError("http", `download answered ${response.status}`);
   const hash = createHash("sha256");
   let received = 0;
@@ -105,7 +132,7 @@ export async function downloadVerified(options: DownloadOptions): Promise<void> 
     transform(chunk: Buffer, _encoding, callback) {
       hash.update(chunk);
       received += chunk.length;
-      options.onProgress?.(received, build.file.size);
+      options.onProgress?.(received, source.size);
       callback(null, chunk);
     },
   });
@@ -113,8 +140,8 @@ export async function downloadVerified(options: DownloadOptions): Promise<void> 
     await pipeline(Readable.fromWeb(response.body as NodeReadableStream<Uint8Array>), tally, createWriteStream(partial), ...(options.signal ? [{ signal: options.signal }] : []));
     options.onVerifying?.();
     const digest = hash.digest("hex");
-    if (received !== build.file.size) throw new VerifyError(`size mismatch: expected ${build.file.size} bytes, got ${received}`);
-    if (digest !== build.file.sha256) throw new VerifyError("sha256 mismatch");
+    if (received !== source.size) throw new VerifyError(`size mismatch: expected ${source.size} bytes, got ${received}`);
+    if (digest !== source.sha256) throw new VerifyError("sha256 mismatch");
     await rename(partial, dest);
   } catch (error) {
     await rm(partial, { force: true });
