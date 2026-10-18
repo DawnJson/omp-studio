@@ -33,6 +33,21 @@ describe("createRedactor", () => {
   it("leaves a short user name alone so ordinary words survive", () => {
     expect(createRedactor({ home: "/home/al", user: "al" })("all calls at /home/al/x")).toBe("all calls at ~/x");
   });
+
+  it("replaces percent-encoded home paths from ESM stack frames", () => {
+    expect(redact("at file:///C:/Users/Zhang%20San/AppData/Local/Programs/omp-studio/main.js:1:2")).toBe(
+      "at file:///~/AppData/Local/Programs/omp-studio/main.js:1:2",
+    );
+    const cjk = createRedactor({ home: "C:\\Users\\张三", user: "张三" });
+    expect(cjk("at file:///C:/Users/%E5%BC%A0%E4%B8%89/x.js and c:/users/%e5%bc%a0%e4%b8%89/y.js")).toBe(
+      "at file:///~/x.js and ~/y.js",
+    );
+  });
+
+  it("replaces a two-character CJK user name anywhere, raw or percent-encoded", () => {
+    const cjk = createRedactor({ home: "C:\\Users\\张三", user: "张三" });
+    expect(cjk("owner DESKTOP-1\\张三, url /%E5%BC%A0%E4%B8%89/")).toBe("owner DESKTOP-1\\<user>, url /<user>/");
+  });
 });
 
 describe("Logger", () => {

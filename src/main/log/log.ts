@@ -20,15 +20,22 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** 返回脱敏函数。家目录（反斜杠、正斜杠、JSON 转义的双反斜杠三种写法，不分大小写）换成 `~`，剩下的用户名换成 `<user>`。 */
+/**
+ * 返回脱敏函数。家目录换成 `~`，剩下的用户名换成 `<user>`，都不分大小写。
+ * 家目录认四种写法：反斜杠、正斜杠、JSON 转义的双反斜杠、百分号编码（ESM 栈里的 `file:///C:/Users/Zhang%20San/...`）。
+ */
 export function createRedactor({ home, user }: RedactContext): (text: string) => string {
-  const homeForms = [...new Set([home, home.replaceAll("\\", "/"), home.replaceAll("\\", "\\\\")])].filter(
+  const slashed = home.replaceAll("\\", "/");
+  const homeForms = [...new Set([home, slashed, home.replaceAll("\\", "\\\\"), encodeURI(slashed)])].filter(
     (form) => form.length > 0,
   );
   const homePattern = homeForms.length > 0 ? new RegExp(homeForms.map(escapeRegExp).join("|"), "gi") : null;
-  // 太短的用户名（如 "a"）会误伤普通单词，只换路径里的。
+  // 太短的 ASCII 用户名（如 "a"）会误伤普通单词，只换路径里的；非 ASCII 的（如两个字的中文名）不会误伤，照换。
+  const userForms = [...new Set([user, encodeURIComponent(user)])];
   const userPattern =
-    user.length >= 3 ? new RegExp(`(?<![A-Za-z0-9])${escapeRegExp(user)}(?![A-Za-z0-9])`, "gi") : null;
+    user.length >= 3 || /[^ -~]/.test(user)
+      ? new RegExp(`(?<![A-Za-z0-9])(?:${userForms.map(escapeRegExp).join("|")})(?![A-Za-z0-9])`, "gi")
+      : null;
   return (text) => {
     let out = text;
     if (homePattern) out = out.replace(homePattern, "~");

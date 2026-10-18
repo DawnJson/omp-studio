@@ -22,7 +22,7 @@ import { open, unlink } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import { pipeline } from "node:stream";
 import type { Readable } from "node:stream";
-import { createZstdDecompress } from "node:zlib";
+import { constants as zlibConstants, createZstdDecompress } from "node:zlib";
 
 /** 补丁格式（魔数 / 压缩类型）不被本实现支持；调用方应退回全量下载。 */
 export class HPatchFormatError extends Error {
@@ -356,6 +356,8 @@ export async function applySingleStreamPatch(options: {
   }
 
   const isCompressed = info.compressedSize !== 0;
+  // 上游在没有解压器（类型为空）却声明了压缩数据时直接拒绝
+  if (isCompressed && info.compressType === "") throw new HPatchFormatError("补丁声明了压缩数据但没有压缩类型");
   const dataLen = isCompressed ? info.compressedSize : info.uncompressedSize;
   if (info.diffDataPos + dataLen > patchSize) throw corrupt("补丁文件被截断");
 
@@ -378,7 +380,14 @@ export async function applySingleStreamPatch(options: {
       highWaterMark: kStreamChunk,
     });
     // 取消由主循环里的 signal.throwIfAborted() 响应，随后 finally 销毁流；不挂监听器以免泄漏
-    source = isCompressed ? pipeline(raw, createZstdDecompress({ chunkSize: kStreamChunk }), () => {}) : raw;
+    // Node 默认只接受 2^27 的 zstd 窗口；长窗口压缩的补丁会每次都解压失败、悄悄退回全量下载
+    source = isCompressed
+      ? pipeline(
+          raw,
+          createZstdDecompress({ chunkSize: kStreamChunk, params: { [zlibConstants.ZSTD_d_windowLogMax]: 31 } }),
+          () => {},
+        )
+      : raw;
     const diff = new DiffReader(source, info.uncompressedSize);
     const out = new OutWriter(outFh, info.newDataSize);
     const stepBuf = Buffer.allocUnsafe(info.stepMemSize);
