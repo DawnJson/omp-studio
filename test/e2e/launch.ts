@@ -46,7 +46,9 @@ export async function seedFakeSessions(agentDir: string, projectDir: string): Pr
 
 /** 主进程的接管询问记录（src/main/omp-manager/takeover-state.ts）。键是 exe 路径，Windows 上小写。 */
 async function seedTakeoverDeclined(userDataDir: string, exePaths: string[]): Promise<void> {
-  const takeover = Object.fromEntries(exePaths.map((exe) => [process.platform === "win32" ? exe.toLowerCase() : exe, "declined"]));
+  const takeover = Object.fromEntries(
+    exePaths.map((exe) => [process.platform === "win32" ? exe.toLowerCase() : exe, "declined"]),
+  );
   await writeFile(path.join(userDataDir, "omp-studio-state.json"), JSON.stringify({ takeover }), "utf8");
 }
 
@@ -54,14 +56,21 @@ async function seedTakeoverDeclined(userDataDir: string, exePaths: string[]): Pr
  * askTakeover=false（默认）时预先替用户拒绝接管 PATH 上的 omp 和 STUDIO_TEST_OMP 的假 omp：
  * 不测接管的用例不该被接管弹窗挡住，也绝不能在测试里真的下载 omp、改用户 PATH。
  */
-export async function launchApp(extraEnv: Record<string, string> = {}, options: { askTakeover?: boolean } = {}): Promise<LaunchedApp> {
+export async function launchApp(
+  extraEnv: Record<string, string> = {},
+  options: { askTakeover?: boolean } = {},
+): Promise<LaunchedApp> {
   const userDataDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-"));
   if (options.askTakeover !== true) {
     const testOmp = extraEnv["STUDIO_TEST_OMP"] ?? process.env["STUDIO_TEST_OMP"];
     const onPath = await findOmpOnPath().catch(() => null);
-    await seedTakeoverDeclined(userDataDir, [...(testOmp ? [parseTestOmpOverride(testOmp).command] : []), ...(onPath ? [onPath] : [])]);
+    await seedTakeoverDeclined(userDataDir, [
+      ...(testOmp ? [parseTestOmpOverride(testOmp).command] : []),
+      ...(onPath ? [onPath] : []),
+    ]);
   }
-  const ownedAgentDir = extraEnv["PI_CODING_AGENT_DIR"] === undefined ? await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-")) : null;
+  const ownedAgentDir =
+    extraEnv["PI_CODING_AGENT_DIR"] === undefined ? await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-")) : null;
   if (ownedAgentDir !== null) await seedFakeSessions(ownedAgentDir, path.join(os.tmpdir(), "omp studio 假项目"));
   const agentDir = ownedAgentDir ?? extraEnv["PI_CODING_AGENT_DIR"] ?? "";
   // 指向 Vite 开发服务器的变量会让应用去加载开发页面；e2e 只跑构建产物。

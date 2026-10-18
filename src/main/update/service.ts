@@ -60,14 +60,32 @@ export class UpdateService {
     if (!options.enabled) return;
     this.#updater.autoDownload = true;
     this.#updater.on("checking-for-update", () => this.#set({ phase: "checking", error: null }));
-    this.#updater.on("update-available", (info) => this.#set({ phase: "downloading", latestVersion: info.version, percent: 0, error: null }));
-    this.#updater.on("update-not-available", () => this.#set({ phase: "up-to-date", latestVersion: null, percent: 0, lastCheckedAt: this.#options.now?.() ?? Date.now() }));
+    this.#updater.on("update-available", (info) =>
+      this.#set({ phase: "downloading", latestVersion: info.version, percent: 0, error: null }),
+    );
+    this.#updater.on("update-not-available", () =>
+      this.#set({
+        phase: "up-to-date",
+        latestVersion: null,
+        percent: 0,
+        lastCheckedAt: this.#options.now?.() ?? Date.now(),
+      }),
+    );
     this.#updater.on("download-progress", (progress) => {
       // 有些版本在 update-available 之前就发进度；照样进入下载态。
       this.#set({ phase: "downloading", percent: clampPercent(progress.percent) });
     });
-    this.#updater.on("update-downloaded", (info) => this.#set({ phase: "downloaded", latestVersion: info.version, percent: 100, lastCheckedAt: this.#options.now?.() ?? Date.now() }));
-    this.#updater.on("error", (error) => this.#set({ phase: "error", error: error.message, lastCheckedAt: this.#options.now?.() ?? Date.now() }));
+    this.#updater.on("update-downloaded", (info) =>
+      this.#set({
+        phase: "downloaded",
+        latestVersion: info.version,
+        percent: 100,
+        lastCheckedAt: this.#options.now?.() ?? Date.now(),
+      }),
+    );
+    this.#updater.on("error", (error) =>
+      this.#set({ phase: "error", error: error.message, lastCheckedAt: this.#options.now?.() ?? Date.now() }),
+    );
   }
 
   state(): UpdateState {
@@ -98,11 +116,16 @@ export class UpdateService {
       await this.#updater.checkForUpdates();
       // 极少数情况下 checkForUpdates 不带任何事件就结束了（例如更新器判定不活跃）；
       // 停在进行中会让按钮一直不可用、定时检查也一直被挡住。
-      if (this.state().phase === "checking") this.#set({ phase: "idle", lastCheckedAt: this.#options.now?.() ?? Date.now() });
+      if (this.state().phase === "checking")
+        this.#set({ phase: "idle", lastCheckedAt: this.#options.now?.() ?? Date.now() });
     } catch (error) {
       // electron-updater 对网络错误通常同时发 error 事件；这里兜住没有事件的那种（如没配置更新源）。
       if (this.state().phase === "checking") {
-        this.#set({ phase: "error", error: error instanceof Error ? error.message : String(error), lastCheckedAt: this.#options.now?.() ?? Date.now() });
+        this.#set({
+          phase: "error",
+          error: error instanceof Error ? error.message : String(error),
+          lastCheckedAt: this.#options.now?.() ?? Date.now(),
+        });
       }
     }
   }

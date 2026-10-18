@@ -4,7 +4,14 @@ import { reportError } from "../../ui/errors.ts";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import type { SessionSummary } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
-import { selectTask, setPaletteOpen, usePaletteOpen, useSelectedTaskId, useSettings, useTasks } from "../../store/index.ts";
+import {
+  selectTask,
+  setPaletteOpen,
+  usePaletteOpen,
+  useSelectedTaskId,
+  useSettings,
+  useTasks,
+} from "../../store/index.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { pushToast } from "../dialogs/index.ts";
 import { useHiddenTasks } from "../sidebar/archive-store.ts";
@@ -22,7 +29,9 @@ import "./palette.css";
 function Highlight({ text, indices }: { text: string; indices: number[] }): ReactNode {
   if (indices.length === 0) return text;
   const hit = new Set(indices);
-  return [...text].map((char, index) => (hit.has(index) ? <mark key={index}>{char}</mark> : <Fragment key={index}>{char}</Fragment>));
+  return [...text].map((char, index) =>
+    hit.has(index) ? <mark key={index}>{char}</mark> : <Fragment key={index}>{char}</Fragment>,
+  );
 }
 
 const rowIcon = { task: TaskIcon, session: SessionIcon, command: CommandIcon, slash: SlashIcon } as const;
@@ -110,7 +119,10 @@ function PaletteDialog() {
     if (row.kind === "command") row.command.run();
     else if (row.kind === "task") void selectTask(row.task.id).catch((error: unknown) => reportError(t, error));
     else if (row.kind === "slash" && current) {
-      if (row.send) void window.studio.sendPrompt(current.id, { text: row.text, whenBusy: "followUp" }).catch((error: unknown) => reportError(t, error));
+      if (row.send)
+        void window.studio
+          .sendPrompt(current.id, { text: row.text, whenBusy: "followUp" })
+          .catch((error: unknown) => reportError(t, error));
       else emitComposerText(`${row.text} `);
     } else if (row.kind === "session") {
       window.studio
@@ -140,7 +152,11 @@ function PaletteDialog() {
 
   let flat = -1;
   return (
-    <div className="pl-root" data-testid="command-palette" onMouseDown={(event) => event.target === event.currentTarget && close()}>
+    <div
+      className="pl-root"
+      data-testid="command-palette"
+      onMouseDown={(event) => event.target === event.currentTarget && close()}
+    >
       <div className="pl-panel" role="dialog" aria-modal="true" aria-label={t("palette.label")}>
         <div className="pl-input-row">
           <SearchIcon />
@@ -158,58 +174,70 @@ function PaletteDialog() {
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onKeyDown}
           />
-          <kbd className="kbd" title={t("palette.hint")}>Esc</kbd>
+          <kbd className="kbd" title={t("palette.hint")}>
+            Esc
+          </kbd>
         </div>
         <div className="pl-list-host">
-        <div className="pl-list" ref={listRef} id={listId} role="listbox">
-          {sections.map((section) => (
-            <div key={section.id} role="group" aria-label={t(`palette.${section.id}`)}>
-              <div className="pl-group">{t(`palette.${section.id}`)}</div>
-              {section.rows.map((row) => {
-                flat += 1;
-                const index = flat;
-                const Icon = rowIcon[row.kind];
-                return (
-                  <div
-                    key={row.key}
-                    id={`${listId}-${index}`}
-                    ref={index === active ? activeRef : undefined}
-                    className="pl-row"
-                    role="option"
-                    aria-selected={index === active}
-                    data-active={index === active}
-                    onMouseMove={() => active !== index && setActive(index)}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => run(row)}
-                  >
-                    <Icon />
-                    <span className="pl-row-title">
-                      <Highlight text={row.title} indices={row.indices} />
-                    </span>
-                    {row.kind === "session" && (
-                      <kbd className="kbd" title={t("empty.fromTerminal")}>
-                        {">_"}
-                      </kbd>
-                    )}
-                    {(row.kind === "task" || row.kind === "session" || row.kind === "slash") && row.subtitle !== "" && <span className="pl-row-meta">{row.subtitle}</span>}
-                    {row.kind === "command" && row.command.shortcut !== undefined && <kbd className="kbd">{row.command.shortcut}</kbd>}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-          {noResults && (
-            <div className="pl-empty">
-              <p>{t("palette.noResults", { q: trimmed })}</p>
-              <div className="pl-row" role="option" aria-selected="true" data-active="true" onMouseDown={(event) => event.preventDefault()} onClick={askInNewTask}>
-                <SlashIcon />
-                <span className="pl-row-title">{t("palette.askNew")}</span>
-                <kbd className="kbd">↵</kbd>
+          <div className="pl-list" ref={listRef} id={listId} role="listbox">
+            {sections.map((section) => (
+              <div key={section.id} role="group" aria-label={t(`palette.${section.id}`)}>
+                <div className="pl-group">{t(`palette.${section.id}`)}</div>
+                {section.rows.map((row) => {
+                  flat += 1;
+                  const index = flat;
+                  const Icon = rowIcon[row.kind];
+                  return (
+                    <div
+                      key={row.key}
+                      id={`${listId}-${index}`}
+                      ref={index === active ? activeRef : undefined}
+                      className="pl-row"
+                      role="option"
+                      aria-selected={index === active}
+                      data-active={index === active}
+                      onMouseMove={() => active !== index && setActive(index)}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => run(row)}
+                    >
+                      <Icon />
+                      <span className="pl-row-title">
+                        <Highlight text={row.title} indices={row.indices} />
+                      </span>
+                      {row.kind === "session" && (
+                        <kbd className="kbd" title={t("empty.fromTerminal")}>
+                          {">_"}
+                        </kbd>
+                      )}
+                      {(row.kind === "task" || row.kind === "session" || row.kind === "slash") &&
+                        row.subtitle !== "" && <span className="pl-row-meta">{row.subtitle}</span>}
+                      {row.kind === "command" && row.command.shortcut !== undefined && (
+                        <kbd className="kbd">{row.command.shortcut}</kbd>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          )}
-        </div>
-        <OverlayScrollbar target={listRef} />
+            ))}
+            {noResults && (
+              <div className="pl-empty">
+                <p>{t("palette.noResults", { q: trimmed })}</p>
+                <div
+                  className="pl-row"
+                  role="option"
+                  aria-selected="true"
+                  data-active="true"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={askInNewTask}
+                >
+                  <SlashIcon />
+                  <span className="pl-row-title">{t("palette.askNew")}</span>
+                  <kbd className="kbd">↵</kbd>
+                </div>
+              </div>
+            )}
+          </div>
+          <OverlayScrollbar target={listRef} />
         </div>
       </div>
     </div>

@@ -42,7 +42,17 @@ export function toolVerb(toolName: string): ToolVerb {
 /** 参数里最能说明"对谁做"的一项：路径、命令、搜索词。 */
 export function toolTarget(args: unknown): string | null {
   const record = asRecord(args);
-  const direct = firstString(record, ["path", "file", "file_path", "command", "cmd", "pattern", "query", "url", "code"]);
+  const direct = firstString(record, [
+    "path",
+    "file",
+    "file_path",
+    "command",
+    "cmd",
+    "pattern",
+    "query",
+    "url",
+    "code",
+  ]);
   if (direct) return direct.split("\n")[0] ?? direct;
   // hashline 编辑：input 里是 [path#TAG] 段落。
   const input = firstString(record, ["input"]);
@@ -117,7 +127,8 @@ export function summarizeChanges(tools: readonly ToolForChanges[]): FileChange[]
     let stats: { added: number; removed: number } | null = diff ? countDiff(diff) : null;
     if (!stats && tool.name === "write") {
       const content = firstString(asRecord(tool.args), ["content"]);
-      stats = content === null ? null : { added: content.split("\n").length - (content.endsWith("\n") ? 1 : 0), removed: 0 };
+      stats =
+        content === null ? null : { added: content.split("\n").length - (content.endsWith("\n") ? 1 : 0), removed: 0 };
     }
     // 多文件的 diff 无法拆分到各文件，只在单文件时记行数。
     const perFile = paths.length === 1 ? stats : null;

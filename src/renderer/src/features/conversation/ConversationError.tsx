@@ -17,19 +17,26 @@ export function ConversationError({ taskId, error }: { taskId: TaskId; error: Ta
         : error.kind === "too_many_tasks"
           ? t("error.tooManyTasks")
           : error.kind === "restore_model_failed"
-          ? t("error.modelUnavailable")
-          : describeError(t, error);
+            ? t("error.modelUnavailable")
+            : describeError(t, error);
   const reconnect = () => {
     window.studio.restartTask(taskId).catch((cause: unknown) => reportError(t, cause));
   };
   const copy = () => {
-    void navigator.clipboard.writeText(`${error.kind}: ${error.message}`).then(() => pushToast({ message: t("common.copied") }), (cause: unknown) => reportError(t, cause));
+    void navigator.clipboard.writeText(`${error.kind}: ${error.message}`).then(
+      () => pushToast({ message: t("common.copied") }),
+      (cause: unknown) => reportError(t, cause),
+    );
   };
   return (
     <div className="inline-error" role="alert" data-testid="task-error">
       <span className="inline-error-text">{text}</span>
-      <button type="button" className="inline-error-action" onClick={reconnect}>{t("error.reconnect")}</button>
-      <button type="button" className="inline-error-action" onClick={copy}>{t("error.copyDetails")}</button>
+      <button type="button" className="inline-error-action" onClick={reconnect}>
+        {t("error.reconnect")}
+      </button>
+      <button type="button" className="inline-error-action" onClick={copy}>
+        {t("error.copyDetails")}
+      </button>
     </div>
   );
 }

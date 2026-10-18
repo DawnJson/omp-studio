@@ -18,7 +18,17 @@ export interface MenuAnchor {
 
 const edge = 8;
 
-export function Menu({ anchor, items, label, onClose }: { anchor: MenuAnchor; items: MenuItem[]; label: string; onClose(): void }) {
+export function Menu({
+  anchor,
+  items,
+  label,
+  onClose,
+}: {
+  anchor: MenuAnchor;
+  items: MenuItem[];
+  label: string;
+  onClose(): void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: anchor.x, top: anchor.y });
 

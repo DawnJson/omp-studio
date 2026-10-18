@@ -12,7 +12,8 @@ export const omp = {
   progress: "{done} of {total} downloaded",
   verifying: "Verifying…",
   verifyFailed: "The file failed verification and was discarded.",
-  "install.note": "omp-studio doesn't bundle omp. It downloads the official build, manages it, and keeps it up to date.",
+  "install.note":
+    "omp-studio doesn't bundle omp. It downloads the official build, manages it, and keeps it up to date.",
   "takeover.title": "Found a script-based omp",
   "takeover.body":
     "omp-studio can't launch script-based installs (such as npm). It can download and manage an official copy and put it first on your PATH. Your existing install isn't removed or modified.",
@@ -31,7 +32,8 @@ export const omp = {
   "unusable.title": "Can't start this omp",
   reconsider: "Choose again",
   addPath: "Add to your user PATH so the terminal can use it",
-  "addPath.note": "Only your user PATH changes. Your existing omp is untouched. Terminals that are already open need a restart.",
+  "addPath.note":
+    "Only your user PATH changes. Your existing omp is untouched. Terminals that are already open need a restart.",
   "addPath.yes": "Add to PATH",
   "addPath.failed": "Couldn't change your user PATH: {message}",
   outdated: "omp {current} is too old. Version {min} or newer is required.",
@@ -58,8 +60,10 @@ export const omp = {
   retry: "Try again",
   openSettings: "Open settings",
   "missing.title": "omp is required",
-  "missing.body": "omp-studio doesn't bundle omp. It can download an official copy from {source} (about {size}), put it first on your user PATH so the terminal can use it too, and keep it up to date.",
-  "missing.bodyNoSize": "omp-studio doesn't bundle omp. It can download an official copy from {source}, put it first on your user PATH so the terminal can use it too, and keep it up to date.",
+  "missing.body":
+    "omp-studio doesn't bundle omp. It can download an official copy from {source} (about {size}), put it first on your user PATH so the terminal can use it too, and keep it up to date.",
+  "missing.bodyNoSize":
+    "omp-studio doesn't bundle omp. It can download an official copy from {source}, put it first on your user PATH so the terminal can use it too, and keep it up to date.",
   "missing.titleVersion": "omp {version} is required",
   install: "Download and install",
   recheck: "I've installed it, check again",

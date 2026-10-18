@@ -44,7 +44,13 @@ export class ApiKeyStore {
       throw error;
     }
     const json: unknown = JSON.parse(text);
-    if (typeof json !== "object" || json === null || !("keys" in json) || typeof json.keys !== "object" || json.keys === null) {
+    if (
+      typeof json !== "object" ||
+      json === null ||
+      !("keys" in json) ||
+      typeof json.keys !== "object" ||
+      json.keys === null
+    ) {
       throw new Error(`${this.#file} is not an API key file`);
     }
     const keys: Record<string, string> = {};
@@ -59,12 +65,15 @@ export class ApiKeyStore {
   }
 
   async save(providerId: string, key: string): Promise<void> {
-    if (apiKeyEnvName(providerId) === null) throw new Error(`provider ${providerId} does not support an API key set from omp-studio`);
+    if (apiKeyEnvName(providerId) === null)
+      throw new Error(`provider ${providerId} does not support an API key set from omp-studio`);
     if (key.trim() === "") throw new Error("the API key is empty");
     // NUL 等控制字符会让 spawn 失败，错误信息还可能带出 key 原文：保存时就拒绝。
     // eslint-disable-next-line no-control-regex
-    if (/[\u0000-\u001f\u007f]/.test(key.trim())) throw new Error("the API key contains control characters (such as a line break or NUL); paste it again");
-    if (!this.#cipher.isEncryptionAvailable()) throw new Error("the system cannot encrypt the key here, so it was not saved");
+    if (/[\u0000-\u001f\u007f]/.test(key.trim()))
+      throw new Error("the API key contains control characters (such as a line break or NUL); paste it again");
+    if (!this.#cipher.isEncryptionAvailable())
+      throw new Error("the system cannot encrypt the key here, so it was not saved");
     const encrypted = this.#cipher.encryptString(key.trim()).toString("base64");
     await this.#exclusive(async () => {
       const file = await this.#read();

@@ -53,7 +53,11 @@ export function assignToAppJob(pid: number | undefined): boolean {
   if (pid === undefined) throw new Error("cannot assign a process without a pid to the job object");
   const { kernel32 } = loadWin32();
   const target = appJob();
-  const process_ = kernel32.OpenProcess(win32Constants.PROCESS_SET_QUOTA | win32Constants.PROCESS_TERMINATE, false, pid);
+  const process_ = kernel32.OpenProcess(
+    win32Constants.PROCESS_SET_QUOTA | win32Constants.PROCESS_TERMINATE,
+    false,
+    pid,
+  );
   if (process_ === 0) throw new Error(`OpenProcess(${pid}) failed (error ${kernel32.lastError()})`);
   try {
     if (!kernel32.AssignProcessToJobObject(target, process_)) {

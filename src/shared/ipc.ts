@@ -98,7 +98,14 @@ export interface Project {
 export type TaskStatus = "starting" | "idle" | "running" | "needs_you" | "error" | "stopped";
 
 export interface TaskError {
-  kind: "omp_unavailable" | "spawn_failed" | "handshake_failed" | "restore_model_failed" | "exited" | "protocol" | "too_many_tasks";
+  kind:
+    | "omp_unavailable"
+    | "spawn_failed"
+    | "handshake_failed"
+    | "restore_model_failed"
+    | "exited"
+    | "protocol"
+    | "too_many_tasks";
   message: string;
 }
 
@@ -515,7 +522,9 @@ export interface StudioEventPayloads {
 }
 
 export type StudioEventApi = {
-  [K in keyof StudioEventPayloads as `on${Capitalize<K>}`]: (listener: (payload: StudioEventPayloads[K]) => void) => Unsubscribe;
+  [K in keyof StudioEventPayloads as `on${Capitalize<K>}`]: (
+    listener: (payload: StudioEventPayloads[K]) => void,
+  ) => Unsubscribe;
 };
 
 export type StudioApi = StudioInvokeApi & StudioEventApi;

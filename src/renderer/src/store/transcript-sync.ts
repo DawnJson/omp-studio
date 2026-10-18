@@ -8,10 +8,7 @@ export interface Mirror {
   transcript: Transcript;
 }
 
-export type BatchOutcome =
-  | { kind: "ignore" }
-  | { kind: "resync" }
-  | { kind: "apply"; mirror: Mirror };
+export type BatchOutcome = { kind: "ignore" } | { kind: "resync" } | { kind: "apply"; mirror: Mirror };
 
 export function planBatch(mirror: Mirror | undefined, batch: TranscriptBatch): BatchOutcome {
   // 还没有快照的任务（没打开过）不接收事件；打开时 openTask 会带回完整快照。
@@ -19,5 +16,8 @@ export function planBatch(mirror: Mirror | undefined, batch: TranscriptBatch): B
   if (batch.firstSeq > mirror.seq + 1) return { kind: "resync" };
   const fresh = batch.events.slice(mirror.seq + 1 - batch.firstSeq);
   if (fresh.length === 0) return { kind: "ignore" };
-  return { kind: "apply", mirror: { seq: mirror.seq + fresh.length, transcript: fresh.reduce(applyTranscriptEvent, mirror.transcript) } };
+  return {
+    kind: "apply",
+    mirror: { seq: mirror.seq + fresh.length, transcript: fresh.reduce(applyTranscriptEvent, mirror.transcript) },
+  };
 }

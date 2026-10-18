@@ -18,14 +18,16 @@ export const ompcfg = {
   "modelRoleStorage.label": "模型角色的保存位置",
   "modelRoleStorage.desc": "在模型选择器里给角色（default、smol、slow 等）指定的模型，存在全局还是当前项目里",
   "modelRoles.label": "模型角色",
-  "modelRoles.desc": "把角色名对应到具体模型，JSON 对象，例如 {\"default\": \"provider/model-id\"}",
+  "modelRoles.desc": '把角色名对应到具体模型，JSON 对象，例如 {"default": "provider/model-id"}',
   "defaultThinkingLevel.label": "默认思考强度",
   "defaultThinkingLevel.desc": "支持思考的模型默认用多深的推理",
 
   "tools.approvalMode.label": "工具审批模式",
-  "tools.approvalMode.desc": "每次询问：只自动放行只读工具；写入自动：读和工作区内写入自动；全部自动：全部放行（用户策略仍可能拦截）",
+  "tools.approvalMode.desc":
+    "每次询问：只自动放行只读工具；写入自动：读和工作区内写入自动；全部自动：全部放行（用户策略仍可能拦截）",
   "tools.approval.label": "按工具的审批策略",
-  "tools.approval.desc": "JSON 对象：工具名对应 allow（自动放行）、prompt（要确认）或 deny（禁止），在所有审批模式下都生效",
+  "tools.approval.desc":
+    "JSON 对象：工具名对应 allow（自动放行）、prompt（要确认）或 deny（禁止），在所有审批模式下都生效",
   "tools.format.label": "工具调用格式",
   "tools.format.desc": "工具以什么形式交给模型。自动：优先用模型原生的工具调用，模型不支持时退回 GLM 格式",
   "bash.enabled.label": "允许执行命令",
@@ -67,7 +69,8 @@ export const ompcfg = {
   "mnemopi.autoRetain.label": "Mnemopi：自动记住",
   "mnemopi.autoRetain.desc": "把完成的对话轮次存进本地记忆",
   "mnemopi.scoping.label": "Mnemopi：记忆范围",
-  "mnemopi.scoping.desc": "global：共用一个库；per-project：每个目录一个库；per-project-tagged：写入项目库，回忆时能看到全局的",
+  "mnemopi.scoping.desc":
+    "global：共用一个库；per-project：每个目录一个库；per-project-tagged：写入项目库，回忆时能看到全局的",
   "hindsight.autoRecall.label": "Hindsight：自动回忆",
   "hindsight.autoRecall.desc": "每个会话的第一轮回忆记忆",
   "hindsight.autoRetain.label": "Hindsight：自动记住",
@@ -109,7 +112,8 @@ export const ompcfg = {
   "retry.fallbackOn.label": "哪些失败可以换模型",
   "retry.fallbackOn.desc": "any：任何失败；usage-limit：只在额度用尽时；except-usage-limit：额度用尽以外的失败",
   "retry.fallbackChains.label": "备用模型链",
-  "retry.fallbackChains.desc": "JSON 对象：角色、模型或 provider/* 对应有序的备用模型，例如 {\"default\": [\"openai/gpt-4o-mini\"]}",
+  "retry.fallbackChains.desc":
+    'JSON 对象：角色、模型或 provider/* 对应有序的备用模型，例如 {"default": ["openai/gpt-4o-mini"]}',
   "retry.waitForUsageReset.label": "额度用尽时等到重置",
   "retry.waitForUsageReset.desc": "服务商告知额度重置时间时一直等，而不是马上失败；无人值守时建议关闭",
 

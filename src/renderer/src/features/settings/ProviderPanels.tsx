@@ -13,9 +13,28 @@ export interface LoginProgress {
   input?: { inputId: string; title: string; placeholder?: string } | undefined;
 }
 
-export type Flow = { kind: "idle" } | ({ kind: "login" } & LoginProgress) | { kind: "failed"; message: string } | { kind: "accounts" } | { kind: "key" };
+export type Flow =
+  | { kind: "idle" }
+  | ({ kind: "login" } & LoginProgress)
+  | { kind: "failed"; message: string }
+  | { kind: "accounts" }
+  | { kind: "key" };
 
-export function LoginCard({ flow, code, copied, onCode, onCopy, onSubmitCode }: { flow: { kind: "login" } & LoginProgress; code: string; copied: boolean; onCode(value: string): void; onCopy(text: string): void; onSubmitCode(inputId: string): void }) {
+export function LoginCard({
+  flow,
+  code,
+  copied,
+  onCode,
+  onCopy,
+  onSubmitCode,
+}: {
+  flow: { kind: "login" } & LoginProgress;
+  code: string;
+  copied: boolean;
+  onCode(value: string): void;
+  onCopy(text: string): void;
+  onSubmitCode(inputId: string): void;
+}) {
   const t = useT();
   return (
     <div className="st-login" role="status">
@@ -25,8 +44,17 @@ export function LoginCard({ flow, code, copied, onCode, onCopy, onSubmitCode }: 
         <>
           <span>{t("login.fallback")}</span>
           <div className="st-login-line">
-            <input className="st-input" data-mono="" readOnly value={flow.launchUrl ?? flow.url} onFocus={(event) => event.target.select()} aria-label={t("login.fallback")} />
-            <Button onClick={() => onCopy(flow.launchUrl ?? flow.url ?? "")}>{copied ? t("common.copied") : t("common.copy")}</Button>
+            <input
+              className="st-input"
+              data-mono=""
+              readOnly
+              value={flow.launchUrl ?? flow.url}
+              onFocus={(event) => event.target.select()}
+              aria-label={t("login.fallback")}
+            />
+            <Button onClick={() => onCopy(flow.launchUrl ?? flow.url ?? "")}>
+              {copied ? t("common.copied") : t("common.copy")}
+            </Button>
             <Button onClick={() => void window.studio.openExternal(flow.url ?? "")}>{t("login.reopen")}</Button>
           </div>
           {flow.instructions && <span className="st-muted">{flow.instructions}</span>}
@@ -35,8 +63,19 @@ export function LoginCard({ flow, code, copied, onCode, onCopy, onSubmitCode }: 
       {flow.progress && <span className="st-muted">{flow.progress}</span>}
       {flow.input && (
         <div className="st-login-line">
-          <input className="st-input" autoFocus value={code} placeholder={flow.input.placeholder ?? t("login.pasteCode")} aria-label={flow.input.title} onChange={(event) => onCode(event.target.value)} />
-          <Button variant="primary" disabled={code.trim() === ""} onClick={() => flow.input && onSubmitCode(flow.input.inputId)}>
+          <input
+            className="st-input"
+            autoFocus
+            value={code}
+            placeholder={flow.input.placeholder ?? t("login.pasteCode")}
+            aria-label={flow.input.title}
+            onChange={(event) => onCode(event.target.value)}
+          />
+          <Button
+            variant="primary"
+            disabled={code.trim() === ""}
+            onClick={() => flow.input && onSubmitCode(flow.input.inputId)}
+          >
             {t("login.submit")}
           </Button>
         </div>
@@ -50,14 +89,30 @@ export function LoginCard({ flow, code, copied, onCode, onCopy, onSubmitCode }: 
   );
 }
 
-export function AccountsCard({ accounts, busy, onPick, onCancel }: { accounts: LogoutAccount[]; busy: boolean; onPick(credentialId: number): void; onCancel(): void }) {
+export function AccountsCard({
+  accounts,
+  busy,
+  onPick,
+  onCancel,
+}: {
+  accounts: LogoutAccount[];
+  busy: boolean;
+  onPick(credentialId: number): void;
+  onCancel(): void;
+}) {
   const t = useT();
   return (
     <div className="st-login">
       <span>{t("login.chooseAccount")}</span>
       <div className="st-accounts">
         {accounts.map((account) => (
-          <button key={account.credentialId} type="button" className="st-account" disabled={busy} onClick={() => onPick(account.credentialId)}>
+          <button
+            key={account.credentialId}
+            type="button"
+            className="st-account"
+            disabled={busy}
+            onClick={() => onPick(account.credentialId)}
+          >
             <span>{account.label}</span>
             <span className="st-muted">{account.detail}</span>
           </button>
@@ -72,7 +127,21 @@ export function AccountsCard({ accounts, busy, onPick, onCancel }: { accounts: L
   );
 }
 
-export function KeyForm({ value, busy, inputRef, onChange, onSave, onCancel }: { value: string; busy: boolean; inputRef: RefObject<HTMLInputElement | null>; onChange(next: string): void; onSave(): void; onCancel(): void }) {
+export function KeyForm({
+  value,
+  busy,
+  inputRef,
+  onChange,
+  onSave,
+  onCancel,
+}: {
+  value: string;
+  busy: boolean;
+  inputRef: RefObject<HTMLInputElement | null>;
+  onChange(next: string): void;
+  onSave(): void;
+  onCancel(): void;
+}) {
   const t = useT();
   return (
     <form
@@ -83,7 +152,17 @@ export function KeyForm({ value, busy, inputRef, onChange, onSave, onCancel }: {
       }}
     >
       <div className="st-login-line">
-        <input ref={inputRef} className="st-input" type="password" autoComplete="off" spellCheck={false} value={value} placeholder={t("login.apiKey.placeholder")} aria-label={t("login.apiKey")} onChange={(event) => onChange(event.target.value)} />
+        <input
+          ref={inputRef}
+          className="st-input"
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          value={value}
+          placeholder={t("login.apiKey.placeholder")}
+          aria-label={t("login.apiKey")}
+          onChange={(event) => onChange(event.target.value)}
+        />
         <InfoTip>{t("login.apiKey.note")}</InfoTip>
         <Button variant="primary" disabled={value.trim() === ""} loading={busy} onClick={onSave}>
           {t("login.apiKey.save")}
@@ -96,7 +175,21 @@ export function KeyForm({ value, busy, inputRef, onChange, onSave, onCancel }: {
   );
 }
 
-export function FailedCard({ message, copied, disabled, onCopy, onRetry, onClose }: { message: string; copied: boolean; disabled: boolean; onCopy(text: string): void; onRetry(): void; onClose(): void }) {
+export function FailedCard({
+  message,
+  copied,
+  disabled,
+  onCopy,
+  onRetry,
+  onClose,
+}: {
+  message: string;
+  copied: boolean;
+  disabled: boolean;
+  onCopy(text: string): void;
+  onRetry(): void;
+  onClose(): void;
+}) {
   const t = useT();
   const terminalOnly = /secret|terminal/i.test(message);
   return (
@@ -104,7 +197,9 @@ export function FailedCard({ message, copied, disabled, onCopy, onRetry, onClose
       <span className="st-error-text">{t("login.failed")}</span>
       <span className="st-muted">{terminalOnly ? t("login.terminalOnly") : message}</span>
       <div className="st-login-actions">
-        {terminalOnly && <Button onClick={() => onCopy("omp")}>{copied ? t("common.copied") : t("login.copyCommand")}</Button>}
+        {terminalOnly && (
+          <Button onClick={() => onCopy("omp")}>{copied ? t("common.copied") : t("login.copyCommand")}</Button>
+        )}
         <Button disabled={disabled} onClick={onRetry}>
           {t("common.retry")}
         </Button>

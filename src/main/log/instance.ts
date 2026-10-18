@@ -17,7 +17,11 @@ function logsDir(): string {
 export function initLog(): void {
   logger = new Logger({ dir: logsDir(), redact: redactForLog, mirror: !app.isPackaged });
   setLogger(logger);
-  log.info(`omp-studio ${app.getVersion()} starting`, { electron: process.versions.electron, os: `${process.platform} ${os.release()} ${process.arch}`, packaged: app.isPackaged });
+  log.info(`omp-studio ${app.getVersion()} starting`, {
+    electron: process.versions.electron,
+    os: `${process.platform} ${os.release()} ${process.arch}`,
+    packaged: app.isPackaged,
+  });
   process.on("unhandledRejection", (reason) => log.error("unhandled promise rejection", reason));
   app.on("render-process-gone", (_event, _contents, details) => log.error("renderer process gone", details));
   app.on("child-process-gone", (_event, details) => log.error("child process gone", details));

@@ -104,11 +104,14 @@ function JsonControl({ item, labelId, onSave, onInvalid }: ControlProps) {
     try {
       parsed = JSON.parse(text);
     } catch (error) {
-      return onInvalid(t("settings.cfg.invalidJson", { message: error instanceof Error ? error.message : String(error) }));
+      return onInvalid(
+        t("settings.cfg.invalidJson", { message: error instanceof Error ? error.message : String(error) }),
+      );
     }
     const isArray = Array.isArray(parsed);
     if (item.type === "array" && !isArray) return onInvalid(t("settings.cfg.expectArray"));
-    if (item.type === "record" && (isArray || typeof parsed !== "object" || parsed === null)) return onInvalid(t("settings.cfg.expectObject"));
+    if (item.type === "record" && (isArray || typeof parsed !== "object" || parsed === null))
+      return onInvalid(t("settings.cfg.expectObject"));
     onInvalid(null);
     if (JSON.stringify(parsed) !== JSON.stringify(item.value)) onSave(parsed);
   });
@@ -131,11 +134,19 @@ function EnumControl({ item, labelId, onSave }: ControlProps) {
   const current = typeof item.value === "string" ? item.value : "";
   const base: Option<string>[] = (item.options ?? []).map((option) => ({ value: option, label: option }));
   // 当前值不在可选值里（omp 版本变了、手改过配置）：保留它，别让控件悄悄显示成别的。
-  if (item.hasValue && current !== "" && !base.some((option) => option.value === current)) base.push({ value: current, label: current });
+  if (item.hasValue && current !== "" && !base.some((option) => option.value === current))
+    base.push({ value: current, label: current });
   const short = base.length <= 3 && base.every((option) => option.label.length <= 12) && item.hasValue;
   if (short) return <Segmented<string> value={current} options={base} labelledBy={labelId} onChange={onSave} />;
   const options = item.hasValue ? base : [{ value: "", label: t("settings.cfg.unset") }, ...base];
-  return <Select<string> value={current} options={options} labelledBy={labelId} onChange={(next) => next !== "" && onSave(next)} />;
+  return (
+    <Select<string>
+      value={current}
+      options={options}
+      labelledBy={labelId}
+      onChange={(next) => next !== "" && onSave(next)}
+    />
+  );
 }
 
 /** 按 omp 给的类型选控件；凭据另外处理（ConfigRow）。 */

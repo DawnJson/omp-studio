@@ -38,7 +38,14 @@ export function useShortcuts(actions: ShortcutActions): void {
       if (event.ctrlKey && !event.altKey && !event.metaKey) {
         const handlers: Record<string, () => void> = event.shiftKey
           ? { n: act.newTaskInCurrentProject }
-          : { n: act.newTask, k: act.togglePalette, ",": act.openSettings, b: act.toggleSidebar, j: act.jumpToWaiting, l: act.focusComposer };
+          : {
+              n: act.newTask,
+              k: act.togglePalette,
+              ",": act.openSettings,
+              b: act.toggleSidebar,
+              j: act.jumpToWaiting,
+              l: act.focusComposer,
+            };
         const key = event.key.toLowerCase();
         const handler = handlers[key] ?? (/^[1-9]$/.test(key) ? () => act.nthTask(Number(key)) : undefined);
         if (handler) {
@@ -47,7 +54,13 @@ export function useShortcuts(actions: ShortcutActions): void {
         }
         return;
       }
-      if (event.ctrlKey && event.altKey && !event.shiftKey && !event.metaKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+      if (
+        event.ctrlKey &&
+        event.altKey &&
+        !event.shiftKey &&
+        !event.metaKey &&
+        (event.key === "ArrowUp" || event.key === "ArrowDown")
+      ) {
         event.preventDefault();
         act.cycleTask(event.key === "ArrowDown" ? 1 : -1);
         return;

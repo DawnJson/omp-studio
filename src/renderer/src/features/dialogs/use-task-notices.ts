@@ -26,7 +26,12 @@ export function useNeedsYouToasts(): void {
   useEffect(() => {
     const before = previous.current;
     for (const task of tasks) {
-      if (task.status === "needs_you" && before.get(task.id) !== "needs_you" && task.id !== selected && before.has(task.id)) {
+      if (
+        task.status === "needs_you" &&
+        before.get(task.id) !== "needs_you" &&
+        task.id !== selected &&
+        before.has(task.id)
+      ) {
         pushToast({
           level: "warning",
           message: t("toast.needsYou", { task: task.title }),

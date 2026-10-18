@@ -5,10 +5,12 @@ import path from "node:path";
 /** 词法校验并返回绝对路径；越界抛错。不碰磁盘，单测直接用。 */
 export function resolveInside(cwd: string, relPath: string): string {
   if (relPath === "" || relPath.includes("\0")) throw new Error("invalid path");
-  if (path.isAbsolute(relPath) || path.win32.isAbsolute(relPath) || /^[a-zA-Z]:/.test(relPath)) throw new Error("path must be relative to the task directory");
+  if (path.isAbsolute(relPath) || path.win32.isAbsolute(relPath) || /^[a-zA-Z]:/.test(relPath))
+    throw new Error("path must be relative to the task directory");
   const resolved = path.resolve(cwd, relPath);
   const relative = path.relative(cwd, resolved);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("path escapes the task directory");
+  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative))
+    throw new Error("path escapes the task directory");
   return resolved;
 }
 
@@ -17,7 +19,8 @@ export async function resolveInsideReal(cwd: string, relPath: string): Promise<s
   const lexical = resolveInside(cwd, relPath);
   const [realCwd, realFile] = await Promise.all([realpath(cwd), realpath(lexical)]);
   const relative = path.relative(realCwd, realFile);
-  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) throw new Error("path escapes the task directory");
+  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative))
+    throw new Error("path escapes the task directory");
   return realFile;
 }
 
@@ -30,9 +33,52 @@ export async function resolveInsideReal(cwd: string, relPath: string): Promise<s
  * 这是对"双击行为"的判断：用户改过文件关联时无法覆盖；.py 的默认关联我没有在真机上逐一核实，所以宁可不放。
  */
 const openableExtensions = new Set([
-  ".txt", ".md", ".markdown", ".log", ".csv", ".tsv", ".json", ".jsonc", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".lock",
-  ".css", ".scss", ".less", ".ts", ".tsx", ".jsx", ".mts", ".cts", ".rs", ".go", ".java", ".kt", ".c", ".h", ".cpp", ".hpp", ".cs", ".sql", ".diff", ".patch",
-  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".pdf", ".docx", ".xlsx", ".pptx",
+  ".txt",
+  ".md",
+  ".markdown",
+  ".log",
+  ".csv",
+  ".tsv",
+  ".json",
+  ".jsonc",
+  ".yaml",
+  ".yml",
+  ".toml",
+  ".ini",
+  ".cfg",
+  ".conf",
+  ".lock",
+  ".css",
+  ".scss",
+  ".less",
+  ".ts",
+  ".tsx",
+  ".jsx",
+  ".mts",
+  ".cts",
+  ".rs",
+  ".go",
+  ".java",
+  ".kt",
+  ".c",
+  ".h",
+  ".cpp",
+  ".hpp",
+  ".cs",
+  ".sql",
+  ".diff",
+  ".patch",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".bmp",
+  ".ico",
+  ".pdf",
+  ".docx",
+  ".xlsx",
+  ".pptx",
 ]);
 
 /** 在白名单里才可以用系统默认程序直接打开；否则只能"在文件夹中显示"。 */

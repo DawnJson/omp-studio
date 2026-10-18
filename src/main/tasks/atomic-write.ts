@@ -24,7 +24,12 @@ const realOps: AtomicWriteOps = {
   },
 };
 
-export async function writeFileAtomic(file: string, content: string, tempSuffix: string, ops: AtomicWriteOps = realOps): Promise<void> {
+export async function writeFileAtomic(
+  file: string,
+  content: string,
+  tempSuffix: string,
+  ops: AtomicWriteOps = realOps,
+): Promise<void> {
   await mkdir(path.dirname(file), { recursive: true });
   const temp = `${file}.${tempSuffix}.tmp`;
   await writeFile(temp, content, "utf8");

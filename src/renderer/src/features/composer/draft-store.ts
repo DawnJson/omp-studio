@@ -41,7 +41,10 @@ function scheduleSave(key: string, text: string): void {
   if (lastSaved.get(key) === text) return;
   clearTimeout(saveTimers.get(key));
   pendingText.set(key, text);
-  saveTimers.set(key, setTimeout(() => flushKey(key), 400));
+  saveTimers.set(
+    key,
+    setTimeout(() => flushKey(key), 400),
+  );
 }
 
 function flushKey(key: string): void {
@@ -71,17 +74,14 @@ drafts.subscribe(() => {
 
 /** 启动时把已存的草稿读回来；用户在读回来之前已经打过字的 key 不覆盖。 */
 if (typeof window !== "undefined" && "studio" in window) {
-  window.studio.getDrafts().then(
-    (saved) => {
-      const restored: Record<string, Draft> = {};
-      for (const [key, text] of Object.entries(saved)) {
-        lastSaved.set(key, text);
-        if (!touched.has(key)) restored[key] = { text, images: [] };
-      }
-      drafts.set({ ...restored, ...drafts.get() });
-    },
-    reportErrorNow,
-  );
+  window.studio.getDrafts().then((saved) => {
+    const restored: Record<string, Draft> = {};
+    for (const [key, text] of Object.entries(saved)) {
+      lastSaved.set(key, text);
+      if (!touched.has(key)) restored[key] = { text, images: [] };
+    }
+    drafts.set({ ...restored, ...drafts.get() });
+  }, reportErrorNow);
 }
 
 /** 把撤回的排队消息放回草稿末尾（空行分隔，图片作为附件）。 */

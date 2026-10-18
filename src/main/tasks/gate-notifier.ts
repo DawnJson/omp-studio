@@ -21,7 +21,10 @@ export function dialogSummary(dialog: DialogRequest): string {
 }
 
 /** Electron 的 Notification 对象没人引用就可能被回收，之后 click 不再触发：持有到点击或关闭。 */
-export function retainNotification<T extends { on(event: "click" | "close", listener: () => void): unknown }>(held: Set<T>, notification: T): void {
+export function retainNotification<T extends { on(event: "click" | "close", listener: () => void): unknown }>(
+  held: Set<T>,
+  notification: T,
+): void {
   held.add(notification);
   const release = () => held.delete(notification);
   notification.on("click", release);
@@ -47,7 +50,13 @@ export class GateNotifier {
     if (!dialog || this.#deps.windowFocused() || !(await this.#deps.enabled())) return;
     const locale = this.#deps.locale();
     this.#deps.show(
-      { title: t(locale, "notify.title", { project: this.#deps.projectName(state), task: state.title || t(locale, "task.untitled") }), body: t(locale, "notify.body.gate", { title: dialogSummary(dialog) }) },
+      {
+        title: t(locale, "notify.title", {
+          project: this.#deps.projectName(state),
+          task: state.title || t(locale, "task.untitled"),
+        }),
+        body: t(locale, "notify.body.gate", { title: dialogSummary(dialog) }),
+      },
       () => this.#deps.onClick(state.id),
     );
   }

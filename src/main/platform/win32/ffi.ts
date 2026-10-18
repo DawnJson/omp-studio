@@ -133,7 +133,9 @@ function createApi(): Win32Api {
   });
 
   const CreateJobObjectW = kernel32.func("uintptr CreateJobObjectW(void *attributes, str16 name)");
-  const SetInformationJobObject = kernel32.func("bool SetInformationJobObject(uintptr job, int infoClass, _In_ JOBOBJECT_EXTENDED_LIMIT_INFORMATION *info, uint32 size)");
+  const SetInformationJobObject = kernel32.func(
+    "bool SetInformationJobObject(uintptr job, int infoClass, _In_ JOBOBJECT_EXTENDED_LIMIT_INFORMATION *info, uint32 size)",
+  );
   const AssignProcessToJobObject = kernel32.func("bool AssignProcessToJobObject(uintptr job, uintptr process)");
   const IsProcessInJob = kernel32.func("bool IsProcessInJob(uintptr process, uintptr job, _Out_ int *result)");
   const TerminateJobObject = kernel32.func("bool TerminateJobObject(uintptr job, uint32 exitCode)");
@@ -141,18 +143,26 @@ function createApi(): Win32Api {
   const CloseHandle = kernel32.func("bool CloseHandle(uintptr handle)");
 
   // ───── advapi32 ─────
-  const RegOpenKeyExW = advapi32.func("int32 RegOpenKeyExW(uintptr key, str16 subKey, uint32 options, uint32 sam, _Out_ uintptr *result)");
+  const RegOpenKeyExW = advapi32.func(
+    "int32 RegOpenKeyExW(uintptr key, str16 subKey, uint32 options, uint32 sam, _Out_ uintptr *result)",
+  );
   const RegCreateKeyExW = advapi32.func(
     "int32 RegCreateKeyExW(uintptr key, str16 subKey, uint32 reserved, void *className, uint32 options, uint32 sam, void *attributes, _Out_ uintptr *result, _Out_ uint32 *disposition)",
   );
-  const RegQueryValueExW = advapi32.func("int32 RegQueryValueExW(uintptr key, str16 name, void *reserved, _Out_ uint32 *type, void *data, _Inout_ uint32 *size)");
-  const RegSetValueExW = advapi32.func("int32 RegSetValueExW(uintptr key, str16 name, uint32 reserved, uint32 type, void *data, uint32 size)");
+  const RegQueryValueExW = advapi32.func(
+    "int32 RegQueryValueExW(uintptr key, str16 name, void *reserved, _Out_ uint32 *type, void *data, _Inout_ uint32 *size)",
+  );
+  const RegSetValueExW = advapi32.func(
+    "int32 RegSetValueExW(uintptr key, str16 name, uint32 reserved, uint32 type, void *data, uint32 size)",
+  );
   const RegDeleteValueW = advapi32.func("int32 RegDeleteValueW(uintptr key, str16 name)");
   const RegDeleteKeyW = advapi32.func("int32 RegDeleteKeyW(uintptr key, str16 subKey)");
   const RegCloseKey = advapi32.func("int32 RegCloseKey(uintptr key)");
 
   // ───── user32 ─────
-  const SendMessageTimeoutW = user32.func("intptr SendMessageTimeoutW(uintptr hwnd, uint32 msg, uintptr wParam, str16 lParam, uint32 flags, uint32 timeout, _Out_ uintptr *result)");
+  const SendMessageTimeoutW = user32.func(
+    "intptr SendMessageTimeoutW(uintptr hwnd, uint32 msg, uintptr wParam, str16 lParam, uint32 flags, uint32 timeout, _Out_ uintptr *result)",
+  );
 
   const c = win32Constants;
   const num = (value: number | bigint) => Number(value);
@@ -160,7 +170,8 @@ function createApi(): Win32Api {
   return {
     kernel32: {
       CreateJobObjectW: (name) => num(CreateJobObjectW(null, name)),
-      SetInformationJobObject: (job, infoClass, info) => SetInformationJobObject(job, infoClass, info, koffi.sizeof(ExtendedLimit)),
+      SetInformationJobObject: (job, infoClass, info) =>
+        SetInformationJobObject(job, infoClass, info, koffi.sizeof(ExtendedLimit)),
       AssignProcessToJobObject: (job, process) => AssignProcessToJobObject(job, process),
       IsProcessInJob: (process, job) => {
         const out = [0];
@@ -193,7 +204,11 @@ function createApi(): Win32Api {
           const data = Buffer.alloc(size[0] ?? 0);
           status = RegQueryValueExW(hKey, valueName, null, type, data, size);
           if (status === 234) continue;
-          return { status, type: type[0] ?? 0, data: status === c.ERROR_SUCCESS ? data.subarray(0, size[0] ?? 0) : null };
+          return {
+            status,
+            type: type[0] ?? 0,
+            data: status === c.ERROR_SUCCESS ? data.subarray(0, size[0] ?? 0) : null,
+          };
         }
       },
       RegSetValueExW: (hKey, valueName, type, data) => RegSetValueExW(hKey, valueName, 0, type, data, data.length),
@@ -202,11 +217,21 @@ function createApi(): Win32Api {
       RegCloseKey: (hKey) => RegCloseKey(hKey),
     },
     user32: {
-      broadcastSettingChange: (setting, timeoutMs) => num(SendMessageTimeoutW(c.HWND_BROADCAST, c.WM_SETTINGCHANGE, 0, setting, c.SMTO_ABORTIFHUNG, timeoutMs, [0])),
+      broadcastSettingChange: (setting, timeoutMs) =>
+        num(SendMessageTimeoutW(c.HWND_BROADCAST, c.WM_SETTINGCHANGE, 0, setting, c.SMTO_ABORTIFHUNG, timeoutMs, [0])),
       // koffi 的 .async 在线程池里调用，不占主线程（挂起的窗口最长会让同步广播卡 timeoutMs）。
       broadcastSettingChangeAsync: (setting, timeoutMs) => {
         const { promise, resolve, reject } = Promise.withResolvers<number>();
-        SendMessageTimeoutW.async(c.HWND_BROADCAST, c.WM_SETTINGCHANGE, 0, setting, c.SMTO_ABORTIFHUNG, timeoutMs, [0], (error: Error | null, result: number | bigint) => (error ? reject(error) : resolve(num(result))));
+        SendMessageTimeoutW.async(
+          c.HWND_BROADCAST,
+          c.WM_SETTINGCHANGE,
+          0,
+          setting,
+          c.SMTO_ABORTIFHUNG,
+          timeoutMs,
+          [0],
+          (error: Error | null, result: number | bigint) => (error ? reject(error) : resolve(num(result))),
+        );
         return promise;
       },
     },

@@ -17,7 +17,13 @@ import type {
   TranscriptBatch,
   TranscriptSnapshot,
 } from "../../shared/ipc.ts";
-import type { AvailableSlashCommand, PromptParams, RpcServerFrame, SessionState, ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type {
+  AvailableSlashCommand,
+  PromptParams,
+  RpcServerFrame,
+  SessionState,
+  ThinkingLevel,
+} from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { log } from "../log/log.ts";
 import { RpcProtocolError } from "../omp/frame-decoder.ts";
 import type { OmpExit, OmpLaunch } from "../omp/omp-connection.ts";
@@ -104,7 +110,9 @@ export class TaskRunner {
     this.#project = project;
     this.#host = host;
     this.#sessionPersistable = record.sessionFile !== null;
-    this.#model = record.model ? { key: record.model, name: record.model.modelId, contextWindow: null, reasoning: false, acceptsImages: false } : null;
+    this.#model = record.model
+      ? { key: record.model, name: record.model.modelId, contextWindow: null, reasoning: false, acceptsImages: false }
+      : null;
     this.#thinkingLevel = record.thinkingLevel;
     this.#batcher = new EventBatcher((batch) => {
       if (!this.#disposed) host.onTranscript({ taskId: record.id, ...batch });
@@ -131,7 +139,12 @@ export class TaskRunner {
 
   /** 可回收：idle、没有未答对话框、omp 报告已安静且没有后台任务（arch 2.3）。前台任务由池排除。 */
   get recyclable(): boolean {
-    return this.#machine.status === "idle" && this.#machine.dialogs.length === 0 && this.#sessionSettled && this.#inflight === 0;
+    return (
+      this.#machine.status === "idle" &&
+      this.#machine.dialogs.length === 0 &&
+      this.#sessionSettled &&
+      this.#inflight === 0
+    );
   }
 
   get state(): TaskState {
@@ -205,7 +218,8 @@ export class TaskRunner {
   }
 
   async #start(): Promise<void> {
-    if (this.#machine.status !== "stopped" && this.#machine.status !== "error") throw new Error(`cannot start a task that is ${this.#machine.status}`);
+    if (this.#machine.status !== "stopped" && this.#machine.status !== "error")
+      throw new Error(`cannot start a task that is ${this.#machine.status}`);
     this.#closing = false;
     this.#apply({ type: "start" });
     let connection: OmpConnection | null = null;
@@ -247,7 +261,10 @@ export class TaskRunner {
     try {
       return await this.#host.buildLaunch(this.#record, this.#project);
     } catch (error) {
-      throw new TaskStartError({ kind: "omp_unavailable", message: error instanceof Error ? error.message : String(error) });
+      throw new TaskStartError({
+        kind: "omp_unavailable",
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -268,17 +285,29 @@ export class TaskRunner {
     if (resumeSessionFile !== undefined && this.#batcher.snapshot().transcript.items.length === 0) {
       const messages = await loadHistory(connection);
       this.#batcher.push([{ type: "history", messages }]);
-      if (this.#record.title === "") this.#record = await this.#host.persist(this.id, { title: titleFromPrompt(firstUserText(messages)) });
+      if (this.#record.title === "")
+        this.#record = await this.#host.persist(this.id, { title: titleFromPrompt(firstUserText(messages)) });
     }
   }
 
   #classifyStartError(error: unknown): TaskError {
     const message = error instanceof Error ? error.message : String(error);
     if (error instanceof TooManyTasksError) return { kind: "too_many_tasks", message };
-    if (error instanceof RpcCommandError && error.command === "switch_session" && /restore model/i.test(error.message)) return { kind: "restore_model_failed", message };
-    if (error instanceof OmpExitedError && error.exit.error && "code" in error.exit.error && error.exit.error.code === "ENOENT") return { kind: "spawn_failed", message };
-    if (error instanceof OmpExitedError && error.exit.code === null && error.exit.stderrTail === "") return { kind: "spawn_failed", message };
-    return { kind: "handshake_failed", message: this.#withStderr(message, error instanceof OmpExitedError ? error.exit.stderrTail : "") };
+    if (error instanceof RpcCommandError && error.command === "switch_session" && /restore model/i.test(error.message))
+      return { kind: "restore_model_failed", message };
+    if (
+      error instanceof OmpExitedError &&
+      error.exit.error &&
+      "code" in error.exit.error &&
+      error.exit.error.code === "ENOENT"
+    )
+      return { kind: "spawn_failed", message };
+    if (error instanceof OmpExitedError && error.exit.code === null && error.exit.stderrTail === "")
+      return { kind: "spawn_failed", message };
+    return {
+      kind: "handshake_failed",
+      message: this.#withStderr(message, error instanceof OmpExitedError ? error.exit.stderrTail : ""),
+    };
   }
 
   #withStderr(message: string, stderrTail: string): string {
@@ -304,7 +333,10 @@ export class TaskRunner {
     // 启动阶段的退出由 #start 的 catch 处理（它会把状态设成 error）。
     if (this.#machine.status === "starting") return;
     const protocol = exit.error instanceof RpcProtocolError;
-    const message = this.#withStderr(exit.error?.message ?? `omp exited with ${exit.code ?? exit.signal}`, exit.stderrTail);
+    const message = this.#withStderr(
+      exit.error?.message ?? `omp exited with ${exit.code ?? exit.signal}`,
+      exit.stderrTail,
+    );
     log.warn(`task ${this.id} omp exited unexpectedly`, { kind: protocol ? "protocol" : "exited", message });
     this.#apply({ type: "failed", error: { kind: protocol ? "protocol" : "exited", message } });
   }
@@ -371,7 +403,14 @@ export class TaskRunner {
         this.#sessionPersistable = true;
         if (frame.sessionSettled) this.#settleEpoch++;
         this.#batcher.push(translateFrame(frame, gen, at));
-        this.#apply({ type: "prompt_result", status: frame.status, sessionSettled: frame.sessionSettled, at, foreground: this.#host.isForeground(this.id), ...(frame.error && { error: frame.error }) });
+        this.#apply({
+          type: "prompt_result",
+          status: frame.status,
+          sessionSettled: frame.sessionSettled,
+          at,
+          foreground: this.#host.isForeground(this.id),
+          ...(frame.error && { error: frame.error }),
+        });
         void this.#refreshState();
         return;
       case "session_settled":
@@ -399,7 +438,12 @@ export class TaskRunner {
         this.#apply({ type: "dialog_close", id: frame.targetId });
         return;
       case "notify":
-        this.#host.onNotice({ taskId: this.id, kind: "toast", level: frame.notifyType ?? "info", message: frame.message });
+        this.#host.onNotice({
+          taskId: this.id,
+          kind: "toast",
+          level: frame.notifyType ?? "info",
+          message: frame.message,
+        });
         return;
       case "set_editor_text":
         this.#host.onNotice({ taskId: this.id, kind: "editor_text", text: frame.text });
@@ -419,11 +463,19 @@ export class TaskRunner {
     this.#contextUsage = state.contextUsage ?? null;
     if (state.model) this.#model = toModelOption(state.model);
     this.#thinkingLevel = state.thinkingLevel ?? this.#thinkingLevel;
-    if (options.adoptQueue && state.queuedMessages) this.#queue = { steering: state.queuedMessages.steering, followUp: state.queuedMessages.followUp };
+    if (options.adoptQueue && state.queuedMessages)
+      this.#queue = { steering: state.queuedMessages.steering, followUp: state.queuedMessages.followUp };
     const patch: Partial<Omit<TaskRecord, "id">> = {};
-    if (this.#sessionPersistable && state.sessionFile && state.sessionFile !== this.#record.sessionFile) patch.sessionFile = state.sessionFile;
-    if (this.#model && (this.#record.model?.provider !== this.#model.key.provider || this.#record.model?.modelId !== this.#model.key.modelId)) patch.model = this.#model.key;
-    if (this.#thinkingLevel && this.#thinkingLevel !== this.#record.thinkingLevel) patch.thinkingLevel = this.#thinkingLevel;
+    if (this.#sessionPersistable && state.sessionFile && state.sessionFile !== this.#record.sessionFile)
+      patch.sessionFile = state.sessionFile;
+    if (
+      this.#model &&
+      (this.#record.model?.provider !== this.#model.key.provider ||
+        this.#record.model?.modelId !== this.#model.key.modelId)
+    )
+      patch.model = this.#model.key;
+    if (this.#thinkingLevel && this.#thinkingLevel !== this.#record.thinkingLevel)
+      patch.thinkingLevel = this.#thinkingLevel;
     if (Object.keys(patch).length > 0) this.#record = await this.#host.persist(this.id, patch);
   }
 
@@ -448,7 +500,10 @@ export class TaskRunner {
     this.#refreshing = true;
     try {
       // 一起等：进程中途退出时两个请求同时 reject，不能留一个没人等的。
-      const [thinking, state] = await Promise.all([connection.request("get_available_thinking_levels"), connection.request("get_state")]);
+      const [thinking, state] = await Promise.all([
+        connection.request("get_available_thinking_levels"),
+        connection.request("get_state"),
+      ]);
       this.#lastStateAt = Date.now();
       if (this.#connection !== connection) return;
       this.#thinkingLevels = thinking.levels;
@@ -456,7 +511,13 @@ export class TaskRunner {
       this.#publish(false);
     } catch (error) {
       // 进程在查询中途退出由 #onExit 报告；其余错误（协议层面的失败应答）不应被吞掉，但也不该让任务进入 error。
-      if (!(error instanceof OmpExitedError)) this.#host.onNotice({ taskId: this.id, kind: "toast", level: "warning", message: error instanceof Error ? error.message : String(error) });
+      if (!(error instanceof OmpExitedError))
+        this.#host.onNotice({
+          taskId: this.id,
+          kind: "toast",
+          level: "warning",
+          message: error instanceof Error ? error.message : String(error),
+        });
     } finally {
       this.#refreshing = false;
       if (this.#refreshAgain) {
@@ -502,19 +563,32 @@ export class TaskRunner {
     const params: PromptParams = {
       message: input.text,
       streamingBehavior: input.whenBusy,
-      ...(input.images && { images: input.images.map((image) => ({ type: "image" as const, data: image.data, mimeType: image.mimeType })) }),
+      ...(input.images && {
+        images: input.images.map((image) => ({ type: "image" as const, data: image.data, mimeType: image.mimeType })),
+      }),
     };
     const limit = connection.maxFrameBytes ?? DEFAULT_MAX_FRAME_BYTES;
-    if (Buffer.byteLength(JSON.stringify({ ...params, id: "req-0000000", type: "prompt" })) > limit) throw new Error(`message is larger than the ${limit}-byte frame limit`);
-    if (this.#record.title === "") this.#record = await this.#host.persist(this.id, { title: titleFromPrompt(input.text) });
+    if (Buffer.byteLength(JSON.stringify({ ...params, id: "req-0000000", type: "prompt" })) > limit)
+      throw new Error(`message is larger than the ${limit}-byte frame limit`);
+    if (this.#record.title === "")
+      this.#record = await this.#host.persist(this.id, { title: titleFromPrompt(input.text) });
     const epoch = this.#settleEpoch;
     try {
       const ack = await connection.request("prompt", params);
       // 应答之后这一轮已经跑完并 settled（同一数据块里的帧先于这里的续体处理）：不能再把任务置回 running。
-      if (this.#settleEpoch === epoch) this.#apply({ type: "prompt_accepted", agentInvoked: ack?.agentInvoked !== false });
+      if (this.#settleEpoch === epoch)
+        this.#apply({ type: "prompt_accepted", agentInvoked: ack?.agentInvoked !== false });
     } catch (error) {
       if (error instanceof RpcCommandError) {
-        this.#batcher.push([{ type: "prompt_result", promptId: "", status: "error", error: { message: error.message, retryable: false }, at: Date.now() }]);
+        this.#batcher.push([
+          {
+            type: "prompt_result",
+            promptId: "",
+            status: "error",
+            error: { message: error.message, retryable: false },
+            at: Date.now(),
+          },
+        ]);
         this.#apply({ type: "prompt_rejected", message: error.message, at: Date.now() });
       }
       throw error;

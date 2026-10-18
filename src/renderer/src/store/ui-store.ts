@@ -17,7 +17,12 @@ interface UiState {
   settingsSection: SettingsSection | null;
 }
 
-const uiStore = createStore<UiState>({ selectedTaskId: null, view: "conversation", paletteOpen: false, settingsSection: null });
+const uiStore = createStore<UiState>({
+  selectedTaskId: null,
+  view: "conversation",
+  paletteOpen: false,
+  settingsSection: null,
+});
 
 /** 切到某个任务并回到对话视图。openTask 失败时 reject（任务自己的 error 状态由 taskState 事件带来），选中状态保留。 */
 export async function selectTask(taskId: TaskId): Promise<void> {

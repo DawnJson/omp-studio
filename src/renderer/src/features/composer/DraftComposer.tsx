@@ -1,7 +1,15 @@
 // 草稿输入框（空状态里的输入框）：还没有任务，发送第一条时才创建任务。
 // 胶囊改的是"新任务默认值"（settings 的 defaultModel / defaultThinkingLevel / defaultApprovalMode），没有进程所以不调 setTask*。
 import { reportError } from "../../ui/errors.ts";
-import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type DragEvent,
+  type KeyboardEvent,
+} from "react";
 import type { DefaultModelInfo, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -51,7 +59,10 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
     field.style.height = `${field.scrollHeight}px`;
   }, [draft.text]);
 
-  const model = (models ?? []).find((m) => m.key.provider === settings?.defaultModel?.provider && m.key.modelId === settings?.defaultModel?.modelId) ?? null;
+  const model =
+    (models ?? []).find(
+      (m) => m.key.provider === settings?.defaultModel?.provider && m.key.modelId === settings?.defaultModel?.modelId,
+    ) ?? null;
 
   const send = async () => {
     const current = getDraft(key);
@@ -66,7 +77,11 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
         ...(settings?.defaultApprovalMode ? { approvalMode: settings.defaultApprovalMode } : {}),
       });
       await selectTask(task.id);
-      await window.studio.sendPrompt(task.id, { text, ...(current.images.length > 0 ? { images: [...current.images] } : {}), whenBusy: "steer" });
+      await window.studio.sendPrompt(task.id, {
+        text,
+        ...(current.images.length > 0 ? { images: [...current.images] } : {}),
+        whenBusy: "steer",
+      });
       setDraft(key, { text: "", images: [] });
     } catch (error) {
       reportError(t, error, t("msg.sendFailed"));
@@ -85,7 +100,15 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     const action = decideEnter(
-      { key: event.key, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey, altKey: event.altKey, isComposing: event.nativeEvent.isComposing, keyCode: event.keyCode },
+      {
+        key: event.key,
+        shiftKey: event.shiftKey,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        altKey: event.altKey,
+        isComposing: event.nativeEvent.isComposing,
+        keyCode: event.keyCode,
+      },
       { running: false, gate: false, hasContent, swapped: false },
     );
     if (action !== "send") return;
@@ -108,7 +131,10 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
   return (
     <div className="composer-stack" data-testid="draft-composer" data-draft>
       <div className="composer" onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
-        <Attachments images={draft.images} onRemove={(index) => setDraft(key, { text: draft.text, images: draft.images.filter((_, i) => i !== index) })} />
+        <Attachments
+          images={draft.images}
+          onRemove={(index) => setDraft(key, { text: draft.text, images: draft.images.filter((_, i) => i !== index) })}
+        />
         <textarea
           ref={fieldRef}
           className="composer-field"
@@ -123,24 +149,55 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
           onPaste={onPaste}
         />
         <div className="composer-tools">
-          <button type="button" className="tool-btn" aria-label={t("composer.attach")} title={t("composer.attach")} onClick={() => fileRef.current?.click()}>
+          <button
+            type="button"
+            className="tool-btn"
+            aria-label={t("composer.attach")}
+            title={t("composer.attach")}
+            onClick={() => fileRef.current?.click()}
+          >
             <Plus size={16} />
           </button>
-          <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(event) => { void addFiles(event.target.files ?? []); event.target.value = ""; }} />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(event) => {
+              void addFiles(event.target.files ?? []);
+              event.target.value = "";
+            }}
+          />
           <ModelChip
             model={model}
             thinkingLevel={settings?.defaultThinkingLevel ?? omp?.thinkingLevel ?? null}
             thinkingLevels={levels}
             running={false}
             // 没有指定默认模型时，新任务会用 omp 自己的默认：有可用模型就写"默认模型"，确实一个都没有才是"未连接"。
-            {...(omp ? { emptyLabel: omp.name } : models !== null && models.length > 0 ? { emptyLabel: t("composer.defaultModel") } : {})}
+            {...(omp
+              ? { emptyLabel: omp.name }
+              : models !== null && models.length > 0
+                ? { emptyLabel: t("composer.defaultModel") }
+                : {})}
             loadModels={() => window.studio.listModels()}
             setModel={(modelKey) => window.studio.setDefaultModel(modelKey)}
             setThinking={(level) => window.studio.setDefaultThinkingLevel(level)}
           />
-          <ApprovalChip mode={settings?.defaultApprovalMode ?? null} locked={false} onChange={(mode) => window.studio.setDefaultApprovalMode(mode)} />
+          <ApprovalChip
+            mode={settings?.defaultApprovalMode ?? null}
+            locked={false}
+            onChange={(mode) => window.studio.setDefaultApprovalMode(mode)}
+          />
           <span className="composer-spacer" />
-          <SendStop running={false} stopping={false} hasContent={hasContent} disabled={sending} onSend={() => void send()} onStop={() => undefined} />
+          <SendStop
+            running={false}
+            stopping={false}
+            hasContent={hasContent}
+            disabled={sending}
+            onSend={() => void send()}
+            onStop={() => undefined}
+          />
         </div>
       </div>
     </div>

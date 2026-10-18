@@ -67,7 +67,8 @@ interface JsonEntry {
 const configTypes: readonly OmpConfigType[] = ["boolean", "enum", "number", "string", "array", "record"];
 
 function jsonEntries(json: unknown): [string, JsonEntry][] {
-  if (typeof json !== "object" || json === null || Array.isArray(json)) throw new Error("`omp config list --json` did not print an object");
+  if (typeof json !== "object" || json === null || Array.isArray(json))
+    throw new Error("`omp config list --json` did not print an object");
   return Object.entries(json as Record<string, JsonEntry>);
 }
 

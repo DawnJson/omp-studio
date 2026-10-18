@@ -13,10 +13,20 @@ const VISIBLE = 5;
 function splitPath(path: string): { dir: string; name: string } {
   const normalized = path.replaceAll("\\", "/");
   const slash = normalized.lastIndexOf("/");
-  return slash === -1 ? { dir: "", name: normalized } : { dir: normalized.slice(0, slash + 1), name: normalized.slice(slash + 1) };
+  return slash === -1
+    ? { dir: "", name: normalized }
+    : { dir: normalized.slice(0, slash + 1), name: normalized.slice(slash + 1) };
 }
 
-export const ChangeCard = memo(function ChangeCard({ changes, taskId, projectPath }: { changes: readonly FileChange[]; taskId: TaskId; projectPath: string | null }) {
+export const ChangeCard = memo(function ChangeCard({
+  changes,
+  taskId,
+  projectPath,
+}: {
+  changes: readonly FileChange[];
+  taskId: TaskId;
+  projectPath: string | null;
+}) {
   const t = useT();
   const [expanded, setExpanded] = useState(changes.length <= VISIBLE);
   const [menu, setMenu] = useState(false);
@@ -32,7 +42,12 @@ export const ChangeCard = memo(function ChangeCard({ changes, taskId, projectPat
   return (
     <section className="change" data-anchor data-testid="change-card">
       <header className="change-head">
-        <button type="button" className="change-toggle" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
+        <button
+          type="button"
+          className="change-toggle"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           <span>{t("change.summary", { count: changes.length })}</span>
           {known.length > 0 && (
@@ -43,7 +58,14 @@ export const ChangeCard = memo(function ChangeCard({ changes, taskId, projectPat
           )}
         </button>
         <div className="pop-anchor">
-          <button type="button" className="tool-btn" aria-label={t("change.menu")} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((value) => !value)}>
+          <button
+            type="button"
+            className="tool-btn"
+            aria-label={t("change.menu")}
+            aria-haspopup="menu"
+            aria-expanded={menu}
+            onClick={() => setMenu((value) => !value)}
+          >
             <Dots size={16} />
           </button>
           <Popover open={menu} onClose={() => setMenu(false)} width={200} align="end" label={t("change.menu")}>
@@ -51,7 +73,9 @@ export const ChangeCard = memo(function ChangeCard({ changes, taskId, projectPat
               type="button"
               className="pop-item"
               onClick={() => {
-                navigator.clipboard.writeText(changes.map((change) => change.path).join("\n")).then(() => setCopied(true), report);
+                navigator.clipboard
+                  .writeText(changes.map((change) => change.path).join("\n"))
+                  .then(() => setCopied(true), report);
                 setMenu(false);
               }}
             >
@@ -66,25 +90,54 @@ export const ChangeCard = memo(function ChangeCard({ changes, taskId, projectPat
             const { dir, name } = splitPath(change.path);
             const rel = relativeToProject(change.path, projectPath);
             return (
-              <li key={change.path} className="change-file" title={change.path} onContextMenu={rel === null ? undefined : (event) => {
-                event.preventDefault();
-                reveal(rel);
-              }}>
-                <button type="button" className="change-open" disabled={rel === null} aria-label={`${t("change.open")}: ${change.path}`} onClick={() => rel !== null && open(rel)}>
-                  <span className="change-path"><span className="change-dir">{dir}</span><span className="change-name">{name}</span></span>
+              <li
+                key={change.path}
+                className="change-file"
+                title={change.path}
+                onContextMenu={
+                  rel === null
+                    ? undefined
+                    : (event) => {
+                        event.preventDefault();
+                        reveal(rel);
+                      }
+                }
+              >
+                <button
+                  type="button"
+                  className="change-open"
+                  disabled={rel === null}
+                  aria-label={`${t("change.open")}: ${change.path}`}
+                  onClick={() => rel !== null && open(rel)}
+                >
+                  <span className="change-path">
+                    <span className="change-dir">{dir}</span>
+                    <span className="change-name">{name}</span>
+                  </span>
                   {change.added !== null && (
-                    <span className="change-nums"><span className="change-add">+{change.added}</span> <span className="change-del">−{change.removed ?? 0}</span></span>
+                    <span className="change-nums">
+                      <span className="change-add">+{change.added}</span>{" "}
+                      <span className="change-del">−{change.removed ?? 0}</span>
+                    </span>
                   )}
                 </button>
                 {rel !== null && (
-                  <button type="button" className="change-reveal" aria-label={t("change.reveal")} title={t("change.reveal")} onClick={() => reveal(rel)}>
+                  <button
+                    type="button"
+                    className="change-reveal"
+                    aria-label={t("change.reveal")}
+                    title={t("change.reveal")}
+                    onClick={() => reveal(rel)}
+                  >
                     <FileIcon size={14} />
                   </button>
                 )}
               </li>
             );
           })}
-          {changes.length > VISIBLE && <li className="change-more">{t("change.more", { n: changes.length - VISIBLE })}</li>}
+          {changes.length > VISIBLE && (
+            <li className="change-more">{t("change.more", { n: changes.length - VISIBLE })}</li>
+          )}
         </ul>
       )}
     </section>

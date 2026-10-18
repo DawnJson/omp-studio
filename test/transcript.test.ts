@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { AgentMessage, AssistantContent, RpcServerFrame } from "../src/shared/omp-wire/rpc-wire.generated.ts";
-import { applyTranscriptEvent, emptyTranscript, type AssistantDelta, type Transcript, type TranscriptEvent } from "../src/shared/transcript.ts";
+import {
+  applyTranscriptEvent,
+  emptyTranscript,
+  type AssistantDelta,
+  type Transcript,
+  type TranscriptEvent,
+} from "../src/shared/transcript.ts";
 
 const fixtures = ["simple-reply", "bash-tool"];
 
@@ -13,12 +19,14 @@ interface RecordedLine {
 
 function readOutFrames(name: string): RpcServerFrame[] {
   const file = path.join(import.meta.dirname, "..", "fixtures", "rpc", `${name}.ndjson`);
-  return readFileSync(file, "utf8")
-    .split("\n")
-    .filter((line) => line.length > 0)
-    // 录制文件是本仓库自己写的 NDJSON，每行的形状见 docs/architecture/rpc-replay.md。
-    .map((line): RecordedLine => JSON.parse(line))
-    .flatMap((line) => (line.kind === "out" && line.frame ? [line.frame] : []));
+  return (
+    readFileSync(file, "utf8")
+      .split("\n")
+      .filter((line) => line.length > 0)
+      // 录制文件是本仓库自己写的 NDJSON，每行的形状见 docs/architecture/rpc-replay.md。
+      .map((line): RecordedLine => JSON.parse(line))
+      .flatMap((line) => (line.kind === "out" && line.frame ? [line.frame] : []))
+  );
 }
 
 /** 假装主进程：把 omp 帧翻译成 TranscriptEvent（去掉 partial，不转发 toolcall_delta）。真正的翻译在任务运行时里。 */
@@ -58,7 +66,9 @@ function toEvents(frame: RpcServerFrame, at: number): TranscriptEvent[] {
     case "tool_execution_update":
       return [{ type: "tool_update", toolCallId: frame.toolCallId, partialResult: frame.partialResult }];
     case "tool_execution_end":
-      return [{ type: "tool_end", toolCallId: frame.toolCallId, result: frame.result, isError: frame.isError ?? false, at }];
+      return [
+        { type: "tool_end", toolCallId: frame.toolCallId, result: frame.result, isError: frame.isError ?? false, at },
+      ];
     default:
       return [];
   }
@@ -67,7 +77,8 @@ function toEvents(frame: RpcServerFrame, at: number): TranscriptEvent[] {
 /** 比较流式累积出的内容和 omp 的最终内容：文本、思考、工具调用的 id/name/arguments。 */
 function comparable(content: AssistantContent[]): unknown[] {
   return content.map((block) => {
-    if (block.type === "toolCall") return { type: block.type, id: block.id, name: block.name, arguments: block.arguments };
+    if (block.type === "toolCall")
+      return { type: block.type, id: block.id, name: block.name, arguments: block.arguments };
     if (block.type === "text") return { type: block.type, text: block.text };
     if (block.type === "thinking") return { type: block.type, thinking: block.thinking };
     return block;
@@ -136,20 +147,32 @@ describe("transcript reducer 边界", () => {
     const user: AgentMessage = { role: "user", content: "hi", timestamp: 5 };
     let transcript = applyTranscriptEvent(emptyTranscript(), { type: "history", messages: [user] });
     transcript = applyTranscriptEvent(transcript, { type: "message_start", key: "0:msg-1", message: user, at: 10 });
-    expect(transcript.items.map((item) => (item.kind === "message" ? item.key : item.kind))).toEqual(["h:0", "0:msg-1"]);
+    expect(transcript.items.map((item) => (item.kind === "message" ? item.key : item.kind))).toEqual([
+      "h:0",
+      "0:msg-1",
+    ]);
     expect(transcript.indexByKey).toEqual({ "h:0": 0, "0:msg-1": 1 });
   });
 
   it("tool_update 不重建消息列表（渲染进程靠引用相等跳过重绘）", () => {
     let transcript = replay("bash-tool", () => {});
     const items = transcript.items;
-    transcript = applyTranscriptEvent(transcript, { type: "tool_update", toolCallId: Object.keys(transcript.tools)[0] ?? "", partialResult: "x" });
+    transcript = applyTranscriptEvent(transcript, {
+      type: "tool_update",
+      toolCallId: Object.keys(transcript.tools)[0] ?? "",
+      partialResult: "x",
+    });
     expect(transcript.items).toBe(items);
   });
 
   it("prompt_result 失败时错误落成一项；成功和中止不产生", () => {
     let transcript = emptyTranscript();
-    transcript = applyTranscriptEvent(transcript, { type: "prompt_result", promptId: "p1", status: "completed", at: 1 });
+    transcript = applyTranscriptEvent(transcript, {
+      type: "prompt_result",
+      promptId: "p1",
+      status: "completed",
+      at: 1,
+    });
     transcript = applyTranscriptEvent(transcript, { type: "prompt_result", promptId: "p2", status: "aborted", at: 2 });
     expect(transcript.items).toEqual([]);
     transcript = applyTranscriptEvent(transcript, {
@@ -159,6 +182,8 @@ describe("transcript reducer 边界", () => {
       error: { message: "boom", retryable: false },
       at: 3,
     });
-    expect(transcript.items).toEqual([{ kind: "prompt_error", promptId: "p3", error: { message: "boom", retryable: false }, at: 3 }]);
+    expect(transcript.items).toEqual([
+      { kind: "prompt_error", promptId: "p3", error: { message: "boom", retryable: false }, at: 3 },
+    ]);
   });
 });

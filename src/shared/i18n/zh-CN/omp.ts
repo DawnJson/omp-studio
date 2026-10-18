@@ -57,8 +57,10 @@ export const omp = {
   retry: "重试",
   openSettings: "打开设置",
   "missing.title": "需要安装 omp",
-  "missing.body": "omp-studio 不内置 omp。可以由 omp-studio 从 {source} 下载并管理一份官方版本（约 {size}），放到用户 PATH 最前面，让终端也能用，之后自动更新。",
-  "missing.bodyNoSize": "omp-studio 不内置 omp。可以由 omp-studio 从 {source} 下载并管理一份官方版本，放到用户 PATH 最前面，让终端也能用，之后自动更新。",
+  "missing.body":
+    "omp-studio 不内置 omp。可以由 omp-studio 从 {source} 下载并管理一份官方版本（约 {size}），放到用户 PATH 最前面，让终端也能用，之后自动更新。",
+  "missing.bodyNoSize":
+    "omp-studio 不内置 omp。可以由 omp-studio 从 {source} 下载并管理一份官方版本，放到用户 PATH 最前面，让终端也能用，之后自动更新。",
   "missing.titleVersion": "需要安装 omp {version}",
   install: "下载并安装",
   recheck: "我已安装，重新检测",

@@ -52,7 +52,7 @@ export function encodeSingleStreamPatch(
   }
 
   // rle0：交替 [零差值个数][非零段长度][非零段字节]，从零段开始
-  for (let i = 0; i < diffs.length; ) {
+  for (let i = 0; i < diffs.length;) {
     let z = 0;
     while (i + z < diffs.length && diffs[i + z] === 0) z++;
     packUInt(rleBuf, z, 0, 0);
@@ -70,7 +70,8 @@ export function encodeSingleStreamPatch(
   packUInt(stepHead, rleBuf.length, 0, 0);
   const data = Buffer.concat([Buffer.from(stepHead), Buffer.from(coverBuf), Buffer.from(rleBuf), ...gapChunks]);
   const packed = compress === "zstd" ? zstdCompressSync(data) : data;
-  if (compress === "zstd" && packed.length > data.length) throw new Error("zstd 压缩后反而更大，头约束 compressedSize<=uncompressedSize 不成立");
+  if (compress === "zstd" && packed.length > data.length)
+    throw new Error("zstd 压缩后反而更大，头约束 compressedSize<=uncompressedSize 不成立");
 
   const head: number[] = [...Buffer.from(`HDIFFSF20&${compress}\0`, "latin1")];
   packUInt(head, newData.length, 0, 0);

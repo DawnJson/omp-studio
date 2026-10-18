@@ -59,12 +59,14 @@ export function pathKey(value: string): string {
 /** 标题和提示文本：只留第一个非空行，去掉控制字符，限长。 */
 function sanitizeText(value: string): string | null {
   for (const line of value.split(/\r?\n/)) {
-    const cleaned = line.replace(/\p{Cc}/gu, " ").replace(/\s+/g, " ").trim();
+    const cleaned = line
+      .replace(/\p{Cc}/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
     if (cleaned !== "") return cleaned.length > MAX_TEXT_CHARS ? `${cleaned.slice(0, MAX_TEXT_CHARS)}…` : cleaned;
   }
   return null;
 }
-
 
 function userMessageText(entry: Record<string, unknown>): string | null {
   const message = entry["message"];
@@ -248,7 +250,15 @@ export class SessionIndex {
       session:
         head === null
           ? null
-          : { id: head.id, file, cwd: head.cwd, title: head.title, firstPrompt: head.firstPrompt, modifiedAt: info.mtimeMs, size: info.size },
+          : {
+              id: head.id,
+              file,
+              cwd: head.cwd,
+              title: head.title,
+              firstPrompt: head.firstPrompt,
+              modifiedAt: info.mtimeMs,
+              size: info.size,
+            },
     };
     this.cache.set(file, entry);
     return entry;
@@ -256,7 +266,9 @@ export class SessionIndex {
 }
 
 function errorCode(error: unknown): string | undefined {
-  return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
+  return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
+    ? error.code
+    : undefined;
 }
 
 function isMissing(error: unknown): boolean {

@@ -1,7 +1,12 @@
 // 每个任务一个：缓冲 TranscriptEvent，合并相邻 delta，16 ms 或攒满 64 个时一次推送；同时维护权威快照。
 // 快照只反映已经推送出去的批次，`snapshot()` 先冲刷再返回，所以 `seq` 永远和已发批次对得上
 // （渲染进程要求 firstSeq === 本地 seq + 1，见 ipc.ts TranscriptBatch）。
-import { applyTranscriptEvent, emptyTranscript, type Transcript, type TranscriptEvent } from "../../shared/transcript.ts";
+import {
+  applyTranscriptEvent,
+  emptyTranscript,
+  type Transcript,
+  type TranscriptEvent,
+} from "../../shared/transcript.ts";
 
 export const BATCH_INTERVAL_MS = 16;
 export const BATCH_MAX_EVENTS = 64;
@@ -28,7 +33,10 @@ export function coalesceEvents(events: TranscriptEvent[]): TranscriptEvent[] {
     if (event.type === "message_delta" && previous?.type === "message_delta" && previous.key === event.key) {
       const a = previous.delta;
       const b = event.delta;
-      if ((a.type === "text_delta" && b.type === "text_delta") || (a.type === "thinking_delta" && b.type === "thinking_delta")) {
+      if (
+        (a.type === "text_delta" && b.type === "text_delta") ||
+        (a.type === "thinking_delta" && b.type === "thinking_delta")
+      ) {
         if (a.contentIndex === b.contentIndex) {
           out[out.length - 1] = { ...event, delta: { ...b, delta: a.delta + b.delta } };
           return;

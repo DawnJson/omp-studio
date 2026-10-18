@@ -13,7 +13,14 @@ afterAll(async () => {
   await rm(scratch, { recursive: true, force: true });
 });
 
-const newTask = (projectId: ProjectId) => ({ projectId, sessionFile: null, title: "t", model: null, thinkingLevel: null, approvalMode: "write" as const });
+const newTask = (projectId: ProjectId) => ({
+  projectId,
+  sessionFile: null,
+  title: "t",
+  model: null,
+  thinkingLevel: null,
+  approvalMode: "write" as const,
+});
 
 describe("TaskRegistry（tasks.json）", () => {
   it("重启后项目和任务（含重命名、归档）原样恢复，目录和标题可以带空格和中文", async () => {
@@ -27,7 +34,12 @@ describe("TaskRegistry（tasks.json）", () => {
     const second = new TaskRegistry(file);
     await second.load();
     expect(second.listProjects()).toEqual([project]);
-    expect(second.findTask(task.id)).toMatchObject({ title: "重命名 后", archived: true, sessionFile: "x.jsonl", worktreePath: null });
+    expect(second.findTask(task.id)).toMatchObject({
+      title: "重命名 后",
+      archived: true,
+      sessionFile: "x.jsonl",
+      worktreePath: null,
+    });
   });
 
   it("同一个目录只加一次（路径写法不同、Windows 上大小写不同也算同一个）", async () => {
@@ -61,7 +73,9 @@ describe("TaskRegistry（tasks.json）", () => {
     const dir = path.join(scratch, "d");
     const registry = new TaskRegistry(path.join(dir, "tasks.json"));
     const project = await registry.addProject(scratch);
-    await Promise.all(Array.from({ length: 10 }, (_, i) => registry.addTask({ ...newTask(project.id), title: `t${i}` })));
+    await Promise.all(
+      Array.from({ length: 10 }, (_, i) => registry.addTask({ ...newTask(project.id), title: `t${i}` })),
+    );
     expect(await readdir(dir)).toEqual(["tasks.json"]);
     const reloaded = new TaskRegistry(path.join(dir, "tasks.json"));
     await reloaded.load();

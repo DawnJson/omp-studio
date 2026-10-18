@@ -42,7 +42,11 @@ export function startUpdates(): void {
     // electron-updater 除了更新地址，还要从 app-update.yml 读 updaterCacheDirName（下载缓存目录）。
     // 构建里没有这个文件时，检查能过、开始下载时 ENOENT。把覆盖配置写到 userData 再指过去。
     const written = path.join(app.getPath("userData"), "app-update.yml");
-    writeFileSync(written, `provider: generic\nurl: ${JSON.stringify(override)}\nupdaterCacheDirName: omp-studio-updater\n`, "utf8");
+    writeFileSync(
+      written,
+      `provider: generic\nurl: ${JSON.stringify(override)}\nupdaterCacheDirName: omp-studio-updater\n`,
+      "utf8",
+    );
     autoUpdater.updateConfigPath = written;
   }
 

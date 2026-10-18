@@ -14,16 +14,41 @@ interface SendStopProps {
 export function SendStop({ running, stopping, hasContent, disabled, onSend, onStop }: SendStopProps) {
   const t = useT();
   const stop = (
-    <button type="button" className="send" data-kind="stop" data-outline={hasContent || undefined} disabled={stopping} aria-label={stopping ? t("composer.stopping") : t("composer.stop")} title={stopping ? t("composer.stopping") : t("composer.stop")} data-testid="stop-button" onClick={onStop}>
+    <button
+      type="button"
+      className="send"
+      data-kind="stop"
+      data-outline={hasContent || undefined}
+      disabled={stopping}
+      aria-label={stopping ? t("composer.stopping") : t("composer.stop")}
+      title={stopping ? t("composer.stopping") : t("composer.stop")}
+      data-testid="stop-button"
+      onClick={onStop}
+    >
       <span className="send-square" aria-hidden="true" />
     </button>
   );
   const send = (
-    <button type="button" className="send" data-kind="send" disabled={disabled || !hasContent} aria-label={t("composer.send")} title={t("composer.send")} data-testid="send-button" onClick={onSend}>
+    <button
+      type="button"
+      className="send"
+      data-kind="send"
+      disabled={disabled || !hasContent}
+      aria-label={t("composer.send")}
+      title={t("composer.send")}
+      data-testid="send-button"
+      onClick={onSend}
+    >
       <ArrowUp size={16} />
     </button>
   );
   if (running && !hasContent) return stop;
-  if (running) return <>{stop}{send}</>;
+  if (running)
+    return (
+      <>
+        {stop}
+        {send}
+      </>
+    );
   return send;
 }

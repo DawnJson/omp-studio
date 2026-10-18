@@ -57,7 +57,8 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
   const phase = useMemo(() => {
     for (let index = items.length - 1; index >= 0; index -= 1) {
       const item = items[index];
-      if (item?.kind === "status_line") return item.phase === "start" ? (item.statusKind === "compaction" ? "compacting" : "retrying") : null;
+      if (item?.kind === "status_line")
+        return item.phase === "start" ? (item.statusKind === "compaction" ? "compacting" : "retrying") : null;
     }
     return null;
   }, [items]);
@@ -66,7 +67,11 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
   useEffect(() => {
     const copyLast = () => {
       const answer = [...turns].reverse().find((turn) => turn.answer !== null)?.answer;
-      if (answer) void navigator.clipboard.writeText(answer.text).then(() => pushToast({ message: t("common.copied") }), (cause: unknown) => reportError(t, cause));
+      if (answer)
+        void navigator.clipboard.writeText(answer.text).then(
+          () => pushToast({ message: t("common.copied") }),
+          (cause: unknown) => reportError(t, cause),
+        );
     };
     const stop = onStudioCommand((command) => command === "copyLast" && copyLast());
     const onKey = (event: KeyboardEvent) => {
@@ -114,7 +119,9 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
   }, [busy, lastTurn, t]);
 
   const liveFor = (turn: Turn): LiveProps | null =>
-    busy && task && turn === lastTurn ? { status: task.status, waitingSince, phase, subagentsRunning: task.runningSubagents } : null;
+    busy && task && turn === lastTurn
+      ? { status: task.status, waitingSince, phase, subagentsRunning: task.runningSubagents }
+      : null;
 
   return (
     <div className="conversation" data-testid="conversation" data-task-id={taskId}>
@@ -129,15 +136,26 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
       >
         <div ref={column} className="column">
           {turns.map((turn, index) => (
-            <TurnView key={turn.key} turn={turn} live={liveFor(turn)} offscreenSkippable={index < turns.length - RECENT_TURNS} taskId={taskId} projectPath={projectPath} />
+            <TurnView
+              key={turn.key}
+              turn={turn}
+              live={liveFor(turn)}
+              offscreenSkippable={index < turns.length - RECENT_TURNS}
+              taskId={taskId}
+              projectPath={projectPath}
+            />
           ))}
-          {busy && turns.length === 0 && task?.status === "starting" && <p className="note">{t("conversation.starting")}</p>}
+          {busy && turns.length === 0 && task?.status === "starting" && (
+            <p className="note">{t("conversation.starting")}</p>
+          )}
           {task?.error && <ConversationError taskId={taskId} error={task.error} />}
           <div className="column-end" />
         </div>
       </div>
       <OverlayScrollbar target={scroller} />
-      <div className="sr-only" aria-live="polite">{announce}</div>
+      <div className="sr-only" aria-live="polite">
+        {announce}
+      </div>
       {showJump && (
         <button type="button" className="jump" onClick={scrollToBottom} data-testid="jump-latest">
           {t("scroll.latest")}

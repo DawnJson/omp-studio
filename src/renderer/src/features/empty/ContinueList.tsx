@@ -27,7 +27,9 @@ export function ContinueList({ sessions, error, retry }: SessionsState) {
     return (
       <div className="empty-continue empty-continue-error" role="alert" title={errorDetail(error)}>
         <span className="empty-error">{t("history.listFailed", { message: describeError(t, error) })}</span>
-        <button type="button" className="empty-link" onClick={retry}>{t("common.retry")}</button>
+        <button type="button" className="empty-link" onClick={retry}>
+          {t("common.retry")}
+        </button>
       </div>
     );
   }
@@ -35,17 +37,32 @@ export function ContinueList({ sessions, error, retry }: SessionsState) {
 
   return (
     <section className="empty-continue" aria-labelledby="empty-continue-title">
-      <h2 id="empty-continue-title" className="empty-section-title">{t("empty.continue")}</h2>
+      <h2 id="empty-continue-title" className="empty-section-title">
+        {t("empty.continue")}
+      </h2>
       <ul className="empty-list">
         {sessions.map((session) => (
           <li key={session.id}>
-            <button type="button" className="empty-session" data-testid="empty-session" aria-busy={resuming === session.id} disabled={resuming !== null} onClick={() => resume(session)}>
+            <button
+              type="button"
+              className="empty-session"
+              data-testid="empty-session"
+              aria-busy={resuming === session.id}
+              disabled={resuming !== null}
+              onClick={() => resume(session)}
+            >
               {session.taskId === null && (
-                <span className="empty-terminal-mark" title={t("empty.fromTerminal")} aria-label={t("empty.fromTerminal")}>
+                <span
+                  className="empty-terminal-mark"
+                  title={t("empty.fromTerminal")}
+                  aria-label={t("empty.fromTerminal")}
+                >
                   &gt;_
                 </span>
               )}
-              <span className="empty-session-title">{session.title ?? session.firstPrompt ?? t("history.untitled")}</span>
+              <span className="empty-session-title">
+                {session.title ?? session.firstPrompt ?? t("history.untitled")}
+              </span>
               <span className="empty-session-time">{formatTaskTime(t, locale, session.modifiedAt, now)}</span>
             </button>
           </li>

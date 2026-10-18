@@ -55,7 +55,17 @@ export function InfoTip({ children }: { children: ReactNode }) {
           setShown(false);
         }}
       >
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="var(--icon-stroke)" strokeLinecap="round" aria-hidden="true" focusable="false">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="var(--icon-stroke)"
+          strokeLinecap="round"
+          aria-hidden="true"
+          focusable="false"
+        >
           <circle cx="8" cy="8" r="6" />
           <path d="M8 7.2v3.6" />
           <circle cx="8" cy="5" r=".4" />

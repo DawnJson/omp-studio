@@ -1,6 +1,11 @@
 // Shiki（JS 正则引擎，不用 WASM）+ CSS 变量主题：深浅主题不重新高亮，颜色直接取设计 token（markdown.css 里把 --shiki-* 映射到 --syn-*）。
 // 高亮器和语言包都是按需异步加载；没加载完时调用方先显示纯文本，加载完只改颜色。
-import { createCssVariablesTheme, createHighlighterCore, type HighlighterCore, type LanguageRegistration } from "shiki/core";
+import {
+  createCssVariablesTheme,
+  createHighlighterCore,
+  type HighlighterCore,
+  type LanguageRegistration,
+} from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 
 export interface HighlightToken {
@@ -86,7 +91,9 @@ export function resolveLanguage(lang: string): string | null {
 
 function getHighlighter(): Promise<HighlighterCore> {
   highlighter ??= createHighlighterCore({
-    themes: [createCssVariablesTheme({ name: themeName, variablePrefix: "--shiki-", variableDefaults: {}, fontStyle: true })],
+    themes: [
+      createCssVariablesTheme({ name: themeName, variablePrefix: "--shiki-", variableDefaults: {}, fontStyle: true }),
+    ],
     langs: [],
     engine: createJavaScriptRegexEngine(),
   });

@@ -134,7 +134,10 @@ function applyAssistantDelta(message: AssistantMessage, delta: AssistantDelta): 
     case "thinking_delta": {
       const block = content[delta.contentIndex];
       const thinking = block?.type === "thinking" ? block : { type: "thinking" as const, thinking: "" };
-      return { ...message, content: setBlock(content, delta.contentIndex, { ...thinking, thinking: thinking.thinking + delta.delta }) };
+      return {
+        ...message,
+        content: setBlock(content, delta.contentIndex, { ...thinking, thinking: thinking.thinking + delta.delta }),
+      };
     }
     case "text_end": {
       const block = content[delta.contentIndex];
@@ -149,7 +152,10 @@ function applyAssistantDelta(message: AssistantMessage, delta: AssistantDelta): 
     case "image_end":
       return { ...message, content: setBlock(content, delta.contentIndex, delta.content) };
     case "toolcall_start":
-      return { ...message, content: setBlock(content, delta.contentIndex, { type: "toolCall", id: "", name: "", arguments: {} }) };
+      return {
+        ...message,
+        content: setBlock(content, delta.contentIndex, { type: "toolCall", id: "", name: "", arguments: {} }),
+      };
     case "toolcall_end":
       return { ...message, content: setBlock(content, delta.contentIndex, delta.toolCall) };
     case "start":
@@ -177,14 +183,24 @@ export function applyTranscriptEvent(t: Transcript, event: TranscriptEvent): Tra
       return { items, indexByKey, tools: {}, runs: [] };
     }
     case "run_start":
-      return { ...t, runs: [...t.runs, { startedAt: event.at, endedAt: null, yielded: false, toolCalls: 0, subagents: 0 }] };
+      return {
+        ...t,
+        runs: [...t.runs, { startedAt: event.at, endedAt: null, yielded: false, toolCalls: 0, subagents: 0 }],
+      };
     case "run_end":
       return withRun(t, (run) => (run.endedAt === null ? { ...run, endedAt: event.at, yielded: event.yielded } : run));
     case "message_start": {
       const isAssistant = event.message.role === "assistant";
       // omp 的 message_start 在 assistant 消息上带的是当时的（可能已是最终的）content；块由随后的 delta 重建，这里清空，避免重复追加。
       const message = event.message.role === "assistant" ? { ...event.message, content: [] } : event.message;
-      return upsertMessage(t, { kind: "message", key: event.key, message, streaming: isAssistant, at: event.at, endedAt: null });
+      return upsertMessage(t, {
+        kind: "message",
+        key: event.key,
+        message,
+        streaming: isAssistant,
+        at: event.at,
+        endedAt: null,
+      });
     }
     case "message_delta": {
       const item = messageAt(t, event.key);
@@ -227,7 +243,12 @@ export function applyTranscriptEvent(t: Transcript, event: TranscriptEvent): Tra
     case "tool_end": {
       const run = t.tools[event.toolCallId];
       if (!run) return t;
-      const done: ToolRun = { ...run, status: event.isError ? "error" : "done", result: event.result, endedAt: event.at };
+      const done: ToolRun = {
+        ...run,
+        status: event.isError ? "error" : "done",
+        result: event.result,
+        endedAt: event.at,
+      };
       return { ...t, tools: { ...t.tools, [event.toolCallId]: done } };
     }
     case "subagent":

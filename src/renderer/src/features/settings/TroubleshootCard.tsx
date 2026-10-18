@@ -24,7 +24,10 @@ export function TroubleshootCard() {
     <Card testId="about-troubleshoot">
       <SettingRow title={t("settings.about.logs")} desc={t("settings.about.logs.desc")}>
         {() => (
-          <Button onClick={() => void window.studio.openLogsFolder().catch((error: unknown) => reportError(t, error))} testId="open-logs">
+          <Button
+            onClick={() => void window.studio.openLogsFolder().catch((error: unknown) => reportError(t, error))}
+            testId="open-logs"
+          >
             {t("settings.about.openLogs")}
           </Button>
         )}

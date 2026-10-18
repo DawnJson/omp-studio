@@ -67,7 +67,9 @@ export function ApprovalChip({ mode: current, locked, onChange }: ApprovalChipPr
             <p className="pop-title">{t("approval.yoloConfirmTitle")}</p>
             <p className="pop-note">{t("approval.yoloConfirmBody")}</p>
             <div className="pop-actions">
-              <button type="button" className="gate-btn" onClick={() => setConfirming(false)}>{t("common.cancel")}</button>
+              <button type="button" className="gate-btn" onClick={() => setConfirming(false)}>
+                {t("common.cancel")}
+              </button>
               <button
                 type="button"
                 className="gate-btn"

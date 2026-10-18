@@ -13,7 +13,11 @@ export interface RowState {
   fallbackEnv?: string;
 }
 
-export type ConfigLoad = { kind: "idle" } | { kind: "loading" } | { kind: "ready"; snapshot: OmpConfigSnapshot } | { kind: "error"; error: unknown };
+export type ConfigLoad =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "ready"; snapshot: OmpConfigSnapshot }
+  | { kind: "error"; error: unknown };
 
 interface ConfigState {
   load: ConfigLoad;
@@ -52,8 +56,14 @@ function applyResult(result: OmpConfigWriteResult): void {
   const state = store.get();
   if (state.load.kind !== "ready") return;
   const snapshot = state.load.snapshot;
-  const items = snapshot.items.map((item): OmpConfigItem => (item.key === result.key ? { ...item, value: result.value, hasValue: result.hasValue } : item));
-  const row: RowState = { phase: "saved", ...(result.overriddenBy && { overriddenBy: result.overriddenBy }), ...(result.fallbackEnv && { fallbackEnv: result.fallbackEnv }) };
+  const items = snapshot.items.map((item): OmpConfigItem =>
+    item.key === result.key ? { ...item, value: result.value, hasValue: result.hasValue } : item,
+  );
+  const row: RowState = {
+    phase: "saved",
+    ...(result.overriddenBy && { overriddenBy: result.overriddenBy }),
+    ...(result.fallbackEnv && { fallbackEnv: result.fallbackEnv }),
+  };
   store.set({ load: { kind: "ready", snapshot: { ...snapshot, items } }, rows: { ...state.rows, [result.key]: row } });
   clearTimeout(savedTimers.get(result.key));
   // "已保存"只亮一会儿；被覆盖的提示要一直留着，所以只有普通的保存成功才淡出。

@@ -40,7 +40,8 @@ export class UnsupportedOmpLauncherError extends Error {
 export async function findOmpOnPath(env: NodeJS.ProcessEnv = process.env): Promise<string | null> {
   const isWindows = process.platform === "win32";
   // Windows 上环境变量名不区分大小写，常见的是 `Path`。
-  const read = (name: string) => env[Object.keys(env).find((key) => (isWindows ? key.toUpperCase() === name : key === name)) ?? name];
+  const read = (name: string) =>
+    env[Object.keys(env).find((key) => (isWindows ? key.toUpperCase() === name : key === name)) ?? name];
   const dirs = (read("PATH") ?? "").split(path.delimiter).filter(Boolean);
   const extensions = isWindows ? (read("PATHEXT") ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean) : [""];
   for (const dir of dirs) {
@@ -53,7 +54,8 @@ export async function findOmpOnPath(env: NodeJS.ProcessEnv = process.env): Promi
         continue;
       }
       const resolved = await realpath(candidate);
-      if (isWindows && ![".exe", ".com"].includes(path.extname(resolved).toLowerCase())) throw new UnsupportedOmpLauncherError(resolved);
+      if (isWindows && ![".exe", ".com"].includes(path.extname(resolved).toLowerCase()))
+        throw new UnsupportedOmpLauncherError(resolved);
       return resolved;
     }
   }
@@ -63,7 +65,9 @@ export async function findOmpOnPath(env: NodeJS.ProcessEnv = process.env): Promi
 /** 执行 `omp --version` 并读 `manager.json`。 */
 export async function inspectOmp(exePath: string): Promise<OmpInstall> {
   const { promise, resolve, reject } = Promise.withResolvers<string>();
-  execFile(exePath, ["--version"], { timeout: 15_000, windowsHide: true }, (error, stdout) => (error ? reject(error) : resolve(stdout)));
+  execFile(exePath, ["--version"], { timeout: 15_000, windowsHide: true }, (error, stdout) =>
+    error ? reject(error) : resolve(stdout),
+  );
   const output = await promise;
   const version = /^omp\/(\S+)/m.exec(output)?.[1];
   if (!version) throw new Error(`unexpected \`omp --version\` output: ${output.slice(0, 200)}`);
@@ -87,7 +91,8 @@ async function readManager(exePath: string): Promise<OmpManager | null> {
     // 内容不是 JSON：不是一个有效的管理者声明，按未受管处理。
     return null;
   }
-  if (typeof json !== "object" || json === null || !("manager" in json) || typeof json.manager !== "string") return null;
+  if (typeof json !== "object" || json === null || !("manager" in json) || typeof json.manager !== "string")
+    return null;
   const name = "name" in json && typeof json.name === "string" ? json.name : json.manager;
   return { id: json.manager, name };
 }

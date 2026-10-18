@@ -27,7 +27,8 @@ export function rendererEntryUrl(): string {
 export function isAppUrl(url: string): boolean {
   const entry = new URL(rendererEntryUrl());
   const target = new URL(url);
-  if (entry.protocol === "app:") return target.protocol === "app:" && target.host === entry.host && target.pathname === entry.pathname;
+  if (entry.protocol === "app:")
+    return target.protocol === "app:" && target.host === entry.host && target.pathname === entry.pathname;
   return target.origin === entry.origin;
 }
 
@@ -65,7 +66,8 @@ export function createMainWindow(): BrowserWindow {
 
   window.once("ready-to-show", () => window.show());
   // 主题切换（设置或系统）时，系统三键的底色和符号色跟着顶栏走。
-  const syncTitleBar = () => window.setTitleBarOverlay({ ...titleBarColors(nativeTheme.shouldUseDarkColors), height: titleBarHeight });
+  const syncTitleBar = () =>
+    window.setTitleBarOverlay({ ...titleBarColors(nativeTheme.shouldUseDarkColors), height: titleBarHeight });
   nativeTheme.on("updated", syncTitleBar);
   window.once("closed", () => nativeTheme.off("updated", syncTitleBar));
   blockZoom(window.webContents);

@@ -13,16 +13,26 @@ function createContext(streaming: boolean, t: TFunction): RenderContext {
     openLink: (href) => {
       window.studio.openExternal(href).catch((error: unknown) => reportError(t, error));
     },
-    renderCode: ({ code, lang, closed }): ReactNode => <CodeBlock code={code} lang={lang} closed={closed} streaming={streaming} />,
+    renderCode: ({ code, lang, closed }): ReactNode => (
+      <CodeBlock code={code} lang={lang} closed={closed} streaming={streaming} />
+    ),
   };
 }
 
 const Block = memo(
   function Block({ block, streaming, t }: { block: MarkdownBlock; streaming: boolean; t: TFunction }) {
     const context = useMemo(() => createContext(streaming, t), [streaming, t]);
-    return <div className="md-block" data-anchor>{renderBlock(block, context)}</div>;
+    return (
+      <div className="md-block" data-anchor>
+        {renderBlock(block, context)}
+      </div>
+    );
   },
-  (prev, next) => prev.streaming === next.streaming && prev.t === next.t && prev.block.src === next.block.src && prev.block.closed === next.block.closed,
+  (prev, next) =>
+    prev.streaming === next.streaming &&
+    prev.t === next.t &&
+    prev.block.src === next.block.src &&
+    prev.block.closed === next.block.closed,
 );
 
 export function Markdown({ source, streaming = false }: { source: string; streaming?: boolean }) {

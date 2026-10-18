@@ -13,9 +13,21 @@ let scratch: string;
 let fixture: string;
 
 const frames = [
-  { kind: "out", frame: { type: "ready", protocolVersion: 1, supportedProtocolVersions: [1, 2], maxFrameBytes: 1048576, maxReassembledFrameBytes: 67108864 } },
+  {
+    kind: "out",
+    frame: {
+      type: "ready",
+      protocolVersion: 1,
+      supportedProtocolVersions: [1, 2],
+      maxFrameBytes: 1048576,
+      maxReassembledFrameBytes: 67108864,
+    },
+  },
   { kind: "in", frame: { type: "negotiate_protocol", id: "n" } },
-  { kind: "out", frame: { type: "response", command: "negotiate_protocol", id: "n", success: true, data: { protocolVersion: 2 } } },
+  {
+    kind: "out",
+    frame: { type: "response", command: "negotiate_protocol", id: "n", success: true, data: { protocolVersion: 2 } },
+  },
   { kind: "grandchild" },
   { kind: "hang" },
 ];
@@ -50,7 +62,10 @@ async function waitUntil(condition: () => boolean, timeoutMs: number): Promise<b
 
 /** 起一个"主进程"，等它报告 omp 和孙进程的 pid，然后把它强杀（TerminateProcess，不给任何清理机会）。 */
 async function killHostAndReport(mode: "job" | "nojob"): Promise<{ omp: number; grandchild: number }> {
-  const child = spawn(process.execPath, [host, fixture, mode], { stdio: ["ignore", "pipe", "inherit"], windowsHide: true });
+  const child = spawn(process.execPath, [host, fixture, mode], {
+    stdio: ["ignore", "pipe", "inherit"],
+    windowsHide: true,
+  });
   const lines = createInterface({ input: child.stdout })[Symbol.asyncIterator]();
   const first = await lines.next();
   if (first.done) throw new Error("job-host exited before reporting pids");
@@ -80,8 +95,14 @@ describe.skipIf(process.platform !== "win32")("Job Object：主进程被强杀�
   });
 
   it("assignToAppJob 之后 IsProcessInJob 为真，没分配的进程为假", async () => {
-    const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 60_000)"], { stdio: "ignore", windowsHide: true });
-    const bystander = spawn(process.execPath, ["-e", "setInterval(() => {}, 60_000)"], { stdio: "ignore", windowsHide: true });
+    const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 60_000)"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    const bystander = spawn(process.execPath, ["-e", "setInterval(() => {}, 60_000)"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
     try {
       expect(assignToAppJob(child.pid)).toBe(true);
       expect(isInAppJob(child.pid!)).toBe(true);

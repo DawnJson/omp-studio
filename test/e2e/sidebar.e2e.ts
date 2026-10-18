@@ -14,7 +14,13 @@ const minute = 60_000;
 const projectA = { id: "pa" as ProjectId, path: "E:\\研究 项目\\my app", name: "my app" };
 const projectB = { id: "pb" as ProjectId, path: "E:\\work\\api server", name: "api server" };
 
-function makeTask(id: string, projectId: ProjectId, title: string, ageMinutes: number, patch: Partial<TaskState> = {}): TaskState {
+function makeTask(
+  id: string,
+  projectId: ProjectId,
+  title: string,
+  ageMinutes: number,
+  patch: Partial<TaskState> = {},
+): TaskState {
   return {
     id: id as TaskId,
     projectId,
@@ -40,7 +46,11 @@ function makeTask(id: string, projectId: ProjectId, title: string, ageMinutes: n
 
 const tasks: TaskState[] = [
   makeTask("t1", projectA.id, "修复登录页的 bug", 3, { status: "needs_you" }),
-  makeTask("t2", projectA.id, "重构数据层", 8, { status: "running", runningSubagents: 2, runStartedAt: now - 5 * minute }),
+  makeTask("t2", projectA.id, "重构数据层", 8, {
+    status: "running",
+    runningSubagents: 2,
+    runStartedAt: now - 5 * minute,
+  }),
   makeTask("t3", projectA.id, "整理日志格式", 40, { unread: true }),
   makeTask("t4", projectA.id, "升级依赖", 130, { status: "error", error: { kind: "exited", message: "omp 退出了" } }),
   makeTask("t5", projectA.id, "写发布说明", 60 * 26),
@@ -50,14 +60,20 @@ const tasks: TaskState[] = [
   makeTask("t9", projectB.id, "Write API docs", 300),
 ];
 
-const headerLine = (id: string, cwd: string) => `${JSON.stringify({ type: "session", version: 3, id, timestamp: "2026-10-18T00:00:00.000Z", cwd })}\n`;
-const userLine = (text: string) => `${JSON.stringify({ type: "message", id: "a1", parentId: null, message: { role: "user", content: [{ type: "text", text }] } })}\n`;
+const headerLine = (id: string, cwd: string) =>
+  `${JSON.stringify({ type: "session", version: 3, id, timestamp: "2026-10-18T00:00:00.000Z", cwd })}\n`;
+const userLine = (text: string) =>
+  `${JSON.stringify({ type: "message", id: "a1", parentId: null, message: { role: "user", content: [{ type: "text", text }] } })}\n`;
 
 async function makeAgentDir(): Promise<string> {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp 会话 agent-"));
   const bucket = path.join(agentDir, "sessions", "--E--研究 项目-my app--");
   await mkdir(bucket, { recursive: true });
-  await writeFile(path.join(bucket, "a_terminal.jsonl"), headerLine("sess-terminal", projectA.path) + userLine("在终端里排查内存泄漏"), "utf8");
+  await writeFile(
+    path.join(bucket, "a_terminal.jsonl"),
+    headerLine("sess-terminal", projectA.path) + userLine("在终端里排查内存泄漏"),
+    "utf8",
+  );
   await writeFile(path.join(bucket, "b_broken.jsonl"), "{损坏的会话文件\n", "utf8");
   return agentDir;
 }
@@ -86,7 +102,16 @@ async function stubMain(app: Awaited<ReturnType<typeof launchApp>>["app"], local
       stub("getShellState", () => ({ sidebarWidth: 264, sidebarCollapsed: false, collapsedProjects: [] }));
       stub("setShellState", () => undefined);
     },
-    { locale, projects: [projectA, projectB], tasks, transcript: emptyTranscript(), slash: [{ name: "compact", source: "builtin", description: "Compact the context" }, { name: "model", source: "builtin", input: { hint: "<model>" } }] },
+    {
+      locale,
+      projects: [projectA, projectB],
+      tasks,
+      transcript: emptyTranscript(),
+      slash: [
+        { name: "compact", source: "builtin", description: "Compact the context" },
+        { name: "model", source: "builtin", input: { hint: "<model>" } },
+      ],
+    },
   );
 }
 
@@ -98,11 +123,30 @@ async function mainCalls(app: Awaited<ReturnType<typeof launchApp>>["app"], name
 }
 
 const text = {
-  "zh-CN": { newTask: "新任务", waitingMany: "2 个任务在等你", settings: "设置", archived: "已归档", undo: "撤销", sessions: "会话", placeholder: "搜索任务或命令…" },
-  en: { newTask: "New task", waitingMany: "2 tasks waiting for you", settings: "Settings", archived: "Archived", undo: "Undo", sessions: "Sessions", placeholder: "Search tasks or commands…" },
+  "zh-CN": {
+    newTask: "新任务",
+    waitingMany: "2 个任务在等你",
+    settings: "设置",
+    archived: "已归档",
+    undo: "撤销",
+    sessions: "会话",
+    placeholder: "搜索任务或命令…",
+  },
+  en: {
+    newTask: "New task",
+    waitingMany: "2 tasks waiting for you",
+    settings: "Settings",
+    archived: "Archived",
+    undo: "Undo",
+    sessions: "Sessions",
+    placeholder: "Search tasks or commands…",
+  },
 } as const;
 
-for (const [locale, colorScheme] of [["zh-CN", "light"], ["en", "dark"]] as const) {
+for (const [locale, colorScheme] of [
+  ["zh-CN", "light"],
+  ["en", "dark"],
+] as const) {
   test(`侧栏和命令面板：${locale} / ${colorScheme}`, async () => {
     const agentDir = await makeAgentDir();
     const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
@@ -163,8 +207,12 @@ for (const [locale, colorScheme] of [["zh-CN", "light"], ["en", "dark"]] as cons
       await page.keyboard.press("ArrowRight");
       await expect(rows).toHaveCount(6);
       // 折叠状态写进主进程的外壳状态（不是 localStorage）；运行中的任务行显示已运行时长。
-      expect((await mainCalls(app, "setShellState")).map((args) => args[0])).toContainEqual({ collapsedProjects: ["pa"] });
-      await expect(sidebar.getByTestId("task-row").filter({ hasText: "重构数据层" })).toContainText(locale === "zh-CN" ? "5 分钟" : "5m");
+      expect((await mainCalls(app, "setShellState")).map((args) => args[0])).toContainEqual({
+        collapsedProjects: ["pa"],
+      });
+      await expect(sidebar.getByTestId("task-row").filter({ hasText: "重构数据层" })).toContainText(
+        locale === "zh-CN" ? "5 分钟" : "5m",
+      );
 
       await page.screenshot({ path: path.join(screenshotsDir, `sidebar-${locale}-${colorScheme}.png`) });
 
@@ -201,7 +249,9 @@ for (const [locale, colorScheme] of [["zh-CN", "light"], ["en", "dark"]] as cons
       await page.keyboard.press("Delete");
       await expect(rowByTitle(page, "升级依赖")).toHaveCount(0);
       expect(await mainCalls(app, "archiveTask")).toEqual([]);
-      await expect.poll(async () => (await mainCalls(app, "archiveTask")).map((args) => args[0]), { timeout: 15_000 }).toEqual(["t4"]);
+      await expect
+        .poll(async () => (await mainCalls(app, "archiveTask")).map((args) => args[0]), { timeout: 15_000 })
+        .toEqual(["t4"]);
     } finally {
       await launched.close();
       await rm(agentDir, { recursive: true, force: true });

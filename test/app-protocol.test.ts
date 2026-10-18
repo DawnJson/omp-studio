@@ -24,7 +24,8 @@ describe("resolveAppFile", () => {
   ])("%s 不会指到 renderer 目录之外", (url) => {
     // URL 解析会把 %2e%2e 折叠成根下的路径（仍在目录内）；要么拒绝，要么必须落在 renderer 目录里。
     const file = resolveAppFile(url);
-    if (file !== null) expect(file.startsWith(path.dirname(resolveAppFile("app://studio/index.html") ?? "") + path.sep)).toBe(true);
+    if (file !== null)
+      expect(file.startsWith(path.dirname(resolveAppFile("app://studio/index.html") ?? "") + path.sep)).toBe(true);
   });
 
   it("其他主机和协议被拒绝", () => {

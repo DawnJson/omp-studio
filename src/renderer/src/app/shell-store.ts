@@ -9,7 +9,12 @@ interface ShellUiState extends ShellState {
   drawerOpen: boolean;
 }
 
-const shellStore = createStore<ShellUiState>({ sidebarWidth: defaultSidebarWidth, sidebarCollapsed: false, collapsedProjects: [], drawerOpen: false });
+const shellStore = createStore<ShellUiState>({
+  sidebarWidth: defaultSidebarWidth,
+  sidebarCollapsed: false,
+  collapsedProjects: [],
+  drawerOpen: false,
+});
 
 export function startShellStore(): void {
   window.studio.getShellState().then(

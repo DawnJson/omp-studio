@@ -8,8 +8,15 @@ import { emptyTranscript, type TranscriptEvent } from "../src/shared/transcript.
 
 const taskId = "t1" as TaskId;
 const notice = (n: number): TranscriptEvent => ({ type: "notice", level: "info", message: `m${n}`, at: n });
-const batch = (firstSeq: number, count: number): TranscriptBatch => ({ taskId, firstSeq, events: Array.from({ length: count }, (_, i) => notice(firstSeq + i)) });
-const messages = (outcome: ReturnType<typeof planBatch>) => (outcome.kind === "apply" ? outcome.mirror.transcript.items.map((item) => (item.kind === "notice" ? item.message : "?")) : null);
+const batch = (firstSeq: number, count: number): TranscriptBatch => ({
+  taskId,
+  firstSeq,
+  events: Array.from({ length: count }, (_, i) => notice(firstSeq + i)),
+});
+const messages = (outcome: ReturnType<typeof planBatch>) =>
+  outcome.kind === "apply"
+    ? outcome.mirror.transcript.items.map((item) => (item.kind === "notice" ? item.message : "?"))
+    : null;
 
 describe("对话流镜像同步", () => {
   const mirror = { seq: 2, transcript: emptyTranscript() };
@@ -43,7 +50,11 @@ describe("门的倒计时", () => {
 
 describe("ask 门的半成品答案", () => {
   it("按请求 id 存着：门卸载再挂载后还在，答复后清掉", () => {
-    updateAskDraft("ask-1", 2, (draft) => ({ ...draft, step: 1, states: draft.states.map((s, i) => (i === 0 ? { ...s, selected: ["Go"] } : s)) }));
+    updateAskDraft("ask-1", 2, (draft) => ({
+      ...draft,
+      step: 1,
+      states: draft.states.map((s, i) => (i === 0 ? { ...s, selected: ["Go"] } : s)),
+    }));
     expect(getAskDraft("ask-1")?.step).toBe(1);
     expect(getAskDraft("ask-1")?.states[0]?.selected).toEqual(["Go"]);
     expect(getAskDraft("ask-2")).toBeUndefined();
@@ -51,4 +62,3 @@ describe("ask 门的半成品答案", () => {
     expect(getAskDraft("ask-1")).toBeUndefined();
   });
 });
-

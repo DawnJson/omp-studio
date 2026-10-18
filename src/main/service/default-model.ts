@@ -7,7 +7,16 @@ import { log } from "../log/log.ts";
 import { serviceOmp } from "./service-omp.ts";
 
 /** 这些设置变了，默认模型/思考强度可能跟着变。 */
-const watchedKeys = new Set(["modelRoles", "modelRoleStorage", "defaultThinkingLevel", "enabledModels", "enabledProviders", "disabledProviders", "modelProviderOrder", "modelPresets"]);
+const watchedKeys = new Set([
+  "modelRoles",
+  "modelRoleStorage",
+  "defaultThinkingLevel",
+  "enabledModels",
+  "enabledProviders",
+  "disabledProviders",
+  "modelProviderOrder",
+  "modelPresets",
+]);
 /** config.yml 写完到 RPC 进程重载完的缓冲。 */
 const reloadDelayMs = 700;
 
@@ -15,7 +24,11 @@ export async function readDefaultModel(): Promise<DefaultModelInfo | null> {
   try {
     const state = await serviceOmp.use((connection) => connection.request("get_state"));
     if (!state.model) return null;
-    return { key: { provider: state.model.provider, modelId: state.model.id }, name: state.model.name, thinkingLevel: state.thinkingLevel ?? null };
+    return {
+      key: { provider: state.model.provider, modelId: state.model.id },
+      name: state.model.name,
+      thinkingLevel: state.thinkingLevel ?? null,
+    };
   } catch (error) {
     // 服务进程起不来（omp 没就绪、没有任何可用模型）：界面按"没有默认模型"处理。
     log.warn("get_state on the service process failed", error instanceof Error ? error.message : error);

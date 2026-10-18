@@ -24,7 +24,10 @@ export function GateAsk({ dialog, busy, respond, primaryRef }: GateBodyProps<Ext
 
   const update = (patch: Partial<QuestionState>) => {
     setShowRequired(false);
-    updateDraft((current) => ({ ...current, states: current.states.map((item, index) => (index === step ? { ...item, ...patch } : item)) }));
+    updateDraft((current) => ({
+      ...current,
+      states: current.states.map((item, index) => (index === step ? { ...item, ...patch } : item)),
+    }));
   };
 
   const valid = (index: number): boolean => {
@@ -38,7 +41,10 @@ export function GateAsk({ dialog, busy, respond, primaryRef }: GateBodyProps<Ext
     const answers: AskAnswer[] = questions.map((q, index) => {
       const s = states[index] ?? emptyState;
       const custom = s.otherOn && s.custom.trim() !== "" ? s.custom.trim() : null;
-      const base: AskAnswer = { id: q.id, selectedOptions: q.options.map((option) => option.label).filter((label) => s.selected.includes(label)) };
+      const base: AskAnswer = {
+        id: q.id,
+        selectedOptions: q.options.map((option) => option.label).filter((label) => s.selected.includes(label)),
+      };
       return custom === null ? base : { ...base, customInput: custom };
     });
     respond({ kind: "answers", answers });
@@ -64,7 +70,12 @@ export function GateAsk({ dialog, busy, respond, primaryRef }: GateBodyProps<Ext
   if (!question) return null;
   const multi = question.multi === true;
   const toggle = (label: string) => {
-    if (multi) update({ selected: state.selected.includes(label) ? state.selected.filter((item) => item !== label) : [...state.selected, label] });
+    if (multi)
+      update({
+        selected: state.selected.includes(label)
+          ? state.selected.filter((item) => item !== label)
+          : [...state.selected, label],
+      });
     else update({ selected: [label], otherOn: false });
   };
   const toggleOther = () => {
@@ -86,7 +97,9 @@ export function GateAsk({ dialog, busy, respond, primaryRef }: GateBodyProps<Ext
   return (
     <div className="gate-body" onKeyDown={onKeyDown}>
       <div className="gate-ask-meta">
-        {questions.length > 1 && <span className="gate-step">{t("gate.step", { i: step + 1, n: questions.length })}</span>}
+        {questions.length > 1 && (
+          <span className="gate-step">{t("gate.step", { i: step + 1, n: questions.length })}</span>
+        )}
         {question.header && <span className="gate-chip">{question.header}</span>}
       </div>
       <p className="gate-question">{question.question}</p>
@@ -112,20 +125,45 @@ export function GateAsk({ dialog, busy, respond, primaryRef }: GateBodyProps<Ext
                 <span className="gate-row-label">{option.label}</span>
                 {option.description && <span className="gate-row-desc">{option.description}</span>}
               </span>
-              {question.recommended === index && <span className="gate-chip" data-soft>{t("gate.recommended")}</span>}
+              {question.recommended === index && (
+                <span className="gate-chip" data-soft>
+                  {t("gate.recommended")}
+                </span>
+              )}
             </button>
           );
         })}
-        <button type="button" role={multi ? "checkbox" : "radio"} aria-checked={state.otherOn} className="gate-row gate-choice" data-checked={state.otherOn || undefined} data-multi={multi || undefined} disabled={busy} onClick={toggleOther}>
+        <button
+          type="button"
+          role={multi ? "checkbox" : "radio"}
+          aria-checked={state.otherOn}
+          className="gate-row gate-choice"
+          data-checked={state.otherOn || undefined}
+          data-multi={multi || undefined}
+          disabled={busy}
+          onClick={toggleOther}
+        >
           <span className="gate-mark" aria-hidden="true" />
           <span className="gate-row-text">{t("gate.other")}</span>
         </button>
       </div>
       {state.otherOn && (
-        <input ref={customRef} className="gate-input" value={state.custom} placeholder={t("gate.otherPlaceholder")} aria-label={t("gate.other")} disabled={busy} onChange={(event) => update({ custom: event.target.value })} />
+        <input
+          ref={customRef}
+          className="gate-input"
+          value={state.custom}
+          placeholder={t("gate.otherPlaceholder")}
+          aria-label={t("gate.other")}
+          disabled={busy}
+          onChange={(event) => update({ custom: event.target.value })}
+        />
       )}
       {preview && <pre className="gate-preview">{preview.split("\n").slice(0, 8).join("\n")}</pre>}
-      {showRequired && <p className="gate-required" role="alert">{t("gate.required")}</p>}
+      {showRequired && (
+        <p className="gate-required" role="alert">
+          {t("gate.required")}
+        </p>
+      )}
       <div className="gate-actions" data-end>
         {step > 0 && (
           <button type="button" className="gate-btn" disabled={busy} onClick={() => setStep(step - 1)}>

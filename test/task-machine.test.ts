@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { DialogRequest, TaskError } from "../src/shared/ipc.ts";
-import { initialMachineState, transition, type MachineInput, type MachineState } from "../src/main/tasks/task-machine.ts";
+import {
+  initialMachineState,
+  transition,
+  type MachineInput,
+  type MachineState,
+} from "../src/main/tasks/task-machine.ts";
 
 const select: DialogRequest = { id: "d1", kind: "select", title: "t", options: [{ label: "a" }], approval: false };
 const confirm: DialogRequest = { id: "d2", kind: "confirm", title: "t", message: "m" };
@@ -11,7 +16,13 @@ function run(inputs: MachineInput[], from: MachineState = initialMachineState("s
 }
 const idle = run([{ type: "start" }, { type: "ready" }]);
 const running = run([{ type: "agent_start" }], idle);
-const settledResult: MachineInput = { type: "prompt_result", status: "completed", sessionSettled: true, at: 5, foreground: true };
+const settledResult: MachineInput = {
+  type: "prompt_result",
+  status: "completed",
+  sessionSettled: true,
+  at: 5,
+  foreground: true,
+};
 
 describe("task 状态机：转换表（用户看到的任务状态）", () => {
   it("stopped → starting → idle：只有握手和初始化完成后才可用", () => {
@@ -20,7 +31,10 @@ describe("task 状态机：转换表（用户看到的任务状态）", () => {
   });
 
   it("启动失败进入 error 并带上错误；restart 可以再启动并清掉旧错误", () => {
-    const failed = run([{ type: "start" }, { type: "start_failed", error: { kind: "handshake_failed", message: "x" } }]);
+    const failed = run([
+      { type: "start" },
+      { type: "start_failed", error: { kind: "handshake_failed", message: "x" } },
+    ]);
     expect(failed.status).toBe("error");
     expect(failed.error?.kind).toBe("handshake_failed");
     const again = transition(failed, { type: "start" });
@@ -66,7 +80,14 @@ describe("task 状态机：转换表（用户看到的任务状态）", () => {
   });
 
   it("prompt 失败的结局（error）：任务回到 idle，lastTurn 带错误详情", () => {
-    const failedTurn = transition(running, { type: "prompt_result", status: "error", error: { message: "401", retryable: false }, sessionSettled: true, at: 9, foreground: true });
+    const failedTurn = transition(running, {
+      type: "prompt_result",
+      status: "error",
+      error: { message: "401", retryable: false },
+      sessionSettled: true,
+      at: 9,
+      foreground: true,
+    });
     expect(failedTurn.status).toBe("idle");
     expect(failedTurn.lastTurn?.error?.message).toBe("401");
   });
@@ -81,7 +102,10 @@ describe("task 状态机：转换表（用户看到的任务状态）", () => {
     // 审批答完之前这一轮已经 settled（例如被 cancel 后中止）：回 idle。
     const settledWhileWaiting = transition(two, settledResult);
     expect(settledWhileWaiting.status).toBe("needs_you");
-    const answered = transition(transition(settledWhileWaiting, { type: "dialog_close", id: "d1" }), { type: "dialog_close", id: "d2" });
+    const answered = transition(transition(settledWhileWaiting, { type: "dialog_close", id: "d1" }), {
+      type: "dialog_close",
+      id: "d2",
+    });
     expect(answered.status).toBe("idle");
   });
 
@@ -96,7 +120,13 @@ describe("task 状态机：转换表（用户看到的任务状态）", () => {
   });
 
   it("同一 id 的对话框重复到达只保留一份", () => {
-    const twice = run([{ type: "dialog_open", request: select }, { type: "dialog_open", request: select }], running);
+    const twice = run(
+      [
+        { type: "dialog_open", request: select },
+        { type: "dialog_open", request: select },
+      ],
+      running,
+    );
     expect(twice.dialogs).toHaveLength(1);
   });
 

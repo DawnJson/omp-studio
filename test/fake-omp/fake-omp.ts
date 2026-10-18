@@ -19,7 +19,12 @@ type Entry =
  * 幂等查询：主进程会在不固定的时刻发（上下文使用率节流后的 get_state 等），不能占回放顺序。
  * 它们不在"下一条期望的 in"时，直接按录制里最近一次的应答立即回，不消耗录制条目。
  */
-const IDEMPOTENT: Record<string, true> = { get_state: true, get_available_thinking_levels: true, get_available_models: true, get_available_commands: true };
+const IDEMPOTENT: Record<string, true> = {
+  get_state: true,
+  get_available_thinking_levels: true,
+  get_available_models: true,
+  get_available_commands: true,
+};
 
 const fixture = process.argv[2];
 if (!fixture) {
@@ -37,9 +42,15 @@ const latestData = new Map<string, unknown>();
 {
   const commandById = new Map<string, string>();
   for (const entry of entries) {
-    if (entry.kind === "in" && typeof entry.frame.id === "string" && typeof entry.frame.type === "string") commandById.set(entry.frame.id, entry.frame.type);
+    if (entry.kind === "in" && typeof entry.frame.id === "string" && typeof entry.frame.type === "string")
+      commandById.set(entry.frame.id, entry.frame.type);
     // 斜杠命令目录：录制里没有 get_available_commands 的应答，用启动时推送的 available_commands_update 垫底。
-    if (entry.kind === "out" && entry.frame.type === "available_commands_update" && !latestData.has("get_available_commands")) latestData.set("get_available_commands", { commands: entry.frame.commands });
+    if (
+      entry.kind === "out" &&
+      entry.frame.type === "available_commands_update" &&
+      !latestData.has("get_available_commands")
+    )
+      latestData.set("get_available_commands", { commands: entry.frame.commands });
     if (entry.kind === "out" && entry.frame.type === "response" && typeof entry.frame.id === "string") {
       const command = commandById.get(entry.frame.id);
       if (command && IDEMPOTENT[command] && !latestData.has(command)) latestData.set(command, entry.frame.data);
@@ -62,7 +73,15 @@ async function nextFrame(expectedType: string | null): Promise<{ raw: string; fr
     const received = frame as Record<string, unknown>;
     if (typeof received.type === "string" && IDEMPOTENT[received.type] && received.type !== expectedType) {
       const data = latestData.get(received.type);
-      process.stdout.write(JSON.stringify({ type: "response", command: received.type, id: received.id, success: true, ...(data !== undefined && { data }) }) + "\n");
+      process.stdout.write(
+        JSON.stringify({
+          type: "response",
+          command: received.type,
+          id: received.id,
+          success: true,
+          ...(data !== undefined && { data }),
+        }) + "\n",
+      );
       continue;
     }
     return { raw: next.value, frame: received };
@@ -92,7 +111,8 @@ for (const entry of entries) {
         process.stderr.write(`fake-omp: expected ${String(entry.frame.type)}, got ${received.raw}\n`);
         process.exit(3);
       }
-      if (typeof entry.frame.id === "string" && typeof received.frame.id === "string") ids.set(entry.frame.id, received.frame.id);
+      if (typeof entry.frame.id === "string" && typeof received.frame.id === "string")
+        ids.set(entry.frame.id, received.frame.id);
       break;
     }
     case "exit":
@@ -103,7 +123,11 @@ for (const entry of entries) {
       // 模拟 omp 起的 bash 等子进程：一个不会自己退出的进程，pid 用一个测试专用帧报告出去。
       // detached：Node 非 detached 的子进程会进 fake-omp 自己的 libuv Job，fake-omp 一死就跟着没了；
       // 真实 omp 的孙进程（bash、ping）不受这个 job 管（problem.md 第 4 题：omp 被杀后 PING.EXE 留下），要模拟的是这种。
-      const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 60_000)"], { stdio: "ignore", windowsHide: true, detached: true });
+      const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 60_000)"], {
+        stdio: "ignore",
+        windowsHide: true,
+        detached: true,
+      });
       child.unref();
       process.stdout.write(JSON.stringify({ type: "test_grandchild", pid: child.pid }) + "\n");
       break;

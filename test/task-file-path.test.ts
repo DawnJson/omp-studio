@@ -22,7 +22,15 @@ describe("路径必须落在任务目录内", () => {
     expect(resolveInside(cwd, "src\\a.ts")).toBe(path.join(cwd, "src", "a.ts"));
   });
   it("绝对路径、盘符、.. 越界、空串都被拒", () => {
-    for (const bad of ["", "C:\\Windows\\win.ini", "/etc/passwd", "..\\secret.txt", "src/../../secret.txt", ".", "a\0b"]) {
+    for (const bad of [
+      "",
+      "C:\\Windows\\win.ini",
+      "/etc/passwd",
+      "..\\secret.txt",
+      "src/../../secret.txt",
+      ".",
+      "a\0b",
+    ]) {
       expect(() => resolveInside(cwd, bad), bad).toThrow();
     }
   });
@@ -40,11 +48,32 @@ describe("路径必须落在任务目录内", () => {
 
 describe("只有白名单扩展名才直接打开", () => {
   it("脚本、程序、快捷方式、冷门可执行类和无扩展名文件只能在文件夹中显示", () => {
-    for (const name of ["x.exe", "a.BAT", "b.ps1", "c.js", "d.lnk", "e.py", "e.pyw", "f.pif", "g.scf", "h.msc", "i.chm", "j.settingcontent-ms", "k.sh", "l.html", "m.svg", "Makefile", ".env", "n.jar", "o.docm"]) {
+    for (const name of [
+      "x.exe",
+      "a.BAT",
+      "b.ps1",
+      "c.js",
+      "d.lnk",
+      "e.py",
+      "e.pyw",
+      "f.pif",
+      "g.scf",
+      "h.msc",
+      "i.chm",
+      "j.settingcontent-ms",
+      "k.sh",
+      "l.html",
+      "m.svg",
+      "Makefile",
+      ".env",
+      "n.jar",
+      "o.docm",
+    ]) {
       expect(canOpenDirectly(name), name).toBe(false);
     }
   });
   it("文本、代码、图片、文档可以打开", () => {
-    for (const name of ["a.ts", "b.MD", "c.png", "d.json", "e.pdf", "f.rs"]) expect(canOpenDirectly(name), name).toBe(true);
+    for (const name of ["a.ts", "b.MD", "c.png", "d.json", "e.pdf", "f.rs"])
+      expect(canOpenDirectly(name), name).toBe(true);
   });
 });

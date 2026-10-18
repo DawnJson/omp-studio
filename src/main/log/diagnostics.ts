@@ -41,7 +41,10 @@ async function diagnosticsText(): Promise<string> {
 /** 弹保存对话框写文件，写完在资源管理器里选中它。用户取消返回 false。 */
 export async function exportDiagnostics(): Promise<boolean> {
   const window = BrowserWindow.getFocusedWindow();
-  const options = { defaultPath: path.join(app.getPath("desktop"), `omp-studio-diagnostics-${localDay(new Date())}.txt`), filters: [{ name: "Text", extensions: ["txt"] }] };
+  const options = {
+    defaultPath: path.join(app.getPath("desktop"), `omp-studio-diagnostics-${localDay(new Date())}.txt`),
+    filters: [{ name: "Text", extensions: ["txt"] }],
+  };
   const result = window ? await dialog.showSaveDialog(window, options) : await dialog.showSaveDialog(options);
   if (result.canceled || !result.filePath) return false;
   await writeFile(result.filePath, await diagnosticsText(), "utf8");

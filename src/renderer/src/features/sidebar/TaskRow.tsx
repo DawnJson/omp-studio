@@ -25,7 +25,17 @@ export interface TaskRowProps {
 
 export const taskNavId = (task: TaskState) => `task:${task.id}`;
 
-function RenameInput({ task, title, t, onDone }: { task: TaskState; title: string; t: TFunction; onDone(value: string | null): void }) {
+function RenameInput({
+  task,
+  title,
+  t,
+  onDone,
+}: {
+  task: TaskState;
+  title: string;
+  t: TFunction;
+  onDone(value: string | null): void;
+}) {
   const settled = useRef(false);
   const finish = (value: string | null) => {
     if (settled.current) return;
@@ -61,7 +71,8 @@ export function TaskRow(props: TaskRowProps) {
   const { task, selected, renaming, t } = props;
   const title = task.title.trim() === "" ? t("task.untitled") : task.title;
 
-  if (renaming) return <RenameInput task={task} title={title} t={t} onDone={(value) => props.onCommitRename(task, value)} />;
+  if (renaming)
+    return <RenameInput task={task} title={title} t={t} onDone={(value) => props.onCommitRename(task, value)} />;
 
   const tail =
     task.status === "needs_you" || task.status === "starting"
@@ -70,9 +81,9 @@ export function TaskRow(props: TaskRowProps) {
         ? task.runStartedAt === null
           ? null
           : t("task.runningFor", { n: Math.max(1, Math.floor((props.now - task.runStartedAt) / 60_000)) })
-      : task.lastTurn?.status === "aborted"
-        ? t("task.stopped")
-        : formatTaskTime(t, props.locale, task.updatedAt, props.now);
+        : task.lastTurn?.status === "aborted"
+          ? t("task.stopped")
+          : formatTaskTime(t, props.locale, task.updatedAt, props.now);
 
   return (
     <div
@@ -82,7 +93,12 @@ export function TaskRow(props: TaskRowProps) {
       data-testid="task-row"
       onContextMenu={(event) => {
         event.preventDefault();
-        props.onOpenMenu(task, event.clientX, event.clientY, event.currentTarget.querySelector<HTMLElement>(".sb-row-main") ?? event.currentTarget);
+        props.onOpenMenu(
+          task,
+          event.clientX,
+          event.clientY,
+          event.currentTarget.querySelector<HTMLElement>(".sb-row-main") ?? event.currentTarget,
+        );
       }}
     >
       <button

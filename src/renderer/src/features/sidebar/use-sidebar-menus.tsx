@@ -51,10 +51,19 @@ export function useSidebarMenus({ t, selectedTaskId, taskCount, onRename }: Menu
       label: t("task.more"),
       items: [
         { id: "rename", label: t("task.rename"), shortcut: "F2", onSelect: () => onRename(task) },
-        { id: "reveal", label: t("task.reveal"), onSelect: () => void attempt(t, () => window.studio.revealTaskSession(task.id)) },
+        {
+          id: "reveal",
+          label: t("task.reveal"),
+          onSelect: () => void attempt(t, () => window.studio.revealTaskSession(task.id)),
+        },
         { id: "copyId", label: t("task.copyId"), onSelect: () => void copySession(task, "sessionId") },
         { id: "copyPath", label: t("task.copyPath"), onSelect: () => void copySession(task, "sessionFile") },
-        { id: "archive", label: t("task.archive"), shortcut: "Del", onSelect: () => archiveWithUndo(task.id, selectedTaskId, t) },
+        {
+          id: "archive",
+          label: t("task.archive"),
+          shortcut: "Del",
+          onSelect: () => archiveWithUndo(task.id, selectedTaskId, t),
+        },
       ],
     });
 
@@ -63,7 +72,11 @@ export function useSidebarMenus({ t, selectedTaskId, taskCount, onRename }: Menu
       anchor: { x, y, returnFocus: trigger },
       label: t("sidebar.projectMenu"),
       items: [
-        { id: "reveal", label: t("project.reveal"), onSelect: () => void attempt(t, () => window.studio.revealProject(project.id)) },
+        {
+          id: "reveal",
+          label: t("project.reveal"),
+          onSelect: () => void attempt(t, () => window.studio.revealProject(project.id)),
+        },
         {
           id: "remove",
           label: t("project.remove"),
@@ -81,6 +94,7 @@ export function useSidebarMenus({ t, selectedTaskId, taskCount, onRename }: Menu
       ],
     });
 
-  const menu = open === null ? null : <Menu anchor={open.anchor} items={open.items} label={open.label} onClose={close} />;
+  const menu =
+    open === null ? null : <Menu anchor={open.anchor} items={open.items} label={open.label} onClose={close} />;
   return { menu, openTaskMenu, openProjectMenu };
 }

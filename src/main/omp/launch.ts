@@ -14,7 +14,12 @@ export function setTestOmpOverride(override: TestOmpOverride | null): void {
 export async function buildOmpLaunch(spec: LaunchSpec): Promise<OmpLaunch> {
   const apiKeys = await getApiKeyEnv();
   if (testOverride) {
-    return { command: testOverride.command, args: testOverride.args, cwd: spec.cwd, env: { ...process.env, ...apiKeys } };
+    return {
+      command: testOverride.command,
+      args: testOverride.args,
+      cwd: spec.cwd,
+      env: { ...process.env, ...apiKeys },
+    };
   }
   const executable = await getOmpExecutable();
   const env = { ...process.env, ...apiKeys };

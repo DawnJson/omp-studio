@@ -11,7 +11,8 @@ import { assertTrustedSender } from "./validate.ts";
 export function registerDropFolder(): void {
   ipcMain.handle(dropFolderChannel, async (event, value: unknown) => {
     assertTrustedSender(event);
-    if (typeof value !== "string" || value.length === 0 || value.length > limits.urlMaxChars || !path.isAbsolute(value)) return;
+    if (typeof value !== "string" || value.length === 0 || value.length > limits.urlMaxChars || !path.isAbsolute(value))
+      return;
     const info = await stat(value).catch(() => null);
     if (!info?.isDirectory()) return;
     emitEvent("projectDropped", await (await getTaskPool()).ensureProject(value));

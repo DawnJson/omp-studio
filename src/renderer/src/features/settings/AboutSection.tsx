@@ -12,7 +12,9 @@ import { TroubleshootCard } from "./TroubleshootCard.tsx";
 function statusText(state: UpdateState, t: TFunction): string {
   switch (state.phase) {
     case "disabled":
-      return state.disabledReason === "not-packaged" ? t("settings.about.disabled.notPackaged") : t("settings.about.disabled.noFeed");
+      return state.disabledReason === "not-packaged"
+        ? t("settings.about.disabled.notPackaged")
+        : t("settings.about.disabled.noFeed");
     case "idle":
       return t("settings.about.idle");
     case "checking":
@@ -60,7 +62,11 @@ export function AboutSection() {
 
   if (info === null || state === null) return <div className="st-muted">{t("settings.about.idle")}</div>;
 
-  const canCheck = state.phase !== "downloaded" && state.phase !== "downloading" && state.phase !== "checking" && state.phase !== "disabled";
+  const canCheck =
+    state.phase !== "downloaded" &&
+    state.phase !== "downloading" &&
+    state.phase !== "checking" &&
+    state.phase !== "disabled";
   const downloading = state.phase === "downloading";
 
   return (
@@ -82,7 +88,12 @@ export function AboutSection() {
                   {t("settings.about.install")}
                 </Button>
               ) : (
-                <Button loading={busy || state.phase === "checking"} disabled={!canCheck} onClick={() => void check()} testId="update-check">
+                <Button
+                  loading={busy || state.phase === "checking"}
+                  disabled={!canCheck}
+                  onClick={() => void check()}
+                  testId="update-check"
+                >
                   {t("settings.about.check")}
                 </Button>
               )}
@@ -91,7 +102,14 @@ export function AboutSection() {
         </SettingRow>
       </Card>
       {downloading && (
-        <div className="st-block" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={state.percent} data-testid="update-progress">
+        <div
+          className="st-block"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={state.percent}
+          data-testid="update-progress"
+        >
           <div className="st-update-bar">
             <div className="st-update-bar-fill" style={{ transform: `scaleX(${state.percent / 100})` }} />
           </div>

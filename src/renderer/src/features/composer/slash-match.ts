@@ -11,8 +11,11 @@ export function slashQuery(text: string): string | null {
 
 export function matchSlash(commands: readonly AvailableSlashCommand[], query: string): AvailableSlashCommand[] {
   const q = query.toLowerCase();
-  const names = (command: AvailableSlashCommand) => [command.name, ...(command.aliases ?? [])].map((name) => name.toLowerCase());
+  const names = (command: AvailableSlashCommand) =>
+    [command.name, ...(command.aliases ?? [])].map((name) => name.toLowerCase());
   const prefix = commands.filter((command) => names(command).some((name) => name.startsWith(q)));
-  const contains = commands.filter((command) => !prefix.includes(command) && names(command).some((name) => name.includes(q)));
+  const contains = commands.filter(
+    (command) => !prefix.includes(command) && names(command).some((name) => name.includes(q)),
+  );
   return [...prefix, ...contains].slice(0, MAX_SLASH_ROWS);
 }

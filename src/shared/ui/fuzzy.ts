@@ -31,7 +31,10 @@ function matchWord(word: string, lower: string): { score: number; indices: numbe
 
 /** query 为空（或只有空白）时匹配一切、得分 0、不高亮。 */
 export function fuzzyMatch(query: string, text: string): FuzzyMatch | null {
-  const words = query.toLowerCase().split(/\s+/).filter((word) => word !== "");
+  const words = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word !== "");
   if (words.length === 0) return { score: 0, indices: [] };
   const lower = text.toLowerCase();
   let score = 0;

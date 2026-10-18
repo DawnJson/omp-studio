@@ -107,7 +107,16 @@ function parseHeader(head: Buffer): DiffInfo {
   if (stepMemSize > newDataSize + kStepMemSizeSafeLimit) throw corrupt("stepMemSize 过大");
   if (stepMemSize > uncompressedSize + kStepMemSizeSafeLimit) throw corrupt("stepMemSize 过大");
   // 类型为 zstd 但 compressedSize==0 时，原实现按未压缩处理（decompressPlugin 置空）
-  return { compressType, newDataSize, oldDataSize, coverCount, stepMemSize, uncompressedSize, compressedSize, diffDataPos: cur.p };
+  return {
+    compressType,
+    newDataSize,
+    oldDataSize,
+    coverCount,
+    stepMemSize,
+    uncompressedSize,
+    compressedSize,
+    diffDataPos: cur.p,
+  };
 }
 
 /** 对补丁数据流（已解压）的顺序读取器：按需拉取块，不整体缓冲。 */
@@ -386,7 +395,11 @@ export async function applySingleStreamPatch(options: {
       signal?.throwIfAborted();
       const bufCoverSize = await diff.readUInt();
       const bufRleSize = await diff.readUInt();
-      if (bufCoverSize > info.stepMemSize || bufRleSize > info.stepMemSize || bufCoverSize + bufRleSize > info.stepMemSize) {
+      if (
+        bufCoverSize > info.stepMemSize ||
+        bufRleSize > info.stepMemSize ||
+        bufCoverSize + bufRleSize > info.stepMemSize
+      ) {
         throw corrupt("step 缓冲超过 stepMemSize");
       }
       const coversEnd = bufCoverSize;

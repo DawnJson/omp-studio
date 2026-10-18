@@ -34,7 +34,13 @@ function useBytes(): (bytes: number) => string {
 function ProgressBar({ received, total }: { received: number; total: number | null }) {
   const fraction = total ? Math.min(1, received / total) : 0;
   return (
-    <div className="setup-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(fraction * 100)}>
+    <div
+      className="setup-bar"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(fraction * 100)}
+    >
       <div className="setup-bar-fill" style={{ transform: `scaleX(${fraction})` }} />
     </div>
   );
@@ -68,14 +74,45 @@ export function OmpSetupView() {
       const other = status.managerName;
       body = (
         <>
-          {title(other !== null ? t("omp.takeover.otherTitle", { name: other }) : status.launchable ? t("omp.takeover.exeTitle") : t("omp.takeover.title"))}
-          {status.version && <p className="setup-text">{t("omp.found", { version: status.version, source: other !== null ? t("omp.source.other", { name: other }) : t("omp.source.user") })}</p>}
-          <p className="setup-text">{other !== null ? t("omp.takeover.otherBody", { name: other }) : status.launchable ? t("omp.takeover.exeBody") : t("omp.takeover.body")}</p>
+          {title(
+            other !== null
+              ? t("omp.takeover.otherTitle", { name: other })
+              : status.launchable
+                ? t("omp.takeover.exeTitle")
+                : t("omp.takeover.title"),
+          )}
+          {status.version && (
+            <p className="setup-text">
+              {t("omp.found", {
+                version: status.version,
+                source: other !== null ? t("omp.source.other", { name: other }) : t("omp.source.user"),
+              })}
+            </p>
+          )}
+          <p className="setup-text">
+            {other !== null
+              ? t("omp.takeover.otherBody", { name: other })
+              : status.launchable
+                ? t("omp.takeover.exeBody")
+                : t("omp.takeover.body")}
+          </p>
           <p className="setup-path st-mono">{t("omp.takeover.where", { path: status.path })}</p>
           <div className="setup-actions">
-            <Button variant="primary" large autoFocus onClick={() => answer(window.studio.answerTakeover(true))} testId="takeover-yes">{t("omp.takeover.yes")}</Button>
+            <Button
+              variant="primary"
+              large
+              autoFocus
+              onClick={() => answer(window.studio.answerTakeover(true))}
+              testId="takeover-yes"
+            >
+              {t("omp.takeover.yes")}
+            </Button>
             <Button large onClick={() => answer(window.studio.answerTakeover(false))} testId="takeover-no">
-              {other !== null ? t("omp.takeover.keepOther", { name: other }) : status.launchable ? t("omp.takeover.keep") : t("omp.takeover.no")}
+              {other !== null
+                ? t("omp.takeover.keepOther", { name: other })
+                : status.launchable
+                  ? t("omp.takeover.keep")
+                  : t("omp.takeover.no")}
             </Button>
           </div>
         </>
@@ -87,10 +124,18 @@ export function OmpSetupView() {
         <>
           {title(status.version ? t("omp.missing.titleVersion", { version: status.version }) : t("omp.missing.title"))}
           <p className="setup-text">
-            {status.sizeBytes !== null ? t("omp.missing.body", { source: status.source, size: bytes(status.sizeBytes) }) : t("omp.missing.bodyNoSize", { source: status.source })}
+            {status.sizeBytes !== null
+              ? t("omp.missing.body", { source: status.source, size: bytes(status.sizeBytes) })
+              : t("omp.missing.bodyNoSize", { source: status.source })}
           </p>
           <div className="setup-actions">
-            <Button variant="primary" large autoFocus onClick={() => answer(window.studio.installOmp())} testId="install-omp">
+            <Button
+              variant="primary"
+              large
+              autoFocus
+              onClick={() => answer(window.studio.installOmp())}
+              testId="install-omp"
+            >
               {t("omp.install")}
             </Button>
             <Button large onClick={() => answer(window.studio.retryOmpSetup())} testId="recheck-omp">
@@ -108,7 +153,11 @@ export function OmpSetupView() {
           <p className="setup-text">{t("omp.install.note")}</p>
           <ProgressBar received={status.receivedBytes} total={status.totalBytes} />
           <p className="setup-meta" aria-live="off">
-            {verifying ? t("omp.verifying") : status.totalBytes !== null ? t("omp.progress", { done: bytes(status.receivedBytes), total: bytes(status.totalBytes) }) : null}
+            {verifying
+              ? t("omp.verifying")
+              : status.totalBytes !== null
+                ? t("omp.progress", { done: bytes(status.receivedBytes), total: bytes(status.totalBytes) })
+                : null}
           </p>
           {!verifying && (
             <div className="setup-actions">
@@ -128,7 +177,9 @@ export function OmpSetupView() {
           <p className="setup-text">{t("omp.takeover.declined")}</p>
           <p className="setup-path st-mono">{t("omp.takeover.where", { path: status.path })}</p>
           <div className="setup-actions">
-            <Button variant="primary" large autoFocus onClick={() => answer(window.studio.retryOmpSetup())}>{t("omp.reconsider")}</Button>
+            <Button variant="primary" large autoFocus onClick={() => answer(window.studio.retryOmpSetup())}>
+              {t("omp.reconsider")}
+            </Button>
           </div>
         </>
       );
@@ -137,14 +188,24 @@ export function OmpSetupView() {
       body = (
         <>
           {title(t("omp.error.title"))}
-          <p className="setup-text st-error-text">{status.stage === "verify" ? t("omp.verifyFailed") : t(`omp.error.${status.stage}`)}</p>
+          <p className="setup-text st-error-text">
+            {status.stage === "verify" ? t("omp.verifyFailed") : t(`omp.error.${status.stage}`)}
+          </p>
           {status.stage === "verify" && <p className="setup-text">{t("omp.error.verify")}</p>}
           <details className="setup-details">
             <summary>{t("omp.error.details")}</summary>
             <pre className="st-mono">{status.message}</pre>
           </details>
           <div className="setup-actions">
-            <Button variant="primary" large autoFocus onClick={() => answer(window.studio.retryOmpSetup())} testId="omp-retry">{t("omp.retry")}</Button>
+            <Button
+              variant="primary"
+              large
+              autoFocus
+              onClick={() => answer(window.studio.retryOmpSetup())}
+              testId="omp-retry"
+            >
+              {t("omp.retry")}
+            </Button>
             <Button
               large
               onClick={() => {

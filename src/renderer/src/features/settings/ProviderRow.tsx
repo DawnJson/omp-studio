@@ -21,7 +21,15 @@ interface ProviderRowProps {
   onChanged(): void;
 }
 
-export function ProviderRow({ provider, accounts, hasStoredKey, canSetKey, blocked, onLoginActive, onChanged }: ProviderRowProps) {
+export function ProviderRow({
+  provider,
+  accounts,
+  hasStoredKey,
+  canSetKey,
+  blocked,
+  onLoginActive,
+  onChanged,
+}: ProviderRowProps) {
   const t = useT();
   const [flow, setFlow] = useState<Flow>({ kind: "idle" });
   const [busy, setBusy] = useState(false);
@@ -32,7 +40,13 @@ export function ProviderRow({ provider, accounts, hasStoredKey, canSetKey, block
 
   const signedIn = provider.authenticated && accounts.length > 0;
   const status = signedIn
-    ? { text: t("login.signedIn", { account: accounts.length > 1 ? `${accounts[0]?.label ?? ""} +${accounts.length - 1}` : (accounts[0]?.label ?? "") }), ok: true }
+    ? {
+        text: t("login.signedIn", {
+          account:
+            accounts.length > 1 ? `${accounts[0]?.label ?? ""} +${accounts.length - 1}` : (accounts[0]?.label ?? ""),
+        }),
+        ok: true,
+      }
     : provider.authenticated
       ? { text: hasStoredKey ? t("login.keyInApp") : t("login.viaEnv"), ok: true }
       : hasStoredKey
@@ -50,11 +64,23 @@ export function ProviderRow({ provider, accounts, hasStoredKey, canSetKey, block
         if (current.kind !== "login") return current;
         switch (event.type) {
           case "open_url":
-            return { ...current, url: event.url, ...(event.launchUrl !== undefined && { launchUrl: event.launchUrl }), ...(event.instructions !== undefined && { instructions: event.instructions }) };
+            return {
+              ...current,
+              url: event.url,
+              ...(event.launchUrl !== undefined && { launchUrl: event.launchUrl }),
+              ...(event.instructions !== undefined && { instructions: event.instructions }),
+            };
           case "progress":
             return { ...current, progress: event.message };
           case "input":
-            return { ...current, input: { inputId: event.inputId, title: event.title, ...(event.placeholder !== undefined && { placeholder: event.placeholder }) } };
+            return {
+              ...current,
+              input: {
+                inputId: event.inputId,
+                title: event.title,
+                ...(event.placeholder !== undefined && { placeholder: event.placeholder }),
+              },
+            };
         }
       });
     });
@@ -151,7 +177,14 @@ export function ProviderRow({ provider, accounts, hasStoredKey, canSetKey, block
             </Button>
           )}
           {signedIn ? (
-            <Button disabled={disabled} onClick={() => (accounts.length === 1 && accounts[0] ? void signOut(accounts[0].credentialId) : setFlow({ kind: "accounts" }))}>
+            <Button
+              disabled={disabled}
+              onClick={() =>
+                accounts.length === 1 && accounts[0]
+                  ? void signOut(accounts[0].credentialId)
+                  : setFlow({ kind: "accounts" })
+              }
+            >
               {t("login.signOut")}
             </Button>
           ) : (
@@ -176,7 +209,14 @@ export function ProviderRow({ provider, accounts, hasStoredKey, canSetKey, block
           }}
         />
       )}
-      {flow.kind === "accounts" && <AccountsCard accounts={accounts} busy={busy} onPick={(id) => void signOut(id)} onCancel={() => setFlow({ kind: "idle" })} />}
+      {flow.kind === "accounts" && (
+        <AccountsCard
+          accounts={accounts}
+          busy={busy}
+          onPick={(id) => void signOut(id)}
+          onCancel={() => setFlow({ kind: "idle" })}
+        />
+      )}
       {flow.kind === "key" && (
         <KeyForm
           value={apiKey}
@@ -190,7 +230,16 @@ export function ProviderRow({ provider, accounts, hasStoredKey, canSetKey, block
           }}
         />
       )}
-      {flow.kind === "failed" && <FailedCard message={flow.message} copied={copied} disabled={disabled} onCopy={copy} onRetry={() => void startLogin()} onClose={() => setFlow({ kind: "idle" })} />}
+      {flow.kind === "failed" && (
+        <FailedCard
+          message={flow.message}
+          copied={copied}
+          disabled={disabled}
+          onCopy={copy}
+          onRetry={() => void startLogin()}
+          onClose={() => setFlow({ kind: "idle" })}
+        />
+      )}
     </div>
   );
 }

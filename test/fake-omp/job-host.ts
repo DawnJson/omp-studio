@@ -12,11 +12,17 @@ if (!fixture || (mode !== "job" && mode !== "nojob")) {
 }
 
 const fakeOmp = path.join(import.meta.dirname, "fake-omp.ts");
-const connection = OmpConnection.spawn({ command: process.execPath, args: [fakeOmp, fixture], cwd: process.cwd(), env: process.env });
+const connection = OmpConnection.spawn({
+  command: process.execPath,
+  args: [fakeOmp, fixture],
+  cwd: process.cwd(),
+  env: process.env,
+});
 if (mode === "job") assignToAppJob(connection.pid);
 connection.onFrame((frame) => {
   const grandchild = frame as { type: string; pid?: number };
-  if (grandchild.type === "test_grandchild") process.stdout.write(JSON.stringify({ omp: connection.pid, grandchild: grandchild.pid }) + "\n");
+  if (grandchild.type === "test_grandchild")
+    process.stdout.write(JSON.stringify({ omp: connection.pid, grandchild: grandchild.pid }) + "\n");
 });
 await connection.ready;
 setInterval(() => {}, 60_000);

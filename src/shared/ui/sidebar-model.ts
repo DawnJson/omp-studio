@@ -30,7 +30,11 @@ function byRecent(a: TaskState, b: TaskState): number {
   return b.updatedAt - a.updatedAt || b.createdAt - a.createdAt;
 }
 
-export function groupTasks(projects: readonly Project[], tasks: readonly TaskState[], hidden: ReadonlySet<TaskId>): ProjectGroupModel[] {
+export function groupTasks(
+  projects: readonly Project[],
+  tasks: readonly TaskState[],
+  hidden: ReadonlySet<TaskId>,
+): ProjectGroupModel[] {
   const labels = projectLabels(projects);
   const byProject = new Map<ProjectId, TaskState[]>();
   for (const task of tasks) {
@@ -48,7 +52,9 @@ export function groupTasks(projects: readonly Project[], tasks: readonly TaskSta
 
 /** 等你确认的任务，等得最久的在前。 */
 export function waitingTasks(tasks: readonly TaskState[], hidden: ReadonlySet<TaskId>): TaskState[] {
-  return tasks.filter((task) => task.status === "needs_you" && !hidden.has(task.id)).sort((a, b) => a.updatedAt - b.updatedAt);
+  return tasks
+    .filter((task) => task.status === "needs_you" && !hidden.has(task.id))
+    .sort((a, b) => a.updatedAt - b.updatedAt);
 }
 
 /** 点"等你确认"条依次跳转：当前选中的就是等待任务时跳到它的下一个（循环），否则跳到最早的。 */

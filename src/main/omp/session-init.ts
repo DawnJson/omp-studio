@@ -21,7 +21,10 @@ export interface SessionInit {
 }
 
 /** 顺序：set_event_filter → set_ask_dialog → set_subagent_subscription → [switch_session] → get_state → get_available_thinking_levels。 */
-export async function initializeSession(connection: OmpConnection, options: SessionInitOptions = {}): Promise<SessionInit> {
+export async function initializeSession(
+  connection: OmpConnection,
+  options: SessionInitOptions = {},
+): Promise<SessionInit> {
   const filter = await connection.request("set_event_filter", { events: null, messageUpdates: "delta" });
   let askDialog = true;
   try {
@@ -41,7 +44,12 @@ export async function initializeSession(connection: OmpConnection, options: Sess
   }
   const state = await connection.request("get_state");
   const { levels } = await connection.request("get_available_thinking_levels");
-  return { messageUpdatesDelta: filter.messageUpdates === "delta", askDialog, state, thinkingLevels: levels as ThinkingLevel[] };
+  return {
+    messageUpdatesDelta: filter.messageUpdates === "delta",
+    askDialog,
+    state,
+    thinkingLevels: levels as ThinkingLevel[],
+  };
 }
 
 const HISTORY_PAGE_SIZE = 256;
@@ -51,7 +59,10 @@ export async function loadHistory(connection: OmpConnection): Promise<AgentMessa
   const messages: AgentMessage[] = [];
   let cursor: string | undefined;
   do {
-    const page = await connection.request("get_messages_page", { limit: HISTORY_PAGE_SIZE, ...(cursor !== undefined && { cursor }) });
+    const page = await connection.request("get_messages_page", {
+      limit: HISTORY_PAGE_SIZE,
+      ...(cursor !== undefined && { cursor }),
+    });
     messages.push(...page.messages);
     cursor = page.nextCursor;
   } while (cursor !== undefined);

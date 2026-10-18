@@ -22,7 +22,10 @@ export const composer = {
   "queue.promote": "Steer now",
   "queue.remove": "Withdraw",
   "queue.more": "{n} more",
-  queueRestored: { one: "Stopped · {count} queued message put back in the box", other: "Stopped · {count} queued messages put back in the box" },
+  queueRestored: {
+    one: "Stopped · {count} queued message put back in the box",
+    other: "Stopped · {count} queued messages put back in the box",
+  },
   imagesDropped: "The images were too large to restore",
   nextRequest: "Applies from the next request",
   context: "Context {p}%",

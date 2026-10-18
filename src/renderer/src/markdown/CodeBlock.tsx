@@ -83,7 +83,11 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed, streaming
                 ? tokens[index].map((token, i) => (
                     <span
                       key={i}
-                      style={{ color: token.color, fontStyle: token.italic ? "italic" : undefined, fontWeight: token.bold ? "var(--fw-strong)" : undefined }}
+                      style={{
+                        color: token.color,
+                        fontStyle: token.italic ? "italic" : undefined,
+                        fontWeight: token.bold ? "var(--fw-strong)" : undefined,
+                      }}
                     >
                       {token.text}
                     </span>

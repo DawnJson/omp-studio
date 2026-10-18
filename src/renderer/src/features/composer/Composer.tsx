@@ -1,5 +1,14 @@
 // 输入框 + 底部栈（门槽、编辑器建议条、队列条）。发送行为表见 spec 4.14，按键判定在 send-logic.ts。
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type DragEvent,
+  type KeyboardEvent,
+} from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
@@ -38,7 +47,8 @@ export function Composer({ taskId }: { taskId: TaskId }) {
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashClosedFor, setSlashClosedFor] = useState<string | null>(null);
   const query = slashQuery(draft.text);
-  const slashMatches = query === null || slashClosedFor === draft.text || commands.length === 0 ? [] : matchSlash(commands, query);
+  const slashMatches =
+    query === null || slashClosedFor === draft.text || commands.length === 0 ? [] : matchSlash(commands, query);
   const slashOpen = query !== null && slashClosedFor !== draft.text && commands.length > 0;
   const slashActive = Math.min(slashIndex, Math.max(slashMatches.length - 1, 0));
 
@@ -143,21 +153,39 @@ export function Composer({ taskId }: { taskId: TaskId }) {
         return;
       }
       // Tab 总是补全；Enter 在已经输入完整命令名时发送，否则补全。
-      if (picked && (event.key === "Tab" || (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && draft.text !== `/${picked.name}`))) {
+      if (
+        picked &&
+        (event.key === "Tab" ||
+          (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && draft.text !== `/${picked.name}`))
+      ) {
         event.preventDefault();
         completeSlash(picked.name);
         return;
       }
     }
     const action = decideEnter(
-      { key: event.key, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey, altKey: event.altKey, isComposing: event.nativeEvent.isComposing, keyCode: event.keyCode },
+      {
+        key: event.key,
+        shiftKey: event.shiftKey,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        altKey: event.altKey,
+        isComposing: event.nativeEvent.isComposing,
+        keyCode: event.keyCode,
+      },
       { running, gate, hasContent, swapped },
     );
     if (action === "default") return;
     event.preventDefault();
     if (tooOld && action !== "gatePrimary") return;
     if (action === "gatePrimary") getGateControl()?.primary();
-    else if (action === "denyAndSend") void getGateControl()?.deny().then(() => sendDraft(taskId, "steer", t), () => sendDraft(taskId, "steer", t));
+    else if (action === "denyAndSend")
+      void getGateControl()
+        ?.deny()
+        .then(
+          () => sendDraft(taskId, "steer", t),
+          () => sendDraft(taskId, "steer", t),
+        );
     else void sendDraft(taskId, action === "followUp" ? "followUp" : "steer", t);
   };
 
@@ -184,16 +212,31 @@ export function Composer({ taskId }: { taskId: TaskId }) {
       {suggestion !== null && (
         <div className="suggest" role="status">
           <span>{t("gate.suggestReplace")}</span>
-          <button type="button" className="queue-btn" onClick={() => resolveSuggestion(taskId, true)}>{t("gate.suggestReplaceYes")}</button>
-          <button type="button" className="queue-btn" onClick={() => resolveSuggestion(taskId, false)}>{t("gate.suggestKeep")}</button>
+          <button type="button" className="queue-btn" onClick={() => resolveSuggestion(taskId, true)}>
+            {t("gate.suggestReplaceYes")}
+          </button>
+          <button type="button" className="queue-btn" onClick={() => resolveSuggestion(taskId, false)}>
+            {t("gate.suggestKeep")}
+          </button>
         </div>
       )}
       <QueueStrip taskId={taskId} queue={task.queue} />
       <div className="composer" data-gate={gate || undefined} onDragOver={onDragOver} onDrop={onDrop}>
         {slashOpen && (
-          <SlashMenu id="slash-menu" commands={slashMatches} active={slashActive} onHover={setSlashIndex} onPick={(command) => completeSlash(command.name)} />
+          <SlashMenu
+            id="slash-menu"
+            commands={slashMatches}
+            active={slashActive}
+            onHover={setSlashIndex}
+            onPick={(command) => completeSlash(command.name)}
+          />
         )}
-        <Attachments images={draft.images} onRemove={(index) => setDraft(taskId, { text: draft.text, images: draft.images.filter((_, i) => i !== index) })} />
+        <Attachments
+          images={draft.images}
+          onRemove={(index) =>
+            setDraft(taskId, { text: draft.text, images: draft.images.filter((_, i) => i !== index) })
+          }
+        />
         <textarea
           ref={fieldRef}
           className="composer-field"
@@ -213,10 +256,26 @@ export function Composer({ taskId }: { taskId: TaskId }) {
           onPaste={onPaste}
         />
         <div className="composer-tools">
-          <button type="button" className="tool-btn" aria-label={t("composer.attach")} title={t("composer.attach")} onClick={() => fileRef.current?.click()}>
+          <button
+            type="button"
+            className="tool-btn"
+            aria-label={t("composer.attach")}
+            title={t("composer.attach")}
+            onClick={() => fileRef.current?.click()}
+          >
             <Plus size={16} />
           </button>
-          <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(event) => { void addFiles(event.target.files ?? []); event.target.value = ""; }} />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(event) => {
+              void addFiles(event.target.files ?? []);
+              event.target.value = "";
+            }}
+          />
           <ModelChip
             model={task.model}
             thinkingLevel={task.thinkingLevel}
@@ -235,7 +294,14 @@ export function Composer({ taskId }: { taskId: TaskId }) {
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
           <ContextHint task={task} />
-          <SendStop running={running} stopping={stopping} hasContent={hasContent} disabled={tooOld === true} onSend={() => void sendDraft(taskId, "steer", t)} onStop={stop} />
+          <SendStop
+            running={running}
+            stopping={stopping}
+            hasContent={hasContent}
+            disabled={tooOld === true}
+            onSend={() => void sendDraft(taskId, "steer", t)}
+            onStop={stop}
+          />
         </div>
       </div>
     </div>

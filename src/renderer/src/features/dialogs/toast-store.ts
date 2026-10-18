@@ -38,19 +38,31 @@ export function dismissToast(id: number): void {
 function arm(id: number, durationMs: number): void {
   const previous = timers.get(id);
   if (previous !== undefined) clearTimeout(previous);
-  timers.set(id, setTimeout(() => dismissToast(id), durationMs));
+  timers.set(
+    id,
+    setTimeout(() => dismissToast(id), durationMs),
+  );
 }
 
 export function pushToast(input: ToastInput): void {
   const level = input.level ?? "info";
   const durationMs = input.durationMs ?? defaultDurationMs;
-  const same = input.action ? undefined : toasts.get().find((toast) => toast.level === level && toast.message === input.message && !toast.action);
+  const same = input.action
+    ? undefined
+    : toasts.get().find((toast) => toast.level === level && toast.message === input.message && !toast.action);
   if (same) {
     toasts.set(toasts.get().map((toast) => (toast.id === same.id ? { ...toast, count: toast.count + 1 } : toast)));
     arm(same.id, durationMs);
     return;
   }
-  const toast: Toast = { id: nextId++, level, message: input.message, action: input.action, title: input.title, count: 1 };
+  const toast: Toast = {
+    id: nextId++,
+    level,
+    message: input.message,
+    action: input.action,
+    title: input.title,
+    count: 1,
+  };
   const next = [...toasts.get(), toast];
   for (const dropped of next.slice(0, Math.max(0, next.length - maxVisible))) dismissToast(dropped.id);
   toasts.set([...toasts.get(), toast].slice(-maxVisible));

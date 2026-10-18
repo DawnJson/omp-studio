@@ -1,6 +1,14 @@
 // 门（spec 4.17）：停靠在输入框上方，不模态、不遮罩。这里是外壳：标题、计时、焦点规则、键盘；正文由各 method 的组件提供。
 import { reportError } from "../../ui/errors.ts";
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MutableRefObject, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MutableRefObject,
+  type ReactNode,
+} from "react";
 import type { DialogRequest, DialogResponse, TaskId } from "../../../../shared/ipc.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -71,10 +79,13 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
     (response: DialogResponse) => {
       setBusy(true);
       markAnswered(dialog.id);
-      window.studio.respondDialog(taskId, dialog.id, response).then(() => clearAskDraft(dialog.id), (error: unknown) => {
-        setBusy(false);
-        reportError(t, error);
-      });
+      window.studio.respondDialog(taskId, dialog.id, response).then(
+        () => clearAskDraft(dialog.id),
+        (error: unknown) => {
+          setBusy(false);
+          reportError(t, error);
+        },
+      );
     },
     [taskId, dialog.id],
   );
@@ -88,13 +99,17 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
   useEffect(() => {
     const previous = document.activeElement;
     const active = document.activeElement;
-    const composing = active instanceof HTMLTextAreaElement && active.hasAttribute("data-composer-input") && active.value !== "";
+    const composing =
+      active instanceof HTMLTextAreaElement && active.hasAttribute("data-composer-input") && active.value !== "";
     if (msSinceLastKey() < 1500 || composing) setPulse(true);
     else rootRef.current?.focus();
     return () => {
       const current = document.activeElement;
       if (current === document.body || rootRef.current?.contains(current)) {
-        const target = previous instanceof HTMLElement && previous.isConnected && !rootRef.current?.contains(previous) ? previous : document.querySelector<HTMLElement>("[data-composer-input]");
+        const target =
+          previous instanceof HTMLElement && previous.isConnected && !rootRef.current?.contains(previous)
+            ? previous
+            : document.querySelector<HTMLElement>("[data-composer-input]");
         target?.focus();
       }
     };
@@ -107,8 +122,13 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
       },
       deny: async () => {
         markAnswered(dialog.id);
-        const deny = dialog.kind === "select" && dialog.approval ? denyOption(dialog.options.map((option) => option.label)) : null;
-        await window.studio.respondDialog(taskId, dialog.id, deny !== null ? { kind: "value", value: deny } : { kind: "cancel" });
+        const deny =
+          dialog.kind === "select" && dialog.approval ? denyOption(dialog.options.map((option) => option.label)) : null;
+        await window.studio.respondDialog(
+          taskId,
+          dialog.id,
+          deny !== null ? { kind: "value", value: deny } : { kind: "cancel" },
+        );
       },
       focus: () => rootRef.current?.focus(),
     });
@@ -154,7 +174,12 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
       onKeyDown={onKeyDown}
       onAnimationEnd={() => setPulse(false)}
     >
-      {timeoutMs !== undefined && <div className="gate-timer" style={{ animationDuration: `${timeoutMs}ms`, animationDelay: `-${timerDelayMs}ms` }} />}
+      {timeoutMs !== undefined && (
+        <div
+          className="gate-timer"
+          style={{ animationDuration: `${timeoutMs}ms`, animationDelay: `-${timerDelayMs}ms` }}
+        />
+      )}
       <header className="gate-head">
         <span className="gate-diamond" aria-hidden="true" />
         <h2 id={`gate-title-${dialog.id}`} className="gate-title">
@@ -162,7 +187,11 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
         </h2>
         {pending > 0 && <span className="gate-pending">{t("gate.pending", { n: pending })}</span>}
         {seconds !== null && (
-          <span className="gate-clock" data-urgent={seconds <= 10 || undefined} title={t(hint, { s: Math.ceil(seconds) })}>
+          <span
+            className="gate-clock"
+            data-urgent={seconds <= 10 || undefined}
+            title={t(hint, { s: Math.ceil(seconds) })}
+          >
             {formatClock(seconds)}
           </span>
         )}

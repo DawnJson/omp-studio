@@ -43,12 +43,20 @@ export function QueueStrip({ taskId, queue }: { taskId: TaskId; queue: TaskState
               {t("composer.queue.promote")}
             </button>
           )}
-          <button type="button" className="queue-icon" aria-label={t("composer.queue.remove")} title={t("composer.queue.remove")} onClick={() => remove(entry)}>
+          <button
+            type="button"
+            className="queue-icon"
+            aria-label={t("composer.queue.remove")}
+            title={t("composer.queue.remove")}
+            onClick={() => remove(entry)}
+          >
             <Close size={14} />
           </button>
         </div>
       ))}
-      {entries.length > MAX_VISIBLE && <div className="queue-more">{t("composer.queue.more", { n: entries.length - MAX_VISIBLE })}</div>}
+      {entries.length > MAX_VISIBLE && (
+        <div className="queue-more">{t("composer.queue.more", { n: entries.length - MAX_VISIBLE })}</div>
+      )}
     </div>
   );
 }

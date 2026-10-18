@@ -51,7 +51,10 @@ function sanitize(raw: unknown): StudioSettings {
       return fallback;
     }
   };
-  const nullable = <T>(parse: (value: unknown) => T) => (value: unknown): T | null => (value === null ? null : parse(value));
+  const nullable =
+    <T>(parse: (value: unknown) => T) =>
+    (value: unknown): T | null =>
+      value === null ? null : parse(value);
   return {
     locale: field(parseLocalePreference, record["locale"], defaults.locale),
     theme: field(parseThemePreference, record["theme"], defaults.theme),
@@ -60,9 +63,17 @@ function sanitize(raw: unknown): StudioSettings {
     defaultApprovalMode: field(nullable(parseApprovalMode), record["defaultApprovalMode"], null),
     maxLiveProcesses: field(parseMaxLiveProcesses, record["maxLiveProcesses"], defaults.maxLiveProcesses),
     reduceMotion: field((value) => parseBoolean(value, "reduceMotion"), record["reduceMotion"], defaults.reduceMotion),
-    enterWhileRunning: field((value) => parseOneOf(value, "enterWhileRunning", ["steer", "followUp"]), record["enterWhileRunning"], defaults.enterWhileRunning),
+    enterWhileRunning: field(
+      (value) => parseOneOf(value, "enterWhileRunning", ["steer", "followUp"]),
+      record["enterWhileRunning"],
+      defaults.enterWhileRunning,
+    ),
     notifyOnGate: field((value) => parseBoolean(value, "notifyOnGate"), record["notifyOnGate"], defaults.notifyOnGate),
-    yoloConfirmed: field((value) => parseBoolean(value, "yoloConfirmed"), record["yoloConfirmed"], defaults.yoloConfirmed),
+    yoloConfirmed: field(
+      (value) => parseBoolean(value, "yoloConfirmed"),
+      record["yoloConfirmed"],
+      defaults.yoloConfirmed,
+    ),
   };
 }
 

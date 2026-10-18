@@ -1,12 +1,30 @@
 import { describe, expect, it } from "vitest";
 import type { DialogRequest, TaskId, TaskState } from "../src/shared/ipc.ts";
 import { EventEmitter } from "node:events";
-import { dialogSummary, GateNotifier, retainNotification, type GateNotifierDeps } from "../src/main/tasks/gate-notifier.ts";
+import {
+  dialogSummary,
+  GateNotifier,
+  retainNotification,
+  type GateNotifierDeps,
+} from "../src/main/tasks/gate-notifier.ts";
 
-const select: DialogRequest = { id: "d", kind: "select", title: "Allow tool: bash\nCommand: ls", options: [{ label: "Approve" }], approval: true };
+const select: DialogRequest = {
+  id: "d",
+  kind: "select",
+  title: "Allow tool: bash\nCommand: ls",
+  options: [{ label: "Approve" }],
+  approval: true,
+};
 
 function state(status: TaskState["status"], overrides: Partial<TaskState> = {}): TaskState {
-  return { id: "t1" as TaskId, projectId: "p", title: "修 bug", status, dialogs: status === "needs_you" ? [select] : [], ...overrides } as TaskState;
+  return {
+    id: "t1" as TaskId,
+    projectId: "p",
+    title: "修 bug",
+    status,
+    dialogs: status === "needs_you" ? [select] : [],
+    ...overrides,
+  } as TaskState;
 }
 
 function setup(overrides: Partial<GateNotifierDeps> = {}) {
@@ -64,7 +82,9 @@ describe("等你确认的系统通知", () => {
   });
 
   it("ask 取第一题作为正文", () => {
-    expect(dialogSummary({ id: "a", kind: "ask", questions: [{ id: "q", question: "用哪种语言？", options: [] }] })).toBe("用哪种语言？");
+    expect(
+      dialogSummary({ id: "a", kind: "ask", questions: [{ id: "q", question: "用哪种语言？", options: [] }] }),
+    ).toBe("用哪种语言？");
   });
 
   it("系统通知对象被持有到点击或关闭为止（没人引用的 Notification 会被回收，点击就不触发了）", () => {

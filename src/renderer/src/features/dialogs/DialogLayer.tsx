@@ -27,7 +27,12 @@ function useDismissedNote(current: DialogRequest | undefined, taskId: TaskId | n
 
   useEffect(() => {
     const previous = shown.current;
-    if (previous && previous.taskId === taskId && previous.dialog.id !== current?.id && !wasAnswered(previous.dialog.id)) {
+    if (
+      previous &&
+      previous.taskId === taskId &&
+      previous.dialog.id !== current?.id &&
+      !wasAnswered(previous.dialog.id)
+    ) {
       const timeout = timeoutOf(previous.dialog);
       const timedOut = timeout !== undefined && Date.now() - previous.at >= timeout - 800;
       setNote(timedOut ? t("gate.timedOut") : t("gate.cancelled"));
@@ -35,7 +40,9 @@ function useDismissedNote(current: DialogRequest | undefined, taskId: TaskId | n
       shown.current = current ? { dialog: current, at: Date.now(), taskId } : null;
       return () => clearTimeout(timer);
     }
-    shown.current = current ? { dialog: current, at: previous?.dialog.id === current.id ? previous.at : Date.now(), taskId } : null;
+    shown.current = current
+      ? { dialog: current, at: previous?.dialog.id === current.id ? previous.at : Date.now(), taskId }
+      : null;
     return undefined;
   }, [current, taskId, t]);
 
@@ -63,7 +70,9 @@ export function DialogLayer({ taskId }: { taskId: TaskId | null }) {
           current !== undefined && taskId !== null ? (
             <Gate key={current.id} taskId={taskId} dialog={current} pending={dialogs.length - 1} />
           ) : note !== null ? (
-            <div className="gate-ghost" role="status">{note}</div>
+            <div className="gate-ghost" role="status">
+              {note}
+            </div>
           ) : null,
           slot,
         )}

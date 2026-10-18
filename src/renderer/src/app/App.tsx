@@ -57,15 +57,15 @@ function focusComposer(scrollToEnd: boolean): void {
   field?.focus({ preventScroll: true });
   // 光标放在草稿末尾。
   field?.setSelectionRange(field.value.length, field.value.length);
-  const log = document.querySelector<HTMLElement>("[role=\"log\"]");
+  const log = document.querySelector<HTMLElement>('[role="log"]');
   if (scrollToEnd && log) log.scrollTop = log.scrollHeight;
 }
 
 /** F6 的三个区域：侧栏（当前的一个 Tab 停靠点，没有就取第一个按钮）→ 对话区 → 输入框。 */
 function focusRegion(delta: 1 | -1): void {
   const regions = [
-    document.querySelector<HTMLElement>("nav.sb [tabindex=\"0\"], nav.sb button"),
-    document.querySelector<HTMLElement>("[role=\"log\"]"),
+    document.querySelector<HTMLElement>('nav.sb [tabindex="0"], nav.sb button'),
+    document.querySelector<HTMLElement>('[role="log"]'),
     document.querySelector<HTMLElement>(composerSelector),
   ].filter((element): element is HTMLElement => element !== null && element.getClientRects().length > 0);
   if (regions.length === 0) return;
@@ -116,7 +116,10 @@ export function App() {
   useEffect(() => {
     if (view !== "conversation") return;
     const active = document.activeElement;
-    const typing = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || (active instanceof HTMLElement && active.isContentEditable);
+    const typing =
+      active instanceof HTMLInputElement ||
+      active instanceof HTMLTextAreaElement ||
+      (active instanceof HTMLElement && active.isContentEditable);
     // 焦点在侧栏里（键盘移动、点了任务行）时不抢：spec 5.3 侧栏里 ↑↓ 留在侧栏。
     const inSidebar = active instanceof HTMLElement && active.closest("[data-testid=sidebar]") !== null;
     if (inSidebar) return;
@@ -154,7 +157,9 @@ export function App() {
     cycleTask: (delta) => {
       if (order.length === 0) return;
       const at = order.findIndex((task) => task.id === taskId);
-      openTask(order[at === -1 ? (delta === 1 ? 0 : order.length - 1) : (at + delta + order.length) % order.length]?.id);
+      openTask(
+        order[at === -1 ? (delta === 1 ? 0 : order.length - 1) : (at + delta + order.length) % order.length]?.id,
+      );
     },
     cycleRegion: focusRegion,
     togglePalette: () => setPaletteOpen(!paletteOpenRef.current),
@@ -171,7 +176,13 @@ export function App() {
   });
 
   return (
-    <div id="app" data-testid="app-root" data-locale={appInfo?.locale} data-sidebar={sidebarShown ? "shown" : "hidden"} data-drawer={asDrawer}>
+    <div
+      id="app"
+      data-testid="app-root"
+      data-locale={appInfo?.locale}
+      data-sidebar={sidebarShown ? "shown" : "hidden"}
+      data-drawer={asDrawer}
+    >
       <TopBar
         menuOpen={menuOpen}
         canGoBack={navigation.canGoBack}
@@ -183,7 +194,9 @@ export function App() {
         onForward={navigation.goForward}
       />
       <div className="body">
-        {asDrawer && shell.drawerOpen && <div className="drawer-scrim" data-testid="drawer-scrim" onPointerDown={() => setDrawerOpen(false)} />}
+        {asDrawer && shell.drawerOpen && (
+          <div className="drawer-scrim" data-testid="drawer-scrim" onPointerDown={() => setDrawerOpen(false)} />
+        )}
         <div
           className="sidebar-column"
           data-testid="sidebar-column"

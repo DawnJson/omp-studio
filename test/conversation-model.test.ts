@@ -7,7 +7,12 @@ import { buildTurns } from "../src/renderer/src/features/conversation/model.ts";
 import { summarizeChanges } from "../src/renderer/src/features/conversation/tool-info.ts";
 import { translateFrame } from "../src/main/tasks/translate.ts";
 import type { AgentMessage, AssistantMessage, RpcServerFrame } from "../src/shared/omp-wire/rpc-wire.generated.ts";
-import { applyTranscriptEvent, emptyTranscript, type Transcript, type TranscriptEvent } from "../src/shared/transcript.ts";
+import {
+  applyTranscriptEvent,
+  emptyTranscript,
+  type Transcript,
+  type TranscriptEvent,
+} from "../src/shared/transcript.ts";
 
 const dir = path.join(import.meta.dirname, "..", "fixtures", "rpc");
 
@@ -32,7 +37,11 @@ function replay(name: string, until?: (event: TranscriptEvent) => boolean): Tran
   return transcript;
 }
 
-const text = (message: AssistantMessage) => message.content.flatMap((block) => (block.type === "text" ? [block.text] : [])).join("\n\n").trim();
+const text = (message: AssistantMessage) =>
+  message.content
+    .flatMap((block) => (block.type === "text" ? [block.text] : []))
+    .join("\n\n")
+    .trim();
 const hasTool = (message: AssistantMessage) => message.content.some((block) => block.type === "toolCall");
 
 /** fixture 里每个助手 message_end，按出现顺序。 */
@@ -64,7 +73,9 @@ describe.each(names)("回放 %s：结论与 fixture 的 message_end 一致", (na
   it("叙述不在结论里重复：被选作结论的消息，它的文字不会再出现在过程的叙述里", () => {
     for (const turn of buildTurns(replay(name))) {
       if (!turn.answer) continue;
-      expect(turn.steps.filter((step) => step.kind === "narration").map((step) => step.text)).not.toContain(turn.answer.text);
+      expect(turn.steps.filter((step) => step.kind === "narration").map((step) => step.text)).not.toContain(
+        turn.answer.text,
+      );
     }
   });
 });
@@ -85,7 +96,10 @@ describe("bash-tool 回放", () => {
   });
 
   it("流式中途：结论是正在流的那条，streaming 为 true；结束后变 false", () => {
-    const mid = replay("bash-tool", (event) => event.type === "message_end" && event.message.role === "assistant" && !hasTool(event.message));
+    const mid = replay(
+      "bash-tool",
+      (event) => event.type === "message_end" && event.message.role === "assistant" && !hasTool(event.message),
+    );
     const [turn] = buildTurns(mid);
     expect(turn?.answer).toMatchObject({ streaming: true });
     expect(turn?.liveKind).toBe("text");
@@ -112,15 +126,35 @@ describe("turn-error 回放", () => {
 
 describe("叙述 / 结论启发式的边界", () => {
   const assistant = (content: AssistantMessage["content"]): AssistantMessage => ({
-    role: "assistant", content, api: "x", provider: "p", model: "m", stopReason: "stop", timestamp: 1,
-    usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+    role: "assistant",
+    content,
+    api: "x",
+    provider: "p",
+    model: "m",
+    stopReason: "stop",
+    timestamp: 1,
+    usage: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 0,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    },
   });
-  const history = (...messages: AgentMessage[]) => applyTranscriptEvent(emptyTranscript(), { type: "history", messages });
+  const history = (...messages: AgentMessage[]) =>
+    applyTranscriptEvent(emptyTranscript(), { type: "history", messages });
   const user: AgentMessage = { role: "user", content: "做点事", timestamp: 1 };
   const call = { type: "toolCall" as const, id: "c1", name: "read", arguments: { path: "a.ts" } };
 
   it("以工具调用结尾的消息里的文字是叙述，最后不带工具调用的消息是结论", () => {
-    const [turn] = buildTurns(history(user, assistant([{ type: "text", text: "我先看看文件。" }, call]), assistant([{ type: "text", text: "看完了，没问题。" }])));
+    const [turn] = buildTurns(
+      history(
+        user,
+        assistant([{ type: "text", text: "我先看看文件。" }, call]),
+        assistant([{ type: "text", text: "看完了，没问题。" }]),
+      ),
+    );
     expect(turn?.answer?.text).toBe("看完了，没问题。");
     expect(turn?.steps.map((step) => step.kind)).toEqual(["narration", "tool"]);
   });
@@ -131,14 +165,22 @@ describe("叙述 / 结论启发式的边界", () => {
     expect(turn?.steps.map((step) => step.kind)).toEqual(["tool"]);
   });
 
-  it("整轮没有任何助手文字：没有结论（界面写\"没有得到结果\"）", () => {
+  it('整轮没有任何助手文字：没有结论（界面写"没有得到结果"）', () => {
     const [turn] = buildTurns(history(user, assistant([call])));
     expect(turn?.answer).toBeNull();
     expect(turn?.hasAssistantOutput).toBe(true);
   });
 
   it("思考内容永不进结论；narration 标记的思考当作回答文字", () => {
-    const [turn] = buildTurns(history(user, assistant([{ type: "thinking", thinking: "内部推理" }, { type: "text", text: "结论。" }])));
+    const [turn] = buildTurns(
+      history(
+        user,
+        assistant([
+          { type: "thinking", thinking: "内部推理" },
+          { type: "text", text: "结论。" },
+        ]),
+      ),
+    );
     expect(turn?.answer?.text).toBe("结论。");
     expect(turn?.steps.map((step) => step.kind)).toEqual(["thinking"]);
   });
@@ -146,7 +188,14 @@ describe("叙述 / 结论启发式的边界", () => {
   it("没变的轮沿用同一个对象，流式追加时已完成的轮不重渲染", () => {
     const before = history(user, assistant([{ type: "text", text: "第一轮。" }]));
     const first = buildTurns(before);
-    const next = applyTranscriptEvent(before, { type: "history", messages: [user, assistant([{ type: "text", text: "第一轮。" }]), { role: "user", content: "再来", timestamp: 9 }] });
+    const next = applyTranscriptEvent(before, {
+      type: "history",
+      messages: [
+        user,
+        assistant([{ type: "text", text: "第一轮。" }]),
+        { role: "user", content: "再来", timestamp: 9 },
+      ],
+    });
     const second = buildTurns(next, first);
     expect(second).toHaveLength(2);
     expect(second[1]?.user?.text).toBe("再来");
@@ -156,7 +205,12 @@ describe("叙述 / 结论启发式的边界", () => {
 describe("改动文件汇总", () => {
   it("只统计成功的 edit/write；edit 取 details.diff，write 取 content 行数", () => {
     const changes = summarizeChanges([
-      { name: "edit", args: { input: "[src/a.ts#1A2B]\nPUT 1.=1:\n+x" }, status: "done", result: { details: { diff: "--- a\n+++ a\n-old\n+new1\n+new2" } } },
+      {
+        name: "edit",
+        args: { input: "[src/a.ts#1A2B]\nPUT 1.=1:\n+x" },
+        status: "done",
+        result: { details: { diff: "--- a\n+++ a\n-old\n+new1\n+new2" } },
+      },
       { name: "write", args: { path: "b.txt", content: "l1\nl2\n" }, status: "done", result: {} },
       { name: "edit", args: { path: "bad.ts" }, status: "error", result: {} },
       { name: "bash", args: { command: "ls" }, status: "done", result: {} },
@@ -170,10 +224,34 @@ describe("改动文件汇总", () => {
 
 describe("空的思考块", () => {
   it("只有空白的思考内容不产生过程步骤", () => {
-    const base = { api: "x", provider: "p", model: "m", stopReason: "stop" as const, timestamp: 1, usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } };
+    const base = {
+      api: "x",
+      provider: "p",
+      model: "m",
+      stopReason: "stop" as const,
+      timestamp: 1,
+      usage: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 0,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      },
+    };
     const t = applyTranscriptEvent(emptyTranscript(), {
       type: "history",
-      messages: [{ role: "user", content: "x", timestamp: 1 }, { ...base, role: "assistant", content: [{ type: "thinking", thinking: " \n", thinkingSignature: "sig" }, { type: "text", text: "好。" }] }],
+      messages: [
+        { role: "user", content: "x", timestamp: 1 },
+        {
+          ...base,
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: " \n", thinkingSignature: "sig" },
+            { type: "text", text: "好。" },
+          ],
+        },
+      ],
     });
     const [turn] = buildTurns(t);
     expect(turn?.steps).toEqual([]);

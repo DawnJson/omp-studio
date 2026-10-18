@@ -34,11 +34,32 @@ export interface ConfigServiceDeps {
 }
 
 /** 只留 omp 启动要用的系统变量（PATH、临时目录、用户目录等）；会覆盖设置的 API/代理/功能开关一概不带。 */
-const systemVariables = new Set(["PATH", "PATHEXT", "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "TEMP", "TMP", "TMPDIR", "USERPROFILE", "HOME", "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA", "PROGRAMDATA", "COMSPEC", "USERNAME", "OS", "PROCESSOR_ARCHITECTURE"]);
+const systemVariables = new Set([
+  "PATH",
+  "PATHEXT",
+  "SYSTEMROOT",
+  "SYSTEMDRIVE",
+  "WINDIR",
+  "TEMP",
+  "TMP",
+  "TMPDIR",
+  "USERPROFILE",
+  "HOME",
+  "HOMEDRIVE",
+  "HOMEPATH",
+  "APPDATA",
+  "LOCALAPPDATA",
+  "PROGRAMDATA",
+  "COMSPEC",
+  "USERNAME",
+  "OS",
+  "PROCESSOR_ARCHITECTURE",
+]);
 
 function cleanEnv(agentDir: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
-  for (const [name, value] of Object.entries(process.env)) if (systemVariables.has(name.toUpperCase())) env[name] = value;
+  for (const [name, value] of Object.entries(process.env))
+    if (systemVariables.has(name.toUpperCase())) env[name] = value;
   env["PI_CODING_AGENT_DIR"] = agentDir;
   return env;
 }
@@ -67,7 +88,9 @@ export function runOmpConfig(exePath: string, cwd: string): ConfigServiceDeps["r
 }
 
 function failure(result: RunResult): OmpConfigError {
-  const text = (result.stderr.trim() || result.stdout.trim() || `omp config exited with code ${result.code}`).split(/\r?\n/)[0] ?? "";
+  const text =
+    (result.stderr.trim() || result.stdout.trim() || `omp config exited with code ${result.code}`).split(/\r?\n/)[0] ??
+    "";
   return new OmpConfigError(text.replace(/^Error:\s*/, ""));
 }
 
@@ -113,7 +136,10 @@ export class OmpConfigService {
     const scratch = await mkdtemp(path.join(os.tmpdir(), "omp-studio-config-"));
     try {
       const isolated = { agentDir: scratch };
-      const [json, text] = await Promise.all([this.#deps.run(["list", "--json"], isolated), this.#deps.run(["list"], isolated)]);
+      const [json, text] = await Promise.all([
+        this.#deps.run(["list", "--json"], isolated),
+        this.#deps.run(["list"], isolated),
+      ]);
       if (json.code !== 0) throw failure(json);
       if (text.code !== 0) throw failure(text);
       const schema = buildSchema(version, parseJson(json.stdout, "`omp config list --json`"), text.stdout);
@@ -141,7 +167,10 @@ export class OmpConfigService {
   /** valueJson 是 JSON 文本；按 schema 的类型转成 `omp config set` 要的参数。 */
   async set(key: string, valueJson: string): Promise<OmpConfigWriteResult> {
     const entry = await this.#entry(key);
-    if (isCredentialKey(key, false)) throw new OmpConfigError(`${key} is a credential: set it with \`omp config set\` in a terminal, not through the command line of omp-studio`);
+    if (isCredentialKey(key, false))
+      throw new OmpConfigError(
+        `${key} is a credential: set it with \`omp config set\` in a terminal, not through the command line of omp-studio`,
+      );
     const value = parseJson(valueJson, "the value");
     let argument: string;
     switch (entry.type) {
@@ -163,7 +192,8 @@ export class OmpConfigService {
         argument = JSON.stringify(value);
         break;
       case "record":
-        if (typeof value !== "object" || value === null || Array.isArray(value)) throw new OmpConfigError("Invalid value: expected a JSON object");
+        if (typeof value !== "object" || value === null || Array.isArray(value))
+          throw new OmpConfigError("Invalid value: expected a JSON object");
         argument = JSON.stringify(value);
         break;
     }

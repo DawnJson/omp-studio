@@ -25,7 +25,9 @@ afterAll(async () => {
 
 describe.skipIf(!enabled)("真实 omp", () => {
   it("createTask → sendPrompt 跑到 prompt_result(completed)，任务回到 idle，会话文件落盘并记进 tasks.json", async () => {
-    const dotenv = parseEnv(await readFile(process.env["STUDIO_ENV_FILE"] ?? path.join(import.meta.dirname, "..", ".env"), "utf8"));
+    const dotenv = parseEnv(
+      await readFile(process.env["STUDIO_ENV_FILE"] ?? path.join(import.meta.dirname, "..", ".env"), "utf8"),
+    );
     const model = dotenv["STUDIO_TEST_MODEL"];
     if (!model) throw new Error(".env has no STUDIO_TEST_MODEL");
     const [provider, ...rest] = model.split("/");
@@ -39,10 +41,26 @@ describe.skipIf(!enabled)("真实 omp", () => {
     const registry = new TaskRegistry(path.join(scratch, "tasks.json"));
     pool = new TaskPool({
       registry,
-      getSettings: async () => ({ locale: "en", theme: "system", defaultModel: { provider: provider!, modelId: rest.join("/") }, defaultThinkingLevel: null, defaultApprovalMode: "yolo", maxLiveProcesses: 6, reduceMotion: false, enterWhileRunning: "steer", notifyOnGate: true, yoloConfirmed: false }),
+      getSettings: async () => ({
+        locale: "en",
+        theme: "system",
+        defaultModel: { provider: provider!, modelId: rest.join("/") },
+        defaultThinkingLevel: null,
+        defaultApprovalMode: "yolo",
+        maxLiveProcesses: 6,
+        reduceMotion: false,
+        enterWhileRunning: "steer",
+        notifyOnGate: true,
+        yoloConfirmed: false,
+      }),
       buildLaunch: async (record, project) => ({
         command: omp,
-        args: buildOmpArgs({ cwd: project.path, model: record.model, thinkingLevel: record.thinkingLevel, approvalMode: record.approvalMode }),
+        args: buildOmpArgs({
+          cwd: project.path,
+          model: record.model,
+          thinkingLevel: record.thinkingLevel,
+          approvalMode: record.approvalMode,
+        }),
         cwd: project.path,
         env: { ...process.env, ...dotenv, PI_CODING_AGENT_DIR: path.join(scratch, "agent") },
       }),
@@ -79,9 +97,16 @@ describe.skipIf(!enabled)("真实 omp", () => {
     const done = await until((s) => s.lastTurn !== null && s.status === "idle");
 
     expect(done.lastTurn?.status).toBe("completed");
-    expect(states.map((s) => s.status).filter((status, i, all) => all[i - 1] !== status)).toEqual(["starting", "idle", "running", "idle"]);
+    expect(states.map((s) => s.status).filter((status, i, all) => all[i - 1] !== status)).toEqual([
+      "starting",
+      "idle",
+      "running",
+      "idle",
+    ]);
     const snapshot = pool.getTranscript(created.id);
-    const assistant = snapshot.transcript.items.find((item) => item.kind === "message" && item.message.role === "assistant");
+    const assistant = snapshot.transcript.items.find(
+      (item) => item.kind === "message" && item.message.role === "assistant",
+    );
     expect(assistant).toBeDefined();
     await until(() => registry.findTask(created.id)?.sessionFile != null);
     expect(registry.findTask(created.id)?.sessionFile).toContain(path.join(scratch, "agent"));

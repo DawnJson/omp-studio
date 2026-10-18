@@ -23,11 +23,23 @@ export function ExtraView({ extra }: { extra: Extra }) {
   const t = useT();
   switch (extra.kind) {
     case "notice":
-      return <p className="note" data-level={extra.level}>{extra.message}</p>;
+      return (
+        <p className="note" data-level={extra.level}>
+          {extra.message}
+        </p>
+      );
     case "command_output":
-      return <pre className="command-output" aria-label={t("conversation.commandOutput")}>{extra.text}</pre>;
+      return (
+        <pre className="command-output" aria-label={t("conversation.commandOutput")}>
+          {extra.text}
+        </pre>
+      );
     case "compaction":
-      return extra.phase === "end" ? <p className="note" data-level="info">{t("conversation.compacted")}</p> : null;
+      return extra.phase === "end" ? (
+        <p className="note" data-level="info">
+          {t("conversation.compacted")}
+        </p>
+      ) : null;
     case "retry":
       return null;
     case "prompt_error":

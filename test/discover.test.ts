@@ -26,7 +26,10 @@ describe("findOmpOnPath", () => {
     const empty = await dirWith("空 目录", []);
     const first = await dirWith("第一个 bin", [isWindows ? "omp.exe" : "omp"]);
     const second = await dirWith("第二个 bin", [isWindows ? "omp.exe" : "omp"]);
-    const found = await findOmpOnPath({ PATH: [empty, first, second].join(path.delimiter), PATHEXT: ".COM;.EXE;.BAT;.CMD" });
+    const found = await findOmpOnPath({
+      PATH: [empty, first, second].join(path.delimiter),
+      PATHEXT: ".COM;.EXE;.BAT;.CMD",
+    });
     expect(found).toBe(path.join(first, isWindows ? "omp.exe" : "omp"));
   });
 
@@ -43,7 +46,9 @@ describe("findOmpOnPath", () => {
   it.runIf(isWindows)("refuses an npm-style omp.cmd that shadows an omp.exe later on PATH", async () => {
     const shim = await dirWith("npm 全局", ["omp.cmd"]);
     const exe = await dirWith("tern", ["omp.exe"]);
-    const error = await findOmpOnPath({ PATH: [shim, exe].join(path.delimiter), PATHEXT: ".COM;.EXE;.BAT;.CMD" }).catch((e: unknown) => e);
+    const error = await findOmpOnPath({ PATH: [shim, exe].join(path.delimiter), PATHEXT: ".COM;.EXE;.BAT;.CMD" }).catch(
+      (e: unknown) => e,
+    );
     expect(error).toBeInstanceOf(UnsupportedOmpLauncherError);
     expect((error as UnsupportedOmpLauncherError).path).toBe(path.join(shim, "omp.cmd"));
   });

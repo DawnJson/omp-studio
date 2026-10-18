@@ -23,31 +23,64 @@ export const ConfigRow = memo(function ConfigRow({ item, query = "" }: { item: O
 
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const nameText = `${name}\n${item.key}`.toLowerCase();
-  const snippet = words.length > 0 && text.description && !words.every((word) => nameText.includes(word)) ? text.description : null;
+  const snippet =
+    words.length > 0 && text.description && !words.every((word) => nameText.includes(word)) ? text.description : null;
 
-  const sources: Record<string, string> = { project: t("settings.cfg.source.project"), overlay: t("settings.cfg.source.overlay"), runtime: t("settings.cfg.source.runtime") };
-  const defaultText = item.hasDefault ? (item.defaultValue === "" ? t("settings.cfg.emptyText") : shortValue(item.defaultValue)) : t("settings.cfg.unset");
+  const sources: Record<string, string> = {
+    project: t("settings.cfg.source.project"),
+    overlay: t("settings.cfg.source.overlay"),
+    runtime: t("settings.cfg.source.runtime"),
+  };
+  const defaultText = item.hasDefault
+    ? item.defaultValue === ""
+      ? t("settings.cfg.emptyText")
+      : shortValue(item.defaultValue)
+    : t("settings.cfg.unset");
   const hasTip = text.label !== null || text.description !== "" || item.redacted;
 
   return (
-    <div className="cfg-row" role="group" aria-labelledby={labelId} data-stacked={stacked || undefined} data-modified={modified || undefined} data-testid={`cfg-${item.key}`}>
+    <div
+      className="cfg-row"
+      role="group"
+      aria-labelledby={labelId}
+      data-stacked={stacked || undefined}
+      data-modified={modified || undefined}
+      data-testid={`cfg-${item.key}`}
+    >
       <div className="cfg-line">
         <div className="cfg-name">
-          <span id={labelId} className={text.label ? "cfg-title" : "cfg-title cfg-key-title"} title={text.label ? `${text.label} (${item.key})` : item.key}>
+          <span
+            id={labelId}
+            className={text.label ? "cfg-title" : "cfg-title cfg-key-title"}
+            title={text.label ? `${text.label} (${item.key})` : item.key}
+          >
             {name}
           </span>
           {hasTip && (
             <InfoTip>
               {text.label && <span className="st-tip-key">{item.key}</span>}
               {text.description}
-              {text.original && locale === "zh-CN" && text.description !== "" && <span className="cfg-badge">{t("settings.cfg.original")}</span>}
+              {text.original && locale === "zh-CN" && text.description !== "" && (
+                <span className="cfg-badge">{t("settings.cfg.original")}</span>
+              )}
               {item.redacted && <span className="st-tip-line">{t("settings.cfg.credentialNote")}</span>}
             </InfoTip>
           )}
           {modified && <span className="cfg-chip">{t("settings.cfg.modified")}</span>}
           {(row.overriddenBy || row.fallbackEnv) && (
-            <span className="cfg-chip cfg-chip-warn" title={row.overriddenBy ? t("settings.cfg.overridden", { source: sources[row.overriddenBy] ?? t("settings.cfg.source.env", { name: row.overriddenBy }) }) : t("settings.cfg.fallbackEnv", { name: row.fallbackEnv ?? "" })}>
-              {t("settings.cfg.overriddenBadge", { name: row.overriddenBy ? (sources[row.overriddenBy] ?? row.overriddenBy) : (row.fallbackEnv ?? "") })}
+            <span
+              className="cfg-chip cfg-chip-warn"
+              title={
+                row.overriddenBy
+                  ? t("settings.cfg.overridden", {
+                      source: sources[row.overriddenBy] ?? t("settings.cfg.source.env", { name: row.overriddenBy }),
+                    })
+                  : t("settings.cfg.fallbackEnv", { name: row.fallbackEnv ?? "" })
+              }
+            >
+              {t("settings.cfg.overriddenBadge", {
+                name: row.overriddenBy ? (sources[row.overriddenBy] ?? row.overriddenBy) : (row.fallbackEnv ?? ""),
+              })}
             </span>
           )}
           <span className="cfg-feedback" role="status" aria-live="polite">
@@ -56,7 +89,13 @@ export const ConfigRow = memo(function ConfigRow({ item, query = "" }: { item: O
           </span>
         </div>
         {modified && (
-          <button type="button" className="cfg-reset" disabled={row.phase === "saving"} title={item.redacted ? undefined : t("settings.cfg.default", { value: defaultText })} onClick={() => void resetOmpConfig(item.key)}>
+          <button
+            type="button"
+            className="cfg-reset"
+            disabled={row.phase === "saving"}
+            title={item.redacted ? undefined : t("settings.cfg.default", { value: defaultText })}
+            onClick={() => void resetOmpConfig(item.key)}
+          >
             {t("settings.cfg.reset")}
           </button>
         )}
@@ -66,7 +105,12 @@ export const ConfigRow = memo(function ConfigRow({ item, query = "" }: { item: O
               {item.hasValue ? t("settings.cfg.credentialSet") : t("settings.cfg.credentialUnset")}
             </span>
           ) : (
-            <ConfigControl item={item} labelId={labelId} onSave={(value) => void saveOmpConfig(item.key, value)} onInvalid={(message) => setLocalError(item.key, message)} />
+            <ConfigControl
+              item={item}
+              labelId={labelId}
+              onSave={(value) => void saveOmpConfig(item.key, value)}
+              onInvalid={(message) => setLocalError(item.key, message)}
+            />
           )}
         </div>
       </div>

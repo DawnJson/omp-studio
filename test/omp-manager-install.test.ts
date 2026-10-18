@@ -5,7 +5,14 @@ import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { BuildServiceError, buildTarget, downloadVerified, fetchBuild, VerifyError, type BuildInfo } from "../src/main/omp-manager/build-service.ts";
+import {
+  BuildServiceError,
+  buildTarget,
+  downloadVerified,
+  fetchBuild,
+  VerifyError,
+  type BuildInfo,
+} from "../src/main/omp-manager/build-service.ts";
 import { installBuild, managedLayout, type ManagedLayout } from "../src/main/omp-manager/installer.ts";
 import { encodeSingleStreamPatch } from "./hpatch-encoder.ts";
 
@@ -13,7 +20,14 @@ let server: http.Server;
 let baseUrl: string;
 let scratch: string;
 /** 假构建服务当前发布的内容。patch：带 from_version 来问时附上的补丁（from 是补丁的起点 exe）。 */
-const published = { version: "18.12.1", bytes: randomBytes(300_000), corrupt: false, missing: false, patch: null as { from: Buffer; bytes: Buffer } | null, fullDownloads: 0 };
+const published = {
+  version: "18.12.1",
+  bytes: randomBytes(300_000),
+  corrupt: false,
+  missing: false,
+  patch: null as { from: Buffer; bytes: Buffer } | null,
+  fullDownloads: 0,
+};
 
 function sha256(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -31,9 +45,21 @@ beforeAll(async () => {
       response.writeHead(200, { "content-type": "application/json" }).end(
         JSON.stringify({
           build: { version: published.version },
-          file: { name: "omp-windows-x64.exe", size: published.bytes.length, sha256: sha256(published.bytes).toUpperCase() },
+          file: {
+            name: "omp-windows-x64.exe",
+            size: published.bytes.length,
+            sha256: sha256(published.bytes).toUpperCase(),
+          },
           download: "/d/omp/omp.exe",
-          ...(patch && { patch: { format: "file", from_sha256: sha256(patch.from), size: patch.bytes.length, sha256: sha256(patch.bytes), url: "/d/omp/omp.patch" } }),
+          ...(patch && {
+            patch: {
+              format: "file",
+              from_sha256: sha256(patch.from),
+              size: patch.bytes.length,
+              sha256: sha256(patch.bytes),
+              url: "/d/omp/omp.patch",
+            },
+          }),
         }),
       );
       return;
@@ -57,7 +83,11 @@ afterAll(async () => {
   await rm(scratch, { recursive: true, force: true });
 });
 
-const fetchOptions = () => ({ fetch: (url: string, init?: { headers?: Record<string, string>; signal?: AbortSignal | undefined }) => fetch(url, init as RequestInit), baseUrl });
+const fetchOptions = () => ({
+  fetch: (url: string, init?: { headers?: Record<string, string>; signal?: AbortSignal | undefined }) =>
+    fetch(url, init as RequestInit),
+  baseUrl,
+});
 const full = (build: BuildInfo) => ({ url: build.downloadUrl, size: build.file.size, sha256: build.file.sha256 });
 
 describe("fetchBuild", () => {
@@ -71,7 +101,10 @@ describe("fetchBuild", () => {
 
   it("reports a target with no published build as no_build, not as a crash", async () => {
     published.missing = true;
-    await expect(fetchBuild(fetchOptions())).rejects.toMatchObject({ name: "BuildServiceError", kind: "no_build" } satisfies Partial<BuildServiceError>);
+    await expect(fetchBuild(fetchOptions())).rejects.toMatchObject({
+      name: "BuildServiceError",
+      kind: "no_build",
+    } satisfies Partial<BuildServiceError>);
     published.missing = false;
   });
 });
@@ -81,22 +114,41 @@ describe("downloadVerified", () => {
     published.corrupt = true;
     const dest = path.join(scratch, "坏的 omp.exe");
     const build = await fetchBuild(fetchOptions());
-    await expect(downloadVerified({ ...fetchOptions(), source: full(build), dest })).rejects.toBeInstanceOf(VerifyError);
+    await expect(downloadVerified({ ...fetchOptions(), source: full(build), dest })).rejects.toBeInstanceOf(
+      VerifyError,
+    );
     published.corrupt = false;
-    expect(await stat(dest).then(() => true, () => false)).toBe(false);
-    expect(await stat(`${dest}.partial`).then(() => true, () => false)).toBe(false);
+    expect(
+      await stat(dest).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(false);
+    expect(
+      await stat(`${dest}.partial`).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(false);
   });
 
   it("rejects a size mismatch even when the hash was computed over what arrived", async () => {
     const build = await fetchBuild(fetchOptions());
     const dest = path.join(scratch, "短的.exe");
-    await expect(downloadVerified({ ...fetchOptions(), source: { ...full(build), size: build.file.size + 1 }, dest })).rejects.toThrow(/size mismatch/);
+    await expect(
+      downloadVerified({ ...fetchOptions(), source: { ...full(build), size: build.file.size + 1 }, dest }),
+    ).rejects.toThrow(/size mismatch/);
   });
 
   it("reports progress up to the full size", async () => {
     const build = await fetchBuild(fetchOptions());
     let last = 0;
-    await downloadVerified({ ...fetchOptions(), source: full(build), dest: path.join(scratch, "进度.exe"), onProgress: (received) => (last = received) });
+    await downloadVerified({
+      ...fetchOptions(),
+      source: full(build),
+      dest: path.join(scratch, "进度.exe"),
+      onProgress: (received) => (last = received),
+    });
     expect(last).toBe(published.bytes.length);
   });
 });
@@ -112,7 +164,10 @@ describe("installBuild", () => {
     await installBuild(layout, { ...fetchOptions(), build: await fetchBuild(fetchOptions()) });
 
     expect(await readFile(layout.binExe)).toEqual(published.bytes);
-    expect(JSON.parse(await readFile(layout.managerJson, "utf8"))).toEqual({ manager: "omp-studio", name: "omp-studio" });
+    expect(JSON.parse(await readFile(layout.managerJson, "utf8"))).toEqual({
+      manager: "omp-studio",
+      name: "omp-studio",
+    });
     const binNames = await readdir(layout.binDir);
     // 旧 exe 改了名留在 bin 里（可能还有进程在用），不是被覆盖。
     expect(binNames.some((name) => name.startsWith(".omp.exe.old-"))).toBe(true);
@@ -156,7 +211,11 @@ describe("installBuild with a patch", () => {
     published.version = "18.12.2";
     published.bytes = newBytes;
     published.fullDownloads = 0;
-    await installBuild(layout, { ...fetchOptions(), build: await fetchBuild({ ...fetchOptions(), fromVersion: "18.12.1" }), fromExe: layout.binExe });
+    await installBuild(layout, {
+      ...fetchOptions(),
+      build: await fetchBuild({ ...fetchOptions(), fromVersion: "18.12.1" }),
+      fromExe: layout.binExe,
+    });
   }
 
   it("downloads only the patch, and the patched exe is byte-for-byte the build; no patch file is left behind", async () => {
@@ -184,6 +243,8 @@ describe("installBuild with a patch", () => {
     await update(layout);
     expect(published.fullDownloads).toBe(1);
     expect(await readFile(layout.binExe)).toEqual(newBytes);
-    expect((await readdir(layout.versionsDir)).filter((name) => name.endsWith(".patch") || name.endsWith(".partial"))).toEqual([]);
+    expect(
+      (await readdir(layout.versionsDir)).filter((name) => name.endsWith(".patch") || name.endsWith(".partial")),
+    ).toEqual([]);
   });
 });

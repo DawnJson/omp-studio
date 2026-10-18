@@ -71,7 +71,12 @@ export class OmpManager {
     this.#status = status;
     this.#deps.emit(status);
     if (status.state === "ready") this.#settleWaiters(null);
-    else if (status.state === "error" || status.state === "unusable") this.#settleWaiters(new Error(status.state === "error" ? status.message : "omp on PATH is a script launcher that omp-studio cannot start"));
+    else if (status.state === "error" || status.state === "unusable")
+      this.#settleWaiters(
+        new Error(
+          status.state === "error" ? status.message : "omp on PATH is a script launcher that omp-studio cannot start",
+        ),
+      );
   }
 
   #settleWaiters(error: Error | null): void {
@@ -139,7 +144,13 @@ export class OmpManager {
 
   /** 自管副本的 bin/omp.exe。没装过是 null；装坏了（跑不起来）也按没装处理，之后会重新下载覆盖它。 */
   async #inspectManaged(): Promise<OmpInstall | null> {
-    if (!(await stat(this.#layout.binExe).then((s) => s.isFile(), () => false))) return null;
+    if (
+      !(await stat(this.#layout.binExe).then(
+        (s) => s.isFile(),
+        () => false,
+      ))
+    )
+      return null;
     return this.#deps.inspect(this.#layout.binExe).catch(() => null);
   }
 
@@ -156,7 +167,13 @@ export class OmpManager {
         this.#set({ state: "unusable", path: decision.path, reason: "script_launcher" });
         break;
       case "ask_takeover": {
-        this.#set({ state: "ask_takeover", path: decision.path, version: decision.version, launchable: decision.launchable, managerName: decision.managerName });
+        this.#set({
+          state: "ask_takeover",
+          path: decision.path,
+          version: decision.version,
+          launchable: decision.launchable,
+          managerName: decision.managerName,
+        });
         this.#takeoverAnswer = Promise.withResolvers<boolean>();
         const accepted = await this.#takeoverAnswer.promise;
         this.#takeoverAnswer = null;
@@ -173,7 +190,12 @@ export class OmpManager {
     }
   }
 
-  async #useManaged(reason: "missing" | "takeover", managed: OmpInstall | null, state: OmpStudioState, downloadConfirmed = false): Promise<void> {
+  async #useManaged(
+    reason: "missing" | "takeover",
+    managed: OmpInstall | null,
+    state: OmpStudioState,
+    downloadConfirmed = false,
+  ): Promise<void> {
     let install = managed;
     if (install === null) {
       // PATH 上没有 omp：下载 220 MB 要用户点了才开始（spec 4.22 状态 E）。用户同意过接管则已经是授权。
@@ -197,7 +219,10 @@ export class OmpManager {
         this.#consentPathNow = false;
       }
     }
-    this.#ready(install.path, install.version, { kind: "studio_managed", onUserPath: userPath?.contains(this.#layout.binDir) ?? false });
+    this.#ready(install.path, install.version, {
+      kind: "studio_managed",
+      onUserPath: userPath?.contains(this.#layout.binDir) ?? false,
+    });
   }
 
   /** 状态 missing：向构建服务问一下版本和大小给界面写上；问不到也照样等用户点按钮（大小显示为未知）。 */
@@ -252,7 +277,14 @@ export class OmpManager {
         await this.#setMissing();
         return null;
       }
-      this.#fail(error instanceof Error && error.name === "VerifyError" ? "verify" : error instanceof Error && error.name === "BuildServiceError" ? "download" : "install", error);
+      this.#fail(
+        error instanceof Error && error.name === "VerifyError"
+          ? "verify"
+          : error instanceof Error && error.name === "BuildServiceError"
+            ? "download"
+            : "install",
+        error,
+      );
       return null;
     } finally {
       this.#abort = null;
@@ -260,7 +292,14 @@ export class OmpManager {
   }
 
   #ready(exePath: string, version: string, source: OmpSource): void {
-    this.#set({ state: "ready", source, path: exePath, version, belowMinimum: isBelowMinimum(version), stagedUpdate: this.#stagedUpdate });
+    this.#set({
+      state: "ready",
+      source,
+      path: exePath,
+      version,
+      belowMinimum: isBelowMinimum(version),
+      stagedUpdate: this.#stagedUpdate,
+    });
     if (source.kind === "studio_managed") this.#startAutoUpdate();
   }
 
@@ -279,7 +318,8 @@ export class OmpManager {
   /** 设置 → omp：自管 omp 的 bin 不在用户 PATH 上（比如用户手动删了）时，再放回最前面。 */
   async addManagedOmpToPath(): Promise<void> {
     const status = this.#status;
-    if (status.state !== "ready" || status.source.kind !== "studio_managed") throw new Error("only the omp that omp-studio manages can be added to the user PATH");
+    if (status.state !== "ready" || status.source.kind !== "studio_managed")
+      throw new Error("only the omp that omp-studio manages can be added to the user PATH");
     if (!this.#deps.userPath) throw new Error("this platform does not support editing the user PATH");
     this.#deps.userPath.addFront(this.#layout.binDir);
     await this.#refreshReady((current) => ({ ...current, source: { kind: "studio_managed", onUserPath: true } }));
@@ -288,7 +328,8 @@ export class OmpManager {
   /** 出错后重新跑发现流程；unusable（拒绝了脚本形式的接管）时忘掉那次拒绝，让用户重新选择。 */
   async retry(): Promise<void> {
     const status = this.#status;
-    if (status.state === "installing" || status.state === "discovering" || status.state === "ask_takeover") return this.#running ?? undefined;
+    if (status.state === "installing" || status.state === "discovering" || status.state === "ask_takeover")
+      return this.#running ?? undefined;
     if (status.state === "unusable") {
       const state = await readState(this.#deps.stateFile);
       delete state.takeover[takeoverKey(status.path)];
@@ -300,24 +341,41 @@ export class OmpManager {
   /** 对 PATH 上用户自装（拒绝了接管）的 omp 执行 `omp update`，之后重新读版本。 */
   async upgradePathOmp(): Promise<OmpUpgradeResult> {
     const status = this.#status;
-    if (status.state !== "ready" || status.source.kind !== "user_installed") throw new Error("omp update is only run for an omp the user installed and kept");
+    if (status.state !== "ready" || status.source.kind !== "user_installed")
+      throw new Error("omp update is only run for an omp the user installed and kept");
     const result = await this.#deps.runUpdate(status.path);
     const install = await this.#deps.inspect(status.path);
-    await this.#refreshReady((current) => ({ ...current, version: install.version, belowMinimum: isBelowMinimum(install.version) }));
+    await this.#refreshReady((current) => ({
+      ...current,
+      version: install.version,
+      belowMinimum: isBelowMinimum(install.version),
+    }));
     return result;
   }
 
   /** 自管时向构建服务查一次；有新版就下载、校验、换 bin/omp.exe。返回装上的版本，已最新返回 null。 */
   async checkUpdate(): Promise<string | null> {
     const status = this.#status;
-    if (status.state !== "ready" || status.source.kind !== "studio_managed") throw new Error("only the omp that omp-studio manages is updated by omp-studio");
-    const build = await fetchBuild({ fetch: this.#deps.fetch, baseUrl: this.#deps.baseUrl, fromVersion: status.version });
+    if (status.state !== "ready" || status.source.kind !== "studio_managed")
+      throw new Error("only the omp that omp-studio manages is updated by omp-studio");
+    const build = await fetchBuild({
+      fetch: this.#deps.fetch,
+      baseUrl: this.#deps.baseUrl,
+      fromVersion: status.version,
+    });
     if (compareVersions(build.version, status.version) <= 0) return null;
     // 后台下载不切到 installing（那会把界面换成准备页），做完直接把 ready 的版本换掉。补丁从当前的 bin/omp.exe 做。
-    await this.#withLock(() => installBuild(this.#layout, { fetch: this.#deps.fetch, build, fromExe: this.#layout.binExe }));
+    await this.#withLock(() =>
+      installBuild(this.#layout, { fetch: this.#deps.fetch, build, fromExe: this.#layout.binExe }),
+    );
     const install = await this.#deps.inspect(this.#layout.binExe);
     this.#stagedUpdate = install.version;
-    await this.#refreshReady((current) => ({ ...current, version: install.version, belowMinimum: isBelowMinimum(install.version), stagedUpdate: install.version }));
+    await this.#refreshReady((current) => ({
+      ...current,
+      version: install.version,
+      belowMinimum: isBelowMinimum(install.version),
+      stagedUpdate: install.version,
+    }));
     return install.version;
   }
 
@@ -325,7 +383,9 @@ export class OmpManager {
     if (this.#timer) return;
     this.#timer = setInterval(() => {
       // 后台检查失败不打断用户，下个小时再试；手动"检查更新"会把错误显示出来。
-      this.checkUpdate().catch((error: unknown) => log.warn("omp background update check failed", error instanceof Error ? error.message : error));
+      this.checkUpdate().catch((error: unknown) =>
+        log.warn("omp background update check failed", error instanceof Error ? error.message : error),
+      );
     }, UPDATE_INTERVAL_MS);
     this.#timer.unref();
   }
@@ -381,10 +441,15 @@ function isProcessAlive(pid: number): boolean {
 /** 对 PATH 上的 omp 执行 `omp update`（不用 shell），输出原样返回。 */
 export function runOmpUpdate(exePath: string): Promise<OmpUpgradeResult> {
   const { promise, resolve } = Promise.withResolvers<OmpUpgradeResult>();
-  execFile(exePath, ["update"], { timeout: 10 * 60 * 1000, windowsHide: true, maxBuffer: 4 * 1024 * 1024 }, (error, stdout, stderr) => {
-    const output = `${stdout}${stderr}`.trim();
-    if (!error) resolve({ exitCode: 0, output });
-    else resolve({ exitCode: typeof error.code === "number" ? error.code : null, output: output || error.message });
-  });
+  execFile(
+    exePath,
+    ["update"],
+    { timeout: 10 * 60 * 1000, windowsHide: true, maxBuffer: 4 * 1024 * 1024 },
+    (error, stdout, stderr) => {
+      const output = `${stdout}${stderr}`.trim();
+      if (!error) resolve({ exitCode: 0, output });
+      else resolve({ exitCode: typeof error.code === "number" ? error.code : null, output: output || error.message });
+    },
+  );
   return promise;
 }

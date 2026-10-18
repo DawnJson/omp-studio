@@ -25,7 +25,11 @@ function AssistantAnswer({ text, streaming, live }: { text: string; streaming: b
     <div className="answer" data-live={live || undefined} data-testid="assistant-message">
       <Markdown source={text} streaming={streaming} />
       {!streaming && (
-        <button type="button" className="hover-action answer-copy" onClick={() => void navigator.clipboard.writeText(text)}>
+        <button
+          type="button"
+          className="hover-action answer-copy"
+          onClick={() => void navigator.clipboard.writeText(text)}
+        >
           {t("common.copy")}
         </button>
       )}
@@ -38,16 +42,31 @@ export const TurnView = memo(function TurnView({ turn, live, offscreenSkippable,
   const complete = live === null;
   const noResult = complete && turn.answer === null && (turn.hasAssistantOutput || turn.toolCalls > 0);
   return (
-    <section className="turn" data-turn-key={turn.key} data-skippable={(offscreenSkippable && complete) || undefined} data-testid="turn">
+    <section
+      className="turn"
+      data-turn-key={turn.key}
+      data-skippable={(offscreenSkippable && complete) || undefined}
+      data-testid="turn"
+    >
       {turn.modelSwitch !== null && (
-        <div className="model-divider" role="separator"><span>{t("model.switchedModel", { model: turn.modelSwitch })}</span></div>
+        <div className="model-divider" role="separator">
+          <span>{t("model.switchedModel", { model: turn.modelSwitch })}</span>
+        </div>
       )}
       {turn.user && <UserMessage user={turn.user} />}
       <ProcessRow turn={turn} live={live} />
-      {turn.answer && <AssistantAnswer text={turn.answer.text} streaming={turn.answer.streaming} live={turn.answer.streaming} />}
-      {noResult && <p className="note" data-testid="no-result">{t("turn.noResult")}</p>}
+      {turn.answer && (
+        <AssistantAnswer text={turn.answer.text} streaming={turn.answer.streaming} live={turn.answer.streaming} />
+      )}
+      {noResult && (
+        <p className="note" data-testid="no-result">
+          {t("turn.noResult")}
+        </p>
+      )}
       {complete && turn.runFinished && <ChangeCard changes={turn.changes} taskId={taskId} projectPath={projectPath} />}
-      {turn.extras.map((extra) => <ExtraView key={extra.key} extra={extra} />)}
+      {turn.extras.map((extra) => (
+        <ExtraView key={extra.key} extra={extra} />
+      ))}
     </section>
   );
 });

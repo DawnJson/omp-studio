@@ -22,7 +22,10 @@ describe("审批选项的显示", () => {
   });
 
   it("title 第一行是标题，其余是细节；拒绝选项是最后一项", () => {
-    expect(splitTitle("Allow tool: bash\nCommand: echo hi\nPath: C:\\x")).toEqual({ headline: "Allow tool: bash", details: "Command: echo hi\nPath: C:\\x" });
+    expect(splitTitle("Allow tool: bash\nCommand: echo hi\nPath: C:\\x")).toEqual({
+      headline: "Allow tool: bash",
+      details: "Command: echo hi\nPath: C:\\x",
+    });
     expect(splitTitle("Allow tool: read")).toEqual({ headline: "Allow tool: read", details: "" });
     expect(denyOption(["Approve", "Approve bash for this session", "Deny"])).toBe("Deny");
     expect(denyOption([])).toBeNull();
@@ -33,7 +36,9 @@ describe("审批选项的显示", () => {
     const frame = readFileSync(file, "utf8")
       .split("\n")
       .filter(Boolean)
-      .map((line): { kind: string; frame?: { method?: string; title?: string; options?: string[] } } => JSON.parse(line))
+      .map((line): { kind: string; frame?: { method?: string; title?: string; options?: string[] } } =>
+        JSON.parse(line),
+      )
       .find((line) => line.kind === "out" && line.frame?.method === "select")?.frame;
     expect(frame?.title?.startsWith("Allow tool: ")).toBe(true);
     const options = frame?.options ?? [];

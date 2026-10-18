@@ -19,7 +19,9 @@ async function localeAndTheme(page: Page, locale: "zh-CN" | "en", theme: "light"
 }
 
 /** 测试用的 agent 目录：服务进程不读真实 ~/.omp（AGENTS.md "开发和测试时隔离用户数据"）。 */
-async function launchIsolated(options: { askTakeover?: boolean } = {}): Promise<{ launched: LaunchedApp; agentDir: string }> {
+async function launchIsolated(
+  options: { askTakeover?: boolean } = {},
+): Promise<{ launched: LaunchedApp; agentDir: string }> {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
   return { launched: await launchApp({ PI_CODING_AGENT_DIR: agentDir }, options), agentDir };
 }
@@ -39,12 +41,21 @@ test("PATH 上是 Tern 管理的 omp：问一次要不要接管，选继续用 T
   try {
     const { page } = launched;
     await expect(page.getByTestId("omp-setup")).toHaveAttribute("data-state", "ask_takeover", { timeout: 30_000 });
-    expect(await page.evaluate(() => globalThis.studio.getOmpStatus())).toMatchObject({ state: "ask_takeover", path: onPath, managerName: "Tern", launchable: true });
+    expect(await page.evaluate(() => globalThis.studio.getOmpStatus())).toMatchObject({
+      state: "ask_takeover",
+      path: onPath,
+      managerName: "Tern",
+      launchable: true,
+    });
     await expect(page.getByTestId("takeover-no")).toContainText("Tern");
     await page.getByTestId("takeover-no").click();
     await expect(page.getByTestId("omp-setup")).toHaveCount(0);
     const status = await page.evaluate(() => globalThis.studio.getOmpStatus());
-    expect(status).toMatchObject({ state: "ready", path: onPath, source: { kind: "managed_by_other", managerName: "Tern" } });
+    expect(status).toMatchObject({
+      state: "ready",
+      path: onPath,
+      source: { kind: "managed_by_other", managerName: "Tern" },
+    });
 
     await page.keyboard.press("Control+,");
     await page.getByTestId("settings-nav-omp").click();
@@ -60,7 +71,11 @@ test("设置页和 omp 准备页截图：中英文 × 浅深主题", async () =>
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
-    await expect.poll(() => page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), { timeout: 30_000 }).toBe("ready");
+    await expect
+      .poll(() => page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
+        timeout: 30_000,
+      })
+      .toBe("ready");
     await page.setViewportSize({ width: 1200, height: 800 });
     await page.keyboard.press("Control+,");
     await expect(page.getByTestId("settings")).toBeVisible();
@@ -73,16 +88,36 @@ test("设置页和 omp 准备页截图：中英文 × 浅深主题", async () =>
           if (section === "models") await expect(page.getByTestId("providers")).toBeVisible();
           // 模型与账号要等服务进程读完 provider 列表；读不出来时界面显示原因，同样截下来。
           if (section === "models") await page.waitForTimeout(4000);
-          await page.screenshot({ path: path.join(screenshotsDir, `omp-e-settings-${section}-${locale}-${theme}.png`) });
+          await page.screenshot({
+            path: path.join(screenshotsDir, `omp-e-settings-${section}-${locale}-${theme}.png`),
+          });
         }
       }
     }
 
     // 准备页的几个状态：按主进程会推的形状合成。
     const states: Record<string, OmpStatus> = {
-      "takeover-exe": { state: "ask_takeover", path: "C:\\Users\\me\\AppData\\Local\\omp\\omp.exe", version: "18.8.7", launchable: true, managerName: null },
-      "takeover-script": { state: "ask_takeover", path: "C:\\Users\\me\\AppData\\Roaming\\npm\\omp.cmd", version: null, launchable: false, managerName: null },
-      "takeover-tern": { state: "ask_takeover", path: "C:\\Users\\me\\AppData\\Local\\Tern\\omp\\bin\\omp.exe", version: "18.12.1", launchable: true, managerName: "Tern" },
+      "takeover-exe": {
+        state: "ask_takeover",
+        path: "C:\\Users\\me\\AppData\\Local\\omp\\omp.exe",
+        version: "18.8.7",
+        launchable: true,
+        managerName: null,
+      },
+      "takeover-script": {
+        state: "ask_takeover",
+        path: "C:\\Users\\me\\AppData\\Roaming\\npm\\omp.cmd",
+        version: null,
+        launchable: false,
+        managerName: null,
+      },
+      "takeover-tern": {
+        state: "ask_takeover",
+        path: "C:\\Users\\me\\AppData\\Local\\Tern\\omp\\bin\\omp.exe",
+        version: "18.12.1",
+        launchable: true,
+        managerName: "Tern",
+      },
       installing: { state: "installing", version: "18.12.1", receivedBytes: 96_000_000, totalBytes: 222_742_016 },
       error: { state: "error", stage: "download", message: "build service answered 503" },
       unusable: { state: "unusable", path: "C:\\Users\\me\\AppData\\Roaming\\npm\\omp.cmd", reason: "script_launcher" },
@@ -108,13 +143,30 @@ test("接管询问：同意/拒绝的按钮把回答发给主进程", async () =
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
-    await expect.poll(() => page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), { timeout: 30_000 }).toBe("ready");
-    await pushStatus(launched, { state: "ask_takeover", path: "C:\\x\\omp.exe", version: "18.8.7", launchable: true, managerName: null });
+    await expect
+      .poll(() => page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
+        timeout: 30_000,
+      })
+      .toBe("ready");
+    await pushStatus(launched, {
+      state: "ask_takeover",
+      path: "C:\\x\\omp.exe",
+      version: "18.8.7",
+      launchable: true,
+      managerName: null,
+    });
     await expect(page.getByTestId("takeover-yes")).toBeFocused();
     // 主进程此刻没有在问（状态是合成的），应答被拒绝：界面不崩，卡片还在，等真实状态推来。
     await page.getByTestId("takeover-no").click();
     await expect(page.getByTestId("omp-setup")).toBeVisible();
-    await pushStatus(launched, { state: "ready", source: { kind: "user_installed" }, path: "C:\\x\\omp.exe", version: "18.12.0", belowMinimum: false, stagedUpdate: null });
+    await pushStatus(launched, {
+      state: "ready",
+      source: { kind: "user_installed" },
+      path: "C:\\x\\omp.exe",
+      version: "18.12.0",
+      belowMinimum: false,
+      stagedUpdate: null,
+    });
     await expect(page.getByTestId("omp-setup")).toHaveCount(0);
   } finally {
     await launched.close();

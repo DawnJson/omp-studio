@@ -55,7 +55,8 @@ export class TaskRegistry {
     }
     // 文件损坏时抛错让问题被看见，而不是当作空表覆盖掉用户的任务列表。
     const parsed: unknown = JSON.parse(text);
-    if (typeof parsed !== "object" || parsed === null || !("version" in parsed) || parsed.version !== 1) throw new Error(`${this.#file}: unsupported tasks.json format`);
+    if (typeof parsed !== "object" || parsed === null || !("version" in parsed) || parsed.version !== 1)
+      throw new Error(`${this.#file}: unsupported tasks.json format`);
     this.#data = parsed as TasksFile;
   }
 
@@ -86,7 +87,11 @@ export class TaskRegistry {
     const existing = this.findProjectByPath(dir);
     if (existing) return existing;
     const resolved = path.resolve(dir);
-    const project: Project = { id: randomUUID() as ProjectId, path: resolved, name: path.basename(resolved) || resolved };
+    const project: Project = {
+      id: randomUUID() as ProjectId,
+      path: resolved,
+      name: path.basename(resolved) || resolved,
+    };
     this.#data = { ...this.#data, projects: [...this.#data.projects, project] };
     await this.save();
     return project;
@@ -110,9 +115,18 @@ export class TaskRegistry {
     return this.#data.tasks.find((task) => task.sessionFile !== null && pathKey(task.sessionFile) === key);
   }
 
-  async addTask(input: Omit<TaskRecord, "id" | "createdAt" | "updatedAt" | "archived" | "worktreePath">): Promise<TaskRecord> {
+  async addTask(
+    input: Omit<TaskRecord, "id" | "createdAt" | "updatedAt" | "archived" | "worktreePath">,
+  ): Promise<TaskRecord> {
     const now = Date.now();
-    const record: TaskRecord = { ...input, id: randomUUID() as TaskId, createdAt: now, updatedAt: now, archived: false, worktreePath: null };
+    const record: TaskRecord = {
+      ...input,
+      id: randomUUID() as TaskId,
+      createdAt: now,
+      updatedAt: now,
+      archived: false,
+      worktreePath: null,
+    };
     this.#data = { ...this.#data, tasks: [...this.#data.tasks, record] };
     await this.save();
     return record;

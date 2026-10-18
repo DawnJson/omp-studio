@@ -18,35 +18,43 @@
 :root {
   /* 字体：Latin 在前、CJK 在后（逐字符回退，汉字落到微软雅黑 UI / 苹方）。不打包字体 */
   --font-sans:
-    "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system,
-    "SF Pro Text", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC",
-    "Noto Sans SC", sans-serif;
+    "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "SF Pro Text",
+    "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
   --font-display:
-    "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system,
-    "SF Pro Display", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC",
-    sans-serif;
+    "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "SF Pro Display",
+    "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif;
   --font-mono:
-    "Cascadia Code", "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, "Microsoft YaHei UI",
-    "PingFang SC", "Noto Sans Mono CJK SC", monospace;
+    "Cascadia Code", "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, "Microsoft YaHei UI", "PingFang SC",
+    "Noto Sans Mono CJK SC", monospace;
 
   /* 字号 / 行高（px，行高用像素值，避免嵌套漂移） */
-  --fs-2xs: 11px;   --lh-2xs: 16px;
-  --fs-xs: 12px;    --lh-xs: 16px;
-  --fs-sm: 13px;    --lh-sm: 20px;
-  --fs-base: 14px;  --lh-base: 20px;
-  --fs-prose: 15px; --lh-prose: 24px;
-  --fs-lg: 17px;    --lh-lg: 26px;
-  --fs-xl: 20px;    --lh-xl: 28px;
-  --fs-2xl: 28px;   --lh-2xl: 34px;
-  --fs-code: 13px;  --lh-code: 20px;
-  --fs-code-sm: 12px; --lh-code-sm: 18px;
+  --fs-2xs: 11px;
+  --lh-2xs: 16px;
+  --fs-xs: 12px;
+  --lh-xs: 16px;
+  --fs-sm: 13px;
+  --lh-sm: 20px;
+  --fs-base: 14px;
+  --lh-base: 20px;
+  --fs-prose: 15px;
+  --lh-prose: 24px;
+  --fs-lg: 17px;
+  --lh-lg: 26px;
+  --fs-xl: 20px;
+  --lh-xl: 28px;
+  --fs-2xl: 28px;
+  --lh-2xl: 34px;
+  --fs-code: 13px;
+  --lh-code: 20px;
+  --fs-code-sm: 12px;
+  --lh-code-sm: 18px;
 
   /* 字重：雅黑 UI 只有 400 / 700 两档，状态不得靠字重表达；500 仅用于 Latin 文字标签 */
   --fw-regular: 400;
   --fw-medium: 500;
   --fw-strong: 600;
   --ls-tight: -0.011em; /* 仅 ≥17px 的 Latin 标题；中文一律 0 */
-  --ls-label: 0.01em;   /* 11–12px 的 Latin 小字 */
+  --ls-label: 0.01em; /* 11–12px 的 Latin 小字 */
 
   /* 间距：4px 栅格，--space-N = N × 4px；半档仅用于组件内边距 */
   --space-0: 0px;
@@ -66,11 +74,11 @@
   --space-16: 64px;
 
   /* 圆角 */
-  --radius-xs: 4px;   /* 键帽、行内代码、勾选框 */
-  --radius-sm: 6px;   /* 过程行 hover、小按钮、输入控件 */
-  --radius-md: 8px;   /* 任务行、按钮、菜单项、代码块 */
-  --radius-lg: 12px;  /* 卡片、popover、门 */
-  --radius-xl: 16px;  /* 输入框、对话框、命令面板 */
+  --radius-xs: 4px; /* 键帽、行内代码、勾选框 */
+  --radius-sm: 6px; /* 过程行 hover、小按钮、输入控件 */
+  --radius-md: 8px; /* 任务行、按钮、菜单项、代码块 */
+  --radius-lg: 12px; /* 卡片、popover、门 */
+  --radius-xl: 16px; /* 输入框、对话框、命令面板 */
   --radius-pill: 999px;
 
   /* 控件 / 行高 / 图标 */
@@ -91,14 +99,14 @@
   --sidebar-w: 264px;
   --sidebar-w-min: 220px;
   --sidebar-w-max: 360px;
-  --content-w: 720px;    /* 对话列与输入框同宽同轴 */
-  --gutter: 24px;        /* 对话区最小左右留白 */
-  --aside-w: 0px;        /* 阶段 3 之后的右栏占位，v1 恒为 0 */
+  --content-w: 720px; /* 对话列与输入框同宽同轴 */
+  --gutter: 24px; /* 对话区最小左右留白 */
+  --aside-w: 0px; /* 阶段 3 之后的右栏占位，v1 恒为 0 */
   --dialog-w-sm: 400px;
   --dialog-w-md: 520px;
   --palette-w: 600px;
   --toast-w: 360px;
-  --scrollbar-hit: 10px;   /* 自绘覆盖式滚动条命中区 */
+  --scrollbar-hit: 10px; /* 自绘覆盖式滚动条命中区 */
   --scrollbar-thumb-w: 6px;
 
   /* 层级 */
@@ -114,31 +122,46 @@
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   /* 唯一的弹簧（ζ≈0.8，过冲约 1.5%，约 420ms 安定）：浮层出现、输入框落下、发送↔停止形变 */
   --ease-spring: linear(
-    0, 0.117 6%, 0.344 12%, 0.57 19%, 0.749 25%, 0.873 31%, 0.949 38%, 0.99 44%, 1.009 50%,
-    1.015 56%, 1.014 62%, 1.011 69%, 1.008 75%, 1.005 81%, 1.002 88%, 1.001 94%, 1
+    0,
+    0.117 6%,
+    0.344 12%,
+    0.57 19%,
+    0.749 25%,
+    0.873 31%,
+    0.949 38%,
+    0.99 44%,
+    1.009 50%,
+    1.015 56%,
+    1.014 62%,
+    1.011 69%,
+    1.008 75%,
+    1.005 81%,
+    1.002 88%,
+    1.001 94%,
+    1
   );
 
   /* 动效：时长（组件里的 transition / animation / Web Animations 都读这些变量） */
-  --dur-instant: 80ms;    /* hover 背景、按压 */
-  --dur-fast: 140ms;      /* 胶囊、菜单项、tooltip、状态点切换 */
-  --dur-base: 200ms;      /* 折叠展开、popover、门出现 */
-  --dur-slow: 320ms;      /* 侧栏、对话框、命令面板 */
-  --dur-spring: 420ms;    /* 配 --ease-spring */
-  --dur-stream: 120ms;    /* 流式新增块淡入 */
-  --dur-fade: 140ms;      /* 必须保留的纯透明度渐变；reduced-motion 下为 100ms */
-  --dur-breathe: 2400ms;  /* 进行中状态点呼吸 */
-  --dur-spin: 1100ms;     /* 加载环 */
-  --dur-caret: 1200ms;    /* 流式光标 */
+  --dur-instant: 80ms; /* hover 背景、按压 */
+  --dur-fast: 140ms; /* 胶囊、菜单项、tooltip、状态点切换 */
+  --dur-base: 200ms; /* 折叠展开、popover、门出现 */
+  --dur-slow: 320ms; /* 侧栏、对话框、命令面板 */
+  --dur-spring: 420ms; /* 配 --ease-spring */
+  --dur-stream: 120ms; /* 流式新增块淡入 */
+  --dur-fade: 140ms; /* 必须保留的纯透明度渐变；reduced-motion 下为 100ms */
+  --dur-breathe: 2400ms; /* 进行中状态点呼吸 */
+  --dur-spin: 1100ms; /* 加载环 */
+  --dur-caret: 1200ms; /* 流式光标 */
   /* 退出比进入快：时长的 60% */
   --dur-fast-exit: calc(var(--dur-fast) * 0.6);
   --dur-base-exit: calc(var(--dur-base) * 0.6);
   --dur-slow-exit: calc(var(--dur-slow) * 0.6);
 
   /* 动效：位移与缩放量。reduced-motion 下归零，位移/缩放动画自动退化为纯淡入 */
-  --travel-sm: 4px;    /* 菜单、tooltip */
-  --travel-md: 8px;    /* toast、用户消息、卡片 */
-  --travel-lg: 12px;   /* 门 */
-  --scale-pop: 0.98;   /* 浮层出现起始缩放 */
+  --travel-sm: 4px; /* 菜单、tooltip */
+  --travel-md: 8px; /* toast、用户消息、卡片 */
+  --travel-lg: 12px; /* 门 */
+  --scale-pop: 0.98; /* 浮层出现起始缩放 */
   --play-state: running; /* 循环动画（呼吸、旋转、光标）统一写 animation-play-state: var(--play-state) */
 }
 
@@ -157,9 +180,9 @@
   /* 表面（由低到高）。侧栏比内容区略灰，层级靠明度不靠颜色 */
   --bg-sidebar: #f3f3f1;
   --bg-app: #fbfbfa;
-  --bg-raised: #ffffff;   /* 输入框、卡片、用户消息、代码块头 */
-  --bg-overlay: #ffffff;  /* 菜单、popover、对话框、命令面板（靠阴影区分） */
-  --bg-sunken: #f5f5f2;   /* 代码块正文、过程展开区、键帽 */
+  --bg-raised: #ffffff; /* 输入框、卡片、用户消息、代码块头 */
+  --bg-overlay: #ffffff; /* 菜单、popover、对话框、命令面板（靠阴影区分） */
+  --bg-sunken: #f5f5f2; /* 代码块正文、过程展开区、键帽 */
   --bg-hover: rgba(15, 16, 20, 0.045);
   --bg-active: rgba(15, 16, 20, 0.075);
   --bg-scrim: rgba(15, 16, 20, 0.32);
@@ -186,8 +209,8 @@
 
   /* 状态：进行中 / 等你确认 / 完成 / 出错。这四个语义色之外界面是灰的 */
   --st-running: #5b4bdb;
-  --st-waiting: #c47a00;        /* 状态点（非文本，≥3:1） */
-  --st-waiting-text: #8e5a00;   /* 文字用，5.6:1 */
+  --st-waiting: #c47a00; /* 状态点（非文本，≥3:1） */
+  --st-waiting-text: #8e5a00; /* 文字用，5.6:1 */
   --st-waiting-soft: rgba(196, 122, 0, 0.1);
   --st-done: #187a4f;
   --st-error: #b93030;

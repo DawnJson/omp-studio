@@ -17,7 +17,10 @@ import type { AskUiRequest, RpcServerFrame, SelectUiRequest } from "../src/share
 const scenarios = ["prompt", "approval", "ask", "turn-error", "queue-steer", "resume-history"] as const;
 type Scenario = (typeof scenarios)[number];
 
-const { values, positionals } = parseArgs({ allowPositionals: true, options: { scenario: { type: "string", default: "prompt" } } });
+const { values, positionals } = parseArgs({
+  allowPositionals: true,
+  options: { scenario: { type: "string", default: "prompt" } },
+});
 const [name, prompt] = positionals;
 const scenario = values.scenario as Scenario;
 if (!name || !/^[a-z0-9-]+$/.test(name) || !prompt || !scenarios.includes(scenario)) {
@@ -46,9 +49,20 @@ await mkdir(cwd, { recursive: true });
 const approvalMode = scenario === "approval" ? "always-ask" : "yolo";
 // turn-error：key 无效，provider 返回 401，prompt 以 error 结局。
 const env: NodeJS.ProcessEnv = { ...process.env, ...dotenv, PI_CODING_AGENT_DIR: agentDir };
-if (scenario === "turn-error") for (const key of Object.keys(dotenv)) if (key.endsWith("_API_KEY")) env[key] = "sk-invalid-recording-key";
+if (scenario === "turn-error")
+  for (const key of Object.keys(dotenv)) if (key.endsWith("_API_KEY")) env[key] = "sk-invalid-recording-key";
 
-const entries: object[] = [{ kind: "meta", ompVersion: omp.version, model, recordedAt: new Date().toISOString(), prompt, scenario, approvalMode }];
+const entries: object[] = [
+  {
+    kind: "meta",
+    ompVersion: omp.version,
+    model,
+    recordedAt: new Date().toISOString(),
+    prompt,
+    scenario,
+    approvalMode,
+  },
+];
 
 function connect(tap: boolean): OmpConnection {
   return OmpConnection.spawn(
@@ -63,11 +77,20 @@ function answerDialogs(connection: OmpConnection): void {
     if (frame.type !== "extension_ui_request") return;
     if (frame.method === "select") {
       const request = frame as SelectUiRequest;
-      console.log("select:", JSON.stringify({ title: request.title, options: request.options, optionDetails: request.optionDetails }).slice(0, 600));
+      console.log(
+        "select:",
+        JSON.stringify({ title: request.title, options: request.options, optionDetails: request.optionDetails }).slice(
+          0,
+          600,
+        ),
+      );
       connection.send({ type: "extension_ui_response", id: request.id, value: request.options[0] ?? "" });
     } else if (frame.method === "ask") {
       const request = frame as AskUiRequest;
-      const answers = request.questions.map((question) => ({ id: question.id, selectedOptions: [question.options[question.recommended ?? 0]?.label ?? ""] }));
+      const answers = request.questions.map((question) => ({
+        id: question.id,
+        selectedOptions: [question.options[question.recommended ?? 0]?.label ?? ""],
+      }));
       connection.send({ type: "extension_ui_response", id: request.id, answers });
     }
   });
@@ -111,7 +134,14 @@ try {
   } else {
     console.log("outcome:", JSON.stringify(await connection.prompt({ message: prompt })).slice(0, 300));
   }
-  console.log("init:", JSON.stringify({ delta: init.messageUpdatesDelta, askDialog: init.askDialog, sessionFile: init.state.sessionFile ?? null }));
+  console.log(
+    "init:",
+    JSON.stringify({
+      delta: init.messageUpdatesDelta,
+      askDialog: init.askDialog,
+      sessionFile: init.state.sessionFile ?? null,
+    }),
+  );
 } finally {
   const exit = await connection.close();
   exitDescription = JSON.stringify({ code: exit.code, killed: exit.killed, error: exit.error?.message ?? null });
@@ -122,7 +152,10 @@ console.log("exit:", exitDescription);
 // 录制里出现的临时目录和用户目录换成固定占位：回放结果不依赖录制时的机器，也不带出用户名。
 // 路径会以原样、`/` 分隔，以及嵌在 JSON 字符串（工具参数）里多次转义的形式出现，都要替换。
 let text = entries.map((entry) => JSON.stringify(entry)).join("\n");
-for (const [dir, placeholder] of [[scratch, "<scratch>"], [os.homedir(), "<home>"]] as const) {
+for (const [dir, placeholder] of [
+  [scratch, "<scratch>"],
+  [os.homedir(), "<home>"],
+] as const) {
   for (const form of [dir, dir.replaceAll("\\", "/")]) {
     let escaped = form;
     for (let depth = 0; depth < 3; depth++) {
@@ -135,15 +168,22 @@ for (const [dir, placeholder] of [[scratch, "<scratch>"], [os.homedir(), "<home>
 // 所以把所有 `delta` 按顺序拼起来再查一遍，和整份录制一起检查用户名和凭据，命中就不写文件。
 text = text.replaceAll(os.userInfo().username, "<user>");
 const deltas = entries
-  .map((entry) => ("frame" in entry ? (entry.frame as { assistantMessageEvent?: { delta?: unknown } }).assistantMessageEvent?.delta : undefined))
+  .map((entry) =>
+    "frame" in entry
+      ? (entry.frame as { assistantMessageEvent?: { delta?: unknown } }).assistantMessageEvent?.delta
+      : undefined,
+  )
   .filter((delta) => typeof delta === "string")
   .join("");
 const secrets: [string, string][] = [["username", os.userInfo().username]];
 for (const [key, value] of Object.entries(dotenv)) if (key !== "STUDIO_TEST_MODEL" && value) secrets.push([key, value]);
-for (const [key, value] of Object.entries(process.env)) if (/KEY|TOKEN|SECRET|PASSWORD/i.test(key) && value && value.length >= 8) secrets.push([key, value]);
+for (const [key, value] of Object.entries(process.env))
+  if (/KEY|TOKEN|SECRET|PASSWORD/i.test(key) && value && value.length >= 8) secrets.push([key, value]);
 for (const [label, value] of secrets) {
   if (text.includes(value) || deltas.includes(value)) {
-    throw new Error(`recording contains the value of ${label}; not written. For the username, set STUDIO_SCRATCH_DIR outside the user profile.`);
+    throw new Error(
+      `recording contains the value of ${label}; not written. For the username, set STUDIO_SCRATCH_DIR outside the user profile.`,
+    );
   }
 }
 const target = path.join(root, "fixtures", "rpc", `${name}.ndjson`);

@@ -38,13 +38,20 @@ export const appHandlers: HandlerGroup<
   | "getShellState"
   | "setShellState"
 > = {
-  getAppInfo: async () => ({ version: app.getVersion(), platform: platform(), locale: resolveLocale(), isPackaged: app.isPackaged }),
+  getAppInfo: async () => ({
+    version: app.getVersion(),
+    platform: platform(),
+    locale: resolveLocale(),
+    isPackaged: app.isPackaged,
+  }),
   getSettings: async () => getSettings(),
   setLocale: async (value) => updateSettings({ locale: parseLocalePreference(value) }),
   setTheme: async (value) => updateSettings({ theme: parseThemePreference(value) }),
   setDefaultModel: async (value) => updateSettings({ defaultModel: value === null ? null : parseModelKey(value) }),
-  setDefaultThinkingLevel: async (value) => updateSettings({ defaultThinkingLevel: value === null ? null : parseThinkingLevel(value) }),
-  setDefaultApprovalMode: async (value) => updateSettings({ defaultApprovalMode: value === null ? null : parseApprovalMode(value) }),
+  setDefaultThinkingLevel: async (value) =>
+    updateSettings({ defaultThinkingLevel: value === null ? null : parseThinkingLevel(value) }),
+  setDefaultApprovalMode: async (value) =>
+    updateSettings({ defaultApprovalMode: value === null ? null : parseApprovalMode(value) }),
   setMaxLiveProcesses: async (value) => updateSettings({ maxLiveProcesses: parseMaxLiveProcesses(value) }),
   openExternal: async (value) => shell.openExternal(parseExternalUrl(value)),
   quitApp: async () => app.quit(),
@@ -54,9 +61,15 @@ export const appHandlers: HandlerGroup<
   setShellState: async (value) => {
     const record = parseRecord(value, "shellState");
     setShellState({
-      ...(record["sidebarWidth"] !== undefined && { sidebarWidth: parseInteger(record["sidebarWidth"], "sidebarWidth", ...sidebarWidthRange) }),
-      ...(record["sidebarCollapsed"] !== undefined && { sidebarCollapsed: parseBoolean(record["sidebarCollapsed"], "sidebarCollapsed") }),
-      ...(record["collapsedProjects"] !== undefined && { collapsedProjects: parseCollapsedProjects(record["collapsedProjects"]) }),
+      ...(record["sidebarWidth"] !== undefined && {
+        sidebarWidth: parseInteger(record["sidebarWidth"], "sidebarWidth", ...sidebarWidthRange),
+      }),
+      ...(record["sidebarCollapsed"] !== undefined && {
+        sidebarCollapsed: parseBoolean(record["sidebarCollapsed"], "sidebarCollapsed"),
+      }),
+      ...(record["collapsedProjects"] !== undefined && {
+        collapsedProjects: parseCollapsedProjects(record["collapsedProjects"]),
+      }),
     });
   },
 };

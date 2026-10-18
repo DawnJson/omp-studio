@@ -21,7 +21,14 @@ export type MachineInput =
   | { type: "prompt_accepted"; agentInvoked: boolean }
   | { type: "prompt_rejected"; message: string; at: number }
   | { type: "agent_start" }
-  | { type: "prompt_result"; status: PromptStatus; error?: PromptError; sessionSettled: boolean; at: number; foreground: boolean }
+  | {
+      type: "prompt_result";
+      status: PromptStatus;
+      error?: PromptError;
+      sessionSettled: boolean;
+      at: number;
+      foreground: boolean;
+    }
   | { type: "session_settled" }
   | { type: "dialog_open"; request: DialogRequest }
   /** 应答已发出，或收到 omp 的 cancel。 */
@@ -61,13 +68,25 @@ export function transition(state: MachineState, input: MachineInput): MachineSta
       return derive({ ...state, working: true });
     case "prompt_rejected":
       // 留在原状态；错误进对话流（由调用方写 transcript），这里只记结局，侧栏点显示错误色。
-      return { ...state, lastTurn: { status: "error", error: { message: input.message, retryable: false }, endedAt: input.at } };
+      return {
+        ...state,
+        lastTurn: { status: "error", error: { message: input.message, retryable: false }, endedAt: input.at },
+      };
     case "agent_start":
       return isLive(state) ? derive({ ...state, working: true }) : state;
     case "prompt_result": {
       if (!isLive(state)) return state;
-      const lastTurn: TurnOutcome = { status: input.status, endedAt: input.at, ...(input.error && { error: input.error }) };
-      return derive({ ...state, lastTurn, working: input.sessionSettled ? false : state.working, unread: state.unread || !input.foreground });
+      const lastTurn: TurnOutcome = {
+        status: input.status,
+        endedAt: input.at,
+        ...(input.error && { error: input.error }),
+      };
+      return derive({
+        ...state,
+        lastTurn,
+        working: input.sessionSettled ? false : state.working,
+        unread: state.unread || !input.foreground,
+      });
     }
     case "session_settled":
       return isLive(state) ? derive({ ...state, working: false }) : state;

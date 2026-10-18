@@ -27,7 +27,8 @@ export async function readState(file: string): Promise<OmpStudioState> {
   if (typeof json !== "object" || json === null) return state;
   const takeover = "takeover" in json ? json.takeover : null;
   if (typeof takeover === "object" && takeover !== null) {
-    for (const [key, value] of Object.entries(takeover)) if (value === "accepted" || value === "declined") state.takeover[key] = value;
+    for (const [key, value] of Object.entries(takeover))
+      if (value === "accepted" || value === "declined") state.takeover[key] = value;
   }
   return state;
 }

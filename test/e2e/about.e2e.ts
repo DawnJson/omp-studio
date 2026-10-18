@@ -33,11 +33,19 @@ test("导出诊断信息：一个文件里有版本、omp 状态和日志，不�
     await page.keyboard.press("Control+Comma");
     await page.getByTestId("settings-nav-about").click();
     await expect(page.getByTestId("about-troubleshoot")).toBeVisible();
-    for (const [locale, theme] of [["zh-CN", "light"], ["zh-CN", "dark"], ["en", "light"], ["en", "dark"]] as const) {
-      await page.evaluate(async ({ locale, theme }) => {
-        await globalThis.studio.setLocale(locale);
-        await globalThis.studio.setTheme(theme);
-      }, { locale, theme });
+    for (const [locale, theme] of [
+      ["zh-CN", "light"],
+      ["zh-CN", "dark"],
+      ["en", "light"],
+      ["en", "dark"],
+    ] as const) {
+      await page.evaluate(
+        async ({ locale, theme }) => {
+          await globalThis.studio.setLocale(locale);
+          await globalThis.studio.setTheme(theme);
+        },
+        { locale, theme },
+      );
       await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
       await page.screenshot({ path: path.join(screenshotsDir, `about-troubleshoot-${locale}-${theme}.png`) });
     }
@@ -56,7 +64,11 @@ test("导出诊断信息：一个文件里有版本、omp 状态和日志，不�
     expect(text).toMatch(/## main-\d{4}-\d{2}-\d{2}\.log\n.*omp-studio .* starting/);
     expect(text.toLowerCase()).not.toContain(os.homedir().toLowerCase());
     expect(text.toLowerCase()).not.toContain(os.homedir().toLowerCase().replaceAll("\\", "\\\\"));
-    expect((await readdir(path.join(launched.userDataDir, "logs"))).some((name) => /^main-\d{4}-\d{2}-\d{2}\.log$/.test(name))).toBe(true);
+    expect(
+      (await readdir(path.join(launched.userDataDir, "logs"))).some((name) =>
+        /^main-\d{4}-\d{2}-\d{2}\.log$/.test(name),
+      ),
+    ).toBe(true);
   } finally {
     await launched.close();
     await rm(out, { recursive: true, force: true });

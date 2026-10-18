@@ -57,12 +57,23 @@ describe("ApiKeyStore", () => {
     const store = new ApiKeyStore(path.join(scratch, "c.json"), cipher());
     await expect(store.save("not-a-provider", "k")).rejects.toThrow(/does not support/);
     await expect(store.save("openai", "   ")).rejects.toThrow(/empty/);
-    await expect(new ApiKeyStore(path.join(scratch, "d.json"), cipher(false)).save("openai", "k")).rejects.toThrow(/cannot encrypt/);
+    await expect(new ApiKeyStore(path.join(scratch, "d.json"), cipher(false)).save("openai", "k")).rejects.toThrow(
+      /cannot encrypt/,
+    );
   });
 
   it("skips an entry that cannot be decrypted (file from another Windows account) instead of failing every launch", async () => {
     const file = path.join(scratch, "e.json");
-    await writeFile(file, JSON.stringify({ version: 1, keys: { openai: Buffer.from("!garbage").toString("base64"), groq: cipher().encryptString("kg").toString("base64") } }));
+    await writeFile(
+      file,
+      JSON.stringify({
+        version: 1,
+        keys: {
+          openai: Buffer.from("!garbage").toString("base64"),
+          groq: cipher().encryptString("kg").toString("base64"),
+        },
+      }),
+    );
     expect(await new ApiKeyStore(file, cipher()).env()).toEqual({ GROQ_API_KEY: "kg" });
   });
 

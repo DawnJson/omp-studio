@@ -59,7 +59,8 @@ function parseShellRecord(value: unknown): Record<string, unknown> {
 
 /** 折叠的项目组：最多 500 项，每项是不超过 200 字符的字符串。 */
 export function parseCollapsedProjects(value: unknown): string[] {
-  if (!Array.isArray(value) || value.length > 500) throw new IpcValidationError("collapsedProjects 必须是不超过 500 项的数组");
+  if (!Array.isArray(value) || value.length > 500)
+    throw new IpcValidationError("collapsedProjects 必须是不超过 500 项的数组");
   return value.map((item) => parseString(item, "collapsedProjects[]", 200));
 }
 

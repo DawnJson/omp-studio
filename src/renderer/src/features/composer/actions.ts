@@ -17,7 +17,11 @@ export async function sendDraft(taskId: TaskId, whenBusy: Delivery, t: TFunction
   setDraft(taskId, { text: "", images: [] });
   requestStickToBottom(taskId);
   try {
-    await window.studio.sendPrompt(taskId, { text, ...(draft.images.length > 0 ? { images: [...draft.images] } : {}), whenBusy });
+    await window.studio.sendPrompt(taskId, {
+      text,
+      ...(draft.images.length > 0 ? { images: [...draft.images] } : {}),
+      whenBusy,
+    });
   } catch (error) {
     appendToDraft(taskId, [text], draft.images);
     reportError(t, error, t("msg.sendFailed"));
@@ -30,9 +34,16 @@ export async function stopAndRestore(taskId: TaskId, t: TFunction): Promise<void
     const restored = await window.studio.stopTask(taskId);
     const queued = [...restored.steering, ...restored.followUp];
     const images: PromptImage[] = queued.flatMap((item) => item.images ?? []);
-    if (queued.length > 0) appendToDraft(taskId, queued.map((item) => item.text), images);
+    if (queued.length > 0)
+      appendToDraft(
+        taskId,
+        queued.map((item) => item.text),
+        images,
+      );
     if (restored.imagesDropped) pushToast({ level: "warning", message: t("composer.imagesDropped") });
-    pushToast({ message: queued.length > 0 ? t("composer.queueRestored", { count: queued.length }) : t("composer.stopped") });
+    pushToast({
+      message: queued.length > 0 ? t("composer.queueRestored", { count: queued.length }) : t("composer.stopped"),
+    });
   } catch (error) {
     reportError(t, error);
   }

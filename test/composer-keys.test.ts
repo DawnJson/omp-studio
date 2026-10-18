@@ -2,8 +2,23 @@
 import { describe, expect, it } from "vitest";
 import { decideEnter, type KeyInfo, type SendContext } from "../src/renderer/src/features/composer/send-logic.ts";
 
-const key = (overrides: Partial<KeyInfo> = {}): KeyInfo => ({ key: "Enter", shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, isComposing: false, keyCode: 13, ...overrides });
-const ctx = (overrides: Partial<SendContext> = {}): SendContext => ({ running: false, gate: false, hasContent: true, swapped: false, ...overrides });
+const key = (overrides: Partial<KeyInfo> = {}): KeyInfo => ({
+  key: "Enter",
+  shiftKey: false,
+  ctrlKey: false,
+  metaKey: false,
+  altKey: false,
+  isComposing: false,
+  keyCode: 13,
+  ...overrides,
+});
+const ctx = (overrides: Partial<SendContext> = {}): SendContext => ({
+  running: false,
+  gate: false,
+  hasContent: true,
+  swapped: false,
+  ...overrides,
+});
 
 describe("输入法组合态", () => {
   it("isComposing 时 Enter 不发送", () => {
@@ -31,7 +46,7 @@ describe("发送行为表", () => {
     expect(decideEnter(key(), ctx({ running: true, swapped: true }))).toBe("followUp");
     expect(decideEnter(key({ ctrlKey: true }), ctx({ running: true, swapped: true }))).toBe("steer");
   });
-  it("有门：Enter 有草稿才\"拒绝并发送\"，空草稿不会隐式批准；Ctrl+Enter 草稿为空才是门的主操作", () => {
+  it('有门：Enter 有草稿才"拒绝并发送"，空草稿不会隐式批准；Ctrl+Enter 草稿为空才是门的主操作', () => {
     expect(decideEnter(key(), ctx({ gate: true }))).toBe("denyAndSend");
     expect(decideEnter(key(), ctx({ gate: true, hasContent: false }))).toBe("default");
     expect(decideEnter(key({ ctrlKey: true }), ctx({ gate: true, hasContent: false }))).toBe("gatePrimary");

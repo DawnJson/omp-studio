@@ -10,7 +10,12 @@ export function Toasts() {
   return (
     <section className="toasts" aria-label={t("dialogs.toastRegion")} data-testid="toasts">
       {toasts.map((toast) => (
-        <div key={toast.id} className="toast" data-level={toast.level} role={toast.level === "error" ? "alert" : "status"}>
+        <div
+          key={toast.id}
+          className="toast"
+          data-level={toast.level}
+          role={toast.level === "error" ? "alert" : "status"}
+        >
           <span className="toast-text" title={toast.title}>
             {toast.message}
             {toast.count > 1 && <span className="toast-count"> ×{toast.count}</span>}
@@ -27,7 +32,12 @@ export function Toasts() {
               {toast.action.label}
             </button>
           )}
-          <button type="button" className="toast-close" aria-label={t("toast.dismiss")} onClick={() => dismissToast(toast.id)}>
+          <button
+            type="button"
+            className="toast-close"
+            aria-label={t("toast.dismiss")}
+            onClick={() => dismissToast(toast.id)}
+          >
             <Close size={14} />
           </button>
         </div>

@@ -15,14 +15,20 @@ export interface AskDraft {
 const drafts = createStore<Readonly<Record<string, AskDraft>>>({});
 
 function blank(questionCount: number): AskDraft {
-  return { step: 0, states: Array.from({ length: questionCount }, () => ({ selected: [], otherOn: false, custom: "" })) };
+  return {
+    step: 0,
+    states: Array.from({ length: questionCount }, () => ({ selected: [], otherOn: false, custom: "" })),
+  };
 }
 
 export function updateAskDraft(dialogId: string, questionCount: number, update: (draft: AskDraft) => AskDraft): void {
   drafts.set({ ...drafts.get(), [dialogId]: update(drafts.get()[dialogId] ?? blank(questionCount)) });
 }
 
-export function useAskDraft(dialogId: string, questionCount: number): [AskDraft, (update: (draft: AskDraft) => AskDraft) => void] {
+export function useAskDraft(
+  dialogId: string,
+  questionCount: number,
+): [AskDraft, (update: (draft: AskDraft) => AskDraft) => void] {
   const draft = useStoreValue(drafts, (state) => state[dialogId]);
   return [draft ?? blank(questionCount), (update) => updateAskDraft(dialogId, questionCount, update)];
 }

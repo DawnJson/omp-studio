@@ -16,7 +16,16 @@ export interface UserPathValue {
   type: number;
 }
 
-const { HKEY_CURRENT_USER, KEY_QUERY_VALUE, KEY_SET_VALUE, KEY_CREATE_SUB_KEY, REG_SZ, REG_EXPAND_SZ, ERROR_SUCCESS, ERROR_FILE_NOT_FOUND } = win32Constants;
+const {
+  HKEY_CURRENT_USER,
+  KEY_QUERY_VALUE,
+  KEY_SET_VALUE,
+  KEY_CREATE_SUB_KEY,
+  REG_SZ,
+  REG_EXPAND_SZ,
+  ERROR_SUCCESS,
+  ERROR_FILE_NOT_FOUND,
+} = win32Constants;
 
 /** 展开 `%VAR%`，变量名不区分大小写（Windows）；没有定义的变量原样保留，和系统一致。 */
 function expandVariables(text: string): string {
@@ -69,7 +78,8 @@ export function readUserPath(options: UserPathOptions = {}): UserPathValue {
   try {
     const value = advapi32.RegQueryValueExW(key, options.valueName ?? "Path");
     if (value.status === ERROR_FILE_NOT_FOUND) return { raw: null, type: REG_EXPAND_SZ };
-    if (value.status !== ERROR_SUCCESS || value.data === null) throw new Error(`RegQueryValueExW failed (${value.status})`);
+    if (value.status !== ERROR_SUCCESS || value.data === null)
+      throw new Error(`RegQueryValueExW failed (${value.status})`);
     return { raw: decode(value.data), type: value.type };
   } finally {
     advapi32.RegCloseKey(key);
@@ -89,21 +99,38 @@ export interface AddToUserPathResult {
  * 把 dir 放到用户 PATH 最前面，原值类型照旧（原来没有就用 REG_EXPAND_SZ）。
  * `onBeforeWrite` 在真正写之前拿到原值，用来备份（写坏用户 PATH 的风险对策）。
  */
-export function addToUserPath(dir: string, options: UserPathOptions & { onBeforeWrite?: (previous: string | null) => void } = {}): AddToUserPathResult {
+export function addToUserPath(
+  dir: string,
+  options: UserPathOptions & { onBeforeWrite?: (previous: string | null) => void } = {},
+): AddToUserPathResult {
   const current = readUserPath(options);
-  if (pathStartsWith(current.raw, dir)) return { changed: false, previous: current.raw, broadcast: Promise.resolve(true) };
+  if (pathStartsWith(current.raw, dir))
+    return { changed: false, previous: current.raw, broadcast: Promise.resolve(true) };
   options.onBeforeWrite?.(current.raw);
-  const type = current.raw === null || (current.type !== REG_SZ && current.type !== REG_EXPAND_SZ) ? REG_EXPAND_SZ : current.type;
+  const type =
+    current.raw === null || (current.type !== REG_SZ && current.type !== REG_EXPAND_SZ) ? REG_EXPAND_SZ : current.type;
   const { advapi32, user32 } = loadWin32();
-  const opened = advapi32.RegCreateKeyExW(HKEY_CURRENT_USER, options.subKey ?? "Environment", KEY_QUERY_VALUE | KEY_SET_VALUE | KEY_CREATE_SUB_KEY);
+  const opened = advapi32.RegCreateKeyExW(
+    HKEY_CURRENT_USER,
+    options.subKey ?? "Environment",
+    KEY_QUERY_VALUE | KEY_SET_VALUE | KEY_CREATE_SUB_KEY,
+  );
   if (opened.status !== ERROR_SUCCESS) throw new Error(`RegCreateKeyExW failed (${opened.status})`);
   try {
-    const status = advapi32.RegSetValueExW(opened.key, options.valueName ?? "Path", type, encode(prependToPath(current.raw, dir)));
+    const status = advapi32.RegSetValueExW(
+      opened.key,
+      options.valueName ?? "Path",
+      type,
+      encode(prependToPath(current.raw, dir)),
+    );
     if (status !== ERROR_SUCCESS) throw new Error(`RegSetValueExW failed (${status})`);
   } finally {
     advapi32.RegCloseKey(opened.key);
   }
   // 广播不阻塞主线程；结果只用来在需要时告诉用户"已打开的终端要重开"，失败不影响已写入的 PATH。
-  const broadcast = user32.broadcastSettingChangeAsync("Environment", 5000).then((result) => result !== 0, () => false);
+  const broadcast = user32.broadcastSettingChangeAsync("Environment", 5000).then(
+    (result) => result !== 0,
+    () => false,
+  );
   return { changed: true, previous: current.raw, broadcast };
 }

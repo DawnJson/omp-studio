@@ -34,7 +34,7 @@ export function parseTestOmpOverride(json: string): TestOmpOverride {
     !Array.isArray(value.args) ||
     !value.args.every((arg: unknown) => typeof arg === "string")
   ) {
-    throw new Error("STUDIO_TEST_OMP must be JSON like {\"command\": \"node\", \"args\": [\"fake-omp.ts\", \"fixture.ndjson\"]}");
+    throw new Error('STUDIO_TEST_OMP must be JSON like {"command": "node", "args": ["fake-omp.ts", "fixture.ndjson"]}');
   }
   return { command: value.command, args: value.args as string[] };
 }
@@ -51,7 +51,8 @@ export function buildOmpArgs(spec: LaunchSpec): string[] {
 
 /** 把 `bin` 放到 PATH 最前（保持原有的变量名大小写：Windows 上常见 `Path`）。 */
 export function prependToPath(env: NodeJS.ProcessEnv, bin: string): NodeJS.ProcessEnv {
-  const key = process.platform === "win32" ? (Object.keys(env).find((name) => name.toUpperCase() === "PATH") ?? "Path") : "PATH";
+  const key =
+    process.platform === "win32" ? (Object.keys(env).find((name) => name.toUpperCase() === "PATH") ?? "Path") : "PATH";
   const current = env[key];
   return { ...env, [key]: current ? `${bin}${path.delimiter}${current}` : bin };
 }

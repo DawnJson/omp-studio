@@ -29,7 +29,12 @@ function Details({ text }: { text: string }) {
 
 export { Details as GateDetails };
 
-export function GateSelect({ dialog, busy, respond, primaryRef }: GateBodyProps<Extract<DialogRequest, { kind: "select" }>>) {
+export function GateSelect({
+  dialog,
+  busy,
+  respond,
+  primaryRef,
+}: GateBodyProps<Extract<DialogRequest, { kind: "select" }>>) {
   const t = useT();
   const [filter, setFilter] = useState("");
   const approval = dialog.approval;
@@ -37,7 +42,10 @@ export function GateSelect({ dialog, busy, respond, primaryRef }: GateBodyProps<
   const body = approval ? stripCommandPrefix(splitTitle(dialog.title).details) : "";
   const row = options.length <= 3 && options.every((option) => !option.description);
   const visible = useMemo(
-    () => options.map((option, index) => ({ option, index })).filter(({ option }) => filter === "" || option.label.toLowerCase().includes(filter.toLowerCase())),
+    () =>
+      options
+        .map((option, index) => ({ option, index }))
+        .filter(({ option }) => filter === "" || option.label.toLowerCase().includes(filter.toLowerCase())),
     [options, filter],
   );
   const label = (text: string) => (approval ? approvalOptionLabel(text, t) : text);
@@ -52,7 +60,8 @@ export function GateSelect({ dialog, busy, respond, primaryRef }: GateBodyProps<
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     // 数字键只在门本体聚焦、且没有文本输入时生效。
-    if (event.target !== event.currentTarget || options.length > 9 || event.ctrlKey || event.altKey || event.metaKey) return;
+    if (event.target !== event.currentTarget || options.length > 9 || event.ctrlKey || event.altKey || event.metaKey)
+      return;
     const digit = Number(event.key);
     if (Number.isInteger(digit) && digit >= 1 && digit <= options.length) {
       event.preventDefault();
@@ -83,11 +92,26 @@ export function GateSelect({ dialog, busy, respond, primaryRef }: GateBodyProps<
       ) : (
         <>
           {options.length > FILTER_OVER && (
-            <input className="gate-input" value={filter} placeholder={t("gate.filter")} onChange={(event) => setFilter(event.target.value)} aria-label={t("gate.filter")} />
+            <input
+              className="gate-input"
+              value={filter}
+              placeholder={t("gate.filter")}
+              onChange={(event) => setFilter(event.target.value)}
+              aria-label={t("gate.filter")}
+            />
           )}
           <div className="gate-list" role="listbox">
             {visible.map(({ option, index }) => (
-              <button key={option.label} type="button" role="option" aria-selected={false} className="gate-row" title={index < 9 ? `${label(option.label)} (${index + 1})` : undefined} disabled={busy} onClick={() => choose(index)}>
+              <button
+                key={option.label}
+                type="button"
+                role="option"
+                aria-selected={false}
+                className="gate-row"
+                title={index < 9 ? `${label(option.label)} (${index + 1})` : undefined}
+                disabled={busy}
+                onClick={() => choose(index)}
+              >
                 <span className="gate-row-text" title={option.description}>
                   <span className="gate-row-label">{label(option.label)}</span>
                   {option.description && <span className="gate-row-desc">{option.description}</span>}

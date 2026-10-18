@@ -94,7 +94,11 @@ function renderInline(node: TreeNode, key: number, ctx: RenderContext): ReactNod
           event.preventDefault();
           ctx.openLink(src);
         };
-        return h("a", { key, href: src, title: src, className: "md-link", onClick, rel: "noreferrer noopener" }, alt || src);
+        return h(
+          "a",
+          { key, href: src, title: src, className: "md-link", onClick, rel: "noreferrer noopener" },
+          alt || src,
+        );
       }
       return alt;
     }
@@ -129,7 +133,13 @@ function renderBlockNode(node: TreeNode, key: number, ctx: RenderContext, closed
       const task = attr(token, "data-task");
       if (task === null) return h("li", { key }, kids());
       // 任务列表：只读复选框。
-      const checkbox = h("input", { type: "checkbox", checked: task === "done", readOnly: true, tabIndex: -1, "aria-hidden": true });
+      const checkbox = h("input", {
+        type: "checkbox",
+        checked: task === "done",
+        readOnly: true,
+        tabIndex: -1,
+        "aria-hidden": true,
+      });
       return h("li", { key, className: "md-task" }, checkbox, kids());
     }
     case "hr":

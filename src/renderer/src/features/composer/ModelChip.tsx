@@ -56,7 +56,8 @@ export function ModelChip(task: ModelChipProps) {
   const searchRef = useRef<HTMLInputElement>(null);
   const levels = task.thinkingLevels.filter((level) => thinkingLabel[level] !== undefined);
   const supportsThinking = task.model?.reasoning === true && levels.length > 0;
-  const levelText = task.thinkingLevel && thinkingLabel[task.thinkingLevel] ? t(thinkingLabel[task.thinkingLevel] as MessageKey) : null;
+  const levelText =
+    task.thinkingLevel && thinkingLabel[task.thinkingLevel] ? t(thinkingLabel[task.thinkingLevel] as MessageKey) : null;
   const name = task.model?.name ?? task.emptyLabel ?? t("composer.noModel");
 
   const close = useCallback(() => setOpen(false), []);
@@ -70,10 +71,12 @@ export function ModelChip(task: ModelChipProps) {
   }, [open]);
 
   // 命令面板 / Alt M / Alt T。
-  useEffect(() => onStudioCommand((command) => {
-    if (command === "model") setOpen(true);
-    if (command === "thinking") cycleThinking();
-  }));
+  useEffect(() =>
+    onStudioCommand((command) => {
+      if (command === "model") setOpen(true);
+      if (command === "thinking") cycleThinking();
+    }),
+  );
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (!event.altKey || event.ctrlKey || event.metaKey) return;
@@ -97,9 +100,14 @@ export function ModelChip(task: ModelChipProps) {
   }
 
   const rows = useMemo(() => {
-    const filtered = (models ?? []).filter((model) => `${model.name} ${model.key.provider} ${model.key.modelId}`.toLowerCase().includes(query.trim().toLowerCase()));
-    const recent = query === "" ? readRecent().flatMap((key) => filtered.filter((model) => sameKey(model.key, key))) : [];
-    const rest = filtered.filter((model) => !recent.includes(model)).sort((a, b) => a.key.provider.localeCompare(b.key.provider) || a.name.localeCompare(b.name));
+    const filtered = (models ?? []).filter((model) =>
+      `${model.name} ${model.key.provider} ${model.key.modelId}`.toLowerCase().includes(query.trim().toLowerCase()),
+    );
+    const recent =
+      query === "" ? readRecent().flatMap((key) => filtered.filter((model) => sameKey(model.key, key))) : [];
+    const rest = filtered
+      .filter((model) => !recent.includes(model))
+      .sort((a, b) => a.key.provider.localeCompare(b.key.provider) || a.name.localeCompare(b.name));
     return { recent, rest, flat: [...recent, ...rest] };
   }, [models, query]);
 
@@ -113,7 +121,9 @@ export function ModelChip(task: ModelChipProps) {
   const onSearchKey = (event: KeyboardEvent) => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      setActive((index) => Math.min(Math.max(index + (event.key === "ArrowDown" ? 1 : -1), 0), Math.max(rows.flat.length - 1, 0)));
+      setActive((index) =>
+        Math.min(Math.max(index + (event.key === "ArrowDown" ? 1 : -1), 0), Math.max(rows.flat.length - 1, 0)),
+      );
     } else if (event.key === "Enter" && !(event.nativeEvent.isComposing || event.keyCode === 229)) {
       event.preventDefault();
       const model = rows.flat[active];
@@ -148,15 +158,34 @@ export function ModelChip(task: ModelChipProps) {
 
   return (
     <div className="pop-anchor">
-      <button type="button" className="chip" data-testid="model-chip" aria-haspopup="dialog" aria-expanded={open} aria-label={t("composer.modelChip")} onClick={() => setOpen((value) => !value)}>
-        <span className="chip-text">{name}{(supportsThinking || !task.model) && levelText ? ` · ${levelText}` : ""}</span>
+      <button
+        type="button"
+        className="chip"
+        data-testid="model-chip"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={t("composer.modelChip")}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="chip-text">
+          {name}
+          {(supportsThinking || !task.model) && levelText ? ` · ${levelText}` : ""}
+        </span>
         <ChevronDown size={12} />
       </button>
       <Popover open={open} onClose={close} width={360} label={t("composer.modelChip")}>
-        <input ref={searchRef} className="pop-search" value={query} placeholder={t("model.search")} aria-label={t("model.search")} onChange={(event) => {
-          setQuery(event.target.value);
-          setActive(0);
-        }} onKeyDown={onSearchKey} />
+        <input
+          ref={searchRef}
+          className="pop-search"
+          value={query}
+          placeholder={t("model.search")}
+          aria-label={t("model.search")}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setActive(0);
+          }}
+          onKeyDown={onSearchKey}
+        />
         <div className="pop-list" role="listbox">
           {models !== null && rows.flat.length === 0 && <p className="pop-note">{t("model.empty")}</p>}
           {rows.recent.length > 0 && <p className="pop-group">{t("model.recent")}</p>}
@@ -167,12 +196,25 @@ export function ModelChip(task: ModelChipProps) {
         <div className="pop-section">
           <p className="pop-grouprow">
             <span>{t("model.thinking")}</span>
-            {!supportsThinking ? <span className="pop-grouphint">{t("model.thinking.unsupported")}</span> : running ? <span className="pop-grouphint">{t("composer.nextRequest")}</span> : null}
+            {!supportsThinking ? (
+              <span className="pop-grouphint">{t("model.thinking.unsupported")}</span>
+            ) : running ? (
+              <span className="pop-grouphint">{t("composer.nextRequest")}</span>
+            ) : null}
           </p>
           {supportsThinking && (
             <div className="segments" role="radiogroup" aria-label={t("model.thinking")} onKeyDown={onSegmentKey}>
               {levels.map((level) => (
-                <button key={level} type="button" role="radio" aria-checked={task.thinkingLevel === level} tabIndex={task.thinkingLevel === level ? 0 : -1} className="segment" data-checked={task.thinkingLevel === level || undefined} onClick={() => task.setThinking(level).catch(report)}>
+                <button
+                  key={level}
+                  type="button"
+                  role="radio"
+                  aria-checked={task.thinkingLevel === level}
+                  tabIndex={task.thinkingLevel === level ? 0 : -1}
+                  className="segment"
+                  data-checked={task.thinkingLevel === level || undefined}
+                  onClick={() => task.setThinking(level).catch(report)}
+                >
                   {t(thinkingLabel[level] as MessageKey)}
                 </button>
               ))}
@@ -180,10 +222,14 @@ export function ModelChip(task: ModelChipProps) {
           )}
         </div>
         <div className="pop-divider" />
-        <button type="button" className="pop-item" onClick={() => {
-          setOpen(false);
-          showView("settings");
-        }}>
+        <button
+          type="button"
+          className="pop-item"
+          onClick={() => {
+            setOpen(false);
+            showView("settings");
+          }}
+        >
           <span className="pop-item-text">{t("model.addProvider")}</span>
         </button>
       </Popover>

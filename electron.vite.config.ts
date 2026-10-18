@@ -22,7 +22,11 @@ const injectCsp = {
   name: "omp-studio:csp",
   apply: "build" as const,
   transformIndexHtml: () => [
-    { tag: "meta", attrs: { "http-equiv": "Content-Security-Policy", content: contentSecurityPolicy }, injectTo: "head-prepend" as const },
+    {
+      tag: "meta",
+      attrs: { "http-equiv": "Content-Security-Policy", content: contentSecurityPolicy },
+      injectTo: "head-prepend" as const,
+    },
   ],
 };
 

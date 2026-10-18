@@ -11,7 +11,9 @@ const rendererRoot = path.join(import.meta.dirname, "..", "renderer");
 
 /** 必须在 app ready 之前调用。 */
 export function registerAppScheme(): void {
-  protocol.registerSchemesAsPrivileged([{ scheme: appScheme, privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
+  protocol.registerSchemesAsPrivileged([
+    { scheme: appScheme, privileges: { standard: true, secure: true, supportFetchAPI: true } },
+  ]);
 }
 
 /** 把请求地址映射到 rendererRoot 下的文件；越界或不是 app://studio 返回 null。 */

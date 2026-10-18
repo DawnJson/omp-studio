@@ -10,7 +10,10 @@ import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 
 export const DEFAULT_BUILD_URL = "https://build.stencil.so";
 
-export type FetchFn = (url: string, init?: { headers?: Record<string, string>; signal?: AbortSignal | undefined }) => Promise<Response>;
+export type FetchFn = (
+  url: string,
+  init?: { headers?: Record<string, string>; signal?: AbortSignal | undefined },
+) => Promise<Response>;
 
 export interface BuildFile {
   name: string;
@@ -83,7 +86,10 @@ export async function fetchBuild(options: FetchBuildOptions): Promise<BuildInfo>
   const url = options.version
     ? `${base}/api/products/omp/versions/${encodeURIComponent(options.version)}/${target}`
     : `${base}/api/products/omp/latest/${target}?channel=stable${options.fromVersion ? `&from_version=${encodeURIComponent(options.fromVersion)}` : ""}`;
-  const response = await options.fetch(url, { headers: { Accept: "application/json", "User-Agent": "omp-studio" }, signal: options.signal });
+  const response = await options.fetch(url, {
+    headers: { Accept: "application/json", "User-Agent": "omp-studio" },
+    signal: options.signal,
+  });
   if (response.status === 404) throw new BuildServiceError("no_build", `no omp build is published for ${target}`);
   if (!response.ok) throw new BuildServiceError("http", `build service answered ${response.status}`);
   const json: unknown = await response.json();
@@ -93,10 +99,21 @@ export async function fetchBuild(options: FetchBuildOptions): Promise<BuildInfo>
   const size = field(file, "size");
   const sha256 = field(file, "sha256");
   const download = field(json, "download");
-  if (typeof version !== "string" || typeof name !== "string" || typeof size !== "number" || typeof sha256 !== "string" || typeof download !== "string") {
+  if (
+    typeof version !== "string" ||
+    typeof name !== "string" ||
+    typeof size !== "number" ||
+    typeof sha256 !== "string" ||
+    typeof download !== "string"
+  ) {
     throw new BuildServiceError("format", "the build service answer is missing version, file or download");
   }
-  return { version, file: { name, size, sha256: sha256.toLowerCase() }, downloadUrl: new URL(download, base).toString(), patch: parsePatch(field(json, "patch"), base) };
+  return {
+    version,
+    file: { name, size, sha256: sha256.toLowerCase() },
+    downloadUrl: new URL(download, base).toString(),
+    patch: parsePatch(field(json, "patch"), base),
+  };
 }
 
 /** 只认 `format: "file"`（整文件补丁，2026-10-18 实测）；别的格式、字段不全、补丁还没生成好（`patch_pending`）都当没有补丁。 */
@@ -105,8 +122,20 @@ function parsePatch(patch: unknown, base: string): BuildPatch | null {
   const size = field(patch, "size");
   const sha256 = field(patch, "sha256");
   const fromSha256 = field(patch, "from_sha256");
-  if (field(patch, "format") !== "file" || typeof url !== "string" || typeof size !== "number" || typeof sha256 !== "string" || typeof fromSha256 !== "string") return null;
-  return { url: new URL(url, base).toString(), size, sha256: sha256.toLowerCase(), fromSha256: fromSha256.toLowerCase() };
+  if (
+    field(patch, "format") !== "file" ||
+    typeof url !== "string" ||
+    typeof size !== "number" ||
+    typeof sha256 !== "string" ||
+    typeof fromSha256 !== "string"
+  )
+    return null;
+  return {
+    url: new URL(url, base).toString(),
+    size,
+    sha256: sha256.toLowerCase(),
+    fromSha256: fromSha256.toLowerCase(),
+  };
 }
 
 export interface DownloadOptions {
@@ -137,10 +166,16 @@ export async function downloadVerified(options: DownloadOptions): Promise<void> 
     },
   });
   try {
-    await pipeline(Readable.fromWeb(response.body as NodeReadableStream<Uint8Array>), tally, createWriteStream(partial), ...(options.signal ? [{ signal: options.signal }] : []));
+    await pipeline(
+      Readable.fromWeb(response.body as NodeReadableStream<Uint8Array>),
+      tally,
+      createWriteStream(partial),
+      ...(options.signal ? [{ signal: options.signal }] : []),
+    );
     options.onVerifying?.();
     const digest = hash.digest("hex");
-    if (received !== source.size) throw new VerifyError(`size mismatch: expected ${source.size} bytes, got ${received}`);
+    if (received !== source.size)
+      throw new VerifyError(`size mismatch: expected ${source.size} bytes, got ${received}`);
     if (digest !== source.sha256) throw new VerifyError("sha256 mismatch");
     await rename(partial, dest);
   } catch (error) {

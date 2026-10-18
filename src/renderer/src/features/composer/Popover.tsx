@@ -22,7 +22,12 @@ export function Popover({ open, onClose, children, width, align = "start", label
     window.addEventListener("pointerdown", onPointerDown, true);
     return () => {
       window.removeEventListener("pointerdown", onPointerDown, true);
-      if (trigger instanceof HTMLElement && trigger.isConnected && (document.activeElement === document.body || ref.current?.contains(document.activeElement))) trigger.focus();
+      if (
+        trigger instanceof HTMLElement &&
+        trigger.isConnected &&
+        (document.activeElement === document.body || ref.current?.contains(document.activeElement))
+      )
+        trigger.focus();
     };
   }, [open, onClose]);
   if (!open) return null;

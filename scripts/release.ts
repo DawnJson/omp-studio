@@ -23,12 +23,14 @@ if (!npmCli) {
 }
 
 const git = (...gitArgs: string[]) => execFileSync("git", gitArgs, { cwd: root, encoding: "utf8" }).trim();
-const npm = (...npmArgs: string[]) => execFileSync(process.execPath, [npmCli, ...npmArgs], { cwd: root, stdio: "inherit" });
+const npm = (...npmArgs: string[]) =>
+  execFileSync(process.execPath, [npmCli, ...npmArgs], { cwd: root, stdio: "inherit" });
 
 if (git("status", "--porcelain") !== "") throw new Error("工作区有未提交的改动，先提交或暂存");
 if (git("tag", "--list", `v${version}`) !== "") throw new Error(`tag v${version} 已经存在`);
 const pkg: unknown = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
-if (typeof pkg !== "object" || pkg === null || !("version" in pkg) || typeof pkg.version !== "string") throw new Error("package.json 里没有 version");
+if (typeof pkg !== "object" || pkg === null || !("version" in pkg) || typeof pkg.version !== "string")
+  throw new Error("package.json 里没有 version");
 const current = pkg.version;
 if (compareVersions(version, current) < 0) throw new Error(`新版本 ${version} 比当前的 ${current} 还小`);
 
@@ -37,7 +39,9 @@ const date = new Date().toLocaleDateString("sv-SE"); // 本地日期，YYYY-MM-D
 const changelog = promoteUnreleased(await readFile(changelogPath, "utf8"), version, date);
 
 if (dryRun) {
-  console.log(`[dry-run] 版本 ${current} → ${version}，CHANGELOG 记为 ${date}；会提交 "chore(release): v${version}"、打 tag v${version}、npm run dist、npm run feed`);
+  console.log(
+    `[dry-run] 版本 ${current} → ${version}，CHANGELOG 记为 ${date}；会提交 "chore(release): v${version}"、打 tag v${version}、npm run dist、npm run feed`,
+  );
   process.exit(0);
 }
 

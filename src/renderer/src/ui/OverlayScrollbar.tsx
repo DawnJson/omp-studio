@@ -38,7 +38,11 @@ export function OverlayScrollbar({ target, label }: { target: RefObject<HTMLElem
     if (!el) return;
     setMetrics((previous) => {
       const next = measure(el);
-      return previous.thumbTop === next.thumbTop && previous.thumbHeight === next.thumbHeight && previous.scrollable === next.scrollable ? previous : next;
+      return previous.thumbTop === next.thumbTop &&
+        previous.thumbHeight === next.thumbHeight &&
+        previous.scrollable === next.scrollable
+        ? previous
+        : next;
     });
   }, [target]);
 
@@ -114,7 +118,8 @@ export function OverlayScrollbar({ target, label }: { target: RefObject<HTMLElem
   const onThumbUp = (event: PointerEvent<HTMLDivElement>) => {
     drag.current = null;
     setDragging(false);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
     flash();
   };
   // 点轨道（不是滑块）：向点击的方向翻一页。
@@ -128,8 +133,22 @@ export function OverlayScrollbar({ target, label }: { target: RefObject<HTMLElem
 
   if (!metrics.scrollable) return null;
   return (
-    <div className="osb" data-visible={active || dragging || undefined} data-dragging={dragging || undefined} onPointerDown={onTrackDown} aria-hidden="true" data-label={label}>
-      <div className="osb-thumb" style={{ height: metrics.thumbHeight, transform: `translateY(${metrics.thumbTop}px)` }} onPointerDown={onThumbDown} onPointerMove={onThumbMove} onPointerUp={onThumbUp} onPointerCancel={onThumbUp} />
+    <div
+      className="osb"
+      data-visible={active || dragging || undefined}
+      data-dragging={dragging || undefined}
+      onPointerDown={onTrackDown}
+      aria-hidden="true"
+      data-label={label}
+    >
+      <div
+        className="osb-thumb"
+        style={{ height: metrics.thumbHeight, transform: `translateY(${metrics.thumbTop}px)` }}
+        onPointerDown={onThumbDown}
+        onPointerMove={onThumbMove}
+        onPointerUp={onThumbUp}
+        onPointerCancel={onThumbUp}
+      />
     </div>
   );
 }

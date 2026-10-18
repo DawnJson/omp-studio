@@ -114,7 +114,8 @@ export class TaskPool {
 
   async removeProject(projectId: ProjectId): Promise<void> {
     if (!this.#deps.registry.findProject(projectId)) throw new Error(`unknown project ${projectId}`);
-    if (this.#deps.registry.listTasks().some((task) => task.projectId === projectId && !task.archived)) throw new Error("project still has tasks; archive them first");
+    if (this.#deps.registry.listTasks().some((task) => task.projectId === projectId && !task.archived))
+      throw new Error("project still has tasks; archive them first");
     await this.#deps.registry.removeProject(projectId);
   }
 
@@ -153,13 +154,19 @@ export class TaskPool {
   }
 
   async resume(input: ResumeInput): Promise<TaskState> {
-    const project = this.#deps.registry.findProject(input.projectId) ?? (await this.#deps.registry.addProject(input.cwd));
+    const project =
+      this.#deps.registry.findProject(input.projectId) ?? (await this.#deps.registry.addProject(input.cwd));
     const existing = this.#deps.registry.findTaskBySessionFile(input.sessionFile);
     if (existing) {
       const live = this.#runners.get(existing.id);
       if (live) return live.state;
       // 已归档的任务恢复成未归档（同一 id，侧栏的"撤销"）；它的项目可能已被移除，挂回会话自己的 cwd 对应的项目。
-      const runner = this.#adopt(await this.#deps.registry.updateTask(existing.id, { archived: false, ...(!this.#deps.registry.findProject(existing.projectId) && { projectId: project.id }) }));
+      const runner = this.#adopt(
+        await this.#deps.registry.updateTask(existing.id, {
+          archived: false,
+          ...(!this.#deps.registry.findProject(existing.projectId) && { projectId: project.id }),
+        }),
+      );
       this.#deps.events.state(runner.state);
       return runner.state;
     }
@@ -270,7 +277,9 @@ export class TaskPool {
   // ───── 上限和回收 ─────
 
   #liveRunners(except: TaskId): TaskRunner[] {
-    return [...this.#runners.values()].filter((runner) => runner.id !== except && (runner.hasProcess || runner.status === "starting"));
+    return [...this.#runners.values()].filter(
+      (runner) => runner.id !== except && (runner.hasProcess || runner.status === "starting"),
+    );
   }
 
   async #acquireSlot(id: TaskId): Promise<void> {
@@ -294,7 +303,9 @@ export class TaskPool {
 
   /** 已停止的任务最多保留 SNAPSHOT_LRU_SIZE 份对话快照，更久没用的释放，再打开时从会话文件恢复。 */
   #trimSnapshots(): void {
-    const stopped = [...this.#runners.values()].filter((runner) => !runner.hasProcess && runner.hasSnapshot).sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+    const stopped = [...this.#runners.values()]
+      .filter((runner) => !runner.hasProcess && runner.hasSnapshot)
+      .sort((a, b) => b.lastActiveAt - a.lastActiveAt);
     for (const runner of stopped.slice(SNAPSHOT_LRU_SIZE)) runner.releaseSnapshot();
   }
 

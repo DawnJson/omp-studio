@@ -121,7 +121,10 @@ test("设置、侧栏折叠和窗口尺寸写入 userData，重启后恢复", as
     await first.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setSize(1100, 700));
     await first.app.close();
 
-    const settings = JSON.parse(await readFile(path.join(userDataDir, "settings.json"), "utf8")) as { locale: string; theme: string };
+    const settings = JSON.parse(await readFile(path.join(userDataDir, "settings.json"), "utf8")) as {
+      locale: string;
+      theme: string;
+    };
     expect(settings).toMatchObject({ locale: "en", theme: "dark" });
 
     const second = await launchApp({ STUDIO_USER_DATA: userDataDir });
@@ -129,7 +132,9 @@ test("设置、侧栏折叠和窗口尺寸写入 userData，重启后恢复", as
       await expect(second.page.getByTestId("app-root")).toHaveAttribute("data-locale", "en");
       await expect(second.page.locator("html")).toHaveAttribute("data-theme", "dark");
       await expect(second.page.getByTestId("app-root")).toHaveAttribute("data-sidebar", "hidden");
-      const width = await second.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.getNormalBounds().width);
+      const width = await second.app.evaluate(
+        ({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.getNormalBounds().width,
+      );
       expect(width).toBe(1100);
     } finally {
       await second.app.close();
@@ -157,7 +162,9 @@ test("安全：CSP 生效且无违规，权限请求被拒，缩放快捷键无�
 
     await page.keyboard.press("Control+=");
     await page.keyboard.press("Control+-");
-    expect(await launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getZoomLevel())).toBe(0);
+    expect(
+      await launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getZoomLevel()),
+    ).toBe(0);
     expect(violations).toEqual([]);
   } finally {
     await launched.close();
@@ -172,7 +179,9 @@ test("截图：中英文 × 浅深主题", async () => {
       for (const theme of ["light", "dark"] as const) {
         await settled(page, locale, theme);
         await page.waitForTimeout(250);
-        await page.screenshot({ path: path.join(screenshotsDir, `shell-${locale === "zh-CN" ? "zh" : "en"}-${theme}.png`) });
+        await page.screenshot({
+          path: path.join(screenshotsDir, `shell-${locale === "zh-CN" ? "zh" : "en"}-${theme}.png`),
+        });
       }
     }
   } finally {
@@ -240,7 +249,9 @@ test("有项目的空状态：输入框在中间、继续列表只有假会话�
       for (const theme of ["light", "dark"] as const) {
         await settled(page, locale, theme);
         await page.waitForTimeout(250);
-        await page.screenshot({ path: path.join(screenshotsDir, `shell-project-${locale === "zh-CN" ? "zh" : "en"}-${theme}.png`) });
+        await page.screenshot({
+          path: path.join(screenshotsDir, `shell-project-${locale === "zh-CN" ? "zh" : "en"}-${theme}.png`),
+        });
       }
     }
 
@@ -289,7 +300,15 @@ test("页面来自 app://studio；路径穿越和越界地址拿不到文件", a
     const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute("content");
     expect(csp).not.toContain("file:");
 
-    const status = (url: string) => page.evaluate(async (target) => fetch(target).then((response) => response.status, () => 0), url);
+    const status = (url: string) =>
+      page.evaluate(
+        async (target) =>
+          fetch(target).then(
+            (response) => response.status,
+            () => 0,
+          ),
+        url,
+      );
     expect(await status("app://studio/index.html")).toBe(200);
     // 越界读取不会返回内容（路径解析见 test/app-protocol.test.ts）。
     expect(await status("app://studio/%2e%2e/%2e%2e/package.json")).not.toBe(200);

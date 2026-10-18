@@ -22,7 +22,9 @@ const text = `# 更新日志
 describe("CHANGELOG", () => {
   it("发版把未发布一节记成新版本，上面留一个空的未发布，旧版本原样保留", () => {
     const next = promoteUnreleased(text, "0.1.1", "2026-10-20");
-    expect(next).toContain("## [未发布]\n\n## [0.1.1] - 2026-10-20\n\n### 修复\n\n- 修了 B。\n\n## [0.1.0] - 2026-10-18");
+    expect(next).toContain(
+      "## [未发布]\n\n## [0.1.1] - 2026-10-20\n\n### 修复\n\n- 修了 B。\n\n## [0.1.0] - 2026-10-18",
+    );
     expect(releaseNotes(next, "0.1.1")).toBe("### 修复\n\n- 修了 B。");
     expect(releaseNotes(next, "0.1.0")).toBe("### 新增\n\n- 第一个版本。");
   });

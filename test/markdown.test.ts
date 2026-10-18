@@ -117,7 +117,9 @@ describe("流式渲染", () => {
         previous = current;
       }
       expect(html(sample)).toBe(html(sample));
-      expect(parseBlocks(stabilizeStreaming(sample + "\n")).map((block) => block.src)).toEqual(parseBlocks(sample).map((block) => block.src));
+      expect(parseBlocks(stabilizeStreaming(sample + "\n")).map((block) => block.src)).toEqual(
+        parseBlocks(sample).map((block) => block.src),
+      );
     });
   }
 

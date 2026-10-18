@@ -4,7 +4,12 @@ import { useT } from "../../i18n/use-t.ts";
 import type { DialogRequest } from "../../../../shared/ipc.ts";
 import type { GateBodyProps } from "./Gate.tsx";
 
-export function GateText({ dialog, busy, respond, primaryRef }: GateBodyProps<Extract<DialogRequest, { kind: "input" | "editor" }>>) {
+export function GateText({
+  dialog,
+  busy,
+  respond,
+  primaryRef,
+}: GateBodyProps<Extract<DialogRequest, { kind: "input" | "editor" }>>) {
   const t = useT();
   const [value, setValue] = useState(dialog.kind === "editor" ? (dialog.prefill ?? "") : "");
   const fieldRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null);

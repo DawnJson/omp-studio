@@ -25,12 +25,23 @@ const knownMessages: [RegExp, Parameters<TFunction>[0]][] = [
 
 /** 错误原文：去掉 IPC 前缀和 "Error:" 前缀。 */
 export function errorDetail(error: unknown): string {
-  const text = error instanceof Error ? error.message : typeof error === "string" ? error : JSON.stringify(error) ?? String(error);
+  const text =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : (JSON.stringify(error) ?? String(error));
   return text.replace(/^Error invoking remote method '[^']*':\s*(Error:\s*)?/, "").replace(/^(\w*Error):\s*/, "");
 }
 
 function isTaskError(error: unknown): error is TaskError {
-  return typeof error === "object" && error !== null && "kind" in error && typeof error.kind === "string" && error.kind in taskErrorKinds;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "kind" in error &&
+    typeof error.kind === "string" &&
+    error.kind in taskErrorKinds
+  );
 }
 
 /** 给用户看的一句话（当前语言）。 */

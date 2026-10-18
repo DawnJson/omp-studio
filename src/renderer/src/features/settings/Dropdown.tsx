@@ -25,7 +25,15 @@ interface DropdownProps<T extends string> {
 const maxListHeight = 320;
 const typeaheadResetMs = 600;
 
-export function Dropdown<T extends string>({ value, options, labelledBy, disabled = false, placeholder = "", onChange, testId }: DropdownProps<T>) {
+export function Dropdown<T extends string>({
+  value,
+  options,
+  labelledBy,
+  disabled = false,
+  placeholder = "",
+  onChange,
+  testId,
+}: DropdownProps<T>) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -33,9 +41,15 @@ export function Dropdown<T extends string>({ value, options, labelledBy, disable
   const typed = useRef({ text: "", at: 0 });
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  const [place, setPlace] = useState<{ top?: number; bottom?: number; left: number; width: number }>({ left: 0, width: 0 });
+  const [place, setPlace] = useState<{ top?: number; bottom?: number; left: number; width: number }>({
+    left: 0,
+    width: 0,
+  });
 
-  const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value));
+  const selectedIndex = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  );
   const current = options.find((option) => option.value === value);
 
   const close = useCallback(() => setOpen(false), []);
@@ -51,7 +65,11 @@ export function Dropdown<T extends string>({ value, options, labelledBy, disable
     const need = Math.min(maxListHeight, options.length * 32 + 8);
     const below = window.innerHeight - rect.bottom;
     const up = below < need + 8 && rect.top > below;
-    setPlace(up ? { bottom: window.innerHeight - rect.top + 4, left: rect.left, width: rect.width } : { top: rect.bottom + 4, left: rect.left, width: rect.width });
+    setPlace(
+      up
+        ? { bottom: window.innerHeight - rect.top + 4, left: rect.left, width: rect.width }
+        : { top: rect.bottom + 4, left: rect.left, width: rect.width },
+    );
   }, [open, options.length]);
 
   useEffect(() => {
@@ -130,7 +148,10 @@ export function Dropdown<T extends string>({ value, options, labelledBy, disable
     // 首字母跳转：连续输入在 600 ms 内拼成前缀。
     if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
       const now = Date.now();
-      typed.current = { text: (now - typed.current.at > typeaheadResetMs ? "" : typed.current.text) + event.key.toLowerCase(), at: now };
+      typed.current = {
+        text: (now - typed.current.at > typeaheadResetMs ? "" : typed.current.text) + event.key.toLowerCase(),
+        at: now,
+      };
       const start = typed.current.text.length === 1 ? active + 1 : active;
       const ordered = [...options.keys()].map((index) => (index + start) % options.length);
       const hit = ordered.find((index) => options[index]?.label.toLowerCase().startsWith(typed.current.text));
@@ -160,8 +181,19 @@ export function Dropdown<T extends string>({ value, options, labelledBy, disable
       </button>
       {open &&
         createPortal(
-          <div ref={popup} className="dd-pop" style={{ top: place.top, bottom: place.bottom, left: place.left, minWidth: place.width }}>
-            <div ref={list} id={id} role="listbox" aria-labelledby={labelledBy} className="dd-list" style={{ maxHeight: maxListHeight }}>
+          <div
+            ref={popup}
+            className="dd-pop"
+            style={{ top: place.top, bottom: place.bottom, left: place.left, minWidth: place.width }}
+          >
+            <div
+              ref={list}
+              id={id}
+              role="listbox"
+              aria-labelledby={labelledBy}
+              className="dd-list"
+              style={{ maxHeight: maxListHeight }}
+            >
               {options.map((option, index) => (
                 <div
                   key={option.value}

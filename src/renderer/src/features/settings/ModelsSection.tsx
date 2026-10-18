@@ -22,12 +22,20 @@ interface AccountData {
 const thinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 const approvalModes = ["always-ask", "write", "yolo"] as const;
 const approvalLabels = { "always-ask": "approval.alwaysAsk", write: "approval.write", yolo: "approval.yolo" } as const;
-const approvalDescs = { "always-ask": "approval.desc.alwaysAsk", write: "approval.desc.write", yolo: "approval.desc.yolo" } as const;
+const approvalDescs = {
+  "always-ask": "approval.desc.alwaysAsk",
+  write: "approval.desc.write",
+  yolo: "approval.desc.yolo",
+} as const;
 const inherit = "";
 
 /** 一次读全：provider、每个已登录 provider 的账号、已存的 key、模型。provider 或模型读不出来整体失败，由界面显示原因。 */
 async function loadAccountData(): Promise<AccountData> {
-  const [providers, keyProviders, models] = await Promise.all([window.studio.listLoginProviders(), window.studio.listApiKeyProviders(), window.studio.listModels()]);
+  const [providers, keyProviders, models] = await Promise.all([
+    window.studio.listLoginProviders(),
+    window.studio.listApiKeyProviders(),
+    window.studio.listModels(),
+  ]);
   const accounts: Record<string, LogoutAccount[]> = {};
   await Promise.all(
     providers
@@ -64,10 +72,17 @@ export function ModelsSection() {
   const modelOptions: Option<string>[] = [{ value: inherit, label: t("settings.useOmpDefault") }];
   for (const model of data?.models ?? []) modelOptions.push({ value: modelKey(model.key), label: model.name });
   // 默认模型已经不在列表里（比如退出了那个 provider）：保留当前值，别让下拉悄悄显示成别的。
-  if (defaultModel && !modelOptions.some((option) => option.value === modelKey(defaultModel))) modelOptions.push({ value: modelKey(defaultModel), label: modelKey(defaultModel) });
+  if (defaultModel && !modelOptions.some((option) => option.value === modelKey(defaultModel)))
+    modelOptions.push({ value: modelKey(defaultModel), label: modelKey(defaultModel) });
 
-  const thinkingOptions: Option<string>[] = [{ value: inherit, label: t("settings.useOmpDefault") }, ...thinkingLevels.map((level) => ({ value: level, label: t(`thinking.${level}`) }))];
-  const approvalOptions: Option<string>[] = [{ value: inherit, label: t("settings.useOmpDefault") }, ...approvalModes.map((mode) => ({ value: mode, label: t(approvalLabels[mode]) }))];
+  const thinkingOptions: Option<string>[] = [
+    { value: inherit, label: t("settings.useOmpDefault") },
+    ...thinkingLevels.map((level) => ({ value: level, label: t(`thinking.${level}`) })),
+  ];
+  const approvalOptions: Option<string>[] = [
+    { value: inherit, label: t("settings.useOmpDefault") },
+    ...approvalModes.map((mode) => ({ value: mode, label: t(approvalLabels[mode]) })),
+  ];
   const approvalValue = settings?.defaultApprovalMode ?? inherit;
 
   const chooseApproval = (value: string) => {
@@ -120,16 +135,37 @@ export function ModelsSection() {
         <SettingRow title={t("settings.defaultThinking")}>
           {(labelId) => (
             <Select
-              value={settings?.defaultThinkingLevel && settings.defaultThinkingLevel !== "inherit" ? settings.defaultThinkingLevel : inherit}
+              value={
+                settings?.defaultThinkingLevel && settings.defaultThinkingLevel !== "inherit"
+                  ? settings.defaultThinkingLevel
+                  : inherit
+              }
               options={thinkingOptions}
               labelledBy={labelId}
-              onChange={(value) => void window.studio.setDefaultThinkingLevel(value === inherit ? null : (value as ThinkingLevel))}
+              onChange={(value) =>
+                void window.studio.setDefaultThinkingLevel(value === inherit ? null : (value as ThinkingLevel))
+              }
               testId="setting-default-thinking"
             />
           )}
         </SettingRow>
-        <SettingRow title={t("settings.defaultApproval")} desc={settings?.defaultApprovalMode ? `${t(approvalDescs[settings.defaultApprovalMode])} · ${t("settings.defaultApproval.desc")}` : t("settings.defaultApproval.desc")}>
-          {(labelId) => <Select value={approvalValue} options={approvalOptions} labelledBy={labelId} onChange={chooseApproval} testId="setting-default-approval" />}
+        <SettingRow
+          title={t("settings.defaultApproval")}
+          desc={
+            settings?.defaultApprovalMode
+              ? `${t(approvalDescs[settings.defaultApprovalMode])} · ${t("settings.defaultApproval.desc")}`
+              : t("settings.defaultApproval.desc")
+          }
+        >
+          {(labelId) => (
+            <Select
+              value={approvalValue}
+              options={approvalOptions}
+              labelledBy={labelId}
+              onChange={chooseApproval}
+              testId="setting-default-approval"
+            />
+          )}
         </SettingRow>
       </Card>
       {confirmYolo && (

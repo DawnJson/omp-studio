@@ -12,12 +12,33 @@ const collapseThreshold = 30;
 // 折叠状态记在模块里：切换分组再回来保持原样。
 const openState = new Map<string, boolean>();
 
-function Disclosure({ id, title, count, open, onToggle, children }: { id: string; title: string; count: number; open: boolean; onToggle(): void; children: ReactNode }) {
+function Disclosure({
+  id,
+  title,
+  count,
+  open,
+  onToggle,
+  children,
+}: {
+  id: string;
+  title: string;
+  count: number;
+  open: boolean;
+  onToggle(): void;
+  children: ReactNode;
+}) {
   const t = useT();
   const bodyId = useId();
   return (
     <section className="cfg-group" data-testid={`cfg-group-${id}`}>
-      <button type="button" className="cfg-group-head" aria-expanded={open} aria-controls={bodyId} aria-label={`${open ? t("settings.cfg.collapseGroup", { group: title }) : t("settings.cfg.expandGroup", { group: title })}`} onClick={onToggle}>
+      <button
+        type="button"
+        className="cfg-group-head"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        aria-label={`${open ? t("settings.cfg.collapseGroup", { group: title }) : t("settings.cfg.expandGroup", { group: title })}`}
+        onClick={onToggle}
+      >
         <ChevronRight size={14} className="icon cfg-chevron" data-open={open || undefined} />
         <span className="cfg-group-title">{title}</span>
         <span className="cfg-group-count">{count}</span>
@@ -42,7 +63,12 @@ export function ConfigTab({ tab, items }: { tab: string; items: readonly OmpConf
       {groups.map((group, index) => {
         const key = `${tab}|${group.id}`;
         const open = openState.get(key) ?? (group.prefix === null || !many || (index === 0 && groups.length === 1));
-        const title = group.prefix === null ? t("settings.cfg.common") : group.prefix === "" ? t("settings.cfg.other") : group.prefix.charAt(0).toUpperCase() + group.prefix.slice(1);
+        const title =
+          group.prefix === null
+            ? t("settings.cfg.common")
+            : group.prefix === ""
+              ? t("settings.cfg.other")
+              : group.prefix.charAt(0).toUpperCase() + group.prefix.slice(1);
         const body = (
           <>
             {group.items.map((item) => (
@@ -50,7 +76,12 @@ export function ConfigTab({ tab, items }: { tab: string; items: readonly OmpConf
             ))}
           </>
         );
-        if (groups.length === 1) return <div key={key} className="st-card cfg-card">{body}</div>;
+        if (groups.length === 1)
+          return (
+            <div key={key} className="st-card cfg-card">
+              {body}
+            </div>
+          );
         return (
           <Disclosure
             key={key}
@@ -72,7 +103,15 @@ export function ConfigTab({ tab, items }: { tab: string; items: readonly OmpConf
 }
 
 /** 搜索结果：按 tab 分节，全部展开（匹配的项数通常不多）。 */
-export function ConfigResults({ items, tabs, query }: { items: readonly OmpConfigItem[]; tabs: readonly string[]; query: string }) {
+export function ConfigResults({
+  items,
+  tabs,
+  query,
+}: {
+  items: readonly OmpConfigItem[];
+  tabs: readonly string[];
+  query: string;
+}) {
   const locale = useLocale();
   return (
     <>

@@ -5,7 +5,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Project, ProjectId, TaskState } from "../../../../shared/ipc.ts";
 import { setCollapsedProjects, useShellUi } from "../../app/shell-store.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
-import { selectTask, setPaletteOpen, showView, useMainView, useSelectedTaskId, useTasksState } from "../../store/index.ts";
+import {
+  selectTask,
+  setPaletteOpen,
+  showView,
+  useMainView,
+  useSelectedTaskId,
+  useTasksState,
+} from "../../store/index.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { archiveWithUndo, useHiddenTasks } from "./archive-store.ts";
 import { FolderPlusIcon, GearIcon, PlusIcon, SearchIcon } from "./icons.tsx";
@@ -43,14 +50,19 @@ export function Sidebar() {
   }, []);
   // 恢复历史会话会让主进程自动加入新项目：任务指向列表里没有的项目时重新取一次。
   const unknownProject = useMemo(
-    () => projectsState.loaded && tasksState.list.some((task) => !projectsState.list.some((project) => project.id === task.projectId)),
+    () =>
+      projectsState.loaded &&
+      tasksState.list.some((task) => !projectsState.list.some((project) => project.id === task.projectId)),
     [projectsState, tasksState.list],
   );
   useEffect(() => {
     if (unknownProject) void refreshProjects();
   }, [unknownProject]);
 
-  const groups = useMemo(() => groupTasks(projectsState.list, tasksState.list, hidden), [projectsState.list, tasksState.list, hidden]);
+  const groups = useMemo(
+    () => groupTasks(projectsState.list, tasksState.list, hidden),
+    [projectsState.list, tasksState.list, hidden],
+  );
   const waiting = useMemo(() => waitingTasks(tasksState.list, hidden), [tasksState.list, hidden]);
   const labelOf = (projectId: ProjectId) => groups.find((group) => group.project.id === projectId)?.label ?? "";
 
@@ -85,7 +97,8 @@ export function Sidebar() {
     onCommitRename: (task, title) => {
       setRenamingId(null);
       const next = title?.trim() ?? "";
-      if (next !== "" && next !== task.title) void window.studio.renameTask(task.id, next).catch((error: unknown) => reportError(t, error));
+      if (next !== "" && next !== task.title)
+        void window.studio.renameTask(task.id, next).catch((error: unknown) => reportError(t, error));
     },
     onArchive: (task) => archiveWithUndo(task.id, selectedTaskId, t),
   };
@@ -105,7 +118,12 @@ export function Sidebar() {
     const at = items.indexOf(document.activeElement as HTMLElement);
     if (at === -1) return;
     event.preventDefault();
-    const to = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : Math.min(items.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)));
+    const to =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? items.length - 1
+          : Math.min(items.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)));
     items[to]?.focus();
   };
 
@@ -120,63 +138,98 @@ export function Sidebar() {
       </button>
 
       {firstWaiting !== null && (
-        <button type="button" className="sb-waiting" data-testid="waiting-strip" onClick={() => void selectTask(firstWaiting.id).catch((error: unknown) => reportError(t, error))}>
+        <button
+          type="button"
+          className="sb-waiting"
+          data-testid="waiting-strip"
+          onClick={() => void selectTask(firstWaiting.id).catch((error: unknown) => reportError(t, error))}
+        >
           <span className="sb-waiting-diamond" aria-hidden="true" />
           <span className="sb-waiting-text">
-            {waiting.length === 1 ? t("sidebar.waitingOne", { project: labelOf(firstWaiting.projectId) }) : t("sidebar.waitingMany", { n: waiting.length })}
+            {waiting.length === 1
+              ? t("sidebar.waitingOne", { project: labelOf(firstWaiting.projectId) })
+              : t("sidebar.waitingMany", { n: waiting.length })}
           </span>
         </button>
       )}
 
       <div className="sb-list-host">
-      <div className="sb-list" ref={listRef} onKeyDown={onListKeyDown}>
-        {!tasksState.loaded && tasksState.error === null && <p className="sb-note" role="status">{t("sidebar.loading")}</p>}
-        {tasksState.error !== null && <p className="sb-note sb-note-error">{t("sidebar.loadFailed", { message: tasksState.error })}</p>}
-        {projectsState.error !== null && (
-          <div className="sb-no-projects">
-            <p className="sb-note sb-note-error">{t("sidebar.projectsFailed", { message: projectsState.error })}</p>
-            <button type="button" className="sb-secondary" onClick={() => void refreshProjects()}>
-              {t("common.retry")}
-            </button>
-          </div>
-        )}
-        {projectsState.loaded && projectsState.list.length === 0 && (
-          <div className="sb-no-projects">
-            <button type="button" className="sb-secondary" onClick={() => void addProjectAsDraft(t)}>
-              <FolderPlusIcon />
-              {t("sidebar.addProject")}
-            </button>
-          </div>
-        )}
-        {groups.map((group) => (
-          <ProjectGroup
-            key={group.project.id}
-            group={group}
-            collapsed={collapsed.has(group.project.id)}
-            limit={limits[group.project.id] ?? initialVisibleTasks}
-            selectedTaskId={selectedTaskId}
-            tabStopId={tabStopId}
-            renamingId={renamingId}
-            rows={rows}
-            onToggle={toggleProject}
-            onShowMore={(project) => setLimits((current) => ({ ...current, [project.id]: (current[project.id] ?? initialVisibleTasks) + showMoreStep }))}
-            onNewTask={(project) => startDraft(project.id)}
-            onOpenProjectMenu={openProjectMenu}
-          />
-        ))}
-      </div>
-      <OverlayScrollbar target={listRef} />
+        <div className="sb-list" ref={listRef} onKeyDown={onListKeyDown}>
+          {!tasksState.loaded && tasksState.error === null && (
+            <p className="sb-note" role="status">
+              {t("sidebar.loading")}
+            </p>
+          )}
+          {tasksState.error !== null && (
+            <p className="sb-note sb-note-error">{t("sidebar.loadFailed", { message: tasksState.error })}</p>
+          )}
+          {projectsState.error !== null && (
+            <div className="sb-no-projects">
+              <p className="sb-note sb-note-error">{t("sidebar.projectsFailed", { message: projectsState.error })}</p>
+              <button type="button" className="sb-secondary" onClick={() => void refreshProjects()}>
+                {t("common.retry")}
+              </button>
+            </div>
+          )}
+          {projectsState.loaded && projectsState.list.length === 0 && (
+            <div className="sb-no-projects">
+              <button type="button" className="sb-secondary" onClick={() => void addProjectAsDraft(t)}>
+                <FolderPlusIcon />
+                {t("sidebar.addProject")}
+              </button>
+            </div>
+          )}
+          {groups.map((group) => (
+            <ProjectGroup
+              key={group.project.id}
+              group={group}
+              collapsed={collapsed.has(group.project.id)}
+              limit={limits[group.project.id] ?? initialVisibleTasks}
+              selectedTaskId={selectedTaskId}
+              tabStopId={tabStopId}
+              renamingId={renamingId}
+              rows={rows}
+              onToggle={toggleProject}
+              onShowMore={(project) =>
+                setLimits((current) => ({
+                  ...current,
+                  [project.id]: (current[project.id] ?? initialVisibleTasks) + showMoreStep,
+                }))
+              }
+              onNewTask={(project) => startDraft(project.id)}
+              onOpenProjectMenu={openProjectMenu}
+            />
+          ))}
+        </div>
+        <OverlayScrollbar target={listRef} />
       </div>
 
       <div className="sb-bottom">
-        <button type="button" className="sb-settings" data-active={view === "settings"} onClick={() => showView("settings")}>
+        <button
+          type="button"
+          className="sb-settings"
+          data-active={view === "settings"}
+          onClick={() => showView("settings")}
+        >
           <GearIcon />
           <span>{t("sidebar.settings")}</span>
         </button>
-        <button type="button" className="sb-icon-btn" aria-label={t("sidebar.palette")} title={`${t("sidebar.palette")} (Ctrl K)`} onClick={() => setPaletteOpen(true)}>
+        <button
+          type="button"
+          className="sb-icon-btn"
+          aria-label={t("sidebar.palette")}
+          title={`${t("sidebar.palette")} (Ctrl K)`}
+          onClick={() => setPaletteOpen(true)}
+        >
           <SearchIcon />
         </button>
-        <button type="button" className="sb-icon-btn" aria-label={t("sidebar.addProject")} title={t("sidebar.addProject")} onClick={() => void addProjectAsDraft(t)}>
+        <button
+          type="button"
+          className="sb-icon-btn"
+          aria-label={t("sidebar.addProject")}
+          title={t("sidebar.addProject")}
+          onClick={() => void addProjectAsDraft(t)}
+        >
           <FolderPlusIcon />
         </button>
       </div>

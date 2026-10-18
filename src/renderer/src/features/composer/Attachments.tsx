@@ -12,7 +12,13 @@ export function Attachments({ images, onRemove }: { images: readonly PromptImage
       {images.map((image, index) => (
         <div key={index} className="attachment">
           <img src={imageSrc(image)} alt={t("conversation.imageAlt")} />
-          <button type="button" className="attachment-remove" aria-label={t("composer.attachment.remove")} title={t("composer.attachment.remove")} onClick={() => onRemove(index)}>
+          <button
+            type="button"
+            className="attachment-remove"
+            aria-label={t("composer.attachment.remove")}
+            title={t("composer.attachment.remove")}
+            onClick={() => onRemove(index)}
+          >
             <Close size={12} />
           </button>
         </div>

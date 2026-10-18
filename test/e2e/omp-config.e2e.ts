@@ -5,10 +5,16 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
 
-async function launchIsolated(extraEnv: Record<string, string> = {}): Promise<{ launched: LaunchedApp; agentDir: string }> {
+async function launchIsolated(
+  extraEnv: Record<string, string> = {},
+): Promise<{ launched: LaunchedApp; agentDir: string }> {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir, ...extraEnv });
-  await expect.poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), { timeout: 30_000 }).toBe("ready");
+  await expect
+    .poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
+      timeout: 30_000,
+    })
+    .toBe("ready");
   await launched.page.setViewportSize({ width: 1200, height: 800 });
   await launched.page.keyboard.press("Control+,");
   await expect(launched.page.getByTestId("settings")).toBeVisible();
@@ -32,7 +38,10 @@ async function search(page: Page, text: string): Promise<void> {
 }
 
 async function configValue(page: Page, key: string): Promise<unknown> {
-  return page.evaluate(async (wanted) => (await globalThis.studio.getOmpConfig()).items.find((item) => item.key === wanted)?.value, key);
+  return page.evaluate(
+    async (wanted) => (await globalThis.studio.getOmpConfig()).items.find((item) => item.key === wanted)?.value,
+    key,
+  );
 }
 
 test("改一项：已修改 + 已保存，值真的写进了 omp；恢复默认后回到默认值", async () => {
@@ -57,7 +66,7 @@ test("改一项：已修改 + 已保存，值真的写进了 omp；恢复默认�
   }
 });
 
-test("纯键盘：Tab 到开关，空格切换，保存后"+"已修改"+"出现", async () => {
+test("纯键盘：Tab 到开关，空格切换，保存后" + "已修改" + "出现", async () => {
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
@@ -89,20 +98,29 @@ test("被环境变量覆盖：保存成功但提示实际生效的值来自环�
     await expect(json.getByRole("alert")).toContainText("JSON");
     await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-json-error-zh-CN-light.png") });
     // 没通过校验的内容不会被保存：值还是默认的数组。
-    expect(await configValue(page, "compaction.methodOrder")).toEqual(["remote", "snapcompact", "handoff", "shake", "soft"]);
+    expect(await configValue(page, "compaction.methodOrder")).toEqual([
+      "remote",
+      "snapcompact",
+      "handoff",
+      "shake",
+      "soft",
+    ]);
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
   }
 });
 
-
 test("默认模型：getDefaultModel 返回 null 或 {key,name,thinkingLevel}，不抛错", async () => {
   const { launched, agentDir } = await launchIsolated();
   try {
     const model = await launched.page.evaluate(() => globalThis.studio.getDefaultModel());
     console.log("defaultModel", JSON.stringify(model));
-    if (model !== null) expect(model).toMatchObject({ key: { provider: expect.any(String), modelId: expect.any(String) }, name: expect.any(String) });
+    if (model !== null)
+      expect(model).toMatchObject({
+        key: { provider: expect.any(String), modelId: expect.any(String) },
+        name: expect.any(String),
+      });
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
@@ -114,7 +132,8 @@ test("只是打开设置页、切分组、搜索、展开编辑器，不会写 o
   try {
     const { page } = launched;
     await expect(page.getByTestId("settings-nav-cfg-model")).toBeVisible({ timeout: 30_000 });
-    for (const tab of ["context", "model", "internal", "tasks"]) await page.getByTestId(`settings-nav-cfg-${tab}`).click();
+    for (const tab of ["context", "model", "internal", "tasks"])
+      await page.getByTestId(`settings-nav-cfg-${tab}`).click();
     await search(page, "modelRoles");
     await expect(page.getByTestId("roles-editor")).toBeVisible();
     await search(page, "fallbackChains");
@@ -209,7 +228,8 @@ test("截图：omp 设置分组、搜索，中英文 × 浅深主题", async () 
     await page.setViewportSize({ width: 820, height: 800 });
     // 窄窗口侧栏是抽屉：如果开着，用顶栏按钮收起，免得挡住设置页。
     await page.waitForTimeout(400);
-    if ((await page.getByTestId("app-root").getAttribute("data-sidebar")) === "shown") await page.getByTestId("topbar-sidebar").click();
+    if ((await page.getByTestId("app-root").getAttribute("data-sidebar")) === "shown")
+      await page.getByTestId("topbar-sidebar").click();
     await page.waitForTimeout(400);
     await expect(page.getByTestId("settings")).toBeVisible();
     await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-narrow-zh-CN-light.png") });

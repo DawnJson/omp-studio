@@ -14,7 +14,11 @@ let selectors: Promise<Option<string>[]> | null = null;
 /** 能选的模型（来自服务进程的 get_available_models），整个页面共用一次请求；失败时下次再试。 */
 function loadSelectors(): Promise<Option<string>[]> {
   selectors ??= window.studio.listModels().then(
-    (models) => models.map((model) => ({ value: `${model.key.provider}/${model.key.modelId}`, label: `${model.key.provider}/${model.key.modelId}` })),
+    (models) =>
+      models.map((model) => ({
+        value: `${model.key.provider}/${model.key.modelId}`,
+        label: `${model.key.provider}/${model.key.modelId}`,
+      })),
     (error: unknown) => {
       selectors = null;
       throw error;
@@ -40,12 +44,24 @@ function useSelectors(): Option<string>[] {
 
 /** 当前值不在模型列表里（带后缀、别名、已退出登录的 provider）时，把它作为一个选项保留。 */
 function withCurrent(options: readonly Option<string>[], current: string): Option<string>[] {
-  return options.some((option) => option.value === current) ? [...options] : [{ value: current, label: current }, ...options];
+  return options.some((option) => option.value === current)
+    ? [...options]
+    : [{ value: current, label: current }, ...options];
 }
 
 const suggestedRoles = ["default", "smol", "slow", "plan"];
 
-function AddKey({ taken, label, onAdd, suggestions = [] }: { taken: readonly string[]; label: string; onAdd(key: string): void; suggestions?: readonly string[] }) {
+function AddKey({
+  taken,
+  label,
+  onAdd,
+  suggestions = [],
+}: {
+  taken: readonly string[];
+  label: string;
+  onAdd(key: string): void;
+  suggestions?: readonly string[];
+}) {
   const t = useT();
   const [text, setText] = useState("");
   const add = (key: string) => {
@@ -79,20 +95,47 @@ function AddKey({ taken, label, onAdd, suggestions = [] }: { taken: readonly str
   );
 }
 
-function IconButton({ label, disabled = false, onClick, children }: { label: string; disabled?: boolean; onClick(): void; children: ReactNode }) {
+function IconButton({
+  label,
+  disabled = false,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick(): void;
+  children: ReactNode;
+}) {
   return (
-    <button type="button" className="se-icon-btn" aria-label={label} title={label} disabled={disabled} onClick={onClick}>
+    <button
+      type="button"
+      className="se-icon-btn"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+    >
       {children}
     </button>
   );
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {
-  return typeof value === "object" && value !== null && !Array.isArray(value) && Object.values(value).every((entry) => typeof entry === "string");
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every((entry) => typeof entry === "string")
+  );
 }
 
 function isChainRecord(value: unknown): value is Record<string, string[]> {
-  return typeof value === "object" && value !== null && !Array.isArray(value) && Object.values(value).every((entry) => Array.isArray(entry) && entry.every((item) => typeof item === "string"));
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every((entry) => Array.isArray(entry) && entry.every((item) => typeof item === "string"))
+  );
 }
 
 export function canEditStructured(item: { key: string; value: unknown; hasValue: boolean }): boolean {
@@ -113,13 +156,27 @@ export function RolesEditor({ item, labelId, onSave }: ControlProps) {
           <span className="se-name" title={role}>
             {role}
           </span>
-          <Dropdown value={roles[role] ?? ""} options={withCurrent(options, roles[role] ?? "")} labelledBy={labelId} onChange={(next) => onSave({ ...roles, [role]: next })} placeholder={t("settings.cfg.pickModel")} />
-          <IconButton label={t("settings.cfg.remove")} onClick={() => onSave(Object.fromEntries(Object.entries(roles).filter(([name]) => name !== role)))}>
+          <Dropdown
+            value={roles[role] ?? ""}
+            options={withCurrent(options, roles[role] ?? "")}
+            labelledBy={labelId}
+            onChange={(next) => onSave({ ...roles, [role]: next })}
+            placeholder={t("settings.cfg.pickModel")}
+          />
+          <IconButton
+            label={t("settings.cfg.remove")}
+            onClick={() => onSave(Object.fromEntries(Object.entries(roles).filter(([name]) => name !== role)))}
+          >
             <Close size={12} className="icon" />
           </IconButton>
         </div>
       ))}
-      <AddKey taken={names} label={t("settings.cfg.roleName")} suggestions={suggestedRoles} onAdd={(role) => onSave({ ...roles, [role]: roles["default"] ?? options[0]?.value ?? "" })} />
+      <AddKey
+        taken={names}
+        label={t("settings.cfg.roleName")}
+        suggestions={suggestedRoles}
+        onAdd={(role) => onSave({ ...roles, [role]: roles["default"] ?? options[0]?.value ?? "" })}
+      />
     </div>
   );
 }
@@ -141,7 +198,10 @@ export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
                 {key}
               </span>
               <span className="se-spacer" />
-              <IconButton label={t("settings.cfg.removeChain")} onClick={() => onSave(Object.fromEntries(Object.entries(chains).filter(([name]) => name !== key)))}>
+              <IconButton
+                label={t("settings.cfg.removeChain")}
+                onClick={() => onSave(Object.fromEntries(Object.entries(chains).filter(([name]) => name !== key)))}
+              >
                 <Close size={12} className="icon" />
               </IconButton>
             </div>
@@ -149,34 +209,77 @@ export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
             {chain.map((entry, index) => (
               <div key={`${index}:${entry}`} className="se-row se-entry">
                 <span className="se-index">{index + 1}</span>
-                <Dropdown value={entry} options={withCurrent(options, entry)} labelledBy={labelId} onChange={(next) => set(key, chain.map((value, at) => (at === index ? next : value)))} />
+                <Dropdown
+                  value={entry}
+                  options={withCurrent(options, entry)}
+                  labelledBy={labelId}
+                  onChange={(next) =>
+                    set(
+                      key,
+                      chain.map((value, at) => (at === index ? next : value)),
+                    )
+                  }
+                />
                 <IconButton
                   label={t("settings.cfg.moveUp")}
                   disabled={index === 0}
-                  onClick={() => set(key, chain.map((value, at) => (at === index - 1 ? entry : at === index ? (chain[index - 1] ?? value) : value)))}
+                  onClick={() =>
+                    set(
+                      key,
+                      chain.map((value, at) =>
+                        at === index - 1 ? entry : at === index ? (chain[index - 1] ?? value) : value,
+                      ),
+                    )
+                  }
                 >
                   <ChevronRight size={14} className="icon se-up" />
                 </IconButton>
                 <IconButton
                   label={t("settings.cfg.moveDown")}
                   disabled={index === chain.length - 1}
-                  onClick={() => set(key, chain.map((value, at) => (at === index + 1 ? entry : at === index ? (chain[index + 1] ?? value) : value)))}
+                  onClick={() =>
+                    set(
+                      key,
+                      chain.map((value, at) =>
+                        at === index + 1 ? entry : at === index ? (chain[index + 1] ?? value) : value,
+                      ),
+                    )
+                  }
                 >
                   <ChevronDown size={14} className="icon" />
                 </IconButton>
-                <IconButton label={t("settings.cfg.remove")} onClick={() => set(key, chain.filter((_, at) => at !== index))}>
+                <IconButton
+                  label={t("settings.cfg.remove")}
+                  onClick={() =>
+                    set(
+                      key,
+                      chain.filter((_, at) => at !== index),
+                    )
+                  }
+                >
                   <Close size={12} className="icon" />
                 </IconButton>
               </div>
             ))}
             <div className="se-row se-entry">
               <span className="se-index" />
-              <Dropdown value="" options={options} labelledBy={labelId} placeholder={t("settings.cfg.addFallback")} onChange={(next) => set(key, [...chain, next])} />
+              <Dropdown
+                value=""
+                options={options}
+                labelledBy={labelId}
+                placeholder={t("settings.cfg.addFallback")}
+                onChange={(next) => set(key, [...chain, next])}
+              />
             </div>
           </div>
         );
       })}
-      <AddKey taken={keys} label={t("settings.cfg.chainKey")} suggestions={suggestedRoles} onAdd={(key) => set(key, [])} />
+      <AddKey
+        taken={keys}
+        label={t("settings.cfg.chainKey")}
+        suggestions={suggestedRoles}
+        onAdd={(key) => set(key, [])}
+      />
     </div>
   );
 }

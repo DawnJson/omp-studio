@@ -101,6 +101,7 @@ export function stabilizeStreaming(source: string): string {
     const hasDelimiter = second !== undefined && runStart + 1 < lastIndex && tableDelimiter.test(second);
     if (!hasDelimiter) return runStart === 0 ? "" : lines.slice(0, runStart).join("\n") + "\n";
   }
-  if (last !== "" && ambiguousStart.test(last)) return lines.slice(0, lastIndex).join("\n") + (lastIndex > 0 ? "\n" : "");
+  if (last !== "" && ambiguousStart.test(last))
+    return lines.slice(0, lastIndex).join("\n") + (lastIndex > 0 ? "\n" : "");
   return source;
 }

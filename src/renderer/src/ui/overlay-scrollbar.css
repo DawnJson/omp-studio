@@ -11,7 +11,10 @@
   /* 不可见时不拦截鼠标：下面的内容照常可点。 */
   pointer-events: none;
 }
-.osb[data-visible] { opacity: 1; pointer-events: auto; }
+.osb[data-visible] {
+  opacity: 1;
+  pointer-events: auto;
+}
 .osb-thumb {
   position: absolute;
   top: 0;
@@ -22,4 +25,7 @@
   touch-action: none;
   transition: background var(--dur-instant);
 }
-.osb-thumb:hover, .osb[data-dragging] .osb-thumb { background: var(--scrollbar-thumb-hover); }
+.osb-thumb:hover,
+.osb[data-dragging] .osb-thumb {
+  background: var(--scrollbar-thumb-hover);
+}

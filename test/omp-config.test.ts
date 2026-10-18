@@ -11,7 +11,19 @@ describe("parseConfigText (real omp 18.12.1 output)", () => {
   const parsed = parseConfigText(listText);
 
   it("keeps omp's tab order and puts every key under the tab it is printed in", () => {
-    expect(parsed.tabs).toEqual(["appearance", "context", "files", "interaction", "internal", "memory", "model", "providers", "shell", "tasks", "tools"]);
+    expect(parsed.tabs).toEqual([
+      "appearance",
+      "context",
+      "files",
+      "interaction",
+      "internal",
+      "memory",
+      "model",
+      "providers",
+      "shell",
+      "tasks",
+      "tools",
+    ]);
     expect(parsed.entries.get("theme.dark")?.tab).toBe("appearance");
     expect(parsed.entries.get("retry.maxRetries")?.tab).toBe("model");
   });
@@ -44,8 +56,17 @@ describe("buildSchema / applyValues", () => {
   it("has all 555 settings with type, options and omp's own default", () => {
     expect(schema.entries).toHaveLength(555);
     const approval = schema.entries.find((entry) => entry.key === "tools.approvalMode");
-    expect(approval).toMatchObject({ type: "enum", options: ["always-ask", "write", "yolo"], defaultValue: "yolo", hasDefault: true, tab: "interaction" });
-    expect(schema.entries.find((entry) => entry.key === "compaction.methodOrder")).toMatchObject({ type: "array", defaultValue: ["remote", "snapcompact", "handoff", "shake", "soft"] });
+    expect(approval).toMatchObject({
+      type: "enum",
+      options: ["always-ask", "write", "yolo"],
+      defaultValue: "yolo",
+      hasDefault: true,
+      tab: "interaction",
+    });
+    expect(schema.entries.find((entry) => entry.key === "compaction.methodOrder")).toMatchObject({
+      type: "array",
+      defaultValue: ["remote", "snapcompact", "handoff", "shake", "soft"],
+    });
   });
 
   it("never carries a credential's value: redacted keys only say whether they are set", () => {
@@ -64,10 +85,16 @@ describe("buildSchema / applyValues", () => {
   });
 
   it("marks a value that differs from the default, and an optional key with no value as unset", () => {
-    const snapshot = applyValues(schema, { ...listJson, colorBlindMode: { ...(listJson["colorBlindMode"] as object), value: true } });
+    const snapshot = applyValues(schema, {
+      ...listJson,
+      colorBlindMode: { ...(listJson["colorBlindMode"] as object), value: true },
+    });
     const item = snapshot.items.find((candidate) => candidate.key === "colorBlindMode");
     expect(item).toMatchObject({ value: true, defaultValue: false });
-    expect(snapshot.items.find((candidate) => candidate.key === "compaction.reserveTokens")).toMatchObject({ hasValue: false, hasDefault: false });
+    expect(snapshot.items.find((candidate) => candidate.key === "compaction.reserveTokens")).toMatchObject({
+      hasValue: false,
+      hasDefault: false,
+    });
   });
 });
 
@@ -77,7 +104,12 @@ function fakeService(handler: (args: string[]) => RunResult) {
   const service = new OmpConfigService({
     run: (args, isolated) => {
       calls.push({ args, isolated });
-      if (args[0] === "list") return Promise.resolve({ code: 0, stdout: args.includes("--json") ? JSON.stringify(listJson) : listText, stderr: "" });
+      if (args[0] === "list")
+        return Promise.resolve({
+          code: 0,
+          stdout: args.includes("--json") ? JSON.stringify(listJson) : listText,
+          stderr: "",
+        });
       return Promise.resolve(handler(args));
     },
     version: () => Promise.resolve("18.12.1"),
@@ -87,14 +119,22 @@ function fakeService(handler: (args: string[]) => RunResult) {
 
 describe("OmpConfigService writes", () => {
   it("passes omp's own error text through when set is rejected", async () => {
-    const { service } = fakeService(() => ({ code: 1, stdout: "", stderr: "Error: Invalid value: nope. Valid values: unicode, nerd, ascii\n" }));
+    const { service } = fakeService(() => ({
+      code: 1,
+      stdout: "",
+      stderr: "Error: Invalid value: nope. Valid values: unicode, nerd, ascii\n",
+    }));
     const error = await service.set("symbolPreset", JSON.stringify("nope")).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(OmpConfigError);
     expect((error as Error).message).toBe("Invalid value: nope. Valid values: unicode, nerd, ascii");
   });
 
   it("puts the value after `--` so a negative number is not taken for an option, and sends arrays as JSON", async () => {
-    const { service, calls } = fakeService((args) => ({ code: 0, stdout: JSON.stringify({ key: args[2], value: -1 }), stderr: "" }));
+    const { service, calls } = fakeService((args) => ({
+      code: 0,
+      stdout: JSON.stringify({ key: args[2], value: -1 }),
+      stderr: "",
+    }));
     await service.set("compaction.thresholdPercent", "-1");
     await service.set("cycleOrder", JSON.stringify(["a", "b"]));
     const writes = calls.filter((call) => call.args[0] === "set").map((call) => call.args);
@@ -105,8 +145,18 @@ describe("OmpConfigService writes", () => {
   });
 
   it("reports overriddenBy and fallbackEnv from omp's answer, so the UI can say the value is shadowed", async () => {
-    const { service } = fakeService(() => ({ code: 0, stdout: JSON.stringify({ key: "tools.approvalMode", value: "write", overriddenBy: "PI_APPROVAL_MODE" }), stderr: "" }));
-    expect(await service.set("tools.approvalMode", '"write"')).toEqual({ key: "tools.approvalMode", value: "write", hasValue: true, redacted: false, overriddenBy: "PI_APPROVAL_MODE" });
+    const { service } = fakeService(() => ({
+      code: 0,
+      stdout: JSON.stringify({ key: "tools.approvalMode", value: "write", overriddenBy: "PI_APPROVAL_MODE" }),
+      stderr: "",
+    }));
+    expect(await service.set("tools.approvalMode", '"write"')).toEqual({
+      key: "tools.approvalMode",
+      value: "write",
+      hasValue: true,
+      redacted: false,
+      overriddenBy: "PI_APPROVAL_MODE",
+    });
   });
 
   it("refuses unknown keys (so a renderer string never becomes an option), wrong types, and credentials, without running omp", async () => {
@@ -129,7 +179,11 @@ describe("OmpConfigService writes", () => {
   });
 
   it("never returns a credential's value from a write answer", async () => {
-    const { service } = fakeService(() => ({ code: 0, stdout: JSON.stringify({ key: "hindsight.apiToken" }), stderr: "" }));
+    const { service } = fakeService(() => ({
+      code: 0,
+      stdout: JSON.stringify({ key: "hindsight.apiToken" }),
+      stderr: "",
+    }));
     expect(await service.reset("hindsight.apiToken")).toMatchObject({ redacted: true, hasValue: false, value: null });
   });
 });

@@ -19,7 +19,8 @@ export interface ConfigText {
 
 export function configText(locale: Locale, item: OmpConfigItem): ConfigText {
   const label = entry(locale, `${item.key}.label`);
-  if (label !== undefined) return { label, description: entry(locale, `${item.key}.desc`) ?? item.description, original: false };
+  if (label !== undefined)
+    return { label, description: entry(locale, `${item.key}.desc`) ?? item.description, original: false };
   return { label: null, description: item.description, original: true };
 }
 
@@ -42,7 +43,14 @@ export function tabTitle(locale: Locale, tab: string): string {
 export function matchesQuery(item: OmpConfigItem, query: string): boolean {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (words.length === 0) return true;
-  const haystack = [item.key, item.description, entry("zh-CN", `${item.key}.label`), entry("zh-CN", `${item.key}.desc`), entry("en", `${item.key}.label`), entry("en", `${item.key}.desc`)]
+  const haystack = [
+    item.key,
+    item.description,
+    entry("zh-CN", `${item.key}.label`),
+    entry("zh-CN", `${item.key}.desc`),
+    entry("en", `${item.key}.label`),
+    entry("en", `${item.key}.desc`),
+  ]
     .filter((part): part is string => !!part)
     .join("\n")
     .toLowerCase();
@@ -58,7 +66,9 @@ export interface ConfigGroup {
 
 /** 一个分组里的项：常用项排在最前面（"常用"），其余按 key 的第一段分组，保持 omp 的顺序。 */
 export function groupItems(items: readonly OmpConfigItem[]): ConfigGroup[] {
-  const common = items.filter((item) => commonOrder.has(item.key)).sort((a, b) => (commonOrder.get(a.key) ?? 0) - (commonOrder.get(b.key) ?? 0));
+  const common = items
+    .filter((item) => commonOrder.has(item.key))
+    .sort((a, b) => (commonOrder.get(a.key) ?? 0) - (commonOrder.get(b.key) ?? 0));
   const groups: ConfigGroup[] = common.length > 0 ? [{ id: "common", prefix: null, items: common }] : [];
   const byPrefix = new Map<string, OmpConfigItem[]>();
   for (const item of items) {

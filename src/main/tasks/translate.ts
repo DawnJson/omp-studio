@@ -43,11 +43,21 @@ export function translateFrame(frame: RpcServerFrame, gen: number, at: number): 
     case "tool_execution_update":
       return [{ type: "tool_update", toolCallId: frame.toolCallId, partialResult: frame.partialResult }];
     case "tool_execution_end":
-      return [{ type: "tool_end", toolCallId: frame.toolCallId, result: frame.result, isError: frame.isError ?? false, at }];
+      return [
+        { type: "tool_end", toolCallId: frame.toolCallId, result: frame.result, isError: frame.isError ?? false, at },
+      ];
     case "subagent_lifecycle":
       return [{ type: "subagent", id: frame.payload.id, status: frame.payload.status, at }];
     case "prompt_result":
-      return [{ type: "prompt_result", promptId: frame.id ?? "", status: frame.status, at, ...(frame.error && { error: frame.error }) }];
+      return [
+        {
+          type: "prompt_result",
+          promptId: frame.id ?? "",
+          status: frame.status,
+          at,
+          ...(frame.error && { error: frame.error }),
+        },
+      ];
     case "session_settled":
       return [{ type: "settled", at }];
     case "notice":

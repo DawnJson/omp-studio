@@ -32,14 +32,41 @@ function parseCreateTaskInput(value: unknown) {
   };
 }
 
-export const taskHandlers: HandlerGroup<"listProjects" | "addProject" | "removeProject" | "listTasks" | "createTask" | "openTask" | "getTranscript" | "markTaskRead" | "sendPrompt" | "removeQueuedMessage" | "promoteQueuedMessage" | "stopTask" | "respondDialog" | "renameTask" | "archiveTask" | "restartTask" | "listTaskModels" | "setTaskModel" | "setTaskThinkingLevel" | "setTaskApprovalMode" | "compactTask" | "openTaskFile" | "revealTaskFile"> = {
+export const taskHandlers: HandlerGroup<
+  | "listProjects"
+  | "addProject"
+  | "removeProject"
+  | "listTasks"
+  | "createTask"
+  | "openTask"
+  | "getTranscript"
+  | "markTaskRead"
+  | "sendPrompt"
+  | "removeQueuedMessage"
+  | "promoteQueuedMessage"
+  | "stopTask"
+  | "respondDialog"
+  | "renameTask"
+  | "archiveTask"
+  | "restartTask"
+  | "listTaskModels"
+  | "setTaskModel"
+  | "setTaskThinkingLevel"
+  | "setTaskApprovalMode"
+  | "compactTask"
+  | "openTaskFile"
+  | "revealTaskFile"
+> = {
   compactTask: async (taskId) => (await getTaskPool()).compactTask(parseTaskId(taskId)),
 
   openTaskFile: async (taskId, relPath) => {
     const pool = await getTaskPool();
     const id = parseTaskId(taskId);
     const file = await resolveInsideReal(pool.taskCwd(id), parseString(relPath, "relPath", 1024));
-    if (!canOpenDirectly(file)) throw new Error("only plain text, code, image and document files are opened directly; reveal them in the folder instead");
+    if (!canOpenDirectly(file))
+      throw new Error(
+        "only plain text, code, image and document files are opened directly; reveal them in the folder instead",
+      );
     // shell.openPath 返回错误文本（空串 = 成功）。
     const error = await shell.openPath(file);
     if (error !== "") throw new Error(error);
@@ -47,7 +74,9 @@ export const taskHandlers: HandlerGroup<"listProjects" | "addProject" | "removeP
 
   revealTaskFile: async (taskId, relPath) => {
     const pool = await getTaskPool();
-    shell.showItemInFolder(await resolveInsideReal(pool.taskCwd(parseTaskId(taskId)), parseString(relPath, "relPath", 1024)));
+    shell.showItemInFolder(
+      await resolveInsideReal(pool.taskCwd(parseTaskId(taskId)), parseString(relPath, "relPath", 1024)),
+    );
   },
 
   listProjects: async () => (await getTaskPool()).listProjects(),
@@ -76,14 +105,23 @@ export const taskHandlers: HandlerGroup<"listProjects" | "addProject" | "removeP
   sendPrompt: async (taskId, input) => (await getTaskPool()).sendPrompt(parseTaskId(taskId), parsePromptInput(input)),
 
   removeQueuedMessage: async (taskId, text, queue) =>
-    (await getTaskPool()).removeQueuedMessage(parseTaskId(taskId), parseString(text, "text", queuedTextMaxChars), parseOneOf(queue, "queue", ["steering", "followUp"])),
+    (await getTaskPool()).removeQueuedMessage(
+      parseTaskId(taskId),
+      parseString(text, "text", queuedTextMaxChars),
+      parseOneOf(queue, "queue", ["steering", "followUp"]),
+    ),
 
-  promoteQueuedMessage: async (taskId, text) => (await getTaskPool()).promoteQueuedMessage(parseTaskId(taskId), parseString(text, "text", queuedTextMaxChars)),
+  promoteQueuedMessage: async (taskId, text) =>
+    (await getTaskPool()).promoteQueuedMessage(parseTaskId(taskId), parseString(text, "text", queuedTextMaxChars)),
 
   stopTask: async (taskId) => (await getTaskPool()).stopTask(parseTaskId(taskId)),
 
   respondDialog: async (taskId, dialogId, response) =>
-    (await getTaskPool()).respondDialog(parseTaskId(taskId), parseString(dialogId, "dialogId", 200), parseDialogResponse(response)),
+    (await getTaskPool()).respondDialog(
+      parseTaskId(taskId),
+      parseString(dialogId, "dialogId", 200),
+      parseDialogResponse(response),
+    ),
 
   renameTask: async (taskId, title) => (await getTaskPool()).renameTask(parseTaskId(taskId), parseTitle(title)),
 
@@ -95,8 +133,9 @@ export const taskHandlers: HandlerGroup<"listProjects" | "addProject" | "removeP
 
   setTaskModel: async (taskId, model) => (await getTaskPool()).setTaskModel(parseTaskId(taskId), parseModelKey(model)),
 
-  setTaskThinkingLevel: async (taskId, level) => (await getTaskPool()).setTaskThinkingLevel(parseTaskId(taskId), parseThinkingLevel(level)),
+  setTaskThinkingLevel: async (taskId, level) =>
+    (await getTaskPool()).setTaskThinkingLevel(parseTaskId(taskId), parseThinkingLevel(level)),
 
-  setTaskApprovalMode: async (taskId, mode) => (await getTaskPool()).setTaskApprovalMode(parseTaskId(taskId), mode === null ? null : parseApprovalMode(mode)),
+  setTaskApprovalMode: async (taskId, mode) =>
+    (await getTaskPool()).setTaskApprovalMode(parseTaskId(taskId), mode === null ? null : parseApprovalMode(mode)),
 };
-

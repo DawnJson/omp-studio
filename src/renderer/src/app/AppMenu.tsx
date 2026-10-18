@@ -88,12 +88,27 @@ export function AppMenu({ actions, onClose }: AppMenuProps) {
   return (
     <>
       <div className="menu-backdrop" onPointerDown={onClose} />
-      <div ref={menuRef} className="menu" role="menu" aria-label={t("window.menu")} data-testid="app-menu" onKeyDown={onKeyDown}>
-        <Item shortcut="Ctrl N" onSelect={choose(actions.newTask)}>{t("menu.newTask")}</Item>
-        <Item shortcut="Ctrl K" onSelect={choose(actions.openPalette)}>{t("menu.commandPalette")}</Item>
-        <Item shortcut="Ctrl ," onSelect={choose(actions.openSettings)}>{t("menu.settings")}</Item>
+      <div
+        ref={menuRef}
+        className="menu"
+        role="menu"
+        aria-label={t("window.menu")}
+        data-testid="app-menu"
+        onKeyDown={onKeyDown}
+      >
+        <Item shortcut="Ctrl N" onSelect={choose(actions.newTask)}>
+          {t("menu.newTask")}
+        </Item>
+        <Item shortcut="Ctrl K" onSelect={choose(actions.openPalette)}>
+          {t("menu.commandPalette")}
+        </Item>
+        <Item shortcut="Ctrl ," onSelect={choose(actions.openSettings)}>
+          {t("menu.settings")}
+        </Item>
         <div className="menu-separator" role="separator" />
-        <div className="menu-heading" role="presentation">{t("menu.language")}</div>
+        <div className="menu-heading" role="presentation">
+          {t("menu.language")}
+        </div>
         {localeOptions.map((option) => (
           <Item
             key={option.value}
@@ -104,7 +119,9 @@ export function AppMenu({ actions, onClose }: AppMenuProps) {
           </Item>
         ))}
         <div className="menu-separator" role="separator" />
-        <div className="menu-heading" role="presentation">{t("menu.theme")}</div>
+        <div className="menu-heading" role="presentation">
+          {t("menu.theme")}
+        </div>
         {themeOptions.map((option) => (
           <Item
             key={option.value}

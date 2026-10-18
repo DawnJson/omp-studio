@@ -62,8 +62,8 @@ export const settings = {
   "cfg.source.env": "the environment variable {name}",
   "cfg.invalidNumber": "Enter a number",
   "cfg.invalidJson": "Invalid JSON: {message}",
-  "cfg.expectArray": "A JSON array is expected, e.g. [\"a\", \"b\"]",
-  "cfg.expectObject": "A JSON object is expected, e.g. {\"key\": \"value\"}",
+  "cfg.expectArray": 'A JSON array is expected, e.g. ["a", "b"]',
+  "cfg.expectObject": 'A JSON object is expected, e.g. {"key": "value"}',
   "cfg.expandGroup": "Expand {group}",
   "cfg.collapseGroup": "Collapse {group}",
   tip: "Details",
@@ -93,10 +93,12 @@ export const settings = {
   "about.disabled.noFeed": "This build has no update source configured",
   "about.troubleshoot": "Troubleshooting",
   "about.logs": "Logs",
-  "about.logs.desc": "What the app recorded while running: one file per day, kept for 14 days. User names and keys are removed.",
+  "about.logs.desc":
+    "What the app recorded while running: one file per day, kept for 14 days. User names and keys are removed.",
   "about.openLogs": "Open logs folder",
   "about.diagnostics": "Diagnostics",
-  "about.diagnostics.desc": "Version, system, omp status and the last 3 days of logs in one file. Attach it when you report a problem.",
+  "about.diagnostics.desc":
+    "Version, system, omp status and the last 3 days of logs in one file. Attach it when you report a problem.",
   "about.exportDiagnostics": "Export…",
   "about.exported": "Diagnostics exported",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

@@ -20,7 +20,10 @@ afterAll(async () => {
 });
 
 function connect(fixture: string, options: { readyTimeoutMs?: number } = {}) {
-  return OmpConnection.spawn({ command: process.execPath, args: [fakeOmp, fixture], cwd: scratch, env: process.env }, options);
+  return OmpConnection.spawn(
+    { command: process.execPath, args: [fakeOmp, fixture], cwd: scratch, env: process.env },
+    options,
+  );
 }
 
 let fixtureCount = 0;
@@ -30,10 +33,22 @@ async function inlineFixture(entries: object[]): Promise<string> {
   return file;
 }
 
-const readyV2 = { kind: "out", frame: { type: "ready", protocolVersion: 1, supportedProtocolVersions: [1, 2], maxFrameBytes: 1048576, maxReassembledFrameBytes: 67108864 } };
+const readyV2 = {
+  kind: "out",
+  frame: {
+    type: "ready",
+    protocolVersion: 1,
+    supportedProtocolVersions: [1, 2],
+    maxFrameBytes: 1048576,
+    maxReassembledFrameBytes: 67108864,
+  },
+};
 const negotiated = [
   { kind: "in", frame: { type: "negotiate_protocol", id: "n" } },
-  { kind: "out", frame: { type: "response", command: "negotiate_protocol", id: "n", success: true, data: { protocolVersion: 2 } } },
+  {
+    kind: "out",
+    frame: { type: "response", command: "negotiate_protocol", id: "n", success: true, data: { protocolVersion: 2 } },
+  },
 ];
 
 function isAlive(pid: number): boolean {
@@ -81,7 +96,17 @@ describe("OmpConnection failure paths", () => {
         readyV2,
         ...negotiated,
         { kind: "in", frame: { type: "get_state", id: "s" } },
-        { kind: "out", frame: { type: "response", command: "get_state", id: "s", success: false, error: "no session", code: "no_session" } },
+        {
+          kind: "out",
+          frame: {
+            type: "response",
+            command: "get_state",
+            id: "s",
+            success: false,
+            error: "no session",
+            code: "no_session",
+          },
+        },
       ]),
     );
     await connection.ready;
@@ -115,7 +140,10 @@ describe("OmpConnection failure paths", () => {
         readyV2,
         ...negotiated,
         { kind: "in", frame: { type: "prompt", id: "p" } },
-        { kind: "out", frame: { type: "response", command: "prompt", id: "p", success: true, data: { agentInvoked: false } } },
+        {
+          kind: "out",
+          frame: { type: "response", command: "prompt", id: "p", success: true, data: { agentInvoked: false } },
+        },
       ]),
     );
     await connection.ready;
@@ -125,7 +153,13 @@ describe("OmpConnection failure paths", () => {
 
   it("kills omp, fails pending commands, and reports a protocol error when stdout is not NDJSON", async () => {
     const connection = connect(
-      await inlineFixture([readyV2, ...negotiated, { kind: "in", frame: { type: "get_state", id: "s" } }, { kind: "raw", text: "\u001b[2Jnot json" }, { kind: "hang" }]),
+      await inlineFixture([
+        readyV2,
+        ...negotiated,
+        { kind: "in", frame: { type: "get_state", id: "s" } },
+        { kind: "raw", text: "\u001b[2Jnot json" },
+        { kind: "hang" },
+      ]),
     );
     await connection.ready;
     await expect(connection.request("get_state")).rejects.toBeInstanceOf(OmpExitedError);
@@ -153,7 +187,10 @@ describe("OmpConnection failure paths", () => {
         ...negotiated,
         { kind: "in", frame: { type: "prompt", id: "p" } },
         { kind: "out", frame: { type: "response", command: "prompt", id: "p", success: false, error: "busy" } },
-        { kind: "out", frame: { type: "prompt_result", id: "p", agentInvoked: false, status: "error", sessionSettled: true } },
+        {
+          kind: "out",
+          frame: { type: "prompt_result", id: "p", agentInvoked: false, status: "error", sessionSettled: true },
+        },
       ]),
     );
     const results: RpcServerFrame[] = [];
@@ -166,21 +203,38 @@ describe("OmpConnection failure paths", () => {
 
   it("resolves a command whose response arrives as an rpc_chunk sequence", async () => {
     // 连接里命令 id 从 req-1 起递增：negotiate_protocol 是 req-1，get_state 是 req-2。
-    const response = { type: "response", command: "get_state", id: "req-2", success: true, data: { note: "分块的应答".repeat(40) } };
+    const response = {
+      type: "response",
+      command: "get_state",
+      id: "req-2",
+      success: true,
+      data: { note: "分块的应答".repeat(40) },
+    };
     const bytes = Buffer.from(JSON.stringify(response));
     const parts = [bytes.subarray(0, 100), bytes.subarray(100, 333), bytes.subarray(333)];
     const chunks = parts.map((part, index) => ({
       kind: "raw",
-      text: JSON.stringify({ type: "rpc_chunk", chunkId: "rpc-1", index, count: parts.length, byteLength: bytes.length, data: part.toString("base64") }),
+      text: JSON.stringify({
+        type: "rpc_chunk",
+        chunkId: "rpc-1",
+        index,
+        count: parts.length,
+        byteLength: bytes.length,
+        data: part.toString("base64"),
+      }),
     }));
-    const connection = connect(await inlineFixture([readyV2, ...negotiated, { kind: "in", frame: { type: "get_state" } }, ...chunks]));
+    const connection = connect(
+      await inlineFixture([readyV2, ...negotiated, { kind: "in", frame: { type: "get_state" } }, ...chunks]),
+    );
     await connection.ready;
     await expect(connection.request("get_state")).resolves.toEqual(response.data);
     await connection.close();
   });
 
   it("ends the connection with the error when a frame listener throws, instead of crashing the main process", async () => {
-    const connection = connect(await inlineFixture([readyV2, ...negotiated, { kind: "out", frame: { type: "agent_start" } }, { kind: "hang" }]));
+    const connection = connect(
+      await inlineFixture([readyV2, ...negotiated, { kind: "out", frame: { type: "agent_start" } }, { kind: "hang" }]),
+    );
     const bug = new Error("listener bug");
     connection.onFrame((frame) => {
       if (frame.type === "agent_start") throw bug;

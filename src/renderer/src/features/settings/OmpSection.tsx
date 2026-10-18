@@ -26,7 +26,11 @@ export function sourceLabel(source: OmpSource, t: TFunction): string {
 
 /** 输出的最后 3 行（spec §4.21）。 */
 function tail(output: string): string {
-  return output.split(/\r?\n/).filter((line) => line.trim() !== "").slice(-3).join("\n");
+  return output
+    .split(/\r?\n/)
+    .filter((line) => line.trim() !== "")
+    .slice(-3)
+    .join("\n");
 }
 
 export function OmpSection() {
@@ -46,7 +50,15 @@ export function OmpSection() {
       await job();
     } catch (error) {
       const message = describeError(t, error);
-      setNote({ text: kind === "check" ? t("omp.checkFailed", { message }) : kind === "path" ? t("omp.addPath.failed", { message }) : message, error: true });
+      setNote({
+        text:
+          kind === "check"
+            ? t("omp.checkFailed", { message })
+            : kind === "path"
+              ? t("omp.addPath.failed", { message })
+              : message,
+        error: true,
+      });
     } finally {
       setBusy(null);
     }
@@ -55,7 +67,10 @@ export function OmpSection() {
   const checkUpdate = () =>
     run("check", async () => {
       const { installedVersion } = await window.studio.checkOmpUpdate();
-      setNote({ text: installedVersion ? t("omp.updatedTo", { version: installedVersion }) : t("omp.upToDate"), error: false });
+      setNote({
+        text: installedVersion ? t("omp.updatedTo", { version: installedVersion }) : t("omp.upToDate"),
+        error: false,
+      });
     });
   const upgradeOmp = () =>
     run("upgrade", async () => {
@@ -79,7 +94,9 @@ export function OmpSection() {
           )}
         </SettingRow>
         <SettingRow title={t("omp.version")}>{() => <span data-testid="omp-version">{ready.version}</span>}</SettingRow>
-        <SettingRow title={t("omp.source")}>{() => <span data-testid="omp-source">{sourceLabel(source, t)}</span>}</SettingRow>
+        <SettingRow title={t("omp.source")}>
+          {() => <span data-testid="omp-source">{sourceLabel(source, t)}</span>}
+        </SettingRow>
         {source.kind === "studio_managed" && (
           <>
             <SettingRow title={t("omp.checkUpdate")} desc={t("omp.autoUpdate.note")}>
@@ -92,7 +109,11 @@ export function OmpSection() {
             {!source.onUserPath && (
               <SettingRow title={t("omp.addPath")} desc={t("omp.addPath.note")}>
                 {() => (
-                  <Button loading={busy === "path"} disabled={busy !== null} onClick={() => void run("path", () => window.studio.addManagedOmpToPath())}>
+                  <Button
+                    loading={busy === "path"}
+                    disabled={busy !== null}
+                    onClick={() => void run("path", () => window.studio.addManagedOmpToPath())}
+                  >
                     {t("omp.addPath.yes")}
                   </Button>
                 )}
@@ -109,14 +130,22 @@ export function OmpSection() {
             )}
           </SettingRow>
         )}
-        {source.kind === "managed_by_other" && <SettingRow title={t("omp.checkUpdate")}>{() => <span>{t("omp.updateByManager", { name: source.managerName })}</span>}</SettingRow>}
+        {source.kind === "managed_by_other" && (
+          <SettingRow title={t("omp.checkUpdate")}>
+            {() => <span>{t("omp.updateByManager", { name: source.managerName })}</span>}
+          </SettingRow>
+        )}
       </Card>
       {(note !== null || upgrade !== null) && (
         <div className="st-block st-result" role="status">
           {note && <div className={note.error ? "st-error-text" : undefined}>{note.text}</div>}
           {upgrade && (
             <>
-              <div className={upgrade.exitCode === 0 ? undefined : "st-error-text"}>{upgrade.exitCode === 0 ? t("omp.upgradeDone") : t("omp.upgradeFailed", { code: upgrade.exitCode ?? "?" })}</div>
+              <div className={upgrade.exitCode === 0 ? undefined : "st-error-text"}>
+                {upgrade.exitCode === 0
+                  ? t("omp.upgradeDone")
+                  : t("omp.upgradeFailed", { code: upgrade.exitCode ?? "?" })}
+              </div>
               <pre className="st-mono st-output">{tail(upgrade.output)}</pre>
             </>
           )}

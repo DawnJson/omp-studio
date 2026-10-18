@@ -10,7 +10,14 @@ import { buildSessionSummaries } from "../src/main/history/session-summaries.ts"
 
 /** 和 omp 一样：标题槽补空格到 255 字节再换行，共 256 字节。 */
 function titleSlot(title: string): string {
-  const line = JSON.stringify({ type: "title", v: 1, title, source: "auto", updatedAt: "2026-10-18T00:00:00.000Z", pad: "" });
+  const line = JSON.stringify({
+    type: "title",
+    v: 1,
+    title,
+    source: "auto",
+    updatedAt: "2026-10-18T00:00:00.000Z",
+    pad: "",
+  });
   const missing = 255 - Buffer.byteLength(line);
   return `${line.slice(0, -2)}${" ".repeat(missing)}"}\n`;
 }
@@ -46,17 +53,31 @@ afterEach(async () => {
 
 describe("parseSessionPrefix", () => {
   it("标题槽的标题优先于头里的标题，并取第一条用户消息的首行", () => {
-    const text = titleSlot("槽里的标题") + header("s1", projectCwd, { title: "头里的标题" }) + userMessage([{ type: "text", text: "  第一行  \n第二行" }]);
-    expect(parseSessionPrefix(text, false)).toEqual({ id: "s1", cwd: projectCwd, title: "槽里的标题", firstPrompt: "第一行" });
+    const text =
+      titleSlot("槽里的标题") +
+      header("s1", projectCwd, { title: "头里的标题" }) +
+      userMessage([{ type: "text", text: "  第一行  \n第二行" }]);
+    expect(parseSessionPrefix(text, false)).toEqual({
+      id: "s1",
+      cwd: projectCwd,
+      title: "槽里的标题",
+      firstPrompt: "第一行",
+    });
   });
 
   it("旧版文件没有标题槽；用户消息内容是字符串也认", () => {
     const text = header("s2", projectCwd, { title: "旧标题" }) + userMessage("hello\r\nworld");
-    expect(parseSessionPrefix(text, false)).toEqual({ id: "s2", cwd: projectCwd, title: "旧标题", firstPrompt: "hello" });
+    expect(parseSessionPrefix(text, false)).toEqual({
+      id: "s2",
+      cwd: projectCwd,
+      title: "旧标题",
+      firstPrompt: "hello",
+    });
   });
 
   it("前缀被截断时丢掉最后一行，不把半行当损坏", () => {
-    const text = header("s3", projectCwd) + userMessage("完整") + '{"type":"message","message":{"role":"user","content":"被截';
+    const text =
+      header("s3", projectCwd) + userMessage("完整") + '{"type":"message","message":{"role":"user","content":"被截';
     expect(parseSessionPrefix(text, true)?.firstPrompt).toBe("完整");
   });
 
@@ -83,8 +104,16 @@ describe("SessionIndex.scan", () => {
   });
 
   it("路径含空格和中文也能读到，头里的 cwd 原样保留，按修改时间从新到旧", async () => {
-    const older = await writeSession("2026-10-17_old.jsonl", titleSlot("旧会话") + header("old", projectCwd), new Date("2026-10-17T00:00:00Z"));
-    const newer = await writeSession("2026-10-18_new.jsonl", header("new", projectCwd) + userMessage("新问题"), new Date("2026-10-18T00:00:00Z"));
+    const older = await writeSession(
+      "2026-10-17_old.jsonl",
+      titleSlot("旧会话") + header("old", projectCwd),
+      new Date("2026-10-17T00:00:00Z"),
+    );
+    const newer = await writeSession(
+      "2026-10-18_new.jsonl",
+      header("new", projectCwd) + userMessage("新问题"),
+      new Date("2026-10-18T00:00:00Z"),
+    );
     const { sessions, skipped } = await index.scan();
     expect(skipped).toBe(0);
     expect(sessions.map((s) => [s.id, s.file, s.cwd, s.title, s.firstPrompt])).toEqual([
@@ -107,14 +136,21 @@ describe("SessionIndex.scan", () => {
   });
 
   it("首条用户消息超过前缀（比如带图片）且没有标题时，放宽读取仍能找到", async () => {
-    const big = userMessage([{ type: "image", data: "A".repeat(100 * 1024) }, { type: "text", text: "看图" }]);
+    const big = userMessage([
+      { type: "image", data: "A".repeat(100 * 1024) },
+      { type: "text", text: "看图" },
+    ]);
     await writeSession("big.jsonl", header("big", projectCwd) + big);
     const { sessions } = await index.scan();
     expect(sessions[0]?.firstPrompt).toBe("看图");
   });
 
   it("文件变化后重新读取，被删除的文件从列表消失", async () => {
-    const file = await writeSession("a.jsonl", header("a", projectCwd) + userMessage("v1"), new Date("2026-10-17T00:00:00Z"));
+    const file = await writeSession(
+      "a.jsonl",
+      header("a", projectCwd) + userMessage("v1"),
+      new Date("2026-10-17T00:00:00Z"),
+    );
     expect((await index.scan()).sessions[0]?.firstPrompt).toBe("v1");
     await writeFile(file, header("a", projectCwd) + userMessage("版本二"), "utf8");
     await utimes(file, new Date("2026-10-18T00:00:00Z"), new Date("2026-10-18T00:00:00Z"));
@@ -135,10 +171,21 @@ describe("buildSessionSummaries", () => {
   const projectB: Project = { id: "pb" as ProjectId, path: "E:\\其它", name: "其它" };
   const sessions = [
     { id: "s1", file: "C:\\x y\\s1.jsonl", cwd: projectCwd, title: "一", firstPrompt: null, modifiedAt: 3, size: 1 },
-    { id: "s2", file: "C:\\x y\\s2.jsonl", cwd: "E:\\未加入 的目录", title: null, firstPrompt: "二", modifiedAt: 2, size: 1 },
+    {
+      id: "s2",
+      file: "C:\\x y\\s2.jsonl",
+      cwd: "E:\\未加入 的目录",
+      title: null,
+      firstPrompt: "二",
+      modifiedAt: 2,
+      size: 1,
+    },
     { id: "s3", file: "C:\\x y\\s3.jsonl", cwd: projectCwd, title: null, firstPrompt: null, modifiedAt: 1, size: 1 },
   ];
-  const links = [{ id: "t1" as TaskId, sessionFile: "C:\\x y\\s1.jsonl" }, { id: "t2" as TaskId, sessionFile: null }];
+  const links = [
+    { id: "t1" as TaskId, sessionFile: "C:\\x y\\s1.jsonl" },
+    { id: "t2" as TaskId, sessionFile: null },
+  ];
 
   it("全部项目：未加入项目的会话 projectId 为 null，已挂任务的带 taskId，空壳会话不列出", () => {
     const result = buildSessionSummaries(sessions, [projectA, projectB], links, null);
@@ -167,7 +214,9 @@ describe("buildSessionSummaries", () => {
 
 describe("resolveAgentDir", () => {
   it("PI_CODING_AGENT_DIR 优先；否则 home 下的 .omp/agent，PI_CONFIG_DIR 可改目录名", () => {
-    expect(resolveAgentDir({ PI_CODING_AGENT_DIR: path.join(root, "自定义 目录") }, "H")).toBe(path.join(root, "自定义 目录"));
+    expect(resolveAgentDir({ PI_CODING_AGENT_DIR: path.join(root, "自定义 目录") }, "H")).toBe(
+      path.join(root, "自定义 目录"),
+    );
     expect(resolveAgentDir({}, "H")).toBe(path.join("H", ".omp", "agent"));
     expect(resolveAgentDir({ PI_CONFIG_DIR: ".omp-dev" }, "H")).toBe(path.join("H", ".omp-dev", "agent"));
   });

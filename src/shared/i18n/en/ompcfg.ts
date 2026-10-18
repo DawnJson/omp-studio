@@ -15,22 +15,27 @@ export const ompcfg = {
   "tab.tools": "Tools",
 
   "modelRoleStorage.label": "Where model roles are saved",
-  "modelRoleStorage.desc": "Whether the model picked for a role (default, smol, slow…) in the model selector is saved globally or per project",
+  "modelRoleStorage.desc":
+    "Whether the model picked for a role (default, smol, slow…) in the model selector is saved globally or per project",
   "modelRoles.label": "Model roles",
-  "modelRoles.desc": "Maps role names to models, as a JSON object, e.g. {\"default\": \"provider/model-id\"}",
+  "modelRoles.desc": 'Maps role names to models, as a JSON object, e.g. {"default": "provider/model-id"}',
   "defaultThinkingLevel.label": "Default thinking level",
   "defaultThinkingLevel.desc": "How deeply models that can think reason by default",
 
   "tools.approvalMode.label": "Tool approval mode",
-  "tools.approvalMode.desc": "Always ask: only read-only tools run on their own. Write: reads and workspace edits run on their own. Yolo: everything runs (user policy may still block)",
+  "tools.approvalMode.desc":
+    "Always ask: only read-only tools run on their own. Write: reads and workspace edits run on their own. Yolo: everything runs (user policy may still block)",
   "tools.approval.label": "Per-tool approval policy",
-  "tools.approval.desc": "JSON object: a tool name mapped to allow, prompt (ask first) or deny. Applies in every approval mode",
+  "tools.approval.desc":
+    "JSON object: a tool name mapped to allow, prompt (ask first) or deny. Applies in every approval mode",
   "tools.format.label": "Tool call format",
-  "tools.format.desc": "How tools are exposed to the model. Auto uses the model's native tool calls and falls back to the GLM format when it has none",
+  "tools.format.desc":
+    "How tools are exposed to the model. Auto uses the model's native tool calls and falls back to the GLM format when it has none",
   "bash.enabled.label": "Allow running commands",
   "bash.enabled.desc": "When off, the model can't use the bash tool",
   "steeringMode.label": "How steering messages are handled",
-  "steeringMode.desc": "How steering messages queued while the agent works are processed: one at a time, or all together",
+  "steeringMode.desc":
+    "How steering messages queued while the agent works are processed: one at a time, or all together",
   "followUpMode.label": "How follow-ups are handled",
   "followUpMode.desc": "How queued follow-up messages are drained after a turn: one at a time, or all together",
   "interruptMode.label": "When steering interrupts tools",
@@ -39,7 +44,8 @@ export const ompcfg = {
   "compaction.enabled.label": "Compact context automatically",
   "compaction.enabled.desc": "Compact the context when it gets too large so the conversation can go on",
   "compaction.thresholdPercent.label": "Compaction threshold (%)",
-  "compaction.thresholdPercent.desc": "Start maintaining context at this percent of the window; -1 uses the older reserve-based behavior",
+  "compaction.thresholdPercent.desc":
+    "Start maintaining context at this percent of the window; -1 uses the older reserve-based behavior",
   "compaction.thresholdTokens.label": "Compaction threshold (tokens)",
   "compaction.thresholdTokens.desc": "A fixed token limit that wins over the percentage when set; -1 means unused",
   "compaction.keepRecentTokens.label": "Recent tokens kept when compacting",
@@ -47,17 +53,21 @@ export const ompcfg = {
   "compaction.autoContinue.label": "Continue after compacting",
   "compaction.autoContinue.desc": "Keep working automatically once compaction finishes",
   "compaction.midTurnEnabled.label": "Also check mid-turn",
-  "compaction.midTurnEnabled.desc": "Check at safe points between tool calls inside a turn instead of waiting for the turn to end",
+  "compaction.midTurnEnabled.desc":
+    "Check at safe points between tool calls inside a turn instead of waiting for the turn to end",
   "compaction.idleEnabled.label": "Compact while idle",
-  "compaction.idleEnabled.desc": "Compact in the background when the conversation is idle and the token count is above the threshold",
+  "compaction.idleEnabled.desc":
+    "Compact in the background when the conversation is idle and the token count is above the threshold",
   "compaction.idleThresholdTokens.label": "Idle compaction threshold (tokens)",
   "compaction.idleThresholdTokens.desc": "Idle compaction only triggers above this token count",
   "compaction.idleTimeoutSeconds.label": "Idle time before compacting (s)",
   "compaction.idleTimeoutSeconds.desc": "How long the conversation stays quiet before idle compaction starts",
   "compaction.methodOrder.label": "Compaction method order",
-  "compaction.methodOrder.desc": "JSON array: which maintenance method to try first; unavailable or failed ones fall through to the next",
+  "compaction.methodOrder.desc":
+    "JSON array: which maintenance method to try first; unavailable or failed ones fall through to the next",
   "compaction.asyncEnabled.label": "Summarize ahead in the background",
-  "compaction.asyncEnabled.desc": "Start summarizing in the background as the context nears the threshold, and use the result when it's crossed",
+  "compaction.asyncEnabled.desc":
+    "Start summarizing in the background as the context nears the threshold, and use the result when it's crossed",
 
   "memory.backend.label": "Memory backend",
   "memory.backend.desc": "Off, local summaries, Mnemopi (SQLite), Hindsight (remote), or Sharpshooter",
@@ -66,20 +76,23 @@ export const ompcfg = {
   "mnemopi.autoRetain.label": "Mnemopi: remember automatically",
   "mnemopi.autoRetain.desc": "Save finished conversation turns into local memory",
   "mnemopi.scoping.label": "Mnemopi: memory scope",
-  "mnemopi.scoping.desc": "global: one shared bank. per-project: a bank per directory. per-project-tagged: writes to the project bank, recall also sees global",
+  "mnemopi.scoping.desc":
+    "global: one shared bank. per-project: a bank per directory. per-project-tagged: writes to the project bank, recall also sees global",
   "hindsight.autoRecall.label": "Hindsight: recall automatically",
   "hindsight.autoRecall.desc": "Recall memories on the first turn of every session",
   "hindsight.autoRetain.label": "Hindsight: remember automatically",
   "hindsight.autoRetain.desc": "Save the transcript every few turns and at session boundaries",
   "hindsight.scoping.label": "Hindsight: memory scope",
-  "hindsight.scoping.desc": "global: one shared bank. per-project: a bank per directory. per-project-tagged: a shared bank with project tags",
+  "hindsight.scoping.desc":
+    "global: one shared bank. per-project: a bank per directory. per-project-tagged: a shared bank with project tags",
 
   "task.maxConcurrency.label": "Max concurrent subagents",
   "task.maxConcurrency.desc": "The most subagents that can run at the same time",
   "task.maxRecursionDepth.label": "Subagent nesting depth",
   "task.maxRecursionDepth.desc": "How many levels deep subagents can spawn their own subagents",
   "task.isolation.enabled.label": "Allow task isolation",
-  "task.isolation.enabled.desc": "Let tasks run in isolation with isolated: true; tasks without it share the current checkout",
+  "task.isolation.enabled.desc":
+    "Let tasks run in isolation with isolated: true; tasks without it share the current checkout",
   "task.isolation.merge.label": "How isolated changes are merged",
   "task.isolation.merge.desc": "How changes from isolated tasks come back: apply a patch, or merge a branch",
   "task.eager.label": "How eagerly to delegate",
@@ -102,15 +115,19 @@ export const ompcfg = {
   "retry.baseDelayMs.label": "First retry delay (ms)",
   "retry.baseDelayMs.desc": "How long to wait before the first retry; later ones wait longer",
   "retry.maxDelayMs.label": "Longest retry wait (ms)",
-  "retry.maxDelayMs.desc": "When the provider asks for a longer wait and no credential or model fallback works, fail instead of sleeping; 0 removes the ceiling",
+  "retry.maxDelayMs.desc":
+    "When the provider asks for a longer wait and no credential or model fallback works, fail instead of sleeping; 0 removes the ceiling",
   "retry.modelFallback.label": "Switch to a fallback model on errors",
   "retry.modelFallback.desc": "Let a retry move to a model from the fallback chains",
   "retry.fallbackOn.label": "Which failures may switch models",
-  "retry.fallbackOn.desc": "any: every failure. usage-limit: only when quota runs out. except-usage-limit: failures other than quota",
+  "retry.fallbackOn.desc":
+    "any: every failure. usage-limit: only when quota runs out. except-usage-limit: failures other than quota",
   "retry.fallbackChains.label": "Fallback chains",
-  "retry.fallbackChains.desc": "JSON object: a role, model or provider/* mapped to an ordered list of fallbacks, e.g. {\"default\": [\"openai/gpt-4o-mini\"]}",
+  "retry.fallbackChains.desc":
+    'JSON object: a role, model or provider/* mapped to an ordered list of fallbacks, e.g. {"default": ["openai/gpt-4o-mini"]}',
   "retry.waitForUsageReset.label": "Wait for the quota to reset",
-  "retry.waitForUsageReset.desc": "When the provider says when the quota resets, wait instead of failing right away. Leave off for unattended runs",
+  "retry.waitForUsageReset.desc":
+    "When the provider says when the quota resets, wait instead of failing right away. Leave off for unattended runs",
 
   "autoResume.label": "Resume the last session automatically",
   "autoResume.desc": "When omp starts in a terminal, pick up the latest session in the current directory",

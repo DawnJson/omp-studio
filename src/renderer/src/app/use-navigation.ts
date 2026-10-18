@@ -4,7 +4,15 @@ import { reportError } from "../ui/errors.ts";
 import { useT } from "../i18n/use-t.ts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TaskId } from "../../../shared/ipc.ts";
-import { clearSelection, selectTask, showView, useMainView, useSelectedTaskId, useTasks, type MainView } from "../store/index.ts";
+import {
+  clearSelection,
+  selectTask,
+  showView,
+  useMainView,
+  useSelectedTaskId,
+  useTasks,
+  type MainView,
+} from "../store/index.ts";
 
 interface Entry {
   view: MainView;

@@ -20,7 +20,11 @@ beforeAll(async () => {
   server = http.createServer((request, response) => {
     if (request.url?.startsWith("/api/")) {
       response.writeHead(200, { "content-type": "application/json" }).end(
-        JSON.stringify({ build: { version: "18.12.1" }, file: { name: "omp.exe", size: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") }, download: "/d/omp.exe" }),
+        JSON.stringify({
+          build: { version: "18.12.1" },
+          file: { name: "omp.exe", size: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") },
+          download: "/d/omp.exe",
+        }),
       );
       return;
     }
@@ -42,7 +46,10 @@ interface Harness {
 }
 
 /** onPath: PATH 上 omp 的情况；installs 记录每个 exe 的版本和管理者。 */
-function harness(onPath: { kind: "none" } | { kind: "script"; path: string } | { kind: "exe"; install: OmpInstall }, reuseDir?: string): Harness {
+function harness(
+  onPath: { kind: "none" } | { kind: "script"; path: string } | { kind: "exe"; install: OmpInstall },
+  reuseDir?: string,
+): Harness {
   const dir = reuseDir ?? path.join(scratch, `用例 ${++counter}`);
   const statuses: OmpStatus[] = [];
   const userPathAdds: string[] = [];
@@ -56,7 +63,10 @@ function harness(onPath: { kind: "none" } | { kind: "script"; path: string } | {
       if (onPath.kind === "script") throw new UnsupportedOmpLauncherError(onPath.path);
       return Promise.resolve(onPath.kind === "exe" ? onPath.install.path : null);
     },
-    inspect: (exePath) => (onPath.kind === "exe" && exePath === onPath.install.path ? Promise.resolve(onPath.install) : Promise.resolve({ path: exePath, version: "18.12.1", manager: { id: "omp-studio", name: "omp-studio" } })),
+    inspect: (exePath) =>
+      onPath.kind === "exe" && exePath === onPath.install.path
+        ? Promise.resolve(onPath.install)
+        : Promise.resolve({ path: exePath, version: "18.12.1", manager: { id: "omp-studio", name: "omp-studio" } }),
     userPath: {
       contains: (dir) => userPathEntries.includes(dir),
       addFront: (dir) => {
@@ -71,8 +81,11 @@ function harness(onPath: { kind: "none" } | { kind: "script"; path: string } | {
 }
 
 const userExe: OmpInstall = { path: "C:\\Users\\某 人\\omp\\omp.exe", version: "18.8.7", manager: null };
-const ternExe: OmpInstall = { path: "C:\\Tern\\omp\\bin\\omp.exe", version: "18.12.0", manager: { id: "tern", name: "Tern" } };
-
+const ternExe: OmpInstall = {
+  path: "C:\\Tern\\omp\\bin\\omp.exe",
+  version: "18.12.0",
+  manager: { id: "tern", name: "Tern" },
+};
 
 describe("OmpManager", () => {
   it("asks about a Tern-managed omp; on yes installs its own copy first on the user PATH and leaves Tern's files alone", async () => {
@@ -82,7 +95,11 @@ describe("OmpManager", () => {
     expect(h.manager.status).toMatchObject({ path: ternExe.path, managerName: "Tern", launchable: true });
     await h.manager.answerTakeover(true);
     await running;
-    expect(h.manager.status).toMatchObject({ state: "ready", path: h.manager.layout.binExe, source: { kind: "studio_managed", onUserPath: true } });
+    expect(h.manager.status).toMatchObject({
+      state: "ready",
+      path: h.manager.layout.binExe,
+      source: { kind: "studio_managed", onUserPath: true },
+    });
     expect(h.userPathAdds).toEqual([h.manager.layout.binDir]);
   });
 
@@ -92,7 +109,11 @@ describe("OmpManager", () => {
     await expect.poll(() => h.manager.status.state).toBe("ask_takeover");
     await h.manager.answerTakeover(false);
     await running;
-    expect(h.manager.status).toMatchObject({ state: "ready", path: ternExe.path, source: { kind: "managed_by_other", managerName: "Tern" } });
+    expect(h.manager.status).toMatchObject({
+      state: "ready",
+      path: ternExe.path,
+      source: { kind: "managed_by_other", managerName: "Tern" },
+    });
     expect(h.statuses.some((s) => s.state === "installing")).toBe(false);
     expect(h.userPathAdds).toEqual([]);
   });
@@ -100,13 +121,22 @@ describe("OmpManager", () => {
   it("waits in `missing` with the build's size and source instead of downloading; the install click downloads and puts bin first on the user PATH without asking again", async () => {
     const h = harness({ kind: "none" });
     await h.manager.start();
-    expect(h.manager.status).toEqual({ state: "missing", version: "18.12.1", sizeBytes: bytes.length, source: new URL(baseUrl).host });
+    expect(h.manager.status).toEqual({
+      state: "missing",
+      version: "18.12.1",
+      sizeBytes: bytes.length,
+      source: new URL(baseUrl).host,
+    });
     expect(h.statuses.some((s) => s.state === "installing")).toBe(false);
     expect(h.userPathAdds).toEqual([]);
 
     await h.manager.installOmp();
     expect(h.statuses.some((s) => s.state === "installing")).toBe(true);
-    expect(h.manager.status).toMatchObject({ state: "ready", version: "18.12.1", source: { kind: "studio_managed", onUserPath: true } });
+    expect(h.manager.status).toMatchObject({
+      state: "ready",
+      version: "18.12.1",
+      source: { kind: "studio_managed", onUserPath: true },
+    });
     expect(h.userPathAdds).toEqual([h.manager.layout.binDir]);
     expect(await readFile(h.manager.layout.binExe)).toEqual(bytes);
   });
@@ -120,7 +150,9 @@ describe("OmpManager", () => {
     await running;
     expect(h.manager.status).toMatchObject({ state: "ready", source: { kind: "studio_managed", onUserPath: true } });
     expect(h.userPathAdds).toEqual([h.manager.layout.binDir]);
-    expect(JSON.parse(await readFile(h.stateFile, "utf8")).takeover).toEqual({ [userExe.path.toLowerCase()]: "accepted" });
+    expect(JSON.parse(await readFile(h.stateFile, "utf8")).takeover).toEqual({
+      [userExe.path.toLowerCase()]: "accepted",
+    });
   });
 
   it("keeps the user's omp and the user PATH untouched when the takeover is declined", async () => {
@@ -129,7 +161,12 @@ describe("OmpManager", () => {
     await expect.poll(() => h.manager.status.state).toBe("ask_takeover");
     await h.manager.answerTakeover(false);
     await running;
-    expect(h.manager.status).toMatchObject({ state: "ready", path: userExe.path, source: { kind: "user_installed" }, belowMinimum: true });
+    expect(h.manager.status).toMatchObject({
+      state: "ready",
+      path: userExe.path,
+      source: { kind: "user_installed" },
+      belowMinimum: true,
+    });
     expect(h.userPathAdds).toEqual([]);
   });
 
@@ -159,7 +196,10 @@ describe("OmpManager", () => {
     const managed = harness({ kind: "none" });
     await managed.manager.start();
     await managed.manager.installOmp();
-    expect(await managed.manager.ensureReady()).toEqual({ path: managed.manager.layout.binExe, managedBin: managed.manager.layout.binDir });
+    expect(await managed.manager.ensureReady()).toEqual({
+      path: managed.manager.layout.binExe,
+      managedBin: managed.manager.layout.binDir,
+    });
     const tern = harness({ kind: "exe", install: ternExe });
     const ready = tern.manager.ensureReady();
     await expect.poll(() => tern.manager.status.state).toBe("ask_takeover");
@@ -179,7 +219,10 @@ describe("OmpManager", () => {
     const second = harness({ kind: "exe", install: userExe }, path.dirname(first.stateFile));
     await second.manager.start();
     expect(second.userPathAdds).toEqual([]);
-    expect(second.manager.status).toMatchObject({ state: "ready", source: { kind: "studio_managed", onUserPath: false } });
+    expect(second.manager.status).toMatchObject({
+      state: "ready",
+      source: { kind: "studio_managed", onUserPath: false },
+    });
     await second.manager.addManagedOmpToPath();
     expect(second.userPathAdds).toEqual([second.manager.layout.binDir]);
   });
@@ -191,7 +234,9 @@ describe("OmpManager", () => {
     const b = h.manager.installOmp();
     expect(b).toBe(a);
     await a;
-    expect(h.statuses.filter((s) => s.state === "installing" && s.receivedBytes === 0 && s.totalBytes === null)).toHaveLength(1);
+    expect(
+      h.statuses.filter((s) => s.state === "installing" && s.receivedBytes === 0 && s.totalBytes === null),
+    ).toHaveLength(1);
   });
 
   it("takes over an update.lock whose owner process is gone, instead of refusing for 30 minutes", async () => {

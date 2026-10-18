@@ -16,16 +16,29 @@ export function toolLabel(step: ToolStep, t: TFunction): string {
   if (step.intent) return step.intent;
   const target = toolTarget(step.args) ?? "";
   switch (toolVerb(step.name)) {
-    case "read": return t("tool.verb.read", { target });
-    case "edit": return t("tool.verb.edit", { target });
-    case "write": return t("tool.verb.write", { target });
-    case "bash": return t("tool.verb.bash", { target });
-    case "search": return t("tool.verb.search", { target });
-    default: return t("tool.verb.other", { tool: step.name });
+    case "read":
+      return t("tool.verb.read", { target });
+    case "edit":
+      return t("tool.verb.edit", { target });
+    case "write":
+      return t("tool.verb.write", { target });
+    case "bash":
+      return t("tool.verb.bash", { target });
+    case "search":
+      return t("tool.verb.search", { target });
+    default:
+      return t("tool.verb.other", { tool: step.name });
   }
 }
 
-const verbIcon = { read: FileIcon, write: FileIcon, edit: Pencil, bash: Terminal, search: Search, other: ChevronRight } as const;
+const verbIcon = {
+  read: FileIcon,
+  write: FileIcon,
+  edit: Pencil,
+  bash: Terminal,
+  search: Search,
+  other: ChevronRight,
+} as const;
 
 function ToolRow({ step }: { step: ToolStep }) {
   const t = useT();
@@ -41,16 +54,26 @@ function ToolRow({ step }: { step: ToolStep }) {
   return (
     <div className="step-tool" data-anchor data-status={step.status}>
       <button type="button" className="step-row" aria-expanded={showOutput} onClick={() => setOpen((value) => !value)}>
-        <span className="step-icon"><Icon size={14} /></span>
+        <span className="step-icon">
+          <Icon size={14} />
+        </span>
         <span className="step-label">{toolLabel(step, t)}</span>
         {target !== null && step.intent !== null && <span className="step-arg">{target}</span>}
         <span className="step-meta" data-failed={failed || undefined}>
-          {failed ? t("tool.failed") : step.status === "running" ? t("tool.running") : duration >= 1000 ? formatDuration(t, duration) : ""}
+          {failed
+            ? t("tool.failed")
+            : step.status === "running"
+              ? t("tool.running")
+              : duration >= 1000
+                ? formatDuration(t, duration)
+                : ""}
         </span>
       </button>
       {showOutput && (
         <pre className="step-output">
-          {step.output === null || step.output === "" ? t("tool.output.empty") : (all ? outputLines : outputLines.slice(0, limit)).join("\n")}
+          {step.output === null || step.output === ""
+            ? t("tool.output.empty")
+            : (all ? outputLines : outputLines.slice(0, limit)).join("\n")}
           {!all && outputLines.length > limit && (
             <button type="button" className="step-showall" onClick={() => setAll(true)}>
               {t("tool.output.showAll")}
@@ -71,7 +94,9 @@ function TextStepRow({ step }: { step: Extract<Step, { kind: "narration" | "thin
     <div className="step-text" data-anchor data-kind={step.kind}>
       <button type="button" className="step-row" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
         <span className="step-icon">{thinking ? "" : "·"}</span>
-        <span className="step-label" data-muted>{thinking ? `${t("process.thoughtShort")} · ${step.text.trim().split("\n")[0]}` : step.text.split("\n")[0]}</span>
+        <span className="step-label" data-muted>
+          {thinking ? `${t("process.thoughtShort")} · ${step.text.trim().split("\n")[0]}` : step.text.split("\n")[0]}
+        </span>
       </button>
       {open && <div className="step-full">{step.text}</div>}
     </div>
@@ -83,8 +108,12 @@ export function ProcessDetails({ steps }: { steps: readonly Step[] }) {
   const trimmed = steps.length > MANY ? steps.slice(-KEEP) : steps;
   return (
     <div className="details">
-      {steps.length > trimmed.length && <p className="details-earlier">{t("process.earlier", { n: steps.length - trimmed.length })}</p>}
-      {trimmed.map((step) => (step.kind === "tool" ? <ToolRow key={step.key} step={step} /> : <TextStepRow key={step.key} step={step} />))}
+      {steps.length > trimmed.length && (
+        <p className="details-earlier">{t("process.earlier", { n: steps.length - trimmed.length })}</p>
+      )}
+      {trimmed.map((step) =>
+        step.kind === "tool" ? <ToolRow key={step.key} step={step} /> : <TextStepRow key={step.key} step={step} />,
+      )}
     </div>
   );
 }

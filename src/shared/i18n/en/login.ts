@@ -27,6 +27,7 @@ export const login = {
   "apiKey.placeholder": "Paste an API key",
   "apiKey.save": "Save",
   "apiKey.clear": "Clear API key",
-  "apiKey.note": "The key is encrypted with your system credentials and stored on this PC. It isn't written to omp's config, so the terminal version can't see it.",
+  "apiKey.note":
+    "The key is encrypted with your system credentials and stored on this PC. It isn't written to omp's config, so the terminal version can't see it.",
   "apiKey.failed": "Couldn't save the API key: {message}",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

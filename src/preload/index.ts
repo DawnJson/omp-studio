@@ -1,7 +1,14 @@
 // 沙箱里的 preload：只把 StudioApi 的每个函数转发成一个 ipcRenderer 调用，不暴露 ipcRenderer 本身。
 // 打包成 CJS（electron.vite.config.ts）；这里不写任何业务逻辑，校验在主进程（src/main/ipc/validate.ts）。
 import { contextBridge, ipcRenderer, webUtils } from "electron";
-import { dropFolderChannel, eventChannel, eventNames, invokeChannel, invokeNames, type StudioApi } from "../shared/ipc.ts";
+import {
+  dropFolderChannel,
+  eventChannel,
+  eventNames,
+  invokeChannel,
+  invokeNames,
+  type StudioApi,
+} from "../shared/ipc.ts";
 
 const entries: [string, unknown][] = [];
 

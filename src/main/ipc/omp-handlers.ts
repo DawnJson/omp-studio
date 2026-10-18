@@ -88,7 +88,10 @@ export const ompHandlers: HandlerGroup<
     return result;
   },
   setReduceMotion: (on) => Promise.resolve(updateSettings({ reduceMotion: parseBoolean(on, "reduceMotion") })),
-  setEnterWhileRunning: (mode) => Promise.resolve(updateSettings({ enterWhileRunning: parseOneOf(mode, "enterWhileRunning", ["steer", "followUp"]) })),
+  setEnterWhileRunning: (mode) =>
+    Promise.resolve(
+      updateSettings({ enterWhileRunning: parseOneOf(mode, "enterWhileRunning", ["steer", "followUp"]) }),
+    ),
   setNotifyOnGate: (on) => Promise.resolve(updateSettings({ notifyOnGate: parseBoolean(on, "notifyOnGate") })),
   setYoloConfirmed: () => Promise.resolve(updateSettings({ yoloConfirmed: true })),
   getDefaultModel: () => readDefaultModel(),

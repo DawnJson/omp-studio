@@ -69,7 +69,11 @@ export function SettingsView() {
   const searching = query.trim() !== "";
   const tabs = load.kind === "ready" ? load.snapshot.tabs : [];
   const cfgTab = section.startsWith("cfg:") ? section.slice(4) : null;
-  const heading = searching ? t("settings.search") : cfgTab !== null ? tabTitle(locale, cfgTab) : t(`settings.${section as (typeof studioSections)[number]}`);
+  const heading = searching
+    ? t("settings.search")
+    : cfgTab !== null
+      ? tabTitle(locale, cfgTab)
+      : t(`settings.${section as (typeof studioSections)[number]}`);
   const choose = (next: string) => {
     setQuery("");
     setSection(next);
@@ -114,13 +118,25 @@ export function SettingsView() {
         </div>
         <div className="settings-nav-label">{t("settings.nav.studio")}</div>
         {studioSections.map((id) => (
-          <button key={id} type="button" aria-current={!searching && id === section ? "page" : undefined} onClick={() => choose(id)} data-testid={`settings-nav-${id}`}>
+          <button
+            key={id}
+            type="button"
+            aria-current={!searching && id === section ? "page" : undefined}
+            onClick={() => choose(id)}
+            data-testid={`settings-nav-${id}`}
+          >
             {t(`settings.${id}`)}
           </button>
         ))}
         <div className="settings-nav-label">{t("settings.nav.omp")}</div>
         {tabs.map((tab) => (
-          <button key={tab} type="button" aria-current={!searching && section === `cfg:${tab}` ? "page" : undefined} onClick={() => choose(`cfg:${tab}`)} data-testid={`settings-nav-cfg-${tab}`}>
+          <button
+            key={tab}
+            type="button"
+            aria-current={!searching && section === `cfg:${tab}` ? "page" : undefined}
+            onClick={() => choose(`cfg:${tab}`)}
+            data-testid={`settings-nav-cfg-${tab}`}
+          >
             {tabTitle(locale, tab)}
           </button>
         ))}

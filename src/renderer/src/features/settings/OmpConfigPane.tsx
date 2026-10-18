@@ -22,9 +22,13 @@ export function OmpConfigPane({ tab, query }: { tab: string | null; query: strin
   const load = useConfigLoad();
   const trimmed = query.trim();
   const snapshot = load.kind === "ready" ? load.snapshot : null;
-  const results = useMemo(() => (snapshot && trimmed ? snapshot.items.filter((item) => matchesQuery(item, trimmed)) : []), [snapshot, trimmed]);
+  const results = useMemo(
+    () => (snapshot && trimmed ? snapshot.items.filter((item) => matchesQuery(item, trimmed)) : []),
+    [snapshot, trimmed],
+  );
 
-  if (status?.state !== "ready" && snapshot === null) return <p className="st-muted cfg-state">{t("settings.cfg.notReady")}</p>;
+  if (status?.state !== "ready" && snapshot === null)
+    return <p className="st-muted cfg-state">{t("settings.cfg.notReady")}</p>;
   if (load.kind === "error") {
     return (
       <div className="st-card st-block cfg-state" role="alert">

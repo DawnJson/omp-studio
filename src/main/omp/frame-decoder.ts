@@ -67,7 +67,8 @@ export class FrameDecoder {
     if (text.trim() === "") return null;
     const frame = parseFrame(text);
     if (frame.type === "rpc_chunk") return this.#acceptChunk(frame);
-    if (this.#chunk) throw new RpcProtocolError(`rpc_chunk sequence ${this.#chunk.chunkId} interrupted by ${frame.type}`);
+    if (this.#chunk)
+      throw new RpcProtocolError(`rpc_chunk sequence ${this.#chunk.chunkId} interrupted by ${frame.type}`);
     return frame;
   }
 
@@ -85,28 +86,40 @@ export class FrameDecoder {
     }
 
     if (index === 0) {
-      if (this.#chunk) throw new RpcProtocolError(`rpc_chunk sequence ${this.#chunk.chunkId} interleaved with ${chunkId}`);
+      if (this.#chunk)
+        throw new RpcProtocolError(`rpc_chunk sequence ${this.#chunk.chunkId} interleaved with ${chunkId}`);
       if (byteLength > this.#maxReassembledBytes) {
-        throw new RpcProtocolError(`rpc_chunk ${chunkId} declares ${byteLength} bytes, above the ${this.#maxReassembledBytes} byte limit`);
+        throw new RpcProtocolError(
+          `rpc_chunk ${chunkId} declares ${byteLength} bytes, above the ${this.#maxReassembledBytes} byte limit`,
+        );
       }
       this.#chunk = { chunkId, count, byteLength, parts: [], received: 0 };
     }
 
     const pending = this.#chunk;
-    if (!pending || pending.chunkId !== chunkId || pending.count !== count || pending.byteLength !== byteLength || pending.parts.length !== index) {
+    if (
+      !pending ||
+      pending.chunkId !== chunkId ||
+      pending.count !== count ||
+      pending.byteLength !== byteLength ||
+      pending.parts.length !== index
+    ) {
       throw new RpcProtocolError(`rpc_chunk ${chunkId} index ${index} is out of sequence`);
     }
 
     // Buffer.from(…, "base64") 会静默跳过非法字符，所以先校验。
-    if (data.length % 4 !== 0 || !BASE64.test(data)) throw new RpcProtocolError(`rpc_chunk ${chunkId} index ${index} data is not base64`);
+    if (data.length % 4 !== 0 || !BASE64.test(data))
+      throw new RpcProtocolError(`rpc_chunk ${chunkId} index ${index} data is not base64`);
     const part = Buffer.from(data, "base64");
     pending.received += part.length;
-    if (pending.received > pending.byteLength) throw new RpcProtocolError(`rpc_chunk ${chunkId} exceeds its declared byteLength`);
+    if (pending.received > pending.byteLength)
+      throw new RpcProtocolError(`rpc_chunk ${chunkId} exceeds its declared byteLength`);
     pending.parts.push(part);
     if (pending.parts.length < pending.count) return null;
 
     this.#chunk = null;
-    if (pending.received !== pending.byteLength) throw new RpcProtocolError(`rpc_chunk ${chunkId} is shorter than its declared byteLength`);
+    if (pending.received !== pending.byteLength)
+      throw new RpcProtocolError(`rpc_chunk ${chunkId} is shorter than its declared byteLength`);
     let text: string;
     try {
       text = strictUtf8.decode(Buffer.concat(pending.parts, pending.received));
@@ -126,7 +139,13 @@ function parseFrame(text: string): RawFrame {
   } catch {
     throw new RpcProtocolError(`frame is not valid JSON: ${text.slice(0, 200)}`);
   }
-  if (typeof value !== "object" || value === null || Array.isArray(value) || !("type" in value) || typeof value.type !== "string") {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    !("type" in value) ||
+    typeof value.type !== "string"
+  ) {
     throw new RpcProtocolError(`frame is not an object with a string type: ${text.slice(0, 200)}`);
   }
   // JSON.parse 的结果是普通对象，上面已校验 `type` 是字符串，其余字段由调用方按 `type` 自行判断。

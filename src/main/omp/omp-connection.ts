@@ -3,7 +3,15 @@
 import { spawn, execFile, type ChildProcessWithoutNullStreams } from "node:child_process";
 import path from "node:path";
 import { FrameDecoder, type RawFrame } from "./frame-decoder.ts";
-import type { PromptParams, PromptResultEvent, ReadyEvent, RpcInbound, RpcResponse, RpcServerFrame, RpcWireCommands } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type {
+  PromptParams,
+  PromptResultEvent,
+  ReadyEvent,
+  RpcInbound,
+  RpcResponse,
+  RpcServerFrame,
+  RpcWireCommands,
+} from "../../shared/omp-wire/rpc-wire.generated.ts";
 
 export type CommandType = keyof RpcWireCommands;
 type CommandParams<K extends CommandType> = RpcWireCommands[K]["params"];
@@ -222,7 +230,10 @@ export class OmpConnection {
     }
   }
 
-  #request<K extends CommandType>(type: K, params: CommandParams<K> | undefined): { id: string; response: Promise<CommandResult<K>> } {
+  #request<K extends CommandType>(
+    type: K,
+    params: CommandParams<K> | undefined,
+  ): { id: string; response: Promise<CommandResult<K>> } {
     const id = `req-${this.#nextId++}`;
     if (this.#exit) return { id, response: Promise.reject(new OmpExitedError(this.#exit)) };
     this.#assertFits({ ...params, id, type });
@@ -294,7 +305,8 @@ export class OmpConnection {
         return;
       }
     }
-    if (serverFrame.type === "prompt_result" && serverFrame.id !== undefined) this.#promptWaiters.get(serverFrame.id)?.resolve(serverFrame);
+    if (serverFrame.type === "prompt_result" && serverFrame.id !== undefined)
+      this.#promptWaiters.get(serverFrame.id)?.resolve(serverFrame);
     for (const listener of this.#frameListeners) listener(serverFrame);
   }
 
@@ -305,7 +317,10 @@ export class OmpConnection {
     const deadline = Promise.withResolvers<never>();
     // 握手结束后 omp 退出时 deadline 还会 reject，没人等它，避免成为未处理的 rejection。
     deadline.promise.catch(() => {});
-    const timer = setTimeout(() => deadline.reject(new Error(`omp did not finish the handshake within ${timeoutMs} ms`)), timeoutMs);
+    const timer = setTimeout(
+      () => deadline.reject(new Error(`omp did not finish the handshake within ${timeoutMs} ms`)),
+      timeoutMs,
+    );
     void this.exited.then((exit) => deadline.reject(new OmpExitedError(exit)));
     const withinDeadline = <T>(step: Promise<T>) => Promise.race([step, deadline.promise]);
     try {

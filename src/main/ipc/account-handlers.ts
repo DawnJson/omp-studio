@@ -26,19 +26,34 @@ async function applyKeyChange(): Promise<void> {
 }
 
 export const accountHandlers: HandlerGroup<
-  "listModels" | "listLoginProviders" | "startLogin" | "answerLoginInput" | "cancelLogin" | "listAccounts" | "logout" | "saveApiKey" | "clearApiKey" | "listApiKeyProviders"
+  | "listModels"
+  | "listLoginProviders"
+  | "startLogin"
+  | "answerLoginInput"
+  | "cancelLogin"
+  | "listAccounts"
+  | "logout"
+  | "saveApiKey"
+  | "clearApiKey"
+  | "listApiKeyProviders"
 > = {
-  listModels: async () => (await serviceOmp.use((connection) => connection.request("get_available_models"))).models.map(toModelOption),
-  listLoginProviders: async () => (await serviceOmp.use((connection) => connection.request("get_login_providers"))).providers,
+  listModels: async () =>
+    (await serviceOmp.use((connection) => connection.request("get_available_models"))).models.map(toModelOption),
+  listLoginProviders: async () =>
+    (await serviceOmp.use((connection) => connection.request("get_login_providers"))).providers,
   startLogin: (providerId) => startLogin(parseProviderId(providerId)),
   answerLoginInput: (inputId, value) => {
-    answerLoginInput(parseString(inputId, "inputId", 200), value === null ? null : parseString(value, "value", 8192, { allowEmpty: true }));
+    answerLoginInput(
+      parseString(inputId, "inputId", 200),
+      value === null ? null : parseString(value, "value", 8192, { allowEmpty: true }),
+    );
     return Promise.resolve();
   },
   cancelLogin: () => cancelLogin(),
   listAccounts: async (providerId) => {
     const id = parseProviderId(providerId);
-    return (await serviceOmp.use((connection) => connection.request("get_logout_accounts", { providerId: id }))).accounts;
+    return (await serviceOmp.use((connection) => connection.request("get_logout_accounts", { providerId: id })))
+      .accounts;
   },
   logout: async (providerId, credentialId) => {
     const id = parseProviderId(providerId);

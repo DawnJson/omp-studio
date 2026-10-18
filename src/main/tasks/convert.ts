@@ -1,6 +1,11 @@
 // wire 类型 ↔ ipc.ts 契约类型的小转换。
 import type { ModelOption, PromptImage, RestoredDraft } from "../../shared/ipc.ts";
-import type { AgentMessage, ImageContent, ModelInfo, RestoredQueuedMessage } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type {
+  AgentMessage,
+  ImageContent,
+  ModelInfo,
+  RestoredQueuedMessage,
+} from "../../shared/omp-wire/rpc-wire.generated.ts";
 
 export function toModelOption(info: ModelInfo): ModelOption {
   return {
@@ -16,7 +21,11 @@ const imageMimeTypes: readonly string[] = ["image/png", "image/jpeg", "image/web
 
 /** 只保留契约认的四种图片；omp 给的其它类型（理论上不会有）丢掉，不假装转换。 */
 export function toPromptImages(images: ImageContent[] | undefined): PromptImage[] | undefined {
-  const kept = (images ?? []).flatMap((image) => (imageMimeTypes.includes(image.mimeType) ? [{ mimeType: image.mimeType as PromptImage["mimeType"], data: image.data }] : []));
+  const kept = (images ?? []).flatMap((image) =>
+    imageMimeTypes.includes(image.mimeType)
+      ? [{ mimeType: image.mimeType as PromptImage["mimeType"], data: image.data }]
+      : [],
+  );
   return kept.length > 0 ? kept : undefined;
 }
 

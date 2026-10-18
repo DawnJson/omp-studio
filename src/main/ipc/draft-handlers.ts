@@ -19,7 +19,11 @@ async function load(): Promise<Map<string, string>> {
   if (cache) return cache;
   try {
     const raw: unknown = JSON.parse(await readFile(file(), "utf8"));
-    cache = new Map(Object.entries(raw as Record<string, unknown>).flatMap(([key, value]) => (typeof value === "string" ? [[key, value] as [string, string]] : [])));
+    cache = new Map(
+      Object.entries(raw as Record<string, unknown>).flatMap(([key, value]) =>
+        typeof value === "string" ? [[key, value] as [string, string]] : [],
+      ),
+    );
   } catch (error) {
     // 只有文件不存在才是"还没有草稿"；其它错误（EBUSY…）抛给调用方，免得下一次保存把原文件覆盖成空的。
     if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;

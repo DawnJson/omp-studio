@@ -22,10 +22,13 @@ function escapeRegExp(text: string): string {
 
 /** 返回脱敏函数。家目录（反斜杠、正斜杠、JSON 转义的双反斜杠三种写法，不分大小写）换成 `~`，剩下的用户名换成 `<user>`。 */
 export function createRedactor({ home, user }: RedactContext): (text: string) => string {
-  const homeForms = [...new Set([home, home.replaceAll("\\", "/"), home.replaceAll("\\", "\\\\")])].filter((form) => form.length > 0);
+  const homeForms = [...new Set([home, home.replaceAll("\\", "/"), home.replaceAll("\\", "\\\\")])].filter(
+    (form) => form.length > 0,
+  );
   const homePattern = homeForms.length > 0 ? new RegExp(homeForms.map(escapeRegExp).join("|"), "gi") : null;
   // 太短的用户名（如 "a"）会误伤普通单词，只换路径里的。
-  const userPattern = user.length >= 3 ? new RegExp(`(?<![A-Za-z0-9])${escapeRegExp(user)}(?![A-Za-z0-9])`, "gi") : null;
+  const userPattern =
+    user.length >= 3 ? new RegExp(`(?<![A-Za-z0-9])${escapeRegExp(user)}(?![A-Za-z0-9])`, "gi") : null;
   return (text) => {
     let out = text;
     if (homePattern) out = out.replace(homePattern, "~");
@@ -34,7 +37,10 @@ export function createRedactor({ home, user }: RedactContext): (text: string) =>
       .replace(/(https?:\/\/[^\s?#"'<>]+)\?[^\s"'<>]*/g, "$1?<redacted>")
       .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/g, "$1 <redacted>")
       .replace(/\bsk-[A-Za-z0-9_-]{8,}/g, "sk-<redacted>")
-      .replace(/\b([A-Za-z_-]*(?:api[_-]?key|token|secret|password|authorization)[A-Za-z_-]*)(["']?\s*[:=]\s*["']?)(?!<redacted>|Bearer\s|Basic\s)[^\s"',;&]+/gi, "$1$2<redacted>");
+      .replace(
+        /\b([A-Za-z_-]*(?:api[_-]?key|token|secret|password|authorization)[A-Za-z_-]*)(["']?\s*[:=]\s*["']?)(?!<redacted>|Bearer\s|Basic\s)[^\s"',;&]+/gi,
+        "$1$2<redacted>",
+      );
   };
 }
 
@@ -69,7 +75,9 @@ export class Logger {
   write(level: LogLevel, message: string, details: unknown[]): void {
     const now = this.#now();
     const day = localDay(now);
-    const text = this.#redact(formatWithOptions({ colors: false, depth: 4, breakLength: Infinity }, message, ...details));
+    const text = this.#redact(
+      formatWithOptions({ colors: false, depth: 4, breakLength: Infinity }, message, ...details),
+    );
     const line = `${now.toISOString()} ${level.toUpperCase().padEnd(5)} ${text}\n`;
     if (this.#mirror) console[level](line.trimEnd());
     try {
@@ -94,7 +102,11 @@ export class Logger {
     } catch {
       return [];
     }
-    return names.filter((name) => FILE_PATTERN.test(name)).sort().reverse().map((name) => path.join(this.dir, name));
+    return names
+      .filter((name) => FILE_PATTERN.test(name))
+      .sort()
+      .reverse()
+      .map((name) => path.join(this.dir, name));
   }
 
   #prune(now: Date): void {

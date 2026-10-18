@@ -78,4 +78,3 @@ export function getTaskPool(): Promise<TaskPool> {
   pool ??= createPool();
   return pool;
 }
-

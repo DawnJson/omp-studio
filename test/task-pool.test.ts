@@ -47,7 +47,9 @@ class Events {
   readonly sink = {
     state: (state: TaskState) => {
       this.states.push(state);
-      this.#waiters = this.#waiters.filter((waiter) => (waiter.predicate(state) ? (waiter.resolve(state), false) : true));
+      this.#waiters = this.#waiters.filter((waiter) =>
+        waiter.predicate(state) ? (waiter.resolve(state), false) : true,
+      );
     },
     transcript: (batch: TranscriptBatch) => this.batches.push(batch),
     notice: (notice: TaskNotice) => this.notices.push(notice),
@@ -57,7 +59,8 @@ class Events {
 
   statuses(id: TaskId): string[] {
     const out: string[] = [];
-    for (const state of this.states) if (state.id === id && out[out.length - 1] !== state.status) out.push(state.status);
+    for (const state of this.states)
+      if (state.id === id && out[out.length - 1] !== state.status) out.push(state.status);
     return out;
   }
 
@@ -82,7 +85,9 @@ interface Harness {
 }
 
 const pools: TaskPool[] = [];
-async function harness(options: { maxLive?: number; buildLaunchError?: Error; gate?: Promise<void> } = {}): Promise<Harness> {
+async function harness(
+  options: { maxLive?: number; buildLaunchError?: Error; gate?: Promise<void> } = {},
+): Promise<Harness> {
   const events = new Events();
   const tasksFile = path.join(await mkdtemp(path.join(scratch, "ud-")), "tasks.json");
   const registry = new TaskRegistry(tasksFile);
@@ -112,7 +117,10 @@ afterEach(async () => {
 });
 
 function transcriptOf(batches: TranscriptBatch[], id: TaskId) {
-  return batches.filter((b) => b.taskId === id).flatMap((b) => b.events).reduce(applyTranscriptEvent, emptyTranscript());
+  return batches
+    .filter((b) => b.taskId === id)
+    .flatMap((b) => b.events)
+    .reduce(applyTranscriptEvent, emptyTranscript());
 }
 
 const turn = { text: "用一句中文回答：1+1 等于几？不要调用任何工具。", whenBusy: "steer" as const };
@@ -129,7 +137,9 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
     const done = await h.events.until(created.id, (s) => s.lastTurn?.status === "completed" && s.status === "idle");
 
     expect(h.events.statuses(created.id)).toEqual(["starting", "idle", "running", "idle"]);
-    expect(h.events.states.filter((s) => s.status === "running").every((s) => typeof s.runStartedAt === "number")).toBe(true);
+    expect(h.events.states.filter((s) => s.status === "running").every((s) => typeof s.runStartedAt === "number")).toBe(
+      true,
+    );
     expect(done.runStartedAt).toBeNull();
     expect(done.title).toBe("用一句中文回答：1+1 等于几？不要调用任何工具。");
     expect(done.model?.key).toEqual({ provider: "deepseek", modelId: "deepseek-v4-flash" });
@@ -153,7 +163,15 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
     const record = h.registry.findTask(created.id);
     expect(record?.sessionFile).toMatch(/\.jsonl$/);
 
-    const reopened = new TaskPool({ registry: new TaskRegistry(h.tasksFile), getSettings: async () => settings(), buildLaunch: async () => { throw new Error("no spawn expected"); }, assignJob: () => {}, events: new Events().sink });
+    const reopened = new TaskPool({
+      registry: new TaskRegistry(h.tasksFile),
+      getSettings: async () => settings(),
+      buildLaunch: async () => {
+        throw new Error("no spawn expected");
+      },
+      assignJob: () => {},
+      events: new Events().sink,
+    });
     await reopened.init();
     expect(reopened.listTasks()).toMatchObject([{ id: created.id, status: "stopped", title: record?.title }]);
   });
@@ -163,13 +181,20 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
     h.fixtures.push(fixture("approval-select"));
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (s) => s.status === "idle");
-    await h.pool.sendPrompt(created.id, { text: "用 bash 工具运行 echo omp-studio，然后用一句话告诉我输出。", whenBusy: "steer" });
+    await h.pool.sendPrompt(created.id, {
+      text: "用 bash 工具运行 echo omp-studio，然后用一句话告诉我输出。",
+      whenBusy: "steer",
+    });
     const waiting = await h.events.until(created.id, (s) => s.status === "needs_you");
     const dialog = waiting.dialogs[0]!;
     expect(dialog).toMatchObject({ kind: "select", approval: true });
 
-    await expect(h.pool.respondDialog(created.id, dialog.id, { kind: "value", value: "Approve and also rm -rf" })).rejects.toThrow(/not one of the options/);
-    await expect(h.pool.respondDialog(created.id, "forged-id", { kind: "cancel" })).rejects.toThrow(/no pending dialog/);
+    await expect(
+      h.pool.respondDialog(created.id, dialog.id, { kind: "value", value: "Approve and also rm -rf" }),
+    ).rejects.toThrow(/not one of the options/);
+    await expect(h.pool.respondDialog(created.id, "forged-id", { kind: "cancel" })).rejects.toThrow(
+      /no pending dialog/,
+    );
     expect(h.pool.listTasks()[0]?.status).toBe("needs_you");
 
     await h.pool.respondDialog(created.id, dialog.id, { kind: "value", value: "Approve" });
@@ -188,8 +213,16 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
     const waiting = await h.events.until(created.id, (s) => s.status === "needs_you");
     const dialog = waiting.dialogs[0]!;
     expect(dialog.kind).toBe("ask");
-    await expect(h.pool.respondDialog(created.id, dialog.id, { kind: "answers", answers: [{ id: "lang", selectedOptions: ["Go", "Rust"] }] })).rejects.toThrow(/single-select/);
-    await h.pool.respondDialog(created.id, dialog.id, { kind: "answers", answers: [{ id: "lang", selectedOptions: ["Go"] }] });
+    await expect(
+      h.pool.respondDialog(created.id, dialog.id, {
+        kind: "answers",
+        answers: [{ id: "lang", selectedOptions: ["Go", "Rust"] }],
+      }),
+    ).rejects.toThrow(/single-select/);
+    await h.pool.respondDialog(created.id, dialog.id, {
+      kind: "answers",
+      answers: [{ id: "lang", selectedOptions: ["Go"] }],
+    });
     await h.events.until(created.id, (s) => s.lastTurn?.status === "completed" && s.status === "idle");
   });
 
@@ -220,7 +253,15 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
       h.pool.sendPrompt(created.id, { text: "改成只做一次就停下", whenBusy: "steer" }),
       h.pool.sendPrompt(created.id, { text: "最后再用一个词总结", whenBusy: "followUp" }),
     ]);
-    const done = await h.events.until(created.id, (s) => s.status === "idle" && s.lastTurn !== null && s.queue.steering.length === 0 && s.queue.followUp.length === 0 && h.events.states.some((x) => x.queue.followUp.length > 0));
+    const done = await h.events.until(
+      created.id,
+      (s) =>
+        s.status === "idle" &&
+        s.lastTurn !== null &&
+        s.queue.steering.length === 0 &&
+        s.queue.followUp.length === 0 &&
+        h.events.states.some((x) => x.queue.followUp.length > 0),
+    );
     expect(h.events.states.some((s) => s.queue.steering.length === 1)).toBe(true);
     expect(done.queue).toEqual({ steering: [], followUp: [] });
   });
@@ -232,7 +273,10 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
     const state = await h.pool.resume({ sessionFile, cwd: projectDir, projectId: h.projectId, title: null });
     await h.events.until(state.id, (s) => s.status === "idle");
     const snapshot = await h.pool.openTask(state.id);
-    expect(snapshot.transcript.items.map((item) => item.kind === "message" && item.message.role)).toEqual(["user", "assistant"]);
+    expect(snapshot.transcript.items.map((item) => item.kind === "message" && item.message.role)).toEqual([
+      "user",
+      "assistant",
+    ]);
     expect(h.pool.listTasks()[0]?.title).toBe("用一句中文回答：1+1 等于几？不要调用任何工具。");
     // omp 报告的会话文件路径是权威的（历史列表里的路径就是它）。
     const reported = h.registry.findTask(state.id)!.sessionFile!;
@@ -243,29 +287,100 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
 });
 
 /** 构造一份只有初始化序列的 fixture，再追加 `tail`。 */
-async function inlineFixture(name: string, options: { resume?: boolean; tail?: object[]; sessionFile?: string; busy?: boolean } = {}): Promise<string> {
+async function inlineFixture(
+  name: string,
+  options: { resume?: boolean; tail?: object[]; sessionFile?: string; busy?: boolean } = {},
+): Promise<string> {
   const id = (n: number) => `r${n}`;
   const frames: object[] = [
-    { kind: "out", frame: { type: "ready", protocolVersion: 1, supportedProtocolVersions: [1, 2], maxFrameBytes: 1048576, maxReassembledFrameBytes: 67108864 } },
+    {
+      kind: "out",
+      frame: {
+        type: "ready",
+        protocolVersion: 1,
+        supportedProtocolVersions: [1, 2],
+        maxFrameBytes: 1048576,
+        maxReassembledFrameBytes: 67108864,
+      },
+    },
     { kind: "in", frame: { type: "negotiate_protocol", id: id(1) } },
-    { kind: "out", frame: { type: "response", command: "negotiate_protocol", id: id(1), success: true, data: { protocolVersion: 2 } } },
+    {
+      kind: "out",
+      frame: {
+        type: "response",
+        command: "negotiate_protocol",
+        id: id(1),
+        success: true,
+        data: { protocolVersion: 2 },
+      },
+    },
     { kind: "in", frame: { type: "set_event_filter", id: id(2) } },
-    { kind: "out", frame: { type: "response", command: "set_event_filter", id: id(2), success: true, data: { events: null, messageUpdates: "delta" } } },
+    {
+      kind: "out",
+      frame: {
+        type: "response",
+        command: "set_event_filter",
+        id: id(2),
+        success: true,
+        data: { events: null, messageUpdates: "delta" },
+      },
+    },
     { kind: "in", frame: { type: "set_ask_dialog", id: id(3) } },
-    { kind: "out", frame: { type: "response", command: "set_ask_dialog", id: id(3), success: true, data: { enabled: true } } },
+    {
+      kind: "out",
+      frame: { type: "response", command: "set_ask_dialog", id: id(3), success: true, data: { enabled: true } },
+    },
     { kind: "in", frame: { type: "set_subagent_subscription", id: id(4) } },
-    { kind: "out", frame: { type: "response", command: "set_subagent_subscription", id: id(4), success: true, data: { level: "progress" } } },
+    {
+      kind: "out",
+      frame: {
+        type: "response",
+        command: "set_subagent_subscription",
+        id: id(4),
+        success: true,
+        data: { level: "progress" },
+      },
+    },
   ];
   let n = 5;
   if (options.resume) {
-    frames.push({ kind: "in", frame: { type: "switch_session", id: id(n) } }, { kind: "out", frame: { type: "response", command: "switch_session", id: id(n), success: true, data: { cancelled: false } } });
+    frames.push(
+      { kind: "in", frame: { type: "switch_session", id: id(n) } },
+      {
+        kind: "out",
+        frame: { type: "response", command: "switch_session", id: id(n), success: true, data: { cancelled: false } },
+      },
+    );
     n++;
   }
   frames.push(
     { kind: "in", frame: { type: "get_state", id: id(n) } },
-    { kind: "out", frame: { type: "response", command: "get_state", id: id(n), success: true, data: { sessionId: "s1", isSettled: !options.busy, hasPendingAsyncWork: false, ...(options.sessionFile && { sessionFile: options.sessionFile }) } } },
+    {
+      kind: "out",
+      frame: {
+        type: "response",
+        command: "get_state",
+        id: id(n),
+        success: true,
+        data: {
+          sessionId: "s1",
+          isSettled: !options.busy,
+          hasPendingAsyncWork: false,
+          ...(options.sessionFile && { sessionFile: options.sessionFile }),
+        },
+      },
+    },
     { kind: "in", frame: { type: "get_available_thinking_levels", id: id(n + 1) } },
-    { kind: "out", frame: { type: "response", command: "get_available_thinking_levels", id: id(n + 1), success: true, data: { levels: ["off", "low"] } } },
+    {
+      kind: "out",
+      frame: {
+        type: "response",
+        command: "get_available_thinking_levels",
+        id: id(n + 1),
+        success: true,
+        data: { levels: ["off", "low"] },
+      },
+    },
     ...(options.tail ?? []),
   );
   const file = path.join(scratch, `${name}.ndjson`);
@@ -277,7 +392,12 @@ describe("任务池：失败路径", () => {
   it("omp 在回答中途意外退出：任务进 error（kind=exited），带 stderr 摘要之外的退出码；restartTask 能重新拉起", async () => {
     const h = await harness();
     h.fixtures.push(
-      await inlineFixture("crash", { tail: [{ kind: "in", frame: { type: "prompt", id: "r9" } }, { kind: "exit", code: 7 }] }),
+      await inlineFixture("crash", {
+        tail: [
+          { kind: "in", frame: { type: "prompt", id: "r9" } },
+          { kind: "exit", code: 7 },
+        ],
+      }),
       await inlineFixture("restart"),
     );
     const created = await h.pool.createTask({ projectId: h.projectId });
@@ -304,7 +424,16 @@ describe("任务池：失败路径", () => {
       await inlineFixture("reject", {
         tail: [
           { kind: "in", frame: { type: "prompt", id: "r9" } },
-          { kind: "out", frame: { type: "response", command: "prompt", id: "r9", success: false, error: "Agent is already processing" } },
+          {
+            kind: "out",
+            frame: {
+              type: "response",
+              command: "prompt",
+              id: "r9",
+              success: false,
+              error: "Agent is already processing",
+            },
+          },
         ],
       }),
     );
@@ -321,7 +450,9 @@ describe("任务池：失败路径", () => {
     h.fixtures.push(await inlineFixture("big"));
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (s) => s.status === "idle");
-    await expect(h.pool.sendPrompt(created.id, { text: "x".repeat(1024 * 1024 + 1), whenBusy: "steer" })).rejects.toThrow(/frame limit/);
+    await expect(
+      h.pool.sendPrompt(created.id, { text: "x".repeat(1024 * 1024 + 1), whenBusy: "steer" }),
+    ).rejects.toThrow(/frame limit/);
   });
 
   it("审批模式：有进程时拒绝修改，停止后可改，下次启动生效", async () => {
@@ -428,9 +559,17 @@ describe("任务池：进程上限、回收、归档", () => {
 /** 一个一启动就在 marker 文件里留痕的"omp"：用来断言有没有 spawn 过。 */
 async function markerCommand(name: string): Promise<{ command: string; args: string[]; marker: string }> {
   const marker = path.join(scratch, `${name}.spawned`);
-  return { command: process.execPath, args: ["-e", `require("fs").writeFileSync(${JSON.stringify(marker)}, "x")`], marker };
+  return {
+    command: process.execPath,
+    args: ["-e", `require("fs").writeFileSync(${JSON.stringify(marker)}, "x")`],
+    marker,
+  };
 }
-const exists = (file: string) => access(file).then(() => true, () => false);
+const exists = (file: string) =>
+  access(file).then(
+    () => true,
+    () => false,
+  );
 
 describe("任务池：启动过程中的归档和退出（不留孤儿进程、不推幽灵状态）", () => {
   async function gatedHarness() {
@@ -502,7 +641,22 @@ describe("任务池：启动过程中的归档和退出（不留孤儿进程、�
     // 只有 ready，没有 negotiate 的应答：握手卡住，进程活着。
     h.fixtures.push(await inlineFixture("stuck-handshake-base"));
     const stuck = path.join(scratch, "stuck-handshake.ndjson");
-    await writeFile(stuck, JSON.stringify({ kind: "out", frame: { type: "ready", protocolVersion: 1, supportedProtocolVersions: [1, 2], maxFrameBytes: 1048576, maxReassembledFrameBytes: 67108864 } }) + "\n" + JSON.stringify({ kind: "hang" }) + "\n");
+    await writeFile(
+      stuck,
+      JSON.stringify({
+        kind: "out",
+        frame: {
+          type: "ready",
+          protocolVersion: 1,
+          supportedProtocolVersions: [1, 2],
+          maxFrameBytes: 1048576,
+          maxReassembledFrameBytes: 67108864,
+        },
+      }) +
+        "\n" +
+        JSON.stringify({ kind: "hang" }) +
+        "\n",
+    );
     h.fixtures.splice(0, 1, stuck);
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (s) => s.status === "starting");
@@ -517,7 +671,11 @@ describe("任务池：在途命令、已停止任务、刷新", () => {
   it("prompt 的应答还没回来时，15 分钟定时回收和软上限回收都不能关掉它", async () => {
     const h = await harness();
     // prompt 发出去之后 omp 一直不应答。
-    h.fixtures.push(await inlineFixture("inflight-prompt", { tail: [{ kind: "in", frame: { type: "prompt", id: "r9" } }, { kind: "hang" }] }));
+    h.fixtures.push(
+      await inlineFixture("inflight-prompt", {
+        tail: [{ kind: "in", frame: { type: "prompt", id: "r9" } }, { kind: "hang" }],
+      }),
+    );
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (s) => s.status === "idle");
     const t0 = 5_000_000;
@@ -539,7 +697,12 @@ describe("任务池：在途命令、已停止任务、刷新", () => {
     await h.pool.sweep(1 + IDLE_RECYCLE_MS);
     expect(h.pool.listTasks()[0]?.status).toBe("stopped");
     const spawnsBefore = h.launches.length;
-    expect(await h.pool.stopTask(created.id)).toEqual({ steering: [], followUp: [], imagesDropped: false, truncated: false });
+    expect(await h.pool.stopTask(created.id)).toEqual({
+      steering: [],
+      followUp: [],
+      imagesDropped: false,
+      truncated: false,
+    });
     expect(await h.pool.removeQueuedMessage(created.id, "x", "steering")).toBeNull();
     expect(await h.pool.promoteQueuedMessage(created.id, "x")).toBe(false);
     expect(await h.pool.listTaskModels(created.id)).toEqual([]);
@@ -551,9 +714,27 @@ describe("任务池：在途命令、已停止任务、刷新", () => {
     const h = await harness();
     const refresh = (settled: boolean, n: number) => [
       { kind: "in", frame: { type: "get_available_thinking_levels", id: `t${n}` } },
-      { kind: "out", frame: { type: "response", command: "get_available_thinking_levels", id: `t${n}`, success: true, data: { levels: ["off"] } } },
+      {
+        kind: "out",
+        frame: {
+          type: "response",
+          command: "get_available_thinking_levels",
+          id: `t${n}`,
+          success: true,
+          data: { levels: ["off"] },
+        },
+      },
       { kind: "in", frame: { type: "get_state", id: `g${n}` } },
-      { kind: "out", frame: { type: "response", command: "get_state", id: `g${n}`, success: true, data: { sessionId: "s1", isSettled: settled, hasPendingAsyncWork: false } } },
+      {
+        kind: "out",
+        frame: {
+          type: "response",
+          command: "get_state",
+          id: `g${n}`,
+          success: true,
+          data: { sessionId: "s1", isSettled: settled, hasPendingAsyncWork: false },
+        },
+      },
     ];
     h.fixtures.push(
       await inlineFixture("refresh-again", {
@@ -563,7 +744,10 @@ describe("任务池：在途命令、已停止任务、刷新", () => {
           { kind: "out", frame: { type: "response", command: "prompt", id: "r9", success: true } },
           // 同一批里：model_changed 触发刷新，紧接着这一轮 settled。第一次刷新的应答是过期的（未 settled）。
           { kind: "out", frame: { type: "model_changed" } },
-          { kind: "out", frame: { type: "prompt_result", id: "r9", agentInvoked: true, status: "completed", sessionSettled: true } },
+          {
+            kind: "out",
+            frame: { type: "prompt_result", id: "r9", agentInvoked: true, status: "completed", sessionSettled: true },
+          },
           { kind: "out", frame: { type: "session_settled" } },
           ...refresh(false, 1),
           ...refresh(true, 2),
@@ -605,7 +789,9 @@ describe("任务池：在途命令、已停止任务、刷新", () => {
     await h.events.until(created.id, (s) => s.status === "idle");
     await h.pool.sendPrompt(created.id, turn);
     const waiting = await h.events.until(created.id, (s) => s.status === "needs_you");
-    await expect(h.pool.respondDialog(created.id, waiting.dialogs[0]!.id, { kind: "value", value: "好".repeat(400_000) })).rejects.toThrow(/frame limit/);
+    await expect(
+      h.pool.respondDialog(created.id, waiting.dialogs[0]!.id, { kind: "value", value: "好".repeat(400_000) }),
+    ).rejects.toThrow(/frame limit/);
     expect(h.pool.listTasks()[0]).toMatchObject({ status: "needs_you" });
     expect(h.pool.listTasks()[0]?.dialogs).toHaveLength(1);
   });

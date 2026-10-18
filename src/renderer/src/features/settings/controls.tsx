@@ -17,18 +17,57 @@ interface ButtonProps {
   testId?: string;
 }
 
-export function Button({ variant = "secondary", large = false, autoFocus = false, disabled = false, loading = false, onClick, children, testId }: ButtonProps) {
+export function Button({
+  variant = "secondary",
+  large = false,
+  autoFocus = false,
+  disabled = false,
+  loading = false,
+  onClick,
+  children,
+  testId,
+}: ButtonProps) {
   return (
-    <button type="button" className={`st-btn st-btn-${variant}`} data-large={large || undefined} data-loading={loading || undefined} disabled={disabled || loading} autoFocus={autoFocus} onClick={onClick} data-testid={testId}>
+    <button
+      type="button"
+      className={`st-btn st-btn-${variant}`}
+      data-large={large || undefined}
+      data-loading={loading || undefined}
+      disabled={disabled || loading}
+      autoFocus={autoFocus}
+      onClick={onClick}
+      data-testid={testId}
+    >
       <span className="st-btn-label">{children}</span>
       {loading && <span className="st-spinner" aria-hidden="true" />}
     </button>
   );
 }
 
-export function Switch({ checked, disabled = false, labelledBy, onChange, testId }: { checked: boolean; disabled?: boolean; labelledBy: string; onChange(next: boolean): void; testId?: string }) {
+export function Switch({
+  checked,
+  disabled = false,
+  labelledBy,
+  onChange,
+  testId,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  labelledBy: string;
+  onChange(next: boolean): void;
+  testId?: string;
+}) {
   return (
-    <button type="button" role="switch" className="st-switch" aria-checked={checked} aria-labelledby={labelledBy} disabled={disabled} onClick={() => onChange(!checked)} data-testid={testId}>
+    <button
+      type="button"
+      role="switch"
+      className="st-switch"
+      aria-checked={checked}
+      aria-labelledby={labelledBy}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      data-testid={testId}
+    >
       <span className="st-switch-thumb" />
     </button>
   );
@@ -40,9 +79,26 @@ export interface Option<T extends string> {
 }
 
 /** 三五个选项的互斥选择：role=radiogroup，左右键移动并选中。 */
-export function Segmented<T extends string>({ value, options, labelledBy, onChange, testId }: { value: T; options: readonly Option<T>[]; labelledBy: string; onChange(next: T): void; testId?: string }) {
+export function Segmented<T extends string>({
+  value,
+  options,
+  labelledBy,
+  onChange,
+  testId,
+}: {
+  value: T;
+  options: readonly Option<T>[];
+  labelledBy: string;
+  onChange(next: T): void;
+  testId?: string;
+}) {
   const move = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+    const step =
+      event.key === "ArrowRight" || event.key === "ArrowDown"
+        ? 1
+        : event.key === "ArrowLeft" || event.key === "ArrowUp"
+          ? -1
+          : 0;
     if (step === 0) return;
     event.preventDefault();
     const next = options[(index + step + options.length) % options.length];
@@ -70,12 +126,43 @@ export function Segmented<T extends string>({ value, options, labelledBy, onChan
   );
 }
 
-export function Select<T extends string>({ value, options, labelledBy, disabled = false, onChange, testId }: { value: T; options: readonly Option<T>[]; labelledBy: string; disabled?: boolean; onChange(next: T): void; testId?: string }) {
-  return <Dropdown value={value} options={options} labelledBy={labelledBy} disabled={disabled} onChange={onChange} {...(testId !== undefined && { testId })} />;
+export function Select<T extends string>({
+  value,
+  options,
+  labelledBy,
+  disabled = false,
+  onChange,
+  testId,
+}: {
+  value: T;
+  options: readonly Option<T>[];
+  labelledBy: string;
+  disabled?: boolean;
+  onChange(next: T): void;
+  testId?: string;
+}) {
+  return (
+    <Dropdown
+      value={value}
+      options={options}
+      labelledBy={labelledBy}
+      disabled={disabled}
+      onChange={onChange}
+      {...(testId !== undefined && { testId })}
+    />
+  );
 }
 
 /** 一行设置：左边标题（有说明时标题后面一个 ⓘ），右边控件。children 是 (labelId) => 控件，让控件用 aria-labelledby 指向标题。 */
-export function SettingRow({ title, desc, children }: { title: string; desc?: string; children: (labelId: string) => ReactNode }) {
+export function SettingRow({
+  title,
+  desc,
+  children,
+}: {
+  title: string;
+  desc?: string;
+  children: (labelId: string) => ReactNode;
+}) {
   const labelId = useId();
   return (
     <div className="st-row">

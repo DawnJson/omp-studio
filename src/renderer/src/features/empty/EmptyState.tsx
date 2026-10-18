@@ -20,7 +20,10 @@ export function EmptyState() {
 
   // 默认项目 = 最近有操作的任务所在的项目，没有任务时是列表里第一个；用户在菜单里换过就按用户的。
   const fallback = useMemo(() => {
-    const latest = tasks.reduce<(typeof tasks)[number] | null>((best, task) => (best === null || task.updatedAt > best.updatedAt ? task : best), null);
+    const latest = tasks.reduce<(typeof tasks)[number] | null>(
+      (best, task) => (best === null || task.updatedAt > best.updatedAt ? task : best),
+      null,
+    );
     return projects.find((project) => project.id === latest?.projectId) ?? projects[0] ?? null;
   }, [projects, tasks]);
   const project = projects.find((candidate) => candidate.id === pickedId) ?? fallback;
@@ -31,10 +34,12 @@ export function EmptyState() {
   useEffect(() => {
     if (!hasDraft) return;
     const active = document.activeElement;
-    if (active === null || active === document.body) document.querySelector<HTMLElement>("[data-composer-input]")?.focus({ preventScroll: true });
+    if (active === null || active === document.body)
+      document.querySelector<HTMLElement>("[data-composer-input]")?.focus({ preventScroll: true });
   }, [hasDraft]);
 
-  if (!loaded && error === null) return <div className="empty" data-testid="empty-state" data-kind="loading" aria-busy="true" />;
+  if (!loaded && error === null)
+    return <div className="empty" data-testid="empty-state" data-kind="loading" aria-busy="true" />;
   if (!loaded) {
     return (
       <div className="empty" data-testid="empty-state" data-kind="error">
@@ -53,7 +58,12 @@ export function EmptyState() {
       <div className="empty" data-testid="empty-state" data-kind="no-project">
         <div className="empty-card" title={t("empty.chooseProjectHint")}>
           <h1 className="empty-title">{t("empty.chooseProject")}</h1>
-          <button type="button" className="empty-primary" data-testid="empty-open-folder" onClick={() => void openFolderAsDraft(t)}>
+          <button
+            type="button"
+            className="empty-primary"
+            data-testid="empty-open-folder"
+            onClick={() => void openFolderAsDraft(t)}
+          >
             {t("empty.openFolder")}
           </button>
         </div>
@@ -66,7 +76,9 @@ export function EmptyState() {
     <div className="empty" data-testid="empty-state" data-kind="project">
       <div className="empty-head">
         <ProjectSwitcher projects={projects} current={project} onPick={(next) => pickDraftProject(next.id)} />
-        <span className="empty-path" title={project.path}>{project.path}</span>
+        <span className="empty-path" title={project.path}>
+          {project.path}
+        </span>
       </div>
       <div className="empty-draft" data-testid="empty-draft">
         <DraftComposer projectId={project.id} />

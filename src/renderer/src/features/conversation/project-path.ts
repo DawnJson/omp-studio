@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 let cache: Promise<Map<string, string>> | null = null;
 
 function projectPaths(): Promise<Map<string, string>> {
-  cache ??= window.studio.listProjects().then((projects) => new Map(projects.map((project) => [project.id, project.path])));
+  cache ??= window.studio
+    .listProjects()
+    .then((projects) => new Map(projects.map((project) => [project.id, project.path])));
   return cache;
 }
 

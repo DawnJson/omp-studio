@@ -55,8 +55,16 @@ export async function installBuild(layout: ManagedLayout, options: InstallOption
   await mkdir(layout.binDir, { recursive: true });
   const target = versionExe(layout, build.version);
   // 同版本已经校验过地放在 versions/ 里就不重复下载（下载总是先写 .partial，改名才算校验通过）。
-  if (!(await stat(target).then((s) => s.isFile(), () => false))) {
-    const patched = build.patch !== null && options.fromExe !== undefined && (await installFromPatch(options, build.patch, options.fromExe, target));
+  if (
+    !(await stat(target).then(
+      (s) => s.isFile(),
+      () => false,
+    ))
+  ) {
+    const patched =
+      build.patch !== null &&
+      options.fromExe !== undefined &&
+      (await installFromPatch(options, build.patch, options.fromExe, target));
     if (!patched) {
       await downloadVerified({
         fetch: options.fetch,
@@ -78,7 +86,12 @@ export async function installBuild(layout: ManagedLayout, options: InstallOption
  * 下补丁（约 30 MB，全量 220 MB）并应用到 fromExe，结果和 build 的 size、sha256 都对上才改名成 target。
  * 补丁不适用或任何一步失败都返回 false，由调用方退回全量下载（PLAN 第 3 节：补丁不可用时退回全量）；用户取消照常抛出。
  */
-async function installFromPatch(options: InstallOptions, patch: BuildPatch, fromExe: string, target: string): Promise<boolean> {
+async function installFromPatch(
+  options: InstallOptions,
+  patch: BuildPatch,
+  fromExe: string,
+  target: string,
+): Promise<boolean> {
   const { signal } = options;
   const patchFile = `${target}.patch`;
   const partial = `${target}.partial`;
@@ -87,12 +100,16 @@ async function installFromPatch(options: InstallOptions, patch: BuildPatch, from
     await downloadVerified({ fetch: options.fetch, source: patch, dest: patchFile, signal });
     await applySingleStreamPatch({ oldPath: fromExe, patchPath: patchFile, outPath: partial, signal });
     const result = await hashFile(partial);
-    if (result.size !== options.build.file.size || result.sha256 !== options.build.file.sha256) throw new VerifyError("the patched file does not match the build");
+    if (result.size !== options.build.file.size || result.sha256 !== options.build.file.sha256)
+      throw new VerifyError("the patched file does not match the build");
     await rename(partial, target);
     return true;
   } catch (error) {
     if (signal?.aborted) throw error;
-    log.warn("omp patch update failed, downloading the full build instead", error instanceof Error ? error.message : error);
+    log.warn(
+      "omp patch update failed, downloading the full build instead",
+      error instanceof Error ? error.message : error,
+    );
     return false;
   } finally {
     await rm(patchFile, { force: true });
@@ -120,7 +137,10 @@ async function hashFile(file: string): Promise<{ size: number; sha256: string }>
 export async function activateVersion(layout: ManagedLayout, version: string): Promise<void> {
   const staging = path.join(layout.binDir, `.omp.exe.new-${process.pid}`);
   await copyFile(versionExe(layout, version), staging);
-  const hadOld = await stat(layout.binExe).then(() => true, () => false);
+  const hadOld = await stat(layout.binExe).then(
+    () => true,
+    () => false,
+  );
   const old = path.join(layout.binDir, `.omp.exe.old-${Date.now()}`);
   try {
     if (hadOld) await rename(layout.binExe, old);
@@ -142,17 +162,28 @@ export async function sweepOldBinaries(layout: ManagedLayout): Promise<void> {
     // bin 还不存在：没装过，没有东西可清。
     return;
   }
-  await Promise.all(names.filter((name) => name.startsWith(".omp.exe.old-") || name.startsWith(".omp.exe.new-")).map((name) => rm(path.join(layout.binDir, name), { force: true }).catch(() => {})));
+  await Promise.all(
+    names
+      .filter((name) => name.startsWith(".omp.exe.old-") || name.startsWith(".omp.exe.new-"))
+      .map((name) => rm(path.join(layout.binDir, name), { force: true }).catch(() => {})),
+  );
 }
 
 /** versions/ 里只留最近 KEEP_VERSIONS 个（按版本号），当前版本一定保留；遗留的 .partial 和补丁一并删掉。 */
 export async function pruneVersions(layout: ManagedLayout, currentVersion: string): Promise<void> {
   const ext = path.extname(layout.binExe);
   const names = await readdir(layout.versionsDir);
-  await Promise.all(names.filter((name) => name.endsWith(".partial") || name.endsWith(".patch")).map((name) => rm(path.join(layout.versionsDir, name), { force: true })));
+  await Promise.all(
+    names
+      .filter((name) => name.endsWith(".partial") || name.endsWith(".patch"))
+      .map((name) => rm(path.join(layout.versionsDir, name), { force: true })),
+  );
   const versions = names.filter((name) => name.endsWith(ext)).map((name) => name.slice(0, name.length - ext.length));
   // 当前版本一定留，占一个名额；其余按版本号从新到旧补满。
-  const kept = [currentVersion, ...versions.filter((version) => version !== currentVersion).sort((a, b) => compareVersions(b, a))].slice(0, KEEP_VERSIONS);
+  const kept = [
+    currentVersion,
+    ...versions.filter((version) => version !== currentVersion).sort((a, b) => compareVersions(b, a)),
+  ].slice(0, KEEP_VERSIONS);
   const removable = versions.filter((version) => !kept.includes(version));
   await Promise.all(removable.map((version) => rm(path.join(layout.versionsDir, `${version}${ext}`), { force: true })));
 }

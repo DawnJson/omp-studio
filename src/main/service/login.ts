@@ -28,7 +28,8 @@ export async function startLogin(providerId: string): Promise<LoginOutcome> {
   active = login;
   try {
     await serviceOmp.use(async (connection) => {
-      login.respond = (frame) => connection.send({ type: "extension_ui_response", ...frame } as Parameters<typeof connection.send>[0]);
+      login.respond = (frame) =>
+        connection.send({ type: "extension_ui_response", ...frame } as Parameters<typeof connection.send>[0]);
       const stop = connection.onFrame((frame) => {
         if (frame.type !== "extension_ui_request") return;
         switch (frame.method) {
@@ -36,7 +37,12 @@ export async function startLogin(providerId: string): Promise<LoginOutcome> {
             // omp 给的 URL 也当不可信：只放行 http/https。
             const url = parseExternalUrl(frame.url);
             void shell.openExternal(url);
-            emitEvent("login", { type: "open_url", url, ...(frame.launchUrl !== undefined && { launchUrl: frame.launchUrl }), ...(frame.instructions !== undefined && { instructions: frame.instructions }) });
+            emitEvent("login", {
+              type: "open_url",
+              url,
+              ...(frame.launchUrl !== undefined && { launchUrl: frame.launchUrl }),
+              ...(frame.instructions !== undefined && { instructions: frame.instructions }),
+            });
             break;
           }
           case "notify":
@@ -44,7 +50,12 @@ export async function startLogin(providerId: string): Promise<LoginOutcome> {
             break;
           case "input":
             login.pendingInputs.add(frame.id);
-            emitEvent("login", { type: "input", inputId: frame.id, title: frame.title, ...(frame.placeholder !== undefined && { placeholder: frame.placeholder }) });
+            emitEvent("login", {
+              type: "input",
+              inputId: frame.id,
+              title: frame.title,
+              ...(frame.placeholder !== undefined && { placeholder: frame.placeholder }),
+            });
             break;
           case "cancel":
             login.pendingInputs.delete(frame.targetId);
@@ -68,7 +79,8 @@ export async function startLogin(providerId: string): Promise<LoginOutcome> {
     return { ok: true, providerId };
   } catch (error) {
     if (login.cancelled) return { ok: false, message: "cancelled" };
-    if (error instanceof RpcCommandError || error instanceof OmpExitedError) return { ok: false, message: error.message };
+    if (error instanceof RpcCommandError || error instanceof OmpExitedError)
+      return { ok: false, message: error.message };
     throw error;
   } finally {
     active = null;

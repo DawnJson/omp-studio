@@ -10,7 +10,8 @@ import { releaseNotes } from "./changelog.ts";
 const root = path.resolve(import.meta.dirname, "..");
 const out = path.resolve(process.argv[2] ?? path.join(root, "release", "feed"));
 const pkg: unknown = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
-if (typeof pkg !== "object" || pkg === null || !("version" in pkg) || typeof pkg.version !== "string") throw new Error("package.json 里没有 version");
+if (typeof pkg !== "object" || pkg === null || !("version" in pkg) || typeof pkg.version !== "string")
+  throw new Error("package.json 里没有 version");
 const version = pkg.version;
 const name = `omp-studio-${version}-setup.exe`;
 const installer = path.join(root, "release", name);
@@ -21,10 +22,18 @@ const size = await stat(installer).then(
     throw new Error(`找不到 ${installer}，先跑 npm run dist`);
   },
 );
-const sha512 = createHash("sha512").update(await readFile(installer)).digest("base64");
+const sha512 = createHash("sha512")
+  .update(await readFile(installer))
+  .digest("base64");
 const notes = releaseNotes(await readFile(path.join(root, "CHANGELOG.md"), "utf8"), version);
 if (notes === null) console.warn(`CHANGELOG.md 里没有 ${version} 一节，latest.yml 不带 releaseNotes`);
-const notesYaml = notes === null ? "" : `releaseNotes: |\n${notes.split("\n").map((line) => (line === "" ? "" : `  ${line}`)).join("\n")}\n`;
+const notesYaml =
+  notes === null
+    ? ""
+    : `releaseNotes: |\n${notes
+        .split("\n")
+        .map((line) => (line === "" ? "" : `  ${line}`))
+        .join("\n")}\n`;
 
 await mkdir(out, { recursive: true });
 await copyFile(installer, path.join(out, name));

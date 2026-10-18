@@ -63,7 +63,13 @@ function ranked<T>(items: readonly T[], score: (item: T) => number | null, limit
 export function buildSections(input: PaletteInput): PaletteSection[] {
   const query = input.query.trim();
   const byRecent = [...input.tasks].sort((a, b) => b.updatedAt - a.updatedAt);
-  const commandRow = (command: CommandEntry, indices: number[] = []): PaletteRow => ({ kind: "command", key: `command:${command.id}`, title: command.label, indices, command });
+  const commandRow = (command: CommandEntry, indices: number[] = []): PaletteRow => ({
+    kind: "command",
+    key: `command:${command.id}`,
+    title: command.label,
+    indices,
+    command,
+  });
   const taskRow = (task: TaskState, indices: number[] = []): PaletteRow => ({
     kind: "task",
     key: `task:${task.id}`,
@@ -96,14 +102,21 @@ export function buildSections(input: PaletteInput): PaletteSection[] {
       send: hasArgs || command.input === undefined,
     }));
     // 列表里没有（还没载入或别名）时仍允许把输入原样当消息发出去。
-    if (rows.length === 0) rows.push({ kind: "slash", key: "slash", title: query, subtitle: "", indices: [], text: query, send: true });
+    if (rows.length === 0)
+      rows.push({ kind: "slash", key: "slash", title: query, subtitle: "", indices: [], text: query, send: true });
     return [{ id: "slash", rows }];
   }
 
-  const tasks = ranked(byRecent, (task) => fuzzyMatch(query, `${input.taskTitle(task)} ${input.projectLabel(task.projectId)}`)?.score ?? null, sectionLimit).map((task) =>
-    taskRow(task, fuzzyMatch(query, input.taskTitle(task))?.indices ?? []),
-  );
-  const sessions = ranked(input.sessions, (session) => fuzzyMatch(query, input.sessionTitle(session))?.score ?? null, sectionLimit).map<PaletteRow>((session) => ({
+  const tasks = ranked(
+    byRecent,
+    (task) => fuzzyMatch(query, `${input.taskTitle(task)} ${input.projectLabel(task.projectId)}`)?.score ?? null,
+    sectionLimit,
+  ).map((task) => taskRow(task, fuzzyMatch(query, input.taskTitle(task))?.indices ?? []));
+  const sessions = ranked(
+    input.sessions,
+    (session) => fuzzyMatch(query, input.sessionTitle(session))?.score ?? null,
+    sectionLimit,
+  ).map<PaletteRow>((session) => ({
     kind: "session",
     key: `session:${session.id}`,
     title: input.sessionTitle(session),
@@ -111,9 +124,11 @@ export function buildSections(input: PaletteInput): PaletteSection[] {
     indices: fuzzyMatch(query, input.sessionTitle(session))?.indices ?? [],
     session,
   }));
-  const commands = ranked(input.commands, (command) => fuzzyMatch(query, command.label)?.score ?? null, input.commands.length).map((command) =>
-    commandRow(command, fuzzyMatch(query, command.label)?.indices ?? []),
-  );
+  const commands = ranked(
+    input.commands,
+    (command) => fuzzyMatch(query, command.label)?.score ?? null,
+    input.commands.length,
+  ).map((command) => commandRow(command, fuzzyMatch(query, command.label)?.indices ?? []));
 
   return [
     { id: "tasks" as const, rows: tasks },

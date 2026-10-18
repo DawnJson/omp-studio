@@ -19,7 +19,8 @@ interface LiveProps {
 }
 
 function liveText(turn: Turn, live: LiveProps, now: number, t: TFunction): string {
-  if (live.status === "needs_you") return t("process.waiting", { duration: formatDuration(t, now - (live.waitingSince ?? now)) });
+  if (live.status === "needs_you")
+    return t("process.waiting", { duration: formatDuration(t, now - (live.waitingSince ?? now)) });
   if (live.status === "starting") return t("process.starting");
   const running = [...turn.steps].reverse().find((step) => step.kind === "tool" && step.status === "running");
   let text: string;
@@ -28,7 +29,9 @@ function liveText(turn: Turn, live: LiveProps, now: number, t: TFunction): strin
   else if (running && running.kind === "tool") text = toolLabel(running, t);
   else if (turn.liveKind === "text") text = t("process.replying");
   else text = t("process.thinking");
-  return live.subagentsRunning > 0 ? `${text} · ${t("process.subagentsRunning", { count: live.subagentsRunning })}` : text;
+  return live.subagentsRunning > 0
+    ? `${text} · ${t("process.subagentsRunning", { count: live.subagentsRunning })}`
+    : text;
 }
 
 /** 淡入动画只在"换了一件事"时重放：等待的倒计时文字每秒变，但 key 不变，节点不重挂载。 */
@@ -47,9 +50,16 @@ export function ProcessRow({ turn, live }: { turn: Turn; live: LiveProps | null 
     const waiting = live.status === "needs_you";
     return (
       <div className="process" data-anchor data-state="live" data-testid="process-live">
-        <button type="button" className="process-row" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
+        <button
+          type="button"
+          className="process-row"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
           <span className="process-dot" data-waiting={waiting || undefined} aria-hidden="true" />
-          <span className="process-text" key={liveKey(turn, live)}>{liveText(turn, live, now, t)}</span>
+          <span className="process-text" key={liveKey(turn, live)}>
+            {liveText(turn, live, now, t)}
+          </span>
           {!waiting && <span className="process-time">{formatClock(now - turn.startedAt)}</span>}
           <ChevronRight size={14} className="process-chevron" data-open={expanded || undefined} />
         </button>
@@ -61,14 +71,28 @@ export function ProcessRow({ turn, live }: { turn: Turn; live: LiveProps | null 
   const worked = turn.endedAt - turn.startedAt;
   // 不足 1 秒或 0 次工具调用的轮次不显示这一行。
   if (worked < 1000 || turn.toolCalls === 0) return null;
-  const parts: string[] = [t("process.done", { duration: formatDuration(t, worked) }), t("process.toolCalls", { count: turn.toolCalls })];
+  const parts: string[] = [
+    t("process.done", { duration: formatDuration(t, worked) }),
+    t("process.toolCalls", { count: turn.toolCalls }),
+  ];
   if (turn.subagents > 0) parts.push(t("process.subagents", { count: turn.subagents }));
   return (
     <div className="process" data-anchor data-state="done" data-testid="process-done">
-      <button type="button" className="process-row" data-done aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
+      <button
+        type="button"
+        className="process-row"
+        data-done
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+      >
         <ChevronRight size={14} className="process-chevron" data-open={expanded || undefined} />
         <span className="process-text">{parts.join(" · ")}</span>
-        {turn.failures > 0 && <span className="process-fail">{" · "}{t("process.failures", { count: turn.failures })}</span>}
+        {turn.failures > 0 && (
+          <span className="process-fail">
+            {" · "}
+            {t("process.failures", { count: turn.failures })}
+          </span>
+        )}
       </button>
       {expanded && <ProcessDetails steps={turn.steps} />}
     </div>

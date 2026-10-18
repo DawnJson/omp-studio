@@ -6,7 +6,11 @@ import { openFolderAsDraft } from "./actions.ts";
 
 const recentProjectLimit = 8;
 
-export function ProjectSwitcher(props: { projects: readonly Project[]; current: Project; onPick(project: Project): void }) {
+export function ProjectSwitcher(props: {
+  projects: readonly Project[];
+  current: Project;
+  onPick(project: Project): void;
+}) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -14,7 +18,7 @@ export function ProjectSwitcher(props: { projects: readonly Project[]; current: 
 
   useEffect(() => {
     if (!open) return;
-    rootRef.current?.querySelector<HTMLElement>("[role^=\"menuitem\"]")?.focus();
+    rootRef.current?.querySelector<HTMLElement>('[role^="menuitem"]')?.focus();
     const onPointerDown = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -31,7 +35,7 @@ export function ProjectSwitcher(props: { projects: readonly Project[]; current: 
     props.onPick(project);
   };
   const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const items = [...event.currentTarget.querySelectorAll<HTMLElement>("[role^=\"menuitem\"]")];
+    const items = [...event.currentTarget.querySelectorAll<HTMLElement>('[role^="menuitem"]')];
     const at = items.indexOf(document.activeElement as HTMLElement);
     const move = (next: number) => {
       event.preventDefault();
@@ -69,7 +73,14 @@ export function ProjectSwitcher(props: { projects: readonly Project[]; current: 
       {open && (
         <div className="empty-menu" role="menu" onKeyDown={onMenuKeyDown}>
           {props.projects.slice(0, recentProjectLimit).map((project) => (
-            <button key={project.id} type="button" role="menuitemradio" aria-checked={project.id === props.current.id} className="empty-menu-item" onClick={() => choose(project)}>
+            <button
+              key={project.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={project.id === props.current.id}
+              className="empty-menu-item"
+              onClick={() => choose(project)}
+            >
               {project.name}
             </button>
           ))}

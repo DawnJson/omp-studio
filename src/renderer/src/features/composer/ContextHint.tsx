@@ -13,10 +13,25 @@ export function ContextHint({ task }: { task: TaskState }) {
   const shown = Math.min(100, Math.round(percent));
   return (
     <div className="pop-anchor">
-      <button type="button" className="context-hint" data-high={percent >= 90 || undefined} title={t("composer.context.tip")} aria-haspopup="dialog" aria-expanded={open} data-testid="context-hint" onClick={() => setOpen((value) => !value)}>
+      <button
+        type="button"
+        className="context-hint"
+        data-high={percent >= 90 || undefined}
+        title={t("composer.context.tip")}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        data-testid="context-hint"
+        onClick={() => setOpen((value) => !value)}
+      >
         {t("composer.context", { p: shown })}
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} width={240} align="end" label={t("composer.context", { p: shown })}>
+      <Popover
+        open={open}
+        onClose={() => setOpen(false)}
+        width={240}
+        align="end"
+        label={t("composer.context", { p: shown })}
+      >
         <div className="pop-section">
           <button
             type="button"

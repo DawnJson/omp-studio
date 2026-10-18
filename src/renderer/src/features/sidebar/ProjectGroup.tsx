@@ -48,7 +48,12 @@ export function ProjectGroup(props: ProjectGroupProps) {
         className="sb-group-head"
         onContextMenu={(event) => {
           event.preventDefault();
-          props.onOpenProjectMenu(project, event.clientX, event.clientY, event.currentTarget.querySelector<HTMLElement>(".sb-group-toggle") ?? event.currentTarget);
+          props.onOpenProjectMenu(
+            project,
+            event.clientX,
+            event.clientY,
+            event.currentTarget.querySelector<HTMLElement>(".sb-group-toggle") ?? event.currentTarget,
+          );
         }}
       >
         <button
@@ -83,7 +88,14 @@ export function ProjectGroup(props: ProjectGroupProps) {
             </span>
           )}
         </button>
-        <button type="button" className="sb-icon-btn sb-group-action" tabIndex={-1} aria-label={t("sidebar.newInProject")} title={t("sidebar.newInProject")} onClick={() => props.onNewTask(project)}>
+        <button
+          type="button"
+          className="sb-icon-btn sb-group-action"
+          tabIndex={-1}
+          aria-label={t("sidebar.newInProject")}
+          title={t("sidebar.newInProject")}
+          onClick={() => props.onNewTask(project)}
+        >
           <PlusIcon />
         </button>
         <button
@@ -114,7 +126,14 @@ export function ProjectGroup(props: ProjectGroupProps) {
             />
           ))}
           {remaining > 0 && (
-            <button type="button" className="sb-show-more" data-nav={`more:${project.id}`} tabIndex={props.tabStopId === `more:${project.id}` ? 0 : -1} onFocus={() => rows.onFocusItem(`more:${project.id}`)} onClick={() => props.onShowMore(project)}>
+            <button
+              type="button"
+              className="sb-show-more"
+              data-nav={`more:${project.id}`}
+              tabIndex={props.tabStopId === `more:${project.id}` ? 0 : -1}
+              onFocus={() => rows.onFocusItem(`more:${project.id}`)}
+              onClick={() => props.onShowMore(project)}
+            >
               {t("sidebar.showMore", { n: Math.min(remaining, showMoreStep) })}
             </button>
           )}

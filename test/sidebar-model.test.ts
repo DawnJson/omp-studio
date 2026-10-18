@@ -9,7 +9,18 @@ import { dotKind, groupTasks, nextWaitingTask, projectLabels, waitingTasks } fro
 
 const project = (id: string, path: string, name: string): Project => ({ id: id as ProjectId, path, name });
 const task = (id: string, projectId: string, patch: Partial<TaskState> = {}): TaskState =>
-  ({ id: id as TaskId, projectId: projectId as ProjectId, title: id, status: "idle", unread: false, lastTurn: null, createdAt: 1, updatedAt: 1, runningSubagents: 0, ...patch }) as TaskState;
+  ({
+    id: id as TaskId,
+    projectId: projectId as ProjectId,
+    title: id,
+    status: "idle",
+    unread: false,
+    lastTurn: null,
+    createdAt: 1,
+    updatedAt: 1,
+    runningSubagents: 0,
+    ...patch,
+  }) as TaskState;
 
 describe("projectLabels", () => {
   it("重名项目带上级目录，不重名的保持原名；路径可含空格、中文和两种斜杠", () => {
@@ -18,7 +29,11 @@ describe("projectLabels", () => {
       project("b", "E:/个人/app", "app"),
       project("c", "E:\\other", "other"),
     ]);
-    expect([labels.get("a" as ProjectId), labels.get("b" as ProjectId), labels.get("c" as ProjectId)]).toEqual(["工作 区/app", "个人/app", "other"]);
+    expect([labels.get("a" as ProjectId), labels.get("b" as ProjectId), labels.get("c" as ProjectId)]).toEqual([
+      "工作 区/app",
+      "个人/app",
+      "other",
+    ]);
   });
 });
 
@@ -28,7 +43,12 @@ describe("groupTasks", () => {
   it("任务归到自己的项目，按最近操作排序，归档中的任务不出现，空项目保留", () => {
     const groups = groupTasks(
       projects,
-      [task("old", "p1", { updatedAt: 1 }), task("new", "p1", { updatedAt: 9 }), task("gone", "p1", { updatedAt: 99 }), task("other", "p2")],
+      [
+        task("old", "p1", { updatedAt: 1 }),
+        task("new", "p1", { updatedAt: 9 }),
+        task("gone", "p1", { updatedAt: 99 }),
+        task("other", "p2"),
+      ],
       new Set(["gone" as TaskId]),
     );
     expect(groups.map((g) => g.tasks.map((x) => x.id))).toEqual([["new", "old"], ["other"]]);
@@ -41,7 +61,11 @@ describe("groupTasks", () => {
 });
 
 describe("等你确认", () => {
-  const tasks = [task("a", "p", { status: "needs_you", updatedAt: 5 }), task("b", "p", { status: "needs_you", updatedAt: 2 }), task("c", "p", { status: "running" })];
+  const tasks = [
+    task("a", "p", { status: "needs_you", updatedAt: 5 }),
+    task("b", "p", { status: "needs_you", updatedAt: 2 }),
+    task("c", "p", { status: "running" }),
+  ];
 
   it("等得最久的在前；依次跳转并循环；当前不在等待列表时跳到最早的", () => {
     const waiting = waitingTasks(tasks, new Set());
@@ -82,7 +106,15 @@ describe("fuzzyMatch", () => {
 
 describe("buildSections", () => {
   const command = (id: string, label: string): CommandEntry => ({ id, label, run: () => {} });
-  const session: SessionSummary = { id: "s1", title: "整理 日志", firstPrompt: null, cwd: "E:\\未加入 项目", projectId: null, modifiedAt: 1, taskId: null };
+  const session: SessionSummary = {
+    id: "s1",
+    title: "整理 日志",
+    firstPrompt: null,
+    cwd: "E:\\未加入 项目",
+    projectId: null,
+    modifiedAt: 1,
+    taskId: null,
+  };
   const tasks = Array.from({ length: 7 }, (_, i) => task(`t${i}`, "p1", { title: `任务 ${i}`, updatedAt: i }));
   const base = {
     tasks,
@@ -113,7 +145,9 @@ describe("buildSections", () => {
       { name: "model", source: "builtin" as const, input: { hint: "<模型>" } },
     ];
     const rows = (query: string, extra = {}) => buildSections({ ...base, slashCommands, query, ...extra })[0]?.rows;
-    expect(rows("/comp")).toEqual([expect.objectContaining({ kind: "slash", text: "/compact", send: true, subtitle: "压缩上下文" })]);
+    expect(rows("/comp")).toEqual([
+      expect.objectContaining({ kind: "slash", text: "/compact", send: true, subtitle: "压缩上下文" }),
+    ]);
     expect(rows("/model")).toEqual([expect.objectContaining({ text: "/model", send: false })]);
     expect(rows("/model gpt-5")).toEqual([expect.objectContaining({ text: "/model gpt-5", send: true })]);
     expect(rows("/zzz")).toEqual([expect.objectContaining({ text: "/zzz", send: true })]);

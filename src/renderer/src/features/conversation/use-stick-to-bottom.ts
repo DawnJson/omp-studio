@@ -24,7 +24,11 @@ export interface StickToBottom {
   scrollToBottom(): void;
 }
 
-export function useStickToBottom(taskId: TaskId, scroller: RefObject<HTMLElement | null>, content: RefObject<HTMLElement | null>): StickToBottom {
+export function useStickToBottom(
+  taskId: TaskId,
+  scroller: RefObject<HTMLElement | null>,
+  content: RefObject<HTMLElement | null>,
+): StickToBottom {
   const stuck = useRef(true);
   const lastProgrammaticTop = useRef(-1);
   const lastTop = useRef(0);
@@ -58,7 +62,9 @@ export function useStickToBottom(taskId: TaskId, scroller: RefObject<HTMLElement
     const root = content.current;
     if (!el || !root || stuck.current) return;
     const top = el.getBoundingClientRect().top;
-    const candidate = [...root.querySelectorAll("[data-anchor]")].find((node) => node.getBoundingClientRect().bottom > top + 1);
+    const candidate = [...root.querySelectorAll("[data-anchor]")].find(
+      (node) => node.getBoundingClientRect().bottom > top + 1,
+    );
     anchor.current = candidate ? { element: candidate, offset: candidate.getBoundingClientRect().top - top } : null;
   }, [scroller, content]);
 
@@ -118,7 +124,8 @@ export function useStickToBottom(taskId: TaskId, scroller: RefObject<HTMLElement
       }
       if (widthChanged && anchor.current?.element.isConnected) {
         // 窗口缩放重排：让锚点块回到原来的视口偏移。
-        const delta = anchor.current.element.getBoundingClientRect().top - el.getBoundingClientRect().top - anchor.current.offset;
+        const delta =
+          anchor.current.element.getBoundingClientRect().top - el.getBoundingClientRect().top - anchor.current.offset;
         if (Math.abs(delta) > 0.5) el.scrollTop += delta;
         lastProgrammaticTop.current = el.scrollTop;
       } else if (grew) {

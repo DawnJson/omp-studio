@@ -37,7 +37,12 @@ export function resolveOmp(input: ResolveInput): Decision {
 
   // omp-studio 自己管理的直接用；onUserPath 由 manager.ts 补上。
   if (scan.kind === "exe" && isStudioManager(scan.install)) {
-    return { action: "use", path: scan.install.path, version: scan.install.version, source: { kind: "studio_managed", onUserPath: true } };
+    return {
+      action: "use",
+      path: scan.install.path,
+      version: scan.install.version,
+      source: { kind: "studio_managed", onUserPath: true },
+    };
   }
 
   // 用户自装的和别的管理者（如 Tern）管理的，都问一次要不要接管；回答按 exe 路径记。
@@ -48,7 +53,8 @@ export function resolveOmp(input: ResolveInput): Decision {
   if (answer === "accepted") return { action: "use_managed", reason: "takeover" };
   if (answer === "declined") {
     if (scan.kind === "script") return { action: "unusable", path: scan.path };
-    const source: OmpSource = managerName === null ? { kind: "user_installed" } : { kind: "managed_by_other", managerName };
+    const source: OmpSource =
+      managerName === null ? { kind: "user_installed" } : { kind: "managed_by_other", managerName };
     return { action: "use", path: scan.install.path, version: scan.install.version, source };
   }
   return {

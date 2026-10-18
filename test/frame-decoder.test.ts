@@ -8,7 +8,14 @@ function chunked(value: object, chunkId: string, partBytes: number) {
   const bytes = Buffer.from(JSON.stringify(value));
   const parts: Buffer[] = [];
   for (let i = 0; i < bytes.length; i += partBytes) parts.push(bytes.subarray(i, i + partBytes));
-  return parts.map((part, index) => ({ type: "rpc_chunk", chunkId, index, count: parts.length, byteLength: bytes.length, data: part.toString("base64") }));
+  return parts.map((part, index) => ({
+    type: "rpc_chunk",
+    chunkId,
+    index,
+    count: parts.length,
+    byteLength: bytes.length,
+    data: part.toString("base64"),
+  }));
 }
 
 describe("FrameDecoder", () => {
@@ -53,7 +60,10 @@ describe("FrameDecoder", () => {
 
   it("rejects a sequence whose parts add up to a different byteLength", () => {
     const decoder = new FrameDecoder(1024 * 1024);
-    const chunks = chunked({ type: "response" }, "rpc-1", 4).map((chunk) => ({ ...chunk, byteLength: chunk.byteLength + 1 }));
+    const chunks = chunked({ type: "response" }, "rpc-1", 4).map((chunk) => ({
+      ...chunk,
+      byteLength: chunk.byteLength + 1,
+    }));
     expect(() => chunks.forEach((chunk) => decoder.push(line(chunk)))).toThrow(/shorter/);
   });
 

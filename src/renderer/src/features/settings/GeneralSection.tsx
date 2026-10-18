@@ -47,19 +47,58 @@ export function GeneralSection() {
     <>
       <Card>
         <SettingRow title={t("settings.language")}>
-          {(labelId) => <Segmented<LocalePreference> value={settings?.locale ?? "system"} options={localeOptions} labelledBy={labelId} onChange={(next) => void window.studio.setLocale(next)} testId="setting-language" />}
+          {(labelId) => (
+            <Segmented<LocalePreference>
+              value={settings?.locale ?? "system"}
+              options={localeOptions}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setLocale(next)}
+              testId="setting-language"
+            />
+          )}
         </SettingRow>
         <SettingRow title={t("settings.theme")}>
-          {(labelId) => <Segmented<ThemePreference> value={settings?.theme ?? "system"} options={themeOptions} labelledBy={labelId} onChange={(next) => void window.studio.setTheme(next)} testId="setting-theme" />}
+          {(labelId) => (
+            <Segmented<ThemePreference>
+              value={settings?.theme ?? "system"}
+              options={themeOptions}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setTheme(next)}
+              testId="setting-theme"
+            />
+          )}
         </SettingRow>
         <SettingRow title={t("settings.motion")} desc={t("settings.motion.desc")}>
-          {(labelId) => <Switch checked={(settings?.reduceMotion ?? false) || systemMotion} disabled={systemMotion} labelledBy={labelId} onChange={(next) => void window.studio.setReduceMotion(next)} testId="setting-motion" />}
+          {(labelId) => (
+            <Switch
+              checked={(settings?.reduceMotion ?? false) || systemMotion}
+              disabled={systemMotion}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setReduceMotion(next)}
+              testId="setting-motion"
+            />
+          )}
         </SettingRow>
         <SettingRow title={t("settings.enterBehavior")} desc={t("settings.enterBehavior.desc")}>
-          {(labelId) => <Segmented<"steer" | "followUp"> value={settings?.enterWhileRunning ?? "steer"} options={enterOptions} labelledBy={labelId} onChange={(next) => void window.studio.setEnterWhileRunning(next)} testId="setting-enter" />}
+          {(labelId) => (
+            <Segmented<"steer" | "followUp">
+              value={settings?.enterWhileRunning ?? "steer"}
+              options={enterOptions}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setEnterWhileRunning(next)}
+              testId="setting-enter"
+            />
+          )}
         </SettingRow>
         <SettingRow title={t("settings.notifyWaiting")} desc={t("settings.notifyWaiting.desc")}>
-          {(labelId) => <Switch checked={settings?.notifyOnGate ?? true} labelledBy={labelId} onChange={(next) => void window.studio.setNotifyOnGate(next)} testId="setting-notify" />}
+          {(labelId) => (
+            <Switch
+              checked={settings?.notifyOnGate ?? true}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setNotifyOnGate(next)}
+              testId="setting-notify"
+            />
+          )}
         </SettingRow>
       </Card>
       <h3 id="settings-shortcuts" tabIndex={-1} className="settings-group-title">

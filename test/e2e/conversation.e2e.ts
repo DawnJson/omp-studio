@@ -13,7 +13,12 @@ const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
 
 interface Line {
   kind: string;
-  frame?: { type?: string; method?: string; message?: { role?: string; content?: { type: string; text?: string }[] }; assistantMessageEvent?: { type?: string } };
+  frame?: {
+    type?: string;
+    method?: string;
+    message?: { role?: string; content?: { type: string; text?: string }[] };
+    assistantMessageEvent?: { type?: string };
+  };
 }
 
 async function readFixture(name: string): Promise<{ raw: string[]; lines: Line[] }> {
@@ -54,20 +59,32 @@ async function gateFixture(name: string): Promise<string> {
 async function finalAnswer(name: string): Promise<string> {
   const { lines } = await readFixture(name);
   const ends = lines.filter((line) => line.frame?.type === "message_end" && line.frame.message?.role === "assistant");
-  const texts = ends.map((line) => (line.frame?.message?.content ?? []).filter((block) => block.type === "text").map((block) => block.text ?? "").join("\n").trim());
+  const texts = ends.map((line) =>
+    (line.frame?.message?.content ?? [])
+      .filter((block) => block.type === "text")
+      .map((block) => block.text ?? "")
+      .join("\n")
+      .trim(),
+  );
   return texts.filter((text) => text !== "").at(-1) ?? "";
 }
 
 /** 渲染后的文字里没有 Markdown 标记，对照时把标记去掉。 */
 const plain = (markdown: string) => markdown.replace(/[`*_]/g, "").replace(/\s+/g, " ").trim();
 
-async function start(fixtureText: string | null, fixtureName: string): Promise<{ launched: LaunchedApp; cleanup(): Promise<void> }> {
+async function start(
+  fixtureText: string | null,
+  fixtureName: string,
+): Promise<{ launched: LaunchedApp; cleanup(): Promise<void> }> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp 对话 e2e-"));
   const project = path.join(work, "项目 目录");
   await mkdir(project);
-  const fixture = fixtureText === null ? path.join(fixtureDir, `${fixtureName}.ndjson`) : path.join(work, `${fixtureName}.ndjson`);
+  const fixture =
+    fixtureText === null ? path.join(fixtureDir, `${fixtureName}.ndjson`) : path.join(work, `${fixtureName}.ndjson`);
   if (fixtureText !== null) await writeFile(fixture, fixtureText);
-  const launched = await launchApp({ STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }) });
+  const launched = await launchApp({
+    STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }),
+  });
   // 项目目录选择框由主进程弹系统对话框，测试里直接替换成返回临时目录。
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
@@ -96,15 +113,25 @@ async function openNewTaskAndSend(page: Page, prompt: string): Promise<void> {
 
 /** 在渲染进程里对选择器命中的第一个元素执行一段函数源码（本工程的 e2e 类型检查没有 DOM 类型）。 */
 function inPage<T>(page: Page, selector: string, fn: string): Promise<T> {
-  return page.evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); return (${fn})(el); })()`) as Promise<T>;
+  return page.evaluate(
+    `(() => { const el = document.querySelector(${JSON.stringify(selector)}); return (${fn})(el); })()`,
+  ) as Promise<T>;
 }
 
 async function shoot(page: Page, state: string): Promise<void> {
-  for (const [locale, scheme] of [["zh-CN", "light"], ["zh-CN", "dark"], ["en", "light"], ["en", "dark"]] as const) {
-    await page.evaluate(async ({ locale, scheme }) => {
-      await globalThis.studio.setLocale(locale);
-      await globalThis.studio.setTheme(scheme);
-    }, { locale, scheme });
+  for (const [locale, scheme] of [
+    ["zh-CN", "light"],
+    ["zh-CN", "dark"],
+    ["en", "light"],
+    ["en", "dark"],
+  ] as const) {
+    await page.evaluate(
+      async ({ locale, scheme }) => {
+        await globalThis.studio.setLocale(locale);
+        await globalThis.studio.setTheme(scheme);
+      },
+      { locale, scheme },
+    );
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
     await page.waitForTimeout(250);
@@ -126,7 +153,11 @@ test("流式中：一行实时状态 + 正在流的文字（--text-2）+ 停止�
     await expect(page.getByTestId("assistant-message")).toHaveAttribute("data-live", "true");
     await expect(page.getByTestId("stop-button")).toBeVisible();
     // 流式期间的滚动容器吸底。
-    const stuck = await inPage<boolean>(page, ".scroller", "(el) => Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) <= 1");
+    const stuck = await inPage<boolean>(
+      page,
+      ".scroller",
+      "(el) => Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) <= 1",
+    );
     expect(stuck).toBe(true);
     await expect(page.locator(".scroller")).toHaveAttribute("aria-busy", "true");
     await shoot(page, "streaming");
@@ -147,7 +178,11 @@ test("完成：过程折叠成一行，结论在前，最终内容与 fixture �
     // 回放瞬间跑完（不足 1 秒）：按规范不显示"已工作"行；过程默认不在对话流里。
     await expect(page.getByTestId("process-done")).toHaveCount(0);
     await expect(page.locator(".details")).toHaveCount(0);
-    const stuck = await inPage<boolean>(page, ".scroller", "(el) => Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) <= 1");
+    const stuck = await inPage<boolean>(
+      page,
+      ".scroller",
+      "(el) => Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) <= 1",
+    );
     expect(stuck).toBe(true);
     await shoot(page, "done");
   } finally {
@@ -223,7 +258,10 @@ test("缩放窗口保住阅读位置：滚到中间，宽度 1200→800→1200�
     await openNewTaskAndSend(page, "用 bash 工具运行 echo omp-studio");
     await expect(page.getByTestId("assistant-message")).toBeVisible({ timeout: 20_000 });
     // 塞 80 段长文字撑出可滚动的高度，并且窄窗口下会重排。
-    await inPage<void>(page, ".column", `(column) => {
+    await inPage<void>(
+      page,
+      ".column",
+      `(column) => {
       for (let i = 0; i < 80; i += 1) {
         const p = document.createElement("p");
         p.setAttribute("data-anchor", "");
@@ -231,14 +269,23 @@ test("缩放窗口保住阅读位置：滚到中间，宽度 1200→800→1200�
         p.textContent = "段落 " + i + "：" + "这是一段用来撑高的文字，窗口变窄时会折行，从而让上方内容的高度变化。".repeat(4);
         column.insertBefore(p, column.firstChild);
       }
-    }`);
-    await inPage<void>(page, ".scroller", "(el) => { el.scrollTop = document.getElementById(\"filler-40\").offsetTop - el.offsetTop; }");
+    }`,
+    );
+    await inPage<void>(
+      page,
+      ".scroller",
+      '(el) => { el.scrollTop = document.getElementById("filler-40").offsetTop - el.offsetTop; }',
+    );
     await page.mouse.move(600, 300);
     await page.mouse.wheel(0, -1); // 用户主动上滚：脱离吸底
     await page.waitForTimeout(150);
-    const offset = () => page.evaluate("(() => { const p = document.getElementById(\"filler-40\"); const s = document.querySelector(\".scroller\"); return p.getBoundingClientRect().top - s.getBoundingClientRect().top; })()") as Promise<number>;
+    const offset = () =>
+      page.evaluate(
+        '(() => { const p = document.getElementById("filler-40"); const s = document.querySelector(".scroller"); return p.getBoundingClientRect().top - s.getBoundingClientRect().top; })()',
+      ) as Promise<number>;
     const before = await offset();
-    const resize = (width: number) => app.evaluate(({ BrowserWindow }, w) => BrowserWindow.getAllWindows()[0]?.setSize(w, 800), width);
+    const resize = (width: number) =>
+      app.evaluate(({ BrowserWindow }, w) => BrowserWindow.getAllWindows()[0]?.setSize(w, 800), width);
     await resize(800);
     await page.waitForTimeout(300);
     await resize(1200);
@@ -274,16 +321,22 @@ test("斜杠菜单、草稿落盘、可见的覆盖式滚动条", async () => {
 
     // 草稿存进主进程（userData/drafts.json），防抖后落盘。
     await input.fill("打了一半的消息");
-    await expect.poll(async () => readFile(path.join(userDataDir, "drafts.json"), "utf8").catch(() => ""), { timeout: 5000 }).toContain("打了一半的消息");
+    await expect
+      .poll(async () => readFile(path.join(userDataDir, "drafts.json"), "utf8").catch(() => ""), { timeout: 5000 })
+      .toContain("打了一半的消息");
 
     // 覆盖式滚动条：内容超出时 hover 出现，拖动滑块能滚动。
-    await inPage<void>(page, ".column", `(column) => {
+    await inPage<void>(
+      page,
+      ".column",
+      `(column) => {
       for (let i = 0; i < 60; i += 1) {
         const p = document.createElement("p");
         p.textContent = "段落 " + i + "：" + "撑高用的文字。".repeat(20);
         column.insertBefore(p, column.firstChild);
       }
-    }`);
+    }`,
+    );
     await inPage<void>(page, ".scroller", "(el) => { el.scrollTop = 0; }");
     await page.mouse.move(600, 300);
     const bar = page.locator(".osb");
@@ -309,12 +362,16 @@ test("等你确认期间过程行的文字节点不被替换（不重挂载、�
     await expect(page.getByTestId("gate")).toBeVisible({ timeout: 20_000 });
     const live = page.getByTestId("process-live");
     await expect(live).toContainText(/(已暂停|paused)/);
-    await inPage<void>(page, "[data-testid=process-live]", `(el) => {
+    await inPage<void>(
+      page,
+      "[data-testid=process-live]",
+      `(el) => {
       window.__replaced = 0;
       new MutationObserver((records) => {
         for (const record of records) for (const node of [...record.removedNodes, ...record.addedNodes]) if (node.nodeType === 1 && node.classList.contains("process-text")) window.__replaced += 1;
       }).observe(el, { childList: true, subtree: true });
-    }`);
+    }`,
+    );
     await page.waitForTimeout(3500); // 等待文字至少更新 3 次
     expect(await page.evaluate("window.__replaced")).toBe(0);
   } finally {
@@ -360,7 +417,9 @@ test("刷新页面时防抖中的草稿被立刻冲刷，最后几个字不丢",
     await expect(page.getByTestId("assistant-message")).toBeVisible({ timeout: 20_000 });
     await page.getByTestId("composer-input").fill("刷新前最后几个字");
     await page.reload(); // 不等 400ms 防抖
-    await expect.poll(async () => readFile(path.join(userDataDir, "drafts.json"), "utf8").catch(() => ""), { timeout: 5000 }).toContain("刷新前最后几个字");
+    await expect
+      .poll(async () => readFile(path.join(userDataDir, "drafts.json"), "utf8").catch(() => ""), { timeout: 5000 })
+      .toContain("刷新前最后几个字");
   } finally {
     await cleanup();
   }

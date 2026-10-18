@@ -31,7 +31,11 @@ function windowsUserPath(): UserPathAccess {
         onBeforeWrite: (previous) => {
           const folder = app.getPath("userData");
           mkdirSync(folder, { recursive: true });
-          writeFileSync(path.join(folder, `path-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.txt`), previous ?? "", { encoding: "utf8", mode: 0o600 });
+          writeFileSync(
+            path.join(folder, `path-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.txt`),
+            previous ?? "",
+            { encoding: "utf8", mode: 0o600 },
+          );
         },
       });
     },
@@ -54,7 +58,8 @@ export function ompManager(): OmpManager {
     root: managedRoot(),
     stateFile: path.join(app.getPath("userData"), "omp-studio-state.json"),
     // net.fetch 走 Chromium 网络栈，自动用系统代理（国内常见）。
-    fetch: (url, init) => net.fetch(url, { ...(init?.headers && { headers: init.headers }), ...(init?.signal && { signal: init.signal }) }),
+    fetch: (url, init) =>
+      net.fetch(url, { ...(init?.headers && { headers: init.headers }), ...(init?.signal && { signal: init.signal }) }),
     baseUrl: process.env["PI_BUILD_URL"],
     findOnPath: () => findOmpOnPath(),
     inspect: inspectOmp,

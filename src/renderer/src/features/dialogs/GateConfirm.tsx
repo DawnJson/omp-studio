@@ -5,7 +5,12 @@ import type { DialogRequest } from "../../../../shared/ipc.ts";
 import type { GateBodyProps } from "./Gate.tsx";
 import { GateDetails } from "./GateSelect.tsx";
 
-export function GateConfirm({ dialog, busy, respond, primaryRef }: GateBodyProps<Extract<DialogRequest, { kind: "confirm" }>>) {
+export function GateConfirm({
+  dialog,
+  busy,
+  respond,
+  primaryRef,
+}: GateBodyProps<Extract<DialogRequest, { kind: "confirm" }>>) {
   const t = useT();
   useEffect(() => {
     primaryRef.current = () => respond({ kind: "confirm", confirmed: true });
@@ -14,11 +19,22 @@ export function GateConfirm({ dialog, busy, respond, primaryRef }: GateBodyProps
     <div className="gate-body">
       {dialog.message !== "" && <GateDetails text={dialog.message} />}
       <div className="gate-actions" data-end>
-        <button type="button" className="gate-btn" disabled={busy} onClick={() => respond({ kind: "confirm", confirmed: false })}>
+        <button
+          type="button"
+          className="gate-btn"
+          disabled={busy}
+          onClick={() => respond({ kind: "confirm", confirmed: false })}
+        >
           <span className="gate-btn-label">{t("gate.cancel")}</span>
           <kbd className="gate-key">Esc</kbd>
         </button>
-        <button type="button" className="gate-btn" data-primary disabled={busy} onClick={() => respond({ kind: "confirm", confirmed: true })}>
+        <button
+          type="button"
+          className="gate-btn"
+          data-primary
+          disabled={busy}
+          onClick={() => respond({ kind: "confirm", confirmed: true })}
+        >
           <span className="gate-btn-label">{t("gate.confirm")}</span>
           <kbd className="gate-key">Ctrl+Enter</kbd>
         </button>
