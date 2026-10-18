@@ -41,10 +41,11 @@ if (dryRun) {
   process.exit(0);
 }
 
-await writeFile(changelogPath, changelog, "utf8");
-npm("version", version, "--no-git-tag-version", "--allow-same-version");
+// 先检查再改文件：检查失败时工作区还是干净的。
 npm("run", "typecheck");
 npm("test");
+await writeFile(changelogPath, changelog, "utf8");
+npm("version", version, "--no-git-tag-version", "--allow-same-version");
 git("add", "package.json", "package-lock.json", "CHANGELOG.md");
 git("commit", "-m", `chore(release): v${version}`);
 git("tag", "-a", `v${version}`, "-m", `v${version}`);
