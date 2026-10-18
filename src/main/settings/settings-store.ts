@@ -5,7 +5,6 @@ import path from "node:path";
 import type { Locale, StudioSettings } from "../../shared/ipc.ts";
 import { emitEvent } from "../ipc/events.ts";
 import {
-  parseApprovalMode,
   parseBoolean,
   parseOneOf,
   parseLocalePreference,
@@ -22,7 +21,6 @@ const defaults: StudioSettings = {
   theme: "system",
   defaultModel: null,
   defaultThinkingLevel: null,
-  defaultApprovalMode: null,
   maxLiveProcesses: 6,
   reduceMotion: false,
   enterWhileRunning: "steer",
@@ -60,7 +58,6 @@ function sanitize(raw: unknown): StudioSettings {
     theme: field(parseThemePreference, record["theme"], defaults.theme),
     defaultModel: field(nullable(parseModelKey), record["defaultModel"], null),
     defaultThinkingLevel: field(nullable(parseThinkingLevel), record["defaultThinkingLevel"], null),
-    defaultApprovalMode: field(nullable(parseApprovalMode), record["defaultApprovalMode"], null),
     maxLiveProcesses: field(parseMaxLiveProcesses, record["maxLiveProcesses"], defaults.maxLiveProcesses),
     reduceMotion: field((value) => parseBoolean(value, "reduceMotion"), record["reduceMotion"], defaults.reduceMotion),
     enterWhileRunning: field(

@@ -16,7 +16,7 @@
 |---|---|---|
 | Calm-1：审批/ask 就地替换输入框 | **否决，改为停靠在输入框上方的“门”**（[Bold]），但保留 Calm 的防误触规则：打字时不抢焦点、Enter 不隐式允许 | omp 自己的设计就是“提示停靠在输入框上方，输入框保留光标，可输入文字来拒绝并改道”（`omp://approval-mode.md`）。替换输入框会丢掉“拒绝并告诉 agent 怎么做”这个真实能力，还要为输入框消失/草稿还原写额外状态 |
 | Calm-2：叙述文本不留在正文，只剩结论 | **采用，加一条兜底**：一轮结束时若没有“不带工具调用的最后一条消息”，把最后一条助手文本当结论显示，只有整轮没有任何文本才显示“没有得到结果”（Calm 原文是后者） | 守住“结果优先”；叙述仍在展开的过程里可读。启发式的误判风险用兜底吃掉，并要求用 `fixtures/rpc/` 的回放做测试（见 §7）。Bold 的“候选结论迁移进现场窗”动画被否决：对话流里不允许有块迁移 |
-| Calm-3：自绘标题栏 + 无菜单栏 + 审批胶囊放在输入框 | **采用标题栏与无菜单栏**；**审批胶囊保留，但只在“当前没有 omp 进程”时可改**（见 §5.8） | 两份方案一致（`titleBarOverlay` 保留系统三键与 Snap Layouts [推测，需在 Win11 实测]）。审批模式只能靠启动参数设置，没有运行中 RPC（`omp://approval-mode.md` 只有 `--approval-mode`），所以不画“看起来能切、实际不生效”的开关 |
+| Calm-3：自绘标题栏 + 无菜单栏 + 审批胶囊放在输入框 | **采用标题栏与无菜单栏**；**审批胶囊保留，显示和修改的是 omp 配置里的 `tools.approvalMode`**（见 §5.8） | 两份方案一致（`titleBarOverlay` 保留系统三键与 Snap Layouts [推测，需在 Win11 实测]）。审批模式没有运行中 RPC（`omp://approval-mode.md`），omp 在进程启动时读配置，所以胶囊的修改对之后启动的任务生效 |
 | Bold-1：运行中展开 4 行“现场窗” | **否决，改为一行实时状态**（[Calm]）：`[点] 当前工具的 intent 原话 · 1:12 ›` | 一行已经回答“它在干什么、有没有卡住”；4 行滚动窗每次换行都是一次动画，并把“过程默认折叠”在运行中反过来。点击这一行展开完整工具列表。`intent` 的数据已核实 ✔：`fixtures/rpc/bash-tool.ndjson` 里 `tool_execution_start` 带 `"intent":"Running echo command"`，wire schema 中为可选字段（`src/shared/omp-wire/rpc-wire.generated.ts:836`），缺失时用工具名映射的动词兜底 |
 | Bold-2：运行中 Enter=插话（steer）、Ctrl+Enter=稍后（follow-up）、Esc=停止并把排队消息放回输入框 | **采用**；设置页可对调 Enter / Ctrl+Enter；Esc 不做二次确认 | 两份方案一致。运行中发消息多数是纠偏；`abort_and_restore_queue` 保证 Esc 不丢字，终端用户零学习成本。误停的代价由 toast 说明消息去向 + 草稿保留来吃 |
 | Bold-3：一批“有性格的小东西” | **部分采用**。保留：intent 原话、输入框首次发送“落下”、弹簧只用于浮层出现与发送↔停止形变、状态点用形状区分（菱形=等你）、可操作的 steer/later 队列条、模型切换细分隔线、`继续` 列表（含终端会话）、todo 进度胶囊。**砍掉**：任务点卫星点、子代理字母头像与哈希色、4 行现场窗、流式文字平滑追赶、悬停显示模型署名、第二条“软弹簧”曲线 | 取舍标准：不增加常驻动效、不增加信息量、实现成本低、数据只依赖 omp 现有帧。卫星点是侧栏常驻运动；头像/哈希色属于阶段 5 的泳道，提前做会和泳道设计打架 |
@@ -500,7 +500,7 @@
 | 节 | 内容 |
 |---|---|
 | 通用 | 语言（跟随系统 / 简体中文 / English）；主题（跟随系统 / 浅色 / 深色）；减少动效（开关，系统已要求时始终生效）；运行中按 Enter（插话 / 稍后）；系统通知（有任务在等你时）；快捷键（只读列表，v1 不可自定义） |
-| 模型与账号 | 提供商列表（§4.20）；新任务的默认模型、默认思考强度、默认审批模式——**写入 Studio 自己的偏好，不写 `~/.omp`**（AGENTS） |
+| 模型与账号 | 提供商列表（§4.20）；新任务的默认模型、默认思考强度——**写入 Studio 自己的偏好，不写 `~/.omp`**（AGENTS）。审批模式不在这里：它只存在 omp 的配置里，在输入框胶囊或 omp 设置分组里改 |
 | omp | 路径、版本、来源（`由 Tern 管理` / `由 omp-studio 管理` / `你自己安装的`）、`检查更新`；受管者管理时升级按钮禁用并写 `omp.updateInTern`；自管时显示自动更新开关 |
 | 用量 | 默认只显示 `settings.usage.hidden` + `显示用量` 按钮，点击后才请求 `get_session_stats`，展示**当前任务**的 token 与费用；未打开任务时 `settings.usage.noTask`。这是 token/费用的唯一入口之一（另一个是命令面板“查看用量”→ 本节） |
 
@@ -657,30 +657,28 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 1. `Ctrl N` / `新任务` → **草稿任务**：主区显示 §4.7，主区头标题 `task.untitled`，侧栏顶部出现临时行；**此时不启动 omp 进程**。项目默认=当前任务的项目，否则最近使用，否则引导 H。
 2. 草稿期间可换项目（大标题菜单、拖入文件夹）、可改模型/思考/审批；发送后项目不可换。
-3. **发送第一条消息 = 创建任务**：主进程启动 `omp --mode rpc-ui [--approval-mode <模式>]`（选过模式才带，§5.8；✔ `--mode rpc-ui`，AGENTS），协商 v2，`set_ask_dialog`，再 `prompt`。用户消息乐观上屏，过程行显示 `process.starting`（握手约 0.65s，`omp-rpc.md`）；失败走 §4.24。
+3. **发送第一条消息 = 创建任务**：主进程启动 `omp --mode rpc-ui`（不传 `--approval-mode`，§5.8；✔ `--mode rpc-ui`，AGENTS），协商 v2，`set_ask_dialog`，再 `prompt`。用户消息乐观上屏，过程行显示 `process.starting`（握手约 0.65s，`omp-rpc.md`）；失败走 §4.24。
 4. 离开草稿时输入为空则丢弃，不留空任务；同一文件夹可并行多个任务（各一个进程）。
 5. 项目分组头 `＋` 与 `Ctrl Shift N` 直接在该项目下新建。
 
 ### 5.6 会话历史
 
-历史来自 `~/.omp` 的只读扫描（主进程）[推测：RPC 没有“列出会话”命令]，渲染层只拿到 `{id, title, projectPath, updatedAt, status}`。点击休眠任务：立即显示**只读转录**（历史轮次按“结果态”渲染：过程折叠 + 结论 + 改动卡片）；用户第一次聚焦输入框并发送时才启动 omp 并 `switch_session`/`open_session`，期间胶囊区显示 `composer.resuming`。恢复的任务用**当前默认审批模式**启动（模式不存在会话文件里）；休眠状态下审批胶囊可改。
+历史来自 `~/.omp` 的只读扫描（主进程）[推测：RPC 没有“列出会话”命令]，渲染层只拿到 `{id, title, projectPath, updatedAt, status}`。点击休眠任务：立即显示**只读转录**（历史轮次按“结果态”渲染：过程折叠 + 结论 + 改动卡片）；用户第一次聚焦输入框并发送时才启动 omp 并 `switch_session`/`open_session`，期间胶囊区显示 `composer.resuming`。恢复的任务和新任务一样，用启动时 omp 配置里的审批模式。
 
 ### 5.7 通知（只有“等你确认”会叫你）
 
 任务进入 `await` 且它不是当前窗口正在看的任务，或窗口未聚焦：① 侧栏菱形 + 提示条；② 任务栏闪烁（`win.flashFrame(true)`，聚焦后停止）+ 覆盖角标数字；③ 窗口未聚焦且设置开启 → 一条系统通知，标题 `notify.title`，正文 `notify.body.gate`，点击聚焦窗口并跳到该任务；④ 窗口聚焦但在看别的任务 → 右下 toast `toast.needsYou`（不抢焦点，8 秒）。不播声音。任务完成：只有侧栏对勾，**不发通知**。
 
-### 5.8 审批模式（启动参数，不做运行中切换）
+### 5.8 审批模式（完全跟随 omp 的配置）
 
-**核实（`omp://approval-mode.md`）**：三种模式 `always-ask`（读自动；写、执行询问）、`write`（读写自动；执行询问）、`yolo`（默认；全部自动）。`--approval-mode <mode>` 覆盖本次会话的配置值；`--yolo` / `--auto-approve` 会**强制** yolo（即使同时给了 `--approval-mode`）。文档里没有运行中切换的 RPC。
+**核实（`omp://approval-mode.md`、`omp://settings.md`）**：三种模式 `always-ask`（读自动；写、执行询问）、`write`（读写自动；执行询问）、`yolo`（全部自动）。配置项 `tools.approvalMode`，**omp 默认 `yolo`**。omp 在进程启动时读一次；文档里没有运行中切换的 RPC。
 
-**设计**
-1. **用户在输入框或设置里选过模式才传 `--approval-mode <模式>`；没选过（`null`，"跟随 omp"）就不传，用用户 `config.yml` 里的 `tools.approvalMode`（omp 默认 yolo，此时不会出现门）。** 绝不传 `--yolo`/`--auto-approve`。用户已有的 `tools.approval.*` 与 `bash.patterns` 仍由 omp 按文档规则叠加，我们不改。（仓库所有者 2026-10-18 改定，推翻原来的"每次显式传"）
-2. **每个任务的模式在进程启动时固定。切换 = 只对新进程生效**（我选这一个，不做“重启进程并恢复会话”）。理由：运行中重启会丢掉进行中的状态、需要 `open_session` 无损恢复（未实测）、要重发 `set_ask_dialog`/订阅，且队列与未答的门一并失效；而审批门自带“本任务内允许该工具”（`Approve <tool> for this session`），覆盖了“我觉得这个任务可以放宽”的主要诉求。后续如果实测恢复无损，可在任务 `⋯` 菜单加“以新模式重新启动此任务”，不改胶囊语义。
-3. 默认模式（Studio 自己的偏好，不写 omp 配置）：**跟随 omp**（`defaultApprovalMode: null`）。设置 → 模型与账号 可改成三种模式之一，也可改回"跟随 omp 的设置"；之后新建/恢复的任务使用它。
-4. **ApprovalChip**：高 28，同其它胶囊；文案 `approval.followOmp` / `approval.alwaysAsk` / `approval.write` / `approval.yolo`；`yolo` 时胶囊底用 `--st-waiting-soft`、字用 `--st-waiting-text`、加盾牌图标（跟随 omp 时不知道实际值，不加）。弹层（单选菜单）每项带一行描述（`approval.desc.*`），底部 `approval.subagents`（子代理在 yolo 下无头运行，门里的授权就是边界）。
-   - **没有 omp 进程时**（草稿任务、休眠历史任务、进程已退出）：可改，下次启动时生效；
-   - **有 omp 进程时**：只读，tooltip `approval.locked`，不弹菜单。
-5. 首次把模式选成 `yolo`：弹一次 Dialog（`approval.yoloConfirm*`），确认后记住。
+**设计**（仓库所有者 2026-10-18 定：审批模式完全按 omp 的设置来，omp-studio 不另设一层）
+1. **启动时从不传 `--approval-mode` / `--yolo` / `--auto-approve`。** omp 用配置里的 `tools.approvalMode`；没设置过就是 omp 的默认 `yolo`，此时不会出现审批门。`tools.approval.*` 与 `bash.patterns` 由 omp 按文档规则叠加，我们不改。
+2. **ApprovalChip 显示 omp 配置的当前值**（没设置过显示 omp 默认值），经 `omp config list` 读，和设置页的 omp 设置共用同一份快照（`config-store.ts`）。快照没读到时显示 `approval.loading`。
+3. **在胶囊里选一个模式 = `omp config set tools.approvalMode <模式>`**（写入只经 omp，AGENTS）。改的是用户全局的 omp 配置，终端里的 omp 也跟着变；之后启动的任务生效，已在运行的任务要重启。弹层底部 `approval.note` 说明这一点；胶囊不再区分"有没有进程"。
+4. **外观**：高 28，同其它胶囊；文案 `approval.alwaysAsk` / `approval.write` / `approval.yolo`；`yolo` 时胶囊底用 `--st-waiting-soft`、字用 `--st-waiting-text`、加盾牌图标。弹层（单选菜单）每项带一行描述（`approval.desc.*`），`yolo` 项的提示里加 `approval.subagents`。
+5. 在胶囊里把模式切到 `yolo`：首次弹一次确认（`approval.yoloConfirm*`），确认后记住（`StudioSettings.yoloConfirmed`）。omp 本身默认就是 `yolo` 时不弹（没有"切换"动作）。
 
 ### 5.9 无障碍
 
@@ -860,7 +858,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `approval.desc.write` | 读取和写入自动；执行命令前询问 | Reads and edits run automatically; asks before commands |
 | `approval.desc.yolo` | 不询问 | Never asks |
 | `approval.subagents` | 子代理在后台以全部自动运行，不会单独询问。 | Subagents run in the background in full auto and don't ask separately. |
-| `approval.locked` | 这个任务启动时已固定。在设置里修改只影响新任务。 | Fixed when this task started. Changing the setting only affects new tasks. |
+| `approval.note` | 改的是 omp 的配置（tools.approvalMode），终端里的 omp 也会跟着变。已经在运行的任务要重启后才生效。 | This changes omp's config (tools.approvalMode), so omp in the terminal follows too. Running tasks pick it up after a restart. |
+| `approval.loading` | 审批… | Approval… |
 | `approval.yoloConfirmTitle` | 使用全部自动？ | Use full auto? |
 | `approval.yoloConfirmBody` | 全部自动模式下，omp 不会在执行命令前询问你。 | In full auto, omp won't ask before running commands. |
 | `approval.yoloConfirmYes` | 使用全部自动 | Use full auto |
@@ -1017,8 +1016,6 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `settings.shortcuts` | 快捷键 | Keyboard shortcuts |
 | `settings.defaultModel` | 新任务的默认模型 | Default model for new tasks |
 | `settings.defaultThinking` | 默认思考强度 | Default thinking level |
-| `settings.defaultApproval` | 新任务的审批模式 | Approval mode for new tasks |
-| `settings.defaultApproval.desc` | 已经在运行的任务不受影响 | Tasks that are already running aren't affected |
 | `settings.usage.hidden` | 用量统计默认不在界面中显示。 | Usage isn't shown by default. |
 | `settings.usage.show` | 显示用量 | Show usage |
 | `settings.usage.noTask` | 先打开一个任务 | Open a task first |
@@ -1121,8 +1118,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 | # | 事项 | 本规范的选择 |
 |---|---|---|
-| 1 | 审批模式默认值 | **已定（2026-10-18）：跟随 omp**，不传 `--approval-mode`，用户在输入框或设置里选过才覆盖（§5.8）。原方案"Studio 默认 `write`"作废 |
-| 2 | 审批模式切换语义 | 每任务在进程启动时固定；有进程时胶囊只读；设置里的默认值只影响新任务（见 §5.8）。备选“重启进程并恢复会话”需先实测 `open_session` 无损恢复 |
+| 1 | 审批模式默认值 | **已定（2026-10-18）：完全跟随 omp 的配置**（`tools.approvalMode`，omp 默认 `yolo`），启动时从不传 `--approval-mode`；胶囊改的就是 omp 配置（§5.8）。原方案"Studio 默认 `write`"和"Studio 自己存一份默认值"都作废 |
+| 2 | 审批模式切换语义 | omp 在进程启动时读配置；胶囊改配置后，之后启动的任务生效，运行中的任务要重启（见 §5.8）。备选"重启进程并恢复会话"需先实测 `open_session` 无损恢复 |
 | 3 | 改动卡片的测试结果 | v1 不显示（PLAN §2.1 提到）；若要做，需先决定识别规则 |
 | 4 | API key 类提供商登录 | 只给终端指引。若要在设置页输入 key（Electron `safeStorage` 保存、以环境变量传给 omp），与 AGENTS“不写 `~/.omp`”需要一次明确的规则变更 |
 | 5 | 新增运行时依赖 / 未定技术选型 | 语法高亮库（要求：同步、按需加载语言、只输出 `<span class>`）、Markdown 库（要求：块边界、可关闭原始 HTML）、i18n 库（要求：ICU 复数、运行时切换语言）、自绘覆盖式滚动条的实现 |

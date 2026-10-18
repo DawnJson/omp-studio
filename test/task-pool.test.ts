@@ -28,7 +28,6 @@ const settings = (maxLiveProcesses = 6): StudioSettings => ({
   theme: "system",
   defaultModel: null,
   defaultThinkingLevel: null,
-  defaultApprovalMode: null,
   maxLiveProcesses,
   reduceMotion: false,
   enterWhileRunning: "steer",
@@ -130,8 +129,7 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
     const h = await harness();
     h.fixtures.push(fixture("simple-reply"));
     const created = await h.pool.createTask({ projectId: h.projectId });
-    // 没选过审批模式 = null：启动时不传 --approval-mode，用 omp 自己的配置。
-    expect(created).toMatchObject({ status: "starting", title: "", approvalMode: null });
+    expect(created).toMatchObject({ status: "starting", title: "" });
     await h.events.until(created.id, (s) => s.status === "idle");
     await h.pool.sendPrompt(created.id, turn);
     const done = await h.events.until(created.id, (s) => s.lastTurn?.status === "completed" && s.status === "idle");
@@ -453,15 +451,6 @@ describe("任务池：失败路径", () => {
     await expect(
       h.pool.sendPrompt(created.id, { text: "x".repeat(1024 * 1024 + 1), whenBusy: "steer" }),
     ).rejects.toThrow(/frame limit/);
-  });
-
-  it("审批模式：有进程时拒绝修改，停止后可改，下次启动生效", async () => {
-    const h = await harness();
-    h.fixtures.push(await inlineFixture("approval-mode"));
-    const created = await h.pool.createTask({ projectId: h.projectId, approvalMode: "always-ask" });
-    await h.events.until(created.id, (s) => s.status === "idle");
-    expect(() => h.pool.setTaskApprovalMode(created.id, "yolo")).toThrow(/fixed while/);
-    await h.pool.shutdown();
   });
 });
 

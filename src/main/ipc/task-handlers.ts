@@ -6,7 +6,6 @@ import { canOpenDirectly, resolveInsideReal } from "./task-file-path.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { getMainWindow } from "../window/main-window.ts";
 import {
-  parseApprovalMode,
   parseDialogResponse,
   parseModelKey,
   parseOneOf,
@@ -28,7 +27,6 @@ function parseCreateTaskInput(value: unknown) {
     projectId: parseProjectId(record["projectId"]),
     ...(record["model"] !== undefined && { model: parseModelKey(record["model"]) }),
     ...(record["thinkingLevel"] !== undefined && { thinkingLevel: parseThinkingLevel(record["thinkingLevel"]) }),
-    ...(record["approvalMode"] !== undefined && { approvalMode: parseApprovalMode(record["approvalMode"]) }),
   };
 }
 
@@ -52,7 +50,6 @@ export const taskHandlers: HandlerGroup<
   | "listTaskModels"
   | "setTaskModel"
   | "setTaskThinkingLevel"
-  | "setTaskApprovalMode"
   | "compactTask"
   | "openTaskFile"
   | "revealTaskFile"
@@ -135,7 +132,4 @@ export const taskHandlers: HandlerGroup<
 
   setTaskThinkingLevel: async (taskId, level) =>
     (await getTaskPool()).setTaskThinkingLevel(parseTaskId(taskId), parseThinkingLevel(level)),
-
-  setTaskApprovalMode: async (taskId, mode) =>
-    (await getTaskPool()).setTaskApprovalMode(parseTaskId(taskId), mode === null ? null : parseApprovalMode(mode)),
 };

@@ -34,7 +34,6 @@ function makeTask(
     model: null,
     thinkingLevel: null,
     thinkingLevels: [],
-    approvalMode: null,
     contextUsage: null,
     queue: { steering: [], followUp: [] },
     dialogs: [],

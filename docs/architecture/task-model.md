@@ -7,16 +7,16 @@
 一个任务 = 一个项目目录 + 一个 omp 会话 + （存活时）一个 omp 进程。进程可被回收，任务和会话不会：再打开任务时起新进程，`switch_session` 回到同一个会话文件。
 
 - 持久化：`userData/tasks.json`（`TaskRegistry`，先写临时文件再改名，写盘串行）。`tasks.json` 损坏时 `load` 抛错，不当成空表覆盖。重命名和归档存这里，不写 `~/.omp`（决策 9）。
-- 记录字段：`id, projectId, sessionFile|null, title, createdAt, updatedAt, archived, model, thinkingLevel, approvalMode, worktreePath`（恒 null）。
+- 记录字段：`id, projectId, sessionFile|null, title, createdAt, updatedAt, archived, model, thinkingLevel, worktreePath`（恒 null）。
 - `sessionFile` 在第一轮（`prompt_result`）或恢复之后才写入：新会话的文件在第一条 assistant 消息后才落盘，之前 `get_state` 给的路径不能存。实测 18.12.1：`get_state.sessionFile` 在握手后、首轮前就有值。
 - 新任务标题是 `""`；第一次 `sendPrompt` 取首条消息第一行（60 字符）；`resume` 时 title 为 null 则载完历史后取第一条用户消息。
-- 审批模式在进程启动时固定（决策 2）。记录里的 `approvalMode` 为 `null` 表示跟随 omp 配置、启动时不传 `--approval-mode`；新任务取设置里的默认值（默认也是 `null`）。有进程时 `setTaskApprovalMode` 拒绝。
+- 审批模式不在任务里存：启动时从不传 `--approval-mode`，omp 读自己配置里的 `tools.approvalMode`（启动时读一次）。输入框胶囊改的是 omp 配置（`omp config set`），之后启动的任务生效。
 - 归档：关进程，记录保留 `archived:true`；`TaskPool.resume()` 找到同一会话文件的任务会把它恢复成未归档（同一 id）。
 - `messageId` 只在进程内唯一：消息键 `${gen}:${messageId}`，`gen` 每次 spawn 递增；历史消息键 `h:<序号>`。
 
 ## 启动序列
 
-`start()`：`acquireSlot` → `buildLaunch`（`--mode rpc-ui [--model] [--thinking] [--approval-mode] [--allow-home]`，cwd = 项目目录，env = 进程环境 + `getApiKeyEnv()`）→ `OmpConnection.spawn` → 同一个同步段里挂 `onFrame` 并 `assignToAppJob(pid)` → `ready`（含 v2 协商）→ `initializeSession`：
+`start()`：`acquireSlot` → `buildLaunch`（`--mode rpc-ui [--model] [--thinking] [--allow-home]`，cwd = 项目目录，env = 进程环境 + `getApiKeyEnv()`）→ `OmpConnection.spawn` → 同一个同步段里挂 `onFrame` 并 `assignToAppJob(pid)` → `ready`（含 v2 协商）→ `initializeSession`：
 
 `set_event_filter {events:null, messageUpdates:"delta"}` → `set_ask_dialog {enabled:true}`（失败保留 select+editor 回退）→ `set_subagent_subscription {level:"progress"}` → [`switch_session`] → `get_state` → `get_available_thinking_levels`。恢复时再 `get_messages_page`（limit 256，按时间正序，翻到没有 `nextCursor`）；已有快照的任务（回收后再打开）跳过历史，免得丢工具执行细节。
 

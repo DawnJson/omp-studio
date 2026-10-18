@@ -52,7 +52,6 @@ function createPool(): Promise<TaskPool> {
         cwd: project.path,
         model: record.model,
         thinkingLevel: record.thinkingLevel,
-        approvalMode: record.approvalMode,
         // 项目目录就是用户主目录时 omp 会自动换到临时目录（cli-reference.md --allow-home）。
         allowHome: pathKey(project.path) === pathKey(os.homedir()),
       }),

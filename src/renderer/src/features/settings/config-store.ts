@@ -111,3 +111,24 @@ export function useConfigLoad(): ConfigLoad {
 export function useRowState(key: string): RowState {
   return useStoreValue(store, (state) => state.rows[key] ?? emptyRow);
 }
+
+/** 快照里某一项的当前生效值（没设置过就是 omp 的默认值）；快照还没读到（或读失败）时为 undefined。 */
+export function useOmpConfigValue(key: string): unknown {
+  return useStoreValue(store, (state) => {
+    if (state.load.kind !== "ready") return undefined;
+    const item = state.load.snapshot.items.find((entry) => entry.key === key);
+    return item?.hasValue ? item.value : item?.defaultValue;
+  });
+}
+
+/** 还没读过快照才读；设置页打开时会自己静默刷新。 */
+export function ensureOmpConfigLoaded(): void {
+  if (store.get().load.kind === "idle") void loadOmpConfig();
+}
+
+/** 写入并在失败时抛出（设置页的写入只把错误记在那一项上，输入框的胶囊需要直接报错）。 */
+export async function saveOmpConfigOrThrow(key: string, value: unknown): Promise<void> {
+  await saveOmpConfig(key, value);
+  const row = store.get().rows[key];
+  if (row?.phase === "error") throw row.error;
+}

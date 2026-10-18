@@ -19,8 +19,6 @@ export const settings = {
   shortcuts: "快捷键",
   defaultModel: "新任务的默认模型",
   defaultThinking: "默认思考强度",
-  defaultApproval: "新任务的审批模式",
-  "defaultApproval.desc": "已经在运行的任务不受影响",
   useOmpDefault: "跟随 omp 的设置",
   modelsLoading: "正在读取模型…",
   enterBehavior: "运行中按 Enter",

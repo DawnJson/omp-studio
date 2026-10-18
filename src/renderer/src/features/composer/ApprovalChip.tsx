@@ -1,47 +1,47 @@
-// 审批模式胶囊（spec 5.8）：每个任务的模式在 omp 进程启动时固定。有进程时只读；草稿和休眠任务（没有进程）可改，下次启动生效。
-// null = 跟随 omp：不传 --approval-mode，由 omp 的 tools.approvalMode 决定。
+// 审批模式胶囊（spec 5.8）：显示和修改的都是 omp 自己的 tools.approvalMode，omp-studio 不另存、启动时不传 --approval-mode。
+// omp 的审批模式在进程启动时读一次：改了之后新启动的任务生效，已在运行的任务要重启。
 import { reportError } from "../../ui/errors.ts";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ApprovalMode } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Check, Shield } from "../../icons.tsx";
 import { useSettings } from "../../store/index.ts";
+import { ensureOmpConfigLoaded, saveOmpConfigOrThrow, useOmpConfigValue } from "../settings/config-store.ts";
 import { Popover } from "./Popover.tsx";
 
-const modes: readonly { mode: ApprovalMode | null; label: MessageKey; desc: MessageKey }[] = [
-  { mode: null, label: "approval.followOmp", desc: "approval.desc.followOmp" },
+const configKey = "tools.approvalMode";
+
+const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey }[] = [
   { mode: "always-ask", label: "approval.alwaysAsk", desc: "approval.desc.alwaysAsk" },
   { mode: "write", label: "approval.write", desc: "approval.desc.write" },
   { mode: "yolo", label: "approval.yolo", desc: "approval.desc.yolo" },
 ];
 
-export interface ApprovalChipProps {
-  mode: ApprovalMode | null;
-  /** 有 omp 进程：模式已固定，只读。 */
-  locked: boolean;
-  onChange(mode: ApprovalMode | null): Promise<void>;
-}
-
-export function ApprovalChip({ mode: current, locked, onChange }: ApprovalChipProps) {
+export function ApprovalChip() {
   const settings = useSettings();
   const t = useT();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const currentEntry = modes.find((entry) => entry.mode === current) ?? (modes[0] as (typeof modes)[number]);
+  const value = useOmpConfigValue(configKey);
+  const currentEntry = modes.find((entry) => entry.mode === value);
+  const current = currentEntry?.mode;
+
+  useEffect(ensureOmpConfigLoaded, []);
 
   const close = () => {
     setOpen(false);
     setConfirming(false);
   };
 
-  const apply = (mode: ApprovalMode | null) => {
+  const apply = (mode: ApprovalMode) => {
     setOpen(false);
     setConfirming(false);
-    onChange(mode).catch((error: unknown) => reportError(t, error));
+    saveOmpConfigOrThrow(configKey, mode).catch((error: unknown) => reportError(t, error));
   };
-  const choose = (mode: ApprovalMode | null) => {
-    if (mode === "yolo" && settings?.yoloConfirmed !== true) setConfirming(true);
+  const choose = (mode: ApprovalMode) => {
+    if (mode === current) close();
+    else if (mode === "yolo" && settings?.yoloConfirmed !== true) setConfirming(true);
     else apply(mode);
   };
 
@@ -51,17 +51,17 @@ export function ApprovalChip({ mode: current, locked, onChange }: ApprovalChipPr
         type="button"
         className="chip"
         data-testid="approval-chip"
+        data-mode={current}
         data-yolo={current === "yolo" || undefined}
-        data-locked={locked || undefined}
-        aria-haspopup={locked ? undefined : "dialog"}
-        aria-expanded={locked ? undefined : open}
-        title={locked ? t("approval.locked") : t("approval.title")}
-        onClick={() => !locked && setOpen((value) => !value)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        title={`${t("approval.title")}\n${t("approval.note")}`}
+        onClick={() => setOpen((value) => !value)}
       >
         {current === "yolo" && <Shield size={14} />}
-        <span className="chip-text">{t(currentEntry.label)}</span>
+        <span className="chip-text">{currentEntry ? t(currentEntry.label) : t("approval.loading")}</span>
       </button>
-      <Popover open={open && !locked} onClose={close} width={320} label={t("approval.title")}>
+      <Popover open={open} onClose={close} width={320} label={t("approval.title")}>
         {confirming ? (
           <div className="pop-section">
             <p className="pop-title">{t("approval.yoloConfirmTitle")}</p>
@@ -87,7 +87,7 @@ export function ApprovalChip({ mode: current, locked, onChange }: ApprovalChipPr
           <>
             {modes.map((entry) => (
               <button
-                key={entry.mode ?? "omp"}
+                key={entry.mode}
                 type="button"
                 className="pop-item"
                 role="menuitemradio"
@@ -99,6 +99,7 @@ export function ApprovalChip({ mode: current, locked, onChange }: ApprovalChipPr
                 {entry.mode === current && <Check size={14} />}
               </button>
             ))}
+            <p className="pop-note">{t("approval.note")}</p>
           </>
         )}
       </Popover>

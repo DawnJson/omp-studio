@@ -27,7 +27,7 @@ export type Unsubscribe = () => void;
 export type Locale = "zh-CN" | "en";
 export type LocalePreference = Locale | "system";
 export type ThemePreference = "system" | "light" | "dark";
-/** omp 的 tools.approvalMode（omp 文档 approval-mode.md）。null = 不传 --approval-mode，跟随 omp 配置（omp 默认 yolo）。 */
+/** omp 的 tools.approvalMode（omp 文档 approval-mode.md）。只存在 omp 的配置里，omp-studio 不另存、启动时不传 --approval-mode。 */
 export type ApprovalMode = "always-ask" | "write" | "yolo";
 
 export interface AppInfo {
@@ -70,7 +70,6 @@ export interface StudioSettings {
   /** 新任务的模型，作为 --model provider/id 传给 omp；null = omp 自己的默认。 */
   defaultModel: ModelKey | null;
   defaultThinkingLevel: ThinkingLevel | null;
-  defaultApprovalMode: ApprovalMode | null;
   /** 同时存活的 omp 进程软上限；超过时回收最久未用的空闲任务。 */
   maxLiveProcesses: number;
   /** 减少动效：只能强制开启，系统要求减少动效时始终生效。 */
@@ -139,7 +138,6 @@ export interface TaskState {
   thinkingLevel: ThinkingLevel | null;
   /** get_available_thinking_levels，随模型变化。 */
   thinkingLevels: ThinkingLevel[];
-  approvalMode: ApprovalMode | null;
   /** get_state.contextUsage；percent 是 0–100 的百分数。omp 没给时为 null。 */
   contextUsage: ContextUsage | null;
   /** queue_update 的快照；chip 文本原样传给 removeQueuedMessage / promoteQueuedMessage。 */
@@ -156,7 +154,6 @@ export interface CreateTaskInput {
   projectId: ProjectId;
   model?: ModelKey;
   thinkingLevel?: ThinkingLevel;
-  approvalMode?: ApprovalMode;
 }
 
 export interface PromptImage {
@@ -370,7 +367,6 @@ export interface StudioInvokeApi {
   setTheme(preference: ThemePreference): Promise<void>;
   setDefaultModel(model: ModelKey | null): Promise<void>;
   setDefaultThinkingLevel(level: ThinkingLevel | null): Promise<void>;
-  setDefaultApprovalMode(mode: ApprovalMode | null): Promise<void>;
   setMaxLiveProcesses(count: number): Promise<void>;
   /** 用系统浏览器打开链接；只接受 http/https。 */
   openExternal(url: string): Promise<void>;
@@ -416,8 +412,6 @@ export interface StudioInvokeApi {
   listTaskModels(taskId: TaskId): Promise<ModelOption[]>;
   setTaskModel(taskId: TaskId, model: ModelKey): Promise<void>;
   setTaskThinkingLevel(taskId: TaskId, level: ThinkingLevel): Promise<void>;
-  /** 没有对应的 RPC 命令：任务空闲时带新参数重启 omp 并回到同一会话；运行中拒绝。 */
-  setTaskApprovalMode(taskId: TaskId, mode: ApprovalMode | null): Promise<void>;
 
   // 会话历史
   /** projectId 为 null 时列出所有项目的会话。只读 ~/.omp。 */
@@ -565,7 +559,6 @@ export const invokeNames = {
   setTheme: true,
   setDefaultModel: true,
   setDefaultThinkingLevel: true,
-  setDefaultApprovalMode: true,
   setMaxLiveProcesses: true,
   openExternal: true,
   quitApp: true,
@@ -592,7 +585,6 @@ export const invokeNames = {
   listTaskModels: true,
   setTaskModel: true,
   setTaskThinkingLevel: true,
-  setTaskApprovalMode: true,
   listSessions: true,
   resumeSession: true,
   revealProject: true,

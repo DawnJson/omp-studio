@@ -20,8 +20,6 @@ export const settings = {
   shortcuts: "Keyboard shortcuts",
   defaultModel: "Default model for new tasks",
   defaultThinking: "Default thinking level",
-  defaultApproval: "Approval mode for new tasks",
-  "defaultApproval.desc": "Tasks that are already running aren't affected",
   useOmpDefault: "Follow omp's setting",
   modelsLoading: "Loading models…",
   enterBehavior: "Enter while running",

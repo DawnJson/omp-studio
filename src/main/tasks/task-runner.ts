@@ -1,7 +1,6 @@
 // 一个任务的运行时：omp 进程、状态机、帧 → TranscriptEvent、对话框 pending 表。
 // 一个任务 = 一个项目目录 + 一个 omp 会话 + （存活时）一个进程；进程可被回收，任务和会话不会（docs/architecture/task-model.md）。
 import type {
-  ApprovalMode,
   DialogRequest,
   DialogResponse,
   ModelKey,
@@ -162,7 +161,6 @@ export class TaskRunner {
       model: this.#model,
       thinkingLevel: this.#thinkingLevel,
       thinkingLevels: this.#thinkingLevels,
-      approvalMode: this.#record.approvalMode,
       contextUsage: this.#contextUsage,
       queue: this.#queue,
       dialogs: m.dialogs,
@@ -679,12 +677,6 @@ export class TaskRunner {
 
   async rename(title: string): Promise<void> {
     this.#record = await this.#host.persist(this.id, { title });
-    this.#publish(false);
-  }
-
-  /** 审批模式在进程启动时固定：只改记录，下次启动生效；有进程时调用方应拒绝。 */
-  async setApprovalMode(mode: ApprovalMode | null): Promise<void> {
-    this.#record = await this.#host.persist(this.id, { approvalMode: mode });
     this.#publish(false);
   }
 

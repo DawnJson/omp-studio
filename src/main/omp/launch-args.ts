@@ -1,6 +1,6 @@
 // omp 启动参数和环境的纯函数部分：不 import electron 和 omp-manager，单元测试和录制脚本可以直接用。
 import path from "node:path";
-import type { ApprovalMode, ModelKey } from "../../shared/ipc.ts";
+import type { ModelKey } from "../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
 
 export interface LaunchSpec {
@@ -8,8 +8,6 @@ export interface LaunchSpec {
   cwd: string;
   model?: ModelKey | null;
   thinkingLevel?: ThinkingLevel | null;
-  /** 任务进程：null = 不传，跟随 omp 的 tools.approvalMode；服务进程不传。 */
-  approvalMode?: ApprovalMode | null;
   /** 服务进程：不落会话文件。 */
   noSession?: boolean;
   /** 项目目录就是用户主目录时 omp 会自动换到临时目录，要带 --allow-home（cli-reference.md）。 */
@@ -40,11 +38,11 @@ export function parseTestOmpOverride(json: string): TestOmpOverride {
 }
 
 export function buildOmpArgs(spec: LaunchSpec): string[] {
+  // 不传 --approval-mode：审批模式只看 omp 自己的 tools.approvalMode（输入框改的也是它）。
   const args = ["--mode", "rpc-ui"];
   if (spec.noSession) args.push("--no-session");
   if (spec.model) args.push("--model", `${spec.model.provider}/${spec.model.modelId}`);
   if (spec.thinkingLevel && spec.thinkingLevel !== "inherit") args.push("--thinking", spec.thinkingLevel);
-  if (spec.approvalMode) args.push("--approval-mode", spec.approvalMode);
   if (spec.allowHome) args.push("--allow-home");
   return args;
 }

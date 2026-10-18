@@ -285,12 +285,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             setModel={(key) => window.studio.setTaskModel(taskId, key)}
             setThinking={(level) => window.studio.setTaskThinkingLevel(taskId, level)}
           />
-          <ApprovalChip
-            mode={task.approvalMode}
-            // 有进程（启动中、运行中、等你确认、空闲）= 模式已固定。
-            locked={task.status !== "stopped" && task.status !== "error"}
-            onChange={(mode) => window.studio.setTaskApprovalMode(taskId, mode)}
-          />
+          <ApprovalChip />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
           <ContextHint task={task} />

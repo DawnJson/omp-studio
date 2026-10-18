@@ -6,7 +6,6 @@ import { openLogsFolder } from "../log/instance.ts";
 import { getSettings, resolveLocale, updateSettings } from "../settings/settings-store.ts";
 import { getShellState, parseCollapsedProjects, setShellState, sidebarWidthRange } from "../window/window-state.ts";
 import {
-  parseApprovalMode,
   parseBoolean,
   parseExternalUrl,
   parseInteger,
@@ -29,7 +28,6 @@ export const appHandlers: HandlerGroup<
   | "setTheme"
   | "setDefaultModel"
   | "setDefaultThinkingLevel"
-  | "setDefaultApprovalMode"
   | "setMaxLiveProcesses"
   | "openExternal"
   | "quitApp"
@@ -50,8 +48,6 @@ export const appHandlers: HandlerGroup<
   setDefaultModel: async (value) => updateSettings({ defaultModel: value === null ? null : parseModelKey(value) }),
   setDefaultThinkingLevel: async (value) =>
     updateSettings({ defaultThinkingLevel: value === null ? null : parseThinkingLevel(value) }),
-  setDefaultApprovalMode: async (value) =>
-    updateSettings({ defaultApprovalMode: value === null ? null : parseApprovalMode(value) }),
   setMaxLiveProcesses: async (value) => updateSettings({ maxLiveProcesses: parseMaxLiveProcesses(value) }),
   openExternal: async (value) => shell.openExternal(parseExternalUrl(value)),
   quitApp: async () => app.quit(),

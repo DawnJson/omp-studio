@@ -1,14 +1,13 @@
-// 设置 → 模型与账号：提供商列表（登录/API key）、新任务的默认模型/思考强度/审批模式。
+// 设置 → 模型与账号：提供商列表（登录/API key）、新任务的默认模型/思考强度。
 // 默认值写的是 omp-studio 自己的偏好（StudioSettings），不写 ~/.omp。
 import { describeError } from "../../ui/errors.ts";
 import { useCallback, useEffect, useState } from "react";
-import type { ApprovalMode, ModelOption } from "../../../../shared/ipc.ts";
+import type { ModelOption } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { apiKeyEnvName } from "../../../../shared/provider-keys.ts";
 import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { useSettings } from "../../store/index.ts";
-import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { Card, Select, SettingRow, type Option } from "./controls.tsx";
 import { ProviderRow } from "./ProviderRow.tsx";
 
@@ -20,13 +19,6 @@ interface AccountData {
 }
 
 const thinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
-const approvalModes = ["always-ask", "write", "yolo"] as const;
-const approvalLabels = { "always-ask": "approval.alwaysAsk", write: "approval.write", yolo: "approval.yolo" } as const;
-const approvalDescs = {
-  "always-ask": "approval.desc.alwaysAsk",
-  write: "approval.desc.write",
-  yolo: "approval.desc.yolo",
-} as const;
 const inherit = "";
 
 /** 一次读全：provider、每个已登录 provider 的账号、已存的 key、模型。provider 或模型读不出来整体失败，由界面显示原因。 */
@@ -55,7 +47,6 @@ export function ModelsSection() {
   const [data, setData] = useState<AccountData | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [loginBusy, setLoginBusy] = useState(false);
-  const [confirmYolo, setConfirmYolo] = useState(false);
 
   const reload = useCallback(() => {
     loadAccountData().then(
@@ -79,17 +70,6 @@ export function ModelsSection() {
     { value: inherit, label: t("settings.useOmpDefault") },
     ...thinkingLevels.map((level) => ({ value: level, label: t(`thinking.${level}`) })),
   ];
-  const approvalOptions: Option<string>[] = [
-    { value: inherit, label: t("settings.useOmpDefault") },
-    ...approvalModes.map((mode) => ({ value: mode, label: t(approvalLabels[mode]) })),
-  ];
-  const approvalValue = settings?.defaultApprovalMode ?? inherit;
-
-  const chooseApproval = (value: string) => {
-    // 只有第一次选"全部自动"才确认（spec），确认过的记在设置里。
-    if (value === "yolo" && !settings?.yoloConfirmed) setConfirmYolo(true);
-    else void window.studio.setDefaultApprovalMode(value === inherit ? null : (value as ApprovalMode));
-  };
 
   return (
     <>
@@ -149,39 +129,7 @@ export function ModelsSection() {
             />
           )}
         </SettingRow>
-        <SettingRow
-          title={t("settings.defaultApproval")}
-          desc={
-            settings?.defaultApprovalMode
-              ? `${t(approvalDescs[settings.defaultApprovalMode])} · ${t("settings.defaultApproval.desc")}`
-              : t("settings.defaultApproval.desc")
-          }
-        >
-          {(labelId) => (
-            <Select
-              value={approvalValue}
-              options={approvalOptions}
-              labelledBy={labelId}
-              onChange={chooseApproval}
-              testId="setting-default-approval"
-            />
-          )}
-        </SettingRow>
       </Card>
-      {confirmYolo && (
-        <ConfirmDialog
-          title={t("approval.yoloConfirmTitle")}
-          body={t("approval.yoloConfirmBody")}
-          confirmLabel={t("approval.yoloConfirmYes")}
-          cancelLabel={t("common.cancel")}
-          onConfirm={() => {
-            setConfirmYolo(false);
-            void window.studio.setYoloConfirmed();
-            void window.studio.setDefaultApprovalMode("yolo");
-          }}
-          onCancel={() => setConfirmYolo(false)}
-        />
-      )}
     </>
   );
 }

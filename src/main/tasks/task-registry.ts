@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import type { ApprovalMode, ModelKey, Project, ProjectId, TaskId } from "../../shared/ipc.ts";
+import type { ModelKey, Project, ProjectId, TaskId } from "../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { writeFileAtomic } from "./atomic-write.ts";
 
@@ -18,8 +18,6 @@ export interface TaskRecord {
   archived: boolean;
   model: ModelKey | null;
   thinkingLevel: ThinkingLevel | null;
-  /** 进程启动时固定（决策 2）。null = 不传 --approval-mode，跟随 omp 配置。 */
-  approvalMode: ApprovalMode | null;
   /** 阶段 4 的 worktree 预留，第一版恒为 null。 */
   worktreePath: string | null;
 }

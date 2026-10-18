@@ -31,7 +31,7 @@
 
 ## 模型列表
 
-`listModels` 在服务进程上发 `get_available_models`（会等 omp 后台发现完成），映射成 `ModelOption`（`acceptsImages` = `input` 含 `image`）。设置页的默认模型/思考强度/审批模式写的是 omp-studio 自己的偏好（`StudioSettings`），不写 `~/.omp`。
+`listModels` 在服务进程上发 `get_available_models`（会等 omp 后台发现完成），映射成 `ModelOption`（`acceptsImages` = `input` 含 `image`）。设置页的默认模型/思考强度写的是 omp-studio 自己的偏好（`StudioSettings`），不写 `~/.omp`；审批模式没有 studio 侧默认值，只用 omp 的 `tools.approvalMode`（见 `dialogs.md`）。
 
 ## 没有实测的
 

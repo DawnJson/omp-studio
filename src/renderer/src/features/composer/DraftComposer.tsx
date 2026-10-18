@@ -1,5 +1,5 @@
 // 草稿输入框（空状态里的输入框）：还没有任务，发送第一条时才创建任务。
-// 胶囊改的是"新任务默认值"（settings 的 defaultModel / defaultThinkingLevel / defaultApprovalMode），没有进程所以不调 setTask*。
+// 模型胶囊改的是"新任务默认值"（settings 的 defaultModel / defaultThinkingLevel），没有进程所以不调 setTask*；审批胶囊直接改 omp 配置。
 import { reportError } from "../../ui/errors.ts";
 import {
   useEffect,
@@ -74,7 +74,6 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
         projectId,
         ...(settings?.defaultModel ? { model: settings.defaultModel } : {}),
         ...(settings?.defaultThinkingLevel ? { thinkingLevel: settings.defaultThinkingLevel } : {}),
-        ...(settings?.defaultApprovalMode ? { approvalMode: settings.defaultApprovalMode } : {}),
       });
       await selectTask(task.id);
       await window.studio.sendPrompt(task.id, {
@@ -184,11 +183,7 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
             setModel={(modelKey) => window.studio.setDefaultModel(modelKey)}
             setThinking={(level) => window.studio.setDefaultThinkingLevel(level)}
           />
-          <ApprovalChip
-            mode={settings?.defaultApprovalMode ?? null}
-            locked={false}
-            onChange={(mode) => window.studio.setDefaultApprovalMode(mode)}
-          />
+          <ApprovalChip />
           <span className="composer-spacer" />
           <SendStop
             running={false}

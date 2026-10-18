@@ -3,7 +3,6 @@
 import type { IpcMainInvokeEvent } from "electron";
 import {
   limits,
-  type ApprovalMode,
   type DialogResponse,
   type LocalePreference,
   type ModelKey,
@@ -93,10 +92,6 @@ export function parseLocalePreference(value: unknown): LocalePreference {
 
 export function parseThemePreference(value: unknown): ThemePreference {
   return parseOneOf(value, "theme", ["system", "light", "dark"]);
-}
-
-export function parseApprovalMode(value: unknown): ApprovalMode {
-  return parseOneOf(value, "approvalMode", ["always-ask", "write", "yolo"]);
 }
 
 export function parseThinkingLevel(value: unknown): ThinkingLevel {

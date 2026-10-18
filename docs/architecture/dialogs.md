@@ -29,7 +29,7 @@
 
 没有 `optionDetails`、没有 `timeout`。识别规则（`isApprovalSelect`）：`title` 以 `Allow tool: ` 开头，且 `options[0] === "Approve"`、最后一项 `=== "Deny"`；满足则 `DialogRequest.approval = true`，否则按普通 select，功能不受影响。`title` 原样给渲染进程（首行 `Allow tool: <tool>`，其余各行是 `Command:`/`Path:` 等细节，可能还有 `Reason:`/`Origin:`）。`omp` 的 `approval-mode.md` 说明三个选项是 Approve / Approve `<tool>` for this session / Deny。omp 升级后这条规则可能失效：`test/task-dialogs.test.ts` 用 fixture 里的真实帧固定它。
 
-默认审批模式：studio 默认不传 `--approval-mode`，跟随 omp 配置的 `tools.approvalMode`（omp 默认 `yolo`，不会出现审批对话框）；用户在输入框或设置里选了模式才显式传（选 `write` 时只有 exec 类工具如 bash 才会问）。
+审批模式：studio 启动时从不传 `--approval-mode`，只看 omp 配置的 `tools.approvalMode`（omp 默认 `yolo`，不会出现审批对话框）；输入框胶囊改的就是这个配置项（`write` 时只有 exec 类工具如 bash 才会问）。
 
 ## ask
 

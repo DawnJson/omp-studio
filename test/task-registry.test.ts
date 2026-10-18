@@ -19,7 +19,6 @@ const newTask = (projectId: ProjectId) => ({
   title: "t",
   model: null,
   thinkingLevel: null,
-  approvalMode: "write" as const,
 });
 
 describe("TaskRegistry（tasks.json）", () => {
