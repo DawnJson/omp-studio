@@ -23,6 +23,6 @@ const header = [
   "",
 ].join("\n");
 
-const target = path.join(import.meta.dirname, "..", "src", "main", "omp", "wire", "rpc-wire.generated.ts");
+const target = path.join(import.meta.dirname, "..", "src", "shared", "omp-wire", "rpc-wire.generated.ts");
 await writeFile(target, header + body);
 console.log(`已写入 ${target}（omp v${version}，${body.length} 字符）`);

@@ -3,7 +3,7 @@
 import { spawn, execFile, type ChildProcessWithoutNullStreams } from "node:child_process";
 import path from "node:path";
 import { FrameDecoder, type RawFrame } from "./frame-decoder.ts";
-import type { PromptParams, PromptResultEvent, ReadyEvent, RpcInbound, RpcResponse, RpcServerFrame, RpcWireCommands } from "./wire/rpc-wire.generated.ts";
+import type { PromptParams, PromptResultEvent, ReadyEvent, RpcInbound, RpcResponse, RpcServerFrame, RpcWireCommands } from "../../shared/omp-wire/rpc-wire.generated.ts";
 
 export type CommandType = keyof RpcWireCommands;
 type CommandParams<K extends CommandType> = RpcWireCommands[K]["params"];

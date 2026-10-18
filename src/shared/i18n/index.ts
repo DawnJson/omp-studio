@@ -1,0 +1,76 @@
+// 类型化字典 + t() + Intl。没有 i18n 库：只有中英两种语言，key 在编译期对齐，主进程和渲染进程共用。
+// 加文案：先在 zh-CN/<namespace>.ts 里加 key，再在 en/<namespace>.ts 里加同名 key（少一个或多一个都编译失败）。
+// 复数：值写成 { one?, other }，t() 用 count 参数和 Intl.PluralRules 选一项；插值写 {name}。
+import type { Locale } from "../ipc.ts";
+import { en } from "./en/index.ts";
+import { zhCN } from "./zh-CN/index.ts";
+
+/** 一条文案：普通字符串，或按 Intl.PluralRules 类别分开的复数形式（必须有 other）。 */
+export type MessageEntry = string | ({ other: string } & Partial<Record<Intl.LDMLPluralRule, string>>);
+
+type Dictionary = typeof zhCN;
+export type Namespace = keyof Dictionary;
+
+/** `命名空间.key`，如 "shell.appName"。 */
+export type MessageKey = { [N in Namespace]: `${N}.${Extract<keyof Dictionary[N], string>}` }[Namespace];
+
+export type MessageParams = Record<string, string | number>;
+
+/** 每种语言的完整字典：namespace → key → 文案。en 用 `satisfies` 对齐 zh-CN 的 key。 */
+export const dictionaries: Record<Locale, Record<string, Record<string, MessageEntry>>> = {
+  "zh-CN": zhCN,
+  en,
+};
+
+export const locales: readonly Locale[] = ["zh-CN", "en"];
+
+const pluralRules: Partial<Record<Locale, Intl.PluralRules>> = {};
+
+function pickEntry(locale: Locale, entry: MessageEntry, params: MessageParams | undefined): string {
+  if (typeof entry === "string") return entry;
+  const count = params?.["count"];
+  if (typeof count !== "number") return entry.other;
+  const rules = (pluralRules[locale] ??= new Intl.PluralRules(locale));
+  return entry[rules.select(count)] ?? entry.other;
+}
+
+/** 取文案并代入 {name} 形式的参数。key 缺失（只可能发生在绕过类型检查时）直接返回 key，不吞掉错误。 */
+export function t(locale: Locale, key: MessageKey, params?: MessageParams): string {
+  // 字典还没有任何 key 时 MessageKey 是 never；按 string 处理才能查表。
+  const path: string = key;
+  const dot = path.indexOf(".");
+  const entry = dictionaries[locale][path.slice(0, dot)]?.[path.slice(dot + 1)];
+  if (entry === undefined) return path;
+  const text = pickEntry(locale, entry, params);
+  return params ? text.replace(/\{(\w+)\}/g, (whole, name: string) => String(params[name] ?? whole)) : text;
+}
+
+export type TFunction = (key: MessageKey, params?: MessageParams) => string;
+
+/** 绑定语言的 t，给 hook 和主进程的原生对话框用。 */
+export function createT(locale: Locale): TFunction {
+  return (key, params) => t(locale, key, params);
+}
+
+/** 把"现在"到 timestamp 的距离写成 "3 分钟前" / "3 minutes ago"，取最合适的单位。 */
+export function formatRelativeTime(locale: Locale, timestamp: number, now: number = Date.now()): string {
+  const seconds = Math.round((timestamp - now) / 1000);
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const units: [Intl.RelativeTimeFormatUnit, number][] = [
+    ["day", 86_400],
+    ["hour", 3_600],
+    ["minute", 60],
+  ];
+  for (const [unit, size] of units) {
+    if (Math.abs(seconds) >= size) return formatter.format(Math.round(seconds / size), unit);
+  }
+  return formatter.format(seconds, "second");
+}
+
+export function formatDateTime(locale: Locale, timestamp: number): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(timestamp);
+}
+
+export function formatNumber(locale: Locale, value: number): string {
+  return new Intl.NumberFormat(locale).format(value);
+}

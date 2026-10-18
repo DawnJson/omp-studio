@@ -32,9 +32,15 @@ omp 自己的协议和接口以 omp 文档为准：`rpc.md`（RPC 协议）、`e
 |包管理器|npm|随 Node 自带，锁文件 `package-lock.json`。开发依赖一律 `--save-exact`|
 |语言|TypeScript 7（`tsc` 只做类型检查）|`strict`、`nodenext`、`erasableSyntaxOnly`；源码 import 带 `.ts` 后缀，Node 24 和 Electron 44 都能直接运行 `.ts`|
 |测试|Vitest|和 electron-vite 同属 Vite 体系，原生支持 TypeScript 和 ESM|
-|构建|electron-vite|做应用外壳时再装|
+|构建|electron-vite（Vite 8，`electron.vite.config.ts`）|main 打成 ESM，preload 必须打成 CJS（沙箱不支持 ESM preload）|
 |打包|electron-builder|阶段 7 再装|
-|状态管理、i18n 库|未定|做界面前再定|
+|渲染框架|React 19（`@vitejs/plugin-react`）|只在 `src/renderer` 用；`src/shared` 里不引 React 和 DOM|
+|状态管理|不引库：`useSyncExternalStore` + 手写 store|`src/renderer/src/store/`；任务状态以主进程为准，渲染进程只是事件的投影|
+|i18n|不引库：类型化字典 + `Intl`|`src/shared/i18n/`；zh-CN 是 key 的来源，en 用 `satisfies` 对齐，缺一个 key 编译失败|
+|Markdown|markdown-it（`html: false`）|用 token 流渲染成 React 元素，不用 `dangerouslySetInnerHTML`|
+|代码高亮|Shiki（`shiki/core` + JavaScript 正则引擎）|不用 WASM，CSP 不必放开 `wasm-unsafe-eval`|
+|原生调用|koffi|Job Object、用户 PATH 注册表、环境变量广播；只在 `src/main/platform/win32/ffi.ts` 载入|
+|端到端|Playwright（只装 `@playwright/test`，用 Electron 的 `_electron.launch`）|不下载浏览器；测构建产物，先 `npm run build`|
 
 ## 命令
 
@@ -47,7 +53,10 @@ omp 自己的协议和接口以 omp 文档为准：`rpc.md`（RPC 协议）、`e
 |测试|`npm test`|
 |录制 RPC 回放|`npm run rpc:record -- <名字> "<prompt>"`，写到 `fixtures/rpc/<名字>.ndjson`。会调真实模型；录制里出现用户名会拒绝写入，这时用 `$env:STUDIO_SCRATCH_DIR` 换临时目录，见 `docs/architecture/rpc-replay.md`|
 |更新 RPC 类型|`npm run rpc:update-wire -- <omp 版本>`|
-|开发、打包|还没有，做应用外壳时补上|
+|开发（热更新）|`npm run dev`|
+|构建|`npm run build`，产物在 `out/`（gitignore）|
+|运行构建产物|`npm run start`（先 `npm run build`）|
+|端到端测试|`npm run test:e2e`（先 `npm run build`）。截图写到被 gitignore 的 `screenshots/`|
 
 ## 什么时候先停下来问
 

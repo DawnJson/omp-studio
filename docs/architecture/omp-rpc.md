@@ -9,7 +9,7 @@
 |`src/main/omp/discover.ts`|按 PATH 和 PATHEXT 找 `omp`（Windows 上只接受 `.exe`/`.com`，见 `omp-install.md`），执行 `omp --version`，读 exe 上两级目录的 `manager.json`|
 |`src/main/omp/frame-decoder.ts`|stdout 字节 → 逻辑帧：按 `\n` 切行、严格 UTF-8、`rpc_chunk` 校验和重组。任何不合规的字节都抛 `RpcProtocolError`|
 |`src/main/omp/omp-connection.ts`|`OmpConnection`：启动、握手、`request`（按 id 对应应答）、`prompt`（等到这一条完成）、`onFrame`（其余帧）、`close`|
-|`src/main/omp/wire/rpc-wire.generated.ts`|从 omp tag 拷贝的 wire 类型，见下文"类型从哪来"|
+|`src/shared/omp-wire/rpc-wire.generated.ts`|从 omp tag 拷贝的 wire 类型，见下文"类型从哪来"|
 
 `OmpConnection` 的约定：
 

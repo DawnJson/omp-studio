@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { RpcProtocolError } from "../src/main/omp/frame-decoder.ts";
 import { OmpConnection, OmpExitedError, RpcCommandError } from "../src/main/omp/omp-connection.ts";
-import type { RpcServerFrame } from "../src/main/omp/wire/rpc-wire.generated.ts";
+import type { RpcServerFrame } from "../src/shared/omp-wire/rpc-wire.generated.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");

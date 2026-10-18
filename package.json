@@ -8,17 +8,35 @@
   "engines": {
     "node": ">=24"
   },
+  "main": "./out/main/index.js",
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc -b tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "rpc:update-wire": "node scripts/update-rpc-wire.ts",
     "rpc:record": "node scripts/record-rpc.ts"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
     "electron": "44.9.0",
+    "electron-vite": "6.0.0",
     "typescript": "7.0.2",
+    "vite": "8.3.4",
     "vitest": "5.0.5"
+  },
+  "dependencies": {
+    "koffi": "3.3.3",
+    "markdown-it": "15.0.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "shiki": "4.5.0"
   }
 }
