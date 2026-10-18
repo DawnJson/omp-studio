@@ -193,7 +193,7 @@ flowchart LR
 
 ### 阶段 6：内置终端
 
-- [ ] xterm.js + node-pty，每个任务的终端在它的 worktree 目录里打开
+- [x] xterm.js + node-pty，每个任务的终端在它的 worktree 目录里打开（任务条按钮 / Ctrl+` / 命令面板打开输入框下方的面板；目录是任务的 cwd，有 worktree 就是 worktree 根；每个任务一个终端，隐藏面板不结束 shell，再打开用 256KB 回放还原屏幕；进程树进应用 Job Object，归档任务、丢弃 worktree、退出应用时按树结束；打包版 `release\win-unpacked` 实测可用。见 `docs/architecture/terminal.md`。**只在 Windows 上实测**，macOS/Linux 没跑过）
 
 ### 阶段 7：发布准备
 

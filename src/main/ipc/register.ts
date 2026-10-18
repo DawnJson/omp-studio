@@ -11,6 +11,7 @@ import { historyHandlers } from "./history-handlers.ts";
 import { ompHandlers } from "./omp-handlers.ts";
 import { subagentHandlers } from "./subagent-handlers.ts";
 import { taskHandlers } from "./task-handlers.ts";
+import { terminalHandlers } from "./terminal-handlers.ts";
 import { updateHandlers } from "./update-handlers.ts";
 import { usageHandlers } from "./usage-handlers.ts";
 import { registerDropFolder } from "./drop-folder.ts";
@@ -29,6 +30,7 @@ const handlers: InvokeHandlers = {
   ...updateHandlers,
   ...usageHandlers,
   ...subagentHandlers,
+  ...terminalHandlers,
 };
 
 export function registerIpcHandlers(): void {

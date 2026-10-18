@@ -15,6 +15,7 @@ import { buildOmpLaunch, setTestOmpOverride } from "../omp/launch.ts";
 import { parseTestOmpOverride } from "../omp/launch-args.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
 import { assignToAppJob } from "../platform/win32/job-object.ts";
+import { closeTaskTerminal } from "../terminal/active.ts";
 import { createWorktree, removeWorktree } from "../git/worktree.ts";
 import { SetupConsent } from "../git/setup-consent.ts";
 import { TaskPool, type WorktreeOps } from "./task-pool.ts";
@@ -92,6 +93,7 @@ function createPool(): Promise<TaskPool> {
       }),
     worktrees: worktreeOps,
     assignJob: assignToAppJob,
+    beforeTaskClose: closeTaskTerminal,
     events: {
       state: (state) => {
         emitEvent("taskState", state);

@@ -18,4 +18,5 @@ export const shortcut = {
   reviewFiles: "评审：上 / 下一个文件",
   reviewHunks: "评审：上 / 下一处改动",
   reviewLayout: "评审：切换统一 / 并排",
+  toggleTerminal: "终端：打开 / 聚焦 / 回到输入框",
 } satisfies Record<string, MessageEntry>;

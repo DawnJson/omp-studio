@@ -5,6 +5,17 @@ directories:
 files:
   - out/**
   - package.json
+  # node-pty 只需要 lib 和当前平台的预编译件：源码、依赖库、其它平台的预编译件和调试符号不打进包。
+  - "!node_modules/node-pty/{src,deps,third_party,scripts}/**"
+  - "!node_modules/node-pty/prebuilds/{darwin-arm64,darwin-x64,win32-arm64}/**"
+  - "!node_modules/node-pty/**/*.test.js*"
+  - "!node_modules/node-pty/**/*.pdb"
+# node-pty 的原生 .node、conpty 辅助文件和 worker 脚本都要在真实文件系统里（不能留在 asar 里）。
+asarUnpack:
+  - node_modules/node-pty/**
+# node-pty 用自带的预编译件（prebuilds/win32-x64，N-API，Electron 44 实测可直接加载）；
+# 默认的 @electron/rebuild 会尝试从源码编译，没有 VS 工具链的机器上会失败。
+npmRebuild: false
 # 托盘图标（src/main/window/tray.ts 从 process.resourcesPath 读）。
 extraResources:
   - from: resources/tray.png

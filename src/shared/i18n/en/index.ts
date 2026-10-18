@@ -42,6 +42,7 @@ import { review } from "./review.ts";
 import { git } from "./git.ts";
 import { lanes } from "./lanes.ts";
 import { custom } from "./custom.ts";
+import { terminal } from "./terminal.ts";
 
 export const en = {
   shell,
@@ -88,4 +89,5 @@ export const en = {
   git,
   lanes,
   custom,
+  terminal,
 };

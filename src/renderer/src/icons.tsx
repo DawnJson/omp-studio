@@ -82,6 +82,12 @@ export const Terminal = (props: IconProps) => (
     <path d="m3 4.5 3.5 3.5L3 11.500M8 12h5" />
   </Icon>
 );
+export const Restart = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M13 8a5 5 0 1 1-1.6-3.7" />
+    <path d="M12.500 2v3h-3" />
+  </Icon>
+);
 export const Search = (props: IconProps) => (
   <Icon {...props}>
     <circle cx="7" cy="7" r="4" />

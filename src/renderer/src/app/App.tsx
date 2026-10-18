@@ -11,6 +11,7 @@ import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts"
 import { OmpSetupView } from "../features/omp-setup/index.ts";
 import { ReviewHost } from "../features/review/index.ts";
 import { CommandPalette } from "../features/palette/index.ts";
+import { TerminalPanel, toggleTerminalFocus, useTerminalOpen } from "../features/terminal/index.ts";
 import { SettingsView } from "../features/settings/index.ts";
 import { onStudioCommand } from "../features/palette/studio-command.ts";
 import { useHiddenTasks } from "../features/sidebar/archive-store.ts";
@@ -84,6 +85,7 @@ export function App() {
   const taskId = useSelectedTaskId();
   const view = useMainView();
   const paletteOpen = usePaletteOpen();
+  const terminalOpen = useTerminalOpen(taskId);
   const shell = useShellUi();
   const narrow = useNarrow();
   const navigation = useNavigation();
@@ -174,6 +176,9 @@ export function App() {
     openReview: () => {
       if (taskId !== null && view === "conversation") openReview(taskId);
     },
+    toggleTerminalFocus: () => {
+      if (taskId !== null && view === "conversation") toggleTerminalFocus(taskId);
+    },
     closeDrawer: () => {
       if (!narrow || !shell.drawerOpen) return false;
       setDrawerOpen(false);
@@ -213,6 +218,7 @@ export function App() {
               <GitBar taskId={taskId} />
               <ConversationView taskId={taskId} />
               <Composer taskId={taskId} />
+              {terminalOpen && <TerminalPanel key={taskId} taskId={taskId} />}
             </>
           )}
         </main>

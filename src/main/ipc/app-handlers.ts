@@ -1,6 +1,6 @@
 // 应用和设置：读写走 settings-store（userData/settings.json）；外壳状态走 window-state。
 import { app, shell } from "electron";
-import type { AppInfo, HandlerGroup } from "../../shared/ipc.ts";
+import { limits, type AppInfo, type HandlerGroup } from "../../shared/ipc.ts";
 import { exportDiagnostics } from "../log/diagnostics.ts";
 import { openLogsFolder } from "../log/instance.ts";
 import { getSettings, resolveLocale, updateSettings } from "../settings/settings-store.ts";
@@ -55,6 +55,9 @@ export const appHandlers: HandlerGroup<
       }),
       ...(record["sidebarCollapsed"] !== undefined && {
         sidebarCollapsed: parseBoolean(record["sidebarCollapsed"], "sidebarCollapsed"),
+      }),
+      ...(record["terminalHeight"] !== undefined && {
+        terminalHeight: parseInteger(record["terminalHeight"], "terminalHeight", ...limits.terminalHeightRange),
       }),
       ...(record["collapsedProjects"] !== undefined && {
         collapsedProjects: parseCollapsedProjects(record["collapsedProjects"]),

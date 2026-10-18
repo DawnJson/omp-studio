@@ -53,6 +53,8 @@ export interface PoolDeps {
   events: PoolEvents;
   /** 没传时 `createTask({worktree: true})` 和 `discardWorktree` 直接报错；单元测试不需要 git。 */
   worktrees?: WorktreeOps;
+  /** 归档任务、丢弃 worktree 之前调用并等待（不抛错）：用来结束任务名下的内置终端，Windows 上进程占着目录就删不掉。 */
+  beforeTaskClose?(id: TaskId): Promise<void>;
 }
 
 export interface ResumeInput {
@@ -254,6 +256,7 @@ export class TaskPool {
   /** 关掉进程并从侧栏移除；会话文件和 tasks.json 记录保留（resume() 能找回）。 */
   async archiveTask(id: TaskId): Promise<void> {
     const runner = this.#runner(id);
+    await this.#deps.beforeTaskClose?.(id);
     await runner.dispose();
     await runner.setArchived(true);
     this.#runners.delete(id);
@@ -311,6 +314,7 @@ export class TaskPool {
     if (worktreePath === null || worktreeBranch === null) throw new Error("the task has no worktree");
     const project = this.#deps.registry.findProject(runner.record.projectId);
     if (!project) throw new Error(`task ${id} refers to unknown project`);
+    await this.#deps.beforeTaskClose?.(id);
     await runner.close();
     await this.#worktrees().remove(project, worktreePath, worktreeBranch);
     await this.#deps.registry.updateTask(id, { worktreePath: null, worktreeBranch: null, worktreeBase: null });

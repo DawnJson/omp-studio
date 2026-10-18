@@ -7,6 +7,7 @@ import { openReview } from "../../store/review-store.ts";
 import { archiveWithUndo } from "../sidebar/archive-store.ts";
 import { startDraft } from "../empty/index.ts";
 import { addProjectAsDraft, jumpToWaitingTask } from "../sidebar/sidebar-actions.ts";
+import { toggleTerminal } from "../terminal/index.ts";
 import type { CommandEntry } from "../../../../shared/ui/palette-model.ts";
 import { emitStudioCommand } from "./studio-command.ts";
 
@@ -80,6 +81,12 @@ export function buildCommands({ t, locale, theme, current, hasWaiting }: Command
       label: t("review.open"),
       shortcut: "Ctrl Shift D",
       run: () => openReview(current.id),
+    },
+    current && {
+      id: "toggleTerminal",
+      label: t("cmd.toggleTerminal"),
+      shortcut: "Ctrl `",
+      run: () => toggleTerminal(current.id),
     },
     hasWaiting && {
       id: "jumpWaiting",

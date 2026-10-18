@@ -1,0 +1,79 @@
+/* 内置终端面板（spec §4.19）。只用 tokens.css 里的变量；终端内的配色由 xterm 主题从同一批 token 推出。 */
+
+.terminal-panel {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-sunken);
+  border-top: 1px solid var(--border);
+}
+
+/* 顶边拖拽条：命中区 4px，盖在边线上方 */
+.terminal-resizer {
+  position: absolute;
+  top: calc(-1 * var(--space-0-5));
+  right: 0;
+  left: 0;
+  z-index: var(--z-sticky);
+  height: var(--space-1);
+  cursor: row-resize;
+}
+.terminal-resizer:hover,
+.terminal-resizer:focus-visible {
+  background: var(--border-strong);
+  outline: none;
+}
+
+.terminal-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--row-tool);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  user-select: none;
+}
+
+.terminal-shell {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.terminal-cwd {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-3);
+}
+
+.terminal-spacer {
+  flex: 1;
+}
+
+.terminal-action {
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+}
+
+.terminal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 var(--space-3) var(--space-2);
+}
+
+.terminal-host {
+  width: 100%;
+  height: 100%;
+}
+
+/* xterm 自带的滚动条换成和应用一致的细滚动条；背景交给主题，不让它画自己的底色 */
+.terminal-host .xterm .xterm-viewport {
+  background: transparent !important;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}

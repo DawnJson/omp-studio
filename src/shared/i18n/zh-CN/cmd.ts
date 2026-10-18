@@ -18,4 +18,5 @@ export const cmd = {
   checkUpdate: "检查 omp 更新",
   shortcuts: "快捷键",
   archive: "归档当前任务",
+  toggleTerminal: "切换终端",
 } satisfies Record<string, MessageEntry>;

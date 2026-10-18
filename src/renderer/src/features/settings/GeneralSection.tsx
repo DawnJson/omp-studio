@@ -13,6 +13,7 @@ const shortcuts: { label: MessageKey; keys: string[] }[] = [
   { label: "shortcut.settings", keys: ["Ctrl", ","] },
   { label: "shortcut.toggleSidebar", keys: ["Ctrl", "B"] },
   { label: "shortcut.focusComposer", keys: ["Ctrl", "L"] },
+  { label: "shortcut.toggleTerminal", keys: ["Ctrl", "`"] },
   { label: "shortcut.send", keys: ["Enter"] },
   { label: "shortcut.newline", keys: ["Shift", "Enter"] },
   { label: "shortcut.later", keys: ["Ctrl", "Enter"] },

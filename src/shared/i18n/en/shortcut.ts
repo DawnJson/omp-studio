@@ -19,4 +19,5 @@ export const shortcut = {
   reviewFiles: "Review: previous / next file",
   reviewHunks: "Review: previous / next change",
   reviewLayout: "Review: unified / side by side",
+  toggleTerminal: "Terminal: open / focus / back to the message box",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

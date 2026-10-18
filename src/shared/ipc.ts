@@ -451,8 +451,22 @@ export interface ShellState {
   /** 侧栏宽度（px），220–360。 */
   sidebarWidth: number;
   sidebarCollapsed: boolean;
+  /** 终端面板高度（px），120–4000；实际上限（主区 70%）由界面夹取。 */
+  terminalHeight: number;
   /** 侧栏里折叠的项目组（ProjectId）；默认空。 */
   collapsedProjects: string[];
+}
+
+/** openTerminal 的结果。 */
+export interface TerminalOpenResult {
+  /** 终端的工作目录，只用于显示（任务 cwd：worktree 根或项目目录）。 */
+  cwd: string;
+  /** shell 的可执行文件名，如 `pwsh.exe`。 */
+  shell: string;
+  /** true = 复用了还活着的终端（面板隐藏后再打开、渲染进程重载）；false = 新起的。 */
+  reopened: boolean;
+  /** 已有的输出（最近一段），复用时用来还原屏幕；新起的为空串。 */
+  backlog: string;
 }
 
 export interface StudioInvokeApi {
@@ -506,6 +520,15 @@ export interface StudioInvokeApi {
   listTaskModels(taskId: TaskId): Promise<ModelOption[]>;
   setTaskModel(taskId: TaskId, model: ModelKey): Promise<void>;
   setTaskThinkingLevel(taskId: TaskId, level: ThinkingLevel): Promise<void>;
+
+  // 内置终端（阶段 6）：每个任务至多一个终端，cwd 由主进程按任务定（worktree 根或项目目录），渲染进程不传路径。
+  /** 打开任务的终端：已有活着的就复用（返回 backlog），否则在任务目录新起 shell。目录已不存在时 reject。 */
+  openTerminal(taskId: TaskId, cols: number, rows: number): Promise<TerminalOpenResult>;
+  /** 把键盘输入写给终端；没有终端时静默忽略。 */
+  writeTerminal(taskId: TaskId, data: string): Promise<void>;
+  resizeTerminal(taskId: TaskId, cols: number, rows: number): Promise<void>;
+  /** 结束任务的终端（整棵进程树）；没有终端时静默成功。 */
+  closeTerminal(taskId: TaskId): Promise<void>;
 
   // 会话历史
   /** projectId 为 null 时列出所有项目的会话。只读 ~/.omp。 */
@@ -679,6 +702,10 @@ export interface StudioEventPayloads {
   slashCommands: { taskId: TaskId; commands: AvailableSlashCommand[] };
   /** 任务的子代理泳道变了（整份快照，主进程合并过高频的 progress 帧）。 */
   subagents: { taskId: TaskId; lanes: SubagentLane[] };
+  /** 终端输出（主进程已按 ~16ms 合并）。 */
+  terminalData: { taskId: TaskId; data: string };
+  /** 终端里的 shell 自己退出了（主动 closeTerminal 不发这个事件）。 */
+  terminalExit: { taskId: TaskId; exitCode: number };
   /** omp-studio 自身的更新状态变化。 */
   updateState: UpdateState;
 }
@@ -712,6 +739,10 @@ export const limits = {
   titleMaxChars: 200,
   promptMaxImages: 8,
   apiKeyMaxChars: 4096,
+  /** 一次 writeTerminal 的最大字符数（粘贴大段文本时界面分块发）。 */
+  terminalInputMaxChars: 65_536,
+  terminalSizeRange: [2, 1000],
+  terminalHeightRange: [120, 4000],
   urlMaxChars: 8192,
   maxLiveProcessesRange: [2, 16],
 } as const;
@@ -762,6 +793,10 @@ export const invokeNames = {
   compactTask: true,
   openTaskFile: true,
   revealTaskFile: true,
+  openTerminal: true,
+  writeTerminal: true,
+  resizeTerminal: true,
+  closeTerminal: true,
   getSubagents: true,
   getSubagentDetail: true,
   steerSubagent: true,
@@ -840,4 +875,6 @@ export const eventNames = {
   slashCommands: true,
   subagents: true,
   updateState: true,
+  terminalData: true,
+  terminalExit: true,
 } satisfies Record<keyof StudioEventPayloads, true>;

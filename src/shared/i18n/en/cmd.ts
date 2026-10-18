@@ -19,4 +19,5 @@ export const cmd = {
   checkUpdate: "Check for omp updates",
   shortcuts: "Keyboard shortcuts",
   archive: "Archive current task",
+  toggleTerminal: "Toggle terminal",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

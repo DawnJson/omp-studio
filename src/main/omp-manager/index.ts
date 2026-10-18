@@ -75,3 +75,12 @@ export function ompManager(): OmpManager {
 export function getOmpExecutable(): Promise<{ path: string; managedBin: string | null }> {
   return ompManager().ensureReady();
 }
+
+/**
+ * 自管 omp 的 bin 目录（非自管或还没就绪时为 null）。不等待发现流程：内置终端不该因为 omp 没就绪而打不开，
+ * 而打开终端的任务本身已经有 omp 进程，实际上状态总是 ready。
+ */
+export function managedOmpBin(): string | null {
+  const { status, layout } = ompManager();
+  return status.state === "ready" && status.source.kind === "studio_managed" ? layout.binDir : null;
+}

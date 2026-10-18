@@ -21,6 +21,8 @@ export interface ShortcutActions {
   toggleMenu(): void;
   /** Ctrl Shift D：打开当前任务的评审。 */
   openReview(): void;
+  /** Ctrl `：终端 打开 / 聚焦 / 收起并回到输入框。 */
+  toggleTerminalFocus(): void;
   /** Esc 栈第 5 层：侧栏抽屉打开时收起。返回是否处理了。 */
   closeDrawer(): boolean;
 }
@@ -47,6 +49,7 @@ export function useShortcuts(actions: ShortcutActions): void {
               b: act.toggleSidebar,
               j: act.jumpToWaiting,
               l: act.focusComposer,
+              "`": act.toggleTerminalFocus,
             };
         const key = event.key.toLowerCase();
         const handler = handlers[key] ?? (/^[1-9]$/.test(key) ? () => act.nthTask(Number(key)) : undefined);
