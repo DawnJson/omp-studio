@@ -122,7 +122,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
         if (command === "stop") stop();
         if (command === "compact") void compactContext(taskId, t);
       }),
-    [stop, taskId],
+    [stop, taskId, t],
   );
 
   const addFiles = async (files: Iterable<File>) => {

@@ -15,6 +15,8 @@ export function Popover({ open, onClose, children, width, align = "start", label
   useEffect(() => {
     if (!open) return;
     const trigger = document.activeElement;
+    // 卸载时 React 先把 ref.current 清成 null 再跑清理函数，所以在这里先取。
+    const root = ref.current;
     const onPointerDown = (event: PointerEvent) => {
       const anchor = ref.current?.parentElement;
       if (event.target instanceof Node && anchor && !anchor.contains(event.target)) onClose();
@@ -25,7 +27,7 @@ export function Popover({ open, onClose, children, width, align = "start", label
       if (
         trigger instanceof HTMLElement &&
         trigger.isConnected &&
-        (document.activeElement === document.body || ref.current?.contains(document.activeElement))
+        (document.activeElement === document.body || root?.contains(document.activeElement))
       )
         trigger.focus();
     };

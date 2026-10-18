@@ -64,7 +64,7 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
   const t = useT();
   const rootRef = useRef<HTMLDivElement>(null);
   const primaryRef = useRef<(() => void) | null>(null);
-  const openedAt = useRef(Date.now());
+  const [openedAt] = useState(() => Date.now());
   const [busy, setBusy] = useState(false);
   const [pulse, setPulse] = useState(false);
   const timeoutMs = timeoutOf(dialog);
@@ -87,7 +87,7 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
         },
       );
     },
-    [taskId, dialog.id],
+    [taskId, dialog.id, t],
   );
 
   const cancel = useCallback(() => {
@@ -97,17 +97,19 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
 
   // 焦点：打字中或输入框有草稿就不抢，只脉冲一次；否则落到门。关闭后回到出现前的元素。
   useEffect(() => {
+    const root = rootRef.current;
     const previous = document.activeElement;
     const active = document.activeElement;
     const composing =
       active instanceof HTMLTextAreaElement && active.hasAttribute("data-composer-input") && active.value !== "";
     if (msSinceLastKey() < 1500 || composing) setPulse(true);
-    else rootRef.current?.focus();
+    else root?.focus();
     return () => {
       const current = document.activeElement;
-      if (current === document.body || rootRef.current?.contains(current)) {
+      // root 在 effect 开始时取：卸载时 React 已经把 rootRef.current 清成 null。
+      if (current === document.body || root?.contains(current)) {
         const target =
-          previous instanceof HTMLElement && previous.isConnected && !rootRef.current?.contains(previous)
+          previous instanceof HTMLElement && previous.isConnected && !root?.contains(previous)
             ? previous
             : document.querySelector<HTMLElement>("[data-composer-input]");
         target?.focus();
@@ -118,7 +120,7 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
   useEffect(() => {
     registerGateControl({
       primary: () => {
-        if (Date.now() - openedAt.current >= 500) primaryRef.current?.();
+        if (Date.now() - openedAt >= 500) primaryRef.current?.();
       },
       deny: async () => {
         markAnswered(dialog.id);
@@ -133,7 +135,7 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
       focus: () => rootRef.current?.focus(),
     });
     return () => registerGateControl(null);
-  }, [taskId, dialog]);
+  }, [taskId, dialog, openedAt]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape") {
@@ -142,7 +144,7 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
       cancel();
     } else if (event.key === "Enter" && event.ctrlKey) {
       event.preventDefault();
-      if (Date.now() - openedAt.current >= 500) primaryRef.current?.();
+      if (Date.now() - openedAt >= 500) primaryRef.current?.();
     }
   };
 

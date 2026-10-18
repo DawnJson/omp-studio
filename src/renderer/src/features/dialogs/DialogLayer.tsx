@@ -55,10 +55,11 @@ export function DialogLayer({ taskId }: { taskId: TaskId | null }) {
   const dialogs = task?.dialogs ?? [];
   const current = dialogs[0];
 
-  if (!tracking) {
+  useEffect(() => {
+    if (tracking) return;
     tracking = true;
     startKeyActivityTracking();
-  }
+  }, []);
   useTaskNotices();
   useNeedsYouToasts();
   const note = useDismissedNote(current, taskId);

@@ -53,15 +53,15 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
 
   const busy = task !== null && BUSY.includes(task.status);
   const lastTurn = turns[turns.length - 1];
-  const items = transcript?.items ?? [];
   const phase = useMemo(() => {
+    const items = transcript?.items ?? [];
     for (let index = items.length - 1; index >= 0; index -= 1) {
       const item = items[index];
       if (item?.kind === "status_line")
         return item.phase === "start" ? (item.statusKind === "compaction" ? "compacting" : "retrying") : null;
     }
     return null;
-  }, [items]);
+  }, [transcript]);
 
   // Ctrl Shift C / 命令面板"复制最后一条回答"。
   useEffect(() => {

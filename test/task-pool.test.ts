@@ -572,14 +572,6 @@ const exists = (file: string) =>
   );
 
 describe("任务池：启动过程中的归档和退出（不留孤儿进程、不推幽灵状态）", () => {
-  async function gatedHarness() {
-    const gate = Promise.withResolvers<void>();
-    const h = await harness({ gate: gate.promise });
-    const spawned = await markerCommand(`gated-${Math.random().toString(36).slice(2)}`);
-    h.fixtures.push(await inlineFixture(`gated-${Math.random().toString(36).slice(2)}`));
-    return { h, gate, spawned };
-  }
-
   it("buildLaunch 还在等（比如 omp 在下载）时归档：放行后不 spawn，归档之后没有任何 taskState 或 transcript 推送", async () => {
     const gate = Promise.withResolvers<void>();
     const spawned = await markerCommand("archive-during-start");

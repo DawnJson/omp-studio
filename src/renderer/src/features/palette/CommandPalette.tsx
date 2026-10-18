@@ -13,7 +13,6 @@ import {
   useTasks,
 } from "../../store/index.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
-import { pushToast } from "../dialogs/index.ts";
 import { useHiddenTasks } from "../sidebar/archive-store.ts";
 import { CommandIcon, SearchIcon, SessionIcon, SlashIcon, TaskIcon } from "../sidebar/icons.tsx";
 import { useProjects } from "../sidebar/projects-store.ts";

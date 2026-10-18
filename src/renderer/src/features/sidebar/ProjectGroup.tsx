@@ -1,5 +1,4 @@
 // 项目分组（spec §4.3）：头部 + 任务行。折叠时头部右侧显示任务数，组内有等待任务再加一个琥珀菱形。
-import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { Project, TaskId } from "../../../../shared/ipc.ts";
 import { ChevronIcon, MoreIcon, PlusIcon } from "./icons.tsx";
 import type { ProjectGroupModel } from "../../../../shared/ui/sidebar-model.ts";

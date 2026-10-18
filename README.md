@@ -29,6 +29,8 @@
 npm ci
 npm run dev          # 开发，热更新
 npm run typecheck    # 类型检查（tsc 只做检查，Node 24 / Electron 直接跑 .ts）
+npm run lint         # 静态检查（Oxlint）
+npm run format       # 格式化（Prettier）
 npm test             # 单元测试（Vitest）
 npm run build        # 构建到 out/
 npm run test:e2e     # 端到端测试（Playwright + Electron），先 build

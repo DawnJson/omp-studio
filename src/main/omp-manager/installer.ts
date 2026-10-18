@@ -120,7 +120,7 @@ async function installFromPatch(
 async function hashFile(file: string): Promise<{ size: number; sha256: string }> {
   const hash = createHash("sha256");
   let size = 0;
-  await pipeline(createReadStream(file), async function* (chunks: AsyncIterable<Buffer>) {
+  await pipeline(createReadStream(file), async (chunks: AsyncIterable<Buffer>) => {
     for await (const chunk of chunks) {
       hash.update(chunk);
       size += chunk.length;

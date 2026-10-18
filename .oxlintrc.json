@@ -9,7 +9,8 @@
     "react/exhaustive-deps": "error",
     "react/preserve-manual-memoization": "off",
     "react/set-state-in-effect": "off",
-    "react/refs": "off"
+    "react/refs": "off",
+    "react/immutability": "off"
   },
   "ignorePatterns": ["src/shared/omp-wire/rpc-wire.generated.ts"]
 }

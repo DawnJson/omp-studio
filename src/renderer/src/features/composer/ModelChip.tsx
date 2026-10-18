@@ -62,12 +62,20 @@ export function ModelChip(task: ModelChipProps) {
 
   const close = useCallback(() => setOpen(false), []);
 
+  function cycleThinking(): void {
+    if (!supportsThinking || !task.thinkingLevel) return;
+    const next = levels[(levels.indexOf(task.thinkingLevel) + 1) % levels.length];
+    if (next) task.setThinking(next).catch(report);
+  }
+
+  // 只在打开的那一刻重置搜索、拉一次模型列表；task 和 report 每次渲染都是新对象，放进依赖会反复拉取。
   useEffect(() => {
     if (!open) return;
     setQuery("");
     setActive(0);
     task.loadModels().then(setModels, report);
     searchRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // 命令面板 / Alt M / Alt T。
@@ -92,12 +100,6 @@ export function ModelChip(task: ModelChipProps) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
-
-  function cycleThinking(): void {
-    if (!supportsThinking || !task.thinkingLevel) return;
-    const next = levels[(levels.indexOf(task.thinkingLevel) + 1) % levels.length];
-    if (next) task.setThinking(next).catch(report);
-  }
 
   const rows = useMemo(() => {
     const filtered = (models ?? []).filter((model) =>

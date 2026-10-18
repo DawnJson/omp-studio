@@ -42,9 +42,10 @@ export function SettingsView() {
   }, []);
 
   // 换节、开始搜索时内容回到顶部。
+  const queryEmpty = query === "";
   useEffect(() => {
     scroller.current?.scrollTo({ top: 0 });
-  }, [section, query === ""]);
+  }, [section, queryEmpty]);
 
   // 从命令面板等处直接定位到某一节：切过去、清掉搜索、把焦点放到节标题。
   useEffect(() => {

@@ -130,7 +130,7 @@ flowchart LR
 - [x] 发版流程：改版本号、写 CHANGELOG、打 tag、打包，写成一个脚本，步骤写进 AGENTS.md 的命令表（`npm run release -- <版本>`；在临时克隆里完整跑过 0.1.0：单测、提交、tag、安装包、`latest.yml` 带说明）
 - [ ] CI（GitHub Actions）：每次 push 跑 typecheck、单测、e2e；以后发版也在 CI 里打包（会用仓库所有者的 Actions 额度，开工前确认）（仓库所有者 2026-10-18：暂不接，等开发得差不多再开始）
 - [x] 主进程日志：写到 `userData\logs\`，按天轮转，设置页能打开日志文件夹；不得记录 key，路径里的用户名要换掉（用库还是手写，开工前确认）（仓库所有者 2026-10-18：手写。`src/main/log/`，保留 14 天，脱敏规则见 `docs/architecture/logging.md`）
-- [ ] 代码格式和静态检查：`tsc` 只查类型，查不出 React hooks 用错（依赖数组漏写、条件里调用 hook）这类问题，也不管格式；多个 agent 写代码时格式不统一，diff 里会混进无关改动，干扰评审。**已定（2026-10-18）：Prettier（格式）+ ESLint（typescript-eslint + react-hooks，只开少量规则）**，没选 Biome（react-hooks 规则覆盖不如 ESLint 全）。命令表加 `npm run lint` / `npm run format`，CI 里一起跑；第一次全仓格式化单独一个提交，不和功能改动混在一起
+- [x] 代码格式和静态检查：`tsc` 只查类型，查不出 React hooks 用错（依赖数组漏写、条件里调用 hook）这类问题，也不管格式；多个 agent 写代码时格式不统一，diff 里会混进无关改动，干扰评审。~~Prettier + ESLint（typescript-eslint + react-hooks）~~ **改定（仓库所有者 2026-10-18）：Prettier（格式，行宽 120）+ Oxlint（静态检查）**。原因：typescript-eslint 8.71 要求 typescript <6.1，TS 7.0 的 npm 包没有编程 API，装上就崩（typescript-eslint issue #12518）；Oxlint 不依赖 typescript 包，自带 rules-of-hooks / exhaustive-deps。规则：correctness 全开 + 两条 hooks 规则；React Compiler 那批里 `preserve-manual-memoization`（不用 Compiler 时没意义）、`set-state-in-effect`、`refs`、`immutability`（把事件处理里改 `el.scrollTop` 这类 DOM 操作也算进去）关掉。命令 `npm run lint` / `npm run format` / `npm run format:check`；全仓格式化单独一个提交。CI 里一起跑（CI 还没接）
 - [x] "导出诊断信息"按钮（版本号、omp 版本、最近日志，打包成一个文件）；在线崩溃上报以后再说（设置 → 关于 → 问题排查；一个脱敏后的 `.txt`，不压缩，免得新增依赖）
 - [x] `LICENSE`（PLAN 定的 MIT）（版权人写的是仓库所有者的 GitHub 名 DawnJson）
 - [x] README：是什么、怎么装、怎么开发

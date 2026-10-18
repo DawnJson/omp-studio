@@ -68,7 +68,7 @@ describe.skipIf(!enabled)("真实 omp", () => {
       events: {
         state: (state) => {
           states.push(state);
-          for (const waiter of [...waiters]) {
+          for (const waiter of waiters.slice()) {
             if (!waiter.predicate(state)) continue;
             waiters.splice(waiters.indexOf(waiter), 1);
             waiter.resolve(state);
