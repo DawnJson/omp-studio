@@ -33,7 +33,7 @@ omp 自己的协议和接口以 omp 文档为准：`rpc.md`（RPC 协议）、`e
 |语言|TypeScript 7（`tsc` 只做类型检查）|`strict`、`nodenext`、`erasableSyntaxOnly`；源码 import 带 `.ts` 后缀，Node 24 和 Electron 44 都能直接运行 `.ts`|
 |测试|Vitest|和 electron-vite 同属 Vite 体系，原生支持 TypeScript 和 ESM|
 |构建|electron-vite（Vite 8，`electron.vite.config.ts`）|main 打成 ESM，preload 必须打成 CJS（沙箱不支持 ESM preload）|
-|打包|electron-builder|阶段 7 再装|
+|打包|electron-builder（`electron-builder.yml`）|目前只出不签名的 `win-unpacked` 目录；安装包、签名、自动更新在阶段 7|
 |渲染框架|React 19（`@vitejs/plugin-react`）|只在 `src/renderer` 用；`src/shared` 里不引 React 和 DOM|
 |状态管理|不引库：`useSyncExternalStore` + 手写 store|`src/renderer/src/store/`；任务状态以主进程为准，渲染进程只是事件的投影|
 |i18n|不引库：类型化字典 + `Intl`|`src/shared/i18n/`；zh-CN 是 key 的来源，en 用 `satisfies` 对齐，缺一个 key 编译失败|
@@ -56,6 +56,7 @@ omp 自己的协议和接口以 omp 文档为准：`rpc.md`（RPC 协议）、`e
 |开发（热更新）|`npm run dev`|
 |构建|`npm run build`，产物在 `out/`（gitignore）|
 |运行构建产物|`npm run start`（先 `npm run build`）|
+|打包成 exe|`npm run pack`，产物 `release\win-unpacked\omp-studio.exe`（gitignore，不签名，整个目录一起拷）|
 |端到端测试|`npm run test:e2e`（先 `npm run build`）。截图写到被 gitignore 的 `screenshots/`|
 
 ## 什么时候先停下来问
