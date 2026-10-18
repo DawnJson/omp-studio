@@ -67,8 +67,7 @@ export function ModelsSection() {
   if (defaultModel && !modelOptions.some((option) => option.value === modelKey(defaultModel))) modelOptions.push({ value: modelKey(defaultModel), label: modelKey(defaultModel) });
 
   const thinkingOptions: Option<string>[] = [{ value: inherit, label: t("settings.useOmpDefault") }, ...thinkingLevels.map((level) => ({ value: level, label: t(`thinking.${level}`) }))];
-  const approvalOptions: Option<string>[] = approvalModes.map((mode) => ({ value: mode, label: t(approvalLabels[mode]) }));
-  if (settings?.defaultApprovalMode == null) approvalOptions.unshift({ value: inherit, label: t("settings.useOmpDefault") });
+  const approvalOptions: Option<string>[] = [{ value: inherit, label: t("settings.useOmpDefault") }, ...approvalModes.map((mode) => ({ value: mode, label: t(approvalLabels[mode]) }))];
   const approvalValue = settings?.defaultApprovalMode ?? inherit;
 
   const chooseApproval = (value: string) => {

@@ -18,8 +18,8 @@ export interface TaskRecord {
   archived: boolean;
   model: ModelKey | null;
   thinkingLevel: ThinkingLevel | null;
-  /** 进程启动时固定（决策 2）。 */
-  approvalMode: ApprovalMode;
+  /** 进程启动时固定（决策 2）。null = 不传 --approval-mode，跟随 omp 配置。 */
+  approvalMode: ApprovalMode | null;
   /** 阶段 4 的 worktree 预留，第一版恒为 null。 */
   worktreePath: string | null;
 }

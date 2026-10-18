@@ -8,7 +8,7 @@ export interface LaunchSpec {
   cwd: string;
   model?: ModelKey | null;
   thinkingLevel?: ThinkingLevel | null;
-  /** 任务进程总是显式传（默认 write，决策 1）；服务进程不传。 */
+  /** 任务进程：null = 不传，跟随 omp 的 tools.approvalMode；服务进程不传。 */
   approvalMode?: ApprovalMode | null;
   /** 服务进程：不落会话文件。 */
   noSession?: boolean;

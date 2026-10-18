@@ -55,9 +55,6 @@ export interface ResumeInput {
   title: string | null;
 }
 
-/** 默认审批模式 write，每次启动显式传 --approval-mode（决策 1）。 */
-const DEFAULT_APPROVAL_MODE: ApprovalMode = "write";
-
 export class TaskPool {
   readonly #deps: PoolDeps;
   readonly #runners = new Map<TaskId, TaskRunner>();
@@ -142,7 +139,8 @@ export class TaskPool {
       title: "",
       model: input.model ?? settings.defaultModel,
       thinkingLevel: input.thinkingLevel ?? settings.defaultThinkingLevel,
-      approvalMode: input.approvalMode ?? settings.defaultApprovalMode ?? DEFAULT_APPROVAL_MODE,
+      // 没在输入框或设置里选过 = null：不传 --approval-mode，跟随 omp 自己的 tools.approvalMode。
+      approvalMode: input.approvalMode ?? settings.defaultApprovalMode,
     });
     const runner = this.#adopt(record);
     this.#startInBackground(runner);
@@ -173,7 +171,7 @@ export class TaskPool {
       title: input.title === null ? "" : titleFromPrompt(input.title) || input.title,
       model: settings.defaultModel,
       thinkingLevel: settings.defaultThinkingLevel,
-      approvalMode: settings.defaultApprovalMode ?? DEFAULT_APPROVAL_MODE,
+      approvalMode: settings.defaultApprovalMode,
     });
     const runner = this.#adopt(record);
     this.#startInBackground(runner);
@@ -262,11 +260,11 @@ export class TaskPool {
     return this.#runner(id).setThinkingLevel(level);
   }
 
-  /** 审批模式在进程启动时固定（决策 2）：有进程时拒绝；休眠或草稿任务可改，下次启动生效。 */
+  /** 审批模式在进程启动时固定（决策 2）：有进程时拒绝；休眠或草稿任务可改，下次启动生效。null = 跟随 omp 配置。 */
   setTaskApprovalMode(id: TaskId, mode: ApprovalMode | null): Promise<void> {
     const runner = this.#runner(id);
     if (runner.hasProcess) throw new Error("approval mode is fixed while the task has a process");
-    return runner.setApprovalMode(mode ?? DEFAULT_APPROVAL_MODE);
+    return runner.setApprovalMode(mode);
   }
 
   // ───── 上限和回收 ─────

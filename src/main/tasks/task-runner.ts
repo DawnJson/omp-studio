@@ -606,7 +606,7 @@ export class TaskRunner {
   }
 
   /** 审批模式在进程启动时固定：只改记录，下次启动生效；有进程时调用方应拒绝。 */
-  async setApprovalMode(mode: ApprovalMode): Promise<void> {
+  async setApprovalMode(mode: ApprovalMode | null): Promise<void> {
     this.#record = await this.#host.persist(this.id, { approvalMode: mode });
     this.#publish(false);
   }

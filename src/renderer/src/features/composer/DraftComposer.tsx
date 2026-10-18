@@ -138,7 +138,7 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
             setModel={(modelKey) => window.studio.setDefaultModel(modelKey)}
             setThinking={(level) => window.studio.setDefaultThinkingLevel(level)}
           />
-          <ApprovalChip mode={settings?.defaultApprovalMode ?? "write"} locked={false} onChange={(mode) => window.studio.setDefaultApprovalMode(mode)} />
+          <ApprovalChip mode={settings?.defaultApprovalMode ?? null} locked={false} onChange={(mode) => window.studio.setDefaultApprovalMode(mode)} />
           <span className="composer-spacer" />
           <SendStop running={false} stopping={false} hasContent={hasContent} disabled={sending} onSend={() => void send()} onStop={() => undefined} />
         </div>

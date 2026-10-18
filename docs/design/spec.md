@@ -657,7 +657,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 1. `Ctrl N` / `新任务` → **草稿任务**：主区显示 §4.7，主区头标题 `task.untitled`，侧栏顶部出现临时行；**此时不启动 omp 进程**。项目默认=当前任务的项目，否则最近使用，否则引导 H。
 2. 草稿期间可换项目（大标题菜单、拖入文件夹）、可改模型/思考/审批；发送后项目不可换。
-3. **发送第一条消息 = 创建任务**：主进程启动 `omp --mode rpc-ui --approval-mode <模式>`（✔ `--mode rpc-ui`，AGENTS），协商 v2，`set_ask_dialog`，再 `prompt`。用户消息乐观上屏，过程行显示 `process.starting`（握手约 0.65s，`omp-rpc.md`）；失败走 §4.24。
+3. **发送第一条消息 = 创建任务**：主进程启动 `omp --mode rpc-ui [--approval-mode <模式>]`（选过模式才带，§5.8；✔ `--mode rpc-ui`，AGENTS），协商 v2，`set_ask_dialog`，再 `prompt`。用户消息乐观上屏，过程行显示 `process.starting`（握手约 0.65s，`omp-rpc.md`）；失败走 §4.24。
 4. 离开草稿时输入为空则丢弃，不留空任务；同一文件夹可并行多个任务（各一个进程）。
 5. 项目分组头 `＋` 与 `Ctrl Shift N` 直接在该项目下新建。
 
@@ -674,10 +674,10 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 **核实（`omp://approval-mode.md`）**：三种模式 `always-ask`（读自动；写、执行询问）、`write`（读写自动；执行询问）、`yolo`（默认；全部自动）。`--approval-mode <mode>` 覆盖本次会话的配置值；`--yolo` / `--auto-approve` 会**强制** yolo（即使同时给了 `--approval-mode`）。文档里没有运行中切换的 RPC。
 
 **设计**
-1. **每次启动 omp 都显式传 `--approval-mode <模式>`**，绝不传 `--yolo`/`--auto-approve`，不依赖用户的 `config.yml`（omp 默认 yolo，不传则永远不会出现门）。用户已有的 `tools.approval.*` 与 `bash.patterns` 仍由 omp 按文档规则叠加，我们不改。
+1. **用户在输入框或设置里选过模式才传 `--approval-mode <模式>`；没选过（`null`，"跟随 omp"）就不传，用用户 `config.yml` 里的 `tools.approvalMode`（omp 默认 yolo，此时不会出现门）。** 绝不传 `--yolo`/`--auto-approve`。用户已有的 `tools.approval.*` 与 `bash.patterns` 仍由 omp 按文档规则叠加，我们不改。（仓库所有者 2026-10-18 改定，推翻原来的"每次显式传"）
 2. **每个任务的模式在进程启动时固定。切换 = 只对新进程生效**（我选这一个，不做“重启进程并恢复会话”）。理由：运行中重启会丢掉进行中的状态、需要 `open_session` 无损恢复（未实测）、要重发 `set_ask_dialog`/订阅，且队列与未答的门一并失效；而审批门自带“本任务内允许该工具”（`Approve <tool> for this session`），覆盖了“我觉得这个任务可以放宽”的主要诉求。后续如果实测恢复无损，可在任务 `⋯` 菜单加“以新模式重新启动此任务”，不改胶囊语义。
-3. 默认模式（Studio 自己的偏好，不写 omp 配置）：**`write`**（与 omp 自带默认 `yolo` 不同——见附录 B-2，需要仓库所有者确认）。设置 → 模型与账号 可改；之后新建/恢复的任务使用它。
-4. **ApprovalChip**：高 28，同其它胶囊；文案 `approval.alwaysAsk` / `approval.write` / `approval.yolo`；`yolo` 时胶囊底用 `--st-waiting-soft`、字用 `--st-waiting-text`、加盾牌图标。弹层（单选菜单）每项带一行描述（`approval.desc.*`），底部 `approval.subagents`（子代理在 yolo 下无头运行，门里的授权就是边界）。
+3. 默认模式（Studio 自己的偏好，不写 omp 配置）：**跟随 omp**（`defaultApprovalMode: null`）。设置 → 模型与账号 可改成三种模式之一，也可改回"跟随 omp 的设置"；之后新建/恢复的任务使用它。
+4. **ApprovalChip**：高 28，同其它胶囊；文案 `approval.followOmp` / `approval.alwaysAsk` / `approval.write` / `approval.yolo`；`yolo` 时胶囊底用 `--st-waiting-soft`、字用 `--st-waiting-text`、加盾牌图标（跟随 omp 时不知道实际值，不加）。弹层（单选菜单）每项带一行描述（`approval.desc.*`），底部 `approval.subagents`（子代理在 yolo 下无头运行，门里的授权就是边界）。
    - **没有 omp 进程时**（草稿任务、休眠历史任务、进程已退出）：可改，下次启动时生效；
    - **有 omp 进程时**：只读，tooltip `approval.locked`，不弹菜单。
 5. 首次把模式选成 `yolo`：弹一次 Dialog（`approval.yoloConfirm*`），确认后记住。
@@ -1121,7 +1121,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 | # | 事项 | 本规范的选择 |
 |---|---|---|
-| 1 | 审批模式默认值 | Studio 默认 `write`（omp 自带默认是 `yolo`，不传参数永远不会出现门）。若坚持与 omp 一致用 `yolo`，则“门”在默认体验里看不到 |
+| 1 | 审批模式默认值 | **已定（2026-10-18）：跟随 omp**，不传 `--approval-mode`，用户在输入框或设置里选过才覆盖（§5.8）。原方案"Studio 默认 `write`"作废 |
 | 2 | 审批模式切换语义 | 每任务在进程启动时固定；有进程时胶囊只读；设置里的默认值只影响新任务（见 §5.8）。备选“重启进程并恢复会话”需先实测 `open_session` 无损恢复 |
 | 3 | 改动卡片的测试结果 | v1 不显示（PLAN §2.1 提到）；若要做，需先决定识别规则 |
 | 4 | API key 类提供商登录 | 只给终端指引。若要在设置页输入 key（Electron `safeStorage` 保存、以环境变量传给 omp），与 AGENTS“不写 `~/.omp`”需要一次明确的规则变更 |

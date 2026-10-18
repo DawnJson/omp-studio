@@ -122,7 +122,8 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
     const h = await harness();
     h.fixtures.push(fixture("simple-reply"));
     const created = await h.pool.createTask({ projectId: h.projectId });
-    expect(created).toMatchObject({ status: "starting", title: "", approvalMode: "write" });
+    // 没选过审批模式 = null：启动时不传 --approval-mode，用 omp 自己的配置。
+    expect(created).toMatchObject({ status: "starting", title: "", approvalMode: null });
     await h.events.until(created.id, (s) => s.status === "idle");
     await h.pool.sendPrompt(created.id, turn);
     const done = await h.events.until(created.id, (s) => s.lastTurn?.status === "completed" && s.status === "idle");
