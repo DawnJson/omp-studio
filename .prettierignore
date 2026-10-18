@@ -6,3 +6,4 @@ src/shared/omp-wire/rpc-wire.generated.ts
 fixtures/
 # 文档里的中文表格按现在的紧凑写法维护，不让 Prettier 补齐空格。
 *.md
+docs/design/2.6/preview/html/
