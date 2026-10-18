@@ -274,8 +274,8 @@ export type OmpSource =
 
 export type OmpStatus =
   | { state: "discovering" }
-  /** 用户自装的 omp，首次发现，等用户回答是否接管。launchable=false 是 omp.cmd 这类脚本。 */
-  | { state: "ask_takeover"; path: string; version: string | null; launchable: boolean }
+  /** PATH 上的 omp 首次发现，等用户回答是否接管。launchable=false 是 omp.cmd 这类脚本；managerName 不为 null 时它由别的管理者（如 Tern）管理。 */
+  | { state: "ask_takeover"; path: string; version: string | null; launchable: boolean; managerName: string | null }
   | { state: "installing"; version: string | null; receivedBytes: number; totalBytes: number | null }
   | {
       state: "ready";

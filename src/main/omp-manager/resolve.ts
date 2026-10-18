@@ -22,7 +22,8 @@ export type Decision =
   | { action: "use"; path: string; version: string; source: OmpSource }
   /** 用自管副本；没有就先下载。`takeover` 表示这是用户同意接管的结果（要把 bin 放进用户 PATH）。 */
   | { action: "use_managed"; reason: "missing" | "takeover" }
-  | { action: "ask_takeover"; path: string; version: string | null; launchable: boolean }
+  /** managerName 不为 null：PATH 上的 omp 由别的管理者（如 Tern）管理，同一个弹窗，文案不同。 */
+  | { action: "ask_takeover"; path: string; version: string | null; launchable: boolean; managerName: string | null }
   | { action: "unusable"; path: string };
 
 /** 自管的 exe 是否由 omp-studio 声明管理（manager.json 里是 omp-studio）。 */
@@ -34,26 +35,27 @@ export function resolveOmp(input: ResolveInput): Decision {
   const { scan, state } = input;
   if (scan.kind === "none") return { action: "use_managed", reason: "missing" };
 
-  if (scan.kind === "exe") {
-    const { install } = scan;
-    if (install.manager !== null) {
-      // 有管理者的不问，直接用；管理者是 omp-studio 自己时 onUserPath 由 manager.ts 补上。
-      if (isStudioManager(install)) return { action: "use", path: install.path, version: install.version, source: { kind: "studio_managed", onUserPath: true } };
-      return { action: "use", path: install.path, version: install.version, source: { kind: "managed_by_other", managerName: install.manager.name } };
-    }
+  // omp-studio 自己管理的直接用；onUserPath 由 manager.ts 补上。
+  if (scan.kind === "exe" && isStudioManager(scan.install)) {
+    return { action: "use", path: scan.install.path, version: scan.install.version, source: { kind: "studio_managed", onUserPath: true } };
   }
 
+  // 用户自装的和别的管理者（如 Tern）管理的，都问一次要不要接管；回答按 exe 路径记。
+  // 接管只是另装一份放到 PATH 最前，别人的目录和 manager.json 不碰；拒绝就照旧用它。
   const exePath = scan.kind === "exe" ? scan.install.path : scan.path;
+  const managerName = scan.kind === "exe" ? (scan.install.manager?.name ?? null) : null;
   const answer = state.takeover[takeoverKey(exePath)];
   if (answer === "accepted") return { action: "use_managed", reason: "takeover" };
   if (answer === "declined") {
     if (scan.kind === "script") return { action: "unusable", path: scan.path };
-    return { action: "use", path: scan.install.path, version: scan.install.version, source: { kind: "user_installed" } };
+    const source: OmpSource = managerName === null ? { kind: "user_installed" } : { kind: "managed_by_other", managerName };
+    return { action: "use", path: scan.install.path, version: scan.install.version, source };
   }
   return {
     action: "ask_takeover",
     path: exePath,
     version: scan.kind === "exe" ? scan.install.version : null,
     launchable: scan.kind === "exe",
+    managerName,
   };
 }

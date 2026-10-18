@@ -155,7 +155,7 @@ export class OmpManager {
         this.#set({ state: "unusable", path: decision.path, reason: "script_launcher" });
         break;
       case "ask_takeover": {
-        this.#set({ state: "ask_takeover", path: decision.path, version: decision.version, launchable: decision.launchable });
+        this.#set({ state: "ask_takeover", path: decision.path, version: decision.version, launchable: decision.launchable, managerName: decision.managerName });
         this.#takeoverAnswer = Promise.withResolvers<boolean>();
         const accepted = await this.#takeoverAnswer.promise;
         this.#takeoverAnswer = null;

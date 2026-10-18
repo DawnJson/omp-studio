@@ -19,9 +19,9 @@ async function localeAndTheme(page: Page, locale: "zh-CN" | "en", theme: "light"
 }
 
 /** 测试用的 agent 目录：服务进程不读真实 ~/.omp（AGENTS.md "开发和测试时隔离用户数据"）。 */
-async function launchIsolated(): Promise<{ launched: LaunchedApp; agentDir: string }> {
+async function launchIsolated(options: { askTakeover?: boolean } = {}): Promise<{ launched: LaunchedApp; agentDir: string }> {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
-  return { launched: await launchApp({ PI_CODING_AGENT_DIR: agentDir }), agentDir };
+  return { launched: await launchApp({ PI_CODING_AGENT_DIR: agentDir }, options), agentDir };
 }
 
 /** 渲染进程只认主进程推来的 ompStatus 事件，测试里用同一个通道推合成状态来截各个准备页。 */
@@ -31,19 +31,20 @@ async function pushStatus(launched: LaunchedApp, status: OmpStatus): Promise<voi
   }, status);
 }
 
-test("PATH 上是 Tern 管理的 omp：识别为受管，直接用，不弹接管询问", async () => {
+test("PATH 上是 Tern 管理的 omp：问一次要不要接管，选继续用 Tern 的就直接用它", async () => {
   const onPath = await findOmpOnPath().catch(() => null);
   const install = onPath ? await inspectOmp(onPath) : null;
   test.skip(install?.manager?.id !== "tern", "这台机器 PATH 上第一个 omp 不是 Tern 管理的");
-  const { launched, agentDir } = await launchIsolated();
+  const { launched, agentDir } = await launchIsolated({ askTakeover: true });
   try {
     const { page } = launched;
-    await expect
-      .poll(() => page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), { timeout: 30_000 })
-      .toBe("ready");
+    await expect(page.getByTestId("omp-setup")).toHaveAttribute("data-state", "ask_takeover", { timeout: 30_000 });
+    expect(await page.evaluate(() => globalThis.studio.getOmpStatus())).toMatchObject({ state: "ask_takeover", path: onPath, managerName: "Tern", launchable: true });
+    await expect(page.getByTestId("takeover-no")).toContainText("Tern");
+    await page.getByTestId("takeover-no").click();
+    await expect(page.getByTestId("omp-setup")).toHaveCount(0);
     const status = await page.evaluate(() => globalThis.studio.getOmpStatus());
     expect(status).toMatchObject({ state: "ready", path: onPath, source: { kind: "managed_by_other", managerName: "Tern" } });
-    await expect(page.getByTestId("omp-setup")).toHaveCount(0);
 
     await page.keyboard.press("Control+,");
     await page.getByTestId("settings-nav-omp").click();
@@ -79,8 +80,9 @@ test("设置页和 omp 准备页截图：中英文 × 浅深主题", async () =>
 
     // 准备页的几个状态：按主进程会推的形状合成。
     const states: Record<string, OmpStatus> = {
-      "takeover-exe": { state: "ask_takeover", path: "C:\\Users\\me\\AppData\\Local\\omp\\omp.exe", version: "18.8.7", launchable: true },
-      "takeover-script": { state: "ask_takeover", path: "C:\\Users\\me\\AppData\\Roaming\\npm\\omp.cmd", version: null, launchable: false },
+      "takeover-exe": { state: "ask_takeover", path: "C:\\Users\\me\\AppData\\Local\\omp\\omp.exe", version: "18.8.7", launchable: true, managerName: null },
+      "takeover-script": { state: "ask_takeover", path: "C:\\Users\\me\\AppData\\Roaming\\npm\\omp.cmd", version: null, launchable: false, managerName: null },
+      "takeover-tern": { state: "ask_takeover", path: "C:\\Users\\me\\AppData\\Local\\Tern\\omp\\bin\\omp.exe", version: "18.12.1", launchable: true, managerName: "Tern" },
       installing: { state: "installing", version: "18.12.1", receivedBytes: 96_000_000, totalBytes: 222_742_016 },
       error: { state: "error", stage: "download", message: "build service answered 503" },
       unusable: { state: "unusable", path: "C:\\Users\\me\\AppData\\Roaming\\npm\\omp.cmd", reason: "script_launcher" },
@@ -107,7 +109,7 @@ test("接管询问：同意/拒绝的按钮把回答发给主进程", async () =
   try {
     const { page } = launched;
     await expect.poll(() => page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), { timeout: 30_000 }).toBe("ready");
-    await pushStatus(launched, { state: "ask_takeover", path: "C:\\x\\omp.exe", version: "18.8.7", launchable: true });
+    await pushStatus(launched, { state: "ask_takeover", path: "C:\\x\\omp.exe", version: "18.8.7", launchable: true, managerName: null });
     await expect(page.getByTestId("takeover-yes")).toBeFocused();
     // 主进程此刻没有在问（状态是合成的），应答被拒绝：界面不崩，卡片还在，等真实状态推来。
     await page.getByTestId("takeover-no").click();

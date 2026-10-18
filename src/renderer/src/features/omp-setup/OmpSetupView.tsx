@@ -64,22 +64,24 @@ export function OmpSetupView() {
     case "discovering":
       body = <p className="setup-text">{t("omp.finding")}</p>;
       break;
-    case "ask_takeover":
+    case "ask_takeover": {
+      const other = status.managerName;
       body = (
         <>
-          {title(status.launchable ? t("omp.takeover.exeTitle") : t("omp.takeover.title"))}
-          {status.version && <p className="setup-text">{t("omp.found", { version: status.version, source: t("omp.source.user") })}</p>}
-          <p className="setup-text">{status.launchable ? t("omp.takeover.exeBody") : t("omp.takeover.body")}</p>
+          {title(other !== null ? t("omp.takeover.otherTitle", { name: other }) : status.launchable ? t("omp.takeover.exeTitle") : t("omp.takeover.title"))}
+          {status.version && <p className="setup-text">{t("omp.found", { version: status.version, source: other !== null ? t("omp.source.other", { name: other }) : t("omp.source.user") })}</p>}
+          <p className="setup-text">{other !== null ? t("omp.takeover.otherBody", { name: other }) : status.launchable ? t("omp.takeover.exeBody") : t("omp.takeover.body")}</p>
           <p className="setup-path st-mono">{t("omp.takeover.where", { path: status.path })}</p>
           <div className="setup-actions">
             <Button variant="primary" large autoFocus onClick={() => answer(window.studio.answerTakeover(true))} testId="takeover-yes">{t("omp.takeover.yes")}</Button>
             <Button large onClick={() => answer(window.studio.answerTakeover(false))} testId="takeover-no">
-              {status.launchable ? t("omp.takeover.keep") : t("omp.takeover.no")}
+              {other !== null ? t("omp.takeover.keepOther", { name: other }) : status.launchable ? t("omp.takeover.keep") : t("omp.takeover.no")}
             </Button>
           </div>
         </>
       );
       break;
+    }
     case "missing":
       body = (
         <>

@@ -69,7 +69,7 @@ Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次�
 状态机在 `manager.ts`，决策在 `resolve.ts`（纯函数，`test/omp-manager-resolve.test.ts` 逐分支覆盖），下载校验在 `build-service.ts`，目录和换 exe 在 `installer.ts`，应用里的接线（`net.fetch`、`userData`、事件推送）在 `index.ts`。渲染进程的 `OmpStatus` 就是这个状态机的状态，界面见 `features/omp-setup/` 和设置 → omp。
 
 - **自管目录**：`%LOCALAPPDATA%\omp-studio\omp\`（`versions\<版本>.exe`、`bin\omp.exe`、`manager.json`、`update.lock`）。未打包时 `STUDIO_OMP_HOME` 或测试的 `STUDIO_USER_DATA`（→ `<userData>\omp`）可以改位置，测试不碰真实目录。
-- **每次启动的发现**（第一次 `getOmpStatus` 触发）：PATH 上没有 omp → 有自管副本就用，没有就直接下载（不再问，进度在准备页）；Tern 等有 `manager.json` 的 → 直接用，不问、不碰 PATH；用户自装的（含 `.cmd`）→ `ask_takeover`，回答按 exe 路径记在 `userData\omp-studio-state.json`（`takeover[exe 路径小写]`），同意 → 下载自管副本并把 `bin` 放到用户 PATH 最前面，拒绝 → 用用户那份（`.cmd` 则 `unusable`，"重新选择"会忘掉那次拒绝重新问）。
+- **每次启动的发现**（第一次 `getOmpStatus` 触发）：PATH 上没有 omp → 有自管副本就用，没有就进 `missing`；PATH 上第一个是 omp-studio 自己管理的 → 直接用；用户自装的（含 `.cmd`）和别的管理者（Tern 等有 `manager.json` 的）→ 同一个 `ask_takeover` 弹窗（别的管理者时 `managerName` 是它的名字，文案不同），回答按 exe 路径记在 `userData\omp-studio-state.json`（`takeover[exe 路径小写]`）。同意 → 下载自管副本并把 `bin` 放到用户 PATH 最前面，原来那份（含 Tern 的目录和 `manager.json`）不碰；拒绝 → 用原来那份（自装的来源是 `user_installed`，Tern 的是 `managed_by_other`，由 Tern 更新；`.cmd` 则 `unusable`，"重新选择"会忘掉那次拒绝重新问）。
 - **`missing` 状态**：PATH 上没有 omp 且没有自管副本时，不直接下载 220 MB：向构建服务问版本和大小，准备页写明大小和来源，用户点"下载并安装"（`installOmp`）才下载；下载中可以取消（`cancelOmpInstall`，丢弃 `.partial`，回到 `missing`）。上一条里"没有就直接下载"以本条为准。用户同意过接管（`takeover` 已记录为 accepted）时视为已授权，直接下载。
 - **自管 omp 装好后直接放到用户 PATH 最前面**，照 Tern 做管理者，不另问：用户点"下载并安装"或同意接管的那一次就是授权（准备页和接管弹窗的文案写明会改 PATH）。以后启动发现 bin 被用户移出 PATH 不悄悄加回，设置 → omp 显示"加入 PATH"按钮（`addManagedOmpToPath`）。
 - **写用户 PATH**：`platform/win32/user-path.ts`（koffi，不用 reg.exe/setx）。只做"去重 + 放最前"，值类型和 `%VAR%` 原样保留；写之前把原值存成 `userData\path-backup-<时间>.txt`。测试用 `HKCU\Software\omp-studio-test-<pid>` 临时子键（`test/user-path.test.ts`）。
@@ -80,4 +80,12 @@ Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次�
 - **升级按钮**（`upgradePathOmp`）只在"用户自装且拒绝了接管"时对 PATH 上那个 omp 执行 `omp update`（不用 shell，输出原样返回，界面显示末 3 行）。自管、他人管理的会被拒绝。
 - **启动子进程**时 `getOmpExecutable()` 返回 `{ path, managedBin }`，自管时 `managedBin` 非空，调用方把它前置到子进程 PATH，让 `omp update` 认到 `manager.json`。
 
-测试注入（仅未打包）：`STUDIO_TEST_OMP` 设了之后，发现流程直接把它当作"别人管理的 omp"，不查 PATH、不下载。
+测试注入（仅未打包）：`STUDIO_TEST_OMP` 设了之后，发现流程把它当作"别人管理的 omp"，不查 PATH、不下载；它同样会问接管，所以 e2e 的 `launchApp` 默认在临时 userData 里预先记下"拒绝"（PATH 上的 omp 和假 omp 都记），只有 `askTakeover: true` 的用例看得到弹窗。
+
+### 和 Tern 并存（接管 Tern 那份之前查到的，2026-10-18，Tern 0.9.4）
+
+没有在真实用户 PATH 上把 omp-studio 的 bin 排到 Tern 前面再启动 Tern 实测（要改仓库所有者正在用的 PATH 并下载 220 MB），下面来自 Tern 的日志、`omp\state.json` 和 `tern.exe` 里的文字，标了推测的没有实测：
+
+- **Tern 会不会把自己放回 PATH 最前面**：`tern.log` 里 `omp put on the user's Path` 从接管那次起只出现过一次，之后每次启动都没有；`state.json` 用 `path_entry: true` 记"加过"。所以 Tern 不会每次启动重新排序（推测：只要它的条目还在 PATH 里，不管排第几都不动）。Tern 的"停止管理 omp"只拿掉它自己加的（`omp taken off the user's Path`）。
+- **Tern 自己的终端里用哪个 omp**：Tern 的 shell 集成脚本按 `TERN_PATH_PREPEND` 在第一个提示符前把指定目录放到 PATH 最前（"makes it the `omp` in every Tern terminal"），所以 Tern 终端里仍是 Tern 的 omp；普通终端（Windows Terminal、cmd）里是 omp-studio 的。从 Tern 终端里启动 omp-studio 时，进程 PATH 上第一个是 Tern 的，发现流程按 exe 路径查到"已接受接管"，照样用自管那份。
+- **Tern 会不会把 omp-studio 那份当成别人的 omp 来问**：Tern 的接管询问"每台机器只问一次"（`state.json` 的 `offered: true`，开发机上已经是 true），只认 Homebrew、mise、npm、bun、install.ps1 几种来源。已经由 Tern 管理时不会再问（推测：`offered` 为 true 后不再检查别的 omp）。Tern 的设置页会显示"PATH 上排在前面的其他 omp"。

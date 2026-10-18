@@ -75,11 +75,25 @@ const ternExe: OmpInstall = { path: "C:\\Tern\\omp\\bin\\omp.exe", version: "18.
 
 
 describe("OmpManager", () => {
-  it("goes straight to ready for a Tern-managed omp: no question, no download, no PATH change", async () => {
+  it("asks about a Tern-managed omp; on yes installs its own copy first on the user PATH and leaves Tern's files alone", async () => {
     const h = harness({ kind: "exe", install: ternExe });
-    await h.manager.start();
-    expect(h.manager.status).toMatchObject({ state: "ready", path: ternExe.path, source: { kind: "managed_by_other", managerName: "Tern" }, belowMinimum: false });
-    expect(h.statuses.map((s) => s.state)).toEqual(["discovering", "ready"]);
+    const running = h.manager.start();
+    await expect.poll(() => h.manager.status.state).toBe("ask_takeover");
+    expect(h.manager.status).toMatchObject({ path: ternExe.path, managerName: "Tern", launchable: true });
+    await h.manager.answerTakeover(true);
+    await running;
+    expect(h.manager.status).toMatchObject({ state: "ready", path: h.manager.layout.binExe, source: { kind: "studio_managed", onUserPath: true } });
+    expect(h.userPathAdds).toEqual([h.manager.layout.binDir]);
+  });
+
+  it("keeps using Tern's omp as managed by Tern when the takeover is declined: no download, no PATH change", async () => {
+    const h = harness({ kind: "exe", install: ternExe });
+    const running = h.manager.start();
+    await expect.poll(() => h.manager.status.state).toBe("ask_takeover");
+    await h.manager.answerTakeover(false);
+    await running;
+    expect(h.manager.status).toMatchObject({ state: "ready", path: ternExe.path, source: { kind: "managed_by_other", managerName: "Tern" } });
+    expect(h.statuses.some((s) => s.state === "installing")).toBe(false);
     expect(h.userPathAdds).toEqual([]);
   });
 
@@ -134,7 +148,10 @@ describe("OmpManager", () => {
 
   it("refuses omp update on anything but a user-installed omp that was kept", async () => {
     const h = harness({ kind: "exe", install: ternExe });
-    await h.manager.start();
+    const running = h.manager.start();
+    await expect.poll(() => h.manager.status.state).toBe("ask_takeover");
+    await h.manager.answerTakeover(false);
+    await running;
     await expect(h.manager.upgradePathOmp()).rejects.toThrow(/only run for an omp the user installed/);
   });
 
@@ -144,7 +161,10 @@ describe("OmpManager", () => {
     await managed.manager.installOmp();
     expect(await managed.manager.ensureReady()).toEqual({ path: managed.manager.layout.binExe, managedBin: managed.manager.layout.binDir });
     const tern = harness({ kind: "exe", install: ternExe });
-    expect(await tern.manager.ensureReady()).toEqual({ path: ternExe.path, managedBin: null });
+    const ready = tern.manager.ensureReady();
+    await expect.poll(() => tern.manager.status.state).toBe("ask_takeover");
+    await tern.manager.answerTakeover(false);
+    expect(await ready).toEqual({ path: ternExe.path, managedBin: null });
   });
 
   it("does not add bin back to the user PATH on a later start after the user removed it; the settings page can add it again", async () => {

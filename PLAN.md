@@ -43,8 +43,8 @@ Tern 不触发止损（它是终端，不是 Codex 式桌面端），但 omp-stu
 | 起点 | 从零写，只参考别人的代码 | fork 会继承竞品的设计包袱。RPC 对接、Windows 进程管理可以参考 omp-desktop、gooey-pi 的实现（都是 MIT） |
 | 外壳 | **Electron** | Codex 和 Claude 桌面版在 Windows 和 macOS 上都是 Electron；两个平台同一个 Chromium，打磨一次就行。Tauri 在 mac 上换成 WKWebView，要再调一遍 |
 | 接 omp 的方式 | 子进程 `omp --mode rpc-ui`，NDJSON over stdio，协商协议 v2 | omp 的 SDK 要求 Bun，Electron 主进程是 Node，用不了 SDK |
-| omp 来源 | **安装包不带 omp。** PATH 上已经有 omp 就直接用（见下一行）；没有时才照 Tern 的做法自己管理一份官方 omp：从官方构建服务（`build.stencil.so`）下载原版 exe 并校验 sha256，放进应用数据目录的 `omp/versions/<版本>.exe`（保留最近 3 个），`omp/bin/omp.exe` 是当前版本，写 `omp/manager.json`；**自管的 omp 由 omp-studio 自己检查和更新，从不对它执行 `omp update`**（阶段 0 实测：`manager.json` 只在 exe 是 PATH 上的 `omp` 时才拦得住 `omp update`）；后台跟最新稳定版，优先下载差量补丁（omp-studio 自带 HDiffPatch 实现，补丁不可用时退回全量）；问一次要不要加进 PATH。和终端共用 `~/.omp` | Tern 就是这么做的（本机实测，细节见 `problem.md` 第 2 题）。安装包小 |
-| 已有 omp | **有管理者的直接用；用户自己装的，照 Tern 问一次要不要接管**（仓库所有者 2026-10-18 确定）。有管理者的（exe 上两级目录有 `manager.json`，比如 Tern）直接用，由管理者更新，不碰 PATH。用户自己装的（install.ps1、bun、npm、brew 等）首次发现时弹窗问一次要不要由 omp-studio 接管：同意就按上一行自己管理一份，并把它的 `bin` 放到用户 PATH 最前面，原来那份不删不改；拒绝就继续用用户那份（脚本形式的 `omp.cmd` 启动不了，拒绝时提示这种安装方式用不了），升级按钮执行 `omp update` | 和 Tern 一致：Tern 能识别 Homebrew、Mise、Npm、Bun、install.ps1 几种来源，先问再接管，接管后放到 PATH 最前面（本机日志和 `tern.exe` 里的文字）。不和 Tern 抢 |
+| omp 来源 | **安装包不带 omp。** PATH 上已经有 omp 就直接用（见下一行）；没有时才照 Tern 的做法自己管理一份官方 omp：从官方构建服务（`build.stencil.so`）下载原版 exe 并校验 sha256，放进应用数据目录的 `omp/versions/<版本>.exe`（保留最近 3 个），`omp/bin/omp.exe` 是当前版本，写 `omp/manager.json`；**自管的 omp 由 omp-studio 自己检查和更新，从不对它执行 `omp update`**（阶段 0 实测：`manager.json` 只在 exe 是 PATH 上的 `omp` 时才拦得住 `omp update`）；后台跟最新稳定版，优先下载差量补丁（omp-studio 自带 HDiffPatch 实现，补丁不可用时退回全量）；装好后直接把 `bin` 放到用户 PATH 最前面（2026-10-18 改定，原为"问一次"）。和终端共用 `~/.omp` | Tern 就是这么做的（本机实测，细节见 `problem.md` 第 2 题）。安装包小 |
+| 已有 omp | **用户自己装的和有别的管理者的（如 Tern），都照 Tern 问一次要不要接管**（仓库所有者 2026-10-18 确定）。用户自己装的（install.ps1、bun、npm、brew 等）和有管理者的（exe 上两级目录有 `manager.json`，比如 Tern）首次发现时用同一个弹窗问一次要不要由 omp-studio 接管：同意就按上一行自己管理一份，并把它的 `bin` 放到用户 PATH 最前面，原来那份（含 Tern 的目录和 `manager.json`）不删不改；拒绝就继续用原来那份（脚本形式的 `omp.cmd` 启动不了，拒绝时提示这种安装方式用不了）：用户自装的升级按钮执行 `omp update`，Tern 的由 Tern 更新 | 和 Tern 一致：Tern 能识别 Homebrew、Mise、Npm、Bun、install.ps1 几种来源，先问再接管，接管后放到 PATH 最前面（本机日志和 `tern.exe` 里的文字）。和 Tern 并存时各自的终端用各自那份（`docs/architecture/omp-install.md`） |
 | 上游策略 | 只用官方正式版；缺的能力用自己写的 omp 插件补；补不了就给官方提 PR；**不 fork，也不打补丁** | 跑的是官方原版 exe，复用 Tern 时还是别人管理的 exe，补丁没地方打 |
 | 界面语言 | 中英双语，第一天就做 | 设计规范同时覆盖两种字体和文案长度 |
 | 仓库 | 独立仓库 `E:\work\code\omp-studio`，内测期间私有，公开时 MIT | |
@@ -119,7 +119,7 @@ flowchart LR
 - [ ] omp 管理：PATH 上已有 omp 时的版本检查和升级提示；PATH 上的 omp 是脚本时询问是否接管；没有 omp 或用户同意接管时的首次下载和校验、放进 PATH、后台更新（差量补丁、多进程加锁、替换正在运行的 exe）（除差量补丁外已完成，目前全量下载；真实下载和 `omp update` 没实测）
 - [x] 审批模式跟随 omp 自己的配置：没在输入框里选过时不传 `--approval-mode`，用 `config.yml` 里的设置；用户选过才覆盖（仓库所有者 2026-10-18 要求，推翻 spec 决策 1"每次显式传 write"；改时同步 `docs/design/spec.md` 和 `src/main/tasks/task-pool.ts`）（输入框胶囊和设置里多了"跟随 omp"；实测 omp 18.12.1：agent 目录 `config.yml` 设 `always-ask`，命令行不带 `--approval-mode`，write 工具弹出审批门）
 - [x] omp-studio 管理 omp 时和 Tern 一样做管理者：自己管的那份（PATH 上没有 omp 时下载的，或用户同意接管后下载的）装好后**直接**把 `bin` 放到用户 PATH 最前面，不再单独问"要不要加进 PATH"（去掉 `askAddToPath`）（仓库所有者 2026-10-18 要求；改时同步 `docs/architecture/omp-install.md`、`src/main/omp-manager/`）（IPC `answerAddToPath` 换成设置页用的 `addManagedOmpToPath`；真实下载写注册表只在单测里用假 PATH 验证）
-- [ ] 有别的管理者（如 Tern）时也问一次要不要接管，和用户自装的同一个弹窗；同意后自己管一份并放到 PATH 最前面，Tern 的目录和 `manager.json` 不碰；拒绝就继续用 Tern 的（仓库所有者 2026-10-18 定）。开工前先实测：omp-studio 的 bin 排在前面后，Tern 会不会把自己再放回最前面、Tern 自己的终端里用的是哪个 omp、Tern 的"接管"提示会不会把 omp-studio 那份当成别人的 omp 来处理
+- [x] 有别的管理者（如 Tern）时也问一次要不要接管，和用户自装的同一个弹窗；同意后自己管一份并放到 PATH 最前面，Tern 的目录和 `manager.json` 不碰；拒绝就继续用 Tern 的（仓库所有者 2026-10-18 定）。开工前先实测：omp-studio 的 bin 排在前面后，Tern 会不会把自己再放回最前面、Tern 自己的终端里用的是哪个 omp、Tern 的"接管"提示会不会把 omp-studio 那份当成别人的 omp 来处理（三个问题按 Tern 0.9.4 的日志、`state.json` 和 `tern.exe` 文字回答，没在真实 PATH 上排序后实测，结论和推测见 `docs/architecture/omp-install.md`"和 Tern 并存"；拒绝路径在开发机的 Tern 上 e2e 跑过）
 
 ### 阶段 2.5：工程基础（2026-10-18 盘点，内测前完成）
 

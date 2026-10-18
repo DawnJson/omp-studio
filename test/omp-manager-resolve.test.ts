@@ -8,9 +8,12 @@ const noState: OmpStudioState = { takeover: {} };
 const exe = (path: string, manager: OmpInstall["manager"] = null): PathScan => ({ kind: "exe", install: { path, version: "18.12.0", manager } });
 
 describe("resolveOmp", () => {
-  it("uses a Tern-managed omp as is, without asking and without touching it", () => {
-    const decision = resolveOmp({ scan: exe("C:\\Users\\某人\\AppData\\Local\\Tern\\omp\\bin\\omp.exe", { id: "tern", name: "Tern" }), managed: null, state: noState });
-    expect(decision).toEqual({ action: "use", path: "C:\\Users\\某人\\AppData\\Local\\Tern\\omp\\bin\\omp.exe", version: "18.12.0", source: { kind: "managed_by_other", managerName: "Tern" } });
+  it("asks once about a Tern-managed omp too; declined keeps using it as Tern's, accepted manages a copy of its own", () => {
+    const ternPath = "C:\\Users\\某人\\AppData\\Local\\Tern\\omp\\bin\\omp.exe";
+    const scan = exe(ternPath, { id: "tern", name: "Tern" });
+    expect(resolveOmp({ scan, managed: null, state: noState })).toEqual({ action: "ask_takeover", path: ternPath, version: "18.12.0", launchable: true, managerName: "Tern" });
+    expect(resolveOmp({ scan, managed: null, state: { takeover: { [takeoverKey(ternPath)]: "declined" } } })).toEqual({ action: "use", path: ternPath, version: "18.12.0", source: { kind: "managed_by_other", managerName: "Tern" } });
+    expect(resolveOmp({ scan, managed: null, state: { takeover: { [takeoverKey(ternPath)]: "accepted" } } })).toEqual({ action: "use_managed", reason: "takeover" });
   });
 
   it("asks once about a user-installed exe, remembering the answer per exe path (case-insensitively on Windows)", () => {
@@ -29,7 +32,7 @@ describe("resolveOmp", () => {
 
   it("cannot launch a script omp.cmd: asks first, then reports it unusable once declined", () => {
     const scan: PathScan = { kind: "script", path: "C:\\npm\\omp.cmd" };
-    expect(resolveOmp({ scan, managed: null, state: noState })).toEqual({ action: "ask_takeover", path: "C:\\npm\\omp.cmd", version: null, launchable: false });
+    expect(resolveOmp({ scan, managed: null, state: noState })).toEqual({ action: "ask_takeover", path: "C:\\npm\\omp.cmd", version: null, launchable: false, managerName: null });
     expect(resolveOmp({ scan, managed: null, state: { ...noState, takeover: { [takeoverKey("C:\\npm\\omp.cmd")]: "declined" } } })).toEqual({ action: "unusable", path: "C:\\npm\\omp.cmd" });
   });
 

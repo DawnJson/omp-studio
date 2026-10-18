@@ -19,6 +19,10 @@ export const omp = {
   "takeover.exeTitle": "Found an omp you installed yourself",
   "takeover.exeBody":
     "omp-studio can download and manage an official copy and put it first on your user PATH. Your existing install isn't removed or modified. You can also keep using your own.",
+  "takeover.otherTitle": "Found an omp managed by {name}",
+  "takeover.otherBody":
+    "omp-studio can download and manage its own official copy and put it first on your user PATH. {name}'s copy and its settings aren't deleted or changed, and {name}'s own terminals keep using its copy. Or keep using the one {name} manages and updates.",
+  "takeover.keepOther": "Keep using {name}'s",
   "takeover.where": "Location: {path}",
   "takeover.yes": "Let omp-studio manage it",
   "takeover.no": "Cancel",

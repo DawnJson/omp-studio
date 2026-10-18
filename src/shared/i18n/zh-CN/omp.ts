@@ -18,6 +18,10 @@ export const omp = {
   "takeover.exeTitle": "检测到你自己安装的 omp",
   "takeover.exeBody":
     "可以让 omp-studio 下载并管理一份官方 omp，并放到用户 PATH 最前面；你原来的那份不会被删除或修改。也可以继续使用你自己的那份。",
+  "takeover.otherTitle": "检测到由 {name} 管理的 omp",
+  "takeover.otherBody":
+    "可以让 omp-studio 另外下载并管理一份官方 omp，并放到用户 PATH 最前面；{name} 的那份和它的设置不会被删除或修改，{name} 自己的终端里仍用它的那份。也可以继续使用 {name} 管理的这份，由 {name} 负责更新。",
+  "takeover.keepOther": "继续用 {name} 的",
   "takeover.where": "位置：{path}",
   "takeover.yes": "由 omp-studio 管理",
   "takeover.no": "取消",

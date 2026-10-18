@@ -38,7 +38,7 @@ function windowsUserPath(): UserPathAccess {
   };
 }
 
-/** 未打包时 `STUDIO_TEST_OMP`（JSON `{command,args}`）指向假 omp：发现流程直接把它当作"别人管理的 omp"，不查 PATH、不下载。 */
+/** 未打包时 `STUDIO_TEST_OMP`（JSON `{command,args}`）指向假 omp：发现流程把它当作"别人管理的 omp"，不查 PATH；会照常问接管，e2e 的 launchApp 预先记下"拒绝"。 */
 function testOverride(): Pick<ManagerDeps, "findOnPath" | "inspect"> | null {
   const raw = app.isPackaged ? undefined : process.env["STUDIO_TEST_OMP"];
   if (!raw) return null;
