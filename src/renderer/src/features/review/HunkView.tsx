@@ -1,0 +1,294 @@
+// 一个 hunk：头部（@@ 行 + 暂存/取消暂存/丢弃）、统一或并排的行、行下面的评论线程。
+// 行号就是"评论"按钮：点一下对这行写评论，Shift 点击把范围扩到这一行（只能在旧/新同一侧内）。
+import { Fragment, useMemo, type ReactNode } from "react";
+import { toSideBySide, type GitDiffArea, type GitDiffHunk, type GitDiffLine } from "../../../../shared/git.ts";
+import {
+  commentCovers,
+  commentsEndingAt,
+  inSelection,
+  lineRef,
+  type LineRef,
+  type LineSelection,
+  type QueuedComment,
+} from "../../../../shared/ui/review-model.ts";
+import { useT } from "../../i18n/use-t.ts";
+import { Plus } from "../../icons.tsx";
+import type { HighlightToken } from "../../markdown/highlight.ts";
+import { CommentBox, CommentCard } from "./CommentBox.tsx";
+import { displayText, useHunkTokens, type LineTokens } from "./use-hunk-tokens.ts";
+
+/** 评论交互：FileDiffView 持有状态，HunkView 只负责把它们画在对应的行下面。 */
+export interface CommentCtx {
+  /** 这个文件、这一侧的评论。 */
+  comments: readonly QueuedComment[];
+  /** 正在写的新评论的选区。 */
+  draft: LineSelection | null;
+  editingId: string | null;
+  pick(ref: LineRef, extend: boolean): void;
+  submitDraft(body: string): void;
+  cancelDraft(): void;
+  edit(id: string): void;
+  saveEdit(id: string, body: string): void;
+  cancelEdit(): void;
+  remove(id: string): void;
+}
+
+export interface HunkActions {
+  stage?: () => void;
+  unstage?: () => void;
+  discard?: () => void;
+}
+
+const SIGN: Record<GitDiffLine["kind"], string> = { context: "", add: "+", del: "−" };
+
+function Code({ text, tokens }: { text: string; tokens: HighlightToken[] | null }): ReactNode {
+  if (tokens === null) return displayText(text);
+  return tokens.map((token, index) => (
+    <span
+      key={index}
+      style={{
+        color: token.color,
+        fontStyle: token.italic ? "italic" : undefined,
+        fontWeight: token.bold ? "var(--fw-strong)" : undefined,
+      }}
+    >
+      {token.text}
+    </span>
+  ));
+}
+
+function Gutter({ line, target, ctx }: { line: number | null; target: LineRef | null; ctx: CommentCtx }) {
+  const t = useT();
+  if (line === null) return <span className="rv-no" />;
+  if (target === null) return <span className="rv-no">{line}</span>;
+  return (
+    <button
+      type="button"
+      className="rv-no rv-no-btn"
+      data-testid="line-comment"
+      data-line={line}
+      data-side={target.side}
+      aria-label={t("review.addCommentAt", { line })}
+      title={t("review.addCommentAt", { line })}
+      onClick={(event) => ctx.pick(target, event.shiftKey)}
+    >
+      <span className="rv-no-n">{line}</span>
+      <Plus size={12} className="rv-no-plus" />
+    </button>
+  );
+}
+
+function marks(
+  ref: LineRef | null,
+  ctx: CommentCtx,
+  file: string,
+  area: GitDiffArea,
+): { selected: boolean; commented: boolean } {
+  if (ref === null) return { selected: false, commented: false };
+  return {
+    selected: ctx.draft !== null && inSelection(ctx.draft, ref),
+    commented: ctx.comments.some((comment) => commentCovers(comment, file, area, ref)),
+  };
+}
+
+function Thread({ refs, file, area, ctx }: { refs: LineRef[]; file: string; area: GitDiffArea; ctx: CommentCtx }) {
+  const t = useT();
+  const items = refs.flatMap((ref) => commentsEndingAt(ctx.comments, file, area, ref));
+  const draft = refs.find((ref) => ctx.draft !== null && ctx.draft.side === ref.side && ctx.draft.end === ref.line);
+  if (items.length === 0 && draft === undefined) return null;
+  return (
+    <div className="rv-thread" data-testid="comment-thread">
+      {items.map((comment) =>
+        ctx.editingId === comment.id ? (
+          <CommentBox
+            key={comment.id}
+            initial={comment.body}
+            submitLabel={t("review.commentSave")}
+            startLine={comment.startLine}
+            endLine={comment.endLine}
+            onSubmit={(body) => ctx.saveEdit(comment.id, body)}
+            onCancel={ctx.cancelEdit}
+          />
+        ) : (
+          <CommentCard
+            key={comment.id}
+            body={comment.body}
+            old={comment.side === "old"}
+            onEdit={() => ctx.edit(comment.id)}
+            onDelete={() => ctx.remove(comment.id)}
+          />
+        ),
+      )}
+      {draft !== undefined && ctx.draft !== null && (
+        <CommentBox
+          initial=""
+          submitLabel={t("review.commentAdd")}
+          startLine={ctx.draft.start}
+          endLine={ctx.draft.end}
+          onSubmit={ctx.submitDraft}
+          onCancel={ctx.cancelDraft}
+        />
+      )}
+    </div>
+  );
+}
+
+function UnifiedRows({
+  hunk,
+  tokens,
+  file,
+  area,
+  ctx,
+}: {
+  hunk: GitDiffHunk;
+  tokens: LineTokens | null;
+  file: string;
+  area: GitDiffArea;
+  ctx: CommentCtx;
+}) {
+  return (
+    <>
+      {hunk.lines.map((line, index) => {
+        const ref = lineRef(line);
+        const { selected, commented } = marks(ref, ctx, file, area);
+        return (
+          <Fragment key={index}>
+            <div
+              className="rv-row"
+              data-kind={line.kind}
+              data-selected={selected || undefined}
+              data-commented={commented || undefined}
+            >
+              <Gutter line={line.oldNo} target={line.kind === "del" ? ref : null} ctx={ctx} />
+              <Gutter line={line.newNo} target={line.kind === "del" ? null : ref} ctx={ctx} />
+              <span className="rv-sign" aria-hidden="true">
+                {SIGN[line.kind]}
+              </span>
+              <code className="rv-code">
+                <Code text={line.text} tokens={tokens?.[index] ?? null} />
+              </code>
+            </div>
+            <Thread refs={ref ? [ref] : []} file={file} area={area} ctx={ctx} />
+          </Fragment>
+        );
+      })}
+    </>
+  );
+}
+
+function SplitRows({
+  hunk,
+  tokens,
+  file,
+  area,
+  ctx,
+}: {
+  hunk: GitDiffHunk;
+  tokens: LineTokens | null;
+  file: string;
+  area: GitDiffArea;
+  ctx: CommentCtx;
+}) {
+  const positions = useMemo(() => new Map(hunk.lines.map((line, at) => [line, at])), [hunk]);
+  const tokenOf = (line: GitDiffLine | null) => {
+    const at = line === null ? undefined : positions.get(line);
+    return at === undefined ? null : (tokens?.[at] ?? null);
+  };
+  return (
+    <>
+      {toSideBySide(hunk).map((row, index) => {
+        const leftRef = row.left?.kind === "del" ? lineRef(row.left) : null;
+        const rightRef = row.right ? lineRef(row.right) : null;
+        const left = marks(leftRef, ctx, file, area);
+        const right = marks(rightRef, ctx, file, area);
+        return (
+          <Fragment key={index}>
+            <div className="rv-row rv-row-split">
+              <div
+                className="rv-half"
+                data-kind={row.left?.kind ?? "empty"}
+                data-selected={left.selected || undefined}
+                data-commented={left.commented || undefined}
+              >
+                <Gutter line={row.left?.oldNo ?? null} target={leftRef} ctx={ctx} />
+                <code className="rv-code">{row.left && <Code text={row.left.text} tokens={tokenOf(row.left)} />}</code>
+              </div>
+              <div
+                className="rv-half"
+                data-kind={row.right?.kind ?? "empty"}
+                data-selected={right.selected || undefined}
+                data-commented={right.commented || undefined}
+              >
+                <Gutter line={row.right?.newNo ?? null} target={rightRef} ctx={ctx} />
+                <code className="rv-code">
+                  {row.right && <Code text={row.right.text} tokens={tokenOf(row.right)} />}
+                </code>
+              </div>
+            </div>
+            <Thread refs={[rightRef, leftRef].filter((ref) => ref !== null)} file={file} area={area} ctx={ctx} />
+          </Fragment>
+        );
+      })}
+    </>
+  );
+}
+
+export function HunkView({
+  file,
+  area,
+  hunk,
+  index,
+  mode,
+  active,
+  lang,
+  ctx,
+  actions,
+}: {
+  file: string;
+  area: GitDiffArea;
+  hunk: GitDiffHunk;
+  index: number;
+  mode: "unified" | "split";
+  active: boolean;
+  lang: string | null;
+  ctx: CommentCtx;
+  actions: HunkActions;
+}) {
+  const t = useT();
+  const tokens = useHunkTokens(hunk, lang);
+  const section = hunk.header.replace(/^@@[^@]*@@\s?/, "");
+  return (
+    <section className="rv-hunk" data-testid="hunk" data-hunk={index} data-active={active || undefined}>
+      <header className="rv-hunk-head">
+        <code className="rv-hunk-range">
+          @@ −{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
+        </code>
+        {section !== "" && <span className="rv-hunk-section">{section}</span>}
+        <span className="rv-hunk-actions">
+          {actions.stage && (
+            <button type="button" className="rv-btn" data-testid="hunk-stage" onClick={actions.stage}>
+              {t("review.stage")}
+            </button>
+          )}
+          {actions.unstage && (
+            <button type="button" className="rv-btn" data-testid="hunk-unstage" onClick={actions.unstage}>
+              {t("review.unstage")}
+            </button>
+          )}
+          {actions.discard && (
+            <button type="button" className="rv-btn rv-btn-danger" data-testid="hunk-discard" onClick={actions.discard}>
+              {t("review.discard")}
+            </button>
+          )}
+        </span>
+      </header>
+      <div className="rv-lines" data-mode={mode}>
+        {mode === "unified" ? (
+          <UnifiedRows hunk={hunk} tokens={tokens} file={file} area={area} ctx={ctx} />
+        ) : (
+          <SplitRows hunk={hunk} tokens={tokens} file={file} area={area} ctx={ctx} />
+        )}
+      </div>
+    </section>
+  );
+}

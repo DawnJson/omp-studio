@@ -41,6 +41,25 @@ describe("TaskRegistry（tasks.json）", () => {
     });
   });
 
+  it("worktree 字段随任务落盘；没有这些字段的老记录读出来是 null（已有任务不受影响）", async () => {
+    const file = path.join(scratch, "wt", "tasks.json");
+    const first = new TaskRegistry(file);
+    await first.load();
+    const project = await first.addProject(path.join(scratch, "wt 项目"));
+    const task = await first.addTask({
+      ...newTask(project.id),
+      worktree: { path: path.join(scratch, "wt 项目-wt"), branch: "studio/abc12345", base: "main" },
+    });
+    expect(task).toMatchObject({ worktreeBranch: "studio/abc12345", worktreeBase: "main" });
+
+    const legacy = JSON.parse(await readFile(file, "utf8")) as { tasks: Record<string, unknown>[] };
+    for (const key of ["worktreePath", "worktreeBranch", "worktreeBase"]) delete legacy.tasks[0]?.[key];
+    await writeFile(file, JSON.stringify(legacy));
+    const second = new TaskRegistry(file);
+    await second.load();
+    expect(second.findTask(task.id)).toMatchObject({ worktreePath: null, worktreeBranch: null, worktreeBase: null });
+  });
+
   it("同一个目录只加一次（路径写法不同、Windows 上大小写不同也算同一个）", async () => {
     const registry = new TaskRegistry(path.join(scratch, "b.json"));
     const dir = path.join(scratch, "Proj");

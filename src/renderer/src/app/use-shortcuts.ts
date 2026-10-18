@@ -19,6 +19,8 @@ export interface ShortcutActions {
   goBack(): void;
   goForward(): void;
   toggleMenu(): void;
+  /** Ctrl Shift D：打开当前任务的评审。 */
+  openReview(): void;
   /** Esc 栈第 5 层：侧栏抽屉打开时收起。返回是否处理了。 */
   closeDrawer(): boolean;
 }
@@ -37,7 +39,7 @@ export function useShortcuts(actions: ShortcutActions): void {
 
       if (event.ctrlKey && !event.altKey && !event.metaKey) {
         const handlers: Record<string, () => void> = event.shiftKey
-          ? { n: act.newTaskInCurrentProject }
+          ? { n: act.newTaskInCurrentProject, d: act.openReview }
           : {
               n: act.newTask,
               k: act.togglePalette,

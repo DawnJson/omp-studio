@@ -93,9 +93,11 @@ export const Pencil = (props: IconProps) => (
     <path d="m3 13 .8-3L10.5 3.3a1.2 1.2 0 0 1 1.7 0l.5.5a1.2 1.2 0 0 1 0 1.7L6 12.2 3 13Z" />
   </Icon>
 );
-export const Gear = (props: IconProps) => (
+export const Branch = (props: IconProps) => (
   <Icon {...props}>
-    <circle cx="8" cy="8" r="2" />
-    <path d="M8 2v1.500M8 12.5V14M2 8h1.500M12.5 8H14M3.8 3.8l1 1M11.2 11.2l1 1M3.8 12.2l1-1M11.2 4.8l1-1" />
+    <circle cx="4.5" cy="3.5" r="1.5" />
+    <circle cx="4.5" cy="12.5" r="1.5" />
+    <circle cx="11.5" cy="5.5" r="1.5" />
+    <path d="M4.5 5v6M11.5 7c0 2.500-3 2.500-7 4" />
   </Icon>
 );

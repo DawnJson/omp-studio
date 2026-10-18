@@ -75,6 +75,7 @@ describe.skipIf(!enabled)("真实 omp", () => {
         notice: () => {},
         taskRemoved: () => {},
         slashCommands: () => {},
+        subagents: () => {},
       },
     });
     await pool.init();

@@ -2,6 +2,8 @@
 import { useRef } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { limits, type Locale, type TaskState } from "../../../../shared/ipc.ts";
+import { Branch } from "../../icons.tsx";
+import { useTaskWorktree } from "../git/git-store.ts";
 import { MoreIcon } from "./icons.tsx";
 import { StatusDot } from "./StatusDot.tsx";
 import { formatTaskTime } from "./task-time.ts";
@@ -69,6 +71,7 @@ function RenameInput({
 
 export function TaskRow(props: TaskRowProps) {
   const { task, selected, renaming, t } = props;
+  const worktree = useTaskWorktree(task.id, task.updatedAt);
   const title = task.title.trim() === "" ? t("task.untitled") : task.title;
 
   if (renaming)
@@ -121,6 +124,16 @@ export function TaskRow(props: TaskRowProps) {
       >
         <StatusDot task={task} t={t} />
         <span className="sb-row-title">{title}</span>
+        {worktree && (
+          <span
+            className="sb-row-branch"
+            data-testid="task-row-worktree"
+            title={t("git.row.worktree", { branch: worktree.branch })}
+            aria-label={t("git.row.worktree", { branch: worktree.branch })}
+          >
+            <Branch size={12} />
+          </span>
+        )}
         {tail !== null && <span className="sb-row-tail">{tail}</span>}
       </button>
       <button

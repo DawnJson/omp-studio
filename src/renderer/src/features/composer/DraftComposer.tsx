@@ -12,11 +12,13 @@ import {
 } from "react";
 import type { DefaultModelInfo, ModelDefaults, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import { worktreeBlockerKey } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
 import { selectTask } from "../../store/index.ts";
 import { saveOmpDefaultModel, saveOmpDefaultThinking } from "../settings/config-store.ts";
 import { takePendingDraftText } from "../palette/index.ts";
+import { blockWorktree, getWorktreeDraft, setWorktreeOn, WorktreeChip } from "../git/index.ts";
 import { convertImageFiles } from "./actions.ts";
 import { ApprovalChip } from "./ApprovalChip.tsx";
 import { Attachments } from "./Attachments.tsx";
@@ -93,7 +95,10 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
     if (sending || (text === "" && current.images.length === 0)) return;
     setSending(true);
     try {
-      const task = await window.studio.createTask({ projectId });
+      const task = await window.studio.createTask({
+        projectId,
+        ...(getWorktreeDraft(projectId).on ? { worktree: true } : {}),
+      });
       await selectTask(task.id);
       await window.studio.sendPrompt(task.id, {
         text,
@@ -101,7 +106,10 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
         whenBusy: "steer",
       });
       setDraft(key, { text: "", images: [] });
+      setWorktreeOn(projectId, false);
     } catch (error) {
+      const blocker = getWorktreeDraft(projectId).on ? worktreeBlockerKey(error) : null;
+      if (blocker !== null) blockWorktree(projectId, blocker);
       reportError(t, error, t("msg.sendFailed"));
     } finally {
       setSending(false);
@@ -149,23 +157,27 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
   return (
     <div className="composer-stack" data-testid="draft-composer" data-draft>
       <div className="composer" onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
-        <Attachments
-          images={draft.images}
-          onRemove={(index) => setDraft(key, { text: draft.text, images: draft.images.filter((_, i) => i !== index) })}
-        />
-        <textarea
-          ref={fieldRef}
-          className="composer-field"
-          data-composer-input
-          data-testid="composer-input"
-          rows={2}
-          value={draft.text}
-          placeholder={t("composer.placeholderNew")}
-          aria-label={t("composer.placeholderNew")}
-          onChange={(event) => setDraftText(key, event.target.value)}
-          onKeyDown={onKeyDown}
-          onPaste={onPaste}
-        />
+        <div className="composer-body">
+          <Attachments
+            images={draft.images}
+            onRemove={(index) =>
+              setDraft(key, { text: draft.text, images: draft.images.filter((_, i) => i !== index) })
+            }
+          />
+          <textarea
+            ref={fieldRef}
+            className="composer-field"
+            data-composer-input
+            data-testid="composer-input"
+            rows={2}
+            value={draft.text}
+            placeholder={t("composer.placeholderNew")}
+            aria-label={t("composer.placeholderNew")}
+            onChange={(event) => setDraftText(key, event.target.value)}
+            onKeyDown={onKeyDown}
+            onPaste={onPaste}
+          />
+        </div>
         <div className="composer-tools">
           <button
             type="button"
@@ -203,6 +215,7 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
             setThinking={(level) => saveOmpDefaultThinking(level).finally(reread)}
           />
           <ApprovalChip />
+          <WorktreeChip projectId={projectId} />
           <span className="composer-spacer" />
           <SendStop
             running={false}

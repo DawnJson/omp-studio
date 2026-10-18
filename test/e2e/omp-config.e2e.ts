@@ -131,8 +131,8 @@ test("只是打开设置页、切分组、搜索、展开编辑器，不会写 o
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
-    await expect(page.getByTestId("settings-nav-cfg-model")).toBeVisible({ timeout: 30_000 });
-    for (const tab of ["context", "model", "internal", "tasks"])
+    await expect(page.getByTestId("settings-nav-cfg-models")).toBeVisible({ timeout: 30_000 });
+    for (const tab of ["context", "models", "tools", "agents"])
       await page.getByTestId(`settings-nav-cfg-${tab}`).click();
     await search(page, "modelRoles");
     await expect(page.getByTestId("roles-editor")).toBeVisible();
@@ -203,12 +203,12 @@ test("截图：omp 设置分组、搜索，中英文 × 浅深主题", async () 
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
-    await expect(page.getByTestId("settings-nav-cfg-tasks")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("settings-nav-cfg-agents")).toBeVisible({ timeout: 30_000 });
     for (const locale of ["zh-CN", "en"] as const) {
       for (const theme of ["light", "dark"] as const) {
         await localeAndTheme(page, locale, theme);
         await search(page, "");
-        for (const tab of ["tasks", "model", "internal"] as const) {
+        for (const tab of ["agents", "models", "tools"] as const) {
           await page.getByTestId(`settings-nav-cfg-${tab}`).click();
           await expect(page.locator(".cfg-row").first()).toBeVisible();
           await page.screenshot({ path: path.join(screenshotsDir, `omp-e-config-${tab}-${locale}-${theme}.png`) });
@@ -224,7 +224,7 @@ test("截图：omp 设置分组、搜索，中英文 × 浅深主题", async () 
     // 窄窗口：分节列表收成一行，长文本不溢出。
     await localeAndTheme(page, "zh-CN", "light");
     await search(page, "");
-    await page.getByTestId("settings-nav-cfg-internal").click();
+    await page.getByTestId("settings-nav-cfg-tools").click();
     await page.setViewportSize({ width: 820, height: 800 });
     // 窄窗口侧栏是抽屉：如果开着，用顶栏按钮收起，免得挡住设置页。
     await page.waitForTimeout(400);

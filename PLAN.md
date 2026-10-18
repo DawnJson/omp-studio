@@ -113,7 +113,7 @@ flowchart LR
 - [x] 查清 omp 在宿主被强杀时为什么不结束 bash 等子进程（`problem.md` 第 4 题）：宿主被强杀时 omp 是被系统（libuv 的 Job）直接结束的，来不及清理孙进程，不是 omp 的缺陷，不提 PR（对 libuv 一半已实测，孙进程不受 libuv Job 管；真实 omp 没单独验证，见 `docs/architecture/task-model.md`）
 - [x] 侧栏任务列表（按项目分组、状态点、跨项目显示"等你确认"）
 - [x] 对话流：流式 Markdown、过程折叠、结论、改动卡片（改动卡片的数字从工具事件推算，不是 git 结果）
-- [ ] 输入框：模型、思考强度、worktree、审批模式；steer 和 follow-up 消息队列（除 worktree 外已完成，worktree 归阶段 4）
+- [x] 输入框：模型、思考强度、worktree、审批模式；steer 和 follow-up 消息队列（worktree 胶囊在草稿输入框，创建被拒绝时禁用并写明原因；e2e 验证，见 `git-worktree.e2e.ts`）
 - [x] 审批和 ask 对话框（`extension_ui_request`）（带超时的门和 ask 门只有单测，没有回放 fixture 覆盖）
 - [x] 会话历史：读 `~/.omp`，能接着终端里的会话继续（恢复走 `resume-history` 回放验证；真实终端会话恢复没实测）
 - [x] 应用内登录和模型设置，含 omp 全部设置（555 项，经 `omp config`）（OAuth 没有真实账号实测）
@@ -145,16 +145,16 @@ flowchart LR
 
 **主界面**
 
-- [ ] 去掉输入框下方的历史会话列表；历史只在左侧侧栏
-- [ ] 输入框默认贴在主区底部（现在空状态时居中/偏上）
-- [ ] 输入框里的模型、思考强度控件：上边距太小，和上方贴得太紧；模型太多，选择器不好用。考虑改成单独弹窗：分组和搜索、思考模式、omp 里各模型的参数（上下文长度、能力等）
-- [ ] 显示上下文窗口占用
+- [x] 去掉输入框下方的历史会话列表；历史只在左侧侧栏（删除 ContinueList；空状态只留项目头 + 最近 3 个任务；侧栏搜索框可搜历史会话）
+- [x] 输入框默认贴在主区底部（现在空状态时居中/偏上）（空状态和对话同一位置）
+- [x] 输入框里的模型、思考强度控件：上边距太小，和上方贴得太紧；模型太多，选择器不好用。考虑改成单独弹窗：分组和搜索、思考模式、omp 里各模型的参数（上下文长度、能力等）（输入框分上下两层加 1px 分隔线；模型选择改为模态对话框：provider 分组 + 搜索，右栏上下文窗口/最大输出/图片/推理/价格，底部思考强度）
+- [x] 显示上下文窗口占用（位置和样式待设计方向确认后调整）
 - [ ] 加 plan 模式（和 auto 并列的执行模式）。**已查（omp 18.12.1 实测，2026-10-18）：RPC 没有进入 plan 模式的命令，也没有计划审阅的事件**。rpc-ui 下 69 个可用斜杠命令里没有 `/plan`，发 `/plan` 会被当成普通文本交给模型；`get_state` 里没有 plan 字段；`plan.defaultOnStartup: true` 被忽略（直接写了文件）。唯一能用的是启动参数 `--plan-yolo`：只读规划 -> **自动批准** -> 切到执行模型实现，用户看不到也改不了计划。计划审阅（`plan_review_requested` / `resolvePlanReview`）只在插件 API 里，由交互式 TUI 打开。可选路线：用 `--plan-yolo` 做"先规划再执行"（不能审阅）；写 omp-studio 自己的插件试接计划审阅（未验证 rpc-ui 下会不会打开）；给官方提 PR 加 RPC 命令。等仓库所有者选
-- [ ] 输入框下方**默认显示**本会话的消耗（omp 有用量数据，如 `get_session_stats`）。已定（2026-10-18），设计原则第 5 条已随之修改
-- [ ] 主区内容面板的圆角不一致：左边有圆角，右边没有
-- [ ] 侧栏：新任务按钮上方加搜索框；"添加项目"移到上方
+- [x] 输入框下方**默认显示**本会话的消耗（omp 有用量数据，如 `get_session_stats`）。已定（2026-10-18），设计原则第 5 条已随之修改（位置和样式待设计方向确认后调整；`get_session_stats` 每次刷新状态时取，真实 omp 18.12.1 录了 `fixtures/rpc/session-stats`）
+- [x] 主区内容面板的圆角不一致：左边有圆角，右边没有（临时方案：四角都圆，右/下留 8px）
+- [x] 侧栏：新任务按钮上方加搜索框；"添加项目"移到上方（搜索框 → [新任务][添加项目] → 项目列表；搜索过滤任务并列出匹配的历史会话）
 - [ ] 顶栏（状态栏）几乎照抄 Claude 桌面版，要重新设计，加入自己的元素
-- [ ] 设置按钮的图标是太阳，换掉
+- [x] 设置按钮的图标是太阳，换掉（重画为带齿齿轮）
 - [x] "帮助与反馈"链接指向的是 omp 官方仓库，改成本仓库（和阶段 2.5 的反馈渠道一项一起做）（指向 `issues/new/choose`）
 
 **设置页**
@@ -162,11 +162,11 @@ flowchart LR
 - [ ] 整体杂乱，重新设计信息架构和排版
 - [ ] 右侧内容框离窗口右边界太远，宽度利用不好
 - [ ] 现在全是竖排，有的行中间大片留白；重新排版（标签和控件的对齐、行内布局、密度）
-- [ ] "模型与账号"每次进入都要等刷新：缓存上次结果，先显示再后台刷新
-- [ ] 自定义模型：现在第三方 API 要手写 `~/.omp/agent/models.yml`，改成在设置里直接添加和编辑 provider（base URL、key、模型）。一键拉取：填入第三方 URL（+ key）后，一键列出这个地址能访问的模型，勾选加入。先查 omp 的 `models.yml` 格式（`omp://models.md`）以及有没有对应的 RPC/命令；写入仍只能经 omp，没有写入接口就停下来问
-- [ ] omp 更新：可手动"检查更新"；自动检查改为每小时一次
-- [ ] omp 设置：原则是 **omp 有的，omp-studio 也要有**——把配置文件里常用的项都做进设置页；只有在 omp-studio 里不起作用、不影响它的项（TUI 外观、状态栏、终端相关等）才不放。做法：实际运行 omp（`omp config list --json` 和 RPC 模式下实测），逐项确认在 rpc-ui 下是否生效，结果写进 `docs/architecture/omp-settings.md`；剩下的重新分组，不再照搬 omp 的 tab
-- [ ] 新增：订阅账号额度总览；近一年每日消耗热力图（先查 omp 的用量数据来源，如 `stats.db`，只读）。默认可见（同设计原则第 5 条）
+- [x] "模型与账号"每次进入都要等刷新：缓存上次结果，先显示再后台刷新（已做：缓存上次结果，进入先显示、后台刷新；e2e 验证）
+- [ ] 自定义模型：现在第三方 API 要手写 `~/.omp/agent/models.yml`，改成在设置里直接添加和编辑 provider（base URL、key、模型）。一键拉取：填入第三方 URL（+ key）后，一键列出这个地址能访问的模型，勾选加入。先查 omp 的 `models.yml` 格式（`omp://models.md`）以及有没有对应的 RPC/命令；写入仍只能经 omp，没有写入接口就停下来问（已查 2026-10-18：omp 没有写 `models.yml` 的命令/RPC，未实现，等仓库所有者在 `login.md` 的四个方案里选）
+- [x] omp 更新：可手动"检查更新"；自动检查改为每小时一次（已做：设置 → omp 所有来源都有"检查更新"，自管的直接装、自装/他人管理的只提示"有新版本"；ready 后马上查一次、之后每小时；见 `omp-install.md`）
+- [x] omp 设置：原则是 **omp 有的，omp-studio 也要有**——把配置文件里常用的项都做进设置页；只有在 omp-studio 里不起作用、不影响它的项（TUI 外观、状态栏、终端相关等）才不放。做法：实际运行 omp（`omp config list --json` 和 RPC 模式下实测），逐项确认在 rpc-ui 下是否生效，结果写进 `docs/architecture/omp-settings.md`；剩下的重新分组，不再照搬 omp 的 tab（已做 2026-10-18：差分实测 316 项 + 行为实测，78 项终端专用隐藏，其余按 omp-studio 自己的 8 组重新分组；见 `omp-settings.md`；未逐个发真实请求验证的运行时项按文档保留）
+- [x] 新增：订阅账号额度总览；近一年每日消耗热力图（先查 omp 的用量数据来源，如 `stats.db`，只读）。默认可见（同设计原则第 5 条）（已做：设置 → 用量，额度来自 `omp usage --json`，热力图来自 `stats.db` 只读；额度条没有真实订阅账号验证；见 `omp-usage.md`）
 
 **后台运行**
 
@@ -176,20 +176,20 @@ flowchart LR
 
 ### 阶段 3：diff 评审
 
-- [ ] 全屏评审模式：文件树、统一 / 并排 diff、暂存、丢弃
-- [ ] 逐行评论、待发送队列、"发给 agent 修改"（宿主把评论格式化成一条带 `文件:行范围` 的用户消息，用 `prompt`、`steer` 或 `follow_up` 发送，不走 annotations 插件，见 `problem.md` 第 1 题）
-- [ ] agent 的改动说明面板
+- [x] 全屏评审模式：文件树、统一 / 并排 diff、暂存、丢弃（`features/review/`，规范 `spec.md` §4.25；入口 ChangeCard "打开评审" / `Ctrl Shift D` / 命令面板；文件和 hunk 级暂存、取消暂存、丢弃（先确认），Shiki 高亮，j/k n/p v Esc；e2e `test/e2e/review.e2e.ts`）
+- [x] 逐行评论、待发送队列、"发给 agent 修改"（宿主把评论格式化成一条带 `文件:行范围` 的用户消息，用 `prompt`、`steer` 或 `follow_up` 发送，不走 annotations 插件，见 `problem.md` 第 1 题）（点行号评论、Shift 点击选范围；队列在渲染进程 store，关闭评审后保留、发送成功才清空；运行中按输入框的 `enterWhileRunning` 选插话或稍后）
+- [x] agent 的改动说明面板（右栏"改动说明"：从对话流里 edit / write / ast_edit 工具事件取每个文件的 intent 和那一轮的结论，`features/review/explain.ts`）
 
 ### 阶段 4：worktree 和 git
 
-- [ ] 每个任务一个 worktree：新建、项目级 setup 脚本、合并回主分支、丢弃、清理
-- [ ] commit、push、用 gh 开 PR
+- [x] 每个任务一个 worktree：新建、项目级 setup 脚本、合并回主分支、丢弃、清理（输入框"工作树"胶囊；主区 git 条 + 侧栏任务行分支标记；合并结果 merged / nothing_to_merge / conflict（列文件）/ blocked 三种原因；丢弃先确认并归档任务；项目菜单"清理无主工作树"。**待仓库所有者决定：丢弃 worktree 后恢复该任务怎么处理**（`docs/architecture/git.md` 已知局限）。e2e 用真实临时仓库验证）
+- [x] commit、push、用 gh 开 PR（主区 git 条的"Git"菜单：提交对话框（可先暂存全部）、推送（含被拒 / 无远端 / detached）、PR 对话框（先推送再 `gh pr create`；gh 不可用 / 未登录有提示）。e2e 验证提交和推送到本地裸仓库；`gh pr create` 成功路径没有测，只测了 gh 不在 PATH 的分支）
 
 ### 阶段 5：子代理泳道
 
-- [ ] 在"已工作"折叠区里展开泳道：时间轴、各子代理的状态和模型、主代理的工具节奏
-- [ ] 选中某个子代理看详情：费用、token、摘要、完整记录、只看它的改动
-- [ ] 用 `steer_subagent` 和 `cancel_subagent` 干预子代理
+- [x] 在"已工作"折叠区里展开泳道：时间轴、各子代理的状态和模型、主代理的工具节奏（过程行展开后顶部的"泳道"：主代理一行工具节奏 + 每个子代理一行起止/状态/模型/工具刻度；订阅级别用 `progress`，不开 `events`；e2e 用真实录制 `subagents-parallel` 回放；**嵌套子代理只有单元测试，没有 UI 样本**；泳道不落盘，应用重启后历史会话没有泳道。见 `docs/architecture/subagents.md`）
+- [x] 选中某个子代理看详情：费用、token、摘要、完整记录、只看它的改动（点泳道一行就地展开；完整记录来自 `get_subagent_messages`，运行中每 3 秒刷新；"改动"只含这个子代理 edit/write 的文件；任务没有 omp 进程时读不到完整记录，只列泳道里已知的改动文件）
+- [x] 用 `steer_subagent` 和 `cancel_subagent` 干预子代理（wire schema 里有这两条命令；真实 omp 经任务池实测：steer 后子代理的回答带上了插话内容，cancel 返回 `cancelled: true` 并先后收到 `aborted` 的 progress / lifecycle 帧；取消要二次确认。UI 流程用假 omp 的 e2e 验证，没有对真实 omp 开 Electron 点一遍）
 
 ### 阶段 6：内置终端
 

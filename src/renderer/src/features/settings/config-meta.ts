@@ -35,8 +35,9 @@ const commonOrder: ReadonlyMap<string, number> = new Map(
     .map((name, index) => [name.slice(0, -".label".length), index]),
 );
 
-export function tabTitle(locale: Locale, tab: string): string {
-  return entry(locale, `tab.${tab}`) ?? tab;
+/** omp-studio 分组的名字（`group.<id>`）。 */
+export function groupTitle(locale: Locale, group: string): string {
+  return entry(locale, `group.${group}`) ?? group;
 }
 
 /** 按 key、omp 原描述、两种语言的标签和说明搜索（不区分大小写）；多个词要全部命中。 */

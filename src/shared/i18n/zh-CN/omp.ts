@@ -43,6 +43,8 @@ export const omp = {
   checkUpdate: "检查更新",
   checkFailed: "没能检查更新：{message}",
   upToDate: "已是最新版本",
+  newVersion: "有新版本 {version}",
+  "autoUpdate.noteOther": "omp-studio 每小时检查一次有没有新版本，不会自动安装",
   "autoUpdate.note": "omp-studio 每小时检查一次更新",
   path: "路径",
   version: "版本",

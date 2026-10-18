@@ -89,3 +89,18 @@ Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次�
 - **Tern 会不会把自己放回 PATH 最前面**：`tern.log` 里 `omp put on the user's Path` 从接管那次起只出现过一次，之后每次启动都没有；`state.json` 用 `path_entry: true` 记"加过"。所以 Tern 不会每次启动重新排序（推测：只要它的条目还在 PATH 里，不管排第几都不动）。Tern 的"停止管理 omp"只拿掉它自己加的（`omp taken off the user's Path`）。
 - **Tern 自己的终端里用哪个 omp**：Tern 的 shell 集成脚本按 `TERN_PATH_PREPEND` 在第一个提示符前把指定目录放到 PATH 最前（"makes it the `omp` in every Tern terminal"），所以 Tern 终端里仍是 Tern 的 omp；普通终端（Windows Terminal、cmd）里是 omp-studio 的。从 Tern 终端里启动 omp-studio 时，进程 PATH 上第一个是 Tern 的，发现流程按 exe 路径查到"已接受接管"，照样用自管那份。
 - **Tern 会不会把 omp-studio 那份当成别人的 omp 来问**：Tern 的接管询问"每台机器只问一次"（`state.json` 的 `offered: true`，开发机上已经是 true），只认 Homebrew、mise、npm、bun、install.ps1 几种来源。已经由 Tern 管理时不会再问（推测：`offered` 为 true 后不再检查别的 omp）。Tern 的设置页会显示"PATH 上排在前面的其他 omp"。
+
+### omp 版本检查（设置 → omp，2026-10-18）
+
+`OmpManager.checkUpdate()`，**所有来源都检查**，区别只在查到新版本之后：
+
+| 来源 | 查什么 | 查到更新后 |
+|---|---|---|
+| 自管（`studio_managed`） | 构建服务最新稳定版 vs `bin\omp.exe` 的版本（请求带 `from_version`，优先补丁） | 后台下载、校验、换 `bin\omp.exe`（新任务用新版本），状态 `stagedUpdate`；从不对它执行 `omp update` |
+| 用户自装、拒绝了接管（`user_installed`） | 同一个接口，只比版本号（不带 `from_version`，不下载） | 状态 `availableVersion`，设置页显示"有新版本 X"；升级仍是已有的"升级"按钮（对 PATH 上的 omp 执行 `omp update`） |
+| 他人管理（如 Tern，`managed_by_other`） | 同上 | 同上显示"有新版本 X"，没有按钮，提示去管理者（Tern）那里更新 |
+
+- **自动：** omp 进入 `ready` 后马上查一次，之后每小时一次（`UPDATE_INTERVAL_MS`，定时器 `unref`，`stop()` 清掉）。之前定时器只在自管时启动、而且要等一小时才有第一次；现在所有来源都启动，第一次不用等。后台检查失败只记日志（`warn`），下个小时再试。
+- **手动：** 设置 → omp 的"检查更新"按钮（所有来源都有）走同一个 `checkOmpUpdate`，返回 `{ installedVersion, availableVersion }`：装上了新版本 / 有新版本但没装 / 都是 null（已最新）；失败时界面显示错误。
+- "有新版本"的判断只用 `compareVersions(build.version, 当前版本) > 0`；用户升级（`upgradePathOmp`）之后，如果当前版本追上了就清掉 `availableVersion`。
+- 测试：`test/omp-manager-flow.test.ts`（拒绝接管的 Tern 副本：启动后自动出现 `availableVersion`，手动检查返回同样结果，没有进入 `installing`）；`test/e2e/settings-functional.e2e.ts`（假构建服务返回 99.0.0，设置页出现"有新版本 99.0.0"，版本没变）。

@@ -2,10 +2,8 @@
 // 默认值就是 omp 自己的 modelRoles.default / defaultThinkingLevel（设计原则 7），和输入框的模型胶囊、omp 设置页是同一份。
 import { describeError, reportError } from "../../ui/errors.ts";
 import { useCallback, useEffect, useState } from "react";
-import type { ModelOption } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { apiKeyEnvName } from "../../../../shared/provider-keys.ts";
-import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
 import {
   defaultModelRole,
@@ -14,36 +12,12 @@ import {
   saveOmpDefaultThinking,
   useOmpConfigValue,
 } from "./config-store.ts";
+import { loadAccounts, useAccountLoad } from "./accounts-store.ts";
 import { Card, Select, SettingRow, type Option } from "./controls.tsx";
 import { ProviderRow } from "./ProviderRow.tsx";
 
-interface AccountData {
-  providers: LoginProvider[];
-  accounts: Record<string, LogoutAccount[]>;
-  keyProviders: string[];
-  models: ModelOption[];
-}
-
 const thinkingLevels = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
 const inherit = "";
-
-/** 一次读全：provider、每个已登录 provider 的账号、已存的 key、模型。provider 或模型读不出来整体失败，由界面显示原因。 */
-async function loadAccountData(): Promise<AccountData> {
-  const [providers, keyProviders, models] = await Promise.all([
-    window.studio.listLoginProviders(),
-    window.studio.listApiKeyProviders(),
-    window.studio.listModels(),
-  ]);
-  const accounts: Record<string, LogoutAccount[]> = {};
-  await Promise.all(
-    providers
-      .filter((provider) => provider.authenticated)
-      .map(async (provider) => {
-        accounts[provider.id] = await window.studio.listAccounts(provider.id);
-      }),
-  );
-  return { providers, accounts, keyProviders, models };
-}
 
 const modelKey = (model: { provider: string; modelId: string }) => `${model.provider}/${model.modelId}`;
 
@@ -52,19 +26,13 @@ export function ModelsSection() {
   const roles = useOmpConfigValue("modelRoles");
   const defaultModel = defaultModelRole(roles);
   const thinking = useOmpConfigValue("defaultThinkingLevel");
-  const [data, setData] = useState<AccountData | null>(null);
-  const [error, setError] = useState<unknown>(null);
+  const load = useAccountLoad();
+  const data = load.kind === "ready" ? load.data : null;
+  const error = load.kind === "error" ? load.error : null;
   const [loginBusy, setLoginBusy] = useState(false);
 
-  const reload = useCallback(() => {
-    loadAccountData().then(
-      (loaded) => {
-        setData(loaded);
-        setError(null);
-      },
-      (failure: unknown) => setError(failure),
-    );
-  }, []);
+  // 有缓存就直接显示，进入时后台刷新一次。
+  const reload = useCallback(() => void loadAccounts(), []);
   useEffect(reload, [reload]);
   useEffect(ensureOmpConfigLoaded, []);
 

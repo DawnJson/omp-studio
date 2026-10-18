@@ -7,7 +7,7 @@ import { applyTranscriptSnapshot } from "./transcript-store.ts";
 export type MainView = "conversation" | "settings";
 
 /** 设置页的分节；命令面板用它直接定位。"shortcuts" 是通用页里的快捷键卡片；`cfg:<tab>` 是 omp 自己的设置分组。 */
-export type SettingsSection = "general" | "models" | "omp" | "shortcuts" | `cfg:${string}`;
+export type SettingsSection = "general" | "models" | "usage" | "omp" | "shortcuts" | `cfg:${string}`;
 
 interface UiState {
   selectedTaskId: TaskId | null;

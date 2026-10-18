@@ -37,6 +37,9 @@
 - `fake-omp` 还支持一个测试专用的 `kind: "grandchild"`：起一个 detached、不会自己退出的子进程（模拟 omp 的 bash 孙进程，见 `task-model.md` 进程树兜底），并输出 `{ "type": "test_grandchild", "pid" }`，用来测按进程树结束。
 - 现在的录制用增量模式（`set_event_filter messageUpdates:"delta"`），`message_update` 不带 `partial`，一轮 bash 对话约 120 条；旧的完整快照格式主进程翻译时同样处理（去掉 `partial`）。
 
+- `fake-omp` 的第二个命令行参数（可选）是输入记录文件：收到的每个 `in` 帧原样追加一行，测试用它断言 omp 实际收到了什么（评审评论发出的 prompt 文本见 `test/e2e/review.e2e.ts`）。
+- 子代理的查询和干预（`get_subagent_messages`、`steer_subagent`、`cancel_subagent`）**不占回放顺序**：录制里这几条 `in` 和它们的应答 `out` 被跳过，界面在不固定的时刻发时由假 omp 就地应答。`get_subagent_messages` 按请求的 `subagentId` 回录制里那个子代理的记录（不在录制里的 id 回 `success: false`），并像真 omp 一样按 `fromByte` 续读（从 `nextByte` 往后是空页）；`steer_subagent` 回成功，`cancel_subagent` 回 `cancelled: true`，**不会**自动产生 `aborted` 帧。截断录制（`hang`）时要把尾部的 `get_subagent_messages` 条目留着，否则详情读不到记录（见 `test/task-subagents.test.ts`、`test/e2e/subagent-lanes.e2e.ts`）。
+
 ## 场景和现有录制
 
 用法：`npm run rpc:record -- <名字> "<prompt>" --scenario <场景>`。除 `approval` 外都用 `--approval-mode yolo`（每次显式传，不依赖本机配置，也不会出现审批框）。
@@ -44,13 +47,16 @@
 |fixture|场景|内容|
 |---|---|---|
 |`simple-reply`|prompt|无工具的一问一答|
+|`session-stats`|prompt|同上，结束后多录一条 `get_session_stats`（2026-10-18 真实 omp 18.12.1 录的：`tokens`、`cost`、`premiumRequests`、`contextUsage`；API key 计费的会话没有 `credits`）。输入框下方的用量行用它|
 |`bash-tool`|prompt|一次 bash 工具调用|
 |`approval-select`|approval（`always-ask`，自动批准第一项）|bash 触发审批 select，`in extension_ui_response`；帧形状见 `dialogs.md`|
 |`ask-dialog`|ask（每题取推荐项）|`method:"ask"` 单选一题|
 |`turn-error`|turn-error（key 换成无效值）|`prompt_result {status:"error", error:{httpStatus:401,…}}`|
 |`queue-steer`|queue-steer|第一次工具开始后连发 steer 和 followUp；`queue_update` 四次。**两个 `in prompt` 相邻**，回放时必须连续发出（`Promise.all`），否则假 omp 一直等第三条|
 |`resume-history`|resume-history|只录第二个进程：`switch_session` + `get_messages_page`（先聊一轮让会话落盘，再开新进程恢复）|
+|`subagents-parallel`|subagents|`task` 工具并行派两个子代理（读文件 / 读完写 `beta-summary.md`，`detached: true`）；录到会话安静后，对每个子代理读一次 `get_subagent_messages`。泳道的 e2e 和单元测试用它|
+|`subagents-control`|subagent-control|两个各跑约 30 秒的子代理，运行中 `steer_subagent` 第一个、`cancel_subagent` 第二个（`aborted` 的 progress / lifecycle 帧、`cancelled: true`）。**体积控制**：删掉了 `message_update`、`tool_execution_update` 和重复的 `get_state`，帧结构没动；回放时 UI 里主代理没有逐字流式|
 
 ## 幂等查询的宽松应答
 
-主进程会在不固定的时刻查 `get_state`（上下文使用率，节流后）、`get_available_thinking_levels`、`get_available_models`。假 omp 对这三条：只要它不是"下一条期望的 `in`"，就按录制里**最近一次**的应答立即回（回放前先用文件里第一次出现的值垫底），不消耗录制条目。初始化序列里它们仍按顺序匹配。
+主进程会在不固定的时刻查 `get_state`（上下文使用率，节流后）、`get_available_thinking_levels`、`get_available_models`、`get_session_stats`（用量，和 `get_state` 一起刷新）。假 omp 对这些：只要它不是"下一条期望的 `in`"，就按录制里**最近一次**的应答立即回（回放前先用文件里第一次出现的值垫底），不消耗录制条目。初始化序列里它们仍按顺序匹配。

@@ -20,7 +20,6 @@ import { onComposerText, onStudioCommand, useSlashCommands } from "../palette/in
 import { compactContext, convertImageFiles, sendDraft, stopAndRestore } from "./actions.ts";
 import { ApprovalChip } from "./ApprovalChip.tsx";
 import { Attachments } from "./Attachments.tsx";
-import { ContextHint } from "./ContextHint.tsx";
 import { getDraft, resolveSuggestion, setDraft, setDraftText, useDraft, useEditorSuggestion } from "./draft-store.ts";
 import { ModelChip } from "./ModelChip.tsx";
 import { matchSlash, slashQuery } from "./slash-match.ts";
@@ -28,6 +27,7 @@ import { SlashMenu } from "./SlashMenu.tsx";
 import { QueueStrip } from "./QueueStrip.tsx";
 import { decideEnter } from "./send-logic.ts";
 import { SendStop } from "./SendStop.tsx";
+import { UsageMeter } from "./UsageMeter.tsx";
 import "./composer.css";
 
 export function Composer({ taskId }: { taskId: TaskId }) {
@@ -231,30 +231,32 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             onPick={(command) => completeSlash(command.name)}
           />
         )}
-        <Attachments
-          images={draft.images}
-          onRemove={(index) =>
-            setDraft(taskId, { text: draft.text, images: draft.images.filter((_, i) => i !== index) })
-          }
-        />
-        <textarea
-          ref={fieldRef}
-          className="composer-field"
-          data-composer-input
-          data-testid="composer-input"
-          rows={2}
-          value={draft.text}
-          placeholder={placeholder}
-          aria-label={placeholder}
-          aria-controls={slashOpen ? "slash-menu" : undefined}
-          aria-activedescendant={slashOpen && slashMatches.length > 0 ? `slash-menu-${slashActive}` : undefined}
-          onChange={(event) => {
-            setDraftText(taskId, event.target.value);
-            setSlashIndex(0);
-          }}
-          onKeyDown={onKeyDown}
-          onPaste={onPaste}
-        />
+        <div className="composer-body">
+          <Attachments
+            images={draft.images}
+            onRemove={(index) =>
+              setDraft(taskId, { text: draft.text, images: draft.images.filter((_, i) => i !== index) })
+            }
+          />
+          <textarea
+            ref={fieldRef}
+            className="composer-field"
+            data-composer-input
+            data-testid="composer-input"
+            rows={2}
+            value={draft.text}
+            placeholder={placeholder}
+            aria-label={placeholder}
+            aria-controls={slashOpen ? "slash-menu" : undefined}
+            aria-activedescendant={slashOpen && slashMatches.length > 0 ? `slash-menu-${slashActive}` : undefined}
+            onChange={(event) => {
+              setDraftText(taskId, event.target.value);
+              setSlashIndex(0);
+            }}
+            onKeyDown={onKeyDown}
+            onPaste={onPaste}
+          />
+        </div>
         <div className="composer-tools">
           <button
             type="button"
@@ -288,7 +290,6 @@ export function Composer({ taskId }: { taskId: TaskId }) {
           <ApprovalChip />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
-          <ContextHint task={task} />
           <SendStop
             running={running}
             stopping={stopping}
@@ -299,6 +300,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
           />
         </div>
       </div>
+      <UsageMeter task={task} />
     </div>
   );
 }

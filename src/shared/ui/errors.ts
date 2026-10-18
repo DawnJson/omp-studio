@@ -21,7 +21,20 @@ const knownMessages: [RegExp, Parameters<TFunction>[0]][] = [
   [/executable files are not opened directly/i, "error.executableBlocked"],
   [/project still has tasks/i, "project.removeBlocked"],
   [/^unknown (task|project) /i, "error.notFound"],
+  [/worktrees need a git repository/i, "git.err.notGit"],
+  [/must be the repository root/i, "git.err.notRoot"],
+  [/repository has no commits yet/i, "git.err.noCommits"],
+  [/repository is on a detached HEAD/i, "git.err.detached"],
+  [/git was not found on PATH/i, "git.err.gitMissing"],
+  [/^\.omp-studio\/setup\.\w+ failed/i, "git.err.setupFailed"],
 ];
+
+/** 创建 worktree 任务被拒绝的原因（项目本身不满足条件，换个项目状态才行）；其他错误返回 null。 */
+export function worktreeBlockerKey(error: unknown): Parameters<TFunction>[0] | null {
+  const detail = errorDetail(error);
+  const key = knownMessages.find(([pattern]) => pattern.test(detail))?.[1];
+  return key !== undefined && key.startsWith("git.err.") && key !== "git.err.setupFailed" ? key : null;
+}
 
 /** 错误原文：去掉 IPC 前缀和 "Error:" 前缀。 */
 export function errorDetail(error: unknown): string {

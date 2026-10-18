@@ -244,7 +244,7 @@ const composer = (L, ph) => `<div class="composer"><div class="c-input">${ph}</d
 const meter = (L, empty = false) =>
   `<div class="meter">${ring(empty ? 0 : 34)}<span>${empty ? L.ctx.replace("34%", "0%").replace("68k", "0") : L.ctx}</span><span class="gap"></span><span>${empty ? L.sess.replace("112k", "0").replace("$0.21", "$0.00") : L.sess}</span></div>`;
 
-function recent(L, locale) {
+function recent(L) {
   const items = [
     [L.t1, "run", L.r1m],
     [L.t2, "wait", L.r2m],

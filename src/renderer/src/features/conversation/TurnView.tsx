@@ -1,6 +1,7 @@
 // 一轮：用户消息 → 过程行 → 结论 → 改动卡片 → 提示。结果优先：过程默认折叠成一行。
 import { memo } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
+import type { SubagentLane } from "../../../../shared/subagents.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Markdown } from "../../markdown/index.ts";
 import { ChangeCard } from "./ChangeCard.tsx";
@@ -17,6 +18,8 @@ interface TurnViewProps {
   offscreenSkippable: boolean;
   taskId: TaskId;
   projectPath: string | null;
+  /** 这一轮里开始的子代理（泳道）；没有时是同一个空数组。 */
+  lanes: readonly SubagentLane[];
 }
 
 function AssistantAnswer({ text, streaming, live }: { text: string; streaming: boolean; live: boolean }) {
@@ -37,7 +40,14 @@ function AssistantAnswer({ text, streaming, live }: { text: string; streaming: b
   );
 }
 
-export const TurnView = memo(function TurnView({ turn, live, offscreenSkippable, taskId, projectPath }: TurnViewProps) {
+export const TurnView = memo(function TurnView({
+  turn,
+  live,
+  offscreenSkippable,
+  taskId,
+  projectPath,
+  lanes,
+}: TurnViewProps) {
   const t = useT();
   const complete = live === null;
   const noResult = complete && turn.answer === null && (turn.hasAssistantOutput || turn.toolCalls > 0);
@@ -54,7 +64,7 @@ export const TurnView = memo(function TurnView({ turn, live, offscreenSkippable,
         </div>
       )}
       {turn.user && <UserMessage user={turn.user} />}
-      <ProcessRow turn={turn} live={live} />
+      <ProcessRow turn={turn} live={live} taskId={taskId} projectPath={projectPath} lanes={lanes} />
       {turn.answer && (
         <AssistantAnswer text={turn.answer.text} streaming={turn.answer.streaming} live={turn.answer.streaming} />
       )}

@@ -91,7 +91,7 @@ export const ompHandlers: HandlerGroup<
   addManagedOmpToPath: () => ompManager().addManagedOmpToPath(),
   retryOmpSetup: () => ompManager().retry(),
   upgradePathOmp: () => ompManager().upgradePathOmp(),
-  checkOmpUpdate: async () => ({ installedVersion: await ompManager().checkUpdate() }),
+  checkOmpUpdate: () => ompManager().checkUpdate(),
   installOmp: () => ompManager().installOmp(),
   cancelOmpInstall: () => {
     ompManager().cancelInstall();

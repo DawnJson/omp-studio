@@ -3,6 +3,7 @@ import { reportError } from "../../ui/errors.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { Locale, TaskState, ThemePreference } from "../../../../shared/ipc.ts";
 import { showView } from "../../store/index.ts";
+import { openReview } from "../../store/review-store.ts";
 import { archiveWithUndo } from "../sidebar/archive-store.ts";
 import { startDraft } from "../empty/index.ts";
 import { addProjectAsDraft, jumpToWaitingTask } from "../sidebar/sidebar-actions.ts";
@@ -73,6 +74,12 @@ export function buildCommands({ t, locale, theme, current, hasWaiting }: Command
       label: t("cmd.toggleProcess"),
       shortcut: "Ctrl O",
       run: () => emitStudioCommand("toggleProcess"),
+    },
+    current && {
+      id: "review",
+      label: t("review.open"),
+      shortcut: "Ctrl Shift D",
+      run: () => openReview(current.id),
     },
     hasWaiting && {
       id: "jumpWaiting",

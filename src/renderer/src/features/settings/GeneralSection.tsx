@@ -21,6 +21,10 @@ const shortcuts: { label: MessageKey; keys: string[] }[] = [
   { label: "shortcut.nthTask", keys: ["Ctrl", "1…9"] },
   { label: "shortcut.prevNext", keys: ["Ctrl", "Alt", "↑ / ↓"] },
   { label: "shortcut.regions", keys: ["F6"] },
+  { label: "shortcut.review", keys: ["Ctrl", "Shift", "D"] },
+  { label: "shortcut.reviewFiles", keys: ["J / K"] },
+  { label: "shortcut.reviewHunks", keys: ["N / P"] },
+  { label: "shortcut.reviewLayout", keys: ["V"] },
 ];
 
 export function GeneralSection() {

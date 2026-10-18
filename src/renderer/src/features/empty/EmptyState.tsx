@@ -1,4 +1,5 @@
-// 没选任务时的主区（spec §4.7、§4.22 H）：有项目 = 项目头 + 草稿输入框 + 继续列表；没有项目 = 选文件夹引导。
+// 没选任务时的主区（spec §4.7、§4.22 H）：有项目 = 项目头 + 该项目最近 3 个任务 + 贴底的草稿输入框；没有项目 = 选文件夹引导。
+// 历史会话只在侧栏（搜索框能搜到），这里不再列。
 import { useEffect, useMemo } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { useTasks } from "../../store/index.ts";
@@ -6,10 +7,9 @@ import { DraftComposer } from "../composer/index.ts";
 import { refreshProjects, useProjectsState } from "../sidebar/projects-store.ts";
 import { describeError } from "../../ui/errors.ts";
 import { openFolderAsDraft } from "./actions.ts";
-import { ContinueList } from "./ContinueList.tsx";
 import { pickDraftProject, useDraftProjectId } from "./draft-project.ts";
 import { ProjectSwitcher } from "./ProjectSwitcher.tsx";
-import { useSessions } from "./use-sessions.ts";
+import { RecentTasks } from "./RecentTasks.tsx";
 import "./empty.css";
 
 export function EmptyState() {
@@ -27,7 +27,6 @@ export function EmptyState() {
     return projects.find((project) => project.id === latest?.projectId) ?? projects[0] ?? null;
   }, [projects, tasks]);
   const project = projects.find((candidate) => candidate.id === pickedId) ?? fallback;
-  const sessions = useSessions(project);
   const hasDraft = loaded && project !== null;
 
   // 草稿输入框出现后焦点放进去（程序设置的焦点不显示焦点框，只有键盘操作才显示）。
@@ -67,23 +66,24 @@ export function EmptyState() {
             {t("empty.openFolder")}
           </button>
         </div>
-        <ContinueList {...sessions} />
       </div>
     );
   }
 
   return (
     <div className="empty" data-testid="empty-state" data-kind="project">
-      <div className="empty-head">
-        <ProjectSwitcher projects={projects} current={project} onPick={(next) => pickDraftProject(next.id)} />
-        <span className="empty-path" title={project.path}>
-          {project.path}
-        </span>
+      <div className="empty-main">
+        <div className="empty-head">
+          <ProjectSwitcher projects={projects} current={project} onPick={(next) => pickDraftProject(next.id)} />
+          <span className="empty-path" title={project.path}>
+            {project.path}
+          </span>
+        </div>
+        <RecentTasks projectId={project.id} />
       </div>
       <div className="empty-draft" data-testid="empty-draft">
         <DraftComposer projectId={project.id} />
       </div>
-      <ContinueList {...sessions} />
     </div>
   );
 }

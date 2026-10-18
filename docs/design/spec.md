@@ -61,7 +61,7 @@
 | 每项目显示数 | 6，“显示更多（N）”每次 +20 | Bold；Calm 的“更早”折叠组不做 |
 | 侧栏底部 | [Bold] `设置` 按钮 + `Ctrl K` 键帽 | Calm 的头像/账号名依赖账号信息，v1 没有 |
 | 侧栏搜索框 | 不放；`Ctrl K` 即搜索 | 少一个入口 |
-| 空状态 | [Bold] 项目名作大标题 + 路径·分支 + “继续”列表（含终端会话） | Calm 的欢迎语是填充文案；“继续”列表是回答 PLAN §9“Tern 用户为何装它”的零迁移卖点，成本只是读 `~/.omp`（只读） |
+| 空状态 | [Bold] 项目名作大标题 + 路径 + 最近 3 个任务（历史会话只在侧栏搜索里，含终端会话） | Calm 的欢迎语是填充文案；“继续”列表是回答 PLAN §9“Tern 用户为何装它”的零迁移卖点，成本只是读 `~/.omp`（只读） |
 | 输入框位置 | [Bold] 空状态在内容区 38% 处，首次发送后弹簧落到底部，之后不再移动 | 一次性、仅 `transform`；reduced-motion 下瞬时 |
 | 右栏 | 预留 `--aside-w: 0px` | 阶段 3/5 用 |
 
@@ -86,7 +86,7 @@
 | 胶囊 | [融合] 模型+思考强度合并为一颗，弹层里分段选择（[Bold]）；审批为独立一颗；⊕ 添加图片按钮 | 少一颗胶囊；Calm 的“思考”单独胶囊在不支持思考的模型上要隐藏，合并后自然消失 |
 | 发送/停止 | [Bold] 运行中输入非空时并排显示“发送(↑)”和“停止(■)” | Calm 在这种状态让停止键让位，只剩 Esc，不直观 |
 | 队列条 | [Bold] 虚线、`插话`/`稍后` 标签、`现在插话`、✕ | 虚线=尚未发生；文案“插话/稍后”比 Calm 的“引导/排队”自然 |
-| 上下文提示 | [融合] ≥70% 才出现；≥90% 变琥珀；点击弹出“压缩上下文”确认 | 琥珀而非红：不是错误 |
+| 上下文提示 | [融合] 输入框下方用量行默认显示；≥90% 变琥珀；点击弹出“压缩上下文” | 琥珀而非红：不是错误 |
 | 门（审批/ask） | [Bold] 停靠在输入框上方；两份方案的各自细节见 §4.17 | 见 §1.1 Calm-1 |
 | ask 的推荐项 | [Bold] 标“推荐”但**不预选** | 超时才会自动选推荐项；预选会让 Enter 误提交 |
 | 门的按钮文案 | 按 `method` 数据驱动：`confirm` 用“确认/取消”；审批 `select` 的选项**原样显示 omp 给的文本**，仅对精确匹配的 `Approve`/`Deny`/``Approve `x` for this session`` 做本地化 | Calm 统一“允许/拒绝”会把非审批 confirm 说错；Bold 的“不靠标签判断”被保留（按键位置决定行为，标签只影响显示） |
@@ -191,7 +191,7 @@
 | 文本 | `--text` / `--text-2` / `--text-3` / `--text-disabled` / `--text-on-accent` | `--text-3` 只用于次要元信息，不用于可操作文字；在 `--bg-overlay`、`--bg-active` 等较亮的底上对比度较低，见下表与例外 |
 | 强调 | `--accent` / `--accent-hover` / `--accent-soft` / `--focus-ring` / `--link` / `--selection-bg` | 只出现在 §1.2 列出的几处 |
 | 状态 | `--st-running`（=强调色）、`--st-waiting`（点）+ `--st-waiting-text`（字）+ `--st-waiting-soft`、`--st-done`、`--st-error` + `--st-error-soft` | 四个语义色之外界面是灰的 |
-| 代码 | `--syn-*`（7 色）；`--diff-add-fg` / `--diff-del-fg`（改动卡片的 +N/−N 文字） | diff 背景色阶段 3 再加 |
+| 代码 | `--syn-*`（7 色）；`--diff-add-fg` / `--diff-del-fg`（改动卡片的 +N/−N 文字） | 评审里的行背景 `--diff-add-bg` / `--diff-del-bg`（阶段 3 加入，深浅色各一份） |
 
 已用脚本按 WCAG 2.x 相对亮度算过的关键组合（≥4.5:1 文字，≥3:1 非文字）：
 
@@ -331,8 +331,8 @@
 
 ### 4.7 EmptyState
 
-- 内容区垂直 38% 处居中，宽 = 列宽。项目名 `--fs-2xl` `--font-display` `--text`；其下一行路径·分支 `--fs-sm` `--text-3`（路径中段省略，tooltip 完整路径；分支由主进程读 git，不是 git 仓库则省略）。项目名点击 = 换项目菜单（最近 8 个 + `empty.openFolder`，系统文件夹选择器由主进程弹出）。
-- 下方是输入框；再下 `empty.continue` 小标题（`--fs-xs` `--text-3`）+ 最多 5 行（高 32）：`[标题][相对时间]`，来自该项目目录下 `~/.omp` 的历史会话（只读扫描，主进程）；来自终端且未在 Studio 打开过的会话行首显示 `>_` 小标（tooltip `empty.fromTerminal`）；点击 = 在 Studio 中打开并加入侧栏。**没有欢迎语、插画、示例提示卡。**
+- **输入框贴主区底部**（2026-10-18 返工，空状态和对话中同一位置）；上方区域（垂直居中）是项目头和该项目最近的 ≤3 个任务。项目名 `--fs-2xl` `--font-display` `--text`，同一行右侧路径 `--fs-sm` `--text-3`（tooltip 完整路径）。项目名点击 = 换项目菜单（最近 8 个 + `empty.openFolder`）。
+- 最近任务：状态点 + 标题 + 相对时间，高 32，可点（`selectTask`）；归档的不算。**不再有历史会话列表**：历史只在侧栏，侧栏搜索框能搜到任务和历史会话（含终端里的）。**没有欢迎语、插画、示例提示卡。**
 - 无任何项目时：引导卡片 H 状态（§4.22）。
 
 ### 4.8 UserMessage
@@ -383,7 +383,7 @@
 **展开**——`--bg-sunken`，`--radius-lg`，`padding: --space-2`，行间无分隔线，`--dur-base` 展开：
 - 工具行高 28，`--fs-xs`：`[图标 14][intent 或 动词+对象][参数摘要 mono --text-3 省略][右侧：耗时(≥1s) 或 tool.failed(红) 或 tool.denied]`；点击行就地展开输出（`--font-mono` `--fs-code-sm`，最多 12 行，内部滚动，纯文本；超出 `tool.output.showAll`）；失败行默认展开错误前 4 行。
 - 叙述文本以 `·` 开头、`--text-3` 单行（可展开全文）按时间穿插。思考：`process.thought`，点击展开文本。
-- 子代理：缩进一层，`subagent.row`（不展开其内部，泳道是阶段 5）。
+- 子代理：这一轮有子代理时，展开区顶部是"泳道"（`features/lanes/`，阶段 5 实现，数据来源和行为见 `docs/architecture/subagents.md`）：头行 `lanes.title` + `process.subagents`（可折叠，默认展开）；其下一行主代理（工具节奏小段）+ 每个子代理一行（状态点 + 名字 + `状态 · 模型 · 思考强度`；右侧时间轴上的条 = 起止，竖线 = 工具调用结束）+ 一条 `0 … 总时长` 的轴；点子代理行就地展开详情（`--bg-raised` 卡片：统计、任务、摘要、完整记录 / 改动两个分段、运行中的 steer 输入框和二次确认的取消）。不加头像和哈希色，颜色只用 `--st-*` token。
 - >200 个工具行时只渲染最后 100 条 + `process.earlier`。
 
 ### 4.12 ChangeCard
@@ -401,9 +401,9 @@
 ### 4.14 Composer
 
 **尺寸与结构**
-- 外容器宽 = 列宽；`--bg-raised`；`1px --border`（hover `--border-strong`）；`--radius-xl`；`--shadow-composer`；`padding: --space-3 --space-3 --space-2 --space-3-5`；聚焦样式见通则。
+- 外容器宽 = 列宽；`--bg-raised`；`1px --border`（hover `--border-strong`）；`--radius-xl`；`--shadow-composer`；容器自身无内边距，分上下两层：输入区（`padding: --space-3-5 --space-4 --space-3`）和工具行（`padding: --space-2 --space-3`，上沿 1px `--border-subtle` 分隔线）；聚焦样式见通则。
 - 文本区：`--fs-prose`，placeholder `--text-3`，最小 2 行（常数高度，空状态与对话中一致），自动增高到 `min(40vh, 12 行)` 后内部滚动，`resize: none`。
-- 底部工具行高 32，`margin-top: --space-1`：左起 `⊕` 附件 28×28、ModelChip、ApprovalChip；右起 SendStop、ContextHint（在发送键左侧）。窄于 520 时胶囊只显示图标 + 缩写，完整文字进 tooltip；更窄时收进一个 `…` 菜单。
+- 底部工具行：左起 `⊕` 附件 28×28、ModelChip、ApprovalChip；右起 SendStop。上下文和消耗在输入框下方的 UsageMeter 行（见下）。窄于 520 时胶囊只显示图标 + 缩写，完整文字进 tooltip；更窄时收进一个 `…` 菜单。
 - 附件预览行（有附件时）：文本区上方，64×64，右上 ✕（`composer.attachment.remove`）；粘贴图片、拖入图片、`⊕` 三种来源。非图片文件拖入：toast `composer.attach.imageOnly`。
 - 草稿按任务保留，由主进程持久化。
 - 占位符：新任务 `composer.placeholderNew`；有对话 `composer.placeholder`；运行中 `composer.placeholderRunning`（设置里对调后用 `…Swapped`）；有门时 `composer.placeholderGate`。
@@ -437,7 +437,9 @@
 
 **ApprovalChip**：见 §5.8。
 
-**ContextHint**：`get_state.contextUsage.percent ≥ 70`（单位是百分数，不是 0–1）时出现 `composer.context`（`--fs-xs` `--text-3`，≥90 变 `--st-waiting-text`）；hover tooltip `composer.context.tip`；点击弹小 popover，内含 `composer.compact` 按钮（`compact`）。永不显示 token 数。
+**ModelChip / ModelPicker**：胶囊点开（Alt M、命令面板同）是模态对话框（`ModelPicker`，portal 到 body，Tab 在框内循环，Esc 关闭并还焦点）。左栏：搜索框 + 按 provider 分组的模型列表（无搜索词时最近 3 个置顶），↑↓ 移动高亮、Enter 或点击选用（选用后对话框保持打开，方便接着调思考强度）；右栏：高亮模型的上下文窗口、最大输出、图片输入、推理、价格（美元/百万 token，全 0 显示 `model.free`），底部是思考强度分段条（只对正在生效的模型可调，其余显示 `model.thinking.pending`）。数据来自 `get_available_models`（`ModelOption`：`contextWindow`、`maxTokens`、`cost`、`reasoning`、`acceptsImages`）。
+
+**UsageMeter**（输入框下方一行，**默认显示**，PLAN 2.6 已定；位置和样式待设计方向确认）：上下文圆环 + `composer.context`（`get_state.contextUsage.percent`，≥90 变 `--st-waiting-text`，不到 10% 保留一位小数）、本会话 token 总数、费用（`get_session_stats`，每次刷新状态时取；cost 为 0 不显示费用）；tooltip 给输入/输出/缓存读取和高级请求数。点击上下文部分弹 popover，内含 `composer.compact`。没有任何数据时整行不渲染。
 
 **QueueStrip**（门/输入框正上方，仅有排队消息时存在，宽 = 列宽，`margin-bottom: --space-2`）：容器 `--bg-raised`，`1px dashed --border`，`--radius-lg`，`padding: --space-1 --space-2`；条目高 32：`[标签][文本首行省略][现在插话][✕]`；标签是 `--fs-2xs` 小胶囊：`插话` 用 `--accent-soft` 底，`稍后` 用 `--bg-hover` 底。`现在插话`（`promote_queued_message`，仅稍后条目有）成功后标签原地变 `插话`（交叉缩放 `--dur-fast`），响应 `promoted:false` = 已送出，条目淡出。`✕`（`remove_queued_message`）：只有响应 `removed:true` 才移除，并把文本放回草稿；`removed:false` 静默刷新快照。数据**只渲染** `queue_update` / `get_state.queuedMessages` 快照，自己不另记。>3 条只显示前 3 条 + `composer.queue.more`。旧版 omp 没有后两个命令：命令失败时隐藏对应按钮，**不要回退成 `steer`**（会重复入队）。出现/消失 `grid-template-rows`，`--dur-base`。
 
@@ -569,6 +571,20 @@
 
 错误文案原则：说发生了什么、数据有没有丢、下一步按什么；不显示堆栈（堆栈只在“复制详情”里）。
 
+### 4.25 ReviewView（全屏评审，阶段 3）
+
+入口：ChangeCard 头部的 `打开评审`（`…` 左侧）、`Ctrl Shift D`、命令面板 `打开评审`。盖住顶栏以下的整个窗口（`position: fixed`，`--z-sticky`），底下的页面 `inert`；`Esc` 或 `退出评审` 关闭，焦点回到触发它的元素（已不在则回输入框）。切到别的任务或任务被删除时自动退出。实现在 `features/review/`，样式只用 token（`--diff-add-bg` / `--diff-del-bg` 是评审行背景，`--review-tree-w` / `--review-aside-w` 是两侧栏宽）。
+
+- **头**（高 `--control-h-lg`）：`退出评审`、标题、分支名（等宽）、右侧 `统一 / 并排` 分段、`刷新`、主按钮 `发给 agent 修改（n）`（队列为空时禁用；任务在运行时悬停提示说明是插话还是排到本轮之后，取输入框同一个设置 `enterWhileRunning`）。
+- **三栏**：左 `--review-tree-w` 文件树（`已暂存 / 未暂存 / 未跟踪` 三组，空组不显示；同一文件两侧都有改动时各出现一次；行 = 状态字母 + 路径，目录部分 `--text-3`）；中间 diff；右 `--review-aside-w`，两个标签 `改动说明 / 评论（n）`。<1000px 两侧栏收窄到 `--sidebar-w-min`。
+- **diff**：文件头（路径、`+a −d`、`暂存 / 取消暂存`、`丢弃`）；每个 hunk 一个带 1px `--border-subtle` 的块，头部 `@@ … @@` + 区段名 + 该 hunk 的 `暂存 / 取消暂存 / 丢弃`（未跟踪文件没有 hunk 级操作）；当前 hunk 边框 `--accent`。行等宽 `--fs-code-sm`，自动换行；新增行 `--diff-add-bg`、删除行 `--diff-del-bg`；语法高亮复用 Shiki（`--syn-*`）。统一视图两列行号；并排视图左旧右新（删除块与新增块逐行配对）。二进制、过大、没有文本改动、非 git 仓库、没有 git、没有改动都有各自的一句话状态。
+- **丢弃**一律先确认（`ConfirmDialog`，焦点在取消，Esc 取消），文案说明哪个文件/哪处改动、不可撤销。
+- **评论**：行号就是评论按钮（悬停变 `＋`，键盘 Tab 可达）；点一下 = 对这一行评论，Shift 点击把范围扩到这一行（只能在旧或新同一侧内，跨侧则从该行重新开始）。删除行评论旧版本行号，其余评论新版本行号。评论框画在范围最后一行下面：3 行文本域 + `取消 / 添加评论`，`Ctrl Enter` 提交，`Esc` 只取消评论框。已添加的评论卡片留在行下，可编辑、删除；被评论的行左侧 2px `--accent` 竖条。
+- **评论队列**（右栏 `评论` 标签）：按文件首次出现顺序、文件内按起始行排序（与发出去的消息一致）；点 `文件:行` 跳到该文件；每条可编辑、删除。队列在评审关闭后继续保留（同一任务再打开还在），只在发送成功后清空、任务删除时丢弃，不持久化。`发给 agent 修改`：成功后关闭评审、清空队列、toast `评论已发给 agent`；失败保留队列并报错。
+- **改动说明**（右栏 `改动说明` 标签）：当前文件在本任务里被哪些 `edit / write / ast_edit` 调用改过（每次调用的 intent，没有则显示工具名，附 `+a −d`），以及那一轮的请求首行和结论（超过约 4 行折叠）。全部来自对话流里已有的工具事件，不让 agent 另写；对话里没有记录时显示一句 `explainNone`。
+- **键盘**（焦点不在输入控件、没有对话框/命令面板盖着时生效，不带修饰键）：`J / K` 下/上一个文件，`N / P` 下/上一处改动（滚到可见并高亮），`V` 切换统一/并排，`Esc` 退出。`Tab` 序：头 → 文件树 → diff（行号按钮）→ 右栏。
+- 数据：状态在 打开、窗口重新聚焦、任务状态变化、手动刷新、每次暂存/丢弃之后向主进程重取，diff 随之重取；不缓存第二份。
+
 ---
 
 ## 5. 交互
@@ -599,6 +615,7 @@ Windows 用 `Ctrl`，macOS 以后映射 `⌘`。输入框/文本域里**只有�
 | 复制最后一条回答 | `Ctrl Shift C` | 开发版改用 `Ctrl Alt C`（与 DevTools 冲突） |
 | 重命名 / 归档（侧栏聚焦） | `F2` / `Del` | |
 | 区域循环 | `F6` / `Shift F6` | 侧栏 → 对话区 → 门/输入框 |
+| 打开评审 | `Ctrl Shift D` | 当前任务；评审内的单字符键见 §4.25 |
 | 回底部 | `End` / `Ctrl End` | 焦点在对话区 |
 
 v1 **禁用** Chromium 默认缩放 `Ctrl +/-/0`。
@@ -694,8 +711,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 | 功能（阶段） | 为它预留的位置 | v1 的做法 |
 |---|---|---|
-| diff 评审（3）：全屏评审模式、逐行评论、发给 agent | ChangeCard 头部 `…` 左侧的按钮插槽；点文件行目前是“在资源管理器中显示”，阶段 3 起改为进入评审；`--diff-*` 背景色届时加入 | 卡片只读摘要；不渲染占位按钮 |
-| worktree / git / PR（4） | 输入框胶囊区 ApprovalChip 右侧的工作树胶囊；主区头右侧分支插槽；ChangeCard 的 `提交 / 开 PR` | 空状态的分支名是只读文字；不渲染 |
+| diff 评审（3）**已落地（待设计方向确认）** | 见 §4.25；入口在 ChangeCard 头部 `…` 左侧、`Ctrl Shift D`、命令面板 | 全屏评审、逐行评论、发给 agent、改动说明面板 |
+| worktree / git / PR（4）**已落地（待设计方向确认）** | 输入框胶囊区 ApprovalChip 右侧的工作树胶囊（`features/git/WorktreeChip.tsx`）；主区对话流上方一条 git 条（分支 + `Git` 菜单：查看改动、提交、推送、开 PR、合并回、丢弃）；侧栏任务行的分支图标；项目菜单“清理无主工作树”。目前还没有 §3.2 的面板头，git 条是临时落点，面板头做出来后并进去。ChangeCard 的 `提交 / 开 PR` 没做（评审入口在 ChangeCard，由评审模式负责） | 不是 git 仓库时 git 条不渲染 |
 | 子代理泳道（5） | 过程行展开态头部右侧的“泳道”切换；右栏 `--aside-w`（子代理详情/改动说明）；子代理字母头像/哈希色 token 届时再加 | 只显示计数与缩进的一行 |
 | 内置终端（6） | 右栏或底部面板（`--aside-w` 或新增面板高度 token）；每任务终端在其 worktree 目录 | 不做 |
 | 子代理费用/token | 阶段 5 的子代理详情 | 不显示 |
@@ -799,7 +816,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 | key | 中文 | English |
 |---|---|---|
-| `empty.continue` | 继续 | Continue |
+| `empty.recent` | 最近的任务 | Recent tasks |
 | `empty.fromTerminal` | 来自终端 | From the terminal |
 | `empty.chooseProject` | 选择项目文件夹 | Choose a project folder |
 | `empty.chooseProjectHint` | 或把文件夹拖到这里 | Or drop a folder here |

@@ -15,4 +15,8 @@ export const shortcut = {
   nthTask: "Go to task N",
   prevNext: "Previous or next task",
   regions: "Move between areas",
+  review: "Open review",
+  reviewFiles: "Review: previous / next file",
+  reviewHunks: "Review: previous / next change",
+  reviewLayout: "Review: unified / side by side",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

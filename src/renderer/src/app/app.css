@@ -99,6 +99,14 @@ button {
   position: relative;
   display: flex;
   min-height: 0;
+  /* 主区面板四角都是圆角，右边和下边各留一圈窗口底色（临时方案，等设计方向确认后再定） */
+  padding: 0 var(--space-2) var(--space-2) 0;
+}
+
+/* 侧栏收起或作为抽屉时，面板左边也不贴窗口边 */
+#app[data-sidebar="hidden"] .body,
+#app[data-drawer="true"] .body {
+  padding-left: var(--space-2);
 }
 
 .sidebar-column {
@@ -128,7 +136,7 @@ button {
   min-height: 0;
   overflow: hidden;
   background: var(--bg-app);
-  border-top-left-radius: var(--radius-lg);
+  border-radius: var(--radius-lg);
 }
 
 .sidebar-resizer {

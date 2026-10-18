@@ -5,6 +5,7 @@ import { memo, useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { ChevronDown, ChevronRight, Dots, FileIcon } from "../../icons.tsx";
 import { Popover } from "../composer/Popover.tsx";
+import { openReview } from "../../store/review-store.ts";
 import { relativeToProject, type FileChange } from "./tool-info.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 
@@ -22,10 +23,13 @@ export const ChangeCard = memo(function ChangeCard({
   changes,
   taskId,
   projectPath,
+  review = true,
 }: {
   changes: readonly FileChange[];
   taskId: TaskId;
   projectPath: string | null;
+  /** 显示"打开评审"按钮（默认显示；子代理详情里的卡片传 false）。 */
+  review?: boolean;
 }) {
   const t = useT();
   const [expanded, setExpanded] = useState(changes.length <= VISIBLE);
@@ -57,6 +61,16 @@ export const ChangeCard = memo(function ChangeCard({
             </>
           )}
         </button>
+        {review && (
+          <button
+            type="button"
+            className="rv-btn change-review"
+            data-testid="change-review"
+            onClick={() => openReview(taskId)}
+          >
+            {t("review.open")}
+          </button>
+        )}
         <div className="pop-anchor">
           <button
             type="button"

@@ -18,8 +18,11 @@ export interface TaskRecord {
   archived: boolean;
   model: ModelKey | null;
   thinkingLevel: ThinkingLevel | null;
-  /** 阶段 4 的 worktree 预留，第一版恒为 null。 */
+  /** 阶段 4：任务的 worktree 根目录（omp 以它为 cwd）；没有 worktree 为 null。 */
   worktreePath: string | null;
+  /** worktree 的分支（studio/<slug>）和创建时所在的基分支；合并回哪里以它为准。 */
+  worktreeBranch: string | null;
+  worktreeBase: string | null;
 }
 
 interface TasksFile {
@@ -55,7 +58,14 @@ export class TaskRegistry {
     const parsed: unknown = JSON.parse(text);
     if (typeof parsed !== "object" || parsed === null || !("version" in parsed) || parsed.version !== 1)
       throw new Error(`${this.#file}: unsupported tasks.json format`);
-    this.#data = parsed as TasksFile;
+    // 老版本写的记录没有 worktree 字段：补默认值，不迁移文件。
+    const tasks = (parsed as TasksFile).tasks.map((task) => ({
+      ...task,
+      worktreePath: task.worktreePath ?? null,
+      worktreeBranch: task.worktreeBranch ?? null,
+      worktreeBase: task.worktreeBase ?? null,
+    }));
+    this.#data = { ...(parsed as TasksFile), tasks };
   }
 
   /** 保存当前内存里的状态；返回的 promise 在写盘完成后 resolve。 */
@@ -114,16 +124,24 @@ export class TaskRegistry {
   }
 
   async addTask(
-    input: Omit<TaskRecord, "id" | "createdAt" | "updatedAt" | "archived" | "worktreePath">,
+    input: Omit<
+      TaskRecord,
+      "id" | "createdAt" | "updatedAt" | "archived" | "worktreePath" | "worktreeBranch" | "worktreeBase"
+    > & {
+      worktree?: { path: string; branch: string; base: string };
+    },
   ): Promise<TaskRecord> {
     const now = Date.now();
+    const { worktree, ...fields } = input;
     const record: TaskRecord = {
-      ...input,
+      ...fields,
       id: randomUUID() as TaskId,
       createdAt: now,
       updatedAt: now,
       archived: false,
-      worktreePath: null,
+      worktreePath: worktree?.path ?? null,
+      worktreeBranch: worktree?.branch ?? null,
+      worktreeBase: worktree?.base ?? null,
     };
     this.#data = { ...this.#data, tasks: [...this.#data.tasks, record] };
     await this.save();

@@ -1,23 +1,25 @@
 // 设置页（spec §4.19）：占据主区；左侧分节列表（顶部是搜索框，下面是 omp-studio 自己的几组和 omp 的全部设置按它的 tab 分组），
 // 搜索按 key、描述、中英文标签过滤 omp 的全部设置。Esc 回到进入前的视图和焦点（顶栏的后退按钮也能回去，所以页内没有"返回"）；
 // 命令面板可以直接定位到某一节（ui-store 的 settingsSection）。导出名和 props 是 App.tsx 的约定。
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Close, Search } from "../../icons.tsx";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { clearSettingsSection, showView, useSettingsSection } from "../../store/index.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
-import { tabTitle } from "./config-meta.ts";
+import { groupConfigItems, type ConfigGroup } from "../../../../shared/ui/config-groups.ts";
+import { groupTitle } from "./config-meta.ts";
 import { useConfigLoad } from "./config-store.ts";
 import { AboutSection } from "./AboutSection.tsx";
 import { GeneralSection } from "./GeneralSection.tsx";
 import { ModelsSection } from "./ModelsSection.tsx";
 import { OmpConfigPane, useOmpConfigLoader } from "./OmpConfigPane.tsx";
 import { OmpSection } from "./OmpSection.tsx";
+import { UsageSection } from "./UsageSection.tsx";
 import "./motion-preference.ts";
 import "./settings.css";
 import "./config.css";
 
-const studioSections = ["general", "models", "omp", "about"] as const;
+const studioSections = ["general", "models", "usage", "omp", "about"] as const;
 
 export function SettingsView() {
   const t = useT();
@@ -68,12 +70,15 @@ export function SettingsView() {
   };
 
   const searching = query.trim() !== "";
-  const tabs = load.kind === "ready" ? load.snapshot.tabs : [];
-  const cfgTab = section.startsWith("cfg:") ? section.slice(4) : null;
+  const groups = useMemo(
+    () => (load.kind === "ready" ? [...groupConfigItems(load.snapshot.items).keys()] : []),
+    [load],
+  );
+  const cfgGroup = section.startsWith("cfg:") ? (section.slice(4) as ConfigGroup) : null;
   const heading = searching
     ? t("settings.search")
-    : cfgTab !== null
-      ? tabTitle(locale, cfgTab)
+    : cfgGroup !== null
+      ? groupTitle(locale, cfgGroup)
       : t(`settings.${section as (typeof studioSections)[number]}`);
   const choose = (next: string) => {
     setQuery("");
@@ -130,15 +135,15 @@ export function SettingsView() {
           </button>
         ))}
         <div className="settings-nav-label">{t("settings.nav.omp")}</div>
-        {tabs.map((tab) => (
+        {groups.map((group) => (
           <button
-            key={tab}
+            key={group}
             type="button"
-            aria-current={!searching && section === `cfg:${tab}` ? "page" : undefined}
-            onClick={() => choose(`cfg:${tab}`)}
-            data-testid={`settings-nav-cfg-${tab}`}
+            aria-current={!searching && section === `cfg:${group}` ? "page" : undefined}
+            onClick={() => choose(`cfg:${group}`)}
+            data-testid={`settings-nav-cfg-${group}`}
           >
-            {tabTitle(locale, tab)}
+            {groupTitle(locale, group)}
           </button>
         ))}
       </nav>
@@ -148,12 +153,13 @@ export function SettingsView() {
             <h2 ref={title} tabIndex={-1} className="settings-title">
               {heading}
             </h2>
-            {searching || cfgTab !== null ? (
-              <OmpConfigPane tab={cfgTab} query={query} />
+            {searching || cfgGroup !== null ? (
+              <OmpConfigPane group={cfgGroup} query={query} />
             ) : (
               <>
                 {section === "general" && <GeneralSection />}
                 {section === "models" && <ModelsSection />}
+                {section === "usage" && <UsageSection />}
                 {section === "omp" && <OmpSection />}
                 {section === "about" && <AboutSection />}
               </>

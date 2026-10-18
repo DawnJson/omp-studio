@@ -16,7 +16,9 @@ import type {
   TranscriptBatch,
   TranscriptSnapshot,
 } from "../../shared/ipc.ts";
+import type { SubagentDetail, SubagentLane } from "../../shared/subagents.ts";
 import type {
+  AgentMessage,
   AvailableSlashCommand,
   PromptParams,
   RpcServerFrame,
@@ -34,11 +36,15 @@ import { EventBatcher } from "./event-batcher.ts";
 import { initialMachineState, transition, type MachineInput, type MachineState } from "./task-machine.ts";
 import type { TaskRecord } from "./task-registry.ts";
 import { translateFrame } from "./translate.ts";
+import { SubagentTracker, trimSubagentMessages } from "./subagent-tracker.ts";
 
 /** rpc.md：入站帧应控制在 `maxFrameBytes`（默认 1 MiB）内，prompt 不分块。 */
 const DEFAULT_MAX_FRAME_BYTES = 1024 * 1024;
 const STATE_REFRESH_MIN_INTERVAL_MS = 1_000;
 const STDERR_LINES_IN_ERROR = 8;
+const SUBAGENT_EMIT_INTERVAL_MS = 100;
+/** get_subagent_messages 一页之内读不完时最多续读的页数。 */
+const SUBAGENT_MAX_PAGES = 200;
 
 /** 运行时对外部世界的依赖：启动参数、Job Object、持久化、事件出口。池和测试各自提供。 */
 export interface RunnerHost {
@@ -52,6 +58,7 @@ export interface RunnerHost {
   onTranscript(batch: TranscriptBatch): void;
   onNotice(notice: TaskNotice): void;
   onSlashCommands(taskId: TaskId, commands: AvailableSlashCommand[]): void;
+  onSubagents(taskId: TaskId, lanes: SubagentLane[]): void;
 }
 
 /** 存活进程数到了硬上限（软上限 × 2），拒绝再起。 */
@@ -88,8 +95,10 @@ export class TaskRunner {
   #thinkingLevel: ThinkingLevel | null;
   #thinkingLevels: ThinkingLevel[] = [];
   #contextUsage: TaskState["contextUsage"] = null;
+  #sessionUsage: TaskState["sessionUsage"] = null;
   #queue: TaskState["queue"] = { steering: [], followUp: [] };
-  readonly #subagents = new Set<string>();
+  readonly #tracker = new SubagentTracker();
+  #subagentsTimer: NodeJS.Timeout | undefined;
   /** 最近一次 get_state 的回收判据。 */
   #sessionSettled = false;
   /** prompt_result(settled) / session_settled 的计数：prompt 应答的续体可能晚于同一个数据块里的 prompt_result 才运行。 */
@@ -110,7 +119,15 @@ export class TaskRunner {
     this.#host = host;
     this.#sessionPersistable = record.sessionFile !== null;
     this.#model = record.model
-      ? { key: record.model, name: record.model.modelId, contextWindow: null, reasoning: false, acceptsImages: false }
+      ? {
+          key: record.model,
+          name: record.model.modelId,
+          contextWindow: null,
+          reasoning: false,
+          acceptsImages: false,
+          maxTokens: null,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        }
       : null;
     this.#thinkingLevel = record.thinkingLevel;
     this.#batcher = new EventBatcher((batch) => {
@@ -162,9 +179,10 @@ export class TaskRunner {
       thinkingLevel: this.#thinkingLevel,
       thinkingLevels: this.#thinkingLevels,
       contextUsage: this.#contextUsage,
+      sessionUsage: this.#sessionUsage,
       queue: this.#queue,
       dialogs: m.dialogs,
-      runningSubagents: this.#subagents.size,
+      runningSubagents: this.#tracker.runningCount,
       runStartedAt: m.working ? this.#runStartedAt : null,
     };
   }
@@ -322,7 +340,7 @@ export class TaskRunner {
     if (this.#connection !== connection) return;
     this.#connection = null;
     clearTimeout(this.#refreshTimer);
-    this.#subagents.clear();
+    if (this.#tracker.abortRunning(Date.now())) this.#emitSubagents();
     this.#queue = { steering: [], followUp: [] };
     if (this.#closing) {
       this.#apply({ type: "stopped" });
@@ -362,6 +380,7 @@ export class TaskRunner {
     this.#disposed = true;
     await this.close();
     clearTimeout(this.#refreshTimer);
+    clearTimeout(this.#subagentsTimer);
     this.#batcher.dispose();
   }
 
@@ -387,12 +406,15 @@ export class TaskRunner {
         void this.#refreshState();
         return;
       case "subagent_lifecycle": {
-        if (frame.payload.status === "started") this.#subagents.add(frame.payload.id);
-        else this.#subagents.delete(frame.payload.id);
+        this.#tracker.lifecycle(frame.payload, at);
         this.#batcher.push(translateFrame(frame, gen, at));
         this.#publish(false);
+        this.#emitSubagents();
         return;
       }
+      case "subagent_progress":
+        if (this.#tracker.progress(frame.payload, at)) this.#emitSubagents();
+        return;
       case "agent_start":
         this.#batcher.push(translateFrame(frame, gen, at));
         this.#apply({ type: "agent_start" });
@@ -498,13 +520,26 @@ export class TaskRunner {
     this.#refreshing = true;
     try {
       // 一起等：进程中途退出时两个请求同时 reject，不能留一个没人等的。
-      const [thinking, state] = await Promise.all([
+      const [thinking, state, stats] = await Promise.all([
         connection.request("get_available_thinking_levels"),
         connection.request("get_state"),
+        // 用量只是显示用：取不到（比如 omp 这条命令失败）不能连累模型、上下文的刷新；进程退出仍然照常抛出。
+        connection.request("get_session_stats").catch((error: unknown) => {
+          if (error instanceof OmpExitedError) throw error;
+          return null;
+        }),
       ]);
       this.#lastStateAt = Date.now();
       if (this.#connection !== connection) return;
       this.#thinkingLevels = thinking.levels;
+      if (stats) {
+        this.#sessionUsage = {
+          tokens: stats.tokens,
+          cost: stats.cost,
+          premiumRequests: stats.premiumRequests,
+          ...(stats.credits && { credits: stats.credits }),
+        };
+      }
       await this.#adoptState(state);
       this.#publish(false);
     } catch (error) {
@@ -670,9 +705,97 @@ export class TaskRunner {
     });
   }
 
-  /** 任务的工作目录（项目路径），用于校验渲染进程传来的相对路径。 */
+  // ───── 子代理泳道 ─────
+
+  /** progress 帧一个子代理 5–15 条：合并成每 100 ms 最多一次整份快照。 */
+  #emitSubagents(): void {
+    if (this.#subagentsTimer || this.#disposed) return;
+    this.#subagentsTimer = setTimeout(() => {
+      this.#subagentsTimer = undefined;
+      if (!this.#disposed) this.#host.onSubagents(this.id, this.#tracker.lanes());
+    }, SUBAGENT_EMIT_INTERVAL_MS);
+  }
+
+  getSubagents(): SubagentLane[] {
+    return this.#tracker.lanes();
+  }
+
+  /** 完整记录读不到时（没有进程、读取失败）messages 为 null，泳道数据照常返回。 */
+  async getSubagentDetail(subagentId: string): Promise<SubagentDetail> {
+    const lane = this.#tracker.lane(subagentId);
+    if (!lane) throw new Error(`unknown subagent ${subagentId}`);
+    const connection = this.#connection;
+    if (!connection || this.#machine.status === "starting")
+      return { lane, messages: null, truncated: false, unavailable: "no_process", error: null };
+    try {
+      const { messages, truncated } = await this.#readSubagentMessages(connection, subagentId);
+      return { lane, messages, truncated, unavailable: null, error: null };
+    } catch (error) {
+      if (error instanceof OmpExitedError)
+        return { lane, messages: null, truncated: false, unavailable: "no_process", error: null };
+      return {
+        lane,
+        messages: null,
+        truncated: false,
+        unavailable: "error",
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /** get_subagent_messages 按字节续读；按 id 查不到时（omp 已忘了它）退回用 aggregator 记下的 sessionFile。上限见 subagentLimits。 */
+  async #readSubagentMessages(
+    connection: OmpConnection,
+    subagentId: string,
+  ): Promise<{ messages: AgentMessage[]; truncated: boolean }> {
+    let locator: { subagentId: string } | { sessionFile: string } = { subagentId };
+    let messages: AgentMessage[] = [];
+    let fromByte: number | undefined;
+    for (let page = 0; page < SUBAGENT_MAX_PAGES; page++) {
+      let result;
+      try {
+        result = await connection.request("get_subagent_messages", {
+          ...locator,
+          ...(fromByte !== undefined && { fromByte }),
+        });
+      } catch (error) {
+        const sessionFile = this.#tracker.sessionFile(subagentId);
+        if (error instanceof RpcCommandError && page === 0 && "subagentId" in locator && sessionFile !== null) {
+          locator = { sessionFile };
+          page--;
+          continue;
+        }
+        throw error;
+      }
+      if (result.reset) messages = [];
+      messages.push(...result.messages);
+      if (result.nextByte <= (fromByte ?? 0)) break;
+      fromByte = result.nextByte;
+    }
+    return trimSubagentMessages(messages);
+  }
+
+  /** 只对已知且在运行的子代理发命令；id 来自渲染进程，不可信。 */
+  async steerSubagent(subagentId: string, text: string): Promise<void> {
+    const connection = await this.#runningSubagentConnection(subagentId);
+    await connection.request("steer_subagent", { subagentId, message: text });
+  }
+
+  async cancelSubagent(subagentId: string): Promise<boolean> {
+    const connection = await this.#runningSubagentConnection(subagentId);
+    return (await connection.request("cancel_subagent", { subagentId })).cancelled;
+  }
+
+  async #runningSubagentConnection(subagentId: string): Promise<OmpConnection> {
+    if (this.#tracker.lane(subagentId)?.status !== "running") throw new Error(`subagent ${subagentId} is not running`);
+    const connection = await this.#existing();
+    if (!connection) throw new Error("task is not running");
+    return connection;
+  }
+
+  /** 任务的工作目录（有 worktree 时是 worktree 根，否则是项目路径），用于校验渲染进程传来的相对路径。 */
   get cwd(): string {
-    return this.#project.path;
+    return this.#record.worktreePath ?? this.#project.path;
   }
 
   async rename(title: string): Promise<void> {

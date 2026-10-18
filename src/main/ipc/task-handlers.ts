@@ -6,6 +6,7 @@ import { canOpenDirectly, resolveInsideReal } from "./task-file-path.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { getMainWindow } from "../window/main-window.ts";
 import {
+  parseBoolean,
   parseDialogResponse,
   parseModelKey,
   parseOneOf,
@@ -23,7 +24,10 @@ const queuedTextMaxChars = Number.MAX_SAFE_INTEGER;
 
 function parseCreateTaskInput(value: unknown) {
   const record = parseRecord(value, "input");
-  return { projectId: parseProjectId(record["projectId"]) };
+  return {
+    projectId: parseProjectId(record["projectId"]),
+    ...(record["worktree"] !== undefined && { worktree: parseBoolean(record["worktree"], "input.worktree") }),
+  };
 }
 
 export const taskHandlers: HandlerGroup<

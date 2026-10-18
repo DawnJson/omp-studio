@@ -4,6 +4,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { Project, TaskId, TaskState } from "../../../../shared/ipc.ts";
 import { pushToast } from "../dialogs/index.ts";
+import { cleanupOrphans } from "../git/git-actions.ts";
 import { archiveWithUndo } from "./archive-store.ts";
 import { Menu, type MenuAnchor, type MenuItem } from "./Menu.tsx";
 import { refreshProjects } from "./projects-store.ts";
@@ -76,6 +77,11 @@ export function useSidebarMenus({ t, selectedTaskId, taskCount, onRename }: Menu
           id: "reveal",
           label: t("project.reveal"),
           onSelect: () => void attempt(t, () => window.studio.revealProject(project.id)),
+        },
+        {
+          id: "cleanupWorktrees",
+          label: t("git.menu.cleanup"),
+          onSelect: () => void cleanupOrphans(t, project.id),
         },
         {
           id: "remove",

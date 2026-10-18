@@ -1,10 +1,11 @@
-// omp 设置的一个分组（omp 的一个 tab）或搜索结果：常用项在最前面，其余按 key 前缀折叠成小组，长列表不一次全展开。
+// omp 设置的一个分组（omp-studio 自己的分组，见 config-groups.ts）或搜索结果：常用项在最前面，其余按 key 前缀折叠成小组，长列表不一次全展开。
 import { useId, useState, type ReactNode } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { ChevronRight } from "../../icons.tsx";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { ConfigRow } from "./ConfigRow.tsx";
-import { groupItems, tabTitle } from "./config-meta.ts";
+import { groupConfigItems } from "../../../../shared/ui/config-groups.ts";
+import { groupItems, groupTitle } from "./config-meta.ts";
 
 /** 超过这个数量的分组，非"常用"的小组默认折叠。 */
 const collapseThreshold = 30;
@@ -52,7 +53,7 @@ function Disclosure({
   );
 }
 
-/** 一个 tab 的全部设置。 */
+/** 一个分组的全部设置。 */
 export function ConfigTab({ tab, items }: { tab: string; items: readonly OmpConfigItem[] }) {
   const t = useT();
   const [, rerender] = useState(0);
@@ -102,35 +103,23 @@ export function ConfigTab({ tab, items }: { tab: string; items: readonly OmpConf
   );
 }
 
-/** 搜索结果：按 tab 分节，全部展开（匹配的项数通常不多）。 */
-export function ConfigResults({
-  items,
-  tabs,
-  query,
-}: {
-  items: readonly OmpConfigItem[];
-  tabs: readonly string[];
-  query: string;
-}) {
+/** 搜索结果：按 omp-studio 的分组分节，全部展开（匹配的项数通常不多）。 */
+export function ConfigResults({ items, query }: { items: readonly OmpConfigItem[]; query: string }) {
   const locale = useLocale();
   return (
     <>
-      {tabs.map((tab) => {
-        const inTab = items.filter((item) => item.tab === tab);
-        if (inTab.length === 0) return null;
-        return (
-          <section key={tab} className="cfg-group" data-testid={`cfg-result-${tab}`}>
-            <h3 className="settings-group-title cfg-result-title">
-              {tabTitle(locale, tab)} <span className="cfg-group-count">{inTab.length}</span>
-            </h3>
-            <div className="st-card cfg-card">
-              {inTab.map((item) => (
-                <ConfigRow key={item.key} item={item} query={query} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+      {[...groupConfigItems(items)].map(([group, inGroup]) => (
+        <section key={group} className="cfg-group" data-testid={`cfg-result-${group}`}>
+          <h3 className="settings-group-title cfg-result-title">
+            {groupTitle(locale, group)} <span className="cfg-group-count">{inGroup.length}</span>
+          </h3>
+          <div className="st-card cfg-card">
+            {inGroup.map((item) => (
+              <ConfigRow key={item.key} item={item} query={query} />
+            ))}
+          </div>
+        </section>
+      ))}
     </>
   );
 }

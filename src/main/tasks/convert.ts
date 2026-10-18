@@ -14,6 +14,13 @@ export function toModelOption(info: ModelInfo): ModelOption {
     contextWindow: info.contextWindow,
     reasoning: info.reasoning,
     acceptsImages: info.input.includes("image"),
+    maxTokens: info.maxTokens,
+    cost: {
+      input: info.cost.input,
+      output: info.cost.output,
+      cacheRead: info.cost.cacheRead,
+      cacheWrite: info.cost.cacheWrite,
+    },
   };
 }
 

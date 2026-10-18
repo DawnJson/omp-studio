@@ -102,6 +102,8 @@
   --content-w: 720px; /* 对话列与输入框同宽同轴 */
   --gutter: 24px; /* 对话区最小左右留白 */
   --aside-w: 0px; /* 阶段 3 之后的右栏占位，v1 恒为 0 */
+  --review-tree-w: 240px; /* 评审：文件树 */
+  --review-aside-w: 320px; /* 评审：改动说明 / 评论队列 */
   --dialog-w-sm: 400px;
   --dialog-w-md: 520px;
   --palette-w: 600px;
@@ -216,9 +218,11 @@
   --st-error: #b93030;
   --st-error-soft: rgba(185, 48, 48, 0.08);
 
-  /* 改动卡片 +N / −N 文字色（diff 背景色由阶段 3 引入） */
+  /* diff：改动卡片 +N / −N 文字色，评审里的行背景 */
   --diff-add-fg: #187a4f;
   --diff-del-fg: #b93030;
+  --diff-add-bg: rgba(24, 122, 79, 0.1);
+  --diff-del-bg: rgba(185, 48, 48, 0.09);
 
   /* 代码高亮 */
   --syn-keyword: #6d3fd0;
@@ -281,6 +285,8 @@
 
     --diff-add-fg: #56c596;
     --diff-del-fg: #f27373;
+    --diff-add-bg: rgba(86, 197, 150, 0.14);
+    --diff-del-bg: rgba(242, 115, 115, 0.14);
 
     --syn-keyword: #c4a7ff;
     --syn-string: #9bd39b;
@@ -340,6 +346,8 @@
 
   --diff-add-fg: #56c596;
   --diff-del-fg: #f27373;
+  --diff-add-bg: rgba(86, 197, 150, 0.14);
+  --diff-del-bg: rgba(242, 115, 115, 0.14);
 
   --syn-keyword: #c4a7ff;
   --syn-string: #9bd39b;

@@ -3,17 +3,14 @@ import type { MessageEntry } from "../index.ts";
 // omp 设置页的人话标签和中文说明：只覆盖常用项（模型角色、思考、审批/工具、上下文压缩、记忆、子代理 task、retry）。
 // 其余项显示 key 加 omp 原始英文描述，界面上标"omp 原文"，不机翻。key 格式：`<omp 设置键>.label` / `<omp 设置键>.desc`。
 export const ompcfg = {
-  "tab.appearance": "外观",
-  "tab.context": "上下文",
-  "tab.files": "文件",
-  "tab.interaction": "交互",
-  "tab.internal": "高级",
-  "tab.memory": "记忆",
-  "tab.model": "模型",
-  "tab.providers": "提供商",
-  "tab.shell": "命令行",
-  "tab.tasks": "子代理",
-  "tab.tools": "工具",
+  "group.models": "模型与推理",
+  "group.tools": "工具与权限",
+  "group.context": "上下文与记忆",
+  "group.agents": "子代理与规划",
+  "group.behavior": "对话行为",
+  "group.integrations": "集成",
+  "group.voice": "语音",
+  "group.other": "其他",
 
   "modelRoleStorage.label": "模型角色的保存位置",
   "modelRoleStorage.desc": "在模型选择器里给角色（default、smol、slow 等）指定的模型，存在全局还是当前项目里",

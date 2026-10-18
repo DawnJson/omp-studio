@@ -1,0 +1,157 @@
+/* worktree / git：输入框的工作树胶囊、主区顶部的 git 条、git 对话框。只用设计 token。 */
+
+.chip[data-on] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.chip[aria-disabled="true"] {
+  color: var(--text-disabled);
+  cursor: default;
+}
+.chip[aria-disabled="true"]:hover {
+  background: var(--bg-hover);
+}
+.chip-note {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.git-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  width: min(100% - 2 * var(--gutter), var(--content-w));
+  min-height: var(--control-h-md);
+  margin: var(--space-2) auto 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.git-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+}
+.git-branch-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.git-meta {
+  flex: none;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.git-spacer {
+  flex: 1;
+}
+
+.git-dialog {
+  display: flex;
+  flex-direction: column;
+  width: var(--dialog-w-md);
+  max-width: calc(100vw - var(--space-8));
+  max-height: calc(100vh - var(--space-8));
+  background: var(--bg-overlay);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+  animation: pop-in var(--dur-slow) var(--ease-spring);
+}
+.git-dialog-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
+}
+.git-dialog-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-lg);
+  font-weight: var(--fw-strong);
+}
+.git-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  overflow-y: auto;
+}
+.git-dialog-foot {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.git-text {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  overflow-wrap: anywhere;
+}
+.git-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.git-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-2-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-base);
+  resize: vertical;
+}
+.git-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.git-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+}
+.git-group {
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-strong);
+  color: var(--text-2);
+}
+.git-files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  line-height: var(--lh-code-sm);
+  overflow-wrap: anywhere;
+}
+.git-files-note {
+  margin-left: var(--space-2);
+  font-family: var(--font-sans);
+  color: var(--text-3);
+}
+
+/* 侧栏任务行上的 worktree 标记：只有图标，分支名在悬停提示里。 */
+.sb-row-branch {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--text-3);
+}

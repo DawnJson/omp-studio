@@ -37,6 +37,10 @@ import { history } from "./history.ts";
 import { login } from "./login.ts";
 import { shortcut } from "./shortcut.ts";
 import { ompcfg } from "./ompcfg.ts";
+import { usage } from "./usage.ts";
+import { review } from "./review.ts";
+import { git } from "./git.ts";
+import { lanes } from "./lanes.ts";
 
 export const zhCN = {
   shell,
@@ -78,4 +82,8 @@ export const zhCN = {
   login,
   shortcut,
   ompcfg,
+  usage,
+  review,
+  git,
+  lanes,
 };

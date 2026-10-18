@@ -3,6 +3,10 @@ import type { sidebar as zhCN } from "../zh-CN/sidebar.ts";
 
 export const sidebar = {
   newTask: "New task",
+  search: "Search tasks and sessions",
+  searchHistory: "Past sessions",
+  searchNone: "No matching tasks or sessions",
+  clearSearch: "Clear search",
   waitingOne: "1 task waiting for you · {project}",
   waitingMany: "{n} tasks waiting for you",
   empty: "No tasks yet",

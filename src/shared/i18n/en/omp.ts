@@ -47,6 +47,8 @@ export const omp = {
   checkFailed: "Couldn't check for updates: {message}",
   upToDate: "You're up to date",
   "autoUpdate.note": "omp-studio checks for updates every hour",
+  newVersion: "New version {version} available",
+  "autoUpdate.noteOther": "omp-studio checks for a newer version every hour but never installs it for you",
   path: "Path",
   version: "Version",
   source: "Source",

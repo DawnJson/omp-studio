@@ -1,22 +1,12 @@
 // 账号和模型的 IPC：模型列表、provider 列表、OAuth 登录、登出、API key。
 // 除 API key 外都走服务进程（src/main/service/）；API key 由 safeStorage 存在 userData，不碰 ~/.omp（决策 D3）。
 // key 只进不出：返回值、事件、日志里都没有 key。
-import type { HandlerGroup, ModelOption } from "../../shared/ipc.ts";
-import type { ModelInfo } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type { HandlerGroup } from "../../shared/ipc.ts";
 import { apiKeyStore } from "../omp-manager/api-keys.ts";
 import { answerLoginInput, cancelLogin, startLogin } from "../service/login.ts";
+import { toModelOption } from "../tasks/convert.ts";
 import { serviceOmp } from "../service/service-omp.ts";
 import { parseApiKey, parseInteger, parseString } from "./validate.ts";
-
-function toModelOption(model: ModelInfo): ModelOption {
-  return {
-    key: { provider: model.provider, modelId: model.id },
-    name: model.name,
-    contextWindow: model.contextWindow,
-    reasoning: model.reasoning,
-    acceptsImages: model.input.includes("image"),
-  };
-}
 
 const parseProviderId = (value: unknown) => parseString(value, "providerId", 200);
 

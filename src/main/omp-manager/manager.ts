@@ -300,7 +300,7 @@ export class OmpManager {
       belowMinimum: isBelowMinimum(version),
       stagedUpdate: this.#stagedUpdate,
     });
-    if (source.kind === "studio_managed") this.#startAutoUpdate();
+    this.#startAutoUpdate();
   }
 
   /** `omp update` 之后、PATH 变化之后重新读一次状态。 */
@@ -349,21 +349,38 @@ export class OmpManager {
       ...current,
       version: install.version,
       belowMinimum: isBelowMinimum(install.version),
+      availableVersion:
+        current.availableVersion && compareVersions(current.availableVersion, install.version) > 0
+          ? current.availableVersion
+          : null,
     }));
     return result;
   }
 
-  /** 自管时向构建服务查一次；有新版就下载、校验、换 bin/omp.exe。返回装上的版本，已最新返回 null。 */
-  async checkUpdate(): Promise<string | null> {
+  /**
+   * 向构建服务查一次最新版（所有来源都查）：
+   * - 自管：有新版就下载、校验、换 bin/omp.exe，返回装上的版本；
+   * - 用户自装 / 他人管理：只比较版本，把 `availableVersion` 写进状态让界面提示"有新版本"，不动任何文件
+   *   （升级走 `upgradePathOmp` 或管理者自己的更新）。
+   * 已最新时 installedVersion 和 availableVersion 都是 null。
+   */
+  async checkUpdate(): Promise<{ installedVersion: string | null; availableVersion: string | null }> {
     const status = this.#status;
-    if (status.state !== "ready" || status.source.kind !== "studio_managed")
-      throw new Error("only the omp that omp-studio manages is updated by omp-studio");
+    if (status.state !== "ready") throw new Error("omp is not ready; nothing to check");
+    const managed = status.source.kind === "studio_managed";
     const build = await fetchBuild({
       fetch: this.#deps.fetch,
       baseUrl: this.#deps.baseUrl,
-      fromVersion: status.version,
+      ...(managed && { fromVersion: status.version }),
     });
-    if (compareVersions(build.version, status.version) <= 0) return null;
+    if (compareVersions(build.version, status.version) <= 0) {
+      await this.#refreshReady((current) => ({ ...current, availableVersion: null }));
+      return { installedVersion: null, availableVersion: null };
+    }
+    if (!managed) {
+      await this.#refreshReady((current) => ({ ...current, availableVersion: build.version }));
+      return { installedVersion: null, availableVersion: build.version };
+    }
     // 后台下载不切到 installing（那会把界面换成准备页），做完直接把 ready 的版本换掉。补丁从当前的 bin/omp.exe 做。
     await this.#withLock(() =>
       installBuild(this.#layout, { fetch: this.#deps.fetch, build, fromExe: this.#layout.binExe }),
@@ -375,19 +392,24 @@ export class OmpManager {
       version: install.version,
       belowMinimum: isBelowMinimum(install.version),
       stagedUpdate: install.version,
+      availableVersion: null,
     }));
-    return install.version;
+    return { installedVersion: install.version, availableVersion: null };
   }
 
+  /** 每小时检查一次；ready 之后马上先查一次（不用等一小时才看到"有新版本"）。 */
   #startAutoUpdate(): void {
     if (this.#timer) return;
-    this.#timer = setInterval(() => {
+    const tick = () => {
+      if (this.#status.state !== "ready") return;
       // 后台检查失败不打断用户，下个小时再试；手动"检查更新"会把错误显示出来。
       this.checkUpdate().catch((error: unknown) =>
         log.warn("omp background update check failed", error instanceof Error ? error.message : error),
       );
-    }, UPDATE_INTERVAL_MS);
+    };
+    this.#timer = setInterval(tick, UPDATE_INTERVAL_MS);
     this.#timer.unref();
+    tick();
   }
 
   /** 退出时调用：停定时器，取消进行中的下载并等它清理完（释放 update.lock）。 */

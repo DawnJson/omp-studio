@@ -214,9 +214,9 @@ async function addProjectViaStubbedDialog(launched: Awaited<ReturnType<typeof la
   await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
 }
 
-test("有项目的空状态：输入框在中间、继续列表只有假会话；拖入事件切换草稿项目；截图", async () => {
+test("有项目的空状态：输入框贴主区底部、没有历史会话列表；拖入事件切换草稿项目；截图", async () => {
   const projectDir = await mkdtemp(path.join(os.tmpdir(), "omp studio 项目 "));
-  // 假会话的 cwd 就是这个项目目录，"继续"列表才会按项目筛出它们。
+  // 假会话的 cwd 就是这个项目目录：空状态里不能再出现它们（历史只在侧栏）。
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
   await seedFakeSessions(agentDir, projectDir);
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
@@ -227,10 +227,13 @@ test("有项目的空状态：输入框在中间、继续列表只有假会话�
 
     await expect(page.getByTestId("empty-draft").locator("[data-composer-input]")).toBeVisible();
     await expect(page.getByTestId("empty-project")).toContainText("omp studio 项目");
-    const sessions = page.getByTestId("empty-session");
-    await expect(sessions.first()).toBeVisible();
-    // 假会话的标题，不是真实 ~/.omp 里的内容。
-    await expect(page.getByTestId("empty-state")).toContainText("Fix the flaky login test on CI");
+    await expect(page.getByTestId("empty-session")).toHaveCount(0);
+    await expect(page.getByTestId("empty-state")).not.toContainText("Fix the flaky login test on CI");
+    // 输入框贴在主区底部（和对话时同一位置），不是居中。
+    const panel = await page.getByTestId("main-panel").boundingBox();
+    const composer = await page.getByTestId("draft-composer").boundingBox();
+    expect(panel && composer && panel.y + panel.height - (composer.y + composer.height)).toBeLessThanOrEqual(24);
+    expect(composer && panel && composer.y).toBeGreaterThan((panel?.y ?? 0) + (panel?.height ?? 0) / 2);
 
     // 草稿期间 Ctrl N 回到同一个空状态而不是创建任务。
     await page.keyboard.press("Control+n");

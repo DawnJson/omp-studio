@@ -5,6 +5,7 @@ export const settings = {
   general: "通用",
   models: "模型与账号",
   omp: "omp",
+  usage: "用量",
   about: "关于",
   language: "语言",
   "language.system": "跟随系统",

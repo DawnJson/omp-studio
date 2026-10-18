@@ -1,9 +1,11 @@
 // 过程行（spec 4.11）：同一个位置三个形态。运行中一行实时状态（intent 原话 + 计时），结束后折叠成"已工作 …"，点开看工具列表。
 import { useState } from "react";
-import type { TaskStatus } from "../../../../shared/ipc.ts";
+import type { TaskId, TaskStatus } from "../../../../shared/ipc.ts";
+import type { SubagentLane } from "../../../../shared/subagents.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { ChevronRight } from "../../icons.tsx";
+import { LanesPanel } from "../lanes/LanesPanel.tsx";
 import { formatClock, formatDuration } from "./format.ts";
 import type { Turn } from "./model.ts";
 import { ProcessDetails, toolLabel } from "./ProcessDetails.tsx";
@@ -41,7 +43,19 @@ function liveKey(turn: Turn, live: LiveProps): string {
   return live.phase ?? (running ? running.key : (turn.liveKind ?? "thinking"));
 }
 
-export function ProcessRow({ turn, live }: { turn: Turn; live: LiveProps | null }) {
+export function ProcessRow({
+  turn,
+  live,
+  taskId,
+  projectPath,
+  lanes,
+}: {
+  turn: Turn;
+  live: LiveProps | null;
+  taskId: TaskId;
+  projectPath: string | null;
+  lanes: readonly SubagentLane[];
+}) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
   const now = useNow(live !== null);
@@ -63,7 +77,16 @@ export function ProcessRow({ turn, live }: { turn: Turn; live: LiveProps | null 
           {!waiting && <span className="process-time">{formatClock(now - turn.startedAt)}</span>}
           <ChevronRight size={14} className="process-chevron" data-open={expanded || undefined} />
         </button>
-        {expanded && <ProcessDetails steps={turn.steps} />}
+        {expanded && (
+          <ProcessDetails
+            steps={turn.steps}
+            header={
+              lanes.length > 0 && (
+                <LanesPanel taskId={taskId} turn={turn} lanes={lanes} live projectPath={projectPath} />
+              )
+            }
+          />
+        )}
       </div>
     );
   }
@@ -94,7 +117,16 @@ export function ProcessRow({ turn, live }: { turn: Turn; live: LiveProps | null 
           </span>
         )}
       </button>
-      {expanded && <ProcessDetails steps={turn.steps} />}
+      {expanded && (
+        <ProcessDetails
+          steps={turn.steps}
+          header={
+            lanes.length > 0 && (
+              <LanesPanel taskId={taskId} turn={turn} lanes={lanes} live={false} projectPath={projectPath} />
+            )
+          }
+        />
+      )}
     </div>
   );
 }

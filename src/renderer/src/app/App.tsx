@@ -5,15 +5,18 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSPro
 import { groupTasks, visibleOrder } from "../../../shared/ui/sidebar-model.ts";
 import { Composer } from "../features/composer/index.ts";
 import { ConversationView } from "../features/conversation/index.ts";
+import { GitBar, GitDialogHost } from "../features/git/index.ts";
 import { DialogLayer } from "../features/dialogs/index.ts";
 import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts";
 import { OmpSetupView } from "../features/omp-setup/index.ts";
+import { ReviewHost } from "../features/review/index.ts";
 import { CommandPalette } from "../features/palette/index.ts";
 import { SettingsView } from "../features/settings/index.ts";
 import { onStudioCommand } from "../features/palette/studio-command.ts";
 import { useHiddenTasks } from "../features/sidebar/archive-store.ts";
 import { jumpToWaitingTask, Sidebar, useProjects } from "../features/sidebar/index.ts";
 import { useLocale, useT } from "../i18n/use-t.ts";
+import { openReview } from "../store/review-store.ts";
 import {
   selectTask,
   setPaletteOpen,
@@ -168,6 +171,9 @@ export function App() {
     goBack: navigation.goBack,
     goForward: navigation.goForward,
     toggleMenu: () => setMenuOpen((open) => !open),
+    openReview: () => {
+      if (taskId !== null && view === "conversation") openReview(taskId);
+    },
     closeDrawer: () => {
       if (!narrow || !shell.drawerOpen) return false;
       setDrawerOpen(false);
@@ -213,6 +219,7 @@ export function App() {
             <EmptyState />
           ) : (
             <>
+              <GitBar taskId={taskId} />
               <ConversationView taskId={taskId} />
               <Composer taskId={taskId} />
             </>
@@ -234,6 +241,8 @@ export function App() {
       )}
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       <DropOverlay />
+      <ReviewHost />
+      <GitDialogHost />
       <DialogLayer taskId={taskId} />
       <CommandPalette />
       <OmpSetupView />

@@ -12,8 +12,18 @@ import { appHandlers } from "../ipc/app-handlers.ts";
 import { buildOmpLaunch, setTestOmpOverride } from "../omp/launch.ts";
 import { parseTestOmpOverride } from "../omp/launch-args.ts";
 import { assignToAppJob } from "../platform/win32/job-object.ts";
-import { TaskPool } from "./task-pool.ts";
+import { createWorktree, removeWorktree } from "../git/worktree.ts";
+import { TaskPool, type WorktreeOps } from "./task-pool.ts";
 import { pathKey, TaskRegistry } from "./task-registry.ts";
+
+// 项目路径在创建 worktree 时已确认是仓库根（createWorktree），移除时直接用它。
+const worktreeOps: WorktreeOps = {
+  create: async (project) => {
+    const created = await createWorktree(project.path);
+    return { path: created.path, branch: created.branch, base: created.baseBranch };
+  },
+  remove: (project, worktreePath, branch) => removeWorktree(project.path, worktreePath, branch),
+};
 
 let pool: Promise<TaskPool> | null = null;
 const heldNotifications = new Set<Notification>();
@@ -49,12 +59,14 @@ function createPool(): Promise<TaskPool> {
     getSettings: () => appHandlers.getSettings(),
     buildLaunch: (record, project) =>
       buildOmpLaunch({
-        cwd: project.path,
+        // worktree 任务以 worktree 根为 cwd（没有 RPC 能改 cwd，只能在 spawn 时定）。
+        cwd: record.worktreePath ?? project.path,
         model: record.model,
         thinkingLevel: record.thinkingLevel,
         // 项目目录就是用户主目录时 omp 会自动换到临时目录（cli-reference.md --allow-home）。
-        allowHome: pathKey(project.path) === pathKey(os.homedir()),
+        allowHome: pathKey(record.worktreePath ?? project.path) === pathKey(os.homedir()),
       }),
+    worktrees: worktreeOps,
     assignJob: assignToAppJob,
     events: {
       state: (state) => {
@@ -65,6 +77,7 @@ function createPool(): Promise<TaskPool> {
       notice: (notice) => emitEvent("taskNotice", notice),
       taskRemoved: (id) => emitEvent("taskRemoved", id),
       slashCommands: (taskId, commands) => emitEvent("slashCommands", { taskId, commands }),
+      subagents: (taskId, lanes) => emitEvent("subagents", { taskId, lanes }),
     },
   });
   // 退出路径只有 Shell 的 before-quit 一条（arch 2.4）；主进程被强杀时由 Job Object 兜底。

@@ -1,24 +1,18 @@
-/* 空状态：内容在面板垂直 38% 处，宽 = 列宽（spec §4.7）。 */
+/* 空状态：输入框贴主区底部（和对话时同一位置），上方区域放项目头和最近的任务（spec §4.7）。 */
 .empty {
   display: flex;
   flex: 1;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-6);
   min-height: 0;
   padding: 0 var(--gutter);
   overflow-y: auto;
 }
 
-/* 顶部留 38% 的弹性空间，下面 62%：内容整体落在 38% 附近 */
-.empty::before {
-  content: "";
-  flex: 40 0 0;
-}
-
-.empty::after {
-  content: "";
-  flex: 60 0 0;
+/* 没有项目 / 加载中 / 出错：没有输入框，引导卡片在面板中间 */
+.empty:not([data-kind="project"]) {
+  justify-content: center;
+  gap: var(--space-6);
 }
 
 .empty > * {
@@ -26,7 +20,15 @@
   flex: none;
 }
 
-/* 项目名和路径在同一行：路径排在右侧，空间不够时从左边省略 */
+.empty-main {
+  display: flex;
+  flex: 1 1 0 !important;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-5);
+  min-height: 0;
+}
+
 /* 项目名和路径在同一行：路径排在右侧，空间不够时单行省略 */
 .empty-head {
   display: flex;
@@ -36,6 +38,7 @@
 }
 
 .empty-card {
+  align-self: center;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -46,11 +49,6 @@
   background: var(--bg-raised);
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-xl);
-}
-
-.empty-card,
-.empty-continue {
-  align-self: center;
 }
 
 .empty-title,
@@ -159,64 +157,6 @@
   background: var(--border-subtle);
 }
 
-.empty-section-title {
-  margin: 0 0 var(--space-1);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  font-weight: var(--fw-regular);
-  color: var(--text-3);
-}
-
-.empty-list {
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.empty-session {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  height: var(--row-task);
-  padding: 0 var(--space-2);
-  text-align: left;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-md);
-  cursor: default;
-}
-
-.empty-session:hover {
-  background: var(--bg-hover);
-}
-
-.empty-session-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.empty-session-time {
-  flex: none;
-  font-size: var(--fs-2xs);
-  color: var(--text-3);
-}
-
-.empty-terminal-mark {
-  flex: none;
-  padding: 0 var(--space-1);
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  color: var(--text-3);
-  background: var(--bg-sunken);
-  border-radius: var(--radius-xs);
-}
-
 .empty-error {
   margin: 0;
   font-size: var(--fs-base);
@@ -226,11 +166,6 @@
   text-wrap: pretty;
 }
 
-.empty-session:disabled {
-  color: var(--text-disabled);
-}
-
-.empty-session:focus-visible,
 .empty-menu-item:focus-visible {
   background: var(--bg-active);
   outline-offset: -2px;
@@ -270,23 +205,53 @@
   margin-inline: calc(var(--gutter) * -1);
 }
 
-.empty-hint {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--text-3);
-}
-
-.empty-continue-error {
+/* 最近的任务：三条以内的可点入口 */
+.empty-recent {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
+  flex-direction: column;
+  padding: 0;
+  margin: 0;
+  list-style: none;
 }
 
-.empty-link {
-  padding: 0 var(--space-1);
-  color: var(--link);
+.empty-task {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--row-task);
+  padding: 0 var(--space-2);
+  color: inherit;
+  font: inherit;
+  text-align: left;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-md);
   cursor: default;
+}
+
+.empty-task:hover {
+  background: var(--bg-hover);
+}
+
+.empty-task:focus-visible {
+  background: var(--bg-active);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.empty-task-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-task-time {
+  flex: none;
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
 }

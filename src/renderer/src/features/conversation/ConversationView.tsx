@@ -3,11 +3,13 @@
 import { reportError } from "../../ui/errors.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TaskId, TaskState } from "../../../../shared/ipc.ts";
+import type { SubagentLane } from "../../../../shared/subagents.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { useTask, useTranscript } from "../../store/index.ts";
+import { useLanes, useTask, useTranscript } from "../../store/index.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { pushToast } from "../dialogs/index.ts";
 import { onStudioCommand } from "../palette/index.ts";
+import { assignLanesToTurns } from "../lanes/lane-model.ts";
 import { buildTurns, type Turn } from "./model.ts";
 import { ConversationError } from "./ConversationError.tsx";
 import { useProjectPath } from "./project-path.ts";
@@ -18,6 +20,7 @@ import "./conversation.css";
 
 const RECENT_TURNS = 20;
 const BUSY: readonly TaskState["status"][] = ["starting", "running", "needs_you"];
+const NO_LANES: readonly SubagentLane[] = [];
 
 function firstSentence(text: string): string {
   const match = /^[^。.!?！？\n]+[。.!?！？]?/.exec(text.trim());
@@ -50,6 +53,13 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
     turnsRef.current = next;
     return next;
   }, [transcript]);
+
+  const lanes = useLanes(taskId);
+  const lanesByTurn = useRef<ReadonlyMap<string, readonly SubagentLane[]>>(new Map());
+  const turnLanes = useMemo(() => {
+    lanesByTurn.current = assignLanesToTurns(turns, lanes, lanesByTurn.current);
+    return lanesByTurn.current;
+  }, [turns, lanes]);
 
   const busy = task !== null && BUSY.includes(task.status);
   const lastTurn = turns[turns.length - 1];
@@ -143,6 +153,7 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
               offscreenSkippable={index < turns.length - RECENT_TURNS}
               taskId={taskId}
               projectPath={projectPath}
+              lanes={turnLanes.get(turn.key) ?? NO_LANES}
             />
           ))}
           {busy && turns.length === 0 && task?.status === "starting" && (

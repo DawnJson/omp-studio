@@ -21,6 +21,7 @@ import type {
 } from "../../shared/ipc.ts";
 import type { AvailableSlashCommand, ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import type { OmpLaunch } from "../omp/omp-connection.ts";
+import type { SubagentDetail, SubagentLane } from "../../shared/subagents.ts";
 import { titleFromPrompt } from "./convert.ts";
 import { TaskRunner, TooManyTasksError, type RunnerHost } from "./task-runner.ts";
 import type { TaskRecord, TaskRegistry } from "./task-registry.ts";
@@ -36,6 +37,12 @@ export interface PoolEvents {
   notice(notice: TaskNotice): void;
   taskRemoved(id: TaskId): void;
   slashCommands(taskId: TaskId, commands: AvailableSlashCommand[]): void;
+  subagents(taskId: TaskId, lanes: SubagentLane[]): void;
+}
+
+export interface WorktreeOps {
+  create(project: Project): Promise<{ path: string; branch: string; base: string }>;
+  remove(project: Project, worktreePath: string, branch: string): Promise<void>;
 }
 
 export interface PoolDeps {
@@ -44,6 +51,8 @@ export interface PoolDeps {
   buildLaunch(record: TaskRecord, project: Project): Promise<OmpLaunch>;
   assignJob(pid: number | undefined): void;
   events: PoolEvents;
+  /** 没传时 `createTask({worktree: true})` 和 `discardWorktree` 直接报错；单元测试不需要 git。 */
+  worktrees?: WorktreeOps;
 }
 
 export interface ResumeInput {
@@ -75,6 +84,7 @@ export class TaskPool {
       onTranscript: (batch) => deps.events.transcript(batch),
       onNotice: (notice) => deps.events.notice(notice),
       onSlashCommands: (taskId, commands) => deps.events.slashCommands(taskId, commands),
+      onSubagents: (taskId, lanes) => deps.events.subagents(taskId, lanes),
     };
   }
 
@@ -132,6 +142,8 @@ export class TaskPool {
   async createTask(input: CreateTaskInput): Promise<TaskState> {
     const project = this.#deps.registry.findProject(input.projectId);
     if (!project) throw new Error(`unknown project ${input.projectId}`);
+    // worktree 先建好再落记录：建失败（不是仓库、setup 脚本失败）时没有半成品任务。
+    const worktree = input.worktree === true ? await this.#worktrees().create(project) : undefined;
     // 模型和思考强度不传：omp 按自己的配置（modelRoles.default、defaultThinkingLevel）选（设计原则 7）。
     const record = await this.#deps.registry.addTask({
       projectId: project.id,
@@ -139,6 +151,7 @@ export class TaskPool {
       title: "",
       model: null,
       thinkingLevel: null,
+      ...(worktree && { worktree }),
     });
     const runner = this.#adopt(record);
     this.#startInBackground(runner);
@@ -210,6 +223,22 @@ export class TaskPool {
     return this.#runner(id).promoteQueuedMessage(text);
   }
 
+  getSubagents(id: TaskId): SubagentLane[] {
+    return this.#runner(id).getSubagents();
+  }
+
+  getSubagentDetail(id: TaskId, subagentId: string): Promise<SubagentDetail> {
+    return this.#runner(id).getSubagentDetail(subagentId);
+  }
+
+  steerSubagent(id: TaskId, subagentId: string, text: string): Promise<void> {
+    return this.#runner(id).steerSubagent(subagentId, text);
+  }
+
+  cancelSubagent(id: TaskId, subagentId: string): Promise<boolean> {
+    return this.#runner(id).cancelSubagent(subagentId);
+  }
+
   stopTask(id: TaskId): Promise<RestoredQueue> {
     return this.#runner(id).stop();
   }
@@ -242,8 +271,56 @@ export class TaskPool {
     return this.#runner(id).compact();
   }
 
+  /** 任务的工作目录：有 worktree 时是 worktree 根，否则是项目路径。 */
   taskCwd(id: TaskId): string {
     return this.#runner(id).cwd;
+  }
+
+  /** git 相关 IPC 要的上下文：项目路径（主仓库）、任务 cwd 和 worktree 记录。 */
+  taskGitContext(id: TaskId): {
+    projectPath: string;
+    cwd: string;
+    worktree: { path: string; branch: string; base: string } | null;
+  } {
+    const runner = this.#runner(id);
+    const { worktreePath, worktreeBranch, worktreeBase } = runner.record;
+    const project = this.#deps.registry.findProject(runner.record.projectId);
+    if (!project) throw new Error(`task ${id} refers to unknown project`);
+    return {
+      projectPath: project.path,
+      cwd: runner.cwd,
+      worktree:
+        worktreePath !== null && worktreeBranch !== null && worktreeBase !== null
+          ? { path: worktreePath, branch: worktreeBranch, base: worktreeBase }
+          : null,
+    };
+  }
+
+  /** 所有任务记录（含已归档）引用的 worktree 路径：清理无主 worktree 时这些不能动。 */
+  referencedWorktreePaths(projectId: ProjectId): string[] {
+    return this.#deps.registry
+      .listTasks()
+      .filter((task) => task.projectId === projectId && task.worktreePath !== null)
+      .map((task) => task.worktreePath as string);
+  }
+
+  /** 丢弃任务的 worktree：先关进程（Windows 上进程占着目录删不掉），移除 worktree 和分支，再把任务归档。 */
+  async discardWorktree(id: TaskId): Promise<void> {
+    const runner = this.#runner(id);
+    const { worktreePath, worktreeBranch } = runner.record;
+    if (worktreePath === null || worktreeBranch === null) throw new Error("the task has no worktree");
+    const project = this.#deps.registry.findProject(runner.record.projectId);
+    if (!project) throw new Error(`task ${id} refers to unknown project`);
+    await runner.close();
+    await this.#worktrees().remove(project, worktreePath, worktreeBranch);
+    await this.#deps.registry.updateTask(id, { worktreePath: null, worktreeBranch: null, worktreeBase: null });
+    await this.archiveTask(id);
+  }
+
+  #worktrees(): WorktreeOps {
+    const ops = this.#deps.worktrees;
+    if (!ops) throw new Error("worktrees are not available");
+    return ops;
   }
 
   listSlashCommands(id: TaskId): Promise<AvailableSlashCommand[]> {

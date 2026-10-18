@@ -57,3 +57,19 @@ omp-studio 的做法（`src/main/omp-config/model-defaults.ts`，和 omp 终端�
 ## 服务进程的关闭
 
 `ServiceOmp.close()` 会递增代号：启动到一半（准备参数、等 ready）时被关掉的进程在 ready 后自己关闭并报错；放进 Job Object 失败的进程立刻关闭，不留下没有兜底的进程。
+
+## 自定义模型（第三方 API 提供商）：omp 没有写 `models.yml` 的接口
+
+实测/查证（omp 18.12.1，2026-10-18）：
+
+- 自定义 provider 只能写在 `<agent 目录>/models.yml`（`omp://models.md`）：`providers.<id>` 下有 `baseUrl`、`apiKey`（环境变量名或字面量，`!命令` 取密钥）、`api`、`auth`、`models[]`（`id`、`name`、`contextWindow`、`maxTokens`、`reasoning`、`input`、`cost`…）和 `discovery`。非法文件时 omp 退回内置模型，错误经 `ModelRegistry.getError()` 暴露。
+- **写入接口：没有。** 查过：`omp config`（只有 `list/get/set/reset/path/init-xdg`，键必须是设置 schema 里的，`models.yml` 不是设置）；RPC wire schema 的全部命令（`rpc-wire.generated.ts`，没有任何 provider/models 的增删改；只有 `get_available_models`、`get_login_providers`、`login`、`logout`）；`omp models`（只有 `ls/find/refresh`）；`--config <overlay>`（是 `config.yml` 风格的设置叠加层，不含 `providers`）。文档里唯一的"程序化"入口是扩展 API `pi.registerProvider(...)`（进程内注册，不落盘）。
+- 读：`omp models --json` / RPC `get_available_models` 能读到最终合并后的模型列表（含自定义的），但不暴露 `models.yml` 的原文，也不暴露 transport `api`。
+- 按 `AGENTS.md`「omp 的边界」和 PLAN 设计原则 7，没有写入接口就**不写 `models.yml`**，所以"设置里直接添加/编辑 provider"和"一键拉取并勾选加入"**没有实现**，等仓库所有者决定。
+
+可选方案（待仓库所有者选）：
+
+1. **在 omp-studio 里直接改 `models.yml`**（和现有"项目 `.omp/config.yml` 的 `modelRoles`"同一类例外）：用 `yaml` 库的 Document 只改 `providers.<id>`，保留注释和其它内容，写前备份。风险：文档没有写 `models.yml` 的并发保护（omp 对 `config.yml` 才有"加锁再合并"的说明），终端版 omp 同时写时可能互相覆盖；文档只说 `config.yml`、项目设置和 overlay 会热重载，`models.yml` 没提（推测：新启动的任务一定会读到，已在跑的任务不确定，没实测）。一键拉取在主进程用 `net.fetch` 访问 `<baseUrl>/models`（OpenAI 兼容）列出模型，勾选后写进 `models[]`；或者只写 `discovery: { type: openai-models-list }`，让 omp 运行时自己发现（不用列模型，模型元数据靠 omp 的默认值）。
+2. **只做"拉取并生成 YAML"**：设置页里填 URL/key，拉取、勾选，生成一段 `models.yml` 片段给用户复制，并有"在文件夹中显示 `models.yml`"。不写文件，不违反原则，但用户还是要手动粘贴。
+3. **给 omp 提 PR**：加 `omp config provider add/set/rm` 或一个 RPC 命令，等合并后 omp-studio 只调它（最干净，周期最长）。
+4. **omp-studio 自带一个 omp 扩展**：用 `-e` 在启动时加载，扩展读 omp-studio 自己存的 provider 列表并 `pi.registerProvider`。不碰 `~/.omp`，但这是 omp-studio 自己存的第二份配置，和终端版 omp 不共享，违反原则 7。

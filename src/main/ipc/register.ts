@@ -5,10 +5,13 @@ import { invokeChannel, type InvokeHandlers } from "../../shared/ipc.ts";
 import { accountHandlers } from "./account-handlers.ts";
 import { appHandlers } from "./app-handlers.ts";
 import { draftHandlers } from "./draft-handlers.ts";
+import { gitHandlers } from "./git-handlers.ts";
 import { historyHandlers } from "./history-handlers.ts";
 import { ompHandlers } from "./omp-handlers.ts";
+import { subagentHandlers } from "./subagent-handlers.ts";
 import { taskHandlers } from "./task-handlers.ts";
 import { updateHandlers } from "./update-handlers.ts";
+import { usageHandlers } from "./usage-handlers.ts";
 import { registerDropFolder } from "./drop-folder.ts";
 import { assertTrustedSender } from "./validate.ts";
 import { log } from "../log/log.ts";
@@ -20,7 +23,10 @@ const handlers: InvokeHandlers = {
   ...accountHandlers,
   ...ompHandlers,
   ...draftHandlers,
+  ...gitHandlers,
   ...updateHandlers,
+  ...usageHandlers,
+  ...subagentHandlers,
 };
 
 export function registerIpcHandlers(): void {

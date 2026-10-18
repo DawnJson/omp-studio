@@ -5,6 +5,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { useOmpStatus } from "../../store/index.ts";
 import { Button } from "./controls.tsx";
 import { ConfigResults, ConfigTab } from "./ConfigSection.tsx";
+import { groupConfigItems, groupOf, type ConfigGroup } from "../../../../shared/ui/config-groups.ts";
 import { matchesQuery } from "./config-meta.ts";
 import { loadOmpConfig, useConfigLoad } from "./config-store.ts";
 
@@ -16,14 +17,18 @@ export function useOmpConfigLoader(): void {
   }, [ready]);
 }
 
-export function OmpConfigPane({ tab, query }: { tab: string | null; query: string }) {
+export function OmpConfigPane({ group, query }: { group: ConfigGroup | null; query: string }) {
   const t = useT();
   const status = useOmpStatus();
   const load = useConfigLoad();
   const trimmed = query.trim();
   const snapshot = load.kind === "ready" ? load.snapshot : null;
   const results = useMemo(
-    () => (snapshot && trimmed ? snapshot.items.filter((item) => matchesQuery(item, trimmed)) : []),
+    // 搜索只在会显示的项里找：终端专用的项（隐藏的）不出现。
+    () =>
+      snapshot && trimmed
+        ? snapshot.items.filter((item) => groupOf(item.key) !== null && matchesQuery(item, trimmed))
+        : [],
     [snapshot, trimmed],
   );
 
@@ -54,8 +59,8 @@ export function OmpConfigPane({ tab, query }: { tab: string | null; query: strin
         </div>
       );
     }
-    return <ConfigResults items={results} tabs={snapshot.tabs} query={trimmed} />;
+    return <ConfigResults items={results} query={trimmed} />;
   }
-  if (tab === null) return null;
-  return <ConfigTab tab={tab} items={snapshot.items.filter((item) => item.tab === tab)} />;
+  if (group === null) return null;
+  return <ConfigTab tab={group} items={groupConfigItems(snapshot.items).get(group) ?? []} />;
 }

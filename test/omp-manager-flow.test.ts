@@ -118,6 +118,20 @@ describe("OmpManager", () => {
     expect(h.userPathAdds).toEqual([]);
   });
 
+  it("flags a newer build on a kept (not taken over) omp right after start, without downloading or touching it", async () => {
+    const h = harness({ kind: "exe", install: ternExe });
+    const running = h.manager.start();
+    await expect.poll(() => h.manager.status.state).toBe("ask_takeover");
+    await h.manager.answerTakeover(false);
+    await running;
+    await expect.poll(() => h.manager.status).toMatchObject({ state: "ready", availableVersion: "18.12.1" });
+    expect(h.manager.status).toMatchObject({ version: "18.12.0", path: ternExe.path });
+    expect(h.statuses.some((s) => s.state === "installing")).toBe(false);
+    // 手动检查：同样只报有新版本，不下载。
+    await expect(h.manager.checkUpdate()).resolves.toEqual({ installedVersion: null, availableVersion: "18.12.1" });
+    await h.manager.stop();
+  });
+
   it("waits in `missing` with the build's size and source instead of downloading; the install click downloads and puts bin first on the user PATH without asking again", async () => {
     const h = harness({ kind: "none" });
     await h.manager.start();

@@ -2,17 +2,14 @@ import type { MessageEntry } from "../index.ts";
 import type { ompcfg as zhCN } from "../zh-CN/ompcfg.ts";
 
 export const ompcfg = {
-  "tab.appearance": "Appearance",
-  "tab.context": "Context",
-  "tab.files": "Files",
-  "tab.interaction": "Interaction",
-  "tab.internal": "Advanced",
-  "tab.memory": "Memory",
-  "tab.model": "Model",
-  "tab.providers": "Providers",
-  "tab.shell": "Shell",
-  "tab.tasks": "Subagents",
-  "tab.tools": "Tools",
+  "group.models": "Models & reasoning",
+  "group.tools": "Tools & permissions",
+  "group.context": "Context & memory",
+  "group.agents": "Subagents & planning",
+  "group.behavior": "Conversation",
+  "group.integrations": "Integrations",
+  "group.voice": "Voice",
+  "group.other": "Other",
 
   "modelRoleStorage.label": "Where model roles are saved",
   "modelRoleStorage.desc":

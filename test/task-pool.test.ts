@@ -52,6 +52,7 @@ class Events {
     notice: (notice: TaskNotice) => this.notices.push(notice),
     taskRemoved: (id: TaskId) => this.removed.push(id),
     slashCommands: () => {},
+    subagents: () => {},
   };
 
   statuses(id: TaskId): string[] {
@@ -145,6 +146,20 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
     // 推送出去的批次和快照一致：渲染进程增量重建的结果等于快照。
     expect(transcriptOf(h.events.batches, created.id)).toEqual(snapshot.transcript);
     expect(h.launches[0]?.cwd).toBe(path.resolve(projectDir));
+  });
+
+  it("一轮结束后 TaskState 带上本会话的用量（get_session_stats）和上下文占用", async () => {
+    // 输入框下方的用量行靠它显示：没有这条，用户看不到本会话花了多少。
+    const h = await harness();
+    h.fixtures.push(fixture("session-stats"));
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (s) => s.status === "idle");
+    await h.pool.sendPrompt(created.id, turn);
+    const state = await h.events.until(created.id, (s) => s.sessionUsage !== null);
+    expect(state.sessionUsage).toMatchObject({ tokens: { total: 9206, input: 243, output: 3 }, premiumRequests: 0 });
+    expect(state.sessionUsage?.cost).toBeCloseTo(0.00006513, 8);
+    expect(state.contextUsage?.contextWindow).toBe(1_000_000);
+    expect(state.model).toMatchObject({ contextWindow: 1_000_000, cost: { input: expect.any(Number) } });
   });
 
   it("会话文件在第一轮结束后写进 tasks.json，重启应用后任务还在、状态是 stopped", async () => {

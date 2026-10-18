@@ -54,14 +54,70 @@
   white-space: nowrap;
 }
 
-/* ───── 新任务按钮 ───── */
-.sb-new {
+/* ───── 搜索框 ───── */
+.sb-search {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: 36px;
+  height: var(--control-h-md);
   margin: var(--space-1) var(--space-2) var(--space-2);
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-2-5);
+  color: var(--text-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--dur-instant) var(--ease-out);
+}
+.sb-search:hover {
+  border-color: var(--border-strong);
+}
+.sb-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.sb-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  background: none;
+  border: 0;
+  outline: none;
+  user-select: text;
+}
+.sb-search input::placeholder {
+  color: var(--text-3);
+}
+.sb-search-clear {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-3);
+  border-radius: var(--radius-xs);
+}
+.sb-search-clear:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+/* ───── [新任务] [添加项目] ───── */
+.sb-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0 var(--space-2) var(--space-2);
+}
+.sb-new {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  height: var(--control-h-lg);
+  padding: 0 var(--space-2-5);
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -157,6 +213,16 @@
 }
 
 /* ───── 项目分组 ───── */
+.sb-session {
+  width: 100%;
+}
+.sb-group-title {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+}
 .sb-group + .sb-group {
   margin-top: var(--space-5);
 }

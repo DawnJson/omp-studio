@@ -2,7 +2,9 @@
 // 用法：node scripts/record-rpc.ts <名字> <prompt 文本> [--scenario <场景>]
 // 场景：prompt（默认，yolo，一问一答）、approval（always-ask，批准一次）、ask（ask 对话框，每题取推荐项）、
 //       turn-error（无效 key，prompt_result 为 error）、queue-steer（运行中投递 steer 和 follow-up）、
-//       resume-history（先聊一轮，再开新进程 switch_session 并读历史，只录第二个进程）。
+//       resume-history（先聊一轮，再开新进程 switch_session 并读历史，只录第二个进程）、
+//       subagents（派两个并行子代理，会话安静后读每个子代理的完整记录）、
+//       subagent-control（同上，子代理运行中 steer 第一个、cancel 第二个）。
 // 需要 .env（STUDIO_TEST_MODEL 和对应 provider 的 key），默认读仓库根目录的，可用 STUDIO_ENV_FILE 指定。
 // omp 用临时的 PI_CODING_AGENT_DIR，不碰 ~/.omp。初始化序列用 src/main/omp/session-init.ts，和应用共用。
 import { mkdtemp, rm, writeFile, mkdir, readFile } from "node:fs/promises";
@@ -14,7 +16,16 @@ import { OmpConnection } from "../src/main/omp/omp-connection.ts";
 import { initializeSession, loadHistory } from "../src/main/omp/session-init.ts";
 import type { AskUiRequest, RpcServerFrame, SelectUiRequest } from "../src/shared/omp-wire/rpc-wire.generated.ts";
 
-const scenarios = ["prompt", "approval", "ask", "turn-error", "queue-steer", "resume-history"] as const;
+const scenarios = [
+  "prompt",
+  "approval",
+  "ask",
+  "turn-error",
+  "queue-steer",
+  "resume-history",
+  "subagents",
+  "subagent-control",
+] as const;
 type Scenario = (typeof scenarios)[number];
 
 const { values, positionals } = parseArgs({
@@ -109,6 +120,68 @@ async function runQueueSteer(connection: OmpConnection): Promise<void> {
   console.log("outcomes:", JSON.stringify(await Promise.all([first, steer, followUp])).slice(0, 600));
 }
 
+/** 等到会话安静（没有进行中的一轮、没有后台任务）：后台（detached）子代理可能比 prompt_result 晚结束。 */
+async function waitSettled(connection: OmpConnection, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const state = await connection.request("get_state");
+    if ((state.isSettled ?? false) && !(state.hasPendingAsyncWork ?? false)) return;
+    if (Date.now() > deadline) throw new Error("session did not settle in time");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
+/**
+ * 子代理场景：cwd 里先放好两个文件让模型派两个并行子代理去读；
+ * subagent-control 额外在子代理跑起来后 steer 第一个、cancel 第二个（录下 aborted 帧的形状）。
+ * 结束后对每个子代理读一次完整记录（get_subagent_messages），回放时详情面板用它。
+ */
+async function runSubagents(connection: OmpConnection): Promise<void> {
+  await writeFile(path.join(cwd, "alpha.txt"), "alpha: the first file\n");
+  await writeFile(path.join(cwd, "beta.txt"), "beta: the second file\n");
+  const started: string[] = [];
+  const firstProgress = Promise.withResolvers<void>();
+  connection.onFrame((frame) => {
+    if (frame.type === "subagent_lifecycle" && frame.payload.status === "started") started.push(frame.payload.id);
+    if (frame.type === "subagent_progress" && started.length >= 2) firstProgress.resolve();
+  });
+  const turn = connection.prompt({ message: prompt! });
+  if (scenario === "subagent-control") {
+    await firstProgress.promise;
+    const [steered, cancelled] = started;
+    console.log(
+      "steer:",
+      JSON.stringify(
+        await connection
+          .request("steer_subagent", {
+            subagentId: steered!,
+            message: "Also finish your final answer with the word PINEAPPLE.",
+          })
+          .then(
+            () => "ok",
+            (e: Error) => e.message,
+          ),
+      ),
+    );
+    console.log(
+      "cancel:",
+      JSON.stringify(
+        await connection.request("cancel_subagent", { subagentId: cancelled! }).then(
+          (r) => r,
+          (e: Error) => e.message,
+        ),
+      ),
+    );
+  }
+  console.log("outcome:", JSON.stringify(await turn).slice(0, 300));
+  await waitSettled(connection, 180_000);
+  console.log("subagents:", started.join(", "));
+  for (const id of started) {
+    const record = await connection.request("get_subagent_messages", { subagentId: id });
+    console.log("record:", id, record.messages.length, "messages");
+  }
+}
+
 const connection = connect(scenario !== "resume-history");
 let exitDescription = "";
 try {
@@ -116,6 +189,7 @@ try {
   answerDialogs(connection);
   const init = await initializeSession(connection);
   if (scenario === "queue-steer") await runQueueSteer(connection);
+  else if (scenario === "subagents" || scenario === "subagent-control") await runSubagents(connection);
   else if (scenario === "resume-history") {
     // 第一个进程不录：聊一轮让会话落盘，拿到 sessionFile 后关掉。
     await connection.prompt({ message: prompt });
@@ -133,6 +207,10 @@ try {
     }
   } else {
     console.log("outcome:", JSON.stringify(await connection.prompt({ message: prompt })).slice(0, 300));
+    // 一轮结束后的用量：界面输入框下方的消耗行用它（get_session_stats），也录进回放。
+    console.log("stats:", JSON.stringify(await connection.request("get_session_stats")).slice(0, 400));
+    // 模型选择对话框的列表：有 key 的 provider 才会出现，所以录出来只有 .env 里那个 provider 的模型。
+    console.log("models:", (await connection.request("get_available_models")).models.length);
   }
   console.log(
     "init:",
@@ -145,7 +223,10 @@ try {
 } finally {
   const exit = await connection.close();
   exitDescription = JSON.stringify({ code: exit.code, killed: exit.killed, error: exit.error?.message ?? null });
-  await rm(scratch, { recursive: true, force: true });
+  // 子代理的工作目录偶尔还被刚退出的子进程占着（EBUSY）：重试几次，仍删不掉只提示，不能丢掉已经录好的内容。
+  await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 }).catch((error: unknown) =>
+    console.warn("could not remove scratch dir:", scratch, error instanceof Error ? error.message : error),
+  );
 }
 console.log("exit:", exitDescription);
 

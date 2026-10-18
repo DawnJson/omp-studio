@@ -21,12 +21,15 @@
 
 .composer {
   container-type: inline-size;
-  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-3-5);
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-composer);
   transition: border-color var(--dur-instant);
+}
+/* 上面输入区，下面工具行，中间一条 1px 分隔线：两层各有自己的内边距，控件不再贴着输入文字。 */
+.composer-body {
+  padding: var(--space-3-5) var(--space-4) var(--space-3);
 }
 .composer:hover {
   border-color: var(--border-strong);
@@ -67,8 +70,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-1-5);
-  height: var(--control-h-md);
-  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
 }
 .composer-spacer {
   flex: 1;
@@ -80,7 +83,7 @@
 
 .tool-btn,
 .chip,
-.context-hint,
+.usage-item,
 .send,
 .queue-btn,
 .queue-icon,
@@ -107,7 +110,8 @@
 .queue-icon:hover,
 .queue-btn:hover,
 .pop-item:hover,
-.pop-item[data-active] {
+.pop-item[data-active],
+.pop-item[data-highlighted="true"] {
   background: var(--bg-hover);
 }
 .tool-btn:active,
@@ -121,7 +125,7 @@
 .queue-icon:focus-visible,
 .pop-item:focus-visible,
 .segment:focus-visible,
-.context-hint:focus-visible,
+.usage-item:focus-visible,
 .attachment-remove:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
@@ -164,21 +168,54 @@
   }
 }
 
-.context-hint {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
+/* 输入框下方的用量行：上下文圆环、本会话 token、费用。数字用等宽数字对齐，不抢输入框的注意力。 */
+.usage {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-h-sm);
+  padding: var(--space-1) var(--space-4) 0;
   color: var(--text-3);
   font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  font-variant-numeric: tabular-nums;
+}
+.usage-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+}
+button.usage-item {
+  height: var(--control-h-sm);
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
-.context-hint[data-high] {
+button.usage-item:hover {
+  color: var(--text-2);
+}
+.usage-ring-track,
+.usage-ring-fill {
+  fill: none;
+  stroke-width: 2;
+}
+.usage-ring-track {
+  stroke: var(--border-strong);
+}
+.usage-ring-fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+}
+.usage-context[data-high] {
   color: var(--st-waiting-text);
 }
-.context-hint:hover {
-  background: var(--bg-hover);
+.usage-context[data-high] .usage-ring-fill {
+  stroke: var(--st-waiting);
 }
 
 .send {
@@ -559,4 +596,110 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 模型选择对话框：左栏搜索 + 分组列表，右栏参数 + 思考强度。 */
+.model-picker {
+  display: flex;
+  flex-direction: column;
+  width: min(calc(var(--content-w) + var(--space-8)), calc(100vw - var(--space-8)));
+  height: min(70vh, var(--content-w));
+  background: var(--bg-overlay);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+  animation: pop-in var(--dur-slow) var(--ease-spring);
+}
+.mp-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
+}
+.mp-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-lg);
+  font-weight: var(--fw-strong);
+}
+.mp-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 11fr) minmax(0, 9fr);
+  min-height: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.mp-left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: var(--space-3);
+  border-right: 1px solid var(--border-subtle);
+}
+.mp-left .pop-search {
+  flex: none;
+  margin: 0;
+}
+.mp-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.mp-add {
+  flex: none;
+  width: 100%;
+}
+.mp-right {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+.mp-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-lg);
+  font-weight: var(--fw-strong);
+  overflow-wrap: anywhere;
+}
+.mp-id {
+  margin: var(--space-0-5) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  line-height: var(--lh-code-sm);
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+.mp-params {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-4) 0 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+.mp-params dt {
+  color: var(--text-3);
+}
+.mp-params dd {
+  margin: 0;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.mp-cost {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+.mp-thinking {
+  margin-top: auto;
+  padding-top: var(--space-3);
+}
+.mp-thinking .pop-grouprow {
+  margin-inline: 0;
 }

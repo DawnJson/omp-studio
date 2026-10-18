@@ -1,5 +1,5 @@
 // 展开后的过程（spec 4.11）：工具行（点一下就地展开输出，最多 12 行）、叙述（· 开头单行）、思考。>200 行只渲染最后 100 条。
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { ChevronRight, FileIcon, Pencil, Search, Terminal } from "../../icons.tsx";
@@ -103,11 +103,12 @@ function TextStepRow({ step }: { step: Extract<Step, { kind: "narration" | "thin
   );
 }
 
-export function ProcessDetails({ steps }: { steps: readonly Step[] }) {
+export function ProcessDetails({ steps, header }: { steps: readonly Step[]; header?: ReactNode }) {
   const t = useT();
   const trimmed = steps.length > MANY ? steps.slice(-KEEP) : steps;
   return (
     <div className="details">
+      {header}
       {steps.length > trimmed.length && (
         <p className="details-earlier">{t("process.earlier", { n: steps.length - trimmed.length })}</p>
       )}

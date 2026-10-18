@@ -1,4 +1,4 @@
-// 侧栏（spec §3.2、第 4 章）：新任务、"等你确认"条、按项目分组的任务、底部设置和命令面板入口。
+// 侧栏（spec §3.2、第 4 章）：搜索框、[新任务][添加项目]、"等你确认"条、按项目分组的任务、底部设置和命令面板入口。
 // 从顶栏下面开始，不画标题栏；底色 --bg-sidebar 与顶栏连成一片。宽度由外层容器给。
 import { reportError } from "../../ui/errors.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -13,16 +13,18 @@ import {
   useSelectedTaskId,
   useTasksState,
 } from "../../store/index.ts";
+import { Close } from "../../icons.tsx";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { archiveWithUndo, useHiddenTasks } from "./archive-store.ts";
-import { FolderPlusIcon, GearIcon, PlusIcon, SearchIcon } from "./icons.tsx";
+import { FolderPlusIcon, GearIcon, PlusIcon, SearchIcon, SessionIcon } from "./icons.tsx";
 import { initialVisibleTasks, ProjectGroup, projectNavId, showMoreStep, type RowHandlers } from "./ProjectGroup.tsx";
 import { refreshProjects, useProjectsState } from "./projects-store.ts";
 import { addProjectAsDraft } from "./sidebar-actions.ts";
 import { startDraft } from "../empty/index.ts";
 import { groupTasks, nextWaitingTask, waitingTasks } from "../../../../shared/ui/sidebar-model.ts";
 import { taskNavId } from "./TaskRow.tsx";
-import { useNow } from "./task-time.ts";
+import { formatTaskTime, useNow } from "./task-time.ts";
+import { sessionLabel, useSessionSearch } from "./use-session-search.ts";
 import { useSidebarMenus } from "./use-sidebar-menus.tsx";
 import "./sidebar.css";
 
@@ -42,6 +44,9 @@ export function Sidebar() {
   const [limits, setLimits] = useState<Record<string, number>>({});
   const [tabStop, setTabStop] = useState("");
   const [renamingId, setRenamingId] = useState<TaskState["id"] | null>(null);
+  const [query, setQuery] = useState("");
+  const searching = query.trim() !== "";
+  const sessionResults = useSessionSearch(query.trim());
 
   useEffect(() => {
     void refreshProjects();
@@ -59,12 +64,22 @@ export function Sidebar() {
     if (unknownProject) void refreshProjects();
   }, [unknownProject]);
 
-  const groups = useMemo(
-    () => groupTasks(projectsState.list, tasksState.list, hidden),
-    [projectsState.list, tasksState.list, hidden],
-  );
+  // 搜索：按标题过滤任务；项目组里没有匹配的就整组不显示。
+  const matchedTasks = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return needle === ""
+      ? tasksState.list
+      : tasksState.list.filter((task) => task.title.toLowerCase().includes(needle));
+  }, [query, tasksState.list]);
+  const groups = useMemo(() => {
+    const all = groupTasks(projectsState.list, matchedTasks, hidden);
+    return searching ? all.filter((group) => group.tasks.length > 0) : all;
+  }, [projectsState.list, matchedTasks, hidden, searching]);
   const waiting = useMemo(() => waitingTasks(tasksState.list, hidden), [tasksState.list, hidden]);
   const labelOf = (projectId: ProjectId) => groups.find((group) => group.project.id === projectId)?.label ?? "";
+
+  // 搜索时忽略折叠，匹配的任务都要看得见。
+  const isCollapsed = (project: Project) => !searching && collapsed.has(project.id);
 
   const toggleProject = (project: Project, collapse: boolean) => {
     const next = new Set(collapsed);
@@ -106,7 +121,7 @@ export function Sidebar() {
   // roving tabindex：整个列表一个停靠点，记住的那个已不存在时回到选中的任务，再不行是第一项。
   const navIds = groups.flatMap((group) => [
     projectNavId(group.project),
-    ...(collapsed.has(group.project.id) ? [] : group.tasks.map(taskNavId)),
+    ...(isCollapsed(group.project) ? [] : group.tasks.map(taskNavId)),
   ]);
   const selectedNav = selectedTaskId === null ? "" : `task:${selectedTaskId}`;
   const tabStopId = navIds.includes(tabStop) ? tabStop : navIds.includes(selectedNav) ? selectedNav : (navIds[0] ?? "");
@@ -131,11 +146,66 @@ export function Sidebar() {
 
   return (
     <nav className="sb" aria-label={t("sidebar.label")} data-testid="sidebar">
-      <button type="button" className="sb-new" onClick={() => startDraft(null)}>
-        <PlusIcon />
-        <span className="sb-new-label">{t("sidebar.newTask")}</span>
-        <kbd className="kbd">Ctrl N</kbd>
-      </button>
+      <div className="sb-search">
+        <SearchIcon />
+        <input
+          type="text"
+          role="searchbox"
+          data-testid="sidebar-search"
+          value={query}
+          placeholder={t("sidebar.search")}
+          aria-label={t("sidebar.search")}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === "Escape" && query !== "") {
+              event.preventDefault();
+              event.stopPropagation();
+              setQuery("");
+            } else if (event.key === "ArrowDown") {
+              // 从搜索框直接进结果列表。
+              const first = listRef.current?.querySelector<HTMLElement>("[data-nav]");
+              if (first) {
+                event.preventDefault();
+                first.focus();
+              }
+            }
+          }}
+        />
+        {query !== "" && (
+          <button
+            type="button"
+            className="sb-search-clear"
+            aria-label={t("sidebar.clearSearch")}
+            onClick={() => setQuery("")}
+          >
+            <Close size={12} />
+          </button>
+        )}
+      </div>
+
+      <div className="sb-actions">
+        <button
+          type="button"
+          className="sb-new"
+          data-testid="sidebar-new-task"
+          title={`${t("sidebar.newTask")} (Ctrl N)`}
+          onClick={() => startDraft(null)}
+        >
+          <PlusIcon />
+          <span className="sb-new-label">{t("sidebar.newTask")}</span>
+        </button>
+        <button
+          type="button"
+          className="sb-new"
+          data-testid="sidebar-add-project"
+          title={t("sidebar.addProject")}
+          onClick={() => void addProjectAsDraft(t)}
+        >
+          <FolderPlusIcon />
+          <span className="sb-new-label">{t("sidebar.addProject")}</span>
+        </button>
+      </div>
 
       {firstWaiting !== null && (
         <button
@@ -171,20 +241,12 @@ export function Sidebar() {
               </button>
             </div>
           )}
-          {projectsState.loaded && projectsState.list.length === 0 && (
-            <div className="sb-no-projects">
-              <button type="button" className="sb-secondary" onClick={() => void addProjectAsDraft(t)}>
-                <FolderPlusIcon />
-                {t("sidebar.addProject")}
-              </button>
-            </div>
-          )}
           {groups.map((group) => (
             <ProjectGroup
               key={group.project.id}
               group={group}
-              collapsed={collapsed.has(group.project.id)}
-              limit={limits[group.project.id] ?? initialVisibleTasks}
+              collapsed={isCollapsed(group.project)}
+              limit={searching ? Infinity : (limits[group.project.id] ?? initialVisibleTasks)}
               selectedTaskId={selectedTaskId}
               tabStopId={tabStopId}
               renamingId={renamingId}
@@ -200,6 +262,38 @@ export function Sidebar() {
               onOpenProjectMenu={openProjectMenu}
             />
           ))}
+          {searching && sessionResults.length > 0 && (
+            <section className="sb-group" aria-label={t("sidebar.searchHistory")} data-testid="sidebar-session-results">
+              <p className="sb-group-title">{t("sidebar.searchHistory")}</p>
+              {sessionResults.map((session) => (
+                <button
+                  key={session.id}
+                  type="button"
+                  className="sb-row sb-row-main sb-session"
+                  data-nav={`session:${session.id}`}
+                  data-testid="sidebar-session"
+                  tabIndex={-1}
+                  onClick={() =>
+                    void window.studio
+                      .resumeSession(session.id)
+                      .then((task) => selectTask(task.id))
+                      .catch((error: unknown) =>
+                        reportError(t, error, (message) => t("history.resumeFailed", { message })),
+                      )
+                  }
+                >
+                  <SessionIcon />
+                  <span className="sb-row-title">{sessionLabel(session) ?? t("history.untitled")}</span>
+                  <span className="sb-row-tail">{formatTaskTime(t, locale, session.modifiedAt, now)}</span>
+                </button>
+              ))}
+            </section>
+          )}
+          {searching && groups.length === 0 && sessionResults.length === 0 && (
+            <p className="sb-note" role="status">
+              {t("sidebar.searchNone")}
+            </p>
+          )}
         </div>
         <OverlayScrollbar target={listRef} />
       </div>
@@ -222,15 +316,6 @@ export function Sidebar() {
           onClick={() => setPaletteOpen(true)}
         >
           <SearchIcon />
-        </button>
-        <button
-          type="button"
-          className="sb-icon-btn"
-          aria-label={t("sidebar.addProject")}
-          title={t("sidebar.addProject")}
-          onClick={() => void addProjectAsDraft(t)}
-        >
-          <FolderPlusIcon />
         </button>
       </div>
       {menu}

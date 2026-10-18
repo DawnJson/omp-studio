@@ -2,6 +2,10 @@ import type { MessageEntry } from "../index.ts";
 
 export const sidebar = {
   newTask: "新任务",
+  search: "搜索任务和会话",
+  searchHistory: "历史会话",
+  searchNone: "没有匹配的任务或会话",
+  clearSearch: "清除搜索",
   waitingOne: "1 个任务在等你 · {project}",
   waitingMany: "{n} 个任务在等你",
   empty: "还没有任务",

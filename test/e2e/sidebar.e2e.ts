@@ -35,6 +35,7 @@ function makeTask(
     thinkingLevel: null,
     thinkingLevels: [],
     contextUsage: null,
+    sessionUsage: null,
     queue: { steering: [], followUp: [] },
     dialogs: [],
     runningSubagents: 0,

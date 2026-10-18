@@ -11,9 +11,27 @@ import type {
   NotifyType,
   PromptError,
   PromptStatus,
+  SessionCredits,
   ThinkingLevel,
+  TokenUsage,
 } from "./omp-wire/rpc-wire.generated.ts";
+import type {
+  GitCommitResult,
+  GitDiffArea,
+  GitFileDiff,
+  GitHunkRef,
+  GitMergeResult,
+  GitPullRequestInput,
+  GitPullRequestResult,
+  GitPushResult,
+  GitStatus,
+  GitTools,
+  ReviewComment,
+  TaskWorktreeInfo,
+  WorktreeCleanupResult,
+} from "./git.ts";
 import type { Transcript, TranscriptEvent } from "./transcript.ts";
+import type { SubagentDetail, SubagentLane } from "./subagents.ts";
 
 // ───────── 标识 ─────────
 
@@ -118,6 +136,20 @@ export interface ModelOption {
   contextWindow: number | null;
   reasoning: boolean;
   acceptsImages: boolean;
+  /** 单次输出上限（ModelInfo.maxTokens）；provider 没给时为 null。 */
+  maxTokens: number | null;
+  /** 价格，美元 / 百万 token（ModelInfo.cost）；本地模型和未知价格是全 0。 */
+  cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
+}
+
+/** get_session_stats 里界面用得上的部分：本会话累计的 token、费用、请求数。 */
+export interface SessionUsage {
+  tokens: TokenUsage;
+  /** 美元。 */
+  cost: number;
+  premiumRequests: number;
+  /** 订阅计费的会话才有。 */
+  credits?: SessionCredits;
 }
 
 export interface TaskState {
@@ -137,6 +169,8 @@ export interface TaskState {
   thinkingLevels: ThinkingLevel[];
   /** get_state.contextUsage；percent 是 0–100 的百分数。omp 没给时为 null。 */
   contextUsage: ContextUsage | null;
+  /** get_session_stats，每轮结束后刷新；还没取到（或 omp 取不到）时为 null。 */
+  sessionUsage: SessionUsage | null;
   /** queue_update 的快照；chip 文本原样传给 removeQueuedMessage / promoteQueuedMessage。 */
   queue: { steering: string[]; followUp: string[] };
   /** 未答的对话框，按到达顺序。 */
@@ -149,6 +183,8 @@ export interface TaskState {
 
 export interface CreateTaskInput {
   projectId: ProjectId;
+  /** 为这个任务建独立的 git worktree（分支 studio/<slug>），omp 在 worktree 里运行。项目不是 git 仓库时 reject。 */
+  worktree?: boolean;
 }
 
 export interface PromptImage {
@@ -285,12 +321,56 @@ export type OmpStatus =
       belowMinimum: boolean;
       /** 自管时已下载好、新任务会用到的版本。 */
       stagedUpdate: string | null;
+      /** 构建服务上更新的版本；只在非自管（用户自装、他人管理）时由检查写入，用于提示"有新版本"。自管的直接装上，不会有。 */
+      availableVersion?: string | null;
     }
   /** 用户拒绝接管，而 PATH 上的是脚本，启动不了。 */
   | { state: "unusable"; path: string; reason: "script_launcher" }
   | { state: "error"; stage: "discover" | "download" | "verify" | "install" | "path"; message: string }
   /** PATH 上没有 omp，等用户点"下载并安装"。version/sizeBytes 来自构建服务，查不到时为 null。 */
   | { state: "missing"; version: string | null; sizeBytes: number | null; source: string };
+
+/** 订阅账号的一个额度窗口（5 小时、每周等）。usedFraction 0..1，超过 1 是超额；provider 没给就是 null。 */
+export interface QuotaLimit {
+  id: string;
+  label: string;
+  windowLabel: string | null;
+  usedFraction: number | null;
+  /** 窗口重置时间（毫秒时间戳）。 */
+  resetsAt: number | null;
+  status: "ok" | "warning" | "exhausted" | "unknown";
+}
+
+export interface QuotaAccount {
+  provider: string;
+  account: string | null;
+  limits: QuotaLimit[];
+  notes: string[];
+  fetchedAt: number | null;
+}
+
+/** `omp usage --json` 的结果；没有登录任何订阅账号时 accounts 为空。 */
+export interface QuotaSnapshot {
+  generatedAt: number;
+  accounts: QuotaAccount[];
+}
+
+/** 本地时区的一天；没有用量的日子不出现在 days 里。 */
+export interface UsageDay {
+  /** YYYY-MM-DD */
+  date: string;
+  requests: number;
+  tokens: number;
+  costUsd: number;
+}
+
+/** 近 365 天每日消耗（omp 的 stats.db，只读）。hasDatabase=false：omp 还没建过这个库（从没跑过 `omp stats`）。 */
+export interface UsageHeatmap {
+  from: string;
+  to: string;
+  days: UsageDay[];
+  hasDatabase: boolean;
+}
 
 export interface OmpUpgradeResult {
   exitCode: number | null;
@@ -438,6 +518,16 @@ export interface StudioInvokeApi {
   /** 在系统文件管理器里选中任务工作目录里的文件。校验同 openTaskFile。 */
   revealTaskFile(taskId: TaskId, relPath: string): Promise<void>;
 
+  // 子代理泳道（阶段 5）
+  /** 当前泳道快照（含已结束的）；渲染进程打开任务或重载后用它对齐，之后靠 subagents 事件。 */
+  getSubagents(taskId: TaskId): Promise<SubagentLane[]>;
+  /** 子代理详情：泳道 + get_subagent_messages 读到的完整记录。任务没有进程时 messages 为 null。 */
+  getSubagentDetail(taskId: TaskId, subagentId: string): Promise<SubagentDetail>;
+  /** steer_subagent：给运行中的子代理插一句话。子代理不在运行时 reject。 */
+  steerSubagent(taskId: TaskId, subagentId: string, text: string): Promise<void>;
+  /** cancel_subagent；返回 omp 说是否真的取消了（已经结束的是 false）。 */
+  cancelSubagent(taskId: TaskId, subagentId: string): Promise<boolean>;
+
   // 账号和模型（走服务进程）
   listModels(): Promise<ModelOption[]>;
   listLoginProviders(): Promise<LoginProvider[]>;
@@ -468,10 +558,10 @@ export interface StudioInvokeApi {
   /** 只对 PATH 上用户自装的 omp 执行 omp update；自管和他人管理的会拒绝。 */
   upgradePathOmp(): Promise<OmpUpgradeResult>;
   /**
-   * 自管的 omp：立即向构建服务检查一次，有新版就下载、校验并替换 bin/omp.exe（新任务用新版本）。
-   * 返回装上的版本号，已是最新时为 null。非自管时拒绝（用 upgradePathOmp）。
+   * 立即向构建服务检查一次。自管的 omp：有新版就下载、校验并替换 bin/omp.exe（新任务用新版本），返回 installedVersion；
+   * 用户自装、他人管理的 omp：只比较版本，有新版时返回 availableVersion（状态里也带上），不动文件。已是最新时两个都是 null。
    */
-  checkOmpUpdate(): Promise<{ installedVersion: string | null }>;
+  checkOmpUpdate(): Promise<{ installedVersion: string | null; availableVersion: string | null }>;
   /** PATH 上没有 omp（状态 missing）时，用户点"下载并安装"：下载、校验并装好自管副本，进度走 ompStatus（installing）。 */
   installOmp(): Promise<void>;
   /** 取消正在进行的下载；已下载的部分丢弃，状态回到 missing。 */
@@ -482,6 +572,13 @@ export interface StudioInvokeApi {
   setOmpConfig(key: string, valueJson: string): Promise<OmpConfigWriteResult>;
   /** `omp config reset <key> --json`：删掉全局配置里的这个键，回到别的层或默认值。 */
   resetOmpConfig(key: string): Promise<OmpConfigWriteResult>;
+  /** 订阅账号额度总览：`omp usage --json`，只读。 */
+  getUsageQuota(): Promise<QuotaSnapshot>;
+  /**
+   * 近一年每日消耗，只读 omp 的 stats.db。refresh=true 先让 omp 自己跑一次 `omp stats --json` 同步新会话（首次可能要几分钟），
+   * 再读；false 直接读现有的库。
+   */
+  getUsageHeatmap(refresh: boolean): Promise<UsageHeatmap>;
   setReduceMotion(on: boolean): Promise<void>;
   setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
   setNotifyOnGate(on: boolean): Promise<void>;
@@ -499,6 +596,41 @@ export interface StudioInvokeApi {
   checkForUpdate(): Promise<void>;
   /** 安装已下载的更新：先走退出流程关掉所有 omp 子进程，再安装并重新启动。 */
   installUpdate(): Promise<void>;
+
+  // 评审（阶段 3）和 worktree / git（阶段 4）。路径一律相对仓库根；仓库根 = 任务 cwd 所在的 git 仓库（有 worktree 时是 worktree）。
+  /** PATH 上的 git 版本和 gh 是否可用（界面据此隐藏"开 PR"等入口）。 */
+  getGitTools(): Promise<GitTools>;
+  /** 任务 cwd 的 git 状态；不是仓库或没有 git 是正常的类型化结果，不 reject。 */
+  getGitStatus(taskId: TaskId): Promise<GitStatus>;
+  /** 一个文件一侧的 diff（结构化的 hunk 和新旧行号）；二进制和过大文件有对应的 kind。 */
+  getGitFileDiff(taskId: TaskId, path: string, area: GitDiffArea): Promise<GitFileDiff>;
+  stageGitFile(taskId: TaskId, path: string): Promise<void>;
+  unstageGitFile(taskId: TaskId, path: string): Promise<void>;
+  /** 把文件的所有改动退回 HEAD（未跟踪的文件直接删除）。不确认，确认由界面做。 */
+  discardGitFile(taskId: TaskId, path: string): Promise<void>;
+  /** hunk 用 GitHunkRef 定位；diff 在两次调用之间变过时 reject（请刷新后重试）。 */
+  stageGitHunk(taskId: TaskId, path: string, hunk: GitHunkRef): Promise<void>;
+  unstageGitHunk(taskId: TaskId, path: string, hunk: GitHunkRef): Promise<void>;
+  /** 丢弃一个没暂存的 hunk（area = unstaged 里看到的）。 */
+  discardGitHunk(taskId: TaskId, path: string, hunk: GitHunkRef): Promise<void>;
+  /** 校验每条评论的文件路径在任务目录内，格式化成一条消息（formatReviewComments）并作为 prompt 发出。 */
+  sendReviewComments(taskId: TaskId, comments: ReviewComment[], whenBusy: PromptInput["whenBusy"]): Promise<void>;
+  /** 项目仓库里的 setup 脚本（相对路径，如 `.omp-studio/setup.ps1`）；没有为 null。新建 worktree 任务时会运行它，界面应先提示。 */
+  getWorktreeSetupScript(projectId: ProjectId): Promise<string | null>;
+  /** 任务的 worktree 信息；任务没有 worktree 返回 null。 */
+  getTaskWorktree(taskId: TaskId): Promise<TaskWorktreeInfo | null>;
+  /** 把 worktree 分支合进基分支（在主仓库里）。有冲突时不留下半成品，返回 conflict。不删除 worktree。 */
+  mergeTaskWorktree(taskId: TaskId): Promise<GitMergeResult>;
+  /** 关掉任务进程、移除 worktree 和分支（含未提交和未合并的改动），并归档任务。 */
+  discardTaskWorktree(taskId: TaskId): Promise<void>;
+  /** 清理这个项目下没有任务记录引用的 worktree；有未提交改动或未合并提交的保留并报告。 */
+  cleanupOrphanWorktrees(projectId: ProjectId): Promise<WorktreeCleanupResult>;
+  /** stageAll 为 true 时先暂存全部；否则只提交已暂存的。 */
+  commitGit(taskId: TaskId, message: string, stageAll: boolean): Promise<GitCommitResult>;
+  /** 推送当前分支（需要时设置 upstream），从不强推。 */
+  pushGit(taskId: TaskId): Promise<GitPushResult>;
+  /** `gh pr create`，基分支是任务的 worktreeBase（没有 worktree 时由 gh 决定）。 */
+  createPullRequest(taskId: TaskId, input: GitPullRequestInput): Promise<GitPullRequestResult>;
 }
 
 export interface StudioEventPayloads {
@@ -517,6 +649,8 @@ export interface StudioEventPayloads {
   defaultModel: DefaultModelInfo | null;
   /** omp 的可用斜杠命令变了（available_commands_update）。 */
   slashCommands: { taskId: TaskId; commands: AvailableSlashCommand[] };
+  /** 任务的子代理泳道变了（整份快照，主进程合并过高频的 progress 帧）。 */
+  subagents: { taskId: TaskId; lanes: SubagentLane[] };
   /** omp-studio 自身的更新状态变化。 */
   updateState: UpdateState;
 }
@@ -600,6 +734,10 @@ export const invokeNames = {
   compactTask: true,
   openTaskFile: true,
   revealTaskFile: true,
+  getSubagents: true,
+  getSubagentDetail: true,
+  steerSubagent: true,
+  cancelSubagent: true,
   listModels: true,
   listLoginProviders: true,
   startLogin: true,
@@ -621,6 +759,8 @@ export const invokeNames = {
   getOmpConfig: true,
   setOmpConfig: true,
   resetOmpConfig: true,
+  getUsageQuota: true,
+  getUsageHeatmap: true,
   setReduceMotion: true,
   setEnterWhileRunning: true,
   setNotifyOnGate: true,
@@ -631,6 +771,24 @@ export const invokeNames = {
   getUpdateState: true,
   checkForUpdate: true,
   installUpdate: true,
+  getGitTools: true,
+  getGitStatus: true,
+  getGitFileDiff: true,
+  stageGitFile: true,
+  unstageGitFile: true,
+  discardGitFile: true,
+  stageGitHunk: true,
+  unstageGitHunk: true,
+  discardGitHunk: true,
+  sendReviewComments: true,
+  getWorktreeSetupScript: true,
+  getTaskWorktree: true,
+  mergeTaskWorktree: true,
+  discardTaskWorktree: true,
+  cleanupOrphanWorktrees: true,
+  commitGit: true,
+  pushGit: true,
+  createPullRequest: true,
 } satisfies Record<keyof StudioInvokeApi, true>;
 
 /** StudioEventPayloads 的全部事件名；订阅函数叫 `on` + 首字母大写的名字。 */
@@ -646,5 +804,6 @@ export const eventNames = {
   projectDropped: true,
   defaultModel: true,
   slashCommands: true,
+  subagents: true,
   updateState: true,
 } satisfies Record<keyof StudioEventPayloads, true>;

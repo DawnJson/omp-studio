@@ -10,6 +10,7 @@ import { MIN_OMP_VERSION } from "../../../../shared/omp-version.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { useOmpStatus } from "../../store/index.ts";
 import { Button, Card, SettingRow } from "./controls.tsx";
+import "./omp-update.css";
 
 type Ready = Extract<OmpStatus, { state: "ready" }>;
 
@@ -66,11 +67,16 @@ export function OmpSection() {
 
   const checkUpdate = () =>
     run("check", async () => {
-      const { installedVersion } = await window.studio.checkOmpUpdate();
-      setNote({
-        text: installedVersion ? t("omp.updatedTo", { version: installedVersion }) : t("omp.upToDate"),
-        error: false,
-      });
+      const { installedVersion, availableVersion } = await window.studio.checkOmpUpdate();
+      // 有新版本时不写提示：那一行（omp-available）常驻显示，随语言切换。
+      setNote(
+        availableVersion
+          ? null
+          : {
+              text: installedVersion ? t("omp.updatedTo", { version: installedVersion }) : t("omp.upToDate"),
+              error: false,
+            },
+      );
     });
   const upgradeOmp = () =>
     run("upgrade", async () => {
@@ -121,6 +127,27 @@ export function OmpSection() {
             )}
           </>
         )}
+        {source.kind !== "studio_managed" && (
+          <SettingRow
+            title={t("omp.checkUpdate")}
+            desc={
+              source.kind === "managed_by_other"
+                ? `${t("omp.updateByManager", { name: source.managerName })} ${t("omp.autoUpdate.noteOther")}`
+                : t("omp.autoUpdate.noteOther")
+            }
+          >
+            {() => (
+              <span className="st-inline-actions">
+                {ready.availableVersion && (
+                  <span data-testid="omp-available">{t("omp.newVersion", { version: ready.availableVersion })}</span>
+                )}
+                <Button loading={busy === "check"} disabled={busy !== null} onClick={() => void checkUpdate()}>
+                  {t("omp.checkUpdate")}
+                </Button>
+              </span>
+            )}
+          </SettingRow>
+        )}
         {source.kind === "user_installed" && (
           <SettingRow title={t("omp.upgrade")}>
             {() => (
@@ -128,11 +155,6 @@ export function OmpSection() {
                 {busy === "upgrade" ? t("omp.upgrading") : t("omp.upgrade")}
               </Button>
             )}
-          </SettingRow>
-        )}
-        {source.kind === "managed_by_other" && (
-          <SettingRow title={t("omp.checkUpdate")}>
-            {() => <span>{t("omp.updateByManager", { name: source.managerName })}</span>}
           </SettingRow>
         )}
       </Card>
