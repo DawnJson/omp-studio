@@ -121,7 +121,24 @@ flowchart LR
 - [ ] omp-studio 管理 omp 时和 Tern 一样做管理者：自己管的那份（PATH 上没有 omp 时下载的，或用户同意接管后下载的）装好后**直接**把 `bin` 放到用户 PATH 最前面，不再单独问"要不要加进 PATH"（去掉 `askAddToPath`）（仓库所有者 2026-10-18 要求；改时同步 `docs/architecture/omp-install.md`、`src/main/omp-manager/`）
 - [ ] 有别的管理者（如 Tern）时也问一次要不要接管，和用户自装的同一个弹窗；同意后自己管一份并放到 PATH 最前面，Tern 的目录和 `manager.json` 不碰；拒绝就继续用 Tern 的（仓库所有者 2026-10-18 定）。开工前先实测：omp-studio 的 bin 排在前面后，Tern 会不会把自己再放回最前面、Tern 自己的终端里用的是哪个 omp、Tern 的"接管"提示会不会把 omp-studio 那份当成别人的 omp 来处理
 
-完成后开始内测。
+### 阶段 2.5：工程基础（2026-10-18 盘点，内测前完成）
+
+成熟软件的版本迭代和问题追查需要这些；都不涉及界面设计。前 5 项优先。
+
+- [ ] 版本号：SemVer，内测期用 `0.x`。当前第一版定为 `0.1.0`；修 bug 升第三位，加功能升第二位，公开发布定 `1.0.0`。每次发版打 git tag `v<版本>`，设置页"关于"显示版本号（`getAppInfo` 已能读到 `app.getVersion()`）
+- [ ] `CHANGELOG.md`：每个版本列新增、修复、变更，面向用户、中文；以后在线更新的"有新版本"提示从这里取
+- [ ] 发版流程：改版本号、写 CHANGELOG、打 tag、打包，写成一个脚本，步骤写进 AGENTS.md 的命令表
+- [ ] CI（GitHub Actions）：每次 push 跑 typecheck、单测、e2e；以后发版也在 CI 里打包（会用仓库所有者的 Actions 额度，开工前确认）
+- [ ] 主进程日志：写到 `userData\logs\`，按天轮转，设置页能打开日志文件夹；不得记录 key，路径里的用户名要换掉（用库还是手写，开工前确认）
+- [ ] 代码格式和静态检查：`tsc` 只查类型，查不出 React hooks 用错（依赖数组漏写、条件里调用 hook）这类问题，也不管格式；多个 agent 写代码时格式不统一，diff 里会混进无关改动，干扰评审。方案二选一，开工前由仓库所有者定：A. Prettier（格式）+ ESLint（typescript-eslint + react-hooks，只开少量规则）；B. Biome（一个工具同时做格式和检查，快，但 react-hooks 规则覆盖不如 ESLint 全）。定下后写进 AGENTS.md 技术栈表，命令表加 `npm run lint` / `npm run format`，CI 里一起跑
+- [ ] "导出诊断信息"按钮（版本号、omp 版本、最近日志，打包成一个文件）；在线崩溃上报以后再说
+- [ ] `LICENSE`（PLAN 定的 MIT）
+- [ ] README：是什么、怎么装、怎么开发
+- [ ] "帮助与反馈"改指向本仓库 Issues，加 bug 模板（要求附版本号和日志）
+- [ ] Dependabot 每月提依赖升级；Electron 每 8 周一个大版本，要跟上安全更新
+- [ ] `main` 分支保护：CI 不过不能合并（CI 有了之后）
+
+完成阶段 2 和 2.5 后开始内测。
 
 ### 阶段 3：diff 评审
 
