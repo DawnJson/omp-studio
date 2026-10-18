@@ -63,9 +63,9 @@ omp 自己的协议和接口以 omp 文档为准：`rpc.md`（RPC 协议）、`e
 ## omp 的边界
 
 - **只用 omp 官方原版 exe，不 fork，不打补丁。** 缺的能力先写 omp-studio 自己的 omp 插件；插件补不了就给官方提 PR，等合并。
-- **PATH 上已经有 omp 就直接用它，只读。** 不管它是 Tern 管理的，还是用户用 install.ps1、bun、npm、brew 装的，都不要改它的目录、替换它的 exe、改写 `manager.json`。不要把别的 omp 放到它前面，只有下一条的接管例外。唯一会对它执行的命令是用户点了升级按钮时的 `omp update`。开发机上就装着 Tern，调试时同样不能碰 `%LOCALAPPDATA%\Tern\omp\`。
+- **PATH 上的 omp 只读。** 不管它是 Tern 管理的，还是用户用 install.ps1、bun、npm、brew 装的，都不要改它的目录、替换它的 exe、改写 `manager.json`。不要把别的 omp 放到它前面，只有下面"接管"一条例外。唯一会对它执行的命令是用户点了升级按钮时的 `omp update`。开发机上就装着 Tern，调试时同样不能碰 `%LOCALAPPDATA%\Tern\omp\`。
 - **PATH 上没有 omp，或者用户同意接管时（见下一条），才自己管理一份**，照 Tern 的做法，细节和实测记录见 `problem.md` 第 2 题：从 `build.stencil.so` 下载、按 size 和 sha256 校验、`omp/versions/` 保留最近 3 个版本、`omp/bin/omp.exe` 是当前版本、`omp/manager.json` 声明由 omp-studio 管理。替换正在运行的 exe 时先改名再放新的。
-- **PATH 上的 omp 用不了时，问用户要不要接管。** PATH 上第一个 omp 是 `omp.cmd` 这类脚本（npm 装的通常是这样），不用 shell 启动不了。这时照 Tern 的做法弹窗询问；用户同意才按上一条自己管理一份，并把它的 `bin` 放到用户 PATH 最前面。用户原来那份不删不改。没有用户同意，不改 PATH。
+- **用户自己装的 omp，照 Tern 问一次要不要接管。** 有管理者的（exe 上两级目录有 `manager.json`，比如 Tern）不问，直接用。用户自己装的（install.ps1、bun、npm、brew 等）首次发现时弹窗问一次：同意才按上一条自己管理一份，并把它的 `bin` 放到用户 PATH 最前面，用户原来那份不删不改；拒绝就继续用用户那份，没有用户同意不改 PATH。脚本形式的 `omp.cmd` 不用 shell 启动不了，拒绝时提示这种安装方式用不了。
 - **RPC 类型从 omp 的 wire schema 生成，不手写。** 做法：按所用 omp 版本，从官方仓库 tag `v<版本>` 的 `packages/coding-agent/src/modes/rpc/wire/` 拷贝 `rpc-wire.generated.ts` 进本仓库，文件头写明来源版本，omp 升级时一起更新；不装 `@oh-my-pi/pi-coding-agent` npm 包。细节见 `problem.md` 第 3 题。新用到的 RPC 命令或事件，如果 schema 里没有，说明它不是公开协议，先停下来问。
 - **启动参数用 `--mode rpc-ui`。** omp-desktop 记录过 `--rpc` 会退回 TUI 模式，往 stdout 输出 ANSI 控制字符。
 - **启动后先协商协议 v2**（`negotiate_protocol`），并处理 `rpc_chunk` 分块重组。不要假设一行就是一个完整事件。
