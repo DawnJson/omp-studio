@@ -125,10 +125,10 @@ flowchart LR
 
 成熟软件的版本迭代和问题追查需要这些；都不涉及界面设计。前 5 项优先。
 
-- [ ] 版本号：SemVer，内测期用 `0.x`。当前第一版定为 `0.1.0`；修 bug 升第三位，加功能升第二位，公开发布定 `1.0.0`。每次发版打 git tag `v<版本>`，设置页"关于"显示版本号（`getAppInfo` 已能读到 `app.getVersion()`）
-- [ ] `CHANGELOG.md`：每个版本列新增、修复、变更，面向用户、中文；以后在线更新的"有新版本"提示从这里取
-- [ ] 发版流程：改版本号、写 CHANGELOG、打 tag、打包，写成一个脚本，步骤写进 AGENTS.md 的命令表
-- [ ] CI（GitHub Actions）：每次 push 跑 typecheck、单测、e2e；以后发版也在 CI 里打包（会用仓库所有者的 Actions 额度，开工前确认）
+- [x] 版本号：SemVer，内测期用 `0.x`。当前第一版定为 `0.1.0`；修 bug 升第三位，加功能升第二位，公开发布定 `1.0.0`。每次发版打 git tag `v<版本>`，设置页"关于"显示版本号（`getAppInfo` 已能读到 `app.getVersion()`）（规则写在 `CHANGELOG.md` 开头，tag 由发版脚本打；0.1.0 还没发，没打 tag）
+- [x] `CHANGELOG.md`：每个版本列新增、修复、变更，面向用户、中文；以后在线更新的"有新版本"提示从这里取（`npm run feed` 把该版本一节写进 `latest.yml` 的 `releaseNotes`；界面还没显示它）
+- [x] 发版流程：改版本号、写 CHANGELOG、打 tag、打包，写成一个脚本，步骤写进 AGENTS.md 的命令表（`npm run release -- <版本>`；在临时克隆里完整跑过 0.1.0：单测、提交、tag、安装包、`latest.yml` 带说明）
+- [ ] CI（GitHub Actions）：每次 push 跑 typecheck、单测、e2e；以后发版也在 CI 里打包（会用仓库所有者的 Actions 额度，开工前确认）（仓库所有者 2026-10-18：暂不接，等开发得差不多再开始）
 - [ ] 主进程日志：写到 `userData\logs\`，按天轮转，设置页能打开日志文件夹；不得记录 key，路径里的用户名要换掉（用库还是手写，开工前确认）
 - [ ] 代码格式和静态检查：`tsc` 只查类型，查不出 React hooks 用错（依赖数组漏写、条件里调用 hook）这类问题，也不管格式；多个 agent 写代码时格式不统一，diff 里会混进无关改动，干扰评审。**已定（2026-10-18）：Prettier（格式）+ ESLint（typescript-eslint + react-hooks，只开少量规则）**，没选 Biome（react-hooks 规则覆盖不如 ESLint 全）。命令表加 `npm run lint` / `npm run format`，CI 里一起跑；第一次全仓格式化单独一个提交，不和功能改动混在一起
 - [ ] "导出诊断信息"按钮（版本号、omp 版本、最近日志，打包成一个文件）；在线崩溃上报以后再说
