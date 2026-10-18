@@ -1,4 +1,35 @@
 import type { MessageEntry } from "../index.ts";
 import type { composer as zhCN } from "../zh-CN/composer.ts";
 
-export const composer = {} satisfies Record<keyof typeof zhCN, MessageEntry>;
+export const composer = {
+  placeholderNew: "Ask omp to do something…",
+  placeholder: "Reply…",
+  placeholderRunning: "Tell omp what to change (Enter to steer, Ctrl+Enter for later)…",
+  placeholderRunningSwapped: "Tell omp what to change (Enter for later, Ctrl+Enter to steer)…",
+  placeholderGate: "Deny and tell omp what to do instead…",
+  send: "Send",
+  stop: "Stop",
+  stopping: "Stopping…",
+  stopped: "Stopped",
+  steer: "Steer",
+  later: "Later",
+  attach: "Add image",
+  "attach.imageOnly": "Only images can be added for now",
+  "attach.unsupported": "The current model doesn't accept images",
+  "attach.failed": "Couldn't process this image",
+  "attachment.remove": "Remove",
+  "queue.aria": "Queued messages",
+  "queue.promote": "Steer now",
+  "queue.remove": "Withdraw",
+  "queue.more": "{n} more",
+  queueRestored: { one: "Stopped · {count} queued message put back in the box", other: "Stopped · {count} queued messages put back in the box" },
+  imagesDropped: "The images were too large to restore",
+  nextRequest: "Applies from the next request",
+  context: "Context {p}%",
+  "context.tip": "omp compacts automatically near the limit",
+  compact: "Compact context",
+  defaultModel: "Default model",
+  noModel: "No model connected",
+  versionTooOld: "omp is too old",
+  modelChip: "Choose model and thinking level",
+} satisfies Record<keyof typeof zhCN, MessageEntry>;

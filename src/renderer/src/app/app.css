@@ -1,0 +1,333 @@
+/* 应用外壳样式：全局 reset、顶栏、侧栏列、主区面板、应用菜单、关于对话框。只用 tokens.css 里的变量。 */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text);
+  background: var(--bg-sidebar);
+}
+
+::selection {
+  background: var(--selection-bg);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.icon {
+  stroke-width: var(--icon-stroke);
+}
+
+#app {
+  display: grid;
+  grid-template-rows: var(--titlebar-h) minmax(0, 1fr);
+  height: 100%;
+}
+
+/* ───────── 顶栏 ───────── */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-left: var(--space-3);
+  /* 给系统三键让位：窗口宽度减去 titlebar-area 的右缘 */
+  padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
+  background: var(--bg-sidebar);
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+.topbar > * {
+  -webkit-app-region: no-drag;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-md);
+  height: var(--control-h-md);
+  padding: 0;
+  color: var(--text-2);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: default;
+  transition: background-color var(--dur-instant) var(--ease-out);
+}
+
+.icon-button:hover,
+.icon-button[aria-expanded="true"] {
+  background: var(--bg-hover);
+}
+
+.icon-button:active {
+  background: var(--bg-active);
+}
+
+.icon-button[aria-disabled="true"] {
+  color: var(--text-disabled);
+  background: transparent;
+}
+
+/* ───────── 侧栏列和主区面板 ───────── */
+
+.body {
+  position: relative;
+  display: flex;
+  min-height: 0;
+}
+
+.sidebar-column {
+  flex: none;
+  width: var(--sidebar-current, var(--sidebar-w));
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg-sidebar);
+  user-select: none;
+}
+
+#app[data-sidebar="hidden"] .sidebar-column {
+  width: 0;
+}
+
+.sidebar-column > * {
+  width: 100%;
+  height: 100%;
+}
+
+.panel {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-app);
+  border-top-left-radius: var(--radius-lg);
+}
+
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--z-sticky);
+  width: var(--space-1);
+  cursor: col-resize;
+}
+
+.sidebar-resizer:hover {
+  background: var(--border);
+}
+
+/* 窄窗口：侧栏覆盖在主区上，主区宽度不变 */
+#app[data-drawer="true"] .sidebar-column {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--z-popover);
+  width: var(--sidebar-w);
+  box-shadow: var(--shadow-2);
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition:
+    transform var(--dur-slow) var(--ease-out),
+    visibility 0s linear var(--dur-slow);
+}
+
+#app[data-drawer="true"][data-sidebar="shown"] .sidebar-column {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.drawer-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-sticky);
+  background: var(--bg-scrim);
+  animation: fade-in var(--dur-fade) var(--ease-out);
+}
+
+
+/* ───────── 应用菜单 ───────── */
+
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popover);
+}
+
+.menu {
+  position: fixed;
+  top: var(--titlebar-h);
+  left: var(--space-3);
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  min-width: calc(var(--sidebar-w) - var(--space-4));
+  max-height: calc(100vh - var(--titlebar-h) - var(--space-4));
+  padding: var(--space-1);
+  overflow-y: auto;
+  background: var(--bg-overlay);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  user-select: none;
+  animation: pop-in var(--dur-base) var(--ease-out);
+  transform-origin: top left;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-menu);
+  padding: 0 var(--space-2);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: default;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.menu-item:focus-visible {
+  background: var(--bg-active);
+  outline-offset: -2px;
+}
+
+.menu-item-check {
+  display: inline-flex;
+  flex: none;
+  width: var(--icon-md);
+  color: var(--accent);
+}
+
+.menu-item-label {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.menu-heading {
+  padding: var(--space-1-5) var(--space-2) var(--space-1);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-3);
+}
+
+.menu-separator {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--border-subtle);
+}
+
+.kbd {
+  padding: 0 var(--space-1-5);
+  font-family: inherit;
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-2xs);
+  color: var(--text-3);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-xs);
+}
+
+/* ───────── 关于 ───────── */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-scrim);
+  animation: fade-in var(--dur-fade) var(--ease-out);
+}
+
+.about {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: var(--dialog-w-sm);
+  max-width: calc(100vw - var(--space-8));
+  padding: var(--space-6);
+  background: var(--bg-overlay);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+  animation: pop-in var(--dur-slow) var(--ease-spring);
+}
+
+.about-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  line-height: var(--lh-xl);
+  font-weight: var(--fw-strong);
+}
+
+.about-version {
+  font-size: var(--fs-base);
+  font-weight: var(--fw-regular);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.button {
+  min-height: var(--control-h-md);
+  margin-top: var(--space-3);
+  padding: 0 var(--space-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: default;
+}
+
+.button:hover {
+  border-color: var(--border-strong);
+}
+
+/* ───────── 动画 ───────── */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--travel-sm)) scale(var(--scale-pop));
+  }
+}

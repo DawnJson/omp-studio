@@ -1,0 +1,539 @@
+/* omp 全部设置的界面：搜索框、导航分组、分组折叠、单行设置项。只用 tokens.css 里的变量。 */
+
+/* ───────── 顶部搜索 ───────── */
+
+.cfg-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: none;
+  width: 100%;
+  margin-bottom: var(--space-2);
+}
+
+.cfg-search-input {
+  width: 100%;
+  height: var(--control-h-md);
+  padding: 0 var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.cfg-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.cfg-search-input::placeholder {
+  color: var(--text-3);
+}
+
+.cfg-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.cfg-search-icon {
+  position: absolute;
+  left: var(--space-2-5);
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.cfg-search-clear {
+  position: absolute;
+  right: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+}
+
+.cfg-search-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* ───────── 导航分组 ───────── */
+
+.settings-nav {
+  overflow-y: auto;
+}
+
+.settings-nav-label {
+  margin: var(--space-4) 0 var(--space-1);
+  padding: 0 var(--space-2-5);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+
+.settings-nav button {
+  flex: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ───────── 分组 ───────── */
+
+.cfg-group {
+  margin-bottom: var(--space-4);
+}
+
+.cfg-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  width: 100%;
+  height: var(--control-h-md);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: default;
+}
+
+.cfg-group-head:hover {
+  background: var(--bg-hover);
+}
+
+.cfg-chevron {
+  flex: none;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.cfg-chevron[data-open] {
+  transform: rotate(90deg);
+}
+
+.cfg-group-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--fs-base);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cfg-group-count {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.cfg-result-title {
+  margin-top: var(--space-4);
+}
+
+.cfg-card {
+  container-type: inline-size;
+  margin-top: var(--space-1);
+}
+
+/* ───────── 设置行：默认一行 ───────── */
+
+.cfg-row {
+  padding: var(--space-2) var(--space-4);
+}
+
+.cfg-row + .cfg-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.cfg-row[data-modified] {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.cfg-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-h-lg);
+}
+
+.cfg-name {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+}
+
+.cfg-title {
+  min-width: 12ch;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cfg-key-title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+}
+
+.cfg-control {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  max-width: 55%;
+}
+
+.cfg-number {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.cfg-control .cfg-string {
+  max-width: 100%;
+}
+
+/* 数组/对象：编辑器占满下一行，标签、"恢复默认"仍在第一行 */
+.cfg-row[data-stacked] .cfg-line {
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
+}
+
+.cfg-row[data-stacked] .cfg-control {
+  order: 3;
+  flex: 1 1 100%;
+  max-width: none;
+}
+
+.cfg-json {
+  width: 100%;
+  height: auto;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  line-height: var(--lh-code-sm);
+  resize: vertical;
+  white-space: pre;
+  overflow: auto;
+}
+
+.cfg-credential {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--bg-sunken);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sm);
+}
+
+.cfg-credential[data-set] {
+  color: var(--st-done);
+}
+
+.cfg-chip {
+  flex: none;
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-xs);
+  background: var(--accent-soft);
+  color: var(--link);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sm);
+  white-space: nowrap;
+}
+
+.cfg-feedback {
+  flex: none;
+  font-size: var(--fs-xs);
+}
+
+.cfg-feedback:empty {
+  display: none;
+}
+
+.cfg-saved {
+  color: var(--st-done);
+  animation: cfg-fade var(--dur-fade) var(--ease-out);
+}
+
+.cfg-reset {
+  flex: none;
+  padding: 0 var(--space-1-5);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--link);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sm);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.cfg-reset:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.cfg-reset:disabled {
+  color: var(--text-disabled);
+}
+
+.cfg-badge {
+  display: inline-block;
+  margin-left: var(--space-1-5);
+  padding: 0 var(--space-1-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-2xs);
+  white-space: nowrap;
+}
+
+/* 搜索命中的是描述：就地显示那一句，单行省略 */
+.cfg-snippet {
+  overflow: hidden;
+  padding-bottom: var(--space-1);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 真有话要说才多出来的一行：被覆盖、保存或校验错误 */
+.cfg-note,
+.cfg-error {
+  margin: var(--space-1) 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  overflow-wrap: anywhere;
+}
+
+.cfg-note {
+  background: var(--st-waiting-soft);
+  color: var(--st-waiting-text);
+}
+
+.cfg-error {
+  border-left: 2px solid var(--st-error);
+  background: var(--st-error-soft);
+  color: var(--st-error);
+}
+
+/* ───────── 状态：加载、出错、空 ───────── */
+
+.cfg-state {
+  margin: var(--space-2) 0;
+}
+
+.cfg-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cfg-spinner {
+  position: static;
+  flex: none;
+}
+
+.cfg-empty-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-base);
+}
+
+@keyframes cfg-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* 窄的内容列：控件换到标签下面，占满一行 */
+@container (max-width: 460px) {
+  .cfg-line {
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+    padding: var(--space-1) 0;
+  }
+
+  .cfg-control {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .cfg-control .dd-trigger,
+  .cfg-control .cfg-string,
+  .cfg-number {
+    width: 100%;
+  }
+}
+
+@media (max-width: 999px) {
+  .settings-nav {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .settings-nav-label {
+    display: none;
+  }
+
+  .cfg-search {
+    width: 200px;
+    margin-bottom: 0;
+  }
+}
+
+/* ───────── 结构化编辑（模型角色、回退链） ───────── */
+
+.cfg-json {
+  field-sizing: content;
+  min-height: calc(var(--lh-code-sm) * 2 + var(--space-4));
+  max-height: 320px;
+}
+
+.se {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  width: 100%;
+}
+
+.se-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-md);
+}
+
+.se-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.se-spacer {
+  flex: 1;
+}
+
+.se-chain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.se-entry {
+  padding-left: var(--space-2);
+}
+
+.se-entry .dd-trigger {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.se-row > .dd-trigger {
+  flex: none;
+}
+
+.se-index {
+  flex: none;
+  width: var(--space-4);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.se-empty {
+  padding-left: var(--space-2);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.se-icon-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: default;
+}
+
+.se-icon-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.se-icon-btn:disabled {
+  color: var(--text-disabled);
+}
+
+.se-up {
+  transform: rotate(-90deg);
+}
+
+.se-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.se-add-input {
+  flex: 1 1 140px;
+  height: var(--control-h-md);
+  min-width: 0;
+}
+
+.se-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  cursor: default;
+}
+
+.se-chip:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.cfg-chip-warn {
+  background: var(--st-waiting-soft);
+  color: var(--st-waiting-text);
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

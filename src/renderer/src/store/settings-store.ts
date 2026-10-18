@@ -1,6 +1,6 @@
 // 设置和应用信息：getSettings / getAppInfo 的结果，加上 settings 事件。
 // 语言变化会改变 AppInfo.locale，所以收到 settings 事件时重新取一次 AppInfo。
-import type { AppInfo, StudioSettings } from "../../../shared/ipc.ts";
+import type { AppInfo, Locale, StudioSettings } from "../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "./create-store.ts";
 
 interface SettingsState {
@@ -33,6 +33,11 @@ export function startSettingsStore(): void {
     (error: unknown) => reportError("getSettings", error),
   );
   loadAppInfo();
+}
+
+/** 当前界面语言（非 React 代码用；还没载入时按中文）。 */
+export function currentLocale(): Locale {
+  return settingsStore.get().appInfo?.locale ?? "zh-CN";
 }
 
 export function useSettings(): StudioSettings | null {

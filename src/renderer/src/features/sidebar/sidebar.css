@@ -1,0 +1,486 @@
+/* 侧栏样式（spec §3.2、§4.1–4.5）。只引用 tokens.css 里的变量。 */
+
+.sb {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  background: var(--bg-sidebar);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  user-select: none;
+}
+
+:where(.sb, .pl-root) button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sb button:focus-visible,
+.sb input:focus-visible,
+.pl-root button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.sb .icon,
+.pl-root .icon {
+  flex: none;
+}
+
+.sb .kbd,
+.pl-root .kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-1-5);
+  height: var(--lh-2xs);
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-2xs);
+  color: var(--text-3);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ───── 新任务按钮 ───── */
+.sb-new {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  margin: var(--space-1) var(--space-2) var(--space-2);
+  padding: 0 var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: background var(--dur-instant) var(--ease-out);
+}
+.sb-new:hover {
+  background: var(--bg-hover);
+}
+.sb-new:active {
+  background: var(--bg-active);
+}
+.sb-new-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ───── 等你确认条 ───── */
+.sb-waiting {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h-md);
+  margin: 0 var(--space-2) var(--space-1);
+  padding: 0 var(--space-3);
+  background: var(--st-waiting-soft);
+  color: var(--st-waiting-text);
+  border-radius: var(--radius-md);
+}
+.sb-waiting-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-waiting-diamond {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  background: var(--st-waiting);
+  transform: rotate(45deg);
+}
+
+/* ───── 列表 ───── */
+.sb-list-host {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.sb-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-1) var(--space-2);
+  scrollbar-width: none;
+}
+.sb-list::-webkit-scrollbar {
+  display: none;
+}
+.sb-note {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+}
+.sb-note-error {
+  color: var(--st-error);
+}
+.sb-no-projects {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+}
+.sb-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.sb-secondary:hover {
+  background: var(--bg-hover);
+}
+
+/* ───── 项目分组 ───── */
+.sb-group + .sb-group {
+  margin-top: var(--space-5);
+}
+.sb-group-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--control-h-sm);
+  border-radius: var(--radius-sm);
+}
+.sb-group-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+}
+.sb-group-toggle:hover {
+  background: var(--bg-hover);
+}
+.sb-chevron {
+  display: inline-flex;
+  transition: transform var(--dur-fast) var(--ease-out);
+  transform: rotate(90deg);
+}
+.sb-group-toggle[data-collapsed="true"] .sb-chevron {
+  transform: rotate(0deg);
+}
+.sb-chevron .icon {
+  width: 12px;
+  height: 12px;
+}
+.sb-group-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-group-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.sb-group-count .sb-waiting-diamond {
+  width: 7px;
+  height: 7px;
+}
+.sb-group-action {
+  position: absolute;
+  top: 0;
+  opacity: 0;
+}
+.sb-group-action:nth-of-type(2) {
+  right: calc(var(--control-h-sm) + var(--space-0-5));
+}
+.sb-group-action:nth-of-type(3) {
+  right: 0;
+}
+.sb-group-head:hover .sb-group-action,
+.sb-group-head:focus-within .sb-group-action {
+  opacity: 1;
+}
+.sb-group-head:hover .sb-group-count,
+.sb-group-head:focus-within .sb-group-count {
+  visibility: hidden;
+}
+.sb-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+}
+.sb-icon-btn:hover {
+  background: var(--bg-hover);
+}
+.sb-icon-btn:active {
+  background: var(--bg-active);
+}
+.sb-group-empty {
+  margin: 0;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-6);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.sb-show-more {
+  width: 100%;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2) 0 var(--space-8);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.sb-show-more:hover {
+  background: var(--bg-hover);
+}
+
+/* ───── 任务行 ───── */
+.sb-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--row-task);
+  border-radius: var(--radius-md);
+}
+.sb-row:hover {
+  background: var(--bg-hover);
+}
+.sb-row[data-selected="true"] {
+  background: var(--bg-active);
+}
+.sb-row[data-selected="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 2px;
+  height: var(--icon-md);
+  margin-top: calc(var(--icon-md) / -2);
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+}
+.sb-row-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+}
+.sb-row[data-selected="true"] .sb-row-main,
+.sb-row[data-status="needs_you"] .sb-row-main {
+  color: var(--text);
+}
+.sb-row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-row-tail {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.sb-row-more {
+  position: absolute;
+  right: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-xs);
+  color: var(--text-2);
+  opacity: 0;
+}
+.sb-row-more:hover {
+  background: var(--bg-active);
+}
+.sb-row:hover .sb-row-more,
+.sb-row:focus-within .sb-row-more {
+  opacity: 1;
+}
+.sb-row:hover .sb-row-tail,
+.sb-row:focus-within .sb-row-tail {
+  visibility: hidden;
+}
+.sb-rename {
+  flex: 1;
+  min-width: 0;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-1-5);
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  outline: none;
+}
+
+/* ───── 状态点 ───── */
+.sb-dot {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+.sb-dot-running::before,
+.sb-dot-running::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: var(--radius-pill);
+}
+.sb-dot-running::before {
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  background: var(--st-running);
+}
+.sb-dot-running::after {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  margin: calc(var(--icon-md) / -2) 0 0 calc(var(--icon-md) / -2);
+  border: 1px solid var(--st-running);
+  animation: sb-breathe var(--dur-breathe) var(--ease-out) infinite;
+  animation-play-state: var(--play-state);
+}
+@keyframes sb-breathe {
+  0% {
+    opacity: 0.35;
+    transform: scale(0.625);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+.sb-dot-waiting::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  background: var(--st-waiting);
+  transform: rotate(45deg);
+}
+.sb-dot-done {
+  color: var(--st-done);
+}
+.sb-dot-error {
+  color: var(--st-error);
+}
+
+/* ───── 底部栏 ───── */
+.sb-bottom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1-5) var(--space-2);
+}
+.sb-settings {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--control-h-md);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+}
+.sb-settings:hover {
+  background: var(--bg-hover);
+}
+.sb-settings[data-active="true"] {
+  background: var(--bg-active);
+  color: var(--text);
+}
+.sb-palette {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+}
+.sb-palette:hover {
+  background: var(--bg-hover);
+}
+
+/* ───── 菜单 ───── */
+.sb-menu {
+  position: fixed;
+  z-index: var(--z-popover);
+  min-width: 200px;
+  padding: var(--space-1);
+  background: var(--bg-overlay);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  animation: sb-menu-in var(--dur-base) var(--ease-out);
+}
+@keyframes sb-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--travel-sm) * -1)) scale(var(--scale-pop));
+  }
+}
+.sb-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  height: var(--row-menu);
+  padding: 0 var(--space-2-5);
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+}
+.sb-menu-item:hover,
+.sb-menu-item:focus-visible {
+  background: var(--bg-hover);
+  outline: none;
+}
+
+.sb-note,
+.sb-note-error {
+  overflow-wrap: anywhere;
+}

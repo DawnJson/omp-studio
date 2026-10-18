@@ -1,35 +1,20 @@
-// 应用和设置。设置目前只在内存里；外壳切片换成 userData/settings.json 的 settings-store，并同步 nativeTheme 和语言。
+// 应用和设置：读写走 settings-store（userData/settings.json）；外壳状态走 window-state。
 import { app, shell } from "electron";
-import type { AppInfo, HandlerGroup, Locale, StudioSettings } from "../../shared/ipc.ts";
-import { emitEvent } from "./events.ts";
+import type { AppInfo, HandlerGroup } from "../../shared/ipc.ts";
+import { getSettings, resolveLocale, updateSettings } from "../settings/settings-store.ts";
+import { getShellState, parseCollapsedProjects, setShellState, sidebarWidthRange } from "../window/window-state.ts";
 import {
   parseApprovalMode,
+  parseBoolean,
   parseExternalUrl,
+  parseInteger,
   parseLocalePreference,
   parseMaxLiveProcesses,
   parseModelKey,
+  parseRecord,
   parseThemePreference,
   parseThinkingLevel,
 } from "./validate.ts";
-
-let settings: StudioSettings = {
-  locale: "system",
-  theme: "system",
-  defaultModel: null,
-  defaultThinkingLevel: null,
-  defaultApprovalMode: null,
-  maxLiveProcesses: 6,
-};
-
-function update(patch: Partial<StudioSettings>): void {
-  settings = { ...settings, ...patch };
-  emitEvent("settings", settings);
-}
-
-function resolveLocale(): Locale {
-  if (settings.locale !== "system") return settings.locale;
-  return app.getLocale().toLowerCase().startsWith("zh") ? "zh-CN" : "en";
-}
 
 function platform(): AppInfo["platform"] {
   return process.platform === "win32" || process.platform === "darwin" ? process.platform : "linux";
@@ -45,14 +30,27 @@ export const appHandlers: HandlerGroup<
   | "setDefaultApprovalMode"
   | "setMaxLiveProcesses"
   | "openExternal"
+  | "quitApp"
+  | "getShellState"
+  | "setShellState"
 > = {
   getAppInfo: async () => ({ version: app.getVersion(), platform: platform(), locale: resolveLocale(), isPackaged: app.isPackaged }),
-  getSettings: async () => settings,
-  setLocale: async (value) => update({ locale: parseLocalePreference(value) }),
-  setTheme: async (value) => update({ theme: parseThemePreference(value) }),
-  setDefaultModel: async (value) => update({ defaultModel: value === null ? null : parseModelKey(value) }),
-  setDefaultThinkingLevel: async (value) => update({ defaultThinkingLevel: value === null ? null : parseThinkingLevel(value) }),
-  setDefaultApprovalMode: async (value) => update({ defaultApprovalMode: value === null ? null : parseApprovalMode(value) }),
-  setMaxLiveProcesses: async (value) => update({ maxLiveProcesses: parseMaxLiveProcesses(value) }),
+  getSettings: async () => getSettings(),
+  setLocale: async (value) => updateSettings({ locale: parseLocalePreference(value) }),
+  setTheme: async (value) => updateSettings({ theme: parseThemePreference(value) }),
+  setDefaultModel: async (value) => updateSettings({ defaultModel: value === null ? null : parseModelKey(value) }),
+  setDefaultThinkingLevel: async (value) => updateSettings({ defaultThinkingLevel: value === null ? null : parseThinkingLevel(value) }),
+  setDefaultApprovalMode: async (value) => updateSettings({ defaultApprovalMode: value === null ? null : parseApprovalMode(value) }),
+  setMaxLiveProcesses: async (value) => updateSettings({ maxLiveProcesses: parseMaxLiveProcesses(value) }),
   openExternal: async (value) => shell.openExternal(parseExternalUrl(value)),
+  quitApp: async () => app.quit(),
+  getShellState: async () => getShellState(),
+  setShellState: async (value) => {
+    const record = parseRecord(value, "shellState");
+    setShellState({
+      ...(record["sidebarWidth"] !== undefined && { sidebarWidth: parseInteger(record["sidebarWidth"], "sidebarWidth", ...sidebarWidthRange) }),
+      ...(record["sidebarCollapsed"] !== undefined && { sidebarCollapsed: parseBoolean(record["sidebarCollapsed"], "sidebarCollapsed") }),
+      ...(record["collapsedProjects"] !== undefined && { collapsedProjects: parseCollapsedProjects(record["collapsedProjects"]) }),
+    });
+  },
 };

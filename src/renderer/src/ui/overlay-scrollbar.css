@@ -1,0 +1,25 @@
+/* 自绘覆盖式滚动条：只用 tokens.css 里的变量，深浅两套随主题。 */
+.osb {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-sticky);
+  width: var(--scrollbar-hit);
+  opacity: 0;
+  transition: opacity var(--dur-fade) var(--ease-out);
+  /* 不可见时不拦截鼠标：下面的内容照常可点。 */
+  pointer-events: none;
+}
+.osb[data-visible] { opacity: 1; pointer-events: auto; }
+.osb-thumb {
+  position: absolute;
+  top: 0;
+  right: calc((var(--scrollbar-hit) - var(--scrollbar-thumb-w)) / 2);
+  width: var(--scrollbar-thumb-w);
+  border-radius: var(--radius-pill);
+  background: var(--scrollbar-thumb);
+  touch-action: none;
+  transition: background var(--dur-instant);
+}
+.osb-thumb:hover, .osb[data-dragging] .osb-thumb { background: var(--scrollbar-thumb-hover); }

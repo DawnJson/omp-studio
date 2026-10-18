@@ -1,3 +1,5 @@
 import type { MessageEntry } from "../index.ts";
 
-export const shell = {} satisfies Record<string, MessageEntry>;
+export const shell = {
+  appName: "omp-studio",
+} satisfies Record<string, MessageEntry>;

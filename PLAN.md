@@ -97,26 +97,26 @@ flowchart LR
 
 ### 阶段 1：设计规范
 
-- [ ] 设计 token：中英文字体栈、字号层级、间距、颜色（深色和浅色）、圆角、动效曲线和时长、reduced-motion 下的处理。
-- [ ] 组件清单：任务行、状态点、消息、折叠的过程行、改动卡片、输入框和它的选项胶囊、审批对话框、diff 行、评论框、泳道。
+- [x] 设计 token：中英文字体栈、字号层级、间距、颜色（深色和浅色）、圆角、动效曲线和时长、reduced-motion 下的处理。（`src/renderer/styles/tokens.css`、`docs/design/spec.md` 第 2 章）
+- [x] 组件清单：任务行、状态点、消息、折叠的过程行、改动卡片、输入框和它的选项胶囊、审批对话框、diff 行、评论框、泳道。（`docs/design/spec.md` 第 4 章；diff 行、评论框、泳道只有规范，阶段 3/5 实现）
 - [ ] 主界面、对话流、diff 评审、子代理泳道四个界面的高保真稿，中英文各一套。
-- [ ] "手感"检查清单，参照 magpie：滚动、流式渲染不跳动、窗口缩放保住阅读位置、快捷键、焦点管理。后面每个阶段都按这份清单验收。
+- [x] "手感"检查清单，参照 magpie：滚动、流式渲染不跳动、窗口缩放保住阅读位置、快捷键、焦点管理。后面每个阶段都按这份清单验收。（`docs/design/spec.md` 第 7 章）
 
 ### 阶段 2：骨架和对话
 
 - [x] 主进程 omp 连接：找 PATH 上的 omp 并读管理者、启动、协商 v2、`rpc_chunk` 重组、按 id 对应应答、等 `prompt_result`、关闭和按进程树结束（`docs/architecture/omp-rpc.md`）
 - [x] 验证工具：RPC 录制回放的假 omp（`docs/architecture/rpc-replay.md`）
-- [ ] 验证工具（先于界面代码）：Playwright 启动 Electron 并截图
-- [ ] 应用外壳、单实例、窗口状态记忆、i18n 基础设施
-- [ ] omp 子进程放进 Windows Job Object，主进程崩溃或被强杀也不留孤儿进程（`problem.md` 第 4 题；用哪个原生模块先提出来确认）
-- [ ] 查清 omp 在宿主被强杀时为什么不结束 bash 等子进程；是 omp 的缺陷就给官方提 PR（`problem.md` 第 4 题）
-- [ ] 侧栏任务列表（按项目分组、状态点、跨项目显示"等你确认"）
-- [ ] 对话流：流式 Markdown、过程折叠、结论、改动卡片
-- [ ] 输入框：模型、思考强度、worktree、审批模式；steer 和 follow-up 消息队列
-- [ ] 审批和 ask 对话框（`extension_ui_request`）
-- [ ] 会话历史：读 `~/.omp`，能接着终端里的会话继续
-- [ ] 应用内登录和模型设置
-- [ ] omp 管理：PATH 上已有 omp 时的版本检查和升级提示；PATH 上的 omp 是脚本时询问是否接管；没有 omp 或用户同意接管时的首次下载和校验、放进 PATH、后台更新（差量补丁、多进程加锁、替换正在运行的 exe）
+- [x] 验证工具（先于界面代码）：Playwright 启动 Electron 并截图
+- [x] 应用外壳、单实例、窗口状态记忆、i18n 基础设施
+- [x] omp 子进程放进 Windows Job Object，主进程崩溃或被强杀也不留孤儿进程（`problem.md` 第 4 题；决策 D2：koffi。`test/job-object.test.ts` 用 fake-omp 的孙进程验证强杀后无残留；真实 omp 的 bash 工具强杀场景还没跑）
+- [x] 查清 omp 在宿主被强杀时为什么不结束 bash 等子进程（`problem.md` 第 4 题）：宿主被强杀时 omp 是被系统（libuv 的 Job）直接结束的，来不及清理孙进程，不是 omp 的缺陷，不提 PR（对 libuv 一半已实测，孙进程不受 libuv Job 管；真实 omp 没单独验证，见 `docs/architecture/task-model.md`）
+- [x] 侧栏任务列表（按项目分组、状态点、跨项目显示"等你确认"）
+- [x] 对话流：流式 Markdown、过程折叠、结论、改动卡片（改动卡片的数字从工具事件推算，不是 git 结果）
+- [ ] 输入框：模型、思考强度、worktree、审批模式；steer 和 follow-up 消息队列（除 worktree 外已完成，worktree 归阶段 4）
+- [x] 审批和 ask 对话框（`extension_ui_request`）（带超时的门和 ask 门只有单测，没有回放 fixture 覆盖）
+- [x] 会话历史：读 `~/.omp`，能接着终端里的会话继续（恢复走 `resume-history` 回放验证；真实终端会话恢复没实测）
+- [x] 应用内登录和模型设置，含 omp 全部设置（555 项，经 `omp config`）（OAuth 没有真实账号实测）
+- [ ] omp 管理：PATH 上已有 omp 时的版本检查和升级提示；PATH 上的 omp 是脚本时询问是否接管；没有 omp 或用户同意接管时的首次下载和校验、放进 PATH、后台更新（差量补丁、多进程加锁、替换正在运行的 exe）（除差量补丁外已完成，目前全量下载；真实下载和 `omp update` 没实测）
 
 完成后开始内测。
 

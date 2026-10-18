@@ -3,6 +3,7 @@
 // 渲染进程不传路径，只传主进程发的 id。协议出处见 docs/architecture/ipc.md。
 import type {
   AskAnswer,
+  AvailableSlashCommand,
   AskQuestion,
   ContextUsage,
   LoginProvider,
@@ -52,6 +53,14 @@ export interface StudioSettings {
   defaultApprovalMode: ApprovalMode | null;
   /** 同时存活的 omp 进程软上限；超过时回收最久未用的空闲任务。 */
   maxLiveProcesses: number;
+  /** 减少动效：只能强制开启，系统要求减少动效时始终生效。 */
+  reduceMotion: boolean;
+  /** 运行中按 Enter：插话（steer）还是稍后（followUp）。 */
+  enterWhileRunning: "steer" | "followUp";
+  /** 有任务在等你确认时发系统通知（只对"等你确认"生效）。默认开。 */
+  notifyOnGate: boolean;
+  /** 用户确认过"全部自动"。 */
+  yoloConfirmed: boolean;
 }
 
 // ───────── 项目 ─────────
@@ -69,7 +78,7 @@ export interface Project {
 export type TaskStatus = "starting" | "idle" | "running" | "needs_you" | "error" | "stopped";
 
 export interface TaskError {
-  kind: "omp_unavailable" | "spawn_failed" | "handshake_failed" | "restore_model_failed" | "exited" | "protocol";
+  kind: "omp_unavailable" | "spawn_failed" | "handshake_failed" | "restore_model_failed" | "exited" | "protocol" | "too_many_tasks";
   message: string;
 }
 
@@ -112,6 +121,8 @@ export interface TaskState {
   dialogs: DialogRequest[];
   /** 正在运行的子代理数，用于过程折叠行。 */
   runningSubagents: number;
+  /** 这一次 running 开始的时间戳（ms，主进程接收时间）；非 running/needs_you 时为 null。侧栏显示"已运行 N 分钟"。 */
+  runStartedAt: number | null;
 }
 
 export interface CreateTaskInput {
@@ -156,7 +167,8 @@ export interface SelectOption {
   description?: string;
 }
 
-export type DialogRequest =
+/** 每种请求都带主进程收到它的时间戳，门的倒计时据此计算（组件重挂载、切任务回来都不会重新计时）。 */
+export type DialogRequest = (
   | {
       id: string;
       kind: "select";
@@ -169,7 +181,8 @@ export type DialogRequest =
   | { id: string; kind: "confirm"; title: string; message: string; timeoutMs?: number }
   | { id: string; kind: "input"; title: string; placeholder?: string; timeoutMs?: number }
   | { id: string; kind: "editor"; title: string; prefill?: string; promptStyle: boolean }
-  | { id: string; kind: "ask"; questions: AskQuestion[]; timeoutMs?: number };
+  | { id: string; kind: "ask"; questions: AskQuestion[]; timeoutMs?: number }
+) & { receivedAt?: number };
 
 export type DialogResponse =
   /** select（必须是 options 里的 label 原文）、input、editor。 */
@@ -216,6 +229,11 @@ export interface SessionSummary {
   taskId: TaskId | null;
 }
 
+export interface TaskSessionRef {
+  sessionId: string;
+  sessionFile: string;
+}
+
 // ───────── 登录 ─────────
 
 export type LoginEvent =
@@ -253,14 +271,71 @@ export type OmpStatus =
     }
   /** 用户拒绝接管，而 PATH 上的是脚本，启动不了。 */
   | { state: "unusable"; path: string; reason: "script_launcher" }
-  | { state: "error"; stage: "discover" | "download" | "verify" | "install" | "path"; message: string };
+  | { state: "error"; stage: "discover" | "download" | "verify" | "install" | "path"; message: string }
+  /** PATH 上没有 omp，等用户点"下载并安装"。version/sizeBytes 来自构建服务，查不到时为 null。 */
+  | { state: "missing"; version: string | null; sizeBytes: number | null; source: string };
 
 export interface OmpUpgradeResult {
   exitCode: number | null;
   output: string;
 }
 
+export type OmpConfigType = "boolean" | "enum" | "number" | "string" | "array" | "record";
+
+/** omp 的一项设置（`omp config list --json` 合并 `omp config list` 文本输出）。 */
+export interface OmpConfigItem {
+  key: string;
+  /** omp 的分组（`[appearance]` 等）。 */
+  tab: string;
+  type: OmpConfigType;
+  /** omp 自带的英文描述；没有时为空串。 */
+  description: string;
+  /** enum 的可选值。 */
+  options: string[] | null;
+  /** 当前生效值；凭据（redacted）和未设置的可选项没有值。 */
+  value: unknown;
+  hasValue: boolean;
+  /** 凭据类字段：只知道"已设置"，值不回传，界面也不允许编辑。 */
+  redacted: boolean;
+  /** omp 自己的默认值（在空的 agent 目录里读出来的）；和 value 不同就是"已修改"。 */
+  defaultValue: unknown;
+  hasDefault: boolean;
+}
+
+export interface OmpConfigSnapshot {
+  ompVersion: string;
+  /** 分组按 omp 的顺序。 */
+  tabs: string[];
+  items: OmpConfigItem[];
+}
+
+export interface DefaultModelInfo {
+  key: ModelKey;
+  name: string;
+  thinkingLevel: ThinkingLevel | null;
+}
+
+export interface OmpConfigWriteResult {
+  key: string;
+  value: unknown;
+  hasValue: boolean;
+  redacted: boolean;
+  /** 写进去了，但生效值仍由别处提供：环境变量名，或 `project`/`overlay`/`runtime`。 */
+  overriddenBy?: string;
+  /** 已保存的值是空白，正在用的是这个后备环境变量。 */
+  fallbackEnv?: string;
+}
+
 // ───────── 函数 ─────────
+
+/** 外壳界面状态，主进程持久化；窗口位置/尺寸/最大化由主进程自己记，不经过渲染进程。 */
+export interface ShellState {
+  /** 侧栏宽度（px），220–360。 */
+  sidebarWidth: number;
+  sidebarCollapsed: boolean;
+  /** 侧栏里折叠的项目组（ProjectId）；默认空。 */
+  collapsedProjects: string[];
+}
 
 export interface StudioInvokeApi {
   // 应用
@@ -274,6 +349,11 @@ export interface StudioInvokeApi {
   setMaxLiveProcesses(count: number): Promise<void>;
   /** 用系统浏览器打开链接；只接受 http/https。 */
   openExternal(url: string): Promise<void>;
+  /** 退出应用（顶栏菜单"退出"）；走 before-quit，会先关掉所有 omp 子进程。 */
+  quitApp(): Promise<void>;
+  /** 窗口外壳的界面状态（侧栏宽度/折叠），存在 userData/window-state.json。 */
+  getShellState(): Promise<ShellState>;
+  setShellState(patch: Partial<ShellState>): Promise<void>;
 
   // 项目
   listProjects(): Promise<Project[]>;
@@ -315,6 +395,23 @@ export interface StudioInvokeApi {
   listSessions(projectId: ProjectId | null): Promise<SessionSummary[]>;
   /** 以会话自己的 cwd 新建任务并恢复它；已挂在任务上时返回那个任务。 */
   resumeSession(sessionId: string): Promise<TaskState>;
+  /** 在系统文件管理器里显示项目目录（主进程用自己记的路径，渲染进程不传路径）。 */
+  revealProject(projectId: ProjectId): Promise<void>;
+  /** 在系统文件管理器里选中任务的会话文件；任务还没有会话文件时拒绝。 */
+  revealTaskSession(taskId: TaskId): Promise<void>;
+  /** 任务的会话 id 和文件路径，用于侧栏菜单的"复制"；还没有会话文件时返回 null。 */
+  getTaskSessionRef(taskId: TaskId): Promise<TaskSessionRef | null>;
+  /** 任务当前可用的斜杠命令（get_available_commands）；任务没有 omp 进程时返回空数组。 */
+  listSlashCommands(taskId: TaskId): Promise<AvailableSlashCommand[]>;
+  /** 输入框草稿（文字）：key 是任务 id 或 `new:<projectId>`。主进程持久化，重启不丢。 */
+  getDrafts(): Promise<Record<string, string>>;
+  saveDraft(key: string, text: string): Promise<void>;
+  /** 压缩上下文（RPC compact）。任务没有进程时先拉起；运行中拒绝。 */
+  compactTask(taskId: TaskId): Promise<void>;
+  /** 用系统默认应用打开任务工作目录里的文件。relPath 相对任务 cwd，主进程校验落在 cwd 之内。 */
+  openTaskFile(taskId: TaskId, relPath: string): Promise<void>;
+  /** 在系统文件管理器里选中任务工作目录里的文件。校验同 openTaskFile。 */
+  revealTaskFile(taskId: TaskId, relPath: string): Promise<void>;
 
   // 账号和模型（走服务进程）
   listModels(): Promise<ModelOption[]>;
@@ -344,16 +441,46 @@ export interface StudioInvokeApi {
   retryOmpSetup(): Promise<void>;
   /** 只对 PATH 上用户自装的 omp 执行 omp update；自管和他人管理的会拒绝。 */
   upgradePathOmp(): Promise<OmpUpgradeResult>;
+  /**
+   * 自管的 omp：立即向构建服务检查一次，有新版就下载、校验并替换 bin/omp.exe（新任务用新版本）。
+   * 返回装上的版本号，已是最新时为 null。非自管时拒绝（用 upgradePathOmp）。
+   */
+  checkOmpUpdate(): Promise<{ installedVersion: string | null }>;
+  /** PATH 上没有 omp（状态 missing）时，用户点"下载并安装"：下载、校验并装好自管副本，进度走 ompStatus（installing）。 */
+  installOmp(): Promise<void>;
+  /** 取消正在进行的下载；已下载的部分丢弃，状态回到 missing。 */
+  cancelOmpInstall(): Promise<void>;
+  /** omp 的全部设置（`omp config list`）：schema 按 omp 版本缓存，值每次现读。 */
+  getOmpConfig(): Promise<OmpConfigSnapshot>;
+  /** `omp config set <key> <value> --json`。valueJson 是 JSON 文本（字符串值也要带引号）；omp 拒绝时 reject，message 是 omp 的原话。 */
+  setOmpConfig(key: string, valueJson: string): Promise<OmpConfigWriteResult>;
+  /** `omp config reset <key> --json`：删掉全局配置里的这个键，回到别的层或默认值。 */
+  resetOmpConfig(key: string): Promise<OmpConfigWriteResult>;
+  setReduceMotion(on: boolean): Promise<void>;
+  setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
+  setNotifyOnGate(on: boolean): Promise<void>;
+  /** 记下用户已经确认过"全部自动"，之后选它不再弹确认。 */
+  setYoloConfirmed(): Promise<void>;
+  /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值；读不到（没登录、没有可用模型）时为 null。 */
+  getDefaultModel(): Promise<DefaultModelInfo | null>;
 }
 
 export interface StudioEventPayloads {
   taskState: TaskState;
   taskRemoved: TaskId;
+  /** 点了"等你确认"系统通知：主进程已聚焦窗口，渲染进程切到这个任务（selectTask）。 */
+  focusTask: TaskId;
   transcript: TranscriptBatch;
   taskNotice: TaskNotice;
   login: LoginEvent;
   ompStatus: OmpStatus;
   settings: StudioSettings;
+  /** 用户把文件夹拖进了窗口，主进程已把它加入项目。 */
+  projectDropped: Project;
+  /** 新任务实际会用的默认模型变了（在 omp 设置里改了 modelRoles、defaultThinkingLevel 等）；null = 读不到。 */
+  defaultModel: DefaultModelInfo | null;
+  /** omp 的可用斜杠命令变了（available_commands_update）。 */
+  slashCommands: { taskId: TaskId; commands: AvailableSlashCommand[] };
 }
 
 export type StudioEventApi = {
@@ -372,6 +499,12 @@ export type HandlerGroup<K extends keyof StudioInvokeApi> = Pick<InvokeHandlers,
 
 export const invokeChannel = <K extends keyof StudioInvokeApi>(name: K) => `studio:${name}` as const;
 export const eventChannel = <K extends keyof StudioEventPayloads>(name: K) => `studio:event:${name}` as const;
+
+/**
+ * 拖放文件夹：preload 在隔离世界里监听 drop，用 webUtils.getPathForFile 取路径，经这个通道发给主进程（路径不经过渲染进程，
+ * 也没有任何渲染进程可调用的"传路径"函数）。主进程校验是目录后加入项目，并推送 projectDropped；不是目录就什么也不发生。
+ */
+export const dropFolderChannel = "studio:dropFolder";
 
 export const limits = {
   titleMaxChars: 200,
@@ -395,6 +528,9 @@ export const invokeNames = {
   setDefaultApprovalMode: true,
   setMaxLiveProcesses: true,
   openExternal: true,
+  quitApp: true,
+  getShellState: true,
+  setShellState: true,
   listProjects: true,
   addProject: true,
   removeProject: true,
@@ -417,6 +553,15 @@ export const invokeNames = {
   setTaskApprovalMode: true,
   listSessions: true,
   resumeSession: true,
+  revealProject: true,
+  revealTaskSession: true,
+  getTaskSessionRef: true,
+  listSlashCommands: true,
+  getDrafts: true,
+  saveDraft: true,
+  compactTask: true,
+  openTaskFile: true,
+  revealTaskFile: true,
   listModels: true,
   listLoginProviders: true,
   startLogin: true,
@@ -431,16 +576,31 @@ export const invokeNames = {
   answerTakeover: true,
   answerAddToPath: true,
   retryOmpSetup: true,
+  checkOmpUpdate: true,
   upgradePathOmp: true,
+  installOmp: true,
+  cancelOmpInstall: true,
+  getOmpConfig: true,
+  setOmpConfig: true,
+  resetOmpConfig: true,
+  setReduceMotion: true,
+  setEnterWhileRunning: true,
+  setNotifyOnGate: true,
+  setYoloConfirmed: true,
+  getDefaultModel: true,
 } satisfies Record<keyof StudioInvokeApi, true>;
 
 /** StudioEventPayloads 的全部事件名；订阅函数叫 `on` + 首字母大写的名字。 */
 export const eventNames = {
   taskState: true,
   taskRemoved: true,
+  focusTask: true,
   transcript: true,
   taskNotice: true,
   login: true,
   ompStatus: true,
   settings: true,
+  projectDropped: true,
+  defaultModel: true,
+  slashCommands: true,
 } satisfies Record<keyof StudioEventPayloads, true>;

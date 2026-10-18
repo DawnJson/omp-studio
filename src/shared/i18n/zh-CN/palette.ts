@@ -1,3 +1,14 @@
 import type { MessageEntry } from "../index.ts";
 
-export const palette = {} satisfies Record<string, MessageEntry>;
+export const palette = {
+  label: "命令面板",
+  placeholder: "搜索任务或命令…",
+  recent: "最近任务",
+  tasks: "任务",
+  sessions: "会话",
+  commands: "命令",
+  slash: "斜杠命令",
+  noResults: "没有匹配“{q}”",
+  askNew: "在新任务中提问",
+  hint: "↑↓ 选择　↵ 执行　Esc 关闭",
+} satisfies Record<string, MessageEntry>;

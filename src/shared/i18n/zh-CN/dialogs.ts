@@ -1,3 +1,5 @@
 import type { MessageEntry } from "../index.ts";
 
-export const dialogs = {} satisfies Record<string, MessageEntry>;
+export const dialogs = {
+  toastRegion: "通知",
+} satisfies Record<string, MessageEntry>;

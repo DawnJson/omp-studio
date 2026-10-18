@@ -1,0 +1,292 @@
+/* 空状态：内容在面板垂直 38% 处，宽 = 列宽（spec §4.7）。 */
+.empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  min-height: 0;
+  padding: 0 var(--gutter);
+  overflow-y: auto;
+}
+
+/* 顶部留 38% 的弹性空间，下面 62%：内容整体落在 38% 附近 */
+.empty::before {
+  content: "";
+  flex: 40 0 0;
+}
+
+.empty::after {
+  content: "";
+  flex: 60 0 0;
+}
+
+.empty > * {
+  width: min(100%, var(--content-w));
+  flex: none;
+}
+
+/* 项目名和路径在同一行：路径排在右侧，空间不够时从左边省略 */
+/* 项目名和路径在同一行：路径排在右侧，空间不够时单行省略 */
+.empty-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  width: min(100%, var(--dialog-w-md));
+  padding: var(--space-8) var(--space-6);
+  text-align: center;
+  background: var(--bg-raised);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-xl);
+}
+
+.empty-card,
+.empty-continue {
+  align-self: center;
+}
+
+.empty-title,
+.empty-project-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  line-height: var(--lh-xl);
+  font-weight: var(--fw-strong);
+  letter-spacing: var(--ls-tight);
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.empty-project-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0 var(--space-1);
+  margin-left: calc(var(--space-1) * -1);
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: default;
+}
+
+.empty-project-name:hover {
+  background: var(--bg-hover);
+}
+
+.empty-path {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: left;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-primary {
+  min-height: var(--control-h-md);
+  padding: 0 var(--space-4);
+  margin-top: var(--space-3);
+  color: var(--text-on-accent);
+  background: var(--accent);
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: default;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.empty-primary:hover {
+  background: var(--accent-hover);
+}
+
+.empty-card .empty-primary {
+  margin-top: 0;
+}
+
+.empty-switcher {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.empty-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  min-width: calc(var(--sidebar-w) - var(--space-4));
+  padding: var(--space-1);
+  background: var(--bg-overlay);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  animation: pop-in var(--dur-base) var(--ease-out);
+  transform-origin: top left;
+}
+
+.empty-menu-item {
+  min-height: var(--row-menu);
+  padding: 0 var(--space-2);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: default;
+}
+
+.empty-menu-item:hover,
+.empty-menu-item[aria-checked="true"] {
+  background: var(--bg-hover);
+}
+
+.empty-menu-separator {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--border-subtle);
+}
+
+.empty-section-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  font-weight: var(--fw-regular);
+  color: var(--text-3);
+}
+
+.empty-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.empty-session {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--row-task);
+  padding: 0 var(--space-2);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: default;
+}
+
+.empty-session:hover {
+  background: var(--bg-hover);
+}
+
+.empty-session-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-session-time {
+  flex: none;
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+.empty-terminal-mark {
+  flex: none;
+  padding: 0 var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-xs);
+}
+
+.empty-error {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  color: var(--st-error);
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.empty-session:disabled {
+  color: var(--text-disabled);
+}
+
+.empty-session:focus-visible,
+.empty-menu-item:focus-visible {
+  background: var(--bg-active);
+  outline-offset: -2px;
+}
+
+/* ───────── 拖入文件夹覆盖层 ───────── */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: var(--accent-soft);
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-lg);
+  animation: fade-in var(--dur-fade) var(--ease-out);
+}
+
+.drop-overlay-label {
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-lg);
+  color: var(--text);
+  background: var(--bg-overlay);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2);
+}
+
+/* 输入框自带 gutter 内缩的列宽；把外层撑开 gutter，让它和标题、继续列表左右对齐 */
+.empty-draft {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: calc(min(100%, var(--content-w)) + 2 * var(--gutter));
+  margin-inline: calc(var(--gutter) * -1);
+}
+
+.empty-hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.empty-continue-error {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.empty-link {
+  padding: 0 var(--space-1);
+  color: var(--link);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-xs);
+  cursor: default;
+}

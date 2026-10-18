@@ -1,0 +1,173 @@
+/* Markdown 渲染样式（spec 4.9 / 4.10）。只用 tokens.css 里的变量。 */
+.md {
+  font-size: var(--fs-prose);
+  line-height: var(--lh-prose);
+  color: var(--text);
+  overflow-wrap: anywhere;
+  /* 把 shiki 的 CSS 变量主题接到设计 token：深浅主题切换不用重新高亮。 */
+  --shiki-foreground: var(--text);
+  --shiki-background: transparent;
+  --shiki-token-constant: var(--syn-number);
+  --shiki-token-string: var(--syn-string);
+  --shiki-token-comment: var(--syn-comment);
+  --shiki-token-keyword: var(--syn-keyword);
+  --shiki-token-parameter: var(--text);
+  --shiki-token-function: var(--syn-func);
+  --shiki-token-string-expression: var(--syn-string);
+  --shiki-token-punctuation: var(--syn-punct);
+  --shiki-token-link: var(--link);
+}
+
+.md-block > :first-child { margin-top: 0; }
+.md-block > :last-child { margin-bottom: 0; }
+.md-block + .md-block { margin-top: var(--space-3); }
+
+.md p { margin: 0; }
+.md h1, .md h2, .md h3, .md h4, .md h5, .md h6 {
+  margin: var(--space-5) 0 var(--space-1-5);
+  font-weight: var(--fw-strong);
+  font-size: var(--fs-prose);
+  line-height: var(--lh-prose);
+}
+.md h1 { font-size: var(--fs-lg); line-height: var(--lh-lg); }
+.md .md-block:first-child > h1:first-child,
+.md .md-block:first-child > h2:first-child,
+.md .md-block:first-child > h3:first-child { margin-top: 0; }
+
+.md ul, .md ol { margin: 0; padding-left: var(--space-5); }
+.md li + li { margin-top: var(--space-1); }
+.md li::marker { color: var(--text-3); }
+.md li > ul, .md li > ol { margin-top: var(--space-1); }
+.md li.md-task { list-style: none; margin-left: calc(var(--space-5) * -1); padding-left: var(--space-5); position: relative; }
+.md li.md-task > input {
+  position: absolute;
+  left: 0;
+  top: calc((var(--lh-prose) - var(--icon-sm)) / 2);
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  margin: 0;
+  accent-color: var(--accent);
+  pointer-events: none;
+}
+
+.md blockquote {
+  margin: 0;
+  padding-left: var(--space-3-5);
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-2);
+}
+
+.md hr { border: 0; border-top: 1px solid var(--border-subtle); margin: var(--space-5) 0; }
+
+.md-link { color: var(--link); text-decoration: none; cursor: pointer; }
+.md-link:hover { text-decoration: underline; }
+
+.md-code-inline {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 1px 5px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+}
+
+.md-image { max-width: 100%; border-radius: var(--radius-md); }
+
+.md-table { max-width: 100%; overflow-x: auto; }
+.md-table table { border-collapse: collapse; min-width: 100%; }
+.md-table th, .md-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+.md-table th { font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--text-2); font-weight: var(--fw-strong); }
+
+/* 流式光标：末尾 2px 强调色竖条。0% 帧即静态终态（reduced-motion 下常亮）。 */
+@keyframes md-caret-pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.25; }
+  100% { opacity: 1; }
+}
+.md[data-streaming] .md-block:last-child > :is(p, h1, h2, h3, h4, h5, h6):last-child::after,
+.md[data-streaming] .md-block:last-child li:last-child:not(:has(> ul, > ol))::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  animation: md-caret-pulse var(--dur-caret) ease-in-out infinite;
+  animation-play-state: var(--play-state);
+}
+
+/* 代码块 */
+.md-codeblock {
+  position: relative;
+  margin: var(--space-3) 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.md-codehead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  background: var(--bg-raised);
+}
+.md-codelang { font-size: var(--fs-xs); line-height: var(--lh-xs); color: var(--text-3); }
+.md-codecopy {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity var(--dur-fast) var(--ease-out), background var(--dur-instant);
+}
+.md-codeblock:hover .md-codecopy,
+.md-codeblock:focus-within .md-codecopy { opacity: 1; }
+.md-codecopy:hover { background: var(--bg-hover); }
+.md-codecopy:active { background: var(--bg-active); }
+.md-codecopy:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; opacity: 1; }
+.md-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+.md-codebody {
+  margin: 0;
+  padding: var(--space-3) var(--space-3-5);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  line-height: var(--lh-code);
+  tab-size: 2;
+  overflow-x: auto;
+  white-space: pre;
+}
+.md-codebody code { font: inherit; }
+.md-line { display: inline; }
+.md-diff-add { color: var(--diff-add-fg); }
+.md-diff-del { color: var(--diff-del-fg); }
+.md-codebody[data-collapsed] { padding-bottom: var(--space-8); }
+.md-codeexpand {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--space-10);
+  border: 0;
+  padding: 0;
+  background: linear-gradient(transparent, var(--bg-sunken) 70%);
+  color: var(--link);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.md-codeexpand:hover { text-decoration: underline; }
+.md-codeexpand:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }

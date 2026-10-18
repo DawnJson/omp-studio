@@ -1,0 +1,81 @@
+# 任务模型和运行时
+
+实现：`src/main/tasks/`（`task-registry`、`task-machine`、`task-runner`、`task-pool`、`event-batcher`、`translate`、`dialogs`、`runtime`），`src/main/omp/{launch,launch-args,session-init}.ts`，`src/main/platform/win32/{ffi,job-object}.ts`，`src/main/ipc/task-handlers.ts`。omp 行为结论均在 18.12.1 上实测（`fixtures/rpc/` 在这个版本重录）。
+
+## 一个任务
+
+一个任务 = 一个项目目录 + 一个 omp 会话 + （存活时）一个 omp 进程。进程可被回收，任务和会话不会：再打开任务时起新进程，`switch_session` 回到同一个会话文件。
+
+- 持久化：`userData/tasks.json`（`TaskRegistry`，先写临时文件再改名，写盘串行）。`tasks.json` 损坏时 `load` 抛错，不当成空表覆盖。重命名和归档存这里，不写 `~/.omp`（决策 9）。
+- 记录字段：`id, projectId, sessionFile|null, title, createdAt, updatedAt, archived, model, thinkingLevel, approvalMode, worktreePath`（恒 null）。
+- `sessionFile` 在第一轮（`prompt_result`）或恢复之后才写入：新会话的文件在第一条 assistant 消息后才落盘，之前 `get_state` 给的路径不能存。实测 18.12.1：`get_state.sessionFile` 在握手后、首轮前就有值。
+- 新任务标题是 `""`；第一次 `sendPrompt` 取首条消息第一行（60 字符）；`resume` 时 title 为 null 则载完历史后取第一条用户消息。
+- 审批模式在进程启动时固定（决策 2），默认 `write`，每次启动显式传 `--approval-mode`。有进程时 `setTaskApprovalMode` 拒绝。
+- 归档：关进程，记录保留 `archived:true`；`TaskPool.resume()` 找到同一会话文件的任务会把它恢复成未归档（同一 id）。
+- `messageId` 只在进程内唯一：消息键 `${gen}:${messageId}`，`gen` 每次 spawn 递增；历史消息键 `h:<序号>`。
+
+## 启动序列
+
+`start()`：`acquireSlot` → `buildLaunch`（`--mode rpc-ui [--model] [--thinking] --approval-mode [--allow-home]`，cwd = 项目目录，env = 进程环境 + `getApiKeyEnv()`）→ `OmpConnection.spawn` → 同一个同步段里挂 `onFrame` 并 `assignToAppJob(pid)` → `ready`（含 v2 协商）→ `initializeSession`：
+
+`set_event_filter {events:null, messageUpdates:"delta"}` → `set_ask_dialog {enabled:true}`（失败保留 select+editor 回退）→ `set_subagent_subscription {level:"progress"}` → [`switch_session`] → `get_state` → `get_available_thinking_levels`。恢复时再 `get_messages_page`（limit 256，按时间正序，翻到没有 `nextCursor`）；已有快照的任务（回收后再打开）跳过历史，免得丢工具执行细节。
+
+录制脚本和应用共用 `initializeSession`，所以 fixture 里的 `in` 帧顺序和应用一致。实测 18.12.1：`set_event_filter` 应答带 `messageUpdates:"delta"`，`set_ask_dialog` 成功。
+
+启动失败的 `TaskError.kind`：`omp_unavailable`（`getOmpExecutable` reject）、`spawn_failed`、`handshake_failed`（握手或初始化命令失败，附 stderr 末 8 行）、`restore_model_failed`（`switch_session` 报 `Could not restore model`）。进程意外退出 `exited`，帧解码错误 `protocol`。
+
+## 状态机
+
+纯函数 `transition(state, input)`（`task-machine.ts`），`test/task-machine.test.ts` 逐条覆盖：
+
+| 输入 | 效果 |
+|---|---|
+| `start` | stopped/error → starting（清错误） |
+| `ready` | starting → idle |
+| `start_failed` / `failed` | error，清空对话框 |
+| `prompt_accepted {agentInvoked}` | `agentInvoked:false` 不动；否则 working=true |
+| `prompt_rejected` | 状态不变，`lastTurn = error` |
+| `agent_start` | working=true（后台任务唤醒也算） |
+| `prompt_result` | 写 `lastTurn`；`sessionSettled:true` 时 working=false；不在前台置 `unread` |
+| `session_settled` | working=false |
+| `dialog_open` / `dialog_close` | 维护 `dialogs[]`，非空即 `needs_you`；清空后按 working 回 running/idle |
+| `stopped` | 主动关闭 → stopped（不是 error） |
+| `mark_read` | 清 unread；`lastTurn` 为 error 时清掉 |
+
+状态 = 有对话框 ? needs_you : working ? running : idle（starting/error/stopped 由生命周期输入决定）。
+
+**竞态**：`prompt` 的应答和后面的 `prompt_result`/`session_settled` 可能在同一个数据块里被同步处理，而 `await request("prompt")` 的续体晚于它们才运行。若续体再设 working=true，任务会卡在 running。所以 runner 用 `settleEpoch` 计数：发送前记下，续体里只在没有 settle 过时才应用 `prompt_accepted`（`agent_start` 本身已经让任务进 running）。
+
+## 对话流
+
+`translateFrame(frame, gen, at)`（纯函数）把帧译成 `TranscriptEvent`：去掉 `message_update` 里的 `partial`（delta 模式本来没有），丢 `toolcall_delta`；`extension_error`/`rpc_frame_error` 变 `notice`；compaction/retry 变 `status_line`；`subagent_lifecycle` 变 `subagent`。语义与 `test/transcript.test.ts` 里的假主进程一致。
+
+`EventBatcher`：每任务一个。16 ms 或 64 个事件推一批；批内合并相邻同消息同 `contentIndex` 的 `text_delta`/`thinking_delta`，同 `toolCallId` 的 `tool_update` 只留最后一个。**快照只反映已推送的批次**（合并后的事件数才是 `seq`），`snapshot()` 先冲刷再返回，所以 `getTranscript` 的 `seq` 和渲染进程累计应用的事件数一致。状态变化（`dialog`、`prompt_result`、`settled`、`agent_start`）先冲刷对话流再推 `taskState`。
+
+回收后的任务保留快照，已停止的任务最多留 10 份（LRU），更久的 `reset()` 释放，再打开时从会话文件恢复历史。
+
+## 上下文使用率和状态刷新
+
+`get_state` 在 assistant `message_end`、`agent_end`、`auto_compaction_end`、`notice` 后调一次，同一任务 1 秒内最多一次；`prompt_result`、`session_settled`、`model_changed`、`thinking_level_changed`、`config_update` 立即刷新。刷新同时更新 `contextUsage`、模型、思考档位、队列、回收判据（`isSettled && !hasPendingAsyncWork`）和 `sessionFile`。`queue_update` 直接更新队列 chip。
+
+## 进程上限和回收
+
+- `maxLiveProcesses`（设置，默认 6）是软上限。起新进程时存活数（含 starting）已到软上限：回收最久未用的**可回收**任务（idle、无对话框、`get_state` 报告已安静、不是前台）；没有可回收的就超出软上限照起，到硬上限（× 2）才失败，任务进 error（`spawn_failed`，"too many tasks…"）。
+- 定时回收：`sweep(now)` 每分钟跑一次，可回收状态持续 15 分钟关进程；`now` 由调用方传入，测试不依赖真实时钟。
+- `shutdown()`：并行 `close(5000)`（关 stdin，超时按进程树 `taskkill /T /F`）。退出路径只有 Shell 的 `before-quit`：`runtime.ts` 用 `registerShutdownHook(() => pool.shutdown())` 接入。
+
+## 进程树兜底（Job Object）
+
+`job-object.ts`：第一次用时建应用级 Job，只设 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`，不设任何 breakaway；每个 omp 进程 spawn 后同步 `OpenProcess` + `AssignProcessToJobObject`。koffi 调用全在 `ffi.ts`（kernel32 / advapi32 / user32，一次写全；E 的 `user-path.ts` 用同一个）。
+
+实测（`test/job-object.test.ts`，Node 24.13 / Windows 11，用 `test/fake-omp/job-host.ts` 当"主进程"并强杀它）：
+
+- 放进 Job：fake-omp 和它的 detached 孙进程都在 5 秒内消失。
+- 不放进 Job（对照）：fake-omp 随主进程消失（libuv 的全局 Job），孙进程留下。
+- 所以 arch 6.4 的推测成立：libuv 的 Job 只管直接子进程，孙进程脱离它；我们的无 breakaway 嵌套 Job 把整棵树兜住。`IsProcessInJob` 验证了分配生效。
+- 注意：fake-omp 的孙进程必须 `detached`，否则它进了 fake-omp 自己的 libuv Job，fake-omp 一死孙进程就跟着没了，测试发现不了残留。
+- 没验证：真实 omp（Bun）的 bash 工具运行中强杀主进程；spawn 和 assign 之间的竞争窗口只能靠"ready 之前 omp 不起工具进程"的推测。非 Windows 上 `assignToAppJob` 是空操作。
+
+## 对外接口
+
+`getTaskPool(): Promise<TaskPool>`（`runtime.ts`）。`TaskPool` 除 20 个 IPC 函数的对应方法外：`listSessionLinks()`、`ensureProject(cwd)`、`resume({sessionFile, cwd, projectId, title})`（供历史列表）、`sweep(now)`、`shutdown()`。测试注入：`STUDIO_TEST_OMP`（JSON `{command,args}`，仅未打包）。

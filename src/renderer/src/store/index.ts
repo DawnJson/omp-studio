@@ -20,11 +20,14 @@ export { useTask, useTasks, useTasksState, type TasksState } from "./tasks-store
 export { useTranscript } from "./transcript-store.ts";
 export {
   clearSelection,
+  clearSettingsSection,
   selectTask,
   setPaletteOpen,
   showView,
   useMainView,
   usePaletteOpen,
   useSelectedTaskId,
+  useSettingsSection,
   type MainView,
+  type SettingsSection,
 } from "./ui-store.ts";

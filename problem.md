@@ -142,7 +142,8 @@
   - 主进程让操作系统在它死掉时回收整棵进程树，比如 Windows Job Object 的 `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`。Node 和 Electron 没有现成的 API，要加原生模块或辅助程序，**属于新增依赖**。
   - 先查清 omp 的原因，如果是 omp 的缺陷就给官方提 PR，等合并。**提 PR 也要仓库所有者同意。**
   - 两者不冲突：上游修好之后，omp 自己崩溃时仍可能留下孤儿进程，Job Object 能统一兜住。
-- 细节见 `docs/architecture/omp-rpc.md`。
+- **原因验证（切片 B，2026-10-18，Node 24 + Windows 11）**：用 `test/fake-omp/job-host.ts` 起一个"主进程"，拉起带 detached 孙进程的 fake-omp，再强杀主进程。不放进 Job：fake-omp 随之结束（libuv 把非 detached 的子进程放进它的全局 Job），孙进程留下；放进我们自己的 `KILL_ON_JOB_CLOSE` Job（无 breakaway 标志）：两者都在 5 秒内消失。所以推测成立：omp 是被系统直接结束的，来不及清理孙进程，**不是 omp 的缺陷，不提 PR**。没验证的部分：真实 omp（Bun）自己的子进程管理方式；真实 bash 工具运行中强杀主进程的场景。
+- 细节见 `docs/architecture/omp-rpc.md`、`docs/architecture/task-model.md`。
 
 ---
 

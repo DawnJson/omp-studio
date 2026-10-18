@@ -1,0 +1,140 @@
+/* 命令面板样式（spec §4.18）。.kbd 和 button 基础样式在 ../sidebar/sidebar.css 里与 .sb 共用（CommandPalette.tsx 一并 import）。 */
+.pl-root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-palette);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 15vh;
+  background: var(--bg-scrim);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text);
+  animation: pl-fade var(--dur-fade) linear;
+}
+.pl-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(var(--palette-w), calc(100vw - var(--space-8)));
+  max-height: 70vh;
+  background: var(--bg-overlay);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+  animation: pl-in var(--dur-slow) var(--ease-spring);
+}
+@keyframes pl-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pl-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--travel-md) * -1)) scale(var(--scale-pop));
+  }
+}
+.pl-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 52px;
+  padding: 0 var(--space-4);
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pl-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: var(--fs-lg);
+  line-height: var(--lh-lg);
+  color: var(--text);
+  background: none;
+  border: 0;
+  outline: none;
+}
+.pl-input::placeholder {
+  color: var(--text-3);
+}
+.pl-list-host {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.pl-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-1) var(--space-2);
+  scrollbar-width: none;
+}
+.pl-list::-webkit-scrollbar {
+  display: none;
+}
+.pl-group {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  display: flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-3);
+}
+.pl-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--row-palette);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  user-select: none;
+}
+.pl-row[data-active="true"] {
+  background: var(--bg-active);
+}
+.pl-row[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 2px;
+  height: var(--icon-md);
+  margin-top: calc(var(--icon-md) / -2);
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+}
+.pl-row .icon {
+  color: var(--text-3);
+}
+.pl-row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pl-row-title mark {
+  background: none;
+  color: var(--accent);
+}
+.pl-row-meta {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.pl-empty p {
+  margin: 0;
+  padding: var(--space-3);
+  color: var(--text-3);
+}

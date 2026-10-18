@@ -57,6 +57,17 @@ export class RpcCommandError extends Error {
   }
 }
 
+/** 出站帧超过 `ready` 声明的 maxFrameBytes：omp 会丢弃它，调用方却在等应答，所以在本地拒绝。 */
+export class FrameTooLargeError extends Error {
+  override name = "FrameTooLargeError";
+  readonly limit: number;
+
+  constructor(bytes: number, limit: number) {
+    super(`frame is ${bytes} bytes, larger than the ${limit}-byte frame limit`);
+    this.limit = limit;
+  }
+}
+
 /** omp 在命令得到应答之前退出了。 */
 export class OmpExitedError extends Error {
   override name = "OmpExitedError";
@@ -96,6 +107,7 @@ export class OmpConnection {
   #fatal: Error | null = null;
   #killed = false;
   #stderrTail = "";
+  #maxFrameBytes: number | null = null;
   #onReadyFrame: ((frame: ReadyEvent) => void) | null = null;
   /** omp 进程本身已退出（`exit` 事件）。`close` 事件要等 stdio 全部关闭，孙进程拿着管道时会晚到。 */
   #processExited = false;
@@ -175,6 +187,11 @@ export class OmpConnection {
     return this.#protocolVersion;
   }
 
+  /** `ready` 帧声明的入站帧大小上限（字节）；服务端没有声明时为 null。 */
+  get maxFrameBytes(): number | null {
+    return this.#maxFrameBytes;
+  }
+
   /** 订阅除命令应答以外的所有帧（通知、会话事件、host 请求，以及对不上请求的应答）。返回取消订阅函数。 */
   onFrame(listener: (frame: RpcServerFrame) => void): () => void {
     this.#frameListeners.add(listener);
@@ -208,6 +225,7 @@ export class OmpConnection {
   #request<K extends CommandType>(type: K, params: CommandParams<K> | undefined): { id: string; response: Promise<CommandResult<K>> } {
     const id = `req-${this.#nextId++}`;
     if (this.#exit) return { id, response: Promise.reject(new OmpExitedError(this.#exit)) };
+    this.#assertFits({ ...params, id, type });
     const { promise, resolve, reject } = Promise.withResolvers<CommandResult<K>>();
     // 应答的 `data` 按命令类型由 wire schema 约定；这里不做运行时校验。
     this.#pending.set(id, { resolve: (data) => resolve(data as CommandResult<K>), reject });
@@ -218,6 +236,7 @@ export class OmpConnection {
   /** 发送不需要应答的帧：extension UI 应答、host tool / URI 结果。 */
   send(frame: RpcInbound): void {
     if (this.#exit) throw new OmpExitedError(this.#exit);
+    this.#assertFits(frame);
     this.#write(frame);
   }
 
@@ -234,6 +253,12 @@ export class OmpConnection {
     clearTimeout(timer);
     if (outcome === "timeout") await this.#killTree();
     return this.exited;
+  }
+
+  #assertFits(frame: object): void {
+    if (this.#maxFrameBytes === null) return;
+    const bytes = Buffer.byteLength(JSON.stringify(frame)) + 1;
+    if (bytes > this.#maxFrameBytes) throw new FrameTooLargeError(bytes, this.#maxFrameBytes);
   }
 
   #write(frame: object): void {
@@ -285,6 +310,7 @@ export class OmpConnection {
     const withinDeadline = <T>(step: Promise<T>) => Promise.race([step, deadline.promise]);
     try {
       const ready = await withinDeadline(readyFrame.promise);
+      this.#maxFrameBytes = ready.maxFrameBytes ?? null;
       if (!ready.supportedProtocolVersions?.includes(2)) return;
       await withinDeadline(this.request("negotiate_protocol", { protocolVersion: 2 }));
       this.#protocolVersion = 2;

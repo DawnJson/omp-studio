@@ -63,3 +63,21 @@ GET https://build.stencil.so/api/products/omp/versions/<version>/windows-x86_64
 4. `.old-…` 文件要等用它的进程都退出后才能删除，删除失败就留到下次启动再清理。
 
 Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次启动的任务会用到新版本（推测，与上面的机制相同，没有在 Tern 上实测）。
+
+## omp-studio 的实现（`src/main/omp-manager/`）
+
+状态机在 `manager.ts`，决策在 `resolve.ts`（纯函数，`test/omp-manager-resolve.test.ts` 逐分支覆盖），下载校验在 `build-service.ts`，目录和换 exe 在 `installer.ts`，应用里的接线（`net.fetch`、`userData`、事件推送）在 `index.ts`。渲染进程的 `OmpStatus` 就是这个状态机的状态，界面见 `features/omp-setup/` 和设置 → omp。
+
+- **自管目录**：`%LOCALAPPDATA%\omp-studio\omp\`（`versions\<版本>.exe`、`bin\omp.exe`、`manager.json`、`update.lock`）。未打包时 `STUDIO_OMP_HOME` 或测试的 `STUDIO_USER_DATA`（→ `<userData>\omp`）可以改位置，测试不碰真实目录。
+- **每次启动的发现**（第一次 `getOmpStatus` 触发）：PATH 上没有 omp → 有自管副本就用，没有就直接下载（不再问，进度在准备页）；Tern 等有 `manager.json` 的 → 直接用，不问、不碰 PATH；用户自装的（含 `.cmd`）→ `ask_takeover`，回答按 exe 路径记在 `userData\omp-studio-state.json`（`takeover[exe 路径小写]`），同意 → 下载自管副本并把 `bin` 放到用户 PATH 最前面，拒绝 → 用用户那份（`.cmd` 则 `unusable`，"重新选择"会忘掉那次拒绝重新问）。用户同意过接管、但 `bin` 已不在用户 PATH 里时，启动会重新放回最前面。
+- **`missing` 状态**：PATH 上没有 omp 且没有自管副本时，不直接下载 220 MB：向构建服务问版本和大小，准备页写明大小和来源，用户点"下载并安装"（`installOmp`）才下载；下载中可以取消（`cancelOmpInstall`，丢弃 `.partial`，回到 `missing`）。上一条里"没有就直接下载"以本条为准。用户同意过接管（`takeover` 已记录为 accepted）时视为已授权，直接下载。
+- **自管 omp 首次安装后**问一次要不要加进用户 PATH（`askAddToPath`，记在同一个状态文件的 `addToPathAsked`）；设置 → omp 里随时可以再加。
+- **写用户 PATH**：`platform/win32/user-path.ts`（koffi，不用 reg.exe/setx）。只做"去重 + 放最前"，值类型和 `%VAR%` 原样保留；写之前把原值存成 `userData\path-backup-<时间>.txt`。测试用 `HKCU\Software\omp-studio-test-<pid>` 临时子键（`test/user-path.test.ts`）。
+- **下载**：`net.fetch`（系统代理）→ `…/latest/windows-x86_64?channel=stable`，`PI_BUILD_URL` 可改服务地址（omp 自己也认）。2026-10-18 实测应答：`build.version`（当时 18.12.1）、`file.{name,size,sha256,url}`、`download`（绝对地址的签名直链，字符串）。边下边算 sha256，size 和 sha256 都对上才从 `.partial` 改名；对不上删掉并报 `verify` 错误。`test/omp-manager-install.test.ts` 用本地假服务器覆盖损坏、长度不对、进度、目录有空格和中文。
+- **换 exe**：先复制到 `bin\.omp.exe.new-<pid>`，旧的改名为 `.omp.exe.old-<时间戳>`，新的改名到位，失败回滚。`.old-*` 每次启动清理，删不掉的留着。`versions\` 保留最近 3 个（当前版本一定留）。
+- **后台更新**：自管时每小时请求一次最新版，更新了就在后台下载换掉 `bin\omp.exe`，状态里 `stagedUpdate` 是装上的版本；不切到 `installing`（那会把界面换成准备页）。`update.lock` 用 `open(…, "wx")` 独占，超过 30 分钟的残留当作崩溃遗留。设置 → omp 的"检查更新"走同一条路径（`checkOmpUpdate`）。
+- **没有做差量补丁**（决策 D5）：本版只做全量下载（约 220 MB），应答里的 `patch` 字段不读。要做时在 `build-service.ts` 加 `?from_version=` 和补丁应用，`installBuild` 的调用方不用改。
+- **升级按钮**（`upgradePathOmp`）只在"用户自装且拒绝了接管"时对 PATH 上那个 omp 执行 `omp update`（不用 shell，输出原样返回，界面显示末 3 行）。自管、他人管理的会被拒绝。
+- **启动子进程**时 `getOmpExecutable()` 返回 `{ path, managedBin }`，自管时 `managedBin` 非空，调用方把它前置到子进程 PATH，让 `omp update` 认到 `manager.json`。
+
+测试注入（仅未打包）：`STUDIO_TEST_OMP` 设了之后，发现流程直接把它当作"别人管理的 omp"，不查 PATH、不下载。

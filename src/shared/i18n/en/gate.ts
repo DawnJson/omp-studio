@@ -1,0 +1,32 @@
+import type { MessageEntry } from "../index.ts";
+import type { gate as zhCN } from "../zh-CN/gate.ts";
+
+export const gate = {
+  "title.waiting": "Waiting for you",
+  allow: "Allow",
+  allowToolTitle: "Allow {tool} to run?",
+  allowTool: "Allow {tool} for this task",
+  deny: "Deny",
+  confirm: "Confirm",
+  cancel: "Cancel",
+  submit: "Submit",
+  ok: "OK",
+  next: "Next",
+  back: "Back",
+  step: "{i} of {n}",
+  other: "Other…",
+  otherPlaceholder: "Type your own answer",
+  recommended: "Recommended",
+  required: "Choose an option or type an answer",
+  filter: "Filter…",
+  timeout: "Cancels automatically in {s}s",
+  timeoutAsk: "Picks the recommended option in {s}s",
+  timedOut: "Timed out",
+  cancelled: "Cancelled",
+  detailsExpand: "Show all",
+  pending: "{n} more waiting",
+  aria: "omp needs your response",
+  suggestReplace: "Replace your draft with the suggested text?",
+  suggestReplaceYes: "Replace",
+  suggestKeep: "Keep mine",
+} satisfies Record<keyof typeof zhCN, MessageEntry>;

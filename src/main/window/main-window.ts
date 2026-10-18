@@ -1,7 +1,9 @@
-// 主窗口：安全配置（AGENTS.md "Electron 安全"）和"当前主窗口"引用。窗口外观、状态记忆、CSP、权限请求由外壳切片补全。
+// 主窗口：安全配置（AGENTS.md "Electron 安全"）、"当前主窗口"引用、窗口状态记忆和主题同步。
+import { app, BrowserWindow, nativeTheme, shell } from "electron";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
-import { BrowserWindow, nativeTheme, shell } from "electron";
+import { appOrigin } from "./app-protocol.ts";
+import { blockZoom } from "./security.ts";
+import { restoredBounds, trackWindowState } from "./window-state.ts";
 
 /** 顶栏（通栏，高 40）的底色和系统三键符号色，取自 docs/design/spec.md §2.1；主题切换时用 win.setTitleBarOverlay(titleBarColors(dark)) 同步。 */
 export const titleBarHeight = 40;
@@ -15,23 +17,26 @@ export function getMainWindow(): BrowserWindow | null {
   return mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
 }
 
-/** 应用自己的页面地址：开发时是 Vite 开发服务器，打包后是 out/renderer/index.html。 */
+/** 应用自己的页面地址：开发（未打包）时可由 ELECTRON_RENDERER_URL 指向 Vite 开发服务器；打包后只有 app://studio/。 */
 export function rendererEntryUrl(): string {
-  return process.env["ELECTRON_RENDERER_URL"] ?? pathToFileURL(path.join(import.meta.dirname, "..", "renderer", "index.html")).href;
+  const dev = app.isPackaged ? undefined : process.env["ELECTRON_RENDERER_URL"];
+  return dev ?? `${appOrigin}/index.html`;
 }
 
-/** url 是不是应用自己的页面：打包后只认 index.html 这一个文件，开发时认 Vite 开发服务器的源。 */
+/** url 是不是应用自己的页面：只认入口页面这一个地址（开发服务器时认它的源）。 */
 export function isAppUrl(url: string): boolean {
   const entry = new URL(rendererEntryUrl());
   const target = new URL(url);
-  if (entry.protocol === "file:") return target.protocol === "file:" && target.pathname === entry.pathname;
+  if (entry.protocol === "app:") return target.protocol === "app:" && target.host === entry.host && target.pathname === entry.pathname;
   return target.origin === entry.origin;
 }
 
 export function createMainWindow(): BrowserWindow {
+  const restored = restoredBounds();
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
+    ...restored.bounds,
     minWidth: 800,
     minHeight: 560,
     show: false,
@@ -59,6 +64,13 @@ export function createMainWindow(): BrowserWindow {
   });
 
   window.once("ready-to-show", () => window.show());
+  // 主题切换（设置或系统）时，系统三键的底色和符号色跟着顶栏走。
+  const syncTitleBar = () => window.setTitleBarOverlay({ ...titleBarColors(nativeTheme.shouldUseDarkColors), height: titleBarHeight });
+  nativeTheme.on("updated", syncTitleBar);
+  window.once("closed", () => nativeTheme.off("updated", syncTitleBar));
+  blockZoom(window.webContents);
+  trackWindowState(window);
+  if (restored.maximized) window.maximize();
   window.on("closed", () => {
     if (mainWindow === window) mainWindow = null;
   });
