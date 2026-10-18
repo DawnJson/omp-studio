@@ -16,7 +16,7 @@ export function WorktreeChip({ projectId }: { projectId: ProjectId }) {
   useEffect(() => {
     let current = true;
     window.studio.getWorktreeSetupScript(projectId).then(
-      (name) => current && setScript(name),
+      (info) => current && setScript(info?.name ?? null),
       () => current && setScript(null),
     );
     return () => {

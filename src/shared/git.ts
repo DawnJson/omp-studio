@@ -150,6 +150,13 @@ export function formatReviewComments(comments: readonly ReviewComment[], locale:
 
 // ───────── worktree 与 git 操作 ─────────
 
+/** 项目的 worktree setup 脚本：name 是相对仓库根的路径，sha256 是内容哈希；approved = 用户已确认过这份内容。 */
+export interface WorktreeSetupInfo {
+  name: string;
+  sha256: string;
+  approved: boolean;
+}
+
 export interface TaskWorktreeInfo {
   branch: string;
   baseBranch: string;

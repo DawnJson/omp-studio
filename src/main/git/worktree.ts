@@ -1,6 +1,6 @@
 // 任务 worktree：创建、setup 脚本、合并回基分支、丢弃、清理无主 worktree。决策和位置见 docs/architecture/git.md。
-import { randomUUID } from "node:crypto";
-import { access, mkdir, readdir, realpath, rm } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, readdir, readFile, realpath, rm } from "node:fs/promises";
 import path from "node:path";
 import type { GitMergeResult, TaskWorktreeInfo, WorktreeCleanupResult } from "../../shared/git.ts";
 import { log } from "../log/log.ts";
@@ -41,6 +41,8 @@ export interface SetupScript {
   name: string;
   /** 脚本文件的绝对路径。 */
   file: string;
+  /** 文件内容的 sha256（十六进制）：用户的确认按它记，内容变了要重新确认。 */
+  sha256: string;
 }
 
 /**
@@ -52,8 +54,8 @@ export async function findSetupScript(repoRoot: string): Promise<SetupScript | n
   for (const name of names) {
     const file = path.join(repoRoot, ".omp-studio", name);
     try {
-      await access(file);
-      return { name: `.omp-studio/${name}`, file };
+      const bytes = await readFile(file);
+      return { name: `.omp-studio/${name}`, file, sha256: createHash("sha256").update(bytes).digest("hex") };
     } catch {
       // 不存在，试下一个
     }
@@ -79,7 +81,8 @@ async function runSetupScript(script: SetupScript, repoRoot: string, worktreePat
   const result = await runCommand(command, args, {
     cwd: worktreePath,
     timeoutMs: SETUP_TIMEOUT_MS,
-    maxBuffer: 4 * 1024 * 1024,
+    // 输出再多也不让创建失败：只留结尾给错误信息用。
+    keepTailBytes: SETUP_OUTPUT_TAIL * 4,
     windowsVerbatimArguments: verbatim,
     env: { ...process.env, OMP_STUDIO_PROJECT_DIR: repoRoot, OMP_STUDIO_WORKTREE_DIR: worktreePath },
   });
@@ -91,18 +94,31 @@ async function runSetupScript(script: SetupScript, repoRoot: string, worktreePat
 
 // ───────── 创建 ─────────
 
+export interface CreateWorktreeOptions {
+  /** 仓库里有 setup 脚本时必须给：返回 true 才会运行（用户确认过这个项目的这份内容）。没给或返回 false 则创建被拒绝，什么都不留。 */
+  approveSetup?: (script: SetupScript) => boolean | Promise<boolean>;
+}
+
 /**
  * 从当前 HEAD 建分支 `studio/<slug>` 和 worktree。slug 是随机的 8 位十六进制：任务创建时还没有标题。
  * setup 脚本失败时回滚（移除 worktree 和分支）并抛错：在没装好依赖的目录里让 agent 干活只会产生误导性的失败。
  * 主仓库里没提交的改动不会带进 worktree。
  */
-export async function createWorktree(projectPath: string): Promise<CreatedWorktree> {
+export async function createWorktree(
+  projectPath: string,
+  options: CreateWorktreeOptions = {},
+): Promise<CreatedWorktree> {
   const repoRoot = await requireRepoRootProject(projectPath);
   if (!(await hasCommits(repoRoot)))
     throw new Error("the repository has no commits yet; commit once before using a worktree");
   const baseBranch = await currentBranch(repoRoot);
   if (baseBranch === null)
     throw new Error("the repository is on a detached HEAD; check out a branch before using a worktree");
+
+  // 脚本是仓库里的可执行内容：没确认过就不创建（先于 worktree add，不留残余）。
+  const approved = await findSetupScript(repoRoot);
+  if (approved && !(await options.approveSetup?.(approved)))
+    throw new Error(`setup script not approved: ${approved.name}`);
 
   const slug = randomUUID().slice(0, 8);
   const branch = `${BRANCH_PREFIX}${slug}`;
@@ -112,8 +128,12 @@ export async function createWorktree(projectPath: string): Promise<CreatedWorktr
   log.info("worktree created", { branch });
 
   try {
-    const script = await findSetupScript(repoRoot);
-    if (script) await runSetupScript(script, repoRoot, worktreePath);
+    if (approved) {
+      // 确认之后脚本被改过：按没确认处理。
+      const current = await findSetupScript(repoRoot);
+      if (current?.sha256 !== approved.sha256) throw new Error(`setup script not approved: ${approved.name}`);
+      await runSetupScript(approved, repoRoot, worktreePath);
+    }
   } catch (error) {
     await removeWorktree(repoRoot, worktreePath, branch).catch((cleanupError: unknown) =>
       log.warn("worktree rollback failed", cleanupError),
@@ -126,7 +146,7 @@ export async function createWorktree(projectPath: string): Promise<CreatedWorktr
 // ───────── 信息 ─────────
 
 export async function worktreeInfo(repoRoot: string, branch: string, baseBranch: string): Promise<TaskWorktreeInfo> {
-  const count = await gitRaw(repoRoot, ["rev-list", "--count", `${baseBranch}..${branch}`]);
+  const count = await gitRaw(repoRoot, ["rev-list", "--count", "--end-of-options", `${baseBranch}..${branch}`]);
   return { branch, baseBranch, commitsAhead: count.code === 0 ? Number(count.stdout.toString("utf8").trim()) : 0 };
 }
 
@@ -150,7 +170,7 @@ export async function mergeWorktree(
     return { kind: "blocked", reason: "base_dirty" };
   if ((await worktreeInfo(repoRoot, branch, baseBranch)).commitsAhead === 0) return { kind: "nothing_to_merge" };
 
-  const result = await gitRaw(repoRoot, ["merge", "--no-edit", branch]);
+  const result = await gitRaw(repoRoot, ["merge", "--no-edit", "--end-of-options", branch]);
   if (result.code === 0) return { kind: "merged", commit: await headCommit(repoRoot) };
 
   const conflicts = (await gitText(repoRoot, ["diff", "--name-only", "--diff-filter=U", "-z"]))
@@ -165,15 +185,37 @@ export async function mergeWorktree(
 
 // ───────── 丢弃和清理 ─────────
 
+/** Windows 上杀毒/索引服务或刚被结束的进程会短暂占住目录：对这些错误码有限次重试（同 atomic-write.ts）。 */
+async function rmWithRetry(target: string): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await rm(target, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      const code = error instanceof Error && "code" in error ? String(error.code) : "";
+      if (attempt >= 8 || !["EBUSY", "EPERM", "EACCES", "ENOTEMPTY"].includes(code)) throw error;
+      await new Promise((r) => setTimeout(r, 50 * attempt));
+    }
+  }
+}
+
+/** 只允许移除 studio 自己建的：目录必须正好在 worktreeParent(repo) 下一层，分支必须是 studio/ 前缀。 */
+function assertStudioWorktree(repoRoot: string, worktreePath: string, branch: string): void {
+  if (pathKey(path.dirname(worktreePath)) !== pathKey(worktreeParent(repoRoot)))
+    throw new Error("refusing to remove a directory that is not a studio worktree");
+  if (!branch.startsWith(BRANCH_PREFIX)) throw new Error("refusing to delete a branch that is not a studio branch");
+}
+
 /** 移除 worktree（含未提交的改动）和它的分支。目录已经没了也不报错。 */
 export async function removeWorktree(repoRoot: string, worktreePath: string, branch: string): Promise<void> {
+  assertStudioWorktree(repoRoot, worktreePath, branch);
   await gitRaw(repoRoot, ["worktree", "remove", "--force", worktreePath]);
   // remove 失败（目录被占用等）时目录可能还在；让 git 忘掉已经不存在的，再确认目录真的没了。
   await gitRaw(repoRoot, ["worktree", "prune"]);
-  await rm(worktreePath, { recursive: true, force: true });
+  await rmWithRetry(worktreePath);
   await gitRaw(repoRoot, ["worktree", "prune"]);
   if ((await gitRaw(repoRoot, ["rev-parse", "-q", "--verify", `refs/heads/${branch}`])).code === 0)
-    await git(repoRoot, ["branch", "-D", branch]);
+    await git(repoRoot, ["branch", "-D", "--end-of-options", branch]);
   log.info("worktree removed", { branch });
 }
 

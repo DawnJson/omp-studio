@@ -23,7 +23,6 @@ import {
 import { useSettings, useTask, useTranscript } from "../../store/index.ts";
 import { describeError, reportError } from "../../ui/errors.ts";
 import { buildTurns } from "../conversation/model.ts";
-import { useProjectPath } from "../conversation/project-path.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { CommentQueue } from "./CommentQueue.tsx";
 import { ExplainPanel } from "./ExplainPanel.tsx";
@@ -41,7 +40,6 @@ export function ReviewView({ taskId }: { taskId: TaskId }) {
   const task = useTask(taskId);
   const settings = useSettings();
   const transcript = useTranscript(taskId);
-  const projectPath = useProjectPath(task?.projectId);
   const comments = useReviewComments(taskId);
   const mode = useReviewMode();
   const root = useRef<HTMLDivElement>(null);
@@ -60,7 +58,7 @@ export function ReviewView({ taskId }: { taskId: TaskId }) {
 
   const diffState = useFileDiff(taskId, entry, stamp);
   const explanations = useMemo(() => explainChanges(transcript ? buildTurns(transcript) : []), [transcript]);
-  const notes = entry === null ? [] : notesForFile(explanations, entry.path, projectPath);
+  const notes = entry === null ? [] : notesForFile(explanations, entry.path, task?.cwd ?? null);
 
   // 进入时把焦点放进评审、底下的页面不可达（inert）；退出时焦点回到触发它的元素，已经不在了就回输入框。
   useEffect(() => {
@@ -252,6 +250,11 @@ export function ReviewView({ taskId }: { taskId: TaskId }) {
           {comments.length > 0 ? t("review.sendCount", { count: comments.length }) : t("review.send")}
         </button>
       </header>
+      {error !== null && status !== null && (
+        <div className="rv-state" role="alert" data-testid="review-stale-error">
+          {t("review.loadFailed")} · {describeError(t, error)}
+        </div>
+      )}
       {content}
     </div>
   );

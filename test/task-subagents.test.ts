@@ -111,6 +111,9 @@ describe("任务池：子代理泳道（回放 subagents-control）", () => {
       "assistant",
     ]);
     expect(detail.lane.id).toBe("ReadAlpha");
+    // 带上已有条数（since）只返回新增的：这里没有新增。
+    const again = await h.pool.getSubagentDetail(h.id, "ReadAlpha", 8);
+    expect(again).toMatchObject({ messages: [], from: 8, total: 8 });
 
     await expect(h.pool.getSubagentDetail(h.id, "Nope")).rejects.toThrow(/unknown subagent/);
     await expect(h.pool.steerSubagent(h.id, "ReadAlpha", "hi")).rejects.toThrow(/not running/);

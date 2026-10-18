@@ -6,6 +6,11 @@ export const git = {
   "chip.title": "在独立的 git 工作树里做这个任务：新分支 studio/…，不动主目录里的文件",
   "chip.setup": "创建时会运行 {script}",
   "chip.blocked": "不能用工作树：{reason}",
+  "setup.title": "运行这个项目的 setup 脚本？",
+  "setup.body":
+    "{script} 来自这个项目的仓库，会在新的工作树里运行，拥有和你一样的权限。只运行你信任的脚本。脚本内容改变后会再问一次。",
+  "setup.confirm": "运行并创建",
+  "setup.declined": "没有创建工作树。",
 
   // 创建工作树被拒绝的原因（主进程的错误原文映射，shared/ui/errors.ts）
   "err.notGit": "这个项目目录不是 git 仓库。",

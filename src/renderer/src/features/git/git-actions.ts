@@ -14,6 +14,15 @@ import { pushToast } from "../dialogs/index.ts";
 import { openGitDialog } from "./git-dialog-store.ts";
 import { refreshGit } from "./git-store.ts";
 
+/** 新建 worktree 任务前：项目的 setup 脚本没确认过（或内容变了）就弹对话框问；false = 用户拒绝，不建 worktree。 */
+export async function ensureSetupApproved(projectId: ProjectId): Promise<boolean> {
+  const script = await window.studio.getWorktreeSetupScript(projectId);
+  if (script === null || script.approved) return true;
+  const { promise, resolve } = Promise.withResolvers<boolean>();
+  openGitDialog({ kind: "setup", projectId, script, settle: resolve });
+  return promise;
+}
+
 /** 提交结果 → 提示；true = 已提交。 */
 export function announceCommit(t: TFunction, result: GitCommitResult): boolean {
   if (result.kind === "committed") {

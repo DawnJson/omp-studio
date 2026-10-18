@@ -19,6 +19,7 @@ export const login = {
   copyCommand: "复制命令",
   chooseAccount: "选择要退出的账号",
   failed: "登录没有完成。",
+  refreshFailed: "没能刷新，显示的是上次的结果：{message}",
   loadFailed: "没能读取账号信息：{message}",
   empty: "没有可用的提供商",
   apiKey: "API key",

@@ -99,3 +99,18 @@ export function mainToolMarks(turn: Turn): ToolMark[] {
   }
   return marks;
 }
+
+export interface RecordSpan<T> {
+  /** messages[0] 的绝对序号。 */
+  from: number;
+  messages: T[];
+}
+
+/** 把主进程返回的一段（从绝对序号 incoming.from 起）接到已有的记录后面；接不上（记录被重置、被截断）就整个换掉。没有新增时返回原对象。 */
+export function mergeRecord<T>(held: RecordSpan<T> | null, incoming: RecordSpan<T>): RecordSpan<T> {
+  if (held && incoming.from >= held.from && incoming.from <= held.from + held.messages.length) {
+    if (incoming.messages.length === 0 && incoming.from === held.from + held.messages.length) return held;
+    return { from: held.from, messages: [...held.messages.slice(0, incoming.from - held.from), ...incoming.messages] };
+  }
+  return incoming;
+}

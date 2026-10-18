@@ -2,11 +2,11 @@
 //   额度：`omp usage --json`（omp 自己去各 provider 查，带缓存；没有登录账号时 reports 为空）。
 //   每日消耗：omp 的 `stats.db`（`message_rollup`，小时桶）。这个库**只有 `omp stats` 运行时才会同步新会话**，
 //   所以"刷新"= 先让 omp 自己跑一次 `omp stats --json`（它负责读会话文件、加锁、写库），再用 node:sqlite 只读地查。
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { runCommand } from "../git/exec.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 import type { QuotaAccount, QuotaLimit, QuotaSnapshot, UsageDay, UsageHeatmap } from "../../shared/ipc.ts";
 
@@ -96,7 +96,8 @@ export function readHeatmap(dbPath: string, now: number = Date.now()): UsageHeat
   const from = localDate(first.getTime());
   const to = localDate(now);
   if (!existsSync(dbPath)) return { from, to, days: [], hasDatabase: false };
-  const db = new DatabaseSync(dbPath, { readOnly: true });
+  // stats.db 是 WAL；omp 同步写入时读方短暂等待而不是直接 BUSY。
+  const db = new DatabaseSync(dbPath, { readOnly: true, timeout: 5000 });
   try {
     // 小时桶按 UTC 对齐；多取一天，让本地时区的第一天不缺头。
     const rows = db
@@ -121,35 +122,46 @@ export function readHeatmap(dbPath: string, now: number = Date.now()): UsageHeat
   }
 }
 
-export type RunOmp = (args: string[]) => Promise<{ code: number; stdout: string }>;
+export type RunOmp = (args: string[]) => Promise<{ code: number; stdout: string; stderr: string }>;
 
-/** `omp <args>` 取全部 stdout；用参数数组，不走 shell。stats 的输出带上千个目录，所以不用 execFile 的缓冲上限。 */
-export function runOmpCommand(exePath: string, cwd: string, timeoutMs: number): RunOmp {
-  return (args) => {
-    const { promise, resolve, reject } = Promise.withResolvers<{ code: number; stdout: string }>();
-    const child = spawn(exePath, args, {
+/** omp 命令以非 0 退出：message 带 stderr 末尾一段，界面经 describeError 显示。 */
+export class OmpCommandError extends Error {
+  override name = "OmpCommandError";
+}
+
+/**
+ * `omp <args>` 取全部 stdout；用参数数组，不走 shell。env 带上 omp-studio 存的 API key（额度查询要用）。
+ * 超时（runCommand 杀进程后抛错）和输出过大照原样抛出，不吞。
+ */
+export function runOmpCommand(
+  exePath: string,
+  cwd: string,
+  timeoutMs: number,
+  extraEnv: Record<string, string> = {},
+): RunOmp {
+  return async (args) => {
+    const result = await runCommand(exePath, args, {
       cwd,
-      env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" },
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "ignore"],
+      env: { ...process.env, ...extraEnv, NO_COLOR: "1", FORCE_COLOR: "0" },
+      timeoutMs,
     });
-    const chunks: Buffer[] = [];
-    child.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
-    const timer = setTimeout(() => child.kill(), timeoutMs);
-    child.on("error", (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      resolve({ code: code ?? -1, stdout: Buffer.concat(chunks).toString("utf8") });
-    });
-    return promise;
+    return { code: result.code, stdout: result.stdout.toString("utf8"), stderr: result.stderr };
   };
+}
+
+function stderrTail(stderr: string): string {
+  return stderr.trim().split(/\r?\n/).slice(-3).join(" | ").slice(-400);
+}
+
+/** 退出码非 0 就抛，带 stderr 末尾。 */
+export function requireSuccess(what: string, result: { code: number; stderr: string }): void {
+  if (result.code === 0) return;
+  const tail = stderrTail(result.stderr);
+  throw new OmpCommandError(`${what} exited with code ${result.code}${tail ? `: ${tail}` : ""}`);
 }
 
 export async function fetchQuota(run: RunOmp): Promise<QuotaSnapshot> {
   const result = await run(["usage", "--json"]);
-  if (result.code !== 0) throw new Error(`omp usage exited with code ${result.code}`);
+  requireSuccess("omp usage", result);
   return parseQuota(JSON.parse(result.stdout.slice(result.stdout.indexOf("{"))));
 }

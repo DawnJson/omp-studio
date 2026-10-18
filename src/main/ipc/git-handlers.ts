@@ -24,9 +24,10 @@ import { getGitStatus } from "../git/status.ts";
 import { cleanupOrphanWorktrees, findSetupScript, mergeWorktree, worktreeInfo } from "../git/worktree.ts";
 import { log } from "../log/log.ts";
 import { resolveLocale } from "../settings/settings-store.ts";
-import { getTaskPool } from "../tasks/runtime.ts";
+import { getSetupConsent, getTaskPool } from "../tasks/runtime.ts";
 import {
   IpcValidationError,
+  parseBoolean,
   parseInteger,
   parseOneOf,
   parseProjectId,
@@ -77,6 +78,7 @@ export const gitHandlers: HandlerGroup<
   | "discardGitHunk"
   | "sendReviewComments"
   | "getWorktreeSetupScript"
+  | "approveWorktreeSetup"
   | "getTaskWorktree"
   | "mergeTaskWorktree"
   | "discardTaskWorktree"
@@ -153,7 +155,26 @@ export const gitHandlers: HandlerGroup<
     const id = parseProjectId(projectId);
     const project = pool.listProjects().find((candidate) => candidate.id === id);
     if (!project) throw new Error(`unknown project ${id}`);
-    return (await findSetupScript(project.path))?.name ?? null;
+    const script = await findSetupScript(project.path);
+    if (!script) return null;
+    return {
+      name: script.name,
+      sha256: script.sha256,
+      approved: await getSetupConsent().isApproved(project.path, script.sha256),
+    };
+  },
+
+  approveWorktreeSetup: async (projectId, sha256) => {
+    const pool = await getTaskPool();
+    const id = parseProjectId(projectId);
+    const project = pool.listProjects().find((candidate) => candidate.id === id);
+    if (!project) throw new Error(`unknown project ${id}`);
+    const script = await findSetupScript(project.path);
+    // 只确认用户看到的那份：脚本已经变了（或没了）就拒绝，界面重新取、重新问。
+    if (!script || script.sha256 !== parseString(sha256, "sha256", 64))
+      throw new Error("the setup script changed; review it again");
+    await getSetupConsent().approve(project.path, script.sha256);
+    log.info("worktree setup script approved");
   },
 
   getTaskWorktree: async (taskId) => {
@@ -188,7 +209,7 @@ export const gitHandlers: HandlerGroup<
     const result = await commit(
       pool.taskGitContext(parseTaskId(taskId)).cwd,
       parseString(message, "message", 20_000),
-      stageAll === true,
+      parseBoolean(stageAll, "stageAll"),
     );
     log.info("git commit", { result: result.kind });
     return result;

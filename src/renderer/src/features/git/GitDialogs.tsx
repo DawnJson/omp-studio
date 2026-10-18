@@ -2,8 +2,8 @@
 // 键盘：Esc 关闭（消耗掉，不触发"停止任务"），Tab 在对话框内循环；关闭后焦点回到打开前的元素。
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { WorktreeCleanupResult } from "../../../../shared/git.ts";
-import type { TaskId } from "../../../../shared/ipc.ts";
+import type { WorktreeCleanupResult, WorktreeSetupInfo } from "../../../../shared/git.ts";
+import type { ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
 import { useSelectedTaskId } from "../../store/index.ts";
@@ -325,6 +325,72 @@ function CleanupDialog({ result }: { result: WorktreeCleanupResult }) {
   );
 }
 
+/** 仓库里的 setup 脚本是可执行内容：首次使用（或内容变了）先问；任何方式关闭对话框都等于拒绝。 */
+function SetupDialog({
+  projectId,
+  script,
+  settle,
+}: {
+  projectId: ProjectId;
+  script: WorktreeSetupInfo;
+  settle(approved: boolean): void;
+}) {
+  const t = useT();
+  const settled = useRef(false);
+  // 卸载时（Esc、点遮罩、切走）按拒绝处理；用 ref 拿最新的 settle，卸载回调不需要跟着重建。
+  const settleRef = useRef(settle);
+  settleRef.current = settle;
+  const finish = (approved: boolean) => {
+    if (settled.current) return;
+    settled.current = true;
+    settleRef.current(approved);
+  };
+  useEffect(
+    () => () => {
+      if (settled.current) return;
+      settled.current = true;
+      settleRef.current(false);
+    },
+    [],
+  );
+
+  const approve = async () => {
+    try {
+      await window.studio.approveWorktreeSetup(projectId, script.sha256);
+      finish(true);
+    } catch (error) {
+      reportError(t, error);
+      finish(false);
+    }
+    closeGitDialog();
+  };
+
+  return (
+    <Shell
+      title={t("git.setup.title")}
+      testId="git-setup-dialog"
+      footer={
+        <>
+          <button type="button" className="gate-btn" data-autofocus onClick={closeGitDialog}>
+            {t("common.cancel")}
+          </button>
+          <button
+            type="button"
+            className="gate-btn"
+            data-primary
+            data-testid="git-setup-confirm"
+            onClick={() => void approve()}
+          >
+            {t("git.setup.confirm")}
+          </button>
+        </>
+      }
+    >
+      <p className="git-text">{t("git.setup.body", { script: script.name })}</p>
+    </Shell>
+  );
+}
+
 export function GitDialogHost() {
   const state = useGitDialog();
   if (state === null) return null;
@@ -339,5 +405,7 @@ export function GitDialogHost() {
       return <ConflictDialog files={state.files} />;
     case "cleanup":
       return <CleanupDialog result={state.result} />;
+    case "setup":
+      return <SetupDialog projectId={state.projectId} script={state.script} settle={state.settle} />;
   }
 }

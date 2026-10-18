@@ -20,6 +20,7 @@ export const login = {
   copyCommand: "Copy command",
   chooseAccount: "Choose an account to sign out",
   failed: "Sign-in didn't complete.",
+  refreshFailed: "Couldn't refresh; showing the last result: {message}",
   loadFailed: "Couldn't load account info: {message}",
   empty: "No providers available",
   apiKey: "API key",

@@ -108,3 +108,24 @@ describe("订阅额度", () => {
     expect(parseQuota({ generatedAt: 1, reports: [], accountsWithoutUsage: [] }).accounts).toEqual([]);
   });
 });
+
+describe("omp 命令失败不被吞", () => {
+  it("非 0 退出抛错并带 stderr 末尾；超时也抛错", async () => {
+    const { requireSuccess, runOmpCommand, fetchQuota } = await import("../src/main/usage/usage-service.ts");
+    expect(() => requireSuccess("omp stats", { code: 0, stderr: "" })).not.toThrow();
+    expect(() => requireSuccess("omp stats", { code: 2, stderr: "a\nb\nlock busy\n" })).toThrow(/code 2.*lock busy/);
+    await expect(fetchQuota(() => Promise.resolve({ code: 1, stdout: "", stderr: "no network" }))).rejects.toThrow(
+      /omp usage exited with code 1: no network/,
+    );
+    // 真实子进程：node 睡 5 秒，超时 200ms。
+    const run = runOmpCommand(process.execPath, os.tmpdir(), 200);
+    await expect(run(["-e", "setTimeout(()=>{},5000)"])).rejects.toThrow(/timed out/);
+    const failed = await runOmpCommand(
+      process.execPath,
+      os.tmpdir(),
+      10_000,
+    )(["-e", "console.error('boom');process.exit(3)"]);
+    expect(failed).toMatchObject({ code: 3 });
+    expect(failed.stderr).toContain("boom");
+  });
+});

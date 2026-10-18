@@ -240,7 +240,7 @@ export function FileDiffView({
           body={t(
             confirm.kind === "hunk"
               ? "review.discardHunkBody"
-              : area === "untracked"
+              : area === "untracked" || (area === "staged" && (entry.kind === "added" || entry.kind === "copied"))
                 ? "review.discardUntrackedBody"
                 : "review.discardFileBody",
             { path: entry.path },

@@ -3,8 +3,8 @@ import { app } from "electron";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { HandlerGroup } from "../../shared/ipc.ts";
-import { ompManager } from "../omp-manager/index.ts";
-import { fetchQuota, readHeatmap, runOmpCommand, statsDbPath } from "../usage/usage-service.ts";
+import { getApiKeyEnv, ompManager } from "../omp-manager/index.ts";
+import { fetchQuota, readHeatmap, requireSuccess, runOmpCommand, statsDbPath } from "../usage/usage-service.ts";
 import { parseBoolean } from "./validate.ts";
 
 /** `omp stats` 第一次要读完全部历史会话，给足时间；超时就杀掉，下次接着同步。 */
@@ -18,7 +18,7 @@ async function omp(timeoutMs: number) {
   if (status.state !== "ready") throw new Error("omp is not ready");
   const cwd = path.join(app.getPath("userData"), "service");
   await mkdir(cwd, { recursive: true });
-  return runOmpCommand(status.path, cwd, timeoutMs);
+  return runOmpCommand(status.path, cwd, timeoutMs, await getApiKeyEnv());
 }
 
 export const usageHandlers: HandlerGroup<"getUsageQuota" | "getUsageHeatmap"> = {
@@ -28,7 +28,7 @@ export const usageHandlers: HandlerGroup<"getUsageQuota" | "getUsageHeatmap"> = 
       // 同一时间只跑一个同步；omp 自己还会对 stats.db 加跨进程锁。
       syncing ??= omp(SYNC_TIMEOUT_MS)
         .then((run) => run(["stats", "--json"]))
-        .then(() => undefined)
+        .then((result) => requireSuccess("omp stats", result))
         .finally(() => {
           syncing = null;
         });

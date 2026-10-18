@@ -227,8 +227,8 @@ export class TaskPool {
     return this.#runner(id).getSubagents();
   }
 
-  getSubagentDetail(id: TaskId, subagentId: string): Promise<SubagentDetail> {
-    return this.#runner(id).getSubagentDetail(subagentId);
+  getSubagentDetail(id: TaskId, subagentId: string, since?: number): Promise<SubagentDetail> {
+    return this.#runner(id).getSubagentDetail(subagentId, since);
   }
 
   steerSubagent(id: TaskId, subagentId: string, text: string): Promise<void> {

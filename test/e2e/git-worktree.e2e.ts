@@ -97,8 +97,15 @@ async function openGitMenu(page: Page, item: RegExp): Promise<void> {
   await page.getByRole("menuitem", { name: item }).click();
 }
 
-/** 在草稿里发第一条消息；withWorktree 时先打开工作树胶囊。返回新任务的 id。 */
-async function createTaskFromDraft(page: Page, text: string, withWorktree: boolean): Promise<string> {
+/**
+ * 在草稿里发第一条消息；withWorktree 时先打开工作树胶囊。setup 给了就处理项目 setup 脚本的确认对话框。返回新任务的 id。
+ */
+async function createTaskFromDraft(
+  page: Page,
+  text: string,
+  withWorktree: boolean,
+  setup?: "confirm",
+): Promise<string> {
   if (withWorktree) {
     const chip = page.getByTestId("worktree-chip");
     await chip.click();
@@ -106,6 +113,7 @@ async function createTaskFromDraft(page: Page, text: string, withWorktree: boole
   }
   await page.getByTestId("composer-input").fill(text);
   await page.keyboard.press("Enter");
+  if (setup === "confirm") await page.getByTestId("git-setup-confirm").click();
   const conversation = page.getByTestId("conversation");
   await expect(conversation).toBeVisible();
   const taskId = await conversation.getAttribute("data-task-id");
@@ -140,10 +148,24 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await expect(page.getByTestId("worktree-setup-note")).toContainText("setup");
     await expect(chip).toHaveAttribute("title", /\.omp-studio\/setup\.(ps1|sh)/);
     await shoot(page, "composer-chip");
+
+    // ── 首次用 setup 脚本：先问；取消 = 不建 worktree、草稿保留、脚本没运行
+    await page.getByTestId("composer-input").fill("在工作树里干活");
+    await page.keyboard.press("Enter");
+    const setupDialog = page.getByTestId("git-setup-dialog");
+    await expect(setupDialog).toBeVisible();
+    await expect(setupDialog).toContainText(".omp-studio/setup.");
+    await shoot(page, "setup-dialog");
+    await setupDialog.getByRole("button", { name: "取消" }).click();
+    await expect(setupDialog).toHaveCount(0);
+    await expect(page.getByTestId("toasts")).toContainText("没有创建工作树");
+    await expect(page.getByTestId("composer-input")).toHaveValue("在工作树里干活");
+    await expect(page.getByTestId("task-row")).toHaveCount(0);
+    expect(findStudioWorktree(repo)).toBeNull();
     await chip.click();
 
     // ── 创建：任务 cwd = worktree
-    const taskId = await createTaskFromDraft(page, "在工作树里干活", true);
+    const taskId = await createTaskFromDraft(page, "在工作树里干活", true, "confirm");
     await expect(page.getByTestId("task-row-worktree")).toBeVisible();
     await expect(page.getByTestId("git-worktree-meta")).toContainText("main");
     const worktree = findStudioWorktree(repo);
@@ -288,6 +310,77 @@ test("不是 git 仓库：创建被拒绝，胶囊禁用并写明原因，草稿
     await expect(page.getByTestId("conversation")).toBeVisible();
     await expect(page.getByTestId("task-row-worktree")).toHaveCount(0);
     await expect(page.getByTestId("git-bar")).toHaveCount(0);
+  } finally {
+    await session.cleanup();
+  }
+});
+
+test("setup 脚本确认：同意后记住，同一份内容不再问；改了脚本再问；主进程不信渲染端（没确认直接建会被拒绝）", async () => {
+  let repo = "";
+  const win = process.platform === "win32";
+  const scriptName = win ? "setup.ps1" : "setup.sh";
+  const scriptBody = (marker: string) =>
+    win ? `Set-Content -Path setup-ran.txt -Value ${marker}\n` : `echo ${marker} > setup-ran.txt\n`;
+  const session = await start(async (work) => {
+    repo = await makeRepo(work, "脚本 仓库");
+    await put(repo, `.omp-studio/${scriptName}`, scriptBody("v1"));
+    return repo;
+  });
+  const { page } = session;
+  const dialog = page.getByTestId("git-setup-dialog");
+  try {
+    // 主进程强制：渲染端绕过对话框直接创建，脚本没确认过就拒绝，什么都不留，脚本没运行。
+    const projectId = await page.evaluate(async () => (await globalThis.studio.listProjects())[0]?.id);
+    expect(projectId).toBeTruthy();
+    const rejected = await page.evaluate(
+      (id) =>
+        globalThis.studio.createTask({ projectId: id as never, worktree: true }).then(
+          () => "created",
+          (error: Error) => error.message,
+        ),
+      projectId,
+    );
+    expect(rejected).toMatch(/setup script not approved/);
+    expect(findStudioWorktree(repo)).toBeNull();
+    expect(sh(repo, "branch", "--list", "studio/*")).toBe("");
+    const before = await page.evaluate((id) => globalThis.studio.getWorktreeSetupScript(id as never), projectId);
+    expect(before).toMatchObject({ approved: false });
+
+    // 首次：问 → 同意 → 脚本运行（v1）
+    await createTaskFromDraft(page, "第一个", true, "confirm");
+    const first = findStudioWorktree(repo) as { dir: string };
+    expect((await readFile(path.join(first.dir, "setup-ran.txt"), "utf8")).trim()).toBe("v1");
+
+    // 同一份内容：第二个任务不再问
+    await page
+      .getByRole("button", { name: /新任务|New task/ })
+      .first()
+      .click();
+    const chip = page.getByTestId("worktree-chip");
+    await chip.click();
+    await page.getByTestId("composer-input").fill("第二个");
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("task-row-worktree")).toHaveCount(2);
+    await expect(dialog).toHaveCount(0);
+
+    // 改了脚本：再问；取消则不建
+    await writeFile(path.join(repo, ".omp-studio", scriptName), scriptBody("v2"), "utf8");
+    await page
+      .getByRole("button", { name: /新任务|New task/ })
+      .first()
+      .click();
+    await page.getByTestId("worktree-chip").click();
+    await page.getByTestId("composer-input").fill("第三个");
+    await page.keyboard.press("Enter");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "取消" }).click();
+    await expect(page.getByTestId("task-row-worktree")).toHaveCount(2);
+    // 再发一次并同意：运行的是 v2
+    await page.keyboard.press("Enter");
+    await page.getByTestId("git-setup-confirm").click();
+    await expect(page.getByTestId("task-row-worktree")).toHaveCount(3);
+    const worktrees = sh(repo, "worktree", "list", "--porcelain").match(/^worktree .+$/gm) ?? [];
+    expect(worktrees).toHaveLength(4);
   } finally {
     await session.cleanup();
   }

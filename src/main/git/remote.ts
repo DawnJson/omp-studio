@@ -60,8 +60,16 @@ export async function push(cwd: string): Promise<GitPushResult> {
         ? "origin"
         : undefined;
   if (remote === undefined) return { kind: "no_remote" };
-  // 显式写出 remote 和分支，不依赖 push.default；没有 --force 类参数。
-  const args = hasUpstream ? ["push", remote, branch] : ["push", "--set-upstream", remote, branch];
+  // 完整 refspec：分支名以 `+` 开头时 `push <remote> +foo` 会变成强推。目标取 branch.<b>.merge（上游分支名可能不同），
+  // 没有就用同名；没有任何 force 参数。--end-of-options 防止 remote 名被当成选项。
+  const merge = hasUpstream
+    ? (await gitRaw(root, ["config", "--get", `branch.${branch}.merge`])).stdout.toString("utf8").trim()
+    : "";
+  const target = merge.startsWith("refs/heads/") ? merge : `refs/heads/${branch}`;
+  const refspec = `refs/heads/${branch}:${target}`;
+  const args = hasUpstream
+    ? ["push", "--end-of-options", remote, refspec]
+    : ["push", "--set-upstream", "--end-of-options", remote, refspec];
   const result = await gitRaw(root, args, { timeoutMs: PUSH_TIMEOUT_MS });
   if (result.code === 0) return { kind: "pushed", remote, branch };
   const message = failureMessage(result);

@@ -12,7 +12,6 @@ import { onStudioCommand } from "../palette/index.ts";
 import { assignLanesToTurns } from "../lanes/lane-model.ts";
 import { buildTurns, type Turn } from "./model.ts";
 import { ConversationError } from "./ConversationError.tsx";
-import { useProjectPath } from "./project-path.ts";
 import { TurnView } from "./TurnView.tsx";
 import { useStickToBottom } from "./use-stick-to-bottom.ts";
 import type { LiveProps } from "./ProcessRow.tsx";
@@ -45,7 +44,8 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
   const column = useRef<HTMLDivElement>(null);
   const turnsRef = useRef<Turn[]>([]);
   const waitingSince = useWaitingSince(task);
-  const projectPath = useProjectPath(task?.projectId);
+  // 工具参数里的绝对路径相对任务实际的工作目录（worktree 任务是 worktree 根，不是项目目录）。
+  const projectPath = task?.cwd ?? null;
   const { showJump, scrollToBottom } = useStickToBottom(taskId, scroller, column);
 
   const turns = useMemo(() => {

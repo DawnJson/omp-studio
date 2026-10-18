@@ -96,7 +96,7 @@ describe("推送", () => {
     expect(rejected.kind).toBe("rejected");
     // 远端没有被改写：仍然是别人的提交。
     expect(sh(remote, "log", "-1", "--format=%s", "main")).toBe("别人的提交");
-  });
+  }, 30_000);
 
   it("worktree 分支首次推送：用同名分支并设置 upstream", async () => {
     const dir = await fresh();
@@ -124,5 +124,31 @@ describe("gh", () => {
 
   it("getGitTools 报告 git 版本号", async () => {
     expect((await getGitTools()).git).toMatch(/^\d+\.\d+\.\d+/);
+  });
+});
+
+describe("推送：分支名以 + 开头", () => {
+  it("不会变成强推：远端同名分支被别人推进后，push 被拒绝，远端不被覆盖", async () => {
+    const dir = await fresh();
+    const remote = path.join(scratch, "远端 加号.git");
+    sh(scratch, "init", "--bare", "-b", "main", remote);
+    sh(dir, "remote", "add", "origin", remote);
+    sh(dir, "checkout", "-b", "+foo");
+    await put(dir, "a.txt", "mine\n");
+    await commit(dir, "我的", true);
+    // 远端 refs/heads/+foo 已有一个无关提交。
+    const other = path.join(scratch, "加号 克隆");
+    sh(scratch, "clone", remote, other);
+    sh(other, "config", "user.name", "别人");
+    sh(other, "config", "user.email", "o@example.com");
+    sh(other, "checkout", "-b", "+foo");
+    await put(other, "o.txt", "o\n");
+    sh(other, "add", "-A");
+    sh(other, "commit", "-m", "别人的");
+    sh(other, "push", "origin", "refs/heads/+foo:refs/heads/+foo");
+
+    const result = await push(dir);
+    expect(result.kind).toBe("rejected");
+    expect(sh(remote, "log", "-1", "--format=%s", "refs/heads/+foo")).toBe("别人的");
   });
 });

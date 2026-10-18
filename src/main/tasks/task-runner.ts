@@ -36,15 +36,16 @@ import { EventBatcher } from "./event-batcher.ts";
 import { initialMachineState, transition, type MachineInput, type MachineState } from "./task-machine.ts";
 import type { TaskRecord } from "./task-registry.ts";
 import { translateFrame } from "./translate.ts";
-import { SubagentTracker, trimSubagentMessages } from "./subagent-tracker.ts";
+import { SubagentRecord, type RecordSlice } from "./subagent-record.ts";
+import { SubagentTracker } from "./subagent-tracker.ts";
 
 /** rpc.md：入站帧应控制在 `maxFrameBytes`（默认 1 MiB）内，prompt 不分块。 */
 const DEFAULT_MAX_FRAME_BYTES = 1024 * 1024;
 const STATE_REFRESH_MIN_INTERVAL_MS = 1_000;
 const STDERR_LINES_IN_ERROR = 8;
 const SUBAGENT_EMIT_INTERVAL_MS = 100;
-/** get_subagent_messages 一页之内读不完时最多续读的页数。 */
-const SUBAGENT_MAX_PAGES = 200;
+/** 缓存完整记录的子代理数（每个最多 detailMessages 条 / detailBytes）。 */
+const SUBAGENT_RECORD_CACHE = 6;
 
 /** 运行时对外部世界的依赖：启动参数、Job Object、持久化、事件出口。池和测试各自提供。 */
 export interface RunnerHost {
@@ -98,6 +99,8 @@ export class TaskRunner {
   #sessionUsage: TaskState["sessionUsage"] = null;
   #queue: TaskState["queue"] = { steering: [], followUp: [] };
   readonly #tracker = new SubagentTracker();
+  /** 子代理完整记录的缓存（最近用到的在后）；进程退出时清空。queue 把同一子代理的读串起来。 */
+  readonly #records = new Map<string, { record: SubagentRecord<AgentMessage>; queue: Promise<void> }>();
   #subagentsTimer: NodeJS.Timeout | undefined;
   /** 最近一次 get_state 的回收判据。 */
   #sessionSettled = false;
@@ -183,6 +186,7 @@ export class TaskRunner {
       queue: this.#queue,
       dialogs: m.dialogs,
       runningSubagents: this.#tracker.runningCount,
+      cwd: this.cwd,
       runStartedAt: m.working ? this.#runStartedAt : null,
     };
   }
@@ -341,6 +345,7 @@ export class TaskRunner {
     this.#connection = null;
     clearTimeout(this.#refreshTimer);
     if (this.#tracker.abortRunning(Date.now())) this.#emitSubagents();
+    this.#records.clear();
     this.#queue = { steering: [], followUp: [] };
     if (this.#closing) {
       this.#apply({ type: "stopped" });
@@ -721,58 +726,56 @@ export class TaskRunner {
   }
 
   /** 完整记录读不到时（没有进程、读取失败）messages 为 null，泳道数据照常返回。 */
-  async getSubagentDetail(subagentId: string): Promise<SubagentDetail> {
+  async getSubagentDetail(subagentId: string, since?: number): Promise<SubagentDetail> {
     const lane = this.#tracker.lane(subagentId);
     if (!lane) throw new Error(`unknown subagent ${subagentId}`);
+    const none = { lane, messages: null, from: 0, total: 0, truncated: false, error: null };
     const connection = this.#connection;
-    if (!connection || this.#machine.status === "starting")
-      return { lane, messages: null, truncated: false, unavailable: "no_process", error: null };
+    if (!connection || this.#machine.status === "starting") return { ...none, unavailable: "no_process" };
     try {
-      const { messages, truncated } = await this.#readSubagentMessages(connection, subagentId);
-      return { lane, messages, truncated, unavailable: null, error: null };
+      const slice = await this.#readSubagentMessages(connection, subagentId, since);
+      return { lane, ...slice, unavailable: null, error: null };
     } catch (error) {
-      if (error instanceof OmpExitedError)
-        return { lane, messages: null, truncated: false, unavailable: "no_process", error: null };
-      return {
-        lane,
-        messages: null,
-        truncated: false,
-        unavailable: "error",
-        error: error instanceof Error ? error.message : String(error),
-      };
+      if (error instanceof OmpExitedError) return { ...none, unavailable: "no_process" };
+      return { ...none, unavailable: "error", error: error instanceof Error ? error.message : String(error) };
     }
   }
 
-  /** get_subagent_messages 按字节续读；按 id 查不到时（omp 已忘了它）退回用 aggregator 记下的 sessionFile。上限见 subagentLimits。 */
+  /**
+   * 按子代理缓存已读记录，之后只读 fromByte 之后新增的部分；同一子代理的读串行（并发读会重复追加）。
+   * 按 id 查不到时（omp 已忘了它）退回用 tracker 记下的 sessionFile。
+   */
   async #readSubagentMessages(
     connection: OmpConnection,
     subagentId: string,
-  ): Promise<{ messages: AgentMessage[]; truncated: boolean }> {
-    let locator: { subagentId: string } | { sessionFile: string } = { subagentId };
-    let messages: AgentMessage[] = [];
-    let fromByte: number | undefined;
-    for (let page = 0; page < SUBAGENT_MAX_PAGES; page++) {
-      let result;
-      try {
-        result = await connection.request("get_subagent_messages", {
-          ...locator,
-          ...(fromByte !== undefined && { fromByte }),
-        });
-      } catch (error) {
-        const sessionFile = this.#tracker.sessionFile(subagentId);
-        if (error instanceof RpcCommandError && page === 0 && "subagentId" in locator && sessionFile !== null) {
-          locator = { sessionFile };
-          page--;
-          continue;
-        }
-        throw error;
-      }
-      if (result.reset) messages = [];
-      messages.push(...result.messages);
-      if (result.nextByte <= (fromByte ?? 0)) break;
-      fromByte = result.nextByte;
+    since: number | undefined,
+  ): Promise<RecordSlice<AgentMessage>> {
+    let cached = this.#records.get(subagentId);
+    if (!cached) {
+      cached = { record: new SubagentRecord<AgentMessage>(), queue: Promise.resolve() };
+      this.#records.set(subagentId, cached);
+      // 只留最近用到的几个，别让长会话里所有子代理的记录都压在内存里。
+      if (this.#records.size > SUBAGENT_RECORD_CACHE) this.#records.delete(this.#records.keys().next().value!);
+    } else {
+      this.#records.delete(subagentId);
+      this.#records.set(subagentId, cached);
     }
-    return trimSubagentMessages(messages);
+    const { record } = cached;
+    const run = cached.queue.then(() =>
+      record.refresh(async (fromByte) => {
+        const extra = fromByte !== undefined ? { fromByte } : {};
+        try {
+          return await connection.request("get_subagent_messages", { subagentId, ...extra });
+        } catch (error) {
+          const sessionFile = this.#tracker.sessionFile(subagentId);
+          if (!(error instanceof RpcCommandError) || sessionFile === null) throw error;
+          return await connection.request("get_subagent_messages", { sessionFile, ...extra });
+        }
+      }),
+    );
+    cached.queue = run.catch(() => {});
+    await run;
+    return record.slice(since);
   }
 
   /** 只对已知且在运行的子代理发命令；id 来自渲染进程，不可信。 */

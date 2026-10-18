@@ -39,6 +39,7 @@ function makeTask(
     queue: { steering: [], followUp: [] },
     dialogs: [],
     runningSubagents: 0,
+    cwd: "",
     runStartedAt: null,
     ...patch,
   };

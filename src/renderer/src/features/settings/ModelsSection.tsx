@@ -32,8 +32,10 @@ export function ModelsSection() {
   const [loginBusy, setLoginBusy] = useState(false);
 
   // 有缓存就直接显示，进入时后台刷新一次。
-  const reload = useCallback(() => void loadAccounts(), []);
-  useEffect(reload, [reload]);
+  const enter = useCallback(() => void loadAccounts(), []);
+  useEffect(enter, [enter]);
+  // 登录/退出/改 key 之后必须重读，不能并进改动之前发起的旧读取。
+  const reload = useCallback(() => void loadAccounts(true), []);
   useEffect(ensureOmpConfigLoaded, []);
 
   const modelOptions: Option<string>[] = [{ value: inherit, label: t("settings.ompPicksModel") }];
@@ -57,6 +59,11 @@ export function ModelsSection() {
         {error !== null && (
           <div className="st-block st-error-text" role="alert">
             {t("login.loadFailed", { message: describeError(t, error) })}
+          </div>
+        )}
+        {load.kind === "ready" && load.refreshError !== null && (
+          <div className="st-block st-muted" role="status" data-testid="providers-refresh-failed">
+            {t("login.refreshFailed", { message: describeError(t, load.refreshError) })}
           </div>
         )}
         {error === null && data === null && <div className="st-block st-muted">{t("settings.modelsLoading")}</div>}

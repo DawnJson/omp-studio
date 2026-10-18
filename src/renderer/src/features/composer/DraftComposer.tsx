@@ -18,7 +18,8 @@ import { Plus } from "../../icons.tsx";
 import { selectTask } from "../../store/index.ts";
 import { saveOmpDefaultModel, saveOmpDefaultThinking } from "../settings/config-store.ts";
 import { takePendingDraftText } from "../palette/index.ts";
-import { blockWorktree, getWorktreeDraft, setWorktreeOn, WorktreeChip } from "../git/index.ts";
+import { pushToast } from "../dialogs/index.ts";
+import { blockWorktree, ensureSetupApproved, getWorktreeDraft, setWorktreeOn, WorktreeChip } from "../git/index.ts";
 import { convertImageFiles } from "./actions.ts";
 import { ApprovalChip } from "./ApprovalChip.tsx";
 import { Attachments } from "./Attachments.tsx";
@@ -95,6 +96,11 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
     if (sending || (text === "" && current.images.length === 0)) return;
     setSending(true);
     try {
+      if (getWorktreeDraft(projectId).on && !(await ensureSetupApproved(projectId))) {
+        // 拒绝运行脚本：不建 worktree，草稿保留。
+        pushToast({ message: t("git.setup.declined") });
+        return;
+      }
       const task = await window.studio.createTask({
         projectId,
         ...(getWorktreeDraft(projectId).on ? { worktree: true } : {}),

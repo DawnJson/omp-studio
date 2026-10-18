@@ -3,6 +3,7 @@
 // 第一次读（没有缓存）才显示加载态；后台刷新失败不盖掉已有内容，只有没有缓存时才显示错误。
 import type { ModelOption } from "../../../../shared/ipc.ts";
 import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import { createCachedLoader, type CachedLoad } from "../../../../shared/ui/cached-loader.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 
 export interface AccountData {
@@ -12,14 +13,9 @@ export interface AccountData {
   models: ModelOption[];
 }
 
-export type AccountLoad =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "ready"; data: AccountData; refreshing: boolean }
-  | { kind: "error"; error: unknown };
+export type AccountLoad = CachedLoad<AccountData>;
 
 const store = createStore<AccountLoad>({ kind: "idle" });
-let loading: Promise<void> | null = null;
 
 /** 一次读全：provider、每个已登录 provider 的账号、已存的 key、模型。provider 或模型读不出来整体失败。 */
 async function fetchAccountData(): Promise<AccountData> {
@@ -39,31 +35,17 @@ async function fetchAccountData(): Promise<AccountData> {
   return { providers, accounts, keyProviders, models };
 }
 
-/** 读（或重读）。已有缓存时界面不动，只标记 refreshing；并发调用合并成一次。 */
-export function loadAccounts(): Promise<void> {
-  loading ??= (async () => {
-    const current = store.get();
-    if (current.kind === "ready") store.set({ ...current, refreshing: true });
-    else store.set({ kind: "loading" });
-    try {
-      store.set({ kind: "ready", data: await fetchAccountData(), refreshing: false });
-    } catch (error) {
-      const latest = store.get();
-      if (latest.kind === "ready") store.set({ ...latest, refreshing: false });
-      else store.set({ kind: "error", error });
-    } finally {
-      loading = null;
-    }
-  })();
-  return loading;
+const loader = createCachedLoader<AccountData>(
+  fetchAccountData,
+  () => store.get(),
+  (next) => store.set(next),
+);
+
+/** 读（或重读），见 shared/ui/cached-loader.ts。登录/退出/改 key 之后传 force=true。 */
+export function loadAccounts(force = false): Promise<void> {
+  return loader.load(force);
 }
 
 export function useAccountLoad(): AccountLoad {
   return useStoreValue(store, (state) => state);
-}
-
-/** 测试用：清空缓存，回到没读过的状态。 */
-export function resetAccountsForTest(): void {
-  store.set({ kind: "idle" });
-  loading = null;
 }

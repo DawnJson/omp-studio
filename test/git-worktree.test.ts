@@ -62,6 +62,8 @@ describe("创建 worktree", () => {
     await expect(createWorktree(dir)).rejects.toThrow(/detached/);
   });
 
+  const approve = { approveSetup: () => true };
+
   it("setup 脚本在新 worktree 里运行（路径含空格和中文），能拿到主仓库和 worktree 路径", async () => {
     const dir = await fresh();
     const win = process.platform === "win32";
@@ -72,7 +74,7 @@ describe("创建 worktree", () => {
     await put(dir, `.omp-studio/${name}`, script);
     expect((await findSetupScript(dir))?.name).toBe(`.omp-studio/${name}`);
 
-    const wt = await createWorktree(dir);
+    const wt = await createWorktree(dir, approve);
     const out = (await readFile(path.join(wt.path, "setup-ran.txt"), "utf8")).trim();
     expect(out).toBe(`${dir}|${wt.path}`);
   });
@@ -81,7 +83,7 @@ describe("创建 worktree", () => {
     const dir = await fresh();
     await put(dir, ".omp-studio/setup.cmd", "@echo off\r\n> from.txt echo cmd\r\n");
     await put(dir, ".omp-studio/setup.ps1", "Set-Content -Path from.txt -Value ps1\r\n");
-    const wt = await createWorktree(dir);
+    const wt = await createWorktree(dir, approve);
     expect((await readFile(path.join(wt.path, "from.txt"), "utf8")).trim()).toBe("ps1");
   });
 
@@ -93,7 +95,31 @@ describe("创建 worktree", () => {
       `.omp-studio/${win ? "setup.cmd" : "setup.sh"}`,
       win ? "@echo off\r\necho install failed 1>&2\r\nexit /b 3\r\n" : "echo boom >&2\nexit 3\n",
     );
-    await expect(createWorktree(dir)).rejects.toThrow(/exit 3/);
+    await expect(createWorktree(dir, approve)).rejects.toThrow(/exit 3/);
+    expect(branches(dir)).toEqual(["main"]);
+    expect(sh(dir, "worktree", "list", "--porcelain").match(/^worktree /gm)).toHaveLength(1);
+  });
+
+  it("没确认的 setup 脚本不运行：创建被拒绝，什么都不留；确认回调拿到脚本内容的哈希", async () => {
+    const dir = await fresh();
+    const win = process.platform === "win32";
+    await put(
+      dir,
+      `.omp-studio/${win ? "setup.cmd" : "setup.sh"}`,
+      win ? "@echo off\r\n> ran.txt echo x\r\n" : "echo x > ran.txt\n",
+    );
+    await expect(createWorktree(dir)).rejects.toThrow(/setup script not approved/);
+    let seen = "";
+    await expect(
+      createWorktree(dir, {
+        approveSetup: (script) => {
+          seen = script.sha256;
+          return false;
+        },
+      }),
+    ).rejects.toThrow(/setup script not approved/);
+    expect(seen).toBe((await findSetupScript(dir))?.sha256);
+    expect(seen).toMatch(/^[0-9a-f]{64}$/);
     expect(branches(dir)).toEqual(["main"]);
     expect(sh(dir, "worktree", "list", "--porcelain").match(/^worktree /gm)).toHaveLength(1);
   });

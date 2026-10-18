@@ -1,6 +1,7 @@
 // 运行 git / gh：不经 shell，参数一律用数组；输出按 Buffer 收（文件内容可能不是 UTF-8）。
 // 不 import electron，单元测试直接用真实的临时仓库。
-import { spawn } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
+import path from "node:path";
 
 export interface RunOptions {
   cwd: string;
@@ -9,6 +10,8 @@ export interface RunOptions {
   /** stdout 超过这个字节数就杀掉进程并抛 OutputTooLargeError。 */
   maxBuffer?: number;
   timeoutMs?: number;
+  /** 设了就只保留 stdout/stderr 的末尾这么多字节，输出再多也不失败（setup 脚本）；不设则按 maxBuffer 限制 stdout。 */
+  keepTailBytes?: number;
   /** 完整替换环境变量（测试用来隐藏 PATH 上的 gh）。 */
   env?: NodeJS.ProcessEnv;
   /** Windows 上原样传参数（cmd.exe /s /c "…" 要自己控制引号）。 */
@@ -52,6 +55,36 @@ const DEFAULT_MAX_BUFFER = 64 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const STDERR_CAP = 64 * 1024;
 
+/** 只保留末尾 limit 字节的缓冲：输出再多也不会失败，错误信息要的是结尾。 */
+class TailBuffer {
+  #chunks: Buffer[] = [];
+  #bytes = 0;
+  readonly limit: number;
+  constructor(limit: number) {
+    this.limit = limit;
+  }
+  push(chunk: Buffer): void {
+    this.#chunks.push(chunk);
+    this.#bytes += chunk.length;
+    while (this.#bytes - (this.#chunks[0]?.length ?? 0) >= this.limit) this.#bytes -= this.#chunks.shift()?.length ?? 0;
+  }
+  toBuffer(): Buffer {
+    const all = Buffer.concat(this.#chunks);
+    return all.length > this.limit ? all.subarray(all.length - this.limit) : all;
+  }
+}
+
+/** 结束子进程；Windows 上 child.kill() 只杀外壳（cmd/powershell），要按进程树结束。 */
+function killTree(child: ChildProcess): void {
+  const pid = child.pid;
+  if (process.platform === "win32" && pid !== undefined) {
+    // 绝对路径：不带路径时 Windows 会先在当前目录里找 taskkill。进程已退出时 taskkill 失败，忽略。
+    const taskkill = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "taskkill.exe");
+    execFile(taskkill, ["/T", "/F", "/PID", String(pid)], { windowsHide: true }, () => {});
+  }
+  child.kill();
+}
+
 export function runCommand(command: string, args: readonly string[], options: RunOptions): Promise<RunResult> {
   const { promise, resolve, reject } = Promise.withResolvers<RunResult>();
   const child = spawn(command, args, {
@@ -61,11 +94,13 @@ export function runCommand(command: string, args: readonly string[], options: Ru
     ...(options.windowsVerbatimArguments && { windowsVerbatimArguments: true }),
     stdio: ["pipe", "pipe", "pipe"],
   });
+  const tail = options.keepTailBytes;
   const maxBuffer = options.maxBuffer ?? DEFAULT_MAX_BUFFER;
   const out: Buffer[] = [];
-  const err: Buffer[] = [];
+  const outTail = new TailBuffer(tail ?? STDERR_CAP);
+  // stderr 只留结尾：报错信息在末尾。
+  const errTail = new TailBuffer(tail ?? STDERR_CAP);
   let outBytes = 0;
-  let errBytes = 0;
   let settled = false;
   const finish = (action: () => void) => {
     if (settled) return;
@@ -74,29 +109,33 @@ export function runCommand(command: string, args: readonly string[], options: Ru
     action();
   };
   const timer = setTimeout(() => {
-    child.kill();
+    killTree(child);
     finish(() => reject(new Error(`${command} timed out`)));
   }, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   child.stdout.on("data", (chunk: Buffer) => {
+    if (tail !== undefined) {
+      outTail.push(chunk);
+      return;
+    }
     outBytes += chunk.length;
     if (outBytes > maxBuffer) {
-      child.kill();
+      killTree(child);
       finish(() => reject(new OutputTooLargeError()));
       return;
     }
     out.push(chunk);
   });
-  child.stderr.on("data", (chunk: Buffer) => {
-    if (errBytes >= STDERR_CAP) return;
-    errBytes += chunk.length;
-    err.push(chunk);
-  });
+  child.stderr.on("data", (chunk: Buffer) => errTail.push(chunk));
   child.on("error", (error: NodeJS.ErrnoException) => {
     finish(() => reject(error.code === "ENOENT" ? new CommandNotFoundError(command) : error));
   });
   child.on("close", (code) => {
     finish(() =>
-      resolve({ code: code ?? -1, stdout: Buffer.concat(out), stderr: Buffer.concat(err).toString("utf8") }),
+      resolve({
+        code: code ?? -1,
+        stdout: tail !== undefined ? outTail.toBuffer() : Buffer.concat(out),
+        stderr: errTail.toBuffer().toString("utf8"),
+      }),
     );
   });
   // 子进程提前退出时写 stdin 会 EPIPE，结果由 close 事件报告。

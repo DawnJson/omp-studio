@@ -13,13 +13,24 @@ import { buildOmpLaunch, setTestOmpOverride } from "../omp/launch.ts";
 import { parseTestOmpOverride } from "../omp/launch-args.ts";
 import { assignToAppJob } from "../platform/win32/job-object.ts";
 import { createWorktree, removeWorktree } from "../git/worktree.ts";
+import { SetupConsent } from "../git/setup-consent.ts";
 import { TaskPool, type WorktreeOps } from "./task-pool.ts";
 import { pathKey, TaskRegistry } from "./task-registry.ts";
 
+let consent: SetupConsent | null = null;
+/** setup 脚本的确认记录（userData/setup-consent.json）；要在 app ready 之后调用。 */
+export function getSetupConsent(): SetupConsent {
+  consent ??= new SetupConsent(path.join(app.getPath("userData"), "setup-consent.json"));
+  return consent;
+}
+
 // 项目路径在创建 worktree 时已确认是仓库根（createWorktree），移除时直接用它。
+// setup 脚本只运行用户确认过（项目 + 内容哈希）的那份；这里是主进程侧的强制检查，不依赖渲染进程。
 const worktreeOps: WorktreeOps = {
   create: async (project) => {
-    const created = await createWorktree(project.path);
+    const created = await createWorktree(project.path, {
+      approveSetup: (script) => getSetupConsent().isApproved(project.path, script.sha256),
+    });
     return { path: created.path, branch: created.branch, base: created.baseBranch };
   },
   remove: (project, worktreePath, branch) => removeWorktree(project.path, worktreePath, branch),

@@ -29,6 +29,7 @@ import type {
   ReviewComment,
   TaskWorktreeInfo,
   WorktreeCleanupResult,
+  WorktreeSetupInfo,
 } from "./git.ts";
 import type { Transcript, TranscriptEvent } from "./transcript.ts";
 import type { SubagentDetail, SubagentLane } from "./subagents.ts";
@@ -177,6 +178,8 @@ export interface TaskState {
   dialogs: DialogRequest[];
   /** 正在运行的子代理数，用于过程折叠行。 */
   runningSubagents: number;
+  /** 任务实际的工作目录（有 worktree 时是 worktree 根，否则是项目目录）；界面把工具参数里的绝对路径换成相对它的路径。 */
+  cwd: string;
   /** 这一次 running 开始的时间戳（ms，主进程接收时间）；非 running/needs_you 时为 null。侧栏显示"已运行 N 分钟"。 */
   runStartedAt: number | null;
 }
@@ -521,8 +524,11 @@ export interface StudioInvokeApi {
   // 子代理泳道（阶段 5）
   /** 当前泳道快照（含已结束的）；渲染进程打开任务或重载后用它对齐，之后靠 subagents 事件。 */
   getSubagents(taskId: TaskId): Promise<SubagentLane[]>;
-  /** 子代理详情：泳道 + get_subagent_messages 读到的完整记录。任务没有进程时 messages 为 null。 */
-  getSubagentDetail(taskId: TaskId, subagentId: string): Promise<SubagentDetail>;
+  /**
+   * 子代理详情：泳道 + get_subagent_messages 读到的记录。主进程按子代理缓存已读部分并按 fromByte 增量读；
+   * since 是调用方已有的记录条数（绝对序号），传了就只返回它还没有的部分（见 SubagentDetail.from）。任务没有进程时 messages 为 null。
+   */
+  getSubagentDetail(taskId: TaskId, subagentId: string, since?: number): Promise<SubagentDetail>;
   /** steer_subagent：给运行中的子代理插一句话。子代理不在运行时 reject。 */
   steerSubagent(taskId: TaskId, subagentId: string, text: string): Promise<void>;
   /** cancel_subagent；返回 omp 说是否真的取消了（已经结束的是 false）。 */
@@ -615,8 +621,10 @@ export interface StudioInvokeApi {
   discardGitHunk(taskId: TaskId, path: string, hunk: GitHunkRef): Promise<void>;
   /** 校验每条评论的文件路径在任务目录内，格式化成一条消息（formatReviewComments）并作为 prompt 发出。 */
   sendReviewComments(taskId: TaskId, comments: ReviewComment[], whenBusy: PromptInput["whenBusy"]): Promise<void>;
-  /** 项目仓库里的 setup 脚本（相对路径，如 `.omp-studio/setup.ps1`）；没有为 null。新建 worktree 任务时会运行它，界面应先提示。 */
-  getWorktreeSetupScript(projectId: ProjectId): Promise<string | null>;
+  /** 项目仓库里的 setup 脚本（name 相对仓库根，如 `.omp-studio/setup.ps1`）及内容哈希；没有为 null。新建 worktree 任务时会运行它：只运行用户确认过这份内容（approved）的，界面先用 approveWorktreeSetup 征得同意。 */
+  getWorktreeSetupScript(projectId: ProjectId): Promise<WorktreeSetupInfo | null>;
+  /** 记下用户同意运行这个项目的这份 setup 脚本；sha256 必须是用户看到的那份，脚本此后变了就 reject（重新确认）。 */
+  approveWorktreeSetup(projectId: ProjectId, sha256: string): Promise<void>;
   /** 任务的 worktree 信息；任务没有 worktree 返回 null。 */
   getTaskWorktree(taskId: TaskId): Promise<TaskWorktreeInfo | null>;
   /** 把 worktree 分支合进基分支（在主仓库里）。有冲突时不留下半成品，返回 conflict。不删除 worktree。 */
@@ -782,6 +790,7 @@ export const invokeNames = {
   discardGitHunk: true,
   sendReviewComments: true,
   getWorktreeSetupScript: true,
+  approveWorktreeSetup: true,
   getTaskWorktree: true,
   mergeTaskWorktree: true,
   discardTaskWorktree: true,

@@ -1,7 +1,7 @@
 // 评审：文件 diff、暂存/取消暂存/丢弃（整文件和单个 hunk）。
 // 丢弃不问确认：确认由界面做（阶段 3 的约定）。所有路径相对仓库根，先做词法校验；
 // 要读写磁盘的（未跟踪文件的 diff 和丢弃）还要求它确实出现在 git status 的未跟踪列表里。
-import { lstat, readFile, readlink, rm } from "node:fs/promises";
+import { lstat, readFile, readlink, realpath, rm } from "node:fs/promises";
 import path from "node:path";
 import {
   GIT_DIFF_MAX_BYTES,
@@ -20,7 +20,9 @@ import { statusAt } from "./status.ts";
 export function checkRepoPath(root: string, rel: string): string {
   const resolved = resolveInside(root, rel);
   const normalized = path.relative(root, resolved).split(path.sep).join("/");
-  if (normalized === ".git" || normalized.startsWith(".git/")) throw new Error("path is inside .git");
+  // Windows/macOS 的文件系统不区分大小写：`.GIT/config` 也是 .git 内部。
+  const lower = normalized.toLowerCase();
+  if (lower === ".git" || lower.startsWith(".git/")) throw new Error("path is inside .git");
   return normalized;
 }
 
@@ -109,6 +111,11 @@ export async function discardFile(cwd: string, rel: string): Promise<void> {
   const entry = await findEntry(root, file);
   if (entry.unstaged === "untracked") {
     const target = resolveInside(root, file);
+    // 父目录经符号链接解析后必须仍在仓库内（目录符号链接可能把路径带出仓库）；
+    // 目标本身不解析：未跟踪的符号链接只删链接，不动它指向的文件。
+    const [realRoot, realParent] = await Promise.all([realpath(root), realpath(path.dirname(target))]);
+    const fromRoot = path.relative(realRoot, realParent);
+    if (fromRoot.startsWith("..") || path.isAbsolute(fromRoot)) throw new Error("path escapes the repository");
     if ((await lstat(target)).isDirectory()) throw new Error(`${file} is a directory`);
     await rm(target, { force: true });
     return;
@@ -158,7 +165,7 @@ export async function unstageHunk(cwd: string, rel: string, ref: GitHunkRef): Pr
   await git(root, ["apply", "--cached", "-R", "--whitespace=nowarn", "-"], { input: patch });
 }
 
-/** 丢弃一个没暂存的 hunk（工作区退回暂存区）。已暂存的 hunk 先取消暂存再丢弃。 */
+/** 丢弃一个没暂存的 hunk（工作区退回暂存区）。已暂存的 hunk 要先在界面里取消暂存，这里不处理。 */
 export async function discardHunk(cwd: string, rel: string, ref: GitHunkRef): Promise<void> {
   const root = await requireRepoRoot(cwd);
   const patch = await loadHunkPatch(root, rel, "unstaged", ref);

@@ -73,12 +73,12 @@ export function explainChanges(turns: readonly Turn[]): Explanations {
  * 评审里的文件路径是相对仓库根的；工具参数里可能是绝对路径，也可能相对任务目录。
  * 先按任务目录换算后精确匹配；工具参数是绝对路径时再按"以 /<路径> 结尾"匹配（任务目录是仓库子目录时两边的根不同）。相对路径只做精确匹配，否则 src/a.ts 会被当成根目录的 a.ts。
  */
-export function notesForFile(explanations: Explanations, repoPath: string, projectPath: string | null): TurnNote[] {
+export function notesForFile(explanations: Explanations, repoPath: string, taskCwd: string | null): TurnNote[] {
   const target = norm(repoPath);
   const wanted = target.toLowerCase();
   const merged = new Map<string, TurnNote>();
   for (const [file, notes] of explanations) {
-    const relative = relativeToProject(file, projectPath);
+    const relative = relativeToProject(file, taskCwd);
     const lower = file.toLowerCase();
     const absolute = /^([a-z]:|\/)/.test(lower);
     const hit =

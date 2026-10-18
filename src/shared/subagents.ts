@@ -57,9 +57,15 @@ export interface SubagentLane {
 
 export interface SubagentDetail {
   lane: SubagentLane;
-  /** get_subagent_messages 读到的完整记录（过长时只保留最近的）；读不到时为 null。 */
+  /**
+   * get_subagent_messages 读到的记录，从绝对序号 `from` 开始（调用方传了 `since` 时只含它还没有的部分）；读不到时为 null。
+   * 绝对序号 = 记录里的第几条（从 0 数）；主进程只保留最近的 detailMessages 条，更早的被丢掉。
+   */
   messages: AgentMessage[] | null;
-  /** messages 被截掉了更早的部分。 */
+  from: number;
+  /** 记录的总条数（绝对序号的上界）。 */
+  total: number;
+  /** 更早的部分被主进程丢掉了（记录太长）。 */
   truncated: boolean;
   /** messages 为 null 的原因：任务没有 omp 进程，或读取失败。 */
   unavailable: "no_process" | "error" | null;

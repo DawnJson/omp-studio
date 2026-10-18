@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatReviewComments, type ReviewComment } from "../src/shared/git.ts";
+import { runCommand } from "../src/main/git/exec.ts";
 import { parseStatusV2 } from "../src/main/git/status.ts";
 
 const c = (
@@ -73,5 +74,17 @@ describe("parseStatusV2", () => {
       { path: "冲突.txt", oldPath: null, staged: "conflicted", unstaged: "conflicted" },
       { path: "未跟踪.txt", oldPath: null, staged: null, unstaged: "untracked" },
     ]);
+  });
+});
+
+describe("runCommand keepTailBytes", () => {
+  it("输出远超上限也不失败，只保留 stdout 和 stderr 的结尾", async () => {
+    const code =
+      "process.stdout.write('a'.repeat(8e6)+'END-OUT');process.stderr.write('b'.repeat(2e5)+'END-ERR');process.exit(3)";
+    const result = await runCommand(process.execPath, ["-e", code], { cwd: process.cwd(), keepTailBytes: 1000 });
+    expect(result.code).toBe(3);
+    expect(result.stdout.toString()).toMatch(/END-OUT$/);
+    expect(result.stdout.length).toBeLessThanOrEqual(1000);
+    expect(result.stderr).toMatch(/END-ERR$/);
   });
 });

@@ -6,6 +6,7 @@ import type { GitTools, TaskWorktreeInfo } from "../../../../shared/git.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import type { ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
+import { reportErrorNow } from "../../ui/errors.ts";
 
 // ───── 任务的 worktree 信息 ─────
 
@@ -21,9 +22,10 @@ async function loadWorktree(taskId: TaskId): Promise<void> {
   try {
     const info = await window.studio.getTaskWorktree(taskId);
     worktrees.set({ ...worktrees.get(), [taskId]: info });
-  } catch {
-    // 任务已被归档或移除：没有 worktree 可显示，不打扰用户。
+  } catch (error) {
     worktrees.set({ ...worktrees.get(), [taskId]: null });
+    // 任务已被归档或移除（主进程报 unknown task）：没有 worktree 可显示，不打扰用户；其余错误要让用户看见。
+    if (!(error instanceof Error && /unknown task/.test(error.message))) reportErrorNow(error);
   }
 }
 
