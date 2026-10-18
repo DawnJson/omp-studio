@@ -38,6 +38,26 @@ export interface AppInfo {
   isPackaged: boolean;
 }
 
+/**
+ * omp-studio 自身的更新状态（electron-updater）。只有安装版会检查，免安装目录和开发版是 disabled。
+ * 状态机：idle → checking → up-to-date | downloading → downloaded；出错进 error，下一次检查重新开始。
+ */
+export interface UpdateState {
+  /** 当前安装的版本（app.getVersion()）。 */
+  currentVersion: string;
+  /** 正在下载或已下载的新版本；其余时候是 null。 */
+  latestVersion: string | null;
+  phase: "disabled" | "idle" | "checking" | "up-to-date" | "downloading" | "downloaded" | "error";
+  /** 下载进度 0–100，其余阶段是 0。 */
+  percent: number;
+  /** 最近一次检查得到结果的时间（毫秒）；还没检查过时为 null。 */
+  lastCheckedAt: number | null;
+  /** phase = "error" 时的原始信息（界面用 error.generic 翻译后展示）。 */
+  error: string | null;
+  /** phase = "disabled" 的原因。 */
+  disabledReason: "not-packaged" | "no-feed" | null;
+}
+
 /** 模型的稳定键，对应 set_model 的 provider + modelId。 */
 export interface ModelKey {
   provider: string;
@@ -463,6 +483,12 @@ export interface StudioInvokeApi {
   setYoloConfirmed(): Promise<void>;
   /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值；读不到（没登录、没有可用模型）时为 null。 */
   getDefaultModel(): Promise<DefaultModelInfo | null>;
+  /** omp-studio 自身的更新状态（设置 → 关于）。 */
+  getUpdateState(): Promise<UpdateState>;
+  /** 手动检查更新；有可用更新时自动开始下载。 */
+  checkForUpdate(): Promise<void>;
+  /** 安装已下载的更新：先走退出流程关掉所有 omp 子进程，再安装并重新启动。 */
+  installUpdate(): Promise<void>;
 }
 
 export interface StudioEventPayloads {
@@ -481,6 +507,8 @@ export interface StudioEventPayloads {
   defaultModel: DefaultModelInfo | null;
   /** omp 的可用斜杠命令变了（available_commands_update）。 */
   slashCommands: { taskId: TaskId; commands: AvailableSlashCommand[] };
+  /** omp-studio 自身的更新状态变化。 */
+  updateState: UpdateState;
 }
 
 export type StudioEventApi = {
@@ -588,6 +616,9 @@ export const invokeNames = {
   setNotifyOnGate: true,
   setYoloConfirmed: true,
   getDefaultModel: true,
+  getUpdateState: true,
+  checkForUpdate: true,
+  installUpdate: true,
 } satisfies Record<keyof StudioInvokeApi, true>;
 
 /** StudioEventPayloads 的全部事件名；订阅函数叫 `on` + 首字母大写的名字。 */
@@ -603,4 +634,5 @@ export const eventNames = {
   projectDropped: true,
   defaultModel: true,
   slashCommands: true,
+  updateState: true,
 } satisfies Record<keyof StudioEventPayloads, true>;

@@ -8,6 +8,7 @@ import { clearSettingsSection, showView, useSettingsSection } from "../../store/
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { tabTitle } from "./config-meta.ts";
 import { useConfigLoad } from "./config-store.ts";
+import { AboutSection } from "./AboutSection.tsx";
 import { GeneralSection } from "./GeneralSection.tsx";
 import { ModelsSection } from "./ModelsSection.tsx";
 import { OmpConfigPane, useOmpConfigLoader } from "./OmpConfigPane.tsx";
@@ -16,7 +17,7 @@ import "./motion-preference.ts";
 import "./settings.css";
 import "./config.css";
 
-const studioSections = ["general", "models", "omp"] as const;
+const studioSections = ["general", "models", "omp", "about"] as const;
 
 export function SettingsView() {
   const t = useT();
@@ -137,6 +138,7 @@ export function SettingsView() {
                 {section === "general" && <GeneralSection />}
                 {section === "models" && <ModelsSection />}
                 {section === "omp" && <OmpSection />}
+                {section === "about" && <AboutSection />}
               </>
             )}
           </div>

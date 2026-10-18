@@ -8,6 +8,7 @@ import { draftHandlers } from "./draft-handlers.ts";
 import { historyHandlers } from "./history-handlers.ts";
 import { ompHandlers } from "./omp-handlers.ts";
 import { taskHandlers } from "./task-handlers.ts";
+import { updateHandlers } from "./update-handlers.ts";
 import { registerDropFolder } from "./drop-folder.ts";
 import { assertTrustedSender } from "./validate.ts";
 
@@ -18,6 +19,7 @@ const handlers: InvokeHandlers = {
   ...accountHandlers,
   ...ompHandlers,
   ...draftHandlers,
+  ...updateHandlers,
 };
 
 export function registerIpcHandlers(): void {

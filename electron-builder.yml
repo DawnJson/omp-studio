@@ -11,4 +11,12 @@ win:
   target:
     - target: dir
       arch: x64
+    - target: nsis
+      arch: x64
   signAndEditExecutable: false
+# 自动更新只认安装版（NSIS）。装到用户目录，不需要管理员权限。
+nsis:
+  oneClick: true
+  perMachine: false
+  artifactName: ${name}-${version}-setup.${ext}
+publish: null

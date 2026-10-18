@@ -5,17 +5,20 @@ import { startSettingsStore } from "./settings-store.ts";
 import { startTasksStore } from "./tasks-store.ts";
 import { startTranscriptStore } from "./transcript-store.ts";
 import { startUiStore } from "./ui-store.ts";
+import { startUpdateStore } from "./update-store.ts";
 
 export function startStores(): void {
   startTasksStore();
   startTranscriptStore();
   startSettingsStore();
   startOmpStore();
+  startUpdateStore();
   startUiStore();
 }
 
 export { useOmpStatus } from "./omp-store.ts";
 export { useAppInfo, useSettings } from "./settings-store.ts";
+export { useUpdateState } from "./update-store.ts";
 export { useTask, useTasks, useTasksState, type TasksState } from "./tasks-store.ts";
 export { useTranscript } from "./transcript-store.ts";
 export {

@@ -196,8 +196,9 @@ flowchart LR
 
 ### 阶段 7：发布准备
 
-- [ ] Windows 安装包、桌面端自身的自动更新（和 omp 的更新分开）。已讨论的方案（2026-10-18，未定）：electron-builder 改出 NSIS 安装包（装到用户目录，不需要管理员权限）+ electron-updater（新增运行时依赖，要仓库所有者同意）读 `latest.yml`、后台下载、提示重启，重启前走现有退出流程关掉 omp 子进程；GitHub Actions 打 tag 自动构建上传。待定：更新文件放哪（源码仓库私有，Releases 需要 token，不能写进应用；可选：单独的公开 releases 仓库 / 对象存储 / 开源后用本仓库）、是否签名（见下一条）、是否分 stable 和 beta 渠道。仓库所有者的第一需求是自己能在线更新测试
-- [ ] 代码签名（竞品都没签名，签了就是一个差异点）
+- [x] Windows 安装包和桌面端自身的自动更新（和 omp 的更新分开）：`npm run dist` 出 NSIS 安装包（用户目录，不需要管理员权限），`npm run feed` 出 `latest.yml`；设置 → 关于里检查更新、显示下载进度、重启并安装；启动后延迟 10 秒检查，之后每小时一次（`docs/architecture/auto-update.md`）。实测（2026-10-18）：本地静态服务器，安装版 0.1.0 检查到 0.1.1、下载、点击安装后应用关闭并自动重启，安装目录里的版本变成 0.1.1
+- [ ] 正式更新源和渠道：`electron-builder.yml` 现在是 `publish: null`，安装版只有设置 `STUDIO_UPDATE_URL` 才能更新。需要定：更新文件放哪（源码仓库私有，Releases 需要 token，不能写进应用；可选：单独的公开 releases 仓库 / 对象存储 / 开源后用本仓库）、stable 和 beta 渠道、GitHub Actions 打 tag 自动构建上传
+- [ ] 代码签名（竞品都没签名，签了就是一个差异点；不签名也能自动更新，只是首次安装弹 SmartScreen）
 - [ ] CI 每天用最新的 omp 正式版和支持的最低版本各跑一遍 RPC 集成测试，提前发现上游变化
 - [ ] 确定正式名称，写 README 和截图
 - [ ] macOS 版（Electron 渲染一致，主要工作是打包、签名、公证）

@@ -2,6 +2,7 @@
 import { app, BrowserWindow, Menu } from "electron";
 import { registerIpcHandlers } from "./ipc/register.ts";
 import { loadSettings } from "./settings/settings-store.ts";
+import { startUpdates } from "./update/instance.ts";
 import { installAppProtocol, registerAppScheme } from "./window/app-protocol.ts";
 import { createMainWindow, getMainWindow } from "./window/main-window.ts";
 import { installSessionSecurity } from "./window/security.ts";
@@ -36,6 +37,7 @@ if (!app.requestSingleInstanceLock()) {
     loadSettings();
     registerIpcHandlers();
     createMainWindow();
+    startUpdates();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
     });

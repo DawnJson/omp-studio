@@ -749,3 +749,26 @@
   flex: none;
   color: var(--accent);
 }
+
+/* 关于 → 更新：状态文字和按钮同一行，下载进度用一条细线（spec §4.19）。 */
+.st-update {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.st-update-bar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--bg-active);
+}
+
+.st-update-bar-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
