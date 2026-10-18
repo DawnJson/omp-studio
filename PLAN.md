@@ -117,6 +117,7 @@ flowchart LR
 - [x] 会话历史：读 `~/.omp`，能接着终端里的会话继续（恢复走 `resume-history` 回放验证；真实终端会话恢复没实测）
 - [x] 应用内登录和模型设置，含 omp 全部设置（555 项，经 `omp config`）（OAuth 没有真实账号实测）
 - [ ] omp 管理：PATH 上已有 omp 时的版本检查和升级提示；PATH 上的 omp 是脚本时询问是否接管；没有 omp 或用户同意接管时的首次下载和校验、放进 PATH、后台更新（差量补丁、多进程加锁、替换正在运行的 exe）（除差量补丁外已完成，目前全量下载；真实下载和 `omp update` 没实测）
+- [ ] 审批模式跟随 omp 自己的配置：没在输入框里选过时不传 `--approval-mode`，用 `config.yml` 里的设置；用户选过才覆盖（仓库所有者 2026-10-18 要求，推翻 spec 决策 1"每次显式传 write"；改时同步 `docs/design/spec.md` 和 `src/main/tasks/task-pool.ts`）
 
 完成后开始内测。
 
