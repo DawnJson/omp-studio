@@ -1,6 +1,8 @@
 // 应用和设置：读写走 settings-store（userData/settings.json）；外壳状态走 window-state。
 import { app, shell } from "electron";
 import type { AppInfo, HandlerGroup } from "../../shared/ipc.ts";
+import { exportDiagnostics } from "../log/diagnostics.ts";
+import { openLogsFolder } from "../log/instance.ts";
 import { getSettings, resolveLocale, updateSettings } from "../settings/settings-store.ts";
 import { getShellState, parseCollapsedProjects, setShellState, sidebarWidthRange } from "../window/window-state.ts";
 import {
@@ -31,6 +33,8 @@ export const appHandlers: HandlerGroup<
   | "setMaxLiveProcesses"
   | "openExternal"
   | "quitApp"
+  | "openLogsFolder"
+  | "exportDiagnostics"
   | "getShellState"
   | "setShellState"
 > = {
@@ -44,6 +48,8 @@ export const appHandlers: HandlerGroup<
   setMaxLiveProcesses: async (value) => updateSettings({ maxLiveProcesses: parseMaxLiveProcesses(value) }),
   openExternal: async (value) => shell.openExternal(parseExternalUrl(value)),
   quitApp: async () => app.quit(),
+  openLogsFolder: () => openLogsFolder(),
+  exportDiagnostics: () => exportDiagnostics(),
   getShellState: async () => getShellState(),
   setShellState: async (value) => {
     const record = parseRecord(value, "shellState");

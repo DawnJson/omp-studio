@@ -6,6 +6,7 @@ import { mkdir, open, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import type { OmpStatus, OmpSource, OmpUpgradeResult } from "../../shared/ipc.ts";
 import { UnsupportedOmpLauncherError, type OmpInstall } from "../omp/discover.ts";
+import { log } from "../log/log.ts";
 import { DEFAULT_BUILD_URL, fetchBuild, type FetchFn } from "./build-service.ts";
 import { installBuild, managedLayout, sweepOldBinaries, type ManagedLayout } from "./installer.ts";
 import { resolveOmp, type Decision, type PathScan } from "./resolve.ts";
@@ -324,7 +325,7 @@ export class OmpManager {
     if (this.#timer) return;
     this.#timer = setInterval(() => {
       // 后台检查失败不打断用户，下个小时再试；手动"检查更新"会把错误显示出来。
-      this.checkUpdate().catch((error: unknown) => console.warn("omp background update check failed", error instanceof Error ? error.message : error));
+      this.checkUpdate().catch((error: unknown) => log.warn("omp background update check failed", error instanceof Error ? error.message : error));
     }, UPDATE_INTERVAL_MS);
     this.#timer.unref();
   }

@@ -18,6 +18,7 @@ import type {
   TranscriptSnapshot,
 } from "../../shared/ipc.ts";
 import type { AvailableSlashCommand, PromptParams, RpcServerFrame, SessionState, ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import { log } from "../log/log.ts";
 import { RpcProtocolError } from "../omp/frame-decoder.ts";
 import type { OmpExit, OmpLaunch } from "../omp/omp-connection.ts";
 import { OmpConnection, OmpExitedError, RpcCommandError } from "../omp/omp-connection.ts";
@@ -232,6 +233,7 @@ export class TaskRunner {
       }
       const taskError = error instanceof TaskStartError ? error.taskError : this.#classifyStartError(error);
       if (connection) await this.#discard(connection);
+      log.warn(`task ${this.id} failed to start`, taskError);
       this.#apply({ type: "start_failed", error: taskError });
       throw error;
     }
@@ -303,6 +305,7 @@ export class TaskRunner {
     if (this.#machine.status === "starting") return;
     const protocol = exit.error instanceof RpcProtocolError;
     const message = this.#withStderr(exit.error?.message ?? `omp exited with ${exit.code ?? exit.signal}`, exit.stderrTail);
+    log.warn(`task ${this.id} omp exited unexpectedly`, { kind: protocol ? "protocol" : "exited", message });
     this.#apply({ type: "failed", error: { kind: protocol ? "protocol" : "exited", message } });
   }
 

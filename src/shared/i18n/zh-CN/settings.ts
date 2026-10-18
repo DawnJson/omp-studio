@@ -90,4 +90,12 @@ export const settings = {
   "about.installFailed": "安装更新失败：{message}",
   "about.disabled.notPackaged": "开发版和免安装版不检查更新",
   "about.disabled.noFeed": "这个版本没有配置更新源",
+  "about.troubleshoot": "问题排查",
+  "about.logs": "日志",
+  "about.logs.desc": "应用运行时的记录，按天一个文件，保留 14 天。路径里的用户名和 key 已经换掉。",
+  "about.openLogs": "打开日志文件夹",
+  "about.diagnostics": "诊断信息",
+  "about.diagnostics.desc": "版本、系统、omp 状态和最近 3 天的日志，存成一个文件。反馈问题时附上它。",
+  "about.exportDiagnostics": "导出…",
+  "about.exported": "已导出诊断信息",
 } satisfies Record<string, MessageEntry>;

@@ -8,6 +8,7 @@ import { app } from "electron";
 import type { AppUpdater } from "electron-updater";
 import type { UpdateState } from "../../shared/ipc.ts";
 import { emitEvent } from "../ipc/events.ts";
+import { log } from "../log/log.ts";
 import { finishShutdown } from "../window/shutdown.ts";
 import { UpdateService, type Updater } from "./service.ts";
 
@@ -59,7 +60,7 @@ export function startUpdates(): void {
       emitEvent("updateState", state);
     },
     prepareInstall: () => finishShutdown(),
-    log: (message) => console.log(message),
+    log: (message) => log.info(message),
   });
   latest = service.state();
   service.start();

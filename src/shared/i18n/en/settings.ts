@@ -91,4 +91,12 @@ export const settings = {
   "about.installFailed": "Couldn't install the update: {message}",
   "about.disabled.notPackaged": "Updates are off in development and portable builds",
   "about.disabled.noFeed": "This build has no update source configured",
+  "about.troubleshoot": "Troubleshooting",
+  "about.logs": "Logs",
+  "about.logs.desc": "What the app recorded while running: one file per day, kept for 14 days. User names and keys are removed.",
+  "about.openLogs": "Open logs folder",
+  "about.diagnostics": "Diagnostics",
+  "about.diagnostics.desc": "Version, system, omp status and the last 3 days of logs in one file. Attach it when you report a problem.",
+  "about.exportDiagnostics": "Export…",
+  "about.exported": "Diagnostics exported",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

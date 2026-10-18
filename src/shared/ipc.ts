@@ -369,6 +369,10 @@ export interface StudioInvokeApi {
   openExternal(url: string): Promise<void>;
   /** 退出应用（顶栏菜单"退出"）；走 before-quit，会先关掉所有 omp 子进程。 */
   quitApp(): Promise<void>;
+  /** 在资源管理器里打开 userData/logs。 */
+  openLogsFolder(): Promise<void>;
+  /** 弹保存对话框导出诊断信息（版本、系统、omp 状态、设置、最近日志，已脱敏）；用户取消返回 false。 */
+  exportDiagnostics(): Promise<boolean>;
   /** 窗口外壳的界面状态（侧栏宽度/折叠），存在 userData/window-state.json。 */
   getShellState(): Promise<ShellState>;
   setShellState(patch: Partial<ShellState>): Promise<void>;
@@ -556,6 +560,8 @@ export const invokeNames = {
   setMaxLiveProcesses: true,
   openExternal: true,
   quitApp: true,
+  openLogsFolder: true,
+  exportDiagnostics: true,
   getShellState: true,
   setShellState: true,
   listProjects: true,

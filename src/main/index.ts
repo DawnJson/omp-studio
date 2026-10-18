@@ -1,6 +1,7 @@
 // 主进程入口：单实例、userData 测试覆盖、设置、会话安全、注册 IPC、打开主窗口、退出流程。
 import { app, BrowserWindow, Menu } from "electron";
 import { registerIpcHandlers } from "./ipc/register.ts";
+import { initLog } from "./log/instance.ts";
 import { loadSettings } from "./settings/settings-store.ts";
 import { startUpdates } from "./update/instance.ts";
 import { installAppProtocol, registerAppScheme } from "./window/app-protocol.ts";
@@ -12,6 +13,7 @@ import { installShutdown } from "./window/shutdown.ts";
 if (!app.isPackaged && process.env["STUDIO_USER_DATA"]) {
   app.setPath("userData", process.env["STUDIO_USER_DATA"]);
 }
+initLog();
 
 registerAppScheme();
 

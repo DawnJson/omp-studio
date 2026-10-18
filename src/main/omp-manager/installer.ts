@@ -10,6 +10,7 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { downloadVerified, VerifyError, type BuildInfo, type BuildPatch, type FetchFn } from "./build-service.ts";
 import { applySingleStreamPatch } from "./hpatch.ts";
+import { log } from "../log/log.ts";
 import { compareVersions } from "./version.ts";
 
 export const KEEP_VERSIONS = 3;
@@ -91,7 +92,7 @@ async function installFromPatch(options: InstallOptions, patch: BuildPatch, from
     return true;
   } catch (error) {
     if (signal?.aborted) throw error;
-    console.warn("omp patch update failed, downloading the full build instead:", error instanceof Error ? error.message : error);
+    log.warn("omp patch update failed, downloading the full build instead", error instanceof Error ? error.message : error);
     return false;
   } finally {
     await rm(patchFile, { force: true });

@@ -1,4 +1,4 @@
-// 设置 → 关于：当前版本和 omp-studio 自身的更新（检查、下载进度、重启并安装）。
+// 设置 → 关于：当前版本、omp-studio 自身的更新（检查、下载进度、重启并安装）、问题排查。
 // 更新源和只有安装版才生效的规则见 src/main/update/instance.ts。
 import { useState } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
@@ -7,6 +7,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { useAppInfo, useUpdateState } from "../../store/index.ts";
 import { describeError } from "../../ui/errors.ts";
 import { Button, Card, SettingRow } from "./controls.tsx";
+import { TroubleshootCard } from "./TroubleshootCard.tsx";
 
 function statusText(state: UpdateState, t: TFunction): string {
   switch (state.phase) {
@@ -101,6 +102,7 @@ export function AboutSection() {
           <span className="st-error-text">{note}</span>
         </div>
       )}
+      <TroubleshootCard />
     </>
   );
 }

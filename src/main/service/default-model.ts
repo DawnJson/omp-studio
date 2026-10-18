@@ -3,6 +3,7 @@
 // 所以在 omp 设置里改了相关项之后，稍等一下再读一次并推 `defaultModel` 事件给渲染进程。
 import type { DefaultModelInfo } from "../../shared/ipc.ts";
 import { emitEvent } from "../ipc/events.ts";
+import { log } from "../log/log.ts";
 import { serviceOmp } from "./service-omp.ts";
 
 /** 这些设置变了，默认模型/思考强度可能跟着变。 */
@@ -17,7 +18,7 @@ export async function readDefaultModel(): Promise<DefaultModelInfo | null> {
     return { key: { provider: state.model.provider, modelId: state.model.id }, name: state.model.name, thinkingLevel: state.thinkingLevel ?? null };
   } catch (error) {
     // 服务进程起不来（omp 没就绪、没有任何可用模型）：界面按"没有默认模型"处理。
-    console.warn("get_state on the service process failed", error instanceof Error ? error.message : error);
+    log.warn("get_state on the service process failed", error instanceof Error ? error.message : error);
     return null;
   }
 }

@@ -11,6 +11,7 @@ import { taskHandlers } from "./task-handlers.ts";
 import { updateHandlers } from "./update-handlers.ts";
 import { registerDropFolder } from "./drop-folder.ts";
 import { assertTrustedSender } from "./validate.ts";
+import { log } from "../log/log.ts";
 
 const handlers: InvokeHandlers = {
   ...appHandlers,
@@ -25,9 +26,15 @@ const handlers: InvokeHandlers = {
 export function registerIpcHandlers(): void {
   for (const name of Object.keys(handlers) as (keyof InvokeHandlers)[]) {
     const handler = handlers[name];
-    ipcMain.handle(invokeChannel(name), (event, ...args: unknown[]) => {
+    ipcMain.handle(invokeChannel(name), async (event, ...args: unknown[]) => {
       assertTrustedSender(event);
-      return handler(...args);
+      try {
+        return await handler(...args);
+      } catch (error) {
+        // 错误照常传回界面；这里只是留一份，界面上的提示消失后还能查。
+        log.warn(`ipc ${name} failed`, error);
+        throw error;
+      }
     });
   }
   registerDropFolder();
