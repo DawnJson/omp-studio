@@ -1,5 +1,5 @@
 // omp 准备页（spec §4.22）：盖在应用上的居中卡片，只在需要用户参与或在等待时出现；omp 就绪后自己消失。
-// 状态来自 store 的 OmpStatus：检测中、问接管、下载中、出错、脚本启动不了、首次安装后问要不要加 PATH。
+// 状态来自 store 的 OmpStatus：检测中、问接管、下载中、出错、脚本启动不了。
 // 导出名和 props 是 App.tsx 的约定（始终渲染，由本组件决定要不要显示）。
 import { reportError } from "../../ui/errors.ts";
 import { useEffect, useId, useState } from "react";
@@ -12,13 +12,6 @@ import "./omp-setup.css";
 
 /** 检测通常很快，超过这个时间才显示"正在查找"，免得一闪而过。 */
 const FINDING_DELAY_MS = 300;
-
-/** 是否要显示准备页。 */
-function needsSetup(status: OmpStatus | null): boolean {
-  if (status === null) return false;
-  if (status.state === "ready") return status.askAddToPath;
-  return true;
-}
 
 function useDelayedFlag(on: boolean, delayMs: number): boolean {
   const [flag, setFlag] = useState(false);
@@ -56,7 +49,7 @@ export function OmpSetupView() {
   const [dismissed, setDismissed] = useState<OmpStatus | null>(null);
   const showFinding = useDelayedFlag(status?.state === "discovering", FINDING_DELAY_MS);
 
-  if (status === null || !needsSetup(status) || dismissed === status) return null;
+  if (status === null || status.state === "ready" || dismissed === status) return null;
   if (status.state === "discovering" && !showFinding) return null;
 
   const title = (text: string) => (
@@ -158,22 +151,6 @@ export function OmpSetupView() {
               }}
             >
               {t("omp.openSettings")}
-            </Button>
-          </div>
-        </>
-      );
-      break;
-    case "ready":
-      // 自管的 omp 刚装好，问一次要不要加进用户 PATH（只改当前用户的 PATH，原来的 omp 不动）。
-      body = (
-        <>
-          {title(t("omp.addPath.title"))}
-          <p className="setup-text">{t("omp.found", { version: status.version, source: t("omp.source.studio") })}</p>
-          <p className="setup-text">{t("omp.addPath.note")}</p>
-          <div className="setup-actions">
-            <Button variant="primary" large autoFocus onClick={() => answer(window.studio.answerAddToPath(true))} testId="add-path-yes">{t("omp.addPath.yes")}</Button>
-            <Button large onClick={() => answer(window.studio.answerAddToPath(false))} testId="add-path-no">
-              {t("omp.addPath.no")}
             </Button>
           </div>
         </>

@@ -284,8 +284,6 @@ export type OmpStatus =
       version: string;
       /** 低于支持的最低版本，提示升级。 */
       belowMinimum: boolean;
-      /** 自管且还没问过要不要加进用户 PATH。 */
-      askAddToPath: boolean;
       /** 自管时已下载好、新任务会用到的版本。 */
       stagedUpdate: string | null;
     }
@@ -456,7 +454,8 @@ export interface StudioInvokeApi {
   // omp 管理
   getOmpStatus(): Promise<OmpStatus>;
   answerTakeover(accept: boolean): Promise<void>;
-  answerAddToPath(accept: boolean): Promise<void>;
+  /** 自管 omp 的 bin 不在用户 PATH 上时，放回最前面。 */
+  addManagedOmpToPath(): Promise<void>;
   /** 下载、校验或发现失败后重试。 */
   retryOmpSetup(): Promise<void>;
   /** 只对 PATH 上用户自装的 omp 执行 omp update；自管和他人管理的会拒绝。 */
@@ -602,7 +601,7 @@ export const invokeNames = {
   listApiKeyProviders: true,
   getOmpStatus: true,
   answerTakeover: true,
-  answerAddToPath: true,
+  addManagedOmpToPath: true,
   retryOmpSetup: true,
   checkOmpUpdate: true,
   upgradePathOmp: true,

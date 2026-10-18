@@ -69,9 +69,9 @@ Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次�
 状态机在 `manager.ts`，决策在 `resolve.ts`（纯函数，`test/omp-manager-resolve.test.ts` 逐分支覆盖），下载校验在 `build-service.ts`，目录和换 exe 在 `installer.ts`，应用里的接线（`net.fetch`、`userData`、事件推送）在 `index.ts`。渲染进程的 `OmpStatus` 就是这个状态机的状态，界面见 `features/omp-setup/` 和设置 → omp。
 
 - **自管目录**：`%LOCALAPPDATA%\omp-studio\omp\`（`versions\<版本>.exe`、`bin\omp.exe`、`manager.json`、`update.lock`）。未打包时 `STUDIO_OMP_HOME` 或测试的 `STUDIO_USER_DATA`（→ `<userData>\omp`）可以改位置，测试不碰真实目录。
-- **每次启动的发现**（第一次 `getOmpStatus` 触发）：PATH 上没有 omp → 有自管副本就用，没有就直接下载（不再问，进度在准备页）；Tern 等有 `manager.json` 的 → 直接用，不问、不碰 PATH；用户自装的（含 `.cmd`）→ `ask_takeover`，回答按 exe 路径记在 `userData\omp-studio-state.json`（`takeover[exe 路径小写]`），同意 → 下载自管副本并把 `bin` 放到用户 PATH 最前面，拒绝 → 用用户那份（`.cmd` 则 `unusable`，"重新选择"会忘掉那次拒绝重新问）。用户同意过接管、但 `bin` 已不在用户 PATH 里时，启动会重新放回最前面。
+- **每次启动的发现**（第一次 `getOmpStatus` 触发）：PATH 上没有 omp → 有自管副本就用，没有就直接下载（不再问，进度在准备页）；Tern 等有 `manager.json` 的 → 直接用，不问、不碰 PATH；用户自装的（含 `.cmd`）→ `ask_takeover`，回答按 exe 路径记在 `userData\omp-studio-state.json`（`takeover[exe 路径小写]`），同意 → 下载自管副本并把 `bin` 放到用户 PATH 最前面，拒绝 → 用用户那份（`.cmd` 则 `unusable`，"重新选择"会忘掉那次拒绝重新问）。
 - **`missing` 状态**：PATH 上没有 omp 且没有自管副本时，不直接下载 220 MB：向构建服务问版本和大小，准备页写明大小和来源，用户点"下载并安装"（`installOmp`）才下载；下载中可以取消（`cancelOmpInstall`，丢弃 `.partial`，回到 `missing`）。上一条里"没有就直接下载"以本条为准。用户同意过接管（`takeover` 已记录为 accepted）时视为已授权，直接下载。
-- **自管 omp 首次安装后**问一次要不要加进用户 PATH（`askAddToPath`，记在同一个状态文件的 `addToPathAsked`）；设置 → omp 里随时可以再加。
+- **自管 omp 装好后直接放到用户 PATH 最前面**，照 Tern 做管理者，不另问：用户点"下载并安装"或同意接管的那一次就是授权（准备页和接管弹窗的文案写明会改 PATH）。以后启动发现 bin 被用户移出 PATH 不悄悄加回，设置 → omp 显示"加入 PATH"按钮（`addManagedOmpToPath`）。
 - **写用户 PATH**：`platform/win32/user-path.ts`（koffi，不用 reg.exe/setx）。只做"去重 + 放最前"，值类型和 `%VAR%` 原样保留；写之前把原值存成 `userData\path-backup-<时间>.txt`。测试用 `HKCU\Software\omp-studio-test-<pid>` 临时子键（`test/user-path.test.ts`）。
 - **下载**：`net.fetch`（系统代理）→ `…/latest/windows-x86_64?channel=stable`，`PI_BUILD_URL` 可改服务地址（omp 自己也认）。2026-10-18 实测应答：`build.version`（当时 18.12.1）、`file.{name,size,sha256,url}`、`download`（绝对地址的签名直链，字符串）。边下边算 sha256，size 和 sha256 都对上才从 `.partial` 改名；对不上删掉并报 `verify` 错误。`test/omp-manager-install.test.ts` 用本地假服务器覆盖损坏、长度不对、进度、目录有空格和中文。
 - **换 exe**：先复制到 `bin\.omp.exe.new-<pid>`，旧的改名为 `.omp.exe.old-<时间戳>`，新的改名到位，失败回滚。`.old-*` 每次启动清理，删不掉的留着。`versions\` 保留最近 3 个（当前版本一定留）。

@@ -83,20 +83,18 @@ describe("OmpManager", () => {
     expect(h.userPathAdds).toEqual([]);
   });
 
-  it("waits in `missing` with the build's size and source instead of downloading, and downloads only after the user clicks install", async () => {
+  it("waits in `missing` with the build's size and source instead of downloading; the install click downloads and puts bin first on the user PATH without asking again", async () => {
     const h = harness({ kind: "none" });
     await h.manager.start();
     expect(h.manager.status).toEqual({ state: "missing", version: "18.12.1", sizeBytes: bytes.length, source: new URL(baseUrl).host });
     expect(h.statuses.some((s) => s.state === "installing")).toBe(false);
+    expect(h.userPathAdds).toEqual([]);
 
     await h.manager.installOmp();
     expect(h.statuses.some((s) => s.state === "installing")).toBe(true);
-    expect(h.manager.status).toMatchObject({ state: "ready", version: "18.12.1", source: { kind: "studio_managed", onUserPath: false }, askAddToPath: true });
-    expect(await readFile(h.manager.layout.binExe)).toEqual(bytes);
-
-    await h.manager.answerAddToPath(true);
+    expect(h.manager.status).toMatchObject({ state: "ready", version: "18.12.1", source: { kind: "studio_managed", onUserPath: true } });
     expect(h.userPathAdds).toEqual([h.manager.layout.binDir]);
-    expect(h.manager.status).toMatchObject({ askAddToPath: false, source: { kind: "studio_managed", onUserPath: true } });
+    expect(await readFile(h.manager.layout.binExe)).toEqual(bytes);
   });
 
   it("asks before taking over a user-installed omp, and on yes installs a copy and puts bin first on the user PATH", async () => {
@@ -106,7 +104,7 @@ describe("OmpManager", () => {
     expect(h.manager.status).toMatchObject({ path: userExe.path, version: "18.8.7", launchable: true });
     await h.manager.answerTakeover(true);
     await running;
-    expect(h.manager.status).toMatchObject({ state: "ready", source: { kind: "studio_managed", onUserPath: true }, askAddToPath: false });
+    expect(h.manager.status).toMatchObject({ state: "ready", source: { kind: "studio_managed", onUserPath: true } });
     expect(h.userPathAdds).toEqual([h.manager.layout.binDir]);
     expect(JSON.parse(await readFile(h.stateFile, "utf8")).takeover).toEqual({ [userExe.path.toLowerCase()]: "accepted" });
   });
@@ -161,8 +159,8 @@ describe("OmpManager", () => {
     const second = harness({ kind: "exe", install: userExe }, path.dirname(first.stateFile));
     await second.manager.start();
     expect(second.userPathAdds).toEqual([]);
-    expect(second.manager.status).toMatchObject({ state: "ready", source: { kind: "studio_managed", onUserPath: false }, askAddToPath: false });
-    await second.manager.answerAddToPath(true);
+    expect(second.manager.status).toMatchObject({ state: "ready", source: { kind: "studio_managed", onUserPath: false } });
+    await second.manager.addManagedOmpToPath();
     expect(second.userPathAdds).toEqual([second.manager.layout.binDir]);
   });
 

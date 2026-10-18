@@ -43,7 +43,7 @@ function configService(): OmpConfigService {
 export const ompHandlers: HandlerGroup<
   | "getOmpStatus"
   | "answerTakeover"
-  | "answerAddToPath"
+  | "addManagedOmpToPath"
   | "retryOmpSetup"
   | "upgradePathOmp"
   | "checkOmpUpdate"
@@ -65,7 +65,7 @@ export const ompHandlers: HandlerGroup<
     return Promise.resolve(manager.status);
   },
   answerTakeover: (accept) => ompManager().answerTakeover(parseBoolean(accept, "accept")),
-  answerAddToPath: (accept) => ompManager().answerAddToPath(parseBoolean(accept, "accept")),
+  addManagedOmpToPath: () => ompManager().addManagedOmpToPath(),
   retryOmpSetup: () => ompManager().retry(),
   upgradePathOmp: () => ompManager().upgradePathOmp(),
   checkOmpUpdate: async () => ({ installedVersion: await ompManager().checkUpdate() }),

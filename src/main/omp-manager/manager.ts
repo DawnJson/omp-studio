@@ -149,7 +149,7 @@ export class OmpManager {
   async #apply(decision: Decision, managed: OmpInstall | null, state: OmpStudioState): Promise<void> {
     switch (decision.action) {
       case "use":
-        this.#ready(decision.path, decision.version, decision.source, false);
+        this.#ready(decision.path, decision.version, decision.source);
         break;
       case "unusable":
         this.#set({ state: "unusable", path: decision.path, reason: "script_launcher" });
@@ -184,9 +184,9 @@ export class OmpManager {
       if (install === null) return;
     }
     const { userPath } = this.#deps;
-    // 只在用户同意的这一次写 PATH（接管询问点"同意"）。之后启动发现 bin 被删了就不再悄悄加回：
-    // onUserPath 为 false，设置 → omp 页提示并提供"重新加入 PATH"按钮（answerAddToPath）。
-    if (this.#consentPathNow && userPath && !userPath.contains(this.#layout.binDir)) {
+    // 照 Tern 做管理者：用户点了"下载并安装"或同意接管的这一次，直接把 bin 放到用户 PATH 最前面，不再另问。
+    // 之后启动发现 bin 被移走就不再悄悄加回：onUserPath 为 false，设置 → omp 页提供"加入 PATH"按钮（addManagedOmpToPath）。
+    if ((this.#consentPathNow || downloadConfirmed) && userPath) {
       try {
         userPath.addFront(this.#layout.binDir);
       } catch (error) {
@@ -196,8 +196,7 @@ export class OmpManager {
         this.#consentPathNow = false;
       }
     }
-    const onUserPath = userPath?.contains(this.#layout.binDir) ?? false;
-    this.#ready(install.path, install.version, { kind: "studio_managed", onUserPath }, reason === "missing" && userPath !== null && !onUserPath && !state.addToPathAsked);
+    this.#ready(install.path, install.version, { kind: "studio_managed", onUserPath: userPath?.contains(this.#layout.binDir) ?? false });
   }
 
   /** 状态 missing：向构建服务问一下版本和大小给界面写上；问不到也照样等用户点按钮（大小显示为未知）。 */
@@ -259,8 +258,8 @@ export class OmpManager {
     }
   }
 
-  #ready(exePath: string, version: string, source: OmpSource, askAddToPath: boolean): void {
-    this.#set({ state: "ready", source, path: exePath, version, belowMinimum: isBelowMinimum(version), askAddToPath, stagedUpdate: this.#stagedUpdate });
+  #ready(exePath: string, version: string, source: OmpSource): void {
+    this.#set({ state: "ready", source, path: exePath, version, belowMinimum: isBelowMinimum(version), stagedUpdate: this.#stagedUpdate });
     if (source.kind === "studio_managed") this.#startAutoUpdate();
   }
 
@@ -276,18 +275,13 @@ export class OmpManager {
     await this.#running;
   }
 
-  /** 自管 omp 的"要不要加进用户 PATH"：首次安装后会问一次（askAddToPath），之后设置页里也能随时加入。 */
-  async answerAddToPath(accept: boolean): Promise<void> {
+  /** 设置 → omp：自管 omp 的 bin 不在用户 PATH 上（比如用户手动删了）时，再放回最前面。 */
+  async addManagedOmpToPath(): Promise<void> {
     const status = this.#status;
     if (status.state !== "ready" || status.source.kind !== "studio_managed") throw new Error("only the omp that omp-studio manages can be added to the user PATH");
-    const state = await readState(this.#deps.stateFile);
-    if (accept) {
-      if (!this.#deps.userPath) throw new Error("this platform does not support editing the user PATH");
-      this.#deps.userPath.addFront(this.#layout.binDir);
-    }
-    state.addToPathAsked = true;
-    await writeState(this.#deps.stateFile, state);
-    await this.#refreshReady((current) => ({ ...current, askAddToPath: false, source: { kind: "studio_managed", onUserPath: accept || (current.source.kind === "studio_managed" && current.source.onUserPath) } }));
+    if (!this.#deps.userPath) throw new Error("this platform does not support editing the user PATH");
+    this.#deps.userPath.addFront(this.#layout.binDir);
+    await this.#refreshReady((current) => ({ ...current, source: { kind: "studio_managed", onUserPath: true } }));
   }
 
   /** 出错后重新跑发现流程；unusable（拒绝了脚本形式的接管）时忘掉那次拒绝，让用户重新选择。 */

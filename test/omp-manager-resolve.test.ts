@@ -4,7 +4,7 @@ import { resolveOmp, type PathScan } from "../src/main/omp-manager/resolve.ts";
 import { takeoverKey, type OmpStudioState } from "../src/main/omp-manager/takeover-state.ts";
 import { compareVersions, isBelowMinimum } from "../src/main/omp-manager/version.ts";
 
-const noState: OmpStudioState = { takeover: {}, addToPathAsked: false };
+const noState: OmpStudioState = { takeover: {} };
 const exe = (path: string, manager: OmpInstall["manager"] = null): PathScan => ({ kind: "exe", install: { path, version: "18.12.0", manager } });
 
 describe("resolveOmp", () => {

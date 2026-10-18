@@ -7,8 +7,6 @@ export type TakeoverAnswer = "accepted" | "declined";
 
 export interface OmpStudioState {
   takeover: Record<string, TakeoverAnswer>;
-  /** 自管且 PATH 上原本没有 omp 时，问过一次要不要加进用户 PATH。 */
-  addToPathAsked: boolean;
 }
 
 /** Windows 的路径不区分大小写，记录用小写作键。 */
@@ -21,17 +19,16 @@ export async function readState(file: string): Promise<OmpStudioState> {
   try {
     text = await readFile(file, "utf8");
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") return { takeover: {}, addToPathAsked: false };
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return { takeover: {} };
     throw error;
   }
   const json: unknown = JSON.parse(text);
-  const state: OmpStudioState = { takeover: {}, addToPathAsked: false };
+  const state: OmpStudioState = { takeover: {} };
   if (typeof json !== "object" || json === null) return state;
   const takeover = "takeover" in json ? json.takeover : null;
   if (typeof takeover === "object" && takeover !== null) {
     for (const [key, value] of Object.entries(takeover)) if (value === "accepted" || value === "declined") state.takeover[key] = value;
   }
-  if ("addToPathAsked" in json && json.addToPathAsked === true) state.addToPathAsked = true;
   return state;
 }
 

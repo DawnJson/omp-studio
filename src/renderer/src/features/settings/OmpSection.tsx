@@ -92,7 +92,7 @@ export function OmpSection() {
             {!source.onUserPath && (
               <SettingRow title={t("omp.addPath")} desc={t("omp.addPath.note")}>
                 {() => (
-                  <Button loading={busy === "path"} disabled={busy !== null} onClick={() => void run("path", () => window.studio.answerAddToPath(true))}>
+                  <Button loading={busy === "path"} disabled={busy !== null} onClick={() => void run("path", () => window.studio.addManagedOmpToPath())}>
                     {t("omp.addPath.yes")}
                   </Button>
                 )}

@@ -84,7 +84,6 @@ test("设置页和 omp 准备页截图：中英文 × 浅深主题", async () =>
       installing: { state: "installing", version: "18.12.1", receivedBytes: 96_000_000, totalBytes: 222_742_016 },
       error: { state: "error", stage: "download", message: "build service answered 503" },
       unusable: { state: "unusable", path: "C:\\Users\\me\\AppData\\Roaming\\npm\\omp.cmd", reason: "script_launcher" },
-      "add-path": { state: "ready", source: { kind: "studio_managed", onUserPath: false }, path: "C:\\Users\\me\\AppData\\Local\\omp-studio\\omp\\bin\\omp.exe", version: "18.12.1", belowMinimum: false, askAddToPath: true, stagedUpdate: null },
       missing: { state: "missing", version: "18.12.1", sizeBytes: 222_742_016, source: "build.stencil.so" },
     };
     for (const locale of ["zh-CN", "en"] as const) {
@@ -113,7 +112,7 @@ test("接管询问：同意/拒绝的按钮把回答发给主进程", async () =
     // 主进程此刻没有在问（状态是合成的），应答被拒绝：界面不崩，卡片还在，等真实状态推来。
     await page.getByTestId("takeover-no").click();
     await expect(page.getByTestId("omp-setup")).toBeVisible();
-    await pushStatus(launched, { state: "ready", source: { kind: "user_installed" }, path: "C:\\x\\omp.exe", version: "18.12.0", belowMinimum: false, askAddToPath: false, stagedUpdate: null });
+    await pushStatus(launched, { state: "ready", source: { kind: "user_installed" }, path: "C:\\x\\omp.exe", version: "18.12.0", belowMinimum: false, stagedUpdate: null });
     await expect(page.getByTestId("omp-setup")).toHaveCount(0);
   } finally {
     await launched.close();
