@@ -45,7 +45,7 @@ omp 自己的协议和接口以 omp 文档为准：`rpc.md`（RPC 协议）、`e
 |安装依赖|`npm ci`|
 |类型检查|`npm run typecheck`|
 |测试|`npm test`|
-|录制 RPC 回放|`npm run rpc:record -- <名字> "<prompt>"`，写到 `fixtures/rpc/<名字>.ndjson`。会调真实模型；在别的 worktree 里用 `$env:STUDIO_ENV_FILE` 指向 `.env`；录制里出现用户名会拒绝写入，这时用 `$env:STUDIO_SCRATCH_DIR` 换临时目录，见 `docs/architecture/rpc-replay.md`|
+|录制 RPC 回放|`npm run rpc:record -- <名字> "<prompt>"`，写到 `fixtures/rpc/<名字>.ndjson`。会调真实模型；录制里出现用户名会拒绝写入，这时用 `$env:STUDIO_SCRATCH_DIR` 换临时目录，见 `docs/architecture/rpc-replay.md`|
 |更新 RPC 类型|`npm run rpc:update-wire -- <omp 版本>`|
 |开发、打包|还没有，做应用外壳时补上|
 
@@ -137,7 +137,7 @@ omp 自己的协议和接口以 omp 文档为准：`rpc.md`（RPC 协议）、`e
 ## 任务流程
 
 - **任务来源**：`PLAN.md` 各阶段的复选框，一次只做一项。一项太大就先拆开，在完成说明里写明怎么拆的。
-- **每个任务一个分支、一个 worktree**，分支名用 `task/<简短英文名>`。
+- **每个任务一个分支**，分支名用 `task/<简短英文名>`。都在仓库目录里切分支做，不另开 worktree 或别的文件夹（仓库所有者 2026-10-18 的要求）。
 - **怎样才算完成**：复选框描述的行为在真实应用里跑通；相关测试通过；对应的 `docs/architecture/<功能>.md` 已更新；在分支里勾上 `PLAN.md` 的复选框；完成说明写清楚跑过什么、没跑什么。
 - **评审**：写代码的会话不能评审自己的改动。做完后另开一个会话读 diff，按 P0–P3 列出问题。P0 和 P1 修完才算完成。
 - **设计验收**：改了界面的，完成说明里附上截图（中英文、深浅主题）。仓库所有者确认设计后才能合并，agent 不能自己判定设计通过。
@@ -145,8 +145,7 @@ omp 自己的协议和接口以 omp 文档为准：`rpc.md`（RPC 协议）、`e
 
 ## Git
 
-- **仓库还没有 `git init`。** 初始化时，第一个提交只放 `.gitignore`（`.env`、`node_modules/`、构建产物、截图目录、omp 的 exe）和 `.gitattributes`。
-- **每个 agent 会话在自己的 worktree 里工作**（`git worktree add`）。不要切换、提交或清理别的会话的 worktree，也不要动别人的 index。
+- **所有工作都在仓库目录 `E:\work\code\omp-studio` 里进行**，用 `git switch` 切到任务分支，不用 `git worktree add`。切分支前确认工作区干净，不要丢掉没提交的改动。
 - **提交后用 `git show --stat HEAD` 检查**，确认里面只有这次改的文件。
 - **提交信息说明改了什么、为什么改、怎么验证的。**
 - **仓库在内测期间保持私有。** 不要往其他仓库推送，包括 omp 官方仓库和竞品仓库。
