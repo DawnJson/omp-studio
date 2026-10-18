@@ -53,7 +53,7 @@ idle → checking → up-to-date
 ## 本地验证（不发布任何东西）
 
 1. `npm run dist`：生成 `release/omp-studio-0.1.0-setup.exe`。
-2. `npm run feed`：生成 `release/feed/latest.yml`，并把安装包和 `.blockmap` 一起放进去。`electron-builder.yml` 里是 `publish: null`，所以构建不会自动生成 `latest.yml`，也没有 `app-update.yml`（应用默认显示"没有配置更新源"）；`latest.yml` 由 `scripts/make-feed.mjs` 按当前版本生成。
+2. `npm run feed`：生成 `release/feed/latest.yml`，并把安装包和 `.blockmap` 一起放进去。`electron-builder.yml` 里是 `publish: null`，所以构建不会自动生成 `latest.yml`，也没有 `app-update.yml`（应用默认显示"没有配置更新源"）；`latest.yml` 由 `scripts/make-feed.ts` 按当前版本生成，`releaseNotes` 取 `CHANGELOG.md` 里这个版本的一节（没有这一节就不带，并打印提示）。
 3. 安装 0.1.0 的安装包（静默：`Start-Process release\omp-studio-0.1.0-setup.exe -ArgumentList /S -Wait`）。
 4. 把 `package.json` 的版本改成 `0.1.1`，再 `npm run dist`、`npm run feed`（覆盖 `release/feed` 里的文件）。
 5. 用任意静态服务器提供 `release/feed`（`scripts/` 外的一次性脚本即可，测试时用过 4 行的 Node http 服务器）。

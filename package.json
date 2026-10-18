@@ -21,7 +21,8 @@
     "rpc:update-wire": "node scripts/update-rpc-wire.ts",
     "rpc:record": "node scripts/record-rpc.ts",
     "dist": "electron-vite build && electron-builder --win nsis --publish never",
-    "feed": "node scripts/make-feed.mjs release/feed"
+    "feed": "node scripts/make-feed.ts release/feed",
+    "release": "node scripts/release.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
