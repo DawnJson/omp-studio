@@ -102,6 +102,13 @@ function parseJson(text: string, what: string): unknown {
   }
 }
 
+/** `omp config list --json` 的结果（键 → { value, ... }）。 */
+export async function listJson(run: ConfigServiceDeps["run"]): Promise<unknown> {
+  const result = await run(["list", "--json"]);
+  if (result.code !== 0) throw failure(result);
+  return parseJson(result.stdout, "`omp config list --json`");
+}
+
 export class OmpConfigService {
   readonly #deps: ConfigServiceDeps;
   #schema: Promise<ConfigSchema> | null = null;
@@ -152,9 +159,7 @@ export class OmpConfigService {
 
   async snapshot(): Promise<OmpConfigSnapshot> {
     const schema = await this.#loadSchema();
-    const result = await this.#deps.run(["list", "--json"]);
-    if (result.code !== 0) throw failure(result);
-    return applyValues(schema, parseJson(result.stdout, "`omp config list --json`"));
+    return applyValues(schema, await listJson(this.#deps.run));
   }
 
   async #entry(key: string): Promise<SchemaEntry> {

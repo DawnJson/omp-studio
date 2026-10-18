@@ -1,7 +1,13 @@
 // omp 设置的渲染进程镜像：快照（schema + 当前值）加每一项的保存状态。
 // 在模块里保存，切换分组、关掉再打开设置页都不重新读；打开设置页时静默刷新一次（终端里可能改过）。
 // 写入走 omp config（主进程）：成功后才更新这里的值；失败时值不变，错误显示在那一项上，用户的草稿留在输入框里。
-import type { ModelKey, OmpConfigItem, OmpConfigSnapshot, OmpConfigWriteResult } from "../../../../shared/ipc.ts";
+import type {
+  ModelKey,
+  OmpConfigItem,
+  OmpConfigSnapshot,
+  OmpConfigWriteResult,
+  ProjectId,
+} from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 
@@ -145,24 +151,12 @@ export async function saveOmpConfigOrThrow(key: string, value: unknown): Promise
 }
 
 /**
- * 新任务的默认模型就是 omp 的 modelRoles.default。omp config 只能整体写 modelRoles（实测 18.12.1：
- * `omp config set modelRoles.default` 报 Unknown setting），所以读出当前的角色表、只换 default。
- * null = 去掉 default，让 omp 自己选。
+ * 新任务的默认模型（omp 的 modelRoles.default）。写到哪一层由主进程按 omp 的规则决定（omp-config/model-defaults.ts）；
+ * 写完重读快照，设置页的 omp 分组跟着更新。projectId 为 null 时只动全局配置。
  */
-export async function saveOmpDefaultModel(model: ModelKey | null): Promise<void> {
-  if (store.get().load.kind !== "ready") await loadOmpConfig();
-  const load = store.get().load;
-  if (load.kind === "error") throw load.error;
-  if (load.kind !== "ready") throw new Error("omp config is not loaded");
-  const item = load.snapshot.items.find((entry) => entry.key === "modelRoles");
-  const current = item?.hasValue ? item.value : null;
-  const roles: Record<string, unknown> =
-    typeof current === "object" && current !== null && !Array.isArray(current) ? { ...current } : {};
-  if (model === null) delete roles["default"];
-  else roles["default"] = `${model.provider}/${model.modelId}`;
-  if (Object.keys(roles).length === 0) await resetOmpConfig("modelRoles");
-  else await saveOmpConfig("modelRoles", roles);
-  throwIfFailed("modelRoles");
+export async function saveOmpDefaultModel(projectId: ProjectId | null, model: ModelKey | null): Promise<void> {
+  await window.studio.setDefaultModel(projectId, model);
+  await loadOmpConfig();
 }
 
 /** omp 的 defaultThinkingLevel；null = 删掉这一项，回到 omp 的默认值。omp 不接受 off/inherit。 */

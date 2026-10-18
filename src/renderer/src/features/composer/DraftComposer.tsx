@@ -10,18 +10,12 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
-import type { DefaultModelInfo, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
+import type { DefaultModelInfo, ModelDefaults, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
 import { selectTask } from "../../store/index.ts";
-import {
-  defaultModelRole,
-  ensureOmpConfigLoaded,
-  saveOmpDefaultModel,
-  saveOmpDefaultThinking,
-  useOmpConfigValue,
-} from "../settings/config-store.ts";
+import { saveOmpDefaultModel, saveOmpDefaultThinking } from "../settings/config-store.ts";
 import { takePendingDraftText } from "../palette/index.ts";
 import { convertImageFiles } from "./actions.ts";
 import { ApprovalChip } from "./ApprovalChip.tsx";
@@ -44,6 +38,9 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
   const [sending, setSending] = useState(false);
   const [omp, setOmp] = useState<DefaultModelInfo | null>(null);
   const [models, setModels] = useState<ModelOption[] | null>(null);
+  // 这个项目里 omp 实际会用的默认值（项目 .omp/config.yml 会盖过全局）；refresh 递增时重读。
+  const [defaults, setDefaults] = useState<ModelDefaults | null>(null);
+  const [refresh, setRefresh] = useState(0);
   const hasContent = draft.text.trim() !== "" || draft.images.length > 0;
 
   useEffect(() => {
@@ -53,6 +50,17 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
   useEffect(() => {
     window.studio.listModels().then(setModels, () => setModels([]));
   }, []);
+  useEffect(() => {
+    let current = true;
+    window.studio.getModelDefaults(projectId).then(
+      (value) => current && setDefaults(value),
+      () => current && setDefaults(null),
+    );
+    return () => {
+      current = false;
+    };
+    // omp 变了（别处改了 omp 设置会推 defaultModel 事件）也重读。
+  }, [projectId, omp, refresh]);
   useEffect(() => {
     // 命令面板"在新任务中提问"带来的文字：放进草稿并聚焦，不自动发送。
     const pending = takePendingDraftText();
@@ -66,18 +74,18 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
     field.style.height = `${field.scrollHeight}px`;
   }, [draft.text]);
 
-  // 显示以 omp 配置为准：服务进程在配置重载后不会切换自己当前会话的模型（omp://settings.md "Reloading does not
-  // ... switch a healthy active session's model"），它的 get_state 只在 modelRoles.default 没设置时用来显示 omp 自选的模型。
-  const role = defaultModelRole(useOmpConfigValue("modelRoles"));
-  const configuredThinking = useOmpConfigValue("defaultThinkingLevel");
-  useEffect(ensureOmpConfigLoaded, []);
+  // 显示以项目目录里读到的 omp 配置为准：服务进程在配置重载后不会切换自己当前会话的模型（omp://settings.md
+  // "Reloading does not ... switch a healthy active session's model"），它的 get_state 只在 modelRoles.default
+  // 没设置时用来显示 omp 自选的模型。
+  const role = defaults?.model ?? null;
   const model =
     (models ?? []).find((m) => {
       const id = `${m.key.provider}/${m.key.modelId}`;
       if (role !== null) return role === id || role.startsWith(`${id}:`);
       return m.key.provider === omp?.key.provider && m.key.modelId === omp?.key.modelId;
     }) ?? null;
-  const thinkingLevel = levels.find((level) => level === configuredThinking) ?? omp?.thinkingLevel ?? null;
+  const thinkingLevel = levels.find((level) => level === defaults?.thinkingLevel) ?? omp?.thinkingLevel ?? null;
+  const reread = () => setRefresh((count) => count + 1);
 
   const send = async () => {
     const current = getDraft(key);
@@ -191,8 +199,8 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
                 ? { emptyLabel: t("composer.defaultModel") }
                 : {})}
             loadModels={() => window.studio.listModels()}
-            setModel={saveOmpDefaultModel}
-            setThinking={saveOmpDefaultThinking}
+            setModel={(modelKey) => saveOmpDefaultModel(projectId, modelKey).finally(reread)}
+            setThinking={(level) => saveOmpDefaultThinking(level).finally(reread)}
           />
           <ApprovalChip />
           <span className="composer-spacer" />

@@ -31,13 +31,20 @@
 
 ## 模型列表
 
-`listModels` 在服务进程上发 `get_available_models`（会等 omp 后台发现完成），映射成 `ModelOption`（`acceptsImages` = `input` 含 `image`）。设置页和草稿输入框的默认模型/思考强度就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`：读 `omp config list` 的快照，写 `omp config set`。`modelRoles` 只能整体写（实测 18.12.1：`omp config set modelRoles.default` 报 Unknown setting），所以读出角色表只换 `default`；`defaultThinkingLevel` 不接受 `off`，胶囊里不提供。新任务启动时不传 `--model`/`--thinking`。omp-studio 不另存默认值（PLAN 设计原则 7）。
+`listModels` 在服务进程上发 `get_available_models`（会等 omp 后台发现完成），映射成 `ModelOption`（`acceptsImages` = `input` 含 `image`）。新任务的默认模型/思考强度就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，omp-studio 不另存（PLAN 设计原则 7）；新任务启动时不传 `--model`/`--thinking`。`modelRoles` 只能整体写（实测 18.12.1：`omp config set modelRoles.default` 报 Unknown setting），所以总是读出角色表只换 `default`；`defaultThinkingLevel` 不接受 `off`，胶囊里不提供。
 
 项目配置（实测 omp 18.12.1，2026-10-18，临时 agent 目录 + 带 `.omp/config.yml` 的临时项目）：
 
 - 项目 `.omp/config.yml` 里有 `modelRoles.default` 时，在这个项目里启动的 omp 用项目的值（`get_state` 返回项目的模型），全局的被盖过。`omp config list` 在项目目录里运行显示项目的值，在别处显示全局的值。
-- `omp config set modelRoles` 不管 `modelRoleStorage` 设成什么（全局或项目里设 `project` 都试过），**永远写全局配置**；在项目目录里运行时返回 `overriddenBy: "project"`。`modelRoleStorage` 只影响 omp 终端里模型选择器的保存位置（文档所述，没在 TUI 里实测）。
-- omp-studio 的 `omp config` 固定在 `userData/service` 里运行，看不到项目层，所以项目自带 `modelRoles.default` 时：草稿胶囊和设置页显示、写入的是全局值，这个项目里新建的任务实际用项目的模型，两者对不上，而且界面没有提示。
+- `omp config set modelRoles` 不管 `modelRoleStorage` 设成什么（全局或项目里设 `project` 都试过），**永远写全局配置**；在项目目录里运行时返回 `overriddenBy: "project"`。`modelRoleStorage` 只影响 omp 终端里模型选择器的保存位置（文档：`project` 时只更新项目 `.omp/config.yml` 的 `modelRoles`；没在 TUI 里实测）。
+- RPC 的 `set_model` 只换当前会话的模型，不写任何配置文件（`modelRoleStorage` 为 global 和 project 都试过）。
+
+omp-studio 的做法（`src/main/omp-config/model-defaults.ts`，和 omp 终端的模型选择器一致）：
+
+- 读：草稿输入框在**项目目录里**跑 `omp config list --json`（`getModelDefaults(projectId)`），显示这个项目实际会用的默认模型和思考强度；设置页（没有项目）只看全局。
+- 写模型（`setDefaultModel(projectId, model)`）：项目里生效的 `modelRoleStorage` 是 `project` 时，只改 `<项目>/.omp/config.yml` 的 `modelRoles.default`（omp 没有写项目配置的命令，这里用 `yaml` 库的 Document 改，注释和其它键原样保留；没有就新建；去掉 default 后角色表空了就删掉整个 `modelRoles`）；否则经 `omp config set modelRoles` 写全局。项目自带 `modelRoles.default` 但 storage 是 global 时，写的是全局，这个项目照旧用项目的模型，和终端一样。
+- 写思考强度：`omp config set defaultThinkingLevel`，永远是全局（omp 也只有角色走 `modelRoleStorage`）。
+- 实测（2026-10-18，omp 18.12.1，构建产物）：项目文件 `modelRoleStorage: project` + `default: deepseek-v4-pro`，全局 `deepseek-v4-flash`；草稿胶囊显示 DeepSeek-V4-Pro；在胶囊里选 V4 Flash 后只有项目文件改了（注释还在），全局不变，新任务用 V4 Flash 回复。
 
 ## 没有实测的
 

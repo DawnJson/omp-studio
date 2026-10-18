@@ -326,6 +326,15 @@ export interface OmpConfigSnapshot {
   items: OmpConfigItem[];
 }
 
+/** omp 给某个项目（或全局）解析出的新任务默认值，来自在项目目录里跑的 `omp config list`。 */
+export interface ModelDefaults {
+  /** modelRoles.default 原文（可能带 `:high` 这类后缀）；null = 没设置，omp 自己选。 */
+  model: string | null;
+  thinkingLevel: string | null;
+  /** 生效的 modelRoleStorage：project 时选模型写进项目的 .omp/config.yml，和 omp 终端的模型选择器一样。 */
+  storage: "global" | "project";
+}
+
 export interface DefaultModelInfo {
   key: ModelKey;
   name: string;
@@ -480,6 +489,10 @@ export interface StudioInvokeApi {
   setYoloConfirmed(): Promise<void>;
   /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值；读不到（没登录、没有可用模型）时为 null。 */
   getDefaultModel(): Promise<DefaultModelInfo | null>;
+  /** projectId 为 null 时只看全局配置。 */
+  getModelDefaults(projectId: ProjectId | null): Promise<ModelDefaults>;
+  /** 设新任务的默认模型（omp 的 modelRoles.default；null = 去掉，让 omp 自己选），写到哪层和 omp 终端一致。 */
+  setDefaultModel(projectId: ProjectId | null, model: ModelKey | null): Promise<void>;
   /** omp-studio 自身的更新状态（设置 → 关于）。 */
   getUpdateState(): Promise<UpdateState>;
   /** 手动检查更新；有可用更新时自动开始下载。 */
@@ -613,6 +626,8 @@ export const invokeNames = {
   setNotifyOnGate: true,
   setYoloConfirmed: true,
   getDefaultModel: true,
+  getModelDefaults: true,
+  setDefaultModel: true,
   getUpdateState: true,
   checkForUpdate: true,
   installUpdate: true,

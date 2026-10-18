@@ -118,7 +118,7 @@ export function ModelsSection() {
               onChange={(value) => {
                 const model = data?.models.find((candidate) => modelKey(candidate.key) === value);
                 if (value !== inherit && !model) return;
-                saveOmpDefaultModel(model ? model.key : null).catch((error: unknown) => reportError(t, error));
+                saveOmpDefaultModel(null, model ? model.key : null).catch((error: unknown) => reportError(t, error));
               }}
               testId="setting-default-model"
             />
