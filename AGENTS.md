@@ -34,6 +34,7 @@ omp 自己的协议和接口以 omp 文档为准：`rpc.md`（RPC 协议）、`e
 |测试|Vitest|和 electron-vite 同属 Vite 体系，原生支持 TypeScript 和 ESM|
 |构建|electron-vite（Vite 8，`electron.vite.config.ts`）|main 打成 ESM，preload 必须打成 CJS（沙箱不支持 ESM preload）|
 |打包|electron-builder（`electron-builder.yml`）|目前只出不签名的 `win-unpacked` 目录；安装包、签名、自动更新在阶段 7|
+|格式和静态检查|Prettier + ESLint（typescript-eslint、react-hooks，只开少量规则）|2026-10-18 定，待接入（`PLAN.md` 阶段 2.5）；接入后提交前跑 `npm run lint`|
 |渲染框架|React 19（`@vitejs/plugin-react`）|只在 `src/renderer` 用；`src/shared` 里不引 React 和 DOM|
 |状态管理|不引库：`useSyncExternalStore` + 手写 store|`src/renderer/src/store/`；任务状态以主进程为准，渲染进程只是事件的投影|
 |i18n|不引库：类型化字典 + `Intl`|`src/shared/i18n/`；zh-CN 是 key 的来源，en 用 `satisfies` 对齐，缺一个 key 编译失败|

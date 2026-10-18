@@ -130,7 +130,7 @@ flowchart LR
 - [ ] 发版流程：改版本号、写 CHANGELOG、打 tag、打包，写成一个脚本，步骤写进 AGENTS.md 的命令表
 - [ ] CI（GitHub Actions）：每次 push 跑 typecheck、单测、e2e；以后发版也在 CI 里打包（会用仓库所有者的 Actions 额度，开工前确认）
 - [ ] 主进程日志：写到 `userData\logs\`，按天轮转，设置页能打开日志文件夹；不得记录 key，路径里的用户名要换掉（用库还是手写，开工前确认）
-- [ ] 代码格式和静态检查：`tsc` 只查类型，查不出 React hooks 用错（依赖数组漏写、条件里调用 hook）这类问题，也不管格式；多个 agent 写代码时格式不统一，diff 里会混进无关改动，干扰评审。方案二选一，开工前由仓库所有者定：A. Prettier（格式）+ ESLint（typescript-eslint + react-hooks，只开少量规则）；B. Biome（一个工具同时做格式和检查，快，但 react-hooks 规则覆盖不如 ESLint 全）。定下后写进 AGENTS.md 技术栈表，命令表加 `npm run lint` / `npm run format`，CI 里一起跑
+- [ ] 代码格式和静态检查：`tsc` 只查类型，查不出 React hooks 用错（依赖数组漏写、条件里调用 hook）这类问题，也不管格式；多个 agent 写代码时格式不统一，diff 里会混进无关改动，干扰评审。**已定（2026-10-18）：Prettier（格式）+ ESLint（typescript-eslint + react-hooks，只开少量规则）**，没选 Biome（react-hooks 规则覆盖不如 ESLint 全）。命令表加 `npm run lint` / `npm run format`，CI 里一起跑；第一次全仓格式化单独一个提交，不和功能改动混在一起
 - [ ] "导出诊断信息"按钮（版本号、omp 版本、最近日志，打包成一个文件）；在线崩溃上报以后再说
 - [ ] `LICENSE`（PLAN 定的 MIT）
 - [ ] README：是什么、怎么装、怎么开发
