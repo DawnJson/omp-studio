@@ -1093,7 +1093,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `omp.verifying` | 正在校验… | Verifying… |
 | `omp.verifyFailed` | 文件校验失败，已丢弃。 | The file failed verification and was discarded. |
 | `omp.takeover.title` | 检测到脚本形式的 omp | Found a script-based omp |
-| `omp.takeover.body` | omp-studio 无法直接启动脚本形式（如 npm 安装）的 omp。可以让它下载并管理一份官方 omp，并放到 PATH 最前面；你原来的那份不会被删除或修改。 | omp-studio can't launch script-based installs (such as npm). It can download and manage an official copy and put it first on your PATH. Your existing install isn't removed or modified. |
+| `omp.takeover.body` | omp-studio 无法启动脚本形式（如 npm 安装）的 omp。可以另装一份官方 omp，放到 PATH 最前面，原来的那份原样保留。 | omp-studio can't launch script-based installs (such as npm). It can install its own official copy and put it first on your PATH. Your existing install stays as is. |
 | `omp.takeover.yes` | 由 omp-studio 管理 | Let omp-studio manage it |
 | `omp.takeover.no` | 取消 | Cancel |
 | `omp.takeover.declined` | 这种安装方式暂时用不了。 | This kind of install can't be used right now. |

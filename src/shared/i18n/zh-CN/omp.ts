@@ -14,13 +14,12 @@ export const omp = {
   "install.note": "omp-studio 不内置 omp。它会下载官方版本并管理，之后自动更新。",
   "takeover.title": "检测到脚本形式的 omp",
   "takeover.body":
-    "omp-studio 无法直接启动脚本形式（如 npm 安装）的 omp。可以让它下载并管理一份官方 omp，并放到 PATH 最前面；你原来的那份不会被删除或修改。",
+    "omp-studio 无法启动脚本形式（如 npm 安装）的 omp。可以另装一份官方 omp，放到 PATH 最前面，原来的那份原样保留。",
   "takeover.exeTitle": "检测到你自己安装的 omp",
-  "takeover.exeBody":
-    "可以让 omp-studio 下载并管理一份官方 omp，并放到用户 PATH 最前面；你原来的那份不会被删除或修改。也可以继续使用你自己的那份。",
+  "takeover.exeBody": "omp-studio 可以另装一份官方 omp，放到 PATH 最前面。你原来的那份原样保留。",
   "takeover.otherTitle": "检测到由 {name} 管理的 omp",
   "takeover.otherBody":
-    "可以让 omp-studio 另外下载并管理一份官方 omp，并放到用户 PATH 最前面；{name} 的那份和它的设置不会被删除或修改，{name} 自己的终端里仍用它的那份。也可以继续使用 {name} 管理的这份，由 {name} 负责更新。",
+    "omp-studio 可以另装一份官方 omp，放到 PATH 最前面。{name} 的那份原样保留，{name} 的终端里照旧用它。",
   "takeover.keepOther": "继续用 {name} 的",
   "takeover.where": "位置：{path}",
   "takeover.yes": "由 omp-studio 管理",
