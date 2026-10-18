@@ -44,8 +44,6 @@ describe.skipIf(!enabled)("真实 omp", () => {
       getSettings: async () => ({
         locale: "en",
         theme: "system",
-        defaultModel: { provider: provider!, modelId: rest.join("/") },
-        defaultThinkingLevel: null,
         maxLiveProcesses: 6,
         reduceMotion: false,
         enterWhileRunning: "steer",
@@ -56,7 +54,8 @@ describe.skipIf(!enabled)("真实 omp", () => {
         command: omp,
         args: buildOmpArgs({
           cwd: project.path,
-          model: record.model,
+          // 新任务不带模型（跟随 omp 配置）；这里的临时 agent 目录没有配置，用 .env 里的测试模型。
+          model: record.model ?? { provider: provider!, modelId: rest.join("/") },
           thinkingLevel: record.thinkingLevel,
         }),
         cwd: project.path,

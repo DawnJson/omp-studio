@@ -132,13 +132,13 @@ export class TaskPool {
   async createTask(input: CreateTaskInput): Promise<TaskState> {
     const project = this.#deps.registry.findProject(input.projectId);
     if (!project) throw new Error(`unknown project ${input.projectId}`);
-    const settings = await this.#deps.getSettings();
+    // 模型和思考强度不传：omp 按自己的配置（modelRoles.default、defaultThinkingLevel）选（设计原则 7）。
     const record = await this.#deps.registry.addTask({
       projectId: project.id,
       sessionFile: null,
       title: "",
-      model: input.model ?? settings.defaultModel,
-      thinkingLevel: input.thinkingLevel ?? settings.defaultThinkingLevel,
+      model: null,
+      thinkingLevel: null,
     });
     const runner = this.#adopt(record);
     this.#startInBackground(runner);
@@ -168,13 +168,12 @@ export class TaskPool {
       return runner.state;
     }
     await stat(project.path); // cwd 已不存在时报错，不替用户"迁移会话"（arch 1.6）
-    const settings = await this.#deps.getSettings();
     const record = await this.#deps.registry.addTask({
       projectId: project.id,
       sessionFile: input.sessionFile,
       title: input.title === null ? "" : titleFromPrompt(input.title) || input.title,
-      model: settings.defaultModel,
-      thinkingLevel: settings.defaultThinkingLevel,
+      model: null,
+      thinkingLevel: null,
     });
     const runner = this.#adopt(record);
     this.#startInBackground(runner);

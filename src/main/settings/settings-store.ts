@@ -9,18 +9,14 @@ import {
   parseOneOf,
   parseLocalePreference,
   parseMaxLiveProcesses,
-  parseModelKey,
   parseRecord,
   parseThemePreference,
-  parseThinkingLevel,
 } from "../ipc/validate.ts";
 import { readJsonFile, writeJsonFileAtomic } from "./json-file.ts";
 
 const defaults: StudioSettings = {
   locale: "system",
   theme: "system",
-  defaultModel: null,
-  defaultThinkingLevel: null,
   maxLiveProcesses: 6,
   reduceMotion: false,
   enterWhileRunning: "steer",
@@ -49,15 +45,9 @@ function sanitize(raw: unknown): StudioSettings {
       return fallback;
     }
   };
-  const nullable =
-    <T>(parse: (value: unknown) => T) =>
-    (value: unknown): T | null =>
-      value === null ? null : parse(value);
   return {
     locale: field(parseLocalePreference, record["locale"], defaults.locale),
     theme: field(parseThemePreference, record["theme"], defaults.theme),
-    defaultModel: field(nullable(parseModelKey), record["defaultModel"], null),
-    defaultThinkingLevel: field(nullable(parseThinkingLevel), record["defaultThinkingLevel"], null),
     maxLiveProcesses: field(parseMaxLiveProcesses, record["maxLiveProcesses"], defaults.maxLiveProcesses),
     reduceMotion: field((value) => parseBoolean(value, "reduceMotion"), record["reduceMotion"], defaults.reduceMotion),
     enterWhileRunning: field(

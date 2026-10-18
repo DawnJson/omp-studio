@@ -67,9 +67,6 @@ export interface ModelKey {
 export interface StudioSettings {
   locale: LocalePreference;
   theme: ThemePreference;
-  /** 新任务的模型，作为 --model provider/id 传给 omp；null = omp 自己的默认。 */
-  defaultModel: ModelKey | null;
-  defaultThinkingLevel: ThinkingLevel | null;
   /** 同时存活的 omp 进程软上限；超过时回收最久未用的空闲任务。 */
   maxLiveProcesses: number;
   /** 减少动效：只能强制开启，系统要求减少动效时始终生效。 */
@@ -152,8 +149,6 @@ export interface TaskState {
 
 export interface CreateTaskInput {
   projectId: ProjectId;
-  model?: ModelKey;
-  thinkingLevel?: ThinkingLevel;
 }
 
 export interface PromptImage {
@@ -365,8 +360,6 @@ export interface StudioInvokeApi {
   getSettings(): Promise<StudioSettings>;
   setLocale(preference: LocalePreference): Promise<void>;
   setTheme(preference: ThemePreference): Promise<void>;
-  setDefaultModel(model: ModelKey | null): Promise<void>;
-  setDefaultThinkingLevel(level: ThinkingLevel | null): Promise<void>;
   setMaxLiveProcesses(count: number): Promise<void>;
   /** 用系统浏览器打开链接；只接受 http/https。 */
   openExternal(url: string): Promise<void>;
@@ -557,8 +550,6 @@ export const invokeNames = {
   getSettings: true,
   setLocale: true,
   setTheme: true,
-  setDefaultModel: true,
-  setDefaultThinkingLevel: true,
   setMaxLiveProcesses: true,
   openExternal: true,
   quitApp: true,

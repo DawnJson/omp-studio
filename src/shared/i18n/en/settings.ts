@@ -20,7 +20,7 @@ export const settings = {
   shortcuts: "Keyboard shortcuts",
   defaultModel: "Default model for new tasks",
   defaultThinking: "Default thinking level",
-  useOmpDefault: "Follow omp's setting",
+  ompPicksModel: "Let omp choose",
   modelsLoading: "Loading models…",
   enterBehavior: "Enter while running",
   "enterBehavior.steer": "Steer",

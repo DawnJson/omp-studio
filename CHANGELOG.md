@@ -22,4 +22,4 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 - 设置 → 关于里检查 omp-studio 自身的更新，下载后重启安装。
 - 设置 → 关于 → 问题排查：打开日志文件夹、导出诊断信息（版本、系统、omp 状态和最近 3 天日志，已去掉用户名和 key），反馈问题时附上。
 - 中文和英文界面，浅色和深色主题。
-- 审批模式完全跟随 omp 自己的配置（`tools.approvalMode`）；输入框里的审批胶囊显示并修改的就是这个配置，终端里的 omp 也一致。
+- 审批模式、新任务的默认模型和思考强度都直接用 omp 自己的配置（`tools.approvalMode`、`modelRoles.default`、`defaultThinkingLevel`）；输入框胶囊和设置页显示、修改的就是这些配置，和终端里的 omp 一致，omp-studio 不另存一份。

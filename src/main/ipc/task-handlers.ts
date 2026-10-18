@@ -23,11 +23,7 @@ const queuedTextMaxChars = Number.MAX_SAFE_INTEGER;
 
 function parseCreateTaskInput(value: unknown) {
   const record = parseRecord(value, "input");
-  return {
-    projectId: parseProjectId(record["projectId"]),
-    ...(record["model"] !== undefined && { model: parseModelKey(record["model"]) }),
-    ...(record["thinkingLevel"] !== undefined && { thinkingLevel: parseThinkingLevel(record["thinkingLevel"]) }),
-  };
+  return { projectId: parseProjectId(record["projectId"]) };
 }
 
 export const taskHandlers: HandlerGroup<

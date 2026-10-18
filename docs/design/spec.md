@@ -500,7 +500,7 @@
 | 节 | 内容 |
 |---|---|
 | 通用 | 语言（跟随系统 / 简体中文 / English）；主题（跟随系统 / 浅色 / 深色）；减少动效（开关，系统已要求时始终生效）；运行中按 Enter（插话 / 稍后）；系统通知（有任务在等你时）；快捷键（只读列表，v1 不可自定义） |
-| 模型与账号 | 提供商列表（§4.20）；新任务的默认模型、默认思考强度——**写入 Studio 自己的偏好，不写 `~/.omp`**（AGENTS）。审批模式不在这里：它只存在 omp 的配置里，在输入框胶囊或 omp 设置分组里改 |
+| 模型与账号 | 提供商列表（§4.20）；新任务的默认模型、默认思考强度——**就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，经 `omp config` 读写**，和草稿输入框的模型胶囊是同一份（PLAN 设计原则 7）。审批模式不在这里：在输入框胶囊或 omp 设置分组里改 |
 | omp | 路径、版本、来源（`由 Tern 管理` / `由 omp-studio 管理` / `你自己安装的`）、`检查更新`；受管者管理时升级按钮禁用并写 `omp.updateInTern`；自管时显示自动更新开关 |
 | 用量 | 默认只显示 `settings.usage.hidden` + `显示用量` 按钮，点击后才请求 `get_session_stats`，展示**当前任务**的 token 与费用；未打开任务时 `settings.usage.noTask`。这是 token/费用的唯一入口之一（另一个是命令面板“查看用量”→ 本节） |
 
@@ -1016,6 +1016,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `settings.shortcuts` | 快捷键 | Keyboard shortcuts |
 | `settings.defaultModel` | 新任务的默认模型 | Default model for new tasks |
 | `settings.defaultThinking` | 默认思考强度 | Default thinking level |
+| `settings.ompPicksModel` | 由 omp 自动选择 | Let omp choose |
 | `settings.usage.hidden` | 用量统计默认不在界面中显示。 | Usage isn't shown by default. |
 | `settings.usage.show` | 显示用量 | Show usage |
 | `settings.usage.noTask` | 先打开一个任务 | Open a task first |

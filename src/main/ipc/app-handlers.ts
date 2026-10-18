@@ -11,10 +11,8 @@ import {
   parseInteger,
   parseLocalePreference,
   parseMaxLiveProcesses,
-  parseModelKey,
   parseRecord,
   parseThemePreference,
-  parseThinkingLevel,
 } from "./validate.ts";
 
 function platform(): AppInfo["platform"] {
@@ -26,8 +24,6 @@ export const appHandlers: HandlerGroup<
   | "getSettings"
   | "setLocale"
   | "setTheme"
-  | "setDefaultModel"
-  | "setDefaultThinkingLevel"
   | "setMaxLiveProcesses"
   | "openExternal"
   | "quitApp"
@@ -45,9 +41,6 @@ export const appHandlers: HandlerGroup<
   getSettings: async () => getSettings(),
   setLocale: async (value) => updateSettings({ locale: parseLocalePreference(value) }),
   setTheme: async (value) => updateSettings({ theme: parseThemePreference(value) }),
-  setDefaultModel: async (value) => updateSettings({ defaultModel: value === null ? null : parseModelKey(value) }),
-  setDefaultThinkingLevel: async (value) =>
-    updateSettings({ defaultThinkingLevel: value === null ? null : parseThinkingLevel(value) }),
   setMaxLiveProcesses: async (value) => updateSettings({ maxLiveProcesses: parseMaxLiveProcesses(value) }),
   openExternal: async (value) => shell.openExternal(parseExternalUrl(value)),
   quitApp: async () => app.quit(),

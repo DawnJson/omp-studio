@@ -26,8 +26,6 @@ afterAll(async () => {
 const settings = (maxLiveProcesses = 6): StudioSettings => ({
   locale: "zh-CN",
   theme: "system",
-  defaultModel: null,
-  defaultThinkingLevel: null,
   maxLiveProcesses,
   reduceMotion: false,
   enterWhileRunning: "steer",

@@ -1,5 +1,5 @@
 // 草稿输入框（空状态里的输入框）：还没有任务，发送第一条时才创建任务。
-// 模型胶囊改的是"新任务默认值"（settings 的 defaultModel / defaultThinkingLevel），没有进程所以不调 setTask*；审批胶囊直接改 omp 配置。
+// 模型胶囊显示和修改的都是 omp 的默认值（modelRoles.default / defaultThinkingLevel，设计原则 7）；新任务不传 --model/--thinking。
 import { reportError } from "../../ui/errors.ts";
 import {
   useEffect,
@@ -14,7 +14,14 @@ import type { DefaultModelInfo, ModelOption, ProjectId, TaskId } from "../../../
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
-import { selectTask, useSettings } from "../../store/index.ts";
+import { selectTask } from "../../store/index.ts";
+import {
+  defaultModelRole,
+  ensureOmpConfigLoaded,
+  saveOmpDefaultModel,
+  saveOmpDefaultThinking,
+  useOmpConfigValue,
+} from "../settings/config-store.ts";
 import { takePendingDraftText } from "../palette/index.ts";
 import { convertImageFiles } from "./actions.ts";
 import { ApprovalChip } from "./ApprovalChip.tsx";
@@ -25,11 +32,11 @@ import { decideEnter } from "./send-logic.ts";
 import { SendStop } from "./SendStop.tsx";
 import "./composer.css";
 
-const levels: readonly ThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
+// omp 的 defaultThinkingLevel 不接受 off。
+const levels: readonly ThinkingLevel[] = ["minimal", "low", "medium", "high", "xhigh", "max"];
 
 export function DraftComposer({ projectId }: { projectId: ProjectId }) {
   const t = useT();
-  const settings = useSettings();
   const key = `new:${projectId}` as TaskId;
   const draft = useDraft(key);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
@@ -59,10 +66,18 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
     field.style.height = `${field.scrollHeight}px`;
   }, [draft.text]);
 
+  // 显示以 omp 配置为准：服务进程在配置重载后不会切换自己当前会话的模型（omp://settings.md "Reloading does not
+  // ... switch a healthy active session's model"），它的 get_state 只在 modelRoles.default 没设置时用来显示 omp 自选的模型。
+  const role = defaultModelRole(useOmpConfigValue("modelRoles"));
+  const configuredThinking = useOmpConfigValue("defaultThinkingLevel");
+  useEffect(ensureOmpConfigLoaded, []);
   const model =
-    (models ?? []).find(
-      (m) => m.key.provider === settings?.defaultModel?.provider && m.key.modelId === settings?.defaultModel?.modelId,
-    ) ?? null;
+    (models ?? []).find((m) => {
+      const id = `${m.key.provider}/${m.key.modelId}`;
+      if (role !== null) return role === id || role.startsWith(`${id}:`);
+      return m.key.provider === omp?.key.provider && m.key.modelId === omp?.key.modelId;
+    }) ?? null;
+  const thinkingLevel = levels.find((level) => level === configuredThinking) ?? omp?.thinkingLevel ?? null;
 
   const send = async () => {
     const current = getDraft(key);
@@ -70,11 +85,7 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
     if (sending || (text === "" && current.images.length === 0)) return;
     setSending(true);
     try {
-      const task = await window.studio.createTask({
-        projectId,
-        ...(settings?.defaultModel ? { model: settings.defaultModel } : {}),
-        ...(settings?.defaultThinkingLevel ? { thinkingLevel: settings.defaultThinkingLevel } : {}),
-      });
+      const task = await window.studio.createTask({ projectId });
       await selectTask(task.id);
       await window.studio.sendPrompt(task.id, {
         text,
@@ -170,18 +181,18 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
           />
           <ModelChip
             model={model}
-            thinkingLevel={settings?.defaultThinkingLevel ?? omp?.thinkingLevel ?? null}
+            thinkingLevel={thinkingLevel}
             thinkingLevels={levels}
             running={false}
-            // 没有指定默认模型时，新任务会用 omp 自己的默认：有可用模型就写"默认模型"，确实一个都没有才是"未连接"。
+            // omp 一个可用模型都读不到时 omp 为 null：有模型列表就写"默认模型"，确实一个都没有才是"未连接"。
             {...(omp
               ? { emptyLabel: omp.name }
               : models !== null && models.length > 0
                 ? { emptyLabel: t("composer.defaultModel") }
                 : {})}
             loadModels={() => window.studio.listModels()}
-            setModel={(modelKey) => window.studio.setDefaultModel(modelKey)}
-            setThinking={(level) => window.studio.setDefaultThinkingLevel(level)}
+            setModel={saveOmpDefaultModel}
+            setThinking={saveOmpDefaultThinking}
           />
           <ApprovalChip />
           <span className="composer-spacer" />

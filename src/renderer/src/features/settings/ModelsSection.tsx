@@ -1,13 +1,19 @@
 // 设置 → 模型与账号：提供商列表（登录/API key）、新任务的默认模型/思考强度。
-// 默认值写的是 omp-studio 自己的偏好（StudioSettings），不写 ~/.omp。
-import { describeError } from "../../ui/errors.ts";
+// 默认值就是 omp 自己的 modelRoles.default / defaultThinkingLevel（设计原则 7），和输入框的模型胶囊、omp 设置页是同一份。
+import { describeError, reportError } from "../../ui/errors.ts";
 import { useCallback, useEffect, useState } from "react";
 import type { ModelOption } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { apiKeyEnvName } from "../../../../shared/provider-keys.ts";
 import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { useSettings } from "../../store/index.ts";
+import {
+  defaultModelRole,
+  ensureOmpConfigLoaded,
+  saveOmpDefaultModel,
+  saveOmpDefaultThinking,
+  useOmpConfigValue,
+} from "./config-store.ts";
 import { Card, Select, SettingRow, type Option } from "./controls.tsx";
 import { ProviderRow } from "./ProviderRow.tsx";
 
@@ -18,7 +24,7 @@ interface AccountData {
   models: ModelOption[];
 }
 
-const thinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+const thinkingLevels = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
 const inherit = "";
 
 /** 一次读全：provider、每个已登录 provider 的账号、已存的 key、模型。provider 或模型读不出来整体失败，由界面显示原因。 */
@@ -43,7 +49,9 @@ const modelKey = (model: { provider: string; modelId: string }) => `${model.prov
 
 export function ModelsSection() {
   const t = useT();
-  const settings = useSettings();
+  const roles = useOmpConfigValue("modelRoles");
+  const defaultModel = defaultModelRole(roles);
+  const thinking = useOmpConfigValue("defaultThinkingLevel");
   const [data, setData] = useState<AccountData | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [loginBusy, setLoginBusy] = useState(false);
@@ -58,18 +66,21 @@ export function ModelsSection() {
     );
   }, []);
   useEffect(reload, [reload]);
+  useEffect(ensureOmpConfigLoaded, []);
 
-  const defaultModel = settings?.defaultModel ?? null;
-  const modelOptions: Option<string>[] = [{ value: inherit, label: t("settings.useOmpDefault") }];
+  const modelOptions: Option<string>[] = [{ value: inherit, label: t("settings.ompPicksModel") }];
   for (const model of data?.models ?? []) modelOptions.push({ value: modelKey(model.key), label: model.name });
-  // 默认模型已经不在列表里（比如退出了那个 provider）：保留当前值，别让下拉悄悄显示成别的。
-  if (defaultModel && !modelOptions.some((option) => option.value === modelKey(defaultModel)))
-    modelOptions.push({ value: modelKey(defaultModel), label: modelKey(defaultModel) });
+  // modelRoles.default 可能带思考后缀或写成别的形式，也可能已不在列表里：原样保留，别让下拉悄悄显示成别的。
+  if (defaultModel && !modelOptions.some((option) => option.value === defaultModel))
+    modelOptions.push({ value: defaultModel, label: defaultModel });
 
-  const thinkingOptions: Option<string>[] = [
-    { value: inherit, label: t("settings.useOmpDefault") },
-    ...thinkingLevels.map((level) => ({ value: level, label: t(`thinking.${level}`) })),
-  ];
+  const thinkingOptions: Option<string>[] = thinkingLevels.map((level) => ({
+    value: level,
+    label: t(`thinking.${level}`),
+  }));
+  // 比如 auto：omp 支持但这里没有对应文案，原样显示。
+  if (typeof thinking === "string" && !thinkingOptions.some((option) => option.value === thinking))
+    thinkingOptions.push({ value: thinking, label: thinking });
 
   return (
     <>
@@ -100,13 +111,14 @@ export function ModelsSection() {
         <SettingRow title={t("settings.defaultModel")}>
           {(labelId) => (
             <Select
-              value={defaultModel ? modelKey(defaultModel) : inherit}
+              value={defaultModel ?? inherit}
               options={modelOptions}
               labelledBy={labelId}
-              disabled={data === null}
+              disabled={data === null || roles === undefined}
               onChange={(value) => {
                 const model = data?.models.find((candidate) => modelKey(candidate.key) === value);
-                void window.studio.setDefaultModel(model ? model.key : null);
+                if (value !== inherit && !model) return;
+                saveOmpDefaultModel(model ? model.key : null).catch((error: unknown) => reportError(t, error));
               }}
               testId="setting-default-model"
             />
@@ -115,15 +127,12 @@ export function ModelsSection() {
         <SettingRow title={t("settings.defaultThinking")}>
           {(labelId) => (
             <Select
-              value={
-                settings?.defaultThinkingLevel && settings.defaultThinkingLevel !== "inherit"
-                  ? settings.defaultThinkingLevel
-                  : inherit
-              }
+              value={typeof thinking === "string" ? thinking : ""}
               options={thinkingOptions}
               labelledBy={labelId}
+              disabled={thinking === undefined}
               onChange={(value) =>
-                void window.studio.setDefaultThinkingLevel(value === inherit ? null : (value as ThinkingLevel))
+                saveOmpDefaultThinking(value as ThinkingLevel).catch((error: unknown) => reportError(t, error))
               }
               testId="setting-default-thinking"
             />

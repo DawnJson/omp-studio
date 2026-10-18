@@ -31,7 +31,7 @@
 
 ## 模型列表
 
-`listModels` 在服务进程上发 `get_available_models`（会等 omp 后台发现完成），映射成 `ModelOption`（`acceptsImages` = `input` 含 `image`）。设置页的默认模型/思考强度写的是 omp-studio 自己的偏好（`StudioSettings`），不写 `~/.omp`；审批模式没有 studio 侧默认值，只用 omp 的 `tools.approvalMode`（见 `dialogs.md`）。
+`listModels` 在服务进程上发 `get_available_models`（会等 omp 后台发现完成），映射成 `ModelOption`（`acceptsImages` = `input` 含 `image`）。设置页和草稿输入框的默认模型/思考强度就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`：读 `omp config list` 的快照，写 `omp config set`。`modelRoles` 只能整体写（实测 18.12.1：`omp config set modelRoles.default` 报 Unknown setting），所以读出角色表只换 `default`；`defaultThinkingLevel` 不接受 `off`，胶囊里不提供。新任务启动时不传 `--model`/`--thinking`。omp-studio 不另存默认值（PLAN 设计原则 7）。`modelRoleStorage: project` 时写的仍是全局配置，项目里的 `modelRoles` 会盖过它 [推测，未实测]。
 
 ## 没有实测的
 

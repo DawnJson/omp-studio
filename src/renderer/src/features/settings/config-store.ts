@@ -1,7 +1,8 @@
 // omp 设置的渲染进程镜像：快照（schema + 当前值）加每一项的保存状态。
 // 在模块里保存，切换分组、关掉再打开设置页都不重新读；打开设置页时静默刷新一次（终端里可能改过）。
 // 写入走 omp config（主进程）：成功后才更新这里的值；失败时值不变，错误显示在那一项上，用户的草稿留在输入框里。
-import type { OmpConfigItem, OmpConfigSnapshot, OmpConfigWriteResult } from "../../../../shared/ipc.ts";
+import type { ModelKey, OmpConfigItem, OmpConfigSnapshot, OmpConfigWriteResult } from "../../../../shared/ipc.ts";
+import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 
 export interface RowState {
@@ -126,9 +127,47 @@ export function ensureOmpConfigLoaded(): void {
   if (store.get().load.kind === "idle") void loadOmpConfig();
 }
 
+/** modelRoles 的 default 项原文（可能带 `:high` 这类思考后缀）；没设置时为 null。 */
+export function defaultModelRole(roles: unknown): string | null {
+  if (typeof roles !== "object" || roles === null || !("default" in roles)) return null;
+  return typeof roles.default === "string" ? roles.default : null;
+}
+
+function throwIfFailed(key: string): void {
+  const row = store.get().rows[key];
+  if (row?.phase === "error") throw row.error;
+}
+
 /** 写入并在失败时抛出（设置页的写入只把错误记在那一项上，输入框的胶囊需要直接报错）。 */
 export async function saveOmpConfigOrThrow(key: string, value: unknown): Promise<void> {
   await saveOmpConfig(key, value);
-  const row = store.get().rows[key];
-  if (row?.phase === "error") throw row.error;
+  throwIfFailed(key);
+}
+
+/**
+ * 新任务的默认模型就是 omp 的 modelRoles.default。omp config 只能整体写 modelRoles（实测 18.12.1：
+ * `omp config set modelRoles.default` 报 Unknown setting），所以读出当前的角色表、只换 default。
+ * null = 去掉 default，让 omp 自己选。
+ */
+export async function saveOmpDefaultModel(model: ModelKey | null): Promise<void> {
+  if (store.get().load.kind !== "ready") await loadOmpConfig();
+  const load = store.get().load;
+  if (load.kind === "error") throw load.error;
+  if (load.kind !== "ready") throw new Error("omp config is not loaded");
+  const item = load.snapshot.items.find((entry) => entry.key === "modelRoles");
+  const current = item?.hasValue ? item.value : null;
+  const roles: Record<string, unknown> =
+    typeof current === "object" && current !== null && !Array.isArray(current) ? { ...current } : {};
+  if (model === null) delete roles["default"];
+  else roles["default"] = `${model.provider}/${model.modelId}`;
+  if (Object.keys(roles).length === 0) await resetOmpConfig("modelRoles");
+  else await saveOmpConfig("modelRoles", roles);
+  throwIfFailed("modelRoles");
+}
+
+/** omp 的 defaultThinkingLevel；null = 删掉这一项，回到 omp 的默认值。omp 不接受 off/inherit。 */
+export async function saveOmpDefaultThinking(level: ThinkingLevel | null): Promise<void> {
+  if (level === null) await resetOmpConfig("defaultThinkingLevel");
+  else await saveOmpConfig("defaultThinkingLevel", level);
+  throwIfFailed("defaultThinkingLevel");
 }

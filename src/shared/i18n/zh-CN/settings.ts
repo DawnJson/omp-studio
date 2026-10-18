@@ -19,7 +19,7 @@ export const settings = {
   shortcuts: "快捷键",
   defaultModel: "新任务的默认模型",
   defaultThinking: "默认思考强度",
-  useOmpDefault: "跟随 omp 的设置",
+  ompPicksModel: "由 omp 自动选择",
   modelsLoading: "正在读取模型…",
   enterBehavior: "运行中按 Enter",
   "enterBehavior.steer": "插话",
