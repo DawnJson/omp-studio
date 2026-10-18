@@ -31,7 +31,13 @@
 
 ## 模型列表
 
-`listModels` 在服务进程上发 `get_available_models`（会等 omp 后台发现完成），映射成 `ModelOption`（`acceptsImages` = `input` 含 `image`）。设置页和草稿输入框的默认模型/思考强度就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`：读 `omp config list` 的快照，写 `omp config set`。`modelRoles` 只能整体写（实测 18.12.1：`omp config set modelRoles.default` 报 Unknown setting），所以读出角色表只换 `default`；`defaultThinkingLevel` 不接受 `off`，胶囊里不提供。新任务启动时不传 `--model`/`--thinking`。omp-studio 不另存默认值（PLAN 设计原则 7）。`modelRoleStorage: project` 时写的仍是全局配置，项目里的 `modelRoles` 会盖过它 [推测，未实测]。
+`listModels` 在服务进程上发 `get_available_models`（会等 omp 后台发现完成），映射成 `ModelOption`（`acceptsImages` = `input` 含 `image`）。设置页和草稿输入框的默认模型/思考强度就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`：读 `omp config list` 的快照，写 `omp config set`。`modelRoles` 只能整体写（实测 18.12.1：`omp config set modelRoles.default` 报 Unknown setting），所以读出角色表只换 `default`；`defaultThinkingLevel` 不接受 `off`，胶囊里不提供。新任务启动时不传 `--model`/`--thinking`。omp-studio 不另存默认值（PLAN 设计原则 7）。
+
+项目配置（实测 omp 18.12.1，2026-10-18，临时 agent 目录 + 带 `.omp/config.yml` 的临时项目）：
+
+- 项目 `.omp/config.yml` 里有 `modelRoles.default` 时，在这个项目里启动的 omp 用项目的值（`get_state` 返回项目的模型），全局的被盖过。`omp config list` 在项目目录里运行显示项目的值，在别处显示全局的值。
+- `omp config set modelRoles` 不管 `modelRoleStorage` 设成什么（全局或项目里设 `project` 都试过），**永远写全局配置**；在项目目录里运行时返回 `overriddenBy: "project"`。`modelRoleStorage` 只影响 omp 终端里模型选择器的保存位置（文档所述，没在 TUI 里实测）。
+- omp-studio 的 `omp config` 固定在 `userData/service` 里运行，看不到项目层，所以项目自带 `modelRoles.default` 时：草稿胶囊和设置页显示、写入的是全局值，这个项目里新建的任务实际用项目的模型，两者对不上，而且界面没有提示。
 
 ## 没有实测的
 
