@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" font-family="Segoe UI, Microsoft YaHei UI, sans-serif" font-size="12">
+  <!-- 方向 A「仪表」浅色主界面线框。颜色就是提议的色板，尺寸按 1200×800 窗口缩到 1000 宽。 -->
+  <rect width="1000" height="640" fill="#EDF0EF"/>
+
+  <!-- 顶栏：左边标志 + 菜单；中间面包屑和运行状态；右边系统三键 -->
+  <circle cx="22" cy="18" r="7" fill="none" stroke="#0B7A66" stroke-width="2"/>
+  <path d="M18 18h8M20 15v7M24 15v7" stroke="#0B7A66" stroke-width="1.4"/>
+  <rect x="38" y="10" width="16" height="16" rx="3" fill="none" stroke="#4B5652"/>
+  <text x="250" y="22" fill="#4B5652">omp-studio</text>
+  <text x="318" y="22" fill="#9AA5A1">/</text>
+  <text x="330" y="22" fill="#111816" font-weight="600">修复登录页的表单校验</text>
+  <circle cx="470" cy="18" r="4" fill="#0B7A66"/>
+  <text x="480" y="22" fill="#0B7A66">运行中 · 1分12秒</text>
+  <text x="880" y="22" fill="#4B5652">─   ▢   ✕</text>
+
+  <!-- 侧栏 -->
+  <rect x="12" y="44" width="196" height="28" rx="6" fill="#FFFFFF" stroke="#D5DBD9"/>
+  <text x="24" y="62" fill="#9AA5A1">⌕ 搜索任务和会话   Ctrl K</text>
+  <rect x="12" y="80" width="120" height="28" rx="6" fill="#111816"/>
+  <text x="24" y="98" fill="#FFFFFF">＋ 新任务</text>
+  <rect x="138" y="80" width="70" height="28" rx="6" fill="none" stroke="#C8D0CD"/>
+  <text x="148" y="98" fill="#4B5652">＋ 项目</text>
+  <text x="16" y="132" fill="#6B7672" font-size="11">▾ omp-studio</text>
+  <rect x="12" y="140" width="196" height="26" rx="5" fill="#DDE4E1"/>
+  <rect x="12" y="140" width="2" height="26" fill="#0B7A66"/>
+  <circle cx="26" cy="153" r="4" fill="#0B7A66"/>
+  <text x="38" y="157" fill="#111816">修复登录页的表单校验</text>
+  <path d="M22 175l4-4 4 4-4 4z" fill="#B76E00"/>
+  <text x="38" y="179" fill="#111816">升级 Electron 到 44</text>
+  <text x="26" y="201" fill="#4B5652">✓</text>
+  <text x="38" y="201" fill="#4B5652">整理 CHANGELOG</text>
+  <text x="16" y="228" fill="#6B7672" font-size="11">▸ blog</text>
+  <text x="20" y="624" fill="#4B5652">⚙ 设置</text>
+
+  <!-- 主区：四角圆角的"纸面"，右、下各留 8px -->
+  <rect x="220" y="36" width="772" height="596" rx="10" fill="#F8FAF9" stroke="#D5DBD9"/>
+
+  <!-- 对话脊线 -->
+  <line x1="300" y1="70" x2="300" y2="440" stroke="#D5DBD9" stroke-width="2"/>
+  <circle cx="300" cy="84" r="5" fill="#F8FAF9" stroke="#6B7672" stroke-width="2"/>
+  <rect x="316" y="68" width="420" height="34" rx="8" fill="#FFFFFF" stroke="#D5DBD9"/>
+  <text x="330" y="90" fill="#111816" font-size="13">登录页提交时没有校验邮箱格式，修一下并补测试。</text>
+
+  <circle cx="300" cy="128" r="4" fill="#9AA5A1"/>
+  <text x="316" y="132" fill="#6B7672" font-family="Cascadia Mono, Consolas, monospace" font-size="11">▸ 读了 6 个文件 · 改了 2 个 · 跑了 1 次测试          38s</text>
+
+  <circle cx="300" cy="170" r="6" fill="#0B7A66"/>
+  <text x="316" y="166" fill="#111816" font-size="14" font-weight="600">结论</text>
+  <text x="316" y="190" fill="#111816" font-size="13">邮箱现在用 validateEmail 校验，错误提示显示在输入框下方。</text>
+  <text x="316" y="210" fill="#111816" font-size="13">新增 4 个测试，全部通过。</text>
+  <rect x="316" y="224" width="420" height="58" rx="8" fill="#FFFFFF" stroke="#D5DBD9"/>
+  <text x="330" y="244" fill="#111816" font-weight="600">改动 2 个文件</text>
+  <text x="672" y="244" fill="#0B7A66" font-family="Cascadia Mono, Consolas, monospace">+48</text>
+  <text x="704" y="244" fill="#B42E2E" font-family="Cascadia Mono, Consolas, monospace">−6</text>
+  <text x="330" y="266" fill="#4B5652" font-family="Cascadia Mono, Consolas, monospace" font-size="11">src/login/form.ts   test/login.test.ts</text>
+
+  <circle cx="300" cy="316" r="5" fill="#F8FAF9" stroke="#6B7672" stroke-width="2"/>
+  <rect x="316" y="300" width="250" height="34" rx="8" fill="#FFFFFF" stroke="#D5DBD9"/>
+  <text x="330" y="322" fill="#111816" font-size="13">顺便把按钮禁用态也加上</text>
+  <circle cx="300" cy="360" r="6" fill="none" stroke="#0B7A66" stroke-width="2"/>
+  <circle cx="300" cy="360" r="2.5" fill="#0B7A66"/>
+  <text x="316" y="364" fill="#0B7A66" font-family="Cascadia Mono, Consolas, monospace" font-size="11">● 正在改 src/login/Button.tsx …</text>
+
+  <!-- 输入框：贴底，工具行和输入区分开 -->
+  <rect x="300" y="500" width="612" height="84" rx="10" fill="#FFFFFF" stroke="#B9C3BF"/>
+  <text x="316" y="526" fill="#9AA5A1" font-size="13">回复，或者 / 调出命令…</text>
+  <line x1="300" y1="552" x2="912" y2="552" stroke="#E3E8E6"/>
+  <text x="314" y="573" fill="#4B5652">＋</text>
+  <rect x="332" y="560" width="150" height="20" rx="4" fill="#EDF0EF"/>
+  <text x="340" y="574" fill="#111816">DeepSeek V4 Flash · 高  ▾</text>
+  <rect x="488" y="560" width="72" height="20" rx="4" fill="#EDF0EF"/>
+  <text x="496" y="574" fill="#111816">执行 ▾</text>
+  <rect x="566" y="560" width="84" height="20" rx="4" fill="#EDF0EF"/>
+  <text x="574" y="574" fill="#111816">跟随 omp ▾</text>
+  <rect x="876" y="558" width="26" height="24" rx="5" fill="#111816"/>
+  <text x="884" y="575" fill="#FFFFFF">↑</text>
+
+  <!-- 仪表行：上下文占用 + 本会话消耗，默认显示 -->
+  <circle cx="310" cy="606" r="6" fill="none" stroke="#D5DBD9" stroke-width="3"/>
+  <path d="M310 600a6 6 0 0 1 5.7 7.9" fill="none" stroke="#0B7A66" stroke-width="3"/>
+  <text x="322" y="610" fill="#4B5652" font-family="Cascadia Mono, Consolas, monospace" font-size="11">上下文 34% · 68k/200k    本会话 112k tok · $0.21</text>
+</svg>
