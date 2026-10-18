@@ -1,0 +1,44 @@
+name: 问题反馈 / Bug report
+description: omp-studio 出错、卡住或者表现和预期不一样 / Something broke, hung, or didn't behave as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        先在 omp-studio 里打开 **设置 → 关于 → 问题排查 → 导出…**，把导出的诊断信息文件拖到下面的"诊断信息"框里。文件里的用户名、家目录和 key 已经去掉，提交前也可以自己打开看一遍。
+        Open **Settings → About → Troubleshooting → Export…** in omp-studio and drag the exported diagnostics file into the "Diagnostics" box below. User names, home paths and keys are already removed; feel free to read it before attaching.
+  - type: input
+    id: version
+    attributes:
+      label: omp-studio 版本 / Version
+      description: 设置 → 关于 / Settings → About
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么 / What happened
+      description: 你做了什么、看到了什么、本来期望什么 / What you did, what you saw, what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 怎么重现 / Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 诊断信息 / Diagnostics
+      description: 拖入导出的 omp-studio-diagnostics-<日期>.txt / Drop the exported omp-studio-diagnostics-<date>.txt here
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图 / Screenshots
+      description: 如果截图里有模型提供商的账户信息，先打码 / Blur any provider account details first

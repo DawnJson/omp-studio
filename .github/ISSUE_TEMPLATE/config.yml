@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: omp 本身的问题 / Problems with omp itself
+    url: https://github.com/can1357/oh-my-pi/issues
+    about: 终端里的 omp 也出同样的问题时，请报给 omp 官方 / If the terminal omp shows the same problem, report it upstream
