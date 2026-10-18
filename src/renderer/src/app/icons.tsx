@@ -32,31 +32,6 @@ export function MenuIcon({ size = 18 }: IconProps) {
   );
 }
 
-export function SidebarIcon({ size = 18 }: IconProps) {
-  return (
-    <Icon size={size}>
-      <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
-      <path d="M9.5 4.5v15" />
-    </Icon>
-  );
-}
-
-export function ArrowLeftIcon({ size = 18 }: IconProps) {
-  return (
-    <Icon size={size}>
-      <path d="M19 12H5M11 6l-6 6 6 6" />
-    </Icon>
-  );
-}
-
-export function ArrowRightIcon({ size = 18 }: IconProps) {
-  return (
-    <Icon size={size}>
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </Icon>
-  );
-}
-
 export function CheckIcon({ size = 16 }: IconProps) {
   return (
     <Icon size={size}>

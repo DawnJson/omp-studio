@@ -31,7 +31,7 @@ export const composer = {
   context: "Context {p}%",
   "usage.aria": "Session usage",
   "usage.context": "Context {used} / {total}",
-  "usage.tokens": "{n} tokens",
+  "usage.tokens": "Session {n} tokens",
   "usage.input": "Input",
   "usage.output": "Output",
   "usage.cache": "Cache read",

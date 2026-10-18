@@ -44,6 +44,9 @@ if (!fixture) {
 // e2e 用：把启动时的工作目录追加写进这个文件，断言任务确实在 worktree 里运行。
 if (process.env["FAKE_OMP_CWD_FILE"]) appendFileSync(process.env["FAKE_OMP_CWD_FILE"], `${process.cwd()}\n`);
 
+// e2e 用：把自己的 pid 追加写进这个文件，断言应用退出后 omp 进程确实没有残留。
+if (process.env["FAKE_OMP_PID_FILE"]) appendFileSync(process.env["FAKE_OMP_PID_FILE"], `${process.pid}\n`);
+
 const entries: Entry[] = readFileSync(fixture, "utf8")
   .split("\n")
   .filter((line) => line.trim() !== "")

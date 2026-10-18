@@ -1,8 +1,6 @@
 import type { MessageEntry } from "../index.ts";
 
 export const window = {
-  toggleSidebar: "切换侧栏",
   menu: "菜单",
-  back: "后退",
-  forward: "前进",
+  runningFor: "运行中 · {time}",
 } satisfies Record<string, MessageEntry>;

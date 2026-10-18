@@ -1,6 +1,7 @@
 // 任务 worktree：创建、setup 脚本、合并回基分支、丢弃、清理无主 worktree。决策和位置见 docs/architecture/git.md。
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, realpath, rm } from "node:fs/promises";
+import { mkdir, readFile, realpath, rm, stat } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import type { GitMergeResult, TaskWorktreeInfo, WorktreeCleanupResult } from "../../shared/git.ts";
 import { log } from "../log/log.ts";
@@ -8,7 +9,6 @@ import { git, gitRaw, gitText, runCommand } from "./exec.ts";
 import { currentBranch, findRepo, hasCommits, headCommit } from "./repo.ts";
 import { statusAt } from "./status.ts";
 
-export const WORKTREE_DIR_NAME = ".omp-studio-worktrees";
 export const BRANCH_PREFIX = "studio/";
 const SETUP_TIMEOUT_MS = 10 * 60_000;
 const SETUP_OUTPUT_TAIL = 2000;
@@ -17,11 +17,6 @@ export interface CreatedWorktree {
   path: string;
   branch: string;
   baseBranch: string;
-}
-
-/** `<仓库的上级目录>/.omp-studio-worktrees/<仓库目录名>`：在仓库之外，不会被仓库自己的 git status 看到。 */
-export function worktreeParent(repoRoot: string): string {
-  return path.join(path.dirname(repoRoot), WORKTREE_DIR_NAME, path.basename(repoRoot));
 }
 
 /** 项目目录必须正好是仓库根：任务的 cwd 就是 worktree 根，子目录项目没法一一对应。 */
@@ -92,11 +87,71 @@ async function runSetupScript(script: SetupScript, repoRoot: string, worktreePat
   }
 }
 
-// ───────── 创建 ─────────
+// ───────── 创建（走 omp） ─────────
+
+const repoHash = (repoRoot: string) => createHash("sha1").update(pathKey(repoRoot)).digest("hex").slice(0, 7);
+
+function runOmp(ompPath: string, cwd: string, args: string[]) {
+  return runCommand(ompPath, args, {
+    cwd,
+    timeoutMs: 120_000,
+    keepTailBytes: 16 * 1024,
+    // 输出是给程序读的：不要颜色转义。
+    env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" },
+  });
+}
+
+/**
+ * omp 存放 agent 管理的 worktree 的目录，解析顺序和 omp 一致（omp 文档 tools/github.md getWorktreesDir）：
+ * `OMP_WORKTREE_DIR`（绝对或 ~ 开头）→ 设置 `worktree.base` → `~/.omp/wt`。
+ */
+export async function resolveWorktreesDir(ompPath: string, repoRoot: string): Promise<string> {
+  const expand = (value: string): string | null => {
+    const expanded = value === "~" || /^~[\\/]/.test(value) ? path.join(os.homedir(), value.slice(1)) : value;
+    return path.isAbsolute(expanded) ? expanded : null;
+  };
+  const fromEnv = process.env["OMP_WORKTREE_DIR"];
+  const envDir = fromEnv ? expand(fromEnv) : null;
+  if (envDir) return envDir;
+  const result = await runOmp(ompPath, repoRoot, ["config", "get", "worktree.base", "--json"]);
+  if (result.code === 0) {
+    try {
+      const parsed: unknown = JSON.parse(result.stdout.toString("utf8"));
+      const value = typeof parsed === "object" && parsed !== null && "value" in parsed ? parsed.value : null;
+      const configured = typeof value === "string" && value !== "" ? expand(value) : null;
+      if (configured) return configured;
+    } catch {
+      // 输出不是 JSON：当作没设置，用默认值。
+    }
+  }
+  return path.join(os.homedir(), ".omp", "wt");
+}
+
+/** `omp worktree add -C <repo> -b <branch> <path> HEAD`。omp 在 add 时不自己选目录（必须给 PATH），失败时退出码非 0。 */
+async function ompWorktreeAdd(ompPath: string, repoRoot: string, branch: string, worktreePath: string): Promise<void> {
+  await mkdir(path.dirname(worktreePath), { recursive: true });
+  const result = await runOmp(ompPath, repoRoot, [
+    "worktree",
+    "add",
+    "-C",
+    repoRoot,
+    "-b",
+    branch,
+    "-q",
+    worktreePath,
+    "HEAD",
+  ]);
+  if (result.code !== 0)
+    throw new Error(
+      `omp worktree add failed: ${(result.stderr.trim() || result.stdout.toString("utf8").trim()).slice(-2000)}`,
+    );
+}
 
 export interface CreateWorktreeOptions {
   /** 仓库里有 setup 脚本时必须给：返回 true 才会运行（用户确认过这个项目的这份内容）。没给或返回 false 则创建被拒绝，什么都不留。 */
   approveSetup?: (script: SetupScript) => boolean | Promise<boolean>;
+  /** omp 可执行文件的绝对路径（omp-manager 当前就绪的那份）：worktree 由 `omp worktree add` 创建。 */
+  ompPath: string;
 }
 
 /**
@@ -104,10 +159,7 @@ export interface CreateWorktreeOptions {
  * setup 脚本失败时回滚（移除 worktree 和分支）并抛错：在没装好依赖的目录里让 agent 干活只会产生误导性的失败。
  * 主仓库里没提交的改动不会带进 worktree。
  */
-export async function createWorktree(
-  projectPath: string,
-  options: CreateWorktreeOptions = {},
-): Promise<CreatedWorktree> {
+export async function createWorktree(projectPath: string, options: CreateWorktreeOptions): Promise<CreatedWorktree> {
   const repoRoot = await requireRepoRootProject(projectPath);
   if (!(await hasCommits(repoRoot)))
     throw new Error("the repository has no commits yet; commit once before using a worktree");
@@ -122,9 +174,10 @@ export async function createWorktree(
 
   const slug = randomUUID().slice(0, 8);
   const branch = `${BRANCH_PREFIX}${slug}`;
-  const worktreePath = path.join(worktreeParent(repoRoot), slug);
-  await mkdir(path.dirname(worktreePath), { recursive: true });
-  await git(repoRoot, ["worktree", "add", "-b", branch, worktreePath, "HEAD"]);
+  // 目录由 omp 的规则决定（环境变量 / worktree.base / 默认 ~/.omp/wt）：这样 omp 的 `omp worktree list` 看得到它。
+  // 目录名 <slug>-<仓库路径哈希>：不同仓库的 slug 即使碰撞也不会重名。
+  const worktreePath = path.join(await resolveWorktreesDir(options.ompPath, repoRoot), `${slug}-${repoHash(repoRoot)}`);
+  await ompWorktreeAdd(options.ompPath, repoRoot, branch, worktreePath);
   log.info("worktree created", { branch });
 
   try {
@@ -199,20 +252,37 @@ async function rmWithRetry(target: string): Promise<void> {
   }
 }
 
-/** 只允许移除 studio 自己建的：目录必须正好在 worktreeParent(repo) 下一层，分支必须是 studio/ 前缀。 */
-function assertStudioWorktree(repoRoot: string, worktreePath: string, branch: string): void {
-  if (pathKey(path.dirname(worktreePath)) !== pathKey(worktreeParent(repoRoot)))
-    throw new Error("refusing to remove a directory that is not a studio worktree");
+/**
+ * 只允许移除 studio 自己建的：分支必须是 studio/ 前缀，且这个目录必须是 git 登记在这个仓库名下、检出的正是这个分支的 worktree
+ * （位置不再固定：omp 的目录、旧版的 .omp-studio-worktrees 都有，所以按登记认，不按路径认）。
+ * 返回 false 表示目录已经没有登记（比如被 prune 过），调用方只需要处理分支。
+ */
+async function assertStudioWorktree(repoRoot: string, worktreePath: string, branch: string): Promise<boolean> {
   if (!branch.startsWith(BRANCH_PREFIX)) throw new Error("refusing to delete a branch that is not a studio branch");
+  const registered = (await listWorktrees(repoRoot)).find((wt) => pathKey(wt.path) === pathKey(worktreePath));
+  if (registered) {
+    if (registered.branch !== branch) throw new Error("refusing to remove a worktree that is not on the task's branch");
+    return true;
+  }
+  // 没登记但目录还在：不是 git 认识的 worktree，不动。
+  if (
+    await stat(worktreePath).then(
+      () => true,
+      () => false,
+    )
+  )
+    throw new Error("refusing to remove a directory that is not a registered worktree");
+  return false;
 }
 
-/** 移除 worktree（含未提交的改动）和它的分支。目录已经没了也不报错。 */
+/** 移除 worktree（含未提交的改动）和它的分支。目录已经没了也不报错。omp 没有删除单个 worktree 的接口（`omp worktree clear` 按目录整体清），所以走 git。 */
 export async function removeWorktree(repoRoot: string, worktreePath: string, branch: string): Promise<void> {
-  assertStudioWorktree(repoRoot, worktreePath, branch);
-  await gitRaw(repoRoot, ["worktree", "remove", "--force", worktreePath]);
-  // remove 失败（目录被占用等）时目录可能还在；让 git 忘掉已经不存在的，再确认目录真的没了。
-  await gitRaw(repoRoot, ["worktree", "prune"]);
-  await rmWithRetry(worktreePath);
+  if (await assertStudioWorktree(repoRoot, worktreePath, branch)) {
+    await gitRaw(repoRoot, ["worktree", "remove", "--force", worktreePath]);
+    // remove 失败（目录被占用等）时目录可能还在；让 git 忘掉已经不存在的，再确认目录真的没了。
+    await gitRaw(repoRoot, ["worktree", "prune"]);
+    await rmWithRetry(worktreePath);
+  }
   await gitRaw(repoRoot, ["worktree", "prune"]);
   if ((await gitRaw(repoRoot, ["rev-parse", "-q", "--verify", `refs/heads/${branch}`])).code === 0)
     await git(repoRoot, ["branch", "-D", "--end-of-options", branch]);
@@ -241,8 +311,9 @@ async function listWorktrees(repoRoot: string): Promise<RegisteredWorktree[]> {
 const pathKey = (p: string) => (process.platform === "win32" ? path.resolve(p).toLowerCase() : path.resolve(p));
 
 /**
- * 清理无主 worktree：先 `git worktree prune`（目录已不在的登记），再处理 `.omp-studio-worktrees/<仓库>/` 下
- * 没有任何任务记录引用的目录。只删"干净且分支已合入 HEAD"的；有未提交改动、有未合并提交、git 不认识的目录一律保留并报告。
+ * 清理无主 worktree：先 `git worktree prune`（目录已不在的登记），再看 git 登记的、分支是 `studio/` 前缀、没有任何任务记录
+ * 引用的 worktree（不管在 omp 的目录还是旧版的 .omp-studio-worktrees 里）。只删"干净且分支已合入 HEAD"的；
+ * 有未提交改动、有未合并提交的保留并报告。不用 `omp worktree clear`：它按目录整体清，--all 会清掉别的仓库和别的工具建的。
  * `referenced` 是所有任务记录（含已归档）里的 worktreePath。
  */
 export async function cleanupOrphanWorktrees(
@@ -251,26 +322,14 @@ export async function cleanupOrphanWorktrees(
 ): Promise<WorktreeCleanupResult> {
   const result: WorktreeCleanupResult = { removed: [], kept: [] };
   await gitRaw(repoRoot, ["worktree", "prune"]);
-  const parent = worktreeParent(repoRoot);
-  let names: string[];
-  try {
-    names = (await readdir(parent, { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
-  } catch {
-    return result;
-  }
   const used = new Set(referenced.map(pathKey));
-  const registered = new Map((await listWorktrees(repoRoot)).map((wt) => [pathKey(wt.path), wt]));
-  for (const name of names) {
-    const dir = path.join(parent, name);
-    if (used.has(pathKey(dir))) continue;
-    const wt = registered.get(pathKey(dir));
-    if (!wt || wt.branch === null || !wt.branch.startsWith(BRANCH_PREFIX)) {
-      result.kept.push({ name, reason: "unregistered" });
-      continue;
-    }
-    if ((await statusAt(dir)).files.length > 0) {
+  const mine = (await listWorktrees(repoRoot)).filter(
+    (wt) => pathKey(wt.path) !== pathKey(repoRoot) && wt.branch?.startsWith(BRANCH_PREFIX),
+  );
+  for (const wt of mine) {
+    if (used.has(pathKey(wt.path)) || wt.branch === null) continue;
+    const name = path.basename(wt.path);
+    if ((await statusAt(wt.path)).files.length > 0) {
       result.kept.push({ name, reason: "dirty" });
       continue;
     }
@@ -279,7 +338,7 @@ export async function cleanupOrphanWorktrees(
       result.kept.push({ name, reason: "unmerged" });
       continue;
     }
-    await removeWorktree(repoRoot, dir, wt.branch);
+    await removeWorktree(repoRoot, wt.path, wt.branch);
     result.removed.push(name);
   }
   return result;

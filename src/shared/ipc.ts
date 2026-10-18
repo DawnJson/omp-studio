@@ -32,6 +32,13 @@ import type {
   WorktreeSetupInfo,
 } from "./git.ts";
 import type { Transcript, TranscriptEvent } from "./transcript.ts";
+import type {
+  CustomModelsFileInfo,
+  CustomModelsOutcome,
+  CustomProviderInput,
+  FetchModelsOutcome,
+  FetchModelsRequest,
+} from "./custom-models.ts";
 import type { SubagentDetail, SubagentLane } from "./subagents.ts";
 
 // ───────── 标识 ─────────
@@ -120,7 +127,9 @@ export interface TaskError {
     | "restore_model_failed"
     | "exited"
     | "protocol"
-    | "too_many_tasks";
+    | "too_many_tasks"
+    /** 任务的 worktree 目录已被删除（和 omp 一致：只能查看记录，不能继续聊）。 */
+    | "worktree_missing";
   message: string;
 }
 
@@ -554,6 +563,17 @@ export interface StudioInvokeApi {
   /** 已设置 studio 自存 API key 的 provider id 列表；只有 id，没有 key 的任何内容。 */
   listApiKeyProviders(): Promise<string[]>;
 
+  // 自定义模型：直接读写 omp 的 models.yml（src/main/omp-config/models-file.ts；规则见 src/main/AGENTS.md）
+  /** 读 models.yml 里的 providers。key 只有状态，没有内容。文件读不懂时 reject。 */
+  listCustomProviders(): Promise<CustomModelsFileInfo>;
+  /** 新增（add）或修改（edit）一个 provider；校验不过返回 {ok:false, code}。成功后主进程关掉服务进程，下次读模型列表时 omp 重新加载。 */
+  saveCustomProvider(mode: "add" | "edit", input: CustomProviderInput): Promise<CustomModelsOutcome>;
+  deleteCustomProvider(providerId: string): Promise<CustomModelsOutcome>;
+  /** 一键拉取：主进程 GET <baseUrl>/models。key 为 keep 时用文件里这个 provider 已有的 key。 */
+  fetchProviderModels(request: FetchModelsRequest): Promise<FetchModelsOutcome>;
+  /** 在文件夹里显示 models.yml（还不存在时打开它所在的目录）。 */
+  revealModelsFile(): Promise<void>;
+
   // omp 管理
   getOmpStatus(): Promise<OmpStatus>;
   answerTakeover(accept: boolean): Promise<void>;
@@ -756,6 +776,11 @@ export const invokeNames = {
   saveApiKey: true,
   clearApiKey: true,
   listApiKeyProviders: true,
+  listCustomProviders: true,
+  saveCustomProvider: true,
+  deleteCustomProvider: true,
+  fetchProviderModels: true,
+  revealModelsFile: true,
   getOmpStatus: true,
   answerTakeover: true,
   addManagedOmpToPath: true,

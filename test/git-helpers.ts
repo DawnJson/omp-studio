@@ -42,3 +42,43 @@ export async function makeRepo(scratch: string, name = "仓库 一"): Promise<st
   sh(dir, "commit", "-m", "初始提交");
   return dir;
 }
+
+/** PATH 上的 omp（真实 worktree 创建走 `omp worktree add`）；没有则为 null，相关用例 skip。 */
+export function findOmp(): string | null {
+  try {
+    const found = execFileSync(process.platform === "win32" ? "where" : "which", ["omp"], { encoding: "utf8" });
+    return (
+      found
+        .split(/\r?\n/)
+        .find((line) => line.trim() !== "")
+        ?.trim() ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 把 omp 的家目录、agent 目录、worktree 目录都指到临时目录：测试不碰真实的 ~/.omp（含 ~/.omp/wt）。
+ * 返回 worktree 目录和还原函数。
+ */
+export async function isolateOmp(scratch: string): Promise<{ worktreesDir: string; restore: () => void }> {
+  const worktreesDir = path.join(scratch, "omp wt 目录");
+  const names = ["OMP_WORKTREE_DIR", "PI_CODING_AGENT_DIR", "USERPROFILE", "HOME"] as const;
+  const saved = names.map((name) => [name, process.env[name]] as const);
+  const home = path.join(scratch, "omp home");
+  await mkdir(home, { recursive: true });
+  process.env["OMP_WORKTREE_DIR"] = worktreesDir;
+  process.env["PI_CODING_AGENT_DIR"] = path.join(scratch, "omp agent");
+  process.env["USERPROFILE"] = home;
+  process.env["HOME"] = home;
+  return {
+    worktreesDir,
+    restore: () => {
+      for (const [name, value] of saved) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    },
+  };
+}

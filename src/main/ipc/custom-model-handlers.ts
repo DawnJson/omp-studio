@@ -1,0 +1,105 @@
+// 自定义模型的 IPC：读写 omp 的 models.yml、一键拉取模型列表。规则和边界见 src/main/AGENTS.md「omp 的边界」、
+// docs/architecture/custom-models.md。key 只进不出；日志只记 provider id 和结果，不记 key、不记 URL 里的查询串。
+import { existsSync } from "node:fs";
+import { net, shell } from "electron";
+import path from "node:path";
+import type { CustomKeyInput, CustomProviderInput, FetchModelsOutcome } from "../../shared/custom-models.ts";
+import type { HandlerGroup } from "../../shared/ipc.ts";
+import { resolveAgentDir } from "../history/session-index.ts";
+import { log } from "../log/log.ts";
+import { fetchModelList, resolveKeyToken } from "../omp-config/fetch-models.ts";
+import {
+  deleteCustomProvider,
+  readModelsFile,
+  readProviderKey,
+  saveCustomProvider,
+} from "../omp-config/models-file.ts";
+import { getApiKeyEnv } from "../omp-manager/api-keys.ts";
+import { serviceOmp } from "../service/service-omp.ts";
+import { IpcValidationError, parseOneOf, parseRecord, parseString } from "./validate.ts";
+
+function parseKey(value: unknown): CustomKeyInput {
+  const record = parseRecord(value, "key");
+  const kind = parseOneOf(record["kind"], "key.kind", ["keep", "none", "literal", "env"] as const);
+  if (kind === "literal") return { kind, value: parseString(record["value"], "key.value", 4096, { allowEmpty: true }) };
+  if (kind === "env") return { kind, name: parseString(record["name"], "key.name", 128, { allowEmpty: true }) };
+  return { kind };
+}
+
+/** 只校验形状（类型、长度）；内容规则（id 字符集、URL 协议……）在 models-file.ts，不合格返回 {ok:false, code}。 */
+function parseInput(value: unknown): CustomProviderInput {
+  const record = parseRecord(value, "input");
+  const models = record["models"];
+  if (!Array.isArray(models) || models.length > 1000) throw new IpcValidationError("models 必须是数组");
+  return {
+    id: parseString(record["id"], "id", 200, { allowEmpty: true }),
+    baseUrl: parseString(record["baseUrl"], "baseUrl", 4096, { allowEmpty: true }),
+    api: parseString(record["api"], "api", 100, { allowEmpty: true }),
+    key: parseKey(record["key"]),
+    models: (models as unknown[]).map((item) => {
+      const model = parseRecord(item, "model");
+      const name = model["name"];
+      return {
+        id: parseString(model["id"], "model.id", 1000, { allowEmpty: true }),
+        ...(name !== undefined && { name: parseString(name, "model.name", 1000, { allowEmpty: true }) }),
+      };
+    }),
+  };
+}
+
+async function fetchProviderModels(value: unknown): Promise<FetchModelsOutcome> {
+  const record = parseRecord(value, "request");
+  const baseUrl = parseString(record["baseUrl"], "baseUrl", 4096, { allowEmpty: true });
+  const api = parseString(record["api"], "api", 100, { allowEmpty: true });
+  const key = parseKey(record["key"]);
+  const providerId = record["providerId"] === undefined ? null : parseString(record["providerId"], "providerId", 200);
+
+  let raw: string | null = null;
+  if (key.kind === "literal") raw = key.value.trim() === "" || /\p{Cc}/u.test(key.value) ? null : key.value;
+  else if (key.kind === "env") raw = key.name;
+  else if (key.kind === "keep" && providerId !== null) raw = await readProviderKey(resolveAgentDir(), providerId);
+  if ((key.kind === "literal" || key.kind === "env") && raw === null) return { ok: false, code: "invalid-key" };
+
+  let token: string | null = null;
+  if (raw !== null) {
+    const env = { ...process.env, ...(await getApiKeyEnv()) };
+    token = resolveKeyToken(raw, env);
+    if (token === null) return { ok: false, code: "command-key" };
+  }
+  const outcome = await fetchModelList((url, init) => net.fetch(url, init), { baseUrl, api, token });
+  log.info(
+    `custom provider ${providerId ?? "(new)"}: fetch models ${outcome.ok ? `ok (${outcome.models.length})` : outcome.code}`,
+  );
+  return outcome;
+}
+
+export const customModelHandlers: HandlerGroup<
+  "listCustomProviders" | "saveCustomProvider" | "deleteCustomProvider" | "fetchProviderModels" | "revealModelsFile"
+> = {
+  listCustomProviders: () => readModelsFile(resolveAgentDir()),
+  saveCustomProvider: async (mode, input) => {
+    const outcome = await saveCustomProvider(
+      resolveAgentDir(),
+      parseInput(input),
+      parseOneOf(mode, "mode", ["add", "edit"] as const),
+    );
+    log.info(`custom provider ${mode}: ${outcome.ok ? "saved" : outcome.code}`);
+    // omp 只在启动时读 models.yml（实测 18.12.1：同一进程里改了文件不会重新加载），所以关掉服务进程，
+    // 下次读模型列表时重新起；已经在跑的任务进程要等下次启动才看得到。
+    if (outcome.ok) await serviceOmp.close();
+    return outcome;
+  },
+  deleteCustomProvider: async (providerId) => {
+    const outcome = await deleteCustomProvider(resolveAgentDir(), parseString(providerId, "providerId", 200));
+    log.info(`custom provider delete: ${outcome.ok ? "deleted" : outcome.code}`);
+    if (outcome.ok) await serviceOmp.close();
+    return outcome;
+  },
+  fetchProviderModels,
+  revealModelsFile: async () => {
+    const info = await readModelsFile(resolveAgentDir());
+    if (info.exists) shell.showItemInFolder(info.path);
+    else if (existsSync(path.dirname(info.path))) await shell.openPath(path.dirname(info.path));
+    else throw new Error("the omp agent directory does not exist yet");
+  },
+};

@@ -32,8 +32,19 @@
 /* 项目名和路径在同一行：路径排在右侧，空间不够时单行省略 */
 .empty-head {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
+  align-items: center;
+  gap: var(--space-3-5);
+  min-width: 0;
+}
+
+.empty-logo {
+  flex: none;
+}
+
+.empty-head-text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
   min-width: 0;
 }
 
@@ -64,7 +75,11 @@
 }
 
 .empty-project-name {
+  align-self: flex-start;
+  max-width: 100%;
   flex: 0 1 auto;
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-2xl);
   min-width: 0;
   padding: 0 var(--space-1);
   margin-left: calc(var(--space-1) * -1);
@@ -83,12 +98,13 @@
 }
 
 .empty-path {
-  flex: 1 1 0;
   min-width: 0;
   text-align: left;
   margin: 0;
   overflow: hidden;
-  font-size: var(--fs-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
   color: var(--text-3);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -98,8 +114,8 @@
   min-height: var(--control-h-md);
   padding: 0 var(--space-4);
   margin-top: var(--space-3);
-  color: var(--text-on-accent);
-  background: var(--accent);
+  color: var(--text-on-primary);
+  background: var(--primary);
   border: 0;
   border-radius: var(--radius-md);
   cursor: default;
@@ -107,7 +123,7 @@
 }
 
 .empty-primary:hover {
-  background: var(--accent-hover);
+  background: var(--primary-hover);
 }
 
 .empty-card .empty-primary {
@@ -206,9 +222,18 @@
 }
 
 /* 最近的任务：三条以内的可点入口 */
+.empty-recent-h {
+  margin: 0 0 var(--space-2);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  font-weight: var(--fw-regular);
+}
+
 .empty-recent {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2-5);
   padding: 0;
   margin: 0;
   list-style: none;
@@ -216,42 +241,49 @@
 
 .empty-task {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-2);
   width: 100%;
-  height: var(--row-task);
-  padding: 0 var(--space-2);
+  height: 100%;
+  min-height: 76px;
+  padding: var(--space-3) var(--space-3-5);
   color: inherit;
   font: inherit;
+  font-size: var(--fs-sm);
   text-align: left;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   cursor: default;
 }
 
 .empty-task:hover {
-  background: var(--bg-hover);
+  border-color: var(--border-strong);
 }
 
 .empty-task:focus-visible {
-  background: var(--bg-active);
   outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline-offset: 2px;
+}
+
+.empty-task-top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .empty-task-title {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .empty-task-time {
-  flex: none;
+  margin-top: auto;
+  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   color: var(--text-3);
 }

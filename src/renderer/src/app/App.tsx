@@ -1,4 +1,4 @@
-// 应用布局（spec §3.1–3.3）：40px 通栏顶栏 + 侧栏 + 左上圆角的主区面板；窄窗口侧栏变抽屉。
+// 应用布局（spec §3.1–3.3）：36px 通栏任务条 + 侧栏 + 四角圆的主区“纸面”；窄窗口侧栏变抽屉。
 // 各功能入口的导出名和 props 是约定（props 只有 id，数据从 store hook 取）。
 import { reportError } from "../ui/errors.ts";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
@@ -189,16 +189,7 @@ export function App() {
       data-sidebar={sidebarShown ? "shown" : "hidden"}
       data-drawer={asDrawer}
     >
-      <TopBar
-        menuOpen={menuOpen}
-        canGoBack={navigation.canGoBack}
-        canGoForward={navigation.canGoForward}
-        sidebarVisible={sidebarShown}
-        onToggleMenu={() => setMenuOpen((open) => !open)}
-        onToggleSidebar={toggleSidebar}
-        onBack={navigation.goBack}
-        onForward={navigation.goForward}
-      />
+      <TopBar menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((open) => !open)} />
       <div className="body">
         {asDrawer && shell.drawerOpen && (
           <div className="drawer-scrim" data-testid="drawer-scrim" onPointerDown={() => setDrawerOpen(false)} />
@@ -231,6 +222,7 @@ export function App() {
           onClose={() => setMenuOpen(false)}
           actions={{
             newTask,
+            toggleSidebar,
             openPalette: () => setPaletteOpen(true),
             openSettings: () => showView("settings"),
             openHelp: () => void window.studio.openExternal(helpUrl),

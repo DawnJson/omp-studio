@@ -27,7 +27,7 @@ export const settings = {
   "enterBehavior.later": "稍后",
   "enterBehavior.desc": "任务正在运行时，Enter 发出的消息是插话还是排到后面",
   notifyWaiting: "有任务在等你时通知我",
-  "notifyWaiting.desc": "只在任务需要你确认时发系统通知",
+  "notifyWaiting.desc": "任务需要你确认时发系统通知；窗口收在托盘时，任务完成或出错也会通知",
   search: "搜索设置",
   "search.hint": "按名称、说明或键名搜索",
   "search.clear": "清除搜索",

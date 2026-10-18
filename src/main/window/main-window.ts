@@ -5,10 +5,10 @@ import { appOrigin } from "./app-protocol.ts";
 import { blockZoom } from "./security.ts";
 import { restoredBounds, trackWindowState } from "./window-state.ts";
 
-/** 顶栏（通栏，高 40）的底色和系统三键符号色，取自 docs/design/spec.md §2.1；主题切换时用 win.setTitleBarOverlay(titleBarColors(dark)) 同步。 */
-export const titleBarHeight = 40;
+/** 顶栏（通栏，高 36）的底色和系统三键符号色，取自 docs/design/spec.md §2.1；主题切换时用 win.setTitleBarOverlay(titleBarColors(dark)) 同步。 */
+export const titleBarHeight = 36;
 export function titleBarColors(dark: boolean): { color: string; symbolColor: string } {
-  return dark ? { color: "#0E0F12", symbolColor: "#ECEDEF" } : { color: "#F3F3F1", symbolColor: "#16171A" };
+  return dark ? { color: "#0B0E0D", symbolColor: "#E6ECEA" } : { color: "#EDF0EF", symbolColor: "#111816" };
 }
 
 let mainWindow: BrowserWindow | null = null;

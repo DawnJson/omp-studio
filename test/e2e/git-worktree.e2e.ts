@@ -7,7 +7,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { makeRepo, put, sh } from "../git-helpers.ts";
+import { findOmp, makeRepo, put, sh } from "../git-helpers.ts";
 import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
@@ -23,11 +23,24 @@ interface Session {
   cleanup(): Promise<void>;
 }
 
+// worktree 由真实 omp 创建（omp worktree add）：PATH 上没有 omp 时整个文件 skip。
+const realOmp = findOmp();
+test.skip(realOmp === null, "real omp is not on PATH; worktrees are created by `omp worktree add`");
+
+function ompEnv(work: string): Record<string, string> {
+  return {
+    OMP_WORKTREE_DIR: path.join(work, "omp worktrees"),
+    PI_CODING_AGENT_DIR: path.join(work, "omp agent"),
+  };
+}
+
 async function start(prepare: (work: string) => Promise<string>): Promise<Session> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp git 界面 e2e-"));
   const project = await prepare(work);
   const cwdFile = path.join(work, "cwd.log");
   const launched = await launchApp({
+    ...ompEnv(work),
+    STUDIO_TEST_WORKTREE_OMP: realOmp ?? "",
     STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }),
     FAKE_OMP_CWD_FILE: cwdFile,
   });
@@ -173,6 +186,15 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     const { dir, branch } = worktree as { dir: string; branch: string };
     await expect(page.getByTestId("git-branch")).toContainText(branch);
     expect(existsSync(path.join(dir, "setup-ran.txt"))).toBe(true);
+    // 目录按 omp 的规则（OMP_WORKTREE_DIR）放，不在仓库旁边；omp 自己的 list 认得它。
+    expect(real(path.dirname(dir))).toBe(real(path.join(session.work, "omp worktrees")));
+    expect(
+      execFileSync("omp", ["worktree", "list", "--json"], {
+        cwd: repo,
+        encoding: "utf8",
+        env: { ...process.env, ...ompEnv(session.work) },
+      }),
+    ).toContain(branch);
     await expect
       .poll(() => readFile(session.cwdFile, "utf8").then((text) => text.trim().split(/\r?\n/).map(real)))
       .toContain(real(dir));

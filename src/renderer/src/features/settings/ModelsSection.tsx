@@ -15,6 +15,7 @@ import {
 import { loadAccounts, useAccountLoad } from "./accounts-store.ts";
 import { Card, Select, SettingRow, type Option } from "./controls.tsx";
 import { ProviderRow } from "./ProviderRow.tsx";
+import { CustomProviders } from "./CustomProviders.tsx";
 
 const thinkingLevels = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
 const inherit = "";
@@ -54,6 +55,8 @@ export function ModelsSection() {
 
   return (
     <>
+      <CustomProviders />
+
       <h3 className="settings-group-title">{t("login.providers")}</h3>
       <Card testId="providers">
         {error !== null && (

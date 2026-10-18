@@ -8,6 +8,7 @@ import { CheckIcon } from "./icons.tsx";
 
 export interface AppMenuActions {
   newTask(): void;
+  toggleSidebar(): void;
   openPalette(): void;
   openSettings(): void;
   openHelp(): void;
@@ -101,6 +102,9 @@ export function AppMenu({ actions, onClose }: AppMenuProps) {
         </Item>
         <Item shortcut="Ctrl K" onSelect={choose(actions.openPalette)}>
           {t("menu.commandPalette")}
+        </Item>
+        <Item shortcut="Ctrl B" onSelect={choose(actions.toggleSidebar)}>
+          {t("menu.toggleSidebar")}
         </Item>
         <Item shortcut="Ctrl ," onSelect={choose(actions.openSettings)}>
           {t("menu.settings")}

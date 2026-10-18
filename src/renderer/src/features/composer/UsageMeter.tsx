@@ -1,5 +1,5 @@
-// 输入框下方的用量行（PLAN 2.6 已定：默认显示）：上下文占用（圆环 + 百分比）、本会话 token、费用。
-// 没有任何数据时整行不渲染。点上下文部分弹出"压缩上下文"。位置和样式是临时的，等设计方向确认后再调。
+// 输入框下方的仪表行（方向 A）：上下文占用（圆环 + 百分比 + 已用/总量）、本会话 token、费用，等宽字体。
+// 没有任何数据时整行不渲染。点上下文部分弹出"压缩上下文"。窄输入框只留上下文和费用。
 import { useState } from "react";
 import type { TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -63,6 +63,9 @@ export function UsageMeter({ task }: { task: TaskState }) {
           >
             <Ring percent={context.percent} />
             <span>{t("composer.context", { p: formatPercent(context.percent) })}</span>
+            <span className="usage-total">
+              {formatCount(context.tokens)}/{formatCount(context.contextWindow)}
+            </span>
           </button>
           <Popover
             open={open}

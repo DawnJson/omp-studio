@@ -186,12 +186,12 @@
   cursor: default;
 }
 .gate-btn[data-primary] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--text-on-accent);
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-on-primary);
 }
 .gate-btn[data-primary]:hover {
-  background: var(--accent-hover);
+  background: var(--primary-hover);
 }
 .gate-btn[data-deny]:hover {
   color: var(--st-error);
@@ -213,8 +213,8 @@
   line-height: var(--lh-2xs);
 }
 .gate-btn[data-primary] .gate-key {
-  background: color-mix(in srgb, var(--text-on-accent) 22%, transparent);
-  color: var(--text-on-accent);
+  background: color-mix(in srgb, var(--text-on-primary) 22%, transparent);
+  color: var(--text-on-primary);
 }
 
 .gate-list {

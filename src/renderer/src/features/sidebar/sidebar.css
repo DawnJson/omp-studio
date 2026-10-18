@@ -116,10 +116,12 @@
   align-items: center;
   gap: var(--space-1-5);
   min-width: 0;
-  height: var(--control-h-lg);
+  justify-content: center;
+  height: var(--control-h-md);
   padding: 0 var(--space-2-5);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   transition: background var(--dur-instant) var(--ease-out);
 }
@@ -129,8 +131,20 @@
 .sb-new:active {
   background: var(--bg-active);
 }
+.sb-new-primary {
+  color: var(--text-on-primary);
+  background: var(--primary);
+  border-color: transparent;
+}
+.sb-new-primary:hover {
+  background: var(--primary-hover);
+}
+.sb-new-primary:active {
+  background: var(--primary-hover);
+}
 .sb-new-label {
-  flex: 1;
+  flex: none;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

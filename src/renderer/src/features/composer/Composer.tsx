@@ -63,14 +63,18 @@ export function Composer({ taskId }: { taskId: TaskId }) {
   const hasContent = draft.text.trim() !== "" || draft.images.length > 0;
   const swapped = settings?.enterWhileRunning === "followUp";
   const tooOld = omp?.state === "ready" && omp.belowMinimum;
+  // worktree 被删了：只能查看记录（和 omp 一致），输入框禁用，说明在对话流末尾的错误条里。
+  const worktreeGone = task?.error?.kind === "worktree_missing";
 
-  const placeholder = gate
-    ? t("composer.placeholderGate")
-    : running
-      ? t(swapped ? "composer.placeholderRunningSwapped" : "composer.placeholderRunning")
-      : (transcript?.items.length ?? 0) > 0
-        ? t("composer.placeholder")
-        : t("composer.placeholderNew");
+  const placeholder = worktreeGone
+    ? t("error.worktreeMissing")
+    : gate
+      ? t("composer.placeholderGate")
+      : running
+        ? t(swapped ? "composer.placeholderRunningSwapped" : "composer.placeholderRunning")
+        : (transcript?.items.length ?? 0) > 0
+          ? t("composer.placeholder")
+          : t("composer.placeholderNew");
 
   // 自动增高：最小 2 行（CSS），最大 min(40vh, 12 行)（CSS）；超出内部滚动。
   useLayoutEffect(() => {
@@ -177,7 +181,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
     );
     if (action === "default") return;
     event.preventDefault();
-    if (tooOld && action !== "gatePrimary") return;
+    if ((tooOld || worktreeGone) && action !== "gatePrimary") return;
     if (action === "gatePrimary") getGateControl()?.primary();
     else if (action === "denyAndSend")
       void getGateControl()
@@ -247,6 +251,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             value={draft.text}
             placeholder={placeholder}
             aria-label={placeholder}
+            disabled={worktreeGone}
             aria-controls={slashOpen ? "slash-menu" : undefined}
             aria-activedescendant={slashOpen && slashMatches.length > 0 ? `slash-menu-${slashActive}` : undefined}
             onChange={(event) => {
@@ -294,7 +299,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             running={running}
             stopping={stopping}
             hasContent={hasContent}
-            disabled={tooOld === true}
+            disabled={tooOld === true || worktreeGone}
             onSend={() => void sendDraft(taskId, "steer", t)}
             onStop={stop}
           />

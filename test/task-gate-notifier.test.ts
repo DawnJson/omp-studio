@@ -34,6 +34,7 @@ function setup(overrides: Partial<GateNotifierDeps> = {}) {
     enabled: async () => true,
     locale: () => "zh-CN",
     windowFocused: () => false,
+    windowHidden: () => true,
     projectName: () => "demo",
     show: (content, onClick) => {
       shown.push(content);
@@ -98,5 +99,38 @@ describe("等你确认的系统通知", () => {
     expect([...held]).toEqual([closed]);
     closed.emit("close");
     expect(held.size).toBe(0);
+  });
+
+  it("窗口隐藏在托盘时：任务跑完 / 出错发结果通知；窗口可见、开关关闭、被用户中止时不发", async () => {
+    const { notifier, shown, clicked } = setup();
+    await notifier.onState(state("running"));
+    await notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
+    expect(shown).toEqual([{ title: "demo · 修 bug", body: "已完成" }]);
+    expect(clicked).toEqual(["t1"]);
+    await notifier.onState(state("running"));
+    await notifier.onState(state("error"));
+    expect(shown[1]?.body).toBe("出错了");
+    // 等你确认发第三条通知；之后被中止（aborted）不算"跑完"，不再发。
+    await notifier.onState(state("needs_you"));
+    await notifier.onState(state("idle", { lastTurn: { status: "aborted", endedAt: 2 } }));
+    expect(shown).toHaveLength(3);
+
+    const visible = setup({ windowHidden: () => false });
+    await visible.notifier.onState(state("running"));
+    await visible.notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
+    expect(visible.shown).toHaveLength(0);
+    const off = setup({ enabled: async () => false });
+    await off.notifier.onState(state("running"));
+    await off.notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
+    expect(off.shown).toHaveLength(0);
+  });
+
+  it("idle 重复推送、没从忙碌状态来的 idle（启动恢复）都不发完成通知", async () => {
+    const { notifier, shown } = setup();
+    await notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
+    await notifier.onState(state("running"));
+    await notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
+    await notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
+    expect(shown).toHaveLength(1);
   });
 });

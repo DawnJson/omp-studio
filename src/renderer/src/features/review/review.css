@@ -96,13 +96,13 @@
 }
 
 .rv-btn-primary {
-  color: var(--text-on-accent);
-  background: var(--accent);
+  color: var(--text-on-primary);
+  background: var(--primary);
   border-color: transparent;
 }
 
 .rv-btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--primary-hover);
 }
 
 .rv-btn-primary:disabled {

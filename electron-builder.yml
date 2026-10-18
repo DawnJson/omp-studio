@@ -5,6 +5,10 @@ directories:
 files:
   - out/**
   - package.json
+# 托盘图标（src/main/window/tray.ts 从 process.resourcesPath 读）。
+extraResources:
+  - from: resources/tray.png
+    to: tray.png
 # koffi 的原生 .node 在 @koromix/koffi-<平台> 包里，electron-builder 会自动把 .node 解出 asar；
 # 已在打包产物里实测 koffi 能加载并调用 kernel32。
 win:

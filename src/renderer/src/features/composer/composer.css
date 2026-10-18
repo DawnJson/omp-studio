@@ -168,16 +168,20 @@
   }
 }
 
-/* 输入框下方的用量行：上下文圆环、本会话 token、费用。数字用等宽数字对齐，不抢输入框的注意力。 */
+/* 输入框下方的仪表行：模型/路径/数字一律等宽字体 + --text-2，上下文圆环同时是 omp 的 "o"。窄输入框只留上下文和费用。 */
+.composer-stack {
+  container-type: inline-size;
+}
 .usage {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
   min-height: var(--control-h-sm);
-  padding: var(--space-1) var(--space-4) 0;
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
+  padding: var(--space-1) var(--space-1) 0;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-2xs);
   font-variant-numeric: tabular-nums;
 }
 .usage-item {
@@ -191,13 +195,30 @@
   font: inherit;
   white-space: nowrap;
 }
+.usage-total::before {
+  content: "· ";
+}
+[data-testid="usage-tokens"] + [data-testid="usage-cost"]::before {
+  content: "· ";
+  margin-left: calc(var(--space-1-5) - var(--space-4));
+  margin-right: var(--space-1-5);
+}
 button.usage-item {
   height: var(--control-h-sm);
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
 button.usage-item:hover {
-  color: var(--text-2);
+  color: var(--text);
+}
+@container (max-width: 560px) {
+  [data-testid="usage-tokens"],
+  .usage-total {
+    display: none;
+  }
+  [data-testid="usage-cost"]::before {
+    content: none;
+  }
 }
 .usage-ring-track,
 .usage-ring-fill {
@@ -234,11 +255,11 @@ button.usage-item:hover {
     color var(--dur-fast) var(--ease-out);
 }
 .send[data-kind="send"] {
-  background: var(--accent);
-  color: var(--text-on-accent);
+  background: var(--primary);
+  color: var(--text-on-primary);
 }
 .send[data-kind="send"]:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--primary-hover);
 }
 .send[data-kind="send"]:disabled {
   background: var(--bg-active);

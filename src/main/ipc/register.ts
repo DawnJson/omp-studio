@@ -3,6 +3,7 @@
 import { ipcMain } from "electron";
 import { invokeChannel, type InvokeHandlers } from "../../shared/ipc.ts";
 import { accountHandlers } from "./account-handlers.ts";
+import { customModelHandlers } from "./custom-model-handlers.ts";
 import { appHandlers } from "./app-handlers.ts";
 import { draftHandlers } from "./draft-handlers.ts";
 import { gitHandlers } from "./git-handlers.ts";
@@ -21,6 +22,7 @@ const handlers: InvokeHandlers = {
   ...taskHandlers,
   ...historyHandlers,
   ...accountHandlers,
+  ...customModelHandlers,
   ...ompHandlers,
   ...draftHandlers,
   ...gitHandlers,

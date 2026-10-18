@@ -4,8 +4,6 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { launchApp, screenshotsDir, seedFakeSessions } from "./launch.ts";
 
-const topbarIds = ["topbar-menu", "topbar-sidebar", "topbar-back", "topbar-forward"] as const;
-
 async function settled(page: Page, locale: "zh-CN" | "en", theme: "light" | "dark"): Promise<void> {
   await page.evaluate(
     async ({ locale: nextLocale, theme: nextTheme }) => {
@@ -18,32 +16,33 @@ async function settled(page: Page, locale: "zh-CN" | "en", theme: "light" | "dar
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 }
 
-test("顶栏四个按钮存在、按顺序可用键盘聚焦；置灰的后退/前进仍可聚焦", async () => {
+test("顶栏是任务条：标志 + 菜单按钮（可键盘聚焦）、中段 项目 / 标题；没有后退/前进/侧栏按钮", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
-    for (const id of topbarIds) await expect(page.getByTestId(id)).toBeVisible();
-    await expect(page.getByTestId("topbar-back")).toHaveAttribute("aria-disabled", "true");
-    await expect(page.getByTestId("topbar-forward")).toHaveAttribute("aria-disabled", "true");
+    await expect(page.getByTestId("topbar-menu")).toBeVisible();
+    await expect(page.getByTestId("logo").first()).toBeVisible();
+    await expect(page.getByTestId("topbar-crumb")).toContainText(/(新任务|New task)/);
+    for (const id of ["topbar-back", "topbar-forward", "topbar-sidebar"])
+      await expect(page.getByTestId(id)).toHaveCount(0);
 
-    for (const id of topbarIds) {
-      await page.keyboard.press("Tab");
-      await expect(page.getByTestId(id)).toBeFocused();
-    }
+    await page.keyboard.press("Tab");
+    await expect(page.getByTestId("topbar-menu")).toBeFocused();
     const topbar = await page.getByTestId("topbar").boundingBox();
-    expect(topbar?.height).toBe(40);
+    expect(topbar?.height).toBe(36);
   } finally {
     await launched.close();
   }
 });
 
-test("侧栏开关：按钮和 Ctrl B 都能收起/展开", async () => {
+test("侧栏开关：菜单项和 Ctrl B 都能收起/展开", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
     const root = page.getByTestId("app-root");
     await expect(root).toHaveAttribute("data-sidebar", "shown");
-    await page.getByTestId("topbar-sidebar").click();
+    await page.getByTestId("topbar-menu").click();
+    await page.getByRole("menuitem", { name: /切换侧栏|Toggle sidebar/ }).click();
     await expect(root).toHaveAttribute("data-sidebar", "hidden");
     await page.keyboard.press("Control+b");
     await expect(root).toHaveAttribute("data-sidebar", "shown");
@@ -78,16 +77,17 @@ test("应用菜单：切换主题和语言立即生效；Esc 关闭后焦点回�
   }
 });
 
-test("快捷键 Ctrl , 打开设置，后退按钮随之可用并回到上一个视图", async () => {
+test("快捷键 Ctrl , 打开设置，Alt+←/→ 在视图之间后退/前进", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
     await expect(page.getByTestId("topbar")).toBeVisible();
     await page.keyboard.press("Control+,");
-    await expect(page.getByTestId("topbar-back")).toHaveAttribute("aria-disabled", "false");
+    await expect(page.getByTestId("settings")).toBeVisible();
     await page.keyboard.press("Alt+ArrowLeft");
     await expect(page.getByTestId("empty-state")).toBeVisible();
-    await expect(page.getByTestId("topbar-forward")).toHaveAttribute("aria-disabled", "false");
+    await page.keyboard.press("Alt+ArrowRight");
+    await expect(page.getByTestId("settings")).toBeVisible();
   } finally {
     await launched.close();
   }
@@ -101,7 +101,7 @@ test("窄于 1000px 侧栏变抽屉：开关打开，Esc 收起", async () => {
     const root = page.getByTestId("app-root");
     await expect(root).toHaveAttribute("data-drawer", "true");
     await expect(root).toHaveAttribute("data-sidebar", "hidden");
-    await page.getByTestId("topbar-sidebar").click();
+    await page.keyboard.press("Control+b");
     await expect(root).toHaveAttribute("data-sidebar", "shown");
     await expect(page.getByTestId("drawer-scrim")).toBeVisible();
     await page.keyboard.press("Escape");
@@ -116,7 +116,7 @@ test("设置、侧栏折叠和窗口尺寸写入 userData，重启后恢复", as
   try {
     const first = await launchApp({ STUDIO_USER_DATA: userDataDir });
     await settled(first.page, "en", "dark");
-    await first.page.getByTestId("topbar-sidebar").click();
+    await first.page.keyboard.press("Control+b");
     await expect(first.page.getByTestId("app-root")).toHaveAttribute("data-sidebar", "hidden");
     await first.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setSize(1100, 700));
     await first.app.close();

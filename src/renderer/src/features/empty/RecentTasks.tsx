@@ -26,21 +26,26 @@ export function RecentTasks({ projectId }: { projectId: ProjectId }) {
   );
   if (recent.length === 0) return null;
   return (
-    <ul className="empty-recent" aria-label={t("empty.recent")} data-testid="empty-recent">
-      {recent.map((task) => (
-        <li key={task.id}>
-          <button
-            type="button"
-            className="empty-task"
-            data-testid="empty-task"
-            onClick={() => void selectTask(task.id).catch((error: unknown) => reportError(t, error))}
-          >
-            <StatusDot task={task} t={t} />
-            <span className="empty-task-title">{task.title}</span>
-            <span className="empty-task-time">{formatTaskTime(t, locale, task.updatedAt, now)}</span>
-          </button>
-        </li>
-      ))}
-    </ul>
+    <section>
+      <h2 className="empty-recent-h">{t("empty.recent")}</h2>
+      <ul className="empty-recent" aria-label={t("empty.recent")} data-testid="empty-recent">
+        {recent.map((task) => (
+          <li key={task.id}>
+            <button
+              type="button"
+              className="empty-task"
+              data-testid="empty-task"
+              onClick={() => void selectTask(task.id).catch((error: unknown) => reportError(t, error))}
+            >
+              <span className="empty-task-top">
+                <StatusDot task={task} t={t} />
+                <span className="empty-task-title">{task.title}</span>
+              </span>
+              <span className="empty-task-time">{formatTaskTime(t, locale, task.updatedAt, now)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

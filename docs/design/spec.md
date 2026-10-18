@@ -1,4 +1,4 @@
-# omp-studio UI 规范 v1（定稿）
+# omp-studio UI 规范 v1（定稿；2.6 起色板、圆角、顶栏、脊线按方向 A「仪表」，见 `direction-2.6.md`）
 
 > 范围：`PLAN.md` 阶段 1 + 阶段 2 的全部界面。输入：`DesignCalm`（克制、结果优先）与 `DesignBold`（有辨识度的手感）两份方案，以 `PLAN.md` §2 为硬约束：**结果优先、过程默认折叠、一个主导航、遥测克制、只用 token、中英双语、遵守 reduced-motion**。
 > 配套文件：`src/renderer/styles/tokens.css`（全部变量，深浅两套，reduced-motion）。本文引用的 `--xxx` 都在那里。
@@ -34,7 +34,7 @@
 | 间距 | [Calm] `--space-N` = N×4px，外加半档 `-0-5/-1-5/-2-5/-3-5` | 比 Bold 的非线性命名直观；半档是为了组件内边距（6/10/14）也能走 token |
 | 圆角 | [融合] 两份几乎相同，取 4/6/8/12/16/pill | — |
 | 表面层级 | [Bold] 五级表面；深色下侧栏比内容区更暗，浅色下更灰 | Calm 深色侧栏比内容区更亮，与“导航退后、内容突出”相反 |
-| 强调色 | [Bold] Iris 紫（`#5B4BDB` / `#9185FF`） | 比 Calm 的靛蓝更有辨识度，且色值对比度已验证（见 §2.5）。强调色只出现在：主按钮、焦点环、选中背景/竖条、进行中状态、链接 |
+| 强调色 | [2.6 改] 松石绿（`#0B7A66` / `#3FCBAE`；原 Iris 紫作废） | 方向 A「仪表」（仓库所有者 2026-10-18 选定）。强调色只出现在：进行中状态、主输入焦点环、链接、上下文圆环、开关、选中竖条；主按钮改为近黑底（深色主题近白底），不再用强调色 |
 | 对比度修正 | [新] 深色 `--text-3` 调到 `#8A8D97`、浅色调到 `#666972`；浅色错误色调到 `#B93030`；代码注释与浅色数字色同步调亮 | 重算后 Bold 原值在深色 overlay 上 4.19、浅色悬停底上 4.17，低于 4.5:1。修正后全部主文本组合 ≥4.5:1（§2.5 表） |
 | 阴影 | [Bold] 三级 + `--shadow-composer` | 输入框是视觉焦点，值得单独一档 |
 | 动效曲线 | [Bold] ease-out-quint 为默认，一条弹簧（`linear()`） | Calm 的弹簧过冲 6%，偏弹；Bold 的 ζ≈0.8、过冲 1.5% 更克制。砍掉第二条软弹簧，只用 ease-out |
@@ -146,8 +146,8 @@
 
 | 主题 | `backgroundColor` / `color`（= `--bg-sidebar`，顶栏和侧栏的底色） | `symbolColor`（= `--text`） |
 |---|---|---|
-| 浅色 | `#F3F3F1` | `#16171A` |
-| 深色 | `#0E0F12` | `#ECEDEF` |
+| 浅色 | `#EDF0EF` | `#111816` |
+| 深色 | `#0B0E0D` | `#E6ECEA` |
 
 ### 2.2 字体
 
@@ -189,11 +189,14 @@
 | 交互态 | `--bg-hover`、`--bg-active`、`--bg-scrim` | `:active` 无位移、无缩放 |
 | 线 | `--border-subtle`（分隔）/ `--border`（外框）/ `--border-strong`（hover、输入框默认描边） | — |
 | 文本 | `--text` / `--text-2` / `--text-3` / `--text-disabled` / `--text-on-accent` | `--text-3` 只用于次要元信息，不用于可操作文字；在 `--bg-overlay`、`--bg-active` 等较亮的底上对比度较低，见下表与例外 |
-| 强调 | `--accent` / `--accent-hover` / `--accent-soft` / `--focus-ring` / `--link` / `--selection-bg` | 只出现在 §1.2 列出的几处 |
+| 强调 | `--accent` / `--accent-hover` / `--accent-soft` / `--focus-ring` / `--link` / `--selection-bg` | 松石绿；只给进行中、主输入焦点、链接、上下文圆环、开关、选中竖条 |
+| 主按钮 | `--primary` / `--primary-hover` / `--text-on-primary` | 浅色近黑底白字，深色近白底深字；每个视图最多一个 |
 | 状态 | `--st-running`（=强调色）、`--st-waiting`（点）+ `--st-waiting-text`（字）+ `--st-waiting-soft`、`--st-done`、`--st-error` + `--st-error-soft` | 四个语义色之外界面是灰的 |
 | 代码 | `--syn-*`（7 色）；`--diff-add-fg` / `--diff-del-fg`（改动卡片的 +N/−N 文字） | 评审里的行背景 `--diff-add-bg` / `--diff-del-bg`（阶段 3 加入，深浅色各一份） |
 
-已用脚本按 WCAG 2.x 相对亮度算过的关键组合（≥4.5:1 文字，≥3:1 非文字）：
+2.6 起的色板（浅 / 深，均为带一点绿的矿物灰；数值来自 `direction-2.6.md` §3，对比度按 WCAG 公式算过）：`--bg-sidebar` `#EDF0EF` / `#0B0E0D`，`--bg-app` `#F8FAF9` / `#111514`，`--bg-raised` `#FFFFFF` / `#171C1A`，`--text` `#111816`（17.2）/ `#E6ECEA`（15.4），`--text-2` `#4B5652`（7.3）/ `#A3AFAB`（8.1），`--text-3` `#5F6A66`（5.4）/ `#7F8B87`（5.2），`--accent` `#0B7A66`（5.0）/ `#3FCBAE`（9.1），`--st-waiting` 点 `#B76E00` 字 `#8E5A00`（5.5）/ `#F0B545`，`--st-error` `#B42E2E`（5.9）/ `#F27373`。**`--st-done` = `--text-2`**：完成是中性对勾，不再用绿色（免得和强调色混淆）；`--diff-add-fg` 用强调色，`--diff-del-fg` = `--st-error`。圆角整体收小一档：`--radius-xs/sm/md/lg/xl` = 3 / 4 / 6 / 8 / 10（卡片 8、输入框 10、按钮 6）。
+
+下表是 v1 旧色板的计算结果，仅作方法参考；新色板的组合以上面一段为准（`--accent` 在 `--bg-app` 5.0，`--text-on-accent` 在 `--accent` 5.3 / 8.4，`--text-3` 在 `--bg-sidebar` 4.9）：
 
 | 组合 | 深色 | 浅色 |
 |---|---|---|
@@ -236,17 +239,14 @@
 
 ### 3.1 窗口
 
-- `BrowserWindow`：`titleBarStyle: "hidden"`，`titleBarOverlay: { color, symbolColor, height: 40 }`（取值见 §2.1），`backgroundColor` 同 `color`；默认 1200×800，最小 800×560；`Menu.setApplicationMenu(null)`，快捷键用 `before-input-event` 处理（编辑类 Ctrl+C/V/X/A 保持 Chromium 默认 [推测，无菜单时需在 Windows 实测]）。
-- **顶栏（通栏，高 40）**：照 Claude 桌面版，窗口最上方一条横跨全宽的顶栏，底色 `--bg-sidebar`（与 `titleBarOverlay.color` 相同，系统三键融进同一条）。
-  - 左侧从 `--space-3` 开始，4 个 32×32 图标按钮，间距 `--space-1`，图标 18px、`--text-2`，hover `--bg-hover`、圆角 `--radius-sm`：
-    1. `≡` 应用菜单：弹出菜单（新任务 Ctrl N、命令面板 Ctrl K、设置 Ctrl ,、语言、主题、帮助与反馈、关于、退出）。替代系统菜单栏，`Alt` 键也打开它。
-    2. 侧栏开关（Ctrl B）：收起时主区面板向左铺满，动画用 `--dur-2`，reduced-motion 下直接切换。
-    3. `←` 后退（Alt+←）、4. `→` 前进（Alt+→）：在"看过的视图"之间切换（任务、设置），由渲染进程维护一个导航历史栈；不能走时按钮置灰 `--text-disabled`，不隐藏。
-  - 右侧：系统三键左边留一个文字链接位，`--text-sm`、`--accent`。第一版放"新功能 / What's new"（打开应用内更新说明，没有内容时不显示）；omp 有可用升级时这个位置换成"omp 可升级"。
-  - 顶栏其余空白全部 `-webkit-app-region: drag`，按钮 `no-drag`；双击空白最大化/还原（系统行为）。
-  - 顶栏不放任务标题；任务标题放在主区面板顶部的面板头里（高 44，`--text-md` 600，左对齐，右侧放进度胶囊和 `⋯`）。
-- **主区面板**：顶栏下方，侧栏右边。底色 `--bg-app`，**左上角圆角 `--radius-lg`**，其余直角贴窗口边；面板与侧栏之间不画分隔线，靠 `--bg-sidebar` / `--bg-app` 的底色差和圆角区分。侧栏收起时圆角保留在面板左上角。
-- 右侧为系统三键让位：顶栏右侧 `padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw))`。
+- `BrowserWindow`：`titleBarStyle: "hidden"`，`titleBarOverlay: { color, symbolColor, height: 36 }`（取值见 §2.1），`backgroundColor` 同 `color`；默认 1200×800，最小 800×560；`Menu.setApplicationMenu(null)`，快捷键用窗口内 `keydown` 处理。
+- **顶栏 = 任务条（通栏，高 36）**：底色 `--bg-sidebar`（与 `titleBarOverlay.color` 相同，系统三键融进同一条）。三段：
+  - 左段（宽 = 侧栏宽，侧栏收起/抽屉时自适应）：`padding-left: --space-3`，标志（圆环里一个 π，只用 `--accent` 描线，22px；临时版）+ `≡` 应用菜单按钮（28×28，图标 16px，`--text-2`，hover `--bg-hover`，`--radius-sm`）。菜单：新任务 Ctrl N、命令面板 Ctrl K、**切换侧栏 Ctrl B**、设置 Ctrl ,、语言、主题、帮助与反馈、关于、退出；`Alt` 键也打开它。
+  - 中段（左缘对齐主区面板）：`项目 / 任务标题`（`--fs-sm`；项目 `--text-2`，标题 `--text` 600，过长省略）+ 运行状态：`--fs-xs`，运行中 = 8px `--st-running` 圆点 + `window.runningFor`（“运行中 · 1分12秒”，每秒更新，`--accent`）；等你确认 = 琥珀菱形 + `status.waiting`；出错 = 红点 + `status.error`；空闲不显示。空状态显示 `项目 / 新任务`，设置页只显示页面标题。
+  - 右段：系统三键（`titleBarOverlay` 绘制）；顶栏右侧 `padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw))` 让位。
+  - **没有后退/前进/侧栏开关按钮**（仓库所有者 2026-10-18 确认）：后退/前进在 `Alt+←/→` 和鼠标侧键（button 3/4），侧栏开关在菜单和 `Ctrl B`。导航历史栈仍在渲染进程。
+  - 其余空白全部 `-webkit-app-region: drag`，按钮和任务条 `no-drag`；双击空白最大化/还原（系统行为）。
+- **主区面板（“纸面”）**：顶栏下方，侧栏右边。底色 `--bg-app`，1px `--border`，**四个角都是 `--radius-xl`**，右边和下边各留 `--space-2` 的窗口底色，像一张放在桌上的纸；侧栏收起或作为抽屉时左边也留 `--space-2`。面板与侧栏之间不画分隔线。
 - 单实例（二次启动聚焦已有窗口）；记忆位置/尺寸/最大化/侧栏宽度/侧栏折叠/折叠的项目组。
 - 不用 Mica/毛玻璃。
 
@@ -292,7 +292,7 @@
 |---|---|---|---|
 | `running` | 8px 实心圆 + 16px 呼吸环 | `--st-running` | `status.running`（有子代理：`status.runningAgents`） |
 | `await` | 7px 实心**菱形**（旋转 45° 的方块），静止；出现时外圈闪一次 | `--st-waiting` | `status.waiting` |
-| `done-unread` | 12px 对勾（描边 1.5） | `--st-done` | `status.done` |
+| `done-unread` | 12px 对勾（描边 1.5），**中性色**，不用绿 | `--st-done`（= `--text-2`） | `status.done` |
 | `error` | 12px 圆内感叹号 | `--st-error` | `status.error` |
 | `idle` / `aborted` / `dormant` | 不画（槽位保留，标题对齐）；`aborted` 在尾部显示 `task.stopped` | — | — |
 
@@ -332,12 +332,14 @@
 ### 4.7 EmptyState
 
 - **输入框贴主区底部**（2026-10-18 返工，空状态和对话中同一位置）；上方区域（垂直居中）是项目头和该项目最近的 ≤3 个任务。项目名 `--fs-2xl` `--font-display` `--text`，同一行右侧路径 `--fs-sm` `--text-3`（tooltip 完整路径）。项目名点击 = 换项目菜单（最近 8 个 + `empty.openFolder`）。
-- 最近任务：状态点 + 标题 + 相对时间，高 32，可点（`selectTask`）；归档的不算。**不再有历史会话列表**：历史只在侧栏，侧栏搜索框能搜到任务和历史会话（含终端里的）。**没有欢迎语、插画、示例提示卡。**
+- 最近任务：三列卡片（`--bg-raised` + `--border`，`--radius-lg`，最小高 76）：状态点 + 标题（≤2 行），底部等宽字体相对时间，卡片上方小标题 `empty.recent`；可点（`selectTask`）；归档的不算。**不再有历史会话列表**：历史只在侧栏，侧栏搜索框能搜到任务和历史会话（含终端里的）。**没有欢迎语、插画、示例提示卡。**
 - 无任何项目时：引导卡片 H 状态（§4.22）。
 
 ### 4.8 UserMessage
 
-左对齐，宽 ≤ 列宽；`--bg-raised` + 1px `--border-subtle`，`--radius-lg`，`padding: --space-2-5 --space-3-5`；`--fs-prose`；`white-space: pre-wrap; overflow-wrap: anywhere`。>12 行折叠成前 8 行 + 渐隐 + `common.expand`（展开状态不记忆）。附件：文字上方一排 64×64 缩略图（`--radius-md`，点击用系统默认查看器打开）。hover 右下外侧出现 `复制`。出现动画见 §2.6。
+**运行脊线**（2.6，整条对话流的结构，方向 A 的主要识别元素）：对话列左侧一条 `--spine-line`（2px）`--border` 竖线，线在列左缘 `--spine-node`（16）宽的槽里居中；每个 `.turn` 的内容缩进 `--spine-indent`（34），节点画在缩进里（节点用块自己的伪元素，避免 `content-visibility` 的裁剪）：用户消息 = 12px 空心圆（`--text-3` 描边、`--bg-app` 填充）；折叠的过程行 = 8px `--text-3` 实心点；结论 = 14px `--accent` 实心圆；进行中的过程行 = 16px 带环的圆（`--st-running` 环 + 中心点，呼吸环）；等你确认 = 7px 琥珀菱形。改动卡片、门、泳道、错误条不画节点，线从旁边穿过。节点与块的垂直位置对齐该块第一行文字的中线，所有尺寸固定，流式追加内容不会推动已有节点（不跳动）。线不画在输入框区域。
+
+左对齐，宽 ≤ 缩进后的列宽；`--bg-raised` + 1px `--border-subtle`，`--radius-lg`，`padding: --space-2-5 --space-3-5`；`--fs-prose`；`white-space: pre-wrap; overflow-wrap: anywhere`。>12 行折叠成前 8 行 + 渐隐 + `common.expand`（展开状态不记忆）。附件：文字上方一排 64×64 缩略图（`--radius-md`，点击用系统默认查看器打开）。hover 右下外侧出现 `复制`。出现动画见 §2.6。
 - 状态：默认 / 发送失败（下方一行 `--fs-xs` `--st-error`：`msg.sendFailed` · `msg.retry`）。运行中发出的消息**不在流里**，只在队列条里；进入会话后才作为气泡出现。
 
 ### 4.9 AssistantMessage 与 Markdown
@@ -371,11 +373,11 @@
 
 **运行中（一行实时状态）**——高 28，`--fs-xs`，`padding: 0 --space-1-5`，`margin-left: -6px`（文字与正文对齐），`--radius-sm`：
 
-`[StatusDot(running) 12px] [当前动作 单行省略 flex:1] [· 1 分 12 秒 tabular-nums] [›]`
+`[当前动作 单行省略 flex:1] [· 1 分 12 秒 tabular-nums] [›]`
 
 - 当前动作文字优先 `tool_execution_start.intent` 原话（✔ 主代理事件带 `intent`，可选字段）；缺失时 `tool.verb.*` 映射（`read`→`tool.verb.read` …，未知工具 `tool.verb.other`）。其它阶段：`process.starting`、`process.thinking`、`process.replying`、`process.retrying`、`process.compacting`（来自 `auto_retry_*`、`auto_compaction_*`）。有进行中的子代理时尾部追加 `· {n} 个子代理`。
 - 一次只换一条：旧文字 `--dur-fast` 淡出、新文字淡入，**不位移**，高度固定。
-- 等你确认：点换琥珀菱形，文字 `process.waiting`（暂停时长每秒更新）。
+- 运行状态由脊线节点表达（行内不再画点）。等你确认：脊线节点换琥珀菱形，文字 `process.waiting`（暂停时长每秒更新）。
 - 点击 = 展开完整工具列表（实时追加在列表底部；若用户不在底部则不改变视口）。可聚焦按钮，`aria-expanded`，`Ctrl O` 切换最近一个。
 
 **已结束（折叠）**——同样高 28、`--text-3`，左 chevron 14px：`process.done`（≥60 s 用 `duration.ms`，≥1 h 用 `duration.hm`）`· {n} 次工具调用`（有子代理再 `· {m} 个子代理`；有失败再 `· {k} 次失败`，`--st-error`）。不足 1 秒或 0 次工具调用的轮次**不显示此行**。时长 = 主进程接收 `agent_start` 到终止 `agent_end` 的时间（帧无时间戳，`docs/architecture/subagents.md`），等待确认的时间扣除；扣除超过 5 秒时在展开区顶部写 `process.waited`。hover：文字 `--text-2`。
@@ -466,7 +468,7 @@
 - 计时：请求带 `timeout`（毫秒）时，门顶边画 2px `--st-waiting` 线，从满到空线性缩短（reduced：不动画，只更新右上角 `0:25` 读数），右上角 `0:25`（tabular）；最后 10 秒读数变 `--st-waiting-text`；`ask` 超时会替用户选推荐项（没推荐选第一项），所以 ask 门写明 `gate.timeoutAsk`；其余写 `gate.timeout`。收到 `cancel`（`targetId`）→ 门收起为 `gate.cancelled` 或 `gate.timedOut` 一行，1.2 秒后消失；之后的回答 omp 会忽略，界面不再发。
 - 所有 `title`/`message`/`options` 都是**不可信文本**：纯文本渲染，保留换行，不渲染 Markdown/HTML；长文本在门内滚动。
 
-**外观**：`--bg-overlay`，`1px solid` `--st-waiting`（50% 透明度混合），`--radius-lg`，`--shadow-2`，`padding: --space-3-5 --space-4`，最大高 `min(60vh, 520px)` 内部滚动；头部 7px 菱形 + 标题（`--fs-base` `--fw-strong`）+ 右侧计时；按钮高 `--control-h-md`，`--radius-md`，`padding: 0 --space-3-5`，右侧各带键帽（`1`、`Esc`…）；主按钮 `--accent`，次按钮透明 + `--border`，拒绝类 hover 时文字变 `--st-error`。
+**外观**：`--bg-overlay`，`1px solid` `--st-waiting`（50% 透明度混合），`--radius-lg`，`--shadow-2`，`padding: --space-3-5 --space-4`，最大高 `min(60vh, 520px)` 内部滚动；头部 7px 菱形 + 标题（`--fs-base` `--fw-strong`）+ 右侧计时；按钮高 `--control-h-md`，`--radius-md`，`padding: 0 --space-3-5`，右侧各带键帽（`1`、`Esc`…）；主按钮 `--primary`，次按钮透明 + `--border`，拒绝类 hover 时文字变 `--st-error`。
 
 **按 `method` 的变体**
 
@@ -497,12 +499,12 @@
 
 ### 4.19 SettingsPage
 
-占据主区的页面（侧栏保留，当前任务不卸载）；入口：侧栏 `设置`、`Ctrl ,`、命令面板。返回：`Esc` 或 `‹ 返回`，回到进入前的任务、滚动位置与焦点元素。左侧 160 宽分节列表（`通用 / 模型与账号 / omp / 用量`），右侧内容列最大 640；节标题 `--fs-xl`；分组卡片 `--bg-raised` + `--radius-lg`，设置行高 56（左：`--fs-base` + 描述 `--fs-xs` `--text-3`；右：控件），行间 1px `--border-subtle`。
+占据主区的页面（侧栏保留，当前任务不卸载）；入口：侧栏 `设置`、`Ctrl ,`、命令面板。返回：`Esc` 或 `‹ 返回`，回到进入前的任务、滚动位置与焦点元素。左侧 168 宽分节列表（`通用 / 模型与账号 / 用量 / omp / 关于` + omp 设置分组），右侧内容列**最大 880、左对齐**（窗口变宽时右侧留白，不把控件拉开）；节标题 `--fs-xl`；**两栏表格式**：分组标题（`--fs-xs` `--text-3`，下一条 `--border` 线）+ 无底色的行，行高 ≥44、行间 1px `--border-subtle`；每行左列固定宽 208 放标签（`--fs-base`，说明放标签后的 `ⓘ`，不另起灰字），控件紧跟标签列左对齐，不再拉到最右。适用于所有分节，含 omp 设置分组和用量。
 
 | 节 | 内容 |
 |---|---|
 | 通用 | 语言（跟随系统 / 简体中文 / English）；主题（跟随系统 / 浅色 / 深色）；减少动效（开关，系统已要求时始终生效）；运行中按 Enter（插话 / 稍后）；系统通知（有任务在等你时）；快捷键（只读列表，v1 不可自定义） |
-| 模型与账号 | 提供商列表（§4.20）；新任务的默认模型、默认思考强度——**就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，经 `omp config` 读写**，和草稿输入框的模型胶囊是同一份（PLAN 设计原则 7）。审批模式不在这里：在输入框胶囊或 omp 设置分组里改 |
+| 模型与账号 | **自定义提供商**（在提供商列表上方，`features/settings/CustomProviders.tsx`）：`models.yml` 里 `providers.*` 的列表（ID、Base URL、模型数 · key 状态），`添加提供商` / `编辑` / `删除`（删除先 `ConfirmDialog`）；表单行内展开（`.st-login` 卡，标签列 112）：ID（编辑时只读）、Base URL、接口类型、key（分段：密钥 / 环境变量 / 无需 key，编辑时多一个“保持不变”；密钥默认遮住，`显示 / 隐藏`）、模型（`拉取模型` 后勾选，可筛选、全选，手动添加；拉取失败用一句人话写在按钮下面）；保存后 toast，新模型出现在模型选择器。直接读写 omp 的 `models.yml`，见 `docs/architecture/custom-models.md`。提供商列表（§4.20）；新任务的默认模型、默认思考强度——**就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，经 `omp config` 读写**，和草稿输入框的模型胶囊是同一份（PLAN 设计原则 7）。审批模式不在这里：在输入框胶囊或 omp 设置分组里改 |
 | omp | 路径、版本、来源（`由 Tern 管理` / `由 omp-studio 管理` / `你自己安装的`）、`检查更新`；受管者管理时升级按钮禁用并写 `omp.updateInTern`；自管时显示自动更新开关 |
 | 用量 | 默认只显示 `settings.usage.hidden` + `显示用量` 按钮，点击后才请求 `get_session_stats`，展示**当前任务**的 token 与费用；未打开任务时 `settings.usage.noTask`。这是 token/费用的唯一入口之一（另一个是命令面板“查看用量”→ 本节） |
 
@@ -539,7 +541,7 @@
 
 | 控件 | 规格 |
 |---|---|
-| Button | 高 `--control-h-md`（弹窗/首次启动用 `-lg`），`--radius-md`，`--fs-sm`，`padding: 0 --space-3-5`。主：`--accent` 底、`--text-on-accent`（每个视图最多一个）；次：透明底、`1px --border-strong`；文本：无框 `--link`；危险：次按钮样式、`--st-error` 字。加载：14px 环替换文字，**宽度固定** |
+| Button | 高 `--control-h-md`（弹窗/首次启动用 `-lg`），`--radius-md`，`--fs-sm`，`padding: 0 --space-3-5`。主：`--primary` 底、`--text-on-primary`（近黑 / 深色近白，每个视图最多一个）；次：透明底、`1px --border-strong`；文本：无框 `--link`；危险：次按钮样式、`--st-error` 字。加载：14px 环替换文字，**宽度固定** |
 | Menu / Popover | `--bg-overlay`，`--shadow-2`，`--radius-lg`，`padding: --space-1`，项高 `--row-menu`(32)、`--radius-sm`、`padding: 0 --space-2-5`，分隔线 `--border-subtle` 上下 `--space-1`，最大高 360。打开→焦点进当前/首项；`Esc` 关闭并把焦点还给触发器；`Tab` 关闭 |
 | Tooltip | 延迟 500ms（已有一个显示时 0ms；键盘聚焦立即），`--bg-overlay`，`--shadow-2`，`--fs-xs`，`--radius-sm`，最大宽 280；带快捷键时尾随 Kbd |
 | Toast | 右下，距边 `--space-4`，宽 `--toast-w`，叠放最多 3，`--bg-overlay`，`--shadow-2`，`--radius-lg`，`[图标][文字][可选一个文字按钮][×]`；5 秒（悬停暂停）；错误与保存失败不自动消失；`role="status"`（错误 `role="alert"`）；跨任务“等你确认”toast 点击切到该任务，不抢焦点 |
@@ -765,11 +767,10 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `time.minutes` | {n} 分钟 | {n}m |
 | `time.hours` | {n} 小时 | {n}h |
 | `time.yesterday` | 昨天 | Yesterday |
-| `window.toggleSidebar` | 切换侧栏 | Toggle sidebar |
 | `window.more` | 更多 | More |
 | `window.menu` | 菜单 | Menu |
-| `window.back` | 后退 | Back |
-| `window.forward` | 前进 | Forward |
+| `window.runningFor` | 运行中 · {time} | Running · {time} |
+| `menu.toggleSidebar` | 切换侧栏 | Toggle sidebar |
 | `window.whatsNew` | 新功能 | What's new |
 | `window.ompUpdate` | omp 可升级 | omp update available |
 | `menu.helpFeedback` | 帮助与反馈 | Help & feedback |

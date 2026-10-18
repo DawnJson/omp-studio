@@ -98,12 +98,22 @@ export function useShortcuts(actions: ShortcutActions): void {
       altAlone = false;
     };
 
+    // 鼠标侧键（button 3 = 后退，4 = 前进）：顶栏没有前进后退按钮，侧键和 Alt+←/→ 是仅有的入口。
+    const onMouseUp = (event: MouseEvent) => {
+      if (event.button !== 3 && event.button !== 4) return;
+      event.preventDefault();
+      if (event.button === 3) latest.current.goBack();
+      else latest.current.goForward();
+    };
+
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("pointerdown", cancelAlt, true);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("pointerdown", cancelAlt, true);
     };
   }, []);

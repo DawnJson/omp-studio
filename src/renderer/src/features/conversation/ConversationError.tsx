@@ -18,7 +18,9 @@ export function ConversationError({ taskId, error }: { taskId: TaskId; error: Ta
           ? t("error.tooManyTasks")
           : error.kind === "restore_model_failed"
             ? t("error.modelUnavailable")
-            : describeError(t, error);
+            : error.kind === "worktree_missing"
+              ? t("error.worktreeMissing")
+              : describeError(t, error);
   const reconnect = () => {
     window.studio.restartTask(taskId).catch((cause: unknown) => reportError(t, cause));
   };
@@ -31,9 +33,11 @@ export function ConversationError({ taskId, error }: { taskId: TaskId; error: Ta
   return (
     <div className="inline-error" role="alert" data-testid="task-error">
       <span className="inline-error-text">{text}</span>
-      <button type="button" className="inline-error-action" onClick={reconnect}>
-        {t("error.reconnect")}
-      </button>
+      {error.kind !== "worktree_missing" && (
+        <button type="button" className="inline-error-action" onClick={reconnect}>
+          {t("error.reconnect")}
+        </button>
+      )}
       <button type="button" className="inline-error-action" onClick={copy}>
         {t("error.copyDetails")}
       </button>

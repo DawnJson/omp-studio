@@ -25,6 +25,7 @@ import type {
   SessionState,
   ThinkingLevel,
 } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import { stat } from "node:fs/promises";
 import { log } from "../log/log.ts";
 import { RpcProtocolError } from "../omp/frame-decoder.ts";
 import type { OmpExit, OmpLaunch } from "../omp/omp-connection.ts";
@@ -244,6 +245,16 @@ export class TaskRunner {
     this.#apply({ type: "start" });
     let connection: OmpConnection | null = null;
     try {
+      // worktree 被删了（用户手动删、omp worktree clear…）：和 omp 一致，只能看记录。在占进程名额之前拒绝。
+      const worktreePath = this.#record.worktreePath;
+      if (
+        worktreePath !== null &&
+        !(await stat(worktreePath).then(
+          () => true,
+          () => false,
+        ))
+      )
+        throw new TaskStartError({ kind: "worktree_missing", message: "the task's worktree no longer exists" });
       await this.#host.acquireSlot(this.id);
       this.#assertNotClosing();
       const launch = await this.#buildLaunch();

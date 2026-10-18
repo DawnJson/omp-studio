@@ -25,13 +25,20 @@
 
 ## Worktree（阶段 4）
 
-- **位置**：`<仓库的上级目录>/.omp-studio-worktrees/<仓库目录名>/<slug>`。不在仓库内，主仓库的 `git status` 看不到。slug 是随机 8 位十六进制（创建时任务还没有标题）。分支 `studio/<slug>`，从主仓库**当前 HEAD** 建出；主仓库里没提交的改动不带过去。
+- **继承 omp**：worktree 由 `omp worktree add -C <仓库> -b studio/<slug> -q <目录> HEAD` 创建（omp 路径用 omp-manager 当前就绪的那份；e2e 里任务进程是假 omp，用未打包时才认的 `STUDIO_TEST_WORKTREE_OMP` 指向真 omp）。
+  - **目录**：`add` 必须给 PATH，omp 自己不选目录；但 `omp worktree list/clear` 只认 omp 的 worktree 目录下的东西，所以我们把目录放进去：解析顺序和 omp 的 `getWorktreesDir` 一致——环境变量 `OMP_WORKTREE_DIR`（绝对或 `~` 开头）→ 设置 `worktree.base`（`omp config get worktree.base --json`）→ `~/.omp/wt`。目录名 `<slug>-<仓库路径哈希前 7 位>`（和 omp 给 PR worktree 起名 `<编号>-<仓库哈希>` 同一风格，不同仓库不会撞名）。
+  - **分支**：仍是 `studio/<slug>`（omp 的 `add` 不替你起名；`studio/` 前缀让合并、丢弃、清理能认出哪些是我们建的）。
+  - **旧数据**：已有 `.omp-studio-worktrees` 下的 worktree 不迁移，tasks.json 里存的是绝对路径，照常可用；合并、丢弃、清理都不依赖位置。
+  - **clone-first**：`worktree.clone` 默认 true，omp 会先尝试写时复制克隆（带上 node_modules 等被忽略的构建产物），文件系统不支持时退回普通检出并在 stderr 警告、退出码 0。实测在 Windows NTFS 上总是退回（`Windows block clone unsupported … os error 1`）；我们不改这个设置，omp 的行为就是 omp 的行为。
+  - **哪些走 omp、哪些走 git（omp 没有接口）**：创建走 omp。单个删除没有接口（`omp worktree clear` 按目录整体清，不带 `--all` 只清"不活跃的"，`--all` 清目录下全部，跨仓库、不会删分支），所以删除、合并回基分支（omp 没有 merge）、无主清理、状态/diff、提交/推送都走 git；PR 走 gh。
+  - 实测（omp 18.12.1，临时 `PI_CODING_AGENT_DIR` 且 `USERPROFILE`/`HOME` 指向临时目录）：不给 PATH 报 `Missing required argument: path`；`-b` 新建分支；`add` 的 `--json` 没有输出；`list --json` 输出 `[{path, kind: "pr-checkout", parentRepo, branch}]`，只含 omp 目录下的；默认目录取决于 `~`，不受 `PI_CODING_AGENT_DIR` 影响。
 - **前提**：项目目录必须正好是仓库根（任务 cwd = worktree 根，子目录项目对应不上）、已有提交、不在 detached HEAD；否则创建被拒绝，不留任务记录。创建时所在分支存为 `worktreeBase`，之后合并回它。
 - **TaskRecord**：`worktreePath`（早就预留）+ 新增 `worktreeBranch`、`worktreeBase`。读老的 tasks.json 时缺字段补 `null`，已有任务不受影响。`CreateTaskInput.worktree?: boolean`；`TaskRunner.cwd` 和 omp 启动的 cwd 都取 `worktreePath ?? project.path`。
 - **setup 脚本**：主仓库 `.omp-studio/setup.ps1`（Windows，优先）、`.omp-studio/setup.cmd`（Windows）、`.omp-studio/setup.sh`（其他系统），取第一个存在的，在新 worktree 里运行，环境变量 `OMP_STUDIO_PROJECT_DIR`、`OMP_STUDIO_WORKTREE_DIR`，超时 10 分钟。读的是主仓库里的那份（可以没提交）。**失败则整个创建回滚**（移除 worktree 和分支，错误里带输出末尾 2000 字符）：在没装好依赖的目录里让 agent 干活只会产生误导性的失败。脚本是仓库里的可执行内容，所以只在用户明确选了 worktree 时运行；`getWorktreeSetupScript(projectId)` 让界面事先提示"会运行 xxx"。
 - **合并**：在主仓库里 `git merge --no-edit <分支>`（能快进就快进）。拒绝（`blocked`）的情况：主仓库不在基分支、worktree 有任何未提交内容、主仓库有未提交的已跟踪改动。没有新提交 → `nothing_to_merge`。**冲突不自动解决**：`merge --abort` 退回合并前，返回冲突文件列表。合并不删除 worktree。
-- **丢弃**（`TaskPool.discardWorktree`）：先关任务进程（Windows 上进程占着目录删不掉），`worktree remove --force` + `rm` 兜底 + `prune` + `branch -D`，清空记录里的 worktree 字段，再归档任务（侧栏移除）。含未提交和未合并的内容，界面必须先确认。归档任务本身不删 worktree。
-- **清理无主 worktree**：先 `worktree prune`；再看 `.omp-studio-worktrees/<仓库>/` 下没有任何任务记录（含已归档）引用的目录：干净、分支是 `studio/` 前缀且已合入 HEAD 的删除；有未提交改动（`dirty`）、有未合并提交（`unmerged`）、git 不认识或不是 `studio/` 分支（`unregistered`）的保留并报告。
+- **丢弃**（`TaskPool.discardWorktree`）：先关任务进程（Windows 上进程占着目录删不掉），`worktree remove --force` + `rm`（EBUSY 等重试）+ `prune` + `branch -D`，清空记录里的 worktree 字段，再归档任务（侧栏移除）。移除前必须是 git 登记在这个仓库名下、检出的正是任务分支的 worktree，分支必须是 `studio/` 前缀（位置不再固定，所以按登记认，不按路径认）。含未提交和未合并的内容，界面必须先确认。归档任务本身不删 worktree。
+- **清理无主 worktree**：先 `worktree prune`；再看 git 登记的、分支是 `studio/` 前缀、没有任何任务记录（含已归档）引用的 worktree（不管在 omp 的目录还是旧位置）：干净且分支已合入 HEAD 的删除；有未提交改动（`dirty`）、有未合并提交（`unmerged`）的保留并报告。不是 `studio/` 分支的 worktree 不是我们的，不碰。不用 `omp worktree clear`：它按目录整体清，`--all` 会清掉别的仓库、别的工具建的。
+- **worktree 被删除的任务**：启动前检查 `worktreePath` 是否还在，不在就拒绝启动，状态是 `error`、`TaskError.kind = "worktree_missing"`（不占进程名额，也不退回项目目录）。和 omp 一致：只能查看记录（对话流照常显示），不能继续聊；界面显示一行说明、隐藏"重新连接"、输入框禁用。
 - 已知局限：归档的 worktree 任务被恢复时（`resume`）会按 `worktreePath` 启动；丢弃后再恢复同一任务则回到项目目录，而它的会话文件里记的 cwd 是已删除的 worktree。恢复的 UI 需要决定怎么处理，这里没有改 `resume`。
 
 ## 提交、推送、PR
@@ -53,6 +60,6 @@
 
 ## 测试
 
-`test/git-*.test.ts`，全部在真实临时仓库里跑，目录名带空格和中文：`git-review`（状态、diff 解析、hunk 暂存/取消/丢弃、过期 hunk、二进制/过大、路径校验）、`git-worktree`（创建、setup 脚本、回滚、合并、冲突、丢弃、清理）、`git-remote`（提交、push 含被拒、gh 不可用）、`git-pure`（评论格式化、status 解析）、`git-task-worktree`（任务池接线）。`gh pr create` 的成功路径没有测（没有可用的 GitHub 仓库）。
+`test/git-*.test.ts`，全部在真实临时仓库里跑，目录名带空格和中文：`git-review`（状态、diff 解析、hunk 暂存/取消/丢弃、过期 hunk、二进制/过大、路径校验）、`git-worktree`（真实 omp 创建、omp 目录解析、setup 脚本、回滚、合并、冲突、丢弃、清理、旧位置兼容）、`git-remote`（提交、push 含被拒、gh 不可用）、`git-pure`（评论格式化、status 解析）、`git-task-worktree`（任务池接线、worktree 被删后拒绝启动）。创建 worktree 的用例需要 PATH 上有真实 omp，没有就 skip；测试把 `OMP_WORKTREE_DIR`、`PI_CODING_AGENT_DIR`、`USERPROFILE`/`HOME` 都指到临时目录，不碰开发机的 `~/.omp`。`gh pr create` 的成功路径没有测（没有可用的 GitHub 仓库）。
 
 界面的端到端是 `test/e2e/git-worktree.e2e.ts`（真实临时仓库 + 本地裸仓库 + 假 omp；`FAKE_OMP_CWD_FILE` 让假 omp 记下启动目录，据此断言任务在 worktree 里运行）：胶囊 → 创建 → 提交 → 合并 → 推送 → 丢弃 → 清理；冲突和被拒绝的合并；非 git 项目的胶囊禁用。

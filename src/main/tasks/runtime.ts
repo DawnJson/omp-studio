@@ -5,12 +5,15 @@ import path from "node:path";
 import { app, Notification } from "electron";
 import { resolveLocale } from "../settings/settings-store.ts";
 import { getMainWindow } from "../window/main-window.ts";
+import { showMainWindow } from "../window/show-window.ts";
+import { refreshTray } from "../window/tray.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
 import { GateNotifier, retainNotification } from "./gate-notifier.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { appHandlers } from "../ipc/app-handlers.ts";
 import { buildOmpLaunch, setTestOmpOverride } from "../omp/launch.ts";
 import { parseTestOmpOverride } from "../omp/launch-args.ts";
+import { getOmpExecutable } from "../omp-manager/index.ts";
 import { assignToAppJob } from "../platform/win32/job-object.ts";
 import { createWorktree, removeWorktree } from "../git/worktree.ts";
 import { SetupConsent } from "../git/setup-consent.ts";
@@ -24,11 +27,21 @@ export function getSetupConsent(): SetupConsent {
   return consent;
 }
 
+/**
+ * 创建 worktree 用的 omp。e2e 里任务进程是假 omp（getOmpExecutable 返回的是它），而 worktree 要真 omp 来建：
+ * 未打包时 `STUDIO_TEST_WORKTREE_OMP` 指向真实 omp 的路径。
+ */
+async function worktreeOmpPath(): Promise<string> {
+  const override = app.isPackaged ? undefined : process.env["STUDIO_TEST_WORKTREE_OMP"];
+  return override ?? (await getOmpExecutable()).path;
+}
+
 // 项目路径在创建 worktree 时已确认是仓库根（createWorktree），移除时直接用它。
 // setup 脚本只运行用户确认过（项目 + 内容哈希）的那份；这里是主进程侧的强制检查，不依赖渲染进程。
 const worktreeOps: WorktreeOps = {
   create: async (project) => {
     const created = await createWorktree(project.path, {
+      ompPath: await worktreeOmpPath(),
       approveSetup: (script) => getSetupConsent().isApproved(project.path, script.sha256),
     });
     return { path: created.path, branch: created.branch, base: created.baseBranch };
@@ -48,6 +61,7 @@ function createPool(): Promise<TaskPool> {
     enabled: async () => (await appHandlers.getSettings()).notifyOnGate,
     locale: resolveLocale,
     windowFocused: () => getMainWindow()?.isFocused() ?? false,
+    windowHidden: () => !(getMainWindow()?.isVisible() ?? false),
     projectName: (task) => registry.findProject(task.projectId)?.name ?? "",
     show: (content, onClick) => {
       const notification = new Notification(content);
@@ -55,14 +69,13 @@ function createPool(): Promise<TaskPool> {
       notification.on("click", onClick);
       notification.show();
     },
-    // 点通知：聚焦窗口，渲染进程收到 focusTask 后切到该任务。
+    // 点通知：显示并聚焦窗口（可能隐藏在托盘），渲染进程收到 focusTask 后切到该任务。
     onClick: (id) => {
-      const window = getMainWindow();
-      if (!window) return;
-      if (window.isMinimized()) window.restore();
-      window.show();
-      window.focus();
-      emitEvent("focusTask", id);
+      const existed = getMainWindow() !== null;
+      const window = showMainWindow();
+      if (existed) emitEvent("focusTask", id);
+      // 窗口是新建的（旧的被销毁了）：等页面加载完、渲染进程订阅好事件再发。
+      else window.webContents.once("did-finish-load", () => setTimeout(() => emitEvent("focusTask", id), 500));
     },
   });
   const taskPool = new TaskPool({
@@ -83,10 +96,14 @@ function createPool(): Promise<TaskPool> {
       state: (state) => {
         emitEvent("taskState", state);
         void notifier.onState(state);
+        refreshTray(taskPool.listTasks());
       },
       transcript: (batch) => emitEvent("transcript", batch),
       notice: (notice) => emitEvent("taskNotice", notice),
-      taskRemoved: (id) => emitEvent("taskRemoved", id),
+      taskRemoved: (id) => {
+        emitEvent("taskRemoved", id);
+        refreshTray(taskPool.listTasks());
+      },
       slashCommands: (taskId, commands) => emitEvent("slashCommands", { taskId, commands }),
       subagents: (taskId, lanes) => emitEvent("subagents", { taskId, lanes }),
     },

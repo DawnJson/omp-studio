@@ -243,21 +243,82 @@
     box-shadow: 0 0 0 0 var(--accent-soft);
   }
 }
-.process-dot {
-  flex: none;
+
+/* 运行脊线（direction-2.6 §3）：.column 左侧一条细竖线，每一轮挂在线上。
+   空心圆 = 你的消息，小灰点 = 折叠的过程，实心圆 = 结论，带环的圆 = 正在进行（等你确认时是琥珀菱形）。
+   节点画在各块自己的伪元素上（.turn 的 content-visibility 会裁掉缩进之外的内容，所以内容整体缩进，节点留在缩进里）。 */
+.column {
+  position: relative;
+}
+.column::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--space-6) + var(--space-2-5) + var(--lh-prose) / 2);
+  bottom: var(--space-8);
+  left: calc((var(--spine-node) - var(--spine-line)) / 2);
+  width: var(--spine-line);
+  background: var(--border);
+}
+.turn {
+  padding-left: var(--spine-indent);
+}
+.column > :not(.turn, .column-end) {
+  margin-left: var(--spine-indent);
+}
+.user::before,
+.process::before,
+.answer::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--spine-indent) * -1);
+  box-sizing: border-box;
+  border-radius: var(--radius-pill);
+}
+.user::before {
+  top: calc(var(--space-2-5) + var(--lh-prose) / 2 - 6px);
+  left: calc(var(--spine-indent) * -1 + (var(--spine-node) - 12px) / 2);
+  width: 12px;
+  height: 12px;
+  background: var(--bg-app);
+  border: 2px solid var(--text-3);
+}
+.process {
+  position: relative;
+}
+.process::before {
+  top: calc((var(--row-tool) - 8px) / 2);
+  left: calc(var(--spine-indent) * -1 + (var(--spine-node) - 8px) / 2);
   width: 8px;
   height: 8px;
-  margin: 0 var(--space-0-5);
-  border-radius: var(--radius-pill);
-  background: var(--st-running);
+  background: var(--text-3);
+}
+.process[data-state="live"]::before {
+  top: calc((var(--row-tool) - 16px) / 2);
+  left: calc(var(--spine-indent) * -1);
+  width: 16px;
+  height: 16px;
+  background: radial-gradient(circle, var(--st-running) 0 2.5px, var(--bg-app) 3px);
+  border: 2px solid var(--st-running);
   animation: dot-breathe var(--dur-breathe) ease-in-out infinite;
   animation-play-state: var(--play-state);
 }
-.process-dot[data-waiting] {
+.process[data-state="live"][data-waiting]::before {
+  top: calc((var(--row-tool) - 8px) / 2);
+  left: calc(var(--spine-indent) * -1 + (var(--spine-node) - 8px) / 2);
+  width: 8px;
+  height: 8px;
+  border: 0;
   border-radius: 0;
   background: var(--st-waiting);
   transform: rotate(45deg);
   animation: none;
+}
+.answer::before {
+  top: calc(var(--lh-prose) / 2 - 7px);
+  left: calc(var(--spine-indent) * -1 + (var(--spine-node) - 14px) / 2);
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
 }
 
 .details {

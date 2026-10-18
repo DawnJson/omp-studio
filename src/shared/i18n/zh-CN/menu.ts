@@ -3,6 +3,7 @@ import type { MessageEntry } from "../index.ts";
 export const menu = {
   newTask: "新任务",
   commandPalette: "命令面板",
+  toggleSidebar: "切换侧栏",
   settings: "设置",
   language: "语言",
   languageSystem: "跟随系统",

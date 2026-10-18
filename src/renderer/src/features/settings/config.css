@@ -145,11 +145,8 @@
 /* ───────── 设置行：默认一行 ───────── */
 
 .cfg-row {
-  padding: var(--space-2) var(--space-4);
-}
-
-.cfg-row + .cfg-row {
-  border-top: 1px solid var(--border-subtle);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .cfg-row[data-modified] {
@@ -165,15 +162,17 @@
 
 .cfg-name {
   display: flex;
-  flex: 1;
-  flex-wrap: wrap;
+  flex: 0 1 var(--settings-label-w);
+  width: var(--settings-label-w);
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--space-1-5);
   min-width: 0;
 }
 
 .cfg-title {
-  min-width: 12ch;
+  flex: 0 1 auto;
+  min-width: 6ch;
   max-width: 100%;
   overflow: hidden;
   font-size: var(--fs-base);
@@ -189,10 +188,12 @@
 
 .cfg-control {
   display: flex;
-  flex: none;
+  flex: 0 1 auto;
+  order: 2;
   align-items: center;
-  justify-content: flex-end;
-  max-width: 55%;
+  justify-content: flex-start;
+  min-width: 0;
+  max-width: calc(100% - var(--settings-label-w) - var(--space-3));
 }
 
 .cfg-number {
@@ -277,6 +278,10 @@
   line-height: var(--lh-sm);
   white-space: nowrap;
   cursor: default;
+}
+
+.cfg-row:not([data-stacked]) .cfg-reset {
+  order: 3;
 }
 
 .cfg-reset:hover:not(:disabled) {

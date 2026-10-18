@@ -63,6 +63,7 @@
 - `maxLiveProcesses`（设置，默认 6）是软上限。起新进程时存活数（含 starting）已到软上限：回收最久未用的**可回收**任务（idle、无对话框、`get_state` 报告已安静、不是前台）；没有可回收的就超出软上限照起，到硬上限（× 2）才失败，任务进 error（`spawn_failed`，"too many tasks…"）。
 - 定时回收：`sweep(now)` 每分钟跑一次，可回收状态持续 15 分钟关进程；`now` 由调用方传入，测试不依赖真实时钟。
 - `shutdown()`：并行 `close(5000)`（关 stdin，超时按进程树 `taskkill /T /F`）。退出路径只有 Shell 的 `before-quit`：`runtime.ts` 用 `registerShutdownHook(() => pool.shutdown())` 接入。
+- 窗口 × 不退出：窗口只隐藏（`hide-on-close.ts`），任务池、状态机和 omp 子进程都不受影响，应用常驻托盘（决策见 `background-run.md`）。`sweep` 照旧只回收 idle 且已安静的任务，正在跑和等你确认的任务不会被收；窗口隐藏期间的状态变化照常经 `taskState` 事件推给（隐藏的）渲染进程，并刷新托盘的提示和菜单。真正的退出入口（托盘"退出"、应用菜单退出、安装更新、系统注销）才会走上面的 `shutdown()`。
 
 ## 进程树兜底（Job Object）
 

@@ -51,8 +51,7 @@ button {
 .topbar {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding-left: var(--space-3);
+  min-width: 0;
   /* 给系统三键让位：窗口宽度减去 titlebar-area 的右缘 */
   padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
   background: var(--bg-sidebar);
@@ -60,8 +59,96 @@ button {
   -webkit-app-region: drag;
 }
 
-.topbar > * {
+.topbar-left,
+.crumb {
   -webkit-app-region: no-drag;
+}
+
+/* 左段宽度 = 侧栏宽度，中段 `项目 / 任务标题` 正好对齐主区面板的左缘 */
+.topbar-left {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  width: var(--sidebar-current, var(--sidebar-w));
+  padding-left: var(--space-3);
+}
+
+#app[data-sidebar="hidden"] .topbar-left,
+#app[data-drawer="true"] .topbar-left {
+  width: auto;
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0 var(--space-3);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  color: var(--text-2);
+}
+
+.crumb-project,
+.crumb-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crumb-sep {
+  color: var(--text-3);
+}
+
+.crumb b {
+  font-weight: var(--fw-strong);
+  color: var(--text);
+}
+
+:root:lang(zh) .crumb b {
+  font-weight: 700;
+}
+
+.crumb-status {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1-5);
+  margin-left: var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+.crumb-status i {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--st-running);
+}
+
+.crumb-status[data-kind="running"] {
+  color: var(--accent);
+}
+
+.crumb-status[data-kind="waiting"] {
+  color: var(--st-waiting-text);
+}
+
+.crumb-status[data-kind="waiting"] i {
+  width: 7px;
+  height: 7px;
+  border-radius: 0;
+  background: var(--st-waiting);
+  transform: rotate(45deg);
+}
+
+.crumb-status[data-kind="error"] {
+  color: var(--st-error);
+}
+
+.crumb-status[data-kind="error"] i {
+  background: var(--st-error);
 }
 
 .icon-button {
@@ -99,7 +186,7 @@ button {
   position: relative;
   display: flex;
   min-height: 0;
-  /* 主区面板四角都是圆角，右边和下边各留一圈窗口底色（临时方案，等设计方向确认后再定） */
+  /* 主区面板是一张四角都圆的“纸”，右边和下边各留一圈窗口底色 */
   padding: 0 var(--space-2) var(--space-2) 0;
 }
 
@@ -136,7 +223,8 @@ button {
   min-height: 0;
   overflow: hidden;
   background: var(--bg-app);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
 }
 
 .sidebar-resizer {

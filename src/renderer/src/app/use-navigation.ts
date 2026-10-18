@@ -32,8 +32,6 @@ function keyOf(entry: Entry): string {
 }
 
 export interface Navigation {
-  canGoBack: boolean;
-  canGoForward: boolean;
   goBack(): void;
   goForward(): void;
 }
@@ -92,8 +90,6 @@ export function useNavigation(): Navigation {
   );
 
   return {
-    canGoBack: targetIndex(-1) >= 0,
-    canGoForward: targetIndex(1) >= 0,
     goBack: useCallback(() => go(-1), [go]),
     goForward: useCallback(() => go(1), [go]),
   };

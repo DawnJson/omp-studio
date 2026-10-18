@@ -229,7 +229,7 @@ test("截图：omp 设置分组、搜索，中英文 × 浅深主题", async () 
     // 窄窗口侧栏是抽屉：如果开着，用顶栏按钮收起，免得挡住设置页。
     await page.waitForTimeout(400);
     if ((await page.getByTestId("app-root").getAttribute("data-sidebar")) === "shown")
-      await page.getByTestId("topbar-sidebar").click();
+      await page.keyboard.press("Control+b");
     await page.waitForTimeout(400);
     await expect(page.getByTestId("settings")).toBeVisible();
     await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-narrow-zh-CN-light.png") });

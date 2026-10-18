@@ -41,6 +41,7 @@ import { usage } from "./usage.ts";
 import { review } from "./review.ts";
 import { git } from "./git.ts";
 import { lanes } from "./lanes.ts";
+import { custom } from "./custom.ts";
 
 export const zhCN = {
   shell,
@@ -86,4 +87,5 @@ export const zhCN = {
   review,
   git,
   lanes,
+  custom,
 };

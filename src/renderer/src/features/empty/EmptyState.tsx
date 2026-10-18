@@ -1,32 +1,22 @@
 // 没选任务时的主区（spec §4.7、§4.22 H）：有项目 = 项目头 + 该项目最近 3 个任务 + 贴底的草稿输入框；没有项目 = 选文件夹引导。
 // 历史会话只在侧栏（搜索框能搜到），这里不再列。
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useT } from "../../i18n/use-t.ts";
-import { useTasks } from "../../store/index.ts";
 import { DraftComposer } from "../composer/index.ts";
 import { refreshProjects, useProjectsState } from "../sidebar/projects-store.ts";
 import { describeError } from "../../ui/errors.ts";
+import { Logo } from "../../ui/Logo.tsx";
 import { openFolderAsDraft } from "./actions.ts";
-import { pickDraftProject, useDraftProjectId } from "./draft-project.ts";
+import { pickDraftProject } from "./draft-project.ts";
 import { ProjectSwitcher } from "./ProjectSwitcher.tsx";
 import { RecentTasks } from "./RecentTasks.tsx";
+import { useDraftProject } from "./use-draft-project.ts";
 import "./empty.css";
 
 export function EmptyState() {
   const t = useT();
   const { list: projects, loaded, error } = useProjectsState();
-  const tasks = useTasks();
-  const pickedId = useDraftProjectId();
-
-  // 默认项目 = 最近有操作的任务所在的项目，没有任务时是列表里第一个；用户在菜单里换过就按用户的。
-  const fallback = useMemo(() => {
-    const latest = tasks.reduce<(typeof tasks)[number] | null>(
-      (best, task) => (best === null || task.updatedAt > best.updatedAt ? task : best),
-      null,
-    );
-    return projects.find((project) => project.id === latest?.projectId) ?? projects[0] ?? null;
-  }, [projects, tasks]);
-  const project = projects.find((candidate) => candidate.id === pickedId) ?? fallback;
+  const project = useDraftProject();
   const hasDraft = loaded && project !== null;
 
   // 草稿输入框出现后焦点放进去（程序设置的焦点不显示焦点框，只有键盘操作才显示）。
@@ -74,10 +64,13 @@ export function EmptyState() {
     <div className="empty" data-testid="empty-state" data-kind="project">
       <div className="empty-main">
         <div className="empty-head">
-          <ProjectSwitcher projects={projects} current={project} onPick={(next) => pickDraftProject(next.id)} />
-          <span className="empty-path" title={project.path}>
-            {project.path}
-          </span>
+          <Logo size={52} className="empty-logo" />
+          <div className="empty-head-text">
+            <ProjectSwitcher projects={projects} current={project} onPick={(next) => pickDraftProject(next.id)} />
+            <span className="empty-path" title={project.path}>
+              {project.path}
+            </span>
+          </div>
         </div>
         <RecentTasks projectId={project.id} />
       </div>

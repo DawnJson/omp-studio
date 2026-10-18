@@ -27,7 +27,7 @@ export const composer = {
   context: "上下文 {p}%",
   "usage.aria": "本会话用量",
   "usage.context": "上下文 {used} / {total}",
-  "usage.tokens": "{n} token",
+  "usage.tokens": "本会话 {n} token",
   "usage.input": "输入",
   "usage.output": "输出",
   "usage.cache": "缓存读取",

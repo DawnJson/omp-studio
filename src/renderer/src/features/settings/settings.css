@@ -39,12 +39,12 @@
 }
 
 .st-btn-primary {
-  background: var(--accent);
-  color: var(--text-on-accent);
+  background: var(--primary);
+  color: var(--text-on-primary);
 }
 
 .st-btn-primary:hover:not(:disabled) {
-  background: var(--accent-hover);
+  background: var(--primary-hover);
 }
 
 .st-btn-text {
@@ -210,6 +210,7 @@
 /* ───────── 设置页 ───────── */
 
 .settings {
+  --settings-label-w: 208px; /* 两栏表格的标签列宽：控件紧跟在标签列后面 */
   display: flex;
   flex: 1;
   min-height: 0;
@@ -222,7 +223,7 @@
   flex: none;
   flex-direction: column;
   gap: var(--space-0-5);
-  width: 200px;
+  width: 168px;
   padding: var(--space-4) var(--space-2) var(--space-2) var(--space-4);
 }
 
@@ -269,8 +270,8 @@
 }
 
 .settings-content {
-  max-width: 640px;
-  padding: var(--space-2) var(--gutter) var(--space-12);
+  max-width: 880px; /* 左对齐，窗口变宽时右侧留白而不是把控件拉开 */
+  padding: var(--space-2) var(--space-8) var(--space-12) var(--space-6);
 }
 
 .settings-title {
@@ -283,32 +284,32 @@
 }
 
 .settings-group-title {
-  margin: var(--space-6) 0 var(--space-2);
-  color: var(--text-2);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
+  margin: var(--space-6) 0 0;
+  padding-bottom: var(--space-1-5);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  font-weight: var(--fw-regular);
 }
 
+/* 分组是一张无底色的表：节标题下一条线，每行底部一条细线 */
 .st-card {
-  border-radius: var(--radius-lg);
-  background: var(--bg-raised);
-  border: 1px solid var(--border-subtle);
+  background: transparent;
 }
 
 .st-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--settings-label-w) minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-4);
-  min-height: 56px;
-  padding: var(--space-2) var(--space-4);
+  min-height: 44px;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.st-row + .st-row,
-.st-row + .st-block,
-.st-block + .st-row,
-.st-block + .st-block {
-  border-top: 1px solid var(--border-subtle);
+.st-block {
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .st-row-text {
@@ -329,16 +330,14 @@
 
 .st-row-control {
   display: flex;
-  flex: none;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
   gap: var(--space-2);
-  max-width: 60%;
+  min-width: 0;
 }
 
 .st-block {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) 0;
 }
 
 .st-mono {
@@ -371,12 +370,9 @@
   justify-content: space-between;
   gap: var(--space-4);
   min-height: var(--row-menu);
-  padding: 0 var(--space-4);
+  padding: 0;
   font-size: var(--fs-sm);
-}
-
-.st-shortcut + .st-shortcut {
-  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .st-kbds {
@@ -622,8 +618,13 @@
   margin-top: var(--space-4);
 }
 
+.st-provider-head {
+  justify-content: flex-start;
+}
+
+/* 名称列、状态列定宽，登录按钮在各行对齐，紧跟状态而不是被推到最右 */
 .st-provider-name {
-  flex: 1;
+  flex: 0 1 280px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -631,8 +632,7 @@
 }
 
 .st-provider-status {
-  flex: none;
-  max-width: 40%;
+  flex: 0 1 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

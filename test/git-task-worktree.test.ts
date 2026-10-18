@@ -6,7 +6,7 @@ import type { StudioSettings, TaskId } from "../src/shared/ipc.ts";
 import { createWorktree, removeWorktree } from "../src/main/git/worktree.ts";
 import { TaskPool } from "../src/main/tasks/task-pool.ts";
 import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
-import { makeRepo, makeScratch, sh } from "./git-helpers.ts";
+import { findOmp, isolateOmp, makeRepo, makeScratch, sh } from "./git-helpers.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
@@ -22,19 +22,23 @@ const settings: StudioSettings = {
 };
 
 let scratch: string;
+let restoreEnv = () => {};
+const omp = findOmp();
 const pools: TaskPool[] = [];
 beforeAll(async () => {
   scratch = await makeScratch("task-worktree");
+  ({ restore: restoreEnv } = await isolateOmp(scratch));
 });
 afterAll(async () => {
+  restoreEnv();
   await rm(scratch, { recursive: true, force: true });
 });
 afterEach(async () => {
   await Promise.all(pools.splice(0).map((pool) => pool.shutdown()));
 });
 
-async function setup(name: string) {
-  const repo = await makeRepo(scratch, name);
+async function setup(name: string, existingRepo?: string) {
+  const repo = existingRepo ?? (await makeRepo(scratch, name));
   const launches: string[] = [];
   const removed: TaskId[] = [];
   const registry = new TaskRegistry(path.join(scratch, `${name}-tasks.json`));
@@ -49,7 +53,7 @@ async function setup(name: string) {
     assignJob: () => {},
     worktrees: {
       create: async (project) => {
-        const wt = await createWorktree(project.path);
+        const wt = await createWorktree(project.path, { ompPath: omp ?? "omp" });
         return { path: wt.path, branch: wt.branch, base: wt.baseBranch };
       },
       remove: (project, worktreePath, branch) => removeWorktree(project.path, worktreePath, branch),
@@ -69,7 +73,8 @@ async function setup(name: string) {
   return { repo, pool, registry, project, launches, removed };
 }
 
-describe("worktree 任务", () => {
+// 真实 omp 在 PATH 上才测（worktree 由 omp worktree add 创建）；没有就 skip。
+describe.skipIf(omp === null)("worktree 任务", () => {
   it("worktree: true：记录里有 worktree，omp 在 worktree 里启动，任务目录指向它；不带标志的任务不受影响", async () => {
     const { repo, pool, registry, project, launches } = await setup("仓库 任务");
     const plain = await pool.createTask({ projectId: project.id });
@@ -110,5 +115,21 @@ describe("worktree 任务", () => {
     expect(removed).toEqual([task.id]);
     expect(registry.findTask(task.id)).toMatchObject({ archived: true, worktreePath: null, worktreeBranch: null });
     expect(pool.referencedWorktreePaths(project.id)).toEqual([]);
+  });
+
+  it("worktree 目录被删后重启：任务只能查看，启动被拒绝（worktree_missing），不会拉起 omp，也不会退回项目目录", async () => {
+    const first = await setup("仓库 已删除");
+    const task = await first.pool.createTask({ projectId: first.project.id, worktree: true });
+    await first.pool.openTask(task.id);
+    const wtPath = first.registry.findTask(task.id)?.worktreePath ?? "";
+    await first.pool.shutdown();
+    await rm(wtPath, { recursive: true, force: true });
+
+    const second = await setup("仓库 已删除", first.repo);
+    const before = second.launches.length;
+    await second.pool.openTask(task.id);
+    const state = second.pool.listTasks().find((candidate) => candidate.id === task.id);
+    expect(state).toMatchObject({ status: "error", error: { kind: "worktree_missing" } });
+    expect(second.launches).toHaveLength(before);
   });
 });

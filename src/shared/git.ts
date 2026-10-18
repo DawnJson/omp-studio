@@ -179,8 +179,8 @@ export type GitMergeResult =
 export interface WorktreeCleanupResult {
   /** 已移除的无主 worktree（目录名，不含上级路径）。 */
   removed: string[];
-  /** 没有动的：有未提交修改、有未合并的提交，或 git 不认识的目录。 */
-  kept: { name: string; reason: "dirty" | "unmerged" | "unregistered" }[];
+  /** 没有动的：有未提交修改，或有未合并的提交。 */
+  kept: { name: string; reason: "dirty" | "unmerged" }[];
 }
 
 export type GitCommitResult =

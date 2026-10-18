@@ -63,14 +63,19 @@ export function ProcessRow({
   if (live) {
     const waiting = live.status === "needs_you";
     return (
-      <div className="process" data-anchor data-state="live" data-testid="process-live">
+      <div
+        className="process"
+        data-anchor
+        data-state="live"
+        data-waiting={waiting || undefined}
+        data-testid="process-live"
+      >
         <button
           type="button"
           className="process-row"
           aria-expanded={expanded}
           onClick={() => setExpanded((value) => !value)}
         >
-          <span className="process-dot" data-waiting={waiting || undefined} aria-hidden="true" />
           <span className="process-text" key={liveKey(turn, live)}>
             {liveText(turn, live, now, t)}
           </span>

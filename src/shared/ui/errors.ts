@@ -13,6 +13,7 @@ const taskErrorKinds: Record<TaskError["kind"], Parameters<TFunction>[0]> = {
   exited: "error.exitedNoCode",
   protocol: "error.protocol",
   too_many_tasks: "error.tooManyTasks",
+  worktree_missing: "error.worktreeMissing",
 };
 
 /** 主进程里可预期错误的措辞 → 文案。主进程改了措辞只会退化成通用句，不会显示错的内容。 */

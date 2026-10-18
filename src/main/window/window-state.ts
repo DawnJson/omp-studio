@@ -20,6 +20,8 @@ interface PersistedState {
   bounds: WindowBounds | null;
   maximized: boolean;
   shell: ShellState;
+  /** 已经提示过"关窗口后应用仍在托盘运行"。 */
+  trayNoticeShown: boolean;
 }
 
 let state: PersistedState | null = null;
@@ -90,7 +92,12 @@ function load(): PersistedState {
   } catch {
     // 保留默认值。
   }
-  state = { bounds: parseBounds(record["bounds"]), maximized: record["maximized"] === true, shell };
+  state = {
+    bounds: parseBounds(record["bounds"]),
+    maximized: record["maximized"] === true,
+    shell,
+    trayNoticeShown: record["trayNoticeShown"] === true,
+  };
   return state;
 }
 
@@ -105,6 +112,15 @@ export function getShellState(): ShellState {
 export function setShellState(patch: Partial<ShellState>): void {
   const current = load();
   current.shell = { ...current.shell, ...patch };
+  save();
+}
+
+export function trayNoticeShown(): boolean {
+  return load().trayNoticeShown;
+}
+
+export function markTrayNoticeShown(): void {
+  load().trayNoticeShown = true;
   save();
 }
 

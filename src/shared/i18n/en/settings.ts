@@ -28,7 +28,8 @@ export const settings = {
   "enterBehavior.later": "Queue for later",
   "enterBehavior.desc": "While a task is running, whether Enter sends a steering message or queues it",
   notifyWaiting: "Notify me when a task is waiting for me",
-  "notifyWaiting.desc": "System notifications only for tasks that need your approval",
+  "notifyWaiting.desc":
+    "System notifications when a task needs your approval, and when a task finishes or fails while the window is hidden in the tray",
   search: "Search settings",
   "search.hint": "Search by name, description or key",
   "search.clear": "Clear search",

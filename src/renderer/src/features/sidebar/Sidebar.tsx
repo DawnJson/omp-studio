@@ -187,7 +187,7 @@ export function Sidebar() {
       <div className="sb-actions">
         <button
           type="button"
-          className="sb-new"
+          className="sb-new sb-new-primary"
           data-testid="sidebar-new-task"
           title={`${t("sidebar.newTask")} (Ctrl N)`}
           onClick={() => startDraft(null)}
