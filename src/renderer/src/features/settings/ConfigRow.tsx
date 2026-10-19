@@ -7,6 +7,7 @@ import { memo, useId } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { ConfigControl } from "./ConfigControls.tsx";
+import { goalContinuationKey } from "../../../../shared/ui/goal-continuation.ts";
 import { enumLabel } from "../../../../shared/ui/config-labels.ts";
 import { configText, isModified, shortValue } from "./config-meta.ts";
 import { resetOmpConfig, saveOmpConfig, setLocalError, useRowState } from "./config-store.ts";
@@ -19,7 +20,7 @@ export const ConfigRow = memo(function ConfigRow({ item, query = "" }: { item: O
   const row = useRowState(item.key);
   const text = configText(locale, item);
   const modified = isModified(item);
-  const stacked = item.type === "array" || item.type === "record";
+  const stacked = (item.type === "array" || item.type === "record") && item.key !== goalContinuationKey;
   const name = text.label ?? item.key;
 
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);

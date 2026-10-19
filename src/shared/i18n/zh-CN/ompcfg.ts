@@ -96,6 +96,10 @@ export const ompcfg = {
   "task.agentModelOverrides.label": "子代理的模型覆盖",
   "task.agentModelOverrides.desc": "JSON 对象：为指定的子代理换用别的模型",
 
+  "goal.continuationModes.label": "目标自动推进",
+  "goal.continuationModes.desc":
+    "开启后，/goal 的目标在 omp-studio 里由 omp 自己一轮接一轮推进；这是 omp 的设置 goal.continuationModes，和终端里的 omp 共用",
+
   "retry.enabled.label": "出错自动重试",
   "retry.enabled.desc": "模型接口出错时自动重试",
   "retry.maxRetries.label": "最大重试次数",

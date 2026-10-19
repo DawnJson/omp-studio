@@ -2,6 +2,7 @@
 // 状态不在这里缓存：结果经 TaskState.goal 回到界面（主进程以 get_state / goal_updated 为准）。
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskGoal, TaskId } from "../../../../shared/ipc.ts";
+import { goalContinuationKey, goalContinuationOn } from "../../../../shared/ui/goal-continuation.ts";
 import { showView } from "../../store/index.ts";
 import { reportError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
@@ -11,23 +12,24 @@ import type { GoalButton } from "./goal-model.ts";
 const INFO_MS = 10_000;
 
 /**
- * 目标要靠 omp 的 `goal.continuationModes` 含 "rpc" 才会在 rpc-ui 下自己推进（实测）；omp-studio 用 `--config` 覆盖带上它，
- * 由设置里的“目标自动推进”控制。关着时创建或恢复目标，告诉用户目标不会自己推进，并给出去设置里打开的入口。
- * 读不到设置时什么也不弹。
+ * 目标要靠 omp 的 `goal.continuationModes` 含 "rpc" 才会在 rpc-ui 下自己推进（实测）。这个设置和终端里的 omp 共用，
+ * 在 设置 → omp 的设置 里以「目标自动推进」开关呈现；关着时创建或恢复目标，告诉用户目标不会自己推进，按钮跳到那一节。
+ * 读不到设置（omp 版本没有这项等）时什么也不弹。
  */
 async function noteIfAutoContinueOff(t: TFunction): Promise<void> {
-  let settings;
+  let snapshot;
   try {
-    settings = await window.studio.getSettings();
+    snapshot = await window.studio.getOmpConfig();
   } catch {
     return;
   }
-  if (settings.goalAutoContinue) return;
+  const item = snapshot.items.find((candidate) => candidate.key === goalContinuationKey);
+  if (!item || goalContinuationOn(item.value)) return;
   pushToast({
     level: "info",
     message: t("goal.autoContinueOff"),
     durationMs: INFO_MS,
-    action: { label: t("goal.openSettings"), run: () => showView("settings", { section: "general" }) },
+    action: { label: t("goal.openSettings"), run: () => showView("settings", { section: "cfg:agents" }) },
   });
 }
 

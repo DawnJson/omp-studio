@@ -3,13 +3,17 @@
 import { app } from "electron";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
+import { resolveAgentDir } from "../history/session-index.ts";
+import { log } from "../log/log.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
+import { goalContinuationKey } from "../../shared/ui/goal-continuation.ts";
+import { applyGoalContinuationDefault, isGoalContinuationExplicit } from "../omp-config/goal-default.ts";
 import { listJson, OmpConfigService, runOmpConfig } from "../omp-config/config-service.ts";
 import { readModelDefaults, writeDefaultModel, type ModelDefaultsDeps } from "../omp-config/model-defaults.ts";
 import { ompManager } from "../omp-manager/index.ts";
 import { onOmpConfigChanged, readDefaultModel } from "../service/default-model.ts";
 import { serviceOmp } from "../service/service-omp.ts";
-import { getSettings, updateSettings } from "../settings/settings-store.ts";
+import { updateSettings } from "../settings/settings-store.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
 import { parseBoolean, parseModelKey, parseOneOf, parseProjectId, parseString } from "./validate.ts";
@@ -19,6 +23,32 @@ registerShutdownHook(async () => {
   await ompManager().stop();
   await serviceOmp.close();
 });
+
+/**
+ * 启动时（omp 就绪后）：`goal.continuationModes` 用户没明确设置过，就经 `omp config set` 加上 "rpc"（默认允许 /goal 自动推进）。
+ * 明确设过（omp-studio 或终端里，任一取值）的不碰；失败只记 WARN，不影响启动。
+ */
+export async function applyGoalContinuationDefaultOnStartup(): Promise<void> {
+  try {
+    await ompManager().ensureReady();
+    const outcome = await applyGoalContinuationDefault({
+      readValue: async () => {
+        const json = (await listJson(runOmpConfig(readyOmp().path, await neutralCwd()))) as Record<
+          string,
+          { value?: unknown }
+        >;
+        return json[goalContinuationKey]?.value;
+      },
+      isExplicit: () => isGoalContinuationExplicit(resolveAgentDir()),
+      write: async (modes) => {
+        await configService().set(goalContinuationKey, JSON.stringify(modes));
+      },
+    });
+    log.info(`${goalContinuationKey} startup default: ${outcome}`);
+  } catch (error) {
+    log.warn(`${goalContinuationKey} startup default failed`, error instanceof Error ? error.message : error);
+  }
+}
 
 let config: OmpConfigService | null = null;
 
@@ -76,7 +106,6 @@ export const ompHandlers: HandlerGroup<
   | "setReduceMotion"
   | "setEnterWhileRunning"
   | "setNotifyOnGate"
-  | "setGoalAutoContinue"
   | "setYoloConfirmed"
   | "getDefaultModel"
   | "getModelDefaults"
@@ -117,13 +146,6 @@ export const ompHandlers: HandlerGroup<
       updateSettings({ enterWhileRunning: parseOneOf(mode, "enterWhileRunning", ["steer", "followUp"]) }),
     ),
   setNotifyOnGate: (on) => Promise.resolve(updateSettings({ notifyOnGate: parseBoolean(on, "notifyOnGate") })),
-  setGoalAutoContinue: async (on) => {
-    const next = parseBoolean(on, "goalAutoContinue");
-    if (next === getSettings().goalAutoContinue) return;
-    updateSettings({ goalAutoContinue: next });
-    // 已运行的进程带的是旧参数：空闲的回收，下次使用时按新设置启动。
-    await (await getTaskPool()).relaunchIdleProcesses();
-  },
   setYoloConfirmed: () => Promise.resolve(updateSettings({ yoloConfirmed: true })),
   getDefaultModel: () => readDefaultModel(),
   getModelDefaults: async (projectId) => readModelDefaults(modelDefaultsDeps, await projectPath(projectId)),

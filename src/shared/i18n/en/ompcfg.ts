@@ -105,6 +105,10 @@ export const ompcfg = {
   "task.agentModelOverrides.label": "Subagent model overrides",
   "task.agentModelOverrides.desc": "JSON object: use a different model for specific subagents",
 
+  "goal.continuationModes.label": "Let goals keep going",
+  "goal.continuationModes.desc":
+    "When on, a goal set with /goal is carried forward by omp turn after turn on its own in omp-studio. This is omp's own setting goal.continuationModes, shared with the omp in your terminal",
+
   "retry.enabled.label": "Retry on errors",
   "retry.enabled.desc": "Retry automatically when the model API fails",
   "retry.maxRetries.label": "Max retries",

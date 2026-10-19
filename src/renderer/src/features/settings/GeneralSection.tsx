@@ -105,16 +105,6 @@ export function GeneralSection() {
             />
           )}
         </SettingRow>
-        <SettingRow title={t("settings.goalAutoContinue")} desc={t("settings.goalAutoContinue.desc")}>
-          {(labelId) => (
-            <Switch
-              checked={settings?.goalAutoContinue ?? true}
-              labelledBy={labelId}
-              onChange={(next) => void window.studio.setGoalAutoContinue(next)}
-              testId="setting-goal-auto"
-            />
-          )}
-        </SettingRow>
       </Card>
       <h3 id="settings-shortcuts" tabIndex={-1} className="settings-group-title">
         {t("settings.shortcuts")}

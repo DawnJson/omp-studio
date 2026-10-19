@@ -1,6 +1,7 @@
 // 主进程入口：单实例、userData 测试覆盖、设置、会话安全、注册 IPC、打开主窗口、托盘常驻、退出流程。
 import { app, Menu } from "electron";
 import { registerIpcHandlers } from "./ipc/register.ts";
+import { applyGoalContinuationDefaultOnStartup } from "./ipc/omp-handlers.ts";
 import { initLog } from "./log/instance.ts";
 import { log } from "./log/log.ts";
 import { loadSettings } from "./settings/settings-store.ts";
@@ -45,6 +46,7 @@ if (!app.requestSingleInstanceLock()) {
     createMainWindow();
     createTray();
     startUpdates().catch((error: unknown) => log.error("update service failed to start", error));
+    void applyGoalContinuationDefaultOnStartup();
     app.on("activate", () => {
       showMainWindow();
     });

@@ -143,9 +143,9 @@ test("只是打开设置页、切分组、搜索、展开编辑器，不会写 o
     // 防抖和卸载时的提交都已经过去：没有"正在保存"。
     await page.waitForTimeout(2500);
     await expect(page.getByText("正在保存…")).toHaveCount(0);
-    // omp 的配置文件（临时 agent 目录里）没有被写过：不存在，或者是空的。
+    // omp 的配置文件（临时 agent 目录里）只有启动时的默认允许（goal.continuationModes 加上 rpc），界面操作没有写别的。
     const written = await readFile(path.join(agentDir, "config.yml"), "utf8").catch(() => "");
-    expect(written.trim()).toBe("");
+    expect(written.replace(/\s+/g, " ").trim()).toBe("goal: continuationModes: - interactive - rpc");
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

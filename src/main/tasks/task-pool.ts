@@ -459,18 +459,6 @@ export class TaskPool {
     this.#trimSnapshots();
   }
 
-  /**
-   * 启动参数变了（“目标自动推进”开关）：已运行的 omp 进程带的还是旧参数，空闲的关掉，下次使用时按新参数拉起；
-   * 前台任务关掉后立刻拉起，界面上不会停在“已停止”。正在跑的一轮、有未答对话框、目标进行中的不动（`recyclable` 同回收规则）。
-   */
-  async relaunchIdleProcesses(): Promise<void> {
-    for (const runner of this.#runners.values()) {
-      if (!runner.hasProcess || !runner.recyclable) continue;
-      await this.#recycle(runner);
-      if (runner.id === this.#foreground) await runner.start().catch(() => {});
-    }
-  }
-
   /** 已停止的任务最多保留 SNAPSHOT_LRU_SIZE 份对话快照，更久没用的释放，再打开时从会话文件恢复。 */
   #trimSnapshots(): void {
     const stopped = [...this.#runners.values()]

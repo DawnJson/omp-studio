@@ -48,7 +48,6 @@ describe.skipIf(!enabled)("真实 omp", () => {
         reduceMotion: false,
         enterWhileRunning: "steer",
         notifyOnGate: true,
-        goalAutoContinue: true,
         yoloConfirmed: false,
       }),
       buildLaunch: async (record, project) => ({

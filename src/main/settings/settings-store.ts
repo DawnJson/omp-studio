@@ -21,7 +21,6 @@ const defaults: StudioSettings = {
   reduceMotion: false,
   enterWhileRunning: "steer",
   notifyOnGate: true,
-  goalAutoContinue: true,
   yoloConfirmed: false,
 };
 
@@ -57,11 +56,6 @@ function sanitize(raw: unknown): StudioSettings {
       defaults.enterWhileRunning,
     ),
     notifyOnGate: field((value) => parseBoolean(value, "notifyOnGate"), record["notifyOnGate"], defaults.notifyOnGate),
-    goalAutoContinue: field(
-      (value) => parseBoolean(value, "goalAutoContinue"),
-      record["goalAutoContinue"],
-      defaults.goalAutoContinue,
-    ),
     yoloConfirmed: field(
       (value) => parseBoolean(value, "yoloConfirmed"),
       record["yoloConfirmed"],

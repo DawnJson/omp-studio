@@ -18,7 +18,8 @@ export const goal = {
   usageBudgetTitle: "{used} of {budget} tokens used",
   current: "Current goal ({status}): {objective}",
   none: "No goal right now. Use /goal followed by the goal text to set one",
-  autoContinueOff: "The goal won't keep going on its own. Turn on “Let goals keep going” in Settings → General",
+  autoContinueOff:
+    "The goal won't keep going on its own. Turn on “Let goals keep going” in Settings → omp settings → Subagents & planning (shared with the omp in your terminal)",
   openSettings: "Open settings",
   pauseFailed: "Couldn't pause the goal",
   resumeFailed: "Couldn't resume the goal",

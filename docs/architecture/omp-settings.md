@@ -16,13 +16,13 @@
 - 返回 `{ key, value }`，被别处覆盖时多 `overriddenBy`（环境变量名，或 `project`/`overlay`/`runtime`），空白值回退到环境变量时有 `fallbackEnv`。界面在那一项下面显示"已保存，但实际生效的值来自 …"。实测：`HINDSIGHT_API_URL=… omp config set --json hindsight.apiUrl -- http://y` → `{"key":"hindsight.apiUrl","value":"http://y","overriddenBy":"HINDSIGHT_API_URL"}`。
 - **凭据**（omp 标了 `redacted`，或 key 以 token/secret/password/credentials/apikey 结尾）：只显示"已设置/未设置"，值不进渲染进程，不在界面里编辑（`omp config set` 的值走命令行，进程列表里看得到），可以"恢复默认"（清除）。`omp config get` 会明文返回凭据，所以从不用它。
 - RPC/RPC-UI 进程监听 config.yml 自动重载，改完不用重启任务（决策 10，没有在本机逐项实测）。
-- **omp-studio 启动的任务进程带一份 `--config` 覆盖**（设置 → 通用 → 目标自动推进，默认开）：`userData/omp-overlay/goal-continuation.yml`，内容 `goal.continuationModes: [interactive, rpc]`，只对这个进程生效，不写 `~/.omp`；覆盖文件对数组整体替换、优先于用户的 config.yml（实测，见 `conversation.md` 目标一节）。`omp config list/get` 不带这份覆盖（子命令不认 `--config`），所以本页里 `goal.continuationModes` 显示和修改的永远是用户自己的值，不是 omp-studio 里实际生效的值；rpc-ui 下它的实际效果由“目标自动推进”开关决定。
 
 ## 界面
 
 - 左侧导航：omp-studio 自己的几组（通用、模型与账号、用量、omp、关于），再接 **omp-studio 自己的 omp 设置分组**（模型与推理、工具与权限、上下文与记忆、子代理与规划、对话行为、集成、语音、其他），不再照搬 omp 的 tab（那是按终端菜单分的）；分组规则在 `src/shared/ui/config-groups.ts`（`test/config-groups.test.ts`）。rpc-ui 下没有作用的项隐藏（见下节），搜索也不找它们；顶部搜索框按 key、omp 英文描述、中英文标签和说明过滤（多个词要全部命中），`Ctrl F` 聚焦，`Esc` 先清搜索。
 - 每项默认一行：标签 + ⓘ（描述、key、"omp 原文"标记都在悬停/聚焦/点击出现的说明里）+ "已修改"标记 + 保存反馈，右边是"恢复默认"和控件。搜索命中的是描述时，才在行下面显示那一句。被覆盖、保存或校验出错时才多一行。
 - 控件：boolean 开关；enum 三个及以内且短的用分段，否则下拉；number 文本框（要求是数字）；string 文本框；array/record JSON 编辑器（解析失败、类型不对就地报错，不保存）。文本类停手 700 ms（JSON 1 s）、失焦或 Enter 保存；开关和选择立即保存。
+- **`goal.continuationModes` 画成开关「目标自动推进」**（`ConfigControls.tsx`，`ompcfg` 里有标签和说明，所以也在“常用”里）：开 ⇔ 列表里有 `"rpc"`；切换时只增减 `"rpc"`，别的条目保留（`src/shared/ui/goal-continuation.ts`，`test/goal-continuation.test.ts`），写的就是上面那条 `omp config set`，不另存副本、不用 `--config` 覆盖，所以终端里的 omp 看到同一份值，反过来也一样。omp-studio 启动时若发现它没被用户明确设置过，会加上 `"rpc"` 一次（默认允许，细节和“怎么分辨设过”见 `conversation.md` 目标一节）。终端版 omp 只看 `"interactive"`，不受影响。
 - 常用项（模型角色、思考、审批/工具、上下文压缩、记忆、子代理 task、retry）有人话标签和中英文说明，在 i18n 的 `ompcfg` 命名空间（`<key>.label` / `<key>.desc`），排在每个 tab 的"常用"组最前面；其余项显示 key 和 omp 原文。tab 名也在 `ompcfg`（`tab.<名>`）。
 - 长列表：非"常用"的小组（按 key 第一段）在超过 30 项的 tab 里默认折叠，折叠状态记在模块里。
 

@@ -4,6 +4,11 @@ import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } fro
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { enumLabel } from "../../../../shared/ui/config-labels.ts";
+import {
+  goalContinuationKey,
+  goalContinuationOn,
+  withGoalContinuation,
+} from "../../../../shared/ui/goal-continuation.ts";
 import { Segmented, Select, Switch, type Option } from "./controls.tsx";
 import { canEditStructured, ChainsEditor, RolesEditor } from "./StructuredEditors.tsx";
 
@@ -166,6 +171,15 @@ export function ConfigControl(props: ControlProps) {
       return <StringControl {...props} />;
     case "array":
     case "record":
+      // omp 的 goal.continuationModes 在界面里是“目标自动推进”开关：只增减 "rpc"，别的条目保留。
+      if (item.key === goalContinuationKey)
+        return (
+          <Switch
+            checked={goalContinuationOn(item.value)}
+            labelledBy={labelId}
+            onChange={(on) => onSave(withGoalContinuation(item.value, on))}
+          />
+        );
       if (item.key === "modelRoles" && canEditStructured(item)) return <RolesEditor {...props} />;
       if (item.key === "retry.fallbackChains" && canEditStructured(item)) return <ChainsEditor {...props} />;
       return <JsonControl {...props} />;
