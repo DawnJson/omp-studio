@@ -342,7 +342,11 @@ export function HeatmapView({
     );
   }, [locale]);
   const max = Math.max(0, ...days.map((day) => metricValue(day, metric)));
-  const format = (value: number) => (metric === "cost" ? money(locale, value, 2) : compact(locale, value));
+  // 按花费着色时悬停一并给出请求数（浮层里只看花费，不再有指标切换）。
+  const format = (day: UsageDay) =>
+    metric === "cost"
+      ? `${money(locale, day.costUsd, 2)} · ${t("usage.summary.requests", { count: day.requests, value: compact(locale, day.requests) })}`
+      : compact(locale, metricValue(day, metric));
   // 5 档：0 = 无记录；1..4 按占最大值的比例。
   const level = (day: UsageDay | null) => {
     const value = day ? metricValue(day, metric) : 0;
@@ -379,7 +383,7 @@ export function HeatmapView({
                       inWindow
                         ? t("usage.heatmap.day", {
                             date,
-                            value: day ? format(metricValue(day, metric)) : t("usage.heatmap.none"),
+                            value: day ? format(day) : t("usage.heatmap.none"),
                           })
                         : undefined
                     }

@@ -91,9 +91,25 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 发送键左边的本会话费用：和用量行同样的等宽小字；点开是每日用量和订阅额度。 */
+/* 发送键左边：上下文圆环 + 本会话费用（等宽小字）；圆环点开是上下文构成，费用点开是订阅额度和每日用量。 */
+.usage-context-anchor,
 .session-cost-anchor {
   flex: none;
+}
+.usage-context {
+  display: grid;
+  place-items: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+.usage-context:hover .usage-ring-track,
+.usage-context[aria-expanded="true"] .usage-ring-track {
+  stroke: var(--text-3);
 }
 .session-cost {
   height: var(--control-h-sm);
@@ -246,8 +262,8 @@
   }
 }
 
-/* 工具行里的用量仪表（模型、审批胶囊之后）：数字一律等宽字体 + --text-2，上下文圆环同时是 omp 的 "o"。
-   输入框变窄时逐级收起：先速度，再本会话 token，只留上下文。 */
+/* 工具行里模型、审批胶囊之后的用量仪表：本会话 token、速度，数字一律等宽字体 + --text-2。
+   输入框变窄时逐级收起：先速度，再本会话 token。 */
 .composer-stack {
   container-type: inline-size;
 }
@@ -306,6 +322,7 @@ button.usage-item:hover {
 }
 /* 仪表行里的浮层：不继承行的等宽小字，数字列自己用等宽 */
 .usage .pop,
+.usage-context-anchor .pop,
 .session-cost-anchor .pop {
   color: var(--text);
   font-family: var(--font-sans);
@@ -315,7 +332,7 @@ button.usage-item:hover {
 .usage-ring-track,
 .usage-ring-fill {
   fill: none;
-  stroke-width: 2;
+  stroke-width: 2.5;
 }
 .usage-ring-track {
   stroke: var(--border-strong);

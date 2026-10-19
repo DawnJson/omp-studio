@@ -35,7 +35,7 @@ import { getDraft, setDraft, setDraftText, useDraft } from "./draft-store.ts";
 import { ModelChip } from "./ModelChip.tsx";
 import { decideEnter, isShellDraft } from "./send-logic.ts";
 import { SendStop } from "./SendStop.tsx";
-import { DraftUsageMeter } from "./UsageMeter.tsx";
+import { DraftContextMeter } from "./UsageMeter.tsx";
 import { SessionCost } from "./SessionCost.tsx";
 import { FileMenu } from "./FileMenu.tsx";
 import { useFileMenu } from "./use-file-menu.ts";
@@ -275,8 +275,8 @@ export function DraftComposer({ projectId }: { projectId: ProjectId | null }) {
           />
           <ApprovalChip />
           {projectId !== null && <WorktreeChip projectId={projectId} />}
-          <DraftUsageMeter model={model ?? null} projectId={projectId} />
           <span className="composer-spacer" />
+          <DraftContextMeter model={model ?? null} projectId={projectId} />
           <SessionCost usage={null} provider={model?.key.provider ?? null} />
           <SendStop
             running={false}

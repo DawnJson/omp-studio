@@ -39,7 +39,7 @@ import { useFileMenu } from "./use-file-menu.ts";
 import { SendStop } from "./SendStop.tsx";
 import { thinkingLevelOptions } from "./thinking-levels.ts";
 import { SessionCost } from "./SessionCost.tsx";
-import { UsageMeter } from "./UsageMeter.tsx";
+import { ContextMeter, UsageMeter } from "./UsageMeter.tsx";
 import { UsageLimitBanner } from "./UsageLimitBanner.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { useHeld } from "./use-held.ts";
@@ -425,6 +425,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
           <UsageMeter task={task} />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
+          <ContextMeter task={task} />
           <SessionCost usage={task.sessionUsage} provider={task.model?.key.provider ?? null} />
           <SendStop
             running={running}

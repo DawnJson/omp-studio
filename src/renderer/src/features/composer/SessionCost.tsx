@@ -45,7 +45,7 @@ export function SessionCost({ usage, provider }: { usage: TaskState["sessionUsag
           </span>
         )}
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} width={360} align="end" label={t("composer.usage.overview")}>
+      <Popover open={open} onClose={() => setOpen(false)} width={520} align="end" label={t("composer.usage.overview")}>
         <UsageOverview provider={provider} />
       </Popover>
     </div>

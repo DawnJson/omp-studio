@@ -131,39 +131,42 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
-    // 新任务草稿：还没有会话，上下文是 0%（窗口取默认模型的），没有本会话 token；费用 $0.00。
-    const draftMeter = page.getByTestId("draft-composer").getByTestId("usage-meter");
-    await expect(draftMeter.getByTestId("context-meter")).toContainText("0%");
-    await expect(draftMeter.getByTestId("usage-tokens")).toHaveCount(0);
-    await expect(page.getByTestId("draft-composer").getByTestId("usage-cost")).toHaveText("$0.00");
+    // 新任务草稿：还没有会话，发送键左边是上下文圆环（0%，只有圆、没有文字，窗口取默认模型的）和 $0.00；没有本会话 token。
+    const draft = page.getByTestId("draft-composer");
+    await expect(draft.getByTestId("context-meter")).toHaveAttribute("aria-label", /0%/);
+    await expect(draft.getByTestId("context-meter")).toHaveText("");
+    await expect(draft.getByTestId("usage-tokens")).toHaveCount(0);
+    await expect(draft.getByTestId("usage-cost")).toHaveText("$0.00");
     await expect(page.getByTestId("model-chip").locator("svg")).toHaveCount(0);
     await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
 
-    // 输入框下方不再有单独一行：用量全在工具行里，模型胶囊右边依次是上下文占比、本会话 token（fixture 9206）
-    // （fixture 上下文不到 1%）；费用 $0.00006513 在发送键左边，每日用量和额度在费用的浮层里。
+    // 输入框下方不再有单独一行：模型胶囊右边是本会话 token（fixture 9206）；发送键左边依次是上下文圆环
+    // （fixture 上下文不到 1%，没有文字）和费用 $0.00006513，每日用量和额度在费用的浮层里。
     const tools = page.locator(".composer-tools");
     const meter = tools.getByTestId("usage-meter");
     await expect(meter).toBeVisible();
-    const contextMeter = meter.getByTestId("context-meter");
-    await expect(contextMeter).toContainText(/0\.\d/);
     await expect(meter.getByTestId("usage-tokens")).toContainText("9.2K");
     const chipBox = await page.getByTestId("model-chip").boundingBox();
-    const boxes = await Promise.all(["context-meter", "usage-tokens"].map((id) => meter.getByTestId(id).boundingBox()));
-    let right = (chipBox?.x ?? 0) + (chipBox?.width ?? 0);
-    for (const box of boxes) {
-      expect(box?.x ?? 0).toBeGreaterThanOrEqual(right);
-      right = (box?.x ?? 0) + (box?.width ?? 0);
-      // 同一行：垂直中线对齐模型胶囊。
-      expect(chipBox && box && Math.abs(chipBox.y + chipBox.height / 2 - (box.y + box.height / 2))).toBeLessThanOrEqual(
-        2,
-      );
-    }
+    const tokensBox = await meter.getByTestId("usage-tokens").boundingBox();
+    expect(tokensBox?.x ?? 0).toBeGreaterThanOrEqual((chipBox?.x ?? 0) + (chipBox?.width ?? 0));
+    const contextMeter = tools.getByTestId("context-meter");
+    await expect(contextMeter).toHaveAttribute("aria-label", /0\.\d/);
+    await expect(contextMeter).toHaveText("");
     await expect(page.locator(".composer-stack > [data-testid=usage-meter]")).toHaveCount(0);
     const cost = tools.getByTestId("usage-cost");
     await expect(cost).toContainText("$0.0001");
-    const costBox = await cost.boundingBox();
-    const sendBox = await page.getByTestId("send-button").boundingBox();
+    const [contextBox, costBox, sendBox] = await Promise.all(
+      [contextMeter, cost, page.getByTestId("send-button")].map((locator) => locator.boundingBox()),
+    );
+    // 同一行，从左到右：本会话 token、圆环、费用、发送键；圆环和模型胶囊垂直中线对齐。
+    expect(contextBox && tokensBox && contextBox.x).toBeGreaterThanOrEqual(
+      (tokensBox?.x ?? 0) + (tokensBox?.width ?? 0),
+    );
+    expect(contextBox && costBox && contextBox.x + contextBox.width).toBeLessThanOrEqual(costBox?.x ?? 0);
     expect(costBox && sendBox && costBox.x + costBox.width).toBeLessThanOrEqual(sendBox?.x ?? 0);
+    expect(
+      chipBox && contextBox && Math.abs(chipBox.y + chipBox.height / 2 - (contextBox.y + contextBox.height / 2)),
+    ).toBeLessThanOrEqual(2);
     // 输入框仍在主区底部。
     const panel = await page.getByTestId("main-panel").boundingBox();
     const stack = await page.getByTestId("composer-stack").boundingBox();
@@ -201,6 +204,11 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
     await expect(overview.getByTestId("usage-tab-daily")).toBeFocused();
     await expect(overview.getByTestId("heatmap-section")).toBeVisible();
     await expect(overview.getByTestId("quota-section")).toHaveCount(0);
+    // 每日用量只按花费看：没有 token / 花费 / 请求数切换。浮层是宽的那种（520）。
+    await expect(overview.getByTestId("usage-metric")).toHaveCount(0);
+    expect(
+      (await page.locator(".pop:has([data-testid=usage-popover])").boundingBox())?.width ?? 0,
+    ).toBeGreaterThanOrEqual(500);
     await expect(overview.getByRole("button", { name: /设置|Settings/ })).toHaveCount(0);
     await shoot(page, "quota");
     await page.keyboard.press("Escape");

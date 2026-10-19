@@ -1,25 +1,24 @@
-// 点发送键左边的费用弹出的用量浮层：顶上一个切换框，"订阅额度"是各订阅账号的额度条（当前 provider 排最前），
-// "每日用量"是最近几周的每日用量热力图；上次看的那一页下次打开还在。
+// 点发送键左边的费用弹出的用量浮层（宽 520）：顶上一个切换框，"订阅额度"是各订阅账号的额度条（当前 provider 排最前），
+// "每日用量"是最近几周的每日用量热力图，格子按花费着色，悬停给金额和请求数；上次看的那一页下次打开还在。
 // 数据和设置页共用 usage-store（omp usage --json / stats.db）：打开时额度重读，热力图还没有数据时才读。
 import { useEffect, useId, useState, type KeyboardEvent } from "react";
 import { isUntouched } from "../../../../shared/ui/usage-summary.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { describeError } from "../../ui/errors.ts";
 import { loadHeatmap, loadQuota, useUsageHeatmap, useUsageQuota } from "../settings/usage-store.ts";
-import { HeatmapView, MetricSwitch, QuotaBlock, UntouchedRow, type Metric } from "../settings/usage-views.tsx";
+import { HeatmapView, QuotaBlock, UntouchedRow } from "../settings/usage-views.tsx";
 
-/** 浮层内宽约 330px，一周一列 13px，扣掉星期标签：22 周正好铺满。 */
-const heatmapWeeks = 22;
+/** 浮层内宽约 490px，一周一列 16px（格子 13 + 间距 3），扣掉星期标签：28 周正好铺满。 */
+const heatmapWeeks = 28;
 
 type Tab = "quota" | "daily";
 const tabs: readonly Tab[] = ["quota", "daily"];
 /** 本次运行里上次看的页；浮层每次打开都重新挂载，所以记在模块里。 */
 let lastTab: Tab = "quota";
 
-function DailyUsage({ labelledBy }: { labelledBy: string }) {
+function DailyUsage() {
   const t = useT();
   const heatmap = useUsageHeatmap();
-  const [metric, setMetric] = useState<Metric>("tokens");
   return (
     <>
       {heatmap.error !== null && (
@@ -27,12 +26,7 @@ function DailyUsage({ labelledBy }: { labelledBy: string }) {
           {t("usage.heatmap.failed", { message: describeError(t, heatmap.error) })}
         </p>
       )}
-      {heatmap.data?.hasDatabase && (
-        <>
-          <MetricSwitch value={metric} onChange={setMetric} labelledBy={labelledBy} />
-          <HeatmapView heatmap={heatmap.data} metric={metric} recentWeeks={heatmapWeeks} />
-        </>
-      )}
+      {heatmap.data?.hasDatabase && <HeatmapView heatmap={heatmap.data} metric="cost" recentWeeks={heatmapWeeks} />}
       {heatmap.data && !heatmap.data.hasDatabase && !heatmap.busy && (
         <p className="ctx-note">{t("usage.heatmap.noDatabase")}</p>
       )}
@@ -118,7 +112,7 @@ export function UsageOverview({ provider }: { provider: string | null }) {
         aria-labelledby={`${baseId}-${tab}`}
         data-testid={tab === "quota" ? "quota-section" : "heatmap-section"}
       >
-        {tab === "quota" ? <Quota provider={provider} /> : <DailyUsage labelledBy={`${baseId}-${tab}`} />}
+        {tab === "quota" ? <Quota provider={provider} /> : <DailyUsage />}
       </div>
     </div>
   );
