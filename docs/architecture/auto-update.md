@@ -69,6 +69,8 @@ idle → checking → up-to-date
 
 实测（2026-10-18，omp-studio 0.1.0 → 0.1.1，Windows 10）：状态依次为"尚未检查 / 正在检查… / 正在下载（0%）/ 已下载"，点击后应用关闭、安装完成、自动重启，安装目录里的版本变成 0.1.1。
 
+实测（2026-10-19，固定目录 + 本机回环服务，Windows 11 26300）：临时打一个 0.0.9 安装，不设 `STUDIO_UPDATE_URL`，检查 → `downloading 0.1.0` → `downloaded 0.1.0` → 安装后应用自动重启，安装目录里的版本变成 0.1.0。
+
 ## 待定
 
 - 正式（对外）的更新源地址（单独的公开 releases 仓库 / 对象存储），见 `PLAN.md` 阶段 7；定了以后把 `electron-builder.yml` 的 `publish.url` 换成 http(s) 地址。
