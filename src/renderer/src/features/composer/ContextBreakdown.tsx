@@ -31,11 +31,9 @@ export interface ContextBreakdownProps {
   parts: TaskState["contextParts"];
   modelKey: ModelKey | null;
   projectId: ProjectId | null;
-  /** 草稿：在底部说明系统提示词和工具定义要等会话建立后才知道。 */
-  draft?: boolean;
 }
 
-export function ContextBreakdown({ context, parts, modelKey, projectId, draft = false }: ContextBreakdownProps) {
+export function ContextBreakdown({ context, parts, modelKey, projectId }: ContextBreakdownProps) {
   const t = useT();
   const settings = useCompaction(projectId);
   const window = context.contextWindow;
@@ -76,15 +74,6 @@ export function ContextBreakdown({ context, parts, modelKey, projectId, draft = 
           </div>
         ))}
       </dl>
-      <p className="ctx-note">
-        {[
-          parts !== null && t("composer.context.estimate"),
-          draft && t("composer.context.draftNote"),
-          trigger !== null && t("composer.context.compactAt", { n: formatCount(trigger) }),
-        ]
-          .filter((part) => typeof part === "string")
-          .join(" · ")}
-      </p>
     </div>
   );
 }

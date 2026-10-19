@@ -91,15 +91,27 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 发送键左边的本会话费用：和用量行同样的等宽小字，但不加按钮外观（只读）。 */
+/* 发送键左边的本会话费用：和用量行同样的等宽小字；点开是每日用量和订阅额度。 */
+.session-cost-anchor {
+  flex: none;
+}
 .session-cost {
+  height: var(--control-h-sm);
   padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--text-2);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  cursor: pointer;
+}
+.session-cost:hover,
+.session-cost[aria-expanded="true"] {
+  color: var(--text);
 }
 .session-cost-sub {
   color: var(--text-3);
@@ -150,6 +162,7 @@
 .pop-item:focus-visible,
 .segment:focus-visible,
 .usage-item:focus-visible,
+.session-cost:focus-visible,
 .attachment-remove:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
@@ -234,7 +247,7 @@
 }
 
 /* 工具行里的用量仪表（模型、审批胶囊之后）：数字一律等宽字体 + --text-2，上下文圆环同时是 omp 的 "o"。
-   输入框变窄时逐级收起：先速度，再本会话 token 和每日用量，最后额度，只留上下文。 */
+   输入框变窄时逐级收起：先速度，再本会话 token，只留上下文。 */
 .composer-stack {
   container-type: inline-size;
 }
@@ -287,26 +300,13 @@ button.usage-item:hover {
   }
 }
 @container (max-width: 760px) {
-  .usage .pop-anchor:has(> :is([data-testid="usage-tokens"], [data-testid="heatmap-meter"])) {
+  .usage .pop-anchor:has(> [data-testid="usage-tokens"]) {
     display: none;
   }
-}
-@container (max-width: 560px) {
-  .usage .pop-anchor:has(> .usage-quota) {
-    display: none;
-  }
-}
-.usage-quota[data-high] {
-  color: var(--st-waiting-text);
-}
-/* 额度窗口名可能是 provider 给的长名字：限宽省略（全文在悬停提示里）。 */
-.usage-quota-text {
-  max-width: 18ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 /* 仪表行里的浮层：不继承行的等宽小字，数字列自己用等宽 */
-.usage .pop {
+.usage .pop,
+.session-cost-anchor .pop {
   color: var(--text);
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
@@ -462,9 +462,18 @@ button.usage-item:hover {
   margin: 0;
 }
 
-/* 额度 / 每日用量浮层：账号块和热力图见 settings/usage.css */
-.qm-more {
-  align-self: flex-start;
+/* 费用浮层：每日用量、订阅额度两节，中间一条分隔线；账号块和热力图见 settings/usage.css */
+.qm {
+  gap: var(--space-3);
+}
+.qm-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.qm-section + .qm-section {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .send {

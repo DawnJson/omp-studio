@@ -131,32 +131,24 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
-    // 新任务草稿：还没有会话，上下文是 0%（窗口取默认模型的），没有本会话 token；每日用量、额度照样显示，费用 $0.00。
+    // 新任务草稿：还没有会话，上下文是 0%（窗口取默认模型的），没有本会话 token；费用 $0.00。
     const draftMeter = page.getByTestId("draft-composer").getByTestId("usage-meter");
-    await expect(draftMeter.getByTestId("heatmap-meter")).toBeVisible();
-    await expect(draftMeter.getByTestId("quota-meter")).toBeVisible();
     await expect(draftMeter.getByTestId("context-meter")).toContainText("0%");
     await expect(draftMeter.getByTestId("usage-tokens")).toHaveCount(0);
     await expect(page.getByTestId("draft-composer").getByTestId("usage-cost")).toHaveText("$0.00");
     await expect(page.getByTestId("model-chip").locator("svg")).toHaveCount(0);
     await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
 
-    // 输入框下方不再有单独一行：用量全在工具行里，模型胶囊右边依次是上下文占比、本会话 token（fixture 9206）、
-    // 每日用量、额度（fixture 上下文不到 1%）；费用 $0.00006513 在发送键左边。
+    // 输入框下方不再有单独一行：用量全在工具行里，模型胶囊右边依次是上下文占比、本会话 token（fixture 9206）
+    // （fixture 上下文不到 1%）；费用 $0.00006513 在发送键左边，每日用量和额度在费用的浮层里。
     const tools = page.locator(".composer-tools");
     const meter = tools.getByTestId("usage-meter");
     await expect(meter).toBeVisible();
     const contextMeter = meter.getByTestId("context-meter");
     await expect(contextMeter).toContainText(/0\.\d/);
     await expect(meter.getByTestId("usage-tokens")).toContainText("9.2K");
-    const quota = meter.getByTestId("quota-meter");
-    await expect(quota).toBeVisible();
     const chipBox = await page.getByTestId("model-chip").boundingBox();
-    const boxes = await Promise.all(
-      ["context-meter", "usage-tokens", "heatmap-meter", "quota-meter"].map((id) =>
-        meter.getByTestId(id).boundingBox(),
-      ),
-    );
+    const boxes = await Promise.all(["context-meter", "usage-tokens"].map((id) => meter.getByTestId(id).boundingBox()));
     let right = (chipBox?.x ?? 0) + (chipBox?.width ?? 0);
     for (const box of boxes) {
       expect(box?.x ?? 0).toBeGreaterThanOrEqual(right);
@@ -185,28 +177,29 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
     await expect(breakdown).toBeVisible();
     for (const part of ["system", "tools", "messages", "free"])
       await expect(breakdown.locator(`[data-testid="context-row"][data-part="${part}"]`)).toHaveCount(1);
+    // 构成下面不再有说明小字。
+    await expect(breakdown.locator(".ctx-note")).toHaveCount(0);
     await shoot(page, "context");
     await page.keyboard.press("Escape");
     await expect(breakdown).toHaveCount(0);
     await expect(page.getByTestId("context-meter")).toBeFocused();
 
-    // 本会话按模型的明细；额度项（假 omp 没有额度数据，只写"额度"）。
+    // 本会话按模型的明细。
     await page.getByTestId("usage-tokens").click();
     await expect(page.getByTestId("model-breakdown")).toBeVisible();
     await shoot(page, "model-usage");
     await page.keyboard.press("Escape");
-    await quota.click();
-    await expect(page.getByTestId("quota-popover")).toBeVisible();
+    // 点费用：一个浮层里先是每日用量，再是订阅额度；没有"去设置看全年"；Esc 关闭后焦点回到费用。
+    await cost.click();
+    const overview = page.getByTestId("usage-popover");
+    await expect(overview).toBeVisible();
+    await expect(overview.getByTestId("heatmap-section")).toBeVisible();
+    await expect(overview.getByTestId("quota-section")).toBeVisible();
+    await expect(overview.getByRole("button", { name: /设置|Settings/ })).toHaveCount(0);
     await shoot(page, "quota");
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("quota-popover")).toHaveCount(0);
-    // 每日用量单独一个浮层。
-    const daily = meter.getByTestId("heatmap-meter");
-    await daily.click();
-    await expect(page.getByTestId("heatmap-popover")).toBeVisible();
-    await expect(page.getByTestId("quota-popover")).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("heatmap-popover")).toHaveCount(0);
+    await expect(overview).toHaveCount(0);
+    await expect(cost).toBeFocused();
 
     // 模型选择对话框：焦点进搜索框，Tab 在框内循环，Esc 关闭后焦点回到胶囊。
     const chip = page.getByTestId("model-chip");

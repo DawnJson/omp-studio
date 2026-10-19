@@ -1,6 +1,6 @@
 // 输入框工具行里的用量仪表（输入框下方不再有单独一行），等宽小字，紧跟模型、审批胶囊：
-// 上下文（圆环 + 百分比）、本会话 token、速度、每日用量、订阅额度，各自点开一个浮层。费用在发送键左边（SessionCost）。
-// 点上下文弹出上下文构成 + "压缩上下文"；点本会话 token 弹出按模型的明细。新任务草稿只有上下文（0%）、每日用量和额度。
+// 上下文（圆环 + 百分比）、本会话 token、速度。费用在发送键左边（SessionCost，点开是每日用量和订阅额度）。
+// 点上下文弹出上下文构成 + "压缩上下文"；点本会话 token 弹出按模型的明细。新任务草稿只有上下文（0%）。
 import { useState, type ReactNode } from "react";
 import type { ModelOption, ProjectId, TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -8,7 +8,6 @@ import { compactContext } from "./actions.ts";
 import { ContextBreakdown, type ContextBreakdownProps } from "./ContextBreakdown.tsx";
 import { ModelBreakdown } from "./ModelBreakdown.tsx";
 import { Popover } from "./Popover.tsx";
-import { DailyUsageMeter, QuotaMeter } from "./QuotaMeter.tsx";
 import { formatTokensPerSecond } from "./speed-limit-format.ts";
 import { formatCount, formatPercent } from "./usage-format.ts";
 
@@ -124,7 +123,7 @@ function TokensMeter({ task }: { task: TaskState }) {
   );
 }
 
-/** 工具行里模型/审批胶囊右边的仪表：上下文、本会话 token、速度、每日用量、额度。窄输入框逐级只留上下文。 */
+/** 工具行里模型/审批胶囊右边的仪表：上下文、本会话 token、速度。窄输入框逐级只留上下文。 */
 export function UsageMeter({ task }: { task: TaskState }) {
   const t = useT();
   const busy = task.status === "running" || task.status === "needs_you";
@@ -139,14 +138,11 @@ export function UsageMeter({ task }: { task: TaskState }) {
           {t("composer.usage.tps", { n: speedText })}
         </span>
       )}
-      <DailyUsageMeter />
-      <QuotaMeter provider={task.model?.key.provider ?? null} refreshKey={task.updatedAt} />
     </div>
   );
 }
 
-/** 新任务草稿的仪表：还没有会话，上下文是 0（窗口取所选模型的；模型没报窗口就不显示），本会话 token 要发出第一条消息后才有；
- *  每日用量和额度与会话无关，照样显示。 */
+/** 新任务草稿的仪表：还没有会话，上下文是 0（窗口取所选模型的；模型没报窗口就不显示），本会话 token 要发出第一条消息后才有。 */
 export function DraftUsageMeter({ model, projectId }: { model: ModelOption | null; projectId: ProjectId | null }) {
   const t = useT();
   const window = model?.contextWindow ?? null;
@@ -158,11 +154,8 @@ export function DraftUsageMeter({ model, projectId }: { model: ModelOption | nul
           parts={null}
           modelKey={model?.key ?? null}
           projectId={projectId}
-          draft
         />
       )}
-      <DailyUsageMeter />
-      <QuotaMeter provider={model?.key.provider ?? null} />
     </div>
   );
 }
