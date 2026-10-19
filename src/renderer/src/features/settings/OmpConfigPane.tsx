@@ -15,9 +15,20 @@ export function useOmpConfigLoader(): void {
   useEffect(() => {
     if (ready) void loadOmpConfig();
   }, [ready]);
+  // 主进程启动时可能晚于设置页读快照才写入默认值：收到就静默重读，开关不停在旧值上。
+  useEffect(() => window.studio.onOmpConfigChanged(() => void loadOmpConfig()), []);
 }
 
-export function OmpConfigPane({ group, query }: { group: ConfigGroup | null; query: string }) {
+/** `omit`：同一页别处已经有控件的键（"模型与账号"页上面的默认思考强度），这里不再重复一行；搜索不受影响。 */
+export function OmpConfigPane({
+  group,
+  query,
+  omit = [],
+}: {
+  group: ConfigGroup | null;
+  query: string;
+  omit?: readonly string[];
+}) {
   const t = useT();
   const status = useOmpStatus();
   const load = useConfigLoad();
@@ -62,5 +73,6 @@ export function OmpConfigPane({ group, query }: { group: ConfigGroup | null; que
     return <ConfigResults items={results} query={trimmed} />;
   }
   if (group === null) return null;
-  return <ConfigTab tab={group} items={groupConfigItems(snapshot.items).get(group) ?? []} />;
+  const items = (groupConfigItems(snapshot.items).get(group) ?? []).filter((item) => !omit.includes(item.key));
+  return <ConfigTab tab={group} items={items} />;
 }

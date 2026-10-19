@@ -19,7 +19,7 @@
 
 ## 界面
 
-- 左侧导航：omp-studio 自己的几组（通用、模型与账号、用量、omp、关于），再接 **omp-studio 自己的 omp 设置分组**（模型与推理、工具与权限、上下文与记忆、子代理与规划、对话行为、集成、语音、其他），不再照搬 omp 的 tab（那是按终端菜单分的）；分组规则在 `src/shared/ui/config-groups.ts`（`test/config-groups.test.ts`）。rpc-ui 下没有作用的项隐藏（见下节），搜索也不找它们；顶部搜索框按 key、omp 英文描述、中英文标签和说明过滤（多个词要全部命中），`Ctrl F` 聚焦，`Esc` 先清搜索。
+- 左侧导航只有一列，不分"omp-studio 的 / omp 的"（仓库所有者 2026-10-19 定；omp 的设置和终端共用，就是 omp-studio 的设置）：通用、模型与账号、工具与权限、上下文与记忆、子代理与规划、对话行为、集成、语音、其他、用量、omp 版本、关于（`SettingsView.tsx` 的 `navOrder`）。omp 的"模型与推理"组并进"模型与账号"页，排在账号和模型下面（`defaultThinkingLevel` 上面已有"默认思考强度"，组里不再重复，`OmpConfigPane` 的 `omit`；搜索照样找得到）；命令面板等定位到 `cfg:models` 时打开这一页。主进程自己改了设置（启动时 `goal.continuationModes` 的默认值）会发 `ompConfigChanged`，打开着的设置页静默重读。分组按用户要做的事分，不照搬 omp 的 tab（那是按终端菜单分的）；分组规则在 `src/shared/ui/config-groups.ts`（`test/config-groups.test.ts`）。rpc-ui 下没有作用的项隐藏（见下节），搜索也不找它们；顶部搜索框按 key、omp 英文描述、中英文标签和说明过滤（多个词要全部命中），`Ctrl F` 聚焦，`Esc` 先清搜索。
 - 每项默认一行：标签 + ⓘ（描述、key、"omp 原文"标记都在悬停/聚焦/点击出现的说明里）+ "已修改"标记 + 保存反馈，右边是"恢复默认"和控件。搜索命中的是描述时，才在行下面显示那一句。被覆盖、保存或校验出错时才多一行。
 - 控件：boolean 开关；enum 三个及以内且短的用分段，否则下拉；number 文本框（要求是数字）；string 文本框；array/record JSON 编辑器（解析失败、类型不对就地报错，不保存）。文本类停手 700 ms（JSON 1 s）、失焦或 Enter 保存；开关和选择立即保存。
 - **`goal.continuationModes` 画成开关「目标自动推进」**（`ConfigControls.tsx`，`ompcfg` 里有标签和说明，所以也在“常用”里）：开 ⇔ 列表里有 `"rpc"`；切换时只增减 `"rpc"`，别的条目保留（`src/shared/ui/goal-continuation.ts`，`test/goal-continuation.test.ts`），写的就是上面那条 `omp config set`，不另存副本、不用 `--config` 覆盖，所以终端里的 omp 看到同一份值，反过来也一样。omp-studio 启动时若发现它没被用户明确设置过，会加上 `"rpc"` 一次（默认允许，细节和“怎么分辨设过”见 `conversation.md` 目标一节）。终端版 omp 只看 `"interactive"`，不受影响。

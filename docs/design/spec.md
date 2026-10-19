@@ -517,16 +517,16 @@
 
 ### 4.19 SettingsPage
 
-占据主区的页面（侧栏保留，当前任务不卸载）；入口：侧栏 `设置`、`Ctrl ,`、命令面板。返回：`Esc` 或 `‹ 返回`，回到进入前的任务、滚动位置与焦点元素。左侧 168 宽分节列表（`通用 / 模型与账号 / 用量 / omp / 关于` + omp 设置分组），右侧内容列**最大 880、左对齐**（窗口变宽时右侧留白，不把控件拉开）；节标题 `--fs-xl`；**两栏表格式**：分组标题（`--fs-xs` `--text-3`，下一条 `--border` 线）+ 无底色的行，行高 ≥44、行间 1px `--border-subtle`；每行左列固定宽 208 放标签（`--fs-base`，说明放标签后的 `ⓘ`，不另起灰字），控件紧跟标签列左对齐，不再拉到最右。适用于所有分节，含 omp 设置分组和用量。
+占据主区的页面（侧栏保留，当前任务不卸载）；入口：侧栏 `设置`、`Ctrl ,`、命令面板。返回：`Esc` 或 `‹ 返回`，回到进入前的任务、滚动位置与焦点元素。左侧 168 宽分节列表，**只有一列，不分"omp-studio 的 / omp 的"**（omp 的设置和终端共用一份，就是 omp-studio 的设置；仓库所有者 2026-10-19 定）：`通用 / 模型与账号 / 工具与权限 / 上下文与记忆 / 子代理与规划 / 对话行为 / 集成 / 语音 / 其他 / 用量 / omp 版本 / 关于`，omp 的"模型与推理"并进`模型与账号`（同页，账号和模型在前，模型相关的 omp 设置在后）；读到 omp 设置前全部分组都列出，读到后去掉没有项的组。右侧内容列**最大 880、左对齐**（窗口变宽时右侧留白，不把控件拉开）；节标题 `--fs-xl`；**两栏表格式**：分组标题（`--fs-xs` `--text-3`，下一条 `--border` 线）+ 无底色的行，行高 ≥44、行间 1px `--border-subtle`；每行左列固定宽 208 放标签（`--fs-base`，说明放标签后的 `ⓘ`，不另起灰字），控件紧跟标签列左对齐，不再拉到最右。适用于所有分节，含 omp 设置分组和用量。
 
 | 节 | 内容 |
 |---|---|
 | 通用 | 语言（跟随系统 / 简体中文 / English）；主题（跟随系统 / 浅色 / 深色）；减少动效（开关，系统已要求时始终生效）；运行中按 Enter（插话 / 稍后）；系统通知（有任务在等你时）；快捷键（只读列表，v1 不可自定义） |
-| 模型与账号 | **自定义提供商**（在提供商列表上方，`features/settings/CustomProviders.tsx`）：`models.yml` 里 `providers.*` 的列表（ID、Base URL、模型数 · key 状态），`添加提供商` / `编辑` / `删除`（删除先 `ConfirmDialog`）；表单行内展开（`.st-login` 卡，标签列 112）：ID（编辑时只读）、Base URL、接口类型、key（分段：密钥 / 环境变量 / 无需 key，编辑时多一个“保持不变”；密钥默认遮住，`显示 / 隐藏`）、模型（`拉取模型` 后勾选，可筛选、全选，手动添加；拉取失败用一句人话写在按钮下面）；保存后 toast，新模型出现在模型选择器。直接读写 omp 的 `models.yml`，见 `docs/architecture/custom-models.md`。提供商列表（§4.20）；新任务的默认模型、默认思考强度——**就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，经 `omp config` 读写**，和草稿输入框的模型胶囊是同一份（PLAN 设计原则 7）。审批模式不在这里：在输入框胶囊或 omp 设置分组里改 |
-| omp | 路径、版本、来源（`由 Tern 管理` / `由 omp-studio 管理` / `你自己安装的`）、`检查更新`；受管者管理时升级按钮禁用并写 `omp.updateInTern`；自管时显示自动更新开关 |
+| 模型与账号 | **自定义提供商**（在提供商列表上方，`features/settings/CustomProviders.tsx`）：`models.yml` 里 `providers.*` 的列表（ID、Base URL、模型数 · key 状态），`添加提供商` / `编辑` / `删除`（删除先 `ConfirmDialog`）；表单行内展开（`.st-login` 卡，标签列 112）：ID（编辑时只读）、Base URL、接口类型、key（分段：密钥 / 环境变量 / 无需 key，编辑时多一个“保持不变”；密钥默认遮住，`显示 / 隐藏`）、模型（`拉取模型` 后勾选，可筛选、全选，手动添加；拉取失败用一句人话写在按钮下面）；保存后 toast，新模型出现在模型选择器。直接读写 omp 的 `models.yml`，见 `docs/architecture/custom-models.md`。提供商列表（§4.20）；新任务的默认模型、默认思考强度——**就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，经 `omp config` 读写**，和草稿输入框的模型胶囊是同一份（PLAN 设计原则 7）。页面最后接 omp 设置的"模型与推理"组（标题 + 该组全部行）。审批模式不在这里：在输入框胶囊或"工具与权限"里改 |
+| omp 版本 | 路径、版本、来源（`由 Tern 管理` / `由 omp-studio 管理` / `你自己安装的`）、`检查更新`；受管者管理时升级按钮禁用并写 `omp.updateInTern`；自管时显示自动更新开关 |
 | 用量 | 默认只显示 `settings.usage.hidden` + `显示用量` 按钮，点击后才请求 `get_session_stats`，展示**当前任务**的 token 与费用；未打开任务时 `settings.usage.noTask`。这是 token/费用的唯一入口之一（另一个是命令面板“查看用量”→ 本节） |
 
-omp 设置分组里的「目标自动推进」（子代理与规划，也在“常用”）：开关，是 omp 的 `goal.continuationModes` 里有没有 `rpc`，**不是 omp-studio 自己的设置**；读写走 `omp config`，和终端里的 omp 共用同一份，不另存副本。说明：开启后 `/goal` 的目标在 omp-studio 里由 omp 自己一轮接一轮推进；这是 omp 的设置 `goal.continuationModes`，和终端里的 omp 共用。首次启动时若用户没设置过会自动打开一次（`conversation.md`）；关着时创建/继续目标弹 info toast，按钮「打开设置」跳到这一组。
+"子代理与规划"里的「目标自动推进」（也在“常用”）：开关，是 omp 的 `goal.continuationModes` 里有没有 `rpc`；读写走 `omp config`，和终端里的 omp 共用同一份，不另存副本。说明：开启后 `/goal` 的目标在 omp-studio 里由 omp 自己一轮接一轮推进；这是 omp 的设置 `goal.continuationModes`，和终端里的 omp 共用。首次启动时若用户没设置过会自动打开一次（`conversation.md`）；关着时创建/继续目标弹 info toast，按钮「打开设置」跳到这一组。
 
 ### 4.20 登录流（设置 → 模型与账号；也用于首次连接）
 
@@ -1089,7 +1089,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `goal.usageBudgetTitle` | 已用 {used} / 预算 {budget} tokens | {used} of {budget} tokens used |
 | `goal.current` | 当前目标（{status}）：{objective} | Current goal ({status}): {objective} |
 | `goal.none` | 当前没有目标。用 /goal 加上目标文字来设定一个 | No goal right now. Use /goal followed by the goal text to set one |
-| `goal.autoContinueOff` | 目标不会自动推进，可在 设置 → omp 的设置 → 子代理与规划 打开「目标自动推进」（和终端里的 omp 共用） | The goal won't keep going on its own. Turn on “Let goals keep going” in Settings → omp settings → Subagents & planning (shared with the omp in your terminal) |
+| `goal.autoContinueOff` | 目标不会自动推进，可在 设置 → 子代理与规划 打开「目标自动推进」（和终端里的 omp 共用） | The goal won't keep going on its own. Turn on “Let goals keep going” in Settings → Subagents & planning (shared with the omp in your terminal) |
 | `goal.openSettings` | 打开设置 | Open settings |
 | `goal.pauseFailed` | 暂停目标失败 | Couldn't pause the goal |
 | `goal.resumeFailed` | 继续目标失败 | Couldn't resume the goal |
@@ -1124,7 +1124,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `settings.back` | 返回 | Back |
 | `settings.general` | 通用 | General |
 | `settings.models` | 模型与账号 | Models & accounts |
-| `settings.omp` | omp | omp |
+| `settings.omp` | omp 版本 | omp version |
 | `settings.usage` | 用量 | Usage |
 | `settings.language` | 语言 | Language |
 | `settings.language.system` | 跟随系统 | System |

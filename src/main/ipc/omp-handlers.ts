@@ -5,6 +5,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { resolveAgentDir } from "../history/session-index.ts";
 import { log } from "../log/log.ts";
+import { emitEvent } from "./events.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { goalContinuationKey } from "../../shared/ui/goal-continuation.ts";
 import { applyGoalContinuationDefault, isGoalContinuationExplicit } from "../omp-config/goal-default.ts";
@@ -45,6 +46,7 @@ export async function applyGoalContinuationDefaultOnStartup(): Promise<void> {
       },
     });
     log.info(`${goalContinuationKey} startup default: ${outcome}`);
+    if (outcome === "written") emitEvent("ompConfigChanged", { key: goalContinuationKey });
   } catch (error) {
     log.warn(`${goalContinuationKey} startup default failed`, error instanceof Error ? error.message : error);
   }

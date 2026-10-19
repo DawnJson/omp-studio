@@ -6,7 +6,7 @@ import { Close, Search } from "../../icons.tsx";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { clearSettingsSection, showView, useSettingsSection } from "../../store/index.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
-import { groupConfigItems, type ConfigGroup } from "../../../../shared/ui/config-groups.ts";
+import { configGroups, groupConfigItems, type ConfigGroup } from "../../../../shared/ui/config-groups.ts";
 import { groupTitle } from "./config-meta.ts";
 import { useConfigLoad } from "./config-store.ts";
 import { AboutSection } from "./AboutSection.tsx";
@@ -19,7 +19,19 @@ import "./motion-preference.ts";
 import "./settings.css";
 import "./config.css";
 
-const studioSections = ["general", "models", "usage", "omp", "about"] as const;
+// 设置页只有一列分节，不按"omp-studio 的 / omp 的"分：omp 的设置和终端共用一份（omp-settings.md），按要做的事排。
+// omp 的"模型与推理"并进"模型与账号"，同一页先账号和模型、再模型相关的 omp 设置。
+type PageSection = "general" | "models" | "usage" | "omp" | "about";
+type NavItem = { kind: "page"; id: PageSection } | { kind: "cfg"; group: ConfigGroup };
+const MERGED_INTO_MODELS: ConfigGroup = "models";
+const navOrder: readonly NavItem[] = [
+  { kind: "page", id: "general" },
+  { kind: "page", id: "models" },
+  ...configGroups.filter((group) => group !== MERGED_INTO_MODELS).map((group) => ({ kind: "cfg" as const, group })),
+  { kind: "page", id: "usage" },
+  { kind: "page", id: "omp" },
+  { kind: "page", id: "about" },
+];
 
 export function SettingsView() {
   const t = useT();
@@ -53,7 +65,9 @@ export function SettingsView() {
   useEffect(() => {
     if (requested === null) return;
     setQuery("");
-    setSection(requested === "shortcuts" ? "general" : requested);
+    setSection(
+      requested === "shortcuts" ? "general" : requested === `cfg:${MERGED_INTO_MODELS}` ? "models" : requested,
+    );
     clearSettingsSection();
     requestAnimationFrame(() => {
       if (requested === "shortcuts") document.getElementById("settings-shortcuts")?.scrollIntoView({ block: "start" });
@@ -70,16 +84,18 @@ export function SettingsView() {
   };
 
   const searching = query.trim() !== "";
+  // 读到 omp 设置之前按全部分组显示，读到后去掉没有项的分组（导航不跳动）。
   const groups = useMemo(
-    () => (load.kind === "ready" ? [...groupConfigItems(load.snapshot.items).keys()] : []),
+    () => (load.kind === "ready" ? new Set(groupConfigItems(load.snapshot.items).keys()) : new Set(configGroups)),
     [load],
   );
+  const nav = navOrder.filter((item) => item.kind === "page" || groups.has(item.group));
   const cfgGroup = section.startsWith("cfg:") ? (section.slice(4) as ConfigGroup) : null;
   const heading = searching
     ? t("settings.search")
     : cfgGroup !== null
       ? groupTitle(locale, cfgGroup)
-      : t(`settings.${section as (typeof studioSections)[number]}`);
+      : t(`settings.${section as PageSection}`);
   const choose = (next: string) => {
     setQuery("");
     setSection(next);
@@ -122,30 +138,20 @@ export function SettingsView() {
             </button>
           )}
         </div>
-        <div className="settings-nav-label">{t("settings.nav.studio")}</div>
-        {studioSections.map((id) => (
-          <button
-            key={id}
-            type="button"
-            aria-current={!searching && id === section ? "page" : undefined}
-            onClick={() => choose(id)}
-            data-testid={`settings-nav-${id}`}
-          >
-            {t(`settings.${id}`)}
-          </button>
-        ))}
-        <div className="settings-nav-label">{t("settings.nav.omp")}</div>
-        {groups.map((group) => (
-          <button
-            key={group}
-            type="button"
-            aria-current={!searching && section === `cfg:${group}` ? "page" : undefined}
-            onClick={() => choose(`cfg:${group}`)}
-            data-testid={`settings-nav-cfg-${group}`}
-          >
-            {groupTitle(locale, group)}
-          </button>
-        ))}
+        {nav.map((item) => {
+          const id = item.kind === "page" ? item.id : `cfg:${item.group}`;
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-current={!searching && section === id ? "page" : undefined}
+              onClick={() => choose(id)}
+              data-testid={item.kind === "page" ? `settings-nav-${item.id}` : `settings-nav-cfg-${item.group}`}
+            >
+              {item.kind === "page" ? t(`settings.${item.id}`) : groupTitle(locale, item.group)}
+            </button>
+          );
+        })}
       </nav>
       <div className="settings-scroll-host">
         <div ref={scroller} className="settings-scroll">
@@ -158,7 +164,17 @@ export function SettingsView() {
             ) : (
               <>
                 {section === "general" && <GeneralSection />}
-                {section === "models" && <ModelsSection />}
+                {section === "models" && (
+                  <>
+                    <ModelsSection />
+                    {groups.has(MERGED_INTO_MODELS) && (
+                      <>
+                        <h3 className="settings-group-title">{groupTitle(locale, MERGED_INTO_MODELS)}</h3>
+                        <OmpConfigPane group={MERGED_INTO_MODELS} query="" omit={["defaultThinkingLevel"]} />
+                      </>
+                    )}
+                  </>
+                )}
                 {section === "usage" && <UsageSection />}
                 {section === "omp" && <OmpSection />}
                 {section === "about" && <AboutSection />}

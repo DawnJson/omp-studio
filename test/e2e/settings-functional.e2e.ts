@@ -113,7 +113,12 @@ test("omp 设置按 omp-studio 的分组显示：终端专用项被隐藏，搜�
   try {
     const { page } = launched;
     await localeAndTheme(page, "zh-CN", "light");
-    await expect(page.getByTestId("settings-nav-cfg-models")).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("settings-nav-cfg-tools").click();
+    await expect(page.getByTestId("cfg-bash.enabled")).toBeVisible({ timeout: 30_000 });
+    // 一列分节：omp 的"模型与推理"并进"模型与账号"，没有单独的一节。
+    await expect(page.getByTestId("settings-nav-cfg-models")).toHaveCount(0);
+    await page.getByTestId("settings-nav-models").click();
+    await expect(page.getByTestId("cfg-modelRoles")).toBeVisible();
     for (const hidden of ["appearance", "interaction", "internal", "shell"])
       await expect(page.getByTestId(`settings-nav-cfg-${hidden}`)).toHaveCount(0);
     await page.getByTestId("settings-search").fill("theme.dark");

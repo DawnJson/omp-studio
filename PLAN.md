@@ -204,7 +204,8 @@ flowchart LR
 - [ ] 计划模式：RPC 下做不了（没有进入命令，没有计划审阅事件，见阶段 2.6 的 plan 模式一条），等你选路线
 - [ ] 停止时取消 omp 转到后台的命令：wire schema 里没有取消后台任务的命令，只能如实提示；要给 omp 提 PR
 - [ ] `!!命令`（执行但不进模型上下文）：RPC `bash` 没有这个参数
-- [x] RPC 支持、之前没做 UI 的（2026-10-19 做完，真实 omp 18.12.2 冒烟通过）：会话树和分叉（`/tree`、`/fork`、消息上"从这里分叉"，用 `branch` 新建会话文件，见 `docs/architecture/session-tree.md`）、`/btw` 旁问、`/goal`（omp 默认 `goal.continuationModes` 不含 `rpc`；它就是 omp 的设置，设置 → omp 的设置「目标自动推进」开关，与终端共用一份，不用 `--config`、不另存副本；首次启动在用户没设置过时默认加上 `rpc`，设过就不碰）、fast/slow 开关、用量限额横幅、tokens/s（负责人例外，默认显示）、`/export` 选保存位置、审批内容预览
+- [x] RPC 支持、之前没做 UI 的（2026-10-19 做完，真实 omp 18.12.2 冒烟通过）：会话树和分叉（`/tree`、`/fork`、消息上"从这里分叉"，用 `branch` 新建会话文件，见 `docs/architecture/session-tree.md`）、`/btw` 旁问、`/goal`（omp 默认 `goal.continuationModes` 不含 `rpc`；它就是 omp 的设置，设置 → 子代理与规划「目标自动推进」开关，与终端共用一份，不用 `--config`、不另存副本；首次启动在用户没设置过时默认加上 `rpc`，设过就不碰）、fast/slow 开关、用量限额横幅、tokens/s（负责人例外，默认显示）、`/export` 选保存位置、审批内容预览
+- [x] 设置页只有一列分节，不分"omp-studio 的设置 / omp 的设置"（仓库所有者 2026-10-19 定：omp 的设置和终端共用，就是 omp-studio 的设置）；omp 的"模型与推理"并进"模型与账号"，原"omp"页改叫"omp 版本"
 - [ ] 默认审批模式：全新 agent 目录下 omp 的默认值是"全部自动"（yolo）。按原则 7 跟随 omp，没改；要不要首次使用时提示一次，待定
 
 ### 阶段 7：发布准备

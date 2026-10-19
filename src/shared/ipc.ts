@@ -818,6 +818,8 @@ export interface StudioEventPayloads {
   projectDropped: Project;
   /** 新任务实际会用的默认模型变了（在 omp 设置里改了 modelRoles、defaultThinkingLevel 等）；null = 读不到。 */
   defaultModel: DefaultModelInfo | null;
+  /** 主进程自己改了 omp 的设置（启动时 goal.continuationModes 的默认值）；设置页静默重读。 */
+  ompConfigChanged: { key: string };
   /** omp 的可用斜杠命令变了（available_commands_update）。 */
   slashCommands: { taskId: TaskId; commands: AvailableSlashCommand[] };
   /** 任务的子代理泳道变了（整份快照，主进程合并过高频的 progress 帧）。 */
@@ -1012,6 +1014,7 @@ export const eventNames = {
   settings: true,
   projectDropped: true,
   defaultModel: true,
+  ompConfigChanged: true,
   slashCommands: true,
   subagents: true,
   btw: true,

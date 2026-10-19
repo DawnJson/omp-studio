@@ -68,14 +68,6 @@
   overflow-y: auto;
 }
 
-.settings-nav-label {
-  margin: var(--space-4) 0 var(--space-1);
-  padding: 0 var(--space-2-5);
-  color: var(--text-3);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
-}
-
 .settings-nav button {
   flex: none;
   overflow: hidden;
@@ -391,10 +383,6 @@
   .settings-nav {
     overflow-x: auto;
     overflow-y: hidden;
-  }
-
-  .settings-nav-label {
-    display: none;
   }
 
   .cfg-search {

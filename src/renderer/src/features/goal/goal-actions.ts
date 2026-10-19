@@ -13,7 +13,7 @@ const INFO_MS = 10_000;
 
 /**
  * 目标要靠 omp 的 `goal.continuationModes` 含 "rpc" 才会在 rpc-ui 下自己推进（实测）。这个设置和终端里的 omp 共用，
- * 在 设置 → omp 的设置 里以「目标自动推进」开关呈现；关着时创建或恢复目标，告诉用户目标不会自己推进，按钮跳到那一节。
+ * 在 设置 → 子代理与规划 里以「目标自动推进」开关呈现；关着时创建或恢复目标，告诉用户目标不会自己推进，按钮跳到那一节。
  * 读不到设置（omp 版本没有这项等）时什么也不弹。
  */
 async function noteIfAutoContinueOff(t: TFunction): Promise<void> {
