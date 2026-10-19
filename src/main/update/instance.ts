@@ -1,15 +1,18 @@
 // 更新服务的 Electron 接线：electron-updater 的 autoUpdater、更新源解析、把状态推给界面、安装前跑退出流程。
-// 更新源优先级：STUDIO_UPDATE_URL（本地测试/临时切换）> 打包时写入的 app-update.yml > 未配置（设置页显示原因）。
+// 更新源优先级：STUDIO_UPDATE_URL（本地测试/临时切换）> 打包时写入的 app-update.yml 的 url > 未配置（设置页显示原因）。
+// 更新源可以是 http(s) 地址，也可以是本机目录（file:// 或绝对路径，local-feed.ts 在 127.0.0.1 上提供）；本机目录不存在时按未配置处理。
 // 只有安装版才检查：免安装目录（win-unpacked）没有安装器，开发版没有 app-update.yml。
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { app } from "electron";
 import type { AppUpdater } from "electron-updater";
+import { parse } from "yaml";
 import type { UpdateState } from "../../shared/ipc.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { log } from "../log/log.ts";
 import { finishShutdown } from "../window/shutdown.ts";
+import { localFeedDir, serveFeedDir } from "./local-feed.ts";
 import { UpdateService, type Updater } from "./service.ts";
 
 // electron-updater 是 CJS，主进程打出来是 ESM；Node 的具名导出探测认不出 autoUpdater
@@ -33,24 +36,47 @@ export function getUpdateState(): UpdateState {
   return latest;
 }
 
-export function startUpdates(): void {
+/** 配置的更新源原文：环境变量优先，其次是打包时写入的 app-update.yml；开发版一律没有。 */
+function configuredSource(): string | null {
+  if (!app.isPackaged) return null;
   const override = process.env["STUDIO_UPDATE_URL"];
-  const configured = existsSync(path.join(process.resourcesPath, "app-update.yml"));
-  const useOverride = app.isPackaged && override !== undefined && override !== "";
+  if (override !== undefined && override !== "") return override;
+  const builtIn = path.join(process.resourcesPath, "app-update.yml");
+  if (!existsSync(builtIn)) return null;
+  const config: unknown = parse(readFileSync(builtIn, "utf8"));
+  return typeof config === "object" && config !== null && "url" in config && typeof config.url === "string"
+    ? config.url
+    : null;
+}
 
-  if (useOverride) {
-    // electron-updater 除了更新地址，还要从 app-update.yml 读 updaterCacheDirName（下载缓存目录）。
-    // 构建里没有这个文件时，检查能过、开始下载时 ENOENT。把覆盖配置写到 userData 再指过去。
+export async function startUpdates(): Promise<void> {
+  const source = configuredSource();
+  let feedUrl = source;
+  const dir = source === null ? null : localFeedDir(source);
+  if (dir !== null) {
+    if (existsSync(dir)) {
+      feedUrl = (await serveFeedDir(dir)).url;
+      autoUpdater.disableDifferentialDownload = true;
+      log.info(`update feed: local directory ${dir} served at ${feedUrl}`);
+    } else {
+      feedUrl = null;
+      log.info(`update feed: local directory ${dir} does not exist; updates off`);
+    }
+  }
+
+  if (feedUrl !== null) {
+    // 一律写到 userData 再指过去：本机目录要换成上面的回环地址；electron-updater 还要从配置里读
+    // updaterCacheDirName（下载缓存目录），只给地址时检查能过、开始下载时 ENOENT。
     const written = path.join(app.getPath("userData"), "app-update.yml");
     writeFileSync(
       written,
-      `provider: generic\nurl: ${JSON.stringify(override)}\nupdaterCacheDirName: omp-studio-updater\n`,
+      `provider: generic\nurl: ${JSON.stringify(feedUrl)}\nupdaterCacheDirName: omp-studio-updater\n`,
       "utf8",
     );
     autoUpdater.updateConfigPath = written;
   }
 
-  const enabled = useOverride || (app.isPackaged && configured);
+  const enabled = feedUrl !== null;
 
   // electron-updater 的 AppUpdater 是 EventEmitter 子类；Updater 只描述服务用到的部分，测试用假实现。
   const updater = autoUpdater as unknown as Updater;

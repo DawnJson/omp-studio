@@ -34,4 +34,9 @@ nsis:
   oneClick: true
   perMachine: false
   artifactName: ${name}-${version}-setup.${ext}
-publish: null
+# 更新源：仓库所有者本机的固定目录（内测期间，2026-10-19 定）。打包时写进 resources/app-update.yml；
+# 应用把本机目录在 127.0.0.1 上提供给 electron-updater（src/main/update/local-feed.ts），目录不存在的机器上不检查更新。
+# 要和 package.json 的 feed 脚本指向同一个目录。
+publish:
+  provider: generic
+  url: file:///E:/work/code/omp-studio-updates/

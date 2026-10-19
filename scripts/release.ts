@@ -55,4 +55,6 @@ git("commit", "-m", `chore(release): v${version}`);
 git("tag", "-a", `v${version}`, "-m", `v${version}`);
 npm("run", "dist");
 npm("run", "feed");
-console.log(`\n已提交并打 tag v${version}（未推送）。安装包在 release\\，更新目录在 release\\feed\\。`);
+console.log(
+  `\n已提交并打 tag v${version}（未推送）。安装包在 release\\，更新目录在 ..\\omp-studio-updates\\（装着的旧版本会从这里自动更新）。`,
+);

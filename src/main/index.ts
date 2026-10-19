@@ -2,6 +2,7 @@
 import { app, Menu } from "electron";
 import { registerIpcHandlers } from "./ipc/register.ts";
 import { initLog } from "./log/instance.ts";
+import { log } from "./log/log.ts";
 import { loadSettings } from "./settings/settings-store.ts";
 import { startUpdates } from "./update/instance.ts";
 import { installAppProtocol, registerAppScheme } from "./window/app-protocol.ts";
@@ -43,7 +44,7 @@ if (!app.requestSingleInstanceLock()) {
     registerIpcHandlers();
     createMainWindow();
     createTray();
-    startUpdates();
+    startUpdates().catch((error: unknown) => log.error("update service failed to start", error));
     app.on("activate", () => {
       showMainWindow();
     });
