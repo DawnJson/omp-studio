@@ -521,7 +521,7 @@
 
 | 节 | 内容 |
 |---|---|
-| 通用 | 语言（跟随系统 / 简体中文 / English）；主题（跟随系统 / 浅色 / 深色）；减少动效（开关，系统已要求时始终生效）；运行中按 Enter（插话 / 稍后）；系统通知（有任务在等你时）；快捷键（只读列表，v1 不可自定义） |
+| 通用 | 语言（跟随系统 / 简体中文 / English）；主题（跟随系统 / 浅色 / 深色）；减少动效（开关，系统已要求时始终生效）；运行中按 Enter（插话 / 稍后）；系统通知（有任务在等你时）；目标自动推进（开关，**默认开**；开着时 omp-studio 给每个任务进程加 `--config` 覆盖，让 `/goal` 目标自己往下推进，不写用户的 omp 配置；关着时创建/继续目标会弹 info toast，带「打开设置」跳到本节；切换后空闲的进程重启，正在跑的一轮不动，见 `conversation.md`）；快捷键（只读列表，v1 不可自定义） |
 | 模型与账号 | **自定义提供商**（在提供商列表上方，`features/settings/CustomProviders.tsx`）：`models.yml` 里 `providers.*` 的列表（ID、Base URL、模型数 · key 状态），`添加提供商` / `编辑` / `删除`（删除先 `ConfirmDialog`）；表单行内展开（`.st-login` 卡，标签列 112）：ID（编辑时只读）、Base URL、接口类型、key（分段：密钥 / 环境变量 / 无需 key，编辑时多一个“保持不变”；密钥默认遮住，`显示 / 隐藏`）、模型（`拉取模型` 后勾选，可筛选、全选，手动添加；拉取失败用一句人话写在按钮下面）；保存后 toast，新模型出现在模型选择器。直接读写 omp 的 `models.yml`，见 `docs/architecture/custom-models.md`。提供商列表（§4.20）；新任务的默认模型、默认思考强度——**就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，经 `omp config` 读写**，和草稿输入框的模型胶囊是同一份（PLAN 设计原则 7）。审批模式不在这里：在输入框胶囊或 omp 设置分组里改 |
 | omp | 路径、版本、来源（`由 Tern 管理` / `由 omp-studio 管理` / `你自己安装的`）、`检查更新`；受管者管理时升级按钮禁用并写 `omp.updateInTern`；自管时显示自动更新开关 |
 | 用量 | 默认只显示 `settings.usage.hidden` + `显示用量` 按钮，点击后才请求 `get_session_stats`，展示**当前任务**的 token 与费用；未打开任务时 `settings.usage.noTask`。这是 token/费用的唯一入口之一（另一个是命令面板“查看用量”→ 本节） |
@@ -1087,10 +1087,9 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `goal.usageBudgetTitle` | 已用 {used} / 预算 {budget} tokens | {used} of {budget} tokens used |
 | `goal.current` | 当前目标（{status}）：{objective} | Current goal ({status}): {objective} |
 | `goal.none` | 当前没有目标。用 /goal 加上目标文字来设定一个 | No goal right now. Use /goal followed by the goal text to set one |
-| `goal.continuationFailed` | 没能打开目标自动继续 | Couldn't turn on goal auto-continue |
-| `goal.continuationOff` | 桌面端里目标不会自己往下推进，需要在 omp 设置里允许（goal.continuationModes 加上 rpc） | In the desktop app the goal won't keep going on its own; allow it in omp's settings (add rpc to goal.continuationModes) |
+| `goal.autoContinueOff` | 目标不会自动推进，可在 设置 → 通用 打开「目标自动推进」 | The goal won't keep going on its own. Turn on “Let goals keep going” in Settings → General |
+| `goal.openSettings` | 打开设置 | Open settings |
 | `goal.pauseFailed` | 暂停目标失败 | Couldn't pause the goal |
-| `goal.allowAndContinue` | 允许并继续 | Allow and continue |
 | `goal.resumeFailed` | 继续目标失败 | Couldn't resume the goal |
 | `goal.dropFailed` | 放弃目标失败 | Couldn't drop the goal |
 | `tree.title` | 会话树 | Session tree |
@@ -1138,6 +1137,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `settings.enterBehavior.steer` | 插话 | Steer |
 | `settings.enterBehavior.later` | 稍后 | Queue for later |
 | `settings.notifyWaiting` | 有任务在等你时通知我 | Notify me when a task is waiting for me |
+| `settings.goalAutoContinue` | 目标自动推进 | Let goals keep going |
+| `settings.goalAutoContinue.desc` | 开启后，/goal 设下的目标由 omp 一轮接一轮自己推进；只影响 omp-studio 启动的 omp，不改终端里的 omp 设置；空闲任务立即按新设置重启，正在跑的一轮不受影响 | When on, a goal set with /goal is carried forward by omp turn after turn on its own. Only affects omp started by omp-studio; your terminal omp settings stay unchanged. Idle tasks restart with the new setting; a running turn isn't interrupted |
 | `settings.shortcuts` | 快捷键 | Keyboard shortcuts |
 | `settings.defaultModel` | 新任务的默认模型 | Default model for new tasks |
 | `settings.defaultThinking` | 默认思考强度 | Default thinking level |

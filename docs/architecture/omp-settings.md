@@ -16,6 +16,7 @@
 - 返回 `{ key, value }`，被别处覆盖时多 `overriddenBy`（环境变量名，或 `project`/`overlay`/`runtime`），空白值回退到环境变量时有 `fallbackEnv`。界面在那一项下面显示"已保存，但实际生效的值来自 …"。实测：`HINDSIGHT_API_URL=… omp config set --json hindsight.apiUrl -- http://y` → `{"key":"hindsight.apiUrl","value":"http://y","overriddenBy":"HINDSIGHT_API_URL"}`。
 - **凭据**（omp 标了 `redacted`，或 key 以 token/secret/password/credentials/apikey 结尾）：只显示"已设置/未设置"，值不进渲染进程，不在界面里编辑（`omp config set` 的值走命令行，进程列表里看得到），可以"恢复默认"（清除）。`omp config get` 会明文返回凭据，所以从不用它。
 - RPC/RPC-UI 进程监听 config.yml 自动重载，改完不用重启任务（决策 10，没有在本机逐项实测）。
+- **omp-studio 启动的任务进程带一份 `--config` 覆盖**（设置 → 通用 → 目标自动推进，默认开）：`userData/omp-overlay/goal-continuation.yml`，内容 `goal.continuationModes: [interactive, rpc]`，只对这个进程生效，不写 `~/.omp`；覆盖文件对数组整体替换、优先于用户的 config.yml（实测，见 `conversation.md` 目标一节）。`omp config list/get` 不带这份覆盖（子命令不认 `--config`），所以本页里 `goal.continuationModes` 显示和修改的永远是用户自己的值，不是 omp-studio 里实际生效的值；rpc-ui 下它的实际效果由“目标自动推进”开关决定。
 
 ## 界面
 

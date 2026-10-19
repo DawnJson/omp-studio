@@ -13,6 +13,7 @@ import { t } from "../../shared/i18n/index.ts";
 import { forgetExport } from "./export-record.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { appHandlers } from "../ipc/app-handlers.ts";
+import { writeGoalOverlay } from "../omp/goal-overlay.ts";
 import { buildOmpLaunch, setTestOmpOverride } from "../omp/launch.ts";
 import { parseTestOmpOverride } from "../omp/launch-args.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
@@ -84,15 +85,21 @@ function createPool(): Promise<TaskPool> {
   const taskPool = new TaskPool({
     registry,
     getSettings: () => appHandlers.getSettings(),
-    buildLaunch: (record, project) =>
-      buildOmpLaunch({
+    buildLaunch: async (record, project) => {
+      const goalAutoContinue = (await appHandlers.getSettings()).goalAutoContinue;
+      return buildOmpLaunch({
         // worktree 任务以 worktree 根为 cwd（没有 RPC 能改 cwd，只能在 spawn 时定）。
         cwd: record.worktreePath ?? project.path,
         model: record.model,
         thinkingLevel: record.thinkingLevel,
         // 项目目录就是用户主目录时 omp 会自动换到临时目录（cli-reference.md --allow-home）。
         allowHome: pathKey(record.worktreePath ?? project.path) === pathKey(os.homedir()),
-      }),
+        // 设置里的“目标自动推进”：用 --config 覆盖带上 goal.continuationModes，只影响这个进程，不写用户的 omp 配置。
+        ...(goalAutoContinue && {
+          configOverlay: await writeGoalOverlay(path.join(app.getPath("userData"), "omp-overlay")),
+        }),
+      });
+    },
     worktrees: worktreeOps,
     assignJob: assignToAppJob,
     beforeTaskClose: closeTaskTerminal,

@@ -1,13 +1,7 @@
-// 目标模式的纯函数：/goal 参数、按钮、用量文字、自动继续设置的改写。
+// 目标模式的纯函数：/goal 参数、按钮、用量文字。
 import { describe, expect, it } from "vitest";
 import type { TaskGoal } from "../src/shared/ipc.ts";
-import {
-  formatTokens,
-  goalButtons,
-  goalUsage,
-  parseGoalArgs,
-  withRpcContinuation,
-} from "../src/renderer/src/features/goal/goal-model.ts";
+import { formatTokens, goalButtons, goalUsage, parseGoalArgs } from "../src/renderer/src/features/goal/goal-model.ts";
 
 const goal = (extra: Partial<TaskGoal> = {}): TaskGoal => ({
   id: "g",
@@ -53,16 +47,5 @@ describe("formatTokens / goalUsage", () => {
   it("有预算时显示 已用 / 预算", () => {
     expect(goalUsage({ tokensUsed: 9_323, tokenBudget: 20_000 })).toBe("9.3k / 20k");
     expect(goalUsage({ tokensUsed: 800, tokenBudget: null })).toBe("800");
-  });
-});
-
-describe("withRpcContinuation", () => {
-  it("默认值 [interactive] → 加上 rpc；已含 rpc 或形状不认识时不写", () => {
-    expect(withRpcContinuation(["interactive"])).toEqual(["interactive", "rpc"]);
-    expect(withRpcContinuation([])).toEqual(["rpc"]);
-    expect(withRpcContinuation(["interactive", "rpc"])).toBeNull();
-    expect(withRpcContinuation("rpc")).toBeNull();
-    expect(withRpcContinuation([1])).toBeNull();
-    expect(withRpcContinuation(undefined)).toBeNull();
   });
 });

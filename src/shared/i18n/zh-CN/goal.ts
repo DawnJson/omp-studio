@@ -17,10 +17,9 @@ export const goal = {
   usageBudgetTitle: "已用 {used} / 预算 {budget} tokens",
   current: "当前目标（{status}）：{objective}",
   none: "当前没有目标。用 /goal 加上目标文字来设定一个",
-  continuationFailed: "没能打开目标自动继续",
+  autoContinueOff: "目标不会自动推进，可在 设置 → 通用 打开「目标自动推进」",
+  openSettings: "打开设置",
   pauseFailed: "暂停目标失败",
   resumeFailed: "继续目标失败",
-  continuationOff: "桌面端里目标不会自己往下推进，需要在 omp 设置里允许（goal.continuationModes 加上 rpc）",
-  allowAndContinue: "允许并继续",
   dropFailed: "放弃目标失败",
 } satisfies Record<string, MessageEntry>;

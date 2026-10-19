@@ -32,6 +32,7 @@ const settings: StudioSettings = {
   reduceMotion: false,
   enterWhileRunning: "steer",
   notifyOnGate: true,
+  goalAutoContinue: true,
   yoloConfirmed: false,
 };
 

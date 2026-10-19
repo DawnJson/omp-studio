@@ -110,6 +110,8 @@ export interface StudioSettings {
   enterWhileRunning: "steer" | "followUp";
   /** 有任务在等你确认时发系统通知（只对"等你确认"生效）。默认开。 */
   notifyOnGate: boolean;
+  /** 让 `/goal` 目标由 omp 自己一轮接一轮推进：给 omp-studio 启动的 omp 加一份 `--config` 覆盖，不改用户的 omp 设置。默认开。 */
+  goalAutoContinue: boolean;
   /** 用户确认过"全部自动"。 */
   yoloConfirmed: boolean;
 }
@@ -751,6 +753,8 @@ export interface StudioInvokeApi {
   setReduceMotion(on: boolean): Promise<void>;
   setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
   setNotifyOnGate(on: boolean): Promise<void>;
+  /** 改了之后空闲的 omp 进程会被回收，下次使用时按新设置重启；正在跑的一轮不受影响。 */
+  setGoalAutoContinue(on: boolean): Promise<void>;
   /** 记下用户已经确认过"全部自动"，之后选它不再弹确认。 */
   setYoloConfirmed(): Promise<void>;
   /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值；读不到（没登录、没有可用模型）时为 null。 */
@@ -972,6 +976,7 @@ export const invokeNames = {
   setReduceMotion: true,
   setEnterWhileRunning: true,
   setNotifyOnGate: true,
+  setGoalAutoContinue: true,
   setYoloConfirmed: true,
   getDefaultModel: true,
   getModelDefaults: true,

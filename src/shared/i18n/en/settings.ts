@@ -30,6 +30,9 @@ export const settings = {
   notifyWaiting: "Notify me when a task is waiting for me",
   "notifyWaiting.desc":
     "System notifications when a task needs your approval, and when a task finishes or fails while the window is hidden in the tray",
+  goalAutoContinue: "Let goals keep going",
+  "goalAutoContinue.desc":
+    "When on, a goal set with /goal is carried forward by omp turn after turn on its own. Only affects omp started by omp-studio; your terminal omp settings stay unchanged. Idle tasks restart with the new setting; a running turn isn't interrupted",
   search: "Search settings",
   "search.hint": "Search by name, description or key",
   "search.clear": "Clear search",

@@ -40,12 +40,3 @@ export function goalUsage(goal: Pick<TaskGoal, "tokensUsed" | "tokenBudget">): s
     ? formatTokens(goal.tokensUsed)
     : `${formatTokens(goal.tokensUsed)} / ${formatTokens(goal.tokenBudget)}`;
 }
-
-/**
- * `goal.continuationModes` 的当前值 → 要写回去的新值（加上 "rpc"）；已含 "rpc" 或值的形状不认识时为 null（不写）。
- * 默认值是 ["interactive"]：不含 "rpc" 时，rpc-ui 下 create 之后 omp 什么也不做，目标不会自己继续（实测）。
- */
-export function withRpcContinuation(value: unknown): string[] | null {
-  if (!Array.isArray(value) || !value.every((item): item is string => typeof item === "string")) return null;
-  return value.includes("rpc") ? null : [...value, "rpc"];
-}

@@ -30,6 +30,7 @@ const settings = (maxLiveProcesses = 6): StudioSettings => ({
   reduceMotion: false,
   enterWhileRunning: "steer",
   notifyOnGate: true,
+  goalAutoContinue: true,
   yoloConfirmed: false,
 });
 
@@ -515,6 +516,23 @@ describe("任务池：进程上限、回收、归档", () => {
     expect(h.pool.listTasks()[0]?.status).toBe("idle");
     await h.pool.sweep(t0 + IDLE_RECYCLE_MS);
     expect(h.pool.listTasks()[0]?.status).toBe("stopped");
+  });
+
+  it("relaunchIdleProcesses：空闲的后台任务关掉，前台任务关掉后立刻重启", async () => {
+    const h = await harness();
+    h.fixtures.push(await inlineFixture("relaunch-a"), await inlineFixture("relaunch-b"));
+    const a = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(a.id, (s) => s.status === "idle");
+    const b = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(b.id, (s) => s.status === "idle");
+    await h.pool.openTask(b.id);
+    const spawnsBefore = h.launches.length;
+    h.fixtures.push(await inlineFixture("relaunch-b2"));
+    await h.pool.relaunchIdleProcesses();
+    const states = h.pool.listTasks();
+    expect(states.find((s) => s.id === a.id)?.status).toBe("stopped");
+    expect(states.find((s) => s.id === b.id)?.status).toBe("idle");
+    expect(h.launches.length).toBe(spawnsBefore + 1);
   });
 
   it("归档：关进程、从列表移除、tasks.json 保留记录；resume 同一会话文件把它恢复成未归档（同一 id）", async () => {

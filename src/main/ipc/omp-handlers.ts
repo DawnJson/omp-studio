@@ -9,7 +9,7 @@ import { readModelDefaults, writeDefaultModel, type ModelDefaultsDeps } from "..
 import { ompManager } from "../omp-manager/index.ts";
 import { onOmpConfigChanged, readDefaultModel } from "../service/default-model.ts";
 import { serviceOmp } from "../service/service-omp.ts";
-import { updateSettings } from "../settings/settings-store.ts";
+import { getSettings, updateSettings } from "../settings/settings-store.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
 import { parseBoolean, parseModelKey, parseOneOf, parseProjectId, parseString } from "./validate.ts";
@@ -76,6 +76,7 @@ export const ompHandlers: HandlerGroup<
   | "setReduceMotion"
   | "setEnterWhileRunning"
   | "setNotifyOnGate"
+  | "setGoalAutoContinue"
   | "setYoloConfirmed"
   | "getDefaultModel"
   | "getModelDefaults"
@@ -116,6 +117,13 @@ export const ompHandlers: HandlerGroup<
       updateSettings({ enterWhileRunning: parseOneOf(mode, "enterWhileRunning", ["steer", "followUp"]) }),
     ),
   setNotifyOnGate: (on) => Promise.resolve(updateSettings({ notifyOnGate: parseBoolean(on, "notifyOnGate") })),
+  setGoalAutoContinue: async (on) => {
+    const next = parseBoolean(on, "goalAutoContinue");
+    if (next === getSettings().goalAutoContinue) return;
+    updateSettings({ goalAutoContinue: next });
+    // 已运行的进程带的是旧参数：空闲的回收，下次使用时按新设置启动。
+    await (await getTaskPool()).relaunchIdleProcesses();
+  },
   setYoloConfirmed: () => Promise.resolve(updateSettings({ yoloConfirmed: true })),
   getDefaultModel: () => readDefaultModel(),
   getModelDefaults: async (projectId) => readModelDefaults(modelDefaultsDeps, await projectPath(projectId)),

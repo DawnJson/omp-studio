@@ -28,6 +28,9 @@ export const settings = {
   "enterBehavior.desc": "任务正在运行时，Enter 发出的消息是插话还是排到后面",
   notifyWaiting: "有任务在等你时通知我",
   "notifyWaiting.desc": "任务需要你确认时发系统通知；窗口收在托盘时，任务完成或出错也会通知",
+  goalAutoContinue: "目标自动推进",
+  "goalAutoContinue.desc":
+    "开启后，/goal 设下的目标由 omp 一轮接一轮自己推进；只影响 omp-studio 启动的 omp，不改终端里的 omp 设置；空闲任务立即按新设置重启，正在跑的一轮不受影响",
   search: "搜索设置",
   "search.hint": "按名称、说明或键名搜索",
   "search.clear": "清除搜索",

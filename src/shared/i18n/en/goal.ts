@@ -18,11 +18,9 @@ export const goal = {
   usageBudgetTitle: "{used} of {budget} tokens used",
   current: "Current goal ({status}): {objective}",
   none: "No goal right now. Use /goal followed by the goal text to set one",
-  continuationFailed: "Couldn't turn on goal auto-continue",
-  continuationOff:
-    "In the desktop app the goal won't keep going on its own; allow it in omp's settings (add rpc to goal.continuationModes)",
+  autoContinueOff: "The goal won't keep going on its own. Turn on “Let goals keep going” in Settings → General",
+  openSettings: "Open settings",
   pauseFailed: "Couldn't pause the goal",
-  allowAndContinue: "Allow and continue",
   resumeFailed: "Couldn't resume the goal",
   dropFailed: "Couldn't drop the goal",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

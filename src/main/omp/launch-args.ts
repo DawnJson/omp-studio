@@ -12,6 +12,8 @@ export interface LaunchSpec {
   noSession?: boolean;
   /** 项目目录就是用户主目录时 omp 会自动换到临时目录，要带 --allow-home（cli-reference.md）。 */
   allowHome?: boolean;
+  /** `--config` 覆盖文件（绝对路径）：给这个进程加一份 config.yml 风格的设置，只对本次运行生效，不写用户的配置。 */
+  configOverlay?: string;
 }
 
 /** 只在 `!app.isPackaged` 时由运行时设置，指向 `node test/fake-omp/fake-omp.ts <fixture>`（STUDIO_TEST_OMP）。 */
@@ -44,8 +46,15 @@ export function buildOmpArgs(spec: LaunchSpec): string[] {
   if (spec.model) args.push("--model", `${spec.model.provider}/${spec.model.modelId}`);
   if (spec.thinkingLevel && spec.thinkingLevel !== "inherit") args.push("--thinking", spec.thinkingLevel);
   if (spec.allowHome) args.push("--allow-home");
+  if (spec.configOverlay) args.push("--config", spec.configOverlay);
   return args;
 }
+
+/**
+ * 让 rpc-ui 下的目标自己继续的覆盖内容。`goal.continuationModes` 只有 interactive、rpc 两个取值；覆盖文件对数组是整体替换
+ * （实测），所以写全部两个值：用户配置里不管是什么，在 omp-studio 里都等价于“再加上 rpc”。
+ */
+export const goalContinuationOverlay = "goal:\n  continuationModes: [interactive, rpc]\n";
 
 /** 把 `bin` 放到 PATH 最前（保持原有的变量名大小写：Windows 上常见 `Path`）。 */
 export function prependToPath(env: NodeJS.ProcessEnv, bin: string): NodeJS.ProcessEnv {
