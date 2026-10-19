@@ -11,6 +11,7 @@ import { useNow } from "../conversation/use-now.ts";
 import { mainToolMarks, orderLanes, percentAt, timelineSpan, type Span } from "./lane-model.ts";
 import { modelLine, statusLabel } from "./format.ts";
 import { SubagentDetailPanel } from "./SubagentDetailPanel.tsx";
+import { Reveal } from "../../ui/Reveal.tsx";
 import "./lanes.css";
 
 function LaneBar({ lane, span, now }: { lane: SubagentLane; span: Span; now: number }) {
@@ -73,7 +74,7 @@ export function LanesPanel({
         <span className="lanes-title">{t("lanes.title")}</span>
         <span className="lanes-count">{t("process.subagents", { count: lanes.length })}</span>
       </button>
-      {open && (
+      <Reveal open={open}>
         <div className="lanes-body">
           <div className="lane-row" data-testid="lane-main">
             <div className="lane-label">
@@ -136,7 +137,7 @@ export function LanesPanel({
             />
           )}
         </div>
-      )}
+      </Reveal>
     </section>
   );
 }

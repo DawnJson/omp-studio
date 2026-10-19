@@ -53,6 +53,13 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 400px;
 }
+/* content-visibility 带 paint 裁剪：给底部复制/分叉按钮补上扣掉的 --space-3，并从下一轮的间距里减掉，轮间可见间距不变。 */
+.turn[data-skippable] {
+  padding-bottom: var(--space-3);
+}
+.turn[data-skippable] + .turn {
+  margin-top: calc(var(--space-8) - var(--space-3));
+}
 
 /* 用户消息 */
 @keyframes turn-in {
@@ -84,10 +91,11 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.user-bubble[data-collapsed] {
+.user-bubble[data-long] {
   overflow: hidden;
 }
-.user-bubble[data-collapsed]::after {
+/* 渐隐遮罩和"展开"按钮常驻，展开时淡出而不是瞬间消失。 */
+.user-bubble[data-long]::after {
   content: "";
   position: absolute;
   left: 0;
@@ -95,7 +103,12 @@
   bottom: 0;
   height: var(--space-10);
   background: linear-gradient(transparent, var(--bg-raised));
+  opacity: 0;
   pointer-events: none;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+.user-bubble[data-collapsed]::after {
+  opacity: 1;
 }
 .user-expand {
   position: absolute;
@@ -109,6 +122,13 @@
   font: inherit;
   font-size: var(--fs-xs);
   cursor: pointer;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    visibility 0s linear var(--dur-fast);
+}
+.user-bubble:not([data-collapsed]) .user-expand {
+  opacity: 0;
+  visibility: hidden;
 }
 .user-images {
   display: flex;
@@ -136,7 +156,10 @@
   font-size: var(--fs-xs);
   opacity: 0;
   cursor: pointer;
-  transition: opacity var(--dur-fast) var(--ease-out);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 .hover-action:hover {
   background: var(--bg-hover);
@@ -158,7 +181,7 @@
 }
 .user-actions {
   position: absolute;
-  right: 0;
+  left: 0;
   top: 100%;
   display: flex;
   gap: var(--space-1);
@@ -215,7 +238,7 @@
   animation: fade-in var(--dur-fast) var(--ease-out);
 }
 .process-row[data-done] .process-text {
-  flex: none;
+  flex: 0 1 auto;
   max-width: 100%;
 }
 .process-time {
@@ -243,20 +266,8 @@
   }
 }
 
-@keyframes dot-breathe {
-  0% {
-    box-shadow: 0 0 0 0 var(--accent-soft);
-  }
-  50% {
-    box-shadow: 0 0 0 4px var(--accent-soft);
-  }
-  100% {
-    box-shadow: 0 0 0 0 var(--accent-soft);
-  }
-}
-
 /* 运行脊线（direction-2.6 §3）：.column 左侧一条细竖线，每一轮挂在线上。
-   空心圆 = 你的消息，小灰点 = 折叠的过程，实心圆 = 结论，带环的圆 = 正在进行（等你确认时是琥珀菱形）。
+   空心圆 = 你的消息，小灰点 = 折叠的过程，实心圆 = 结论；任务进行中整条脊线隐藏（见下）。
    节点画在各块自己的伪元素上（.turn 的 content-visibility 会裁掉缩进之外的内容，所以内容整体缩进，节点留在缩进里）。 */
 .column {
   position: relative;
@@ -303,26 +314,11 @@
   height: 8px;
   background: var(--text-3);
 }
-.process[data-state="live"]::before {
-  top: calc((var(--row-tool) - 16px) / 2);
-  left: calc(var(--spine-indent) * -1);
-  width: 16px;
-  height: 16px;
-  background: radial-gradient(circle, var(--st-running) 0 2.5px, var(--bg-app) 3px);
-  border: 2px solid var(--st-running);
-  animation: dot-breathe var(--dur-breathe) ease-in-out infinite;
-  animation-play-state: var(--play-state);
-}
-.process[data-state="live"][data-waiting]::before {
-  top: calc((var(--row-tool) - 8px) / 2);
-  left: calc(var(--spine-indent) * -1 + (var(--spine-node) - 8px) / 2);
-  width: 8px;
-  height: 8px;
-  border: 0;
-  border-radius: 0;
-  background: var(--st-waiting);
-  transform: rotate(45deg);
-  animation: none;
+/* 运行中工具调用直接列在对话里（像 omp），不套折叠后的底色卡片。 */
+.process[data-state="live"] > .details {
+  margin-top: 0;
+  padding: 0;
+  background: none;
 }
 .answer::before {
   top: calc(var(--lh-prose) / 2 - 7px);
@@ -331,13 +327,17 @@
   height: 14px;
   background: var(--accent);
 }
+/* 任务进行中不画脊线和节点（只留缩进，结束后再出现，内容不左右跳）。 */
+.conversation[data-running] .column::before,
+.conversation[data-running] :is(.user, .process, .answer)::before {
+  visibility: hidden;
+}
 
 .details {
   margin-top: var(--space-1);
   padding: var(--space-2);
   background: var(--bg-sunken);
   border-radius: var(--radius-lg);
-  animation: fade-in var(--dur-base) var(--ease-out);
 }
 .details-earlier {
   margin: 0 0 var(--space-1);
@@ -359,6 +359,8 @@
   font: inherit;
   font-size: var(--fs-xs);
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
   cursor: pointer;
 }
 .step-row:hover {
@@ -387,8 +389,13 @@
   max-width: none;
   color: var(--text-3);
 }
+.step-name {
+  flex: none;
+  color: var(--text);
+  font-weight: 600;
+}
 .step-arg {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -396,8 +403,33 @@
   font-family: var(--font-mono);
   color: var(--text-3);
 }
-.step-meta {
+.step-info {
   flex: none;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.step-add {
+  color: var(--diff-add-fg);
+  font-variant-numeric: tabular-nums;
+}
+.step-del {
+  color: var(--diff-del-fg);
+  font-variant-numeric: tabular-nums;
+}
+.step-pill {
+  flex: none;
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-pill);
+  background: var(--bg-active);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.step-meta {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1-5);
   margin-left: auto;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
@@ -405,28 +437,124 @@
 .step-meta[data-failed] {
   color: var(--st-error);
 }
+.step-spin {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: var(--radius-pill);
+  animation: step-spin var(--dur-spin) linear infinite;
+  animation-play-state: var(--play-state);
+}
+@keyframes step-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .step-output {
-  max-height: calc(var(--lh-code-sm) * 12 + var(--space-4));
   margin: var(--space-1) 0 var(--space-1) calc(var(--icon-sm) + var(--space-4));
-  padding: var(--space-2) var(--space-3);
-  overflow: auto;
   border-radius: var(--radius-md);
   background: var(--bg-app);
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
   line-height: var(--lh-code-sm);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+}
+.step-scroll {
+  padding: var(--space-2) 0;
+  overflow-x: auto;
+}
+.step-scroll[data-all] {
+  max-height: calc(var(--lh-code-sm) * 30);
+  overflow-y: auto;
+}
+/* 行撑满最宽那一行，tint 和左条不会在横向滚动时断开 */
+.step-lines {
+  width: max-content;
+  min-width: 100%;
+}
+.step-ln {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  border-left: 2px solid transparent;
+  white-space: pre;
+}
+.step-no {
+  flex: none;
+  min-width: var(--gutter, 2ch);
+  color: var(--text-3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.step-sign {
+  flex: none;
+  width: 1ch;
+  color: var(--text-3);
+  user-select: none;
+}
+.step-code {
+  flex: 1;
+}
+.step-ln[data-kind="add"] {
+  background: var(--diff-add-bg);
+}
+.step-ln[data-kind="add"] .step-sign {
+  color: var(--diff-add-fg);
+}
+.step-ln[data-kind="del"] {
+  background: var(--diff-del-bg);
+}
+.step-ln[data-kind="del"] .step-sign {
+  color: var(--diff-del-fg);
+}
+.step-ln[data-kind="ctx"] .step-code {
+  color: var(--text-3);
+}
+.step-ln[data-kind="match"] {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+.step-ln[data-kind="gap"] {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.step-ln[data-kind="cmd"] {
+  color: var(--text);
+}
+.step-file + .step-file {
+  margin-top: var(--space-2);
+}
+.step-file-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-1);
+  color: var(--text-2);
+}
+.step-file-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.step-empty {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-3);
+}
+.step-more {
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
 }
 .step-showall {
-  display: block;
-  margin-top: var(--space-1);
   padding: 0;
   border: 0;
   background: none;
   color: var(--link);
   font: inherit;
-  font-size: var(--fs-xs);
   cursor: pointer;
 }
 .step-full {
@@ -532,6 +660,9 @@
   color: var(--text-2);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.shell-output-head {
+  padding-bottom: 0;
 }
 .shell-foot {
   display: flex;
@@ -693,7 +824,10 @@
   color: var(--text-3);
   opacity: 0;
   cursor: pointer;
-  transition: opacity var(--dur-fast) var(--ease-out);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 .change-file:hover .change-reveal,
 .change-file:focus-within .change-reveal {
@@ -754,129 +888,4 @@
 .jump:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
-}
-
-/* 待办进度条（spec 4.6 ProgressPill）：对话流顶部一行，展开的列表浮在对话流上，不推动滚动内容。 */
-.todo-strip {
-  position: relative;
-  flex: none;
-  width: min(100% - 2 * var(--gutter), var(--content-w));
-  margin: var(--space-2) auto 0;
-  z-index: 2;
-}
-.todo-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  max-width: 100%;
-  height: 24px;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--bg-hover);
-  color: var(--text-2);
-  font-size: var(--fs-xs);
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.todo-pill:hover {
-  background: var(--accent-soft);
-}
-.todo-pill:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-.todo-pill[data-finished] .todo-count {
-  color: var(--st-done);
-}
-.todo-count {
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-}
-.todo-current {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.todo-panel {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  left: 0;
-  width: min(100%, 420px);
-  max-height: 50vh;
-  overflow-y: auto;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  box-shadow: var(--shadow-2);
-  font-size: var(--fs-sm);
-  animation: todo-in var(--dur-fade) var(--ease-out);
-}
-@keyframes todo-in {
-  from {
-    opacity: 0;
-  }
-}
-.todo-phase + .todo-phase {
-  margin-top: var(--space-2);
-}
-.todo-phase-name {
-  margin: 0 0 var(--space-1);
-  font-size: var(--fs-xs);
-  font-weight: 500;
-  color: var(--text-3);
-}
-.todo-phase ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.todo-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-1) 0;
-  color: var(--text);
-}
-.todo-mark {
-  position: relative;
-  flex: none;
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-  width: 14px;
-  height: 14px;
-  margin-top: 2px;
-  border: 1.5px solid var(--border-strong);
-  border-radius: var(--radius-pill);
-  color: var(--text-2);
-}
-.todo-item[data-status="completed"] .todo-mark {
-  border-color: transparent;
-}
-.todo-item[data-status="in_progress"] .todo-mark {
-  border-color: var(--st-running);
-  background: radial-gradient(circle, var(--st-running) 0 2.5px, transparent 3px);
-  animation: dot-breathe var(--dur-breathe) ease-in-out infinite;
-  animation-play-state: var(--play-state);
-}
-.todo-item[data-status="blocked"] .todo-mark {
-  border-color: var(--st-error);
-  background: radial-gradient(circle, var(--st-error) 0 2.5px, transparent 3px);
-}
-.todo-item[data-status="abandoned"] .todo-content {
-  color: var(--text-3);
-  text-decoration: line-through;
-}
-.todo-item[data-status="completed"] .todo-content {
-  color: var(--text-2);
-}
-.todo-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.todo-blocker {
-  font-size: var(--fs-xs);
-  color: var(--st-error);
 }

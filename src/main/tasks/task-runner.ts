@@ -36,6 +36,7 @@ import type {
   PromptParams,
   RpcServerFrame,
   SessionState,
+  SessionStats,
   ThinkingLevel,
 } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { stat } from "node:fs/promises";
@@ -62,6 +63,15 @@ const DEFAULT_MAX_FRAME_BYTES = 1024 * 1024;
 const STATE_REFRESH_MIN_INTERVAL_MS = 1_000;
 const STDERR_LINES_IN_ERROR = 8;
 const SUBAGENT_EMIT_INTERVAL_MS = 100;
+
+/** 用量只是显示用：取不到（比如 omp 这条命令失败）不能连累别的刷新；进程退出仍然照常抛出。 */
+function readSessionStats(connection: OmpConnection): Promise<SessionStats | null> {
+  return connection.request("get_session_stats").catch((error: unknown) => {
+    if (error instanceof OmpExitedError) throw error;
+    return null;
+  });
+}
+
 /** 缓存完整记录的子代理数（每个最多 detailMessages 条 / detailBytes）。 */
 const SUBAGENT_RECORD_CACHE = 6;
 
@@ -374,6 +384,8 @@ export class TaskRunner {
     this.#sessionPersistable = this.#sessionPersistable || resumeSessionFile !== undefined;
     this.#thinkingLevels = init.thinkingLevels;
     await this.#adoptState(init.state, { adoptQueue: true });
+    // 恢复的会话已有用量（费用、token）；不等第一轮结束才显示。
+    if (resumeSessionFile !== undefined) this.#adoptStats(await readSessionStats(connection));
     const pendingName = this.#pendingName;
     this.#pendingName = undefined;
     if (pendingName !== undefined) await this.#sendSessionName(connection, pendingName);
@@ -640,11 +652,7 @@ export class TaskRunner {
       const [thinking, state, stats] = await Promise.all([
         connection.request("get_available_thinking_levels"),
         connection.request("get_state"),
-        // 用量只是显示用：取不到（比如 omp 这条命令失败）不能连累模型、上下文的刷新；进程退出仍然照常抛出。
-        connection.request("get_session_stats").catch((error: unknown) => {
-          if (error instanceof OmpExitedError) throw error;
-          return null;
-        }),
+        readSessionStats(connection),
       ]);
       this.#lastStateAt = Date.now();
       if (this.#connection !== connection) return;
@@ -654,14 +662,7 @@ export class TaskRunner {
         return;
       }
       this.#thinkingLevels = thinking.levels;
-      if (stats) {
-        this.#sessionUsage = {
-          tokens: stats.tokens,
-          cost: stats.cost,
-          premiumRequests: stats.premiumRequests,
-          ...(stats.credits && { credits: stats.credits }),
-        };
-      }
+      this.#adoptStats(stats);
       await this.#adoptState(state, { goalSeq });
       this.#publish(false);
     } catch (error) {
@@ -680,6 +681,16 @@ export class TaskRunner {
         void this.#refreshState();
       }
     }
+  }
+
+  #adoptStats(stats: SessionStats | null): void {
+    if (!stats) return;
+    this.#sessionUsage = {
+      tokens: stats.tokens,
+      cost: stats.cost,
+      premiumRequests: stats.premiumRequests,
+      ...(stats.credits && { credits: stats.credits }),
+    };
   }
 
   // ───── 命令 ─────

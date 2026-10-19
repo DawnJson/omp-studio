@@ -21,9 +21,10 @@ async function localeAndTheme(page: Page, locale: "zh-CN" | "en", theme: "light"
 /** 测试用的 agent 目录：服务进程不读真实 ~/.omp（AGENTS.md "开发和测试时隔离用户数据"）。 */
 async function launchIsolated(
   options: { askTakeover?: boolean } = {},
+  extraEnv: Record<string, string> = {},
 ): Promise<{ launched: LaunchedApp; agentDir: string }> {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
-  return { launched: await launchApp({ PI_CODING_AGENT_DIR: agentDir }, options), agentDir };
+  return { launched: await launchApp({ PI_CODING_AGENT_DIR: agentDir, ...extraEnv }, options), agentDir };
 }
 
 /** 渲染进程只认主进程推来的 ompStatus 事件，测试里用同一个通道推合成状态来截各个准备页。 */
@@ -140,7 +141,9 @@ test("设置页和 omp 准备页截图：中英文 × 浅深主题", async () =>
 });
 
 test("接管询问：同意/拒绝的按钮把回答发给主进程", async () => {
-  const { launched, agentDir } = await launchIsolated();
+  // 构建服务指向没人监听的端口：ready 之后那次后台"检查更新"直接失败、不推状态，
+  // 否则它的应答（真实的 ready）会盖掉下面推的合成状态，卡片在点击前就消失。
+  const { launched, agentDir } = await launchIsolated({}, { PI_BUILD_URL: "http://127.0.0.1:9/" });
   try {
     const { page } = launched;
     await expect

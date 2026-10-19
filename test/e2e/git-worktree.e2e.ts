@@ -48,7 +48,7 @@ async function start(prepare: (work: string) => Promise<string>): Promise<Sessio
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
-  await page.getByTestId("empty-open-folder").click();
+  await page.getByTestId("sidebar-add-project").click();
   await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
   await page.evaluate(() => globalThis.studio.setLocale("zh-CN"));
   await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", "zh-CN");

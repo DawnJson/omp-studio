@@ -150,6 +150,10 @@
   border: 0;
   border-radius: var(--radius-xs);
   cursor: default;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .rv-seg-btn[aria-pressed="true"] {
@@ -238,6 +242,9 @@
   border: 0;
   border-radius: var(--radius-sm);
   cursor: default;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
 .rv-file-row:hover {
@@ -253,10 +260,13 @@
   display: flex;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
   white-space: nowrap;
 }
 
+/* 目录先让位，文件名再截断 */
 .rv-dir {
+  flex: 0 100 auto;
   min-width: 0;
   overflow: hidden;
   color: var(--text-3);
@@ -264,7 +274,10 @@
 }
 
 .rv-name {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rv-kind {
@@ -366,6 +379,7 @@
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
 
 .rv-hunk[data-active] {
@@ -428,6 +442,13 @@
   border-left: 1px solid var(--border-subtle);
 }
 
+.rv-row,
+.rv-half {
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
 .rv-row[data-kind="add"],
 .rv-half[data-kind="add"] {
   background-color: var(--diff-add-bg);
@@ -472,6 +493,11 @@
 .rv-no-plus {
   color: var(--accent);
   opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.rv-no-n {
+  transition: opacity var(--dur-fast) var(--ease-out);
 }
 
 .rv-no-btn:hover .rv-no-n,
@@ -597,6 +623,8 @@
   flex: none;
   gap: var(--space-1);
   height: var(--control-h-lg);
+  overflow-x: auto;
+  scrollbar-width: none;
   padding: 0 var(--space-3);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -605,7 +633,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1-5);
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-1-5);
   color: var(--text-2);
   font: inherit;
   white-space: nowrap;
@@ -613,6 +641,9 @@
   border: 0;
   border-bottom: 2px solid transparent;
   cursor: default;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 
 .rv-tab[aria-selected="true"] {
@@ -712,6 +743,7 @@
 }
 
 .rv-queue-file {
+  transition: color var(--dur-fast) var(--ease-out);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -731,11 +763,5 @@
   .rv-tree,
   .rv-aside {
     width: var(--sidebar-w-min);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .review {
-    animation: none;
   }
 }

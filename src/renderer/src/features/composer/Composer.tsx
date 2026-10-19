@@ -28,6 +28,7 @@ import { ModelChip } from "./ModelChip.tsx";
 import { matchSlash, slashQuery } from "./slash-match.ts";
 import { SlashMenu } from "./SlashMenu.tsx";
 import { QueueStrip } from "./QueueStrip.tsx";
+import { RunStatus } from "./RunStatus.tsx";
 import { decideEnter, isShellDraft } from "./send-logic.ts";
 import { cycleHistory, hasHistory, isCycling, recordSent, resetHistoryCursor, shouldCycle } from "./input-history.ts";
 import { decideSlashSend } from "./slash-guard.ts";
@@ -37,9 +38,11 @@ import { FileMenu } from "./FileMenu.tsx";
 import { useFileMenu } from "./use-file-menu.ts";
 import { SendStop } from "./SendStop.tsx";
 import { thinkingLevelOptions } from "./thinking-levels.ts";
+import { SessionCost } from "./SessionCost.tsx";
 import { UsageMeter } from "./UsageMeter.tsx";
 import { UsageLimitBanner } from "./UsageLimitBanner.tsx";
-import "./composer.css";
+import { Reveal } from "../../ui/Reveal.tsx";
+import { useHeld } from "./use-held.ts";
 
 export function Composer({ taskId }: { taskId: TaskId }) {
   const t = useT();
@@ -91,6 +94,8 @@ export function Composer({ taskId }: { taskId: TaskId }) {
   // 斜杠命令守卫（slash-guard.ts）：命令列表里没有的 /命令先提示一次，对同一段文字再发一次（或点按钮）才发出去。
   const [slashNotice, setSlashNotice] = useState<{ text: string; name: string; terminal: boolean } | null>(null);
   const shownNotice = slashNotice?.text === draft.text.trim() ? slashNotice : null;
+  // 提示收起的动画期间内容不能先消失。
+  const heldNotice = useHeld(shownNotice);
   const allowSend = (): boolean => {
     const text = getDraft(taskId).text.trim();
     const guard = decideSlashSend(text, commands);
@@ -294,7 +299,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
   return (
     <div className="composer-stack" data-testid="composer-stack">
       <GateSlot />
-      {suggestion !== null && (
+      <Reveal open={suggestion !== null}>
         <div className="suggest" role="status">
           <span>{t("gate.suggestReplace")}</span>
           <button type="button" className="queue-btn" onClick={() => resolveSuggestion(taskId, true)}>
@@ -304,44 +309,45 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             {t("gate.suggestKeep")}
           </button>
         </div>
-      )}
-      {shownNotice && (
-        <div className="suggest" role="status" data-testid="slash-guard">
-          <span>{shownNotice.terminal ? t("slash.terminalOnly") : t("slash.unknown", { name: shownNotice.name })}</span>
-          <button
-            type="button"
-            className="queue-btn"
-            disabled={tooOld === true || worktreeGone}
-            onClick={() => {
-              sendNow("steer");
-              fieldRef.current?.focus();
-            }}
-          >
-            {t("slash.sendAnyway")}
-          </button>
-        </div>
-      )}
+      </Reveal>
+      <Reveal open={shownNotice !== null}>
+        {heldNotice && (
+          <div className="suggest" role="status" data-testid="slash-guard">
+            <span>{heldNotice.terminal ? t("slash.terminalOnly") : t("slash.unknown", { name: heldNotice.name })}</span>
+            <button
+              type="button"
+              className="queue-btn"
+              disabled={tooOld === true || worktreeGone}
+              onClick={() => {
+                sendNow("steer");
+                fieldRef.current?.focus();
+              }}
+            >
+              {t("slash.sendAnyway")}
+            </button>
+          </div>
+        )}
+      </Reveal>
       <UsageLimitBanner limit={task.usageLimit} />
       <QueueStrip taskId={taskId} queue={task.queue} />
+      <RunStatus task={task} transcript={transcript} />
       <div className="composer" data-gate={gate || undefined} onDragOver={onDragOver} onDrop={onDrop}>
-        {slashOpen && (
-          <SlashMenu
-            id="slash-menu"
-            commands={slashMatches}
-            active={slashActive}
-            onHover={setSlashIndex}
-            onPick={(command) => completeSlash(command.name)}
-          />
-        )}
-        {fileMenu.open && (
-          <FileMenu
-            id="file-menu-list"
-            files={fileMenu.files}
-            active={fileMenu.active}
-            onHover={fileMenu.setActive}
-            onPick={fileMenu.pick}
-          />
-        )}
+        <SlashMenu
+          id="slash-menu"
+          open={slashOpen}
+          commands={slashMatches}
+          active={slashActive}
+          onHover={setSlashIndex}
+          onPick={(command) => completeSlash(command.name)}
+        />
+        <FileMenu
+          id="file-menu-list"
+          open={fileMenu.open}
+          files={fileMenu.files}
+          active={fileMenu.active}
+          onHover={fileMenu.setActive}
+          onPick={fileMenu.pick}
+        />
         <div className="composer-body">
           <Attachments
             images={draft.images}
@@ -354,7 +360,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             className="composer-field"
             data-composer-input
             data-testid="composer-input"
-            rows={2}
+            rows={1}
             value={draft.text}
             placeholder={placeholder}
             aria-label={placeholder}
@@ -404,6 +410,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             thinkingLevel={task.thinkingLevel}
             thinkingLevels={thinkingLevelOptions(task.model, task.thinkingLevels)}
             running={running}
+            projectId={task.projectId}
             loadModels={() => window.studio.listTaskModels(taskId)}
             setModel={(key) => window.studio.setTaskModel(taskId, key)}
             setThinking={(level) => window.studio.setTaskThinkingLevel(taskId, level)}
@@ -415,8 +422,10 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             }}
           />
           <ApprovalChip />
+          <UsageMeter task={task} />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
+          <SessionCost usage={task.sessionUsage} provider={task.model?.key.provider ?? null} />
           <SendStop
             running={running}
             stopping={stopping}
@@ -429,7 +438,6 @@ export function Composer({ taskId }: { taskId: TaskId }) {
           />
         </div>
       </div>
-      <UsageMeter task={task} />
     </div>
   );
 }

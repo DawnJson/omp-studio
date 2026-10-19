@@ -1,5 +1,6 @@
 // 轻量弹出菜单（任务行和项目头的右键 / … 菜单）：固定定位、方向键移动、Esc 关闭并把焦点还给触发它的元素。
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { usePresence } from "../../ui/presence.ts";
 
 export interface MenuItem {
   id: string;
@@ -33,6 +34,15 @@ export function Menu({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: anchor.x, top: anchor.y });
+  const [open, setOpen] = useState(true);
+  const presence = usePresence(open);
+  const requestClose = () => setOpen(false);
+  // 退出动画还没放完时父级又用新锚点打开了菜单：把这个实例重新打开，不然动画结束后会把新菜单一起关掉。
+  const [seenAnchor, setSeenAnchor] = useState(anchor);
+  if (seenAnchor !== anchor) {
+    setSeenAnchor(anchor);
+    setOpen(true);
+  }
 
   // 贴边时翻到锚点另一侧，保证整个菜单在窗口内。
   useLayoutEffect(() => {
@@ -46,15 +56,25 @@ export function Menu({
 
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node)) onClose();
+      if (!ref.current?.contains(event.target as Node)) requestClose();
     };
     document.addEventListener("pointerdown", onPointerDown, true);
     return () => document.removeEventListener("pointerdown", onPointerDown, true);
-  }, [onClose]);
+  }, [open]);
+
+  // 退出动画放完（卸载）才通知父级真正关掉。
+  const mounted = presence.mounted;
+  useEffect(() => {
+    if (!mounted) onClose();
+  }, [mounted, onClose]);
 
   const close = () => {
-    onClose();
+    requestClose();
     anchor.returnFocus?.focus();
   };
 
@@ -78,8 +98,17 @@ export function Menu({
     }
   };
 
+  if (!presence.mounted) return null;
   return (
-    <div ref={ref} className="sb-menu" role="menu" aria-label={label} style={position} onKeyDown={onKeyDown}>
+    <div
+      ref={ref}
+      className="sb-menu"
+      role="menu"
+      aria-label={label}
+      style={position}
+      onKeyDown={onKeyDown}
+      {...presence.exitProps}
+    >
       {items.map((item) => (
         <button
           key={item.id}
@@ -90,7 +119,7 @@ export function Menu({
           title={item.disabledReason}
           onClick={() => {
             if (item.disabledReason !== undefined) return;
-            onClose();
+            requestClose();
             // 菜单项可能要弹重命名输入框或抢焦点，所以先把焦点还回去，再执行。
             anchor.returnFocus?.focus();
             item.onSelect();

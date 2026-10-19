@@ -2,7 +2,7 @@
 // 视图状态本身在 ui-store；这里只观察它的变化来入栈，后退/前进时用 pending 标记跳过自己引起的变化。
 import { reportError } from "../ui/errors.ts";
 import { useT } from "../i18n/use-t.ts";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import type { TaskId } from "../../../shared/ipc.ts";
 import {
   clearSelection,
@@ -41,44 +41,41 @@ export function useNavigation(): Navigation {
   const taskId = useSelectedTaskId();
   const view = useMainView();
   const tasks = useTasks();
-  const [history, setHistory] = useState<History>({ entries: [{ view, taskId }], index: 0 });
+  // 栈放在 ref 里、在布局阶段同步入栈：视图一提交，后退/前进就能看到这一项。放在 state 里要等
+  // effect 之后的下一次渲染，刚切到设置页就按 Alt+← 会读到旧栈、什么也不做。
+  const history = useRef<History>({ entries: [{ view, taskId }], index: 0 });
   const pending = useRef<string | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const current: Entry = { view, taskId };
     const key = keyOf(current);
     if (pending.current !== null) {
       if (pending.current === key) pending.current = null;
       return;
     }
-    setHistory((previous) => {
-      const top = previous.entries[previous.index];
-      if (top && keyOf(top) === key) return previous;
-      const entries = [...previous.entries.slice(0, previous.index + 1), current].slice(-maxEntries);
-      return { entries, index: entries.length - 1 };
-    });
+    const previous = history.current;
+    const top = previous.entries[previous.index];
+    if (top && keyOf(top) === key) return;
+    const entries = [...previous.entries.slice(0, previous.index + 1), current].slice(-maxEntries);
+    history.current = { entries, index: entries.length - 1 };
   }, [view, taskId]);
-
-  /** 目标下标：沿方向跳过已经不存在的任务。没有可去的返回 -1。 */
-  const targetIndex = useCallback(
-    (delta: 1 | -1): number => {
-      const alive = new Set(tasks.map((task) => task.id));
-      for (let i = history.index + delta; i >= 0 && i < history.entries.length; i += delta) {
-        const entry = history.entries[i];
-        if (entry && (entry.view === "settings" || entry.taskId === null || alive.has(entry.taskId))) return i;
-      }
-      return -1;
-    },
-    [history, tasks],
-  );
 
   const go = useCallback(
     (delta: 1 | -1) => {
-      const index = targetIndex(delta);
-      const entry = history.entries[index];
+      const { entries, index: at } = history.current;
+      // 沿方向跳过已经不存在的任务。
+      const alive = new Set(tasks.map((task) => task.id));
+      let index = at + delta;
+      while (index >= 0 && index < entries.length) {
+        const candidate = entries[index];
+        if (candidate && (candidate.view === "settings" || candidate.taskId === null || alive.has(candidate.taskId)))
+          break;
+        index += delta;
+      }
+      const entry = entries[index];
       if (!entry) return;
       pending.current = keyOf(entry);
-      setHistory({ ...history, index });
+      history.current = { entries, index };
       if (entry.view === "settings") showView("settings");
       else if (entry.taskId !== null) selectTask(entry.taskId).catch((error: unknown) => reportError(t, error));
       else {
@@ -86,7 +83,7 @@ export function useNavigation(): Navigation {
         showView("conversation");
       }
     },
-    [history, targetIndex, t],
+    [tasks, t],
   );
 
   return {

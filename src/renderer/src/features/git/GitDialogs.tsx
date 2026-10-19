@@ -1,6 +1,15 @@
 // git 操作的模态对话框：提交、开 PR、丢弃确认（危险操作先确认）、合并冲突、清理报告。
 // 键盘：Esc 关闭（消耗掉，不触发"停止任务"），Tab 在对话框内循环；关闭后焦点回到打开前的元素。
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import type { WorktreeCleanupResult, WorktreeSetupInfo } from "../../../../shared/git.ts";
 import type { ProjectId, TaskId } from "../../../../shared/ipc.ts";
@@ -8,13 +17,21 @@ import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
 import { useSelectedTaskId } from "../../store/index.ts";
 import { reportError } from "../../ui/errors.ts";
+import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
+import { usePresence, type Presence } from "../../ui/presence.ts";
 import { announceCommit, discardWorktree, pushAndCreatePullRequest } from "./git-actions.ts";
-import { closeGitDialog, useGitDialog } from "./git-dialog-store.ts";
+import { closeGitDialog, useGitDialog, type GitDialogState } from "./git-dialog-store.ts";
 import { refreshGit } from "./git-store.ts";
 import "./git.css";
 
 const focusableSelector = "button:not(:disabled), input:not(:disabled), textarea:not(:disabled)";
 
+// Shell 从这里拿退出动画状态；Host 在外面算好。
+const ExitContext = createContext<Presence>({
+  mounted: true,
+  closing: false,
+  exitProps: { onAnimationEnd: () => undefined },
+});
 function Shell({
   title,
   testId,
@@ -27,16 +44,28 @@ function Shell({
   footer: ReactNode;
 }) {
   const t = useT();
+  const presence = useContext(ExitContext);
+  useTitleBarDim(!presence.closing);
   const titleId = useId();
   const ref = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<Element | null>(null);
+  const restored = useRef(false);
 
+  const restoreFocus = () => {
+    if (restored.current) return;
+    restored.current = true;
+    const opener = openerRef.current;
+    if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+  };
   useEffect(() => {
-    const opener = document.activeElement;
+    openerRef.current = document.activeElement;
     ref.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus();
-    return () => {
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
-    };
+    return restoreFocus;
   }, []);
+  // 开始退出动画就还焦点，不等卸载。
+  useEffect(() => {
+    if (presence.closing) restoreFocus();
+  }, [presence.closing]);
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Escape") {
@@ -60,7 +89,7 @@ function Shell({
   };
 
   return createPortal(
-    <div className="scrim" onPointerDown={closeGitDialog}>
+    <div className="scrim" data-closing={presence.closing ? "fade" : undefined} onPointerDown={closeGitDialog}>
       <div
         ref={ref}
         className="git-dialog"
@@ -70,6 +99,7 @@ function Shell({
         data-testid={testId}
         onPointerDown={(event) => event.stopPropagation()}
         onKeyDown={onKeyDown}
+        {...presence.exitProps}
       >
         <header className="git-dialog-head">
           <h2 id={titleId} className="git-dialog-title">
@@ -345,14 +375,14 @@ function SetupDialog({
     settled.current = true;
     settleRef.current(approved);
   };
-  useEffect(
-    () => () => {
-      if (settled.current) return;
-      settled.current = true;
-      settleRef.current(false);
-    },
-    [],
-  );
+  // 关闭（取消、Esc、点遮罩、切走）就按拒绝处理：在退出动画开始时就结算，不等卸载，
+  // 否则发送流程要多等一段动画，期间再按 Enter 会被当成"还在发送"忽略掉。
+  const closing = useContext(ExitContext).closing;
+  useEffect(() => {
+    if (closing) finish(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closing]);
+  useEffect(() => () => finish(false), []);
 
   const approve = async () => {
     try {
@@ -393,7 +423,23 @@ function SetupDialog({
 
 export function GitDialogHost() {
   const state = useGitDialog();
-  if (state === null) return null;
+  // 关闭后留着最后一个对话框放完退出动画；这期间 state 已是 null。
+  // 每次打开都是新的一份（key 按请求递增）：退出动画中又来一个请求时，不复用上一个对话框的状态和卸载逻辑。
+  const lastRef = useRef(state);
+  const serialRef = useRef(0);
+  if (state !== null && state !== lastRef.current) serialRef.current += 1;
+  if (state !== null) lastRef.current = state;
+  const shown = state ?? lastRef.current;
+  const presence = usePresence(state !== null);
+  if (!presence.mounted || shown === null) return null;
+  return (
+    <ExitContext.Provider value={presence} key={serialRef.current}>
+      {renderDialog(shown)}
+    </ExitContext.Provider>
+  );
+}
+
+function renderDialog(state: GitDialogState): ReactNode {
   switch (state.kind) {
     case "commit":
       return <CommitDialog taskId={state.taskId} />;

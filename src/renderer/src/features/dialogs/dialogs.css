@@ -166,8 +166,9 @@
   font-size: var(--fs-sm);
   cursor: pointer;
   transition:
-    background var(--dur-instant),
-    color var(--dur-instant);
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 .gate-btn:hover {
   background: var(--bg-hover);
@@ -235,6 +236,7 @@
   font-size: var(--fs-sm);
   text-align: left;
   cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 .gate-row:hover {
   background: var(--bg-hover);
@@ -273,6 +275,10 @@
   border: 1.5px solid var(--border-strong);
   border-radius: var(--radius-pill);
   background: transparent;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 .gate-choice[data-multi] .gate-mark {
   border-radius: var(--radius-xs);
@@ -347,6 +353,9 @@
   background: var(--bg-raised);
   color: var(--text);
   font-size: var(--fs-sm);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 .gate-input {
   height: var(--control-h-lg);
@@ -433,6 +442,9 @@
   background: transparent;
   font: inherit;
   cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 .toast-action {
   padding: var(--space-1) var(--space-2);

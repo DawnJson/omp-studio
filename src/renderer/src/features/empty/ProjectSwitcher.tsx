@@ -1,8 +1,10 @@
-// 项目名（点击弹切换菜单：最近 8 个 + 打开文件夹…）。键盘：↑↓ Home End，Esc 关闭并回到触发按钮。
+// 标志下面的项目胶囊（项目名 + ⌄，悬停看完整路径），点击弹切换菜单：最近 8 个 + 打开文件夹…。键盘：↑↓ Home End，Esc 关闭并回到触发按钮。
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Project } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { ChevronDown } from "../../icons.tsx";
 import { openFolderAsDraft } from "./actions.ts";
+import { usePresence } from "../../ui/presence.ts";
 
 const recentProjectLimit = 8;
 
@@ -15,6 +17,7 @@ export function ProjectSwitcher(props: {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const presence = usePresence(open);
 
   useEffect(() => {
     if (!open) return;
@@ -61,17 +64,19 @@ export function ProjectSwitcher(props: {
       <button
         ref={triggerRef}
         type="button"
-        className="empty-project-name"
+        className="empty-project"
         data-testid="empty-project"
+        title={props.current.path}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`${t("sidebar.projectMenu")}: ${props.current.name}`}
         onClick={() => setOpen(!open)}
       >
-        {props.current.name}
+        <span className="empty-project-name">{props.current.name}</span>
+        <ChevronDown size={12} />
       </button>
-      {open && (
-        <div className="empty-menu" role="menu" onKeyDown={onMenuKeyDown}>
+      {presence.mounted && (
+        <div className="empty-menu" role="menu" onKeyDown={onMenuKeyDown} {...presence.exitProps}>
           {props.projects.slice(0, recentProjectLimit).map((project) => (
             <button
               key={project.id}
@@ -79,6 +84,7 @@ export function ProjectSwitcher(props: {
               role="menuitemradio"
               aria-checked={project.id === props.current.id}
               className="empty-menu-item"
+              title={project.name}
               onClick={() => choose(project)}
             >
               {project.name}

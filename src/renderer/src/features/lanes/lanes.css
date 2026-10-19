@@ -98,6 +98,7 @@
   height: 8px;
   border-radius: var(--radius-pill);
   background: var(--st-done);
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 .lane-dot[data-status="running"] {
   background: var(--st-running);
@@ -241,6 +242,7 @@
 }
 .lane-block p {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 .lane-clamp {
   display: -webkit-box;
@@ -250,6 +252,7 @@
   font-size: var(--fs-xs);
   color: var(--text-2);
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .lane-muted {
   font-size: var(--fs-xs);

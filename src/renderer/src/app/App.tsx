@@ -36,6 +36,7 @@ import { setDrawerOpen, setSidebarCollapsed, useShellUi } from "./shell-store.ts
 import { SidebarResizer } from "./SidebarResizer.tsx";
 import { TopBar } from "./TopBar.tsx";
 import { useNavigation } from "./use-navigation.ts";
+import { usePresence } from "../ui/presence.ts";
 import { useShortcuts } from "./use-shortcuts.ts";
 
 /** 帮助与反馈的落点：本仓库的 Issues（选模板页）。内测期间仓库私有，内测用户需要先被加为协作者才能打开。 */
@@ -105,6 +106,7 @@ export function App() {
 
   const sidebarShown = narrow ? shell.drawerOpen : !shell.sidebarCollapsed;
   const asDrawer = narrow;
+  const drawerScrim = usePresence(asDrawer && shell.drawerOpen, "fade");
 
   // 选了任务或变宽之后，抽屉自动收起。
   useEffect(() => setDrawerOpen(false), [taskId, narrow]);
@@ -197,8 +199,13 @@ export function App() {
     >
       <TopBar menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((open) => !open)} />
       <div className="body">
-        {asDrawer && shell.drawerOpen && (
-          <div className="drawer-scrim" data-testid="drawer-scrim" onPointerDown={() => setDrawerOpen(false)} />
+        {drawerScrim.mounted && (
+          <div
+            className="drawer-scrim"
+            data-testid="drawer-scrim"
+            {...drawerScrim.exitProps}
+            onPointerDown={() => setDrawerOpen(false)}
+          />
         )}
         <div
           className="sidebar-column"
@@ -219,26 +226,25 @@ export function App() {
               <ConversationView taskId={taskId} />
               <BtwPanel taskId={taskId} />
               <Composer key={taskId} taskId={taskId} />
-              {terminalOpen && <TerminalPanel key={taskId} taskId={taskId} />}
+              <TerminalPanel key={`terminal:${taskId}`} taskId={taskId} open={terminalOpen} />
             </>
           )}
         </main>
       </div>
-      {menuOpen && (
-        <AppMenu
-          onClose={() => setMenuOpen(false)}
-          actions={{
-            newTask,
-            toggleSidebar,
-            openPalette: () => setPaletteOpen(true),
-            openSettings: () => showView("settings"),
-            openHelp: () => void window.studio.openExternal(helpUrl),
-            openAbout: () => setAboutOpen(true),
-            quit: () => void window.studio.quitApp(),
-          }}
-        />
-      )}
-      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      <AppMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        actions={{
+          newTask,
+          toggleSidebar,
+          openPalette: () => setPaletteOpen(true),
+          openSettings: () => showView("settings"),
+          openHelp: () => void window.studio.openExternal(helpUrl),
+          openAbout: () => setAboutOpen(true),
+          quit: () => void window.studio.quitApp(),
+        }}
+      />
+      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <DropOverlay />
       <ReviewHost />
       <GitDialogHost />

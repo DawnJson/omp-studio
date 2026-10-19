@@ -1,0 +1,127 @@
+/* 全局动效约定（spec §2.6）。时长、曲线、位移都读 tokens.css 的令牌，减少动效时自动归零，这里不另写 reduced-motion。 */
+
+/* ───────── 可交互元素的状态切换：hover / 按下 / 选中 / 聚焦时颜色渐变，不跳 ───────── */
+/* :where() 零优先级：组件自己写了 transition 的照用组件的。 */
+:where(
+  button,
+  a,
+  input,
+  textarea,
+  select,
+  summary,
+  [role="button"],
+  [role="option"],
+  [role="menuitem"],
+  [role="menuitemradio"],
+  [role="menuitemcheckbox"],
+  [role="tab"],
+  [role="treeitem"],
+  [role="radio"],
+  [role="switch"]
+) {
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out),
+    fill var(--dur-fast) var(--ease-out),
+    stroke var(--dur-fast) var(--ease-out);
+}
+
+/* ───────── 退出动画（presence.ts 的 data-closing）───────── */
+/* :root 前缀抬高优先级，盖过组件自己的进入动画；动画放完 presence 才卸载元素。 */
+:root [data-closing] {
+  pointer-events: none;
+  animation-duration: var(--dur-fast-exit);
+  animation-timing-function: var(--ease-in);
+  animation-fill-mode: forwards;
+  animation-iteration-count: 1;
+  animation-delay: 0ms;
+}
+:root [data-closing="pop"] {
+  animation-name: pop-out;
+}
+:root [data-closing="fade"] {
+  animation-name: fade-out;
+}
+
+@keyframes pop-out {
+  to {
+    opacity: 0;
+    transform: translateY(var(--travel-sm)) scale(var(--scale-pop));
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* ───────── 折叠区域（Reveal.tsx）───────── */
+.reveal {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.reveal-inner {
+  min-height: 0;
+  min-width: 0;
+}
+.reveal[data-phase] > .reveal-inner {
+  overflow: hidden;
+}
+.reveal[data-phase="enter"] {
+  animation: reveal-in var(--dur-base) var(--ease-out);
+}
+.reveal[data-phase="exit"] {
+  pointer-events: none;
+  animation: reveal-out var(--dur-base-exit) var(--ease-in) forwards;
+}
+@keyframes reveal-in {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+@keyframes reveal-out {
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+
+/* ───────── 主区换页（新任务页 / 对话 / 设置）、切任务、设置换节（App / ConversationView / SettingsView）───────── */
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--travel-sm));
+  }
+}
+
+/* 换页：新挂载的页面根节点淡入上移；输入框同属主区一起动，不单独蹦出来 */
+.panel > :is(.empty, .settings, .conversation, .composer-stack, .composer) {
+  animation: view-in var(--dur-base) var(--ease-out);
+}
+
+/* 切任务：.conversation 不重挂载，ConversationView 用 data-switching(a/b 交替)重放对话列动画。
+   切换期间压掉消息自己的 turn-in，避免两层动画叠加。 */
+.conversation[data-switching] :is(.user, .change) {
+  animation: none;
+}
+.conversation[data-switching="a"] .column {
+  animation: view-in var(--dur-base) var(--ease-out);
+}
+.conversation[data-switching="b"] .column {
+  animation: view-in-b var(--dur-base) var(--ease-out);
+}
+@keyframes view-in-b {
+  from {
+    opacity: 0;
+    transform: translateY(var(--travel-sm));
+  }
+}
+
+/* 设置换节：key 变化时新节淡入 */
+.settings-section {
+  animation: view-in var(--dur-base) var(--ease-out);
+}

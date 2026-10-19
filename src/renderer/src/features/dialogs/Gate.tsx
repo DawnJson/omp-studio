@@ -23,6 +23,7 @@ import { GateAsk } from "./GateAsk.tsx";
 import { GateConfirm } from "./GateConfirm.tsx";
 import { GateSelect } from "./GateSelect.tsx";
 import { GateText } from "./GateText.tsx";
+import { type ExitProps } from "../../ui/presence.ts";
 import "./dialogs.css";
 
 export interface GateBodyProps<D extends DialogRequest = DialogRequest> {
@@ -64,7 +65,19 @@ function timeoutOf(dialog: DialogRequest): number | undefined {
   return dialog.kind === "editor" ? undefined : dialog.timeoutMs;
 }
 
-export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: DialogRequest; pending: number }) {
+export function Gate({
+  taskId,
+  dialog,
+  pending,
+  exit,
+}: {
+  taskId: TaskId;
+  dialog: DialogRequest;
+  pending: number;
+  /** 请求已结束、正在放退出动画时由 DialogLayer 传入（presence.exitProps）。 */
+  exit?: ExitProps;
+}) {
+  const closing = exit?.["data-closing"] !== undefined;
   const t = useT();
   const transcript = useTranscript(taskId);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -104,7 +117,8 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
     else respond({ kind: "cancel" });
   }, [dialog.kind, respond]);
 
-  // 焦点：打字中或输入框有草稿就不抢，只脉冲一次；否则落到门。关闭后回到出现前的元素。
+  // 焦点：打字中或输入框有草稿就不抢，只脉冲一次；否则落到门。关闭（开始退出动画或卸载）后回到出现前的元素。
+  const restoreFocus = useRef<() => void>(() => undefined);
   useEffect(() => {
     const root = rootRef.current;
     const previous = document.activeElement;
@@ -113,9 +127,12 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
       active instanceof HTMLTextAreaElement && active.hasAttribute("data-composer-input") && active.value !== "";
     if (msSinceLastKey() < 1500 || composing) setPulse(true);
     else root?.focus();
-    return () => {
+    let restored = false;
+    // root 在 effect 开始时取：卸载时 React 已经把 rootRef.current 清成 null。
+    restoreFocus.current = () => {
+      if (restored) return;
+      restored = true;
       const current = document.activeElement;
-      // root 在 effect 开始时取：卸载时 React 已经把 rootRef.current 清成 null。
       if (current === document.body || root?.contains(current)) {
         const target =
           previous instanceof HTMLElement && previous.isConnected && !root?.contains(previous)
@@ -124,9 +141,15 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
         target?.focus();
       }
     };
+    return () => restoreFocus.current();
   }, []);
+  useEffect(() => {
+    if (closing) restoreFocus.current();
+  }, [closing]);
 
   useEffect(() => {
+    // 退出动画期间不再响应快捷键（回复已发出或请求已被取消）。
+    if (closing) return;
     registerGateControl({
       primary: () => {
         if (Date.now() - openedAt >= 500) primaryRef.current?.();
@@ -144,7 +167,7 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
       focus: () => rootRef.current?.focus(),
     });
     return () => registerGateControl(null);
-  }, [taskId, dialog, openedAt]);
+  }, [taskId, dialog, openedAt, closing]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape") {
@@ -183,7 +206,11 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
       data-approval={(dialog.kind === "select" && dialog.approval) || undefined}
       data-testid="gate"
       onKeyDown={onKeyDown}
-      onAnimationEnd={() => setPulse(false)}
+      onAnimationEnd={(event) => {
+        setPulse(false);
+        exit?.onAnimationEnd(event);
+      }}
+      data-closing={exit?.["data-closing"]}
     >
       {timeoutMs !== undefined && (
         <div

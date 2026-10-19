@@ -5,57 +5,63 @@ import type { TaskGoal, TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { runGoalOp } from "./goal-actions.ts";
 import { goalButtons, goalUsage, type GoalButton } from "./goal-model.ts";
+import { Reveal } from "../../ui/Reveal.tsx";
+import { useHeld } from "../composer/use-held.ts";
 import "./goal.css";
 
-export function GoalStrip({ taskId, goal }: { taskId: TaskId; goal: TaskGoal | null }) {
+export function GoalStrip({ taskId, goal: liveGoal }: { taskId: TaskId; goal: TaskGoal | null }) {
   const t = useT();
   const [pending, setPending] = useState<GoalButton | null>(null);
-  if (!goal) return null;
+  // 目标清掉后收起动画期间沿用上一份内容。
+  const goal = useHeld(liveGoal);
 
   const act = (op: GoalButton) => {
     setPending(op);
     void runGoalOp(taskId, op, t).finally(() => setPending(null));
   };
-  const showUsage = goal.tokensUsed > 0 || goal.tokenBudget !== null;
 
   return (
-    <div
-      className="goal-strip"
-      data-testid="goal-strip"
-      data-status={goal.status}
-      role="group"
-      aria-label={t("goal.title")}
-    >
-      <span className="goal-label">{t("goal.title")}</span>
-      <span className="goal-objective" title={goal.objective}>
-        {goal.objective}
-      </span>
-      <span className="goal-status" data-testid="goal-status">
-        {t(`goal.status.${goal.status}`)}
-      </span>
-      {showUsage && (
-        <span
-          className="goal-usage"
-          title={t(goal.tokenBudget === null ? "goal.usageTitle" : "goal.usageBudgetTitle", {
-            used: goal.tokensUsed,
-            budget: goal.tokenBudget ?? 0,
-          })}
+    <Reveal open={liveGoal !== null} className="goal-reveal">
+      {goal && (
+        <div
+          className="goal-strip"
+          data-testid="goal-strip"
+          data-status={goal.status}
+          role="group"
+          aria-label={t("goal.title")}
         >
-          {goalUsage(goal)}
-        </span>
+          <span className="goal-label">{t("goal.title")}</span>
+          <span className="goal-objective" title={goal.objective}>
+            {goal.objective}
+          </span>
+          <span className="goal-status" data-testid="goal-status">
+            {t(`goal.status.${goal.status}`)}
+          </span>
+          {(goal.tokensUsed > 0 || goal.tokenBudget !== null) && (
+            <span
+              className="goal-usage"
+              title={t(goal.tokenBudget === null ? "goal.usageTitle" : "goal.usageBudgetTitle", {
+                used: goal.tokensUsed,
+                budget: goal.tokenBudget ?? 0,
+              })}
+            >
+              {goalUsage(goal)}
+            </span>
+          )}
+          {goalButtons(goal).map((op) => (
+            <button
+              key={op}
+              type="button"
+              className="goal-action"
+              data-testid={`goal-${op}`}
+              disabled={pending !== null}
+              onClick={() => act(op)}
+            >
+              {t(`goal.${op}`)}
+            </button>
+          ))}
+        </div>
       )}
-      {goalButtons(goal).map((op) => (
-        <button
-          key={op}
-          type="button"
-          className="goal-action"
-          data-testid={`goal-${op}`}
-          disabled={pending !== null}
-          onClick={() => act(op)}
-        >
-          {t(`goal.${op}`)}
-        </button>
-      ))}
-    </div>
+    </Reveal>
   );
 }

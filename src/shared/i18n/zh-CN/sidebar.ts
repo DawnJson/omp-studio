@@ -10,7 +10,6 @@ export const sidebar = {
   waitingMany: "{n} 个任务在等你",
   empty: "还没有任务",
   settings: "设置",
-  palette: "命令面板",
   newInProject: "在此项目新建任务",
   label: "任务列表",
   projectMenu: "项目菜单",

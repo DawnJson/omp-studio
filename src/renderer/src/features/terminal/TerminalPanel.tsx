@@ -8,13 +8,21 @@ import { commitTerminalHeight, previewTerminalHeight, useShellUi } from "../../a
 import { useT } from "../../i18n/use-t.ts";
 import { Close, Restart, Terminal } from "../../icons.tsx";
 import { useAppInfo } from "../../store/index.ts";
+import { usePresence, type ExitProps } from "../../ui/presence.ts";
 import { setTerminalOpen } from "./terminal-store.ts";
 import { useTerminalSession } from "./use-terminal-session.ts";
 import "./terminal.css";
 
 const keyboardStep = 16;
 
-export function TerminalPanel({ taskId }: { taskId: TaskId }) {
+/** 开关外壳：关闭时先放淡出再卸载 xterm；高度不做逐帧动画（主区靠 ResizeObserver 保阅读锚点），一步到位。 */
+export function TerminalPanel({ taskId, open }: { taskId: TaskId; open: boolean }) {
+  const presence = usePresence(open, "fade");
+  if (!presence.mounted) return null;
+  return <TerminalPanelBody taskId={taskId} exitProps={presence.exitProps} />;
+}
+
+function TerminalPanelBody({ taskId, exitProps }: { taskId: TaskId; exitProps: ExitProps }) {
   const t = useT();
   const platform = useAppInfo()?.platform ?? "win32";
   const { terminalHeight } = useShellUi();
@@ -64,6 +72,7 @@ export function TerminalPanel({ taskId }: { taskId: TaskId }) {
     <section
       ref={root}
       className="terminal-panel"
+      {...exitProps}
       data-testid="terminal-panel"
       aria-label={t("terminal.title")}
       style={{ height }}

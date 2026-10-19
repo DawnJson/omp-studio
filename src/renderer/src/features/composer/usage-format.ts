@@ -8,9 +8,9 @@ export function formatCount(value: number): string {
   return String(Math.round(value));
 }
 
-/** 美元金额。会话累计费用常常只有几分之一美分，小于 0.01 时保留 4 位小数，不然全是 $0.00。 */
+/** 美元金额。会话累计费用常常只有几分之一美分，0 < 金额 < 0.01 时保留 4 位小数，不然全是 $0.00；正好 0 写 $0.00。 */
 export function formatMoney(value: number): string {
-  return `$${value.toFixed(value < 0.01 ? 4 : 2)}`;
+  return `$${value.toFixed(value > 0 && value < 0.01 ? 4 : 2)}`;
 }
 
 /** 上下文占比的数字部分（不带 %，文案里自带）：不到 10 保留一位小数（0.9），其余取整；限制在 0–100。 */

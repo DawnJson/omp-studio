@@ -5,6 +5,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { clearSelection, showView } from "../../store/index.ts";
 import { refreshProjects } from "../sidebar/projects-store.ts";
 import { pickDraftProject } from "./draft-project.ts";
+import { usePresence } from "../../ui/presence.ts";
 
 /** 拖动中只能看到 kind 和 type：文件夹的 type 是空串；全是图片则交给输入框自己的覆盖层。 */
 function carriesFolder(transfer: DataTransfer | null): boolean {
@@ -16,6 +17,7 @@ export function DropOverlay() {
   const t = useT();
   const [active, setActive] = useState(false);
   const depth = useRef(0);
+  const presence = usePresence(active, "fade");
 
   useEffect(() => {
     const onDragEnter = (event: DragEvent) => {
@@ -53,9 +55,9 @@ export function DropOverlay() {
     };
   }, []);
 
-  if (!active) return null;
+  if (!presence.mounted) return null;
   return (
-    <div className="drop-overlay" data-testid="drop-overlay" role="presentation">
+    <div className="drop-overlay" data-testid="drop-overlay" role="presentation" {...presence.exitProps}>
       <span className="drop-overlay-label">{t("dropzone.folder")}</span>
     </div>
   );

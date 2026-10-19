@@ -4,12 +4,25 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEv
 import type { SessionTreeNode, TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { reportError } from "../../ui/errors.ts";
+import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
 import { branchToNode } from "./fork-actions.ts";
 import { closeSessionTree, useSessionTreeOpen } from "./session-tree-store.ts";
 import "./session-tree.css";
+import { usePresence, type ExitProps } from "../../ui/presence.ts";
 
-function TreeDialog({ taskId }: { taskId: TaskId }) {
+function TreeDialog({
+  taskId,
+  open,
+  closing,
+  exitProps,
+}: {
+  taskId: TaskId;
+  open: boolean;
+  closing: boolean;
+  exitProps: ExitProps;
+}) {
   const t = useT();
+  useTitleBarDim(open);
   const listId = useId();
   const [nodes, setNodes] = useState<SessionTreeNode[] | null>(null);
   const [active, setActive] = useState(0);
@@ -56,6 +69,7 @@ function TreeDialog({ taskId }: { taskId: TaskId }) {
 
   const count = nodes?.length ?? 0;
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (closing) return;
     switch (event.key) {
       case "Escape":
         event.preventDefault();
@@ -95,6 +109,7 @@ function TreeDialog({ taskId }: { taskId: TaskId }) {
     <div
       className="tree-root"
       data-testid="session-tree"
+      data-closing={closing ? "fade" : undefined}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) close();
       }}
@@ -107,6 +122,7 @@ function TreeDialog({ taskId }: { taskId: TaskId }) {
         aria-label={t("tree.title")}
         tabIndex={-1}
         onKeyDown={onKeyDown}
+        {...exitProps}
       >
         <div className="tree-head">{t("tree.title")}</div>
         {nodes === null ? (
@@ -149,5 +165,9 @@ function TreeDialog({ taskId }: { taskId: TaskId }) {
 }
 
 export function SessionTreePanel({ taskId }: { taskId: TaskId }) {
-  return useSessionTreeOpen(taskId) ? <TreeDialog taskId={taskId} /> : null;
+  const open = useSessionTreeOpen(taskId);
+  const presence = usePresence(open);
+  return presence.mounted ? (
+    <TreeDialog taskId={taskId} open={open} closing={presence.closing} exitProps={presence.exitProps} />
+  ) : null;
 }

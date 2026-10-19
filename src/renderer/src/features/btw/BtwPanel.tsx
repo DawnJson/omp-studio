@@ -9,6 +9,7 @@ import { Close, Plus } from "../../icons.tsx";
 import { Markdown } from "../../markdown/index.ts";
 import { useBtwRecords } from "../../store/index.ts";
 import { reportError } from "../../ui/errors.ts";
+import { Reveal } from "../../ui/Reveal.tsx";
 import { askBtwQuestion, cancelBtwQuestion } from "./btw-actions.ts";
 import { closeBtw, selectBtwTopic, useBtwUi } from "./btw-ui-store.ts";
 import { activeTopic, canAsk, NEW_TOPIC, topicLabel } from "./btw-view.ts";
@@ -34,7 +35,7 @@ function TurnView({ turn }: { turn: BtwHistoryTurn }) {
   );
 }
 
-function BtwPanelBody({ taskId }: { taskId: TaskId }) {
+function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
   const t = useT();
   const ui = useBtwUi(taskId);
   const records = useBtwRecords(taskId);
@@ -50,12 +51,14 @@ function BtwPanelBody({ taskId }: { taskId: TaskId }) {
   const lastAnswer = latest?.answer.length ?? 0;
 
   // 打开时记下焦点原来在哪，关闭时还回去（输入框里按 Esc 之后继续打字不用再点一下）。
+  // 按 open 而不是按卸载：收起动画期间焦点就该回去了。
   useEffect(() => {
+    if (!open) return;
     const opener = document.activeElement;
     return () => {
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
     };
-  }, []);
+  }, [open]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -200,8 +203,12 @@ function BtwPanelBody({ taskId }: { taskId: TaskId }) {
   );
 }
 
-/** 面板开着才挂载：打开时抓住原焦点、关闭时还回去都靠挂载/卸载。 */
+/** 面板开着才挂载内容：打开时抓住原焦点；关闭（open 变 false）时立刻还回去，收起动画照常放完再卸载。 */
 export function BtwPanel({ taskId }: { taskId: TaskId }) {
   const ui = useBtwUi(taskId);
-  return ui.open ? <BtwPanelBody key={taskId} taskId={taskId} /> : null;
+  return (
+    <Reveal open={ui.open} className="btw-reveal">
+      <BtwPanelBody key={taskId} taskId={taskId} open={ui.open} />
+    </Reveal>
+  );
 }

@@ -1,4 +1,5 @@
 // 草稿输入框（空状态里的输入框）：还没有任务，发送第一条时才创建任务。
+// projectId 为 null（一个项目都没有）时，发送前先让主进程建好 AppInfo.chatsDir 并加入项目，任务在那里开始。
 // 模型胶囊显示和修改的都是 omp 的默认值（modelRoles.default / defaultThinkingLevel，设计原则 7）；新任务不传 --model/--thinking。
 import { reportError } from "../../ui/errors.ts";
 import {
@@ -10,12 +11,20 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
-import type { DefaultModelInfo, ModelDefaults, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
+import type {
+  DefaultModelInfo,
+  ModelDefaults,
+  ModelOption,
+  ProjectFilesTarget,
+  ProjectId,
+  TaskId,
+} from "../../../../shared/ipc.ts";
 import { worktreeBlockerKey } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
 import { selectTask } from "../../store/index.ts";
 import { saveOmpDefaultModel, saveOmpDefaultThinking } from "../settings/config-store.ts";
+import { refreshProjects } from "../sidebar/projects-store.ts";
 import { takePendingDraftText } from "../palette/index.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { blockWorktree, ensureSetupApproved, getWorktreeDraft, setWorktreeOn, WorktreeChip } from "../git/index.ts";
@@ -26,14 +35,19 @@ import { getDraft, setDraft, setDraftText, useDraft } from "./draft-store.ts";
 import { ModelChip } from "./ModelChip.tsx";
 import { decideEnter, isShellDraft } from "./send-logic.ts";
 import { SendStop } from "./SendStop.tsx";
+import { DraftUsageMeter } from "./UsageMeter.tsx";
+import { SessionCost } from "./SessionCost.tsx";
 import { FileMenu } from "./FileMenu.tsx";
 import { useFileMenu } from "./use-file-menu.ts";
 import { clampThinkingLevel, effortOrder, thinkingLevelOptions } from "./thinking-levels.ts";
 import "./composer.css";
 
-export function DraftComposer({ projectId }: { projectId: ProjectId }) {
+/** 没有项目时 `@` 补全不开（目录还没建），这个目标不会被查询。 */
+const noFilesTarget: ProjectFilesTarget = { kind: "project", projectId: "" as ProjectId };
+
+export function DraftComposer({ projectId }: { projectId: ProjectId | null }) {
   const t = useT();
-  const key = `new:${projectId}` as TaskId;
+  const key = `new:${projectId ?? "chats"}` as TaskId;
   const draft = useDraft(key);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -94,8 +108,12 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
   const reread = () => setRefresh((count) => count + 1);
 
   // `@` 文件引用补全：目录是这个项目的目录。
-  const fileMenu = useFileMenu({ kind: "project", projectId }, draft.text, true, fieldRef, (next) =>
-    setDraftText(key, next),
+  const fileMenu = useFileMenu(
+    projectId === null ? noFilesTarget : { kind: "project", projectId },
+    draft.text,
+    projectId !== null,
+    fieldRef,
+    (next) => setDraftText(key, next),
   );
 
   const send = async () => {
@@ -108,27 +126,33 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
       return;
     }
     setSending(true);
+    const worktreeProject = projectId !== null && getWorktreeDraft(projectId).on ? projectId : null;
     try {
-      if (getWorktreeDraft(projectId).on && !(await ensureSetupApproved(projectId))) {
+      if (worktreeProject !== null && !(await ensureSetupApproved(worktreeProject))) {
         // 拒绝运行脚本：不建 worktree，草稿保留。
         pushToast({ message: t("git.setup.declined") });
         return;
       }
+      const target = projectId ?? (await window.studio.ensureChatsProject()).id;
       const task = await window.studio.createTask({
-        projectId,
-        ...(getWorktreeDraft(projectId).on ? { worktree: true } : {}),
+        projectId: target,
+        ...(worktreeProject !== null ? { worktree: true } : {}),
       });
       await selectTask(task.id);
+      // 主进程没有项目变更事件：新加的 chats 项目要重新取列表，侧栏才有它的分组。
+      if (projectId === null) void refreshProjects();
       await window.studio.sendPrompt(task.id, {
         text,
         ...(current.images.length > 0 ? { images: [...current.images] } : {}),
         whenBusy: "steer",
       });
       setDraft(key, { text: "", images: [] });
-      setWorktreeOn(projectId, false);
+      if (projectId !== null) setWorktreeOn(projectId, false);
     } catch (error) {
-      const blocker = getWorktreeDraft(projectId).on ? worktreeBlockerKey(error) : null;
-      if (blocker !== null) blockWorktree(projectId, blocker);
+      if (worktreeProject !== null) {
+        const blocker = worktreeBlockerKey(error);
+        if (blocker !== null) blockWorktree(worktreeProject, blocker);
+      }
       reportError(t, error, t("msg.sendFailed"));
     } finally {
       setSending(false);
@@ -177,15 +201,14 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
   return (
     <div className="composer-stack" data-testid="draft-composer" data-draft>
       <div className="composer" onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
-        {fileMenu.open && (
-          <FileMenu
-            id="file-menu-list"
-            files={fileMenu.files}
-            active={fileMenu.active}
-            onHover={fileMenu.setActive}
-            onPick={fileMenu.pick}
-          />
-        )}
+        <FileMenu
+          id="file-menu-list"
+          open={fileMenu.open}
+          files={fileMenu.files}
+          active={fileMenu.active}
+          onHover={fileMenu.setActive}
+          onPick={fileMenu.pick}
+        />
         <div className="composer-body">
           <Attachments
             images={draft.images}
@@ -198,7 +221,7 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
             className="composer-field"
             data-composer-input
             data-testid="composer-input"
-            rows={2}
+            rows={1}
             value={draft.text}
             placeholder={t("composer.placeholderNew")}
             aria-label={t("composer.placeholderNew")}
@@ -239,6 +262,7 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
             thinkingLevel={thinkingLevel}
             thinkingLevels={levels}
             running={false}
+            projectId={projectId}
             // omp 一个可用模型都读不到时 omp 为 null：有模型列表就写"默认模型"，确实一个都没有才是"未连接"。
             {...(omp
               ? { emptyLabel: omp.name }
@@ -250,8 +274,10 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
             setThinking={(level) => saveOmpDefaultThinking(level).finally(reread)}
           />
           <ApprovalChip />
-          <WorktreeChip projectId={projectId} />
+          {projectId !== null && <WorktreeChip projectId={projectId} />}
+          <DraftUsageMeter model={model ?? null} projectId={projectId} />
           <span className="composer-spacer" />
+          <SessionCost usage={null} provider={model?.key.provider ?? null} />
           <SendStop
             running={false}
             stopping={false}

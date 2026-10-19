@@ -1,10 +1,19 @@
 /* 旁路提问面板：停在输入框上方，宽度和输入框一致。克制：只用现有 token，没有常驻动效（光标闪烁等由 Markdown 流式样式负责，已遵守 reduced-motion）。 */
+/* 折叠容器：45% 的高度上限放在这一层（Reveal 里的百分比高度算不出来），面板在里面按 flex 收缩。 */
+.btw-reveal {
+  flex: none;
+  max-height: 45%;
+}
+.btw-reveal > .reveal-inner {
+  display: flex;
+  flex-direction: column;
+}
 .btw {
   display: flex;
-  flex: none;
+  flex: 1 1 auto;
+  min-height: 0;
   flex-direction: column;
   width: min(100% - 2 * var(--gutter), var(--content-w));
-  max-height: 45%;
   margin: 0 auto var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -52,7 +61,7 @@
   display: flex;
   flex: none;
   gap: var(--space-1-5);
-  padding: 0 var(--space-3) var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-2);
   overflow-x: auto;
 }
 .btw-topic {

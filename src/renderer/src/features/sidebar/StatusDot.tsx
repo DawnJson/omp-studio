@@ -5,7 +5,7 @@ import { dotKind } from "../../../../shared/ui/sidebar-model.ts";
 
 export function StatusDot({ task, t }: { task: TaskState; t: TFunction }) {
   const kind = dotKind(task);
-  if (kind === "none") return <span className="sb-dot" aria-hidden="true" />;
+  if (kind === "none") return <span key="none" className="sb-dot" aria-hidden="true" />;
 
   const label =
     kind === "running"
@@ -19,7 +19,7 @@ export function StatusDot({ task, t }: { task: TaskState; t: TFunction }) {
           : t("status.error");
 
   return (
-    <span className={`sb-dot sb-dot-${kind}`} role="img" aria-label={label}>
+    <span key={kind} className={`sb-dot sb-dot-${kind}`} role="img" aria-label={label}>
       {kind === "done" && (
         <svg
           width="12"

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "../../icons.tsx";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
+import { usePresence } from "../../ui/presence.ts";
 
 export interface DropdownOption<T extends string> {
   value: T;
@@ -40,6 +41,7 @@ export function Dropdown<T extends string>({
   const popup = useRef<HTMLDivElement>(null);
   const typed = useRef({ text: "", at: 0 });
   const [open, setOpen] = useState(false);
+  const presence = usePresence(open);
   const [active, setActive] = useState(0);
   const [place, setPlace] = useState<{ top?: number; bottom?: number; left: number; width: number }>({
     left: 0,
@@ -65,10 +67,12 @@ export function Dropdown<T extends string>({
     const need = Math.min(maxListHeight, options.length * 32 + 8);
     const below = window.innerHeight - rect.bottom;
     const up = below < need + 8 && rect.top > below;
+    // 弹层右缘不超出窗口
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - (popup.current?.offsetWidth ?? rect.width) - 8));
     setPlace(
       up
-        ? { bottom: window.innerHeight - rect.top + 4, left: rect.left, width: rect.width }
-        : { top: rect.bottom + 4, left: rect.left, width: rect.width },
+        ? { bottom: window.innerHeight - rect.top + 4, left, width: rect.width }
+        : { top: rect.bottom + 4, left, width: rect.width },
     );
   }, [open, options.length]);
 
@@ -179,12 +183,13 @@ export function Dropdown<T extends string>({
         <span className="dd-value">{current?.label ?? placeholder}</span>
         <ChevronDown size={14} className="icon dd-chevron" />
       </button>
-      {open &&
+      {presence.mounted &&
         createPortal(
           <div
             ref={popup}
             className="dd-pop"
             style={{ top: place.top, bottom: place.bottom, left: place.left, minWidth: place.width }}
+            {...presence.exitProps}
           >
             <div
               ref={list}

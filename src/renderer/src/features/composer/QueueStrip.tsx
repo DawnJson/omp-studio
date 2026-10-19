@@ -4,6 +4,8 @@ import type { TaskId, TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
 import { appendToDraft } from "./draft-store.ts";
+import { Reveal } from "../../ui/Reveal.tsx";
+import { useHeld } from "./use-held.ts";
 
 const MAX_VISIBLE = 3;
 
@@ -18,7 +20,8 @@ export function QueueStrip({ taskId, queue }: { taskId: TaskId; queue: TaskState
     ...queue.steering.map((text): Entry => ({ text, queue: "steering" })),
     ...queue.followUp.map((text): Entry => ({ text, queue: "followUp" })),
   ];
-  if (entries.length === 0) return null;
+  // 队列清空后收起动画期间沿用清空前的行。
+  const shown = useHeld(entries.length > 0 ? entries : null) ?? entries;
   const report = (error: unknown) => reportError(t, error);
 
   const remove = (entry: Entry) => {
@@ -31,32 +34,34 @@ export function QueueStrip({ taskId, queue }: { taskId: TaskId; queue: TaskState
   };
 
   return (
-    <div className="queue" role="list" aria-label={t("composer.queue.aria")} data-testid="queue-strip">
-      {entries.slice(0, MAX_VISIBLE).map((entry, index) => (
-        <div key={`${entry.queue}:${index}:${entry.text}`} className="queue-item" role="listitem">
-          <span className="queue-tag" data-kind={entry.queue}>
-            {entry.queue === "steering" ? t("composer.steer") : t("composer.later")}
-          </span>
-          <span className="queue-text">{entry.text.split("\n")[0]}</span>
-          {entry.queue === "followUp" && (
-            <button type="button" className="queue-btn" onClick={() => promote(entry)}>
-              {t("composer.queue.promote")}
+    <Reveal open={entries.length > 0}>
+      <div className="queue" role="list" aria-label={t("composer.queue.aria")} data-testid="queue-strip">
+        {shown.slice(0, MAX_VISIBLE).map((entry, index) => (
+          <div key={`${entry.queue}:${index}:${entry.text}`} className="queue-item" role="listitem">
+            <span className="queue-tag" data-kind={entry.queue}>
+              {entry.queue === "steering" ? t("composer.steer") : t("composer.later")}
+            </span>
+            <span className="queue-text">{entry.text.split("\n")[0]}</span>
+            {entry.queue === "followUp" && (
+              <button type="button" className="queue-btn" onClick={() => promote(entry)}>
+                {t("composer.queue.promote")}
+              </button>
+            )}
+            <button
+              type="button"
+              className="queue-icon"
+              aria-label={t("composer.queue.remove")}
+              title={t("composer.queue.remove")}
+              onClick={() => remove(entry)}
+            >
+              <Close size={14} />
             </button>
-          )}
-          <button
-            type="button"
-            className="queue-icon"
-            aria-label={t("composer.queue.remove")}
-            title={t("composer.queue.remove")}
-            onClick={() => remove(entry)}
-          >
-            <Close size={14} />
-          </button>
-        </div>
-      ))}
-      {entries.length > MAX_VISIBLE && (
-        <div className="queue-more">{t("composer.queue.more", { n: entries.length - MAX_VISIBLE })}</div>
-      )}
-    </div>
+          </div>
+        ))}
+        {shown.length > MAX_VISIBLE && (
+          <div className="queue-more">{t("composer.queue.more", { n: shown.length - MAX_VISIBLE })}</div>
+        )}
+      </div>
+    </Reveal>
   );
 }

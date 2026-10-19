@@ -118,6 +118,22 @@ describe("sessionExtras（get_state → TaskState 的字段）", () => {
       slowMode: { supported: true, enabled: true, scope: "session" },
       usageLimit,
       tokensPerSecond: 12.5,
+      contextParts: null,
+    });
+  });
+
+  it("上下文构成：ASCII 约 4 字符一个 token，中文一个字一个；没有工具时工具为 0", () => {
+    const tool = { name: "read", description: "x", parameters: {} };
+    expect(sessionExtras({ ...base, systemPrompt: ["abcd", "中文"], dumpTools: [tool] }).contextParts).toEqual({
+      // "abcd\n中文"：5 个 ASCII -> 2，2 个汉字 -> 2
+      systemTokens: 4,
+      toolTokens: Math.ceil(JSON.stringify([tool]).length / 4),
+      toolCount: 1,
+    });
+    expect(sessionExtras({ ...base, systemPrompt: [] }).contextParts).toEqual({
+      systemTokens: 0,
+      toolTokens: 0,
+      toolCount: 0,
     });
   });
 

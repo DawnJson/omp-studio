@@ -32,10 +32,11 @@ import { explainChanges, notesForFile } from "./explain.ts";
 import { useReviewKeys } from "./review-keys.ts";
 import { useFileDiff, useReviewStatus } from "./use-review-data.ts";
 import "./review.css";
+import type { ExitProps } from "../../ui/presence.ts";
 
 const BUSY: readonly TaskState["status"][] = ["starting", "running", "needs_you"];
 
-export function ReviewView({ taskId }: { taskId: TaskId }) {
+export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boolean; exit: ExitProps }) {
   const t = useT();
   const task = useTask(taskId);
   const settings = useSettings();
@@ -60,13 +61,17 @@ export function ReviewView({ taskId }: { taskId: TaskId }) {
   const explanations = useMemo(() => explainChanges(transcript ? buildTurns(transcript) : []), [transcript]);
   const notes = entry === null ? [] : notesForFile(explanations, entry.path, task?.cwd ?? null);
 
-  // 进入时把焦点放进评审、底下的页面不可达（inert）；退出时焦点回到触发它的元素，已经不在了就回输入框。
+  // 进入时把焦点放进评审、底下的页面不可达（inert）；退出（开始退出动画或卸载）时焦点回到触发它的元素，已经不在了就回输入框。
+  const release = useRef<() => void>(() => undefined);
   useEffect(() => {
     const trigger = document.activeElement;
     const body = document.querySelector(".body");
     body?.setAttribute("inert", "");
     root.current?.focus();
-    return () => {
+    let released = false;
+    release.current = () => {
+      if (released) return;
+      released = true;
       body?.removeAttribute("inert");
       const target =
         trigger instanceof HTMLElement && trigger.isConnected
@@ -74,7 +79,11 @@ export function ReviewView({ taskId }: { taskId: TaskId }) {
           : document.querySelector<HTMLElement>("[data-composer-input]");
       target?.focus();
     };
+    return () => release.current();
   }, []);
+  useEffect(() => {
+    if (!open) release.current();
+  }, [open]);
 
   useReviewKeys((key) => {
     if (key === "Escape") {
@@ -203,7 +212,15 @@ export function ReviewView({ taskId }: { taskId: TaskId }) {
     );
 
   return (
-    <div className="review" ref={root} tabIndex={-1} data-testid="review" role="region" aria-label={t("review.title")}>
+    <div
+      className="review"
+      ref={root}
+      tabIndex={-1}
+      data-testid="review"
+      role="region"
+      aria-label={t("review.title")}
+      {...exit}
+    >
       <header className="rv-head">
         <button type="button" className="rv-btn" data-testid="review-close" onClick={closeReview}>
           <Close size={14} />

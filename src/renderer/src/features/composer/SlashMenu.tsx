@@ -2,23 +2,39 @@
 import { useEffect, useRef } from "react";
 import type { AvailableSlashCommand } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { usePresence } from "../../ui/presence.ts";
 
 interface SlashMenuProps {
   id: string;
+  open: boolean;
   commands: readonly AvailableSlashCommand[];
   active: number;
   onHover(index: number): void;
   onPick(command: AvailableSlashCommand): void;
 }
 
-export function SlashMenu({ id, commands, active, onHover, onPick }: SlashMenuProps) {
+export function SlashMenu({ id, open, commands: liveCommands, active, onHover, onPick }: SlashMenuProps) {
   const t = useT();
   const listRef = useRef<HTMLDivElement>(null);
+  const presence = usePresence(open);
+  // 关闭放退出动画时 Composer 传来的是空列表，沿用关闭前的内容。
+  const heldRef = useRef(liveCommands);
+  if (open) heldRef.current = liveCommands;
+  const commands = open ? liveCommands : heldRef.current;
   useEffect(() => {
     listRef.current?.querySelector(`[id="${id}-${active}"]`)?.scrollIntoView({ block: "nearest" });
   }, [id, active]);
+  if (!presence.mounted) return null;
   return (
-    <div className="slash" role="listbox" id={id} ref={listRef} aria-label={t("slash.label")} data-testid="slash-menu">
+    <div
+      className="slash"
+      role="listbox"
+      id={id}
+      ref={listRef}
+      aria-label={t("slash.label")}
+      data-testid="slash-menu"
+      {...presence.exitProps}
+    >
       {commands.length === 0 && <p className="pop-note">{t("slash.empty")}</p>}
       {commands.map((command, index) => (
         <button

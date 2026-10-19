@@ -1,7 +1,10 @@
 /* 输入框、胶囊、弹层、队列条（spec 4.14）。只用 tokens.css 里的变量。 */
 
+/* z-index 比跳到最新、滚动条（--z-sticky）高一层：输入框上弹出的菜单和浮层不会被它们盖住。
+   不用 --z-popover：那和窄窗口的侧栏抽屉同层，输入框在 DOM 里更靠后，会盖住抽屉。 */
 .composer-stack {
   position: relative;
+  z-index: calc(var(--z-sticky) + 1);
   flex: none;
   width: min(100% - 2 * var(--gutter), var(--content-w));
   margin: 0 auto;
@@ -29,7 +32,7 @@
 }
 /* 上面输入区，下面工具行，中间一条 1px 分隔线：两层各有自己的内边距，控件不再贴着输入文字。 */
 .composer-body {
-  padding: var(--space-3-5) var(--space-4) var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-2-5);
 }
 .composer:hover {
   border-color: var(--border-strong);
@@ -44,7 +47,7 @@
 .composer-field {
   display: block;
   width: 100%;
-  min-height: calc(var(--lh-prose) * 2);
+  min-height: var(--lh-prose);
   max-height: min(40vh, calc(var(--lh-prose) * 12));
   padding: 0;
   border: 0;
@@ -76,9 +79,30 @@
 .composer-spacer {
   flex: 1;
 }
+/* 审批胶囊保持原宽，空间不够时由模型胶囊收窄（它的名字会省略）。 */
+.composer-tools > .pop-anchor:has(> [data-testid="approval-chip"]) {
+  flex: none;
+}
 .composer-note {
+  min-width: 0;
+  overflow: hidden;
   font-size: var(--fs-xs);
   color: var(--st-waiting-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 发送键左边的本会话费用：和用量行同样的等宽小字，但不加按钮外观（只读）。 */
+.session-cost {
+  padding: 0 var(--space-1);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.session-cost-sub {
+  color: var(--text-3);
 }
 
 .tool-btn,
@@ -161,6 +185,38 @@
   font-size: var(--fs-2xs);
   line-height: var(--lh-2xs);
 }
+/* 芯片上的思考强度：档位越高越"热"。低档是普通文字，high 起用强调色，xhigh / max 是渐变字，max 慢慢流动。 */
+.chip-level {
+  flex: none;
+  white-space: nowrap;
+}
+/* 渐变字（background-clip: text）也会裁到分隔点上，用 text-fill-color 让它保持灰色。 */
+.chip-level::before {
+  content: "· ";
+  -webkit-text-fill-color: var(--text-3);
+  color: var(--text-3);
+}
+.chip-level[data-level="off"],
+.chip-level[data-level="minimal"] {
+  color: var(--text-3);
+}
+.chip-level[data-level="high"] {
+  color: var(--accent);
+  font-weight: var(--fw-strong);
+}
+.chip-level[data-level="xhigh"],
+.chip-level[data-level="max"] {
+  font-weight: var(--fw-strong);
+  background: linear-gradient(90deg, var(--accent), var(--st-waiting), var(--accent));
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.chip-level[data-level="max"] {
+  animation: thinking-flow calc(var(--dur-breathe) * 2) linear infinite;
+  animation-play-state: var(--play-state);
+}
 .chip[data-yolo] {
   background: var(--st-waiting-soft);
   color: var(--st-waiting-text);
@@ -177,21 +233,26 @@
   }
 }
 
-/* 输入框下方的仪表行：模型/路径/数字一律等宽字体 + --text-2，上下文圆环同时是 omp 的 "o"。窄输入框只留上下文和费用。 */
+/* 工具行里的用量仪表（模型、审批胶囊之后）：数字一律等宽字体 + --text-2，上下文圆环同时是 omp 的 "o"。
+   输入框变窄时逐级收起：先速度，再本会话 token 和每日用量，最后额度，只留上下文。 */
 .composer-stack {
   container-type: inline-size;
 }
+/* 仪表本身不收缩（会让按钮互相压住）：空间不够时由模型胶囊省略名字，再按下面的宽度逐级收起。 */
 .usage {
   display: flex;
+  flex: none;
   align-items: center;
-  gap: var(--space-4);
-  min-height: var(--control-h-sm);
-  padding: var(--space-1) var(--space-1) 0;
+  gap: var(--space-3);
+  padding: 0 var(--space-1);
   color: var(--text-2);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   line-height: var(--lh-2xs);
   font-variant-numeric: tabular-nums;
+}
+.usage > .pop-anchor {
+  flex: none;
 }
 .usage-item {
   display: inline-flex;
@@ -204,14 +265,6 @@
   font: inherit;
   white-space: nowrap;
 }
-.usage-total::before {
-  content: "· ";
-}
-[data-testid="usage-tokens"] + [data-testid="usage-cost"]::before {
-  content: "· ";
-  margin-left: calc(var(--space-1-5) - var(--space-4));
-  margin-right: var(--space-1-5);
-}
 button.usage-item {
   height: var(--control-h-sm);
   border-radius: var(--radius-sm);
@@ -220,24 +273,44 @@ button.usage-item {
 button.usage-item:hover {
   color: var(--text);
 }
-[data-testid="usage-cost"] + [data-testid="usage-tps"]::before,
-[data-testid="usage-tokens"] + [data-testid="usage-tps"]::before,
-.usage-context + [data-testid="usage-tps"]::before {
+.pop-anchor:has(> [data-testid="usage-tokens"]) + [data-testid="usage-tps"]::before {
   content: "· ";
-  margin-left: calc(var(--space-1-5) - var(--space-4));
+  margin-left: calc(var(--space-1-5) - var(--space-3));
   margin-right: var(--space-1-5);
 }
 .usage-tps {
   color: var(--text-3);
 }
-@container (max-width: 560px) {
-  [data-testid="usage-tokens"],
-  .usage-total {
+@container (max-width: 860px) {
+  .usage-tps {
     display: none;
   }
-  [data-testid="usage-cost"]::before {
-    content: none;
+}
+@container (max-width: 760px) {
+  .usage .pop-anchor:has(> :is([data-testid="usage-tokens"], [data-testid="heatmap-meter"])) {
+    display: none;
   }
+}
+@container (max-width: 560px) {
+  .usage .pop-anchor:has(> .usage-quota) {
+    display: none;
+  }
+}
+.usage-quota[data-high] {
+  color: var(--st-waiting-text);
+}
+/* 额度窗口名可能是 provider 给的长名字：限宽省略（全文在悬停提示里）。 */
+.usage-quota-text {
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 仪表行里的浮层：不继承行的等宽小字，数字列自己用等宽 */
+.usage .pop {
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
 }
 .usage-ring-track,
 .usage-ring-fill {
@@ -256,6 +329,142 @@ button.usage-item:hover {
 }
 .usage-context[data-high] .usage-ring-fill {
   stroke: var(--st-waiting);
+}
+
+/* 上下文构成（照 Claude Code 的 /context）：分段横条 + 每类一行 */
+.ctx,
+.mb,
+.qm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-2);
+}
+.ctx-head,
+.mb-model-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.ctx-num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.ctx-bar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+}
+.ctx-seg {
+  min-width: 2px;
+  border-radius: var(--radius-xs);
+}
+.ctx-seg[data-part="system"],
+.ctx-swatch[data-part="system"] {
+  background: color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
+}
+.ctx-seg[data-part="tools"],
+.ctx-swatch[data-part="tools"] {
+  background: color-mix(in srgb, var(--accent) 70%, var(--border-subtle));
+}
+.ctx-seg[data-part="messages"],
+.ctx-swatch[data-part="messages"] {
+  background: var(--accent);
+}
+.ctx-seg[data-part="free"],
+.ctx-swatch[data-part="free"] {
+  background: var(--border-subtle);
+}
+.ctx-seg[data-part="buffer"],
+.ctx-swatch[data-part="buffer"] {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--st-waiting-soft) 0 3px,
+    color-mix(in srgb, var(--st-waiting) 35%, transparent) 3px 5px
+  );
+}
+.ctx-rows {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  margin: 0;
+}
+.ctx-row {
+  display: contents;
+}
+.ctx-row dt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-2);
+}
+.ctx-row dd {
+  margin: 0;
+  text-align: right;
+}
+.ctx-share {
+  min-width: 5ch;
+  color: var(--text-3);
+}
+.ctx-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-xs);
+}
+.ctx-note {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-3);
+}
+
+/* 按模型的用量明细 */
+.mb-title {
+  font-weight: var(--fw-strong);
+}
+.mb-model {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.mb-model-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mb-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: var(--space-4);
+  row-gap: var(--space-0-5);
+  margin: 0;
+}
+.mb-grid > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.mb-grid dt {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.mb-grid dd {
+  margin: 0;
+}
+
+/* 额度 / 每日用量浮层：账号块和热力图见 settings/usage.css */
+.qm-more {
+  align-self: flex-start;
 }
 
 .send {
@@ -338,6 +547,255 @@ button.usage-item:hover {
   background: var(--bg-overlay);
   color: var(--text-2);
   cursor: pointer;
+}
+
+/* 状态栏：输入框上方一行。左 = 用时 + 当前活动，右 = 待办板；窄了先收右边的文字，再省略左边的活动。
+   间距放在 padding 里：Reveal 收起时整行连同间距一起缩没。 */
+.run-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-1) var(--space-2);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+}
+.run-main {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.run-mark {
+  flex: none;
+  box-sizing: border-box;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: var(--radius-pill);
+  animation: run-spin var(--dur-spin) linear infinite;
+  animation-play-state: var(--play-state);
+}
+/* 等你确认：不转，一个静止的琥珀色点。 */
+.run-main[data-waiting] .run-mark {
+  border: 0;
+  background: radial-gradient(circle, var(--st-waiting) 0 3px, transparent 3.5px);
+  animation: none;
+}
+@keyframes run-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.run-elapsed {
+  flex: none;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.run-sep {
+  flex: none;
+  width: 1px;
+  height: var(--icon-sm);
+  background: var(--border);
+}
+.run-activity {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.run-main[data-waiting] .run-activity {
+  color: var(--st-waiting-text);
+}
+
+/* 待办板：右侧一个按钮；点开向上弹出阶段与条目（浮层用上面的 .pop）。 */
+.todo-anchor {
+  flex: 0 1 auto;
+  max-width: 40%;
+  margin-left: auto;
+}
+.todo-board {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.todo-board:hover,
+.todo-board[aria-expanded="true"] {
+  background: var(--bg-hover);
+}
+.todo-board:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.todo-ring {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  fill: none;
+  stroke-width: 2;
+  transform: rotate(-90deg);
+}
+.todo-ring-track {
+  stroke: var(--border-strong);
+}
+.todo-ring-done,
+.todo-ring-run {
+  stroke: var(--accent);
+  stroke-linecap: round;
+}
+.todo-ring-run {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: run-spin calc(var(--dur-spin) * 3) linear infinite;
+  animation-play-state: var(--play-state);
+}
+.todo-ring-check {
+  flex: none;
+  color: var(--st-done);
+}
+.todo-current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.todo-count {
+  flex: none;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+@container (max-width: 480px) {
+  .todo-current {
+    display: none;
+  }
+}
+
+.todo-popover {
+  padding: var(--space-1) var(--space-1-5);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+.todo-phase + .todo-phase {
+  margin-top: var(--space-2-5);
+}
+.todo-phase-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-xs);
+  color: var(--text-2);
+}
+.todo-phase-no {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.todo-phase-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.todo-phase-count {
+  flex: none;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+/* 阶段标记：完成 = 实心环带勾，进行到一半 = 半环，未开始 = 虚线环。 */
+.todo-phase-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+}
+.todo-phase-mark[data-state="pending"] {
+  border-style: dashed;
+}
+.todo-phase-mark[data-state="partial"] {
+  border-color: var(--accent);
+  border-right-color: var(--border-strong);
+  border-bottom-color: var(--border-strong);
+}
+.todo-phase-mark[data-state="done"] {
+  border-color: var(--st-done);
+  background: var(--st-done);
+  color: var(--bg-overlay);
+}
+.todo-phase ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-0-5) 0 var(--space-0-5) var(--space-1);
+}
+.todo-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  margin-top: calc((var(--lh-sm) - var(--icon-sm)) / 2);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+}
+.todo-item[data-status="completed"] .todo-mark {
+  border-color: var(--st-done);
+  background: var(--st-done);
+  color: var(--bg-overlay);
+}
+.todo-item[data-status="in_progress"] .todo-mark {
+  border-color: var(--accent);
+  background: radial-gradient(circle, var(--accent) 0 2.5px, transparent 3px);
+}
+.todo-item[data-status="blocked"] .todo-mark {
+  border-color: var(--st-error);
+  background: radial-gradient(circle, var(--st-error) 0 2.5px, transparent 3px);
+}
+.todo-item[data-status="abandoned"] .todo-mark {
+  border-style: dashed;
+  opacity: 0.6;
+}
+.todo-item[data-status="completed"] .todo-content {
+  color: var(--text-2);
+}
+.todo-item[data-status="abandoned"] .todo-content {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+.todo-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.todo-blocker {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--st-error);
 }
 
 /* 队列条：虚线 = 尚未发生 */
@@ -483,6 +941,9 @@ button.usage-item:hover {
   max-height: 280px;
 }
 .pop-item {
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -507,6 +968,7 @@ button.usage-item:hover {
   flex: none;
   font-size: var(--fs-xs);
   color: var(--text-3);
+  white-space: nowrap;
 }
 .pop-group {
   margin: var(--space-1-5) var(--space-2-5) var(--space-1);
@@ -565,6 +1027,120 @@ button.usage-item:hover {
   color: var(--text);
   box-shadow: var(--shadow-1);
 }
+/* 思考强度档位多（7 档）时按文字宽度分配，放不下就省略，不会压到相邻档位上。 */
+.thinking-segments .segment {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * 思考强度分段：选中项下面是一块滑动的滑块（ThinkingSegments），切换时用弹簧曲线滑过去。
+ * 档位越高效果越强：off 中性、minimal 一道细线、low / medium 浅强调底、high 实心强调 + 光晕、
+ * xhigh 实心 + 扫光、max 强调色和琥珀色流动渐变 + 呼吸光晕。循环动画遵守 --play-state（减少动效时暂停）。
+ */
+.thinking-segments {
+  position: relative;
+  isolation: isolate;
+}
+.thinking-segments .segment {
+  position: relative;
+  z-index: 1;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.thinking-segments .segment[data-checked] {
+  background: transparent;
+  box-shadow: none;
+}
+.thinking-thumb {
+  position: absolute;
+  top: var(--space-0-5);
+  bottom: var(--space-0-5);
+  z-index: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+.thinking-thumb[data-placed] {
+  transition:
+    left var(--dur-spring) var(--ease-spring),
+    width var(--dur-spring) var(--ease-spring),
+    background-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+.thinking-thumb[data-level="minimal"] {
+  box-shadow:
+    var(--shadow-1),
+    inset 0 -2px 0 color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.thinking-thumb[data-level="low"] {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-raised));
+}
+.thinking-thumb[data-level="medium"] {
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-raised));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.thinking-thumb[data-level="high"],
+.thinking-thumb[data-level="xhigh"] {
+  background: var(--accent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.thinking-thumb[data-level="xhigh"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+  background-size: 250% 100%;
+  animation: thinking-sweep var(--dur-breathe) var(--ease-in-out) infinite;
+  animation-play-state: var(--play-state);
+}
+.thinking-thumb[data-level="max"] {
+  background: linear-gradient(90deg, var(--accent), var(--st-waiting), var(--accent));
+  background-size: 200% 100%;
+  animation:
+    thinking-flow var(--dur-breathe) linear infinite,
+    thinking-glow var(--dur-breathe) var(--ease-in-out) infinite;
+  animation-play-state: var(--play-state);
+}
+.thinking-segments .segment[data-checked][data-level="low"],
+.thinking-segments .segment[data-checked][data-level="medium"] {
+  color: var(--accent);
+}
+.thinking-segments .segment[data-checked][data-level="high"],
+.thinking-segments .segment[data-checked][data-level="xhigh"],
+.thinking-segments .segment[data-checked][data-level="max"] {
+  color: var(--text-on-primary);
+  font-weight: var(--fw-strong);
+}
+@keyframes thinking-sweep {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+@keyframes thinking-flow {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+@keyframes thinking-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 16px color-mix(in srgb, var(--st-waiting) 55%, transparent);
+  }
+}
 
 /* 斜杠菜单 */
 .composer {
@@ -607,8 +1183,14 @@ button.usage-item:hover {
 .slash-row[data-active] {
   background: var(--bg-hover);
 }
+/* 文件名太长时和目录一起让位（目录先缩），全文在行的悬停提示里。 */
 .slash-name {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
 }
@@ -688,10 +1270,16 @@ button.usage-item:hover {
   flex: none;
   margin: 0;
 }
+/* 行是 <button>，在块容器里会按内容收窄；改成纵向 flex，行和组头都占满整行（悬停底色对齐、价格贴右）。 */
 .mp-list {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-height: 0;
   overflow-y: auto;
+}
+.mp-list > * {
+  flex: none;
 }
 .mp-add {
   flex: none;
@@ -720,6 +1308,24 @@ button.usage-item:hover {
   color: var(--text-3);
   overflow-wrap: anywhere;
 }
+.mp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+}
+.mp-tag {
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--text-2);
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-2xs);
+}
+.mp-tag[data-kind="current"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 .mp-params {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
@@ -735,11 +1341,29 @@ button.usage-item:hover {
   margin: 0;
   color: var(--text);
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
-.mp-cost {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-0-5);
+/* 分组：组头是可折叠的一行（▸ provider · N 个模型），组里的模型缩进一级。 */
+.mp-group {
+  min-height: var(--control-h-md);
+  color: var(--text-2);
+  font-weight: var(--fw-strong);
+}
+.mp-group-chevron {
+  flex: none;
+  color: var(--text-3);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.mp-group[aria-expanded="true"] .mp-group-chevron {
+  transform: rotate(90deg);
+}
+.mp-model[aria-level="2"],
+.mp-ghost {
+  padding-left: calc(var(--space-2-5) + 12px + var(--space-2));
+}
+/* 展开组时新插入的模型行淡入；列表是扁平的键盘树，不套 Reveal。 */
+.mp-model[aria-level="2"] {
+  animation: view-in var(--dur-base) var(--ease-out);
 }
 .mp-thinking {
   margin-top: auto;

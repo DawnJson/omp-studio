@@ -133,6 +133,11 @@
   container-type: inline-size;
   margin-top: var(--space-1);
 }
+/* 提示气泡展开时把所在卡片抬到后面的卡片之上，避免被盖住 */
+.cfg-card:has(.st-tip-btn[aria-expanded="true"]) {
+  position: relative;
+  z-index: var(--z-popover);
+}
 
 /* ───────── 设置行：默认一行 ───────── */
 
@@ -383,6 +388,7 @@
   .settings-nav {
     overflow-x: auto;
     overflow-y: hidden;
+    scrollbar-width: thin;
   }
 
   .cfg-search {
@@ -526,7 +532,7 @@
 .cfg-chip-warn {
   background: var(--st-waiting-soft);
   color: var(--st-waiting-text);
-  max-width: 40%;
+  max-width: 24%;
   overflow: hidden;
   text-overflow: ellipsis;
 }

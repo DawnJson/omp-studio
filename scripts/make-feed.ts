@@ -5,7 +5,7 @@
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { releaseNotes } from "./changelog.ts";
+import { releaseNotes } from "../src/shared/changelog.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const out = path.resolve(process.argv[2] ?? path.join(root, "release", "feed"));

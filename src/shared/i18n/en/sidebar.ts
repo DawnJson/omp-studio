@@ -11,7 +11,6 @@ export const sidebar = {
   waitingMany: "{n} tasks waiting for you",
   empty: "No tasks yet",
   settings: "Settings",
-  palette: "Command palette",
   newInProject: "New task in this project",
   label: "Tasks",
   projectMenu: "Project menu",

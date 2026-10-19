@@ -9,8 +9,9 @@
   overflow-y: auto;
 }
 
-/* 没有项目 / 加载中 / 出错：没有输入框，引导卡片在面板中间 */
-.empty:not([data-kind="project"]) {
+/* 加载中 / 出错：没有输入框，引导卡片在面板中间 */
+.empty[data-kind="loading"],
+.empty[data-kind="error"] {
   justify-content: center;
   gap: var(--space-6);
 }
@@ -24,28 +25,41 @@
   display: flex;
   flex: 1 1 0 !important;
   flex-direction: column;
-  justify-content: center;
+  justify-content: safe center;
   gap: var(--space-5);
   min-height: 0;
 }
 
-/* 项目名和路径在同一行：路径排在右侧，空间不够时单行省略 */
-.empty-head {
+/* 标志（omp 式像素 π + 字）居中，下面是项目胶囊 */
+.empty-hero {
   display: flex;
-  align-items: center;
-  gap: var(--space-3-5);
-  min-width: 0;
-}
-
-.empty-logo {
-  flex: none;
-}
-
-.empty-head-text {
-  display: flex;
-  flex: 1 1 0;
   flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
   min-width: 0;
+}
+
+.pixel-logo {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* 最近更新（照 omp 的 What's New）：标志下面一行，标题加粗，后面是统计；窄了截断（title 里有全文） */
+.whats-new {
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.whats-new-h {
+  font-weight: 600;
+  color: var(--text-2);
 }
 
 .empty-card {
@@ -62,50 +76,36 @@
   border-radius: var(--radius-xl);
 }
 
-.empty-title,
-.empty-project-name {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--fs-xl);
-  line-height: var(--lh-xl);
-  font-weight: var(--fw-strong);
-  letter-spacing: var(--ls-tight);
-  color: var(--text);
-  text-wrap: balance;
-}
-
-.empty-project-name {
-  align-self: flex-start;
+.empty-project {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   max-width: 100%;
-  flex: 0 1 auto;
-  font-size: var(--fs-2xl);
-  line-height: var(--lh-2xl);
   min-width: 0;
-  padding: 0 var(--space-1);
-  margin-left: calc(var(--space-1) * -1);
-  overflow: hidden;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2) 0 var(--space-2-5);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
   background: transparent;
-  border: 0;
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
   cursor: default;
 }
 
-.empty-project-name:hover {
+.empty-project {
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+.empty-project:hover,
+.empty-project[aria-expanded="true"] {
+  color: var(--text);
   background: var(--bg-hover);
 }
 
-.empty-path {
+.empty-project-name {
   min-width: 0;
-  text-align: left;
-  margin: 0;
   overflow: hidden;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  color: var(--text-3);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -133,6 +133,7 @@
 .empty-switcher {
   position: relative;
   display: flex;
+  max-width: 100%;
   min-width: 0;
 }
 
@@ -144,6 +145,9 @@
   display: flex;
   flex-direction: column;
   min-width: calc(var(--sidebar-w) - var(--space-4));
+  max-width: min(420px, calc(100vw - 64px));
+  max-height: min(50vh, 320px);
+  overflow-y: auto;
   padding: var(--space-1);
   background: var(--bg-overlay);
   border-radius: var(--radius-lg);
@@ -155,11 +159,15 @@
 .empty-menu-item {
   min-height: var(--row-menu);
   padding: 0 var(--space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: left;
   background: transparent;
   border: 0;
   border-radius: var(--radius-md);
   cursor: default;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .empty-menu-item:hover,
@@ -257,6 +265,9 @@
   cursor: default;
 }
 
+.empty-task {
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
 .empty-task:hover {
   border-color: var(--border-strong);
 }
@@ -273,12 +284,18 @@
   min-width: 0;
 }
 
+/* 状态点与首行文字垂直居中 */
+.empty-task-top .sb-dot {
+  margin-top: calc((var(--lh-sm) - var(--icon-md)) / 2);
+}
+
 .empty-task-title {
   min-width: 0;
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
 }
 
 .empty-task-time {

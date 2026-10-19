@@ -1,4 +1,4 @@
-// "用量"的渲染进程缓存：额度和热力图各一份，在模块里保存；再次进入设置页立即显示上次结果，后台刷新。
+// "用量"的渲染进程缓存：额度和热力图各一份，在模块里保存；再次进入设置页（或打开输入框下方的额度浮层）立即显示上次结果，后台刷新。
 // 热力图的刷新分两步：先读现有的库（马上有东西看），再让 omp 同步新会话后重读（首次可能要几分钟）。
 import type { QuotaSnapshot, UsageHeatmap } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
@@ -9,6 +9,8 @@ interface Slot<T> {
   busy: boolean;
   /** 最近一次失败；有 data 时只是"刷新没成功"，不盖掉已有内容。 */
   error: unknown;
+  /** 最近一次读成功的时间。 */
+  at: number | null;
 }
 
 interface UsageState {
@@ -16,7 +18,7 @@ interface UsageState {
   heatmap: Slot<UsageHeatmap>;
 }
 
-const empty = { data: null, busy: false, error: null } as const;
+const empty = { data: null, busy: false, error: null, at: null } as const;
 const store = createStore<UsageState>({ quota: empty, heatmap: empty });
 let quotaJob: Promise<void> | null = null;
 let heatmapJob: Promise<void> | null = null;
@@ -30,7 +32,7 @@ export function loadQuota(): Promise<void> {
   quotaJob ??= (async () => {
     patch("quota", { busy: true, error: null });
     try {
-      patch("quota", { data: await window.studio.getUsageQuota(), busy: false });
+      patch("quota", { data: await window.studio.getUsageQuota(), busy: false, at: Date.now() });
     } catch (error) {
       patch("quota", { busy: false, error });
     } finally {
@@ -40,12 +42,18 @@ export function loadQuota(): Promise<void> {
   return quotaJob;
 }
 
+/** 额度在一轮之后会变：上次读到的比 maxAgeMs 旧（或从没读过）才重读。 */
+export function loadQuotaIfStale(maxAgeMs: number): void {
+  const { at } = store.get().quota;
+  if (at === null || Date.now() - at > maxAgeMs) void loadQuota();
+}
+
 export function loadHeatmap(): Promise<void> {
   heatmapJob ??= (async () => {
     patch("heatmap", { busy: true, error: null });
     try {
       patch("heatmap", { data: await window.studio.getUsageHeatmap(false) });
-      patch("heatmap", { data: await window.studio.getUsageHeatmap(true), busy: false });
+      patch("heatmap", { data: await window.studio.getUsageHeatmap(true), busy: false, at: Date.now() });
     } catch (error) {
       patch("heatmap", { busy: false, error });
     } finally {

@@ -3,6 +3,7 @@ import type { Project, TaskId } from "../../../../shared/ipc.ts";
 import { ChevronIcon, MoreIcon, PlusIcon } from "./icons.tsx";
 import type { ProjectGroupModel } from "../../../../shared/ui/sidebar-model.ts";
 import { TaskRow, type TaskRowProps } from "./TaskRow.tsx";
+import { Reveal } from "../../ui/Reveal.tsx";
 
 export const projectNavId = (project: Project) => `project:${project.id}`;
 
@@ -111,7 +112,7 @@ export function ProjectGroup(props: ProjectGroupProps) {
           <MoreIcon />
         </button>
       </div>
-      {!collapsed && (
+      <Reveal open={!collapsed}>
         <div className="sb-group-body">
           {group.tasks.length === 0 && <p className="sb-group-empty">{t("sidebar.empty")}</p>}
           {shown.map((task) => (
@@ -137,7 +138,7 @@ export function ProjectGroup(props: ProjectGroupProps) {
             </button>
           )}
         </div>
-      )}
+      </Reveal>
     </section>
   );
 }

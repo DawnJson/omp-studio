@@ -8,7 +8,12 @@ export const tool = {
   "verb.search": "搜索 {target}",
   "verb.other": "调用 {tool}",
   failed: "失败",
-  running: "进行中",
+  "info.matches": "{count} 处匹配",
+  "info.files": "{count} 个文件",
+  "info.agents": "{count} 个代理",
+  "info.background": "后台",
+  "output.more": "还有 {count} 行",
+  "output.unchanged": "{count} 行未改动",
   "output.showAll": "显示全部",
   "output.empty": "无输出",
 } satisfies Record<string, MessageEntry>;

@@ -14,31 +14,18 @@ import { buildTurns, type Turn } from "./model.ts";
 import { ConversationError } from "./ConversationError.tsx";
 import { TurnView } from "./TurnView.tsx";
 import { ShellRunning } from "./ShellBlock.tsx";
-import { TodoStrip } from "./TodoStrip.tsx";
 import { GoalStrip } from "../goal/GoalStrip.tsx";
 import { SessionTreePanel } from "./SessionTreePanel.tsx";
 import { useStickToBottom } from "./use-stick-to-bottom.ts";
-import type { LiveProps } from "./ProcessRow.tsx";
 import "./conversation.css";
 
 const RECENT_TURNS = 20;
 const BUSY: readonly TaskState["status"][] = ["starting", "running", "needs_you"];
 const NO_LANES: readonly SubagentLane[] = [];
-const NO_TODOS: TaskState["todoPhases"] = [];
 
 function firstSentence(text: string): string {
   const match = /^[^。.!?！？\n]+[。.!?！？]?/.exec(text.trim());
   return (match?.[0] ?? text).slice(0, 160);
-}
-
-/** 进入"等你确认"的时间（渲染进程自己记：帧里没有时间戳）。 */
-function useWaitingSince(task: TaskState | null): number | null {
-  const [since, setSince] = useState<number | null>(null);
-  const waiting = task?.status === "needs_you";
-  useEffect(() => {
-    setSince((current) => (waiting ? (current ?? Date.now()) : null));
-  }, [waiting]);
-  return since;
 }
 
 export function ConversationView({ taskId }: { taskId: TaskId }) {
@@ -48,10 +35,25 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
   const scroller = useRef<HTMLDivElement>(null);
   const column = useRef<HTMLDivElement>(null);
   const turnsRef = useRef<Turn[]>([]);
-  const waitingSince = useWaitingSince(task);
   // 工具参数里的绝对路径相对任务实际的工作目录（worktree 任务是 worktree 根，不是项目目录）。
   const projectPath = task?.cwd ?? null;
   const { showJump, scrollToBottom } = useStickToBottom(taskId, scroller, column);
+
+  // 切任务不重挂载（滚动位置逻辑要保留），只让对话列淡入上移一次；a/b 交替让连续切换也能重放。
+  // 渲染期就改状态，这样新内容提交时已带 data-switching，消息自己的进入动画（turn-in）不会叠上去。
+  // init = 刚挂载（换页时整个 .conversation 自己淡入，列不再单独动）。
+  const [switchedTask, setSwitchedTask] = useState(taskId);
+  const [switching, setSwitching] = useState<"init" | "a" | "b" | undefined>("init");
+  if (switchedTask !== taskId) {
+    setSwitchedTask(taskId);
+    setSwitching((current) => (current === "a" ? "b" : "a"));
+  }
+  // 兜底：动画没触发 animationend 时也要解除，后续新消息才有进入动画。
+  useEffect(() => {
+    if (switching === undefined) return;
+    const timer = setTimeout(() => setSwitching(undefined), 400);
+    return () => clearTimeout(timer);
+  }, [switching]);
 
   const turns = useMemo(() => {
     const next = transcript ? buildTurns(transcript, turnsRef.current) : [];
@@ -68,15 +70,6 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
 
   const busy = task !== null && BUSY.includes(task.status);
   const lastTurn = turns[turns.length - 1];
-  const phase = useMemo(() => {
-    const items = transcript?.items ?? [];
-    for (let index = items.length - 1; index >= 0; index -= 1) {
-      const item = items[index];
-      if (item?.kind === "status_line")
-        return item.phase === "start" ? (item.statusKind === "compaction" ? "compacting" : "retrying") : null;
-    }
-    return null;
-  }, [transcript]);
 
   // Ctrl Shift C / 命令面板"复制最后一条回答"。
   useEffect(() => {
@@ -144,14 +137,16 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
   // 只有最近一轮、任务空闲、且最后一次 prompt 以错误结束时才给"重试"。
   const canRetryLast = !busy && task?.lastTurn?.status === "error";
 
-  const liveFor = (turn: Turn): LiveProps | null =>
-    busy && task && turn === lastTurn
-      ? { status: task.status, waitingSince, phase, subagentsRunning: task.runningSubagents }
-      : null;
+  const isLive = (turn: Turn): boolean => busy && turn === lastTurn;
 
   return (
-    <div className="conversation" data-testid="conversation" data-task-id={taskId}>
-      <TodoStrip key={taskId} phases={task?.todoPhases ?? NO_TODOS} />
+    <div
+      className="conversation"
+      data-testid="conversation"
+      data-task-id={taskId}
+      data-switching={switching}
+      data-running={busy || undefined}
+    >
       <GoalStrip key={taskId} taskId={taskId} goal={task?.goal ?? null} />
       <div
         ref={scroller}
@@ -162,12 +157,18 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
         aria-live="off"
         tabIndex={0}
       >
-        <div ref={column} className="column">
+        <div
+          ref={column}
+          className="column"
+          onAnimationEnd={(event) => {
+            if (event.target === event.currentTarget) setSwitching(undefined);
+          }}
+        >
           {turns.map((turn, index) => (
             <TurnView
               key={turn.key}
               turn={turn}
-              live={liveFor(turn)}
+              live={isLive(turn)}
               canRetry={canRetryLast && turn === lastTurn}
               offscreenSkippable={index < turns.length - RECENT_TURNS}
               taskId={taskId}

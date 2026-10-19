@@ -1,7 +1,9 @@
 // 任务和项目的 IPC handler：校验参数，委托任务池。参数一律是 unknown，先校验再用（AGENTS.md "Electron 安全"）。
 // "id 是否存在""对话框是否还在 pending 表里""select 的值是否在 options 里"由任务池/运行时查表确认。
 import { app, dialog, shell } from "electron";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
+import { chatsDir } from "../tasks/chats-dir.ts";
 import { exportFileName } from "../tasks/export-name.ts";
 import { exportedFile, exportTarget, recordExport } from "../tasks/export-record.ts";
 import { limits } from "../../shared/ipc.ts";
@@ -38,6 +40,7 @@ function parseCreateTaskInput(value: unknown) {
 export const taskHandlers: HandlerGroup<
   | "listProjects"
   | "addProject"
+  | "ensureChatsProject"
   | "removeProject"
   | "listTasks"
   | "createTask"
@@ -142,6 +145,12 @@ export const taskHandlers: HandlerGroup<
     const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options);
     const dir = result.filePaths[0];
     if (result.canceled || dir === undefined) return null;
+    return (await getTaskPool()).ensureProject(dir);
+  },
+
+  ensureChatsProject: async () => {
+    const dir = chatsDir();
+    await mkdir(dir, { recursive: true });
     return (await getTaskPool()).ensureProject(dir);
   },
 

@@ -2,7 +2,9 @@
 // 状态来自 store 的 OmpStatus：检测中、问接管、下载中、出错、脚本启动不了。
 // 导出名和 props 是 App.tsx 的约定（始终渲染，由本组件决定要不要显示）。
 import { reportError } from "../../ui/errors.ts";
-import { useEffect, useId, useState } from "react";
+import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { usePresence } from "../../ui/presence.ts";
 import type { OmpStatus } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { showView, useOmpStatus } from "../../store/index.ts";
@@ -54,9 +56,28 @@ export function OmpSetupView() {
   // "打开设置"之后隐藏准备页，直到状态再变化。
   const [dismissed, setDismissed] = useState<OmpStatus | null>(null);
   const showFinding = useDelayedFlag(status?.state === "discovering", FINDING_DELAY_MS);
+  // 只有"是否接管"这一态有遮罩。
+  useTitleBarDim(status?.state === "ask_takeover" && dismissed !== status);
 
-  if (status === null || status.state === "ready" || dismissed === status) return null;
-  if (status.state === "discovering" && !showFinding) return null;
+  const visible =
+    status !== null &&
+    status.state !== "ready" &&
+    dismissed !== status &&
+    !(status.state === "discovering" && !showFinding);
+  const presence = usePresence(visible, "pop");
+  // 隐藏（就绪 / 点了打开设置）后留着最后一帧的内容放完退出动画。
+  const lastRef = useRef<{ state: string; body: ReactNode } | null>(null);
+  if (!visible) {
+    const last = lastRef.current;
+    if (!presence.mounted || last === null) return null;
+    return (
+      <div className="setup" data-testid="omp-setup" data-state={last.state} data-closing="fade">
+        <div className="setup-card" role="dialog" aria-modal="true" aria-labelledby={titleId} {...presence.exitProps}>
+          {last.body}
+        </div>
+      </div>
+    );
+  }
 
   const title = (text: string) => (
     <h2 id={titleId} className="setup-title">
@@ -220,9 +241,15 @@ export function OmpSetupView() {
       break;
   }
 
+  lastRef.current = { state: status.state, body };
   return (
-    <div className="setup" data-testid="omp-setup" data-state={status.state}>
-      <div className="setup-card" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+    <div
+      className="setup"
+      data-testid="omp-setup"
+      data-state={status.state}
+      data-closing={presence.closing ? "fade" : undefined}
+    >
+      <div className="setup-card" role="dialog" aria-modal="true" aria-labelledby={titleId} {...presence.exitProps}>
         {body}
       </div>
     </div>

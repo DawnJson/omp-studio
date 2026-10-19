@@ -96,10 +96,14 @@
   cursor: pointer;
   user-select: none;
 }
+.pl-row {
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
 .pl-row[data-active="true"] {
   background: var(--bg-active);
 }
-.pl-row[data-active="true"]::before {
+/* 左侧高亮条一直在，只切透明度和缩放，选中项移动时渐变而不是跳。 */
+.pl-row::before {
   content: "";
   position: absolute;
   left: 0;
@@ -109,6 +113,11 @@
   margin-top: calc(var(--icon-md) / -2);
   background: var(--accent);
   border-radius: var(--radius-pill);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.pl-row[data-active="true"]::before {
+  opacity: 1;
 }
 .pl-row .icon {
   color: var(--text-3);

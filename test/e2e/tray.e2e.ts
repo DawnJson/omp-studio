@@ -110,7 +110,7 @@ test("关窗口只隐藏：主进程和 omp 还活着，任务继续跑完；再
   try {
     const { page } = launched;
     await sendPrompt(launched);
-    await expect(page.getByTestId("process-live")).toBeVisible();
+    await expect(page.getByTestId("run-status-main")).toBeVisible();
     const [ompPid] = await readPids(pidFile);
     expect(ompPid).toBeGreaterThan(0);
 
@@ -160,7 +160,7 @@ test("任务还在跑时退出（等同托盘“退出”的 app.quit()）：窗
   const exited = new Promise<void>((resolve) => launched.app.process().once("exit", () => resolve()));
   try {
     await sendPrompt(launched);
-    await expect(launched.page.getByTestId("process-live")).toBeVisible();
+    await expect(launched.page.getByTestId("run-status-main")).toBeVisible();
     const [ompPid] = await readPids(pidFile);
     expect(ompPid).toBeGreaterThan(0);
 

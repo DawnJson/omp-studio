@@ -7,13 +7,13 @@ import { Markdown } from "../../markdown/index.ts";
 import { ChangeCard } from "./ChangeCard.tsx";
 import { ExtraView } from "./Extras.tsx";
 import type { Turn } from "./model.ts";
-import { ProcessRow, type LiveProps } from "./ProcessRow.tsx";
+import { ProcessRow } from "./ProcessRow.tsx";
 import { UserMessage } from "./UserMessage.tsx";
 
 interface TurnViewProps {
   turn: Turn;
-  /** 只有当前正在跑的那一轮带 live；其余轮传 null，这样它们不会因为任务状态变化重渲染。 */
-  live: LiveProps | null;
+  /** 只有当前正在跑的那一轮为 true；其余轮恒为 false，不会因为任务状态变化重渲染。 */
+  live: boolean;
   /** 最近 20 轮之外的已结束轮用 content-visibility 跳过离屏渲染。 */
   offscreenSkippable: boolean;
   taskId: TaskId;
@@ -52,7 +52,7 @@ export const TurnView = memo(function TurnView({
   canRetry,
 }: TurnViewProps) {
   const t = useT();
-  const complete = live === null;
+  const complete = !live;
   const lastPromptErrorKey = turn.extras.findLast((extra) => extra.kind === "prompt_error")?.key;
   const noResult = complete && turn.answer === null && (turn.hasAssistantOutput || turn.toolCalls > 0);
   return (

@@ -5,10 +5,32 @@ import { appOrigin } from "./app-protocol.ts";
 import { blockZoom } from "./security.ts";
 import { restoredBounds, trackWindowState } from "./window-state.ts";
 
-/** 顶栏（通栏，高 40）的底色和系统三键符号色，取自 docs/design/spec.md §2.1；主题切换时用 win.setTitleBarOverlay(titleBarColors(dark)) 同步。 */
+/**
+ * 顶栏（通栏，高 40）的底色和系统三键符号色，取自 docs/design/spec.md §2.1；主题切换时用 win.setTitleBarOverlay 同步。
+ * dimmed：有遮罩弹窗时，系统三键要和网页里盖了 --bg-scrim 的顶栏同色。三键不是网页画的，遮罩盖不到，
+ * 所以这里给出"顶栏色上叠一层 --bg-scrim"混合后的实色（浅色 rgba(17,24,22,.32)，深色 rgba(4,6,5,.56)）。
+ */
 export const titleBarHeight = 40;
-export function titleBarColors(dark: boolean): { color: string; symbolColor: string } {
+export function titleBarColors(dark: boolean, dimmed = false): { color: string; symbolColor: string } {
+  if (dimmed) return dark ? { color: "#070A09", symbolColor: "#676B6A" } : { color: "#A7ABAA", symbolColor: "#111816" };
   return dark ? { color: "#0B0E0D", symbolColor: "#E6ECEA" } : { color: "#EDF0EF", symbolColor: "#111816" };
+}
+
+let titleBarDimmed = false;
+
+function syncTitleBar(window: BrowserWindow): void {
+  window.setTitleBarOverlay({
+    ...titleBarColors(nativeTheme.shouldUseDarkColors, titleBarDimmed),
+    height: titleBarHeight,
+  });
+}
+
+/** 渲染进程报告有没有遮罩弹窗开着；系统三键跟着变暗/恢复。 */
+export function setTitleBarDimmed(dimmed: boolean): void {
+  if (titleBarDimmed === dimmed) return;
+  titleBarDimmed = dimmed;
+  const window = getMainWindow();
+  if (window) syncTitleBar(window);
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -66,10 +88,13 @@ export function createMainWindow(): BrowserWindow {
 
   window.once("ready-to-show", () => window.show());
   // 主题切换（设置或系统）时，系统三键的底色和符号色跟着顶栏走。
-  const syncTitleBar = () =>
-    window.setTitleBarOverlay({ ...titleBarColors(nativeTheme.shouldUseDarkColors), height: titleBarHeight });
-  nativeTheme.on("updated", syncTitleBar);
-  window.once("closed", () => nativeTheme.off("updated", syncTitleBar));
+  const onThemeUpdated = () => syncTitleBar(window);
+  nativeTheme.on("updated", onThemeUpdated);
+  window.once("closed", () => nativeTheme.off("updated", onThemeUpdated));
+  // 渲染进程重载时弹窗都没了，不会再报"关闭"：先恢复。
+  window.webContents.on("did-start-navigation", (details) => {
+    if (details.isMainFrame && !details.isSameDocument) setTitleBarDimmed(false);
+  });
   blockZoom(window.webContents);
   trackWindowState(window);
   if (restored.maximized) window.maximize();

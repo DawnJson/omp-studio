@@ -4,6 +4,7 @@ import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { ChevronRight } from "../../icons.tsx";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { ConfigRow } from "./ConfigRow.tsx";
+import { Reveal } from "../../ui/Reveal.tsx";
 import { groupConfigItems } from "../../../../shared/ui/config-groups.ts";
 import { prefixTitle } from "../../../../shared/ui/config-labels.ts";
 import { groupItems, groupTitle } from "./config-meta.ts";
@@ -45,11 +46,9 @@ function Disclosure({
         <span className="cfg-group-title">{title}</span>
         <span className="cfg-group-count">{count}</span>
       </button>
-      {open && (
-        <div id={bodyId} className="st-card cfg-card">
-          {children}
-        </div>
-      )}
+      <Reveal open={open} id={bodyId}>
+        <div className="st-card cfg-card">{children}</div>
+      </Reveal>
     </section>
   );
 }

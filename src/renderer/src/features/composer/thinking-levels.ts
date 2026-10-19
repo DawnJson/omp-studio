@@ -1,6 +1,17 @@
 // 思考强度的档位列表、omp 的钳制规则和 Alt T 的轮换。纯函数；picker、胶囊、Alt T 共用同一份列表。
+import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import type { ModelOption } from "../../../../shared/ipc.ts";
 import type { Effort, ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+
+export const thinkingLabel: Partial<Record<ThinkingLevel, MessageKey>> = {
+  off: "thinking.off",
+  minimal: "thinking.minimal",
+  low: "thinking.low",
+  medium: "thinking.medium",
+  high: "thinking.high",
+  xhigh: "thinking.xhigh",
+  max: "thinking.max",
+};
 
 /** 从弱到强。`off` 不在里面：它不是 effort，只有任务里 omp 报告了才有。 */
 export const effortOrder: readonly Effort[] = ["minimal", "low", "medium", "high", "xhigh", "max"];

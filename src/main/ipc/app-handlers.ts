@@ -5,6 +5,9 @@ import { exportDiagnostics } from "../log/diagnostics.ts";
 import { openLogsFolder } from "../log/instance.ts";
 import { getSettings, resolveLocale, updateSettings } from "../settings/settings-store.ts";
 import { getShellState, parseCollapsedProjects, setShellState, sidebarWidthRange } from "../window/window-state.ts";
+import { setTitleBarDimmed } from "../window/main-window.ts";
+import { chatsDir } from "../tasks/chats-dir.ts";
+import { whatsNewForThisLaunch } from "../whats-new.ts";
 import {
   parseBoolean,
   parseExternalUrl,
@@ -31,12 +34,15 @@ export const appHandlers: HandlerGroup<
   | "exportDiagnostics"
   | "getShellState"
   | "setShellState"
+  | "setTitleBarDimmed"
 > = {
   getAppInfo: async () => ({
     version: app.getVersion(),
     platform: platform(),
     locale: resolveLocale(),
     isPackaged: app.isPackaged,
+    chatsDir: chatsDir(),
+    whatsNew: whatsNewForThisLaunch(),
   }),
   getSettings: async () => getSettings(),
   setLocale: async (value) => updateSettings({ locale: parseLocalePreference(value) }),
@@ -64,4 +70,5 @@ export const appHandlers: HandlerGroup<
       }),
     });
   },
+  setTitleBarDimmed: async (value) => setTitleBarDimmed(parseBoolean(value, "dimmed")),
 };

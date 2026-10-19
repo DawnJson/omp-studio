@@ -1,6 +1,12 @@
-// 发版时改写 CHANGELOG、更新目录取说明：写错会让用户看到别的版本的说明，或者发出一个没有说明的版本。
-import { describe, expect, it } from "vitest";
-import { promoteUnreleased, releaseNotes } from "../scripts/changelog.ts";
+// 发版时改写 CHANGELOG、更新目录取说明、启动时的"最近更新"统计：写错会让用户看到别的版本的说明，
+// 发出一个没有说明的版本，或者升级后看到错的改动数。
+import { describe, expect, it, vi } from "vitest";
+import { promoteUnreleased } from "../scripts/changelog.ts";
+import { summarizeWhatsNew } from "../src/main/whats-new.ts";
+import { countEntries, releaseNotes } from "../src/shared/changelog.ts";
+
+// whats-new.ts 引用了 electron 的 app（只在启动时读写记录用到）；vi.mock 会提升到导入之前。
+vi.mock("electron", () => ({ app: {} }));
 
 const text = `# 更新日志
 
@@ -37,5 +43,65 @@ describe("CHANGELOG", () => {
 
   it("没有这个版本的一节时不编造说明", () => {
     expect(releaseNotes(text, "9.9.9")).toBeNull();
+  });
+
+  it("统计只数新增/变更/修复下面的条目，其他小节只算进总数", () => {
+    expect(countEntries("### 新增\n\n- a\n- b\n\n### 其他\n\n- c\n\n### 修复\n\n- d\n  续行不算")).toEqual({
+      added: 2,
+      changed: 0,
+      fixed: 1,
+      total: 4,
+    });
+  });
+});
+
+describe("最近更新", () => {
+  const history = `## [未发布]
+
+### 新增
+
+- 还没发的。
+
+## [0.3.0] - 2026-10-21
+
+### 新增
+
+- 三。
+
+### 修复
+
+- 三修。
+
+## [0.2.0] - 2026-10-20
+
+### 变更
+
+- 二。
+
+## [0.1.0] - 2026-10-18
+
+### 新增
+
+- 一。
+`;
+
+  it("跨版本升级时合计上次看过的版本之后、当前版本为止的各节，不含未发布", () => {
+    expect(summarizeWhatsNew(history, "0.3.0", "0.1.0")).toEqual({
+      version: "0.3.0",
+      releases: 2,
+      added: 1,
+      changed: 1,
+      fixed: 1,
+      total: 3,
+    });
+  });
+
+  it("第一次装（没有记录）只算当前版本这一节", () => {
+    expect(summarizeWhatsNew(history, "0.2.0", null)).toMatchObject({ releases: 1, changed: 1, total: 1 });
+  });
+
+  it("当前版本在 CHANGELOG 里没有条目时不显示", () => {
+    expect(summarizeWhatsNew(history, "0.3.1", "0.3.0")).toBeNull();
+    expect(summarizeWhatsNew(history, "9.9.9", null)).toBeNull();
   });
 });

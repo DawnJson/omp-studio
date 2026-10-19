@@ -4,6 +4,7 @@ import { shell } from "electron";
 import type { HandlerGroup, TaskId } from "../../shared/ipc.ts";
 import { readSessionHead, SessionIndex } from "../history/session-index.ts";
 import { buildSessionSummaries } from "../history/session-summaries.ts";
+import { readSessionUsage } from "../history/session-usage.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { parseProjectId, parseString, parseTaskId } from "./validate.ts";
 
@@ -17,7 +18,13 @@ async function sessionFileOf(taskId: TaskId): Promise<string | null> {
 }
 
 export const historyHandlers: HandlerGroup<
-  "listSessions" | "resumeSession" | "revealProject" | "revealTaskSession" | "getTaskSessionRef" | "listSlashCommands"
+  | "listSessions"
+  | "resumeSession"
+  | "revealProject"
+  | "revealTaskSession"
+  | "getTaskSessionRef"
+  | "getSessionModelUsage"
+  | "listSlashCommands"
 > = {
   async listSlashCommands(taskId) {
     return (await getTaskPool()).listSlashCommands(parseTaskId(taskId));
@@ -63,5 +70,9 @@ export const historyHandlers: HandlerGroup<
     if (info === null) return null;
     const head = await readSessionHead(file, info.size);
     return head === null ? null : { sessionId: head.id, sessionFile: file };
+  },
+
+  async getSessionModelUsage(taskId) {
+    return readSessionUsage(await sessionFileOf(parseTaskId(taskId)));
   },
 };

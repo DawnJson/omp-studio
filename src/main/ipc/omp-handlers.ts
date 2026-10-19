@@ -11,13 +11,24 @@ import { goalContinuationKey } from "../../shared/ui/goal-continuation.ts";
 import { applyGoalContinuationDefault, isGoalContinuationExplicit } from "../omp-config/goal-default.ts";
 import { listJson, OmpConfigService, runOmpConfig } from "../omp-config/config-service.ts";
 import { readModelDefaults, writeDefaultModel, type ModelDefaultsDeps } from "../omp-config/model-defaults.ts";
+import { readModelInsights } from "../omp-config/model-insights.ts";
 import { ompManager } from "../omp-manager/index.ts";
 import { onOmpConfigChanged, readDefaultModel } from "../service/default-model.ts";
 import { serviceOmp } from "../service/service-omp.ts";
 import { updateSettings } from "../settings/settings-store.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
-import { parseBoolean, parseModelKey, parseOneOf, parseProjectId, parseString } from "./validate.ts";
+import {
+  IpcValidationError,
+  parseBoolean,
+  parseModelKey,
+  parseOneOf,
+  parseProjectId,
+  parseString,
+} from "./validate.ts";
+
+/** 一次最多查多少个模型（omp 全部 provider 的目录也就几千个）。 */
+const maxInsightKeys = 10_000;
 
 // 退出时：停自管 omp 的更新定时器，关服务进程（登录、模型列表用的那个）。
 registerShutdownHook(async () => {
@@ -112,6 +123,7 @@ export const ompHandlers: HandlerGroup<
   | "getDefaultModel"
   | "getModelDefaults"
   | "setDefaultModel"
+  | "getModelInsights"
 > = {
   getOmpStatus: () => {
     const manager = ompManager();
@@ -158,5 +170,18 @@ export const ompHandlers: HandlerGroup<
       model === null ? null : parseModelKey(model),
     );
     onOmpConfigChanged("modelRoles");
+  },
+  getModelInsights: async (projectId, keys) => {
+    if (!Array.isArray(keys) || keys.length > maxInsightKeys)
+      throw new IpcValidationError(`keys 必须是不超过 ${maxInsightKeys} 项的数组`);
+    return readModelInsights(
+      {
+        agentDir: resolveAgentDir(),
+        list: modelDefaultsDeps.list,
+        warn: (message, error) => log.warn(message, error),
+      },
+      await projectPath(projectId),
+      keys.map(parseModelKey),
+    );
   },
 };

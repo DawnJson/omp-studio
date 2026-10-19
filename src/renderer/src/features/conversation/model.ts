@@ -98,7 +98,7 @@ function userText(message: AgentMessage): { text: string; images: ImageContent[]
   return { text, images };
 }
 
-function toolFromRun(run: ToolRun, key: string): ToolStep {
+export function toolFromRun(run: ToolRun, key: string): ToolStep {
   const live = run.status === "running";
   return {
     kind: "tool",
@@ -146,7 +146,7 @@ function textOf(message: AssistantMessage): string {
     .trim();
 }
 
-function lastBlockKind(message: AssistantMessage): "thinking" | "text" | "tool" | null {
+export function lastBlockKind(message: AssistantMessage): "thinking" | "text" | "tool" | null {
   const block = message.content[message.content.length - 1];
   if (!block) return null;
   return block.type === "toolCall"

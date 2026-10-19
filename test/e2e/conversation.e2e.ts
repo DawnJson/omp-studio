@@ -139,19 +139,23 @@ async function shoot(page: Page, state: string): Promise<void> {
   }
 }
 
-test("流式中：一行实时状态 + 正在流的文字（--text-2）+ 停止按钮；Esc 不会在没人消耗时被吞掉", async () => {
+test("流式中：工具调用直接列在对话里，输入框上方是计时 + 当前活动；正在流的文字 + 停止按钮", async () => {
   const { launched, cleanup } = await start(await streamingFixture("bash-tool", 4), "streaming");
   try {
     const { page } = launched;
     await openNewTaskAndSend(page, "用 bash 工具运行 echo omp-studio");
+    // 像 omp：运行中的工具调用不折叠，每个一行（图标 + 工具名 + 参数）。
     const live = page.getByTestId("process-live");
     await expect(live).toBeVisible();
-    // 一行实时状态：intent 原话（或动词兜底）+ 计时，高度固定。
-    await expect(live).toContainText(/\d+:\d{2}/);
-    const box = await live.locator(".process-row").boundingBox();
-    expect(box?.height).toBe(28);
+    await expect(live.locator(".step-tool .step-name")).toContainText("Bash");
+    // 输入框上方左边：本次运行已用时间 + 当前活动。
+    const status = page.getByTestId("run-status-main");
+    await expect(status).toBeVisible();
+    await expect(status.locator(".run-elapsed")).toHaveText(/^\d+s$/);
     await expect(page.getByTestId("assistant-message")).toHaveAttribute("data-live", "true");
     await expect(page.getByTestId("stop-button")).toBeVisible();
+    // 任务进行中不画脊线（竖线和节点）。
+    expect(await inPage<string>(page, ".column", `(el) => getComputedStyle(el, "::before").visibility`)).toBe("hidden");
     // 流式期间的滚动容器吸底。
     const stuck = await inPage<boolean>(
       page,
@@ -190,7 +194,7 @@ test("完成：过程折叠成一行，结论在前，最终内容与 fixture �
   }
 });
 
-test("慢速回放：折叠行显示已工作 N 秒 · M 次工具调用，点开看到工具列表，再点收起", async () => {
+test("慢速回放：折叠行显示已工作 N 秒 · M 次工具调用，点开看到工具列表（bash 默认带输出），再点收起", async () => {
   const { launched, cleanup } = await start(await slowFixture("bash-tool"), "slow");
   try {
     const { page } = launched;
@@ -200,12 +204,19 @@ test("慢速回放：折叠行显示已工作 N 秒 · M 次工具调用，点�
     await expect(done).toContainText(/(已工作|Worked for)/);
     await expect(done).toContainText(/1/);
     await expect(page.locator(".details")).toHaveCount(0);
+    // 结束后脊线回来。
+    expect(await inPage<string>(page, ".column", `(el) => getComputedStyle(el, "::before").visibility`)).toBe(
+      "visible",
+    );
     await shoot(page, "folded");
     await done.locator(".process-row").click();
     await expect(page.locator(".step-tool")).toHaveCount(1);
-    await page.locator(".step-tool .step-row").click();
+    await expect(page.locator(".step-tool .step-name")).toContainText("Bash");
+    // bash 默认展开预览：$ 命令 + 输出；点行头收起。
     await expect(page.locator(".step-output")).toContainText("omp-studio");
     await shoot(page, "expanded");
+    await page.locator(".step-tool .step-row").click();
+    await expect(page.locator(".step-output")).toHaveCount(0);
     await done.locator(".process-row").click();
     await expect(page.locator(".details")).toHaveCount(0);
   } finally {
@@ -221,7 +232,7 @@ test("等你确认：门停靠在输入框上方，Enter 不会隐式允许，�
     const gate = page.getByTestId("gate");
     await expect(gate).toBeVisible({ timeout: 20_000 });
     await expect(gate).toHaveAttribute("data-approval", "true");
-    await expect(page.getByTestId("process-live")).toContainText(/(已暂停|paused)/);
+    await expect(page.getByTestId("run-status-main")).toContainText(/(已暂停|paused)/);
     // 门在输入框正上方、同一个底部栈里。
     const gateBox = await gate.boundingBox();
     const composerBox = await page.getByTestId("composer-input").boundingBox();
@@ -354,21 +365,21 @@ test("斜杠菜单、草稿落盘、可见的覆盖式滚动条", async () => {
   }
 });
 
-test("等你确认期间过程行的文字节点不被替换（不重挂载、不重放淡入）", async () => {
+test("等你确认期间输入框上方状态行的文字节点不被替换（不重挂载、不重放淡入）", async () => {
   const { launched, cleanup } = await start(await gateFixture("approval-select"), "gate-nodes");
   try {
     const { page } = launched;
     await openNewTaskAndSend(page, "用 bash 工具运行 echo omp-studio");
     await expect(page.getByTestId("gate")).toBeVisible({ timeout: 20_000 });
-    const live = page.getByTestId("process-live");
-    await expect(live).toContainText(/(已暂停|paused)/);
+    const status = page.getByTestId("run-status-main");
+    await expect(status).toContainText(/(已暂停|paused)/);
     await inPage<void>(
       page,
-      "[data-testid=process-live]",
+      "[data-testid=run-status-main]",
       `(el) => {
       window.__replaced = 0;
       new MutationObserver((records) => {
-        for (const record of records) for (const node of [...record.removedNodes, ...record.addedNodes]) if (node.nodeType === 1 && node.classList.contains("process-text")) window.__replaced += 1;
+        for (const record of records) for (const node of [...record.removedNodes, ...record.addedNodes]) if (node.nodeType === 1 && node.classList.contains("run-activity")) window.__replaced += 1;
       }).observe(el, { childList: true, subtree: true });
     }`,
     );

@@ -47,6 +47,7 @@ function makeTask(
     usageLimit: null,
     tokensPerSecond: null,
     goal: null,
+    contextParts: null,
     ...patch,
   };
 }
@@ -224,7 +225,7 @@ for (const [locale, colorScheme] of [
       await page.screenshot({ path: path.join(screenshotsDir, `sidebar-${locale}-${colorScheme}.png`) });
 
       // 命令面板：Ctrl K 打开；搜历史会话（来自临时目录的真实索引）；Esc 关闭并还原焦点。
-      await sidebar.getByRole("button", { name: locale === "zh-CN" ? "命令面板" : "Command palette" }).click();
+      await page.keyboard.press("Control+k");
       const palette = page.getByTestId("command-palette");
       await expect(palette).toBeVisible();
       await expect(palette.getByRole("combobox")).toBeFocused();

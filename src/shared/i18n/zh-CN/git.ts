@@ -24,6 +24,8 @@ export const git = {
   "bar.menu": "Git 操作",
   "bar.branch": "分支 {branch}",
   "bar.worktree": "工作树 · 基于 {base}",
+  "bar.changed": { one: "{count} 个文件有改动", other: "{count} 个文件有改动" },
+  "bar.untracked": { one: "{count} 个未跟踪文件", other: "{count} 个未跟踪文件" },
   "bar.ahead": { one: "领先 {count} 个提交", other: "领先 {count} 个提交" },
   "row.worktree": "工作树分支 {branch}",
 

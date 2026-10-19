@@ -1,23 +1,17 @@
-// 侧栏（spec §3.2、第 4 章）：搜索框、[新任务][添加项目]、"等你确认"条、按项目分组的任务、底部设置和命令面板入口。
+// 侧栏（spec §3.2、第 4 章）：搜索框、[新任务][添加项目]、"等你确认"条、按项目分组的任务、底部设置和语言/主题切换。
 // 从顶栏下面开始，不画标题栏；底色 --bg-sidebar 与顶栏连成一片。宽度由外层容器给。
 import { reportError } from "../../ui/errors.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Project, ProjectId, TaskState } from "../../../../shared/ipc.ts";
 import { setCollapsedProjects, useShellUi } from "../../app/shell-store.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
-import {
-  selectTask,
-  setPaletteOpen,
-  showView,
-  useMainView,
-  useSelectedTaskId,
-  useTasksState,
-} from "../../store/index.ts";
+import { selectTask, showView, useMainView, useSelectedTaskId, useTasksState } from "../../store/index.ts";
 import { Close } from "../../icons.tsx";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { archiveWithUndo, useHiddenTasks } from "./archive-store.ts";
 import { FolderPlusIcon, GearIcon, PlusIcon, SearchIcon, SessionIcon } from "./icons.tsx";
 import { initialVisibleTasks, ProjectGroup, projectNavId, showMoreStep, type RowHandlers } from "./ProjectGroup.tsx";
+import { PreferenceMenus } from "./PreferenceMenus.tsx";
 import { refreshProjects, useProjectsState } from "./projects-store.ts";
 import { addProjectAsDraft } from "./sidebar-actions.ts";
 import { startDraft } from "../empty/index.ts";
@@ -188,8 +182,10 @@ export function Sidebar() {
       <div className="sb-actions">
         <button
           type="button"
-          className="sb-new sb-new-primary"
+          className="sb-new"
           data-testid="sidebar-new-task"
+          // 草稿页（没选任务的对话区）就是"新任务"：和任务行的选中一样用 aria-current 标出来。
+          aria-current={view === "conversation" && selectedTaskId === null ? "page" : undefined}
           title={`${t("sidebar.newTask")} (Ctrl N)`}
           onClick={() => startDraft(null)}
         >
@@ -309,15 +305,7 @@ export function Sidebar() {
           <GearIcon />
           <span>{t("sidebar.settings")}</span>
         </button>
-        <button
-          type="button"
-          className="sb-icon-btn"
-          aria-label={t("sidebar.palette")}
-          title={`${t("sidebar.palette")} (Ctrl K)`}
-          onClick={() => setPaletteOpen(true)}
-        >
-          <SearchIcon />
-        </button>
+        <PreferenceMenus />
       </div>
       {menu}
     </nav>

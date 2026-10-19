@@ -5,6 +5,7 @@ import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { reportError } from "../../ui/errors.ts";
 import type { Extra } from "./model.ts";
+import { Reveal } from "../../ui/Reveal.tsx";
 import { useShellRun } from "./shell-run-store.ts";
 
 /** 输出超过这么多行时默认折叠。 */
@@ -17,8 +18,8 @@ export function ShellBlock({ extra }: { extra: ShellExtra }) {
   const [expanded, setExpanded] = useState(false);
   const output = extra.output.replace(/\r?\n$/, "");
   const lines = output === "" ? [] : output.split(/\r?\n/);
-  const folded = lines.length > COLLAPSED_LINES && !expanded;
-  const shown = folded ? lines.slice(-COLLAPSED_LINES) : lines;
+  // 折叠时只看最后几行；开头那段放进 Reveal，展开时长出来。
+  const tail = lines.length > COLLAPSED_LINES ? lines.slice(-COLLAPSED_LINES) : lines;
   const failed = extra.cancelled || (extra.exitCode !== null && extra.exitCode !== 0);
   return (
     <div className="shell-block" data-failed={failed || undefined} data-testid="shell-block">
@@ -35,7 +36,12 @@ export function ShellBlock({ extra }: { extra: ShellExtra }) {
               : null}
         </span>
       </div>
-      <pre className="shell-output">{lines.length === 0 ? t("conversation.shell.noOutput") : shown.join("\n")}</pre>
+      {lines.length > COLLAPSED_LINES && (
+        <Reveal open={expanded}>
+          <pre className="shell-output shell-output-head">{lines.slice(0, -COLLAPSED_LINES).join("\n")}</pre>
+        </Reveal>
+      )}
+      <pre className="shell-output">{lines.length === 0 ? t("conversation.shell.noOutput") : tail.join("\n")}</pre>
       {(lines.length > COLLAPSED_LINES || extra.truncated) && (
         <div className="shell-foot">
           {extra.truncated && <span className="shell-note">{t("conversation.shell.truncated")}</span>}

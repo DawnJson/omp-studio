@@ -1,4 +1,7 @@
 /* 目标条：和待办条同宽同位置（对话流顶部），一行；目标文字过长时省略，完整文字在悬停提示里。 */
+.goal-reveal {
+  flex: none;
+}
 .goal-strip {
   display: flex;
   align-items: center;
@@ -60,9 +63,4 @@
 }
 .goal-action:disabled {
   color: var(--text-disabled);
-}
-@media (prefers-reduced-motion: reduce) {
-  .goal-action {
-    transition: none;
-  }
 }

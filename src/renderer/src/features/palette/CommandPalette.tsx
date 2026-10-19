@@ -1,6 +1,7 @@
 // 命令面板（Ctrl K，spec §4.18）：居中浮层，键盘完整可用。开关在 ui-store（Ctrl K 由外壳监听）。
 // 焦点：打开时记住 activeElement，关闭后还原；Tab 不动作（焦点只在输入框里）。
 import { reportError } from "../../ui/errors.ts";
+import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import type { SessionSummary } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
@@ -25,6 +26,7 @@ import { emitComposerText, setPendingDraftText } from "./studio-command.ts";
 import { buildSections, type PaletteRow } from "../../../../shared/ui/palette-model.ts";
 import "../sidebar/sidebar.css";
 import "./palette.css";
+import { usePresence, type ExitProps } from "../../ui/presence.ts";
 
 function Highlight({ text, indices }: { text: string; indices: number[] }): ReactNode {
   if (indices.length === 0) return text;
@@ -36,8 +38,9 @@ function Highlight({ text, indices }: { text: string; indices: number[] }): Reac
 
 const rowIcon = { task: TaskIcon, session: SessionIcon, command: CommandIcon, slash: SlashIcon } as const;
 
-function PaletteDialog() {
+function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: boolean; exitProps: ExitProps }) {
   const t = useT();
+  useTitleBarDim(open);
   const locale = useLocale();
   const listId = useId();
   const tasks = useTasks();
@@ -133,7 +136,7 @@ function PaletteDialog() {
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.nativeEvent.isComposing) return;
+    if (event.nativeEvent.isComposing || closing) return;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       if (rows.length > 0) setActive((active + (event.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length);
@@ -155,9 +158,10 @@ function PaletteDialog() {
     <div
       className="pl-root"
       data-testid="command-palette"
+      data-closing={closing ? "fade" : undefined}
       onMouseDown={(event) => event.target === event.currentTarget && close()}
     >
-      <div className="pl-panel" role="dialog" aria-modal="true" aria-label={t("palette.label")}>
+      <div className="pl-panel" role="dialog" aria-modal="true" aria-label={t("palette.label")} {...exitProps}>
         <div className="pl-input-row">
           <SearchIcon />
           <input
@@ -245,6 +249,10 @@ function PaletteDialog() {
 }
 
 export function CommandPalette() {
-  // 每次打开都重新挂载：查询、高亮行、历史会话列表都从头来。
-  return usePaletteOpen() ? <PaletteDialog /> : null;
+  // 每次打开都重新挂载：查询、高亮行、历史会话列表都从头来；关闭时留着放完退出动画。
+  const open = usePaletteOpen();
+  const presence = usePresence(open);
+  return presence.mounted ? (
+    <PaletteDialog open={open} closing={presence.closing} exitProps={presence.exitProps} />
+  ) : null;
 }

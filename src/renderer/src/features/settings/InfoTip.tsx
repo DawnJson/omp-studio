@@ -1,6 +1,7 @@
 // ⓘ 说明：设置项的描述不在标签下面另起一行灰字，而是放在这里（悬停、键盘聚焦、点击都能看）。
 // 悬停 250 ms 后出现，离开消失；点击固定住，点外面或 Esc 关闭（Esc 只关它，不退出设置页）。
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { usePresence } from "../../ui/presence.ts";
 import { useT } from "../../i18n/use-t.ts";
 
 const hoverDelayMs = 250;
@@ -12,6 +13,7 @@ export function InfoTip({ children }: { children: ReactNode }) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [shown, setShown] = useState(false);
   const [pinned, setPinned] = useState(false);
+  const presence = usePresence(shown, "fade");
 
   useEffect(() => {
     if (!pinned) return;
@@ -71,8 +73,8 @@ export function InfoTip({ children }: { children: ReactNode }) {
           <circle cx="8" cy="5" r=".4" />
         </svg>
       </button>
-      {shown && (
-        <span role="tooltip" id={id} className="st-tip-pop">
+      {presence.mounted && (
+        <span role="tooltip" id={id} className="st-tip-pop" {...presence.exitProps}>
           {children}
         </span>
       )}

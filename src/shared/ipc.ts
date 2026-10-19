@@ -71,6 +71,21 @@ export interface AppInfo {
   /** 已按设置和系统语言解析好的界面语言。 */
   locale: Locale;
   isPackaged: boolean;
+  /** 没有项目时直接发送所用的目录（第一次发送时由 ensureChatsProject 创建并加入项目）。 */
+  chatsDir: string;
+  /** 升级后第一次启动时的"最近更新"摘要（照 omp 的 What's New）；这次启动不是升级后的第一次时为 null。 */
+  whatsNew: WhatsNew | null;
+}
+
+/** 自上次看过的版本以来的更新摘要：只有统计，不列条目（omp 的 startup.changelogMode = summary）。 */
+export interface WhatsNew {
+  version: string;
+  /** 跨了几个版本（上次看过的版本之后、当前版本为止）。 */
+  releases: number;
+  added: number;
+  changed: number;
+  fixed: number;
+  total: number;
 }
 
 /**
@@ -173,6 +188,38 @@ export interface SessionUsage {
   credits?: SessionCredits;
 }
 
+/** 上下文里系统提示词、工具定义各占的 token（估算）。 */
+export interface ContextParts {
+  systemTokens: number;
+  toolTokens: number;
+  toolCount: number;
+}
+
+/** 会话文件里一个模型的累计用量（assistant 消息的 usage 相加）。 */
+export interface ModelUsage {
+  provider: string;
+  modelId: string;
+  /** 回复条数。 */
+  replies: number;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  total: number;
+  /** 美元。 */
+  cost: number;
+}
+
+/**
+ * 本会话按模型的用量。models 的范围和 get_session_stats 一致：当前分支、最近一次压缩保留下来的部分起；
+ * 压缩过时 whole 是当前分支全部（含压缩前）的合计，没压缩过为 null。
+ */
+export interface SessionModelUsage {
+  models: ModelUsage[];
+  compactions: number;
+  whole: { total: number; cost: number } | null;
+}
+
 export interface TaskState {
   id: TaskId;
   projectId: ProjectId;
@@ -214,6 +261,8 @@ export interface TaskState {
   tokensPerSecond: number | null;
   /** get_state.goal / goal_updated：本会话还挂着的目标（active / paused / budget-limited）；没有、已完成、已放弃时为 null。 */
   goal: TaskGoal | null;
+  /** get_state.systemPrompt / dumpTools 估出来的上下文构成（omp 不给分项数，按字符估）；omp 没给时为 null。 */
+  contextParts: ContextParts | null;
 }
 
 /** 目标模式的目标（omp goal 模式）：`/goal` 创建，agent 完成或用户放弃后消失。 */
@@ -495,6 +544,38 @@ export interface ModelDefaults {
   storage: "global" | "project";
 }
 
+/** omp 的压缩触发设置（`omp config list` 里 compaction.* 的生效值），界面按它算每个模型的"压缩于"。 */
+export interface CompactionSettings {
+  /** > 0 时是固定的触发 token 数。 */
+  thresholdTokens: number;
+  /** > 0 时是窗口的百分比（omp 夹到 1–99）。 */
+  thresholdPercent: number;
+  /** 没设置时为 null（omp 用 max(16384, 窗口 15%)）。 */
+  reserveTokens: number | null;
+  /** `provider/model-id` 或 `provider/前缀*` → 基数（数字）、`"f90000"`（固定）或 `"80%"`。 */
+  modelThresholds: Record<string, number | string>;
+  modelThresholdsEnabled: boolean;
+  /** 上面几项是不是项目配置改过的。 */
+  source: "global" | "project";
+}
+
+/** omp 记下的实测速度（agent.db 的 model_perf）；没有实测时用模型目录里的 tps，samples 为 0。 */
+export interface ModelPerf {
+  tokensPerSecond: number | null;
+  /** 首字延迟的平均值，毫秒。 */
+  ttftMs: number | null;
+  samples: number;
+}
+
+/** 模型选择对话框右栏的补充参数：键是 `provider/modelId`，没有数据的模型不在表里。 */
+export interface ModelInsights {
+  perf: Record<string, ModelPerf>;
+  /** omp 模型目录（models.db）里的智能分。 */
+  intelligence: Record<string, number>;
+  /** 读 omp 设置失败时为 null。 */
+  compaction: CompactionSettings | null;
+}
+
 export interface DefaultModelInfo {
   key: ModelKey;
   name: string;
@@ -555,11 +636,15 @@ export interface StudioInvokeApi {
   /** 窗口外壳的界面状态（侧栏宽度/折叠），存在 userData/window-state.json。 */
   getShellState(): Promise<ShellState>;
   setShellState(patch: Partial<ShellState>): Promise<void>;
+  /** 有遮罩的弹窗（模型选择、命令面板、确认框等）打开/全部关闭时调用：系统三键（titleBarOverlay）的颜色跟着遮罩一起变暗/恢复。 */
+  setTitleBarDimmed(dimmed: boolean): Promise<void>;
 
   // 项目
   listProjects(): Promise<Project[]>;
   /** 主进程弹系统目录选择框；取消时返回 null。 */
   addProject(): Promise<Project | null>;
+  /** 创建（已存在则复用）AppInfo.chatsDir 并加入项目；没有项目时直接发送用。 */
+  ensureChatsProject(): Promise<Project>;
   /** 只从列表移除，不动磁盘。项目下还有未归档任务时拒绝。 */
   removeProject(projectId: ProjectId): Promise<void>;
 
@@ -613,6 +698,8 @@ export interface StudioInvokeApi {
   revealTaskSession(taskId: TaskId): Promise<void>;
   /** 任务的会话 id 和文件路径，用于侧栏菜单的"复制"；还没有会话文件时返回 null。 */
   getTaskSessionRef(taskId: TaskId): Promise<TaskSessionRef | null>;
+  /** 本会话按模型的 token 和费用：读任务的会话文件（只读）；还没有会话文件时 models 为空。 */
+  getSessionModelUsage(taskId: TaskId): Promise<SessionModelUsage>;
   /** 任务当前可用的斜杠命令（get_available_commands）；任务没有 omp 进程时返回空数组。 */
   listSlashCommands(taskId: TaskId): Promise<AvailableSlashCommand[]>;
   /** 输入框草稿（文字）：key 是任务 id 或 `new:<projectId>`。主进程持久化，重启不丢。 */
@@ -759,6 +846,8 @@ export interface StudioInvokeApi {
   getModelDefaults(projectId: ProjectId | null): Promise<ModelDefaults>;
   /** 设新任务的默认模型（omp 的 modelRoles.default；null = 去掉，让 omp 自己选），写到哪层和 omp 终端一致。 */
   setDefaultModel(projectId: ProjectId | null, model: ModelKey | null): Promise<void>;
+  /** 模型选择对话框右栏的速度、智能分和压缩设置；只读 omp 的 agent.db / models.db / `omp config list`。 */
+  getModelInsights(projectId: ProjectId | null, keys: ModelKey[]): Promise<ModelInsights>;
   /** omp-studio 自身的更新状态（设置 → 关于）。 */
   getUpdateState(): Promise<UpdateState>;
   /** 手动检查更新；有可用更新时自动开始下载。 */
@@ -891,8 +980,10 @@ export const invokeNames = {
   exportDiagnostics: true,
   getShellState: true,
   setShellState: true,
+  setTitleBarDimmed: true,
   listProjects: true,
   addProject: true,
+  ensureChatsProject: true,
   removeProject: true,
   listTasks: true,
   createTask: true,
@@ -917,6 +1008,7 @@ export const invokeNames = {
   revealProject: true,
   revealTaskSession: true,
   getTaskSessionRef: true,
+  getSessionModelUsage: true,
   listSlashCommands: true,
   getDrafts: true,
   saveDraft: true,
@@ -978,6 +1070,7 @@ export const invokeNames = {
   getDefaultModel: true,
   getModelDefaults: true,
   setDefaultModel: true,
+  getModelInsights: true,
   getUpdateState: true,
   checkForUpdate: true,
   installUpdate: true,

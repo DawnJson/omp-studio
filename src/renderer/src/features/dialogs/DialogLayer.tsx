@@ -1,6 +1,7 @@
 // 对话框层：把当前任务的第一个待答请求渲染成"门"，portal 进输入框上方的槽（Composer 里的 GateSlot）；toast 在右下角。
 // 数据只从 useTask(taskId).dialogs 取；答复经 window.studio.respondDialog，主进程确认后 dialogs 才会变。
 import { useEffect, useRef, useState } from "react";
+import { usePresence } from "../../ui/presence.ts";
 import { createPortal } from "react-dom";
 import type { DialogRequest, TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -64,15 +65,36 @@ export function DialogLayer({ taskId }: { taskId: TaskId | null }) {
   useNeedsYouToasts();
   const note = useDismissedNote(current, taskId);
 
+  // 请求结束后门留着放完退出动画（最后一个请求的内容记在 ref 里）；换任务时不留。
+  const gateOpen = current !== undefined && taskId !== null;
+  const gatePresence = usePresence(gateOpen);
+  const lastGate = useRef<{ taskId: TaskId; dialog: DialogRequest; pending: number } | null>(null);
+  if (gateOpen) lastGate.current = { taskId, dialog: current, pending: dialogs.length - 1 };
+  const leavingGate =
+    !gateOpen && gatePresence.mounted && lastGate.current?.taskId === taskId ? lastGate.current : null;
+
+  // "已取消"小字条的淡出：note 清掉后用最后一句文字放完退出动画。
+  const notePresence = usePresence(note !== null);
+  const lastNote = useRef<string | null>(null);
+  if (note !== null) lastNote.current = note;
+
   return (
     <>
       {slot !== null &&
         createPortal(
-          current !== undefined && taskId !== null ? (
+          gateOpen ? (
             <Gate key={current.id} taskId={taskId} dialog={current} pending={dialogs.length - 1} />
-          ) : note !== null ? (
-            <div className="gate-ghost" role="status">
-              {note}
+          ) : leavingGate !== null ? (
+            <Gate
+              key={leavingGate.dialog.id}
+              taskId={leavingGate.taskId}
+              dialog={leavingGate.dialog}
+              pending={leavingGate.pending}
+              exit={gatePresence.exitProps}
+            />
+          ) : notePresence.mounted && lastNote.current !== null ? (
+            <div className="gate-ghost" role="status" {...notePresence.exitProps}>
+              {lastNote.current}
             </div>
           ) : null,
           slot,

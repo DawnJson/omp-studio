@@ -9,6 +9,7 @@ import { useBtwRecords } from "../../store/btw-store.ts";
 import { forkFromMessageReporting, useForkPending } from "./fork-actions.ts";
 import { useShellRun } from "./shell-run-store.ts";
 import type { UserBubble } from "./model.ts";
+import { Reveal } from "../../ui/Reveal.tsx";
 
 const COLLAPSE_OVER = 12;
 const COLLAPSED_LINES = 8;
@@ -23,7 +24,6 @@ export const UserMessage = memo(function UserMessage({ user, taskId }: { user: U
   const [copied, setCopied] = useState(false);
   const lines = user.text.split("\n");
   const long = lines.length > COLLAPSE_OVER;
-  const text = long && !expanded ? lines.slice(0, COLLAPSED_LINES).join("\n") : user.text;
 
   const copy = () => {
     navigator.clipboard.writeText(user.text).then(
@@ -44,9 +44,14 @@ export const UserMessage = memo(function UserMessage({ user, taskId }: { user: U
           ))}
         </div>
       )}
-      <div className="user-bubble" data-collapsed={(long && !expanded) || undefined}>
-        <div className="user-text">{text}</div>
-        {long && !expanded && (
+      <div className="user-bubble" data-long={long || undefined} data-collapsed={(long && !expanded) || undefined}>
+        <div className="user-text">{long ? lines.slice(0, COLLAPSED_LINES).join("\n") : user.text}</div>
+        {long && (
+          <Reveal open={expanded}>
+            <div className="user-text">{lines.slice(COLLAPSED_LINES).join("\n")}</div>
+          </Reveal>
+        )}
+        {long && (
           <button type="button" className="user-expand" onClick={() => setExpanded(true)}>
             {t("common.expand")}
           </button>

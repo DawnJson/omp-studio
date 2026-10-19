@@ -2,24 +2,33 @@
 import { useEffect, useRef } from "react";
 import { useT } from "../i18n/use-t.ts";
 import { useAppInfo } from "../store/index.ts";
+import { usePresence } from "../ui/presence.ts";
+import { useTitleBarDim } from "../ui/title-bar-dim.ts";
 
-export function AboutDialog({ onClose }: { onClose(): void }) {
+export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void }) {
   const t = useT();
+  const presence = usePresence(open);
+  useTitleBarDim(open);
   const appInfo = useAppInfo();
   const closeRef = useRef<HTMLButtonElement>(null);
 
+  // 焦点在 open 变化时立即处理，不等退出动画放完。
   useEffect(() => {
+    if (!open) return;
     const opener = document.activeElement;
     closeRef.current?.focus();
     return () => {
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
     };
-  }, []);
+  }, [open]);
+
+  if (!presence.mounted) return null;
 
   return (
-    <div className="scrim" onPointerDown={onClose}>
+    <div className="scrim" data-closing={presence.closing ? "fade" : undefined} onPointerDown={onClose}>
       <div
         className="about"
+        {...presence.exitProps}
         role="dialog"
         aria-modal="true"
         aria-labelledby="about-title"

@@ -101,7 +101,7 @@
   --sidebar-w: 264px;
   --sidebar-w-min: 220px;
   --sidebar-w-max: 360px;
-  --content-w: 720px; /* 对话列与输入框同宽同轴 */
+  --content-w: 840px; /* 对话列与输入框同宽同轴 */
   --gutter: 24px; /* 对话区最小左右留白 */
   --spine-indent: 34px; /* 运行脊线：对话内容相对列左缘的缩进（脊线和节点画在这段缩进里） */
   --spine-node: 16px; /* 节点槽尺寸；脊线竖线居中于槽 */

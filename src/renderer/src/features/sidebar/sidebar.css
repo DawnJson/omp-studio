@@ -69,12 +69,10 @@
   border-radius: var(--radius-md);
   transition: border-color var(--dur-instant) var(--ease-out);
 }
-.sb-search:hover {
-  border-color: var(--border-strong);
-}
+/* 聚焦时不加彩色边框和光晕：和悬停一样只把边框加深一档 */
+.sb-search:hover,
 .sb-search:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: var(--border-strong);
 }
 .sb-search input {
   flex: 1;
@@ -105,7 +103,7 @@
   background: var(--bg-hover);
 }
 
-/* ───── [新任务] [添加项目] ───── */
+/* ───── [新任务] [添加项目]：同一种次级按钮；当前所在的那个（草稿页时的"新任务"）用选中底色突出 ───── */
 .sb-actions {
   display: flex;
   gap: var(--space-2);
@@ -124,27 +122,24 @@
   background: transparent;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
-  transition: background var(--dur-instant) var(--ease-out);
+  transition:
+    background var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
 }
 .sb-new:hover {
+  color: var(--text);
   background: var(--bg-hover);
 }
-.sb-new:active {
+.sb-new:active,
+.sb-new[aria-current="page"] {
+  color: var(--text);
   background: var(--bg-active);
 }
-.sb-new-primary {
-  color: var(--text-on-primary);
-  background: var(--primary);
-  border-color: transparent;
-}
-.sb-new-primary:hover {
-  background: var(--primary-hover);
-}
-.sb-new-primary:active {
-  background: var(--primary-hover);
+.sb-new[aria-current="page"] {
+  font-weight: 600;
 }
 .sb-new-label {
-  flex: none;
+  flex: 0 1 auto;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -264,6 +259,11 @@
 .sb-group-toggle:hover {
   background: var(--bg-hover);
 }
+/* 悬停时右侧浮出两个按钮，名称让出它们的位置 */
+.sb-group-head:hover .sb-group-toggle,
+.sb-group-head:focus-within .sb-group-toggle {
+  padding-right: calc(2 * var(--control-h-sm) + var(--space-1));
+}
 .sb-chevron {
   display: inline-flex;
   transition: transform var(--dur-fast) var(--ease-out);
@@ -288,6 +288,9 @@
   gap: var(--space-1-5);
   margin-left: auto;
   font-variant-numeric: tabular-nums;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    visibility 0s;
 }
 .sb-group-count .sb-waiting-diamond {
   width: 7px;
@@ -310,7 +313,11 @@
 }
 .sb-group-head:hover .sb-group-count,
 .sb-group-head:focus-within .sb-group-count {
+  opacity: 0;
   visibility: hidden;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    visibility 0s linear var(--dur-fast);
 }
 .sb-icon-btn {
   display: inline-flex;
@@ -352,6 +359,7 @@
   align-items: center;
   height: var(--row-task);
   border-radius: var(--radius-md);
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 .sb-row:hover {
   background: var(--bg-hover);
@@ -359,7 +367,7 @@
 .sb-row[data-selected="true"] {
   background: var(--bg-active);
 }
-.sb-row[data-selected="true"]::before {
+.sb-row::before {
   content: "";
   position: absolute;
   left: 0;
@@ -369,6 +377,11 @@
   margin-top: calc(var(--icon-md) / -2);
   background: var(--accent);
   border-radius: var(--radius-pill);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.sb-row[data-selected="true"]::before {
+  opacity: 1;
 }
 .sb-row-main {
   display: flex;
@@ -377,7 +390,7 @@
   gap: var(--space-2);
   min-width: 0;
   height: 100%;
-  padding: 0 var(--space-2);
+  padding: 0 calc(20px + var(--space-2)) 0 var(--space-2);
   border-radius: var(--radius-md);
   color: var(--text-2);
 }
@@ -397,6 +410,9 @@
   font-size: var(--fs-xs);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    visibility 0s;
 }
 .sb-row-more {
   position: absolute;
@@ -419,7 +435,12 @@
 }
 .sb-row:hover .sb-row-tail,
 .sb-row:focus-within .sb-row-tail {
+  opacity: 0;
   visibility: hidden;
+  /* 隐藏时 visibility 等淡出放完再切，不然看不到渐隐。 */
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    visibility 0s linear var(--dur-fast);
 }
 .sb-rename {
   flex: 1;
@@ -484,6 +505,13 @@
   background: var(--st-waiting);
   transform: rotate(45deg);
 }
+.sb-dot-running,
+.sb-dot-waiting,
+.sb-dot-done,
+.sb-dot-error {
+  /* StatusDot 按状态种类换 key：换了状态就是新节点，淡入而不是瞬间换形状。 */
+  animation: fade-in var(--dur-base) var(--ease-out);
+}
 .sb-dot-done {
   color: var(--st-done);
 }
@@ -516,15 +544,16 @@
   background: var(--bg-active);
   color: var(--text);
 }
-.sb-palette {
-  display: inline-flex;
-  align-items: center;
-  height: var(--control-h-sm);
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
+/* 设置右边的语言、主题菜单：从按钮上方弹出，右边与按钮对齐（位置由 PreferenceMenus 算），宽度按内容 */
+.menu.sb-pref-menu {
+  top: auto;
+  left: auto;
+  min-width: 160px;
+  transform-origin: bottom right;
 }
-.sb-palette:hover {
-  background: var(--bg-hover);
+.sb-bottom .sb-icon-btn[aria-expanded="true"] {
+  color: var(--text);
+  background: var(--bg-active);
 }
 
 /* ───── 菜单 ───── */

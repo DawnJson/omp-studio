@@ -22,6 +22,8 @@ export const git = {
   "bar.menu": "Git actions",
   "bar.branch": "Branch {branch}",
   "bar.worktree": "Worktree · based on {base}",
+  "bar.changed": { one: "{count} changed file", other: "{count} changed files" },
+  "bar.untracked": { one: "{count} untracked file", other: "{count} untracked files" },
   "bar.ahead": { one: "{count} commit ahead", other: "{count} commits ahead" },
   "row.worktree": "Worktree branch {branch}",
 

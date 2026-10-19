@@ -140,15 +140,17 @@ export function SettingsView() {
         </div>
         {nav.map((item) => {
           const id = item.kind === "page" ? item.id : `cfg:${item.group}`;
+          const label = item.kind === "page" ? t(`settings.${item.id}`) : groupTitle(locale, item.group);
           return (
             <button
               key={id}
               type="button"
+              title={label}
               aria-current={!searching && section === id ? "page" : undefined}
               onClick={() => choose(id)}
               data-testid={item.kind === "page" ? `settings-nav-${item.id}` : `settings-nav-cfg-${item.group}`}
             >
-              {item.kind === "page" ? t(`settings.${item.id}`) : groupTitle(locale, item.group)}
+              {label}
             </button>
           );
         })}
@@ -159,27 +161,30 @@ export function SettingsView() {
             <h2 ref={title} tabIndex={-1} className="settings-title">
               {heading}
             </h2>
-            {searching || cfgGroup !== null ? (
-              <OmpConfigPane group={cfgGroup} query={query} />
-            ) : (
-              <>
-                {section === "general" && <GeneralSection />}
-                {section === "models" && (
-                  <>
-                    <ModelsSection />
-                    {groups.has(MERGED_INTO_MODELS) && (
-                      <>
-                        <h3 className="settings-group-title">{groupTitle(locale, MERGED_INTO_MODELS)}</h3>
-                        <OmpConfigPane group={MERGED_INTO_MODELS} query="" omit={["defaultThinkingLevel"]} />
-                      </>
-                    )}
-                  </>
-                )}
-                {section === "usage" && <UsageSection />}
-                {section === "omp" && <OmpSection />}
-                {section === "about" && <AboutSection />}
-              </>
-            )}
+            {/* 换节时 key 变，新节整体淡入上移（样式在 motion.css 末尾） */}
+            <div key={searching ? "search" : section} className="settings-section">
+              {searching || cfgGroup !== null ? (
+                <OmpConfigPane group={cfgGroup} query={query} />
+              ) : (
+                <>
+                  {section === "general" && <GeneralSection />}
+                  {section === "models" && (
+                    <>
+                      <ModelsSection />
+                      {groups.has(MERGED_INTO_MODELS) && (
+                        <>
+                          <h3 className="settings-group-title">{groupTitle(locale, MERGED_INTO_MODELS)}</h3>
+                          <OmpConfigPane group={MERGED_INTO_MODELS} query="" omit={["defaultThinkingLevel"]} />
+                        </>
+                      )}
+                    </>
+                  )}
+                  {section === "usage" && <UsageSection />}
+                  {section === "omp" && <OmpSection />}
+                  {section === "about" && <AboutSection />}
+                </>
+              )}
+            </div>
           </div>
         </div>
         <OverlayScrollbar target={scroller} />

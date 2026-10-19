@@ -57,10 +57,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.topbar-branch-ahead {
+.topbar-branch-ahead,
+.topbar-branch-count {
   flex: none;
-  color: var(--accent);
   font-variant-numeric: tabular-nums;
+}
+.topbar-branch-ahead {
+  color: var(--accent);
+}
+/* 改动数（omp 的 `*N ?N`）：比分支名弱一档，不抢领先数的强调色 */
+.topbar-branch-count {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
 }
 /* 窄窗口：分支名收进悬停提示，只留图标和领先数 */
 @media (max-width: 999px) {

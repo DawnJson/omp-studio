@@ -1,7 +1,7 @@
 // 防的是：模型多的时候搜索找不到、分组错乱，或者最近使用的模型在搜索时还把列表顶部占着。
 import { describe, expect, it } from "vitest";
 import type { ModelOption } from "../src/shared/ipc.ts";
-import { groupModels } from "../src/renderer/src/features/composer/model-groups.ts";
+import { groupModels, treeItems } from "../src/renderer/src/features/composer/model-groups.ts";
 
 const make = (provider: string, modelId: string, name = modelId): ModelOption => ({
   key: { provider, modelId },
@@ -42,5 +42,23 @@ describe("groupModels", () => {
     expect(rows.recent).toEqual([]);
     expect(rows.groups[0]?.models[0]?.name).toBe("GPT-5");
     expect(groupModels(models, "nope", []).flat).toEqual([]);
+  });
+});
+
+describe("treeItems", () => {
+  it("组默认只有组头；展开的组跟着它的模型；最近用过的在最前面；组头标出当前模型所在的组", () => {
+    const rows = groupModels(models, "", [{ provider: "openai", modelId: "gpt-5" }]);
+    const current = { provider: "anthropic", modelId: "claude-haiku" };
+    const collapsed = treeItems(rows, () => false, current);
+    expect(collapsed.map((item) => item.id)).toEqual(["m:openai/gpt-5", "g:anthropic", "g:deepseek"]);
+    expect(collapsed[1]).toMatchObject({ kind: "group", count: 2, expanded: false, hasCurrent: true });
+    const open = treeItems(rows, (provider) => provider === "anthropic", current);
+    expect(open.map((item) => item.id)).toEqual([
+      "m:openai/gpt-5",
+      "g:anthropic",
+      "m:anthropic/claude-haiku",
+      "m:anthropic/claude-sonnet",
+      "g:deepseek",
+    ]);
   });
 });

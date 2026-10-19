@@ -40,9 +40,12 @@ button {
   stroke-width: var(--icon-stroke);
 }
 
+/* 列宽是 minmax(0, 1fr) 而不是隐式的 auto：auto 列至少有内容的最小宽度，设置页的横排导航、热力图
+   这类很宽的内容会把整个窗口撑出横向滚动（顶栏、侧栏一起被推出去）。宽内容在自己的滚动容器里滚。 */
 #app {
   display: grid;
   grid-template-rows: var(--titlebar-h) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   height: 100%;
 }
 
@@ -296,6 +299,14 @@ button {
   width: 0;
 }
 
+/* 宽窗口收起/展开侧栏：主区宽度一步到位（spec §5.4），只让侧栏内容在展开时淡入 */
+.sidebar-column > * {
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+#app[data-drawer="false"][data-sidebar="hidden"] .sidebar-column > * {
+  opacity: 0;
+}
+
 .sidebar-column > * {
   width: 100%;
   height: 100%;
@@ -322,6 +333,7 @@ button {
   z-index: var(--z-sticky);
   width: var(--space-1);
   cursor: col-resize;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .sidebar-resizer:hover {
@@ -344,8 +356,10 @@ button {
     visibility 0s linear var(--dur-slow);
 }
 
+/* 展开后是 transform: none 而不是 translateX(0)：有 transform 的祖先会成为 fixed 元素的定位框，
+   侧栏里的任务菜单、语言/主题菜单会被错位并被抽屉的 overflow 裁掉。none 照样能从 -100% 过渡过来。 */
 #app[data-drawer="true"][data-sidebar="shown"] .sidebar-column {
-  transform: translateX(0);
+  transform: none;
   visibility: visible;
   transition: transform var(--dur-slow) var(--ease-out);
 }
@@ -356,6 +370,13 @@ button {
   z-index: var(--z-sticky);
   background: var(--bg-scrim);
   animation: fade-in var(--dur-fade) var(--ease-out);
+}
+
+/* 抽屉收起：遮罩随抽屉滑出的时长一起淡出，不抢先消失 */
+:root .drawer-scrim[data-closing] {
+  animation-duration: var(--dur-slow);
+  animation-timing-function: var(--ease-out);
+  animation-fill-mode: forwards;
 }
 
 /* ───────── 应用菜单 ───────── */
@@ -493,6 +514,9 @@ button {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   cursor: default;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
 }
 
 .button:hover {

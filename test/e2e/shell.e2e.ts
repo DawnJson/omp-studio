@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, seedFakeSessions } from "./launch.ts";
+import { launchApp, screenshotsDir, seedFakeSessions, type LaunchedApp } from "./launch.ts";
 
 async function settled(page: Page, locale: "zh-CN" | "en", theme: "light" | "dark"): Promise<void> {
   await page.evaluate(
@@ -26,7 +26,15 @@ test("顶栏是任务条：标志+字标即菜单按钮（可键盘聚焦）、�
     for (const id of ["topbar-back", "topbar-forward", "topbar-sidebar"])
       await expect(page.getByTestId(id)).toHaveCount(0);
 
-    await page.keyboard.press("Tab");
+    // 页面第一个 Tab 停靠点是菜单按钮。启动后焦点在草稿输入框（spec §5.3），blur 后 Chromium 仍从输入框接着走，
+    // 所以按文档顺序找第一个可聚焦控件，再确认它确实能拿到焦点。
+    const firstStop = await page.evaluate(
+      `(() => [...document.querySelectorAll("button, input, textarea, select, a[href], [tabindex]")]
+        .find((el) => el.tabIndex >= 0 && !el.disabled && !el.closest("[inert]") && el.getClientRects().length > 0)
+        ?.getAttribute("data-testid"))()`,
+    );
+    expect(firstStop).toBe("topbar-menu");
+    await page.getByTestId("topbar-menu").focus();
     await expect(page.getByTestId("topbar-menu")).toBeFocused();
     const topbar = await page.getByTestId("topbar").boundingBox();
     expect(topbar?.height).toBe(40);
@@ -51,27 +59,45 @@ test("侧栏开关：菜单项和 Ctrl B 都能收起/展开", async () => {
   }
 });
 
-test("应用菜单：切换主题和语言立即生效；Esc 关闭后焦点回到 ≡", async () => {
+test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后焦点回到按钮；应用菜单里不再有这两组", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
     await settled(page, "zh-CN", "light");
     await page.getByTestId("topbar-menu").click();
-    const menu = page.getByTestId("app-menu");
-    await expect(menu).toBeVisible();
-    await menu.getByRole("menuitemradio", { name: "深色" }).click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect(page.getByTestId("app-menu").getByRole("menuitemradio")).toHaveCount(0);
+    await page.keyboard.press("Escape");
 
-    await page.getByTestId("topbar-menu").click();
-    await page.getByTestId("app-menu").getByRole("menuitemradio", { name: "English" }).click();
+    await page.getByTestId("sidebar-theme").click();
+    const themeMenu = page.getByTestId("sidebar-theme-menu");
+    // 打开后焦点在当前选中项上。
+    await expect(themeMenu.getByRole("menuitemradio", { name: "浅色" })).toBeFocused();
+    await themeMenu.getByRole("menuitemradio", { name: "深色" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect(themeMenu).toHaveCount(0);
+
+    await page.getByTestId("sidebar-language").click();
+    await page.getByTestId("sidebar-language-menu").getByRole("menuitemradio", { name: "English" }).click();
     await expect(page.getByTestId("topbar-menu")).toHaveAttribute("aria-label", "omp studio menu");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
+
+    // 菜单在按钮上方、不出窗口。
+    await page.getByTestId("sidebar-theme").click();
+    const [button, menu] = await Promise.all([
+      page.getByTestId("sidebar-theme").boundingBox(),
+      page.getByTestId("sidebar-theme-menu").boundingBox(),
+    ]);
+    expect(button && menu && menu.y + menu.height).toBeLessThanOrEqual(button?.y ?? 0);
+    expect(menu && menu.x).toBeGreaterThanOrEqual(0);
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("sidebar-theme-menu")).toHaveCount(0);
+    await expect(page.getByTestId("sidebar-theme")).toBeFocused();
 
     await page.keyboard.press("Alt");
     await expect(page.getByTestId("app-menu")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("app-menu")).toHaveCount(0);
-    await expect(page.getByTestId("topbar-menu")).toBeFocused();
+    await expect(page.getByTestId("sidebar-theme")).toBeFocused();
   } finally {
     await launched.close();
   }
@@ -189,14 +215,17 @@ test("截图：中英文 × 浅深主题", async () => {
   }
 });
 
-test("没有项目时主区是选文件夹引导；F6 把焦点送进侧栏", async () => {
+test("没有项目时主区只有标志和草稿输入框；F6 把焦点送进侧栏", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
     const empty = page.getByTestId("empty-state");
     await expect(empty).toBeVisible();
     await expect(empty).toHaveAttribute("data-kind", "no-project");
-    await expect(page.getByTestId("empty-open-folder")).toBeVisible();
+    await expect(empty.getByTestId("pixel-logo")).toBeVisible();
+    // 输入框上面只有标志：没有“还没有项目”、没有任何按钮（打开文件夹、项目胶囊）。
+    await expect(empty.locator(".empty-main").getByRole("button")).toHaveCount(0);
+    await expect(page.getByTestId("empty-draft").locator("[data-composer-input]")).toBeVisible();
 
     await page.keyboard.press("F6");
     await expect(page.locator("nav.sb :focus")).toHaveCount(1);
@@ -205,12 +234,12 @@ test("没有项目时主区是选文件夹引导；F6 把焦点送进侧栏", as
   }
 });
 
-/** 把系统"选择文件夹"对话框换成直接返回 dir，再点空状态里的"打开文件夹…"，得到一个有项目的空状态。 */
-async function addProjectViaStubbedDialog(launched: Awaited<ReturnType<typeof launchApp>>, dir: string): Promise<void> {
+/** 把系统"选择文件夹"对话框换成直接返回 dir，再点侧栏的"添加项目"，得到一个有项目的空状态。 */
+async function addProjectViaStubbedDialog(launched: LaunchedApp, dir: string): Promise<void> {
   await launched.app.evaluate(({ dialog }, folder) => {
     dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [folder] });
   }, dir);
-  await launched.page.getByTestId("empty-open-folder").click();
+  await launched.page.getByTestId("sidebar-add-project").click();
   await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
 }
 
@@ -222,7 +251,7 @@ test("有项目的空状态：输入框贴主区底部、没有历史会话列�
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
   try {
     const { page } = launched;
-    await expect(page.getByTestId("empty-open-folder")).toBeVisible();
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
     await addProjectViaStubbedDialog(launched, projectDir);
 
     await expect(page.getByTestId("empty-draft").locator("[data-composer-input]")).toBeVisible();

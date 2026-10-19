@@ -167,10 +167,10 @@ test("子代理在跑：运行中的泳道，steer 发出后有提示，cancel �
   try {
     const { page } = launched;
     await openNewTaskAndSend(page, prompt);
+    // 运行中泳道直接列在对话里，不用先点开；"N 个子代理在跑"在输入框上方的状态行。
     const live = page.getByTestId("process-live");
     await expect(live).toBeVisible({ timeout: 30_000 });
-    await expect(live).toContainText(/(2 个子代理|2 subagents)/, { timeout: 30_000 });
-    await live.locator(".process-row").click();
+    await expect(page.getByTestId("run-status-main")).toContainText(/(2 个子代理|2 subagents)/, { timeout: 30_000 });
     const rows = page.getByTestId("lane-row");
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0)).toHaveAttribute("data-status", "running");

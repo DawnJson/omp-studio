@@ -20,7 +20,7 @@ async function start(): Promise<{ launched: LaunchedApp; cleanup(): Promise<void
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
-  await launched.page.getByTestId("empty-open-folder").click();
+  await launched.page.getByTestId("sidebar-add-project").click();
   await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
   return {
     launched,
@@ -71,6 +71,8 @@ test("输入框：上面输入区、下面工具行，中间 1px 分隔线，控
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
+    // 关掉入场动画再量：动画中途的 transform 会让位置差零点几像素。
+    await page.emulateMedia({ reducedMotion: "reduce" });
     const body = await page.locator(".composer-body").boundingBox();
     const tools = page.locator(".composer-tools");
     const toolsBox = await tools.boundingBox();
@@ -96,23 +98,115 @@ test("输入框：上面输入区、下面工具行，中间 1px 分隔线，控
   }
 });
 
+test("没有项目时直接发送：在 chats 目录里建项目和任务，侧栏出现这个项目；截图", async () => {
+  const launched = await launchApp({
+    STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }),
+  });
+  try {
+    const { page, userDataDir } = launched;
+    const chats = path.join(userDataDir, "chats");
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
+    // 草稿页 = 新任务：侧栏按钮标为当前。
+    await expect(page.getByTestId("sidebar-new-task")).toHaveAttribute("aria-current", "page");
+    await page.locator("[data-composer-input]").focus();
+    await shoot(page, "no-project");
+
+    await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
+    const projects = await page.evaluate(() => globalThis.studio.listProjects());
+    expect(projects.map((project) => path.resolve(project.path))).toEqual([path.resolve(chats)]);
+    await expect(page.getByTestId("task-row")).toHaveCount(1);
+    await expect(page.getByTestId("sidebar")).toContainText("chats");
+    await expect(page.getByTestId("sidebar-new-task")).not.toHaveAttribute("aria-current", "page");
+
+    // 之后 Ctrl N 回到的是 chats 这个普通项目的草稿页。
+    await page.keyboard.press("Control+n");
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+    await expect(page.getByTestId("empty-project")).toContainText("chats");
+  } finally {
+    await launched.close();
+  }
+});
+
 test("空状态的最近任务、对话里的用量行、模型选择对话框；截图", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
+    // 新任务草稿：还没有会话，上下文是 0%（窗口取默认模型的），没有本会话 token；每日用量、额度照样显示，费用 $0.00。
+    const draftMeter = page.getByTestId("draft-composer").getByTestId("usage-meter");
+    await expect(draftMeter.getByTestId("heatmap-meter")).toBeVisible();
+    await expect(draftMeter.getByTestId("quota-meter")).toBeVisible();
+    await expect(draftMeter.getByTestId("context-meter")).toContainText("0%");
+    await expect(draftMeter.getByTestId("usage-tokens")).toHaveCount(0);
+    await expect(page.getByTestId("draft-composer").getByTestId("usage-cost")).toHaveText("$0.00");
+    await expect(page.getByTestId("model-chip").locator("svg")).toHaveCount(0);
     await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
 
-    // 用量行：上下文占比 + 本会话 token + 费用（fixture 里是 9206 token、$0.00006513，上下文不到 1%）。
-    const meter = page.getByTestId("usage-meter");
+    // 输入框下方不再有单独一行：用量全在工具行里，模型胶囊右边依次是上下文占比、本会话 token（fixture 9206）、
+    // 每日用量、额度（fixture 上下文不到 1%）；费用 $0.00006513 在发送键左边。
+    const tools = page.locator(".composer-tools");
+    const meter = tools.getByTestId("usage-meter");
     await expect(meter).toBeVisible();
-    await expect(page.getByTestId("context-meter")).toContainText(/0\.\d/);
-    await expect(page.getByTestId("usage-tokens")).toContainText("9.2K");
-    await expect(page.getByTestId("usage-cost")).toContainText("$0.0001");
+    const contextMeter = meter.getByTestId("context-meter");
+    await expect(contextMeter).toContainText(/0\.\d/);
+    await expect(meter.getByTestId("usage-tokens")).toContainText("9.2K");
+    const quota = meter.getByTestId("quota-meter");
+    await expect(quota).toBeVisible();
+    const chipBox = await page.getByTestId("model-chip").boundingBox();
+    const boxes = await Promise.all(
+      ["context-meter", "usage-tokens", "heatmap-meter", "quota-meter"].map((id) =>
+        meter.getByTestId(id).boundingBox(),
+      ),
+    );
+    let right = (chipBox?.x ?? 0) + (chipBox?.width ?? 0);
+    for (const box of boxes) {
+      expect(box?.x ?? 0).toBeGreaterThanOrEqual(right);
+      right = (box?.x ?? 0) + (box?.width ?? 0);
+      // 同一行：垂直中线对齐模型胶囊。
+      expect(chipBox && box && Math.abs(chipBox.y + chipBox.height / 2 - (box.y + box.height / 2))).toBeLessThanOrEqual(
+        2,
+      );
+    }
+    await expect(page.locator(".composer-stack > [data-testid=usage-meter]")).toHaveCount(0);
+    const cost = tools.getByTestId("usage-cost");
+    await expect(cost).toContainText("$0.0001");
+    const costBox = await cost.boundingBox();
+    const sendBox = await page.getByTestId("send-button").boundingBox();
+    expect(costBox && sendBox && costBox.x + costBox.width).toBeLessThanOrEqual(sendBox?.x ?? 0);
     // 输入框仍在主区底部。
     const panel = await page.getByTestId("main-panel").boundingBox();
     const stack = await page.getByTestId("composer-stack").boundingBox();
     expect(panel && stack && panel.y + panel.height - (stack.y + stack.height)).toBeLessThanOrEqual(24);
     await shoot(page, "conversation");
+
+    // 上下文构成：系统提示词、工具定义（估算）、消息、剩余空间各一行（自动压缩预留要读 omp 设置，测试环境里不一定有）；
+    // Esc 关闭后焦点回到圆环。
+    await page.getByTestId("context-meter").click();
+    const breakdown = page.getByTestId("context-breakdown");
+    await expect(breakdown).toBeVisible();
+    for (const part of ["system", "tools", "messages", "free"])
+      await expect(breakdown.locator(`[data-testid="context-row"][data-part="${part}"]`)).toHaveCount(1);
+    await shoot(page, "context");
+    await page.keyboard.press("Escape");
+    await expect(breakdown).toHaveCount(0);
+    await expect(page.getByTestId("context-meter")).toBeFocused();
+
+    // 本会话按模型的明细；额度项（假 omp 没有额度数据，只写"额度"）。
+    await page.getByTestId("usage-tokens").click();
+    await expect(page.getByTestId("model-breakdown")).toBeVisible();
+    await shoot(page, "model-usage");
+    await page.keyboard.press("Escape");
+    await quota.click();
+    await expect(page.getByTestId("quota-popover")).toBeVisible();
+    await shoot(page, "quota");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("quota-popover")).toHaveCount(0);
+    // 每日用量单独一个浮层。
+    const daily = meter.getByTestId("heatmap-meter");
+    await daily.click();
+    await expect(page.getByTestId("heatmap-popover")).toBeVisible();
+    await expect(page.getByTestId("quota-popover")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("heatmap-popover")).toHaveCount(0);
 
     // 模型选择对话框：焦点进搜索框，Tab 在框内循环，Esc 关闭后焦点回到胶囊。
     const chip = page.getByTestId("model-chip");
@@ -120,9 +214,18 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
     const picker = page.getByTestId("model-picker");
     await expect(picker).toBeVisible();
     await expect(page.getByTestId("model-search")).toBeFocused();
+    // 按 provider 分组，默认折叠：只有组头；↓ 到组头、Enter 展开。
+    const group = page.getByTestId("model-group").first();
+    await expect(group).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByTestId("model-option")).toHaveCount(0);
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    await expect(group).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByTestId("model-option").first()).toBeVisible();
+    // 右栏是正在生效的模型的参数（照终端版 omp）：上下文按完整数字显示。
     const details = page.getByTestId("model-details");
-    await expect(details).toContainText("1M");
+    await expect(details).toContainText("1,000,000");
+    await expect(page.getByTestId("model-speed")).not.toHaveText("…");
     for (let i = 0; i < 8; i++) {
       await page.keyboard.press("Tab");
       expect(

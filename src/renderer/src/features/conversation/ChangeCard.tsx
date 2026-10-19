@@ -3,8 +3,9 @@
 import { reportError } from "../../ui/errors.ts";
 import { memo, useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
-import { ChevronDown, ChevronRight, Dots, FileIcon } from "../../icons.tsx";
+import { ChevronRight, Dots, FileIcon } from "../../icons.tsx";
 import { Popover } from "../composer/Popover.tsx";
+import { Reveal } from "../../ui/Reveal.tsx";
 import { openReview } from "../../store/review-store.ts";
 import { relativeToProject, type FileChange } from "./tool-info.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
@@ -52,7 +53,7 @@ export const ChangeCard = memo(function ChangeCard({
           aria-expanded={expanded}
           onClick={() => setExpanded((value) => !value)}
         >
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <ChevronRight size={14} className="process-chevron" data-open={expanded || undefined} />
           <span>{t("change.summary", { count: changes.length })}</span>
           {known.length > 0 && (
             <>
@@ -98,7 +99,7 @@ export const ChangeCard = memo(function ChangeCard({
           </Popover>
         </div>
       </header>
-      {expanded && (
+      <Reveal open={expanded}>
         <ul className="change-files">
           {changes.slice(0, VISIBLE).map((change) => {
             const { dir, name } = splitPath(change.path);
@@ -125,7 +126,9 @@ export const ChangeCard = memo(function ChangeCard({
                   onClick={() => rel !== null && open(rel)}
                 >
                   <span className="change-path">
-                    <span className="change-dir">{dir}</span>
+                    <span className="change-dir">
+                      <bdi dir="ltr">{dir}</bdi>
+                    </span>
                     <span className="change-name">{name}</span>
                   </span>
                   {change.added !== null && (
@@ -153,7 +156,7 @@ export const ChangeCard = memo(function ChangeCard({
             <li className="change-more">{t("change.more", { n: changes.length - VISIBLE })}</li>
           )}
         </ul>
-      )}
+      </Reveal>
     </section>
   );
 });
