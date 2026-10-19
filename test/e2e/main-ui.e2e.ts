@@ -189,12 +189,18 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
     await expect(page.getByTestId("model-breakdown")).toBeVisible();
     await shoot(page, "model-usage");
     await page.keyboard.press("Escape");
-    // 点费用：一个浮层里先是每日用量，再是订阅额度；没有"去设置看全年"；Esc 关闭后焦点回到费用。
+    // 点费用：浮层顶上是"订阅额度 / 每日用量"切换框，默认订阅额度，←/→ 切页；没有"去设置看全年"；Esc 关闭后焦点回到费用。
     await cost.click();
     const overview = page.getByTestId("usage-popover");
     await expect(overview).toBeVisible();
-    await expect(overview.getByTestId("heatmap-section")).toBeVisible();
+    await expect(overview.getByTestId("usage-tab-quota")).toHaveAttribute("aria-selected", "true");
     await expect(overview.getByTestId("quota-section")).toBeVisible();
+    await expect(overview.getByTestId("heatmap-section")).toHaveCount(0);
+    await overview.getByTestId("usage-tab-quota").focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(overview.getByTestId("usage-tab-daily")).toBeFocused();
+    await expect(overview.getByTestId("heatmap-section")).toBeVisible();
+    await expect(overview.getByTestId("quota-section")).toHaveCount(0);
     await expect(overview.getByRole("button", { name: /设置|Settings/ })).toHaveCount(0);
     await shoot(page, "quota");
     await page.keyboard.press("Escape");

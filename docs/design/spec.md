@@ -457,7 +457,7 @@
 
 **UsageMeter**（输入框工具行里，审批胶囊之后，**默认显示**）：各项都点开自己的 popover（`Popover`，Esc 在焦点位于胶囊或浮层时关闭并还焦点，不触发"停止"）。①上下文圆环 + `composer.context`（`get_state.contextUsage.percent`，≥90 变 `--st-waiting-text`，不到 10% 保留一位小数）→ `ContextBreakdown`（照 Claude Code 的 `/context`）：一条按段着色的横条 + 每段一行 `[色块][名称][token][占窗口%]`：系统提示词、工具定义（按 `get_state.systemPrompt` / `dumpTools` 字符数估算，ASCII 约 4 字符一个 token、其余一字一个，标 `≈`）、消息（= 已用 − 前两段）、剩余空间、自动压缩预留（= 窗口 − 按 omp 规则算出的压缩触发点，`compaction-trigger.ts`；读不到压缩设置时不画这段），下面没有说明小字，最后是 `composer.compact`。②本会话 token 总数（`get_session_stats`，握手恢复会话时和每次刷新状态时取）→ `ModelBreakdown`：打开时读会话文件（`getSessionModelUsage`），按 provider/model 合计回复数、输入、输出、缓存读写、费用，范围同 omp（当前分支，最近一次压缩保留下来的部分）；压缩过时另起一行写整个会话的合计。没有任何数据时整组不渲染。
 
-**UsageOverview**（点发送键左边的费用打开，`align="end"`，宽 360）：上面一节 `composer.quota.daily`：最近 22 周每日用量热力图（与设置 → 用量同一组件 `usage-views.tsx`，可切 token / 花费 / 请求数）；下面一节 `composer.quota.title`：各订阅账号的额度条（当前 provider 排最前，未使用的账号合成一行），两节之间 1px `--border-subtle`。打开时重读额度，热力图还没有数据时才读。没有"去设置看全年"的入口。
+**UsageOverview**（点发送键左边的费用打开，`align="end"`，宽 360）：顶上一个切换框（`.segments`，`role="tablist"`，←/→ 切页、焦点跟着走），两页：`composer.quota.title`（默认）：各订阅账号的额度条，当前 provider 排最前，未使用的账号合成一行；`composer.quota.daily`：最近 22 周每日用量热力图（与设置 → 用量同一组件 `usage-views.tsx`，可切 token / 花费 / 请求数）。上次看的页在本次运行里记住。打开时重读额度，热力图还没有数据时才读。没有"去设置看全年"的入口。
 
 新任务草稿（`DraftComposer`）的工具行同一位置放 `DraftUsageMeter`：还没有会话，①上下文是 `0%`，窗口取胶囊上默认模型的 `contextWindow`（模型没报窗口时不显示），构成里只有消息 0、剩余空间和自动压缩预留，没有"压缩上下文"；②要等发出第一条消息、会话建立后才出现。费用显示 `$0.00`，同样能点开 `UsageOverview`（额度按默认模型的 provider 排序）。
 

@@ -462,18 +462,20 @@ button.usage-item:hover {
   margin: 0;
 }
 
-/* 费用浮层：每日用量、订阅额度两节，中间一条分隔线；账号块和热力图见 settings/usage.css */
+/* 费用浮层：顶上"订阅额度 / 每日用量"切换框，下面是选中的那页；账号块和热力图见 settings/usage.css */
 .qm {
   gap: var(--space-3);
 }
-.qm-section {
+.qm-tabs {
+  align-self: flex-start;
+}
+.qm-tabs .segment {
+  padding: 0 var(--space-3);
+}
+.qm-panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-.qm-section + .qm-section {
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-subtle);
 }
 
 .send {
