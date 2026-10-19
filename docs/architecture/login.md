@@ -39,6 +39,8 @@
 
 `listModels` 在服务进程上发 `get_available_models`（会等 omp 后台发现完成），映射成 `ModelOption`（`acceptsImages` = `input` 含 `image`）。新任务的默认模型/思考强度就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，omp-studio 不另存（PLAN 设计原则 7）；新任务启动时不传 `--model`/`--thinking`。`modelRoles` 只能整体写（实测 18.12.1：`omp config set modelRoles.default` 报 Unknown setting），所以总是读出角色表只换 `default`；`defaultThinkingLevel` 不接受 `off`，胶囊里不提供。
 
+启动缓存（`src/main/service/startup-cache.ts`，单例在 `startup-cache-instance.ts`）：服务进程每次现读成功（默认模型、`listModels`、各项目的 `getModelDefaults`、`listAccounts` 得出的"有没有 OAuth 凭据"、`tools.approvalMode`）就记进 `userData/startup-cache.json`（原子写，串行）。渲染进程在第一次渲染前取一次 `getStartupSnapshot()`，工具行先用它画，现读到了再替换；缓存只用来显示，不参与任何决定，文件坏了或版本不对当成没有。应用启动时 `prewarmToolbarData()` 就拉起服务进程读默认模型和模型目录。任务进程起来之前，`TaskRunner` 用缓存的模型目录（`knownModel`）给胶囊名字和上下文窗口，查不到才用模型 id。
+
 项目配置（实测 omp 18.12.1，2026-10-18，临时 agent 目录 + 带 `.omp/config.yml` 的临时项目）：
 
 - 项目 `.omp/config.yml` 里有 `modelRoles.default` 时，在这个项目里启动的 omp 用项目的值（`get_state` 返回项目的模型），全局的被盖过。`omp config list` 在项目目录里运行显示项目的值，在别处显示全局的值。

@@ -1,4 +1,4 @@
-# omp-studio UI 规范 v1（定稿；2.6 起色板、圆角、顶栏、脊线按方向 A「仪表」，见 `direction-2.6.md`）
+# omp-studio UI 规范 v1（定稿；2.6 起色板、圆角、顶栏按方向 A「仪表」，见 `direction-2.6.md`；运行脊线 2026-10-19 起去掉，见 §4.8）
 
 > 范围：`PLAN.md` 阶段 1 + 阶段 2 的全部界面。输入：`DesignCalm`（克制、结果优先）与 `DesignBold`（有辨识度的手感）两份方案，以 `PLAN.md` §2 为硬约束：**结果优先、过程默认折叠、一个主导航、遥测克制、只用 token、中英双语、遵守 reduced-motion**。
 > 配套文件：`src/renderer/styles/tokens.css`（全部变量，深浅两套，reduced-motion）。本文引用的 `--xxx` 都在那里。
@@ -351,9 +351,9 @@
 
 ### 4.8 UserMessage
 
-**运行脊线**（2.6，整条对话流的结构，方向 A 的主要识别元素）：对话列左侧一条 `--spine-line`（2px）`--border` 竖线，线在列左缘 `--spine-node`（16）宽的槽里居中；每个 `.turn` 的内容缩进 `--spine-indent`（34），节点画在缩进里（节点用块自己的伪元素，避免 `content-visibility` 的裁剪）：用户消息 = 12px 空心圆（`--text-3` 描边、`--bg-app` 填充）；折叠的过程行 = 8px `--text-3` 实心点；结论 = 14px `--accent` 实心圆。**任务进行中整条线和所有节点都不画**（2026-10-19 起，`.conversation[data-running]`，只是 `visibility: hidden`，缩进保留，结束后再出现，内容不左右跳）。改动卡片、门、泳道、错误条不画节点，线从旁边穿过。节点与块的垂直位置对齐该块第一行文字的中线，所有尺寸固定，流式追加内容不会推动已有节点（不跳动）。线不画在输入框区域。
+**没有运行脊线**（2026-10-19 起去掉）：对话列左侧不画竖线，也不给用户消息、过程行、结论画节点；`.turn` 不再缩进，内容占满列宽，和输入框左缘对齐。
 
-左对齐，宽 ≤ 缩进后的列宽；`--bg-raised` + 1px `--border-subtle`，`--radius-lg`，`padding: --space-2-5 --space-3-5`；`--fs-prose`；`white-space: pre-wrap; overflow-wrap: anywhere`。>12 行折叠成前 8 行 + 渐隐 + `common.expand`（展开状态不记忆）。附件：文字上方一排 64×64 缩略图（`--radius-md`，点击用系统默认查看器打开）。hover 右下外侧出现 `复制`。出现动画见 §2.6。
+左对齐，宽 ≤ 列宽；`--bg-raised` + 1px `--border-subtle`，`--radius-lg`，`padding: --space-2-5 --space-3-5`；`--fs-prose`；`white-space: pre-wrap; overflow-wrap: anywhere`。>12 行折叠成前 8 行 + 渐隐 + `common.expand`（展开状态不记忆）。附件：文字上方一排 64×64 缩略图（`--radius-md`，点击用系统默认查看器打开）。hover 右下外侧出现 `复制`。出现动画见 §2.6。
 - 状态：默认 / 发送失败（下方一行 `--fs-xs` `--st-error`：`msg.sendFailed` · `msg.retry`）。运行中发出的消息**不在流里**，只在队列条里；进入会话后才作为气泡出现。
 
 ### 4.9 AssistantMessage 与 Markdown
@@ -420,6 +420,7 @@
 - 外容器宽 = 列宽；`--bg-raised`；`1px --border`（hover `--border-strong`）；`--radius-xl`；`--shadow-composer`；容器自身无内边距，分上下两层：输入区（`padding: --space-3 --space-4 --space-2-5`）和工具行（`padding: --space-2 --space-3`，上沿 1px `--border-subtle` 分隔线）；聚焦样式见通则。
 - 文本区：`--fs-prose`，placeholder `--text-3`，最小 1 行（2026-10-19 由 2 行降低；常数高度，空状态与对话中一致），自动增高到 `min(40vh, 12 行)` 后内部滚动，`resize: none`。
 - 底部工具行：左起 `⊕` 附件 28×28、ModelChip、ApprovalChip、用量仪表 UsageMeter（见下，2026-10-19 起从输入框下方移进来，输入框下方不再有单独一行）；右起上下文圆环（`ContextMeter`，见下）、本会话费用（`SessionCost`，对应 omp 状态栏的 cost 段：`get_session_stats.cost`，按模型的 API 价格估算，订阅登录的模型也照样累计；等宽 `--fs-xs` `--text-2`，`$0.0001` 这种不到一美分的保留 4 位小数；一直显示，新任务草稿和还没有统计时是 `$0.00`；当前模型的 provider 有 OAuth 登录凭据时（omp 优先用 OAuth，`get_logout_accounts`，按 provider 缓存 5 分钟）后面跟 `--text-3` 的 ` (sub)`，悬停换成 `composer.usage.costTipSub`；悬停 `composer.usage.costTip` + 输入/输出/缓存读取/高级请求数；是按钮，点开 `UsageOverview` 浮层，见下）、SendStop。仪表不收缩（`flex: none`），空间不够时模型胶囊先省略名字，再按输入框宽度逐级收起：≤860px 去掉速度，≤760px 去掉本会话 token；圆环和费用一直在。
+- 工具行各项**从第一帧起都在原位**（2026-10-19）：模型胶囊、审批胶囊、上下文圆环、费用都直接画出来，数据到了再填，不等 omp。数据先用上次读到的（主进程每次现读成功就记进 `userData/startup-cache.json`：默认模型、模型目录、各项目的默认值、各 provider 是否订阅、审批模式；渲染进程在第一次渲染前取 `getStartupSnapshot()`），现读到了再替换；从没读到过（第一次启动）时模型胶囊写 `composer.modelLoading`、审批写 `approval.loading`，圆环是同位置同大小、不能点的空环（`data-pending`）。任务在进程起来之前，胶囊用上次读到的模型目录里的名字和窗口（不是模型 id）。主进程在应用启动时就拉起服务进程读默认模型和模型目录，不等输入框来要。
 - 附件预览行（有附件时）：文本区上方，64×64，右上 ✕（`composer.attachment.remove`）；粘贴图片、拖入图片、`⊕` 三种来源。非图片文件拖入：toast `composer.attach.imageOnly`。
 - 草稿按任务保留，由主进程持久化。
 - 占位符：新任务 `composer.placeholderNew`；有对话 `composer.placeholder`；运行中 `composer.placeholderRunning`（设置里对调后用 `…Swapped`）；有门时 `composer.placeholderGate`。
@@ -455,13 +456,13 @@
 
 **ModelChip / ModelPicker**：胶囊点开（Alt M、命令面板同）是模态对话框（`ModelPicker`，portal 到 body，Tab 在框内循环，Esc 关闭并还焦点）。左栏：搜索框 + 模型树：无搜索词时最近 3 个置顶，其下按 provider 分组，**组默认折叠**（2026-10-19 起）——组头一行 `▸ provider · model.groupCount`，含正在生效的模型的组头带勾，点击或 Enter 展开 / 折叠，组头上 `→/←` 展开 / 折叠；有搜索词时有匹配的组自动展开（可手动收起，换词后复原）。每个模型行右侧用 `--fs-xs` `--text-3` 显示紧凑的“上下文窗口 · 输入/输出价格”，如 `1M · $0.3/$1.2`，价格全 0 时只显示窗口；组里的行缩进一级。↑↓ 在“最近 + 组头 + 展开的模型”之间移动，Enter 或点击选用（选用后对话框保持打开，方便接着调思考强度）。右栏照终端版 omp `/models` 的详情：名称、`provider/id`、标签（`当前` `--accent-soft` / `推理` / `视觉`），然后 `上下文`、`压缩于`、`最大输出`、`价格`、`实测速度`、`智能分`、`输入类型`、`推理`；数字按完整位数加千分位（`350,000`）。`压缩于` = `触发 token · 怎么来的 · 来源`（如 `315,000 · 窗口的 90% · 全局设置`），按 omp 的 `compaction.thresholdTokens / thresholdPercent / reserveTokens / modelThresholds` 规则算（`src/shared/compaction-trigger.ts`），来源是全局 / 项目（项目目录里读到的和中性目录不同）/ 按模型设置。`价格` 一行 `输入 $4 · 输出 $20 · 缓存 $0.2（每百万 token）`，全 0 显示 `model.free`。`实测速度` 来自 omp 的 `agent.db` `model_perf`（`t/s · 首字 s · N 次采样`），没有实测但模型目录有 `tps` 时写 `model.perf.catalog`；`智能分` 来自 omp 的 `models.db` 模型目录（`int`）；两个库都只读（`getModelInsights`，`src/main/omp-config/model-insights.ts`），读不到显示 `model.perf.none` / `model.unknown`，读取中显示 `…`。底部是思考强度分段条（只对正在生效的模型可调，其余显示 `model.thinking.pending`）。分段条只列这个模型实际支持的档位：任务里取 `get_available_thinking_levels`（含 `off`），草稿里取模型的 `thinking.efforts`（不含 `off`）；分段条、方向键、`Alt T` 共用同一份列表和顺序；草稿的胶囊显示 omp 钳制后实际采用的档位。**思考强度是乐观更新**：点下 / `Alt T` 立即显示新档位，omp 往返在后台，失败退回并报错，写入成功 2 秒内新值没回到界面也退回真实值。分段条选中项下面是一块滑块，换档时以 `--ease-spring` 滑过去并轻弹一下（往高档放大回弹、往低档轻收）；滑块按档位换效果：`off` 中性浮起、`minimal` 底部一道强调色细线、`low` 浅强调底、`medium` 加深的强调底 + 描边、`high` 实心 `--accent` + 光晕、`xhigh` 再加周期扫光、`max` 是 `--accent` 与 `--st-waiting` 流动渐变 + 呼吸光晕；胶囊上的强度文字同样分级（低档 `--text-3`，`high` `--accent` 加粗，`xhigh`/`max` 渐变字，`max` 缓慢流动）。循环动画写 `animation-play-state: var(--play-state)`，减少动效时滑块不滑、不弹、不流动。数据来自 `get_available_models`（`ModelOption`：`contextWindow`、`maxTokens`、`cost`、`reasoning`、`acceptsImages`、`thinkingEfforts`）。
 
-**ContextMeter**（发送键左边、费用之前，2026-10-19 起从模型胶囊旁移过来）：只有一个 20px 的上下文圆环（描边 2.5，`get_state.contextUsage.percent`，≥90 变 `--st-waiting`），不写文字；百分比在 `aria-label` / 悬停提示里（`composer.context` + 已用/总量 + `composer.context.tip`）。点开 `ContextBreakdown`（`Popover`，`align="end"`，Esc 关闭并还焦点，不触发"停止"；照 Claude Code 的 `/context`）：头一行已用/窗口/百分比，一条按段着色的横条 + 每段一行 `[色块][名称][token][占窗口%]`：系统提示词、工具定义（按 `get_state.systemPrompt` / `dumpTools` 字符数估算，ASCII 约 4 字符一个 token、其余一字一个，标 `≈`）、消息（= 已用 − 前两段）、剩余空间、自动压缩预留（= 窗口 − 按 omp 规则算出的压缩触发点，`compaction-trigger.ts`；读不到压缩设置时不画这段），下面没有说明小字，最后是 `composer.compact`。omp 还没给出上下文占用时不显示。
+**ContextMeter**（发送键左边、费用之前，2026-10-19 起从模型胶囊旁移过来）：只有一个 20px 的上下文圆环（描边 2.5，`get_state.contextUsage.percent`，≥90 变 `--st-waiting`），不写文字；百分比在 `aria-label` / 悬停提示里（`composer.context` + 已用/总量 + `composer.context.tip`）。点开 `ContextBreakdown`（`Popover`，`align="end"`，Esc 关闭并还焦点，不触发"停止"；照 Claude Code 的 `/context`）：头一行已用/窗口/百分比，一条按段着色的横条 + 每段一行 `[色块][名称][token][占窗口%]`：系统提示词、工具定义（按 `get_state.systemPrompt` / `dumpTools` 字符数估算，ASCII 约 4 字符一个 token、其余一字一个，标 `≈`）、消息（= 已用 − 前两段）、剩余空间、自动压缩预留（= 窗口 − 按 omp 规则算出的压缩触发点，`compaction-trigger.ts`；读不到压缩设置时不画这段），下面没有说明小字，最后是 `composer.compact`。omp 还没给出上下文占用时同一位置是不能点的空环（`data-pending`）。
 
 **UsageMeter**（输入框工具行里，审批胶囊之后）：本会话 token 总数（`get_session_stats`，握手恢复会话时和每次刷新状态时取）→ `ModelBreakdown`：打开时读会话文件（`getSessionModelUsage`），按 provider/model 合计回复数、输入、输出、缓存读写、费用，范围同 omp（当前分支，最近一次压缩保留下来的部分）；压缩过时另起一行写整个会话的合计。后面是输出速度（见下）。都没有时整组不渲染。
 
 **UsageOverview**（点发送键左边的费用打开，`align="end"`，宽 520）：顶上一个切换框（`.segments`，`role="tablist"`，←/→ 切页、焦点跟着走），两页：`composer.quota.title`（默认）：各订阅账号的额度条，当前 provider 排最前，未使用的账号合成一行；每个窗口两行：上面名称（如 `Claude 5 Hour`）+ 右侧 `--text-3` 的重置时间，下面进度条 + 剩余百分比（额度行在 ≥560px 的容器里仍是一行四列，设置页如此）；`composer.quota.daily`：最近 28 周每日用量热力图（与设置 → 用量同一组件 `usage-views.tsx`，格子 13px），只按花费着色，没有 token / 花费 / 请求数切换，悬停给日期、金额和请求数。上次看的页在本次运行里记住。打开时重读额度，热力图还没有数据时才读。没有"去设置看全年"的入口。
 
-新任务草稿（`DraftComposer`）的工具行同一位置放 `DraftContextMeter`：还没有会话，圆环是 0，窗口取胶囊上默认模型的 `contextWindow`（模型没报窗口时不显示），构成里只有消息 0、剩余空间和自动压缩预留，没有"压缩上下文"；本会话 token 要等发出第一条消息、会话建立后才出现。费用显示 `$0.00`，同样能点开 `UsageOverview`（额度按默认模型的 provider 排序）。
+新任务草稿（`DraftComposer`）的工具行同一位置放 `DraftContextMeter`：还没有会话，圆环是 0，窗口取胶囊上默认模型的 `contextWindow`（模型还没读到或没报窗口时是不能点的空环），构成里只有消息 0、剩余空间和自动压缩预留，没有"压缩上下文"；本会话 token 要等发出第一条消息、会话建立后才出现。费用显示 `$0.00`，同样能点开 `UsageOverview`（额度按默认模型的 provider 排序）。
 
 **速度开关与指示**（`get_state.fastModeEnabled/fastModeActive/slowModeSupported/slowModeEnabled/slowModeScope`；命令 `set_fast_mode` / `set_slow_mode`）：ModelPicker 右栏在思考强度上方多一节“速度”，只在**正在生效的模型**被高亮时出现（草稿里没有任务，不出现）。每个开关是 `开/关` 两段（`.segments`），方向键切换。`快速模式`始终可点（RPC 没有“是否支持”字段；不支持的模型 omp 返回错误 `Fast mode is unavailable for the current model.`，原文进 toast）。`慢速模式`只在 `slowModeSupported` 时可点，下面一行说明范围：`global` → `model.slow.scope.global`（写进 omp 配置，所有会话共用），`session` → `model.slow.scope.session`；不支持时只显示 `model.slow.unsupported`。ModelChip 在模型名后追加 `--fs-2xs` 的 `--accent-soft` 小胶囊：`fastModeActive` 为真时 `快速`，慢速开着时 `慢速`；都关时不显示。实测（Tern omp，临时 agent 目录）：fast 只对本会话有效，**不落配置**，切到不支持的模型会自动关；slow 在 Anthropic 模型上 scope 是 `global`，**落在 omp 配置里**并跨进程保留（`session` 范围对应 OpenAI/Google 的 flex 层级，未能实测）。studio 不存副本；键入的 `/fast`、`/slow` 照常走 omp，本地完成的斜杠命令（prompt 应答 `agentInvoked:false`）之后主进程会重读 `get_state`。
 
@@ -747,7 +748,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 **设计**（仓库所有者 2026-10-18 定：审批模式完全按 omp 的设置来，omp-studio 不另设一层）
 1. **启动时从不传 `--approval-mode` / `--yolo` / `--auto-approve`。** omp 用配置里的 `tools.approvalMode`；没设置过就是 omp 的默认 `yolo`，此时不会出现审批门。`tools.approval.*` 与 `bash.patterns` 由 omp 按文档规则叠加，我们不改。
-2. **ApprovalChip 显示 omp 配置的当前值**（没设置过显示 omp 默认值），经 `omp config list` 读，和设置页的 omp 设置共用同一份快照（`config-store.ts`）。快照没读到时显示 `approval.loading`。
+2. **ApprovalChip 显示 omp 配置的当前值**（没设置过显示 omp 默认值），经 `omp config list` 读，和设置页的 omp 设置共用同一份快照（`config-store.ts`）。快照没读到时先用上次读到的值（启动缓存，见 §4.14），从没读到过才显示 `approval.loading`。
 3. **在胶囊里选一个模式 = `omp config set tools.approvalMode <模式>`**（写入只经 omp，AGENTS）。改的是用户全局的 omp 配置，终端里的 omp 也跟着变；之后启动的任务生效，已在运行的任务要重启。弹层底部 `approval.note` 说明这一点；胶囊不再区分"有没有进程"。
 4. **外观**：高 28，同其它胶囊；文案 `approval.alwaysAsk` / `approval.write` / `approval.yolo`；`yolo` 时胶囊底用 `--st-waiting-soft`、字用 `--st-waiting-text`、加盾牌图标。弹层（单选菜单）每项带一行描述（`approval.desc.*`），`yolo` 项的提示里加 `approval.subagents`。
 5. 在胶囊里把模式切到 `yolo`：首次弹一次确认（`approval.yoloConfirm*`），确认后记住（`StudioSettings.yoloConfirmed`）。omp 本身默认就是 `yolo` 时不弹（没有"切换"动作）。
@@ -917,6 +918,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `composer.context.tip` | 接近上限时 omp 会自动压缩 | omp compacts automatically near the limit |
 | `composer.compact` | 压缩上下文 | Compact context |
 | `composer.noModel` | 未连接模型 | No model connected |
+| `composer.modelLoading` | 模型… | Model… |
 | `composer.versionTooOld` | omp 版本过旧 | omp is too old |
 | `composer.resuming` | 正在恢复… | Resuming… |
 | `model.search` | 搜索模型… | Search models… |

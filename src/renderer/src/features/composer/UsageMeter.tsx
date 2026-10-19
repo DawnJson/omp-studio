@@ -72,11 +72,22 @@ function ContextButton({ footer, ...props }: ContextBreakdownProps & { footer?: 
   );
 }
 
-/** 任务的上下文圆环（发送键左边、费用之前）；omp 还没给出上下文占用时不显示。 */
+/** 还没有上下文数据时的占位：同一位置、同样大小的空圆环，不能点；数据到了换成可点的圆环。 */
+function ContextPlaceholder() {
+  return (
+    <span className="usage-context-anchor" aria-hidden="true">
+      <span className="usage-context" data-pending data-testid="context-meter-pending">
+        <Ring percent={0} />
+      </span>
+    </span>
+  );
+}
+
+/** 任务的上下文圆环（发送键左边、费用之前）；omp 还没给出上下文占用时是占位圆环。 */
 export function ContextMeter({ task }: { task: TaskState }) {
   const t = useT();
   const context = task.contextUsage;
-  if (context === null) return null;
+  if (context === null) return <ContextPlaceholder />;
   const busy = task.status === "running" || task.status === "needs_you";
   return (
     <ContextButton
@@ -104,10 +115,10 @@ export function ContextMeter({ task }: { task: TaskState }) {
   );
 }
 
-/** 新任务草稿的上下文圆环：还没有会话，占用是 0，窗口取所选模型的；模型没报窗口就不显示。 */
+/** 新任务草稿的上下文圆环：还没有会话，占用是 0，窗口取所选模型的；模型还没读到或没报窗口时是占位圆环。 */
 export function DraftContextMeter({ model, projectId }: { model: ModelOption | null; projectId: ProjectId | null }) {
   const window = model?.contextWindow ?? null;
-  if (window === null || window <= 0) return null;
+  if (window === null || window <= 0) return <ContextPlaceholder />;
   return (
     <ContextButton
       context={{ tokens: 0, contextWindow: window, percent: 0 }}

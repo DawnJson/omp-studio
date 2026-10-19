@@ -64,6 +64,7 @@ export const composer = {
   "quota.daily": "Daily usage",
   "usage.overview": "Usage and quota",
   defaultModel: "Default model",
+  modelLoading: "Model…",
   noModel: "No model connected",
   versionTooOld: "omp is too old",
   modelChip: "Choose model and thinking level",

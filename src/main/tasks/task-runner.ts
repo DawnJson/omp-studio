@@ -89,6 +89,8 @@ export interface RunnerHost {
   onSlashCommands(taskId: TaskId, commands: AvailableSlashCommand[]): void;
   onSubagents(taskId: TaskId, lanes: SubagentLane[]): void;
   onBtw(taskId: TaskId, event: BtwUiEvent): void;
+  /** 上次读到的模型目录里的这一项；没有（或没提供）时胶囊先显示模型 id。 */
+  knownModel?(key: ModelKey): ModelOption | null;
 }
 
 /** 存活进程数到了硬上限（软上限 × 2），拒绝再起。 */
@@ -188,8 +190,9 @@ export class TaskRunner {
     this.#project = project;
     this.#host = host;
     this.#sessionPersistable = record.sessionFile !== null;
+    // 进程起来之前先用记录里的模型；上次读到的模型目录里有它，就用目录里的名字、上下文窗口等。
     this.#model = record.model
-      ? {
+      ? (host.knownModel?.(record.model) ?? {
           key: record.model,
           name: record.model.modelId,
           contextWindow: null,
@@ -198,7 +201,7 @@ export class TaskRunner {
           maxTokens: null,
           thinkingEfforts: null,
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-        }
+        })
       : null;
     this.#thinkingLevel = record.thinkingLevel;
     this.#batcher = new EventBatcher((batch) => {

@@ -56,6 +56,7 @@ export const composer = {
   "quota.daily": "每日用量",
   "usage.overview": "用量与额度",
   defaultModel: "默认模型",
+  modelLoading: "模型…",
   noModel: "未连接模型",
   versionTooOld: "omp 版本过旧",
   modelChip: "选择模型和思考强度",

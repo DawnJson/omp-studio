@@ -103,9 +103,6 @@
   --sidebar-w-max: 360px;
   --content-w: 840px; /* 对话列与输入框同宽同轴 */
   --gutter: 24px; /* 对话区最小左右留白 */
-  --spine-indent: 34px; /* 运行脊线：对话内容相对列左缘的缩进（脊线和节点画在这段缩进里） */
-  --spine-node: 16px; /* 节点槽尺寸；脊线竖线居中于槽 */
-  --spine-line: 2px;
   --aside-w: 0px; /* 阶段 3 之后的右栏占位，v1 恒为 0 */
   --review-tree-w: 240px; /* 评审：文件树 */
   --review-aside-w: 320px; /* 评审：改动说明 / 评论队列 */

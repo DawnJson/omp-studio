@@ -7,6 +7,7 @@ import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Check, Shield } from "../../icons.tsx";
 import { useSettings } from "../../store/index.ts";
+import { startupSnapshot } from "../../store/startup-snapshot.ts";
 import { ensureOmpConfigLoaded, saveOmpConfigOrThrow, useOmpConfigValue } from "../settings/config-store.ts";
 import { Popover } from "./Popover.tsx";
 
@@ -23,7 +24,8 @@ export function ApprovalChip() {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const value = useOmpConfigValue(configKey);
+  // 快照还没读到时先用上次读到的（启动缓存），第一帧就显示模式而不是"审批…"。
+  const value = useOmpConfigValue(configKey) ?? startupSnapshot().approvalMode;
   const currentEntry = modes.find((entry) => entry.mode === value);
   const current = currentEntry?.mode;
 

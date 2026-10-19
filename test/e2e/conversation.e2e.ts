@@ -154,8 +154,6 @@ test("流式中：工具调用直接列在对话里，输入框上方是计时 +
     await expect(status.locator(".run-elapsed")).toHaveText(/^\d+s$/);
     await expect(page.getByTestId("assistant-message")).toHaveAttribute("data-live", "true");
     await expect(page.getByTestId("stop-button")).toBeVisible();
-    // 任务进行中不画脊线（竖线和节点）。
-    expect(await inPage<string>(page, ".column", `(el) => getComputedStyle(el, "::before").visibility`)).toBe("hidden");
     // 流式期间的滚动容器吸底。
     const stuck = await inPage<boolean>(
       page,
@@ -204,10 +202,6 @@ test("慢速回放：折叠行显示已工作 N 秒 · M 次工具调用，点�
     await expect(done).toContainText(/(已工作|Worked for)/);
     await expect(done).toContainText(/1/);
     await expect(page.locator(".details")).toHaveCount(0);
-    // 结束后脊线回来。
-    expect(await inPage<string>(page, ".column", `(el) => getComputedStyle(el, "::before").visibility`)).toBe(
-      "visible",
-    );
     await shoot(page, "folded");
     await done.locator(".process-row").click();
     await expect(page.locator(".step-tool")).toHaveCount(1);

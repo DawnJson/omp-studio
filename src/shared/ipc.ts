@@ -582,6 +582,20 @@ export interface DefaultModelInfo {
   thinkingLevel: ThinkingLevel | null;
 }
 
+/**
+ * 输入框工具行上次读到的数据（主进程存在 userData/startup-cache.json）。这些都要问 omp，冷启动要一两秒；
+ * 渲染进程启动时先拿它把工具行画完整，现读的结果到了再替换。缺的项 = 从没读到过。
+ */
+export interface StartupSnapshot {
+  defaultModel?: DefaultModelInfo | null;
+  models?: ModelOption[];
+  /** 按项目（键是 projectId，不在项目里是 "global"）。 */
+  modelDefaults?: Record<string, ModelDefaults>;
+  /** provider -> 有没有 OAuth 登录凭据（费用后面的 "(sub)"）。 */
+  subscriptions?: Record<string, boolean>;
+  approvalMode?: ApprovalMode;
+}
+
 export interface OmpConfigWriteResult {
   key: string;
   value: unknown;
@@ -842,6 +856,8 @@ export interface StudioInvokeApi {
   setYoloConfirmed(): Promise<void>;
   /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值；读不到（没登录、没有可用模型）时为 null。 */
   getDefaultModel(): Promise<DefaultModelInfo | null>;
+  /** 工具行上次读到的数据（见 StartupSnapshot），只读文件，不问 omp。 */
+  getStartupSnapshot(): Promise<StartupSnapshot>;
   /** projectId 为 null 时只看全局配置。 */
   getModelDefaults(projectId: ProjectId | null): Promise<ModelDefaults>;
   /** 设新任务的默认模型（omp 的 modelRoles.default；null = 去掉，让 omp 自己选），写到哪层和 omp 终端一致。 */
@@ -1068,6 +1084,7 @@ export const invokeNames = {
   setNotifyOnGate: true,
   setYoloConfirmed: true,
   getDefaultModel: true,
+  getStartupSnapshot: true,
   getModelDefaults: true,
   setDefaultModel: true,
   getModelInsights: true,

@@ -3,6 +3,7 @@ import { app, Menu } from "electron";
 import { registerIpcHandlers } from "./ipc/register.ts";
 import { applyGoalContinuationDefaultOnStartup } from "./ipc/omp-handlers.ts";
 import { initLog } from "./log/instance.ts";
+import { prewarmToolbarData } from "./service/default-model.ts";
 import { log } from "./log/log.ts";
 import { loadSettings } from "./settings/settings-store.ts";
 import { startUpdates } from "./update/instance.ts";
@@ -47,6 +48,8 @@ if (!app.requestSingleInstanceLock()) {
     createTray();
     startUpdates().catch((error: unknown) => log.error("update service failed to start", error));
     void applyGoalContinuationDefaultOnStartup();
+    // 输入框工具行要的默认模型、模型目录：和窗口同时开始读，不等渲染进程来要。
+    prewarmToolbarData();
     app.on("activate", () => {
       showMainWindow();
     });

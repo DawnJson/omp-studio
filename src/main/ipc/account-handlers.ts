@@ -4,8 +4,9 @@
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { apiKeyStore } from "../omp-manager/api-keys.ts";
 import { answerLoginInput, cancelLogin, startLogin } from "../service/login.ts";
-import { toModelOption } from "../tasks/convert.ts";
+import { listModelOptions } from "../service/default-model.ts";
 import { serviceOmp } from "../service/service-omp.ts";
+import { startupCache } from "../service/startup-cache-instance.ts";
 import { parseApiKey, parseInteger, parseString } from "./validate.ts";
 
 const parseProviderId = (value: unknown) => parseString(value, "providerId", 200);
@@ -27,8 +28,7 @@ export const accountHandlers: HandlerGroup<
   | "clearApiKey"
   | "listApiKeyProviders"
 > = {
-  listModels: async () =>
-    (await serviceOmp.use((connection) => connection.request("get_available_models"))).models.map(toModelOption),
+  listModels: () => listModelOptions(),
   listLoginProviders: async () =>
     (await serviceOmp.use((connection) => connection.request("get_login_providers"))).providers,
   startLogin: (providerId) => startLogin(parseProviderId(providerId)),
@@ -42,8 +42,15 @@ export const accountHandlers: HandlerGroup<
   cancelLogin: () => cancelLogin(),
   listAccounts: async (providerId) => {
     const id = parseProviderId(providerId);
-    return (await serviceOmp.use((connection) => connection.request("get_logout_accounts", { providerId: id })))
-      .accounts;
+    const { accounts } = await serviceOmp.use((connection) =>
+      connection.request("get_logout_accounts", { providerId: id }),
+    );
+    // 输入框费用后面的 "(sub)"：有 OAuth 凭据就是订阅登录（use-subscription.ts）。
+    startupCache().setSubscription(
+      id,
+      accounts.some((account) => account.type === "oauth"),
+    );
+    return accounts;
   },
   logout: async (providerId, credentialId) => {
     const id = parseProviderId(providerId);

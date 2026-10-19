@@ -6,7 +6,7 @@ import path from "node:path";
 import { resolveAgentDir } from "../history/session-index.ts";
 import { log } from "../log/log.ts";
 import { emitEvent } from "./events.ts";
-import type { HandlerGroup } from "../../shared/ipc.ts";
+import type { ApprovalMode, HandlerGroup, OmpConfigSnapshot } from "../../shared/ipc.ts";
 import { goalContinuationKey } from "../../shared/ui/goal-continuation.ts";
 import { applyGoalContinuationDefault, isGoalContinuationExplicit } from "../omp-config/goal-default.ts";
 import { listJson, OmpConfigService, runOmpConfig } from "../omp-config/config-service.ts";
@@ -15,6 +15,7 @@ import { readModelInsights } from "../omp-config/model-insights.ts";
 import { ompManager } from "../omp-manager/index.ts";
 import { onOmpConfigChanged, readDefaultModel } from "../service/default-model.ts";
 import { serviceOmp } from "../service/service-omp.ts";
+import { startupCache } from "../service/startup-cache-instance.ts";
 import { updateSettings } from "../settings/settings-store.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
@@ -104,6 +105,20 @@ async function projectPath(projectId: unknown): Promise<string | null> {
   return project.path;
 }
 
+const approvalKey = "tools.approvalMode";
+const approvalModes: readonly unknown[] = ["always-ask", "write", "yolo"] satisfies ApprovalMode[];
+
+/** 输入框的审批胶囊读的是快照里的 tools.approvalMode：读到就记进启动缓存。 */
+function recordApprovalMode(value: unknown): void {
+  if (approvalModes.includes(value)) startupCache().setApprovalMode(value as ApprovalMode);
+}
+
+function recordSnapshot(snapshot: OmpConfigSnapshot): OmpConfigSnapshot {
+  const item = snapshot.items.find((entry) => entry.key === approvalKey);
+  if (item) recordApprovalMode(item.hasValue ? item.value : item.defaultValue);
+  return snapshot;
+}
+
 export const ompHandlers: HandlerGroup<
   | "getOmpStatus"
   | "answerTakeover"
@@ -121,6 +136,7 @@ export const ompHandlers: HandlerGroup<
   | "setNotifyOnGate"
   | "setYoloConfirmed"
   | "getDefaultModel"
+  | "getStartupSnapshot"
   | "getModelDefaults"
   | "setDefaultModel"
   | "getModelInsights"
@@ -141,10 +157,11 @@ export const ompHandlers: HandlerGroup<
     ompManager().cancelInstall();
     return Promise.resolve();
   },
-  getOmpConfig: () => configService().snapshot(),
+  getOmpConfig: async () => recordSnapshot(await configService().snapshot()),
   setOmpConfig: async (key, valueJson) => {
     const name = parseString(key, "key", 200);
     const result = await configService().set(name, parseString(valueJson, "value", 1024 * 1024, { allowEmpty: true }));
+    if (name === approvalKey) recordApprovalMode(result.value);
     onOmpConfigChanged(name);
     return result;
   },
@@ -162,7 +179,12 @@ export const ompHandlers: HandlerGroup<
   setNotifyOnGate: (on) => Promise.resolve(updateSettings({ notifyOnGate: parseBoolean(on, "notifyOnGate") })),
   setYoloConfirmed: () => Promise.resolve(updateSettings({ yoloConfirmed: true })),
   getDefaultModel: () => readDefaultModel(),
-  getModelDefaults: async (projectId) => readModelDefaults(modelDefaultsDeps, await projectPath(projectId)),
+  getStartupSnapshot: () => Promise.resolve(startupCache().snapshot()),
+  getModelDefaults: async (projectId) => {
+    const defaults = await readModelDefaults(modelDefaultsDeps, await projectPath(projectId));
+    startupCache().setModelDefaults(projectId === null ? null : parseProjectId(projectId), defaults);
+    return defaults;
+  },
   setDefaultModel: async (projectId, model) => {
     await writeDefaultModel(
       modelDefaultsDeps,

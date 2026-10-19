@@ -23,6 +23,7 @@ import { worktreeBlockerKey } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
 import { selectTask } from "../../store/index.ts";
+import { startupSnapshot } from "../../store/startup-snapshot.ts";
 import { saveOmpDefaultModel, saveOmpDefaultThinking } from "../settings/config-store.ts";
 import { refreshProjects } from "../sidebar/projects-store.ts";
 import { takePendingDraftText } from "../palette/index.ts";
@@ -45,6 +46,11 @@ import "./composer.css";
 /** 没有项目时 `@` 补全不开（目录还没建），这个目标不会被查询。 */
 const noFilesTarget: ProjectFilesTarget = { kind: "project", projectId: "" as ProjectId };
 
+/** 这个项目上次读到的新任务默认值（启动缓存）。 */
+function cachedDefaults(projectId: ProjectId | null): ModelDefaults | null {
+  return startupSnapshot().modelDefaults?.[projectId ?? "global"] ?? null;
+}
+
 export function DraftComposer({ projectId }: { projectId: ProjectId | null }) {
   const t = useT();
   const key = `new:${projectId ?? "chats"}` as TaskId;
@@ -52,10 +58,11 @@ export function DraftComposer({ projectId }: { projectId: ProjectId | null }) {
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState(false);
-  const [omp, setOmp] = useState<DefaultModelInfo | null>(null);
-  const [models, setModels] = useState<ModelOption[] | null>(null);
+  // 初值是上次读到的（启动缓存），现读的到了再替换；omp 为 undefined = 还没读到过。
+  const [omp, setOmp] = useState<DefaultModelInfo | null | undefined>(() => startupSnapshot().defaultModel);
+  const [models, setModels] = useState<ModelOption[] | null>(() => startupSnapshot().models ?? null);
   // 这个项目里 omp 实际会用的默认值（项目 .omp/config.yml 会盖过全局）；refresh 递增时重读。
-  const [defaults, setDefaults] = useState<ModelDefaults | null>(null);
+  const [defaults, setDefaults] = useState<ModelDefaults | null>(() => cachedDefaults(projectId));
   const [refresh, setRefresh] = useState(0);
   const hasContent = draft.text.trim() !== "" || draft.images.length > 0;
 
@@ -70,7 +77,8 @@ export function DraftComposer({ projectId }: { projectId: ProjectId | null }) {
     let current = true;
     window.studio.getModelDefaults(projectId).then(
       (value) => current && setDefaults(value),
-      () => current && setDefaults(null),
+      // 读不到（omp 还没就绪等）：退回这个项目上次读到的值。
+      () => current && setDefaults(cachedDefaults(projectId)),
     );
     return () => {
       current = false;
@@ -263,12 +271,15 @@ export function DraftComposer({ projectId }: { projectId: ProjectId | null }) {
             thinkingLevels={levels}
             running={false}
             projectId={projectId}
-            // omp 一个可用模型都读不到时 omp 为 null：有模型列表就写"默认模型"，确实一个都没有才是"未连接"。
+            // omp 一个可用模型都读不到时 omp 为 null：有模型列表就写"默认模型"，确实一个都没有才是"未连接"；
+            // 还没读到过（第一次启动，没有缓存）时是"模型…"。
             {...(omp
               ? { emptyLabel: omp.name }
-              : models !== null && models.length > 0
-                ? { emptyLabel: t("composer.defaultModel") }
-                : {})}
+              : omp === undefined
+                ? { emptyLabel: t("composer.modelLoading") }
+                : models !== null && models.length > 0
+                  ? { emptyLabel: t("composer.defaultModel") }
+                  : {})}
             loadModels={() => window.studio.listModels()}
             setModel={(modelKey) => saveOmpDefaultModel(projectId, modelKey).finally(reread)}
             setThinking={(level) => saveOmpDefaultThinking(level).finally(reread)}

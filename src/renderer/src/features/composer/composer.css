@@ -107,9 +107,13 @@
   background: transparent;
   cursor: pointer;
 }
-.usage-context:hover .usage-ring-track,
+button.usage-context:hover .usage-ring-track,
 .usage-context[aria-expanded="true"] .usage-ring-track {
   stroke: var(--text-3);
+}
+/* 还没有数据时的占位圆环：同位置同大小，不能点。 */
+.usage-context[data-pending] {
+  cursor: default;
 }
 .session-cost {
   height: var(--control-h-sm);

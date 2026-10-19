@@ -1,0 +1,95 @@
+// 输入框工具行的启动缓存（StartupSnapshot）：模型胶囊、审批胶囊、上下文圆环、"(sub)" 要的数据都得问 omp，
+// 冷启动一两秒才齐。每次现读成功就记一笔，存到 userData/startup-cache.json；渲染进程启动时先用上次的值把工具行画完整。
+// 只做显示用：写入、判断照常走现读，这里的值不参与任何决定。文件坏了或版本不对就当没有。
+import { readFileSync } from "node:fs";
+import type {
+  ApprovalMode,
+  DefaultModelInfo,
+  ModelDefaults,
+  ModelKey,
+  ModelOption,
+  StartupSnapshot,
+} from "../../shared/ipc.ts";
+
+/** 文件格式版本；StartupSnapshot 的形状变了就加一，旧文件整个作废。 */
+const formatVersion = 1;
+
+export interface StartupCacheDeps {
+  file: string;
+  /** 原子写（先写临时文件再改名）。 */
+  write: (file: string, text: string) => Promise<void>;
+  warn: (message: string, error: unknown) => void;
+}
+
+export class StartupCache {
+  readonly #deps: StartupCacheDeps;
+  #data: StartupSnapshot | null = null;
+  #writing: Promise<void> = Promise.resolve();
+
+  constructor(deps: StartupCacheDeps) {
+    this.#deps = deps;
+  }
+
+  snapshot(): StartupSnapshot {
+    return this.#load();
+  }
+
+  /** 上次读到的模型目录里的这一项（任务进程还没起来时，胶囊先用它的名字和窗口）。 */
+  model(key: ModelKey): ModelOption | null {
+    return (
+      this.#load().models?.find((model) => model.key.provider === key.provider && model.key.modelId === key.modelId) ??
+      null
+    );
+  }
+
+  setDefaultModel(value: DefaultModelInfo | null): void {
+    this.#update("defaultModel", value);
+  }
+
+  setModels(value: ModelOption[]): void {
+    this.#update("models", value);
+  }
+
+  /** projectId 为 null（不在项目里）记在 "global" 下。 */
+  setModelDefaults(projectId: string | null, value: ModelDefaults): void {
+    this.#update("modelDefaults", { ...this.#load().modelDefaults, [projectId ?? "global"]: value });
+  }
+
+  setSubscription(provider: string, value: boolean): void {
+    this.#update("subscriptions", { ...this.#load().subscriptions, [provider]: value });
+  }
+
+  setApprovalMode(value: ApprovalMode): void {
+    this.#update("approvalMode", value);
+  }
+
+  #load(): StartupSnapshot {
+    if (this.#data) return this.#data;
+    this.#data = {};
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(this.#deps.file, "utf8"));
+      if (typeof parsed === "object" && parsed !== null && "version" in parsed && parsed.version === formatVersion) {
+        const { version: _, ...data } = parsed as StartupSnapshot & { version: number };
+        this.#data = data;
+      }
+    } catch {
+      // 没有文件（第一次启动）或坏了：当没有。
+    }
+    return this.#data;
+  }
+
+  #update<K extends keyof StartupSnapshot>(key: K, value: StartupSnapshot[K]): void {
+    const data = this.#load();
+    if (JSON.stringify(data[key]) === JSON.stringify(value)) return;
+    data[key] = value;
+    // 串行写，写的是轮到时的最新内容；一次失败只记 WARN（下次现读成功会再写）。
+    this.#writing = this.#writing
+      .then(() => this.#deps.write(this.#deps.file, JSON.stringify({ version: formatVersion, ...this.#data })))
+      .catch((error: unknown) => this.#deps.warn("writing the startup cache failed", error));
+  }
+
+  /** 等在途的写入结束（测试用）。 */
+  flushed(): Promise<void> {
+    return this.#writing;
+  }
+}

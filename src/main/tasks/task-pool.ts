@@ -63,6 +63,8 @@ export interface PoolDeps {
   beforeTaskClose?(id: TaskId): Promise<void>;
   /** 分叉出的新任务的标题（原标题加“分叉”后缀）；没传时沿用原标题。空标题不会走到这里。 */
   forkTitle?(title: string): string;
+  /** 上次读到的模型目录里的这一项（启动缓存）：任务进程起来之前，胶囊先显示它的名字和上下文窗口。 */
+  knownModel?(key: ModelKey): ModelOption | null;
 }
 
 export interface ResumeInput {
@@ -96,6 +98,7 @@ export class TaskPool {
       onSlashCommands: (taskId, commands) => deps.events.slashCommands(taskId, commands),
       onSubagents: (taskId, lanes) => deps.events.subagents(taskId, lanes),
       onBtw: (taskId, event) => deps.events.btw?.(taskId, event),
+      knownModel: (key) => deps.knownModel?.(key) ?? null,
     };
   }
 

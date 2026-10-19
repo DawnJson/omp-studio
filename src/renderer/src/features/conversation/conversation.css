@@ -266,71 +266,11 @@
   }
 }
 
-/* 运行脊线（direction-2.6 §3）：.column 左侧一条细竖线，每一轮挂在线上。
-   空心圆 = 你的消息，小灰点 = 折叠的过程，实心圆 = 结论；任务进行中整条脊线隐藏（见下）。
-   节点画在各块自己的伪元素上（.turn 的 content-visibility 会裁掉缩进之外的内容，所以内容整体缩进，节点留在缩进里）。 */
-.column {
-  position: relative;
-}
-.column::before {
-  content: "";
-  position: absolute;
-  top: calc(var(--space-6) + var(--space-2-5) + var(--lh-prose) / 2);
-  bottom: var(--space-8);
-  left: calc((var(--spine-node) - var(--spine-line)) / 2);
-  width: var(--spine-line);
-  background: var(--border);
-}
-.turn {
-  padding-left: var(--spine-indent);
-}
-.column > :not(.turn, .column-end) {
-  margin-left: var(--spine-indent);
-}
-.user::before,
-.process::before,
-.answer::before {
-  content: "";
-  position: absolute;
-  left: calc(var(--spine-indent) * -1);
-  box-sizing: border-box;
-  border-radius: var(--radius-pill);
-}
-.user::before {
-  top: calc(var(--space-2-5) + var(--lh-prose) / 2 - 6px);
-  left: calc(var(--spine-indent) * -1 + (var(--spine-node) - 12px) / 2);
-  width: 12px;
-  height: 12px;
-  background: var(--bg-app);
-  border: 2px solid var(--text-3);
-}
-.process {
-  position: relative;
-}
-.process::before {
-  top: calc((var(--row-tool) - 8px) / 2);
-  left: calc(var(--spine-indent) * -1 + (var(--spine-node) - 8px) / 2);
-  width: 8px;
-  height: 8px;
-  background: var(--text-3);
-}
 /* 运行中工具调用直接列在对话里（像 omp），不套折叠后的底色卡片。 */
 .process[data-state="live"] > .details {
   margin-top: 0;
   padding: 0;
   background: none;
-}
-.answer::before {
-  top: calc(var(--lh-prose) / 2 - 7px);
-  left: calc(var(--spine-indent) * -1 + (var(--spine-node) - 14px) / 2);
-  width: 14px;
-  height: 14px;
-  background: var(--accent);
-}
-/* 任务进行中不画脊线和节点（只留缩进，结束后再出现，内容不左右跳）。 */
-.conversation[data-running] .column::before,
-.conversation[data-running] :is(.user, .process, .answer)::before {
-  visibility: hidden;
 }
 
 .details {

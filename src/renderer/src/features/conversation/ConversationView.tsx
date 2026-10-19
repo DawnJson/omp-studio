@@ -140,13 +140,7 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
   const isLive = (turn: Turn): boolean => busy && turn === lastTurn;
 
   return (
-    <div
-      className="conversation"
-      data-testid="conversation"
-      data-task-id={taskId}
-      data-switching={switching}
-      data-running={busy || undefined}
-    >
+    <div className="conversation" data-testid="conversation" data-task-id={taskId} data-switching={switching}>
       <GoalStrip key={taskId} taskId={taskId} goal={task?.goal ?? null} />
       <div
         ref={scroller}
