@@ -198,7 +198,7 @@ flowchart LR
 ### 阶段 7：发布准备
 
 - [x] Windows 安装包和桌面端自身的自动更新（和 omp 的更新分开）：`npm run dist` 出 NSIS 安装包（用户目录，不需要管理员权限），`npm run feed` 出 `latest.yml`；设置 → 关于里检查更新、显示下载进度、重启并安装；启动后延迟 10 秒检查，之后每小时一次（`docs/architecture/auto-update.md`）。实测（2026-10-18）：本地静态服务器，安装版 0.1.0 检查到 0.1.1、下载、点击安装后应用关闭并自动重启，安装目录里的版本变成 0.1.1
-- [ ] 正式更新源和渠道：`electron-builder.yml` 现在是 `publish: null`，安装版只有设置 `STUDIO_UPDATE_URL` 才能更新。需要定：更新文件放哪（源码仓库私有，Releases 需要 token，不能写进应用；可选：单独的公开 releases 仓库 / 对象存储 / 开源后用本仓库）、stable 和 beta 渠道、GitHub Actions 打 tag 自动构建上传
+- [ ] 正式更新源和渠道：内测期间已定为仓库所有者本机的固定目录 `E:\work\code\omp-studio-updates`（2026-10-19，`electron-builder.yml` 的 `publish`，`npm run release` 写进去；0.0.9 → 0.1.0 实测自动更新通过），别的机器上装的版本不检查更新。对外仍需要定：更新文件放哪（源码仓库私有，Releases 需要 token，不能写进应用；可选：单独的公开 releases 仓库 / 对象存储 / 开源后用本仓库）、stable 和 beta 渠道、GitHub Actions 打 tag 自动构建上传
 - [ ] 代码签名（竞品都没签名，签了就是一个差异点；不签名也能自动更新，只是首次安装弹 SmartScreen）
 - [ ] CI 每天用最新的 omp 正式版和支持的最低版本各跑一遍 RPC 集成测试，提前发现上游变化
 - [ ] 确定正式名称，写 README 和截图
