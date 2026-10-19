@@ -55,6 +55,21 @@ describe("groupTasks", () => {
     expect(groupTasks(projects, [], new Set()).map((g) => g.tasks.length)).toEqual([0, 0]);
   });
 
+  it("排序用的是行尾显示的那个时间：一轮刚跑完的任务排在更早被操作过的任务前面", () => {
+    const groups = groupTasks(
+      projects,
+      [
+        task("touched", "p1", { updatedAt: 50 }),
+        task("finished", "p1", {
+          updatedAt: 10,
+          lastTurn: { status: "completed", endedAt: 90 } as TaskState["lastTurn"],
+        }),
+      ],
+      new Set(),
+    );
+    expect(groups[0]?.tasks.map((x) => x.id)).toEqual(["finished", "touched"]);
+  });
+
   it("指向未知项目的任务不显示（等项目列表刷新）", () => {
     expect(groupTasks(projects, [task("x", "unknown")], new Set()).flatMap((g) => g.tasks)).toEqual([]);
   });

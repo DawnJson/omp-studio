@@ -1,4 +1,5 @@
-// 斜杠菜单：浮在输入框上方，行高 32，最多 8 行。键盘由 Composer 处理（↑↓ 选，Tab/Enter 补全，Esc 关闭）；鼠标点选补全。
+// 斜杠菜单：浮在输入框上方，行高 32，最多同时显示 8 行，更多的在菜单内滚动（键盘选中行始终可见）。键盘由 Composer 处理（↑↓ 选，Tab/Enter 补全，Esc 关闭）；鼠标点选补全。
+import { useEffect, useRef } from "react";
 import type { AvailableSlashCommand } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
 
@@ -12,8 +13,12 @@ interface SlashMenuProps {
 
 export function SlashMenu({ id, commands, active, onHover, onPick }: SlashMenuProps) {
   const t = useT();
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    listRef.current?.querySelector(`[id="${id}-${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [id, active]);
   return (
-    <div className="slash" role="listbox" id={id} aria-label={t("slash.label")} data-testid="slash-menu">
+    <div className="slash" role="listbox" id={id} ref={listRef} aria-label={t("slash.label")} data-testid="slash-menu">
       {commands.length === 0 && <p className="pop-note">{t("slash.empty")}</p>}
       {commands.map((command, index) => (
         <button

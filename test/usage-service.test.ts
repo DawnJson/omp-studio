@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { parseQuota, readHeatmap } from "../src/main/usage/usage-service.ts";
+import { parseQuota, readHeatmap, statsDbPath } from "../src/main/usage/usage-service.ts";
 
 let dir: string;
 beforeAll(async () => {
@@ -19,6 +19,26 @@ const noon = (daysAgo: number, now: number) => {
   date.setHours(12, 0, 0, 0);
   return date.getTime();
 };
+
+describe("stats.db 位置", () => {
+  const home = path.join(path.sep, "h");
+  it("默认 <home>/.omp/stats.db，PI_CODING_AGENT_DIR 不影响（实测）", () => {
+    expect(statsDbPath({}, home)).toBe(path.join(home, ".omp", "stats.db"));
+    expect(statsDbPath({ PI_CODING_AGENT_DIR: path.join(home, "elsewhere") }, home)).toBe(
+      path.join(home, ".omp", "stats.db"),
+    );
+  });
+  it("PI_CONFIG_DIR 换配置根目录名；空串当没设", () => {
+    expect(statsDbPath({ PI_CONFIG_DIR: ".cfgx" }, home)).toBe(path.join(home, ".cfgx", "stats.db"));
+    expect(statsDbPath({ PI_CONFIG_DIR: "" }, home)).toBe(path.join(home, ".omp", "stats.db"));
+  });
+  it("命名 profile 在 profiles/<名>/；OMP_PROFILE 压过 PI_PROFILE（即使为空）；default 等于默认", () => {
+    expect(statsDbPath({ OMP_PROFILE: "foo" }, home)).toBe(path.join(home, ".omp", "profiles", "foo", "stats.db"));
+    expect(statsDbPath({ PI_PROFILE: "bar" }, home)).toBe(path.join(home, ".omp", "profiles", "bar", "stats.db"));
+    expect(statsDbPath({ OMP_PROFILE: "", PI_PROFILE: "bar" }, home)).toBe(path.join(home, ".omp", "stats.db"));
+    expect(statsDbPath({ OMP_PROFILE: "default" }, home)).toBe(path.join(home, ".omp", "stats.db"));
+  });
+});
 
 describe("近一年每日消耗", () => {
   it("把 omp stats.db 的小时桶按本地日期合并，一年以前的不要，库不存在时说明没有库", () => {

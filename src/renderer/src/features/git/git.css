@@ -146,6 +146,11 @@
   gap: var(--space-2);
   font-size: var(--fs-sm);
 }
+.git-check input {
+  flex: none;
+  margin: 0;
+  accent-color: var(--accent);
+}
 .git-group {
   margin: 0 0 var(--space-1);
   font-size: var(--fs-sm);

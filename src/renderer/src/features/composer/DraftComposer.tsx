@@ -11,7 +11,6 @@ import {
   type KeyboardEvent,
 } from "react";
 import type { DefaultModelInfo, ModelDefaults, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
-import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { worktreeBlockerKey } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
@@ -25,12 +24,12 @@ import { ApprovalChip } from "./ApprovalChip.tsx";
 import { Attachments } from "./Attachments.tsx";
 import { getDraft, setDraft, setDraftText, useDraft } from "./draft-store.ts";
 import { ModelChip } from "./ModelChip.tsx";
-import { decideEnter } from "./send-logic.ts";
+import { decideEnter, isShellDraft } from "./send-logic.ts";
 import { SendStop } from "./SendStop.tsx";
+import { FileMenu } from "./FileMenu.tsx";
+import { useFileMenu } from "./use-file-menu.ts";
+import { clampThinkingLevel, effortOrder, thinkingLevelOptions } from "./thinking-levels.ts";
 import "./composer.css";
-
-// omp 的 defaultThinkingLevel 不接受 off。
-const levels: readonly ThinkingLevel[] = ["minimal", "low", "medium", "high", "xhigh", "max"];
 
 export function DraftComposer({ projectId }: { projectId: ProjectId }) {
   const t = useT();
@@ -87,13 +86,27 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
       if (role !== null) return role === id || role.startsWith(`${id}:`);
       return m.key.provider === omp?.key.provider && m.key.modelId === omp?.key.modelId;
     }) ?? null;
-  const thinkingLevel = levels.find((level) => level === defaults?.thinkingLevel) ?? omp?.thinkingLevel ?? null;
+  // 草稿没有进程可问：档位列表来自模型的 thinking.efforts（不含 off，defaultThinkingLevel 不接受），
+  // 配置里的档位模型不支持时显示 omp 会钳到的那一档（thinking-levels.ts）。
+  const levels = thinkingLevelOptions(model, []);
+  const configuredLevel = effortOrder.find((level) => level === defaults?.thinkingLevel) ?? omp?.thinkingLevel ?? null;
+  const thinkingLevel = configuredLevel === null ? null : clampThinkingLevel(configuredLevel, levels);
   const reread = () => setRefresh((count) => count + 1);
+
+  // `@` 文件引用补全：目录是这个项目的目录。
+  const fileMenu = useFileMenu({ kind: "project", projectId }, draft.text, true, fieldRef, (next) =>
+    setDraftText(key, next),
+  );
 
   const send = async () => {
     const current = getDraft(key);
     const text = current.text.trim();
     if (sending || (text === "" && current.images.length === 0)) return;
+    // `!命令` 要在任务里跑；还没有任务，不能当成第一条消息发给模型。
+    if (isShellDraft(current)) {
+      pushToast({ level: "warning", message: t("conversation.shell.needsTask") });
+      return;
+    }
     setSending(true);
     try {
       if (getWorktreeDraft(projectId).on && !(await ensureSetupApproved(projectId))) {
@@ -131,6 +144,7 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (fileMenu.onKeyDown(event)) return;
     const action = decideEnter(
       {
         key: event.key,
@@ -141,7 +155,7 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
         isComposing: event.nativeEvent.isComposing,
         keyCode: event.keyCode,
       },
-      { running: false, gate: false, hasContent, swapped: false },
+      { running: false, gate: false, hasContent, swapped: false, shell: false },
     );
     if (action !== "send") return;
     event.preventDefault();
@@ -163,6 +177,15 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
   return (
     <div className="composer-stack" data-testid="draft-composer" data-draft>
       <div className="composer" onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
+        {fileMenu.open && (
+          <FileMenu
+            id="file-menu-list"
+            files={fileMenu.files}
+            active={fileMenu.active}
+            onHover={fileMenu.setActive}
+            onPick={fileMenu.pick}
+          />
+        )}
         <div className="composer-body">
           <Attachments
             images={draft.images}
@@ -179,7 +202,13 @@ export function DraftComposer({ projectId }: { projectId: ProjectId }) {
             value={draft.text}
             placeholder={t("composer.placeholderNew")}
             aria-label={t("composer.placeholderNew")}
-            onChange={(event) => setDraftText(key, event.target.value)}
+            aria-controls={fileMenu.open ? "file-menu-list" : undefined}
+            aria-activedescendant={fileMenu.open ? `file-menu-list-${fileMenu.active}` : undefined}
+            onChange={(event) => {
+              setDraftText(key, event.target.value);
+              fileMenu.trackCaret(event.target.selectionStart);
+            }}
+            onSelect={(event) => fileMenu.trackCaret(event.currentTarget.selectionStart)}
             onKeyDown={onKeyDown}
             onPaste={onPaste}
           />

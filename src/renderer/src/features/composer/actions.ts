@@ -4,16 +4,20 @@ import type { PromptImage, TaskId } from "../../../../shared/ipc.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { requestStickToBottom } from "../conversation/scroll-bus.ts";
+import { endShellRun, getShellRun, startShellRun } from "../conversation/shell-run-store.ts";
 import { appendToDraft, getDraft, setDraft } from "./draft-store.ts";
+import { stopToasts } from "./stop-outcome.ts";
 import { fileToPromptImage } from "./image-resize.ts";
+import { canRunShell, isShellDraft } from "./send-logic.ts";
 
 export type Delivery = "steer" | "followUp";
 
 /** 发送草稿。先清空输入框（乐观），发送失败再放回去并提示；发送后强制吸底。 */
-export async function sendDraft(taskId: TaskId, whenBusy: Delivery, t: TFunction): Promise<void> {
+export async function sendDraft(taskId: TaskId, whenBusy: Delivery, t: TFunction, running: boolean): Promise<void> {
   const draft = getDraft(taskId);
   const text = draft.text.trim();
   if (text === "" && draft.images.length === 0) return;
+  if (isShellDraft(draft)) return runShellDraft(taskId, text, t, running);
   setDraft(taskId, { text: "", images: [] });
   requestStickToBottom(taskId);
   try {
@@ -25,6 +29,36 @@ export async function sendDraft(taskId: TaskId, whenBusy: Delivery, t: TFunction
   } catch (error) {
     appendToDraft(taskId, [text], draft.images);
     reportError(t, error, t("msg.sendFailed"));
+  }
+}
+
+/**
+ * `!命令`（终端版同款）：经 RPC bash 在任务目录里执行，结果以命令块进对话流。
+ * `!!`（不进模型上下文）omp 的 bash 命令没有这个选项，不能悄悄当成 `!` 执行：提示并保留草稿。
+ * 任务正在跑一轮、或已有一条 `!命令` 在跑时拒绝（提示并保留草稿）：命令块会把正在进行的一轮拦腰截断，
+ * 而同一任务同时只有一个命令槽。
+ */
+async function runShellDraft(taskId: TaskId, text: string, t: TFunction, running: boolean): Promise<void> {
+  if (text.startsWith("!!")) {
+    pushToast({ level: "warning", message: t("conversation.shell.excludeUnsupported") });
+    return;
+  }
+  const command = text.slice(1).trim();
+  if (command === "") return;
+  if (!canRunShell({ taskRunning: running, shellRunning: getShellRun(taskId) !== null })) {
+    pushToast({ level: "warning", message: t("conversation.shell.busy") });
+    return;
+  }
+  setDraft(taskId, { text: "", images: [] });
+  requestStickToBottom(taskId);
+  startShellRun(taskId, command);
+  try {
+    await window.studio.runBash(taskId, command);
+  } catch (error) {
+    appendToDraft(taskId, [text], []);
+    reportError(t, error, t("msg.sendFailed"));
+  } finally {
+    endShellRun(taskId);
   }
 }
 
@@ -40,10 +74,10 @@ export async function stopAndRestore(taskId: TaskId, t: TFunction): Promise<void
         queued.map((item) => item.text),
         images,
       );
-    if (restored.imagesDropped) pushToast({ level: "warning", message: t("composer.imagesDropped") });
-    pushToast({
-      message: queued.length > 0 ? t("composer.queueRestored", { count: queued.length }) : t("composer.stopped"),
-    });
+    for (const toast of stopToasts(restored)) {
+      const message = toast.count === undefined ? t(toast.key) : t(toast.key, { count: toast.count });
+      pushToast(toast.level ? { level: toast.level, message } : { message });
+    }
   } catch (error) {
     reportError(t, error);
   }

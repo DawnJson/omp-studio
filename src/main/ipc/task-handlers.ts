@@ -1,6 +1,7 @@
 // 任务和项目的 IPC handler：校验参数，委托任务池。参数一律是 unknown，先校验再用（AGENTS.md "Electron 安全"）。
 // "id 是否存在""对话框是否还在 pending 表里""select 的值是否在 options 里"由任务池/运行时查表确认。
 import { dialog, shell } from "electron";
+import { limits } from "../../shared/ipc.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { canOpenDirectly, resolveInsideReal } from "./task-file-path.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
@@ -51,10 +52,15 @@ export const taskHandlers: HandlerGroup<
   | "setTaskModel"
   | "setTaskThinkingLevel"
   | "compactTask"
+  | "runBash"
+  | "abortBash"
   | "openTaskFile"
   | "revealTaskFile"
 > = {
   compactTask: async (taskId) => (await getTaskPool()).compactTask(parseTaskId(taskId)),
+  runBash: async (taskId, command) =>
+    (await getTaskPool()).runBash(parseTaskId(taskId), parseString(command, "command", limits.bashCommandMaxChars)),
+  abortBash: async (taskId) => (await getTaskPool()).abortBash(parseTaskId(taskId)),
 
   openTaskFile: async (taskId, relPath) => {
     const pool = await getTaskPool();

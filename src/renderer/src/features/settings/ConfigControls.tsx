@@ -2,7 +2,8 @@
 // 文本类输入停手 700 ms（JSON 1000 ms）、失焦或按 Enter 时存；校验没过不存，错误就地显示。
 import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
-import { useT } from "../../i18n/use-t.ts";
+import { useLocale, useT } from "../../i18n/use-t.ts";
+import { enumLabel } from "../../../../shared/ui/config-labels.ts";
 import { Segmented, Select, Switch, type Option } from "./controls.tsx";
 import { canEditStructured, ChainsEditor, RolesEditor } from "./StructuredEditors.tsx";
 
@@ -131,11 +132,13 @@ function JsonControl({ item, labelId, onSave, onInvalid }: ControlProps) {
 
 function EnumControl({ item, labelId, onSave }: ControlProps) {
   const t = useT();
+  const locale = useLocale();
   const current = typeof item.value === "string" ? item.value : "";
-  const base: Option<string>[] = (item.options ?? []).map((option) => ({ value: option, label: option }));
+  const label = (value: string) => enumLabel(locale, item.key, value);
+  const base: Option<string>[] = (item.options ?? []).map((option) => ({ value: option, label: label(option) }));
   // 当前值不在可选值里（omp 版本变了、手改过配置）：保留它，别让控件悄悄显示成别的。
   if (item.hasValue && current !== "" && !base.some((option) => option.value === current))
-    base.push({ value: current, label: current });
+    base.push({ value: current, label: label(current) });
   const short = base.length <= 3 && base.every((option) => option.label.length <= 12) && item.hasValue;
   if (short) return <Segmented<string> value={current} options={base} labelledBy={labelId} onChange={onSave} />;
   const options = item.hasValue ? base : [{ value: "", label: t("settings.cfg.unset") }, ...base];

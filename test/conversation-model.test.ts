@@ -258,3 +258,44 @@ describe("空的思考块", () => {
     expect(turn?.answer?.text).toBe("好。");
   });
 });
+
+describe("用户的 !命令（bashExecution 消息）", () => {
+  it("历史里的 bashExecution 单独成一轮，渲染成命令块：退出码、取消、截断都带上，不并进上一轮的过程", () => {
+    const t = applyTranscriptEvent(emptyTranscript(), {
+      type: "history",
+      messages: [
+        { role: "user", content: "你好", timestamp: 1 },
+        {
+          role: "bashExecution",
+          command: "ls",
+          output: "a\nb\n",
+          exitCode: 0,
+          cancelled: false,
+          truncated: false,
+          timestamp: 2,
+        },
+        {
+          role: "bashExecution",
+          command: "false",
+          output: "",
+          exitCode: 1,
+          cancelled: false,
+          truncated: true,
+          timestamp: 3,
+        },
+        { role: "bashExecution", command: "sleep 9", output: "", cancelled: true, truncated: false, timestamp: 4 },
+      ],
+    });
+    const turns = buildTurns(t);
+    expect(turns).toHaveLength(4);
+    expect(turns[0]?.extras).toEqual([]);
+    expect(turns[0]?.steps).toEqual([]);
+    expect(turns.slice(1).map((turn) => turn.user)).toEqual([null, null, null]);
+    expect(turns.slice(1).map((turn) => turn.extras)).toEqual([
+      [expect.objectContaining({ kind: "shell", command: "ls", output: "a\nb\n", exitCode: 0, cancelled: false })],
+      [expect.objectContaining({ kind: "shell", command: "false", exitCode: 1, truncated: true })],
+      [expect.objectContaining({ kind: "shell", command: "sleep 9", exitCode: null, cancelled: true })],
+    ]);
+    expect(turns.every((turn) => turn.toolCalls === 0)).toBe(true);
+  });
+});

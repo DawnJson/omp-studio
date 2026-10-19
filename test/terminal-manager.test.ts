@@ -50,6 +50,7 @@ function setup(overrides: Partial<TerminalDeps> = {}) {
   const exits: [string, number][] = [];
   const jobs: number[] = [];
   const killed: number[] = [];
+  const released: number[] = [];
   const deps: TerminalDeps = {
     taskCwd: (id) => `/work/${id}`,
     directoryExists: async () => true,
@@ -62,13 +63,16 @@ function setup(overrides: Partial<TerminalDeps> = {}) {
       ptys.push(pty);
       return pty;
     },
-    assignJob: (pid) => void jobs.push(pid),
+    assignJob: (pid) => {
+      jobs.push(pid);
+      return () => void released.push(pid);
+    },
     emitData: (id, d) => void data.push([id, d]),
     emitExit: (id, code) => void exits.push([id, code]),
     onError: () => undefined,
     ...overrides,
   };
-  return { manager: new TerminalManager(deps), ptys, data, exits, jobs, killed };
+  return { manager: new TerminalManager(deps), ptys, data, exits, jobs, released, killed };
 }
 
 describe("TerminalManager", () => {
@@ -105,6 +109,16 @@ describe("TerminalManager", () => {
     });
     await expect(manager.open(task("t1"), 80, 24)).resolves.toMatchObject({ reopened: false });
     expect(onError).toHaveBeenCalledOnce();
+  });
+
+  it("Job 句柄在 close 和 shell 自己退出时各释放一次", async () => {
+    const { manager, ptys, released } = setup();
+    await manager.open(task("a"), 80, 24);
+    await manager.open(task("b"), 80, 24);
+    await manager.close(task("a"));
+    expect(released).toEqual([100]);
+    ptys[1]?.exit(0);
+    expect(released).toEqual([100, 101]);
   });
 
   it("输出按批发出，再次 open 复用同一个 pty，返回 backlog，未发出的批次不重复", async () => {

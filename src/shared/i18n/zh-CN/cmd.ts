@@ -19,4 +19,5 @@ export const cmd = {
   shortcuts: "快捷键",
   archive: "归档当前任务",
   toggleTerminal: "切换终端",
+  usage: "查看用量",
 } satisfies Record<string, MessageEntry>;

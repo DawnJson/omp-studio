@@ -6,7 +6,7 @@ import { Branch } from "../../icons.tsx";
 import { useTaskWorktree } from "../git/git-store.ts";
 import { MoreIcon } from "./icons.tsx";
 import { StatusDot } from "./StatusDot.tsx";
-import { formatTaskTime } from "./task-time.ts";
+import { taskTail } from "../../../../shared/ui/task-time.ts";
 
 export interface TaskRowProps {
   task: TaskState;
@@ -77,16 +77,7 @@ export function TaskRow(props: TaskRowProps) {
   if (renaming)
     return <RenameInput task={task} title={title} t={t} onDone={(value) => props.onCommitRename(task, value)} />;
 
-  const tail =
-    task.status === "needs_you" || task.status === "starting"
-      ? null
-      : task.status === "running"
-        ? task.runStartedAt === null
-          ? null
-          : t("task.runningFor", { n: Math.max(1, Math.floor((props.now - task.runStartedAt) / 60_000)) })
-        : task.lastTurn?.status === "aborted"
-          ? t("task.stopped")
-          : formatTaskTime(t, props.locale, task.updatedAt, props.now);
+  const tail = taskTail(t, props.locale, task, props.now);
 
   return (
     <div

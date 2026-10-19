@@ -85,3 +85,103 @@ export const SlashIcon = () => (
     <path d="m10.5 3-5 10" />
   </Icon>
 );
+
+// 以下是命令面板里各条命令的图标（按命令 id 对应，见 palette/command-icons.ts）。
+export const SidebarToggleIcon = () => (
+  <Icon>
+    <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
+    <path d="M6.5 3v10" />
+  </Icon>
+);
+
+export const ThemeIcon = () => (
+  <Icon>
+    <circle cx="8" cy="8" r="5" />
+    <path d="M8 3v10" />
+    <path d="M8 3a5 5 0 0 1 0 10z" fill="currentColor" />
+  </Icon>
+);
+
+export const LanguageIcon = () => (
+  <Icon>
+    <circle cx="8" cy="8" r="5.5" />
+    <path d="M2.5 8h11M8 2.5c-2 2-2 9 0 11M8 2.5c2 2 2 9 0 11" />
+  </Icon>
+);
+
+export const ModelIcon = () => (
+  <Icon>
+    <rect x="4.5" y="4.5" width="7" height="7" rx="1.5" />
+    <path d="M6.5 2.5v2M9.5 2.5v2M6.5 11.5v2M9.5 11.5v2M2.5 6.5h2M2.5 9.5h2M11.5 6.5h2M11.5 9.5h2" />
+  </Icon>
+);
+
+export const ThinkingIcon = () => (
+  <Icon>
+    <path d="M5.5 11.5h5M6.5 13.5h3M8 2.5a4 4 0 0 0-2.4 7.2c.5.4.9 1 .9 1.8h3c0-.8.4-1.4.9-1.8A4 4 0 0 0 8 2.5z" />
+  </Icon>
+);
+
+export const CompactIcon = () => (
+  <Icon>
+    <path d="M3 3.5h10M3 12.5h10M8 5.5v2M6.25 6.5 8 8.25 9.75 6.5M8 10.5v-2M6.25 9.5 8 7.75 9.75 9.5" />
+  </Icon>
+);
+
+export const StopIcon = () => (
+  <Icon>
+    <rect x="4" y="4" width="8" height="8" rx="1.5" />
+  </Icon>
+);
+
+export const CopyIcon = () => (
+  <Icon>
+    <rect x="5.5" y="5.5" width="7" height="8" rx="1.5" />
+    <path d="M10.5 3.5v-.2a1 1 0 0 0-1-1h-5a1 1 0 0 0-1 1v7.2a1 1 0 0 0 1 1h.2" />
+  </Icon>
+);
+
+export const ProcessIcon = () => (
+  <Icon>
+    <path d="M3 4.5h10M5.5 8h7.5M5.5 11.5h7.5M3 8h.01M3 11.5h.01" />
+  </Icon>
+);
+
+export const ReviewIcon = () => (
+  <Icon>
+    <path d="M4 2.5h5.5l3 3v8H4z" />
+    <path d="M8.25 6.25v3.5M6.5 8h3.5M6.5 11.5h3.5" />
+  </Icon>
+);
+
+export const BellIcon = () => (
+  <Icon>
+    <path d="M4 11V7.5a4 4 0 0 1 8 0V11l1 1.5H3zM6.5 14h3" />
+  </Icon>
+);
+
+export const UsageIcon = () => (
+  <Icon>
+    <path d="M3 13V8.5M7 13V3.5M11 13V6M14 13H2" />
+  </Icon>
+);
+
+export const RefreshIcon = () => (
+  <Icon>
+    <path d="M13 8a5 5 0 1 1-1.6-3.7M12.5 2v3h-3" />
+  </Icon>
+);
+
+export const KeyboardIcon = () => (
+  <Icon>
+    <rect x="2" y="4.5" width="12" height="7" rx="1.5" />
+    <path d="M5 7.5h.01M8 7.5h.01M11 7.5h.01M5.5 9.5h5" />
+  </Icon>
+);
+
+export const ArchiveIcon = () => (
+  <Icon>
+    <rect x="2.5" y="3" width="11" height="3" rx="1" />
+    <path d="M3.5 6v6.5h9V6M6.5 9h3" />
+  </Icon>
+);

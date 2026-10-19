@@ -24,6 +24,7 @@ export function LoginCard({
   flow,
   code,
   copied,
+  maskInput,
   onCode,
   onCopy,
   onSubmitCode,
@@ -31,6 +32,8 @@ export function LoginCard({
   flow: { kind: "login" } & LoginProgress;
   code: string;
   copied: boolean;
+  /** 输入的是 API key（登录方式是粘贴 key），不明文显示。 */
+  maskInput: boolean;
   onCode(value: string): void;
   onCopy(text: string): void;
   onSubmitCode(inputId: string): void;
@@ -65,6 +68,8 @@ export function LoginCard({
         <div className="st-login-line">
           <input
             className="st-input"
+            type={maskInput ? "password" : "text"}
+            autoComplete="off"
             autoFocus
             value={code}
             placeholder={flow.input.placeholder ?? t("login.pasteCode")}

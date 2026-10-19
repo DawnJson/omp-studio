@@ -1,9 +1,11 @@
 // 设置 → 模型与账号：提供商列表（登录/API key）、新任务的默认模型/思考强度。
 // 默认值就是 omp 自己的 modelRoles.default / defaultThinkingLevel（设计原则 7），和输入框的模型胶囊、omp 设置页是同一份。
 import { describeError, reportError } from "../../ui/errors.ts";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { apiKeyEnvName } from "../../../../shared/provider-keys.ts";
+import { loginKind } from "../../../../shared/provider-login.ts";
+import { arrangeProviders } from "../../../../shared/ui/provider-list.ts";
 import { useT } from "../../i18n/use-t.ts";
 import {
   defaultModelRole,
@@ -31,6 +33,11 @@ export function ModelsSection() {
   const data = load.kind === "ready" ? load.data : null;
   const error = load.kind === "error" ? load.error : null;
   const [loginBusy, setLoginBusy] = useState(false);
+  const [providerQuery, setProviderQuery] = useState("");
+  const visibleProviders = useMemo(
+    () => (data ? arrangeProviders(data.providers, data.keyProviders, providerQuery) : []),
+    [data, providerQuery],
+  );
 
   // 有缓存就直接显示，进入时后台刷新一次。
   const enter = useCallback(() => void loadAccounts(), []);
@@ -71,18 +78,39 @@ export function ModelsSection() {
         )}
         {error === null && data === null && <div className="st-block st-muted">{t("settings.modelsLoading")}</div>}
         {data?.providers.length === 0 && <div className="st-block st-muted">{t("login.empty")}</div>}
-        {data?.providers.map((provider) => (
-          <ProviderRow
-            key={provider.id}
-            provider={provider}
-            accounts={data.accounts[provider.id] ?? []}
-            hasStoredKey={data.keyProviders.includes(provider.id)}
-            canSetKey={apiKeyEnvName(provider.id) !== null}
-            blocked={loginBusy}
-            onLoginActive={setLoginBusy}
-            onChanged={reload}
-          />
-        ))}
+        {data !== null && data.providers.length > 0 && (
+          <div className="st-block">
+            <input
+              type="search"
+              className="st-input"
+              value={providerQuery}
+              placeholder={t("login.search")}
+              aria-label={t("login.search")}
+              spellCheck={false}
+              onChange={(event) => setProviderQuery(event.target.value)}
+              data-testid="provider-search"
+            />
+          </div>
+        )}
+        {data !== null && data.providers.length > 0 && visibleProviders.length === 0 && (
+          <div className="st-block st-muted" data-testid="provider-no-match">
+            {t("login.noMatch")}
+          </div>
+        )}
+        {data !== null &&
+          visibleProviders.map((provider) => (
+            <ProviderRow
+              key={provider.id}
+              provider={provider}
+              accounts={data.accounts[provider.id] ?? []}
+              hasStoredKey={data.keyProviders.includes(provider.id)}
+              canSetKey={apiKeyEnvName(provider.id) !== null}
+              loginKind={loginKind(provider.id)}
+              blocked={loginBusy}
+              onLoginActive={setLoginBusy}
+              onChanged={reload}
+            />
+          ))}
       </Card>
 
       <Card>

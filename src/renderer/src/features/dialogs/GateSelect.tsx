@@ -34,6 +34,7 @@ export function GateSelect({
   busy,
   respond,
   primaryRef,
+  preview = null,
 }: GateBodyProps<Extract<DialogRequest, { kind: "select" }>>) {
   const t = useT();
   const [filter, setFilter] = useState("");
@@ -72,6 +73,7 @@ export function GateSelect({
   return (
     <div className="gate-body" onKeyDown={onKeyDown}>
       {body !== "" && <Details text={body} />}
+      {preview !== null && <Details text={preview} />}
       {row ? (
         <div className="gate-actions">
           {options.map((option, index) => (
@@ -86,6 +88,8 @@ export function GateSelect({
               onClick={() => choose(index)}
             >
               <span className="gate-btn-label">{label(option.label)}</span>
+              {index === 0 && <kbd className="gate-key">Ctrl+Enter</kbd>}
+              {approval && index === options.length - 1 && <kbd className="gate-key">Esc</kbd>}
             </button>
           ))}
         </div>

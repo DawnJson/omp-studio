@@ -94,7 +94,8 @@ export function buildCommands({ t, locale, theme, current, hasWaiting }: Command
       shortcut: "Ctrl J",
       run: () => void jumpToWaitingTask(current?.id ?? null, t),
     },
-    // 更新检查、快捷键清单在设置页里，直接定位到对应分节（设置页没有用量分节，所以没有"查看用量"命令）。
+    // 更新检查、用量、快捷键清单在设置页里，直接定位到对应分节。
+    { id: "usage", label: t("cmd.usage"), run: () => showView("settings", { section: "usage" }) },
     { id: "checkUpdate", label: t("cmd.checkUpdate"), run: () => showView("settings", { section: "omp" }) },
     { id: "shortcuts", label: t("cmd.shortcuts"), run: () => showView("settings", { section: "shortcuts" }) },
     current && { id: "archive", label: t("cmd.archive"), run: () => archiveWithUndo(current.id, current.id, t) },

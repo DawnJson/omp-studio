@@ -20,6 +20,8 @@ import type { SubagentDetail, SubagentLane } from "../../shared/subagents.ts";
 import type {
   AgentMessage,
   AvailableSlashCommand,
+  BashExecutionMessage,
+  BashResult,
   PromptParams,
   RpcServerFrame,
   SessionState,
@@ -36,7 +38,7 @@ import { DialogResponseError, toDialogRequest, toUiResponse } from "./dialogs.ts
 import { EventBatcher } from "./event-batcher.ts";
 import { initialMachineState, transition, type MachineInput, type MachineState } from "./task-machine.ts";
 import type { TaskRecord } from "./task-registry.ts";
-import { translateFrame } from "./translate.ts";
+import { messageKey, translateFrame } from "./translate.ts";
 import { SubagentRecord, type RecordSlice } from "./subagent-record.ts";
 import { SubagentTracker } from "./subagent-tracker.ts";
 
@@ -99,6 +101,9 @@ export class TaskRunner {
   #contextUsage: TaskState["contextUsage"] = null;
   #sessionUsage: TaskState["sessionUsage"] = null;
   #queue: TaskState["queue"] = { steering: [], followUp: [] };
+  #todoPhases: TaskState["todoPhases"] = [];
+  /** 没有进程时改的名字，下次握手后发给 omp（set_session_name）。 */
+  #pendingName: string | undefined;
   readonly #tracker = new SubagentTracker();
   /** 子代理完整记录的缓存（最近用到的在后）；进程退出时清空。queue 把同一子代理的读串起来。 */
   readonly #records = new Map<string, { record: SubagentRecord<AgentMessage>; queue: Promise<void> }>();
@@ -115,6 +120,16 @@ export class TaskRunner {
   #runStartedAt = 0;
   /** 会话文件在第一轮之后才落盘；落盘前 get_state 给的路径不能存。 */
   #sessionPersistable: boolean;
+  /** 在途的 `!命令` 数（omp 一次只许一条，多出的会被它拒绝，计数只用来判断要不要发 abort_bash）。 */
+  #bashInFlight = 0;
+  /** 在途的 bash 请求是否已发出（#live() 期间为 false）。 */
+  #bashSent = false;
+  /** bash 请求发出前收到的 abortBash：请求发出后立刻补发 abort_bash。 */
+  #bashAbortPending = false;
+  /** 最近发给 omp 的会话名，等它们的 session_info_update 回声（见 #adoptTitle）。 */
+  readonly #sentNames = new Set<string>();
+  /** `!命令` 消息在对话流里的序号（和 gen 一起组成 key）。 */
+  #bashSeq = 0;
 
   constructor(record: TaskRecord, project: Project, host: RunnerHost) {
     this.id = record.id;
@@ -130,6 +145,7 @@ export class TaskRunner {
           reasoning: false,
           acceptsImages: false,
           maxTokens: null,
+          thinkingEfforts: null,
           cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
         }
       : null;
@@ -185,6 +201,7 @@ export class TaskRunner {
       contextUsage: this.#contextUsage,
       sessionUsage: this.#sessionUsage,
       queue: this.#queue,
+      todoPhases: this.#todoPhases,
       dialogs: m.dialogs,
       runningSubagents: this.#tracker.runningCount,
       cwd: this.cwd,
@@ -312,6 +329,9 @@ export class TaskRunner {
     this.#sessionPersistable = this.#sessionPersistable || resumeSessionFile !== undefined;
     this.#thinkingLevels = init.thinkingLevels;
     await this.#adoptState(init.state, { adoptQueue: true });
+    const pendingName = this.#pendingName;
+    this.#pendingName = undefined;
+    if (pendingName !== undefined) await this.#sendSessionName(connection, pendingName);
     // 回收后再打开的任务保留着最近的对话快照，不用历史覆盖它（会丢工具执行细节）。
     if (resumeSessionFile !== undefined && this.#batcher.snapshot().transcript.items.length === 0) {
       const messages = await loadHistory(connection);
@@ -455,6 +475,19 @@ export class TaskRunner {
         this.#apply({ type: "session_settled" });
         void this.#refreshState();
         return;
+      case "tool_execution_end":
+        this.#batcher.push(translateFrame(frame, gen, at));
+        // todo 工具改了待办：get_state 才有完整的 todoPhases（tool 结果里只有文字）。
+        if (/todo/i.test(frame.toolName)) this.#scheduleRefresh();
+        return;
+      case "todo_auto_clear":
+        this.#scheduleRefresh();
+        return;
+      case "session_info_update":
+        this.#adoptTitle(frame.title).catch((error: unknown) => {
+          log.warn(`task ${this.id} adopt title failed`, { message: String(error) });
+        });
+        return;
       case "message_end":
       case "agent_end":
       case "auto_compaction_end":
@@ -499,6 +532,7 @@ export class TaskRunner {
     this.#contextUsage = state.contextUsage ?? null;
     if (state.model) this.#model = toModelOption(state.model);
     this.#thinkingLevel = state.thinkingLevel ?? this.#thinkingLevel;
+    this.#todoPhases = state.todoPhases ?? [];
     if (options.adoptQueue && state.queuedMessages)
       this.#queue = { steering: state.queuedMessages.steering, followUp: state.queuedMessages.followUp };
     const patch: Partial<Omit<TaskRecord, "id">> = {};
@@ -659,16 +693,42 @@ export class TaskRunner {
     return (await connection.request("promote_queued_message", { message: text })).promoted;
   }
 
-  /** 停止：撤回排队消息再中止（不会因残留 steer 再开一轮）；文本放回输入框。 */
+  /**
+   * 停止：撤回排队消息再中止（不会因残留 steer 再开一轮）；文本放回输入框。
+   * 应答在 abort 完成后才写，这里再读一次 get_state 核实：这一轮是否真的停了，以及后台任务（自动转后台的 bash、
+   * 异步 task）是否还会在之后唤醒会话——rpc.md 没有取消后台任务的命令，abort 也不碰它们（实测 sleep 转后台后 Esc，
+   * 任务结束时 omp 自己开了新一轮）。界面据此决定能不能说"已停止"。
+   */
   async stop(): Promise<RestoredQueue> {
     const connection = await this.#existing();
-    if (!connection) return { steering: [], followUp: [], imagesDropped: false, truncated: false };
+    if (!connection)
+      return {
+        steering: [],
+        followUp: [],
+        imagesDropped: false,
+        truncated: false,
+        aborted: true,
+        backgroundWork: false,
+      };
     const result = await connection.request("abort_and_restore_queue");
+    // 查询失败不改变"abort 命令已成功"这一事实；按成功、无后台任务处理。
+    const state = await connection.request("get_state").catch(() => null);
+    if (state) {
+      // 重读/持久化失败不改变"abort 已成功"：按 abort 应答处理，只记日志。
+      try {
+        await this.#adoptState(state);
+        this.#publish(false);
+      } catch (error) {
+        log.warn(`task ${this.id} adopt state after abort failed`, { message: String(error) });
+      }
+    }
     return {
       steering: result.steering.map(toRestoredDraft),
       followUp: result.followUp.map(toRestoredDraft),
       imagesDropped: result.imagesDropped ?? false,
       truncated: result.truncated ?? false,
+      aborted: state?.isStreaming !== true,
+      backgroundWork: state?.hasPendingAsyncWork === true,
     };
   }
 
@@ -719,6 +779,65 @@ export class TaskRunner {
       await connection.request("compact", {});
       await this.#refreshState();
     });
+  }
+
+  /**
+   * `!命令`（RPC bash）：omp 在任务 cwd 里跑完才应答，期间没有任何事件帧；应答后 omp 已把结果记成 bashExecution 消息，
+   * 但不会为它推 message_end（实测），所以这里把同一条消息放进对话流，渲染进程不用等下一次 get_messages。
+   * omp 一次只许一条在跑，重复发会得到 omp 的错误应答，原样抛给调用方。
+   */
+  runBash(command: string): Promise<void> {
+    if (command.trim() === "") return Promise.reject(new Error("command is empty"));
+    return this.#tracked(async () => {
+      // 在 #live() 之前就计数：进程启动期间到达的 abortBash 要被看见，而不是丢掉。
+      this.#bashInFlight++;
+      let gen: number;
+      let result: BashResult;
+      try {
+        const connection = await this.#live();
+        gen = this.#gen;
+        const pending = connection.request("bash", { command });
+        this.#bashSent = true;
+        if (this.#bashAbortPending) {
+          this.#bashAbortPending = false;
+          connection.request("abort_bash").catch((error: unknown) => {
+            log.warn(`task ${this.id} abort_bash failed`, { message: String(error) });
+          });
+        }
+        result = await pending;
+        if (this.#connection !== connection || this.#disposed) return;
+      } finally {
+        if (--this.#bashInFlight === 0) {
+          this.#bashSent = false;
+          this.#bashAbortPending = false;
+        }
+      }
+      const message: BashExecutionMessage = {
+        role: "bashExecution",
+        command,
+        output: result.output,
+        cancelled: result.cancelled,
+        truncated: result.truncated,
+        timestamp: Date.now(),
+        ...(result.exitCode !== undefined && { exitCode: result.exitCode }),
+      };
+      this.#batcher.push([
+        { type: "message_end", key: messageKey(gen, `bash-${++this.#bashSeq}`), message, at: message.timestamp },
+      ]);
+      this.#batcher.flush();
+    });
+  }
+
+  /** 中止正在跑的 `!命令`（RPC abort_bash）。没有在跑的就什么也不发；不为它拉起进程。 */
+  async abortBash(): Promise<void> {
+    if (this.#bashInFlight === 0) return;
+    const connection = this.#connection;
+    if (!this.#bashSent || !connection) {
+      // bash 请求还没发出（进程在启动）：记下，发出后立刻补发 abort_bash。
+      this.#bashAbortPending = true;
+      return;
+    }
+    await connection.request("abort_bash");
   }
 
   // ───── 子代理泳道 ─────
@@ -812,8 +931,39 @@ export class TaskRunner {
     return this.#record.worktreePath ?? this.#project.path;
   }
 
+  /** 改名：studio 的标题是 omp 会话名的镜像，所以有进程就同步给 omp（终端版 /resume 里看到的也是新名字）；没进程的下次启动补发。 */
   async rename(title: string): Promise<void> {
     this.#record = await this.#host.persist(this.id, { title });
+    this.#publish(false);
+    const name = title.trim();
+    if (name === "") return;
+    const connection = await this.#existing();
+    if (!connection) {
+      this.#pendingName = name;
+      return;
+    }
+    await this.#sendSessionName(connection, name);
+  }
+
+  async #sendSessionName(connection: OmpConnection, name: string): Promise<void> {
+    try {
+      this.#sentNames.add(name);
+      if (this.#sentNames.size > 4) this.#sentNames.delete(this.#sentNames.values().next().value as string);
+      await connection.request("set_session_name", { name });
+    } catch (error) {
+      // studio 的标题已经保存，同步失败不该让改名失败；进程中途退出的补到下次启动。
+      if (error instanceof OmpExitedError) this.#pendingName = name;
+      else log.warn(`task ${this.id} set_session_name failed`, { message: String(error) });
+    }
+  }
+
+  /** omp 自己改了会话名（/rename 等）：studio 的标题跟着走，和用户改名走同一条保存路径。 */
+  async #adoptTitle(title: string | undefined): Promise<void> {
+    const name = title?.trim();
+    // 自己发出去的名字的回声（每个名字一条）：旧名字的回声在连续改名后晚到时不能回写。
+    const echoed = name !== undefined && this.#sentNames.delete(name);
+    if (!name || echoed || name === this.#record.title) return;
+    this.#record = await this.#host.persist(this.id, { title: name });
     this.#publish(false);
   }
 

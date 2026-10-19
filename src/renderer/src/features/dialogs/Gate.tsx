@@ -15,6 +15,8 @@ import { useT } from "../../i18n/use-t.ts";
 import { msSinceLastKey } from "./activity.ts";
 import { approvalTool, denyOption, splitTitle } from "./approval-labels.ts";
 import { remainingMs } from "./gate-timer.ts";
+import { approvalPreview } from "./gate-preview.ts";
+import { useTranscript } from "../../store/index.ts";
 import { clearAskDraft } from "./ask-draft-store.ts";
 import { markAnswered, registerGateControl } from "./gate-bus.ts";
 import { GateAsk } from "./GateAsk.tsx";
@@ -29,6 +31,8 @@ export interface GateBodyProps<D extends DialogRequest = DialogRequest> {
   respond(response: DialogResponse): void;
   /** 正文把"主操作"挂在这里，Ctrl+Enter 调用。 */
   primaryRef: MutableRefObject<(() => void) | null>;
+  /** 审批 select：等待中的 write / edit 的内容预览（来自 tool_execution_start 的参数）；没有时为 null。 */
+  preview?: string | null;
 }
 
 function dialogTitle(dialog: DialogRequest, fallback: string, t: TFunction): string {
@@ -62,8 +66,13 @@ function timeoutOf(dialog: DialogRequest): number | undefined {
 
 export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: DialogRequest; pending: number }) {
   const t = useT();
+  const transcript = useTranscript(taskId);
   const rootRef = useRef<HTMLDivElement>(null);
   const primaryRef = useRef<(() => void) | null>(null);
+  const approvalToolName =
+    dialog.kind === "select" && dialog.approval ? approvalTool(splitTitle(dialog.title).headline) : null;
+  const preview =
+    approvalToolName !== null && transcript !== null ? approvalPreview(transcript.tools, approvalToolName) : null;
   const [openedAt] = useState(() => Date.now());
   const [busy, setBusy] = useState(false);
   const [pulse, setPulse] = useState(false);
@@ -150,7 +159,7 @@ export function Gate({ taskId, dialog, pending }: { taskId: TaskId; dialog: Dial
 
   const body: ReactNode =
     dialog.kind === "select" ? (
-      <GateSelect dialog={dialog} busy={busy} respond={respond} primaryRef={primaryRef} />
+      <GateSelect dialog={dialog} busy={busy} respond={respond} primaryRef={primaryRef} preview={preview} />
     ) : dialog.kind === "confirm" ? (
       <GateConfirm dialog={dialog} busy={busy} respond={respond} primaryRef={primaryRef} />
     ) : dialog.kind === "ask" ? (

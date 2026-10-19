@@ -16,13 +16,13 @@ export const omp = {
     "omp-studio doesn't bundle omp. It downloads the official build, manages it, and keeps it up to date.",
   "takeover.title": "Found a script-based omp",
   "takeover.body":
-    "omp-studio can't launch script-based installs (such as npm). It can install its own official copy and put it first on your PATH. Your existing install stays as is.",
+    "omp-studio can't launch script-based installs (such as npm). It can install its own official copy and change your user PATH to put it first (omp in newly opened terminals will point to it). Your existing install stays as is.",
   "takeover.exeTitle": "Found an omp you installed yourself",
   "takeover.exeBody":
-    "omp-studio can install its own official copy and put it first on your PATH. Your existing install stays as is.",
+    "omp-studio can install its own official copy and change your user PATH to put it first (omp in newly opened terminals will point to it). Your existing install stays as is.",
   "takeover.otherTitle": "Found an omp managed by {name}",
   "takeover.otherBody":
-    "omp-studio can install its own official copy and put it first on your PATH. {name}'s copy stays as is, and {name}'s terminals keep using it.",
+    "omp-studio can install its own official copy and change your user PATH to put it first (omp in newly opened terminals will point to it). {name}'s copy stays as is, it just no longer comes first on PATH.",
   "takeover.keepOther": "Keep using {name}'s",
   "takeover.where": "Location: {path}",
   "takeover.yes": "Let omp-studio manage it",

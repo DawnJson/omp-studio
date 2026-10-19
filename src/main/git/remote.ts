@@ -7,8 +7,8 @@ import type {
   GitTools,
 } from "../../shared/git.ts";
 import { log } from "../log/log.ts";
-import { CommandNotFoundError, failureMessage, git, gitRaw, gitText, runCommand, type RunOptions } from "./exec.ts";
-import { currentBranch, headCommit, requireRepoRoot } from "./repo.ts";
+import { CommandNotFoundError, failureMessage, git, gitRaw, runCommand, type RunOptions } from "./exec.ts";
+import { currentBranch, headCommit, pushRemote, requireRepoRoot } from "./repo.ts";
 import { statusAt } from "./status.ts";
 
 const PUSH_TIMEOUT_MS = 5 * 60_000;
@@ -49,17 +49,8 @@ export async function push(cwd: string): Promise<GitPushResult> {
   const root = await requireRepoRoot(cwd);
   const branch = await currentBranch(root);
   if (branch === null) return { kind: "detached_head" };
-  const configured = await gitRaw(root, ["config", "--get", `branch.${branch}.remote`]);
-  const remotes = (await gitText(root, ["remote"])).split("\n").filter(Boolean);
-  const hasUpstream = configured.code === 0;
-  const remote = hasUpstream
-    ? configured.stdout.toString("utf8").trim()
-    : remotes.length === 1
-      ? remotes[0]
-      : remotes.includes("origin")
-        ? "origin"
-        : undefined;
-  if (remote === undefined) return { kind: "no_remote" };
+  const { remote, hasUpstream } = await pushRemote(root, branch);
+  if (remote === null) return { kind: "no_remote" };
   // 完整 refspec：分支名以 `+` 开头时 `push <remote> +foo` 会变成强推。目标取 branch.<b>.merge（上游分支名可能不同），
   // 没有就用同名；没有任何 force 参数。--end-of-options 防止 remote 名被当成选项。
   const merge = hasUpstream

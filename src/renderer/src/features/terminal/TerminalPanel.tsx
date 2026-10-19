@@ -120,6 +120,11 @@ export function TerminalPanel({ taskId }: { taskId: TaskId }) {
       </header>
       <div className="terminal-body">
         <div ref={host} className="terminal-host" data-terminal-host data-testid="terminal-host" />
+        {session.starting && (
+          <div className="terminal-starting" role="status" data-testid="terminal-starting">
+            {t("terminal.starting")}
+          </div>
+        )}
       </div>
     </section>
   );

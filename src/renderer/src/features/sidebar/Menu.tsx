@@ -6,6 +6,8 @@ export interface MenuItem {
   label: string;
   /** 右侧键帽文字，如 "F2"。 */
   shortcut?: string;
+  /** 有值表示这一项现在不能用（灰显，不执行），值是悬停提示里的原因。 */
+  disabledReason?: string;
   onSelect(): void;
 }
 
@@ -84,7 +86,10 @@ export function Menu({
           type="button"
           role="menuitem"
           className="sb-menu-item"
+          aria-disabled={item.disabledReason !== undefined || undefined}
+          title={item.disabledReason}
           onClick={() => {
+            if (item.disabledReason !== undefined) return;
             onClose();
             // 菜单项可能要弹重命名输入框或抢焦点，所以先把焦点还回去，再执行。
             anchor.returnFocus?.focus();

@@ -9,7 +9,8 @@ import { useT } from "../../i18n/use-t.ts";
 import { Check, Close } from "../../icons.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { showView } from "../../store/index.ts";
-import { groupModels, sameModel } from "./model-groups.ts";
+import { groupModels, modelRowMeta, sameModel } from "./model-groups.ts";
+import { stepThinkingLevel } from "./thinking-levels.ts";
 import { formatCount } from "./usage-format.ts";
 
 const recentKey = "omp-studio.recentModels";
@@ -59,7 +60,8 @@ export function ModelPicker(props: ModelPickerProps) {
   const [highlight, setHighlight] = useState<ModelKey | null>(null);
   const report = useCallback((error: unknown) => reportError(t, error), [t]);
 
-  const levels = props.thinkingLevels.filter((level) => thinkingLabel[level] !== undefined);
+  // 调用方已按模型和 omp 的实际能力算好（thinkingLevelOptions）；和 Alt T 共用同一份列表。
+  const levels = props.thinkingLevels;
 
   // 只在打开的那一刻拉一次列表；props 每次渲染都是新对象，不能放进依赖。
   useEffect(() => {
@@ -87,6 +89,15 @@ export function ModelPicker(props: ModelPickerProps) {
   }, []);
 
   const rows = useMemo(() => groupModels(models ?? [], query, readRecent()), [models, query]);
+  // 同一 provider 下名字相同的模型（omp 会同时列出别名 id 和带日期的 id）：行里改显示 id，免得两行看起来一模一样。
+  const ambiguous = useMemo(() => {
+    const seen = new Map<string, number>();
+    for (const option of models ?? []) {
+      const key = `${option.key.provider}\0${option.name}`;
+      seen.set(key, (seen.get(key) ?? 0) + 1);
+    }
+    return new Set([...seen].filter(([, count]) => count > 1).map(([key]) => key));
+  }, [models]);
   const focusKey = highlight ?? model?.key ?? null;
   const shown = (focusKey && rows.flat.find((candidate) => sameModel(candidate.key, focusKey))) || rows.flat[0] || null;
   const shownIsCurrent = shown !== null && model !== null && sameModel(shown.key, model.key);
@@ -147,8 +158,7 @@ export function ModelPicker(props: ModelPickerProps) {
   const onSegmentKey = (event: KeyboardEvent) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
-    const index = thinkingLevel ? levels.indexOf(thinkingLevel) : 0;
-    const next = levels[(index + (event.key === "ArrowRight" ? 1 : -1) + levels.length) % levels.length];
+    const next = stepThinkingLevel(levels, thinkingLevel, event.key === "ArrowRight" ? 1 : -1);
     if (next) props.setThinking(next).catch(report);
   };
 
@@ -162,6 +172,7 @@ export function ModelPicker(props: ModelPickerProps) {
   const renderRow = (option: ModelOption, group: string) => {
     const isHighlighted = shown !== null && sameModel(shown.key, option.key);
     const isCurrent = model !== null && sameModel(model.key, option.key);
+    const meta = modelRowMeta(option);
     return (
       <button
         key={`${group}:${option.key.provider}/${option.key.modelId}`}
@@ -176,7 +187,14 @@ export function ModelPicker(props: ModelPickerProps) {
         onClick={() => pick(option)}
         onMouseDown={(event) => event.preventDefault()}
       >
-        <span className="pop-item-text">{option.name}</span>
+        <span className="pop-item-text" title={`${option.key.provider}/${option.key.modelId}`}>
+          {ambiguous.has(`${option.key.provider}\0${option.name}`) ? option.key.modelId : option.name}
+        </span>
+        {meta !== "" && (
+          <span className="pop-item-meta" title={`${t("model.contextWindow")} / ${t("model.cost")}`}>
+            {meta}
+          </span>
+        )}
         {isCurrent && <Check size={14} />}
       </button>
     );

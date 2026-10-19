@@ -560,6 +560,13 @@
   background: var(--bg-hover);
   outline: none;
 }
+.sb-menu-item[aria-disabled="true"] {
+  color: var(--text-3);
+  cursor: default;
+}
+.sb-menu-item[aria-disabled="true"]:hover {
+  background: none;
+}
 
 .sb-note,
 .sb-note-error {

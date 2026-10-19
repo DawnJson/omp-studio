@@ -120,7 +120,7 @@
 | 窗口缩放保位置 | [融合] 阅读锚点 + 拖动侧栏时冻结列宽（[Bold]） | — |
 | 会话历史 | [Calm] 休眠任务先显示只读转录，发送时才启动进程并恢复 | 切换任务即时，不为每个历史会话起进程 |
 | 草稿持久化 | [Bold] 主进程持久化，经 preload 读写 | 崩溃也不丢；渲染层不碰存储 |
-| `@` 文件引用 | **v1 不做** | 不在 PLAN §5 阶段 2 的清单里 |
+| `@` 文件引用 | [新增] 输入 `@` 弹出项目文件补全菜单，插入 `@相对路径`，omp 自己展开 | 终端版 omp 的 `@` 补全是日常高频操作；展开由 omp 完成，studio 只补全（见 FileMenu） |
 
 #### 文案
 
@@ -131,7 +131,7 @@
 | 中英混排 | 汉字与英文/数字之间加空格（Calm） | 不依赖 `text-autospace`（Electron 44 支持情况未知，Bold 列为待实测） |
 | 句末标点 | 句子保留句号；标签/按钮不加；不用感叹号；用“你”不用“您” | — |
 | 复数 | 英文用 ICU `{n, plural, …}`，中文单一形式 | 见附录 A 说明 |
-| 审批模式标签 | `每次询问` / `写入自动，执行询问` / `全部自动`（Bold）对应 `always-ask` / `write` / `yolo` | 与 omp 的三种模式一一对应（`omp://approval-mode.md`） |
+| 审批模式标签 | `每次询问` / `写入自动，执行询问` / `全部自动`（Bold）对应 `always-ask` / `write` / `yolo` | 与 omp 的三种模式一一对应（`omp://approval-mode.md`）；omp 设置页里 `tools.approvalMode` 的取值显示同一套文案（`approval.*`）。其余枚举设置的取值走 `ompcfg` 的 `<键>.opt.<值>` / `opt.<值>`，没有翻译的显示 omp 原值；设置键第一段的分组名走 `ompcfg` 的 `prefix.<段>` |
 
 ---
 
@@ -302,7 +302,7 @@
 
 - 高 `--row-task`(32)，`padding: 0 --space-2`，`--radius-md`，间距 `--space-2`；结构 `[状态槽][标题 flex:1][尾部]`。
 - 标题 `--fs-sm`，单行省略；默认 `--text-2`，选中、等待、有未读结果时 `--text`（只换颜色，不换字重）。
-- 尾部（一次只放一个）：等待中不放；运行中 `time.minutes`（每分钟更新，tabular）；否则相对时间 `--fs-2xs` `--text-3`；`aborted` 放 `task.stopped`。hover/键盘聚焦时尾部换成 20×20 的 `…` 按钮。
+- 尾部（一次只放一个）：等待中不放；运行中满一分钟才放 `task.runningFor`（不满不放，状态点已在转）；否则相对时间 `--fs-2xs` `--text-3`，取 `updatedAt` 与最近一轮 `lastTurn.endedAt` 中较晚的（一轮刚跑完要显示“刚刚”）；所有行共用 15 秒一跳的时钟；`aborted` 放 `task.stopped`。hover/键盘聚焦时尾部换成 20×20 的 `…` 按钮。
 - 选中：`--bg-active` + 左缘 2×16 `--accent` 竖条（`--radius-pill`）。
 - 重命名：行内 input（`F2` 或菜单），Enter 确认、Esc 取消；存应用元数据（不写 omp）。
 - 菜单（右键与 `…`）：重命名 `F2`、在资源管理器中显示、复制会话 ID、复制会话文件路径、归档 `Del`。归档立即从侧栏移除并 toast `task.archived` + `task.undo`（8 秒）。
@@ -327,12 +327,12 @@
 ### 4.6 MainHeader 与 ProgressPill
 
 头 40；左：任务标题（`--fs-sm` `--text`，点击=重命名）+ ` · 项目名`（`--text-3`），省略；右：`ProgressPill`、`⋯` 菜单（重命名、在资源管理器中显示、复制会话路径、归档）。无任务时标题区空白。
-- `ProgressPill`（有 `todoPhases` 时才出现）：高 24，`--radius-pill`，`--bg-hover`，`--fs-xs`，内容 `{done}/{total}`（tabular）；点击弹 popover 列出阶段与条目：`pending` 空圈、`in_progress` 呼吸点、`completed` 对勾、`blocked` 红点 + 原因、`abandoned` 删除线。数据 `get_state.todoPhases` ✔（字段在 `src/shared/omp-wire/rpc-wire.generated.ts`）。
+- `ProgressPill`（有 `todoPhases` 时才出现；实现为对话流顶部一行 `TodoStrip`，不在头部，且胶囊内带当前项文字）：高 24，`--radius-pill`，`--bg-hover`，`--fs-xs`，内容 `{done}/{total}`（tabular）；点击弹 popover 列出阶段与条目：`pending` 空圈、`in_progress` 呼吸点、`completed` 对勾、`blocked` 红点 + 原因、`abandoned` 删除线。数据 `get_state.todoPhases` ✔（字段在 `src/shared/omp-wire/rpc-wire.generated.ts`）。
 
 ### 4.7 EmptyState
 
 - **输入框贴主区底部**（2026-10-18 返工，空状态和对话中同一位置）；上方区域（垂直居中）是项目头和该项目最近的 ≤3 个任务。项目名 `--fs-2xl` `--font-display` `--text`，同一行右侧路径 `--fs-sm` `--text-3`（tooltip 完整路径）。项目名点击 = 换项目菜单（最近 8 个 + `empty.openFolder`）。
-- 最近任务：三列卡片（`--bg-raised` + `--border`，`--radius-lg`，最小高 76）：状态点 + 标题（≤2 行），底部等宽字体相对时间，卡片上方小标题 `empty.recent`；可点（`selectTask`）；归档的不算。**不再有历史会话列表**：历史只在侧栏，侧栏搜索框能搜到任务和历史会话（含终端里的）。**没有欢迎语、插画、示例提示卡。**
+- 最近任务：三列卡片（`--bg-raised` + `--border`，`--radius-lg`，最小高 76）：状态点 + 标题（≤2 行），底部等宽字体相对时间（左缘与标题文字对齐，空闲任务的状态点槽位留空），卡片上方小标题 `empty.recent`；可点（`selectTask`）；归档的不算。**不再有历史会话列表**：历史只在侧栏，侧栏搜索框能搜到任务和历史会话（含终端里的）。**没有欢迎语、插画、示例提示卡。**
 - 无任何项目时：引导卡片 H 状态（§4.22）。
 
 ### 4.8 UserMessage
@@ -439,13 +439,19 @@
 
 **ApprovalChip**：见 §5.8。
 
-**ModelChip / ModelPicker**：胶囊点开（Alt M、命令面板同）是模态对话框（`ModelPicker`，portal 到 body，Tab 在框内循环，Esc 关闭并还焦点）。左栏：搜索框 + 按 provider 分组的模型列表（无搜索词时最近 3 个置顶），↑↓ 移动高亮、Enter 或点击选用（选用后对话框保持打开，方便接着调思考强度）；右栏：高亮模型的上下文窗口、最大输出、图片输入、推理、价格（美元/百万 token，全 0 显示 `model.free`），底部是思考强度分段条（只对正在生效的模型可调，其余显示 `model.thinking.pending`）。数据来自 `get_available_models`（`ModelOption`：`contextWindow`、`maxTokens`、`cost`、`reasoning`、`acceptsImages`）。
+**ModelChip / ModelPicker**：胶囊点开（Alt M、命令面板同）是模态对话框（`ModelPicker`，portal 到 body，Tab 在框内循环，Esc 关闭并还焦点）。左栏：搜索框 + 按 provider 分组的模型列表（无搜索词时最近 3 个置顶；每行右侧用 `--fs-xs` `--text-3` 显示紧凑的“上下文窗口 · 输入/输出价格”，如 `1M · $0.3/$1.2`，价格全 0 时只显示窗口），↑↓ 移动高亮、Enter 或点击选用（选用后对话框保持打开，方便接着调思考强度）；右栏：高亮模型的上下文窗口、最大输出、图片输入、推理、价格（美元/百万 token，全 0 显示 `model.free`），底部是思考强度分段条（只对正在生效的模型可调，其余显示 `model.thinking.pending`）。分段条只列这个模型实际支持的档位：任务里取 `get_available_thinking_levels`（含 `off`），草稿里取模型的 `thinking.efforts`（不含 `off`）；分段条、方向键、`Alt T` 共用同一份列表和顺序；草稿的胶囊显示 omp 钳制后实际采用的档位。数据来自 `get_available_models`（`ModelOption`：`contextWindow`、`maxTokens`、`cost`、`reasoning`、`acceptsImages`、`thinkingEfforts`）。
 
 **UsageMeter**（输入框下方一行，**默认显示**，PLAN 2.6 已定；位置和样式待设计方向确认）：上下文圆环 + `composer.context`（`get_state.contextUsage.percent`，≥90 变 `--st-waiting-text`，不到 10% 保留一位小数）、本会话 token 总数、费用（`get_session_stats`，每次刷新状态时取；cost 为 0 不显示费用）；tooltip 给输入/输出/缓存读取和高级请求数。点击上下文部分弹 popover，内含 `composer.compact`。没有任何数据时整行不渲染。
 
 **QueueStrip**（门/输入框正上方，仅有排队消息时存在，宽 = 列宽，`margin-bottom: --space-2`）：容器 `--bg-raised`，`1px dashed --border`，`--radius-lg`，`padding: --space-1 --space-2`；条目高 32：`[标签][文本首行省略][现在插话][✕]`；标签是 `--fs-2xs` 小胶囊：`插话` 用 `--accent-soft` 底，`稍后` 用 `--bg-hover` 底。`现在插话`（`promote_queued_message`，仅稍后条目有）成功后标签原地变 `插话`（交叉缩放 `--dur-fast`），响应 `promoted:false` = 已送出，条目淡出。`✕`（`remove_queued_message`）：只有响应 `removed:true` 才移除，并把文本放回草稿；`removed:false` 静默刷新快照。数据**只渲染** `queue_update` / `get_state.queuedMessages` 快照，自己不另记。>3 条只显示前 3 条 + `composer.queue.more`。旧版 omp 没有后两个命令：命令失败时隐藏对应按钮，**不要回退成 `steer`**（会重复入队）。出现/消失 `grid-template-rows`，`--dur-base`。
 
-**SlashMenu**：行首 `/` 打开，浮在输入框上方，行高 32，最多 8 行，`[/名称][描述 --text-3]`，`↑↓` 选，`Tab/Enter` 补全，`Esc` 关闭；数据 `get_available_commands` / `available_commands_update`。无匹配 `slash.empty`。
+**SlashMenu**：行首 `/` 打开，浮在输入框上方，行高 32，最多同时显示 8 行，更多的在菜单内滚动（`↑↓` 选中行始终可见），`[/名称][描述 --text-3]`，`↑↓` 选，`Tab/Enter` 补全，`Esc` 关闭；数据 `get_available_commands` / `available_commands_update`。无匹配 `slash.empty`。
+
+**斜杠命令守卫**：草稿以 `/名称` 开头、命令列表已载入（非空）、而 `名称`（含别名）不在 `get_available_commands` 里时，第一次发送不发出，输入框上方出现一条提示（`.suggest` 样式）+ `slash.sendAnyway` 按钮；对同一段文字再按一次发送键或点按钮才作为普通文字发出，改动文字提示即消失。终端版独有的命令（`plan` `tree` `fork` `copy` `goal` `btw` `hotkeys` `settings`）提示 `slash.terminalOnly`，其余未知命令提示 `slash.unknown`。列表未载入时不拦；`/usr/bin` 这类带第二个 `/` 的不算命令。判定在 `slash-guard.ts`。
+
+**输入历史**：输入框为空（或光标在最开头）时 `↑` 翻看本任务发过的消息（最近的在前），`↓` 往回走，翻过最新一条恢复翻看前的草稿；翻看中 `↑` 要光标在第一行、`↓` 要光标在最后一行才接管，否则照常移光标。斜杠菜单/`@` 菜单打开时 `↑↓` 归菜单；刚翻出来的那段文本不开菜单，免得抢走后面的 `↑↓`。只存在渲染进程内存，每任务最多 100 条，第一次用到时用对话里的用户消息（非合成）做种子（`input-history.ts`）。新任务草稿没有历史。
+
+**FileMenu**（`@` 文件引用）：光标前的词以 `@` 开头（文本开头或空白之后）时，在输入框上方打开和斜杠菜单同款的菜单，每行一个相对路径（文件名 `--font-mono`，目录部分 `--text-3`），最多同时显示 8 行（超出滚动），`↑↓` 选，`Tab/Enter` 把 `@词` 换成 `@相对路径 `，`Esc` 关闭（到这个 `@词` 变化为止），空查询列出浅层文件。数据 `listProjectFiles({ kind: "task", taskId } | { kind: "project", projectId }, query)`：主进程按任务（新任务草稿按项目目录）查出 cwd，优先 `git ls-files -co --exclude-standard`，不是仓库时退回有界遍历（广度优先，跳过 `node_modules`、`.git`、符号链接）；缓存 10 秒，最多索引 10000 条，每次最多返回 20 条（前缀 > 文件名前缀 > 文件名包含 > 路径包含 > 子序列），只返回相对路径，含空白的路径不收；`query` 含绝对路径或 `..` 时 reject。引用本身由 omp 展开成 `fileMention` 消息，studio 只做补全。
 
 ### 4.15 JumpToLatest 药丸
 
@@ -494,7 +500,7 @@
 居中浮层，宽 `--palette-w`(600)，距顶 15vh，`--bg-overlay`，`--shadow-3`，`--radius-xl`，出现 `--dur-slow` `--ease-spring`，背后 `--bg-scrim`（点击/Esc 关闭）。输入行高 52（`--fs-lg`，无边框，下边 `--border-subtle`），左搜索图标 16px、右 `Esc` 键帽。结果行高 `--row-palette`(40)，`padding: 0 --space-3`，`[图标 16][标题][右侧：项目名/快捷键键帽]`，当前行 `--bg-active` + 左 2px `--accent` 竖条。分组标题高 28，`--fs-xs` `--text-3`，**无结果的分组不渲染**。底部 28 高提示行 `palette.hint`（`--fs-2xs`）。
 - 空查询：`palette.recent`（最近 5 个任务）→ `palette.commands`。有输入：任务（标题+项目名模糊匹配）→ `palette.sessions`（含终端历史会话，`>_` 标）→ 命令 → 斜杠命令（仅当前任务有进程时，`get_available_commands`）；输入以 `/` 开头时只显示斜杠命令。匹配字符 `--accent` 高亮。
 - 无结果：`palette.noResults` + 一行 `palette.askNew`（把查询当成新任务的 prompt）。
-- 命令清单：`cmd.*`（新任务 `Ctrl N`、在当前项目新任务 `Ctrl Shift N`、打开文件夹、设置 `Ctrl ,`、切换侧栏 `Ctrl B`、切换主题、切换语言、切换模型 `Alt M`、切换思考强度 `Alt T`、压缩上下文、停止当前任务、复制最后一条回答、跳到等你确认的任务 `Ctrl J`、查看用量、检查 omp 更新、快捷键、归档当前任务）。**每个快捷键动作必须在此有一条**。
+- 命令清单：`cmd.*`（新任务 `Ctrl N`、在当前项目新任务 `Ctrl Shift N`、打开文件夹、设置 `Ctrl ,`、切换侧栏 `Ctrl B`、切换主题、切换语言、切换模型 `Alt M`、切换思考强度 `Alt T`、压缩上下文、停止当前任务、复制最后一条回答、跳到等你确认的任务 `Ctrl J`、查看用量（打开设置 → 用量）、检查 omp 更新、快捷键、归档当前任务）。**每个快捷键动作必须在此有一条**。每条命令按 id 配自己的 16px 图标（`palette/command-icons.ts`），不再共用 `>_`（`>_` 只标终端历史会话）。
 - 键盘：`↑↓` 移动，`Enter` 执行，`Ctrl+Enter` 在新任务中执行，`Tab` 无动作（焦点陷阱）。打开前记住 `document.activeElement`，关闭后还原。
 
 ### 4.19 SettingsPage
@@ -511,6 +517,7 @@
 ### 4.20 登录流（设置 → 模型与账号；也用于首次连接）
 
 - 提供商行：名称 + 状态（`login.signedIn` / `login.notSignedIn` / `login.viaEnv`，来自 `logout` 响应的 `remainingSource`）+ 按钮 `登录`（`login`）/ `退出登录`（`get_logout_accounts` → 多账号时先弹小菜单 `login.chooseAccount` → `logout`）。数据 `get_login_providers`。
+- 提供商列表顶部有搜索框（`login.search`，按名称和 id 过滤，无结果显示 `login.noMatch`）；已配置的（已认证或 studio 存了 key）排在前面，其余保持 omp 的顺序。按钮按登录方式给（`src/shared/provider-login.ts`，omp 的 `get_login_providers` 没有这个字段，按实测分类，见 `docs/architecture/login.md`）：OAuth 类 `登录`；只认 API key 的（Tavily、Exa、Kagi、Parallel 等）不显示 `登录`，有已知环境变量名的显示 `设置 API key`，没有的显示 `添加 API key`（走 omp 的 `login`，输入框遮住）；RPC 里只能在终端登录的，状态写 `login.terminalLogin`、不显示按钮。
 - OAuth 登录：行内展开进度卡：`login.opening` → 收到 `open_url`：主进程用系统浏览器打开 `url`（用户点击登录即授权，不二次确认）；卡内显示 `login.fallback` + 可复制的 `launchUrl ?? url`（等宽，复制按钮，`rpc.md` 推荐用 `launchUrl` 避免截断 OAuth 参数）+ `instructions`（纯文本）+ `login.reopen`；随后的非机密 `input` 请求 → 卡内输入行（`login.pasteCode`）；成功 → `login.signedIn`；失败 → 红字 `login.failed` + `重试`。
 - 需要机密输入（API key 类）：omp 直接拒绝，界面显示 `login.terminalOnly` + `login.copyCommand`。**v1 设置页不提供输入 API key 的框**（避免我们去写 `~/.omp`，AGENTS 禁止）。
 - 引导态（首次连接 / 无可用模型）：输入框位置换成 `connect.title` 卡片（与门同位），最多 6 个提供商按钮，其余 `connect.more`；不阻塞浏览历史，没有模型时输入框胶囊区显示 `composer.noModel`。
@@ -528,7 +535,7 @@
 | A 检测中 | 启动 | `omp.finding`（超过 300ms 才显示） | — |
 | B 找到 | PATH 有可用 omp | `omp.found` + `omp.found.note`（“不会修改它”是对 Tern 用户的承诺） | `omp.continue` |
 | C 过旧 | 低于最低支持版本 | 同 §4.21 的文案；用户自装 → `升级`；受管 → `omp.updateInTern` | `升级` / `稍后` |
-| D 脚本 | PATH 第一个是 `.cmd`/`.bat` | `omp.takeover.title/body`；同意后再有一个单独勾选 `omp.addPath`（默认勾选，附 `omp.addPath.note`） | `omp.takeover.yes` / `omp.takeover.no`（拒绝 → `omp.takeover.declined`） |
+| D 脚本 | PATH 第一个是 `.cmd`/`.bat` | `omp.takeover.title/body`；正文写明会修改用户 PATH；同意后再有一个单独勾选 `omp.addPath`（默认勾选，附 `omp.addPath.note`） | `omp.takeover.yes` / `omp.takeover.no`（拒绝 → `omp.takeover.declined`）；**默认焦点在保守的一项（`no` / `keep`）**；`ask_takeover` 时背后的应用只压 `--bg-scrim`，不用不透明底 |
 | E 没有 | PATH 无 omp | `omp.missing.title/body`（含大小）+ `omp.addPath` 勾选 | `omp.install` / `omp.recheck` |
 | F 下载中 | — | 进度条（高 4，`--accent`，`--radius-pill`）+ `omp.progress`；阶段 `omp.downloading` → `omp.verifying`；失败红字 + 重试；校验失败 `omp.verifyFailed` | `取消` |
 | G 连接模型 | omp 就绪但无可用模型 | §4.20 引导态 | 登录 |
@@ -732,7 +739,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | 内置终端（6） | 右栏或底部面板（`--aside-w` 或新增面板高度 token）；每任务终端在其 worktree 目录 | 不做 |
 | 子代理费用/token | 阶段 5 的子代理详情 | 不显示 |
 | 门的“收起”（`Alt H`，omp 的 `app.ask.hide`） | 门头部右侧 | 不做；门不遮挡对话，可滚动阅读 |
-| `@` 文件引用、任务删除、编辑/分叉用户消息、自定义快捷键、界面缩放、角色（default/plan）选择、测试结果显示、用量限制提示条 | — | 不做 |
+| 任务删除、编辑/分叉用户消息、自定义快捷键、界面缩放、角色（default/plan）选择、测试结果显示、用量限制提示条 | — | 不做 |
 | macOS | 侧栏头左侧 inset（红绿灯）、`⌘` 映射、系统菜单 | Windows 优先；CSS 已不写死三键宽度 |
 | API key 登录输入 | 设置 → 模型与账号 的提供商行 | 只显示终端登录指引 |
 
@@ -1094,7 +1101,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `omp.verifying` | 正在校验… | Verifying… |
 | `omp.verifyFailed` | 文件校验失败，已丢弃。 | The file failed verification and was discarded. |
 | `omp.takeover.title` | 检测到脚本形式的 omp | Found a script-based omp |
-| `omp.takeover.body` | omp-studio 无法启动脚本形式（如 npm 安装）的 omp。可以另装一份官方 omp，放到 PATH 最前面，原来的那份原样保留。 | omp-studio can't launch script-based installs (such as npm). It can install its own official copy and put it first on your PATH. Your existing install stays as is. |
+| `omp.takeover.body` | omp-studio 无法启动脚本形式（如 npm 安装）的 omp。可以另装一份官方 omp，并修改你的用户 PATH，把它放到最前面（之后新开的终端里 omp 也会指向它）。原来的那份原样保留。 | omp-studio can't launch script-based installs (such as npm). It can install its own official copy and change your user PATH to put it first (omp in newly opened terminals will point to it). Your existing install stays as is. |
 | `omp.takeover.yes` | 由 omp-studio 管理 | Let omp-studio manage it |
 | `omp.takeover.no` | 取消 | Cancel |
 | `omp.takeover.declined` | 这种安装方式暂时用不了。 | This kind of install can't be used right now. |

@@ -560,6 +560,10 @@ button.usage-item:hover {
   display: flex;
   flex-direction: column;
   padding: var(--space-1-5);
+  /* 最多同时显示 8 行，更多的滚动。 */
+  max-height: calc(8 * var(--control-h-md) + 2 * var(--space-1-5));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--bg-overlay);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-2);
@@ -567,6 +571,7 @@ button.usage-item:hover {
 }
 .slash-row {
   display: flex;
+  flex: none;
   align-items: baseline;
   gap: var(--space-2);
   min-height: var(--control-h-md);

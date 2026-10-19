@@ -7,7 +7,7 @@ import path from "node:path";
 import { emitEvent } from "../ipc/events.ts";
 import { log } from "../log/log.ts";
 import { managedOmpBin } from "../omp-manager/index.ts";
-import { assignToAppJob } from "../platform/win32/job-object.ts";
+import { assignToOwnJob } from "../platform/win32/job-object.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import type { TaskPool } from "../tasks/task-pool.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
@@ -67,7 +67,7 @@ function createManager(pool: TaskPool): TerminalManager {
       return pty;
     },
     killTree: killProcessTree,
-    assignJob: (pid) => void assignToAppJob(pid),
+    assignJob: assignToOwnJob,
     emitData: (taskId, data) => emitEvent("terminalData", { taskId, data }),
     emitExit: (taskId, exitCode) => emitEvent("terminalExit", { taskId, exitCode }),
     onError: (message, error) => log.warn(message, error),

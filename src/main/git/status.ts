@@ -1,7 +1,7 @@
 // `git status --porcelain=v2 -z --branch` 的解析。-z 下路径不转义，中文和空格都原样。
 import type { GitBranchInfo, GitChangeKind, GitFileChange, GitStatus } from "../../shared/git.ts";
 import { git } from "./exec.ts";
-import { findRepo } from "./repo.ts";
+import { findRepo, pushRemote } from "./repo.ts";
 
 const KIND_BY_CODE: Record<string, GitChangeKind | undefined> = {
   M: "modified",
@@ -58,11 +58,29 @@ export function parseStatusV2(text: string): { branch: GitBranchInfo; files: Git
   return { branch, files };
 }
 
+/** 没有上游时才需要查 remote；结果短暂缓存，状态读取很频繁，不能每次多起 1–2 个 git 进程。 */
+const CAN_PUSH_TTL_MS = 10_000;
+const canPushCache = new Map<string, { at: number; value: boolean }>();
+
+async function canPushFrom(root: string, branch: GitBranchInfo): Promise<boolean> {
+  if (branch.head === null) return false;
+  // 有上游就一定配了 remote，状态里已经有，不用再问 git。
+  if (branch.upstream !== null) return true;
+  const key = `${root}\0${branch.head}`;
+  const hit = canPushCache.get(key);
+  if (hit && Date.now() - hit.at < CAN_PUSH_TTL_MS) return hit.value;
+  const value = (await pushRemote(root, branch.head)).remote !== null;
+  canPushCache.set(key, { at: Date.now(), value });
+  return value;
+}
+
 /** 仓库状态；不在仓库里或没有 git 是正常的类型化结果，不抛错。 */
 export async function getGitStatus(cwd: string): Promise<GitStatus> {
   const repo = await findRepo(cwd);
   if (repo.kind !== "ok") return repo;
-  return { kind: "ok", ...(await statusAt(repo.root)) };
+  const status = await statusAt(repo.root);
+  const canPush = await canPushFrom(repo.root, status.branch);
+  return { kind: "ok", ...status, canPush };
 }
 
 /** 在仓库根上取状态（--untracked-files=all：未跟踪目录展开成文件，评审要逐文件看）。 */

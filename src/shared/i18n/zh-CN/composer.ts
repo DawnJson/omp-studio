@@ -23,6 +23,8 @@ export const composer = {
   "queue.more": "还有 {n} 条",
   queueRestored: "已停止 · {count} 条排队消息已放回输入框",
   imagesDropped: "图片太大，没能放回",
+  stopFailed: "没能停下这一轮，任务仍在运行",
+  stoppedBackground: "后台任务还在运行，它结束后 omp 可能自己继续",
   nextRequest: "下一次请求生效",
   context: "上下文 {p}%",
   "usage.aria": "本会话用量",
@@ -38,4 +40,5 @@ export const composer = {
   noModel: "未连接模型",
   versionTooOld: "omp 版本过旧",
   modelChip: "选择模型和思考强度",
+  fileRef: "项目文件",
 } satisfies Record<string, MessageEntry>;

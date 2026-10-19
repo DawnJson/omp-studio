@@ -5,6 +5,7 @@ import { ChevronRight } from "../../icons.tsx";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { ConfigRow } from "./ConfigRow.tsx";
 import { groupConfigItems } from "../../../../shared/ui/config-groups.ts";
+import { prefixTitle } from "../../../../shared/ui/config-labels.ts";
 import { groupItems, groupTitle } from "./config-meta.ts";
 
 /** 超过这个数量的分组，非"常用"的小组默认折叠。 */
@@ -56,6 +57,7 @@ function Disclosure({
 /** 一个分组的全部设置。 */
 export function ConfigTab({ tab, items }: { tab: string; items: readonly OmpConfigItem[] }) {
   const t = useT();
+  const locale = useLocale();
   const [, rerender] = useState(0);
   const groups = groupItems(items);
   const many = items.length > collapseThreshold;
@@ -69,7 +71,7 @@ export function ConfigTab({ tab, items }: { tab: string; items: readonly OmpConf
             ? t("settings.cfg.common")
             : group.prefix === ""
               ? t("settings.cfg.other")
-              : group.prefix.charAt(0).toUpperCase() + group.prefix.slice(1);
+              : prefixTitle(locale, group.prefix);
         const body = (
           <>
             {group.items.map((item) => (

@@ -141,6 +141,9 @@ function createApi(): Win32Api {
   const TerminateJobObject = kernel32.func("bool TerminateJobObject(uintptr job, uint32 exitCode)");
   const OpenProcess = kernel32.func("uintptr OpenProcess(uint32 access, bool inherit, uint32 pid)");
   const CloseHandle = kernel32.func("bool CloseHandle(uintptr handle)");
+  // koffi.errno() 读的是 C 运行库的 errno，Win32 调用失败时恒为 0；真正的错误码要调 GetLastError。
+  // 必须紧跟在失败的那次调用之后读（中间别插别的 Win32 调用）。
+  const GetLastError = kernel32.func("uint32 GetLastError()");
 
   // ───── advapi32 ─────
   const RegOpenKeyExW = advapi32.func(
@@ -181,7 +184,7 @@ function createApi(): Win32Api {
       TerminateJobObject: (job, exitCode) => TerminateJobObject(job, exitCode),
       OpenProcess: (access, inherit, pid) => num(OpenProcess(access, inherit, pid)),
       CloseHandle: (handle) => CloseHandle(handle),
-      lastError: () => koffi.errno(),
+      lastError: () => GetLastError(),
     },
     advapi32: {
       RegOpenKeyExW: (hKey, subKey, sam) => {

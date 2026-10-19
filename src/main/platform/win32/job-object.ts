@@ -4,9 +4,8 @@ import { loadWin32, win32Constants } from "./ffi.ts";
 
 let job: number | null = null;
 
-/** 第一次调用时建 Job：只设 KILL_ON_JOB_CLOSE，不设任何 breakaway 标志；句柄在进程生命周期内一直持有。 */
-function appJob(): number {
-  if (job !== null) return job;
+/** 建一个只设 KILL_ON_JOB_CLOSE 的 Job（不设 breakaway 标志）；最后一个句柄关掉时系统结束 Job 里所有进程。 */
+function createKillOnCloseJob(): number {
   const { kernel32 } = loadWin32();
   const handle = kernel32.CreateJobObjectW(null);
   if (handle === 0) throw new Error(`CreateJobObjectW failed (error ${kernel32.lastError()})`);
@@ -40,8 +39,13 @@ function appJob(): number {
     kernel32.CloseHandle(handle);
     throw new Error(`SetInformationJobObject failed (error ${code})`);
   }
-  job = handle;
   return handle;
+}
+
+/** 第一次调用时建应用 Job；句柄在进程生命周期内一直持有。 */
+function appJob(): number {
+  job ??= createKillOnCloseJob();
+  return job;
 }
 
 /**
@@ -51,8 +55,38 @@ function appJob(): number {
 export function assignToAppJob(pid: number | undefined): boolean {
   if (process.platform !== "win32") return false;
   if (pid === undefined) throw new Error("cannot assign a process without a pid to the job object");
+  assignHandle(appJob(), pid);
+  return true;
+}
+
+/**
+ * 给 pid 单独建一个 KILL_ON_JOB_CLOSE Job 并放进去，返回释放函数（关句柄；此时 Job 里还活着的进程被系统结束，可重复调用）。
+ * 为什么不用应用 Job：Windows 的嵌套 Job 要求进程所在的 Job 链和目标 Job 的父链兼容。
+ * 商店版 pwsh.exe（WindowsApps 别名）由系统在自己的 Job 里拉起，已经有了父 Job 的应用 Job 再收它会 ACCESS_DENIED(5)；
+ * 全新的空 Job 则随这个进程挂到它现有的 Job 下面，总能成功。主进程被强杀时句柄随进程关闭，效果和应用 Job 一样。
+ * 非 Windows 是空操作。
+ */
+export function assignToOwnJob(pid: number | undefined): () => void {
+  if (process.platform !== "win32") return () => undefined;
+  if (pid === undefined) throw new Error("cannot assign a process without a pid to the job object");
   const { kernel32 } = loadWin32();
-  const target = appJob();
+  const own = createKillOnCloseJob();
+  try {
+    assignHandle(own, pid);
+  } catch (error) {
+    kernel32.CloseHandle(own);
+    throw error;
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    kernel32.CloseHandle(own);
+  };
+}
+
+function assignHandle(target: number, pid: number): void {
+  const { kernel32 } = loadWin32();
   const process_ = kernel32.OpenProcess(
     win32Constants.PROCESS_SET_QUOTA | win32Constants.PROCESS_TERMINATE,
     false,
@@ -66,7 +100,6 @@ export function assignToAppJob(pid: number | undefined): boolean {
   } finally {
     kernel32.CloseHandle(process_);
   }
-  return true;
 }
 
 /** 测试用：pid 是否在应用 Job 里。 */

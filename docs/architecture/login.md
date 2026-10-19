@@ -29,6 +29,12 @@
 - `logout`：1 个账号直接退出，多个先让用户选（`login.chooseAccount`）。
 - 退出只影响 omp 自己存的凭据；自存的 API key 用"清除 API key"（`clearApiKey`）。
 
+## 提供商列表：搜索、排序、登录方式
+
+- 列表（`features/settings/ModelsSection.tsx`，纯函数在 `src/shared/ui/provider-list.ts`）：顶部搜索框按名称和 id 过滤（多个词都要命中）；已配置的（omp 报 `authenticated`，或 studio 存了 key）排前面，组内保持 omp 的顺序。
+- 登录方式（`src/shared/provider-login.ts`）：`get_login_providers` 只有 `{id, name, available, authenticated}`，**没有登录方式的字段**（实测 omp 18.12.2，84 个 provider 的 `available` 全是 true），所以按实测分类。方法：隔离 agent 目录、`omp --mode rpc-ui --no-session`、对每个 provider 发 `login`，看 open_url 之后 omp 要什么：授权码/等浏览器或设备授权 = `oauth`（17 个）；"Paste your … API key" 输入框 = `api-key`（Tavily、Exa、Kagi、Parallel、DeepSeek 等 60 个）；直接以"requires interactive prompts which are not supported in RPC mode"失败 = `terminal`（github-copilot、alibaba-coding-plan、alibaba-token-plan、perplexity、snowflake、lm-studio）。没在表里的新 provider 按 `oauth` 处理（保留登录按钮，失败有原因）；omp 升级后要重测更新表。
+- 界面：`oauth` 显示"登录"；`api-key` 不显示"登录"——有环境变量名（`provider-keys.ts`）的走"设置 API key"（studio 自存），没有的显示"添加 API key"，走 omp 的 `login`（key 存进 omp 的凭据库，输入框不明文显示）；`terminal` 不显示按钮，状态写"需在终端登录"。
+
 ## 模型列表
 
 `listModels` 在服务进程上发 `get_available_models`（会等 omp 后台发现完成），映射成 `ModelOption`（`acceptsImages` = `input` 含 `image`）。新任务的默认模型/思考强度就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，omp-studio 不另存（PLAN 设计原则 7）；新任务启动时不传 `--model`/`--thinking`。`modelRoles` 只能整体写（实测 18.12.1：`omp config set modelRoles.default` 报 Unknown setting），所以总是读出角色表只换 `default`；`defaultThinkingLevel` 不接受 `off`，胶囊里不提供。

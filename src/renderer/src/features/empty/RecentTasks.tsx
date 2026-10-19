@@ -6,7 +6,9 @@ import { reportError } from "../../ui/errors.ts";
 import { selectTask, useTasks } from "../../store/index.ts";
 import { useHiddenTasks } from "../sidebar/archive-store.ts";
 import { StatusDot } from "../sidebar/StatusDot.tsx";
-import { formatTaskTime, useNow } from "../sidebar/task-time.ts";
+import { formatTaskTime, lastActivityAt } from "../../../../shared/ui/task-time.ts";
+import { byRecent } from "../../../../shared/ui/sidebar-model.ts";
+import { useNow } from "../sidebar/task-time.ts";
 
 export const recentLimit = 3;
 
@@ -20,7 +22,7 @@ export function RecentTasks({ projectId }: { projectId: ProjectId }) {
     () =>
       tasks
         .filter((task) => task.projectId === projectId && !hidden.has(task.id))
-        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .sort(byRecent)
         .slice(0, recentLimit),
     [tasks, hidden, projectId],
   );
@@ -39,9 +41,9 @@ export function RecentTasks({ projectId }: { projectId: ProjectId }) {
             >
               <span className="empty-task-top">
                 <StatusDot task={task} t={t} />
-                <span className="empty-task-title">{task.title}</span>
+                <span className="empty-task-title">{task.title.trim() === "" ? t("task.untitled") : task.title}</span>
               </span>
-              <span className="empty-task-time">{formatTaskTime(t, locale, task.updatedAt, now)}</span>
+              <span className="empty-task-time">{formatTaskTime(t, locale, lastActivityAt(task), now)}</span>
             </button>
           </li>
         ))}

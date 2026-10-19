@@ -12,6 +12,11 @@
   animation: setup-fade var(--dur-fade) var(--ease-out);
 }
 
+/* 问接管时底下的应用（侧栏、项目）照常画出来，只压一层遮罩，用户看得到自己的任务还在。 */
+.setup[data-state="ask_takeover"] {
+  background: var(--bg-scrim);
+}
+
 .setup-card {
   width: var(--dialog-w-md);
   max-width: 100%;

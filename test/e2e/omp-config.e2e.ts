@@ -156,18 +156,20 @@ test("自定义下拉：键盘 ↑↓ 选择、首字母跳转、Esc 只关弹�
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
-    await search(page, "retry.fallbackOn");
-    const combo = page.getByTestId("cfg-retry.fallbackOn").getByRole("combobox");
+    // retry.fallbackOn 的三个值有了短的中文名后变成分段控件；换一个选项多、值没有翻译的键。
+    await search(page, "edit.mode");
+    const combo = page.getByTestId("cfg-edit.mode").getByRole("combobox");
     await combo.focus();
     await page.keyboard.press("ArrowDown");
     await expect(page.getByRole("listbox")).toBeVisible();
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await expect(page.getByRole("listbox")).toHaveCount(0);
-    await expect.poll(() => configValue(page, "retry.fallbackOn"), { timeout: 10_000 }).toBe("usage-limit");
-    // 首字母跳转到 except-usage-limit；Esc 关掉弹层但没有退出设置页。
+    // omp 默认 hashline，弹层从当前值开始：下移一项是 patch。
+    await expect.poll(() => configValue(page, "edit.mode"), { timeout: 10_000 }).toBe("patch");
+    // 首字母跳转到 replace；Esc 关掉弹层但没有退出设置页。
     await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("e");
+    await page.keyboard.press("r");
     await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-dropdown-zh-CN-light.png") });
     await page.keyboard.press("Escape");
     await expect(page.getByRole("listbox")).toHaveCount(0);

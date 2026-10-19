@@ -13,6 +13,8 @@ import { assignLanesToTurns } from "../lanes/lane-model.ts";
 import { buildTurns, type Turn } from "./model.ts";
 import { ConversationError } from "./ConversationError.tsx";
 import { TurnView } from "./TurnView.tsx";
+import { ShellRunning } from "./ShellBlock.tsx";
+import { TodoStrip } from "./TodoStrip.tsx";
 import { useStickToBottom } from "./use-stick-to-bottom.ts";
 import type { LiveProps } from "./ProcessRow.tsx";
 import "./conversation.css";
@@ -20,6 +22,7 @@ import "./conversation.css";
 const RECENT_TURNS = 20;
 const BUSY: readonly TaskState["status"][] = ["starting", "running", "needs_you"];
 const NO_LANES: readonly SubagentLane[] = [];
+const NO_TODOS: TaskState["todoPhases"] = [];
 
 function firstSentence(text: string): string {
   const match = /^[^。.!?！？\n]+[。.!?！？]?/.exec(text.trim());
@@ -120,13 +123,24 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
   // 轮次结束时一次性更新 live region（流式期间不逐字播报）。
   const [announce, setAnnounce] = useState("");
   const wasBusy = useRef(busy);
+  const announcedTask = useRef(taskId);
   useEffect(() => {
+    // 切换/恢复任务：上一个任务的完成播报不能留在 live region 里，也不能把"忙→闲"的差异算成这个任务刚完成。
+    if (announcedTask.current !== taskId) {
+      announcedTask.current = taskId;
+      wasBusy.current = busy;
+      setAnnounce("");
+      return;
+    }
     if (wasBusy.current && !busy) {
       const answer = lastTurn?.answer?.text;
       if (answer) setAnnounce(t("a11y.done", { summary: firstSentence(answer) }));
     }
     wasBusy.current = busy;
-  }, [busy, lastTurn, t]);
+  }, [taskId, busy, lastTurn, t]);
+
+  // 只有最近一轮、任务空闲、且最后一次 prompt 以错误结束时才给"重试"。
+  const canRetryLast = !busy && task?.lastTurn?.status === "error";
 
   const liveFor = (turn: Turn): LiveProps | null =>
     busy && task && turn === lastTurn
@@ -135,6 +149,7 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
 
   return (
     <div className="conversation" data-testid="conversation" data-task-id={taskId}>
+      <TodoStrip key={taskId} phases={task?.todoPhases ?? NO_TODOS} />
       <div
         ref={scroller}
         className="scroller"
@@ -150,12 +165,14 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
               key={turn.key}
               turn={turn}
               live={liveFor(turn)}
+              canRetry={canRetryLast && turn === lastTurn}
               offscreenSkippable={index < turns.length - RECENT_TURNS}
               taskId={taskId}
               projectPath={projectPath}
               lanes={turnLanes.get(turn.key) ?? NO_LANES}
             />
           ))}
+          <ShellRunning taskId={taskId} />
           {busy && turns.length === 0 && task?.status === "starting" && (
             <p className="note">{t("conversation.starting")}</p>
           )}

@@ -15,6 +15,7 @@ export function toModelOption(info: ModelInfo): ModelOption {
     reasoning: info.reasoning,
     acceptsImages: info.input.includes("image"),
     maxTokens: info.maxTokens,
+    thinkingEfforts: info.thinking ? [...info.thinking.efforts] : null,
     cost: {
       input: info.cost.input,
       output: info.cost.output,

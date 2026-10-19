@@ -4,6 +4,7 @@
 import type {
   AskAnswer,
   AvailableSlashCommand,
+  Effort,
   AskQuestion,
   ContextUsage,
   LoginProvider,
@@ -13,6 +14,7 @@ import type {
   PromptStatus,
   SessionCredits,
   ThinkingLevel,
+  TodoPhase,
   TokenUsage,
 } from "./omp-wire/rpc-wire.generated.ts";
 import type {
@@ -47,6 +49,9 @@ import type { SubagentDetail, SubagentLane } from "./subagents.ts";
 export type TaskId = string & { readonly __brand: "TaskId" };
 export type ProjectId = string & { readonly __brand: "ProjectId" };
 export type Unsubscribe = () => void;
+
+/** `@` 补全的数据来源：任务目录，或新任务草稿所在的项目目录。 */
+export type ProjectFilesTarget = { kind: "task"; taskId: TaskId } | { kind: "project"; projectId: ProjectId };
 
 // ───────── 应用和设置 ─────────
 
@@ -148,6 +153,8 @@ export interface ModelOption {
   acceptsImages: boolean;
   /** 单次输出上限（ModelInfo.maxTokens）；provider 没给时为 null。 */
   maxTokens: number | null;
+  /** 模型支持的思考强度（ModelInfo.thinking.efforts，不含 off）；omp 没给这个模型的思考配置时为 null。 */
+  thinkingEfforts: Effort[] | null;
   /** 价格，美元 / 百万 token（ModelInfo.cost）；本地模型和未知价格是全 0。 */
   cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
 }
@@ -185,6 +192,8 @@ export interface TaskState {
   queue: { steering: string[]; followUp: string[] };
   /** 未答的对话框，按到达顺序。 */
   dialogs: DialogRequest[];
+  /** get_state.todoPhases：omp 的待办阶段。主进程在 todo 工具结束、todo_auto_clear 和每次状态刷新后更新；没有待办时是空数组。 */
+  todoPhases: TodoPhase[];
   /** 正在运行的子代理数，用于过程折叠行。 */
   runningSubagents: number;
   /** 任务实际的工作目录（有 worktree 时是 worktree 根，否则是项目目录）；界面把工具参数里的绝对路径换成相对它的路径。 */
@@ -225,6 +234,10 @@ export interface RestoredQueue {
   imagesDropped: boolean;
   /** 连文字都放不下，只返回了最早的几条。 */
   truncated: boolean;
+  /** abort 之后 omp 不再流式输出（get_state.isStreaming 为 false）；false 表示这一轮没停下来。 */
+  aborted: boolean;
+  /** 还有后台任务（转后台的 bash、异步 task）会在完成后唤醒会话；omp 没有取消它们的命令，所以停止管不到。 */
+  backgroundWork: boolean;
 }
 
 // ───────── 对话框（extension_ui_request） ─────────
@@ -548,10 +561,20 @@ export interface StudioInvokeApi {
   saveDraft(key: string, text: string): Promise<void>;
   /** 压缩上下文（RPC compact）。任务没有进程时先拉起；运行中拒绝。 */
   compactTask(taskId: TaskId): Promise<void>;
+  /**
+   * 输入框里 `!命令`：经 omp 的 bash 命令在任务工作目录执行（和终端版 `!cmd` 同信任级别，命令由用户键入）。
+   * 任务没有进程时先拉起；结果由 omp 记进会话，主进程把它作为 bashExecution 消息放进对话流，返回时已在流里。
+   * 同时只能有一条在跑；命令限长（limits.bashCommandMaxChars）。
+   */
+  runBash(taskId: TaskId, command: string): Promise<void>;
+  /** 中止正在跑的 `!命令`（RPC abort_bash）；没有在跑的命令时什么也不发生。 */
+  abortBash(taskId: TaskId): Promise<void>;
   /** 用系统默认应用打开任务工作目录里的文件。relPath 相对任务 cwd，主进程校验落在 cwd 之内。 */
   openTaskFile(taskId: TaskId, relPath: string): Promise<void>;
   /** 在系统文件管理器里选中任务工作目录里的文件。校验同 openTaskFile。 */
   revealTaskFile(taskId: TaskId, relPath: string): Promise<void>;
+  /** `@` 文件引用补全：目录由主进程按任务（或新任务草稿的项目）查出，只返回相对路径，最多 20 条；query 含绝对路径或 `..` 时 reject。 */
+  listProjectFiles(target: ProjectFilesTarget, query: string): Promise<string[]>;
 
   // 子代理泳道（阶段 5）
   /** 当前泳道快照（含已结束的）；渲染进程打开任务或重载后用它对齐，之后靠 subagents 事件。 */
@@ -745,6 +768,8 @@ export const limits = {
   terminalHeightRange: [120, 4000],
   urlMaxChars: 8192,
   maxLiveProcessesRange: [2, 16],
+  /** 一条 `!命令` 的最大字符数。 */
+  bashCommandMaxChars: 16_384,
 } as const;
 
 /**
@@ -791,8 +816,11 @@ export const invokeNames = {
   getDrafts: true,
   saveDraft: true,
   compactTask: true,
+  runBash: true,
+  abortBash: true,
   openTaskFile: true,
   revealTaskFile: true,
+  listProjectFiles: true,
   openTerminal: true,
   writeTerminal: true,
   resizeTerminal: true,

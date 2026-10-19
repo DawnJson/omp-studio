@@ -3,6 +3,7 @@
 import { describeError } from "../../ui/errors.ts";
 import { useRef, useState } from "react";
 import type { LoginEvent } from "../../../../shared/ipc.ts";
+import type { LoginKind } from "../../../../shared/provider-login.ts";
 import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Button } from "./controls.tsx";
@@ -15,6 +16,8 @@ interface ProviderRowProps {
   hasStoredKey: boolean;
   /** 这个 provider 有已知的环境变量名，可以由 omp-studio 存 API key。 */
   canSetKey: boolean;
+  /** 这个 provider 登录是什么形式（OAuth 授权 / 粘贴 API key / 只能在终端），见 shared/provider-login.ts。 */
+  loginKind: LoginKind;
   /** 别的提供商正在登录。 */
   blocked: boolean;
   onLoginActive(active: boolean): void;
@@ -26,6 +29,7 @@ export function ProviderRow({
   accounts,
   hasStoredKey,
   canSetKey,
+  loginKind,
   blocked,
   onLoginActive,
   onChanged,
@@ -51,7 +55,15 @@ export function ProviderRow({
       ? { text: hasStoredKey ? t("login.keyInApp") : t("login.viaEnv"), ok: true }
       : hasStoredKey
         ? { text: t("login.keyInApp"), ok: true }
-        : { text: provider.available ? t("login.notSignedIn") : t("login.unavailable"), ok: false };
+        : {
+            text:
+              loginKind === "terminal"
+                ? t("login.terminalLogin")
+                : provider.available
+                  ? t("login.notSignedIn")
+                  : t("login.unavailable"),
+            ok: false,
+          };
 
   const fail = (error: unknown) => setFlow({ kind: "failed", message: describeError(t, error) });
 
@@ -187,11 +199,16 @@ export function ProviderRow({
             >
               {t("login.signOut")}
             </Button>
-          ) : (
+          ) : loginKind === "oauth" ? (
             <Button disabled={disabled || !provider.available} loading={loggingIn} onClick={() => void startLogin()}>
               {t("login.signIn")}
             </Button>
-          )}
+          ) : loginKind === "api-key" && !canSetKey ? (
+            // 这个 provider 的登录就是粘贴 API key，studio 又没有它的环境变量名：走 omp 自己的 login，key 存进 omp 的凭据库。
+            <Button disabled={disabled || !provider.available} loading={loggingIn} onClick={() => void startLogin()}>
+              {t("login.apiKey.add")}
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -200,6 +217,7 @@ export function ProviderRow({
           flow={flow}
           code={code}
           copied={copied}
+          maskInput={loginKind === "api-key"}
           onCode={setCode}
           onCopy={copy}
           onSubmitCode={(inputId) => {

@@ -1,6 +1,7 @@
 // omp 的全部设置：把 `omp config list --json`（type、description、value、redacted）和
 // `omp config list`（文本：`[tab]` 分组、枚举行 `key = v (a|b|c)` 的可选值）合并成 schema。纯函数，不碰进程和文件。
 // 实测版本：omp 18.12.1（555 项，11 个 tab）；样本输出在 fixtures/omp-config/。
+import { stripAnsi } from "../../shared/ansi.ts";
 import type { OmpConfigItem, OmpConfigSnapshot, OmpConfigType } from "../../shared/ipc.ts";
 
 export interface TextEntry {
@@ -19,15 +20,11 @@ const tabLine = /^\[([^\]\s]+)\]\s*$/;
 // `  key = <值，可能含括号，如 "(not set)"> (<类型或枚举>)`：值部分贪婪，括号组取最后一个。
 const entryLine = /^ {2}(\S+) = (.*) \(([^()]*)\)$/;
 
-// 终端颜色转义（FORCE_COLOR 之类的环境变量会让 omp 在管道里也上色）。
-// eslint-disable-next-line no-control-regex
-const ansi = /\u001b\[[0-9;]*m/g;
-
 export function parseConfigText(text: string): ParsedConfigText {
   const tabs: string[] = [];
   const entries = new Map<string, TextEntry>();
   let tab = "";
-  for (const line of text.replace(ansi, "").split(/\r?\n/)) {
+  for (const line of stripAnsi(text).split(/\r?\n/)) {
     const tabMatch = tabLine.exec(line);
     if (tabMatch?.[1]) {
       tab = tabMatch[1];

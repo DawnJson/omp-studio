@@ -45,7 +45,19 @@ export type Extra =
   | { kind: "compaction"; key: string; phase: "start" | "end" }
   | { kind: "retry"; key: string; phase: "start" | "end" }
   | { kind: "prompt_error"; key: string; error: PromptError | null }
-  | { kind: "model_error"; key: string; message: string };
+  | { kind: "model_error"; key: string; message: string }
+  /** 用户用 @ 附带的文件（fileMention 消息）：只记路径，内容不进界面。 */
+  | { kind: "file_mention"; key: string; paths: string[] }
+  /** 用户的 `!命令` 及其输出（bashExecution 消息）。 */
+  | {
+      kind: "shell";
+      key: string;
+      command: string;
+      output: string;
+      exitCode: number | null;
+      cancelled: boolean;
+      truncated: boolean;
+    };
 
 export interface Answer {
   key: string;
@@ -153,7 +165,9 @@ function hasToolCall(message: AssistantMessage): boolean {
 function groupItems(items: readonly TranscriptItem[]): TranscriptItem[][] {
   const groups: TranscriptItem[][] = [];
   for (const item of items) {
-    const startsTurn = item.kind === "message" && item.message.role === "user" && item.message.synthetic !== true;
+    const startsTurn =
+      item.kind === "message" &&
+      ((item.message.role === "user" && item.message.synthetic !== true) || item.message.role === "bashExecution");
     if (startsTurn || groups.length === 0) groups.push([item]);
     else (groups[groups.length - 1] as TranscriptItem[]).push(item);
   }
@@ -247,22 +261,20 @@ function buildTurn(
         }
       });
     } else if (message.role === "bashExecution") {
-      const cancelled = message.cancelled || (message.exitCode !== undefined && message.exitCode !== 0);
-      steps.push({
-        kind: "tool",
-        key: `bash:${position}`,
-        toolCallId: `bash:${position}`,
-        name: "bash",
-        intent: null,
-        args: { command: message.command },
-        status: cancelled ? "error" : "done",
+      // 用户的 `!命令`（模型自己的 bash 是 toolCall，不走这条）：作为命令块单独成块，不并进上一轮的过程。
+      extras.push({
+        kind: "shell",
+        key: `b${position}`,
+        command: message.command,
         output: message.output,
-        result: { content: [{ type: "text", text: message.output }] },
-        startedAt: null,
-        endedAt: item.at,
+        exitCode: message.exitCode ?? null,
+        cancelled: message.cancelled,
+        truncated: message.truncated,
       });
     } else if (message.role === "compactionSummary") {
       extras.push({ kind: "compaction", key: `k${position}`, phase: "end" });
+    } else if (message.role === "fileMention") {
+      extras.push({ kind: "file_mention", key: `f${position}`, paths: message.files.map((file) => file.path) });
     }
   });
 

@@ -1,5 +1,6 @@
 // 侧栏的纯数据整理：项目标签、按项目分组、任务排序、等待中的任务。不依赖 React 和 window，可直接单测。
 import type { Project, ProjectId, TaskId, TaskState } from "../ipc.ts";
+import { lastActivityAt } from "./task-time.ts";
 
 export interface ProjectGroupModel {
   project: Project;
@@ -25,9 +26,9 @@ export function projectLabels(projects: readonly Project[]): Map<ProjectId, stri
   );
 }
 
-/** 用户最后一次操作的时间：主进程只在用户操作（发消息、改名、切换）时更新 updatedAt。 */
-function byRecent(a: TaskState, b: TaskState): number {
-  return b.updatedAt - a.updatedAt || b.createdAt - a.createdAt;
+/** 按"最近活动"（lastActivityAt，与行尾显示的时间同一个字段）从新到旧。 */
+export function byRecent(a: TaskState, b: TaskState): number {
+  return lastActivityAt(b) - lastActivityAt(a) || b.createdAt - a.createdAt;
 }
 
 export function groupTasks(

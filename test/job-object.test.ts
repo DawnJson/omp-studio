@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { assignToAppJob, isInAppJob } from "../src/main/platform/win32/job-object.ts";
+import { assignToAppJob, assignToOwnJob, isInAppJob } from "../src/main/platform/win32/job-object.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const host = path.join(root, "test", "fake-omp", "job-host.ts");
@@ -111,5 +111,26 @@ describe.skipIf(process.platform !== "win32")("Job Object：主进程被强杀�
       child.kill("SIGKILL");
       bystander.kill("SIGKILL");
     }
+  });
+
+  it("assignToOwnJob：释放句柄后进程被系统结束，重复释放无害", async () => {
+    const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 60_000)"], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    try {
+      const release = assignToOwnJob(child.pid);
+      expect(isAlive(child.pid!)).toBe(true);
+      release();
+      release();
+      expect(await waitUntil(() => !isAlive(child.pid!), 5_000)).toBe(true);
+    } finally {
+      child.kill("SIGKILL");
+    }
+  });
+
+  it("失败时报真实的 Win32 错误码（不是 errno 的 0）", () => {
+    // 4 是 System 进程：没有权限 OpenProcess(SET_QUOTA|TERMINATE) → ERROR_ACCESS_DENIED(5)；0xFFFFFFF0 之类不存在的 pid → ERROR_INVALID_PARAMETER(87)。
+    expect(() => assignToAppJob(0xfffffff0)).toThrow(/error 87\)/);
   });
 });

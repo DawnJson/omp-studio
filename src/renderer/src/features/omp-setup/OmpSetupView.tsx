@@ -101,13 +101,12 @@ export function OmpSetupView() {
             <Button
               variant="primary"
               large
-              autoFocus
               onClick={() => answer(window.studio.answerTakeover(true))}
               testId="takeover-yes"
             >
               {t("omp.takeover.yes")}
             </Button>
-            <Button large onClick={() => answer(window.studio.answerTakeover(false))} testId="takeover-no">
+            <Button large autoFocus onClick={() => answer(window.studio.answerTakeover(false))} testId="takeover-no">
               {other !== null
                 ? t("omp.takeover.keepOther", { name: other })
                 : status.launchable

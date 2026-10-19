@@ -49,7 +49,14 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
     const items: MenuItem[] = [
       { id: "review", label: t("git.menu.review"), onSelect: () => openReview(taskId) },
       { id: "commit", label: t("git.menu.commit"), onSelect: () => openGitDialog({ kind: "commit", taskId }) },
-      { id: "push", label: t("git.menu.push"), onSelect: () => void pushBranch(t, taskId) },
+      {
+        id: "push",
+        label: t("git.menu.push"),
+        ...(!status.canPush && {
+          disabledReason: status.branch.head === null ? t("git.push.detached") : t("git.push.noRemote"),
+        }),
+        onSelect: () => void pushBranch(t, taskId),
+      },
       {
         id: "pr",
         label: t("git.menu.pr"),

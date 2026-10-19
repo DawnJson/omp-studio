@@ -20,6 +20,8 @@ interface TurnViewProps {
   projectPath: string | null;
   /** 这一轮里开始的子代理（泳道）；没有时是同一个空数组。 */
   lanes: readonly SubagentLane[];
+  /** 这一轮是最近一轮、任务空闲且上一次 prompt 以错误结束：最后一条 prompt 错误可以带"重试"。 */
+  canRetry: boolean;
 }
 
 function AssistantAnswer({ text, streaming, live }: { text: string; streaming: boolean; live: boolean }) {
@@ -47,9 +49,11 @@ export const TurnView = memo(function TurnView({
   taskId,
   projectPath,
   lanes,
+  canRetry,
 }: TurnViewProps) {
   const t = useT();
   const complete = live === null;
+  const lastPromptErrorKey = turn.extras.findLast((extra) => extra.kind === "prompt_error")?.key;
   const noResult = complete && turn.answer === null && (turn.hasAssistantOutput || turn.toolCalls > 0);
   return (
     <section
@@ -64,6 +68,12 @@ export const TurnView = memo(function TurnView({
         </div>
       )}
       {turn.user && <UserMessage user={turn.user} />}
+      {/* "已附带文件"属于用户这条消息（omp 展开 @路径 生成的），紧跟在它下面；其他附注在一轮末尾。 */}
+      {turn.extras
+        .filter((extra) => extra.kind === "file_mention")
+        .map((extra) => (
+          <ExtraView key={extra.key} extra={extra} taskId={taskId} retryable={false} />
+        ))}
       <ProcessRow turn={turn} live={live} taskId={taskId} projectPath={projectPath} lanes={lanes} />
       {turn.answer && (
         <AssistantAnswer text={turn.answer.text} streaming={turn.answer.streaming} live={turn.answer.streaming} />
@@ -74,9 +84,16 @@ export const TurnView = memo(function TurnView({
         </p>
       )}
       {complete && turn.runFinished && <ChangeCard changes={turn.changes} taskId={taskId} projectPath={projectPath} />}
-      {turn.extras.map((extra) => (
-        <ExtraView key={extra.key} extra={extra} />
-      ))}
+      {turn.extras
+        .filter((extra) => extra.kind !== "file_mention")
+        .map((extra) => (
+          <ExtraView
+            key={extra.key}
+            extra={extra}
+            taskId={taskId}
+            retryable={canRetry && extra.key === lastPromptErrorKey}
+          />
+        ))}
     </section>
   );
 });

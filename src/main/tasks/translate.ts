@@ -1,6 +1,7 @@
 // omp 的会话事件帧 → TranscriptEvent。纯函数，语义与 test/transcript.test.ts 里的假主进程一致：
 // 去掉 message_update 里的 partial（delta 模式下本来就没有），丢掉 toolcall_delta。
 import type { RpcServerFrame } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import { stripAnsi } from "../../shared/ansi.ts";
 import type { AssistantDelta, TranscriptEvent } from "../../shared/transcript.ts";
 
 /** `${gen}:${messageId}`：messageId 只在单个进程内唯一，进程重启会从头编号，所以带上 spawn 代号。 */
@@ -67,7 +68,7 @@ export function translateFrame(frame: RpcServerFrame, gen: number, at: number): 
     case "rpc_frame_error":
       return [{ type: "notice", level: "warning", message: frame.error, at }];
     case "command_output":
-      return [{ type: "command_output", text: frame.text, at }];
+      return [{ type: "command_output", text: stripAnsi(frame.text), at }];
     case "auto_compaction_start":
       return [{ type: "status_line", kind: "compaction", phase: "start", at }];
     case "auto_compaction_end":

@@ -283,6 +283,8 @@
 
 .empty-task-time {
   margin-top: auto;
+  /* 与标题对齐：跳过状态点的槽位（空闲任务槽位是空的）。 */
+  padding-left: calc(var(--icon-md) + var(--space-2));
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   color: var(--text-3);

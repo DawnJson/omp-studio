@@ -32,7 +32,12 @@ const IDEMPOTENT: Record<string, true> = {
  * 子代理命令：详情面板和干预按钮在不固定的时刻发，同样不占回放顺序（不在"下一条期望的 in"时才就地应答）。
  * get_subagent_messages 按 subagentId 回录制里那个子代理的应答；steer / cancel 直接答成功（cancel 答 cancelled: true）。
  */
-const SUBAGENT_ACKS: Record<string, unknown> = { steer_subagent: undefined, cancel_subagent: { cancelled: true } };
+const SUBAGENT_ACKS: Record<string, unknown> = {
+  steer_subagent: undefined,
+  cancel_subagent: { cancelled: true },
+  // 改名：和子代理命令一样随时可能到，不占回放顺序（测试从输入记录里看它）。
+  set_session_name: undefined,
+};
 
 const fixture = process.argv[2];
 const inputLog = process.argv[3];
@@ -132,6 +137,7 @@ async function nextFrame(expectedType: string | null): Promise<{ raw: string; fr
       }
       if (Object.hasOwn(SUBAGENT_ACKS, received.type)) {
         const data = SUBAGENT_ACKS[received.type];
+        if (inputLog && received.type === "set_session_name") appendFileSync(inputLog, `${next.value}\n`);
         process.stdout.write(JSON.stringify({ ...reply, success: true, ...(data !== undefined && { data }) }) + "\n");
         continue;
       }

@@ -27,6 +27,8 @@ export const composer = {
     other: "Stopped · {count} queued messages put back in the box",
   },
   imagesDropped: "The images were too large to restore",
+  stopFailed: "Couldn't stop this turn; the task is still running",
+  stoppedBackground: "A background job is still running; omp may continue by itself when it finishes",
   nextRequest: "Applies from the next request",
   context: "Context {p}%",
   "usage.aria": "Session usage",
@@ -42,4 +44,5 @@ export const composer = {
   noModel: "No model connected",
   versionTooOld: "omp is too old",
   modelChip: "Choose model and thinking level",
+  fileRef: "Project files",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

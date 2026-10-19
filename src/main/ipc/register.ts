@@ -5,6 +5,7 @@ import { invokeChannel, type InvokeHandlers } from "../../shared/ipc.ts";
 import { accountHandlers } from "./account-handlers.ts";
 import { customModelHandlers } from "./custom-model-handlers.ts";
 import { appHandlers } from "./app-handlers.ts";
+import { fileHandlers } from "./file-handlers.ts";
 import { draftHandlers } from "./draft-handlers.ts";
 import { gitHandlers } from "./git-handlers.ts";
 import { historyHandlers } from "./history-handlers.ts";
@@ -31,6 +32,7 @@ const handlers: InvokeHandlers = {
   ...usageHandlers,
   ...subagentHandlers,
   ...terminalHandlers,
+  ...fileHandlers,
 };
 
 export function registerIpcHandlers(): void {

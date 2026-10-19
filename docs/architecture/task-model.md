@@ -6,7 +6,7 @@
 
 一个任务 = 一个项目目录 + 一个 omp 会话 + （存活时）一个 omp 进程。进程可被回收，任务和会话不会：再打开任务时起新进程，`switch_session` 回到同一个会话文件。
 
-- 持久化：`userData/tasks.json`（`TaskRegistry`，先写临时文件再改名，写盘串行）。`tasks.json` 损坏时 `load` 抛错，不当成空表覆盖。重命名和归档存这里，不写 `~/.omp`（决策 9）。
+- 持久化：`userData/tasks.json`（`TaskRegistry`，先写临时文件再改名，写盘串行）。`tasks.json` 损坏时 `load` 抛错，不当成空表覆盖。重命名和归档存这里。改名同时走 omp 自己的命令：任务有进程时发 `set_session_name`，没有进程（stopped / 被回收）时记在内存里，下次握手后补发；omp 推来 `session_info_update`（`/rename` 或 omp 自己改了会话名，带 `title`）时用同一条保存路径更新任务标题（标题相同或为空则忽略，避免回声）。不手写 `~/.omp` 里的会话文件（决策 9）。
 - 记录字段：`id, projectId, sessionFile|null, title, createdAt, updatedAt, archived, model, thinkingLevel, worktreePath`（恒 null）。
 - `sessionFile` 在第一轮（`prompt_result`）或恢复之后才写入：新会话的文件在第一条 assistant 消息后才落盘，之前 `get_state` 给的路径不能存。实测 18.12.1：`get_state.sessionFile` 在握手后、首轮前就有值。
 - 新任务标题是 `""`；第一次 `sendPrompt` 取首条消息第一行（60 字符）；`resume` 时 title 为 null 则载完历史后取第一条用户消息。
@@ -56,7 +56,7 @@
 
 ## 上下文使用率和状态刷新
 
-`get_state` 在 assistant `message_end`、`agent_end`、`auto_compaction_end`、`notice` 后调一次，同一任务 1 秒内最多一次；`prompt_result`、`session_settled`、`model_changed`、`thinking_level_changed`、`config_update` 立即刷新。刷新同时更新 `contextUsage`、模型、思考档位、队列、回收判据（`isSettled && !hasPendingAsyncWork`）和 `sessionFile`。`queue_update` 直接更新队列 chip。
+`get_state` 在 assistant `message_end`、`agent_end`、`auto_compaction_end`、`notice` 后调一次，同一任务 1 秒内最多一次；`prompt_result`、`session_settled`、`model_changed`、`thinking_level_changed`、`config_update` 立即刷新。刷新同时更新 `contextUsage`、模型、思考档位、队列、`todoPhases`（待办阶段，原样搬进 `TaskState.todoPhases`；todo 工具的 `tool_execution_end`（工具名含 todo）和 `todo_auto_clear` 也会触发一次节流刷新）、回收判据（`isSettled && !hasPendingAsyncWork`）和 `sessionFile`。`queue_update` 直接更新队列 chip。
 
 ## 进程上限和回收
 

@@ -34,6 +34,18 @@ export async function currentBranch(root: string): Promise<string | null> {
   return result.code === 0 ? result.stdout.toString("utf8").trim() : null;
 }
 
+/** 推送用的 remote：分支已配置 remote 就用它；否则只有一个 remote 用它，多个时取 origin；都没有是 null。 */
+export async function pushRemote(
+  root: string,
+  branch: string,
+): Promise<{ remote: string | null; hasUpstream: boolean }> {
+  const configured = await gitRaw(root, ["config", "--get", `branch.${branch}.remote`]);
+  if (configured.code === 0) return { remote: configured.stdout.toString("utf8").trim(), hasUpstream: true };
+  const remotes = (await gitText(root, ["remote"])).split("\n").filter(Boolean);
+  const remote = remotes.length === 1 ? (remotes[0] ?? null) : remotes.includes("origin") ? "origin" : null;
+  return { remote, hasUpstream: false };
+}
+
 /** HEAD 是否指向一个提交（新仓库还没有任何提交时为 false）。 */
 export async function hasCommits(root: string): Promise<boolean> {
   return (await gitRaw(root, ["rev-parse", "--verify", "-q", "HEAD"])).code === 0;

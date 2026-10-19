@@ -216,7 +216,7 @@ export function App() {
           ) : (
             <>
               <ConversationView taskId={taskId} />
-              <Composer taskId={taskId} />
+              <Composer key={taskId} taskId={taskId} />
               {terminalOpen && <TerminalPanel key={taskId} taskId={taskId} />}
             </>
           )}

@@ -151,6 +151,11 @@
 .answer:hover .hover-action {
   opacity: 1;
 }
+/* 复制按钮悬在块下方的间隙里：给块底部留出按钮高度（扣掉下一块自带的 --space-3 上边距），不盖住下一块的文字。 */
+.user,
+.answer {
+  margin-bottom: calc(var(--control-h-sm) - var(--space-3));
+}
 .user-copy {
   right: 0;
   top: 100%;
@@ -458,6 +463,16 @@
 .note[data-level="error"] {
   color: var(--st-error);
 }
+.file-mention {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.command-output a {
+  color: var(--link);
+  text-decoration: underline;
+  cursor: pointer;
+}
 .command-output {
   margin: var(--space-3) 0 0;
   padding: var(--space-2) var(--space-3);
@@ -468,6 +483,70 @@
   line-height: var(--lh-code-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* 用户的 `!命令`：命令行 + 退出状态 + 输出（折叠可展开）。失败只用左 2px 线和文字，不铺大块红色。 */
+.shell-block {
+  margin: var(--space-3) 0 0;
+  border-left: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  line-height: var(--lh-code-sm);
+}
+.shell-block[data-failed] {
+  border-left-color: var(--st-error);
+}
+.shell-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+.shell-command {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.shell-status {
+  flex: none;
+  color: var(--text-2);
+}
+.shell-block[data-failed] .shell-status {
+  color: var(--st-error);
+}
+.shell-output {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-2);
+  font: inherit;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.shell-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-3) var(--space-2);
+}
+.shell-note {
+  color: var(--text-3);
+}
+.shell-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--text-2);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.shell-toggle:hover {
+  color: var(--text);
 }
 
 .inline-error {
@@ -669,4 +748,129 @@
 .jump:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+/* 待办进度条（spec 4.6 ProgressPill）：对话流顶部一行，展开的列表浮在对话流上，不推动滚动内容。 */
+.todo-strip {
+  position: relative;
+  flex: none;
+  width: min(100% - 2 * var(--gutter), var(--content-w));
+  margin: var(--space-2) auto 0;
+  z-index: 2;
+}
+.todo-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  height: 24px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.todo-pill:hover {
+  background: var(--accent-soft);
+}
+.todo-pill:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.todo-pill[data-finished] .todo-count {
+  color: var(--st-done);
+}
+.todo-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.todo-current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.todo-panel {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  left: 0;
+  width: min(100%, 420px);
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-2);
+  font-size: var(--fs-sm);
+  animation: todo-in var(--dur-fade) var(--ease-out);
+}
+@keyframes todo-in {
+  from {
+    opacity: 0;
+  }
+}
+.todo-phase + .todo-phase {
+  margin-top: var(--space-2);
+}
+.todo-phase-name {
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--text-3);
+}
+.todo-phase ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  color: var(--text);
+}
+.todo-mark {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-2);
+}
+.todo-item[data-status="completed"] .todo-mark {
+  border-color: transparent;
+}
+.todo-item[data-status="in_progress"] .todo-mark {
+  border-color: var(--st-running);
+  background: radial-gradient(circle, var(--st-running) 0 2.5px, transparent 3px);
+  animation: dot-breathe var(--dur-breathe) ease-in-out infinite;
+  animation-play-state: var(--play-state);
+}
+.todo-item[data-status="blocked"] .todo-mark {
+  border-color: var(--st-error);
+  background: radial-gradient(circle, var(--st-error) 0 2.5px, transparent 3px);
+}
+.todo-item[data-status="abandoned"] .todo-content {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+.todo-item[data-status="completed"] .todo-content {
+  color: var(--text-2);
+}
+.todo-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.todo-blocker {
+  font-size: var(--fs-xs);
+  color: var(--st-error);
 }

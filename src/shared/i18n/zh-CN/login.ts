@@ -29,4 +29,8 @@ export const login = {
   "apiKey.clear": "清除 API key",
   "apiKey.note": "key 用系统凭据加密保存在本机，不写入 omp 的配置，终端版看不到它。",
   "apiKey.failed": "没能保存 API key：{message}",
+  "apiKey.add": "添加 API key",
+  search: "搜索提供商",
+  noMatch: "没有匹配的提供商",
+  terminalLogin: "需在终端登录",
 } satisfies Record<string, MessageEntry>;

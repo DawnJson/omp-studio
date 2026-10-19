@@ -274,6 +274,14 @@ export class TaskPool {
     return this.#runner(id).compact();
   }
 
+  runBash(id: TaskId, command: string): Promise<void> {
+    return this.#runner(id).runBash(command);
+  }
+
+  abortBash(id: TaskId): Promise<void> {
+    return this.#runner(id).abortBash();
+  }
+
   /** 任务的工作目录：有 worktree 时是 worktree 根，否则是项目路径。 */
   taskCwd(id: TaskId): string {
     return this.#runner(id).cwd;

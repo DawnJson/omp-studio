@@ -258,7 +258,8 @@ d("丢弃和清理", () => {
     expect(branches(dir)).not.toContain(clean.branch);
     expect(await exists(foreign)).toBe(true);
     expect(branches(dir)).toContain("feature/mine");
-  });
+    // 建 4 个 worktree、几十次 git 调用：整套测试并行跑时 5 秒默认超时不够（2026-10-19 偶发超时）。
+  }, 20_000);
 
   it("旧版位置（<仓库上级>/.omp-studio-worktrees）的 worktree 照常能合并、丢弃（按 git 登记认，不按目录）", async () => {
     const dir = await fresh();

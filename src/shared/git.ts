@@ -31,7 +31,8 @@ export type GitStatus =
   | { kind: "git_missing" }
   /** 任务目录不在 git 仓库里。 */
   | { kind: "not_git" }
-  | { kind: "ok"; branch: GitBranchInfo; files: GitFileChange[] };
+  /** 能推送：不是 detached HEAD，且分支配置了 remote 或仓库里能选出一个（push 的 remote 选择规则）。 */
+  | { kind: "ok"; branch: GitBranchInfo; files: GitFileChange[]; canPush: boolean };
 
 // ───────── diff ─────────
 

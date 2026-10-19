@@ -35,8 +35,11 @@ export interface TerminalDeps {
   spawn(shell: ShellChoice, options: SpawnOptions): Promise<PtyLike>;
   /** 结束 pid 和它的所有后代（Windows 的 taskkill /T；其他平台靠 pty.kill 的 SIGHUP，什么也不做）。 */
   killTree(pid: number): Promise<void>;
-  /** 把 shell 放进应用 Job Object；失败由调用方记日志，终端照常可用（退出时仍由 closeAll 结束）。 */
-  assignJob(pid: number): void;
+  /**
+   * 把 shell 放进它自己的 KILL_ON_JOB_CLOSE Job Object（主进程被强杀时由系统回收整棵树），返回释放函数（关句柄）。
+   * 放进去失败由调用方记日志，终端照常可用（正常退出仍由 closeAll 结束）。
+   */
+  assignJob(pid: number): () => void;
   emitData(taskId: TaskId, data: string): void;
   emitExit(taskId: TaskId, exitCode: number): void;
   onError(message: string, error: unknown): void;
@@ -49,6 +52,8 @@ interface Entry {
   backlog: Backlog;
   batcher: OutputBatcher;
   subscriptions: { dispose(): void }[];
+  /** 关 shell 的 Job 句柄；没放进 Job 时是空操作。 */
+  releaseJob: () => void;
 }
 
 /** 任务目录已经不存在（worktree 被删等）：不替用户换目录，直接拒绝。 */
@@ -94,8 +99,9 @@ export class TerminalManager {
     const shell = this.#deps.resolveShell();
     const pty = await this.#deps.spawn(shell, { cwd, env: this.#deps.buildEnv(), cols, rows });
     // 同一个同步段里放进 Job 并挂监听：不漏掉 shell 启动时的输出。
+    let releaseJob = () => {};
     try {
-      this.#deps.assignJob(pty.pid);
+      releaseJob = this.#deps.assignJob(pty.pid);
     } catch (error) {
       this.#deps.onError("terminal: could not assign the shell to the job object", error);
     }
@@ -109,6 +115,7 @@ export class TerminalManager {
         maxChars: BATCH_MAX_CHARS,
       }),
       subscriptions: [],
+      releaseJob,
     };
     entry.subscriptions.push(
       pty.onData((data) => {
@@ -120,6 +127,7 @@ export class TerminalManager {
         if (this.#entries.get(taskId) !== entry) return;
         entry.batcher.flush();
         this.#detach(taskId, entry);
+        entry.releaseJob();
         this.#deps.emitExit(taskId, exitCode);
       }),
     );
@@ -184,6 +192,7 @@ export class TerminalManager {
       // 树已经杀掉时 node-pty 可能报进程不存在。
       this.#deps.onError("terminal: kill failed", error);
     }
+    entry.releaseJob();
   }
 
   async closeAll(): Promise<void> {

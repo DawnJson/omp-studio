@@ -193,7 +193,19 @@ flowchart LR
 
 ### 阶段 6：内置终端
 
-- [x] xterm.js + node-pty，每个任务的终端在它的 worktree 目录里打开（任务条按钮 / Ctrl+` / 命令面板打开输入框下方的面板；目录是任务的 cwd，有 worktree 就是 worktree 根；每个任务一个终端，隐藏面板不结束 shell，再打开用 256KB 回放还原屏幕；进程树进应用 Job Object，归档任务、丢弃 worktree、退出应用时按树结束；打包版 `release\win-unpacked` 实测可用。见 `docs/architecture/terminal.md`。**只在 Windows 上实测**，macOS/Linux 没跑过）
+- [x] xterm.js + node-pty，每个任务的终端在它的 worktree 目录里打开（任务条按钮 / Ctrl+` / 命令面板打开输入框下方的面板；目录是任务的 cwd，有 worktree 就是 worktree 根；每个任务一个终端，隐藏面板不结束 shell，再打开用 256KB 回放还原屏幕；每个 shell 进自己的 Job Object（商店版 pwsh 进不了应用的 Job，2026-10-19 实测 ACCESS_DENIED），归档任务、丢弃 worktree、退出应用时按树结束；打包版 `release\win-unpacked` 实测可用。见 `docs/architecture/terminal.md`。**只在 Windows 上实测**，macOS/Linux 没跑过）
+
+### 阶段 6.5：和终端版 omp 对齐（2026-10-19 试用对比）
+
+子代理分别在伪终端里用 Tern 管理的 omp 18.12.2、在构建版 omp-studio 里接真实 omp 走了一遍，对照出的差距和问题（报告的要点记在各架构文档里）。
+
+- [x] 已补：待办进度条（`get_state.todoPhases`）、输入框 `!命令`（RPC `bash` / `abort_bash`，安全规则第二个例外，仓库所有者同意）、`@文件` 补全、输入历史 ↑/↓、斜杠菜单滚动和终端专属命令拦截、可重试错误的"重试"、`fileMention` 显示、改名和 omp 会话名双向同步、思考档位按模型支持的列表、模型行价格、提供商搜索和按登录方式区分按钮、审批快捷键和写入预览
+- [x] 已修：停止提示不实（omp 把 bash 转后台后会自己继续）、门停靠时 Ctrl+Enter 无反应、`/context` 输出的 ANSI 乱码、评审说明裸 Markdown、任务行时间不刷新、终端 shell 进不了 Job Object、用量页不跟随 profile、设置枚举和分组名没翻译、无远端时推送可点
+- [ ] 计划模式：RPC 下做不了（没有进入命令，没有计划审阅事件，见阶段 2.6 的 plan 模式一条），等你选路线
+- [ ] 停止时取消 omp 转到后台的命令：wire schema 里没有取消后台任务的命令，只能如实提示；要给 omp 提 PR
+- [ ] `!!命令`（执行但不进模型上下文）：RPC `bash` 没有这个参数
+- [ ] RPC 支持、还没做 UI 的：会话树和分叉（`get_tree` / `branch` / `fork`）、`/btw` 旁问、goal、fast/slow 模式开关和状态、用量限额提示（`get_state.usageLimit`）、tokens/s、`/export` 选保存位置（`export_html`，现在落进项目目录）、审批详情展开
+- [ ] 默认审批模式：全新 agent 目录下 omp 的默认值是"全部自动"（yolo）。按原则 7 跟随 omp，没改；要不要首次使用时提示一次，待定
 
 ### 阶段 7：发布准备
 

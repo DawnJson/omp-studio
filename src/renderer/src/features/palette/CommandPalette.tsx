@@ -18,6 +18,7 @@ import { CommandIcon, SearchIcon, SessionIcon, SlashIcon, TaskIcon } from "../si
 import { useProjects } from "../sidebar/projects-store.ts";
 import { startDraft } from "../empty/index.ts";
 import { projectLabels } from "../../../../shared/ui/sidebar-model.ts";
+import { commandIcon } from "./command-icons.ts";
 import { buildCommands } from "./palette-commands.ts";
 import { useSlashCommands } from "./slash-commands.ts";
 import { emitComposerText, setPendingDraftText } from "./studio-command.ts";
@@ -185,7 +186,7 @@ function PaletteDialog() {
                 {section.rows.map((row) => {
                   flat += 1;
                   const index = flat;
-                  const Icon = rowIcon[row.kind];
+                  const Icon = row.kind === "command" ? commandIcon(row.command.id) : rowIcon[row.kind];
                   return (
                     <div
                       key={row.key}

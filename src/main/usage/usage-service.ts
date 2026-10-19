@@ -76,9 +76,24 @@ function localDate(ms: number): string {
   return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
 }
 
-/** omp 的 stats.db 位置：默认 profile 是 `<home>/.omp/stats.db`（omp 文档 user-facing-packages.md）。 */
-export function statsDbPath(home: string = os.homedir()): string {
-  return path.join(home, ".omp", "stats.db");
+/**
+ * omp 的 stats.db 位置（实测，见 omp-usage.md）：`<home>/<PI_CONFIG_DIR 或 .omp>/[profiles/<profile>/]stats.db`。
+ * `PI_CODING_AGENT_DIR` 不影响它。home / env 取启动 omp 子进程时用的同一份（子进程继承 process.env），
+ * 所以把 USERPROFILE/HOME 指到临时目录的隔离启动不会读到真实 ~/.omp。
+ * profile：`OMP_PROFILE` 优先（即使为空串也压过 `PI_PROFILE`）；空串和 `default` 都是默认 profile。
+ */
+export function statsDbPath(env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): string {
+  const configDir = env["PI_CONFIG_DIR"];
+  const root =
+    configDir !== undefined && configDir !== ""
+      ? path.isAbsolute(configDir)
+        ? configDir
+        : path.join(home, configDir)
+      : path.join(home, ".omp");
+  const profile = env["OMP_PROFILE"] ?? env["PI_PROFILE"] ?? "";
+  return profile === "" || profile === "default"
+    ? path.join(root, "stats.db")
+    : path.join(root, "profiles", profile, "stats.db");
 }
 
 interface RollupRow {

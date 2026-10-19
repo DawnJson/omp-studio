@@ -4,6 +4,10 @@
 
 标注约定：**实测** = 本机亲手测的，写明版本；**推测** = 没有证据，只是推断。实测环境：Windows 11（10.0.26300）、Electron 44.9.0、node-pty 1.1.0、@xterm/xterm 6.0.0、@xterm/addon-fit 0.11.0、PowerShell 7.6.7（`pwsh.exe`）。
 
+## 启动提示
+
+shell 起来后到第一个输出字节之间（pwsh 加载 profile 要 3–5 秒，期间只有一个光标），终端区域第一行下面显示淡色的"正在启动 shell…"（`role="status"`，不拦截点击和键盘）。第一个输出字节（含缓冲和复用时非空的 backlog）或 shell 退出就撤掉；重启时重新显示。
+
 ## 组成
 
 | 位置 | 做什么 |
@@ -49,8 +53,9 @@ IPC（`src/shared/ipc.ts`）：
 
 ## 进程树
 
-- shell 起好后在同一个同步段里放进应用 Job Object（`assignToAppJob`，`KILL_ON_JOB_CLOSE`）：主进程被强杀时由系统回收，shell 的所有后代继承这个 Job。放进去失败只记日志，终端照常可用（正常退出仍由 hook 结束）。
+- shell 起好后在同一个同步段里放进**它自己的** Job Object（`assignToOwnJob`：每个 shell 一个新建的 `KILL_ON_JOB_CLOSE` Job，句柄存在 Entry 里）：主进程被强杀时句柄随进程关闭，系统回收整棵树；shell 退出或 `closeTerminal` 时（`taskkill` 之后）主动关句柄。放进去失败只记日志，终端照常可用（正常退出仍由 hook 结束）。**为什么不用 omp 的应用 Job（`assignToAppJob`）**：**实测**（Electron 44.9.0 的 `main.cjs` 小脚本，主进程本身在某个外层 Job 里；本机默认 shell 是商店版 `WindowsApps\pwsh.exe` 别名）：node-pty 起的商店版 pwsh 放进应用 Job 失败，`GetLastError` = 5（ACCESS_DENIED）；同一个 Electron 里 `powershell.exe` 和普通子进程都能放进去。**推测**原因：商店版 pwsh 在系统给的另一条 Job 链里，应用 Job 已经挂在主进程的 Job 之下，嵌套链不兼容。给每个 shell 新建一个空 Job 则**实测**总能成功（`IsProcessInJob` 为真）：空 Job 会随这个进程挂到它现有的 Job 链下面。旧日志里的 `(error 0)` 是 koffi 的 `errno()` 读的是 C 运行库的 errno，Win32 错误要调 `GetLastError`，现已改正。
 - 正常结束时 Windows 上用 `taskkill /T /F /PID <shell>` 结束整棵树，**然后**才 `pty.kill()`（shell 先死的话子进程被重新挂靠，按父子关系就找不到它们了）。**实测**：只调 node-pty 的 `kill()` 时，shell 用 `Start-Process ping.exe -t` 起的子进程不会被结束，归档任务后它的 cwd（项目目录）一直被占用，测试清理 `rmdir` 报 `EBUSY`；加上 `taskkill /T` 后 shell 和子进程在归档后 15 秒内都消失（`test/e2e/terminal.e2e.ts`）。
+- **行为后果**：shell 退出（用户输入 `exit`）或关闭终端时句柄随之关闭，从该终端启动的程序（`code .`、`start …` 等）也会被一并结束，不再活到应用退出。
 - 退出：`registerShutdownHook` 里 `closeAll()`（等所有 `taskkill` 完成，单个超时 5 秒）。**实测**：开着终端退出应用后 shell 的 pid 不再存活。
 
 ## 数据通路

@@ -10,6 +10,7 @@ const make = (provider: string, modelId: string, name = modelId): ModelOption =>
   reasoning: false,
   acceptsImages: false,
   maxTokens: null,
+  thinkingEfforts: null,
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 });
 const models = [

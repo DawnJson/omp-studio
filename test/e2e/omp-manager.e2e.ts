@@ -155,7 +155,7 @@ test("接管询问：同意/拒绝的按钮把回答发给主进程", async () =
       launchable: true,
       managerName: null,
     });
-    await expect(page.getByTestId("takeover-yes")).toBeFocused();
+    await expect(page.getByTestId("takeover-no")).toBeFocused();
     // 主进程此刻没有在问（状态是合成的），应答被拒绝：界面不崩，卡片还在，等真实状态推来。
     await page.getByTestId("takeover-no").click();
     await expect(page.getByTestId("omp-setup")).toBeVisible();

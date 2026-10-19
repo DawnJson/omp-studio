@@ -31,4 +31,8 @@ export const login = {
   "apiKey.note":
     "The key is encrypted with your system credentials and stored on this PC. It isn't written to omp's config, so the terminal version can't see it.",
   "apiKey.failed": "Couldn't save the API key: {message}",
+  "apiKey.add": "Add API key",
+  search: "Search providers",
+  noMatch: "No matching providers",
+  terminalLogin: "Sign in from the terminal",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

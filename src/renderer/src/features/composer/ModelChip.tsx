@@ -6,6 +6,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { ChevronDown } from "../../icons.tsx";
 import { onStudioCommand } from "../palette/index.ts";
 import { ModelPicker, thinkingLabel, type ModelPickerProps } from "./ModelPicker.tsx";
+import { nextThinkingLevel } from "./thinking-levels.ts";
 
 /** 模型胶囊的数据和动作：任务里是 setTask*，草稿（还没有任务）里改的是"新任务默认值"。 */
 export interface ModelChipProps extends Omit<ModelPickerProps, "onClose"> {
@@ -18,15 +19,16 @@ export function ModelChip(task: ModelChipProps) {
   const report = (error: unknown) => reportError(t, error);
   const { emptyLabel, ...pickerProps } = task;
   const [open, setOpen] = useState(false);
-  const levels = task.thinkingLevels.filter((level) => thinkingLabel[level] !== undefined);
+  // 调用方已按模型和 omp 的实际能力算好（thinkingLevelOptions）；picker、芯片、Alt T 共用这一份。
+  const levels = task.thinkingLevels;
   const supportsThinking = task.model?.reasoning === true && levels.length > 0;
   const levelText =
     task.thinkingLevel && thinkingLabel[task.thinkingLevel] ? t(thinkingLabel[task.thinkingLevel] as MessageKey) : null;
   const name = task.model?.name ?? emptyLabel ?? t("composer.noModel");
 
   function cycleThinking(): void {
-    if (!supportsThinking || !task.thinkingLevel) return;
-    const next = levels[(levels.indexOf(task.thinkingLevel) + 1) % levels.length];
+    if (!supportsThinking) return;
+    const next = nextThinkingLevel(levels, task.thinkingLevel);
     if (next) task.setThinking(next).catch(report);
   }
 

@@ -1,6 +1,12 @@
 // 防的是：输入法选词时按 Enter 把半截拼音发出去；运行中 Enter/Ctrl+Enter 的含义混了；有门时误批准。
 import { describe, expect, it } from "vitest";
-import { decideEnter, type KeyInfo, type SendContext } from "../src/renderer/src/features/composer/send-logic.ts";
+import {
+  canRunShell,
+  decideEnter,
+  isShellDraft,
+  type KeyInfo,
+  type SendContext,
+} from "../src/renderer/src/features/composer/send-logic.ts";
 
 const key = (overrides: Partial<KeyInfo> = {}): KeyInfo => ({
   key: "Enter",
@@ -17,6 +23,7 @@ const ctx = (overrides: Partial<SendContext> = {}): SendContext => ({
   gate: false,
   hasContent: true,
   swapped: false,
+  shell: false,
   ...overrides,
 });
 
@@ -50,7 +57,10 @@ describe("发送行为表", () => {
     expect(decideEnter(key(), ctx({ gate: true }))).toBe("denyAndSend");
     expect(decideEnter(key(), ctx({ gate: true, hasContent: false }))).toBe("default");
     expect(decideEnter(key({ ctrlKey: true }), ctx({ gate: true, hasContent: false }))).toBe("gatePrimary");
-    expect(decideEnter(key({ ctrlKey: true }), ctx({ gate: true }))).toBe("default");
+    // 有草稿时门忽略 Ctrl+Enter，落到输入框自己的"稍后发送"（对调设置同样适用）。
+    expect(decideEnter(key({ ctrlKey: true }), ctx({ gate: true }))).toBe("followUp");
+    expect(decideEnter(key({ ctrlKey: true }), ctx({ gate: true, running: true }))).toBe("followUp");
+    expect(decideEnter(key({ ctrlKey: true }), ctx({ gate: true, swapped: true }))).toBe("steer");
   });
   it("别的键不拦截", () => {
     expect(decideEnter(key({ key: "a" }), ctx())).toBe("default");
@@ -87,5 +97,29 @@ describe("改动文件路径换成相对路径", () => {
     expect(relativeToProject("src/x.ts", null)).toBe("src/x.ts");
     expect(relativeToProject("../x.ts", null)).toBeNull();
     expect(relativeToProject("E:\\work\\x.ts", null)).toBeNull();
+  });
+});
+
+describe("!命令", () => {
+  it("有门时 Enter 不拒绝门：直接走命令路径（回归：以前 !git diff 会把门拒绝掉）", () => {
+    expect(decideEnter(key(), ctx({ gate: true, shell: true }))).toBe("shell");
+    expect(decideEnter(key({ ctrlKey: true }), ctx({ gate: true, shell: true }))).toBe("shell");
+    expect(decideEnter(key(), ctx({ gate: true, running: true, shell: true }))).toBe("shell");
+  });
+  it("空闲、运行中都走命令路径；输入法组合态和 Shift+Enter 仍不拦截", () => {
+    expect(decideEnter(key(), ctx({ shell: true }))).toBe("shell");
+    expect(decideEnter(key(), ctx({ running: true, shell: true }))).toBe("shell");
+    expect(decideEnter(key({ isComposing: true }), ctx({ gate: true, shell: true }))).toBe("default");
+    expect(decideEnter(key({ shiftKey: true }), ctx({ shell: true }))).toBe("default");
+  });
+  it("isShellDraft：以 ! 开头且无图片才是命令", () => {
+    expect(isShellDraft({ text: "  !git diff", images: [] })).toBe(true);
+    expect(isShellDraft({ text: "hi !x", images: [] })).toBe(false);
+    expect(isShellDraft({ text: "!x", images: [{}] })).toBe(false);
+  });
+  it("canRunShell：任务在跑一轮或已有命令在跑都拒绝", () => {
+    expect(canRunShell({ taskRunning: false, shellRunning: false })).toBe(true);
+    expect(canRunShell({ taskRunning: true, shellRunning: false })).toBe(false);
+    expect(canRunShell({ taskRunning: false, shellRunning: true })).toBe(false);
   });
 });

@@ -7,6 +7,7 @@ import { memo, useId } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { ConfigControl } from "./ConfigControls.tsx";
+import { enumLabel } from "../../../../shared/ui/config-labels.ts";
 import { configText, isModified, shortValue } from "./config-meta.ts";
 import { resetOmpConfig, saveOmpConfig, setLocalError, useRowState } from "./config-store.ts";
 import { InfoTip } from "./InfoTip.tsx";
@@ -34,7 +35,9 @@ export const ConfigRow = memo(function ConfigRow({ item, query = "" }: { item: O
   const defaultText = item.hasDefault
     ? item.defaultValue === ""
       ? t("settings.cfg.emptyText")
-      : shortValue(item.defaultValue)
+      : item.type === "enum" && typeof item.defaultValue === "string"
+        ? enumLabel(locale, item.key, item.defaultValue)
+        : shortValue(item.defaultValue)
     : t("settings.cfg.unset");
   const hasTip = text.label !== null || text.description !== "" || item.redacted;
 

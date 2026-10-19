@@ -696,12 +696,67 @@ describe("任务池：在途命令、已停止任务、刷新", () => {
       followUp: [],
       imagesDropped: false,
       truncated: false,
+      aborted: true,
+      backgroundWork: false,
     });
     expect(await h.pool.removeQueuedMessage(created.id, "x", "steering")).toBeNull();
     expect(await h.pool.promoteQueuedMessage(created.id, "x")).toBe(false);
     expect(await h.pool.listTaskModels(created.id)).toEqual([]);
     expect(h.launches).toHaveLength(spawnsBefore);
     expect(h.pool.listTasks()[0]?.status).toBe("stopped");
+  });
+
+  // 回归：Esc 提示"已停止"，任务却继续跑完。真机复现（Tern omp 18.12.2）：steer 让运行中的 bash 转后台，
+  // abort_and_restore_queue 成功、排队消息也撤回了，但转后台的 job 结束时 omp 自己开了新一轮。
+  // 旧逻辑只信 abort 命令的应答，一律说"已停止"；现在要用 get_state 核实这一轮停没停、后台任务还会不会唤醒会话。
+  const stopTail = (state: object) => [
+    { kind: "in", frame: { type: "abort_and_restore_queue", id: "r10" } },
+    {
+      kind: "out",
+      frame: {
+        type: "response",
+        command: "abort_and_restore_queue",
+        id: "r10",
+        success: true,
+        data: { steering: [{ text: "记得用中文" }], followUp: [{ text: "最后加一句再见" }] },
+      },
+    },
+    { kind: "in", frame: { type: "get_state", id: "r11" } },
+    { kind: "out", frame: { type: "response", command: "get_state", id: "r11", success: true, data: state } },
+  ];
+
+  it("停止：撤回的 steer 和 followUp 按原文返回；有转后台的任务会唤醒会话时报 backgroundWork，不当作干净停止", async () => {
+    const h = await harness();
+    h.fixtures.push(
+      await inlineFixture("stop-background", {
+        tail: stopTail({ sessionId: "s1", isStreaming: false, isSettled: false, hasPendingAsyncWork: true }),
+      }),
+    );
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (s) => s.status === "idle");
+    expect(await h.pool.stopTask(created.id)).toEqual({
+      steering: [{ text: "记得用中文" }],
+      followUp: [{ text: "最后加一句再见" }],
+      imagesDropped: false,
+      truncated: false,
+      aborted: true,
+      backgroundWork: true,
+    });
+  });
+
+  it("停止：abort 之后 omp 仍在流式输出，aborted 为 false（界面不能说已停止）", async () => {
+    const h = await harness();
+    h.fixtures.push(
+      await inlineFixture("stop-still-streaming", {
+        tail: stopTail({ sessionId: "s1", isStreaming: true, isSettled: false, hasPendingAsyncWork: false }),
+      }),
+    );
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (s) => s.status === "idle");
+    const result = await h.pool.stopTask(created.id);
+    expect(result.aborted).toBe(false);
+    expect(result.backgroundWork).toBe(false);
+    expect(result.followUp).toEqual([{ text: "最后加一句再见" }]);
   });
 
   it("get_state 刷新进行中又来了新的刷新请求：结束后补跑，最终拿到 settled，任务才可回收", async () => {

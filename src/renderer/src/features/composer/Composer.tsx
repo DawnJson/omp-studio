@@ -17,7 +17,9 @@ import { GateSlot } from "../dialogs/gate-slot.tsx";
 import { getGateControl } from "../dialogs/gate-bus.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { onComposerText, onStudioCommand, useSlashCommands } from "../palette/index.ts";
-import { compactContext, convertImageFiles, sendDraft, stopAndRestore } from "./actions.ts";
+import { compactContext, convertImageFiles, sendDraft, stopAndRestore, type Delivery } from "./actions.ts";
+import { getShellRun } from "../conversation/shell-run-store.ts";
+import { reportError } from "../../ui/errors.ts";
 import { ApprovalChip } from "./ApprovalChip.tsx";
 import { Attachments } from "./Attachments.tsx";
 import { getDraft, resolveSuggestion, setDraft, setDraftText, useDraft, useEditorSuggestion } from "./draft-store.ts";
@@ -25,8 +27,13 @@ import { ModelChip } from "./ModelChip.tsx";
 import { matchSlash, slashQuery } from "./slash-match.ts";
 import { SlashMenu } from "./SlashMenu.tsx";
 import { QueueStrip } from "./QueueStrip.tsx";
-import { decideEnter } from "./send-logic.ts";
+import { decideEnter, isShellDraft } from "./send-logic.ts";
+import { cycleHistory, hasHistory, isCycling, recordSent, resetHistoryCursor, shouldCycle } from "./input-history.ts";
+import { decideSlashSend } from "./slash-guard.ts";
+import { FileMenu } from "./FileMenu.tsx";
+import { useFileMenu } from "./use-file-menu.ts";
 import { SendStop } from "./SendStop.tsx";
+import { thinkingLevelOptions } from "./thinking-levels.ts";
 import { UsageMeter } from "./UsageMeter.tsx";
 import "./composer.css";
 
@@ -46,10 +53,12 @@ export function Composer({ taskId }: { taskId: TaskId }) {
   const commands = useSlashCommands(taskId);
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashClosedFor, setSlashClosedFor] = useState<string | null>(null);
+  // 刚用 ↑↓ 翻出来的历史文本：这段文本上不开斜杠/@ 菜单，免得抢走后面的 ↑↓。
+  const [recalled, setRecalled] = useState<string | null>(null);
+  const menusEnabled = recalled !== draft.text;
   const query = slashQuery(draft.text);
-  const slashMatches =
-    query === null || slashClosedFor === draft.text || commands.length === 0 ? [] : matchSlash(commands, query);
-  const slashOpen = query !== null && slashClosedFor !== draft.text && commands.length > 0;
+  const slashOpen = menusEnabled && query !== null && slashClosedFor !== draft.text && commands.length > 0;
+  const slashMatches = slashOpen && query !== null ? matchSlash(commands, query) : [];
   const slashActive = Math.min(slashIndex, Math.max(slashMatches.length - 1, 0));
 
   const completeSlash = (name: string) => {
@@ -58,6 +67,10 @@ export function Composer({ taskId }: { taskId: TaskId }) {
     fieldRef.current?.focus();
   };
 
+  const fileMenu = useFileMenu({ kind: "task", taskId }, draft.text, menusEnabled && !slashOpen, fieldRef, (next) =>
+    setDraftText(taskId, next),
+  );
+
   const running = task?.status === "running" || task?.status === "needs_you";
   const gate = (task?.dialogs.length ?? 0) > 0;
   const hasContent = draft.text.trim() !== "" || draft.images.length > 0;
@@ -65,6 +78,22 @@ export function Composer({ taskId }: { taskId: TaskId }) {
   const tooOld = omp?.state === "ready" && omp.belowMinimum;
   // worktree 被删了：只能查看记录（和 omp 一致），输入框禁用，说明在对话流末尾的错误条里。
   const worktreeGone = task?.error?.kind === "worktree_missing";
+
+  // 斜杠命令守卫（slash-guard.ts）：命令列表里没有的 /命令先提示一次，对同一段文字再发一次（或点按钮）才发出去。
+  const [slashNotice, setSlashNotice] = useState<{ text: string; name: string; terminal: boolean } | null>(null);
+  const shownNotice = slashNotice?.text === draft.text.trim() ? slashNotice : null;
+  const allowSend = (): boolean => {
+    const text = getDraft(taskId).text.trim();
+    const guard = decideSlashSend(text, commands);
+    if (guard.kind === "send" || slashNotice?.text === text) return true;
+    setSlashNotice({ text, name: guard.name, terminal: guard.terminal });
+    return false;
+  };
+  const sendNow = (whenBusy: Delivery) => {
+    recordSent(taskId, getDraft(taskId).text, transcript?.items ?? null);
+    setSlashNotice(null);
+    void sendDraft(taskId, whenBusy, t, running);
+  };
 
   const placeholder = worktreeGone
     ? t("error.worktreeMissing")
@@ -83,6 +112,10 @@ export function Composer({ taskId }: { taskId: TaskId }) {
     field.style.height = "auto";
     field.style.height = `${field.scrollHeight}px`;
   }, [draft.text]);
+
+  useEffect(() => {
+    if (slashNotice !== null && slashNotice.text !== draft.text.trim()) setSlashNotice(null);
+  }, [draft.text, slashNotice]);
 
   // 命令面板里需要参数的斜杠命令：把文本放进草稿并聚焦。
   useEffect(
@@ -108,17 +141,22 @@ export function Composer({ taskId }: { taskId: TaskId }) {
     });
   }, [running, stopping, taskId, t]);
 
-  // Esc 栈第 4 层：前面的层（菜单、门、弹层）会消耗掉 Esc（preventDefault），没人消耗才停止任务。
+  // Esc 栈第 4 层：前面的层（菜单、门、弹层）会消耗掉 Esc（preventDefault），没人消耗才动手：
+  // 有 `!命令` 在跑先中止命令，否则停止任务。这是 Esc 中止的唯一入口（ShellBlock 里不另挂监听，免得顺序不定）。
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented && running) {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (getShellRun(taskId) !== null) {
+        event.preventDefault();
+        window.studio.abortBash(taskId).catch((error: unknown) => reportError(t, error));
+      } else if (running) {
         event.preventDefault();
         stop();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [stop, running]);
+  }, [stop, running, taskId, t]);
 
   useEffect(
     () =>
@@ -156,15 +194,47 @@ export function Composer({ taskId }: { taskId: TaskId }) {
         setSlashClosedFor(draft.text);
         return;
       }
-      // Tab 总是补全；Enter 在已经输入完整命令名时发送，否则补全。
+      // Tab 总是补全；Enter 只在候选是前缀匹配、且还没输完整命令名时补全。只是"包含"匹配
+      // （/tree 命中别名 worktree 的 /wt）时 Enter 照常发送，交给斜杠命令守卫，不能悄悄换成别的命令。
+      const prefixHit =
+        picked !== undefined &&
+        query !== null &&
+        [picked.name, ...(picked.aliases ?? [])].some((name) => name.toLowerCase().startsWith(query.toLowerCase()));
       if (
         picked &&
         (event.key === "Tab" ||
-          (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && draft.text !== `/${picked.name}`))
+          (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && prefixHit && draft.text !== `/${picked.name}`))
       ) {
         event.preventDefault();
         completeSlash(picked.name);
         return;
+      }
+    }
+    if (fileMenu.onKeyDown(event)) return;
+    // 输入历史：菜单没抢走 ↑↓ 时，空输入框（或光标在最开头）按 ↑ 翻看本任务发过的消息。
+    if (
+      (event.key === "ArrowUp" || event.key === "ArrowDown") &&
+      !composing &&
+      !event.shiftKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      const field = event.currentTarget;
+      const direction = event.key === "ArrowUp" ? "up" : "down";
+      const items = transcript?.items ?? null;
+      if (
+        field.selectionStart === field.selectionEnd &&
+        shouldCycle(direction, draft.text, field.selectionStart, isCycling(taskId), hasHistory(taskId, items))
+      ) {
+        const next = cycleHistory(taskId, draft.text, direction, items);
+        if (next !== null) {
+          event.preventDefault();
+          setRecalled(next);
+          fileMenu.placeCaret(next.length);
+          setDraftText(taskId, next);
+          return;
+        }
       }
     }
     const action = decideEnter(
@@ -177,20 +247,22 @@ export function Composer({ taskId }: { taskId: TaskId }) {
         isComposing: event.nativeEvent.isComposing,
         keyCode: event.keyCode,
       },
-      { running, gate, hasContent, swapped },
+      { running, gate, hasContent, swapped, shell: isShellDraft(draft) },
     );
     if (action === "default") return;
     event.preventDefault();
     if ((tooOld || worktreeGone) && action !== "gatePrimary") return;
     if (action === "gatePrimary") getGateControl()?.primary();
-    else if (action === "denyAndSend")
+    else if (action === "shell") sendNow("steer");
+    else if (action === "denyAndSend") {
+      if (!allowSend()) return;
       void getGateControl()
         ?.deny()
         .then(
-          () => sendDraft(taskId, "steer", t),
-          () => sendDraft(taskId, "steer", t),
+          () => sendNow("steer"),
+          () => sendNow("steer"),
         );
-    else void sendDraft(taskId, action === "followUp" ? "followUp" : "steer", t);
+    } else if (allowSend()) sendNow(action === "followUp" ? "followUp" : "steer");
   };
 
   const onPaste = (event: ClipboardEvent) => {
@@ -224,6 +296,22 @@ export function Composer({ taskId }: { taskId: TaskId }) {
           </button>
         </div>
       )}
+      {shownNotice && (
+        <div className="suggest" role="status" data-testid="slash-guard">
+          <span>{shownNotice.terminal ? t("slash.terminalOnly") : t("slash.unknown", { name: shownNotice.name })}</span>
+          <button
+            type="button"
+            className="queue-btn"
+            disabled={tooOld === true || worktreeGone}
+            onClick={() => {
+              sendNow("steer");
+              fieldRef.current?.focus();
+            }}
+          >
+            {t("slash.sendAnyway")}
+          </button>
+        </div>
+      )}
       <QueueStrip taskId={taskId} queue={task.queue} />
       <div className="composer" data-gate={gate || undefined} onDragOver={onDragOver} onDrop={onDrop}>
         {slashOpen && (
@@ -233,6 +321,15 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             active={slashActive}
             onHover={setSlashIndex}
             onPick={(command) => completeSlash(command.name)}
+          />
+        )}
+        {fileMenu.open && (
+          <FileMenu
+            id="file-menu-list"
+            files={fileMenu.files}
+            active={fileMenu.active}
+            onHover={fileMenu.setActive}
+            onPick={fileMenu.pick}
           />
         )}
         <div className="composer-body">
@@ -252,12 +349,21 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             placeholder={placeholder}
             aria-label={placeholder}
             disabled={worktreeGone}
-            aria-controls={slashOpen ? "slash-menu" : undefined}
-            aria-activedescendant={slashOpen && slashMatches.length > 0 ? `slash-menu-${slashActive}` : undefined}
+            aria-controls={slashOpen ? "slash-menu" : fileMenu.open ? "file-menu-list" : undefined}
+            aria-activedescendant={
+              slashOpen && slashMatches.length > 0
+                ? `slash-menu-${slashActive}`
+                : fileMenu.open
+                  ? `file-menu-list-${fileMenu.active}`
+                  : undefined
+            }
             onChange={(event) => {
               setDraftText(taskId, event.target.value);
+              fileMenu.trackCaret(event.target.selectionStart);
               setSlashIndex(0);
+              resetHistoryCursor(taskId);
             }}
+            onSelect={(event) => fileMenu.trackCaret(event.currentTarget.selectionStart)}
             onKeyDown={onKeyDown}
             onPaste={onPaste}
           />
@@ -286,7 +392,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
           <ModelChip
             model={task.model}
             thinkingLevel={task.thinkingLevel}
-            thinkingLevels={task.thinkingLevels}
+            thinkingLevels={thinkingLevelOptions(task.model, task.thinkingLevels)}
             running={running}
             loadModels={() => window.studio.listTaskModels(taskId)}
             setModel={(key) => window.studio.setTaskModel(taskId, key)}
@@ -300,7 +406,9 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             stopping={stopping}
             hasContent={hasContent}
             disabled={tooOld === true || worktreeGone}
-            onSend={() => void sendDraft(taskId, "steer", t)}
+            onSend={() => {
+              if (allowSend()) sendNow("steer");
+            }}
             onStop={stop}
           />
         </div>
