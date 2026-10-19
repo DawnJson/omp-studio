@@ -15,7 +15,8 @@
   user-select: none;
 }
 
-:where(.sb, .pl-root) button {
+/* .sb-menu：Menu 也在侧栏外用（任务条的 Git 菜单），按钮 reset 跟着菜单走 */
+:where(.sb, .pl-root, .sb-menu) button {
   font: inherit;
   color: inherit;
   background: none;

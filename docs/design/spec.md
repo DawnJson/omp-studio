@@ -239,11 +239,11 @@
 
 ### 3.1 窗口
 
-- `BrowserWindow`：`titleBarStyle: "hidden"`，`titleBarOverlay: { color, symbolColor, height: 36 }`（取值见 §2.1），`backgroundColor` 同 `color`；默认 1200×800，最小 800×560；`Menu.setApplicationMenu(null)`，快捷键用窗口内 `keydown` 处理。
-- **顶栏 = 任务条（通栏，高 36）**：底色 `--bg-sidebar`（与 `titleBarOverlay.color` 相同，系统三键融进同一条）。三段：
-  - 左段（宽 = 侧栏宽，侧栏收起/抽屉时自适应）：`padding-left: --space-3`，标志（圆环里一个 π，只用 `--accent` 描线，22px；临时版）+ `≡` 应用菜单按钮（28×28，图标 16px，`--text-2`，hover `--bg-hover`，`--radius-sm`）。菜单：新任务 Ctrl N、命令面板 Ctrl K、**切换侧栏 Ctrl B**、设置 Ctrl ,、语言、主题、帮助与反馈、关于、退出；`Alt` 键也打开它。
-  - 中段（左缘对齐主区面板）：`项目 / 任务标题`（`--fs-sm`；项目 `--text-2`，标题 `--text` 600，过长省略）+ 运行状态：`--fs-xs`，运行中 = 8px `--st-running` 圆点 + `window.runningFor`（“运行中 · 1分12秒”，每秒更新，`--accent`）；等你确认 = 琥珀菱形 + `status.waiting`；出错 = 红点 + `status.error`；空闲不显示。空状态显示 `项目 / 新任务`，设置页只显示页面标题。
-  - 右段：系统三键（`titleBarOverlay` 绘制）；顶栏右侧 `padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw))` 让位。
+- `BrowserWindow`：`titleBarStyle: "hidden"`，`titleBarOverlay: { color, symbolColor, height: 40 }`（取值见 §2.1），`backgroundColor` 同 `color`；默认 1200×800，最小 800×560；`Menu.setApplicationMenu(null)`，快捷键用窗口内 `keydown` 处理。
+- **顶栏 = 任务条（通栏，高 40 = `--titlebar-h`；仓库所有者 2026-10-19 选定方案 B「任务条 + 工具区」）**：底色 `--bg-sidebar`（与 `titleBarOverlay.color` 相同，系统三键融进同一条）。控件统一高 28（`--control-h-sm`），上下各留 6。三段：
+  - 左段（宽 = 侧栏宽，侧栏收起/抽屉时自适应）：`padding-left: --space-2`，一个**品牌按钮**就是应用菜单按钮（`data-testid="topbar-menu"`）：标志（圆环里一个 π，只用 `--accent` 描线，18px；临时版）+ 字标 `omp studio`（`omp` 600 `--text`，`studio` 400 `--text-2`）+ 12px ⌄（`--text-3`）；`--radius-md`，hover / 展开 `--bg-hover`。菜单：新任务 Ctrl N、命令面板 Ctrl K、**切换侧栏 Ctrl B**、设置 Ctrl ,、语言、主题、帮助与反馈、关于、退出；`Alt` 键也打开它。
+  - 中段（左缘对齐主区面板）：**只有任务标题**（`--fs-sm`，`--text` 600 / 中文 700，过长省略，悬停提示完整标题；不显示项目名，项目在侧栏分组里）+ 状态胶囊：高 22、`--radius-pill`、`--fs-xs`、等宽数字，6px 形状点。运行中 = `--accent-soft` 底、`--accent` 字、圆点 + `window.runningFor`（`运行中 · 1:12`，`formatClock`，每秒更新）；等你确认 = `--st-waiting-soft` 底、琥珀菱形 + `status.waiting`；出错 = `--st-error-soft` 底、红点 + `status.error`；空闲不显示。空状态显示 `新任务`，设置页显示页面标题。
+  - 右段（只在有任务的对话页出现，`data-testid="topbar-tools"`）：分支胶囊（`features/git/GitTools.tsx`；`--font-mono` `--fs-code-sm`，1px `--border-subtle`，`--radius-md`，最宽 32ch；内容 分支图标 + 分支名 + worktree 任务领先时 `↑N`（`--accent`）+ ⌄；点开是 Git 菜单；"分支 · 工作树 · 基于 main · 领先 N 个提交"在悬停提示里；窄于 1000px 只留图标和 `↑N`；任务目录不是 git 仓库时不渲染）→ 评审按钮（28×28，同 `Ctrl Shift D`；不是 git 仓库时不渲染）→ 终端按钮（28×28，按下 = `--accent-soft` 底、`--accent` 图标）→ 1px×16 `--border` 竖线，与系统三键隔开。再往右是系统三键（`titleBarOverlay` 绘制）；顶栏 `padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw))` 让位。
   - **没有后退/前进/侧栏开关按钮**（仓库所有者 2026-10-18 确认）：后退/前进在 `Alt+←/→` 和鼠标侧键（button 3/4），侧栏开关在菜单和 `Ctrl B`。导航历史栈仍在渲染进程。
   - 其余空白全部 `-webkit-app-region: drag`，按钮和任务条 `no-drag`；双击空白最大化/还原（系统行为）。
 - **主区面板（“纸面”）**：顶栏下方，侧栏右边。底色 `--bg-app`，1px `--border`，**四个角都是 `--radius-xl`**，右边和下边各留 `--space-2` 的窗口底色，像一张放在桌上的纸；侧栏收起或作为抽屉时左边也留 `--space-2`。面板与侧栏之间不画分隔线。
@@ -727,7 +727,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | 功能（阶段） | 为它预留的位置 | v1 的做法 |
 |---|---|---|
 | diff 评审（3）**已落地（待设计方向确认）** | 见 §4.25；入口在 ChangeCard 头部 `…` 左侧、`Ctrl Shift D`、命令面板 | 全屏评审、逐行评论、发给 agent、改动说明面板 |
-| worktree / git / PR（4）**已落地（待设计方向确认）** | 输入框胶囊区 ApprovalChip 右侧的工作树胶囊（`features/git/WorktreeChip.tsx`）；主区对话流上方一条 git 条（分支 + `Git` 菜单：查看改动、提交、推送、开 PR、合并回、丢弃）；侧栏任务行的分支图标；项目菜单“清理无主工作树”。目前还没有 §3.2 的面板头，git 条是临时落点，面板头做出来后并进去。ChangeCard 的 `提交 / 开 PR` 没做（评审入口在 ChangeCard，由评审模式负责） | 不是 git 仓库时 git 条不渲染 |
+| worktree / git / PR（4）**已落地（待设计方向确认）** | 输入框胶囊区 ApprovalChip 右侧的工作树胶囊（`features/git/WorktreeChip.tsx`）；任务条右侧的分支胶囊（点开是 `Git` 菜单：查看改动、提交、推送、开 PR、合并回、丢弃）和评审按钮（§3.1）；侧栏任务行的分支图标；项目菜单“清理无主工作树”。ChangeCard 的 `提交 / 开 PR` 没做（评审入口在 ChangeCard，由评审模式负责） | 不是 git 仓库时分支胶囊和评审按钮不渲染 |
 | 子代理泳道（5） | 过程行展开态头部右侧的“泳道”切换；右栏 `--aside-w`（子代理详情/改动说明）；子代理字母头像/哈希色 token 届时再加 | 只显示计数与缩进的一行 |
 | 内置终端（6） | 右栏或底部面板（`--aside-w` 或新增面板高度 token）；每任务终端在其 worktree 目录 | 不做 |
 | 子代理费用/token | 阶段 5 的子代理详情 | 不显示 |
@@ -782,7 +782,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `time.yesterday` | 昨天 | Yesterday |
 | `window.more` | 更多 | More |
 | `window.menu` | 菜单 | Menu |
-| `window.runningFor` | 运行中 · {time} | Running · {time} |
+| `window.appMenu` | omp studio 菜单 | omp studio menu |
+| `window.runningFor` | 运行中 · {time}（time = `1:12`） | Running · {time} |
 | `menu.toggleSidebar` | 切换侧栏 | Toggle sidebar |
 | `window.whatsNew` | 新功能 | What's new |
 | `window.ompUpdate` | omp 可升级 | omp update available |

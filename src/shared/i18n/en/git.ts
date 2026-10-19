@@ -19,7 +19,6 @@ export const git = {
   "err.gitMissing": "git was not found. Install it and add it to PATH.",
   "err.setupFailed": "The worktree setup script failed; the worktree was rolled back.",
 
-  "bar.label": "Git",
   "bar.menu": "Git actions",
   "bar.branch": "Branch {branch}",
   "bar.worktree": "Worktree · based on {base}",

@@ -20,8 +20,7 @@ export const git = {
   "err.gitMissing": "找不到 git，请先安装并加入 PATH。",
   "err.setupFailed": "工作树的 setup 脚本运行失败，工作树已撤销。",
 
-  // 主区的 git 条
-  "bar.label": "Git",
+  // 任务条的 git 工具
   "bar.menu": "Git 操作",
   "bar.branch": "分支 {branch}",
   "bar.worktree": "工作树 · 基于 {base}",

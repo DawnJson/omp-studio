@@ -180,7 +180,7 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     // ── 创建：任务 cwd = worktree
     const taskId = await createTaskFromDraft(page, "在工作树里干活", true, "confirm");
     await expect(page.getByTestId("task-row-worktree")).toBeVisible();
-    await expect(page.getByTestId("git-worktree-meta")).toContainText("main");
+    await expect(page.getByTestId("git-menu")).toHaveAttribute("title", /基于 main/);
     const worktree = findStudioWorktree(repo);
     expect(worktree).not.toBeNull();
     const { dir, branch } = worktree as { dir: string; branch: string };
@@ -213,13 +213,15 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await expect(page.getByTestId("toasts")).toContainText("已提交");
     await expect(page.getByTestId("git-commit-dialog")).toHaveCount(0);
     expect(sh(dir, "log", "-1", "--format=%s")).toBe("工作树里的提交");
-    await expect(page.getByTestId("git-worktree-meta")).toContainText("领先 1 个提交");
+    await expect(page.getByTestId("git-menu")).toHaveAttribute("title", /领先 1 个提交/);
+    await expect(page.getByTestId("git-ahead")).toHaveText("↑1");
 
     // ── 合并回 main：文件出现在主目录
     await openGitMenu(page, /^合并回 main/);
     await expect(page.getByTestId("toasts")).toContainText("已合并到 main");
     expect(existsSync(path.join(repo, "新文件 一.txt"))).toBe(true);
-    await expect(page.getByTestId("git-worktree-meta")).not.toContainText("领先");
+    await expect(page.getByTestId("git-menu")).not.toHaveAttribute("title", /领先/);
+    await expect(page.getByTestId("git-ahead")).toHaveCount(0);
     await openGitMenu(page, /^合并回 main/);
     await expect(page.getByTestId("toasts")).toContainText("没有新的提交可合并");
 
@@ -331,7 +333,9 @@ test("不是 git 仓库：创建被拒绝，胶囊禁用并写明原因，草稿
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("conversation")).toBeVisible();
     await expect(page.getByTestId("task-row-worktree")).toHaveCount(0);
-    await expect(page.getByTestId("git-bar")).toHaveCount(0);
+    await expect(page.getByTestId("topbar-terminal")).toBeVisible();
+    await expect(page.getByTestId("git-menu")).toHaveCount(0);
+    await expect(page.getByTestId("topbar-review")).toHaveCount(0);
   } finally {
     await session.cleanup();
   }

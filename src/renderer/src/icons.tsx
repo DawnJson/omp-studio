@@ -107,3 +107,10 @@ export const Branch = (props: IconProps) => (
     <path d="M4.5 5v6M11.5 7c0 2.500-3 2.500-7 4" />
   </Icon>
 );
+/** 评审：一页纸上的 ± */
+export const Diff = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M4 2.5h5.5l3 3v8H4z" />
+    <path d="M8.25 6.25v3.5M6.5 8h3.5M6.5 11.5h3.5" />
+  </Icon>
+);

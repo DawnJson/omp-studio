@@ -59,27 +59,19 @@ button {
   -webkit-app-region: drag;
 }
 
-.topbar-left,
+.topbar-brand,
 .crumb,
-.topbar-terminal {
+.topbar-tools {
   -webkit-app-region: no-drag;
 }
 
-/* 终端按钮贴任务条右端（系统三键的位置由 .topbar 的 padding-right 让出） */
-.topbar-terminal {
-  flex: none;
-  margin-left: auto;
-  margin-right: var(--space-2);
-}
-
-/* 左段宽度 = 侧栏宽度，中段 `项目 / 任务标题` 正好对齐主区面板的左缘 */
+/* 左段宽度 = 侧栏宽度，中段标题正好对齐主区面板的左缘 */
 .topbar-left {
   display: flex;
   flex: none;
   align-items: center;
-  gap: var(--space-1);
   width: var(--sidebar-current, var(--sidebar-w));
-  padding-left: var(--space-3);
+  padding-left: var(--space-2);
 }
 
 #app[data-sidebar="hidden"] .topbar-left,
@@ -87,65 +79,103 @@ button {
   width: auto;
 }
 
-.crumb {
-  display: flex;
+/* 标志 + 字标 + ⌄ 合成一个按钮，打开应用菜单 */
+.topbar-brand {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2) 0 var(--space-1-5);
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: default;
+  transition: background-color var(--dur-instant) var(--ease-out);
+}
+
+.topbar-brand:hover,
+.topbar-brand[aria-expanded="true"] {
+  background: var(--bg-hover);
+}
+
+.topbar-brand:active {
+  background: var(--bg-active);
+}
+
+.topbar-brand > svg:last-child {
+  margin-left: calc(-1 * var(--space-0-5));
+  color: var(--text-3);
+}
+
+.topbar-wordmark {
+  font-weight: var(--fw-strong);
+  white-space: nowrap;
+}
+
+.topbar-wordmark span {
+  font-weight: var(--fw-regular);
+  color: var(--text-2);
+}
+
+.crumb {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
   min-width: 0;
   padding: 0 var(--space-3);
   font-size: var(--fs-sm);
   white-space: nowrap;
-  color: var(--text-2);
 }
 
-.crumb-project,
 .crumb-title {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.crumb-sep {
-  color: var(--text-3);
-}
-
-.crumb b {
   font-weight: var(--fw-strong);
   color: var(--text);
 }
 
-:root:lang(zh) .crumb b {
+:root:lang(zh) .crumb-title {
   font-weight: 700;
 }
 
+/* 状态胶囊：浅底 + 形状点（圆 = 进行中，菱形 = 等你，红点 = 出错）；计时用等宽数字，宽度不跳 */
 .crumb-status {
   display: inline-flex;
   flex: none;
   align-items: center;
   gap: var(--space-1-5);
-  margin-left: var(--space-2);
+  height: 22px;
+  margin-left: var(--space-2-5);
+  padding: 0 var(--space-2-5) 0 var(--space-2);
   font-size: var(--fs-xs);
-  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-pill);
 }
 
 .crumb-status i {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: var(--radius-pill);
-  background: var(--st-running);
 }
 
 .crumb-status[data-kind="running"] {
   color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.crumb-status[data-kind="running"] i {
+  background: var(--st-running);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .crumb-status[data-kind="waiting"] {
   color: var(--st-waiting-text);
+  background: var(--st-waiting-soft);
 }
 
 .crumb-status[data-kind="waiting"] i {
-  width: 7px;
-  height: 7px;
   border-radius: 0;
   background: var(--st-waiting);
   transform: rotate(45deg);
@@ -153,10 +183,59 @@ button {
 
 .crumb-status[data-kind="error"] {
   color: var(--st-error);
+  background: var(--st-error-soft);
 }
 
 .crumb-status[data-kind="error"] i {
   background: var(--st-error);
+}
+
+/* 任务工具（分支、评审、终端）贴任务条右端；竖线把它们和系统三键隔开 */
+.topbar-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-0-5);
+  margin-left: auto;
+  padding: 0 var(--space-2) 0 var(--space-4);
+}
+
+.topbar-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0;
+  color: var(--text-2);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: default;
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
+}
+
+.topbar-tool:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.topbar-tool:active {
+  background: var(--bg-active);
+}
+
+.topbar-tool[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.topbar-divider {
+  width: 1px;
+  height: var(--space-4);
+  margin-left: var(--space-1-5);
+  background: var(--border);
 }
 
 .icon-button {

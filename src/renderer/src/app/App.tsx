@@ -1,11 +1,11 @@
-// 应用布局（spec §3.1–3.3）：36px 通栏任务条 + 侧栏 + 四角圆的主区“纸面”；窄窗口侧栏变抽屉。
+// 应用布局（spec §3.1–3.3）：40px 通栏任务条 + 侧栏 + 四角圆的主区“纸面”；窄窗口侧栏变抽屉。
 // 各功能入口的导出名和 props 是约定（props 只有 id，数据从 store hook 取）。
 import { reportError } from "../ui/errors.ts";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { groupTasks, visibleOrder } from "../../../shared/ui/sidebar-model.ts";
 import { Composer } from "../features/composer/index.ts";
 import { ConversationView } from "../features/conversation/index.ts";
-import { GitBar, GitDialogHost } from "../features/git/index.ts";
+import { GitDialogHost } from "../features/git/index.ts";
 import { DialogLayer } from "../features/dialogs/index.ts";
 import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts";
 import { OmpSetupView } from "../features/omp-setup/index.ts";
@@ -215,7 +215,6 @@ export function App() {
             <EmptyState />
           ) : (
             <>
-              <GitBar taskId={taskId} />
               <ConversationView taskId={taskId} />
               <Composer taskId={taskId} />
               {terminalOpen && <TerminalPanel key={taskId} taskId={taskId} />}

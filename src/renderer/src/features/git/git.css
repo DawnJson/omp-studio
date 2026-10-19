@@ -1,4 +1,4 @@
-/* worktree / git：输入框的工作树胶囊、主区顶部的 git 条、git 对话框。只用设计 token。 */
+/* worktree / git：输入框的工作树胶囊、任务条的分支胶囊、git 对话框。只用设计 token。 */
 
 .chip[data-on] {
   background: var(--accent-soft);
@@ -17,37 +17,56 @@
   white-space: nowrap;
 }
 
-.git-bar {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-3);
-  width: min(100% - 2 * var(--gutter), var(--content-w));
-  min-height: var(--control-h-md);
-  margin: var(--space-2) auto 0;
-  color: var(--text-2);
-  font-size: var(--fs-sm);
-}
-.git-branch {
+.topbar-branch {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1-5);
   min-width: 0;
+  max-width: 32ch;
+  height: var(--control-h-sm);
+  margin-right: var(--space-1);
+  padding: 0 var(--space-2) 0 var(--space-2-5);
+  color: var(--text-2);
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: default;
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    border-color var(--dur-instant) var(--ease-out);
 }
-.git-branch-name {
+.topbar-branch:hover,
+.topbar-branch[aria-expanded="true"] {
+  background: var(--bg-hover);
+  border-color: var(--border);
+}
+.topbar-branch:active {
+  background: var(--bg-active);
+}
+.topbar-branch svg {
+  flex: none;
+}
+.topbar-branch > svg:last-child {
+  color: var(--text-3);
+}
+.topbar-branch-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.git-meta {
+.topbar-branch-ahead {
   flex: none;
-  color: var(--text-3);
-  white-space: nowrap;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
-.git-spacer {
-  flex: 1;
+/* 窄窗口：分支名收进悬停提示，只留图标和领先数 */
+@media (max-width: 999px) {
+  .topbar-branch-name {
+    display: none;
+  }
 }
 
 .git-dialog {

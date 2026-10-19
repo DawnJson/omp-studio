@@ -1,4 +1,4 @@
-// 顶栏和菜单用的内联 SVG 图标（不引图标库）。24 栅格，描边 --icon-stroke，颜色跟随 currentColor。
+// 菜单用的内联 SVG 图标（不引图标库）。24 栅格，描边 --icon-stroke，颜色跟随 currentColor。
 import type { ReactNode } from "react";
 
 function Icon({ size, children }: { size: number; children: ReactNode }) {
@@ -22,14 +22,6 @@ function Icon({ size, children }: { size: number; children: ReactNode }) {
 
 export interface IconProps {
   size?: number;
-}
-
-export function MenuIcon({ size = 18 }: IconProps) {
-  return (
-    <Icon size={size}>
-      <path d="M4 7h16M4 12h16M4 17h16" />
-    </Icon>
-  );
 }
 
 export function CheckIcon({ size = 16 }: IconProps) {

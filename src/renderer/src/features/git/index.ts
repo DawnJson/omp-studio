@@ -1,4 +1,4 @@
-export { GitBar } from "./GitBar.tsx";
+export { GitTools } from "./GitTools.tsx";
 export { GitDialogHost } from "./GitDialogs.tsx";
 export { WorktreeChip } from "./WorktreeChip.tsx";
 export { cleanupOrphans, ensureSetupApproved } from "./git-actions.ts";

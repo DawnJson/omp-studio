@@ -16,20 +16,20 @@ async function settled(page: Page, locale: "zh-CN" | "en", theme: "light" | "dar
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 }
 
-test("顶栏是任务条：标志 + 菜单按钮（可键盘聚焦）、中段 项目 / 标题；没有后退/前进/侧栏按钮", async () => {
+test("顶栏是任务条：标志+字标即菜单按钮（可键盘聚焦）、中段只有标题（不带项目名）；没有后退/前进/侧栏按钮", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
     await expect(page.getByTestId("topbar-menu")).toBeVisible();
     await expect(page.getByTestId("logo").first()).toBeVisible();
-    await expect(page.getByTestId("topbar-crumb")).toContainText(/(新任务|New task)/);
+    await expect(page.getByTestId("topbar-crumb")).toHaveText(/^(新任务|New task)$/);
     for (const id of ["topbar-back", "topbar-forward", "topbar-sidebar"])
       await expect(page.getByTestId(id)).toHaveCount(0);
 
     await page.keyboard.press("Tab");
     await expect(page.getByTestId("topbar-menu")).toBeFocused();
     const topbar = await page.getByTestId("topbar").boundingBox();
-    expect(topbar?.height).toBe(36);
+    expect(topbar?.height).toBe(40);
   } finally {
     await launched.close();
   }
@@ -64,7 +64,7 @@ test("应用菜单：切换主题和语言立即生效；Esc 关闭后焦点回�
 
     await page.getByTestId("topbar-menu").click();
     await page.getByTestId("app-menu").getByRole("menuitemradio", { name: "English" }).click();
-    await expect(page.getByTestId("topbar-menu")).toHaveAttribute("aria-label", "Menu");
+    await expect(page.getByTestId("topbar-menu")).toHaveAttribute("aria-label", "omp studio menu");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
     await page.keyboard.press("Alt");
