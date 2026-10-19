@@ -8,13 +8,15 @@ import { selectTask, useSelectedTaskId, useTasks } from "../../store/index.ts";
 import { pushToast } from "./toast-store.ts";
 
 export function useTaskNotices(): void {
+  const t = useT();
   useEffect(
     () =>
       window.studio.onTaskNotice((notice) => {
         if (notice.kind === "toast") pushToast({ level: notice.level, message: notice.message });
+        else if (notice.kind === "goal_complete") pushToast({ level: "info", message: t("goal.completed") });
         else suggestEditorText(notice.taskId, notice.text);
       }),
-    [],
+    [t],
   );
 }
 

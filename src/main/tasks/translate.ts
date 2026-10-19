@@ -2,6 +2,7 @@
 // 去掉 message_update 里的 partial（delta 模式下本来就没有），丢掉 toolcall_delta。
 import type { RpcServerFrame } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { stripAnsi } from "../../shared/ansi.ts";
+import type { BtwUiEvent } from "../../shared/btw.ts";
 import type { AssistantDelta, TranscriptEvent } from "../../shared/transcript.ts";
 
 /** `${gen}:${messageId}`：messageId 只在单个进程内唯一，进程重启会从头编号，所以带上 spawn 代号。 */
@@ -79,5 +80,17 @@ export function translateFrame(frame: RpcServerFrame, gen: number, at: number): 
       return [{ type: "status_line", kind: "retry", phase: "end", at }];
     default:
       return [];
+  }
+}
+
+/** btw_delta / btw_record 帧 → 旁路提问事件；不进对话流（旁路提问不属于主会话的 transcript）。别的帧返回 null。 */
+export function translateBtwFrame(frame: RpcServerFrame): BtwUiEvent | null {
+  switch (frame.type) {
+    case "btw_delta":
+      return { type: "delta", recordId: frame.recordId, delta: frame.delta };
+    case "btw_record":
+      return { type: "record", record: frame.record };
+    default:
+      return null;
   }
 }

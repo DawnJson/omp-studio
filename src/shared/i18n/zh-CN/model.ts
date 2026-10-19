@@ -30,4 +30,13 @@ export const model = {
   free: "免费或未标价",
   current: "当前",
   "thinking.pending": "选用此模型后可调",
+  speed: "速度",
+  fast: "快速模式",
+  "fast.hint": "更快的服务层级，只对本会话生效；模型不支持时 omp 会拒绝。",
+  slow: "慢速模式",
+  "slow.scope.global": "写入 omp 配置，所有会话共用",
+  "slow.scope.session": "只对本会话生效",
+  "slow.unsupported": "这个模型没有慢速模式",
+  on: "开",
+  off: "关",
 } satisfies Record<string, MessageEntry>;

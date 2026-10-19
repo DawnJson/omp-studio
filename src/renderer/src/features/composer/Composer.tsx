@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ClipboardEvent,
@@ -30,11 +31,14 @@ import { QueueStrip } from "./QueueStrip.tsx";
 import { decideEnter, isShellDraft } from "./send-logic.ts";
 import { cycleHistory, hasHistory, isCycling, recordSent, resetHistoryCursor, shouldCycle } from "./input-history.ts";
 import { decideSlashSend } from "./slash-guard.ts";
+import { withStudioSlash } from "./studio-slash.ts";
+import { studioSlashCommands } from "./studio-slash-table.ts";
 import { FileMenu } from "./FileMenu.tsx";
 import { useFileMenu } from "./use-file-menu.ts";
 import { SendStop } from "./SendStop.tsx";
 import { thinkingLevelOptions } from "./thinking-levels.ts";
 import { UsageMeter } from "./UsageMeter.tsx";
+import { UsageLimitBanner } from "./UsageLimitBanner.tsx";
 import "./composer.css";
 
 export function Composer({ taskId }: { taskId: TaskId }) {
@@ -50,7 +54,12 @@ export function Composer({ taskId }: { taskId: TaskId }) {
   // 按任务记：切到别的任务不会继承"正在停止"。
   const [stoppingId, setStoppingId] = useState<TaskId | null>(null);
   const stopping = stoppingId === taskId;
-  const commands = useSlashCommands(taskId);
+  const ompCommands = useSlashCommands(taskId);
+  // omp 的列表还没载入时保持空：守卫在空列表时一律放行（studio-slash 的命令发送时照样会被接管）。
+  const commands = useMemo(
+    () => (ompCommands.length === 0 ? ompCommands : withStudioSlash(ompCommands, studioSlashCommands, t)),
+    [ompCommands, t],
+  );
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashClosedFor, setSlashClosedFor] = useState<string | null>(null);
   // 刚用 ↑↓ 翻出来的历史文本：这段文本上不开斜杠/@ 菜单，免得抢走后面的 ↑↓。
@@ -312,6 +321,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
           </button>
         </div>
       )}
+      <UsageLimitBanner limit={task.usageLimit} />
       <QueueStrip taskId={taskId} queue={task.queue} />
       <div className="composer" data-gate={gate || undefined} onDragOver={onDragOver} onDrop={onDrop}>
         {slashOpen && (
@@ -397,6 +407,12 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             loadModels={() => window.studio.listTaskModels(taskId)}
             setModel={(key) => window.studio.setTaskModel(taskId, key)}
             setThinking={(level) => window.studio.setTaskThinkingLevel(taskId, level)}
+            speed={{
+              fast: task.fastMode,
+              slow: task.slowMode,
+              setFast: (enabled) => window.studio.setTaskFastMode(taskId, enabled),
+              setSlow: (enabled) => window.studio.setTaskSlowMode(taskId, enabled),
+            }}
           />
           <ApprovalChip />
           <span className="composer-spacer" />

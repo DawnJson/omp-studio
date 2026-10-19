@@ -11,6 +11,7 @@ import { gitHandlers } from "./git-handlers.ts";
 import { historyHandlers } from "./history-handlers.ts";
 import { ompHandlers } from "./omp-handlers.ts";
 import { subagentHandlers } from "./subagent-handlers.ts";
+import { btwHandlers } from "./btw-handlers.ts";
 import { taskHandlers } from "./task-handlers.ts";
 import { terminalHandlers } from "./terminal-handlers.ts";
 import { updateHandlers } from "./update-handlers.ts";
@@ -31,6 +32,7 @@ const handlers: InvokeHandlers = {
   ...updateHandlers,
   ...usageHandlers,
   ...subagentHandlers,
+  ...btwHandlers,
   ...terminalHandlers,
   ...fileHandlers,
 };

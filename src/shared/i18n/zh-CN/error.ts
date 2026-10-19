@@ -1,6 +1,9 @@
 import type { MessageEntry } from "../index.ts";
 
 export const error = {
+  sessionBusy: "任务还在运行，等这一轮结束再试。",
+  worktreeShared: "还有其它任务（包括已归档的分叉）共用这个工作区，不能丢弃。",
+  forkNoMessage: "没有找到可以分叉的用户消息。",
   exited: "这个任务的 omp 进程退出了（退出码 {code}）。会话已保存。",
   exitedNoCode: "这个任务的 omp 进程退出了。会话已保存。",
   protocol: "和 omp 的通信出错了，已断开。可能是版本不兼容。",

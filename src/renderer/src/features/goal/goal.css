@@ -1,0 +1,68 @@
+/* 目标条：和待办条同宽同位置（对话流顶部），一行；目标文字过长时省略，完整文字在悬停提示里。 */
+.goal-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  box-sizing: border-box;
+  width: min(100% - 2 * var(--gutter), var(--content-w));
+  min-height: var(--control-h-sm);
+  margin: var(--space-2) auto 0;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+.goal-label {
+  flex: none;
+  color: var(--text);
+  font-weight: 500;
+}
+.goal-objective {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.goal-status {
+  flex: none;
+  color: var(--st-running);
+}
+.goal-strip[data-status="paused"] .goal-status {
+  color: var(--st-waiting-text);
+}
+.goal-strip[data-status="budget-limited"] .goal-status {
+  color: var(--st-error);
+}
+.goal-usage {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.goal-action {
+  flex: none;
+  height: calc(var(--space-5) + var(--space-0-5));
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.goal-action:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.goal-action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.goal-action:disabled {
+  color: var(--text-disabled);
+}
+@media (prefers-reduced-motion: reduce) {
+  .goal-action {
+    transition: none;
+  }
+}

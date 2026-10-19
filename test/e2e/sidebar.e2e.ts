@@ -42,6 +42,11 @@ function makeTask(
     todoPhases: [],
     cwd: "",
     runStartedAt: null,
+    fastMode: { enabled: false, active: false },
+    slowMode: { supported: false, enabled: false, scope: null },
+    usageLimit: null,
+    tokensPerSecond: null,
+    goal: null,
     ...patch,
   };
 }

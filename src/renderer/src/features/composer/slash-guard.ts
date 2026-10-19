@@ -5,11 +5,7 @@ import type { AvailableSlashCommand } from "../../../../shared/omp-wire/rpc-wire
 /** 只在终端版 omp 里存在的命令（trial-tui 实测）；可能不全，不在这张表里的未知命令走通用提示。 */
 const terminalOnly: Record<string, true> = {
   plan: true,
-  tree: true,
-  fork: true,
   copy: true,
-  goal: true,
-  btw: true,
   hotkeys: true,
   settings: true,
 };

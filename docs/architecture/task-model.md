@@ -12,6 +12,7 @@
 - 新任务标题是 `""`；第一次 `sendPrompt` 取首条消息第一行（60 字符）；`resume` 时 title 为 null 则载完历史后取第一条用户消息。
 - 审批模式不在任务里存：启动时从不传 `--approval-mode`，omp 读自己配置里的 `tools.approvalMode`（启动时读一次）。输入框胶囊改的是 omp 配置（`omp config set`），之后启动的任务生效。
 - 归档：关进程，记录保留 `archived:true`；`TaskPool.resume()` 找到同一会话文件的任务会把它恢复成未归档（同一 id）。
+- 分叉 / 回溯（`docs/architecture/session-tree.md`）：`TaskPool.forkTask` 新增一条任务记录，`sessionFile` 是 omp `branch` 新建的文件，同项目、同 cwd（worktree 任务的分叉共用同一个 worktree，所以 `discardWorktree` 在还有别的任务（含已归档的）用它时拒绝）、同模型；原任务的会话文件和进程会话不变。`branchTask`（会话树面板选中）是就地回溯：任务的 `sessionFile` 改成 `branch` 新建的文件，原文件留在磁盘上。两者都只在任务空闲（没有在途命令、`!命令`、`/btw`）时做，否则 `SessionBusyError`；期间 `TaskRunner` 的 `#sessionOp` 让别的命令经 `#awaitSessionIdle()` 等着、`get_state` 的应答不写进记录。
 - `messageId` 只在进程内唯一：消息键 `${gen}:${messageId}`，`gen` 每次 spawn 递增；历史消息键 `h:<序号>`。
 
 ## 启动序列
@@ -56,7 +57,7 @@
 
 ## 上下文使用率和状态刷新
 
-`get_state` 在 assistant `message_end`、`agent_end`、`auto_compaction_end`、`notice` 后调一次，同一任务 1 秒内最多一次；`prompt_result`、`session_settled`、`model_changed`、`thinking_level_changed`、`config_update` 立即刷新。刷新同时更新 `contextUsage`、模型、思考档位、队列、`todoPhases`（待办阶段，原样搬进 `TaskState.todoPhases`；todo 工具的 `tool_execution_end`（工具名含 todo）和 `todo_auto_clear` 也会触发一次节流刷新）、回收判据（`isSettled && !hasPendingAsyncWork`）和 `sessionFile`。`queue_update` 直接更新队列 chip。
+`get_state` 在 assistant `message_end`、`agent_end`、`auto_compaction_end`、`notice` 后调一次，同一任务 1 秒内最多一次；`prompt_result`、`session_settled`、`model_changed`、`thinking_level_changed`、`config_update` 立即刷新；本地完成的斜杠命令（`prompt` 应答 `agentInvoked:false`，如 `/fast`、`/slow`）和 `set_fast_mode` / `set_slow_mode` 之后也立即刷新。刷新同时更新 `contextUsage`、模型、思考档位、队列、`todoPhases`（待办阶段，原样搬进 `TaskState.todoPhases`；todo 工具的 `tool_execution_end`（工具名含 todo）和 `todo_auto_clear` 也会触发一次节流刷新）、回收判据（`isSettled && !hasPendingAsyncWork`）、`sessionFile`，以及 `fastMode` / `slowMode` / `usageLimit` / `tokensPerSecond`（`tasks/session-extras.ts` 的纯映射；实测 `tokensPerSecond` 在流式输出期间为 null，回复结束后才有值，所以靠 `message_end` 的节流刷新就够，不另外轮询）。`queue_update` 直接更新队列 chip。
 
 ## 进程上限和回收
 

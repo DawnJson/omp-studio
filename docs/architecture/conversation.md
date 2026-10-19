@@ -57,9 +57,17 @@
 - 审批胶囊：`task.status` 为 `stopped`/`error`（没有进程）可改，其余只读（decisions 第 2 条）；首次选 yolo 内联确认一次（localStorage 记住）。
 - 上下文提示 `percent ≥ 70`，≥90 琥珀；"压缩上下文"发 `/compact`（**[推测]** 契约没有 compact 命令，靠斜杠命令在本地执行，未实测）。
 - 贴图：粘贴/拖入/⊕，长边缩到 1568px 转 WebP（`OffscreenCanvas`），模型不支持图片时 toast。
-- 输入框三个辅助：①斜杠守卫（`slash-guard.ts`）：`/名称` 不在 `get_available_commands`（命令列表非空时）就先提示一次，同一文字再发或点"仍作为文字发送"才发；终端独有命令（plan/tree/fork/copy/goal/btw/hotkeys/settings）用专门文案。守卫在 `Composer` 的发送入口，没有改 `sendDraft`。②输入历史（`input-history.ts`）：↑↓ 翻本任务发过的消息，内存按任务记，对话里的用户消息做种子。③`@` 文件补全（`use-file-menu.ts` + `FileMenu.tsx`）：IPC `listProjectFiles(target, query)`，主进程 `files/project-files.ts` 按 cwd 缓存 10 秒的索引（git ls-files，退回有界遍历），≤10000 条、返回 ≤20 条相对路径；`query` 含绝对路径/`..` 拒绝。
+- 输入框三个辅助：①斜杠守卫（`slash-guard.ts`）：`/名称` 不在 `get_available_commands`（命令列表非空时）就先提示一次，同一文字再发或点"仍作为文字发送"才发；终端独有命令（plan/copy/hotkeys/settings）用专门文案（omp-studio 自己接管的 `/goal`、`/tree`、`/fork`、`/btw` 等在 `studio-slash-table.ts`，算已知命令，见"目标模式""会话树与分叉""旁路提问"）。守卫在 `Composer` 的发送入口，没有改 `sendDraft`。②输入历史（`input-history.ts`）：↑↓ 翻本任务发过的消息，内存按任务记，对话里的用户消息做种子。③`@` 文件补全（`use-file-menu.ts` + `FileMenu.tsx`）：IPC `listProjectFiles(target, query)`，主进程 `files/project-files.ts` 按 cwd 缓存 10 秒的索引（git ls-files，退回有界遍历），≤10000 条、返回 ≤20 条相对路径；`query` 含绝对路径/`..` 拒绝。
 - 草稿只存在渲染进程内存（按任务）；spec 要求主进程持久化，契约里还没有。
 - 没做：斜杠命令菜单（arch 不做）、发送中的旋转环（`sendPrompt` 很快 resolve）、`session.inUse` 条。
+
+### 导出 HTML
+
+- 入口三处，同一动作：输入框 `/export`（studio 接管的斜杠命令，见 `composer/studio-slash-table.ts`，omp 的同名命令被它盖住）、命令面板 `cmd.exportHtml`、侧栏任务行菜单 `task.exportHtml`；动作在 `composer/export-html.ts`。`/share` 不动，仍是 omp 自己的命令。
+- 为什么不直接用 omp 的 `/export`：RPC `export_html` 不传 `outputPath` 时把 `omp-session-*.html` 写进任务 cwd（项目目录，会弄脏 git）。实测（Tern omp，临时 `PI_CODING_AGENT_DIR`）：参数 `ExportHtmlParams {outputPath?}`、结果 `ExportHtmlResult {path}`；`outputPath` 为绝对路径（含项目目录之外的目录、中文、空格）时原样照写，返回的 `path` 就是它；缺的上级目录会建；不补 `.html` 扩展名；同名直接覆盖；相对路径按 omp 进程 cwd 解析（仍落在项目里）；空会话也能导出。
+- 所以路径由主进程定：IPC `exportTaskHtml(taskId)` 在主进程弹 `dialog.showSaveDialog`（默认桌面、文件名 `<任务标题清理后>-<本地日期>.html`，清理见 `tasks/export-name.ts`），`exportTarget` 保证扩展名是 `.html`（`.htm` 不算，补 `.html`），经 `TaskPool.exportTaskHtml` → `TaskRunner.exportHtml(outputPath)` 发 `export_html`（没有进程时先拉起，和 compact 一样；非绝对路径直接拒绝，不发给 omp）。渲染进程不传任何路径；取消对话框 = 返回 `null`，什么也不发生。
+- 成功后 toast `toast.exported` + `toast.revealExport`；按钮调 `revealTaskExport(taskId)`，主进程只显示**它自己选的、该任务最近一次导出的路径**（`tasks/export-record.ts`：记下的是 target，且要求 omp 返回的路径解析后与 target 一致，否则不记录；任务归档/移除时清掉记录），没导出过就拒绝。
+- 测试：`test/task-export-html.test.ts`（假 omp 回放 + 文件名清理）。
 
 ## 门（`dialogs/`）
 
@@ -125,3 +133,46 @@
 - 运行期间：omp 只在结束时应答，没有流式输出，所以只显示一行"命令 + 正在运行… + 停止"（`ShellRunning`，状态在 `shell-run-store.ts`，由 `runShellDraft` 开关）。停止按钮和 Esc 调 `abortBash` → RPC `abort_bash`：Esc 只归输入框的窗口级处理（有 `!` 在跑就中止它，否则才停这一轮），`ShellRunning` 不另挂监听；没有命令在跑时 `abortBash` 什么也不发。被取消的命令照常记成 `cancelled` 的块。进程还在启动时按的停止不丢：先记下，`bash` 请求一发出就补发 `abort_bash`。
 - 限制：任务在跑一轮（含有门停靠）或这个任务已有 `!` 在跑时不执行，toast 说明并保留草稿（避免把正在进行的一轮切成两段）；门停靠时输入 `!` 不会被当成"拒绝并发送"。新任务草稿里的 `!` 也不执行（还没有 omp 进程和任务目录），提示先发第一条消息。
 - 测试：`test/task-bash.test.ts`（fake-omp：成功、失败应答、空命令、abort）、`test/conversation-model.test.ts`（历史里的 `bashExecution` → 命令块）。
+
+## 旁路提问（`/btw`，`features/btw/`）
+
+- 入口：`/btw [问题]`（`studio-slash-table.ts` 里的 `btwSlash`，不发给模型；omp 的 `get_available_commands` 不列它，所以守卫的 `terminalOnly` 里去掉了 `btw`）和命令面板“旁路提问（/btw）”。两者都打开面板并聚焦面板里的输入框（`openBtw`），带了问题的 `/btw` 直接开一个新话题。`/btw` 失败（omp 拒绝等）时 `sendDraft` 把原文放回草稿并提示。
+- 数据流：渲染进程 `askBtw(taskId, question, recordId?)` → `TaskPool.askBtw` → `TaskRunner.askBtw`（`#live()`，没进程先拉起）→ RPC `btw {question, recordId?}`，返回话题 id。进度**不走对话流**：`btw_record` / `btw_delta` 帧在 `#onFrame` 里经 `translate.ts translateBtwFrame` 变成 `BtwUiEvent`（`record` 整条记录 / `delta` 追加文字 / `records` 整份对齐），用 `shared/btw.ts applyBtwEvent` 推进主进程里的镜像（`#btw`），再经 `PoolEvents.btw` → `emitEvent("btw")` 推给渲染进程；渲染进程的 `store/btw-store.ts` 用同一个 `applyBtwEvent` 推进自己的投影。`btw_cancel`：`cancelBtw(taskId, recordId?)`，`getBtw(taskId)` 返回镜像。
+- IPC 收窄：`askBtw` / `cancelBtw` / `getBtw` 只作用于已存在的任务；问题 1–`btwLimits.questionChars`（8192）字符，`recordId` 限长；话题 id 必须在主进程镜像里（不认识的在本地拒绝，不发给 omp）。主进程不自己起进程。
+- 历史：`getBtw` 在有进程、且这个进程还没对齐过时读一次 `get_btw_history` 并推一份 `records`；应答在途期间若到过 `btw_record` / `btw_delta`（`#btwSeq` 变了，`/btw 问题` 会同时触发读历史和发问），按 id 合并（`mergeBtwHistory`，镜像里的记录为准）而不是整体替换。没有进程（或还在启动）时返回镜像现状，**不为它拉起 omp**。面板每次打开调一次。进程在提问中退出时镜像里在跑的那条标成 `interrupted`（和 omp 重读历史时一样），并重置“已对齐”标记；就地回溯成功后镜像清空并同样重置（话题属于旧会话）。在跑的旁路提问、进行中（active）的目标都让任务不可回收（`recyclable`）。
+- 面板：停在输入框上方（`BtwPanel`，样式见 spec 4.14），问答用 Markdown 流式渲染；输入框默认对当前话题追问，“新话题”切到开新话题；Esc 在提问中取消、否则关闭。Esc 的处理挂在面板自己的 `keydown` 上并 `stopPropagation`，不会触发输入框的“停止这一轮”。
+- **实测（omp 18.12.2，rpc-ui，临时 `PI_CODING_AGENT_DIR`，deepseek-v4-flash）**：
+  - `btw {question}` 先推一条 `btw_record`（`status:"running"`、`answer:""`、`id`、`leafId`），**随后**回应答 `{record}`（同一条记录，立即返回，不等答案）；答案以 `btw_delta {recordId, delta}` 逐段到达（`"p"`、`"ong"`），最后再推一条 `btw_record`（`complete`，带完整 `answer`）。取消时推一条 `cancelled` 的 `btw_record`（实测）；`error` 状态按线协议类型走同一条路径（没有构造出来，未实测）。
+  - **主轮运行中提问，答案可能带上主轮内容**（实测 2026-10-19，omp 18.12.2：主轮在流式输出 1–80 时问 `3+3`，答案先重复了主轮已输出的内容再给出结果）。studio 只消费 `btw_record` / `btw_delta` 帧，没有混流；这是 omp / 模型把主轮上下文带进旁路回答，不是 studio 的问题。
+  - 追问：`btw {question, recordId}` 推的 `btw_record` 是**整个话题**，新问答在 `followUps[]` 末尾（`status:"running"`），之后的 `btw_delta` 的 `recordId` 仍是话题 id（追加到最新一问）。话题本身的 `question/answer/status` 是第一问的。
+  - **同一时刻只许一条在跑**：第二条（新话题或追问都一样）被拒绝，错误 `A /btw question is still running; cancel it first`。空问题：`btw requires a non-empty question`；不认识的话题：`Unknown /btw topic: <id>`。
+  - `btw_cancel {recordId?}` → `{cancelled: true}` 并推 `cancelled` 的 `btw_record`；省略 `recordId` 取消在跑的那条；没有在跑的（或 recordId 不对）→ `{cancelled: false}`，不报错。
+  - **主轮在跑时可以问**：主轮 `isStreaming:true` 期间 `btw` 被接受并正常流式；两边互不影响。
+  - **不进主对话**：旁路提问前后 `get_messages` 都是空的；没有任何 `message_*` 帧。
+  - `get_btw_history` → `{records}`，按创建时间从新到旧；**随会话落盘**：关掉进程后 `switch_session` 恢复，三个话题（含取消的、含追问）原样还在，状态不变。
+  - 一轮 prompt 都还没发时也能问（`btw` 照常工作）。
+- 测试：`test/task-btw.test.ts`（fake-omp：提问事件序、追问带 recordId、本地拒绝、omp 拒绝、取消、历史、进程退出标 interrupted）、`test/btw-model.test.ts`（delta 累积、record upsert、interrupted、面板的话题选择规则）。
+
+## 目标模式（`/goal`，`features/goal/`）
+
+- 入口：`/goal <目标>`（`studio-slash-table.ts` 里的 `goalSlash`，不发给模型；rpc-ui 的命令列表没有它）创建目标；`/goal` 不带文字用 toast 说出当前目标（或"当前没有目标"）；单独的 `pause` / `resume` / `drop` 操作当前目标；失败时 `sendDraft` 把原文放回草稿并提示。目标条上的按钮和命令面板的“暂停目标 / 继续目标 / 放弃目标”（只列当前状态下能做的，`goal-model.ts goalButtons`）走同一条路：`window.studio.taskGoal(taskId, op, objective?)` → `TaskPool.taskGoal` → `TaskRunner.goal` → RPC `goal {op, objective?}`。
+- 数据：`TaskState.goal`（`TaskGoal`：id、objective、status、tokensUsed、tokenBudget、timeUsedSeconds），主进程来自 `get_state.goal.goal` 和 `goal_updated.goal`（`task-runner.ts`，纯映射在 `goal-state.ts`）；只保留 `active` / `paused` / `budget-limited`，`complete` / `dropped` / 没有目标都是 `null`，目标条随之消失。`goal_updated` 每 1–2 秒推一次用量，直接用事件里的目标，不再 `get_state`；在途的 `get_state` 应答如果期间收到过 `goal_updated`，它带的目标已经过期，不会盖掉新值（`#goalSeq`）。
+- IPC 收窄：`taskGoal` 只作用于已存在的任务；`op` 必须是 `get | create | pause | resume | drop`；`create` 的目标文字 1–`limits.goalObjectiveMaxChars`（4096）字符，其余 op 不带文字。omp 拒绝时 reject，原文透传。界面不提供 `token_budget`（`goal` 命令支持，但没有对应入口，用量条在有预算时仍会显示"已用 / 预算"）。
+- 目标条：`GoalStrip.tsx`，在 `TodoStrip` 下面一行（spec 4.6）：目标文字、状态词、用量、按钮；操作进行中按钮禁用。
+- **自动继续要 omp 设置允许，但不替用户改**（原则 7）：`goal.continuationModes` 默认 `["interactive"]`，不含 `"rpc"` 时 rpc-ui 下目标挂着不推进（实测）。`/goal <目标>` 和“继续”照常执行，成功后读一次 omp 设置（`getOmpConfig`），缺 `"rpc"` 就弹 warning toast（`goal.continuationOff`：桌面端里目标不会自己往下推进，需要在 omp 设置里允许），带按钮「允许并继续」（`goal.allowAndContinue`）。点了才经 `setOmpConfig("goal.continuationModes", 原值 + "rpc")` 写（保留原有值；这是用户全局的 omp 配置，终端版只看 `"interactive"`，不受影响），等 500 ms 后让目标跑起来：目标是 `paused` 就 `resume`，是 `active` 就先 `pause` 再 `resume`（实测对 active 的目标 `resume` 只应答 active、不起轮次）。读不到设置时不弹；写不进（环境变量覆盖等）报错。
+- **实测（omp 18.12.2，rpc-ui，临时 `PI_CODING_AGENT_DIR`，`STUDIO_TEST_MODEL`，目标都是几个 token 的小任务）**：
+  - 默认设置（`goal.continuationModes` = `["interactive"]`）：`goal create` 应答 `{goal, state}`（`status:"active"`，`state.enabled:true`、`mode:"active"`），并推一条 `goal_updated`；**不起轮次**（等了 15 秒没有 `agent_start`），目标只是挂着，`timeUsedSeconds` 随时间增长。`get_state.goal` 是 `GoalModeState`；没有目标时 `get_state` 没有 `goal` 字段，`goal get` 返回 `{goal:null,state:null}`。
+  - `goal.continuationModes` 含 `"rpc"`：`create` 之后立即 `agent_start`，omp 自己连续推进；每 1–2 秒一条 `goal_updated`（`tokensUsed`、`timeUsedSeconds` 增长）；agent 完成目标时先推 `status:"complete"`、`state:{enabled:false, mode:"exiting", reason:"completed"}` 的 `goal_updated`，随后 `agent_end` + `session_settled`，此后 `get_state.goal` 为 `null`；这时 `pause` 应答 `{goal:null,state:null}`（不报错），`resume` 报 `No paused goal to resume.`。
+  - 预算：`create` 带 `token_budget:50`，用量超出后 `status` 变成 `budget-limited`（`state.enabled` 仍是 true），agent 之后照样能完成它；`token_budget:0` → `token_budget must be a positive integer when provided`，空目标 → `objective is required when op=create`。
+  - `pause`：应答和事件都是 `status:"paused"`、`state.enabled:false`；`resume`：回到 `active`、`enabled:true`；`drop`：先推 `status:"dropped"` 的 `goal_updated`，应答 `{goal:null,state:null}`，之后 `get_state` 没有 `goal`。
+  - **`drop` 不中止正在跑的那一轮**（实测 2026-10-19：放弃目标时当时的一轮照常跑完，停止按钮仍在）。这是 omp 的语义，studio 不额外发 `abort`（`abort` 会连带暂停目标，见下条，而且用户只是不想要这个目标，不一定想打断这一轮）；要停就按停止。
+  - **完成时提示**：`goal_updated` 的 `status:"complete"` 除了让目标条消失，还经 `TaskNotice { kind: "goal_complete" }` 弹一条 info toast（`goal.completed`：“目标已完成”）；放弃目标不弹。
+  - `abort`（停止一轮）会把进行中的目标暂停：事件 `status:"paused"`，`get_state.goal.goal.status` 为 `paused`，之后要 `resume` 才继续。
+  - **改设置不用重启 omp**：已运行的进程里，`omp config set goal.continuationModes '["interactive","rpc"]'` 之后 300 ms 创建的目标就会自己继续，0 ms 时还不会（同一进程里先后试）。
+  - **对 active 的目标 `resume` 是空操作**：默认设置下建好目标、之后加上 `"rpc"`，等 1.5 s 再 `resume`，应答 `active`、没有 `agent_start`；`pause` 再 `resume` 才立即 `agent_start`。
+  - 来自 rpc.md、没有单独实测：已有进行中或暂停的目标时 `create` 被拒绝；计划模式下 `create` / `resume` 被拒绝；进程启动时恢复的目标是 `paused`，要 `resume`。
+- 测试：`test/task-goal.test.ts`（fake-omp：握手 `get_state.goal`、`goal_updated` 的用量 / budget-limited / complete 序列、create → pause → resume → drop 的请求帧和返回值、omp 拒绝时原文透传且状态不变；`goal-state.ts` 的映射）、`test/goal-model.test.ts`（`/goal` 参数、按钮、用量文字、`goal.continuationModes` 改写）。
+
+## 会话树与分叉（`/tree`、`/fork`、用户消息的“从这里分叉”）
+
+语义、实测和任务模型上的取舍见 `docs/architecture/session-tree.md`。界面一侧：用户消息悬停动作 `UserMessage.tsx`（空闲才有“从这里分叉”）、面板 `SessionTreePanel.tsx`（`session-tree-store.ts` 管开关）、动作 `fork-actions.ts`（`forkFromMessage` / `branchToNode`，分叉出的任务被选中、那条消息的文字追加进它的输入框）。`/tree`、`/fork` 在 `studio-slash-table.ts`，命令面板 `cmd.sessionTree` 打开面板。

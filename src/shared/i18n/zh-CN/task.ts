@@ -2,6 +2,7 @@ import type { MessageEntry } from "../index.ts";
 
 export const task = {
   untitled: "新任务",
+  forkTitle: "{title}（分叉）",
   rename: "重命名",
   renameLabel: "任务标题",
   archive: "归档",
@@ -14,4 +15,5 @@ export const task = {
   more: "更多操作",
   runningFor: "{n} 分钟",
   noSession: "这个任务还没有会话文件。",
+  exportHtml: "导出为 HTML…",
 } satisfies Record<string, MessageEntry>;

@@ -43,6 +43,9 @@ import { git } from "./git.ts";
 import { lanes } from "./lanes.ts";
 import { custom } from "./custom.ts";
 import { terminal } from "./terminal.ts";
+import { btw } from "./btw.ts";
+import { goal } from "./goal.ts";
+import { tree } from "./tree.ts";
 
 export const zhCN = {
   shell,
@@ -90,4 +93,7 @@ export const zhCN = {
   lanes,
   custom,
   terminal,
+  btw,
+  goal,
+  tree,
 };

@@ -31,4 +31,13 @@ export const model = {
   free: "Free or unpriced",
   current: "Current",
   "thinking.pending": "Adjustable once selected",
+  speed: "Speed",
+  fast: "Fast mode",
+  "fast.hint": "A faster service tier for this session only; omp rejects it on models that don't support it.",
+  slow: "Slow mode",
+  "slow.scope.global": "Saved in the omp config, shared by every session",
+  "slow.scope.session": "This session only",
+  "slow.unsupported": "This model has no slow mode",
+  on: "On",
+  off: "Off",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

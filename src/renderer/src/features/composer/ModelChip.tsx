@@ -7,6 +7,7 @@ import { ChevronDown } from "../../icons.tsx";
 import { onStudioCommand } from "../palette/index.ts";
 import { ModelPicker, thinkingLabel, type ModelPickerProps } from "./ModelPicker.tsx";
 import { nextThinkingLevel } from "./thinking-levels.ts";
+import { speedBadges } from "./speed-limit-format.ts";
 
 /** 模型胶囊的数据和动作：任务里是 setTask*，草稿（还没有任务）里改的是"新任务默认值"。 */
 export interface ModelChipProps extends Omit<ModelPickerProps, "onClose"> {
@@ -25,6 +26,7 @@ export function ModelChip(task: ModelChipProps) {
   const levelText =
     task.thinkingLevel && thinkingLabel[task.thinkingLevel] ? t(thinkingLabel[task.thinkingLevel] as MessageKey) : null;
   const name = task.model?.name ?? emptyLabel ?? t("composer.noModel");
+  const badges = task.speed ? speedBadges(task.speed.fast, task.speed.slow) : [];
 
   function cycleThinking(): void {
     if (!supportsThinking) return;
@@ -70,6 +72,11 @@ export function ModelChip(task: ModelChipProps) {
           {name}
           {(supportsThinking || !task.model) && levelText ? ` · ${levelText}` : ""}
         </span>
+        {badges.map((badge) => (
+          <span key={badge} className="chip-badge" data-testid={`speed-badge-${badge}`}>
+            {t(badge === "fast" ? "composer.badge.fast" : "composer.badge.slow")}
+          </span>
+        ))}
         <ChevronDown size={12} />
       </button>
       {open && <ModelPicker {...pickerProps} onClose={() => setOpen(false)} />}

@@ -8,6 +8,11 @@ import { archiveWithUndo } from "../sidebar/archive-store.ts";
 import { startDraft } from "../empty/index.ts";
 import { addProjectAsDraft, jumpToWaitingTask } from "../sidebar/sidebar-actions.ts";
 import { toggleTerminal } from "../terminal/index.ts";
+import { exportConversationReporting } from "../composer/export-html.ts";
+import { openSessionTree } from "../conversation/session-tree-store.ts";
+import { openBtw } from "../btw/index.ts";
+import { goalButtons } from "../goal/goal-model.ts";
+import { runGoalOp } from "../goal/goal-actions.ts";
 import type { CommandEntry } from "../../../../shared/ui/palette-model.ts";
 import { emitStudioCommand } from "./studio-command.ts";
 
@@ -20,6 +25,7 @@ export interface CommandContext {
 }
 
 const themeCycle: ThemePreference[] = ["system", "light", "dark"];
+const goalCommandKey = { pause: "goal.cmdPause", resume: "goal.cmdResume", drop: "goal.cmdDrop" } as const;
 
 export function buildCommands({ t, locale, theme, current, hasWaiting }: CommandContext): CommandEntry[] {
   const guard = (promise: Promise<unknown>) => void promise.catch((error: unknown) => reportError(t, error));
@@ -58,6 +64,20 @@ export function buildCommands({ t, locale, theme, current, hasWaiting }: Command
       run: () => emitStudioCommand("thinking"),
     },
     current && { id: "compact", label: t("cmd.compact"), run: () => emitStudioCommand("compact") },
+    ...(current
+      ? goalButtons(current.goal).map((op) => ({
+          id: `goal-${op}`,
+          label: t(goalCommandKey[op]),
+          run: () => void runGoalOp(current.id, op, t),
+        }))
+      : []),
+    current && { id: "sessionTree", label: t("cmd.sessionTree"), run: () => openSessionTree(current.id) },
+    current && {
+      id: "exportHtml",
+      label: t("cmd.exportHtml"),
+      run: () => void exportConversationReporting(current.id, t),
+    },
+    current && { id: "btw", label: t("cmd.btw"), run: () => openBtw(current.id) },
     current?.status === "running" && {
       id: "stop",
       label: t("cmd.stop"),

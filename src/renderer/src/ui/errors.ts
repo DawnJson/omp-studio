@@ -16,6 +16,16 @@ export function reportError(t: TFunction, error: unknown, context?: string | ((m
   pushToast({ level: "error", message, title: errorDetail(error) });
 }
 
+/**
+ * omp 自己拒绝命令时的错误（RPC 错误应答，如“这个模型不支持快速模式”）：原文就是给人看的原因，所以未知错误也把原文放进正文，
+ * 不止放悬停提示。已知措辞仍走 describeError 的翻译。
+ */
+export function reportOmpError(t: TFunction, error: unknown): void {
+  const known = describeError(t, error);
+  const detail = errorDetail(error);
+  pushToast({ level: "error", message: known === t("error.generic") ? `${known} ${detail}` : known, title: detail });
+}
+
 /** 给不在 React 组件里的代码（模块级 store 的后台保存等）用：按当前界面语言弹出。 */
 export function reportErrorNow(error: unknown): void {
   reportError(createT(currentLocale()), error);

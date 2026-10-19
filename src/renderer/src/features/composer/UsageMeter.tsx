@@ -5,6 +5,7 @@ import type { TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { compactContext } from "./actions.ts";
 import { Popover } from "./Popover.tsx";
+import { formatTokensPerSecond } from "./speed-limit-format.ts";
 import { formatCount, formatMoney, formatPercent } from "./usage-format.ts";
 
 const ringRadius = 5;
@@ -32,9 +33,11 @@ export function UsageMeter({ task }: { task: TaskState }) {
   const [open, setOpen] = useState(false);
   const context = task.contextUsage;
   const usage = task.sessionUsage;
-  if (context === null && usage === null) return null;
-
   const busy = task.status === "running" || task.status === "needs_you";
+  // omp 只在回复结束后给出速度（实测流式中为 null）；运行中显示的是上一条回复的，空闲时不再显示。
+  const speedText = busy ? formatTokensPerSecond(task.tokensPerSecond) : null;
+  if (context === null && usage === null && speedText === null) return null;
+
   const detail = usage
     ? [
         `${t("composer.usage.input")} ${formatCount(usage.tokens.input)}`,
@@ -98,6 +101,11 @@ export function UsageMeter({ task }: { task: TaskState }) {
       {usage !== null && usage.cost > 0 && (
         <span className="usage-item" data-testid="usage-cost" title={detail}>
           {formatMoney(usage.cost)}
+        </span>
+      )}
+      {speedText !== null && (
+        <span className="usage-item usage-tps" data-testid="usage-tps" title={t("composer.usage.tpsTip")}>
+          {t("composer.usage.tps", { n: speedText })}
         </span>
       )}
     </div>

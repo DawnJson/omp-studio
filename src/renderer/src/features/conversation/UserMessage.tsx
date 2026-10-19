@@ -2,13 +2,23 @@
 import { reportError } from "../../ui/errors.ts";
 import { memo, useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
+import type { TaskId } from "../../../../shared/ipc.ts";
+import { useTaskIdle } from "../../store/tasks-store.ts";
+import { isBtwRunning } from "../../../../shared/btw.ts";
+import { useBtwRecords } from "../../store/btw-store.ts";
+import { forkFromMessageReporting, useForkPending } from "./fork-actions.ts";
+import { useShellRun } from "./shell-run-store.ts";
 import type { UserBubble } from "./model.ts";
 
 const COLLAPSE_OVER = 12;
 const COLLAPSED_LINES = 8;
 
-export const UserMessage = memo(function UserMessage({ user }: { user: UserBubble }) {
+export const UserMessage = memo(function UserMessage({ user, taskId }: { user: UserBubble; taskId: TaskId }) {
   const t = useT();
+  const idle = useTaskIdle(taskId);
+  const shellRunning = useShellRun(taskId) !== null;
+  const btwRunning = isBtwRunning(useBtwRecords(taskId));
+  const forkPending = useForkPending(taskId);
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const lines = user.text.split("\n");
@@ -42,9 +52,23 @@ export const UserMessage = memo(function UserMessage({ user }: { user: UserBubbl
           </button>
         )}
       </div>
-      <button type="button" className="hover-action user-copy" onClick={copy}>
-        {copied ? t("common.copied") : t("common.copy")}
-      </button>
+      <div className="user-actions">
+        <button type="button" className="hover-action" onClick={copy}>
+          {copied ? t("common.copied") : t("common.copy")}
+        </button>
+        {idle && !shellRunning && !btwRunning && (
+          <button
+            type="button"
+            className="hover-action"
+            title={t("tree.forkTitle")}
+            data-testid="user-fork"
+            disabled={forkPending}
+            onClick={() => void forkFromMessageReporting(taskId, user.key, t)}
+          >
+            {t("tree.fork")}
+          </button>
+        )}
+      </div>
     </div>
   );
 });

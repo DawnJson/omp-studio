@@ -4,6 +4,7 @@ import { reportError } from "../ui/errors.ts";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { groupTasks, visibleOrder } from "../../../shared/ui/sidebar-model.ts";
 import { Composer } from "../features/composer/index.ts";
+import { BtwPanel } from "../features/btw/index.ts";
 import { ConversationView } from "../features/conversation/index.ts";
 import { GitDialogHost } from "../features/git/index.ts";
 import { DialogLayer } from "../features/dialogs/index.ts";
@@ -216,6 +217,7 @@ export function App() {
           ) : (
             <>
               <ConversationView taskId={taskId} />
+              <BtwPanel taskId={taskId} />
               <Composer key={taskId} taskId={taskId} />
               {terminalOpen && <TerminalPanel key={taskId} taskId={taskId} />}
             </>

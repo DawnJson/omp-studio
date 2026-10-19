@@ -2,6 +2,9 @@ import type { MessageEntry } from "../index.ts";
 import type { error as zhCN } from "../zh-CN/error.ts";
 
 export const error = {
+  sessionBusy: "The task is still running. Try again when this turn ends.",
+  worktreeShared: "Other tasks, including archived forks, share this worktree, so it can’t be discarded.",
+  forkNoMessage: "Couldn’t find a user message to fork from.",
   exited: "The omp process for this task exited (code {code}). Your session is saved.",
   exitedNoCode: "The omp process for this task exited. Your session is saved.",
   protocol: "Communication with omp failed and was disconnected. The version may be incompatible.",

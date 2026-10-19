@@ -4,6 +4,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { Project, TaskId, TaskState } from "../../../../shared/ipc.ts";
 import { pushToast } from "../dialogs/index.ts";
+import { exportConversationReporting } from "../composer/export-html.ts";
 import { cleanupOrphans } from "../git/git-actions.ts";
 import { archiveWithUndo } from "./archive-store.ts";
 import { Menu, type MenuAnchor, type MenuItem } from "./Menu.tsx";
@@ -59,6 +60,11 @@ export function useSidebarMenus({ t, selectedTaskId, taskCount, onRename }: Menu
         },
         { id: "copyId", label: t("task.copyId"), onSelect: () => void copySession(task, "sessionId") },
         { id: "copyPath", label: t("task.copyPath"), onSelect: () => void copySession(task, "sessionFile") },
+        {
+          id: "exportHtml",
+          label: t("task.exportHtml"),
+          onSelect: () => void exportConversationReporting(task.id, t),
+        },
         {
           id: "archive",
           label: t("task.archive"),

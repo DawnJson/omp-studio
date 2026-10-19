@@ -156,9 +156,15 @@
 .answer {
   margin-bottom: calc(var(--control-h-sm) - var(--space-3));
 }
-.user-copy {
+.user-actions {
+  position: absolute;
   right: 0;
   top: 100%;
+  display: flex;
+  gap: var(--space-1);
+}
+.user-actions .hover-action {
+  position: static;
 }
 .answer-copy {
   left: 0;

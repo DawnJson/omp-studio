@@ -45,4 +45,16 @@ export const composer = {
   versionTooOld: "omp is too old",
   modelChip: "Choose model and thinking level",
   fileRef: "Project files",
+  "usage.tps": "{n} tok/s",
+  "usage.tpsTip": "Output speed of the latest reply",
+  "badge.fast": "Fast",
+  "badge.slow": "Slow",
+  "limit.aria": "Usage limit",
+  "limit.wrapUp": "Your account is past its usage limit and only has a short wrap-up allowance. Finish up soon.",
+  "limit.wrapUpExtra":
+    "Your account is past its usage limit and only has a short wrap-up allowance; extra usage is billed after it runs out.",
+  "limit.lowPriority":
+    "Your account is past its usage limit. Requests run on the low-priority lane and will be slower.",
+  "limit.resets": "Resets at {time}",
+  "limit.left": "{p}% of the low-priority allowance left",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

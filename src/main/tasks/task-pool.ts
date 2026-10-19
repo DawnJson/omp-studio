@@ -12,6 +12,9 @@ import type {
   PromptInput,
   RestoredDraft,
   RestoredQueue,
+  SessionTreeView,
+  BranchTaskResult,
+  ForkResult,
   StudioSettings,
   TaskId,
   TaskNotice,
@@ -19,9 +22,10 @@ import type {
   TranscriptBatch,
   TranscriptSnapshot,
 } from "../../shared/ipc.ts";
-import type { AvailableSlashCommand, ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type { AvailableSlashCommand, GoalOp, ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import type { OmpLaunch } from "../omp/omp-connection.ts";
 import type { SubagentDetail, SubagentLane } from "../../shared/subagents.ts";
+import type { BtwHistoryRecord, BtwUiEvent } from "../../shared/btw.ts";
 import { titleFromPrompt } from "./convert.ts";
 import { TaskRunner, TooManyTasksError, type RunnerHost } from "./task-runner.ts";
 import type { TaskRecord, TaskRegistry } from "./task-registry.ts";
@@ -38,6 +42,8 @@ export interface PoolEvents {
   taskRemoved(id: TaskId): void;
   slashCommands(taskId: TaskId, commands: AvailableSlashCommand[]): void;
   subagents(taskId: TaskId, lanes: SubagentLane[]): void;
+  /** 旁路提问（`/btw`）的变化；不关心的调用方（多数测试）可以不给。 */
+  btw?(taskId: TaskId, event: BtwUiEvent): void;
 }
 
 export interface WorktreeOps {
@@ -55,6 +61,8 @@ export interface PoolDeps {
   worktrees?: WorktreeOps;
   /** 归档任务、丢弃 worktree 之前调用并等待（不抛错）：用来结束任务名下的内置终端，Windows 上进程占着目录就删不掉。 */
   beforeTaskClose?(id: TaskId): Promise<void>;
+  /** 分叉出的新任务的标题（原标题加“分叉”后缀）；没传时沿用原标题。空标题不会走到这里。 */
+  forkTitle?(title: string): string;
 }
 
 export interface ResumeInput {
@@ -87,6 +95,7 @@ export class TaskPool {
       onNotice: (notice) => deps.events.notice(notice),
       onSlashCommands: (taskId, commands) => deps.events.slashCommands(taskId, commands),
       onSubagents: (taskId, lanes) => deps.events.subagents(taskId, lanes),
+      onBtw: (taskId, event) => deps.events.btw?.(taskId, event),
     };
   }
 
@@ -229,6 +238,18 @@ export class TaskPool {
     return this.#runner(id).getSubagents();
   }
 
+  askBtw(id: TaskId, question: string, recordId?: string): Promise<string> {
+    return this.#runner(id).askBtw(question, recordId);
+  }
+
+  cancelBtw(id: TaskId, recordId?: string): Promise<boolean> {
+    return this.#runner(id).cancelBtw(recordId);
+  }
+
+  getBtw(id: TaskId): Promise<BtwHistoryRecord[]> {
+    return this.#runner(id).getBtw();
+  }
+
   getSubagentDetail(id: TaskId, subagentId: string, since?: number): Promise<SubagentDetail> {
     return this.#runner(id).getSubagentDetail(subagentId, since);
   }
@@ -274,12 +295,60 @@ export class TaskPool {
     return this.#runner(id).compact();
   }
 
+  /** 导出对话框的默认文件名要用：任务标题（还没有标题时为空串）。任务不存在时抛错。 */
+  taskTitle(id: TaskId): string {
+    return this.#runner(id).state.title;
+  }
+
+  /** 导出成 HTML 写到 `outputPath`（绝对路径，由调用方经保存对话框得到）；返回 omp 写到的路径。 */
+  exportTaskHtml(id: TaskId, outputPath: string): Promise<string> {
+    return this.#runner(id).exportHtml(outputPath);
+  }
+
   runBash(id: TaskId, command: string): Promise<void> {
     return this.#runner(id).runBash(command);
   }
 
   abortBash(id: TaskId): Promise<void> {
     return this.#runner(id).abortBash();
+  }
+
+  getSessionTree(id: TaskId): Promise<SessionTreeView> {
+    return this.#runner(id).getSessionTree();
+  }
+
+  /**
+   * 从一条用户消息分叉出新任务：原任务的进程负责 `branch` 并切回（TaskRunner.forkSession），新任务记同一个项目、
+   * 同一个 cwd（worktree 任务的分叉记同一个 worktree，由 discardWorktree 保证不被一方删掉）、同样的模型和思考强度，
+   * 会话文件是新建的那份。新任务不在这里占进程，而是立刻 #startInBackground（和 resume 一样后台起）；用户打开它时已就绪或恢复中。
+   */
+  async forkTask(id: TaskId, userMessageKey: string | null): Promise<ForkResult> {
+    const runner = this.#runner(id);
+    const { sessionFile, text } = await runner.forkSession(userMessageKey);
+    const { projectId, title, model, thinkingLevel, worktreePath, worktreeBranch, worktreeBase } = runner.record;
+    const forkTitle = title === "" ? title : (this.#deps.forkTitle?.(title) ?? title);
+    const record = await this.#deps.registry.addTask({
+      projectId,
+      sessionFile,
+      title: forkTitle,
+      model,
+      thinkingLevel,
+      ...(worktreePath !== null &&
+        worktreeBranch !== null &&
+        worktreeBase !== null && { worktree: { path: worktreePath, branch: worktreeBranch, base: worktreeBase } }),
+    });
+    const forked = this.#adopt(record);
+    this.#deps.events.state(forked.state);
+    this.#startInBackground(forked);
+    return { task: forked.state, text };
+  }
+
+  async branchTask(id: TaskId, entryId: string): Promise<BranchTaskResult> {
+    return this.#runner(id).branchInPlace(entryId);
+  }
+
+  taskGoal(id: TaskId, op: GoalOp, objective?: string): Promise<TaskState["goal"]> {
+    return this.#runner(id).goal(op, objective);
   }
 
   /** 任务的工作目录：有 worktree 时是 worktree 根，否则是项目路径。 */
@@ -320,6 +389,10 @@ export class TaskPool {
     const runner = this.#runner(id);
     const { worktreePath, worktreeBranch } = runner.record;
     if (worktreePath === null || worktreeBranch === null) throw new Error("the task has no worktree");
+    // 分叉出来的任务共用这个 worktree（omp 会话绑 cwd，分叉必须在同一目录恢复）：还有别的任务（含已归档的：
+    // 归档不删 worktree，恢复后还要用它，removeWorktree 会连分支一起删）在用就不能删。
+    if (this.#deps.registry.listTasks().some((task) => task.id !== id && task.worktreePath === worktreePath))
+      throw new Error("the worktree is shared with another task");
     const project = this.#deps.registry.findProject(runner.record.projectId);
     if (!project) throw new Error(`task ${id} refers to unknown project`);
     await this.#deps.beforeTaskClose?.(id);
@@ -349,6 +422,14 @@ export class TaskPool {
 
   setTaskThinkingLevel(id: TaskId, level: ThinkingLevel): Promise<void> {
     return this.#runner(id).setThinkingLevel(level);
+  }
+
+  setTaskFastMode(id: TaskId, enabled: boolean): Promise<void> {
+    return this.#runner(id).setFastMode(enabled);
+  }
+
+  setTaskSlowMode(id: TaskId, enabled: boolean): Promise<void> {
+    return this.#runner(id).setSlowMode(enabled);
   }
 
   // ───── 上限和回收 ─────

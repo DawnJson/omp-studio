@@ -1,12 +1,16 @@
 // 任务和项目的 IPC handler：校验参数，委托任务池。参数一律是 unknown，先校验再用（AGENTS.md "Electron 安全"）。
 // "id 是否存在""对话框是否还在 pending 表里""select 的值是否在 options 里"由任务池/运行时查表确认。
-import { dialog, shell } from "electron";
+import { app, dialog, shell } from "electron";
+import path from "node:path";
+import { exportFileName } from "../tasks/export-name.ts";
+import { exportedFile, exportTarget, recordExport } from "../tasks/export-record.ts";
 import { limits } from "../../shared/ipc.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { canOpenDirectly, resolveInsideReal } from "./task-file-path.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { getMainWindow } from "../window/main-window.ts";
 import {
+  IpcValidationError,
   parseBoolean,
   parseDialogResponse,
   parseModelKey,
@@ -51,16 +55,64 @@ export const taskHandlers: HandlerGroup<
   | "listTaskModels"
   | "setTaskModel"
   | "setTaskThinkingLevel"
+  | "setTaskFastMode"
+  | "setTaskSlowMode"
   | "compactTask"
+  | "exportTaskHtml"
+  | "revealTaskExport"
   | "runBash"
   | "abortBash"
+  | "getSessionTree"
+  | "forkTask"
+  | "branchTask"
+  | "taskGoal"
   | "openTaskFile"
   | "revealTaskFile"
 > = {
   compactTask: async (taskId) => (await getTaskPool()).compactTask(parseTaskId(taskId)),
+  exportTaskHtml: async (taskId) => {
+    const pool = await getTaskPool();
+    const id = parseTaskId(taskId);
+    const window = getMainWindow();
+    const options = {
+      defaultPath: path.join(app.getPath("desktop"), exportFileName(pool.taskTitle(id), new Date())),
+      filters: [{ name: "HTML", extensions: ["html"] }],
+    };
+    const result = window ? await dialog.showSaveDialog(window, options) : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return null;
+    // 对话框在某些平台不补扩展名；omp 也不补（实测），所以这里保证是 .html。
+    const target = exportTarget(result.filePath);
+    const written = await pool.exportTaskHtml(id, target);
+    // omp 写到的必须就是我们给的路径；不一致时不记录（“在文件夹中显示”只认主进程自己选的路径）。
+    if (!recordExport(id, target, written)) throw new Error("omp wrote the export to an unexpected path");
+    return { fileName: path.basename(target) };
+  },
+  revealTaskExport: async (taskId) => {
+    const file = exportedFile(parseTaskId(taskId));
+    if (file === undefined) throw new Error("this task has no exported file yet");
+    shell.showItemInFolder(file);
+  },
   runBash: async (taskId, command) =>
     (await getTaskPool()).runBash(parseTaskId(taskId), parseString(command, "command", limits.bashCommandMaxChars)),
   abortBash: async (taskId) => (await getTaskPool()).abortBash(parseTaskId(taskId)),
+  getSessionTree: async (taskId) => (await getTaskPool()).getSessionTree(parseTaskId(taskId)),
+  // key 是对话流里用户消息的 key（`h:<序号>` 或 `<gen>:<messageId>`），null = 最后一条；主进程只拿它在自己的快照里查，查不到就拒绝。
+  forkTask: async (taskId, userMessageKey) =>
+    (await getTaskPool()).forkTask(
+      parseTaskId(taskId),
+      userMessageKey === null ? null : parseString(userMessageKey, "userMessageKey", 200),
+    ),
+  branchTask: async (taskId, entryId) =>
+    (await getTaskPool()).branchTask(parseTaskId(taskId), parseString(entryId, "entryId", 200)),
+  taskGoal: async (taskId, op, objective) => {
+    const pool = await getTaskPool();
+    const id = parseTaskId(taskId);
+    const goalOp = parseOneOf(op, "op", ["get", "create", "pause", "resume", "drop"]);
+    if (goalOp !== "create") return pool.taskGoal(id, goalOp);
+    const text = parseString(objective, "objective", limits.goalObjectiveMaxChars, { allowEmpty: true }).trim();
+    if (text === "") throw new IpcValidationError("objective 不能为空");
+    return pool.taskGoal(id, goalOp, text);
+  },
 
   openTaskFile: async (taskId, relPath) => {
     const pool = await getTaskPool();
@@ -138,4 +190,10 @@ export const taskHandlers: HandlerGroup<
 
   setTaskThinkingLevel: async (taskId, level) =>
     (await getTaskPool()).setTaskThinkingLevel(parseTaskId(taskId), parseThinkingLevel(level)),
+
+  setTaskFastMode: async (taskId, enabled) =>
+    (await getTaskPool()).setTaskFastMode(parseTaskId(taskId), parseBoolean(enabled, "enabled")),
+
+  setTaskSlowMode: async (taskId, enabled) =>
+    (await getTaskPool()).setTaskSlowMode(parseTaskId(taskId), parseBoolean(enabled, "enabled")),
 };

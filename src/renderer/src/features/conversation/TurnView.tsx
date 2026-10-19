@@ -67,7 +67,7 @@ export const TurnView = memo(function TurnView({
           <span>{t("model.switchedModel", { model: turn.modelSwitch })}</span>
         </div>
       )}
-      {turn.user && <UserMessage user={turn.user} />}
+      {turn.user && <UserMessage user={turn.user} taskId={taskId} />}
       {/* "已附带文件"属于用户这条消息（omp 展开 @路径 生成的），紧跟在它下面；其他附注在一轮末尾。 */}
       {turn.extras
         .filter((extra) => extra.kind === "file_mention")

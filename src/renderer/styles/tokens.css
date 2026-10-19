@@ -94,6 +94,7 @@
   --icon-md: 16px;
   --icon-lg: 20px;
   --icon-stroke: 1.5;
+  --chip-max-w: 220px;
 
   /* 版式 */
   --titlebar-h: 40px;

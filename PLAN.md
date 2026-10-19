@@ -204,7 +204,7 @@ flowchart LR
 - [ ] 计划模式：RPC 下做不了（没有进入命令，没有计划审阅事件，见阶段 2.6 的 plan 模式一条），等你选路线
 - [ ] 停止时取消 omp 转到后台的命令：wire schema 里没有取消后台任务的命令，只能如实提示；要给 omp 提 PR
 - [ ] `!!命令`（执行但不进模型上下文）：RPC `bash` 没有这个参数
-- [ ] RPC 支持、还没做 UI 的：会话树和分叉（`get_tree` / `branch` / `fork`）、`/btw` 旁问、goal、fast/slow 模式开关和状态、用量限额提示（`get_state.usageLimit`）、tokens/s、`/export` 选保存位置（`export_html`，现在落进项目目录）、审批详情展开
+- [x] RPC 支持、之前没做 UI 的（2026-10-19 做完，真实 omp 18.12.2 冒烟通过）：会话树和分叉（`/tree`、`/fork`、消息上"从这里分叉"，用 `branch` 新建会话文件，见 `docs/architecture/session-tree.md`）、`/btw` 旁问、`/goal`（omp 默认 `goal.continuationModes` 不含 `rpc`，点"允许并继续"才写配置）、fast/slow 开关、用量限额横幅、tokens/s（负责人例外，默认显示）、`/export` 选保存位置、审批内容预览
 - [ ] 默认审批模式：全新 agent 目录下 omp 的默认值是"全部自动"（yolo）。按原则 7 跟随 omp，没改；要不要首次使用时提示一次，待定
 
 ### 阶段 7：发布准备

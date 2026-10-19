@@ -9,6 +9,8 @@ import { showMainWindow } from "../window/show-window.ts";
 import { refreshTray } from "../window/tray.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
 import { GateNotifier, retainNotification } from "./gate-notifier.ts";
+import { t } from "../../shared/i18n/index.ts";
+import { forgetExport } from "./export-record.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { appHandlers } from "../ipc/app-handlers.ts";
 import { buildOmpLaunch, setTestOmpOverride } from "../omp/launch.ts";
@@ -94,6 +96,7 @@ function createPool(): Promise<TaskPool> {
     worktrees: worktreeOps,
     assignJob: assignToAppJob,
     beforeTaskClose: closeTaskTerminal,
+    forkTitle: (title) => t(resolveLocale(), "task.forkTitle", { title }),
     events: {
       state: (state) => {
         emitEvent("taskState", state);
@@ -103,11 +106,13 @@ function createPool(): Promise<TaskPool> {
       transcript: (batch) => emitEvent("transcript", batch),
       notice: (notice) => emitEvent("taskNotice", notice),
       taskRemoved: (id) => {
+        forgetExport(id);
         emitEvent("taskRemoved", id);
         refreshTray(taskPool.listTasks());
       },
       slashCommands: (taskId, commands) => emitEvent("slashCommands", { taskId, commands }),
       subagents: (taskId, lanes) => emitEvent("subagents", { taskId, lanes }),
+      btw: (taskId, event) => emitEvent("btw", { taskId, event }),
     },
   });
   // 退出路径只有 Shell 的 before-quit 一条（arch 2.4）；主进程被强杀时由 Job Object 兜底。

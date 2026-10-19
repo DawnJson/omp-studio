@@ -9,6 +9,8 @@ import { appendToDraft, getDraft, setDraft } from "./draft-store.ts";
 import { stopToasts } from "./stop-outcome.ts";
 import { fileToPromptImage } from "./image-resize.ts";
 import { canRunShell, isShellDraft } from "./send-logic.ts";
+import { findStudioSlash } from "./studio-slash.ts";
+import { studioSlashCommands } from "./studio-slash-table.ts";
 
 export type Delivery = "steer" | "followUp";
 
@@ -18,6 +20,17 @@ export async function sendDraft(taskId: TaskId, whenBusy: Delivery, t: TFunction
   const text = draft.text.trim();
   if (text === "" && draft.images.length === 0) return;
   if (isShellDraft(draft)) return runShellDraft(taskId, text, t, running);
+  const studio = draft.images.length === 0 ? findStudioSlash(text, studioSlashCommands) : null;
+  if (studio !== null) {
+    setDraft(taskId, { text: "", images: [] });
+    try {
+      await studio.command.run(taskId, studio.args, t);
+    } catch (error) {
+      appendToDraft(taskId, [text], []);
+      reportError(t, error);
+    }
+    return;
+  }
   setDraft(taskId, { text: "", images: [] });
   requestStickToBottom(taskId);
   try {

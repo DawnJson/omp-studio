@@ -152,6 +152,15 @@
   white-space: nowrap;
   max-width: 36ch;
 }
+.chip-badge {
+  flex: none;
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-2xs);
+}
 .chip[data-yolo] {
   background: var(--st-waiting-soft);
   color: var(--st-waiting-text);
@@ -210,6 +219,16 @@ button.usage-item {
 }
 button.usage-item:hover {
   color: var(--text);
+}
+[data-testid="usage-cost"] + [data-testid="usage-tps"]::before,
+[data-testid="usage-tokens"] + [data-testid="usage-tps"]::before,
+.usage-context + [data-testid="usage-tps"]::before {
+  content: "· ";
+  margin-left: calc(var(--space-1-5) - var(--space-4));
+  margin-right: var(--space-1-5);
+}
+.usage-tps {
+  color: var(--text-3);
 }
 @container (max-width: 560px) {
   [data-testid="usage-tokens"],
@@ -728,4 +747,23 @@ button.usage-item:hover {
 }
 .mp-thinking .pop-grouprow {
   margin-inline: 0;
+}
+.mp-speed {
+  margin-top: auto;
+  padding-top: var(--space-3);
+}
+.mp-speed + .mp-thinking {
+  margin-top: 0;
+}
+.mp-speed .pop-grouprow {
+  margin-inline: 0;
+}
+.mp-speed-row + .mp-speed-row,
+.mp-speed-row + .mp-speed-hint {
+  margin-top: var(--space-2);
+}
+.mp-speed-hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
 }

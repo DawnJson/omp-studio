@@ -21,6 +21,7 @@
 |`exit`|`code`|以这个退出码退出|
 |`hang`|无|放在末尾：回放完后 stdin 关闭也不退出，用来测强制结束|
 |`delay`|`ms`|回放到这里先等 `ms` 毫秒再继续（慢速回放，界面的计时、"已工作 N 秒"要靠它复现）|
+|`state`|`command`、`data`|不读不写帧：把幂等查询（`get_state` 等）之后的应答改成 `data`，用来复现 `get_state.sessionFile` 随 `branch` / `switch_session` 变化这类场景（`test/task-fork.test.ts`）|
 
 没有 `exit` 或 `hang` 时，回放完等 stdin 关闭再以 0 退出，和真实 omp 一样。
 

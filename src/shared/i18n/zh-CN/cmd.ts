@@ -1,6 +1,7 @@
 import type { MessageEntry } from "../index.ts";
 
 export const cmd = {
+  sessionTree: "会话树",
   newTask: "新任务",
   newTaskHere: "在当前项目新任务",
   openFolder: "打开文件夹…",
@@ -20,4 +21,6 @@ export const cmd = {
   archive: "归档当前任务",
   toggleTerminal: "切换终端",
   usage: "查看用量",
+  exportHtml: "导出对话为 HTML…",
+  btw: "旁路提问（/btw）",
 } satisfies Record<string, MessageEntry>;

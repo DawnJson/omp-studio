@@ -305,7 +305,7 @@
 - 尾部（一次只放一个）：等待中不放；运行中满一分钟才放 `task.runningFor`（不满不放，状态点已在转）；否则相对时间 `--fs-2xs` `--text-3`，取 `updatedAt` 与最近一轮 `lastTurn.endedAt` 中较晚的（一轮刚跑完要显示“刚刚”）；所有行共用 15 秒一跳的时钟；`aborted` 放 `task.stopped`。hover/键盘聚焦时尾部换成 20×20 的 `…` 按钮。
 - 选中：`--bg-active` + 左缘 2×16 `--accent` 竖条（`--radius-pill`）。
 - 重命名：行内 input（`F2` 或菜单），Enter 确认、Esc 取消；存应用元数据（不写 omp）。
-- 菜单（右键与 `…`）：重命名 `F2`、在资源管理器中显示、复制会话 ID、复制会话文件路径、归档 `Del`。归档立即从侧栏移除并 toast `task.archived` + `task.undo`（8 秒）。
+- 菜单（右键与 `…`）：重命名 `F2`、在资源管理器中显示、复制会话 ID、复制会话文件路径、导出为 HTML…（`task.exportHtml`，主进程弹保存对话框，见 `conversation.md`「导出 HTML」；命令面板 `cmd.exportHtml` 和输入框 `/export` 同一动作）、归档 `Del`。归档立即从侧栏移除并 toast `task.archived` + `task.undo`（8 秒）。
 - 标题来源：用户重命名 > 第一条用户消息的首行（折叠空白，最多 60 字符）。（RPC 模式下 omp 不自动生成标题，`PI_NO_TITLE=1`，见 `omp://rpc.md`。）
 
 ### 4.3 ProjectGroup
@@ -328,6 +328,7 @@
 
 头 40；左：任务标题（`--fs-sm` `--text`，点击=重命名）+ ` · 项目名`（`--text-3`），省略；右：`ProgressPill`、`⋯` 菜单（重命名、在资源管理器中显示、复制会话路径、归档）。无任务时标题区空白。
 - `ProgressPill`（有 `todoPhases` 时才出现；实现为对话流顶部一行 `TodoStrip`，不在头部，且胶囊内带当前项文字）：高 24，`--radius-pill`，`--bg-hover`，`--fs-xs`，内容 `{done}/{total}`（tabular）；点击弹 popover 列出阶段与条目：`pending` 空圈、`in_progress` 呼吸点、`completed` 对勾、`blocked` 红点 + 原因、`abandoned` 删除线。数据 `get_state.todoPhases` ✔（字段在 `src/shared/omp-wire/rpc-wire.generated.ts`）。
+- `GoalStrip`（目标模式，`/goal`；`features/goal/GoalStrip.tsx`，样式 `goal.css`）：有 `TaskState.goal` 时出现在 `TodoStrip` 下面，同宽同位置的一行：`goal.title`（`--text` medium）+ 目标文字（`--text` 省略，完整文字在悬停提示）+ 状态词（进行中 `--st-running`、已暂停 `--st-waiting-text`、预算用尽 `--st-error`）+ 用量（`已用 / 预算`，tabular，悬停是完整 token 数）+ 文字按钮：进行中 `暂停 / 放弃`、已暂停 `继续 / 放弃`、预算用尽 `放弃`。高 ≥28，`--radius-pill`，`--bg-hover`，`--fs-xs`。数据 `get_state.goal` / `goal_updated` ✔；完成或放弃后目标条消失。创建和语义见 `docs/architecture/conversation.md` 的“目标模式”。
 
 ### 4.7 EmptyState
 
@@ -443,15 +444,26 @@
 
 **UsageMeter**（输入框下方一行，**默认显示**，PLAN 2.6 已定；位置和样式待设计方向确认）：上下文圆环 + `composer.context`（`get_state.contextUsage.percent`，≥90 变 `--st-waiting-text`，不到 10% 保留一位小数）、本会话 token 总数、费用（`get_session_stats`，每次刷新状态时取；cost 为 0 不显示费用）；tooltip 给输入/输出/缓存读取和高级请求数。点击上下文部分弹 popover，内含 `composer.compact`。没有任何数据时整行不渲染。
 
+**速度开关与指示**（`get_state.fastModeEnabled/fastModeActive/slowModeSupported/slowModeEnabled/slowModeScope`；命令 `set_fast_mode` / `set_slow_mode`）：ModelPicker 右栏在思考强度上方多一节“速度”，只在**正在生效的模型**被高亮时出现（草稿里没有任务，不出现）。每个开关是 `开/关` 两段（`.segments`），方向键切换。`快速模式`始终可点（RPC 没有“是否支持”字段；不支持的模型 omp 返回错误 `Fast mode is unavailable for the current model.`，原文进 toast）。`慢速模式`只在 `slowModeSupported` 时可点，下面一行说明范围：`global` → `model.slow.scope.global`（写进 omp 配置，所有会话共用），`session` → `model.slow.scope.session`；不支持时只显示 `model.slow.unsupported`。ModelChip 在模型名后追加 `--fs-2xs` 的 `--accent-soft` 小胶囊：`fastModeActive` 为真时 `快速`，慢速开着时 `慢速`；都关时不显示。实测（Tern omp，临时 agent 目录）：fast 只对本会话有效，**不落配置**，切到不支持的模型会自动关；slow 在 Anthropic 模型上 scope 是 `global`，**落在 omp 配置里**并跨进程保留（`session` 范围对应 OpenAI/Google 的 flex 层级，未能实测）。studio 不存副本；键入的 `/fast`、`/slow` 照常走 omp，本地完成的斜杠命令（prompt 应答 `agentInvoked:false`）之后主进程会重读 `get_state`。
+
+**UsageLimitBanner**（`get_state.usageLimit`，输入框上方，复用 `.suggest` 样式，`role="status"`，无关闭按钮，不挡发送）：`wrap_up` → `composer.limit.wrapUp`（`extraUsage` 为真时 `composer.limit.wrapUpExtra`）；`low_priority` → `composer.limit.lowPriority`，有 `allowanceLeftPercent` 时追加 `composer.limit.left`；有 `resetsAtSec` 时追加 `composer.limit.resets`（当天只写 `HH:mm`，否则 `M-D HH:mm`，本机时区）；`usageLimit` 缺省（没超限）时不渲染。
+
+**输出速度**（`get_state.tokensPerSecond`）：UsageMeter 末尾一项，等宽 `--text-3`，`composer.usage.tps`，只在任务运行（running / needs_you）且值为有限正数时显示。实测 omp 在一条回复流式输出期间给 `null`，回复结束（message_end 之后）才有值，所以运行中显示的是上一条回复的速度；主进程在 `message_end` 等事件后按 1 秒节流重读 `get_state`，不另外轮询。
+
 **QueueStrip**（门/输入框正上方，仅有排队消息时存在，宽 = 列宽，`margin-bottom: --space-2`）：容器 `--bg-raised`，`1px dashed --border`，`--radius-lg`，`padding: --space-1 --space-2`；条目高 32：`[标签][文本首行省略][现在插话][✕]`；标签是 `--fs-2xs` 小胶囊：`插话` 用 `--accent-soft` 底，`稍后` 用 `--bg-hover` 底。`现在插话`（`promote_queued_message`，仅稍后条目有）成功后标签原地变 `插话`（交叉缩放 `--dur-fast`），响应 `promoted:false` = 已送出，条目淡出。`✕`（`remove_queued_message`）：只有响应 `removed:true` 才移除，并把文本放回草稿；`removed:false` 静默刷新快照。数据**只渲染** `queue_update` / `get_state.queuedMessages` 快照，自己不另记。>3 条只显示前 3 条 + `composer.queue.more`。旧版 omp 没有后两个命令：命令失败时隐藏对应按钮，**不要回退成 `steer`**（会重复入队）。出现/消失 `grid-template-rows`，`--dur-base`。
 
 **SlashMenu**：行首 `/` 打开，浮在输入框上方，行高 32，最多同时显示 8 行，更多的在菜单内滚动（`↑↓` 选中行始终可见），`[/名称][描述 --text-3]`，`↑↓` 选，`Tab/Enter` 补全，`Esc` 关闭；数据 `get_available_commands` / `available_commands_update`。无匹配 `slash.empty`。
 
-**斜杠命令守卫**：草稿以 `/名称` 开头、命令列表已载入（非空）、而 `名称`（含别名）不在 `get_available_commands` 里时，第一次发送不发出，输入框上方出现一条提示（`.suggest` 样式）+ `slash.sendAnyway` 按钮；对同一段文字再按一次发送键或点按钮才作为普通文字发出，改动文字提示即消失。终端版独有的命令（`plan` `tree` `fork` `copy` `goal` `btw` `hotkeys` `settings`）提示 `slash.terminalOnly`，其余未知命令提示 `slash.unknown`。列表未载入时不拦；`/usr/bin` 这类带第二个 `/` 的不算命令。判定在 `slash-guard.ts`。
+**斜杠命令守卫**：草稿以 `/名称` 开头、命令列表已载入（非空）、而 `名称`（含别名）不在 `get_available_commands` 里时，第一次发送不发出，输入框上方出现一条提示（`.suggest` 样式）+ `slash.sendAnyway` 按钮；对同一段文字再按一次发送键或点按钮才作为普通文字发出，改动文字提示即消失。终端版独有的命令（`plan` `copy` `hotkeys` `settings`）提示 `slash.terminalOnly`，其余未知命令提示 `slash.unknown`。列表未载入时不拦；`/usr/bin` 这类带第二个 `/` 的不算命令。判定在 `slash-guard.ts`。omp-studio 自己接管的斜杠命令（`studio-slash-table.ts`：`/goal`、`/tree`、`/fork` 等）在菜单和守卫里都算已知命令，发送时由 studio 处理、不发给 omp。
+
+
+**BtwPanel**（旁路提问，`/btw [问题]` 或命令面板“旁路提问（/btw）”打开，`features/btw/`）：停在输入框正上方、宽 = 列宽、`margin-bottom: --space-2` 的卡片（`--bg-raised`，`1px solid --border`，`--radius-lg`），高度不超过对话区 45%，内部滚动。头部一行：`旁路提问`（`--fs-xs` medium）+ 回答中的状态词（`--st-running`）+ 右侧“新话题”（`+`）和关闭（`✕`）图标按钮；有多个话题时下面一行话题标签（问题首行截断，选中项 `--accent` 描边 + `--accent-soft` 底，在跑的标签字用 `--st-running`）；正文是选中话题的问答：问题 `--fw-medium`，答案用 Markdown 流式渲染（`--fs-sm`），已取消/出错/中断在答案后加一行 `--fs-xs` 状态词（出错红字，悬停是 omp 给的原因）；底部一行输入框 + `提问` 按钮，提问进行中按钮换成红字的 `取消提问`。**不进主对话流**；主轮在跑时也能问；omp 同一时刻只许一条在跑，所以提问中不能再发。输入框默认对当前话题追问（`recordId`），点“新话题”后下一条开新话题；`/btw 问题` 总是开新话题。`Esc`：提问中 = 取消提问（`btw_cancel`），否则关闭面板并把焦点还给打开前的元素；输入法选词时的 `Esc` 不处理。面板打开时向主进程对齐一次历史（`get_btw_history`，随会话落盘，恢复任务后仍在）。没有进程的任务打开面板不会拉起 omp（只显示主进程已知的记录），第一次提问才拉起。语义和实测见 `docs/architecture/conversation.md`「旁路提问」。
 
 **输入历史**：输入框为空（或光标在最开头）时 `↑` 翻看本任务发过的消息（最近的在前），`↓` 往回走，翻过最新一条恢复翻看前的草稿；翻看中 `↑` 要光标在第一行、`↓` 要光标在最后一行才接管，否则照常移光标。斜杠菜单/`@` 菜单打开时 `↑↓` 归菜单；刚翻出来的那段文本不开菜单，免得抢走后面的 `↑↓`。只存在渲染进程内存，每任务最多 100 条，第一次用到时用对话里的用户消息（非合成）做种子（`input-history.ts`）。新任务草稿没有历史。
 
 **FileMenu**（`@` 文件引用）：光标前的词以 `@` 开头（文本开头或空白之后）时，在输入框上方打开和斜杠菜单同款的菜单，每行一个相对路径（文件名 `--font-mono`，目录部分 `--text-3`），最多同时显示 8 行（超出滚动），`↑↓` 选，`Tab/Enter` 把 `@词` 换成 `@相对路径 `，`Esc` 关闭（到这个 `@词` 变化为止），空查询列出浅层文件。数据 `listProjectFiles({ kind: "task", taskId } | { kind: "project", projectId }, query)`：主进程按任务（新任务草稿按项目目录）查出 cwd，优先 `git ls-files -co --exclude-standard`，不是仓库时退回有界遍历（广度优先，跳过 `node_modules`、`.git`、符号链接）；缓存 10 秒，最多索引 10000 条，每次最多返回 20 条（前缀 > 文件名前缀 > 文件名包含 > 路径包含 > 子序列），只返回相对路径，含空白的路径不收；`query` 含绝对路径或 `..` 时 reject。引用本身由 omp 展开成 `fileMention` 消息，studio 只做补全。
+
+**用户消息的“从这里分叉”与 SessionTreePanel**（`features/conversation/`，语义和实测见 `docs/architecture/session-tree.md`）：①用户消息悬停时，“复制”右边出现 `tree.fork`（任务空闲时才有；`title` 是 `tree.forkTitle`），点它新建一个任务（同项目、同工作目录、同模型），会话是这条消息**之前**的历史，新任务被选中，输入框里已填好这条消息的文字，改了再发即可；原任务不动。`/fork` = 从最后一条用户消息分叉。②`/tree` 或命令面板“会话树”（`cmd.sessionTree`）打开居中浮层（样子同命令面板，`--z-dialog`，`role="dialog"`）：每行一条用户消息的首行文字，只有真的分叉处才缩进一级，当前分支上的文字用 `--text`、其余 `--text-3`，当前节点文字 `--accent` + 右侧 `tree.current`；`↑↓ Home End` 移动、`Enter` / 点击选中、`Esc` 关闭并还焦点，焦点陷阱在面板内。选中 = 任务就地回到那条消息**之前**（omp `branch`：任务改用 omp 为它新建的会话文件，对话流重载），那条消息的文字追加进输入框；任务不空闲时主进程拒绝，toast `error.sessionBusy`。
 
 ### 4.15 JumpToLatest 药丸
 
@@ -500,7 +512,7 @@
 居中浮层，宽 `--palette-w`(600)，距顶 15vh，`--bg-overlay`，`--shadow-3`，`--radius-xl`，出现 `--dur-slow` `--ease-spring`，背后 `--bg-scrim`（点击/Esc 关闭）。输入行高 52（`--fs-lg`，无边框，下边 `--border-subtle`），左搜索图标 16px、右 `Esc` 键帽。结果行高 `--row-palette`(40)，`padding: 0 --space-3`，`[图标 16][标题][右侧：项目名/快捷键键帽]`，当前行 `--bg-active` + 左 2px `--accent` 竖条。分组标题高 28，`--fs-xs` `--text-3`，**无结果的分组不渲染**。底部 28 高提示行 `palette.hint`（`--fs-2xs`）。
 - 空查询：`palette.recent`（最近 5 个任务）→ `palette.commands`。有输入：任务（标题+项目名模糊匹配）→ `palette.sessions`（含终端历史会话，`>_` 标）→ 命令 → 斜杠命令（仅当前任务有进程时，`get_available_commands`）；输入以 `/` 开头时只显示斜杠命令。匹配字符 `--accent` 高亮。
 - 无结果：`palette.noResults` + 一行 `palette.askNew`（把查询当成新任务的 prompt）。
-- 命令清单：`cmd.*`（新任务 `Ctrl N`、在当前项目新任务 `Ctrl Shift N`、打开文件夹、设置 `Ctrl ,`、切换侧栏 `Ctrl B`、切换主题、切换语言、切换模型 `Alt M`、切换思考强度 `Alt T`、压缩上下文、停止当前任务、复制最后一条回答、跳到等你确认的任务 `Ctrl J`、查看用量（打开设置 → 用量）、检查 omp 更新、快捷键、归档当前任务）。**每个快捷键动作必须在此有一条**。每条命令按 id 配自己的 16px 图标（`palette/command-icons.ts`），不再共用 `>_`（`>_` 只标终端历史会话）。
+- 命令清单：`cmd.*`（新任务 `Ctrl N`、在当前项目新任务 `Ctrl Shift N`、打开文件夹、设置 `Ctrl ,`、切换侧栏 `Ctrl B`、切换主题、切换语言、切换模型 `Alt M`、切换思考强度 `Alt T`、压缩上下文、停止当前任务、复制最后一条回答、跳到等你确认的任务 `Ctrl J`、查看用量（打开设置 → 用量）、检查 omp 更新、快捷键、归档当前任务、会话树（`cmd.sessionTree`）、导出对话为 HTML（`cmd.exportHtml`）、旁路提问（`cmd.btw`）；当前任务有目标时按状态再列 `暂停目标` / `继续目标` / `放弃目标`，`goal.cmd*`）。**每个快捷键动作必须在此有一条**。每条命令按 id 配自己的 16px 图标（`palette/command-icons.ts`），不再共用 `>_`（`>_` 只标终端历史会话）；会话树、导出、旁路提问各有图标（`TreeIcon` / `ExportIcon` / `BtwIcon`）；只有目标命令没登记图标，回退到通用图标。
 - 键盘：`↑↓` 移动，`Enter` 执行，`Ctrl+Enter` 在新任务中执行，`Tab` 无动作（焦点陷阱）。打开前记住 `document.activeElement`，关闭后还原。
 
 ### 4.19 SettingsPage
@@ -739,7 +751,9 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | 内置终端（6） | 右栏或底部面板（`--aside-w` 或新增面板高度 token）；每任务终端在其 worktree 目录 | 不做 |
 | 子代理费用/token | 阶段 5 的子代理详情 | 不显示 |
 | 门的“收起”（`Alt H`，omp 的 `app.ask.hide`） | 门头部右侧 | 不做；门不遮挡对话，可滚动阅读 |
-| 任务删除、编辑/分叉用户消息、自定义快捷键、界面缩放、角色（default/plan）选择、测试结果显示、用量限制提示条 | — | 不做 |
+| 任务删除、自定义快捷键、界面缩放、角色（default/plan）选择、测试结果显示 | — | 不做 |
+| 编辑/分叉用户消息、会话树（`get_tree` / `branch`） | 用户消息悬停动作“从这里分叉”、`/fork`、`/tree`、命令面板“会话树” | 已做，见 §4.14 SessionTreePanel；原地编辑已发出的消息不做（omp 没有改写历史的命令） |
+| 用量限制提示条（`get_state.usageLimit`） | 输入框上方横幅 | 已做，见 §4.14 UsageLimitBanner |
 | macOS | 侧栏头左侧 inset（红绿灯）、`⌘` 映射、系统菜单 | Windows 优先；CSS 已不写死三键宽度 |
 | API key 登录输入 | 设置 → 模型与账号 的提供商行 | 只显示终端登录指引 |
 
@@ -821,6 +835,9 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `task.reveal` | 在资源管理器中显示 | Show in File Explorer |
 | `task.copyId` | 复制会话 ID | Copy session ID |
 | `task.copyPath` | 复制会话文件路径 | Copy session file path |
+| `task.exportHtml` | 导出为 HTML… | Export as HTML… |
+| `toast.exported` | 已导出 {name} | Exported {name} |
+| `toast.revealExport` | 在文件夹中显示 | Show in folder |
 | `task.stopped` | 已停止 | Stopped |
 | `status.running` | 进行中 | Running |
 | `status.runningAgents` | 进行中，{n} 个子代理 | Running, {n, plural, one {# subagent} other {# subagents}} |
@@ -870,6 +887,15 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `composer.imagesDropped` | 图片太大，没能放回 | The images were too large to restore |
 | `composer.nextRequest` | 下一次请求生效 | Applies from the next request |
 | `composer.context` | 上下文 {p}% | Context {p}% |
+| `composer.usage.tps` | {n} token/s | {n} tok/s |
+| `composer.usage.tpsTip` | 最近一条回复的输出速度 | Output speed of the latest reply |
+| `composer.badge.fast` / `composer.badge.slow` | 快速 / 慢速 | Fast / Slow |
+| `composer.limit.aria` | 用量限额 | Usage limit |
+| `composer.limit.wrapUp` | 账号已超出用量限额，当前只有一小段收尾额度，请尽快收尾。 | Your account is past its usage limit and only has a short wrap-up allowance. Finish up soon. |
+| `composer.limit.wrapUpExtra` | 账号已超出用量限额，当前只有一小段收尾额度，用完后按额外用量计费。 | Your account is past its usage limit and only has a short wrap-up allowance; extra usage is billed after it runs out. |
+| `composer.limit.lowPriority` | 账号已超出用量限额，请求走低优先级通道，会比平时慢。 | Your account is past its usage limit. Requests run on the low-priority lane and will be slower. |
+| `composer.limit.resets` | {time} 重置 | Resets at {time} |
+| `composer.limit.left` | 低优先级额度还剩 {p}% | {p}% of the low-priority allowance left |
 | `composer.context.tip` | 接近上限时 omp 会自动压缩 | omp compacts automatically near the limit |
 | `composer.compact` | 压缩上下文 | Compact context |
 | `composer.noModel` | 未连接模型 | No model connected |
@@ -880,6 +906,14 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `model.recent` | 最近使用 | Recent |
 | `model.thinking` | 思考强度 | Thinking |
 | `model.thinking.unsupported` | 这个模型不支持思考 | This model doesn't support thinking |
+| `model.speed` | 速度 | Speed |
+| `model.fast` | 快速模式 | Fast mode |
+| `model.fast.hint` | 更快的服务层级，只对本会话生效；模型不支持时 omp 会拒绝。 | A faster service tier for this session only; omp rejects it on models that don't support it. |
+| `model.slow` | 慢速模式 | Slow mode |
+| `model.slow.scope.global` | 写入 omp 配置，所有会话共用 | Saved in the omp config, shared by every session |
+| `model.slow.scope.session` | 只对本会话生效 | This session only |
+| `model.slow.unsupported` | 这个模型没有慢速模式 | This model has no slow mode |
+| `model.on` / `model.off` | 开 / 关 | On / Off |
 | `model.addProvider` | 添加提供商… | Add a provider… |
 | `model.switched` | 切换到 {model} · {level} | Switched to {model} · {level} |
 | `thinking.off` | 关 | Off |
@@ -1008,6 +1042,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `cmd.model` | 切换模型 | Switch model |
 | `cmd.thinking` | 切换思考强度 | Cycle thinking level |
 | `cmd.compact` | 压缩上下文 | Compact context |
+| `cmd.exportHtml` | 导出对话为 HTML… | Export conversation as HTML… |
 | `cmd.stop` | 停止当前任务 | Stop current task |
 | `cmd.copyLast` | 复制最后一条回答 | Copy last answer |
 | `cmd.jumpWaiting` | 跳到等你确认的任务 | Jump to a task waiting for you |
@@ -1015,6 +1050,57 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `cmd.checkUpdate` | 检查 omp 更新 | Check for omp updates |
 | `cmd.shortcuts` | 快捷键 | Keyboard shortcuts |
 | `cmd.archive` | 归档当前任务 | Archive current task |
+| `error.worktreeShared` | 还有其它任务（包括已归档的分叉）共用这个工作区，不能丢弃。 | Other tasks, including archived forks, share this worktree, so it can’t be discarded. |
+| `error.forkNoMessage` | 没有找到可以分叉的用户消息。 | Couldn’t find a user message to fork from. |
+| `slash.treeDesc` | 打开会话树：回到这个会话里任意一条用户消息之前 | Open the session tree: go back to before any user message in this session |
+| `slash.forkDesc` | 从最后一条用户消息分叉出新任务；也可以在任意消息上点“从这里分叉” | Fork a new task from the last user message (or use “Fork from here” on any message) |
+| `task.forkTitle` | {title}（分叉） | {title} (fork) |
+| `cmd.btw` | 旁路提问（/btw） | Ask a side question (/btw) |
+| `btw.title` | 旁路提问 | Side question |
+| `btw.slashDesc` | 问一个旁路问题，回答不进对话流 | Ask a side question; the answer stays out of the conversation |
+| `btw.placeholder` | 问点别的，回答不会进入主对话 | Ask something on the side; it won't enter the main conversation |
+| `btw.placeholderFollowUp` | 追问这个话题 | Follow up on this topic |
+| `btw.send` | 提问 | Ask |
+| `btw.cancel` | 取消提问 | Cancel question |
+| `btw.close` | 关闭旁路提问 | Close side question |
+| `btw.newTopic` | 新话题 | New topic |
+| `btw.topics` | 旁路提问的话题 | Side-question topics |
+| `btw.status.running` | 回答中 | Answering |
+| `btw.status.cancelled` | 已取消 | Cancelled |
+| `btw.status.error` | 出错 | Error |
+| `btw.status.interrupted` | 已中断 | Interrupted |
+| `btw.askFailed` | 提问失败 | Couldn't ask |
+| `btw.cancelFailed` | 取消失败 | Couldn't cancel |
+| `btw.cancelNothing` | 没有可取消的提问 | There is no question to cancel |
+| `goal.slashDesc` | 设定目标，omp 会连续推进直到完成；不带文字时显示当前目标 | Set a goal; omp keeps working until it is done. Without text, shows the current goal |
+| `goal.pause` | 暂停 | Pause |
+| `goal.resume` | 继续 | Resume |
+| `goal.completed` | 目标已完成 | Goal complete |
+| `goal.drop` | 放弃 | Drop |
+| `goal.cmdPause` | 暂停目标 | Pause goal |
+| `goal.cmdResume` | 继续目标 | Resume goal |
+| `goal.cmdDrop` | 放弃目标 | Drop goal |
+| `goal.status.active` | 进行中 | Active |
+| `goal.status.paused` | 已暂停 | Paused |
+| `goal.status.budget-limited` | 预算用尽 | Budget used up |
+| `goal.usageTitle` | 已用 {used} tokens | {used} tokens used |
+| `goal.usageBudgetTitle` | 已用 {used} / 预算 {budget} tokens | {used} of {budget} tokens used |
+| `goal.current` | 当前目标（{status}）：{objective} | Current goal ({status}): {objective} |
+| `goal.none` | 当前没有目标。用 /goal 加上目标文字来设定一个 | No goal right now. Use /goal followed by the goal text to set one |
+| `goal.continuationFailed` | 没能打开目标自动继续 | Couldn't turn on goal auto-continue |
+| `goal.continuationOff` | 桌面端里目标不会自己往下推进，需要在 omp 设置里允许（goal.continuationModes 加上 rpc） | In the desktop app the goal won't keep going on its own; allow it in omp's settings (add rpc to goal.continuationModes) |
+| `goal.pauseFailed` | 暂停目标失败 | Couldn't pause the goal |
+| `goal.allowAndContinue` | 允许并继续 | Allow and continue |
+| `goal.resumeFailed` | 继续目标失败 | Couldn't resume the goal |
+| `goal.dropFailed` | 放弃目标失败 | Couldn't drop the goal |
+| `tree.title` | 会话树 | Session tree |
+| `tree.empty` | 这个会话里还没有用户消息 | No user messages in this session yet |
+| `tree.loading` | 正在读取会话树… | Reading the session tree… |
+| `tree.imageOnly` | （图片） | (image) |
+| `tree.pick` | 回到这条消息之前，并把它放进输入框 | Go back to just before this message and put it in the composer |
+| `tree.forkFailed` | 分叉失败：{message} | Couldn’t fork: {message} |
+| `tree.branchFailed` | 回到这条消息失败：{message} | Couldn’t go back to that message: {message} |
+| `tree.loadFailed` | 读取会话树失败：{message} | Couldn’t read the session tree: {message} |
 | `shortcut.send` | 发送 | Send |
 | `shortcut.newline` | 换行 | New line |
 | `shortcut.steer` | 运行中：插话 | While running: steer |

@@ -14,7 +14,8 @@ type Entry =
   | { kind: "exit"; code: number }
   | { kind: "grandchild" }
   | { kind: "hang" }
-  | { kind: "delay"; ms: number };
+  | { kind: "delay"; ms: number }
+  | { kind: "state"; command: string; data: unknown };
 
 /**
  * 幂等查询：主进程会在不固定的时刻发（上下文使用率节流后的 get_state 等），不能占回放顺序。
@@ -213,6 +214,10 @@ for (const entry of entries) {
     case "delay":
       // 慢速回放：在这一步之前等一会，用来复现"已工作 N 秒"这类依赖真实时间的界面。
       await new Promise((resolve) => setTimeout(resolve, entry.ms));
+      break;
+    case "state":
+      // 改写幂等查询之后的应答（不读不写任何帧）：回放"会话文件换了"这类 get_state 随进程状态变化的场景。
+      latestData.set(entry.command, entry.data);
       break;
   }
   // 回放中录制的幂等应答要刷新"最近一次应答"。

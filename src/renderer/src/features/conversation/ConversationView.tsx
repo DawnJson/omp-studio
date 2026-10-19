@@ -15,6 +15,8 @@ import { ConversationError } from "./ConversationError.tsx";
 import { TurnView } from "./TurnView.tsx";
 import { ShellRunning } from "./ShellBlock.tsx";
 import { TodoStrip } from "./TodoStrip.tsx";
+import { GoalStrip } from "../goal/GoalStrip.tsx";
+import { SessionTreePanel } from "./SessionTreePanel.tsx";
 import { useStickToBottom } from "./use-stick-to-bottom.ts";
 import type { LiveProps } from "./ProcessRow.tsx";
 import "./conversation.css";
@@ -150,6 +152,7 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
   return (
     <div className="conversation" data-testid="conversation" data-task-id={taskId}>
       <TodoStrip key={taskId} phases={task?.todoPhases ?? NO_TODOS} />
+      <GoalStrip key={taskId} taskId={taskId} goal={task?.goal ?? null} />
       <div
         ref={scroller}
         className="scroller"
@@ -181,6 +184,7 @@ export function ConversationView({ taskId }: { taskId: TaskId }) {
         </div>
       </div>
       <OverlayScrollbar target={scroller} />
+      <SessionTreePanel taskId={taskId} />
       <div className="sr-only" aria-live="polite">
         {announce}
       </div>

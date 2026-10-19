@@ -11,6 +11,7 @@ import { reportError } from "../../ui/errors.ts";
 import { showView } from "../../store/index.ts";
 import { groupModels, modelRowMeta, sameModel } from "./model-groups.ts";
 import { stepThinkingLevel } from "./thinking-levels.ts";
+import { SpeedToggle, type SpeedControls } from "./SpeedToggle.tsx";
 import { formatCount } from "./usage-format.ts";
 
 const recentKey = "omp-studio.recentModels";
@@ -42,6 +43,8 @@ export interface ModelPickerProps {
   loadModels(): Promise<ModelOption[]>;
   setModel(key: ModelKey): Promise<void>;
   setThinking(level: ThinkingLevel): Promise<void>;
+  /** 速度开关（fast / slow，只对正在生效的模型）；没有任务的草稿里不传。 */
+  speed?: SpeedControls;
   onClose(): void;
 }
 
@@ -297,6 +300,7 @@ export function ModelPicker(props: ModelPickerProps) {
                 </dl>
               </>
             )}
+            {props.speed && shownIsCurrent && <SpeedToggle speed={props.speed} />}
             <div className="mp-thinking">
               <p className="pop-grouprow">
                 <span>{t("model.thinking")}</span>

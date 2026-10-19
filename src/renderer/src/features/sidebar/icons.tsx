@@ -185,3 +185,24 @@ export const ArchiveIcon = () => (
     <path d="M3.5 6v6.5h9V6M6.5 9h3" />
   </Icon>
 );
+
+export const TreeIcon = () => (
+  <Icon>
+    <circle cx="4.5" cy="3.5" r="1.25" />
+    <circle cx="4.5" cy="12.5" r="1.25" />
+    <circle cx="11.5" cy="8" r="1.25" />
+    <path d="M4.5 4.75v6.5M4.5 8h5.75" />
+  </Icon>
+);
+
+export const ExportIcon = () => (
+  <Icon>
+    <path d="M8 2.5v7M5.5 4.75 8 2.25l2.5 2.5M3.5 9v3.5h9V9" />
+  </Icon>
+);
+
+export const BtwIcon = () => (
+  <Icon>
+    <path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h7A1.5 1.5 0 0 1 13 4.5v4a1.5 1.5 0 0 1-1.5 1.5H8l-3 2.5V10h-.5A1.5 1.5 0 0 1 3 8.5z" />
+  </Icon>
+);

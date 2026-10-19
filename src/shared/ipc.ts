@@ -6,6 +6,7 @@ import type {
   AvailableSlashCommand,
   Effort,
   AskQuestion,
+  GoalOp,
   ContextUsage,
   LoginProvider,
   LogoutAccount,
@@ -13,9 +14,11 @@ import type {
   PromptError,
   PromptStatus,
   SessionCredits,
+  SlowModeScope,
   ThinkingLevel,
   TodoPhase,
   TokenUsage,
+  UsageLimitState,
 } from "./omp-wire/rpc-wire.generated.ts";
 import type {
   GitCommitResult,
@@ -42,6 +45,7 @@ import type {
   FetchModelsRequest,
 } from "./custom-models.ts";
 import type { SubagentDetail, SubagentLane } from "./subagents.ts";
+import type { BtwHistoryRecord, BtwUiEvent } from "./btw.ts";
 
 // ───────── 标识 ─────────
 
@@ -200,6 +204,27 @@ export interface TaskState {
   cwd: string;
   /** 这一次 running 开始的时间戳（ms，主进程接收时间）；非 running/needs_you 时为 null。侧栏显示"已运行 N 分钟"。 */
   runStartedAt: number | null;
+  /** get_state.fastModeEnabled / fastModeActive：本会话的 `/fast`（实测不落配置，换到不支持的模型就关）。 */
+  fastMode: { enabled: boolean; active: boolean };
+  /** get_state.slowMode*：`supported` 为 false 时 enabled 恒为 false、scope 为 null。 */
+  slowMode: { supported: boolean; enabled: boolean; scope: SlowModeScope | null };
+  /** get_state.usageLimit：账号超限后的阶段；没超限时为 null。 */
+  usageLimit: UsageLimitState | null;
+  /** get_state.tokensPerSecond：最近一条回复的输出速度；omp 没给（流式中、还没有回复）时为 null。 */
+  tokensPerSecond: number | null;
+  /** get_state.goal / goal_updated：本会话还挂着的目标（active / paused / budget-limited）；没有、已完成、已放弃时为 null。 */
+  goal: TaskGoal | null;
+}
+
+/** 目标模式的目标（omp goal 模式）：`/goal` 创建，agent 完成或用户放弃后消失。 */
+export interface TaskGoal {
+  id: string;
+  objective: string;
+  status: "active" | "paused" | "budget-limited";
+  tokensUsed: number;
+  /** 创建时给的 token 预算；没有预算为 null。 */
+  tokenBudget: number | null;
+  timeUsedSeconds: number;
 }
 
 export interface CreateTaskInput {
@@ -240,6 +265,34 @@ export interface RestoredQueue {
   backgroundWork: boolean;
 }
 
+/** 会话树里的一个节点：只列用户消息（分支点），文字是那条消息的第一行。 */
+export interface SessionTreeNode {
+  /** omp 会话条目 id；branchTask 用它。 */
+  entryId: string;
+  text: string;
+  /** 缩进层级：只在有分叉的地方加一级，一条直线的对话不缩进。 */
+  indent: number;
+  /** 在当前分支上（从根到叶子的路径上）。 */
+  onCurrentBranch: boolean;
+  /** 当前分支上最后一条用户消息（叶子在它之下）。 */
+  current: boolean;
+}
+
+/** getSessionTree 的结果：先序展开的用户消息节点；会话里还没有用户消息时 nodes 为空。 */
+export interface SessionTreeView {
+  nodes: SessionTreeNode[];
+}
+
+/** forkTask / branchTask 的结果：`text` 是被分叉的那条用户消息的文字，放进输入框让用户改后重发。 */
+export interface ForkResult {
+  task: TaskState;
+  text: string;
+}
+
+export interface BranchTaskResult {
+  text: string;
+}
+
 // ───────── 对话框（extension_ui_request） ─────────
 
 export interface SelectOption {
@@ -276,7 +329,9 @@ export type DialogResponse =
 export type TaskNotice =
   | { taskId: TaskId; kind: "toast"; level: NotifyType; message: string }
   /** omp 要求把这段文字放进输入框（set_editor_text）。 */
-  | { taskId: TaskId; kind: "editor_text"; text: string };
+  | { taskId: TaskId; kind: "editor_text"; text: string }
+  /** 目标完成（goal_updated 的 status 为 complete）：渲染进程弹一条本地化的 info toast。 */
+  | { taskId: TaskId; kind: "goal_complete" };
 
 // ───────── 对话流同步 ─────────
 
@@ -533,6 +588,10 @@ export interface StudioInvokeApi {
   listTaskModels(taskId: TaskId): Promise<ModelOption[]>;
   setTaskModel(taskId: TaskId, model: ModelKey): Promise<void>;
   setTaskThinkingLevel(taskId: TaskId, level: ThinkingLevel): Promise<void>;
+  /** `/fast`：omp 的 set_fast_mode。模型不支持时 reject（omp 的原文）。 */
+  setTaskFastMode(taskId: TaskId, enabled: boolean): Promise<void>;
+  /** `/slow`：omp 的 set_slow_mode。模型不支持时 reject（omp 的原文）。 */
+  setTaskSlowMode(taskId: TaskId, enabled: boolean): Promise<void>;
 
   // 内置终端（阶段 6）：每个任务至多一个终端，cwd 由主进程按任务定（worktree 根或项目目录），渲染进程不传路径。
   /** 打开任务的终端：已有活着的就复用（返回 backlog），否则在任务目录新起 shell。目录已不存在时 reject。 */
@@ -562,6 +621,13 @@ export interface StudioInvokeApi {
   /** 压缩上下文（RPC compact）。任务没有进程时先拉起；运行中拒绝。 */
   compactTask(taskId: TaskId): Promise<void>;
   /**
+   * 导出对话为 HTML（RPC export_html）：主进程弹保存对话框（默认桌面、`<标题>-<日期>.html`）并决定路径，渲染进程不传路径。
+   * 用户取消返回 null；成功返回写出的文件名。任务没有进程时先拉起。
+   */
+  exportTaskHtml(taskId: TaskId): Promise<{ fileName: string } | null>;
+  /** 在系统文件管理器里选中该任务最近一次导出的文件（只认主进程自己写过的路径）；没导出过时拒绝。 */
+  revealTaskExport(taskId: TaskId): Promise<void>;
+  /**
    * 输入框里 `!命令`：经 omp 的 bash 命令在任务工作目录执行（和终端版 `!cmd` 同信任级别，命令由用户键入）。
    * 任务没有进程时先拉起；结果由 omp 记进会话，主进程把它作为 bashExecution 消息放进对话流，返回时已在流里。
    * 同时只能有一条在跑；命令限长（limits.bashCommandMaxChars）。
@@ -569,12 +635,32 @@ export interface StudioInvokeApi {
   runBash(taskId: TaskId, command: string): Promise<void>;
   /** 中止正在跑的 `!命令`（RPC abort_bash）；没有在跑的命令时什么也不发生。 */
   abortBash(taskId: TaskId): Promise<void>;
+  /**
+   * 目标模式（RPC goal）：`create` 带目标文字（1–`limits.goalObjectiveMaxChars` 字符）创建，`pause` / `resume` / `drop` 作用于当前目标，
+   * `get` 只读。返回操作后的目标（没有目标为 null）。omp 拒绝时（已有目标、计划模式、没有可恢复的目标…）reject，原文透传。
+   */
+  taskGoal(taskId: TaskId, op: GoalOp, objective?: string): Promise<TaskGoal | null>;
   /** 用系统默认应用打开任务工作目录里的文件。relPath 相对任务 cwd，主进程校验落在 cwd 之内。 */
   openTaskFile(taskId: TaskId, relPath: string): Promise<void>;
   /** 在系统文件管理器里选中任务工作目录里的文件。校验同 openTaskFile。 */
   revealTaskFile(taskId: TaskId, relPath: string): Promise<void>;
   /** `@` 文件引用补全：目录由主进程按任务（或新任务草稿的项目）查出，只返回相对路径，最多 20 条；query 含绝对路径或 `..` 时 reject。 */
   listProjectFiles(target: ProjectFilesTarget, query: string): Promise<string[]>;
+
+  // 会话树与分叉（docs/architecture/session-tree.md）
+  /** 会话里的用户消息树（RPC get_tree）；任务没有进程时先拉起。 */
+  getSessionTree(taskId: TaskId): Promise<SessionTreeView>;
+  /**
+   * 从一条用户消息分叉出新任务（RPC branch，在原任务的进程上做完就切回原会话）：新任务的会话是这条消息之前的历史，
+   * 同项目、同工作目录（worktree 任务的分叉共用同一个 worktree）。`userMessageKey` 是对话流里那条用户消息的 key，
+   * null 表示最后一条用户消息。只在原任务空闲时可用，原任务的会话和对话流不变。
+   */
+  forkTask(taskId: TaskId, userMessageKey: string | null): Promise<ForkResult>;
+  /**
+   * 就地回到树里的一个用户消息节点（RPC branch，任务改用 omp 为它新建的会话文件，原文件留在磁盘上），
+   * 对话流重载为该节点之前的历史；返回那条消息的文字。只在任务空闲时可用。
+   */
+  branchTask(taskId: TaskId, entryId: string): Promise<BranchTaskResult>;
 
   // 子代理泳道（阶段 5）
   /** 当前泳道快照（含已结束的）；渲染进程打开任务或重载后用它对齐，之后靠 subagents 事件。 */
@@ -588,6 +674,17 @@ export interface StudioInvokeApi {
   steerSubagent(taskId: TaskId, subagentId: string, text: string): Promise<void>;
   /** cancel_subagent；返回 omp 说是否真的取消了（已经结束的是 false）。 */
   cancelSubagent(taskId: TaskId, subagentId: string): Promise<boolean>;
+
+  // 旁路提问（/btw）
+  /**
+   * 发一条旁路提问（RPC btw）：不进主对话流，主轮在跑时也能问。recordId 给了就是对那个话题追问。返回话题 id；答案经 btw 事件流回来。
+   * omp 同一时刻只许一条在跑（再问会被拒绝）；问题限长（btwLimits.questionChars）；任务没有进程时先拉起。
+   */
+  askBtw(taskId: TaskId, question: string, recordId?: string): Promise<string>;
+  /** 取消在跑的旁路提问（RPC btw_cancel）；recordId 省略时取消正在跑的那条。返回是否真的取消了。没有进程时返回 false。 */
+  cancelBtw(taskId: TaskId, recordId?: string): Promise<boolean>;
+  /** 旁路提问记录（新到旧，含追问；get_btw_history，历史随会话落盘）。没有进程时返回主进程已知的部分，不拉起 omp。 */
+  getBtw(taskId: TaskId): Promise<BtwHistoryRecord[]>;
 
   // 账号和模型（走服务进程）
   listModels(): Promise<ModelOption[]>;
@@ -725,6 +822,8 @@ export interface StudioEventPayloads {
   slashCommands: { taskId: TaskId; commands: AvailableSlashCommand[] };
   /** 任务的子代理泳道变了（整份快照，主进程合并过高频的 progress 帧）。 */
   subagents: { taskId: TaskId; lanes: SubagentLane[] };
+  /** 旁路提问的变化：新记录 / 生命周期变化（整条记录）、流式增量、整份对齐。 */
+  btw: { taskId: TaskId; event: BtwUiEvent };
   /** 终端输出（主进程已按 ~16ms 合并）。 */
   terminalData: { taskId: TaskId; data: string };
   /** 终端里的 shell 自己退出了（主动 closeTerminal 不发这个事件）。 */
@@ -770,6 +869,8 @@ export const limits = {
   maxLiveProcessesRange: [2, 16],
   /** 一条 `!命令` 的最大字符数。 */
   bashCommandMaxChars: 16_384,
+  /** `/goal` 的目标文字最大字符数。 */
+  goalObjectiveMaxChars: 4_096,
 } as const;
 
 /**
@@ -807,6 +908,8 @@ export const invokeNames = {
   listTaskModels: true,
   setTaskModel: true,
   setTaskThinkingLevel: true,
+  setTaskFastMode: true,
+  setTaskSlowMode: true,
   listSessions: true,
   resumeSession: true,
   revealProject: true,
@@ -816,16 +919,25 @@ export const invokeNames = {
   getDrafts: true,
   saveDraft: true,
   compactTask: true,
+  exportTaskHtml: true,
+  revealTaskExport: true,
   runBash: true,
   abortBash: true,
+  taskGoal: true,
   openTaskFile: true,
   revealTaskFile: true,
   listProjectFiles: true,
+  getSessionTree: true,
+  forkTask: true,
+  branchTask: true,
   openTerminal: true,
   writeTerminal: true,
   resizeTerminal: true,
   closeTerminal: true,
   getSubagents: true,
+  askBtw: true,
+  cancelBtw: true,
+  getBtw: true,
   getSubagentDetail: true,
   steerSubagent: true,
   cancelSubagent: true,
@@ -902,6 +1014,7 @@ export const eventNames = {
   defaultModel: true,
   slashCommands: true,
   subagents: true,
+  btw: true,
   updateState: true,
   terminalData: true,
   terminalExit: true,

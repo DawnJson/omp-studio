@@ -20,6 +20,9 @@ import {
   ThemeIcon,
   ThinkingIcon,
   UsageIcon,
+  TreeIcon,
+  ExportIcon,
+  BtwIcon,
 } from "../sidebar/icons.tsx";
 
 const commandIcons: Record<string, ComponentType> = {
@@ -43,6 +46,9 @@ const commandIcons: Record<string, ComponentType> = {
   checkUpdate: RefreshIcon,
   shortcuts: KeyboardIcon,
   archive: ArchiveIcon,
+  sessionTree: TreeIcon,
+  exportHtml: ExportIcon,
+  btw: BtwIcon,
 };
 
 export function commandIcon(id: string): ComponentType {

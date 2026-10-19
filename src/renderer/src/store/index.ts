@@ -2,6 +2,7 @@
 // 状态以主进程为准，这里只是事件的投影；写操作直接调 window.studio.*（结果通过事件回到 store）。
 import { startOmpStore } from "./omp-store.ts";
 import { startLanesStore } from "./lanes-store.ts";
+import { startBtwStore } from "./btw-store.ts";
 import { startReviewStore } from "./review-store.ts";
 import { startSettingsStore } from "./settings-store.ts";
 import { startTasksStore } from "./tasks-store.ts";
@@ -18,6 +19,7 @@ export function startStores(): void {
   startUiStore();
   startReviewStore();
   startLanesStore();
+  startBtwStore();
 }
 
 export { useOmpStatus } from "./omp-store.ts";
@@ -26,6 +28,7 @@ export { useUpdateState } from "./update-store.ts";
 export { useTask, useTasks, useTasksState, type TasksState } from "./tasks-store.ts";
 export { useTranscript } from "./transcript-store.ts";
 export { useLanes } from "./lanes-store.ts";
+export { useBtwRecords } from "./btw-store.ts";
 export {
   clearSelection,
   clearSettingsSection,
