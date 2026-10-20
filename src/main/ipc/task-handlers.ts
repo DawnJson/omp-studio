@@ -71,6 +71,7 @@ export const taskHandlers: HandlerGroup<
   | "taskGoal"
   | "openTaskFile"
   | "revealTaskFile"
+  | "openTaskFolder"
 > = {
   compactTask: async (taskId) => (await getTaskPool()).compactTask(parseTaskId(taskId)),
   exportTaskHtml: async (taskId) => {
@@ -135,6 +136,11 @@ export const taskHandlers: HandlerGroup<
     shell.showItemInFolder(
       await resolveInsideReal(pool.taskCwd(parseTaskId(taskId)), parseString(relPath, "relPath", 1024)),
     );
+  },
+
+  openTaskFolder: async (taskId) => {
+    const error = await shell.openPath((await getTaskPool()).taskCwd(parseTaskId(taskId)));
+    if (error !== "") throw new Error(error);
   },
 
   listProjects: async () => (await getTaskPool()).listProjects(),

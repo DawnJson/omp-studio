@@ -647,7 +647,12 @@ export interface ShellState {
   terminalHeight: number;
   /** 侧栏里折叠的项目组（ProjectId）；默认空。 */
   collapsedProjects: string[];
+  /** 侧栏历史会话的排列：按文件夹（cwd）分组，或全部按时间。默认按文件夹。 */
+  historyOrder: HistoryOrder;
 }
+
+export type HistoryOrder = "folder" | "time";
+export const historyOrders: readonly HistoryOrder[] = ["folder", "time"];
 
 /** openTerminal 的结果。 */
 export interface TerminalOpenResult {
@@ -774,6 +779,8 @@ export interface StudioInvokeApi {
   openTaskFile(taskId: TaskId, relPath: string): Promise<void>;
   /** 在系统文件管理器里选中任务工作目录里的文件。校验同 openTaskFile。 */
   revealTaskFile(taskId: TaskId, relPath: string): Promise<void>;
+  /** 在系统文件管理器里打开任务的工作目录（项目目录，或开了工作树时的 worktree 根）；不是会话文件所在的 ~/.omp 目录。 */
+  openTaskFolder(taskId: TaskId): Promise<void>;
   /**
    * 读任务工作目录里的文件供右侧预览：relPath 相对任务 cwd（落在 cwd 内的绝对路径会换算），越界 reject。
    * 文本 > 2 MB、图片 > 20 MB 返回 too_large；文件不存在返回 missing（不 reject）。
@@ -1073,6 +1080,7 @@ export const invokeNames = {
   taskGoal: true,
   openTaskFile: true,
   revealTaskFile: true,
+  openTaskFolder: true,
   readPreviewFile: true,
   listProjectFiles: true,
   getSessionTree: true,

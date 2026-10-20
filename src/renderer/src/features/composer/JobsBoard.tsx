@@ -1,4 +1,4 @@
-// 后台任务看板：输入框工具行右侧的小胶囊（● 运行中 │ ✓ 已结束），点开向上弹出列表；
+// 后台任务看板：输入框右上方单独一行的小胶囊（● 运行中 │ ✓ 已结束，同 Tern 里的 omp），点开向上弹出列表；
 // 点一行展开——命令看输出尾部，子代理直接内嵌泳道里的详情面板。Esc / 点外面关闭，焦点回到胶囊（Popover 处理）。
 import { useCallback, useId, useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";

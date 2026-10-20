@@ -61,7 +61,7 @@
 | 每项目显示数 | 6，“显示更多（N）”每次 +20 | Bold；Calm 的“更早”折叠组不做 |
 | 侧栏底部 | [Bold] `设置` 按钮 + `Ctrl K` 键帽 | Calm 的头像/账号名依赖账号信息，v1 没有 |
 | 侧栏搜索框 | 不放；`Ctrl K` 即搜索 | 少一个入口 |
-| 空状态 | [Bold] 项目名作大标题 + 路径 + 最近 3 个任务（历史会话只在侧栏搜索里，含终端会话） | Calm 的欢迎语是填充文案；“继续”列表是回答 PLAN §9“Tern 用户为何装它”的零迁移卖点，成本只是读 `~/.omp`（只读） |
+| 空状态 | [Bold] 项目名作大标题 + 路径 + 最近 3 个任务（历史会话在侧栏，含终端会话） | Calm 的欢迎语是填充文案；“继续”列表是回答 PLAN §9“Tern 用户为何装它”的零迁移卖点，成本只是读 `~/.omp`（只读） |
 | 输入框位置 | [Bold] 空状态在内容区 38% 处，首次发送后弹簧落到底部，之后不再移动 | 一次性、仅 `transform`；reduced-motion 下瞬时 |
 | 右栏 | 预留 `--aside-w: 0px` | 阶段 3/5 用 |
 
@@ -316,7 +316,7 @@
 - 尾部（一次只放一个）：等待中不放；运行中满一分钟才放 `task.runningFor`（不满不放，状态点已在转）；否则相对时间 `--fs-2xs` `--text-3`，取 `updatedAt` 与最近一轮 `lastTurn.endedAt` 中较晚的（一轮刚跑完要显示“刚刚”）；所有行共用 15 秒一跳的时钟；`aborted` 放 `task.stopped`。hover/键盘聚焦时尾部换成 20×20 的 `…` 按钮。
 - 选中：`--bg-active` + 左缘 2×16 `--accent` 竖条（`--radius-pill`）。
 - 重命名：行内 input（`F2` 或菜单），Enter 确认、Esc 取消；存应用元数据（不写 omp）。
-- 菜单（右键与 `…`）：重命名 `F2`、在资源管理器中显示、复制会话 ID、复制会话文件路径、导出为 HTML…（`task.exportHtml`，主进程弹保存对话框，见 `conversation.md`「导出 HTML」；命令面板 `cmd.exportHtml` 和输入框 `/export` 同一动作）、归档 `Del`。归档立即从侧栏移除并 toast `task.archived` + `task.undo`（8 秒）。
+- 菜单（右键与 `…`）：重命名 `F2`、打开工作目录（`task.openFolder`，`openTaskFolder`：系统文件管理器打开任务 cwd，开了工作树时是 worktree 根）、显示会话文件（`task.reveal`，选中 `~/.omp/agent/sessions/` 下 omp 自己存的会话记录，和工作目录不是一个地方；2026-10-20 起拆成两项，原来只有一项“在资源管理器中显示”却打开会话目录）、复制会话 ID、复制会话文件路径、导出为 HTML…（`task.exportHtml`，主进程弹保存对话框，见 `conversation.md`「导出 HTML」；命令面板 `cmd.exportHtml` 和输入框 `/export` 同一动作）、归档 `Del`。归档立即从侧栏移除并 toast `task.archived` + `task.undo`（8 秒）。
 - 标题来源：用户重命名 > 第一条用户消息的首行（折叠空白，最多 60 字符）。（RPC 模式下 omp 不自动生成标题，`PI_NO_TITLE=1`，见 `omp://rpc.md`。）
 
 ### 4.3 ProjectGroup
@@ -333,7 +333,7 @@
 
 ### 4.5 Sidebar 外壳
 
-顶部依次是搜索框和 `[新任务][打开文件夹]` 两个并排按钮（2026-10-20 起"添加项目"改名 `sidebar.openFolder`：选文件夹、加进项目列表，并把草稿切到它）：两个按钮同一种次级样式（透明底、`1px --border-strong`、`--text-2`，hover `--bg-hover`）；当前所在的那个突出——草稿页时 `新任务` 带 `aria-current="page"`，`--bg-active` 底、`--text` 600。项目分组头右侧常驻一个 `＋`（`sidebar.newInProject`，`--text-3`，hover `--text`），悬停时它左边再浮出 `⋯` 项目菜单。默认文件夹（`AppInfo.chatsDir`）那一组标题写 `empty.defaultFolder`，不露出 chats 目录名。搜索框聚焦时由圆角外框画焦点环（`--focus-ring` 边 + 1px 阴影），输入框自身不画方形轮廓。侧栏自己没有头（标志和切换侧栏在顶栏）；列表区自绘覆盖式滚动条；底部 44：左边 `设置` 文本按钮（齿轮 + 文案），右边两个 28×28 图标按钮：语言（地球，`menu.language`）和主题（半圆，`menu.theme`），点开从按钮上方弹出单选菜单（右缘对齐按钮，宽度按内容收紧，`menu.languageSystem`/简体中文/English，`menu.themeSystem`/`menu.themeLight`/`menu.themeDark`），选了立即生效，打开时焦点在当前项，Esc/Tab 关闭并还焦点给按钮；打开时按钮 `--bg-active`。命令面板只走 `Ctrl K`，底部没有放大镜。底部不放键帽、不放小字。
+顶部依次是搜索框和 `[新任务][打开文件夹]` 两个并排按钮（2026-10-20 起"添加项目"改名 `sidebar.openFolder`：选文件夹、加进项目列表，并把草稿切到它）：两个按钮同一种次级样式（透明底、`1px --border-strong`、`--text-2`，hover `--bg-hover`）；当前所在的那个突出——草稿页时 `新任务` 带 `aria-current="page"`，`--bg-active` 底、`--text` 600。项目分组头右侧常驻一个 `＋`（`sidebar.newInProject`，`--text-3`，hover `--text`），悬停时它左边再浮出 `⋯` 项目菜单。默认文件夹（`AppInfo.chatsDir`）那一组标题写 `empty.defaultFolder`，不露出 chats 目录名。项目分组下面常驻 `sidebar.searchHistory`（历史会话，2026-10-20 起不搜索也显示；`features/sidebar/HistorySection.tsx`）：omp 会话目录里还没挂在任务上的会话（含终端里开的）。标题右边一个两段切换 `sidebar.historyByFolder` / `sidebar.historyByTime`（`role="group"` `aria-label=sidebar.historyOrder`，按下的一段 `--bg-raised` 底 + 1px `--border-subtle` 描边），选择记在外壳状态 `ShellState.historyOrder`（默认 `folder`）。**按文件夹**：按会话 cwd 分组（斜杠、大小写、尾斜杠归一；组按其中最新会话从新到旧，`groupSessionsByFolder`），每组一行：箭头 + 文件夹名（重名时 `上级/名称`；默认文件夹写 `empty.defaultFolder`）+ 条数，悬停提示完整 cwd；默认折叠，点开缩进显示该组会话，先 5 条，`sidebar.showMore` 每次 +20。**按时间**：全部会话新到旧一列，先 8 条，`sidebar.showMore` 每次 +20。会话行 = 会话图标 + 标题（无标题取首条消息）+ 修改时间，悬停提示标题和 cwd，点开 = `resumeSession` 恢复成任务（项目不在列表里时自动加入）；任务列表变化（新建、恢复、第一轮结束）时重取，挂上任务的会话随即离开这一组。搜索时只列匹配的（最多 20 条）；按文件夹时有匹配的组全部展开。搜索框聚焦时由圆角外框画焦点环（`--focus-ring` 边 + 1px 阴影），输入框自身不画方形轮廓。侧栏自己没有头（标志和切换侧栏在顶栏）；列表区自绘覆盖式滚动条；底部 44：左边 `设置` 文本按钮（齿轮 + 文案），右边两个 28×28 图标按钮：语言（地球，`menu.language`）和主题（半圆，`menu.theme`），点开从按钮上方弹出单选菜单（右缘对齐按钮，宽度按内容收紧，`menu.languageSystem`/简体中文/English，`menu.themeSystem`/`menu.themeLight`/`menu.themeDark`；当前项用 `--bg-active` 底色标出，不画勾，2026-10-20 起），选了立即生效，打开时焦点在当前项，Esc/Tab 关闭并还焦点给按钮；打开时按钮 `--bg-active`。命令面板只走 `Ctrl K`，底部没有放大镜。底部不放键帽、不放小字。
 
 ### 4.6 MainHeader 与 ProgressPill
 
@@ -344,8 +344,8 @@
 ### 4.7 EmptyState
 
 - **输入框贴主区底部**（2026-10-18 返工，空状态和对话中同一位置）；上方区域（垂直居中）**只有**居中的像素标志（`ui/PixelLogo.tsx`，照 omp 终端版启动画面：块字符 π 逐格粉→紫→蓝渐变、左腿末格 ▒，右边半块像素字 `omp`（`--text`）接 `studio`（`--text-2`），字下暗色 `v<版本>`（`--text-3` 等宽））。2026-10-19 起去掉标志下面的项目胶囊和最近任务卡片：最近任务和历史会话只在侧栏（搜索框能搜到任务和历史会话，含终端里的）。**没有欢迎语、插画、示例提示卡**（标志不算）。
-- **项目标签在输入框工具行里，审批胶囊右边**（2026-10-20 起，原来在输入框下面单独一行 `.composer-below`，已去掉）：`empty-project` = 文件夹图标 + 项目名（最多 20ch，省略号），`--fs-sm` `--text-2`，悬停提示完整路径。**只显示、不能点**：它只告诉你这个新任务会在哪个文件夹里运行；换文件夹走侧栏（`新任务` = 默认文件夹，项目分组头 `＋` = 那个项目，`打开文件夹` = 新文件夹）或拖入文件夹。项目目录正好是 git 仓库根时，标签右边是工作树开关。
-- **默认文件夹**（2026-10-20 起）：新任务（侧栏 `新任务`、`Ctrl N`、启动时）一律在默认文件夹 `AppInfo.chatsDir`（`~/omp-studio/chats`）里，不沿用最近用过的项目，打开就能直接发送（同 Codex / Claude Code）。标签写 `empty.defaultFolder`，悬停提示是它的完整路径。第一次发送时主进程 `ensureChatsProject` 才建目录并加入项目（名为 `chats`），之后它在列表里是普通项目，但界面上一律叫"默认文件夹"。默认文件夹不是 git 仓库，没有工作树开关。不用用户主目录作 cwd：omp 默认会把主目录换成临时目录（`--allow-home`），搜索也会扫整个主目录。要在别的文件夹里工作：侧栏 `打开文件夹`、项目分组头的 `＋`、`Ctrl Shift N`（当前任务的项目）或拖入文件夹。
+- **项目标签在输入框工具行里，审批胶囊右边**（2026-10-20 起，原来在输入框下面单独一行 `.composer-below`，已去掉）：`empty-project` = 文件夹图标 + 文件夹完整路径（2026-10-20 起不写项目名；`--font-mono` `--fs-xs` `--text-2`，最多 40ch，太长时省略开头、留住末尾的文件夹名：外层 `direction: rtl` + 里面 `<bdi>`），悬停提示完整路径。**只显示、不能点**：它只告诉你这个新任务会在哪个文件夹里运行；换文件夹走侧栏（`新任务` = 默认文件夹，项目分组头 `＋` = 那个项目，`打开文件夹` = 新文件夹）或拖入文件夹。项目目录正好是 git 仓库根时，标签右边是工作树开关。
+- **默认文件夹**（2026-10-20 起）：新任务（侧栏 `新任务`、`Ctrl N`、启动时）一律在默认文件夹 `AppInfo.chatsDir`（`~/omp-studio/chats`）里，不沿用最近用过的项目，打开就能直接发送（同 Codex / Claude Code）。工具行标签直接写它的完整路径（侧栏分组标题才写 `empty.defaultFolder`）。第一次发送时主进程 `ensureChatsProject` 才建目录并加入项目（名为 `chats`），之后它在列表里是普通项目，但界面上一律叫"默认文件夹"。默认文件夹不是 git 仓库，没有工作树开关。不用用户主目录作 cwd：omp 默认会把主目录换成临时目录（`--allow-home`），搜索也会扫整个主目录。要在别的文件夹里工作：侧栏 `打开文件夹`、项目分组头的 `＋`、`Ctrl Shift N`（当前任务的项目）或拖入文件夹。
 - 最近更新（照 omp 的 What's New，`startup.changelogMode = summary`）：升级后第一次启动时，标志下面居中一行：`empty.whatsNew`（600 `--text-2`）· `empty.whatsNewUpdated(Many)`（"已更新到 v<版本> · N 项改动"，跨多个版本时加"M 个版本共"）· `新增 · 变更 · 修复` 各几项（为 0 的省略）；整行 `--fs-sm --text-3`，不换行，窄了省略号截断，tooltip 全文。只写统计，不列条目。数据来自打进主进程包的 `CHANGELOG.md`（`src/main/whats-new.ts`，解析在 `src/shared/changelog.ts`）：合计 `userData/last-changelog-version` 记的版本之后、当前版本为止的各节（没有记录 = 第一次装，只算当前版本；不含"未发布"），启动时算一次并立即写入当前版本，所以重载窗口仍显示、重启后消失；当前版本没有条目时不显示。
 - 侧栏 `新任务` 按钮在草稿页带 `aria-current="page"`，用选中底色突出（§4.5）。
 
@@ -399,7 +399,7 @@
 **展开（运行中与已结束一致，不套底色卡片）**——每个工具调用是一张卡（`.step`）：
 - 卡头：`[图标 14][工具名 粗体][参数摘要 mono --text-3 省略]`，运行中右侧转圈 + 计时，失败时名称和卡体用 `--st-error`；读/改/写的文件路径是 `FileLink`（点开右侧文件预览，§4.27），多文件时卡头只写个数、卡体里排文件 chip。hover / 键盘聚焦时右侧出现复制（`common.copy`）和展开箭头，点卡头或箭头收起单张卡。
 - 卡体默认展开，直接显示内容：bash 是 `$ 命令` + 输出（`--font-mono` `--fs-code-sm`），edit 是 diff（带行号），读文件是带行号的内容，搜索是结果行；超过 12 行只显示前 12 行 + `tool.output.showAll` / `tool.output.collapse`。没有可读输出的工具（待办等）只有卡头。
-- 叙述文本以 `·` 开头、`--text-3` 单行（可展开全文）按时间穿插。思考：`process.thought`，点击展开文本。
+- 叙述文本以 `·` 开头、`--text-3` 单行（可展开全文）按时间穿插。思考（2026-10-20 起同 omp 的 Thinking）：默认折叠成一行，行首 12px 箭头 + `process.thoughtShort`（`--text-3`，和工具卡头的工具名同一列），不再在行里预览第一句；点开展开全文，箭头转 90°。
 - 子代理：这一轮有子代理时，展开区顶部是"泳道"（`features/lanes/`，阶段 5 实现，数据来源和行为见 `docs/architecture/subagents.md`）：头行 `lanes.title` + `process.subagents`（可折叠，默认展开）；其下一行主代理（工具节奏小段）+ 每个子代理一行（状态点 + 名字 + `状态 · 模型 · 思考强度`；右侧时间轴上的条 = 起止，竖线 = 工具调用结束）+ 一条 `0 … 总时长` 的轴；点子代理行就地展开详情（`--bg-raised` 卡片：统计、任务、摘要、完整记录 / 改动两个分段、运行中的 steer 输入框和二次确认的取消）。不加头像和哈希色，颜色只用 `--st-*` token。
 - >200 个工具行时只渲染最后 100 条 + `process.earlier`。
 
@@ -420,9 +420,9 @@
 **尺寸与结构**
 - 外容器宽 = 列宽；`--bg-raised`；`1px --border`（hover `--border-strong`）；`--radius-xl`；`--shadow-composer`；容器自身无内边距，分上下两层：输入区（`padding: --space-3 --space-4 --space-2-5`）和工具行（`padding: --space-2 --space-3`，上沿 1px `--border-subtle` 分隔线）；聚焦样式见通则。
 - 文本区：`--fs-prose`，placeholder `--text-3`，最小 1 行（2026-10-19 由 2 行降低；常数高度，空状态与对话中一致），自动增高到 `min(40vh, 12 行)` 后内部滚动，`resize: none`。
-- 底部工具行：左起 `⊕` 附件 28×28、ModelChip、ApprovalChip；输出速度（`UsageMeter`，只在运行中，见下）；右起后台任务胶囊（`JobsBoard`，见下，本会话出现过后台任务才有）、上下文圆环（`ContextMeter`，见下）、本会话费用（`SessionCost`，对应 omp 状态栏的 cost 段：`get_session_stats.cost`，按模型的 API 价格估算，订阅登录的模型也照样累计；等宽 `--fs-xs` `--text-2`，`$0.0001` 这种不到一美分的保留 4 位小数；一直显示，新任务草稿和还没有统计时是 `$0.00`；当前模型的 provider 有 OAuth 登录凭据时（omp 优先用 OAuth，`get_logout_accounts`，按 provider 缓存 5 分钟）后面跟 `--text-3` 的 ` (sub)`，悬停换成 `composer.usage.costTipSub`；悬停 `composer.usage.costTip` + 输入/输出/缓存读取/高级请求数；是按钮，点开居中的 `UsageDialog`，见下）、SendStop。仪表不收缩（`flex: none`），空间不够时模型胶囊先省略名字，≤860px 去掉速度，≤400px（比如开着文件预览）工具行折成两行：模型、审批胶囊在上，计数、圆环、费用、发送换到下一行靠右；圆环和费用一直在。胶囊 `overflow: hidden`，内容不会画到旁边。本会话 token 不在工具行里（2026-10-19 起去掉图标按钮），在上下文浮层的“会话用量”里。
+- 底部工具行：左起 `⊕` 附件 28×28、ModelChip、ApprovalChip；输出速度（`UsageMeter`，只在运行中，见下）；右起上下文圆环（`ContextMeter`，见下）、本会话费用（`SessionCost`，对应 omp 状态栏的 cost 段：`get_session_stats.cost`，按模型的 API 价格估算，订阅登录的模型也照样累计；等宽 `--fs-xs` `--text-2`，`$0.0001` 这种不到一美分的保留 4 位小数；一直显示，新任务草稿和还没有统计时是 `$0.00`；当前模型的 provider 有 OAuth 登录凭据时（omp 优先用 OAuth，`get_logout_accounts`，按 provider 缓存 5 分钟）后面跟 `--text-3` 的 ` (sub)`，悬停换成 `composer.usage.costTipSub`；悬停 `composer.usage.costTip` + 输入/输出/缓存读取/高级请求数；是按钮，点开居中的 `UsageDialog`，见下）、SendStop。仪表不收缩（`flex: none`），空间不够时模型胶囊先省略名字，≤860px 去掉速度，≤400px（比如开着文件预览）工具行折成两行：模型、审批胶囊在上，计数、圆环、费用、发送换到下一行靠右；圆环和费用一直在。胶囊 `overflow: hidden`，内容不会画到旁边。本会话 token 不在工具行里（2026-10-19 起去掉图标按钮），在上下文浮层的“会话用量”里。
 
-**JobsBoard**（2026-10-20 起，照 Tern 里 omp 的后台任务胶囊与看板）：omp 没有列后台任务的 RPC，从工具帧推导（`src/shared/ui/jobs.ts` 的 `deriveJobs`）：`bash` 带 `async: true` 的调用（`details.async = {state, jobId}`、"Backgrounded as job bg_N"）、`task` 派出的子代理（"Spawned agent `X` (job `Y`)" + 子代理泳道状态）、`wait` 工具的 `details.jobs[]` 快照（状态、标签、时长以它为准）。胶囊 `jobs-pill`：`● 运行中数 │ ✓ 已结束数`，点开 `Popover` 看板 `jobs-board`：每个任务一行（类型图标、名字、状态、耗时），点一行展开——命令看输出尾部，子代理内嵌 `SubagentDetailPanel`；Esc 关闭并还焦点给胶囊。agent 在等后台任务时，状态行（`RunStatus`）的动作文字是 `process.waitingJobs`（“等待 2/3 个后台任务 · 1 个完成”），下面一排运行中任务的小卡（类型图标 + 名字 + 耗时，最多 4 个，多的折成 `+N`），靠右排，正好在胶囊上方。实测录制见 `fixtures/rpc/bg-jobs.ndjson`（omp 18.12.3）。
+**JobsBoard**（2026-10-20 起，照 Tern 里 omp 的后台任务胶囊与看板）：omp 没有列后台任务的 RPC，从工具帧推导（`src/shared/ui/jobs.ts` 的 `deriveJobs`）：`bash` 带 `async: true` 的调用（`details.async = {state, jobId}`、"Backgrounded as job bg_N"）、`task` 派出的子代理（"Spawned agent `X` (job `Y`)" + 子代理泳道状态）、`wait` 工具的 `details.jobs[]` 快照（状态、标签、时长以它为准）。胶囊 `jobs-pill`：`● 运行中数 │ ✓ 已结束数`，带细边框的圆角胶囊，不在输入框里，而是在输入框右上方单独一行（状态行之上，右边和输入框对齐；2026-10-20 起，同 Tern 里的 omp），本会话出现过后台任务才有；点开 `Popover` 看板 `jobs-board`：每个任务一行（类型图标、名字、状态、耗时），点一行展开——命令看输出尾部，子代理内嵌 `SubagentDetailPanel`；Esc 关闭并还焦点给胶囊。agent 在等后台任务时，状态行（`RunStatus`）的动作文字是 `process.waitingJobs`（“等待 2/3 个后台任务 · 1 个完成”），下面一排运行中任务的小卡（类型图标 + 名字 + 耗时，最多 4 个，多的折成 `+N`），靠右排，正好在胶囊上方。实测录制见 `fixtures/rpc/bg-jobs.ndjson`（omp 18.12.3）。
 - 草稿的工具行在审批胶囊右边多出项目标签 + 工作树开关（§4.7）；输入框下面不再有单独一行。
 - 工具行各项**从第一帧起都在原位**（2026-10-19）：模型胶囊、审批胶囊、上下文圆环、费用都直接画出来，数据到了再填，不等 omp。数据先用上次读到的（主进程每次现读成功就记进 `userData/startup-cache.json`：默认模型、模型目录、各项目的默认值、各 provider 是否订阅、审批模式；渲染进程在第一次渲染前取 `getStartupSnapshot()`），现读到了再替换；从没读到过（第一次启动）时模型胶囊写 `composer.modelLoading`、审批写 `approval.loading`，圆环是同位置同大小、不能点的空环（`data-pending`）。任务在进程起来之前，胶囊用上次读到的模型目录里的名字和窗口（不是模型 id）。主进程在应用启动时就拉起服务进程读默认模型和模型目录，不等输入框来要。
 - 附件预览行（有附件时）：文本区上方，64×64，右上 ✕（`composer.attachment.remove`）；粘贴图片、拖入图片、`⊕` 三种来源。非图片文件拖入：toast `composer.attach.imageOnly`。
@@ -464,7 +464,7 @@
 
 **UsageMeter**（输入框工具行里，审批胶囊之后）：只剩输出速度（见下），不在运行中时不渲染。
 
-**UsageDialog**（点发送键左边的费用打开，2026-10-19 起是**居中对话框**，不再是贴着按钮的浮层：portal 到 body，`--bg-scrim` 遮罩，宽 720，外观同 ModelPicker；`role="dialog"` `aria-modal`，标题 `composer.usage.overview` + 关闭按钮，Tab 在框内循环，Esc / 点遮罩关闭并把焦点还给费用按钮）：标题下一个切换框（`.segments`，`role="tablist"`，←/→ 切页、焦点跟着走），两页叠在同一格里（`.qm-stack`，没选中的那页 `visibility: hidden`），对话框按高的那页定尺寸（最高 80vh，内部滚动），**切页时大小不变**。两页：`composer.quota.title`（默认）：各订阅账号的额度，当前 provider 排最前，未使用的账号合成一行；账号头一行（状态点 + provider + 账号邮箱），每个窗口**一行**：名称 | 进度条 | 剩余百分比 | `--text-3` 的重置时间，窗口之间 `--space-1`，比设置页紧；`composer.quota.daily`：最近 41 周每日用量热力图（与设置 → 用量同一组件 `usage-views.tsx`，格子 13px，铺满不出横向滚动条），只按花费着色，没有 token / 花费 / 请求数切换，悬停给日期、金额和请求数。上次看的页在本次运行里记住。打开时重读额度，热力图还没有数据时才读。没有"去设置看全年"的入口。
+**UsageDialog**（点发送键左边的费用打开，2026-10-19 起是**居中对话框**，不再是贴着按钮的浮层：portal 到 body，`--bg-scrim` 遮罩，宽 720，外观同 ModelPicker；`role="dialog"` `aria-modal`，标题 `composer.usage.overview` + 关闭按钮，Tab 在框内循环，Esc / 点遮罩关闭并把焦点还给费用按钮）：标题下一个切换框（`.segments`，`role="tablist"`，←/→ 切页、焦点跟着走），两页叠在同一格里（`.qm-stack`，没选中的那页 `visibility: hidden`），对话框按高的那页定尺寸（最高 80vh，内部滚动），**切页时大小不变**。两页：`composer.quota.title`（默认）：各订阅账号的额度，当前 provider 排最前，未使用的账号合成一行；账号头一行（状态点 + provider + 账号邮箱），每个窗口**一行**：名称 | 进度条 | 剩余百分比 | `--text-3` 的重置时间，窗口之间 `--space-1`，比设置页紧；`composer.quota.daily`：最近 41 周每日用量热力图（与设置 → 用量同一组件 `usage-views.tsx`，格子 13px，铺满不出横向滚动条），只按花费着色，没有 token / 花费 / 请求数切换，悬停给日期、金额和请求数。上次看的页在本次运行里记住。打开时重读额度，热力图还没有数据时才读。没有"去设置看全年"的入口。两页叠在同一格里，高度取较高的额度页；每日用量页的热力图在这块高度里水平、竖直都居中（2026-10-20 起）。
 
 新任务草稿（`DraftComposer`）的工具行同一位置放 `DraftContextMeter`：还没有会话，圆环是 0，窗口取胶囊上默认模型的 `contextWindow`（模型还没读到或没报窗口时是不能点的空环），构成里只有消息 0、剩余空间和自动压缩预留，没有“会话用量”。费用显示 `$0.00`，同样能点开 `UsageDialog`（额度按默认模型的 provider 排序）。
 
@@ -758,7 +758,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 **设计**（仓库所有者 2026-10-18 定：审批模式完全按 omp 的设置来，omp-studio 不另设一层）
 1. **启动时从不传 `--approval-mode` / `--yolo` / `--auto-approve`。** omp 用配置里的 `tools.approvalMode`；没设置过就是 omp 的默认 `yolo`，此时不会出现审批门。`tools.approval.*` 与 `bash.patterns` 由 omp 按文档规则叠加，我们不改。
 2. **ApprovalChip 显示 omp 配置的当前值**（没设置过显示 omp 默认值），经 `omp config list` 读，和设置页的 omp 设置共用同一份快照（`config-store.ts`）。快照没读到时先用上次读到的值（启动缓存，见 §4.14），从没读到过才显示 `approval.loading`。
-3. **在胶囊里选一个模式 = `omp config set tools.approvalMode <模式>`**（写入只经 omp，AGENTS）。改的是用户全局的 omp 配置，终端里的 omp 也跟着变；之后启动的任务生效，已在运行的任务要重启。弹层底部 `approval.note` 说明这一点；胶囊不再区分"有没有进程"。
+3. **在胶囊里选一个模式 = `omp config set tools.approvalMode <模式>`**（写入只经 omp，AGENTS）。改的是用户全局的 omp 配置，终端里的 omp 也跟着变；之后启动的任务生效，已在运行的任务要重启。弹层里不再写这段说明（2026-10-20 起去掉 `approval.note`）；胶囊不再区分"有没有进程"。
 4. **外观**：高 28，同其它胶囊；文案 `approval.alwaysAsk` / `approval.write` / `approval.yolo`；`yolo` 时胶囊底用 `--st-waiting-soft`、字用 `--st-waiting-text`、加盾牌图标。弹层（单选菜单）每项带一行描述（`approval.desc.*`），`yolo` 项的提示里加 `approval.subagents`。
 5. 在胶囊里把模式切到 `yolo`：首次弹一次确认（`approval.yoloConfirm*`），确认后记住（`StudioSettings.yoloConfirmed`）。omp 本身默认就是 `yolo` 时不弹（没有"切换"动作）。
 
@@ -852,6 +852,10 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `sidebar.empty` | 还没有任务 | No tasks yet |
 | `sidebar.settings` | 设置 | Settings |
 | `sidebar.newInProject` | 在此项目新建任务 | New task in this project |
+| `sidebar.searchHistory` | 历史会话 | Past sessions |
+| `sidebar.historyOrder` | 历史会话排列 | Arrange past sessions |
+| `sidebar.historyByFolder` | 文件夹 | Folder |
+| `sidebar.historyByTime` | 时间 | Time |
 | `project.reveal` | 在资源管理器中显示 | Show in File Explorer |
 | `project.remove` | 从列表移除 | Remove from list |
 | `task.untitled` | 新任务 | New task |
@@ -859,7 +863,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `task.archive` | 归档 | Archive |
 | `task.archived` | 已归档 | Archived |
 | `task.undo` | 撤销 | Undo |
-| `task.reveal` | 在资源管理器中显示 | Show in File Explorer |
+| `task.openFolder` | 打开工作目录 | Open working folder |
+| `task.reveal` | 显示会话文件 | Show session file |
 | `task.copyId` | 复制会话 ID | Copy session ID |
 | `task.copyPath` | 复制会话文件路径 | Copy session file path |
 | `task.exportHtml` | 导出为 HTML… | Export as HTML… |
@@ -967,7 +972,6 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `approval.desc.write` | 读取和写入自动；执行命令前询问 | Reads and edits run automatically; asks before commands |
 | `approval.desc.yolo` | 不询问 | Never asks |
 | `approval.subagents` | 子代理在后台以全部自动运行，不会单独询问。 | Subagents run in the background in full auto and don't ask separately. |
-| `approval.note` | 改的是 omp 的配置（tools.approvalMode），终端里的 omp 也会跟着变。已经在运行的任务要重启后才生效。 | This changes omp's config (tools.approvalMode), so omp in the terminal follows too. Running tasks pick it up after a restart. |
 | `approval.loading` | 审批… | Approval… |
 | `approval.yoloConfirmTitle` | 使用全部自动？ | Use full auto? |
 | `approval.yoloConfirmBody` | 全部自动模式下，omp 不会在执行命令前询问你。 | In full auto, omp won't ask before running commands. |

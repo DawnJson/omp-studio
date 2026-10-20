@@ -24,14 +24,6 @@ export interface IconProps {
   size?: number;
 }
 
-export function CheckIcon({ size = 16 }: IconProps) {
-  return (
-    <Icon size={size}>
-      <path d="M5 12.5l4.5 4.5L19 7.5" />
-    </Icon>
-  );
-}
-
 /** 切换侧栏：一个窗框，左边一栏；侧栏显示时左栏填满，收起时只剩分隔线（填充淡入淡出，见 app.css .sidebar-icon-fill）。 */
 export function SidebarIcon({ size = 16, shown }: IconProps & { shown: boolean }) {
   return (

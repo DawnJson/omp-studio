@@ -380,11 +380,10 @@ button {
   outline-offset: -2px;
 }
 
-.menu-item-check {
-  display: inline-flex;
-  flex: none;
-  width: var(--icon-md);
-  color: var(--accent);
+/* 单选菜单（语言/主题）的当前项：底色标出，不画勾 */
+.menu-item[aria-checked="true"] {
+  background: var(--bg-active);
+  color: var(--text);
 }
 
 .menu-item-label {

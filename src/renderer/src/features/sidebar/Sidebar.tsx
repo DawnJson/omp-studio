@@ -9,7 +9,8 @@ import { selectTask, showView, useAppInfo, useMainView, useSelectedTaskId, useTa
 import { Close } from "../../icons.tsx";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { archiveWithUndo, useHiddenTasks } from "./archive-store.ts";
-import { FolderPlusIcon, GearIcon, PlusIcon, SearchIcon, SessionIcon } from "./icons.tsx";
+import { FolderPlusIcon, GearIcon, PlusIcon, SearchIcon } from "./icons.tsx";
+import { HistorySection } from "./HistorySection.tsx";
 import { initialVisibleTasks, ProjectGroup, projectNavId, showMoreStep, type RowHandlers } from "./ProjectGroup.tsx";
 import { PreferenceMenus } from "./PreferenceMenus.tsx";
 import { refreshProjects, useProjectsState } from "./projects-store.ts";
@@ -18,9 +19,8 @@ import { startDraft } from "../empty/index.ts";
 import { isDefaultFolder } from "../empty/default-folder.ts";
 import { groupTasks, nextWaitingTask, waitingTasks } from "../../../../shared/ui/sidebar-model.ts";
 import { taskNavId } from "./TaskRow.tsx";
-import { formatTaskTime } from "../../../../shared/ui/task-time.ts";
 import { useNow } from "./task-time.ts";
-import { sessionLabel, useSessionSearch } from "./use-session-search.ts";
+import { useHistorySessions } from "./use-history-sessions.ts";
 import { useSidebarMenus } from "./use-sidebar-menus.tsx";
 import "./sidebar.css";
 
@@ -44,7 +44,12 @@ export function Sidebar() {
   const [renamingId, setRenamingId] = useState<TaskState["id"] | null>(null);
   const [query, setQuery] = useState("");
   const searching = query.trim() !== "";
-  const sessionResults = useSessionSearch(query.trim());
+  // 任务列表变了（新建、恢复、第一轮结束后会话挂上任务）就重取历史会话，挂上任务的会话从历史里消失。
+  const historyKey = useMemo(
+    () => tasksState.list.map((task) => `${task.id}:${task.lastTurn === null ? 0 : 1}`).join(","),
+    [tasksState.list],
+  );
+  const sessionResults = useHistorySessions(query.trim(), historyKey);
 
   useEffect(() => {
     void refreshProjects();
@@ -72,7 +77,7 @@ export function Sidebar() {
   const groups = useMemo(() => {
     // 默认文件夹（chats 目录）这一组叫"默认文件夹"，不露出目录名。
     const all = groupTasks(projectsState.list, matchedTasks, hidden).map((group) =>
-      isDefaultFolder(group.project, chatsDir) ? { ...group, label: defaultLabel } : group,
+      isDefaultFolder(group.project.path, chatsDir) ? { ...group, label: defaultLabel } : group,
     );
     return searching ? all.filter((group) => group.tasks.length > 0) : all;
   }, [projectsState.list, matchedTasks, hidden, searching, chatsDir, defaultLabel]);
@@ -265,33 +270,14 @@ export function Sidebar() {
               onOpenProjectMenu={openProjectMenu}
             />
           ))}
-          {searching && sessionResults.length > 0 && (
-            <section className="sb-group" aria-label={t("sidebar.searchHistory")} data-testid="sidebar-session-results">
-              <p className="sb-group-title">{t("sidebar.searchHistory")}</p>
-              {sessionResults.map((session) => (
-                <button
-                  key={session.id}
-                  type="button"
-                  className="sb-row sb-row-main sb-session"
-                  data-nav={`session:${session.id}`}
-                  data-testid="sidebar-session"
-                  tabIndex={-1}
-                  onClick={() =>
-                    void window.studio
-                      .resumeSession(session.id)
-                      .then((task) => selectTask(task.id))
-                      .catch((error: unknown) =>
-                        reportError(t, error, (message) => t("history.resumeFailed", { message })),
-                      )
-                  }
-                >
-                  <SessionIcon />
-                  <span className="sb-row-title">{sessionLabel(session) ?? t("history.untitled")}</span>
-                  <span className="sb-row-tail">{formatTaskTime(t, locale, session.modifiedAt, now)}</span>
-                </button>
-              ))}
-            </section>
-          )}
+          <HistorySection
+            sessions={sessionResults}
+            searching={searching}
+            chatsDir={chatsDir}
+            t={t}
+            locale={locale}
+            now={now}
+          />
           {searching && groups.length === 0 && sessionResults.length === 0 && (
             <p className="sb-note" role="status">
               {t("sidebar.searchNone")}

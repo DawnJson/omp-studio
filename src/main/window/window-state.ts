@@ -2,8 +2,15 @@
 // 侧栏宽度和折叠由渲染进程经 setShellState 写入（spec §3.1）。
 import { app, screen, type BrowserWindow, type Rectangle } from "electron";
 import path from "node:path";
-import { limits, type ShellState } from "../../shared/ipc.ts";
-import { IpcValidationError, parseBoolean, parseInteger, parseRecord, parseString } from "../ipc/validate.ts";
+import { historyOrders, limits, type ShellState } from "../../shared/ipc.ts";
+import {
+  IpcValidationError,
+  parseBoolean,
+  parseInteger,
+  parseOneOf,
+  parseRecord,
+  parseString,
+} from "../ipc/validate.ts";
 import { readJsonFile, writeJsonFileAtomic } from "../settings/json-file.ts";
 
 export const sidebarWidthRange = [220, 360] as const;
@@ -12,6 +19,7 @@ const defaultShellState: ShellState = {
   sidebarCollapsed: false,
   terminalHeight: 280,
   collapsedProjects: [],
+  historyOrder: "folder",
 };
 
 interface WindowBounds {
@@ -99,6 +107,11 @@ function load(): PersistedState {
   }
   try {
     shell.collapsedProjects = parseCollapsedProjects(raw["collapsedProjects"]);
+  } catch {
+    // 保留默认值。
+  }
+  try {
+    shell.historyOrder = parseOneOf(raw["historyOrder"], "historyOrder", historyOrders);
   } catch {
     // 保留默认值。
   }

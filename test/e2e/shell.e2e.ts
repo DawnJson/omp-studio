@@ -245,10 +245,10 @@ test("没有项目时主区只有标志和草稿输入框；F6 把焦点送进�
     await expect(empty).toBeVisible();
     await expect(empty).toHaveAttribute("data-kind", "no-project");
     await expect(empty.getByTestId("pixel-logo")).toBeVisible();
-    // 输入框上面只有标志：没有“还没有项目”、没有最近的任务、没有任何按钮；项目按钮在输入框工具行里，写"默认文件夹"，不出现 chats。
+    // 输入框上面只有标志：没有“还没有项目”、没有最近的任务、没有任何按钮；项目标签在输入框工具行里，写默认文件夹的路径。
     await expect(empty.locator(".empty-main").getByRole("button")).toHaveCount(0);
     await expect(page.getByTestId("draft-composer").locator(".composer-tools").getByTestId("empty-project")).toHaveText(
-      /^(默认文件夹|Default folder)$/,
+      /[\\/]chats$/,
     );
     await expect(page.getByTestId("empty-draft").locator("[data-composer-input]")).toBeVisible();
 
@@ -294,9 +294,9 @@ test("有项目的空状态：输入框贴主区底部、没有历史会话列�
     await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
     expect(await page.evaluate(() => globalThis.studio.listTasks())).toEqual([]);
 
-    // 工具行的项目标签只显示、不能点（不是按钮），悬停提示是默认文件夹的完整路径。
+    // 工具行的项目标签只显示、不能点（不是按钮），写默认文件夹的路径，悬停提示同一个完整路径。
     const label = page.getByTestId("empty-project");
-    await expect(label).toHaveText(/^(默认文件夹|Default folder)$/);
+    await expect(label).toHaveText(/[\\/]chats$/);
     expect(await label.evaluate((el) => (el as unknown as { tagName: string }).tagName)).toBe("SPAN");
     await expect(label).toHaveAttribute("title", /[\\/]chats$/);
     // 换项目走侧栏项目分组旁的 ＋。

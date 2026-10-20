@@ -76,7 +76,7 @@
   border-radius: var(--radius-xl);
 }
 
-/* 工具行里审批胶囊右边的项目标签：和胶囊同高，不能点，只是"文件夹图标 + 名字" */
+/* 工具行里审批胶囊右边的项目标签：和胶囊同高，不能点，只是"文件夹图标 + 文件夹路径" */
 .empty-project {
   display: inline-flex;
   flex: 0 1 auto;
@@ -89,12 +89,17 @@
   color: var(--text-2);
 }
 
+/* 路径太长时省略开头（rtl + 里面的 bdi），末尾的文件夹名总看得见 */
 .empty-project-name {
   min-width: 0;
-  max-width: 20ch;
+  max-width: 40ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
 }
 
 .empty-primary {

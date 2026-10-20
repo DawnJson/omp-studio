@@ -361,6 +361,7 @@ const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId
   );
 });
 
+/** 思考默认折叠成一行"思考"（同 omp 的 Thinking），点开才看全文；叙述行显示第一行，点开看全文。 */
 function TextStepRow({ step }: { step: Extract<Step, { kind: "narration" | "thinking" }> }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -369,13 +370,24 @@ function TextStepRow({ step }: { step: Extract<Step, { kind: "narration" | "thin
   return (
     <div className="step-text" data-anchor data-kind={step.kind}>
       <button type="button" className="step-row" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        <span className="step-icon">{thinking ? "" : "·"}</span>
-        <span className="step-label" data-muted>
-          {thinking ? `${t("process.thoughtShort")} · ${step.text.trim().split("\n")[0]}` : step.text.split("\n")[0]}
-        </span>
+        {thinking ? (
+          <>
+            <span className="step-icon">
+              <ChevronRight size={12} className="step-chevron" data-open={open || undefined} />
+            </span>
+            <span className="step-label step-thinking">{t("process.thoughtShort")}</span>
+          </>
+        ) : (
+          <>
+            <span className="step-icon">·</span>
+            <span className="step-label" data-muted>
+              {step.text.split("\n")[0]}
+            </span>
+          </>
+        )}
       </button>
       <Reveal open={open}>
-        <div className="step-full">{step.text}</div>
+        <div className="step-full">{thinking ? step.text.trim() : step.text}</div>
       </Reveal>
     </div>
   );

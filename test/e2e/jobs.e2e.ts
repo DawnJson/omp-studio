@@ -91,6 +91,17 @@ test("子代理完成、bash 还在跑：1/2 个后台任务 · 1 个完成；�
     const pill = page.getByTestId("jobs-pill");
     await expect(pill.getByTestId("jobs-pill-running")).toHaveText("1");
     await expect(pill.getByTestId("jobs-pill-done")).toHaveText("1");
+    // 胶囊不在输入框里：在输入框右上方单独一行（状态行之上），右边和输入框对齐（同 Tern 里的 omp）。
+    await expect(page.locator(".composer").getByTestId("jobs-pill")).toHaveCount(0);
+    const [pillBox, statusBox, composerBox] = await Promise.all([
+      pill.boundingBox(),
+      page.getByTestId("run-status").boundingBox(),
+      page.locator(".composer").boundingBox(),
+    ]);
+    expect(pillBox && statusBox && pillBox.y + pillBox.height <= statusBox.y + 1).toBe(true);
+    expect(
+      pillBox && composerBox && Math.abs(pillBox.x + pillBox.width - (composerBox.x + composerBox.width)) <= 2,
+    ).toBe(true);
 
     await pill.click();
     const board = page.getByTestId("jobs-board");

@@ -1,5 +1,5 @@
-// 外壳界面状态：侧栏宽度、折叠、终端面板高度（主进程持久化）和窄窗抽屉是否打开（只在内存）。
-import { limits, type ShellState } from "../../../shared/ipc.ts";
+// 外壳界面状态：侧栏宽度、折叠、终端面板高度、历史会话排列（主进程持久化）和窄窗抽屉是否打开（只在内存）。
+import { limits, type HistoryOrder, type ShellState } from "../../../shared/ipc.ts";
 import { defaultTerminalHeight } from "../../../shared/ui/terminal-model.ts";
 import { createStore, useStoreValue } from "../store/create-store.ts";
 
@@ -15,6 +15,7 @@ const shellStore = createStore<ShellUiState>({
   sidebarCollapsed: false,
   terminalHeight: defaultTerminalHeight,
   collapsedProjects: [],
+  historyOrder: "folder",
   drawerOpen: false,
 });
 
@@ -63,6 +64,11 @@ export function setSidebarCollapsed(sidebarCollapsed: boolean): void {
 export function setCollapsedProjects(collapsedProjects: string[]): void {
   shellStore.set({ ...shellStore.get(), collapsedProjects });
   persist({ collapsedProjects });
+}
+
+export function setHistoryOrder(historyOrder: HistoryOrder): void {
+  shellStore.set({ ...shellStore.get(), historyOrder });
+  persist({ historyOrder });
 }
 
 export function setDrawerOpen(drawerOpen: boolean): void {

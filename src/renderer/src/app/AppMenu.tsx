@@ -1,9 +1,8 @@
 // 菜单共用的零件：菜单项和键盘处理（侧栏底部的语言/主题菜单在用，features/sidebar/PreferenceMenus.tsx）。
 // 键盘：↑↓/Home/End 移动，Enter/Space 执行，Esc 关闭，关闭后焦点回到打开前的元素（spec §5.3）。
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
-import { CheckIcon } from "./icons.tsx";
 
-/** 菜单项。给了 checked 就是单选项（menuitemradio），左边打勾。 */
+/** 菜单项。给了 checked 就是单选项（menuitemradio），选中项用底色标出，不画勾。 */
 export function MenuItem(props: { children: ReactNode; shortcut?: string; checked?: boolean; onSelect(): void }) {
   const role = props.checked === undefined ? "menuitem" : "menuitemradio";
   return (
@@ -15,7 +14,6 @@ export function MenuItem(props: { children: ReactNode; shortcut?: string; checke
       tabIndex={-1}
       onClick={props.onSelect}
     >
-      <span className="menu-item-check">{props.checked ? <CheckIcon /> : null}</span>
       <span className="menu-item-label">{props.children}</span>
       {props.shortcut ? <kbd className="kbd">{props.shortcut}</kbd> : null}
     </button>

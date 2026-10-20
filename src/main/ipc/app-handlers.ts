@@ -1,6 +1,6 @@
 // 应用和设置：读写走 settings-store（userData/settings.json）；外壳状态走 window-state。
 import { app, shell } from "electron";
-import { limits, type AppInfo, type HandlerGroup } from "../../shared/ipc.ts";
+import { historyOrders, limits, type AppInfo, type HandlerGroup } from "../../shared/ipc.ts";
 import { exportDiagnostics } from "../log/diagnostics.ts";
 import { openLogsFolder } from "../log/instance.ts";
 import { getSettings, resolveLocale, updateSettings } from "../settings/settings-store.ts";
@@ -14,6 +14,7 @@ import {
   parseInteger,
   parseLocalePreference,
   parseMaxLiveProcesses,
+  parseOneOf,
   parseRecord,
   parseThemePreference,
 } from "./validate.ts";
@@ -65,6 +66,9 @@ export const appHandlers: HandlerGroup<
       }),
       ...(record["collapsedProjects"] !== undefined && {
         collapsedProjects: parseCollapsedProjects(record["collapsedProjects"]),
+      }),
+      ...(record["historyOrder"] !== undefined && {
+        historyOrder: parseOneOf(record["historyOrder"], "historyOrder", historyOrders),
       }),
     });
   },

@@ -5,7 +5,14 @@ import type { Project, ProjectId, SessionSummary, TaskId, TaskState } from "../s
 import type { AvailableSlashCommand } from "../src/shared/omp-wire/rpc-wire.generated.ts";
 import { fuzzyMatch } from "../src/shared/ui/fuzzy.ts";
 import { buildSections, type CommandEntry } from "../src/shared/ui/palette-model.ts";
-import { dotKind, groupTasks, nextWaitingTask, projectLabels, waitingTasks } from "../src/shared/ui/sidebar-model.ts";
+import {
+  dotKind,
+  groupSessionsByFolder,
+  groupTasks,
+  nextWaitingTask,
+  projectLabels,
+  waitingTasks,
+} from "../src/shared/ui/sidebar-model.ts";
 
 const project = (id: string, path: string, name: string): Project => ({ id: id as ProjectId, path, name });
 const task = (id: string, projectId: string, patch: Partial<TaskState> = {}): TaskState =>
@@ -169,5 +176,39 @@ describe("buildSections", () => {
     expect(rows("/", {})?.length).toBe(2);
     expect(buildSections({ ...base, slashCommands, query: "/compact", hasCurrentTask: false })).toEqual([]);
     expect(buildSections({ ...base, query: "zzzz" })).toEqual([]);
+  });
+});
+
+describe("groupSessionsByFolder", () => {
+  const past = (id: string, cwd: string, modifiedAt: number): SessionSummary => ({
+    id,
+    title: id,
+    firstPrompt: null,
+    cwd,
+    projectId: null,
+    modifiedAt,
+    taskId: null,
+  });
+
+  it("同一文件夹的不同写法归一组；组按最新会话、组内按时间从新到旧", () => {
+    const groups = groupSessionsByFolder([
+      past("a1", "E:\\work\\app", 10),
+      past("b1", "E:/work/lib", 30),
+      past("a2", "e:/work/app/", 50),
+      past("b2", "E:\\work\\lib", 20),
+    ]);
+    expect(groups.map((group) => [group.label, group.sessions.map((s) => s.id)])).toEqual([
+      ["app", ["a2", "a1"]],
+      ["lib", ["b1", "b2"]],
+    ]);
+  });
+
+  it("文件夹重名时标签带上级目录", () => {
+    const groups = groupSessionsByFolder([
+      past("x", "C:/one/src", 2),
+      past("y", "C:/two/src", 1),
+      past("z", "C:/a", 0),
+    ]);
+    expect(groups.map((group) => group.label)).toEqual(["one/src", "two/src", "a"]);
   });
 });

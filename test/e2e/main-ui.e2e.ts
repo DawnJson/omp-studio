@@ -120,10 +120,10 @@ test("没有项目时直接发送：在 chats 目录里建项目和任务，侧�
     await expect(page.getByTestId("sidebar")).not.toContainText("chats");
     await expect(page.getByTestId("sidebar-new-task")).not.toHaveAttribute("aria-current", "page");
 
-    // 之后 Ctrl N 还是默认文件夹（不沿用刚才的项目也一样是它）；项目按钮写"默认文件夹"。
+    // 之后 Ctrl N 还是默认文件夹（不沿用刚才的项目也一样是它）；项目标签直接写它的路径。
     await page.keyboard.press("Control+n");
     await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
-    await expect(page.getByTestId("empty-project")).toHaveText(/^(默认文件夹|Default folder)$/);
+    await expect(page.getByTestId("empty-project")).toHaveText(chats);
   } finally {
     await launched.close();
   }
@@ -281,12 +281,12 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
     await expect(page.getByTestId("empty-task")).toHaveCount(0);
     await expect(page.getByTestId("empty-session")).toHaveCount(0);
-    await expect(page.getByTestId("empty-project")).toHaveText(/^(默认文件夹|Default folder)$/);
-    // 项目分组旁常驻的 ＋：在这个项目里开新任务，工具行的项目按钮换成项目名。
+    await expect(page.getByTestId("empty-project")).toHaveText(/[\\/]chats$/);
+    // 项目分组旁常驻的 ＋：在这个项目里开新任务，工具行的项目标签换成项目的路径。
     await expect(page.getByTestId("sidebar-project-new").first()).toBeVisible();
     await page.getByTestId("sidebar-project-new").first().click();
     await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
-    await expect(page.getByTestId("empty-project")).toHaveText("项目 目录");
+    await expect(page.getByTestId("empty-project")).toHaveText(/[\\/]项目 目录$/);
     // 项目按钮在工具行里，紧跟审批胶囊。
     const draftTools = page.getByTestId("draft-composer").locator(".composer-tools");
     await expect(draftTools.getByTestId("empty-project")).toBeVisible();
@@ -303,7 +303,7 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
   }
 });
 
-test("侧栏：搜索框在最上，其次 [新任务][打开文件夹]；搜索过滤任务并列出匹配的历史会话", async () => {
+test("侧栏：搜索框在最上，其次 [新任务][打开文件夹]；历史会话常驻在项目下面；搜索过滤任务和历史会话", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
@@ -324,6 +324,34 @@ test("侧栏：搜索框在最上，其次 [新任务][打开文件夹]；搜索
     expect(a && list && a.y + a.height <= list.y).toBe(true);
 
     await expect(page.getByTestId("task-row")).toHaveCount(1);
+    // 不搜索也列出历史会话（launchApp 造的 6 条假会话，cwd 都是"omp studio 假项目"），在项目分组下面；刚发的那条已挂在任务上，不在这里。
+    // 默认按文件夹：一个文件夹一行（名字 + 条数），折叠着。
+    const history = page.getByTestId("sidebar-history");
+    await expect(page.getByTestId("sidebar-history-by-folder")).toHaveAttribute("aria-pressed", "true");
+    const folders = history.getByTestId("sidebar-history-folder");
+    await expect(folders).toHaveCount(1);
+    await expect(folders.first()).toContainText("omp studio 假项目");
+    await expect(folders.first()).toContainText("6");
+    await expect(history.getByTestId("sidebar-session")).toHaveCount(0);
+    const [groupBox, historyBox] = await Promise.all([
+      sidebar.locator(".sb-group").first().boundingBox(),
+      history.boundingBox(),
+    ]);
+    expect(groupBox && historyBox && groupBox.y + groupBox.height <= historyBox.y).toBe(true);
+    // 点开文件夹：先显示 5 条（新到旧）+ 显示更多。
+    await folders.first().locator(".sb-history-folder-head").click();
+    await expect(history.getByTestId("sidebar-session")).toHaveCount(5);
+    await expect(history.getByTestId("sidebar-session").first()).toContainText("整理日志格式并补上单元测试");
+    await history.getByTestId("sidebar-history-more").click();
+    await expect(history.getByTestId("sidebar-session")).toHaveCount(6);
+    await shoot(page, "sidebar-history-folder");
+    // 切到按时间：全部会话一列，新到旧。
+    await page.getByTestId("sidebar-history-by-time").click();
+    await expect(page.getByTestId("sidebar-history-by-time")).toHaveAttribute("aria-pressed", "true");
+    await expect(folders).toHaveCount(0);
+    await expect(history.getByTestId("sidebar-session")).toHaveCount(6);
+    await expect(history.getByTestId("sidebar-session").first()).toContainText("整理日志格式并补上单元测试");
+    await shoot(page, "sidebar-history-time");
     await search.fill("zzz-no-match");
     await expect(page.getByTestId("task-row")).toHaveCount(0);
     await expect(sidebar).toContainText(/没有匹配|No matching/);
@@ -332,11 +360,11 @@ test("侧栏：搜索框在最上，其次 [新任务][打开文件夹]；搜索
     await expect(page.getByTestId("sidebar-session")).toHaveCount(1);
     await expect(page.getByTestId("sidebar-session").first()).toContainText("Fix the flaky login test on CI");
     await shoot(page, "sidebar-search");
-    // Esc 清空搜索，任务列表恢复。
+    // Esc 清空搜索，任务列表和全部历史会话恢复。
     await page.keyboard.press("Escape");
     await expect(search).toHaveValue("");
     await expect(page.getByTestId("task-row")).toHaveCount(1);
-    await expect(page.getByTestId("sidebar-session")).toHaveCount(0);
+    await expect(page.getByTestId("sidebar-session")).toHaveCount(6);
     // 设置图标不再是太阳：齿轮轮廓是一条闭合路径加中心圆。
     await expect(sidebar.locator(".sb-settings svg path")).toHaveCount(1);
     await expect(sidebar.locator(".sb-settings svg circle")).toHaveCount(1);

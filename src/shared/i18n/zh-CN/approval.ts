@@ -9,7 +9,6 @@ export const approval = {
   "desc.write": "读取和写入自动；执行命令前询问",
   "desc.yolo": "不询问",
   subagents: "子代理在后台以全部自动运行，不会单独询问。",
-  note: "改的是 omp 的配置（tools.approvalMode），终端里的 omp 也会跟着变。已经在运行的任务要重启后才生效。",
   loading: "审批…",
   yoloConfirmTitle: "使用全部自动？",
   yoloConfirmBody: "全部自动模式下，omp 不会在执行命令前询问你。",

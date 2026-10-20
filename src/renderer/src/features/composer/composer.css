@@ -565,6 +565,10 @@ html[data-motion="reduced"] .ctx-usage-chev {
 .qm-panel[data-inactive] {
   visibility: hidden;
 }
+/* 两页叠在同一格里、高度取较高的额度页：每日用量页的热力图在这块高度里竖直居中。 */
+.qm-panel[data-tab="daily"] {
+  justify-content: center;
+}
 /* 热力图按自己的宽度在对话框里居中（底下的统计行跟着它对齐），窄了再横向滚动 */
 .usage-dialog .uq-heat {
   align-self: center;
@@ -1612,8 +1616,11 @@ html[data-motion="reduced"] .ctx-usage-chev {
   background: var(--text-3);
 }
 
+/* 输入框右上方单独一行（在状态行之上），靠右；没有 job 时整行不渲染。 */
 .jobs-anchor {
-  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: var(--space-1-5);
 }
 .jobs-pill {
   display: inline-flex;
@@ -1621,9 +1628,9 @@ html[data-motion="reduced"] .ctx-usage-chev {
   gap: var(--space-1-5);
   height: var(--control-h-sm);
   padding: 0 var(--space-2);
-  border: 0;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
-  background: transparent;
+  background: var(--bg-raised);
   color: var(--text-2);
   font: inherit;
   font-size: var(--fs-xs);

@@ -10,7 +10,6 @@ export const approval = {
   "desc.write": "Reads and edits run automatically; asks before commands",
   "desc.yolo": "Never asks",
   subagents: "Subagents run in the background in full auto and don't ask separately.",
-  note: "This changes omp's config (tools.approvalMode), so omp in the terminal follows too. Running tasks pick it up after a restart.",
   loading: "Approval…",
   yoloConfirmTitle: "Use full auto?",
   yoloConfirmBody: "In full auto, omp won't ask before running commands.",

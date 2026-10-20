@@ -188,6 +188,7 @@ function UsageDialogBody({
                 key={id}
                 id={`${baseId}-panel-${id}`}
                 className="qm-panel"
+                data-tab={id}
                 role="tabpanel"
                 aria-labelledby={`${baseId}-${id}`}
                 data-inactive={tab !== id || undefined}

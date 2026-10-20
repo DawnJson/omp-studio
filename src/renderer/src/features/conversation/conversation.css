@@ -344,6 +344,10 @@
   max-width: none;
   color: var(--text-3);
 }
+/* 折叠的思考行：只写"思考"，和工具卡头部的工具名同一列 */
+.step-thinking {
+  color: var(--text-3);
+}
 .step-name {
   flex: none;
   color: var(--text);
@@ -523,7 +527,9 @@
   align-items: center;
   min-width: 0;
 }
+/* 头部左边的"图标 + 工具名"不收缩：参数（如很长的 bash 命令）再长也只挤自己，不压住工具名 */
 .step-head .step-row {
+  flex: none;
   width: auto;
 }
 .step-toggle.step-fill {

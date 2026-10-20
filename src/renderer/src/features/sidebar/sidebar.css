@@ -232,6 +232,61 @@
 .sb-session {
   width: 100%;
 }
+/* 历史会话：标题右边是"文件夹 | 时间"两段切换（排列方式，记在外壳状态里） */
+.sb-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-right: var(--space-1);
+}
+.sb-history-order {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}
+.sb-history-order-btn {
+  height: 20px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-3);
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  cursor: default;
+}
+.sb-history-order-btn:hover {
+  color: var(--text);
+}
+.sb-history-order-btn[aria-pressed="true"] {
+  background: var(--bg-raised);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+}
+.sb-history-order-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+/* 按文件夹：每个文件夹一行（箭头 + 文件夹名 + 条数），默认折叠，点开看会话 */
+.sb-history-folder-head {
+  width: 100%;
+  color: var(--text-2);
+}
+.sb-history-folder-head .sb-chevron {
+  flex: none;
+  color: var(--text-3);
+  transform: rotate(0deg);
+}
+.sb-history-folder-head .sb-chevron[data-open] {
+  transform: rotate(90deg);
+}
+.sb-history-folder-body {
+  padding-left: var(--space-3);
+}
 .sb-group-title {
   margin: 0;
   padding: var(--space-1) var(--space-2);

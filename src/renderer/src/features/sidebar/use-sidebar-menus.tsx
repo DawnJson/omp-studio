@@ -53,6 +53,12 @@ export function useSidebarMenus({ t, selectedTaskId, taskCount, onRename }: Menu
       label: t("task.more"),
       items: [
         { id: "rename", label: t("task.rename"), shortcut: "F2", onSelect: () => onRename(task) },
+        // 工作目录 = omp 读写文件、跑命令的地方；会话文件是 omp 自己存在 ~/.omp/agent/sessions 下的记录，两者不是一个地方。
+        {
+          id: "openFolder",
+          label: t("task.openFolder"),
+          onSelect: () => void attempt(t, () => window.studio.openTaskFolder(task.id)),
+        },
         {
           id: "reveal",
           label: t("task.reveal"),

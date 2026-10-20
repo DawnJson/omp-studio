@@ -333,6 +333,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
       </Reveal>
       <UsageLimitBanner limit={task.usageLimit} />
       <QueueStrip taskId={taskId} queue={task.queue} />
+      <JobsBoard taskId={taskId} jobs={jobs} projectPath={task.cwd} />
       <RunStatus task={task} transcript={transcript} jobs={jobs} />
       <div className="composer" data-gate={gate || undefined} onDragOver={onDragOver} onDrop={onDrop}>
         <SlashMenu
@@ -428,7 +429,6 @@ export function Composer({ taskId }: { taskId: TaskId }) {
           <UsageMeter task={task} />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
-          <JobsBoard taskId={taskId} jobs={jobs} projectPath={task.cwd} />
           <ContextMeter task={task} />
           <SessionCost usage={task.sessionUsage} provider={task.model?.key.provider ?? null} />
           <SendStop

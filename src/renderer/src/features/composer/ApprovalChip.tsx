@@ -57,7 +57,7 @@ export function ApprovalChip() {
         data-yolo={current === "yolo" || undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
-        title={`${t("approval.title")}\n${t("approval.note")}`}
+        title={t("approval.title")}
         onClick={() => setOpen((value) => !value)}
       >
         {current === "yolo" && <Shield size={14} />}
@@ -86,23 +86,20 @@ export function ApprovalChip() {
             </div>
           </div>
         ) : (
-          <>
-            {modes.map((entry) => (
-              <button
-                key={entry.mode}
-                type="button"
-                className="pop-item"
-                role="menuitemradio"
-                aria-checked={entry.mode === current}
-                title={entry.mode === "yolo" ? `${t(entry.desc)}\n${t("approval.subagents")}` : t(entry.desc)}
-                onClick={() => choose(entry.mode)}
-              >
-                <span className="pop-item-text">{t(entry.label)}</span>
-                {entry.mode === current && <Check size={14} />}
-              </button>
-            ))}
-            <p className="pop-note">{t("approval.note")}</p>
-          </>
+          modes.map((entry) => (
+            <button
+              key={entry.mode}
+              type="button"
+              className="pop-item"
+              role="menuitemradio"
+              aria-checked={entry.mode === current}
+              title={entry.mode === "yolo" ? `${t(entry.desc)}\n${t("approval.subagents")}` : t(entry.desc)}
+              onClick={() => choose(entry.mode)}
+            >
+              <span className="pop-item-text">{t(entry.label)}</span>
+              {entry.mode === current && <Check size={14} />}
+            </button>
+          ))
         )}
       </Popover>
     </div>

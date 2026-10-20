@@ -1,5 +1,5 @@
 // 侧栏的纯数据整理：项目标签、按项目分组、任务排序、等待中的任务。不依赖 React 和 window，可直接单测。
-import type { Project, ProjectId, TaskId, TaskState } from "../ipc.ts";
+import type { Project, ProjectId, SessionSummary, TaskId, TaskState } from "../ipc.ts";
 import { lastActivityAt } from "./task-time.ts";
 
 export interface ProjectGroupModel {
@@ -49,6 +49,45 @@ export function groupTasks(
     label: labels.get(project.id) ?? project.name,
     tasks: (byProject.get(project.id) ?? []).sort(byRecent),
   }));
+}
+
+export interface SessionFolderModel {
+  /** 分组键：规范化后的 cwd（斜杠统一、去尾斜杠、小写），同一文件夹不同写法归一组。 */
+  key: string;
+  /** 组里第一条会话的原始 cwd，用于悬停提示。 */
+  cwd: string;
+  /** 文件夹名；重名时带上级目录 `上级/名称`。 */
+  label: string;
+  /** 从新到旧。 */
+  sessions: SessionSummary[];
+}
+
+function folderKey(cwd: string): string {
+  return cwd.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+}
+
+function folderName(cwd: string): string {
+  const parts = cwd.split(/[\\/]+/).filter((part) => part !== "");
+  return parts[parts.length - 1] ?? cwd;
+}
+
+/** 历史会话按 cwd 分组：组按其中最新的会话从新到旧，组内会话从新到旧。 */
+export function groupSessionsByFolder(sessions: readonly SessionSummary[]): SessionFolderModel[] {
+  const groups = new Map<string, SessionFolderModel>();
+  for (const session of [...sessions].sort((a, b) => b.modifiedAt - a.modifiedAt)) {
+    const key = folderKey(session.cwd);
+    const group = groups.get(key);
+    if (group) group.sessions.push(session);
+    else groups.set(key, { key, cwd: session.cwd, label: folderName(session.cwd), sessions: [session] });
+  }
+  const list = [...groups.values()];
+  const nameCount = new Map<string, number>();
+  for (const group of list) nameCount.set(group.label, (nameCount.get(group.label) ?? 0) + 1);
+  for (const group of list) {
+    const parent = (nameCount.get(group.label) ?? 0) > 1 ? parentName(group.cwd) : "";
+    if (parent !== "") group.label = `${parent}/${group.label}`;
+  }
+  return list;
 }
 
 /** 等你确认的任务，等得最久的在前。 */
