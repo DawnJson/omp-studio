@@ -387,7 +387,7 @@
 
 **运行中（照终端版 omp，2026-10-19 起）**——这一轮的步骤直接列在对话里，不折叠、不套底色卡片：思考是 `process.thought` + 一行摘要（`--text-3`），每个工具一行 `[图标 14][工具名 粗体][参数摘要 mono --text-3 省略]`，有输出时（搜索结果、diff 带行号、bash 的 `$ 命令` + 输出）就在行下展开，待办工具这类没有可读输出的行默认收起（chevron）；新步骤追加在底部（用户不在底部时不改变视口）。
 
-“在做什么”和计时不在对话里，而在输入框正上方的状态行（`RunStatus`，`features/composer/RunStatus.tsx`）：左边 `[转圈 14][已用时间 tabular][│][当前动作 单行省略]`，右边是 `TodoBoard`（§4.6）；两边都没有内容时整行收起。
+"在做什么"和计时不在对话里，而在输入框正上方的状态行（`RunStatus`，`features/composer/RunStatus.tsx`）：左边 `[点阵球 20][已用时间 tabular][|][当前动作 单行省略]`，右边是 `TodoBoard`（§4.6）；两边都没有内容时整行收起。点阵球（`DotSphereMark` + `dot-sphere.ts`，2026-10-20 起替代转圈）：3×3×3 魔方去掉中心的 26 个点推到球面上，`--accent` 填色，近大远小、近实远淡；像拧魔方一样每次随机转一层 90°（420ms，停 140ms，不连续拧同一根轴），整球 7 秒自转一圈，略俯视。逐帧由脚本改 `<circle>` 属性；`--play-state: paused`（减少动效）时停在当前一帧。等你确认时换成静止的 `--st-waiting` 圆点。
 
 - 当前动作文字优先 `tool_execution_start.intent` 原话（✔ 主代理事件带 `intent`，可选字段）；缺失时 `tool.verb.*` 映射（`read`→`tool.verb.read` …，未知工具 `tool.verb.other`）。其它阶段：`process.starting`、`process.thinking`、`process.replying`、`process.retrying`、`process.compacting`（来自 `auto_retry_*`、`auto_compaction_*`）。有进行中的子代理时尾部追加 `· {n} 个子代理`。
 - 一次只换一条：旧文字 `--dur-fast` 淡出、新文字淡入，**不位移**，高度固定（`conversation/live-status.ts`）。

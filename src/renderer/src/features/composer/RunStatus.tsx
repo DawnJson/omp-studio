@@ -9,6 +9,7 @@ import { liveStatusText, scanLive } from "../conversation/live-status.ts";
 import { summarizeTodos } from "../conversation/todo-model.ts";
 import { useNow } from "../conversation/use-now.ts";
 import { useWaitingSince } from "../conversation/use-waiting-since.ts";
+import { DotSphereMark } from "./DotSphereMark.tsx";
 import { TodoBoard } from "./TodoBoard.tsx";
 import { useHeld } from "./use-held.ts";
 
@@ -31,7 +32,11 @@ function RunStatusRow({ task, transcript, waitingSince }: RowProps) {
     <div className="run-status" data-testid="run-status">
       {busy && (
         <div className="run-main" data-testid="run-status-main" data-waiting={task.status === "needs_you" || undefined}>
-          <span className="run-mark" aria-hidden="true" />
+          {task.status === "needs_you" ? (
+            <span className="run-mark run-mark-waiting" aria-hidden="true" />
+          ) : (
+            <DotSphereMark className="run-mark" />
+          )}
           {task.runStartedAt !== null && (
             <>
               <span className="run-elapsed">{formatElapsed(now - task.runStartedAt)}</span>
