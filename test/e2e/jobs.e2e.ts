@@ -87,14 +87,17 @@ test("子代理完成、bash 还在跑：1/2 个后台任务 · 1 个完成；�
     const pill = page.getByTestId("jobs-pill");
     await expect(pill.getByTestId("jobs-pill-running")).toHaveText("1");
     await expect(pill.getByTestId("jobs-pill-done")).toHaveText("1");
-    // 胶囊不在输入框里：在输入框右上方单独一行（状态行之上），右边和输入框对齐（同 Tern 里的 omp）。
+    // 胶囊不在输入框里：在输入框右上方，和状态行同一行、上下居中对齐，右边和输入框对齐。
     await expect(page.locator(".composer").getByTestId("jobs-pill")).toHaveCount(0);
-    const [pillBox, statusBox, composerBox] = await Promise.all([
+    await page.waitForTimeout(400); // 等状态行的展开动画走完再量
+    const [pillBox, mainBox, composerBox] = await Promise.all([
       pill.boundingBox(),
-      page.getByTestId("run-status").boundingBox(),
+      page.getByTestId("run-status-main").boundingBox(),
       page.locator(".composer").boundingBox(),
     ]);
-    expect(pillBox && statusBox && pillBox.y + pillBox.height <= statusBox.y + 1).toBe(true);
+    expect(pillBox && mainBox && Math.abs(pillBox.y + pillBox.height / 2 - (mainBox.y + mainBox.height / 2)) <= 1).toBe(
+      true,
+    );
     expect(
       pillBox && composerBox && Math.abs(pillBox.x + pillBox.width - (composerBox.x + composerBox.width)) <= 2,
     ).toBe(true);

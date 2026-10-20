@@ -333,8 +333,10 @@ export function Composer({ taskId }: { taskId: TaskId }) {
       </Reveal>
       <UsageLimitBanner limit={task.usageLimit} />
       <QueueStrip taskId={taskId} queue={task.queue} />
-      <JobsBoard taskId={taskId} jobs={jobs} projectPath={task.cwd} />
-      <RunStatus task={task} transcript={transcript} jobs={jobs} />
+      <div className="status-bar">
+        <RunStatus task={task} transcript={transcript} jobs={jobs} />
+        <JobsBoard taskId={taskId} jobs={jobs} projectPath={task.cwd} />
+      </div>
       <div className="composer" data-gate={gate || undefined} onDragOver={onDragOver} onDrop={onDrop}>
         <SlashMenu
           id="slash-menu"

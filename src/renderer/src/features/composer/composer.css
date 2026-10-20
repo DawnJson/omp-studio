@@ -678,7 +678,18 @@ html[data-motion="reduced"] .ctx-usage-chev {
   cursor: pointer;
 }
 
-/* 状态栏：输入框上方一行。左 = 用时 + 当前活动，右 = 待办板；窄了先收右边的文字，再省略左边的活动。
+/* 输入框上方一行：左 = 状态栏（RunStatus，可收起），右 = 后台任务胶囊（JobsBoard）。
+   两边底部留白相同（--space-2），上下居中后胶囊正好和状态文字同一条中线；状态栏收起时胶囊仍靠右。 */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.status-bar > .reveal {
+  flex: 1 1 0;
+  min-width: 0;
+}
+/* 状态栏：左 = 用时 + 当前活动，右 = 待办板；窄了先收右边的文字，再省略左边的活动。
    间距放在 padding 里：Reveal 收起时整行连同间距一起缩没。 */
 .run-status {
   display: flex;
@@ -1581,11 +1592,11 @@ html[data-motion="reduced"] .ctx-usage-chev {
   background: var(--text-3);
 }
 
-/* 输入框右上方单独一行（在状态行之上），靠右；没有 job 时整行不渲染。 */
+/* 输入框右上方，和状态栏同一行（状态栏收起时仍靠右）；底部留白同 .run-status，没有 job 时不渲染。 */
 .jobs-anchor {
-  display: flex;
-  justify-content: flex-end;
-  padding-bottom: var(--space-1-5);
+  flex: none;
+  margin-left: auto;
+  padding-bottom: var(--space-2);
 }
 .jobs-pill {
   display: inline-flex;
