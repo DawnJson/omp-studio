@@ -199,8 +199,6 @@ export interface ContextParts {
 export interface ModelUsage {
   provider: string;
   modelId: string;
-  /** 回复条数。 */
-  replies: number;
   input: number;
   output: number;
   cacheRead: number;

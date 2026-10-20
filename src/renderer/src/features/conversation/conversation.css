@@ -72,10 +72,11 @@
     transform: none;
   }
 }
+/* 聊天式：用户消息靠右，最宽到列宽的 85%（短消息只占文字的宽度）。 */
 .user {
   position: relative;
-  align-self: flex-start;
-  max-width: 100%;
+  align-self: flex-end;
+  max-width: 85%;
   animation: turn-in var(--dur-base) var(--ease-out);
 }
 .user-bubble {
@@ -133,6 +134,7 @@
 .user-images {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-2);
   margin-bottom: var(--space-2);
 }
@@ -179,15 +181,27 @@
 .answer {
   margin-bottom: calc(var(--control-h-sm) - var(--space-3));
 }
+/* 气泡下方右侧一行，不换行（气泡很窄时也不会把按钮挤成竖排）。 */
 .user-actions {
   position: absolute;
-  left: 0;
+  right: 0;
   top: 100%;
   display: flex;
   gap: var(--space-1);
+  white-space: nowrap;
 }
 .user-actions .hover-action {
   position: static;
+}
+.hover-icon {
+  display: inline-grid;
+  place-items: center;
+  width: var(--control-h-sm);
+  padding: 0;
+}
+.hover-icon:disabled {
+  cursor: default;
+  opacity: 0.4;
 }
 .answer-copy {
   left: 0;

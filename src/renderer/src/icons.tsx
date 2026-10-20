@@ -44,6 +44,13 @@ export const CopyIcon = (props: IconProps) => (
     <path d="M10.5 3.5v-.2a1 1 0 0 0-1-1h-5a1 1 0 0 0-1 1v7.2a1 1 0 0 0 1 1h.2" />
   </Icon>
 );
+/** 本会话 token：一摞（像数据库的柱体）。 */
+export const Tokens = (props: IconProps) => (
+  <Icon {...props}>
+    <ellipse cx="8" cy="4.5" rx="4.5" ry="2" />
+    <path d="M3.5 4.5v7c0 1.1 2 2 4.5 2s4.5-.9 4.5-2v-7M3.5 8c0 1.1 2 2 4.5 2s4.5-.9 4.5-2" />
+  </Icon>
+);
 export const Close = (props: IconProps) => (
   <Icon {...props}>
     <path d="m4 4 8 8M12 4l-8 8" />

@@ -171,7 +171,7 @@ function UsageDialogBody({
                 role="tab"
                 className="segment"
                 aria-selected={tab === id}
-                aria-controls={`${baseId}-panel`}
+                aria-controls={`${baseId}-panel-${id}`}
                 tabIndex={tab === id ? 0 : -1}
                 data-checked={tab === id || undefined}
                 data-testid={`usage-tab-${id}`}
@@ -181,14 +181,21 @@ function UsageDialogBody({
               </button>
             ))}
           </div>
-          <div
-            id={`${baseId}-panel`}
-            className="qm-panel"
-            role="tabpanel"
-            aria-labelledby={`${baseId}-${tab}`}
-            data-testid={tab === "quota" ? "quota-section" : "heatmap-section"}
-          >
-            {tab === "quota" ? <Quota provider={provider} /> : <DailyUsage />}
+          {/* 两页叠在同一格里，没选中的只是看不见：对话框按高的那页定尺寸，切页时大小不变。 */}
+          <div className="qm-stack">
+            {tabs.map((id) => (
+              <div
+                key={id}
+                id={`${baseId}-panel-${id}`}
+                className="qm-panel"
+                role="tabpanel"
+                aria-labelledby={`${baseId}-${id}`}
+                data-inactive={tab !== id || undefined}
+                data-testid={id === "quota" ? "quota-section" : "heatmap-section"}
+              >
+                {id === "quota" ? <Quota provider={provider} /> : <DailyUsage />}
+              </div>
+            ))}
           </div>
         </div>
       </div>

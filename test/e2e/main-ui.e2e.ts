@@ -145,7 +145,9 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
     const tools = page.locator(".composer-tools");
     const meter = tools.getByTestId("usage-meter");
     await expect(meter).toBeVisible();
-    await expect(meter.getByTestId("usage-tokens")).toContainText("9.2K");
+    // 本会话 token 只是一个图标：数字在 aria-label / 悬停提示里，按钮上没有文字。
+    await expect(meter.getByTestId("usage-tokens")).toHaveAttribute("aria-label", /9\.2K/);
+    await expect(meter.getByTestId("usage-tokens")).toHaveText("");
     const chipBox = await page.getByTestId("model-chip").boundingBox();
     const tokensBox = await meter.getByTestId("usage-tokens").boundingBox();
     expect(tokensBox?.x ?? 0).toBeGreaterThanOrEqual((chipBox?.x ?? 0) + (chipBox?.width ?? 0));
@@ -192,19 +194,24 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
     await expect(page.getByTestId("model-breakdown")).toBeVisible();
     await shoot(page, "model-usage");
     await page.keyboard.press("Escape");
-    // 点费用：居中的对话框（不是贴着按钮的浮层），顶上是"订阅额度 / 每日用量"切换框，默认订阅额度，←/→ 切页；
-    // 没有"去设置看全年"；Esc 关闭后焦点回到费用。
+    // 点费用：居中的对话框（不是贴着按钮的浮层），顶上是"订阅额度 / 每日用量"切换框，默认订阅额度，←/→ 切页，
+    // 切页时对话框大小不变；没有"去设置看全年"；Esc 关闭后焦点回到费用。
     await cost.click();
     const overview = page.getByRole("dialog", { name: /用量与额度|Usage and quota/ });
     await expect(overview).toBeVisible();
     await expect(overview.getByTestId("usage-tab-quota")).toHaveAttribute("aria-selected", "true");
     await expect(overview.getByTestId("quota-section")).toBeVisible();
-    await expect(overview.getByTestId("heatmap-section")).toHaveCount(0);
+    await expect(overview.getByTestId("heatmap-section")).toBeHidden();
     await overview.getByTestId("usage-tab-quota").focus();
     await page.keyboard.press("ArrowRight");
     await expect(overview.getByTestId("usage-tab-daily")).toBeFocused();
     await expect(overview.getByTestId("heatmap-section")).toBeVisible();
-    await expect(overview.getByTestId("quota-section")).toHaveCount(0);
+    await expect(overview.getByTestId("quota-section")).toBeHidden();
+    const dailyBox = await overview.boundingBox();
+    await page.keyboard.press("ArrowLeft");
+    await expect(overview.getByTestId("quota-section")).toBeVisible();
+    expect(await overview.boundingBox()).toEqual(dailyBox);
+    await page.keyboard.press("ArrowRight");
     // 每日用量只按花费看：没有 token / 花费 / 请求数切换。对话框在窗口正中。
     await expect(overview.getByTestId("usage-metric")).toHaveCount(0);
     const dialogBox = await overview.boundingBox();

@@ -93,6 +93,14 @@ describe("帧翻译的细节", () => {
       { type: "notice", level: "warning", message: "too big", at: 0 },
     ]);
   });
+
+  it("omp 的工具设备挂载说明（source xdev）不进对话流，别的 notice 照常", () => {
+    const mounted = "xd://: mounted mcp__tavily_crawl, mcp__tavily_search";
+    expect(translateFrame({ type: "notice", level: "info", message: mounted, source: "xdev" }, 1, 0)).toEqual([]);
+    expect(translateFrame({ type: "notice", level: "info", message: "hi" }, 1, 0)).toEqual([
+      { type: "notice", level: "info", message: "hi", at: 0 },
+    ]);
+  });
 });
 
 const textDelta = (key: string, text: string, contentIndex = 0): TranscriptEvent => ({

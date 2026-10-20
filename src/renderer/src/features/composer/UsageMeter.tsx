@@ -1,9 +1,10 @@
-// 输入框工具行里的用量仪表（输入框下方不再有单独一行），等宽小字：
-// 模型、审批胶囊右边是本会话 token 和速度（UsageMeter）；发送键左边依次是上下文圆环（ContextMeter）和费用（SessionCost）。
-// 点圆环弹出上下文构成（任务里还有"压缩上下文"）；点本会话 token 弹出按模型的明细。
+// 输入框工具行里的用量仪表（输入框下方不再有单独一行）：
+// 模型、审批胶囊右边是本会话 token 图标和速度（UsageMeter）；发送键左边依次是上下文圆环（ContextMeter）和费用（SessionCost）。
+// 点圆环弹出上下文构成（任务里还有"压缩上下文"）；点 token 图标弹出按模型的明细。
 import { useEffect, useState, type ReactNode } from "react";
 import type { ModelOption, ProjectId, TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { Tokens } from "../../icons.tsx";
 import { compactContext } from "./actions.ts";
 import { ContextBreakdown, prefetchCompaction, type ContextBreakdownProps } from "./ContextBreakdown.tsx";
 import { ModelBreakdown } from "./ModelBreakdown.tsx";
@@ -130,20 +131,24 @@ export function DraftContextMeter({ model, projectId }: { model: ModelOption | n
   );
 }
 
+/** 本会话 token：只有一个图标，数字在悬停提示 / aria-label 和点开的明细里。 */
 function TokensMeter({ usage, task }: { usage: NonNullable<TaskState["sessionUsage"]>; task: TaskState }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  const label = t("composer.usage.tokens", { n: formatCount(usage.tokens.total) });
   return (
     <div className="pop-anchor">
       <button
         type="button"
-        className="usage-item"
+        className="usage-item usage-tokens"
         data-testid="usage-tokens"
+        aria-label={label}
+        title={label}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        {t("composer.usage.tokens", { n: formatCount(usage.tokens.total) })}
+        <Tokens size={16} />
       </button>
       <Popover open={open} onClose={() => setOpen(false)} width={300} label={t("composer.breakdown.title")}>
         <ModelBreakdown task={task} />

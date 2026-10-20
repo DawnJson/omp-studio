@@ -29,9 +29,9 @@ describe("summarizeSessionUsage", () => {
       reply("a3", "a2", "opus", 50, 0.25),
     ].join("\n");
     const result = summarizeSessionUsage(text);
-    expect(result.models.map((row) => [row.modelId, row.replies, row.total, row.cost])).toEqual([
-      ["haiku", 1, 300, 0.5],
-      ["opus", 2, 150, 1.25],
+    expect(result.models.map((row) => [row.modelId, row.total, row.cost])).toEqual([
+      ["haiku", 300, 0.5],
+      ["opus", 150, 1.25],
     ]);
     expect(result.whole).toBeNull();
     expect(summarizeSessionUsage("").models).toEqual([]);
@@ -45,7 +45,7 @@ describe("summarizeSessionUsage", () => {
       "{not json",
       '{"type":"message","id":"half',
     ].join("\n");
-    expect(summarizeSessionUsage(text).models).toMatchObject([{ total: 10, replies: 1 }]);
+    expect(summarizeSessionUsage(text).models).toMatchObject([{ total: 10 }]);
   });
 
   it("压缩过：从 firstKeptEntryId 起算，whole 是整个分支", () => {
@@ -57,7 +57,7 @@ describe("summarizeSessionUsage", () => {
       reply("a3", "c1", "opus", 30, 0.3),
     ].join("\n");
     const result = summarizeSessionUsage(text);
-    expect(result.models).toMatchObject([{ total: 230, replies: 2 }]);
+    expect(result.models).toMatchObject([{ total: 230 }]);
     expect(result.compactions).toBe(1);
     expect(result.whole).toEqual({ total: 1230, cost: 12.3 });
   });

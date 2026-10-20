@@ -1,4 +1,4 @@
-// 点"本会话 N token"弹出的按模型明细（照 Claude Code 的 Usage → Breakdown）：每个模型的输入 / 输出 / 缓存读取 / 缓存写入和费用。
+// 点工具行的 token 图标弹出的按模型明细（照 Claude Code 的 Usage → Breakdown）：头一行本会话 token 总数，每个模型的输入 / 输出 / 缓存读取 / 缓存写入和费用。
 // 数据由主进程读会话文件得到（getSessionModelUsage），范围和 omp 的会话统计一致；压缩过时底部另给整个会话（含压缩前）的合计。
 // 打开时读一次；打开期间一轮结束（updatedAt 变了）再读。
 import { useEffect, useState } from "react";
@@ -28,7 +28,10 @@ export function ModelBreakdown({ task }: { task: TaskState }) {
 
   return (
     <div className="mb" data-testid="model-breakdown">
-      <strong className="mb-title">{t("composer.breakdown.title")}</strong>
+      <div className="ctx-head">
+        <strong className="mb-title">{t("composer.breakdown.title")}</strong>
+        {task.sessionUsage !== null && <span className="ctx-num">{formatCount(task.sessionUsage.tokens.total)}</span>}
+      </div>
       {load.kind === "loading" && <p className="ctx-note">{t("composer.breakdown.loading")}</p>}
       {load.kind === "error" && (
         <p className="ctx-note" role="alert">
@@ -65,7 +68,6 @@ export function ModelBreakdown({ task }: { task: TaskState }) {
                 <dd className="ctx-num">{formatCount(row.cacheWrite)}</dd>
               </div>
             </dl>
-            <div className="ctx-note mb-replies">{t("composer.breakdown.replies", { count: row.replies })}</div>
           </section>
         ))}
       {load.kind === "ready" && load.data.whole !== null && (

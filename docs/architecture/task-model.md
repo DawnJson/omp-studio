@@ -49,7 +49,7 @@
 
 ## 对话流
 
-`translateFrame(frame, gen, at)`（纯函数）把帧译成 `TranscriptEvent`：去掉 `message_update` 里的 `partial`（delta 模式本来没有），丢 `toolcall_delta`；`extension_error`/`rpc_frame_error` 变 `notice`；compaction/retry 变 `status_line`；`subagent_lifecycle` 变 `subagent`。语义与 `test/transcript.test.ts` 里的假主进程一致。
+`translateFrame(frame, gen, at)`（纯函数）把帧译成 `TranscriptEvent`：去掉 `message_update` 里的 `partial`（delta 模式本来没有），丢 `toolcall_delta`；丢掉 `source: "xdev"` 的 `notice`（omp 的工具设备挂载 / 卸载说明 `xd://: mounted …`，omp 源码里由 `emitNotice("info", …, "xdev")` 发出，新会话开头会出现一串，对用户没有用）；`extension_error`/`rpc_frame_error` 变 `notice`；compaction/retry 变 `status_line`；`subagent_lifecycle` 变 `subagent`。语义与 `test/transcript.test.ts` 里的假主进程一致。
 
 `EventBatcher`：每任务一个。16 ms 或 64 个事件推一批；批内合并相邻同消息同 `contentIndex` 的 `text_delta`/`thinking_delta`，同 `toolCallId` 的 `tool_update` 只留最后一个。**快照只反映已推送的批次**（合并后的事件数才是 `seq`），`snapshot()` 先冲刷再返回，所以 `getTranscript` 的 `seq` 和渲染进程累计应用的事件数一致。状态变化（`dialog`、`prompt_result`、`settled`、`agent_start`）先冲刷对话流再推 `taskState`。
 

@@ -58,10 +58,9 @@ function addUsage(models: Map<string, ModelUsage>, entry: Entry): void {
   const key = `${provider}/${modelId}`;
   let row = models.get(key);
   if (row === undefined) {
-    row = { provider, modelId, replies: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, cost: 0 };
+    row = { provider, modelId, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, cost: 0 };
     models.set(key, row);
   }
-  row.replies++;
   row.input += num(usage["input"]);
   row.output += num(usage["output"]);
   row.cacheRead += num(usage["cacheRead"]);

@@ -55,7 +55,6 @@ export const composer = {
   "breakdown.loading": "Loading…",
   "breakdown.failed": "Couldn't read the session file: {message}",
   "breakdown.empty": "No replies yet",
-  "breakdown.replies": { one: "{count} reply", other: "{count} replies" },
   "breakdown.whole": {
     one: "Compacted once; the whole session (including before compaction) used {tokens} tokens · {cost}",
     other: "Compacted {count} times; the whole session (including before compaction) used {tokens} tokens · {cost}",

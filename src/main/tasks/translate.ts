@@ -63,6 +63,8 @@ export function translateFrame(frame: RpcServerFrame, gen: number, at: number): 
     case "session_settled":
       return [{ type: "settled", at }];
     case "notice":
+      // omp 工具设备挂载 / 卸载的说明（"xd://: mounted ..."）是写给模型的，终端里也不显示给人看：丢掉。
+      if (frame.source === "xdev") return [];
       return [{ type: "notice", level: frame.level, message: frame.message, at }];
     case "extension_error":
       return [{ type: "notice", level: "error", message: `${frame.event}: ${frame.error}`, at }];

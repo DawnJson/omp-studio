@@ -307,6 +307,24 @@ button.usage-item {
 button.usage-item:hover {
   color: var(--text);
 }
+/* 本会话 token 只是一个图标（数字在悬停提示和点开的明细里），同上下文圆环一样是方形按钮：悬停 / 打开时加浅底。 */
+button.usage-tokens {
+  justify-content: center;
+  width: var(--control-h-sm);
+  color: var(--text-3);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+button.usage-tokens:hover,
+button.usage-tokens[aria-expanded="true"] {
+  background: var(--bg-hover);
+  color: var(--text-2);
+}
+button.usage-tokens:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
 .pop-anchor:has(> [data-testid="usage-tokens"]) + [data-testid="usage-tps"]::before {
   content: "· ";
   margin-left: calc(var(--space-1-5) - var(--space-3));
@@ -317,11 +335,6 @@ button.usage-item:hover {
 }
 @container (max-width: 860px) {
   .usage-tps {
-    display: none;
-  }
-}
-@container (max-width: 760px) {
-  .usage .pop-anchor:has(> [data-testid="usage-tokens"]) {
     display: none;
   }
 }
@@ -483,7 +496,8 @@ button.usage-item:hover {
   margin: 0;
 }
 
-/* 费用点开的用量对话框（居中，同模型选择框的外观）：顶上"订阅额度 / 每日用量"切换框，下面是选中的那页；高度随内容。
+/* 费用点开的用量对话框（居中，同模型选择框的外观）：顶上"订阅额度 / 每日用量"切换框，下面是选中的那页；
+   两页叠在同一格里，对话框按高的那页定尺寸，切页时大小不变。
    账号块和热力图的组件、样式见 settings/usage.css，这里只把额度收紧：账号名和邮箱一行，每个窗口一行（名称 | 条 | 剩余 | 重置），行距小。 */
 .usage-dialog {
   display: flex;
@@ -509,10 +523,19 @@ button.usage-item:hover {
 .qm-tabs .segment {
   padding: 0 var(--space-3);
 }
+.qm-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
 .qm-panel {
+  grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  min-width: 0;
+}
+.qm-panel[data-inactive] {
+  visibility: hidden;
 }
 .usage-dialog .uq-block-grid {
   gap: var(--space-1-5);
