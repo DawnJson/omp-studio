@@ -5,6 +5,7 @@ import {
   buildInfo,
   defaultOpen,
   diffStats,
+  filePaths,
   formatElapsed,
   headerTarget,
   parseDiff,
@@ -103,9 +104,24 @@ describe("头部与正文汇总", () => {
   it("edit 有 diff：默认展开，头部显示 +a −d；bash 展开；read 不展开", () => {
     const edit = buildBody("edit", {}, { details: { diff: unified } }, "ok");
     expect(buildInfo("edit", {}, edit)).toEqual({ kind: "diff", added: 2, removed: 1 });
-    expect(defaultOpen("edit", edit)).toBe(true);
-    expect(defaultOpen("bash", buildBody("bash", { command: "echo 1" }, null, "1\n"))).toBe(true);
-    expect(defaultOpen("read", buildBody("read", { path: "a" }, null, "text"))).toBe(false);
+    expect(defaultOpen(edit)).toBe(true);
+    expect(defaultOpen(buildBody("bash", { command: "echo 1" }, null, "1\n"))).toBe(true);
+    expect(defaultOpen(buildBody("read", { path: "a" }, null, "text"))).toBe(true);
+    expect(defaultOpen(buildBody("read", { path: "a" }, null, ""))).toBe(false);
+  });
+
+  it("filePaths：read 多文件 / 单文件带选择器 / hashline 编辑", () => {
+    expect(filePaths("read", { path: "a.ts,b/c.ts" })).toEqual(["a.ts", "b/c.ts"]);
+    expect(filePaths("read", { path: "a.ts:1-5,10-20" })).toEqual(["a.ts"]);
+    expect(filePaths("read", { paths: ["x.md:3-", "y.md"] })).toEqual(["x.md", "y.md"]);
+    expect(filePaths("edit", { input: "[src/a.ts#1A2B]\nPUT 1:\n+x\n[src/b.ts#3C4D]\n" })).toEqual([
+      "src/a.ts",
+      "src/b.ts",
+    ]);
+    expect(filePaths("bash", { command: "ls" })).toEqual([]);
+    expect(filePaths("read", { path: "proc://" })).toEqual([]);
+    expect(filePaths("read", { path: "history://ReadBeta" })).toEqual([]);
+    expect(filePaths("read", { path: "C:/work/a.md" })).toEqual(["C:/work/a.md"]);
   });
 
   it("grep 头部：命中数与文件数；task：代理数与后台", () => {

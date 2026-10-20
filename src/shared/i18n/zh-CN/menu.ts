@@ -11,5 +11,4 @@ export const menu = {
   themeLight: "浅色",
   themeDark: "深色",
   helpFeedback: "帮助与反馈",
-  about: "关于 omp-studio",
 } satisfies Record<string, MessageEntry>;

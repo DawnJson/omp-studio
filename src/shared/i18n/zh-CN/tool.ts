@@ -16,4 +16,6 @@ export const tool = {
   "output.unchanged": "{count} 行未改动",
   "output.showAll": "显示全部",
   "output.empty": "无输出",
+  "output.collapse": "收起",
+  "info.readFiles": "{count} 个文件",
 } satisfies Record<string, MessageEntry>;

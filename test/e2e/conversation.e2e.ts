@@ -168,7 +168,7 @@ test("流式中：工具调用直接列在对话里，输入框上方是计时 +
   }
 });
 
-test("完成：过程折叠成一行，结论在前，最终内容与 fixture 的 message_end 一致", async () => {
+test("完成：过程默认展开，结论在前，最终内容与 fixture 的 message_end 一致", async () => {
   const { launched, cleanup } = await start(null, "bash-tool");
   try {
     const { page } = launched;
@@ -177,9 +177,9 @@ test("完成：过程折叠成一行，结论在前，最终内容与 fixture �
     await expect(answer).toBeVisible({ timeout: 20_000 });
     await expect(answer).not.toHaveAttribute("data-live", "true", { timeout: 20_000 });
     expect(plain((await answer.textContent()) ?? "")).toContain(plain(await finalAnswer("bash-tool")));
-    // 回放瞬间跑完（不足 1 秒）：按规范不显示"已工作"行；过程默认不在对话流里。
-    await expect(page.getByTestId("process-done")).toHaveCount(0);
-    await expect(page.locator(".details")).toHaveCount(0);
+    // 回放瞬间跑完（不足 1 秒）也显示工具卡，只是标题里没有时长。
+    await expect(page.getByTestId("process-done")).toBeVisible();
+    await expect(page.locator(".details .step-tool")).toHaveCount(1);
     const stuck = await inPage<boolean>(
       page,
       ".scroller",
@@ -192,7 +192,7 @@ test("完成：过程折叠成一行，结论在前，最终内容与 fixture �
   }
 });
 
-test("慢速回放：折叠行显示已工作 N 秒 · M 次工具调用，点开看到工具列表（bash 默认带输出），再点收起", async () => {
+test("慢速回放：标题行显示已工作 N 秒 · M 次工具调用，工具卡默认展开（bash 带命令和输出），可收起再展开", async () => {
   const { launched, cleanup } = await start(await slowFixture("bash-tool"), "slow");
   try {
     const { page } = launched;
@@ -201,18 +201,20 @@ test("慢速回放：折叠行显示已工作 N 秒 · M 次工具调用，点�
     await expect(done).toBeVisible({ timeout: 20_000 });
     await expect(done).toContainText(/(已工作|Worked for)/);
     await expect(done).toContainText(/1/);
-    await expect(page.locator(".details")).toHaveCount(0);
-    await shoot(page, "folded");
-    await done.locator(".process-row").click();
+    // 像 omp：结束后默认展开，卡片里直接是 $ 命令 + 输出。
     await expect(page.locator(".step-tool")).toHaveCount(1);
     await expect(page.locator(".step-tool .step-name")).toContainText("Bash");
-    // bash 默认展开预览：$ 命令 + 输出；点行头收起。
     await expect(page.locator(".step-output")).toContainText("omp-studio");
     await shoot(page, "expanded");
-    await page.locator(".step-tool .step-row").click();
+    // 卡头收起 / 展开单张卡。
+    await page.locator(".step-tool .step-toggle").first().click();
     await expect(page.locator(".step-output")).toHaveCount(0);
+    await page.locator(".step-tool .step-toggle").first().click();
+    await expect(page.locator(".step-output")).toBeVisible();
+    // 标题行收起整个过程。
     await done.locator(".process-row").click();
     await expect(page.locator(".details")).toHaveCount(0);
+    await shoot(page, "folded");
   } finally {
     await cleanup();
   }
@@ -403,12 +405,12 @@ test("停止请求失败后按钮会复位；Ctrl O 展开/收起最近的过程
     await expect(page.getByTestId("stop-button")).toBeEnabled();
 
     await expect(page.getByTestId("process-done")).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator(".details")).toHaveCount(0);
+    await expect(page.locator(".details")).toHaveCount(1);
     await page.locator(".scroller").focus();
     await page.keyboard.press("Control+o");
-    await expect(page.locator(".details")).toHaveCount(1);
-    await page.keyboard.press("Control+o");
     await expect(page.locator(".details")).toHaveCount(0);
+    await page.keyboard.press("Control+o");
+    await expect(page.locator(".details")).toHaveCount(1);
   } finally {
     await cleanup();
   }

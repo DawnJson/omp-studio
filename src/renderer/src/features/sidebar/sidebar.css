@@ -69,10 +69,16 @@
   border-radius: var(--radius-md);
   transition: border-color var(--dur-instant) var(--ease-out);
 }
-/* 聚焦时不加彩色边框和光晕：和悬停一样只把边框加深一档 */
-.sb-search:hover,
-.sb-search:focus-within {
+/* 聚焦时由外层圆角容器画焦点环；输入框自己的矩形 outline 去掉（.sb input:focus-visible 特异性更高，要同级覆盖） */
+.sb-search:hover {
   border-color: var(--border-strong);
+}
+.sb-search:focus-within {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--focus-ring);
+}
+.sb .sb-search input:focus-visible {
+  outline: none;
 }
 .sb-search input {
   flex: 1;
@@ -456,7 +462,7 @@
   outline: none;
 }
 
-/* ───── 状态点 ───── */
+/* ───── 状态图标：转圈 / 对勾 / 感叹号 / 错误；形状 + 颜色双信号 ───── */
 .sb-dot {
   position: relative;
   display: inline-flex;
@@ -466,44 +472,33 @@
   width: var(--icon-md);
   height: var(--icon-md);
 }
-.sb-dot-running::before,
-.sb-dot-running::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  border-radius: var(--radius-pill);
+.sb-dot svg {
+  display: block;
 }
-.sb-dot-running::before {
-  width: 8px;
-  height: 8px;
-  margin: -4px 0 0 -4px;
-  background: var(--st-running);
+.sb-dot-running {
+  color: var(--st-running);
 }
-.sb-dot-running::after {
-  width: var(--icon-md);
-  height: var(--icon-md);
-  margin: calc(var(--icon-md) / -2) 0 0 calc(var(--icon-md) / -2);
-  border: 1px solid var(--st-running);
-  animation: sb-breathe var(--dur-breathe) var(--ease-out) infinite;
+.sb-dot-waiting {
+  color: var(--st-waiting);
+}
+.sb-dot-done {
+  color: var(--st-done);
+}
+.sb-dot-error {
+  color: var(--st-error);
+}
+.sb-spin {
+  animation: sb-spin 0.9s linear infinite;
   animation-play-state: var(--play-state);
 }
-@keyframes sb-breathe {
-  0% {
-    opacity: 0.35;
-    transform: scale(0.625);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1);
-  }
+/* 减少动效：转圈停成静态的缺口环，仍能和对勾区分 */
+html[data-motion="reduced"] .sb-spin {
+  animation: none;
 }
-.sb-dot-waiting::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  background: var(--st-waiting);
-  transform: rotate(45deg);
+@keyframes sb-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .sb-dot-running,
 .sb-dot-waiting,
@@ -511,12 +506,6 @@
 .sb-dot-error {
   /* StatusDot 按状态种类换 key：换了状态就是新节点，淡入而不是瞬间换形状。 */
   animation: fade-in var(--dur-base) var(--ease-out);
-}
-.sb-dot-done {
-  color: var(--st-done);
-}
-.sb-dot-error {
-  color: var(--st-error);
 }
 
 /* ───── 底部栏 ───── */
@@ -548,7 +537,7 @@
 .menu.sb-pref-menu {
   top: auto;
   left: auto;
-  min-width: 160px;
+  min-width: 0;
   transform-origin: bottom right;
 }
 .sb-bottom .sb-icon-btn[aria-expanded="true"] {

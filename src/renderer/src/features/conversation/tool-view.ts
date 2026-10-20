@@ -292,10 +292,41 @@ export function bodyLineCount(body: ToolBody): number {
   }
 }
 
-/** 默认展开：有 diff 的 edit、搜索、bash 且已有内容；其余点开才看。 */
-export function defaultOpen(toolName: string, body: ToolBody): boolean {
-  if (bodyLineCount(body) === 0) return false;
-  if (body.kind === "diff") return true;
+/** 默认展开：有内容就展开（像 omp，不藏在点击后面）；用户仍可收起。 */
+export function defaultOpen(body: ToolBody): boolean {
+  return bodyLineCount(body) > 0;
+}
+
+/** 去掉路径末尾的 :起-止 行选择器。 */
+export function stripSelector(path: string): string {
+  return path.replace(/:\d+(?:[-+]\d*)?(?:,\d+(?:[-+]\d*)?)*$/, "");
+}
+
+/** omp 的内部地址（proc://、history://、skill://、网址等）不是文件，不做成文件链接；`C:/` 这种盘符只有一个字母，不算。 */
+const uriScheme = /^[a-z][a-z0-9+.-]+:\/\//i;
+
+/** 卡片里要显示成文件链接的路径（read 可能多个；edit / write 取参数里的路径，hashline 编辑取每个 [path#TAG] 段）。 */
+export function filePaths(toolName: string, args: unknown): string[] {
+  return candidatePaths(toolName, args).filter((path) => !uriScheme.test(path));
+}
+
+function candidatePaths(toolName: string, args: unknown): string[] {
   const verb = toolVerb(toolName);
-  return verb === "search" || verb === "bash";
+  if (verb !== "read" && verb !== "edit" && verb !== "write") return [];
+  const record = asRecord(args);
+  const list = record?.["paths"];
+  if (Array.isArray(list)) {
+    return list.filter((item): item is string => typeof item === "string" && item !== "").map(stripSelector);
+  }
+  const input = record?.["input"];
+  if (typeof input === "string" && record?.["path"] === undefined) {
+    const found = [...input.matchAll(/^\[([^\]#\n]+)#[0-9A-Fa-f]{4}\]/gm)].map((match) => match[1] ?? "");
+    if (found.length > 0) return [...new Set(found)];
+  }
+  const target = toolTarget(args);
+  if (target === null) return [];
+  const parts = verb === "read" ? target.split(",") : [target];
+  // 逗号分隔的多文件；"a.ts:1-5,10-20" 这类行选择器不拆。
+  const multi = parts.length > 1 && parts.every((part) => /[./]/.test(part) && !/\s/.test(part));
+  return (multi ? parts : [target]).map(stripSelector);
 }

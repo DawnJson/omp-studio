@@ -10,7 +10,12 @@ import type { ApprovalMode, HandlerGroup, OmpConfigSnapshot } from "../../shared
 import { goalContinuationKey } from "../../shared/ui/goal-continuation.ts";
 import { applyGoalContinuationDefault, isGoalContinuationExplicit } from "../omp-config/goal-default.ts";
 import { listJson, OmpConfigService, runOmpConfig } from "../omp-config/config-service.ts";
-import { readModelDefaults, writeDefaultModel, type ModelDefaultsDeps } from "../omp-config/model-defaults.ts";
+import {
+  readModelDefaults,
+  readModelRoles,
+  writeModelRole,
+  type ModelDefaultsDeps,
+} from "../omp-config/model-defaults.ts";
 import { readModelInsights } from "../omp-config/model-insights.ts";
 import { ompManager } from "../omp-manager/index.ts";
 import { onOmpConfigChanged, readDefaultModel } from "../service/default-model.ts";
@@ -138,7 +143,8 @@ export const ompHandlers: HandlerGroup<
   | "getDefaultModel"
   | "getStartupSnapshot"
   | "getModelDefaults"
-  | "setDefaultModel"
+  | "getModelRoles"
+  | "setModelRole"
   | "getModelInsights"
 > = {
   getOmpStatus: () => {
@@ -185,10 +191,12 @@ export const ompHandlers: HandlerGroup<
     startupCache().setModelDefaults(projectId === null ? null : parseProjectId(projectId), defaults);
     return defaults;
   },
-  setDefaultModel: async (projectId, model) => {
-    await writeDefaultModel(
+  getModelRoles: async (projectId) => readModelRoles(modelDefaultsDeps, await projectPath(projectId)),
+  setModelRole: async (projectId, role, model) => {
+    await writeModelRole(
       modelDefaultsDeps,
       await projectPath(projectId),
+      parseString(role, "role", 64),
       model === null ? null : parseModelKey(model),
     );
     onOmpConfigChanged("modelRoles");

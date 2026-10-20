@@ -10,8 +10,8 @@ import { useT } from "../../i18n/use-t.ts";
 import {
   defaultModelRole,
   ensureOmpConfigLoaded,
-  saveOmpDefaultModel,
   saveOmpDefaultThinking,
+  saveOmpModelRole,
   useOmpConfigValue,
 } from "./config-store.ts";
 import { loadAccounts, useAccountLoad } from "./accounts-store.ts";
@@ -124,7 +124,9 @@ export function ModelsSection() {
               onChange={(value) => {
                 const model = data?.models.find((candidate) => modelKey(candidate.key) === value);
                 if (value !== inherit && !model) return;
-                saveOmpDefaultModel(null, model ? model.key : null).catch((error: unknown) => reportError(t, error));
+                saveOmpModelRole(null, "default", model ? model.key : null).catch((error: unknown) =>
+                  reportError(t, error),
+                );
               }}
               testId="setting-default-model"
             />

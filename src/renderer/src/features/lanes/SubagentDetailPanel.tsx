@@ -262,7 +262,7 @@ export function SubagentDetailPanel({
           {detail?.truncated === true && <p className="lane-muted">{t("lanes.truncated")}</p>}
           {turns.map((turn) => (
             <div key={turn.key} className="lane-record-turn">
-              {turn.steps.length > 0 && <ProcessDetails steps={turn.steps} />}
+              {turn.steps.length > 0 && <ProcessDetails steps={turn.steps} taskId={taskId} />}
               {turn.answer && (
                 <div className="lane-answer">
                   <Markdown source={turn.answer.text} streaming={false} />

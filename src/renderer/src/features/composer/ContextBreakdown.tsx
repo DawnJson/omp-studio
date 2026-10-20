@@ -82,7 +82,12 @@ export function ContextBreakdown({ context, parts, modelKey, projectId }: Contex
       <div className="ctx-bar" aria-hidden="true">
         {rows.map((row) =>
           row.tokens > 0 ? (
-            <span key={row.part} className="ctx-seg" data-part={row.part} style={{ flexGrow: row.tokens }} />
+            <span
+              key={row.part}
+              className="ctx-seg"
+              data-part={row.part}
+              style={{ flexBasis: `${share(row.tokens)}%` }}
+            />
           ) : null,
         )}
       </div>

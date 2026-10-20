@@ -151,11 +151,16 @@ export async function saveOmpConfigOrThrow(key: string, value: unknown): Promise
 }
 
 /**
- * 新任务的默认模型（omp 的 modelRoles.default）。写到哪一层由主进程按 omp 的规则决定（omp-config/model-defaults.ts）；
- * 写完重读快照，设置页的 omp 分组跟着更新。projectId 为 null 时只动全局配置。
+ * 给某个角色（default、smol、task…）指定模型；default 就是新任务的默认模型（omp 的 modelRoles.default）。
+ * 写到哪一层由主进程按 omp 的规则决定（omp-config/model-defaults.ts）；写完重读快照，设置页的 omp 分组跟着更新。
+ * projectId 为 null 时只动全局配置。
  */
-export async function saveOmpDefaultModel(projectId: ProjectId | null, model: ModelKey | null): Promise<void> {
-  await window.studio.setDefaultModel(projectId, model);
+export async function saveOmpModelRole(
+  projectId: ProjectId | null,
+  role: string,
+  model: ModelKey | null,
+): Promise<void> {
+  await window.studio.setModelRole(projectId, role, model);
   await loadOmpConfig();
 }
 

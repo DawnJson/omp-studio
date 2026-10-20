@@ -50,7 +50,7 @@
 omp-studio 的做法（`src/main/omp-config/model-defaults.ts`，和 omp 终端的模型选择器一致）：
 
 - 读：草稿输入框在**项目目录里**跑 `omp config list --json`（`getModelDefaults(projectId)`），显示这个项目实际会用的默认模型和思考强度；设置页（没有项目）只看全局。
-- 写模型（`setDefaultModel(projectId, model)`）：项目里生效的 `modelRoleStorage` 是 `project` 时，只改 `<项目>/.omp/config.yml` 的 `modelRoles.default`（omp 没有写项目配置的命令，这里用 `yaml` 库的 Document 改，注释和其它键原样保留；没有就新建；去掉 default 后角色表空了就删掉整个 `modelRoles`）；否则经 `omp config set modelRoles` 写全局。项目自带 `modelRoles.default` 但 storage 是 global 时，写的是全局，这个项目照旧用项目的模型，和终端一样。
+- 写模型角色（`setModelRole(projectId, role, model)`，2026-10-20 起由 `setDefaultModel` 推广到任意角色；草稿胶囊和设置页写的是 `default`，模型对话框的角色标签写其它角色）：项目里生效的 `modelRoleStorage` 是 `project` 时，只改 `<项目>/.omp/config.yml` 的 `modelRoles.<role>`（omp 没有写项目配置的命令，这里用 `yaml` 库的 Document 改，注释和其它键原样保留；没有就新建；去掉该角色后角色表空了就删掉整个 `modelRoles`）；否则经 `omp config set modelRoles` 写全局（先读出整张角色表再改一项）。项目自带 `modelRoles.<role>` 但 storage 是 global 时，写的是全局，这个项目照旧用项目的模型，和终端一样。读整张角色表：`getModelRoles(projectId)`。
 - 写思考强度：`omp config set defaultThinkingLevel`，永远是全局（omp 也只有角色走 `modelRoleStorage`）。
 - 实测（2026-10-18，omp 18.12.1，构建产物）：项目文件 `modelRoleStorage: project` + `default: deepseek-v4-pro`，全局 `deepseek-v4-flash`；草稿胶囊显示 DeepSeek-V4-Pro；在胶囊里选 V4 Flash 后只有项目文件改了（注释还在），全局不变，新任务用 V4 Flash 回复。
 

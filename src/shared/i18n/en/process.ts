@@ -17,4 +17,6 @@ export const process = {
   thought: "Thought · {duration}",
   thoughtShort: "Thought",
   earlier: "{n} earlier",
+  waitingJobs: "waiting on {running} of {total} jobs · {done} done",
+  waitingJobsNone: { one: "waiting on {count} job", other: "waiting on {count} jobs" },
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

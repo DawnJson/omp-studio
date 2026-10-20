@@ -46,6 +46,7 @@ import { terminal } from "./terminal.ts";
 import { btw } from "./btw.ts";
 import { goal } from "./goal.ts";
 import { tree } from "./tree.ts";
+import { preview } from "./preview.ts";
 
 export const zhCN = {
   shell,
@@ -96,4 +97,5 @@ export const zhCN = {
   btw,
   goal,
   tree,
+  preview,
 };

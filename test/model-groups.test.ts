@@ -1,7 +1,12 @@
 // 防的是：模型多的时候搜索找不到、分组错乱，或者最近使用的模型在搜索时还把列表顶部占着。
 import { describe, expect, it } from "vitest";
 import type { ModelOption } from "../src/shared/ipc.ts";
-import { groupModels, treeItems } from "../src/renderer/src/features/composer/model-groups.ts";
+import {
+  groupModels,
+  parseRoleSelector,
+  roleView,
+  treeItems,
+} from "../src/renderer/src/features/composer/model-groups.ts";
 
 const make = (provider: string, modelId: string, name = modelId): ModelOption => ({
   key: { provider, modelId },
@@ -42,6 +47,36 @@ describe("groupModels", () => {
     expect(rows.recent).toEqual([]);
     expect(rows.groups[0]?.models[0]?.name).toBe("GPT-5");
     expect(groupModels(models, "nope", []).flat).toEqual([]);
+  });
+});
+
+describe("角色", () => {
+  it("选择器去掉思考后缀，别名和不带 provider 的形式不是模型", () => {
+    expect(parseRoleSelector("anthropic/claude-sonnet:high")).toEqual({
+      provider: "anthropic",
+      modelId: "claude-sonnet",
+    });
+    expect(parseRoleSelector("openrouter/x/y")).toEqual({ provider: "openrouter", modelId: "x/y" });
+    expect(parseRoleSelector("@smol")).toBeNull();
+    expect(parseRoleSelector("plain")).toBeNull();
+  });
+
+  it("标签 = 内置角色 + 指到列表中模型的其它角色；徽标按标签顺序挂到模型上", () => {
+    const view = roleView(
+      {
+        task: "openai/gpt-5:low",
+        default: "openai/gpt-5",
+        writer: "anthropic/claude-sonnet",
+        web: "web/tavily",
+        smol: "gone/model",
+      },
+      models,
+    );
+    expect(view.tabs).toEqual(["default", "smol", "slow", "plan", "task", "commit", "advisor", "writer"]);
+    expect(view.badges.get("m:openai/gpt-5")).toEqual(["default", "task"]);
+    expect(view.badges.get("m:anthropic/claude-sonnet")).toEqual(["writer"]);
+    expect(view.modelOf["smol"]).toBeNull();
+    expect(view.modelOf["task"]?.name).toBe("GPT-5");
   });
 });
 

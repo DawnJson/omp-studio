@@ -1,0 +1,23 @@
+import type { MessageEntry } from "../index.ts";
+
+export const preview = {
+  title: "文件预览",
+  close: "关闭预览",
+  open: "用默认应用打开",
+  reveal: "在资源管理器中显示",
+  modePreview: "预览",
+  modeSource: "源码",
+  mode: "显示方式",
+  runScripts: "运行脚本",
+  zoomIn: "放大",
+  zoomOut: "缩小",
+  zoomFit: "适应窗口",
+  loading: "正在读取…",
+  missing: "文件不存在：{path}",
+  binary: "这是二进制文件，无法预览。",
+  tooLarge: "文件太大（{size}），无法预览。",
+  readFailed: "读取失败：{message}",
+  imageAlt: "图片预览：{name}",
+  htmlTitle: "网页预览：{name}",
+  resize: "调整预览宽度",
+} satisfies Record<string, MessageEntry>;

@@ -4,7 +4,8 @@ import { stat } from "node:fs/promises";
 import type { HandlerGroup, ProjectFilesTarget } from "../../shared/ipc.ts";
 import { ProjectFileIndex, parseFileQuery } from "../files/project-files.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
-import { parseOneOf, parseProjectId, parseRecord, parseTaskId } from "./validate.ts";
+import { readPreviewFile } from "../files/preview-file.ts";
+import { parseOneOf, parseProjectId, parseRecord, parseString, parseTaskId } from "./validate.ts";
 
 const index = new ProjectFileIndex();
 
@@ -15,7 +16,12 @@ export function parseFilesTarget(value: unknown): ProjectFilesTarget {
     : { kind: "project", projectId: parseProjectId(record["projectId"]) };
 }
 
-export const fileHandlers: HandlerGroup<"listProjectFiles"> = {
+export const fileHandlers: HandlerGroup<"listProjectFiles" | "readPreviewFile"> = {
+  async readPreviewFile(taskId, relPath) {
+    const id = parseTaskId(taskId);
+    const pool = await getTaskPool();
+    return readPreviewFile(pool.taskCwd(id), parseString(relPath, "relPath", 1024));
+  },
   async listProjectFiles(target, query) {
     const parsed = parseFilesTarget(target);
     const q = parseFileQuery(query);

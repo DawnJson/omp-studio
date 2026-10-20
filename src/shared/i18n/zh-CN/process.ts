@@ -16,4 +16,6 @@ export const process = {
   thought: "思考 · {duration}",
   thoughtShort: "思考",
   earlier: "更早的 {n} 条",
+  waitingJobs: "等待 {running}/{total} 个后台任务 · {done} 个完成",
+  waitingJobsNone: "等待 {count} 个后台任务",
 } satisfies Record<string, MessageEntry>;

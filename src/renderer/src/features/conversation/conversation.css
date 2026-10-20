@@ -280,8 +280,9 @@
   }
 }
 
-/* 运行中工具调用直接列在对话里（像 omp），不套折叠后的底色卡片。 */
-.process[data-state="live"] > .details {
+/* 工具调用直接列在对话里（像 omp）：运行中和结束后的展开态都不套底色卡片。 */
+.process > .details,
+.process > .reveal > .reveal-inner > .details {
   margin-top: 0;
   padding: 0;
   background: none;
@@ -406,9 +407,10 @@
   }
 }
 .step-output {
-  margin: var(--space-1) 0 var(--space-1) calc(var(--icon-sm) + var(--space-4));
+  margin: var(--space-1) 0 0;
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--bg-app);
+  background: var(--bg-sunken);
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
   line-height: var(--lh-code-sm);
@@ -510,6 +512,124 @@
   color: var(--link);
   font: inherit;
   cursor: pointer;
+}
+/* —— omp 风格工具卡：头部一行 + 卡体直接展示内容 —— */
+.step-tool {
+  margin-top: var(--space-2);
+}
+.step-tool:first-child {
+  margin-top: 0;
+}
+.step-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.step-head .step-row {
+  width: auto;
+}
+.step-toggle.step-fill {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-end;
+}
+.step-head .step-arg {
+  padding: 0 var(--space-1);
+}
+.step-arg-btn {
+  border: 0;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  cursor: pointer;
+  text-align: left;
+}
+.step-range {
+  color: var(--text-3);
+}
+.step-tool[data-status="error"] .step-name {
+  color: var(--st-error);
+}
+.step-tool[data-status="error"] .step-output {
+  border-color: var(--st-error);
+  background: var(--st-error-soft);
+}
+.step-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-0-5, 2px);
+  opacity: 0;
+  transition: opacity var(--dur-fast, 120ms) var(--ease-out);
+}
+.step-head:hover .step-actions,
+.step-head:focus-within .step-actions {
+  opacity: 1;
+}
+.step-action {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.step-action:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.step-action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.step-chevron {
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.step-chevron[data-open] {
+  transform: rotate(90deg);
+}
+.step-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+  padding: var(--space-2) var(--space-3);
+}
+.step-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-2);
+}
+.step-chip .file-link {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.step-arg .file-link {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-chevron,
+  .step-actions {
+    transition: none;
+  }
+}
+html[data-motion="reduced"] .step-chevron,
+html[data-motion="reduced"] .step-actions {
+  transition: none;
 }
 .step-full {
   margin: 0 0 var(--space-1) calc(var(--icon-sm) + var(--space-4));

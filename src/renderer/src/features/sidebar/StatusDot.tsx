@@ -20,34 +20,65 @@ export function StatusDot({ task, t }: { task: TaskState; t: TFunction }) {
 
   return (
     <span key={kind} className={`sb-dot sb-dot-${kind}`} role="img" aria-label={label}>
-      {kind === "done" && (
+      {kind === "running" && (
         <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
+          className="sb-spin"
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <circle cx="7" cy="7" r="5.25" opacity="0.25" />
+          <path d="M7 1.75a5.25 5.25 0 0 1 5.25 5.25" />
+        </svg>
+      )}
+      {kind === "waiting" && (
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <circle cx="7" cy="7" r="5.75" />
+          <path d="M7 4v3.5M7 10v.01" />
+        </svg>
+      )}
+      {kind === "done" && (
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden="true"
         >
-          <path d="m2.5 6.25 2.25 2.25 4.75-5" />
+          <path d="m3 7.25 2.75 2.75L11 4.25" />
         </svg>
       )}
       {kind === "error" && (
         <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinecap="round"
           aria-hidden="true"
         >
-          <circle cx="6" cy="6" r="5" />
-          <path d="M6 3.5v3M6 8.5v.01" />
+          <circle cx="7" cy="7" r="5.75" />
+          <path d="m5 5 4 4M9 5 5 9" />
         </svg>
       )}
     </span>

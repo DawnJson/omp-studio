@@ -43,7 +43,7 @@
 | 循环动画 | [新] 统一用 `animation-play-state: var(--play-state)`，keyframes 的 0% 帧即静态终态 | 比“时长设为 0 且无限循环”可靠，不依赖浏览器对 0s infinite 动画的行为 |
 | 主题机制 | [新] CSS 默认跟随 `prefers-color-scheme`；`<html data-theme>` 显式覆盖 | 任务要求；Calm/Bold 都让主进程解析后写属性，仍然可以：主进程只在用户选择“浅色/深色”时写 `data-theme`，选“跟随系统”时移除属性 |
 | 滚动条 | [融合] 自绘覆盖式，原生滚动行为保留，`scrollbar-width: none` | PLAN §2 要求；覆盖式保证阅读列不因滚动条出现而横移 |
-| 状态点 | [融合] 形状 + 颜色：进行中=实心圆带呼吸环、等你=静止菱形、未读完成=对勾、出错=圆内感叹号；已读完成与空闲**不画**（[Calm]） | 形状是第二信号（色盲友好）；已读无标记让列表安静。Bold 的“空心圆=空闲”和“卫星点”不要 |
+| 状态点 | [融合] 形状 + 颜色（2026-10-20 起改为图标）：进行中=转圈、等你=圆圈感叹号、未读完成=对勾、出错=圆圈叉号；已读完成与空闲**不画**（[Calm]） | 形状是第二信号（色盲友好）；已读无标记让列表安静。Bold 的“空心圆=空闲”和“卫星点”不要 |
 
 #### 布局
 
@@ -233,7 +233,7 @@
 | 用户消息出现 | `translateY(var(--travel-md))→0` + opacity | `--dur-base` `--ease-out` |
 | 侧栏折叠/抽屉 | `translateX`；主区宽度**立即变一次**，不逐帧 | `--dur-slow` `--ease-out` |
 | 状态点切换 | 旧点缩小淡出 + 新点放大淡入 | `--dur-fast` |
-| 进行中呼吸环 | opacity .35→0 + scale 1→1.6，循环 | `--dur-breathe`，`animation-play-state: var(--play-state)` |
+| 进行中转圈（状态点） | 一段弧旋转，循环 | `--dur-spin` linear，`animation-play-state: var(--play-state)`；减少动效时静止 |
 | 加载环 | 旋转 | `--dur-spin` linear |
 | 流式光标 | opacity 脉冲 | `--dur-caret` |
 | Toast | `translateY(var(--travel-md))→0` + opacity | `--dur-base`，停留 5s，悬停暂停 |
@@ -252,8 +252,8 @@
 
 - `BrowserWindow`：`titleBarStyle: "hidden"`，`titleBarOverlay: { color, symbolColor, height: 40 }`（取值见 §2.1），`backgroundColor` 同 `color`；默认 1200×800，最小 800×560；`Menu.setApplicationMenu(null)`，快捷键用窗口内 `keydown` 处理。
 - **顶栏 = 任务条（通栏，高 40 = `--titlebar-h`；仓库所有者 2026-10-19 选定方案 B「任务条 + 工具区」）**：底色 `--bg-sidebar`（与 `titleBarOverlay.color` 相同，系统三键融进同一条）。控件统一高 28（`--control-h-sm`），上下各留 6。三段：
-  - 左段（宽 = 侧栏宽，侧栏收起/抽屉时自适应）：`padding-left: --space-2`，横排三样（2026-10-19 起，取代原来的品牌菜单按钮）：标志（圆环里一个 π，只用 `--accent` 描线，18px）+ 字标 `omp studio`（`omp` 600 `--text`，`studio` 400 `--text-2`），只是标识，不可点、可拖动窗口；切换侧栏按钮（28×28 `topbar-sidebar`，`aria-expanded` = 侧栏显示着，同 `Ctrl B`）；“关于”按钮（`topbar-menu`，文字 `window.about` + 12px ⌄，`--radius-md`，hover / 展开 `--bg-hover`），点开只有 `帮助与反馈`、`关于`，`Alt` 键也打开它。新任务、命令面板、设置、退出不在这里：新任务和设置在侧栏，命令面板 `Ctrl K`，退出走系统三键。语言和主题在侧栏底部（§4.5）。
-  - 中段（左缘对齐主区面板）：**只有任务标题**（`--fs-sm`，`--text` 600 / 中文 700，过长省略，悬停提示完整标题；不显示项目名，项目在侧栏分组里）+ 状态胶囊：高 22、`--radius-pill`、`--fs-xs`、等宽数字，6px 形状点。运行中 = `--accent-soft` 底、`--accent` 字、圆点 + `window.runningFor`（`运行中 · 1:12`，`formatClock`，每秒更新）；等你确认 = `--st-waiting-soft` 底、琥珀菱形 + `status.waiting`；出错 = `--st-error-soft` 底、红点 + `status.error`；空闲不显示。空状态显示 `新任务`，设置页显示页面标题。
+  - 左段（宽 = 侧栏宽，侧栏收起/抽屉时自适应）：`padding-left: --space-2`，横排三样：标志（圆环里一个 π，只用 `--accent` 描线，18px）+ 字标 `omp studio`（`omp` 600 `--text`，`studio` 400 `--text-2`），只是标识，不可点、可拖动窗口；切换侧栏按钮（28×28 `topbar-sidebar`，`aria-expanded` = 侧栏显示着，同 `Ctrl B`；2026-10-20 起图标随状态变：侧栏显示时左栏半透明填充、收起时淡出，`--dur-base` 过渡；侧栏本身的宽度收起/展开也有短过渡，拖拽调宽时关掉）；信息按钮（2026-10-20 起，28×28 `topbar-about`，圆圈里一个感叹号，`window.about` 作 aria-label 和悬停提示；`Alt` 键同），点开居中的“关于与反馈”对话框（`AboutDialog`）：上半是名称、版本和一句说明，下半“反馈”区三个按钮——帮助与反馈（Issues 页）、打开日志文件夹、导出诊断信息（成功 toast）；Tab 在框内循环，Esc 关闭并还焦点。新任务、命令面板、设置、退出不在这里：新任务和设置在侧栏，命令面板 `Ctrl K`，退出走系统三键。语言和主题在侧栏底部（§4.5）。
+  - 中段（左缘对齐主区面板）：**只有任务标题**（`--fs-sm`，`--text` 600 / 中文 700，过长省略，悬停提示完整标题；不显示项目名，项目在侧栏分组里）+ 状态胶囊：高 22、`--radius-pill`、`--fs-xs`，6px 形状点。运行中 = `--accent-soft` 底、`--accent` 字、圆点 + `status.running`（2026-10-20 起不再显示计时，计时在输入框上方的状态行里）；等你确认 = `--st-waiting-soft` 底、琥珀菱形 + `status.waiting`；出错 = `--st-error-soft` 底、红点 + `status.error`；空闲不显示。空状态显示 `新任务`，设置页显示页面标题。
   - 右段（只在有任务的对话页出现，`data-testid="topbar-tools"`）：分支胶囊（`features/git/GitTools.tsx`；`--font-mono` `--fs-code-sm`，1px `--border-subtle`，`--radius-md`，最宽 32ch；内容 分支图标 + 分支名 + worktree 任务领先时 `↑N`（`--accent`）+ ⌄；点开是 Git 菜单；"分支 · 工作树 · 基于 main · 领先 N 个提交"在悬停提示里；窄于 1000px 只留图标和 `↑N`；任务目录不是 git 仓库时不渲染）→ 评审按钮（28×28，同 `Ctrl Shift D`；不是 git 仓库时不渲染）→ 终端按钮（28×28，按下 = `--accent-soft` 底、`--accent` 图标）→ 1px×16 `--border` 竖线，与系统三键隔开。再往右是系统三键（`titleBarOverlay` 绘制）；顶栏 `padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw))` 让位。
   - **没有后退/前进按钮**（仓库所有者 2026-10-18 确认）：后退/前进在 `Alt+←/→` 和鼠标侧键（button 3/4）。导航历史栈仍在渲染进程。
   - 其余空白全部 `-webkit-app-region: drag`，按钮和任务条 `no-drag`；双击空白最大化/还原（系统行为）。
@@ -301,10 +301,10 @@
 
 | 状态（主进程为准，渲染层只收 `taskStatusChanged`） | 视觉 | token | aria-label |
 |---|---|---|---|
-| `running` | 8px 实心圆 + 16px 呼吸环 | `--st-running` | `status.running`（有子代理：`status.runningAgents`） |
-| `await` | 7px 实心**菱形**（旋转 45° 的方块），静止；出现时外圈闪一次 | `--st-waiting` | `status.waiting` |
+| `running` | 12px 转圈（一圈淡轨 + 一段 `--accent` 弧旋转；减少动效时静止） | `--st-running` | `status.running`（有子代理：`status.runningAgents`） |
+| `await` | 12px 圆圈感叹号，静止 | `--st-waiting` | `status.waiting` |
 | `done-unread` | 12px 对勾（描边 1.5），**中性色**，不用绿 | `--st-done`（= `--text-2`） | `status.done` |
-| `error` | 12px 圆内感叹号 | `--st-error` | `status.error` |
+| `error` | 12px 圆圈叉号 | `--st-error` | `status.error` |
 | `idle` / `aborted` / `dormant` | 不画（槽位保留，标题对齐）；`aborted` 在尾部显示 `task.stopped` | — | — |
 
 打开 `done-unread` 的任务后对勾消失；`error` 保持到用户在该任务开始新一轮。
@@ -333,7 +333,7 @@
 
 ### 4.5 Sidebar 外壳
 
-顶部依次是搜索框和 `[新任务][添加项目]` 两个并排按钮：两个按钮同一种次级样式（透明底、`1px --border-strong`、`--text-2`，hover `--bg-hover`）；当前所在的那个突出——草稿页时 `新任务` 带 `aria-current="page"`，`--bg-active` 底、`--text` 600。侧栏自己没有头（标志和切换侧栏在顶栏）；列表区自绘覆盖式滚动条；底部 44：左边 `设置` 文本按钮（齿轮 + 文案），右边两个 28×28 图标按钮：语言（地球，`menu.language`）和主题（半圆，`menu.theme`），点开从按钮上方弹出单选菜单（右缘对齐按钮，`menu.languageSystem`/简体中文/English，`menu.themeSystem`/`menu.themeLight`/`menu.themeDark`），选了立即生效，打开时焦点在当前项，Esc/Tab 关闭并还焦点给按钮；打开时按钮 `--bg-active`。命令面板只走 `Ctrl K`，底部没有放大镜。底部不放键帽、不放小字。
+顶部依次是搜索框和 `[新任务][添加项目]` 两个并排按钮：两个按钮同一种次级样式（透明底、`1px --border-strong`、`--text-2`，hover `--bg-hover`）；当前所在的那个突出——草稿页时 `新任务` 带 `aria-current="page"`，`--bg-active` 底、`--text` 600。搜索框聚焦时由圆角外框画焦点环（`--focus-ring` 边 + 1px 阴影），输入框自身不画方形轮廓。侧栏自己没有头（标志和切换侧栏在顶栏）；列表区自绘覆盖式滚动条；底部 44：左边 `设置` 文本按钮（齿轮 + 文案），右边两个 28×28 图标按钮：语言（地球，`menu.language`）和主题（半圆，`menu.theme`），点开从按钮上方弹出单选菜单（右缘对齐按钮，宽度按内容收紧，`menu.languageSystem`/简体中文/English，`menu.themeSystem`/`menu.themeLight`/`menu.themeDark`），选了立即生效，打开时焦点在当前项，Esc/Tab 关闭并还焦点给按钮；打开时按钮 `--bg-active`。命令面板只走 `Ctrl K`，底部没有放大镜。底部不放键帽、不放小字。
 
 ### 4.6 MainHeader 与 ProgressPill
 
@@ -394,10 +394,11 @@
 - 等你确认：文字 `process.waiting`（暂停时长每秒更新）。
 - 一轮结束后，同一位置折叠成下面的“已结束”一行。`Ctrl O` 展开 / 收起最近一个。
 
-**已结束（折叠）**——同样高 28、`--text-3`，左 chevron 14px：`process.done`（≥60 s 用 `duration.ms`，≥1 h 用 `duration.hm`）`· {n} 次工具调用`（有子代理再 `· {m} 个子代理`；有失败再 `· {k} 次失败`，`--st-error`）。不足 1 秒或 0 次工具调用的轮次**不显示此行**。时长 = 主进程接收 `agent_start` 到终止 `agent_end` 的时间（帧无时间戳，`docs/architecture/subagents.md`），等待确认的时间扣除；扣除超过 5 秒时在展开区顶部写 `process.waited`。hover：文字 `--text-2`。
+**已结束（2026-10-20 起默认展开，照 Tern 里的 omp）**——头一行高 28、`--text-3`，左 chevron 14px：`process.done`（≥60 s 用 `duration.ms`，≥1 h 用 `duration.hm`；不足 1 秒不写时长）`· {n} 次工具调用`（有子代理再 `· {m} 个子代理`；有失败再 `· {k} 次失败`，`--st-error`）。0 次工具调用的轮次**不显示此行**。时长 = 主进程接收 `agent_start` 到终止 `agent_end` 的时间（帧无时间戳，`docs/architecture/subagents.md`），等待确认的时间扣除；扣除超过 5 秒时在展开区顶部写 `process.waited`。点头一行收起 / 展开，`Ctrl O` 切换最近一轮。hover：文字 `--text-2`。
 
-**展开**——`--bg-sunken`，`--radius-lg`，`padding: --space-2`，行间无分隔线，`--dur-base` 展开：
-- 工具行高 28，`--fs-xs`：`[图标 14][intent 或 动词+对象][参数摘要 mono --text-3 省略][右侧：耗时(≥1s) 或 tool.failed(红) 或 tool.denied]`；点击行就地展开输出（`--font-mono` `--fs-code-sm`，最多 12 行，内部滚动，纯文本；超出 `tool.output.showAll`）；失败行默认展开错误前 4 行。
+**展开（运行中与已结束一致，不套底色卡片）**——每个工具调用是一张卡（`.step`）：
+- 卡头：`[图标 14][工具名 粗体][参数摘要 mono --text-3 省略]`，运行中右侧转圈 + 计时，失败时名称和卡体用 `--st-error`；读/改/写的文件路径是 `FileLink`（点开右侧文件预览，§4.27），多文件时卡头只写个数、卡体里排文件 chip。hover / 键盘聚焦时右侧出现复制（`common.copy`）和展开箭头，点卡头或箭头收起单张卡。
+- 卡体默认展开，直接显示内容：bash 是 `$ 命令` + 输出（`--font-mono` `--fs-code-sm`），edit 是 diff（带行号），读文件是带行号的内容，搜索是结果行；超过 12 行只显示前 12 行 + `tool.output.showAll` / `tool.output.collapse`。没有可读输出的工具（待办等）只有卡头。
 - 叙述文本以 `·` 开头、`--text-3` 单行（可展开全文）按时间穿插。思考：`process.thought`，点击展开文本。
 - 子代理：这一轮有子代理时，展开区顶部是"泳道"（`features/lanes/`，阶段 5 实现，数据来源和行为见 `docs/architecture/subagents.md`）：头行 `lanes.title` + `process.subagents`（可折叠，默认展开）；其下一行主代理（工具节奏小段）+ 每个子代理一行（状态点 + 名字 + `状态 · 模型 · 思考强度`；右侧时间轴上的条 = 起止，竖线 = 工具调用结束）+ 一条 `0 … 总时长` 的轴；点子代理行就地展开详情（`--bg-raised` 卡片：统计、任务、摘要、完整记录 / 改动两个分段、运行中的 steer 输入框和二次确认的取消）。不加头像和哈希色，颜色只用 `--st-*` token。
 - >200 个工具行时只渲染最后 100 条 + `process.earlier`。
@@ -419,7 +420,9 @@
 **尺寸与结构**
 - 外容器宽 = 列宽；`--bg-raised`；`1px --border`（hover `--border-strong`）；`--radius-xl`；`--shadow-composer`；容器自身无内边距，分上下两层：输入区（`padding: --space-3 --space-4 --space-2-5`）和工具行（`padding: --space-2 --space-3`，上沿 1px `--border-subtle` 分隔线）；聚焦样式见通则。
 - 文本区：`--fs-prose`，placeholder `--text-3`，最小 1 行（2026-10-19 由 2 行降低；常数高度，空状态与对话中一致），自动增高到 `min(40vh, 12 行)` 后内部滚动，`resize: none`。
-- 底部工具行：左起 `⊕` 附件 28×28、ModelChip、ApprovalChip；输出速度（`UsageMeter`，只在运行中，见下）；右起上下文圆环（`ContextMeter`，见下）、本会话费用（`SessionCost`，对应 omp 状态栏的 cost 段：`get_session_stats.cost`，按模型的 API 价格估算，订阅登录的模型也照样累计；等宽 `--fs-xs` `--text-2`，`$0.0001` 这种不到一美分的保留 4 位小数；一直显示，新任务草稿和还没有统计时是 `$0.00`；当前模型的 provider 有 OAuth 登录凭据时（omp 优先用 OAuth，`get_logout_accounts`，按 provider 缓存 5 分钟）后面跟 `--text-3` 的 ` (sub)`，悬停换成 `composer.usage.costTipSub`；悬停 `composer.usage.costTip` + 输入/输出/缓存读取/高级请求数；是按钮，点开居中的 `UsageDialog`，见下）、SendStop。仪表不收缩（`flex: none`），空间不够时模型胶囊先省略名字，≤860px 去掉速度；圆环和费用一直在。本会话 token 不在工具行里（2026-10-19 起去掉图标按钮），在上下文浮层的“会话用量”里。
+- 底部工具行：左起 `⊕` 附件 28×28、ModelChip、ApprovalChip；输出速度（`UsageMeter`，只在运行中，见下）；右起后台任务胶囊（`JobsBoard`，见下，本会话出现过后台任务才有）、上下文圆环（`ContextMeter`，见下）、本会话费用（`SessionCost`，对应 omp 状态栏的 cost 段：`get_session_stats.cost`，按模型的 API 价格估算，订阅登录的模型也照样累计；等宽 `--fs-xs` `--text-2`，`$0.0001` 这种不到一美分的保留 4 位小数；一直显示，新任务草稿和还没有统计时是 `$0.00`；当前模型的 provider 有 OAuth 登录凭据时（omp 优先用 OAuth，`get_logout_accounts`，按 provider 缓存 5 分钟）后面跟 `--text-3` 的 ` (sub)`，悬停换成 `composer.usage.costTipSub`；悬停 `composer.usage.costTip` + 输入/输出/缓存读取/高级请求数；是按钮，点开居中的 `UsageDialog`，见下）、SendStop。仪表不收缩（`flex: none`），空间不够时模型胶囊先省略名字，≤860px 去掉速度，≤400px（比如开着文件预览）工具行折成两行：模型、审批胶囊在上，计数、圆环、费用、发送换到下一行靠右；圆环和费用一直在。胶囊 `overflow: hidden`，内容不会画到旁边。本会话 token 不在工具行里（2026-10-19 起去掉图标按钮），在上下文浮层的“会话用量”里。
+
+**JobsBoard**（2026-10-20 起，照 Tern 里 omp 的后台任务胶囊与看板）：omp 没有列后台任务的 RPC，从工具帧推导（`src/shared/ui/jobs.ts` 的 `deriveJobs`）：`bash` 带 `async: true` 的调用（`details.async = {state, jobId}`、"Backgrounded as job bg_N"）、`task` 派出的子代理（"Spawned agent `X` (job `Y`)" + 子代理泳道状态）、`wait` 工具的 `details.jobs[]` 快照（状态、标签、时长以它为准）。胶囊 `jobs-pill`：`● 运行中数 │ ✓ 已结束数`，点开 `Popover` 看板 `jobs-board`：每个任务一行（类型图标、名字、状态、耗时），点一行展开——命令看输出尾部，子代理内嵌 `SubagentDetailPanel`；Esc 关闭并还焦点给胶囊。agent 在等后台任务时，状态行（`RunStatus`）的动作文字是 `process.waitingJobs`（“等待 2/3 个后台任务 · 1 个完成”），下面一排运行中任务的小卡（类型图标 + 名字 + 耗时，最多 4 个，多的折成 `+N`），靠右排，正好在胶囊上方。实测录制见 `fixtures/rpc/bg-jobs.ndjson`（omp 18.12.3）。
 - 输入框下面一行（`.composer-below`，新任务草稿才有）：项目按钮 + 工作树开关（§4.7）。
 - 工具行各项**从第一帧起都在原位**（2026-10-19）：模型胶囊、审批胶囊、上下文圆环、费用都直接画出来，数据到了再填，不等 omp。数据先用上次读到的（主进程每次现读成功就记进 `userData/startup-cache.json`：默认模型、模型目录、各项目的默认值、各 provider 是否订阅、审批模式；渲染进程在第一次渲染前取 `getStartupSnapshot()`），现读到了再替换；从没读到过（第一次启动）时模型胶囊写 `composer.modelLoading`、审批写 `approval.loading`，圆环是同位置同大小、不能点的空环（`data-pending`）。任务在进程起来之前，胶囊用上次读到的模型目录里的名字和窗口（不是模型 id）。主进程在应用启动时就拉起服务进程读默认模型和模型目录，不等输入框来要。
 - 附件预览行（有附件时）：文本区上方，64×64，右上 ✕（`composer.attachment.remove`）；粘贴图片、拖入图片、`⊕` 三种来源。非图片文件拖入：toast `composer.attach.imageOnly`。
@@ -455,9 +458,9 @@
 
 **ApprovalChip**：见 §5.8。
 
-**ModelChip / ModelPicker**：胶囊点开（Alt M、命令面板同）是模态对话框（`ModelPicker`，portal 到 body，Tab 在框内循环，Esc 关闭并还焦点）。左栏：搜索框 + 模型树：无搜索词时最近 3 个置顶，其下按 provider 分组，**组默认折叠**（2026-10-19 起）——组头一行 `▸ provider · model.groupCount`，含正在生效的模型的组头带勾，点击或 Enter 展开 / 折叠，组头上 `→/←` 展开 / 折叠；有搜索词时有匹配的组自动展开（可手动收起，换词后复原）。每个模型行右侧用 `--fs-xs` `--text-3` 显示紧凑的“上下文窗口 · 输入/输出价格”，如 `1M · $0.3/$1.2`，价格全 0 时只显示窗口；组里的行缩进一级。↑↓ 在“最近 + 组头 + 展开的模型”之间移动，Enter 或点击选用（选用后对话框保持打开，方便接着调思考强度）。右栏照终端版 omp `/models` 的详情：名称、`provider/id`、标签（`当前` `--accent-soft` / `推理` / `视觉`），然后 `上下文`、`压缩于`、`最大输出`、`价格`、`实测速度`、`智能分`、`输入类型`、`推理`；数字按完整位数加千分位（`350,000`）。`压缩于` = `触发 token · 怎么来的 · 来源`（如 `315,000 · 窗口的 90% · 全局设置`），按 omp 的 `compaction.thresholdTokens / thresholdPercent / reserveTokens / modelThresholds` 规则算（`src/shared/compaction-trigger.ts`），来源是全局 / 项目（项目目录里读到的和中性目录不同）/ 按模型设置。`价格` 一行 `输入 $4 · 输出 $20 · 缓存 $0.2（每百万 token）`，全 0 显示 `model.free`。`实测速度` 来自 omp 的 `agent.db` `model_perf`（`t/s · 首字 s · N 次采样`），没有实测但模型目录有 `tps` 时写 `model.perf.catalog`；`智能分` 来自 omp 的 `models.db` 模型目录（`int`）；两个库都只读（`getModelInsights`，`src/main/omp-config/model-insights.ts`），读不到显示 `model.perf.none` / `model.unknown`，读取中显示 `…`。底部是思考强度分段条（只对正在生效的模型可调，其余显示 `model.thinking.pending`）。分段条只列这个模型实际支持的档位：任务里取 `get_available_thinking_levels`（含 `off`），草稿里取模型的 `thinking.efforts`（不含 `off`）；分段条、方向键、`Alt T` 共用同一份列表和顺序；草稿的胶囊显示 omp 钳制后实际采用的档位。**思考强度是乐观更新**：点下 / `Alt T` 立即显示新档位，omp 往返在后台，失败退回并报错，写入成功 2 秒内新值没回到界面也退回真实值。分段条选中项下面是一块滑块，换档时以 `--ease-spring` 滑过去并轻弹一下（往高档放大回弹、往低档轻收）；滑块按档位换效果：`off` 中性浮起、`minimal` 底部一道强调色细线、`low` 浅强调底、`medium` 加深的强调底 + 描边、`high` 实心 `--accent` + 光晕、`xhigh` 再加周期扫光、`max` 是 `--accent` 与 `--st-waiting` 流动渐变 + 呼吸光晕；胶囊上的强度文字同样分级（低档 `--text-3`，`high` `--accent` 加粗，`xhigh`/`max` 渐变字，`max` 缓慢流动）。循环动画写 `animation-play-state: var(--play-state)`，减少动效时滑块不滑、不弹、不流动。数据来自 `get_available_models`（`ModelOption`：`contextWindow`、`maxTokens`、`cost`、`reasoning`、`acceptsImages`、`thinkingEfforts`）。
+**ModelChip / ModelPicker**：胶囊点开（Alt M、命令面板同）是模态对话框（`ModelPicker`，portal 到 body，Tab 在框内循环，Esc 关闭并还焦点）。标题下一排**角色标签**（2026-10-20 起，照 Tern 里 omp 的模型角色）：Default / Smol / Slow / Plan / Task / Commit / Advisor，外加 `modelRoles` 里指向可用模型的其它角色（`tablist`，←/→/Home/End 切换；悬停提示该角色当前模型；数据 `getModelRoles(projectId)`）；模型行右侧带它被分配到的角色徽标。Default 标签是原来的行为（切换本任务模型，草稿里存新任务默认模型）；选了其它角色，标题变成 `model.roleTitle`（“切换 Task 模型”）+ 一行用途说明，选模型就写 `modelRoles.<role>`（`setModelRole`，遵循 `modelRoleStorage` 的全局 / 项目层，去掉 `:thinking` 后缀），不影响当前会话；勾和右栏详情跟随该角色的当前模型，思考强度和速度换成一句“正在运行的会话不受影响”。左栏：搜索框 + 模型树：无搜索词时最近 3 个置顶，其下按 provider 分组，**组默认折叠**（2026-10-19 起）——组头一行 `▸ provider · model.groupCount`，含正在生效的模型的组头带勾，点击或 Enter 展开 / 折叠，组头上 `→/←` 展开 / 折叠；有搜索词时有匹配的组自动展开（可手动收起，换词后复原）。每个模型行右侧用 `--fs-xs` `--text-3` 显示紧凑的“上下文窗口 · 输入/输出价格”，如 `1M · $0.3/$1.2`，价格全 0 时只显示窗口；组里的行缩进一级。↑↓ 在“最近 + 组头 + 展开的模型”之间移动，Enter 或点击选用（选用后对话框保持打开，方便接着调思考强度）。右栏照终端版 omp `/models` 的详情：名称、`provider/id`、标签（`当前` `--accent-soft` / `推理` / `视觉`），然后 `上下文`、`压缩于`、`最大输出`、`价格`、`实测速度`、`智能分`、`输入类型`、`推理`；数字按完整位数加千分位（`350,000`）。`压缩于` = `触发 token · 怎么来的 · 来源`（如 `315,000 · 窗口的 90% · 全局设置`），按 omp 的 `compaction.thresholdTokens / thresholdPercent / reserveTokens / modelThresholds` 规则算（`src/shared/compaction-trigger.ts`），来源是全局 / 项目（项目目录里读到的和中性目录不同）/ 按模型设置。`价格` 一行 `输入 $4 · 输出 $20 · 缓存 $0.2（每百万 token）`，全 0 显示 `model.free`。`实测速度` 来自 omp 的 `agent.db` `model_perf`（`t/s · 首字 s · N 次采样`），没有实测但模型目录有 `tps` 时写 `model.perf.catalog`；`智能分` 来自 omp 的 `models.db` 模型目录（`int`）；两个库都只读（`getModelInsights`，`src/main/omp-config/model-insights.ts`），读不到显示 `model.perf.none` / `model.unknown`，读取中显示 `…`。底部是思考强度分段条（只对正在生效的模型可调，其余显示 `model.thinking.pending`）。分段条只列这个模型实际支持的档位：任务里取 `get_available_thinking_levels`（含 `off`），草稿里取模型的 `thinking.efforts`（不含 `off`）；分段条、方向键、`Alt T` 共用同一份列表和顺序；草稿的胶囊显示 omp 钳制后实际采用的档位。**思考强度是乐观更新**：点下 / `Alt T` 立即显示新档位，omp 往返在后台，失败退回并报错，写入成功 2 秒内新值没回到界面也退回真实值。分段条选中项下面是一块滑块，换档时以 `--ease-spring` 滑过去并轻弹一下（往高档放大回弹、往低档轻收）；滑块按档位换效果：`off` 中性浮起、`minimal` 底部一道强调色细线、`low` 浅强调底、`medium` 加深的强调底 + 描边、`high` 实心 `--accent` + 光晕、`xhigh` 再加周期扫光、`max` 是 `--accent` 与 `--st-waiting` 流动渐变 + 呼吸光晕；胶囊上的强度文字同样分级（低档 `--text-3`，`high` `--accent` 加粗，`xhigh`/`max` 渐变字，`max` 缓慢流动）。循环动画写 `animation-play-state: var(--play-state)`，减少动效时滑块不滑、不弹、不流动。数据来自 `get_available_models`（`ModelOption`：`contextWindow`、`maxTokens`、`cost`、`reasoning`、`acceptsImages`、`thinkingEfforts`）。
 
-**ContextMeter**（发送键左边、费用之前，2026-10-19 起从模型胶囊旁移过来）：只有一个 20px 的上下文圆环（描边 2.5，`get_state.contextUsage.percent`，≥90 变 `--st-waiting`），不写文字；百分比在 `aria-label` / 悬停提示里（`composer.context` + 已用/总量 + `composer.context.tip`）。悬停和打开时按钮只加 `--bg-hover` 底，圆环本身的颜色和粗细不变。点开 `ContextBreakdown`（`Popover`，`align="end"`，Esc 关闭并还焦点，不触发"停止"；照 Claude Code 的 `/context`）：头一行已用/窗口/百分比，一条按段着色的横条 + 每段一行 `[色块][名称][token][占窗口%]`：系统提示词、工具定义（按 `get_state.systemPrompt` / `dumpTools` 字符数估算，ASCII 约 4 字符一个 token、其余一字一个，标 `≈`）、消息（= 已用 − 前两段）、剩余空间、自动压缩预留（= 窗口 − 按 omp 规则算出的压缩触发点，`compaction-trigger.ts`；压缩设置按项目记住，圆环一出现就预读，打开时直接有、后台重读；从没读到过时不画这段），下面没有说明小字。任务里最后是 `composer.breakdown.toggle`（“会话用量”，`aria-expanded`，2026-10-19 起取代“压缩上下文”；压缩走 `/compact` 和命令面板）：点开后浮层向左加宽，构成留在原位，左边多出一栏 `ModelBreakdown`（中间一条 `--border-subtle` 竖线）：头一行标题 + 本会话 token 总数（`get_session_stats`）；打开时读会话文件（`getSessionModelUsage`），按 provider/model 合计输入、输出、缓存读写、费用，范围同 omp（当前分支，最近一次压缩保留下来的部分）；压缩过时另起一行写整个会话的合计。再点收回。omp 还没给出上下文占用时同一位置是不能点的空环（`data-pending`）。
+**ContextMeter**（发送键左边、费用之前，2026-10-19 起从模型胶囊旁移过来）：只有一个 20px 的上下文圆环（描边 2.5，`get_state.contextUsage.percent`，≥90 变 `--st-waiting`），不写文字；百分比在 `aria-label` / 悬停提示里（`composer.context` + 已用/总量 + `composer.context.tip`）。悬停和打开时按钮只加 `--bg-hover` 底，圆环本身的颜色和粗细不变。点开 `ContextBreakdown`（`Popover`，`align="end"`，Esc 关闭并还焦点，不触发"停止"；照 Claude Code 的 `/context`）：头一行已用/窗口/百分比，一条完整的圆角横条（2026-10-20 起：底色轨道 = 整个窗口，各段按占窗口的百分比宽度紧挨着填色，段间无缝，极小的段至少 2px，剩余空间就是轨道底色）+ 每段一行 `[色块][名称][token][占窗口%]`：系统提示词、工具定义（按 `get_state.systemPrompt` / `dumpTools` 字符数估算，ASCII 约 4 字符一个 token、其余一字一个，标 `≈`）、消息（= 已用 − 前两段）、剩余空间、自动压缩预留（= 窗口 − 按 omp 规则算出的压缩触发点，`compaction-trigger.ts`；压缩设置按项目记住，圆环一出现就预读，打开时直接有、后台重读；从没读到过时不画这段），下面没有说明小字。任务里最后是 `composer.breakdown.toggle`（“会话用量”，`aria-expanded`；2026-10-20 起是无边框的文字链接，左边一个 `<`，展开后箭头翻成 `>`；压缩走 `/compact` 和命令面板）：点开后浮层向左加宽，构成留在原位，左边多出一栏 `ModelBreakdown`（中间一条 `--border-subtle` 竖线）：头一行标题 + 本会话 token 总数（`get_session_stats`）；打开时读会话文件（`getSessionModelUsage`），按 provider/model 合计输入、输出、缓存读写、费用，范围同 omp（当前分支，最近一次压缩保留下来的部分）；压缩过时另起一行写整个会话的合计。再点收回。omp 还没给出上下文占用时同一位置是不能点的空环（`data-pending`）。
 
 **UsageMeter**（输入框工具行里，审批胶囊之后）：只剩输出速度（见下），不在运行中时不渲染。
 
@@ -641,6 +644,10 @@
 - **草稿的终端**：新任务草稿也能开终端，面板在空状态下方，目录是草稿项目的目录（没有项目时是 chats 目录）。发出第一条消息创建任务时，草稿的终端（同一个 shell、同一份屏幕）连同面板的打开状态交给新任务，面板保持打开；开了工作树的任务目录不同，草稿的终端被关掉，任务的面板重新起。草稿切换项目时关掉上一个项目草稿的终端。
 - **退出**：shell 自己退出时终端里追加一行灰色（`--text-3`）提示 `[进程已退出，代码 N] 按任意键重新启动`，按任意键在同一目录重新启动（新屏幕）。
 - **键盘**：终端聚焦时按键归 shell（包括 `Esc` 和 Ctrl 组合键，它们不会冒泡成全局快捷键）；例外：`Ctrl \`` 回到输入框并收起面板，`Ctrl C`（有选区时）和 `Ctrl Shift C` 复制，`Ctrl V` / `Ctrl Shift V` 粘贴。没有选区的 `Ctrl C` 照常是 `^C`。
+
+### 4.27 FilePreviewPane（文件预览，2026-10-20 起，照 Tern 里 omp 点文件 chip 的侧栏）
+
+入口：工作记录里工具卡上的文件路径（`FileLink`，`file-link`，显示文件名，完整路径在悬停提示里）。主区右侧打开面板（`file-preview`，默认占主区约 45%，左缘可拖动或用 ←/→ 调宽，最宽 70%，宽度只存内存），同一时间只有一个预览；只在对话页、且预览属于当前任务时显示。头部：文件名 + 路径（和文件名相同时不重复）+ 用系统默认应用打开（`openTaskFile` 白名单里的类型才有）、在文件夹中显示（`revealTaskFile`）、关闭 ×。按类型渲染：`.md` 渲染 Markdown，可切到源码（`.segments`）；图片（png/jpg/gif/webp/svg）用 `<img>` 加载 data URL，适应面板宽度，可缩放，SVG 也只当图片、可切源码；`.html` 放进没有 `allow-same-origin` 的 `<iframe sandbox>`，脚本默认关，勾“运行脚本”才放行，可切源码；其他文本用 `CodeBlock` 语法高亮整段显示；二进制（前 8000 字节含 NUL）和过大（文本 > 2 MB、图片 > 20 MB）只给提示和“默认应用打开”。内容一律经主进程 `readPreviewFile(taskId, path)` 读：相对路径按任务 cwd 解析，落在 cwd 内的绝对路径先换成相对路径，越界拒绝（`resolveInsideReal`），不存在返回 `missing`。打开时焦点进面板，Esc 或 × 关闭并把焦点还给打开前的元素。实现在 `features/file-preview/` 与 `src/main/files/preview-file.ts`。
 
 ---
 
@@ -826,13 +833,12 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `time.hours` | {n} 小时 | {n}h |
 | `time.yesterday` | 昨天 | Yesterday |
 | `window.more` | 更多 | More |
-| `window.about` | 关于 | About |
-| `window.runningFor` | 运行中 · {time}（time = `1:12`） | Running · {time} |
+| `window.about` | 关于与反馈 | About & feedback |
 | `menu.toggleSidebar` | 切换侧栏 | Toggle sidebar |
 | `window.whatsNew` | 新功能 | What's new |
 | `window.ompUpdate` | omp 可升级 | omp update available |
 | `menu.helpFeedback` | 帮助与反馈 | Help & feedback |
-| `menu.about` | 关于 omp-studio | About omp-studio |
+| `window.feedbackTitle` | 反馈 | Feedback |
 | `dropzone.folder` | 松开以用这个文件夹新建任务 | Drop to start a task in this folder |
 | `dropzone.image` | 松开以添加图片 | Drop to add images |
 

@@ -1,23 +1,15 @@
-// 顶栏中间：任务标题 + 状态胶囊（运行中 · 1:12 / 等你确认 / 出错）。空状态显示"新任务"，设置页显示页面标题。
+// 顶栏中间：任务标题 + 状态胶囊（运行中 / 等你确认 / 出错）。空状态显示"新任务"，设置页显示页面标题。
 import type { TaskState } from "../../../shared/ipc.ts";
-import { formatClock } from "../features/conversation/format.ts";
-import { useNow } from "../features/conversation/use-now.ts";
 import { useT } from "../i18n/use-t.ts";
 import { useMainView, useSelectedTaskId, useTask } from "../store/index.ts";
 
 function TaskStatus({ task }: { task: TaskState }) {
   const t = useT();
-  const running = task.status === "running" && task.runStartedAt !== null;
-  const now = useNow(running);
   if (task.status === "running" || task.status === "starting") {
-    const label =
-      running && task.runStartedAt !== null
-        ? t("window.runningFor", { time: formatClock(now - task.runStartedAt) })
-        : t("status.running");
     return (
       <span className="crumb-status" data-kind="running" data-testid="topbar-status" role="status">
         <i aria-hidden="true" />
-        {label}
+        {t("status.running")}
       </span>
     );
   }

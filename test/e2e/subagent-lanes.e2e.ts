@@ -48,6 +48,8 @@ async function start(fixtureText: string): Promise<{ launched: LaunchedApp; clea
   const work = await mkdtemp(path.join(os.tmpdir(), "omp 泳道 e2e-"));
   const project = path.join(work, "项目 目录");
   await mkdir(project);
+  // BetaSummarizer 读的是相对路径 beta.txt：放一份真文件，点文件链接时预览能读到。
+  await writeFile(path.join(project, "beta.txt"), "beta 的内容\n第二行\n");
   const fixture = path.join(work, "lanes.ndjson");
   await writeFile(fixture, fixtureText);
   const launched = await launchApp({
@@ -109,8 +111,10 @@ test("回放结束后：展开已工作行出现泳道，两个子代理各一�
     const done = page.getByTestId("process-done");
     await expect(done).toBeVisible({ timeout: 45_000 });
     await expect(done).toContainText(/(2 个子代理|2 subagents)/);
+    // 过程默认展开：泳道直接可见；标题行可收起再展开。
+    await expect(page.getByTestId("lanes")).toBeVisible();
+    await done.locator(".process-row").click();
     await expect(page.getByTestId("lanes")).toHaveCount(0);
-
     await done.locator(".process-row").click();
     await expect(page.getByTestId("lanes")).toBeVisible();
     const rows = page.getByTestId("lane-row");
@@ -144,6 +148,17 @@ test("回放结束后：展开已工作行出现泳道，两个子代理各一�
     // 摘要和完整记录来自 get_subagent_messages：读文件 + 写文件两次工具调用。
     await expect(page.getByTestId("lane-summary")).not.toContainText(/(还没有结论|No conclusion yet)/);
     await expect(page.getByTestId("lane-record").locator(".step-tool")).toHaveCount(2, { timeout: 10_000 });
+    // 工具卡上的文件名可点：右侧打开预览，读的是任务目录里的 beta.txt；Esc 关闭，焦点回到链接。
+    const link = page.getByTestId("lane-record").getByTestId("file-link").filter({ hasText: "beta.txt" }).first();
+    await link.click();
+    const preview = page.getByTestId("file-preview");
+    await expect(preview).toBeVisible();
+    await expect(page.getByTestId("file-preview-name")).toHaveText("beta.txt");
+    await expect(page.getByTestId("file-preview-body")).toContainText("beta 的内容");
+    await shoot(page, "preview");
+    await page.keyboard.press("Escape");
+    await expect(preview).toHaveCount(0);
+    await expect(link).toBeFocused();
     // 只看它的改动：它写了 beta-summary.md；Alpha 没改文件。
     await page.getByTestId("lane-tab-changes").click();
     await expect(page.getByTestId("lane-changes")).toContainText("beta-summary.md");

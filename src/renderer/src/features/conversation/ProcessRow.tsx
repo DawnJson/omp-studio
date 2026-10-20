@@ -1,5 +1,5 @@
-// 过程（spec 4.11）：运行中像 omp 一样把工具调用直接列在对话里（在做什么、计时在输入框上方的状态行 RunStatus）；
-// 结束后折叠成一行"已工作 …"，点开再看工具列表。
+// 过程（spec 4.11）：像 omp 一样把每个工具调用做成卡片直接列在对话里（在做什么、计时在输入框上方的状态行 RunStatus）；
+// 结束后同样默认展开，标题行"已工作 …"可以点击收起。
 import { useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import type { SubagentLane } from "../../../../shared/subagents.ts";
@@ -26,7 +26,7 @@ export function ProcessRow({
   lanes: readonly SubagentLane[];
 }) {
   const t = useT();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   if (live) {
     // 还没有任何工具调用 / 子代理时不占位：思考中、回复中由输入框上方的状态行说。
@@ -35,6 +35,7 @@ export function ProcessRow({
       <div className="process" data-anchor data-state="live" data-testid="process-live">
         <ProcessDetails
           steps={turn.steps}
+          taskId={taskId}
           header={
             lanes.length > 0 && <LanesPanel taskId={taskId} turn={turn} lanes={lanes} live projectPath={projectPath} />
           }
@@ -44,12 +45,11 @@ export function ProcessRow({
   }
 
   const worked = turn.endedAt - turn.startedAt;
-  // 不足 1 秒或 0 次工具调用的轮次不显示这一行。
-  if (worked < 1000 || turn.toolCalls === 0) return null;
-  const parts: string[] = [
-    t("process.done", { duration: formatDuration(t, worked) }),
-    t("process.toolCalls", { count: turn.toolCalls }),
-  ];
+  // 没有工具调用的轮次不显示；很快跑完（不足 1 秒）的轮次照样显示卡片，只是标题里不写时长。
+  if (turn.toolCalls === 0) return null;
+  const parts: string[] = [];
+  if (worked >= 1000) parts.push(t("process.done", { duration: formatDuration(t, worked) }));
+  parts.push(t("process.toolCalls", { count: turn.toolCalls }));
   if (turn.subagents > 0) parts.push(t("process.subagents", { count: turn.subagents }));
   return (
     <div className="process" data-anchor data-state="done" data-testid="process-done">
@@ -72,6 +72,7 @@ export function ProcessRow({
       <Reveal open={expanded}>
         <ProcessDetails
           steps={turn.steps}
+          taskId={taskId}
           header={
             lanes.length > 0 && (
               <LanesPanel taskId={taskId} turn={turn} lanes={lanes} live={false} projectPath={projectPath} />

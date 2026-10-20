@@ -75,6 +75,19 @@ export type Unsubscribe = () => void;
 /** `@` 补全的数据来源：任务目录，或新任务草稿所在的项目目录。 */
 export type ProjectFilesTarget = { kind: "task"; taskId: TaskId } | { kind: "project"; projectId: ProjectId };
 
+/** 文件预览结果：path 是相对任务 cwd 的规范化路径（传入绝对路径但落在 cwd 内时会换算）。 */
+export interface PreviewFile {
+  kind: "text" | "image" | "html" | "binary" | "too_large" | "missing";
+  path: string;
+  size: number;
+  /** text / html 才有。 */
+  text?: string;
+  /** image 才有（data URL，svg 也走这里，渲染进程只能当图片显示）。 */
+  dataUrl?: string;
+  /** 能否用系统默认应用直接打开（同 openTaskFile 的白名单）；否则只能在文件夹中显示。 */
+  canOpen: boolean;
+}
+
 // ───────── 应用和设置 ─────────
 
 export type Locale = "zh-CN" | "en";
@@ -761,6 +774,11 @@ export interface StudioInvokeApi {
   openTaskFile(taskId: TaskId, relPath: string): Promise<void>;
   /** 在系统文件管理器里选中任务工作目录里的文件。校验同 openTaskFile。 */
   revealTaskFile(taskId: TaskId, relPath: string): Promise<void>;
+  /**
+   * 读任务工作目录里的文件供右侧预览：relPath 相对任务 cwd（落在 cwd 内的绝对路径会换算），越界 reject。
+   * 文本 > 2 MB、图片 > 20 MB 返回 too_large；文件不存在返回 missing（不 reject）。
+   */
+  readPreviewFile(taskId: TaskId, relPath: string): Promise<PreviewFile>;
   /** `@` 文件引用补全：目录由主进程按任务（或新任务草稿的项目）查出，只返回相对路径，最多 20 条；query 含绝对路径或 `..` 时 reject。 */
   listProjectFiles(target: ProjectFilesTarget, query: string): Promise<string[]>;
 
@@ -876,8 +894,10 @@ export interface StudioInvokeApi {
   getStartupSnapshot(): Promise<StartupSnapshot>;
   /** projectId 为 null 时只看全局配置。 */
   getModelDefaults(projectId: ProjectId | null): Promise<ModelDefaults>;
-  /** 设新任务的默认模型（omp 的 modelRoles.default；null = 去掉，让 omp 自己选），写到哪层和 omp 终端一致。 */
-  setDefaultModel(projectId: ProjectId | null, model: ModelKey | null): Promise<void>;
+  /** 项目目录里生效的 modelRoles（角色 → `provider/model[:thinking]` 原文）；projectId 为 null 时只看全局。 */
+  getModelRoles(projectId: ProjectId | null): Promise<Record<string, string>>;
+  /** 给某个角色（default、smol、task…）指定模型（null = 去掉）；default 即新任务的默认模型。写到哪层和 omp 终端一致。 */
+  setModelRole(projectId: ProjectId | null, role: string, model: ModelKey | null): Promise<void>;
   /** 模型选择对话框右栏的速度、智能分和压缩设置；只读 omp 的 agent.db / models.db / `omp config list`。 */
   getModelInsights(projectId: ProjectId | null, keys: ModelKey[]): Promise<ModelInsights>;
   /** omp-studio 自身的更新状态（设置 → 关于）。 */
@@ -1053,6 +1073,7 @@ export const invokeNames = {
   taskGoal: true,
   openTaskFile: true,
   revealTaskFile: true,
+  readPreviewFile: true,
   listProjectFiles: true,
   getSessionTree: true,
   forkTask: true,
@@ -1104,7 +1125,8 @@ export const invokeNames = {
   getDefaultModel: true,
   getStartupSnapshot: true,
   getModelDefaults: true,
-  setDefaultModel: true,
+  getModelRoles: true,
+  setModelRole: true,
   getModelInsights: true,
   getUpdateState: true,
   checkForUpdate: true,

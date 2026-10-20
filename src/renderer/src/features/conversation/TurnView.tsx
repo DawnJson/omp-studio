@@ -1,4 +1,4 @@
-// 一轮：用户消息 → 过程行 → 结论 → 改动卡片 → 提示。结果优先：过程默认折叠成一行。
+// 一轮：用户消息 → 过程（工具卡片，默认展开）→ 结论 → 改动卡片 → 提示。
 import { memo } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import type { SubagentLane } from "../../../../shared/subagents.ts";

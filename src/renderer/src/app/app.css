@@ -101,39 +101,6 @@ button {
   color: var(--text-2);
 }
 
-/* "关于"菜单按钮：文字 + ⌄，和任务工具按钮同高 */
-.topbar-menu {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: var(--control-h-sm);
-  padding: 0 var(--space-1-5) 0 var(--space-2);
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-  white-space: nowrap;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-md);
-  cursor: default;
-  transition:
-    background-color var(--dur-instant) var(--ease-out),
-    color var(--dur-instant) var(--ease-out);
-}
-
-.topbar-menu:hover,
-.topbar-menu[aria-expanded="true"] {
-  color: var(--text);
-  background: var(--bg-hover);
-}
-
-.topbar-menu:active {
-  background: var(--bg-active);
-}
-
-.topbar-menu > svg {
-  color: var(--text-3);
-}
-
 .crumb {
   display: flex;
   flex: 0 1 auto;
@@ -214,6 +181,16 @@ button {
   gap: var(--space-0-5);
   margin-left: auto;
   padding: 0 var(--space-2) 0 var(--space-4);
+}
+
+/* 切换侧栏图标：左栏填充随显隐淡入淡出 */
+.sidebar-icon-fill {
+  opacity: 0.35;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.sidebar-icon-fill[data-shown="false"] {
+  opacity: 0;
 }
 
 .topbar-tool {
@@ -312,7 +289,18 @@ button {
   width: 0;
 }
 
-/* 宽窗口收起/展开侧栏：主区宽度一步到位（spec §5.4），只让侧栏内容在展开时淡入 */
+/* 宽窗口收起/展开：列宽短暂过渡；内容保持展开时的宽度被裁切，不跟着挤压重排。拖拽调宽时不过渡，免得跟手有延迟。 */
+#app[data-drawer="false"] .sidebar-column {
+  transition: width var(--dur-base) var(--ease-out);
+}
+#app[data-drawer="false"] .sidebar-column > * {
+  min-width: var(--sidebar-current, var(--sidebar-w));
+}
+#app:has(.sidebar-resizer:active) .sidebar-column {
+  transition: none;
+}
+
+/* 侧栏内容在收起时淡出、展开时淡入，和列宽过渡同步 */
 .sidebar-column > * {
   transition: opacity var(--dur-base) var(--ease-out);
 }
@@ -493,7 +481,7 @@ button {
 .about {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: var(--space-2);
   width: var(--dialog-w-sm);
   max-width: calc(100vw - var(--space-8));
@@ -517,6 +505,40 @@ button {
   font-weight: var(--fw-regular);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
+}
+
+.about-text {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.about-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.about-heading {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-strong);
+}
+
+.about-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.about-actions .button {
+  margin-top: 0;
+}
+
+.about-close {
+  align-self: flex-end;
 }
 
 .button {

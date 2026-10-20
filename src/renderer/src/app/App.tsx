@@ -11,6 +11,7 @@ import { DialogLayer } from "../features/dialogs/index.ts";
 import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts";
 import { OmpSetupView } from "../features/omp-setup/index.ts";
 import { ReviewHost } from "../features/review/index.ts";
+import { FilePreviewPane, useFilePreview } from "../features/file-preview/index.ts";
 import { CommandPalette } from "../features/palette/index.ts";
 import {
   TerminalPanel,
@@ -37,16 +38,12 @@ import {
   useTasks,
 } from "../store/index.ts";
 import { AboutDialog } from "./AboutDialog.tsx";
-import { AppMenu } from "./AppMenu.tsx";
 import { setDrawerOpen, setSidebarCollapsed, useShellUi } from "./shell-store.ts";
 import { SidebarResizer } from "./SidebarResizer.tsx";
 import { TopBar } from "./TopBar.tsx";
 import { useNavigation } from "./use-navigation.ts";
 import { usePresence } from "../ui/presence.ts";
 import { useShortcuts } from "./use-shortcuts.ts";
-
-/** 帮助与反馈的落点：本仓库的 Issues（选模板页）。内测期间仓库私有，内测用户需要先被加为协作者才能打开。 */
-const helpUrl = "https://github.com/DawnJson/omp-studio/issues/new/choose";
 
 /** spec §3.3：窄于 1000px 侧栏改成覆盖式抽屉。 */
 const narrowQuery = "(max-width: 999px)";
@@ -96,11 +93,11 @@ export function App() {
   const draftKey = useDraftTerminalKey();
   const terminalKey = taskId ?? draftKey;
   const terminalOpen = useTerminalOpen(terminalKey);
+  const preview = useFilePreview();
   useDraftTerminalCleanup(draftKey);
   const shell = useShellUi();
   const narrow = useNarrow();
   const navigation = useNavigation();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
 
   const theme = settings?.theme ?? "system";
@@ -184,7 +181,7 @@ export function App() {
     toggleSidebar,
     goBack: navigation.goBack,
     goForward: navigation.goForward,
-    toggleMenu: () => setMenuOpen((open) => !open),
+    toggleAbout: () => setAboutOpen((open) => !open),
     openReview: () => {
       if (taskId !== null && view === "conversation") openReview(taskId);
     },
@@ -207,8 +204,8 @@ export function App() {
       data-drawer={asDrawer}
     >
       <TopBar
-        menuOpen={menuOpen}
-        onToggleMenu={() => setMenuOpen((open) => !open)}
+        aboutOpen={aboutOpen}
+        onOpenAbout={() => setAboutOpen(true)}
         sidebarShown={sidebarShown}
         onToggleSidebar={toggleSidebar}
       />
@@ -247,15 +244,10 @@ export function App() {
             </>
           )}
         </main>
+        {view === "conversation" && taskId !== null && preview?.taskId === taskId && (
+          <FilePreviewPane taskId={preview.taskId} path={preview.path} />
+        )}
       </div>
-      <AppMenu
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        actions={{
-          openHelp: () => void window.studio.openExternal(helpUrl),
-          openAbout: () => setAboutOpen(true),
-        }}
-      />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <DropOverlay />
       <ReviewHost />

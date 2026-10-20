@@ -1,8 +1,10 @@
-// 展开后的过程（spec 4.11）：工具行（omp 风格：动词图标 + 名称 + 目标 + 信息 + 计时；正文按工具分 diff 卡 / grep 文件卡 / 命令输出 / 行号输出，预览 10 行）、叙述（· 开头单行）、思考。>200 行只渲染最后 100 条。
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+// 展开后的过程（spec 4.11）：每个工具一张 omp 风格卡片（头部：图标 + 名称 + 目标 + 信息 + 状态，hover 出复制 / 展开；卡体默认直接展示 diff / grep 文件卡 / 命令输出 / 行号输出，预览 12 行）、叙述（· 开头单行）、思考。>200 行只渲染最后 100 条。
+import { memo, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
+import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { ChevronRight, FileIcon, Pencil, Search, Terminal } from "../../icons.tsx";
+import { Check, ChevronRight, CopyIcon, FileIcon, Pencil, Search, Terminal } from "../../icons.tsx";
+import { FileLink } from "../file-preview/index.ts";
 import type { Step, ToolStep } from "./model.ts";
 import { toolTarget, toolVerb } from "./tool-info.ts";
 import {
@@ -10,6 +12,7 @@ import {
   buildBody,
   buildInfo,
   defaultOpen,
+  filePaths,
   formatElapsed,
   headerTarget,
   toolDisplayName,
@@ -21,7 +24,7 @@ import {
 import { useNow } from "./use-now.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
 
-const PREVIEW_LINES = 10;
+const PREVIEW_LINES = 12;
 const MANY = 200;
 const KEEP = 100;
 
@@ -203,7 +206,48 @@ function BodyView({ body, t }: { body: ToolBody; t: TFunction }) {
   }
 }
 
-function ToolRow({ step }: { step: ToolStep }) {
+/** 复制到剪贴板的纯文本：bash = 命令 + 输出；diff 带 +/− 号；其余按行。 */
+function bodyText(body: ToolBody): string {
+  switch (body.kind) {
+    case "bash":
+      return [...(body.command !== null ? [`$ ${body.command}`] : []), ...body.lines].join("\n");
+    case "diff":
+      return body.rows
+        .flatMap((row) =>
+          row.kind === "gap" ? [] : [`${row.kind === "add" ? "+" : row.kind === "del" ? "-" : " "}${row.text}`],
+        )
+        .join("\n");
+    case "grep":
+      return body.files.flatMap((file) => file.rows.map((row) => `${file.path}:${row.no}: ${row.text}`)).join("\n");
+    case "numbered":
+      return body.rows.map((row) => `${row.no}: ${row.text}`).join("\n");
+    case "plain":
+      return body.lines.join("\n");
+  }
+}
+
+function CopyButton({ text }: { text: string }) {
+  const t = useT();
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="step-action"
+      title={copied ? t("common.copied") : t("common.copy")}
+      aria-label={t("common.copy")}
+      onClick={() => {
+        void navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1200);
+        });
+      }}
+    >
+      {copied ? <Check size={12} /> : <CopyIcon size={12} />}
+    </button>
+  );
+}
+
+const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId: TaskId }) {
   const t = useT();
   const failed = step.status === "error";
   const running = step.status === "running";
@@ -216,53 +260,98 @@ function ToolRow({ step }: { step: ToolStep }) {
     [step.name, step.args, step.result, step.output],
   );
   const info = buildInfo(step.name, step.args, body);
-  const open = override ?? (failed || defaultOpen(step.name, body));
+  const paths = useMemo(() => filePaths(step.name, step.args), [step.name, step.args]);
   const total = bodyLineCount(body);
+  // 命令本身也是内容：bash 还没输出时卡体就先显示 $ 命令。
+  const hasContent = defaultOpen(body) || (body.kind === "bash" && body.command !== null) || paths.length > 1;
+  const open = override ?? (failed || hasContent);
   const hidden = all ? 0 : Math.max(0, total - PREVIEW_LINES);
   const target = headerTarget(step.name, step.args);
   const duration = step.startedAt !== null && step.endedAt !== null ? step.endedAt - step.startedAt : 0;
+  const toggle = () => setOverride(!open);
+  // 头部目标：单个文件是可点的文件链接（带行选择器后缀）；多个文件显示个数，文件 chip 在卡体里。
+  const single = paths.length === 1 ? (paths[0] ?? null) : null;
+  const range = single !== null && target !== null && target.startsWith(single) ? target.slice(single.length) : "";
   return (
-    <div className="step-tool" data-anchor data-status={step.status}>
-      <button
-        type="button"
-        className="step-row"
-        aria-expanded={open}
-        title={toolLabel(step, t)}
-        onClick={() => setOverride(!open)}
-      >
-        <span className="step-icon">
-          <Icon size={14} />
+    <div className="step-tool" data-anchor data-status={step.status} data-open={open || undefined}>
+      <div className="step-head">
+        <button
+          type="button"
+          className="step-row step-toggle"
+          aria-expanded={open}
+          title={toolLabel(step, t)}
+          onClick={toggle}
+        >
+          <span className="step-icon">
+            <Icon size={14} />
+          </span>
+          <span className="step-name">{toolDisplayName(step.name)}</span>
+        </button>
+        {single !== null ? (
+          <span className="step-arg">
+            <FileLink taskId={taskId} path={single} />
+            {range !== "" && <span className="step-range">{range}</span>}
+          </span>
+        ) : paths.length > 1 ? (
+          <span className="step-arg">{t("tool.info.readFiles", { count: paths.length })}</span>
+        ) : (
+          target !== null && (
+            <button type="button" className="step-arg step-arg-btn" tabIndex={-1} onClick={toggle}>
+              {target}
+            </button>
+          )
+        )}
+        <button type="button" className="step-row step-toggle step-fill" tabIndex={-1} onClick={toggle}>
+          {info !== null && <InfoSegment info={info} />}
+          <span className="step-meta" data-failed={failed || undefined}>
+            {failed ? (
+              t("tool.failed")
+            ) : running ? (
+              <>
+                <span className="step-spin" aria-hidden="true" />
+                {step.startedAt !== null && formatElapsed(now - step.startedAt)}
+              </>
+            ) : duration >= 1000 ? (
+              formatElapsed(duration)
+            ) : null}
+          </span>
+        </button>
+        <span className="step-actions">
+          {total > 0 && <CopyButton text={bodyText(body)} />}
+          <button
+            type="button"
+            className="step-action"
+            aria-label={open ? t("tool.output.collapse") : t("tool.output.showAll")}
+            onClick={toggle}
+          >
+            <ChevronRight size={12} className="step-chevron" data-open={open || undefined} />
+          </button>
         </span>
-        <span className="step-name">{toolDisplayName(step.name)}</span>
-        {target !== null && <span className="step-arg">{target}</span>}
-        {info !== null && <InfoSegment info={info} />}
-        <span className="step-meta" data-failed={failed || undefined}>
-          {failed ? (
-            t("tool.failed")
-          ) : running ? (
-            <>
-              <span className="step-spin" aria-hidden="true" />
-              {step.startedAt !== null && formatElapsed(now - step.startedAt)}
-            </>
-          ) : duration >= 1000 ? (
-            formatElapsed(duration)
-          ) : null}
-        </span>
-      </button>
+      </div>
       <Reveal open={open}>
         <div className="step-output">
-          {total === 0 ? (
-            <p className="step-empty">{t("tool.output.empty")}</p>
-          ) : (
+          {paths.length > 1 && (
+            <div className="step-chips">
+              {paths.map((path) => (
+                <span key={path} className="step-chip">
+                  <FileIcon size={12} />
+                  <FileLink taskId={taskId} path={path} />
+                </span>
+              ))}
+            </div>
+          )}
+          {total > 0 || (body.kind === "bash" && body.command !== null) ? (
             <div className="step-scroll" data-all={all || undefined}>
               <BodyView body={all ? body : clipBody(body, PREVIEW_LINES)} t={t} />
             </div>
+          ) : (
+            !running && paths.length <= 1 && <p className="step-empty">{t("tool.output.empty")}</p>
           )}
-          {hidden > 0 && (
+          {total > PREVIEW_LINES && (
             <div className="step-more">
-              {t("tool.output.more", { count: hidden })} ·{" "}
-              <button type="button" className="step-showall" onClick={() => setAll(true)}>
-                {t("tool.output.showAll")}
+              {hidden > 0 && <>{t("tool.output.more", { count: hidden })} · </>}
+              <button type="button" className="step-showall" onClick={() => setAll(!all)}>
+                {all ? t("tool.output.collapse") : t("tool.output.showAll")}
               </button>
             </div>
           )}
@@ -270,7 +359,7 @@ function ToolRow({ step }: { step: ToolStep }) {
       </Reveal>
     </div>
   );
-}
+});
 
 function TextStepRow({ step }: { step: Extract<Step, { kind: "narration" | "thinking" }> }) {
   const t = useT();
@@ -292,7 +381,15 @@ function TextStepRow({ step }: { step: Extract<Step, { kind: "narration" | "thin
   );
 }
 
-export function ProcessDetails({ steps, header }: { steps: readonly Step[]; header?: ReactNode }) {
+export function ProcessDetails({
+  steps,
+  taskId,
+  header,
+}: {
+  steps: readonly Step[];
+  taskId: TaskId;
+  header?: ReactNode;
+}) {
   const t = useT();
   const trimmed = steps.length > MANY ? steps.slice(-KEEP) : steps;
   return (
@@ -302,7 +399,11 @@ export function ProcessDetails({ steps, header }: { steps: readonly Step[]; head
         <p className="details-earlier">{t("process.earlier", { n: steps.length - trimmed.length })}</p>
       )}
       {trimmed.map((step) =>
-        step.kind === "tool" ? <ToolRow key={step.key} step={step} /> : <TextStepRow key={step.key} step={step} />,
+        step.kind === "tool" ? (
+          <ToolRow key={step.key} step={step} taskId={taskId} />
+        ) : (
+          <TextStepRow key={step.key} step={step} />
+        ),
       )}
     </div>
   );

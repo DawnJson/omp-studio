@@ -43,11 +43,14 @@ import { ContextMeter, UsageMeter } from "./UsageMeter.tsx";
 import { UsageLimitBanner } from "./UsageLimitBanner.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { useHeld } from "./use-held.ts";
+import { JobsBoard } from "./JobsBoard.tsx";
+import { useJobs } from "./use-jobs.ts";
 
 export function Composer({ taskId }: { taskId: TaskId }) {
   const t = useT();
   const task = useTask(taskId);
   const transcript = useTranscript(taskId);
+  const jobs = useJobs(taskId, transcript);
   const draft = useDraft(taskId);
   const suggestion = useEditorSuggestion(taskId);
   const omp = useOmpStatus();
@@ -330,7 +333,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
       </Reveal>
       <UsageLimitBanner limit={task.usageLimit} />
       <QueueStrip taskId={taskId} queue={task.queue} />
-      <RunStatus task={task} transcript={transcript} />
+      <RunStatus task={task} transcript={transcript} jobs={jobs} />
       <div className="composer" data-gate={gate || undefined} onDragOver={onDragOver} onDrop={onDrop}>
         <SlashMenu
           id="slash-menu"
@@ -425,6 +428,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
           <UsageMeter task={task} />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
+          <JobsBoard taskId={taskId} jobs={jobs} projectPath={task.cwd} />
           <ContextMeter task={task} />
           <SessionCost usage={task.sessionUsage} provider={task.model?.key.provider ?? null} />
           <SendStop

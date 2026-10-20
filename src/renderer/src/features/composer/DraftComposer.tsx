@@ -26,7 +26,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
 import { selectTask } from "../../store/index.ts";
 import { startupSnapshot } from "../../store/startup-snapshot.ts";
-import { saveOmpDefaultModel, saveOmpDefaultThinking } from "../settings/config-store.ts";
+import { saveOmpDefaultThinking, saveOmpModelRole } from "../settings/config-store.ts";
 import { refreshProjects } from "../sidebar/projects-store.ts";
 import { takePendingDraftText } from "../palette/index.ts";
 import { pushToast } from "../dialogs/index.ts";
@@ -294,7 +294,7 @@ export function DraftComposer({ projectId, footer }: { projectId: ProjectId | nu
                   ? { emptyLabel: t("composer.defaultModel") }
                   : {})}
             loadModels={() => window.studio.listModels()}
-            setModel={(modelKey) => saveOmpDefaultModel(projectId, modelKey).finally(reread)}
+            setModel={(modelKey) => saveOmpModelRole(projectId, "default", modelKey).finally(reread)}
             setThinking={(level) => saveOmpDefaultThinking(level).finally(reread)}
           />
           <ApprovalChip />

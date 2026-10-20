@@ -16,18 +16,18 @@ async function settled(page: Page, locale: "zh-CN" | "en", theme: "light" | "dar
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 }
 
-test("顶栏是任务条：标志+字标、切换侧栏按钮、关于菜单按钮；中段只有标题（不带项目名）；没有后退/前进按钮", async () => {
+test("顶栏是任务条：标志+字标、切换侧栏按钮、关于与反馈图标按钮；中段只有标题（不带项目名）；没有后退/前进按钮", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
     await expect(page.getByTestId("topbar-sidebar")).toBeVisible();
-    await expect(page.getByTestId("topbar-menu")).toBeVisible();
+    await expect(page.getByTestId("topbar-about")).toBeVisible();
     await expect(page.getByTestId("logo").first()).toBeVisible();
     await expect(page.getByTestId("topbar-crumb")).toHaveText(/^(新任务|New task)$/);
     for (const id of ["topbar-back", "topbar-forward"]) await expect(page.getByTestId(id)).toHaveCount(0);
     // 三样横排在同一行：标志在最左，后面依次是切换侧栏、关于。
     const [logo, sidebar, menu] = await Promise.all(
-      [page.getByTestId("logo").first(), page.getByTestId("topbar-sidebar"), page.getByTestId("topbar-menu")].map(
+      [page.getByTestId("logo").first(), page.getByTestId("topbar-sidebar"), page.getByTestId("topbar-about")].map(
         (locator) => locator.boundingBox(),
       ),
     );
@@ -44,8 +44,8 @@ test("顶栏是任务条：标志+字标、切换侧栏按钮、关于菜单按�
         ?.getAttribute("data-testid"))()`,
     );
     expect(firstStop).toBe("topbar-sidebar");
-    await page.getByTestId("topbar-menu").focus();
-    await expect(page.getByTestId("topbar-menu")).toBeFocused();
+    await page.getByTestId("topbar-about").focus();
+    await expect(page.getByTestId("topbar-about")).toBeFocused();
     const topbar = await page.getByTestId("topbar").boundingBox();
     expect(topbar?.height).toBe(40);
   } finally {
@@ -71,22 +71,24 @@ test("侧栏开关：顶栏按钮和 Ctrl B 都能收起/展开", async () => {
   }
 });
 
-test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后焦点回到按钮；关于菜单里只有帮助与反馈和关于", async () => {
+test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后焦点回到按钮；顶栏 ⓘ 和 Alt 打开同一个关于与反馈对话框", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
     await settled(page, "zh-CN", "light");
-    await page.getByTestId("topbar-menu").click();
-    const appMenu = page.getByTestId("app-menu");
-    await expect(appMenu.getByRole("menuitem")).toHaveText(["帮助与反馈", "关于 omp-studio"]);
-    // 菜单在"关于"按钮正下方。
-    const [trigger, menuBox] = await Promise.all([
-      page.getByTestId("topbar-menu").boundingBox(),
-      appMenu.boundingBox(),
+    await page.getByTestId("topbar-about").click();
+    const about = page.getByTestId("about-dialog");
+    await expect(about).toBeVisible();
+    // 一个对话框里既有关于（名称+版本）也有反馈入口。
+    await expect(about.getByRole("heading", { level: 2 })).toContainText("omp-studio");
+    await expect(about.getByTestId("about-feedback").getByRole("button")).toHaveText([
+      "帮助与反馈",
+      "打开日志文件夹",
+      "导出诊断信息",
     ]);
-    expect(Math.abs((menuBox?.x ?? 0) - (trigger?.x ?? 0))).toBeLessThanOrEqual(1);
-    expect(menuBox?.y ?? 0).toBeGreaterThanOrEqual((trigger?.y ?? 0) + (trigger?.height ?? 0));
     await page.keyboard.press("Escape");
+    await expect(about).toHaveCount(0);
+    await expect(page.getByTestId("topbar-about")).toBeFocused();
 
     await page.getByTestId("sidebar-theme").click();
     const themeMenu = page.getByTestId("sidebar-theme-menu");
@@ -98,7 +100,7 @@ test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后�
 
     await page.getByTestId("sidebar-language").click();
     await page.getByTestId("sidebar-language-menu").getByRole("menuitemradio", { name: "English" }).click();
-    await expect(page.getByTestId("topbar-menu")).toHaveText("About");
+    await expect(page.getByTestId("topbar-about")).toHaveAttribute("aria-label", "About & feedback");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
     // 菜单在按钮上方、不出窗口。
@@ -114,9 +116,9 @@ test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后�
     await expect(page.getByTestId("sidebar-theme")).toBeFocused();
 
     await page.keyboard.press("Alt");
-    await expect(page.getByTestId("app-menu")).toBeVisible();
+    await expect(page.getByTestId("about-dialog")).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("app-menu")).toHaveCount(0);
+    await expect(page.getByTestId("about-dialog")).toHaveCount(0);
     await expect(page.getByTestId("sidebar-theme")).toBeFocused();
   } finally {
     await launched.close();

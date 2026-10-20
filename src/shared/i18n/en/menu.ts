@@ -12,5 +12,4 @@ export const menu = {
   themeLight: "Light",
   themeDark: "Dark",
   helpFeedback: "Help & feedback",
-  about: "About omp-studio",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

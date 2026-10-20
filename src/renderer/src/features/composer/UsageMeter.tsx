@@ -3,6 +3,7 @@
 // 点圆环弹出上下文构成；任务里构成下面有"会话用量"按钮，点了在构成左边展开按模型的本会话用量（ModelBreakdown）。
 import { useEffect, useState, type ReactNode } from "react";
 import type { ModelOption, ProjectId, TaskState } from "../../../../shared/ipc.ts";
+import { ChevronRight } from "../../icons.tsx";
 import { useT } from "../../i18n/use-t.ts";
 import { ContextBreakdown, prefetchCompaction, type ContextBreakdownProps } from "./ContextBreakdown.tsx";
 import { ModelBreakdown } from "./ModelBreakdown.tsx";
@@ -94,11 +95,12 @@ function ContextButton({ sessionUsage, ...props }: ContextBreakdownProps & { ses
               <div className="pop-section">
                 <button
                   type="button"
-                  className="gate-btn"
+                  className="ctx-usage-toggle"
                   data-testid="session-usage-toggle"
                   aria-expanded={expanded}
                   onClick={() => setUsageOpen(!usageOpen)}
                 >
+                  <ChevronRight className="ctx-usage-chev" aria-hidden="true" />
                   {t("composer.breakdown.toggle")}
                 </button>
               </div>

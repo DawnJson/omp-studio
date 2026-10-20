@@ -17,4 +17,6 @@ export const tool = {
   "output.unchanged": { one: "{count} unchanged line", other: "{count} unchanged lines" },
   "output.showAll": "Show all",
   "output.empty": "No output",
+  "output.collapse": "Collapse",
+  "info.readFiles": { one: "{count} file", other: "{count} files" },
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

@@ -18,7 +18,8 @@ export interface ShortcutActions {
   toggleSidebar(): void;
   goBack(): void;
   goForward(): void;
-  toggleMenu(): void;
+  /** 单按 Alt：打开/关闭"关于与反馈"对话框。 */
+  toggleAbout(): void;
   /** Ctrl Shift D：打开当前任务的评审。 */
   openReview(): void;
   /** Ctrl `：终端 打开 / 聚焦 / 收起并回到输入框。 */
@@ -91,7 +92,7 @@ export function useShortcuts(actions: ShortcutActions): void {
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.key === "Alt" && altAlone) {
         event.preventDefault();
-        latest.current.toggleMenu();
+        latest.current.toggleAbout();
       }
       altAlone = false;
     };

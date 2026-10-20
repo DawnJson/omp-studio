@@ -215,6 +215,8 @@ button.usage-context:hover,
   font-size: var(--fs-sm);
   cursor: pointer;
   min-width: 0;
+  /* 极窄时内容（思考强度）不能画到旁边的胶囊上。 */
+  overflow: hidden;
 }
 .chip-text {
   overflow: hidden;
@@ -276,6 +278,15 @@ button.usage-context:hover,
 @container (max-width: 520px) {
   .chip-text {
     max-width: 10ch;
+  }
+}
+/* 再窄（比如右侧开着文件预览）工具行折成两行：左边模型、审批一行，右边的计数、用量、发送换到下一行靠右，模型名不再被挤没。 */
+@container (max-width: 400px) {
+  .composer-tools {
+    flex-wrap: wrap;
+    row-gap: var(--space-1);
+    /* 第一行有 spacer 吃掉空余，不受影响；换下来的那行靠右，发送键仍在右下角。 */
+    justify-content: flex-end;
   }
 }
 
@@ -383,14 +394,49 @@ button.usage-context:hover,
   color: var(--text-2);
   white-space: nowrap;
 }
+/* 一条完整的横条：整条圆角裁切，各段按占窗口的百分比宽度紧挨着填，剩余空间 = 底色轨道 */
 .ctx-bar {
   display: flex;
-  gap: 2px;
   height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--border-subtle);
 }
 .ctx-seg {
+  flex: 0 1 0;
   min-width: 2px;
+}
+.ctx-usage-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.ctx-usage-toggle:hover {
+  color: var(--text);
+}
+.ctx-usage-toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
   border-radius: var(--radius-xs);
+}
+/* 收起时 < 指向左（面板往左展开），展开后翻成 > */
+.ctx-usage-chev {
+  transform: rotate(180deg);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.ctx-usage-toggle[aria-expanded="true"] .ctx-usage-chev {
+  transform: none;
+}
+html[data-motion="reduced"] .ctx-usage-chev {
+  transition: none;
 }
 .ctx-seg[data-part="system"],
 .ctx-swatch[data-part="system"] {
@@ -645,6 +691,7 @@ button.usage-context:hover,
    间距放在 padding 里：Reveal 收起时整行连同间距一起缩没。 */
 .run-status {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   min-height: var(--control-h-sm);
@@ -1336,6 +1383,54 @@ button.usage-context:hover,
   line-height: var(--lh-lg);
   font-weight: var(--fw-strong);
 }
+.mp-heading {
+  min-width: 0;
+}
+.mp-role-use {
+  margin: var(--space-0-5) 0 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+/* 角色标签：default 是本任务的模型，其余是 omp 的 modelRoles；选中的标签下面列表改成"给这个角色选模型"。 */
+.mp-roles {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: 0 var(--space-4) var(--space-2);
+}
+.mp-role-tab {
+  padding: 0 var(--space-2-5);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.mp-role-tab:hover {
+  background: var(--bg-hover);
+}
+.mp-role-tab[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.mp-role-tab:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+.mp-role-badge {
+  flex: none;
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--text-2);
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-2xs);
+}
 .mp-body {
   display: grid;
   flex: 1;
@@ -1475,4 +1570,211 @@ button.usage-context:hover,
   margin: var(--space-1) 0 0;
   font-size: var(--fs-xs);
   color: var(--text-3);
+}
+
+/* 后台任务：状态行下的 job 小卡（靠右，正好落在工具行的看板胶囊上方）+ 看板胶囊 + 看板浮层。 */
+.job-chips {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1-5);
+  order: 3;
+  min-width: 0;
+}
+.job-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  max-width: 220px;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+  color: var(--text-2);
+}
+.job-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.job-chip-time {
+  flex: none;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.job-chip-more {
+  align-self: center;
+  color: var(--text-3);
+}
+.job-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--st-done);
+}
+.job-dot[data-status="running"] {
+  background: var(--st-running);
+}
+.job-dot[data-status="failed"] {
+  background: var(--st-error);
+}
+.job-dot[data-status="cancelled"] {
+  background: var(--text-3);
+}
+
+.jobs-anchor {
+  flex: none;
+}
+.jobs-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.jobs-pill:hover,
+.jobs-pill[aria-expanded="true"] {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.jobs-pill:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.jobs-pill-part {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.jobs-pill-sep {
+  width: 1px;
+  height: var(--icon-sm);
+  background: var(--border);
+}
+.jobs-pill[data-running] .job-dot {
+  animation: job-pulse calc(var(--dur-spin) * 2) ease-in-out infinite;
+  animation-play-state: var(--play-state);
+}
+.jobs-pill[data-failed] .jobs-pill-part:last-child {
+  color: var(--st-error);
+}
+@keyframes job-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.jobs-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1-5);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+.jobs-title {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.jobs-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.job-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--control-h-sm);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.job-row:hover,
+.job-row[aria-expanded="true"] {
+  background: var(--bg-hover);
+}
+.job-row:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.job-caret {
+  flex: none;
+  color: var(--text-3);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.job-row[aria-expanded="true"] .job-caret {
+  transform: rotate(90deg);
+}
+.job-type {
+  display: grid;
+  flex: none;
+  place-items: center;
+  color: var(--text-2);
+}
+.job-label {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.job-status {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1-5);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+.job-elapsed {
+  flex: none;
+  min-width: 4ch;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.job-output {
+  max-height: 200px;
+  margin: var(--space-1) var(--space-2) var(--space-2);
+  padding: var(--space-2);
+  overflow: auto;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.job-note {
+  margin: var(--space-1) var(--space-2) var(--space-2);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
 }

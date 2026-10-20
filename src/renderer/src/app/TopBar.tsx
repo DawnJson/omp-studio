@@ -1,17 +1,16 @@
-// 顶栏 = 任务条（spec §3.1）：左 标志+字标、切换侧栏按钮、"关于"菜单按钮（帮助与反馈 / 关于）；中 任务标题 + 状态胶囊；
+// 顶栏 = 任务条（spec §3.1）：左 标志+字标、切换侧栏按钮（图标随侧栏显隐变化）、"关于与反馈"图标按钮；中 任务标题 + 状态胶囊；
 // 右 任务工具（分支、评审、终端），再往右是 titleBarOverlay 绘制的系统三键。空白处可拖动窗口。后退/前进不在顶栏（Alt+←/→、鼠标侧键）。
 import { GitTools } from "../features/git/index.ts";
 import { TerminalToggle, useDraftTerminalKey } from "../features/terminal/index.ts";
 import { useT } from "../i18n/use-t.ts";
-import { ChevronDown } from "../icons.tsx";
-import { SidebarIcon } from "./icons.tsx";
+import { InfoIcon, SidebarIcon } from "./icons.tsx";
 import { useMainView, useSelectedTaskId, useTask } from "../store/index.ts";
 import { Logo } from "../ui/Logo.tsx";
 import { TaskCrumb } from "./TaskCrumb.tsx";
 
 interface TopBarProps {
-  menuOpen: boolean;
-  onToggleMenu(): void;
+  aboutOpen: boolean;
+  onOpenAbout(): void;
   sidebarShown: boolean;
   onToggleSidebar(): void;
 }
@@ -52,19 +51,19 @@ export function TopBar(props: TopBarProps) {
           title={`${t("menu.toggleSidebar")} (Ctrl B)`}
           onClick={props.onToggleSidebar}
         >
-          <SidebarIcon />
+          <SidebarIcon shown={props.sidebarShown} />
         </button>
         <button
           type="button"
-          className="topbar-menu"
-          data-testid="topbar-menu"
-          aria-haspopup="menu"
-          aria-expanded={props.menuOpen}
+          className="topbar-tool"
+          data-testid="topbar-about"
+          aria-haspopup="dialog"
+          aria-expanded={props.aboutOpen}
+          aria-label={t("window.about")}
           title={`${t("window.about")} (Alt)`}
-          onClick={props.onToggleMenu}
+          onClick={props.onOpenAbout}
         >
-          {t("window.about")}
-          <ChevronDown size={12} />
+          <InfoIcon />
         </button>
       </div>
       <TaskCrumb />
