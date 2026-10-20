@@ -1563,42 +1563,7 @@ html[data-motion="reduced"] .ctx-usage-chev {
   color: var(--text-3);
 }
 
-/* 后台任务：状态行下的 job 小卡（靠右，正好落在工具行的看板胶囊上方）+ 看板胶囊 + 看板浮层。 */
-.job-chips {
-  display: flex;
-  flex: 1 0 100%;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-1-5);
-  order: 3;
-  min-width: 0;
-}
-.job-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  max-width: 220px;
-  height: var(--control-h-sm);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--bg-hover);
-  color: var(--text-2);
-}
-.job-chip-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.job-chip-time {
-  flex: none;
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-}
-.job-chip-more {
-  align-self: center;
-  color: var(--text-3);
-}
+/* 后台任务：输入框右上方的看板胶囊 + 看板浮层（状态行下不再另列 job 小卡，免得同一个 job 显示两遍）。 */
 .job-dot {
   flex: none;
   width: 8px;

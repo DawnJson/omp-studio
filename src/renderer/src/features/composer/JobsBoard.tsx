@@ -12,12 +12,12 @@ import { SubagentDetailPanel } from "../lanes/SubagentDetailPanel.tsx";
 import { Popover } from "./Popover.tsx";
 
 /** 已结束的用 omp 量的时长，运行中的用现在 - 开始；都没有就不显示。 */
-export function jobElapsed(job: Job, now: number): string | null {
+function jobElapsed(job: Job, now: number): string | null {
   if (job.status === "running") return formatElapsed(now - job.startedAt);
   return job.durationMs === null ? null : formatElapsed(job.durationMs);
 }
 
-export function JobTypeIcon({ type }: { type: Job["type"] }) {
+function JobTypeIcon({ type }: { type: Job["type"] }) {
   return type === "bash" ? <Terminal size={14} /> : <Branch size={14} />;
 }
 

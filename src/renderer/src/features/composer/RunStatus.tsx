@@ -11,7 +11,6 @@ import { summarizeTodos } from "../conversation/todo-model.ts";
 import { useNow } from "../conversation/use-now.ts";
 import { useWaitingSince } from "../conversation/use-waiting-since.ts";
 import { DotSphereMark } from "./DotSphereMark.tsx";
-import { jobElapsed, JobTypeIcon } from "./JobsBoard.tsx";
 import { TodoBoard } from "./TodoBoard.tsx";
 import { useHeld } from "./use-held.ts";
 
@@ -24,13 +23,9 @@ interface RowProps {
   jobs: readonly Job[];
 }
 
-/** 状态行下最多并排的 job 小卡数；多的折成 +N。 */
-const MAX_CHIPS = 4;
-
 function RunStatusRow({ task, transcript, waitingSince, jobs }: RowProps) {
   const t = useT();
   const busy = BUSY.includes(task.status);
-  const running = useMemo(() => jobs.filter((job) => job.status === "running"), [jobs]);
   const now = useNow(busy);
   const scan = useMemo(() => scanLive(transcript), [transcript]);
   const counts = useMemo(() => countJobs(jobs), [jobs]);
@@ -58,18 +53,6 @@ function RunStatusRow({ task, transcript, waitingSince, jobs }: RowProps) {
               t,
             )}
           </span>
-        </div>
-      )}
-      {busy && running.length > 0 && (
-        <div className="job-chips" data-testid="job-chips">
-          {running.slice(0, MAX_CHIPS).map((job) => (
-            <span key={job.id} className="job-chip" data-testid="job-chip" data-job-id={job.id} title={job.label}>
-              <JobTypeIcon type={job.type} />
-              <span className="job-chip-label">{job.label}</span>
-              <span className="job-chip-time">{jobElapsed(job, now)}</span>
-            </span>
-          ))}
-          {running.length > MAX_CHIPS && <span className="job-chip-more">+{running.length - MAX_CHIPS}</span>}
         </div>
       )}
       {summary.total > 0 && (

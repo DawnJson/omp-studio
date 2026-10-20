@@ -1,5 +1,5 @@
 // 后台任务的端到端：假 omp 回放真实录制 fixtures/rpc/bg-jobs.ndjson（task 子代理 ListDir + 异步 bash bg_1，agent 用 wait 等它们），
-// 验证 输入框上方"等待 N 个后台任务"状态行 + job 小卡、右下角胶囊计数、点开的看板（列出两个 job，展开看输出，Esc 关闭回到胶囊）。
+// 验证 输入框上方"等待 N 个后台任务"状态行、输入框右上方的胶囊计数、点开的看板（列出两个 job，展开看输出，Esc 关闭回到胶囊）。
 // 运行中的瞬间靠"在某一行之后截断并挂起"固定下来（和 subagent-lanes.e2e.ts 一样）。
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -57,7 +57,7 @@ async function openNewTaskAndSend(page: Page, prompt: string): Promise<void> {
 const prompt =
   "用 task 工具开 1 个子代理读一下当前目录列出文件；同时用 bash 后台运行一个 12 秒的命令，等它们都结束再汇报。";
 
-test("agent 在 wait 两个 job：状态行说在等几个，附 job 小卡，胶囊 2 运行 │ 0 结束", async () => {
+test("agent 在 wait 两个 job：状态行说在等几个，胶囊 2 运行 │ 0 结束；状态行下不再重复列 job", async () => {
   // 第 485 行：第一次 wait 的第二条 update，ListDir 和 bg_1 都还在跑。
   const { launched, cleanup } = await start(await fixtureUntil(485));
   try {
@@ -65,10 +65,7 @@ test("agent 在 wait 两个 job：状态行说在等几个，附 job 小卡，�
     await openNewTaskAndSend(page, prompt);
     const status = page.getByTestId("run-status-main");
     await expect(status).toContainText(/(等待 2 个后台任务|waiting on 2 jobs)/, { timeout: 30_000 });
-    const chips = page.getByTestId("job-chip");
-    await expect(chips).toHaveCount(2);
-    await expect(chips.nth(0)).toHaveAttribute("data-job-id", "ListDir");
-    await expect(chips.nth(1)).toHaveAttribute("data-job-id", "bg_1");
+    await expect(page.getByTestId("job-chip")).toHaveCount(0);
     const pill = page.getByTestId("jobs-pill");
     await expect(pill.getByTestId("jobs-pill-running")).toHaveText("2");
     await expect(pill.getByTestId("jobs-pill-done")).toHaveText("0");
@@ -87,7 +84,6 @@ test("子代理完成、bash 还在跑：1/2 个后台任务 · 1 个完成；�
       /(等待 1\/2 个后台任务 · 1 个完成|waiting on 1 of 2 jobs · 1 done)/,
       { timeout: 30_000 },
     );
-    await expect(page.getByTestId("job-chip")).toHaveCount(1);
     const pill = page.getByTestId("jobs-pill");
     await expect(pill.getByTestId("jobs-pill-running")).toHaveText("1");
     await expect(pill.getByTestId("jobs-pill-done")).toHaveText("1");
@@ -131,7 +127,6 @@ test("回放结束后：胶囊 0 运行 │ 2 结束，看板里 ListDir 和 bg_
     const pill = page.getByTestId("jobs-pill");
     await expect(pill.getByTestId("jobs-pill-done")).toHaveText("2", { timeout: 45_000 });
     await expect(pill.getByTestId("jobs-pill-running")).toHaveText("0");
-    await expect(page.getByTestId("job-chip")).toHaveCount(0);
 
     await pill.click();
     const rows = page.getByTestId("job-row");
