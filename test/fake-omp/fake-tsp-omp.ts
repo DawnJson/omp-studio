@@ -130,13 +130,17 @@ const parser = new TspStreamParser((event) => {
 });
 
 if (process.stdin.isTTY) process.stdin.setRawMode(true);
+// 一个数据块里可能同时有 TSP 消息（ack 等）和按键（负载高时 pty 会把它们合在一起）：去掉完整的 TSP 消息，剩下的才是按键。
+// JSON 体里的控制字符都被转义，所以消息体里不会出现 ESC。
+const TSP_MESSAGE = new RegExp(String.raw`\x1b_tsp[^\x1b]*\x1b\\|\x1b\]877[^\x07\x1b]*(?:\x07|\x1b\\)`, "g");
 process.stdin.on("data", (chunk: Buffer) => {
   const text = chunk.toString("utf8");
-  const hasTsp = text.includes(`${ESC}_tsp`) || text.includes(`${ESC}]877`);
   // DA1 应答单独记：它和 hello 回复可能在同一个数据块里，按块判断会把它吞掉；顺序以 TSP 消息处理之后为准。
   const da1 = text.includes(`${ESC}[?62;22c`);
-  const keys = text.replaceAll(`${ESC}[?62;22c`, "");
-  if (!hasTsp && keys !== "") log({ kind: "keys", data: keys });
+  const rest = text.replace(TSP_MESSAGE, "").replaceAll(`${ESC}[?62;22c`, "");
+  // 分块到下一个数据块的 TSP 消息（没收尾）不算按键。
+  const keys = rest.includes(`${ESC}_tsp`) || rest.includes(`${ESC}]877`) ? "" : rest;
+  if (keys !== "") log({ kind: "keys", data: keys });
   parser.write(chunk);
   if (da1) log({ kind: "da1-reply" });
 });
