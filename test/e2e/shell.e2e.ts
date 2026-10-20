@@ -16,24 +16,34 @@ async function settled(page: Page, locale: "zh-CN" | "en", theme: "light" | "dar
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 }
 
-test("顶栏是任务条：标志+字标即菜单按钮（可键盘聚焦）、中段只有标题（不带项目名）；没有后退/前进/侧栏按钮", async () => {
+test("顶栏是任务条：标志+字标、切换侧栏按钮、关于菜单按钮；中段只有标题（不带项目名）；没有后退/前进按钮", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
+    await expect(page.getByTestId("topbar-sidebar")).toBeVisible();
     await expect(page.getByTestId("topbar-menu")).toBeVisible();
     await expect(page.getByTestId("logo").first()).toBeVisible();
     await expect(page.getByTestId("topbar-crumb")).toHaveText(/^(新任务|New task)$/);
-    for (const id of ["topbar-back", "topbar-forward", "topbar-sidebar"])
-      await expect(page.getByTestId(id)).toHaveCount(0);
+    for (const id of ["topbar-back", "topbar-forward"]) await expect(page.getByTestId(id)).toHaveCount(0);
+    // 三样横排在同一行：标志在最左，后面依次是切换侧栏、关于。
+    const [logo, sidebar, menu] = await Promise.all(
+      [page.getByTestId("logo").first(), page.getByTestId("topbar-sidebar"), page.getByTestId("topbar-menu")].map(
+        (locator) => locator.boundingBox(),
+      ),
+    );
+    expect((logo?.x ?? 0) < (sidebar?.x ?? 0) && (sidebar?.x ?? 0) < (menu?.x ?? 0)).toBe(true);
+    expect(
+      Math.abs((sidebar?.y ?? 0) + (sidebar?.height ?? 0) / 2 - ((menu?.y ?? 0) + (menu?.height ?? 0) / 2)),
+    ).toBeLessThanOrEqual(1);
 
-    // 页面第一个 Tab 停靠点是菜单按钮。启动后焦点在草稿输入框（spec §5.3），blur 后 Chromium 仍从输入框接着走，
+    // 页面第一个 Tab 停靠点是切换侧栏按钮（标志不是按钮）。启动后焦点在草稿输入框（spec §5.3），blur 后 Chromium 仍从输入框接着走，
     // 所以按文档顺序找第一个可聚焦控件，再确认它确实能拿到焦点。
     const firstStop = await page.evaluate(
       `(() => [...document.querySelectorAll("button, input, textarea, select, a[href], [tabindex]")]
         .find((el) => el.tabIndex >= 0 && !el.disabled && !el.closest("[inert]") && el.getClientRects().length > 0)
         ?.getAttribute("data-testid"))()`,
     );
-    expect(firstStop).toBe("topbar-menu");
+    expect(firstStop).toBe("topbar-sidebar");
     await page.getByTestId("topbar-menu").focus();
     await expect(page.getByTestId("topbar-menu")).toBeFocused();
     const topbar = await page.getByTestId("topbar").boundingBox();
@@ -43,15 +53,17 @@ test("顶栏是任务条：标志+字标即菜单按钮（可键盘聚焦）、�
   }
 });
 
-test("侧栏开关：菜单项和 Ctrl B 都能收起/展开", async () => {
+test("侧栏开关：顶栏按钮和 Ctrl B 都能收起/展开", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
     const root = page.getByTestId("app-root");
+    const toggle = page.getByTestId("topbar-sidebar");
     await expect(root).toHaveAttribute("data-sidebar", "shown");
-    await page.getByTestId("topbar-menu").click();
-    await page.getByRole("menuitem", { name: /切换侧栏|Toggle sidebar/ }).click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await toggle.click();
     await expect(root).toHaveAttribute("data-sidebar", "hidden");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await page.keyboard.press("Control+b");
     await expect(root).toHaveAttribute("data-sidebar", "shown");
   } finally {
@@ -59,13 +71,21 @@ test("侧栏开关：菜单项和 Ctrl B 都能收起/展开", async () => {
   }
 });
 
-test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后焦点回到按钮；应用菜单里不再有这两组", async () => {
+test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后焦点回到按钮；关于菜单里只有帮助与反馈和关于", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
     await settled(page, "zh-CN", "light");
     await page.getByTestId("topbar-menu").click();
-    await expect(page.getByTestId("app-menu").getByRole("menuitemradio")).toHaveCount(0);
+    const appMenu = page.getByTestId("app-menu");
+    await expect(appMenu.getByRole("menuitem")).toHaveText(["帮助与反馈", "关于 omp-studio"]);
+    // 菜单在"关于"按钮正下方。
+    const [trigger, menuBox] = await Promise.all([
+      page.getByTestId("topbar-menu").boundingBox(),
+      appMenu.boundingBox(),
+    ]);
+    expect(Math.abs((menuBox?.x ?? 0) - (trigger?.x ?? 0))).toBeLessThanOrEqual(1);
+    expect(menuBox?.y ?? 0).toBeGreaterThanOrEqual((trigger?.y ?? 0) + (trigger?.height ?? 0));
     await page.keyboard.press("Escape");
 
     await page.getByTestId("sidebar-theme").click();
@@ -78,7 +98,7 @@ test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后�
 
     await page.getByTestId("sidebar-language").click();
     await page.getByTestId("sidebar-language-menu").getByRole("menuitemradio", { name: "English" }).click();
-    await expect(page.getByTestId("topbar-menu")).toHaveAttribute("aria-label", "omp studio menu");
+    await expect(page.getByTestId("topbar-menu")).toHaveText("About");
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
     // 菜单在按钮上方、不出窗口。
@@ -223,8 +243,9 @@ test("没有项目时主区只有标志和草稿输入框；F6 把焦点送进�
     await expect(empty).toBeVisible();
     await expect(empty).toHaveAttribute("data-kind", "no-project");
     await expect(empty.getByTestId("pixel-logo")).toBeVisible();
-    // 输入框上面只有标志：没有“还没有项目”、没有任何按钮（打开文件夹、项目胶囊）。
+    // 输入框上面只有标志：没有“还没有项目”、没有最近的任务、没有任何按钮；项目按钮在输入框下面，写"无项目"，不出现 chats。
     await expect(empty.locator(".empty-main").getByRole("button")).toHaveCount(0);
+    await expect(page.getByTestId("draft-composer").getByTestId("empty-project")).toHaveText(/^(无项目|No project)$/);
     await expect(page.getByTestId("empty-draft").locator("[data-composer-input]")).toBeVisible();
 
     await page.keyboard.press("F6");
@@ -269,10 +290,16 @@ test("有项目的空状态：输入框贴主区底部、没有历史会话列�
     await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
     expect(await page.evaluate(() => globalThis.studio.listTasks())).toEqual([]);
 
-    // 项目菜单：键盘打开，Esc 关闭后焦点回到项目名。
+    // 项目菜单：键盘打开，向上弹（按钮贴着窗口底部）；Esc 关闭后焦点回到项目按钮。
     await page.getByTestId("empty-project").focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("menu")).toBeVisible();
+    const projectMenu = page.getByRole("menu");
+    await expect(projectMenu).toBeVisible();
+    const [projectButton, projectMenuBox] = await Promise.all([
+      page.getByTestId("empty-project").boundingBox(),
+      projectMenu.boundingBox(),
+    ]);
+    expect((projectMenuBox?.y ?? 0) + (projectMenuBox?.height ?? 0)).toBeLessThanOrEqual(projectButton?.y ?? 0);
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("empty-project")).toBeFocused();
 

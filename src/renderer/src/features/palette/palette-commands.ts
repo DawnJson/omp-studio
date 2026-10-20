@@ -1,7 +1,7 @@
 // 命令面板的命令清单（spec §4.18）：每个有快捷键的动作都在这里有一条。只列当前能执行的命令。
 import { reportError } from "../../ui/errors.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
-import type { Locale, TaskState, ThemePreference } from "../../../../shared/ipc.ts";
+import type { Locale, TaskState, TerminalKey, ThemePreference } from "../../../../shared/ipc.ts";
 import { showView } from "../../store/index.ts";
 import { openReview } from "../../store/review-store.ts";
 import { archiveWithUndo } from "../sidebar/archive-store.ts";
@@ -21,13 +21,15 @@ export interface CommandContext {
   locale: Locale;
   theme: ThemePreference;
   current: TaskState | null;
+  /** 终端命令的目标：当前任务，或对话页上的新任务草稿；没有（设置页上的草稿等）时为 null。 */
+  terminalKey: TerminalKey | null;
   hasWaiting: boolean;
 }
 
 const themeCycle: ThemePreference[] = ["system", "light", "dark"];
 const goalCommandKey = { pause: "goal.cmdPause", resume: "goal.cmdResume", drop: "goal.cmdDrop" } as const;
 
-export function buildCommands({ t, locale, theme, current, hasWaiting }: CommandContext): CommandEntry[] {
+export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiting }: CommandContext): CommandEntry[] {
   const guard = (promise: Promise<unknown>) => void promise.catch((error: unknown) => reportError(t, error));
   const entries: (CommandEntry | null)[] = [
     { id: "newTask", label: t("cmd.newTask"), shortcut: "Ctrl N", run: () => startDraft(null) },
@@ -102,11 +104,11 @@ export function buildCommands({ t, locale, theme, current, hasWaiting }: Command
       shortcut: "Ctrl Shift D",
       run: () => openReview(current.id),
     },
-    current && {
+    terminalKey !== null && {
       id: "toggleTerminal",
       label: t("cmd.toggleTerminal"),
       shortcut: "Ctrl `",
-      run: () => toggleTerminal(current.id),
+      run: () => toggleTerminal(terminalKey),
     },
     hasWaiting && {
       id: "jumpWaiting",

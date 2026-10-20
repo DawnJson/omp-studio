@@ -10,6 +10,7 @@ import {
   type ClipboardEvent,
   type DragEvent,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import type {
   DefaultModelInfo,
@@ -19,6 +20,7 @@ import type {
   ProjectId,
   TaskId,
 } from "../../../../shared/ipc.ts";
+import { draftKey } from "../../../../shared/ipc.ts";
 import { worktreeBlockerKey } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
@@ -28,7 +30,8 @@ import { saveOmpDefaultModel, saveOmpDefaultThinking } from "../settings/config-
 import { refreshProjects } from "../sidebar/projects-store.ts";
 import { takePendingDraftText } from "../palette/index.ts";
 import { pushToast } from "../dialogs/index.ts";
-import { blockWorktree, ensureSetupApproved, getWorktreeDraft, setWorktreeOn, WorktreeChip } from "../git/index.ts";
+import { blockWorktree, ensureSetupApproved, getWorktreeDraft, setWorktreeOn } from "../git/index.ts";
+import { handOverDraftTerminal, withDraftHandover } from "../terminal/index.ts";
 import { convertImageFiles } from "./actions.ts";
 import { ApprovalChip } from "./ApprovalChip.tsx";
 import { Attachments } from "./Attachments.tsx";
@@ -51,9 +54,12 @@ function cachedDefaults(projectId: ProjectId | null): ModelDefaults | null {
   return startupSnapshot().modelDefaults?.[projectId ?? "global"] ?? null;
 }
 
-export function DraftComposer({ projectId }: { projectId: ProjectId | null }) {
+/** footer：输入框下方左对齐的一行（空状态放项目选择和工作树开关）。 */
+export function DraftComposer({ projectId, footer }: { projectId: ProjectId | null; footer?: ReactNode }) {
   const t = useT();
-  const key = `new:${projectId ?? "chats"}` as TaskId;
+  const terminalDraftKey = draftKey(projectId);
+  // 草稿存储的键和草稿终端的键是同一个字符串。
+  const key = terminalDraftKey as string as TaskId;
   const draft = useDraft(key);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -142,9 +148,16 @@ export function DraftComposer({ projectId }: { projectId: ProjectId | null }) {
         return;
       }
       const target = projectId ?? (await window.studio.ensureChatsProject()).id;
-      const task = await window.studio.createTask({
-        projectId: target,
-        ...(worktreeProject !== null ? { worktree: true } : {}),
+      // 建任务和交接终端之间项目列表可能刷新（草稿的键随之变），交接期间不关草稿的终端。
+      const task = await withDraftHandover(async () => {
+        const created = await window.studio.createTask({
+          projectId: target,
+          ...(worktreeProject !== null ? { worktree: true } : {}),
+        });
+        // 草稿开着终端：交给新任务（worktree 任务的目录不同，那种情况直接关掉）。在 selectTask 之前，
+        // 任务的面板挂载时终端已经在任务的键下。
+        await handOverDraftTerminal(terminalDraftKey, created.id, worktreeProject !== null);
+        return created;
       });
       await selectTask(task.id);
       // 主进程没有项目变更事件：新加的 chats 项目要重新取列表，侧栏才有它的分组。
@@ -285,7 +298,6 @@ export function DraftComposer({ projectId }: { projectId: ProjectId | null }) {
             setThinking={(level) => saveOmpDefaultThinking(level).finally(reread)}
           />
           <ApprovalChip />
-          {projectId !== null && <WorktreeChip projectId={projectId} />}
           <span className="composer-spacer" />
           <DraftContextMeter model={model ?? null} projectId={projectId} />
           <SessionCost usage={null} provider={model?.key.provider ?? null} />
@@ -299,6 +311,7 @@ export function DraftComposer({ projectId }: { projectId: ProjectId | null }) {
           />
         </div>
       </div>
+      {footer !== undefined && <div className="composer-below">{footer}</div>}
     </div>
   );
 }

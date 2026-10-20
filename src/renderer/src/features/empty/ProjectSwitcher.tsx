@@ -1,19 +1,35 @@
-// 标志下面的项目胶囊（项目名 + ⌄，悬停看完整路径），点击弹切换菜单：最近 8 个 + 打开文件夹…。键盘：↑↓ Home End，Esc 关闭并回到触发按钮。
+// 输入框下方的项目按钮（文件夹图标 + 项目名 + ⌄，悬停看完整路径），点击向上弹切换菜单：最近 8 个 + 打开文件夹…。
+// 没选项目（一个项目都没有，或者是没项目时用的 chats 目录）时写"无项目"，不把 chats 这个目录名露给用户。
+// 键盘：↑↓ Home End，Esc 关闭并回到触发按钮。
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Project } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { ChevronDown } from "../../icons.tsx";
+import { ChevronDown, Folder } from "../../icons.tsx";
+import { useAppInfo } from "../../store/index.ts";
 import { openFolderAsDraft } from "./actions.ts";
 import { usePresence } from "../../ui/presence.ts";
 
 const recentProjectLimit = 8;
 
+function samePath(a: string, b: string): boolean {
+  const norm = (value: string) =>
+    value
+      .replace(/[\\/]+$/, "")
+      .replaceAll("\\", "/")
+      .toLowerCase();
+  return norm(a) === norm(b);
+}
+
 export function ProjectSwitcher(props: {
   projects: readonly Project[];
-  current: Project;
+  current: Project | null;
   onPick(project: Project): void;
 }) {
   const t = useT();
+  const chatsDir = useAppInfo()?.chatsDir ?? null;
+  const isChats = (project: Project) => chatsDir !== null && samePath(project.path, chatsDir);
+  const nameOf = (project: Project | null) =>
+    project === null || isChats(project) ? t("empty.noProject") : project.name;
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -66,13 +82,14 @@ export function ProjectSwitcher(props: {
         type="button"
         className="empty-project"
         data-testid="empty-project"
-        title={props.current.path}
+        title={props.current?.path ?? t("empty.noProjectHint")}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`${t("sidebar.projectMenu")}: ${props.current.name}`}
+        aria-label={`${t("sidebar.projectMenu")}: ${nameOf(props.current)}`}
         onClick={() => setOpen(!open)}
       >
-        <span className="empty-project-name">{props.current.name}</span>
+        <Folder size={14} />
+        <span className="empty-project-name">{nameOf(props.current)}</span>
         <ChevronDown size={12} />
       </button>
       {presence.mounted && (
@@ -82,15 +99,15 @@ export function ProjectSwitcher(props: {
               key={project.id}
               type="button"
               role="menuitemradio"
-              aria-checked={project.id === props.current.id}
+              aria-checked={project.id === props.current?.id}
               className="empty-menu-item"
-              title={project.name}
+              title={project.path}
               onClick={() => choose(project)}
             >
-              {project.name}
+              {nameOf(project)}
             </button>
           ))}
-          <div className="empty-menu-separator" role="separator" />
+          {props.projects.length > 0 && <div className="empty-menu-separator" role="separator" />}
           <button
             type="button"
             role="menuitem"

@@ -2,7 +2,8 @@ import type { MessageEntry } from "../index.ts";
 import type { empty as zhCN } from "../zh-CN/empty.ts";
 
 export const empty = {
-  recent: "Recent tasks",
+  noProject: "No project",
+  noProjectHint: "Not in a project: the task starts in a separate empty folder",
   fromTerminal: "From the terminal",
   openFolder: "Open folder…",
   loadFailed: "Could not load projects: {message}",

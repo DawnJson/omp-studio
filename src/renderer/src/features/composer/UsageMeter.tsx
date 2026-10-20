@@ -1,11 +1,9 @@
 // 输入框工具行里的用量仪表（输入框下方不再有单独一行）：
-// 模型、审批胶囊右边是本会话 token 图标和速度（UsageMeter）；发送键左边依次是上下文圆环（ContextMeter）和费用（SessionCost）。
-// 点圆环弹出上下文构成（任务里还有"压缩上下文"）；点 token 图标弹出按模型的明细。
+// 模型、审批胶囊右边是速度（UsageMeter，只在运行中）；发送键左边依次是上下文圆环（ContextMeter）和费用（SessionCost）。
+// 点圆环弹出上下文构成；任务里构成下面有"会话用量"按钮，点了在构成左边展开按模型的本会话用量（ModelBreakdown）。
 import { useEffect, useState, type ReactNode } from "react";
 import type { ModelOption, ProjectId, TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Tokens } from "../../icons.tsx";
-import { compactContext } from "./actions.ts";
 import { ContextBreakdown, prefetchCompaction, type ContextBreakdownProps } from "./ContextBreakdown.tsx";
 import { ModelBreakdown } from "./ModelBreakdown.tsx";
 import { Popover } from "./Popover.tsx";
@@ -40,14 +38,25 @@ function Ring({ percent }: { percent: number }) {
   );
 }
 
-/** 上下文占用：只有圆环（百分比和已用/总量在悬停提示和构成里），点开是上下文构成；footer 放在构成下面。 */
-function ContextButton({ footer, ...props }: ContextBreakdownProps & { footer?: (close: () => void) => ReactNode }) {
+const contextWidth = 320;
+const usageWidth = 300;
+
+/**
+ * 上下文占用：只有圆环（百分比和已用/总量在悬停提示和构成里），点开是上下文构成。
+ * 给了 sessionUsage 时构成下面有"会话用量"按钮，点了浮层向左加宽，左边是它（右边的构成不动）；关掉浮层就收回。
+ */
+function ContextButton({ sessionUsage, ...props }: ContextBreakdownProps & { sessionUsage?: ReactNode }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   const { context, projectId } = props;
   useEffect(() => prefetchCompaction(projectId), [projectId]);
-  const close = () => setOpen(false);
+  const close = () => {
+    setOpen(false);
+    setUsageOpen(false);
+  };
   const label = t("composer.context", { p: formatPercent(context.percent) });
+  const expanded = usageOpen && sessionUsage !== undefined;
   return (
     <div className="pop-anchor usage-context-anchor">
       <button
@@ -62,13 +71,40 @@ function ContextButton({ footer, ...props }: ContextBreakdownProps & { footer?: 
         })}\n${t("composer.context.tip")}`}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen(!open)}
+        onClick={() => (open ? close() : setOpen(true))}
       >
         <Ring percent={context.percent} />
       </button>
-      <Popover open={open} onClose={close} width={320} align="end" label={label}>
-        <ContextBreakdown {...props} />
-        {footer?.(close)}
+      <Popover
+        open={open}
+        onClose={close}
+        width={expanded ? contextWidth + usageWidth : contextWidth}
+        align="end"
+        label={label}
+      >
+        <div className="ctx-pop" data-expanded={expanded || undefined}>
+          {expanded && (
+            <div className="ctx-pop-aside" data-testid="session-usage">
+              {sessionUsage}
+            </div>
+          )}
+          <div className="ctx-pop-main">
+            <ContextBreakdown {...props} />
+            {sessionUsage !== undefined && (
+              <div className="pop-section">
+                <button
+                  type="button"
+                  className="gate-btn"
+                  data-testid="session-usage-toggle"
+                  aria-expanded={expanded}
+                  onClick={() => setUsageOpen(!usageOpen)}
+                >
+                  {t("composer.breakdown.toggle")}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </Popover>
     </div>
   );
@@ -87,32 +123,15 @@ function ContextPlaceholder() {
 
 /** 任务的上下文圆环（发送键左边、费用之前）；omp 还没给出上下文占用时是占位圆环。 */
 export function ContextMeter({ task }: { task: TaskState }) {
-  const t = useT();
   const context = task.contextUsage;
   if (context === null) return <ContextPlaceholder />;
-  const busy = task.status === "running" || task.status === "needs_you";
   return (
     <ContextButton
       context={context}
       parts={task.contextParts}
       modelKey={task.model?.key ?? null}
       projectId={task.projectId}
-      footer={(close) => (
-        <div className="pop-section">
-          <button
-            type="button"
-            className="gate-btn"
-            data-primary
-            disabled={busy}
-            onClick={() => {
-              close();
-              void compactContext(task.id, t);
-            }}
-          >
-            {t("composer.compact")}
-          </button>
-        </div>
-      )}
+      sessionUsage={<ModelBreakdown task={task} />}
     />
   );
 }
@@ -131,48 +150,17 @@ export function DraftContextMeter({ model, projectId }: { model: ModelOption | n
   );
 }
 
-/** 本会话 token：只有一个图标，数字在悬停提示 / aria-label 和点开的明细里。 */
-function TokensMeter({ usage, task }: { usage: NonNullable<TaskState["sessionUsage"]>; task: TaskState }) {
-  const t = useT();
-  const [open, setOpen] = useState(false);
-  const label = t("composer.usage.tokens", { n: formatCount(usage.tokens.total) });
-  return (
-    <div className="pop-anchor">
-      <button
-        type="button"
-        className="usage-item usage-tokens"
-        data-testid="usage-tokens"
-        aria-label={label}
-        title={label}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        <Tokens size={16} />
-      </button>
-      <Popover open={open} onClose={() => setOpen(false)} width={300} label={t("composer.breakdown.title")}>
-        <ModelBreakdown task={task} />
-      </Popover>
-    </div>
-  );
-}
-
-/** 工具行里模型/审批胶囊右边的仪表：本会话 token、速度。窄输入框逐级收起；都没有时不渲染。 */
+/** 工具行里模型/审批胶囊右边的速度：omp 只在回复结束后给出（实测流式中为 null）；运行中显示的是上一条回复的，空闲时不显示。 */
 export function UsageMeter({ task }: { task: TaskState }) {
   const t = useT();
   const busy = task.status === "running" || task.status === "needs_you";
-  // omp 只在回复结束后给出速度（实测流式中为 null）；运行中显示的是上一条回复的，空闲时不再显示。
   const speedText = busy ? formatTokensPerSecond(task.tokensPerSecond) : null;
-  const usage = task.sessionUsage;
-  if (usage === null && speedText === null) return null;
+  if (speedText === null) return null;
   return (
     <div className="usage" role="group" aria-label={t("composer.usage.aria")} data-testid="usage-meter">
-      {usage !== null && <TokensMeter usage={usage} task={task} />}
-      {speedText !== null && (
-        <span className="usage-item usage-tps" data-testid="usage-tps" title={t("composer.usage.tpsTip")}>
-          {t("composer.usage.tps", { n: speedText })}
-        </span>
-      )}
+      <span className="usage-item usage-tps" data-testid="usage-tps" title={t("composer.usage.tpsTip")}>
+        {t("composer.usage.tps", { n: speedText })}
+      </span>
     </div>
   );
 }

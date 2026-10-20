@@ -164,6 +164,47 @@ test("Ctrl+` 打开终端：cwd 是项目目录、命令有输出；隐藏再打
   }
 });
 
+test("新任务草稿也有终端：发出第一条消息后，同一个 shell 和屏幕交给新建的任务", async () => {
+  const { launched, project, taskId, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await page.getByTestId("composer-input").focus();
+    await page.keyboard.press("Control+n");
+    await expect(page.getByTestId("empty-draft")).toBeVisible();
+    await expect(page.getByTestId("topbar-terminal")).toBeVisible();
+
+    // 草稿的终端在草稿项目（刚才那个）的目录里。
+    await page.getByTestId("topbar-terminal").click();
+    await expect(page.getByTestId("terminal-panel")).toBeVisible();
+    await expect(page.getByTestId("terminal-cwd")).toHaveAttribute("title", project);
+    await waitPrompt(page);
+    await run(page, '"pid=$PID"');
+    const shellPid = Number((await expectRow(page, /^pid=(\d+)$/))?.[1]);
+    await run(page, "$x = 7; echo draft-marker");
+    await expectRow(page, "draft-marker");
+
+    // 发第一条消息：任务建出来，面板保持打开，还是同一个 shell（pid、$x、屏幕都在）。
+    await page.getByTestId("composer-input").fill("你好");
+    await page.getByTestId("send-button").click();
+    await expect.poll(async () => (await page.evaluate(() => globalThis.studio.listTasks())).length).toBe(2);
+    await expect(page.getByTestId("terminal-panel")).toBeVisible();
+    await expectRow(page, "draft-marker");
+    await page.getByTestId("terminal-host").click();
+    await run(page, '"again pid=$PID x=$x"');
+    expect(Number((await expectRow(page, /^again pid=(\d+) x=7$/))?.[1])).toBe(shellPid);
+    expect(alive(shellPid)).toBe(true);
+
+    // 终端属于新任务：归档它，shell 随之结束；原来的任务没受影响。
+    const tasks = await page.evaluate(() => globalThis.studio.listTasks());
+    const created = tasks.find((task) => task.id !== taskId);
+    if (!created) throw new Error("没有新任务");
+    await page.evaluate((id) => globalThis.studio.archiveTask(id), created.id);
+    await expectGone([shellPid]);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("shell 退出显示提示，按任意键在同一目录重新启动；重启按钮结束旧进程", async () => {
   const { launched, cleanup } = await start();
   try {

@@ -44,13 +44,6 @@ export const CopyIcon = (props: IconProps) => (
     <path d="M10.5 3.5v-.2a1 1 0 0 0-1-1h-5a1 1 0 0 0-1 1v7.2a1 1 0 0 0 1 1h.2" />
   </Icon>
 );
-/** 本会话 token：一摞（像数据库的柱体）。 */
-export const Tokens = (props: IconProps) => (
-  <Icon {...props}>
-    <ellipse cx="8" cy="4.5" rx="4.5" ry="2" />
-    <path d="M3.5 4.5v7c0 1.1 2 2 4.5 2s4.5-.9 4.5-2v-7M3.5 8c0 1.1 2 2 4.5 2s4.5-.9 4.5-2" />
-  </Icon>
-);
 export const Close = (props: IconProps) => (
   <Icon {...props}>
     <path d="m4 4 8 8M12 4l-8 8" />
@@ -119,5 +112,10 @@ export const Diff = (props: IconProps) => (
   <Icon {...props}>
     <path d="M4 2.5h5.5l3 3v8H4z" />
     <path d="M8.25 6.25v3.5M6.5 8h3.5M6.5 11.5h3.5" />
+  </Icon>
+);
+export const Folder = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z" />
   </Icon>
 );

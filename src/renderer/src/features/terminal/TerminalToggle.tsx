@@ -1,13 +1,13 @@
-// 任务条右侧工具区的终端按钮（顶栏只在有任务的对话页渲染它：草稿没有目录可开）。按钮状态 = 面板是否打开。
-import type { TaskId } from "../../../../shared/ipc.ts";
+// 顶栏右侧工具区的终端按钮（任务和新任务草稿都有）。按钮状态 = 面板是否打开。
+import type { TerminalKey } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Terminal } from "../../icons.tsx";
 import { toggleTerminal } from "./terminal-actions.ts";
 import { useTerminalOpen } from "./terminal-store.ts";
 
-export function TerminalToggle({ taskId }: { taskId: TaskId }) {
+export function TerminalToggle({ terminalKey }: { terminalKey: TerminalKey }) {
   const t = useT();
-  const open = useTerminalOpen(taskId);
+  const open = useTerminalOpen(terminalKey);
   return (
     <button
       type="button"
@@ -17,7 +17,7 @@ export function TerminalToggle({ taskId }: { taskId: TaskId }) {
       aria-pressed={open}
       aria-expanded={open}
       title={`${t("terminal.toggle")} (Ctrl \`)`}
-      onClick={() => toggleTerminal(taskId)}
+      onClick={() => toggleTerminal(terminalKey)}
     >
       <Terminal size={16} />
     </button>

@@ -62,17 +62,18 @@ button {
   -webkit-app-region: drag;
 }
 
-.topbar-brand,
+.topbar-left button,
 .crumb,
 .topbar-tools {
   -webkit-app-region: no-drag;
 }
 
-/* 左段宽度 = 侧栏宽度，中段标题正好对齐主区面板的左缘 */
+/* 左段宽度 = 侧栏宽度，中段标题正好对齐主区面板的左缘。标志 + 字标只是标识（可拖动窗口），后面是两个按钮。 */
 .topbar-left {
   display: flex;
   flex: none;
   align-items: center;
+  gap: var(--space-0-5);
   width: var(--sidebar-current, var(--sidebar-w));
   padding-left: var(--space-2);
 }
@@ -82,33 +83,12 @@ button {
   width: auto;
 }
 
-/* 标志 + 字标 + ⌄ 合成一个按钮，打开应用菜单 */
 .topbar-brand {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  height: var(--control-h-sm);
   padding: 0 var(--space-2) 0 var(--space-1-5);
   color: var(--text);
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-md);
-  cursor: default;
-  transition: background-color var(--dur-instant) var(--ease-out);
-}
-
-.topbar-brand:hover,
-.topbar-brand[aria-expanded="true"] {
-  background: var(--bg-hover);
-}
-
-.topbar-brand:active {
-  background: var(--bg-active);
-}
-
-.topbar-brand > svg:last-child {
-  margin-left: calc(-1 * var(--space-0-5));
-  color: var(--text-3);
 }
 
 .topbar-wordmark {
@@ -119,6 +99,39 @@ button {
 .topbar-wordmark span {
   font-weight: var(--fw-regular);
   color: var(--text-2);
+}
+
+/* "关于"菜单按钮：文字 + ⌄，和任务工具按钮同高 */
+.topbar-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--control-h-sm);
+  padding: 0 var(--space-1-5) 0 var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: default;
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
+}
+
+.topbar-menu:hover,
+.topbar-menu[aria-expanded="true"] {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.topbar-menu:active {
+  background: var(--bg-active);
+}
+
+.topbar-menu > svg {
+  color: var(--text-3);
 }
 
 .crumb {

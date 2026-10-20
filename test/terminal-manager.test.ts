@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { TaskId } from "../src/shared/ipc.ts";
+import type { DraftKey, TaskId } from "../src/shared/ipc.ts";
 import {
   TerminalCwdMissingError,
   TerminalManager,
@@ -8,6 +8,7 @@ import {
 } from "../src/main/terminal/terminal-manager.ts";
 
 const task = (id: string) => id as TaskId;
+const draft = (id: string) => `new:${id}` as DraftKey;
 
 class FakePty implements PtyLike {
   killed = false;
@@ -52,7 +53,7 @@ function setup(overrides: Partial<TerminalDeps> = {}) {
   const killed: number[] = [];
   const released: number[] = [];
   const deps: TerminalDeps = {
-    taskCwd: (id) => `/work/${id}`,
+    terminalCwd: async (key) => `/work/${key}`,
     directoryExists: async () => true,
     resolveShell: () => ({ file: "/bin/sh", args: [], name: "sh" }),
     buildEnv: () => ({ A: "1" }),
@@ -90,9 +91,9 @@ describe("TerminalManager", () => {
     expect(ptys).toHaveLength(0);
   });
 
-  it("任务不存在（taskCwd 抛错）时拒绝", async () => {
+  it("任务不存在（terminalCwd 抛错）时拒绝", async () => {
     const { manager } = setup({
-      taskCwd: () => {
+      terminalCwd: async () => {
         throw new Error("unknown task");
       },
     });
@@ -234,5 +235,83 @@ describe("TerminalManager", () => {
     await manager.open(task("t2"), 80, 24);
     await manager.closeAll();
     expect(ptys.every((pty) => pty.killed)).toBe(true);
+  });
+
+  it("草稿的终端交给任务：同一个 pty 和 backlog，之后的事件带新的键", async () => {
+    vi.useFakeTimers();
+    try {
+      const { manager, ptys, data, exits } = setup();
+      await manager.open(draft("p1"), 80, 24);
+      ptys[0]?.emit("before");
+      vi.advanceTimersByTime(20);
+      expect(data).toEqual([["new:p1", "before"]]);
+      expect(await manager.rekey(draft("p1"), task("t1"))).toBe(true);
+      expect(manager.has(draft("p1"))).toBe(false);
+      expect(manager.has(task("t1"))).toBe(true);
+      ptys[0]?.emit("after");
+      vi.advanceTimersByTime(20);
+      expect(data).toEqual([
+        ["new:p1", "before"],
+        ["t1", "after"],
+      ]);
+      const again = await manager.open(task("t1"), 90, 30);
+      expect(again).toMatchObject({ reopened: true, backlog: "beforeafter" });
+      expect(ptys).toHaveLength(1);
+      manager.write(task("t1"), "x");
+      expect(ptys[0]?.written).toEqual(["x"]);
+      ptys[0]?.exit(2);
+      expect(exits).toEqual([["t1", 2]]);
+      expect(manager.has(task("t1"))).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("交接前还没发出去的输出仍以草稿的键发出，close 新键杀掉同一个 pty", async () => {
+    vi.useFakeTimers();
+    try {
+      const { manager, ptys, data } = setup();
+      await manager.open(draft("p1"), 80, 24);
+      ptys[0]?.emit("pending");
+      await manager.rekey(draft("p1"), task("t1"));
+      expect(data).toEqual([["new:p1", "pending"]]);
+      await manager.close(task("t1"));
+      expect(ptys[0]?.killed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rekey：草稿没有终端或任务已有终端时返回 false，什么也不动", async () => {
+    const { manager, ptys } = setup();
+    expect(await manager.rekey(draft("p1"), task("t1"))).toBe(false);
+    await manager.open(draft("p1"), 80, 24);
+    await manager.open(task("t1"), 80, 24);
+    expect(await manager.rekey(draft("p1"), task("t1"))).toBe(false);
+    expect(manager.has(draft("p1"))).toBe(true);
+    expect(ptys).toHaveLength(2);
+  });
+
+  it("rekey 等草稿正在起的终端起好", async () => {
+    const release = Promise.withResolvers<void>();
+    const { manager, ptys } = setup({
+      spawn: async () => {
+        await release.promise;
+        const pty = new FakePty(100);
+        ptys.push(pty);
+        return pty;
+      },
+    });
+    const opened = manager.open(draft("p1"), 80, 24);
+    const rekeyed = manager.rekey(draft("p1"), task("t1"));
+    release.resolve();
+    await opened;
+    expect(await rekeyed).toBe(true);
+    expect(manager.has(task("t1"))).toBe(true);
+  });
+
+  it("草稿的目录由 terminalCwd 按草稿键解析", async () => {
+    const { manager } = setup();
+    await expect(manager.open(draft("chats"), 80, 24)).resolves.toMatchObject({ cwd: "/work/new:chats" });
   });
 });

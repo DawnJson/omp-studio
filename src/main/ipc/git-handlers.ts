@@ -21,7 +21,13 @@ import {
   unstageHunk,
 } from "../git/review.ts";
 import { getGitStatus } from "../git/status.ts";
-import { cleanupOrphanWorktrees, findSetupScript, mergeWorktree, worktreeInfo } from "../git/worktree.ts";
+import {
+  cleanupOrphanWorktrees,
+  findSetupScript,
+  isRepoRootProject,
+  mergeWorktree,
+  worktreeInfo,
+} from "../git/worktree.ts";
 import { log } from "../log/log.ts";
 import { resolveLocale } from "../settings/settings-store.ts";
 import { getSetupConsent, getTaskPool } from "../tasks/runtime.ts";
@@ -77,6 +83,7 @@ export const gitHandlers: HandlerGroup<
   | "unstageGitHunk"
   | "discardGitHunk"
   | "sendReviewComments"
+  | "canUseWorktree"
   | "getWorktreeSetupScript"
   | "approveWorktreeSetup"
   | "getTaskWorktree"
@@ -148,6 +155,14 @@ export const gitHandlers: HandlerGroup<
       text: formatReviewComments(parsed, resolveLocale()),
       whenBusy: parseOneOf(whenBusy, "whenBusy", ["steer", "followUp"]),
     });
+  },
+
+  canUseWorktree: async (projectId) => {
+    const pool = await getTaskPool();
+    const id = parseProjectId(projectId);
+    const project = pool.listProjects().find((candidate) => candidate.id === id);
+    if (!project) throw new Error(`unknown project ${id}`);
+    return isRepoRootProject(project.path);
   },
 
   getWorktreeSetupScript: async (projectId) => {

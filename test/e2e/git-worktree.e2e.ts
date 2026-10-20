@@ -1,6 +1,6 @@
 // 阶段 4 worktree 与 git 操作的端到端：真实临时仓库（路径含空格和中文）+ 假 omp 回放。
 // 覆盖：工作树胶囊 → 任务在 worktree 里运行 → 提交对话框 → 合并回基分支 → 推送到本地裸仓库 → 丢弃确认 → 清理无主 worktree；
-// 冲突 / 被拒绝的合并；不是 git 仓库时胶囊的禁用。中英 × 深浅截图到 screenshots/。
+// 冲突 / 被拒绝的合并；不是 git 仓库时没有胶囊，空仓库时胶囊禁用。中英 × 深浅截图到 screenshots/。
 import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -310,10 +310,33 @@ test("合并：有冲突时列出文件并撤销；工作树有未提交内容�
   }
 });
 
-test("不是 git 仓库：创建被拒绝，胶囊禁用并写明原因，草稿保留；之后可以正常发送", async () => {
+test("不是 git 仓库：输入框下面没有工作树开关，直接发送", async () => {
   const session = await start(async (work) => {
     const dir = path.join(work, "普通 目录");
     await mkdir(dir);
+    return dir;
+  });
+  const { page } = session;
+  try {
+    await expect(page.getByTestId("empty-project")).toBeVisible();
+    await expect(page.getByTestId("worktree-chip")).toHaveCount(0);
+    await page.getByTestId("composer-input").fill("普通目录里的任务");
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("conversation")).toBeVisible();
+    await expect(page.getByTestId("task-row-worktree")).toHaveCount(0);
+    await expect(page.getByTestId("topbar-terminal")).toBeVisible();
+    await expect(page.getByTestId("git-menu")).toHaveCount(0);
+    await expect(page.getByTestId("topbar-review")).toHaveCount(0);
+  } finally {
+    await session.cleanup();
+  }
+});
+
+test("仓库还没有提交：胶囊在，创建被拒绝后胶囊禁用并写明原因，草稿保留；之后可以正常发送", async () => {
+  const session = await start(async (work) => {
+    const dir = path.join(work, "空 仓库");
+    await mkdir(dir);
+    sh(dir, "init", "-q");
     return dir;
   });
   const { page } = session;
@@ -322,10 +345,10 @@ test("不是 git 仓库：创建被拒绝，胶囊禁用并写明原因，草稿
     await chip.click();
     await page.getByTestId("composer-input").fill("不能用工作树");
     await page.keyboard.press("Enter");
-    await expect(page.getByTestId("toasts")).toContainText("不是 git 仓库");
+    await expect(page.getByTestId("toasts")).toContainText("还没有任何提交");
     await expect(chip).toHaveAttribute("aria-disabled", "true");
     await expect(chip).toHaveAttribute("aria-pressed", "false");
-    await expect(chip).toHaveAttribute("title", /不能用工作树：.*不是 git 仓库/);
+    await expect(chip).toHaveAttribute("title", /不能用工作树：.*还没有任何提交/);
     await expect(page.getByTestId("composer-input")).toHaveValue("不能用工作树");
     await expect(page.getByTestId("task-row")).toHaveCount(0);
     await shoot(page, "chip-blocked");
@@ -333,9 +356,6 @@ test("不是 git 仓库：创建被拒绝，胶囊禁用并写明原因，草稿
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("conversation")).toBeVisible();
     await expect(page.getByTestId("task-row-worktree")).toHaveCount(0);
-    await expect(page.getByTestId("topbar-terminal")).toBeVisible();
-    await expect(page.getByTestId("git-menu")).toHaveCount(0);
-    await expect(page.getByTestId("topbar-review")).toHaveCount(0);
   } finally {
     await session.cleanup();
   }

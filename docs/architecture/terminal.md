@@ -12,38 +12,53 @@ shell 起来后到第一个输出字节之间（pwsh 加载 profile 要 3–5 �
 
 | 位置 | 做什么 |
 |---|---|
-| `src/main/terminal/terminal-manager.ts` | 按 TaskId 管 pty：打开/复用、写、改尺寸、结束。不 import electron 和 node-pty，外部能力从 deps 进来（单测用假 pty） |
+| `src/main/terminal/terminal-manager.ts` | 按终端键（TaskId 或草稿键 `new:<projectId\|chats>`）管 pty：打开/复用、写、改尺寸、交接（rekey）、结束。不 import electron 和 node-pty，外部能力从 deps 进来（单测用假 pty） |
 | `src/main/terminal/output-batcher.ts` | 输出合并：攒 16ms 或 64KB 发一次 |
 | `src/main/terminal/backlog.ts` | 最近 256KB 的回放缓冲 |
 | `src/main/terminal/shell.ts` | 选 shell、拼环境变量（纯函数） |
 | `src/main/terminal/input.ts` | IPC 参数校验（纯函数） |
 | `src/main/terminal/runtime.ts` | Electron 接线：任务池、node-pty 按需加载、Job Object、`taskkill`、退出 hook |
 | `src/main/terminal/active.ts` | 任务池结束任务终端的入口（避免 import 成环） |
-| `src/main/ipc/terminal-handlers.ts` | 四个 invoke：`openTerminal` `writeTerminal` `resizeTerminal` `closeTerminal` |
+| `src/main/ipc/terminal-handlers.ts` | 五个 invoke：`openTerminal` `writeTerminal` `resizeTerminal` `closeTerminal` `rekeyTerminal` |
 | `src/renderer/src/features/terminal/` | 面板、xterm 会话、打开状态 store、焦点动作 |
 | `src/shared/ui/terminal-model.ts` | 纯逻辑：高度夹取、输入分块、cwd 显示、从 token 推 xterm 配色 |
 
 IPC（`src/shared/ipc.ts`）：
 
-- `openTerminal(taskId, cols, rows) → { cwd, shell, reopened, backlog }`
-- `writeTerminal(taskId, data)`：非空字符串，≤ 65536 字符（`limits.terminalInputMaxChars`）；没有终端时静默忽略。粘贴更大的文本时渲染进程按代理对边界分块发。
-- `resizeTerminal(taskId, cols, rows)`：2–1000 的整数。
-- `closeTerminal(taskId)`：结束整棵进程树后才 resolve；没有终端时静默成功。
-- 事件 `terminalData {taskId, data}`、`terminalExit {taskId, exitCode}`。主动 `closeTerminal` 不发 `terminalExit`。
+- `openTerminal(key, cols, rows) → { cwd, shell, reopened, backlog }`：`key` 是 `TerminalKey` = `TaskId` 或 `DraftKey`（`new:<projectId>`，无项目的草稿是 `new:chats`；`draftKey()` 生成，`parseDraftKey()` 解析，和草稿输入框的存储键是同一个字符串）。
+- `writeTerminal(key, data)`：非空字符串，≤ 65536 字符（`limits.terminalInputMaxChars`）；没有终端时静默忽略。粘贴更大的文本时渲染进程按代理对边界分块发。
+- `resizeTerminal(key, cols, rows)`：2–1000 的整数。
+- `closeTerminal(key)`：结束整棵进程树后才 resolve；没有终端时静默成功。
+- `rekeyTerminal(from: DraftKey, to: TaskId) → boolean`：把草稿的终端交给新建的任务（同一个 pty、同一份 backlog）；草稿没有终端、或任务已有终端时返回 false 且什么也不动。草稿的终端还在起时先等它起好。
+- 事件 `terminalData {key, data}`、`terminalExit {key, exitCode}`。主动 `closeTerminal` 不发 `terminalExit`；交接之后事件带任务 id。
 - 外壳状态 `ShellState.terminalHeight`（120–4000，默认 280，和侧栏宽度同一处持久化）。
 
 ## 生命周期
 
 1. 用户打开面板（Ctrl+`、任务条按钮、命令面板），渲染进程创建 xterm、`fit()` 得到 cols/rows，调用 `openTerminal`。
-2. 主进程：该任务已有活着的终端 → **复用**：改成新尺寸，丢掉还没发出去的批次（已经在 backlog 里，否则界面收到两遍），返回 `reopened: true` 和 backlog；渲染进程 `reset()` 后写入 backlog 还原屏幕。否则 **新起**：校验任务存在、目录存在，起 shell，`reopened: false`。同一任务并发的 `openTerminal` 共用一次 spawn。
+2. 主进程：该键已有活着的终端 → **复用**：改成新尺寸，丢掉还没发出去的批次（已经在 backlog 里，否则界面收到两遍），返回 `reopened: true` 和 backlog；渲染进程 `reset()` 后写入 backlog 还原屏幕。否则 **新起**：解析目录、校验目录存在，起 shell，`reopened: false`。同一个键并发的 `openTerminal` 共用一次 spawn。
 3. 渲染进程在 `openTerminal` 返回之前先订阅事件并缓冲：新起的终端，缓冲的输出照写；复用的，缓冲丢弃（backlog 已覆盖）。主进程里"取 backlog"和"返回结果"在同一个同步段，之后的输出才会走事件。
-4. **隐藏面板 ≠ 结束 shell**：面板卸载只释放 xterm，shell 继续在主进程里跑，输出继续进 backlog。再打开 = 第 2 步的复用。面板的打开状态按任务记在内存里（切到别的任务再回来仍是开着的），重启应用后默认收起。
+4. **隐藏面板 ≠ 结束 shell**：面板卸载只释放 xterm，shell 继续在主进程里跑，输出继续进 backlog。再打开 = 第 2 步的复用。面板的打开状态按终端键（任务或草稿）记在内存里（切到别的任务再回来仍是开着的），重启应用后默认收起。
 5. shell 自己退出：主进程先把剩余批次发出去，再发 `terminalExit`，并把这个终端从表里摘掉；界面追加一行灰色提示，按任意键调用 `openTerminal` 在同一目录起新的（新屏幕，不保留旧输出）。重启按钮 = `closeTerminal` + `openTerminal`。
 6. 结束：`closeTerminal`、任务归档（`TaskPool.archiveTask`）、丢弃 worktree（`discardWorktree`）、应用退出（`registerShutdownHook`）。任务池通过 `PoolDeps.beforeTaskClose` 在关 omp **之前**等终端被结束；丢弃 worktree 时这一步保证目录不再被占用。正在起的终端被结束时，等它起好再结束，不留孤儿。
 
 ## cwd 规则
 
-终端目录 = 任务的有效目录 `TaskPool.taskCwd(id)`：任务有 worktree 时是 worktree 根，否则是项目目录（和 omp 子进程用的是同一个）。渲染进程不传路径。目录已不存在（worktree 被手动删了）时 `openTerminal` 拒绝并给出明确错误，面板里显示这句话，按任意键重试；不替用户换目录。草稿没有任务，没有终端入口。
+终端目录由主进程按键解析（`runtime.ts` 的 `terminalCwd`），渲染进程不传路径：
+
+- 任务键：任务的有效目录 `TaskPool.taskCwd(id)`：任务有 worktree 时是 worktree 根，否则是项目目录（和 omp 子进程用的是同一个）。
+- 草稿键：草稿项目的项目目录；无项目的草稿（`new:chats`）是 chats 目录（`mkdir -p`，和 `ensureChatsProject` 同一个目录）。
+
+目录已不存在（worktree 被手动删了）时 `openTerminal` 拒绝并给出明确错误，面板里显示这句话，按任意键重试；不替用户换目录。
+
+## 草稿的终端
+
+新任务草稿（空状态 + `DraftComposer`）也有终端按钮（顶栏只有它，没有分支工具）、Ctrl+`、命令面板命令，面板渲染在空状态下方。草稿还没有任务 id，终端键是草稿键：
+
+- **第一条消息建出任务时**（`DraftComposer.send`，在 `selectTask` 之前）：渲染进程调 `rekeyTerminal(草稿键, 任务 id)`，主进程把 `Entry` 换到新键下，事件出口读 `entry.key`，之后的输出带新键；渲染进程同时把打开标记从草稿键挪到任务 id（`rekeyTerminalOpen`）。任务的面板挂载时 `openTerminal(任务 id)` 命中复用（`reopened: true`，backlog 还原屏幕），面板保持打开、还是同一个 shell。
+- **开了工作树的任务**：任务目录是新建的 worktree，和草稿终端的目录不同，所以不交接，直接 `closeTerminal(草稿键)`，任务的面板重新起。
+- **切换草稿项目**（草稿键变了，`useDraftTerminalCleanup`）：关掉上一个草稿的终端，它的目录属于上一个项目。建任务期间（`withDraftHandover`）项目列表刷新会改草稿键，这段时间不关。
+- 离开草稿但没发消息：草稿的终端留着（和隐藏面板一样不杀 shell），回到同一个草稿再打开就是复用；应用退出时 `closeAll` 结束。
 
 ## Shell 和环境变量
 

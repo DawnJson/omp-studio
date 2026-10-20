@@ -1,18 +1,22 @@
-// 应用菜单（≡ 按钮和 Alt 键打开）：替代系统菜单栏。键盘：↑↓/Home/End 移动，Enter/Space 执行，Esc 关闭，
-// 关闭后焦点回到打开前的元素（spec §5.3）。语言和主题不在这里：在侧栏底部设置按钮右边（features/sidebar/PreferenceMenus.tsx）。
-import { useEffect, useRef, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+// 顶栏"关于"按钮（和 Alt 键）打开的菜单：帮助与反馈、关于。键盘：↑↓/Home/End 移动，Enter/Space 执行，Esc 关闭，
+// 关闭后焦点回到打开前的元素（spec §5.3）。切换侧栏是顶栏上单独的按钮；新任务、命令面板、设置各有自己的入口和快捷键。
+// 语言和主题在侧栏底部设置按钮右边（features/sidebar/PreferenceMenus.tsx）。
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { usePresence } from "../ui/presence.ts";
 import { useT } from "../i18n/use-t.ts";
 import { CheckIcon } from "./icons.tsx";
 
 export interface AppMenuActions {
-  newTask(): void;
-  toggleSidebar(): void;
-  openPalette(): void;
-  openSettings(): void;
   openHelp(): void;
   openAbout(): void;
-  quit(): void;
 }
 
 interface AppMenuProps {
@@ -67,6 +71,14 @@ export function AppMenu({ open, actions, onClose }: AppMenuProps) {
   const t = useT();
   const menuRef = useRef<HTMLDivElement>(null);
   const presence = usePresence(open);
+  // 菜单左缘对齐顶栏上的"关于"按钮（按钮位置随侧栏宽度变）。
+  const [left, setLeft] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const trigger = document.querySelector<HTMLElement>('[data-testid="topbar-menu"]');
+    setLeft(trigger === null ? null : Math.round(trigger.getBoundingClientRect().left));
+  }, [open]);
 
   // 焦点在 open 变化时立即处理，不等退出动画放完。
   useEffect(() => {
@@ -91,29 +103,15 @@ export function AppMenu({ open, actions, onClose }: AppMenuProps) {
       <div
         ref={menuRef}
         className="menu"
+        style={left === null ? undefined : { left }}
         {...presence.exitProps}
         role="menu"
-        aria-label={t("window.menu")}
+        aria-label={t("window.about")}
         data-testid="app-menu"
         onKeyDown={(event) => onMenuKeyDown(event, menuRef, onClose)}
       >
-        <MenuItem shortcut="Ctrl N" onSelect={choose(actions.newTask)}>
-          {t("menu.newTask")}
-        </MenuItem>
-        <MenuItem shortcut="Ctrl K" onSelect={choose(actions.openPalette)}>
-          {t("menu.commandPalette")}
-        </MenuItem>
-        <MenuItem shortcut="Ctrl B" onSelect={choose(actions.toggleSidebar)}>
-          {t("menu.toggleSidebar")}
-        </MenuItem>
-        <MenuItem shortcut="Ctrl ," onSelect={choose(actions.openSettings)}>
-          {t("menu.settings")}
-        </MenuItem>
-        <div className="menu-separator" role="separator" />
         <MenuItem onSelect={choose(actions.openHelp)}>{t("menu.helpFeedback")}</MenuItem>
         <MenuItem onSelect={choose(actions.openAbout)}>{t("menu.about")}</MenuItem>
-        <div className="menu-separator" role="separator" />
-        <MenuItem onSelect={choose(actions.quit)}>{t("menu.quit")}</MenuItem>
       </div>
     </>
   );

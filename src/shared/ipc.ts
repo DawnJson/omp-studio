@@ -52,6 +52,24 @@ import type { BtwHistoryRecord, BtwUiEvent } from "./btw.ts";
 /** 主进程生成的不透明 id。渲染进程只回传，不解析、不拼接。 */
 export type TaskId = string & { readonly __brand: "TaskId" };
 export type ProjectId = string & { readonly __brand: "ProjectId" };
+/**
+ * 终端的键：任务终端用任务 id；新任务草稿的终端用 `new:<projectId|chats>`（草稿还没有任务 id）。
+ * 草稿的目录由主进程按项目解析（无项目时是 chats 目录），渲染进程不传路径。
+ */
+export type DraftKey = `new:${string}`;
+export type TerminalKey = TaskId | DraftKey;
+
+/** 草稿的键：草稿存储（文字、图片）和草稿终端共用。projectId 为 null 表示无项目的"聊天"草稿。 */
+export function draftKey(projectId: ProjectId | null): DraftKey {
+  return `new:${projectId ?? "chats"}`;
+}
+
+/** 键是草稿的键时返回它的项目 id（"chats" 即 null 项目的聊天草稿，返回 null）；任务 id 返回 undefined。 */
+export function parseDraftKey(key: string): { projectId: ProjectId | null } | undefined {
+  if (!key.startsWith("new:")) return undefined;
+  const rest = key.slice(4);
+  return { projectId: rest === "chats" ? null : (rest as ProjectId) };
+}
 export type Unsubscribe = () => void;
 
 /** `@` 补全的数据来源：任务目录，或新任务草稿所在的项目目录。 */
@@ -639,8 +657,6 @@ export interface StudioInvokeApi {
   setMaxLiveProcesses(count: number): Promise<void>;
   /** 用系统浏览器打开链接；只接受 http/https。 */
   openExternal(url: string): Promise<void>;
-  /** 退出应用（顶栏菜单"退出"）；走 before-quit，会先关掉所有 omp 子进程。 */
-  quitApp(): Promise<void>;
   /** 在资源管理器里打开 userData/logs。 */
   openLogsFolder(): Promise<void>;
   /** 弹保存对话框导出诊断信息（版本、系统、omp 状态、设置、最近日志，已脱敏）；用户取消返回 false。 */
@@ -691,13 +707,15 @@ export interface StudioInvokeApi {
   setTaskSlowMode(taskId: TaskId, enabled: boolean): Promise<void>;
 
   // 内置终端（阶段 6）：每个任务至多一个终端，cwd 由主进程按任务定（worktree 根或项目目录），渲染进程不传路径。
-  /** 打开任务的终端：已有活着的就复用（返回 backlog），否则在任务目录新起 shell。目录已不存在时 reject。 */
-  openTerminal(taskId: TaskId, cols: number, rows: number): Promise<TerminalOpenResult>;
+  /** 打开终端：已有活着的就复用（返回 backlog），否则在目录里新起 shell（任务的有效目录；草稿的项目目录，无项目时是 chats 目录）。目录已不存在时 reject。 */
+  openTerminal(key: TerminalKey, cols: number, rows: number): Promise<TerminalOpenResult>;
   /** 把键盘输入写给终端；没有终端时静默忽略。 */
-  writeTerminal(taskId: TaskId, data: string): Promise<void>;
-  resizeTerminal(taskId: TaskId, cols: number, rows: number): Promise<void>;
-  /** 结束任务的终端（整棵进程树）；没有终端时静默成功。 */
-  closeTerminal(taskId: TaskId): Promise<void>;
+  writeTerminal(key: TerminalKey, data: string): Promise<void>;
+  resizeTerminal(key: TerminalKey, cols: number, rows: number): Promise<void>;
+  /** 结束终端（整棵进程树）；没有终端时静默成功。 */
+  closeTerminal(key: TerminalKey): Promise<void>;
+  /** 草稿建出任务后把草稿的终端交给任务（同一个 shell、同一份 backlog）；草稿没有终端时返回 false。任务已有终端时不动草稿的。 */
+  rekeyTerminal(from: DraftKey, to: TaskId): Promise<boolean>;
 
   // 会话历史
   /** projectId 为 null 时列出所有项目的会话。只读 ~/.omp。 */
@@ -887,6 +905,8 @@ export interface StudioInvokeApi {
   discardGitHunk(taskId: TaskId, path: string, hunk: GitHunkRef): Promise<void>;
   /** 校验每条评论的文件路径在任务目录内，格式化成一条消息（formatReviewComments）并作为 prompt 发出。 */
   sendReviewComments(taskId: TaskId, comments: ReviewComment[], whenBusy: PromptInput["whenBusy"]): Promise<void>;
+  /** 项目目录能不能开 worktree 任务：git 可用且目录正好是仓库根。不是的话界面不显示"工作树"开关。 */
+  canUseWorktree(projectId: ProjectId): Promise<boolean>;
   /** 项目仓库里的 setup 脚本（name 相对仓库根，如 `.omp-studio/setup.ps1`）及内容哈希；没有为 null。新建 worktree 任务时会运行它：只运行用户确认过这份内容（approved）的，界面先用 approveWorktreeSetup 征得同意。 */
   getWorktreeSetupScript(projectId: ProjectId): Promise<WorktreeSetupInfo | null>;
   /** 记下用户同意运行这个项目的这份 setup 脚本；sha256 必须是用户看到的那份，脚本此后变了就 reject（重新确认）。 */
@@ -930,9 +950,9 @@ export interface StudioEventPayloads {
   /** 旁路提问的变化：新记录 / 生命周期变化（整条记录）、流式增量、整份对齐。 */
   btw: { taskId: TaskId; event: BtwUiEvent };
   /** 终端输出（主进程已按 ~16ms 合并）。 */
-  terminalData: { taskId: TaskId; data: string };
+  terminalData: { key: TerminalKey; data: string };
   /** 终端里的 shell 自己退出了（主动 closeTerminal 不发这个事件）。 */
-  terminalExit: { taskId: TaskId; exitCode: number };
+  terminalExit: { key: TerminalKey; exitCode: number };
   /** omp-studio 自身的更新状态变化。 */
   updateState: UpdateState;
 }
@@ -989,7 +1009,6 @@ export const invokeNames = {
   setTheme: true,
   setMaxLiveProcesses: true,
   openExternal: true,
-  quitApp: true,
   openLogsFolder: true,
   exportDiagnostics: true,
   getShellState: true,
@@ -1042,6 +1061,7 @@ export const invokeNames = {
   writeTerminal: true,
   resizeTerminal: true,
   closeTerminal: true,
+  rekeyTerminal: true,
   getSubagents: true,
   askBtw: true,
   cancelBtw: true,
@@ -1099,6 +1119,7 @@ export const invokeNames = {
   unstageGitHunk: true,
   discardGitHunk: true,
   sendReviewComments: true,
+  canUseWorktree: true,
   getWorktreeSetupScript: true,
   approveWorktreeSetup: true,
   getTaskWorktree: true,

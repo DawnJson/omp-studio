@@ -59,12 +59,12 @@ async function shoot(page: Page, state: string): Promise<void> {
   }
 }
 
-/** 在草稿输入框里发出第一条消息，等这一轮跑完（用量行出现 = get_session_stats 的结果到了）。 */
+/** 在草稿输入框里发出第一条消息，等这一轮跑完（费用从 $0.00 变成 fixture 的值 = get_session_stats 的结果到了）。 */
 async function sendFirst(page: Page, text: string): Promise<void> {
   const input = page.getByTestId("composer-input");
   await input.fill(text);
   await page.keyboard.press("Enter");
-  await expect(page.getByTestId("usage-tokens")).toBeVisible();
+  await expect(page.getByTestId("composer-stack").getByTestId("usage-cost")).toContainText("$0.0001");
 }
 
 test("输入框：上面输入区、下面工具行，中间 1px 分隔线，控件和输入区之间有留白", async () => {
@@ -118,39 +118,35 @@ test("没有项目时直接发送：在 chats 目录里建项目和任务，侧�
     await expect(page.getByTestId("sidebar")).toContainText("chats");
     await expect(page.getByTestId("sidebar-new-task")).not.toHaveAttribute("aria-current", "page");
 
-    // 之后 Ctrl N 回到的是 chats 这个普通项目的草稿页。
+    // 之后 Ctrl N 回到的是 chats 这个项目的草稿页；输入框下的项目按钮写"无项目"，不露出 chats 这个目录名。
     await page.keyboard.press("Control+n");
     await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
-    await expect(page.getByTestId("empty-project")).toContainText("chats");
+    await expect(page.getByTestId("empty-project")).toHaveText(/^(无项目|No project)$/);
   } finally {
     await launched.close();
   }
 });
 
-test("空状态的最近任务、对话里的用量行、模型选择对话框；截图", async () => {
+test("空状态、对话里的用量、模型选择对话框；截图", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
-    // 新任务草稿：还没有会话，发送键左边是上下文圆环（0%，只有圆、没有文字，窗口取默认模型的）和 $0.00；没有本会话 token。
+    // 新任务草稿：还没有会话，发送键左边是上下文圆环（0%，只有圆、没有文字，窗口取默认模型的）和 $0.00。
+    // 项目不是 git 仓库：输入框下面只有项目按钮，没有工作树开关。
     const draft = page.getByTestId("draft-composer");
     await expect(draft.getByTestId("context-meter")).toHaveAttribute("aria-label", /0%/);
     await expect(draft.getByTestId("context-meter")).toHaveText("");
-    await expect(draft.getByTestId("usage-tokens")).toHaveCount(0);
     await expect(draft.getByTestId("usage-cost")).toHaveText("$0.00");
     await expect(page.getByTestId("model-chip").locator("svg")).toHaveCount(0);
+    await expect(draft.getByTestId("empty-project")).toBeVisible();
+    await expect(page.getByTestId("worktree-chip")).toHaveCount(0);
     await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
 
-    // 输入框下方不再有单独一行：模型胶囊右边是本会话 token（fixture 9206）；发送键左边依次是上下文圆环
-    // （fixture 上下文不到 1%，没有文字）和费用 $0.00006513，每日用量和额度在费用的浮层里。
+    // 工具行里不再有本会话 token 图标：模型胶囊之后，发送键左边依次是上下文圆环
+    // （fixture 上下文不到 1%，没有文字）和费用 $0.00006513，每日用量和额度在费用的对话框里。
     const tools = page.locator(".composer-tools");
-    const meter = tools.getByTestId("usage-meter");
-    await expect(meter).toBeVisible();
-    // 本会话 token 只是一个图标：数字在 aria-label / 悬停提示里，按钮上没有文字。
-    await expect(meter.getByTestId("usage-tokens")).toHaveAttribute("aria-label", /9\.2K/);
-    await expect(meter.getByTestId("usage-tokens")).toHaveText("");
+    await expect(page.getByTestId("usage-tokens")).toHaveCount(0);
     const chipBox = await page.getByTestId("model-chip").boundingBox();
-    const tokensBox = await meter.getByTestId("usage-tokens").boundingBox();
-    expect(tokensBox?.x ?? 0).toBeGreaterThanOrEqual((chipBox?.x ?? 0) + (chipBox?.width ?? 0));
     const contextMeter = tools.getByTestId("context-meter");
     await expect(contextMeter).toHaveAttribute("aria-label", /0\.\d/);
     await expect(contextMeter).toHaveText("");
@@ -160,10 +156,8 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
     const [contextBox, costBox, sendBox] = await Promise.all(
       [contextMeter, cost, page.getByTestId("send-button")].map((locator) => locator.boundingBox()),
     );
-    // 同一行，从左到右：本会话 token、圆环、费用、发送键；圆环和模型胶囊垂直中线对齐。
-    expect(contextBox && tokensBox && contextBox.x).toBeGreaterThanOrEqual(
-      (tokensBox?.x ?? 0) + (tokensBox?.width ?? 0),
-    );
+    // 同一行，从左到右：模型胶囊、圆环、费用、发送键；圆环和模型胶囊垂直中线对齐。
+    expect(contextBox && chipBox && contextBox.x).toBeGreaterThanOrEqual((chipBox?.x ?? 0) + (chipBox?.width ?? 0));
     expect(contextBox && costBox && contextBox.x + contextBox.width).toBeLessThanOrEqual(costBox?.x ?? 0);
     expect(costBox && sendBox && costBox.x + costBox.width).toBeLessThanOrEqual(sendBox?.x ?? 0);
     expect(
@@ -176,7 +170,7 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
     await shoot(page, "conversation");
 
     // 上下文构成：系统提示词、工具定义（估算）、消息、剩余空间各一行（自动压缩预留要读 omp 设置，测试环境里不一定有）；
-    // Esc 关闭后焦点回到圆环。
+    // 下面是"会话用量"按钮（不再有"压缩上下文"）。Esc 关闭后焦点回到圆环。
     await page.getByTestId("context-meter").click();
     const breakdown = page.getByTestId("context-breakdown");
     await expect(breakdown).toBeVisible();
@@ -184,16 +178,26 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
       await expect(breakdown.locator(`[data-testid="context-row"][data-part="${part}"]`)).toHaveCount(1);
     // 构成下面不再有说明小字。
     await expect(breakdown.locator(".ctx-note")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /压缩上下文|Compact context/ })).toHaveCount(0);
     await shoot(page, "context");
+
+    // 点"会话用量"：浮层向左加宽，按模型的明细出现在构成左边，构成的位置不动；再点收回。
+    const breakdownBefore = await breakdown.boundingBox();
+    const usageToggle = page.getByTestId("session-usage-toggle");
+    await expect(usageToggle).toHaveAttribute("aria-expanded", "false");
+    await usageToggle.click();
+    const sessionUsage = page.getByTestId("session-usage");
+    await expect(sessionUsage.getByTestId("model-breakdown")).toBeVisible();
+    await expect(usageToggle).toHaveAttribute("aria-expanded", "true");
+    const [usageBox, breakdownAfter] = await Promise.all([sessionUsage.boundingBox(), breakdown.boundingBox()]);
+    expect((usageBox?.x ?? 0) + (usageBox?.width ?? 0)).toBeLessThanOrEqual(breakdownAfter?.x ?? 0);
+    expect(Math.abs((breakdownAfter?.x ?? 0) - (breakdownBefore?.x ?? 0))).toBeLessThanOrEqual(2);
+    await shoot(page, "model-usage");
+    await usageToggle.click();
+    await expect(sessionUsage).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(breakdown).toHaveCount(0);
     await expect(page.getByTestId("context-meter")).toBeFocused();
-
-    // 本会话按模型的明细。
-    await page.getByTestId("usage-tokens").click();
-    await expect(page.getByTestId("model-breakdown")).toBeVisible();
-    await shoot(page, "model-usage");
-    await page.keyboard.press("Escape");
     // 点费用：居中的对话框（不是贴着按钮的浮层），顶上是"订阅额度 / 每日用量"切换框，默认订阅额度，←/→ 切页，
     // 切页时对话框大小不变；没有"去设置看全年"；Esc 关闭后焦点回到费用。
     await cost.click();
@@ -206,6 +210,14 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
     await page.keyboard.press("ArrowRight");
     await expect(overview.getByTestId("usage-tab-daily")).toBeFocused();
     await expect(overview.getByTestId("heatmap-section")).toBeVisible();
+    // 热力图在对话框里居中。
+    const [heatBox, sectionBox] = await Promise.all([
+      overview.getByTestId("heatmap-section").locator(".uq-heat").boundingBox(),
+      overview.getByTestId("heatmap-section").boundingBox(),
+    ]);
+    expect(
+      Math.abs((heatBox?.x ?? 0) + (heatBox?.width ?? 0) / 2 - ((sectionBox?.x ?? 0) + (sectionBox?.width ?? 0) / 2)),
+    ).toBeLessThanOrEqual(2);
     await expect(overview.getByTestId("quota-section")).toBeHidden();
     const dailyBox = await overview.boundingBox();
     await page.keyboard.press("ArrowLeft");
@@ -262,17 +274,14 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
     await expect(picker).toHaveCount(0);
     await expect(chip).toBeFocused();
 
-    // 回到空状态：该项目最近的任务是可点的入口；历史会话列表不存在。
+    // 回到空状态：只有标志和输入框，没有最近的任务和历史会话；项目按钮在输入框下面，写项目名。
     await page.keyboard.press("Control+n");
     await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
-    const recent = page.getByTestId("empty-task");
-    await expect(recent).toHaveCount(1);
-    await expect(recent.first()).toContainText("2+2");
+    await expect(page.getByTestId("empty-task")).toHaveCount(0);
     await expect(page.getByTestId("empty-session")).toHaveCount(0);
+    await expect(page.getByTestId("empty-project")).not.toHaveText(/^(无项目|No project)$/);
     await page.locator("[data-composer-input]").focus();
     await shoot(page, "empty");
-    await recent.first().click();
-    await expect(page.getByTestId("composer-stack")).toBeVisible();
   } finally {
     await cleanup();
   }

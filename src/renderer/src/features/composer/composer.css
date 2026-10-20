@@ -21,6 +21,18 @@
   background: linear-gradient(transparent, var(--bg-app));
   pointer-events: none;
 }
+/* 草稿输入框下方一行（项目、工作树开关），左缘和输入框的工具行对齐；有它时底部留白收一点，输入框不会比对话时高太多。 */
+.composer-below {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  margin-top: var(--space-1-5);
+  padding: 0 var(--space-1);
+}
+.composer-stack:has(> .composer-below) {
+  padding-bottom: var(--space-2);
+}
 
 .composer {
   container-type: inline-size;
@@ -267,8 +279,7 @@ button.usage-context:hover,
   }
 }
 
-/* 工具行里模型、审批胶囊之后的用量仪表：本会话 token、速度，数字一律等宽字体 + --text-2。
-   输入框变窄时逐级收起：先速度，再本会话 token。 */
+/* 工具行里模型、审批胶囊之后的速度（只在运行中），数字一律等宽字体 + --text-2；输入框变窄时收起。 */
 .composer-stack {
   container-type: inline-size;
 }
@@ -285,9 +296,6 @@ button.usage-context:hover,
   line-height: var(--lh-2xs);
   font-variant-numeric: tabular-nums;
 }
-.usage > .pop-anchor {
-  flex: none;
-}
 .usage-item {
   display: inline-flex;
   align-items: center;
@@ -299,37 +307,6 @@ button.usage-context:hover,
   font: inherit;
   white-space: nowrap;
 }
-button.usage-item {
-  height: var(--control-h-sm);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-button.usage-item:hover {
-  color: var(--text);
-}
-/* 本会话 token 只是一个图标（数字在悬停提示和点开的明细里），同上下文圆环一样是方形按钮：悬停 / 打开时加浅底。 */
-button.usage-tokens {
-  justify-content: center;
-  width: var(--control-h-sm);
-  color: var(--text-3);
-  transition:
-    background-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
-}
-button.usage-tokens:hover,
-button.usage-tokens[aria-expanded="true"] {
-  background: var(--bg-hover);
-  color: var(--text-2);
-}
-button.usage-tokens:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-.pop-anchor:has(> [data-testid="usage-tokens"]) + [data-testid="usage-tps"]::before {
-  content: "· ";
-  margin-left: calc(var(--space-1-5) - var(--space-3));
-  margin-right: var(--space-1-5);
-}
 .usage-tps {
   color: var(--text-3);
 }
@@ -338,13 +315,31 @@ button.usage-tokens:focus-visible {
     display: none;
   }
 }
-/* 仪表行里的浮层：不继承行的等宽小字，数字列自己用等宽 */
-.usage .pop,
+/* 圆环的浮层：不继承工具行的等宽小字，数字列自己用等宽 */
 .usage-context-anchor .pop {
   color: var(--text);
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
+}
+/* 上下文浮层展开"会话用量"时：左边用量明细、右边上下文构成，中间一条竖线；构成那一栏宽度不变 */
+.ctx-pop {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+.ctx-pop-main {
+  display: flex;
+  flex: 1 1 320px;
+  flex-direction: column;
+  min-width: 0;
+}
+.ctx-pop-aside {
+  flex: 1 1 300px;
+  min-width: 0;
+  padding-right: var(--space-3);
+  margin-right: var(--space-3);
+  border-right: 1px solid var(--border-subtle);
 }
 .usage-ring-track,
 .usage-ring-fill {
@@ -536,6 +531,12 @@ button.usage-tokens:focus-visible {
 }
 .qm-panel[data-inactive] {
   visibility: hidden;
+}
+/* 热力图按自己的宽度在对话框里居中（底下的统计行跟着它对齐），窄了再横向滚动 */
+.usage-dialog .uq-heat {
+  align-self: center;
+  width: max-content;
+  max-width: 100%;
 }
 .usage-dialog .uq-block-grid {
   gap: var(--space-1-5);

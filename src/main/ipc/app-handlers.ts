@@ -29,7 +29,6 @@ export const appHandlers: HandlerGroup<
   | "setTheme"
   | "setMaxLiveProcesses"
   | "openExternal"
-  | "quitApp"
   | "openLogsFolder"
   | "exportDiagnostics"
   | "getShellState"
@@ -49,7 +48,6 @@ export const appHandlers: HandlerGroup<
   setTheme: async (value) => updateSettings({ theme: parseThemePreference(value) }),
   setMaxLiveProcesses: async (value) => updateSettings({ maxLiveProcesses: parseMaxLiveProcesses(value) }),
   openExternal: async (value) => shell.openExternal(parseExternalUrl(value)),
-  quitApp: async () => app.quit(),
   openLogsFolder: () => openLogsFolder(),
   exportDiagnostics: () => exportDiagnostics(),
   getShellState: async () => getShellState(),

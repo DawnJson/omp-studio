@@ -2,7 +2,7 @@
 // 高度存在外壳状态里（和侧栏宽度一样持久化），渲染时夹到 [120px, 主区高度的 70%]。
 import "@xterm/xterm/css/xterm.css";
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import type { TaskId } from "../../../../shared/ipc.ts";
+import type { TerminalKey } from "../../../../shared/ipc.ts";
 import { clampTerminalHeight, cwdLabel, defaultTerminalHeight } from "../../../../shared/ui/terminal-model.ts";
 import { commitTerminalHeight, previewTerminalHeight, useShellUi } from "../../app/shell-store.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -16,13 +16,13 @@ import "./terminal.css";
 const keyboardStep = 16;
 
 /** 开关外壳：关闭时先放淡出再卸载 xterm；高度不做逐帧动画（主区靠 ResizeObserver 保阅读锚点），一步到位。 */
-export function TerminalPanel({ taskId, open }: { taskId: TaskId; open: boolean }) {
+export function TerminalPanel({ terminalKey, open }: { terminalKey: TerminalKey; open: boolean }) {
   const presence = usePresence(open, "fade");
   if (!presence.mounted) return null;
-  return <TerminalPanelBody taskId={taskId} exitProps={presence.exitProps} />;
+  return <TerminalPanelBody terminalKey={terminalKey} exitProps={presence.exitProps} />;
 }
 
-function TerminalPanelBody({ taskId, exitProps }: { taskId: TaskId; exitProps: ExitProps }) {
+function TerminalPanelBody({ terminalKey, exitProps }: { terminalKey: TerminalKey; exitProps: ExitProps }) {
   const t = useT();
   const platform = useAppInfo()?.platform ?? "win32";
   const { terminalHeight } = useShellUi();
@@ -30,7 +30,7 @@ function TerminalPanelBody({ taskId, exitProps }: { taskId: TaskId; exitProps: E
   const host = useRef<HTMLDivElement>(null);
   const drag = useRef<{ startY: number; startHeight: number } | null>(null);
   const [containerHeight, setContainerHeight] = useState(Number.POSITIVE_INFINITY);
-  const session = useTerminalSession(taskId, host, platform);
+  const session = useTerminalSession(terminalKey, host, platform);
 
   // 主区面板（父元素）高度变化时重新夹取：窗口缩小后终端不能把对话区挤没。
   useLayoutEffect(() => {
@@ -122,7 +122,7 @@ function TerminalPanelBody({ taskId, exitProps }: { taskId: TaskId; exitProps: E
           data-testid="terminal-hide"
           aria-label={t("terminal.hide")}
           title={`${t("terminal.hide")} (Ctrl \`)`}
-          onClick={() => setTerminalOpen(taskId, false)}
+          onClick={() => setTerminalOpen(terminalKey, false)}
         >
           <Close size={14} />
         </button>

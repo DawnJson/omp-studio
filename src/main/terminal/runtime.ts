@@ -2,12 +2,14 @@
 // node-pty 是原生模块，放在第一次真正起终端时才加载：它加载失败只影响终端，不影响应用启动。
 import { execFile } from "node:child_process";
 import { accessSync, constants } from "node:fs";
-import { stat } from "node:fs/promises";
+import { mkdir, stat } from "node:fs/promises";
 import path from "node:path";
+import { parseDraftKey, type TaskId, type TerminalKey } from "../../shared/ipc.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { log } from "../log/log.ts";
 import { managedOmpBin } from "../omp-manager/index.ts";
 import { assignToOwnJob } from "../platform/win32/job-object.ts";
+import { chatsDir } from "../tasks/chats-dir.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import type { TaskPool } from "../tasks/task-pool.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
@@ -42,9 +44,23 @@ function killProcessTree(pid: number): Promise<void> {
 
 let manager: TerminalManager | null = null;
 
+/** 任务的有效目录；草稿的项目目录，无项目的草稿用 chats 目录（和 ensureChatsProject 一样现建）。 */
+async function terminalCwd(pool: TaskPool, key: TerminalKey): Promise<string> {
+  const draft = parseDraftKey(key);
+  if (draft === undefined) return pool.taskCwd(key as TaskId);
+  if (draft.projectId === null) {
+    const dir = chatsDir();
+    await mkdir(dir, { recursive: true });
+    return dir;
+  }
+  const project = pool.listProjects().find((candidate) => candidate.id === draft.projectId);
+  if (!project) throw new Error(`unknown project ${draft.projectId}`);
+  return project.path;
+}
+
 function createManager(pool: TaskPool): TerminalManager {
   return new TerminalManager({
-    taskCwd: (taskId) => pool.taskCwd(taskId),
+    terminalCwd: (key) => terminalCwd(pool, key),
     directoryExists: (dir) =>
       stat(dir).then(
         (info) => info.isDirectory(),
@@ -68,8 +84,8 @@ function createManager(pool: TaskPool): TerminalManager {
     },
     killTree: killProcessTree,
     assignJob: assignToOwnJob,
-    emitData: (taskId, data) => emitEvent("terminalData", { taskId, data }),
-    emitExit: (taskId, exitCode) => emitEvent("terminalExit", { taskId, exitCode }),
+    emitData: (key, data) => emitEvent("terminalData", { key, data }),
+    emitExit: (key, exitCode) => emitEvent("terminalExit", { key, exitCode }),
     onError: (message, error) => log.warn(message, error),
   });
 }

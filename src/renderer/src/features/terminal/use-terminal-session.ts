@@ -3,7 +3,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { limits, type TaskId } from "../../../../shared/ipc.ts";
+import { limits, type TerminalKey } from "../../../../shared/ipc.ts";
 import { buildTerminalPalette, chunkInput, type PaletteToken } from "../../../../shared/ui/terminal-model.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { describeError } from "../../ui/errors.ts";
@@ -26,7 +26,7 @@ const lineHeight = 1.2;
 const scrollbackLines = 5000;
 
 export function useTerminalSession(
-  taskId: TaskId,
+  terminalKey: TerminalKey,
   host: RefObject<HTMLDivElement | null>,
   platform: "win32" | "darwin" | "linux",
 ): TerminalSession {
@@ -96,7 +96,7 @@ export function useTerminalSession(
       setStarting(true);
       const requested = { cols: term.cols, rows: term.rows };
       try {
-        const result = await window.studio.openTerminal(taskId, requested.cols, requested.rows);
+        const result = await window.studio.openTerminal(terminalKey, requested.cols, requested.rows);
         if (disposed) return;
         const pending = buffered;
         buffered = null;
@@ -113,7 +113,7 @@ export function useTerminalSession(
         setInfo({ shell: result.shell, cwd: result.cwd });
         // 打开期间面板被拖动过：以最新尺寸为准。
         if (term.cols !== requested.cols || term.rows !== requested.rows) {
-          void window.studio.resizeTerminal(taskId, term.cols, term.rows).catch(() => undefined);
+          void window.studio.resizeTerminal(terminalKey, term.cols, term.rows).catch(() => undefined);
         }
       } catch (error) {
         if (disposed) return;
@@ -129,7 +129,7 @@ export function useTerminalSession(
       restarting = true;
       void (async () => {
         try {
-          await window.studio.closeTerminal(taskId);
+          await window.studio.closeTerminal(terminalKey);
           if (disposed) return;
           term.reset();
           await connect();
@@ -143,10 +143,10 @@ export function useTerminalSession(
     restartRef.current = restart;
 
     const offData = window.studio.onTerminalData((event) => {
-      if (event.taskId === taskId) output(event.data);
+      if (event.key === terminalKey) output(event.data);
     });
     const offExit = window.studio.onTerminalExit((event) => {
-      if (event.taskId !== taskId) return;
+      if (event.key !== terminalKey) return;
       markDead(latestT.current("terminal.exited", { code: event.exitCode }));
     });
 
@@ -158,7 +158,7 @@ export function useTerminalSession(
       if (phase !== "live") return;
       for (const chunk of chunkInput(data, limits.terminalInputMaxChars)) {
         void window.studio
-          .writeTerminal(taskId, chunk)
+          .writeTerminal(terminalKey, chunk)
           .catch((error: unknown) => console.error("writeTerminal 失败", error));
       }
     });
@@ -169,7 +169,7 @@ export function useTerminalSession(
       clearTimeout(resizeTimer);
       // ConPTY 每次 resize 都会重排，拖动面板时合并成最后一次。
       resizeTimer = setTimeout(() => {
-        void window.studio.resizeTerminal(taskId, cols, rows).catch(() => undefined);
+        void window.studio.resizeTerminal(terminalKey, cols, rows).catch(() => undefined);
       }, resizeDebounceMs);
     });
 
@@ -214,7 +214,7 @@ export function useTerminalSession(
     const scheme = window.matchMedia("(prefers-color-scheme: dark)");
     scheme.addEventListener("change", relook);
 
-    if (takeFocusRequest(taskId)) term.focus();
+    if (takeFocusRequest(terminalKey)) term.focus();
     void connect();
 
     return () => {
@@ -232,7 +232,7 @@ export function useTerminalSession(
       probe.remove();
       term.dispose();
     };
-  }, [taskId, host, platform]);
+  }, [terminalKey, host, platform]);
 
   const restart = useCallback(() => restartRef.current(), []);
   return { shell: info?.shell ?? null, cwd: info?.cwd ?? null, starting, restart };

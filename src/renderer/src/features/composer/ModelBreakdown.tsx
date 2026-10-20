@@ -1,4 +1,4 @@
-// 点工具行的 token 图标弹出的按模型明细（照 Claude Code 的 Usage → Breakdown）：头一行本会话 token 总数，每个模型的输入 / 输出 / 缓存读取 / 缓存写入和费用。
+// 上下文浮层里点"会话用量"在左边展开的按模型明细（照 Claude Code 的 Usage → Breakdown）：头一行本会话 token 总数，每个模型的输入 / 输出 / 缓存读取 / 缓存写入和费用。
 // 数据由主进程读会话文件得到（getSessionModelUsage），范围和 omp 的会话统计一致；压缩过时底部另给整个会话（含压缩前）的合计。
 // 打开时读一次；打开期间一轮结束（updatedAt 变了）再读。
 import { useEffect, useState } from "react";

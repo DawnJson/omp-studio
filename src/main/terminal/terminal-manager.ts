@@ -1,7 +1,7 @@
-// 内置终端管理：每个任务至多一个 pty，重新打开时复用还活着的那个。不 import electron / node-pty，
-// 外部能力（起 pty、任务目录、Job Object、事件出口）都从 deps 进来，单元测试用假 pty。
+// 内置终端管理：每个键（任务 id，或新任务草稿的键）至多一个 pty，重新打开时复用还活着的那个。不 import electron / node-pty，
+// 外部能力（起 pty、终端目录、Job Object、事件出口）都从 deps 进来，单元测试用假 pty。
 // 生命周期和 cwd 规则见 docs/architecture/terminal.md。
-import type { TaskId, TerminalOpenResult } from "../../shared/ipc.ts";
+import type { DraftKey, TaskId, TerminalKey, TerminalOpenResult } from "../../shared/ipc.ts";
 import { Backlog } from "./backlog.ts";
 import { OutputBatcher } from "./output-batcher.ts";
 import type { ShellChoice } from "./shell.ts";
@@ -27,8 +27,8 @@ export interface SpawnOptions {
 }
 
 export interface TerminalDeps {
-  /** 任务的工作目录（worktree 根或项目目录）；任务不存在时抛错。 */
-  taskCwd(taskId: TaskId): string;
+  /** 终端的工作目录：任务的有效目录（worktree 根或项目目录），或草稿的项目目录 / chats 目录；任务或项目不存在时抛错。 */
+  terminalCwd(key: TerminalKey): Promise<string>;
   directoryExists(dir: string): Promise<boolean>;
   resolveShell(): ShellChoice;
   buildEnv(): Record<string, string>;
@@ -40,12 +40,14 @@ export interface TerminalDeps {
    * 放进去失败由调用方记日志，终端照常可用（正常退出仍由 closeAll 结束）。
    */
   assignJob(pid: number): () => void;
-  emitData(taskId: TaskId, data: string): void;
-  emitExit(taskId: TaskId, exitCode: number): void;
+  emitData(key: TerminalKey, data: string): void;
+  emitExit(key: TerminalKey, exitCode: number): void;
   onError(message: string, error: unknown): void;
 }
 
 interface Entry {
+  /** 当前的键：草稿的终端交给任务后会变，事件出口读这个，不捕获打开时的键。 */
+  key: TerminalKey;
   pty: PtyLike;
   shell: ShellChoice;
   cwd: string;
@@ -66,35 +68,35 @@ export class TerminalCwdMissingError extends Error {
 
 export class TerminalManager {
   readonly #deps: TerminalDeps;
-  readonly #entries = new Map<TaskId, Entry>();
-  /** 同一任务并发的 open 共用一次 spawn（面板快速开关、重载时会发生）。 */
-  readonly #opening = new Map<TaskId, Promise<TerminalOpenResult>>();
+  readonly #entries = new Map<TerminalKey, Entry>();
+  /** 同一个键并发的 open 共用一次 spawn（面板快速开关、重载时会发生）。 */
+  readonly #opening = new Map<TerminalKey, Promise<TerminalOpenResult>>();
 
   constructor(deps: TerminalDeps) {
     this.#deps = deps;
   }
 
-  has(taskId: TaskId): boolean {
-    return this.#entries.has(taskId);
+  has(key: TerminalKey): boolean {
+    return this.#entries.has(key);
   }
 
-  open(taskId: TaskId, cols: number, rows: number): Promise<TerminalOpenResult> {
-    const pending = this.#opening.get(taskId);
+  open(key: TerminalKey, cols: number, rows: number): Promise<TerminalOpenResult> {
+    const pending = this.#opening.get(key);
     if (pending) return pending;
-    const promise = this.#open(taskId, cols, rows).finally(() => this.#opening.delete(taskId));
-    this.#opening.set(taskId, promise);
+    const promise = this.#open(key, cols, rows).finally(() => this.#opening.delete(key));
+    this.#opening.set(key, promise);
     return promise;
   }
 
-  async #open(taskId: TaskId, cols: number, rows: number): Promise<TerminalOpenResult> {
-    const existing = this.#entries.get(taskId);
+  async #open(key: TerminalKey, cols: number, rows: number): Promise<TerminalOpenResult> {
+    const existing = this.#entries.get(key);
     if (existing) {
       // 还没发出去的输出已经在 backlog 里，丢掉它，否则界面会收到两遍。
       existing.batcher.discard();
       this.#resize(existing, cols, rows);
       return { cwd: existing.cwd, shell: existing.shell.name, reopened: true, backlog: existing.backlog.snapshot() };
     }
-    const cwd = this.#deps.taskCwd(taskId);
+    const cwd = await this.#deps.terminalCwd(key);
     if (!(await this.#deps.directoryExists(cwd))) throw new TerminalCwdMissingError();
     const shell = this.#deps.resolveShell();
     const pty = await this.#deps.spawn(shell, { cwd, env: this.#deps.buildEnv(), cols, rows });
@@ -106,11 +108,12 @@ export class TerminalManager {
       this.#deps.onError("terminal: could not assign the shell to the job object", error);
     }
     const entry: Entry = {
+      key,
       pty,
       shell,
       cwd,
       backlog: new Backlog(BACKLOG_CHARS),
-      batcher: new OutputBatcher((data) => this.#deps.emitData(taskId, data), {
+      batcher: new OutputBatcher((data) => this.#deps.emitData(entry.key, data), {
         intervalMs: BATCH_INTERVAL_MS,
         maxChars: BATCH_MAX_CHARS,
       }),
@@ -124,19 +127,37 @@ export class TerminalManager {
       }),
       pty.onExit(({ exitCode }) => {
         // 只处理还在表里的：主动 close 时已经摘掉监听并从表里删了，不会走到这里。
-        if (this.#entries.get(taskId) !== entry) return;
+        if (this.#entries.get(entry.key) !== entry) return;
         entry.batcher.flush();
-        this.#detach(taskId, entry);
+        this.#detach(entry);
         entry.releaseJob();
-        this.#deps.emitExit(taskId, exitCode);
+        this.#deps.emitExit(entry.key, exitCode);
       }),
     );
-    this.#entries.set(taskId, entry);
+    this.#entries.set(key, entry);
     return { cwd, shell: shell.name, reopened: false, backlog: "" };
   }
 
-  write(taskId: TaskId, data: string): void {
-    const entry = this.#entries.get(taskId);
+  /**
+   * 草稿建出任务后把草稿的终端交给任务：同一个 shell、同一份 backlog，之后的事件带新的键。
+   * 草稿没有终端、任务已经有终端时什么也不动，返回 false（调用方再决定要不要关草稿的）。
+   * 草稿的终端还在起（open 在途）时先等它起好。
+   */
+  async rekey(from: DraftKey, to: TaskId): Promise<boolean> {
+    const pending = this.#opening.get(from);
+    if (pending) await pending.catch(() => undefined);
+    const entry = this.#entries.get(from);
+    if (!entry || this.#entries.has(to) || this.#opening.has(to)) return false;
+    // 还没发出去的输出以旧键发出去，渲染进程还在旧键上订阅。
+    entry.batcher.flush();
+    this.#entries.delete(from);
+    entry.key = to;
+    this.#entries.set(to, entry);
+    return true;
+  }
+
+  write(key: TerminalKey, data: string): void {
+    const entry = this.#entries.get(key);
     if (!entry) return;
     try {
       entry.pty.write(data);
@@ -145,8 +166,8 @@ export class TerminalManager {
     }
   }
 
-  resize(taskId: TaskId, cols: number, rows: number): void {
-    const entry = this.#entries.get(taskId);
+  resize(key: TerminalKey, cols: number, rows: number): void {
+    const entry = this.#entries.get(key);
     if (entry) this.#resize(entry, cols, rows);
   }
 
@@ -160,21 +181,21 @@ export class TerminalManager {
   }
 
   /**
-   * 结束任务的终端（整棵进程树）；不发 terminalExit（调用方就是发起者，已经知道）。
+   * 结束终端（整棵进程树）；不发 terminalExit（调用方就是发起者，已经知道）。
    * 状态和监听同步摘掉；返回的 promise 在进程树被结束之后才 resolve：Windows 上进程占着目录，
    * 删 worktree 之前必须等它。
    */
-  close(taskId: TaskId): Promise<void> {
+  close(key: TerminalKey): Promise<void> {
     // 正在起：等它起好再结束，否则这个终端会成为没人管的孤儿。
-    const pending = this.#opening.get(taskId);
+    const pending = this.#opening.get(key);
     if (pending)
       return pending.then(
-        () => this.close(taskId),
+        () => this.close(key),
         () => undefined,
       );
-    const entry = this.#entries.get(taskId);
+    const entry = this.#entries.get(key);
     if (!entry) return Promise.resolve();
-    this.#detach(taskId, entry);
+    this.#detach(entry);
     entry.batcher.discard();
     return this.#kill(entry);
   }
@@ -196,13 +217,13 @@ export class TerminalManager {
   }
 
   async closeAll(): Promise<void> {
-    const ids = [...this.#entries.keys(), ...this.#opening.keys()];
-    await Promise.all(ids.map((taskId) => this.close(taskId)));
+    const keys = [...this.#entries.keys(), ...this.#opening.keys()];
+    await Promise.all(keys.map((key) => this.close(key)));
   }
 
-  #detach(taskId: TaskId, entry: Entry): void {
+  #detach(entry: Entry): void {
     for (const subscription of entry.subscriptions) subscription.dispose();
     entry.subscriptions = [];
-    if (this.#entries.get(taskId) === entry) this.#entries.delete(taskId);
+    if (this.#entries.get(entry.key) === entry) this.#entries.delete(entry.key);
   }
 }

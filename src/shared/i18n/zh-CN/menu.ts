@@ -2,7 +2,6 @@ import type { MessageEntry } from "../index.ts";
 
 export const menu = {
   newTask: "新任务",
-  commandPalette: "命令面板",
   toggleSidebar: "切换侧栏",
   settings: "设置",
   language: "语言",
@@ -13,5 +12,4 @@ export const menu = {
   themeDark: "深色",
   helpFeedback: "帮助与反馈",
   about: "关于 omp-studio",
-  quit: "退出",
 } satisfies Record<string, MessageEntry>;

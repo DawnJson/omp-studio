@@ -12,7 +12,13 @@ import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts"
 import { OmpSetupView } from "../features/omp-setup/index.ts";
 import { ReviewHost } from "../features/review/index.ts";
 import { CommandPalette } from "../features/palette/index.ts";
-import { TerminalPanel, toggleTerminalFocus, useTerminalOpen } from "../features/terminal/index.ts";
+import {
+  TerminalPanel,
+  toggleTerminalFocus,
+  useDraftTerminalCleanup,
+  useDraftTerminalKey,
+  useTerminalOpen,
+} from "../features/terminal/index.ts";
 import { SettingsView } from "../features/settings/index.ts";
 import { onStudioCommand } from "../features/palette/studio-command.ts";
 import { useHiddenTasks } from "../features/sidebar/archive-store.ts";
@@ -87,7 +93,10 @@ export function App() {
   const taskId = useSelectedTaskId();
   const view = useMainView();
   const paletteOpen = usePaletteOpen();
-  const terminalOpen = useTerminalOpen(taskId);
+  const draftKey = useDraftTerminalKey();
+  const terminalKey = taskId ?? draftKey;
+  const terminalOpen = useTerminalOpen(terminalKey);
+  useDraftTerminalCleanup(draftKey);
   const shell = useShellUi();
   const narrow = useNarrow();
   const navigation = useNavigation();
@@ -180,7 +189,7 @@ export function App() {
       if (taskId !== null && view === "conversation") openReview(taskId);
     },
     toggleTerminalFocus: () => {
-      if (taskId !== null && view === "conversation") toggleTerminalFocus(taskId);
+      if (view === "conversation") toggleTerminalFocus(terminalKey);
     },
     closeDrawer: () => {
       if (!narrow || !shell.drawerOpen) return false;
@@ -197,7 +206,12 @@ export function App() {
       data-sidebar={sidebarShown ? "shown" : "hidden"}
       data-drawer={asDrawer}
     >
-      <TopBar menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((open) => !open)} />
+      <TopBar
+        menuOpen={menuOpen}
+        onToggleMenu={() => setMenuOpen((open) => !open)}
+        sidebarShown={sidebarShown}
+        onToggleSidebar={toggleSidebar}
+      />
       <div className="body">
         {drawerScrim.mounted && (
           <div
@@ -220,13 +234,16 @@ export function App() {
           {view === "settings" ? (
             <SettingsView />
           ) : taskId === null ? (
-            <EmptyState />
+            <>
+              <EmptyState />
+              <TerminalPanel key={`terminal:${draftKey}`} terminalKey={draftKey} open={terminalOpen} />
+            </>
           ) : (
             <>
               <ConversationView taskId={taskId} />
               <BtwPanel taskId={taskId} />
               <Composer key={taskId} taskId={taskId} />
-              <TerminalPanel key={`terminal:${taskId}`} taskId={taskId} open={terminalOpen} />
+              <TerminalPanel key={`terminal:${taskId}`} terminalKey={taskId} open={terminalOpen} />
             </>
           )}
         </main>
@@ -235,13 +252,8 @@ export function App() {
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         actions={{
-          newTask,
-          toggleSidebar,
-          openPalette: () => setPaletteOpen(true),
-          openSettings: () => showView("settings"),
           openHelp: () => void window.studio.openExternal(helpUrl),
           openAbout: () => setAboutOpen(true),
-          quit: () => void window.studio.quitApp(),
         }}
       />
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />

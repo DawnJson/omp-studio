@@ -8,6 +8,7 @@ import { useLocale, useT } from "../../i18n/use-t.ts";
 import {
   selectTask,
   setPaletteOpen,
+  useMainView,
   usePaletteOpen,
   useSelectedTaskId,
   useSettings,
@@ -18,6 +19,7 @@ import { useHiddenTasks } from "../sidebar/archive-store.ts";
 import { CommandIcon, SearchIcon, SessionIcon, SlashIcon, TaskIcon } from "../sidebar/icons.tsx";
 import { useProjects } from "../sidebar/projects-store.ts";
 import { startDraft } from "../empty/index.ts";
+import { useDraftTerminalKey } from "../terminal/index.ts";
 import { projectLabels } from "../../../../shared/ui/sidebar-model.ts";
 import { commandIcon } from "./command-icons.ts";
 import { buildCommands } from "./palette-commands.ts";
@@ -48,6 +50,8 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
   const projects = useProjects();
   const settings = useSettings();
   const selectedTaskId = useSelectedTaskId();
+  const view = useMainView();
+  const draftTerminalKey = useDraftTerminalKey();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -57,6 +61,8 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
 
   const visibleTasks = useMemo(() => tasks.filter((task) => !hidden.has(task.id)), [tasks, hidden]);
   const current = visibleTasks.find((task) => task.id === selectedTaskId) ?? null;
+  // 终端命令：当前任务，或对话页上的新任务草稿。
+  const terminalKey = current?.id ?? (selectedTaskId === null && view === "conversation" ? draftTerminalKey : null);
   const labels = useMemo(() => projectLabels(projects), [projects]);
   const slashCommands = useSlashCommands(current?.id ?? null);
 
@@ -84,6 +90,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
           locale,
           theme: settings?.theme ?? "system",
           current,
+          terminalKey,
           hasWaiting: visibleTasks.some((task) => task.status === "needs_you"),
         }),
         projectLabel: (projectId) => labels.get(projectId) ?? "",
@@ -92,7 +99,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
         hasCurrentTask: current !== null,
         slashCommands,
       }),
-    [query, visibleTasks, sessions, t, locale, settings?.theme, current, labels, slashCommands],
+    [query, visibleTasks, sessions, t, locale, settings?.theme, current, terminalKey, labels, slashCommands],
   );
   const rows = useMemo(() => sections.flatMap((section) => section.rows), [sections]);
   const trimmed = query.trim();
