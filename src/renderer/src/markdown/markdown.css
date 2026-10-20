@@ -235,8 +235,9 @@
   font-size: var(--fs-code);
   line-height: var(--lh-code);
   tab-size: 2;
-  overflow-x: auto;
-  white-space: pre;
+  /* 长行折行，不出横向滚动条（2026-10-20） */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .md-codebody code {
   font: inherit;

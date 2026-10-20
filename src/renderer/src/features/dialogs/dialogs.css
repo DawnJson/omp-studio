@@ -330,6 +330,7 @@
   font-size: var(--fs-code-sm);
   line-height: var(--lh-code-sm);
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   max-height: calc(var(--lh-code-sm) * 8 + var(--space-4));
   overflow: auto;
 }

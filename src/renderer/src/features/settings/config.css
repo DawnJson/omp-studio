@@ -222,8 +222,9 @@
   font-size: var(--fs-code-sm);
   line-height: var(--lh-code-sm);
   resize: vertical;
-  white-space: pre;
-  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-y: auto;
 }
 
 .cfg-credential {
@@ -386,11 +387,9 @@
 
 @media (max-width: 999px) {
   .settings-nav {
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: thin;
+    flex-wrap: wrap;
+    overflow: visible;
   }
-
   .cfg-search {
     width: 200px;
     margin-bottom: 0;

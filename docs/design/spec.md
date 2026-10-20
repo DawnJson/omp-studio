@@ -253,7 +253,7 @@
 - `BrowserWindow`：`titleBarStyle: "hidden"`，`titleBarOverlay: { color, symbolColor, height: 40 }`（取值见 §2.1），`backgroundColor` 同 `color`；默认 1200×800，最小 800×560；`Menu.setApplicationMenu(null)`，快捷键用窗口内 `keydown` 处理。
 - **顶栏 = 任务条（通栏，高 40 = `--titlebar-h`；仓库所有者 2026-10-19 选定方案 B「任务条 + 工具区」）**：底色 `--bg-sidebar`（与 `titleBarOverlay.color` 相同，系统三键融进同一条）。控件统一高 28（`--control-h-sm`），上下各留 6。三段：
   - 左段（宽 = 侧栏宽，侧栏收起/抽屉时自适应）：`padding-left: --space-2`，横排三样：标志（圆环里一个 π，只用 `--accent` 描线，18px）+ 字标 `omp studio`（`omp` 600 `--text`，`studio` 400 `--text-2`），只是标识，不可点、可拖动窗口；切换侧栏按钮（28×28 `topbar-sidebar`，`aria-expanded` = 侧栏显示着，同 `Ctrl B`；2026-10-20 起图标随状态变：侧栏显示时左栏半透明填充、收起时淡出，`--dur-base` 过渡；侧栏本身的宽度收起/展开也有短过渡，拖拽调宽时关掉）；信息按钮（2026-10-20 起，28×28 `topbar-about`，圆圈里一个感叹号，`window.about` 作 aria-label 和悬停提示；`Alt` 键同），点开居中的“关于与反馈”对话框（`AboutDialog`）：上半是名称、版本和一句说明，下半“反馈”区三个按钮——帮助与反馈（Issues 页）、打开日志文件夹、导出诊断信息（成功 toast）；Tab 在框内循环，Esc 关闭并还焦点。新任务、命令面板、设置、退出不在这里：新任务和设置在侧栏，命令面板 `Ctrl K`，退出走系统三键。语言和主题在侧栏底部（§4.5）。
-  - 中段（左缘对齐主区面板）：**只有任务标题**（`--fs-sm`，`--text` 600 / 中文 700，过长省略，悬停提示完整标题；不显示项目名，项目在侧栏分组里）+ 状态胶囊：高 22、`--radius-pill`、`--fs-xs`，6px 形状点。运行中 = `--accent-soft` 底、`--accent` 字、圆点 + `status.running`（2026-10-20 起不再显示计时，计时在输入框上方的状态行里）；等你确认 = `--st-waiting-soft` 底、琥珀菱形 + `status.waiting`；出错 = `--st-error-soft` 底、红点 + `status.error`；空闲不显示。空状态显示 `新任务`，设置页显示页面标题。
+  - 中段（左缘对齐主区面板）：**只有任务标题**（`--fs-sm`，`--text` 600 / 中文 700，过长省略，悬停提示完整标题；不显示项目名，项目在侧栏分组里）。2026-10-20 起不再有状态胶囊（运行中 / 等你确认 / 出错）：侧栏任务行的状态图标和输入框上方的状态行已经在说，不重复。空状态显示 `新任务`，设置页显示页面标题。
   - 右段（只在有任务的对话页出现，`data-testid="topbar-tools"`）：分支胶囊（`features/git/GitTools.tsx`；`--font-mono` `--fs-code-sm`，1px `--border-subtle`，`--radius-md`，最宽 32ch；内容 分支图标 + 分支名 + worktree 任务领先时 `↑N`（`--accent`）+ ⌄；点开是 Git 菜单；"分支 · 工作树 · 基于 main · 领先 N 个提交"在悬停提示里；窄于 1000px 只留图标和 `↑N`；任务目录不是 git 仓库时不渲染）→ 评审按钮（28×28，同 `Ctrl Shift D`；不是 git 仓库时不渲染）→ 终端按钮（28×28，按下 = `--accent-soft` 底、`--accent` 图标）→ 1px×16 `--border` 竖线，与系统三键隔开。再往右是系统三键（`titleBarOverlay` 绘制）；顶栏 `padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw))` 让位。
   - **没有后退/前进按钮**（仓库所有者 2026-10-18 确认）：后退/前进在 `Alt+←/→` 和鼠标侧键（button 3/4）。导航历史栈仍在渲染进程。
   - 其余空白全部 `-webkit-app-region: drag`，按钮和任务条 `no-drag`；双击空白最大化/还原（系统行为）。
@@ -381,7 +381,7 @@
 
 ### 4.10 CodeBlock
 
-容器 `--radius-md`，`1px --border-subtle`，`overflow: hidden`，上下外边距 `--space-3`。头高 32、`--bg-raised`、`padding: 0 --space-3`：左语言名 `--fs-xs` `--text-3`（无语言显示 `text`），右 24×24 复制图标按钮（hover、聚焦代码块或键盘 Tab 到它时显示，复制后变对勾 1.2s，`aria-live` 播报 `common.copied`）。正文 `--bg-sunken`、`--font-mono` `--fs-code`，`padding: --space-3 --space-3-5`，不换行、横向滚动，`tab-size: 2`。>24 行：流式结束后折叠到 20 行 + 底部渐隐 + `code.expand`（若用户正读到该块底部，折叠推迟到其滚出视口）。流式中以最终样式创建，围栏闭合后**只改颜色**加高亮；闭合前不高亮。` ```diff ` 用 `--diff-add-fg/del-fg` 给整行着色，不加背景条。
+容器 `--radius-md`，`1px --border-subtle`，`overflow: hidden`，上下外边距 `--space-3`。头高 32、`--bg-raised`、`padding: 0 --space-3`：左语言名 `--fs-xs` `--text-3`（无语言显示 `text`），右 24×24 复制图标按钮（hover、聚焦代码块或键盘 Tab 到它时显示，复制后变对勾 1.2s，`aria-live` 播报 `common.copied`）。正文 `--bg-sunken`、`--font-mono` `--fs-code`，`padding: --space-3 --space-3-5`，长行折行（`pre-wrap` + `overflow-wrap: anywhere`，2026-10-20 起不再横向滚动；工具卡输出、门里的预览、设置里的 JSON 编辑框同样折行），`tab-size: 2`。>24 行：流式结束后折叠到 20 行 + 底部渐隐 + `code.expand`（若用户正读到该块底部，折叠推迟到其滚出视口）。流式中以最终样式创建，围栏闭合后**只改颜色**加高亮；闭合前不高亮。` ```diff ` 用 `--diff-add-fg/del-fg` 给整行着色，不加背景条。
 
 ### 4.11 ProcessRow（三个形态，同一个位置）
 

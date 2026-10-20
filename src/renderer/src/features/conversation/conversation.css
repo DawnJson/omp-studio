@@ -415,18 +415,13 @@
   font-size: var(--fs-code-sm);
   line-height: var(--lh-code-sm);
 }
+/* 长行一律折行，不出横向滚动条（2026-10-20）；只有"显示全部"时才有纵向滚动。 */
 .step-scroll {
   padding: var(--space-2) 0;
-  overflow-x: auto;
 }
 .step-scroll[data-all] {
   max-height: calc(var(--lh-code-sm) * 30);
   overflow-y: auto;
-}
-/* 行撑满最宽那一行，tint 和左条不会在横向滚动时断开 */
-.step-lines {
-  width: max-content;
-  min-width: 100%;
 }
 .step-ln {
   display: flex;
@@ -434,7 +429,8 @@
   gap: var(--space-2);
   padding: 0 var(--space-3);
   border-left: 2px solid transparent;
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .step-no {
   flex: none;
@@ -452,6 +448,7 @@
 }
 .step-code {
   flex: 1;
+  min-width: 0;
 }
 .step-ln[data-kind="add"] {
   background: var(--diff-add-bg);

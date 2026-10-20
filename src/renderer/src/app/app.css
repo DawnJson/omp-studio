@@ -123,56 +123,6 @@ button {
   font-weight: 700;
 }
 
-/* 状态胶囊：浅底 + 形状点（圆 = 进行中，菱形 = 等你，红点 = 出错）；计时用等宽数字，宽度不跳 */
-.crumb-status {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1-5);
-  height: 22px;
-  margin-left: var(--space-2-5);
-  padding: 0 var(--space-2-5) 0 var(--space-2);
-  font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-  border-radius: var(--radius-pill);
-}
-
-.crumb-status i {
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-}
-
-.crumb-status[data-kind="running"] {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.crumb-status[data-kind="running"] i {
-  background: var(--st-running);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.crumb-status[data-kind="waiting"] {
-  color: var(--st-waiting-text);
-  background: var(--st-waiting-soft);
-}
-
-.crumb-status[data-kind="waiting"] i {
-  border-radius: 0;
-  background: var(--st-waiting);
-  transform: rotate(45deg);
-}
-
-.crumb-status[data-kind="error"] {
-  color: var(--st-error);
-  background: var(--st-error-soft);
-}
-
-.crumb-status[data-kind="error"] i {
-  background: var(--st-error);
-}
-
 /* 任务工具（分支、评审、终端）贴任务条右端；竖线把它们和系统三键隔开 */
 .topbar-tools {
   display: flex;
