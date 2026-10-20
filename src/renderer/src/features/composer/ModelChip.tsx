@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { ChevronDown } from "../../icons.tsx";
 import { onStudioCommand } from "../palette/index.ts";
 import { ModelPicker, type ModelPickerProps } from "./ModelPicker.tsx";
 import { nextThinkingLevel, thinkingLabel } from "./thinking-levels.ts";
@@ -113,6 +114,7 @@ export function ModelChip(task: ModelChipProps) {
             {t(badge === "fast" ? "composer.badge.fast" : "composer.badge.slow")}
           </span>
         ))}
+        <ChevronDown size={12} className="chip-caret" />
       </button>
       <ModelPicker
         {...pickerProps}

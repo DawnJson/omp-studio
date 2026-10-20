@@ -14,7 +14,6 @@ const shellStore = createStore<ShellUiState>({
   sidebarWidth: defaultSidebarWidth,
   sidebarCollapsed: false,
   terminalHeight: defaultTerminalHeight,
-  collapsedProjects: [],
   historyOrder: "folder",
   drawerOpen: false,
 });
@@ -59,11 +58,6 @@ export function commitTerminalHeight(height: number): void {
 export function setSidebarCollapsed(sidebarCollapsed: boolean): void {
   shellStore.set({ ...shellStore.get(), sidebarCollapsed });
   persist({ sidebarCollapsed });
-}
-
-export function setCollapsedProjects(collapsedProjects: string[]): void {
-  shellStore.set({ ...shellStore.get(), collapsedProjects });
-  persist({ collapsedProjects });
 }
 
 export function setHistoryOrder(historyOrder: HistoryOrder): void {

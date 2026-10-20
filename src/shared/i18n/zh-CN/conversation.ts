@@ -1,7 +1,6 @@
 import type { MessageEntry } from "../index.ts";
 
 export const conversation = {
-  compacted: "已压缩上下文",
   imageAlt: "图片",
   commandOutput: "命令输出",
   starting: "正在启动 omp…",
@@ -12,14 +11,7 @@ export const conversation = {
   "todo.completed": "已完成",
   "todo.blocked": "受阻",
   "todo.abandoned": "已放弃",
-  "shell.running": "正在运行…",
   "shell.stop": "停止",
-  "shell.exit": "退出码 {code}",
-  "shell.cancelled": "已取消",
-  "shell.truncated": "omp 已截断输出",
-  "shell.showAll": "展开全部（{count} 行）",
-  "shell.collapse": "收起",
-  "shell.noOutput": "（没有输出）",
   "shell.excludeUnsupported": "!! 不进入模型上下文，omp 的 RPC 还不支持；用 ! 会让模型看到输出，或到终端版里执行",
   "shell.busy": "有命令或一轮对话还在运行，等它结束（Esc 可停止）再执行新的 !命令",
   "shell.needsTask": "!命令要在任务里执行：先发一条消息创建任务，再用 !",

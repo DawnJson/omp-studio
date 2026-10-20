@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
@@ -167,7 +167,7 @@ async function createAndSelectTask(page: Page): Promise<void> {
     if (!project) throw new Error("addProject 没有返回项目");
     await globalThis.studio.createTask({ projectId: project.id });
   });
-  await page.getByTestId("task-row").first().locator(".sb-row-main").click();
+  await openTaskRow(page);
 }
 
 async function runTurn(page: Page): Promise<void> {

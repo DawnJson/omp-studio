@@ -67,7 +67,7 @@ async function sendFirst(page: Page, text: string): Promise<void> {
   await expect(page.getByTestId("composer-stack").getByTestId("usage-cost")).toContainText("$0.0001");
 }
 
-test("输入框：上面输入区、下面工具行，中间 1px 分隔线，控件和输入区之间有留白", async () => {
+test("输入框：上面输入区、下面工具行，同一块底上没有分隔线，控件和输入区之间有留白", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
@@ -77,10 +77,10 @@ test("输入框：上面输入区、下面工具行，中间 1px 分隔线，控
     const tools = page.locator(".composer-tools");
     const toolsBox = await tools.boundingBox();
     expect(body && toolsBox && toolsBox.y - (body.y + body.height)).toBeGreaterThanOrEqual(0);
-    expect(await inPage<string>(page, ".composer-tools", "(el) => getComputedStyle(el).borderTopWidth")).toBe("1px");
-    // 模型胶囊和分隔线之间至少 8px（之前贴着输入文字，上边距太小）。
+    expect(await inPage<string>(page, ".composer-tools", "(el) => getComputedStyle(el).borderTopWidth")).toBe("0px");
+    // 模型胶囊和输入区之间至少 4px（3.0 起工具行 36 高、胶囊 28 高，上下各 4）。
     const chip = await page.getByTestId("model-chip").boundingBox();
-    expect(chip && toolsBox && chip.y - toolsBox.y).toBeGreaterThanOrEqual(8);
+    expect(chip && body && chip.y - (body.y + body.height)).toBeGreaterThanOrEqual(4);
     // 主区面板四角都是圆角，右边和下边留空。
     const radii = await inPage<string[]>(
       page,
@@ -139,7 +139,7 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     await expect(draft.getByTestId("context-meter")).toHaveAttribute("aria-label", /0%/);
     await expect(draft.getByTestId("context-meter")).toHaveText("");
     await expect(draft.getByTestId("usage-cost")).toHaveText("$0.00");
-    await expect(page.getByTestId("model-chip").locator("svg")).toHaveCount(0);
+    await expect(page.getByTestId("model-chip").locator("svg:not(.chip-caret)")).toHaveCount(0);
     await expect(draft.getByTestId("empty-project")).toBeVisible();
     await expect(page.getByTestId("worktree-chip")).toHaveCount(0);
     await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
@@ -148,15 +148,17 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     // （fixture 上下文不到 1%，没有文字）和费用 $0.00006513，每日用量和额度在费用的对话框里。
     const tools = page.locator(".composer-tools");
     await expect(page.getByTestId("usage-tokens")).toHaveCount(0);
-    const chipBox = await page.getByTestId("model-chip").boundingBox();
     const contextMeter = tools.getByTestId("context-meter");
     await expect(contextMeter).toHaveAttribute("aria-label", /0\.\d/);
     await expect(contextMeter).toHaveText("");
     await expect(page.locator(".composer-stack > [data-testid=usage-meter]")).toHaveCount(0);
     const cost = tools.getByTestId("usage-cost");
     await expect(cost).toContainText("$0.0001");
-    const [contextBox, costBox, sendBox] = await Promise.all(
-      [contextMeter, cost, page.getByTestId("send-button")].map((locator) => locator.boundingBox()),
+    // 四个框一起量：发送后输入框还在从草稿换成任务的布局，分开量会量到不同时刻的位置。
+    const [chipBox, contextBox, costBox, sendBox] = await Promise.all(
+      [page.getByTestId("model-chip"), contextMeter, cost, page.getByTestId("send-button")].map((locator) =>
+        locator.boundingBox(),
+      ),
     );
     // 同一行，从左到右：模型胶囊、圆环、费用、发送键；圆环和模型胶囊垂直中线对齐。
     expect(contextBox && chipBox && contextBox.x).toBeGreaterThanOrEqual((chipBox?.x ?? 0) + (chipBox?.width ?? 0));
@@ -247,18 +249,11 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     const picker = page.getByTestId("model-picker");
     await expect(picker).toBeVisible();
     await expect(page.getByTestId("model-search")).toBeFocused();
-    // 按 provider 分组，默认折叠：只有组头；↓ 到组头、Enter 展开。
-    const group = page.getByTestId("model-group").first();
-    await expect(group).toHaveAttribute("aria-expanded", "false");
-    await expect(page.getByTestId("model-option")).toHaveCount(0);
-    await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("Enter");
-    await expect(group).toHaveAttribute("aria-expanded", "true");
+    // 一张表：没有 provider 组头，行直接可见；底部是正在生效的模型的参数（照终端版 omp）。
     await expect(page.getByTestId("model-option").first()).toBeVisible();
-    // 右栏是正在生效的模型的参数（照终端版 omp）：上下文按完整数字显示。
     const details = page.getByTestId("model-details");
-    await expect(details).toContainText("1,000,000");
-    await expect(page.getByTestId("model-speed")).not.toHaveText("…");
+    await expect(details).toContainText("1M");
+    await expect(page.getByTestId("model-speed").first()).not.toHaveText("…");
     for (let i = 0; i < 8; i++) {
       await page.keyboard.press("Tab");
       expect(
@@ -267,6 +262,12 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     }
     // 搜索过滤：不存在的词没有结果，清空后恢复。
     await page.getByTestId("model-search").fill("zzz-no-such-model");
+    await expect(page.getByTestId("model-option")).toHaveCount(0);
+    await page.getByTestId("model-search").fill("");
+    await expect(page.getByTestId("model-option").first()).toBeVisible();
+    // @ 开头列角色（每个角色一行，带绑定的模型），清空后回到模型表。
+    await page.getByTestId("model-search").fill("@");
+    await expect(page.getByTestId("model-role-option").first()).toBeVisible();
     await expect(page.getByTestId("model-option")).toHaveCount(0);
     await page.getByTestId("model-search").fill("");
     await expect(page.getByTestId("model-option").first()).toBeVisible();
@@ -282,12 +283,12 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     await expect(page.getByTestId("empty-task")).toHaveCount(0);
     await expect(page.getByTestId("empty-session")).toHaveCount(0);
     await expect(page.getByTestId("empty-project")).toHaveText(/[\\/]chats$/);
-    // 项目分组旁常驻的 ＋：在这个项目里开新任务，工具行的项目标签换成项目的路径。
+    // 文件夹头部常驻的 ＋：在这个文件夹里开新任务，工具行的项目标签换成项目的路径。
     await expect(page.getByTestId("sidebar-project-new").first()).toBeVisible();
     await page.getByTestId("sidebar-project-new").first().click();
     await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
     await expect(page.getByTestId("empty-project")).toHaveText(/[\\/]项目 目录$/);
-    // 项目按钮在工具行里，紧跟审批胶囊。
+    // 文件夹标签（纯文字，不是胶囊）在工具行里，紧跟审批胶囊，垂直居中在同一行。
     const draftTools = page.getByTestId("draft-composer").locator(".composer-tools");
     await expect(draftTools.getByTestId("empty-project")).toBeVisible();
     const [approvalBox, projectBox] = await Promise.all([
@@ -295,7 +296,10 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
       draftTools.getByTestId("empty-project").boundingBox(),
     ]);
     expect(approvalBox && projectBox && approvalBox.x + approvalBox.width <= projectBox.x).toBe(true);
-    expect(approvalBox && projectBox && Math.abs(approvalBox.y - projectBox.y) <= 2).toBe(true);
+    const midY = (box: { y: number; height: number }) => box.y + box.height / 2;
+    expect(approvalBox && projectBox && Math.abs(midY(approvalBox) - midY(projectBox)) <= 2).toBe(true);
+    // 不画成胶囊：没有底色。
+    await expect(draftTools.getByTestId("empty-project")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await page.locator("[data-composer-input]").focus();
     await shoot(page, "empty");
   } finally {
@@ -303,7 +307,7 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
   }
 });
 
-test("侧栏：搜索框在最上，其次 [新任务][打开文件夹]；历史会话常驻在项目下面；搜索过滤任务和历史会话", async () => {
+test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史会话合在一个列表里（文件夹 / 时间）；搜索过滤两者", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
@@ -312,44 +316,45 @@ test("侧栏：搜索框在最上，其次 [新任务][打开文件夹]；历史
     const search = page.getByTestId("sidebar-search");
     const newTask = page.getByTestId("sidebar-new-task");
     const addProject = page.getByTestId("sidebar-open-folder");
-    const [s, n, a, list] = await Promise.all([
-      search.boundingBox(),
+    const [n, s, a, list] = await Promise.all([
       newTask.boundingBox(),
+      search.boundingBox(),
       addProject.boundingBox(),
       sidebar.locator(".sb-list-host").boundingBox(),
     ]);
+    // 三行竖排：搜索 / 新任务 / 打开文件夹，都在项目列表上方。
     expect(s && n && s.y + s.height <= n.y).toBe(true);
-    // 两个按钮在同一行，都在项目列表上方。
-    expect(n && a && Math.abs(n.y - a.y) <= 1 && n.x < a.x).toBe(true);
+    expect(n && a && n.y + n.height <= a.y).toBe(true);
     expect(a && list && a.y + a.height <= list.y).toBe(true);
 
-    await expect(page.getByTestId("task-row")).toHaveCount(1);
-    // 不搜索也列出历史会话（launchApp 造的 6 条假会话，cwd 都是"omp studio 假项目"），在项目分组下面；刚发的那条已挂在任务上，不在这里。
-    // 默认按文件夹：一个文件夹一行（名字 + 条数），折叠着。
+    // 一个列表：项目文件夹（有刚发的任务，选中所以展开）和只在历史里出现的文件夹都在"历史会话"这一个区块里，没有单独的项目块。
     const history = page.getByTestId("sidebar-history");
+    await expect(page.getByTestId("task-row")).toHaveCount(1);
+    await expect(history.getByTestId("task-row")).toHaveCount(1);
+    await expect(sidebar.locator(".sb-group")).toHaveCount(1);
     await expect(page.getByTestId("sidebar-history-by-folder")).toHaveAttribute("aria-pressed", "true");
-    const folders = history.getByTestId("sidebar-history-folder");
-    await expect(folders).toHaveCount(1);
-    await expect(folders.first()).toContainText("omp studio 假项目");
-    await expect(folders.first()).toContainText("6");
+    const folders = history.getByTestId("sidebar-folder");
+    await expect(folders).toHaveCount(2);
+    // 不搜索也列出历史会话（launchApp 造的 6 条假会话，cwd 都是"omp studio 假项目"）；刚发的那条已挂在任务上，不在这里。
+    // 这个文件夹没有选中/在跑的任务，折叠着：名字 + 条数。
+    const fakeFolder = folders.filter({ hasText: "omp studio 假项目" });
+    await expect(fakeFolder).toHaveCount(1);
+    await expect(fakeFolder).toContainText("6");
     await expect(history.getByTestId("sidebar-session")).toHaveCount(0);
-    const [groupBox, historyBox] = await Promise.all([
-      sidebar.locator(".sb-group").first().boundingBox(),
-      history.boundingBox(),
-    ]);
-    expect(groupBox && historyBox && groupBox.y + groupBox.height <= historyBox.y).toBe(true);
     // 点开文件夹：先显示 5 条（新到旧）+ 显示更多。
-    await folders.first().locator(".sb-history-folder-head").click();
+    await fakeFolder.locator(".sb-group-toggle").click();
     await expect(history.getByTestId("sidebar-session")).toHaveCount(5);
     await expect(history.getByTestId("sidebar-session").first()).toContainText("整理日志格式并补上单元测试");
     await history.getByTestId("sidebar-history-more").click();
     await expect(history.getByTestId("sidebar-session")).toHaveCount(6);
     await shoot(page, "sidebar-history-folder");
-    // 切到按时间：全部会话一列，新到旧。
+    // 切到按时间：任务和全部会话平铺一列，新到旧（刚跑完的任务在最上面）。
     await page.getByTestId("sidebar-history-by-time").click();
     await expect(page.getByTestId("sidebar-history-by-time")).toHaveAttribute("aria-pressed", "true");
     await expect(folders).toHaveCount(0);
+    await expect(history.getByTestId("task-row")).toHaveCount(1);
     await expect(history.getByTestId("sidebar-session")).toHaveCount(6);
+    await expect(history.locator(".sb-row-main").first()).toHaveAttribute("data-nav", /^task:/);
     await expect(history.getByTestId("sidebar-session").first()).toContainText("整理日志格式并补上单元测试");
     await shoot(page, "sidebar-history-time");
     await search.fill("zzz-no-match");
@@ -360,7 +365,7 @@ test("侧栏：搜索框在最上，其次 [新任务][打开文件夹]；历史
     await expect(page.getByTestId("sidebar-session")).toHaveCount(1);
     await expect(page.getByTestId("sidebar-session").first()).toContainText("Fix the flaky login test on CI");
     await shoot(page, "sidebar-search");
-    // Esc 清空搜索，任务列表和全部历史会话恢复。
+    // Esc 清空搜索，任务和全部历史会话恢复。
     await page.keyboard.press("Escape");
     await expect(search).toHaveValue("");
     await expect(page.getByTestId("task-row")).toHaveCount(1);

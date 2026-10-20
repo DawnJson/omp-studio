@@ -20,6 +20,7 @@ import {
   unstageFile,
   unstageHunk,
 } from "../git/review.ts";
+import { getGitChangeSummary } from "../git/change-summary.ts";
 import { getGitStatus } from "../git/status.ts";
 import {
   cleanupOrphanWorktrees,
@@ -74,6 +75,7 @@ const parseArea = (value: unknown): GitDiffArea => parseOneOf(value, "area", ["s
 
 export const gitHandlers: HandlerGroup<
   | "getGitStatus"
+  | "getGitChangeSummary"
   | "getGitFileDiff"
   | "stageGitFile"
   | "unstageGitFile"
@@ -96,6 +98,11 @@ export const gitHandlers: HandlerGroup<
   getGitStatus: async (taskId) => {
     const pool = await getTaskPool();
     return getGitStatus(pool.taskGitContext(parseTaskId(taskId)).cwd);
+  },
+
+  getGitChangeSummary: async (taskId) => {
+    const pool = await getTaskPool();
+    return getGitChangeSummary(pool.taskGitContext(parseTaskId(taskId)).cwd);
   },
 
   getGitFileDiff: async (taskId, path, area) => {

@@ -6,11 +6,11 @@ const minute = 60_000;
 const hour = 60 * minute;
 
 /**
- * 任务最后一次活动的时间：主进程的 updatedAt 只在用户操作（发消息、改名）时变，
- * 一轮跑完的时间在 lastTurn.endedAt 里，两者取较晚的。
+ * 任务最后一次活动的时间：主进程持久化的 updatedAt，只在用户发消息和一轮结束时变
+ * （选中、恢复、改名、迁移引擎、归档都不动它；历史会话建的任务取会话文件的修改时间）。
  */
-export function lastActivityAt(task: Pick<TaskState, "updatedAt" | "lastTurn">): number {
-  return Math.max(task.updatedAt, task.lastTurn?.endedAt ?? 0);
+export function lastActivityAt(task: Pick<TaskState, "updatedAt">): number {
+  return task.updatedAt;
 }
 
 export function formatTaskTime(t: TFunction, locale: Locale, timestamp: number, now: number): string {

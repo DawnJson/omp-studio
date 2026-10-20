@@ -91,7 +91,7 @@ export function ExtraView({ extra, taskId, retryable }: { extra: Extra; taskId: 
     case "compaction":
       return extra.phase === "end" ? (
         <p className="note" data-level="info">
-          {t("conversation.compacted")}
+          {t("process.compacted")}
         </p>
       ) : null;
     case "retry":

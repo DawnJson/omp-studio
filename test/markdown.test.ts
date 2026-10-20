@@ -131,3 +131,54 @@ describe("流式渲染", () => {
     expect(out).toContain("待做");
   });
 });
+
+describe("公式（KaTeX）", () => {
+  it("价格不是公式：$5 and $10", () => {
+    const out = html("这个 $5 and $10 都不是公式");
+    expect(out).not.toContain("katex");
+    expect(out).toContain("$5 and $10");
+  });
+
+  it("行内 $…$ 和 \\(…\\)", () => {
+    const out = html("设 $x^2$ 与 \\(y_1\\) 成立");
+    expect(out.match(/class="md-math"/g)).toHaveLength(2);
+    expect(out).toContain("katex");
+  });
+
+  it("块级 $$…$$（单行与多行）和 \\[…\\]", () => {
+    const out = html("$$\\bar{x} = \\frac{1}{n}\\sum_{i=1}^n x_i$$\n\n$$\na^2\n+b^2\n$$\n\n\\[\nc\n\\]");
+    expect(out.match(/class="md-math-block"/g)).toHaveLength(3);
+    expect(out).toContain("katex-display");
+  });
+
+  it("转义的 \\$ 不开公式", () => {
+    const out = html("价格 \\$5 到 \\$10");
+    expect(out).not.toContain("katex");
+    expect(out).toContain("$5 到 $10");
+  });
+
+  it("代码里的 $ 原样保留", () => {
+    const out = html("`$x$ and $y$`\n\n```\n$$\nx\n$$\n```");
+    expect(out).not.toContain("katex");
+    expect(out).toContain("$x$ and $y$");
+  });
+
+  it("坏公式显示原文，不崩溃", () => {
+    const out = html("坏的 $\\frac{1$ 和\n\n$$\n\\notacommand{\n$$");
+    expect(out).toContain("md-math-error");
+    expect(out).toContain("$\\frac{1$");
+    expect(out).not.toContain("katex-error");
+  });
+
+  it("未闭合的 $$ 和 $ 保持文字", () => {
+    expect(html("$$\n\\frac{1}{2}")).not.toContain("katex");
+    expect(html("开头 $x^2 没写完")).not.toContain("katex");
+    expect(parseBlocks("$$\na").every((block) => block.tokens.every((token) => token.type !== "math_block"))).toBe(
+      true,
+    );
+  });
+
+  it("KaTeX 不放行 \\href 等 trust 能力", () => {
+    expect(html("$\\href{https://evil.example}{x}$")).not.toContain("href=");
+  });
+});

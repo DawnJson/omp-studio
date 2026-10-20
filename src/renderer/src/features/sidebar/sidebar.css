@@ -55,27 +55,70 @@
   white-space: nowrap;
 }
 
-/* ───── 搜索框 ───── */
+/* ───── 顶部三行：搜索 / [新任务] / [打开文件夹]。无边框的行；新任务在草稿页时用选中底色突出 ───── */
+.sb-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  margin: var(--space-1) var(--space-2) var(--space-2);
+}
+.sb-new,
 .sb-search {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: var(--control-h-md);
-  margin: var(--space-1) var(--space-2) var(--space-2);
-  padding: 0 var(--space-2-5);
-  color: var(--text-3);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
+  min-width: 0;
+  height: 30px;
+  padding: 0 var(--space-2);
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  transition: border-color var(--dur-instant) var(--ease-out);
+  transition:
+    background var(--dur-instant) var(--ease-out),
+    border-color var(--dur-instant) var(--ease-out);
 }
-/* 聚焦时由外层圆角容器画焦点环；输入框自己的矩形 outline 去掉（.sb input:focus-visible 特异性更高，要同级覆盖） */
+.sb-new {
+  width: 100%;
+  text-align: left;
+}
+.sb-new .icon,
+.sb-search .icon {
+  width: 15px;
+  height: 15px;
+}
+.sb-new:hover,
 .sb-search:hover {
-  border-color: var(--border-strong);
+  background: var(--bg-hover);
 }
+.sb-new:active,
+.sb-new[aria-current="page"] {
+  background: var(--bg-active);
+}
+.sb-new[aria-current="page"] {
+  font-weight: 600;
+}
+.sb-new-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-new-hint {
+  flex: none;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+/* 搜索行：还是那个输入框，平时画成一行；聚焦时出现 1px 边框和 --bg-raised 底。
+   输入框自己的矩形 outline 去掉（.sb input:focus-visible 特异性更高，要同级覆盖） */
 .sb-search:focus-within {
-  border-color: var(--focus-ring);
-  box-shadow: 0 0 0 1px var(--focus-ring);
+  background: var(--bg-raised);
+  border-color: var(--border-strong);
 }
 .sb .sb-search input:focus-visible {
   outline: none;
@@ -92,7 +135,7 @@
   user-select: text;
 }
 .sb-search input::placeholder {
-  color: var(--text-3);
+  color: var(--text-2);
 }
 .sb-search-clear {
   display: inline-flex;
@@ -107,50 +150,6 @@
 .sb-search-clear:hover {
   color: var(--text);
   background: var(--bg-hover);
-}
-
-/* ───── [新任务] [添加项目]：同一种次级按钮；当前所在的那个（草稿页时的"新任务"）用选中底色突出 ───── */
-.sb-actions {
-  display: flex;
-  gap: var(--space-2);
-  margin: 0 var(--space-2) var(--space-2);
-}
-.sb-new {
-  display: flex;
-  flex: 1 1 0;
-  align-items: center;
-  gap: var(--space-1-5);
-  min-width: 0;
-  justify-content: center;
-  height: var(--control-h-md);
-  padding: 0 var(--space-2-5);
-  color: var(--text-2);
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  transition:
-    background var(--dur-instant) var(--ease-out),
-    color var(--dur-instant) var(--ease-out);
-}
-.sb-new:hover {
-  color: var(--text);
-  background: var(--bg-hover);
-}
-.sb-new:active,
-.sb-new[aria-current="page"] {
-  color: var(--text);
-  background: var(--bg-active);
-}
-.sb-new[aria-current="page"] {
-  font-weight: 600;
-}
-.sb-new-label {
-  flex: 0 1 auto;
-  max-width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ───── 等你确认条 ───── */
@@ -271,21 +270,12 @@
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
-/* 按文件夹：每个文件夹一行（箭头 + 文件夹名 + 条数），默认折叠，点开看会话 */
-.sb-history-folder-head {
-  width: 100%;
-  color: var(--text-2);
+/* 文件夹：头部（箭头 + 名称，折叠时行数）+ 任务和会话混排的行 */
+.sb-folder + .sb-folder {
+  margin-top: var(--space-1);
 }
-.sb-history-folder-head .sb-chevron {
-  flex: none;
-  color: var(--text-3);
-  transform: rotate(0deg);
-}
-.sb-history-folder-head .sb-chevron[data-open] {
-  transform: rotate(90deg);
-}
-.sb-history-folder-body {
-  padding-left: var(--space-3);
+.sb-show-more-flat {
+  padding-left: var(--space-2);
 }
 .sb-group-title {
   margin: 0;
@@ -293,9 +283,6 @@
   color: var(--text-3);
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
-}
-.sb-group + .sb-group {
-  margin-top: var(--space-5);
 }
 .sb-group-head {
   position: relative;
@@ -313,7 +300,8 @@
   height: 100%;
   padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
-  color: var(--text-3);
+  color: var(--text-2);
+  font-weight: var(--fw-medium);
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
 }
@@ -433,23 +421,10 @@
   background: var(--bg-hover);
 }
 .sb-row[data-selected="true"] {
-  background: var(--bg-active);
-}
-.sb-row::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 2px;
-  height: var(--icon-md);
-  margin-top: calc(var(--icon-md) / -2);
-  background: var(--accent);
-  border-radius: var(--radius-pill);
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out);
-}
-.sb-row[data-selected="true"]::before {
-  opacity: 1;
+  background: var(--bg-raised);
+  box-shadow:
+    0 0 0 1px var(--border-subtle),
+    var(--shadow-1);
 }
 .sb-row-main {
   display: flex;
@@ -475,7 +450,8 @@
 }
 .sb-row-tail {
   flex: none;
-  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
   transition:
@@ -524,7 +500,7 @@
   outline: none;
 }
 
-/* ───── 状态图标：转圈 / 对勾 / 感叹号 / 错误；形状 + 颜色双信号 ───── */
+/* ───── 状态点：8px 的点放在 16×16 槽位里；形状 + 颜色双信号（进行中实心带光晕 / 等你菱形 / 完成空心圆 / 出错实心无光晕） ───── */
 .sb-dot {
   position: relative;
   display: inline-flex;
@@ -534,32 +510,41 @@
   width: var(--icon-md);
   height: var(--icon-md);
 }
-.sb-dot svg {
+.sb-dot-mark {
   display: block;
+  flex: none;
+  box-sizing: border-box;
+  width: 8px;
+  height: 8px;
 }
-.sb-dot-running {
-  color: var(--st-running);
-}
-.sb-dot-waiting {
-  color: var(--st-waiting);
-}
-.sb-dot-done {
-  color: var(--st-done);
-}
-.sb-dot-error {
-  color: var(--st-error);
-}
-.sb-spin {
-  animation: sb-spin 0.9s linear infinite;
+.sb-dot-running .sb-dot-mark {
+  background: var(--st-running);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  animation: sb-halo var(--dur-breathe) var(--ease-in-out) infinite;
   animation-play-state: var(--play-state);
 }
-/* 减少动效：转圈停成静态的缺口环，仍能和对勾区分 */
-html[data-motion="reduced"] .sb-spin {
-  animation: none;
+.sb-dot-waiting .sb-dot-mark {
+  background: var(--st-waiting);
+  border-radius: 1px;
+  transform: rotate(45deg);
 }
-@keyframes sb-spin {
-  to {
-    transform: rotate(360deg);
+.sb-dot-done .sb-dot-mark {
+  border: 1.5px solid var(--st-done);
+  border-radius: var(--radius-pill);
+}
+.sb-dot-error .sb-dot-mark {
+  background: var(--st-error);
+  border-radius: var(--radius-pill);
+}
+/* 光晕呼吸；0% 帧即静态终态（减少动效时暂停在这一帧：3px 光晕） */
+@keyframes sb-halo {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  50% {
+    box-shadow: 0 0 0 1px var(--accent-soft);
   }
 }
 .sb-dot-running,

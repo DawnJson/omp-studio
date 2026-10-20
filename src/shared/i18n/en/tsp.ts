@@ -1,0 +1,32 @@
+import type { MessageEntry } from "../index.ts";
+import type { tsp as zhCN } from "../zh-CN/tsp.ts";
+
+export const tsp = {
+  moreLines: "{count} more lines",
+  earlierLines: "{count} earlier lines",
+  showLess: "Show less",
+  copyCommand: "Copy command",
+  noChanges: "No changes",
+  imageLoading: "Image loading",
+  imageUnavailable: "Image unavailable",
+  imageNotArrived: "The image data has not arrived",
+  mediaOpen: "Preview {path}",
+  working: "Working",
+  statusPending: "Pending",
+  statusRunning: "Running",
+  statusDone: "Done",
+  statusError: "Failed",
+  statusCancelled: "Canceled",
+  agentRequests: "{count} req",
+  agentContext: "{percent}% context",
+  agentRetry: "↻ retry {attempt}/{max} in {delay}",
+  agentTools: "{count} tool calls",
+  todos: "Todos",
+  todosDone: "Todos, {done} of {total} done",
+  todosOpen: "{count} todos still open",
+  allDone: "All done",
+  effortAria: "Thinking effort: {level}",
+  chartEmpty: "No data",
+  loading: "Loading…",
+  layoutRegion: "Conversation",
+} satisfies Record<keyof typeof zhCN, MessageEntry>;

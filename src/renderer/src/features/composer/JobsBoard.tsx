@@ -1,10 +1,11 @@
-// 后台任务看板：输入框右上方单独一行的小胶囊（● 运行中 │ ✓ 已结束，同 Tern 里的 omp），点开向上弹出列表；
-// 点一行展开——命令看输出尾部，子代理直接内嵌泳道里的详情面板。Esc / 点外面关闭，焦点回到胶囊（Popover 处理）。
+// 后台任务看板：输入框右上方单独一行的两个小按钮——`后台任务`（bash）和 `子代理`（task），各自带 ● 运行中 / ✓ 已结束 计数，
+// 点开向上弹出同一个看板（只列该类型）；点一行展开——命令看输出尾部，子代理直接内嵌泳道里的详情面板。
+// Esc / 点外面关闭，焦点回到触发它的按钮（Popover 处理）。本会话从没有过某类 job 时对应按钮不出现。
 import { useCallback, useId, useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { countJobs, type Job } from "../../../../shared/ui/jobs.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Branch, Check, ChevronRight, Terminal } from "../../icons.tsx";
+import { Branch, Check, ChevronRight, Terminal, Users } from "../../icons.tsx";
 import { useLanes } from "../../store/index.ts";
 import { formatElapsed } from "../conversation/format.ts";
 import { useNow } from "../conversation/use-now.ts";
@@ -21,11 +22,44 @@ function JobTypeIcon({ type }: { type: Job["type"] }) {
   return type === "bash" ? <Terminal size={14} /> : <Branch size={14} />;
 }
 
+type JobType = Job["type"];
+
+/** 按钮顺序：后台任务在左，子代理在右。 */
+const TYPES: readonly JobType[] = ["bash", "task"];
+
 export function JobsBoard({
   taskId,
   jobs,
   projectPath,
 }: {
+  taskId: TaskId;
+  jobs: readonly Job[];
+  projectPath: string | null;
+}) {
+  const present = TYPES.filter((type) => jobs.some((job) => job.type === type));
+  if (present.length === 0) return null;
+  return (
+    <div className="jobs-group">
+      {present.map((type) => (
+        <JobsButton
+          key={type}
+          type={type}
+          taskId={taskId}
+          jobs={jobs.filter((job) => job.type === type)}
+          projectPath={projectPath}
+        />
+      ))}
+    </div>
+  );
+}
+
+function JobsButton({
+  type,
+  taskId,
+  jobs,
+  projectPath,
+}: {
+  type: JobType;
   taskId: TaskId;
   jobs: readonly Job[];
   projectPath: string | null;
@@ -38,37 +72,40 @@ export function JobsBoard({
   const lanes = useLanes(taskId);
   const counts = countJobs(jobs);
   const now = useNow(open && counts.running > 0);
-  if (jobs.length === 0) return null;
   const selectedJob = selected === null ? null : (jobs.find((job) => job.id === selected) ?? null);
+  const running = counts.running > 0;
+  const label = t(`composer.jobs.btn.${type}`);
+  const summary = t(`composer.jobs.pill.${type}`, { running: counts.running, done: counts.done });
 
   return (
     <div className="pop-anchor jobs-anchor">
       <button
         type="button"
         className="jobs-pill"
-        data-testid="jobs-pill"
-        data-running={counts.running > 0 || undefined}
+        data-testid={`jobs-pill-${type}`}
+        data-running={running || undefined}
         data-failed={counts.failed > 0 || undefined}
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={open ? panelId : undefined}
-        aria-label={t("composer.jobs.pill", { running: counts.running, done: counts.done })}
-        title={t("composer.jobs.pill", { running: counts.running, done: counts.done })}
+        aria-label={summary}
+        title={summary}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="jobs-pill-part" data-testid="jobs-pill-running">
-          <span className="job-dot" data-status="running" aria-hidden="true" />
-          {counts.running}
-        </span>
-        <span className="jobs-pill-sep" aria-hidden="true" />
-        <span className="jobs-pill-part" data-testid="jobs-pill-done">
-          <Check size={12} />
-          {counts.done}
+        {type === "bash" ? (
+          <Terminal size={13} className="jobs-pill-icon" />
+        ) : (
+          <Users size={13} className="jobs-pill-icon" />
+        )}
+        <span className="jobs-pill-label">{label}</span>
+        <span className="jobs-pill-count" data-testid="jobs-pill-count" data-state={running ? "running" : "done"}>
+          {running ? <span className="job-dot" data-status="running" aria-hidden="true" /> : <Check size={12} />}
+          {running ? counts.running : counts.done}
         </span>
       </button>
-      <Popover open={open} onClose={close} align="end" width={420} label={t("composer.jobs.title")}>
+      <Popover open={open} onClose={close} align="end" width={420} label={label}>
         <div className="jobs-board" id={panelId} data-testid="jobs-board">
-          <h3 className="jobs-title">{t("composer.jobs.title")}</h3>
+          <h3 className="jobs-title">{label}</h3>
           <ul className="jobs-list">
             {jobs.map((job) => {
               const expanded = selectedJob?.id === job.id;

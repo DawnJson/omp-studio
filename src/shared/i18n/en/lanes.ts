@@ -2,14 +2,6 @@ import type { MessageEntry } from "../index.ts";
 import type { lanes as zhCN } from "../zh-CN/lanes.ts";
 
 export const lanes = {
-  title: "Lanes",
-  main: "Main agent",
-  mainTools: "Main agent tool calls",
-  toolCount: { one: "{count} tool call", other: "{count} tool calls" },
-  "status.running": "Running",
-  "status.completed": "Completed",
-  "status.failed": "Failed",
-  "status.aborted": "Cancelled",
   open: "Open details for {name}",
   fallback: "Fallback model",
   close: "Close details",

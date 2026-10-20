@@ -1,4 +1,4 @@
-// 用户消息（spec 4.8）：聊天式右对齐的 --bg-raised 气泡；>12 行折叠成前 8 行 + 渐隐；
+// 用户消息（spec 4.8）：聊天式右对齐的 --bg-bubble 气泡（无边框，右下角小圆角）；>12 行折叠成前 8 行 + 渐隐；
 // hover 时气泡下方右侧出现两个图标按钮："复制"和"从这里分叉"（文字在悬停提示和 aria-label 里）。
 import { reportError } from "../../ui/errors.ts";
 import { memo, useState } from "react";

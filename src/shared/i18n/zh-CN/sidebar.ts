@@ -3,8 +3,8 @@ import type { MessageEntry } from "../index.ts";
 export const sidebar = {
   newTask: "新任务",
   search: "搜索任务和会话",
-  searchHistory: "历史会话",
-  historyOrder: "历史会话排列",
+  searchHistory: "会话",
+  historyOrder: "会话排列",
   historyByFolder: "文件夹",
   historyByTime: "时间",
   searchNone: "没有匹配的任务或会话",

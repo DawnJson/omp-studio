@@ -1,0 +1,37 @@
+// 运行过程的文案（两种语言共用这一份英文）：过程区、运行状态行、子代理表、每轮的用时与 token。
+// 和 Tern 里的 omp 一样，omp 干活时写出来的东西保持英文；界面上的按钮、输入框、提示、设置照常翻译（见 ../index.ts）。
+import type { MessageEntry } from "../index.ts";
+
+export const process = {
+  starting: "Starting…",
+  thinking: "Thinking…",
+  replying: "Replying…",
+  retryingNow: "Model error, retrying…",
+  compacting: "Compacting context…",
+  compacted: "Context compacted",
+  waiting: "Waiting for you · paused {duration}",
+  subagentsRunning: { one: "{count} subagent", other: "{count} subagents" },
+  done: "Worked for {duration}",
+  toolCalls: { one: "{count} tool call", other: "{count} tool calls" },
+  subagents: { one: "{count} subagent", other: "{count} subagents" },
+  failures: { one: "{count} failure", other: "{count} failures" },
+  thoughtShort: "Thinking",
+  earlier: "{n} earlier",
+  waitingJobs: "waiting on {running} of {total} jobs · {done} done",
+  waitingJobsNone: { one: "waiting on {count} job", other: "waiting on {count} jobs" },
+  turnTokens: "{count} tokens",
+  turnUsage: "This turn: {duration} · {total} tokens ({input} in · {output} out · {cache} cache)",
+  agents: "Agents",
+  agentsTotals: "{cost} · {time} · {requests} req · {tokens} tok",
+  "agents.cost": "Cost",
+  "agents.time": "Time",
+  "agents.req": "Req",
+  "agents.tools": "Tools",
+  "agents.tok": "Tok",
+  "agents.ctx": "Ctx",
+  agentsContext: "Context {used} / {window} ({percent}%)",
+  "lane.running": "Running",
+  "lane.completed": "Completed",
+  "lane.failed": "Failed",
+  "lane.aborted": "Cancelled",
+} satisfies Record<string, MessageEntry>;

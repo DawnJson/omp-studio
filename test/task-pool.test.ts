@@ -1,7 +1,7 @@
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ProjectId, StudioSettings, TaskId, TaskNotice, TaskState, TranscriptBatch } from "../src/shared/ipc.ts";
 import { IDLE_RECYCLE_MS, TaskPool } from "../src/main/tasks/task-pool.ts";
 import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
@@ -30,6 +30,8 @@ const settings = (maxLiveProcesses = 6): StudioSettings => ({
   reduceMotion: false,
   enterWhileRunning: "steer",
   notifyOnGate: true,
+  copyOnSelect: true,
+  taskEngine: "rpc",
   yoloConfirmed: false,
 });
 
@@ -146,6 +148,39 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
     // 推送出去的批次和快照一致：渲染进程增量重建的结果等于快照。
     expect(transcriptOf(h.events.batches, created.id)).toEqual(snapshot.transcript);
     expect(h.launches[0]?.cwd).toBe(path.resolve(projectDir));
+  });
+
+  it("任务时间（updatedAt）：启动、选中、存会话文件、采用标题都不动它；发消息和一轮结束才动", async () => {
+    const h = await harness();
+    h.fixtures.push(fixture("simple-reply"));
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    const born = created.updatedAt;
+    const idle = await h.events.until(created.id, (s) => s.status === "idle");
+    // 只假冒 Date：fake-omp 子进程和 I/O 定时器照常跑。
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(born + 60_000);
+      await h.pool.openTask(created.id);
+      expect(idle.updatedAt).toBe(born);
+      expect(h.pool.listTasks()[0]?.updatedAt).toBe(born);
+      expect(h.registry.findTask(created.id)?.updatedAt).toBe(born);
+
+      await h.pool.sendPrompt(created.id, turn);
+      const running = await h.events.until(created.id, (s) => s.status === "running");
+      expect(running.updatedAt).toBe(born + 60_000);
+      const done = await h.events.until(created.id, (s) => s.lastTurn?.status === "completed" && s.status === "idle");
+      expect(done.updatedAt).toBe(done.lastTurn?.endedAt);
+      expect(done.updatedAt).toBeGreaterThan(born);
+      expect(h.registry.findTask(created.id)?.updatedAt).toBe(done.updatedAt);
+
+      // 改名不动时间。
+      vi.setSystemTime(born + 120_000);
+      await h.pool.renameTask(created.id, "新名字");
+      expect(h.pool.listTasks()[0]?.updatedAt).toBe(done.updatedAt);
+      expect(h.registry.findTask(created.id)?.updatedAt).toBe(done.updatedAt);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("一轮结束后 TaskState 带上本会话的用量（get_session_stats）和上下文占用", async () => {
@@ -281,7 +316,14 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
     const h = await harness();
     h.fixtures.push(fixture("resume-history"));
     const sessionFile = path.join(scratch, "sessions", "旧 会话.jsonl");
-    const state = await h.pool.resume({ sessionFile, cwd: projectDir, projectId: h.projectId, title: null });
+    const sessionMtime = Date.UTC(2026, 9, 1);
+    const state = await h.pool.resume({
+      sessionFile,
+      cwd: projectDir,
+      projectId: h.projectId,
+      title: null,
+      modifiedAt: sessionMtime,
+    });
     await h.events.until(state.id, (s) => s.status === "idle");
     const snapshot = await h.pool.openTask(state.id);
     expect(snapshot.transcript.items.map((item) => item.kind === "message" && item.message.role)).toEqual([
@@ -291,9 +333,34 @@ describe("任务池：用 fake-omp 回放 createTask → sendPrompt → 完成",
     expect(h.pool.listTasks()[0]?.title).toBe("用一句中文回答：1+1 等于几？不要调用任何工具。");
     // omp 报告的会话文件路径是权威的（历史列表里的路径就是它）。
     const reported = h.registry.findTask(state.id)!.sessionFile!;
-    const again = await h.pool.resume({ sessionFile: reported, cwd: projectDir, projectId: h.projectId, title: null });
+    const again = await h.pool.resume({
+      sessionFile: reported,
+      cwd: projectDir,
+      projectId: h.projectId,
+      title: null,
+      modifiedAt: sessionMtime + 1,
+    });
     expect(again.id).toBe(state.id);
     expect(h.pool.listTasks()).toHaveLength(1);
+    // 点开历史会话不算活动：时间是会话文件的修改时间，恢复、读历史、存会话文件、采用标题都不动它。
+    expect(state.updatedAt).toBe(sessionMtime);
+    expect(h.pool.listTasks()[0]?.updatedAt).toBe(sessionMtime);
+    expect(h.registry.findTask(state.id)?.updatedAt).toBe(sessionMtime);
+  });
+
+  it("恢复会话：终端 omp 起的标题带私用区图标字形，存进任务时去掉", async () => {
+    const h = await harness();
+    h.fixtures.push(fixture("resume-history"));
+    const sessionFile = path.join(scratch, "sessions", "带图标 会话.jsonl");
+    const state = await h.pool.resume({
+      sessionFile,
+      cwd: projectDir,
+      projectId: h.projectId,
+      title: "\uf0e7 CALC: Fix calc",
+      modifiedAt: 1,
+    });
+    expect(h.registry.findTask(state.id)?.title).toBe("CALC: Fix calc");
+    await h.events.until(state.id, (s) => s.status === "idle");
   });
 });
 
@@ -529,7 +596,13 @@ describe("任务池：进程上限、回收、归档", () => {
     expect(h.pool.listTasks()).toEqual([]);
     expect(h.registry.findTask(created.id)).toMatchObject({ archived: true, sessionFile });
 
-    const back = await h.pool.resume({ sessionFile, cwd: projectDir, projectId: h.projectId, title: null });
+    const back = await h.pool.resume({
+      sessionFile,
+      cwd: projectDir,
+      projectId: h.projectId,
+      title: null,
+      modifiedAt: 1,
+    });
     expect(back.id).toBe(created.id);
     expect(h.registry.findTask(created.id)?.archived).toBe(false);
     expect(h.pool.listTasks()).toHaveLength(1);

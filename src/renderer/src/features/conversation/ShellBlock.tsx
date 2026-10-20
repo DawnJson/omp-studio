@@ -1,70 +1,40 @@
-// 用户的 `!命令`：命令行、退出状态、输出（超过几行折叠，可展开）。运行期间显示一行"正在运行"和停止按钮；
+// 用户的 `!命令`：和模型的 bash 工具调用同一张卡片（BashCard）。运行期间显示命令 + 状态脚里的"运行中"和停止按钮；
 // Esc 由输入框统一处理（Composer：有命令在跑先中止命令，否则停止任务）。
-import { useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { reportError } from "../../ui/errors.ts";
+import { BashCard, type BashState } from "./BashCard.tsx";
 import type { Extra } from "./model.ts";
-import { Reveal } from "../../ui/Reveal.tsx";
 import { useShellRun } from "./shell-run-store.ts";
-
-/** 输出超过这么多行时默认折叠。 */
-const COLLAPSED_LINES = 12;
+import { useNow } from "./use-now.ts";
 
 type ShellExtra = Extract<Extra, { kind: "shell" }>;
 
 export function ShellBlock({ extra }: { extra: ShellExtra }) {
   const t = useT();
-  const [expanded, setExpanded] = useState(false);
   const output = extra.output.replace(/\r?\n$/, "");
   const lines = output === "" ? [] : output.split(/\r?\n/);
-  // 折叠时只看最后几行；开头那段放进 Reveal，展开时长出来。
-  const tail = lines.length > COLLAPSED_LINES ? lines.slice(-COLLAPSED_LINES) : lines;
-  const failed = extra.cancelled || (extra.exitCode !== null && extra.exitCode !== 0);
+  const state: BashState = extra.cancelled
+    ? { kind: "failed", label: t("tool.bash.cancelled"), elapsedMs: null }
+    : extra.exitCode !== null && extra.exitCode !== 0
+      ? { kind: "failed", label: t("tool.bash.exit", { code: extra.exitCode }), elapsedMs: null }
+      : { kind: "done", elapsedMs: null };
   return (
-    <div className="shell-block" data-failed={failed || undefined} data-testid="shell-block">
-      <div className="shell-head">
-        <code className="shell-command">
-          <span aria-hidden="true">$ </span>
-          {extra.command}
-        </code>
-        <span className="shell-status">
-          {extra.cancelled
-            ? t("conversation.shell.cancelled")
-            : extra.exitCode !== null && extra.exitCode !== 0
-              ? t("conversation.shell.exit", { code: extra.exitCode })
-              : null}
-        </span>
-      </div>
-      {lines.length > COLLAPSED_LINES && (
-        <Reveal open={expanded}>
-          <pre className="shell-output shell-output-head">{lines.slice(0, -COLLAPSED_LINES).join("\n")}</pre>
-        </Reveal>
-      )}
-      <pre className="shell-output">{lines.length === 0 ? t("conversation.shell.noOutput") : tail.join("\n")}</pre>
-      {(lines.length > COLLAPSED_LINES || extra.truncated) && (
-        <div className="shell-foot">
-          {extra.truncated && <span className="shell-note">{t("conversation.shell.truncated")}</span>}
-          {lines.length > COLLAPSED_LINES && (
-            <button
-              type="button"
-              className="shell-toggle"
-              aria-expanded={expanded}
-              onClick={() => setExpanded(!expanded)}
-            >
-              {expanded ? t("conversation.shell.collapse") : t("conversation.shell.showAll", { count: lines.length })}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+    <BashCard
+      command={extra.command}
+      lines={lines}
+      state={state}
+      note={extra.truncated ? t("tool.bash.truncated") : null}
+      testId="shell-block"
+    />
   );
 }
 
-/** 正在跑的那条：只显示命令和停止按钮。输出要等跑完才有（omp 的 bash 命令只在结束时应答）。 */
+/** 正在跑的那条：命令 + 状态脚（实时秒数）和停止按钮。输出要等跑完才有（omp 的 bash 命令只在结束时应答）。 */
 export function ShellRunning({ taskId }: { taskId: TaskId }) {
   const t = useT();
   const run = useShellRun(taskId);
+  const now = useNow(run !== null);
 
   const stop = () => {
     window.studio.abortBash(taskId).catch((error: unknown) => reportError(t, error));
@@ -72,17 +42,16 @@ export function ShellRunning({ taskId }: { taskId: TaskId }) {
 
   if (!run) return null;
   return (
-    <div className="shell-block" data-running data-testid="shell-running">
-      <div className="shell-head">
-        <code className="shell-command">
-          <span aria-hidden="true">$ </span>
-          {run.command}
-        </code>
-        <span className="shell-status">{t("conversation.shell.running")}</span>
-        <button type="button" className="shell-toggle" onClick={stop}>
+    <BashCard
+      command={run.command}
+      lines={[]}
+      state={{ kind: "running", elapsedMs: now - run.startedAt }}
+      testId="shell-running"
+      action={
+        <button type="button" className="bash-stop" onClick={stop}>
           {t("conversation.shell.stop")}
         </button>
-      </div>
-    </div>
+      }
+    />
   );
 }

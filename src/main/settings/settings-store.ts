@@ -21,6 +21,8 @@ const defaults: StudioSettings = {
   reduceMotion: false,
   enterWhileRunning: "steer",
   notifyOnGate: true,
+  copyOnSelect: true,
+  taskEngine: "tsp",
   yoloConfirmed: false,
 };
 
@@ -56,6 +58,12 @@ function sanitize(raw: unknown): StudioSettings {
       defaults.enterWhileRunning,
     ),
     notifyOnGate: field((value) => parseBoolean(value, "notifyOnGate"), record["notifyOnGate"], defaults.notifyOnGate),
+    copyOnSelect: field((value) => parseBoolean(value, "copyOnSelect"), record["copyOnSelect"], defaults.copyOnSelect),
+    taskEngine: field(
+      (value) => parseOneOf(value, "taskEngine", ["rpc", "tsp"]),
+      record["taskEngine"],
+      defaults.taskEngine,
+    ),
     yoloConfirmed: field(
       (value) => parseBoolean(value, "yoloConfirmed"),
       record["yoloConfirmed"],

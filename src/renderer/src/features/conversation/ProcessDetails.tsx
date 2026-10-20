@@ -1,32 +1,47 @@
-// 展开后的过程（spec 4.11）：每个工具一张 omp 风格卡片（头部：图标 + 名称 + 目标 + 信息 + 状态，hover 出复制 / 展开；卡体默认直接展示 diff / grep 文件卡 / 命令输出 / 行号输出，预览 12 行）、叙述（· 开头单行）、思考。>200 行只渲染最后 100 条。
-import { memo, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+// 展开后的过程（spec 4.11，3.1 起照 Tern）：一个工具一个块——头部一行（图标 + 工具名 + 目标 + 右侧数字，无底色无折叠箭头），
+// 结果直接摆在下面：Read / Glob = 文件胶囊，Grep = 按文件分组的命中行，Bash = 卡片，Task / wait = 子代理小卡，
+// Todo = 分组清单，Ask = 问题 + 全部选项，其余 = diff / 行号输出 / 纯文本（超过 12 行底部渐隐，可全部显示）。
+// 叙述（· 开头单行）、思考照旧。>200 行只渲染最后 100 条。
+import { createElement, memo, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
+import type { SubagentLane } from "../../../../shared/subagents.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Check, ChevronRight, CopyIcon, FileIcon, Pencil, Search, Terminal } from "../../icons.tsx";
+import { Check, ChevronRight, CopyIcon, Dots, FileIcon, Pencil, Search, Terminal, Users } from "../../icons.tsx";
 import { FileLink } from "../file-preview/index.ts";
+import { Reveal } from "../../ui/Reveal.tsx";
+import { BashCard, type BashState } from "./BashCard.tsx";
+import { Clamp } from "./Clamp.tsx";
+import { FileChip } from "./FileChip.tsx";
 import type { Step, ToolStep } from "./model.ts";
+import { summarizeTodos } from "./todo-model.ts";
 import { toolTarget, toolVerb } from "./tool-info.ts";
 import {
+  askViews,
+  bashStatus,
   bodyLineCount,
   buildBody,
   buildInfo,
-  defaultOpen,
   filePaths,
   formatElapsed,
+  globPaths,
   headerTarget,
   toolDisplayName,
+  todoPhases,
+  waitJobs,
   type DiffRow,
   type GrepFile,
   type ToolBody,
   type ToolInfo,
 } from "./tool-view.ts";
+import { AskAnswers, TaskView, TodoView, WaitView, askTarget } from "./ToolViews.tsx";
 import { useNow } from "./use-now.ts";
-import { Reveal } from "../../ui/Reveal.tsx";
 
 const PREVIEW_LINES = 12;
+const GREP_LINES = 8;
 const MANY = 200;
 const KEEP = 100;
+const NO_LANES: readonly SubagentLane[] = [];
 
 export function toolLabel(step: ToolStep, t: TFunction): string {
   if (step.intent) return step.intent;
@@ -47,14 +62,29 @@ export function toolLabel(step: ToolStep, t: TFunction): string {
   }
 }
 
-const verbIcon = {
-  read: FileIcon,
-  write: FileIcon,
-  edit: Pencil,
-  bash: Terminal,
-  search: Search,
-  other: ChevronRight,
-} as const;
+function iconFor(name: string) {
+  if (name === "task" || name === "wait") return Users;
+  if (name === "ask") return Dots;
+  if (name.includes("todo")) return Check;
+  switch (toolVerb(name)) {
+    case "read":
+    case "write":
+      return FileIcon;
+    case "edit":
+      return Pencil;
+    case "bash":
+      return Terminal;
+    case "search":
+      return Search;
+    case "other":
+      return ChevronRight;
+  }
+}
+
+/** 图标组件是模块级常量，按工具名挑一个；用 createElement 免得在渲染里声明组件变量。 */
+function ToolIcon({ name }: { name: string }) {
+  return createElement(iconFor(name), { size: 14 });
+}
 
 function InfoSegment({ info }: { info: ToolInfo }) {
   const t = useT();
@@ -112,15 +142,16 @@ function DiffLines({ rows, t }: { rows: readonly DiffRow[]; t: TFunction }) {
   );
 }
 
-function GrepFiles({ files }: { files: readonly GrepFile[] }) {
+/** Grep：每个文件一个文件胶囊（带命中数），下面是带行号的命中行（命中行左侧一条竖线）。 */
+function GrepFiles({ files, taskId }: { files: readonly GrepFile[]; taskId: TaskId }) {
   return (
     <>
       {files.map((file, index) => (
         <div key={`${file.path}:${index}`} className="step-file">
           <div className="step-file-head">
-            <FileIcon size={12} />
-            <span className="step-file-path">{file.path}</span>
-            <span className="step-pill">{file.matches}</span>
+            <FileChip taskId={taskId} path={file.path}>
+              <span className="file-chip-count">{file.matches}</span>
+            </FileChip>
           </div>
           <div className="step-lines" style={gutter(file.rows.reduce((max, row) => Math.max(max, row.no), 0))}>
             {file.rows.map((row) => (
@@ -136,52 +167,23 @@ function GrepFiles({ files }: { files: readonly GrepFile[] }) {
   );
 }
 
-/** 预览只取前 limit 行（diff 的间隔行也算一行；grep 跨文件累计）。 */
-function clipBody(body: ToolBody, limit: number): ToolBody {
-  switch (body.kind) {
-    case "diff":
-      return { kind: "diff", rows: body.rows.slice(0, limit) };
-    case "grep": {
-      let left = limit;
-      const files: GrepFile[] = [];
-      for (const file of body.files) {
-        if (left <= 0) break;
-        files.push({ ...file, rows: file.rows.slice(0, left) });
-        left -= file.rows.length;
-      }
-      return { kind: "grep", files };
-    }
-    case "bash":
-      return { kind: "bash", command: body.command, lines: body.lines.slice(0, limit) };
-    case "numbered":
-      return { kind: "numbered", rows: body.rows.slice(0, limit) };
-    case "plain":
-      return { kind: "plain", lines: body.lines.slice(0, limit) };
-  }
+function PlainLines({ lines }: { lines: readonly string[] }) {
+  return (
+    <div className="step-lines">
+      {lines.map((line, index) => (
+        <div key={index} className="step-ln">
+          <span className="step-code">{line}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
+/** 通用正文：diff / 行号输出 / 纯文本。bash 和 grep 有自己的块，不走这里。 */
 function BodyView({ body, t }: { body: ToolBody; t: TFunction }) {
   switch (body.kind) {
     case "diff":
       return <DiffLines rows={body.rows} t={t} />;
-    case "grep":
-      return <GrepFiles files={body.files} />;
-    case "bash":
-      return (
-        <div className="step-lines">
-          {body.command !== null && (
-            <div className="step-ln" data-kind="cmd">
-              <span className="step-sign">$</span>
-              <span className="step-code">{body.command}</span>
-            </div>
-          )}
-          {body.lines.map((line, index) => (
-            <div key={index} className="step-ln">
-              <span className="step-code">{line}</span>
-            </div>
-          ))}
-        </div>
-      );
     case "numbered":
       return (
         <div className="step-lines" style={gutter(body.rows.reduce((max, row) => Math.max(max, row.no), 0))}>
@@ -194,15 +196,10 @@ function BodyView({ body, t }: { body: ToolBody; t: TFunction }) {
         </div>
       );
     case "plain":
-      return (
-        <div className="step-lines">
-          {body.lines.map((line, index) => (
-            <div key={index} className="step-ln">
-              <span className="step-code">{line}</span>
-            </div>
-          ))}
-        </div>
-      );
+    case "bash":
+      return <PlainLines lines={body.lines} />;
+    case "grep":
+      return null;
   }
 }
 
@@ -247,116 +244,170 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId: TaskId }) {
+/** 文件胶囊一排（Read / Glob）：一行的高度是 --row-tool，最多 3 行，超出渐隐。 */
+function FileChips({ taskId, paths }: { taskId: TaskId; paths: readonly string[] }) {
+  return (
+    <Clamp lines={3} lineHeight="var(--row-tool)">
+      <div className="file-chips">
+        {paths.map((path) => (
+          <FileChip key={path} taskId={taskId} path={path} />
+        ))}
+      </div>
+    </Clamp>
+  );
+}
+
+const ToolRow = memo(function ToolRow({
+  step,
+  taskId,
+  projectPath,
+  lanes,
+}: {
+  step: ToolStep;
+  taskId: TaskId;
+  projectPath: string | null;
+  lanes: readonly SubagentLane[];
+}) {
   const t = useT();
   const failed = step.status === "error";
   const running = step.status === "running";
   const now = useNow(running);
-  const [override, setOverride] = useState<boolean | null>(null);
-  const [all, setAll] = useState(false);
-  const Icon = verbIcon[toolVerb(step.name)];
+  const verb = toolVerb(step.name);
   const body = useMemo(
     () => buildBody(step.name, step.args, step.result, step.output),
     [step.name, step.args, step.result, step.output],
   );
-  const info = buildInfo(step.name, step.args, body);
   const paths = useMemo(() => filePaths(step.name, step.args), [step.name, step.args]);
+  const found = useMemo(() => globPaths(step.name, step.output), [step.name, step.output]);
+  const todos = step.name.includes("todo") ? todoPhases(step.result) : null;
+  const asks = step.name === "ask" ? askViews(step.args, step.result) : [];
+  const jobs = step.name === "wait" ? waitJobs(step.result) : [];
+  const info = buildInfo(step.name, step.args, body);
   const total = bodyLineCount(body);
-  // 命令本身也是内容：bash 还没输出时卡体就先显示 $ 命令。
-  const hasContent = defaultOpen(body) || (body.kind === "bash" && body.command !== null) || paths.length > 1;
-  const open = override ?? (failed || hasContent);
-  const hidden = all ? 0 : Math.max(0, total - PREVIEW_LINES);
   const target = headerTarget(step.name, step.args);
   const duration = step.startedAt !== null && step.endedAt !== null ? step.endedAt - step.startedAt : 0;
-  const toggle = () => setOverride(!open);
-  // 头部目标：单个文件是可点的文件链接（带行选择器后缀）；多个文件显示个数，文件 chip 在卡体里。
-  const single = paths.length === 1 ? (paths[0] ?? null) : null;
-  const range = single !== null && target !== null && target.startsWith(single) ? target.slice(single.length) : "";
-  return (
-    <div className="step-tool" data-anchor data-status={step.status} data-open={open || undefined}>
-      <div className="step-head">
-        <button
-          type="button"
-          className="step-row step-toggle"
-          aria-expanded={open}
-          title={toolLabel(step, t)}
-          onClick={toggle}
-        >
-          <span className="step-icon">
-            <Icon size={14} />
-          </span>
-          <span className="step-name">{toolDisplayName(step.name)}</span>
-        </button>
-        {single !== null ? (
-          <span className="step-arg">
-            <FileLink taskId={taskId} path={single} />
-            {range !== "" && <span className="step-range">{range}</span>}
-          </span>
-        ) : paths.length > 1 ? (
-          <span className="step-arg">{t("tool.info.readFiles", { count: paths.length })}</span>
-        ) : (
-          target !== null && (
-            <button type="button" className="step-arg step-arg-btn" tabIndex={-1} onClick={toggle}>
-              {target}
-            </button>
-          )
-        )}
-        <button type="button" className="step-row step-toggle step-fill" tabIndex={-1} onClick={toggle}>
-          {info !== null && <InfoSegment info={info} />}
-          <span className="step-meta" data-failed={failed || undefined}>
-            {failed ? (
-              t("tool.failed")
-            ) : running ? (
-              <>
-                <span className="step-spin" aria-hidden="true" />
-                {step.startedAt !== null && formatElapsed(now - step.startedAt)}
-              </>
-            ) : duration >= 1000 ? (
-              formatElapsed(duration)
-            ) : null}
-          </span>
-        </button>
-        <span className="step-actions">
-          {total > 0 && <CopyButton text={bodyText(body)} />}
-          <button
-            type="button"
-            className="step-action"
-            aria-label={open ? t("tool.output.collapse") : t("tool.output.showAll")}
-            onClick={toggle}
-          >
-            <ChevronRight size={12} className="step-chevron" data-open={open || undefined} />
-          </button>
-        </span>
-      </div>
-      <Reveal open={open}>
-        <div className="step-output">
-          {paths.length > 1 && (
-            <div className="step-chips">
-              {paths.map((path) => (
-                <span key={path} className="step-chip">
-                  <FileIcon size={12} />
-                  <FileLink taskId={taskId} path={path} />
-                </span>
-              ))}
-            </div>
-          )}
-          {total > 0 || (body.kind === "bash" && body.command !== null) ? (
-            <div className="step-scroll" data-all={all || undefined}>
-              <BodyView body={all ? body : clipBody(body, PREVIEW_LINES)} t={t} />
-            </div>
+  const elapsed = step.startedAt !== null ? now - step.startedAt : null;
+
+  const bash = body.kind === "bash" && verb === "bash";
+  // 文件胶囊：Read 总是胶囊；多文件的 edit / write 也列出来。Glob 的胶囊来自输出。
+  const chipPaths = found.length > 0 ? found : verb === "read" || paths.length > 1 ? paths : [];
+  const single = found.length === 0 && verb !== "read" && paths.length === 1 ? (paths[0] ?? null) : null;
+  const range = (() => {
+    const first = paths[0];
+    return first !== undefined && target !== null && target.startsWith(first) ? target.slice(first.length) : "";
+  })();
+
+  // 头部目标
+  let arg: ReactNode = null;
+  if (todos !== null) {
+    const { done, total: all } = summarizeTodos(todos);
+    arg = `${done}/${all}`;
+  } else if (asks.length > 0) {
+    arg = askTarget(t, asks);
+  } else if (single !== null) {
+    arg = (
+      <>
+        <FileLink taskId={taskId} path={single} />
+        {range !== "" && <span className="step-range">{range}</span>}
+      </>
+    );
+  } else if (verb === "read" && paths.length > 0) {
+    arg = paths.length > 1 ? t("tool.info.readFiles", { count: paths.length }) : range;
+  } else if (paths.length > 1) {
+    arg = t("tool.info.readFiles", { count: paths.length });
+  } else if (info?.kind === "task") {
+    // Task：`2 个代理  [后台]` 紧跟工具名，右侧只留耗时。
+    arg = <InfoSegment info={info} />;
+  } else if (!bash && step.name !== "wait") {
+    arg = target;
+  }
+
+  // 右侧：数字（匹配数 / 文件数 / 行数 / 代理数）+ 耗时或运行中的实时秒数；bash 的状态在卡片脚里。
+  const metaInfo: ReactNode =
+    found.length > 0 ? (
+      <span className="step-info">{t("tool.info.files", { count: found.length })}</span>
+    ) : info !== null && info.kind !== "task" ? (
+      <InfoSegment info={info} />
+    ) : null;
+  const time = failed ? (
+    t("tool.failed")
+  ) : running ? (
+    <>
+      <span className="step-spin" aria-hidden="true" />
+      {elapsed !== null && formatElapsed(elapsed)}
+    </>
+  ) : duration >= 1000 ? (
+    formatElapsed(duration)
+  ) : null;
+
+  const name =
+    step.name === "wait" && jobs.length > 0 ? t("tool.wait.title", { count: jobs.length }) : toolDisplayName(step.name);
+
+  let content: ReactNode = null;
+  if (todos !== null) {
+    content = <TodoView phases={todos} />;
+  } else if (step.name === "ask") {
+    content = <AskAnswers step={step} />;
+  } else if (step.name === "task") {
+    content = <TaskView step={step} taskId={taskId} projectPath={projectPath} lanes={lanes} />;
+  } else if (jobs.length > 0) {
+    content = <WaitView step={step} taskId={taskId} projectPath={projectPath} lanes={lanes} />;
+  } else if (bash) {
+    const status = bashStatus(step.result);
+    const wall = step.startedAt !== null && step.endedAt !== null ? duration : status.wallMs;
+    const state: BashState = running
+      ? { kind: "running", elapsedMs: elapsed }
+      : failed || (status.exitCode !== null && status.exitCode !== 0)
+        ? {
+            kind: "failed",
+            label: status.exitCode !== null ? t("tool.bash.exit", { code: status.exitCode }) : t("tool.failed"),
+            elapsedMs: wall,
+          }
+        : { kind: "done", elapsedMs: wall };
+    content = (
+      <BashCard
+        command={body.kind === "bash" ? body.command : null}
+        lines={body.kind === "bash" ? body.lines : []}
+        state={state}
+      />
+    );
+  } else {
+    // Read 只列文件，内容不摆出来（失败时才显示错误文字）。
+    const showBody = total > 0 && (verb !== "read" || failed);
+    content = (
+      <>
+        {chipPaths.length > 0 && <FileChips taskId={taskId} paths={chipPaths} />}
+        {showBody &&
+          (body.kind === "grep" ? (
+            <Clamp lines={GREP_LINES} lineHeight="var(--lh-code-sm)" className="step-grep">
+              <GrepFiles files={body.files} taskId={taskId} />
+            </Clamp>
           ) : (
-            !running && paths.length <= 1 && <p className="step-empty">{t("tool.output.empty")}</p>
-          )}
-          {total > PREVIEW_LINES && (
-            <div className="step-more">
-              {hidden > 0 && <>{t("tool.output.more", { count: hidden })} · </>}
-              <button type="button" className="step-showall" onClick={() => setAll(!all)}>
-                {all ? t("tool.output.collapse") : t("tool.output.showAll")}
-              </button>
+            <div className="step-output">
+              <Clamp lines={PREVIEW_LINES} lineHeight="var(--lh-code-sm)">
+                <BodyView body={body} t={t} />
+              </Clamp>
             </div>
-          )}
-        </div>
-      </Reveal>
+          ))}
+      </>
+    );
+  }
+
+  return (
+    <div className="step-tool" data-anchor data-status={step.status} data-tool={step.name}>
+      <div className="step-head" title={toolLabel(step, t)}>
+        <span className="step-icon">
+          <ToolIcon name={step.name} />
+        </span>
+        <span className="step-name">{name}</span>
+        {arg !== null && arg !== "" && <span className="step-arg">{arg}</span>}
+        <span className="step-meta" data-failed={failed || undefined}>
+          {metaInfo}
+          {!bash && time}
+        </span>
+        <span className="step-actions">{total > 0 && <CopyButton text={bodyText(body)} />}</span>
+      </div>
+      {content}
     </div>
   );
 });
@@ -396,10 +447,16 @@ function TextStepRow({ step }: { step: Extract<Step, { kind: "narration" | "thin
 export function ProcessDetails({
   steps,
   taskId,
+  projectPath = null,
+  lanes = NO_LANES,
   header,
 }: {
   steps: readonly Step[];
   taskId: TaskId;
+  /** Task / wait 的子代理卡点开详情要用。 */
+  projectPath?: string | null;
+  /** 这一轮的子代理泳道（Task / wait 的卡片按它显示状态）。 */
+  lanes?: readonly SubagentLane[];
   header?: ReactNode;
 }) {
   const t = useT();
@@ -412,7 +469,13 @@ export function ProcessDetails({
       )}
       {trimmed.map((step) =>
         step.kind === "tool" ? (
-          <ToolRow key={step.key} step={step} taskId={taskId} />
+          <ToolRow
+            key={step.key}
+            step={step}
+            taskId={taskId}
+            projectPath={projectPath}
+            lanes={step.name === "task" || step.name === "wait" ? lanes : NO_LANES}
+          />
         ) : (
           <TextStepRow key={step.key} step={step} />
         ),

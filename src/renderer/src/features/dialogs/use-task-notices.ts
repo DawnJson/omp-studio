@@ -2,6 +2,7 @@
 // 另外：别的任务进入"等你确认"时弹一条 toast（spec 5.7 ④）。
 import { useEffect, useRef } from "react";
 import type { TaskState } from "../../../../shared/ipc.ts";
+import { taskTitle } from "../../../../shared/ui/sidebar-model.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { suggestEditorText } from "../composer/draft-store.ts";
 import { selectTask, useSelectedTaskId, useTasks } from "../../store/index.ts";
@@ -36,7 +37,7 @@ export function useNeedsYouToasts(): void {
       ) {
         pushToast({
           level: "warning",
-          message: t("toast.needsYou", { task: task.title }),
+          message: t("toast.needsYou", { task: taskTitle(task) || t("task.untitled") }),
           durationMs: 8000,
           action: { label: t("toast.view"), run: () => void selectTask(task.id) },
         });

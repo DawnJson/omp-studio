@@ -23,15 +23,17 @@
 }
 .composer {
   container-type: inline-size;
+  padding: var(--space-1-5) var(--space-1-5) var(--space-1-5) var(--space-2);
   background: var(--bg-raised);
   border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-composer);
   box-shadow: var(--shadow-composer);
   transition: border-color var(--dur-instant);
 }
-/* 上面输入区，下面工具行，中间一条 1px 分隔线：两层各有自己的内边距，控件不再贴着输入文字。 */
+/* 上面输入区，下面工具行，同一块底上、没有分隔线；外框的内边距（6/6/6/8）已经给了控件和边缘的留白。 */
 .composer-body {
-  padding: var(--space-3) var(--space-4) var(--space-2-5);
+  min-height: 42px;
+  padding: var(--space-2-5) var(--space-2-5) var(--space-1);
 }
 .composer:hover {
   border-color: var(--border-strong);
@@ -72,8 +74,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-1-5);
-  padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--border-subtle);
+  min-height: 36px;
+  padding: 0;
 }
 .composer-spacer {
   flex: 1;
@@ -151,9 +153,10 @@ button.usage-context:hover,
 }
 .tool-btn {
   display: grid;
+  flex: none;
   place-items: center;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-pill);
@@ -204,6 +207,11 @@ button.usage-context:hover,
   min-width: 0;
   /* 极窄时内容（思考强度）不能画到旁边的胶囊上。 */
   overflow: hidden;
+}
+/* 胶囊末尾的 ⌄：只是提示"点了会展开"，不是独立按钮。 */
+.chip-caret {
+  flex: none;
+  color: var(--text-3);
 }
 .chip-text {
   overflow: hidden;
@@ -1331,28 +1339,13 @@ html[data-motion="reduced"] .ctx-usage-chev {
   font-size: var(--fs-xs);
 }
 
-.pop-grouprow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin: var(--space-1-5) var(--space-2-5) var(--space-1);
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-}
-.pop-grouphint {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 模型选择对话框：左栏搜索 + 分组列表，右栏参数 + 思考强度。 */
+/* 模型选择对话框（照 Tern）：标题行 + 角色页签 + 一张表（粘性表头）+ 底部参数行 / 控件 / 操作。数字列按 ch 定宽，等宽右对齐。 */
 .model-picker {
+  --mp-cols: minmax(0, 1fr) 5ch 6ch 7ch 13ch var(--space-6);
   display: flex;
   flex-direction: column;
-  width: min(calc(var(--content-w) + var(--space-8)), calc(100vw - var(--space-8)));
-  height: min(70vh, var(--content-w));
+  width: min(var(--content-w), calc(100vw - var(--space-8)));
+  height: min(80vh, var(--content-w));
   background: var(--bg-overlay);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-3);
@@ -1363,31 +1356,53 @@ html[data-motion="reduced"] .ctx-usage-chev {
   display: flex;
   flex: none;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.mp-glyph {
+  flex: none;
+  color: var(--text-2);
 }
 .mp-title {
+  flex: none;
   margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--fs-lg);
+  font-size: var(--fs-base);
   line-height: var(--lh-lg);
   font-weight: var(--fw-strong);
+  white-space: nowrap;
 }
-.mp-heading {
+.mp-search {
+  flex: 1;
   min-width: 0;
+  height: var(--control-h-md);
+  padding: 0 0 0 var(--space-3);
+  border: 0;
+  border-left: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-base);
 }
-.mp-role-use {
-  margin: var(--space-0-5) 0 0;
+.mp-search:focus-visible {
+  outline: none;
+}
+.mp-search::placeholder {
   color: var(--text-3);
-  font-size: var(--fs-xs);
 }
-/* 角色标签：default 是本任务的模型，其余是 omp 的 modelRoles；选中的标签下面列表改成"给这个角色选模型"。 */
+.mp-count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+/* 角色页签：default 是本任务的模型，其余是 omp 的 modelRoles；选中的页签下面的表改成"给这个角色选模型"。 */
 .mp-roles {
   display: flex;
   flex: none;
   flex-wrap: wrap;
   gap: var(--space-1);
-  padding: 0 var(--space-4) var(--space-2);
+  padding: var(--space-2) var(--space-4) 0;
 }
 .mp-role-tab {
   padding: 0 var(--space-2-5);
@@ -1414,152 +1429,205 @@ html[data-motion="reduced"] .ctx-usage-chev {
 }
 .mp-role-badge {
   flex: none;
-  padding: 0 var(--space-1-5);
-  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
   background: var(--bg-hover);
   color: var(--text-2);
   font-size: var(--fs-2xs);
-  line-height: var(--lh-2xs);
+  line-height: var(--lh-xs);
 }
-.mp-body {
+/* 表：表头粘在顶部，行是 grid（模型 | 智能 | 速度 | 上下文 | 价格 | 勾）。 */
+.mp-table {
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--space-2) var(--space-2);
+  overflow-y: auto;
+}
+.mp-cols,
+.mp-row {
   display: grid;
-  flex: 1;
-  grid-template-columns: minmax(0, 11fr) minmax(0, 9fr);
-  min-height: 0;
-  border-top: 1px solid var(--border-subtle);
+  grid-template-columns: var(--mp-cols);
+  align-items: center;
+  column-gap: var(--space-3);
+  padding: 0 var(--space-2);
 }
-.mp-left {
+.mp-cols {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: var(--control-h-md);
+  background: var(--bg-overlay);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.mp-group {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-1-5) var(--space-2);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+}
+.mp-group-count {
+  margin-left: var(--space-1);
+  font-family: var(--font-mono);
+  color: var(--text-3);
+}
+.mp-row {
+  min-height: var(--control-h-md);
+  scroll-margin-top: var(--control-h-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.mp-row[data-highlighted="true"] {
+  background: var(--bg-hover);
+}
+.mp-row[data-current] {
+  background: var(--bg-active);
+}
+.mp-cell-model {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--space-2);
-  min-height: 0;
-  padding: var(--space-3);
-  border-right: 1px solid var(--border-subtle);
-}
-.mp-left .pop-search {
-  flex: none;
-  margin: 0;
-}
-/* 行是 <button>，在块容器里会按内容收窄；改成纵向 flex，行和组头都占满整行（悬停底色对齐、价格贴右）。 */
-.mp-list {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-}
-.mp-list > * {
-  flex: none;
-}
-.mp-add {
-  flex: none;
-  width: 100%;
-}
-.mp-right {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: var(--space-4);
-  overflow-y: auto;
-}
-.mp-name {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--fs-lg);
-  line-height: var(--lh-lg);
-  font-weight: var(--fw-strong);
-  overflow-wrap: anywhere;
+  min-width: 0;
 }
 .mp-id {
-  margin: var(--space-0-5) 0 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mp-id,
+.mp-cell-model > .mp-id-name,
+.mp-cell-model > .mp-id-dim {
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
-  line-height: var(--lh-code-sm);
-  color: var(--text-3);
-  overflow-wrap: anywhere;
 }
-.mp-tags {
+.mp-id-dim {
+  color: var(--text-3);
+}
+.mp-id-name {
+  color: var(--text);
+}
+.mp-num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  text-align: right;
+  white-space: nowrap;
+}
+.mp-cols .mp-num {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+.mp-tick {
+  display: flex;
+  justify-content: flex-end;
+  color: var(--accent);
+}
+/* 底部：参数行、思考强度 / 速度开关、操作。 */
+.mp-foot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.mp-params {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
-  margin: var(--space-2) 0 0;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
-.mp-tag {
-  padding: 0 var(--space-1-5);
-  border-radius: var(--radius-sm);
+.mp-params-empty {
+  color: var(--text-3);
+}
+.mp-param-label {
+  color: var(--text-3);
+}
+.mp-pill {
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
   background: var(--bg-hover);
   color: var(--text-2);
+  font-family: var(--font-sans);
   font-size: var(--fs-2xs);
-  line-height: var(--lh-2xs);
+  line-height: var(--lh-xs);
 }
-.mp-tag[data-kind="current"] {
+.mp-pill[data-kind="current"] {
   background: var(--accent-soft);
   color: var(--accent);
 }
-.mp-params {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+.mp-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2) var(--space-4);
-  margin: var(--space-4) 0 0;
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
 }
-.mp-params dt {
-  color: var(--text-3);
-}
-.mp-params dd {
-  margin: 0;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-}
-/* 分组：组头是可折叠的一行（▸ provider · N 个模型），组里的模型缩进一级。 */
-.mp-group {
-  min-height: var(--control-h-md);
-  color: var(--text-2);
-  font-weight: var(--fw-strong);
-}
-.mp-group-chevron {
-  flex: none;
-  color: var(--text-3);
-  transition: transform var(--dur-fast) var(--ease-out);
-}
-.mp-group[aria-expanded="true"] .mp-group-chevron {
-  transform: rotate(90deg);
-}
-.mp-model[aria-level="2"],
-.mp-ghost {
-  padding-left: calc(var(--space-2-5) + 12px + var(--space-2));
-}
-/* 展开组时新插入的模型行淡入；列表是扁平的键盘树，不套 Reveal。 */
-.mp-model[aria-level="2"] {
-  animation: view-in var(--dur-base) var(--ease-out);
-}
-.mp-thinking {
-  margin-top: auto;
-  padding-top: var(--space-3);
-}
-.mp-thinking .pop-grouprow {
-  margin-inline: 0;
+.mp-thinking,
+.mp-speed,
+.mp-speed-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
 }
 .mp-speed {
-  margin-top: auto;
-  padding-top: var(--space-3);
+  gap: var(--space-4);
 }
-.mp-speed + .mp-thinking {
-  margin-top: 0;
-}
-.mp-speed .pop-grouprow {
-  margin-inline: 0;
-}
-.mp-speed-row + .mp-speed-row,
-.mp-speed-row + .mp-speed-hint {
-  margin-top: var(--space-2);
-}
-.mp-speed-hint {
-  margin: var(--space-1) 0 0;
+.mp-ctl-label,
+.mp-hint {
+  margin: 0;
   font-size: var(--fs-xs);
   color: var(--text-3);
+}
+.mp-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.mp-actions-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.mp-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.mp-link:hover {
+  color: var(--text);
+}
+.mp-link:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+.mp-actions .gate-btn {
+  border-color: transparent;
+  border-radius: var(--radius-pill);
+}
+.mp-actions .gate-btn[data-primary] {
+  border-color: var(--primary);
+}
+
+/* 审批菜单：和侧栏底部语言 / 主题菜单同一种紧凑菜单（共用 MenuItem），浮层的内边距和圆角收到和 .menu 一样。 */
+.pop:has(> [role="menu"]) {
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
 }
 
 /* 后台任务：输入框右上方的看板胶囊 + 看板浮层（状态行下不再另列 job 小卡，免得同一个 job 显示两遍）。 */
@@ -1580,20 +1648,27 @@ html[data-motion="reduced"] .ctx-usage-chev {
   background: var(--text-3);
 }
 
-/* 输入框右上方，和状态栏同一行（状态栏收起时仍靠右）；底部留白同 .run-status，没有 job 时不渲染。 */
-.jobs-anchor {
+/* 输入框右上方，和状态栏同一行（状态栏收起时仍靠右）；底部留白同 .run-status，没有 job 时不渲染。
+   两个按钮（后台任务 / 子代理）并排，各自是一个 pop-anchor，浮层从自己的按钮上方弹出。 */
+.jobs-group {
+  display: flex;
   flex: none;
+  align-items: center;
+  gap: var(--space-1-5);
   margin-left: auto;
   padding-bottom: var(--space-2);
+}
+.jobs-anchor {
+  flex: none;
 }
 .jobs-pill {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1-5);
-  height: var(--control-h-sm);
+  height: 24px;
   padding: 0 var(--space-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   background: var(--bg-raised);
   color: var(--text-2);
   font: inherit;
@@ -1611,22 +1686,29 @@ html[data-motion="reduced"] .ctx-usage-chev {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
-.jobs-pill-part {
+.jobs-pill-icon {
+  flex: none;
+  color: var(--text-2);
+}
+.jobs-pill-label {
+  white-space: nowrap;
+}
+/* 计数：运行中 = ● N（点用 --st-running，数字 600 等宽）；都结束了 = ✓ N（--text-3）；有失败的结束计数标红。 */
+.jobs-pill-count {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  font-weight: 600;
 }
-.jobs-pill-sep {
-  width: 1px;
-  height: var(--icon-sm);
-  background: var(--border);
+.jobs-pill-count[data-state="done"] {
+  color: var(--text-3);
+}
+.jobs-pill[data-failed] .jobs-pill-count[data-state="done"] {
+  color: var(--st-error);
 }
 .jobs-pill[data-running] .job-dot {
   animation: job-pulse calc(var(--dur-spin) * 2) ease-in-out infinite;
   animation-play-state: var(--play-state);
-}
-.jobs-pill[data-failed] .jobs-pill-part:last-child {
-  color: var(--st-error);
 }
 @keyframes job-pulse {
   50% {

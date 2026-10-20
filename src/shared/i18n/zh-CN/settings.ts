@@ -28,6 +28,13 @@ export const settings = {
   "enterBehavior.desc": "任务正在运行时，Enter 发出的消息是插话还是排到后面",
   notifyWaiting: "有任务在等你时通知我",
   "notifyWaiting.desc": "任务需要你确认时发系统通知；窗口收在托盘时，任务完成或出错也会通知",
+  copyOnSelect: "选中即复制",
+  "copyOnSelect.desc": "在对话里用鼠标选中文字后自动复制到剪贴板；输入框和终端不受影响",
+  taskEngine: "新任务的引擎",
+  "taskEngine.tsp": "omp 界面（TSP）",
+  "taskEngine.rpc": "经典（RPC）",
+  "taskEngine.desc":
+    "新建任务怎么跑：TSP 在伪终端里运行交互式 omp，界面由 omp 描述、这里绘制；经典是之前的模式。已有任务保持创建时的引擎",
   search: "搜索设置",
   "search.hint": "按名称、说明或键名搜索",
   "search.clear": "清除搜索",

@@ -25,6 +25,7 @@ function makeTask(
     id: id as TaskId,
     projectId,
     title,
+    engine: "rpc",
     status: "idle",
     unread: false,
     lastTurn: null,
@@ -59,7 +60,7 @@ const tasks: TaskState[] = [
     runningSubagents: 2,
     runStartedAt: now - 5 * minute,
   }),
-  makeTask("t3", projectA.id, "整理日志格式", 40, { unread: true }),
+  makeTask("t3", projectA.id, "整理日志格式", 40, { unread: true, lastTurn: { status: "completed", endedAt: now } }),
   makeTask("t4", projectA.id, "升级依赖", 130, { status: "error", error: { kind: "exited", message: "omp 退出了" } }),
   makeTask("t5", projectA.id, "写发布说明", 60 * 26),
   makeTask("t6", projectA.id, "清理旧分支", 60 * 50, { lastTurn: { status: "aborted", endedAt: now } }),
@@ -83,6 +84,13 @@ async function makeAgentDir(): Promise<string> {
     "utf8",
   );
   await writeFile(path.join(bucket, "b_broken.jsonl"), "{损坏的会话文件\n", "utf8");
+  const notesBucket = path.join(agentDir, "sessions", "--E--其他 目录-notes--");
+  await mkdir(notesBucket, { recursive: true });
+  await writeFile(
+    path.join(notesBucket, "c_notes.jsonl"),
+    headerLine("sess-notes", "E:\\其他 目录\\notes") + userLine("\ue5fa 写笔记"),
+    "utf8",
+  );
   return agentDir;
 }
 
@@ -99,7 +107,13 @@ async function stubMain(app: Awaited<ReturnType<typeof launchApp>>["app"], local
           return result(...args);
         });
       };
-      stub("getAppInfo", () => ({ version: "0.0.0", platform: "win32", locale: data.locale, isPackaged: false }));
+      stub("getAppInfo", () => ({
+        version: "0.0.0",
+        platform: "win32",
+        locale: data.locale,
+        isPackaged: false,
+        runtime: { electron: "0", chromium: "0", node: "0" },
+      }));
       stub("listProjects", () => data.projects);
       stub("listTasks", () => data.tasks);
       stub("openTask", (taskId) => ({ taskId, seq: 0, transcript: data.transcript }));
@@ -107,7 +121,8 @@ async function stubMain(app: Awaited<ReturnType<typeof launchApp>>["app"], local
       stub("archiveTask", () => undefined);
       stub("createTask", () => data.tasks[0]);
       stub("listSlashCommands", () => data.slash);
-      stub("getShellState", () => ({ sidebarWidth: 264, sidebarCollapsed: false, collapsedProjects: [] }));
+      stub("getShellState", () => ({ sidebarWidth: 264, sidebarCollapsed: false, historyOrder: "folder" }));
+      stub("ensureSessionProject", () => ({ id: "pn", path: "E:\\其他 目录\\notes", name: "notes" }));
       stub("setShellState", () => undefined);
     },
     {
@@ -168,18 +183,57 @@ for (const [locale, colorScheme] of [
       const sidebar = page.getByTestId("sidebar");
       await expect(sidebar.getByRole("button", { name: new RegExp(words.newTask) }).first()).toBeVisible();
 
-      // 分组：项目名、默认只显示 6 条（my app 有 7 个任务，其中 1 个被收起）。
-      await expect(sidebar.getByRole("region", { name: "my app" })).toBeVisible();
+      // 一个列表：项目和只在历史里出现的 cwd 合并成文件夹，没有单独的项目块；
+      // my app 里有选中/在跑/等你确认的任务所以默认展开：终端会话和任务混排，默认 5 行，其余在"显示更多"后面。
+      const history = sidebar.getByTestId("sidebar-history");
+      const myApp = sidebar.getByRole("region", { name: "my app" });
+      await expect(history.getByTestId("sidebar-folder")).toHaveCount(3);
+      await expect(sidebar.getByTestId("sidebar-folder")).toHaveCount(3);
       await expect(sidebar.getByRole("region", { name: "api server" })).toBeVisible();
-      await expect(sidebar.getByRole("region", { name: "my app" }).getByTestId("task-row")).toHaveCount(6);
+      await expect(myApp.getByTestId("sidebar-session")).toContainText("在终端里排查内存泄漏");
+      await expect(myApp.getByTestId("task-row")).toHaveCount(4);
       await expect(sidebar.getByTestId("waiting-strip")).toContainText(words.waitingMany);
+      await myApp.getByTestId("sidebar-history-more").click();
+      await expect(myApp.getByTestId("task-row")).toHaveCount(7);
+
+      // 只在历史里出现的文件夹：默认折叠、有 +、没有项目菜单；图标字形不进标题；+ 先把它加成项目再开草稿。
+      const notes = sidebar.getByRole("region", { name: "notes" });
+      await expect(notes.getByTestId("sidebar-session")).toHaveCount(0);
+      await expect(notes.locator(".sb-group-count")).toContainText("1");
+      await expect(notes.locator(".sb-group-more")).toHaveCount(0);
+      await notes.locator(".sb-group-toggle").click();
+      await expect(notes.getByTestId("sidebar-session")).toHaveText(/^写笔记/);
+      await expect(notes.getByTestId("sidebar-session")).not.toContainText("\ue5fa");
+      await expect(notes.getByTestId("sidebar-session").locator("svg")).toHaveCount(0);
+      await notes.getByTestId("sidebar-project-new").click();
+      await expect.poll(async () => (await mainCalls(app, "ensureSessionProject"))[0]?.[0]).toBe("sess-notes");
+      await expect(myApp.locator(".sb-group-more")).toHaveCount(1);
+
+      // 搜索同时过滤任务和会话，两种排列都一样。
+      const search = sidebar.getByTestId("sidebar-search");
+      await search.fill("数据");
+      await expect(sidebar.getByTestId("task-row")).toHaveCount(1);
+      await expect(sidebar.getByTestId("sidebar-session")).toHaveCount(0);
+      await search.fill("内存");
+      await expect(sidebar.getByTestId("task-row")).toHaveCount(0);
+      await expect(myApp.getByTestId("sidebar-session")).toHaveCount(1);
+      await search.fill("");
+
+      // 按时间：任务和会话平铺成一列，没有文件夹；先 8 行再"显示更多"。
+      await sidebar.getByTestId("sidebar-history-by-time").click();
+      await expect(sidebar.getByTestId("sidebar-folder")).toHaveCount(0);
+      await expect(sidebar.getByTestId("sidebar-session")).toHaveCount(2);
+      await expect(history.locator(".sb-row-main")).toHaveCount(8);
+      await history.getByTestId("sidebar-history-more").click();
+      await expect(history.locator(".sb-row-main")).toHaveCount(11);
+      await sidebar.getByTestId("sidebar-history-by-folder").click();
+      await expect(sidebar.getByTestId("sidebar-folder")).toHaveCount(3);
 
       // 状态点：形状不同，各有 aria-label。
       await expect(sidebar.locator(".sb-dot-waiting")).toHaveCount(2);
       await expect(sidebar.locator(".sb-dot-running")).toHaveCount(1);
       await expect(sidebar.locator(".sb-dot-done")).toHaveCount(1);
       await expect(sidebar.locator(".sb-dot-error")).toHaveCount(1);
-
       // 键盘：Tab 进入列表后方向键移动，F2 重命名，Enter 提交。
       const firstRow = sidebar.getByTestId("task-row").first().locator(".sb-row-main");
       await firstRow.focus();
@@ -203,7 +257,7 @@ for (const [locale, colorScheme] of [
       await page.keyboard.press("Enter");
       await expect(page.locator("[data-composer-input]")).toBeFocused();
 
-      // ← 折叠项目组（任务行消失，任务数出现），→ 再展开。
+      // ← 折叠文件夹（任务行消失，行数出现），→ 再展开。折叠状态只在本次会话里，不写进外壳状态。
       const toggle = sidebar.getByRole("region", { name: "my app" }).locator(".sb-group-toggle");
       const rows = sidebar.getByRole("region", { name: "my app" }).getByTestId("task-row");
       // 选中任务后输入框的聚焦是同步的（App 里唯一一处），不需要重试。
@@ -211,13 +265,11 @@ for (const [locale, colorScheme] of [
       await expect(toggle).toBeFocused();
       await page.keyboard.press("ArrowLeft");
       await expect(rows).toHaveCount(0);
+      await expect(toggle.locator(".sb-group-count")).toContainText("8");
       await toggle.focus();
       await page.keyboard.press("ArrowRight");
-      await expect(rows).toHaveCount(6);
-      // 折叠状态写进主进程的外壳状态（不是 localStorage）；运行中的任务行显示已运行时长。
-      expect((await mainCalls(app, "setShellState")).map((args) => args[0])).toContainEqual({
-        collapsedProjects: ["pa"],
-      });
+      await expect(rows).toHaveCount(7);
+      // 运行中的任务行显示已运行时长。
       await expect(sidebar.getByTestId("task-row").filter({ hasText: "重构数据层" })).toContainText(
         locale === "zh-CN" ? "5 分钟" : "5m",
       );

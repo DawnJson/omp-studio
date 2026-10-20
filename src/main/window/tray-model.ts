@@ -2,6 +2,7 @@
 // 图标、点击和 Menu 对象由 tray.ts 接线。
 import type { Locale, TaskId, TaskState } from "../../shared/ipc.ts";
 import { t } from "../../shared/i18n/index.ts";
+import { stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 
 export interface TrayCounts {
   /** 在跑的：starting（正在拉起 omp）和 running。 */
@@ -59,7 +60,7 @@ export function trayMenuTemplate(locale: Locale, tasks: readonly TrayTask[], act
   for (const task of busy.slice(0, trayTaskLimit)) {
     const key = task.status === "needs_you" ? "notify.tray.task.waiting" : "notify.tray.task.running";
     // 菜单标签里的 & 是快捷键标记，任务标题里的要转义。
-    const title = (task.title || t(locale, "task.untitled")).replaceAll("&", "&&");
+    const title = (stripIconGlyphs(task.title) || t(locale, "task.untitled")).replaceAll("&", "&&");
     items.push({ label: t(locale, key, { title }), click: () => actions.focusTask(task.id) });
   }
   items.push({ type: "separator" }, { label: t(locale, "notify.tray.quit"), click: actions.quit });

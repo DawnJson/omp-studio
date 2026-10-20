@@ -35,6 +35,7 @@ npm test             # 单元测试（Vitest）
 npm run build        # 构建到 out/
 npm run test:e2e     # 端到端测试（Playwright + Electron），先 build
 npm run dist         # 打 NSIS 安装包到 release/
+npm run icons        # 改了标志（src/shared/ui/pixel-pi.ts）后重新生成 resources/icon.ico 和 tray.png
 ```
 
 - 真实调模型的测试和 RPC 录制要用 `.env`（模板 `.env.example`），里面放测试用的 provider key 和 `STUDIO_TEST_MODEL`。不会读你真实 `~/.omp` 里的凭据。

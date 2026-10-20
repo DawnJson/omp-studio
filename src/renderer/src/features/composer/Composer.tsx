@@ -10,9 +10,8 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
-import type { TaskId } from "../../../../shared/ipc.ts";
+import type { TaskId, TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Plus } from "../../icons.tsx";
 import { useOmpStatus, useSettings, useTask, useTranscript } from "../../store/index.ts";
 import { GateSlot } from "../dialogs/gate-slot.tsx";
 import { getGateControl } from "../dialogs/gate-bus.ts";
@@ -45,26 +44,46 @@ import { Reveal } from "../../ui/Reveal.tsx";
 import { useHeld } from "./use-held.ts";
 import { JobsBoard } from "./JobsBoard.tsx";
 import { useJobs } from "./use-jobs.ts";
+import { useReclaimFocus } from "./use-reclaim-focus.ts";
+import { TspChangeStrip } from "../tsp-changes/TspChangeStrip.tsx";
+import type { Transcript } from "../../../../shared/transcript.ts";
 
-export function Composer({ taskId }: { taskId: TaskId }) {
+/** 输入框上方的状态栏（运行状态 + 后台任务）：从 rpc 对话流和泳道推出来，只有 rpc 任务有。 */
+function StatusBar({ taskId, task, transcript }: { taskId: TaskId; task: TaskState; transcript: Transcript | null }) {
+  const jobs = useJobs(taskId, transcript);
+  return (
+    <div className="status-bar">
+      <RunStatus task={task} transcript={transcript} jobs={jobs} />
+      <JobsBoard taskId={taskId} jobs={jobs} projectPath={task.cwd} />
+    </div>
+  );
+}
+
+/** TSP 任务没有 studio 接管的斜杠命令（它们靠 rpc）。 */
+const noStudioCommands: typeof studioSlashCommands = [];
+
+export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDraft?: boolean }) {
   const t = useT();
   const task = useTask(taskId);
+  // TSP 任务（engine "tsp"）：过程区是 TspView，输入框功能不变；文字照常发给 omp（`/` `!` 开头的也原样交给它），studio 靠 rpc 的东西（studio 斜杠命令、队列条、状态栏）不出现。
+  const tsp = task?.engine === "tsp";
   const transcript = useTranscript(taskId);
-  const jobs = useJobs(taskId, transcript);
   const draft = useDraft(taskId);
   const suggestion = useEditorSuggestion(taskId);
   const omp = useOmpStatus();
   const settings = useSettings();
   const fieldRef = useRef<HTMLTextAreaElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  useReclaimFocus(fieldRef, tsp);
   // 按任务记：切到别的任务不会继承"正在停止"。
   const [stoppingId, setStoppingId] = useState<TaskId | null>(null);
   const stopping = stoppingId === taskId;
   const ompCommands = useSlashCommands(taskId);
   // omp 的列表还没载入时保持空：守卫在空列表时一律放行（studio-slash 的命令发送时照样会被接管）。
+  // TSP 任务：studio 接管的命令（/tree /fork /btw /goal /export）靠 rpc，用不了；菜单只列 omp 自己的命令（同名的也是 omp 的），选中后文字原样发给 omp。
+  const studioCommands = tsp ? noStudioCommands : studioSlashCommands;
   const commands = useMemo(
-    () => (ompCommands.length === 0 ? ompCommands : withStudioSlash(ompCommands, studioSlashCommands, t)),
-    [ompCommands, t],
+    () => (ompCommands.length === 0 ? ompCommands : withStudioSlash(ompCommands, studioCommands, t)),
+    [ompCommands, studioCommands, t],
   );
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashClosedFor, setSlashClosedFor] = useState<string | null>(null);
@@ -88,6 +107,8 @@ export function Composer({ taskId }: { taskId: TaskId }) {
 
   const running = task?.status === "running" || task?.status === "needs_you";
   const gate = (task?.dialogs.length ?? 0) > 0;
+  // TSP 任务：omp 正在画提问/审批（任务 needs_you，或有合成的 tsp-ask 门）。回答在过程区里，输入框这时不能发送。
+  const tspAsking = tsp && (task?.status === "needs_you" || gate);
   const hasContent = draft.text.trim() !== "" || draft.images.length > 0;
   const swapped = settings?.enterWhileRunning === "followUp";
   const tooOld = omp?.state === "ready" && omp.belowMinimum;
@@ -109,12 +130,12 @@ export function Composer({ taskId }: { taskId: TaskId }) {
   const sendNow = (whenBusy: Delivery) => {
     recordSent(taskId, getDraft(taskId).text, transcript?.items ?? null);
     setSlashNotice(null);
-    void sendDraft(taskId, whenBusy, t, running);
+    void sendDraft(taskId, whenBusy, t, running, tsp);
   };
 
   const placeholder = worktreeGone
     ? t("error.worktreeMissing")
-    : gate
+    : gate || tspAsking
       ? t("composer.placeholderGate")
       : running
         ? t(swapped ? "composer.placeholderRunningSwapped" : "composer.placeholderRunning")
@@ -163,6 +184,8 @@ export function Composer({ taskId }: { taskId: TaskId }) {
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
+      // TSP 过程区里的 Esc（关选择器、取消提问）是写给 omp 的按键，不是"停止任务"。
+      if (event.target instanceof Element && event.target.closest('[data-testid="tsp-view"]') !== null) return;
       if (getShellRun(taskId) !== null) {
         event.preventDefault();
         window.studio.abortBash(taskId).catch((error: unknown) => reportError(t, error));
@@ -179,9 +202,9 @@ export function Composer({ taskId }: { taskId: TaskId }) {
     () =>
       onStudioCommand((command) => {
         if (command === "stop") stop();
-        if (command === "compact") void compactContext(taskId, t);
+        if (command === "compact" && !tsp) void compactContext(taskId, t);
       }),
-    [stop, taskId, t],
+    [stop, taskId, t, tsp],
   );
 
   const addFiles = async (files: Iterable<File>) => {
@@ -264,10 +287,12 @@ export function Composer({ taskId }: { taskId: TaskId }) {
         isComposing: event.nativeEvent.isComposing,
         keyCode: event.keyCode,
       },
-      { running, gate, hasContent, swapped, shell: isShellDraft(draft) },
+      // TSP 任务：`!` 原样发给 omp，不当 shell 命令；门由 omp 画（tspAsking 时上面直接不发送）。
+      { running, gate: gate && !tsp, hasContent, swapped, shell: !tsp && isShellDraft(draft) },
     );
     if (action === "default") return;
     event.preventDefault();
+    if (tspAsking) return;
     if ((tooOld || worktreeGone) && action !== "gatePrimary") return;
     if (action === "gatePrimary") getGateControl()?.primary();
     else if (action === "shell") sendNow("steer");
@@ -282,12 +307,12 @@ export function Composer({ taskId }: { taskId: TaskId }) {
     } else if (allowSend()) sendNow(action === "followUp" ? "followUp" : "steer");
   };
 
+  // 粘贴：图片作附件；其余文件（资源管理器里复制的文件、文件夹）由 preload 把路径插进输入框（src/preload/index.ts）。
   const onPaste = (event: ClipboardEvent) => {
-    const files = [...event.clipboardData.files];
-    if (files.some((file) => file.type.startsWith("image/"))) {
-      event.preventDefault();
-      void addFiles(files);
-    }
+    const images = [...event.clipboardData.files].filter((file) => file.type.startsWith("image/"));
+    if (images.length === 0) return;
+    event.preventDefault();
+    void addFiles(images);
   };
   const onDragOver = (event: DragEvent) => {
     if ([...event.dataTransfer.items].some((item) => item.kind === "file")) event.preventDefault();
@@ -300,8 +325,9 @@ export function Composer({ taskId }: { taskId: TaskId }) {
 
   if (!task) return null;
   return (
-    <div className="composer-stack" data-testid="composer-stack">
-      <GateSlot />
+    <div className="composer-stack" data-testid="composer-stack" data-from-draft={fromDraft ? "" : undefined}>
+      {/* 门（审批、提问）：rpc 任务由 DialogLayer 放进这里；TSP 任务的由 omp 画在过程区里，不挂槽。 */}
+      {!tsp && <GateSlot />}
       <Reveal open={suggestion !== null}>
         <div className="suggest" role="status">
           <span>{t("gate.suggestReplace")}</span>
@@ -332,12 +358,12 @@ export function Composer({ taskId }: { taskId: TaskId }) {
         )}
       </Reveal>
       <UsageLimitBanner limit={task.usageLimit} />
-      <QueueStrip taskId={taskId} queue={task.queue} />
-      <div className="status-bar">
-        <RunStatus task={task} transcript={transcript} jobs={jobs} />
-        <JobsBoard taskId={taskId} jobs={jobs} projectPath={task.cwd} />
-      </div>
-      <div className="composer" data-gate={gate || undefined} onDragOver={onDragOver} onDrop={onDrop}>
+      {/* TSP 任务：排队、运行状态、待办、后台任务都是 omp 在过程区的 dock 里画的。 */}
+      {!tsp && <QueueStrip taskId={taskId} queue={task.queue} />}
+      {!tsp && <StatusBar taskId={taskId} task={task} transcript={transcript} />}
+      {/* TSP 任务：本轮改动的一行摘要（过程区里只有 omp 的节点）。 */}
+      {tsp && <TspChangeStrip taskId={taskId} />}
+      <div className="composer" data-gate={(gate && !tsp) || undefined} onDragOver={onDragOver} onDrop={onDrop}>
         <SlashMenu
           id="slash-menu"
           open={slashOpen}
@@ -391,26 +417,6 @@ export function Composer({ taskId }: { taskId: TaskId }) {
           />
         </div>
         <div className="composer-tools">
-          <button
-            type="button"
-            className="tool-btn"
-            aria-label={t("composer.attach")}
-            title={t("composer.attach")}
-            onClick={() => fileRef.current?.click()}
-          >
-            <Plus size={16} />
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            onChange={(event) => {
-              void addFiles(event.target.files ?? []);
-              event.target.value = "";
-            }}
-          />
           <ModelChip
             model={task.model}
             thinkingLevel={task.thinkingLevel}
@@ -437,7 +443,7 @@ export function Composer({ taskId }: { taskId: TaskId }) {
             running={running}
             stopping={stopping}
             hasContent={hasContent}
-            disabled={tooOld === true || worktreeGone}
+            disabled={tooOld === true || worktreeGone || tspAsking}
             onSend={() => {
               if (allowSend()) sendNow("steer");
             }}

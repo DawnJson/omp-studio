@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { findOmp, makeRepo, put, sh } from "../git-helpers.ts";
-import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { expandSidebarFolders, launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
@@ -403,6 +403,7 @@ test("setup 脚本确认：同意后记住，同一份内容不再问；改了�
     await chip.click();
     await page.getByTestId("composer-input").fill("第二个");
     await page.keyboard.press("Enter");
+    await expandSidebarFolders(page);
     await expect(page.getByTestId("task-row-worktree")).toHaveCount(2);
     await expect(dialog).toHaveCount(0);
 
@@ -414,10 +415,12 @@ test("setup 脚本确认：同意后记住，同一份内容不再问；改了�
     await page.keyboard.press("Enter");
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "取消" }).click();
+    await expandSidebarFolders(page);
     await expect(page.getByTestId("task-row-worktree")).toHaveCount(2);
     // 再发一次并同意：运行的是 v2
     await page.keyboard.press("Enter");
     await page.getByTestId("git-setup-confirm").click();
+    await expandSidebarFolders(page);
     await expect(page.getByTestId("task-row-worktree")).toHaveCount(3);
     const worktrees = sh(repo, "worktree", "list", "--porcelain").match(/^worktree .+$/gm) ?? [];
     expect(worktrees).toHaveLength(4);

@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fixtureFile = path.join(root, "fixtures", "rpc", "subagents-parallel.ndjson");
@@ -73,7 +73,7 @@ async function openNewTaskAndSend(page: Page, prompt: string): Promise<void> {
     if (!project) throw new Error("addProject 没有返回项目");
     await globalThis.studio.createTask({ projectId: project.id });
   });
-  await page.getByTestId("task-row").first().locator(".sb-row-main").click();
+  await openTaskRow(page);
   const input = page.getByTestId("composer-input");
   await expect(input).toBeVisible();
   await input.fill(prompt);
@@ -110,7 +110,7 @@ test("回放结束后：展开已工作行出现泳道，两个子代理各一�
     await openNewTaskAndSend(page, prompt);
     const done = page.getByTestId("process-done");
     await expect(done).toBeVisible({ timeout: 45_000 });
-    await expect(done).toContainText(/(2 个子代理|2 subagents)/);
+    await expect(done).toContainText("2 subagents");
     // 过程默认展开：泳道直接可见；标题行可收起再展开。
     await expect(page.getByTestId("lanes")).toBeVisible();
     await done.locator(".process-row").click();
@@ -123,15 +123,18 @@ test("回放结束后：展开已工作行出现泳道，两个子代理各一�
     await expect(rows.nth(1)).toHaveAttribute("data-lane", "BetaSummarizer");
     await expect(rows.nth(0)).toHaveAttribute("data-status", "completed");
     await expect(rows.nth(1)).toHaveAttribute("data-status", "completed");
-    // 状态和模型：行里有模型名；主代理一行有工具节奏的标记。
+    // 像 Tern 里 omp 的 Agents 表：表头是合计（费用 · 用时 · 请求 · token），行里有模型名，右侧数字列。
+    await expect(page.getByTestId("lanes-toggle")).toContainText("Agents");
+    await expect(page.getByTestId("lanes-totals")).toHaveText(/^\$[\d.]+ · [\d.]+s · \d+ req · [\d.]+K? tok$/);
     await expect(rows.nth(0)).toContainText("deepseek-v4-flash");
-    expect(await page.getByTestId("lane-main").locator(".lane-mark").count()).toBeGreaterThan(0);
-    // 条在轴上有宽度，并且两个子代理在时间上重叠（并行）。
-    const bars = page.locator(".lane-bar");
-    const [a, b] = await Promise.all([bars.nth(0).boundingBox(), bars.nth(1).boundingBox()]);
-    expect(a?.width).toBeGreaterThan(4);
-    expect(b?.width).toBeGreaterThan(4);
-    expect((a?.x ?? 0) + (a?.width ?? 0)).toBeGreaterThan(b?.x ?? Infinity);
+    // 数字列上下对齐：列头的 Cost 和两行的 Cost 右边缘一致。
+    const costRight = async (row: ReturnType<Page["locator"]>) => {
+      const box = await row.locator(".agent-num").first().boundingBox();
+      return (box?.x ?? 0) + (box?.width ?? 0);
+    };
+    const header = page.locator(".agent-cols");
+    const edges = await Promise.all([costRight(header), costRight(rows.nth(0)), costRight(rows.nth(1))]);
+    expect(Math.max(...edges) - Math.min(...edges)).toBeLessThanOrEqual(1);
     // 过程里的普通工具行仍在泳道下面。
     await expect(page.locator(".details .step-tool").first()).toBeVisible();
     await page.getByTestId("lanes").evaluate("(el) => el.scrollIntoView({ block: 'start' })");
@@ -185,7 +188,7 @@ test("子代理在跑：运行中的泳道，steer 发出后有提示，cancel �
     // 运行中泳道直接列在对话里，不用先点开；"N 个子代理在跑"在输入框上方的状态行。
     const live = page.getByTestId("process-live");
     await expect(live).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId("run-status-main")).toContainText(/(2 个子代理|2 subagents)/, { timeout: 30_000 });
+    await expect(page.getByTestId("run-status-main")).toContainText("2 subagents", { timeout: 30_000 });
     const rows = page.getByTestId("lane-row");
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0)).toHaveAttribute("data-status", "running");

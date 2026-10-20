@@ -23,12 +23,14 @@
     "test:e2e": "playwright test",
     "rpc:update-wire": "node scripts/update-rpc-wire.ts",
     "rpc:record": "node scripts/record-rpc.ts",
+    "icons": "node scripts/make-icons.ts",
     "dist": "electron-vite build && electron-builder --win nsis --publish never",
     "feed": "node scripts/make-feed.ts ../omp-studio-updates",
     "release": "node scripts/release.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
+    "@types/katex": "^0.16.8",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -46,6 +48,7 @@
     "@xterm/addon-fit": "0.11.0",
     "@xterm/xterm": "6.0.0",
     "electron-updater": "6.8.9",
+    "katex": "^0.19.0",
     "koffi": "3.3.3",
     "markdown-it": "15.0.3",
     "node-pty": "1.1.0",

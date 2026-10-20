@@ -2,7 +2,6 @@ import type { MessageEntry } from "../index.ts";
 import type { conversation as zhCN } from "../zh-CN/conversation.ts";
 
 export const conversation = {
-  compacted: "Context compacted",
   imageAlt: "Image",
   commandOutput: "Command output",
   starting: "Starting omp…",
@@ -13,14 +12,7 @@ export const conversation = {
   "todo.completed": "Completed",
   "todo.blocked": "Blocked",
   "todo.abandoned": "Abandoned",
-  "shell.running": "Running…",
   "shell.stop": "Stop",
-  "shell.exit": "Exit code {code}",
-  "shell.cancelled": "Cancelled",
-  "shell.truncated": "omp truncated the output",
-  "shell.showAll": "Show all ({count} lines)",
-  "shell.collapse": "Collapse",
-  "shell.noOutput": "(no output)",
   "shell.excludeUnsupported":
     "!! (keep out of the model context) is not supported over omp's RPC yet; use ! and the model will see the output, or run it in the terminal omp",
   "shell.busy":

@@ -107,6 +107,15 @@ export const Branch = (props: IconProps) => (
     <path d="M4.5 5v6M11.5 7c0 2.500-3 2.500-7 4" />
   </Icon>
 );
+/** 子代理：两个人 */
+export const Users = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="6" cy="5.500" r="2" />
+    <path d="M2.500 13c0-2 1.500-3.500 3.500-3.500s3.500 1.500 3.500 3.500" />
+    <circle cx="11.500" cy="6" r="1.600" />
+    <path d="M11 9.600c1.900 0 3 1.300 3 3.400" />
+  </Icon>
+);
 /** 评审：一页纸上的 ± */
 export const Diff = (props: IconProps) => (
   <Icon {...props}>

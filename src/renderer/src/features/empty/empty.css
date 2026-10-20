@@ -76,14 +76,13 @@
   border-radius: var(--radius-xl);
 }
 
-/* 工具行里审批胶囊右边的项目标签：和胶囊同高，不能点，只是"文件夹图标 + 文件夹路径" */
+/* 工具行里审批胶囊右边的项目标签：纯文字（文件夹图标 + 文件夹路径），不画成胶囊，不能点 */
 .empty-project {
   display: inline-flex;
   flex: 0 1 auto;
   align-items: center;
   gap: var(--space-1-5);
   min-width: 0;
-  height: var(--control-h-sm);
   padding: 0 var(--space-1);
   font-size: var(--fs-sm);
   color: var(--text-2);

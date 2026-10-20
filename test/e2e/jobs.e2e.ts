@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fixtureFile = path.join(root, "fixtures", "rpc", "bg-jobs.ndjson");
@@ -47,7 +47,7 @@ async function openNewTaskAndSend(page: Page, prompt: string): Promise<void> {
     if (!project) throw new Error("addProject 没有返回项目");
     await globalThis.studio.createTask({ projectId: project.id });
   });
-  await page.getByTestId("task-row").first().locator(".sb-row-main").click();
+  await openTaskRow(page);
   const input = page.getByTestId("composer-input");
   await expect(input).toBeVisible();
   await input.fill(prompt);
@@ -57,41 +57,47 @@ async function openNewTaskAndSend(page: Page, prompt: string): Promise<void> {
 const prompt =
   "用 task 工具开 1 个子代理读一下当前目录列出文件；同时用 bash 后台运行一个 12 秒的命令，等它们都结束再汇报。";
 
-test("agent 在 wait 两个 job：状态行说在等几个，胶囊 2 运行 │ 0 结束；状态行下不再重复列 job", async () => {
+test("agent 在 wait 两个 job：状态行说在等几个，两个按钮各 1 运行；状态行下不再重复列 job", async () => {
   // 第 485 行：第一次 wait 的第二条 update，ListDir 和 bg_1 都还在跑。
   const { launched, cleanup } = await start(await fixtureUntil(485));
   try {
     const { page } = launched;
     await openNewTaskAndSend(page, prompt);
     const status = page.getByTestId("run-status-main");
-    await expect(status).toContainText(/(等待 2 个后台任务|waiting on 2 jobs)/, { timeout: 30_000 });
+    await expect(status).toContainText("waiting on 2 jobs", { timeout: 30_000 });
     await expect(page.getByTestId("job-chip")).toHaveCount(0);
-    const pill = page.getByTestId("jobs-pill");
-    await expect(pill.getByTestId("jobs-pill-running")).toHaveText("2");
-    await expect(pill.getByTestId("jobs-pill-done")).toHaveText("0");
+    const bashPill = page.getByTestId("jobs-pill-bash");
+    const taskPill = page.getByTestId("jobs-pill-task");
+    for (const pill of [bashPill, taskPill]) {
+      await expect(pill.getByTestId("jobs-pill-count")).toHaveText("1");
+      await expect(pill.getByTestId("jobs-pill-count")).toHaveAttribute("data-state", "running");
+    }
   } finally {
     await cleanup();
   }
 });
 
-test("子代理完成、bash 还在跑：1/2 个后台任务 · 1 个完成；看板列出两个 job，展开 bash 看输出，Esc 关闭回到胶囊", async () => {
+test("子代理完成、bash 还在跑：1/2 个后台任务 · 1 个完成；后台任务按钮 1 运行、子代理按钮 1 结束，各自的看板只列自己的 job，Esc 关闭回到按钮", async () => {
   // 第 550 行：第二次 wait 的最后一条 update（bg_1 已跑了 11.7 秒），ListDir 早已完成。
   const { launched, cleanup } = await start(await fixtureUntil(550));
   try {
     const { page } = launched;
     await openNewTaskAndSend(page, prompt);
-    await expect(page.getByTestId("run-status-main")).toContainText(
-      /(等待 1\/2 个后台任务 · 1 个完成|waiting on 1 of 2 jobs · 1 done)/,
-      { timeout: 30_000 },
-    );
-    const pill = page.getByTestId("jobs-pill");
-    await expect(pill.getByTestId("jobs-pill-running")).toHaveText("1");
-    await expect(pill.getByTestId("jobs-pill-done")).toHaveText("1");
-    // 胶囊不在输入框里：在输入框右上方，和状态行同一行、上下居中对齐，右边和输入框对齐。
-    await expect(page.locator(".composer").getByTestId("jobs-pill")).toHaveCount(0);
+    await expect(page.getByTestId("run-status-main")).toContainText("waiting on 1 of 2 jobs · 1 done", {
+      timeout: 30_000,
+    });
+    const bashPill = page.getByTestId("jobs-pill-bash");
+    const taskPill = page.getByTestId("jobs-pill-task");
+    await expect(bashPill.getByTestId("jobs-pill-count")).toHaveText("1");
+    await expect(bashPill.getByTestId("jobs-pill-count")).toHaveAttribute("data-state", "running");
+    await expect(taskPill.getByTestId("jobs-pill-count")).toHaveText("1");
+    await expect(taskPill.getByTestId("jobs-pill-count")).toHaveAttribute("data-state", "done");
+    // 按钮不在输入框里：在输入框右上方，和状态行同一行、上下居中对齐，右边和输入框对齐。
+    await expect(page.locator(".composer").getByTestId("jobs-pill-bash")).toHaveCount(0);
+    await expect(page.locator(".composer").getByTestId("jobs-pill-task")).toHaveCount(0);
     await page.waitForTimeout(400); // 等状态行的展开动画走完再量
     const [pillBox, mainBox, composerBox] = await Promise.all([
-      pill.boundingBox(),
+      taskPill.boundingBox(),
       page.getByTestId("run-status-main").boundingBox(),
       page.locator(".composer").boundingBox(),
     ]);
@@ -102,41 +108,57 @@ test("子代理完成、bash 还在跑：1/2 个后台任务 · 1 个完成；�
       pillBox && composerBox && Math.abs(pillBox.x + pillBox.width - (composerBox.x + composerBox.width)) <= 2,
     ).toBe(true);
 
-    await pill.click();
+    // 子代理按钮：看板只列子代理。
+    await taskPill.click();
     const board = page.getByTestId("jobs-board");
     await expect(board).toBeVisible();
     const rows = page.getByTestId("job-row");
-    await expect(rows).toHaveCount(2);
+    await expect(rows).toHaveCount(1);
     await expect(rows.nth(0)).toHaveAttribute("data-job-id", "ListDir");
     await expect(rows.nth(0)).toHaveAttribute("data-type", "task");
     await expect(rows.nth(0)).toHaveAttribute("data-status", "completed");
-    await expect(rows.nth(1)).toHaveAttribute("data-job-id", "bg_1");
-    await expect(rows.nth(1)).toHaveAttribute("data-type", "bash");
-    await expect(rows.nth(1)).toHaveAttribute("data-status", "running");
+    await page.keyboard.press("Escape");
+    await expect(board).toHaveCount(0);
+    await expect(taskPill).toBeFocused();
+
+    // 后台任务按钮：看板只列 bash。
+    await bashPill.click();
+    await expect(board).toBeVisible();
+    await expect(rows).toHaveCount(1);
+    await expect(rows.nth(0)).toHaveAttribute("data-job-id", "bg_1");
+    await expect(rows.nth(0)).toHaveAttribute("data-type", "bash");
+    await expect(rows.nth(0)).toHaveAttribute("data-status", "running");
 
     await page.keyboard.press("Escape");
     await expect(board).toHaveCount(0);
-    await expect(pill).toBeFocused();
+    await expect(bashPill).toBeFocused();
   } finally {
     await cleanup();
   }
 });
 
-test("回放结束后：胶囊 0 运行 │ 2 结束，看板里 ListDir 和 bg_1 都是已完成，bg_1 展开能看到命令输出", async () => {
+test("回放结束后：两个按钮都是 ✓ 1，各自的看板里 ListDir 和 bg_1 都是已完成，bg_1 展开能看到命令输出", async () => {
   const { launched, cleanup } = await start(await fixtureUntil(null));
   try {
     const { page } = launched;
     await openNewTaskAndSend(page, prompt);
-    const pill = page.getByTestId("jobs-pill");
-    await expect(pill.getByTestId("jobs-pill-done")).toHaveText("2", { timeout: 45_000 });
-    await expect(pill.getByTestId("jobs-pill-running")).toHaveText("0");
+    const bashPill = page.getByTestId("jobs-pill-bash");
+    const taskPill = page.getByTestId("jobs-pill-task");
+    await expect(bashPill.getByTestId("jobs-pill-count")).toHaveAttribute("data-state", "done", { timeout: 45_000 });
+    await expect(bashPill.getByTestId("jobs-pill-count")).toHaveText("1");
+    await expect(taskPill.getByTestId("jobs-pill-count")).toHaveAttribute("data-state", "done");
+    await expect(taskPill.getByTestId("jobs-pill-count")).toHaveText("1");
 
-    await pill.click();
+    await taskPill.click();
     const rows = page.getByTestId("job-row");
-    await expect(rows).toHaveCount(2);
+    await expect(rows).toHaveCount(1);
     await expect(rows.nth(0)).toHaveAttribute("data-status", "completed");
-    await expect(rows.nth(1)).toHaveAttribute("data-status", "completed");
-    await rows.nth(1).click();
+    await page.keyboard.press("Escape");
+
+    await bashPill.click();
+    await expect(rows).toHaveCount(1);
+    await expect(rows.nth(0)).toHaveAttribute("data-status", "completed");
+    await rows.nth(0).click();
     await expect(page.getByTestId("job-output")).toContainText("job-done");
   } finally {
     await cleanup();

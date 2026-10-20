@@ -14,13 +14,22 @@ import { studioSlashCommands } from "./studio-slash-table.ts";
 
 export type Delivery = "steer" | "followUp";
 
-/** 发送草稿。先清空输入框（乐观），发送失败再放回去并提示；发送后强制吸底。 */
-export async function sendDraft(taskId: TaskId, whenBusy: Delivery, t: TFunction, running: boolean): Promise<void> {
+/**
+ * 发送草稿。先清空输入框（乐观），发送失败再放回去并提示；发送后强制吸底。
+ * `tsp`（TSP 任务）：`/` `!` 开头的文字原样交给 omp（它自己处理并在过程区里画界面），不走 studio 的斜杠命令和 RPC bash。
+ */
+export async function sendDraft(
+  taskId: TaskId,
+  whenBusy: Delivery,
+  t: TFunction,
+  running: boolean,
+  tsp = false,
+): Promise<void> {
   const draft = getDraft(taskId);
   const text = draft.text.trim();
   if (text === "" && draft.images.length === 0) return;
-  if (isShellDraft(draft)) return runShellDraft(taskId, text, t, running);
-  const studio = draft.images.length === 0 ? findStudioSlash(text, studioSlashCommands) : null;
+  if (!tsp && isShellDraft(draft)) return runShellDraft(taskId, text, t, running);
+  const studio = !tsp && draft.images.length === 0 ? findStudioSlash(text, studioSlashCommands) : null;
   if (studio !== null) {
     setDraft(taskId, { text: "", images: [] });
     try {

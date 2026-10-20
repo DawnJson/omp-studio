@@ -102,6 +102,10 @@
 .panel > :is(.empty, .settings, .conversation, .composer-stack, .composer) {
   animation: view-in var(--dur-base) var(--ease-out);
 }
+/* 草稿发出第一条消息后同一位置接着用：输入框不重放换页淡入（见 App.tsx fromDraft） */
+.panel > .composer-stack[data-from-draft] {
+  animation: none;
+}
 
 /* 切任务：.conversation 不重挂载，ConversationView 用 data-switching(a/b 交替)重放对话列动画。
    切换期间压掉消息自己的 turn-in，避免两层动画叠加。 */

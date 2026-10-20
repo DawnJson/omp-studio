@@ -16,19 +16,25 @@ asarUnpack:
 # node-pty 用自带的预编译件（prebuilds/win32-x64，N-API，Electron 44 实测可直接加载）；
 # 默认的 @electron/rebuild 会尝试从源码编译，没有 VS 工具链的机器上会失败。
 npmRebuild: false
-# 托盘图标（src/main/window/tray.ts 从 process.resourcesPath 读）。
+# 托盘图标（src/main/window/tray.ts 从 process.resourcesPath 读）和窗口图标（main-window.ts 同样从 resources 读）。
+# 两个文件都由 scripts/make-icons.ts 从 src/shared/ui/pixel-pi.ts 生成。
 extraResources:
   - from: resources/tray.png
     to: tray.png
+  - from: resources/icon.ico
+    to: icon.ico
 # koffi 的原生 .node 在 @koromix/koffi-<平台> 包里，electron-builder 会自动把 .node 解出 asar；
 # 已在打包产物里实测 koffi 能加载并调用 kernel32。
 win:
+  # exe、安装包和快捷方式的图标。
+  icon: resources/icon.ico
   target:
     - target: dir
       arch: x64
     - target: nsis
       arch: x64
-  signAndEditExecutable: false
+  # 不签名，但要改 exe 资源：图标和版本信息才会写进 exe（signAndEditExecutable: false 会连图标一起跳过）。
+  signExecutable: false
 # 自动更新只认安装版（NSIS）。装到用户目录，不需要管理员权限。
 nsis:
   oneClick: true

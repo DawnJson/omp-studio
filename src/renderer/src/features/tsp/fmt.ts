@@ -1,0 +1,95 @@
+// TSP 节点里的数字格式（纯函数）：elapsed 的 short / clock、rate、agent 统计里的紧凑计数和费用。
+
+const pad2 = (n: number): string => String(n).padStart(2, "0");
+
+/** elapsed 的显示（规范 Motion/elapsed）：负数按 0；short 小于 1 分钟带十分位（向下取整，不会跑到真实时间前面）。 */
+export function formatElapsed(ms: number, format: "short" | "clock" = "short"): string {
+  const total = Math.max(0, ms);
+  const hours = Math.floor(total / 3_600_000);
+  const minutes = Math.floor((total % 3_600_000) / 60_000);
+  const seconds = Math.floor((total % 60_000) / 1000);
+  if (format === "clock") {
+    if (hours > 0) return `${hours}:${pad2(minutes)}:${pad2(seconds)}`;
+    return `${minutes}:${pad2(seconds)}`;
+  }
+  if (hours > 0) return `${hours}h ${pad2(minutes)}m`;
+  if (minutes > 0) return `${minutes}m ${pad2(seconds)}s`;
+  return `${(Math.floor(total / 100) / 10).toFixed(1)}s`;
+}
+
+/** rate：一位小数，100 以上取整；有单位时空一格接在后面。 */
+export function formatRate(value: number, unit?: string): string {
+  const text = Math.abs(value) < 100 ? value.toFixed(1) : String(Math.round(value));
+  return unit ? `${text} ${unit}` : text;
+}
+
+/** 紧凑计数：999、12K、1.2M。 */
+export function formatCount(n: number): string {
+  if (n < 1000) return String(Math.round(n));
+  if (n < 1_000_000) return `${trim(n / 1000)}K`;
+  return `${trim(n / 1_000_000)}M`;
+}
+
+function trim(value: number): string {
+  return value >= 10 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
+}
+
+/** 费用：$0.42，不到一美分写 <$0.01。 */
+export function formatCost(usd: number): string {
+  return usd < 0.01 ? "<$0.01" : `$${usd.toFixed(2)}`;
+}
+
+/** 0–1（或大于 1 的百分数）归一成 0–1。 */
+export function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+/** extent（"40ch" / "10lines" / 0–1 的比例）转 CSS；不认识的返回 undefined。 */
+export function extentToCss(extent: unknown): string | undefined {
+  if (typeof extent === "number") return extent > 0 ? `${extent * 100}%` : undefined;
+  if (typeof extent !== "string") return undefined;
+  const match = /^(\d+(?:\.\d+)?)(ch|lines)$/.exec(extent);
+  if (!match) return undefined;
+  return `calc(${match[1]} * var(${match[2] === "ch" ? "--tsp-cw" : "--tsp-lh"}))`;
+}
+
+const KEYCAPS: Record<string, string> = {
+  ctrl: "⌃",
+  control: "⌃",
+  alt: "⌥",
+  option: "⌥",
+  opt: "⌥",
+  shift: "⇧",
+  cmd: "⌘",
+  command: "⌘",
+  meta: "⌘",
+  super: "⌘",
+  win: "⌘",
+  enter: "⏎",
+  return: "⏎",
+  esc: "esc",
+  escape: "esc",
+  tab: "⇥",
+  backspace: "⌫",
+  delete: "⌦",
+  del: "⌦",
+  space: "␣",
+  up: "↑",
+  down: "↓",
+  left: "←",
+  right: "→",
+  pageup: "⇞",
+  pagedown: "⇟",
+  home: "↖",
+  end: "↘",
+};
+
+/** 键名 → 键帽上的字（规范 Data/kbd 的表）：修饰键和命名键用符号，单个字符和 F1–F24 大写，其它原样。 */
+export function keycapLabel(name: string): string {
+  const key = name.toLowerCase();
+  const named = KEYCAPS[key];
+  if (named !== undefined) return named;
+  if (/^f\d{1,2}$/.test(key)) return key.toUpperCase();
+  if ([...name].length === 1) return name.toUpperCase();
+  return name;
+}

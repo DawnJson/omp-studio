@@ -4,6 +4,7 @@
 // 不 import electron：Notification 和窗口由 runtime.ts 注入，单元测试直接实例化。
 import type { DialogRequest, Locale, TaskId, TaskState } from "../../shared/ipc.ts";
 import { t } from "../../shared/i18n/index.ts";
+import { stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 
 export interface GateNotifierDeps {
   enabled(): Promise<boolean>;
@@ -60,7 +61,7 @@ export class GateNotifier {
       {
         title: t(locale, "notify.title", {
           project: this.#deps.projectName(state),
-          task: state.title || t(locale, "task.untitled"),
+          task: stripIconGlyphs(state.title) || t(locale, "task.untitled"),
         }),
         body: t(locale, "notify.body.gate", { title: dialogSummary(dialog) }),
       },
@@ -78,7 +79,7 @@ export class GateNotifier {
       {
         title: t(locale, "notify.title", {
           project: this.#deps.projectName(state),
-          task: state.title || t(locale, "task.untitled"),
+          task: stripIconGlyphs(state.title) || t(locale, "task.untitled"),
         }),
         body: t(locale, done ? "notify.body.done" : "notify.body.error"),
       },

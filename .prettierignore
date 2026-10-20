@@ -2,6 +2,7 @@
 package-lock.json
 # 从 omp 官方仓库原样拷贝，保持和上游一致，方便比对（src/main/AGENTS.md）。
 src/shared/omp-wire/rpc-wire.generated.ts
+src/shared/tsp/tsp.generated.ts
 # RPC 回放是录下来的原始帧。
 fixtures/
 # 文档里的中文表格按现在的紧凑写法维护，不让 Prettier 补齐空格。

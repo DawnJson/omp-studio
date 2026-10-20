@@ -1,11 +1,12 @@
 // 应用布局（spec §3.1–3.3）：40px 通栏任务条 + 侧栏 + 四角圆的主区“纸面”；窄窗口侧栏变抽屉。
 // 各功能入口的导出名和 props 是约定（props 只有 id，数据从 store hook 取）。
 import { reportError } from "../ui/errors.ts";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
-import { groupTasks, visibleOrder } from "../../../shared/ui/sidebar-model.ts";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { useVisibleTaskIds } from "../features/sidebar/visible-order-store.ts";
 import { Composer } from "../features/composer/index.ts";
 import { BtwPanel } from "../features/btw/index.ts";
 import { ConversationView } from "../features/conversation/index.ts";
+import { TspView } from "../features/tsp/index.ts";
 import { GitDialogHost } from "../features/git/index.ts";
 import { DialogLayer } from "../features/dialogs/index.ts";
 import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts";
@@ -22,8 +23,7 @@ import {
 } from "../features/terminal/index.ts";
 import { SettingsView } from "../features/settings/index.ts";
 import { onStudioCommand } from "../features/palette/studio-command.ts";
-import { useHiddenTasks } from "../features/sidebar/archive-store.ts";
-import { jumpToWaitingTask, Sidebar, useProjects } from "../features/sidebar/index.ts";
+import { jumpToWaitingTask, Sidebar } from "../features/sidebar/index.ts";
 import { useLocale, useT } from "../i18n/use-t.ts";
 import { openReview } from "../store/review-store.ts";
 import {
@@ -44,6 +44,7 @@ import { TopBar } from "./TopBar.tsx";
 import { useNavigation } from "./use-navigation.ts";
 import { usePresence } from "../ui/presence.ts";
 import { useShortcuts } from "./use-shortcuts.ts";
+import { useCopyOnSelect } from "./use-copy-on-select.ts";
 
 /** spec §3.3：窄于 1000px 侧栏改成覆盖式抽屉。 */
 const narrowQuery = "(max-width: 999px)";
@@ -117,10 +118,19 @@ export function App() {
   // 选了任务或变宽之后，抽屉自动收起。
   useEffect(() => setDrawerOpen(false), [taskId, narrow]);
 
-  const projects = useProjects();
   const tasks = useTasks();
-  const hidden = useHiddenTasks();
-  const order = useMemo(() => visibleOrder(groupTasks(projects, tasks, hidden)), [projects, tasks, hidden]);
+  const taskEngine = tasks.find((task) => task.id === taskId)?.engine;
+  // 草稿发出第一条消息后建出任务：输入框在原位接着用，不重放换页的淡入（否则从透明闪一下）。
+  // 记的是"从草稿来的那个任务"，之后同一任务的重渲染保持不变，换到别的任务才清掉。
+  const previousTaskId = useRef(taskId);
+  const fromDraftTaskId = useRef<typeof taskId>(null);
+  if (previousTaskId.current !== taskId) {
+    fromDraftTaskId.current = previousTaskId.current === null ? taskId : null;
+    previousTaskId.current = taskId;
+  }
+  const fromDraft = taskId !== null && fromDraftTaskId.current === taskId;
+  // Ctrl 1…9 和任务循环切换跟着侧栏眼前画出来的任务顺序（合并列表里展开着的行）。
+  const order = useVisibleTaskIds().map((id) => ({ id }));
   const openTask = (id: (typeof order)[number]["id"] | undefined) => {
     if (id !== undefined) selectTask(id).catch((error: unknown) => reportError(t, error));
   };
@@ -161,6 +171,8 @@ export function App() {
     () => window.studio.onFocusTask((id) => selectTask(id).catch((error: unknown) => reportErrorRef.current(error))),
     [],
   );
+
+  useCopyOnSelect(settings?.copyOnSelect ?? true, t);
 
   useShortcuts({
     newTask,
@@ -237,9 +249,20 @@ export function App() {
             </>
           ) : (
             <>
-              <ConversationView taskId={taskId} />
-              <BtwPanel taskId={taskId} />
-              <Composer key={taskId} taskId={taskId} />
+              {taskEngine === "tsp" ? (
+                // TSP 任务：过程区是 omp 的节点（TspView），输入框是 studio 的 Composer，和 rpc 任务同一个位置、同一个组件。
+                // 两个兄弟的 key 必须不同：同一个 key 会让 React 切任务时留下上一个任务的 TspView。
+                <>
+                  <TspView key={`tsp:${taskId}`} taskId={taskId} />
+                  <Composer key={`composer:${taskId}`} taskId={taskId} fromDraft={fromDraft} />
+                </>
+              ) : (
+                <>
+                  <ConversationView taskId={taskId} />
+                  <BtwPanel taskId={taskId} />
+                  <Composer key={taskId} taskId={taskId} fromDraft={fromDraft} />
+                </>
+              )}
               <TerminalPanel key={`terminal:${taskId}`} terminalKey={taskId} open={terminalOpen} />
             </>
           )}

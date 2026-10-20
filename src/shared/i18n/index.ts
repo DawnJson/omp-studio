@@ -1,6 +1,8 @@
 // 类型化字典 + t() + Intl。没有 i18n 库：只有中英两种语言，key 在编译期对齐，主进程和渲染进程共用。
 // 加文案：先在 zh-CN/<namespace>.ts 里加 key，再在 en/<namespace>.ts 里加同名 key（少一个或多一个都编译失败）。
 // 复数：值写成 { one?, other }，t() 用 count 参数和 Intl.PluralRules 选一项；插值写 {name}。
+// 运行过程（process、tool 两个命名空间，在 run/ 下）只有一份英文，两种语言共用：和 Tern 里的 omp 一样，
+// omp 干活时写出来的东西（Thinking、工具卡片、运行状态行、子代理表、每轮用时与 token）不翻译；其余界面照常翻译。
 import type { Locale } from "../ipc.ts";
 import { en } from "./en/index.ts";
 import { zhCN } from "./zh-CN/index.ts";
@@ -24,6 +26,9 @@ export const dictionaries: Record<Locale, Record<string, Record<string, MessageE
 
 const pluralRules: Partial<Record<Locale, Intl.PluralRules>> = {};
 
+/** run/ 下的命名空间在两种语言里都是英文：复数也按英文规则选（中文规则永远是 other，会写成 "1 tool calls"）。 */
+const englishNamespaces: Partial<Record<string, true>> = { process: true, tool: true };
+
 function pickEntry(locale: Locale, entry: MessageEntry, params: MessageParams | undefined): string {
   if (typeof entry === "string") return entry;
   const count = params?.["count"];
@@ -37,9 +42,10 @@ export function t(locale: Locale, key: MessageKey, params?: MessageParams): stri
   // 字典还没有任何 key 时 MessageKey 是 never；按 string 处理才能查表。
   const path: string = key;
   const dot = path.indexOf(".");
-  const entry = dictionaries[locale][path.slice(0, dot)]?.[path.slice(dot + 1)];
+  const namespace = path.slice(0, dot);
+  const entry = dictionaries[locale][namespace]?.[path.slice(dot + 1)];
   if (entry === undefined) return path;
-  const text = pickEntry(locale, entry, params);
+  const text = pickEntry(englishNamespaces[namespace] ? "en" : locale, entry, params);
   return params ? text.replace(/\{(\w+)\}/g, (whole, name: string) => String(params[name] ?? whole)) : text;
 }
 

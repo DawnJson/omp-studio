@@ -1,4 +1,4 @@
-// 模型选择对话框右栏里的"速度"：快速模式、慢速模式两组开/关分段，数据和动作都来自 omp（set_fast_mode / set_slow_mode）。
+// 模型选择对话框底部的"速度"：快速模式、慢速模式两组开/关分段（一行内排开，说明放悬停提示），数据和动作都来自 omp（set_fast_mode / set_slow_mode）。
 import { useId, type KeyboardEvent } from "react";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import type { TaskState } from "../../../../shared/ipc.ts";
@@ -33,10 +33,10 @@ function OnOff({
     onChange(event.key === "ArrowRight");
   };
   return (
-    <div className="mp-speed-row">
-      <p className="pop-grouprow">
-        <span id={id}>{t(label)}</span>
-      </p>
+    <div className="mp-speed-row" title={hint === null ? undefined : t(hint)}>
+      <span id={id} className="mp-ctl-label">
+        {t(label)}
+      </span>
       <div className="segments" role="radiogroup" aria-labelledby={id} onKeyDown={onKey}>
         {([false, true] as const).map((value) => (
           <button
@@ -53,7 +53,6 @@ function OnOff({
           </button>
         ))}
       </div>
-      {hint !== null && <p className="mp-speed-hint">{t(hint)}</p>}
     </div>
   );
 }
@@ -64,9 +63,6 @@ export function SpeedToggle({ speed }: { speed: SpeedControls }) {
   const { fast, slow } = speed;
   return (
     <div className="mp-speed" data-testid="speed-controls">
-      <p className="pop-grouprow">
-        <span>{t("model.speed")}</span>
-      </p>
       <OnOff
         label="model.fast"
         hint="model.fast.hint"
@@ -81,7 +77,7 @@ export function SpeedToggle({ speed }: { speed: SpeedControls }) {
           onChange={(enabled) => speed.setSlow(enabled).catch(report)}
         />
       ) : (
-        <p className="mp-speed-hint">{t("model.slow.unsupported")}</p>
+        <span className="mp-hint">{t("model.slow.unsupported")}</span>
       )}
     </div>
   );

@@ -32,6 +32,8 @@ const settings: StudioSettings = {
   reduceMotion: false,
   enterWhileRunning: "steer",
   notifyOnGate: true,
+  copyOnSelect: true,
+  taskEngine: "rpc",
   yoloConfirmed: false,
 };
 

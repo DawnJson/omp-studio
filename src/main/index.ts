@@ -9,7 +9,7 @@ import { loadSettings } from "./settings/settings-store.ts";
 import { startUpdates } from "./update/instance.ts";
 import { installAppProtocol, registerAppScheme } from "./window/app-protocol.ts";
 import { installHideOnClose } from "./window/hide-on-close.ts";
-import { createMainWindow } from "./window/main-window.ts";
+import { createMainWindow, isAppUrl } from "./window/main-window.ts";
 import { installSessionSecurity } from "./window/security.ts";
 import { showMainWindow } from "./window/show-window.ts";
 import { installShutdown } from "./window/shutdown.ts";
@@ -41,7 +41,7 @@ if (!app.requestSingleInstanceLock()) {
     // 无系统菜单栏：顶栏的 ≡ 按钮弹出应用菜单（spec §3.1）。
     Menu.setApplicationMenu(null);
     installAppProtocol();
-    installSessionSecurity();
+    installSessionSecurity(isAppUrl);
     loadSettings();
     registerIpcHandlers();
     createMainWindow();

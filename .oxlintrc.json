@@ -12,5 +12,5 @@
     "react/refs": "off",
     "react/immutability": "off"
   },
-  "ignorePatterns": ["src/shared/omp-wire/rpc-wire.generated.ts"]
+  "ignorePatterns": ["src/shared/omp-wire/rpc-wire.generated.ts", "src/shared/tsp/tsp.generated.ts"]
 }

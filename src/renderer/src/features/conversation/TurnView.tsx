@@ -6,6 +6,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Markdown } from "../../markdown/index.ts";
 import { ChangeCard } from "./ChangeCard.tsx";
 import { ExtraView } from "./Extras.tsx";
+import { formatElapsed, formatTokenCount, formatTurnCost } from "./tool-view.ts";
 import type { Turn } from "./model.ts";
 import { ProcessRow } from "./ProcessRow.tsx";
 import { UserMessage } from "./UserMessage.tsx";
@@ -39,6 +40,37 @@ function AssistantAnswer({ text, streaming, live }: { text: string; streaming: b
         </button>
       )}
     </div>
+  );
+}
+
+/** 一轮结束后结论下面的一行小字：32.4s · 19K tokens · $0.01；悬停给输入 / 输出 / 缓存明细。 */
+function TurnFooter({ turn }: { turn: Turn }) {
+  const t = useT();
+  const { input, output, cacheRead, cacheWrite, cost } = turn.usage;
+  const duration = turn.endedAt - turn.startedAt;
+  const tokens = input + output;
+  const price = formatTurnCost(cost);
+  const parts = [
+    ...(duration > 0 ? [formatElapsed(duration)] : []),
+    ...(tokens > 0 ? [t("process.turnTokens", { count: formatTokenCount(tokens) })] : []),
+    ...(price !== null ? [price] : []),
+  ];
+  if (parts.length === 0) return null;
+  const number = (value: number) => value.toLocaleString("en-US");
+  return (
+    <p
+      className="turn-footer"
+      data-testid="turn-footer"
+      title={t("process.turnUsage", {
+        duration: formatElapsed(Math.max(0, duration)),
+        total: number(tokens),
+        input: number(input),
+        output: number(output),
+        cache: number(cacheRead + cacheWrite),
+      })}
+    >
+      {parts.join(" · ")}
+    </p>
   );
 }
 
@@ -83,6 +115,7 @@ export const TurnView = memo(function TurnView({
           {t("turn.noResult")}
         </p>
       )}
+      {complete && turn.runFinished && turn.hasAssistantOutput && <TurnFooter turn={turn} />}
       {complete && turn.runFinished && <ChangeCard changes={turn.changes} taskId={taskId} projectPath={projectPath} />}
       {turn.extras
         .filter((extra) => extra.kind !== "file_mention")

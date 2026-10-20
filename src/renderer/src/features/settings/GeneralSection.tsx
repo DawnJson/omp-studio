@@ -1,5 +1,5 @@
-// 设置 → 通用：语言、主题、减少动效、快捷键（只读）。
-import type { LocalePreference, ThemePreference } from "../../../../shared/ipc.ts";
+// 设置 → 通用：语言、主题、减少动效、新任务的引擎、快捷键（只读）。
+import type { LocalePreference, TaskEngine, ThemePreference } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { useSettings } from "../../store/index.ts";
@@ -46,6 +46,10 @@ export function GeneralSection() {
   const enterOptions = [
     { value: "steer", label: t("settings.enterBehavior.steer") },
     { value: "followUp", label: t("settings.enterBehavior.later") },
+  ] as const;
+  const engineOptions = [
+    { value: "tsp", label: t("settings.taskEngine.tsp") },
+    { value: "rpc", label: t("settings.taskEngine.rpc") },
   ] as const;
 
   return (
@@ -102,6 +106,27 @@ export function GeneralSection() {
               labelledBy={labelId}
               onChange={(next) => void window.studio.setNotifyOnGate(next)}
               testId="setting-notify"
+            />
+          )}
+        </SettingRow>
+        <SettingRow title={t("settings.copyOnSelect")} desc={t("settings.copyOnSelect.desc")}>
+          {(labelId) => (
+            <Switch
+              checked={settings?.copyOnSelect ?? true}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setCopyOnSelect(next)}
+              testId="setting-copy-on-select"
+            />
+          )}
+        </SettingRow>
+        <SettingRow title={t("settings.taskEngine")} desc={t("settings.taskEngine.desc")}>
+          {(labelId) => (
+            <Segmented<TaskEngine>
+              value={settings?.taskEngine ?? "tsp"}
+              options={engineOptions}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setTaskEngine(next)}
+              testId="setting-task-engine"
             />
           )}
         </SettingRow>

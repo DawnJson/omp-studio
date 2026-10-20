@@ -41,6 +41,7 @@ omp 没有"列出会话"的 RPC（wire 命令表里只有针对当前会话的 `
 |---|---|
 | `listSessions(projectId \| null)` | 扫描 → `buildSessionSummaries`：`projectId` 由 cwd 对上任务池的项目（对不上为 null）；`taskId` 由会话文件对上任务池的 `listSessionLinks()`。传了项目 id 就只留 cwd 相同的；项目不存在返回空 |
 | `resumeSession(sessionId)` | 按头里的 `id` 重新扫描找文件 → 检查 `cwd` 目录仍存在（不在就报错，不替用户迁移会话）→ `ensureProject(cwd)` 自动加入项目 → `TaskPool.resume({sessionFile, cwd, projectId, title})`。已有任务挂着这个文件时返回那个任务 |
+| `ensureSessionProject(sessionId)` | 同 `resumeSession` 的查找和 cwd 检查，只做 `ensureProject(cwd)`，不建任务。侧栏里只在历史会话出现的文件夹点 `＋` 时用：先加成项目，再把草稿切到它 |
 | `revealProject / revealTaskSession` | `shell.showItemInFolder`，路径由主进程按 id 查表，渲染进程不传路径。`revealTaskSession` 选中的是 `~/.omp/agent/sessions/<编码后的 cwd>/` 下的会话文件，不是任务的工作目录；工作目录走 `openTaskFolder`（`task-handlers.ts`，`shell.openPath(taskCwd)`） |
 | `getTaskSessionRef` | 任务的会话 id 和文件路径（复制用）；还没有会话文件返回 null |
 

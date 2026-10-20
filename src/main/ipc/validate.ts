@@ -13,6 +13,7 @@ import {
   type ProjectId,
 } from "../../shared/ipc.ts";
 import type { AskAnswer, ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type { TspEvent } from "../../shared/tsp/tsp.generated.ts";
 import { getMainWindow, isAppUrl } from "../window/main-window.ts";
 
 export class IpcValidationError extends Error {
@@ -181,4 +182,29 @@ export function parseDialogResponse(value: unknown): DialogResponse {
 
 export function parseApiKey(value: unknown): string {
   return parseString(value, "key", limits.apiKeyMaxChars);
+}
+
+/** 渲染进程能发给 omp 的 TSP 事件：用户操作和面板状态。`ack`、`error`、`gone` 由主进程的会话自己发。 */
+const TSP_RENDERER_EVENTS = [
+  "resize",
+  "theme",
+  "motion",
+  "visible",
+  "toggle",
+  "select",
+  "activate",
+  "action",
+  "change",
+  "edit",
+  "undo",
+  "send",
+  "focus",
+] as const;
+
+/** 形状校验：事件名在白名单里；字段原样交给 omp（TSP 规范：形状不对的字段 omp 自己忽略）。 */
+export function parseTspEvent(value: unknown): TspEvent {
+  const record = parseRecord(value, "event");
+  parseOneOf(record["ev"], "event.ev", TSP_RENDERER_EVENTS);
+  if (record["sf"] !== undefined) parseString(record["sf"], "event.sf", 200);
+  return record as unknown as TspEvent;
 }

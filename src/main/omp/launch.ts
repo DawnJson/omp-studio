@@ -2,7 +2,14 @@
 // 启动参数见 omp 文档 cli-reference.md；API key 来自 omp-manager/api-keys.ts（safeStorage 加密存在 userData，决策 D3）。
 import { getApiKeyEnv } from "../omp-manager/api-keys.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
-import { buildOmpArgs, prependToPath, type LaunchSpec, type TestOmpOverride } from "./launch-args.ts";
+import {
+  buildOmpArgs,
+  buildTspArgs,
+  prependToPath,
+  type LaunchSpec,
+  type TestOmpOverride,
+  type TspLaunchSpec,
+} from "./launch-args.ts";
 import type { OmpLaunch } from "./omp-connection.ts";
 
 let testOverride: TestOmpOverride | null = null;
@@ -26,6 +33,27 @@ export async function buildOmpLaunch(spec: LaunchSpec): Promise<OmpLaunch> {
   return {
     command: executable.path,
     args: buildOmpArgs(spec),
+    cwd: spec.cwd,
+    env: executable.managedBin ? prependToPath(env, executable.managedBin) : env,
+  };
+}
+
+/** TSP 任务（伪终端里的交互式 omp）的启动：可执行文件、API key 环境变量和测试替换与 rpc 路径一致，参数不带 `--mode rpc-ui`。 */
+export async function buildTspLaunch(spec: TspLaunchSpec): Promise<OmpLaunch> {
+  const apiKeys = await getApiKeyEnv();
+  if (testOverride) {
+    return {
+      command: testOverride.command,
+      args: testOverride.args,
+      cwd: spec.cwd,
+      env: { ...process.env, ...apiKeys },
+    };
+  }
+  const executable = await getOmpExecutable();
+  const env = { ...process.env, ...apiKeys };
+  return {
+    command: executable.path,
+    args: buildTspArgs(spec),
     cwd: spec.cwd,
     env: executable.managedBin ? prependToPath(env, executable.managedBin) : env,
   };

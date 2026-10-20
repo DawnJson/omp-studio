@@ -1,13 +1,17 @@
-// 模型选择对话框右栏的参数，照终端版 omp `/models` 的详情：标签（当前 / 推理 / 视觉）+ 上下文、压缩于、最大输出、价格、
-// 实测速度、智能分、输入类型、推理。速度、智能分、压缩设置来自 getModelInsights（还在读时显示"…"）。
+// 模型选择对话框底部的参数行，照 Tern：上下文 · 输出 · 价格 · 推理 + 胶囊（当前 / 绑定的角色）。
+// 压缩于、实测速度、智能分、输入类型放在悬停提示里；速度、智能分、压缩设置来自 getModelInsights（还在读时显示"…"）。
 import type { ModelInsights, ModelOption } from "../../../../shared/ipc.ts";
 import { compactionTrigger, type CompactionTrigger } from "../../../../shared/compaction-trigger.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
+import { modelPriceLine } from "./model-groups.ts";
+import { formatCount } from "./usage-format.ts";
 
 interface ModelDetailsProps {
   option: ModelOption;
   isCurrent: boolean;
+  /** 指到这个模型的角色。 */
+  roles: readonly string[];
   /** null = 还在读。 */
   insights: ModelInsights | null;
 }
@@ -30,7 +34,7 @@ function compactionText(t: TFunction, trigger: CompactionTrigger, count: (value:
   return [count(trigger.tokens), how, t(`model.compact.source.${trigger.source}`)].join(" · ");
 }
 
-export function ModelDetails({ option, isCurrent, insights }: ModelDetailsProps) {
+export function ModelDetails({ option, isCurrent, roles, insights }: ModelDetailsProps) {
   const t = useT();
   const locale = useLocale();
   const numberFormat = new Intl.NumberFormat(locale);
@@ -53,7 +57,8 @@ export function ModelDetails({ option, isCurrent, insights }: ModelDetailsProps)
     output > 0 && t("model.price.output", { value: dollars(output) }),
     cacheRead > 0 && t("model.price.cache", { value: dollars(cacheRead) }),
   ].filter((part) => part !== false);
-  const price = priceParts.length === 0 ? t("model.free") : t("model.price.line", { parts: priceParts.join(" · ") });
+  const priceLine = modelPriceLine(option);
+  const price = priceLine === null ? t("model.free") : t("model.price.perM", { value: priceLine });
 
   const perf = insights?.perf[fullKey];
   const speed =
@@ -73,39 +78,45 @@ export function ModelDetails({ option, isCurrent, insights }: ModelDetailsProps)
   const intelligence = insights === null ? loading : score === undefined ? unknown : count(score);
   const inputs = [t("model.input.text"), ...(option.acceptsImages ? [t("model.input.image")] : [])].join(" · ");
 
+  // 行里放不下的参数（压缩于、实测速度明细、智能分、输入类型、完整价格）放在悬停提示里。
+  const detail = [
+    fullKey,
+    `${t("model.compactsAt")}：${compaction}`,
+    `${t("model.context")}：${option.contextWindow === null ? unknown : count(option.contextWindow)}`,
+    `${t("model.price")}：${priceParts.length === 0 ? t("model.free") : t("model.price.line", { parts: priceParts.join(" · ") })}`,
+    `${t("model.perf")}：${speed}`,
+    `${t("model.intelligence")}：${intelligence}`,
+    `${t("model.input")}：${inputs}`,
+  ].join("\n");
+
   return (
-    <>
-      <h3 className="mp-name">{option.name}</h3>
-      <p className="mp-id">{fullKey}</p>
-      {(isCurrent || option.reasoning || option.acceptsImages) && (
-        <p className="mp-tags">
-          {isCurrent && (
-            <span className="mp-tag" data-kind="current">
-              {t("model.current")}
-            </span>
-          )}
-          {option.reasoning && <span className="mp-tag">{t("model.tag.reasoning")}</span>}
-          {option.acceptsImages && <span className="mp-tag">{t("model.tag.vision")}</span>}
-        </p>
+    <p className="mp-params" data-testid="model-details" title={detail}>
+      <span className="mp-param">
+        <span className="mp-param-label">{t("model.context")}</span>{" "}
+        {option.contextWindow === null ? unknown : formatCount(option.contextWindow)}
+      </span>
+      <span className="mp-param">
+        <span className="mp-param-label">{t("model.out")}</span>{" "}
+        {option.maxTokens === null ? unknown : formatCount(option.maxTokens)}
+      </span>
+      <span className="mp-param">
+        <span className="mp-param-label">{t("model.price")}</span> {price}
+      </span>
+      <span className="mp-param">
+        <span className="mp-param-label">{t("model.reasoning")}</span>{" "}
+        {t(option.reasoning ? "model.supported" : "model.unsupported")}
+      </span>
+      {option.acceptsImages && <span className="mp-pill">{t("model.tag.vision")}</span>}
+      {isCurrent && (
+        <span className="mp-pill" data-kind="current">
+          {t("model.current")}
+        </span>
       )}
-      <dl className="mp-params">
-        <dt>{t("model.context")}</dt>
-        <dd>{option.contextWindow === null ? unknown : count(option.contextWindow)}</dd>
-        <dt>{t("model.compactsAt")}</dt>
-        <dd data-testid="model-compacts-at">{compaction}</dd>
-        <dt>{t("model.maxOutput")}</dt>
-        <dd>{option.maxTokens === null ? unknown : count(option.maxTokens)}</dd>
-        <dt>{t("model.price")}</dt>
-        <dd>{price}</dd>
-        <dt>{t("model.perf")}</dt>
-        <dd data-testid="model-speed">{speed}</dd>
-        <dt>{t("model.intelligence")}</dt>
-        <dd data-testid="model-intelligence">{intelligence}</dd>
-        <dt>{t("model.input")}</dt>
-        <dd>{inputs}</dd>
-        <dt>{t("model.reasoning")}</dt>
-        <dd>{t(option.reasoning ? "model.supported" : "model.unsupported")}</dd>
-      </dl>
-    </>
+      {roles.map((role) => (
+        <span key={role} className="mp-pill">
+          {role}
+        </span>
+      ))}
+    </p>
   );
 }

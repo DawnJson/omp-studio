@@ -4,8 +4,8 @@ import type { sidebar as zhCN } from "../zh-CN/sidebar.ts";
 export const sidebar = {
   newTask: "New task",
   search: "Search tasks and sessions",
-  searchHistory: "Past sessions",
-  historyOrder: "Arrange past sessions",
+  searchHistory: "Sessions",
+  historyOrder: "Arrange sessions",
   historyByFolder: "Folder",
   historyByTime: "Time",
   searchNone: "No matching tasks or sessions",

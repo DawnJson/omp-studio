@@ -15,6 +15,7 @@ afterAll(async () => {
 
 const newTask = (projectId: ProjectId) => ({
   projectId,
+  engine: "rpc" as const,
   sessionFile: null,
   title: "t",
   model: null,
@@ -58,6 +59,23 @@ describe("TaskRegistry（tasks.json）", () => {
     const second = new TaskRegistry(file);
     await second.load();
     expect(second.findTask(task.id)).toMatchObject({ worktreePath: null, worktreeBranch: null, worktreeBase: null });
+  });
+
+  it("引擎随任务落盘；迁移前没有 engine 字段的老记录读出来是 rpc", async () => {
+    const file = path.join(scratch, "engine", "tasks.json");
+    const first = new TaskRegistry(file);
+    await first.load();
+    const project = await first.addProject(path.join(scratch, "engine 项目"));
+    const tsp = await first.addTask({ ...newTask(project.id), engine: "tsp" });
+    const rpc = await first.addTask(newTask(project.id));
+
+    const legacy = JSON.parse(await readFile(file, "utf8")) as { tasks: Record<string, unknown>[] };
+    delete legacy.tasks[1]?.["engine"];
+    await writeFile(file, JSON.stringify(legacy));
+    const second = new TaskRegistry(file);
+    await second.load();
+    expect(second.findTask(tsp.id)?.engine).toBe("tsp");
+    expect(second.findTask(rpc.id)?.engine).toBe("rpc");
   });
 
   it("同一个目录只加一次（路径写法不同、Windows 上大小写不同也算同一个）", async () => {

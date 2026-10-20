@@ -2,8 +2,8 @@
 // 其余任务运行时代码（task-pool/runner/registry）不 import electron，单元测试直接实例化。
 import os from "node:os";
 import path from "node:path";
-import { app, Notification } from "electron";
-import { resolveLocale } from "../settings/settings-store.ts";
+import { app, nativeTheme, Notification } from "electron";
+import { getSettings, resolveLocale } from "../settings/settings-store.ts";
 import { getMainWindow } from "../window/main-window.ts";
 import { showMainWindow } from "../window/show-window.ts";
 import { refreshTray } from "../window/tray.ts";
@@ -13,12 +13,14 @@ import { t } from "../../shared/i18n/index.ts";
 import { forgetExport } from "./export-record.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { appHandlers } from "../ipc/app-handlers.ts";
-import { buildOmpLaunch, setTestOmpOverride } from "../omp/launch.ts";
+import { buildOmpLaunch, buildTspLaunch, setTestOmpOverride } from "../omp/launch.ts";
 import { parseTestOmpOverride } from "../omp/launch-args.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
 import { assignToAppJob } from "../platform/win32/job-object.ts";
 import { closeTaskTerminal } from "../terminal/active.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
+import { listModelOptions } from "../service/default-model.ts";
+import { serviceOmp } from "../service/service-omp.ts";
 import { createWorktree, removeWorktree } from "../git/worktree.ts";
 import { SetupConsent } from "../git/setup-consent.ts";
 import { TaskPool, type WorktreeOps } from "./task-pool.ts";
@@ -99,6 +101,26 @@ function createPool(): Promise<TaskPool> {
     beforeTaskClose: closeTaskTerminal,
     forkTitle: (title) => t(resolveLocale(), "task.forkTitle", { title }),
     knownModel: (key) => startupCache().model(key),
+    listModels: () => listModelOptions(),
+    listSlashCommands: async () =>
+      (await serviceOmp.use((connection) => connection.request("get_available_commands"))).commands,
+    tsp: {
+      buildLaunch: (record, project) => {
+        const cwd = record.worktreePath ?? project.path;
+        return buildTspLaunch({
+          cwd,
+          model: record.model,
+          thinkingLevel: record.thinkingLevel,
+          allowHome: pathKey(cwd) === pathKey(os.homedir()),
+          resumeSessionFile: record.sessionFile,
+        });
+      },
+      session: {
+        appVersion: app.getVersion(),
+        // hello 回复里的外观；之后的变化由渲染进程发 theme / motion 事件。
+        appearance: () => ({ dark: nativeTheme.shouldUseDarkColors, reduceMotion: getSettings().reduceMotion }),
+      },
+    },
     events: {
       state: (state) => {
         emitEvent("taskState", state);
@@ -106,6 +128,7 @@ function createPool(): Promise<TaskPool> {
         refreshTray(taskPool.listTasks());
       },
       transcript: (batch) => emitEvent("transcript", batch),
+      tspBatch: (batch) => emitEvent("tspBatch", batch),
       notice: (notice) => emitEvent("taskNotice", notice),
       taskRemoved: (id) => {
         forgetExport(id);

@@ -86,19 +86,7 @@ button {
 .topbar-brand {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
   padding: 0 var(--space-2) 0 var(--space-1-5);
-  color: var(--text);
-}
-
-.topbar-wordmark {
-  font-weight: var(--fw-strong);
-  white-space: nowrap;
-}
-
-.topbar-wordmark span {
-  font-weight: var(--fw-regular);
-  color: var(--text-2);
 }
 
 .crumb {
@@ -446,6 +434,39 @@ button {
 .about-text {
   margin: 0;
   color: var(--text-2);
+}
+
+.about-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-sm);
+}
+
+.about-info-row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.about-info dt {
+  flex: none;
+  width: 5.5em;
+  color: var(--text-3);
+}
+
+.about-info dd {
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-mono);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.about-copy {
+  align-self: flex-start;
+  margin-top: var(--space-1);
 }
 
 .about-feedback {

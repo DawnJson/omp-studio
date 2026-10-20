@@ -34,6 +34,19 @@ export type GitStatus =
   /** 能推送：不是 detached HEAD，且分支配置了 remote 或仓库里能选出一个（push 的 remote 选择规则）。 */
   | { kind: "ok"; branch: GitBranchInfo; files: GitFileChange[]; canPush: boolean };
 
+// ───────── 改动汇总（TSP 任务的改动卡片）─────────
+
+/** 工作区（含暂存区、未跟踪文件）相对 HEAD 的一个改动文件；added/removed 为 null = 二进制或过大，没有行数。 */
+export interface GitChangeEntry {
+  path: string;
+  /** 重命名/复制时的原路径。 */
+  oldPath: string | null;
+  added: number | null;
+  removed: number | null;
+}
+
+export type GitChangeSummary = { kind: "git_missing" } | { kind: "not_git" } | { kind: "ok"; files: GitChangeEntry[] };
+
 // ───────── diff ─────────
 
 /** 看哪一侧的 diff：staged = 暂存区 vs HEAD；unstaged = 工作区 vs 暂存区；untracked = 整个文件都是新增。 */

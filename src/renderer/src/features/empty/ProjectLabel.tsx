@@ -5,12 +5,10 @@ import type { Project } from "../../../../shared/ipc.ts";
 import { Folder } from "../../icons.tsx";
 import { useAppInfo } from "../../store/index.ts";
 
-/** project 为 null = 默认文件夹。 */
-export function ProjectLabel({ project }: { project: Project | null }) {
-  const chatsDir = useAppInfo()?.chatsDir ?? null;
-  const path = project?.path ?? chatsDir ?? "";
+/** 文件夹图标 + 路径（只显示）。 */
+export function PathLabel({ path, testId = "empty-project" }: { path: string; testId?: string }) {
   return (
-    <span className="empty-project" data-testid="empty-project" title={path}>
+    <span className="empty-project" data-testid={testId} title={path}>
       <Folder size={14} />
       {/* 外层 rtl 让省略号落在开头，bdi 保持路径本身从左往右排 */}
       <span className="empty-project-name">
@@ -18,4 +16,10 @@ export function ProjectLabel({ project }: { project: Project | null }) {
       </span>
     </span>
   );
+}
+
+/** project 为 null = 默认文件夹。 */
+export function ProjectLabel({ project }: { project: Project | null }) {
+  const chatsDir = useAppInfo()?.chatsDir ?? null;
+  return <PathLabel path={project?.path ?? chatsDir ?? ""} />;
 }

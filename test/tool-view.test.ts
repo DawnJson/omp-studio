@@ -1,16 +1,23 @@
 // 防的是：工具步骤的展示数据解析错位——diff 的增删数、hunk 间隔、grep 的命中/文件数、CRLF 输出把行号或内容弄错。
 import { describe, expect, it } from "vitest";
 import {
+  askViews,
+  bashStatus,
+  bodyLineCount,
   buildBody,
   buildInfo,
-  defaultOpen,
   diffStats,
   filePaths,
   formatElapsed,
+  globPaths,
   headerTarget,
   parseDiff,
   parseGrep,
   splitGutter,
+  splitPath,
+  taskAgentNames,
+  todoPhases,
+  waitJobs,
 } from "../src/renderer/src/features/conversation/tool-view.ts";
 
 const unified = [
@@ -101,13 +108,12 @@ describe("头部与正文汇总", () => {
     expect(formatElapsed(4_200_000)).toBe("1h 10m");
   });
 
-  it("edit 有 diff：默认展开，头部显示 +a −d；bash 展开；read 不展开", () => {
+  it("edit 有 diff：头部显示 +a −d；正文行数按行算（空输出为 0）", () => {
     const edit = buildBody("edit", {}, { details: { diff: unified } }, "ok");
     expect(buildInfo("edit", {}, edit)).toEqual({ kind: "diff", added: 2, removed: 1 });
-    expect(defaultOpen(edit)).toBe(true);
-    expect(defaultOpen(buildBody("bash", { command: "echo 1" }, null, "1\n"))).toBe(true);
-    expect(defaultOpen(buildBody("read", { path: "a" }, null, "text"))).toBe(true);
-    expect(defaultOpen(buildBody("read", { path: "a" }, null, ""))).toBe(false);
+    expect(bodyLineCount(edit)).toBeGreaterThan(0);
+    expect(bodyLineCount(buildBody("bash", { command: "echo 1" }, null, "1\n"))).toBe(1);
+    expect(bodyLineCount(buildBody("read", { path: "a" }, null, ""))).toBe(0);
   });
 
   it("filePaths：read 多文件 / 单文件带选择器 / hashline 编辑", () => {
@@ -133,5 +139,108 @@ describe("头部与正文汇总", () => {
       agents: 2,
       background: true,
     });
+  });
+});
+
+describe("专用工具的结果", () => {
+  it("bash：退出码和耗时来自 details，没有就是 null", () => {
+    expect(bashStatus({ details: { exitCode: 1, wallTimeMs: 82.2 } })).toEqual({ exitCode: 1, wallMs: 82.2 });
+    expect(bashStatus({ details: {} })).toEqual({ exitCode: null, wallMs: null });
+    expect(bashStatus(undefined)).toEqual({ exitCode: null, wallMs: null });
+  });
+
+  it("glob：每行一个路径才当文件列表；其他工具和像句子的输出不是", () => {
+    expect(globPaths("glob", "calc/ops.py\r\ncalc/text.py\n")).toEqual(["calc/ops.py", "calc/text.py"]);
+    expect(globPaths("find", "a.ts")).toEqual(["a.ts"]);
+    expect(globPaths("grep", "a.ts")).toEqual([]);
+    expect(globPaths("glob", "# 3 files\na.ts")).toEqual([]);
+    expect(globPaths("glob", "")).toEqual([]);
+  });
+
+  it("splitPath：目录（含斜杠）和文件名，Windows 反斜杠也认", () => {
+    expect(splitPath("src/a/b.ts")).toEqual(["src/a/", "b.ts"]);
+    expect(splitPath("C:\\work\\a.md")).toEqual(["C:\\work\\", "a.md"]);
+    expect(splitPath("a.md")).toEqual(["", "a.md"]);
+  });
+
+  it("todo：只留有任务且状态合法的项，没有阶段返回 null", () => {
+    const phases = todoPhases({
+      details: {
+        phases: [
+          {
+            name: "Fix",
+            tasks: [
+              { content: "a", status: "completed" },
+              { content: "b", status: "weird" },
+            ],
+          },
+          { name: "Empty", tasks: [] },
+          { name: "Run", tasks: [{ content: "c", status: "blocked", blocker: "ci" }] },
+        ],
+      },
+    });
+    expect(phases).toEqual([
+      { name: "Fix", tasks: [{ content: "a", status: "completed" }] },
+      { name: "Run", tasks: [{ content: "c", status: "blocked", blocker: "ci" }] },
+    ]);
+    expect(todoPhases({ details: { phases: [] } })).toBeNull();
+    expect(todoPhases(undefined)).toBeNull();
+  });
+
+  it("ask：回答在 details（单题 / 多题 results），没有回答时退回参数里的问题", () => {
+    const args = {
+      questions: [{ question: "语言？", options: [{ label: "Go", description: "快" }, { label: "Rust" }] }],
+    };
+    expect(
+      askViews(args, { details: { question: "语言？", options: ["Go", "Rust"], selectedOptions: ["Go"] } }),
+    ).toEqual([
+      {
+        question: "语言？",
+        options: [
+          { label: "Go", description: "快" },
+          { label: "Rust", description: null },
+        ],
+        selected: ["Go"],
+        custom: null,
+        note: null,
+      },
+    ]);
+    const multi = askViews(
+      {},
+      {
+        details: {
+          results: [
+            { id: "a", question: "Q1", options: ["x", "y"], selectedOptions: [], customInput: "自己写的" },
+            { id: "b", question: "Q2", options: ["z"], selectedOptions: ["z"], note: "n" },
+          ],
+        },
+      },
+    );
+    expect(multi.map((view) => [view.question, view.selected, view.custom, view.note])).toEqual([
+      ["Q1", [], "自己写的", null],
+      ["Q2", ["z"], null, "n"],
+    ]);
+    const pending = askViews(args, undefined);
+    expect(pending[0]?.selected).toEqual([]);
+    expect(pending[0]?.options.map((option) => option.label)).toEqual(["Go", "Rust"]);
+  });
+
+  it("task / wait：代理名和 job 列表", () => {
+    expect(taskAgentNames({ tasks: [{ name: "A" }, { name: "" }, {}, { name: "B" }] })).toEqual(["A", "B"]);
+    expect(taskAgentNames({})).toEqual([]);
+    expect(
+      waitJobs({
+        details: {
+          jobs: [
+            { id: "A", status: "completed", label: "A", durationMs: 2594 },
+            { id: "B", status: "running", durationMs: 10 },
+            { status: "running" },
+          ],
+        },
+      }),
+    ).toEqual([
+      { id: "A", label: "A", status: "completed", durationMs: 2594 },
+      { id: "B", label: "B", status: "running", durationMs: 10 },
+    ]);
   });
 });

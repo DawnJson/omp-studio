@@ -31,6 +31,7 @@ const goalCommandKey = { pause: "goal.cmdPause", resume: "goal.cmdResume", drop:
 
 export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiting }: CommandContext): CommandEntry[] {
   const guard = (promise: Promise<unknown>) => void promise.catch((error: unknown) => reportError(t, error));
+  const rpcTask = current !== null && current.engine !== "tsp" ? current : null;
   const entries: (CommandEntry | null)[] = [
     { id: "newTask", label: t("cmd.newTask"), shortcut: "Ctrl N", run: () => startDraft(null) },
     current && {
@@ -65,21 +66,22 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
       shortcut: "Alt T",
       run: () => emitStudioCommand("thinking"),
     },
-    current && { id: "compact", label: t("cmd.compact"), run: () => emitStudioCommand("compact") },
-    ...(current
-      ? goalButtons(current.goal).map((op) => ({
+    // 下面几条（压缩、目标、会话树、导出、旁路提问）靠 rpc，TSP 任务用不了；omp 自己的同名命令走斜杠命令（输入 / 选取）。
+    rpcTask && { id: "compact", label: t("cmd.compact"), run: () => emitStudioCommand("compact") },
+    ...(rpcTask
+      ? goalButtons(rpcTask.goal).map((op) => ({
           id: `goal-${op}`,
           label: t(goalCommandKey[op]),
-          run: () => void runGoalOp(current.id, op, t),
+          run: () => void runGoalOp(rpcTask.id, op, t),
         }))
       : []),
-    current && { id: "sessionTree", label: t("cmd.sessionTree"), run: () => openSessionTree(current.id) },
-    current && {
+    rpcTask && { id: "sessionTree", label: t("cmd.sessionTree"), run: () => openSessionTree(rpcTask.id) },
+    rpcTask && {
       id: "exportHtml",
       label: t("cmd.exportHtml"),
-      run: () => void exportConversationReporting(current.id, t),
+      run: () => void exportConversationReporting(rpcTask.id, t),
     },
-    current && { id: "btw", label: t("cmd.btw"), run: () => openBtw(current.id) },
+    rpcTask && { id: "btw", label: t("cmd.btw"), run: () => openBtw(rpcTask.id) },
     current?.status === "running" && {
       id: "stop",
       label: t("cmd.stop"),

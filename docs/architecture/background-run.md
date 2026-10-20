@@ -11,7 +11,7 @@
 **行为：**
 
 - 窗口 ×（含 Alt+F4）：`hide()`，不销毁，也不弹确认。第一次关窗口时发一条系统通知"omp-studio 仍在托盘运行"，之后不再提示（记在 `userData/window-state.json` 的 `trayNoticeShown`，不是 omp 配置，也不进 `StudioSettings`）。
-- 托盘图标（`resources/tray.png`，圆环里一个 π，和界面里的临时 Logo 同形；打包时经 `extraResources` 放到 `resources/tray.png`）：悬停提示是应用名，有任务在忙时附 "N 个运行中，M 个等你确认"；左键显示并聚焦窗口；右键菜单：打开 omp-studio / 摘要行（灰）/ 最多 6 条在忙的任务（点击显示窗口并定位到该任务）/ 退出。托盘图标和菜单由系统绘制，自动化测试点不到，菜单模板是纯函数（`tray-model.ts`）单测。
+- 托盘图标（`resources/tray.png`，像素 π 加“层叠”淡影，和界面里的标志同一份数据，由 `npm run icons` 生成，见 `docs/design/spec.md` §3.1“标志”；打包时经 `extraResources` 放到 `resources/tray.png`）：悬停提示是应用名，有任务在忙时附 "N 个运行中，M 个等你确认"；左键显示并聚焦窗口；右键菜单：打开 omp-studio / 摘要行（灰）/ 最多 6 条在忙的任务（点击显示窗口并定位到该任务）/ 退出。托盘图标和菜单由系统绘制，自动化测试点不到，菜单模板是纯函数（`tray-model.ts`）单测。
 - 再次启动应用（`second-instance`）、macOS 的 `activate`、点系统通知、点托盘：都走 `showMainWindow()`——显示隐藏的窗口，最小化的先还原，窗口不在了才重建。
 - 通知：任务进入"等你确认"时照旧发（窗口隐藏时 `isFocused()` 为 false，天然满足"没焦点"）；新增：窗口看不见（隐藏在托盘、最小化）时，任务正常跑完或出错也发一条。窗口可见时不发（侧栏已有完成点）。两种通知共用设置里的"有任务在等你时通知我"开关。点通知显示窗口并定位到该任务。
 - 真正的退出入口：托盘"退出"、应用菜单的退出（`quitApp`）、自动更新"重启并安装"（`finishShutdown()` 之后 `quitAndInstall`）、系统注销/关机（窗口的 `session-end` 事件触发 `finishShutdown()`）。它们都经过 `shutdown.ts`：`before-quit` 或 `finishShutdown()` 把 `isQuitting()` 置 true，`hide-on-close.ts` 的 close 处理器此后放行，不会吞掉 `quitAndInstall` 触发的退出。退出流程本身没改：并行关所有 omp 的 stdin，超时按进程树强杀，Job Object 兜底。

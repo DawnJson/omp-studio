@@ -8,6 +8,7 @@ import { Popover } from "../composer/Popover.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { openReview } from "../../store/review-store.ts";
 import { relativeToProject, type FileChange } from "./tool-info.ts";
+import { diffBars } from "./diffstat.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 
 const VISIBLE = 5;
@@ -43,6 +44,7 @@ export const ChangeCard = memo(function ChangeCard({
   const known = changes.filter((change) => change.added !== null);
   const added = known.reduce((sum, change) => sum + (change.added ?? 0), 0);
   const removed = known.reduce((sum, change) => sum + (change.removed ?? 0), 0);
+  const bars = diffBars(changes);
 
   return (
     <section className="change" data-anchor data-testid="change-card">
@@ -101,9 +103,10 @@ export const ChangeCard = memo(function ChangeCard({
       </header>
       <Reveal open={expanded}>
         <ul className="change-files">
-          {changes.slice(0, VISIBLE).map((change) => {
+          {changes.slice(0, VISIBLE).map((change, index) => {
             const { dir, name } = splitPath(change.path);
             const rel = relativeToProject(change.path, projectPath);
+            const bar = bars[index] ?? null;
             return (
               <li
                 key={change.path}
@@ -125,6 +128,7 @@ export const ChangeCard = memo(function ChangeCard({
                   aria-label={`${t("change.open")}: ${change.path}`}
                   onClick={() => rel !== null && open(rel)}
                 >
+                  <FileIcon size={14} className="change-icon" aria-hidden="true" />
                   <span className="change-path">
                     <span className="change-dir">
                       <bdi dir="ltr">{dir}</bdi>
@@ -132,9 +136,17 @@ export const ChangeCard = memo(function ChangeCard({
                     <span className="change-name">{name}</span>
                   </span>
                   {change.added !== null && (
-                    <span className="change-nums">
-                      <span className="change-add">+{change.added}</span>{" "}
-                      <span className="change-del">−{change.removed ?? 0}</span>
+                    <span className="change-stat">
+                      <span className="change-nums">
+                        <span className="change-add">+{change.added}</span>{" "}
+                        <span className="change-del">−{change.removed ?? 0}</span>
+                      </span>
+                      {bar !== null && (
+                        <span className="change-bar" aria-hidden="true">
+                          <span className="change-add">{"+".repeat(bar.plus)}</span>
+                          <span className="change-del">{"−".repeat(bar.minus)}</span>
+                        </span>
+                      )}
                     </span>
                   )}
                 </button>

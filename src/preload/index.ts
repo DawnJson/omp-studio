@@ -47,4 +47,41 @@ pageWindow.addEventListener(
   true,
 );
 
+// 粘贴文件（资源管理器里复制的文件、文件夹）进输入框：和终端里一样插入路径，有空白的加引号，多个用空格隔开。
+// 路径同样只在这里取（理由同上），用 execCommand("insertText") 插进正在粘贴的输入框：走输入框自己的 input 事件，
+// 能撤销。图片不管，交给输入框的 onPaste 作附件。
+interface PasteEvent extends Event {
+  clipboardData: { files: ArrayLike<File> } | null;
+}
+interface PageDocument {
+  execCommand(command: string, showUi: boolean, value: string): boolean;
+}
+// 沙箱 preload 里的全局对象（页面的 document 在上面）；同 pageWindow，没有 DOM 类型，只用到 execCommand。
+const pageGlobal = globalThis as unknown as { document: PageDocument };
+/** 粘贴目标是不是输入框（带 data-composer-input 的 textarea）。 */
+function isComposerInput(target: EventTarget | null): boolean {
+  return (
+    target !== null &&
+    "hasAttribute" in target &&
+    typeof target.hasAttribute === "function" &&
+    target.hasAttribute("data-composer-input") === true
+  );
+}
+const quotePath = (path: string) => (/\s/.test(path) ? `"${path}"` : path);
+pageWindow.addEventListener(
+  "paste",
+  (event) => {
+    if (!isComposerInput(event.target)) return;
+    const files = Array.from((event as PasteEvent).clipboardData?.files ?? []);
+    const paths = files
+      .filter((file) => !file.type.startsWith("image/"))
+      .map((file) => webUtils.getPathForFile(file))
+      .filter((path) => path !== "");
+    if (paths.length === 0) return;
+    event.preventDefault();
+    pageGlobal.document.execCommand("insertText", false, paths.map(quotePath).join(" "));
+  },
+  true,
+);
+
 contextBridge.exposeInMainWorld("studio", api);

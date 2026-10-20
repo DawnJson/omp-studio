@@ -1,5 +1,6 @@
-// markdown-it 的 token → React 元素。不用 dangerouslySetInnerHTML：所有文本都经 React 转义，
+// markdown-it 的 token → React 元素。用户文本不进 dangerouslySetInnerHTML：所有文本都经 React 转义（唯一例外是 KaTeX 的输出，见 renderMath），
 // 链接只放行 http/https，图片只放行 markdown-it 已校验的 data:image。无 JSX，方便在 Node 里测试。
+import katex from "katex";
 import { createElement as h, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import type { MarkdownBlock, Token } from "./parse.ts";
 
@@ -69,6 +70,8 @@ function renderInline(node: TreeNode, key: number, ctx: RenderContext): ReactNod
       return h("br", { key });
     case "code_inline":
       return h("code", { key, className: "md-code-inline" }, token.content);
+    case "math_inline":
+      return renderMath(token, key, false);
     case "em_open":
       return h("em", { key }, children);
     case "strong_open":
@@ -111,6 +114,32 @@ function renderInlineToken(token: Token, ctx: RenderContext): ReactNode[] {
   return renderInlineChildren(buildTree(token.children ?? []), ctx);
 }
 
+/** 与 math.ts 的分隔符对应；公式出错时按原文显示要把分隔符带上。 */
+const mathClose: Record<string, string> = { $: "$", "\\(": "\\)", $$: "$$", "\\[": "\\]" };
+
+/**
+ * 公式交给 KaTeX。这是本文件唯一使用 dangerouslySetInnerHTML 的地方，且只放 KaTeX 的输出：
+ * trust:false 禁掉 \href / \url / \includegraphics 等，strict:"ignore" 不让宏警告打断，
+ * KaTeX 自己转义公式里的文字；用户文本不会直接进入 innerHTML。
+ * 用 throwOnError:true 再自己 catch，是为了坏公式按原文（--st-error 色）显示，而不是 KaTeX 的红色报错样式。
+ */
+function renderMath(token: Token, key: number, display: boolean): ReactNode {
+  const className = display ? "md-math-block" : "md-math";
+  try {
+    const html = katex.renderToString(token.content, {
+      displayMode: display,
+      throwOnError: true,
+      trust: false,
+      strict: "ignore",
+      output: "htmlAndMathml",
+    });
+    return h(display ? "div" : "span", { key, className, dangerouslySetInnerHTML: { __html: html } });
+  } catch {
+    const raw = `${token.markup}${display ? "\n" : ""}${token.content}${display ? "\n" : ""}${mathClose[token.markup] ?? ""}`;
+    return h(display ? "div" : "span", { key, className: `${className} md-math-error` }, raw);
+  }
+}
+
 function renderBlockNode(node: TreeNode, key: number, ctx: RenderContext, closedFence: boolean): ReactNode {
   const { token } = node;
   const kids = (): ReactNode[] => node.children.map((child, index) => renderBlockNode(child, index, ctx, closedFence));
@@ -144,6 +173,8 @@ function renderBlockNode(node: TreeNode, key: number, ctx: RenderContext, closed
     }
     case "hr":
       return h("hr", { key });
+    case "math_block":
+      return renderMath(token, key, true);
     case "fence":
     case "code_block": {
       const lang = token.type === "fence" ? (token.info.trim().split(/\s+/)[0] ?? "") : "";

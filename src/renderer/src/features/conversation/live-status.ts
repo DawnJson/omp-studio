@@ -3,7 +3,7 @@ import type { TaskStatus } from "../../../../shared/ipc.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { Transcript } from "../../../../shared/transcript.ts";
 import { isWaitingOnJobs, type JobCounts } from "../../../../shared/ui/jobs.ts";
-import { formatDuration } from "./format.ts";
+import { formatElapsed } from "./format.ts";
 import { lastBlockKind, toolFromRun, type ToolStep } from "./model.ts";
 import { toolLabel } from "./ProcessDetails.tsx";
 
@@ -64,7 +64,7 @@ export function liveStatusText(
   now: number,
   t: TFunction,
 ): string {
-  if (status === "needs_you") return t("process.waiting", { duration: formatDuration(t, now - (waitingSince ?? now)) });
+  if (status === "needs_you") return t("process.waiting", { duration: formatElapsed(now - (waitingSince ?? now)) });
   if (status === "starting") return t("process.starting");
   // agent 在 wait 后台任务：直接说在等几个，不再重复"N 个子代理"。
   if (scan.phase === null && jobs && jobs.running > 0 && scan.waitingOnJobs) return waitingJobsText(jobs, t);

@@ -19,6 +19,7 @@ const taskErrorKinds: Record<TaskError["kind"], Parameters<TFunction>[0]> = {
 /** 主进程里可预期错误的措辞 → 文案。主进程改了措辞只会退化成通用句，不会显示错的内容。 */
 const knownMessages: [RegExp, Parameters<TFunction>[0]][] = [
   [/the session is busy|session_busy/i, "error.sessionBusy"],
+  [/composer_unavailable/i, "error.composerUnavailable"],
   [/worktree is shared with another task/i, "error.worktreeShared"],
   [/not in the conversation|cannot find that message in the session/i, "error.forkNoMessage"],
   [/too many tasks/i, "error.tooManyTasks"],

@@ -21,13 +21,19 @@ import type {
   TaskState,
   TranscriptBatch,
   TranscriptSnapshot,
+  TspBatch,
+  TspSnapshot,
+  TaskEngine,
 } from "../../shared/ipc.ts";
 import type { AvailableSlashCommand, GoalOp, ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import type { OmpLaunch } from "../omp/omp-connection.ts";
 import type { SubagentDetail, SubagentLane } from "../../shared/subagents.ts";
 import type { BtwHistoryRecord, BtwUiEvent } from "../../shared/btw.ts";
+import type { TspEvent } from "../../shared/tsp/tsp.generated.ts";
 import { titleFromPrompt } from "./convert.ts";
+import { stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 import { TaskRunner, TooManyTasksError, type RunnerHost } from "./task-runner.ts";
+import { TspRunner, type TspRunnerHost, type TspSessionDeps } from "./tsp-runner.ts";
 import type { TaskRecord, TaskRegistry } from "./task-registry.ts";
 
 export const IDLE_RECYCLE_MS = 15 * 60_000;
@@ -44,6 +50,8 @@ interface PoolEvents {
   subagents(taskId: TaskId, lanes: SubagentLane[]): void;
   /** 旁路提问（`/btw`）的变化；不关心的调用方（多数测试）可以不给。 */
   btw?(taskId: TaskId, event: BtwUiEvent): void;
+  /** TSP 任务的节点树批次（16ms 合批）；不关心的调用方（多数测试）可以不给。 */
+  tspBatch?(batch: TspBatch): void;
 }
 
 export interface WorktreeOps {
@@ -65,6 +73,15 @@ export interface PoolDeps {
   forkTitle?(title: string): string;
   /** 上次读到的模型目录里的这一项（启动缓存）：任务进程起来之前，胶囊先显示它的名字和上下文窗口。 */
   knownModel?(key: ModelKey): ModelOption | null;
+  /** 模型目录（服务进程的 get_available_models）：TSP 任务把 omp 的模型显示名换成模型键、给 listTaskModels；没传时 TSP 任务的列表为空。 */
+  listModels?(): Promise<ModelOption[]>;
+  /** omp 的命令列表（服务进程）：TSP 任务的 listSlashCommands 用；没传时为空。 */
+  listSlashCommands?(): Promise<AvailableSlashCommand[]>;
+  /** TSP 引擎的依赖（伪终端里的交互式 omp）；没提供时只能建 rpc 任务。 */
+  tsp?: {
+    buildLaunch(record: TaskRecord, project: Project): Promise<OmpLaunch>;
+    session: TspSessionDeps;
+  };
 }
 
 export interface ResumeInput {
@@ -73,16 +90,23 @@ export interface ResumeInput {
   projectId: ProjectId;
   /** null 时取会话里第一条用户消息的第一行（调用方给不出时留空，由首次打开后的标题回填）。 */
   title: string | null;
+  /** 会话文件的修改时间：新建的任务以它作为最后活动时间（点开历史会话不算活动）。 */
+  modifiedAt: number;
 }
+
+/** 池里的运行时：按任务创建时的引擎二选一，生命周期、状态和回收的接口一致。 */
+type PoolRunner = TaskRunner | TspRunner;
 
 export class TaskPool {
   readonly #deps: PoolDeps;
-  readonly #runners = new Map<TaskId, TaskRunner>();
+  readonly #runners = new Map<TaskId, PoolRunner>();
   readonly #recyclableSince = new Map<TaskId, number>();
   #foreground: TaskId | null = null;
   #sweepTimer: NodeJS.Timeout | undefined;
   #shuttingDown = false;
   readonly #host: RunnerHost;
+  /** TSP 引擎的依赖；没提供（单元测试）时只能建 rpc 任务。 */
+  readonly #tspHost: TspRunnerHost | null;
 
   constructor(deps: PoolDeps) {
     this.#deps = deps;
@@ -100,27 +124,98 @@ export class TaskPool {
       onBtw: (taskId, event) => deps.events.btw?.(taskId, event),
       knownModel: (key) => deps.knownModel?.(key) ?? null,
     };
+    const tsp = deps.tsp;
+    this.#tspHost = tsp
+      ? {
+          buildLaunch: (record, project) => tsp.buildLaunch(record, project),
+          persist: (id, patch) => deps.registry.updateTask(id, patch),
+          isForeground: (id) => this.#foreground === id,
+          acquireSlot: (id) => this.#acquireSlot(id),
+          onState: (state) => deps.events.state(state),
+          onTspBatch: (batch) => deps.events.tspBatch?.(batch),
+          session: tsp.session,
+          knownModel: (key) => deps.knownModel?.(key) ?? null,
+          ...(deps.listModels && { listModels: () => deps.listModels!() }),
+          ...(deps.listSlashCommands && { listSlashCommands: () => deps.listSlashCommands!() }),
+        }
+      : null;
   }
 
   /** 载入 tasks.json，为未归档的任务建（还没有进程的）运行时，并开始定时回收。 */
   async init(): Promise<void> {
     await this.#deps.registry.load();
-    for (const record of this.#deps.registry.listTasks()) if (!record.archived) this.#adopt(record);
+    for (const record of this.#deps.registry.listTasks()) {
+      if (!record.archived) this.#adopt(await this.#unifiedRecord(record));
+    }
     this.#sweepTimer = setInterval(() => void this.sweep(Date.now()), SWEEP_INTERVAL_MS);
     this.#sweepTimer.unref();
   }
 
-  #adopt(record: TaskRecord): TaskRunner {
+  /**
+   * 引擎统一：设置的引擎是 tsp 时，还没有进程的 rpc 老任务改记成 tsp（持久化），下次启动走 TSP（`--resume=<会话文件>`，
+   * 没有会话文件就是新会话）。已经在跑的 rpc 任务不动，等它结束、下次启动再换。设置是 rpc 时一切照旧。
+   */
+  async #unifiedRecord(record: TaskRecord): Promise<TaskRecord> {
+    if (record.engine !== "rpc" || !this.#tspHost) return record;
+    if ((await this.#deps.getSettings()).taskEngine !== "tsp") return record;
+    return this.#deps.registry.updateTask(record.id, { engine: "tsp" });
+  }
+
+  #canSwitchEngine(runner: PoolRunner): boolean {
+    return (
+      this.#tspHost !== null &&
+      runner.engine === "rpc" &&
+      !runner.hasProcess &&
+      (runner.status === "stopped" || runner.status === "error")
+    );
+  }
+
+  /** 要启动（或在已有任务上发第一句话）之前：没有进程的 rpc 任务按设置换成 TSP runner；其余原样返回。 */
+  async #runnerForStart(id: TaskId): Promise<PoolRunner> {
+    const runner = this.#runner(id);
+    if (!this.#canSwitchEngine(runner)) return runner;
+    const record = await this.#unifiedRecord(runner.record);
+    // await 期间任务可能已被启动、归档或换过：只在它仍是同一个没进程的 runner 时换。
+    const current = this.#runners.get(id);
+    if (record.engine !== "tsp" || current !== runner || runner.hasProcess) return current ?? runner;
+    await runner.dispose();
+    const next = this.#adopt(record);
+    this.#deps.events.state(next.state);
+    return next;
+  }
+
+  #adopt(record: TaskRecord): PoolRunner {
     const project = this.#deps.registry.findProject(record.projectId);
     if (!project) throw new Error(`task ${record.id} refers to unknown project ${record.projectId}`);
-    const runner = new TaskRunner(record, project, this.#host);
+    let runner: PoolRunner;
+    if (record.engine === "tsp") {
+      if (!this.#tspHost)
+        throw new Error(`task ${record.id} uses the TSP engine, which is not available in this build`);
+      runner = new TspRunner(record, project, this.#tspHost);
+    } else {
+      runner = new TaskRunner(record, project, this.#host);
+    }
     this.#runners.set(record.id, runner);
     return runner;
   }
 
-  #runner(id: TaskId): TaskRunner {
+  #runner(id: TaskId): PoolRunner {
     const runner = this.#runners.get(id);
     if (!runner) throw new Error(`unknown task ${id}`);
+    return runner;
+  }
+
+  /** 只有 rpc 引擎的任务才有的操作（队列、btw、子代理、分叉、模型/速度开关、对话框…）：TSP 任务的这些都在 omp 画的节点里，用 TSP 事件操作。 */
+  #rpcRunner(id: TaskId): TaskRunner {
+    const runner = this.#runner(id);
+    if (runner.engine !== "rpc")
+      throw new Error(`task ${id} runs on the TSP engine; this operation is only available for rpc tasks`);
+    return runner;
+  }
+
+  #tspRunner(id: TaskId): TspRunner {
+    const runner = this.#runner(id);
+    if (runner.engine !== "tsp") throw new Error(`task ${id} does not run on the TSP engine`);
     return runner;
   }
 
@@ -153,6 +248,13 @@ export class TaskPool {
     return [...this.#runners.values()].map((runner) => runner.state);
   }
 
+  /** 新任务的引擎：取设置；TSP 需要启动方提供 `deps.tsp`（单元测试不提供，用 rpc）。 */
+  async #newTaskEngine(): Promise<TaskEngine> {
+    const engine = (await this.#deps.getSettings()).taskEngine;
+    if (engine === "tsp" && !this.#tspHost) throw new Error("the TSP engine is not available in this build");
+    return engine;
+  }
+
   async createTask(input: CreateTaskInput): Promise<TaskState> {
     const project = this.#deps.registry.findProject(input.projectId);
     if (!project) throw new Error(`unknown project ${input.projectId}`);
@@ -161,6 +263,7 @@ export class TaskPool {
     // 模型和思考强度不传：omp 按自己的配置（modelRoles.default、defaultThinkingLevel）选（设计原则 7）。
     const record = await this.#deps.registry.addTask({
       projectId: project.id,
+      engine: await this.#newTaskEngine(),
       sessionFile: null,
       title: "",
       model: null,
@@ -173,7 +276,7 @@ export class TaskPool {
   }
 
   /** 启动失败时状态已是 error 并已推送；这里不重复抛出（没有调用方在等）。 */
-  #startInBackground(runner: TaskRunner): void {
+  #startInBackground(runner: PoolRunner): void {
     runner.start().catch(() => {});
   }
 
@@ -183,24 +286,26 @@ export class TaskPool {
     const existing = this.#deps.registry.findTaskBySessionFile(input.sessionFile);
     if (existing) {
       const live = this.#runners.get(existing.id);
-      if (live) return live.state;
+      if (live) return (await this.#runnerForStart(existing.id)).state;
       // 已归档的任务恢复成未归档（同一 id，侧栏的"撤销"）；它的项目可能已被移除，挂回会话自己的 cwd 对应的项目。
-      const runner = this.#adopt(
-        await this.#deps.registry.updateTask(existing.id, {
-          archived: false,
-          ...(!this.#deps.registry.findProject(existing.projectId) && { projectId: project.id }),
-        }),
-      );
+      const revived = await this.#deps.registry.updateTask(existing.id, {
+        archived: false,
+        ...(!this.#deps.registry.findProject(existing.projectId) && { projectId: project.id }),
+      });
+      const runner = this.#adopt(await this.#unifiedRecord(revived));
       this.#deps.events.state(runner.state);
       return runner.state;
     }
     await stat(project.path); // cwd 已不存在时报错，不替用户"迁移会话"（arch 1.6）
     const record = await this.#deps.registry.addTask({
       projectId: project.id,
+      engine: await this.#newTaskEngine(),
       sessionFile: input.sessionFile,
-      title: input.title === null ? "" : titleFromPrompt(input.title) || input.title,
+      // 终端里 omp 起的会话标题带图标字形（私用区字符），存进任务前去掉。
+      title: input.title === null ? "" : titleFromPrompt(stripIconGlyphs(input.title)) || stripIconGlyphs(input.title),
       model: null,
       thinkingLevel: null,
+      updatedAt: input.modifiedAt,
     });
     const runner = this.#adopt(record);
     this.#startInBackground(runner);
@@ -209,7 +314,7 @@ export class TaskPool {
 
   /** 切到这个任务：需要时拉起 omp 并恢复会话，返回对话快照，并清除 unread。启动失败不抛，状态里有 error。 */
   async openTask(id: TaskId): Promise<TranscriptSnapshot> {
-    const runner = this.#runner(id);
+    const runner = await this.#runnerForStart(id);
     this.#foreground = id;
     runner.markRead();
     if (runner.status === "stopped") await runner.start().catch(() => {});
@@ -221,48 +326,68 @@ export class TaskPool {
     return this.#runner(id).snapshot();
   }
 
+  /** TSP 任务当前的节点树和序号（不拉起进程）。 */
+  getTspSnapshot(id: TaskId): TspSnapshot {
+    return this.#tspRunner(id).tspSnapshot();
+  }
+
+  sendTspEvent(id: TaskId, event: TspEvent): void {
+    this.#tspRunner(id).sendTspEvent(event);
+  }
+
+  sendTspKeys(id: TaskId, data: string): void {
+    this.#tspRunner(id).sendTspKeys(data);
+  }
+
+  resizeTsp(id: TaskId, cols: number): void {
+    this.#tspRunner(id).resizeTsp(cols);
+  }
+
   markTaskRead(id: TaskId): void {
     this.#runner(id).markRead();
   }
 
   sendPrompt(id: TaskId, input: PromptInput): Promise<void> {
-    return this.#runner(id).sendPrompt(input);
+    const runner = this.#runner(id);
+    // 不需要换引擎时同步交给 runner（不多一个微任务：回收判断依赖 prompt 在途）。
+    if (!this.#canSwitchEngine(runner)) return runner.sendPrompt(input);
+    return this.#runnerForStart(id).then((started) => started.sendPrompt(input));
   }
 
   removeQueuedMessage(id: TaskId, text: string, queue: "steering" | "followUp"): Promise<RestoredDraft | null> {
-    return this.#runner(id).removeQueuedMessage(text, queue);
+    return this.#rpcRunner(id).removeQueuedMessage(text, queue);
   }
 
   promoteQueuedMessage(id: TaskId, text: string): Promise<boolean> {
-    return this.#runner(id).promoteQueuedMessage(text);
+    return this.#rpcRunner(id).promoteQueuedMessage(text);
   }
 
   getSubagents(id: TaskId): SubagentLane[] {
-    return this.#runner(id).getSubagents();
+    return this.#rpcRunner(id).getSubagents();
   }
 
   askBtw(id: TaskId, question: string, recordId?: string): Promise<string> {
-    return this.#runner(id).askBtw(question, recordId);
+    return this.#rpcRunner(id).askBtw(question, recordId);
   }
 
   cancelBtw(id: TaskId, recordId?: string): Promise<boolean> {
-    return this.#runner(id).cancelBtw(recordId);
+    return this.#rpcRunner(id).cancelBtw(recordId);
   }
 
   getBtw(id: TaskId): Promise<BtwHistoryRecord[]> {
-    return this.#runner(id).getBtw();
+    return this.#rpcRunner(id).getBtw();
   }
 
   getSubagentDetail(id: TaskId, subagentId: string, since?: number): Promise<SubagentDetail> {
-    return this.#runner(id).getSubagentDetail(subagentId, since);
+    return this.#rpcRunner(id).getSubagentDetail(subagentId, since);
   }
 
   steerSubagent(id: TaskId, subagentId: string, text: string): Promise<void> {
-    return this.#runner(id).steerSubagent(subagentId, text);
+    return this.#rpcRunner(id).steerSubagent(subagentId, text);
   }
 
   cancelSubagent(id: TaskId, subagentId: string): Promise<boolean> {
-    return this.#runner(id).cancelSubagent(subagentId);
+    return this.#rpcRunner(id).cancelSubagent(subagentId);
   }
 
   stopTask(id: TaskId): Promise<RestoredQueue> {
@@ -270,7 +395,7 @@ export class TaskPool {
   }
 
   respondDialog(id: TaskId, dialogId: string, response: DialogResponse): Promise<void> {
-    return this.#runner(id).respondDialog(dialogId, response);
+    return this.#rpcRunner(id).respondDialog(dialogId, response);
   }
 
   renameTask(id: TaskId, title: string): Promise<void> {
@@ -291,11 +416,11 @@ export class TaskPool {
 
   /** 出错后重新拉起。 */
   async restartTask(id: TaskId): Promise<void> {
-    await this.#runner(id).start();
+    await (await this.#runnerForStart(id)).start();
   }
 
   compactTask(id: TaskId): Promise<void> {
-    return this.#runner(id).compact();
+    return this.#rpcRunner(id).compact();
   }
 
   /** 导出对话框的默认文件名要用：任务标题（还没有标题时为空串）。任务不存在时抛错。 */
@@ -305,19 +430,19 @@ export class TaskPool {
 
   /** 导出成 HTML 写到 `outputPath`（绝对路径，由调用方经保存对话框得到）；返回 omp 写到的路径。 */
   exportTaskHtml(id: TaskId, outputPath: string): Promise<string> {
-    return this.#runner(id).exportHtml(outputPath);
+    return this.#rpcRunner(id).exportHtml(outputPath);
   }
 
   runBash(id: TaskId, command: string): Promise<void> {
-    return this.#runner(id).runBash(command);
+    return this.#rpcRunner(id).runBash(command);
   }
 
   abortBash(id: TaskId): Promise<void> {
-    return this.#runner(id).abortBash();
+    return this.#rpcRunner(id).abortBash();
   }
 
   getSessionTree(id: TaskId): Promise<SessionTreeView> {
-    return this.#runner(id).getSessionTree();
+    return this.#rpcRunner(id).getSessionTree();
   }
 
   /**
@@ -326,12 +451,14 @@ export class TaskPool {
    * 会话文件是新建的那份。新任务不在这里占进程，而是立刻 #startInBackground（和 resume 一样后台起）；用户打开它时已就绪或恢复中。
    */
   async forkTask(id: TaskId, userMessageKey: string | null): Promise<ForkResult> {
-    const runner = this.#runner(id);
+    const runner = this.#rpcRunner(id);
     const { sessionFile, text } = await runner.forkSession(userMessageKey);
     const { projectId, title, model, thinkingLevel, worktreePath, worktreeBranch, worktreeBase } = runner.record;
     const forkTitle = title === "" ? title : (this.#deps.forkTitle?.(title) ?? title);
     const record = await this.#deps.registry.addTask({
       projectId,
+      // 分叉只有 rpc 任务能做（#rpcRunner）：先记 rpc，设置是 tsp 时下面的 #unifiedRecord 改成 tsp（新会话文件，直接 --resume）。
+      engine: "rpc",
       sessionFile,
       title: forkTitle,
       model,
@@ -340,18 +467,18 @@ export class TaskPool {
         worktreeBranch !== null &&
         worktreeBase !== null && { worktree: { path: worktreePath, branch: worktreeBranch, base: worktreeBase } }),
     });
-    const forked = this.#adopt(record);
+    const forked = this.#adopt(await this.#unifiedRecord(record));
     this.#deps.events.state(forked.state);
     this.#startInBackground(forked);
     return { task: forked.state, text };
   }
 
   async branchTask(id: TaskId, entryId: string): Promise<BranchTaskResult> {
-    return this.#runner(id).branchInPlace(entryId);
+    return this.#rpcRunner(id).branchInPlace(entryId);
   }
 
   taskGoal(id: TaskId, op: GoalOp, objective?: string): Promise<TaskState["goal"]> {
-    return this.#runner(id).goal(op, objective);
+    return this.#rpcRunner(id).goal(op, objective);
   }
 
   /** 任务的工作目录：有 worktree 时是 worktree 根，否则是项目路径。 */
@@ -437,7 +564,7 @@ export class TaskPool {
 
   // ───── 上限和回收 ─────
 
-  #liveRunners(except: TaskId): TaskRunner[] {
+  #liveRunners(except: TaskId): PoolRunner[] {
     return [...this.#runners.values()].filter(
       (runner) => runner.id !== except && (runner.hasProcess || runner.status === "starting"),
     );
@@ -456,7 +583,7 @@ export class TaskPool {
     }
   }
 
-  async #recycle(runner: TaskRunner): Promise<void> {
+  async #recycle(runner: PoolRunner): Promise<void> {
     await runner.close();
     this.#recyclableSince.delete(runner.id);
     this.#trimSnapshots();

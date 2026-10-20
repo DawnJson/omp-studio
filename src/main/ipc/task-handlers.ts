@@ -17,10 +17,12 @@ import {
   parseDialogResponse,
   parseModelKey,
   parseOneOf,
+  parseInteger,
   parsePromptInput,
   parseProjectId,
   parseRecord,
   parseString,
+  parseTspEvent,
   parseTaskId,
   parseThinkingLevel,
   parseTitle,
@@ -72,6 +74,10 @@ export const taskHandlers: HandlerGroup<
   | "openTaskFile"
   | "revealTaskFile"
   | "openTaskFolder"
+  | "getTspSnapshot"
+  | "sendTspEvent"
+  | "sendTspKeys"
+  | "resizeTsp"
 > = {
   compactTask: async (taskId) => (await getTaskPool()).compactTask(parseTaskId(taskId)),
   exportTaskHtml: async (taskId) => {
@@ -169,6 +175,17 @@ export const taskHandlers: HandlerGroup<
   openTask: async (taskId) => (await getTaskPool()).openTask(parseTaskId(taskId)),
 
   getTranscript: async (taskId) => (await getTaskPool()).getTranscript(parseTaskId(taskId)),
+
+  // TSP 任务：节点树快照、用户操作 → TSP 事件、按键字节、面板宽度（任务不是 tsp 引擎时任务池抛错）。
+  getTspSnapshot: async (taskId) => (await getTaskPool()).getTspSnapshot(parseTaskId(taskId)),
+
+  sendTspEvent: async (taskId, event) => (await getTaskPool()).sendTspEvent(parseTaskId(taskId), parseTspEvent(event)),
+
+  sendTspKeys: async (taskId, data) =>
+    (await getTaskPool()).sendTspKeys(parseTaskId(taskId), parseString(data, "data", 1_000_000)),
+
+  resizeTsp: async (taskId, cols) =>
+    (await getTaskPool()).resizeTsp(parseTaskId(taskId), parseInteger(cols, "cols", 20, 1000)),
 
   markTaskRead: async (taskId) => (await getTaskPool()).markTaskRead(parseTaskId(taskId)),
 

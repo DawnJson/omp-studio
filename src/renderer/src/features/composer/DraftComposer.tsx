@@ -23,7 +23,6 @@ import type {
 import { draftKey } from "../../../../shared/ipc.ts";
 import { worktreeBlockerKey } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Plus } from "../../icons.tsx";
 import { selectTask } from "../../store/index.ts";
 import { startupSnapshot } from "../../store/startup-snapshot.ts";
 import { saveOmpDefaultThinking, saveOmpModelRole } from "../settings/config-store.ts";
@@ -62,7 +61,6 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
   const key = terminalDraftKey as string as TaskId;
   const draft = useDraft(key);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState(false);
   // 初值是上次读到的（启动缓存），现读的到了再替换；omp 为 undefined = 还没读到过。
   const [omp, setOmp] = useState<DefaultModelInfo | null | undefined>(() => startupSnapshot().defaultModel);
@@ -206,12 +204,12 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
     event.preventDefault();
     void send();
   };
+  // 粘贴：图片作附件；其余文件由 preload 把路径插进输入框（src/preload/index.ts）。
   const onPaste = (event: ClipboardEvent) => {
-    const files = [...event.clipboardData.files];
-    if (files.some((file) => file.type.startsWith("image/"))) {
-      event.preventDefault();
-      void addFiles(files);
-    }
+    const images = [...event.clipboardData.files].filter((file) => file.type.startsWith("image/"));
+    if (images.length === 0) return;
+    event.preventDefault();
+    void addFiles(images);
   };
   const onDrop = (event: DragEvent) => {
     if (event.dataTransfer.files.length === 0) return;
@@ -258,26 +256,6 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
           />
         </div>
         <div className="composer-tools">
-          <button
-            type="button"
-            className="tool-btn"
-            aria-label={t("composer.attach")}
-            title={t("composer.attach")}
-            onClick={() => fileRef.current?.click()}
-          >
-            <Plus size={16} />
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            onChange={(event) => {
-              void addFiles(event.target.files ?? []);
-              event.target.value = "";
-            }}
-          />
           <ModelChip
             model={model}
             thinkingLevel={thinkingLevel}

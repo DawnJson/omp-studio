@@ -1,84 +1,77 @@
-// 模型选择对话框的列表：按搜索词过滤，按 provider 分组；没有搜索词时最近用过的模型单独置顶。
-// 分组默认折叠，列表是"最近 + 组头（+ 展开的组里的模型）"组成的一棵两层树。纯函数。
+// 模型选择对话框的列表：按搜索词过滤；没有搜索词时"常用"（当前模型、角色绑定的模型、最近用过的）单独置顶，其余按 provider 排序。
+// 搜索框以 @ 开头时列的是角色而不是模型。纯函数。
 import { formatCount } from "./usage-format.ts";
 import type { ModelKey, ModelOption } from "../../../../shared/ipc.ts";
 
-interface ModelGroup {
-  provider: string;
-  models: ModelOption[];
-}
-
 export interface ModelRows {
-  recent: ModelOption[];
-  groups: ModelGroup[];
-  /** 界面上从上到下的顺序（最近 + 各组），方向键按它移动。 */
+  /** 常用：按传入顺序；有搜索词时为空。 */
+  pinned: ModelOption[];
+  /** 其余（全部 / 匹配），按 provider、名称排序。 */
+  rest: ModelOption[];
+  /** 界面上从上到下的顺序（常用 + 其余），方向键按它移动。 */
   flat: ModelOption[];
 }
 
 export const sameModel = (a: ModelKey, b: ModelKey) => a.provider === b.provider && a.modelId === b.modelId;
 
-/** 模型行右侧的紧凑信息："1M · $0.3/$1.2"（上下文窗口 · 输入/输出价格，美元/百万 token）；没有的部分省略，价格全 0（免费或未标价）不显示。 */
-export function modelRowMeta(option: ModelOption): string {
-  const parts: string[] = [];
-  if (option.contextWindow !== null) parts.push(formatCount(option.contextWindow));
+const price = (value: number) => String(Number(value.toFixed(3)));
+
+/** 表格里的价格列："$0.3·1.2"（输入·输出，美元/百万 token）；价格全 0（免费或未标价）为 null。 */
+export function modelPriceCell(option: ModelOption): string | null {
   const { input, output } = option.cost;
-  if (input > 0 || output > 0) {
-    const price = (value: number) => `$${Number(value.toFixed(3))}`;
-    parts.push(`${price(input)}/${price(output)}`);
-  }
-  return parts.join(" · ");
+  return input > 0 || output > 0 ? `$${price(input)}·${price(output)}` : null;
 }
 
-export function groupModels(models: readonly ModelOption[], query: string, recent: readonly ModelKey[]): ModelRows {
+/** 底部参数行里的价格："$0.3/1.2"；价格全 0 为 null。 */
+export function modelPriceLine(option: ModelOption): string | null {
+  const { input, output } = option.cost;
+  return input > 0 || output > 0 ? `$${price(input)}/${price(output)}` : null;
+}
+
+/** 表格里的上下文列："1M"；没有为 null。 */
+export const modelContextCell = (option: ModelOption): string | null =>
+  option.contextWindow === null ? null : formatCount(option.contextWindow);
+
+/** 常用模型：当前模型在最前，然后是角色绑定的模型、最近用过的；去重，只保留列表里有的。 */
+export function pinnedKeys(
+  current: ModelKey | null,
+  bound: readonly (ModelOption | null | undefined)[],
+  recent: readonly ModelKey[],
+): ModelKey[] {
+  const keys: ModelKey[] = [];
+  const add = (key: ModelKey | null | undefined) => {
+    if (key && !keys.some((existing) => sameModel(existing, key))) keys.push(key);
+  };
+  add(current);
+  for (const option of bound) add(option?.key);
+  for (const key of recent) add(key);
+  return keys;
+}
+
+export function groupModels(models: readonly ModelOption[], query: string, pinned: readonly ModelKey[]): ModelRows {
   const needle = query.trim().toLowerCase();
   const filtered = models.filter(
     (model) =>
       needle === "" || `${model.name} ${model.key.provider} ${model.key.modelId}`.toLowerCase().includes(needle),
   );
-  const recentRows =
-    needle === "" ? recent.flatMap((key) => filtered.filter((model) => sameModel(model.key, key))) : [];
+  const pinnedRows =
+    needle === "" ? pinned.flatMap((key) => filtered.filter((model) => sameModel(model.key, key))) : [];
   const rest = filtered
-    .filter((model) => !recentRows.includes(model))
+    .filter((model) => !pinnedRows.includes(model))
     .sort((a, b) => a.key.provider.localeCompare(b.key.provider) || a.name.localeCompare(b.name));
-  const groups: ModelGroup[] = [];
-  for (const model of rest) {
-    const last = groups.at(-1);
-    if (last && last.provider === model.key.provider) last.models.push(model);
-    else groups.push({ provider: model.key.provider, models: [model] });
-  }
-  return { recent: recentRows, groups, flat: [...recentRows, ...groups.flatMap((group) => group.models)] };
+  return { pinned: pinnedRows, rest, flat: [...pinnedRows, ...rest] };
 }
 
-export type TreeItem =
-  | { kind: "group"; id: string; provider: string; count: number; expanded: boolean; hasCurrent: boolean }
-  | { kind: "model"; id: string; option: ModelOption };
+/** 搜索框以 @ 开头时按角色名过滤（@ 之后的部分，前缀 / 包含都算）；不是 @ 开头为 null。 */
+export function filterRoles(tabs: readonly string[], query: string): string[] | null {
+  const trimmed = query.trimStart();
+  if (!trimmed.startsWith("@")) return null;
+  const needle = trimmed.slice(1).trim().toLowerCase();
+  return tabs.filter((role) => role.toLowerCase().includes(needle));
+}
 
 export const modelItemId = (key: ModelKey) => `m:${key.provider}/${key.modelId}`;
-const groupItemId = (provider: string) => `g:${provider}`;
-
-/** 界面上从上到下能用方向键走到的项：最近用过的模型、每个组头、展开的组里的模型。 */
-export function treeItems(
-  rows: ModelRows,
-  isExpanded: (provider: string) => boolean,
-  current: ModelKey | null,
-): TreeItem[] {
-  const items: TreeItem[] = rows.recent.map((option) => ({ kind: "model", id: modelItemId(option.key), option }));
-  for (const group of rows.groups) {
-    const expanded = isExpanded(group.provider);
-    items.push({
-      kind: "group",
-      id: groupItemId(group.provider),
-      provider: group.provider,
-      count: group.models.length,
-      expanded,
-      hasCurrent: current !== null && group.models.some((model) => sameModel(model.key, current)),
-    });
-    if (expanded) {
-      for (const option of group.models) items.push({ kind: "model", id: modelItemId(option.key), option });
-    }
-  }
-  return items;
-}
+export const roleItemId = (role: string) => `r:${role}`;
 
 /** omp 内置的、选择器里可单独指定模型的角色（顺序即标签顺序）；modelRoles 里别的角色只在指到列表中的模型时才加进来。 */
 export const builtinRoles = ["default", "smol", "slow", "plan", "task", "commit", "advisor"] as const;

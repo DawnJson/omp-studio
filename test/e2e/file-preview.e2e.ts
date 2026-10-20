@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
-import { launchApp, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
@@ -42,7 +42,7 @@ async function start(): Promise<Started> {
     if (!added) throw new Error("addProject 没有返回项目");
     await globalThis.studio.createTask({ projectId: added.id });
   });
-  await page.getByTestId("task-row").first().locator(".sb-row-main").click();
+  await openTaskRow(page);
   await expect(page.getByTestId("composer-input")).toBeVisible();
   const taskId = await page.evaluate(async () => (await globalThis.studio.listTasks())[0]?.id);
   if (taskId === undefined) throw new Error("没有任务");

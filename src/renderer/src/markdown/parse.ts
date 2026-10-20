@@ -1,11 +1,13 @@
 // Markdown 解析：markdown-it（html:false，原始 HTML 当文本）→ 顶层块列表。
 // 纯 TS，不碰 DOM：渲染进程和 vitest（test/markdown.test.ts）共用。
+import { mathPlugin } from "./math.ts";
 import MarkdownIt from "markdown-it";
 
 export type Token = ReturnType<InstanceType<typeof MarkdownIt>["parse"]>[number];
 
 /** html:false 让 <script>、<img onerror> 这类原始 HTML 变成普通文本；linkify 关闭，只认显式链接。 */
 const md = new MarkdownIt({ html: false, linkify: false, typographer: false, breaks: false });
+md.use(mathPlugin);
 
 export interface MarkdownBlock {
   /** 块的原文；memo 的比较依据，已闭合的块原文不再变化。 */

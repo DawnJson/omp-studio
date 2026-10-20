@@ -22,13 +22,16 @@ test("顶栏是任务条：标志+字标、切换侧栏按钮、关于与反馈�
     const { page } = launched;
     await expect(page.getByTestId("topbar-sidebar")).toBeVisible();
     await expect(page.getByTestId("topbar-about")).toBeVisible();
-    await expect(page.getByTestId("logo").first()).toBeVisible();
+    // 左上角的标志和新任务页同一个像素标志（π + 像素字 omp studio），不带版本号。
+    const brand = page.getByTestId("topbar-brand");
+    await expect(brand.getByTestId("pixel-logo")).toBeVisible();
+    await expect(brand.getByTestId("pixel-logo-version")).toHaveCount(0);
     await expect(page.getByTestId("topbar-crumb")).toHaveText(/^(新任务|New task)$/);
     for (const id of ["topbar-back", "topbar-forward"]) await expect(page.getByTestId(id)).toHaveCount(0);
     // 三样横排在同一行：标志在最左，后面依次是切换侧栏、关于。
     const [logo, sidebar, menu] = await Promise.all(
-      [page.getByTestId("logo").first(), page.getByTestId("topbar-sidebar"), page.getByTestId("topbar-about")].map(
-        (locator) => locator.boundingBox(),
+      [brand, page.getByTestId("topbar-sidebar"), page.getByTestId("topbar-about")].map((locator) =>
+        locator.boundingBox(),
       ),
     );
     expect((logo?.x ?? 0) < (sidebar?.x ?? 0) && (sidebar?.x ?? 0) < (menu?.x ?? 0)).toBe(true);

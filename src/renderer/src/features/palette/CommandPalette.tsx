@@ -20,7 +20,7 @@ import { CommandIcon, SearchIcon, SessionIcon, SlashIcon, TaskIcon } from "../si
 import { useProjects } from "../sidebar/projects-store.ts";
 import { startDraft } from "../empty/index.ts";
 import { useDraftTerminalKey } from "../terminal/index.ts";
-import { projectLabels } from "../../../../shared/ui/sidebar-model.ts";
+import { projectLabels, sessionTitle, taskTitle } from "../../../../shared/ui/sidebar-model.ts";
 import { commandIcon } from "./command-icons.ts";
 import { buildCommands } from "./palette-commands.ts";
 import { useSlashCommands } from "./slash-commands.ts";
@@ -94,8 +94,8 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
           hasWaiting: visibleTasks.some((task) => task.status === "needs_you"),
         }),
         projectLabel: (projectId) => labels.get(projectId) ?? "",
-        taskTitle: (task) => (task.title.trim() === "" ? t("task.untitled") : task.title),
-        sessionTitle: (session) => session.title ?? session.firstPrompt ?? t("history.untitled"),
+        taskTitle: (task) => taskTitle(task) || t("task.untitled"),
+        sessionTitle: (session) => sessionTitle(session) ?? t("history.untitled"),
         hasCurrentTask: current !== null,
         slashCommands,
       }),

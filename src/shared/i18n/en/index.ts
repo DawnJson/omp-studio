@@ -11,8 +11,8 @@ import { menu } from "./menu.ts";
 import { model } from "./model.ts";
 import { thinking } from "./thinking.ts";
 import { approval } from "./approval.ts";
-import { process } from "./process.ts";
-import { tool } from "./tool.ts";
+import { process } from "../run/process.ts";
+import { tool } from "../run/tool.ts";
 import { msg } from "./msg.ts";
 import { code } from "./code.ts";
 import { scroll } from "./scroll.ts";
@@ -47,6 +47,8 @@ import { btw } from "./btw.ts";
 import { goal } from "./goal.ts";
 import { tree } from "./tree.ts";
 import { preview } from "./preview.ts";
+import { tspi } from "./tspi.ts";
+import { tsp } from "./tsp.ts";
 
 export const en = {
   shell,
@@ -98,4 +100,6 @@ export const en = {
   goal,
   tree,
   preview,
+  tspi,
+  tsp,
 };

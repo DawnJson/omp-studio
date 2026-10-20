@@ -3,7 +3,13 @@
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
 
 /** 菜单项。给了 checked 就是单选项（menuitemradio），选中项用底色标出，不画勾。 */
-export function MenuItem(props: { children: ReactNode; shortcut?: string; checked?: boolean; onSelect(): void }) {
+export function MenuItem(props: {
+  children: ReactNode;
+  shortcut?: string;
+  checked?: boolean;
+  title?: string;
+  onSelect(): void;
+}) {
   const role = props.checked === undefined ? "menuitem" : "menuitemradio";
   return (
     <button
@@ -11,6 +17,7 @@ export function MenuItem(props: { children: ReactNode; shortcut?: string; checke
       role={role}
       aria-checked={props.checked}
       className="menu-item"
+      title={props.title}
       tabIndex={-1}
       onClick={props.onSelect}
     >

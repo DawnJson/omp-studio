@@ -17,9 +17,20 @@ async function sessionFileOf(taskId: TaskId): Promise<string | null> {
   return link.sessionFile;
 }
 
+async function findLiveSession(sessionId: unknown) {
+  const id = parseString(sessionId, "sessionId", 200);
+  const session = await index.findById(id);
+  if (session === null) throw new Error("找不到这个会话，它的文件可能已被移动或删除");
+  // 会话必须用自己的 cwd 启动（omp 拒绝跨项目切换）；目录没了就报错，不替用户迁移会话。
+  const cwdInfo = await stat(session.cwd).catch(() => null);
+  if (cwdInfo === null || !cwdInfo.isDirectory()) throw new Error(`会话的项目目录已不存在：${session.cwd}`);
+  return session;
+}
+
 export const historyHandlers: HandlerGroup<
   | "listSessions"
   | "resumeSession"
+  | "ensureSessionProject"
   | "revealProject"
   | "revealTaskSession"
   | "getTaskSessionRef"
@@ -38,15 +49,21 @@ export const historyHandlers: HandlerGroup<
   },
 
   async resumeSession(sessionId) {
-    const id = parseString(sessionId, "sessionId", 200);
-    const session = await index.findById(id);
-    if (session === null) throw new Error("找不到这个会话，它的文件可能已被移动或删除");
-    // 会话必须用自己的 cwd 启动（omp 拒绝跨项目切换）；目录没了就报错，不替用户迁移会话。
-    const cwdInfo = await stat(session.cwd).catch(() => null);
-    if (cwdInfo === null || !cwdInfo.isDirectory()) throw new Error(`会话的项目目录已不存在：${session.cwd}`);
+    const session = await findLiveSession(sessionId);
     const pool = await getTaskPool();
     const project = await pool.ensureProject(session.cwd);
-    return pool.resume({ sessionFile: session.file, cwd: session.cwd, projectId: project.id, title: session.title });
+    return pool.resume({
+      sessionFile: session.file,
+      cwd: session.cwd,
+      projectId: project.id,
+      title: session.title,
+      modifiedAt: session.modifiedAt,
+    });
+  },
+
+  async ensureSessionProject(sessionId) {
+    const session = await findLiveSession(sessionId);
+    return (await getTaskPool()).ensureProject(session.cwd);
   },
 
   async revealProject(projectId) {

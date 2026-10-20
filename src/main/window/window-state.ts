@@ -3,14 +3,7 @@
 import { app, screen, type BrowserWindow, type Rectangle } from "electron";
 import path from "node:path";
 import { historyOrders, limits, type ShellState } from "../../shared/ipc.ts";
-import {
-  IpcValidationError,
-  parseBoolean,
-  parseInteger,
-  parseOneOf,
-  parseRecord,
-  parseString,
-} from "../ipc/validate.ts";
+import { parseBoolean, parseInteger, parseOneOf, parseRecord } from "../ipc/validate.ts";
 import { readJsonFile, writeJsonFileAtomic } from "../settings/json-file.ts";
 
 export const sidebarWidthRange = [220, 360] as const;
@@ -18,7 +11,6 @@ const defaultShellState: ShellState = {
   sidebarWidth: 264,
   sidebarCollapsed: false,
   terminalHeight: 280,
-  collapsedProjects: [],
   historyOrder: "folder",
 };
 
@@ -72,13 +64,6 @@ function parseShellRecord(value: unknown): Record<string, unknown> {
   }
 }
 
-/** 折叠的项目组：最多 500 项，每项是不超过 200 字符的字符串。 */
-export function parseCollapsedProjects(value: unknown): string[] {
-  if (!Array.isArray(value) || value.length > 500)
-    throw new IpcValidationError("collapsedProjects 必须是不超过 500 项的数组");
-  return value.map((item) => parseString(item, "collapsedProjects[]", 200));
-}
-
 function load(): PersistedState {
   if (state) return state;
   let record: Record<string, unknown> = {};
@@ -102,11 +87,6 @@ function load(): PersistedState {
   }
   try {
     shell.terminalHeight = parseInteger(raw["terminalHeight"], "terminalHeight", ...limits.terminalHeightRange);
-  } catch {
-    // 保留默认值。
-  }
-  try {
-    shell.collapsedProjects = parseCollapsedProjects(raw["collapsedProjects"]);
   } catch {
     // 保留默认值。
   }

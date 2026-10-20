@@ -39,6 +39,17 @@ export interface ToolStep {
 export type Step =
   ToolStep | { kind: "narration"; key: string; text: string } | { kind: "thinking"; key: string; text: string };
 
+/** 一轮里所有助手消息的 usage 之和（轮尾一行小字和悬停明细用）。 */
+export interface TurnUsage {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  totalTokens: number;
+  /** 美元；provider 没给价格时是 0。 */
+  cost: number;
+}
+
 export type Extra =
   | { kind: "notice"; key: string; level: NotifyType; message: string }
   | { kind: "command_output"; key: string; text: string }
@@ -85,6 +96,8 @@ export interface Turn {
   runFinished: boolean;
   /** 助手消息里的 model 与上一轮不同时的新模型名；否则 null。 */
   modelSwitch: string | null;
+  /** 本轮所有助手消息的 usage 之和（流式中的消息还没有最终值，照样算进去）。 */
+  usage: TurnUsage;
   changes: FileChange[];
   /** 复用判断：这一轮依赖的所有 item/tool 引用，全部没变就沿用上一次的 Turn 对象。 */
   deps: unknown[];
@@ -109,7 +122,8 @@ export function toolFromRun(run: ToolRun, key: string): ToolStep {
     args: run.args,
     status: run.status,
     output: resultText(live ? run.partialResult : run.result),
-    result: run.result,
+    // 运行中取最近一次部分结果（wait 的 details.jobs 在部分结果里就有）。
+    result: live ? (run.partialResult ?? run.result) : run.result,
     startedAt: run.startedAt,
     endedAt: run.endedAt,
   };
@@ -176,6 +190,22 @@ function groupItems(items: readonly TranscriptItem[]): TranscriptItem[][] {
 
 function sameDeps(a: readonly unknown[], b: readonly unknown[]): boolean {
   return a.length === b.length && a.every((value, index) => Object.is(value, b[index]));
+}
+
+function sumUsage(messages: readonly AssistantMessage[]): TurnUsage {
+  const sum: TurnUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: 0 };
+  for (const message of messages) {
+    // 历史记录里可能没有 usage（老会话）：当 0 处理。
+    const usage = message.usage as AssistantMessage["usage"] | undefined;
+    if (!usage) continue;
+    sum.input += usage.input;
+    sum.output += usage.output;
+    sum.cacheRead += usage.cacheRead;
+    sum.cacheWrite += usage.cacheWrite;
+    sum.totalTokens += usage.totalTokens;
+    sum.cost += usage.cost.total;
+  }
+  return sum;
 }
 
 function buildTurn(
@@ -289,6 +319,7 @@ function buildTurn(
   const toolsForChanges = steps.flatMap((step) =>
     step.kind === "tool" ? [{ name: step.name, args: step.args, status: step.status, result: step.result }] : [],
   );
+  const usage = sumUsage(assistants.map((item) => item.message));
   const startedAt = userItem?.at ?? first.at;
   const deps: unknown[] = [index, previousModel, ...group, ...[...seenTools].map((id) => transcript.tools[id])];
   return {
@@ -306,6 +337,7 @@ function buildTurn(
     subagents: 0,
     runFinished: true,
     modelSwitch: model !== null && previousModel !== null && model !== previousModel ? model : null,
+    usage,
     changes: summarizeChanges(toolsForChanges),
     deps,
   };

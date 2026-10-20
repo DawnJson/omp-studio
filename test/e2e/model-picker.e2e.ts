@@ -47,7 +47,7 @@ test("角色标签：选 Task 再选模型，modelRoles.task 写入 omp 配置�
     await page.keyboard.press("ArrowLeft");
     await expect(page.locator('[data-role-tab="task"]')).toHaveAttribute("aria-selected", "true");
 
-    // 搜索会展开有匹配的组；点模型 = 给 task 指定它。
+    // 搜索出的模型行直接在表里；点模型 = 给 task 指定它。
     await page.getByTestId("model-search").fill("role-two");
     const option = page.getByTestId("model-option").first();
     await expect(option).toBeVisible({ timeout: 30_000 });

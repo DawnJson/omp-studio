@@ -1,5 +1,6 @@
-/* 泳道：放在过程展开区（.details）顶部。克制：只用现有 token，不加常驻动效。 */
+/* 子代理表（照 Tern 里 omp 的 Agents）：放在过程展开区（.details）顶部。只用现有 token；运行中的点和侧栏一样呼吸。 */
 .lanes {
+  container-type: inline-size;
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border-subtle);
@@ -16,7 +17,7 @@
   background: transparent;
   color: var(--text-2);
   font: inherit;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   text-align: left;
   cursor: pointer;
 }
@@ -27,11 +28,21 @@
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
-.lanes-title {
-  font-weight: var(--fw-medium);
+.lanes-icon {
+  flex: none;
+  color: var(--text-2);
 }
-.lanes-count {
+.lanes-title {
+  font-weight: var(--fw-strong);
+  color: var(--text);
+}
+.lanes-totals {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
   color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 .lanes-body {
   display: flex;
@@ -39,129 +50,149 @@
   padding: var(--space-1) 0 0;
 }
 
-.lane-row {
+/* 一行：左边弹性（点 · 名字 · 模型 · 任务），右边六列定宽数字；列头用同一套列宽 */
+.agent-row {
   display: grid;
-  grid-template-columns: minmax(120px, 30%) 1fr;
+  grid-template-columns: minmax(0, 1fr) 60px 48px 32px 40px 44px 36px;
   align-items: center;
-  gap: var(--space-3);
+  column-gap: var(--space-2);
   width: 100%;
-  min-height: 36px;
+  height: 30px;
   padding: 0 var(--space-2);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-2);
   font: inherit;
+  font-size: var(--fs-xs);
   text-align: left;
 }
-.lane-row-btn {
+.agent-cols {
+  height: 22px;
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+button.agent-row {
   cursor: pointer;
 }
-.lane-row-btn:hover {
+button.agent-row:hover {
   background: var(--bg-hover);
 }
-.lane-row-btn[data-selected] {
+button.agent-row[data-selected] {
   background: var(--bg-active);
 }
-.lane-row-btn:focus-visible {
+button.agent-row:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
-.lane-label {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.lane-name {
+.agent-main {
   display: flex;
   align-items: center;
-  gap: var(--space-1-5);
+  gap: var(--space-2);
   min-width: 0;
-  font-size: var(--fs-xs);
+}
+.agent-name {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
   color: var(--text);
 }
-.lane-name-text {
+.agent-model {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.lane-sub {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  height: 18px;
+  padding: 0 var(--space-1-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
   font-size: var(--fs-2xs);
+  line-height: 16px;
+  color: var(--text-2);
+}
+.agent-model[data-fallback] {
+  border-color: var(--st-waiting);
+  color: var(--st-waiting-text);
+}
+.agent-task {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text-3);
 }
+.agent-num {
+  overflow: hidden;
+  text-align: right;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+.agent-cols .agent-num {
+  font-family: inherit;
+}
+/* Ctx：上下文用了多少的小条（悬停看具体数） */
+.agent-ctx {
+  justify-self: end;
+  width: 32px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--bg-active);
+}
+.agent-ctx-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--text-3);
+}
+/* 窄了先收任务说明，再收 Req / Tools 两列 */
+@container (max-width: 560px) {
+  .agent-task {
+    display: none;
+  }
+}
+@container (max-width: 440px) {
+  .agent-row {
+    grid-template-columns: minmax(0, 1fr) 60px 48px 44px 36px;
+  }
+  .agent-row > :nth-child(4),
+  .agent-row > :nth-child(5) {
+    display: none;
+  }
+}
+
+/* 状态点：8px，和侧栏同一套形状——进行中实心带呼吸光晕，完成空心圆，出错实心红，取消空心灰 */
 .lane-dot {
   flex: none;
+  box-sizing: border-box;
   width: 8px;
   height: 8px;
+  border: 1.5px solid var(--st-done);
   border-radius: var(--radius-pill);
-  background: var(--st-done);
-  transition: background-color var(--dur-fast) var(--ease-out);
 }
 .lane-dot[data-status="running"] {
+  border: 0;
   background: var(--st-running);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  /* sb-halo 定义在 sidebar.css（keyframes 全局可用），0% 帧即静态终态 */
+  animation: sb-halo var(--dur-breathe) var(--ease-in-out) infinite;
+  animation-play-state: var(--play-state);
 }
 .lane-dot[data-status="failed"] {
+  border: 0;
   background: var(--st-error);
 }
 .lane-dot[data-status="aborted"] {
-  background: var(--text-3);
-}
-
-/* 轴：左端 = 这一轮开始，右端 = 最晚的结束；条 = 子代理的起止，竖线 = 它每次工具调用结束的时刻 */
-.lane-track {
-  position: relative;
-  height: 16px;
-  border-radius: var(--radius-xs);
-  background: var(--bg-hover);
-}
-.lane-bar {
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  border-radius: var(--radius-xs);
-  background: color-mix(in srgb, var(--st-done) 38%, transparent);
-}
-.lane-bar[data-status="running"] {
-  background: color-mix(in srgb, var(--st-running) 42%, transparent);
-}
-.lane-bar[data-status="failed"] {
-  background: color-mix(in srgb, var(--st-error) 42%, transparent);
-}
-.lane-bar[data-status="aborted"] {
-  background: color-mix(in srgb, var(--text-3) 40%, transparent);
-}
-.lane-tick {
-  position: absolute;
-  top: 1px;
-  bottom: 1px;
-  width: 2px;
-  margin-left: -1px;
-  border-radius: 1px;
-  background: var(--text-2);
-}
-.lane-tick[data-failed],
-.lane-mark[data-failed] {
-  background: var(--st-error);
-}
-.lane-mark {
-  position: absolute;
-  top: 5px;
-  bottom: 5px;
-  border-radius: 1px;
-  background: var(--text-3);
-}
-.lane-axis {
-  display: flex;
-  justify-content: space-between;
-  /* 与轨道列对齐：左边空出标签列 + 间距 */
-  margin-left: calc(max(120px, 30%) + var(--space-3) + var(--space-2));
-  margin-right: var(--space-2);
-  font-size: var(--fs-2xs);
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
+  border-color: var(--text-3);
+  border-style: dashed;
 }
 
 /* 详情 */

@@ -1,4 +1,4 @@
-// toast 队列（spec 4.17 notify / §1.2 Toast）：右下角，5 秒，同类合并。任何功能都可以 pushToast。
+// toast 队列（spec 4.17 notify / §1.2 Toast）：主区面板上沿正中的气泡，5 秒，同类合并。任何功能都可以 pushToast。
 import type { NotifyType } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 

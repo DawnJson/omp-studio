@@ -1,11 +1,12 @@
-// 防的是：模型多的时候搜索找不到、分组错乱，或者最近使用的模型在搜索时还把列表顶部占着。
+// 防的是：模型多的时候搜索找不到、列表错乱，或者常用的模型在搜索时还把列表顶部占着；@ 角色搜索认错角色。
 import { describe, expect, it } from "vitest";
 import type { ModelOption } from "../src/shared/ipc.ts";
 import {
+  filterRoles,
   groupModels,
   parseRoleSelector,
+  pinnedKeys,
   roleView,
-  treeItems,
 } from "../src/renderer/src/features/composer/model-groups.ts";
 
 const make = (provider: string, modelId: string, name = modelId): ModelOption => ({
@@ -26,27 +27,56 @@ const models = [
 ];
 
 describe("groupModels", () => {
-  it("按 provider 分组，组内按名称排序", () => {
+  it("没有常用时全部按 provider、名称排序", () => {
     const rows = groupModels(models, "", []);
-    expect(rows.groups.map((g) => g.provider)).toEqual(["anthropic", "deepseek", "openai"]);
-    expect(rows.groups[0]?.models.map((m) => m.name)).toEqual(["Claude Haiku", "Claude Sonnet"]);
+    expect(rows.pinned).toEqual([]);
+    expect(rows.rest.map((m) => m.name)).toEqual(["Claude Haiku", "Claude Sonnet", "DeepSeek V4 Flash", "GPT-5"]);
     expect(rows.flat).toHaveLength(4);
   });
 
-  it("没有搜索词时最近用过的置顶，且不在分组里重复出现", () => {
-    const rows = groupModels(models, "", [{ provider: "openai", modelId: "gpt-5" }]);
-    expect(rows.recent.map((m) => m.name)).toEqual(["GPT-5"]);
-    expect(rows.groups.map((g) => g.provider)).not.toContain("openai");
-    expect(rows.flat[0]?.name).toBe("GPT-5");
+  it("没有搜索词时常用的置顶（按传入顺序），且不在其余里重复出现", () => {
+    const rows = groupModels(models, "", [
+      { provider: "openai", modelId: "gpt-5" },
+      { provider: "anthropic", modelId: "claude-sonnet" },
+    ]);
+    expect(rows.pinned.map((m) => m.name)).toEqual(["GPT-5", "Claude Sonnet"]);
+    expect(rows.rest.map((m) => m.name)).not.toContain("GPT-5");
+    expect(rows.flat.map((m) => m.name)).toEqual(["GPT-5", "Claude Sonnet", "Claude Haiku", "DeepSeek V4 Flash"]);
   });
 
-  it("搜索同时匹配名称、provider 和 id，搜索时不再单列最近", () => {
+  it("搜索同时匹配名称、provider 和 id，搜索时不再单列常用", () => {
     expect(groupModels(models, "ANTHROPIC", []).flat).toHaveLength(2);
     expect(groupModels(models, "v4-flash", []).flat.map((m) => m.name)).toEqual(["DeepSeek V4 Flash"]);
     const rows = groupModels(models, "gpt", [{ provider: "openai", modelId: "gpt-5" }]);
-    expect(rows.recent).toEqual([]);
-    expect(rows.groups[0]?.models[0]?.name).toBe("GPT-5");
+    expect(rows.pinned).toEqual([]);
+    expect(rows.rest[0]?.name).toBe("GPT-5");
     expect(groupModels(models, "nope", []).flat).toEqual([]);
+  });
+});
+
+describe("pinnedKeys", () => {
+  it("当前模型在最前，然后是角色绑定的、最近用过的；去重", () => {
+    const sonnet = models[1];
+    const keys = pinnedKeys(
+      { provider: "openai", modelId: "gpt-5" },
+      [sonnet, null, models[0]],
+      [
+        { provider: "deepseek", modelId: "deepseek-v4-flash" },
+        { provider: "anthropic", modelId: "claude-sonnet" },
+      ],
+    );
+    expect(keys.map((key) => key.modelId)).toEqual(["gpt-5", "claude-sonnet", "deepseek-v4-flash"]);
+  });
+});
+
+describe("filterRoles", () => {
+  const tabs = ["default", "smol", "slow", "plan"];
+  it("不是 @ 开头为 null；@ 单独列出全部角色；@ 之后按名字包含过滤", () => {
+    expect(filterRoles(tabs, "gpt")).toBeNull();
+    expect(filterRoles(tabs, "@")).toEqual(tabs);
+    expect(filterRoles(tabs, "@sl")).toEqual(["slow"]);
+    expect(filterRoles(tabs, " @PL")).toEqual(["plan"]);
+    expect(filterRoles(tabs, "@zzz")).toEqual([]);
   });
 });
 
@@ -77,23 +107,5 @@ describe("角色", () => {
     expect(view.badges.get("m:anthropic/claude-sonnet")).toEqual(["writer"]);
     expect(view.modelOf["smol"]).toBeNull();
     expect(view.modelOf["task"]?.name).toBe("GPT-5");
-  });
-});
-
-describe("treeItems", () => {
-  it("组默认只有组头；展开的组跟着它的模型；最近用过的在最前面；组头标出当前模型所在的组", () => {
-    const rows = groupModels(models, "", [{ provider: "openai", modelId: "gpt-5" }]);
-    const current = { provider: "anthropic", modelId: "claude-haiku" };
-    const collapsed = treeItems(rows, () => false, current);
-    expect(collapsed.map((item) => item.id)).toEqual(["m:openai/gpt-5", "g:anthropic", "g:deepseek"]);
-    expect(collapsed[1]).toMatchObject({ kind: "group", count: 2, expanded: false, hasCurrent: true });
-    const open = treeItems(rows, (provider) => provider === "anthropic", current);
-    expect(open.map((item) => item.id)).toEqual([
-      "m:openai/gpt-5",
-      "g:anthropic",
-      "m:anthropic/claude-haiku",
-      "m:anthropic/claude-sonnet",
-      "g:deepseek",
-    ]);
   });
 });

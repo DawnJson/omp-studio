@@ -115,6 +115,33 @@
   border-radius: var(--radius-xs);
 }
 
+/* 公式：KaTeX 输出，颜色继承正文，字号跟正文一致；块级居中，太宽时横向滚动。 */
+.md-math,
+.md-math-block {
+  color: var(--text);
+  overflow-wrap: normal;
+}
+.md-math .katex,
+.md-math-block .katex {
+  font-size: 1.1em;
+}
+.md-math-block {
+  margin: var(--space-3) 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+}
+.md-math-block .katex-display {
+  margin: 0;
+}
+.md-math-error {
+  color: var(--st-error);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  white-space: pre-wrap;
+}
+
 .md-image {
   max-width: 100%;
   border-radius: var(--radius-md);

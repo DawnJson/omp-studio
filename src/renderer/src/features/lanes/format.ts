@@ -14,7 +14,7 @@ export function formatTokens(count: number): string {
 }
 
 /** `deepseek/deepseek-v4-flash` → `deepseek-v4-flash`（完整名放悬停提示）。 */
-function shortModel(model: string): string {
+export function shortModel(model: string): string {
   return model.slice(model.lastIndexOf("/") + 1);
 }
 
@@ -24,5 +24,5 @@ export function modelLine(lane: SubagentLane): string | null {
 }
 
 export function statusLabel(t: TFunction, status: SubagentLane["status"]): string {
-  return t(`lanes.status.${status}`);
+  return t(`process.lane.${status}`);
 }

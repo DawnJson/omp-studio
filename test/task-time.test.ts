@@ -12,10 +12,12 @@ const task = (patch: Partial<TaskState>): TaskState =>
   ({ status: "idle", updatedAt: now - 3 * minute, lastTurn: null, runStartedAt: null, ...patch }) as TaskState;
 
 describe("任务行尾部时间", () => {
-  it("一轮刚跑完：用结束时间，不用发消息时的 updatedAt", () => {
-    const finished = task({ lastTurn: { status: "completed", endedAt: now - 5_000 } });
+  it("时间只看持久化的 updatedAt：lastTurn 本身不改时间（一轮结束时主进程已把 updatedAt 写成结束时间）", () => {
+    const finished = task({ updatedAt: now - 5_000, lastTurn: { status: "completed", endedAt: now - 5_000 } });
     expect(lastActivityAt(finished)).toBe(now - 5_000);
     expect(taskTail(t, "zh-CN", finished, now)).toBe("刚刚");
+    const stale = task({ lastTurn: { status: "completed", endedAt: now - 5_000 } });
+    expect(lastActivityAt(stale)).toBe(now - 3 * minute);
   });
 
   it("没有跑过：用 updatedAt", () => {

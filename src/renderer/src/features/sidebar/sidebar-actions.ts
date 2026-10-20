@@ -6,13 +6,33 @@ import type { TaskId } from "../../../../shared/ipc.ts";
 import { selectTask } from "../../store/index.ts";
 import { startDraft } from "../empty/index.ts";
 import { refreshProjects } from "./projects-store.ts";
-import { nextWaitingTask, waitingTasks } from "../../../../shared/ui/sidebar-model.ts";
+import { nextWaitingTask, waitingTasks, type SidebarFolder } from "../../../../shared/ui/sidebar-model.ts";
 
 /** 弹系统文件夹选择器加入项目，并把它设为新任务草稿的项目（不创建任务）。取消时什么也不做。 */
 export async function addProjectAsDraft(t: TFunction): Promise<void> {
   try {
     const project = await window.studio.addProject();
     if (project === null) return;
+    await refreshProjects();
+    startDraft(project.id);
+  } catch (error) {
+    reportError(t, error);
+  }
+}
+
+/**
+ * 文件夹头部的 +：studio 项目直接开草稿；只在历史会话里出现的文件夹先加成项目（主进程按会话 id 查它的 cwd）再开草稿。
+ * 加成项目不创建任务，草稿不发消息就不会留下任何东西。
+ */
+export async function startDraftInFolder(folder: SidebarFolder, t: TFunction): Promise<void> {
+  if (folder.project !== null) {
+    startDraft(folder.project.id);
+    return;
+  }
+  const session = folder.items.find((item) => item.kind === "session");
+  if (session?.kind !== "session") return;
+  try {
+    const project = await window.studio.ensureSessionProject(session.session.id);
     await refreshProjects();
     startDraft(project.id);
   } catch (error) {

@@ -393,43 +393,103 @@
   animation: gate-in var(--dur-fast) var(--ease-out);
 }
 
-/* toast：右下角，宽 360 */
+/* toast：气泡，悬浮在主区面板上沿正中，向下叠放，不占布局。
+   left / width 由 Toasts.tsx 按主区面板（侧栏之外的区域）量出来写进 --toasts-left / --toasts-width。
+   studio 的 toast 和 omp 的 `omp.toast*` 节点（features/tsp/interactive/Toast.tsx portal 进 .toasts-host）共用这一套。 */
 .toasts {
   position: fixed;
-  right: var(--space-4);
-  bottom: var(--space-4);
+  top: calc(var(--titlebar-h) + var(--space-2));
+  left: var(--toasts-left, 0px);
   z-index: var(--z-toast);
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--space-2);
-  width: min(var(--toast-w), calc(100vw - var(--space-8)));
+  width: var(--toasts-width, 100%);
+  padding: 0 var(--space-4);
   pointer-events: none;
+}
+.toasts-host {
+  display: contents;
 }
 .toast {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2-5) var(--space-3);
-  border-radius: var(--radius-lg);
+  box-sizing: border-box;
+  max-width: min(100%, calc(var(--toast-w) * 2));
+  padding: var(--space-1-5) var(--space-2) var(--space-1-5) var(--space-3-5);
+  border-radius: var(--radius-pill);
   background: var(--bg-overlay);
   color: var(--text);
-  box-shadow: var(--shadow-2);
+  box-shadow:
+    var(--shadow-2),
+    0 0 0 1px var(--border-subtle);
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
   pointer-events: auto;
-  animation: gate-in var(--dur-base) var(--ease-out);
+  animation: toast-in max(var(--dur-base), var(--dur-fade)) var(--ease-out);
+}
+/* 等级色：左侧一个小圆点；警告 / 错误再加一圈细框 */
+.toast::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+.toast[data-level="success"]::before {
+  background: var(--st-done);
+}
+.toast[data-level="warning"]::before {
+  background: var(--st-waiting);
+}
+.toast[data-level="error"]::before {
+  background: var(--st-error);
 }
 .toast[data-level="warning"] {
-  color: var(--st-waiting-text);
+  box-shadow:
+    var(--shadow-2),
+    0 0 0 1px var(--st-waiting);
 }
 .toast[data-level="error"] {
-  color: var(--st-error);
+  box-shadow:
+    var(--shadow-2),
+    0 0 0 1px var(--st-error);
+}
+/* 进入：从上方滑下并淡入；退出：向上滑回并淡出。位移令牌在减少动效时为 0，只剩淡入淡出。 */
+:root .toast[data-closing] {
+  animation-name: toast-out;
+  animation-duration: max(var(--dur-base-exit), var(--dur-fade));
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--travel-md) * -1));
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--travel-md) * -1));
+  }
 }
 .toast-text {
-  flex: 1;
   min-width: 0;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.toast-sub {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .toast-count {
   color: var(--text-3);

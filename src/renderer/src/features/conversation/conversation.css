@@ -82,9 +82,8 @@
 .user-bubble {
   position: relative;
   padding: var(--space-2-5) var(--space-3-5);
-  background: var(--bg-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--bg-bubble);
+  border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-sm) var(--radius-bubble);
   font-size: var(--fs-prose);
   line-height: var(--lh-prose);
 }
@@ -103,7 +102,7 @@
   right: 0;
   bottom: 0;
   height: var(--space-10);
-  background: linear-gradient(transparent, var(--bg-raised));
+  background: linear-gradient(transparent, var(--bg-bubble));
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--dur-base) var(--ease-out);
@@ -346,16 +345,8 @@
 .step-name {
   flex: none;
   color: var(--text);
-  font-weight: 600;
-}
-.step-arg {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-strong);
 }
 .step-info {
   flex: none;
@@ -372,24 +363,12 @@
 }
 .step-pill {
   flex: none;
-  padding: 0 var(--space-1-5);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  background: var(--bg-active);
   color: var(--text-2);
+  font-family: var(--font-sans);
   font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-}
-.step-meta {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1-5);
-  margin-left: auto;
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-}
-.step-meta[data-failed] {
-  color: var(--st-error);
 }
 .step-spin {
   width: 10px;
@@ -405,8 +384,121 @@
     transform: rotate(360deg);
   }
 }
+
+/* —— Tern 风格工具块：头部一行（无底色、无折叠箭头），结果直接摆在下面 —— */
+.step-tool {
+  margin-top: var(--space-3);
+}
+.step-tool:first-child {
+  margin-top: 0;
+}
+.step-tool > :not(.step-head) {
+  margin: var(--space-1) 0 0 var(--space-2);
+}
+.step-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--row-tool);
+  padding: 0 var(--space-2);
+}
+.step-head .step-icon {
+  color: var(--text-2);
+}
+.step-arg {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.step-arg .file-link {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step-range {
+  color: var(--text-3);
+}
+/* 右侧数字：等宽、--text-3（匹配数、文件数、行数、耗时）。 */
+.step-meta {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.step-meta[data-failed] {
+  color: var(--st-error);
+}
+.step-tool[data-status="error"] .step-name {
+  color: var(--st-error);
+}
+/* 复制按钮的位置总是留着（没有可复制的内容也一样），右侧数字才在同一列对齐。 */
+.step-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  min-width: var(--control-h-sm);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.step-head:hover .step-actions,
+.step-head:focus-within .step-actions {
+  opacity: 1;
+}
+.step-action {
+  display: grid;
+  place-items: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.step-action:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.step-action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.step-chevron {
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.step-chevron[data-open] {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-chevron,
+  .step-actions {
+    transition: none;
+  }
+}
+html[data-motion="reduced"] .step-chevron,
+html[data-motion="reduced"] .step-actions {
+  transition: none;
+}
+
+/* diff / 行号输出 / 纯文本：一个浅底框，超过 12 行底部渐隐（Clamp）。 */
 .step-output {
-  margin: var(--space-1) 0 0;
+  padding: var(--space-2) 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
@@ -414,13 +506,9 @@
   font-size: var(--fs-code-sm);
   line-height: var(--lh-code-sm);
 }
-/* 长行一律折行，不出横向滚动条（2026-10-20）；只有"显示全部"时才有纵向滚动。 */
-.step-scroll {
-  padding: var(--space-2) 0;
-}
-.step-scroll[data-all] {
-  max-height: calc(var(--lh-code-sm) * 30);
-  overflow-y: auto;
+.step-tool[data-status="error"] .step-output {
+  border-color: var(--st-error);
+  background: var(--st-error-soft);
 }
 .step-ln {
   display: flex;
@@ -472,162 +560,468 @@
   color: var(--text-3);
   font-size: var(--fs-xs);
 }
-.step-ln[data-kind="cmd"] {
-  color: var(--text);
+
+/* Grep：按文件分组，文件胶囊头 + 带行号的命中行，整块超出渐隐。 */
+.step-grep {
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  line-height: var(--lh-code-sm);
 }
 .step-file + .step-file {
   margin-top: var(--space-2);
 }
 .step-file-head {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-3) var(--space-1);
-  color: var(--text-2);
+  padding-bottom: var(--space-1);
 }
-.step-file-path {
-  min-width: 0;
+.step-grep .step-ln {
+  padding: 0 var(--space-2);
+}
+
+/* 通用截断块 Clamp：最多 N 行，底部 mask 渐隐，下面一行"还有 N 行 · 全部显示"。mask 只看透明度，颜色随便取一个不透明的。 */
+.clamp-body:not([data-expanded]) {
+  max-height: calc(var(--clamp-lines) * var(--clamp-lh));
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.step-empty {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  color: var(--text-3);
+.clamp-body[data-fading] {
+  -webkit-mask-image: linear-gradient(to bottom, var(--text) calc(100% - var(--clamp-lh) * 2), transparent);
+  mask-image: linear-gradient(to bottom, var(--text) calc(100% - var(--clamp-lh) * 2), transparent);
 }
-.step-more {
-  padding: var(--space-1) var(--space-3) var(--space-2);
+.clamp-body[data-expanded] {
+  max-height: calc(var(--clamp-max) * var(--clamp-lh));
+  overflow-y: auto;
+}
+.clamp-more {
+  padding-top: var(--space-1);
   color: var(--text-3);
+  font-family: var(--font-sans);
   font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
 }
-.step-showall {
+.step-output .clamp-more {
+  padding: var(--space-1) var(--space-3) 0;
+}
+.clamp-toggle {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--link);
+  color: var(--text-2);
   font: inherit;
   cursor: pointer;
 }
-/* —— omp 风格工具卡：头部一行 + 卡体直接展示内容 —— */
-.step-tool {
-  margin-top: var(--space-2);
-}
-.step-tool:first-child {
-  margin-top: 0;
-}
-.step-head {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-/* 头部左边的"图标 + 工具名"不收缩：参数（如很长的 bash 命令）再长也只挤自己，不压住工具名 */
-.step-head .step-row {
-  flex: none;
-  width: auto;
-}
-.step-toggle.step-fill {
-  flex: 1;
-  min-width: 0;
-  justify-content: flex-end;
-}
-.step-head .step-arg {
-  padding: 0 var(--space-1);
-}
-.step-arg-btn {
-  border: 0;
-  background: none;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-  cursor: pointer;
-  text-align: left;
-}
-.step-range {
-  color: var(--text-3);
-}
-.step-tool[data-status="error"] .step-name {
-  color: var(--st-error);
-}
-.step-tool[data-status="error"] .step-output {
-  border-color: var(--st-error);
-  background: var(--st-error-soft);
-}
-.step-actions {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-0-5, 2px);
-  opacity: 0;
-  transition: opacity var(--dur-fast, 120ms) var(--ease-out);
-}
-.step-head:hover .step-actions,
-.step-head:focus-within .step-actions {
-  opacity: 1;
-}
-.step-action {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-3);
-  cursor: pointer;
-}
-.step-action:hover {
-  background: var(--bg-hover);
+.clamp-toggle:hover {
   color: var(--text);
 }
-.step-action:focus-visible {
+.clamp-toggle:focus-visible {
   outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
+  outline-offset: 2px;
 }
-.step-chevron {
-  transition: transform var(--dur-base) var(--ease-out);
-}
-.step-chevron[data-open] {
-  transform: rotate(90deg);
-}
-.step-chips {
+
+/* 文件胶囊（Read / Glob / Grep 文件头）：图标 + 淡色目录 + 正常色文件名，等宽。行高 = --row-tool（Clamp 按它数行）。 */
+.file-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1-5);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-1);
 }
-.step-chip {
+.file-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-1-5);
   max-width: 100%;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--border);
+  height: calc(var(--row-tool) - var(--space-1));
+  padding: 0 var(--space-2-5);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
+  background: var(--bg-raised);
   color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
 }
-.step-chip .file-link {
+.file-chip:hover {
+  background: var(--bg-hover);
+}
+.file-chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.file-chip svg {
+  flex: none;
+  color: var(--text-3);
+}
+.file-chip-path {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.step-arg .file-link {
-  max-width: 100%;
+.file-chip-dir {
+  color: var(--text-3);
+}
+.file-chip-name {
+  color: var(--text);
+}
+.file-chip-count {
+  flex: none;
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-pill);
+  background: var(--bg-active);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bash 卡片：命令 / 输出（最后 8 行，最上一行渐隐）/ 状态脚。模型的 bash 工具和用户的 !命令共用。 */
+.bash-card {
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  line-height: var(--lh-code-sm);
+}
+.turn > .bash-card,
+.column > .bash-card {
+  margin-top: var(--space-3);
+}
+.bash-cmd {
+  padding: var(--space-2) var(--space-3);
+  color: var(--text);
+}
+.bash-code {
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bash-out {
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.bash-earlier {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.bash-earlier:hover {
+  color: var(--text);
+}
+.bash-earlier:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.bash-earlier-chevron {
+  transform: rotate(-90deg);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.bash-earlier-chevron[data-open] {
+  transform: rotate(90deg);
+}
+.bash-pre {
+  margin: 0;
+  color: var(--text);
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bash-pre[data-fade] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, var(--text) calc(var(--lh-code-sm) * 1.5));
+  mask-image: linear-gradient(to bottom, transparent, var(--text) calc(var(--lh-code-sm) * 1.5));
+}
+.bash-pre[data-all] {
+  max-height: calc(var(--lh-code-sm) * 30);
+  overflow-y: auto;
+}
+.bash-empty {
+  margin: 0;
+  color: var(--text-3);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+}
+.bash-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+}
+.bash-foot[data-status="failed"] {
+  color: var(--st-error);
+}
+.bash-dot {
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+.bash-time {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.bash-foot[data-status="failed"] .bash-time {
+  color: inherit;
+}
+.bash-note {
+  color: var(--text-3);
+}
+.bash-action {
+  margin-left: auto;
+}
+.bash-stop {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  cursor: pointer;
+}
+.bash-stop:hover {
+  color: var(--text);
+}
+.bash-stop:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Task / wait：状态行 + 两列子代理小卡。 */
+.tool-extra {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.jobs-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.jobs-line-main {
+  color: var(--text);
+  font-weight: var(--fw-strong);
+}
+.jobs-line-rest {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--border-subtle);
+}
+.agent-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: 0;
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+.agent-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+button.agent-card {
+  cursor: pointer;
+}
+button.agent-card:hover {
+  background: var(--bg-hover);
+}
+button.agent-card[data-selected] {
+  background: var(--bg-active);
+}
+button.agent-card:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.agent-status {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--icon-sm);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+.agent-status[data-status="running"]::before {
+  content: "";
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+.agent-status[data-status="failed"] {
+  color: var(--st-error);
+}
+.agent-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
-@media (prefers-reduced-motion: reduce) {
-  .step-chevron,
-  .step-actions {
-    transition: none;
-  }
+.agent-time {
+  flex: none;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
 }
-html[data-motion="reduced"] .step-chevron,
-html[data-motion="reduced"] .step-actions {
-  transition: none;
+.tool-result-body {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Todo：阶段行（状态环 + 名字 + 右侧 完成/总数）+ 任务行。 */
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+.todo-phase-head,
+.todo-task {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: calc(var(--row-tool) - var(--space-1));
+  font-size: var(--fs-sm);
+}
+.todo-phase-head {
+  color: var(--text);
+}
+.todo-phase-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--fw-medium);
+}
+.todo-phase-count {
+  flex: none;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.todo-task {
+  padding-left: var(--space-5);
+  color: var(--text-2);
+}
+.todo-task[data-status="completed"],
+.todo-task[data-status="abandoned"] {
+  color: var(--text-3);
+}
+.todo-task[data-status="abandoned"] .todo-task-text {
+  text-decoration: line-through;
+}
+.todo-task-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.todo-task-note {
+  color: var(--st-waiting-text);
+  font-size: var(--fs-xs);
+}
+.todo-ring {
+  display: grid;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--space-3-5);
+  height: var(--space-3-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-2);
+}
+.todo-ring[data-state="active"] {
+  border-color: var(--accent);
+}
+.todo-ring[data-state="active"]::after {
+  content: "";
+  width: var(--space-1);
+  height: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+.todo-ring[data-state="done"] {
+  border-color: var(--text-3);
+}
+.todo-ring[data-state="abandoned"] {
+  border-color: var(--st-error);
+}
+.todo-ring[data-state="blocked"] {
+  border-color: var(--st-waiting);
+}
+
+/* Ask：回答后问题 + 全部选项，选中的带 ✓。 */
+.ask-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ask-text {
+  margin: 0 0 var(--space-1);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+}
+.ask-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: calc(var(--row-tool) - var(--space-2));
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.ask-option[data-chosen] {
+  color: var(--text);
+}
+.ask-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--icon-sm);
+  color: var(--text-2);
+}
+.ask-note {
+  margin: var(--space-1) 0 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+/* 轮尾一行：32.4s · 19K tokens · $0.01 */
+.turn-footer {
+  margin: var(--space-3) 0 0;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
 }
 .step-full {
   margin: 0 0 var(--space-1) calc(var(--icon-sm) + var(--space-4));
@@ -691,73 +1085,6 @@ html[data-motion="reduced"] .step-actions {
   overflow-wrap: anywhere;
 }
 
-/* 用户的 `!命令`：命令行 + 退出状态 + 输出（折叠可展开）。失败只用左 2px 线和文字，不铺大块红色。 */
-.shell-block {
-  margin: var(--space-3) 0 0;
-  border-left: 2px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
-  font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
-  line-height: var(--lh-code-sm);
-}
-.shell-block[data-failed] {
-  border-left-color: var(--st-error);
-}
-.shell-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-}
-.shell-command {
-  flex: 1;
-  min-width: 0;
-  font: inherit;
-  color: var(--text);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.shell-status {
-  flex: none;
-  color: var(--text-2);
-}
-.shell-block[data-failed] .shell-status {
-  color: var(--st-error);
-}
-.shell-output {
-  margin: 0;
-  padding: 0 var(--space-3) var(--space-2);
-  font: inherit;
-  color: var(--text-2);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.shell-output-head {
-  padding-bottom: 0;
-}
-.shell-foot {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 0 var(--space-3) var(--space-2);
-}
-.shell-note {
-  color: var(--text-3);
-}
-.shell-toggle {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: var(--text-2);
-  text-decoration: underline;
-  cursor: pointer;
-}
-.shell-toggle:hover {
-  color: var(--text);
-}
-
 .inline-error {
   display: flex;
   flex-wrap: wrap;
@@ -808,8 +1135,8 @@ html[data-motion="reduced"] .step-actions {
 .change {
   margin-top: var(--space-4);
   background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
   animation: turn-in var(--dur-base) var(--ease-out);
 }
 .change-head {
@@ -831,6 +1158,7 @@ html[data-motion="reduced"] .step-actions {
   color: var(--text);
   font: inherit;
   font-size: var(--fs-sm);
+  font-weight: var(--fw-strong);
   cursor: pointer;
 }
 .change-add {
@@ -850,9 +1178,18 @@ html[data-motion="reduced"] .step-actions {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  height: var(--row-tool);
+  height: 32px;
+  border-top: 1px solid var(--border-subtle);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
+}
+.change .change-review {
+  height: 26px;
+  background: transparent;
+  border: 1px solid var(--border);
+}
+.change .change-review:hover:not(:disabled) {
+  background: var(--bg-hover);
 }
 .change-open {
   display: flex;
@@ -909,8 +1246,10 @@ html[data-motion="reduced"] .step-actions {
   background: var(--bg-hover);
   color: var(--text-2);
 }
+/* 路径占满图标和行数之间的空间、靠左；open 按钮是 space-between，不撑开就会被挤到正中。 */
 .change-path {
   display: flex;
+  flex: 1;
   min-width: 0;
 }
 .change-dir {
@@ -926,9 +1265,28 @@ html[data-motion="reduced"] .step-actions {
   flex: none;
   color: var(--text);
 }
+.change-stat {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+}
 .change-nums {
   flex: none;
   font-variant-numeric: tabular-nums;
+}
+/* 行数条：固定 24 字符宽，左对齐成一列。 */
+.change-bar {
+  flex: none;
+  width: 24ch;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  white-space: nowrap;
+}
+.change-icon {
+  flex: none;
+  color: var(--text-2);
 }
 .change-more {
   padding: var(--space-1) 0;

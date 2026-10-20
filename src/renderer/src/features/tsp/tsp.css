@@ -1,0 +1,2463 @@
+/*
+ * TSP 渲染器样式（docs/architecture/tsp-migration.md §4.2）。外观照 Tern 里的 omp（screenshots/design-refresh/tern/、
+ * E:/tern-probe/out/serve/*.layout.json 的计算样式），颜色、字号、间距、圆角、动效时长一律用 tokens.css 的变量。
+ *
+ * ── 颜色映射（深浅主题都靠 tokens.css 自己切换，这里不写色值）────────────────────────────────
+ *  语义 token / span 样式名      →  变量
+ *    muted                       →  --text-2          dim            → --text-3（次要元信息）
+ *    accent                      →  --accent          link           → --link
+ *    success / ins               →  --diff-add-fg     error / del    → --st-error / --diff-del-fg
+ *    warning                     →  --st-waiting-text info           → --syn-type
+ *    num                         →  --syn-number      code / path / key → 文本色（code 加底，key 加键帽）
+ *  节点 tone（--tsp-tc）
+ *    neutral / user / 无 tone    →  --text-2          accent / pending → --accent（进行中，同 --st-running）
+ *    info                        →  --syn-type        success        → --diff-add-fg（工具"完成"状态用中性 --text-3）
+ *    warning                     →  --st-waiting      error          → --st-error        muted → --text-3
+ *  卡片底 / 描边：卡片 --bg-raised + --border-subtle；user 卡片是气泡 --bg-bubble；tone 只染描边（16% 混合），不染底。
+ *  ANSI 16 色（--tsp-ansi-N）：0 黑→--text-3，1 红→--st-error，2 绿→--diff-add-fg，3 黄→--st-waiting-text，
+ *    4 蓝→--syn-func，5 品红→--syn-keyword，6 青→--syn-type，7 白→--text-2，8–15 同 0–7（亮色不另取色）。
+ *
+ * ── 取舍：omp 发来的调色板（t 消息，如 dark-copper / alabaster）不参与着色 ───────────────────────
+ *  调色板是用户终端主题（实测录到的是 Nord 铜色系），套进来会和 omp-studio 的鸢尾紫身份冲突，也破坏 tokens.css
+ *  已验证的对比度（Tern 自己是"对每个文字色再按对比度修正"才敢用）。所以 accent / success / warning / error / muted 和 omp 的
+ *  主题 token 名都按规范那张映射表落到上面的语义 token，调色板只被文档保存、不被画出来。
+ *
+ * ── 动效 ─────────────────────────────────────────────────────────────────────────────────────
+ *  循环动画时长读 --dur-spin / --dur-breathe，播放状态读 --play-state；减少动效时它们归零/暂停，0% 帧是静态的最终形态。
+ *  spinner 的字符帧由 JS 驱动，减少动效时 JS 停在第一帧（use-clock.ts）。
+ */
+
+/* ───────────────────────── 根：变量与排版 ───────────────────────── */
+
+.tsp-view {
+  --tsp-lh: var(--lh-code);
+  --tsp-cw: 8px; /* 一个等宽字符的宽度，TspView 量出来覆盖 */
+  --tsp-c-muted: var(--text-2);
+  --tsp-c-dim: var(--text-3);
+  --tsp-c-accent: var(--accent);
+  --tsp-c-success: var(--diff-add-fg);
+  --tsp-c-warning: var(--st-waiting-text);
+  --tsp-c-error: var(--st-error);
+  --tsp-c-info: var(--syn-type);
+  --tsp-c-code: var(--text);
+  --tsp-c-path: var(--text);
+  --tsp-c-key: var(--text-2);
+  --tsp-c-link: var(--link);
+  --tsp-c-num: var(--syn-number);
+  --tsp-c-ins: var(--diff-add-fg);
+  --tsp-c-del: var(--diff-del-fg);
+  --tsp-tc: var(--text-2);
+  --tsp-ansi-0: var(--text-3);
+  --tsp-ansi-1: var(--st-error);
+  --tsp-ansi-2: var(--diff-add-fg);
+  --tsp-ansi-3: var(--st-waiting-text);
+  --tsp-ansi-4: var(--syn-func);
+  --tsp-ansi-5: var(--syn-keyword);
+  --tsp-ansi-6: var(--syn-type);
+  --tsp-ansi-7: var(--text-2);
+  --tsp-ansi-8: var(--text-3);
+  --tsp-ansi-9: var(--st-error);
+  --tsp-ansi-10: var(--diff-add-fg);
+  --tsp-ansi-11: var(--st-waiting-text);
+  --tsp-ansi-12: var(--syn-func);
+  --tsp-ansi-13: var(--syn-keyword);
+  --tsp-ansi-14: var(--syn-type);
+  --tsp-ansi-15: var(--text-2);
+  /* shiki 的 CSS 变量主题接到设计 token（同 markdown.css 的 .md） */
+  --shiki-foreground: var(--text);
+  --shiki-background: transparent;
+  --shiki-token-constant: var(--syn-number);
+  --shiki-token-string: var(--syn-string);
+  --shiki-token-comment: var(--syn-comment);
+  --shiki-token-keyword: var(--syn-keyword);
+  --shiki-token-parameter: var(--text);
+  --shiki-token-function: var(--syn-func);
+  --shiki-token-string-expression: var(--syn-string);
+  --shiki-token-punctuation: var(--syn-punct);
+  --shiki-token-link: var(--link);
+  --tsp-stroke: calc(var(--icon-stroke) * 1px);
+
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text);
+}
+
+.tsp-empty {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+}
+
+/* ───────────────────────── surface：滚动区 / dock / layer ───────────────────────── */
+
+.tsp-surface {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+/* screen surface（如 /settings）盖住整个对话区，连输入框一起 */
+.tsp-surface[data-mode="screen"] {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-sticky);
+  background: var(--bg-app);
+}
+.tsp-view[data-covered] > .tsp-surface[data-mode="inline"] {
+  visibility: hidden;
+}
+
+.tsp-scroller {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* 不用浏览器的滚动锚定:omp 一直在改写视口上方的节点(折叠工具卡片、去掉思考中),锚定会把 scrollTop 往上推,
+   * useStickToBottom 分不出这和用户上滚,就脱离了吸底。吸底由 useStickToBottom 自己在内容变化后贴回底部。 */
+  overflow-anchor: none;
+  scrollbar-width: none;
+}
+.tsp-scroller::-webkit-scrollbar {
+  display: none;
+}
+.tsp-scroller:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* 对话列：和旧 ConversationView 同宽同轴（--content-w），块之间 --space-4 */
+.tsp-column {
+  width: min(100% - 2 * var(--gutter), var(--content-w));
+  margin: 0 auto;
+  padding: var(--space-6) 0 var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.tsp-column-end {
+  flex: none;
+  height: 1px;
+  margin-top: calc(-1 * var(--space-4));
+}
+.tsp-surface[data-mode="screen"] .tsp-column {
+  --content-w: 960px;
+}
+
+/* dock：贴在对话区下方、studio 输入框正上方，和对话列同宽同轴 */
+.tsp-dock {
+  flex: none;
+  position: relative;
+  z-index: 1;
+  padding: 0 var(--gutter) var(--space-3);
+}
+.tsp-dock-in {
+  width: min(100%, var(--content-w));
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.tsp-dock:not(:has(.tsp-dock-in > :not(.tsp-hidden, .tsp-col:empty))) {
+  display: none;
+}
+
+/* layer：浮层容器（picker / overlay / toast 由 interactive/ 画）。铺满整个 surface，自己不接指针 */
+.tsp-layer {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-popover);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.tsp-jump {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-3);
+  transform: translateX(-50%);
+  z-index: var(--z-sticky);
+  height: var(--control-h-md);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-overlay);
+  color: var(--text);
+  font: inherit;
+  box-shadow: var(--shadow-2);
+  cursor: pointer;
+}
+.tsp-jump:hover {
+  background: var(--bg-hover);
+}
+.tsp-jump:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ───────────────────────── 通用：tone、可点击、隐藏、空容器 ───────────────────────── */
+
+[data-tone="neutral"],
+[data-tone="user"] {
+  --tsp-tc: var(--text-2);
+}
+[data-tone="accent"],
+[data-tone="pending"] {
+  --tsp-tc: var(--accent);
+}
+[data-tone="info"] {
+  --tsp-tc: var(--syn-type);
+}
+[data-tone="success"] {
+  --tsp-tc: var(--diff-add-fg);
+}
+[data-tone="warning"] {
+  --tsp-tc: var(--st-waiting);
+}
+[data-tone="error"] {
+  --tsp-tc: var(--st-error);
+}
+[data-tone="muted"] {
+  --tsp-tc: var(--text-3);
+}
+
+.tsp-hidden {
+  display: none !important;
+}
+.tsp-act {
+  cursor: pointer;
+}
+/* 没有可显示的子节点、也不撑开的 col / row 不占位也不产生间距 */
+:is(.tsp-col, .tsp-row):not([data-grow]):not(:has(> :not(.tsp-hidden, .tsp-col:empty, .tsp-row:empty))) {
+  display: none;
+}
+[data-mark="drop"] {
+  opacity: 0.45;
+}
+[data-mark="pick"] {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* ───────────────────────── 布局：col / row / spacer / rule ───────────────────────── */
+
+.tsp-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.tsp-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-width: 0;
+}
+.tsp-row > * {
+  min-width: 0;
+}
+.tsp-gap-xs {
+  gap: var(--space-0-5);
+}
+.tsp-gap-sm {
+  gap: var(--space-1-5);
+}
+.tsp-gap-md {
+  gap: var(--space-3);
+}
+.tsp-gap-lg {
+  gap: var(--space-4);
+}
+.tsp-al-start {
+  align-items: flex-start;
+}
+.tsp-al-center {
+  align-items: center;
+}
+.tsp-al-end {
+  align-items: flex-end;
+}
+.tsp-al-baseline {
+  align-items: baseline;
+}
+.tsp-al-stretch {
+  align-items: stretch;
+}
+.tsp-js-between {
+  justify-content: space-between;
+}
+.tsp-js-end {
+  justify-content: flex-end;
+}
+.tsp-row.tsp-wrap {
+  flex-wrap: wrap;
+}
+
+.tsp-spacer {
+  flex: none;
+  height: var(--space-2);
+}
+.tsp-sz-none {
+  height: 0;
+}
+.tsp-sz-xs {
+  height: var(--space-0-5);
+}
+.tsp-sz-sm {
+  height: var(--space-1-5);
+}
+.tsp-sz-md {
+  height: var(--space-3);
+}
+.tsp-sz-lg {
+  height: var(--space-5);
+}
+
+.tsp-rule {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--lh-sm);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.tsp-rule::before,
+.tsp-rule::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--border);
+}
+.tsp-rule.bare::after {
+  display: none;
+}
+
+/* ───────────────────────── 卡片 / section ───────────────────────── */
+
+.tsp-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tsp-tc) 16%, transparent);
+}
+.tsp-card[data-tone="neutral"] {
+  box-shadow: 0 0 0 1px var(--border);
+}
+.tsp-card.selected {
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 0 3px var(--accent-soft);
+}
+.tsp-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-tool);
+  padding: 0 var(--space-3);
+  color: var(--text);
+}
+.tsp-card-head[role="button"] {
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+}
+.tsp-card-head[role="button"]:hover {
+  background: var(--bg-hover);
+}
+.tsp-card-head:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.tsp-card-ic {
+  display: inline-flex;
+  color: var(--tsp-tc);
+}
+.tsp-head {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.tsp-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-2-5) calc(var(--space-8) + var(--space-1));
+}
+.tsp-card.nohead .tsp-card-body {
+  padding: var(--space-2-5) var(--space-3);
+}
+.tsp-card.inset .tsp-card-body {
+  padding: 0 0 1px;
+}
+.tsp-card.bare {
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+.tsp-card.bare .tsp-card-head {
+  padding: 0;
+  min-height: var(--lh-sm);
+}
+.tsp-card.bare .tsp-card-body {
+  padding: 0 0 0 var(--space-6);
+}
+
+.tsp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-2xs);
+  color: var(--text-3);
+}
+.tsp-chip[data-status="running"] {
+  color: var(--accent);
+}
+.tsp-chip[data-status="error"] {
+  color: var(--st-error);
+}
+.tsp-chip-dot {
+  width: var(--space-1-5);
+  height: var(--space-1-5);
+  border-radius: var(--radius-pill);
+  background: currentColor;
+  animation: tsp-pulse var(--dur-breathe) var(--ease-in-out) infinite;
+  animation-play-state: var(--play-state);
+}
+
+.tsp-chev {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-3);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.tsp-chev[data-collapsed] {
+  transform: rotate(-90deg);
+}
+
+/* 夹紧（card / tool 的 collapsed + preview、ansi / code 的 preview）：渐隐收口 + "还有 N 行" */
+.tsp-clamp[data-on] {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.tsp-clamp[data-on] > div {
+  flex: none;
+}
+.tsp-clamp[data-on]:not([data-tail]) {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2 * var(--tsp-lh)), transparent);
+}
+.tsp-clamp[data-on][data-tail] {
+  justify-content: flex-end;
+  mask-image: linear-gradient(to top, #000 calc(100% - 2 * var(--tsp-lh)), transparent);
+}
+.tsp-more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  margin: var(--space-1) 0;
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-3);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.tsp-more:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.tsp-more[data-tail] svg {
+  transform: rotate(180deg);
+}
+
+.tsp-section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.tsp-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-height: var(--lh-sm);
+  color: var(--text-2);
+}
+.tsp-section-head[role="button"] {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.tsp-section-head[role="button"]:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.tsp-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0 calc(var(--space-1-5) + 1px);
+  padding-left: var(--space-4);
+  box-shadow: inset 1px 0 0 var(--border);
+}
+
+/* ───────────────────────── 文字：span 样式、text、md、math ───────────────────────── */
+
+.tsp-t-muted {
+  color: var(--tsp-c-muted);
+}
+.tsp-t-dim {
+  color: var(--tsp-c-dim);
+}
+.tsp-t-strong {
+  font-weight: var(--fw-strong);
+  color: var(--text);
+}
+.tsp-t-em {
+  font-style: italic;
+}
+.tsp-t-accent {
+  color: var(--tsp-c-accent);
+}
+.tsp-t-success {
+  color: var(--tsp-c-success);
+}
+.tsp-t-warning {
+  color: var(--tsp-c-warning);
+}
+.tsp-t-error {
+  color: var(--tsp-c-error);
+}
+.tsp-t-info {
+  color: var(--tsp-c-info);
+}
+.tsp-t-code {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-xs);
+  background: var(--bg-sunken);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  color: var(--tsp-c-code);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+.tsp-t-mono,
+.tsp-t-num {
+  font-variant-numeric: tabular-nums;
+}
+.tsp-t-num {
+  color: var(--tsp-c-num);
+}
+.tsp-t-path {
+  color: var(--tsp-c-path);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+}
+.tsp-t-key {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-xs);
+  background: var(--bg-sunken);
+  box-shadow: 0 0 0 1px var(--border);
+  color: var(--tsp-c-key);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+.tsp-t-link {
+  color: var(--tsp-c-link);
+}
+.tsp-t-icon {
+  margin: 0 0.12em;
+  color: var(--text-2);
+}
+.tsp-t-ins {
+  color: var(--tsp-c-ins);
+}
+.tsp-t-del {
+  color: var(--tsp-c-del);
+  text-decoration: line-through;
+}
+.tsp-t-mark {
+  background: var(--accent-soft);
+  border-radius: var(--radius-xs);
+}
+.tsp-t-typo {
+  text-decoration: underline dotted var(--st-error);
+}
+.tsp-dir {
+  color: var(--text-3);
+}
+.tsp-link {
+  color: var(--link);
+  cursor: pointer;
+  text-decoration: none;
+}
+.tsp-link:hover {
+  text-decoration: underline;
+}
+.tsp-fx-pulse {
+  animation: tsp-pulse var(--dur-breathe) var(--ease-in-out) infinite;
+  animation-play-state: var(--play-state);
+}
+.tsp-fx-shimmer {
+  background: linear-gradient(90deg, var(--text-3), var(--text), var(--text-3)) 0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: tsp-sweep var(--dur-breathe) linear infinite;
+  animation-play-state: var(--play-state);
+}
+
+.tsp-text {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.tsp-text.tsp-char {
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+.tsp-text.tsp-prose {
+  max-width: calc(80 * var(--tsp-cw));
+}
+.tsp-text.tsp-nowrap {
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tsp-text.tsp-trunc-middle {
+  display: flex;
+  text-overflow: clip;
+}
+.tsp-mid-a {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tsp-mid-b {
+  flex: none;
+}
+.tsp-text.tsp-trunc-start {
+  direction: rtl;
+  text-align: left;
+}
+.tsp-start-inner {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.tsp-md,
+.tsp-math {
+  min-width: 0;
+}
+.tsp-math.display {
+  text-align: center;
+}
+.tsp-math .md {
+  font-size: var(--fs-base);
+}
+/* 思考折叠里的内容：次要色、小一号 */
+[data-role^="omp.thinking"] .tsp-md .md {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+[data-role="omp.task.assignment"] .md {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+}
+
+/* ───────────────────────── 代码 / diff / ansi ───────────────────────── */
+
+.tsp-code {
+  min-width: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  line-height: var(--lh-code);
+  overflow: hidden;
+}
+.tsp-code-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: var(--space-1) var(--space-3);
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+  color: var(--text-2);
+  font-size: var(--fs-code-sm);
+}
+.tsp-code-path .tsp-name {
+  font-weight: var(--fw-strong);
+  color: var(--text);
+}
+.tsp-code-body {
+  padding: var(--space-2) var(--space-3);
+  overflow-x: auto;
+}
+.tsp-code-lines {
+  min-width: max-content;
+}
+.tsp-code.wrap .tsp-code-lines {
+  min-width: 0;
+}
+.tsp-ln {
+  display: flex;
+  white-space: pre;
+}
+.tsp-code.wrap .tsp-ln {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tsp-gut {
+  flex: none;
+  width: var(--tsp-gw, 3ch);
+  padding-right: var(--space-3);
+  text-align: right;
+  color: var(--text-3);
+  user-select: none;
+}
+.tsp-lt {
+  min-width: 0;
+}
+.tsp-ln[data-mark] {
+  margin: 0 calc(-1 * var(--space-3));
+  padding: 0 var(--space-3);
+  box-shadow: inset 2px 0 0 var(--tsp-mark, var(--accent));
+  background: color-mix(in srgb, var(--tsp-mark, var(--accent)) 10%, transparent);
+}
+.tsp-ln[data-mark="error"] {
+  --tsp-mark: var(--st-error);
+}
+.tsp-ln[data-mark="warning"] {
+  --tsp-mark: var(--st-waiting);
+}
+.tsp-ln[data-mark="success"] {
+  --tsp-mark: var(--diff-add-fg);
+}
+.tsp-ln[data-mark="info"] {
+  --tsp-mark: var(--syn-type);
+}
+
+.tsp-diff {
+  min-width: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  line-height: var(--lh-code);
+  overflow: hidden;
+}
+.tsp-diff-empty {
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-3);
+}
+.tsp-diff-body {
+  padding: var(--space-1) 0;
+}
+.tsp-dl {
+  display: flex;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tsp-dl.add {
+  background: var(--diff-add-bg);
+}
+.tsp-dl.del {
+  background: var(--diff-del-bg);
+}
+.tsp-dg {
+  flex: none;
+  width: 4ch;
+  padding-right: var(--space-2);
+  text-align: right;
+  color: var(--text-3);
+  user-select: none;
+}
+.tsp-dm {
+  flex: none;
+  width: 2ch;
+  color: var(--text-3);
+  user-select: none;
+}
+.tsp-dl.add .tsp-dm {
+  color: var(--diff-add-fg);
+}
+.tsp-dl.del .tsp-dm {
+  color: var(--diff-del-fg);
+}
+.tsp-dt {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.tsp-em {
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, currentColor 22%, transparent);
+}
+.tsp-dsep {
+  display: flex;
+  gap: var(--space-3);
+  padding: 0 var(--space-3);
+  color: var(--text-3);
+  font-size: var(--fs-code-sm);
+}
+.tsp-dsep .fn {
+  color: var(--syn-func);
+}
+.tsp-diff.split .tsp-dr {
+  display: flex;
+}
+.tsp-diff.split .tsp-dl.half {
+  flex: 1 1 50%;
+  min-width: 0;
+}
+.tsp-dl.nil {
+  background: var(--bg-hover);
+}
+
+.tsp-ansi,
+.tsp-rows {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  line-height: var(--lh-code);
+  color: var(--text-2);
+}
+.tsp-ansi-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-height: var(--lh-code);
+}
+.tsp-rows .tsp-ansi-line {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+.tsp-rows {
+  overflow-x: auto;
+}
+.tsp-ansi .b {
+  font-weight: var(--fw-strong);
+}
+.tsp-ansi .d {
+  opacity: 0.65;
+}
+.tsp-ansi .i {
+  font-style: italic;
+}
+.tsp-ansi .u {
+  text-decoration: underline;
+}
+.tsp-ansi .s {
+  text-decoration: line-through;
+}
+.tsp-ansi.scroll > .tsp-ansi-scroll {
+  max-height: inherit;
+  overflow-y: auto;
+}
+.tsp-ansi.scroll {
+  overflow: visible !important;
+}
+
+.tsp-media {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-2-5);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-sunken);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  color: var(--text-2);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  cursor: pointer;
+}
+.tsp-media:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.tsp-media .tsp-name {
+  font-weight: var(--fw-strong);
+  color: var(--text);
+}
+
+/* ───────────────────────── 数据：kv、table、tree、badge、kbd、icon、image ───────────────────────── */
+
+.tsp-ico {
+  flex: none;
+  display: block;
+}
+.tsp-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  color: var(--text-2);
+}
+.tsp-icon[data-tone] {
+  color: var(--tsp-tc);
+}
+
+.tsp-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: calc(var(--space-4) + var(--space-0-5));
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  color: var(--text-2);
+  font-family: var(--font-sans);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+.tsp-badge[data-tone]:not([data-tone="neutral"]) {
+  background: color-mix(in srgb, var(--tsp-tc) 10%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tsp-tc) 22%, transparent);
+  color: var(--tsp-tc);
+}
+
+.tsp-kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0-5);
+}
+.tsp-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--space-4) + var(--space-0-5));
+  height: calc(var(--space-4) + var(--space-0-5));
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-xs);
+  background: var(--bg-sunken);
+  box-shadow: 0 0 0 1px var(--border);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-medium);
+}
+
+.tsp-kv {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: var(--space-3-5);
+  row-gap: 1px;
+}
+.tsp-kv-item {
+  display: contents;
+}
+.tsp-kv-k {
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.tsp-kv-v {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tsp-kv-sep {
+  display: none;
+}
+.tsp-kv.inline {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-2);
+}
+.tsp-kv.inline .tsp-kv-item {
+  display: inline-flex;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+.tsp-kv.inline .tsp-kv-sep {
+  display: inline;
+  color: var(--text-3);
+  margin-right: var(--space-1);
+}
+
+.tsp-table {
+  min-width: 0;
+  overflow-x: auto;
+}
+.tsp-tbl {
+  display: grid;
+  min-width: 0;
+}
+.tsp-tbl-h,
+.tsp-tbl-c {
+  min-width: 0;
+  padding: var(--space-0-5) var(--space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+.tsp-tbl-h {
+  height: var(--space-6);
+  display: flex;
+  align-items: center;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+.tsp-tbl-c.last {
+  box-shadow: none;
+}
+.ta-end {
+  text-align: right;
+  justify-content: flex-end;
+}
+.ta-center {
+  text-align: center;
+  justify-content: center;
+}
+.tsp-tbl-c.trunc-start {
+  direction: rtl;
+  text-align: left;
+}
+.tsp-tbl-c.meter {
+  display: flex;
+  align-items: center;
+}
+
+.tsp-tree {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.tsp-tree-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: calc(var(--lh-sm) + var(--space-1-5));
+  padding-left: calc(var(--d, 0) * var(--space-3-5));
+  border-radius: var(--radius-sm);
+}
+.tsp-tree-row:hover {
+  background: var(--bg-hover);
+}
+.tsp-tree-tw {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.tsp-tree-tw svg {
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.tsp-tree-tw svg.open {
+  transform: rotate(90deg);
+}
+.tsp-tree-ic {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-3);
+}
+.tsp-tree-lbl {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tsp-tree-kids {
+  box-shadow: inset 1px 0 0 var(--border-subtle);
+  margin-left: var(--space-2-5);
+}
+
+.tsp-image {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+.tsp-image.zoom {
+  cursor: zoom-in;
+}
+.tsp-img-frame {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  object-fit: contain;
+}
+.tsp-img-over {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+.tsp-img-over > * {
+  pointer-events: auto;
+}
+.tsp-img-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: calc(2 * var(--tsp-lh));
+  padding: 0 var(--space-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-hover);
+  color: var(--text-3);
+}
+.tsp-image.builtin svg {
+  display: block;
+}
+
+.tsp-zoom {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: grid;
+  place-items: center;
+  padding: var(--space-8);
+  background: var(--bg-scrim);
+  cursor: zoom-out;
+}
+.tsp-zoom img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-3);
+  cursor: default;
+}
+.tsp-zoom-close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: grid;
+  place-items: center;
+  width: var(--control-h-md);
+  height: var(--control-h-md);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-overlay);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tsp-menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popover);
+}
+.tsp-menu {
+  position: fixed;
+  z-index: calc(var(--z-popover) + 1);
+  display: flex;
+  flex-direction: column;
+  min-width: calc(var(--space-16) * 2);
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-2);
+}
+.tsp-menu-item {
+  height: var(--row-menu);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tsp-menu-item:hover {
+  background: var(--bg-hover);
+}
+
+/* ───────────────────────── 动效：spinner、shimmer、elapsed、rate、progress ───────────────────────── */
+
+@keyframes tsp-pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes tsp-turn {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes tsp-sweep {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+@keyframes tsp-dots {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+@keyframes tsp-slide {
+  0% {
+    left: -30%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+@keyframes tsp-pop {
+  from {
+    opacity: 0.4;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.tsp-spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  color: var(--tsp-tc);
+}
+.tsp-spinner:not([data-tone]) {
+  color: var(--accent);
+}
+.tsp-spin-glyph {
+  font-variant-emoji: text;
+  display: inline-block;
+  width: 1.2em;
+  text-align: center;
+}
+.tsp-spin-dots {
+  display: inline-flex;
+  gap: var(--space-0-5);
+}
+.tsp-spin-dots i {
+  width: var(--space-1);
+  height: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: currentColor;
+  animation: tsp-dots var(--dur-caret) linear infinite;
+  animation-play-state: var(--play-state);
+}
+.tsp-spin-dots i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.tsp-spin-dots i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+.tsp-spin-orbit {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  border-radius: var(--radius-pill);
+  border: var(--tsp-stroke) solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  animation: tsp-turn var(--dur-spin) linear infinite;
+  animation-play-state: var(--play-state);
+}
+.tsp-spin-label {
+  color: var(--text-2);
+}
+
+.tsp-shimmer {
+  display: inline-block;
+  white-space: pre;
+}
+.tsp-shimmer-text {
+  background: linear-gradient(
+      90deg,
+      var(--sh-lo, var(--text-3)) 0%,
+      var(--sh-hi, var(--text)) 50%,
+      var(--sh-lo, var(--text-3)) 100%
+    )
+    0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: tsp-sweep var(--dur-breathe) linear infinite;
+  animation-play-state: var(--play-state);
+}
+.tsp-shimmer.kitt .tsp-shimmer-text {
+  animation-direction: alternate;
+}
+/* 减少动效：静止的文字（规范：shimmer 变成继承色的纯文字） */
+:root[data-motion="reduced"] .tsp-shimmer-text,
+:root[data-motion="reduced"] .tsp-fx-shimmer {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tsp-shimmer-text,
+  .tsp-fx-shimmer {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    animation: none;
+  }
+}
+
+.tsp-elapsed,
+.tsp-rate {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tsp-rate {
+  color: var(--text-2);
+}
+
+.tsp-progress {
+  display: inline-flex;
+  flex: 1 1 var(--space-10);
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--space-10);
+}
+.tsp-progress-track {
+  position: relative;
+  flex: 1 1 auto;
+  height: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--bg-active);
+  overflow: hidden;
+}
+.tsp-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tsp-fill, var(--accent));
+  transition: width var(--dur-base) var(--ease-out);
+}
+.tsp-progress[data-tone]:not([data-tone="neutral"]) {
+  --tsp-fill: var(--tsp-tc);
+}
+.tsp-progress.indeterminate .tsp-progress-fill {
+  position: absolute;
+  width: 30%;
+  animation: tsp-slide var(--dur-spin) linear infinite;
+  animation-play-state: var(--play-state);
+}
+.tsp-progress-label {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+}
+
+/* meter */
+.tsp-meter {
+  display: flex;
+  min-width: 0;
+}
+.tsp-meter-in {
+  --tsp-fill: var(--accent);
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+.tsp-meter-in[data-level="warn"] {
+  --tsp-fill: var(--st-waiting);
+}
+.tsp-meter-in[data-level="bad"] {
+  --tsp-fill: var(--st-error);
+}
+.tsp-meter-in[data-tone] {
+  --tsp-fill: var(--tsp-tc);
+}
+.tsp-mt-track {
+  position: relative;
+  flex: 1 1 var(--space-12);
+  min-width: var(--space-10);
+  height: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--bg-active);
+  display: flex;
+}
+.tsp-meter-in[data-size="md"] .tsp-mt-track {
+  height: var(--space-1-5);
+}
+.tsp-meter-in[data-size="lg"] .tsp-mt-track {
+  height: var(--space-2-5);
+}
+.tsp-mt-fill,
+.tsp-mt-part {
+  height: 100%;
+  background: var(--tsp-fill);
+  border-radius: var(--radius-pill);
+  transition: width var(--dur-slow) var(--ease-out);
+}
+.tsp-mt-part {
+  border-radius: 0;
+  flex: none;
+}
+.tsp-mt-part:first-child {
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+}
+.tsp-mt-part.hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0 2px,
+    color-mix(in srgb, var(--bg-app) 55%, transparent) 2px 4px
+  );
+}
+.tsp-mt-mark {
+  position: absolute;
+  top: calc(-1 * var(--space-0-5));
+  width: 1px;
+  height: calc(100% + var(--space-1));
+  background: var(--text-3);
+}
+.tsp-mt-mark[data-tone] {
+  background: var(--tsp-tc);
+}
+.tsp-mt-mark.icon {
+  top: 50%;
+  width: auto;
+  height: auto;
+  transform: translate(-50%, -50%);
+  background: var(--bg-raised);
+  color: var(--text-3);
+  display: inline-flex;
+}
+.tsp-mt-ring {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  transform: rotate(-90deg);
+  flex: none;
+}
+.tsp-mt-ring circle {
+  fill: none;
+  stroke-width: 2;
+}
+.tsp-mt-ring .track {
+  stroke: var(--bg-active);
+}
+.tsp-mt-ring .arc {
+  stroke: var(--tsp-fill);
+  stroke-linecap: butt;
+}
+.tsp-mt-ring .mark {
+  stroke: var(--text-3);
+  stroke-width: 1;
+}
+.tsp-mt-blocks {
+  display: grid;
+  grid-template-columns: repeat(10, var(--space-2));
+  gap: 1px;
+}
+.tsp-mt-blocks[data-steps] {
+  display: flex;
+}
+.tsp-mt-blocks i {
+  height: var(--space-2);
+  width: var(--space-2);
+  background: var(--bg-active);
+  border-radius: 1px;
+}
+.tsp-mt-blocks[data-steps] i {
+  flex: 1 1 0;
+  height: var(--space-1);
+}
+.tsp-mt-blocks i.on {
+  background: var(--tsp-fill);
+}
+.tsp-mt-lbl {
+  color: var(--text-2);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+}
+.tsp-mt-total {
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.tsp-meter-in.unknown .tsp-mt-track {
+  background: none;
+  border: 1px dashed var(--border-strong);
+}
+
+/* effort：六段环 */
+.tsp-effort {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+.tsp-effort svg {
+  display: block;
+}
+.tsp-effort path,
+.tsp-effort circle {
+  stroke: currentColor;
+}
+.tsp-effort .off {
+  opacity: 0.28;
+}
+.tsp-effort.max {
+  animation: tsp-pulse var(--dur-breathe) var(--ease-in-out) infinite;
+  animation-play-state: var(--play-state);
+}
+
+/* chart */
+.tsp-chart {
+  min-width: 0;
+}
+.tsp-chart-heat {
+  display: grid;
+  gap: var(--space-0-5);
+}
+.tsp-chart-row {
+  display: grid;
+  grid-template-columns: var(--space-6) repeat(var(--cols), var(--space-2-5));
+  gap: var(--space-0-5);
+  align-items: center;
+}
+.tsp-chart-row i {
+  height: var(--space-2-5);
+  border-radius: var(--radius-xs);
+}
+.tsp-chart-rl,
+.tsp-chart-cols {
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+}
+.tsp-chart-cols {
+  display: grid;
+  grid-auto-columns: var(--space-2-5);
+  gap: var(--space-0-5);
+}
+.tsp-chart-bars {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-0-5);
+  height: calc(4 * var(--tsp-lh));
+}
+.tsp-chart-bars[data-size="sm"] {
+  height: calc(2 * var(--tsp-lh));
+}
+.tsp-chart-bars[data-size="lg"] {
+  height: calc(8 * var(--tsp-lh));
+}
+.tsp-chart-bars.spark {
+  height: var(--tsp-lh);
+}
+.tsp-chart-bars i {
+  flex: 1 1 0;
+  max-width: var(--space-6);
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+}
+.tsp-chart-bars.spark i {
+  max-width: var(--space-1);
+}
+.tsp-chart-bars b {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--text-3);
+}
+.tsp-chart-empty {
+  color: var(--text-3);
+}
+.tsp-chart-sum {
+  margin-top: var(--space-1);
+  font-size: var(--fs-xs);
+}
+
+/* ───────────────────────── 状态条：status、seg ───────────────────────── */
+
+.tsp-status {
+  display: block;
+  min-width: 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.tsp-st-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--space-6);
+  overflow: hidden;
+}
+.tsp-st-l,
+.tsp-st-r {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.tsp-st-r {
+  margin-left: auto;
+}
+.tsp-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--space-5);
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  color: var(--text-3);
+}
+.tsp-seg[data-tone]:not([data-tone="neutral"]) {
+  color: var(--text-2);
+}
+.tsp-seg[data-tone]:not([data-tone="neutral"]) .tsp-seg-ic {
+  color: var(--tsp-tc);
+}
+.tsp-seg.tsp-act:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.tsp-seg.tsp-drop {
+  display: none;
+}
+.tsp-seg-ic {
+  display: inline-flex;
+  flex: none;
+}
+.tsp-seg-k {
+  display: inline-flex;
+  align-items: center;
+}
+.tsp-seg-t {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.tsp-seg.shrinks {
+  flex: 0 1 auto;
+}
+
+/* ───────────────────────── tool ───────────────────────── */
+
+.tsp-tool {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  --tsp-tool-c: var(--text-3);
+}
+.tsp-tool.st-running {
+  --tsp-tool-c: var(--accent);
+}
+.tsp-tool.st-error {
+  --tsp-tool-c: var(--st-error);
+}
+.tsp-tool.card {
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+}
+.tsp-tool.card.st-running {
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg-raised));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.tsp-tool.card.st-error {
+  background: var(--st-error-soft);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--st-error) 24%, transparent);
+}
+.tsp-tool-bar {
+  display: none;
+}
+.tsp-tool.card.st-running > .tsp-tool-bar,
+.tsp-tool.card.st-error > .tsp-tool-bar {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: var(--space-2);
+  bottom: var(--space-2);
+  width: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--tsp-tool-c);
+}
+.tsp-tool-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-tool);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-lg);
+  color: var(--text);
+}
+.tsp-tool.inline > .tsp-tool-head {
+  padding: 0;
+  min-height: var(--lh-sm);
+}
+.tsp-tool-head[role="button"] {
+  cursor: pointer;
+}
+.tsp-tool-head[role="button"]:hover {
+  background: var(--bg-hover);
+}
+.tsp-tool-head:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.tsp-tool-ic {
+  display: inline-flex;
+  flex: none;
+  color: var(--tsp-tool-c);
+}
+.tsp-tool.st-done .tsp-tool-ic,
+.tsp-tool.st-pending .tsp-tool-ic {
+  color: var(--text-3);
+}
+.tsp-tool-line {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+}
+.tsp-tool-title {
+  flex: none;
+  font-weight: var(--fw-medium);
+}
+.tsp-tool-target {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+}
+.tsp-tool-target.text {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+}
+.tsp-tool:not(.collapsed) .tsp-tool-target.command {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tsp-tool-target .cmd {
+  color: var(--syn-func);
+}
+.tsp-tool-target .flag {
+  color: var(--text-2);
+}
+.tsp-tool-target .str {
+  color: var(--syn-string);
+}
+.tsp-tool-target .var {
+  color: var(--syn-number);
+}
+.tsp-tool-target .op {
+  color: var(--text-3);
+}
+.tsp-tool-target .dir {
+  color: var(--text-3);
+}
+.tsp-tool-target .name {
+  color: var(--text);
+  font-weight: var(--fw-strong);
+}
+.tsp-tool-target .ln,
+.tsp-tool-target .q {
+  color: var(--text-3);
+}
+.tsp-tool-meta {
+  flex: none;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.tsp-tool-meta .add {
+  color: var(--diff-add-fg);
+}
+.tsp-tool-meta .del {
+  color: var(--diff-del-fg);
+}
+.tsp-tool-sp {
+  flex: 1 1 0;
+}
+.tsp-tool-note {
+  flex: none;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.tsp-tool-exit {
+  flex: none;
+}
+.tsp-tool-time {
+  flex: none;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.tsp-tool-time.fast {
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.tsp-tool-head:hover .tsp-tool-time.fast {
+  opacity: 1;
+}
+.tsp-tool-st {
+  display: inline-flex;
+  flex: none;
+  color: var(--tsp-tool-c);
+}
+.tsp-tool-st:empty {
+  display: none;
+}
+.tsp-tool-spin {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  border-radius: var(--radius-pill);
+  border: var(--tsp-stroke) solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-top-color: var(--accent);
+  animation: tsp-turn var(--dur-spin) linear infinite;
+  animation-play-state: var(--play-state);
+}
+.tsp-tool-acts {
+  display: none;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}
+.tsp-tool-head:hover .tsp-tool-acts,
+.tsp-tool-head:focus-within .tsp-tool-acts {
+  display: inline-flex;
+}
+.tsp-tool-act {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--space-5);
+  padding: 0 var(--space-1-5);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-3);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.tsp-tool-act:hover {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+.tsp-tool-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.tsp-tool-body > .tsp-code,
+.tsp-tool-body > .tsp-diff {
+  background: none;
+  border-radius: 0;
+}
+.tsp-tool-body > .tsp-code .tsp-code-head {
+  display: none;
+}
+.tsp-tool-body > .tsp-ansi {
+  padding: var(--space-2) var(--space-3);
+}
+.tsp-tool-body > .tsp-md,
+.tsp-tool-body > .tsp-text {
+  padding: var(--space-1) var(--space-3);
+}
+/* bash 这类卡片的 body 是一层 col(omp.run):命令(code,自带内边距)+ 输出(ansi)+ 底栏(row,Done / Running / Exit)。
+ * 输出和底栏也要和命令对齐,不贴卡片左边 */
+.tsp-tool.card > .tsp-tool-body > .tsp-col > :not(.tsp-code, .tsp-diff) {
+  padding-left: var(--space-3);
+  padding-right: var(--space-3);
+}
+.tsp-tool.card > .tsp-tool-body > .tsp-col > :last-child:not(.tsp-code, .tsp-diff) {
+  padding-bottom: var(--space-2);
+}
+.tsp-tool-hr {
+  height: 1px;
+  background: var(--border);
+  margin: 0;
+}
+.tsp-tool-body > .tsp-checklist {
+  padding: var(--space-1-5) var(--space-3) var(--space-2);
+}
+/* body 里嵌套的 card / tool 不画框：边框和底都去掉 */
+.tsp-tool-body .tsp-card,
+.tsp-tool-body .tsp-tool.card {
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+.tsp-tool-body .tsp-card > .tsp-card-head .tsp-chip {
+  display: none;
+}
+.tsp-tool.inline .tsp-tool-body {
+  margin: var(--space-1) 0 0 calc(var(--space-1-5) + 1px);
+  padding-left: var(--space-3);
+  box-shadow: inset 1px 0 0 var(--border);
+}
+.tsp-tool.inline .tsp-tool-body > .tsp-ansi,
+.tsp-tool.inline .tsp-tool-body > .tsp-md,
+.tsp-tool.inline .tsp-tool-body > .tsp-text {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* 文件胶囊：Read / Glob 的结果（omp.tool.file） */
+.tsp-col[data-role="omp.tool.files"],
+.tsp-tool[data-name="read"] > .tsp-tool-body {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+}
+.tsp-tool-body > .tsp-tool-hr {
+  flex-basis: 100%;
+}
+.tsp-row[data-role="omp.tool.file"] {
+  display: inline-flex;
+  flex: 0 1 auto;
+  gap: var(--space-1-5);
+  max-width: 100%;
+  padding: var(--space-0-5) var(--space-2-5);
+  border-radius: var(--radius-pill);
+  background: var(--bg-sunken);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  color: var(--text-2);
+}
+.tsp-row[data-role="omp.tool.file"] .tsp-text {
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+}
+.tsp-row[data-role="omp.tool.file"] .tsp-icon {
+  color: var(--text-3);
+}
+.tsp-row[data-role="omp.tool.file"] .tsp-link {
+  color: var(--text);
+  font-weight: var(--fw-strong);
+}
+.tsp-row[data-role="omp.tool.file"] .tsp-link:hover {
+  text-decoration: none;
+}
+/* Read / Glob 的文件胶囊直接挂在标题下，不画左侧的竖线 */
+.tsp-tool.inline[data-name="read"] .tsp-tool-body,
+.tsp-tool.inline[data-name="glob"] .tsp-tool-body {
+  margin-left: 0;
+  padding-left: 0;
+  box-shadow: none;
+}
+
+/* ───────────────────────── agent / checklist ───────────────────────── */
+
+.tsp-agent {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-left: calc(var(--tsp-depth, 0) * (var(--space-5) + var(--space-0-5)));
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+}
+.tsp-agent-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--row-tool);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+.tsp-agent-row[role="button"] {
+  cursor: pointer;
+}
+.tsp-agent-row[role="button"]:hover {
+  background: var(--bg-hover);
+}
+.tsp-agent-row:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.tsp-agent-g {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-3-5);
+  color: var(--text-3);
+}
+.tsp-agent.st-running .tsp-agent-g {
+  color: var(--accent);
+}
+.tsp-agent.st-failed .tsp-agent-g {
+  color: var(--st-error);
+}
+.tsp-agent-g .live,
+.tsp-agent-g .hollow {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: currentColor;
+}
+.tsp-agent-g .live {
+  animation: tsp-pulse var(--dur-breathe) var(--ease-in-out) infinite;
+  animation-play-state: var(--play-state);
+}
+.tsp-agent-g .hollow {
+  background: none;
+  box-shadow: inset 0 0 0 var(--tsp-stroke) currentColor;
+}
+.tsp-agent-name {
+  flex: none;
+  font-weight: var(--fw-medium);
+}
+.tsp-agent-task {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+.tsp-sp {
+  flex: 1 1 0;
+}
+.tsp-agent-stats {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2-5);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.tsp-agent-stats .model {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.tsp-agent-stats .model .dot {
+  width: var(--space-1-5);
+  height: var(--space-1-5);
+  border-radius: var(--radius-pill);
+  background: var(--text-3);
+}
+.tsp-agent-stats .tools {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0-5);
+}
+.tsp-agent-stats .done {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0-5);
+}
+.tsp-agent-stats .done circle {
+  fill: none;
+  stroke-width: 2;
+}
+.tsp-agent-stats .done .tr {
+  stroke: var(--bg-active);
+}
+.tsp-agent-stats .done .fl {
+  stroke: var(--accent);
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+.tsp-agent-meter {
+  width: var(--space-8);
+  height: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--bg-active);
+  overflow: hidden;
+}
+.tsp-agent-meter .fill {
+  display: block;
+  height: 100%;
+  background: var(--text-3);
+  transition: width var(--dur-slow) var(--ease-out);
+}
+.tsp-agent-meter.warn .fill {
+  background: var(--st-waiting);
+}
+.tsp-agent-meter.bad .fill {
+  background: var(--st-error);
+}
+.tsp-agent-now {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: 0 var(--space-3) var(--space-1-5) calc(var(--space-3) + var(--space-3-5) + var(--space-2));
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  min-width: 0;
+}
+.tsp-agent-now .tn {
+  font-family: var(--font-mono);
+}
+.tsp-agent-now .intent {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+.tsp-agent-now .time {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.tsp-agent-kids {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-2-5) calc(var(--space-3) + var(--space-3-5) + var(--space-2));
+}
+
+.tsp-checklist {
+  min-width: 0;
+}
+.tsp-checklist.full {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+.tsp-ck-phase {
+  display: flex;
+  flex-direction: column;
+}
+.tsp-ck-ph {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--lh-sm);
+  color: var(--text-2);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.tsp-ck-ph:hover {
+  background: var(--bg-hover);
+}
+.tsp-ck-ph .t {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: var(--fw-medium);
+}
+.tsp-ck-ph .n,
+.tsp-ck-pill .n,
+.tsp-ck-rh .n {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.tsp-ring circle {
+  fill: none;
+  stroke-width: 1.8;
+}
+.tsp-ring .tr {
+  stroke: var(--bg-active);
+}
+.tsp-ring .fl {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+.tsp-ring.full .fl {
+  stroke: var(--text-3);
+}
+.tsp-ck-items {
+  display: flex;
+  flex-direction: column;
+  padding-left: var(--space-5);
+}
+.tsp-ck-item {
+  display: grid;
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
+  column-gap: var(--space-2);
+  align-items: start;
+  min-height: var(--lh-sm);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  line-height: var(--lh-sm);
+}
+.tsp-ck-g {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--lh-sm);
+  color: var(--text-3);
+}
+.tsp-ck-g .hollow {
+  width: var(--space-2-5);
+  height: var(--space-2-5);
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 var(--tsp-stroke) currentColor;
+}
+.tsp-ck-g .dot {
+  width: var(--space-2-5);
+  height: var(--space-2-5);
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 var(--tsp-stroke) var(--accent);
+  background: radial-gradient(circle, var(--accent) 35%, transparent 40%);
+  animation: tsp-pulse var(--dur-breathe) var(--ease-in-out) infinite;
+  animation-play-state: var(--play-state);
+}
+.tsp-ck-item.st-active .tsp-ck-t {
+  font-weight: var(--fw-medium);
+}
+.tsp-ck-item.st-done .tsp-ck-t {
+  color: var(--text-2);
+  text-decoration: line-through;
+}
+.tsp-ck-item.st-dropped .tsp-ck-t {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+.tsp-ck-item.st-blocked .tsp-ck-g {
+  color: var(--st-waiting);
+}
+.tsp-ck-item.fresh .tsp-ck-g {
+  animation: tsp-pop var(--dur-fade) var(--ease-out);
+}
+.tsp-ck-note {
+  grid-column: 2;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.tsp-ck-item.st-blocked .tsp-ck-note {
+  color: var(--st-waiting-text);
+}
+.tsp-checklist.hud {
+  position: relative;
+  display: inline-flex;
+}
+.tsp-ck-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h-sm);
+  max-width: calc(40 * var(--tsp-cw));
+  padding: 0 var(--space-2-5);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.tsp-ck-pill:hover {
+  background: var(--bg-hover);
+}
+.tsp-ck-pill .t {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tsp-ck-pop {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-1-5));
+  z-index: var(--z-popover);
+  width: max-content;
+  max-width: calc(60 * var(--tsp-cw));
+  padding: var(--space-2-5) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--bg-overlay);
+  box-shadow: var(--shadow-2);
+}
+.tsp-checklist.reminder {
+  display: flex;
+  flex-direction: column;
+}
+.tsp-ck-rh {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--lh-sm);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.tsp-ck-rh .ic {
+  display: inline-flex;
+  color: var(--st-waiting);
+}
+.tsp-ck-rh .t {
+  flex: 0 1 auto;
+}
+
+/* ───────────────────────── omp 的区块（按 role；omp 自己的命名，不在规范里） ───────────────────────── */
+
+/* 用户消息：靠右的气泡，复制 / 回退 / 时间在悬停时从气泡上方出来 */
+.tsp-card[data-role="omp.user"] {
+  align-self: flex-end;
+  max-width: 85%;
+  margin-top: var(--space-2);
+  background: var(--bg-bubble);
+  box-shadow: none;
+  border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-sm) var(--radius-bubble);
+}
+.tsp-card[data-role="omp.user"] .tsp-card-body {
+  padding: var(--space-2-5) var(--space-3-5);
+  gap: var(--space-1);
+}
+.tsp-row[data-role="omp.user.tools"] {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-0-5));
+  gap: var(--space-1);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.tsp-card[data-role="omp.user"]:hover .tsp-row[data-role="omp.user.tools"],
+.tsp-card[data-role="omp.user"]:focus-within .tsp-row[data-role="omp.user.tools"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+.tsp-icon[data-role="omp.user.tool"] {
+  border-radius: var(--radius-sm);
+}
+.tsp-icon[data-role="omp.user.tool"]:hover {
+  background: var(--bg-active);
+  color: var(--text);
+}
+.tsp-text[data-role="omp.user.time"] {
+  font-family: var(--font-mono);
+}
+
+/* 助手回答：无框，思考折叠 + 正文 */
+.tsp-col[data-role="omp.assistant"] {
+  gap: var(--space-2);
+}
+.tsp-section[data-role^="omp.thinking"] {
+  color: var(--text-2);
+}
+.tsp-row[data-role="omp.turn.usage"] {
+  gap: var(--space-1-5);
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  opacity: 0.8;
+}
+.tsp-icon[data-role="omp.turn.copy"] {
+  border-radius: var(--radius-sm);
+}
+.tsp-icon[data-role="omp.turn.copy"]:hover {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+/* 子代理 / 后台作业的磁贴（Task、wait 的 body） */
+.tsp-row[data-role="omp.job.tiles"] {
+  gap: 0;
+  align-items: stretch;
+  width: 100%;
+}
+.tsp-col[data-role="omp.job.tile"] {
+  flex: 1 1 calc(50% - var(--space-1-5));
+  min-width: 0;
+  padding: var(--space-1-5) var(--space-3);
+  background: var(--bg-hover);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.tsp-row[data-role="omp.job.tile.head"] {
+  gap: var(--space-1-5);
+}
+.tsp-text[data-role="omp.job.tile.dot"] {
+  flex: none;
+}
+.tsp-text[data-role="omp.job.tile.title"] {
+  font-weight: var(--fw-medium);
+}
+.tsp-text[data-role="omp.tool.context"] {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+/* 输入框上方的 dock：状态行（omp 的输入框卡片不画，输入框是 studio 的 Composer） */
+.tsp-row[data-role="omp.hud.activity"] {
+  gap: var(--space-3);
+  padding: 0 var(--space-2);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.tsp-col[data-role="omp.hud.status"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tsp-row[data-role="omp.working"] {
+  gap: var(--space-2);
+}
+.tsp-text[data-role="omp.working.sep"] {
+  color: var(--text-3);
+}
+.tsp-shimmer[data-role="omp.working.label"] {
+  font-size: var(--fs-xs);
+}
+.tsp-row[data-role="omp.working.stop"] {
+  gap: var(--space-1);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+}
+.tsp-row[data-role="omp.working.stop"]:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* ───────────────────────── 兜底 ───────────────────────── */
+
+.tsp-fallback {
+  white-space: pre-wrap;
+  color: var(--text-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tsp-chev,
+  .tsp-tree-tw svg {
+    transition: none;
+  }
+}

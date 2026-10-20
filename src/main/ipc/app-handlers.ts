@@ -4,7 +4,7 @@ import { historyOrders, limits, type AppInfo, type HandlerGroup } from "../../sh
 import { exportDiagnostics } from "../log/diagnostics.ts";
 import { openLogsFolder } from "../log/instance.ts";
 import { getSettings, resolveLocale, updateSettings } from "../settings/settings-store.ts";
-import { getShellState, parseCollapsedProjects, setShellState, sidebarWidthRange } from "../window/window-state.ts";
+import { getShellState, setShellState, sidebarWidthRange } from "../window/window-state.ts";
 import { setTitleBarDimmed } from "../window/main-window.ts";
 import { chatsDir } from "../tasks/chats-dir.ts";
 import { whatsNewForThisLaunch } from "../whats-new.ts";
@@ -43,6 +43,7 @@ export const appHandlers: HandlerGroup<
     isPackaged: app.isPackaged,
     chatsDir: chatsDir(),
     whatsNew: whatsNewForThisLaunch(),
+    runtime: { electron: process.versions.electron, chromium: process.versions.chrome, node: process.versions.node },
   }),
   getSettings: async () => getSettings(),
   setLocale: async (value) => updateSettings({ locale: parseLocalePreference(value) }),
@@ -63,9 +64,6 @@ export const appHandlers: HandlerGroup<
       }),
       ...(record["terminalHeight"] !== undefined && {
         terminalHeight: parseInteger(record["terminalHeight"], "terminalHeight", ...limits.terminalHeightRange),
-      }),
-      ...(record["collapsedProjects"] !== undefined && {
-        collapsedProjects: parseCollapsedProjects(record["collapsedProjects"]),
       }),
       ...(record["historyOrder"] !== undefined && {
         historyOrder: parseOneOf(record["historyOrder"], "historyOrder", historyOrders),

@@ -5,7 +5,7 @@ import { TerminalToggle, useDraftTerminalKey } from "../features/terminal/index.
 import { useT } from "../i18n/use-t.ts";
 import { InfoIcon, SidebarIcon } from "./icons.tsx";
 import { useMainView, useSelectedTaskId, useTask } from "../store/index.ts";
-import { Logo } from "../ui/Logo.tsx";
+import { PixelLogo } from "../ui/PixelLogo.tsx";
 import { TaskCrumb } from "./TaskCrumb.tsx";
 
 interface TopBarProps {
@@ -36,11 +36,8 @@ export function TopBar(props: TopBarProps) {
   return (
     <header className="topbar" data-testid="topbar">
       <div className="topbar-left">
-        <span className="topbar-brand">
-          <Logo size={18} />
-          <span className="topbar-wordmark" aria-hidden="true">
-            omp <span>studio</span>
-          </span>
+        <span className="topbar-brand" data-testid="topbar-brand">
+          <PixelLogo unit={2} />
         </span>
         <button
           type="button"

@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fixtureDir = path.join(root, "fixtures", "rpc");
@@ -35,7 +35,7 @@ async function streamingFixture(name: string, deltas: number): Promise<string> {
   return [...raw.slice(0, cut + 1), JSON.stringify({ kind: "hang" })].join("\n") + "\n";
 }
 
-/** 慢速回放：工具开始执行前和结束后各等一会，让"已工作 N 秒 · M 次工具调用"这一行真实出现。 */
+/** 慢速回放：工具开始执行前和结束后各等一会，让"Worked for Ns · M tool calls"这一行真实出现。 */
 async function slowFixture(name: string): Promise<string> {
   const { raw, lines } = await readFixture(name);
   const out: string[] = [];
@@ -104,7 +104,7 @@ async function openNewTaskAndSend(page: Page, prompt: string): Promise<void> {
     if (!project) throw new Error("addProject 没有返回项目");
     await globalThis.studio.createTask({ projectId: project.id });
   });
-  await page.getByTestId("task-row").first().locator(".sb-row-main").click();
+  await openTaskRow(page);
   const input = page.getByTestId("composer-input");
   await expect(input).toBeVisible();
   await input.fill(prompt);
@@ -192,25 +192,23 @@ test("完成：过程默认展开，结论在前，最终内容与 fixture 的 m
   }
 });
 
-test("慢速回放：标题行显示已工作 N 秒 · M 次工具调用，工具卡默认展开（bash 带命令和输出），可收起再展开", async () => {
+test("慢速回放：标题行显示 Worked for Ns · M tool calls（中文界面也是英文），工具块默认展开（bash 是带命令、输出和状态脚的卡片），可收起整个过程", async () => {
   const { launched, cleanup } = await start(await slowFixture("bash-tool"), "slow");
   try {
     const { page } = launched;
     await openNewTaskAndSend(page, "用 bash 工具运行 echo omp-studio");
     const done = page.getByTestId("process-done");
     await expect(done).toBeVisible({ timeout: 20_000 });
-    await expect(done).toContainText(/(已工作|Worked for)/);
+    // 运行过程的文案和 Tern 里的 omp 一样是英文，中文界面也不翻译。
+    await expect(done).toContainText("Worked for");
     await expect(done).toContainText(/1/);
-    // 像 omp：结束后默认展开，卡片里直接是 $ 命令 + 输出。
+    // 像 Tern：结束后默认展开，bash 是一张卡片：命令 + 输出 + 状态脚（完成）。
     await expect(page.locator(".step-tool")).toHaveCount(1);
     await expect(page.locator(".step-tool .step-name")).toContainText("Bash");
-    await expect(page.locator(".step-output")).toContainText("omp-studio");
+    const card = page.locator(".step-tool .bash-card");
+    await expect(card).toContainText("omp-studio");
+    await expect(card.locator(".bash-foot")).toContainText(/(完成|Done)/);
     await shoot(page, "expanded");
-    // 卡头收起 / 展开单张卡。
-    await page.locator(".step-tool .step-toggle").first().click();
-    await expect(page.locator(".step-output")).toHaveCount(0);
-    await page.locator(".step-tool .step-toggle").first().click();
-    await expect(page.locator(".step-output")).toBeVisible();
     // 标题行收起整个过程。
     await done.locator(".process-row").click();
     await expect(page.locator(".details")).toHaveCount(0);
@@ -228,7 +226,7 @@ test("等你确认：门停靠在输入框上方，Enter 不会隐式允许，�
     const gate = page.getByTestId("gate");
     await expect(gate).toBeVisible({ timeout: 20_000 });
     await expect(gate).toHaveAttribute("data-approval", "true");
-    await expect(page.getByTestId("run-status-main")).toContainText(/(已暂停|paused)/);
+    await expect(page.getByTestId("run-status-main")).toContainText("paused");
     // 门在输入框正上方、同一个底部栈里。
     const gateBox = await gate.boundingBox();
     const composerBox = await page.getByTestId("composer-input").boundingBox();
@@ -368,7 +366,7 @@ test("等你确认期间输入框上方状态行的文字节点不被替换（�
     await openNewTaskAndSend(page, "用 bash 工具运行 echo omp-studio");
     await expect(page.getByTestId("gate")).toBeVisible({ timeout: 20_000 });
     const status = page.getByTestId("run-status-main");
-    await expect(status).toContainText(/(已暂停|paused)/);
+    await expect(status).toContainText("paused");
     await inPage<void>(
       page,
       "[data-testid=run-status-main]",

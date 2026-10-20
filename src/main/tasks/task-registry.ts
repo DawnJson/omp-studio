@@ -3,17 +3,20 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import type { ModelKey, Project, ProjectId, TaskId } from "../../shared/ipc.ts";
+import type { ModelKey, Project, ProjectId, TaskEngine, TaskId } from "../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { writeFileAtomic } from "./atomic-write.ts";
 
 export interface TaskRecord {
   id: TaskId;
   projectId: ProjectId;
+  /** 新任务按设置 `taskEngine` 定；设置是 tsp 时没有进程的 rpc 老任务下次启动改记成 tsp（TaskPool.#unifiedRecord）。TSP 迁移之前的记录没有这个字段，读出来是 rpc。 */
+  engine: TaskEngine;
   /** 会话文件在第一条 assistant 消息之后才落盘；之前为 null。 */
   sessionFile: string | null;
   title: string;
   createdAt: number;
+  /** 最后一次任务活动：用户发消息、一轮结束。只由这两处显式写入；改名、迁移引擎、存会话文件、归档等记账写入不碰它（侧栏按它排序、显示"N 分钟前"）。从历史会话建的任务取会话文件的修改时间。 */
   updatedAt: number;
   archived: boolean;
   model: ModelKey | null;
@@ -58,9 +61,10 @@ export class TaskRegistry {
     const parsed: unknown = JSON.parse(text);
     if (typeof parsed !== "object" || parsed === null || !("version" in parsed) || parsed.version !== 1)
       throw new Error(`${this.#file}: unsupported tasks.json format`);
-    // 老版本写的记录没有 worktree 字段：补默认值，不迁移文件。
+    // 老版本写的记录没有 worktree、engine 字段：补默认值，不迁移文件。
     const tasks = (parsed as TasksFile).tasks.map((task) => ({
       ...task,
+      engine: task.engine ?? "rpc",
       worktreePath: task.worktreePath ?? null,
       worktreeBranch: task.worktreeBranch ?? null,
       worktreeBase: task.worktreeBase ?? null,
@@ -128,16 +132,18 @@ export class TaskRegistry {
       TaskRecord,
       "id" | "createdAt" | "updatedAt" | "archived" | "worktreePath" | "worktreeBranch" | "worktreeBase"
     > & {
+      /** 默认现在；从历史会话建任务时传会话文件的修改时间。 */
+      updatedAt?: number;
       worktree?: { path: string; branch: string; base: string };
     },
   ): Promise<TaskRecord> {
     const now = Date.now();
-    const { worktree, ...fields } = input;
+    const { worktree, updatedAt, ...fields } = input;
     const record: TaskRecord = {
       ...fields,
       id: randomUUID() as TaskId,
       createdAt: now,
-      updatedAt: now,
+      updatedAt: updatedAt ?? now,
       archived: false,
       worktreePath: worktree?.path ?? null,
       worktreeBranch: worktree?.branch ?? null,
@@ -148,11 +154,11 @@ export class TaskRegistry {
     return record;
   }
 
-  /** 更新字段并写盘；`updatedAt` 自动刷新。返回更新后的记录。 */
+  /** 更新字段并写盘；不改 `updatedAt`（要改就在 patch 里显式给）。返回更新后的记录。 */
   async updateTask(id: TaskId, patch: Partial<Omit<TaskRecord, "id">>): Promise<TaskRecord> {
     const current = this.findTask(id);
     if (!current) throw new Error(`unknown task ${id}`);
-    const next: TaskRecord = { ...current, ...patch, updatedAt: Date.now() };
+    const next: TaskRecord = { ...current, ...patch };
     this.#data = { ...this.#data, tasks: this.#data.tasks.map((task) => (task.id === id ? next : task)) };
     await this.save();
     return next;

@@ -1,13 +1,12 @@
-// 泳道的纯函数：行顺序、归到哪一轮（并保持引用稳定）、时间轴范围、主代理工具节奏。
+// 子代理表的纯函数：行顺序、归到哪一轮（并保持引用稳定）、每行用时、表头合计。
 import { describe, expect, it } from "vitest";
 import type { SubagentLane } from "../src/shared/subagents.ts";
 import type { Turn } from "../src/renderer/src/features/conversation/model.ts";
 import {
   assignLanesToTurns,
-  mainToolMarks,
+  laneElapsed,
+  laneTotals,
   orderLanes,
-  percentAt,
-  timelineSpan,
 } from "../src/renderer/src/features/lanes/lane-model.ts";
 
 const lane = (id: string, startedAt: number, extra: Partial<SubagentLane> = {}): SubagentLane => ({
@@ -75,39 +74,27 @@ describe("assignLanesToTurns", () => {
   });
 });
 
-describe("timelineSpan / percentAt", () => {
-  it("取本轮开始到最晚的结束；运行中的子代理取现在；至少 1 秒", () => {
-    const t = turn("t", 1000, 5000);
-    expect(timelineSpan(t, [lane("a", 1200, { endedAt: 9000 })], 6000, false)).toEqual({ start: 1000, end: 9000 });
-    expect(timelineSpan(t, [lane("a", 1200, { endedAt: null, status: "running" })], 12_000, false).end).toBe(12_000);
-    expect(timelineSpan(turn("t", 1000, 1000), [], 1000, false)).toEqual({ start: 1000, end: 2000 });
-    expect(timelineSpan(t, [], 8000, true).end).toBe(8000);
+describe("laneElapsed", () => {
+  it("结束了用 omp 报的 durationMs，没有就用起止", () => {
+    expect(laneElapsed(lane("a", 1000, { endedAt: 9000, durationMs: 7500 }), 99_999)).toBe(7500);
+    expect(laneElapsed(lane("a", 1000, { endedAt: 4000 }), 99_999)).toBe(3000);
   });
-  it("位置夹在 0–100", () => {
-    const span = { start: 1000, end: 2000 };
-    expect(percentAt(span, 1500)).toBe(50);
-    expect(percentAt(span, 0)).toBe(0);
-    expect(percentAt(span, 9999)).toBe(100);
+  it("还在跑的取到现在，omp 报得更大时不倒退", () => {
+    const running = { status: "running", endedAt: null } as const;
+    expect(laneElapsed(lane("a", 1000, { ...running, durationMs: 2000 }), 6000)).toBe(5000);
+    expect(laneElapsed(lane("a", 1000, { ...running, durationMs: 8000 }), 6000)).toBe(8000);
   });
 });
 
-describe("mainToolMarks", () => {
-  it("只取有开始时间的工具；失败的标出来", () => {
-    const step = (startedAt: number | null, endedAt: number | null, status: string) =>
-      ({ kind: "tool", startedAt, endedAt, status }) as never;
-    const marks = mainToolMarks(
-      turn("t", 0, 10, [
-        step(1, 2, "done"),
-        step(null, null, "done"),
-        step(3, 4, "error"),
-        { kind: "narration", key: "n", text: "x" },
-        step(5, null, "running"),
-      ]),
+describe("laneTotals", () => {
+  it("费用、用时、请求、token 求和（用时是各自之和，不是墙钟）", () => {
+    const totals = laneTotals(
+      [
+        lane("a", 0, { endedAt: 4000, cost: 0.002, requests: 3, tokens: 1500 }),
+        lane("b", 1000, { endedAt: 3000, cost: 0.0005, requests: 2, tokens: 700 }),
+      ],
+      10_000,
     );
-    expect(marks).toEqual([
-      { start: 1, end: 2, failed: false },
-      { start: 3, end: 4, failed: true },
-      { start: 5, end: 5, failed: false },
-    ]);
+    expect(totals).toEqual({ cost: 0.0025, elapsed: 6000, requests: 5, tokens: 2200 });
   });
 });

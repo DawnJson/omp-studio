@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import electronPath from "electron";
 import { expect, test } from "@playwright/test";
-import { launchApp, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fixtureDir = path.join(root, "fixtures", "rpc");
@@ -83,7 +83,7 @@ async function sendPrompt(launched: LaunchedApp): Promise<void> {
     if (!project) throw new Error("addProject 没有返回项目");
     await globalThis.studio.createTask({ projectId: project.id });
   });
-  await page.getByTestId("task-row").first().locator(".sb-row-main").click();
+  await openTaskRow(page);
   const input = page.getByTestId("composer-input");
   await expect(input).toBeVisible();
   await input.fill("用 bash 工具运行 echo omp-studio");

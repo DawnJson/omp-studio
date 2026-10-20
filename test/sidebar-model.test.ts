@@ -6,12 +6,16 @@ import type { AvailableSlashCommand } from "../src/shared/omp-wire/rpc-wire.gene
 import { fuzzyMatch } from "../src/shared/ui/fuzzy.ts";
 import { buildSections, type CommandEntry } from "../src/shared/ui/palette-model.ts";
 import {
+  buildFolders,
+  buildTimeline,
   dotKind,
-  groupSessionsByFolder,
-  groupTasks,
   nextWaitingTask,
   projectLabels,
+  sessionTitle,
+  taskTitle,
   waitingTasks,
+  type SidebarInput,
+  type SidebarItem,
 } from "../src/shared/ui/sidebar-model.ts";
 
 const project = (id: string, path: string, name: string): Project => ({ id: id as ProjectId, path, name });
@@ -44,44 +48,6 @@ describe("projectLabels", () => {
   });
 });
 
-describe("groupTasks", () => {
-  const projects = [project("p1", "C:\\a", "a"), project("p2", "C:\\b", "b")];
-
-  it("任务归到自己的项目，按最近操作排序，归档中的任务不出现，空项目保留", () => {
-    const groups = groupTasks(
-      projects,
-      [
-        task("old", "p1", { updatedAt: 1 }),
-        task("new", "p1", { updatedAt: 9 }),
-        task("gone", "p1", { updatedAt: 99 }),
-        task("other", "p2"),
-      ],
-      new Set(["gone" as TaskId]),
-    );
-    expect(groups.map((g) => g.tasks.map((x) => x.id))).toEqual([["new", "old"], ["other"]]);
-    expect(groupTasks(projects, [], new Set()).map((g) => g.tasks.length)).toEqual([0, 0]);
-  });
-
-  it("排序用的是行尾显示的那个时间：一轮刚跑完的任务排在更早被操作过的任务前面", () => {
-    const groups = groupTasks(
-      projects,
-      [
-        task("touched", "p1", { updatedAt: 50 }),
-        task("finished", "p1", {
-          updatedAt: 10,
-          lastTurn: { status: "completed", endedAt: 90 } as TaskState["lastTurn"],
-        }),
-      ],
-      new Set(),
-    );
-    expect(groups[0]?.tasks.map((x) => x.id)).toEqual(["finished", "touched"]);
-  });
-
-  it("指向未知项目的任务不显示（等项目列表刷新）", () => {
-    expect(groupTasks(projects, [task("x", "unknown")], new Set()).flatMap((g) => g.tasks)).toEqual([]);
-  });
-});
-
 describe("等你确认", () => {
   const tasks = [
     task("a", "p", { status: "needs_you", updatedAt: 5 }),
@@ -101,12 +67,14 @@ describe("等你确认", () => {
 });
 
 describe("dotKind", () => {
-  it("等你 > 出错 > 进行中 > 未读完成；已读完成和空闲不画", () => {
+  it("等你 > 出错 > 进行中 > 完成；完成不看是否已读，被停止和从没跑过的不画", () => {
     expect(dotKind(task("t", "p", { status: "needs_you", unread: true }))).toBe("waiting");
     expect(dotKind(task("t", "p", { status: "error" }))).toBe("error");
     expect(dotKind(task("t", "p", { lastTurn: { status: "error", endedAt: 1 } }))).toBe("error");
     expect(dotKind(task("t", "p", { status: "running" }))).toBe("running");
-    expect(dotKind(task("t", "p", { unread: true }))).toBe("done");
+    expect(dotKind(task("t", "p", { unread: true, lastTurn: { status: "completed", endedAt: 1 } }))).toBe("done");
+    expect(dotKind(task("t", "p", { unread: false, lastTurn: { status: "completed", endedAt: 1 } }))).toBe("done");
+    expect(dotKind(task("t", "p", { lastTurn: { status: "aborted", endedAt: 1 } }))).toBe("none");
     expect(dotKind(task("t", "p"))).toBe("none");
     expect(dotKind(task("t", "p", { status: "stopped" }))).toBe("none");
   });
@@ -179,8 +147,8 @@ describe("buildSections", () => {
   });
 });
 
-describe("groupSessionsByFolder", () => {
-  const past = (id: string, cwd: string, modifiedAt: number): SessionSummary => ({
+describe("buildFolders / buildTimeline", () => {
+  const past = (id: string, cwd: string, modifiedAt: number, patch: Partial<SessionSummary> = {}): SessionSummary => ({
     id,
     title: id,
     firstPrompt: null,
@@ -188,27 +156,104 @@ describe("groupSessionsByFolder", () => {
     projectId: null,
     modifiedAt,
     taskId: null,
+    ...patch,
+  });
+  const projects = [project("p1", "C:\\work\\app", "app"), project("p2", "C:\\work\\empty", "empty")];
+  const input = (patch: Partial<SidebarInput> = {}): SidebarInput => ({
+    projects,
+    tasks: [],
+    sessions: [],
+    hidden: new Set(),
+    query: "",
+    ...patch,
+  });
+  const ids = (items: readonly SidebarItem[]) => items.map((item) => item.key);
+
+  it("同一文件夹的任务和会话合进一个文件夹（路径写法不同也归一），按最近活动混排", () => {
+    const folders = buildFolders(
+      input({
+        tasks: [task("t-old", "p1", { updatedAt: 10 }), task("t-new", "p1", { updatedAt: 50 })],
+        sessions: [past("s-mid", "c:/work/app/", 30), past("s-new", "C:\\work\\APP", 70)],
+      }),
+    );
+    expect(folders.map((folder) => [folder.label, folder.project?.id ?? null, ids(folder.items)])).toEqual([
+      ["app", "p1", ["session:s-new", "task:t-new", "session:s-mid", "task:t-old"]],
+      ["empty", "p2", []],
+    ]);
   });
 
-  it("同一文件夹的不同写法归一组；组按最新会话、组内按时间从新到旧", () => {
-    const groups = groupSessionsByFolder([
-      past("a1", "E:\\work\\app", 10),
-      past("b1", "E:/work/lib", 30),
-      past("a2", "e:/work/app/", 50),
-      past("b2", "E:\\work\\lib", 20),
+  it("只在历史里出现的 cwd 单独成文件夹（project 为 null）；文件夹按最新的一行排序，没有行的项目排最后", () => {
+    const folders = buildFolders(
+      input({
+        tasks: [task("t", "p1", { updatedAt: 40 })],
+        sessions: [past("a", "E:/other/lib", 90), past("b", "E:/other/lib", 20)],
+      }),
+    );
+    expect(folders.map((folder) => [folder.label, folder.project === null, ids(folder.items)])).toEqual([
+      ["lib", true, ["session:a", "session:b"]],
+      ["app", false, ["task:t"]],
+      ["empty", false, []],
     ]);
-    expect(groups.map((group) => [group.label, group.sessions.map((s) => s.id)])).toEqual([
-      ["app", ["a2", "a1"]],
-      ["lib", ["b1", "b2"]],
+    expect(folders[0]?.cwd).toBe("E:/other/lib");
+  });
+
+  it("默认文件夹永远排第一，不管多久没动；其余文件夹仍按最近活动；搜索时没有匹配行就不显示", () => {
+    const chats = project("pc", "C:\\Users\\me\\omp-studio\\chats", "chats");
+    const base = input({
+      projects: [project("p1", "C:\\work\\app", "app"), chats],
+      tasks: [task("t", "p1", { updatedAt: 40 })],
+      sessions: [past("a", "E:/other/lib", 90), past("old", "c:/users/me/omp-studio/chats/", 5, { title: "旧会话" })],
+    });
+    const withDefault = { ...base, defaultCwd: "C:/Users/me/omp-studio/chats" };
+    expect(buildFolders(withDefault).map((f) => f.label)).toEqual(["chats", "lib", "app"]);
+    expect(buildFolders(base).map((f) => f.label)).toEqual(["lib", "app", "chats"]);
+    expect(buildFolders({ ...withDefault, query: "旧" }).map((f) => f.label)).toEqual(["chats"]);
+    expect(buildFolders({ ...withDefault, query: "a" }).map((f) => f.label)).toEqual(["lib"]);
+    expect(buildFolders({ ...withDefault, projects: [chats], tasks: [], sessions: [] }).map((f) => f.label)).toEqual([
+      "chats",
     ]);
   });
 
-  it("文件夹重名时标签带上级目录", () => {
-    const groups = groupSessionsByFolder([
-      past("x", "C:/one/src", 2),
-      past("y", "C:/two/src", 1),
-      past("z", "C:/a", 0),
+  it("文件夹重名时标签带上级目录；归档的任务、已挂任务的会话、指向未知项目的任务都不出现", () => {
+    const folders = buildFolders(
+      input({
+        projects: [project("p1", "C:/one/src", "src")],
+        tasks: [task("hid", "p1"), task("ghost", "nope")],
+        sessions: [past("y", "C:/two/src", 1), past("attached", "C:/one/src", 9, { taskId: "t" as TaskId })],
+        hidden: new Set(["hid" as TaskId]),
+      }),
+    );
+    expect(folders.map((folder) => [folder.label, ids(folder.items)])).toEqual([
+      ["two/src", ["session:y"]],
+      ["one/src", []],
     ]);
-    expect(groups.map((group) => group.label)).toEqual(["one/src", "two/src", "a"]);
+  });
+
+  it("时间排列：任务和会话平铺，按最近活动；一轮刚跑完的任务按结束时间算", () => {
+    const items = buildTimeline(
+      input({
+        tasks: [task("touched", "p1", { updatedAt: 50 }), task("finished", "p1", { updatedAt: 90 })],
+        sessions: [past("s", "E:/x", 60), past("old", "E:/y", 5)],
+      }),
+    );
+    expect(ids(items)).toEqual(["task:finished", "session:s", "task:touched", "session:old"]);
+  });
+
+  it("搜索同时过滤任务和会话（标题里的图标字形不参与匹配），没有匹配行的文件夹（含空项目）不显示", () => {
+    const query = "数据";
+    const sessions = [past("s1", "E:/x", 5, { title: "\ue5fa 数据迁移" }), past("s2", "E:/x", 4, { title: "别的" })];
+    const tasks = [task("t1", "p1", { title: "重构数据层" }), task("t2", "p1", { title: "文档" })];
+    expect(buildFolders(input({ tasks, sessions, query })).map((f) => [f.label, ids(f.items)])).toEqual([
+      ["x", ["session:s1"]],
+      ["app", ["task:t1"]],
+    ]);
+    expect(ids(buildTimeline(input({ tasks, sessions, query })))).toEqual(["session:s1", "task:t1"]);
+  });
+
+  it("标题去掉私用区图标字形；去完为空时会话退回第一条消息", () => {
+    expect(sessionTitle(past("a", "E:/x", 1, { title: "\ue5fa\u{f0001} 修复 bug" }))).toBe("修复 bug");
+    expect(sessionTitle(past("b", "E:/x", 1, { title: "\ue5fa", firstPrompt: "你好" }))).toBe("你好");
+    expect(sessionTitle(past("c", "E:/x", 1, { title: null, firstPrompt: null }))).toBeNull();
+    expect(taskTitle({ title: " \ue000 任务 " })).toBe("任务");
   });
 });

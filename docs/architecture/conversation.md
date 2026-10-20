@@ -56,7 +56,7 @@
 - 模型/思考胶囊（`ModelChip`）：`listTaskModels` → 分组、搜索、最近 3 个；模型行右侧是紧凑的"上下文窗口 · 输入/输出价格"（`modelRowMeta`，价格全 0 不显示）。思考档位只有一份列表（`thinking-levels.ts thinkingLevelOptions`），picker 分段条、方向键、Alt T 共用：任务里是 `get_available_thinking_levels`（含 `off`，omp 故意不含 `auto`），草稿里没有进程，用 `get_available_models` 里 `thinking.efforts`（`ModelOption.thinkingEfforts`，不含 `off`，因为 `defaultThinkingLevel` 不接受；没给就退回全部 effort）。omp 会把设置的档位钳到模型支持的档位（实测 omp 18.12.2、`deepseek-v4-flash`、efforts `low/high/max`：minimal→low、medium→low、xhigh→high、auto→high；`off` 保留），草稿胶囊用同一规则（`clampThinkingLevel`：取最近的，一样近取较低）显示 omp 会采用的档位，所以草稿和发送后的任务显示一致。不支持思考的模型没有档位。Alt M / Alt T、命令面板的 `model`/`thinking` 命令。
 - 审批胶囊：`task.status` 为 `stopped`/`error`（没有进程）可改，其余只读（decisions 第 2 条）；首次选 yolo 内联确认一次（localStorage 记住）。
 - 上下文提示 `percent ≥ 70`，≥90 琥珀；"压缩上下文"发 `/compact`（**[推测]** 契约没有 compact 命令，靠斜杠命令在本地执行，未实测）。
-- 贴图：粘贴/拖入/⊕，长边缩到 1568px 转 WebP（`OffscreenCanvas`），模型不支持图片时 toast。
+- 贴图：粘贴/拖入（2026-10-20 起没有 ⊕ 按钮），长边缩到 1568px 转 WebP（`OffscreenCanvas`），模型不支持图片时 toast。粘贴的非图片文件不走这里：preload 在隔离世界里取路径插进输入框（`src/preload/index.ts`，spec §4.14）。
 - 输入框三个辅助：①斜杠守卫（`slash-guard.ts`）：`/名称` 不在 `get_available_commands`（命令列表非空时）就先提示一次，同一文字再发或点"仍作为文字发送"才发；终端独有命令（plan/copy/hotkeys/settings）用专门文案（omp-studio 自己接管的 `/goal`、`/tree`、`/fork`、`/btw` 等在 `studio-slash-table.ts`，算已知命令，见"目标模式""会话树与分叉""旁路提问"）。守卫在 `Composer` 的发送入口，没有改 `sendDraft`。②输入历史（`input-history.ts`）：↑↓ 翻本任务发过的消息，内存按任务记，对话里的用户消息做种子。③`@` 文件补全（`use-file-menu.ts` + `FileMenu.tsx`）：IPC `listProjectFiles(target, query)`，主进程 `files/project-files.ts` 按 cwd 缓存 10 秒的索引（git ls-files，退回有界遍历），≤10000 条、返回 ≤20 条相对路径；`query` 含绝对路径/`..` 拒绝。
 - 草稿只存在渲染进程内存（按任务）；spec 要求主进程持久化，契约里还没有。
 - 没做：斜杠命令菜单（arch 不做）、发送中的旋转环（`sendPrompt` 很快 resolve）、`session.inUse` 条。
@@ -71,13 +71,13 @@
 
 ## 门（`dialogs/`）
 
-- 门不是模态：`DialogLayer` 把 `task.dialogs[0]` portal 进 Composer 里的 `GateSlot`（输入框正上方、同一个底部栈）；同一时刻一个，其余计入 `gate.pending`。`DialogLayer` 还负责 toast（右下角、5 秒、同类合并）和 `onTaskNotice`。
+- 门不是模态：`DialogLayer` 把 `task.dialogs[0]` portal 进 Composer 里的 `GateSlot`（输入框正上方、同一个底部栈）；同一时刻一个，其余计入 `gate.pending`。`DialogLayer` 还负责 toast（主区面板上沿正中的气泡、5 秒、同类合并）和 `onTaskNotice`。
 - 焦点：1.5 秒内有按键或输入框有草稿时不抢焦点，只脉冲一次；否则焦点落到门容器（无预选，Enter 不隐式允许）；关闭后回到出现前的元素，没有则输入框。数字键只在门本体聚焦时生效。Ctrl+Enter 出现后 500ms 内忽略。Esc = 取消/拒绝（`stopPropagation`，不会触发"停止任务"）。
 - 审批 select（真实帧，omp 18.12.1，`fixtures/rpc/approval-select.ndjson`）：title 第一行 `Allow tool: bash`，其余行是 `Command: …` 细节（等宽 pre-wrap，>8 行折叠）；选项 `Approve` / `Approve <tool> for this session` / `Deny`，没有 `optionDetails`、没有 `timeout`。只对这三种精确文本本地化（`approval-labels.ts`），其它原样显示。应答 `value` 一律是 options 原文。一排按钮时第一项带 `Ctrl+Enter` 键帽、审批的 Deny 带 `Esc` 键帽（`.gate-key`，和 confirm/input 的门一致）。title 里没有的细节来自同一次调用的 `tool_execution_start`（先于门到达）：`gate-preview.ts approvalPreview` 只取 write 的 `content`、edit 的 `input`（hashline 脚本）作为第二块折叠预览，别的工具不编造。
 - ask：一次一题；推荐项标"推荐"不预选；固定末项"其他…"；单选下与选项互斥，multi 下并存（**[推测]**）；Esc = cancel。`answers` 每题一条，`selectedOptions` 用原文。
 - 超时：带 `timeoutMs` 时顶边 2px 线 + `0:25` 读数（最后 10 秒琥珀）。到期由 omp 发 `cancel`，请求从 `task.dialogs` 消失，界面把它收成一行 `gate.timedOut`/`gate.cancelled`（不是我们答的才显示，见 `gate-bus.ts markAnswered`）。fixture 里没有带 timeout 的请求，这条只在代码里实现，未回放验证。
 - `set_editor_text`（`taskNotice.editor_text`）：草稿为空直接写入，否则输入框上方出现"替换/保留"。
-- 别的任务进入"等你确认"：右下 toast `toast.needsYou` + 查看。
+- 别的任务进入"等你确认"：顶部气泡 toast `toast.needsYou` + 查看。
 
 ## 键盘
 

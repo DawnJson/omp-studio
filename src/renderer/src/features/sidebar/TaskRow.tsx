@@ -1,4 +1,4 @@
-// 任务行（spec §4.2）：[状态点][标题][尾部]。选中用底色 + 左侧竖条，不改字重。
+// 任务行（spec §4.2）：[状态点][标题][尾部]。选中用 --bg-raised 底 + 细描边，不改字重。
 import { useRef } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { limits, type Locale, type TaskState } from "../../../../shared/ipc.ts";
@@ -7,6 +7,7 @@ import { useTaskWorktree } from "../git/git-store.ts";
 import { MoreIcon } from "./icons.tsx";
 import { StatusDot } from "./StatusDot.tsx";
 import { taskTail } from "../../../../shared/ui/task-time.ts";
+import { taskTitle } from "../../../../shared/ui/sidebar-model.ts";
 
 export interface TaskRowProps {
   task: TaskState;
@@ -26,6 +27,12 @@ export interface TaskRowProps {
 }
 
 export const taskNavId = (task: TaskState) => `task:${task.id}`;
+
+/** 任务行和会话行共用的回调与格式化上下文。 */
+export type RowHandlers = Pick<
+  TaskRowProps,
+  "t" | "locale" | "now" | "onSelect" | "onFocusItem" | "onOpenMenu" | "onStartRename" | "onCommitRename" | "onArchive"
+>;
 
 function RenameInput({
   task,
@@ -72,7 +79,8 @@ function RenameInput({
 export function TaskRow(props: TaskRowProps) {
   const { task, selected, renaming, t } = props;
   const worktree = useTaskWorktree(task.id, task.updatedAt);
-  const title = task.title.trim() === "" ? t("task.untitled") : task.title;
+  const cleanTitle = taskTitle(task);
+  const title = cleanTitle === "" ? t("task.untitled") : cleanTitle;
 
   if (renaming)
     return <RenameInput task={task} title={title} t={t} onDone={(value) => props.onCommitRename(task, value)} />;

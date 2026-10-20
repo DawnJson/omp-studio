@@ -8,7 +8,7 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
 import { findOmp, makeRepo, makeScratch } from "../git-helpers.ts";
-import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
@@ -42,7 +42,7 @@ async function start(): Promise<Started> {
     if (!added) throw new Error("addProject 没有返回项目");
     await globalThis.studio.createTask({ projectId: added.id });
   });
-  await page.getByTestId("task-row").first().locator(".sb-row-main").click();
+  await openTaskRow(page);
   await expect(page.getByTestId("composer-input")).toBeVisible();
   const taskId = await page.evaluate(async () => (await globalThis.studio.listTasks())[0]?.id);
   if (taskId === undefined) throw new Error("没有任务");
@@ -397,7 +397,7 @@ test("worktree 任务的终端在 worktree 目录里；丢弃 worktree 时先结
       if (!added) throw new Error("addProject 没有返回项目");
       await globalThis.studio.createTask({ projectId: added.id, worktree: true });
     });
-    await page.getByTestId("task-row").first().locator(".sb-row-main").click();
+    await openTaskRow(page);
     // worktree 任务的 cwd 是 worktree 根，不是项目目录。
     const worktreeDir = await page.evaluate(async () => (await globalThis.studio.listTasks())[0]?.cwd);
     if (worktreeDir === undefined) throw new Error("没有任务");

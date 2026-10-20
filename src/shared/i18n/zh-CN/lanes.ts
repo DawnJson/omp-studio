@@ -1,14 +1,6 @@
 import type { MessageEntry } from "../index.ts";
 
 export const lanes = {
-  title: "泳道",
-  main: "主代理",
-  mainTools: "主代理的工具调用",
-  toolCount: "{count} 次工具调用",
-  "status.running": "运行中",
-  "status.completed": "已完成",
-  "status.failed": "失败",
-  "status.aborted": "已取消",
   open: "查看 {name} 的详情",
   fallback: "备用模型",
   close: "关闭详情",

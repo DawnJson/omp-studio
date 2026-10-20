@@ -6,6 +6,7 @@ import { reportError } from "../ui/errors.ts";
 import { CodeBlock } from "./CodeBlock.tsx";
 import { parseBlocks, stabilizeStreaming, type MarkdownBlock } from "./parse.ts";
 import { renderBlock, type RenderContext } from "./render.ts";
+import "katex/dist/katex.min.css";
 import "./markdown.css";
 
 function createContext(streaming: boolean, t: TFunction): RenderContext {

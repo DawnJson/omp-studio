@@ -116,6 +116,7 @@ class TaskStartError extends Error {
 
 export class TaskRunner {
   readonly id: TaskId;
+  readonly engine = "rpc" as const;
   #record: TaskRecord;
   readonly #project: Project;
   readonly #host: RunnerHost;
@@ -158,6 +159,8 @@ export class TaskRunner {
   #lastActiveAt = Date.now();
   /** working 变 true 的时刻；working 为 false 时无意义。 */
   #runStartedAt = 0;
+  /** 最后一次任务活动（发消息、一轮结束）；不随 #record 的记账写入变化。 */
+  #activityAt: number;
   /** 会话文件在第一轮之后才落盘；落盘前 get_state 给的路径不能存。 */
   #sessionPersistable: boolean;
   /** 在途的 `!命令` 数（omp 一次只许一条，多出的会被它拒绝，计数只用来判断要不要发 abort_bash）。 */
@@ -187,6 +190,7 @@ export class TaskRunner {
   constructor(record: TaskRecord, project: Project, host: RunnerHost) {
     this.id = record.id;
     this.#record = record;
+    this.#activityAt = record.updatedAt;
     this.#project = project;
     this.#host = host;
     this.#sessionPersistable = record.sessionFile !== null;
@@ -245,12 +249,13 @@ export class TaskRunner {
       id: this.id,
       projectId: this.#record.projectId,
       title: this.#record.title,
+      engine: "rpc",
       status: m.status,
       unread: m.unread,
       lastTurn: m.lastTurn,
       error: m.error,
       createdAt: this.#record.createdAt,
-      updatedAt: this.#record.updatedAt,
+      updatedAt: this.#activityAt,
       model: this.#model,
       thinkingLevel: this.#thinkingLevel,
       thinkingLevels: this.#thinkingLevels,
@@ -278,6 +283,14 @@ export class TaskRunner {
 
   snapshot(): TranscriptSnapshot {
     return { taskId: this.id, ...this.#batcher.snapshot() };
+  }
+
+  /** 记一次任务活动（用户发消息、一轮结束）：内存里立即生效，随后落盘。其它记账写入不碰 updatedAt。 */
+  #touch(at: number): void {
+    this.#activityAt = at;
+    this.#host.persist(this.id, { updatedAt: at }).catch((error: unknown) => {
+      log.warn(`task ${this.id} persisting its activity time failed`, { message: String(error) });
+    });
   }
 
   // ───── 状态 ─────
@@ -531,6 +544,7 @@ export class TaskRunner {
         this.#sessionPersistable = true;
         if (frame.sessionSettled) this.#settleEpoch++;
         this.#batcher.push(translateFrame(frame, gen, at));
+        this.#touch(at);
         this.#apply({
           type: "prompt_result",
           status: frame.status,
@@ -751,6 +765,7 @@ export class TaskRunner {
     await this.#awaitSessionIdle();
     if (this.#connection !== connection) connection = await this.#live();
     const epoch = this.#settleEpoch;
+    this.#touch(Date.now());
     try {
       const ack = await connection.request("prompt", params);
       // 应答之后这一轮已经跑完并 settled（同一数据块里的帧先于这里的续体处理）：不能再把任务置回 running。

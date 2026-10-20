@@ -1,4 +1,4 @@
-// 对话框层：把当前任务的第一个待答请求渲染成"门"，portal 进输入框上方的槽（Composer 里的 GateSlot）；toast 在右下角。
+// 对话框层：把当前任务的第一个待答请求渲染成"门"，portal 进输入框上方的槽（Composer 里的 GateSlot）；toast 是主区面板上沿正中的气泡。
 // 数据只从 useTask(taskId).dialogs 取；答复经 window.studio.respondDialog，主进程确认后 dialogs 才会变。
 import { useEffect, useRef, useState } from "react";
 import { usePresence } from "../../ui/presence.ts";

@@ -1,11 +1,30 @@
-// 会话级安全：权限请求全拒，禁用页面缩放（spec §5.1：v1 禁用 Ctrl +/-/0）。
+// 会话级安全：权限只放行应用自己页面（主框架）的“写剪贴板”，其余一律拒绝；禁用页面缩放（spec §5.1：v1 禁用 Ctrl +/-/0）。
 // CSP 在 index.html 的 <meta>（构建时注入，见 electron.vite.config.ts）：file:// 页面没有响应头可改。
 import { session, type WebContents } from "electron";
 
-export function installSessionSecurity(): void {
+/**
+ * 唯一放行的权限：navigator.clipboard.writeText（复制按钮、选中即复制）。Chromium 把它算作 clipboard-sanitized-write，
+ * 全拒时所有复制都会报 NotAllowedError。读剪贴板（clipboard-read）照旧拒绝。
+ * 只认主框架且是应用自己的页面：文件预览里的 HTML 沙箱 iframe 不算。
+ */
+const allowedPermission = "clipboard-sanitized-write";
+
+export function installSessionSecurity(isAppUrl: (url: string) => boolean): void {
   const { defaultSession } = session;
-  defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-  defaultSession.setPermissionCheckHandler(() => false);
+  const allowed = (permission: string, url: string | undefined, isMainFrame: boolean) => {
+    if (permission !== allowedPermission || !isMainFrame || url === undefined) return false;
+    try {
+      return isAppUrl(url);
+    } catch {
+      return false;
+    }
+  };
+  defaultSession.setPermissionRequestHandler((_webContents, permission, callback, details) =>
+    callback(allowed(permission, details.requestingUrl, details.isMainFrame)),
+  );
+  defaultSession.setPermissionCheckHandler((_webContents, permission, _origin, details) =>
+    allowed(permission, details.requestingUrl, details.isMainFrame),
+  );
   defaultSession.setDevicePermissionHandler(() => false);
 }
 

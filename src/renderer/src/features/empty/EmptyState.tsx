@@ -7,9 +7,9 @@ import { DraftComposer } from "../composer/index.ts";
 import { WorktreeChip } from "../git/index.ts";
 import { refreshProjects, useProjectsState } from "../sidebar/projects-store.ts";
 import { describeError } from "../../ui/errors.ts";
-import { PixelLogo } from "../../ui/PixelLogo.tsx";
 import { useAppInfo } from "../../store/index.ts";
 import { ProjectLabel } from "./ProjectLabel.tsx";
+import { StudioHeader } from "./StudioHeader.tsx";
 import { useDraftProject } from "./use-draft-project.ts";
 import { WhatsNew } from "./WhatsNew.tsx";
 import "./empty.css";
@@ -19,7 +19,6 @@ export function EmptyState() {
   const { loaded, error } = useProjectsState();
   const project = useDraftProject();
   const appInfo = useAppInfo();
-  const version = appInfo?.version ?? null;
   const whatsNew = appInfo?.whatsNew ?? null;
 
   // 草稿输入框出现后焦点放进去（程序设置的焦点不显示焦点框，只有键盘操作才显示）。
@@ -48,10 +47,7 @@ export function EmptyState() {
   return (
     <div className="empty" data-testid="empty-state" data-kind={project === null ? "no-project" : "project"}>
       <div className="empty-main">
-        <div className="empty-hero">
-          <PixelLogo version={version} />
-          {whatsNew !== null && <WhatsNew summary={whatsNew} />}
-        </div>
+        <StudioHeader>{whatsNew !== null && <WhatsNew summary={whatsNew} />}</StudioHeader>
       </div>
       <div className="empty-draft" data-testid="empty-draft">
         <DraftComposer

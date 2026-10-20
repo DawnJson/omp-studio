@@ -28,6 +28,7 @@ import type {
   GitMergeResult,
   GitPullRequestInput,
   GitPullRequestResult,
+  GitChangeSummary,
   GitPushResult,
   GitStatus,
   ReviewComment,
@@ -45,6 +46,8 @@ import type {
 } from "./custom-models.ts";
 import type { SubagentDetail, SubagentLane } from "./subagents.ts";
 import type { BtwHistoryRecord, BtwUiEvent } from "./btw.ts";
+import type { DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
+import type { TspEvent } from "./tsp/tsp.generated.ts";
 
 // ───────── 标识 ─────────
 
@@ -105,6 +108,8 @@ export interface AppInfo {
   chatsDir: string;
   /** 升级后第一次启动时的"最近更新"摘要（照 omp 的 What's New）；这次启动不是升级后的第一次时为 null。 */
   whatsNew: WhatsNew | null;
+  /** 运行时版本（process.versions），关于对话框显示。 */
+  runtime: { electron: string; chromium: string; node: string };
 }
 
 /** 自上次看过的版本以来的更新摘要：只有统计，不列条目（omp 的 startup.changelogMode = summary）。 */
@@ -155,6 +160,10 @@ export interface StudioSettings {
   enterWhileRunning: "steer" | "followUp";
   /** 有任务在等你确认时发系统通知（只对"等你确认"生效）。默认开。 */
   notifyOnGate: boolean;
+  /** 在对话等处用鼠标选中文字后自动复制到剪贴板（输入框、终端除外）。默认开。 */
+  copyOnSelect: boolean;
+  /** 新建任务用的引擎，任务创建时定下、之后不变（docs/architecture/tsp-migration.md）。默认 tsp。 */
+  taskEngine: TaskEngine;
   /** 用户确认过"全部自动"。 */
   yoloConfirmed: boolean;
 }
@@ -252,6 +261,11 @@ export interface TaskState {
   id: TaskId;
   projectId: ProjectId;
   title: string;
+  /**
+   * 这个任务的 omp 怎么跑（docs/architecture/tsp-migration.md）：`rpc` = `--mode rpc-ui`，界面由 omp-studio 拼；
+   * `tsp` = 交互式 omp 跑在伪终端里，界面是 omp 发来的 TSP 节点树。创建时按设置 `taskEngine` 定，之后不变。
+   */
+  engine: TaskEngine;
   status: TaskStatus;
   /** 跑完了但用户还没看过：侧栏的"完成"点。 */
   unread: boolean;
@@ -424,6 +438,26 @@ export interface TranscriptSnapshot {
   taskId: TaskId;
   seq: number;
   transcript: Transcript;
+}
+
+/** 任务引擎，见 TaskState.engine。 */
+export type TaskEngine = "rpc" | "tsp";
+
+/**
+ * 主进程转发的 TSP 消息（主进程已经应用到自己的文档上）。第 i 条的序号是 firstSeq + i；
+ * 渲染进程要求 firstSeq === 本地 seq + 1，否则调 getTspSnapshot 重同步。
+ */
+export interface TspBatch {
+  taskId: TaskId;
+  firstSeq: number;
+  messages: TspDocMessage[];
+}
+
+export interface TspSnapshot {
+  taskId: TaskId;
+  /** 快照包含到这个序号为止的全部消息。 */
+  seq: number;
+  document: DocumentSnapshot;
 }
 
 // ───────── 会话历史 ─────────
@@ -644,8 +678,6 @@ export interface ShellState {
   sidebarCollapsed: boolean;
   /** 终端面板高度（px），120–4000；实际上限（主区 70%）由界面夹取。 */
   terminalHeight: number;
-  /** 侧栏里折叠的项目组（ProjectId）；默认空。 */
-  collapsedProjects: string[];
   /** 侧栏历史会话的排列：按文件夹（cwd）分组，或全部按时间。默认按文件夹。 */
   historyOrder: HistoryOrder;
 }
@@ -700,6 +732,14 @@ export interface StudioInvokeApi {
   openTask(taskId: TaskId): Promise<TranscriptSnapshot>;
   /** 只取快照，不拉起进程；用于丢帧或渲染进程重载后的重同步。 */
   getTranscript(taskId: TaskId): Promise<TranscriptSnapshot>;
+  /** TSP 任务的文档快照（不拉起进程）；任务不是 tsp 引擎时抛错。 */
+  getTspSnapshot(taskId: TaskId): Promise<TspSnapshot>;
+  /** 把一个终端 → 程序事件（action / select / activate / toggle / change / edit / undo / send / focus）发给 omp。 */
+  sendTspEvent(taskId: TaskId, event: TspEvent): Promise<void>;
+  /** 按键字节（xterm 序列）原样写进伪终端。 */
+  sendTspKeys(taskId: TaskId, data: string): Promise<void>;
+  /** 对话区按等宽字符算出的列数变了（omp 用它决定 ansi / rows 的宽度）。 */
+  resizeTsp(taskId: TaskId, cols: number): Promise<void>;
   markTaskRead(taskId: TaskId): Promise<void>;
   /** 应答到达（消息被 omp 接收）即 resolve，不等这一轮跑完。 */
   sendPrompt(taskId: TaskId, input: PromptInput): Promise<void>;
@@ -739,6 +779,8 @@ export interface StudioInvokeApi {
   listSessions(projectId: ProjectId | null): Promise<SessionSummary[]>;
   /** 以会话自己的 cwd 新建任务并恢复它；已挂在任务上时返回那个任务。 */
   resumeSession(sessionId: string): Promise<TaskState>;
+  /** 把会话的 cwd 加入项目（已存在则复用）但不创建任务；侧栏里只有历史会话的文件夹点"+"时用。目录已不存在时拒绝。 */
+  ensureSessionProject(sessionId: string): Promise<Project>;
   /** 在系统文件管理器里显示项目目录（主进程用自己记的路径，渲染进程不传路径）。 */
   revealProject(projectId: ProjectId): Promise<void>;
   /** 在系统文件管理器里选中任务的会话文件；任务还没有会话文件时拒绝。 */
@@ -892,6 +934,9 @@ export interface StudioInvokeApi {
   setReduceMotion(on: boolean): Promise<void>;
   setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
   setNotifyOnGate(on: boolean): Promise<void>;
+  setCopyOnSelect(on: boolean): Promise<void>;
+  /** 新任务用哪个引擎（已有任务不变）：rpc = `omp --mode rpc-ui`，tsp = 伪终端里的交互式 omp。 */
+  setTaskEngine(engine: TaskEngine): Promise<void>;
   /** 记下用户已经确认过"全部自动"，之后选它不再弹确认。 */
   setYoloConfirmed(): Promise<void>;
   /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值；读不到（没登录、没有可用模型）时为 null。 */
@@ -916,6 +961,8 @@ export interface StudioInvokeApi {
   // 评审（阶段 3）和 worktree / git（阶段 4）。路径一律相对仓库根；仓库根 = 任务 cwd 所在的 git 仓库（有 worktree 时是 worktree）。
   /** 任务 cwd 的 git 状态；不是仓库或没有 git 是正常的类型化结果，不 reject。 */
   getGitStatus(taskId: TaskId): Promise<GitStatus>;
+  /** 任务 cwd 里工作区相对 HEAD 的改动文件和 +N −M（TSP 任务的改动卡片）；不是仓库或没有 git 是正常的类型化结果。 */
+  getGitChangeSummary(taskId: TaskId): Promise<GitChangeSummary>;
   /** 一个文件一侧的 diff（结构化的 hunk 和新旧行号）；二进制和过大文件有对应的 kind。 */
   getGitFileDiff(taskId: TaskId, path: string, area: GitDiffArea): Promise<GitFileDiff>;
   stageGitFile(taskId: TaskId, path: string): Promise<void>;
@@ -957,6 +1004,7 @@ export interface StudioEventPayloads {
   /** 点了"等你确认"系统通知：主进程已聚焦窗口，渲染进程切到这个任务（selectTask）。 */
   focusTask: TaskId;
   transcript: TranscriptBatch;
+  tspBatch: TspBatch;
   taskNotice: TaskNotice;
   login: LoginEvent;
   ompStatus: OmpStatus;
@@ -1046,6 +1094,10 @@ export const invokeNames = {
   createTask: true,
   openTask: true,
   getTranscript: true,
+  getTspSnapshot: true,
+  sendTspEvent: true,
+  sendTspKeys: true,
+  resizeTsp: true,
   markTaskRead: true,
   sendPrompt: true,
   removeQueuedMessage: true,
@@ -1062,6 +1114,7 @@ export const invokeNames = {
   setTaskSlowMode: true,
   listSessions: true,
   resumeSession: true,
+  ensureSessionProject: true,
   revealProject: true,
   revealTaskSession: true,
   getTaskSessionRef: true,
@@ -1126,6 +1179,8 @@ export const invokeNames = {
   setReduceMotion: true,
   setEnterWhileRunning: true,
   setNotifyOnGate: true,
+  setCopyOnSelect: true,
+  setTaskEngine: true,
   setYoloConfirmed: true,
   getDefaultModel: true,
   getStartupSnapshot: true,
@@ -1137,6 +1192,7 @@ export const invokeNames = {
   checkForUpdate: true,
   installUpdate: true,
   getGitStatus: true,
+  getGitChangeSummary: true,
   getGitFileDiff: true,
   stageGitFile: true,
   unstageGitFile: true,
@@ -1163,6 +1219,7 @@ export const eventNames = {
   taskRemoved: true,
   focusTask: true,
   transcript: true,
+  tspBatch: true,
   taskNotice: true,
   login: true,
   ompStatus: true,

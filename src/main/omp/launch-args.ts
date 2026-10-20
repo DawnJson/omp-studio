@@ -47,6 +47,25 @@ export function buildOmpArgs(spec: LaunchSpec): string[] {
   return args;
 }
 
+export interface TspLaunchSpec {
+  cwd: string;
+  model?: ModelKey | null;
+  thinkingLevel?: ThinkingLevel | null;
+  allowHome?: boolean;
+  /** 恢复这个会话文件（omp 的 `--resume <路径>`）；新任务为 null。 */
+  resumeSessionFile?: string | null;
+}
+
+/** TSP 任务：交互式 omp（没有 `--mode`），模型、思考强度、`--allow-home` 和 rpc 路径一致，恢复会话用 `--resume=<路径>`。 */
+export function buildTspArgs(spec: TspLaunchSpec): string[] {
+  const args: string[] = [];
+  if (spec.resumeSessionFile) args.push(`--resume=${spec.resumeSessionFile}`);
+  if (spec.model) args.push("--model", `${spec.model.provider}/${spec.model.modelId}`);
+  if (spec.thinkingLevel && spec.thinkingLevel !== "inherit") args.push("--thinking", spec.thinkingLevel);
+  if (spec.allowHome) args.push("--allow-home");
+  return args;
+}
+
 /** 把 `bin` 放到 PATH 最前（保持原有的变量名大小写：Windows 上常见 `Path`）。 */
 export function prependToPath(env: NodeJS.ProcessEnv, bin: string): NodeJS.ProcessEnv {
   const key =

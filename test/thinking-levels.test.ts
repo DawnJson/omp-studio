@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ModelOption } from "../src/shared/ipc.ts";
 import type { ThinkingLevel } from "../src/shared/omp-wire/rpc-wire.generated.ts";
-import { modelRowMeta } from "../src/renderer/src/features/composer/model-groups.ts";
+import {
+  modelContextCell,
+  modelPriceCell,
+  modelPriceLine,
+} from "../src/renderer/src/features/composer/model-groups.ts";
 import {
   clampThinkingLevel,
   nextThinkingLevel,
@@ -89,12 +93,16 @@ describe("Alt T 轮换和方向键用同一份列表、同一个顺序", () => {
   });
 });
 
-describe("modelRowMeta", () => {
-  it("上下文窗口 · 输入/输出价格", () => {
-    expect(modelRowMeta(model())).toBe("1M · $0.3/$1.2");
+describe("表格单元格", () => {
+  const free = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  it("上下文窗口、价格列 $输入·输出、参数行 $输入/输出", () => {
+    expect(modelContextCell(model())).toBe("1M");
+    expect(modelPriceCell(model())).toBe("$0.3·1.2");
+    expect(modelPriceLine(model())).toBe("$0.3/1.2");
   });
-  it("免费或未标价不显示价格，没有窗口就省略窗口", () => {
-    expect(modelRowMeta(model({ cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } }))).toBe("1M");
-    expect(modelRowMeta(model({ contextWindow: null }))).toBe("$0.3/$1.2");
+  it("免费或未标价、没有窗口都是 null（界面显示 –）", () => {
+    expect(modelPriceCell(model({ cost: free }))).toBeNull();
+    expect(modelPriceLine(model({ cost: free }))).toBeNull();
+    expect(modelContextCell(model({ contextWindow: null }))).toBeNull();
   });
 });

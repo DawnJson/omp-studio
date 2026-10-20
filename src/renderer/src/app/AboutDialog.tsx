@@ -2,7 +2,7 @@
 // Esc 或点遮罩关闭，Tab 在框内循环，关闭后焦点回到打开前的元素。
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n/use-t.ts";
-import { useAppInfo } from "../store/index.ts";
+import { useAppInfo, useOmpStatus } from "../store/index.ts";
 import { reportError } from "../ui/errors.ts";
 import { usePresence } from "../ui/presence.ts";
 import { useTitleBarDim } from "../ui/title-bar-dim.ts";
@@ -16,6 +16,7 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void 
   const presence = usePresence(open);
   useTitleBarDim(open);
   const appInfo = useAppInfo();
+  const ompStatus = useOmpStatus();
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [exporting, setExporting] = useState(false);
@@ -39,6 +40,24 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void 
     } finally {
       setExporting(false);
     }
+  };
+
+  // 版本信息：定义列表显示，同一份行也是"复制版本信息"的纯文本。omp 还没就绪（没找到、安装中等）时只有"未找到"一行。
+  const ready = ompStatus?.state === "ready" ? ompStatus : null;
+  const rows: [label: string, value: string][] = [
+    [t("shell.appName"), appInfo?.version ?? "—"],
+    [t("window.aboutOmp"), ready?.version ?? t("window.aboutOmpMissing")],
+    ...(ready ? [[t("window.aboutOmpPath"), ready.path] as [string, string]] : []),
+    [t("window.aboutElectron"), appInfo?.runtime.electron ?? "—"],
+    [t("window.aboutChromium"), appInfo?.runtime.chromium ?? "—"],
+    [t("window.aboutNode"), appInfo?.runtime.node ?? "—"],
+    [t("window.aboutLicense"), "MIT"],
+  ];
+  const copyInfo = () => {
+    void navigator.clipboard.writeText(rows.map(([label, value]) => `${label}: ${value}`).join("\n")).then(
+      () => pushToast({ message: t("common.copied") }),
+      (cause: unknown) => reportError(t, cause),
+    );
   };
 
   // Tab 只在对话框内的按钮之间循环。
@@ -79,6 +98,17 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void 
           {t("shell.appName")} <span className="about-version">{appInfo?.version ?? ""}</span>
         </h2>
         <p className="about-text">{t("window.aboutTagline")}</p>
+        <dl className="about-info" data-testid="about-info">
+          {rows.map(([label, value]) => (
+            <div key={label} className="about-info-row">
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+        <button type="button" className="button about-copy" data-testid="about-copy-info" onClick={copyInfo}>
+          {t("window.aboutCopyInfo")}
+        </button>
         <section className="about-feedback" aria-labelledby="about-feedback-title" data-testid="about-feedback">
           <h3 id="about-feedback-title" className="about-heading">
             {t("window.feedbackTitle")}

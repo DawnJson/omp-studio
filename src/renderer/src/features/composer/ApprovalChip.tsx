@@ -1,11 +1,12 @@
 // 审批模式胶囊（spec 5.8）：显示和修改的都是 omp 自己的 tools.approvalMode，omp-studio 不另存、启动时不传 --approval-mode。
 // omp 的审批模式在进程启动时读一次：改了之后新启动的任务生效，已在运行的任务要重启。
 import { reportError } from "../../ui/errors.ts";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ApprovalMode } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
+import { MenuItem, onMenuKeyDown } from "../../app/AppMenu.tsx";
 import { useT } from "../../i18n/use-t.ts";
-import { Check, Shield } from "../../icons.tsx";
+import { ChevronDown, Shield } from "../../icons.tsx";
 import { useSettings } from "../../store/index.ts";
 import { startupSnapshot } from "../../store/startup-snapshot.ts";
 import { ensureOmpConfigLoaded, saveOmpConfigOrThrow, useOmpConfigValue } from "../settings/config-store.ts";
@@ -30,6 +31,14 @@ export function ApprovalChip() {
   const current = currentEntry?.mode;
 
   useEffect(ensureOmpConfigLoaded, []);
+
+  // 菜单打开时焦点落在当前项（同语言/主题菜单），↑↓ 才有起点。
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open || confirming) return;
+    const checked = menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]');
+    (checked ?? menuRef.current?.querySelector<HTMLElement>('[role^="menuitem"]'))?.focus();
+  }, [open, confirming]);
 
   const close = () => {
     setOpen(false);
@@ -60,10 +69,11 @@ export function ApprovalChip() {
         title={t("approval.title")}
         onClick={() => setOpen((value) => !value)}
       >
-        {current === "yolo" && <Shield size={14} />}
+        <Shield size={13} />
         <span className="chip-text">{currentEntry ? t(currentEntry.label) : t("approval.loading")}</span>
+        <ChevronDown size={12} className="chip-caret" />
       </button>
-      <Popover open={open} onClose={close} width={320} label={t("approval.title")}>
+      <Popover open={open} onClose={close} label={t("approval.title")}>
         {confirming ? (
           <div className="pop-section">
             <p className="pop-title">{t("approval.yoloConfirmTitle")}</p>
@@ -86,20 +96,23 @@ export function ApprovalChip() {
             </div>
           </div>
         ) : (
-          modes.map((entry) => (
-            <button
-              key={entry.mode}
-              type="button"
-              className="pop-item"
-              role="menuitemradio"
-              aria-checked={entry.mode === current}
-              title={entry.mode === "yolo" ? `${t(entry.desc)}\n${t("approval.subagents")}` : t(entry.desc)}
-              onClick={() => choose(entry.mode)}
-            >
-              <span className="pop-item-text">{t(entry.label)}</span>
-              {entry.mode === current && <Check size={14} />}
-            </button>
-          ))
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={t("approval.title")}
+            onKeyDown={(event) => onMenuKeyDown(event, menuRef, close)}
+          >
+            {modes.map((entry) => (
+              <MenuItem
+                key={entry.mode}
+                checked={entry.mode === current}
+                title={entry.mode === "yolo" ? `${t(entry.desc)}\n${t("approval.subagents")}` : t(entry.desc)}
+                onSelect={() => choose(entry.mode)}
+              >
+                {t(entry.label)}
+              </MenuItem>
+            ))}
+          </div>
         )}
       </Popover>
     </div>

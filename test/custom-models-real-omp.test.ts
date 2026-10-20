@@ -123,6 +123,8 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
         reduceMotion: false,
         enterWhileRunning: "steer",
         notifyOnGate: true,
+        copyOnSelect: true,
+        taskEngine: "rpc",
         yoloConfirmed: false,
       }),
       buildLaunch: async (record, project) => ({

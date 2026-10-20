@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildTurns } from "../src/renderer/src/features/conversation/model.ts";
+import { askViews } from "../src/renderer/src/features/conversation/tool-view.ts";
 import { summarizeChanges } from "../src/renderer/src/features/conversation/tool-info.ts";
 import { translateFrame } from "../src/main/tasks/translate.ts";
 import type { AgentMessage, AssistantMessage, RpcServerFrame } from "../src/shared/omp-wire/rpc-wire.generated.ts";
@@ -297,5 +298,36 @@ describe("用户的 !命令（bashExecution 消息）", () => {
       [expect.objectContaining({ kind: "shell", command: "sleep 9", exitCode: null, cancelled: true })],
     ]);
     expect(turns.every((turn) => turn.toolCalls === 0)).toBe(true);
+  });
+});
+
+describe.each(["ask-dialog", "bash-tool"])("回放 %s：本轮 usage 汇总", (name) => {
+  it("等于这一轮所有助手 message_end 的 usage 之和", () => {
+    const turns = buildTurns(replay(name));
+    const all = finalAssistants(name);
+    const sum = (pick: (message: AssistantMessage) => number) =>
+      all.reduce((total, message) => total + pick(message), 0);
+    const turnSum = (pick: (turn: (typeof turns)[number]) => number) =>
+      turns.reduce((total, turn) => total + pick(turn), 0);
+    expect(turnSum((turn) => turn.usage.input)).toBe(sum((message) => message.usage?.input ?? 0));
+    expect(turnSum((turn) => turn.usage.output)).toBe(sum((message) => message.usage?.output ?? 0));
+    expect(turnSum((turn) => turn.usage.cacheRead)).toBeCloseTo(
+      sum((message) => message.usage?.cacheRead ?? 0),
+      6,
+    );
+    expect(turnSum((turn) => turn.usage.cost)).toBeCloseTo(
+      sum((message) => message.usage?.cost.total ?? 0),
+      9,
+    );
+  });
+});
+
+describe("ask-dialog 回放", () => {
+  it("ask 工具的结果带选项和选中项（对话流里回答后的块靠它画）", () => {
+    const [turn] = buildTurns(replay("ask-dialog"));
+    const ask = turn?.steps.find((step) => step.kind === "tool" && step.name === "ask");
+    expect(ask?.kind === "tool" ? askViews(ask.args, ask.result) : []).toMatchObject([
+      { question: "想用哪种语言？", selected: ["Go"], options: [{ label: "Go" }, { label: "Rust" }] },
+    ]);
   });
 });

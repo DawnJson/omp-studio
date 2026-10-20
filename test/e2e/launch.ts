@@ -58,9 +58,15 @@ async function seedTakeoverDeclined(userDataDir: string, exePaths: string[]): Pr
  */
 export async function launchApp(
   extraEnv: Record<string, string> = {},
-  options: { askTakeover?: boolean } = {},
+  options: { askTakeover?: boolean; taskEngine?: "rpc" | "tsp" } = {},
 ): Promise<LaunchedApp> {
   const userDataDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-"));
+  // 设置的默认引擎是 tsp；现有 e2e 都是针对 rpc 路径写的（假 omp 回放 RPC 录制），默认仍跑 rpc。
+  await writeFile(
+    path.join(userDataDir, "settings.json"),
+    JSON.stringify({ taskEngine: options.taskEngine ?? "rpc" }),
+    "utf8",
+  );
   if (options.askTakeover !== true) {
     const testOmp = extraEnv["STUDIO_TEST_OMP"] ?? process.env["STUDIO_TEST_OMP"];
     const onPath = await findOmpOnPath().catch(() => null);
@@ -95,3 +101,25 @@ export async function launchApp(
 }
 
 export const screenshotsDir = path.join(root, "screenshots");
+
+/** 展开侧栏里所有折叠着的文件夹（任务行只在文件夹展开时才画出来）；文件夹还没出现时先等它出现。 */
+export async function expandSidebarFolders(page: Page): Promise<void> {
+  await page
+    .locator(".sb-group-toggle")
+    .first()
+    .waitFor({ timeout: 15_000 })
+    .catch(() => undefined);
+  const collapsed = page.locator('.sb-group-toggle[data-collapsed="true"]');
+  while ((await collapsed.count()) > 0) await collapsed.first().click();
+}
+
+/** 第 nth 个任务行（先展开折叠的文件夹）。 */
+export async function taskRow(page: Page, nth = 0) {
+  await expandSidebarFolders(page);
+  return page.getByTestId("task-row").nth(nth);
+}
+
+/** 点开第 nth 个任务（选中它）。 */
+export async function openTaskRow(page: Page, nth = 0): Promise<void> {
+  await (await taskRow(page, nth)).locator(".sb-row-main").click();
+}

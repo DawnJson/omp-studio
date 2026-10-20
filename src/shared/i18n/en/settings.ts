@@ -30,6 +30,14 @@ export const settings = {
   notifyWaiting: "Notify me when a task is waiting for me",
   "notifyWaiting.desc":
     "System notifications when a task needs your approval, and when a task finishes or fails while the window is hidden in the tray",
+  copyOnSelect: "Copy on select",
+  "copyOnSelect.desc":
+    "Text you select with the mouse in the conversation is copied to the clipboard; the input box and terminal are unaffected",
+  taskEngine: "New task engine",
+  "taskEngine.tsp": "omp interface (TSP)",
+  "taskEngine.rpc": "Classic (RPC)",
+  "taskEngine.desc":
+    "How new tasks run: TSP runs the interactive omp in a pseudo-terminal and draws the interface omp describes; Classic is the previous mode. Existing tasks keep the engine they were created with",
   search: "Search settings",
   "search.hint": "Search by name, description or key",
   "search.clear": "Clear search",

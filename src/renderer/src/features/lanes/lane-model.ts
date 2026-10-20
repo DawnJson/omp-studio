@@ -1,4 +1,4 @@
-// 泳道的纯函数：子代理归到哪一轮、行的顺序（父在前、子缩进）、时间轴的范围、主代理的工具节奏。不碰 DOM。
+// 子代理表的纯函数：子代理归到哪一轮、行的顺序（父在前、子缩进）、每行用时和表头合计。不碰 DOM。
 import type { SubagentLane } from "../../../../shared/subagents.ts";
 import type { Turn } from "../conversation/model.ts";
 
@@ -60,44 +60,30 @@ export function assignLanesToTurns(
   return result;
 }
 
-export interface Span {
-  start: number;
-  end: number;
+/** 一个子代理的用时：结束了用 omp 自己量的 durationMs（没有就用起止）；还在跑的取到现在，不小于 omp 报的。 */
+export function laneElapsed(lane: SubagentLane, now: number): number {
+  if (lane.status === "running") return Math.max(lane.durationMs ?? 0, now - lane.startedAt);
+  return lane.durationMs ?? (lane.endedAt ?? now) - lane.startedAt;
 }
 
-const MIN_SPAN_MS = 1000;
+export interface LaneTotals {
+  cost: number;
+  /** 各子代理用时之和（同 Tern 的 Agents 表头），不是墙钟时间。 */
+  elapsed: number;
+  requests: number;
+  tokens: number;
+}
 
-/** 时间轴范围：本轮开始 → 最晚的那个结束（本轮结束、子代理结束、还在跑的取现在）。后台子代理可以比这一轮活得更久。 */
-export function timelineSpan(turn: Turn, lanes: readonly SubagentLane[], now: number, live: boolean): Span {
-  const start = turn.startedAt;
-  let end = live ? now : turn.endedAt;
+/** 表头那一行：费用、用时、请求数、token 全部求和。 */
+export function laneTotals(lanes: readonly SubagentLane[], now: number): LaneTotals {
+  const totals: LaneTotals = { cost: 0, elapsed: 0, requests: 0, tokens: 0 };
   for (const lane of lanes) {
-    end = Math.max(end, lane.endedAt ?? now);
-    const lastTool = lane.tools.at(-1);
-    if (lastTool) end = Math.max(end, lastTool.at);
+    totals.cost += lane.cost;
+    totals.elapsed += laneElapsed(lane, now);
+    totals.requests += lane.requests;
+    totals.tokens += lane.tokens;
   }
-  return { start, end: Math.max(end, start + MIN_SPAN_MS) };
-}
-
-/** 时间 → 轴上的位置（0–100，超出范围夹住）。 */
-export function percentAt(span: Span, time: number): number {
-  return Math.min(100, Math.max(0, ((time - span.start) / (span.end - span.start)) * 100));
-}
-
-export interface ToolMark {
-  start: number;
-  end: number;
-  failed: boolean;
-}
-
-/** 主代理的工具节奏：这一轮里每次工具调用的起止（只有当次运行里收到的有时间，历史里的没有）。 */
-export function mainToolMarks(turn: Turn): ToolMark[] {
-  const marks: ToolMark[] = [];
-  for (const step of turn.steps) {
-    if (step.kind !== "tool" || step.startedAt === null) continue;
-    marks.push({ start: step.startedAt, end: step.endedAt ?? step.startedAt, failed: step.status === "error" });
-  }
-  return marks;
+  return totals;
 }
 
 export interface RecordSpan<T> {

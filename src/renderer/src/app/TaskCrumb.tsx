@@ -1,6 +1,7 @@
 // 顶栏中间：任务标题。空状态显示"新任务"，设置页显示页面标题。任务状态只在侧栏和输入框上方的状态行里，这里不重复。
 import { useT } from "../i18n/use-t.ts";
 import { useMainView, useSelectedTaskId, useTask } from "../store/index.ts";
+import { taskTitle } from "../../../shared/ui/sidebar-model.ts";
 
 export function TaskCrumb() {
   const t = useT();
@@ -22,7 +23,7 @@ export function TaskCrumb() {
       </div>
     );
 
-  const title = task.title.trim() === "" ? t("task.untitled") : task.title;
+  const title = taskTitle(task) || t("task.untitled");
   return (
     <div className="crumb" data-testid="topbar-crumb">
       <b className="crumb-title" title={title}>

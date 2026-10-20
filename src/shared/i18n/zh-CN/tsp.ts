@@ -1,0 +1,32 @@
+import type { MessageEntry } from "../index.ts";
+
+// TSP 渲染器自己的界面文案（节点内容是 omp 发来的，不在这里）。
+export const tsp = {
+  moreLines: "还有 {count} 行",
+  earlierLines: "前面还有 {count} 行",
+  showLess: "收起",
+  copyCommand: "复制命令",
+  noChanges: "没有改动",
+  imageLoading: "图片加载中",
+  imageUnavailable: "无法显示图片",
+  imageNotArrived: "图片数据还没到",
+  mediaOpen: "预览 {path}",
+  working: "处理中",
+  statusPending: "待处理",
+  statusRunning: "运行中",
+  statusDone: "完成",
+  statusError: "失败",
+  statusCancelled: "已取消",
+  agentRequests: "{count} 次请求",
+  agentContext: "上下文 {percent}%",
+  agentRetry: "↻ 第 {attempt}/{max} 次重试，{delay} 后",
+  agentTools: "{count} 次工具调用",
+  todos: "待办",
+  todosDone: "待办，已完成 {done}/{total}",
+  todosOpen: "{count} 项待办未完成",
+  allDone: "全部完成",
+  effortAria: "思考强度：{level}",
+  chartEmpty: "无数据",
+  loading: "正在载入…",
+  layoutRegion: "对话",
+} satisfies Record<string, MessageEntry>;

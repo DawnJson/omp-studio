@@ -1,5 +1,6 @@
 // 工具步骤的展示数据：把 args / result 解析成头部信息和正文行（diff 行、grep 命中、行号输出）。纯函数，不碰 DOM。
 // 工具结果的文本形状由 omp 决定，这里只认已知形状；认不出就退回纯文本，不猜。
+import type { TodoItem, TodoPhase, TodoStatus } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { resultDetails, toolTarget, toolVerb, type ToolVerb } from "./tool-info.ts";
 
 type Rec = Record<string, unknown>;
@@ -57,6 +58,23 @@ export function formatElapsed(ms: number): string {
   const total = Math.floor(safe / 1000);
   if (total >= 3600) return `${Math.floor(total / 3600)}h ${Math.floor((total % 3600) / 60)}m`;
   return `${Math.floor(total / 60)}m ${String(total % 60).padStart(2, "0")}s`;
+}
+
+/** 轮尾 token 数：不足 1000 原样，其后 1.2K / 19K / 1.3M（K、M 不翻译，同 Tern）。 */
+export function formatTokenCount(count: number): string {
+  if (count < 1000) return String(Math.round(count));
+  if (count < 1_000_000) {
+    const value = count / 1000;
+    return `${value < 10 ? value.toFixed(1).replace(/\.0$/, "") : Math.round(value)}K`;
+  }
+  const value = count / 1_000_000;
+  return `${value < 10 ? value.toFixed(1).replace(/\.0$/, "") : Math.round(value)}M`;
+}
+
+/** 轮尾费用：0 / 未知返回 null（不显示）；不足一分显示 <$0.01。 */
+export function formatTurnCost(cost: number): string | null {
+  if (!Number.isFinite(cost) || cost <= 0) return null;
+  return cost < 0.01 ? "<$0.01" : `$${cost.toFixed(2)}`;
 }
 
 // —— diff ——
@@ -292,11 +310,6 @@ export function bodyLineCount(body: ToolBody): number {
   }
 }
 
-/** 默认展开：有内容就展开（像 omp，不藏在点击后面）；用户仍可收起。 */
-export function defaultOpen(body: ToolBody): boolean {
-  return bodyLineCount(body) > 0;
-}
-
 /** 去掉路径末尾的 :起-止 行选择器。 */
 function stripSelector(path: string): string {
   return path.replace(/:\d+(?:[-+]\d*)?(?:,\d+(?:[-+]\d*)?)*$/, "");
@@ -329,4 +342,186 @@ function candidatePaths(toolName: string, args: unknown): string[] {
   // 逗号分隔的多文件；"a.ts:1-5,10-20" 这类行选择器不拆。
   const multi = parts.length > 1 && parts.every((part) => /[./]/.test(part) && !/\s/.test(part));
   return (multi ? parts : [target]).map(stripSelector);
+}
+
+// —— 专用工具的结果：bash 状态、glob 文件列表、todo 阶段、ask 选项、task / wait 的代理 ——
+
+/** bash 结果 details 里的退出码和耗时（omp 给什么取什么，没有就 null）。 */
+export function bashStatus(result: unknown): { exitCode: number | null; wallMs: number | null } {
+  const details = asRecord(resultDetails(result));
+  const exit = details?.["exitCode"];
+  const wall = details?.["wallTimeMs"];
+  return {
+    exitCode: typeof exit === "number" && Number.isFinite(exit) ? exit : null,
+    wallMs: typeof wall === "number" && Number.isFinite(wall) ? wall : null,
+  };
+}
+
+/** glob / find 的输出：每个非空行是一个路径。任何一行像句子（带冒号后空格或过长）就不当文件列表。 */
+export function globPaths(toolName: string, output: string | null): string[] {
+  if (toolName !== "glob" && toolName !== "find") return [];
+  const lines = splitLines(output ?? "")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+  return lines.length > 0 && lines.every((line) => line.length <= 300 && !uriScheme.test(line) && !/^[#>]/.test(line))
+    ? lines
+    : [];
+}
+
+/** 路径拆成 [目录部分（含末尾斜杠，可能为空）, 文件名]。 */
+export function splitPath(path: string): [string, string] {
+  const cut = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  return cut < 0 ? ["", path] : [path.slice(0, cut + 1), path.slice(cut + 1)];
+}
+
+const todoStatuses: Record<TodoStatus, true> = {
+  pending: true,
+  in_progress: true,
+  completed: true,
+  abandoned: true,
+  blocked: true,
+};
+
+/** todo 工具结果 `details.phases`（只留有任务的阶段）；认不出形状返回 null。进度用 todo-model 的 summarizeTodos / summarizePhase 算。 */
+export function todoPhases(result: unknown): TodoPhase[] | null {
+  const phases = asRecord(resultDetails(result))?.["phases"];
+  if (!Array.isArray(phases)) return null;
+  const out: TodoPhase[] = [];
+  for (const raw of phases) {
+    const phase = asRecord(raw);
+    const tasks = phase?.["tasks"];
+    if (!phase || !Array.isArray(tasks)) continue;
+    const list: TodoItem[] = [];
+    for (const item of tasks) {
+      const task = asRecord(item);
+      const status = task?.["status"];
+      if (
+        !task ||
+        typeof task["content"] !== "string" ||
+        typeof status !== "string" ||
+        !Object.hasOwn(todoStatuses, status)
+      )
+        continue;
+      const blocker = task["blocker"];
+      list.push({
+        content: task["content"],
+        status: status as TodoStatus,
+        ...(typeof blocker === "string" && blocker !== "" ? { blocker } : {}),
+      });
+    }
+    if (list.length > 0) out.push({ name: typeof phase["name"] === "string" ? phase["name"] : "", tasks: list });
+  }
+  return out.length > 0 ? out : null;
+}
+
+export interface AskView {
+  question: string;
+  /** 全部选项（label + 说明）。 */
+  options: { label: string; description: string | null }[];
+  selected: string[];
+  /** 用户选了"其他"自己写的回答。 */
+  custom: string | null;
+  note: string | null;
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function askFromDetails(raw: unknown, fallback: Rec | null): AskView | null {
+  const record = asRecord(raw);
+  if (!record || typeof record["question"] !== "string") return null;
+  const labels = stringList(record["options"]);
+  const described = new Map<string, string>();
+  const argOptions = fallback?.["options"];
+  if (Array.isArray(argOptions)) {
+    for (const option of argOptions) {
+      const item = asRecord(option);
+      if (typeof item?.["label"] === "string" && typeof item["description"] === "string")
+        described.set(item["label"], item["description"]);
+    }
+  }
+  return {
+    question: record["question"],
+    options: labels.map((label) => ({ label, description: described.get(label) ?? null })),
+    selected: stringList(record["selectedOptions"]),
+    custom: typeof record["customInput"] === "string" && record["customInput"] !== "" ? record["customInput"] : null,
+    note: typeof record["note"] === "string" && record["note"] !== "" ? record["note"] : null,
+  };
+}
+
+/**
+ * ask 工具的问题和回答：回答在结果 details（单题是 question/options/selectedOptions，多题是 results[]）；
+ * 还没有回答（或被取消）时只有参数里的 questions，没有选中项。
+ */
+export function askViews(args: unknown, result: unknown): AskView[] {
+  const details = resultDetails(result);
+  const argQuestions = asRecord(args)?.["questions"];
+  const asked = Array.isArray(argQuestions) ? argQuestions.map(asRecord) : [];
+  const results = asRecord(details)?.["results"];
+  if (Array.isArray(results)) {
+    return results.flatMap((raw, index) => {
+      const view = askFromDetails(raw, asked[index] ?? null);
+      return view ? [view] : [];
+    });
+  }
+  const single = askFromDetails(details, asked[0] ?? null);
+  if (single) return [single];
+  return asked.flatMap((item) => {
+    if (!item || typeof item["question"] !== "string") return [];
+    const options = Array.isArray(item["options"]) ? item["options"].map(asRecord) : [];
+    return [
+      {
+        question: item["question"],
+        options: options.flatMap((option) =>
+          typeof option?.["label"] === "string"
+            ? [
+                {
+                  label: option["label"],
+                  description: typeof option["description"] === "string" ? option["description"] : null,
+                },
+              ]
+            : [],
+        ),
+        selected: [],
+        custom: null,
+        note: null,
+      },
+    ];
+  });
+}
+
+/** task 工具参数里派出的代理名（和子代理泳道的 id 对应）。 */
+export function taskAgentNames(args: unknown): string[] {
+  const tasks = asRecord(args)?.["tasks"];
+  if (!Array.isArray(tasks)) return [];
+  return tasks.flatMap((item) => {
+    const name = asRecord(item)?.["name"];
+    return typeof name === "string" && name !== "" ? [name] : [];
+  });
+}
+
+export interface WaitJob {
+  id: string;
+  label: string;
+  status: string;
+  durationMs: number | null;
+}
+
+/** wait 工具（运行中的部分结果或最终结果）details.jobs：它在等的任务。 */
+export function waitJobs(result: unknown): WaitJob[] {
+  const jobs = asRecord(resultDetails(result))?.["jobs"];
+  if (!Array.isArray(jobs)) return [];
+  return jobs.flatMap((raw) => {
+    const job = asRecord(raw);
+    if (!job || typeof job["id"] !== "string") return [];
+    return [
+      {
+        id: job["id"],
+        label: typeof job["label"] === "string" && job["label"] !== "" ? job["label"] : job["id"],
+        status: typeof job["status"] === "string" ? job["status"] : "running",
+        durationMs: typeof job["durationMs"] === "number" ? job["durationMs"] : null,
+      },
+    ];
+  });
 }
