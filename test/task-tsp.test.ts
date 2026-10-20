@@ -149,6 +149,11 @@ async function harness(tasksFile?: string, engine: TaskEngine = "tsp"): Promise<
     assignJob: () => {},
     events: events.sink,
     listModels: async () => catalog,
+    newTaskDefaults: async () => ({
+      model: "deepseek/deepseek-v4-flash:high",
+      thinkingLevel: "high",
+      ompDefault: null,
+    }),
     tsp: {
       buildLaunch: async (record, project) => {
         launches.push({ sessionFile: record.sessionFile });
@@ -329,11 +334,32 @@ describe("任务池：按设置的引擎建 runner", () => {
     expect(() => h.pool.getTspSnapshot(rpcTask.id)).toThrow(/does not run on the TSP engine/);
     expect(h.pool.listTasks().find((state) => state.id === tspTask.id)?.engine).toBe("tsp");
   }, 60_000);
+
+  it("omp 还没起来时 resizeTsp 不报错，列数记下来，进程起来就用它", async () => {
+    const h = await harness();
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    // 首发时渲染进程在 omp 进程起来之前就量好了列宽
+    expect(() => h.pool.resizeTsp(created.id, 63)).not.toThrow();
+    await waitForLog(h.log, (records) =>
+      records.some((record) => record.kind === "tsp" && record.verb === "r" && record.body?.["cols"] === 63),
+    );
+  }, 60_000);
 });
 
 const flashKey = { provider: "deepseek", modelId: "deepseek-v4-flash" };
 
 describe("TSP 任务：输入框状态、切模型、提问时的发送", () => {
+  it("输入框卡片出现之前 TaskState 就是 omp 的默认模型和思考强度（不传 --model）", async () => {
+    const h = await harness();
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (s) => s.status === "idle");
+    const first = h.events.states.find((s) => s.id === created.id && s.model !== null);
+    expect(first).toMatchObject({ status: "starting", thinkingLevel: "high" });
+    expect(first?.model).toEqual(catalog[0]);
+    expect(h.launches[0]?.sessionFile).toBeNull();
+    expect(h.registry.findTask(created.id)?.model).toBeNull();
+  }, 60_000);
+
   it("输入框出现后 TaskState 有模型（名字对上目录）、思考强度、上下文和费用；listTaskModels 给目录", async () => {
     const h = await harness();
     const created = await h.pool.createTask({ projectId: h.projectId });

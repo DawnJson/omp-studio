@@ -34,6 +34,15 @@ const surfaceKey = (taskId: TaskId, sf: string): string => `s${SEP}${taskId}${SE
 const surfacesKey = (taskId: TaskId): string => `l${SEP}${taskId}`;
 const blobKey = (taskId: TaskId, id: string): string => `b${SEP}${taskId}${SEP}${id}`;
 const readyKey = (taskId: TaskId): string => `r${SEP}${taskId}`;
+const roleKey = (taskId: TaskId, sf: string): string => `u${SEP}${taskId}${SEP}${sf}`;
+
+/** omp 每轮末尾的用量行。 */
+const USAGE_ROLE = "omp.turn.usage";
+const USER_ROLE = "omp.user";
+const TRACKED_ROLES: readonly string[] = [USAGE_ROLE, USER_ROLE];
+const NO_IDS: readonly string[] = [];
+/** main 区里 TRACKED_ROLES 节点的 id（文档顺序），按 (任务, surface) 缓存；镜像换了（快照）或有节点变了就作废。 */
+const roleIndexes = new Map<string, { mirror: Mirror; byRole: Map<string, string[]> }>();
 
 function subscribe(key: string, listener: () => void): () => void {
   let set = listeners.get(key);
@@ -103,7 +112,16 @@ function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDoc
   mirror.seq += messages.length;
   for (const [sf, ids] of changed) {
     touchedSurfaces.add(sf);
-    for (const id of ids) notify(nodeKey(taskId, sf, id));
+    roleIndexes.delete(`${taskId}${SEP}${sf}`);
+    const nodes = mirror.doc.surfaces.get(sf)?.nodes;
+    let roleChanged = false;
+    for (const id of ids) {
+      notify(nodeKey(taskId, sf, id));
+      const node = nodes?.get(id);
+      const nodeRole = node?.p["role"];
+      if (!node || (typeof nodeRole === "string" && TRACKED_ROLES.includes(nodeRole))) roleChanged = true;
+    }
+    if (roleChanged) notify(roleKey(taskId, sf));
   }
   for (const sf of touchedSurfaces) notify(surfaceKey(taskId, sf));
   for (const id of touchedBlobs) notify(blobKey(taskId, id));
@@ -293,4 +311,44 @@ function readSurface(taskId: TaskId, sf: string): TspSurfaceView | null {
 export function useTspSurface(taskId: TaskId, sf: string): TspSurfaceView | null {
   const sub = useMemo(() => (l: () => void) => subscribe(surfaceKey(taskId, sf), l), [taskId, sf]);
   return useSyncExternalStore(sub, () => readSurface(taskId, sf));
+}
+
+// ───────── main 区里按 role 找节点（用量行的位置、用户消息有没有） ─────────
+
+function roleIds(taskId: TaskId, sf: string, role: string): readonly string[] {
+  const mirror = mirrors.get(taskId);
+  if (!mirror) return NO_IDS;
+  const cacheKey = `${taskId}${SEP}${sf}`;
+  let cached = roleIndexes.get(cacheKey);
+  if (!cached || cached.mirror !== mirror) {
+    const nodes = mirror.doc.surfaces.get(sf)?.nodes;
+    const byRole = new Map<string, string[]>(TRACKED_ROLES.map((r) => [r, []]));
+    const walk = (id: string): void => {
+      const node = nodes?.get(id);
+      if (!node) return;
+      const nodeRole = node.p["role"];
+      if (typeof nodeRole === "string") byRole.get(nodeRole)?.push(id);
+      for (const child of node.c) walk(child);
+    };
+    walk("main");
+    cached = { mirror, byRole };
+    roleIndexes.set(cacheKey, cached);
+  }
+  return cached.byRole.get(role) ?? NO_IDS;
+}
+
+/** 这个用量行是 main 区里从末尾数第几个（0 = 最后一个）；不在 main 里返回 -1。 */
+export function useUsageRowFromEnd(taskId: TaskId, sf: string, id: string): number {
+  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
+  return useSyncExternalStore(sub, () => {
+    const ids = roleIds(taskId, sf, USAGE_ROLE);
+    const index = ids.indexOf(id);
+    return index < 0 ? -1 : ids.length - 1 - index;
+  });
+}
+
+/** main 区里有没有 omp 的用户消息（omp.user）。 */
+export function useTspHasUserMessage(taskId: TaskId, sf: string): boolean {
+  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
+  return useSyncExternalStore(sub, () => roleIds(taskId, sf, USER_ROLE).length > 0);
 }

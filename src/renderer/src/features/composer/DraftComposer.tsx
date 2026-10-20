@@ -43,6 +43,7 @@ import { SessionCost } from "./SessionCost.tsx";
 import { FileMenu } from "./FileMenu.tsx";
 import { useFileMenu } from "./use-file-menu.ts";
 import { clampThinkingLevel, effortOrder, thinkingLevelOptions } from "./thinking-levels.ts";
+import { clearFirstPrompt, setFirstPrompt } from "../tsp/first-prompt-store.ts";
 import "./composer.css";
 
 /** 没有项目时 `@` 补全不开（目录还没建），这个目标不会被查询。 */
@@ -157,14 +158,22 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
         await handOverDraftTerminal(terminalDraftKey, created.id, worktreeProject !== null);
         return created;
       });
+      // TSP 任务：omp 建好 surface、回显用户消息之前，主区先把这句话画成气泡（features/tsp/first-prompt-store.ts）。
+      const recordFirstPrompt = task.engine === "tsp" && text !== "";
+      if (recordFirstPrompt) setFirstPrompt(task.id, { text, model, thinkingLevel });
       await selectTask(task.id);
       // 主进程没有项目变更事件：新加的 chats 项目要重新取列表，侧栏才有它的分组。
       if (projectId === null) void refreshProjects();
-      await window.studio.sendPrompt(task.id, {
-        text,
-        ...(current.images.length > 0 ? { images: [...current.images] } : {}),
-        whenBusy: "steer",
-      });
+      try {
+        await window.studio.sendPrompt(task.id, {
+          text,
+          ...(current.images.length > 0 ? { images: [...current.images] } : {}),
+          whenBusy: "steer",
+        });
+      } catch (error) {
+        if (recordFirstPrompt) clearFirstPrompt(task.id);
+        throw error;
+      }
       setDraft(key, { text: "", images: [] });
       if (projectId !== null) setWorktreeOn(projectId, false);
     } catch (error) {

@@ -33,7 +33,7 @@ import type { TspEvent } from "../../shared/tsp/tsp.generated.ts";
 import { titleFromPrompt } from "./convert.ts";
 import { stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 import { TaskRunner, TooManyTasksError, type RunnerHost } from "./task-runner.ts";
-import { TspRunner, type TspRunnerHost, type TspSessionDeps } from "./tsp-runner.ts";
+import { TspRunner, type NewTaskDefaults, type TspRunnerHost, type TspSessionDeps } from "./tsp-runner.ts";
 import type { TaskRecord, TaskRegistry } from "./task-registry.ts";
 
 export const IDLE_RECYCLE_MS = 15 * 60_000;
@@ -77,6 +77,8 @@ export interface PoolDeps {
   listModels?(): Promise<ModelOption[]>;
   /** omp 的命令列表（服务进程）：TSP 任务的 listSlashCommands 用；没传时为空。 */
   listSlashCommands?(): Promise<AvailableSlashCommand[]>;
+  /** omp 对这个项目的新任务默认值（和草稿页同源）：TSP 任务在输入框出现之前用它显示模型和思考强度；没传时不显示。 */
+  newTaskDefaults?(project: Project): Promise<NewTaskDefaults>;
   /** TSP 引擎的依赖（伪终端里的交互式 omp）；没提供时只能建 rpc 任务。 */
   tsp?: {
     buildLaunch(record: TaskRecord, project: Project): Promise<OmpLaunch>;
@@ -136,6 +138,7 @@ export class TaskPool {
           session: tsp.session,
           knownModel: (key) => deps.knownModel?.(key) ?? null,
           ...(deps.listModels && { listModels: () => deps.listModels!() }),
+          ...(deps.newTaskDefaults && { newTaskDefaults: (project: Project) => deps.newTaskDefaults!(project) }),
           ...(deps.listSlashCommands && { listSlashCommands: () => deps.listSlashCommands!() }),
         }
       : null;
@@ -329,6 +332,12 @@ export class TaskPool {
   /** TSP 任务当前的节点树和序号（不拉起进程）。 */
   getTspSnapshot(id: TaskId): TspSnapshot {
     return this.#tspRunner(id).tspSnapshot();
+  }
+
+  /** TSP 任务每一轮的费用（美元，从旧到新）；非 TSP 任务、没有会话文件、读失败时 []。 */
+  async getTspTurnCosts(id: TaskId): Promise<number[]> {
+    const runner = this.#runner(id);
+    return runner.engine === "tsp" ? runner.turnCosts() : [];
   }
 
   sendTspEvent(id: TaskId, event: TspEvent): void {

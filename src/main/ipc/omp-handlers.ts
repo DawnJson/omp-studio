@@ -6,7 +6,7 @@ import path from "node:path";
 import { resolveAgentDir } from "../history/session-index.ts";
 import { log } from "../log/log.ts";
 import { emitEvent } from "./events.ts";
-import type { ApprovalMode, HandlerGroup, OmpConfigSnapshot } from "../../shared/ipc.ts";
+import type { ApprovalMode, HandlerGroup, ModelDefaults, OmpConfigSnapshot, ProjectId } from "../../shared/ipc.ts";
 import { goalContinuationKey } from "../../shared/ui/goal-continuation.ts";
 import { applyGoalContinuationDefault, isGoalContinuationExplicit } from "../omp-config/goal-default.ts";
 import { listJson, OmpConfigService, runOmpConfig } from "../omp-config/config-service.ts";
@@ -108,6 +108,13 @@ async function projectPath(projectId: unknown): Promise<string | null> {
   const project = (await getTaskPool()).listProjects().find((candidate) => candidate.id === id);
   if (!project) throw new Error(`unknown project ${id}`);
   return project.path;
+}
+
+/** 项目目录里 omp 对新任务实际用的默认值（同时记进启动缓存）；TSP 任务在输入框出现之前用它显示模型。 */
+export async function readProjectModelDefaults(projectId: ProjectId, cwd: string): Promise<ModelDefaults> {
+  const defaults = await readModelDefaults(modelDefaultsDeps, cwd);
+  startupCache().setModelDefaults(projectId, defaults);
+  return defaults;
 }
 
 const approvalKey = "tools.approvalMode";

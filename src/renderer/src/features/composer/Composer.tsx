@@ -46,6 +46,7 @@ import { JobsBoard } from "./JobsBoard.tsx";
 import { useJobs } from "./use-jobs.ts";
 import { useReclaimFocus } from "./use-reclaim-focus.ts";
 import { TspChangeStrip } from "../tsp-changes/TspChangeStrip.tsx";
+import { useFirstPrompt } from "../tsp/first-prompt-store.ts";
 import type { Transcript } from "../../../../shared/transcript.ts";
 
 /** 输入框上方的状态栏（运行状态 + 后台任务）：从 rpc 对话流和泳道推出来，只有 rpc 任务有。 */
@@ -68,6 +69,8 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   // TSP 任务（engine "tsp"）：过程区是 TspView，输入框功能不变；文字照常发给 omp（`/` `!` 开头的也原样交给它），studio 靠 rpc 的东西（studio 斜杠命令、队列条、状态栏）不出现。
   const tsp = task?.engine === "tsp";
   const transcript = useTranscript(taskId);
+  // 新任务首发：omp 报出模型之前，模型胶囊先显示草稿页当时的模型（first-prompt-store.ts），不闪"未连接模型"。
+  const firstPrompt = useFirstPrompt(taskId);
   const draft = useDraft(taskId);
   const suggestion = useEditorSuggestion(taskId);
   const omp = useOmpStatus();
@@ -324,6 +327,8 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   };
 
   if (!task) return null;
+  const shownModel = task.model ?? firstPrompt?.model ?? null;
+  const shownThinking = task.model === null ? (firstPrompt?.thinkingLevel ?? task.thinkingLevel) : task.thinkingLevel;
   return (
     <div className="composer-stack" data-testid="composer-stack" data-from-draft={fromDraft ? "" : undefined}>
       {/* 门（审批、提问）：rpc 任务由 DialogLayer 放进这里；TSP 任务的由 omp 画在过程区里，不挂槽。 */}
@@ -418,9 +423,9 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
         </div>
         <div className="composer-tools">
           <ModelChip
-            model={task.model}
-            thinkingLevel={task.thinkingLevel}
-            thinkingLevels={thinkingLevelOptions(task.model, task.thinkingLevels)}
+            model={shownModel}
+            thinkingLevel={shownThinking}
+            thinkingLevels={thinkingLevelOptions(shownModel, task.thinkingLevels)}
             running={running}
             projectId={task.projectId}
             loadModels={() => window.studio.listTaskModels(taskId)}

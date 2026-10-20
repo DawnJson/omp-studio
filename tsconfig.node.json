@@ -60,6 +60,7 @@
     "src/renderer/src/features/tsp/shell-tokens.ts",
     "src/renderer/src/features/tsp/span-tokens.ts",
     "src/renderer/src/features/tsp/tsp-sync.ts",
+    "src/renderer/src/features/tsp/turn-cost.ts",
     "src/renderer/src/features/tsp/interactive/text-model.ts",
     "src/renderer/src/features/tsp/interactive/picker-model.ts",
     "src/renderer/src/features/tsp/interactive/prefs-model.ts",

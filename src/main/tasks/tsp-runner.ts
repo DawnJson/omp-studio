@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import type {
   PromptImage,
+  DefaultModelInfo,
   ModelKey,
   ModelOption,
   Project,
@@ -52,6 +53,7 @@ import {
   type TspSessionOptions,
 } from "../tsp/tsp-session.ts";
 import { titleFromPrompt } from "./convert.ts";
+import { readTurnCosts } from "../tsp/turn-costs.ts";
 import { initialMachineState, transition, type MachineInput, type MachineState } from "./task-machine.ts";
 import type { TaskRecord } from "./task-registry.ts";
 import { TooManyTasksError } from "./task-runner.ts";
@@ -102,6 +104,16 @@ export interface TspRunnerHost {
   listModels?(): Promise<ModelOption[]>;
   /** omp 的命令列表（服务进程）；没提供时 TSP 任务的列表为空。 */
   listSlashCommands?(): Promise<AvailableSlashCommand[]>;
+  /** 新任务默认值；没提供时输入框出现之前不显示模型。 */
+  newTaskDefaults?(project: Project): Promise<NewTaskDefaults>;
+}
+
+/** omp 对一个项目的新任务默认值：和草稿页同源（`omp config list` 的 modelRoles.default / defaultThinkingLevel，没设置时用服务进程 get_state 的模型）。 */
+export interface NewTaskDefaults {
+  /** modelRoles.default 原文（可能带 `:high` 后缀）；null = 没设置。 */
+  model: string | null;
+  thinkingLevel: string | null;
+  ompDefault: DefaultModelInfo | null;
 }
 
 /** 启动失败：带着给界面的 TaskError。 */
@@ -160,6 +172,8 @@ export class TspRunner {
   readonly #host: TspRunnerHost;
   #machine: MachineState = initialMachineState("stopped");
   #session: TspSession | null = null;
+  /** 终端列数：渲染进程量出来的对话列宽（起进程前也可能先到），没量过时用 INITIAL_COLS。 */
+  #cols = INITIAL_COLS;
   /** 每次起进程递增：过期会话的回调据此丢弃。 */
   #gen = 0;
   #starting: Promise<void> | null = null;
@@ -189,6 +203,11 @@ export class TspRunner {
     fastEnabled: false,
   };
   #catalog: ModelOption[] = [];
+  /** omp 对这个项目的新任务默认值解析出的模型和思考强度：任务记录没指定、输入框卡片也还没出现时显示它（不传给 omp）。 */
+  #newTaskDefault: { model: ModelOption | null; thinkingLevel: ThinkingLevel | null } = {
+    model: null,
+    thinkingLevel: null,
+  };
   /** 刚在选择器里选的模型：目录里有重名的显示名时以它为准。 */
   #chosenKey: ModelKey | null = null;
   #persistingChoice = false;
@@ -272,8 +291,8 @@ export class TspRunner {
       createdAt: this.#record.createdAt,
       updatedAt: this.#activityAt,
       // 模型、思考强度、上下文用量、费用从 omp 输入框卡片上读（composer-state.ts）；输入框还没出现时用任务记录里的。
-      model: this.#derived.model ?? this.#model,
-      thinkingLevel: this.#derived.thinkingLevel ?? this.#record.thinkingLevel,
+      model: this.#derived.model ?? this.#model ?? this.#newTaskDefault.model,
+      thinkingLevel: this.#derived.thinkingLevel ?? this.#record.thinkingLevel ?? this.#newTaskDefault.thinkingLevel,
       thinkingLevels: this.#derived.thinkingLevels,
       contextUsage: this.#derived.contextUsage,
       sessionUsage: this.#derived.sessionUsage,
@@ -408,9 +427,13 @@ export class TspRunner {
         ))
       )
         throw new StartError({ kind: "worktree_missing", message: "the task's worktree no longer exists" });
+      const defaultsLoaded = this.#loadNewTaskDefaults();
       await this.#host.acquireSlot(this.id);
       this.#assertNotClosing();
       const launch = await this.#buildLaunch();
+      this.#assertNotClosing();
+      // 输入框出现之前 TaskState 就要有模型：默认值读完（缓存优先，通常已就绪）再起进程，这样第一帧状态里就有它。
+      await defaultsLoaded;
       this.#assertNotClosing();
       const gen = ++this.#gen;
       const deps = this.#host.session;
@@ -422,7 +445,7 @@ export class TspRunner {
             cwd: launch.cwd,
             env: buildTspEnv(launch.env, deps.appVersion),
           },
-          cols: INITIAL_COLS,
+          cols: this.#cols,
           appVersion: deps.appVersion,
           appearance: deps.appearance(),
           ...(deps.spawn && { spawn: deps.spawn }),
@@ -685,8 +708,10 @@ export class TspRunner {
     this.#lastActiveAt = Date.now();
   }
 
+  /** 进程还没起（或已退出）时记下列数，起进程时用；首发时渲染进程在 omp 起来之前就量好了宽度。 */
   resizeTsp(cols: number): void {
-    this.#liveSession().resize(cols);
+    this.#cols = cols;
+    this.#session?.resize(cols);
   }
 
   #liveSession(): TspSession {
@@ -780,6 +805,38 @@ export class TspRunner {
   }
 
   // ───── 模型、思考强度 ─────
+
+  /** 起进程前读新任务默认值并在目录里找到对应的模型；任务记录已有模型时不需要。从不 reject。 */
+  async #loadNewTaskDefaults(): Promise<void> {
+    const load = this.#host.newTaskDefaults;
+    if (!load || this.#record.model) return;
+    try {
+      const defaults = await load(this.#project);
+      const catalog = this.#catalog.length > 0 ? this.#catalog : await this.#refreshCatalog();
+      const role = defaults.model;
+      const model =
+        catalog.find((option) => {
+          const id = `${option.key.provider}/${option.key.modelId}`;
+          if (role !== null) return role === id || role.startsWith(`${id}:`);
+          return (
+            option.key.provider === defaults.ompDefault?.key.provider &&
+            option.key.modelId === defaults.ompDefault.key.modelId
+          );
+        }) ?? null;
+      const configured = toThinkingLevel(defaults.thinkingLevel ?? defaults.ompDefault?.thinkingLevel ?? null);
+      const supported = model !== null && model.reasoning && (model.thinkingEfforts?.length ?? 0) > 0;
+      const thinkingLevel =
+        configured !== null &&
+        supported &&
+        (configured === "off" || (model.thinkingEfforts as string[]).includes(configured))
+          ? configured
+          : null;
+      this.#newTaskDefault = { model, thinkingLevel };
+      if (!this.#disposed) this.#publish();
+    } catch (error) {
+      log.warn(`task ${this.id} reading the new-task defaults failed`, { message: String(error) });
+    }
+  }
 
   /** 模型目录：构造时没有，进程起来后读一次（服务进程的 get_available_models，和草稿用的同一份）；失败时用上次的。 */
   async #refreshCatalog(): Promise<ModelOption[]> {
@@ -993,6 +1050,11 @@ export class TspRunner {
   }
 
   // ───── 斜杠命令、快速/慢速模式 ─────
+
+  /** 这个任务每一轮的费用（见 tsp/turn-costs.ts）；会话文件还没落盘、读失败时 []。 */
+  turnCosts(): Promise<number[]> {
+    return readTurnCosts(this.#sessionFile ?? this.#record.sessionFile);
+  }
 
   /** omp 的命令列表（服务进程的 get_available_commands：内置命令一致，项目目录里的自定义命令/技能看不到）；没有进程时 []。 */
   async listSlashCommands(): Promise<AvailableSlashCommand[]> {

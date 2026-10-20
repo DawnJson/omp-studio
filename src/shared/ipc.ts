@@ -734,6 +734,8 @@ export interface StudioInvokeApi {
   getTranscript(taskId: TaskId): Promise<TranscriptSnapshot>;
   /** TSP 任务的文档快照（不拉起进程）；任务不是 tsp 引擎时抛错。 */
   getTspSnapshot(taskId: TaskId): Promise<TspSnapshot>;
+  /** TSP 任务每一轮的总费用（美元，从旧到新）：从 omp 会话文件算；没有会话文件、读失败、任务不是 tsp 引擎时返回 []，不抛错。 */
+  getTspTurnCosts(taskId: TaskId): Promise<number[]>;
   /** 把一个终端 → 程序事件（action / select / activate / toggle / change / edit / undo / send / focus）发给 omp。 */
   sendTspEvent(taskId: TaskId, event: TspEvent): Promise<void>;
   /** 按键字节（xterm 序列）原样写进伪终端。 */
@@ -1095,6 +1097,7 @@ export const invokeNames = {
   openTask: true,
   getTranscript: true,
   getTspSnapshot: true,
+  getTspTurnCosts: true,
   sendTspEvent: true,
   sendTspKeys: true,
   resizeTsp: true,

@@ -2,6 +2,7 @@
 import {
   Fragment,
   memo,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -33,6 +34,8 @@ import type { NodeProps } from "../node-props.ts";
 import { plainText, cleanGlyphs, TspSpans } from "../spans.tsx";
 import { asArray, previewToLines } from "../props-util.ts";
 import { isRecord } from "../../../../../shared/type-guards.ts";
+import { TurnCostCtx } from "../turn-cost-context.ts";
+import { withExactCost } from "../turn-cost.ts";
 
 // ───────── text ─────────
 
@@ -43,7 +46,14 @@ function textSpans(p: Readonly<Record<string, unknown>>): readonly TspSpan[] | s
 
 export function Text(props: NodeProps) {
   const p = props.node.p;
-  const content = textSpans(p);
+  const turnCost = useContext(TurnCostCtx);
+  const raw = textSpans(p);
+  const content =
+    turnCost === undefined
+      ? raw
+      : typeof raw === "string"
+        ? withExactCost(raw, turnCost)
+        : raw.map((span) => ({ ...span, t: withExactCost(span.t, turnCost) }));
   const lines = typeof p.lines === "number" && p.lines > 0 ? Math.floor(p.lines) : null;
   const truncate = p.truncate === "start" || p.truncate === "middle" || p.truncate === "end" ? p.truncate : null;
   const oneLine = p.wrap === "none" || lines === 1 || (truncate !== null && lines === null && p.wrap === undefined);

@@ -75,6 +75,7 @@ export const taskHandlers: HandlerGroup<
   | "revealTaskFile"
   | "openTaskFolder"
   | "getTspSnapshot"
+  | "getTspTurnCosts"
   | "sendTspEvent"
   | "sendTspKeys"
   | "resizeTsp"
@@ -178,6 +179,7 @@ export const taskHandlers: HandlerGroup<
 
   // TSP 任务：节点树快照、用户操作 → TSP 事件、按键字节、面板宽度（任务不是 tsp 引擎时任务池抛错）。
   getTspSnapshot: async (taskId) => (await getTaskPool()).getTspSnapshot(parseTaskId(taskId)),
+  getTspTurnCosts: async (taskId) => (await getTaskPool()).getTspTurnCosts(parseTaskId(taskId)),
 
   sendTspEvent: async (taskId, event) => (await getTaskPool()).sendTspEvent(parseTaskId(taskId), parseTspEvent(event)),
 

@@ -279,7 +279,8 @@ test("拖拽条和键盘调整高度：最小 120px、最大主区 70%，松手�
     const { page } = launched;
     await openPanel(page);
     const handle = page.getByTestId("terminal-resizer");
-    const height = async () => (await page.getByTestId("terminal-panel").boundingBox())?.height ?? 0;
+    // 边界框带亚像素误差（如 280.00003）：按整像素比，存下来的高度本来就是整数。
+    const height = async () => Math.round((await page.getByTestId("terminal-panel").boundingBox())?.height ?? 0);
     const before = await height();
     await handle.focus();
     await page.keyboard.press("ArrowUp");

@@ -19,7 +19,8 @@ import { getOmpExecutable } from "../omp-manager/index.ts";
 import { assignToAppJob } from "../platform/win32/job-object.ts";
 import { closeTaskTerminal } from "../terminal/active.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
-import { listModelOptions } from "../service/default-model.ts";
+import { listModelOptions, readDefaultModel } from "../service/default-model.ts";
+import { readProjectModelDefaults } from "../ipc/omp-handlers.ts";
 import { serviceOmp } from "../service/service-omp.ts";
 import { createWorktree, removeWorktree } from "../git/worktree.ts";
 import { SetupConsent } from "../git/setup-consent.ts";
@@ -102,6 +103,13 @@ function createPool(): Promise<TaskPool> {
     forkTitle: (title) => t(resolveLocale(), "task.forkTitle", { title }),
     knownModel: (key) => startupCache().model(key),
     listModels: () => listModelOptions(),
+    newTaskDefaults: async (project) => {
+      // 缓存优先：草稿页刚读过这个项目的默认值（getModelDefaults 会记进启动缓存），不再多跑一次 `omp config list`。
+      const cache = startupCache().snapshot();
+      const defaults = cache.modelDefaults?.[project.id] ?? (await readProjectModelDefaults(project.id, project.path));
+      const ompDefault = defaults.model !== null ? null : (cache.defaultModel ?? (await readDefaultModel()));
+      return { model: defaults.model, thinkingLevel: defaults.thinkingLevel, ompDefault };
+    },
     listSlashCommands: async () =>
       (await serviceOmp.use((connection) => connection.request("get_available_commands"))).commands,
     tsp: {

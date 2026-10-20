@@ -16,7 +16,16 @@ import { TspChildren } from "./TspChildren.tsx";
 import { StudioHeader } from "../empty/StudioHeader.tsx";
 import { useTask } from "../../store/index.ts";
 import { TspCtx } from "./tsp-context.ts";
-import { ensureTspDocument, useTspNode, useTspReady, useTspSurface, useTspSurfaces } from "./tsp-store.ts";
+import {
+  ensureTspDocument,
+  useTspHasUserMessage,
+  useTspNode,
+  useTspReady,
+  useTspSurface,
+  useTspSurfaces,
+} from "./tsp-store.ts";
+import { clearFirstPrompt, useFirstPrompt } from "./first-prompt-store.ts";
+import { refreshTurnCosts } from "./turn-cost-store.ts";
 import "./tsp.css";
 
 // ───────── 列数 ─────────
@@ -118,6 +127,8 @@ interface SurfaceParts {
   jump?: ReactNode;
   /** 对话列最上面、随对话滚动的内容（inline 的 studio 标题块）。 */
   header?: ReactNode;
+  /** main 后面、对话列末尾的内容（首发气泡，omp 回显前占位）。 */
+  tail?: ReactNode;
   mode: "inline" | "screen";
 }
 
@@ -137,7 +148,7 @@ function Region({
   return <TspChildren node={node} ctx={ctx} />;
 }
 
-function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, header, mode }: SurfaceParts) {
+function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, header, tail, mode }: SurfaceParts) {
   const t = useT();
   const main = useTspNode(taskId, sf, "main");
   const role = typeof main?.p.role === "string" ? main.p.role : undefined;
@@ -149,6 +160,7 @@ function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, header,
           <div ref={column} className="tsp-column tsp-main" data-role={role}>
             {header}
             <Region taskId={taskId} sf={sf} id="main" ctx={ctx} />
+            {tail}
             <div className="tsp-column-end" />
           </div>
         </div>
@@ -167,25 +179,66 @@ function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, header,
   );
 }
 
-function InlineSurface({ taskId, sf }: { taskId: TaskId; sf: string }) {
+/** 版式照抄 omp 回显的用户消息：前面两个 sm 间隔、正文按 Markdown 段落排，换上真节点时气泡不跳。 */
+function PendingUser({ text }: { text: string }) {
+  return (
+    <>
+      <div className="tsp-spacer tsp-sz-sm" aria-hidden="true" />
+      <div className="tsp-spacer tsp-sz-sm" aria-hidden="true" />
+      <div className="tsp-card nohead" data-role="omp.user" data-pending="" data-testid="tsp-pending-user">
+        <div className="tsp-card-body">
+          <div className="tsp-md">
+            <div className="md">
+              <div className="md-block">
+                <p>{text}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** `sf` 为 null：omp 还没建 surface，只画标题块和刚发出的那句话（版式和有 surface 时一致）。 */
+function InlineSurface({
+  taskId,
+  sf,
+  pendingText,
+}: {
+  taskId: TaskId;
+  sf: string | null;
+  pendingText?: string | undefined;
+}) {
   const t = useT();
-  const ctx = useSurfaceContext(taskId, sf);
+  const surfaceId = sf ?? "";
+  const ctx = useSurfaceContext(taskId, surfaceId);
   const scroller = useRef<HTMLDivElement>(null);
   const column = useRef<HTMLDivElement>(null);
   const surface = useRef<HTMLDivElement>(null);
-  const cwd = useTask(taskId)?.cwd ?? "";
+  const task = useTask(taskId);
+  const cwd = task?.cwd ?? "";
+  const lastTurn = task?.lastTurn;
+  const hasUser = useTspHasUserMessage(taskId, surfaceId);
   const { showJump, scrollToBottom } = useStickToBottom(taskId, scroller, column);
   useColumns(taskId, column, surface);
+  // 每轮用量行的准确费用：挂载时取一次，一轮结束（lastTurn 变）再取。
+  useEffect(() => refreshTurnCosts(taskId), [taskId, lastTurn]);
+  // omp 回显了用户消息：首发的文字用完了。
+  useEffect(() => {
+    if (hasUser) clearFirstPrompt(taskId);
+  }, [taskId, hasUser]);
   return (
     <SurfaceBody
       taskId={taskId}
-      sf={sf}
+      sf={surfaceId}
       ctx={ctx}
       scroller={scroller}
       column={column}
       surface={surface}
       mode="inline"
       header={<StudioHeader compact path={cwd} />}
+      tail={pendingText !== undefined && !hasUser ? <PendingUser text={pendingText} /> : null}
       jump={
         showJump && (
           <button type="button" className="tsp-jump" onClick={scrollToBottom} data-testid="jump-latest">
@@ -220,15 +273,30 @@ export function TspView({ taskId }: { taskId: TaskId }) {
   const t = useT();
   const ready = useTspReady(taskId);
   const surfaces = useTspSurfaces(taskId);
+  const firstPrompt = useFirstPrompt(taskId);
+  const status = useTask(taskId)?.status;
   useEffect(() => ensureTspDocument(taskId), [taskId]);
+  // 任务出错 / 退出：首发的文字不再等 omp 回显。
+  useEffect(() => {
+    if (status === "error" || status === "stopped") clearFirstPrompt(taskId);
+  }, [taskId, status]);
 
   // 会话本体是最后一个 inline surface（关掉以后留着的也画，对话还要能读）；screen 只画活的，盖在上面。
   const inline = [...surfaces].reverse().find((s) => s.mode === "inline");
+  const firstInline = surfaces.find((s) => s.mode === "inline");
   const screen = [...surfaces].reverse().find((s) => s.mode === "screen" && s.live);
+  // 还没有 inline surface 但有刚发出的话：画和最终一样的版式（标题块 + 气泡），surface 出现时同一个组件原地接上，不重挂载。
+  const showInline = inline !== undefined || firstPrompt !== undefined;
+  const inlineKey = inline === undefined || inline.id === firstInline?.id ? "first" : inline.id;
   return (
     <div className="tsp-view" data-testid="tsp-view" data-task-id={taskId} data-covered={screen ? "" : undefined}>
-      {inline ? (
-        <InlineSurface key={`${taskId}:${inline.id}`} taskId={taskId} sf={inline.id} />
+      {showInline ? (
+        <InlineSurface
+          key={`${taskId}:${inlineKey}`}
+          taskId={taskId}
+          sf={inline?.id ?? null}
+          pendingText={firstPrompt?.text}
+        />
       ) : (
         <div className="tsp-empty" role="status">
           {ready ? "" : t("tsp.loading")}
