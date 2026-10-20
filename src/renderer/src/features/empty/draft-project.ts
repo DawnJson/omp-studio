@@ -1,5 +1,5 @@
-// 空状态里"要在哪个项目开始新任务"：用户在项目菜单里选的，或把文件夹拖进窗口后得到的项目。
-// null = 默认（最近有操作的任务所在项目）。
+// 草稿"要在哪个项目开始新任务"：工具行项目菜单里选的、侧栏项目旁 ＋ 的，或打开 / 拖入文件夹后得到的项目。
+// null = 默认文件夹（AppInfo.chatsDir）。
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 import type { ProjectId } from "../../../../shared/ipc.ts";
 

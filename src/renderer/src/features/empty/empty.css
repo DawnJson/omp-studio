@@ -76,36 +76,22 @@
   border-radius: var(--radius-xl);
 }
 
-/* 输入框下方的项目按钮：和工具行里的胶囊同一尺寸，平时无边框 */
+/* 工具行里审批胶囊右边的项目标签：和胶囊同高，不能点，只是"文件夹图标 + 名字" */
 .empty-project {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: var(--space-1-5);
-  max-width: 100%;
   min-width: 0;
   height: var(--control-h-sm);
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-1);
   font-size: var(--fs-sm);
   color: var(--text-2);
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-pill);
-  cursor: default;
-}
-
-.empty-project {
-  transition:
-    color var(--dur-fast) var(--ease-out),
-    background-color var(--dur-fast) var(--ease-out);
-}
-.empty-project:hover,
-.empty-project[aria-expanded="true"] {
-  color: var(--text);
-  background: var(--bg-hover);
 }
 
 .empty-project-name {
   min-width: 0;
+  max-width: 20ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -131,58 +117,6 @@
   margin-top: 0;
 }
 
-.empty-switcher {
-  position: relative;
-  display: flex;
-  max-width: 100%;
-  min-width: 0;
-}
-
-/* 按钮贴着窗口底部：菜单向上弹 */
-.empty-menu {
-  position: absolute;
-  bottom: calc(100% + var(--space-1));
-  left: 0;
-  z-index: var(--z-popover);
-  display: flex;
-  flex-direction: column;
-  min-width: calc(var(--sidebar-w) - var(--space-4));
-  max-width: min(420px, calc(100vw - 64px));
-  max-height: min(50vh, 320px);
-  overflow-y: auto;
-  padding: var(--space-1);
-  background: var(--bg-overlay);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-2);
-  animation: pop-in var(--dur-base) var(--ease-out);
-  transform-origin: bottom left;
-}
-
-.empty-menu-item {
-  min-height: var(--row-menu);
-  padding: 0 var(--space-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-md);
-  cursor: default;
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-
-.empty-menu-item:hover,
-.empty-menu-item[aria-checked="true"] {
-  background: var(--bg-hover);
-}
-
-.empty-menu-separator {
-  height: 1px;
-  margin: var(--space-1) var(--space-2);
-  background: var(--border-subtle);
-}
-
 .empty-error {
   margin: 0;
   font-size: var(--fs-base);
@@ -190,11 +124,6 @@
   color: var(--st-error);
   overflow-wrap: anywhere;
   text-wrap: pretty;
-}
-
-.empty-menu-item:focus-visible {
-  background: var(--bg-active);
-  outline-offset: -2px;
 }
 
 /* ───────── 拖入文件夹覆盖层 ───────── */

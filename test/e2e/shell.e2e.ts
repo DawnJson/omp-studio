@@ -245,9 +245,11 @@ test("没有项目时主区只有标志和草稿输入框；F6 把焦点送进�
     await expect(empty).toBeVisible();
     await expect(empty).toHaveAttribute("data-kind", "no-project");
     await expect(empty.getByTestId("pixel-logo")).toBeVisible();
-    // 输入框上面只有标志：没有“还没有项目”、没有最近的任务、没有任何按钮；项目按钮在输入框下面，写"无项目"，不出现 chats。
+    // 输入框上面只有标志：没有“还没有项目”、没有最近的任务、没有任何按钮；项目按钮在输入框工具行里，写"默认文件夹"，不出现 chats。
     await expect(empty.locator(".empty-main").getByRole("button")).toHaveCount(0);
-    await expect(page.getByTestId("draft-composer").getByTestId("empty-project")).toHaveText(/^(无项目|No project)$/);
+    await expect(page.getByTestId("draft-composer").locator(".composer-tools").getByTestId("empty-project")).toHaveText(
+      /^(默认文件夹|Default folder)$/,
+    );
     await expect(page.getByTestId("empty-draft").locator("[data-composer-input]")).toBeVisible();
 
     await page.keyboard.press("F6");
@@ -257,12 +259,12 @@ test("没有项目时主区只有标志和草稿输入框；F6 把焦点送进�
   }
 });
 
-/** 把系统"选择文件夹"对话框换成直接返回 dir，再点侧栏的"添加项目"，得到一个有项目的空状态。 */
+/** 把系统"选择文件夹"对话框换成直接返回 dir，再点侧栏的"打开文件夹"，得到一个有项目的空状态。 */
 async function addProjectViaStubbedDialog(launched: LaunchedApp, dir: string): Promise<void> {
   await launched.app.evaluate(({ dialog }, folder) => {
     dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [folder] });
   }, dir);
-  await launched.page.getByTestId("sidebar-add-project").click();
+  await launched.page.getByTestId("sidebar-open-folder").click();
   await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
 }
 
@@ -287,23 +289,21 @@ test("有项目的空状态：输入框贴主区底部、没有历史会话列�
     expect(panel && composer && panel.y + panel.height - (composer.y + composer.height)).toBeLessThanOrEqual(24);
     expect(composer && panel && composer.y).toBeGreaterThan((panel?.y ?? 0) + (panel?.height ?? 0) / 2);
 
-    // 草稿期间 Ctrl N 回到同一个空状态而不是创建任务。
+    // 草稿期间 Ctrl N 不创建任务，回到默认文件夹（不沿用刚才选的项目）。
     await page.keyboard.press("Control+n");
-    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
     expect(await page.evaluate(() => globalThis.studio.listTasks())).toEqual([]);
 
-    // 项目菜单：键盘打开，向上弹（按钮贴着窗口底部）；Esc 关闭后焦点回到项目按钮。
-    await page.getByTestId("empty-project").focus();
-    await page.keyboard.press("Enter");
-    const projectMenu = page.getByRole("menu");
-    await expect(projectMenu).toBeVisible();
-    const [projectButton, projectMenuBox] = await Promise.all([
-      page.getByTestId("empty-project").boundingBox(),
-      projectMenu.boundingBox(),
-    ]);
-    expect((projectMenuBox?.y ?? 0) + (projectMenuBox?.height ?? 0)).toBeLessThanOrEqual(projectButton?.y ?? 0);
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("empty-project")).toBeFocused();
+    // 工具行的项目标签只显示、不能点（不是按钮），悬停提示是默认文件夹的完整路径。
+    const label = page.getByTestId("empty-project");
+    await expect(label).toHaveText(/^(默认文件夹|Default folder)$/);
+    expect(await label.evaluate((el) => (el as unknown as { tagName: string }).tagName)).toBe("SPAN");
+    await expect(label).toHaveAttribute("title", /[\\/]chats$/);
+    // 换项目走侧栏项目分组旁的 ＋。
+    await page.getByTestId("sidebar-project-new").first().click();
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+    await expect(label).toContainText("omp studio 项目");
+    await expect(label).toHaveAttribute("title", projectDir);
 
     await page.locator("[data-composer-input]").focus();
     for (const locale of ["zh-CN", "en"] as const) {

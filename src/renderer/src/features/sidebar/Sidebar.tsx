@@ -1,11 +1,11 @@
-// 侧栏（spec §3.2、第 4 章）：搜索框、[新任务][添加项目]、"等你确认"条、按项目分组的任务、底部设置和语言/主题切换。
+// 侧栏（spec §3.2、第 4 章）：搜索框、[新任务][打开文件夹]、"等你确认"条、按项目分组的任务、底部设置和语言/主题切换。
 // 从顶栏下面开始，不画标题栏；底色 --bg-sidebar 与顶栏连成一片。宽度由外层容器给。
 import { reportError } from "../../ui/errors.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Project, ProjectId, TaskState } from "../../../../shared/ipc.ts";
 import { setCollapsedProjects, useShellUi } from "../../app/shell-store.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
-import { selectTask, showView, useMainView, useSelectedTaskId, useTasksState } from "../../store/index.ts";
+import { selectTask, showView, useAppInfo, useMainView, useSelectedTaskId, useTasksState } from "../../store/index.ts";
 import { Close } from "../../icons.tsx";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { archiveWithUndo, useHiddenTasks } from "./archive-store.ts";
@@ -15,6 +15,7 @@ import { PreferenceMenus } from "./PreferenceMenus.tsx";
 import { refreshProjects, useProjectsState } from "./projects-store.ts";
 import { addProjectAsDraft } from "./sidebar-actions.ts";
 import { startDraft } from "../empty/index.ts";
+import { isDefaultFolder } from "../empty/default-folder.ts";
 import { groupTasks, nextWaitingTask, waitingTasks } from "../../../../shared/ui/sidebar-model.ts";
 import { taskNavId } from "./TaskRow.tsx";
 import { formatTaskTime } from "../../../../shared/ui/task-time.ts";
@@ -33,6 +34,8 @@ export function Sidebar() {
   const tasksState = useTasksState();
   const projectsState = useProjectsState();
   const hidden = useHiddenTasks();
+  const chatsDir = useAppInfo()?.chatsDir ?? null;
+  const defaultLabel = t("empty.defaultFolder");
 
   const shellUi = useShellUi();
   const collapsed = useMemo(() => new Set<string>(shellUi.collapsedProjects), [shellUi.collapsedProjects]);
@@ -67,9 +70,12 @@ export function Sidebar() {
       : tasksState.list.filter((task) => task.title.toLowerCase().includes(needle));
   }, [query, tasksState.list]);
   const groups = useMemo(() => {
-    const all = groupTasks(projectsState.list, matchedTasks, hidden);
+    // 默认文件夹（chats 目录）这一组叫"默认文件夹"，不露出目录名。
+    const all = groupTasks(projectsState.list, matchedTasks, hidden).map((group) =>
+      isDefaultFolder(group.project, chatsDir) ? { ...group, label: defaultLabel } : group,
+    );
     return searching ? all.filter((group) => group.tasks.length > 0) : all;
-  }, [projectsState.list, matchedTasks, hidden, searching]);
+  }, [projectsState.list, matchedTasks, hidden, searching, chatsDir, defaultLabel]);
   const waiting = useMemo(() => waitingTasks(tasksState.list, hidden), [tasksState.list, hidden]);
   const labelOf = (projectId: ProjectId) => groups.find((group) => group.project.id === projectId)?.label ?? "";
 
@@ -195,12 +201,12 @@ export function Sidebar() {
         <button
           type="button"
           className="sb-new"
-          data-testid="sidebar-add-project"
-          title={t("sidebar.addProject")}
+          data-testid="sidebar-open-folder"
+          title={t("sidebar.openFolder")}
           onClick={() => void addProjectAsDraft(t)}
         >
           <FolderPlusIcon />
-          <span className="sb-new-label">{t("sidebar.addProject")}</span>
+          <span className="sb-new-label">{t("sidebar.openFolder")}</span>
         </button>
       </div>
 

@@ -169,7 +169,8 @@ test("新任务草稿也有终端：发出第一条消息后，同一个 shell �
   try {
     const { page } = launched;
     await page.getByTestId("composer-input").focus();
-    await page.keyboard.press("Control+n");
+    // Ctrl Shift N：在当前任务的项目里开新任务（Ctrl N 是默认文件夹）。
+    await page.keyboard.press("Control+Shift+N");
     await expect(page.getByTestId("empty-draft")).toBeVisible();
     await expect(page.getByTestId("topbar-terminal")).toBeVisible();
 

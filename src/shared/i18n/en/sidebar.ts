@@ -14,7 +14,7 @@ export const sidebar = {
   newInProject: "New task in this project",
   label: "Tasks",
   projectMenu: "Project menu",
-  addProject: "Add project",
+  openFolder: "Open folder",
   showMore: "Show {n} more",
   toggleProject: "Expand or collapse {project}",
   waitingHere: "A task is waiting for you",

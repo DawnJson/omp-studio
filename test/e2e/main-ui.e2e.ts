@@ -20,7 +20,7 @@ async function start(): Promise<{ launched: LaunchedApp; cleanup(): Promise<void
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
-  await launched.page.getByTestId("sidebar-add-project").click();
+  await launched.page.getByTestId("sidebar-open-folder").click();
   await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
   return {
     launched,
@@ -115,13 +115,15 @@ test("没有项目时直接发送：在 chats 目录里建项目和任务，侧�
     const projects = await page.evaluate(() => globalThis.studio.listProjects());
     expect(projects.map((project) => path.resolve(project.path))).toEqual([path.resolve(chats)]);
     await expect(page.getByTestId("task-row")).toHaveCount(1);
-    await expect(page.getByTestId("sidebar")).toContainText("chats");
+    // 侧栏里这一组叫"默认文件夹"，不露出 chats 这个目录名。
+    await expect(page.getByTestId("sidebar")).toContainText(/默认文件夹|Default folder/);
+    await expect(page.getByTestId("sidebar")).not.toContainText("chats");
     await expect(page.getByTestId("sidebar-new-task")).not.toHaveAttribute("aria-current", "page");
 
-    // 之后 Ctrl N 回到的是 chats 这个项目的草稿页；输入框下的项目按钮写"无项目"，不露出 chats 这个目录名。
+    // 之后 Ctrl N 还是默认文件夹（不沿用刚才的项目也一样是它）；项目按钮写"默认文件夹"。
     await page.keyboard.press("Control+n");
-    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
-    await expect(page.getByTestId("empty-project")).toHaveText(/^(无项目|No project)$/);
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
+    await expect(page.getByTestId("empty-project")).toHaveText(/^(默认文件夹|Default folder)$/);
   } finally {
     await launched.close();
   }
@@ -274,12 +276,26 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     await expect(picker).toHaveCount(0);
     await expect(chip).toBeFocused();
 
-    // 回到空状态：只有标志和输入框，没有最近的任务和历史会话；项目按钮在输入框下面，写项目名。
+    // 回到空状态：Ctrl N 一律是默认文件夹，不沿用刚才任务的项目；只有标志和输入框，没有最近的任务和历史会话。
     await page.keyboard.press("Control+n");
-    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
     await expect(page.getByTestId("empty-task")).toHaveCount(0);
     await expect(page.getByTestId("empty-session")).toHaveCount(0);
-    await expect(page.getByTestId("empty-project")).not.toHaveText(/^(无项目|No project)$/);
+    await expect(page.getByTestId("empty-project")).toHaveText(/^(默认文件夹|Default folder)$/);
+    // 项目分组旁常驻的 ＋：在这个项目里开新任务，工具行的项目按钮换成项目名。
+    await expect(page.getByTestId("sidebar-project-new").first()).toBeVisible();
+    await page.getByTestId("sidebar-project-new").first().click();
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+    await expect(page.getByTestId("empty-project")).toHaveText("项目 目录");
+    // 项目按钮在工具行里，紧跟审批胶囊。
+    const draftTools = page.getByTestId("draft-composer").locator(".composer-tools");
+    await expect(draftTools.getByTestId("empty-project")).toBeVisible();
+    const [approvalBox, projectBox] = await Promise.all([
+      draftTools.getByTestId("approval-chip").boundingBox(),
+      draftTools.getByTestId("empty-project").boundingBox(),
+    ]);
+    expect(approvalBox && projectBox && approvalBox.x + approvalBox.width <= projectBox.x).toBe(true);
+    expect(approvalBox && projectBox && Math.abs(approvalBox.y - projectBox.y) <= 2).toBe(true);
     await page.locator("[data-composer-input]").focus();
     await shoot(page, "empty");
   } finally {
@@ -287,7 +303,7 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
   }
 });
 
-test("侧栏：搜索框在最上，其次 [新任务][添加项目]；搜索过滤任务并列出匹配的历史会话", async () => {
+test("侧栏：搜索框在最上，其次 [新任务][打开文件夹]；搜索过滤任务并列出匹配的历史会话", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
@@ -295,7 +311,7 @@ test("侧栏：搜索框在最上，其次 [新任务][添加项目]；搜索过
     const sidebar = page.getByTestId("sidebar");
     const search = page.getByTestId("sidebar-search");
     const newTask = page.getByTestId("sidebar-new-task");
-    const addProject = page.getByTestId("sidebar-add-project");
+    const addProject = page.getByTestId("sidebar-open-folder");
     const [s, n, a, list] = await Promise.all([
       search.boundingBox(),
       newTask.boundingBox(),

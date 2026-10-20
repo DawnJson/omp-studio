@@ -265,7 +265,10 @@
 .sb-group-toggle:hover {
   background: var(--bg-hover);
 }
-/* 悬停时右侧浮出两个按钮，名称让出它们的位置 */
+/* 右侧常驻一个 ＋（在此项目新建任务），悬停时它左边再浮出 ⋯；名称让出它们的位置 */
+.sb-group-toggle {
+  padding-right: calc(var(--control-h-sm) + var(--space-1));
+}
 .sb-group-head:hover .sb-group-toggle,
 .sb-group-head:focus-within .sb-group-toggle {
   padding-right: calc(2 * var(--control-h-sm) + var(--space-1));
@@ -305,16 +308,20 @@
 .sb-group-action {
   position: absolute;
   top: 0;
+}
+.sb-group-new {
+  right: 0;
+  color: var(--text-3);
+}
+.sb-group-new:hover {
+  color: var(--text);
+}
+.sb-group-more {
+  right: calc(var(--control-h-sm) + var(--space-0-5));
   opacity: 0;
 }
-.sb-group-action:nth-of-type(2) {
-  right: calc(var(--control-h-sm) + var(--space-0-5));
-}
-.sb-group-action:nth-of-type(3) {
-  right: 0;
-}
-.sb-group-head:hover .sb-group-action,
-.sb-group-head:focus-within .sb-group-action {
+.sb-group-head:hover .sb-group-more,
+.sb-group-head:focus-within .sb-group-more {
   opacity: 1;
 }
 .sb-group-head:hover .sb-group-count,

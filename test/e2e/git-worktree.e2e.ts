@@ -48,7 +48,7 @@ async function start(prepare: (work: string) => Promise<string>): Promise<Sessio
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
-  await page.getByTestId("sidebar-add-project").click();
+  await page.getByTestId("sidebar-open-folder").click();
   await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
   await page.evaluate(() => globalThis.studio.setLocale("zh-CN"));
   await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", "zh-CN");
@@ -397,11 +397,8 @@ test("setup 脚本确认：同意后记住，同一份内容不再问；改了�
     const first = findStudioWorktree(repo) as { dir: string };
     expect((await readFile(path.join(first.dir, "setup-ran.txt"), "utf8")).trim()).toBe("v1");
 
-    // 同一份内容：第二个任务不再问
-    await page
-      .getByRole("button", { name: /新任务|New task/ })
-      .first()
-      .click();
+    // 同一份内容：第二个任务不再问（项目分组旁的 ＋ 在这个仓库里开新任务；侧栏"新任务"是默认文件夹）
+    await page.getByTestId("sidebar-project-new").first().click();
     const chip = page.getByTestId("worktree-chip");
     await chip.click();
     await page.getByTestId("composer-input").fill("第二个");
@@ -411,10 +408,7 @@ test("setup 脚本确认：同意后记住，同一份内容不再问；改了�
 
     // 改了脚本：再问；取消则不建
     await writeFile(path.join(repo, ".omp-studio", scriptName), scriptBody("v2"), "utf8");
-    await page
-      .getByRole("button", { name: /新任务|New task/ })
-      .first()
-      .click();
+    await page.getByTestId("sidebar-project-new").first().click();
     await page.getByTestId("worktree-chip").click();
     await page.getByTestId("composer-input").fill("第三个");
     await page.keyboard.press("Enter");

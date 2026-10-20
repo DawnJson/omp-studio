@@ -21,19 +21,6 @@
   background: linear-gradient(transparent, var(--bg-app));
   pointer-events: none;
 }
-/* 草稿输入框下方一行（项目、工作树开关），左缘和输入框的工具行对齐；有它时底部留白收一点，输入框不会比对话时高太多。 */
-.composer-below {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
-  margin-top: var(--space-1-5);
-  padding: 0 var(--space-1);
-}
-.composer-stack:has(> .composer-below) {
-  padding-bottom: var(--space-2);
-}
-
 .composer {
   container-type: inline-size;
   background: var(--bg-raised);

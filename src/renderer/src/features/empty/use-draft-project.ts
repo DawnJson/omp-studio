@@ -1,20 +1,12 @@
-// 空状态里新任务要用的项目：用户选过的；没选就是最近有操作的任务所在的项目，没有任务时是列表里第一个。
-import { useMemo } from "react";
+// 草稿要在哪个项目里开始：用户选的（工具行的项目按钮、侧栏项目旁的 ＋、打开文件夹）；
+// 没选就是 null = 默认文件夹（AppInfo.chatsDir，发出第一条消息时才建目录、加项目）。
+// 新任务（侧栏按钮、Ctrl N）一律回到默认文件夹，不沿用最近用过的项目。
 import type { Project } from "../../../../shared/ipc.ts";
-import { useTasks } from "../../store/index.ts";
 import { useProjects } from "../sidebar/projects-store.ts";
 import { useDraftProjectId } from "./draft-project.ts";
 
 export function useDraftProject(): Project | null {
   const projects = useProjects();
-  const tasks = useTasks();
   const pickedId = useDraftProjectId();
-  const fallback = useMemo(() => {
-    const latest = tasks.reduce<(typeof tasks)[number] | null>(
-      (best, task) => (best === null || task.updatedAt > best.updatedAt ? task : best),
-      null,
-    );
-    return projects.find((project) => project.id === latest?.projectId) ?? projects[0] ?? null;
-  }, [projects, tasks]);
-  return projects.find((candidate) => candidate.id === pickedId) ?? fallback;
+  return projects.find((candidate) => candidate.id === pickedId) ?? null;
 }

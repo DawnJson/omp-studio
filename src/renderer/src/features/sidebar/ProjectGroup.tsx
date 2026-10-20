@@ -90,7 +90,8 @@ export function ProjectGroup(props: ProjectGroupProps) {
         </button>
         <button
           type="button"
-          className="sb-icon-btn sb-group-action"
+          className="sb-icon-btn sb-group-action sb-group-new"
+          data-testid="sidebar-project-new"
           tabIndex={-1}
           aria-label={t("sidebar.newInProject")}
           title={t("sidebar.newInProject")}
@@ -100,7 +101,7 @@ export function ProjectGroup(props: ProjectGroupProps) {
         </button>
         <button
           type="button"
-          className="sb-icon-btn sb-group-action"
+          className="sb-icon-btn sb-group-action sb-group-more"
           tabIndex={-1}
           aria-label={t("sidebar.projectMenu")}
           aria-haspopup="menu"

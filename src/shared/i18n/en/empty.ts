@@ -2,10 +2,8 @@ import type { MessageEntry } from "../index.ts";
 import type { empty as zhCN } from "../zh-CN/empty.ts";
 
 export const empty = {
-  noProject: "No project",
-  noProjectHint: "Not in a project: the task starts in a separate empty folder",
+  defaultFolder: "Default folder",
   fromTerminal: "From the terminal",
-  openFolder: "Open folder…",
   loadFailed: "Could not load projects: {message}",
   whatsNew: "What's New",
   whatsNewUpdated: { one: "Updated to v{version} · {count} change", other: "Updated to v{version} · {count} changes" },

@@ -333,7 +333,7 @@
 
 ### 4.5 Sidebar 外壳
 
-顶部依次是搜索框和 `[新任务][添加项目]` 两个并排按钮：两个按钮同一种次级样式（透明底、`1px --border-strong`、`--text-2`，hover `--bg-hover`）；当前所在的那个突出——草稿页时 `新任务` 带 `aria-current="page"`，`--bg-active` 底、`--text` 600。搜索框聚焦时由圆角外框画焦点环（`--focus-ring` 边 + 1px 阴影），输入框自身不画方形轮廓。侧栏自己没有头（标志和切换侧栏在顶栏）；列表区自绘覆盖式滚动条；底部 44：左边 `设置` 文本按钮（齿轮 + 文案），右边两个 28×28 图标按钮：语言（地球，`menu.language`）和主题（半圆，`menu.theme`），点开从按钮上方弹出单选菜单（右缘对齐按钮，宽度按内容收紧，`menu.languageSystem`/简体中文/English，`menu.themeSystem`/`menu.themeLight`/`menu.themeDark`），选了立即生效，打开时焦点在当前项，Esc/Tab 关闭并还焦点给按钮；打开时按钮 `--bg-active`。命令面板只走 `Ctrl K`，底部没有放大镜。底部不放键帽、不放小字。
+顶部依次是搜索框和 `[新任务][打开文件夹]` 两个并排按钮（2026-10-20 起"添加项目"改名 `sidebar.openFolder`：选文件夹、加进项目列表，并把草稿切到它）：两个按钮同一种次级样式（透明底、`1px --border-strong`、`--text-2`，hover `--bg-hover`）；当前所在的那个突出——草稿页时 `新任务` 带 `aria-current="page"`，`--bg-active` 底、`--text` 600。项目分组头右侧常驻一个 `＋`（`sidebar.newInProject`，`--text-3`，hover `--text`），悬停时它左边再浮出 `⋯` 项目菜单。默认文件夹（`AppInfo.chatsDir`）那一组标题写 `empty.defaultFolder`，不露出 chats 目录名。搜索框聚焦时由圆角外框画焦点环（`--focus-ring` 边 + 1px 阴影），输入框自身不画方形轮廓。侧栏自己没有头（标志和切换侧栏在顶栏）；列表区自绘覆盖式滚动条；底部 44：左边 `设置` 文本按钮（齿轮 + 文案），右边两个 28×28 图标按钮：语言（地球，`menu.language`）和主题（半圆，`menu.theme`），点开从按钮上方弹出单选菜单（右缘对齐按钮，宽度按内容收紧，`menu.languageSystem`/简体中文/English，`menu.themeSystem`/`menu.themeLight`/`menu.themeDark`），选了立即生效，打开时焦点在当前项，Esc/Tab 关闭并还焦点给按钮；打开时按钮 `--bg-active`。命令面板只走 `Ctrl K`，底部没有放大镜。底部不放键帽、不放小字。
 
 ### 4.6 MainHeader 与 ProgressPill
 
@@ -344,8 +344,8 @@
 ### 4.7 EmptyState
 
 - **输入框贴主区底部**（2026-10-18 返工，空状态和对话中同一位置）；上方区域（垂直居中）**只有**居中的像素标志（`ui/PixelLogo.tsx`，照 omp 终端版启动画面：块字符 π 逐格粉→紫→蓝渐变、左腿末格 ▒，右边半块像素字 `omp`（`--text`）接 `studio`（`--text-2`），字下暗色 `v<版本>`（`--text-3` 等宽））。2026-10-19 起去掉标志下面的项目胶囊和最近任务卡片：最近任务和历史会话只在侧栏（搜索框能搜到任务和历史会话，含终端里的）。**没有欢迎语、插画、示例提示卡**（标志不算）。
-- **项目按钮在输入框下面**（照 Claude / Codex，2026-10-19 起）：输入框卡片下方、左缘对齐输入框的一行（`.composer-below`），第一个是项目按钮（`empty-project`：文件夹图标 + 项目名 + ⌄，透明底无边框，`--fs-sm` `--text-2`，hover `--bg-hover`，`--radius-pill`，tooltip 完整路径）；点开向上弹菜单（贴着窗口底部）：最近 8 个项目（当前项带勾）+ 分隔线 + `empty.openFolder`；键盘 `↑↓ Home End`，Esc 关闭回到按钮。没有项目、或当前项目就是 chats 目录时按钮写 `empty.noProject`（tooltip `empty.noProjectHint`），不露出 chats 这个目录名。项目目录正好是 git 仓库根时，同一行右边是工作树开关（原来在 ApprovalChip 右边，2026-10-19 挪到这里）。
-- 无任何项目时同样只有标志和输入框（不写“还没有项目”），可以直接发送（同 Codex / Claude Code 打开就能聊）；输入框没有 `@` 补全和工作树开关。第一次发送时主进程 `ensureChatsProject` 建 `AppInfo.chatsDir`（`~/omp-studio/chats`）并加入项目（名为 `chats`），之后它就是普通项目。不用用户主目录作 cwd：omp 默认会把主目录换成临时目录（`--allow-home`），搜索也会扫整个主目录。
+- **项目标签在输入框工具行里，审批胶囊右边**（2026-10-20 起，原来在输入框下面单独一行 `.composer-below`，已去掉）：`empty-project` = 文件夹图标 + 项目名（最多 20ch，省略号），`--fs-sm` `--text-2`，悬停提示完整路径。**只显示、不能点**：它只告诉你这个新任务会在哪个文件夹里运行；换文件夹走侧栏（`新任务` = 默认文件夹，项目分组头 `＋` = 那个项目，`打开文件夹` = 新文件夹）或拖入文件夹。项目目录正好是 git 仓库根时，标签右边是工作树开关。
+- **默认文件夹**（2026-10-20 起）：新任务（侧栏 `新任务`、`Ctrl N`、启动时）一律在默认文件夹 `AppInfo.chatsDir`（`~/omp-studio/chats`）里，不沿用最近用过的项目，打开就能直接发送（同 Codex / Claude Code）。标签写 `empty.defaultFolder`，悬停提示是它的完整路径。第一次发送时主进程 `ensureChatsProject` 才建目录并加入项目（名为 `chats`），之后它在列表里是普通项目，但界面上一律叫"默认文件夹"。默认文件夹不是 git 仓库，没有工作树开关。不用用户主目录作 cwd：omp 默认会把主目录换成临时目录（`--allow-home`），搜索也会扫整个主目录。要在别的文件夹里工作：侧栏 `打开文件夹`、项目分组头的 `＋`、`Ctrl Shift N`（当前任务的项目）或拖入文件夹。
 - 最近更新（照 omp 的 What's New，`startup.changelogMode = summary`）：升级后第一次启动时，标志下面居中一行：`empty.whatsNew`（600 `--text-2`）· `empty.whatsNewUpdated(Many)`（"已更新到 v<版本> · N 项改动"，跨多个版本时加"M 个版本共"）· `新增 · 变更 · 修复` 各几项（为 0 的省略）；整行 `--fs-sm --text-3`，不换行，窄了省略号截断，tooltip 全文。只写统计，不列条目。数据来自打进主进程包的 `CHANGELOG.md`（`src/main/whats-new.ts`，解析在 `src/shared/changelog.ts`）：合计 `userData/last-changelog-version` 记的版本之后、当前版本为止的各节（没有记录 = 第一次装，只算当前版本；不含"未发布"），启动时算一次并立即写入当前版本，所以重载窗口仍显示、重启后消失；当前版本没有条目时不显示。
 - 侧栏 `新任务` 按钮在草稿页带 `aria-current="page"`，用选中底色突出（§4.5）。
 
@@ -423,7 +423,7 @@
 - 底部工具行：左起 `⊕` 附件 28×28、ModelChip、ApprovalChip；输出速度（`UsageMeter`，只在运行中，见下）；右起后台任务胶囊（`JobsBoard`，见下，本会话出现过后台任务才有）、上下文圆环（`ContextMeter`，见下）、本会话费用（`SessionCost`，对应 omp 状态栏的 cost 段：`get_session_stats.cost`，按模型的 API 价格估算，订阅登录的模型也照样累计；等宽 `--fs-xs` `--text-2`，`$0.0001` 这种不到一美分的保留 4 位小数；一直显示，新任务草稿和还没有统计时是 `$0.00`；当前模型的 provider 有 OAuth 登录凭据时（omp 优先用 OAuth，`get_logout_accounts`，按 provider 缓存 5 分钟）后面跟 `--text-3` 的 ` (sub)`，悬停换成 `composer.usage.costTipSub`；悬停 `composer.usage.costTip` + 输入/输出/缓存读取/高级请求数；是按钮，点开居中的 `UsageDialog`，见下）、SendStop。仪表不收缩（`flex: none`），空间不够时模型胶囊先省略名字，≤860px 去掉速度，≤400px（比如开着文件预览）工具行折成两行：模型、审批胶囊在上，计数、圆环、费用、发送换到下一行靠右；圆环和费用一直在。胶囊 `overflow: hidden`，内容不会画到旁边。本会话 token 不在工具行里（2026-10-19 起去掉图标按钮），在上下文浮层的“会话用量”里。
 
 **JobsBoard**（2026-10-20 起，照 Tern 里 omp 的后台任务胶囊与看板）：omp 没有列后台任务的 RPC，从工具帧推导（`src/shared/ui/jobs.ts` 的 `deriveJobs`）：`bash` 带 `async: true` 的调用（`details.async = {state, jobId}`、"Backgrounded as job bg_N"）、`task` 派出的子代理（"Spawned agent `X` (job `Y`)" + 子代理泳道状态）、`wait` 工具的 `details.jobs[]` 快照（状态、标签、时长以它为准）。胶囊 `jobs-pill`：`● 运行中数 │ ✓ 已结束数`，点开 `Popover` 看板 `jobs-board`：每个任务一行（类型图标、名字、状态、耗时），点一行展开——命令看输出尾部，子代理内嵌 `SubagentDetailPanel`；Esc 关闭并还焦点给胶囊。agent 在等后台任务时，状态行（`RunStatus`）的动作文字是 `process.waitingJobs`（“等待 2/3 个后台任务 · 1 个完成”），下面一排运行中任务的小卡（类型图标 + 名字 + 耗时，最多 4 个，多的折成 `+N`），靠右排，正好在胶囊上方。实测录制见 `fixtures/rpc/bg-jobs.ndjson`（omp 18.12.3）。
-- 输入框下面一行（`.composer-below`，新任务草稿才有）：项目按钮 + 工作树开关（§4.7）。
+- 草稿的工具行在审批胶囊右边多出项目标签 + 工作树开关（§4.7）；输入框下面不再有单独一行。
 - 工具行各项**从第一帧起都在原位**（2026-10-19）：模型胶囊、审批胶囊、上下文圆环、费用都直接画出来，数据到了再填，不等 omp。数据先用上次读到的（主进程每次现读成功就记进 `userData/startup-cache.json`：默认模型、模型目录、各项目的默认值、各 provider 是否订阅、审批模式；渲染进程在第一次渲染前取 `getStartupSnapshot()`），现读到了再替换；从没读到过（第一次启动）时模型胶囊写 `composer.modelLoading`、审批写 `approval.loading`，圆环是同位置同大小、不能点的空环（`data-pending`）。任务在进程起来之前，胶囊用上次读到的模型目录里的名字和窗口（不是模型 id）。主进程在应用启动时就拉起服务进程读默认模型和模型目录，不等输入框来要。
 - 附件预览行（有附件时）：文本区上方，64×64，右上 ✕（`composer.attachment.remove`）；粘贴图片、拖入图片、`⊕` 三种来源。非图片文件拖入：toast `composer.attach.imageOnly`。
 - 草稿按任务保留，由主进程持久化。
@@ -577,7 +577,7 @@
 | E 没有 | PATH 无 omp | `omp.missing.title/body`（含大小）+ `omp.addPath` 勾选 | `omp.install` / `omp.recheck` |
 | F 下载中 | — | 进度条（高 4，`--accent`，`--radius-pill`）+ `omp.progress`；阶段 `omp.downloading` → `omp.verifying`；失败红字 + 重试；校验失败 `omp.verifyFailed` | `取消` |
 | G 连接模型 | omp 就绪但无可用模型 | §4.20 引导态 | 登录 |
-| H 无项目 | 无项目 | §4.7 无项目的草稿页（可直接发送） | 发送 / 打开文件夹 |
+| H 默认文件夹 | 默认文件夹 | §4.7 新任务草稿页（可直接发送，在 chats 目录） | 发送 / 换项目 |
 | error | 检测/启动失败 | `omp.error.title` + 一行人话原因 + `omp.error.details` 折叠（等宽，可复制，≤20 行：路径、退出码、stderr 尾部） | `omp.retry` / `打开设置` |
 
 全程右上角小字 `设置` 可随时跳走，不强制走完。下载是用户点击授权；`omp-studio` 管理 omp 的细节见 `docs/architecture/omp-install.md`。
@@ -737,8 +737,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 ### 5.5 新任务与项目
 
-1. `Ctrl N` / `新任务` → **草稿任务**：主区显示 §4.7，主区头标题 `task.untitled`，侧栏顶部出现临时行；**此时不启动 omp 进程**。项目默认=当前任务的项目，否则最近使用，否则引导 H。
-2. 草稿期间可换项目（大标题菜单、拖入文件夹）、可改模型/思考/审批；发送后项目不可换。
+1. `Ctrl N` / `新任务` → **草稿任务**：主区显示 §4.7，主区头标题 `task.untitled`，侧栏顶部出现临时行；**此时不启动 omp 进程**。项目一律是默认文件夹（2026-10-20 起，不再沿用当前或最近的项目）。
+2. 草稿期间可换项目（侧栏项目分组头 `＋`、`打开文件夹`、拖入文件夹）、可改模型/思考/审批；发送后项目不可换。
 3. **发送第一条消息 = 创建任务**：主进程启动 `omp --mode rpc-ui`（不传 `--approval-mode`，§5.8；✔ `--mode rpc-ui`，AGENTS），协商 v2，`set_ask_dialog`，再 `prompt`。用户消息乐观上屏，过程行显示 `process.starting`（握手约 0.65s，`omp-rpc.md`）；失败走 §4.24。
 4. 离开草稿时输入为空则丢弃，不留空任务；同一文件夹可并行多个任务（各一个进程）。
 5. 项目分组头 `＋` 与 `Ctrl Shift N` 直接在该项目下新建。
@@ -882,10 +882,9 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 | key | 中文 | English |
 |---|---|---|
-| `empty.noProject` | 无项目 | No project |
-| `empty.noProjectHint` | 不在任何项目里：任务在一个单独的空文件夹里开始 | Not in a project: the task starts in a separate empty folder |
+| `empty.defaultFolder` | 默认文件夹 | Default folder |
+| `sidebar.openFolder` | 打开文件夹 | Open folder |
 | `empty.fromTerminal` | 来自终端 | From the terminal |
-| `empty.openFolder` | 打开文件夹… | Open folder… |
 
 ### A.4 输入框、模型与审批模式
 

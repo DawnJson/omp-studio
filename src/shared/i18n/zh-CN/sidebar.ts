@@ -13,7 +13,7 @@ export const sidebar = {
   newInProject: "在此项目新建任务",
   label: "任务列表",
   projectMenu: "项目菜单",
-  addProject: "添加项目",
+  openFolder: "打开文件夹",
   showMore: "显示更多（{n}）",
   toggleProject: "展开或收起 {project}",
   waitingHere: "有任务在等你",

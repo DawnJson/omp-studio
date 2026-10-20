@@ -54,8 +54,8 @@ function cachedDefaults(projectId: ProjectId | null): ModelDefaults | null {
   return startupSnapshot().modelDefaults?.[projectId ?? "global"] ?? null;
 }
 
-/** footer：输入框下方左对齐的一行（空状态放项目选择和工作树开关）。 */
-export function DraftComposer({ projectId, footer }: { projectId: ProjectId | null; footer?: ReactNode }) {
+/** projectTools：工具行里紧跟审批胶囊的部分（空状态放项目按钮和工作树开关）。 */
+export function DraftComposer({ projectId, projectTools }: { projectId: ProjectId | null; projectTools?: ReactNode }) {
   const t = useT();
   const terminalDraftKey = draftKey(projectId);
   // 草稿存储的键和草稿终端的键是同一个字符串。
@@ -298,6 +298,7 @@ export function DraftComposer({ projectId, footer }: { projectId: ProjectId | nu
             setThinking={(level) => saveOmpDefaultThinking(level).finally(reread)}
           />
           <ApprovalChip />
+          {projectTools}
           <span className="composer-spacer" />
           <DraftContextMeter model={model ?? null} projectId={projectId} />
           <SessionCost usage={null} provider={model?.key.provider ?? null} />
@@ -311,7 +312,6 @@ export function DraftComposer({ projectId, footer }: { projectId: ProjectId | nu
           />
         </div>
       </div>
-      {footer !== undefined && <div className="composer-below">{footer}</div>}
     </div>
   );
 }
