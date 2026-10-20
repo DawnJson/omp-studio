@@ -107,9 +107,10 @@
   background: transparent;
   cursor: pointer;
 }
-button.usage-context:hover .usage-ring-track,
-.usage-context[aria-expanded="true"] .usage-ring-track {
-  stroke: var(--text-3);
+/* 悬停 / 打开时只给底色（同其它工具按钮），圆环本身的颜色不变。 */
+button.usage-context:hover,
+.usage-context[aria-expanded="true"] {
+  background: var(--bg-hover);
 }
 /* 还没有数据时的占位圆环：同位置同大小，不能点。 */
 .usage-context[data-pending] {
@@ -326,8 +327,7 @@ button.usage-item:hover {
 }
 /* 仪表行里的浮层：不继承行的等宽小字，数字列自己用等宽 */
 .usage .pop,
-.usage-context-anchor .pop,
-.session-cost-anchor .pop {
+.usage-context-anchor .pop {
   color: var(--text);
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
@@ -483,9 +483,25 @@ button.usage-item:hover {
   margin: 0;
 }
 
-/* 费用浮层：顶上"订阅额度 / 每日用量"切换框，下面是选中的那页；账号块和热力图见 settings/usage.css */
-.qm {
+/* 费用点开的用量对话框（居中，同模型选择框的外观）：顶上"订阅额度 / 每日用量"切换框，下面是选中的那页；高度随内容。
+   账号块和热力图的组件、样式见 settings/usage.css，这里只把额度收紧：账号名和邮箱一行，每个窗口一行（名称 | 条 | 剩余 | 重置），行距小。 */
+.usage-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, calc(100vw - var(--space-8)));
+  max-height: min(80vh, 720px);
+  background: var(--bg-overlay);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+  animation: pop-in var(--dur-slow) var(--ease-spring);
+}
+.usage-dialog .qm {
   gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  overflow-y: auto;
 }
 .qm-tabs {
   align-self: flex-start;
@@ -497,6 +513,26 @@ button.usage-item:hover {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+.usage-dialog .uq-block-grid {
+  gap: var(--space-1-5);
+  padding: var(--space-2) 0;
+}
+.usage-dialog .uq-block:last-child {
+  border-bottom: 0;
+}
+.usage-dialog .uq-block-head {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.usage-dialog .uq-limits {
+  gap: var(--space-1);
+}
+.usage-dialog .uq-limit {
+  grid-template-columns: minmax(0, 12rem) minmax(4rem, 1fr) 5.5rem minmax(0, 9rem);
+  grid-template-areas: "name bar left reset";
+  gap: var(--space-3);
 }
 
 .send {

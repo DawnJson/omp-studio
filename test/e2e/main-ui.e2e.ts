@@ -192,9 +192,10 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
     await expect(page.getByTestId("model-breakdown")).toBeVisible();
     await shoot(page, "model-usage");
     await page.keyboard.press("Escape");
-    // 点费用：浮层顶上是"订阅额度 / 每日用量"切换框，默认订阅额度，←/→ 切页；没有"去设置看全年"；Esc 关闭后焦点回到费用。
+    // 点费用：居中的对话框（不是贴着按钮的浮层），顶上是"订阅额度 / 每日用量"切换框，默认订阅额度，←/→ 切页；
+    // 没有"去设置看全年"；Esc 关闭后焦点回到费用。
     await cost.click();
-    const overview = page.getByTestId("usage-popover");
+    const overview = page.getByRole("dialog", { name: /用量与额度|Usage and quota/ });
     await expect(overview).toBeVisible();
     await expect(overview.getByTestId("usage-tab-quota")).toHaveAttribute("aria-selected", "true");
     await expect(overview.getByTestId("quota-section")).toBeVisible();
@@ -204,11 +205,15 @@ test("空状态的最近任务、对话里的用量行、模型选择对话框�
     await expect(overview.getByTestId("usage-tab-daily")).toBeFocused();
     await expect(overview.getByTestId("heatmap-section")).toBeVisible();
     await expect(overview.getByTestId("quota-section")).toHaveCount(0);
-    // 每日用量只按花费看：没有 token / 花费 / 请求数切换。浮层是宽的那种（520）。
+    // 每日用量只按花费看：没有 token / 花费 / 请求数切换。对话框在窗口正中。
     await expect(overview.getByTestId("usage-metric")).toHaveCount(0);
-    expect(
-      (await page.locator(".pop:has([data-testid=usage-popover])").boundingBox())?.width ?? 0,
-    ).toBeGreaterThanOrEqual(500);
+    const dialogBox = await overview.boundingBox();
+    const viewport = (await page.evaluate("({ width: innerWidth, height: innerHeight })")) as {
+      width: number;
+      height: number;
+    };
+    expect(Math.abs((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) / 2 - viewport.width / 2)).toBeLessThanOrEqual(2);
+    expect(Math.abs((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0) / 2 - viewport.height / 2)).toBeLessThanOrEqual(2);
     await expect(overview.getByRole("button", { name: /设置|Settings/ })).toHaveCount(0);
     await shoot(page, "quota");
     await page.keyboard.press("Escape");

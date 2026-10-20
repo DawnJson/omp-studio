@@ -1,12 +1,11 @@
 // 工具行里发送键左边的本会话费用（omp 状态栏的 cost 段）：get_session_stats 的 cost，按模型目录价格估算，
 // 订阅登录的模型也照样累计（等价 API 价格），并像 omp 一样在后面标 "(sub)"。一直显示：新任务草稿、还没有统计时是 $0.00；
-// 悬停给 token 明细，点开是每日用量热力图和订阅额度（UsageOverview）。
+// 悬停给 token 明细，点开是居中的用量对话框（订阅额度 / 每日用量，UsageDialog）。
 import { useState } from "react";
 import type { TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Popover } from "./Popover.tsx";
 import { formatCount, formatMoney } from "./usage-format.ts";
-import { UsageOverview } from "./UsageOverview.tsx";
+import { UsageDialog } from "./UsageDialog.tsx";
 import { useSubscription } from "./use-subscription.ts";
 
 export function SessionCost({ usage, provider }: { usage: TaskState["sessionUsage"]; provider: string | null }) {
@@ -27,7 +26,7 @@ export function SessionCost({ usage, provider }: { usage: TaskState["sessionUsag
         ]),
   ].join("\n");
   return (
-    <div className="pop-anchor session-cost-anchor">
+    <div className="session-cost-anchor">
       <button
         type="button"
         className="session-cost"
@@ -45,9 +44,7 @@ export function SessionCost({ usage, provider }: { usage: TaskState["sessionUsag
           </span>
         )}
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} width={520} align="end" label={t("composer.usage.overview")}>
-        <UsageOverview provider={provider} />
-      </Popover>
+      <UsageDialog provider={provider} open={open} onClose={() => setOpen(false)} />
     </div>
   );
 }

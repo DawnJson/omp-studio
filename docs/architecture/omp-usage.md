@@ -1,6 +1,6 @@
 # 用量：订阅账号额度和每日消耗热力图（设置 → 用量）
 
-只读。实现：`src/main/usage/usage-service.ts`、`src/main/ipc/usage-handlers.ts`（`getUsageQuota`、`getUsageHeatmap`）、渲染端 `features/settings/UsageSection.tsx` + `usage-views.tsx` + `usage-store.ts`（模块里缓存上次结果，进入先显示再后台刷新；点输入框工具行的费用弹出的每日用量 / 额度浮层 `composer/UsageOverview.tsx` 复用同一批视图）。汇总（过去一年 / 最近 30 天 / 最忙的一天 / 活跃天数 / 最长连续 / 最紧的额度 / 未使用账号）是纯函数，在 `src/shared/ui/usage-summary.ts`，不需要新的 IPC：全部从 `QuotaSnapshot` 和 `UsageHeatmap` 推出来。界面描述见 `docs/design/spec.md` 设置页"用量"一行。测试：`test/usage-service.test.ts`、`test/usage-summary.test.ts`、`test/e2e/settings-functional.e2e.ts`。实测 omp 18.12.1，2026-10-18。
+只读。实现：`src/main/usage/usage-service.ts`、`src/main/ipc/usage-handlers.ts`（`getUsageQuota`、`getUsageHeatmap`）、渲染端 `features/settings/UsageSection.tsx` + `usage-views.tsx` + `usage-store.ts`（模块里缓存上次结果，进入先显示再后台刷新；点输入框工具行的费用弹出的居中对话框 `composer/UsageDialog.tsx`（订阅额度 / 每日用量）复用同一批视图）。汇总（过去一年 / 最近 30 天 / 最忙的一天 / 活跃天数 / 最长连续 / 最紧的额度 / 未使用账号）是纯函数，在 `src/shared/ui/usage-summary.ts`，不需要新的 IPC：全部从 `QuotaSnapshot` 和 `UsageHeatmap` 推出来。界面描述见 `docs/design/spec.md` 设置页"用量"一行。测试：`test/usage-service.test.ts`、`test/usage-summary.test.ts`、`test/e2e/settings-functional.e2e.ts`。实测 omp 18.12.1，2026-10-18。
 
 ## 数据来源（查过 omp 文档和源码）
 

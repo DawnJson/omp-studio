@@ -1,11 +1,11 @@
 // 输入框工具行里的用量仪表（输入框下方不再有单独一行），等宽小字：
 // 模型、审批胶囊右边是本会话 token 和速度（UsageMeter）；发送键左边依次是上下文圆环（ContextMeter）和费用（SessionCost）。
 // 点圆环弹出上下文构成（任务里还有"压缩上下文"）；点本会话 token 弹出按模型的明细。
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { ModelOption, ProjectId, TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { compactContext } from "./actions.ts";
-import { ContextBreakdown, type ContextBreakdownProps } from "./ContextBreakdown.tsx";
+import { ContextBreakdown, prefetchCompaction, type ContextBreakdownProps } from "./ContextBreakdown.tsx";
 import { ModelBreakdown } from "./ModelBreakdown.tsx";
 import { Popover } from "./Popover.tsx";
 import { formatTokensPerSecond } from "./speed-limit-format.ts";
@@ -43,7 +43,8 @@ function Ring({ percent }: { percent: number }) {
 function ContextButton({ footer, ...props }: ContextBreakdownProps & { footer?: (close: () => void) => ReactNode }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const { context } = props;
+  const { context, projectId } = props;
+  useEffect(() => prefetchCompaction(projectId), [projectId]);
   const close = () => setOpen(false);
   const label = t("composer.context", { p: formatPercent(context.percent) });
   return (

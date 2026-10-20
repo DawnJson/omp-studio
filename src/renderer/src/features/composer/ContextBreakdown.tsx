@@ -9,15 +9,42 @@ import { useT } from "../../i18n/use-t.ts";
 import { contextRows, type ContextRow } from "./context-rows.ts";
 import { formatCount, formatPercent } from "./usage-format.ts";
 
-/** 压缩设置（和模型无关，按项目读）只在打开时读一次（`omp config list`，约 0.2 秒）；读不到就不画预留段。 */
+/** 压缩设置（和模型无关，按项目读，`omp config list` 要零点几秒到一秒）：按项目记住，圆环一出现就预读，打开构成时直接有，再在后台重读。读不到就不画预留段。 */
+const compactionCache = new Map<string, CompactionSettings | null>();
+const compactionInflight = new Map<string, Promise<CompactionSettings | null>>();
+
+function loadCompaction(projectId: ProjectId | null): Promise<CompactionSettings | null> {
+  const key = projectId ?? "";
+  const pending = compactionInflight.get(key);
+  if (pending !== undefined) return pending;
+  const job = window.studio
+    .getModelInsights(projectId, [])
+    .then(
+      (insights) => insights.compaction,
+      () => compactionCache.get(key) ?? null,
+    )
+    .then((settings) => {
+      compactionCache.set(key, settings);
+      return settings;
+    })
+    .finally(() => compactionInflight.delete(key));
+  compactionInflight.set(key, job);
+  return job;
+}
+
+/** 圆环挂上时调：还没读过这个项目的压缩设置就先读。 */
+export function prefetchCompaction(projectId: ProjectId | null): void {
+  if (!compactionCache.has(projectId ?? "")) void loadCompaction(projectId);
+}
+
 function useCompaction(projectId: ProjectId | null): CompactionSettings | null {
-  const [settings, setSettings] = useState<CompactionSettings | null>(null);
+  const [settings, setSettings] = useState<CompactionSettings | null>(
+    () => compactionCache.get(projectId ?? "") ?? null,
+  );
   useEffect(() => {
     let current = true;
-    window.studio.getModelInsights(projectId, []).then(
-      (insights) => current && setSettings(insights.compaction),
-      () => current && setSettings(null),
-    );
+    setSettings(compactionCache.get(projectId ?? "") ?? null);
+    void loadCompaction(projectId).then((next) => current && setSettings(next));
     return () => {
       current = false;
     };
