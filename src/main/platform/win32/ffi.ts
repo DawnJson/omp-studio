@@ -35,7 +35,7 @@ export const win32Constants = {
 /** `uintptr` 在 koffi 里返回 number，超出安全整数范围才是 bigint；句柄不会超出，统一成 number。 */
 type Handle = number;
 
-export interface JobExtendedLimitInformation {
+interface JobExtendedLimitInformation {
   BasicLimitInformation: {
     PerProcessUserTimeLimit: bigint | number;
     PerJobUserTimeLimit: bigint | number;

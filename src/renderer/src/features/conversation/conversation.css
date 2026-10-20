@@ -255,11 +255,6 @@
   flex: 0 1 auto;
   max-width: 100%;
 }
-.process-time {
-  flex: none;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-3);
-}
 .process-fail {
   color: var(--st-error);
   white-space: nowrap;

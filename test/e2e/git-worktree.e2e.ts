@@ -1,7 +1,7 @@
 // 阶段 4 worktree 与 git 操作的端到端：真实临时仓库（路径含空格和中文）+ 假 omp 回放。
 // 覆盖：工作树胶囊 → 任务在 worktree 里运行 → 提交对话框 → 合并回基分支 → 推送到本地裸仓库 → 丢弃确认 → 清理无主 worktree；
 // 冲突 / 被拒绝的合并；不是 git 仓库时没有胶囊，空仓库时胶囊禁用。中英 × 深浅截图到 screenshots/。
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -235,7 +235,7 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     ).toContain(branch);
 
     // ── 开 PR：这台机器没有 gh 时是类型化的 gh_unavailable（localized）；有 gh 时不真的去创建
-    const hasGh = await page.evaluate(() => globalThis.studio.getGitTools().then((tools) => tools.gh));
+    const hasGh = spawnSync("gh", ["--version"]).status === 0;
     if (!hasGh) {
       await openGitMenu(page, /^创建 Pull Request/);
       await page.getByTestId("git-pr-title").fill("工作树 PR");

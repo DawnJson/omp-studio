@@ -51,13 +51,13 @@ function resetText(locale: Locale, resetsAt: number, now: number): string {
 }
 
 /** 有的 provider 把窗口写进了名字（"Claude 5 Hour"），有的没有（"Gemini" + "Weekly"）：没写进去才补。 */
-export function limitName(limit: QuotaLimit): string {
+function limitName(limit: QuotaLimit): string {
   const base = limit.label || limit.id;
   return limit.windowLabel && !base.includes(limit.windowLabel) ? `${base} · ${limit.windowLabel}` : base;
 }
 
 /** 一个额度窗口一行：名称 | 进度条（剩余） | 剩余百分比 | 重置时间。窄了名称在上、条在下。 */
-export function QuotaLimitRow({ limit }: { limit: QuotaLimit }) {
+function QuotaLimitRow({ limit }: { limit: QuotaLimit }) {
   const t = useT();
   const locale = useLocale();
   const now = useNow();

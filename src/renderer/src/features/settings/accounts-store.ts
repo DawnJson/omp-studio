@@ -6,7 +6,7 @@ import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/r
 import { createCachedLoader, type CachedLoad } from "../../../../shared/ui/cached-loader.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 
-export interface AccountData {
+interface AccountData {
   providers: LoginProvider[];
   accounts: Record<string, LogoutAccount[]>;
   keyProviders: string[];

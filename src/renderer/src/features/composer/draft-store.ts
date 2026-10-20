@@ -58,7 +58,7 @@ function flushKey(key: string): void {
 }
 
 /** 立刻把还在防抖里的草稿发给主进程：关窗、刷新、切后台时调用，否则最后几个字会丢。 */
-export function flushDrafts(): void {
+function flushDrafts(): void {
   // 先拷一份 key：flushKey 会从 pendingText 里删。
   for (const key of Array.from(pendingText.keys())) flushKey(key);
 }

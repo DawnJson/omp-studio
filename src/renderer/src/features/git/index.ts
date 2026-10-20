@@ -1,5 +1,5 @@
 export { GitTools } from "./GitTools.tsx";
 export { GitDialogHost } from "./GitDialogs.tsx";
 export { WorktreeChip } from "./WorktreeChip.tsx";
-export { cleanupOrphans, ensureSetupApproved } from "./git-actions.ts";
-export { blockWorktree, getWorktreeDraft, setWorktreeOn, useTaskWorktree } from "./git-store.ts";
+export { ensureSetupApproved } from "./git-actions.ts";
+export { blockWorktree, getWorktreeDraft, setWorktreeOn } from "./git-store.ts";

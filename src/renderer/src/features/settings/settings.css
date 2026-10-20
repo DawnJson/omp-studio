@@ -162,23 +162,6 @@
   box-shadow: var(--shadow-1);
 }
 
-.st-select {
-  max-width: 100%;
-  min-width: 0;
-  width: 240px;
-  height: var(--control-h-md);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  color: var(--text);
-  font-size: var(--fs-sm);
-}
-
-.st-select:disabled {
-  color: var(--text-disabled);
-}
-
 .st-input {
   flex: 1;
   min-width: 0;
@@ -322,13 +305,6 @@
 .st-row-title {
   font-size: var(--fs-base);
   line-height: var(--lh-base);
-}
-
-.st-row-desc {
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  text-wrap: pretty;
 }
 
 .st-row-control {
@@ -659,7 +635,6 @@
   --st-control-w: 220px;
 }
 
-.st-select,
 .dd-trigger,
 .st-row-control .st-input,
 .cfg-number,

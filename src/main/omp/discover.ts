@@ -4,7 +4,7 @@ import { access, readFile, realpath } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 
-export interface OmpManager {
+interface OmpManager {
   /** `manager.json` 的 `manager` 字段，如 `tern`。 */
   id: string;
   /** 显示名：`name` 字段，没有时同 `id`。 */

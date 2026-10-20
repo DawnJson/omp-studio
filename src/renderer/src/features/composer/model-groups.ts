@@ -3,7 +3,7 @@
 import { formatCount } from "./usage-format.ts";
 import type { ModelKey, ModelOption } from "../../../../shared/ipc.ts";
 
-export interface ModelGroup {
+interface ModelGroup {
   provider: string;
   models: ModelOption[];
 }
@@ -54,7 +54,7 @@ export type TreeItem =
   | { kind: "model"; id: string; option: ModelOption };
 
 export const modelItemId = (key: ModelKey) => `m:${key.provider}/${key.modelId}`;
-export const groupItemId = (provider: string) => `g:${provider}`;
+const groupItemId = (provider: string) => `g:${provider}`;
 
 /** 界面上从上到下能用方向键走到的项：最近用过的模型、每个组头、展开的组里的模型。 */
 export function treeItems(

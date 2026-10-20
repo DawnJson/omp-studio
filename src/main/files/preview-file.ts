@@ -4,8 +4,8 @@ import path from "node:path";
 import type { PreviewFile } from "../../shared/ipc.ts";
 import { canOpenDirectly, resolveInside, resolveInsideReal } from "../ipc/task-file-path.ts";
 
-export const previewTextMaxBytes = 2 * 1024 * 1024;
-export const previewImageMaxBytes = 20 * 1024 * 1024;
+const previewTextMaxBytes = 2 * 1024 * 1024;
+const previewImageMaxBytes = 20 * 1024 * 1024;
 
 const imageMime: Record<string, string> = {
   ".png": "image/png",

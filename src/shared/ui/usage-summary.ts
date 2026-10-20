@@ -3,7 +3,7 @@ import type { QuotaAccount, QuotaLimit, UsageDay, UsageHeatmap } from "../ipc.ts
 
 const dayMs = 24 * 60 * 60 * 1000;
 /** "最近 30 天"含 to 当天。 */
-export const recentDays = 30;
+const recentDays = 30;
 
 /** YYYY-MM-DD 转成当天 0 点的 UTC 毫秒，只用来数天数（不受夏令时影响）。 */
 function dayIndex(date: string): number {
@@ -12,7 +12,7 @@ function dayIndex(date: string): number {
 }
 
 /** 当天有没有用过（请求、token、花费任一不为 0）。 */
-export function isActiveDay(day: UsageDay): boolean {
+function isActiveDay(day: UsageDay): boolean {
   return day.requests > 0 || day.tokens > 0 || day.costUsd > 0;
 }
 
@@ -35,7 +35,7 @@ export function activityStats(days: readonly UsageDay[]): ActivityStats {
   return { activeDays: active.length, longestStreak: longest };
 }
 
-export interface UsageTotals {
+interface UsageTotals {
   costUsd: number;
   requests: number;
 }

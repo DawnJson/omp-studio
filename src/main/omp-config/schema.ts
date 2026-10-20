@@ -4,7 +4,7 @@
 import { stripAnsi } from "../../shared/ansi.ts";
 import type { OmpConfigItem, OmpConfigSnapshot, OmpConfigType } from "../../shared/ipc.ts";
 
-export interface TextEntry {
+interface TextEntry {
   tab: string;
   /** 括号里是枚举的可选值（`a|b|c`）；是类型名（string/number/…）时为 null。 */
   options: string[] | null;

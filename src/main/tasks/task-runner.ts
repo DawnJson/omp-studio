@@ -99,7 +99,7 @@ export class TooManyTasksError extends Error {
 }
 
 /** 分叉/回溯要求任务空闲：在跑、等确认或有后台任务时拒绝。 */
-export class SessionBusyError extends Error {
+class SessionBusyError extends Error {
   override name = "SessionBusyError";
   constructor() {
     super("the session is busy; wait for the current turn to finish");

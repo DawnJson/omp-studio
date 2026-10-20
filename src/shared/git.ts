@@ -208,9 +208,3 @@ export type GitPullRequestResult =
   | { kind: "gh_unavailable" }
   | { kind: "gh_unauthenticated" }
   | { kind: "failed"; message: string };
-
-export interface GitTools {
-  /** `git --version` 的版本号；没有 git 为 null。 */
-  git: string | null;
-  gh: boolean;
-}

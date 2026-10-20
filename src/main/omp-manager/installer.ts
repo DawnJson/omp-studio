@@ -13,7 +13,7 @@ import { applySingleStreamPatch } from "./hpatch.ts";
 import { log } from "../log/log.ts";
 import { compareVersions } from "./version.ts";
 
-export const KEEP_VERSIONS = 3;
+const KEEP_VERSIONS = 3;
 
 export interface ManagedLayout {
   root: string;
@@ -134,7 +134,7 @@ async function hashFile(file: string): Promise<{ size: number; sha256: string }>
  * 先复制到 bin 里的临时名，再把旧的改成 `.omp.exe.old-<时间戳>`，最后把新的改名到位。
  * 正在跑的 omp 进程继续用旧文件，新进程用新版本。
  */
-export async function activateVersion(layout: ManagedLayout, version: string): Promise<void> {
+async function activateVersion(layout: ManagedLayout, version: string): Promise<void> {
   const staging = path.join(layout.binDir, `.omp.exe.new-${process.pid}`);
   await copyFile(versionExe(layout, version), staging);
   const hadOld = await stat(layout.binExe).then(
@@ -170,7 +170,7 @@ export async function sweepOldBinaries(layout: ManagedLayout): Promise<void> {
 }
 
 /** versions/ 里只留最近 KEEP_VERSIONS 个（按版本号），当前版本一定保留；遗留的 .partial 和补丁一并删掉。 */
-export async function pruneVersions(layout: ManagedLayout, currentVersion: string): Promise<void> {
+async function pruneVersions(layout: ManagedLayout, currentVersion: string): Promise<void> {
   const ext = path.extname(layout.binExe);
   const names = await readdir(layout.versionsDir);
   await Promise.all(

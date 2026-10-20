@@ -15,14 +15,14 @@ export type FetchFn = (
   init?: { headers?: Record<string, string>; signal?: AbortSignal | undefined },
 ) => Promise<Response>;
 
-export interface BuildFile {
+interface BuildFile {
   name: string;
   size: number;
   sha256: string;
 }
 
 /** 一个可下载、可校验的文件：size 和 sha256 都对上才算下载成功。 */
-export interface Download {
+interface Download {
   /** 带签名的直链，10 分钟有效。不写日志，不进错误信息。 */
   url: string;
   size: number;

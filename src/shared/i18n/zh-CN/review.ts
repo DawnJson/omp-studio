@@ -58,5 +58,4 @@ export const review = {
   explainTurn: "第 {n} 轮",
   expand: "展开",
   collapse: "收起",
-  hunkActive: "当前改动块",
 } satisfies Record<string, MessageEntry>;

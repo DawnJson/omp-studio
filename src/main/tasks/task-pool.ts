@@ -31,11 +31,11 @@ import { TaskRunner, TooManyTasksError, type RunnerHost } from "./task-runner.ts
 import type { TaskRecord, TaskRegistry } from "./task-registry.ts";
 
 export const IDLE_RECYCLE_MS = 15 * 60_000;
-export const SNAPSHOT_LRU_SIZE = 10;
+const SNAPSHOT_LRU_SIZE = 10;
 const SHUTDOWN_CLOSE_TIMEOUT_MS = 5_000;
 const SWEEP_INTERVAL_MS = 60_000;
 
-export interface PoolEvents {
+interface PoolEvents {
   state(state: TaskState): void;
   transcript(batch: TranscriptBatch): void;
   notice(notice: TaskNotice): void;

@@ -4,7 +4,7 @@ import { net, protocol } from "electron";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const appScheme = "app";
+const appScheme = "app";
 export const appOrigin = `${appScheme}://studio`;
 
 const rendererRoot = path.join(import.meta.dirname, "..", "renderer");

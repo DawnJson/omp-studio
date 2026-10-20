@@ -66,7 +66,7 @@ export class RpcCommandError extends Error {
 }
 
 /** 出站帧超过 `ready` 声明的 maxFrameBytes：omp 会丢弃它，调用方却在等应答，所以在本地拒绝。 */
-export class FrameTooLargeError extends Error {
+class FrameTooLargeError extends Error {
   override name = "FrameTooLargeError";
   readonly limit: number;
 

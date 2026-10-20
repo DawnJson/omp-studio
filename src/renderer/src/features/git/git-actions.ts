@@ -35,7 +35,7 @@ export function announceCommit(t: TFunction, result: GitCommitResult): boolean {
 }
 
 /** 推送结果 → 提示；true = 已推送。quiet 时成功不弹（开 PR 流程里随后还有自己的提示）。 */
-export function announcePush(t: TFunction, result: GitPushResult, quiet = false): boolean {
+function announcePush(t: TFunction, result: GitPushResult, quiet = false): boolean {
   switch (result.kind) {
     case "pushed":
       if (!quiet) pushToast({ message: t("git.push.done", { remote: result.remote, branch: result.branch }) });
@@ -56,7 +56,7 @@ export function announcePush(t: TFunction, result: GitPushResult, quiet = false)
 }
 
 /** PR 结果 → 提示；true = 已创建。 */
-export function announcePullRequest(t: TFunction, result: GitPullRequestResult): boolean {
+function announcePullRequest(t: TFunction, result: GitPullRequestResult): boolean {
   switch (result.kind) {
     case "created":
       pushToast({
@@ -105,7 +105,7 @@ export async function pushAndCreatePullRequest(
   }
 }
 
-export function announceMerge(t: TFunction, result: GitMergeResult, base: string): void {
+function announceMerge(t: TFunction, result: GitMergeResult, base: string): void {
   switch (result.kind) {
     case "merged":
       pushToast({ message: t("git.merge.done", { base }) });

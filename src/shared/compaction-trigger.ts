@@ -22,7 +22,7 @@ export interface CompactionTrigger {
   source: "global" | "project" | "model";
 }
 
-export function reserveTokens(window: number, configured: number | null): number {
+function reserveTokens(window: number, configured: number | null): number {
   const proportional = Math.floor(window * 0.15);
   const reserve = Math.max(proportional, configured ?? defaultReserve);
   return reserve >= window ? proportional : reserve;

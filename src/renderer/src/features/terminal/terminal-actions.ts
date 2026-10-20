@@ -52,11 +52,11 @@ const hostSelector = "[data-terminal-host]";
 const composerSelector = "[data-composer-input]";
 
 /** 焦点是否在终端里（xterm 的隐藏输入框在 host 内）。 */
-export function terminalHasFocus(): boolean {
+function terminalHasFocus(): boolean {
   return document.activeElement?.closest(hostSelector) != null;
 }
 
-export function focusTerminal(): void {
+function focusTerminal(): void {
   document.querySelector<HTMLTextAreaElement>(`${hostSelector} textarea`)?.focus({ preventScroll: true });
 }
 

@@ -8,4 +8,4 @@ export {
   withDraftHandover,
 } from "./terminal-actions.ts";
 export { useTerminalOpen } from "./terminal-store.ts";
-export { useDraftTerminalKey, useTerminalKey } from "./use-terminal-key.ts";
+export { useDraftTerminalKey } from "./use-terminal-key.ts";

@@ -7,7 +7,7 @@ import { createStore, useStoreValue } from "../../store/create-store.ts";
 import { clearSelection } from "../../store/index.ts";
 import { pushToast } from "../dialogs/index.ts";
 
-export const archiveUndoMs = 8000;
+const archiveUndoMs = 8000;
 
 const hiddenStore = createStore<ReadonlySet<TaskId>>(new Set());
 const timers = new Map<TaskId, number>();

@@ -59,7 +59,7 @@ export type Extra =
       truncated: boolean;
     };
 
-export interface Answer {
+interface Answer {
   key: string;
   text: string;
   streaming: boolean;

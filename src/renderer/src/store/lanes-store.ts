@@ -9,7 +9,7 @@ const lanesStore = createStore<Readonly<Record<string, readonly SubagentLane[]>>
 const noLanes: readonly SubagentLane[] = [];
 
 /** 新快照里 rev 没变的泳道沿用旧对象；整份都没变时返回旧数组。 */
-export function mergeLanes(
+function mergeLanes(
   previous: readonly SubagentLane[] | undefined,
   next: readonly SubagentLane[],
 ): readonly SubagentLane[] {

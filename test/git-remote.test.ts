@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { commit, createPullRequest, getGitTools, push } from "../src/main/git/remote.ts";
+import { commit, createPullRequest, push } from "../src/main/git/remote.ts";
 import { makeRepo, makeScratch, put, sh } from "./git-helpers.ts";
 
 let scratch: string;
@@ -112,18 +112,13 @@ describe("推送", () => {
 });
 
 describe("gh", () => {
-  it("PATH 上没有 gh：createPullRequest 返回 gh_unavailable，getGitTools 报告 gh 不可用", async () => {
+  it("PATH 上没有 gh：createPullRequest 返回 gh_unavailable", async () => {
     const dir = await fresh();
     await mkdir(path.join(scratch, "空目录"), { recursive: true });
     const env = envWithoutGh();
     expect(await createPullRequest(dir, { title: "标题", body: "正文\n第二行" }, "main", env)).toEqual({
       kind: "gh_unavailable",
     });
-    expect((await getGitTools(env)).gh).toBe(false);
-  });
-
-  it("getGitTools 报告 git 版本号", async () => {
-    expect((await getGitTools()).git).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
 

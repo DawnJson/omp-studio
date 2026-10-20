@@ -3,7 +3,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-export type TakeoverAnswer = "accepted" | "declined";
+type TakeoverAnswer = "accepted" | "declined";
 
 export interface OmpStudioState {
   takeover: Record<string, TakeoverAnswer>;

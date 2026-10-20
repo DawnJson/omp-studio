@@ -27,7 +27,7 @@ export function projectLabels(projects: readonly Project[]): Map<ProjectId, stri
 }
 
 /** 按"最近活动"（lastActivityAt，与行尾显示的时间同一个字段）从新到旧。 */
-export function byRecent(a: TaskState, b: TaskState): number {
+function byRecent(a: TaskState, b: TaskState): number {
   return lastActivityAt(b) - lastActivityAt(a) || b.createdAt - a.createdAt;
 }
 

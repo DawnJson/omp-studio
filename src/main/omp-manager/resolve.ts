@@ -27,7 +27,7 @@ export type Decision =
   | { action: "unusable"; path: string };
 
 /** 自管的 exe 是否由 omp-studio 声明管理（manager.json 里是 omp-studio）。 */
-export function isStudioManager(install: OmpInstall): boolean {
+function isStudioManager(install: OmpInstall): boolean {
   return install.manager?.id === "omp-studio";
 }
 

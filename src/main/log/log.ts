@@ -134,10 +134,6 @@ export function setLogger(logger: Logger | null): void {
   current = logger;
 }
 
-export function currentLogger(): Logger | null {
-  return current;
-}
-
 function write(level: LogLevel, message: string, details: unknown[]): void {
   if (current) current.write(level, message, details);
   else console[level](message, ...details);

@@ -5,7 +5,7 @@ import type { SubagentLane } from "../subagents.ts";
 import type { ToolRun, Transcript } from "../transcript.ts";
 import { isRecord } from "../type-guards.ts";
 
-export type JobStatus = "running" | "completed" | "failed" | "cancelled";
+type JobStatus = "running" | "completed" | "failed" | "cancelled";
 
 export interface Job {
   id: string;

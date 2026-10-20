@@ -25,7 +25,7 @@ import type { Readable } from "node:stream";
 import { constants as zlibConstants, createZstdDecompress } from "node:zlib";
 
 /** 补丁格式（魔数 / 压缩类型）不被本实现支持；调用方应退回全量下载。 */
-export class HPatchFormatError extends Error {
+class HPatchFormatError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "HPatchFormatError";

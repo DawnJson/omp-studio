@@ -4,7 +4,7 @@ import { describeError, errorDetail } from "../../../shared/ui/errors.ts";
 import { currentLocale } from "../store/settings-store.ts";
 import { pushToast } from "../features/dialogs/toast-store.ts";
 
-export { describeError, errorDetail };
+export { describeError };
 
 /**
  * 弹出错误 toast：正文是 describeError，原文放悬停提示。context 是前缀（如"发送失败"），

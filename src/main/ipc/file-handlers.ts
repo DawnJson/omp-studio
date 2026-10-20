@@ -9,7 +9,7 @@ import { parseOneOf, parseProjectId, parseRecord, parseString, parseTaskId } fro
 
 const index = new ProjectFileIndex();
 
-export function parseFilesTarget(value: unknown): ProjectFilesTarget {
+function parseFilesTarget(value: unknown): ProjectFilesTarget {
   const record = parseRecord(value, "target");
   return parseOneOf(record["kind"], "target.kind", ["task", "project"]) === "task"
     ? { kind: "task", taskId: parseTaskId(record["taskId"]) }

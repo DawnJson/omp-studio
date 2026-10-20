@@ -3,7 +3,7 @@
 // 记录就是 omp 的 BtwHistoryRecord（一个话题 = 第一问 + 追问），列表按创建时间从新到旧，和 get_btw_history 一致。
 import type { BtwHistoryRecord, BtwHistoryTurn } from "./omp-wire/rpc-wire.generated.ts";
 
-export type { BtwHistoryRecord, BtwHistoryTurn, BtwStatus } from "./omp-wire/rpc-wire.generated.ts";
+export type { BtwHistoryRecord, BtwHistoryTurn } from "./omp-wire/rpc-wire.generated.ts";
 
 export const btwLimits = {
   /** 一次提问的最大字符数（渲染进程传来的，主进程校验）。 */

@@ -24,10 +24,6 @@ export function configText(locale: Locale, item: OmpConfigItem): ConfigText {
   return { label: null, description: item.description, original: true };
 }
 
-export function isCommon(key: string): boolean {
-  return entry("zh-CN", `${key}.label`) !== undefined;
-}
-
 /** 常用项的顺序就是 zh-CN 字典里的顺序（按模型角色、审批/工具、压缩、记忆、子代理、retry 排）。 */
 const commonOrder: ReadonlyMap<string, number> = new Map(
   Object.keys(dictionaries["zh-CN"]["ompcfg"] ?? {})

@@ -2,7 +2,7 @@
 // - 任务的 worktree 信息（侧栏任务行和主区 git 条共用）；
 // - 草稿输入框的"工作树"胶囊：按项目记开关，以及创建被拒绝后的原因（本次运行内有效）。
 import { useEffect } from "react";
-import type { GitTools, TaskWorktreeInfo } from "../../../../shared/git.ts";
+import type { TaskWorktreeInfo } from "../../../../shared/git.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import type { ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
@@ -41,25 +41,6 @@ export function useTaskWorktree(taskId: TaskId, updatedAt: number): TaskWorktree
 /** 一次 git 操作之后调用：git 条重读状态，worktree 信息重读。 */
 export function refreshGit(taskId: TaskId): void {
   versions.set({ ...versions.get(), [taskId]: (versions.get()[taskId] ?? 0) + 1 });
-}
-
-// ───── gh / git 是否可用 ─────
-
-const tools = createStore<GitTools | null>(null);
-let toolsRequested = false;
-
-export function useGitTools(): GitTools | null {
-  useEffect(() => {
-    if (toolsRequested) return;
-    toolsRequested = true;
-    window.studio.getGitTools().then(
-      (value) => tools.set(value),
-      () => {
-        toolsRequested = false;
-      },
-    );
-  }, []);
-  return useStoreValue(tools, (state) => state);
 }
 
 // ───── 草稿的工作树胶囊 ─────

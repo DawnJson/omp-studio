@@ -9,7 +9,7 @@ import { git, gitRaw, gitText, runCommand } from "./exec.ts";
 import { currentBranch, findRepo, hasCommits, headCommit } from "./repo.ts";
 import { statusAt } from "./status.ts";
 
-export const BRANCH_PREFIX = "studio/";
+const BRANCH_PREFIX = "studio/";
 const SETUP_TIMEOUT_MS = 10 * 60_000;
 const SETUP_OUTPUT_TAIL = 2000;
 

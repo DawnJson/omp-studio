@@ -4,7 +4,7 @@
 import { relativeToProject, summarizeChanges } from "../conversation/tool-info.ts";
 import type { Turn } from "../conversation/model.ts";
 
-export interface EditNote {
+interface EditNote {
   toolCallId: string;
   tool: string;
   /** 工具调用的 intent；没有时为 null（界面显示工具名）。 */

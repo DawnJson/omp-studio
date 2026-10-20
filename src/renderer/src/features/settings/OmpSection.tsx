@@ -14,7 +14,7 @@ import "./omp-update.css";
 
 type Ready = Extract<OmpStatus, { state: "ready" }>;
 
-export function sourceLabel(source: OmpSource, t: TFunction): string {
+function sourceLabel(source: OmpSource, t: TFunction): string {
   switch (source.kind) {
     case "managed_by_other":
       return t("omp.source.other", { name: source.managerName });

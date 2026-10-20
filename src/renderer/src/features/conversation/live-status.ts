@@ -78,7 +78,7 @@ export function liveStatusText(
 }
 
 /** `等待 2/3 个后台任务 · 1 个完成`；还没有完成的就只说在等几个。 */
-export function waitingJobsText(jobs: JobCounts, t: TFunction): string {
+function waitingJobsText(jobs: JobCounts, t: TFunction): string {
   return jobs.done === 0
     ? t("process.waitingJobsNone", { count: jobs.running })
     : t("process.waitingJobs", { running: jobs.running, total: jobs.total, done: jobs.done });

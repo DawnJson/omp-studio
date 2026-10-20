@@ -42,7 +42,7 @@ const openableLink = /^https?:/i;
 const dataImage = /^data:image\/(gif|png|jpe?g|webp);/i;
 
 /** 只有这些协议的链接才交给系统去打开；markdown-it 的 validateLink 已经挡掉了 javascript:/vbscript:/file:/data:。 */
-export function isOpenableHref(href: string): boolean {
+function isOpenableHref(href: string): boolean {
   return openableLink.test(href);
 }
 

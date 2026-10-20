@@ -9,7 +9,7 @@ function asRecord(value: unknown): Rec | null {
 }
 
 /** 统一换行（CRLF → LF）并去掉末尾一个换行；空文本得到空数组。 */
-export function splitLines(text: string): string[] {
+function splitLines(text: string): string[] {
   const normalized = text.replace(/\r\n?/g, "\n").replace(/\n$/, "");
   return normalized === "" ? [] : normalized.split("\n");
 }
@@ -156,7 +156,7 @@ export function diffStats(rows: readonly DiffRow[]): { added: number; removed: n
 
 // —— grep ——
 
-export interface GrepRow {
+interface GrepRow {
   no: number;
   text: string;
   match: boolean;
@@ -298,7 +298,7 @@ export function defaultOpen(body: ToolBody): boolean {
 }
 
 /** 去掉路径末尾的 :起-止 行选择器。 */
-export function stripSelector(path: string): string {
+function stripSelector(path: string): string {
   return path.replace(/:\d+(?:[-+]\d*)?(?:,\d+(?:[-+]\d*)?)*$/, "");
 }
 

@@ -9,7 +9,7 @@ import { zhCN } from "./zh-CN/index.ts";
 export type MessageEntry = string | ({ other: string } & Partial<Record<Intl.LDMLPluralRule, string>>);
 
 type Dictionary = typeof zhCN;
-export type Namespace = keyof Dictionary;
+type Namespace = keyof Dictionary;
 
 /** `命名空间.key`，如 "shell.appName"。 */
 export type MessageKey = { [N in Namespace]: `${N}.${Extract<keyof Dictionary[N], string>}` }[Namespace];
@@ -21,8 +21,6 @@ export const dictionaries: Record<Locale, Record<string, Record<string, MessageE
   "zh-CN": zhCN,
   en,
 };
-
-export const locales: readonly Locale[] = ["zh-CN", "en"];
 
 const pluralRules: Partial<Record<Locale, Intl.PluralRules>> = {};
 
@@ -50,27 +48,4 @@ export type TFunction = (key: MessageKey, params?: MessageParams) => string;
 /** 绑定语言的 t，给 hook 和主进程的原生对话框用。 */
 export function createT(locale: Locale): TFunction {
   return (key, params) => t(locale, key, params);
-}
-
-/** 把"现在"到 timestamp 的距离写成 "3 分钟前" / "3 minutes ago"，取最合适的单位。 */
-export function formatRelativeTime(locale: Locale, timestamp: number, now: number = Date.now()): string {
-  const seconds = Math.round((timestamp - now) / 1000);
-  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  const units: [Intl.RelativeTimeFormatUnit, number][] = [
-    ["day", 86_400],
-    ["hour", 3_600],
-    ["minute", 60],
-  ];
-  for (const [unit, size] of units) {
-    if (Math.abs(seconds) >= size) return formatter.format(Math.round(seconds / size), unit);
-  }
-  return formatter.format(seconds, "second");
-}
-
-export function formatDateTime(locale: Locale, timestamp: number): string {
-  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(timestamp);
-}
-
-export function formatNumber(locale: Locale, value: number): string {
-  return new Intl.NumberFormat(locale).format(value);
 }

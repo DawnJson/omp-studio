@@ -46,7 +46,7 @@ export function resolveAgentDir(env: NodeJS.ProcessEnv = process.env, home: stri
   return path.join(home, configDirName !== undefined && configDirName !== "" ? configDirName : ".omp", "agent");
 }
 
-export function resolveSessionsDir(env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): string {
+function resolveSessionsDir(env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): string {
   return path.join(resolveAgentDir(env, home), "sessions");
 }
 

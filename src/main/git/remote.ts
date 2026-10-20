@@ -1,30 +1,11 @@
 // 提交、推送、开 PR。永远不强推；提交信息和 PR 正文走 stdin。
-import type {
-  GitCommitResult,
-  GitPullRequestInput,
-  GitPullRequestResult,
-  GitPushResult,
-  GitTools,
-} from "../../shared/git.ts";
+import type { GitCommitResult, GitPullRequestInput, GitPullRequestResult, GitPushResult } from "../../shared/git.ts";
 import { log } from "../log/log.ts";
 import { CommandNotFoundError, failureMessage, git, gitRaw, runCommand, type RunOptions } from "./exec.ts";
 import { currentBranch, headCommit, pushRemote, requireRepoRoot } from "./repo.ts";
 import { statusAt } from "./status.ts";
 
 const PUSH_TIMEOUT_MS = 5 * 60_000;
-
-export async function getGitTools(env?: NodeJS.ProcessEnv): Promise<GitTools> {
-  const probe = (command: string): Promise<string | null> =>
-    runCommand(command, ["--version"], { cwd: process.cwd(), timeoutMs: 10_000, ...(env && { env }) }).then(
-      (result) => (result.code === 0 ? result.stdout.toString("utf8") : null),
-      (error: unknown) => {
-        if (error instanceof CommandNotFoundError) return null;
-        throw error;
-      },
-    );
-  const [gitOut, ghOut] = await Promise.all([probe("git"), probe("gh")]);
-  return { git: gitOut?.match(/(\d+\.\d+\.\d+\S*)/)?.[1] ?? null, gh: ghOut !== null };
-}
 
 /** 提交。stageAll 为 true 时先 `git add -A`；否则只提交已暂存的内容。 */
 export async function commit(cwd: string, message: string, stageAll: boolean): Promise<GitCommitResult> {

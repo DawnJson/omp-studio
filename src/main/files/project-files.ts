@@ -8,7 +8,7 @@ import { gitRaw } from "../git/exec.ts";
 export const MAX_INDEXED_FILES = 10_000;
 /** 一次最多返回给界面的条数。 */
 export const MAX_RESULTS = 20;
-export const MAX_QUERY_CHARS = 256;
+const MAX_QUERY_CHARS = 256;
 const MAX_WALK_DIRS = 5_000;
 const CACHE_TTL_MS = 10_000;
 const MAX_CACHED_DIRS = 8;

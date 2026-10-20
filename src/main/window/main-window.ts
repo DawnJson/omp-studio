@@ -10,8 +10,8 @@ import { restoredBounds, trackWindowState } from "./window-state.ts";
  * dimmed：有遮罩弹窗时，系统三键要和网页里盖了 --bg-scrim 的顶栏同色。三键不是网页画的，遮罩盖不到，
  * 所以这里给出"顶栏色上叠一层 --bg-scrim"混合后的实色（浅色 rgba(17,24,22,.32)，深色 rgba(4,6,5,.56)）。
  */
-export const titleBarHeight = 40;
-export function titleBarColors(dark: boolean, dimmed = false): { color: string; symbolColor: string } {
+const titleBarHeight = 40;
+function titleBarColors(dark: boolean, dimmed = false): { color: string; symbolColor: string } {
   if (dimmed) return dark ? { color: "#070A09", symbolColor: "#676B6A" } : { color: "#A7ABAA", symbolColor: "#111816" };
   return dark ? { color: "#0B0E0D", symbolColor: "#E6ECEA" } : { color: "#EDF0EF", symbolColor: "#111816" };
 }
@@ -40,7 +40,7 @@ export function getMainWindow(): BrowserWindow | null {
 }
 
 /** 应用自己的页面地址：开发（未打包）时可由 ELECTRON_RENDERER_URL 指向 Vite 开发服务器；打包后只有 app://studio/。 */
-export function rendererEntryUrl(): string {
+function rendererEntryUrl(): string {
   const dev = app.isPackaged ? undefined : process.env["ELECTRON_RENDERER_URL"];
   return dev ?? `${appOrigin}/index.html`;
 }

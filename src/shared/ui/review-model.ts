@@ -17,7 +17,7 @@ export interface ReviewGroup {
   entries: ReviewEntry[];
 }
 
-export const REVIEW_AREAS: readonly GitDiffArea[] = ["staged", "unstaged", "untracked"];
+const REVIEW_AREAS: readonly GitDiffArea[] = ["staged", "unstaged", "untracked"];
 
 export function entryKey(area: GitDiffArea, path: string): string {
   return `${area}:${path}`;
@@ -112,10 +112,6 @@ export interface LineSelection {
 export function lineRef(line: GitDiffLine): LineRef | null {
   if (line.kind === "del") return line.oldNo === null ? null : { side: "old", line: line.oldNo };
   return line.newNo === null ? null : { side: "new", line: line.newNo };
-}
-
-export function sameRef(a: LineRef, b: LineRef): boolean {
-  return a.side === b.side && a.line === b.line;
 }
 
 /** 从锚点到目标的选区（两端含，顺序无关）。跨旧/新两侧没有意义，返回 null，由调用方改为从目标重新开始。 */

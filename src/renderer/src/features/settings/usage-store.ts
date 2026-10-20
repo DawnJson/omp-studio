@@ -42,12 +42,6 @@ export function loadQuota(): Promise<void> {
   return quotaJob;
 }
 
-/** 额度在一轮之后会变：上次读到的比 maxAgeMs 旧（或从没读过）才重读。 */
-export function loadQuotaIfStale(maxAgeMs: number): void {
-  const { at } = store.get().quota;
-  if (at === null || Date.now() - at > maxAgeMs) void loadQuota();
-}
-
 export function loadHeatmap(): Promise<void> {
   heatmapJob ??= (async () => {
     patch("heatmap", { busy: true, error: null });

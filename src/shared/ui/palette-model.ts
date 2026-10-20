@@ -20,7 +20,7 @@ export type PaletteRow =
   | { kind: "command"; key: string; title: string; indices: number[]; command: CommandEntry }
   | { kind: "slash"; key: string; title: string; subtitle: string; indices: number[]; text: string; send: boolean };
 
-export type SectionId = "recent" | "tasks" | "sessions" | "commands" | "slash";
+type SectionId = "recent" | "tasks" | "sessions" | "commands" | "slash";
 
 export interface PaletteSection {
   id: SectionId;
@@ -42,7 +42,7 @@ export interface PaletteInput {
   slashCommands: readonly AvailableSlashCommand[];
 }
 
-export const recentLimit = 5;
+const recentLimit = 5;
 const sectionLimit = 8;
 const slashLimit = 30;
 

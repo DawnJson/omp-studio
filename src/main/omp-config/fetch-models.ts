@@ -9,7 +9,7 @@ import {
   type FetchModelsOutcome,
 } from "../../shared/custom-models.ts";
 
-export const FETCH_TIMEOUT_MS = 15_000;
+const FETCH_TIMEOUT_MS = 15_000;
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const MAX_MODELS = 2000;
 

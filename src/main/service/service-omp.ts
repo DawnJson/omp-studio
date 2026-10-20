@@ -9,7 +9,7 @@ import { assignToAppJob } from "../platform/win32/job-object.ts";
 
 const IDLE_CLOSE_MS = 5 * 60 * 1000;
 
-export class ServiceOmp {
+class ServiceOmp {
   /** 启动中或已就绪的连接。 */
   #pending: Promise<OmpConnection> | null = null;
   /** 已 spawn 的连接（退出时据此判断是不是当前这个）。 */

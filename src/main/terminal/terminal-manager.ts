@@ -6,9 +6,9 @@ import { Backlog } from "./backlog.ts";
 import { OutputBatcher } from "./output-batcher.ts";
 import type { ShellChoice } from "./shell.ts";
 
-export const BACKLOG_CHARS = 256 * 1024;
-export const BATCH_INTERVAL_MS = 16;
-export const BATCH_MAX_CHARS = 64 * 1024;
+const BACKLOG_CHARS = 256 * 1024;
+const BATCH_INTERVAL_MS = 16;
+const BATCH_MAX_CHARS = 64 * 1024;
 
 export interface PtyLike {
   readonly pid: number;
@@ -19,7 +19,7 @@ export interface PtyLike {
   kill(): void;
 }
 
-export interface SpawnOptions {
+interface SpawnOptions {
   cwd: string;
   env: Record<string, string>;
   cols: number;

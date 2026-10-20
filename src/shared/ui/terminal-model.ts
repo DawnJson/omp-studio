@@ -1,9 +1,9 @@
 // 终端面板的纯逻辑（可单测，不碰 DOM）：高度夹取、输入分块、cwd 显示、从设计 token 推出 xterm 的配色。
 import { limits } from "../ipc.ts";
 
-export const terminalMinHeight = limits.terminalHeightRange[0];
+const terminalMinHeight = limits.terminalHeightRange[0];
 /** 面板最高占主区的比例（spec：最小 120px，最大 70%）。 */
-export const terminalMaxFraction = 0.7;
+const terminalMaxFraction = 0.7;
 export const defaultTerminalHeight = 280;
 
 /** containerHeight 是主区面板的高度；它太矮时最小值优先（宁可挤占对话区，也不让终端小到不能用）。 */
@@ -63,14 +63,14 @@ export function parseColor(text: string): Rgba | null {
   return { r: Number(fn[1]), g: Number(fn[2]), b: Number(fn[3]), a: alpha };
 }
 
-export function formatColor(color: Rgba): string {
+function formatColor(color: Rgba): string {
   const channel = (value: number) => Math.round(Math.min(255, Math.max(0, value)));
   const rgb = `${channel(color.r)}, ${channel(color.g)}, ${channel(color.b)}`;
   return color.a >= 1 ? `rgb(${rgb})` : `rgba(${rgb}, ${Math.round(color.a * 1000) / 1000})`;
 }
 
 /** 从 from 朝 to 走 amount（0–1）。 */
-export function mixColor(from: Rgba, to: Rgba, amount: number): Rgba {
+function mixColor(from: Rgba, to: Rgba, amount: number): Rgba {
   return {
     r: from.r + (to.r - from.r) * amount,
     g: from.g + (to.g - from.g) * amount,
@@ -113,7 +113,7 @@ export interface TerminalPalette {
 }
 
 /** 配色用到的 token；调用方把它们解析成颜色字符串传进来（见 TerminalPanel 的 readToken）。 */
-export const paletteTokens = [
+const paletteTokens = [
   "--bg-sunken",
   "--text",
   "--text-2",

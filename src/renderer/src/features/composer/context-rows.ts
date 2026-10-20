@@ -2,7 +2,7 @@
 // 各段之和正好是窗口。估算超过 omp 给的实际用量时收到用量以内，消息不会是负数。
 import type { TaskState } from "../../../../shared/ipc.ts";
 
-export type ContextPart = "system" | "tools" | "messages" | "free" | "buffer";
+type ContextPart = "system" | "tools" | "messages" | "free" | "buffer";
 
 export interface ContextRow {
   part: ContextPart;

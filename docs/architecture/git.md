@@ -45,7 +45,7 @@
 
 - `commitGit(taskId, message, stageAll)`：stageAll 时先 `add -A`；没有已暂存内容 → `nothing_to_commit`；有未解决冲突或 git 拒绝（钩子失败、没配 user.name/email）→ `failed` + git 原话。
 - `pushGit`：当前分支；已有 upstream 就照它的 remote，否则只有一个 remote 用它、有 `origin` 用 `origin`，再没有 → `no_remote`（选择规则在 `repo.ts` 的 `pushRemote`，`push` 和状态共用）。首次推送带 `--set-upstream`。显式写 `push <remote> <branch>`，**没有任何 force 参数**。远端领先 → `rejected`；detached → `detached_head`。凭据不弹交互（`GIT_TERMINAL_PROMPT=0`），拿不到凭据时是 `failed`。`getGitStatus` 的 ok 结果带 `canPush`（非 detached 且 `pushRemote` 选得出 remote），界面据此禁用推送项，所以正常情况下点不到 `no_remote` / `detached_head`。
-- `createPullRequest(taskId, {title, body})`：`gh pr create --title … --body-file - --head <当前分支> [--base <worktreeBase>]`。gh 不在 PATH → `gh_unavailable`；未登录 → `gh_unauthenticated`；其他 → `failed`。**不会替用户先 push**，调用方先 `pushGit`。`getGitTools()` 报告 git 版本和 gh 是否可用。
+- `createPullRequest(taskId, {title, body})`：`gh pr create --title … --body-file - --head <当前分支> [--base <worktreeBase>]`。gh 不在 PATH → `gh_unavailable`；未登录 → `gh_unauthenticated`；其他 → `failed`。**不会替用户先 push**，调用方先 `pushGit`。
 
 ## 界面（阶段 4，`src/renderer/src/features/git/`）
 

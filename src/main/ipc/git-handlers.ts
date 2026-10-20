@@ -8,7 +8,7 @@ import {
   type ReviewComment,
 } from "../../shared/git.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
-import { commit, createPullRequest, getGitTools, push } from "../git/remote.ts";
+import { commit, createPullRequest, push } from "../git/remote.ts";
 import { requireRepoRoot } from "../git/repo.ts";
 import {
   checkRepoPath,
@@ -73,7 +73,6 @@ function parseReviewComments(value: unknown): ReviewComment[] {
 const parseArea = (value: unknown): GitDiffArea => parseOneOf(value, "area", ["staged", "unstaged", "untracked"]);
 
 export const gitHandlers: HandlerGroup<
-  | "getGitTools"
   | "getGitStatus"
   | "getGitFileDiff"
   | "stageGitFile"
@@ -94,8 +93,6 @@ export const gitHandlers: HandlerGroup<
   | "pushGit"
   | "createPullRequest"
 > = {
-  getGitTools: () => getGitTools(),
-
   getGitStatus: async (taskId) => {
     const pool = await getTaskPool();
     return getGitStatus(pool.taskGitContext(parseTaskId(taskId)).cwd);

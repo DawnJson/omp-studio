@@ -7,7 +7,7 @@ import { Check, ChevronDown } from "../../icons.tsx";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { usePresence } from "../../ui/presence.ts";
 
-export interface DropdownOption<T extends string> {
+interface DropdownOption<T extends string> {
   value: T;
   label: string;
 }

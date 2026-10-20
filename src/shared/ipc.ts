@@ -30,7 +30,6 @@ import type {
   GitPullRequestResult,
   GitPushResult,
   GitStatus,
-  GitTools,
   ReviewComment,
   TaskWorktreeInfo,
   WorktreeCleanupResult,
@@ -70,7 +69,7 @@ export function parseDraftKey(key: string): { projectId: ProjectId | null } | un
   const rest = key.slice(4);
   return { projectId: rest === "chats" ? null : (rest as ProjectId) };
 }
-export type Unsubscribe = () => void;
+type Unsubscribe = () => void;
 
 /** `@` 补全的数据来源：任务目录，或新任务草稿所在的项目目录。 */
 export type ProjectFilesTarget = { kind: "task"; taskId: TaskId } | { kind: "project"; projectId: ProjectId };
@@ -210,7 +209,7 @@ export interface ModelOption {
 }
 
 /** get_session_stats 里界面用得上的部分：本会话累计的 token、费用、请求数。 */
-export interface SessionUsage {
+interface SessionUsage {
   tokens: TokenUsage;
   /** 美元。 */
   cost: number;
@@ -220,7 +219,7 @@ export interface SessionUsage {
 }
 
 /** 上下文里系统提示词、工具定义各占的 token（估算）。 */
-export interface ContextParts {
+interface ContextParts {
   systemTokens: number;
   toolTokens: number;
   toolCount: number;
@@ -373,7 +372,7 @@ export interface BranchTaskResult {
 
 // ───────── 对话框（extension_ui_request） ─────────
 
-export interface SelectOption {
+interface SelectOption {
   label: string;
   description?: string;
 }
@@ -442,7 +441,7 @@ export interface SessionSummary {
   taskId: TaskId | null;
 }
 
-export interface TaskSessionRef {
+interface TaskSessionRef {
   sessionId: string;
   sessionFile: string;
 }
@@ -915,8 +914,6 @@ export interface StudioInvokeApi {
   installUpdate(): Promise<void>;
 
   // 评审（阶段 3）和 worktree / git（阶段 4）。路径一律相对仓库根；仓库根 = 任务 cwd 所在的 git 仓库（有 worktree 时是 worktree）。
-  /** PATH 上的 git 版本和 gh 是否可用（界面据此隐藏"开 PR"等入口）。 */
-  getGitTools(): Promise<GitTools>;
   /** 任务 cwd 的 git 状态；不是仓库或没有 git 是正常的类型化结果，不 reject。 */
   getGitStatus(taskId: TaskId): Promise<GitStatus>;
   /** 一个文件一侧的 diff（结构化的 hunk 和新旧行号）；二进制和过大文件有对应的 kind。 */
@@ -984,7 +981,7 @@ export interface StudioEventPayloads {
   updateState: UpdateState;
 }
 
-export type StudioEventApi = {
+type StudioEventApi = {
   [K in keyof StudioEventPayloads as `on${Capitalize<K>}`]: (
     listener: (payload: StudioEventPayloads[K]) => void,
   ) => Unsubscribe;
@@ -1139,7 +1136,6 @@ export const invokeNames = {
   getUpdateState: true,
   checkForUpdate: true,
   installUpdate: true,
-  getGitTools: true,
   getGitStatus: true,
   getGitFileDiff: true,
   stageGitFile: true,

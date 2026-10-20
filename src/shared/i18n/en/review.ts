@@ -60,5 +60,4 @@ export const review = {
   explainTurn: "Turn {n}",
   expand: "Expand",
   collapse: "Collapse",
-  hunkActive: "Current change",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

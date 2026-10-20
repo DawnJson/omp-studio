@@ -391,19 +391,6 @@ button {
   white-space: nowrap;
 }
 
-.menu-heading {
-  padding: var(--space-1-5) var(--space-2) var(--space-1);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  color: var(--text-3);
-}
-
-.menu-separator {
-  height: 1px;
-  margin: var(--space-1) var(--space-2);
-  background: var(--border-subtle);
-}
-
 .kbd {
   padding: 0 var(--space-1-5);
   font-family: inherit;

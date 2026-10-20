@@ -11,7 +11,7 @@ import { isRecord } from "../../shared/type-guards.ts";
 import type { QuotaAccount, QuotaLimit, QuotaSnapshot, UsageDay, UsageHeatmap } from "../../shared/ipc.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-export const heatmapDays = 365;
+const heatmapDays = 365;
 
 function list(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
@@ -140,7 +140,7 @@ export function readHeatmap(dbPath: string, now: number = Date.now()): UsageHeat
 export type RunOmp = (args: string[]) => Promise<{ code: number; stdout: string; stderr: string }>;
 
 /** omp 命令以非 0 退出：message 带 stderr 末尾一段，界面经 describeError 显示。 */
-export class OmpCommandError extends Error {
+class OmpCommandError extends Error {
   override name = "OmpCommandError";
 }
 

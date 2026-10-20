@@ -17,7 +17,7 @@ export function matchesProvider(provider: Pick<ListedProvider, "id" | "name">, q
 }
 
 /** 已配置：omp 认为已认证（登录、环境变量、配置里的 key），或 studio 自己存了 key。 */
-export function isConfigured(provider: Pick<ListedProvider, "id" | "authenticated">, storedKeys: readonly string[]) {
+function isConfigured(provider: Pick<ListedProvider, "id" | "authenticated">, storedKeys: readonly string[]) {
   return provider.authenticated || storedKeys.includes(provider.id);
 }
 

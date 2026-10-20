@@ -1067,13 +1067,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
-.pop-list {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-  max-height: 280px;
-}
 .pop-item {
   transition:
     background-color var(--dur-fast) var(--ease-out),
@@ -1114,11 +1107,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
   color: var(--text-3);
-}
-.pop-divider {
-  height: 1px;
-  margin: var(--space-1-5) 0;
-  background: var(--border-subtle);
 }
 .pop-section {
   display: flex;

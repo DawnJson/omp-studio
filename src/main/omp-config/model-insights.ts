@@ -25,7 +25,7 @@ interface PerfRow {
   ttft_ms: number;
 }
 
-export function readModelPerf(agentDir: string, keys: readonly ModelKey[]): Record<string, ModelPerf> {
+function readModelPerf(agentDir: string, keys: readonly ModelKey[]): Record<string, ModelPerf> {
   const db = openReadOnly(path.join(agentDir, "agent.db"));
   if (db === null) return {};
   try {
@@ -52,7 +52,7 @@ export function readModelPerf(agentDir: string, keys: readonly ModelKey[]): Reco
  * models.db 的 provider_id 可能带账号后缀（`github-copilot:models-v2:…`），按 `provider` 或 `provider:` 前缀对上。
  * 只解析请求里出现的 provider 的那几行（整个库有几 MB）。
  */
-export function readCatalogStats(
+function readCatalogStats(
   agentDir: string,
   keys: readonly ModelKey[],
 ): { intelligence: Record<string, number>; tps: Record<string, number> } {

@@ -2,7 +2,7 @@
 // 对应 omp 的 `models.yml` 里的 `providers.<id>`（omp://models.md）。纯逻辑，不引 React、DOM 或 Node。
 
 /** omp 的聊天传输 `api`（omp://models.md "Allowed provider/model api values" 去掉判定类和 runner 类）。 */
-export const knownApis = [
+const knownApis = [
   "openai-completions",
   "openai-responses",
   "anthropic-messages",
@@ -16,8 +16,7 @@ export const knownApis = [
 /** 表单下拉里直接提供的几种；现有条目是别的 api 时界面会把它原样加进选项里。 */
 export const formApis = ["openai-completions", "openai-responses", "anthropic-messages"] as const;
 /** 一键拉取能处理的 api：OpenAI 兼容的 `/models` 和 Anthropic 的 `/v1/models`。 */
-export const fetchableApis = ["openai-completions", "openai-responses", "anthropic-messages"] as const;
-export const defaultApi = "openai-completions";
+const fetchableApis = ["openai-completions", "openai-responses", "anthropic-messages"] as const;
 
 export const limits = {
   providerId: 64,
@@ -94,7 +93,7 @@ export interface FetchModelsRequest {
   providerId?: string;
 }
 
-export type FetchModelsErrorCode =
+type FetchModelsErrorCode =
   | "invalid-url"
   | "invalid-key"
   | "unsupported"

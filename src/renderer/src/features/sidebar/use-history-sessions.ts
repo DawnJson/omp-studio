@@ -6,7 +6,7 @@ import type { SessionSummary } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { reportError } from "../../ui/errors.ts";
 
-export const sessionResultLimit = 20;
+const sessionResultLimit = 20;
 
 export const sessionLabel = (session: SessionSummary): string | null => session.title ?? session.firstPrompt;
 
