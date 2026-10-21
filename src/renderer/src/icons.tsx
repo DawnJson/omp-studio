@@ -64,14 +64,22 @@ export const Shield = (props: IconProps) => (
     <path d="M8 2 3.5 3.8v3.6c0 3 2 5 4.5 6.1 2.5-1.1 4.5-3.1 4.5-6.1V3.8L8 2Z" />
   </Icon>
 );
-/** 每次询问并记住：盾牌里一个勾 */
+/** 询问并记住：盾牌里一个勾 */
 export const ShieldCheck = (props: IconProps) => (
   <Icon {...props}>
     <path d="M8 2 3.5 3.8v3.6c0 3 2 5 4.5 6.1 2.5-1.1 4.5-3.1 4.5-6.1V3.8L8 2Z" />
     <path d="m5.8 8 1.6 1.6L10.300 6.500" />
   </Icon>
 );
-/** 全部自动：闪电 */
+/** 全自动：划掉的盾牌（不再询问）；斜线穿过的两处轮廓断开，14px 下不糊成一团 */
+export const ShieldOff = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M3.5 6v1.4c0 3 2 5 4.5 6.1.55-.24 1.1-.53 1.6-.87" />
+    <path d="M6 2.8 8 2l4.5 1.8v3.6c0 .6-.07 1.15-.2 1.65" />
+    <path d="m2.5 2.5 11 11" />
+  </Icon>
+);
+/** 后台任务：闪电 */
 export const Bolt = (props: IconProps) => (
   <Icon {...props}>
     <path d="M9 2 3.500 9H8l-1 5 5.500-7H8L9 2Z" />

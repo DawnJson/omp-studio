@@ -1,4 +1,4 @@
-// 防：胶囊只看全局配置（项目设了 always-ask 却显示"全部自动"）、项目覆盖时来源判错、
+// 防：胶囊只看全局配置（项目设了 always-ask 却显示"全自动"）、项目覆盖时来源判错、
 // 第 4 档 always-ask-cached 没被认出来，以及项目 config.yml 解析不了时被当成"没设"。
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -51,7 +51,6 @@ describe("审批模式的取值", () => {
       expect(approval["desc.alwaysAskCached"]).toBeTruthy();
       expect(enumLabel(locale, "tools.approvalMode", "always-ask-cached")).toBe(approval["alwaysAskCached"]);
     }
-    expect(enumLabel("zh-CN", "tools.approvalMode", "always-ask-cached")).toBe("每次询问并记住");
   });
 });
 

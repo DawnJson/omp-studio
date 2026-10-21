@@ -3,10 +3,10 @@ import type { approval as zhCN } from "../zh-CN/approval.ts";
 
 export const approval = {
   title: "Approval mode",
-  alwaysAsk: "Ask every time",
+  alwaysAsk: "Always ask",
   alwaysAskCached: "Ask and remember",
-  write: "Edits auto, ask before running",
-  yolo: "Full auto",
+  write: "Write",
+  yolo: "Yolo",
   "desc.alwaysAsk": "Reads run automatically; asks before edits and commands",
   "desc.alwaysAskCached": "Asks before reading files, edits and commands; an approval can remember the file or folder",
   "desc.write": "Reads and edits run automatically; asks before commands",
@@ -16,9 +16,9 @@ export const approval = {
   projectLocked: "Set by the project config (.omp/config.yml)",
   forget: "Forget remembered approvals",
   "desc.forget": "Clears every file and folder approval that Ask and remember has recorded (all sessions)",
-  subagents: "Subagents run in the background in full auto and don't ask separately.",
+  subagents: "Subagents run in the background in Yolo mode and don't ask separately.",
   loading: "Approval…",
-  yoloConfirmTitle: "Use full auto?",
-  yoloConfirmBody: "In full auto, omp won't ask before running commands.",
-  yoloConfirmYes: "Use full auto",
+  yoloConfirmTitle: "Use Yolo?",
+  yoloConfirmBody: "In Yolo mode, omp won't ask before running commands.",
+  yoloConfirmYes: "Use Yolo",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

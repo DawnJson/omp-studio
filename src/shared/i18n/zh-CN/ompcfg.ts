@@ -21,7 +21,7 @@ export const ompcfg = {
 
   "tools.approvalMode.label": "工具审批模式",
   "tools.approvalMode.desc":
-    "每次询问：只自动放行只读工具；每次询问并记住：读文件也询问，批准时可记住文件或文件夹；写入自动：读和工作区内写入自动；全部自动：全部放行（用户策略仍可能拦截）",
+    "总是询问：只自动放行只读工具；询问并记住：读文件也询问，批准时可记住文件或文件夹；自动写入：读和工作区内写入自动；全自动：全部放行（用户策略仍可能拦截）",
   "tools.approval.label": "按工具的审批策略",
   "tools.approval.desc":
     "JSON 对象：工具名对应 allow（自动放行）、prompt（要确认）或 deny（禁止），在所有审批模式下都生效",

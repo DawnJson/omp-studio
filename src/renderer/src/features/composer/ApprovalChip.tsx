@@ -6,7 +6,7 @@ import type { ApprovalMode, ProjectId, TaskId } from "../../../../shared/ipc.ts"
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { MenuItem, onMenuKeyDown } from "../../app/AppMenu.tsx";
 import { useT } from "../../i18n/use-t.ts";
-import { Bolt, ChevronDown, Pencil, Shield, ShieldCheck } from "../../icons.tsx";
+import { ChevronDown, Pencil, Shield, ShieldCheck, ShieldOff } from "../../icons.tsx";
 import { useSettings } from "../../store/index.ts";
 import { startupSnapshot } from "../../store/startup-snapshot.ts";
 import { ensureOmpConfigLoaded } from "../settings/config-store.ts";
@@ -22,7 +22,7 @@ const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey;
     icon: ShieldCheck,
   },
   { mode: "write", label: "approval.write", desc: "approval.desc.write", icon: Pencil },
-  { mode: "yolo", label: "approval.yolo", desc: "approval.desc.yolo", icon: Bolt },
+  { mode: "yolo", label: "approval.yolo", desc: "approval.desc.yolo", icon: ShieldOff },
 ];
 
 /**

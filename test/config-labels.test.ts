@@ -10,7 +10,6 @@ describe("omp 枚举设置的可选值文案", () => {
       expect(enumLabel(locale, "tools.approvalMode", "write")).toBe(approval["write"]);
       expect(enumLabel(locale, "tools.approvalMode", "yolo")).toBe(approval["yolo"]);
     }
-    expect(enumLabel("zh-CN", "tools.approvalMode", "yolo")).toBe("全部自动");
   });
 
   it("思考强度档位和 thinking 命名空间同源", () => {

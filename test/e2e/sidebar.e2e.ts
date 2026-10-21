@@ -257,18 +257,24 @@ for (const [locale, colorScheme] of [
         return textBox.left + textBox.width / 2 - (box.left + box.width / 2);
       });
       expect(Math.abs(timeTextOffset)).toBeLessThan(1);
-      // 标题行钉在滚动区顶部：滚下去后上沿贴着滚动区上沿，上面不留一条透出行的缝。
+      // 标题行在滚动时完全不动：没滚、刚滚一点、滚到底，上沿都贴着滚动区上沿（不先跟着走几像素再钉住，上面也不留透出行的缝）。
       // 夹具行数撑不满默认窗口，临时把列表压矮让它能滚。
       const list = sidebar.locator(".sb-list");
-      const stuckGap = await list.evaluate((el) => {
+      const headOffsets = await list.evaluate((el) => {
         const element = el as unknown as PageScrollBox;
         element.style.maxHeight = "160px";
-        element.scrollTop = element.scrollHeight;
         const head = element.querySelector(".sb-history-head");
-        if (element.scrollTop === 0 || head === null) throw new Error("侧栏列表没有滚动");
-        return head.getBoundingClientRect().top - element.getBoundingClientRect().top;
+        if (head === null) throw new Error("没有会话标题行");
+        const offset = () => head.getBoundingClientRect().top - element.getBoundingClientRect().top;
+        const offsets = [offset()];
+        element.scrollTop = 2;
+        offsets.push(offset());
+        element.scrollTop = element.scrollHeight;
+        if (element.scrollTop <= 2) throw new Error("侧栏列表没有滚动");
+        offsets.push(offset());
+        return offsets;
       });
-      expect(stuckGap).toBe(0);
+      expect(headOffsets).toEqual([0, 0, 0]);
       await sidebar.screenshot({ path: path.join(screenshotsDir, `sidebar-scrolled-${locale}-${colorScheme}.png`) });
       await list.evaluate((el) => {
         const element = el as unknown as PageScrollBox;

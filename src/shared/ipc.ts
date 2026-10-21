@@ -185,7 +185,7 @@ export interface StudioSettings {
   notifyOnGate: boolean;
   /** 在对话等处用鼠标选中文字后自动复制到剪贴板（输入框、终端除外）。默认开。 */
   copyOnSelect: boolean;
-  /** 用户确认过"全部自动"。 */
+  /** 用户确认过"全自动"。 */
   yoloConfirmed: boolean;
 }
 
@@ -1113,7 +1113,7 @@ export interface StudioInvokeApi {
   setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
   setNotifyOnGate(on: boolean): Promise<void>;
   setCopyOnSelect(on: boolean): Promise<void>;
-  /** 记下用户已经确认过"全部自动"，之后选它不再弹确认。 */
+  /** 记下用户已经确认过"全自动"，之后选它不再弹确认。 */
   setYoloConfirmed(): Promise<void>;
   /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值；读不到（没登录、没有可用模型）时为 null。 */
   getDefaultModel(): Promise<DefaultModelInfo | null>;
