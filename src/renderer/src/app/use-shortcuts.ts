@@ -1,5 +1,5 @@
-// 全局快捷键（spec §5.1）：Ctrl N / Ctrl Shift N / K / , / B / J / L / 1…9、Ctrl Alt ↑↓、F6、Alt+←/→、单按 Alt 开应用菜单。
-// 窗口内的 keydown 监听，不注册系统级快捷键。输入框里只有带 Ctrl/Alt 修饰的键会走到这里。
+// 全局快捷键（spec §5.1）：Ctrl N / Ctrl Shift N / K / , / B / J / L / 1…9、Ctrl Shift [ ]、F6、Alt+←/→。
+// 窗口内的 keydown 监听，不注册系统级快捷键。输入框里只有带 Ctrl/Alt 修饰的键会走到这里；单独按下/松开修饰键（Alt、Ctrl、Shift）不触发任何动作。
 import { useEffect, useRef } from "react";
 
 export interface ShortcutActions {
@@ -9,7 +9,7 @@ export interface ShortcutActions {
   focusComposer(): void;
   /** 第 n 个任务（1 起，侧栏可见顺序）。 */
   nthTask(n: number): void;
-  /** 上/下一个任务，循环。 */
+  /** Ctrl Shift [ / ]：上/下一个任务，循环。 */
   cycleTask(delta: 1 | -1): void;
   /** F6：在 侧栏 → 对话区 → 输入框 之间循环。 */
   cycleRegion(delta: 1 | -1): void;
@@ -18,8 +18,6 @@ export interface ShortcutActions {
   toggleSidebar(): void;
   goBack(): void;
   goForward(): void;
-  /** 单按 Alt：打开/关闭"关于与反馈"对话框。 */
-  toggleAbout(): void;
   /** Ctrl Shift D：打开当前任务的评审。 */
   openReview(): void;
   /** Ctrl `：终端 打开 / 聚焦 / 收起并回到输入框。 */
@@ -33,14 +31,17 @@ export function useShortcuts(actions: ShortcutActions): void {
   latest.current = actions;
 
   useEffect(() => {
-    let altAlone = false;
-
     const onKeyDown = (event: KeyboardEvent) => {
       const act = latest.current;
-      altAlone = event.key === "Alt" && !event.repeat;
       if (event.defaultPrevented) return;
 
       if (event.ctrlKey && !event.altKey && !event.metaKey) {
+        // 上/下一个任务按物理键位认：Shift 会把 [ ] 变成 { }，别的布局上字符也不同。
+        if (event.shiftKey && (event.code === "BracketLeft" || event.code === "BracketRight")) {
+          event.preventDefault();
+          act.cycleTask(event.code === "BracketRight" ? 1 : -1);
+          return;
+        }
         const handlers: Record<string, () => void> = event.shiftKey
           ? { n: act.newTaskInCurrentProject, d: act.openReview }
           : {
@@ -58,17 +59,6 @@ export function useShortcuts(actions: ShortcutActions): void {
           event.preventDefault();
           handler();
         }
-        return;
-      }
-      if (
-        event.ctrlKey &&
-        event.altKey &&
-        !event.shiftKey &&
-        !event.metaKey &&
-        (event.key === "ArrowUp" || event.key === "ArrowDown")
-      ) {
-        event.preventDefault();
-        act.cycleTask(event.key === "ArrowDown" ? 1 : -1);
         return;
       }
       if (event.key === "F6" && !event.ctrlKey && !event.altKey && !event.metaKey) {
@@ -89,19 +79,6 @@ export function useShortcuts(actions: ShortcutActions): void {
       if (event.key === "Escape" && act.closeDrawer()) event.preventDefault();
     };
 
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (event.key === "Alt" && altAlone) {
-        event.preventDefault();
-        latest.current.toggleAbout();
-      }
-      altAlone = false;
-    };
-
-    // 按住 Alt 时点鼠标不算"单按 Alt"。
-    const cancelAlt = () => {
-      altAlone = false;
-    };
-
     // 鼠标侧键（button 3 = 后退，4 = 前进）：顶栏没有前进后退按钮，侧键和 Alt+←/→ 是仅有的入口。
     const onMouseUp = (event: MouseEvent) => {
       if (event.button !== 3 && event.button !== 4) return;
@@ -111,14 +88,10 @@ export function useShortcuts(actions: ShortcutActions): void {
     };
 
     window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
     window.addEventListener("mouseup", onMouseUp);
-    window.addEventListener("pointerdown", cancelAlt, true);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("mouseup", onMouseUp);
-      window.removeEventListener("pointerdown", cancelAlt, true);
     };
   }, []);
 }

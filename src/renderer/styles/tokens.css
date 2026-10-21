@@ -112,6 +112,7 @@
   --review-aside-w: 320px; /* 评审：改动说明 / 评论队列 */
   --dialog-w-sm: 400px;
   --dialog-w-md: 520px;
+  --dialog-h-usage: 560px; /* 用量对话框的固定高度（两页、加载前后都不变） */
   --palette-w: 600px;
   --toast-w: 360px;
   --scrollbar-hit: 10px; /* 自绘覆盖式滚动条命中区 */

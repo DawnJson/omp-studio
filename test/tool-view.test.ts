@@ -59,6 +59,36 @@ describe("parseDiff", () => {
     expect(diffStats(rows)).toEqual({ added: 1, removed: 1 });
     expect(rows.find((row) => row.kind === "gap")).toEqual({ kind: "gap", count: 18 });
   });
+
+  // omp 实际发的格式（取自真实会话里编辑 .mdx 的结果）：`<符号><行号>|<原文>`，空行是跳过的部分，原文可以以 `- ` / `+ ` 开头。
+  const mdx = [
+    " 7|",
+    " 8|- 完整备份与恢复：配置 → 「本地存储」新增导出",
+    "-9|- 余额显示：左侧栏底部显示余额",
+    "+9|- 余额显示：左侧栏底部显示余额（两位小数）",
+    " 10|- 品牌与推广",
+    "",
+    " 46|+ [新增] 完整备份与恢复",
+    "-47|+ [调整] 生图工作台",
+    "+47|+ [调整] 生图工作台（停止）",
+    " 60|",
+  ].join("\n");
+
+  it("omp 的 `行号|原文` 格式：原文不带 `|`，空行上下文保留，以 `- ` 开头的原文不被吃掉", () => {
+    const rows = parseDiff(mdx);
+    expect(rows[0]).toEqual({ kind: "ctx", oldNo: 7, newNo: 7, text: "" });
+    expect(rows[1]).toEqual({ kind: "ctx", oldNo: 8, newNo: 8, text: "- 完整备份与恢复：配置 → 「本地存储」新增导出" });
+    expect(rows[2]).toMatchObject({ kind: "del", oldNo: 9, text: "- 余额显示：左侧栏底部显示余额" });
+    expect(rows[3]).toMatchObject({ kind: "add", newNo: 9, text: "- 余额显示：左侧栏底部显示余额（两位小数）" });
+    expect(rows.filter((row) => row.kind !== "gap").every((row) => !row.text.startsWith("|"))).toBe(true);
+    expect(diffStats(rows)).toEqual({ added: 2, removed: 2 });
+  });
+
+  it("omp 的 `行号|原文` 格式：空行是跳过的部分，按行号算间隔；CRLF 输入结果相同", () => {
+    const rows = parseDiff(mdx);
+    expect(rows.filter((row) => row.kind === "gap")).toEqual([{ kind: "gap", count: 35 }]);
+    expect(parseDiff(mdx.replaceAll("\n", "\r\n"))).toEqual(rows);
+  });
 });
 
 describe("parseGrep", () => {

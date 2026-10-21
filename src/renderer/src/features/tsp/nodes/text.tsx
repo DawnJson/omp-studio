@@ -295,7 +295,8 @@ const MARKS = { add: "+", del: "-", ctx: " " } as const;
 
 function UnifiedLine({ line, range }: { line: DiffLine; range: WordRange | null }) {
   return (
-    <div className={`tsp-dl ${line.kind}`}>
+    // 行的种类放 data-kind，不当类名：`ctx` 和输入框上下文浮层的全局 `.ctx` 撞名，上下文行会被排成竖列。
+    <div className="tsp-dl" data-kind={line.kind}>
       <span className="tsp-dg">{line.old ?? ""}</span>
       <span className="tsp-dg">{line.new ?? ""}</span>
       <span className="tsp-dm">{MARKS[line.kind]}</span>
@@ -307,9 +308,9 @@ function UnifiedLine({ line, range }: { line: DiffLine; range: WordRange | null 
 }
 
 function SplitHalf({ line, range, side }: { line: DiffLine | null; range: WordRange | null; side: "old" | "new" }) {
-  if (!line) return <div className="tsp-dl half nil" />;
+  if (!line) return <div className="tsp-dl half" data-kind="nil" />;
   return (
-    <div className={`tsp-dl half ${line.kind}`}>
+    <div className="tsp-dl half" data-kind={line.kind}>
       <span className="tsp-dg">{(side === "old" ? line.old : line.new) ?? ""}</span>
       <span className="tsp-dt">
         <WordMarked text={line.text} range={range} />
@@ -341,7 +342,7 @@ export function Diff(props: NodeProps) {
               <Fragment key={index}>
                 {previous && (
                   <div className="tsp-dsep">
-                    {gap > 0 ? `⋯ ${gap} unchanged lines` : "⋯"}
+                    {gap > 0 ? `⋯ ${t("tsp.unchangedLines", { count: gap })}` : "⋯"}
                     {hunk.fn !== "" && <span className="fn">{hunk.fn}</span>}
                   </div>
                 )}

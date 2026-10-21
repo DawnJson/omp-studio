@@ -175,6 +175,10 @@ describe("diff", () => {
     ]);
   });
 
+  it("CRLF 的补丁与 LF 结果相同，行尾不留 \\r", () => {
+    expect(parseDiff(patch.replaceAll("\n", "\r\n"))).toEqual(parseDiff(patch));
+  });
+
   it("没有 @@ 头的文本当成一个 hunk，--- / +++ 头忽略", () => {
     const [hunk] = parseDiff("--- a/x\n+++ b/x\n+new\n-old");
     expect(hunk?.lines.map((l) => l.kind)).toEqual(["add", "del"]);

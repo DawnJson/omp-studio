@@ -36,6 +36,7 @@ import { studioSlashCommands } from "./studio-slash-table.ts";
 import { FileMenu } from "./FileMenu.tsx";
 import { useFileMenu } from "./use-file-menu.ts";
 import { SendStop } from "./SendStop.tsx";
+import { knownDefaults, knownModels, knownOmp, resolveNewTaskDefault } from "./new-task-default.ts";
 import { thinkingLevelOptions } from "./thinking-levels.ts";
 import { SessionCost } from "./SessionCost.tsx";
 import { ContextMeter, UsageMeter } from "./UsageMeter.tsx";
@@ -328,8 +329,18 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   };
 
   if (!task) return null;
-  const shownModel = task.model ?? firstPrompt?.model ?? null;
-  const shownThinking = task.model === null ? (firstPrompt?.thinkingLevel ?? task.thinkingLevel) : task.thinkingLevel;
+  // 起进程前（没启动 / 正在启动）任务状态里还没有模型：先显示这个项目上次读到的新任务默认值（和草稿页、主进程随后报出的同源），
+  // 切项目第一帧就是最终值，不经过"未连接模型/模型…"。
+  const preStart =
+    task.model === null && firstPrompt === null && (task.status === "stopped" || task.status === "starting");
+  const projectDefault = preStart
+    ? resolveNewTaskDefault(knownDefaults(task.projectId), knownOmp(), knownModels())
+    : null;
+  const shownModel = task.model ?? firstPrompt?.model ?? projectDefault?.model ?? null;
+  const shownThinking =
+    task.model === null
+      ? (firstPrompt?.thinkingLevel ?? task.thinkingLevel ?? projectDefault?.thinkingLevel ?? null)
+      : task.thinkingLevel;
   return (
     <div className="composer-stack" data-testid="composer-stack" data-from-draft={fromDraft ? "" : undefined}>
       {/* 门（审批、提问）：rpc 任务由 DialogLayer 放进这里；TSP 任务的由 omp 画在过程区里，不挂槽。 */}

@@ -205,6 +205,44 @@ test("提问:选项是 omp 的列表,双击一项发 activate;提问期间 studi
     ]);
     // 提问被撤掉后焦点回到 studio 输入框。
     await expect(page.getByTestId("composer-input")).toBeFocused();
+    await shoot(page, "ask-done");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("过程卡片:diff 的上下文行和增删行一样是一行(行号在左、文字在右),代码长行折行不出横向滚动条", async () => {
+  test.setTimeout(90_000);
+  // cards = approval 的录制,最后一帧多加了一张 edit 卡(diff,含空行和长行上下文)和一张 eval 卡(长代码行 + 输出 + 底栏)。
+  const { launched, cleanup } = await start("cards");
+  try {
+    const { page } = launched;
+    await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
+    const approve = page.locator('[data-testid="tsp-view"] [data-id="t.actions/approve"]');
+    await expect(approve).toBeVisible({ timeout: 30_000 });
+    await approve.click();
+    const edit = role(page, "omp.tool.edit");
+    await expect(edit).toBeVisible({ timeout: 30_000 });
+    // 上下文行(第 8 行是长段落):行号和文字同一行开始,文字不掉到行号下面。
+    const ctx = edit.locator('.tsp-dl[data-kind="ctx"]').nth(1);
+    const [gutter, text] = await Promise.all([
+      ctx.locator(".tsp-dg").first().boundingBox(),
+      ctx.locator(".tsp-dt").boundingBox(),
+    ]);
+    expect(text!.y).toBe(gutter!.y);
+    expect(text!.x).toBeGreaterThan(gutter!.x + gutter!.width);
+    await expect(edit.locator(".tsp-dsep")).toContainText("行未改动");
+    // eval 的长代码行折行,代码块不能横向滚动。
+    const code = role(page, "omp.tool.eval").locator(".tsp-code-body").first();
+    await expect(code).toBeVisible();
+    const overflow = await code.evaluate((el) => {
+      const box = el as unknown as { scrollWidth: number; clientWidth: number };
+      return box.scrollWidth - box.clientWidth;
+    });
+    expect(overflow).toBeLessThanOrEqual(1);
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
+    await edit.scrollIntoViewIfNeeded();
+    await shoot(page, "cards");
   } finally {
     await cleanup();
   }

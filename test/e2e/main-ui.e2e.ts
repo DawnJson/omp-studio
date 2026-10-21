@@ -209,6 +209,7 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     await expect(overview).toBeVisible();
     await expect(overview.getByTestId("usage-tab-quota")).toHaveAttribute("aria-selected", "true");
     await expect(overview.getByTestId("quota-section")).toBeVisible();
+    const openBox = await overview.boundingBox();
     await expect(overview.getByTestId("heatmap-section")).toBeHidden();
     await overview.getByTestId("usage-tab-quota").focus();
     await page.keyboard.press("ArrowRight");
@@ -224,6 +225,8 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     ).toBeLessThanOrEqual(2);
     await expect(overview.getByTestId("quota-section")).toBeHidden();
     const dailyBox = await overview.boundingBox();
+    // 对话框高度固定：和刚打开（额度还在加载）时一样高。
+    expect(dailyBox?.height).toBe(openBox?.height);
     await page.keyboard.press("ArrowLeft");
     await expect(overview.getByTestId("quota-section")).toBeVisible();
     expect(await overview.boundingBox()).toEqual(dailyBox);

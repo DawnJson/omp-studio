@@ -20,7 +20,8 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
   const version = useGitVersion(taskId);
   const worktree = useTaskWorktree(taskId, updatedAt);
   const [status, setStatus] = useState<GitStatus | null>(null);
-  const [menu, setMenu] = useState<{ anchor: MenuAnchor; items: MenuItem[] } | null>(null);
+  // 只记打开的位置；菜单项每次渲染现算，开着时切语言或 git 状态变了也跟着变。
+  const [menu, setMenu] = useState<MenuAnchor | null>(null);
 
   useEffect(() => {
     let current = true;
@@ -49,10 +50,8 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
     .filter((part) => typeof part === "string")
     .join(" · ");
 
-  const openMenu = (button: HTMLElement) => {
-    const box = button.getBoundingClientRect();
+  const menuItems = (): MenuItem[] => {
     const items: MenuItem[] = [
-      { id: "review", label: t("git.menu.review"), onSelect: () => openReview(taskId) },
       { id: "commit", label: t("git.menu.commit"), onSelect: () => openGitDialog({ kind: "commit", taskId }) },
       {
         id: "push",
@@ -62,12 +61,15 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
         }),
         onSelect: () => void pushBranch(t, taskId),
       },
-      {
+    ];
+    // 创建 PR 要先推送：没有可用远端（或 detached HEAD）时不可行，直接不列；gh 缺失 / 未登录由结果 toast 说明。
+    if (status.canPush) {
+      items.push({
         id: "pr",
         label: t("git.menu.pr"),
         onSelect: () => openGitDialog({ kind: "pr", taskId, defaultTitle: task?.title ?? "" }),
-      },
-    ];
+      });
+    }
     if (worktree) {
       items.push(
         {
@@ -82,7 +84,16 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
         },
       );
     }
-    setMenu({ anchor: { x: box.left, y: box.bottom + 4, returnFocus: button }, items });
+    return items;
+  };
+
+  const toggleMenu = (button: HTMLElement) => {
+    if (menu !== null) {
+      setMenu(null);
+      return;
+    }
+    const box = button.getBoundingClientRect();
+    setMenu({ x: box.left, y: box.bottom + 4, returnFocus: button });
   };
 
   return (
@@ -96,7 +107,7 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
         aria-expanded={menu !== null}
         aria-label={`${t("git.bar.menu")} · ${summary}`}
         title={summary}
-        onClick={(event) => openMenu(event.currentTarget)}
+        onClick={(event) => toggleMenu(event.currentTarget)}
       >
         <Branch size={14} />
         <span className="topbar-branch-name" data-testid="git-branch">
@@ -129,7 +140,8 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
       >
         <Diff size={16} />
       </button>
-      {menu && <Menu anchor={menu.anchor} items={menu.items} label={t("git.bar.menu")} onClose={() => setMenu(null)} />}
+      {menu && <div className="git-menu-scrim" />}
+      {menu && <Menu anchor={menu} items={menuItems()} label={t("git.bar.menu")} onClose={() => setMenu(null)} />}
     </>
   );
 }

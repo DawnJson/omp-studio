@@ -706,6 +706,12 @@
   padding: var(--space-2) var(--space-3);
   overflow-x: auto;
 }
+.tsp-code-body,
+.tsp-rows,
+.tsp-table {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
 .tsp-code-lines {
   min-width: max-content;
 }
@@ -771,10 +777,10 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.tsp-dl.add {
+.tsp-dl[data-kind="add"] {
   background: var(--diff-add-bg);
 }
-.tsp-dl.del {
+.tsp-dl[data-kind="del"] {
   background: var(--diff-del-bg);
 }
 .tsp-dg {
@@ -791,10 +797,10 @@
   color: var(--text-3);
   user-select: none;
 }
-.tsp-dl.add .tsp-dm {
+.tsp-dl[data-kind="add"] .tsp-dm {
   color: var(--diff-add-fg);
 }
-.tsp-dl.del .tsp-dm {
+.tsp-dl[data-kind="del"] .tsp-dm {
   color: var(--diff-del-fg);
 }
 .tsp-dt {
@@ -822,7 +828,7 @@
   flex: 1 1 50%;
   min-width: 0;
 }
-.tsp-dl.nil {
+.tsp-dl[data-kind="nil"] {
   background: var(--bg-hover);
 }
 
@@ -1911,6 +1917,45 @@
 .tsp-tool.card > .tsp-tool-body > .tsp-col > :last-child:not(.tsp-code, .tsp-diff) {
   padding-bottom: var(--space-2);
 }
+/* 过程卡片(bash / eval 的 body 是一层 col)：命令和输出共用卡片底色，不再是一块灰底加一块白底；
+ * 输入和输出之间一条细分隔线，输出下面是安静的底栏。code 在卡片里一律折行，不出横向滚动条。 */
+.tsp-tool-body .tsp-col > .tsp-code {
+  background: none;
+  border-radius: 0;
+}
+.tsp-tool-body .tsp-code .tsp-code-body {
+  overflow-x: hidden;
+}
+.tsp-tool-body .tsp-code .tsp-code-lines {
+  min-width: 0;
+}
+.tsp-tool-body .tsp-code .tsp-ln {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tsp-tool-body .tsp-col > .tsp-code + .tsp-ansi {
+  margin-top: var(--space-1);
+  padding-top: var(--space-2);
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+/* "还有 N 行"和代码左缘对齐 */
+.tsp-tool-body .tsp-more {
+  padding-left: 0;
+}
+.tsp-row[data-role="omp.run.foot"] {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.tsp-text[data-role="omp.run.state"][data-tone="success"],
+.tsp-text[data-role="omp.run.state"][data-tone="pending"] {
+  color: var(--text-3);
+}
+/* 卡片头上的语言 / 标签徽章：无底色，比标题安静 */
+.tsp-tool-head .tsp-badge:not([data-tone]),
+.tsp-tool-head .tsp-badge[data-tone="neutral"] {
+  background: none;
+  color: var(--text-3);
+}
 .tsp-tool-hr {
   height: 1px;
   background: var(--border);
@@ -2430,6 +2475,38 @@
 }
 .tsp-row[data-role="omp.working"] {
   gap: var(--space-2);
+}
+/* 状态行是"数字 + 一句话"：计时用正文字体（等宽数字对齐，不混进等宽字形），和文字同字号 */
+.tsp-row[data-role="omp.working"] .tsp-elapsed {
+  font-family: inherit;
+  font-size: inherit;
+}
+.tsp-row[data-role="omp.working"] .tsp-shimmer {
+  font-size: var(--fs-xs);
+}
+
+/* ask 卡片：答案和未选项一列对齐——未选项没有勾，用同宽的空位占着；同字号 */
+.tsp-row[data-role="omp.tool.answer"],
+.tsp-row[data-role="omp.tool.answer.off"] {
+  align-items: center;
+  padding-block: var(--space-0-5);
+}
+.tsp-row[data-role="omp.tool.answer.off"]::before {
+  content: "";
+  flex: none;
+  width: var(--icon-md);
+}
+.tsp-row[data-role="omp.tool.answer"] .tsp-text,
+.tsp-row[data-role="omp.tool.answer.off"] .tsp-text {
+  font-size: var(--fs-sm);
+}
+/* ask 的问题只在卡片头显示一次：头上的问题允许折行，不被省略号截断 */
+.tsp-tool[data-name="ask"] .tsp-tool-line {
+  flex-wrap: wrap;
+}
+.tsp-tool[data-name="ask"] .tsp-tool-target.text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .tsp-text[data-role="omp.working.sep"] {
   color: var(--text-3);

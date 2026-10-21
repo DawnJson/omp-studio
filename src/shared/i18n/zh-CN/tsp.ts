@@ -7,6 +7,7 @@ export const tsp = {
   showLess: "收起",
   copyCommand: "复制命令",
   noChanges: "没有改动",
+  unchangedLines: "{count} 行未改动",
   imageLoading: "图片加载中",
   imageUnavailable: "无法显示图片",
   imageNotArrived: "图片数据还没到",

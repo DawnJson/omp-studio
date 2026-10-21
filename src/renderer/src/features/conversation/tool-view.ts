@@ -128,17 +128,17 @@ function parseUnified(lines: readonly string[]): DiffRow[] {
   return rows;
 }
 
-/** omp 自己的 diff：每行 `+12 text` / `-12 text` / ` 12 text`，跳过的部分写成 ` ... `。 */
+/** omp 自己的 diff：每行 `+12|text` / `-12|text` / ` 12|text`（行号按最大位数左补空格，`|` 后面全是原文，可以为空）；跳过的部分是一个空行或 ` ... `。旧版用空格代替 `|`，也认。 */
 function parseNumbered(lines: readonly string[]): DiffRow[] {
   const rows: DiffRow[] = [];
   let lastNo: number | null = null; // 上一条上下文 / 删除行的行号
   let skipped = false;
   for (const line of lines) {
-    if (/^\s*\.\.\.\s*$/.test(line)) {
+    if (/^\s*(?:\.\.\.)?\s*$/.test(line)) {
       skipped = true;
       continue;
     }
-    const match = /^([+\- ])\s*(\d+) ?(.*)$/.exec(line);
+    const match = /^([+\- ])\s*(\d+)(?:[| ](.*))?$/.exec(line);
     if (!match) continue;
     const sign = match[1];
     const no = Number(match[2]);

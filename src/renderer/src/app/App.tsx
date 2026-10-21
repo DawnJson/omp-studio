@@ -194,7 +194,6 @@ export function App() {
     toggleSidebar,
     goBack: navigation.goBack,
     goForward: navigation.goForward,
-    toggleAbout: () => setAboutOpen((open) => !open),
     openReview: () => {
       if (taskId !== null && view === "conversation") openReview(taskId);
     },

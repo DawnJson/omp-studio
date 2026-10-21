@@ -536,50 +536,52 @@ html[data-motion="reduced"] .ctx-usage-chev {
   margin: 0;
 }
 
-/* 费用点开的用量对话框（居中，同模型选择框的外观）：顶上"订阅额度 / 每日用量"切换框，下面是选中的那页；
-   两页叠在同一格里，对话框按高的那页定尺寸，切页时大小不变。
-   账号块和热力图的组件、样式见 settings/usage.css，这里只把额度收紧：账号名和邮箱一行，每个窗口一行（名称 | 条 | 剩余 | 重置），行距小。 */
+/* 费用点开的用量对话框（居中，同模型选择框的外观）：顶上"订阅额度 / 每日用量"切换框，下面是选中的那页。
+   对话框高度固定（--dialog-h-usage，窗口矮时取 80vh）：额度异步到达、切页、中英文换行都不改变大小，页内容多了在 .qm-stack 里滚动。
+   账号块和热力图的组件、样式见 settings/usage.css，这里只改额度的版式：每个账号一张卡，卡内窗口按两列排，
+   每个窗口 = 名称 + 剩余（右对齐、等宽数字）/ 整宽进度条 / 重置时间。 */
 .usage-dialog {
   display: flex;
   flex-direction: column;
   width: min(720px, calc(100vw - var(--space-8)));
-  max-height: min(80vh, 720px);
+  height: min(80vh, var(--dialog-h-usage));
   background: var(--bg-overlay);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-3);
   overflow: hidden;
   animation: pop-in var(--dur-slow) var(--ease-spring);
 }
+/* 标题占满剩下的宽度，关闭按钮靠右（.mp-head 是模型选择框的头，那里是搜索框占满） */
+.usage-dialog .mp-title {
+  flex: 1;
+}
 .usage-dialog .qm {
+  flex: 1 1 0;
   gap: var(--space-3);
   min-height: 0;
   padding: var(--space-3) var(--space-4) var(--space-4);
-  border-top: 1px solid var(--border-subtle);
-  overflow-y: auto;
 }
+/* 每段按自己的文字定宽(.segment 默认 flex: 1 + min-width: 0,在自适应宽度的容器里会把英文 "Subscription quota" 截掉) */
 .qm-tabs {
+  flex: none;
   align-self: flex-start;
 }
 .qm-tabs .segment {
+  flex: none;
   padding: 0 var(--space-3);
+  white-space: nowrap;
 }
 .qm-stack {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 .qm-panel {
-  grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: 0;
-}
-.qm-panel[data-inactive] {
-  visibility: hidden;
-}
-/* 两页叠在同一格里、高度取较高的额度页：每日用量页的热力图在这块高度里竖直居中。 */
-.qm-panel[data-tab="daily"] {
-  justify-content: center;
+  min-height: 100%;
 }
 /* 热力图按自己的宽度在对话框里居中（底下的统计行跟着它对齐），窄了再横向滚动 */
 .usage-dialog .uq-heat {
@@ -587,25 +589,50 @@ html[data-motion="reduced"] .ctx-usage-chev {
   width: max-content;
   max-width: 100%;
 }
-.usage-dialog .uq-block-grid {
-  gap: var(--space-1-5);
-  padding: var(--space-2) 0;
+/* 账号卡：头一行 状态点 + provider + 账号（+ 备注），下面是窗口 */
+.usage-dialog .uq-block {
+  flex: none;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
-.usage-dialog .uq-block:last-child {
-  border-bottom: 0;
+.usage-dialog .uq-block-grid {
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
 }
 .usage-dialog .uq-block-head {
-  flex-direction: row;
+  flex-flow: row wrap;
   align-items: baseline;
-  gap: var(--space-2);
+  gap: var(--space-0-5) var(--space-2);
+}
+.usage-dialog .uq-block-name {
+  flex: none;
+  max-width: 100%;
 }
 .usage-dialog .uq-limits {
-  gap: var(--space-1);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-3) var(--space-6);
 }
 .usage-dialog .uq-limit {
-  grid-template-columns: minmax(0, 12rem) minmax(4rem, 1fr) 5.5rem minmax(0, 9rem);
-  grid-template-areas: "name bar left reset";
-  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "name left"
+    "bar bar"
+    "reset reset";
+  gap: var(--space-1-5) var(--space-3);
+}
+.usage-dialog .uq-limit-name {
+  color: var(--text-2);
+}
+.usage-dialog .uq-limit-left {
+  color: var(--text);
+}
+.usage-dialog .uq-limit-reset {
+  text-align: left;
+}
+.usage-dialog .uq-untouched {
+  padding: var(--space-1) var(--space-1) 0;
 }
 
 .send {

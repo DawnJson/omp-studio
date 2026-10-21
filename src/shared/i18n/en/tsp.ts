@@ -7,6 +7,7 @@ export const tsp = {
   showLess: "Show less",
   copyCommand: "Copy command",
   noChanges: "No changes",
+  unchangedLines: "{count} unchanged lines",
   imageLoading: "Image loading",
   imageUnavailable: "Image unavailable",
   imageNotArrived: "The image data has not arrived",

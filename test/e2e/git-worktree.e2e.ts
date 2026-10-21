@@ -181,6 +181,24 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     const taskId = await createTaskFromDraft(page, "在工作树里干活", true, "confirm");
     await expect(page.getByTestId("task-row-worktree")).toBeVisible();
     await expect(page.getByTestId("git-menu")).toHaveAttribute("title", /基于 main/);
+
+    // ── 菜单收回：再点分支按钮 = 收回（只切换一次，不会收回又弹出）；点顶栏空白、Esc 也收回；菜单里没有"查看改动"（顶栏有评审按钮）
+    const gitMenu = page.getByRole("menu", { name: "Git 操作" });
+    await page.getByTestId("git-menu").click();
+    await expect(gitMenu).toBeVisible();
+    await expect(gitMenu.getByRole("menuitem", { name: /^查看改动/ })).toHaveCount(0);
+    await shoot(page, "menu");
+    await page.getByTestId("git-menu").click({ force: true });
+    await expect(gitMenu).toHaveCount(0);
+    await page.getByTestId("git-menu").click();
+    await expect(gitMenu).toBeVisible();
+    await page.mouse.click(600, 14);
+    await expect(gitMenu).toHaveCount(0);
+    await page.getByTestId("git-menu").click();
+    await expect(gitMenu).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(gitMenu).toHaveCount(0);
+    await expect(page.getByTestId("git-menu")).toBeFocused();
     const worktree = findStudioWorktree(repo);
     expect(worktree).not.toBeNull();
     const { dir, branch } = worktree as { dir: string; branch: string };
@@ -237,7 +255,7 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     // ── 开 PR：这台机器没有 gh 时是类型化的 gh_unavailable（localized）；有 gh 时不真的去创建
     const hasGh = spawnSync("gh", ["--version"]).status === 0;
     if (!hasGh) {
-      await openGitMenu(page, /^创建 Pull Request/);
+      await openGitMenu(page, /^创建 PR/);
       await page.getByTestId("git-pr-title").fill("工作树 PR");
       await page.getByTestId("git-pr-confirm").click();
       await expect(page.getByTestId("toasts")).toContainText("找不到 gh 命令");
@@ -263,7 +281,8 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await put(path.join(parent, "orphan2"), "孤儿.txt", "x\n");
     sh(path.join(parent, "orphan2"), "add", "-A");
     sh(path.join(parent, "orphan2"), "commit", "-m", "孤儿提交");
-    await page.getByRole("button", { name: "项目菜单" }).first().click();
+    // 文件夹折叠时 ⋯ 不显示（那一格是行数），项目菜单走右键文件夹头。
+    await page.locator(".sb-group-head").first().click({ button: "right" });
     await page.getByRole("menuitem", { name: "清理无主工作树" }).click();
     await expect(page.getByTestId("git-cleanup-removed")).toContainText("orphan1");
     await expect(page.getByTestId("git-cleanup-kept")).toContainText("orphan2");

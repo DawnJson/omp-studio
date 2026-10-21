@@ -157,8 +157,17 @@ export function Tool(props: NodeProps) {
   const own = { toggle: collapsible ? toggle : undefined };
 
   // body：折叠时按 preview 处理；展开或不可折叠时完整显示。
-  const kinds: string[] = node.c.map((id) => peekTspNode(ctx.taskId, ctx.sf, id)?.k ?? "");
-  const bodyNodes = node.c.map((id, index) => (
+  // ask 完成后 body 第一块 md 是卡片头 target 里那句问题的原样重复：头上已经完整显示（允许折行），body 里不再画第二遍。
+  const duplicateId =
+    p.name === "ask" && typeof p.target === "string"
+      ? node.c.find((id) => {
+          const child = peekTspNode(ctx.taskId, ctx.sf, id);
+          return child?.k === "md" && child.p.text === p.target;
+        })
+      : undefined;
+  const childIds = node.c.filter((id) => id !== duplicateId);
+  const kinds: string[] = childIds.map((id) => peekTspNode(ctx.taskId, ctx.sf, id)?.k ?? "");
+  const bodyNodes = childIds.map((id, index) => (
     <Fragment key={id}>
       {index > 0 && kinds[index] !== kinds[index - 1] && <div className="tsp-tool-hr" aria-hidden="true" />}
       <TspNode id={id} ctx={ctx} />
@@ -167,7 +176,7 @@ export function Tool(props: NodeProps) {
   const body = <div className="tsp-tool-body">{bodyNodes}</div>;
   let content: ReactNode = null;
   let fold: FoldState = { collapsed: collapsible ? false : null };
-  const hasBody = node.c.length > 0;
+  const hasBody = childIds.length > 0;
   if (!hasBody) content = null;
   else if (!collapsed) content = body;
   else if (preview.mode === "children") {

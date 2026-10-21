@@ -5,6 +5,7 @@ import { reportError } from "../../ui/errors.ts";
 import {
   useEffect,
   useLayoutEffect,
+  useReducer,
   useRef,
   useState,
   type ClipboardEvent,
@@ -12,19 +13,11 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import type {
-  DefaultModelInfo,
-  ModelDefaults,
-  ModelOption,
-  ProjectFilesTarget,
-  ProjectId,
-  TaskId,
-} from "../../../../shared/ipc.ts";
+import type { DefaultModelInfo, ModelOption, ProjectFilesTarget, ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { draftKey } from "../../../../shared/ipc.ts";
 import { worktreeBlockerKey } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { selectTask } from "../../store/index.ts";
-import { startupSnapshot } from "../../store/startup-snapshot.ts";
 import { saveOmpDefaultThinking, saveOmpModelRole } from "../settings/config-store.ts";
 import { refreshProjects } from "../sidebar/projects-store.ts";
 import { takePendingDraftText } from "../palette/index.ts";
@@ -42,17 +35,20 @@ import { DraftContextMeter } from "./UsageMeter.tsx";
 import { SessionCost } from "./SessionCost.tsx";
 import { FileMenu } from "./FileMenu.tsx";
 import { useFileMenu } from "./use-file-menu.ts";
-import { clampThinkingLevel, effortOrder, thinkingLevelOptions } from "./thinking-levels.ts";
+import {
+  knownDefaults,
+  knownModels,
+  knownOmp,
+  rememberDefaults,
+  rememberModels,
+  rememberOmp,
+  resolveNewTaskDefault,
+} from "./new-task-default.ts";
 import { clearFirstPrompt, setFirstPrompt } from "../tsp/first-prompt-store.ts";
 import "./composer.css";
 
 /** 没有项目时 `@` 补全不开（目录还没建），这个目标不会被查询。 */
 const noFilesTarget: ProjectFilesTarget = { kind: "project", projectId: "" as ProjectId };
-
-/** 这个项目上次读到的新任务默认值（启动缓存）。 */
-function cachedDefaults(projectId: ProjectId | null): ModelDefaults | null {
-  return startupSnapshot().modelDefaults?.[projectId ?? "global"] ?? null;
-}
 
 /** projectTools：工具行里紧跟审批胶囊的部分（空状态放项目按钮和工作树开关）。 */
 export function DraftComposer({ projectId, projectTools }: { projectId: ProjectId | null; projectTools?: ReactNode }) {
@@ -63,33 +59,46 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
   const draft = useDraft(key);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const [sending, setSending] = useState(false);
-  // 初值是上次读到的（启动缓存），现读的到了再替换；omp 为 undefined = 还没读到过。
-  const [omp, setOmp] = useState<DefaultModelInfo | null | undefined>(() => startupSnapshot().defaultModel);
-  const [models, setModels] = useState<ModelOption[] | null>(() => startupSnapshot().models ?? null);
-  // 这个项目里 omp 实际会用的默认值（项目 .omp/config.yml 会盖过全局）；refresh 递增时重读。
-  const [defaults, setDefaults] = useState<ModelDefaults | null>(() => cachedDefaults(projectId));
+  // 初值是上次读到的（本次运行里最近一次现读，没有就用启动缓存），现读的到了再替换；omp 为 undefined = 还没读到过。
+  const [omp, setOmp] = useState<DefaultModelInfo | null | undefined>(knownOmp);
+  const [models, setModels] = useState<ModelOption[] | null>(knownModels);
+  // 这个项目里 omp 实际会用的默认值（项目 .omp/config.yml 会盖过全局）：每个项目各记各的（new-task-default.ts），
+  // 切项目第一帧就是这个项目上次的值，不会短暂显示上一个项目的；refresh 递增时重读。
+  const [, rerender] = useReducer((count: number) => count + 1, 0);
   const [refresh, setRefresh] = useState(0);
   const hasContent = draft.text.trim() !== "" || draft.images.length > 0;
 
   useEffect(() => {
-    window.studio.getDefaultModel().then(setOmp, () => setOmp(null));
-    return window.studio.onDefaultModel(setOmp);
+    const apply = (value: DefaultModelInfo | null) => {
+      rememberOmp(value);
+      setOmp(value);
+    };
+    window.studio.getDefaultModel().then(apply, () => apply(null));
+    return window.studio.onDefaultModel(apply);
   }, []);
   useEffect(() => {
-    window.studio.listModels().then(setModels, () => setModels([]));
+    const apply = (value: ModelOption[]) => {
+      rememberModels(value);
+      setModels(value);
+    };
+    window.studio.listModels().then(apply, () => setModels([]));
   }, []);
   useEffect(() => {
     let current = true;
+    // 读不到（omp 还没就绪等）：保持这个项目上次读到的值，不重绘。
     window.studio.getModelDefaults(projectId).then(
-      (value) => current && setDefaults(value),
-      // 读不到（omp 还没就绪等）：退回这个项目上次读到的值。
-      () => current && setDefaults(cachedDefaults(projectId)),
+      (value) => {
+        rememberDefaults(projectId, value);
+        if (current) rerender();
+      },
+      () => undefined,
     );
     return () => {
       current = false;
     };
     // omp 变了（别处改了 omp 设置会推 defaultModel 事件）也重读。
   }, [projectId, omp, refresh]);
+
   useEffect(() => {
     // 命令面板"在新任务中提问"带来的文字：放进草稿并聚焦，不自动发送。
     const pending = takePendingDraftText();
@@ -103,21 +112,7 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
     field.style.height = `${field.scrollHeight}px`;
   }, [draft.text]);
 
-  // 显示以项目目录里读到的 omp 配置为准：服务进程在配置重载后不会切换自己当前会话的模型（omp://settings.md
-  // "Reloading does not ... switch a healthy active session's model"），它的 get_state 只在 modelRoles.default
-  // 没设置时用来显示 omp 自选的模型。
-  const role = defaults?.model ?? null;
-  const model =
-    (models ?? []).find((m) => {
-      const id = `${m.key.provider}/${m.key.modelId}`;
-      if (role !== null) return role === id || role.startsWith(`${id}:`);
-      return m.key.provider === omp?.key.provider && m.key.modelId === omp?.key.modelId;
-    }) ?? null;
-  // 草稿没有进程可问：档位列表来自模型的 thinking.efforts（不含 off，defaultThinkingLevel 不接受），
-  // 配置里的档位模型不支持时显示 omp 会钳到的那一档（thinking-levels.ts）。
-  const levels = thinkingLevelOptions(model, []);
-  const configuredLevel = effortOrder.find((level) => level === defaults?.thinkingLevel) ?? omp?.thinkingLevel ?? null;
-  const thinkingLevel = configuredLevel === null ? null : clampThinkingLevel(configuredLevel, levels);
+  const { model, levels, thinkingLevel } = resolveNewTaskDefault(knownDefaults(projectId), omp, models);
   const reread = () => setRefresh((count) => count + 1);
 
   // `@` 文件引用补全：目录是这个项目的目录。

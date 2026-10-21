@@ -27,12 +27,11 @@ export const git = {
   "bar.ahead": { one: "{count} commit ahead", other: "{count} commits ahead" },
   "row.worktree": "Worktree branch {branch}",
 
-  "menu.review": "Review changes",
-  "menu.commit": "Commit…",
+  "menu.commit": "Commit",
   "menu.push": "Push",
-  "menu.pr": "Create pull request…",
+  "menu.pr": "Create PR",
   "menu.merge": "Merge back into {base}",
-  "menu.discard": "Discard worktree…",
+  "menu.discard": "Discard worktree",
   "menu.cleanup": "Clean up orphan worktrees",
 
   "commit.title": "Commit changes",

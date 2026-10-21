@@ -48,7 +48,7 @@ const HUNK_HEADER = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@ ?(.*)$/;
 
 /** 统一 diff 文本。`diff --git` / `---` / `+++` / `index` 头忽略；完全没有 `@@` 的当成一个 hunk。 */
 export function parseDiff(text: string): DiffHunkRows[] {
-  const lines = text.split("\n");
+  const lines = text.split(/\r?\n/);
   if (lines.at(-1) === "") lines.pop();
   const hunks: DiffHunkRows[] = [];
   let current: { oldStart: number; newStart: number; fn: string; raw: string[] } | null = null;

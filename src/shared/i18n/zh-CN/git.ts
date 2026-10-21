@@ -30,12 +30,11 @@ export const git = {
   "row.worktree": "工作树分支 {branch}",
 
   // 菜单
-  "menu.review": "查看改动",
-  "menu.commit": "提交…",
+  "menu.commit": "提交",
   "menu.push": "推送",
-  "menu.pr": "创建 Pull Request…",
+  "menu.pr": "创建 PR",
   "menu.merge": "合并回 {base}",
-  "menu.discard": "丢弃工作树…",
+  "menu.discard": "丢弃工作树",
   "menu.cleanup": "清理无主工作树",
 
   // 提交

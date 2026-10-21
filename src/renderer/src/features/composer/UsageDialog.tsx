@@ -1,5 +1,5 @@
-// 点发送键左边的费用弹出的用量对话框（居中，盖一层遮罩）：顶上一个切换框，"订阅额度"是各订阅账号的额度（当前 provider 排最前，
-// 每个窗口一行），"每日用量"是最近几周的每日用量热力图，格子按花费着色，悬停给金额和请求数；上次看的那一页下次打开还在。
+// 点发送键左边的费用弹出的用量对话框（居中，盖一层遮罩，高度固定）：顶上一个切换框，"订阅额度"是各订阅账号的额度（当前 provider 排最前，
+// 每个账号一张卡，每个窗口一格），"每日用量"是最近几周的每日用量热力图，格子按花费着色，悬停给金额和请求数；上次看的那一页下次打开还在。
 // 数据和设置页共用 usage-store（omp usage --json / stats.db）：打开时额度重读，热力图还没有数据时才读。
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
@@ -171,7 +171,7 @@ function UsageDialogBody({
                 role="tab"
                 className="segment"
                 aria-selected={tab === id}
-                aria-controls={`${baseId}-panel-${id}`}
+                aria-controls={tab === id ? `${baseId}-panel` : undefined}
                 tabIndex={tab === id ? 0 : -1}
                 data-checked={tab === id || undefined}
                 data-testid={`usage-tab-${id}`}
@@ -181,22 +181,18 @@ function UsageDialogBody({
               </button>
             ))}
           </div>
-          {/* 两页叠在同一格里，没选中的只是看不见：对话框按高的那页定尺寸，切页时大小不变。 */}
+          {/* 对话框高度固定（见 composer.css），只渲染选中的那页，页内容多了在 .qm-stack 里滚动。 */}
           <div className="qm-stack">
-            {tabs.map((id) => (
-              <div
-                key={id}
-                id={`${baseId}-panel-${id}`}
-                className="qm-panel"
-                data-tab={id}
-                role="tabpanel"
-                aria-labelledby={`${baseId}-${id}`}
-                data-inactive={tab !== id || undefined}
-                data-testid={id === "quota" ? "quota-section" : "heatmap-section"}
-              >
-                {id === "quota" ? <Quota provider={provider} /> : <DailyUsage />}
-              </div>
-            ))}
+            <div
+              id={`${baseId}-panel`}
+              className="qm-panel"
+              data-tab={tab}
+              role="tabpanel"
+              aria-labelledby={`${baseId}-${tab}`}
+              data-testid={tab === "quota" ? "quota-section" : "heatmap-section"}
+            >
+              {tab === "quota" ? <Quota provider={provider} /> : <DailyUsage />}
+            </div>
           </div>
         </div>
       </div>

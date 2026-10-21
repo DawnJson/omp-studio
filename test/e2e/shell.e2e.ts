@@ -74,7 +74,7 @@ test("侧栏开关：顶栏按钮和 Ctrl B 都能收起/展开", async () => {
   }
 });
 
-test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后焦点回到按钮；顶栏 ⓘ 和 Alt 打开同一个关于与反馈对话框", async () => {
+test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后焦点回到按钮；顶栏 ⓘ 打开关于与反馈对话框，单按 Alt 不触发任何动作", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
@@ -121,11 +121,13 @@ test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后�
     await expect(page.getByTestId("sidebar-theme-menu")).toHaveCount(0);
     await expect(page.getByTestId("sidebar-theme")).toBeFocused();
 
+    // 单按 Alt、Ctrl+Alt+A（QQ/微信截图等全局热键吞掉字母后，应用只看到 Alt 按下抬起）都不触发任何动作。
     await page.keyboard.press("Alt");
-    await expect(page.getByTestId("about-dialog")).toBeVisible();
-    await page.keyboard.press("Escape");
+    await page.keyboard.down("Control");
+    await page.keyboard.down("Alt");
+    await page.keyboard.up("Alt");
+    await page.keyboard.up("Control");
     await expect(page.getByTestId("about-dialog")).toHaveCount(0);
-    await expect(page.getByTestId("sidebar-theme")).toBeFocused();
   } finally {
     await launched.close();
   }

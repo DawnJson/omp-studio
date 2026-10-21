@@ -57,7 +57,7 @@ export function TopBar(props: TopBarProps) {
           aria-haspopup="dialog"
           aria-expanded={props.aboutOpen}
           aria-label={t("window.about")}
-          title={`${t("window.about")} (Alt)`}
+          title={t("window.about")}
           onClick={props.onOpenAbout}
         >
           <InfoIcon />

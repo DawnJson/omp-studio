@@ -20,7 +20,7 @@ const shortcuts: { label: MessageKey; keys: string[] }[] = [
   { label: "shortcut.stop", keys: ["Esc"] },
   { label: "shortcut.toggleProcess", keys: ["Ctrl", "O"] },
   { label: "shortcut.nthTask", keys: ["Ctrl", "1…9"] },
-  { label: "shortcut.prevNext", keys: ["Ctrl", "Alt", "↑ / ↓"] },
+  { label: "shortcut.prevNext", keys: ["Ctrl", "Shift", "[ / ]"] },
   { label: "shortcut.regions", keys: ["F6"] },
   { label: "shortcut.review", keys: ["Ctrl", "Shift", "D"] },
   { label: "shortcut.reviewFiles", keys: ["J / K"] },

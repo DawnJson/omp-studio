@@ -17,6 +17,14 @@
   white-space: nowrap;
 }
 
+/* 菜单打开时盖住整个窗口：顶栏空白处是拖动区，点击收不到 pointerdown，菜单就收不回；scrim 是 no-drag，点哪里都会让菜单关闭（分支按钮也在它下面，所以再点按钮 = 收回）。 */
+.git-menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popover);
+  -webkit-app-region: no-drag;
+}
+
 .topbar-branch {
   display: inline-flex;
   align-items: center;

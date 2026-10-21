@@ -2,8 +2,9 @@
 // 启动 omp 时以 omp 认的环境变量传进去（docs/architecture/login.md）。不写 ~/.omp，不用 --api-key 参数。
 // 这个文件不依赖 electron，可以单测；应用里的实例和 getApiKeyEnv 在 api-keys.ts。
 // key 只从渲染进程进来，不从这里出去：对外只有 provider id 列表和注入环境变量用的 env()。
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { apiKeyEnvName } from "../../shared/provider-keys.ts";
+import { renameWithRetry } from "../tasks/atomic-write.ts";
 
 /** safeStorage 的最小接口，测试里换成假的。 */
 export interface KeyCipher {
@@ -61,7 +62,7 @@ export class ApiKeyStore {
   async #write(file: KeyFile): Promise<void> {
     const temp = `${this.#file}.tmp`;
     await writeFile(temp, JSON.stringify(file), { encoding: "utf8", mode: 0o600 });
-    await rename(temp, this.#file);
+    await renameWithRetry(temp, this.#file);
   }
 
   async save(providerId: string, key: string): Promise<void> {
