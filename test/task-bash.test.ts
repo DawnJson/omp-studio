@@ -47,7 +47,7 @@ async function fixtureWith(tail: Entry[]): Promise<string> {
     .map((line): RecordedLine => JSON.parse(line));
   const promptAt = lines.findIndex((entry) => entry.frame?.type === "prompt");
   const file = path.join(await mkdtemp(path.join(scratch, "fx-")), "bash.ndjson");
-  const entries = [...lines.slice(0, promptAt), ...tail, { kind: "hang" }];
+  const entries = [...lines.slice(0, promptAt), ...tail];
   await writeFile(file, entries.map((entry) => JSON.stringify(entry)).join("\n"));
   return file;
 }

@@ -11,13 +11,13 @@ const root = path.resolve(import.meta.dirname, "..", "..");
 const fixtureFile = path.join(root, "fixtures", "rpc", "bg-jobs.ndjson");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
 
-/** 回放到第 cutLine 行（1 起数）为止并挂起；null = 完整回放。 */
+/** 回放到第 cutLine 行（1 起数）为止就停住；null = 完整回放。 */
 async function fixtureUntil(cutLine: number | null): Promise<string> {
   const raw = (await readFile(fixtureFile, "utf8")).split("\n").filter(Boolean);
   if (cutLine === null) return raw.join("\n") + "\n";
   // 截断的尾部里 get_subagent_messages 的 in/out 留着：fake-omp 靠它们回子代理详情，它们不占回放顺序。
   const rest = raw.slice(cutLine).filter((line) => line.includes("get_subagent_messages"));
-  return [...raw.slice(0, cutLine), ...rest, JSON.stringify({ kind: "hang" })].join("\n") + "\n";
+  return [...raw.slice(0, cutLine), ...rest].join("\n") + "\n";
 }
 
 async function start(fixtureText: string): Promise<{ launched: LaunchedApp; cleanup(): Promise<void> }> {

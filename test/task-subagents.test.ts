@@ -124,7 +124,7 @@ describe("任务池：子代理泳道（回放 subagents-control）", () => {
   });
 });
 
-describe("任务池：运行中的子代理（回放 subagents-parallel，截到两个都在跑时挂起）", () => {
+describe("任务池：运行中的子代理（回放 subagents-parallel，截到两个都在跑时为止）", () => {
   async function runningFixture(): Promise<string> {
     const raw = (await readFile(fixture("subagents-parallel"), "utf8")).split("\n").filter(Boolean);
     // 第一条 BetaSummarizer 的 toolCount≥1 的 progress：两个子代理都已 started，都还在跑。
@@ -142,7 +142,7 @@ describe("任务池：运行中的子代理（回放 subagents-parallel，截到
     const file = path.join(scratch, "running.ndjson");
     // 截掉的尾部里 get_subagent_messages 的 in/out 要留着：fake-omp 靠它们回详情，它们不占回放顺序。
     const records = raw.slice(cut + 1).filter((line) => line.includes("get_subagent_messages"));
-    await writeFile(file, [...raw.slice(0, cut + 1), ...records, JSON.stringify({ kind: "hang" })].join("\n") + "\n");
+    await writeFile(file, [...raw.slice(0, cut + 1), ...records].join("\n") + "\n");
     return file;
   }
 

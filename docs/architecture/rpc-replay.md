@@ -19,11 +19,11 @@
 |`in`|`frame`：主进程写给 omp 的帧|从 stdin 读一行，`type` 必须相同，否则以退出码 3 退出|
 |`raw`|`text`|原样写一行到 stdout，用来造协议错误|
 |`exit`|`code`|以这个退出码退出|
-|`hang`|无|放在末尾：回放完后 stdin 关闭也不退出，用来测强制结束|
+|`hang`|无|放在末尾：回放完后 stdin 关闭也不退出，只能被强制结束。只给测强制结束的用例用：关闭任务时主进程要等满 5 秒超时才杀进程树，每个用例白白多 5 秒|
 |`delay`|`ms`|回放到这里先等 `ms` 毫秒再继续（慢速回放，界面的计时、"已工作 N 秒"要靠它复现）|
 |`state`|`command`、`data`|不读不写帧：把幂等查询（`get_state` 等）之后的应答改成 `data`，用来复现 `get_state.sessionFile` 随 `branch` / `switch_session` 变化这类场景（`test/task-fork.test.ts`）|
 
-没有 `exit` 或 `hang` 时，回放完等 stdin 关闭再以 0 退出，和真实 omp 一样。
+没有 `exit` 或 `hang` 时，回放完停在那里（幂等查询照常应答），等 stdin 关闭再以 0 退出，和真实 omp 一样。想让界面停在流式中、等你确认这类中间状态，截断录制就够了，不用加 `hang`。
 
 ## 回放时的 id
 
@@ -39,7 +39,7 @@
 - 现在的录制用增量模式（`set_event_filter messageUpdates:"delta"`），`message_update` 不带 `partial`，一轮 bash 对话约 120 条；旧的完整快照格式主进程翻译时同样处理（去掉 `partial`）。
 
 - `fake-omp` 的第二个命令行参数（可选）是输入记录文件：收到的每个 `in` 帧原样追加一行，测试用它断言 omp 实际收到了什么（评审评论发出的 prompt 文本见 `test/e2e/review.e2e.ts`）。
-- 子代理的查询和干预（`get_subagent_messages`、`steer_subagent`、`cancel_subagent`）**不占回放顺序**：录制里这几条 `in` 和它们的应答 `out` 被跳过，界面在不固定的时刻发时由假 omp 就地应答。`get_subagent_messages` 按请求的 `subagentId` 回录制里那个子代理的记录（不在录制里的 id 回 `success: false`），并像真 omp 一样按 `fromByte` 续读（从 `nextByte` 往后是空页）；`steer_subagent` 回成功，`cancel_subagent` 回 `cancelled: true`，**不会**自动产生 `aborted` 帧。截断录制（`hang`）时要把尾部的 `get_subagent_messages` 条目留着，否则详情读不到记录（见 `test/task-subagents.test.ts`、`test/e2e/subagent-lanes.e2e.ts`）。
+- 子代理的查询和干预（`get_subagent_messages`、`steer_subagent`、`cancel_subagent`）**不占回放顺序**：录制里这几条 `in` 和它们的应答 `out` 被跳过，界面在不固定的时刻发时由假 omp 就地应答。`get_subagent_messages` 按请求的 `subagentId` 回录制里那个子代理的记录（不在录制里的 id 回 `success: false`），并像真 omp 一样按 `fromByte` 续读（从 `nextByte` 往后是空页）；`steer_subagent` 回成功，`cancel_subagent` 回 `cancelled: true`，**不会**自动产生 `aborted` 帧。截断录制时要把尾部的 `get_subagent_messages` 条目留着，否则详情读不到记录（见 `test/task-subagents.test.ts`、`test/e2e/subagent-lanes.e2e.ts`）。
 
 ## 场景和现有录制
 

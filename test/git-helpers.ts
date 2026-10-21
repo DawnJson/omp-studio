@@ -1,6 +1,6 @@
 // git 测试的公共工具：在真实的临时仓库里跑。目录名带空格和中文（开发机上就有这种路径）。
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -29,6 +29,25 @@ export const FORTY_LINES = `${Array.from({ length: 40 }, (_, i) => `第 ${i + 1}
 /** 建一个有一次提交的仓库：src 目录/文件 一.txt（40 行）、a.txt、bin.dat（二进制）。 */
 export async function makeRepo(scratch: string, name = "仓库 一"): Promise<string> {
   const dir = path.join(scratch, name);
+  await cp(await template(scratch), dir, { recursive: true });
+  return dir;
+}
+
+/**
+ * 每个 scratch 只真跑一次 git init + 提交，之后的仓库复制它。Windows 上起一次 git 要几十毫秒，
+ * 一个仓库 7 次，每个用例都建新仓库时加起来是全量单测里最慢的那几个文件的大头。
+ */
+const templates = new Map<string, Promise<string>>();
+function template(scratch: string): Promise<string> {
+  let made = templates.get(scratch);
+  if (made === undefined) {
+    made = initRepo(path.join(scratch, ".模板 仓库"));
+    templates.set(scratch, made);
+  }
+  return made;
+}
+
+async function initRepo(dir: string): Promise<string> {
   await mkdir(dir, { recursive: true });
   sh(dir, "init", "-b", "main");
   sh(dir, "config", "user.name", "测试 用户");

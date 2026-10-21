@@ -55,7 +55,7 @@ async function fixtureWith(state: Record<string, unknown>, tail: Entry[]): Promi
     return entry;
   });
   const file = path.join(await mkdtemp(path.join(scratch, "fx-")), "speed.ndjson");
-  await writeFile(file, [...head, ...tail, { kind: "hang" }].map((entry) => JSON.stringify(entry)).join("\n"));
+  await writeFile(file, [...head, ...tail].map((entry) => JSON.stringify(entry)).join("\n"));
   return file;
 }
 

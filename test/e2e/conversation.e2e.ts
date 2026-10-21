@@ -1,6 +1,6 @@
 // 对话流 + 输入框 + 门的端到端：启动构建产物，STUDIO_TEST_OMP 指向假 omp 回放 fixtures/rpc（不调真实模型），
 // 驱动真实的 主进程 → IPC → 渲染进程。流式中 / 完成 / 等你确认三态，中英 × 深浅各截一张图到 screenshots/。
-// 流式中和等你确认用"截断的录制 + hang"造出来：假 omp 回放到截断处就停住，界面停在那个状态。
+// 流式中和等你确认用"截断的录制"造出来：假 omp 回放到截断处就停住，界面停在那个状态。
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -32,7 +32,7 @@ async function streamingFixture(name: string, deltas: number): Promise<string> {
   let seen = 0;
   const cut = lines.findIndex((line) => line.frame?.assistantMessageEvent?.type === "text_delta" && ++seen === deltas);
   expect(cut).toBeGreaterThan(0);
-  return [...raw.slice(0, cut + 1), JSON.stringify({ kind: "hang" })].join("\n") + "\n";
+  return raw.slice(0, cut + 1).join("\n") + "\n";
 }
 
 /** 慢速回放：工具开始执行前和结束后各等一会，让"Worked for Ns · M tool calls"这一行真实出现。 */
@@ -52,7 +52,7 @@ async function gateFixture(name: string): Promise<string> {
   const { raw, lines } = await readFixture(name);
   const cut = lines.findIndex((line) => line.frame?.method === "select");
   expect(cut).toBeGreaterThan(0);
-  return [...raw.slice(0, cut + 1), JSON.stringify({ kind: "hang" })].join("\n") + "\n";
+  return raw.slice(0, cut + 1).join("\n") + "\n";
 }
 
 /** fixture 里最后一条助手 message_end 的文字：回放后界面上的最终内容必须和它一致。 */

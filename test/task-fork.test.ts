@@ -71,7 +71,7 @@ const expectIn = (type: string, id: string): Entry => ({ kind: "in", frame: { ty
 /** 整份 simple-reply（握手 + 一轮对话）后接这条测试自己的往返。 */
 async function fixtureAfterTurn(tail: Entry[]): Promise<string> {
   const file = path.join(await mkdtemp(path.join(scratch, "fx-")), "fork.ndjson");
-  await writeFile(file, [...recorded, ...tail, { kind: "hang" }].map((entry) => JSON.stringify(entry)).join("\n"));
+  await writeFile(file, [...recorded, ...tail].map((entry) => JSON.stringify(entry)).join("\n"));
   return file;
 }
 
@@ -86,7 +86,6 @@ async function forkedTaskFixture(dir: string): Promise<string> {
     ...recorded.slice(13, 17),
     expectIn("get_messages_page", "p1"),
     response("p1", "get_messages_page", { messages: [] }),
-    { kind: "hang" },
   ];
   await writeFile(file, lines.map((entry) => JSON.stringify(entry)).join("\n"));
   return file;
@@ -362,12 +361,12 @@ describe("就地回溯在 branch 之后失败", () => {
 
     await expect(pool.branchTask(id, "u1")).rejects.toThrow(/boom/);
     // 进程被关掉后任务回到 stopped；旧实现的 finally 会在这之前就把新文件写进记录。
-    await vi.waitFor(() => expect(states.findLast((s) => s.id === id)?.status).toBe("stopped"), { timeout: 10_000 });
+    await vi.waitFor(() => expect(states.findLast((s) => s.id === id)?.status).toBe("stopped"));
 
     expect(pool.listSessionLinks().find((link) => link.id === id)?.sessionFile).toBe(before);
     expect(before).not.toBe(BRANCH_FILE);
     expect(states.findLast((s) => s.id === id)?.status).toBe("stopped");
-  }, 30_000); // close() 要等假 omp 超时（它 hang 着不理 stdin 关闭）再按进程树结束
+  });
 });
 
 describe("discardWorktree：已归档的分叉也算在用这个 worktree", () => {

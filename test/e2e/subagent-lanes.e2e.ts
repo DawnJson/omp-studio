@@ -35,7 +35,6 @@ async function paced(cutAt: ((line: Line) => boolean) | null): Promise<string> {
   });
   // 截断的尾部里 get_subagent_messages 的 in/out 要留着：fake-omp 靠它们回详情，它们不占回放顺序。
   if (cut !== -1) out.push(...raw.slice(cut + 1).filter((line) => line.includes("get_subagent_messages")));
-  if (cut !== -1) out.push(JSON.stringify({ kind: "hang" }));
   return out.join("\n") + "\n";
 }
 

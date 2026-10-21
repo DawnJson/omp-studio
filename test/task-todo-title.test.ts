@@ -37,7 +37,7 @@ const phases: TodoPhase[] = [
 
 type Entry = { kind: string; frame?: Record<string, unknown> };
 
-/** simple-reply 的握手部分（到第一条 prompt 为止）+ 给定的后续帧 + hang；get_state 的应答带上 todoPhases。 */
+/** simple-reply 的握手部分（到第一条 prompt 为止）+ 给定的后续帧；get_state 的应答带上 todoPhases。 */
 async function fixtureFile(name: string, after: Entry[]): Promise<string> {
   const entries = (await readFile(source, "utf8"))
     .split("\n")
@@ -50,7 +50,7 @@ async function fixtureFile(name: string, after: Entry[]): Promise<string> {
     return entry;
   });
   const file = path.join(scratch, `${name}.ndjson`);
-  await writeFile(file, [...head, ...after, { kind: "hang" }].map((entry) => JSON.stringify(entry)).join("\n") + "\n");
+  await writeFile(file, [...head, ...after].map((entry) => JSON.stringify(entry)).join("\n") + "\n");
   return file;
 }
 

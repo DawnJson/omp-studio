@@ -78,7 +78,7 @@ async function fixtureWith(tail: Entry[], handshakeGoal?: GoalModeState): Promis
     return entry;
   });
   const file = path.join(await mkdtemp(path.join(scratch, "fx-")), "goal.ndjson");
-  await writeFile(file, [...head, ...tail, { kind: "hang" }].map((entry) => JSON.stringify(entry)).join("\n"));
+  await writeFile(file, [...head, ...tail].map((entry) => JSON.stringify(entry)).join("\n"));
   return file;
 }
 
