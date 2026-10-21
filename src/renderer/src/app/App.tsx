@@ -1,7 +1,7 @@
 // 应用布局（spec §3.1–3.3）：40px 通栏任务条 + 侧栏 + 四角圆的主区“纸面”；窄窗口侧栏变抽屉。
 // 各功能入口的导出名和 props 是约定（props 只有 id，数据从 store hook 取）。
 import { reportError } from "../ui/errors.ts";
-import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { useVisibleTaskIds } from "../features/sidebar/visible-order-store.ts";
 import { Composer } from "../features/composer/index.ts";
 import { BtwPanel } from "../features/btw/index.ts";
@@ -136,8 +136,9 @@ export function App() {
   };
 
   // spec §5.3：启动、切换任务后焦点进输入框；正在别的输入控件（命令面板等）里时不抢。
-  // 这是选中任务后聚焦输入框的唯一一处（Composer 自己不再聚焦）；同步在提交后执行，不用 rAF，所以点任务后焦点位置是确定的。
-  useEffect(() => {
+  // 这是选中任务后聚焦输入框的唯一一处（Composer 自己不再聚焦）；在提交后、绘制前执行（layout effect），不用 rAF，
+  // 所以点任务后焦点位置是确定的；草稿发出第一句话换成任务的输入框时，中间也不会有一帧没有焦点（焦点框闪一下）。
+  useLayoutEffect(() => {
     if (view !== "conversation") return;
     const active = document.activeElement;
     const typing =

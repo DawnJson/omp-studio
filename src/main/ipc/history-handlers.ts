@@ -70,7 +70,9 @@ export const historyHandlers: HandlerGroup<
     const id = parseProjectId(projectId);
     const project = (await getTaskPool()).listProjects().find((candidate) => candidate.id === id);
     if (project === undefined) throw new Error("项目不存在");
-    shell.showItemInFolder(project.path);
+    // 打开文件夹本身（showItemInFolder 打开的是上一级并选中它）。openPath 返回错误文本，空串 = 成功。
+    const error = await shell.openPath(project.path);
+    if (error !== "") throw new Error(error);
   },
 
   async revealTaskSession(taskId) {

@@ -1,9 +1,11 @@
-// 草稿工具行里审批胶囊右边的项目标签：文件夹图标 + 文件夹路径，只是告诉你这个新任务会在哪个文件夹里运行，不能点。
+// 输入框工具行里审批胶囊右边的文件夹标签：文件夹图标 + 文件夹路径，只是告诉你任务在哪个文件夹里运行，不能点。
+// 草稿（新任务会在哪）和任务的输入框（Composer，任务的 cwd）都放。
 // 默认文件夹（AppInfo.chatsDir）也直接写它的路径。路径太长时省略开头，留住末尾的文件夹名；悬停看完整路径。
 // 换文件夹走侧栏：新任务 = 默认文件夹，项目分组旁的 ＋ = 在那个项目里，打开文件夹 = 新的文件夹。
 import type { Project } from "../../../../shared/ipc.ts";
 import { Folder } from "../../icons.tsx";
 import { useAppInfo } from "../../store/index.ts";
+import "./empty.css";
 
 /** 文件夹图标 + 路径（只显示）。 */
 export function PathLabel({ path, testId = "empty-project" }: { path: string; testId?: string }) {

@@ -48,6 +48,7 @@ import { useReclaimFocus } from "./use-reclaim-focus.ts";
 import { TspChangeStrip } from "../tsp-changes/TspChangeStrip.tsx";
 import { useFirstPrompt } from "../tsp/first-prompt-store.ts";
 import type { Transcript } from "../../../../shared/transcript.ts";
+import { PathLabel } from "../empty/ProjectLabel.tsx";
 
 /** 输入框上方的状态栏（运行状态 + 后台任务）：从 rpc 对话流和泳道推出来，只有 rpc 任务有。 */
 function StatusBar({ taskId, task, transcript }: { taskId: TaskId; task: TaskState; transcript: Transcript | null }) {
@@ -437,8 +438,12 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
               setFast: (enabled) => window.studio.setTaskFastMode(taskId, enabled),
               setSlow: (enabled) => window.studio.setTaskSlowMode(taskId, enabled),
             }}
+            // 起进程期间还不知道模型时和草稿一样写"模型…"，不写"未连接模型"
+            {...(shownModel === null && task.status === "starting" ? { emptyLabel: t("composer.modelLoading") } : {})}
           />
           <ApprovalChip />
+          {/* 和草稿工具行同一个位置：任务在哪个文件夹里跑（有 worktree 时是 worktree 根），发出第一句话后不消失 */}
+          <PathLabel path={task.cwd} testId="composer-folder" />
           <UsageMeter task={task} />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}

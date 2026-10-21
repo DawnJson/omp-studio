@@ -56,6 +56,11 @@
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: opacity calc(var(--dur-slow) * 4) var(--ease-in-out);
+}
+/* 显示 5 秒后慢慢淡出（WhatsNew.tsx），位置留着，标志不跳 */
+.whats-new[data-fading] {
+  opacity: 0;
 }
 .whats-new-h {
   font-weight: 600;

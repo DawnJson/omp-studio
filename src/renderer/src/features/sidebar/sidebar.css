@@ -239,8 +239,11 @@
   gap: var(--space-2);
   padding-right: var(--space-1);
 }
+/* 两段等宽：按较长的那段（“文件夹”/“Folder”）定宽 */
 .sb-history-order {
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
   flex: none;
   padding: 2px;
   border-radius: var(--radius-sm);
@@ -308,12 +311,8 @@
 .sb-group-toggle:hover {
   background: var(--bg-hover);
 }
-/* 右侧常驻一个 ＋（在此项目新建任务），悬停时它左边再浮出 ⋯；名称让出它们的位置 */
+/* 右侧常驻一个 ＋（在此项目新建任务），＋ 左边一格是行数或 ⋯；名称始终让出这两格，展开/折叠时名称不跳 */
 .sb-group-toggle {
-  padding-right: calc(var(--control-h-sm) + var(--space-1));
-}
-.sb-group-head:hover .sb-group-toggle,
-.sb-group-head:focus-within .sb-group-toggle {
   padding-right: calc(2 * var(--control-h-sm) + var(--space-1));
 }
 .sb-chevron {
@@ -334,15 +333,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 行数和 ⋯ 叠在 ＋ 左边同一格：折叠显示行数，展开显示 ⋯，交叉淡入淡出（一个缩小淡出，一个放大淡入） */
 .sb-group-count {
+  position: absolute;
+  top: 0;
+  right: calc(var(--control-h-sm) + var(--space-0-5));
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-1-5);
-  margin-left: auto;
+  min-width: var(--control-h-sm);
+  height: var(--control-h-sm);
   font-variant-numeric: tabular-nums;
-  transition:
-    opacity var(--dur-fast) var(--ease-out),
-    visibility 0s;
+  pointer-events: none;
 }
 .sb-group-count .sb-waiting-diamond {
   width: 7px;
@@ -361,19 +364,26 @@
 }
 .sb-group-more {
   right: calc(var(--control-h-sm) + var(--space-0-5));
-  opacity: 0;
 }
-.sb-group-head:hover .sb-group-more,
-.sb-group-head:focus-within .sb-group-more {
-  opacity: 1;
-}
-.sb-group-head:hover .sb-group-count,
-.sb-group-head:focus-within .sb-group-count {
+.sb-group-count,
+.sb-group-more {
   opacity: 0;
   visibility: hidden;
+  transform: scale(var(--scale-pop));
   transition:
-    opacity var(--dur-fast) var(--ease-out),
-    visibility 0s linear var(--dur-fast);
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out),
+    visibility 0s linear var(--dur-base);
+}
+.sb-group-count[data-shown],
+.sb-group-more[data-shown] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out),
+    visibility 0s;
 }
 .sb-icon-btn {
   display: inline-flex;
@@ -500,7 +510,7 @@
   outline: none;
 }
 
-/* ───── 状态点：8px 的点放在 16×16 槽位里；形状 + 颜色双信号（进行中实心带光晕 / 等你菱形 / 完成空心圆 / 出错实心无光晕） ───── */
+/* ───── 状态图标：14px 放在 16×16 槽位里；形状 + 颜色双信号（进行中转动的弧 / 需要介入琥珀底 ! / 已完成圆圈对勾 / 失败红底 ×） ───── */
 .sb-dot {
   position: relative;
   display: inline-flex;
@@ -513,31 +523,72 @@
 .sb-dot-mark {
   display: block;
   flex: none;
-  box-sizing: border-box;
-  width: 8px;
-  height: 8px;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  overflow: visible;
 }
-.sb-dot-running .sb-dot-mark {
-  background: var(--st-running);
-  border-radius: var(--radius-pill);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-  animation: sb-halo var(--dur-breathe) var(--ease-in-out) infinite;
+.sb-dot-running {
+  color: var(--st-running);
+}
+.sb-dot-waiting {
+  color: var(--st-waiting);
+}
+.sb-dot-done {
+  color: var(--st-done);
+}
+.sb-dot-error {
+  color: var(--st-error);
+}
+.sb-dot-fill {
+  fill: currentColor;
+}
+.sb-dot-ink {
+  fill: var(--text-on-accent);
+}
+.sb-dot-ink-stroke,
+.sb-dot-stroke,
+.sb-dot-ring,
+.sb-dot-track,
+.sb-dot-arc {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sb-dot-ink-stroke {
+  stroke: var(--text-on-accent);
+  stroke-width: 1.7;
+}
+.sb-dot-stroke {
+  stroke: currentColor;
+  stroke-width: 1.7;
+}
+.sb-dot-ring {
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.sb-dot-track {
+  stroke: currentColor;
+  stroke-width: 2;
+  opacity: 0.22;
+}
+/* 弧占一周的 30%，绕圆心转；0% 帧就是静止的弧（减少动效 / --play-state 暂停时停在这里） */
+.sb-dot-arc {
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-dasharray: 30 70;
+  transform-origin: 8px 8px;
+  animation: sb-spin var(--dur-spin) linear infinite;
   animation-play-state: var(--play-state);
 }
-.sb-dot-waiting .sb-dot-mark {
-  background: var(--st-waiting);
-  border-radius: 1px;
-  transform: rotate(45deg);
+@keyframes sb-spin {
+  from {
+    transform: rotate(-90deg);
+  }
+  to {
+    transform: rotate(270deg);
+  }
 }
-.sb-dot-done .sb-dot-mark {
-  border: 1.5px solid var(--st-done);
-  border-radius: var(--radius-pill);
-}
-.sb-dot-error .sb-dot-mark {
-  background: var(--st-error);
-  border-radius: var(--radius-pill);
-}
-/* 光晕呼吸；0% 帧即静态终态（减少动效时暂停在这一帧：3px 光晕） */
+/* 光晕呼吸（子代理泳道 lanes.css 在用）；0% 帧即静态终态（减少动效时暂停在这一帧：3px 光晕） */
 @keyframes sb-halo {
   0%,
   100% {
@@ -593,10 +644,11 @@
 }
 
 /* ───── 菜单 ───── */
+/* 宽度随内容：项目菜单只有几个短项，不留一截空白；有键帽的任务菜单靠 gap 隔开 */
 .sb-menu {
   position: fixed;
   z-index: var(--z-popover);
-  min-width: 200px;
+  width: max-content;
   padding: var(--space-1);
   background: var(--bg-overlay);
   border-radius: var(--radius-lg);

@@ -65,6 +65,9 @@ async function sendFirst(page: Page, text: string): Promise<void> {
   const stack = page.getByTestId("composer-stack");
   await expect(stack).toHaveAttribute("data-from-draft", "");
   await expect(stack).toHaveCSS("animation-name", "none");
+  // 任务的输入框也写着工作目录（和草稿同一个位置），焦点一直在输入框上（焦点框不断）。
+  await expect(stack.getByTestId("composer-folder")).toHaveText(/项目 目录$/);
+  await expect(page.getByTestId("composer-input")).toBeFocused();
 }
 
 const role = (page: Page, name: string) => page.locator(`[data-testid="tsp-view"] [data-role="${name}"]`);

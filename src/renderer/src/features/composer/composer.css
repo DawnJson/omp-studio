@@ -44,6 +44,10 @@
     var(--shadow-composer),
     0 0 0 3px var(--accent-soft);
 }
+/* 草稿发出第一句话后换成任务的输入框（新节点，见 App.tsx fromDraft）：边框直接是聚焦色，不从灰色过渡过去（否则闪一下） */
+.composer-stack[data-from-draft] .composer {
+  transition: none;
+}
 
 .composer-field {
   display: block;

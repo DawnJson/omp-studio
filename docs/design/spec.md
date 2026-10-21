@@ -303,14 +303,14 @@
 
 通则：所有可点击元素有 `:hover`（`--bg-hover`）、`:active`（`--bg-active`，无位移）、`:focus-visible`（`outline: 2px solid var(--focus-ring); outline-offset: 2px`，仅键盘）、`:disabled`（`--text-disabled`，`cursor: default`）；下表不再重复。输入类容器用 `:focus-within` 画 `border-color: var(--accent)` + `box-shadow: 0 0 0 3px var(--accent-soft)`（侧栏搜索框例外：聚焦只把边框加深到 `--border-strong`，同悬停，不出彩色边框）。选中文字 `::selection { background: var(--selection-bg) }`。侧栏、按钮、标题栏 `user-select: none`；对话区全部可选。**选中即复制**（2026-10-20 起，设置项 `copyOnSelect`，默认开；`app/use-copy-on-select.ts`）：鼠标松开时页面上有选中的文字（拖选、双击、三击）就写进剪贴板，toast `common.copied`（1.2 秒）；同一段选区只复制一次；键盘选中不自动复制；输入框、文本域、可编辑区、内置终端里的选中不复制（在输入框里选中多半是要改写或粘贴覆盖）。写剪贴板要 `clipboard-sanitized-write` 权限，主进程只对应用自己页面的主框架放行，其余权限照旧全拒（`main/window/security.ts`）。
 
-### 4.1 StatusDot（状态槽 16×16，居中；3.0 起换成 8px 的点，`direction-3.0.md` §3.2）
+### 4.1 StatusDot（状态槽 16×16，居中；2026-10-21 起换成 14px 的图标，原来 8px 的点太不显眼）
 
 | 状态（主进程为准，渲染层只收 `taskStatusChanged`） | 视觉 | token | aria-label |
 |---|---|---|---|
-| `running` / `starting` | 8px 实心圆点 + 外圈 3px `--accent-soft` 光晕，光晕按 `--dur-breathe` 呼吸（`sb-halo`，0% 帧就是静止的 3px 光晕；`--play-state` 暂停时静止） | `--st-running` | `status.running`（有子代理：`status.runningAgents`） |
-| `needs_you` | 8px 方块转 45°（菱形，圆角 1px），静止 | `--st-waiting` | `status.waiting` |
-| `done` | 8px 空心圆，描边 1.5，**中性色**，不用绿 | `--st-done`（= `--text-2`） | `status.done` |
-| `error` | 8px 实心圆点，无光晕 | `--st-error` | `status.error` |
+| `running` / `starting` | 半径 6 的圆环：淡轨道（22% 不透明）+ 占三成的弧，弧按 `--dur-spin` 匀速转（`sb-spin`，0% 帧是静止的弧；`--play-state` 暂停或减少动效时静止） | `--st-running` | `status.running`（有子代理：`status.runningAgents`） |
+| `needs_you` | 14px 实心圆底 + 白色 `!`（`--text-on-accent`），静止 | `--st-waiting` | `status.waiting` |
+| `done` | 空心圆（描边 1.5）里一个对勾（描边 1.7），**中性色**，不用绿 | `--st-done`（= `--text-2`） | `status.done` |
+| `error` | 14px 实心圆底 + `×`（`--text-on-accent`） | `--st-error` | `status.error` |
 | 从没跑过 / `aborted` | 不画（槽位保留，标题对齐）；`aborted` 在尾部显示 `task.stopped` | — | — |
 
 `done` = 空闲且最后一轮正常结束（`lastTurn.status === "completed"`），**看过也一直在**（3.0 起，仓库所有者 2026-10-20 定：已完成、进行中、需要介入、失败四种状态各有样子；原来只在未读时画对勾）；未读靠标题用 `--text` 区分（§4.2）。判定在 `shared/ui/sidebar-model.ts` 的 `dotKind`。`error` 保持到用户在该任务开始新一轮。
@@ -327,8 +327,8 @@
 
 ### 4.3 FolderGroup（文件夹头）
 
-- 头高 28，`padding: 0 --space-2`，`--fs-xs` `--text-2` `--fw-medium`（3.0 起，原来 `--text-3`）；左 12px 箭头（折叠时旋转，`--dur-fast`），文件夹名（重名时 `上级/名称`，tooltip 完整路径）；右侧常驻一个 `＋`（`data-testid="sidebar-project-new"`，`sidebar.newInProject`，`--text-3`，hover `--text`）：在这个文件夹新建任务；studio 项目直接开草稿，只在历史会话里出现的文件夹先由主进程 `ensureSessionProject`（按会话 id 查 cwd，加成项目但不建任务）加成项目再开草稿；hover/聚焦时 `＋` 左边再浮出 `⋯`（在资源管理器中显示、从列表移除——只移出列表），**只有 studio 项目的文件夹才有 `⋯`**，纯历史文件夹没有（右键也没有菜单）。
-- 折叠时右侧显示行数（任务 + 会话）；文件夹里有等待任务则再显示 7px 琥珀菱形。展开规则见 §4.5。
+- 头高 28，`padding: 0 --space-2`，`--fs-xs` `--text-2` `--fw-medium`（3.0 起，原来 `--text-3`）；左 12px 箭头（折叠时旋转，`--dur-fast`），文件夹名（重名时 `上级/名称`，tooltip 完整路径）；右侧常驻一个 `＋`（`data-testid="sidebar-project-new"`，`sidebar.newInProject`，`--text-3`，hover `--text`）：在这个文件夹新建任务；studio 项目直接开草稿，只在历史会话里出现的文件夹先由主进程 `ensureSessionProject`（按会话 id 查 cwd，加成项目但不建任务）加成项目再开草稿。`＋` 左边一格（2026-10-21 起，不再看悬停）：**折叠时是行数**（组内有等待任务时前面加琥珀菱形），**展开时是 `⋯`**（项目菜单：在资源管理器中显示——打开这个文件夹本身，不是上一级、清理无主工作树、从列表移除——只移出列表），两者叠在同一格，切换时一个缩小淡出、一个放大淡入（`--dur-base`）；名称始终让出这两格，展开折叠时不跳。**只有 studio 项目的文件夹才有 `⋯`**，纯历史文件夹展开后这一格是空的（右键也没有菜单）。
+- 展开规则见 §4.5。
 - 文件夹之间 `--space-1`；展开后先 5 行，`sidebar.showMore`（每次 +20）。
 - 键盘：列表整体一个 Tab 停靠点（roving tabindex），`↑↓` 移动，`←/→` 折叠/展开，`Enter` 打开，`Home/End`。
 - 空项目（展开后没有任务和会话）：一行 `--text-3` `sidebar.empty`。
@@ -352,9 +352,9 @@
 ### 4.7 EmptyState
 
 - **输入框贴主区底部**（2026-10-18 返工，空状态和对话中同一位置）；上方区域（垂直居中）**只有**居中的像素标志（`ui/PixelLogo.tsx`，照 omp 终端版启动画面：块字符 π 逐格粉→紫→蓝渐变、左腿末格 ▒，身后错开 1 像素的“层叠”淡影（§3.1“标志”），右边半块像素字 `omp`（`--text`）接 `studio`（`--text-2`），字的 x 高和 π 上下居中（2026-10-20 起，原来照终端贴着 π 的横，看着偏上），字下暗色 `v<版本>`（`--text-3` 等宽））。2026-10-19 起去掉标志下面的项目胶囊和最近任务卡片：最近任务和历史会话只在侧栏（搜索框能搜到任务和历史会话，含终端里的）。**没有欢迎语、插画、示例提示卡**（标志不算）。
-- **项目标签在输入框工具行里，审批胶囊右边**（2026-10-20 起，原来在输入框下面单独一行 `.composer-below`，已去掉）：`empty-project` = 文件夹图标 + 文件夹完整路径（2026-10-20 起不写项目名；`--font-mono` `--fs-xs` `--text-2`，最多 40ch，太长时省略开头、留住末尾的文件夹名：外层 `direction: rtl` + 里面 `<bdi>`），纯文字、不画成胶囊（没有底色、边框、圆角），悬停提示完整路径。**只显示、不能点**：它只告诉你这个新任务会在哪个文件夹里运行；换文件夹走侧栏（`新任务` = 默认文件夹，文件夹头 `＋` = 那个文件夹，`打开文件夹` = 新文件夹）或拖入文件夹。项目目录正好是 git 仓库根时，标签右边是工作树开关。
+- **项目标签在输入框工具行里，审批胶囊右边**（2026-10-20 起，原来在输入框下面单独一行 `.composer-below`，已去掉）：`empty-project` = 文件夹图标 + 文件夹完整路径（2026-10-20 起不写项目名；`--font-mono` `--fs-xs` `--text-2`，最多 40ch，太长时省略开头、留住末尾的文件夹名：外层 `direction: rtl` + 里面 `<bdi>`），纯文字、不画成胶囊（没有底色、边框、圆角），悬停提示完整路径。**只显示、不能点**：它只告诉你这个新任务会在哪个文件夹里运行；换文件夹走侧栏（`新任务` = 默认文件夹，文件夹头 `＋` = 那个文件夹，`打开文件夹` = 新文件夹）或拖入文件夹。项目目录正好是 git 仓库根时，标签右边是工作树开关。发出第一句话后任务的输入框在同一位置接着显示任务的工作目录（`composer-folder`，有 worktree 时是 worktree 根，2026-10-21 起）。
 - **默认文件夹**（2026-10-20 起）：新任务（侧栏 `新任务`、`Ctrl N`、启动时）一律在默认文件夹 `AppInfo.chatsDir`（`~/omp-studio/chats`）里，不沿用最近用过的项目，打开就能直接发送（同 Codex / Claude Code）。工具行标签直接写它的完整路径（侧栏文件夹标题才写 `empty.defaultFolder`）。第一次发送时主进程 `ensureChatsProject` 才建目录并加入项目（名为 `chats`），之后它在列表里是普通项目，但界面上一律叫"默认文件夹"。默认文件夹不是 git 仓库，没有工作树开关。不用用户主目录作 cwd：omp 默认会把主目录换成临时目录（`--allow-home`），搜索也会扫整个主目录。要在别的文件夹里工作：侧栏 `打开文件夹`、文件夹头的 `＋`、`Ctrl Shift N`（当前任务的项目）或拖入文件夹。
-- 最近更新（照 omp 的 What's New，`startup.changelogMode = summary`）：升级后第一次启动时，标志下面居中一行：`empty.whatsNew`（600 `--text-2`）· `empty.whatsNewUpdated(Many)`（"已更新到 v<版本> · N 项改动"，跨多个版本时加"M 个版本共"）· `新增 · 变更 · 修复` 各几项（为 0 的省略）；整行 `--fs-sm --text-3`，不换行，窄了省略号截断，tooltip 全文。只写统计，不列条目。数据来自打进主进程包的 `CHANGELOG.md`（`src/main/whats-new.ts`，解析在 `src/shared/changelog.ts`）：合计 `userData/last-changelog-version` 记的版本之后、当前版本为止的各节（没有记录 = 第一次装，只算当前版本；不含"未发布"），启动时算一次并立即写入当前版本，所以重载窗口仍显示、重启后消失；当前版本没有条目时不显示。
+- 最近更新（照 omp 的 What's New，`startup.changelogMode = summary`）：升级后第一次启动时，标志下面居中一行：`empty.whatsNew`（600 `--text-2`）· `empty.whatsNewUpdated(Many)`（"已更新到 v<版本> · N 项改动"，跨多个版本时加"M 个版本共"）· `新增 · 变更 · 修复` 各几项（为 0 的省略）；整行 `--fs-sm --text-3`，不换行，窄了省略号截断，tooltip 全文。只写统计，不列条目。显示 5 秒后慢慢淡出（`--dur-slow` × 4，2026-10-21 起），淡出后位置留着、标志不跳；这次启动里再进新任务页不再出现。数据来自打进主进程包的 `CHANGELOG.md`（`src/main/whats-new.ts`，解析在 `src/shared/changelog.ts`）：合计 `userData/last-changelog-version` 记的版本之后、当前版本为止的各节（没有记录 = 第一次装，只算当前版本；不含"未发布"），启动时算一次并立即写入当前版本，所以重载窗口仍显示、重启后消失；当前版本没有条目时不显示。
 - 侧栏 `新任务` 按钮在草稿页带 `aria-current="page"`，用选中底色突出（§4.5）。
 
 ### 4.8 UserMessage
@@ -440,7 +440,7 @@
 - 底部工具行：左起 ModelChip、ApprovalChip（2026-10-20 起没有 `⊕` 附件按钮，见下方附件预览行；模型和审批两个胶囊后面各一个 12px `⌄`，只是提示能点；审批胶囊前一个 13px 盾牌图标，"全部自动"照旧琥珀色）；输出速度（`UsageMeter`，只在运行中，见下）；右起上下文圆环（`ContextMeter`，见下）、本会话费用（`SessionCost`，对应 omp 状态栏的 cost 段：`get_session_stats.cost`，按模型的 API 价格估算，订阅登录的模型也照样累计；等宽 `--fs-xs` `--text-2`，`$0.0001` 这种不到一美分的保留 4 位小数；一直显示，新任务草稿和还没有统计时是 `$0.00`；当前模型的 provider 有 OAuth 登录凭据时（omp 优先用 OAuth，`get_logout_accounts`，按 provider 缓存 5 分钟）后面跟 `--text-3` 的 ` (sub)`，悬停换成 `composer.usage.costTipSub`；悬停 `composer.usage.costTip` + 输入/输出/缓存读取/高级请求数；是按钮，点开居中的 `UsageDialog`，见下）、SendStop。仪表不收缩（`flex: none`），空间不够时模型胶囊先省略名字，≤860px 去掉速度，≤400px（比如开着文件预览）工具行折成两行：模型、审批胶囊在上，计数、圆环、费用、发送换到下一行靠右；圆环和费用一直在。胶囊 `overflow: hidden`，内容不会画到旁边。本会话 token 不在工具行里（2026-10-19 起去掉图标按钮），在上下文浮层的“会话用量”里。
 
 **JobsBoard**（2026-10-20 起，照 Tern 里 omp 的后台任务胶囊与看板；3.0 起拆成两个按钮，`direction-3.0.md` §3.5）：omp 没有列后台任务的 RPC，从工具帧推导（`src/shared/ui/jobs.ts` 的 `deriveJobs`）：`bash` 带 `async: true` 的调用（`details.async = {state, jobId}`、"Backgrounded as job bg_N"）、`task` 派出的子代理（"Spawned agent `X` (job `Y`)" + 子代理泳道状态）、`wait` 工具的 `details.jobs[]` 快照（状态、标签、时长以它为准）。两个按钮 `jobs.btn.bash`（`后台任务`，`jobs-pill-bash`，终端图标）和 `jobs.btn.task`（`子代理`，`jobs-pill-task`，两个人的图标），本会话出现过那一类任务才有：高 24、`--radius-md`、1px `--border`、`--bg-raised`，13px 图标 `--text-2` + `--fs-xs` 文字 + 计数（`jobs-pill-count`，`data-state`）：有在跑的写 `● N`（`--st-running` 点，600 tabular），都结束了写 `✓ N`（`--text-3`，这一类有失败时标红）；悬停提示和 `aria-label` 写全"N 个运行中，M 个已结束"（`jobs.pill.bash` / `jobs.pill.task`）。不在输入框里，而是在输入框右上方，和状态行（`RunStatus`）同一行靠右、上下居中对齐（`.status-bar`；状态行收起时按钮仍在原位靠右），右边和输入框对齐；点开同一个 `Popover` 看板 `jobs-board`，只列这一类：每个任务一行（类型图标、名字、状态、耗时），点一行展开——命令看输出尾部，子代理内嵌 `SubagentDetailPanel`；Esc 关闭并还焦点给按钮。agent 在等后台任务时，状态行（`RunStatus`）的动作文字是 `process.waitingJobs`（“waiting on 2 of 3 jobs · 1 done”；还没有完成的时候是 `process.waitingJobsNone`，“waiting on 2 jobs”）。状态行下不再另列运行中 job 的小卡（2026-10-20 起去掉：和按钮、看板重复，同一个 job 显示两遍）。实测录制见 `fixtures/rpc/bg-jobs.ndjson`（omp 18.12.3）。
-- 草稿的工具行在审批胶囊右边多出项目标签 + 工作树开关（§4.7）；输入框下面不再有单独一行。
+- 草稿的工具行在审批胶囊右边多出项目标签 + 工作树开关（§4.7）；输入框下面不再有单独一行。发出第一句话换成任务的输入框时：文件夹标签留在原位（`composer-folder`），焦点在绘制前就落到新输入框（App 的 layout effect），边框不从灰色过渡回聚焦色（`data-from-draft` 时 `.composer` 无过渡），所以看不出换了一个输入框。
 - 工具行各项**从第一帧起都在原位**（2026-10-19）：模型胶囊、审批胶囊、上下文圆环、费用都直接画出来，数据到了再填，不等 omp。数据先用上次读到的（主进程每次现读成功就记进 `userData/startup-cache.json`：默认模型、模型目录、各项目的默认值、各 provider 是否订阅、审批模式；渲染进程在第一次渲染前取 `getStartupSnapshot()`），现读到了再替换；从没读到过（第一次启动）时模型胶囊写 `composer.modelLoading`、审批写 `approval.loading`，圆环是同位置同大小、不能点的空环（`data-pending`）。任务在进程起来之前，胶囊用上次读到的模型目录里的名字和窗口（不是模型 id）。主进程在应用启动时就拉起服务进程读默认模型和模型目录，不等输入框来要。
 - 附件预览行（有附件时）：文本区上方，64×64，右上 ✕（`composer.attachment.remove`）；来源是粘贴图片（截图、资源管理器里复制的图片文件）和拖入图片，没有附件按钮（2026-10-20 起去掉 `⊕`，照 Tern 里的 omp：要什么直接粘贴）。当前模型不收图片时 toast `composer.attach.unsupported`；非图片文件拖入：toast `composer.attach.imageOnly`。
 - **粘贴文件**（2026-10-20 起，照终端）：资源管理器里复制的非图片文件、文件夹粘贴进输入框时，插入它们的绝对路径，含空白的加双引号，多个用空格隔开；图片文件仍作附件。路径由 preload 在隔离世界里用 `webUtils.getPathForFile` 取，`document.execCommand("insertText")` 插进输入框（走输入框自己的 input 事件，`Ctrl Z` 能撤回），渲染进程拿不到路径，也没有传路径的函数（同拖入文件夹，`src/preload/index.ts`）。

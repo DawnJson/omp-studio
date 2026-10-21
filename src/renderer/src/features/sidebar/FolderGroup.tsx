@@ -1,5 +1,5 @@
-// 文件夹分组（spec §4.3）：头部 + 任务和历史会话混排的行。折叠时头部右侧显示行数，组内有等待任务再加一个琥珀菱形。
-// 头部的 + 在这个文件夹新建任务（纯历史文件夹会先把它加成项目）；⋯ 项目菜单只有 studio 项目才有。
+// 文件夹分组（spec §4.3）：头部 + 任务和历史会话混排的行。头部右侧常驻 +（在这个文件夹新建任务，纯历史文件夹会先把它加成项目）；
+// + 左边同一个位置：折叠时是行数（组内有等待任务再加一个琥珀菱形），展开时换成 ⋯ 项目菜单（只有 studio 项目才有），两者交叉淡入淡出。
 import type { Project, TaskId } from "../../../../shared/ipc.ts";
 import type { SidebarFolder } from "../../../../shared/ui/sidebar-model.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
@@ -72,12 +72,10 @@ export function FolderGroup(props: FolderGroupProps) {
             <ChevronIcon />
           </span>
           <span className="sb-group-name">{folder.label}</span>
-          {!open && (
-            <span className="sb-group-count">
-              {hasWaiting && <span className="sb-waiting-diamond" role="img" aria-label={t("sidebar.waitingHere")} />}
-              {folder.items.length}
-            </span>
-          )}
+          <span className="sb-group-count" data-shown={!open || undefined}>
+            {hasWaiting && <span className="sb-waiting-diamond" role="img" aria-label={t("sidebar.waitingHere")} />}
+            {folder.items.length}
+          </span>
         </button>
         <button
           type="button"
@@ -94,7 +92,9 @@ export function FolderGroup(props: FolderGroupProps) {
           <button
             type="button"
             className="sb-icon-btn sb-group-action sb-group-more"
+            data-shown={open || undefined}
             tabIndex={-1}
+            aria-hidden={!open || undefined}
             aria-label={t("sidebar.projectMenu")}
             aria-haspopup="menu"
             onClick={(event) => {
