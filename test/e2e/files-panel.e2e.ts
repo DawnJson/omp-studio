@@ -1,6 +1,6 @@
 // 右侧文件面板的端到端（spec §4.27）：顶栏按钮 / Ctrl Shift E 打开，文件树懒加载、展开、键盘操作，点文件在同一面板的预览页里看，
-// 一层 1500 项只画眼前的行，展开状态按任务记住，越界的 listDirectory 被拒绝。中英 × 深浅各截图到 screenshots/（files-*）。
-import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
+// 一层 1500 项只画眼前的行，展开状态按任务记住，越界的 listDirectory 被拒绝；工作区目录（/add-dir）：额外根的添加、浏览、预览、移除、越界拒绝。中英 × 深浅各截图到 screenshots/（files-*）。
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -10,6 +10,7 @@ import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./laun
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
 const fixture = path.join(root, "fixtures", "rpc", "bash-tool.ndjson");
+const simpleReply = path.join(root, "fixtures", "rpc", "simple-reply.ndjson");
 const bigCount = 1500;
 
 /** 页面里的元素：node 工程没有 DOM 类型，回调里只用到这几个成员。 */
@@ -23,10 +24,14 @@ interface DomNode {
 interface Started {
   launched: LaunchedApp;
   taskId: TaskId;
+  /** `/add-dir` 要加的额外目录（空格和中文）。 */
+  extra: string;
+  /** `start({ dirs: true })` 时 fake-omp 记下的、主进程写给 omp 的帧。 */
+  inputLog: string;
   cleanup(): Promise<void>;
 }
 
-async function start(): Promise<Started> {
+async function start(options: { dirs?: boolean } = {}): Promise<Started> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp 文件树 e2e-"));
   const project = path.join(work, "项目 目录");
   await mkdir(path.join(project, "src", "nested"), { recursive: true });
@@ -41,8 +46,39 @@ async function start(): Promise<Started> {
   await Promise.all(
     Array.from({ length: bigCount }, (_, i) => writeFile(path.join(project, "big", `file-${i}.txt`), `${i}\n`)),
   );
+  // `/add-dir` 的额外目录（带空格和中文）和对应的回放录制：simple-reply 的握手部分 + 两条内置命令（Added / Removed，omp 18.12.5 实测原文）。
+  const extra = path.join(work, "额外 目录");
+  await mkdir(path.join(extra, "sub"), { recursive: true });
+  await writeFile(path.join(extra, "额外 笔记.md"), "# 额外目录里的笔记\n");
+  const inputLog = path.join(work, "omp-input.ndjson");
+  const listing = (...dirs: string[]) =>
+    ["Workspace directories:", `  ${project} (working directory)`, ...dirs.map((dir) => `  ${dir}`)].join("\n");
+  const command = (id: string, text: string) => [
+    { kind: "in", frame: { type: "prompt", id } },
+    { kind: "out", frame: { type: "command_output", text } },
+    { kind: "out", frame: { type: "response", command: "prompt", id, success: true, data: { agentInvoked: false } } },
+  ];
+  const handshake = (await readFile(simpleReply, "utf8"))
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => JSON.parse(line) as { kind: string; frame?: { type?: string } });
+  const firstPrompt = handshake.findIndex((entry) => entry.kind === "in" && entry.frame?.type === "prompt");
+  const dirsFixture = path.join(work, "dirs.ndjson");
+  await writeFile(
+    dirsFixture,
+    [
+      ...handshake.slice(0, firstPrompt),
+      ...command("p-add", `Added ${extra}.\n${listing(extra)}`),
+      ...command("p-remove", `Removed ${extra}.\n${listing()}`),
+    ]
+      .map((entry) => JSON.stringify(entry))
+      .join("\n") + "\n",
+  );
   const launched = await launchApp({
-    STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }),
+    STUDIO_TEST_OMP: JSON.stringify({
+      command: process.execPath,
+      args: options.dirs ? [fakeOmp, dirsFixture, inputLog] : [fakeOmp, fixture],
+    }),
   });
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
@@ -61,6 +97,8 @@ async function start(): Promise<Started> {
   return {
     launched,
     taskId,
+    extra,
+    inputLog,
     async cleanup() {
       await launched.close();
       await rm(work, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
@@ -301,5 +339,83 @@ test("默认文件夹里的新任务草稿也有文件面板：目录还没建�
     await expect(page.getByTestId("file-menu")).toContainText("笔记二.md");
   } finally {
     await launched.close();
+  }
+});
+
+test("工作区目录：添加文件夹（空格和中文）→ 额外根出现并可浏览、预览；越界和过期下标被拒绝；移除后回到任务目录", async () => {
+  const { launched, taskId, extra, inputLog, cleanup } = await start({ dirs: true });
+  try {
+    const { page } = launched;
+    await launched.app.evaluate(({ dialog }, dir) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
+    }, extra);
+    await page.getByTestId("topbar-files").click();
+    await expect(page.getByTestId("file-preview")).toBeVisible();
+    // 还没有额外目录：只有"添加文件夹…"，没有根切换。
+    await expect(page.getByTestId("workspace-add-dir")).toBeVisible();
+    await expect(page.getByTestId("workspace-root-0")).toHaveCount(0);
+
+    await page.getByTestId("workspace-add-dir").click();
+    await expect(page.getByTestId("workspace-root-1")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("workspace-root-1")).toContainText("额外 目录");
+    // 树换成额外目录：sub 和笔记，不是任务目录的 big/docs/src。
+    await expect(row(page, "sub")).toBeVisible();
+    await expect(row(page, "额外 笔记.md")).toBeVisible();
+    await expect(row(page, "big")).toHaveCount(0);
+    await row(page, "额外 笔记.md").click();
+    await expect(page.getByTestId("file-preview-md")).toContainText("额外目录里的笔记");
+    await shoot(page, "dirs");
+
+    // 切回任务目录：原来的树。
+    await page.getByTestId("file-preview-page-files").click();
+    await page.getByTestId("workspace-root-0").click();
+    await expect(row(page, "big")).toBeVisible();
+    await expect(row(page, "sub")).toHaveCount(0);
+
+    // 主进程只认下标：越界、过期、绝对路径当根、`..` 越界都被拒绝。
+    const outcomes = await page.evaluate(async (id) => {
+      const attempt = async (run: () => Promise<unknown>) =>
+        run().then(
+          () => "ok",
+          () => "rejected",
+        );
+      return {
+        okRoot: await attempt(() => globalThis.studio.listDirectory({ kind: "task", taskId: id, root: 1 }, "")),
+        staleRoot: await attempt(() => globalThis.studio.listDirectory({ kind: "task", taskId: id, root: 2 }, "")),
+        absoluteRoot: await attempt(() =>
+          globalThis.studio.listDirectory({ kind: "task", taskId: id, root: "C:\\" } as never, ""),
+        ),
+        dotdot: await attempt(() => globalThis.studio.listDirectory({ kind: "task", taskId: id, root: 1 }, "..")),
+        preview: await attempt(() =>
+          globalThis.studio.readPreviewFile({ kind: "task", taskId: id, root: 1 }, "..\\项目 目录\\notes.md"),
+        ),
+        open: await attempt(() => globalThis.studio.openTaskFile(id, "额外 笔记.md", 2)),
+      };
+    }, taskId);
+    expect(outcomes).toEqual({
+      okRoot: "ok",
+      staleRoot: "rejected",
+      absoluteRoot: "rejected",
+      dotdot: "rejected",
+      preview: "rejected",
+      open: "rejected",
+    });
+
+    // 移除：根消失，树回任务目录。
+    await page.getByTestId("workspace-root-remove-1").click();
+    await expect(page.getByTestId("workspace-root-1")).toHaveCount(0);
+    await expect(row(page, "big")).toBeVisible();
+    await expect(page.getByTestId("workspace-root-0")).toHaveCount(0);
+
+    // omp 收到的是整行路径、没有引号（实测引号会被当成路径的一部分）。
+    const sent = (await readFile(inputLog, "utf8"))
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => JSON.parse(line) as { type?: string; message?: string })
+      .filter((frame) => frame.type === "prompt")
+      .map((frame) => frame.message);
+    expect(sent).toEqual([`/add-dir ${extra}`, `/remove-dir ${extra}`]);
+  } finally {
+    await cleanup();
   }
 });

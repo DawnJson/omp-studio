@@ -141,3 +141,11 @@ export const Folder = (props: IconProps) => (
     <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z" />
   </Icon>
 );
+/** 会话开关：两根推杆 */
+export const Sliders = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M2.5 5h5.8M11.7 5h1.8M2.5 11h2M7.5 11h6" />
+    <circle cx="10" cy="5" r="1.7" />
+    <circle cx="6" cy="11" r="1.7" />
+  </Icon>
+);

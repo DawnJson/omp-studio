@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { OmpInstall } from "../src/main/omp/discover.ts";
 import { resolveOmp, type PathScan } from "../src/main/omp-manager/resolve.ts";
 import { takeoverKey, type OmpStudioState } from "../src/main/omp-manager/takeover-state.ts";
-import { compareVersions, isBelowMinimum } from "../src/main/omp-manager/version.ts";
+import { isBelowMinimum } from "../src/main/omp-manager/version.ts";
+import { compareVersions } from "../src/shared/omp-version.ts";
 
 const noState: OmpStudioState = { takeover: {} };
 const exe = (path: string, manager: OmpInstall["manager"] = null): PathScan => ({

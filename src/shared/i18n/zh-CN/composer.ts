@@ -82,4 +82,9 @@ export const composer = {
   "jobs.status.cancelled": "已取消",
   "jobs.noOutput": "还没有输出。",
   "jobs.noAgent": "读不到这个子代理的详情。",
+  // TSP 作业（S2Jobs）
+  "jobs.kill": "结束",
+  "jobs.viewOutput": "在 omp 的作业窗口查看输出",
+  "jobs.openAgent": "在子代理面板中查看",
+  "jobs.tspOutputHint": "bash 作业的输出只在 omp 自己的作业窗口里有，点按钮会让 omp 打开它。",
 } satisfies Record<string, MessageEntry>;

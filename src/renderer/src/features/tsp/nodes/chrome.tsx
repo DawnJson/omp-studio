@@ -1,7 +1,8 @@
 // 状态条：status 和 seg（规范 Bars, Toasts and Overlays；toast / overlay 在 interactive/）。
 import { useLayoutEffect, useRef } from "react";
 import type { TspText } from "../../../../../shared/tsp/tsp.generated.ts";
-import { TspIcon, resolveIconName } from "../icons.tsx";
+import { resolveIconName } from "../icon-names.ts";
+import { TspIcon } from "../icons.tsx";
 import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
 import { asNumber } from "../props-util.ts";

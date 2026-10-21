@@ -57,7 +57,9 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
     // 命令面板"在新任务中提问"带来的文字：放进草稿并聚焦，不自动发送。
     const pending = takePendingDraftText();
     if (pending !== null) setDraftText(key, pending);
-    fieldRef.current?.focus({ preventScroll: true });
+    // 模态对话框（如 omp 准备页的接管询问）已经拿着焦点时不抢：草稿输入框在项目载入后才挂上，可能晚于对话框。
+    if (document.activeElement?.closest('[aria-modal="true"]') == null)
+      fieldRef.current?.focus({ preventScroll: true });
   }, [projectId, key]);
   useLayoutEffect(() => {
     const field = fieldRef.current;

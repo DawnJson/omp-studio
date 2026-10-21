@@ -28,4 +28,15 @@ export const preview = {
   refresh: "刷新",
   emptyDir: "这个目录是空的",
   truncated: "只显示前 {count} 项",
+  // 工作区目录（/add-dir）：文件页顶部的根目录切换
+  rootsLabel: "工作区目录",
+  rootCwd: "任务目录",
+  rootCwdTitle: "任务的工作目录：{path}",
+  addDir: "添加文件夹…",
+  addDirTitle: "把一个文件夹加进这个任务的工作区（omp 的 /add-dir），agent 就能读写它",
+  removeDir: "移除 {name}",
+  removeDirTitle: "从工作区移除（不会删除文件夹）：{path}",
+  dirsNote: "额外目录只在这次运行里有效；任务重启后需要重新添加。",
+  dirAdded: "已加入工作区：{name}",
+  dirRemoved: "已从工作区移除：{name}",
 } satisfies Record<string, MessageEntry>;

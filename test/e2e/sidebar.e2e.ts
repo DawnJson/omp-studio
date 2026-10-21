@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { Locale, ProjectId, TaskId, TaskState } from "../../src/shared/ipc.ts";
+import { emptySessionToggles } from "../../src/shared/omp-output/toggles.ts";
 import { emptyTranscript } from "../../src/shared/transcript.ts";
 import { launchApp, screenshotsDir } from "./launch.ts";
 
@@ -49,6 +50,8 @@ function makeTask(
     tokensPerSecond: null,
     goal: null,
     contextParts: null,
+    sessionToggles: emptySessionToggles(),
+    workspaceDirs: [],
     ...patch,
   };
 }
@@ -300,7 +303,7 @@ for (const [locale, colorScheme] of [
       }
       await palette.getByRole("combobox").fill("");
       // 斜杠命令用主进程给的真实列表；需要参数的命令也在列表里。
-      await palette.getByRole("combobox").fill("/comp");
+      await palette.getByRole("combobox").fill("/compa");
       await expect(palette.getByRole("option")).toHaveCount(1);
       await expect(palette.getByRole("option").first()).toContainText("/compact");
       await palette.getByRole("combobox").fill("");

@@ -1,0 +1,148 @@
+/* 卡片区和下面的 omp 设置之间留出间距 */
+.ig-cards {
+  margin-bottom: var(--space-6);
+}
+
+/* 设置 → 集成 / 工具 / 记忆 / omp 更新日志的卡片（spec §4.19）。只用设计 token；没有动画。 */
+
+.ig-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ig-title {
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+}
+
+.ig-meta {
+  flex: none;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+}
+
+.ig-note {
+  margin-top: var(--space-1);
+}
+
+/* omp 的原话：保留换行，长路径可以断开 */
+.ig-raw {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ig-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ig-form {
+  gap: var(--space-3);
+}
+
+.ig-field {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.ig-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-h-lg);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.ig-field > .st-input {
+  width: 100%;
+}
+
+.ig-textarea {
+  height: auto;
+  min-height: calc(var(--control-h-lg) * 2);
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+}
+
+/* 等宽的原文输出（记忆的 stats / diagnose、解析不了的行）：不当 HTML 渲染 */
+.ig-pre {
+  max-height: 320px;
+  margin: 0;
+  overflow: auto;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  line-height: var(--lh-code-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ig-memory-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* 工具：多列的紧凑网格，一个工具一格 */
+.ig-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-1) var(--space-4);
+}
+
+.ig-tool {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--control-h-lg);
+  min-width: 0;
+}
+
+.ig-tool-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ig-tool[data-state="inactive"] .ig-tool-name,
+.ig-tool[data-state="device"] .ig-tool-name {
+  color: var(--text-3);
+}
+
+/* 更新日志：节标题是一个整行的按钮 */
+.ig-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ig-section-head:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ig-section-head::before {
+  content: "▸";
+  color: var(--text-3);
+}
+
+.ig-section-head[aria-expanded="true"]::before {
+  content: "▾";
+}

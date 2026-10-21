@@ -34,6 +34,11 @@ export function selectBtwTopic(taskId: TaskId, selection: BtwSelection): void {
   update(taskId, { selection });
 }
 
+/** 面板现在的选择（提问期间用户可能已经换了话题 / 点了"新话题"）。 */
+export function currentBtwSelection(taskId: TaskId): BtwSelection {
+  return (uiStore.get()[taskId] ?? closed).selection;
+}
+
 export function useBtwUi(taskId: TaskId): BtwUi {
   return useStoreValue(uiStore, (state) => state[taskId] ?? closed);
 }

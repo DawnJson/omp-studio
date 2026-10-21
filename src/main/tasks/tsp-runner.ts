@@ -1,6 +1,6 @@
 // TSP 任务的运行时：一个任务 = 一个项目目录 + 一个 omp 会话 + （存活时）一个伪终端里的交互式 omp（TspSession）。
 // 和 TaskRunner 并存（新任务按设置 `taskEngine` 定引擎；设置是 tsp 时没有进程的 rpc 老任务下次启动也换成它）；对任务池的接口（生命周期、回收、状态）一致，
-// rpc 专有的操作（队列、btw、子代理详情、分叉…）由池对 tsp 任务直接拒绝。
+// rpc 专有的操作（队列、子代理详情、分叉…）由池对 tsp 任务直接拒绝；旁路提问（/btw）两种引擎都有（tsp-btw.ts）。
 // 状态来自 omp 发来的节点树（task-status.ts，规则和依据见那里），状态机复用 rpc 路径的 task-machine。
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -12,9 +12,12 @@ import type {
   ModelOption,
   Project,
   PromptInput,
+  RestoredDraft,
   RestoredQueue,
+  SessionTreeView,
   TaskError,
   TaskId,
+  TaskNotice,
   TaskState,
   TranscriptSnapshot,
   TspBatch,
@@ -39,7 +42,24 @@ import {
   type TspComposerInfo,
   type TspComposerTargets,
 } from "../../shared/tsp/composer-state.ts";
+import { compactionMark, compactionOutcome } from "../../shared/tsp/compaction.ts";
+import {
+  applyToggleObservation,
+  emptySessionToggles,
+  freshToasts,
+  parseToggleToast,
+  type SessionToggles,
+} from "../../shared/omp-output/toggles.ts";
 import { deriveTaskStatus, hasRunningWork } from "../../shared/tsp/task-status.ts";
+import { deriveTodoPhases } from "../../shared/tsp/todos.ts";
+import {
+  SUMMARY_NO,
+  findComposerEditor,
+  findSummaryPicker,
+  findTreePicker,
+  hasNavigatedToast,
+} from "../../shared/tsp/session-tree.ts";
+import { hasQueuedMessages, restoredQueueEditor } from "../../shared/tsp/queue-restore.ts";
 import {
   TSP_APPROVAL_DIALOG_ID,
   TSP_ASK_DIALOG_ID,
@@ -49,7 +69,7 @@ import {
 import { emptyTranscript } from "../../shared/transcript.ts";
 import { log } from "../log/log.ts";
 import type { OmpLaunch } from "../omp/omp-connection.ts";
-import type { ThinkingLevel, AvailableSlashCommand } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type { ThinkingLevel, AvailableSlashCommand, GoalOp } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import {
   buildTspEnv,
   TspExitedError,
@@ -62,9 +82,26 @@ import { resolveNewTaskDefault } from "../../shared/ui/new-task-default.ts";
 import { titleFromPrompt } from "./convert.ts";
 import { readSessionExtras } from "../tsp/session-extras.ts";
 import { readTurnCosts } from "../tsp/turn-costs.ts";
+import { readSubagentRecord } from "../tsp/subagent-file.ts";
+import { HubDriver } from "./tsp-hub-driver.ts";
+import type { TspSubagentRecord } from "../../shared/ipc.ts";
+import { readSessionUsage, totalUsage, type SessionTotals } from "../history/session-usage.ts";
+import {
+  buildTreeFromEntries,
+  findUserEntry,
+  readSessionEntries,
+  type LeafOverride,
+  type RewindTarget,
+  type SessionEntry,
+} from "../tsp/session-tree-file.ts";
 import { initialMachineState, transition, type MachineInput, type MachineState } from "./task-machine.ts";
 import type { TaskRecord } from "./task-registry.ts";
 import { TooManyTasksError } from "./task-runner.ts";
+import { WorkspaceDirs } from "./workspace-dirs.ts";
+import { TspGoalTracker } from "./tsp-goal.ts";
+import { GOAL_TOASTS, findGoalDropPrompt } from "../../shared/tsp/goal.ts";
+import { TspBtw } from "./tsp-btw.ts";
+import { isBtwRunning, type BtwHistoryRecord, type BtwUiEvent } from "../../shared/btw.ts";
 
 /** 新进程的初始列数；渲染进程挂载后用 resizeTsp 改成真实宽度。 */
 const INITIAL_COLS = 100;
@@ -79,6 +116,17 @@ const IMAGE_EXTENSIONS: Record<PromptImage["mimeType"], string> = {
 /** 切模型、切思考强度时等 omp 响应的上限：选择器（要读模型目录）打开、确认提示出现。 */
 const PICKER_TIMEOUT_MS = 8_000;
 const CONFIRM_TIMEOUT_MS = 5_000;
+/** 回溯完成后等 omp 的输入框预填/toast 的上限（等不到不算失败）。 */
+const NAVIGATION_SETTLE_MS = 1_500;
+/** Esc 之后等 omp 把排队文字写回它自己的输入框的上限（只在 Esc 时队列里有消息才等）。 */
+const QUEUE_RESTORE_MS = 3_000;
+/** 回溯时让 omp 摘要被放弃的分支：要调一次模型，实测约 10 秒，留足余量。 */
+const SUMMARY_TIMEOUT_MS = 120_000;
+/** `runQuietCommand` 观察 toast 的时长；到点没有 toast 就算成功。 */
+const QUIET_SETTLE_MS = 1_500;
+/** `/compact` 要调模型：等压缩结局的上限。 */
+const COMPACT_TIMEOUT_MS = 5 * 60_000;
+const QUIET_SETTLED = "quiet-settled";
 /** 思考强度循环的最多步数（omp 最多 8 个级别，转满一圈就不会再有新的）。 */
 const MAX_THINKING_CYCLES = 10;
 const STDERR_LINES_IN_ERROR = 8;
@@ -103,6 +151,10 @@ export interface TspRunnerHost {
   isForeground(id: TaskId): boolean;
   onState(state: TaskState): void;
   onTspBatch(batch: TspBatch): void;
+  /** 目标完成等一次性提示（可选；没提供时不弹）。 */
+  onNotice?(notice: TaskNotice): void;
+  /** 旁路提问（`/btw`）镜像的变化；没提供（多数测试）时不推。 */
+  onBtw?(taskId: TaskId, event: BtwUiEvent): void;
   session: TspSessionDeps;
   /** 上次读到的模型目录里的这一项；没有（或没提供）时胶囊先显示模型 id。 */
   knownModel?(key: ModelKey): ModelOption | null;
@@ -222,6 +274,57 @@ export class TspRunner {
   #uiChain: Promise<void> = Promise.resolve();
   /** `/slow` 的状态：omp 没有状态节点，按 toast 记；一开始未知，当关。 */
   #slowEnabled = false;
+  /** 后台驱动 Agent Hub（插话 / 结束 / 恢复）期间为真：#awaitComposer 等它结束，渲染进程这期间也不画 Hub。 */
+  #hubDriving = false;
+  readonly #hub = new HubDriver({
+    document: () => this.#session?.document ?? null,
+    sendEvent: (event) => this.sendTspEvent(event),
+    sendKeys: (data) => this.sendTspKeys(data),
+    awaitDocument: (check, timeoutMs, message) => this.#awaitDocument(check, timeoutMs, message),
+    exclusive: (job) => this.#exclusive(job),
+    setDriving: (on) => {
+      this.#hubDriving = on;
+      const session = this.#session;
+      if (!on && session) this.#notifyWaiters(session.document);
+    },
+  });
+  /** `/add-dir` 的额外工作区目录（只来自 omp 的 toast，进程退出清空）。 */
+  #workspace = new WorkspaceDirs();
+  /** 目标模式（`/goal`）：状态来自输入框卡片上的"Goal …"事实行，目标文字来自会话文件（shared/tsp/goal.ts、tsp-goal.ts）。 */
+  #goalTracker = new TspGoalTracker({
+    sessionFile: () => this.#sessionFile ?? this.#record.sessionFile,
+    changed: () => this.#publish(),
+    completed: () => this.#host.onNotice?.({ taskId: this.id, kind: "goal_complete" }),
+  });
+  /** 旁路提问（`/btw`）：omp 画成 modal 弹窗，这里读成 rpc 同形的话题镜像（tsp-btw.ts、docs/architecture/tsp-btw.md）。 */
+  #btwDriving = false;
+  readonly #btw = new TspBtw({
+    document: () => this.#session?.document ?? null,
+    sendEvent: (event) => this.sendTspEvent(event),
+    awaitDocument: (check, timeoutMs, message) => this.#awaitDocument(check, timeoutMs, message),
+    composer: async () => {
+      await this.start();
+      return this.#awaitComposer();
+    },
+    exclusive: (job) => this.#exclusive(job),
+    sessionFile: () => this.#sessionFile ?? this.#record.sessionFile,
+    emit: (event) => this.#host.onBtw?.(this.id, event),
+    setDriving: (on) => {
+      this.#btwDriving = on;
+      const session = this.#session;
+      if (!on && session) this.#notifyWaiters(session.document);
+    },
+  });
+  /** 会话开关（/skillful 等）：按 omp 的状态 toast 记（parseToggleToast），用户在输入框里自己敲的命令也同步；null 项 = 本会话没动过。 */
+  #toggles: SessionToggles = emptySessionToggles();
+  /** 上一次文档里的状态 toast 文字：只读新出现的那些（freshToasts）。 */
+  #toastTexts: string[] = [];
+  /** 已读过的状态行记录条数（`DocSurface.statusNotes` 只增不减；toast 节点下一帧就没了，所以两条路都读）。 */
+  #noteCount = 0;
+  /** 文档里 HUD 待办节点换算出的阶段（todos.ts）；变了才发布。 */
+  #todoPhases: TaskState["todoPhases"] = [];
+  /** 会话文件里的 token 分项和请求数（见 #sessionUsageFor）。 */
+  #totals: SessionTotals | null = null;
   /** 用户按了停止、这一轮还没结束：这一轮的结局记为 aborted。 */
   #stopRequested = false;
   /** omp 报告的会话文件；文件在第一条回复之后才落盘，落盘之前不能存（恢复会失败）。 */
@@ -277,7 +380,8 @@ export class TspRunner {
       session !== null &&
       this.#machine.status === "idle" &&
       this.#machine.dialogs.length === 0 &&
-      !hasRunningWork(session.document)
+      !hasRunningWork(session.document) &&
+      !isBtwRunning(this.#btw.records)
     );
   }
 
@@ -306,16 +410,18 @@ export class TspRunner {
       sessionUsage: this.#derived.sessionUsage,
       queue: { steering: [], followUp: [] },
       dialogs: m.dialogs,
-      todoPhases: [],
+      todoPhases: this.#todoPhases,
       runningSubagents: 0,
+      workspaceDirs: this.#workspace.dirs,
       cwd: this.cwd,
       runStartedAt: m.working ? this.#runStartedAt : null,
       fastMode: { enabled: this.#derived.fastEnabled, active: this.#derived.fastEnabled },
       // omp 没有慢速模式的状态节点和"支持与否"的信息：一律 supported，不支持的模型 omp 的 toast 原文作为错误抛出（同 fast）。
       slowMode: { supported: true, enabled: this.#slowEnabled, scope: null },
+      sessionToggles: this.#toggles,
       usageLimit: null,
       tokensPerSecond: null,
-      goal: null,
+      goal: this.#goalTracker.goal,
       contextParts: null,
     };
   }
@@ -478,6 +584,9 @@ export class TspRunner {
             if (gen !== this.#gen) return;
             this.#syncStatus(document);
             this.#syncComposer(document);
+            this.#syncToggles(document);
+            this.#goalTracker.observe(document);
+            this.#btw.sync(document);
             this.#notifyWaiters(document);
           },
           onSessionFile: (file) => {
@@ -496,6 +605,12 @@ export class TspRunner {
         throw new StartError({ kind: "spawn_failed", message: error instanceof Error ? error.message : String(error) });
       }
       this.#finalSnapshot = null;
+      // 开关是会话（进程）级的：新进程从配置默认值开始。
+      this.#toggles = emptySessionToggles();
+      this.#goalTracker.reset();
+      this.#btw.reset();
+      this.#toastTexts = [];
+      this.#noteCount = 0;
       this.#session = session;
       await session.ready;
       this.#assertNotClosing();
@@ -503,6 +618,9 @@ export class TspRunner {
       // omp 在回复 hello 之前就可能已经发了第一批帧（它按假定的能力先开 surface）：握手前的变化没有进状态机。
       this.#syncStatus(session.document);
       this.#syncComposer(session.document);
+      this.#syncToggles(session.document);
+      this.#goalTracker.observe(session.document);
+      this.#btw.sync(session.document);
       this.#notifyWaiters(session.document);
       void this.#refreshCatalog().then(() => {
         if (gen === this.#gen && this.#session) this.#syncComposer(this.#session.document);
@@ -562,6 +680,9 @@ export class TspRunner {
     this.#finalSnapshot = { seq: this.#seqBase + snapshot.seq, document: snapshot.document };
     this.#seqBase = this.#finalSnapshot.seq + 1;
     this.#session = null;
+    this.#workspace.reset();
+    this.#goalTracker.reset();
+    this.#btw.reset();
     this.#stopRequested = false;
     this.#failDocumentWaiters(new Error("the omp process exited"));
     // 退出前最后一次尝试保存会话文件（关闭时它一定已经落盘，除非一句话都没说）。
@@ -620,7 +741,10 @@ export class TspRunner {
         () => false,
       );
       if (exists && !this.#disposed && file !== this.#record.sessionFile) {
-        this.#record = await this.#host.persist(this.id, { sessionFile: file });
+        this.#record = await this.#host.persist(this.id, {
+          sessionFile: file,
+          ...((this.#record.forkFrom ?? null) !== null && { forkFrom: null }),
+        });
         this.#publish();
       }
     } catch (error) {
@@ -702,14 +826,35 @@ export class TspRunner {
     );
   }
 
-  /** 停止：发 Esc（omp 自己的中断键）。TSP 里没有"撤回排队消息"，队列由 omp 管。 */
+  /**
+   * 停止：发 Esc（omp 自己的中断键）。TSP 里没有"撤回排队消息"的命令，但 omp 在中断时把排队的文字写回**它自己的**
+   * 输入框（实录 fixtures/tsp/queue-esc.jsonl）：Esc 时队列里有消息就等那段文字出现，读出来返回（渲染进程把它放回
+   * studio 的输入框），并清空 omp 的输入框（否则下一次 send 之外的任何地方都看不到它，也不会再被用）。
+   */
   async stop(): Promise<RestoredQueue> {
     const session = this.#session;
+    const steering: RestoredDraft[] = [];
     if (session && this.#machine.working) {
+      // 旁路提问的弹窗开着时 Esc 会落在它上面：先取消旁路提问、关掉弹窗、等它撤掉，再给主轮发 Esc（tsp-btw.md §4）。
+      await this.#btw.yieldToMain();
+      const hadQueue = hasQueuedMessages(session.document);
       this.#stopRequested = true;
       session.sendKeys(ESC_KEY);
+      if (hadQueue) {
+        try {
+          const restored = await this.#awaitDocument(
+            (document) => restoredQueueEditor(document),
+            QUEUE_RESTORE_MS,
+            "omp did not return the queued message to its input box",
+          );
+          steering.push({ text: restored.text });
+          await this.#clearComposerEditor(session);
+        } catch (error) {
+          log.warn(`task ${this.id} taking back the queued message failed`, { message: String(error) });
+        }
+      }
     }
-    return { steering: [], followUp: [], imagesDropped: false, truncated: false, aborted: true, backgroundWork: false };
+    return { steering, followUp: [], imagesDropped: false, truncated: false, aborted: true, backgroundWork: false };
   }
 
   sendTspEvent(event: TspEvent): void {
@@ -778,6 +923,8 @@ export class TspRunner {
   #awaitComposer(allowApproval = false): Promise<{ sf: string; id: string }> {
     return this.#awaitDocument(
       (document) => {
+        // 后台驱动 Agent Hub 期间不往主会话发别的消息（聚焦模式下它们会变成对那个子代理的插话）：等驱动结束。
+        if (this.#hubDriving || this.#btwDriving) return null;
         const target = findMessageTarget(document);
         switch (target.kind) {
           case "panel":
@@ -882,8 +1029,78 @@ export class TspRunner {
     );
   }
 
+  /**
+   * 文档变化时读新出现的状态 toast：认得出的开关状态（parseToggleToast）合进 `#toggles`（包括用户自己在输入框里敲的 `/skillful` 等）；
+   * 变了才发布。`/slow` 的状态也在这里记（omp 没有慢速模式的状态节点）。
+   */
+  #syncToggles(document: TspDocument): void {
+    const texts = statusToastTexts(document);
+    const notes = [...document.live].flatMap(
+      (sf) => document.surfaces.get(sf)?.statusNotes.map((note) => note.text) ?? [],
+    );
+    if (notes.length < this.#noteCount) this.#noteCount = 0; // surface 关了又开：新的一批从头读
+    const fresh = [...notes.slice(this.#noteCount), ...freshToasts(this.#toastTexts, texts)];
+    this.#toastTexts = texts;
+    this.#noteCount = notes.length;
+    let next = this.#toggles;
+    let changed = false;
+    for (const text of fresh) {
+      const observation = parseToggleToast(text);
+      if (observation === null) continue;
+      if (observation.name === "slow") {
+        if (this.#slowEnabled !== observation.on) {
+          this.#slowEnabled = observation.on;
+          changed = true;
+        }
+        continue;
+      }
+      next = applyToggleObservation(next, observation);
+    }
+    if (next !== this.#toggles) {
+      this.#toggles = next;
+      changed = true;
+    }
+    if (changed) this.#publish();
+  }
+
+  /**
+   * 本会话用量：费用是 omp 输入框卡片上的值；token 分项和请求数 omp 的 TSP 卡片不给，从会话文件读（`#refreshTotals`，范围和
+   * rpc 的 get_session_stats 一致）。读到之前 token 是 0。不用 stats.db 的 session_rollup：它只在 `omp stats` 运行时才同步，
+   * 对正在进行的会话是旧的；会话信息对话框里才用它（session-info/session-stats.ts）。
+   */
+  #sessionUsageFor(cost: number | null): TaskState["sessionUsage"] {
+    if (cost === null) return null;
+    const totals = this.#totals;
+    return {
+      tokens: totals?.tokens ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      cost,
+      premiumRequests: 0,
+      ...(totals && { requests: totals.requests }),
+    };
+  }
+
+  /** 读会话文件里的 token 和请求数；读失败只记日志（费用照常显示，token 保持上一次的值）。 */
+  async #refreshTotals(): Promise<void> {
+    const file = this.#sessionFile ?? this.#record.sessionFile;
+    if (file === null) return;
+    try {
+      const totals = totalUsage((await readSessionUsage(file)).models);
+      if (this.#disposed || JSON.stringify(totals) === JSON.stringify(this.#totals)) return;
+      this.#totals = totals;
+      this.#derived = { ...this.#derived, sessionUsage: this.#sessionUsageFor(this.#composer.cost) };
+      this.#publish();
+    } catch (error) {
+      log.warn("reading the session file for token totals failed", { taskId: this.id, message: String(error) });
+    }
+  }
+
   /** 文档变化时调用：把输入框卡片上的模型名、思考强度、上下文、费用换算成 TaskState 的字段；变了才发布。 */
   #syncComposer(document: TspDocument): void {
+    const todoPhases = deriveTodoPhases(document);
+    if (JSON.stringify(todoPhases) !== JSON.stringify(this.#todoPhases)) {
+      this.#todoPhases = todoPhases;
+      this.#publish();
+    }
     const info = deriveComposerInfo(document);
     if (!info) return; // 输入框被提问/审批换掉的那几帧：保留上一次的值
     const previous = this.#composer;
@@ -906,14 +1123,9 @@ export class TspRunner {
             percent: composer.context.percent,
           }
         : null;
-    const sessionUsage =
-      composer.cost === null
-        ? null
-        : {
-            tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-            cost: composer.cost,
-            premiumRequests: 0,
-          };
+    // 费用变了 = 又结束了一次请求：会话文件里的 token 分项和请求数也该重读（见 #refreshTotals）。
+    if (composer.cost !== previous.cost) void this.#refreshTotals();
+    const sessionUsage = this.#sessionUsageFor(composer.cost);
     const thinkingLevels = thinkingLevelsOf(model);
     const next: DerivedComposerState = {
       model,
@@ -1062,6 +1274,23 @@ export class TspRunner {
     return readSessionExtras(this.#sessionFile ?? this.#record.sessionFile);
   }
 
+  // ───── 旁路提问（/btw，tsp-btw.ts） ─────
+
+  /** 提问（`recordId` 缺省开新话题，否则追问）：经 omp 的主输入框发 `/btw`，返回话题 id。 */
+  askBtw(question: string, recordId?: string): Promise<string> {
+    return this.#btw.ask(question, recordId);
+  }
+
+  /** 取消在跑的旁路提问（点弹窗的 Stop）；没有在跑的 false。 */
+  cancelBtw(recordId?: string): Promise<boolean> {
+    return Promise.resolve(this.#btw.cancel(recordId));
+  }
+
+  /** 话题历史：镜像 + 会话旁边的 btw-history/（没有进程也能读，不为它起进程）。 */
+  getBtw(): Promise<BtwHistoryRecord[]> {
+    return this.#btw.history();
+  }
+
   /** omp 的命令列表（服务进程的 get_available_commands，和任务进程无关：内置命令一致，项目目录里的自定义命令/技能看不到）；任务还没起进程（草稿、starting）时照给，没接服务进程时 []。 */
   async listSlashCommands(): Promise<AvailableSlashCommand[]> {
     const list = this.#host.listSlashCommands;
@@ -1085,9 +1314,11 @@ export class TspRunner {
 
   /**
    * 把 `/命令` 当普通 `send` 交给 omp（实测:单独的 `/fast`、`/slow`、`/fast on` 在空闲和运行中都当命令执行；`/model <id>`
-   * 带参数的当普通消息），等 omp 的状态 toast：匹配 `success` 就返回它，出现新的别的 toast 就当失败，原文抛出。
+   * 带参数的当普通消息），等 omp 的状态 toast，返回它的原文。`success` 判定哪条 toast 算成功（返回 true 就返回该 toast）；
+   * 没给时，第一条新出现的 toast 就是结果。给了 `success` 而出现新的、不满足它的 toast 就当失败，原文抛出。
+   * 局限：和发送前完全相同的 toast 文字认不出是新的（omp 每次复用同一个 toast 节点，只换文字）。
    */
-  async #runSlash(text: string, success: RegExp): Promise<RegExpExecArray> {
+  async #runSlash(text: string, success?: (toast: string) => boolean): Promise<string> {
     await this.start();
     const target = await this.#awaitComposer();
     const session = this.#liveSession();
@@ -1096,13 +1327,14 @@ export class TspRunner {
     return this.#awaitDocument(
       (document) => {
         const texts = statusToastTexts(document);
-        for (const toast of texts) {
-          const hit = success.exec(toast);
-          if (hit) return hit;
+        if (success) {
+          const hit = texts.find(success);
+          if (hit !== undefined) return hit;
         }
         const fresh = texts.find((toast) => !before.includes(toast));
-        if (fresh !== undefined) throw new Error(fresh);
-        return null;
+        if (fresh === undefined) return null;
+        if (success) throw new Error(fresh);
+        return fresh;
       },
       CONFIRM_TIMEOUT_MS,
       `omp did not confirm ${text}`,
@@ -1110,11 +1342,156 @@ export class TspRunner {
     );
   }
 
+  /**
+   * 会话级斜杠命令（`TaskCommand` 拼出的文本，见 shared/omp-output）：串在界面操作队列里执行，返回 omp 的状态 toast 原文。
+   * 只有以 toast 回应的命令用得了；弹窗、main 里加文字的命令（`/jobs`、`/memory`…）等不到 toast，超时报 "omp did not confirm"。
+   */
+  runSessionCommand(text: string, success?: (toast: string) => boolean): Promise<string> {
+    return this.#exclusive(() => this.#runSlash(text, success));
+  }
+
+  /**
+   * 成功时 omp 不发 toast、出错才发的会话命令（`/jobs kill <id>|all`，实测 18.12.5：成功只是作业卡片变 cancelled，
+   * 未知 id 是 `No running background job with id "x".`，缺参数是 `Usage: /jobs kill <id>|all`）。
+   * 发出后观察 `QUIET_SETTLE_MS`：出现新 toast 就以原文 reject，没出现算成功，返回 ""。
+   */
+  runQuietCommand(text: string): Promise<string> {
+    return this.#exclusive(async () => {
+      await this.start();
+      const target = await this.#awaitComposer();
+      const session = this.#liveSession();
+      const before = statusToastTexts(session.document);
+      session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text });
+      try {
+        return await this.#awaitDocument<string>(
+          (document) => {
+            const fresh = statusToastTexts(document).find((toast) => !before.includes(toast));
+            if (fresh !== undefined) throw new Error(fresh);
+            return null;
+          },
+          QUIET_SETTLE_MS,
+          QUIET_SETTLED,
+          false,
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message === QUIET_SETTLED) return "";
+        throw error;
+      }
+    });
+  }
+
+  /**
+   * `/compact`（omp 18.12.5 实测，shared/tsp/compaction.ts）：没有 toast；成功 = main 里新增 `omp.compaction` 分隔，
+   * 失败 = main 里新增 "Error: Compaction failed: …"（会话太小）。等到其中之一：成功 resolve，失败以原文 reject。
+   * 压缩要调模型，等待上限 5 分钟。
+   */
+  compact(): Promise<void> {
+    return this.#exclusive(async () => {
+      await this.start();
+      const target = await this.#awaitComposer();
+      const session = this.#liveSession();
+      const before = compactionMark(session.document);
+      session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text: "/compact" });
+      const outcome = await this.#awaitDocument(
+        (document) => compactionOutcome(document, before),
+        COMPACT_TIMEOUT_MS,
+        "omp did not finish /compact",
+        false,
+      );
+      if (!outcome.ok) throw new Error(outcome.error);
+    });
+  }
+
+  // ───── 目标模式（/goal） ─────
+
+  /**
+   * `/goal` 的四个操作（和 rpc 的 `goal` 同一个入口）：`get` 读当前目标；`create` 发 `/goal <文字>`（成功时 omp 不发 toast，
+   * 输入框卡片上出现"Goal …"事实行；已有目标时 omp 以 toast 拒绝，原文抛出）；`pause` / `resume` 发 `/goal pause|resume`
+   * 等 omp 的确认 toast；`drop` 发 `/goal drop`，在 omp 弹出的 "Drop goal?" 选择器里点 Yes。返回操作之后的目标（已放弃 / 没有为 null）。
+   * 实测依据见 shared/tsp/goal.ts。
+   */
+  goal(op: GoalOp, objective?: string): Promise<TaskState["goal"]> {
+    if (op === "get") return Promise.resolve(this.#goalTracker.goal);
+    if (op === "create") {
+      // omp 的输入框一行一条命令：换行折成空格（目标文字本来就是一句话的任务描述）。
+      const text = (objective ?? "").replace(/\s*\r?\n\s*/g, " ").trim();
+      if (text === "") return Promise.reject(new Error("goal objective is empty"));
+      return this.#exclusive(() => this.#createGoal(text));
+    }
+    if (op === "drop") return this.#exclusive(() => this.#dropGoal());
+    return this.#exclusive(async () => {
+      await this.#runSlash(`/goal ${op}`, (toast) => GOAL_TOASTS[op].test(toast));
+      return this.#goalTracker.goal;
+    });
+  }
+
+  async #createGoal(objective: string): Promise<TaskState["goal"]> {
+    await this.start();
+    const target = await this.#awaitComposer();
+    const session = this.#liveSession();
+    const before = statusToastTexts(session.document);
+    const hadGoal = this.#goalTracker.goal !== null;
+    this.#goalTracker.expectObjective(objective);
+    session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text: `/goal ${objective}` });
+    try {
+      await this.#awaitDocument(
+        (document) => {
+          const fresh = statusToastTexts(document).find((toast) => !before.includes(toast));
+          if (fresh !== undefined) throw new Error(fresh);
+          return !hadGoal && this.#goalTracker.goal !== null ? true : null;
+        },
+        CONFIRM_TIMEOUT_MS,
+        "omp did not confirm creating the goal",
+      );
+    } catch (error) {
+      if (!hadGoal) this.#goalTracker.expectObjective("");
+      throw error;
+    }
+    return this.#goalTracker.goal;
+  }
+
+  async #dropGoal(): Promise<TaskState["goal"]> {
+    await this.start();
+    const target = await this.#awaitComposer();
+    const session = this.#liveSession();
+    const before = statusToastTexts(session.document);
+    session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text: "/goal drop" });
+    const prompt = await this.#awaitDocument(
+      (document) => {
+        const found = findGoalDropPrompt(document);
+        if (found !== null) return found;
+        const fresh = statusToastTexts(document).find((toast) => !before.includes(toast));
+        if (fresh !== undefined) throw new Error(fresh);
+        return null;
+      },
+      PICKER_TIMEOUT_MS,
+      "omp did not ask to confirm dropping the goal",
+    );
+    session.sendEvent({ ev: "activate", sf: prompt.sf, id: prompt.id, item: prompt.yes });
+    await this.#awaitDocument(
+      (document) => (findGoalDropPrompt(document) === null && this.#goalTracker.goal === null ? true : null),
+      CONFIRM_TIMEOUT_MS,
+      "omp did not confirm dropping the goal",
+    );
+    return null;
+  }
+
+  get workspaceDirs(): readonly string[] {
+    return this.#workspace.dirs;
+  }
+
+  /** `/dirs`、`/add-dir`、`/remove-dir` 的 toast → 额外工作区目录（omp 拒绝或 toast 认不出来时以原文抛错）；有变化就发布状态。 */
+  applyWorkspaceDirsOutput(text: string): void {
+    if (this.#workspace.apply(text)) this.#publish();
+  }
+
   /** `/fast on|off`。模型不支持时 omp 的 toast 原文作为错误抛出。 */
   setFastMode(enabled: boolean): Promise<void> {
     return this.#exclusive(async () => {
       if (enabled && this.#composer.fast) return;
-      await this.#runSlash(enabled ? "/fast on" : "/fast off", enabled ? /^Fast mode enabled/ : /^Fast mode disabled/);
+      await this.#runSlash(enabled ? "/fast on" : "/fast off", (toast) =>
+        (enabled ? /^Fast mode enabled/ : /^Fast mode disabled/).test(toast),
+      );
       const live = this.#session;
       if (live) this.#syncComposer(live.document);
     });
@@ -1123,9 +1500,186 @@ export class TspRunner {
   /** `/slow on|off`。omp 的界面上没有慢速模式的状态节点，状态按它的 toast（"Slow mode on: …" / "Slow mode off: …"）记。 */
   setSlowMode(enabled: boolean): Promise<void> {
     return this.#exclusive(async () => {
-      const hit = await this.#runSlash(enabled ? "/slow on" : "/slow off", /^Slow mode (on|off)/);
-      this.#slowEnabled = hit[1] === "on";
+      const hit = /^Slow mode (on|off)/.exec(
+        await this.#runSlash(enabled ? "/slow on" : "/slow off", (toast) => /^Slow mode (on|off)/.test(toast)),
+      );
+      this.#slowEnabled = hit?.[1] === "on";
       this.#publish();
     });
+  }
+
+  // ───── 会话树、回溯、分叉（docs/architecture/session-tree.md） ─────
+  // 树只读会话文件（tsp/session-tree-file.ts）；回溯 = 驱动 omp 自己的 `/tree`：选择器里 activate 那条用户消息。
+  // 分叉成新任务由池完成（TaskPool.forkTask）：新任务用 `omp --fork=<会话文件>` 起，起来以后在新进程里同样回溯。
+
+  /** 回溯之后、文件还没有新条目之前的叶子位置（`/tree` 在进程内移动叶子，不写文件）。 */
+  #leafOverride: LeafOverride | null = null;
+
+  #treeFile(): string | null {
+    return this.#sessionFile ?? this.#record.sessionFile;
+  }
+
+  /** 回溯和分叉要求这一轮已经结束：omp 的 `/tree` 在运行中会打断或搅乱这一轮，分叉复制的文件也要写完。 */
+  #assertTurnFinished(): void {
+    const session = this.#session;
+    if (
+      this.#machine.working ||
+      this.#machine.dialogs.length > 0 ||
+      (session !== null && hasRunningWork(session.document))
+    )
+      throw new Error("the session is busy; wait for the current turn to finish");
+  }
+
+  async #readTreeEntries(): Promise<SessionEntry[]> {
+    const file = this.#treeFile();
+    if (file === null) return [];
+    try {
+      return await readSessionEntries(file);
+    } catch (error) {
+      // 会话文件在第一条回复之后才落盘。
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
+      throw error;
+    }
+  }
+
+  /** 会话树面板的数据；还没有会话文件时 nodes 为空。 */
+  async getSessionTree(): Promise<SessionTreeView> {
+    return { nodes: buildTreeFromEntries(await this.#readTreeEntries(), this.#leafOverride) };
+  }
+
+  /**
+   * 分叉前的检查：这一轮已结束，`entryId`（null = 当前分支最后一条用户消息）是这个会话的用户消息。
+   * 返回要分叉的会话文件、那条消息的条目 id 和回溯目标（omp 的 `--fork` 复制整份文件，条目 id 不变，新进程里直接用它回溯）。
+   */
+  async prepareFork(entryId: string | null): Promise<{ sourceFile: string; entryId: string; target: RewindTarget }> {
+    this.#assertTurnFinished();
+    const file = this.#treeFile();
+    const entries = await this.#readTreeEntries();
+    if (file === null || entries.length === 0) throw new Error("this task has no session file yet");
+    const id = entryId ?? buildTreeFromEntries(entries, this.#leafOverride).find((node) => node.current)?.entryId;
+    if (id === undefined) throw new Error("the session has no user message to fork from");
+    const target = findUserEntry(entries, id);
+    if (target === null) throw new Error("that is not a user message of this session");
+    return { sourceFile: file, entryId: id, target };
+  }
+
+  /**
+   * 就地回到一条用户消息之前：omp 的 `/tree` → 选择器里 activate 它（同一个会话文件里移动叶子，不新建文件；实测 omp 18.12.5）。
+   * omp 会把这条消息填进它自己的输入框；这里把输入框清空（omp 只在输入框为空时才预填，留着会让下一次回溯拿不到文字）
+   * 并返回消息的完整文字（取自会话文件），由渲染进程放进 studio 的输入框。
+   * `known`：调用方已经从会话文件里查好的目标（新分叉的任务：它的会话文件路径要等 omp 报告，不一定已经到了）；不传就读本任务的会话文件。
+   * `summarize`：让 omp 给被放弃的分支写摘要再移动（选择器的 `summarize` 动作 = Shift+Enter，不管 `branchSummary.enabled` 开没开都直接摘要，
+   * 会调一次模型，最长等 SUMMARY_TIMEOUT_MS）；不摘要时如果 omp 开着 `branchSummary.enabled` 并弹出"Summarize branch?"，答 No summary。
+   */
+  rewindTo(entryId: string, known?: RewindTarget, summarize = false): Promise<{ text: string; summarized: boolean }> {
+    return this.#exclusive(async () => {
+      const target = known ?? findUserEntry(await this.#readTreeEntries(), entryId);
+      if (target === null) throw new Error("that is not a user message of this session");
+      await this.start();
+      this.#assertTurnFinished();
+      const composer = await this.#awaitComposer();
+      const session = this.#liveSession();
+      await this.#clearComposerEditor(session);
+      session.sendEvent({ ev: "send", sf: composer.sf, id: composer.id, text: "/tree" });
+      const picker = await this.#awaitDocument(
+        (document) => findTreePicker(document),
+        PICKER_TIMEOUT_MS,
+        "omp's session tree did not open in time",
+      );
+      if (!picker.items.includes(entryId) || (summarize && !picker.actions.includes("summarize"))) {
+        session.sendKeys(ESC_KEY);
+        throw new Error("omp's session tree does not offer that");
+      }
+      if (summarize) {
+        session.sendEvent({ ev: "select", sf: picker.sf, id: picker.id, item: entryId });
+        session.sendEvent({ ev: "action", sf: picker.sf, id: picker.id, act: "summarize" });
+        try {
+          await this.#awaitDocument(
+            (document) => (findTreePicker(document) === null && findSummaryPicker(document) === null ? true : null),
+            SUMMARY_TIMEOUT_MS,
+            "omp did not finish summarizing the abandoned branch",
+          );
+        } catch (error) {
+          session.sendKeys(ESC_KEY);
+          throw error;
+        }
+      } else {
+        session.sendEvent({ ev: "activate", sf: picker.sf, id: picker.id, item: entryId });
+        try {
+          const outcome = await this.#awaitDocument(
+            (document) =>
+              findSummaryPicker(document) ? "prompt" : findTreePicker(document) === null ? "closed" : null,
+            CONFIRM_TIMEOUT_MS,
+            "omp did not move to that message",
+          );
+          const prompt = outcome === "prompt" ? findSummaryPicker(session.document) : null;
+          if (prompt !== null) {
+            session.sendEvent({ ev: "activate", sf: prompt.sf, id: prompt.id, item: SUMMARY_NO });
+            await this.#awaitDocument(
+              (document) => (findSummaryPicker(document) === null ? true : null),
+              CONFIRM_TIMEOUT_MS,
+              "omp did not leave its summary prompt",
+            );
+          }
+        } catch (error) {
+          session.sendKeys(ESC_KEY);
+          throw error;
+        }
+      }
+      // 选择器关了；输入框的预填（或 toast）可能晚一帧到。等不到不算失败：文字取自会话文件。
+      await this.#awaitDocument(
+        (document) => (hasNavigatedToast(document) || (findComposerEditor(document)?.text ?? "") !== "" ? true : null),
+        NAVIGATION_SETTLE_MS,
+        "omp did not report the navigation",
+      ).catch((error: unknown) => {
+        if (this.#session !== session) throw error;
+      });
+      await this.#clearComposerEditor(session);
+      this.#leafOverride =
+        target.lastEntryId === null ? null : { afterEntryId: target.lastEntryId, leafId: target.parentId };
+      return { text: target.text, summarized: summarize };
+    });
+  }
+
+  /** 把 omp 输入框里的字清空（edit 事件替换整段文字）；本来就空就什么都不发。 */
+  async #clearComposerEditor(session: TspSession): Promise<void> {
+    const editor = findComposerEditor(session.document);
+    if (editor === null || editor.text === "") return;
+    session.sendEvent({
+      ev: "edit",
+      sf: editor.sf,
+      id: editor.id,
+      from: 0,
+      to: editor.text.length,
+      text: "",
+      cursor: 0,
+      len: editor.text.length,
+    });
+    await this.#awaitDocument(
+      (document) => ((findComposerEditor(document)?.text ?? "") === "" ? true : null),
+      CONFIRM_TIMEOUT_MS,
+      "omp's input box did not clear",
+    );
+  }
+
+  // ───── 子代理面板（S1，docs/architecture/subagents.md "TSP 任务里的子代理面板"） ─────
+  // 列表直接从文档读（shared/tsp/agent-hub.ts）；记录读 omp 的存档（tsp/subagent-file.ts）；
+  // 插话 / 结束 / 恢复在后台驱动 omp 的 Agent Hub（tasks/tsp-hub-driver.ts）。
+
+  /** 子代理的记录和最终输出（会话文件旁的 `<名字>.jsonl` / `.md`）；名字不合规时返回 unavailable，不抛错。 */
+  subagentRecord(name: string): Promise<TspSubagentRecord> {
+    return readSubagentRecord(this.#sessionFile ?? this.#record.sessionFile, name);
+  }
+
+  steerSubagent(name: string, text: string): Promise<void> {
+    return this.#hub.steer(name, text);
+  }
+
+  killSubagent(name: string): Promise<void> {
+    return this.#hub.kill(name);
+  }
+
+  reviveSubagent(name: string): Promise<void> {
+    return this.#hub.revive(name);
   }
 }

@@ -2545,7 +2545,7 @@
   flex: 1 1 calc(50% - var(--space-1-5));
   min-width: 0;
   padding: var(--space-1-5) var(--space-3);
-  background: var(--bg-hover);
+  background: var(--bg-sunken);
   box-shadow: inset 0 0 0 1px var(--border-subtle);
 }
 .tsp-row[data-role="omp.job.tile.head"] {
@@ -2637,4 +2637,10 @@
   .tsp-tree-tw svg {
     transition: none;
   }
+}
+
+/* 子代理面板在后台驱动 omp 的 Agent Hub（spec §4.28）：聚焦模式里过程区暂时是那个子代理的记录，压暗并不可点，不当成主对话。 */
+.tsp-surface[data-driving] .tsp-scroller {
+  opacity: 0.45;
+  pointer-events: none;
 }

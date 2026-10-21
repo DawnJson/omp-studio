@@ -1,6 +1,8 @@
 // 假 omp（TSP 版）：在伪终端里按录制回放 omp 发出的 TSP 消息，不调真实模型，复现界面和主进程的各种状态。
 // 用法：node test/fake-omp/fake-tsp-omp.ts <录制名或路径> [--speed=<倍数>] [--log=<文件>] [--exit-after-end]
 //   录制名 = fixtures/tsp/<名字>.jsonl（omp 自己用 PI_TUI_TSP_RECORD 录的双向消息，每行 {t, dir, verb, params?, body}）。
+//   录制里 omp 不记按键：需要"等到终端按了某个键才继续回放"时，在录制里手工加一行 {"t":…,"dir":"in","verb":"k","body":"\u001b"}
+//   （verb k = 终端写进 pty 的按键，body 是那段字节），回放到这里会等收到同样的按键。
 //   --speed：回放速度，录制里的间隔除以它（默认 1；测试用大数，免得等真实的 59 秒）。
 //   --log：把收到的每条 TSP 消息、按键原样追加成 JSONL（{kind:"tsp", verb, body} / {kind:"keys", data}），测试据此断言 omp 收到了什么。
 //   --exit-after-end：回放完立刻以 0 退出（默认继续活着，和真实 omp 一样等输入）。
@@ -99,6 +101,7 @@ function encode(entry: Entry): Buffer[] {
 
 const helloReplied = Promise.withResolvers<{ credits: number }>();
 const received: Record<string, unknown>[] = [];
+const receivedKeyData: string[] = [];
 const waiters = new Set<() => void>();
 const unacked: { sf: string; s: number }[] = [];
 
@@ -140,7 +143,11 @@ process.stdin.on("data", (chunk: Buffer) => {
   const rest = text.replace(TSP_MESSAGE, "").replaceAll(`${ESC}[?62;22c`, "");
   // 分块到下一个数据块的 TSP 消息（没收尾）不算按键。
   const keys = rest.includes(`${ESC}_tsp`) || rest.includes(`${ESC}]877`) ? "" : rest;
-  if (keys !== "") log({ kind: "keys", data: keys });
+  if (keys !== "") {
+    log({ kind: "keys", data: keys });
+    receivedKeyData.push(keys);
+    for (const waiter of waiters) waiter();
+  }
   parser.write(chunk);
   if (da1) log({ kind: "da1-reply" });
 });
@@ -173,6 +180,16 @@ if (process.env["FAKE_TSP_TITLE"]) process.stdout.write(`${ESC}]0;${process.env[
 let lastT = entries[0]?.t ?? 0;
 for (const entry of entries) {
   if (entry.dir === "in") {
+    if (entry.verb === "k") {
+      const key = String(entry.body);
+      await until(() => receivedKeyData.some((data) => data.includes(key)));
+      receivedKeyData.splice(
+        receivedKeyData.findIndex((data) => data.includes(key)),
+        1,
+      );
+      lastT = entry.t;
+      continue;
+    }
     // ack 由我们按真实收到的为准；其余事件按顺序等匹配。
     if (isRecord(entry.body) && entry.body["ev"] === "ack") continue;
     const matches = (event: Record<string, unknown>) => isDeepStrictEqual(event, entry.body);

@@ -263,8 +263,9 @@ describe("buildSessionSummaries", () => {
     { id: "t2" as TaskId, sessionFile: null },
   ];
 
+  const noPins = new Set<string>();
   it("全部项目：未加入项目的会话 projectId 为 null，已挂任务的带 taskId，空壳会话不列出", () => {
-    const result = buildSessionSummaries(sessions, [projectA, projectB], links, null);
+    const result = buildSessionSummaries(sessions, [projectA, projectB], links, null, noPins);
     expect(result.map((s) => [s.id, s.projectId, s.taskId])).toEqual([
       ["s1", "pa", "t1"],
       ["s2", null, null],
@@ -272,9 +273,19 @@ describe("buildSessionSummaries", () => {
   });
 
   it("按项目过滤只留 cwd 相同的会话；项目不存在时为空", () => {
-    expect(buildSessionSummaries(sessions, [projectA, projectB], links, "pb" as ProjectId)).toEqual([]);
-    expect(buildSessionSummaries(sessions, [projectA], links, "pa" as ProjectId).map((s) => s.id)).toEqual(["s1"]);
-    expect(buildSessionSummaries(sessions, [projectA], links, "missing" as ProjectId)).toEqual([]);
+    expect(buildSessionSummaries(sessions, [projectA, projectB], links, "pb" as ProjectId, noPins)).toEqual([]);
+    expect(buildSessionSummaries(sessions, [projectA], links, "pa" as ProjectId, noPins).map((s) => s.id)).toEqual([
+      "s1",
+    ]);
+    expect(buildSessionSummaries(sessions, [projectA], links, "missing" as ProjectId, noPins)).toEqual([]);
+  });
+
+  it("pinned 按会话 id 对 session-pins.json 里的集合（omp 18.12.5：id 数组）", () => {
+    const result = buildSessionSummaries(sessions, [projectA], links, null, new Set(["s2", "不存在"]));
+    expect(result.map((s) => [s.id, s.pinned])).toEqual([
+      ["s1", false],
+      ["s2", true],
+    ]);
   });
 
   it.runIf(process.platform === "win32")("Windows 上路径大小写和斜杠方向不影响匹配", () => {
@@ -283,6 +294,7 @@ describe("buildSessionSummaries", () => {
       [projectA],
       links,
       null,
+      noPins,
     );
     expect(result[0]).toMatchObject({ projectId: "pa", taskId: "t1" });
   });

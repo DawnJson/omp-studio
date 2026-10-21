@@ -9,6 +9,7 @@ import { exportedFile, exportTarget, recordExport } from "../tasks/export-record
 import { limits } from "../../shared/ipc.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { canOpenDirectly, resolveInsideReal } from "./task-file-path.ts";
+import { parseRootIndex, rootDir } from "../files/task-roots.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { getMainWindow } from "../window/main-window.ts";
 import {
@@ -114,8 +115,12 @@ export const taskHandlers: HandlerGroup<
       parseTaskId(taskId),
       userMessageKey === null ? null : parseString(userMessageKey, "userMessageKey", 200),
     ),
-  branchTask: async (taskId, entryId) =>
-    (await getTaskPool()).branchTask(parseTaskId(taskId), parseString(entryId, "entryId", 200)),
+  branchTask: async (taskId, entryId, summarize) =>
+    (await getTaskPool()).branchTask(
+      parseTaskId(taskId),
+      parseString(entryId, "entryId", 200),
+      summarize === undefined ? false : parseBoolean(summarize, "summarize"),
+    ),
   taskGoal: async (taskId, op, objective) => {
     const pool = await getTaskPool();
     const id = parseTaskId(taskId);
@@ -126,10 +131,13 @@ export const taskHandlers: HandlerGroup<
     return pool.taskGoal(id, goalOp, text);
   },
 
-  openTaskFile: async (taskId, relPath) => {
+  openTaskFile: async (taskId, relPath, root) => {
     const pool = await getTaskPool();
     const id = parseTaskId(taskId);
-    const file = await resolveInsideReal(pool.taskCwd(id), parseString(relPath, "relPath", 1024));
+    const file = await resolveInsideReal(
+      rootDir(pool.taskCwd(id), pool.taskWorkspaceDirs(id), parseRootIndex(root)),
+      parseString(relPath, "relPath", 1024),
+    );
     if (!canOpenDirectly(file))
       throw new Error(
         "only plain text, code, image and document files are opened directly; reveal them in the folder instead",
@@ -139,10 +147,14 @@ export const taskHandlers: HandlerGroup<
     if (error !== "") throw new Error(error);
   },
 
-  revealTaskFile: async (taskId, relPath) => {
+  revealTaskFile: async (taskId, relPath, root) => {
     const pool = await getTaskPool();
+    const id = parseTaskId(taskId);
     shell.showItemInFolder(
-      await resolveInsideReal(pool.taskCwd(parseTaskId(taskId)), parseString(relPath, "relPath", 1024)),
+      await resolveInsideReal(
+        rootDir(pool.taskCwd(id), pool.taskWorkspaceDirs(id), parseRootIndex(root)),
+        parseString(relPath, "relPath", 1024),
+      ),
     );
   },
 

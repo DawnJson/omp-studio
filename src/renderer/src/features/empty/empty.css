@@ -92,6 +92,10 @@
   font-size: var(--fs-sm);
   color: var(--text-2);
 }
+/* 工具行挤的时候先缩路径文字，文件夹图标始终保留 */
+.empty-project > svg {
+  flex: none;
+}
 
 /* 路径太长时省略开头（rtl + 里面的 bdi），末尾的文件夹名总看得见 */
 .empty-project-name {

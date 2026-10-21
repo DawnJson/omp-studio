@@ -1,0 +1,1 @@
+Failed to upgrade demo-plugin: demo-plugin is linked from a local path; there is nothing to upgrade

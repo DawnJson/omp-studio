@@ -4,6 +4,7 @@
 // 当前分支取文件最后一条：omp 只在叶子上追加；在会话树里跳到别处但还没发消息时会偏，这时只是数字差一些。
 import { readFile } from "node:fs/promises";
 import type { ModelUsage, SessionModelUsage } from "../../shared/ipc.ts";
+import type { TokenUsage } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 
 const num = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
@@ -58,7 +59,7 @@ function addUsage(models: Map<string, ModelUsage>, entry: Entry): void {
   const key = `${provider}/${modelId}`;
   let row = models.get(key);
   if (row === undefined) {
-    row = { provider, modelId, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, cost: 0 };
+    row = { provider, modelId, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, cost: 0, requests: 0 };
     models.set(key, row);
   }
   row.input += num(usage["input"]);
@@ -67,6 +68,7 @@ function addUsage(models: Map<string, ModelUsage>, entry: Entry): void {
   row.cacheWrite += num(usage["cacheWrite"]);
   row.total += num(usage["totalTokens"]);
   row.cost += isRecord(usage["cost"]) ? num(usage["cost"]["total"]) : 0;
+  row.requests++;
 }
 
 function sumModels(entries: readonly Entry[]): ModelUsage[] {
@@ -97,6 +99,26 @@ export function summarizeSessionUsage(text: string): SessionModelUsage {
       cost: all.reduce((sum, row) => sum + row.cost, 0),
     },
   };
+}
+
+/** 各模型合计的 token 分项和请求数：TSP 任务的 `sessionUsage`（omp 的 TSP 输入框卡片只给费用，token 和请求数从会话文件补）。 */
+export interface SessionTotals {
+  tokens: TokenUsage;
+  requests: number;
+}
+
+export function totalUsage(models: readonly ModelUsage[]): SessionTotals {
+  const tokens: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
+  let requests = 0;
+  for (const row of models) {
+    tokens.input += row.input;
+    tokens.output += row.output;
+    tokens.cacheRead += row.cacheRead;
+    tokens.cacheWrite += row.cacheWrite;
+    tokens.total += row.total;
+    requests += row.requests;
+  }
+  return { tokens, requests };
 }
 
 export async function readSessionUsage(file: string | null): Promise<SessionModelUsage> {

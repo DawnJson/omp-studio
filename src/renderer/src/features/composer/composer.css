@@ -208,9 +208,12 @@ button.usage-context:hover,
   color: var(--text-2);
   font-size: var(--fs-sm);
   cursor: pointer;
-  min-width: 0;
   /* 极窄时内容（思考强度）不能画到旁边的胶囊上。 */
   overflow: hidden;
+}
+/* 带名字的胶囊（模型）：名字最小宽 + 左右内边距 + 箭头，工具行再挤也不会窄过这个；只有图标的胶囊（审批）不受影响。 */
+.chip:has(> .chip-text) {
+  min-width: calc(var(--chip-name-min-w) + 2 * var(--space-2-5) + var(--space-1) + var(--space-3));
 }
 /* 胶囊末尾的 ⌄：只是提示"点了会展开"，不是独立按钮。 */
 .chip-caret {
@@ -222,6 +225,8 @@ button.usage-context:hover,
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 36ch;
+  /* 模型名比思考强度、路径都重要：再窄也留这么宽，不会缩成 "D…"。 */
+  min-width: var(--chip-name-min-w);
 }
 .chip-badge {
   flex: none;
@@ -276,7 +281,16 @@ button.usage-context:hover,
 }
 @container (max-width: 520px) {
   .chip-text {
-    max-width: 10ch;
+    max-width: 18ch;
+  }
+}
+/* 工具行放不下时的让位顺序：先是项目路径（缩到只剩文件夹图标），再是思考强度后缀（隐藏，完整的在胶囊悬停提示里），模型名最后。 */
+.composer-tools > .empty-project {
+  flex-shrink: 100;
+}
+@container (min-width: 401px) and (max-width: 460px) {
+  .chip-level {
+    display: none;
   }
 }
 /* 再窄（比如右侧开着文件预览）工具行折成两行：左边模型、审批一行，右边的计数、用量、发送换到下一行靠右，模型名不再被挤没。 */
@@ -537,7 +551,7 @@ html[data-motion="reduced"] .ctx-usage-chev {
 }
 
 /* 费用点开的用量对话框（居中，同模型选择框的外观）：标题栏是标题 + 关闭按钮，下面一页滚动内容：先额度，再"每日用量"小节（热力图）。
-   对话框高度固定（--dialog-h-usage，窗口矮时取 80vh）：额度异步到达、中英文换行都不改变大小，内容多了在 .qm-stack 里滚动。
+   对话框高度固定（--dialog-h-usage，刚好装下两个账号块 + 热力图，窗口矮时取 80vh）：额度异步到达、中英文换行都不改变大小，内容多了在 .qm-stack 里滚动。
    账号块和热力图的组件、样式见 settings/usage.css，这里只改额度的版式：每个账号一张卡，卡内窗口按两列排，
    每个窗口 = 名称 + 重置时间 + 剩余（重置在剩余左边，同一行，右对齐、等宽数字）/ 整宽进度条。 */
 .usage-dialog {
@@ -1840,4 +1854,40 @@ html[data-motion="reduced"] .ctx-usage-chev {
   margin: var(--space-1) var(--space-2) var(--space-2);
   color: var(--text-3);
   font-size: var(--fs-xs);
+}
+
+/* TSP 作业弹层的动作（S2Jobs）：展开一行后的"查看输出 / 结束 / 在子代理面板中查看"。 */
+.job-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+  margin: var(--space-1) var(--space-2) var(--space-2);
+}
+.job-actions .job-note {
+  flex: 1 0 100%;
+  margin: 0;
+}
+.job-action {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.job-action:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.job-action[data-danger]:hover:not(:disabled) {
+  color: var(--st-error);
+}
+.job-action:disabled {
+  opacity: 0.5;
+}
+.job-action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }

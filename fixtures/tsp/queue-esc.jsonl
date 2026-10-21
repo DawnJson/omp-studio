@@ -1,0 +1,252 @@
+{"t":1792608311075,"dir":"out","verb":"o","body":{"id":"s:1","mode":"inline","title":"omp","role":"omp.session"}}
+{"t":1792608311076,"dir":"out","verb":"t","body":{"sf":"s:1","name":{"dark":"titanium","light":"light"},"dark":{"accent":"#00b4ff","border":"#2a3038","borderAccent":"#00b4ff","borderMuted":"#1f252d","success":"#00ff88","error":"#ff4757","warning":"#ffb347","muted":"#9ca3b0","dim":"#6b7280","thinkingText":"#9ca3b0","selectedBg":"#0082b3","userMessageBg":"#0f1216","customMessageBg":"#2a3038","customMessageLabel":"#d4c090","toolPendingBg":"#0f1216","toolSuccessBg":"#0f1216","toolErrorBg":"#1a0f10","toolOutput":"#9ca3b0","mdHeading":"#00b4ff","mdLink":"#00b4ff","mdLinkUrl":"#0082b3","mdCode":"#00ff88","mdCodeBlock":"#9ca3b0","mdCodeBlockBorder":"#2a3038","mdQuote":"#9ca3b0","mdQuoteBorder":"#2a3038","mdHr":"#2a3038","mdListBullet":"#00b4ff","toolDiffAdded":"#00ff88","toolDiffRemoved":"#ff4757","toolDiffContext":"#9ca3b0","syntaxComment":"#6b7280","syntaxKeyword":"#00b4ff","syntaxFunction":"#00ff88","syntaxVariable":"#e8ecf4","syntaxString":"#d4c090","syntaxNumber":"#ffb347","syntaxType":"#00b4ff","syntaxOperator":"#00b4ff","syntaxPunctuation":"#9ca3b0","thinkingOff":"#4a5058","thinkingMinimal":"#5a6068","thinkingLow":"#6a7078","thinkingMedium":"#9ca3b0","thinkingHigh":"#00b4ff","thinkingXhigh":"#d4c090","bashMode":"#00ff88","statusLineBg":"#0f1216","statusLineSep":"#2a3038","statusLineModel":"#00b4ff","statusLinePath":"#e8ecf4","statusLineGitClean":"#00ff88","statusLineGitDirty":"#ffb347","statusLineContext":"#9ca3b0","statusLineSpend":"#d4c090","statusLineStaged":"#00ff88","statusLineDirty":"#ffb347","statusLineUntracked":"#9ca3b0","statusLineOutput":"#0082b3","statusLineCost":"#d4c090","statusLineSubagents":"#00b4ff","pythonMode":"#f0c040","pageBg":"#151820","cardBg":"#0f1216","infoBg":"#2a3038"},"light":{"accent":"#5a8080","border":"#547da7","borderAccent":"#5a8080","borderMuted":"#b0b0b0","success":"#588458","error":"#aa5555","warning":"#9a7326","muted":"#6c6c6c","dim":"#767676","thinkingText":"#6c6c6c","selectedBg":"#d0d0e0","userMessageBg":"#e8e8e8","customMessageBg":"#ede7f6","customMessageLabel":"#7e57c2","toolPendingBg":"#e8e8f0","toolSuccessBg":"#e8f0e8","toolErrorBg":"#f0e8e8","toolOutput":"#6c6c6c","mdHeading":"#9a7326","mdLink":"#547da7","mdLinkUrl":"#767676","mdCode":"#5a8080","mdCodeBlock":"#588458","mdCodeBlockBorder":"#6c6c6c","mdQuote":"#6c6c6c","mdQuoteBorder":"#6c6c6c","mdHr":"#6c6c6c","mdListBullet":"#588458","toolDiffAdded":"#588458","toolDiffRemoved":"#aa5555","toolDiffContext":"#6c6c6c","syntaxComment":"#008000","syntaxKeyword":"#0000FF","syntaxFunction":"#795E26","syntaxVariable":"#001080","syntaxString":"#A31515","syntaxNumber":"#098658","syntaxType":"#267F99","syntaxOperator":"#000000","syntaxPunctuation":"#000000","thinkingOff":"#b0b0b0","thinkingMinimal":"#767676","thinkingLow":"#547da7","thinkingMedium":"#5a8080","thinkingHigh":"#875f87","thinkingXhigh":"#8b008b","bashMode":"#588458","statusLineBg":"#e0e0e0","statusLineSep":"#808080","statusLineModel":"#875f87","statusLinePath":"#005f87","statusLineGitClean":"#005f00","statusLineGitDirty":"#af5f00","statusLineContext":"#5f5f87","statusLineSpend":"#005f5f","statusLineStaged":"#008700","statusLineDirty":"#af8700","statusLineUntracked":"#0087af","statusLineOutput":"#af5faf","statusLineCost":"#af5faf","statusLineSubagents":"#5a8080","pythonMode":"#9a7326","pageBg":"#f8f8f8","cardBg":"#ffffff","infoBg":"#fffae6"}}}
+{"t":1792608311102,"dir":"out","verb":"f","body":{"sf":"s:1","s":1,"ops":[["add","main","s:1",null,{"id":"main","k":"col"}],["add","dock","s:1",null,{"id":"dock","k":"col"}],["add","layer","s:1",null,{"id":"layer","k":"col"}],["add","0","main",null,{"id":"0","k":"spacer","p":{"size":"sm"}}],["add","1","main",null,{"id":"1","k":"card","p":{"role":"omp.welcome"},"c":[{"id":"1.lockup","k":"row","p":{"align":"center","gap":"md","role":"omp.welcome.lockup"},"c":[{"id":"1.lockup/logo","k":"image","p":{"builtin":"omp","alt":"omp","w":128,"role":"omp.welcome.logo"}},{"id":"1.lockup/mark","k":"col","p":{"role":"omp.welcome.mark"},"c":[{"id":"1.lockup/mark/omp.welcome.wordmark","k":"text","p":{"wrap":"none","role":"omp.welcome.wordmark","spans":[{"t":"omp","s":"strong"}]}},{"id":"1.lockup/mark/omp.welcome.version","k":"text","p":{"wrap":"none","role":"omp.welcome.version","spans":[{"t":"v18.8.7","s":"dim mono"}]}}]}]},{"id":"1.tip","k":"row","p":{"gap":"sm","align":"start","role":"omp.welcome.tip"},"c":[{"id":"1.tip/0","k":"icon","p":{"name":"lightbulb","role":"omp.welcome.tip-icon"}},{"id":"1.tip/1","k":"text","p":{"wrap":"word","role":"omp.welcome.tip-text","text":"Press ← ← to drill into a running or finished agent and inspect its tool calls and transcript"}}]}]}],["add","2","main",null,{"id":"2","k":"spacer","p":{"size":"sm"}}],["add","3","dock",null,{"id":"3","k":"row","p":{"role":"omp.hud","justify":"end","gap":"sm","hidden":true}}],["add","4","dock",null,{"id":"4","k":"col"}],["add","5","dock",null,{"id":"5","k":"col"}],["add","6","dock",null,{"id":"6","k":"col"}],["add","7","dock",null,{"id":"7","k":"col"}],["add","8","dock",null,{"id":"8","k":"col"}],["add","9","dock",null,{"id":"9","k":"col"}],["add","a","dock",null,{"id":"a","k":"col","c":[{"id":"g","k":"col","p":{"role":"omp.hud.judge"}},{"id":"h","k":"col","p":{"role":"omp.hud.downloads"}}]}],["add","b","dock",null,{"id":"b","k":"col"}],["add","c","dock",null,{"id":"c","k":"col"}],["add","d","dock",null,{"id":"d","k":"col","c":[{"id":"i","k":"col"}]}],["add","e","dock",null,{"id":"e","k":"col","c":[{"id":"j","k":"col","p":{"role":"omp.editor"},"c":[{"id":"j.context","k":"meter","p":{"role":"omp.composer.context","value":0.007567000000000001,"style":"bar","thresholds":{"warn":0.15,"bad":0.5},"marks":[{"at":0.85,"icon":"context.compaction","title":"Auto-compact at 85%"}],"label":"1%","total":"1M","title":"Context 1% used\n7.6K of 1M tokens\nAuto-compact at 85%","actions":{"click":"status.context"}}},{"id":"k","k":"row","p":{"gap":"sm","wrap":true,"role":"omp.composer.chips","hidden":true}},{"id":"j.line","k":"row","p":{"role":"omp.composer.line","align":"start","gap":"sm"},"c":[{"id":"j.line/input","k":"editor","p":{"text":"","cursor":0,"sendable":false,"placeholder":"What are we cooking?","maxLines":18}}]},{"id":"j.bar","k":"row","p":{"role":"omp.composer.bar","gap":"sm","align":"center"},"c":[{"id":"j.bar/model","k":"row","p":{"role":"omp.composer.model","gap":"xs","align":"center","title":"Switch model  Alt+P","actions":{"click":"status.model"}},"c":[{"id":"j.bar/model/effort","k":"effort","p":{"level":"high","role":"omp.composer.model.effort","title":"Thinking effort: high  ⇧⇥","actions":{"click":"thinking.cycle"}}},{"id":"j.bar/model/name","k":"text","p":{"spans":[{"t":"DeepSeek V4 Flash","s":"statusLineModel"}],"wrap":"none"}},{"id":"j.bar/model/chev","k":"icon","p":{"name":"chev"}}]},{"id":"j.bar/extras","k":"status","p":{"role":"omp.composer.extras","transparent":true,"grow":1}},{"id":"j.bar/usage","k":"text","p":{"role":"omp.composer.usage","text":"$0.00 ↓","wrap":"none","title":"Session cost $0.00 ↓","actions":{"click":"status.cost"}}},{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}]}]}]}],["add","f","dock",null,{"id":"f","k":"col"}],["focus","j.line/input"]]}}
+{"t":1792608311126,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":1}}
+{"t":1792608311135,"dir":"out","verb":"f","body":{"sf":"s:1","s":2,"ops":[["add","l","d",null,{"id":"l","k":"col"}],["del","i"]]}}
+{"t":1792608311169,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":2}}
+{"t":1792608311173,"dir":"out","verb":"f","body":{"sf":"s:1","s":3,"ops":[["add","m","main","1",{"id":"m","k":"spacer","p":{"size":"sm"}}],["add","n","main",null,{"id":"n","k":"spacer","p":{"size":"sm"}}],["set","j.line/input",{"sendable":true}],["del","0"],["del","2"]]}}
+{"t":1792608311180,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":3}}
+{"t":1792608311190,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"Write a numbered list of 40 short facts about the moon, one per line, no tools."}}
+{"t":1792608311198,"dir":"out","verb":"f","body":{"sf":"s:1","s":4,"ops":[["add","o","main",null,{"id":"o","k":"card","p":{"role":"omp.user","tone":"user"},"c":[{"id":"o.tools","k":"row","p":{"gap":"xs","role":"omp.user.tools"},"c":[{"id":"o.tools/0","k":"text","p":{"role":"omp.user.time","title":"2026/10/21 18:45:11","spans":[{"t":"18:45","s":"dim mono"}]}},{"id":"o.tools/1","k":"text","p":{"role":"omp.user.tool","actions":{"click":"copy-message"},"title":"Copy message","key":"copy","text":"Copy"}},{"id":"o.tools/2","k":"text","p":{"role":"omp.user.tool","actions":{"click":"rewind"},"title":"Rewind the conversation to an earlier message","key":"rewind","text":"Rewind"}}]},{"id":"o.1","k":"md","p":{"text":"Write a numbered list of 40 short facts about the moon, one per line, no tools."}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"row","p":{"role":"omp.hud.activity","align":"center","gap":"sm"},"c":[{"id":"b.status","k":"col","p":{"role":"omp.hud.status"},"c":[{"id":"p","k":"row","p":{"role":"omp.working","align":"center","gap":"sm"},"c":[{"id":"p.spinner","k":"spinner","p":{"style":"starburst","tone":"accent"}},{"id":"p.elapsed","k":"elapsed","p":{"age":1,"format":"short"}},{"id":"p.sep","k":"text","p":{"text":"·","role":"omp.working.sep"}},{"id":"p.label","k":"shimmer","p":{"spans":[{"t":"Working…","s":"muted"}],"mode":"classic","palette":{"low":"dim","mid":"muted","high":"accent"},"role":"omp.working.label"}},{"id":"p.fill","k":"row","p":{"grow":1}},{"id":"p.stop","k":"row","p":{"role":"omp.working.stop","gap":"xs","align":"center","title":"Stop  esc","actions":{"click":"interrupt"}},"c":[{"id":"p.stop/0","k":"kbd","p":{"keys":["escape"]}},{"id":"p.stop/1","k":"text","p":{"text":"Stop"}}]}]}]}]}],["set","j",{"tone":"pending"}],["add","j.bar/stop","j.bar",null,{"id":"j.bar/stop","k":"text","p":{"role":"omp.composer.stop","text":"Stop","tone":"error","title":"Stop  esc","actions":{"click":"interrupt"}}}],["del","j.bar/send"],["settle","o"]]}}
+{"t":1792608311204,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":4}}
+{"t":1792608311210,"dir":"out","verb":"f","body":{"sf":"s:1","s":5,"ops":[["set","j.context",{"value":0.007587}]]}}
+{"t":1792608311213,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":5}}
+{"t":1792608311500,"dir":"out","verb":"f","body":{"sf":"s:1","s":6,"ops":[["add","q","main",null,{"id":"q","k":"col","c":[{"id":"r","k":"col","p":{"hidden":true}},{"id":"s","k":"text","p":{"wrap":"word","spans":[{"t":"Update Available","s":"warning"},{"t":"\n"},{"t":"New version 18.12.5 is available. Run: ","s":"muted"},{"t":"omp update","s":"accent"}]}},{"id":"t","k":"col","p":{"hidden":true}}]}],["settle","r"],["settle","s"],["settle","t"],["settle","q"]]}}
+{"t":1792608311507,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":6}}
+{"t":1792608312337,"dir":"out","verb":"f","body":{"sf":"s:1","s":7,"ops":[["add","u","main",null,{"id":"u","k":"col","p":{"role":"omp.assistant"}}]]}}
+{"t":1792608312339,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":7}}
+{"t":1792608312371,"dir":"out","verb":"f","body":{"sf":"s:1","s":8,"ops":[["add","u.k0","u",null,{"id":"u.k0","k":"section","p":{"role":"omp.thinking.live","collapsible":true,"collapsed":false,"head":"u.k0/head"},"c":[{"id":"u.k0/head","k":"row","p":{"gap":"sm"},"c":[{"id":"u.k0/head/0","k":"spinner","p":{"style":"starburst","role":"omp.thinking.spin"}},{"id":"u.k0/head/1","k":"text","p":{"spans":[{"t":"Thinking…","s":"muted"}]}},{"id":"u.k0/head/2","k":"elapsed","p":{"age":0,"format":"short"}}]},{"id":"u.k0/body","k":"md","p":{"text":"The","stream":true}}]}]]}}
+{"t":1792608312372,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":8}}
+{"t":1792608312412,"dir":"out","verb":"f","body":{"sf":"s:1","s":9,"ops":[["set","u.k0/head/2",{"age":34}],["text","u.k0/body","append"," user"]]}}
+{"t":1792608312414,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":9}}
+{"t":1792608312439,"dir":"out","verb":"f","body":{"sf":"s:1","s":10,"ops":[["set","u.k0/head/2",{"age":68}],["text","u.k0/body","append"," asks for a"]]}}
+{"t":1792608312442,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":10}}
+{"t":1792608312472,"dir":"out","verb":"f","body":{"sf":"s:1","s":11,"ops":[["set","u.k0/head/2",{"age":101}],["text","u.k0/body","append"," simple list of"]]}}
+{"t":1792608312474,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":11}}
+{"t":1792608312505,"dir":"out","verb":"f","body":{"sf":"s:1","s":12,"ops":[["set","u.k0/head/2",{"age":134}],["text","u.k0/body","append"," 40 facts abo"]]}}
+{"t":1792608312506,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":12}}
+{"t":1792608312539,"dir":"out","verb":"f","body":{"sf":"s:1","s":13,"ops":[["set","u.k0/head/2",{"age":168}],["text","u.k0/body","append","ut the moon, one"]]}}
+{"t":1792608312541,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":13}}
+{"t":1792608312573,"dir":"out","verb":"f","body":{"sf":"s:1","s":14,"ops":[["set","u.k0/head/2",{"age":202}],["text","u.k0/body","append"," per line, no tools."]]}}
+{"t":1792608312576,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":14}}
+{"t":1792608312606,"dir":"out","verb":"f","body":{"sf":"s:1","s":15,"ops":[["set","u.k0/head/2",{"age":235}],["text","u.k0/body","append"," I should just w"]]}}
+{"t":1792608312608,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":15}}
+{"t":1792608312639,"dir":"out","verb":"f","body":{"sf":"s:1","s":16,"ops":[["set","u.k0/head/2",{"age":268}],["text","u.k0/body","append","rite it. No tools ne"]]}}
+{"t":1792608312641,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":16}}
+{"t":1792608312672,"dir":"out","verb":"f","body":{"sf":"s:1","s":17,"ops":[["set","u.k0/head/2",{"age":301}],["text","u.k0/body","append","eded. Format: numbered"]]}}
+{"t":1792608312674,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":17}}
+{"t":1792608312706,"dir":"out","verb":"f","body":{"sf":"s:1","s":18,"ops":[["set","u.k0/head/2",{"age":335}],["text","u.k0/body","append"," list, short facts, one"]]}}
+{"t":1792608312707,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":18}}
+{"t":1792608312738,"dir":"out","verb":"f","body":{"sf":"s:1","s":19,"ops":[["set","u.k0/head/2",{"age":367}],["text","u.k0/body","append"," per line.\n\nNeed 40 ac"]]}}
+{"t":1792608312740,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":19}}
+{"t":1792608312772,"dir":"out","verb":"f","body":{"sf":"s:1","s":20,"ops":[["set","u.k0/head/2",{"age":401}],["text","u.k0/body","append","curate facts. Let me be"]]}}
+{"t":1792608312773,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":20}}
+{"t":1792608312805,"dir":"out","verb":"f","body":{"sf":"s:1","s":21,"ops":[["set","u.k0/head/2",{"age":434}],["text","u.k0/body","append"," careful with facts."]]}}
+{"t":1792608312807,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":21}}
+{"t":1792608312839,"dir":"out","verb":"f","body":{"sf":"s:1","s":22,"ops":[["set","u.k0/head/2",{"age":468}],["text","u.k0/body","append","\n\n1. The Moon is E"]]}}
+{"t":1792608312840,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":22}}
+{"t":1792608312873,"dir":"out","verb":"f","body":{"sf":"s:1","s":23,"ops":[["set","u.k0/head/2",{"age":502}],["text","u.k0/body","append","arth's only natural sa"]]}}
+{"t":1792608312874,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":23}}
+{"t":1792608312907,"dir":"out","verb":"f","body":{"sf":"s:1","s":24,"ops":[["set","u.k0/head/2",{"age":536}],["text","u.k0/body","append","tellite.\n2. It formed"]]}}
+{"t":1792608312908,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":24}}
+{"t":1792608312940,"dir":"out","verb":"f","body":{"sf":"s:1","s":25,"ops":[["set","u.k0/head/2",{"age":569}],["text","u.k0/body","append"," about 4.5 billion years ag"]]}}
+{"t":1792608312942,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":25}}
+{"t":1792608312973,"dir":"out","verb":"f","body":{"sf":"s:1","s":26,"ops":[["set","u.k0/head/2",{"age":602}],["text","u.k0/body","append","o.\n3. Most likely forme"]]}}
+{"t":1792608312975,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":26}}
+{"t":1792608313008,"dir":"out","verb":"f","body":{"sf":"s:1","s":27,"ops":[["set","u.k0/head/2",{"age":637}],["text","u.k0/body","append","d from debris after a"]]}}
+{"t":1792608313010,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":27}}
+{"t":1792608313041,"dir":"out","verb":"f","body":{"sf":"s:1","s":28,"ops":[["set","u.k0/head/2",{"age":670}],["text","u.k0/body","append"," Mars-sized impact.\n4. It"]]}}
+{"t":1792608313043,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":28}}
+{"t":1792608313075,"dir":"out","verb":"f","body":{"sf":"s:1","s":29,"ops":[["set","u.k0/head/2",{"age":704}],["text","u.k0/body","append","s diameter is about 3,475"]]}}
+{"t":1792608313077,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":29}}
+{"t":1792608313109,"dir":"out","verb":"f","body":{"sf":"s:1","s":30,"ops":[["set","u.k0/head/2",{"age":738}],["text","u.k0/body","append"," km.\n5. It's about 384,40"]]}}
+{"t":1792608313111,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":30}}
+{"t":1792608313141,"dir":"out","verb":"f","body":{"sf":"s:1","s":31,"ops":[["set","u.k0/head/2",{"age":771}],["text","u.k0/body","append","0 km from Earth on aver"]]}}
+{"t":1792608313143,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":31}}
+{"t":1792608313176,"dir":"out","verb":"f","body":{"sf":"s:1","s":32,"ops":[["set","u.k0/head/2",{"age":805}],["text","u.k0/body","append","age.\n6. Moonlight is refl"]]}}
+{"t":1792608313178,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":32}}
+{"t":1792608313209,"dir":"out","verb":"f","body":{"sf":"s:1","s":33,"ops":[["set","u.k0/head/2",{"age":838}],["text","u.k0/body","append","ected sunlight.\n7. Its"]]}}
+{"t":1792608313211,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":33}}
+{"t":1792608313242,"dir":"out","verb":"f","body":{"sf":"s:1","s":34,"ops":[["set","u.k0/head/2",{"age":871}],["text","u.k0/body","append"," surface gravity is"]]}}
+{"t":1792608313244,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":34}}
+{"t":1792608313277,"dir":"out","verb":"f","body":{"sf":"s:1","s":35,"ops":[["set","u.k0/head/2",{"age":906}],["text","u.k0/body","append"," about 1/6 of Earth's.\n8"]]}}
+{"t":1792608313279,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":35}}
+{"t":1792608313311,"dir":"out","verb":"f","body":{"sf":"s:1","s":36,"ops":[["set","u.k0/head/2",{"age":940}],["text","u.k0/body","append",". It has no atmosphere"]]}}
+{"t":1792608313312,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":36}}
+{"t":1792608313345,"dir":"out","verb":"f","body":{"sf":"s:1","s":37,"ops":[["set","u.k0/head/2",{"age":974}],["text","u.k0/body","append"," to speak of (exosphere)"]]}}
+{"t":1792608313347,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":37}}
+{"t":1792608313377,"dir":"out","verb":"f","body":{"sf":"s:1","s":38,"ops":[["set","u.k0/head/2",{"age":1006}],["text","u.k0/body","append",".\n9. Temperatures rang"]]}}
+{"t":1792608313379,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":38}}
+{"t":1792608313412,"dir":"out","verb":"f","body":{"sf":"s:1","s":39,"ops":[["set","u.k0/head/2",{"age":1042}],["text","u.k0/body","append","e from about -173°C"]]}}
+{"t":1792608313416,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":39}}
+{"t":1792608313446,"dir":"out","verb":"f","body":{"sf":"s:1","s":40,"ops":[["set","u.k0/head/2",{"age":1075}],["text","u.k0/body","append"," to 127°C.\n10. It's tida"]]}}
+{"t":1792608313448,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":40}}
+{"t":1792608313479,"dir":"out","verb":"f","body":{"sf":"s:1","s":41,"ops":[["set","u.k0/head/2",{"age":1108}],["text","u.k0/body","append","lly locked, showing on"]]}}
+{"t":1792608313481,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":41}}
+{"t":1792608313512,"dir":"out","verb":"f","body":{"sf":"s:1","s":42,"ops":[["set","u.k0/head/2",{"age":1141}],["text","u.k0/body","append","e face to Earth.\n11. The"]]}}
+{"t":1792608313514,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":42}}
+{"t":1792608313546,"dir":"out","verb":"f","body":{"sf":"s:1","s":43,"ops":[["set","u.k0/head/2",{"age":1175}],["text","u.k0/body","append"," far side is not dark; i"]]}}
+{"t":1792608313550,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":43}}
+{"t":1792608313581,"dir":"out","verb":"f","body":{"sf":"s:1","s":44,"ops":[["set","u.k0/head/2",{"age":1210}],["text","u.k0/body","append","t gets sunlight.\n12. Human"]]}}
+{"t":1792608313583,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":44}}
+{"t":1792608313630,"dir":"out","verb":"f","body":{"sf":"s:1","s":45,"ops":[["set","u.k0/head/2",{"age":1259}],["text","u.k0/body","append","s first landed there in 19"]]}}
+{"t":1792608313632,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":45}}
+{"t":1792608313666,"dir":"out","verb":"f","body":{"sf":"s:1","s":46,"ops":[["set","u.k0/head/2",{"age":1295}],["text","u.k0/body","append","69 (Apollo 11).\n13. Twel"]]}}
+{"t":1792608313671,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":46}}
+{"t":1792608313700,"dir":"out","verb":"f","body":{"sf":"s:1","s":47,"ops":[["set","u.k0/head/2",{"age":1329}],["text","u.k0/body","append","ve people have walked"]]}}
+{"t":1792608313701,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":47}}
+{"t":1792608313734,"dir":"out","verb":"f","body":{"sf":"s:1","s":48,"ops":[["set","u.k0/head/2",{"age":1363}],["text","u.k0/body","append"," on it.\n14. Apollo"]]}}
+{"t":1792608313736,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":48}}
+{"t":1792608313767,"dir":"out","verb":"f","body":{"sf":"s:1","s":49,"ops":[["set","u.k0/head/2",{"age":1396}],["text","u.k0/body","append"," 11 crew: Armstrong, Aldr"]]}}
+{"t":1792608313769,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":49}}
+{"t":1792608313800,"dir":"out","verb":"f","body":{"sf":"s:1","s":50,"ops":[["set","u.k0/head/2",{"age":1429}],["text","u.k0/body","append","in, Collins.\n15. Its su"]]}}
+{"t":1792608313802,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":50}}
+{"t":1792608313834,"dir":"out","verb":"f","body":{"sf":"s:1","s":51,"ops":[["set","u.k0/head/2",{"age":1463}],["text","u.k0/body","append","rface is covered in regol"]]}}
+{"t":1792608313836,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":51}}
+{"t":1792608313867,"dir":"out","verb":"f","body":{"sf":"s:1","s":52,"ops":[["set","u.k0/head/2",{"age":1496}],["text","u.k0/body","append","ith dust.\n16. The dark pat"]]}}
+{"t":1792608313869,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":52}}
+{"t":1792608313901,"dir":"out","verb":"f","body":{"sf":"s:1","s":53,"ops":[["set","u.k0/head/2",{"age":1530}],["text","u.k0/body","append","ches are maria, ancien"]]}}
+{"t":1792608313902,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":53}}
+{"t":1792608313935,"dir":"out","verb":"f","body":{"sf":"s:1","s":54,"ops":[["set","u.k0/head/2",{"age":1564}],["text","u.k0/body","append","t lava plains.\n17. The l"]]}}
+{"t":1792608313937,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":54}}
+{"t":1792608313967,"dir":"out","verb":"f","body":{"sf":"s:1","s":55,"ops":[["set","u.k0/head/2",{"age":1597}],["text","u.k0/body","append","ighter areas are lunar h"]]}}
+{"t":1792608313969,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":55}}
+{"t":1792608314002,"dir":"out","verb":"f","body":{"sf":"s:1","s":56,"ops":[["set","u.k0/head/2",{"age":1631}],["text","u.k0/body","append","ighlands.\n18. It has no a"]]}}
+{"t":1792608314004,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":56}}
+{"t":1792608314036,"dir":"out","verb":"f","body":{"sf":"s:1","s":57,"ops":[["set","u.k0/head/2",{"age":1665}],["text","u.k0/body","append","ctive volcanoes today.\n19."]]}}
+{"t":1792608314038,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":57}}
+{"t":1792608314070,"dir":"out","verb":"f","body":{"sf":"s:1","s":58,"ops":[["set","u.k0/head/2",{"age":1699}],["text","u.k0/body","append"," Moonquakes occur, though"]]}}
+{"t":1792608314073,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":58}}
+{"t":1792608314110,"dir":"out","verb":"f","body":{"sf":"s:1","s":59,"ops":[["set","u.k0/head/2",{"age":1739}],["text","u.k0/body","append"," weak.\n20. Its orbital"]]}}
+{"t":1792608314116,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":59}}
+{"t":1792608314140,"dir":"out","verb":"f","body":{"sf":"s:1","s":60,"ops":[["set","u.k0/head/2",{"age":1769}],["text","u.k0/body","append"," period is about 27.3"]]}}
+{"t":1792608314142,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":60}}
+{"t":1792608314173,"dir":"out","verb":"f","body":{"sf":"s:1","s":61,"ops":[["set","u.k0/head/2",{"age":1803}],["text","u.k0/body","append"," days.\n21. The synodic mont"]]}}
+{"t":1792608314175,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":61}}
+{"t":1792608314203,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"queued-b15: reply with exactly OK"}}
+{"t":1792608314208,"dir":"out","verb":"f","body":{"sf":"s:1","s":62,"ops":[["set","u.k0/head/2",{"age":1837}],["text","u.k0/body","append","h (phases) is about 29.5 da"],["add","v","c",null,{"id":"v","k":"col","p":{"role":"omp.queue","gap":"xs"},"c":[{"id":"v.Steering%2F0","k":"row","p":{"role":"omp.queue.item","align":"center","gap":"sm","title":"Steering"},"c":[{"id":"v.Steering%2F0/icon","k":"icon","p":{"name":"corner-down-right"}},{"id":"v.Steering%2F0/text","k":"text","p":{"text":"queued-b15: reply with exactly OK","wrap":"none","truncate":"end","grow":1}},{"id":"v.Steering%2F0/edit","k":"row","p":{"role":"omp.queue.edit","gap":"xs","align":"center","title":"Edit  Alt+↑","actions":{"click":"queue.edit"}},"c":[{"id":"v.Steering%2F0/edit/0","k":"kbd","p":{"keys":["alt","up"]}},{"id":"v.Steering%2F0/edit/1","k":"text","p":{"text":"Edit"}}]}]}]}]]}}
+{"t":1792608314210,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":62}}
+{"t":1792608314242,"dir":"out","verb":"f","body":{"sf":"s:1","s":63,"ops":[["set","u.k0/head/2",{"age":1871}],["text","u.k0/body","append","ys.\n22. It causes most"]]}}
+{"t":1792608314244,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":63}}
+{"t":1792608314276,"dir":"out","verb":"f","body":{"sf":"s:1","s":64,"ops":[["set","u.k0/head/2",{"age":1905}],["text","u.k0/body","append"," ocean tides on Earth.\n23"]]}}
+{"t":1792608314277,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":64}}
+{"t":1792608314309,"dir":"out","verb":"f","body":{"sf":"s:1","s":65,"ops":[["set","u.k0/head/2",{"age":1938}],["text","u.k0/body","append",". It's slowly drifting away"]]}}
+{"t":1792608314311,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":65}}
+{"t":1792608314343,"dir":"out","verb":"f","body":{"sf":"s:1","s":66,"ops":[["set","u.k0/head/2",{"age":1972}],["text","u.k0/body","append",", ~3.8 cm/year.\n24. Its"]]}}
+{"t":1792608314345,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":66}}
+{"t":1792608314376,"dir":"out","verb":"f","body":{"sf":"s:1","s":67,"ops":[["set","u.k0/head/2",{"age":2005}],["text","u.k0/body","append"," rotation period equals"]]}}
+{"t":1792608314378,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":67}}
+{"t":1792608314412,"dir":"out","verb":"f","body":{"sf":"s:1","s":68,"ops":[["set","u.k0/head/2",{"age":2041}],["text","u.k0/body","append"," its orbital period.\n2"]]}}
+{"t":1792608314413,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":68}}
+{"t":1792608314446,"dir":"out","verb":"f","body":{"sf":"s:1","s":69,"ops":[["set","u.k0/head/2",{"age":2075}],["text","u.k0/body","append","5. It has a small iron c"]]}}
+{"t":1792608314447,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":69}}
+{"t":1792608314478,"dir":"out","verb":"f","body":{"sf":"s:1","s":70,"ops":[["set","u.k0/head/2",{"age":2108}],["text","u.k0/body","append","ore, partly molten.\n26."]]}}
+{"t":1792608314480,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":70}}
+{"t":1792608314522,"dir":"out","verb":"f","body":{"sf":"s:1","s":71,"ops":[["set","u.k0/head/2",{"age":2152}],["text","u.k0/body","append"," The far side has a thic"]]}}
+{"t":1792608314525,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":71}}
+{"t":1792608314550,"dir":"out","verb":"f","body":{"sf":"s:1","s":72,"ops":[["set","u.k0/head/2",{"age":2179}],["text","u.k0/body","append","ker crust.\n27. It has no"]]}}
+{"t":1792608314552,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":72}}
+{"t":1792608314584,"dir":"out","verb":"f","body":{"sf":"s:1","s":73,"ops":[["set","u.k0/head/2",{"age":2213}],["text","u.k0/body","append"," magnetic field today"]]}}
+{"t":1792608314585,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":73}}
+{"t":1792608314617,"dir":"out","verb":"f","body":{"sf":"s:1","s":74,"ops":[["set","u.k0/head/2",{"age":2246}],["text","u.k0/body","append"," (weak remnant).\n28"]]}}
+{"t":1792608314619,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":74}}
+{"t":1792608314651,"dir":"out","verb":"f","body":{"sf":"s:1","s":75,"ops":[["set","u.k0/head/2",{"age":2280}],["text","u.k0/body","append",". Ice exists in perman"]]}}
+{"t":1792608314652,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":75}}
+{"t":1792608314685,"dir":"out","verb":"f","body":{"sf":"s:1","s":76,"ops":[["set","u.k0/head/2",{"age":2314}],["text","u.k0/body","append","ently shadowed polar cra"]]}}
+{"t":1792608314686,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":76}}
+{"t":1792608314717,"dir":"out","verb":"f","body":{"sf":"s:1","s":77,"ops":[["set","u.k0/head/2",{"age":2346}],["text","u.k0/body","append","ters.\n29. The South Pol"]]}}
+{"t":1792608314718,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":77}}
+{"t":1792608314751,"dir":"out","verb":"f","body":{"sf":"s:1","s":78,"ops":[["set","u.k0/head/2",{"age":2380}],["text","u.k0/body","append","e–Aitken basin is its"]]}}
+{"t":1792608314753,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":78}}
+{"t":1792608314785,"dir":"out","verb":"f","body":{"sf":"s:1","s":79,"ops":[["set","u.k0/head/2",{"age":2415}],["text","u.k0/body","append"," largest impact crater.\n30."]]}}
+{"t":1792608314787,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":79}}
+{"t":1792608314819,"dir":"out","verb":"f","body":{"sf":"s:1","s":80,"ops":[["set","u.k0/head/2",{"age":2448}],["text","u.k0/body","append"," It has no rings.\n31. Its"]]}}
+{"t":1792608314820,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":80}}
+{"t":1792608314854,"dir":"out","verb":"f","body":{"sf":"s:1","s":81,"ops":[["set","u.k0/head/2",{"age":2483}],["text","u.k0/body","append"," albedo is low, ~0.12, dark"]]}}
+{"t":1792608314856,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":81}}
+{"t":1792608314887,"dir":"out","verb":"f","body":{"sf":"s:1","s":82,"ops":[["set","u.k0/head/2",{"age":2517}],["text","u.k0/body","append","er than asphalt? Actual"]]}}
+{"t":1792608314889,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":82}}
+{"t":1792608314923,"dir":"out","verb":"f","body":{"sf":"s:1","s":83,"ops":[["set","u.k0/head/2",{"age":2552}],["text","u.k0/body","append","ly lunar albedo ~0.12, s"]]}}
+{"t":1792608314924,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":83}}
+{"t":1792608314957,"dir":"out","verb":"f","body":{"sf":"s:1","s":84,"ops":[["set","u.k0/head/2",{"age":2586}],["text","u.k0/body","append","imilar to worn asphalt."]]}}
+{"t":1792608314958,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":84}}
+{"t":1792608314991,"dir":"out","verb":"f","body":{"sf":"s:1","s":85,"ops":[["set","u.k0/head/2",{"age":2620}],["text","u.k0/body","append","\n32. The Moon appears"]]}}
+{"t":1792608314992,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":85}}
+{"t":1792608315024,"dir":"out","verb":"f","body":{"sf":"s:1","s":86,"ops":[["set","u.k0/head/2",{"age":2653}],["text","u.k0/body","append"," larger near the horizon ("]]}}
+{"t":1792608315025,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":86}}
+{"t":1792608315058,"dir":"out","verb":"f","body":{"sf":"s:1","s":87,"ops":[["set","u.k0/head/2",{"age":2687}],["text","u.k0/body","append","illusion).\n33. It alway"]]}}
+{"t":1792608315061,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":87}}
+{"t":1792608315092,"dir":"out","verb":"f","body":{"sf":"s:1","s":88,"ops":[["set","u.k0/head/2",{"age":2721}],["text","u.k0/body","append","s shows roughly 59% of its"]]}}
+{"t":1792608315093,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":88}}
+{"t":1792608315126,"dir":"out","verb":"f","body":{"sf":"s:1","s":89,"ops":[["set","u.k0/head/2",{"age":2756}],["text","u.k0/body","append"," surface over time (libr"]]}}
+{"t":1792608315128,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":89}}
+{"t":1792608315161,"dir":"out","verb":"f","body":{"sf":"s:1","s":90,"ops":[["set","u.k0/head/2",{"age":2790}],["text","u.k0/body","append","ation).\n34. Its escape velo"]]}}
+{"t":1792608315163,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":90}}
+{"t":1792608315197,"dir":"out","verb":"f","body":{"sf":"s:1","s":91,"ops":[["set","u.k0/head/2",{"age":2826}],["text","u.k0/body","append","city is about 2.4 km/s.\n35."]]}}
+{"t":1792608315199,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":91}}
+{"t":1792608315238,"dir":"out","verb":"f","body":{"sf":"s:1","s":92,"ops":[["set","u.k0/head/2",{"age":2867}],["text","u.k0/body","append"," The last human landing was A"]]}}
+{"t":1792608315240,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":92}}
+{"t":1792608315271,"dir":"out","verb":"f","body":{"sf":"s:1","s":93,"ops":[["set","u.k0/head/2",{"age":2901}],["text","u.k0/body","append","pollo 17 in 1972.\n36. It h"]]}}
+{"t":1792608315273,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":93}}
+{"t":1792608315304,"dir":"out","verb":"f","body":{"sf":"s:1","s":94,"ops":[["set","u.k0/head/2",{"age":2933}],["text","u.k0/body","append","as been visited by numero"]]}}
+{"t":1792608315305,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":94}}
+{"t":1792608315342,"dir":"out","verb":"f","body":{"sf":"s:1","s":95,"ops":[["set","u.k0/head/2",{"age":2972}],["text","u.k0/body","append","us robotic probes.\n37. China'"]]}}
+{"t":1792608315344,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":95}}
+{"t":1792608315376,"dir":"out","verb":"f","body":{"sf":"s:1","s":96,"ops":[["set","u.k0/head/2",{"age":3005}],["text","u.k0/body","append","s Chang'e 4 landed on the"]]}}
+{"t":1792608315378,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":96}}
+{"t":1792608315411,"dir":"out","verb":"f","body":{"sf":"s:1","s":97,"ops":[["set","u.k0/head/2",{"age":3040}],["text","u.k0/body","append"," far side in 2019.\n38. The"]]}}
+{"t":1792608315412,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":97}}
+{"t":1792608315445,"dir":"out","verb":"f","body":{"sf":"s:1","s":98,"ops":[["set","u.k0/head/2",{"age":3074}],["text","u.k0/body","append"," Moon stabilizes Earth's"]]}}
+{"t":1792608315447,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":98}}
+{"t":1792608315478,"dir":"out","verb":"f","body":{"sf":"s:1","s":99,"ops":[["set","u.k0/head/2",{"age":3107}],["text","u.k0/body","append"," axial tilt.\n39. It ha"]]}}
+{"t":1792608315480,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":99}}
+{"t":1792608315512,"dir":"out","verb":"f","body":{"sf":"s:1","s":100,"ops":[["set","u.k0/head/2",{"age":3141}],["text","u.k0/body","append","s no liquid water on the"]]}}
+{"t":1792608315513,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":100}}
+{"t":1792608315546,"dir":"out","verb":"f","body":{"sf":"s:1","s":101,"ops":[["set","u.k0/head/2",{"age":3175}],["text","u.k0/body","append"," surface.\n40. A full mo"]]}}
+{"t":1792608315547,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":101}}
+{"t":1792608315579,"dir":"out","verb":"f","body":{"sf":"s:1","s":102,"ops":[["set","u.k0/head/2",{"age":3208}],["text","u.k0/body","append","on occurs when Earth is"]]}}
+{"t":1792608315581,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":102}}
+{"t":1792608315612,"dir":"out","verb":"f","body":{"sf":"s:1","s":103,"ops":[["set","u.k0/head/2",{"age":3242}],["text","u.k0/body","append"," between Sun and Moo"]]}}
+{"t":1792608315614,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":103}}
+{"t":1792608315647,"dir":"out","verb":"f","body":{"sf":"s:1","s":104,"ops":[["set","u.k0/head/2",{"age":3277}],["text","u.k0/body","append","n.\n\nCheck a few facts f"]]}}
+{"t":1792608315649,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":104}}
+{"t":1792608315681,"dir":"out","verb":"f","body":{"sf":"s:1","s":105,"ops":[["set","u.k0/head/2",{"age":3310}],["text","u.k0/body","append","or correctness:\n- Di"]]}}
+{"t":1792608315683,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":105}}
+{"t":1792608315715,"dir":"out","verb":"f","body":{"sf":"s:1","s":106,"ops":[["set","u.k0/head/2",{"age":3345}],["text","u.k0/body","append","ameter 3,474.8 km."]]}}
+{"t":1792608315717,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":106}}
+{"t":1792608315750,"dir":"out","verb":"f","body":{"sf":"s:1","s":107,"ops":[["set","u.k0/head/2",{"age":3379}],["text","u.k0/body","append"," Fine.\n- Distance"]]}}
+{"t":1792608315751,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":107}}
+{"t":1792608315784,"dir":"out","verb":"f","body":{"sf":"s:1","s":108,"ops":[["set","u.k0/head/2",{"age":3414}],["text","u.k0/body","append"," average 384,4"]]}}
+{"t":1792608315786,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":108}}
+{"t":1792608315819,"dir":"out","verb":"f","body":{"sf":"s:1","s":109,"ops":[["set","u.k0/head/2",{"age":3448}],["text","u.k0/body","append","00 km. Yes.\n- Surface"]]}}
+{"t":1792608315821,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":109}}
+{"t":1792608315852,"dir":"out","verb":"f","body":{"sf":"s:1","s":110,"ops":[["set","u.k0/head/2",{"age":3481}],["text","u.k0/body","append"," gravity 1.62 m/s², 1"]]}}
+{"t":1792608315853,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":110}}
+{"t":1792608315887,"dir":"out","verb":"f","body":{"sf":"s:1","s":111,"ops":[["set","u.k0/head/2",{"age":3516}],["text","u.k0/body","append","6.6% of Earth. \"about 1"]]}}
+{"t":1792608315889,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":111}}
+{"t":1792608315920,"dir":"out","verb":"f","body":{"sf":"s:1","s":112,"ops":[["set","u.k0/head/2",{"age":3549}],["text","u.k0/body","append","/6\" fine.\n- Temperature"]]}}
+{"t":1792608315921,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":112}}
+{"t":1792608315954,"dir":"out","verb":"f","body":{"sf":"s:1","s":113,"ops":[["set","u.k0/head/2",{"age":3583}],["text","u.k0/body","append",": -173 to 127 °C. Ye"]]}}
+{"t":1792608315955,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":113}}
+{"t":1792608315988,"dir":"out","verb":"f","body":{"sf":"s:1","s":114,"ops":[["set","u.k0/head/2",{"age":3618}],["text","u.k0/body","append","s.\n- Synodic 29.53 days"]]}}
+{"t":1792608315990,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":114}}
+{"t":1792608316022,"dir":"out","verb":"f","body":{"sf":"s:1","s":115,"ops":[["set","u.k0/head/2",{"age":3652}],["text","u.k0/body","append",".\n- Sidereal 27.32 day"]]}}
+{"t":1792608316024,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":115}}
+{"t":1792608316056,"dir":"out","verb":"f","body":{"sf":"s:1","s":116,"ops":[["set","u.k0/head/2",{"age":3685}],["text","u.k0/body","append","s.\n- Drift 3.8 cm/yr. Ye"]]}}
+{"t":1792608316058,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":116}}
+{"t":1792608316091,"dir":"out","verb":"f","body":{"sf":"s:1","s":117,"ops":[["set","u.k0/head/2",{"age":3720}],["text","u.k0/body","append","s.\n- Albedo 0.12. Yes"]]}}
+{"t":1792608316093,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":117}}
+{"t":1792608316124,"dir":"out","verb":"f","body":{"sf":"s:1","s":118,"ops":[["set","u.k0/head/2",{"age":3753}],["text","u.k0/body","append",".\n- Escape velocity 2.3"]]}}
+{"t":1792608316127,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":118}}
+{"t":1792608316157,"dir":"out","verb":"f","body":{"sf":"s:1","s":119,"ops":[["set","u.k0/head/2",{"age":3787}],["text","u.k0/body","append","8 km/s. Yes.\n- Librat"]]}}
+{"t":1792608316159,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":119}}
+{"t":1792608316191,"dir":"out","verb":"f","body":{"sf":"s:1","s":120,"ops":[["set","u.k0/head/2",{"age":3820}],["text","u.k0/body","append","ion ~59%. Yes.\n- Chang'e"]]}}
+{"t":1792608316193,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":120}}
+{"t":1792608316226,"dir":"out","verb":"f","body":{"sf":"s:1","s":121,"ops":[["set","u.k0/head/2",{"age":3855}],["text","u.k0/body","append"," 4 far side Jan 2019."]]}}
+{"t":1792608316229,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":121}}
+{"t":1792608316277,"dir":"in","verb":"k","body":"\u001b"}
+{"t":1792608316278,"dir":"out","verb":"f","body":{"sf":"s:1","s":122,"ops":[["set","u.k0",{"role":"omp.thinking","collapsed":true,"took":3906}],["del","u.k0/head"],["add","u.k0/head","u.k0","u.k0/body",{"id":"u.k0/head","k":"text","p":{"spans":[{"t":"Thought for 4s","s":"muted"}]}}],["text","u.k0/body","append"," Yes.\n- South Pole–Aitken ~2,500 km wide. Yes.\n- Core: iron-rich, partially molten outer core, ~330-360 km radius? Actually core radius ~330 km, partly molten. Fine.\n- Regolith"],["set","u.k0/body",{"stream":null}],["del","b"],["add","b","dock","c",{"id":"b","k":"col"}],["add","w","d",null,{"id":"w","k":"col"}],["set","j",{"tone":null}],["set","j.context",{"value":0.008369,"title":"Context 1% used\n8.4K of 1M tokens\nAuto-compact at 85%"}],["text","j.line/input","append","queued-b15: reply with exactly OK"],["set","j.line/input",{"cursor":33,"placeholder":null}],["add","j.bar/send","j.bar",null,{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}],["del","v"],["del","l"],["del","j.bar/stop"],["settle","u"]]}}
+{"t":1792608316280,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":122}}
+{"t":1792608319223,"dir":"in","verb":"e","params":{},"body":{"ev":"edit","sf":"s:1","id":"j.line/input","from":0,"to":33,"text":"","cursor":0,"len":33}}
+{"t":1792608319226,"dir":"out","verb":"f","body":{"sf":"s:1","s":123,"ops":[["splice","j.line/input",0,33,""],["set","j.line/input",{"cursor":0,"placeholder":"What are we cooking?"}]]}}
+{"t":1792608319229,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":123}}

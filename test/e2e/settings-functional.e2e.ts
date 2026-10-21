@@ -1,7 +1,7 @@
 // 设置页的功能项（阶段 2.6）：模型与账号缓存、omp 版本检查、omp 设置分组（隐藏终端专用项）、用量。
 // 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR；用量用例还把 USERPROFILE 指到临时目录，omp 的 stats.db 不会碰真实 ~/.omp。
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
@@ -229,5 +229,232 @@ test("用量：近一年热力图读 omp 的 stats.db（先同步再读，只读
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
     await rm(home, { recursive: true, force: true });
+  }
+});
+
+// MCP / SSH 卡片（S5）：真实 omp（PATH 上的）+ 临时 agent 目录，只用 omp 的内置命令和 CLI，不调模型。
+// omp 18.12.5 实测：`/mcp add` 的切词认双引号（所以含空格的参数能存对），`/mcp remove|enable|disable|test` 按空白切词（所以名字里不能有空格）。
+async function readJson(file: string): Promise<Record<string, unknown> | null> {
+  try {
+    return JSON.parse(await readFile(file, "utf8")) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+type Entries = Record<string, Record<string, unknown>>;
+const mcpServers = async (agentDir: string): Promise<Entries> =>
+  ((await readJson(path.join(agentDir, "mcp.json")))?.["mcpServers"] ?? {}) as Entries;
+const sshHosts = async (agentDir: string): Promise<Entries> =>
+  ((await readJson(path.join(agentDir, "ssh.json")))?.["hosts"] ?? {}) as Entries;
+
+test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 omp 并写进临时 agent 目录；工具、记忆卡片和更新日志能读到 omp 的输出", async () => {
+  // omp 会从用户目录里的别家工具配置（~/.claude.json、~/.cursor/mcp.json 等）发现 MCP 服务器：把用户目录指到空目录，列表才可预期。
+  const home = await mkdtemp(path.join(os.tmpdir(), "omp-studio-home-"));
+  const { launched, agentDir } = await launchSettings({ USERPROFILE: home, HOME: home });
+  try {
+    const { page } = launched;
+    await localeAndTheme(page, "en", "light");
+    await page.getByTestId("settings-nav-cfg-integrations").click({ timeout: 60_000 });
+
+    // ── MCP：本地命令（参数里有空格和单引号，靠 omp 的双引号切词存对）──
+    await expect(page.getByTestId("mcp-empty")).toBeVisible({ timeout: 60_000 });
+    await page.getByTestId("mcp-add").click();
+    // 名字里有空格：omp 的 remove/enable/disable 管不了，保存按钮不可用。
+    await page.getByTestId("mcp-name").fill("b c");
+    await page.getByTestId("mcp-command").fill("node");
+    await expect(page.getByTestId("mcp-save")).toBeDisabled();
+    await page.getByTestId("mcp-name").fill("demo");
+    await page.getByTestId("mcp-args").fill("-e\nconsole.log('x y')\na b");
+    await page.getByTestId("mcp-save").click();
+    await expect(page.getByTestId("mcp-row-demo")).toBeVisible({ timeout: 30_000 });
+    await expect
+      .poll(async () => (await mcpServers(agentDir))["demo"])
+      .toMatchObject({
+        type: "stdio",
+        command: "node",
+        args: ["-e", "console.log('x y')", "a b"],
+      });
+
+    // 同名再加一次：omp 的原话显示在表单里，表单不关。
+    await page.getByTestId("mcp-add").click();
+    await page.getByTestId("mcp-name").fill("demo");
+    await page.getByTestId("mcp-command").fill("node");
+    await page.getByTestId("mcp-save").click();
+    await expect(page.getByTestId("mcp-form-error")).toContainText("already exists");
+    await page.getByTestId("mcp-cancel").click();
+
+    // HTTP 服务器 + 令牌：omp 写成 Authorization 请求头。
+    await page.getByTestId("mcp-add").click();
+    await page.getByTestId("mcp-name").fill("remote1");
+    await page.getByTestId("mcp-kind").getByRole("radio", { name: "HTTP" }).click();
+    await page.getByTestId("mcp-url").fill("http://127.0.0.1:9/mcp");
+    await page.getByTestId("mcp-token").fill("tok123");
+    await page.getByTestId("mcp-save").click();
+    await expect(page.getByTestId("mcp-row-remote1")).toBeVisible({ timeout: 30_000 });
+    await expect
+      .poll(async () => (await mcpServers(agentDir))["remote1"])
+      .toMatchObject({
+        type: "http",
+        url: "http://127.0.0.1:9/mcp",
+        headers: { Authorization: "Bearer tok123" },
+      });
+
+    // 开关：关掉后配置里 enabled:false，列表同步。
+    await page.getByTestId("mcp-enabled-remote1").click();
+    await expect.poll(async () => (await mcpServers(agentDir))["remote1"]?.["enabled"]).toBe(false);
+    await expect(page.getByTestId("mcp-enabled-remote1")).toHaveAttribute("aria-checked", "false");
+
+    // 测试连接：连不上时显示 omp 的原话。
+    await page.getByTestId("mcp-test-remote1").click();
+    await expect(page.getByTestId("mcp-test-result-remote1")).toBeVisible({ timeout: 60_000 });
+
+    // 删除先确认。
+    await page.getByTestId("mcp-remove-demo").click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
+    await expect(page.getByTestId("mcp-row-demo")).toHaveCount(0);
+    await expect.poll(async () => Object.keys(await mcpServers(agentDir))).toEqual(["remote1"]);
+    await page.getByTestId("mcp-remove-remote1").click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
+    await expect(page.getByTestId("mcp-empty")).toBeVisible();
+    await expect.poll(async () => Object.keys(await mcpServers(agentDir))).toEqual([]);
+
+    // ── SSH ──
+    await expect(page.getByTestId("ssh-empty")).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("ssh-add").click();
+    await page.getByTestId("ssh-name").fill("box");
+    await page.getByTestId("ssh-host").fill("127.0.0.1");
+    await page.getByTestId("ssh-user").fill("me");
+    await page.getByTestId("ssh-port").fill("2222");
+    await page.getByTestId("ssh-desc").fill('- my box, with "quotes"');
+    await page.getByTestId("ssh-save").click();
+    await expect(page.getByTestId("ssh-row-box")).toBeVisible({ timeout: 30_000 });
+    await expect
+      .poll(async () => (await sshHosts(agentDir))["box"])
+      .toMatchObject({
+        host: "127.0.0.1",
+        username: "me",
+        port: 2222,
+        description: '- my box, with "quotes"',
+      });
+
+    // 同名再加：omp 的原话（错误在 stdout，退出码 1）。
+    await page.getByTestId("ssh-add").click();
+    await page.getByTestId("ssh-name").fill("box");
+    await page.getByTestId("ssh-host").fill("10.0.0.1");
+    await page.getByTestId("ssh-save").click();
+    await expect(page.getByTestId("ssh-form-error")).toContainText("already exists");
+    await page.getByTestId("ssh-cancel").click();
+
+    await page.getByTestId("ssh-remove-box").click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
+    await expect(page.getByTestId("ssh-row-box")).toHaveCount(0);
+    await expect.poll(async () => Object.keys(await sshHosts(agentDir))).toEqual([]);
+    await page.screenshot({ path: path.join(screenshotsDir, "settings-f-integrations-en-light.png") });
+
+    // ── 可用工具：omp 的 /tools，read 一定在 ──
+    await page.getByTestId("settings-nav-cfg-tools").click();
+    await expect(page.getByTestId("tool-read")).toBeVisible({ timeout: 60_000 });
+
+    // ── 记忆：卡片在，后端值来自设置项 ──
+    await page.getByTestId("settings-nav-cfg-context").click();
+    await expect(page.getByTestId("memory-card")).toBeVisible();
+    await expect(page.getByTestId("memory-backend")).toHaveText("off");
+
+    // ── omp 更新日志：点开才读，最新一节默认展开 ──
+    await page.getByTestId("settings-nav-omp").click();
+    await page.getByTestId("changelog-show").click();
+    await expect(page.getByTestId("changelog-section-0")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("changelog-section-0").locator(".md")).toBeVisible();
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+// 插件页（S6）：真实 omp + 临时 agent 目录；用户目录指到空目录，omp 的插件目录和市场注册表（<HOME>/.omp/plugins、marketplaces.json）就落在临时目录里，
+// 不碰真实 ~/.omp。市场是一个本地目录（只有一个相对路径的小插件），不联网、不调模型。
+test("插件：添加本地市场、浏览并安装（先确认第三方代码）、停用、卸载、移除市场，走真实 omp", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "omp-studio-home-"));
+  const market = await mkdtemp(path.join(os.tmpdir(), "omp-studio-market-"));
+  await mkdir(path.join(market, ".omp-plugin"), { recursive: true });
+  await mkdir(path.join(market, "p1"), { recursive: true });
+  await writeFile(
+    path.join(market, ".omp-plugin", "marketplace.json"),
+    JSON.stringify({
+      name: "local-mk",
+      owner: { name: "Test" },
+      plugins: [{ name: "p1", source: "./p1", description: "First local plugin", version: "1.0.0" }],
+    }),
+  );
+  await writeFile(path.join(market, "p1", "package.json"), JSON.stringify({ name: "p1", version: "1.0.0" }));
+  const { launched, agentDir } = await launchSettings({ USERPROFILE: home, HOME: home });
+  try {
+    const { page } = launched;
+    await localeAndTheme(page, "en", "light");
+    await page.getByTestId("settings-nav-plugins").click();
+    await expect(page.getByTestId("plugins-empty")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("marketplace-add")).toBeDisabled();
+
+    // 添加市场（本地目录）。
+    await page.getByTestId("marketplace-add-input").fill(market);
+    await page.getByTestId("marketplace-add").click();
+    await expect(page.getByTestId("marketplace-local-mk")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("marketplace-add-input")).toHaveValue("");
+    // 添加市场不影响运行中的任务，不出现重新加载提示。
+    await expect(page.getByTestId("plugins-reload")).toHaveCount(0);
+
+    // 浏览并安装：先弹确认，取消不装。
+    await page.getByTestId("marketplace-browse-btn-local-mk").click();
+    await expect(page.getByTestId("discover-p1@local-mk")).toContainText("First local plugin", { timeout: 60_000 });
+    await page.getByTestId("discover-install-p1@local-mk").click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toContainText("third-party code");
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByTestId("plugin-row-p1@local-mk")).toHaveCount(0);
+    expect((await page.evaluate(() => globalThis.studio.listPlugins(null))).marketplace).toHaveLength(0);
+
+    await page.getByTestId("discover-install-p1@local-mk").click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Install and trust" }).click();
+    await expect(page.getByTestId("plugin-row-p1@local-mk")).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByTestId("plugins-reload")).toBeVisible();
+    await expect(page.getByTestId("discover-p1@local-mk")).toContainText("Installed");
+    await expect(page.getByTestId("plugin-enabled-p1@local-mk")).toHaveAttribute("aria-checked", "true");
+    await expect
+      .poll(async () =>
+        (await readFile(path.join(home, ".omp", "plugins", "installed_plugins.json"), "utf8")).includes("p1@local-mk"),
+      )
+      .toBe(true);
+
+    // 停用：omp 里 enabled:false，开关同步。
+    await page.getByTestId("plugin-enabled-p1@local-mk").click();
+    await expect(page.getByTestId("plugin-enabled-p1@local-mk")).toHaveAttribute("aria-checked", "false", {
+      timeout: 60_000,
+    });
+    const listed = await page.evaluate(() => globalThis.studio.listPlugins(null));
+    expect(listed.marketplace[0]?.installs[0]?.enabled).toBe(false);
+    await page.screenshot({ path: path.join(screenshotsDir, "settings-f-plugins-en-light.png") });
+
+    // 卸载先确认。
+    await page.getByTestId("plugin-uninstall-p1@local-mk").click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Uninstall" }).click();
+    await expect(page.getByTestId("plugin-row-p1@local-mk")).toHaveCount(0, { timeout: 60_000 });
+    await expect(page.getByTestId("plugins-empty")).toBeVisible();
+
+    // 移除市场。
+    await page.getByTestId("marketplace-remove-local-mk").click();
+    await expect(page.getByTestId("marketplace-local-mk")).toHaveCount(0, { timeout: 60_000 });
+
+    // 中文界面同一页。
+    await localeAndTheme(page, "zh-CN", "dark");
+    await expect(page.getByTestId("plugins-installed")).toContainText("已安装");
+    await page.screenshot({ path: path.join(screenshotsDir, "settings-f-plugins-zh-CN-dark.png") });
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+    await rm(market, { recursive: true, force: true });
   }
 });

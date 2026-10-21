@@ -7,6 +7,7 @@ export const settings = {
   models: "Models & accounts",
   omp: "omp version",
   usage: "Usage",
+  plugins: "Plugins",
   about: "About",
   language: "Language",
   "language.system": "System",

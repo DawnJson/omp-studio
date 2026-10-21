@@ -21,6 +21,7 @@ import { compactContext, convertImageFiles, sendDraft, stopAndRestore, type Deli
 import { getShellRun } from "../conversation/shell-run-store.ts";
 import { reportError } from "../../ui/errors.ts";
 import { ApprovalChip } from "./ApprovalChip.tsx";
+import { SessionTogglesMenu } from "../session-toggles/SessionTogglesMenu.tsx";
 import { Attachments } from "./Attachments.tsx";
 import { getDraft, resolveSuggestion, setDraft, setDraftText, useDraft, useEditorSuggestion } from "./draft-store.ts";
 import { ModelChip } from "./ModelChip.tsx";
@@ -28,6 +29,8 @@ import { matchSlash, slashQuery } from "./slash-match.ts";
 import { SlashMenu } from "./SlashMenu.tsx";
 import { QueueStrip } from "./QueueStrip.tsx";
 import { RunStatus } from "./RunStatus.tsx";
+import { TspTodoBar } from "./TspTodoBar.tsx";
+import { TspJobsBar } from "./TspJobsBar.tsx";
 import { decideEnter, isShellDraft } from "./send-logic.ts";
 import { cycleHistory, hasHistory, isCycling, recordSent, resetHistoryCursor, shouldCycle } from "./input-history.ts";
 import { decideSlashSend } from "./slash-guard.ts";
@@ -425,9 +428,11 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
         )}
       </Reveal>
       <UsageLimitBanner limit={task.usageLimit} />
-      {/* TSP 任务：排队、运行状态、待办、后台任务都是 omp 在过程区的 dock 里画的。 */}
+      {/* TSP 任务：排队、运行状态、后台任务是 omp 在过程区的 dock 里画的；待办是 studio 的待办板（HUD 药丸不画，TspChildren）。 */}
       {!tsp && <QueueStrip taskId={taskId} queue={task.queue} />}
       {!tsp && <StatusBar taskId={taskId} task={task} transcript={transcript} />}
+      {tsp && <TspTodoBar task={task} />}
+      {tsp && <TspJobsBar task={task} />}
       <div className="composer" data-gate={(gate && !tsp) || undefined} onDragOver={onDragOver} onDrop={onDrop}>
         <SlashMenu
           id="slash-menu"
@@ -491,6 +496,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
             loadModels={() => window.studio.listTaskModels(taskId)}
             setModel={(key) => window.studio.setTaskModel(taskId, key)}
             setThinking={(level) => window.studio.setTaskThinkingLevel(taskId, level)}
+            presetTaskId={taskId}
             speed={{
               fast: task.fastMode,
               slow: task.slowMode,
@@ -504,6 +510,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           />
           {/* 还没发过消息的任务（标题为空）不能发斜杠命令：第一次发送会拿它当标题 */}
           <ApprovalChip projectId={task.projectId} forgetTaskId={task.title === "" ? null : taskId} />
+          <SessionTogglesMenu taskId={taskId} task={task} />
           {/* 和草稿工具行同一个位置：任务在哪个文件夹里跑（有 worktree 时是 worktree 根），发出第一句话后不消失 */}
           <PathLabel path={task.cwd} testId="composer-folder" />
           <UsageMeter task={task} />

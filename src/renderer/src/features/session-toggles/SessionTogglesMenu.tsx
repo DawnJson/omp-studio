@@ -1,0 +1,229 @@
+// 输入框工具行里的"会话开关"菜单（spec 4.14）：一颗滑杆图标按钮，弹出本会话的开关：技能清单、扩展上下文、电脑操作（开启要确认）、
+// 顾问模型、浏览器窗口（可见 / 后台）、快速 / 慢速（模型选择器里也有）、prewalk（启用 / 重启 / 关闭）。
+// 状态来自 TaskState.sessionToggles（主进程读 omp 的状态 toast，用户自己在输入框敲的命令也同步）；
+// 本会话没动过的开关显示配置默认值；和默认值不同的行有小圆点，并标"本会话"。
+import { useEffect, useRef, useState } from "react";
+import type { TaskId, TaskState } from "../../../../shared/ipc.ts";
+import type { TaskCommand } from "../../../../shared/omp-output/index.ts";
+import { toggleView, type BrowserMode, type ToggleName } from "../../../../shared/omp-output/toggles.ts";
+import { useT } from "../../i18n/use-t.ts";
+import { Sliders } from "../../icons.tsx";
+import { reportOmpError } from "../../ui/errors.ts";
+import { Popover } from "../composer/Popover.tsx";
+import { Segmented } from "../settings/controls.tsx";
+import { ToggleRow } from "./ToggleRow.tsx";
+import { runToggleCommand } from "./toggle-actions.ts";
+import { onTogglesMenuRequest } from "./toggle-bus.ts";
+import { useToggleDefaults } from "./use-toggle-defaults.ts";
+import "../settings/settings.css";
+import "./toggles.css";
+
+type SessionToggleName = Exclude<ToggleName, "fast" | "slow">;
+const sessionRows: readonly SessionToggleName[] = ["skillful", "extendedContext", "computer", "advisor"];
+const prewalkOps = ["arm", "restart", "off"] as const;
+
+export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: TaskState }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const defaults = useToggleDefaults();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const toggles = task.sessionToggles;
+
+  // 斜杠命令（/skillful、/computer on）打开菜单。
+  useEffect(
+    () =>
+      onTogglesMenuRequest((request) => {
+        if (request.taskId !== taskId) return;
+        setOpen(true);
+        setConfirming(request.confirmComputer);
+      }),
+    [taskId],
+  );
+
+  // 打开后焦点落进菜单，Esc / ↑↓ 才有起点。
+  useEffect(() => {
+    if (!open || confirming) return;
+    menuRef.current?.querySelector<HTMLElement>('[role="switch"]:not(:disabled)')?.focus();
+  }, [open, confirming]);
+
+  const close = () => {
+    setOpen(false);
+    setConfirming(false);
+  };
+
+  // 同一时间只有一条命令在飞：omp 一条一条执行，连点会把状态 toast 搅在一起。
+  const run = (key: string, job: () => Promise<void>) => {
+    if (busy !== null) return;
+    setBusy(key);
+    job()
+      .catch((error: unknown) => reportOmpError(t, error))
+      .finally(() => setBusy(null));
+  };
+  const runCommand = (key: string, command: TaskCommand) => run(key, () => runToggleCommand(taskId, command));
+
+  const onToggle = (name: SessionToggleName, next: boolean) => {
+    if (name === "computer" && next) {
+      setConfirming(true);
+      return;
+    }
+    runCommand(name, { kind: "toggle", name, on: next });
+  };
+
+  const browser = toggleView<BrowserMode>(toggles.browser, defaults.browser);
+  const label = t("toggles.button");
+  // 有任何一项和默认值不同：按钮上也亮一个点。
+  const anyDiffers =
+    sessionRows.some((name) => toggleView(toggles[name], defaults[name]).differs) ||
+    browser.differs ||
+    task.fastMode.enabled ||
+    task.slowMode.enabled;
+
+  return (
+    <div className="pop-anchor">
+      <button
+        type="button"
+        className="tool-btn tg-button"
+        data-testid="toggles-button"
+        data-differs={anyDiffers || undefined}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={label}
+        title={label}
+        onClick={() => (open ? close() : setOpen(true))}
+      >
+        <Sliders size={16} />
+      </button>
+      <Popover open={open} onClose={close} label={t("toggles.title")} width={340}>
+        {confirming ? (
+          <div className="pop-section" data-testid="toggles-computer-confirm">
+            <p className="pop-title">{t("toggles.computerConfirmTitle")}</p>
+            <p className="pop-note tg-confirm-body">{t("toggles.computerConfirmBody")}</p>
+            <div className="pop-actions">
+              <button type="button" className="gate-btn" onClick={() => setConfirming(false)}>
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                className="gate-btn"
+                data-primary
+                data-testid="toggles-computer-confirm-yes"
+                onClick={() => {
+                  setConfirming(false);
+                  runCommand("computer", { kind: "toggle", name: "computer", on: true });
+                }}
+              >
+                {t("toggles.computerConfirmYes")}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div ref={menuRef} className="tg-menu" role="group" aria-label={t("toggles.title")} aria-busy={busy !== null}>
+            <p className="pop-note">{t("toggles.note")}</p>
+            {sessionRows.map((name) => {
+              const view = toggleView(toggles[name], defaults[name]);
+              return (
+                <ToggleRow
+                  key={name}
+                  id={name}
+                  label={t(`toggles.${name}`)}
+                  hint={t(`toggles.${name}.hint`)}
+                  checked={view.value ?? false}
+                  session={view.session}
+                  differs={view.differs}
+                  busy={busy !== null}
+                  onChange={(next) => onToggle(name, next)}
+                />
+              );
+            })}
+            <div
+              className="tg-row tg-row-stack"
+              data-testid="toggle-browser"
+              data-session={browser.session || undefined}
+            >
+              <div className="tg-text">
+                <span id="tg-browser-label" className="tg-label">
+                  {t("toggles.browser")}
+                  {browser.differs && (
+                    <span
+                      className="tg-dot"
+                      data-testid="toggle-browser-dot"
+                      role="img"
+                      aria-label={t("toggles.differs")}
+                      title={t("toggles.differs")}
+                    />
+                  )}
+                </span>
+                <span className="tg-hint">{t("toggles.browser.hint")}</span>
+              </div>
+              {browser.session && <span className="tg-session">{t("toggles.session")}</span>}
+              <Segmented<BrowserMode>
+                value={browser.value ?? "visible"}
+                labelledBy="tg-browser-label"
+                testId="toggle-browser-mode"
+                options={[
+                  { value: "visible", label: t("toggles.browser.visible") },
+                  { value: "headless", label: t("toggles.browser.headless") },
+                ]}
+                onChange={(mode) => {
+                  if (mode !== (browser.value ?? "visible") && busy === null)
+                    runCommand("browser", { kind: "browserMode", mode });
+                }}
+              />
+            </div>
+            <div className="menu-sep" role="separator" />
+            <ToggleRow
+              id="fast"
+              label={t("model.fast")}
+              hint={t("model.fast.hint")}
+              checked={task.fastMode.enabled}
+              session={task.fastMode.enabled}
+              differs={task.fastMode.enabled}
+              busy={busy !== null}
+              onChange={(next) => run("fast", () => window.studio.setTaskFastMode(taskId, next))}
+            />
+            {task.slowMode.supported && (
+              <ToggleRow
+                id="slow"
+                label={t("model.slow")}
+                hint={t("toggles.speedHint")}
+                checked={task.slowMode.enabled}
+                session={task.slowMode.enabled}
+                differs={task.slowMode.enabled}
+                busy={busy !== null}
+                onChange={(next) => run("slow", () => window.studio.setTaskSlowMode(taskId, next))}
+              />
+            )}
+            <div className="menu-sep" role="separator" />
+            <div className="tg-row tg-prewalk" data-testid="toggle-prewalk">
+              <div className="tg-text">
+                <span className="tg-label">{t("toggles.prewalk")}</span>
+                <span className="tg-hint">{t("toggles.prewalk.hint")}</span>
+                {toggles.prewalk !== null && (
+                  <span className="tg-reply" data-testid="toggle-prewalk-reply">
+                    {toggles.prewalk}
+                  </span>
+                )}
+              </div>
+              <span className="tg-actions">
+                {prewalkOps.map((op) => (
+                  <button
+                    key={op}
+                    type="button"
+                    className="gate-btn"
+                    data-testid={`toggle-prewalk-${op}`}
+                    disabled={busy !== null}
+                    onClick={() => runCommand("prewalk", { kind: "prewalk", op })}
+                  >
+                    {t(`toggles.prewalk.${op}`)}
+                  </button>
+                ))}
+              </span>
+            </div>
+          </div>
+        )}
+      </Popover>
+    </div>
+  );
+}

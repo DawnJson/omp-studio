@@ -1,0 +1,35 @@
+{
+  "name": "demo-plugin",
+  "version": "1.2.0",
+  "path": "C:\\Users\\user\\AppData\\Local\\Temp\\s6-sgg8Nn\\demo-plugin",
+  "manifest": {
+    "features": {
+      "extra": {
+        "description": "Extra skills",
+        "default": false
+      },
+      "core": {
+        "description": "Core",
+        "default": true
+      }
+    },
+    "settings": {
+      "greeting": {
+        "type": "string",
+        "default": "hi",
+        "description": "Greeting text"
+      },
+      "retries": {
+        "type": "number",
+        "default": 3
+      },
+      "verbose": {
+        "type": "boolean",
+        "default": false
+      }
+    },
+    "version": "1.2.0"
+  },
+  "enabledFeatures": null,
+  "enabled": true
+}

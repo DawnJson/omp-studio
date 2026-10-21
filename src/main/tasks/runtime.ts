@@ -123,6 +123,7 @@ function createPool(): Promise<TaskPool> {
           thinkingLevel: record.thinkingLevel,
           allowHome: pathKey(cwd) === pathKey(os.homedir()),
           resumeSessionFile: record.sessionFile,
+          forkSessionFile: record.forkFrom ?? null,
         });
       },
       session: {

@@ -1,5 +1,6 @@
 // `/goal [目标]`：带文字创建目标（omp 之后自己连续推进）；不带文字说出当前目标；单独的 pause / resume / drop 操作当前目标。
 // 不发给模型。omp 的 TUI 有同名命令，但 rpc-ui 的命令列表里没有（trial-tui 实测）。
+// TSP 任务也走这里（`studio-slash-table.ts` 里 `tsp: "studio"`）：同一个 IPC `taskGoal`，主进程发 omp 的 `/goal …` 命令（docs/architecture/tsp-migration.md “目标模式(TSP…)”）。
 import type { StudioSlashCommand } from "../composer/studio-slash.ts";
 import { applyGoalOp, createGoal, showGoal } from "./goal-actions.ts";
 import { parseGoalArgs } from "./goal-model.ts";

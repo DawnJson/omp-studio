@@ -92,3 +92,13 @@ npm 包 `@oh-my-pi/pi-coding-agent` 里有 `rpc-wire.generated.ts`，可以 `imp
 | bash 工具运行中强杀主进程（主进程里 `process.kill(process.pid, "SIGKILL")`） | 自己退出 | **`PING.EXE` 和它的 `conhost.exe` 留下成为孤儿** |
 
 所以正常退出路径（关窗口、退出应用、自动更新重启）都要先关闭 stdin，**期间继续读 stdout**（`rpc.md` 要求，否则 omp 可能一直等输出被读走而不退出），再等 omp 退出，超时后按进程树结束（`taskkill /T /F /PID`）。主进程崩溃或被强杀时这些代码都不会运行，所以 omp 子进程放进 Windows Job Object（`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`，koffi 调用，`src/main/platform/win32/`），由系统回收整棵进程树。原因已查清（`task-model.md`「进程树兜底」）：omp 是被系统直接结束的，来不及清理孙进程，不是 omp 的缺陷。
+
+## 内置命令（`runBuiltin`）和项目目录里的 rpc-ui
+
+和会话无关的 omp 内置命令（`/tools` `/session` `/mcp …` `/memory …` `/changelog`，渲染进程只能传封闭联合 `BuiltinCommand`，主进程 `builtinCommandText` 拼文本）在 rpc-ui 上执行，不在任务进程里（那里的输出形态是 toast / main 文字 / 弹窗，要靠 role 抓）。实现在 `src/main/service/builtin-command.ts`：
+
+- 先 `get_available_commands`，命令名（或别名）必须有且 `source === "builtin"`，否则不发（实测 omp 18.12.5：`/unpin` 不是内置命令，被当成普通消息发给了模型，产生了一次花费）。
+- 发 `prompt`，收集应答之前的 `command_output`（去 ANSI，多段用 `\n` 连接）；应答 `agentInvoked:true` 当失败。omp 自己报的失败（如 "Failed to add server…"）是普通 `command_output`、`success:true`，**原样返回**，由界面解析/显示。`success:false` 以 omp 原文 reject。
+- 同一连接上串行（`command_output` 帧没有请求 id，并发会串台）。
+- `scope: null` → 服务进程（cwd = `userData/service`，**用户范围**）；`{ projectId }` → `src/main/service/project-omp.ts` 的 `ProjectOmpPool`：每个项目目录（取自主进程的项目记录，不是渲染进程传的路径）一个 `omp --mode rpc-ui --no-session`，cwd = 项目目录，**空闲 60 秒关闭**，放进应用 Job Object，`command-handlers.ts` 注册的 shutdown hook 在退出时全部关掉，关闭后不再接受操作。进程生命周期（按需启动、空闲计时、Job Object、启动中被关）和服务进程共用 `service/idle-omp.ts`（不依赖 electron，cwd/启动参数/Job 注入，单测用 fake omp）。
+- 单测 `test/builtin-command.test.ts`：回放帧按 `native-ui-plan` §2.2 的实测文本手写（不是整段真实录制）。

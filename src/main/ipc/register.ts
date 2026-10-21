@@ -16,6 +16,12 @@ import { taskHandlers } from "./task-handlers.ts";
 import { terminalHandlers } from "./terminal-handlers.ts";
 import { updateHandlers } from "./update-handlers.ts";
 import { usageHandlers } from "./usage-handlers.ts";
+import { pluginHandlers } from "./plugin-handlers.ts";
+import { workspaceDirsHandlers } from "./workspace-dirs-handlers.ts";
+import { commandHandlers } from "./command-handlers.ts";
+import { integrationsHandlers } from "./integrations-handlers.ts";
+import { sessionInfoHandlers } from "./session-info-handlers.ts";
+import { agentsHandlers } from "./agents-handlers.ts";
 import { registerDropFolder } from "./drop-folder.ts";
 import { assertTrustedSender } from "./validate.ts";
 import { log } from "../log/log.ts";
@@ -31,10 +37,16 @@ const handlers: InvokeHandlers = {
   ...gitHandlers,
   ...updateHandlers,
   ...usageHandlers,
+  ...pluginHandlers,
   ...subagentHandlers,
   ...btwHandlers,
   ...terminalHandlers,
   ...fileHandlers,
+  ...workspaceDirsHandlers,
+  ...commandHandlers,
+  ...integrationsHandlers,
+  ...sessionInfoHandlers,
+  ...agentsHandlers,
 };
 
 export function registerIpcHandlers(): void {

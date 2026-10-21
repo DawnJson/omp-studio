@@ -8,7 +8,7 @@ import changelog from "../../CHANGELOG.md?raw";
 import { countEntries, releasedVersions, releaseNotes } from "../shared/changelog.ts";
 import type { WhatsNew } from "../shared/ipc.ts";
 import { log } from "./log/log.ts";
-import { compareVersions } from "./omp-manager/version.ts";
+import { compareVersions } from "../shared/omp-version.ts";
 
 /** lastSeen 之后、current 为止各版本的条目统计；lastSeen 为 null 时只算 current。没有可说的返回 null。 */
 export function summarizeWhatsNew(text: string, current: string, lastSeen: string | null): WhatsNew | null {

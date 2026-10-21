@@ -113,3 +113,48 @@
   font-size: var(--fs-xs);
   color: var(--accent);
 }
+/* TSP 任务每行的"从这里分叉"：悬停或选中这一行时才出现（和用户消息气泡的悬停按钮同一套手势）。 */
+.tree-fork {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.tree-row[data-active="true"] .tree-fork,
+.tree-row:hover .tree-fork {
+  opacity: 1;
+}
+.tree-fork:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.tree-row .tree-fork:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+/* TSP 面板底部的"回溯时摘要被放弃的分支"开关。 */
+.tree-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-3);
+  cursor: pointer;
+  user-select: none;
+}
+.tree-option input {
+  accent-color: var(--accent);
+}

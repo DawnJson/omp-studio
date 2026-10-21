@@ -19,6 +19,9 @@ import { applyMessage, createDocument, restoreDocument, snapshotDocument } from 
 import { titleFromPrompt } from "../src/main/tasks/convert.ts";
 import { TaskPool, type PoolDeps } from "../src/main/tasks/task-pool.ts";
 import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
+import { findAgentHub, findFocus, listAgents } from "../src/shared/tsp/agent-hub.ts";
+import { findMessageTarget } from "../src/shared/tsp/gate.ts";
+import { hasQueuedMessages } from "../src/shared/tsp/queue-restore.ts";
 import { loadTspFixture, recordedUserEvents } from "./tsp-fixtures.ts";
 
 /** approval 录制里用户的两个操作：发的那句话、点 Approve。 */
@@ -267,6 +270,48 @@ describe("任务池：按设置的引擎建 runner", () => {
     expect(done.lastTurn?.status).toBe("aborted");
   }, 60_000);
 
+  it("运行中排队了一条消息再停止：omp 写回它输入框的排队文字交还给调用方，omp 的输入框被清空", async () => {
+    const [first, queued] = recordedUserEvents(loadTspFixture("queue-esc")).filter(
+      (entry) => entry.event["ev"] === "send",
+    );
+    if (!first || !queued) throw new Error("unexpected queue-esc fixture");
+    const h = await harness();
+    h.next.fixture = "queue-esc";
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await h.pool.sendPrompt(created.id, { text: String(first.event["text"]), whenBusy: "steer" });
+    await h.events.until(created.id, (state) => state.status === "running");
+    await h.pool.sendPrompt(created.id, { text: String(queued.event["text"]), whenBusy: "steer" });
+    // 排队区出现之后再停（Esc 时队列里没有消息就不会等输入框）。
+    for (
+      let waited = 0;
+      !hasQueuedMessages(restoreDocument(h.pool.getTspSnapshot(created.id).document));
+      waited += 50
+    ) {
+      if (waited > 10_000) throw new Error("the queue never showed up");
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    const restored = await h.pool.stopTask(created.id);
+    expect(restored).toMatchObject({ steering: [{ text: queued.event["text"] }], followUp: [], aborted: true });
+    await waitForLog(h.log, (records) =>
+      records.some((record) => record.kind === "tsp" && record.body?.["ev"] === "edit" && record.body["text"] === ""),
+    );
+  }, 60_000);
+
+  it("没有排队消息时停止立刻返回，不等 omp 的输入框", async () => {
+    const events = approvalEvents();
+    const h = await harness();
+    h.next.fixture = "approval";
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await h.pool.sendPrompt(created.id, { text: events.text, whenBusy: "steer" });
+    await h.events.until(created.id, (state) => state.status === "needs_you");
+    const started = Date.now();
+    await h.pool.stopTask(created.id);
+    expect(Date.now() - started).toBeLessThan(1_000);
+  }, 60_000);
+
   it("omp 的会话文件落盘后才记进任务（没落盘的不记），标题跟着 omp，重启后用记录里的会话文件恢复", async () => {
     const sessionFile = path.join(scratch, "sessions 一", "a.jsonl");
     await mkdir(path.dirname(sessionFile), { recursive: true });
@@ -297,13 +342,95 @@ describe("任务池：按设置的引擎建 runner", () => {
     expect(again.launches).toEqual([{ sessionFile }]);
   }, 60_000);
 
+  it("runTaskCommand：TSP 任务把命令文本当 send 发给 omp，返回 omp 的状态 toast（omp 18.12.5 录制 slash-status）", async () => {
+    const h = await harness();
+    h.next.fixture = "slash-status";
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+
+    // 录制里 omp 对 /modelpreset list 的回应是 toast "No model presets saved. …"；没给 success 谓词，第一条新 toast 就是结果。
+    const preset = await h.pool.runTaskCommand(created.id, { kind: "modelPreset", op: "list" });
+    expect(preset.text).toBe("No model presets saved. Use /modelpreset save <name> to create one.");
+    // /dirs 的 toast 带工作区目录列表（路径在录制里已脱敏）。
+    const dirs = await h.pool.runTaskCommand(created.id, { kind: "dirs" });
+    expect(dirs.text).toBe("Workspace directories:\n  C:\\work\\project (working directory)");
+
+    await waitForLog(
+      h.log,
+      (records) => records.filter((record) => record.verb === "e" && record.body?.["ev"] === "send").length === 2,
+    );
+    const texts = readFileSync(h.log, "utf8")
+      .split("\n")
+      .filter((line) => line !== "")
+      .map((line) => JSON.parse(line) as LogRecord)
+      .filter((record) => record.body?.["ev"] === "send")
+      .map((record) => record.body?.["text"]);
+    expect(texts).toEqual(["/modelpreset list", "/dirs"]);
+  }, 60_000);
+
+  it("compactTask（TSP）：会话太小时以 omp 的 'Error: Compaction failed…' 原文 reject（omp 18.12.5 录制 compact-error）", async () => {
+    const h = await harness();
+    h.next.fixture = "compact-error";
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await expect(h.pool.compactTask(created.id)).rejects.toThrow(
+      "Error: Compaction failed: Nothing to compact (session too small)",
+    );
+  }, 60_000);
+
+  it("compactTask（TSP）：omp 画出压缩分隔就算成功，没有 toast（omp 18.12.5 录制 compact-ok：两轮对话后 /compact）", async () => {
+    const h = await harness();
+    h.next.fixture = "compact-ok";
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    for (const topic of ["the history of bridges", "how volcanoes form"]) {
+      await h.pool.sendPrompt(created.id, { text: `Write about 350 words on ${topic}. No tools.`, whenBusy: "steer" });
+      await h.events.until(created.id, (state) => state.status === "idle" && state.lastTurn !== null);
+    }
+    await expect(h.pool.compactTask(created.id)).resolves.toBeUndefined();
+  }, 60_000);
+
+  it("会话开关：omp 的状态 toast 发布成 TaskState.sessionToggles（status-toggles 录制，omp 18.12.5 的原文）", async () => {
+    const h = await harness();
+    h.next.fixture = "status-toggles";
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    const idle = await h.events.until(created.id, (state) => state.status === "idle");
+    expect(idle.sessionToggles).toEqual({
+      skillful: null,
+      extendedContext: null,
+      computer: null,
+      advisor: null,
+      browser: null,
+      prewalk: null,
+    });
+
+    const off = await h.pool.runTaskCommand(created.id, { kind: "toggle", name: "skillful", on: false });
+    expect(off.text).toBe("Skill listing disabled for this session.");
+    await h.events.until(created.id, (state) => state.sessionToggles.skillful === false);
+    await h.pool.runTaskCommand(created.id, { kind: "toggle", name: "extendedContext", on: true });
+    await h.pool.runTaskCommand(created.id, { kind: "toggle", name: "computer", on: true });
+    await h.pool.runTaskCommand(created.id, { kind: "toggle", name: "advisor", on: true });
+    await h.pool.runTaskCommand(created.id, { kind: "browserMode", mode: "headless" });
+    await h.pool.runTaskCommand(created.id, { kind: "prewalk", op: "arm" });
+    const last = await h.events.until(created.id, (state) => state.sessionToggles.prewalk !== null);
+    expect(last.sessionToggles).toMatchObject({
+      skillful: false,
+      extendedContext: true,
+      computer: true,
+      advisor: true,
+      browser: "headless",
+    });
+    expect(last.sessionToggles.prewalk).toMatch(/^Prewalk: target /);
+  }, 60_000);
+
   it("只有 rpc 才有的操作对 TSP 任务报明确的错误；带图片的 prompt 走 @ 提及", async () => {
     const h = await harness();
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (state) => state.status === "idle");
     expect(() => h.pool.getSubagents(created.id)).toThrow(/TSP engine/);
-    expect(() => h.pool.compactTask(created.id)).toThrow(/TSP engine/);
-    await expect(h.pool.forkTask(created.id, null)).rejects.toThrow(/TSP engine/);
+    // compactTask 不再是 rpc 专有：TSP 任务发 /compact（这里的录制里没有，不测它）。
+    // forkTask 也不再是 rpc 专有：TSP 任务分叉会话文件（docs/architecture/session-tree.md）；这个任务还没有会话文件，所以被拒绝。
+    await expect(h.pool.forkTask(created.id, null)).rejects.toThrow(/no session file yet/);
     // TSP 任务也有模型目录（listTaskModels 不再是 rpc 专有）。
     await expect(h.pool.listTaskModels(created.id)).resolves.toEqual(catalog);
     // 图片没有 TSP 通道：落成临时文件，用 omp 的 `@"路径"` 提及发出去。
@@ -570,4 +697,118 @@ describe("引擎统一：设置是 tsp 时，没在运行的 rpc 老任务下次
     expect(again.pool.listTasks()[0]?.engine).toBe("rpc");
     expect(again.launches).toEqual([]);
   }, 60_000);
+});
+
+describe("TSP 任务：目标模式（/goal，omp 18.12.5 录制 goal-flow：一句话 → 创建 → 暂停 → 继续 → 放弃）", () => {
+  const GOAL = "Run the shell command sleep 20 with the bash tool, then say done and mark the goal complete.";
+
+  it("taskGoal 对 TSP 任务发 omp 的 /goal 命令；TaskState.goal 来自输入框卡片上的 Goal 行；放弃点掉 Drop goal? 选择器的 Yes", async () => {
+    const h = await harness();
+    h.next.fixture = "goal-flow";
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await h.pool.sendPrompt(created.id, {
+      text: "Reply with the single word PONG and nothing else.",
+      whenBusy: "steer",
+    });
+    await h.events.until(created.id, (state) => state.status === "idle" && state.lastTurn?.status === "completed");
+    expect(h.events.states.findLast((state) => state.id === created.id)?.goal).toBeNull();
+    await expect(h.pool.taskGoal(created.id, "get")).resolves.toBeNull();
+
+    const active = await h.pool.taskGoal(created.id, "create", GOAL);
+    expect(active).toMatchObject({ status: "active", objective: GOAL, tokenBudget: null });
+    expect(h.events.states.findLast((state) => state.id === created.id)?.goal).toMatchObject({
+      status: "active",
+      objective: GOAL,
+    });
+
+    const paused = await h.pool.taskGoal(created.id, "pause");
+    expect(paused).toMatchObject({ status: "paused", objective: GOAL, tokensUsed: 664 });
+    const resumed = await h.pool.taskGoal(created.id, "resume");
+    expect(resumed).toMatchObject({ status: "active", objective: GOAL, tokensUsed: 664 });
+
+    await expect(h.pool.taskGoal(created.id, "drop")).resolves.toBeNull();
+    expect(h.events.states.findLast((state) => state.id === created.id)?.goal).toBeNull();
+    expect(h.events.states.findLast((state) => state.id === created.id)?.goal).toBeNull();
+
+    const sent = readFileSync(h.log, "utf8")
+      .split("\n")
+      .filter((line) => line !== "")
+      .map((line) => JSON.parse(line) as LogRecord)
+      .filter((record) => record.body?.["ev"] === "send" || record.body?.["ev"] === "activate")
+      .map((record) =>
+        record.body?.["ev"] === "send" ? record.body["text"] : `activate ${String(record.body?.["item"])}`,
+      );
+    expect(sent).toEqual([
+      "Reply with the single word PONG and nothing else.",
+      `/goal ${GOAL}`,
+      "/goal pause",
+      "/goal resume",
+      "/goal drop",
+      "activate 0",
+    ]);
+  }, 90_000);
+
+  it("空的目标文字被拒绝；换行折成空格", async () => {
+    const h = await harness();
+    h.next.fixture = "goal-flow";
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await expect(h.pool.taskGoal(created.id, "create", "  \n ")).rejects.toThrow("goal objective is empty");
+  }, 60_000);
+});
+
+describe("TSP 任务：子代理面板（hub-steer 录制：后台驱动 Agent Hub 插话）", () => {
+  const STEER_TEXT = "Also say PINEAPPLE in your final reply.";
+
+  it("steerTspSubagent：agents.open → activate → send（和录制逐字相同）→ 退出聚焦；记录读不到时给 unavailable；不认识的名字被拒", async () => {
+    const h = await harness();
+    h.next.fixture = "hub-steer";
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    const first = String(recordedUserEvents(loadTspFixture("hub-steer"))[0]!.event["text"]);
+    await h.pool.sendPrompt(created.id, { text: first, whenBusy: "steer" });
+    // 假 omp 放帧到录制里用户点 👥 的那一步就停下等事件：两个子代理都在跑。
+    const deadline = Date.now() + 20_000;
+    for (;;) {
+      const agents = listAgents(restoreDocument(h.pool.getTspSnapshot(created.id).document));
+      if (agents.filter((agent) => agent.status === "running").length === 2) break;
+      if (Date.now() > deadline) throw new Error("the subagents never showed up as running");
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    await expect(h.pool.steerTspSubagent(created.id, "Gamma", "hi")).rejects.toThrow(/unknown subagent/);
+    await expect(h.pool.getTspSubagentRecord(created.id, "Beta")).resolves.toMatchObject({
+      messages: null,
+      unavailable: "no_session",
+    });
+
+    await h.pool.steerTspSubagent(created.id, "Beta", STEER_TEXT);
+    await waitForLog(h.log, (records) =>
+      records.some((record) => record.kind === "tsp" && record.body?.["act"] === "focus:Main"),
+    );
+    const sent = readFileSync(h.log, "utf8")
+      .split("\n")
+      .filter((line) => line !== "")
+      .map((line) => JSON.parse(line) as LogRecord)
+      .filter((record) => record.kind === "tsp" && ["send", "action", "activate"].includes(String(record.body?.["ev"])))
+      .map((record) => [record.body?.["ev"], record.body?.["act"] ?? record.body?.["item"] ?? record.body?.["text"]]);
+    expect(sent).toEqual([
+      ["send", first],
+      ["action", "agents.open"],
+      ["activate", "Beta"],
+      ["send", STEER_TEXT],
+      ["action", "focus:Main"],
+    ]);
+    // 驱动结束：聚焦行没了（回放放出 focus 删除帧），文档里没有 Hub，输入框又是主会话的发送目标。
+    await expect
+      .poll(
+        () => {
+          const document = restoreDocument(h.pool.getTspSnapshot(created.id).document);
+          return [findFocus(document), findAgentHub(document), findMessageTarget(document).kind];
+        },
+        { timeout: 20_000 },
+      )
+      .toEqual([null, null, "ready"]);
+  }, 90_000);
 });

@@ -92,4 +92,9 @@ export const composer = {
   "jobs.status.cancelled": "Cancelled",
   "jobs.noOutput": "No output yet.",
   "jobs.noAgent": "Can't read this subagent's details.",
+  // TSP jobs (S2Jobs)
+  "jobs.kill": "End",
+  "jobs.viewOutput": "View output in omp's jobs window",
+  "jobs.openAgent": "View in the subagents panel",
+  "jobs.tspOutputHint": "A bash job's output only exists in omp's own jobs window; the button asks omp to open it.",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

@@ -8,10 +8,15 @@ import { currentLocale } from "../../store/settings-store.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
 import { openFilePreview } from "../file-preview/index.ts";
+import { openSessionTree } from "../conversation/session-tree-store.ts";
+import { userCardFromEnd } from "../../../../shared/tsp/session-tree.ts";
 import type { TspContext } from "./node-props.ts";
-import { peekTspNode } from "./tsp-store.ts";
+import { isHubOpenAction } from "../../../../shared/tsp/agent-hub.ts";
+import { openAgentsPanel } from "../agents/agents-store.ts";
+import { peekTspDocument, peekTspNode } from "./tsp-store.ts";
 import { showTspMenu } from "./menu-store.ts";
 import { isRecord } from "../../../../shared/type-guards.ts";
+import { restoreDequeued } from "./restore-dequeued.ts";
 
 /** 节点自己才知道怎么做的内置动作（折叠、放大）。 */
 export interface OwnActions {
@@ -98,11 +103,25 @@ export function runAction(act: string, node: DocNode, ctx: TspContext, own?: Own
     case "open":
       if (typeof node.p.href === "string") openHref(node.p.href, ctx);
       return;
+    case "rewind": {
+      // omp 在用户消息卡片上画的"回退"图标（它自己的回退选择器）：studio 接管，打开会话树面板并对准这条消息（docs/architecture/session-tree.md）。
+      const document = peekTspDocument(ctx.taskId);
+      const fromEnd = document === null ? null : userCardFromEnd(document, ctx.sf, node.id);
+      openSessionTree(ctx.taskId, fromEnd ?? undefined);
+      return;
+    }
     case "select":
     case "activate":
       ctx.send({ ev: act, sf: ctx.sf, id: node.id, item: node.id });
       return;
     default: {
+      // hud 里 `👥` 胶囊（omp.hud.seg）的点击 = 打开 omp 的 Agent Hub：studio 改开右栏的子代理面板（spec §4.28），不把动作发给 omp。
+      if (isHubOpenAction(act)) {
+        openAgentsPanel(ctx.taskId);
+        return;
+      }
+      // 队列条上的 `Edit Alt+↑`：和 ⌥↑ 一样，omp 把文字写回它自己的输入框，studio 要搬进自己的草稿（先订阅再发动作）。
+      if (act === "queue.edit") restoreDequeued(ctx.taskId);
       const mods = modifiers(event);
       ctx.send(
         mods ? { ev: "action", sf: ctx.sf, id: node.id, act, mods } : { ev: "action", sf: ctx.sf, id: node.id, act },

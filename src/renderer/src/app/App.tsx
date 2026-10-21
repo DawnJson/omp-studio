@@ -5,14 +5,16 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, typ
 import { useVisibleTaskIds } from "../features/sidebar/visible-order-store.ts";
 import { Composer } from "../features/composer/index.ts";
 import { BtwPanel } from "../features/btw/index.ts";
-import { ConversationView } from "../features/conversation/index.ts";
+import { ConversationView, SessionTreePanel } from "../features/conversation/index.ts";
 import { TspView } from "../features/tsp/index.ts";
 import { GitDialogHost } from "../features/git/index.ts";
+import { SessionInfoHost } from "../features/session-info/index.ts";
 import { DialogLayer } from "../features/dialogs/index.ts";
 import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts";
 import { OmpSetupView } from "../features/omp-setup/index.ts";
 import { ReviewHost } from "../features/review/index.ts";
 import { FilePreviewPane, toggleFilesPanel, usePreviewPanel } from "../features/file-preview/index.ts";
+import { AgentsPanel, closeAgentsPanel, useAgentsPanel } from "../features/agents/index.ts";
 import { CommandPalette } from "../features/palette/index.ts";
 import {
   TerminalPanel,
@@ -96,6 +98,11 @@ export function App() {
   const terminalKey = taskId ?? draftKey;
   const terminalOpen = useTerminalOpen(terminalKey);
   const panel = usePreviewPanel();
+  const agentsPanel = useAgentsPanel();
+  // 子代理面板和文件面板共用右栏：文件面板一打开就收起子代理面板（反过来由 openAgentsPanel 关文件面板）。
+  useEffect(() => {
+    if (panel !== null) closeAgentsPanel(false);
+  }, [panel]);
   useDraftTerminalCleanup(draftKey);
   const shell = useShellUi();
   const narrow = useNarrow();
@@ -279,6 +286,8 @@ export function App() {
                 // 两个兄弟的 key 必须不同：同一个 key 会让 React 切任务时留下上一个任务的 TspView。
                 <>
                   <TspView key={`tsp:${taskId}`} taskId={taskId} />
+                  <SessionTreePanel key={`tree:${taskId}`} taskId={taskId} />
+                  <BtwPanel key={`btw:${taskId}`} taskId={taskId} />
                   <Composer key={`composer:${taskId}`} taskId={taskId} fromDraft={fromDraft} />
                 </>
               ) : (
@@ -295,11 +304,15 @@ export function App() {
         {view === "conversation" && panel?.key === terminalKey && (
           <FilePreviewPane key={panel.key} panelKey={panel.key} page={panel.page} path={panel.path} />
         )}
+        {view === "conversation" && taskId !== null && taskEngine === "tsp" && agentsPanel?.taskId === taskId && (
+          <AgentsPanel key={taskId} taskId={taskId} selected={agentsPanel.selected} />
+        )}
       </div>
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <DropOverlay />
       <ReviewHost />
       <GitDialogHost />
+      <SessionInfoHost />
       <DialogLayer taskId={taskId} />
       <CommandPalette />
       <OmpSetupView />

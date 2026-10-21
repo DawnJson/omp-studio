@@ -23,6 +23,7 @@
 - 每项默认一行：标签 + ⓘ（描述、key、"omp 原文"标记都在悬停/聚焦/点击出现的说明里）+ "已修改"标记 + 保存反馈，右边是"恢复默认"和控件。搜索命中的是描述时，才在行下面显示那一句。被覆盖、保存或校验出错时才多一行。
 - 控件：boolean 开关；enum 三个及以内且短的用分段，否则下拉；number 文本框（要求是数字）；string 文本框；array/record JSON 编辑器（解析失败、类型不对就地报错，不保存）。文本类停手 700 ms（JSON 1 s）、失焦或 Enter 保存；开关和选择立即保存。
 - **`goal.continuationModes` 画成开关「目标自动推进」**（`ConfigControls.tsx`，`ompcfg` 里有标签和说明，所以也在“常用”里）：开 ⇔ 列表里有 `"rpc"`；切换时只增减 `"rpc"`，别的条目保留（`src/shared/ui/goal-continuation.ts`，`test/goal-continuation.test.ts`），写的就是上面那条 `omp config set`，不另存副本、不用 `--config` 覆盖，所以终端里的 omp 看到同一份值，反过来也一样。omp-studio 启动时若发现它没被用户明确设置过，会加上 `"rpc"` 一次（默认允许，细节和“怎么分辨设过”见 `conversation.md` 目标一节）。终端版 omp 只看 `"interactive"`，不受影响。
+- **`startup.setupWizard` 启动时默认关掉**：空 agent 目录里 omp 的 5 步首次运行引导会占满第一个 TSP 任务（`tsp-real-omp-probes.md` §1）。omp-studio 启动时若 config.yml 里没有这个键（嵌套或平铺都算；读不了、解析不了按设过处理），就经 `omp config set startup.setupWizard false` 设一次并发 `ompConfigChanged`（`omp-config/setup-wizard-default.ts`，`test/setup-wizard-default.test.ts`；仓库所有者 2026-10-21 批准）。设过的（包括明确设成 true）不碰，设置页照常能改。和 goal 的默认依次执行，TSP 任务的 omp 进程启动前等它们（`omp-config/startup-defaults.ts`）。
 - 常用项（模型角色、思考、审批/工具、上下文压缩、记忆、子代理 task、retry）有人话标签和中英文说明，在 i18n 的 `ompcfg` 命名空间（`<key>.label` / `<key>.desc`），排在每个 tab 的"常用"组最前面；其余项显示 key 和 omp 原文。tab 名也在 `ompcfg`（`tab.<名>`）。
 - 长列表：非"常用"的小组（按 key 第一段）在超过 30 项的 tab 里默认折叠，折叠状态记在模块里。
 
@@ -80,3 +81,42 @@
 - **清除已记住的批准**：胶囊菜单里给任务的 omp 会话发 `/forget-approvals`（`sendPrompt`，同 `/retry`）。实测 18.12.5 `omp --mode rpc-ui` 下 `prompt` 发 `/forget-approvals` 不调模型（应答 `agentInvoked:false`），先回一条 `command_output`：“Remembered approvals forgotten; the next read or write asks again.”。清的是整个 agent 目录的批准库，不分项目。草稿、标题为空（还没发过消息）的任务里禁用，否则第一次 `sendPrompt` 会拿这条命令当标题。
 - worktree 任务：胶囊按项目目录（不是 worktree 根）读；worktree 里没有的未提交 `.omp/config.yml` 在那里不生效，这种情况显示可能和 omp 实际行为不同。
 - 测试：`test/approval-mode.test.ts`（生效值与来源、四档文案）。
+
+## 集成卡片：MCP、SSH、可用工具、记忆、更新日志（S5，omp 18.12.5 实测）
+
+斜杠命令 `/mcp /ssh /tools /memory /changelog` 由 studio 接管（`tsp:"studio"`），界面是设置页里放在对应分组最前面的卡片（spec §4.19「集成卡片」）。代码：`src/renderer/src/features/settings/{McpCard,McpForm,SshCard,SshForm,ToolsCard,MemoryCard,OmpChangelog,ScopePicker,IntegrationCards}.tsx`；解析器 `src/shared/omp-output/{mcp,ssh,tools,changelog}.ts`；SSH 的主进程 `src/main/integrations/ssh.ts` + `src/main/ipc/integrations-handlers.ts`；MCP / 记忆 / 工具 / 更新日志走 S0 的 `runBuiltin`（用户范围 = 服务进程，项目范围 = 项目目录里的短命 rpc-ui）。文本格式不是 omp 的契约：解析不了的行原样显示，omp 的话原样给用户，不吞。以下都是临时 `PI_CODING_AGENT_DIR` + `--mode rpc-ui --no-session`（或 CLI）实测，2026-10-21。
+
+### `/mcp`（rpc-ui 的 `command_output`，全部 `agentInvoked:false`，不调模型）
+
+- **切词（要紧）**：`add` 认双引号（`/mcp add "b c" --scope user -- node -e 1` 存成名字 `b c`；`-- "C:\Program Files\nodejs\node.exe" -e 1` 存成 `command: C:\Program Files\nodejs\node.exe`；双引号里的单引号、反斜杠原样保留），但**不认转义**：`"a\"b"` 存成 `a\b`（引号照样开合、被吃掉）。所以 studio 对 `add` 的 `-- <命令> <参数…>`：含空白或单引号的词加双引号，含 `"` 的拒绝（`plainArg` / `quoteArg`，`src/shared/omp-output/index.ts`）。`remove / enable / disable / test` **按空白切词**（`remove "b c"` → `Unknown option: c"`，`remove b\ c`、`remove 'b c'` 同样失败）：所以名字有空格的服务器管不了，界面里只读；添加表单的名字只收 `[A-Za-z0-9._-]`（omp 自己允许字母数字、`- _ . :` 和单个空格，`../y` 被拒：`Server name can only contain …`）。
+- **失败也是普通输出**：`Unknown option: --header`、`Failed to add server: Server "x1" already exists in <path>`、`Invalid --transport value. Use http or sse.`、`Server name required…`、`Failed to remove MCP server: Server "nope" not found in <path>`、`Server "x" not found. Run /mcp list…`，`success` 仍是 true。所以 `mcpOutcome` 只认已知成功句式（`Added MCP server "x" (user).`、`Removed server "x" from user config.`、`Server "x" enabled|disabled (user config).`、`MCP runtime reload requested.`），其余一律当失败并显示原话。
+- **范围**：`add` 默认写**项目**（不带 `--scope` 写 `<cwd>/.omp/mcp.json`），studio 总是显式带 `--scope`。`/mcp list` 不分范围，合并用户和项目两层：`名 | 传输 | enabled|disabled | 目标 [user|project]`，`list --scope project` 被忽略；stdio 的目标只有命令（参数不显示）。`remove` 默认也是 project。`enable / disable` 不带 scope，按服务器所在的文件改（`disabled (user config)`）。用户范围的写入落在 `<agentDir>/mcp.json`（`mcpServers`，`enabled:false` 表示关），项目范围在 cwd 的 `.omp/mcp.json`。
+- **`add` 的参数**：`--url <u> --transport http|sse [--token <t>]`（`--token abc` 写成 `headers.Authorization: "Bearer abc"`；没有 `--header`）或 `-- <命令…>`。令牌走 rpc 的 stdin 帧，不在任何进程的命令行里。
+- **`test <name>`**：成功 `Server "real" connected (1 tools).\n  - ping`；失败 `Connection to "a" failed: MCP subprocess closed stdout before responding`。
+- **`reauth` / `unauth` / `reconnect`**：rpc-ui 只回 `/mcp reauth requires OAuth or browser flows only available in the TUI client.`（终端版 TUI 的帮助里才有 `reauth`、`unauth`、`--token`）。所以卡片没有这三个按钮，底部说明去终端做；`MCP_SIMPLE_OPS` 也不收它们。`/mcp reload` → `MCP runtime reload requested.`：改完配置，已打开的任务要在它自己的会话里 reload（omp 的 mcp-config.md）。
+
+### `omp ssh … --json`（CLI，数组参数）
+
+- `list --json` → `{"project":{…},"user":{…}}`（两层都在，project 取决于 cwd：中性目录里是空的）；字段 `host / username / port / keyPath / description / compat`。`add` / `remove` 即使带 `--json` 也只输出一句话（`Added SSH host "box" to user config`）。**错误写在 stdout** 且退出码 1（`Error: Host "box" already exists in <path>`、`Error: --host is required`、`Error: Host name can only contain letters, numbers, dash, underscore, and dot`、`Error: Port must be an integer between 1 and 65535`），命令行解析错误才写 stderr（`Option '--desc' argument is ambiguous`）。`sshWriteResult` 取 stdout 的原话去掉 `Error: ` 前缀。
+- **`-` 开头的值**：`--desc - x` 报 ambiguous，`--desc=- x` 可以（`--host -oProxyCommand=x` 同样被当缺参）。所以 studio 一律写 `--flag=value`；地址和用户名另外拒绝空白和 `-` 开头（它们之后会交给 ssh）。
+- 项目范围：cwd 是项目目录，`--scope=project` 写 `<项目>/.omp/ssh.json`（`{"hosts":{…}}`）；用户范围在中性目录 `userData/service` 里跑，写 `<agentDir>/ssh.json`。
+
+### `/tools`
+
+每行 `* 名` 已启用、`- 名` 可用但当前没启用（如 `ast_edit`、`lsp`、`debug`）、`~ xd://…` xd 设备。把 `bash.enabled` 设成 false 后，**`bash` 从列表里整行消失**（不是变成 `-`）；把 `lsp.enabled` 设成 true 没有改变 `- lsp`（还需别的条件）。运行中改 config.yml，下一次 `/tools` 就反映。所以工具卡片的开关是 `<工具>.enabled` 设置项本身（`ast_edit` → `astEdit.enabled`，`web_search` → `web_search.enabled`，`toolConfigKey` 两种写法都试），关掉后行保留、点刷新才重读。列表是服务进程（无项目）的全局结果。
+
+### `/memory`
+
+- **按项目分**：omp 文档 memory.md：local 后端是项目级摘要；sharpshooter 的 bank 来自工作目录——实测 `/memory diagnose` 的锁路径是 `<agentDir>/memories/sharpshooter/proj-dir-27egy5ntf4fkg/consolidate`（`proj dir` 这个 cwd 派生的 bank）；hindsight 默认 `per-project-tagged`。所以记忆卡片只能选项目，每次操作在该项目目录里的短命 rpc-ui 跑（`runBuiltin(cmd, {projectId})`）。
+- 输出：后端 off：`stats`/`diagnose` → `Memory backend is off — there is nothing to show.`，`queue` → `Memory queue is not available for the off backend.`，`view` → `Memory payload is empty.`；local：`stats` / `diagnose` / `queue` → `Memory <op> is not available for the local backend.`；sharpshooter：`stats` 是 markdown（`# Sharpshooter Memory Stats` + Files / Queue / Consolidation），`diagnose` 同（Model、Interval、Lock、Due in、Last error），`queue` → `Queue is empty.`。`sync` → `Memory consolidation ran.`（立即整理，会调模型），`rebuild` / `enqueue` → `Memory consolidation enqueued.`，`clear` / `reset` → `Memory cleared.`，不认识的子命令 → `Usage: /memory <view|stats|diagnose|clear|reset|enqueue|rebuild|queue|sync>`。输出原文放 `<pre>`，不当 HTML。Hindsight 的 `clear` 只清本地状态（omp 文档），确认框里写明。
+- **立即整理 / 重建没有做成按钮**（实测 omp 18.12.5，临时 agent 目录 + `memory.backend: local` + `memories.minRolloutIdleHours: 0` + `.env` 里的便宜模型先用 `omp -p` 造一个过去的会话，再开 rpc-ui）：① `--no-session` 的 rpc-ui（服务进程 / 项目 rpc-ui）里 `/memory sync`、`/memory rebuild` 都回成功句（`Memory consolidation ran.` / `enqueued.`），40 秒后 `<agentDir>/memories/` 仍不存在，`/memory view` 一直是 `Memory payload is empty.`；② 带会话的 rpc-ui（和任务进程同一种）**启动时自己**跑 phase 1+2：什么命令都不发，约 40 秒后就写出 `memories/<项目>/{MEMORY.md,memory_summary.md,raw_memories.md,rollout_summaries/…}`，`/memory view` 变成 `# Memory Guidance …`——所以"发了 sync 之后出现文件"不能归功于 sync；③ 先启动带会话的 rpc-ui、**之后**再造会话，再发 `/memory sync`：40 秒内没有任何文件。结论：本地记忆只在会话进程启动时生成，`sync` / `rebuild` / `enqueue` 在那之外没有可观察的效果（`--no-session` 里更是什么都不会发生），没有一条可用的路径，所以不提供这两个按钮。`runBuiltin` 仍接受这两个 op（S0 的封闭集合），界面不用。**`clear` 有效**：`--no-session` 的项目 rpc-ui 里发 `/memory clear` 后 `memories/` 下的文件全部消失，带会话的进程里同样；下一次会话启动又会按过去的会话重新生成（确认框里写明）。sharpshooter 的 `sync` 同样回 `Memory consolidation ran.`，没有用真实对话验证它的队列效果。
+
+### `/changelog`
+
+整段 markdown：`## [18.12.3] - 2026-10-19` + `### Added` 等。`splitChangelog` 按 `## ` 拆版本（代码块里的不算），界面按节折叠、只展开最新一节，渲染用对话流的 `Markdown`（markdown-it）。输出很长，所以点开才读。
+
+**顺序和范围（2026-10-21 实测，`omp --version` = 18.12.5，PATH 上的 Tern 管理的 `omp.exe`；服务进程用的就是它）：** omp 的 `/changelog` 按**时间正序**输出，而且只有最近几版：`rpc-ui` 里发 `/changelog` 得到 `## [18.12.3] - 2026-10-19`、`18.12.4`、`18.12.5` 三节，最新的在**最后**（18.12.5 的二进制里内嵌的更新日志也含 18.12.0–18.12.5 各节，所以不是 studio 读了旧来源，也不是 omp 没带上新版本）。早先界面按原顺序列、只展开第一节，于是最上面是 18.12.3 而不是已装的 18.12.5。现在 `splitChangelog` 按版本号从新到旧排（`Unreleased` 之类非数字版本排最前，版本比较用 `shared/omp-version.ts` 的 `compareVersions`，和主进程共用），最新的一节在最上面并默认展开。来源仍是服务进程里 omp 的 `/changelog`，studio 不自己读任何更新日志文件（"最近更新"用的是随包的 `CHANGELOG.md`，是 studio 自己的）。
+
+### 测试
+
+`test/omp-output-integrations.test.ts`（上面所有原文样本、`/mcp add` 命令文本的引号规则）、`test/integrations-ssh.test.ts`（`omp ssh` 参数和假 omp 读写）；e2e `settings-functional.e2e.ts` 的「集成」用例（真实 omp + 临时 agent 目录 + 空的用户目录：添加 / 开关 / 删除 MCP 与 SSH，原话报错，工具、记忆卡片、更新日志）。

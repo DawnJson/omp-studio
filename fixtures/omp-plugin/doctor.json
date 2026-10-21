@@ -1,0 +1,22 @@
+[
+  {
+    "name": "plugins_directory",
+    "status": "ok",
+    "message": "Found at C:\\Users\\user\\.omp-tmp-s6\\plugins"
+  },
+  {
+    "name": "package_manifest",
+    "status": "ok",
+    "message": "Found"
+  },
+  {
+    "name": "node_modules",
+    "status": "ok",
+    "message": "Found"
+  },
+  {
+    "name": "plugin:demo-plugin",
+    "status": "ok",
+    "message": "v1.2.0 - Demo plugin for tests"
+  }
+]

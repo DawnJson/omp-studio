@@ -25,6 +25,10 @@ export function SessionCost({ usage, provider }: { usage: TaskState["sessionUsag
             `${t("composer.usage.output")} ${formatCount(usage.tokens.output)}`,
             `${t("composer.usage.cache")} ${formatCount(usage.tokens.cacheRead)}`,
             ...(usage.premiumRequests > 0 ? [t("composer.usage.premium", { n: usage.premiumRequests })] : []),
+            // TSP 任务：omp 的输入框卡片不给请求数，主进程从会话文件数出来（tsp-runner #sessionUsageFor）。
+            ...(usage.requests !== undefined && usage.requests > 0
+              ? [t("sessionInfo.usage.requestsTip", { count: usage.requests })]
+              : []),
           ].join(" · "),
         ]),
   ].join("\n");

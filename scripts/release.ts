@@ -4,7 +4,7 @@
 import { execFileSync } from "node:child_process";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { compareVersions } from "../src/main/omp-manager/version.ts";
+import { compareVersions } from "../src/shared/omp-version.ts";
 import { promoteUnreleased } from "./changelog.ts";
 
 const root = path.resolve(import.meta.dirname, "..");

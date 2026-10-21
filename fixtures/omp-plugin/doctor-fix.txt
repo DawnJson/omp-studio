@@ -1,0 +1,8 @@
+Plugin Health Check
+
+✔ plugins_directory: Found at C:\Users\user\.omp-tmp-s6\plugins
+✔ package_manifest: Found
+✔ node_modules: Found
+✔ plugin:demo-plugin: v1.2.0 - Demo plugin for tests
+
+Summary: 4 ok, 0 warnings, 0 errors

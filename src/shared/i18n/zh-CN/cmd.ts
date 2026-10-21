@@ -21,6 +21,7 @@ export const cmd = {
   archive: "归档当前任务",
   toggleTerminal: "切换终端",
   usage: "查看用量",
+  plugins: "管理插件和市场",
   exportHtml: "导出对话为 HTML…",
   btw: "旁路提问（/btw）",
 } satisfies Record<string, MessageEntry>;

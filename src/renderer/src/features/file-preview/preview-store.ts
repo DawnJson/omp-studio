@@ -2,6 +2,7 @@
 // 文件树的展开状态按键记在 tree-state.ts（面板关了、切走任务再回来仍在）。
 import type { TaskId, TerminalKey } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
+import { selectedRoot } from "./roots-store.ts";
 
 export type PanelPage = "files" | "preview";
 
@@ -11,6 +12,8 @@ export interface PanelState {
   page: PanelPage;
   /** 预览页显示的文件：调用方给的路径（相对根目录，或落在根内的绝对路径）；还没打开过文件时为 null。 */
   path: string | null;
+  /** 预览的文件在哪个根里：缺省 = 任务目录，n = 第 n 个额外工作区目录（roots-store.ts）。 */
+  root?: number | undefined;
 }
 
 const store = createStore<PanelState | null>(null);
@@ -42,6 +45,17 @@ export function toggleFilesPanel(key: TerminalKey): void {
   store.set({ key, page: "files", path: null });
 }
 
+/** 斜杠命令（/dirs 等）：保证 key 的文件面板开着、停在文件页（已经开着就只切页）。 */
+export function openFilesPanel(key: TerminalKey): void {
+  const current = store.get();
+  if (current?.key === key) {
+    if (current.page !== "files") store.set({ ...current, page: "files" });
+    return;
+  }
+  rememberFocus();
+  store.set({ key, page: "files", path: null });
+}
+
 export function setPanelPage(page: PanelPage): void {
   const current = store.get();
   if (current === null || current.page === page || (page === "preview" && current.path === null)) return;
@@ -52,7 +66,8 @@ export function setPanelPage(page: PanelPage): void {
 export function previewFileInPanel(path: string): void {
   const current = store.get();
   if (current === null) return;
-  store.set({ ...current, page: "preview", path });
+  const root = selectedRoot(current.key);
+  store.set({ ...current, page: "preview", path, root: root > 0 ? root : undefined });
 }
 
 export function closeFilePreview(): void {

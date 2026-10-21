@@ -256,7 +256,8 @@ button {
   display: flex;
   flex: 1;
   flex-direction: column;
-  min-width: 0;
+  /* 右侧开着文件面板时面板先让位（它 flex-shrink 到自己的 min-width），主区不低于 --main-min-w。 */
+  min-width: var(--main-min-w);
   min-height: 0;
   overflow: hidden;
   background: var(--bg-app);

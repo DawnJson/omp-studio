@@ -101,6 +101,7 @@ export function ModelChip(task: ModelChipProps) {
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={t("composer.modelChip")}
+        title={showLevel ? `${name} · ${levelText}` : name}
         onClick={() => setOpen(true)}
       >
         <span className="chip-text">{name}</span>

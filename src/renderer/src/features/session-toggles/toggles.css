@@ -1,0 +1,165 @@
+/* 会话开关菜单（SessionTogglesMenu）和模型选择器里的预设一节（PresetSection）。只用 tokens.css 里的变量。 */
+
+.tg-button {
+  position: relative;
+}
+/* 有开关和配置默认值不同：按钮角上一个强调色小圆点。 */
+.tg-button[data-differs]::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+.tg-menu {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1) 0;
+}
+.tg-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-2-5);
+}
+.tg-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+/* 控件比"开关"宽的行（分段控件）：说明占满第一行，控件和"本会话"标记在下一行靠右，免得说明被挤成一字一行 */
+.tg-row-stack {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.tg-row-stack > .tg-text {
+  flex: 1 1 100%;
+}
+.tg-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.tg-hint {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-3);
+}
+.tg-reply {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.tg-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+.tg-session {
+  flex: none;
+  padding: 0 var(--space-1-5);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--text-2);
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+}
+.tg-actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+}
+.tg-prewalk {
+  align-items: flex-start;
+}
+.tg-confirm-body {
+  margin-inline: 0;
+}
+
+/* 模型选择器里的预设一节。 */
+.tg-presets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+.tg-preset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.tg-preset {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.tg-preset:hover:not(:disabled, [aria-disabled="true"]) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.tg-preset:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.tg-preset[aria-disabled="true"] {
+  cursor: default;
+}
+.tg-presets > .mp-link {
+  align-self: flex-start;
+}
+.tg-preset:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.tg-preset-model {
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tg-preset-save {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+.tg-preset-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+.tg-preset-input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.tg-preset-error {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--diff-del-fg);
+}

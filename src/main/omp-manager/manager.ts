@@ -11,7 +11,8 @@ import { DEFAULT_BUILD_URL, fetchBuild, type FetchFn } from "./build-service.ts"
 import { installBuild, managedLayout, sweepOldBinaries, type ManagedLayout } from "./installer.ts";
 import { resolveOmp, type Decision, type PathScan } from "./resolve.ts";
 import { readState, writeState, takeoverKey, type OmpStudioState } from "./takeover-state.ts";
-import { compareVersions, isBelowMinimum } from "./version.ts";
+import { compareVersions } from "../../shared/omp-version.ts";
+import { isBelowMinimum } from "./version.ts";
 
 export interface UserPathAccess {
   contains(dir: string): boolean;

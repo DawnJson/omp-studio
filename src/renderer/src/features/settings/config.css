@@ -174,13 +174,20 @@
   overflow: hidden;
   font-size: var(--fs-base);
   line-height: var(--lh-base);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* 人话标签在英文里比标签列（--settings-label-w）长：最多折两行再省略，而不是在一行里被切掉（全文在 title 里） */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
 }
 
+/* key 是单个长词，保持一行省略 */
 .cfg-key-title {
+  display: block;
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cfg-control {

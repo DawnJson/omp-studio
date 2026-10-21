@@ -2,6 +2,7 @@
 // 右 任务工具（分支、评审、文件面板、终端），再往右是 titleBarOverlay 绘制的系统三键。空白处可拖动窗口。后退/前进不在顶栏（Alt+←/→、鼠标侧键）。
 import { FilesToggle } from "../features/file-preview/index.ts";
 import { GitTools } from "../features/git/index.ts";
+import { SessionMenu } from "../features/session-info/index.ts";
 import { TerminalToggle, useDraftTerminalKey } from "../features/terminal/index.ts";
 import { useT } from "../i18n/use-t.ts";
 import { InfoIcon, SidebarIcon } from "./icons.tsx";
@@ -28,6 +29,7 @@ function TaskTools() {
       {taskId !== null && <GitTools taskId={taskId} />}
       <FilesToggle panelKey={taskId ?? draftKey} />
       <TerminalToggle terminalKey={taskId ?? draftKey} />
+      {taskId !== null && <SessionMenu taskId={taskId} />}
       <span className="topbar-divider" aria-hidden="true" />
     </div>
   );

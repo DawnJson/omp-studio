@@ -38,6 +38,7 @@ import { login } from "./login.ts";
 import { shortcut } from "./shortcut.ts";
 import { ompcfg } from "./ompcfg.ts";
 import { usage } from "./usage.ts";
+import { plugins } from "./plugins.ts";
 import { review } from "./review.ts";
 import { git } from "./git.ts";
 import { lanes } from "./lanes.ts";
@@ -49,6 +50,10 @@ import { tree } from "./tree.ts";
 import { preview } from "./preview.ts";
 import { tspi } from "./tspi.ts";
 import { tsp } from "./tsp.ts";
+import { toggles } from "./toggles.ts";
+import { integrations } from "./integrations.ts";
+import { sessionInfo } from "./session-info.ts";
+import { agents } from "./agents.ts";
 
 export const en = {
   shell,
@@ -91,6 +96,7 @@ export const en = {
   shortcut,
   ompcfg,
   usage,
+  plugins,
   review,
   git,
   lanes,
@@ -102,4 +108,8 @@ export const en = {
   preview,
   tspi,
   tsp,
+  toggles,
+  integrations,
+  sessionInfo,
+  agents,
 };

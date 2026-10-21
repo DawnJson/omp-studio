@@ -1,7 +1,7 @@
 // 本会话按模型的用量（src/main/history/session-usage.ts）：范围要和 omp 的 get_session_stats 一致（当前分支、
 // 最近一次压缩保留下来的部分起），压缩过时另给整个分支的合计；别的分支、坏行不算。
 import { describe, expect, it } from "vitest";
-import { summarizeSessionUsage } from "../src/main/history/session-usage.ts";
+import { summarizeSessionUsage, totalUsage } from "../src/main/history/session-usage.ts";
 
 let seq = 0;
 const reply = (id: string, parentId: string | null, model: string, total: number, cost: number) =>
@@ -69,5 +69,30 @@ describe("summarizeSessionUsage", () => {
       reply("a2", "c1", "opus", 5, 0.05),
     ].join("\n");
     expect(summarizeSessionUsage(text).models).toMatchObject([{ total: 5 }]);
+  });
+});
+
+describe("请求数和合计（TSP 任务的 sessionUsage 用）", () => {
+  it("requests 是各模型的 assistant 消息数；totalUsage 把 token 分项和请求数相加", () => {
+    const text = [
+      user("u1", null),
+      reply("a1", "u1", "opus", 100, 1),
+      reply("a2", "a1", "haiku", 300, 0.5),
+      reply("a3", "a2", "opus", 50, 0.25),
+    ].join("\n");
+    const { models } = summarizeSessionUsage(text);
+    expect(models.map((row) => [row.modelId, row.requests])).toEqual([
+      ["haiku", 1],
+      ["opus", 2],
+    ]);
+    // reply() 里每条 input 为 1，output 为 total - 1。
+    expect(totalUsage(models)).toEqual({
+      tokens: { input: 3, output: 447, cacheRead: 0, cacheWrite: 0, total: 450 },
+      requests: 3,
+    });
+    expect(totalUsage([])).toEqual({
+      tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      requests: 0,
+    });
   });
 });

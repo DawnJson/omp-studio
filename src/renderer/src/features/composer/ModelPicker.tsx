@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
 import { usePresence, type ExitProps } from "../../ui/presence.ts";
-import type { ModelInsights, ModelKey, ModelOption, ProjectId } from "../../../../shared/ipc.ts";
+import type { ModelInsights, ModelKey, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Check } from "../../icons.tsx";
@@ -28,6 +28,7 @@ import {
   sameModel,
 } from "./model-groups.ts";
 import { SpeedToggle, type SpeedControls } from "./SpeedToggle.tsx";
+import { PresetSection } from "../session-toggles/PresetSection.tsx";
 import { ThinkingSegments } from "./ThinkingSegments.tsx";
 
 const recentKey = "omp-studio.recentModels";
@@ -57,6 +58,8 @@ export interface ModelPickerProps {
   setThinking(level: ThinkingLevel): Promise<void>;
   /** 速度开关（fast / slow，只对正在生效的模型）；没有任务的草稿里不传。 */
   speed?: SpeedControls;
+  /** 给了任务 id（任务里；草稿没有）才显示"预设"一节：应用 / 保存都是对这个任务的 `/modelpreset`。 */
+  presetTaskId?: TaskId;
   onClose(): void;
 }
 
@@ -537,6 +540,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean; closing: boo
                 )}
               </div>
               {props.speed && shownIsCurrent && <SpeedToggle speed={props.speed} />}
+              {props.presetTaskId !== undefined && <PresetSection taskId={props.presetTaskId} onApplied={onClose} />}
             </div>
           )}
           <div className="mp-actions">

@@ -11,11 +11,13 @@ import { toggleFilesPanel } from "../file-preview/index.ts";
 import { toggleTerminal } from "../terminal/index.ts";
 import { exportConversationReporting } from "../composer/export-html.ts";
 import { openSessionTree } from "../conversation/session-tree-store.ts";
+import { toggleAgentsPanel } from "../agents/agents-store.ts";
 import { openBtw } from "../btw/index.ts";
 import { goalButtons } from "../goal/goal-model.ts";
 import { runGoalOp } from "../goal/goal-actions.ts";
 import type { CommandEntry } from "../../../../shared/ui/palette-model.ts";
 import { emitStudioCommand } from "./studio-command.ts";
+import { openSessionInfo, openShareDialog, retryTask, togglePin } from "../session-info/index.ts";
 
 export interface CommandContext {
   t: TFunction;
@@ -74,20 +76,23 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
     },
     // 压缩、目标、会话树、旁路提问靠 rpc，TSP 任务用不了（omp 自己的同名命令走斜杠命令：输入 / 选取）；导出两种引擎都行。
     rpcTask && { id: "compact", label: t("cmd.compact"), run: () => emitStudioCommand("compact") },
-    ...(rpcTask
-      ? goalButtons(rpcTask.goal).map((op) => ({
+    // 目标（`/goal`）两种引擎都有：rpc 走 goal 命令，TSP 走 omp 的 `/goal pause|resume|drop`（docs/architecture/conversation.md「目标模式」）。
+    ...(current
+      ? goalButtons(current.goal).map((op) => ({
           id: `goal-${op}`,
           label: t(goalCommandKey[op]),
-          run: () => void runGoalOp(rpcTask.id, op, t),
+          run: () => void runGoalOp(current.id, op, t),
         }))
       : []),
-    rpcTask && { id: "sessionTree", label: t("cmd.sessionTree"), run: () => openSessionTree(rpcTask.id) },
+    current && { id: "sessionTree", label: t("cmd.sessionTree"), run: () => openSessionTree(current.id) },
+    // 子代理面板（右栏，TSP 任务；rpc 任务的子代理在过程行的泳道里）。
+    current?.engine === "tsp" && { id: "agents", label: t("agents.cmd"), run: () => toggleAgentsPanel(current.id) },
     current && {
       id: "exportHtml",
       label: t("cmd.exportHtml"),
       run: () => void exportConversationReporting(current.id, t),
     },
-    rpcTask && { id: "btw", label: t("cmd.btw"), run: () => openBtw(rpcTask.id) },
+    current && { id: "btw", label: t("cmd.btw"), run: () => openBtw(current.id) },
     current?.status === "running" && {
       id: "stop",
       label: t("cmd.stop"),
@@ -132,9 +137,26 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
     },
     // 更新检查、用量、快捷键清单在设置页里，直接定位到对应分节。
     { id: "usage", label: t("cmd.usage"), run: () => showView("settings", { section: "usage" }) },
+    { id: "plugins", label: t("cmd.plugins"), run: () => showView("settings", { section: "plugins" }) },
+    // MCP / SSH / 可用工具 / 记忆 / omp 更新日志的设置卡片（S5）。
+    { id: "mcp", label: t("integrations.cmd.mcp"), run: () => showView("settings", { section: "cfg:integrations" }) },
+    { id: "ssh", label: t("integrations.cmd.ssh"), run: () => showView("settings", { section: "cfg:integrations" }) },
+    { id: "tools", label: t("integrations.cmd.tools"), run: () => showView("settings", { section: "cfg:tools" }) },
+    { id: "memory", label: t("integrations.cmd.memory"), run: () => showView("settings", { section: "cfg:context" }) },
+    { id: "changelog", label: t("integrations.cmd.changelog"), run: () => showView("settings", { section: "omp" }) },
     { id: "checkUpdate", label: t("cmd.checkUpdate"), run: () => showView("settings", { section: "omp" }) },
     { id: "shortcuts", label: t("cmd.shortcuts"), run: () => showView("settings", { section: "shortcuts" }) },
     current && { id: "archive", label: t("cmd.archive"), run: () => archiveWithUndo(current.id, current.id, t) },
+    // 会话信息、请求记录、置顶、分享、重试（S3，session-info）：两种引擎都能用；分享和置顶需要任务已有会话文件，没有时对话框里说明。
+    current && { id: "sessionInfo", label: t("sessionInfo.cmd.info"), run: () => openSessionInfo(current.id, "info") },
+    current && { id: "trace", label: t("sessionInfo.cmd.trace"), run: () => openSessionInfo(current.id, "trace") },
+    current && { id: "share", label: t("sessionInfo.cmd.share"), run: () => openShareDialog(current.id) },
+    current && { id: "pin", label: t("sessionInfo.cmd.pin"), run: () => void togglePin(t, current.id) },
+    current?.status === "idle" && {
+      id: "retry",
+      label: t("sessionInfo.cmd.retry"),
+      run: () => void retryTask(t, current.id),
+    },
   ].map((entry) => entry || null);
   return entries.filter((entry): entry is CommandEntry => entry !== null);
 }

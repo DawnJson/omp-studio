@@ -3,7 +3,7 @@
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskGoal, TaskId } from "../../../../shared/ipc.ts";
 import { goalContinuationKey, goalContinuationOn } from "../../../../shared/ui/goal-continuation.ts";
-import { showView } from "../../store/index.ts";
+import { getTask, showView } from "../../store/index.ts";
 import { reportError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
 import type { GoalButton } from "./goal-model.ts";
@@ -33,16 +33,19 @@ async function noteIfAutoContinueOff(t: TFunction): Promise<void> {
   });
 }
 
+/** TSP 任务是 omp 的交互模式（`goal.continuationModes` 默认含 interactive）：目标自己推进（实测），不需要那个提示。 */
+const continuesByItself = (taskId: TaskId): boolean => getTask(taskId)?.engine === "tsp";
+
 /** `/goal <目标>`：失败时抛出（斜杠命令的约定：草稿放回输入框，错误由调用方报告）。 */
 export async function createGoal(taskId: TaskId, objective: string, t: TFunction): Promise<void> {
   await window.studio.taskGoal(taskId, "create", objective);
-  await noteIfAutoContinueOff(t);
+  if (!continuesByItself(taskId)) await noteIfAutoContinueOff(t);
 }
 
 /** 暂停 / 继续 / 放弃；失败时抛出。继续之后同样看一下自动推进是不是开着。 */
 export async function applyGoalOp(taskId: TaskId, op: GoalButton, t: TFunction): Promise<void> {
   await window.studio.taskGoal(taskId, op);
-  if (op === "resume") await noteIfAutoContinueOff(t);
+  if (op === "resume" && !continuesByItself(taskId)) await noteIfAutoContinueOff(t);
 }
 
 /** 按钮和命令面板用：失败弹 toast（omp 的原话在悬停提示里）。 */

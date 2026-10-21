@@ -12,6 +12,12 @@ import {
   type ThemePreference,
   type ProjectId,
 } from "../../shared/ipc.ts";
+import {
+  parseBuiltinCommand,
+  parseTaskCommand,
+  type BuiltinCommand,
+  type TaskCommand,
+} from "../../shared/omp-output/index.ts";
 import type { AskAnswer, ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import type { TspEvent } from "../../shared/tsp/tsp.generated.ts";
 import { getMainWindow, isAppUrl } from "../window/main-window.ts";
@@ -207,4 +213,29 @@ export function parseTspEvent(value: unknown): TspEvent {
   parseOneOf(record["ev"], "event.ev", TSP_RENDERER_EVENTS);
   if (record["sf"] !== undefined) parseString(record["sf"], "event.sf", 200);
   return record as unknown as TspEvent;
+}
+
+// ───── omp 斜杠命令（command-handlers.ts）：封闭联合类型，形状和字段在 shared/omp-output 里校验 ─────
+
+export function parseTaskCommandArg(value: unknown): TaskCommand {
+  try {
+    return parseTaskCommand(value);
+  } catch (error) {
+    throw new IpcValidationError(error instanceof Error ? error.message : String(error));
+  }
+}
+
+export function parseBuiltinCommandArg(value: unknown): BuiltinCommand {
+  try {
+    return parseBuiltinCommand(value);
+  } catch (error) {
+    throw new IpcValidationError(error instanceof Error ? error.message : String(error));
+  }
+}
+
+/** `null` = 服务进程（用户范围）；否则是项目 id（项目是否存在由 handler 查）。 */
+export function parseBuiltinScope(value: unknown): { projectId: ProjectId } | null {
+  if (value === null) return null;
+  const record = parseRecord(value, "scope");
+  return { projectId: parseProjectId(record["projectId"]) };
 }

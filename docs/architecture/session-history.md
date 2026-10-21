@@ -59,3 +59,46 @@ omp 没有"列出会话"的 RPC（wire 命令表里只有针对当前会话的 `
 
 `test/session-index.test.ts`：路径含空格和中文的临时目录；标题槽/旧格式/字符串内容；截断前缀；损坏、空、非会话文件计数；超长首条消息；缓存失效和删除；Windows 路径大小写；`resolveAgentDir`。`test/sidebar-model.test.ts`：分组排序、重名项目标签、等你确认跳转、状态点形状、模糊匹配、面板分组。
 `test/e2e/sidebar.e2e.ts`：侧栏键盘（方向键、F2、Delete、←/→）、归档撤销、命令面板，截图写到 `screenshots/sidebar-*.png`、`palette-*.png`。
+
+## 会话信息、请求记录、置顶、分享、重试（S3，2026-10-21，omp 18.12.5）
+
+界面见 `docs/design/spec.md` §4.31。代码：`src/main/session-info/`（`session-header.ts`、`session-pins.ts`、`session-stats.ts`、`share.ts`）、`src/main/ipc/session-info-handlers.ts`、`src/shared/omp-output/share.ts`、`src/shared/tsp/error-turn.ts`、`src/shared/ui/session-trace.ts`、`src/renderer/src/features/session-info/`。
+
+### 数据来源（都只读，写入只经 omp）
+
+| 要什么 | 来源 | 备注 |
+|---|---|---|
+| 会话头 | 会话文件前 32 KiB 里的 `type:"session"` 行 | 字段 id、version、timestamp、cwd、title、parentSession、additionalDirectories |
+| 置顶 | `<agentDir>/session-pins.json`（会话 id 数组） | 实测：`/pin` 在 1.5 秒内写入，tab 缩进的 JSON 数组，id 是会话头的 id；再发一次 = 取消（`[]`）。文件缺失 = 无置顶；格式不认识 = 无置顶并记 WARN |
+| 用量汇总 | `stats.db.session_rollup`（requests、started_at、ended_at、total_tokens、cost_total、unpriced、models、tool_calls）+ `messages` 的 token 分项合计 | 表结构实测自本机 omp 18.12.5 的库 |
+| 请求记录 | `stats.db.messages`（最近 500 条，`TRACE_LIMIT`）+ `tool_calls` 按 entry_id 挂上 | duration / ttft 为毫秒 |
+
+`session_file` 在库里是 omp 写库时的路径原文：先精确匹配 `path.resolve` 后的值，Windows 上没命中再不分大小写、不分斜杠方向匹配。`stats.db` **只在 `omp stats` 运行时同步**（omp-usage.md），所以对话框打开时先读现有库、同时让 omp 同步一次（`syncStatsDb`，和用量页共用，同一时间只跑一个）再重读；同步失败只提示。
+
+### IPC（`ipc.ts`，参数全部校验，路径由主进程按任务 id 查表）
+
+`getTaskSessionInfo(taskId, refresh)`、`getTaskSessionTrace(taskId, refresh)`、`getShareSettings(taskId)`（`omp config list --json` 在任务目录下读 share.*）、`shareTask(taskId, gist)`。置顶切换和重试走 S0 的 `runTaskCommand {kind:"pin"|"retry"}`。`listSessions` 的 `SessionSummary.pinned` 来自上面的置顶文件，侧栏历史会话据此排在前面（`sidebar-model.ts`）。
+
+### 置顶（`/pin`）
+
+TSP 实测：`/pin` 的 toast 是 `Session pinned to the top of the resume list.` / `Session unpinned.`（同一个 toast 节点被 `set` 换字）。studio 切换前后各读一次置顶文件，状态没变就把 omp 的原话当警告显示。
+
+### 分享（`omp share <文件> [--gist]`）
+
+**会上传**，所有者 2026-10-21 拍板：先弹确认框（服务器、是否脱敏、gist 选项）。输出格式用**本机 127.0.0.1 的假 share 服务器**实测，没有连任何真实服务器：成功退出码 0、标准输出 `Share URL: <server>/<id>#<key>`（服务器必须返回 `{"id":"<十六进制>"}`，否则 `server returned no usable id`）；失败退出码 1、标准输出空、标准错误是 Bun 堆栈加一行 `error: Share upload to … failed: …`。`parseShareOutput` 认 `Share URL:` / `Gist URL:` 标签，只接受 http(s)，认不出时 `url` 为 null、界面显示 omp 原文。**没实测**：`--gist` 的输出、截断说明行、`share.redactSecrets` 的效果。
+
+### 重试（`/retry`）
+
+实测（`fixtures/tsp/error-turn.jsonl`，无效 key → 401）：错误卡是 `omp.assistant` 里的 `card role=omp.error`（头 + `omp.error.code` 徽章 + `omp.error.message` + `omp.error.action` 的 copy-error / switch-model），**没有重试动作**；发 `/retry` 成功时**不发 toast**，直接重跑这一轮（实测又失败：旧卡被换内容，追加新的助手容器和新错误卡）。所以 TSP 的 `retry` 必须走"安静命令"（出现新 toast 才算失败，如 `Nothing to retry`）——已请 S0Infra 在 `TaskPool.runTaskCommand` 里把 `retry` 加进 `quiet` 条件。重试按钮只挂在 `trailingErrorCardId` 选出的收尾错误卡上。
+
+### TSP 任务的 `sessionUsage`
+
+omp 的 TSP 输入框卡片只给费用。token 分项和请求数由 `TspRunner.#refreshTotals` 在费用变化时从**会话文件**读（`readSessionUsage` + `totalUsage`，范围同 get_session_stats），而不是 `session_rollup`：rollup 只在 `omp stats` 运行时更新，对进行中的会话是旧的。`ModelUsage.requests`、`SessionUsage.requests?` 是新增字段。
+
+### 测试
+
+`test/session-stats.test.ts`（临时 `stats.db` 夹具，表结构抄自 omp）、`session-info-files.test.ts`（置顶、会话头）、`session-share.test.ts`（分享输出、假 omp）、`session-trace.test.ts`、`tsp-error-turn.test.ts`（逐帧回放）、`session-usage.test.ts`、`session-index.test.ts`（pinned）、`sidebar-model.test.ts`（置顶排序）。
+
+### 没做 / 没验证
+
+没有跑 e2e；没有在真实 omp 里验证 TSP `/retry` 经 `runQuietCommand` 的端到端；没有点过界面（无截图）。

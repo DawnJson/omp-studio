@@ -1,0 +1,1 @@
+✔ Installed p1 from local-mk (1.0.0)

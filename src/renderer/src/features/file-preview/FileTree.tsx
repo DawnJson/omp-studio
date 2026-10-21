@@ -13,11 +13,10 @@ import {
   type KeyboardEvent,
   type UIEvent,
 } from "react";
-import type { DirListing, TerminalKey } from "../../../../shared/ipc.ts";
+import type { DirListing, ProjectFilesTarget, TerminalKey } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { ChevronDown, ChevronRight, FileIcon, Folder } from "../../icons.tsx";
 import { reportError } from "../../ui/errors.ts";
-import { filesTarget } from "./files-target.ts";
 import { flattenTree, treeKeyAction, type NodeRow, type TreeKey, type TreeRow } from "./tree-model.ts";
 import { treeMemory } from "./tree-state.ts";
 
@@ -25,7 +24,10 @@ const overscan = 8;
 const treeKeys = new Set<string>(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "Enter", " "]);
 
 interface FileTreeProps {
-  panelKey: TerminalKey;
+  /** 数据来源（任务目录或某个额外根，主进程按目标查根）。 */
+  target: ProjectFilesTarget;
+  /** 展开状态、光标和滚动位置按它记（同一个任务的不同根各记各的）。 */
+  memoryKey: TerminalKey;
   /** 文件页正在显示：变成 true 时重新读一遍已加载的目录，并把焦点放进树。 */
   active: boolean;
   /** 刷新按钮每按一次加一。 */
@@ -35,11 +37,10 @@ interface FileTreeProps {
   onOpenFile(path: string): void;
 }
 
-export function FileTree({ panelKey, active, reload, selected, onOpenFile }: FileTreeProps) {
+export function FileTree({ target, memoryKey, active, reload, selected, onOpenFile }: FileTreeProps) {
   const t = useT();
   const idBase = useId();
-  const target = useMemo(() => filesTarget(panelKey), [panelKey]);
-  const memory = treeMemory(panelKey);
+  const memory = treeMemory(memoryKey);
   const scroller = useRef<HTMLDivElement>(null);
   const [listings, setListings] = useState<ReadonlyMap<string, DirListing>>(() => new Map());
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(memory.expanded));

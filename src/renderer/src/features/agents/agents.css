@@ -1,0 +1,175 @@
+/* 右栏的子代理面板（spec §4.28）：外框沿用文件面板（.file-preview），里面的状态点、统计、按钮沿用泳道详情（lanes.css）。只用 tokens。 */
+
+.agents-title {
+  flex: none;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-strong);
+  color: var(--text);
+}
+.agents-count {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 后台驱动 omp 的 Agent Hub 时：面板顶部一条"正在发给 X"，点不到任何操作（按钮自己 disabled） */
+.agents-driving {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.agents-driving-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--st-running);
+  animation: sb-halo var(--dur-breathe) var(--ease-in-out) infinite;
+  animation-play-state: var(--play-state);
+}
+.agents-driving-text {
+  font-weight: var(--fw-strong);
+  color: var(--text);
+}
+.agents-driving-hint {
+  flex-basis: 100%;
+  color: var(--text-3);
+}
+
+.agents-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.agents-empty,
+.agents-pick {
+  padding: var(--space-3) 0;
+}
+
+.agents-list {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.agents-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1-5) var(--space-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.agents-row .lane-dot {
+  margin-top: 6px;
+}
+.agents-row:hover {
+  background: var(--bg-hover);
+}
+.agents-row[aria-current="true"] {
+  background: var(--accent-soft);
+}
+.agents-row:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.agents-row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.agents-row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+}
+.agents-row-name {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agents-row-status {
+  flex: none;
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.agents-row-line {
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agents-chip {
+  flex: none;
+  padding: 0 var(--space-1-5);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-sm);
+}
+
+/* 详情：沿用 .lane-detail 的卡片 */
+.agents-detail {
+  flex: none;
+  margin-top: var(--space-2);
+}
+.agents-record > summary {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.agents-actions:empty {
+  display: none;
+}
+.agents-steer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.agents-steer-input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1-5) var(--space-2-5);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  resize: none;
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.agents-steer-input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -1px;
+}
+.agents-steer-input:disabled {
+  color: var(--text-3);
+}

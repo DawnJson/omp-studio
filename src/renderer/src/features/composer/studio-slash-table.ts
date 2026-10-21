@@ -10,6 +10,13 @@ import { btwSlash } from "../btw/btw-slash.ts";
 import { forkFromMessage } from "../conversation/fork-actions.ts";
 import { openSessionTree } from "../conversation/session-tree-store.ts";
 import { goalSlash } from "../goal/goal-slash.ts";
+import { dirsSlashCommands } from "../file-preview/dirs-slash.ts";
+import { pluginsSlashCommands } from "../settings/plugins-slash.ts";
+import { integrationsSlashCommands } from "../settings/integrations-slash.ts";
+import { jobsSlash } from "./jobs-slash.ts";
+import { agentsSlash } from "../agents/agents-slash.ts";
+import { sessionInfoSlashCommands } from "../session-info/session-slash.ts";
+import { toggleSlashCommands } from "../session-toggles/toggles-slash.ts";
 import { emitStudioCommand } from "../palette/studio-command.ts";
 import { archiveWithUndo } from "../sidebar/archive-store.ts";
 import { getTask, setPaletteOpen, showView } from "../../store/index.ts";
@@ -29,10 +36,13 @@ export const studioSlashCommands: readonly StudioSlashCommand[] = [
     tsp: "studio",
     run: (taskId, _args, t) => exportConversation(taskId, t),
   },
-  { ...btwSlash, tsp: "omp" },
-  { name: "tree", descKey: "slash.treeDesc", tsp: "omp", run: (taskId) => openSessionTree(taskId) },
-  { name: "fork", descKey: "slash.forkDesc", tsp: "omp", run: (taskId) => forkFromMessage(taskId, null) },
-  { ...goalSlash, tsp: "omp" },
+  // /btw：TSP 里也由 studio 接管（旁路提问面板；omp 把它画成 modal 弹窗，studio 读弹窗里的问答、不画弹窗；docs/architecture/tsp-btw.md）。
+  { ...btwSlash, tsp: "studio" },
+  // /tree、/fork：TSP 里也由 studio 接管（docs/architecture/session-tree.md）：树读会话文件，回溯驱动 omp 的 /tree，分叉用 omp --fork 起新任务。
+  { name: "tree", descKey: "slash.treeDesc", tsp: "studio", run: (taskId) => openSessionTree(taskId) },
+  { name: "fork", descKey: "slash.forkDesc", tsp: "studio", run: (taskId) => forkFromMessage(taskId, null) },
+  // /goal：TSP 里也由 studio 接管（目标条读输入框卡片上的"Goal …"行，操作发 omp 的 `/goal pause|resume|drop|<文字>`；docs/architecture/conversation.md「目标模式」）。
+  { ...goalSlash, tsp: "studio" },
   // 导航与设置：直接开 studio 的界面。
   {
     name: "new",
@@ -94,6 +104,7 @@ export const studioSlashCommands: readonly StudioSlashCommand[] = [
   {
     name: "todo",
     descKey: "slash.todoDesc",
+    tsp: "studio",
     run: (taskId, _args, t) => {
       const phases = getTask(taskId)?.todoPhases ?? [];
       if (phases.every((phase) => phase.tasks.length === 0))
@@ -101,4 +112,18 @@ export const studioSlashCommands: readonly StudioSlashCommand[] = [
       else emitStudioCommand("todo");
     },
   },
+  // 工作区目录（/add-dir）：文件面板顶部的"工作区目录"行是它的界面，命令是快捷入口（S7）。
+  ...dirsSlashCommands,
+  // 插件和市场：设置 → 插件页是它们的界面（S6）；/reload-plugins 在当前任务里重新加载。
+  ...pluginsSlashCommands,
+  // 会话开关和模型预设（/skillful /extended-context /computer /advisor /browser /prewalk /modelpreset）：输入框上的"会话开关"菜单是它们的界面（S4）。
+  ...toggleSlashCommands,
+  // 后台作业（/jobs、/jobs kill <id>|all）：输入框上方的作业弹层是它的界面（S2Jobs）。
+  jobsSlash,
+  // MCP / SSH / 工具 / 记忆 / 更新日志（/mcp /ssh /tools /memory /changelog）：设置页里对应的卡片是它们的界面（S5）。
+  ...integrationsSlashCommands,
+  // 会话信息 / 请求记录 / 置顶 / 分享 / 重试（/session /trace /pin /share /retry）：会话信息对话框、分享确认框等是它们的界面（S3）。
+  ...sessionInfoSlashCommands,
+  // 子代理面板（/hub）：右栏的子代理面板是它的界面，不弹 omp 的 Agent Hub（S1Agents）。
+  agentsSlash,
 ];

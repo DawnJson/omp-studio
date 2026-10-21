@@ -45,7 +45,12 @@ import type {
   FetchModelsOutcome,
   FetchModelsRequest,
 } from "./custom-models.ts";
+import type { BuiltinCommand, TaskCommand } from "./omp-output/index.ts";
+import type { DiscoverEntry, DoctorCheck, PluginAction, PluginConfig, PluginsSnapshot } from "./omp-output/plugins.ts";
+import type { SessionToggles } from "./omp-output/toggles.ts";
+import type { SshHost, SshHostInput, SshScope } from "./omp-output/ssh.ts";
 import type { SubagentDetail, SubagentLane } from "./subagents.ts";
+import type { AgentMessage } from "./omp-wire/rpc-wire.generated.ts";
 import type { BtwHistoryRecord, BtwUiEvent } from "./btw.ts";
 import type { DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
 import type { TspEvent } from "./tsp/tsp.generated.ts";
@@ -77,7 +82,9 @@ type Unsubscribe = () => void;
 
 /** `@` 补全和文件面板的数据来源：任务目录、新任务草稿所在的项目目录，或默认文件夹（`AppInfo.chatsDir`，主进程自己解析，不传路径）。 */
 export type ProjectFilesTarget =
-  { kind: "task"; taskId: TaskId } | { kind: "project"; projectId: ProjectId } | { kind: "defaultFolder" };
+  | { kind: "task"; taskId: TaskId; root?: number }
+  | { kind: "project"; projectId: ProjectId }
+  | { kind: "defaultFolder" };
 
 /** 文件树的一项（目录里的直接子项）；ignored = 被 .gitignore 忽略（界面调暗，不隐藏）。 */
 export interface DirEntry {
@@ -244,6 +251,8 @@ interface SessionUsage {
   /** 美元。 */
   cost: number;
   premiumRequests: number;
+  /** 模型请求数（assistant 消息数）：TSP 任务从会话文件数出来；rpc 任务没填。 */
+  requests?: number;
   /** 订阅计费的会话才有。 */
   credits?: SessionCredits;
 }
@@ -266,6 +275,8 @@ export interface ModelUsage {
   total: number;
   /** 美元。 */
   cost: number;
+  /** assistant 消息数（= 模型请求数）。 */
+  requests: number;
 }
 
 /**
@@ -327,6 +338,13 @@ export interface TaskState {
   goal: TaskGoal | null;
   /** get_state.systemPrompt / dumpTools 估出来的上下文构成（omp 不给分项数，按字符估）；omp 没给时为 null。 */
   contextParts: ContextParts | null;
+  /** 会话开关（/skillful /extended-context /computer /advisor /browser /prewalk）本会话里被命令改过的值，来自 omp 的状态 toast（omp-output/toggles.ts）；null 项 = 没动过，生效的是配置默认值。 */
+  sessionToggles: SessionToggles;
+  /**
+   * `/add-dir` 加进这个任务会话的额外工作区目录（不含任务自己的 cwd），按 omp 给的顺序；文件面板把它们当额外的根（下标 1…n，0 是 cwd）。
+   * 只来自 omp 的输出（`/dirs`、`/add-dir`、`/remove-dir`），只活在 omp 进程里：进程退出后清空。
+   */
+  workspaceDirs: readonly string[];
 }
 
 /** 目标模式的目标（omp goal 模式）：`/goal` 创建，agent 完成或用户放弃后消失。 */
@@ -404,6 +422,8 @@ export interface ForkResult {
 
 export interface BranchTaskResult {
   text: string;
+  /** 只有 TSP 任务有：这次回溯是否让 omp 给被放弃的分支写了摘要（请求了 `summarize` 且成功）。 */
+  summarized?: boolean;
 }
 
 // ───────── 对话框（extension_ui_request） ─────────
@@ -475,6 +495,17 @@ export interface TspBatch {
   messages: TspDocMessage[];
 }
 
+/** TSP 任务里一个子代理的记录（`getTspSubagentRecord`）。 */
+export interface TspSubagentRecord {
+  /** 会话文件里的消息（最近的 subagentLimits.detailMessages 条）；读不到为 null。 */
+  messages: AgentMessage[] | null;
+  truncated: boolean;
+  /** `<名字>.md`：子代理的最终输出；没有为 null。 */
+  output: string | null;
+  unavailable: "no_session" | "no_file" | "error" | null;
+  error: string | null;
+}
+
 export interface TspSnapshot {
   taskId: TaskId;
   /** 快照包含到这个序号为止的全部消息。 */
@@ -516,11 +547,113 @@ export interface SessionSummary {
   modifiedAt: number;
   /** 已经挂在某个任务上。 */
   taskId: TaskId | null;
+  /** 会话在 omp 的 `session-pins.json` 里（置顶）：侧栏历史把它排在前面。 */
+  pinned: boolean;
 }
 
 interface TaskSessionRef {
   sessionId: string;
   sessionFile: string;
+}
+
+// ───────── 会话信息、请求记录、分享（S3） ─────────
+
+/** `stats.db.session_rollup` 的一行：omp 自己汇总的本会话请求数、token、花费。 */
+export interface SessionRollup {
+  requests: number;
+  startedAt: number;
+  endedAt: number;
+  totalTokens: number;
+  /** 美元。 */
+  costUsd: number;
+  /** 没有价格的请求数（花费不含它们）。 */
+  unpriced: number;
+  /** 用过的模型 id。 */
+  models: string[];
+  toolCalls: number;
+}
+
+/** 会话文件头（`type:"session"` 那一行）里界面用得上的字段。 */
+export interface SessionHeaderInfo {
+  version: number | null;
+  /** ISO 时间。 */
+  timestamp: string | null;
+  cwd: string;
+  title: string | null;
+  parentSession: string | null;
+  additionalDirectories: string[];
+}
+
+export interface TaskSessionInfo {
+  /** 任务还没有会话文件时 sessionId / sessionFile / header 都是 null。 */
+  sessionId: string | null;
+  sessionFile: string | null;
+  header: SessionHeaderInfo | null;
+  /** 会话 id 在 `session-pins.json` 里。 */
+  pinned: boolean;
+  /** 项目目录；有 worktree 时 worktree 另给。 */
+  projectPath: string;
+  worktree: { path: string; branch: string; base: string } | null;
+  stats: {
+    /** stats.db 存在。 */
+    hasDatabase: boolean;
+    /** 库里没有这个会话（还没同步）时为 null。 */
+    rollup: SessionRollup | null;
+    /** 这个会话 messages 表里 token 的分项合计；没有行为 null。 */
+    tokens: { input: number; output: number; cacheRead: number; cacheWrite: number } | null;
+  };
+}
+
+/** 请求记录里的一次工具调用（tool_calls 表）。 */
+export interface TraceToolCall {
+  name: string;
+  isError: boolean | null;
+  argsChars: number;
+  resultChars: number | null;
+}
+
+/** 请求记录里的一次模型请求（messages 表的一行）。 */
+export interface TraceRequest {
+  entryId: string;
+  timestamp: number;
+  model: string;
+  provider: string;
+  agentType: string;
+  stopReason: string;
+  errorMessage: string | null;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  total: number;
+  costUsd: number;
+  /** 总耗时（ms）、首字耗时（ms）；omp 没记时为 null。 */
+  durationMs: number | null;
+  ttftMs: number | null;
+  serviceTier: string | null;
+  tools: TraceToolCall[];
+}
+
+export interface SessionTrace {
+  hasDatabase: boolean;
+  /** 从新到旧；最多 TRACE_LIMIT（session-stats.ts）条，更早的被截掉时 truncated 为 true。 */
+  requests: TraceRequest[];
+  truncated: boolean;
+}
+
+export interface ShareSettings {
+  serverUrl: string;
+  /** `blob`（share 服务器）或 `gist`；omp 以后可能加别的，原样给。 */
+  store: string;
+  redactSecrets: boolean;
+}
+
+export interface ShareResult {
+  /** 分享链接（`Share URL:` 行）；输出里认不出来时为 null，界面显示 text。 */
+  url: string | null;
+  gistUrl: string | null;
+  /** omp 的原始标准输出。 */
+  text: string;
 }
 
 // ───────── 登录 ─────────
@@ -836,6 +969,20 @@ export interface StudioInvokeApi {
   getTaskSessionRef(taskId: TaskId): Promise<TaskSessionRef | null>;
   /** 本会话按模型的 token 和费用：读任务的会话文件（只读）；还没有会话文件时 models 为空。 */
   getSessionModelUsage(taskId: TaskId): Promise<SessionModelUsage>;
+  /**
+   * 会话信息对话框的数据：会话文件头、置顶（只读 `<agentDir>/session-pins.json`）、`stats.db` 里的 session_rollup 汇总。
+   * `refresh` = 先让 omp 自己跑一次 `omp stats --json` 同步 stats.db 再读（stats.db 只在 omp stats 运行时同步，见 omp-usage.md）；false 直接读现有库。
+   */
+  getTaskSessionInfo(taskId: TaskId, refresh: boolean): Promise<TaskSessionInfo>;
+  /** 请求记录（/trace）：`stats.db` 的 messages + tool_calls，按时间从新到旧；`refresh` 同上。 */
+  getTaskSessionTrace(taskId: TaskId, refresh: boolean): Promise<SessionTrace>;
+  /** 分享确认框要说明的设置：`omp config list --json` 在任务目录下的 share.serverUrl / share.store / share.redactSecrets。 */
+  getShareSettings(taskId: TaskId): Promise<ShareSettings>;
+  /**
+   * 分享：`omp share <会话文件> [--gist]`，把加密快照上传到 share.serverUrl（或 gist）。**会上传会话内容**，界面必须先经确认框。
+   * 会话文件还没有时 reject；omp 非 0 退出时 reject（带 omp 的错误行）。
+   */
+  shareTask(taskId: TaskId, gist: boolean): Promise<ShareResult>;
   /** 任务当前可用的斜杠命令（get_available_commands）；`null` = 草稿页（还没有任务），用服务进程的列表。没有可用的 omp 进程时返回空数组。 */
   listSlashCommands(taskId: TaskId | null): Promise<AvailableSlashCommand[]>;
   /** 输入框草稿（文字）：key 是任务 id 或 `new:<projectId>`。主进程持久化，重启不丢。 */
@@ -843,6 +990,16 @@ export interface StudioInvokeApi {
   saveDraft(key: string, text: string): Promise<void>;
   /** 压缩上下文（RPC compact）。任务没有进程时先拉起；运行中拒绝。 */
   compactTask(taskId: TaskId): Promise<void>;
+  /**
+   * 会话级斜杠命令（native-ui-plan I1）：封闭联合类型，主进程拼命令文本，在该任务自己的 omp 里执行；返回 omp 的状态 toast / command_output 原文。
+   * 任务没有进程时先拉起；omp 报错（别的 toast）时以原文 reject。渲染进程不传自由文本。
+   */
+  runTaskCommand(taskId: TaskId, cmd: TaskCommand): Promise<{ text: string }>;
+  /**
+   * 和会话无关的内置命令（native-ui-plan I2）：scope=null 在服务进程（用户范围）执行；`{ projectId }` 在该项目目录里的短命 rpc-ui 执行。
+   * 只放行 get_available_commands 里 source 为 builtin 的命令；omp 应答 agentInvoked:true（会调模型）视为失败。
+   */
+  runBuiltin(cmd: BuiltinCommand, scope: { projectId: ProjectId } | null): Promise<{ text: string }>;
   /**
    * 导出对话为 HTML（RPC export_html）：主进程弹保存对话框（默认桌面、`<标题>-<日期>.html`）并决定路径，渲染进程不传路径。
    * 用户取消返回 null；成功返回写出的文件名。任务没有进程时先拉起。
@@ -863,10 +1020,19 @@ export interface StudioInvokeApi {
    * `get` 只读。返回操作后的目标（没有目标为 null）。omp 拒绝时（已有目标、计划模式、没有可恢复的目标…）reject，原文透传。
    */
   taskGoal(taskId: TaskId, op: GoalOp, objective?: string): Promise<TaskGoal | null>;
-  /** 用系统默认应用打开任务工作目录里的文件。relPath 相对任务 cwd，主进程校验落在 cwd 之内。 */
-  openTaskFile(taskId: TaskId, relPath: string): Promise<void>;
-  /** 在系统文件管理器里选中任务工作目录里的文件。校验同 openTaskFile。 */
-  revealTaskFile(taskId: TaskId, relPath: string): Promise<void>;
+  /**
+   * 用系统默认应用打开任务工作目录里的文件。relPath 相对根目录，主进程校验落在根之内；`root` 缺省 / 0 = 任务 cwd，
+   * 1…n = 第 n 个额外工作区目录（`TaskState.workspaceDirs`，主进程按自己记的列表取，渲染进程不传绝对路径）。
+   */
+  openTaskFile(taskId: TaskId, relPath: string, root?: number): Promise<void>;
+  /** 在系统文件管理器里选中任务根目录里的文件。校验同 openTaskFile。 */
+  revealTaskFile(taskId: TaskId, relPath: string, root?: number): Promise<void>;
+  /** 弹系统文件夹选择框（主进程），选中后在这个任务里执行 `/add-dir`；返回 omp 的输出，取消返回 null。omp 拒绝时以原文 reject。 */
+  addWorkspaceDir(taskId: TaskId): Promise<{ text: string } | null>;
+  /** 移除第 `root`（1…n，同 ProjectFilesTarget.root）个额外工作区目录：主进程按它自己记的列表取路径执行 `/remove-dir`。 */
+  removeWorkspaceDir(taskId: TaskId, root: number): Promise<{ text: string }>;
+  /** 向 omp 重新问一次 `/dirs`，更新 TaskState.workspaceDirs（任务没有进程时什么都不做，列表本来就是空的）。 */
+  refreshWorkspaceDirs(taskId: TaskId): Promise<void>;
   /** 在系统文件管理器里打开任务的工作目录（项目目录，或开了工作树时的 worktree 根）；不是会话文件所在的 ~/.omp 目录。 */
   openTaskFolder(taskId: TaskId): Promise<void>;
   /**
@@ -884,19 +1050,23 @@ export interface StudioInvokeApi {
   listProjectFiles(target: ProjectFilesTarget, query: string): Promise<string[]>;
 
   // 会话树与分叉（docs/architecture/session-tree.md）
-  /** 会话里的用户消息树（RPC get_tree）；任务没有进程时先拉起。 */
+  /** 会话里的用户消息树：rpc 任务用 get_tree（没有进程时先拉起）；TSP 任务只读会话文件（不拉起进程，还没有会话文件时 nodes 为空）。 */
   getSessionTree(taskId: TaskId): Promise<SessionTreeView>;
   /**
    * 从一条用户消息分叉出新任务（RPC branch，在原任务的进程上做完就切回原会话）：新任务的会话是这条消息之前的历史，
    * 同项目、同工作目录（worktree 任务的分叉共用同一个 worktree）。`userMessageKey` 是对话流里那条用户消息的 key，
    * null 表示最后一条用户消息。只在原任务空闲时可用，原任务的会话和对话流不变。
+   * TSP 任务：新任务用 `omp --fork=<原会话文件>` 起（omp 自己复制会话文件），在新进程里用 `/tree` 回到那条消息之前；
+   * 这时 `userMessageKey` 是会话条目 id（会话树面板的节点 `SessionTreeNode.entryId`），不是对话流 key。
    */
   forkTask(taskId: TaskId, userMessageKey: string | null): Promise<ForkResult>;
   /**
    * 就地回到树里的一个用户消息节点（RPC branch，任务改用 omp 为它新建的会话文件，原文件留在磁盘上），
    * 对话流重载为该节点之前的历史；返回那条消息的文字。只在任务空闲时可用。
+   * TSP 任务：驱动 omp 自己的 `/tree`（同一个会话文件里移动叶子，不新建文件，原来的分支留在文件里），节点树由 omp 自己重画；
+   * `summarize` 为真时让 omp 给被放弃的分支写摘要（调一次模型，写进会话文件一个 branch_summary 条目），rpc 任务忽略它。
    */
-  branchTask(taskId: TaskId, entryId: string): Promise<BranchTaskResult>;
+  branchTask(taskId: TaskId, entryId: string, summarize?: boolean): Promise<BranchTaskResult>;
 
   // 子代理泳道（阶段 5）
   /** 当前泳道快照（含已结束的）；渲染进程打开任务或重载后用它对齐，之后靠 subagents 事件。 */
@@ -910,6 +1080,16 @@ export interface StudioInvokeApi {
   steerSubagent(taskId: TaskId, subagentId: string, text: string): Promise<void>;
   /** cancel_subagent；返回 omp 说是否真的取消了（已经结束的是 false）。 */
   cancelSubagent(taskId: TaskId, subagentId: string): Promise<boolean>;
+
+  // TSP 任务的子代理面板（S1，spec §4.28）：omp 只在 Agent Hub 里提供插话 / 结束 / 恢复，主进程在后台驱动它再恢复（tasks/tsp-hub-driver.ts）。
+  /** 子代理的记录（会话文件）和最终输出（`.md`），只读 omp 存档；读不到时 `unavailable` + 原因，不抛错。 */
+  getTspSubagentRecord(taskId: TaskId, name: string): Promise<TspSubagentRecord>;
+  /** 给子代理插一句话（Hub → 聚焦 → send → 退出聚焦）；名字必须是文档里确有的子代理，文字限长 subagentLimits.steerChars。 */
+  steerTspSubagent(taskId: TaskId, name: string, text: string): Promise<void>;
+  /** 结束（kill）一个子代理；已经结束时什么也不做。 */
+  killTspSubagent(taskId: TaskId, name: string): Promise<void>;
+  /** 恢复被结束或挂起的子代理；omp 不允许时以它给的原因 reject。 */
+  reviveTspSubagent(taskId: TaskId, name: string): Promise<void>;
 
   // 旁路提问（/btw）
   /**
@@ -984,6 +1164,27 @@ export interface StudioInvokeApi {
    * 再读；false 直接读现有的库。
    */
   getUsageHeatmap(refresh: boolean): Promise<UsageHeatmap>;
+  // 插件和市场：`omp plugin …` CLI（src/main/plugins/plugin-cli.ts）。动作是封闭联合，渲染进程不传命令文本。
+  /** 已装插件（npm / link / 市场）和已配置的市场。projectId 非空时在该项目目录里读，列表里多出该项目范围的安装。 */
+  listPlugins(projectId: ProjectId | null): Promise<PluginsSnapshot>;
+  /** 某个市场里可装的插件。 */
+  discoverPlugins(marketplace: string): Promise<DiscoverEntry[]>;
+  /** npm / link 插件的设置值和设置项（市场插件没有，会 reject）。 */
+  getPluginConfig(plugin: string): Promise<PluginConfig>;
+  /**
+   * 安装 / 卸载 / 升级 / 启停 / 功能 / 设置 / 市场增删 / 诊断；text 是 omp 的结果句，doctor 时 checks 有内容。失败 reject，message 是 omp 的原话。
+   * `action.scope === "project"` 时 projectId 必须非空：主进程用项目记录里的目录当 cwd 跑 `omp plugin … --scope project`。
+   */
+  runPluginAction(
+    action: PluginAction,
+    projectId: ProjectId | null,
+  ): Promise<{ text: string; checks: DoctorCheck[] | null }>;
+  // 设置 → 集成 → SSH 主机：`omp ssh … --json`（src/main/integrations/ssh.ts）。projectId 非空时在该项目目录里跑（项目范围的主机在 `.omp/ssh.json`）。
+  /** 用户范围的主机；projectId 非空时再加上该项目的主机。 */
+  listSshHosts(projectId: ProjectId | null): Promise<SshHost[]>;
+  /** 添加一台主机；scope 为 project 时 projectId 必须非空。返回 omp 的结果句；omp 拒绝时 reject，message 是它的原话。 */
+  addSshHost(input: SshHostInput, projectId: ProjectId | null): Promise<{ text: string }>;
+  removeSshHost(name: string, scope: SshScope, projectId: ProjectId | null): Promise<{ text: string }>;
   setReduceMotion(on: boolean): Promise<void>;
   setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
   setNotifyOnGate(on: boolean): Promise<void>;
@@ -1176,10 +1377,17 @@ export const invokeNames = {
   revealTaskSession: true,
   getTaskSessionRef: true,
   getSessionModelUsage: true,
+  // 会话信息、请求记录、分享（S3，docs/architecture/session-history.md）
+  getTaskSessionInfo: true,
+  getTaskSessionTrace: true,
+  getShareSettings: true,
+  shareTask: true,
   listSlashCommands: true,
   getDrafts: true,
   saveDraft: true,
   compactTask: true,
+  runTaskCommand: true,
+  runBuiltin: true,
   exportTaskHtml: true,
   revealTaskExport: true,
   runBash: true,
@@ -1187,6 +1395,9 @@ export const invokeNames = {
   taskGoal: true,
   openTaskFile: true,
   revealTaskFile: true,
+  addWorkspaceDir: true,
+  removeWorkspaceDir: true,
+  refreshWorkspaceDirs: true,
   openTaskFolder: true,
   readPreviewFile: true,
   listDirectory: true,
@@ -1206,6 +1417,10 @@ export const invokeNames = {
   getSubagentDetail: true,
   steerSubagent: true,
   cancelSubagent: true,
+  getTspSubagentRecord: true,
+  steerTspSubagent: true,
+  killTspSubagent: true,
+  reviveTspSubagent: true,
   listModels: true,
   listLoginProviders: true,
   startLogin: true,
@@ -1234,6 +1449,13 @@ export const invokeNames = {
   resetOmpConfig: true,
   getUsageQuota: true,
   getUsageHeatmap: true,
+  listPlugins: true,
+  discoverPlugins: true,
+  getPluginConfig: true,
+  runPluginAction: true,
+  listSshHosts: true,
+  addSshHost: true,
+  removeSshHost: true,
   setReduceMotion: true,
   setEnterWhileRunning: true,
   setNotifyOnGate: true,

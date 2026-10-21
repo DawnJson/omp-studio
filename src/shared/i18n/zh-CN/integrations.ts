@@ -1,0 +1,98 @@
+import type { MessageEntry } from "../index.ts";
+
+// 设置页里 MCP 服务器、SSH 主机、可用工具、记忆、omp 更新日志这几张卡片，以及对应的斜杠命令说明（spec §4.19）。
+export const integrations = {
+  "scope.user": "用户（全局）",
+  "scope.project": "项目",
+  "field.scope": "范围",
+  add: "添加",
+  remove: "删除",
+  refresh: "刷新",
+  loading: "正在读取…",
+  loadFailed: "读取失败：{message}",
+
+  "mcp.title": "MCP 服务器",
+  "mcp.scope.desc":
+    "用户范围写进 omp 的全局 mcp.json，所有项目共用；选一个项目则在该项目目录里读写，列表同时显示用户和项目两层，每行标出来自哪一层。",
+  "mcp.empty": "还没有配置 MCP 服务器。",
+  "mcp.add": "添加服务器…",
+  "mcp.test": "测试连接",
+  "mcp.connected": "已连接，{count} 个工具",
+  "mcp.unmanageable": "名字里有空格或特殊字符：omp 的 /mcp 命令管不了这种名字，只能在配置文件里改。",
+  "mcp.note":
+    "改动写进 omp 的配置，新任务会用到；已经打开的任务要在它自己的会话里执行 /mcp reload 才会重新连接。需要 OAuth 登录或取消授权（/mcp reauth、/mcp unauth）的服务器，omp 只在终端界面里支持，这里做不了。",
+  "mcp.remove.title": "删除 MCP 服务器“{name}”？",
+  "mcp.remove.body": "会从 omp 的{scope}配置里删掉这一项，不会影响别的范围里的同名服务器。",
+  "mcp.name": "名称",
+  "mcp.name.tip": "字母、数字、点、下划线、横线，最长 100 个字符，不能有空格。",
+  "mcp.kind": "类型",
+  "mcp.kind.stdio": "本地命令",
+  "mcp.command": "命令",
+  "mcp.args": "参数",
+  "mcp.args.tip": "一行一个参数；参数里有空格也没关系，每行就是一个整体。参数里不能有双引号。",
+  "mcp.token": "令牌",
+  "mcp.token.tip": "可选。omp 会把它存成 Authorization: Bearer 请求头，写在配置文件里。",
+
+  "ssh.title": "SSH 主机",
+  "ssh.scope.desc":
+    "用户范围的主机所有项目共用；选一个项目则在该项目目录里读写（项目的 .omp/ssh.json），列表同时显示两层。",
+  "ssh.empty": "还没有配置 SSH 主机。",
+  "ssh.add": "添加主机…",
+  "ssh.remove.title": "删除 SSH 主机“{name}”？",
+  "ssh.remove.body": "只是从 omp 的配置里删掉这一项，不会连接那台机器。",
+  "ssh.name": "名称",
+  "ssh.host": "主机地址",
+  "ssh.user": "用户名",
+  "ssh.port": "端口",
+  "ssh.key": "密钥路径",
+  "ssh.key.tip": "私钥文件的路径，可选。",
+  "ssh.desc": "说明",
+  "ssh.compat": "兼容模式",
+  "ssh.compat.tip": "omp 的 --compat：给不完全兼容的远端（如某些路由器、精简系统）用。",
+
+  "tools.title": "可用工具",
+  "tools.enabled": "已启用",
+  "tools.inactive": "可用，当前没启用",
+  "tools.device": "xd 设备",
+  "tools.note":
+    "这是 omp 在不带项目时看到的全局列表：项目里的插件和 MCP 服务器提供的工具不在里面。工具的开关就是下面设置里的 <工具>.enabled；关掉后它会从 omp 的列表里消失，这里的行先保留着，点“刷新”才重读。",
+
+  "memory.title": "记忆",
+  "memory.backend": "记忆后端",
+  "memory.backend.desc": "来自设置项 memory.backend，在下面的设置里改。off 表示不用记忆。",
+  "memory.noProject": "记忆是按项目分的，先打开一个项目才能查看和整理。",
+  "memory.project": "项目",
+  "memory.project.desc": "记忆按项目目录分开存放，这里的所有操作都在所选项目的目录里执行。",
+  "memory.view": "查看",
+  "memory.op.stats": "统计",
+  "memory.op.diagnose": "诊断",
+  "memory.op.queue": "待整理",
+  "memory.op.view": "注入内容",
+  "memory.emptyOutput": "（omp 没有输出）",
+  "memory.clear": "清空",
+  "memory.clear.title": "清空这个项目的记忆？",
+  "memory.clear.body":
+    "会删除当前记忆后端为这个项目保存的数据，无法撤销。本地记忆会在下一次会话启动时由 omp 根据过去的会话重新生成。Hindsight 后端只清本地的会话状态和缓存，不会删服务器上的库。",
+  "memory.cleared": "记忆已清空",
+  "memory.note":
+    "本地记忆由 omp 在会话启动时自己生成（读过去的会话、要调模型，可能产生费用），没有手动触发的按钮：/memory sync 和 /memory rebuild 在这个启动流程之外没有可观察的效果，所以这里不提供。",
+
+  "changelog.title": "omp 更新日志",
+  "changelog.show": "显示更新日志",
+  "changelog.hint": "来自 omp 自带的 /changelog，只有英文。",
+  "changelog.all": "全部",
+  "changelog.more": "再显示 {count} 个版本",
+
+  "slash.mcp": "管理 MCP 服务器（打开设置 → 集成）",
+  "slash.ssh": "管理 SSH 主机（打开设置 → 集成）",
+  "slash.tools": "查看可用工具（打开设置 → 工具与权限）",
+  "slash.memory": "查看和整理记忆（打开设置 → 上下文与记忆）",
+  "slash.changelog": "查看 omp 更新日志（打开设置 → omp 版本）",
+  "slash.args": "这条命令的参数写法没有执行：不带参数输入它会打开设置页，增删改在页面里的卡片上做。",
+
+  "cmd.mcp": "MCP 服务器",
+  "cmd.ssh": "SSH 主机",
+  "cmd.tools": "可用工具",
+  "cmd.memory": "记忆",
+  "cmd.changelog": "omp 更新日志",
+} satisfies Record<string, MessageEntry>;

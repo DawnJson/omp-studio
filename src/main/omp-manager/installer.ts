@@ -11,7 +11,7 @@ import { pipeline } from "node:stream/promises";
 import { downloadVerified, VerifyError, type BuildInfo, type BuildPatch, type FetchFn } from "./build-service.ts";
 import { applySingleStreamPatch } from "./hpatch.ts";
 import { log } from "../log/log.ts";
-import { compareVersions } from "./version.ts";
+import { compareVersions } from "../../shared/omp-version.ts";
 
 const KEEP_VERSIONS = 3;
 

@@ -105,6 +105,7 @@ describe("buildSections", () => {
     projectId: null,
     modifiedAt: 1,
     taskId: null,
+    pinned: false,
   };
   const tasks = Array.from({ length: 7 }, (_, i) => task(`t${i}`, "p1", { title: `任务 ${i}`, updatedAt: i }));
   const base = {
@@ -158,6 +159,7 @@ describe("buildFolders / buildTimeline", () => {
     projectId: null,
     modifiedAt,
     taskId: null,
+    pinned: false,
     ...patch,
   });
   const projects = [project("p1", "C:\\work\\app", "app"), project("p2", "C:\\work\\empty", "empty")];
@@ -197,6 +199,20 @@ describe("buildFolders / buildTimeline", () => {
       ["empty", false, []],
     ]);
     expect(folders[0]?.cwd).toBe("E:/other/lib");
+  });
+
+  it("omp 置顶的历史会话排在文件夹和时间线的最前；文件夹顺序仍按最新的一行（置顶的旧会话不拉高文件夹）", () => {
+    const sessions = [past("old-pinned", "C:\\work\\app", 5, { pinned: true }), past("new", "C:\\work\\app", 60)];
+    const tasks = [task("t", "p1", { updatedAt: 50 })];
+    expect(ids(buildTimeline(input({ tasks, sessions })))).toEqual(["session:old-pinned", "session:new", "task:t"]);
+    const folders = buildFolders(
+      input({
+        tasks,
+        sessions: [...sessions, past("other", "E:/other/lib", 55)],
+      }),
+    );
+    expect(folders.map((folder) => folder.label)).toEqual(["app", "lib", "empty"]);
+    expect(ids(folders[0]!.items)).toEqual(["session:old-pinned", "session:new", "task:t"]);
   });
 
   it("默认文件夹永远排第一，不管多久没动；其余文件夹仍按最近活动；搜索时没有匹配行就不显示", () => {

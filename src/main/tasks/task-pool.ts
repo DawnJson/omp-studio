@@ -23,6 +23,7 @@ import type {
   TranscriptSnapshot,
   TspBatch,
   TspSessionExtras,
+  TspSubagentRecord,
   TspSnapshot,
   TaskEngine,
 } from "../../shared/ipc.ts";
@@ -36,6 +37,7 @@ import { stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 import { TaskRunner, TooManyTasksError, type RunnerHost } from "./task-runner.ts";
 import { TspRunner, type NewTaskDefaults, type TspRunnerHost, type TspSessionDeps } from "./tsp-runner.ts";
 import type { TaskRecord, TaskRegistry } from "./task-registry.ts";
+import { taskCommandText, type TaskCommand } from "../../shared/omp-output/index.ts";
 
 export const IDLE_RECYCLE_MS = 15 * 60_000;
 const SNAPSHOT_LRU_SIZE = 10;
@@ -138,6 +140,8 @@ export class TaskPool {
           acquireSlot: (id) => this.#acquireSlot(id),
           onState: (state) => deps.events.state(state),
           onTspBatch: (batch) => deps.events.tspBatch?.(batch),
+          onBtw: (taskId, event) => deps.events.btw?.(taskId, event),
+          onNotice: (notice) => deps.events.notice(notice),
           session: tsp.session,
           knownModel: (key) => deps.knownModel?.(key) ?? null,
           ...(deps.listModels && { listModels: () => deps.listModels!() }),
@@ -215,7 +219,7 @@ export class TaskPool {
     return runner;
   }
 
-  /** 只有 rpc 引擎的任务才有的操作（队列、btw、子代理、分叉、模型/速度开关、对话框…）：TSP 任务的这些都在 omp 画的节点里，用 TSP 事件操作。 */
+  /** 只有 rpc 引擎的任务才有的操作（队列、子代理、模型/速度开关、对话框…）：TSP 任务的这些都在 omp 画的节点里，用 TSP 事件操作（旁路提问 /btw 两种引擎都有，按引擎分发）。 */
   #rpcRunner(id: TaskId): TaskRunner {
     const runner = this.#runner(id);
     if (runner.engine !== "rpc")
@@ -365,6 +369,23 @@ export class TaskPool {
     this.#tspRunner(id).resizeTsp(cols);
   }
 
+  // 子代理面板（S1）：只有 tsp 任务；rpc 任务继续用泳道（getSubagents / steerSubagent / cancelSubagent）。
+  getTspSubagentRecord(id: TaskId, name: string): Promise<TspSubagentRecord> {
+    return this.#tspRunner(id).subagentRecord(name);
+  }
+
+  steerTspSubagent(id: TaskId, name: string, text: string): Promise<void> {
+    return this.#tspRunner(id).steerSubagent(name, text);
+  }
+
+  killTspSubagent(id: TaskId, name: string): Promise<void> {
+    return this.#tspRunner(id).killSubagent(name);
+  }
+
+  reviveTspSubagent(id: TaskId, name: string): Promise<void> {
+    return this.#tspRunner(id).reviveSubagent(name);
+  }
+
   markTaskRead(id: TaskId): void {
     this.#runner(id).markRead();
   }
@@ -389,15 +410,18 @@ export class TaskPool {
   }
 
   askBtw(id: TaskId, question: string, recordId?: string): Promise<string> {
-    return this.#rpcRunner(id).askBtw(question, recordId);
+    const runner = this.#runner(id);
+    return runner.engine === "tsp" ? runner.askBtw(question, recordId) : this.#rpcRunner(id).askBtw(question, recordId);
   }
 
   cancelBtw(id: TaskId, recordId?: string): Promise<boolean> {
-    return this.#rpcRunner(id).cancelBtw(recordId);
+    const runner = this.#runner(id);
+    return runner.engine === "tsp" ? runner.cancelBtw(recordId) : this.#rpcRunner(id).cancelBtw(recordId);
   }
 
   getBtw(id: TaskId): Promise<BtwHistoryRecord[]> {
-    return this.#rpcRunner(id).getBtw();
+    const runner = this.#runner(id);
+    return runner.engine === "tsp" ? runner.getBtw() : this.#rpcRunner(id).getBtw();
   }
 
   getSubagentDetail(id: TaskId, subagentId: string, since?: number): Promise<SubagentDetail> {
@@ -441,8 +465,33 @@ export class TaskPool {
     await (await this.#runnerForStart(id)).start();
   }
 
-  compactTask(id: TaskId): Promise<void> {
-    return this.#rpcRunner(id).compact();
+  /**
+   * 压缩上下文。rpc 任务发 `compact`（等压缩完成）；TSP 任务发 `/compact`，等 omp 画出压缩分隔（成功）或
+   * "Error: Compaction failed: …"（失败，原文抛出），见 `TspRunner.compact`。
+   */
+  async compactTask(id: TaskId): Promise<void> {
+    await this.#runner(id).compact();
+  }
+
+  /**
+   * 会话级斜杠命令（`TaskCommand` → `/命令`，渲染进程从不传文本）。工作区目录三件走 `runWorkspaceDirsCommand`（要更新状态）；
+   * `compact` 走 `compactTask`（TSP 没有 toast，看压缩分隔）；`jobsKill`、`retry` 成功时 omp 没有 toast，走 `runQuietCommand`；
+   * 其余等 omp 的状态 toast（TSP）或 `command_output`（rpc）。
+   */
+  async runTaskCommand(id: TaskId, cmd: TaskCommand): Promise<{ text: string }> {
+    if (cmd.kind === "dirs" || cmd.kind === "addDir" || cmd.kind === "removeDir")
+      return { text: await this.runWorkspaceDirsCommand(id, cmd) };
+    if (cmd.kind === "compact") {
+      await this.compactTask(id);
+      return { text: "" };
+    }
+    const runner = this.#runner(id);
+    const text = taskCommandText(cmd);
+    if (runner.engine === "tsp") {
+      const quiet = cmd.kind === "jobsKill" || cmd.kind === "retry";
+      return { text: await (quiet ? runner.runQuietCommand(text) : runner.runSessionCommand(text)) };
+    }
+    return { text: await runner.runSessionCommand(text) };
   }
 
   /** 导出对话框的默认文件名要用：任务标题（还没有标题时为空串）。任务不存在时抛错。 */
@@ -465,15 +514,19 @@ export class TaskPool {
   }
 
   getSessionTree(id: TaskId): Promise<SessionTreeView> {
-    return this.#rpcRunner(id).getSessionTree();
+    const runner = this.#runner(id);
+    return runner.engine === "tsp" ? runner.getSessionTree() : this.#rpcRunner(id).getSessionTree();
   }
 
   /**
    * 从一条用户消息分叉出新任务：原任务的进程负责 `branch` 并切回（TaskRunner.forkSession），新任务记同一个项目、
    * 同一个 cwd（worktree 任务的分叉记同一个 worktree，由 discardWorktree 保证不被一方删掉）、同样的模型和思考强度，
    * 会话文件是新建的那份。新任务不在这里占进程，而是立刻 #startInBackground（和 resume 一样后台起）；用户打开它时已就绪或恢复中。
+   * TSP 任务：`userMessageKey` 是会话条目 id（会话树面板的节点），见 #forkTspTask。
    */
   async forkTask(id: TaskId, userMessageKey: string | null): Promise<ForkResult> {
+    const source = this.#runner(id);
+    if (source.engine === "tsp") return this.#forkTspTask(source, userMessageKey);
     const runner = this.#rpcRunner(id);
     const { sessionFile, text } = await runner.forkSession(userMessageKey);
     const { projectId, title, model, thinkingLevel, worktreePath, worktreeBranch, worktreeBase } = runner.record;
@@ -496,17 +549,83 @@ export class TaskPool {
     return { task: forked.state, text };
   }
 
-  async branchTask(id: TaskId, entryId: string): Promise<BranchTaskResult> {
-    return this.#rpcRunner(id).branchInPlace(entryId);
+  /**
+   * TSP 任务的分叉（docs/architecture/session-tree.md）：`entryId` 是会话条目 id（null = 当前分支最后一条用户消息）。
+   * 新任务同项目、同 cwd（worktree 共用）、同模型；第一次起进程用 `omp --fork=<原会话文件>`（omp 自己复制出新会话文件，我们不写会话文件），
+   * 起来后在新进程里用 `/tree` 回到那条消息之前（TspRunner.rewindTo）。原任务不动。回溯失败时新任务保留（它是原会话的完整副本），错误照抛。
+   */
+  async #forkTspTask(source: TspRunner, entryId: string | null): Promise<ForkResult> {
+    const { sourceFile, entryId: target, target: known } = await source.prepareFork(entryId);
+    const { projectId, title, model, thinkingLevel, worktreePath, worktreeBranch, worktreeBase } = source.record;
+    const record = await this.#deps.registry.addTask({
+      projectId,
+      engine: "tsp",
+      sessionFile: null,
+      forkFrom: sourceFile,
+      title: title === "" ? title : (this.#deps.forkTitle?.(title) ?? title),
+      model,
+      thinkingLevel,
+      ...(worktreePath !== null &&
+        worktreeBranch !== null &&
+        worktreeBase !== null && { worktree: { path: worktreePath, branch: worktreeBranch, base: worktreeBase } }),
+    });
+    const forked = this.#adopt(record);
+    if (forked.engine !== "tsp") throw new Error("a forked TSP task must run on the TSP engine");
+    this.#deps.events.state(forked.state);
+    await forked.start();
+    const { text } = await forked.rewindTo(target, known);
+    return { task: forked.state, text };
+  }
+
+  async branchTask(id: TaskId, entryId: string, summarize = false): Promise<BranchTaskResult> {
+    const runner = this.#runner(id);
+    return runner.engine === "tsp"
+      ? runner.rewindTo(entryId, undefined, summarize)
+      : this.#rpcRunner(id).branchInPlace(entryId);
   }
 
   taskGoal(id: TaskId, op: GoalOp, objective?: string): Promise<TaskState["goal"]> {
-    return this.#rpcRunner(id).goal(op, objective);
+    const runner = this.#runner(id);
+    return runner.engine === "tsp" ? runner.goal(op, objective) : this.#rpcRunner(id).goal(op, objective);
   }
 
   /** 任务的工作目录：有 worktree 时是 worktree 根，否则是项目路径。 */
   taskCwd(id: TaskId): string {
     return this.#runner(id).cwd;
+  }
+
+  // ───── 工作区目录（`/add-dir`；S7）─────
+
+  /** 任务会话的额外工作区目录（omp 最近一次报的列表）；文件面板按下标选根时校验用。 */
+  taskWorkspaceDirs(id: TaskId): readonly string[] {
+    return this.#runner(id).workspaceDirs;
+  }
+
+  /**
+   * 在任务自己的 omp 里跑 `/dirs`、`/add-dir`、`/remove-dir` 并用输出更新 `TaskState.workspaceDirs`；返回 omp 原文。
+   * omp 拒绝（目录不存在、已在工作区…）或输出认不出来时以原文 reject，列表不变。通用的 `runTaskCommand` 遇到这三个 kind 也走这里。
+   */
+  async runWorkspaceDirsCommand(
+    id: TaskId,
+    cmd: Extract<TaskCommand, { kind: "dirs" | "addDir" | "removeDir" }>,
+  ): Promise<string> {
+    const runner = this.#runner(id);
+    const text = await runner.runSessionCommand(taskCommandText(cmd));
+    runner.applyWorkspaceDirsOutput(text);
+    return text;
+  }
+
+  /** 面板打开时对账：只问有进程的任务（没有进程时 omp 那边的列表本来就是空的）。 */
+  async refreshWorkspaceDirs(id: TaskId): Promise<void> {
+    if (!this.#runner(id).hasProcess) return;
+    await this.runWorkspaceDirsCommand(id, { kind: "dirs" });
+  }
+
+  /** 按下标（1…n，同文件面板的根下标）移除额外目录：路径取自主进程记的列表。 */
+  removeWorkspaceDirAt(id: TaskId, root: number): Promise<string> {
+    const dir = this.taskWorkspaceDirs(id)[root - 1];
+    if (dir === undefined) return Promise.reject(new Error("unknown workspace directory"));
+    return this.runWorkspaceDirsCommand(id, { kind: "removeDir", path: dir });
   }
 
   /** git 相关 IPC 要的上下文：项目路径（主仓库）、任务 cwd 和 worktree 记录。 */

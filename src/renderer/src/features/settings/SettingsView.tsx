@@ -13,15 +13,18 @@ import { AboutSection } from "./AboutSection.tsx";
 import { GeneralSection } from "./GeneralSection.tsx";
 import { ModelsSection } from "./ModelsSection.tsx";
 import { OmpConfigPane, useOmpConfigLoader } from "./OmpConfigPane.tsx";
+import { IntegrationCards } from "./IntegrationCards.tsx";
 import { OmpSection } from "./OmpSection.tsx";
+import { OmpChangelog } from "./OmpChangelog.tsx";
 import { UsageSection } from "./UsageSection.tsx";
+import { PluginsSection } from "./PluginsSection.tsx";
 import "./motion-preference.ts";
 import "./settings.css";
 import "./config.css";
 
 // 设置页只有一列分节，不按"omp-studio 的 / omp 的"分：omp 的设置和终端共用一份（omp-settings.md），按要做的事排。
 // omp 的"模型与推理"并进"模型与账号"，同一页先账号和模型、再模型相关的 omp 设置。
-type PageSection = "general" | "models" | "usage" | "omp" | "about";
+type PageSection = "general" | "models" | "usage" | "plugins" | "omp" | "about";
 type NavItem = { kind: "page"; id: PageSection } | { kind: "cfg"; group: ConfigGroup };
 const MERGED_INTO_MODELS: ConfigGroup = "models";
 const navOrder: readonly NavItem[] = [
@@ -29,6 +32,7 @@ const navOrder: readonly NavItem[] = [
   { kind: "page", id: "models" },
   ...configGroups.filter((group) => group !== MERGED_INTO_MODELS).map((group) => ({ kind: "cfg" as const, group })),
   { kind: "page", id: "usage" },
+  { kind: "page", id: "plugins" },
   { kind: "page", id: "omp" },
   { kind: "page", id: "about" },
 ];
@@ -164,7 +168,10 @@ export function SettingsView() {
             {/* 换节时 key 变，新节整体淡入上移（样式在 motion.css 末尾） */}
             <div key={searching ? "search" : section} className="settings-section">
               {searching || cfgGroup !== null ? (
-                <OmpConfigPane group={cfgGroup} query={query} />
+                <>
+                  {!searching && cfgGroup !== null && <IntegrationCards group={cfgGroup} />}
+                  <OmpConfigPane group={cfgGroup} query={query} />
+                </>
               ) : (
                 <>
                   {section === "general" && <GeneralSection />}
@@ -180,7 +187,13 @@ export function SettingsView() {
                     </>
                   )}
                   {section === "usage" && <UsageSection />}
-                  {section === "omp" && <OmpSection />}
+                  {section === "plugins" && <PluginsSection />}
+                  {section === "omp" && (
+                    <>
+                      <OmpSection />
+                      <OmpChangelog />
+                    </>
+                  )}
                   {section === "about" && <AboutSection />}
                 </>
               )}

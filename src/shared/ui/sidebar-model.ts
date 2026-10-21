@@ -60,8 +60,13 @@ export function sessionTitle(session: Pick<SessionSummary, "title" | "firstPromp
   return null;
 }
 
+/** omp 置顶（`/pin`）的历史会话排在最前，其余按最近活动；任务没有置顶信息，不受影响。 */
+function pinRank(item: SidebarItem): number {
+  return item.kind === "session" && item.session.pinned ? 0 : 1;
+}
+
 function byRecentItem(a: SidebarItem, b: SidebarItem): number {
-  return b.at - a.at || (a.kind === b.kind ? 0 : a.kind === "task" ? -1 : 1);
+  return pinRank(a) - pinRank(b) || b.at - a.at || (a.kind === b.kind ? 0 : a.kind === "task" ? -1 : 1);
 }
 
 export interface SidebarInput {
@@ -134,7 +139,7 @@ export function buildFolders(input: SidebarInput): SidebarFolder[] {
     const parent = (nameCount.get(folder.label) ?? 0) > 1 ? parentName(folder.cwd) : "";
     if (parent !== "") folder.label = `${parent}/${folder.label}`;
   }
-  const newest = (folder: SidebarFolder) => folder.items[0]?.at ?? -1;
+  const newest = (folder: SidebarFolder) => folder.items.reduce((latest, item) => Math.max(latest, item.at), -1);
   const pinned = input.defaultCwd == null ? null : folderKey(input.defaultCwd);
   const rank = (folder: SidebarFolder) => (folder.key === pinned ? 0 : 1);
   return list.sort((a, b) => rank(a) - rank(b) || newest(b) - newest(a));

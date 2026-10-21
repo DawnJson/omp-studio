@@ -4,9 +4,12 @@ import { ASK_BUTTON_ROLE, ASK_GATE_ROLE } from "../../../../../shared/tsp/ask-ga
 import type { TspPreview, TspSpace, TspText } from "../../../../../shared/tsp/tsp.generated.ts";
 import { ChevronDown } from "../../../icons.tsx";
 import { AskButtonRow, AskGateCol } from "../interactive/AskGate.tsx";
+import { ERROR_CARD_ROLE } from "../../../../../shared/tsp/error-turn.ts";
+import { RetryButton } from "../../session-info/RetryButton.tsx";
 import { Clamp } from "../Clamp.tsx";
 import { FoldCtx } from "../fold-context.ts";
-import { TspIcon, resolveIconName, toolIconName } from "../icons.tsx";
+import { resolveIconName, toolIconName } from "../icon-names.ts";
+import { TspIcon } from "../icons.tsx";
 import { labels } from "../labels.ts";
 import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
@@ -194,6 +197,7 @@ export function Card(props: NodeProps) {
         .map((id) => (
           <TspNode key={id} id={id} ctx={props.ctx} />
         ))}
+      {p.role === ERROR_CARD_ROLE && <RetryButton taskId={props.ctx.taskId} sf={props.ctx.sf} id={node.id} />}
     </div>
   );
   return (

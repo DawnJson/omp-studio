@@ -21,6 +21,7 @@ export const cmd = {
   shortcuts: "Keyboard shortcuts",
   archive: "Archive current task",
   usage: "View usage",
+  plugins: "Manage plugins and marketplaces",
   toggleTerminal: "Toggle terminal",
   exportHtml: "Export conversation as HTML…",
   btw: "Ask a side question (/btw)",

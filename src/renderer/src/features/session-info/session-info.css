@@ -1,0 +1,283 @@
+/* 会话信息、请求记录、分享对话框：居中、遮罩、只用 token。外壳行为见 DialogShell.tsx。 */
+.si-dialog {
+  display: flex;
+  flex-direction: column;
+  width: var(--dialog-w-md);
+  max-width: calc(100vw - var(--space-8));
+  max-height: calc(100vh - var(--space-8));
+  background: var(--bg-overlay);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+  animation: pop-in var(--dur-slow) var(--ease-spring);
+}
+.si-dialog[data-wide] {
+  width: min(860px, calc(100vw - var(--space-8)));
+  height: min(640px, calc(100vh - var(--space-8)));
+}
+.si-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
+}
+.si-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-lg);
+  font-weight: var(--fw-strong);
+}
+.si-tabs {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.si-tab {
+  padding: var(--space-1-5) var(--space-3);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.si-tab:hover {
+  color: var(--text);
+}
+.si-tab[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+  font-weight: var(--fw-strong);
+}
+.si-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  overflow-y: auto;
+}
+.si-dialog[data-wide] .si-body {
+  flex: 1;
+}
+.si-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+.si-note {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.si-warn {
+  margin: 0;
+  padding: var(--space-2-5) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--st-waiting-soft);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  overflow-wrap: anywhere;
+}
+.si-error {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--st-error);
+  overflow-wrap: anywhere;
+}
+
+/* 概览：两列的键值表 */
+.si-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.si-grid dt {
+  color: var(--text-3);
+}
+.si-grid dd {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.si-mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+}
+.si-link {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.si-link:hover {
+  text-decoration: underline;
+}
+.si-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+.si-section-title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-strong);
+  color: var(--text-2);
+}
+.si-pin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+}
+.si-pin-hint {
+  display: block;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.si-sync {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* 请求记录 */
+.si-trace-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.si-trace {
+  /* 表头和每行共用这一套列（子网格），ch 都按同一个字号算，中英文都对得齐。 */
+  display: grid;
+  grid-template-columns: 9ch minmax(0, 1.4fr) minmax(0, 1fr) 8ch 11ch;
+  column-gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+}
+.si-trace-head,
+.si-trace-item,
+.si-trace-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: baseline;
+}
+.si-trace-head,
+.si-trace-row {
+  padding: var(--space-1-5) 0;
+}
+.si-trace-head {
+  position: sticky;
+  top: calc(var(--space-3) * -1);
+  z-index: 1;
+  background: var(--bg-overlay);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.si-trace-item {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.si-trace-item > :not(.si-trace-row) {
+  grid-column: 1 / -1;
+}
+.si-trace-row > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.si-num {
+  font-variant-numeric: tabular-nums;
+}
+.si-stop[data-kind="error"] {
+  color: var(--st-error);
+}
+.si-details {
+  padding: 0 0 var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.si-details summary {
+  cursor: pointer;
+  width: max-content;
+}
+.si-details-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+.si-details-error {
+  color: var(--st-error);
+  overflow-wrap: anywhere;
+}
+
+/* 分享 */
+.si-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+}
+.si-check input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+.si-url {
+  display: block;
+  padding: var(--space-2) var(--space-2-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.si-pre {
+  margin: 0;
+  padding: var(--space-2) var(--space-2-5);
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* TSP 错误卡旁的重试按钮 */
+.si-retry {
+  display: flex;
+  margin-top: var(--space-2);
+}

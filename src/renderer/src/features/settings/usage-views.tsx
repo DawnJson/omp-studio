@@ -8,6 +8,7 @@ import type {
   UsageDay,
   UsageHeatmap,
 } from "../../../../shared/ipc.ts";
+import { formatQuotaReset } from "../../../../shared/ui/reset-time.ts";
 import { activityStats, leftPercent, summarizeUsage, tightestQuota } from "../../../../shared/ui/usage-summary.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { useNow } from "../sidebar/task-time.ts";
@@ -15,8 +16,6 @@ import { Segmented, type Option } from "./controls.tsx";
 import "./usage.css";
 
 export type Metric = "tokens" | "cost" | "requests";
-
-const dayMs = 24 * 60 * 60 * 1000;
 
 function parseDate(text: string): Date {
   const [y, m, d] = text.split("-").map(Number);
@@ -41,15 +40,6 @@ function compact(locale: Locale, value: number): string {
   return new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
 
-/** 重置时间：7 天内写"星期 + 时:分"，更远的写短日期。 */
-function resetText(locale: Locale, resetsAt: number, now: number): string {
-  return Math.abs(resetsAt - now) < 7 * dayMs
-    ? new Intl.DateTimeFormat(locale, { weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).format(
-        resetsAt,
-      )
-    : new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(resetsAt);
-}
-
 /** 有的 provider 把窗口写进了名字（"Claude 5 Hour"），有的没有（"Gemini" + "Weekly"）：没写进去才补。 */
 function limitName(limit: QuotaLimit): string {
   const base = limit.label || limit.id;
@@ -70,7 +60,7 @@ function QuotaLimitRow({ limit }: { limit: QuotaLimit }) {
         ? t("usage.quota.unknown")
         : t("usage.quota.left", { percent: left });
   const reset =
-    limit.resetsAt === null ? null : t("usage.quota.resets", { time: resetText(locale, limit.resetsAt, now) });
+    limit.resetsAt === null ? null : t("usage.quota.resets", { time: formatQuotaReset(locale, limit.resetsAt, now) });
   return (
     <div className="uq-limit" data-testid="usage-limit" data-status={limit.status}>
       <span className="uq-limit-name" title={name}>

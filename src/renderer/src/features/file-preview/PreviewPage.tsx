@@ -49,7 +49,9 @@ export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarg
   const taskId = target.kind === "task" ? target.taskId : null;
   const run = (action: "openTaskFile" | "revealTaskFile") => {
     if (!file || taskId === null) return;
-    window.studio[action](taskId, file.path).catch((error: unknown) => reportError(t, error));
+    window.studio[action](taskId, file.path, target.kind === "task" ? target.root : undefined).catch((error: unknown) =>
+      reportError(t, error),
+    );
   };
 
   return (

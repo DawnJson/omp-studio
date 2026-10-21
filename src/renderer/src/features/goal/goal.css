@@ -48,6 +48,9 @@
   flex: none;
   height: calc(var(--space-5) + var(--space-0-5));
   padding: 0 var(--space-2);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
   border-radius: var(--radius-pill);
   color: var(--text-2);
   font-size: var(--fs-xs);

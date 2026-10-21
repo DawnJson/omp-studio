@@ -1,0 +1,1 @@
+✘ Failed to disable p1@local-mk: Error: Plugin "p1@local-mk" is installed in both user and project scope. Use --scope user or --scope project to specify which to modify.

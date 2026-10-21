@@ -1,6 +1,7 @@
 // 样式片段的渲染（规范 Text and Code / Spans）：token 解析在 span-tokens.ts，颜色在 tsp.css 里映射到 tokens.css。
 import { Fragment, type ReactNode } from "react";
 import type { TspSpan, TspText } from "../../../../shared/tsp/tsp.generated.ts";
+import { splitUrls } from "../../../../shared/tsp/linkify.ts";
 import { openHref } from "./actions.ts";
 import { keycapLabel } from "./fmt.ts";
 import { spanTokens, cleanGlyphs } from "./span-tokens.ts";
@@ -14,6 +15,42 @@ function keyId(text: string): string | null {
   return text.split("+").map(keycapLabel).join("");
 }
 
+/** 纯文字里的 http(s) 网址画成链接（omp 的 text 节点不带 href，如 `/trace` 的地址）；没有网址就是原文。 */
+function Linkified({ text }: { text: string }) {
+  const ctx = useTspContext();
+  const pieces = splitUrls(text);
+  if (pieces === null) return <>{text}</>;
+  return (
+    <>
+      {pieces.map((piece, index) => {
+        const url = piece.url;
+        if (url === undefined) return <Fragment key={index}>{piece.text}</Fragment>;
+        const open = () => (ctx ? openHref(url, ctx) : void window.studio.openExternal(url));
+        return (
+          <a
+            key={index}
+            className="tsp-link"
+            data-href={url}
+            title={url}
+            role="link"
+            tabIndex={0}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              open();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") open();
+            }}
+          >
+            {piece.text}
+          </a>
+        );
+      })}
+    </>
+  );
+}
+
 function SpanView({ span }: { span: TspSpan }) {
   const ctx = useTspContext();
   const tokens = spanTokens(span.s);
@@ -22,7 +59,8 @@ function SpanView({ span }: { span: TspSpan }) {
   if (text === "") return null;
   const classes = tokens.map((token) => `tsp-t-${token}`);
   if (span.fx === "shimmer" || span.fx === "pulse") classes.push(`tsp-fx-${span.fx}`);
-  let content: ReactNode = text;
+  const plain = tokens.includes("path") || tokens.includes("key") || span.href !== undefined;
+  let content: ReactNode = plain ? text : <Linkified text={text} />;
   let title: string | undefined;
   if (tokens.includes("path") && text.includes("/")) {
     const cut = text.lastIndexOf("/") + 1;
@@ -74,11 +112,13 @@ function SpanView({ span }: { span: TspSpan }) {
 /** 一段文字：纯字符串，或一串带样式的片段。 */
 export function TspSpans({ text }: { text: TspText | undefined }) {
   if (text === undefined) return null;
-  if (typeof text === "string") return <>{cleanGlyphs(text)}</>;
+  if (typeof text === "string") return <Linkified text={cleanGlyphs(text)} />;
   return (
     <>
       {text.map((span, index) => (
-        <Fragment key={index}>{typeof span === "string" ? cleanGlyphs(span) : <SpanView span={span} />}</Fragment>
+        <Fragment key={index}>
+          {typeof span === "string" ? <Linkified text={cleanGlyphs(span)} /> : <SpanView span={span} />}
+        </Fragment>
       ))}
     </>
   );

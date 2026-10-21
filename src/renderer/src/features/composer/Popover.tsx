@@ -1,4 +1,6 @@
-// 自胶囊上方弹出的浮层。点外面、Esc 关闭（焦点在浮层里或在触发它的胶囊上时；Esc 消耗掉，不会再触发"停止"）；关闭后焦点回到触发器。
+// 自胶囊上方弹出的浮层。点外面、Esc 关闭；关闭后焦点回到触发器（`/todo`、`/jobs` 从输入框打开的，焦点就留在输入框）。
+// 同一时刻只开一个：新开的浮层会关掉已开的；Esc 只关最上面（最后打开）的一个，并且被消耗，不会再触发"停止"。
+// Esc 在焦点于输入框、胶囊或浮层里时都管；焦点在 aria-modal 对话框或 TSP 过程区（那里的 Esc 是写给 omp 的按键）时不管。
 // 关闭时先放退出动画再卸载（presence.ts）。
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { usePresence } from "../../ui/presence.ts";
@@ -37,9 +39,14 @@ function fitInside(el: HTMLElement): void {
   if (dx !== 0) el.style.translate = `${Math.round(dx)}px 0`;
 }
 
+/** 已打开的浮层，后开的在后面。 */
+const openStack: { close(): void }[] = [];
+
 export function Popover({ open, onClose, children, width, align = "start", label }: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
   const presence = usePresence(open);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   // 打开时和内容尺寸变化（读取中 -> 有数据）时重新摆放；translate 和进入动画的 transform 互不干扰。
   useLayoutEffect(() => {
     const el = ref.current;
@@ -59,25 +66,34 @@ export function Popover({ open, onClose, children, width, align = "start", label
   useEffect(() => {
     if (!open) return;
     const trigger = document.activeElement;
+    const entry = { close: () => onCloseRef.current() };
+    // 拷一份再遍历：close 可能同步触发别的浮层清理，从 openStack 里删掉自己。
+    for (const other of openStack.slice()) other.close();
+    openStack.push(entry);
     // 卸载时 React 先把 ref.current 清成 null 再跑清理函数，所以在这里先取。
     const root = ref.current;
     const onPointerDown = (event: PointerEvent) => {
       const anchor = ref.current?.parentElement;
-      if (event.target instanceof Node && anchor && !anchor.contains(event.target)) onClose();
+      if (event.target instanceof Node && anchor && !anchor.contains(event.target)) onCloseRef.current();
     };
-    // 捕获阶段：先于输入框的 Esc（停止）处理；焦点在胶囊和浮层之外（比如输入框）时不管，Esc 照常。
+    // 捕获阶段：先于输入框的 Esc（停止）处理；只有最上面的浮层响应。
     const onKeyDown = (event: KeyboardEvent) => {
       const anchor = ref.current?.parentElement;
-      if (event.key !== "Escape" || !anchor || !anchor.contains(document.activeElement)) return;
+      if (event.key !== "Escape" || !anchor || openStack.at(-1) !== entry) return;
+      const active = document.activeElement;
+      const away =
+        active instanceof Element && active.closest(`[aria-modal="true"], [data-testid="tsp-view"]`) !== null;
+      if (away && !anchor.contains(active)) return;
       event.preventDefault();
       event.stopPropagation();
-      onClose();
+      onCloseRef.current();
     };
     window.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("keydown", onKeyDown, true);
     return () => {
       window.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener("keydown", onKeyDown, true);
+      openStack.splice(openStack.indexOf(entry), 1);
       if (
         trigger instanceof HTMLElement &&
         trigger.isConnected &&
@@ -85,7 +101,7 @@ export function Popover({ open, onClose, children, width, align = "start", label
       )
         trigger.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
   if (!presence.mounted) return null;
   return (
     <div

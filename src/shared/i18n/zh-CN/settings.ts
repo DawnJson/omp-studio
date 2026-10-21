@@ -6,6 +6,7 @@ export const settings = {
   models: "模型与账号",
   omp: "omp 版本",
   usage: "用量",
+  plugins: "插件",
   about: "关于",
   language: "语言",
   "language.system": "跟随系统",

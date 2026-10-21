@@ -2,9 +2,10 @@
 import { stat } from "node:fs/promises";
 import { shell } from "electron";
 import type { HandlerGroup, TaskId } from "../../shared/ipc.ts";
-import { readSessionHead, SessionIndex } from "../history/session-index.ts";
+import { readSessionHead, resolveAgentDir, SessionIndex } from "../history/session-index.ts";
 import { buildSessionSummaries } from "../history/session-summaries.ts";
 import { readSessionUsage } from "../history/session-usage.ts";
+import { readSessionPins } from "../session-info/session-pins.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { parseProjectId, parseString, parseTaskId } from "./validate.ts";
 
@@ -46,7 +47,8 @@ export const historyHandlers: HandlerGroup<
     const pool = await getTaskPool();
     const wanted = projectId === null ? null : parseProjectId(projectId);
     const { sessions } = await index.scan();
-    return buildSessionSummaries(sessions, pool.listProjects(), pool.listSessionLinks(), wanted);
+    const pins = await readSessionPins(resolveAgentDir());
+    return buildSessionSummaries(sessions, pool.listProjects(), pool.listSessionLinks(), wanted, pins);
   },
 
   async resumeSession(sessionId) {

@@ -1,0 +1,11 @@
+✔ Updated features for demo-plugin
+{
+  "plugin": "demo-plugin",
+  "enabledFeatures": [
+    "extra"
+  ],
+  "availableFeatures": [
+    "extra",
+    "core"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "settings": {},
+  "schema": {
+    "greeting": {
+      "type": "string",
+      "default": "hi",
+      "description": "Greeting text"
+    },
+    "retries": {
+      "type": "number",
+      "default": 3
+    },
+    "verbose": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

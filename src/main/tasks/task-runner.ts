@@ -39,6 +39,7 @@ import type {
   SessionStats,
   ThinkingLevel,
 } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import { stripAnsi } from "../../shared/ansi.ts";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { log } from "../log/log.ts";
@@ -55,8 +56,10 @@ import { messageKey, translateBtwFrame, translateFrame } from "./translate.ts";
 import { SubagentRecord, type RecordSlice } from "./subagent-record.ts";
 import { SubagentTracker } from "./subagent-tracker.ts";
 import { NO_SESSION_EXTRAS, sessionExtras, type SessionExtras } from "./session-extras.ts";
+import { NO_SESSION_TOGGLES } from "../../shared/omp-output/toggles.ts";
 import { sameGoal, toTaskGoal } from "./goal-state.ts";
 import { buildSessionTree, locateUserEntry } from "./session-tree.ts";
+import { WorkspaceDirs } from "./workspace-dirs.ts";
 
 /** rpc.md：入站帧应控制在 `maxFrameBytes`（默认 1 MiB）内，prompt 不分块。 */
 const DEFAULT_MAX_FRAME_BYTES = 1024 * 1024;
@@ -140,6 +143,8 @@ export class TaskRunner {
   #queue: TaskState["queue"] = { steering: [], followUp: [] };
   #todoPhases: TaskState["todoPhases"] = [];
   #extras: SessionExtras = NO_SESSION_EXTRAS;
+  /** `/add-dir` 的额外工作区目录（只来自 omp 的输出，进程退出清空）。 */
+  #workspace = new WorkspaceDirs();
   /** get_state.goal / goal_updated 的目标。goal_updated 每到一次 #goalSeq 加一，进行中的 get_state 应答据此判断自己是否已过期。 */
   #goal: TaskState["goal"] = null;
   #goalSeq = 0;
@@ -264,9 +269,12 @@ export class TaskRunner {
       queue: this.#queue,
       todoPhases: this.#todoPhases,
       ...this.#extras,
+      // rpc 任务不读 omp 的开关状态（rpc 引擎下一轮删除）；会话开关菜单在 rpc 任务里按配置默认值显示。
+      sessionToggles: NO_SESSION_TOGGLES,
       goal: this.#goal,
       dialogs: m.dialogs,
       runningSubagents: this.#tracker.runningCount,
+      workspaceDirs: this.#workspace.dirs,
       cwd: this.cwd,
       runStartedAt: m.working ? this.#runStartedAt : null,
     };
@@ -454,6 +462,7 @@ export class TaskRunner {
     const interrupted = interruptBtw(this.#btw, Date.now());
     if (interrupted !== this.#btw) this.#setBtw({ type: "records", records: [...interrupted] });
     this.#records.clear();
+    this.#workspace.reset();
     this.#queue = { steering: [], followUp: [] };
     if (this.#closing) {
       this.#apply({ type: "stopped" });
@@ -925,6 +934,43 @@ export class TaskRunner {
       await connection.request("compact", {});
       await this.#refreshState();
     });
+  }
+
+  /**
+   * 会话级斜杠命令（`TaskCommand` 拼出的文本）：发 `prompt`，收集应答之前的 `command_output` 文本返回（不进对话流）。
+   * 应答 `agentInvoked: true` 说明 omp 把它当成了普通消息发给模型（命令名不是内置命令）：已经晚了，按失败处理并报出来。
+   * 应答 `success: false` 以 omp 的原文 reject。
+   */
+  runSessionCommand(text: string): Promise<string> {
+    return this.#tracked(async () => {
+      await this.#awaitSessionIdle();
+      const connection = await this.#live();
+      const output: string[] = [];
+      const stop = connection.onFrame((frame) => {
+        if (frame.type === "command_output") output.push(stripAnsi(frame.text));
+      });
+      // 在途期间 omp 推的 notice / command_output 不进对话流（同 #speedCall）。
+      this.#speedCalls++;
+      try {
+        const ack = await connection.request("prompt", { message: text });
+        if (ack?.agentInvoked !== false)
+          throw new Error(`omp treated ${text} as a message to the model, not a command`);
+      } finally {
+        this.#speedCalls--;
+        stop();
+      }
+      await this.#refreshState();
+      return output.join("\n");
+    });
+  }
+
+  get workspaceDirs(): readonly string[] {
+    return this.#workspace.dirs;
+  }
+
+  /** `/dirs`、`/add-dir`、`/remove-dir` 的输出 → 额外工作区目录（omp 拒绝或输出认不出来时以原文抛错）；有变化就发布状态。 */
+  applyWorkspaceDirsOutput(text: string): void {
+    if (this.#workspace.apply(text)) this.#publish(false);
   }
 
   /**

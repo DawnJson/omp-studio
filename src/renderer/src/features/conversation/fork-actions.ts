@@ -27,7 +27,10 @@ export function useForkPending(taskId: TaskId): boolean {
   );
 }
 
-/** `userMessageKey` 为 null 时从最后一条用户消息分叉。分叉出的新任务被选中，输入框里是那条消息的文字。 */
+/**
+ * `userMessageKey` 为 null 时从最后一条用户消息分叉。分叉出的新任务被选中，输入框里是那条消息的文字。
+ * rpc 任务传对话流里那条用户消息的 key；TSP 任务传会话条目 id（会话树面板的 `SessionTreeNode.entryId`，没有对话流 key）。
+ */
 export async function forkFromMessage(taskId: TaskId, userMessageKey: string | null): Promise<void> {
   setPending(taskId, true);
   try {
@@ -52,7 +55,7 @@ export async function forkFromMessageReporting(
 }
 
 /** 就地回到树里的一个节点：对话流由主进程重推，这里只把那条消息的文字放回输入框。 */
-export async function branchToNode(taskId: TaskId, entryId: string): Promise<void> {
-  const { text } = await window.studio.branchTask(taskId, entryId);
+export async function branchToNode(taskId: TaskId, entryId: string, summarize = false): Promise<void> {
+  const { text } = await window.studio.branchTask(taskId, entryId, summarize);
   appendToDraft(taskId, [text]);
 }

@@ -26,6 +26,11 @@ export interface TaskRecord {
   /** worktree 的分支（studio/<slug>）和创建时所在的基分支；合并回哪里以它为准。 */
   worktreeBranch: string | null;
   worktreeBase: string | null;
+  /**
+   * TSP 分叉出来的任务（TaskPool.forkTask）：第一次起进程时用 `omp --fork=<这个会话文件>`，omp 复制它建出自己的新会话文件；
+   * 新文件的路径一落盘（TspRunner.#persistSessionFile）就记进 sessionFile 并清掉本字段，之后一律 `--resume`。没有则不写这个字段。
+   */
+  forkFrom?: string | null;
 }
 
 interface TasksFile {

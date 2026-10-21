@@ -1,0 +1,786 @@
+{"t":1792607265651,"dir":"out","verb":"o","body":{"id":"s:1","mode":"inline","title":"omp","role":"omp.session"}}
+{"t":1792607265653,"dir":"out","verb":"t","body":{"sf":"s:1","name":{"dark":"titanium","light":"light"},"dark":{"accent":"#00b4ff","border":"#2a3038","borderAccent":"#00b4ff","borderMuted":"#1f252d","success":"#00ff88","error":"#ff4757","warning":"#ffb347","muted":"#9ca3b0","dim":"#6b7280","thinkingText":"#9ca3b0","selectedBg":"#0082b3","userMessageBg":"#0f1216","customMessageBg":"#2a3038","customMessageLabel":"#d4c090","toolPendingBg":"#0f1216","toolSuccessBg":"#0f1216","toolErrorBg":"#1a0f10","toolOutput":"#9ca3b0","mdHeading":"#00b4ff","mdLink":"#00b4ff","mdLinkUrl":"#0082b3","mdCode":"#00ff88","mdCodeBlock":"#9ca3b0","mdCodeBlockBorder":"#2a3038","mdQuote":"#9ca3b0","mdQuoteBorder":"#2a3038","mdHr":"#2a3038","mdListBullet":"#00b4ff","toolDiffAdded":"#00ff88","toolDiffRemoved":"#ff4757","toolDiffContext":"#9ca3b0","syntaxComment":"#6b7280","syntaxKeyword":"#00b4ff","syntaxFunction":"#00ff88","syntaxVariable":"#e8ecf4","syntaxString":"#d4c090","syntaxNumber":"#ffb347","syntaxType":"#00b4ff","syntaxOperator":"#00b4ff","syntaxPunctuation":"#9ca3b0","thinkingOff":"#4a5058","thinkingMinimal":"#5a6068","thinkingLow":"#6a7078","thinkingMedium":"#9ca3b0","thinkingHigh":"#00b4ff","thinkingXhigh":"#d4c090","bashMode":"#00ff88","statusLineBg":"#0f1216","statusLineSep":"#2a3038","statusLineModel":"#00b4ff","statusLinePath":"#e8ecf4","statusLineGitClean":"#00ff88","statusLineGitDirty":"#ffb347","statusLineContext":"#9ca3b0","statusLineSpend":"#d4c090","statusLineStaged":"#00ff88","statusLineDirty":"#ffb347","statusLineUntracked":"#9ca3b0","statusLineOutput":"#0082b3","statusLineCost":"#d4c090","statusLineSubagents":"#00b4ff","pythonMode":"#f0c040","pageBg":"#151820","cardBg":"#0f1216","infoBg":"#2a3038"},"light":{"accent":"#5a8080","border":"#547da7","borderAccent":"#5a8080","borderMuted":"#b0b0b0","success":"#588458","error":"#aa5555","warning":"#9a7326","muted":"#6c6c6c","dim":"#767676","thinkingText":"#6c6c6c","selectedBg":"#d0d0e0","userMessageBg":"#e8e8e8","customMessageBg":"#ede7f6","customMessageLabel":"#7e57c2","toolPendingBg":"#e8e8f0","toolSuccessBg":"#e8f0e8","toolErrorBg":"#f0e8e8","toolOutput":"#6c6c6c","mdHeading":"#9a7326","mdLink":"#547da7","mdLinkUrl":"#767676","mdCode":"#5a8080","mdCodeBlock":"#588458","mdCodeBlockBorder":"#6c6c6c","mdQuote":"#6c6c6c","mdQuoteBorder":"#6c6c6c","mdHr":"#6c6c6c","mdListBullet":"#588458","toolDiffAdded":"#588458","toolDiffRemoved":"#aa5555","toolDiffContext":"#6c6c6c","syntaxComment":"#008000","syntaxKeyword":"#0000FF","syntaxFunction":"#795E26","syntaxVariable":"#001080","syntaxString":"#A31515","syntaxNumber":"#098658","syntaxType":"#267F99","syntaxOperator":"#000000","syntaxPunctuation":"#000000","thinkingOff":"#b0b0b0","thinkingMinimal":"#767676","thinkingLow":"#547da7","thinkingMedium":"#5a8080","thinkingHigh":"#875f87","thinkingXhigh":"#8b008b","bashMode":"#588458","statusLineBg":"#e0e0e0","statusLineSep":"#808080","statusLineModel":"#875f87","statusLinePath":"#005f87","statusLineGitClean":"#005f00","statusLineGitDirty":"#af5f00","statusLineContext":"#5f5f87","statusLineSpend":"#005f5f","statusLineStaged":"#008700","statusLineDirty":"#af8700","statusLineUntracked":"#0087af","statusLineOutput":"#af5faf","statusLineCost":"#af5faf","statusLineSubagents":"#5a8080","pythonMode":"#9a7326","pageBg":"#f8f8f8","cardBg":"#ffffff","infoBg":"#fffae6"}}}
+{"t":1792607265672,"dir":"out","verb":"f","body":{"sf":"s:1","s":1,"ops":[["add","main","s:1",null,{"id":"main","k":"col"}],["add","dock","s:1",null,{"id":"dock","k":"col"}],["add","layer","s:1",null,{"id":"layer","k":"col"}],["add","0","main",null,{"id":"0","k":"spacer","p":{"size":"sm"}}],["add","1","main",null,{"id":"1","k":"card","p":{"role":"omp.welcome"},"c":[{"id":"1.lockup","k":"row","p":{"align":"center","gap":"md","role":"omp.welcome.lockup"},"c":[{"id":"1.lockup/logo","k":"image","p":{"builtin":"omp","alt":"omp","w":128,"role":"omp.welcome.logo"}},{"id":"1.lockup/mark","k":"col","p":{"role":"omp.welcome.mark"},"c":[{"id":"1.lockup/mark/omp.welcome.wordmark","k":"text","p":{"wrap":"none","role":"omp.welcome.wordmark","spans":[{"t":"omp","s":"strong"}]}},{"id":"1.lockup/mark/omp.welcome.version","k":"text","p":{"wrap":"none","role":"omp.welcome.version","spans":[{"t":"v18.12.5","s":"dim mono"}]}}]}]},{"id":"1.tip","k":"row","p":{"gap":"sm","align":"start","role":"omp.welcome.tip"},"c":[{"id":"1.tip/0","k":"icon","p":{"name":"lightbulb","role":"omp.welcome.tip-icon"}},{"id":"1.tip/1","k":"text","p":{"wrap":"word","role":"omp.welcome.tip-text","text":"Need a cheap nested model call? Use `completion(x...)`. Have a big batch of tasks? Ask clanker to use it!"}}]}]}],["add","2","main",null,{"id":"2","k":"spacer","p":{"size":"sm"}}],["add","3","dock",null,{"id":"3","k":"row","p":{"role":"omp.hud","justify":"end","hidden":true}}],["add","4","dock",null,{"id":"4","k":"col"}],["add","5","dock",null,{"id":"5","k":"col"}],["add","6","dock",null,{"id":"6","k":"col"}],["add","7","dock",null,{"id":"7","k":"col"}],["add","8","dock",null,{"id":"8","k":"col"}],["add","9","dock",null,{"id":"9","k":"col"}],["add","a","dock",null,{"id":"a","k":"col","c":[{"id":"g","k":"col","p":{"role":"omp.hud.judge"}},{"id":"h","k":"col","p":{"role":"omp.hud.downloads"}}]}],["add","b","dock",null,{"id":"b","k":"col"}],["add","c","dock",null,{"id":"c","k":"col"}],["add","d","dock",null,{"id":"d","k":"col","c":[{"id":"i","k":"col"}]}],["add","e","dock",null,{"id":"e","k":"col","c":[{"id":"j","k":"col","p":{"role":"omp.editor"},"c":[{"id":"j.context","k":"meter","p":{"role":"omp.composer.context","value":0.007946,"style":"bar","thresholds":{"warn":0.15,"bad":0.5},"marks":[{"at":0.818,"icon":"context.speculation","title":"Compaction summary starts at 82%"},{"at":0.85,"icon":"context.compaction","title":"Auto-compact at 85%"}],"label":"1%","total":"1M","title":"Context 1% used\n7.9K of 1M tokens\nAuto-compact at 85%","actions":{"click":"status.context"}}},{"id":"k","k":"row","p":{"gap":"sm","wrap":true,"role":"omp.composer.chips","hidden":true}},{"id":"j.line","k":"row","p":{"role":"omp.composer.line","align":"start","gap":"sm"},"c":[{"id":"j.line/input","k":"editor","p":{"text":"","cursor":0,"sendable":false,"placeholder":"What are we cooking?","maxLines":18}}]},{"id":"j.bar","k":"row","p":{"role":"omp.composer.bar","gap":"sm","align":"center"},"c":[{"id":"j.bar/model","k":"row","p":{"role":"omp.composer.model","gap":"xs","align":"center","title":"Switch model  Alt+P","actions":{"click":"status.model"}},"c":[{"id":"j.bar/model/effort","k":"effort","p":{"level":"high","role":"omp.composer.model.effort","title":"Thinking effort: high  ⇧⇥","actions":{"click":"thinking.cycle"}}},{"id":"j.bar/model/name","k":"text","p":{"spans":[{"t":"DeepSeek V4 Flash","s":"statusLineModel"}],"wrap":"none"}},{"id":"j.bar/model/chev","k":"icon","p":{"name":"chev"}}]},{"id":"j.bar/extras","k":"status","p":{"role":"omp.composer.extras","transparent":true,"grow":1}},{"id":"j.bar/usage","k":"text","p":{"role":"omp.composer.usage","text":"$0.00 ↓","wrap":"none","title":"Session cost $0.00 ↓","actions":{"click":"status.cost"}}},{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}]}]}]}],["add","f","dock",null,{"id":"f","k":"col"}],["focus","j.line/input"]]}}
+{"t":1792607265684,"dir":"out","verb":"f","body":{"sf":"s:1","s":2,"ops":[["add","l","d",null,{"id":"l","k":"col"}],["del","i"]]}}
+{"t":1792607265708,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":1}}
+{"t":1792607265708,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":2}}
+{"t":1792607276053,"dir":"out","verb":"x","body":{"id":"s:2","keep":false}}
+{"t":1792607276057,"dir":"out","verb":"f","body":{"sf":"s:1","s":3,"ops":[["add","y","main","1",{"id":"y","k":"spacer","p":{"size":"sm"}}],["add","z","main",null,{"id":"z","k":"spacer","p":{"size":"sm"}}],["set","j.line/input",{"sendable":true}],["del","0"],["del","2"]]}}
+{"t":1792607276059,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":3}}
+{"t":1792607276237,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"Write about 350 words on the history of bridges. No tools."}}
+{"t":1792607276241,"dir":"out","verb":"f","body":{"sf":"s:1","s":4,"ops":[["add","10","main",null,{"id":"10","k":"card","p":{"role":"omp.user","tone":"user"},"c":[{"id":"10.tools","k":"row","p":{"gap":"xs","align":"center","role":"omp.user.tools"},"c":[{"id":"10.tools/copy","k":"icon","p":{"name":"copy","role":"omp.user.tool","title":"Copy message","aria":"Copy message","actions":{"click":"copy-message"}}},{"id":"10.tools/rewind","k":"icon","p":{"name":"rewind","role":"omp.user.tool","title":"Rewind the conversation to an earlier message","aria":"Rewind","actions":{"click":"rewind"}}},{"id":"10.tools/dot","k":"text","p":{"text":"·"}},{"id":"10.tools/3","k":"text","p":{"role":"omp.user.time","title":"2026/10/21 18:27:56","spans":[{"t":"18:27","s":"dim mono"}]}}]},{"id":"10.1","k":"md","p":{"text":"Write about 350 words on the history of bridges. No tools."}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"row","p":{"role":"omp.hud.activity","align":"center","gap":"sm"},"c":[{"id":"b.status","k":"col","p":{"role":"omp.hud.status"},"c":[{"id":"11","k":"row","p":{"role":"omp.working","align":"center","gap":"sm"},"c":[{"id":"11.spinner","k":"spinner","p":{"style":"starburst","tone":"accent"}},{"id":"11.elapsed","k":"elapsed","p":{"age":1,"format":"short"}},{"id":"11.sep","k":"text","p":{"text":"·","role":"omp.working.sep"}},{"id":"11.label","k":"shimmer","p":{"spans":[{"t":"Working…","s":"muted"}],"mode":"classic","palette":{"low":"dim","mid":"muted","high":"accent"},"role":"omp.working.label"}},{"id":"11.fill","k":"row","p":{"grow":1}},{"id":"11.stop","k":"row","p":{"role":"omp.working.stop","gap":"xs","align":"center","title":"Stop  esc","actions":{"click":"interrupt"}},"c":[{"id":"11.stop/0","k":"kbd","p":{"keys":["escape"]}},{"id":"11.stop/1","k":"text","p":{"text":"Stop"}}]}]}]}]}],["set","j",{"tone":"pending"}],["add","j.bar/stop","j.bar",null,{"id":"j.bar/stop","k":"text","p":{"role":"omp.composer.stop","text":"Stop","tone":"error","title":"Stop  esc","actions":{"click":"interrupt"}}}],["del","j.bar/send"],["settle","10"]]}}
+{"t":1792607276246,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":4}}
+{"t":1792607276253,"dir":"out","verb":"f","body":{"sf":"s:1","s":5,"ops":[["set","j.context",{"value":0.00796,"title":"Context 1% used\n8K of 1M tokens\nAuto-compact at 85%"}]]}}
+{"t":1792607276256,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":5}}
+{"t":1792607277330,"dir":"out","verb":"f","body":{"sf":"s:1","s":6,"ops":[["add","12","main",null,{"id":"12","k":"col","p":{"role":"omp.assistant"}}]]}}
+{"t":1792607277332,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":6}}
+{"t":1792607277364,"dir":"out","verb":"f","body":{"sf":"s:1","s":7,"ops":[["add","12.k0","12",null,{"id":"12.k0","k":"section","p":{"role":"omp.thinking.live","collapsible":true,"collapsed":false,"head":"12.k0/head"},"c":[{"id":"12.k0/head","k":"row","p":{"gap":"sm"},"c":[{"id":"12.k0/head/0","k":"spinner","p":{"style":"starburst","role":"omp.thinking.spin"}},{"id":"12.k0/head/1","k":"text","p":{"spans":[{"t":"Thinking…","s":"muted"}]}},{"id":"12.k0/head/2","k":"elapsed","p":{"age":0,"format":"short"}}]},{"id":"12.k0/body","k":"md","p":{"text":"The","stream":true}}]}]]}}
+{"t":1792607277367,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":7}}
+{"t":1792607277397,"dir":"out","verb":"f","body":{"sf":"s:1","s":8,"ops":[["set","12.k0/head/2",{"age":33}]]}}
+{"t":1792607277398,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":8}}
+{"t":1792607277501,"dir":"out","verb":"f","body":{"sf":"s:1","s":9,"ops":[["set","12.k0/head/2",{"age":137}],["text","12.k0/body","append"," user wants"]]}}
+{"t":1792607277503,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":9}}
+{"t":1792607277534,"dir":"out","verb":"f","body":{"sf":"s:1","s":10,"ops":[["set","12.k0/head/2",{"age":170}],["text","12.k0/body","append"," ~350 words on t"]]}}
+{"t":1792607277537,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":10}}
+{"t":1792607277568,"dir":"out","verb":"f","body":{"sf":"s:1","s":11,"ops":[["set","12.k0/head/2",{"age":204}],["text","12.k0/body","append","he history of br"]]}}
+{"t":1792607277570,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":11}}
+{"t":1792607277602,"dir":"out","verb":"f","body":{"sf":"s:1","s":12,"ops":[["set","12.k0/head/2",{"age":237}],["text","12.k0/body","append","idges, no tool"]]}}
+{"t":1792607277604,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":12}}
+{"t":1792607277634,"dir":"out","verb":"f","body":{"sf":"s:1","s":13,"ops":[["set","12.k0/head/2",{"age":270}],["text","12.k0/body","append","s. Just write. I sh"]]}}
+{"t":1792607277636,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":13}}
+{"t":1792607277668,"dir":"out","verb":"f","body":{"sf":"s:1","s":14,"ops":[["set","12.k0/head/2",{"age":304}],["text","12.k0/body","append","ould follow style:"]]}}
+{"t":1792607277670,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":14}}
+{"t":1792607277702,"dir":"out","verb":"f","body":{"sf":"s:1","s":15,"ops":[["set","12.k0/head/2",{"age":338}],["text","12.k0/body","append"," terse, factual. But this"]]}}
+{"t":1792607277704,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":15}}
+{"t":1792607277735,"dir":"out","verb":"f","body":{"sf":"s:1","s":16,"ops":[["set","12.k0/head/2",{"age":371}],["text","12.k0/body","append"," is a prose request —"]]}}
+{"t":1792607277737,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":16}}
+{"t":1792607277769,"dir":"out","verb":"f","body":{"sf":"s:1","s":17,"ops":[["set","12.k0/head/2",{"age":405}],["text","12.k0/body","append"," factual essay. No to"]]}}
+{"t":1792607277771,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":17}}
+{"t":1792607277802,"dir":"out","verb":"f","body":{"sf":"s:1","s":18,"ops":[["set","12.k0/head/2",{"age":438}],["text","12.k0/body","append","ols. Emoji reaction allo"]]}}
+{"t":1792607277804,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":18}}
+{"t":1792607277837,"dir":"out","verb":"f","body":{"sf":"s:1","s":19,"ops":[["set","12.k0/head/2",{"age":473}],["text","12.k0/body","append","wed at start when chat"]]}}
+{"t":1792607277839,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":19}}
+{"t":1792607277870,"dir":"out","verb":"f","body":{"sf":"s:1","s":20,"ops":[["set","12.k0/head/2",{"age":506}],["text","12.k0/body","append","ting, but this is a wr"]]}}
+{"t":1792607277873,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":20}}
+{"t":1792607277905,"dir":"out","verb":"f","body":{"sf":"s:1","s":21,"ops":[["set","12.k0/head/2",{"age":541}],["text","12.k0/body","append","iting task; probably s"]]}}
+{"t":1792607277908,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":21}}
+{"t":1792607277938,"dir":"out","verb":"f","body":{"sf":"s:1","s":22,"ops":[["set","12.k0/head/2",{"age":574}],["text","12.k0/body","append","kip emoji or maybe"]]}}
+{"t":1792607277940,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":22}}
+{"t":1792607277972,"dir":"out","verb":"f","body":{"sf":"s:1","s":23,"ops":[["set","12.k0/head/2",{"age":608}],["text","12.k0/body","append"," one. Keep to ~350"]]}}
+{"t":1792607277975,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":23}}
+{"t":1792607278005,"dir":"out","verb":"f","body":{"sf":"s:1","s":24,"ops":[["set","12.k0/head/2",{"age":641}],["text","12.k0/body","append"," words.\n\nWrite wit"]]}}
+{"t":1792607278007,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":24}}
+{"t":1792607278039,"dir":"out","verb":"f","body":{"sf":"s:1","s":25,"ops":[["set","12.k0/head/2",{"age":674}],["text","12.k0/body","append","h concrete facts"]]}}
+{"t":1792607278041,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":25}}
+{"t":1792607278073,"dir":"out","verb":"f","body":{"sf":"s:1","s":26,"ops":[["set","12.k0/head/2",{"age":709}],["text","12.k0/body","append",": natural arch"]]}}
+{"t":1792607278075,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":26}}
+{"t":1792607278107,"dir":"out","verb":"f","body":{"sf":"s:1","s":27,"ops":[["set","12.k0/head/2",{"age":743}],["text","12.k0/body","append"," bridges, stone"]]}}
+{"t":1792607278110,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":27}}
+{"t":1792607278139,"dir":"out","verb":"f","body":{"sf":"s:1","s":28,"ops":[["set","12.k0/head/2",{"age":775}],["text","12.k0/body","append"," arch, Roman b"]]}}
+{"t":1792607278142,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":28}}
+{"t":1792607278174,"dir":"out","verb":"f","body":{"sf":"s:1","s":29,"ops":[["set","12.k0/head/2",{"age":810}],["text","12.k0/body","append","ridges (Pons"]]}}
+{"t":1792607278176,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":29}}
+{"t":1792607278208,"dir":"out","verb":"f","body":{"sf":"s:1","s":30,"ops":[["set","12.k0/head/2",{"age":843}],["text","12.k0/body","append"," Fabricius 62"]]}}
+{"t":1792607278210,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":30}}
+{"t":1792607278241,"dir":"out","verb":"f","body":{"sf":"s:1","s":31,"ops":[["set","12.k0/head/2",{"age":877}],["text","12.k0/body","append"," BC, Pont du G"]]}}
+{"t":1792607278243,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":31}}
+{"t":1792607278274,"dir":"out","verb":"f","body":{"sf":"s:1","s":32,"ops":[["set","12.k0/head/2",{"age":910}],["text","12.k0/body","append","ard), Alcantar"]]}}
+{"t":1792607278276,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":32}}
+{"t":1792607278309,"dir":"out","verb":"f","body":{"sf":"s:1","s":33,"ops":[["set","12.k0/head/2",{"age":944}],["text","12.k0/body","append","a, Anji bridge"]]}}
+{"t":1792607278310,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":33}}
+{"t":1792607278342,"dir":"out","verb":"f","body":{"sf":"s:1","s":34,"ops":[["set","12.k0/head/2",{"age":978}],["text","12.k0/body","append"," (Zhaozhou, 605 A"]]}}
+{"t":1792607278344,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":34}}
+{"t":1792607278375,"dir":"out","verb":"f","body":{"sf":"s:1","s":35,"ops":[["set","12.k0/head/2",{"age":1011}],["text","12.k0/body","append","D, Li Chun, ope"]]}}
+{"t":1792607278377,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":35}}
+{"t":1792607278409,"dir":"out","verb":"f","body":{"sf":"s:1","s":36,"ops":[["set","12.k0/head/2",{"age":1045}],["text","12.k0/body","append","n-spandrel), R"]]}}
+{"t":1792607278411,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":36}}
+{"t":1792607278443,"dir":"out","verb":"f","body":{"sf":"s:1","s":37,"ops":[["set","12.k0/head/2",{"age":1079}],["text","12.k0/body","append","ialto, trusses,"]]}}
+{"t":1792607278445,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":37}}
+{"t":1792607278476,"dir":"out","verb":"f","body":{"sf":"s:1","s":38,"ops":[["set","12.k0/head/2",{"age":1112}],["text","12.k0/body","append"," Iron Bridge 1"]]}}
+{"t":1792607278479,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":38}}
+{"t":1792607278510,"dir":"out","verb":"f","body":{"sf":"s:1","s":39,"ops":[["set","12.k0/head/2",{"age":1146}],["text","12.k0/body","append","779 Coalbrookdal"]]}}
+{"t":1792607278513,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":39}}
+{"t":1792607278543,"dir":"out","verb":"f","body":{"sf":"s:1","s":40,"ops":[["set","12.k0/head/2",{"age":1179}],["text","12.k0/body","append","e, wrought iron,"]]}}
+{"t":1792607278545,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":40}}
+{"t":1792607278577,"dir":"out","verb":"f","body":{"sf":"s:1","s":41,"ops":[["set","12.k0/head/2",{"age":1213}],["text","12.k0/body","append"," Britannia Brid"]]}}
+{"t":1792607278580,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":41}}
+{"t":1792607278612,"dir":"out","verb":"f","body":{"sf":"s:1","s":42,"ops":[["set","12.k0/head/2",{"age":1248}],["text","12.k0/body","append","ge tubular 18"]]}}
+{"t":1792607278614,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":42}}
+{"t":1792607278646,"dir":"out","verb":"f","body":{"sf":"s:1","s":43,"ops":[["set","12.k0/head/2",{"age":1282}],["text","12.k0/body","append","50, Eads Bridge 18"]]}}
+{"t":1792607278648,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":43}}
+{"t":1792607278679,"dir":"out","verb":"f","body":{"sf":"s:1","s":44,"ops":[["set","12.k0/head/2",{"age":1315}],["text","12.k0/body","append","74 steel, Brookl"]]}}
+{"t":1792607278681,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":44}}
+{"t":1792607278713,"dir":"out","verb":"f","body":{"sf":"s:1","s":45,"ops":[["set","12.k0/head/2",{"age":1349}],["text","12.k0/body","append","yn Bridge 1883"]]}}
+{"t":1792607278715,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":45}}
+{"t":1792607278749,"dir":"out","verb":"f","body":{"sf":"s:1","s":46,"ops":[["set","12.k0/head/2",{"age":1384}],["text","12.k0/body","append"," (Roebling, cai"]]}}
+{"t":1792607278750,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":46}}
+{"t":1792607278782,"dir":"out","verb":"f","body":{"sf":"s:1","s":47,"ops":[["set","12.k0/head/2",{"age":1417}],["text","12.k0/body","append","ssons), Firth"]]}}
+{"t":1792607278783,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":47}}
+{"t":1792607278815,"dir":"out","verb":"f","body":{"sf":"s:1","s":48,"ops":[["set","12.k0/head/2",{"age":1450}],["text","12.k0/body","append"," of Forth canti"]]}}
+{"t":1792607278817,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":48}}
+{"t":1792607278848,"dir":"out","verb":"f","body":{"sf":"s:1","s":49,"ops":[["set","12.k0/head/2",{"age":1484}],["text","12.k0/body","append","lever 1890,"]]}}
+{"t":1792607278851,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":49}}
+{"t":1792607278882,"dir":"out","verb":"f","body":{"sf":"s:1","s":50,"ops":[["set","12.k0/head/2",{"age":1517}],["text","12.k0/body","append"," Golden Gate 19"]]}}
+{"t":1792607278884,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":50}}
+{"t":1792607278915,"dir":"out","verb":"f","body":{"sf":"s:1","s":51,"ops":[["set","12.k0/head/2",{"age":1551}],["text","12.k0/body","append","37, reinforced"]]}}
+{"t":1792607278917,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":51}}
+{"t":1792607278950,"dir":"out","verb":"f","body":{"sf":"s:1","s":52,"ops":[["set","12.k0/head/2",{"age":1586}],["text","12.k0/body","append"," concrete (Ma"]]}}
+{"t":1792607278952,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":52}}
+{"t":1792607278984,"dir":"out","verb":"f","body":{"sf":"s:1","s":53,"ops":[["set","12.k0/head/2",{"age":1620}],["text","12.k0/body","append","illart), cabl"]]}}
+{"t":1792607278986,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":53}}
+{"t":1792607279018,"dir":"out","verb":"f","body":{"sf":"s:1","s":54,"ops":[["set","12.k0/head/2",{"age":1654}],["text","12.k0/body","append","e-stayed (Men"]]}}
+{"t":1792607279020,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":54}}
+{"t":1792607279050,"dir":"out","verb":"f","body":{"sf":"s:1","s":55,"ops":[["set","12.k0/head/2",{"age":1685}],["text","12.k0/body","append","ai? no—Albert"]]}}
+{"t":1792607279052,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":55}}
+{"t":1792607279084,"dir":"out","verb":"f","body":{"sf":"s:1","s":56,"ops":[["set","12.k0/head/2",{"age":1720}],["text","12.k0/body","append"," Bridge 187"]]}}
+{"t":1792607279086,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":56}}
+{"t":1792607279120,"dir":"out","verb":"f","body":{"sf":"s:1","s":57,"ops":[["set","12.k0/head/2",{"age":1756}],["text","12.k0/body","append","3 hybrid; Stroms"]]}}
+{"t":1792607279122,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":57}}
+{"t":1792607279150,"dir":"out","verb":"f","body":{"sf":"s:1","s":58,"ops":[["set","12.k0/head/2",{"age":1786}],["text","12.k0/body","append","und 1955; Norm"]]}}
+{"t":1792607279152,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":58}}
+{"t":1792607279184,"dir":"out","verb":"f","body":{"sf":"s:1","s":59,"ops":[["set","12.k0/head/2",{"age":1820}],["text","12.k0/body","append","andy 1995; Russky"]]}}
+{"t":1792607279186,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":59}}
+{"t":1792607279218,"dir":"out","verb":"f","body":{"sf":"s:1","s":60,"ops":[["set","12.k0/head/2",{"age":1853}],["text","12.k0/body","append"," 2012), Millau 2004"]]}}
+{"t":1792607279220,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":60}}
+{"t":1792607279251,"dir":"out","verb":"f","body":{"sf":"s:1","s":61,"ops":[["set","12.k0/head/2",{"age":1887}],["text","12.k0/body","append",".\n\nKeep ~350 wo"]]}}
+{"t":1792607279253,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":61}}
+{"t":1792607279286,"dir":"out","verb":"f","body":{"sf":"s:1","s":62,"ops":[["set","12.k0/head/2",{"age":1922}],["text","12.k0/body","append","rds. Count roughl"]]}}
+{"t":1792607279288,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":62}}
+{"t":1792607279319,"dir":"out","verb":"f","body":{"sf":"s:1","s":63,"ops":[["set","12.k0/head/2",{"age":1955}],["text","12.k0/body","append","y. Let's draft"]]}}
+{"t":1792607279321,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":63}}
+{"t":1792607279351,"dir":"out","verb":"f","body":{"sf":"s:1","s":64,"ops":[["set","12.k0/head/2",{"age":1987}],["text","12.k0/body","append"," about 360.\n\nStructur"]]}}
+{"t":1792607279353,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":64}}
+{"t":1792607279388,"dir":"out","verb":"f","body":{"sf":"s:1","s":65,"ops":[["set","12.k0/head/2",{"age":2023}],["text","12.k0/body","append","e: no headings may"]]}}
+{"t":1792607279391,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":65}}
+{"t":1792607279420,"dir":"out","verb":"f","body":{"sf":"s:1","s":66,"ops":[["set","12.k0/head/2",{"age":2056}],["text","12.k0/body","append","be short paragra"]]}}
+{"t":1792607279422,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":66}}
+{"t":1792607279453,"dir":"out","verb":"f","body":{"sf":"s:1","s":67,"ops":[["set","12.k0/head/2",{"age":2089}],["text","12.k0/body","append","phs. Terse engineer"]]}}
+{"t":1792607279455,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":67}}
+{"t":1792607279486,"dir":"out","verb":"f","body":{"sf":"s:1","s":68,"ops":[["set","12.k0/head/2",{"age":2122}],["text","12.k0/body","append"," voice but prose."]]}}
+{"t":1792607279488,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":68}}
+{"t":1792607279520,"dir":"out","verb":"f","body":{"sf":"s:1","s":69,"ops":[["set","12.k0/head/2",{"age":2156}],["text","12.k0/body","append","\n\nDraft:\n\nBridges b"]]}}
+{"t":1792607279522,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":69}}
+{"t":1792607279555,"dir":"out","verb":"f","body":{"sf":"s:1","s":70,"ops":[["set","12.k0/head/2",{"age":2191}],["text","12.k0/body","append","egan as fallen log"]]}}
+{"t":1792607279557,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":70}}
+{"t":1792607279589,"dir":"out","verb":"f","body":{"sf":"s:1","s":71,"ops":[["set","12.k0/head/2",{"age":2225}],["text","12.k0/body","append","s and rope spans; th"]]}}
+{"t":1792607279592,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":71}}
+{"t":1792607279622,"dir":"out","verb":"f","body":{"sf":"s:1","s":72,"ops":[["set","12.k0/head/2",{"age":2258}],["text","12.k0/body","append","e engineering hist"]]}}
+{"t":1792607279624,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":72}}
+{"t":1792607279657,"dir":"out","verb":"f","body":{"sf":"s:1","s":73,"ops":[["set","12.k0/head/2",{"age":2293}],["text","12.k0/body","append","ory starts where a s"]]}}
+{"t":1792607279659,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":73}}
+{"t":1792607279690,"dir":"out","verb":"f","body":{"sf":"s:1","s":74,"ops":[["set","12.k0/head/2",{"age":2326}],["text","12.k0/body","append","pan must carry load"]]}}
+{"t":1792607279692,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":74}}
+{"t":1792607279724,"dir":"out","verb":"f","body":{"sf":"s:1","s":75,"ops":[["set","12.k0/head/2",{"age":2360}],["text","12.k0/body","append"," without intermedia"]]}}
+{"t":1792607279726,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":75}}
+{"t":1792607279758,"dir":"out","verb":"f","body":{"sf":"s:1","s":76,"ops":[["set","12.k0/head/2",{"age":2394}],["text","12.k0/body","append","te support. Three ma"]]}}
+{"t":1792607279761,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":76}}
+{"t":1792607279792,"dir":"out","verb":"f","body":{"sf":"s:1","s":77,"ops":[["set","12.k0/head/2",{"age":2428}],["text","12.k0/body","append","terials — stone, iron"]]}}
+{"t":1792607279794,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":77}}
+{"t":1792607279826,"dir":"out","verb":"f","body":{"sf":"s:1","s":78,"ops":[["set","12.k0/head/2",{"age":2462}],["text","12.k0/body","append","/steel, concrete —"]]}}
+{"t":1792607279828,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":78}}
+{"t":1792607279860,"dir":"out","verb":"f","body":{"sf":"s:1","s":79,"ops":[["set","12.k0/head/2",{"age":2496}],["text","12.k0/body","append"," each reset the achiev"]]}}
+{"t":1792607279862,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":79}}
+{"t":1792607279894,"dir":"out","verb":"f","body":{"sf":"s:1","s":80,"ops":[["set","12.k0/head/2",{"age":2530}],["text","12.k0/body","append","able span.\n\nStone"]]}}
+{"t":1792607279896,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":80}}
+{"t":1792607279928,"dir":"out","verb":"f","body":{"sf":"s:1","s":81,"ops":[["set","12.k0/head/2",{"age":2564}],["text","12.k0/body","append"," arch: compression-on"]]}}
+{"t":1792607279930,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":81}}
+{"t":1792607279962,"dir":"out","verb":"f","body":{"sf":"s:1","s":82,"ops":[["set","12.k0/head/2",{"age":2598}],["text","12.k0/body","append","ly, so it scales w"]]}}
+{"t":1792607279964,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":82}}
+{"t":1792607279996,"dir":"out","verb":"f","body":{"sf":"s:1","s":83,"ops":[["set","12.k0/head/2",{"age":2632}],["text","12.k0/body","append","ith material strength."]]}}
+{"t":1792607279998,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":83}}
+{"t":1792607280029,"dir":"out","verb":"f","body":{"sf":"s:1","s":84,"ops":[["set","12.k0/head/2",{"age":2665}],["text","12.k0/body","append"," Roman builders stan"]]}}
+{"t":1792607280031,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":84}}
+{"t":1792607280062,"dir":"out","verb":"f","body":{"sf":"s:1","s":85,"ops":[["set","12.k0/head/2",{"age":2698}],["text","12.k0/body","append","dardized the semicircu"]]}}
+{"t":1792607280064,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":85}}
+{"t":1792607280097,"dir":"out","verb":"f","body":{"sf":"s:1","s":86,"ops":[["set","12.k0/head/2",{"age":2733}],["text","12.k0/body","append","lar arch and used i"]]}}
+{"t":1792607280099,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":86}}
+{"t":1792607280131,"dir":"out","verb":"f","body":{"sf":"s:1","s":87,"ops":[["set","12.k0/head/2",{"age":2766}],["text","12.k0/body","append","t for both aqueduct"]]}}
+{"t":1792607280133,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":87}}
+{"t":1792607280163,"dir":"out","verb":"f","body":{"sf":"s:1","s":88,"ops":[["set","12.k0/head/2",{"age":2798}],["text","12.k0/body","append","s and roads: the Pon"]]}}
+{"t":1792607280165,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":88}}
+{"t":1792607280199,"dir":"out","verb":"f","body":{"sf":"s:1","s":89,"ops":[["set","12.k0/head/2",{"age":2834}],["text","12.k0/body","append","s Fabricius in Ro"]]}}
+{"t":1792607280201,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":89}}
+{"t":1792607280233,"dir":"out","verb":"f","body":{"sf":"s:1","s":90,"ops":[["set","12.k0/head/2",{"age":2868}],["text","12.k0/body","append","me (62 BC) still car"]]}}
+{"t":1792607280234,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":90}}
+{"t":1792607280266,"dir":"out","verb":"f","body":{"sf":"s:1","s":91,"ops":[["set","12.k0/head/2",{"age":2902}],["text","12.k0/body","append","ries traffic; the"]]}}
+{"t":1792607280268,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":91}}
+{"t":1792607280299,"dir":"out","verb":"f","body":{"sf":"s:1","s":92,"ops":[["set","12.k0/head/2",{"age":2935}],["text","12.k0/body","append"," Pont du Gard (1st"]]}}
+{"t":1792607280301,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":92}}
+{"t":1792607280334,"dir":"out","verb":"f","body":{"sf":"s:1","s":93,"ops":[["set","12.k0/head/2",{"age":2969}],["text","12.k0/body","append"," century AD) runs"]]}}
+{"t":1792607280336,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":93}}
+{"t":1792607280367,"dir":"out","verb":"f","body":{"sf":"s:1","s":94,"ops":[["set","12.k0/head/2",{"age":3003}],["text","12.k0/body","append"," 50 m high; the"]]}}
+{"t":1792607280369,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":94}}
+{"t":1792607280400,"dir":"out","verb":"f","body":{"sf":"s:1","s":95,"ops":[["set","12.k0/head/2",{"age":3036}],["text","12.k0/body","append"," Alcántara bridge"]]}}
+{"t":1792607280402,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":95}}
+{"t":1792607280434,"dir":"out","verb":"f","body":{"sf":"s:1","s":96,"ops":[["set","12.k0/head/2",{"age":3069}],["text","12.k0/body","append"," (AD 106) spans 2"]]}}
+{"t":1792607280436,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":96}}
+{"t":1792607280468,"dir":"out","verb":"f","body":{"sf":"s:1","s":97,"ops":[["set","12.k0/head/2",{"age":3104}],["text","12.k0/body","append","9 m in granite. T"]]}}
+{"t":1792607280470,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":97}}
+{"t":1792607280501,"dir":"out","verb":"f","body":{"sf":"s:1","s":98,"ops":[["set","12.k0/head/2",{"age":3137}],["text","12.k0/body","append","he Chinese open-"]]}}
+{"t":1792607280503,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":98}}
+{"t":1792607280535,"dir":"out","verb":"f","body":{"sf":"s:1","s":99,"ops":[["set","12.k0/head/2",{"age":3171}],["text","12.k0/body","append","spandrel Anji Bri"]]}}
+{"t":1792607280536,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":99}}
+{"t":1792607280569,"dir":"out","verb":"f","body":{"sf":"s:1","s":100,"ops":[["set","12.k0/head/2",{"age":3205}],["text","12.k0/body","append","dge (Zhaozhou, c."]]}}
+{"t":1792607280571,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":100}}
+{"t":1792607280603,"dir":"out","verb":"f","body":{"sf":"s:1","s":101,"ops":[["set","12.k0/head/2",{"age":3239}],["text","12.k0/body","append"," 605) by Li Chun r"]]}}
+{"t":1792607280605,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":101}}
+{"t":1792607280636,"dir":"out","verb":"f","body":{"sf":"s:1","s":102,"ops":[["set","12.k0/head/2",{"age":3272}],["text","12.k0/body","append","educed dead load"]]}}
+{"t":1792607280638,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":102}}
+{"t":1792607280670,"dir":"out","verb":"f","body":{"sf":"s:1","s":103,"ops":[["set","12.k0/head/2",{"age":3306}],["text","12.k0/body","append"," with segmental"]]}}
+{"t":1792607280672,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":103}}
+{"t":1792607280704,"dir":"out","verb":"f","body":{"sf":"s:1","s":104,"ops":[["set","12.k0/head/2",{"age":3340}],["text","12.k0/body","append"," arches, a trick"]]}}
+{"t":1792607280717,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":104}}
+{"t":1792607280738,"dir":"out","verb":"f","body":{"sf":"s:1","s":105,"ops":[["set","12.k0/head/2",{"age":3374}],["text","12.k0/body","append"," Europe only ado"]]}}
+{"t":1792607280740,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":105}}
+{"t":1792607280773,"dir":"out","verb":"f","body":{"sf":"s:1","s":106,"ops":[["set","12.k0/head/2",{"age":3409}],["text","12.k0/body","append","pted in the 14th"]]}}
+{"t":1792607280775,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":106}}
+{"t":1792607280805,"dir":"out","verb":"f","body":{"sf":"s:1","s":107,"ops":[["set","12.k0/head/2",{"age":3441}],["text","12.k0/body","append"," century. Mediev"]]}}
+{"t":1792607280808,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":107}}
+{"t":1792607280840,"dir":"out","verb":"f","body":{"sf":"s:1","s":108,"ops":[["set","12.k0/head/2",{"age":3476}],["text","12.k0/body","append","al spans stayed"]]}}
+{"t":1792607280842,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":108}}
+{"t":1792607280873,"dir":"out","verb":"f","body":{"sf":"s:1","s":109,"ops":[["set","12.k0/head/2",{"age":3509}],["text","12.k0/body","append"," short until the"]]}}
+{"t":1792607280875,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":109}}
+{"t":1792607280907,"dir":"out","verb":"f","body":{"sf":"s:1","s":110,"ops":[["set","12.k0/head/2",{"age":3543}],["text","12.k0/body","append"," Rialto (Venice, 15"]]}}
+{"t":1792607280909,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":110}}
+{"t":1792607280941,"dir":"out","verb":"f","body":{"sf":"s:1","s":111,"ops":[["set","12.k0/head/2",{"age":3577}],["text","12.k0/body","append","91, Antonio da P"]]}}
+{"t":1792607280944,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":111}}
+{"t":1792607280974,"dir":"out","verb":"f","body":{"sf":"s:1","s":112,"ops":[["set","12.k0/head/2",{"age":3610}],["text","12.k0/body","append","onte) at 28 m.\n\nTi"]]}}
+{"t":1792607280976,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":112}}
+{"t":1792607281008,"dir":"out","verb":"f","body":{"sf":"s:1","s":113,"ops":[["set","12.k0/head/2",{"age":3644}],["text","12.k0/body","append","mber trusses ca"]]}}
+{"t":1792607281011,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":113}}
+{"t":1792607281042,"dir":"out","verb":"f","body":{"sf":"s:1","s":114,"ops":[["set","12.k0/head/2",{"age":3678}],["text","12.k0/body","append","rried longer"]]}}
+{"t":1792607281044,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":114}}
+{"t":1792607281075,"dir":"out","verb":"f","body":{"sf":"s:1","s":115,"ops":[["set","12.k0/head/2",{"age":3711}],["text","12.k0/body","append"," spans cheaply — Palla"]]}}
+{"t":1792607281077,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":115}}
+{"t":1792607281109,"dir":"out","verb":"f","body":{"sf":"s:1","s":116,"ops":[["set","12.k0/head/2",{"age":3745}],["text","12.k0/body","append","dio drew them, and"]]}}
+{"t":1792607281111,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":116}}
+{"t":1792607281143,"dir":"out","verb":"f","body":{"sf":"s:1","s":117,"ops":[["set","12.k0/head/2",{"age":3779}],["text","12.k0/body","append"," American covered bridg"]]}}
+{"t":1792607281145,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":117}}
+{"t":1792607281177,"dir":"out","verb":"f","body":{"sf":"s:1","s":118,"ops":[["set","12.k0/head/2",{"age":3812}],["text","12.k0/body","append","es proliferated — b"]]}}
+{"t":1792607281179,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":118}}
+{"t":1792607281211,"dir":"out","verb":"f","body":{"sf":"s:1","s":119,"ops":[["set","12.k0/head/2",{"age":3847}],["text","12.k0/body","append","ut rot and fire li"]]}}
+{"t":1792607281213,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":119}}
+{"t":1792607281244,"dir":"out","verb":"f","body":{"sf":"s:1","s":120,"ops":[["set","12.k0/head/2",{"age":3880}],["text","12.k0/body","append","mited them. Cast iron c"]]}}
+{"t":1792607281246,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":120}}
+{"t":1792607281279,"dir":"out","verb":"f","body":{"sf":"s:1","s":121,"ops":[["set","12.k0/head/2",{"age":3914}],["text","12.k0/body","append","hanged the arithmetic:"]]}}
+{"t":1792607281281,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":121}}
+{"t":1792607281313,"dir":"out","verb":"f","body":{"sf":"s:1","s":122,"ops":[["set","12.k0/head/2",{"age":3949}],["text","12.k0/body","append"," the Iron Bridge at C"]]}}
+{"t":1792607281314,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":122}}
+{"t":1792607281347,"dir":"out","verb":"f","body":{"sf":"s:1","s":123,"ops":[["set","12.k0/head/2",{"age":3982}],["text","12.k0/body","append","oalbrookdale (1779) use"]]}}
+{"t":1792607281348,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":123}}
+{"t":1792607281381,"dir":"out","verb":"f","body":{"sf":"s:1","s":124,"ops":[["set","12.k0/head/2",{"age":4017}],["text","12.k0/body","append","d a 30 m arch of iron"]]}}
+{"t":1792607281383,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":124}}
+{"t":1792607281415,"dir":"out","verb":"f","body":{"sf":"s:1","s":125,"ops":[["set","12.k0/head/2",{"age":4051}],["text","12.k0/body","append"," ribs; wrought iron brou"]]}}
+{"t":1792607281418,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":125}}
+{"t":1792607281449,"dir":"out","verb":"f","body":{"sf":"s:1","s":126,"ops":[["set","12.k0/head/2",{"age":4084}],["text","12.k0/body","append","ght tension members, a"]]}}
+{"t":1792607281451,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":126}}
+{"t":1792607281482,"dir":"out","verb":"f","body":{"sf":"s:1","s":127,"ops":[["set","12.k0/head/2",{"age":4118}],["text","12.k0/body","append","nd the Britannia Bridg"]]}}
+{"t":1792607281484,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":127}}
+{"t":1792607281516,"dir":"out","verb":"f","body":{"sf":"s:1","s":128,"ops":[["set","12.k0/head/2",{"age":4152}],["text","12.k0/body","append","e (1850, Robert Step"]]}}
+{"t":1792607281518,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":128}}
+{"t":1792607281550,"dir":"out","verb":"f","body":{"sf":"s:1","s":129,"ops":[["set","12.k0/head/2",{"age":4185}],["text","12.k0/body","append","henson) ran box gi"]]}}
+{"t":1792607281551,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":129}}
+{"t":1792607281583,"dir":"out","verb":"f","body":{"sf":"s:1","s":130,"ops":[["set","12.k0/head/2",{"age":4219}],["text","12.k0/body","append","rders through Wales. Ste"]]}}
+{"t":1792607281585,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":130}}
+{"t":1792607281618,"dir":"out","verb":"f","body":{"sf":"s:1","s":131,"ops":[["set","12.k0/head/2",{"age":4254}],["text","12.k0/body","append","el arrived with the Ea"]]}}
+{"t":1792607281620,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":131}}
+{"t":1792607281652,"dir":"out","verb":"f","body":{"sf":"s:1","s":132,"ops":[["set","12.k0/head/2",{"age":4288}],["text","12.k0/body","append","ds Bridge at St. Louis (18"]]}}
+{"t":1792607281654,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":132}}
+{"t":1792607281686,"dir":"out","verb":"f","body":{"sf":"s:1","s":133,"ops":[["set","12.k0/head/2",{"age":4322}],["text","12.k0/body","append","74, James Eads), whose 1"]]}}
+{"t":1792607281689,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":133}}
+{"t":1792607281719,"dir":"out","verb":"f","body":{"sf":"s:1","s":134,"ops":[["set","12.k0/head/2",{"age":4355}],["text","12.k0/body","append","52 m arch spans used canti"]]}}
+{"t":1792607281721,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":134}}
+{"t":1792607281752,"dir":"out","verb":"f","body":{"sf":"s:1","s":135,"ops":[["set","12.k0/head/2",{"age":4388}],["text","12.k0/body","append","levered erection and dee"]]}}
+{"t":1792607281754,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":135}}
+{"t":1792607281788,"dir":"out","verb":"f","body":{"sf":"s:1","s":136,"ops":[["set","12.k0/head/2",{"age":4424}],["text","12.k0/body","append","p pneumatic caissons."]]}}
+{"t":1792607281790,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":136}}
+{"t":1792607281822,"dir":"out","verb":"f","body":{"sf":"s:1","s":137,"ops":[["set","12.k0/head/2",{"age":4458}],["text","12.k0/body","append","\n\nThe Brooklyn Bridge (188"]]}}
+{"t":1792607281824,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":137}}
+{"t":1792607281858,"dir":"out","verb":"f","body":{"sf":"s:1","s":138,"ops":[["set","12.k0/head/2",{"age":4494}],["text","12.k0/body","append","3, John and Washington"]]}}
+{"t":1792607281860,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":138}}
+{"t":1792607281889,"dir":"out","verb":"f","body":{"sf":"s:1","s":139,"ops":[["set","12.k0/head/2",{"age":4525}],["text","12.k0/body","append"," Roebling) established"]]}}
+{"t":1792607281891,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":139}}
+{"t":1792607281929,"dir":"out","verb":"f","body":{"sf":"s:1","s":140,"ops":[["set","12.k0/head/2",{"age":4565}],["text","12.k0/body","append"," the modern suspension"]]}}
+{"t":1792607281932,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":140}}
+{"t":1792607281962,"dir":"out","verb":"f","body":{"sf":"s:1","s":141,"ops":[["set","12.k0/head/2",{"age":4598}],["text","12.k0/body","append"," form: 486 m main sp"]]}}
+{"t":1792607281964,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":141}}
+{"t":1792607281996,"dir":"out","verb":"f","body":{"sf":"s:1","s":142,"ops":[["set","12.k0/head/2",{"age":4632}],["text","12.k0/body","append","an, wire cables, caisson"]]}}
+{"t":1792607281998,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":142}}
+{"t":1792607282030,"dir":"out","verb":"f","body":{"sf":"s:1","s":143,"ops":[["set","12.k0/head/2",{"age":4666}],["text","12.k0/body","append","s that cost lives to d"]]}}
+{"t":1792607282031,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":143}}
+{"t":1792607282064,"dir":"out","verb":"f","body":{"sf":"s:1","s":144,"ops":[["set","12.k0/head/2",{"age":4700}],["text","12.k0/body","append","ecompression sickness."]]}}
+{"t":1792607282066,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":144}}
+{"t":1792607282098,"dir":"out","verb":"f","body":{"sf":"s:1","s":145,"ops":[["set","12.k0/head/2",{"age":4734}],["text","12.k0/body","append"," Suspension spans then t"]]}}
+{"t":1792607282100,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":145}}
+{"t":1792607282132,"dir":"out","verb":"f","body":{"sf":"s:1","s":146,"ops":[["set","12.k0/head/2",{"age":4768}],["text","12.k0/body","append","racked steel wire str"]]}}
+{"t":1792607282134,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":146}}
+{"t":1792607282167,"dir":"out","verb":"f","body":{"sf":"s:1","s":147,"ops":[["set","12.k0/head/2",{"age":4803}],["text","12.k0/body","append","ength — Firth of Fort"]]}}
+{"t":1792607282169,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":147}}
+{"t":1792607282200,"dir":"out","verb":"f","body":{"sf":"s:1","s":148,"ops":[["set","12.k0/head/2",{"age":4836}],["text","12.k0/body","append","h (1890, cantilever,"]]}}
+{"t":1792607282202,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":148}}
+{"t":1792607282233,"dir":"out","verb":"f","body":{"sf":"s:1","s":149,"ops":[["set","12.k0/head/2",{"age":4869}],["text","12.k0/body","append"," 521 m), Golden Gate ("]]}}
+{"t":1792607282235,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":149}}
+{"t":1792607282269,"dir":"out","verb":"f","body":{"sf":"s:1","s":150,"ops":[["set","12.k0/head/2",{"age":4905}],["text","12.k0/body","append","1937, 1280 m), Aka"]]}}
+{"t":1792607282271,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":150}}
+{"t":1792607282303,"dir":"out","verb":"f","body":{"sf":"s:1","s":151,"ops":[["set","12.k0/head/2",{"age":4939}],["text","12.k0/body","append","shi Kaikyō (1998, 19"]]}}
+{"t":1792607282305,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":151}}
+{"t":1792607282339,"dir":"out","verb":"f","body":{"sf":"s:1","s":152,"ops":[["set","12.k0/head/2",{"age":4973}],["text","12.k0/body","append","91 m).\n\nReinforced c"]]}}
+{"t":1792607282341,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":152}}
+{"t":1792607282371,"dir":"out","verb":"f","body":{"sf":"s:1","s":153,"ops":[["set","12.k0/head/2",{"age":5007}],["text","12.k0/body","append","oncrete enabled Rob"]]}}
+{"t":1792607282374,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":153}}
+{"t":1792607282406,"dir":"out","verb":"f","body":{"sf":"s:1","s":154,"ops":[["set","12.k0/head/2",{"age":5042}],["text","12.k0/body","append","ert Maillart's thi"]]}}
+{"t":1792607282408,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":154}}
+{"t":1792607282440,"dir":"out","verb":"f","body":{"sf":"s:1","s":155,"ops":[["set","12.k0/head/2",{"age":5076}],["text","12.k0/body","append","n arch forms and, pos"]]}}
+{"t":1792607282442,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":155}}
+{"t":1792607282473,"dir":"out","verb":"f","body":{"sf":"s:1","s":156,"ops":[["set","12.k0/head/2",{"age":5109}],["text","12.k0/body","append","t-1945, prestressed"]]}}
+{"t":1792607282476,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":156}}
+{"t":1792607282507,"dir":"out","verb":"f","body":{"sf":"s:1","s":157,"ops":[["set","12.k0/head/2",{"age":5143}],["text","12.k0/body","append"," segmental bridges."]]}}
+{"t":1792607282510,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":157}}
+{"t":1792607282541,"dir":"out","verb":"f","body":{"sf":"s:1","s":158,"ops":[["set","12.k0/head/2",{"age":5177}],["text","12.k0/body","append"," Cable-stayed bridges"]]}}
+{"t":1792607282543,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":158}}
+{"t":1792607282574,"dir":"out","verb":"f","body":{"sf":"s:1","s":159,"ops":[["set","12.k0/head/2",{"age":5210}],["text","12.k0/body","append"," — Stromsund (1955) i"]]}}
+{"t":1792607282576,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":159}}
+{"t":1792607282609,"dir":"out","verb":"f","body":{"sf":"s:1","s":160,"ops":[["set","12.k0/head/2",{"age":5245}],["text","12.k0/body","append","s usually credited"]]}}
+{"t":1792607282611,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":160}}
+{"t":1792607282642,"dir":"out","verb":"f","body":{"sf":"s:1","s":161,"ops":[["set","12.k0/head/2",{"age":5278}],["text","12.k0/body","append"," as the first mod"]]}}
+{"t":1792607282644,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":161}}
+{"t":1792607282676,"dir":"out","verb":"f","body":{"sf":"s:1","s":162,"ops":[["set","12.k0/head/2",{"age":5312}],["text","12.k0/body","append","ern one — now domi"]]}}
+{"t":1792607282679,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":162}}
+{"t":1792607282710,"dir":"out","verb":"f","body":{"sf":"s:1","s":163,"ops":[["set","12.k0/head/2",{"age":5346}],["text","12.k0/body","append","nate the 300–1100"]]}}
+{"t":1792607282713,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":163}}
+{"t":1792607282744,"dir":"out","verb":"f","body":{"sf":"s:1","s":164,"ops":[["set","12.k0/head/2",{"age":5380}],["text","12.k0/body","append"," m range because t"]]}}
+{"t":1792607282747,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":164}}
+{"t":1792607282778,"dir":"out","verb":"f","body":{"sf":"s:1","s":165,"ops":[["set","12.k0/head/2",{"age":5414}],["text","12.k0/body","append","hey need no mass"]]}}
+{"t":1792607282780,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":165}}
+{"t":1792607282811,"dir":"out","verb":"f","body":{"sf":"s:1","s":166,"ops":[["set","12.k0/head/2",{"age":5447}],["text","12.k0/body","append","ive anchorages: Norman"]]}}
+{"t":1792607282814,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":166}}
+{"t":1792607282844,"dir":"out","verb":"f","body":{"sf":"s:1","s":167,"ops":[["set","12.k0/head/2",{"age":5480}],["text","12.k0/body","append","dy (1995), Russky (2012"]]}}
+{"t":1792607282846,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":167}}
+{"t":1792607282878,"dir":"out","verb":"f","body":{"sf":"s:1","s":168,"ops":[["set","12.k0/head/2",{"age":5514}],["text","12.k0/body","append",", 1104 m), and the M"]]}}
+{"t":1792607282880,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":168}}
+{"t":1792607282912,"dir":"out","verb":"f","body":{"sf":"s:1","s":169,"ops":[["set","12.k0/head/2",{"age":5548}],["text","12.k0/body","append","illau Viaduct (2004),"]]}}
+{"t":1792607282915,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":169}}
+{"t":1792607282945,"dir":"out","verb":"f","body":{"sf":"s:1","s":170,"ops":[["set","12.k0/head/2",{"age":5581}],["text","12.k0/body","append"," whose 246 m piers are"]]}}
+{"t":1792607282946,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":170}}
+{"t":1792607282980,"dir":"out","verb":"f","body":{"sf":"s:1","s":171,"ops":[["set","12.k0/head/2",{"age":5616}],["text","12.k0/body","append"," the tallest in the worl"]]}}
+{"t":1792607282982,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":171}}
+{"t":1792607283012,"dir":"out","verb":"f","body":{"sf":"s:1","s":172,"ops":[["set","12.k0/head/2",{"age":5648}],["text","12.k0/body","append","d.\n\nWord count check:"]]}}
+{"t":1792607283015,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":172}}
+{"t":1792607283047,"dir":"out","verb":"f","body":{"sf":"s:1","s":173,"ops":[["set","12.k0/head/2",{"age":5682}],["text","12.k0/body","append"," roughly 320-340. Fin"]]}}
+{"t":1792607283049,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":173}}
+{"t":1792607283080,"dir":"out","verb":"f","body":{"sf":"s:1","s":174,"ops":[["set","12.k0/head/2",{"age":5716}],["text","12.k0/body","append","e. Maybe add a closin"]]}}
+{"t":1792607283083,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":174}}
+{"t":1792607283114,"dir":"out","verb":"f","body":{"sf":"s:1","s":175,"ops":[["set","12.k0/head/2",{"age":5750}],["text","12.k0/body","append","g line on load path"]]}}
+{"t":1792607283116,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":175}}
+{"t":1792607283148,"dir":"out","verb":"f","body":{"sf":"s:1","s":176,"ops":[["set","12.k0/head/2",{"age":5783}],["text","12.k0/body","append",". Let's count more ca"]]}}
+{"t":1792607283149,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":176}}
+{"t":1792607283182,"dir":"out","verb":"f","body":{"sf":"s:1","s":177,"ops":[["set","12.k0/head/2",{"age":5818}],["text","12.k0/body","append","refully later; target ~"]]}}
+{"t":1792607283184,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":177}}
+{"t":1792607283215,"dir":"out","verb":"f","body":{"sf":"s:1","s":178,"ops":[["set","12.k0/head/2",{"age":5851}],["text","12.k0/body","append","350. Add a short closin"]]}}
+{"t":1792607283217,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":178}}
+{"t":1792607283248,"dir":"out","verb":"f","body":{"sf":"s:1","s":179,"ops":[["set","12.k0/head/2",{"age":5884}],["text","12.k0/body","append","g sentence: \"Each era"]]}}
+{"t":1792607283250,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":179}}
+{"t":1792607283283,"dir":"out","verb":"f","body":{"sf":"s:1","s":180,"ops":[["set","12.k0/head/2",{"age":5919}],["text","12.k0/body","append","'s limit was the same"]]}}
+{"t":1792607283285,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":180}}
+{"t":1792607283317,"dir":"out","verb":"f","body":{"sf":"s:1","s":181,"ops":[["set","12.k0/head/2",{"age":5953}],["text","12.k0/body","append",": how a material re"]]}}
+{"t":1792607283320,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":181}}
+{"t":1792607283352,"dir":"out","verb":"f","body":{"sf":"s:1","s":182,"ops":[["set","12.k0/head/2",{"age":5988}],["text","12.k0/body","append","sists tension.\" That"]]}}
+{"t":1792607283354,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":182}}
+{"t":1792607283386,"dir":"out","verb":"f","body":{"sf":"s:1","s":183,"ops":[["set","12.k0/head/2",{"age":6022}],["text","12.k0/body","append"," adds ~15.\n\nLet me est"]]}}
+{"t":1792607283388,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":183}}
+{"t":1792607283420,"dir":"out","verb":"f","body":{"sf":"s:1","s":184,"ops":[["set","12.k0/head/2",{"age":6056}],["text","12.k0/body","append","imate count: paragra"]]}}
+{"t":1792607283422,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":184}}
+{"t":1792607283456,"dir":"out","verb":"f","body":{"sf":"s:1","s":185,"ops":[["set","12.k0/head/2",{"age":6092}],["text","12.k0/body","append","ph 1 ~40, p2 ~85, p3 ~75"]]}}
+{"t":1792607283457,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":185}}
+{"t":1792607283488,"dir":"out","verb":"f","body":{"sf":"s:1","s":186,"ops":[["set","12.k0/head/2",{"age":6124}],["text","12.k0/body","append",", p4 ~55, p5 ~55. Tot"]]}}
+{"t":1792607283490,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":186}}
+{"t":1792607283523,"dir":"out","verb":"f","body":{"sf":"s:1","s":187,"ops":[["set","12.k0/head/2",{"age":6159}],["text","12.k0/body","append","al ~310. Add ~30-4"]]}}
+{"t":1792607283525,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":187}}
+{"t":1792607283558,"dir":"out","verb":"f","body":{"sf":"s:1","s":188,"ops":[["set","12.k0/head/2",{"age":6194}],["text","12.k0/body","append","0.\n\nI'll add a sentenc"]]}}
+{"t":1792607283560,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":188}}
+{"t":1792607283590,"dir":"out","verb":"f","body":{"sf":"s:1","s":189,"ops":[["set","12.k0/head/2",{"age":6226}],["text","12.k0/body","append","e about suspension vs arch"]]}}
+{"t":1792607283592,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":189}}
+{"t":1792607283623,"dir":"out","verb":"f","body":{"sf":"s:1","s":190,"ops":[["set","12.k0/head/2",{"age":6259}],["text","12.k0/body","append"," load paths and modern loads."]]}}
+{"t":1792607283625,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":190}}
+{"t":1792607283658,"dir":"out","verb":"f","body":{"sf":"s:1","s":191,"ops":[["set","12.k0/head/2",{"age":6294}],["text","12.k0/body","append","\n\nFinal answer without to"]]}}
+{"t":1792607283660,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":191}}
+{"t":1792607283693,"dir":"out","verb":"f","body":{"sf":"s:1","s":192,"ops":[["set","12.k0/head/2",{"age":6329}],["text","12.k0/body","append","ols, no emoji needed ("]]}}
+{"t":1792607283695,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":192}}
+{"t":1792607283725,"dir":"out","verb":"f","body":{"sf":"s:1","s":193,"ops":[["set","12.k0/head/2",{"age":6361}],["text","12.k0/body","append","it's a writing task, but styl"]]}}
+{"t":1792607283728,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":193}}
+{"t":1792607283760,"dir":"out","verb":"f","body":{"sf":"s:1","s":194,"ops":[["set","12.k0/head/2",{"age":6396}],["text","12.k0/body","append","e says MAY react when chatting"]]}}
+{"t":1792607283762,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":194}}
+{"t":1792607283799,"dir":"out","verb":"f","body":{"sf":"s:1","s":195,"ops":[["set","12.k0",{"role":"omp.thinking","collapsed":true,"took":6434}],["del","12.k0/head"],["add","12.k0/head","12.k0","12.k0/body",{"id":"12.k0/head","k":"text","p":{"spans":[{"t":"Thought for 6s","s":"muted"}]}}],["text","12.k0/body","append"," — skip)."],["set","12.k0/body",{"stream":null}],["add","12.t1","12",null,{"id":"12.t1","k":"md","p":{"text":"Bridges began as fall","stream":true}}]]}}
+{"t":1792607283801,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":195}}
+{"t":1792607283827,"dir":"out","verb":"f","body":{"sf":"s:1","s":196,"ops":[["text","12.t1","append","en logs and rope spans; en"]]}}
+{"t":1792607283829,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":196}}
+{"t":1792607283861,"dir":"out","verb":"f","body":{"sf":"s:1","s":197,"ops":[["text","12.t1","append","gineering history starts once"]]}}
+{"t":1792607283863,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":197}}
+{"t":1792607283894,"dir":"out","verb":"f","body":{"sf":"s:1","s":198,"ops":[["text","12.t1","append"," a span must carry load with n"]]}}
+{"t":1792607283896,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":198}}
+{"t":1792607283929,"dir":"out","verb":"f","body":{"sf":"s:1","s":199,"ops":[["text","12.t1","append","o intermediate support. T"]]}}
+{"t":1792607283930,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":199}}
+{"t":1792607283962,"dir":"out","verb":"f","body":{"sf":"s:1","s":200,"ops":[["text","12.t1","append","hree materials — stone, iron/s"]]}}
+{"t":1792607283964,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":200}}
+{"t":1792607283996,"dir":"out","verb":"f","body":{"sf":"s:1","s":201,"ops":[["text","12.t1","append","teel, concrete — each rese"]]}}
+{"t":1792607283998,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":201}}
+{"t":1792607284030,"dir":"out","verb":"f","body":{"sf":"s:1","s":202,"ops":[["text","12.t1","append","t the achievable span, and each era"]]}}
+{"t":1792607284031,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":202}}
+{"t":1792607284063,"dir":"out","verb":"f","body":{"sf":"s:1","s":203,"ops":[["text","12.t1","append"," hit the same limit: how the mat"]]}}
+{"t":1792607284065,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":203}}
+{"t":1792607284098,"dir":"out","verb":"f","body":{"sf":"s:1","s":204,"ops":[["text","12.t1","append","erial resists tension.\n\nStone arches"]]}}
+{"t":1792607284099,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":204}}
+{"t":1792607284132,"dir":"out","verb":"f","body":{"sf":"s:1","s":205,"ops":[["text","12.t1","append"," work purely in compression, so"]]}}
+{"t":1792607284134,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":205}}
+{"t":1792607284166,"dir":"out","verb":"f","body":{"sf":"s:1","s":206,"ops":[["text","12.t1","append"," they scale with compressive stre"]]}}
+{"t":1792607284168,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":206}}
+{"t":1792607284200,"dir":"out","verb":"f","body":{"sf":"s:1","s":207,"ops":[["text","12.t1","append","ngth. Roman builders standar"]]}}
+{"t":1792607284203,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":207}}
+{"t":1792607284234,"dir":"out","verb":"f","body":{"sf":"s:1","s":208,"ops":[["text","12.t1","append","dized the semicircular ar"]]}}
+{"t":1792607284236,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":208}}
+{"t":1792607284268,"dir":"out","verb":"f","body":{"sf":"s:1","s":209,"ops":[["text","12.t1","append","ch across roads and aqueducts:"]]}}
+{"t":1792607284270,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":209}}
+{"t":1792607284302,"dir":"out","verb":"f","body":{"sf":"s:1","s":210,"ops":[["text","12.t1","append"," the Pons Fabricius in Rome"]]}}
+{"t":1792607284305,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":210}}
+{"t":1792607284336,"dir":"out","verb":"f","body":{"sf":"s:1","s":211,"ops":[["text","12.t1","append"," (62 BC) still carries traffic"]]}}
+{"t":1792607284338,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":211}}
+{"t":1792607284369,"dir":"out","verb":"f","body":{"sf":"s:1","s":212,"ops":[["text","12.t1","append","; the Pont du Gard (1st ce"]]}}
+{"t":1792607284370,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":212}}
+{"t":1792607284403,"dir":"out","verb":"f","body":{"sf":"s:1","s":213,"ops":[["text","12.t1","append","ntury AD) rises roughly"]]}}
+{"t":1792607284405,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":213}}
+{"t":1792607284436,"dir":"out","verb":"f","body":{"sf":"s:1","s":214,"ops":[["text","12.t1","append"," 50 m; Alcántara (AD 1"]]}}
+{"t":1792607284438,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":214}}
+{"t":1792607284470,"dir":"out","verb":"f","body":{"sf":"s:1","s":215,"ops":[["text","12.t1","append","06) clears 29 m in"]]}}
+{"t":1792607284471,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":215}}
+{"t":1792607284502,"dir":"out","verb":"f","body":{"sf":"s:1","s":216,"ops":[["text","12.t1","append"," granite. In China, Li Chu"]]}}
+{"t":1792607284504,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":216}}
+{"t":1792607284537,"dir":"out","verb":"f","body":{"sf":"s:1","s":217,"ops":[["text","12.t1","append","n’s open-spandrel Anji"]]}}
+{"t":1792607284539,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":217}}
+{"t":1792607284571,"dir":"out","verb":"f","body":{"sf":"s:1","s":218,"ops":[["text","12.t1","append"," Bridge at Zhaozhou (c. 605) cut dead lo"]]}}
+{"t":1792607284573,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":218}}
+{"t":1792607284604,"dir":"out","verb":"f","body":{"sf":"s:1","s":219,"ops":[["text","12.t1","append","ad with segmental arches — a devic"]]}}
+{"t":1792607284606,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":219}}
+{"t":1792607284639,"dir":"out","verb":"f","body":{"sf":"s:1","s":220,"ops":[["text","12.t1","append","e Europe reached only in the 1"]]}}
+{"t":1792607284641,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":220}}
+{"t":1792607284671,"dir":"out","verb":"f","body":{"sf":"s:1","s":221,"ops":[["text","12.t1","append","4th century. Medieval span"]]}}
+{"t":1792607284675,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":221}}
+{"t":1792607284705,"dir":"out","verb":"f","body":{"sf":"s:1","s":222,"ops":[["text","12.t1","append","s stayed modest until t"]]}}
+{"t":1792607284707,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":222}}
+{"t":1792607284738,"dir":"out","verb":"f","body":{"sf":"s:1","s":223,"ops":[["text","12.t1","append","he Rialto in Venice (1591, Antonio da Ponte"]]}}
+{"t":1792607284740,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":223}}
+{"t":1792607284772,"dir":"out","verb":"f","body":{"sf":"s:1","s":224,"ops":[["text","12.t1","append",") at 28 m.\n\nTimber trusses bought leng"]]}}
+{"t":1792607284774,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":224}}
+{"t":1792607284805,"dir":"out","verb":"f","body":{"sf":"s:1","s":225,"ops":[["text","12.t1","append","th cheaply — Palladio drew them,"]]}}
+{"t":1792607284807,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":225}}
+{"t":1792607284841,"dir":"out","verb":"f","body":{"sf":"s:1","s":226,"ops":[["text","12.t1","append"," American covered bridges multiplied — bu"]]}}
+{"t":1792607284843,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":226}}
+{"t":1792607284874,"dir":"out","verb":"f","body":{"sf":"s:1","s":227,"ops":[["text","12.t1","append","t rot and fire capped them. Cast ir"]]}}
+{"t":1792607284876,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":227}}
+{"t":1792607284909,"dir":"out","verb":"f","body":{"sf":"s:1","s":228,"ops":[["text","12.t1","append","on changed the arithmetic: the Iron Bri"]]}}
+{"t":1792607284911,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":228}}
+{"t":1792607284942,"dir":"out","verb":"f","body":{"sf":"s:1","s":229,"ops":[["text","12.t1","append","dge at Coalbrookdale (1779) spanne"]]}}
+{"t":1792607284944,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":229}}
+{"t":1792607284976,"dir":"out","verb":"f","body":{"sf":"s:1","s":230,"ops":[["text","12.t1","append","d 30 m with iron ribs. Wrought iron"]]}}
+{"t":1792607284978,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":230}}
+{"t":1792607285009,"dir":"out","verb":"f","body":{"sf":"s:1","s":231,"ops":[["text","12.t1","append"," added reliable tension members"]]}}
+{"t":1792607285012,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":231}}
+{"t":1792607285043,"dir":"out","verb":"f","body":{"sf":"s:1","s":232,"ops":[["text","12.t1","append",", culminating in the Britan"]]}}
+{"t":1792607285045,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":232}}
+{"t":1792607285078,"dir":"out","verb":"f","body":{"sf":"s:1","s":233,"ops":[["text","12.t1","append","nia Bridge (1850, Robert Stephenson),"],["set","11.elapsed",{"age":8838}],["set","11.label",{"spans":[{"t":"Working…","s":"accent"}],"palette":{"low":"dim","mid":"accent","high":"accent"}}],["set","j.line/input",{"placeholder":[{"t":"“󰘘 BRIDGE: Write bridges history essay”","s":"em"}]}],["set","j.bar/model/name",{"spans":[{"t":"DeepSeek V4 Flash","s":"accent"}]}]]}}
+{"t":1792607285080,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":233}}
+{"t":1792607285113,"dir":"out","verb":"f","body":{"sf":"s:1","s":234,"ops":[["text","12.t1","append"," a wrought-iron box girder. Steel"]]}}
+{"t":1792607285115,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":234}}
+{"t":1792607285147,"dir":"out","verb":"f","body":{"sf":"s:1","s":235,"ops":[["text","12.t1","append"," arrived with the Eads Bridge at St. Lou"]]}}
+{"t":1792607285149,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":235}}
+{"t":1792607285182,"dir":"out","verb":"f","body":{"sf":"s:1","s":236,"ops":[["text","12.t1","append","is (1874), whose 152 m arches were erect"]]}}
+{"t":1792607285184,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":236}}
+{"t":1792607285215,"dir":"out","verb":"f","body":{"sf":"s:1","s":237,"ops":[["text","12.t1","append","ed by cantilever and founded on dee"]]}}
+{"t":1792607285218,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":237}}
+{"t":1792607285249,"dir":"out","verb":"f","body":{"sf":"s:1","s":238,"ops":[["text","12.t1","append","p pneumatic caissons.\n\nThe Brookly"]]}}
+{"t":1792607285251,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":238}}
+{"t":1792607285283,"dir":"out","verb":"f","body":{"sf":"s:1","s":239,"ops":[["text","12.t1","append","n Bridge (1883, John and Washin"]]}}
+{"t":1792607285285,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":239}}
+{"t":1792607285317,"dir":"out","verb":"f","body":{"sf":"s:1","s":240,"ops":[["text","12.t1","append","gton Roebling) fixed the modern su"]]}}
+{"t":1792607285319,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":240}}
+{"t":1792607285351,"dir":"out","verb":"f","body":{"sf":"s:1","s":241,"ops":[["text","12.t1","append","spension form: 486 m main span"]]}}
+{"t":1792607285354,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":241}}
+{"t":1792607285384,"dir":"out","verb":"f","body":{"sf":"s:1","s":242,"ops":[["text","12.t1","append",", spun wire cables, caissons that"]]}}
+{"t":1792607285386,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":242}}
+{"t":1792607285419,"dir":"out","verb":"f","body":{"sf":"s:1","s":243,"ops":[["text","12.t1","append"," killed workers through decomp"]]}}
+{"t":1792607285421,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":243}}
+{"t":1792607285453,"dir":"out","verb":"f","body":{"sf":"s:1","s":244,"ops":[["text","12.t1","append","ression sickness. Suspensi"]]}}
+{"t":1792607285456,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":244}}
+{"t":1792607285487,"dir":"out","verb":"f","body":{"sf":"s:1","s":245,"ops":[["text","12.t1","append","on spans then tracked wire streng"]]}}
+{"t":1792607285489,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":245}}
+{"t":1792607285521,"dir":"out","verb":"f","body":{"sf":"s:1","s":246,"ops":[["text","12.t1","append","th — the Forth cantilever (18"]]}}
+{"t":1792607285523,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":246}}
+{"t":1792607285555,"dir":"out","verb":"f","body":{"sf":"s:1","s":247,"ops":[["text","12.t1","append","90, 521 m), Golden Gate (1"]]}}
+{"t":1792607285557,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":247}}
+{"t":1792607285590,"dir":"out","verb":"f","body":{"sf":"s:1","s":248,"ops":[["text","12.t1","append","937, 1280 m), Akashi Kaikyō (1998"]]}}
+{"t":1792607285592,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":248}}
+{"t":1792607285624,"dir":"out","verb":"f","body":{"sf":"s:1","s":249,"ops":[["text","12.t1","append",", 1991 m).\n\nReinforced concrete p"]]}}
+{"t":1792607285627,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":249}}
+{"t":1792607285658,"dir":"out","verb":"f","body":{"sf":"s:1","s":250,"ops":[["text","12.t1","append","roduced Maillart’s thin arches and,"]]}}
+{"t":1792607285660,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":250}}
+{"t":1792607285694,"dir":"out","verb":"f","body":{"sf":"s:1","s":251,"ops":[["text","12.t1","append"," after 1945, prestressed segmental"]]}}
+{"t":1792607285696,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":251}}
+{"t":1792607285727,"dir":"out","verb":"f","body":{"sf":"s:1","s":252,"ops":[["text","12.t1","append"," construction. Cable-stayed bridges"]]}}
+{"t":1792607285729,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":252}}
+{"t":1792607285777,"dir":"out","verb":"f","body":{"sf":"s:1","s":253,"ops":[["text","12.t1","append"," — Strömsund (1955) is usually credited as the first modern example — now dominate the 300–1100 m range because they avoid massive anchorages: Normandy (1995), Russky (2012, 1104 m), and the Millau Viaduct (2004), whose 246 m piers remain the world’s tallest."],["set","12.t1",{"stream":null}],["add","12.turn-usage","12",null,{"id":"12.turn-usage","k":"row","p":{"role":"omp.turn.usage","gap":"xs","align":"center","title":"This turn: 9.5s · 1,618 tokens (201 in · 1,417 out) · <$0.01"},"c":[{"id":"12.turn-usage/copy","k":"icon","p":{"name":"copy","role":"omp.turn.copy","title":"Copy answer","aria":"Copy answer","actions":{"click":"copy-answer"}}},{"id":"12.turn-usage/dot","k":"text","p":{"text":"·"}},{"id":"12.turn-usage/text","k":"text","p":{"text":"9.5s · 1.6K tok · <$0.01 this turn"}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"col"}],["add","13","d",null,{"id":"13","k":"col"}],["set","j",{"tone":null}],["set","j.context",{"value":0.009673,"title":"Context 1% used\n9.7K of 1M tokens\nAuto-compact at 85%"}],["add","j.bar/send","j.bar",null,{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}],["del","l"],["del","j.bar/stop"],["settle","12"]]}}
+{"t":1792607285779,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":253}}
+{"t":1792607301245,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"Write about 350 words on how volcanoes form. No tools."}}
+{"t":1792607301248,"dir":"out","verb":"f","body":{"sf":"s:1","s":254,"ops":[["add","14","main",null,{"id":"14","k":"card","p":{"role":"omp.user","tone":"user"},"c":[{"id":"14.tools","k":"row","p":{"gap":"xs","align":"center","role":"omp.user.tools"},"c":[{"id":"14.tools/copy","k":"icon","p":{"name":"copy","role":"omp.user.tool","title":"Copy message","aria":"Copy message","actions":{"click":"copy-message"}}},{"id":"14.tools/rewind","k":"icon","p":{"name":"rewind","role":"omp.user.tool","title":"Rewind the conversation to an earlier message","aria":"Rewind","actions":{"click":"rewind"}}},{"id":"14.tools/dot","k":"text","p":{"text":"·"}},{"id":"14.tools/3","k":"text","p":{"role":"omp.user.time","title":"2026/10/21 18:28:21","spans":[{"t":"18:28","s":"dim mono"}]}}]},{"id":"14.1","k":"md","p":{"text":"Write about 350 words on how volcanoes form. No tools."}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"row","p":{"role":"omp.hud.activity","align":"center","gap":"sm"},"c":[{"id":"b.status","k":"col","p":{"role":"omp.hud.status"},"c":[{"id":"15","k":"row","p":{"role":"omp.working","align":"center","gap":"sm"},"c":[{"id":"15.spinner","k":"spinner","p":{"style":"starburst","tone":"accent"}},{"id":"15.elapsed","k":"elapsed","p":{"age":1,"format":"short"}},{"id":"15.sep","k":"text","p":{"text":"·","role":"omp.working.sep"}},{"id":"15.label","k":"shimmer","p":{"spans":[{"t":"Working…","s":"accent"}],"mode":"classic","palette":{"low":"dim","mid":"accent","high":"accent"},"role":"omp.working.label"}},{"id":"15.fill","k":"row","p":{"grow":1}},{"id":"15.stop","k":"row","p":{"role":"omp.working.stop","gap":"xs","align":"center","title":"Stop  esc","actions":{"click":"interrupt"}},"c":[{"id":"15.stop/0","k":"kbd","p":{"keys":["escape"]}},{"id":"15.stop/1","k":"text","p":{"text":"Stop"}}]}]}]}]}],["set","j",{"tone":"pending"}],["add","j.bar/stop","j.bar",null,{"id":"j.bar/stop","k":"text","p":{"role":"omp.composer.stop","text":"Stop","tone":"error","title":"Stop  esc","actions":{"click":"interrupt"}}}],["del","j.bar/send"],["settle","14"]]}}
+{"t":1792607301251,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":254}}
+{"t":1792607301255,"dir":"out","verb":"f","body":{"sf":"s:1","s":255,"ops":[["set","j.context",{"value":0.009686}]]}}
+{"t":1792607301257,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":255}}
+{"t":1792607302257,"dir":"out","verb":"f","body":{"sf":"s:1","s":256,"ops":[["add","16","main",null,{"id":"16","k":"col","p":{"role":"omp.assistant"}}]]}}
+{"t":1792607302260,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":256}}
+{"t":1792607302292,"dir":"out","verb":"f","body":{"sf":"s:1","s":257,"ops":[["add","16.k0","16",null,{"id":"16.k0","k":"section","p":{"role":"omp.thinking.live","collapsible":true,"collapsed":false,"head":"16.k0/head"},"c":[{"id":"16.k0/head","k":"row","p":{"gap":"sm"},"c":[{"id":"16.k0/head/0","k":"spinner","p":{"style":"starburst","role":"omp.thinking.spin"}},{"id":"16.k0/head/1","k":"text","p":{"spans":[{"t":"Thinking…","s":"muted"}]}},{"id":"16.k0/head/2","k":"elapsed","p":{"age":0,"format":"short"}}]},{"id":"16.k0/body","k":"md","p":{"text":"Use","stream":true}}]}]]}}
+{"t":1792607302294,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":257}}
+{"t":1792607302324,"dir":"out","verb":"f","body":{"sf":"s:1","s":258,"ops":[["set","16.k0/head/2",{"age":32}],["text","16.k0/body","append","r w"]]}}
+{"t":1792607302326,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":258}}
+{"t":1792607302358,"dir":"out","verb":"f","body":{"sf":"s:1","s":259,"ops":[["set","16.k0/head/2",{"age":66}],["text","16.k0/body","append","ants ~"]]}}
+{"t":1792607302360,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":259}}
+{"t":1792607302392,"dir":"out","verb":"f","body":{"sf":"s:1","s":260,"ops":[["set","16.k0/head/2",{"age":100}],["text","16.k0/body","append","350 wor"]]}}
+{"t":1792607302394,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":260}}
+{"t":1792607302425,"dir":"out","verb":"f","body":{"sf":"s:1","s":261,"ops":[["set","16.k0/head/2",{"age":133}],["text","16.k0/body","append","ds on how v"]]}}
+{"t":1792607302427,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":261}}
+{"t":1792607302458,"dir":"out","verb":"f","body":{"sf":"s:1","s":262,"ops":[["set","16.k0/head/2",{"age":166}],["text","16.k0/body","append","olcanoes form. N"]]}}
+{"t":1792607302459,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":262}}
+{"t":1792607302493,"dir":"out","verb":"f","body":{"sf":"s:1","s":263,"ops":[["set","16.k0/head/2",{"age":201}],["text","16.k0/body","append","o tools. Write"]]}}
+{"t":1792607302495,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":263}}
+{"t":1792607302528,"dir":"out","verb":"f","body":{"sf":"s:1","s":264,"ops":[["set","16.k0/head/2",{"age":236}],["text","16.k0/body","append"," factual prose, t"]]}}
+{"t":1792607302529,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":264}}
+{"t":1792607302561,"dir":"out","verb":"f","body":{"sf":"s:1","s":265,"ops":[["set","16.k0/head/2",{"age":269}],["text","16.k0/body","append","erse engineer sty"]]}}
+{"t":1792607302564,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":265}}
+{"t":1792607302596,"dir":"out","verb":"f","body":{"sf":"s:1","s":266,"ops":[["set","16.k0/head/2",{"age":304}],["text","16.k0/body","append","le but essay. K"]]}}
+{"t":1792607302598,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":266}}
+{"t":1792607302629,"dir":"out","verb":"f","body":{"sf":"s:1","s":267,"ops":[["set","16.k0/head/2",{"age":337}],["text","16.k0/body","append","eep ~350 words."]]}}
+{"t":1792607302632,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":267}}
+{"t":1792607302665,"dir":"out","verb":"f","body":{"sf":"s:1","s":268,"ops":[["set","16.k0/head/2",{"age":373}],["text","16.k0/body","append","\n\nContent: mantle c"]]}}
+{"t":1792607302667,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":268}}
+{"t":1792607302700,"dir":"out","verb":"f","body":{"sf":"s:1","s":269,"ops":[["set","16.k0/head/2",{"age":408}],["text","16.k0/body","append","onvection, decompres"]]}}
+{"t":1792607302702,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":269}}
+{"t":1792607302732,"dir":"out","verb":"f","body":{"sf":"s:1","s":270,"ops":[["set","16.k0/head/2",{"age":440}],["text","16.k0/body","append","sion melting, thre"]]}}
+{"t":1792607302735,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":270}}
+{"t":1792607302766,"dir":"out","verb":"f","body":{"sf":"s:1","s":271,"ops":[["set","16.k0/head/2",{"age":474}],["text","16.k0/body","append","e settings: diverg"]]}}
+{"t":1792607302769,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":271}}
+{"t":1792607302800,"dir":"out","verb":"f","body":{"sf":"s:1","s":272,"ops":[["set","16.k0/head/2",{"age":508}],["text","16.k0/body","append","ent (mid-ocean ridges"]]}}
+{"t":1792607302803,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":272}}
+{"t":1792607302833,"dir":"out","verb":"f","body":{"sf":"s:1","s":273,"ops":[["set","16.k0/head/2",{"age":541}],["text","16.k0/body","append","), convergent (subducti"]]}}
+{"t":1792607302836,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":273}}
+{"t":1792607302868,"dir":"out","verb":"f","body":{"sf":"s:1","s":274,"ops":[["set","16.k0/head/2",{"age":576}],["text","16.k0/body","append","on, flux melting fro"]]}}
+{"t":1792607302870,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":274}}
+{"t":1792607302901,"dir":"out","verb":"f","body":{"sf":"s:1","s":275,"ops":[["set","16.k0/head/2",{"age":609}],["text","16.k0/body","append","m water), hotspots ("]]}}
+{"t":1792607302904,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":275}}
+{"t":1792607302935,"dir":"out","verb":"f","body":{"sf":"s:1","s":276,"ops":[["set","16.k0/head/2",{"age":643}],["text","16.k0/body","append","mantle plumes). M"]]}}
+{"t":1792607302938,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":276}}
+{"t":1792607302969,"dir":"out","verb":"f","body":{"sf":"s:1","s":277,"ops":[["set","16.k0/head/2",{"age":677}],["text","16.k0/body","append","agma generation, buoy"]]}}
+{"t":1792607302971,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":277}}
+{"t":1792607303003,"dir":"out","verb":"f","body":{"sf":"s:1","s":278,"ops":[["set","16.k0/head/2",{"age":711}],["text","16.k0/body","append","ancy, ascent, storage"]]}}
+{"t":1792607303006,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":278}}
+{"t":1792607303038,"dir":"out","verb":"f","body":{"sf":"s:1","s":279,"ops":[["set","16.k0/head/2",{"age":746}],["text","16.k0/body","append"," in chambers, fraction"]]}}
+{"t":1792607303040,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":279}}
+{"t":1792607303072,"dir":"out","verb":"f","body":{"sf":"s:1","s":280,"ops":[["set","16.k0/head/2",{"age":780}],["text","16.k0/body","append","al crystallization, g"]]}}
+{"t":1792607303075,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":280}}
+{"t":1792607303106,"dir":"out","verb":"f","body":{"sf":"s:1","s":281,"ops":[["set","16.k0/head/2",{"age":814}],["text","16.k0/body","append","as exsolution, eru"]]}}
+{"t":1792607303108,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":281}}
+{"t":1792607303144,"dir":"out","verb":"f","body":{"sf":"s:1","s":282,"ops":[["set","16.k0/head/2",{"age":852}],["text","16.k0/body","append","ption style (visc"]]}}
+{"t":1792607303146,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":282}}
+{"t":1792607303173,"dir":"out","verb":"f","body":{"sf":"s:1","s":283,"ops":[["set","16.k0/head/2",{"age":881}],["text","16.k0/body","append","osity, silica c"]]}}
+{"t":1792607303175,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":283}}
+{"t":1792607303206,"dir":"out","verb":"f","body":{"sf":"s:1","s":284,"ops":[["set","16.k0/head/2",{"age":914}],["text","16.k0/body","append","ontent), basalt v"]]}}
+{"t":1792607303209,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":284}}
+{"t":1792607303240,"dir":"out","verb":"f","body":{"sf":"s:1","s":285,"ops":[["set","16.k0/head/2",{"age":948}],["text","16.k0/body","append","s andesite/rhyol"]]}}
+{"t":1792607303242,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":285}}
+{"t":1792607303274,"dir":"out","verb":"f","body":{"sf":"s:1","s":286,"ops":[["set","16.k0/head/2",{"age":982}],["text","16.k0/body","append","ite. Include numb"]]}}
+{"t":1792607303276,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":286}}
+{"t":1792607303308,"dir":"out","verb":"f","body":{"sf":"s:1","s":287,"ops":[["set","16.k0/head/2",{"age":1016}],["text","16.k0/body","append","ers: mantle ~13"]]}}
+{"t":1792607303310,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":287}}
+{"t":1792607303342,"dir":"out","verb":"f","body":{"sf":"s:1","s":288,"ops":[["set","16.k0/head/2",{"age":1050}],["text","16.k0/body","append","00°C, decompr"]]}}
+{"t":1792607303344,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":288}}
+{"t":1792607303376,"dir":"out","verb":"f","body":{"sf":"s:1","s":289,"ops":[["set","16.k0/head/2",{"age":1084}],["text","16.k0/body","append","ession melt"]]}}
+{"t":1792607303379,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":289}}
+{"t":1792607303411,"dir":"out","verb":"f","body":{"sf":"s:1","s":290,"ops":[["set","16.k0/head/2",{"age":1119}],["text","16.k0/body","append","ing, ~10% melt, MORB, r"]]}}
+{"t":1792607303414,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":290}}
+{"t":1792607303445,"dir":"out","verb":"f","body":{"sf":"s:1","s":291,"ops":[["set","16.k0/head/2",{"age":1153}],["text","16.k0/body","append","ing of fire 75%, etc"]]}}
+{"t":1792607303448,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":291}}
+{"t":1792607303480,"dir":"out","verb":"f","body":{"sf":"s:1","s":292,"ops":[["set","16.k0/head/2",{"age":1188}],["text","16.k0/body","append",".\n\nDraft ~350.\n\nCo"]]}}
+{"t":1792607303483,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":292}}
+{"t":1792607303512,"dir":"out","verb":"f","body":{"sf":"s:1","s":293,"ops":[["set","16.k0/head/2",{"age":1220}],["text","16.k0/body","append","unt: I'll aim 340-370"]]}}
+{"t":1792607303514,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":293}}
+{"t":1792607303551,"dir":"out","verb":"f","body":{"sf":"s:1","s":294,"ops":[["set","16.k0",{"role":"omp.thinking","collapsed":true,"took":1259}],["del","16.k0/head"],["add","16.k0/head","16.k0","16.k0/body",{"id":"16.k0/head","k":"text","p":{"spans":[{"t":"Thought for 1s","s":"muted"}]}}],["text","16.k0/body","append","."],["set","16.k0/body",{"stream":null}],["add","16.t1","16",null,{"id":"16.t1","k":"md","p":{"text":"Volcanoes are wher","stream":true}}]]}}
+{"t":1792607303553,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":294}}
+{"t":1792607303579,"dir":"out","verb":"f","body":{"sf":"s:1","s":295,"ops":[["text","16.t1","append","e molten rock reaches"]]}}
+{"t":1792607303582,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":295}}
+{"t":1792607303615,"dir":"out","verb":"f","body":{"sf":"s:1","s":296,"ops":[["text","16.t1","append"," the surface. The cen"]]}}
+{"t":1792607303618,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":296}}
+{"t":1792607303647,"dir":"out","verb":"f","body":{"sf":"s:1","s":297,"ops":[["text","16.t1","append","tral problem is th"]]}}
+{"t":1792607303649,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":297}}
+{"t":1792607303681,"dir":"out","verb":"f","body":{"sf":"s:1","s":298,"ops":[["text","16.t1","append","at the mantle is hot"]]}}
+{"t":1792607303684,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":298}}
+{"t":1792607303716,"dir":"out","verb":"f","body":{"sf":"s:1","s":299,"ops":[["text","16.t1","append"," but almost never molt"]]}}
+{"t":1792607303719,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":299}}
+{"t":1792607303749,"dir":"out","verb":"f","body":{"sf":"s:1","s":300,"ops":[["text","16.t1","append","en: at roughly 1300 °C"]]}}
+{"t":1792607303752,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":300}}
+{"t":1792607303783,"dir":"out","verb":"f","body":{"sf":"s:1","s":301,"ops":[["text","16.t1","append"," it sits below its solidu"]]}}
+{"t":1792607303786,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":301}}
+{"t":1792607303816,"dir":"out","verb":"f","body":{"sf":"s:1","s":302,"ops":[["text","16.t1","append","s because pressure is high"]]}}
+{"t":1792607303819,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":302}}
+{"t":1792607303851,"dir":"out","verb":"f","body":{"sf":"s:1","s":303,"ops":[["text","16.t1","append",". Rock melts only when"]]}}
+{"t":1792607303854,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":303}}
+{"t":1792607303885,"dir":"out","verb":"f","body":{"sf":"s:1","s":304,"ops":[["text","16.t1","append"," something shifts its"]]}}
+{"t":1792607303888,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":304}}
+{"t":1792607303918,"dir":"out","verb":"f","body":{"sf":"s:1","s":305,"ops":[["text","16.t1","append"," pressure or composition,"]]}}
+{"t":1792607303921,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":305}}
+{"t":1792607303952,"dir":"out","verb":"f","body":{"sf":"s:1","s":306,"ops":[["text","16.t1","append"," so volcanism marks the"]]}}
+{"t":1792607303955,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":306}}
+{"t":1792607303987,"dir":"out","verb":"f","body":{"sf":"s:1","s":307,"ops":[["text","16.t1","append"," places where that happens"]]}}
+{"t":1792607303990,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":307}}
+{"t":1792607304021,"dir":"out","verb":"f","body":{"sf":"s:1","s":308,"ops":[["text","16.t1","append",".\n\nDecompression melting"]]}}
+{"t":1792607304024,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":308}}
+{"t":1792607304054,"dir":"out","verb":"f","body":{"sf":"s:1","s":309,"ops":[["text","16.t1","append"," dominates at divergent bo"]]}}
+{"t":1792607304056,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":309}}
+{"t":1792607304088,"dir":"out","verb":"f","body":{"sf":"s:1","s":310,"ops":[["text","16.t1","append","undaries. Beneath mid-o"]]}}
+{"t":1792607304090,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":310}}
+{"t":1792607304122,"dir":"out","verb":"f","body":{"sf":"s:1","s":311,"ops":[["text","16.t1","append","cean ridges, convecti"]]}}
+{"t":1792607304125,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":311}}
+{"t":1792607304154,"dir":"out","verb":"f","body":{"sf":"s:1","s":312,"ops":[["text","16.t1","append","ng mantle rises, pressu"]]}}
+{"t":1792607304158,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":312}}
+{"t":1792607304193,"dir":"out","verb":"f","body":{"sf":"s:1","s":313,"ops":[["text","16.t1","append","re falls, and the solidu"]]}}
+{"t":1792607304197,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":313}}
+{"t":1792607304225,"dir":"out","verb":"f","body":{"sf":"s:1","s":314,"ops":[["text","16.t1","append","s drops faster than t"]]}}
+{"t":1792607304229,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":314}}
+{"t":1792607304258,"dir":"out","verb":"f","body":{"sf":"s:1","s":315,"ops":[["text","16.t1","append","emperature does, so a"]]}}
+{"t":1792607304262,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":315}}
+{"t":1792607304296,"dir":"out","verb":"f","body":{"sf":"s:1","s":316,"ops":[["text","16.t1","append"," few percent melt"]]}}
+{"t":1792607304303,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":316}}
+{"t":1792607304328,"dir":"out","verb":"f","body":{"sf":"s:1","s":317,"ops":[["text","16.t1","append"," forms — perhaps 10–20"]]}}
+{"t":1792607304337,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":317}}
+{"t":1792607304362,"dir":"out","verb":"f","body":{"sf":"s:1","s":318,"ops":[["text","16.t1","append","% beneath fast ridges. T"]]}}
+{"t":1792607304365,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":318}}
+{"t":1792607304401,"dir":"out","verb":"f","body":{"sf":"s:1","s":319,"ops":[["text","16.t1","append","hat basalt feeds the gl"]]}}
+{"t":1792607304407,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":319}}
+{"t":1792607304435,"dir":"out","verb":"f","body":{"sf":"s:1","s":320,"ops":[["text","16.t1","append","obal ridge system, w"]]}}
+{"t":1792607304484,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":320}}
+{"t":1792607304487,"dir":"out","verb":"f","body":{"sf":"s:1","s":321,"ops":[["text","16.t1","append","hich produces most of"]]}}
+{"t":1792607304491,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":321}}
+{"t":1792607304520,"dir":"out","verb":"f","body":{"sf":"s:1","s":322,"ops":[["text","16.t1","append"," Earth's magma and"]]}}
+{"t":1792607304524,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":322}}
+{"t":1792607304555,"dir":"out","verb":"f","body":{"sf":"s:1","s":323,"ops":[["text","16.t1","append"," builds new oceanic crust"]]}}
+{"t":1792607304559,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":323}}
+{"t":1792607304588,"dir":"out","verb":"f","body":{"sf":"s:1","s":324,"ops":[["text","16.t1","append",". Continental rifts suc"]]}}
+{"t":1792607304592,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":324}}
+{"t":1792607304622,"dir":"out","verb":"f","body":{"sf":"s:1","s":325,"ops":[["text","16.t1","append","h as East Africa work th"]]}}
+{"t":1792607304625,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":325}}
+{"t":1792607304654,"dir":"out","verb":"f","body":{"sf":"s:1","s":326,"ops":[["text","16.t1","append","e same way, but through"]]}}
+{"t":1792607304658,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":326}}
+{"t":1792607304689,"dir":"out","verb":"f","body":{"sf":"s:1","s":327,"ops":[["text","16.t1","append"," thick crust.\n\nSubdu"]]}}
+{"t":1792607304693,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":327}}
+{"t":1792607304725,"dir":"out","verb":"f","body":{"sf":"s:1","s":328,"ops":[["text","16.t1","append","ction zones make th"]]}}
+{"t":1792607304730,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":328}}
+{"t":1792607304757,"dir":"out","verb":"f","body":{"sf":"s:1","s":329,"ops":[["text","16.t1","append","e explosive volcanoes. Se"]]}}
+{"t":1792607304759,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":329}}
+{"t":1792607304791,"dir":"out","verb":"f","body":{"sf":"s:1","s":330,"ops":[["text","16.t1","append","awater locked into oceani"]]}}
+{"t":1792607304794,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":330}}
+{"t":1792607304825,"dir":"out","verb":"f","body":{"sf":"s:1","s":331,"ops":[["text","16.t1","append","c crust and sediment i"]]}}
+{"t":1792607304830,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":331}}
+{"t":1792607304859,"dir":"out","verb":"f","body":{"sf":"s:1","s":332,"ops":[["text","16.t1","append","s driven off as the slab d"]]}}
+{"t":1792607304863,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":332}}
+{"t":1792607304892,"dir":"out","verb":"f","body":{"sf":"s:1","s":333,"ops":[["text","16.t1","append","escends, and that water l"]]}}
+{"t":1792607304896,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":333}}
+{"t":1792607304925,"dir":"out","verb":"f","body":{"sf":"s:1","s":334,"ops":[["text","16.t1","append","owers the melting point of"]]}}
+{"t":1792607304928,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":334}}
+{"t":1792607304958,"dir":"out","verb":"f","body":{"sf":"s:1","s":335,"ops":[["text","16.t1","append"," the overlying mantle we"]]}}
+{"t":1792607304961,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":335}}
+{"t":1792607304994,"dir":"out","verb":"f","body":{"sf":"s:1","s":336,"ops":[["text","16.t1","append","dge — flux melting, not"]]}}
+{"t":1792607304997,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":336}}
+{"t":1792607305027,"dir":"out","verb":"f","body":{"sf":"s:1","s":337,"ops":[["text","16.t1","append"," heating. The resulting an"]]}}
+{"t":1792607305029,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":337}}
+{"t":1792607305061,"dir":"out","verb":"f","body":{"sf":"s:1","s":338,"ops":[["text","16.t1","append","desitic magma is more si"]]}}
+{"t":1792607305064,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":338}}
+{"t":1792607305094,"dir":"out","verb":"f","body":{"sf":"s:1","s":339,"ops":[["text","16.t1","append","lica-rich, more viscous, an"]]}}
+{"t":1792607305097,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":339}}
+{"t":1792607305128,"dir":"out","verb":"f","body":{"sf":"s:1","s":340,"ops":[["text","16.t1","append","d more gas-laden than bas"]]}}
+{"t":1792607305132,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":340}}
+{"t":1792607305161,"dir":"out","verb":"f","body":{"sf":"s:1","s":341,"ops":[["text","16.t1","append","alt, so it traps pressure"]]}}
+{"t":1792607305164,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":341}}
+{"t":1792607305195,"dir":"out","verb":"f","body":{"sf":"s:1","s":342,"ops":[["text","16.t1","append"," and erupts violently. T"]]}}
+{"t":1792607305197,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":342}}
+{"t":1792607305228,"dir":"out","verb":"f","body":{"sf":"s:1","s":343,"ops":[["text","16.t1","append","he Pacific Ring of Fire,"]]}}
+{"t":1792607305230,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":343}}
+{"t":1792607305264,"dir":"out","verb":"f","body":{"sf":"s:1","s":344,"ops":[["text","16.t1","append"," hosting roughly thre"]]}}
+{"t":1792607305267,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":344}}
+{"t":1792607305297,"dir":"out","verb":"f","body":{"sf":"s:1","s":345,"ops":[["text","16.t1","append","e-quarters of the world"]]}}
+{"t":1792607305300,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":345}}
+{"t":1792607305330,"dir":"out","verb":"f","body":{"sf":"s:1","s":346,"ops":[["text","16.t1","append","'s active volcanoes, is"]]}}
+{"t":1792607305334,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":346}}
+{"t":1792607305363,"dir":"out","verb":"f","body":{"sf":"s:1","s":347,"ops":[["text","16.t1","append"," this process.\n\nHots"]]}}
+{"t":1792607305366,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":347}}
+{"t":1792607305398,"dir":"out","verb":"f","body":{"sf":"s:1","s":348,"ops":[["text","16.t1","append","pots are the third setti"]]}}
+{"t":1792607305403,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":348}}
+{"t":1792607305432,"dir":"out","verb":"f","body":{"sf":"s:1","s":349,"ops":[["text","16.t1","append","ng: narrow upwellings,"]]}}
+{"t":1792607305436,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":349}}
+{"t":1792607305465,"dir":"out","verb":"f","body":{"sf":"s:1","s":350,"ops":[["text","16.t1","append"," probably rooted near the"]]}}
+{"t":1792607305469,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":350}}
+{"t":1792607305499,"dir":"out","verb":"f","body":{"sf":"s:1","s":351,"ops":[["text","16.t1","append"," core–mantle boundary, th"]]}}
+{"t":1792607305502,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":351}}
+{"t":1792607305533,"dir":"out","verb":"f","body":{"sf":"s:1","s":352,"ops":[["text","16.t1","append","at melt as they rise. Becau"]]}}
+{"t":1792607305536,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":352}}
+{"t":1792607305568,"dir":"out","verb":"f","body":{"sf":"s:1","s":353,"ops":[["text","16.t1","append","se the plume is fixed re"]]}}
+{"t":1792607305570,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":353}}
+{"t":1792607305603,"dir":"out","verb":"f","body":{"sf":"s:1","s":354,"ops":[["text","16.t1","append","lative to the moving plat"]]}}
+{"t":1792607305607,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":354}}
+{"t":1792607305637,"dir":"out","verb":"f","body":{"sf":"s:1","s":355,"ops":[["text","16.t1","append","e, it leaves chains —"]]}}
+{"t":1792607305640,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":355}}
+{"t":1792607305671,"dir":"out","verb":"f","body":{"sf":"s:1","s":356,"ops":[["text","16.t1","append"," Hawaii, Yellowstone,"]]}}
+{"t":1792607305675,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":356}}
+{"t":1792607305705,"dir":"out","verb":"f","body":{"sf":"s:1","s":357,"ops":[["text","16.t1","append"," Iceland straddling"]]}}
+{"t":1792607305708,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":357}}
+{"t":1792607305739,"dir":"out","verb":"f","body":{"sf":"s:1","s":358,"ops":[["text","16.t1","append"," a ridge.\n\nOnce"]]}}
+{"t":1792607305742,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":358}}
+{"t":1792607305773,"dir":"out","verb":"f","body":{"sf":"s:1","s":359,"ops":[["text","16.t1","append"," melt forms, it ascends"]]}}
+{"t":1792607305776,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":359}}
+{"t":1792607305807,"dir":"out","verb":"f","body":{"sf":"s:1","s":360,"ops":[["text","16.t1","append"," mainly because it is"]]}}
+{"t":1792607305810,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":360}}
+{"t":1792607305841,"dir":"out","verb":"f","body":{"sf":"s:1","s":361,"ops":[["text","16.t1","append"," buoyant and because"]]}}
+{"t":1792607305844,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":361}}
+{"t":1792607305875,"dir":"out","verb":"f","body":{"sf":"s:1","s":362,"ops":[["text","16.t1","append"," the surrounding rock"]]}}
+{"t":1792607305877,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":362}}
+{"t":1792607305909,"dir":"out","verb":"f","body":{"sf":"s:1","s":363,"ops":[["text","16.t1","append"," deforms ductilely aro"]]}}
+{"t":1792607305912,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":363}}
+{"t":1792607305943,"dir":"out","verb":"f","body":{"sf":"s:1","s":364,"ops":[["text","16.t1","append","und it. Magma commonly"]]}}
+{"t":1792607305945,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":364}}
+{"t":1792607305977,"dir":"out","verb":"f","body":{"sf":"s:1","s":365,"ops":[["text","16.t1","append"," stalls at neutral-buoy"]]}}
+{"t":1792607305979,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":365}}
+{"t":1792607306011,"dir":"out","verb":"f","body":{"sf":"s:1","s":366,"ops":[["text","16.t1","append","ancy levels — the Moho, o"]]}}
+{"t":1792607306013,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":366}}
+{"t":1792607306044,"dir":"out","verb":"f","body":{"sf":"s:1","s":367,"ops":[["text","16.t1","append","r shallow crustal cham"]]}}
+{"t":1792607306047,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":367}}
+{"t":1792607306078,"dir":"out","verb":"f","body":{"sf":"s:1","s":368,"ops":[["text","16.t1","append","bers — where it cools, cr"]]}}
+{"t":1792607306080,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":368}}
+{"t":1792607306111,"dir":"out","verb":"f","body":{"sf":"s:1","s":369,"ops":[["text","16.t1","append","ystallizes, and differ"]]}}
+{"t":1792607306114,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":369}}
+{"t":1792607306150,"dir":"out","verb":"f","body":{"sf":"s:1","s":370,"ops":[["text","16.t1","append","entiates; fractional"]]}}
+{"t":1792607306153,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":370}}
+{"t":1792607306184,"dir":"out","verb":"f","body":{"sf":"s:1","s":371,"ops":[["text","16.t1","append"," removal of olivine and"]]}}
+{"t":1792607306186,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":371}}
+{"t":1792607306218,"dir":"out","verb":"f","body":{"sf":"s:1","s":372,"ops":[["text","16.t1","append"," pyroxene drives residu"]]}}
+{"t":1792607306220,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":372}}
+{"t":1792607306252,"dir":"out","verb":"f","body":{"sf":"s:1","s":373,"ops":[["text","16.t1","append","al melt toward silica-ri"]]}}
+{"t":1792607306255,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":373}}
+{"t":1792607306285,"dir":"out","verb":"f","body":{"sf":"s:1","s":374,"ops":[["text","16.t1","append","ch compositions. Disso"]]}}
+{"t":1792607306288,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":374}}
+{"t":1792607306319,"dir":"out","verb":"f","body":{"sf":"s:1","s":375,"ops":[["text","16.t1","append","lved water and CO₂ exs"]]}}
+{"t":1792607306322,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":375}}
+{"t":1792607306353,"dir":"out","verb":"f","body":{"sf":"s:1","s":376,"ops":[["text","16.t1","append","olve as pressure dro"]]}}
+{"t":1792607306357,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":376}}
+{"t":1792607306387,"dir":"out","verb":"f","body":{"sf":"s:1","s":377,"ops":[["text","16.t1","append","ps, expanding explosive"]]}}
+{"t":1792607306391,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":377}}
+{"t":1792607306421,"dir":"out","verb":"f","body":{"sf":"s:1","s":378,"ops":[["text","16.t1","append","ly near the surface."]]}}
+{"t":1792607306424,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":378}}
+{"t":1792607306455,"dir":"out","verb":"f","body":{"sf":"s:1","s":379,"ops":[["text","16.t1","append","\n\nEruption style the"]]}}
+{"t":1792607306459,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":379}}
+{"t":1792607306489,"dir":"out","verb":"f","body":{"sf":"s:1","s":380,"ops":[["text","16.t1","append","refore follows viscos"]]}}
+{"t":1792607306492,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":380}}
+{"t":1792607306524,"dir":"out","verb":"f","body":{"sf":"s:1","s":381,"ops":[["text","16.t1","append","ity and gas: low-si"]]}}
+{"t":1792607306528,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":381}}
+{"t":1792607306557,"dir":"out","verb":"f","body":{"sf":"s:1","s":382,"ops":[["text","16.t1","append","lica basalt flows as l"]]}}
+{"t":1792607306560,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":382}}
+{"t":1792607306591,"dir":"out","verb":"f","body":{"sf":"s:1","s":383,"ops":[["text","16.t1","append","ava (Kilauea, Icelan"]]}}
+{"t":1792607306594,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":383}}
+{"t":1792607306624,"dir":"out","verb":"f","body":{"sf":"s:1","s":384,"ops":[["text","16.t1","append","d), while high-silica"]]}}
+{"t":1792607306627,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":384}}
+{"t":1792607306658,"dir":"out","verb":"f","body":{"sf":"s:1","s":385,"ops":[["text","16.t1","append"," magma fragments int"]]}}
+{"t":1792607306661,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":385}}
+{"t":1792607306692,"dir":"out","verb":"f","body":{"sf":"s:1","s":386,"ops":[["text","16.t1","append","o ash and pyroclas"]]}}
+{"t":1792607306694,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":386}}
+{"t":1792607306724,"dir":"out","verb":"f","body":{"sf":"s:1","s":387,"ops":[["text","16.t1","append","tic flows (Pinatubo,"]]}}
+{"t":1792607306727,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":387}}
+{"t":1792607306766,"dir":"out","verb":"f","body":{"sf":"s:1","s":388,"ops":[["text","16.t1","append"," Vesuvius). The chain is the same everywhere — melt generated by pressure or water, focused by buoyancy, modified in a chamber, released when gas wins."],["set","16.t1",{"stream":null}],["add","16.turn-usage","16",null,{"id":"16.turn-usage","k":"row","p":{"role":"omp.turn.usage","gap":"xs","align":"center","title":"This turn: 5.5s · 860 tokens (227 in · 633 out) · <$0.01"},"c":[{"id":"16.turn-usage/copy","k":"icon","p":{"name":"copy","role":"omp.turn.copy","title":"Copy answer","aria":"Copy answer","actions":{"click":"copy-answer"}}},{"id":"16.turn-usage/dot","k":"text","p":{"text":"·"}},{"id":"16.turn-usage/text","k":"text","p":{"text":"5.5s · 860 tok · <$0.01 this turn"}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"col"}],["add","17","d",null,{"id":"17","k":"col"}],["set","j",{"tone":null}],["set","j.context",{"value":0.011107,"title":"Context 1% used\n11K of 1M tokens\nAuto-compact at 85%"}],["add","j.bar/send","j.bar",null,{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}],["del","13"],["del","j.bar/stop"],["settle","16"]]}}
+{"t":1792607306770,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":388}}
+{"t":1792607326253,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"/compact"}}
+{"t":1792607326272,"dir":"out","verb":"f","body":{"sf":"s:1","s":389,"ops":[["del","b"],["add","b","dock","c",{"id":"b","k":"row","p":{"role":"omp.hud.activity","align":"center","gap":"sm"},"c":[{"id":"b.status","k":"col","p":{"role":"omp.hud.status"},"c":[{"id":"18","k":"row","p":{"role":"omp.working","align":"center","gap":"sm"},"c":[{"id":"18.spinner","k":"spinner","p":{"style":"starburst","tone":"accent"}},{"id":"18.elapsed","k":"elapsed","p":{"age":14,"format":"short"}},{"id":"18.sep","k":"text","p":{"text":"·","role":"omp.working.sep"}},{"id":"18.label","k":"shimmer","p":{"spans":[{"t":"Compacting context…","s":"muted"}],"mode":"classic","palette":{"low":"dim","mid":"muted","high":"accent"},"role":"omp.working.label"}},{"id":"18.fill","k":"row","p":{"grow":1}},{"id":"18.progress","k":"progress"},{"id":"18.stop","k":"row","p":{"role":"omp.working.stop","gap":"xs","align":"center","title":"Stop  esc","actions":{"click":"interrupt"}},"c":[{"id":"18.stop/0","k":"kbd","p":{"keys":["escape"]}},{"id":"18.stop/1","k":"text","p":{"text":"Stop"}}]}]}]}]}]]}}
+{"t":1792607326276,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":389}}
+{"t":1792607330151,"dir":"out","verb":"f","body":{"sf":"s:1","s":390,"ops":[["set","16",{"role":"omp.assistant"}],["del","16.k0"],["del","16.t1"],["del","16.turn-usage"],["add","16.k0","16",null,{"id":"16.k0","k":"section","p":{"role":"omp.thinking","collapsible":true,"collapsed":true,"took":1259,"head":"16.k0/head"},"c":[{"id":"16.k0/head","k":"text","p":{"spans":[{"t":"Thought for 1s","s":"muted"}]}},{"id":"16.k0/body","k":"md","p":{"text":"User wants ~350 words on how volcanoes form. No tools. Write factual prose, terse engineer style but essay. Keep ~350 words.\n\nContent: mantle convection, decompression melting, three settings: divergent (mid-ocean ridges), convergent (subduction, flux melting from water), hotspots (mantle plumes). Magma generation, buoyancy, ascent, storage in chambers, fractional crystallization, gas exsolution, eruption style (viscosity, silica content), basalt vs andesite/rhyolite. Include numbers: mantle ~1300°C, decompression melting, ~10% melt, MORB, ring of fire 75%, etc.\n\nDraft ~350.\n\nCount: I'll aim 340-370."}}]}],["add","16.t1","16",null,{"id":"16.t1","k":"md","p":{"text":"Volcanoes are where molten rock reaches the surface. The central problem is that the mantle is hot but almost never molten: at roughly 1300 °C it sits below its solidus because pressure is high. Rock melts only when something shifts its pressure or composition, so volcanism marks the places where that happens.\n\nDecompression melting dominates at divergent boundaries. Beneath mid-ocean ridges, convecting mantle rises, pressure falls, and the solidus drops faster than temperature does, so a few percent melt forms — perhaps 10–20% beneath fast ridges. That basalt feeds the global ridge system, which produces most of Earth's magma and builds new oceanic crust. Continental rifts such as East Africa work the same way, but through thick crust.\n\nSubduction zones make the explosive volcanoes. Seawater locked into oceanic crust and sediment is driven off as the slab descends, and that water lowers the melting point of the overlying mantle wedge — flux melting, not heating. The resulting andesitic magma is more silica-rich, more viscous, and more gas-laden than basalt, so it traps pressure and erupts violently. The Pacific Ring of Fire, hosting roughly three-quarters of the world's active volcanoes, is this process.\n\nHotspots are the third setting: narrow upwellings, probably rooted near the core–mantle boundary, that melt as they rise. Because the plume is fixed relative to the moving plate, it leaves chains — Hawaii, Yellowstone, Iceland straddling a ridge.\n\nOnce melt forms, it ascends mainly because it is buoyant and because the surrounding rock deforms ductilely around it. Magma commonly stalls at neutral-buoyancy levels — the Moho, or shallow crustal chambers — where it cools, crystallizes, and differentiates; fractional removal of olivine and pyroxene drives residual melt toward silica-rich compositions. Dissolved water and CO₂ exsolve as pressure drops, expanding explosively near the surface.\n\nEruption style therefore follows viscosity and gas: low-silica basalt flows as lava (Kilauea, Iceland), while high-silica magma fragments into ash and pyroclastic flows (Pinatubo, Vesuvius). The chain is the same everywhere — melt generated by pressure or water, focused by buoyancy, modified in a chamber, released when gas wins."}}],["add","16.turn-usage","16",null,{"id":"16.turn-usage","k":"row","p":{"role":"omp.turn.usage","gap":"xs","align":"center","title":"This turn: 5.5s · 860 tokens (227 in · 633 out) · <$0.01"},"c":[{"id":"16.turn-usage/copy","k":"icon","p":{"name":"copy","role":"omp.turn.copy","title":"Copy answer","aria":"Copy answer","actions":{"click":"copy-answer"}}},{"id":"16.turn-usage/dot","k":"text","p":{"text":"·"}},{"id":"16.turn-usage/text","k":"text","p":{"text":"5.5s · 860 tok · <$0.01 this turn"}}]}],["add","19","main",null,{"id":"19","k":"section","p":{"role":"omp.compaction","head":[{"t":"Soft-compacted","s":"muted"},{"t":" · 12K","s":"muted mono"},{"t":" → ","s":"dim"},{"t":"9.1K tokens","s":"muted mono"}],"collapsible":true,"collapsed":true},"c":[{"id":"19.0","k":"text","p":{"role":"omp.compaction.caption","key":"caption","spans":[{"t":"Summary of the earlier conversation","s":"dim"}]}},{"id":"19.1","k":"md","p":{"key":"summary","text":"## Goal\n- Write a ~350-word essay on the history of bridges, with no tools used.\n\n## Constraints & Preferences\n- Approximately 350 words.\n- No tools permitted.\n- Terse, factual prose style.\n\n## Progress\n\n### Done\n- [x] Delivered a ~350-word essay covering the history of bridges, organized by material era (stone, iron/steel, concrete).\n\n### In Progress\n- [ ] None.\n\n### Blocked\n- None.\n\n## Key Decisions\n- **Structure by material**: Organized the essay around stone, iron/steel, and concrete, with the unifying thesis that each era's limit was how a material resists tension.\n- **No tools / no emoji**: Treated the request as a pure writing task.\n\n## Next Steps\n1. None; the task is complete. If revision is requested, adjust word count or content accordingly.\n\n## Critical Context\n- Essay content covered: Pons Fabricius (62 BC), Pont du Gard, Alcántara (AD 106), Anji/Zhaozhou Bridge (c. 605, Li Chun), Rialto (1591, Antonio da Ponte), Iron Bridge at Coalbrookdale (1779), Britannia Bridge (1850, Robert Stephenson), Eads Bridge (1874), Brooklyn Bridge (1883, Roebling), Forth cantilever (1890), Golden Gate (1937), Akashi Kaikyō (1998), Strömsund (1955), Normandy (1995), Russky (2012), Millau Viaduct (2004).\n\n## Additional Notes\n- No pending questions or requests from the user.\n\n---\n\n**Turn Context (split turn):**\n\n## Original Request\nUser asked: \"Write about 350 words on how volcanoes form. No tools.\"\n\n## Early Progress\n- No substantive work completed in the truncated prefix.\n- No tools were invoked (user explicitly prohibited tool use).\n- No files, commands, or outputs involved.\n\n## Context for Suffix\n- The retained suffix consists of the same single user request.\n- Task remains: produce a ~350-word prose explanation of volcano formation.\n- Constraint: do not use tools; respond with text only."}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"col"}],["set","j.context",{"value":0.009037,"title":"Context 1% used\n9K of 1M tokens\nAuto-compact at 85%"}],["del","10"],["del","12"],["del","14"],["settle","16"],["settle","19"]]}}
+{"t":1792607330154,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":390}}

@@ -17,7 +17,11 @@ export function useHistorySessions(searching: boolean, refreshKey: string): Sess
     window.studio.listSessions(null).then(
       (list) =>
         current &&
-        setSessions(list.filter((session) => session.taskId === null).sort((a, b) => b.modifiedAt - a.modifiedAt)),
+        setSessions(
+          list
+            .filter((session) => session.taskId === null)
+            .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.modifiedAt - a.modifiedAt),
+        ),
       (error: unknown) => reportError(t, error),
     );
     return () => {

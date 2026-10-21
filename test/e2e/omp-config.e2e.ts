@@ -144,9 +144,11 @@ test("只是打开设置页、切分组、搜索、展开编辑器，不会写 o
     // 防抖和卸载时的提交都已经过去：没有"正在保存"。
     await page.waitForTimeout(2500);
     await expect(page.getByText("正在保存…")).toHaveCount(0);
-    // omp 的配置文件（临时 agent 目录里）只有启动时的默认允许（goal.continuationModes 加上 rpc），界面操作没有写别的。
+    // omp 的配置文件（临时 agent 目录里）只有启动时的两项默认（goal.continuationModes 加上 rpc、startup.setupWizard 关掉），界面操作没有写别的。
     const written = await readFile(path.join(agentDir, "config.yml"), "utf8").catch(() => "");
-    expect(written.replace(/\s+/g, " ").trim()).toBe("goal: continuationModes: - interactive - rpc");
+    expect(written.replace(/\s+/g, " ").trim()).toBe(
+      "goal: continuationModes: - interactive - rpc startup: setupWizard: false",
+    );
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
@@ -187,7 +189,8 @@ test("模型角色：结构化编辑，不用手写 JSON", async () => {
     const { page } = launched;
     await search(page, "modelRoles");
     const editor = page.getByTestId("roles-editor");
-    await expect(editor).toBeVisible();
+    // 快照要起一次 omp 才读得到（机器忙时远超 5 秒），和别的用例一样给读取留 30 秒。
+    await expect(editor).toBeVisible({ timeout: 30_000 });
     await editor.getByRole("textbox").fill("plan");
     await editor.getByRole("button", { name: "添加" }).click();
     await expect(editor.locator(".se-name", { hasText: "plan" })).toBeVisible({ timeout: 10_000 });

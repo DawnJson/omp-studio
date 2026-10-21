@@ -16,6 +16,7 @@ export function GoalStrip({ taskId, goal: liveGoal }: { taskId: TaskId; goal: Ta
   const goal = useHeld(liveGoal);
 
   const act = (op: GoalButton) => {
+    if (pending !== null) return;
     setPending(op);
     void runGoalOp(taskId, op, t).finally(() => setPending(null));
   };
@@ -54,7 +55,7 @@ export function GoalStrip({ taskId, goal: liveGoal }: { taskId: TaskId; goal: Ta
               type="button"
               className="goal-action"
               data-testid={`goal-${op}`}
-              disabled={pending !== null}
+              disabled={pending === op}
               onClick={() => act(op)}
             >
               {t(`goal.${op}`)}

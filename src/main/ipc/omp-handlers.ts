@@ -10,6 +10,8 @@ import type { HandlerGroup, ModelDefaults, OmpConfigSnapshot, ProjectId } from "
 import { toApprovalMode } from "../../shared/approval-mode.ts";
 import { goalContinuationKey } from "../../shared/ui/goal-continuation.ts";
 import { applyGoalContinuationDefault, isGoalContinuationExplicit } from "../omp-config/goal-default.ts";
+import { applySetupWizardDefault, isSetupWizardExplicit, setupWizardKey } from "../omp-config/setup-wizard-default.ts";
+import { registerStartupDefaults } from "../omp-config/startup-defaults.ts";
 import { readApprovalMode, type ApprovalModeDeps } from "../omp-config/approval-mode.ts";
 import { listJson, OmpConfigService, runOmpConfig } from "../omp-config/config-service.ts";
 import {
@@ -48,7 +50,7 @@ registerShutdownHook(async () => {
  * 启动时（omp 就绪后）：`goal.continuationModes` 用户没明确设置过，就经 `omp config set` 加上 "rpc"（默认允许 /goal 自动推进）。
  * 明确设过（omp-studio 或终端里，任一取值）的不碰；失败只记 WARN，不影响启动。
  */
-export async function applyGoalContinuationDefaultOnStartup(): Promise<void> {
+async function applyGoalContinuationDefaultOnStartup(): Promise<void> {
   try {
     await ompManager().ensureReady();
     const outcome = await applyGoalContinuationDefault({
@@ -69,6 +71,33 @@ export async function applyGoalContinuationDefaultOnStartup(): Promise<void> {
   } catch (error) {
     log.warn(`${goalContinuationKey} startup default failed`, error instanceof Error ? error.message : error);
   }
+}
+
+/** 启动时（omp 就绪后）：`startup.setupWizard` 用户没明确设置过，就经 `omp config set` 设成 false（关掉 omp 的首次运行引导）。失败只记 WARN。 */
+async function applySetupWizardDefaultOnStartup(): Promise<void> {
+  try {
+    await ompManager().ensureReady();
+    const outcome = await applySetupWizardDefault({
+      isExplicit: () => isSetupWizardExplicit(resolveAgentDir()),
+      write: async () => {
+        await configService().set(setupWizardKey, "false");
+      },
+    });
+    log.info(`${setupWizardKey} startup default: ${outcome}`);
+    if (outcome === "written") emitEvent("ompConfigChanged", { key: setupWizardKey });
+  } catch (error) {
+    log.warn(`${setupWizardKey} startup default failed`, error instanceof Error ? error.message : error);
+  }
+}
+
+/**
+ * 启动默认的入口：先 goal 再引导，依次执行（两个 `omp config set` 并发会互相覆盖 config.yml）。
+ * promise 登记到 startup-defaults，TSP 任务启动前等它（omp-config/startup-defaults.ts）。
+ */
+export function applyOmpStartupDefaults(): Promise<void> {
+  const done = applyGoalContinuationDefaultOnStartup().then(applySetupWizardDefaultOnStartup);
+  registerStartupDefaults(done);
+  return done;
 }
 
 let config: OmpConfigService | null = null;

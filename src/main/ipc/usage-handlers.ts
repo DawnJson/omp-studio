@@ -21,19 +21,21 @@ async function omp(timeoutMs: number) {
   return runOmpCommand(status.path, cwd, timeoutMs, await getApiKeyEnv());
 }
 
+/** 让 omp 自己跑一次 `omp stats --json` 把新会话同步进 stats.db（同一时间只跑一个；omp 还会对库加跨进程锁）。会话信息 / 请求记录也用它。 */
+export async function syncStatsDb(): Promise<void> {
+  syncing ??= omp(SYNC_TIMEOUT_MS)
+    .then((run) => run(["stats", "--json"]))
+    .then((result) => requireSuccess("omp stats", result))
+    .finally(() => {
+      syncing = null;
+    });
+  await syncing;
+}
+
 export const usageHandlers: HandlerGroup<"getUsageQuota" | "getUsageHeatmap"> = {
   getUsageQuota: async () => fetchQuota(await omp(QUOTA_TIMEOUT_MS)),
   getUsageHeatmap: async (refresh) => {
-    if (parseBoolean(refresh, "refresh")) {
-      // 同一时间只跑一个同步；omp 自己还会对 stats.db 加跨进程锁。
-      syncing ??= omp(SYNC_TIMEOUT_MS)
-        .then((run) => run(["stats", "--json"]))
-        .then((result) => requireSuccess("omp stats", result))
-        .finally(() => {
-          syncing = null;
-        });
-      await syncing;
-    }
+    if (parseBoolean(refresh, "refresh")) await syncStatsDb();
     return readHeatmap(statsDbPath());
   },
 };

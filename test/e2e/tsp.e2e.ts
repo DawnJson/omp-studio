@@ -2,7 +2,7 @@
 // fake-tsp-omp(在伪终端里回放 fixtures/tsp 的 omp 录制,不调真实模型),驱动真实的 主进程 → 伪终端 → IPC → 渲染进程。
 // 假 omp 只有在收到和录制完全一样的事件(send / action / activate)后才继续回放,所以"界面走到下一步"本身就证明
 // 渲染进程发对了事件;另外用 --log 断言它收到了什么。截图:完成 / 等你确认(审批) / 提问,中英 × 深浅。
-import { copyFile, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -16,8 +16,8 @@ const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
 
 interface Started {
   launched: LaunchedApp;
-  /** 假 omp 收到的 TSP 事件(不含 ack / resize 等终端自发的)。 */
-  received(): Promise<Record<string, unknown>[]>;
+  /** 假 omp 收到的 TSP 事件(不含 ack / resize 等终端自发的);`extra` = 再带上这些事件名(默认只有 send / action / activate / select)。 */
+  received(extra?: readonly string[]): Promise<Record<string, unknown>[]>;
   /** 假 omp 收到的按键(写进伪终端的原始字节),按顺序。 */
   receivedKeys(): Promise<string[]>;
   cleanup(): Promise<void>;
@@ -45,7 +45,7 @@ async function start(fixture: string, env: Record<string, string> = {}): Promise
   await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
   return {
     launched,
-    async received() {
+    async received(extra = []) {
       const text = await readFile(log, "utf8").catch(() => "");
       return text
         .split("\n")
@@ -53,7 +53,7 @@ async function start(fixture: string, env: Record<string, string> = {}): Promise
         .map((line) => JSON.parse(line) as { kind: string; body?: Record<string, unknown> })
         .filter((record) => record.kind === "tsp" && record.body !== undefined)
         .map((record) => record.body as Record<string, unknown>)
-        .filter((body) => ["send", "action", "activate", "select"].includes(String(body["ev"])));
+        .filter((body) => ["send", "action", "activate", "select", ...extra].includes(String(body["ev"])));
     },
     async receivedKeys() {
       const text = await readFile(log, "utf8").catch(() => "");
@@ -127,6 +127,14 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     await sendFirst(page, TASK_PROMPT);
     const row = page.getByTestId("task-row").first();
     await expect(row).toHaveAttribute("data-status", "running", { timeout: 20_000 });
+    // 待办：omp 的 HUD 药丸不画，studio 的待办板出现在输入框上方（数据来自 omp.hud.todo），点开是阶段与条目（阶段名没有罗马数字前缀）。
+    const board = page.getByTestId("tsp-todo-bar").getByTestId("todo-board");
+    await expect(board).toBeVisible({ timeout: 30_000 });
+    await expect(role(page, "omp.hud.todo")).toHaveCount(0);
+    await board.click();
+    await expect(page.getByTestId("todo-popover")).toContainText("Inspect");
+    await expect(page.getByTestId("todo-popover")).not.toContainText("I. Inspect");
+    await page.keyboard.press("Escape");
     // 回放跑完:本轮用量出现,omp 的工作状态行消失,侧栏变回空闲。
     await expect(role(page, "omp.turn.usage")).toBeVisible({ timeout: 60_000 });
     await expect(row).toHaveAttribute("data-status", "idle", { timeout: 20_000 });
@@ -555,7 +563,7 @@ test("后台作业对话框:omp 的测试进度和逐条用时柱状图(omp.job.
 
 test("后台作业弹窗:卡片不超出 tsp-view、作业列表顶对齐;输入框有焦点时按 Esc 把 Esc 键写给 omp 一次", async () => {
   test.setTimeout(90_000);
-  const { launched, receivedKeys, cleanup } = await start("jobs-chart");
+  const { launched, received, receivedKeys, cleanup } = await start("jobs-chart");
   try {
     const { page } = launched;
     await sendFirst(page, JOBS_PROMPT);
@@ -585,6 +593,424 @@ test("后台作业弹窗:卡片不超出 tsp-view、作业列表顶对齐;输入
     await page.getByTestId("composer-input").focus();
     await page.keyboard.press("Escape");
     await expect.poll(escCount).toBe(before + 1);
+
+    // studio 自己的作业弹层(S2Jobs):输入框里的 /jobs 由 studio 接管——不发给 omp,打开输入框上方的弹层。
+    // 作业从 omp 的节点推出来:hud 里运行中的 bg_1,再被 /jobs 弹窗里的 Done 校正;跑完以后 hud 胶囊没了,但弹层里仍有它。
+    const jobsSent = async () =>
+      (await received()).filter((body) => body["ev"] === "send" && String(body["text"]).startsWith("/jobs")).length;
+    const sentBefore = await jobsSent();
+    await expect(page.getByTestId("jobs-pill-bash")).toBeVisible();
+    const input = page.getByTestId("composer-input");
+    await input.fill("/jobs");
+    await page.keyboard.press("Enter");
+    const board = page.getByTestId("jobs-board");
+    await expect(board).toBeVisible();
+    const row = board.getByTestId("job-row");
+    await expect(row).toHaveCount(1);
+    await expect(row).toHaveAttribute("data-job-id", "bg_1");
+    await expect(row).toHaveAttribute("data-status", "completed");
+    await expect(row).toContainText("npx playwright test");
+    // 假 omp 把录制末尾的 /jobs overlay 留在 tsp-view 里(真 omp 收到 Esc 就关了),它的卡片盖在弹层上挡住鼠标:用键盘激活这一行。
+    await row.focus();
+    await page.keyboard.press("Enter");
+    // TSP 的弹层:bash 的输出只在 omp 的作业窗口里,给"查看输出"按钮;作业已结束,没有"结束"按钮。
+    await expect(page.getByTestId("tsp-job-view-output")).toBeVisible();
+    await expect(page.getByTestId("tsp-job-kill")).toHaveCount(0);
+    expect(await jobsSent()).toBe(sentBefore);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("待办 / 作业浮层:/todo 再 /jobs 只留后一个;输入框里按 Esc 关掉最上面的一个并被消耗(不是停止任务),焦点留在输入框", async () => {
+  test.setTimeout(120_000);
+  const { launched, receivedKeys, cleanup } = await start("task");
+  try {
+    const { page } = launched;
+    await sendFirst(page, TASK_PROMPT);
+    await expect(role(page, "omp.turn.usage")).toBeVisible({ timeout: 60_000 });
+    const input = page.getByTestId("composer-input");
+    const todo = page.getByTestId("todo-popover");
+    const jobs = page.getByTestId("jobs-board");
+    await expect(page.getByTestId("jobs-pill-task")).toBeVisible();
+    const slash = async (command: string) => {
+      await input.focus();
+      await input.fill(command);
+      await page.keyboard.press("Enter");
+    };
+    await slash("/todo");
+    await expect(todo).toBeVisible();
+    // 再开作业浮层:待办浮层被关掉,不会叠在一起。
+    await slash("/jobs");
+    await expect(jobs).toBeVisible();
+    await expect(todo).toHaveCount(0);
+    await slash("/todo");
+    await expect(todo).toBeVisible();
+    await expect(jobs).toHaveCount(0);
+    // Esc 从输入框发出:关掉浮层、焦点还在输入框、这个 Esc 不写给 omp。
+    const before = (await receivedKeys()).join("");
+    await input.focus();
+    await page.keyboard.press("Escape");
+    await expect(todo).toHaveCount(0);
+    await expect(input).toBeFocused();
+    await slash("/jobs");
+    await expect(jobs).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(jobs).toHaveCount(0);
+    await expect(input).toBeFocused();
+    expect((await receivedKeys()).join("")).toBe(before);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("错误回合只留一份:错误文字只在卡片里(没有 dock 里的红色横幅),重试只有 studio 的按钮,omp 的 Retry F5 不画而 F5 仍转发;没有作业时 /jobs 给提示", async () => {
+  test.setTimeout(90_000);
+  const { launched, receivedKeys, cleanup } = await start("error-turn");
+  try {
+    const { page } = launched;
+    await sendFirst(page, "Reply with exactly: hello");
+    await expect(role(page, "omp.error")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("retry-turn")).toBeVisible();
+    await expect(page.getByText(/Authentication Fails/)).toHaveCount(1);
+    await expect(role(page, "omp.errorBanner")).toHaveCount(0);
+    // 卡片上只剩复制错误、换模型两个 omp 动作。
+    await expect(role(page, "omp.error.action")).toHaveCount(2);
+    await expect(role(page, "omp.error")).not.toContainText("F5");
+    const before = (await receivedKeys()).join("");
+    await page.getByTestId("composer-input").focus();
+    await page.keyboard.press("F5");
+    await expect.poll(async () => (await receivedKeys()).join("").slice(before.length)).toBe("\x1b[15~");
+    // 这个任务没有后台作业:/jobs 不打开浮层,给一条提示(和 /todo 没有待办时一样)。
+    await page.getByTestId("composer-input").fill("/jobs");
+    await page.keyboard.press("Enter");
+    await expect(page.locator(".toast")).toContainText(/这个任务还没有后台作业|no background jobs/);
+    await expect(page.getByTestId("jobs-board")).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("omp 的快捷键(B18):输入框有焦点时 F5 / ⇧Tab / ⌃P / ⌃⇧P / ⌥P / ⌥⇧P / ⌃T / ⌃R / ⌥↑ 编码后写给 omp;studio 自己的键(⌥T、⌃L、⌃O)和普通字符不转发", async () => {
+  test.setTimeout(90_000);
+  const { launched, receivedKeys, cleanup } = await start("error-turn");
+  try {
+    const { page } = launched;
+    await sendFirst(page, "Reply with exactly: hello");
+    // 错误卡上的键帽是 omp 自己写的 `Retry F5` / `Switch model ⌥P`。
+    await expect(role(page, "omp.error")).toBeVisible({ timeout: 30_000 });
+    const input = page.getByTestId("composer-input");
+    await input.focus();
+    const before = (await receivedKeys()).join("");
+    const ESC = "\x1b";
+    const chords: [string, string][] = [
+      ["F5", `${ESC}[15~`],
+      ["Shift+Tab", `${ESC}[Z`],
+      ["Control+p", "\x10"],
+      ["Control+Shift+P", `${ESC}[112;6u`],
+      ["Alt+p", `${ESC}p`],
+      ["Alt+Shift+P", `${ESC}P`],
+      ["Control+t", "\x14"],
+      ["Control+r", "\x12"],
+      ["Alt+ArrowUp", `${ESC}[1;3A`],
+    ];
+    for (const [chord] of chords) await page.keyboard.press(chord);
+    const expected = chords.map(([, bytes]) => bytes).join("");
+    await expect.poll(async () => (await receivedKeys()).join("").slice(before.length)).toBe(expected);
+    // 输入框里没有多出字符;studio 自己的键不写给 omp(⌃O 展开过程行、⌥T 切思考、⌃L 聚焦输入框)。
+    await expect(input).toHaveValue("");
+    for (const chord of ["Alt+t", "Control+l", "Control+o", "x"]) await page.keyboard.press(chord);
+    await page.keyboard.press("F5");
+    await expect.poll(async () => (await receivedKeys()).join("").slice(before.length)).toBe(expected + `${ESC}[15~`);
+  } finally {
+    await cleanup();
+  }
+});
+
+const GOAL_TEXT = "Run the shell command sleep 20 with the bash tool, then say done and mark the goal complete.";
+
+test("目标条(TSP,omp 18.12.5 录制):/goal 由 studio 接管,目标条读输入框卡片上的 Goal 行;暂停 / 继续 / 放弃发 omp 的 /goal 命令,放弃点掉 omp 的确认选择器", async () => {
+  test.setTimeout(90_000);
+  const { launched, received, cleanup } = await start("goal-flow");
+  try {
+    const { page } = launched;
+    await sendFirst(page, "Reply with the single word PONG and nothing else.");
+    // 第一句话由主进程等 omp 输入框可发送后异步 send:等它到了 omp 再发 /goal,两者的先后才是确定的。
+    await expect
+      .poll(async () => (await received()).some((event) => event["ev"] === "send"), { timeout: 30_000 })
+      .toBe(true);
+    const strip = page.getByTestId("goal-strip");
+    await expect(strip).toHaveCount(0);
+    // 斜杠命令是 studio 的(不当消息发给模型):创建发出 omp 的 `/goal <文字>`,目标条出现。
+    await page.getByTestId("composer-input").fill(`/goal ${GOAL_TEXT}`);
+    await page.keyboard.press("Enter");
+    await expect(strip).toBeVisible({ timeout: 30_000 });
+    await expect(strip).toHaveAttribute("data-status", "active");
+    await expect(strip).toContainText(GOAL_TEXT);
+    // omp 自己的输入框卡片(含那一行 Goal 标签)不画:目标只有 studio 的这一条。
+    await expect(role(page, "omp.composer.fact")).toHaveCount(0);
+    await strip.getByTestId("goal-pause").click();
+    await expect(strip).toHaveAttribute("data-status", "paused");
+    await expect(strip.getByTestId("goal-resume")).toBeVisible();
+    await shoot(page, "goal");
+    await strip.getByTestId("goal-resume").click();
+    await expect(strip).toHaveAttribute("data-status", "active");
+    // 放弃:omp 先问 "Drop goal?"(Yes / No 选择器),studio 点 Yes(activate item 0),目标条随事实行消失。
+    await strip.getByTestId("goal-drop").click();
+    await expect(strip).toHaveCount(0, { timeout: 30_000 });
+    const sent = await received();
+    expect(sent.filter((event) => event["ev"] === "send").map((event) => event["text"])).toEqual([
+      "Reply with the single word PONG and nothing else.",
+      `/goal ${GOAL_TEXT}`,
+      "/goal pause",
+      "/goal resume",
+      "/goal drop",
+    ]);
+    expect(sent.filter((event) => event["ev"] === "activate")).toEqual([
+      expect.objectContaining({ ev: "activate", item: "0" }),
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+// 子代理面板(omp 18.12.5 录制 hub-steer):👥 胶囊的点击被 studio 拦截,打开右栏的子代理面板而不是 omp 的 Agent Hub;
+// 在面板里给 Beta 插话 = 主进程在后台走 Hub(agents.open → activate → send → focus:Main),期间面板显示"正在发给 Beta"、
+// omp 的 Hub 一帧也不画出来;假 omp 只在事件和录制逐字相同时才往下放帧,所以走完就证明事件发对了。
+test("子代理面板:👥 打开右栏面板(不画 omp 的 Hub),列出 Alpha / Beta;给 Beta 插话时显示正在发给 Beta,事件序列和录制一致,输入框恢复", async () => {
+  test.setTimeout(120_000);
+  const steerText = "Also say PINEAPPLE in your final reply.";
+  const firstPrompt = String(recordedUserEvents(loadTspFixture("hub-steer"))[0]!.event["text"]);
+  const { launched, received, cleanup } = await start("hub-steer");
+  try {
+    const { page } = launched;
+    await sendFirst(page, firstPrompt);
+    // 录制里两个后台子代理在跑时用户点了 👥(agents.open):假 omp 在这一步等事件,hud 里的胶囊在。
+    const pill = page.locator('[data-testid="tsp-view"] [data-id="3.running/agents"]');
+    await expect(pill).toBeVisible({ timeout: 60_000 });
+    await pill.click();
+    const panel = page.getByTestId("agents-panel");
+    await expect(panel).toBeVisible();
+    // 点胶囊没有把 agents.open 发给 omp(被拦截):假 omp 收到的事件里还没有它。
+    expect((await received()).some((event) => event["act"] === "agents.open")).toBe(false);
+    await expect(panel.getByTestId("agents-row")).toHaveCount(2);
+    await expect(panel.locator('[data-testid="agents-row"][data-name="Alpha"]')).toHaveAttribute(
+      "data-status",
+      "running",
+    );
+    await expect(panel.locator('[data-testid="agents-row"][data-name="Beta"]')).toHaveAttribute(
+      "data-status",
+      "running",
+    );
+    // 同一栏只开一个面板:文件面板没有同时出现。
+    await expect(page.getByTestId("file-preview")).toHaveCount(0);
+    await panel.locator('[data-testid="agents-row"][data-name="Beta"]').click();
+    await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Beta");
+    await shoot(page, "agents-panel");
+
+    // 页面里盯着:插话期间"正在发给 Beta"出现过、omp 的 Hub(.tspi-picker)一次也没画过。
+    await page.evaluate(() => {
+      const g = globalThis as unknown as {
+        document: {
+          querySelector(s: string): { getAttribute(n: string): string | null } | null;
+          documentElement: unknown;
+        };
+        MutationObserver: new (cb: () => void) => { observe(target: unknown, o: object): void };
+        __steer: { driving: string[]; hub: boolean };
+      };
+      g.__steer = { driving: [], hub: false };
+      new g.MutationObserver(() => {
+        const banner = g.document.querySelector('[data-testid="agents-driving"]');
+        if (banner) {
+          const text = `${banner.getAttribute("data-op")}:${banner.getAttribute("data-name")}`;
+          if (!g.__steer.driving.includes(text)) g.__steer.driving.push(text);
+        }
+        if (g.document.querySelector('[data-testid="tsp-view"] .tspi-picker')) g.__steer.hub = true;
+      }).observe(g.document.documentElement, { subtree: true, childList: true, attributes: true });
+    });
+    await panel.getByTestId("agents-steer-input").fill(steerText);
+    await panel.getByTestId("agents-steer-input").press("Enter");
+
+    // 假 omp 按录制放帧:收到 agents.open → activate(Beta) → send 之后才往下走;主进程接着发聚焦行的 focus:Main 退出聚焦。
+    await expect
+      .poll(
+        async () => (await received()).map((event) => [event["ev"], event["act"] ?? event["item"] ?? event["text"]]),
+        {
+          timeout: 30_000,
+        },
+      )
+      .toEqual([
+        ["send", firstPrompt],
+        ["action", "agents.open"],
+        ["activate", "Beta"],
+        ["send", steerText],
+        ["action", "focus:Main"],
+      ]);
+    // 驱动结束:横幅消失,输入框可用,omp 的 Hub 没画过,聚焦行也退掉了。
+    await expect(panel.getByTestId("agents-driving")).toHaveCount(0, { timeout: 20_000 });
+    await expect(page.getByTestId("composer-input")).toBeEnabled();
+    const seen = await page.evaluate(
+      () => (globalThis as unknown as { __steer: { driving: string[]; hub: boolean } }).__steer,
+    );
+    expect(seen.driving).toContain("steer:Beta");
+    expect(seen.hub).toBe(false);
+    await expect(role(page, "omp.composer.focus")).toHaveCount(0);
+    // 插话框清空了(成功),面板还开着。
+    await expect(panel.getByTestId("agents-steer-input")).toHaveValue("");
+  } finally {
+    await cleanup();
+  }
+});
+
+// 旁路提问面板(omp 18.12.5 录制 btw):omp 在 TSP 下把 /btw 画成 layer 里的 modal 弹窗,studio 的 BtwPanel 读它的问答、
+// 不画 omp 的弹窗;提问 / 追问 / 取消都是主进程在后台对弹窗发的事件(action / select / edit),回答收尾后自动关弹窗。
+// 假 omp 只在事件和录制逐字相同时才往下放帧,所以走完就证明事件发对了;话题 id 靠会话旁边的 btw-history/,
+// 这里在假 omp 收到 `/btw <问题>` 时写(和真实 omp 一样)。
+test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 → 取消长回答,不画 omp 的弹窗,事件序列和录制一致", async () => {
+  test.setTimeout(120_000);
+  const events = recordedUserEvents(loadTspFixture("btw")).map((entry) => entry.event);
+  const note = String(events[0]!["text"]);
+  const scratch = await mkdtemp(path.join(os.tmpdir(), "omp btw e2e-"));
+  const sessionFile = path.join(scratch, "session.jsonl");
+  await writeFile(sessionFile, "{}\n");
+  const { launched, received, cleanup } = await start("btw", { FAKE_TSP_SESSION_FILE: sessionFile });
+  const topics: Record<string, { id: string; answer: string; status: string }> = {
+    "/btw Reply with exactly the word: pong": { id: "15af3d5a2937f9fd", answer: "pong", status: "complete" },
+    "/btw Reply with exactly the word: ping": { id: "15af3d67d7b7f9ff", answer: "ping", status: "complete" },
+    "/btw Write a 400 word essay about trees.": { id: "15af3d7a2c37fa00", answer: "# Trees", status: "cancelled" },
+  };
+  const written = new Set<string>();
+  // omp 收到问题就把话题落到会话旁边的 btw-history/(测试进程里轮询假 omp 的收件记录来写)。
+  const writer = setInterval(() => {
+    void received().then(async (sent) => {
+      for (const event of sent) {
+        const text = event["text"];
+        const topic = typeof text === "string" ? topics[text] : undefined;
+        if (event["ev"] !== "send" || !topic || typeof text !== "string" || written.has(topic.id)) continue;
+        written.add(topic.id);
+        const dir = path.join(scratch, "session", "btw-history");
+        await mkdir(dir, { recursive: true });
+        const now = Date.now();
+        await writeFile(
+          path.join(dir, `entry-${topic.id}.json`),
+          JSON.stringify({
+            question: text.slice(5),
+            answer: topic.answer,
+            status: topic.status,
+            createdAt: now,
+            updatedAt: now,
+            id: topic.id,
+            leafId: "leaf",
+          }),
+        );
+      }
+    });
+  }, 50);
+  try {
+    const { page } = launched;
+    await sendFirst(page, note);
+    // 第一句话由主进程等 omp 输入框可发送后异步 send:等它到了 omp 再问 /btw,事件先后才和录制一致。
+    await expect
+      .poll(async () => (await received()).some((event) => event["ev"] === "send"), { timeout: 30_000 })
+      .toBe(true);
+    // omp 的旁路提问弹窗一次也不能画出来(overlay 节点的 data-id 是 layer.ov-*)。
+    await page.evaluate(() => {
+      const g = globalThis as unknown as {
+        document: { querySelector(s: string): unknown; documentElement: unknown };
+        MutationObserver: new (cb: () => void) => { observe(target: unknown, o: object): void };
+        __btwOverlay: boolean;
+      };
+      g.__btwOverlay = false;
+      new g.MutationObserver(() => {
+        if (g.document.querySelector('[data-testid="tsp-view"] [data-id^="layer.ov-"]')) g.__btwOverlay = true;
+      }).observe(g.document.documentElement, { subtree: true, childList: true, attributes: true });
+    });
+
+    const panel = page.getByTestId("btw-panel");
+    const composer = page.getByTestId("composer-input");
+    const turns = panel.getByTestId("btw-turn");
+    // 1) 输入框里 /btw <问题>:studio 接管(tsp: studio),打开面板、问 omp;主轮还在输出时就能问。
+    await composer.fill("/btw Reply with exactly the word: pong");
+    // 斜杠菜单只在"正在输入命令名"（没有空格）时开；带了问题的整句 fill 进去后菜单是关的，Enter 才是发送而不是选菜单项。
+    await expect(page.getByTestId("slash-menu")).toHaveCount(0);
+    await page.keyboard.press("Enter");
+    await expect(panel).toBeVisible();
+    await expect(turns).toHaveCount(1);
+    await expect(turns.first()).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
+    await expect(turns.first()).toContainText("pong");
+    // 2) 面板里"新话题"再问 ping:两个话题标签。
+    await panel.getByTestId("btw-new-topic").click();
+    await panel.getByTestId("btw-input").fill("Reply with exactly the word: ping");
+    await panel.getByTestId("btw-input").press("Enter");
+    await expect(panel.locator(".btw-topic")).toHaveCount(2, { timeout: 30_000 });
+    await expect(turns.first()).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
+    await expect(turns.first()).toContainText("ping");
+    // 3) 选回 pong 话题追问:主进程在后台开历史 → select → follow-up → 填字 → send。
+    // 标签只截前 28 个字(两个话题的标签都是 "Reply with exactly the word:…"),完整问题在 title 上。
+    await panel.locator('.btw-topic[title$="pong"]').click();
+    await expect(turns.first()).toContainText("pong");
+    await panel.getByTestId("btw-input").fill("Say gamma");
+    await panel.getByTestId("btw-input").press("Enter");
+    await expect(turns).toHaveCount(2, { timeout: 30_000 });
+    await expect(turns.nth(1)).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
+    await expect(turns.nth(1)).toContainText("gamma");
+    await shoot(page, "btw-panel");
+    // 4) 长回答:回答中面板显示"取消提问",点它 → 已取消,保留已收到的部分。
+    await panel.getByTestId("btw-new-topic").click();
+    await panel.getByTestId("btw-input").fill("Write a 400 word essay about trees.");
+    await panel.getByTestId("btw-input").press("Enter");
+    await expect(panel.getByTestId("btw-cancel")).toBeVisible({ timeout: 30_000 });
+    await panel.getByTestId("btw-cancel").click();
+    await expect(turns.first()).toHaveAttribute("data-status", "cancelled", { timeout: 30_000 });
+    await expect(turns.first()).toContainText("Trees");
+
+    // omp 的弹窗没画过;假 omp 收到的事件和录制逐字相同(第一句主轮消息 + 提问 / 关弹窗 / 追问 / 取消)。
+    expect(await page.evaluate(() => (globalThis as unknown as { __btwOverlay: boolean }).__btwOverlay)).toBe(false);
+    await expect.poll(async () => (await received(["edit"])).length, { timeout: 30_000 }).toBe(events.length);
+    expect(await received(["edit"])).toEqual(events);
+    // 面板之外 omp 的主对话里没有 "/btw" 这句话。
+    await expect(role(page, "omp.user").filter({ hasText: "/btw" })).toHaveCount(0);
+  } finally {
+    clearInterval(writer);
+    await cleanup();
+    await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+test("排队消息按 Esc(omp 18.12.5 录制):任务停止,omp 写回它自己输入框的排队文字回到 studio 输入框,omp 的输入框被清空", async () => {
+  test.setTimeout(90_000);
+  // 假 omp 在收到 Esc 键之前不放最后一帧(那一帧删掉排队区、把排队文字写进 omp 的输入框,和真实 omp 按 Esc 时一样)。
+  const [first, queued] = recordedUserEvents(loadTspFixture("queue-esc")).filter(
+    (entry) => entry.event["ev"] === "send",
+  );
+  const queuedText = String(queued!.event["text"]);
+  const { launched, received, receivedKeys, cleanup } = await start("queue-esc");
+  try {
+    const { page } = launched;
+    await sendFirst(page, String(first!.event["text"]));
+    const input = page.getByTestId("composer-input");
+    // 运行中:Ctrl+Enter(稍后)发出第二句,它进 omp 的排队区;studio 输入框清空。
+    await expect(page.getByTestId("stop-button")).toBeVisible({ timeout: 30_000 });
+    await input.fill(queuedText);
+    await input.press("Control+Enter");
+    await expect
+      .poll(
+        async () => (await received()).filter((body) => body["ev"] === "send" && body["text"] === queuedText).length,
+      )
+      .toBe(1);
+    await expect(input).toHaveValue("");
+    // 排队区(dock 里的 omp.queue.item)画出了这句话 = 这一帧已到主进程和渲染进程(Esc 时没有排队消息就不会等输入框)。
+    await expect(role(page, "omp.queue.item")).toContainText(queuedText, { timeout: 15_000 });
+    expect(await receivedKeys()).not.toContain("\x1b");
+
+    await input.press("Escape");
+    await expect(input).toHaveValue(queuedText, { timeout: 15_000 });
+    expect((await receivedKeys()).join("")).toContain("\x1b");
+    // omp 的输入框被清空(edit 把整段排队文字替换成空),不会留着一份没人画的文字。
+    await expect
+      .poll(async () => (await received(["edit"])).filter((body) => body["ev"] === "edit"))
+      .toEqual([expect.objectContaining({ from: 0, to: queuedText.length, text: "" })]);
+    await expect(page.getByTestId("stop-button")).toHaveCount(0, { timeout: 15_000 });
   } finally {
     await cleanup();
   }

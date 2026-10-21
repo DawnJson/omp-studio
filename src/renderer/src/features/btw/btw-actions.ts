@@ -3,12 +3,16 @@ import { reportError } from "../../ui/errors.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { pushToast } from "../dialogs/index.ts";
-import { selectBtwTopic } from "./btw-ui-store.ts";
+import { currentBtwSelection, selectBtwTopic } from "./btw-ui-store.ts";
 
-/** 发一条旁路提问；recordId 为 undefined 时开新话题。成功后面板切到这个话题。 */
+/**
+ * 发一条旁路提问；recordId 为 undefined 时开新话题。成功后面板切到这个话题——除非提问期间用户自己换了选择
+ * （回答很快、点了"新话题"，而话题 id 要等磁盘记录落下来才回来）：那就尊重用户的选择，不拽回去。
+ */
 export async function askBtwQuestion(taskId: TaskId, question: string, recordId: string | undefined): Promise<void> {
+  const selection = currentBtwSelection(taskId);
   const id = await window.studio.askBtw(taskId, question, recordId);
-  selectBtwTopic(taskId, id);
+  if (currentBtwSelection(taskId) === selection) selectBtwTopic(taskId, id);
 }
 
 /** 取消在跑的旁路提问（Esc、取消按钮）。 */

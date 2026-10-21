@@ -10,12 +10,14 @@ export interface SessionLink {
 /**
  * projectId 为 null 时返回全部会话，否则只返回 cwd 等于该项目目录的会话。
  * 没有标题也没有任何用户消息的会话（刚启动就退出的空壳）不列出，和 omp 自己的会话选择器一致。
+ * `pins`：omp 的 session-pins.json 里的会话 id（只读，见 session-info/session-pins.ts）。
  */
 export function buildSessionSummaries(
   sessions: readonly IndexedSession[],
   projects: readonly Project[],
   links: readonly SessionLink[],
   projectId: ProjectId | null,
+  pins: ReadonlySet<string>,
 ): SessionSummary[] {
   const projectByCwd = new Map(projects.map((project) => [pathKey(project.path), project.id]));
   const taskByFile = new Map<string, TaskId>();
@@ -40,6 +42,7 @@ export function buildSessionSummaries(
       projectId: projectByCwd.get(cwdKey) ?? null,
       modifiedAt: session.modifiedAt,
       taskId: taskByFile.get(pathKey(session.file)) ?? null,
+      pinned: pins.has(session.id),
     });
   }
   return result;

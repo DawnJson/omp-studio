@@ -1,6 +1,7 @@
 // 组 omp 的启动参数和环境：给任务进程和服务进程共用。
 // 启动参数见 omp 文档 cli-reference.md；API key 来自 omp-manager/api-keys.ts（safeStorage 加密存在 userData，决策 D3）。
 import { getApiKeyEnv } from "../omp-manager/api-keys.ts";
+import { awaitStartupDefaults } from "../omp-config/startup-defaults.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
 import {
   buildOmpArgs,
@@ -11,6 +12,9 @@ import {
   type TspLaunchSpec,
 } from "./launch-args.ts";
 import type { OmpLaunch } from "./omp-connection.ts";
+
+/** 等启动默认（`omp config set`）的上限；正常几百毫秒。 */
+const STARTUP_DEFAULTS_WAIT_MS = 15_000;
 
 let testOverride: TestOmpOverride | null = null;
 
@@ -49,6 +53,8 @@ export async function buildTspLaunch(spec: TspLaunchSpec): Promise<OmpLaunch> {
       env: { ...process.env, ...apiKeys },
     };
   }
+  // 真 omp 的首次运行引导由启动默认关掉；第一个任务的进程要等它写完，否则还会看到引导。超时/失败都照常启动。
+  await awaitStartupDefaults(STARTUP_DEFAULTS_WAIT_MS);
   const executable = await getOmpExecutable();
   const env = { ...process.env, ...apiKeys };
   return {

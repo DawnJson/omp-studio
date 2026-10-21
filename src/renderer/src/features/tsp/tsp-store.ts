@@ -4,7 +4,7 @@
 //
 // 文档（Map）原地改，节点记录不可变：订阅按 (任务, surface, 节点 id) 登记，应用一批消息后只通知 `changed` 里出现的节点，
 // 组件用 useTspNode 拿到的记录引用没变就不会重画。
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo, useRef, useSyncExternalStore } from "react";
 import type { TaskId, TspBatch } from "../../../../shared/ipc.ts";
 import {
   applyMessage,
@@ -16,6 +16,7 @@ import {
   type TspDocument,
 } from "../../../../shared/tsp/document.ts";
 import { recapBefore } from "../../../../shared/tsp/recap-slot.ts";
+import { trailingErrorCardId } from "../../../../shared/tsp/error-turn.ts";
 import { findGateButton, hasBlockingPanel } from "../../../../shared/tsp/gate.ts";
 import type { StatusNote } from "../../../../shared/tsp/status-notes.ts";
 import { planTspBatch } from "./tsp-sync.ts";
@@ -58,6 +59,8 @@ interface RoleIndex {
   lastAssistantOfBareTurn: Map<string, number>;
   /** main 的直接子节点里 omp.user 的 id（文档顺序）。 */
   mainUsers: string[];
+  /** 对话末尾的错误卡（见 trailingErrorCardId）；没有为 null。 */
+  trailingError: string | null;
 }
 /** main 区里 TRACKED_ROLES 节点的 id（文档顺序），按 (任务, surface) 缓存；镜像换了（快照）或有节点变了就作废。 */
 const roleIndexes = new Map<string, RoleIndex>();
@@ -218,16 +221,31 @@ export function peekTspBlob(taskId: TaskId, id: string | undefined): DocBlob | n
   return id === undefined ? null : (mirrors.get(taskId)?.doc.blobs.get(id.toLowerCase()) ?? null);
 }
 
+// 作业（S2Jobs）：每批消息应用后通知一次（和 panelKey 同一个时机），文档用普通引用读。
+/** 非 hook 读取：这个任务的 TSP 文档镜像（只读）；还没有为 null。 */
+export function peekTspDocument(taskId: TaskId): TspDocument | null {
+  return mirrors.get(taskId)?.doc ?? null;
+}
+
+/** 订阅"这个任务的文档又应用了一批消息"（快照整体替换也会通知）；返回取消函数。 */
+export function subscribeTspBatches(taskId: TaskId, listener: () => void): () => void {
+  return subscribe(panelKey(taskId), listener);
+}
+
 /** 审批/提问卡上点击动作为 `act` 的按钮（键盘快捷键用）；没有门、没有这个按钮或没有镜像为 null。 */
 export function peekGateButton(taskId: TaskId, act: string): { sf: string; id: string } | null {
   const doc = mirrors.get(taskId)?.doc;
   return doc ? findGateButton(doc, act) : null;
 }
 
-/** omp 的面板（全屏 surface 或 Agent Hub）盖在会话上：输入框不往主会话发（见 shared/tsp/gate.ts）。每批消息后重算，值没变不重画。 */
+/**
+ * omp 的面板（全屏 surface 或 Agent Hub）盖在会话上：输入框不往主会话发（见 shared/tsp/gate.ts）。每批消息后重算，值没变不重画。
+ * 主进程在后台驱动 Hub（子代理面板的插话 / 结束 / 恢复）期间那个 Hub 不算：输入框照常用，主进程会让发出的消息等到驱动结束。
+ */
 export function useTspPanelOpen(taskId: TaskId): boolean {
   const sub = useMemo(() => (l: () => void) => subscribe(panelKey(taskId), l), [taskId]);
   return useSyncExternalStore(sub, () => {
+    if (drives.has(taskId)) return false;
     const doc = mirrors.get(taskId)?.doc;
     return doc ? hasBlockingPanel(doc) : false;
   });
@@ -392,6 +410,7 @@ function roleIndex(taskId: TaskId, sf: string): RoleIndex | null {
       turnCount: turns.length,
       lastAssistantOfBareTurn,
       mainUsers: (nodes?.get("main")?.c ?? NO_IDS).filter((id) => nodes?.get(id)?.p["role"] === USER_ROLE),
+      trailingError: nodes === undefined ? null : trailingErrorCardId(nodes),
     };
     roleIndexes.set(cacheKey, cached);
   }
@@ -454,4 +473,67 @@ export function useRecapBefore(taskId: TaskId, sf: string, afterTurn: number, fi
 export function useTspHasUserMessage(taskId: TaskId, sf: string): boolean {
   const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
   return useSyncExternalStore(sub, () => roleIds(taskId, sf, USER_ROLE).length > 0);
+}
+
+/** 这张错误卡是不是对话末尾那张（它之后没有新消息、没有成功的回答）：只有它旁边显示"重试"（见 shared/tsp/error-turn.ts）。 */
+export function useIsTrailingErrorCard(taskId: TaskId, sf: string, id: string): boolean {
+  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
+  return useSyncExternalStore(sub, () => roleIndex(taskId, sf)?.trailingError === id);
+}
+
+/** 对话里有没有收尾的错误卡：dock 里 omp 的错误横幅只有这时才是重复的（isOmpErrorDuplicate）。 */
+export function useHasTrailingErrorCard(taskId: TaskId, sf: string): boolean {
+  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
+  return useSyncExternalStore(sub, () => roleIndex(taskId, sf)?.trailingError != null);
+}
+
+// ───────── 子代理面板（S1，spec §4.28） ─────────
+
+/** 主进程正在后台驱动 omp 的 Agent Hub（插话 / 结束 / 恢复）：这期间不画 Hub、不当成"面板开着"。 */
+export interface TspDrive {
+  name: string;
+  op: "steer" | "kill" | "revive";
+}
+
+const drives = new Map<TaskId, TspDrive>();
+const driveKey = (taskId: TaskId): string => `d${SEP}${taskId}`;
+
+/** 一次驱动开始（调 IPC 之前）；主进程在 Hub 开着的那几帧里渲染进程已经知道该藏它。 */
+export function beginTspDrive(taskId: TaskId, drive: TspDrive): void {
+  drives.set(taskId, drive);
+  notify(driveKey(taskId));
+  notify(panelKey(taskId));
+}
+
+export function endTspDrive(taskId: TaskId): void {
+  if (!drives.delete(taskId)) return;
+  notify(driveKey(taskId));
+  notify(panelKey(taskId));
+}
+
+export function useTspDrive(taskId: TaskId): TspDrive | null {
+  const sub = useMemo(() => (l: () => void) => subscribe(driveKey(taskId), l), [taskId]);
+  return useSyncExternalStore(sub, () => drives.get(taskId) ?? null);
+}
+
+/**
+ * 从文档推导一个值（每批消息后重算，结果和上次相等就沿用上次的对象，不重画）。`derive` / `same` 必须是稳定引用（模块级函数）。
+ * 没有镜像时为 null。
+ */
+export function useTspDerived<T>(
+  taskId: TaskId,
+  derive: (doc: TspDocument) => T,
+  same: (a: T, b: T) => boolean,
+): T | null {
+  const sub = useMemo(() => (l: () => void) => subscribe(panelKey(taskId), l), [taskId]);
+  const cache = useRef<{ taskId: TaskId; value: T } | null>(null);
+  return useSyncExternalStore(sub, () => {
+    const doc = mirrors.get(taskId)?.doc;
+    if (!doc) return null;
+    const next = derive(doc);
+    const previous = cache.current;
+    if (previous !== null && previous.taskId === taskId && same(previous.value, next)) return previous.value;
+    cache.current = { taskId, value: next };
+    return next;
+  });
 }

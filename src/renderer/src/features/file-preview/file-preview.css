@@ -3,7 +3,7 @@
 .file-preview {
   position: relative;
   display: flex;
-  flex: 0 0 45%;
+  flex: 0 1 45%;
   flex-direction: column;
   min-width: 280px;
   max-width: 70%;
@@ -314,4 +314,65 @@
 .file-link:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
+}
+
+/* 文件页顶部的工作区目录行（/add-dir）：任务目录 + 额外目录 + 添加按钮；窄时折行 */
+.file-preview-roots {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--fs-xs);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.file-preview-root-group {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+}
+.file-preview-root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  max-width: 14em;
+  height: 22px;
+  padding: 0 var(--space-2);
+  font: inherit;
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.file-preview-root > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-preview-root:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.file-preview-root[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--bg-raised);
+}
+.file-preview-root:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+.file-preview-root:focus-visible,
+.file-preview-root-remove:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.file-preview-root-add {
+  border-style: dashed;
+}
+.file-preview-root-remove {
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
 }

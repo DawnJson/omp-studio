@@ -1,0 +1,32 @@
+{
+  "npm": [],
+  "marketplace": [
+    {
+      "id": "p1@local-mk",
+      "scope": "project",
+      "entries": [
+        {
+          "scope": "project",
+          "installPath": "C:\\Users\\user\\.omp-tmp-s6c\\plugins\\cache\\plugins\\local-mk___p1___1.0.0",
+          "version": "1.0.0",
+          "installedAt": "2026-10-21T18:26:04.418Z",
+          "lastUpdated": "2026-10-21T18:26:04.418Z"
+        }
+      ]
+    },
+    {
+      "id": "p1@local-mk",
+      "scope": "user",
+      "entries": [
+        {
+          "scope": "user",
+          "installPath": "C:\\Users\\user\\.omp-tmp-s6c\\plugins\\cache\\plugins\\local-mk___p1___1.0.0",
+          "version": "1.0.0",
+          "installedAt": "2026-10-21T18:26:04.720Z",
+          "lastUpdated": "2026-10-21T18:26:04.720Z"
+        }
+      ],
+      "shadowedBy": "project"
+    }
+  ]
+}

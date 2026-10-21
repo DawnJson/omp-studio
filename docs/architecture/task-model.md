@@ -12,7 +12,7 @@
 - 新任务标题是 `""`；第一次 `sendPrompt` 取首条消息第一行（60 字符）；`resume` 时 title 为 null 则载完历史后取第一条用户消息。
 - 审批模式不在任务里存：启动时从不传 `--approval-mode`，omp 读自己配置里的 `tools.approvalMode`（启动时读一次；项目 `.omp/config.yml` 盖过全局，输入框胶囊按任务的项目目录显示，项目设了就只读，见 `omp-settings.md`「审批模式」；没设时胶囊改的是全局 `omp config set`）。之后启动的任务生效。
 - 归档：关进程，记录保留 `archived:true`；`TaskPool.resume()` 找到同一会话文件的任务会把它恢复成未归档（同一 id）。
-- 分叉 / 回溯（`docs/architecture/session-tree.md`）：`TaskPool.forkTask` 新增一条任务记录，`sessionFile` 是 omp `branch` 新建的文件，同项目、同 cwd（worktree 任务的分叉共用同一个 worktree，所以 `discardWorktree` 在还有别的任务（含已归档的）用它时拒绝）、同模型；原任务的会话文件和进程会话不变。`branchTask`（会话树面板选中）是就地回溯：任务的 `sessionFile` 改成 `branch` 新建的文件，原文件留在磁盘上。两者都只在任务空闲（没有在途命令、`!命令`、`/btw`）时做，否则 `SessionBusyError`；期间 `TaskRunner` 的 `#sessionOp` 让别的命令经 `#awaitSessionIdle()` 等着、`get_state` 的应答不写进记录。
+- 分叉 / 回溯（`docs/architecture/session-tree.md`；TSP 任务的做法见该文“TSP 任务”一节：`TaskRecord.forkFrom` 记要 `omp --fork` 的原会话文件，新会话文件一落盘就记进 `sessionFile` 并清掉它；回溯不换会话文件）：`TaskPool.forkTask` 新增一条任务记录，`sessionFile` 是 omp `branch` 新建的文件，同项目、同 cwd（worktree 任务的分叉共用同一个 worktree，所以 `discardWorktree` 在还有别的任务（含已归档的）用它时拒绝）、同模型；原任务的会话文件和进程会话不变。`branchTask`（会话树面板选中）是就地回溯：任务的 `sessionFile` 改成 `branch` 新建的文件，原文件留在磁盘上。两者都只在任务空闲（没有在途命令、`!命令`、`/btw`）时做，否则 `SessionBusyError`；期间 `TaskRunner` 的 `#sessionOp` 让别的命令经 `#awaitSessionIdle()` 等着、`get_state` 的应答不写进记录。
 - `messageId` 只在进程内唯一：消息键 `${gen}:${messageId}`，`gen` 每次 spawn 递增；历史消息键 `h:<序号>`。
 
 ## 启动序列
