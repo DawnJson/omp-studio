@@ -37,11 +37,18 @@ async function start(fixture: string, env: Record<string, string> = {}): Promise
     }),
     ...env,
   });
-  await launched.app.evaluate(({ dialog }, dir) => {
-    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
-  }, project);
-  await launched.page.getByTestId("sidebar-open-folder").click();
-  await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+  // 起到一半失败（点不到"打开文件夹"、空状态没出来）时调用方还拿不到 cleanup：这里自己收拾，不留 Electron 和临时目录。
+  try {
+    await launched.app.evaluate(({ dialog }, dir) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
+    }, project);
+    await launched.page.getByTestId("sidebar-open-folder").click();
+    await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+  } catch (error) {
+    await launched.close().catch(() => {});
+    await rm(work, { recursive: true, force: true });
+    throw error;
+  }
   return {
     launched,
     async received(extra = []) {
