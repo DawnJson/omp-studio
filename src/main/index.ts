@@ -13,12 +13,12 @@ import { createMainWindow, isAppUrl } from "./window/main-window.ts";
 import { installSessionSecurity } from "./window/security.ts";
 import { showMainWindow } from "./window/show-window.ts";
 import { installShutdown } from "./window/shutdown.ts";
+import { quitWhenParentExits } from "./window/orphan-guard.ts";
 import { createTray } from "./window/tray.ts";
 
-// 测试隔离（AGENTS.md）：只在未打包时生效。
-if (!app.isPackaged && process.env["STUDIO_USER_DATA"]) {
-  app.setPath("userData", process.env["STUDIO_USER_DATA"]);
-}
+// 测试隔离（AGENTS.md）：只在未打包时生效。启动它的测试进程没了就跟着退出，不留后台进程。
+const testUserData = app.isPackaged ? undefined : process.env["STUDIO_USER_DATA"];
+if (testUserData) app.setPath("userData", testUserData);
 initLog();
 
 registerAppScheme();
@@ -35,6 +35,7 @@ if (!app.requestSingleInstanceLock()) {
   // 这里装一个空监听是为了关掉 Electron 的默认行为（无监听时自动退出）；真正的退出只走 app.quit()。
   app.on("window-all-closed", () => {});
   installShutdown();
+  if (testUserData) quitWhenParentExits();
   installHideOnClose();
 
   void app.whenReady().then(() => {

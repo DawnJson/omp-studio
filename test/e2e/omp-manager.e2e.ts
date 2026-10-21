@@ -64,7 +64,7 @@ test("PATH 上是 Tern 管理的 omp：问一次要不要接管，选继续用 T
     await expect(page.getByTestId("omp-path")).toHaveText(onPath ?? "");
   } finally {
     await launched.close();
-    await rm(agentDir, { recursive: true, force: true });
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -136,7 +136,7 @@ test("设置页和 omp 准备页截图：中英文 × 浅深主题", async () =>
     }
   } finally {
     await launched.close();
-    await rm(agentDir, { recursive: true, force: true });
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -173,6 +173,6 @@ test("接管询问：同意/拒绝的按钮把回答发给主进程", async () =
     await expect(page.getByTestId("omp-setup")).toHaveCount(0);
   } finally {
     await launched.close();
-    await rm(agentDir, { recursive: true, force: true });
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });

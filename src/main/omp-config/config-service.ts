@@ -8,6 +8,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { OmpConfigSnapshot, OmpConfigWriteResult } from "../../shared/ipc.ts";
+import { log } from "../log/log.ts";
 import { applyValues, buildSchema, isCredentialKey, type ConfigSchema, type SchemaEntry } from "./schema.ts";
 
 export interface RunResult {
@@ -153,7 +154,10 @@ export class OmpConfigService {
       if (cacheFile) await writeFile(cacheFile, JSON.stringify(schema), "utf8");
       return schema;
     } finally {
-      await rm(scratch, { recursive: true, force: true });
+      // omp 刚退出时 agent.db 偶尔还被占着（句柄没放、杀毒软件在扫）：重试；仍删不掉只记日志，不让读设置失败。
+      await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }).catch((error: unknown) =>
+        log.warn("removing the omp config scratch dir failed", { message: String(error) }),
+      );
     }
   }
 

@@ -170,7 +170,8 @@ test("设置、侧栏折叠和窗口尺寸写入 userData，重启后恢复", as
     await first.page.keyboard.press("Control+b");
     await expect(first.page.getByTestId("app-root")).toHaveAttribute("data-sidebar", "hidden");
     await first.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setSize(1100, 700));
-    await first.app.close();
+    // 用 LaunchedApp.close()：它连 launchApp 自己建的临时目录一起删（app.close() 只关进程，目录会漏）。
+    await first.close();
 
     const settings = JSON.parse(await readFile(path.join(userDataDir, "settings.json"), "utf8")) as {
       locale: string;
@@ -188,7 +189,7 @@ test("设置、侧栏折叠和窗口尺寸写入 userData，重启后恢复", as
       );
       expect(width).toBe(1100);
     } finally {
-      await second.app.close();
+      await second.close();
     }
   } finally {
     await rm(userDataDir, { recursive: true, force: true });

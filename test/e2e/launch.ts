@@ -81,23 +81,48 @@ export async function launchApp(
   const agentDir = ownedAgentDir ?? extraEnv["PI_CODING_AGENT_DIR"] ?? "";
   // 指向 Vite 开发服务器的变量会让应用去加载开发页面；e2e 只跑构建产物。
   const { ELECTRON_RENDERER_URL: _devUrl, ...baseEnv } = process.env;
-  const app = await electron.launch({
-    args: [root],
-    cwd: root,
-    env: { ...baseEnv, STUDIO_USER_DATA: userDataDir, PI_CODING_AGENT_DIR: agentDir, ...extraEnv },
-  });
-  const page = await app.firstWindow();
-  return {
-    app,
-    page,
-    userDataDir,
-    agentDir,
-    async close() {
-      await app.close();
-      await rm(userDataDir, { recursive: true, force: true });
-      if (ownedAgentDir !== null) await rm(ownedAgentDir, { recursive: true, force: true });
-    },
+  // Windows 上 Electron 退出后文件句柄可能还要一会儿才放（杀毒软件也会扫新文件）：EBUSY/EPERM 时重试。
+  const removeDirs = async () => {
+    try {
+      await rm(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    } finally {
+      if (ownedAgentDir !== null)
+        await rm(ownedAgentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    }
   };
+  let app: ElectronApplication | null = null;
+  try {
+    app = await electron.launch({
+      args: [root],
+      cwd: root,
+      env: { ...baseEnv, STUDIO_USER_DATA: userDataDir, PI_CODING_AGENT_DIR: agentDir, ...extraEnv },
+    });
+    const page = await app.firstWindow();
+    const launchedApp = app;
+    let exited = false;
+    launchedApp.once("close", () => {
+      exited = true;
+    });
+    return {
+      app: launchedApp,
+      page,
+      userDataDir,
+      agentDir,
+      async close() {
+        try {
+          // 用例自己让应用退出过（app.quit() 路径）时不再去关（Playwright 对已退出的应用会抛错），只收拾目录。
+          if (!exited) await launchedApp.close();
+        } finally {
+          await removeDirs();
+        }
+      },
+    };
+  } catch (error) {
+    // 起到一半失败（窗口没出来等）：调用方拿不到 close，在这里收拾，不留进程和临时目录。
+    await app?.close().catch(() => {});
+    await removeDirs();
+    throw error;
+  }
 }
 
 export const screenshotsDir = path.join(root, "screenshots");

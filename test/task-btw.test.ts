@@ -20,7 +20,7 @@ beforeAll(async () => {
   await mkdir(projectDir);
 });
 afterAll(async () => {
-  await rm(scratch, { recursive: true, force: true });
+  await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 });
 
 const settings: StudioSettings = {

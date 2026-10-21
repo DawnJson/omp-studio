@@ -73,7 +73,11 @@ async function start(fixtureText: string): Promise<{
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
-  return { launched, pidFile, cleanup: () => rm(work, { recursive: true, force: true }) };
+  return {
+    launched,
+    pidFile,
+    cleanup: () => rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }),
+  };
 }
 
 async function sendPrompt(launched: LaunchedApp): Promise<void> {
@@ -173,7 +177,7 @@ test("任务还在跑时退出（等同托盘“退出”的 app.quit()）：窗
     await exited;
     await expect.poll(() => isAlive(ompPid as number), { timeout: 10_000 }).toBe(false);
   } finally {
-    await rm(launched.userDataDir, { recursive: true, force: true });
+    await launched.close();
     await cleanup();
   }
 });

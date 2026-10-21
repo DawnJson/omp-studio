@@ -51,13 +51,14 @@ describe("createRedactor", () => {
 });
 
 describe("Logger", () => {
-  let dir = "";
+  let root = "";
   afterEach(async () => {
-    if (dir) await rm(dir, { recursive: true, force: true });
+    if (root) await rm(root, { recursive: true, force: true });
   });
 
   it("writes one file per local day, redacted, and deletes files older than the retention window", async () => {
-    dir = path.join(await mkdtemp(path.join(os.tmpdir(), "omp-studio 日志 ")), "logs");
+    root = await mkdtemp(path.join(os.tmpdir(), "omp-studio 日志 "));
+    const dir = path.join(root, "logs");
     let now = new Date(2026, 9, 18, 23, 59);
     const logger = new Logger({
       dir,
