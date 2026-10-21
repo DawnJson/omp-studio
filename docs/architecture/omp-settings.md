@@ -35,12 +35,12 @@
 
 ## rpc-ui 下的逐项核对（2026-10-18，omp 18.12.1，555 项）
 
-原则（PLAN 设计原则 7、阶段 2.6）：**omp 有的 omp-studio 也要有**，只隐藏在 rpc-ui 下不起作用的项（终端外观、状态栏、终端里的快捷键和提示）。**认不出的项一律显示**（新版本 omp 的新键落进"其他"），只有确认没用的才进隐藏名单。
+原则（omp 的设置就是 omp-studio 的设置；阶段 2.6 定）：**omp 有的 omp-studio 也要有**，只隐藏在 rpc-ui 下不起作用的项（终端外观、状态栏、终端里的快捷键和提示）。**认不出的项一律显示**（新版本 omp 的新键落进"其他"），只有确认没用的才进隐藏名单。
 
 ### 怎么核对的
 
 1. **差分实测（全量布尔/枚举）**：临时 agent 目录 + `--mode rpc-ui`，对 316 个布尔/枚举项逐个翻一次，比较启动后 rpc-ui 能看到的东西（`get_state`、`get_available_commands`、启动帧类型）是否和基线不同。基线重复两次完全一致（无噪声）。**58 项有变化**，其余 258 项没有。有变化的包括：`steeringMode`/`followUpMode`/`interruptMode`/`defaultThinkingLevel`、`compaction.enabled`、系统提示相关（`includeModelInPrompt`、`personality`、`skillful`、`includeWorkspaceTree`、`inlineToolDescriptors`、`memory.backend`、`autolearn.enabled`、`memories.enabled`、`ttsr.enabled`、`tools.intentTracing`、`tools.xdev`、`secrets.enabled`）、所有工具开关（`bash.enabled`、`todo.enabled`、`glob/grep/find/astGrep/astEdit/debug/launch/speechgen/generate_image/computer/ratchet/checkpoint/archive/github/web_search/ask/security/async/fetch/browser/lsp/eval.*.enabled` 等）、`edit.mode`、`task.*`（`isolation`、`eager`、`batch`、`structured`、`enableEffort`）、`skills.*` 与 `commands.*` 的几个开关（改命令列表）、`dev.autoqa`。前缀是终端专用、却在差分里改变了 `get_state` 的只有 `tui.reactions`（原因没查），所以单独放出来显示（`measuredEffective`），其余 `tui.*` 仍隐藏。
-2. **行为实测**（真实模型，临时目录）：`bash.enabled=false` 后模型没有 bash 工具（`tool_execution_start` 一次都没有，true 时有）；`todo.enabled=false` 同样没有 `todo` 工具；`hideThinkingBlock=true` 和 `omitThinking=true` 时 `thinking_start/delta/end` 事件照常到达（所以 `hideThinkingBlock` 只是 TUI 的显示开关，omp-studio 自己决定怎么显示思考；`omitThinking` 的作用是模型侧，保留）；**运行中改 `config.yml` 不会发任何事件，但 `get_state` 马上反映**（`omp config set compaction.enabled false` 后 `autoCompactionEnabled` 变 false），所以改完设置不用重启任务（omp 文档"Live file changes"确认）。`plan.defaultOnStartup` 被忽略见 PLAN 的 plan 模式一项。
+2. **行为实测**（真实模型，临时目录）：`bash.enabled=false` 后模型没有 bash 工具（`tool_execution_start` 一次都没有，true 时有）；`todo.enabled=false` 同样没有 `todo` 工具；`hideThinkingBlock=true` 和 `omitThinking=true` 时 `thinking_start/delta/end` 事件照常到达（所以 `hideThinkingBlock` 只是 TUI 的显示开关，omp-studio 自己决定怎么显示思考；`omitThinking` 的作用是模型侧，保留）；**运行中改 `config.yml` 不会发任何事件，但 `get_state` 马上反映**（`omp config set compaction.enabled false` 后 `autoCompactionEnabled` 变 false），所以改完设置不用重启任务（omp 文档"Live file changes"确认）。`plan.defaultOnStartup: true` 在 rpc-ui 下被忽略：RPC 没有进入 plan 模式的命令（`/plan` 会被当成普通文本交给模型），`get_state` 里也没有 plan 字段（实测 18.12.1）。
 3. **文档依据**：启动面没变化的项里，大量是只在一轮对话里才起作用的运行时行为（`retry.*`、`compaction.*` 的阈值、`tools.approvalMode`、`edit.*`、`bash.*`、`read.*`、`lsp.*`、`providers.*`、`tier.*`、温度等采样参数、`advisor.*`、`mnemopi.*`/`hindsight.*` 记忆等），按 `omp://settings.md`、`models.md`、各工具文档判定为有效并保留；这类项没有逐个发真实请求验证。
 
 ### 隐藏的项（78 项，只在终端界面里有意义）

@@ -3,7 +3,7 @@
 //
 // 怎么分辨“明确设置过”：`omp config list --json` 里明确设成默认值和没设过的输出完全一样（实测，omp 18.12.2），
 // 区分不了；但 `omp config set` 一定会把这个键写进 agent 目录的 config.yml（即使值等于默认值），所以只读 config.yml：
-// 里面有这个键就是用户（在 omp-studio 或终端里）明确设过，不碰。读 config.yml 只读，不写（src/main/AGENTS.md）。
+// 里面有这个键就是用户（在 omp-studio 或终端里）明确设过，不碰。读 config.yml 只读，不写（AGENTS.md）。
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";

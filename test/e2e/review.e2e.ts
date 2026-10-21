@@ -1,4 +1,4 @@
-// 全屏评审（PLAN 阶段 3）端到端：临时 git 仓库（路径带空格和中文）+ 假 omp 回放一次 edit 工具调用，
+// 全屏评审端到端：临时 git 仓库（路径带空格和中文）+ 假 omp 回放一次 edit 工具调用，
 // 驱动真实的 主进程 → git IPC → 渲染进程：打开评审、统一/并排、暂存一个 hunk、两条评论、发给 agent（断言 omp 收到的 prompt 文本）。
 // 中英 × 深浅各截图到 screenshots/review-*.png。
 import { execFileSync } from "node:child_process";

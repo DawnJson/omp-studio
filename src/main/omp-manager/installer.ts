@@ -84,7 +84,7 @@ export async function installBuild(layout: ManagedLayout, options: InstallOption
 
 /**
  * 下补丁（约 30 MB，全量 220 MB）并应用到 fromExe，结果和 build 的 size、sha256 都对上才改名成 target。
- * 补丁不适用或任何一步失败都返回 false，由调用方退回全量下载（PLAN 第 3 节：补丁不可用时退回全量）；用户取消照常抛出。
+ * 补丁不适用或任何一步失败都返回 false，由调用方退回全量下载；用户取消照常抛出。
  */
 async function installFromPatch(
   options: InstallOptions,

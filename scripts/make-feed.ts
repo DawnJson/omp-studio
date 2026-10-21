@@ -1,9 +1,10 @@
-// 生成自动更新的静态目录：把当前版本的安装包、.blockmap 和 latest.yml 放进指定目录。
+// 生成自动更新的静态目录：把当前版本的安装包、.blockmap 和 latest.yml 放进指定目录，再删掉目录里旧版本的安装包。
 // 用法：node scripts/make-feed.ts <目录>（先 npm run dist）。
+// 旧版本的 .blockmap 留着：差量更新要从这里取"已装版本"的 blockmap（electron-updater 的 Provider.getBlockMapFiles）。
 // latest.yml 是 electron-updater 的 generic 源格式；默认构建没有配置 publish，所以自己写。
 // releaseNotes 取 CHANGELOG.md 里这个版本的一节（electron-updater 把它放进 UpdateInfo.releaseNotes）。
 import { createHash } from "node:crypto";
-import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { releaseNotes } from "../src/shared/changelog.ts";
 
@@ -51,4 +52,7 @@ releaseDate: '${new Date().toISOString()}'
 ${notesYaml}`,
   "utf8",
 );
+const stale = (await readdir(out)).filter((file) => /^omp-studio-.+-setup\.exe$/.test(file) && file !== name);
+await Promise.all(stale.map((file) => rm(path.join(out, file), { force: true })));
+if (stale.length > 0) console.log(`删掉旧安装包：${stale.join("、")}`);
 console.log(`${out}: ${version}（${size} 字节）`);

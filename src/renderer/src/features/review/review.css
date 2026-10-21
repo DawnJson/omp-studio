@@ -1,4 +1,4 @@
-/* 全屏评审（PLAN 阶段 3）。只用 tokens.css 里的变量；配色全部来自 token，换色板只改 tokens.css。 */
+/* 全屏评审。只用 tokens.css 里的变量；配色全部来自 token，换色板只改 tokens.css。 */
 .review {
   /* 把 shiki 的 CSS 变量主题接到设计 token（同 markdown.css）。 */
   --shiki-foreground: var(--text);

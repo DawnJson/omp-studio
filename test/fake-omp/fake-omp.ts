@@ -198,7 +198,7 @@ for (const entry of entries) {
     case "grandchild": {
       // 模拟 omp 起的 bash 等子进程：一个不会自己退出的进程，pid 用一个测试专用帧报告出去。
       // detached：Node 非 detached 的子进程会进 fake-omp 自己的 libuv Job，fake-omp 一死就跟着没了；
-      // 真实 omp 的孙进程（bash、ping）不受这个 job 管（problem.md 第 4 题：omp 被杀后 PING.EXE 留下），要模拟的是这种。
+      // 真实 omp 的孙进程（bash、ping）不受这个 job 管（实测：主进程被强杀后 PING.EXE 留下，docs/architecture/omp-rpc.md），要模拟的是这种。
       const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 60_000)"], {
         stdio: "ignore",
         windowsHide: true,

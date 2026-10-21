@@ -1,4 +1,4 @@
-// 全屏评审（PLAN 阶段 3）：文件树 | diff | 右栏（改动说明 / 评论队列）。盖住顶栏以下的整个窗口，Esc 或"退出评审"回到对话。
+// 全屏评审：文件树 | diff | 右栏（改动说明 / 评论队列）。盖住顶栏以下的整个窗口，Esc 或"退出评审"回到对话。
 // 数据：git 状态和 diff 每次都向主进程取（use-review-data.ts）；评论队列在 store/review-store.ts，关闭评审后仍保留。
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TaskId, TaskState } from "../../../../shared/ipc.ts";

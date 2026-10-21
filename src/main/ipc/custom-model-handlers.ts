@@ -1,4 +1,4 @@
-// 自定义模型的 IPC：读写 omp 的 models.yml、一键拉取模型列表。规则和边界见 src/main/AGENTS.md「omp 的边界」、
+// 自定义模型的 IPC：读写 omp 的 models.yml、一键拉取模型列表。规则和边界见 AGENTS.md「omp 的边界」、
 // docs/architecture/custom-models.md。key 只进不出；日志只记 provider id 和结果，不记 key、不记 URL 里的查询串。
 import { existsSync } from "node:fs";
 import { net, shell } from "electron";

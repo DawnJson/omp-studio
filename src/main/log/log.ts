@@ -1,5 +1,5 @@
 // 主进程日志：写 <userData>/logs/main-<本地日期>.log，按天换文件，保留最近 RETAIN_DAYS 天。
-// 每一行写之前过一遍脱敏（家目录、用户名、key/token、带签名的 URL 参数），规则见 src/main/AGENTS.md "日志和路径脱敏"。
+// 每一行写之前过一遍脱敏（家目录、用户名、key/token、带签名的 URL 参数），规则见 AGENTS.md "日志和路径脱敏"。
 // 这个文件不 import electron：单元测试和被测模块（installer.ts 等）可以直接用 `log`；
 // 应用启动时 instance.ts 用 setLogger() 接上真正的文件，之前（和测试里）只打到控制台。
 import { appendFileSync, mkdirSync, readdirSync, unlinkSync } from "node:fs";

@@ -1,4 +1,4 @@
-// 草稿输入框下方的"工作树"开关（PLAN 阶段 4）：打开后第一条消息会在独立的 git worktree 里开任务。
+// 草稿输入框下方的"工作树"开关：打开后第一条消息会在独立的 git worktree 里开任务。
 // 只在项目目录正好是 git 仓库根时显示（canUseWorktree）；没提交、detached HEAD 这类前提在创建被主进程拒绝时记下，
 // 开关随之禁用并在悬停提示里写明。项目里有 setup 脚本时，开启状态下在开关内写明"会运行"，悬停提示给出完整文件名。
 import { useEffect, useState } from "react";

@@ -1,8 +1,8 @@
-// 发版：改版本号 → 把 CHANGELOG 的"未发布"改成这个版本 → 类型检查和单测 → 提交并打 tag → 打安装包和更新目录。
+// 发版：改版本号 → 把 CHANGELOG 的"未发布"改成这个版本 → 类型检查和单测 → 提交并打 tag → 打安装包和更新目录 → 删 release\ 里旧版本的安装包。
 // 用法：npm run release -- <版本，如 0.1.0> [--dry-run]
-// 只在本地做，不推送；推送 tag、上传更新目录由仓库所有者决定（AGENTS.md：发版先问）。
+// 只在本地做，不推送。
 import { execFileSync } from "node:child_process";
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { compareVersions } from "../src/main/omp-manager/version.ts";
 import { promoteUnreleased } from "./changelog.ts";
@@ -40,7 +40,7 @@ const changelog = promoteUnreleased(await readFile(changelogPath, "utf8"), versi
 
 if (dryRun) {
   console.log(
-    `[dry-run] 版本 ${current} → ${version}，CHANGELOG 记为 ${date}；会提交 "chore(release): v${version}"、打 tag v${version}、npm run dist、npm run feed`,
+    `[dry-run] 版本 ${current} → ${version}，CHANGELOG 记为 ${date}；会提交 "chore(release): v${version}"、打 tag v${version}、npm run dist、npm run feed、删 release\\ 里旧版本的安装包`,
   );
   process.exit(0);
 }
@@ -55,6 +55,13 @@ git("commit", "-m", `chore(release): v${version}`);
 git("tag", "-a", `v${version}`, "-m", `v${version}`);
 npm("run", "dist");
 npm("run", "feed");
+// 只留这一版的安装包；旧版本的 .blockmap 在更新目录里有，差量更新用那份。
+const releaseDir = path.join(root, "release");
+const installer = `omp-studio-${version}-setup.exe`;
+const stale = (await readdir(releaseDir)).filter(
+  (file) => /^omp-studio-.+-setup\.exe(\.blockmap)?$/.test(file) && !file.startsWith(installer),
+);
+await Promise.all(stale.map((file) => rm(path.join(releaseDir, file), { force: true })));
 console.log(
   `\n已提交并打 tag v${version}（未推送）。安装包在 release\\，更新目录在 ..\\omp-studio-updates\\（装着的旧版本会从这里自动更新）。`,
 );

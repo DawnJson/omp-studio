@@ -6,7 +6,7 @@
 
 ## 为什么直接写 `models.yml`
 
-omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一节）。仓库所有者 2026-10-18 选了 `login.md` 里的方案 1：omp-studio 自己改 `models.yml`，作为"自己写 omp 配置"的两个例外之一（另一个是项目 `.omp/config.yml` 的 `modelRoles`），规则写在 `src/main/AGENTS.md`「omp 的边界」。不扩大：别的配置文件、别的键仍然只经 omp 写。
+omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一节）。仓库所有者 2026-10-18 选了 `login.md` 里的方案 1：omp-studio 自己改 `models.yml`，作为"自己写 omp 配置"的两个例外之一（另一个是项目 `.omp/config.yml` 的 `modelRoles`），规则写在 `AGENTS.md`「omp 的边界」。不扩大：别的配置文件、别的键仍然只经 omp 写。
 
 ## 文件在哪、认哪个
 

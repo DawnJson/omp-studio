@@ -1,6 +1,6 @@
 // 渲染进程 ↔ 主进程的全部契约。preload 按 StudioApi 逐个实现；主进程按 InvokeHandlers 注册并校验参数。
 // 规则（AGENTS.md "Electron 安全"）：一个函数只做一件事；渲染进程传来的每个参数都当不可信输入；
-// 渲染进程不传路径，只传主进程发的 id。协议出处见 docs/architecture/ipc.md。
+// 渲染进程不传路径，只传主进程发的 id。
 import type {
   AskAnswer,
   AvailableSlashCommand,
@@ -162,7 +162,7 @@ export interface StudioSettings {
   notifyOnGate: boolean;
   /** 在对话等处用鼠标选中文字后自动复制到剪贴板（输入框、终端除外）。默认开。 */
   copyOnSelect: boolean;
-  /** 新建任务用的引擎，任务创建时定下、之后不变（docs/architecture/tsp-migration.md）。默认 tsp。 */
+  /** 任务用的引擎（docs/architecture/tsp-migration.md §10.5）。默认 tsp；设成 tsp 时，没有进程的 rpc 任务下次启动前改记成 tsp。 */
   taskEngine: TaskEngine;
   /** 用户确认过"全部自动"。 */
   yoloConfirmed: boolean;
@@ -263,7 +263,8 @@ export interface TaskState {
   title: string;
   /**
    * 这个任务的 omp 怎么跑（docs/architecture/tsp-migration.md）：`rpc` = `--mode rpc-ui`，界面由 omp-studio 拼；
-   * `tsp` = 交互式 omp 跑在伪终端里，界面是 omp 发来的 TSP 节点树。创建时按设置 `taskEngine` 定，之后不变。
+   * `tsp` = 交互式 omp 跑在伪终端里，界面是 omp 发来的 TSP 节点树。创建时按设置 `taskEngine` 定；设置是 tsp 时，
+   * 没有进程的 rpc 任务在下次启动前改成 tsp（tsp-migration.md §10.5）。
    */
   engine: TaskEngine;
   status: TaskStatus;
@@ -891,7 +892,7 @@ export interface StudioInvokeApi {
   /** 已设置 studio 自存 API key 的 provider id 列表；只有 id，没有 key 的任何内容。 */
   listApiKeyProviders(): Promise<string[]>;
 
-  // 自定义模型：直接读写 omp 的 models.yml（src/main/omp-config/models-file.ts；规则见 src/main/AGENTS.md）
+  // 自定义模型：直接读写 omp 的 models.yml（src/main/omp-config/models-file.ts；规则见 AGENTS.md）
   /** 读 models.yml 里的 providers。key 只有状态，没有内容。文件读不懂时 reject。 */
   listCustomProviders(): Promise<CustomModelsFileInfo>;
   /** 新增（add）或修改（edit）一个 provider；校验不过返回 {ok:false, code}。成功后主进程关掉服务进程，下次读模型列表时 omp 重新加载。 */

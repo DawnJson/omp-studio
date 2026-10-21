@@ -1,6 +1,6 @@
 # 内置终端（阶段 6）
 
-状态：**已实现（2026-10-18）。** 对应 `PLAN.md` 阶段 6"xterm.js + node-pty，每个任务的终端在它的 worktree 目录里打开"。界面规格见 `docs/design/spec.md` §4.26，安全边界见 `src/main/AGENTS.md`"Electron 安全"。
+状态：**已实现（2026-10-18）。** 对应阶段 6"xterm.js + node-pty，每个任务的终端在它的 worktree 目录里打开"。界面规格见 `docs/design/spec.md` §4.26，安全边界见 `AGENTS.md`"Electron 安全"。
 
 标注约定：**实测** = 本机亲手测的，写明版本；**推测** = 没有证据，只是推断。实测环境：Windows 11（10.0.26300）、Electron 44.9.0、node-pty 1.1.0、@xterm/xterm 6.0.0、@xterm/addon-fit 0.11.0、PowerShell 7.6.7（`pwsh.exe`）。
 

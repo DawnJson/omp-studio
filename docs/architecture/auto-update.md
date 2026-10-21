@@ -73,5 +73,5 @@ idle → checking → up-to-date
 
 ## 待定
 
-- 正式（对外）的更新源地址（单独的公开 releases 仓库 / 对象存储），见 `PLAN.md` 阶段 7；定了以后把 `electron-builder.yml` 的 `publish.url` 换成 http(s) 地址。
+- 正式（对外）的更新源地址（单独的公开 releases 仓库 / 对象存储 / 开源后用本仓库；源码仓库私有时 Releases 需要 token，不能写进应用）；定了以后把 `electron-builder.yml` 的 `publish.url` 换成 http(s) 地址。
 - 代码签名、stable/beta 渠道。

@@ -76,7 +76,7 @@ sequenceDiagram
 
 ## 类型从哪来
 
-npm 包 `@oh-my-pi/pi-coding-agent` 里有 `rpc-wire.generated.ts`，可以 `import type`，但装整个包约 1.06 GB。GitHub tag `v<版本>` 下 `packages/coding-agent/src/modes/rpc/wire/` 的同名文件与 npm 包逐字节相同。**已定：从 tag 拷贝这个文件进仓库**，不装 npm 包（`problem.md` 第 3 题）。
+npm 包 `@oh-my-pi/pi-coding-agent` 里有 `rpc-wire.generated.ts`，可以 `import type`，但装整个包约 1.06 GB（144 个包）。GitHub tag `v<版本>` 下 `packages/coding-agent/src/modes/rpc/wire/` 的同名文件与 npm 包逐字节相同（实测 18.12.0）。**已定：从 tag 拷贝这个文件进仓库**，不装 npm 包（`npm run rpc:update-wire -- <版本>`）。
 
 - 只引 `modes/rpc/wire/rpc-wire.generated`，不要引 `modes/rpc/rpc-types`（会拉进 1493 个文件）。
 - `RpcResponse.data` 是 `unknown`，按命令对应结果类型要用 `RpcWireCommands[K]["result"]`。
@@ -91,4 +91,4 @@ npm 包 `@oh-my-pi/pi-coding-agent` 里有 `rpc-wire.generated.ts`，可以 `imp
 | bash 工具运行中关闭 stdin | 取消工具（`tool_execution_end.isError: true`），约 0.1 s 退出，退出码 0 | 被结束，无残留 |
 | bash 工具运行中强杀主进程（主进程里 `process.kill(process.pid, "SIGKILL")`） | 自己退出 | **`PING.EXE` 和它的 `conhost.exe` 留下成为孤儿** |
 
-所以正常退出路径（关窗口、退出应用、自动更新重启）都要先关闭 stdin，**期间继续读 stdout**（`rpc.md` 要求，否则 omp 可能一直等输出被读走而不退出），再等 omp 退出，超时后按进程树结束（`taskkill /T /F /PID`）。主进程崩溃或被强杀时这些代码都不会运行。**已定**：omp 子进程放进 Windows Job Object（`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`），由系统回收整棵进程树；Node 和 Electron 没有这个 API，要用原生模块，具体哪个开工前再确认。同时查清 omp 在这条路径上为什么不结束子进程，是 omp 的缺陷就给官方提 PR。原因还没查，推测是 stdout 断开后走了直接退出的分支。
+所以正常退出路径（关窗口、退出应用、自动更新重启）都要先关闭 stdin，**期间继续读 stdout**（`rpc.md` 要求，否则 omp 可能一直等输出被读走而不退出），再等 omp 退出，超时后按进程树结束（`taskkill /T /F /PID`）。主进程崩溃或被强杀时这些代码都不会运行，所以 omp 子进程放进 Windows Job Object（`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`，koffi 调用，`src/main/platform/win32/`），由系统回收整棵进程树。原因已查清（`task-model.md`「进程树兜底」）：omp 是被系统直接结束的，来不及清理孙进程，不是 omp 的缺陷。

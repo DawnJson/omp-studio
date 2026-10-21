@@ -1,4 +1,4 @@
-// 自定义模型：直接读写 omp 的 `models.yml`（仓库所有者 2026-10-18 同意的例外，见 src/main/AGENTS.md「omp 的边界」和
+// 自定义模型：直接读写 omp 的 `models.yml`（仓库所有者 2026-10-18 同意的例外，见 AGENTS.md「omp 的边界」和
 // docs/architecture/custom-models.md）：omp 没有写 models.yml 的命令或 RPC。
 // 规则（唯一的例外，不扩大）：
 // - 只改 `providers.<id>` 这一层的条目，用 yaml 的 Document API，注释、其它 provider、其它根键、条目里不认识的字段原样保留；

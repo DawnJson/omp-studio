@@ -1,6 +1,6 @@
 # 把评审评论发给 agent
 
-diff 评审里攒下的逐行评论，怎么一次发给 agent。验证过程见 `problem.md` 第 1 题。
+diff 评审里攒下的逐行评论，怎么一次发给 agent。
 
 实测版本：omp 18.12.0，模型 `deepseek/deepseek-v4-flash`。日期 2026-10-17。
 

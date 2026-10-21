@@ -1,5 +1,5 @@
 // 从 omp 官方仓库对应版本的 tag 拷贝 RPC wire 类型。用法：node scripts/update-rpc-wire.ts <omp 版本>
-// 依据：problem.md 第 3 题、AGENTS.md "omp 的边界"。
+// 依据：docs/architecture/omp-rpc.md「类型从哪来」、AGENTS.md "omp 的边界"。
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 

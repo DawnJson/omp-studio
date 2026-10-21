@@ -1,4 +1,4 @@
-// 新任务的默认模型 = omp 的 modelRoles.default，按项目解析（PLAN 设计原则 7）。和 omp 终端里的模型选择器一样：
+// 新任务的默认模型 = omp 的 modelRoles.default，按项目解析（omp 的设置就是 omp-studio 的设置，不另存）。和 omp 终端里的模型选择器一样：
 //   读：在项目目录里跑 `omp config list --json`，项目 .omp/config.yml 的 modelRoles 会盖过全局（实测 18.12.1）。
 //   写：生效的 modelRoleStorage 是 project 时只改 `<项目>/.omp/config.yml` 的 modelRoles（omp://settings.md）；
 //       否则经 `omp config set modelRoles` 写全局。omp 没有写项目配置的命令（`omp config set` 永远写全局，实测），

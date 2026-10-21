@@ -59,7 +59,7 @@ export class VerifyError extends Error {
   override name = "VerifyError";
 }
 
-/** 构建服务的 target 名（`omp-install.md`；arm64 见 problem.md 第 2 题）。 */
+/** 构建服务的 target 名（`omp-install.md`；取值照 omp 的 `scripts/install.ps1`：`windows-x86_64` / `windows-arm64`）。 */
 export function buildTarget(platform: NodeJS.Platform = process.platform, arch: string = process.arch): string {
   const os = platform === "win32" ? "windows" : platform === "darwin" ? "macos" : "linux";
   return `${os}-${arch === "arm64" ? "arm64" : "x86_64"}`;
