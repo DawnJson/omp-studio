@@ -373,13 +373,15 @@ export class TspRunner {
         this.#apply({ type: "agent_start" });
       } else {
         const aborted = this.#stopRequested;
-        this.#touch(Date.now());
+        // 一轮结束的时间和任务活动时间是同一刻：只读一次时钟，两处才相等。
+        const endedAt = Date.now();
+        this.#touch(endedAt);
         this.#stopRequested = false;
         this.#apply({
           type: "prompt_result",
           status: aborted ? "aborted" : "completed",
           sessionSettled: true,
-          at: Date.now(),
+          at: endedAt,
           foreground: this.#host.isForeground(this.id),
         });
         // 回合结束：会话文件这时一定落盘了。
