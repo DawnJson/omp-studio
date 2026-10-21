@@ -10,6 +10,8 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+## [0.3.28] - 2026-10-21
+
 ### 变更
 
 - 审批模式的名字简化为"总是询问 / 询问并记住 / 自动写入 / 全自动"；英文界面改用 omp 自己的叫法 Always ask / Ask and remember / Write / Yolo。
