@@ -15,6 +15,8 @@ import {
   type TspDocMessage,
   type TspDocument,
 } from "../../../../shared/tsp/document.ts";
+import { recapBefore } from "../../../../shared/tsp/recap-slot.ts";
+import type { StatusNote } from "../../../../shared/tsp/status-notes.ts";
 import { planTspBatch } from "./tsp-sync.ts";
 
 interface Mirror {
@@ -52,6 +54,8 @@ interface RoleIndex {
   turnCount: number;
   /** 没有用量行的轮的最后一个助手节点 id → 这一轮是第几轮（从 0 数）。 */
   lastAssistantOfBareTurn: Map<string, number>;
+  /** main 的直接子节点里 omp.user 的 id（文档顺序）。 */
+  mainUsers: string[];
 }
 /** main 区里 TRACKED_ROLES 节点的 id（文档顺序），按 (任务, surface) 缓存；镜像换了（快照）或有节点变了就作废。 */
 const roleIndexes = new Map<string, RoleIndex>();
@@ -325,6 +329,14 @@ export function useTspSurface(taskId: TaskId, sf: string): TspSurfaceView | null
   return useSyncExternalStore(sub, () => readSurface(taskId, sf));
 }
 
+const NO_NOTES: readonly StatusNote[] = [];
+
+/** omp 的状态行（切模型等）：文档里记下来的，按出现顺序（见 shared/tsp/status-notes.ts）。 */
+export function useTspStatusNotes(taskId: TaskId, sf: string): readonly StatusNote[] {
+  const sub = useMemo(() => (l: () => void) => subscribe(surfaceKey(taskId, sf), l), [taskId, sf]);
+  return useSyncExternalStore(sub, () => mirrors.get(taskId)?.doc.surfaces.get(sf)?.statusNotes ?? NO_NOTES);
+}
+
 // ───────── main 区里按 role 找节点（用量行的位置、用户消息有没有） ─────────
 
 function roleIndex(taskId: TaskId, sf: string): RoleIndex | null {
@@ -356,7 +368,13 @@ function roleIndex(taskId: TaskId, sf: string): RoleIndex | null {
       if (turn.lastAssistant === null || turn.hasUsage) return;
       lastAssistantOfBareTurn.set(turn.lastAssistant, index);
     });
-    cached = { mirror, byRole, turnCount: turns.length, lastAssistantOfBareTurn };
+    cached = {
+      mirror,
+      byRole,
+      turnCount: turns.length,
+      lastAssistantOfBareTurn,
+      mainUsers: (nodes?.get("main")?.c ?? NO_IDS).filter((id) => nodes?.get(id)?.p["role"] === USER_ROLE),
+    };
     roleIndexes.set(cacheKey, cached);
   }
   return cached;
@@ -396,10 +414,22 @@ export function useTspTurnCount(taskId: TaskId, sf: string): number {
   return useSyncExternalStore(sub, () => roleIndex(taskId, sf)?.turnCount ?? 0);
 }
 
+/** 这个回顾行是不是 main 区里最后一个：对话里只显示最新的一条，新回顾来了旧的就收起。 */
+export function useIsLatestRecap(taskId: TaskId, sf: string, id: string): boolean {
+  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
+  return useSyncExternalStore(sub, () => roleIds(taskId, sf, RECAP_ROLE).at(-1) === id);
+}
+
 /** main 区里有没有 omp 自己发的空闲回顾（omp.recap）。 */
 export function useTspHasRecap(taskId: TaskId, sf: string): boolean {
   const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
   return useSyncExternalStore(sub, () => roleIds(taskId, sf, RECAP_ROLE).length > 0);
+}
+
+/** 恢复回顾放在哪个节点之前（`recapBefore`）；还没有该 surface 的文档时 null。 */
+export function useRecapBefore(taskId: TaskId, sf: string, afterTurn: number, fileTurns: number): string | null {
+  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
+  return useSyncExternalStore(sub, () => recapBefore(roleIndex(taskId, sf)?.mainUsers ?? NO_IDS, afterTurn, fileTurns));
 }
 
 /** main 区里有没有 omp 的用户消息（omp.user）。 */

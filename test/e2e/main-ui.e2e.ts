@@ -215,13 +215,23 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     await page.keyboard.press("ArrowRight");
     await expect(overview.getByTestId("usage-tab-daily")).toBeFocused();
     await expect(overview.getByTestId("heatmap-section")).toBeVisible();
-    // 热力图在对话框里居中。
+    // 热力图占满对话框内容宽度；页签在标题栏正中，标题文字不显示。
     const [heatBox, sectionBox] = await Promise.all([
       overview.getByTestId("heatmap-section").locator(".uq-heat").boundingBox(),
       overview.getByTestId("heatmap-section").boundingBox(),
     ]);
+    expect((heatBox?.width ?? 0) / (sectionBox?.width ?? 1)).toBeGreaterThan(0.98);
+    const gridBox = await overview.getByTestId("heatmap-section").locator(".usage-grid").boundingBox();
+    expect((gridBox?.x ?? 0) + (gridBox?.width ?? 0)).toBeGreaterThan(
+      (sectionBox?.x ?? 0) + (sectionBox?.width ?? 0) - 24,
+    );
+    await expect(overview.locator(".mp-title")).toHaveCount(0);
+    const [tabsBox, headBox] = await Promise.all([
+      overview.getByRole("tablist").boundingBox(),
+      overview.locator("header").boundingBox(),
+    ]);
     expect(
-      Math.abs((heatBox?.x ?? 0) + (heatBox?.width ?? 0) / 2 - ((sectionBox?.x ?? 0) + (sectionBox?.width ?? 0) / 2)),
+      Math.abs((tabsBox?.x ?? 0) + (tabsBox?.width ?? 0) / 2 - ((headBox?.x ?? 0) + (headBox?.width ?? 0) / 2)),
     ).toBeLessThanOrEqual(2);
     await expect(overview.getByTestId("quota-section")).toBeHidden();
     const dailyBox = await overview.boundingBox();

@@ -36,9 +36,8 @@ import { studioSlashCommands } from "./studio-slash-table.ts";
 import { FileMenu } from "./FileMenu.tsx";
 import { useFileMenu } from "./use-file-menu.ts";
 import { SendStop } from "./SendStop.tsx";
-import { knownDefaults, knownModels, knownOmp } from "./new-task-default.ts";
-import { resolveNewTaskDefault } from "./new-task-resolve.ts";
-import { thinkingLevelOptions } from "./thinking-levels.ts";
+import { useNewTaskDefault } from "./use-new-task-default.ts";
+import { thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
 import { SessionCost } from "./SessionCost.tsx";
 import { ContextMeter, UsageMeter } from "./UsageMeter.tsx";
 import { UsageLimitBanner } from "./UsageLimitBanner.tsx";
@@ -47,7 +46,6 @@ import { useHeld } from "./use-held.ts";
 import { JobsBoard } from "./JobsBoard.tsx";
 import { useJobs } from "./use-jobs.ts";
 import { useReclaimFocus } from "./use-reclaim-focus.ts";
-import { TspChangeStrip } from "../tsp-changes/TspChangeStrip.tsx";
 import { useFirstPrompt } from "../tsp/first-prompt-store.ts";
 import type { Transcript } from "../../../../shared/transcript.ts";
 import { PathLabel } from "../empty/ProjectLabel.tsx";
@@ -74,6 +72,14 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   const transcript = useTranscript(taskId);
   // 新任务首发：omp 报出模型之前，模型胶囊先显示草稿页当时的模型（first-prompt-store.ts），不闪"未连接模型"。
   const firstPrompt = useFirstPrompt(taskId);
+  // 起进程前（没启动 / 正在启动）任务状态里还没有模型：显示这个项目的新任务默认值（和草稿页、主进程随后报出的同源），
+  // 切项目第一帧就是最终值，这个项目没读到过时是"模型…"，不经过全局默认值或"未连接模型"。
+  const preStart =
+    task !== null &&
+    task.model === null &&
+    firstPrompt === null &&
+    (task.status === "stopped" || task.status === "starting");
+  const projectDefault = useNewTaskDefault(task?.projectId ?? null, preStart).resolved;
   const draft = useDraft(taskId);
   const suggestion = useEditorSuggestion(taskId);
   const omp = useOmpStatus();
@@ -330,17 +336,10 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   };
 
   if (!task) return null;
-  // 起进程前（没启动 / 正在启动）任务状态里还没有模型：先显示这个项目上次读到的新任务默认值（和草稿页、主进程随后报出的同源），
-  // 切项目第一帧就是最终值，不经过"未连接模型/模型…"。
-  const preStart =
-    task.model === null && firstPrompt === null && (task.status === "stopped" || task.status === "starting");
-  const projectDefault = preStart
-    ? resolveNewTaskDefault(knownDefaults(task.projectId), knownOmp(), knownModels())
-    : null;
-  const shownModel = task.model ?? firstPrompt?.model ?? projectDefault?.model ?? null;
+  const shownModel = task.model ?? firstPrompt?.model ?? (preStart ? projectDefault.model : null);
   const shownThinking =
     task.model === null
-      ? (firstPrompt?.thinkingLevel ?? task.thinkingLevel ?? projectDefault?.thinkingLevel ?? null)
+      ? (firstPrompt?.thinkingLevel ?? task.thinkingLevel ?? (preStart ? projectDefault.thinkingLevel : null))
       : task.thinkingLevel;
   return (
     <div className="composer-stack" data-testid="composer-stack" data-from-draft={fromDraft ? "" : undefined}>
@@ -379,8 +378,6 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
       {/* TSP 任务：排队、运行状态、待办、后台任务都是 omp 在过程区的 dock 里画的。 */}
       {!tsp && <QueueStrip taskId={taskId} queue={task.queue} />}
       {!tsp && <StatusBar taskId={taskId} task={task} transcript={transcript} />}
-      {/* TSP 任务：本轮改动的一行摘要（过程区里只有 omp 的节点）。 */}
-      {tsp && <TspChangeStrip taskId={taskId} />}
       <div className="composer" data-gate={(gate && !tsp) || undefined} onDragOver={onDragOver} onDrop={onDrop}>
         <SlashMenu
           id="slash-menu"
@@ -451,7 +448,9 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
               setSlow: (enabled) => window.studio.setTaskSlowMode(taskId, enabled),
             }}
             // 起进程期间还不知道模型时和草稿一样写"模型…"，不写"未连接模型"
-            {...(shownModel === null && task.status === "starting" ? { emptyLabel: t("composer.modelLoading") } : {})}
+            {...(shownModel === null && (task.status === "starting" || (preStart && projectDefault.pending))
+              ? { emptyLabel: t("composer.modelLoading") }
+              : {})}
           />
           <ApprovalChip />
           {/* 和草稿工具行同一个位置：任务在哪个文件夹里跑（有 worktree 时是 worktree 根），发出第一句话后不消失 */}

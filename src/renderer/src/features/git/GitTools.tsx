@@ -19,15 +19,17 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
   const updatedAt = task?.updatedAt ?? 0;
   const version = useGitVersion(taskId);
   const worktree = useTaskWorktree(taskId, updatedAt);
-  const [status, setStatus] = useState<GitStatus | null>(null);
+  // 状态连同它是哪个任务的一起记：切到别的任务的第一帧，上一个任务的分支按钮不能还挂在顶栏上（不是 git 仓库的任务一个都不该有）。
+  const [loaded, setLoaded] = useState<{ taskId: TaskId; status: GitStatus | null } | null>(null);
+  const status = loaded?.taskId === taskId ? loaded.status : null;
   // 只记打开的位置；菜单项每次渲染现算，开着时切语言或 git 状态变了也跟着变。
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
 
   useEffect(() => {
     let current = true;
     window.studio.getGitStatus(taskId).then(
-      (value) => current && setStatus(value),
-      () => current && setStatus(null),
+      (value) => current && setLoaded({ taskId, status: value }),
+      () => current && setLoaded({ taskId, status: null }),
     );
     return () => {
       current = false;

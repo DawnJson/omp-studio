@@ -1,8 +1,8 @@
 // 状态图标（spec §4.1）：16×16 槽位里放 14px 的图标，形状 + 颜色双信号——进行中是转动的弧，需要介入是琥珀圆底 !，
 // 已完成是圆圈里一个对勾，失败是红圆底 ×。从没跑过和被停止的不画，但槽位保留让标题对齐。
 import type { TFunction } from "../../../../shared/i18n/index.ts";
-import type { TaskState } from "../../../../shared/ipc.ts";
-import { dotKind, type DotKind } from "../../../../shared/ui/sidebar-model.ts";
+import type { SessionSummary, TaskState } from "../../../../shared/ipc.ts";
+import { dotKind, sessionDotKind, type DotKind } from "../../../../shared/ui/sidebar-model.ts";
 
 type Kind = Exclude<DotKind, "none">;
 
@@ -40,10 +40,20 @@ function Glyph({ kind }: { kind: Kind }) {
   }
 }
 
+/** 按形状画一个状态图标；none 只留槽位。任务和历史会话共用。 */
+export function StatusMark({ kind, label }: { kind: DotKind; label: string }) {
+  if (kind === "none") return <span key="none" className="sb-dot" aria-hidden="true" />;
+  return (
+    <span key={kind} className={`sb-dot sb-dot-${kind}`} role="img" aria-label={label}>
+      <svg className="sb-dot-mark" viewBox="0 0 16 16" aria-hidden="true">
+        <Glyph kind={kind} />
+      </svg>
+    </span>
+  );
+}
+
 export function StatusDot({ task, t }: { task: TaskState; t: TFunction }) {
   const kind = dotKind(task);
-  if (kind === "none") return <span key="none" className="sb-dot" aria-hidden="true" />;
-
   const label =
     kind === "running"
       ? task.runningSubagents > 0
@@ -54,12 +64,11 @@ export function StatusDot({ task, t }: { task: TaskState; t: TFunction }) {
         : kind === "done"
           ? t("status.done")
           : t("status.error");
+  return <StatusMark kind={kind} label={label} />;
+}
 
-  return (
-    <span key={kind} className={`sb-dot sb-dot-${kind}`} role="img" aria-label={label}>
-      <svg className="sb-dot-mark" viewBox="0 0 16 16" aria-hidden="true">
-        <Glyph kind={kind} />
-      </svg>
-    </span>
-  );
+/** 历史会话的状态图标：只有"完成"和"失败"两种（见 sessionDotKind）。 */
+export function SessionStatusDot({ session, t }: { session: SessionSummary; t: TFunction }) {
+  const kind = sessionDotKind(session);
+  return <StatusMark kind={kind} label={kind === "error" ? t("status.error") : t("status.done")} />;
 }

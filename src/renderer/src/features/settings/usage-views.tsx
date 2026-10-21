@@ -1,5 +1,5 @@
 // 用量的视图：汇总条、账号额度块、每日消耗热力图。设置 → 用量和输入框下方的两个浮层共用。
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import type {
   Locale,
   QuotaAccount,
@@ -306,19 +306,23 @@ const weekdayRows = [0, 2, 4];
 
 /**
  * 热力图本体（不带外框）：左边星期、上面月份、中间格子、下面"N 天有记录 · 最长连续 N 天"和图例。
- * recentWeeks 给了就只画最近这么多周（浮层里放不下一整年），统计和颜色档位也只按这几周算。
+ * recentWeeks 给了就只画最近这么多周，统计和颜色档位也只按这几周算。
+ * fit：画全部周，格子边长按容器宽度算（铺满、不出横向滚动条），不用固定尺寸。
  */
 export function HeatmapView({
   heatmap,
   metric,
   recentWeeks,
+  fit = false,
 }: {
   heatmap: UsageHeatmap;
   metric: Metric;
   recentWeeks?: number;
+  fit?: boolean;
 }) {
   const t = useT();
   const locale = useLocale();
+  const root = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   // 一年的格子比卡片宽：默认停在最近的一端。
   useEffect(() => {
@@ -329,6 +333,21 @@ export function HeatmapView({
     return recentWeeks === undefined ? all : all.slice(-recentWeeks);
   }, [heatmap, recentWeeks]);
   const labels = useMemo(() => monthLabels(weeks, locale), [weeks, locale]);
+  const weekCount = weeks.length;
+  useLayoutEffect(() => {
+    const host = root.current;
+    const area = scroller.current;
+    if (!fit || !host || !area || weekCount === 0) return;
+    const gap = 3;
+    const apply = () => {
+      const cell = (area.clientWidth - gap * (weekCount - 1)) / weekCount;
+      if (cell > 0) host.style.setProperty("--uq-cell", `${Math.min(cell, 24).toFixed(2)}px`);
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(area);
+    return () => observer.disconnect();
+  }, [fit, weekCount]);
   const days = useMemo(() => {
     if (recentWeeks === undefined) return heatmap.days;
     const from = weeks[0]?.[0]?.date ?? heatmap.from;
@@ -353,7 +372,12 @@ export function HeatmapView({
     return value <= 0 || max <= 0 ? 0 : Math.min(4, Math.ceil((value / max) * 4));
   };
   return (
-    <div className="uq-heat" data-compact={recentWeeks !== undefined || undefined}>
+    <div
+      ref={root}
+      className="uq-heat"
+      data-compact={recentWeeks !== undefined || undefined}
+      data-fit={fit || undefined}
+    >
       <div className="uq-heat-body">
         <div className="uq-weekdays" aria-hidden="true">
           {weekdays.map((name, row) => (

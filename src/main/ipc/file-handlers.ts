@@ -1,7 +1,8 @@
-// `@` 文件引用补全：列出任务目录（或新任务草稿的项目目录）里匹配查询词的相对路径。
-// 目录由主进程按任务/项目 id 查出，渲染进程不传路径；只返回相对路径，结果条数有上限。
+// `@` 文件引用补全、右侧文件面板的文件树和预览：目录由主进程按任务（或新任务草稿的项目）查出，渲染进程不传根路径；
+// 补全只返回相对路径，结果条数有上限；树一次只列一层。
 import { stat } from "node:fs/promises";
 import type { HandlerGroup, ProjectFilesTarget } from "../../shared/ipc.ts";
+import { listDirectory } from "../files/list-directory.ts";
 import { ProjectFileIndex, parseFileQuery } from "../files/project-files.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { readPreviewFile } from "../files/preview-file.ts";
@@ -16,23 +17,27 @@ function parseFilesTarget(value: unknown): ProjectFilesTarget {
     : { kind: "project", projectId: parseProjectId(record["projectId"]) };
 }
 
-export const fileHandlers: HandlerGroup<"listProjectFiles" | "readPreviewFile"> = {
-  async readPreviewFile(taskId, relPath) {
-    const id = parseTaskId(taskId);
-    const pool = await getTaskPool();
-    return readPreviewFile(pool.taskCwd(id), parseString(relPath, "relPath", 1024));
+async function targetCwd(target: ProjectFilesTarget): Promise<string> {
+  const pool = await getTaskPool();
+  if (target.kind === "task") return pool.taskCwd(target.taskId);
+  const project = pool.listProjects().find((candidate) => candidate.id === target.projectId);
+  if (!project) throw new Error("unknown project");
+  return project.path;
+}
+
+export const fileHandlers: HandlerGroup<"listProjectFiles" | "readPreviewFile" | "listDirectory"> = {
+  async readPreviewFile(target, relPath) {
+    const cwd = await targetCwd(parseFilesTarget(target));
+    return readPreviewFile(cwd, parseString(relPath, "relPath", 1024));
+  },
+  async listDirectory(target, relDir) {
+    const cwd = await targetCwd(parseFilesTarget(target));
+    return listDirectory(cwd, parseString(relDir, "relDir", 1024, { allowEmpty: true }));
   },
   async listProjectFiles(target, query) {
     const parsed = parseFilesTarget(target);
     const q = parseFileQuery(query);
-    const pool = await getTaskPool();
-    let cwd: string;
-    if (parsed.kind === "task") cwd = pool.taskCwd(parsed.taskId);
-    else {
-      const project = pool.listProjects().find((candidate) => candidate.id === parsed.projectId);
-      if (!project) throw new Error("unknown project");
-      cwd = project.path;
-    }
+    const cwd = await targetCwd(parsed);
     if (
       !(await stat(cwd).then(
         (info) => info.isDirectory(),

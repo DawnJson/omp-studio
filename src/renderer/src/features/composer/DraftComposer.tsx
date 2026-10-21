@@ -5,7 +5,6 @@ import { reportError } from "../../ui/errors.ts";
 import {
   useEffect,
   useLayoutEffect,
-  useReducer,
   useRef,
   useState,
   type ClipboardEvent,
@@ -13,7 +12,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import type { DefaultModelInfo, ModelOption, ProjectFilesTarget, ProjectId, TaskId } from "../../../../shared/ipc.ts";
+import type { ProjectFilesTarget, ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { draftKey } from "../../../../shared/ipc.ts";
 import { worktreeBlockerKey } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -35,15 +34,7 @@ import { DraftContextMeter } from "./UsageMeter.tsx";
 import { SessionCost } from "./SessionCost.tsx";
 import { FileMenu } from "./FileMenu.tsx";
 import { useFileMenu } from "./use-file-menu.ts";
-import {
-  knownDefaults,
-  knownModels,
-  knownOmp,
-  rememberDefaults,
-  rememberModels,
-  rememberOmp,
-} from "./new-task-default.ts";
-import { resolveNewTaskDefault } from "./new-task-resolve.ts";
+import { useNewTaskDefault } from "./use-new-task-default.ts";
 import { clearFirstPrompt, setFirstPrompt } from "../tsp/first-prompt-store.ts";
 import "./composer.css";
 
@@ -59,45 +50,9 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
   const draft = useDraft(key);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const [sending, setSending] = useState(false);
-  // 初值是上次读到的（本次运行里最近一次现读，没有就用启动缓存），现读的到了再替换；omp 为 undefined = 还没读到过。
-  const [omp, setOmp] = useState<DefaultModelInfo | null | undefined>(knownOmp);
-  const [models, setModels] = useState<ModelOption[] | null>(knownModels);
-  // 这个项目里 omp 实际会用的默认值（项目 .omp/config.yml 会盖过全局）：每个项目各记各的（new-task-default.ts），
-  // 切项目第一帧就是这个项目上次的值，不会短暂显示上一个项目的；refresh 递增时重读。
-  const [, rerender] = useReducer((count: number) => count + 1, 0);
-  const [refresh, setRefresh] = useState(0);
+  // 新任务默认值（项目 .omp/config.yml 会盖过全局，所以按项目读；初值和占位规则见 use-new-task-default.ts）。
+  const { resolved, omp, models, reread } = useNewTaskDefault(projectId);
   const hasContent = draft.text.trim() !== "" || draft.images.length > 0;
-
-  useEffect(() => {
-    const apply = (value: DefaultModelInfo | null) => {
-      rememberOmp(value);
-      setOmp(value);
-    };
-    window.studio.getDefaultModel().then(apply, () => apply(null));
-    return window.studio.onDefaultModel(apply);
-  }, []);
-  useEffect(() => {
-    const apply = (value: ModelOption[]) => {
-      rememberModels(value);
-      setModels(value);
-    };
-    window.studio.listModels().then(apply, () => setModels([]));
-  }, []);
-  useEffect(() => {
-    let current = true;
-    // 读不到（omp 还没就绪等）：保持这个项目上次读到的值，不重绘。
-    window.studio.getModelDefaults(projectId).then(
-      (value) => {
-        rememberDefaults(projectId, value);
-        if (current) rerender();
-      },
-      () => undefined,
-    );
-    return () => {
-      current = false;
-    };
-    // omp 变了（别处改了 omp 设置会推 defaultModel 事件）也重读。
-  }, [projectId, omp, refresh]);
 
   useEffect(() => {
     // 命令面板"在新任务中提问"带来的文字：放进草稿并聚焦，不自动发送。
@@ -112,8 +67,7 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
     field.style.height = `${field.scrollHeight}px`;
   }, [draft.text]);
 
-  const { model, levels, thinkingLevel } = resolveNewTaskDefault(knownDefaults(projectId), omp, models);
-  const reread = () => setRefresh((count) => count + 1);
+  const { model, levels, thinkingLevel } = resolved;
 
   // `@` 文件引用补全：目录是这个项目的目录。
   const fileMenu = useFileMenu(
@@ -266,15 +220,17 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
             thinkingLevels={levels}
             running={false}
             projectId={projectId}
-            // omp 一个可用模型都读不到时 omp 为 null：有模型列表就写"默认模型"，确实一个都没有才是"未连接"；
-            // 还没读到过（第一次启动，没有缓存）时是"模型…"。
-            {...(omp
-              ? { emptyLabel: omp.name }
-              : omp === undefined
-                ? { emptyLabel: t("composer.modelLoading") }
-                : models !== null && models.length > 0
-                  ? { emptyLabel: t("composer.defaultModel") }
-                  : {})}
+            // 这个项目的默认值或模型目录还没读到过时是"模型…"；配置指向目录里没有的模型时写它的名字；
+            // 没配模型时是 omp 自选的那个，omp 一个可用模型都读不到时有模型列表就写"默认模型"，确实一个都没有才是"未连接"。
+            {...(resolved.pending || (resolved.unknownModel === null && omp === undefined)
+              ? { emptyLabel: t("composer.modelLoading") }
+              : resolved.unknownModel !== null
+                ? { emptyLabel: resolved.unknownModel }
+                : omp
+                  ? { emptyLabel: omp.name }
+                  : models !== null && models.length > 0
+                    ? { emptyLabel: t("composer.defaultModel") }
+                    : {})}
             loadModels={() => window.studio.listModels()}
             setModel={(modelKey) => saveOmpModelRole(projectId, "default", modelKey).finally(reread)}
             setThinking={(level) => saveOmpDefaultThinking(level).finally(reread)}

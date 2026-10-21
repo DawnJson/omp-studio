@@ -72,8 +72,8 @@ function Gutter({ line, target, ctx }: { line: number | null; target: LineRef | 
       title={t("review.addCommentAt", { line })}
       onClick={(event) => ctx.pick(target, event.shiftKey)}
     >
-      <span className="rv-no-n">{line}</span>
       <Plus size={12} className="rv-no-plus" />
+      <span className="rv-no-n">{line}</span>
     </button>
   );
 }

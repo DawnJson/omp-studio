@@ -20,4 +20,12 @@ export const preview = {
   imageAlt: "图片预览：{name}",
   htmlTitle: "网页预览：{name}",
   resize: "调整预览宽度",
+  pages: "面板页",
+  pageFiles: "文件",
+  pagePreview: "预览",
+  filesToggle: "文件面板",
+  treeLabel: "文件树",
+  refresh: "刷新",
+  emptyDir: "这个目录是空的",
+  truncated: "只显示前 {count} 项",
 } satisfies Record<string, MessageEntry>;

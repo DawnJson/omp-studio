@@ -73,7 +73,7 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 
 | 问题 | 决定 |
 |---|---|
-| 1. 改动卡片(本轮改了哪些文件 +N -M、打开评审) | **保留**,改为按 git 状态计算;2026-10-20 再定:过程区只放 omp 的内容,改动摘要移到输入框上方的一行"改动条" |
+| 1. 改动卡片(本轮改了哪些文件 +N -M、打开评审) | **保留**,改为按 git 状态计算;2026-10-20 再定:过程区只放 omp 的内容,改动摘要移到输入框上方的一行"改动条";2026-10-21 撤销:有评审视图了,改动条删掉,TSP 任务不再有改动摘要,评审入口是顶栏评审按钮、提交对话框里的"评审改动"、`Ctrl Shift D`、命令面板 |
 | 2. 设置页的登录、账号、默认模型,新任务草稿的模型下拉 | **保留后台 omp**:无会话的 rpc-ui 服务进程只给这两处用,界面不变;任务对话全走 TSP |
 | 3. 切换方式 | **并存**:设置里能切回 rpc-ui;TSP 路径的功能和测试对齐后,在同一个大版本里删掉 rpc-ui 任务路径(服务进程保留) |
 
@@ -94,14 +94,14 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 
 ## 8. 渲染进程实现
 
-代码在 `src/renderer/src/features/tsp/`(节点渲染)、`features/tsp/interactive/`(输入和弹层)、`features/tsp-changes/`(改动条)。`App.tsx` 里 `engine === "tsp"` 的任务挂 `TspView`(过程区)加 studio 的 `Composer`(输入框),不挂 `ConversationView`、`BtwPanel`;omp 自己的输入框卡片(role `omp.editor`)和欢迎块(role `omp.welcome`,改由 inline surface 顶部的 studio `StudioHeader` 取代:像素标志 + 任务 cwd)不画,提问/审批(`omp.editor.ask*`)照常画在 dock 里。
+代码在 `src/renderer/src/features/tsp/`(节点渲染)、`features/tsp/interactive/`(输入和弹层)。`App.tsx` 里 `engine === "tsp"` 的任务挂 `TspView`(过程区)加 studio 的 `Composer`(输入框),不挂 `ConversationView`、`BtwPanel`;omp 自己的输入框卡片(role `omp.editor`)和欢迎块(role `omp.welcome`,改由 inline surface 顶部的 studio `StudioHeader` 取代:像素标志 + 任务 cwd)不画,提问/审批(`omp.editor.ask*`)照常画在 dock 里。
 
 - **文档同步**:`tsp-store.ts` / `tsp-sync.ts` 按任务保存一份 `TspDocument`(和主进程同一份 `shared/tsp/document.ts` 归约),`tspBatch` 序号连续就增量应用,不连续就 `getTspSnapshot` 重取,重取期间到的批次先攒着再回放。组件按节点 id 订阅(`useTspNode`),节点记录不可变,没变的节点不重画。
 - **画面**:inline surface(`omp.session`)= 可滚动的 `main` + 贴底的 `dock`(输入框区域)+ 铺满的 `layer`(picker / overlay / toast 的容器);screen surface(如 `/settings`)盖住整个对话区。对话列宽按等宽字符数折成列数,变化时 `resizeTsp`。
 - **节点**:规范的全部节点种类各有一个组件(`nodes/`、`interactive/`),未知种类按纯文本兜底并 `console.warn` 一次。颜色不用 omp 的程序调色板(`t` 消息只保存不画):tone、样式名、omp 主题 token 按规范映射表落到 `tokens.css` 的语义变量,深浅主题和对比度沿用现有定稿。Nerd Font 私有区图标不画(没有那套字体),键帽那几个换成 ⇪⌘⌃⌥⇧⏎⇥。工具"完成"用中性色(spec §2,完成态中性)。
+- **过程区文字不汉化**(所有者 2026-10-21):节点组件里 studio 自己加的文字(`N more lines`、`No changes`、`N unchanged lines`、`Copy command`、状态名、子代理统计、待办……)都是 omp 原样的英文,集中在 `features/tsp/labels.ts`,不走 i18n;`i18n/*/tsp.ts` 只剩对话区的无障碍名称和载入提示。**main 的渲染**由 `MainFlow.tsx` 负责:omp 的子节点 + 留存的状态行(§10.1)+ 恢复补回的回顾。
 - **输入**:输入框是 omp 的 `editor` 节点。没有选区时的按键按 xterm 序列写进伪终端(`keys.ts`,Shift/Ctrl+Enter 等用 CSI u),omp 自己回 `set` 更新文字;选区上的输入、粘贴、剪切、输入法提交发 `edit`,Ctrl+Z 发 `undo`。新任务草稿的第一句话由主进程等输入框 `sendable` 后用 `send` 事件提交(`TspRunner.sendPrompt`)。
 - **操作**:`list` 单击 `select`、双击或再点已选中项 `activate`(审批门第一项默认已选中,不这样就得双击);节点自带 `actions` 的按 `actions.ts` 发 `action` / `select` / `activate`,`toggle` / `copy` / `open` / `zoom` 由我们自己做;picker、prefs 的事件见 `interactive/` 各组件。
-- **改动条**:按 git 计算(`getGitChangeSummary`:`git diff HEAD --numstat -z` + 未跟踪文件),一行「N 个文件已更改 +a −d · 打开评审」放在输入框正上方(`TspChangeStrip`),不在过程区里;运行中保留上一次的结果,状态离开 running 或评审里改了 git 时重读。
 - **滚动**:复用 `useStickToBottom`,但对话区关掉浏览器的滚动锚定(`overflow-anchor: none`)。omp 一直在改写视口上方的节点(折叠工具卡片、去掉"思考中"),锚定会把 `scrollTop` 往上推,`useStickToBottom` 分不出这和用户上滚,一轮跑完就停在半截、出现"回到最新"。
 - **测试**:单元 `test/tsp-render.test.ts`、`tsp-keys.test.ts`、`tsp-interactive.test.ts`;e2e `test/e2e/tsp.e2e.ts` 用 `fake-tsp-omp` 回放 `task` / `approval` / `ask` 三份录制,假 omp 只在收到和录制完全一致的事件后才继续,所以界面能走到下一步本身就证明事件发对了;截图 `screenshots/tsp-{done,gate,ask}-*.png`。
 
@@ -125,7 +125,10 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 
 - `--resume=<会话文件>` 启动后,omp 把整段旧对话重新用 TSP 节点发出来(`omp.user`、工具卡片、`omp.job.tile`、`omp.assistant`),和 Tern 里显示一致。**18.12.4 实测不再带每轮末尾的 `omp.turn.usage` 用量行**(录制 `fixtures/tsp/resume.jsonl`:3 个 `omp.user`、14 个 `omp.assistant`、0 个 `omp.turn.usage`;`test/tsp-session-extras.test.ts` 钉住),也不会重放空闲回顾 `omp.recap`:
   - 用量行:实时的轮 omp 自己发(助手消息 `col` 里最后一个子节点 `row role=omp.turn.usage`,图标 `time` + 文字 `13.4s · 728 tok · <$0.01 this turn`);恢复出来的轮 studio 从会话文件补(`main/tsp/session-extras.ts` 的 `parseSession`,口径照抄 omp 的 `TurnUsageAggregator`;渲染在 `nodes/layout.tsx` 的 `AssistantCol`,只补文档里"没有用量行的轮的最后一个 `omp.assistant`",文档轮数和文件轮数对不上时不补)。
-  - 空闲回顾:omp 在一轮结束后、`recap.idleSeconds`(默认 240,夹在 1–3600)秒内没有输入、有模型、输入框是空的时,跑一次临时对话生成回顾(`recap.enabled` 默认开),用 `omp.recap` 节点显示(`row`,`title` "Recap while you were away",子节点是 `icon name=history` + `text`;omp 终端里画成 `※ recap: …` 淡色斜体,`history` 只是 TSP 里没有 ※ 字形时的占位),同时 `SessionManager.recordRecap` 把原文写进 **agent 目录 `history.db` 的 `session_recaps` 表**(`session_id` = 会话文件头的 id,`created_at` 秒)——不写会话文件。studio 恢复时读这张表(只读,`readLatestRecap`)补最后一条,回顾之后会话又有新消息就不补(已过时);实时收到 `omp.recap` 就用实时的。
+  - 空闲回顾：omp 在一轮结束后、`recap.idleSeconds`(默认 240,夹在 1–3600)秒内没有输入、有模型、输入框是空的时,跑一次临时对话生成回顾(`recap.enabled` 默认开),用 `omp.recap` 节点显示(`row`,`title` "Recap while you were away",子节点是 `icon name=history` + `text`;omp 终端里画成 `※ recap: …` 淡色斜体,`history` 只是 TSP 里没有 ※ 字形时的占位),同时 `SessionManager.recordRecap` 把原文写进 **agent 目录 `history.db` 的 `session_recaps` 表**(`session_id` = 会话文件头的 id,`created_at` 秒)——不写会话文件。omp 自己的做法:实时每条回顾都留在对话中间(每次空闲一条),`--resume` 一条也不重放。**studio 的做法(仓库所有者 2026-10-21 定:只显示最新的一条)**:实时——main 里有多个 `omp.recap` 时只画最后一个(`useIsLatestRecap`);恢复——读 `session_recaps` 最新一条(`readLatestRecap`,只读),按 `created_at` 算出它在第几轮之后(`turnsBeforeRecap`:回顾之前开始的非 agent 用户消息数,同一秒内开始的算在前面),放回那个位置(下一轮 `omp.user` 之前,`recapBefore` / `MainFlow`),**回顾之后又有新消息也照样显示**(不再按"已过时"丢掉);实时已经收到 `omp.recap` 时不补。会话压缩过时文档轮数少于文件轮数(omp 只重发保留下来的最后几轮),从末尾对齐;落在没重发的旧轮里的不画。
+- **上下文压缩的分隔(`omp.compaction`)**(实测 18.12.5 用手造的压缩会话 `--resume`,`fixtures/tsp/compact.jsonl`;omp 内嵌源码 `packages/tui/src/chat/compaction-summary-message.ts`):终端(ANSI)里是整行 `["", "──── 📷 snap-compacted · 48K→6.1K · <展开键> ────", ""]`(`$Ko.render`:`tree.horizontal` 重复,文字 `muted`、提示 `dim`,放不下时只剩文字),方法名来自 `remote-compacted` / `soft-compacted` / `handed-off` / `snap-compacted` / `shaken`,展开键展开摘要。TSP 里没有"分隔"节点:发的是 `section`,`p.role = "omp.compaction"`、`collapsible: true, collapsed: true`,`head` 是 span 数组 `Snap-compacted`(muted) + ` · 48K`(muted mono) + ` → `(dim) + `6.1K tokens`(muted mono),body 是 `text role=omp.compaction.caption`("Summary of the earlier conversation",dim)+ `md`(摘要)。`omp.handoff`("Handed off")、`omp.branch`("Branch summarized")同款。恢复压缩过的会话时它出现在保留的最后一轮和压缩后第一条用户消息之间。studio 把它的头画成整行分隔(见 spec §4 TSP 混合形态)。
+- **状态行(`omp.toast.status`)**(实测 18.12.5;源码 `chrome/status-notice.ts`):终端里 `showStatus(text)` 是对话末尾一行暗色文字、留在对话里(连续的状态行会就地替换上一行)。TSP 里同一个组件的 `describe()` 返回 `toast{text, ttl: 2400, role: "omp.toast.status"}`,加在 `main` 末尾,下一帧 `del` 后换成隐藏的 `col` 占位(同一个 id 反复 del/add)——所以**文档里留不住**。切模型(`/model` 选择器、`setModelTemporary`)发的是 `Session-only model: deepseek/deepseek-v4-pro. Use Alt+M or /model for roles.`,压缩过的会话 `--resume` 时发 `Session compacted 1 time`,启动时发 `xdev: xd://: mounted …`(`fixtures/tsp/picker.jsonl`、`compact.jsonl`)。之前 studio 只把它当窗口弹层 toast 显示 2.4 秒(收到了、画了,但一闪而过);现在在节点出现的那一帧记下文字和前一个兄弟节点的 id(`shared/tsp/status-notes.ts`),画成对话里的一行暗字,不再弹层。
+  - 实现:文字和前一个兄弟节点的 id 记进文档(`DocSurface.statusNotes`,`applyFrame` 里调 `statusNotesIn`),主进程和渲染进程各应用同一批消息,跟着快照走(任务界面晚于 omp 启动才打开,启动那几条也在);`fixtures/tsp/compact.jsonl` 是手造压缩会话 `--resume` + 切模型的实录,录制里选择器打开 / 选择的几帧去掉了(假 omp 不用等输入)。用户名、路径不在帧里。
 - 运行中再 `send`:omp 自己排队(dock 里的 `omp.queue` / `omp.queue.item`,带 Edit 按钮)再作为 steer 交给模型,不需要 studio 自己的队列。
 - `send` 一条 `/model <id>`、`/thinking low` 是普通消息(发给模型),不是命令;单独的 `/model` 才打开模型选择器。
 - 输入框编辑器节点的 id 每次不同(`j.line/input`、`3.line/input`…):只能按 `k === "editor" && p.sendable === true` 找。**选择器节点的 id 也每次不同**(同一个脚本里是 `p`、`t`),必须从文档里读,不能写死。

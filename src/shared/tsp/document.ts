@@ -4,6 +4,7 @@
 //
 // 节点记录不可变：任何改动都换一个新对象（父节点的 children 变了也换父节点），渲染进程按对象身份判断要不要重画。
 // 表（Map）本身原地改。
+import { statusNotesIn, type StatusNote } from "./status-notes.ts";
 import type { TspClose, TspFrame, TspNode, TspOpen, TspOp, TspPalette } from "./tsp.generated.ts";
 
 export interface DocNode {
@@ -31,6 +32,8 @@ export interface DocSurface {
   suspended: boolean;
   /** 最后应用的帧号（程序发来的 s）。 */
   lastFrame: number;
+  /** omp 的状态行（toast `omp.toast.status`）：节点下一帧就没了，出现那一帧记下来，只增不减（见 status-notes.ts）。每次新增换一个新数组。 */
+  statusNotes: readonly StatusNote[];
 }
 
 export interface DocBlob {
@@ -139,6 +142,7 @@ function openSurface(doc: TspDocument, open: TspOpen, result: ApplyResult): void
     reveal: null,
     suspended: false,
     lastFrame: 0,
+    statusNotes: [],
   });
   doc.live.add(open.id);
   changedSet(result, open.id).add(open.id);
@@ -173,6 +177,8 @@ function applyFrame(doc: TspDocument, frame: TspFrame, result: ApplyResult): voi
     const error = applyOp(doc, surface, op, changed);
     if (error !== null) result.errors.push({ op: index, msg: error });
   });
+  const notes = statusNotesIn(surface, frame.ops);
+  if (notes.length > 0) surface.statusNotes = [...surface.statusNotes, ...notes];
 }
 
 function applyOp(doc: TspDocument, surface: DocSurface, op: TspOp, changed: Set<string>): string | null {
@@ -410,6 +416,7 @@ export interface DocumentSnapshot {
     reveal: DocSurface["reveal"];
     suspended: boolean;
     lastFrame: number;
+    statusNotes: readonly StatusNote[];
     live: boolean;
   }[];
   palettes: TspPalette[];
@@ -429,6 +436,7 @@ export function snapshotDocument(doc: TspDocument): DocumentSnapshot {
       reveal: surface.reveal,
       suspended: surface.suspended,
       lastFrame: surface.lastFrame,
+      statusNotes: surface.statusNotes,
       live: doc.live.has(surface.id),
     })),
     palettes: [...doc.palettes.values()],
@@ -450,6 +458,7 @@ export function restoreDocument(snapshot: DocumentSnapshot): TspDocument {
       reveal: surface.reveal,
       suspended: surface.suspended,
       lastFrame: surface.lastFrame,
+      statusNotes: surface.statusNotes,
     });
     if (surface.live) doc.live.add(surface.id);
   }

@@ -35,6 +35,7 @@ export function buildSessionSummaries(
       id: session.id,
       title: session.title,
       firstPrompt: session.firstPrompt,
+      lastTurn: session.lastTurn,
       cwd: session.cwd,
       projectId: projectByCwd.get(cwdKey) ?? null,
       modifiedAt: session.modifiedAt,

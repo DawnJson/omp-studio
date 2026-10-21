@@ -5,7 +5,13 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Project, ProjectId, TaskId } from "../src/shared/ipc.ts";
-import { parseSessionPrefix, resolveAgentDir, SessionIndex } from "../src/main/history/session-index.ts";
+import {
+  parseSessionPrefix,
+  parseSessionTail,
+  resolveAgentDir,
+  SessionIndex,
+  type IndexedSession,
+} from "../src/main/history/session-index.ts";
 import { buildSessionSummaries } from "../src/main/history/session-summaries.ts";
 
 /** 和 omp 一样：标题槽补空格到 255 字节再换行，共 256 字节。 */
@@ -27,6 +33,12 @@ const header = (id: string, cwd: string, extra: Record<string, unknown> = {}) =>
 
 const userMessage = (content: unknown) =>
   `${JSON.stringify({ type: "message", id: "a1b2c3d4", parentId: null, message: { role: "user", content } })}\n`;
+
+const assistantMessage = (stopReason: string, extra: Record<string, unknown> = {}) =>
+  `${JSON.stringify({ type: "message", id: "e5f6", parentId: "a1b2c3d4", message: { role: "assistant", content: [{ type: "text", text: "ok" }], stopReason, ...extra } })}\n`;
+
+/** omp 在消息之后还会写非消息条目（custom、model_change 等），它们不影响"最后一轮"。 */
+const customEntry = `${JSON.stringify({ type: "custom_message", id: "c1", parentId: "e5f6", customType: "x", content: "y" })}\n`;
 
 let root: string;
 let bucket: string;
@@ -97,6 +109,34 @@ describe("parseSessionPrefix", () => {
   });
 });
 
+describe("parseSessionTail（历史会话的最后一轮结果）", () => {
+  it("最后一条消息是正常答完的助手消息 = completed，后面的非消息条目不影响", () => {
+    expect(parseSessionTail(userMessage("hi") + assistantMessage("stop") + customEntry, false)).toBe("completed");
+  });
+
+  it("出错结束 = error；同一轮重试成功后以最后一条为准", () => {
+    expect(parseSessionTail(userMessage("hi") + assistantMessage("error"), false)).toBe("error");
+    expect(parseSessionTail(userMessage("hi") + assistantMessage("error") + assistantMessage("stop"), false)).toBe(
+      "completed",
+    );
+  });
+
+  it("被停止、停在工具调用上、最后是用户消息或工具结果（轮次中途断掉）都不画", () => {
+    expect(parseSessionTail(userMessage("hi") + assistantMessage("aborted"), false)).toBeNull();
+    expect(parseSessionTail(userMessage("hi") + assistantMessage("toolUse"), false)).toBeNull();
+    expect(parseSessionTail(assistantMessage("stop") + userMessage("下一句"), false)).toBeNull();
+    const toolResult = `${JSON.stringify({ type: "message", id: "t1", message: { role: "toolResult", content: [] } })}\n`;
+    expect(parseSessionTail(assistantMessage("toolUse") + toolResult, false)).toBeNull();
+  });
+
+  it("从文件中间读起时丢掉被截断的第一行；这一段里没有完整消息返回 undefined", () => {
+    const cut = assistantMessage("error").slice(20);
+    expect(parseSessionTail(cut + assistantMessage("stop"), true)).toBe("completed");
+    expect(parseSessionTail(cut, true)).toBeUndefined();
+    expect(parseSessionTail(customEntry, false)).toBeUndefined();
+  });
+});
+
 describe("SessionIndex.scan", () => {
   it("目录不存在时返回空列表", async () => {
     const empty = new SessionIndex(path.join(root, "不存在 的目录"));
@@ -135,6 +175,23 @@ describe("SessionIndex.scan", () => {
     expect(skipped).toBe(3);
   });
 
+  it("lastTurn 读文件末尾：最后一条消息比 64KB 还长时放宽一次仍能读到；文件改写后重读", async () => {
+    const file = await writeSession(
+      "long.jsonl",
+      header("long", projectCwd) +
+        userMessage("hi") +
+        assistantMessage("stop") +
+        assistantMessage("error", { note: "x".repeat(100 * 1024) }),
+    );
+    expect((await index.scan()).sessions[0]?.lastTurn).toBe("error");
+    await writeFile(
+      file,
+      header("long", projectCwd) + userMessage("hi") + assistantMessage("stop") + customEntry,
+      "utf8",
+    );
+    expect((await index.scan()).sessions[0]?.lastTurn).toBe("completed");
+  });
+
   it("首条用户消息超过前缀（比如带图片）且没有标题时，放宽读取仍能找到", async () => {
     const big = userMessage([
       { type: "image", data: "A".repeat(100 * 1024) },
@@ -169,18 +226,37 @@ describe("SessionIndex.scan", () => {
 describe("buildSessionSummaries", () => {
   const projectA: Project = { id: "pa" as ProjectId, path: projectCwd, name: "my app" };
   const projectB: Project = { id: "pb" as ProjectId, path: "E:\\其它", name: "其它" };
-  const sessions = [
-    { id: "s1", file: "C:\\x y\\s1.jsonl", cwd: projectCwd, title: "一", firstPrompt: null, modifiedAt: 3, size: 1 },
+  const sessions: IndexedSession[] = [
+    {
+      id: "s1",
+      file: "C:\\x y\\s1.jsonl",
+      cwd: projectCwd,
+      title: "一",
+      firstPrompt: null,
+      lastTurn: "completed",
+      modifiedAt: 3,
+      size: 1,
+    },
     {
       id: "s2",
       file: "C:\\x y\\s2.jsonl",
       cwd: "E:\\未加入 的目录",
       title: null,
       firstPrompt: "二",
+      lastTurn: "error",
       modifiedAt: 2,
       size: 1,
     },
-    { id: "s3", file: "C:\\x y\\s3.jsonl", cwd: projectCwd, title: null, firstPrompt: null, modifiedAt: 1, size: 1 },
+    {
+      id: "s3",
+      file: "C:\\x y\\s3.jsonl",
+      cwd: projectCwd,
+      title: null,
+      firstPrompt: null,
+      lastTurn: null,
+      modifiedAt: 1,
+      size: 1,
+    },
   ];
   const links = [
     { id: "t1" as TaskId, sessionFile: "C:\\x y\\s1.jsonl" },

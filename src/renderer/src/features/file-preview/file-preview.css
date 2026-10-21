@@ -115,6 +115,103 @@
   gap: var(--space-1);
   cursor: pointer;
 }
+.file-preview-seg button:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+.file-preview-seg button:disabled:hover {
+  background: transparent;
+}
+
+/* 预览页：工具栏 + 正文；hidden 时整页不占位（两页同时挂载，切页只是显隐） */
+.file-preview-page {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.file-preview-page[hidden] {
+  display: none;
+}
+.file-preview-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h-md);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* 文件页：虚拟化的树，行绝对定位在画布里 */
+.file-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.file-tree[hidden] {
+  display: none;
+}
+.file-tree:focus {
+  outline: none;
+}
+.file-tree-canvas {
+  position: relative;
+}
+.file-tree-row {
+  position: absolute;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  height: var(--row-tool);
+  padding: 0 var(--space-2) 0 calc(var(--space-2) + var(--depth) * var(--space-4));
+  font-size: var(--fs-sm);
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+.file-tree-row:hover {
+  background: var(--bg-hover);
+}
+.file-tree-row[aria-selected="true"] {
+  background: var(--accent-soft);
+}
+.file-tree:focus-visible .file-tree-row[data-cursor] {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.file-tree-row[data-ignored] {
+  color: var(--text-3);
+}
+.file-tree-row svg {
+  flex: none;
+  color: var(--text-3);
+}
+.file-tree-chevron {
+  display: inline-flex;
+  flex: none;
+  width: 12px;
+}
+.file-tree-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-tree-more {
+  color: var(--text-3);
+  cursor: default;
+  font-size: var(--fs-xs);
+}
+.file-tree-more:hover {
+  background: transparent;
+}
 
 .file-preview-body {
   position: relative;

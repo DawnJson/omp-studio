@@ -225,6 +225,17 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await writeFile(path.join(dir, "新文件 一.txt"), "来自工作树\n", "utf8");
     await openGitMenu(page, /^提交/);
     await expect(page.getByTestId("git-commit-dialog")).toBeVisible();
+    // 提交前想看看改了什么：对话框里的"评审改动"关掉对话框、打开评审（里面能看到刚写的未跟踪文件），Esc 退出后可以接着提交。
+    await page.getByTestId("git-commit-review").click();
+    await expect(page.getByTestId("git-commit-dialog")).toHaveCount(0);
+    await expect(page.getByTestId("review")).toBeVisible();
+    await expect(
+      page.locator('[data-testid=review-file][data-path="新文件 一.txt"][data-area=untracked]'),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("review")).toBeHidden();
+    await openGitMenu(page, /^提交/);
+    await expect(page.getByTestId("git-commit-dialog")).toBeVisible();
     await page.getByTestId("git-commit-message").fill("工作树里的提交");
     await shoot(page, "commit-dialog");
     await page.getByTestId("git-commit-confirm").click();
@@ -329,13 +340,15 @@ test("合并：有冲突时列出文件并撤销；工作树有未提交内容�
   }
 });
 
-test("不是 git 仓库：输入框下面没有工作树开关，直接发送", async () => {
+test("不是 git 仓库：输入框下面没有工作树开关，直接发送；顶栏没有分支按钮，从 git 任务切过来的第一帧也没有", async () => {
+  let repo = "";
   const session = await start(async (work) => {
+    repo = await makeRepo(work);
     const dir = path.join(work, "普通 目录");
     await mkdir(dir);
     return dir;
   });
-  const { page } = session;
+  const { page, launched } = session;
   try {
     await expect(page.getByTestId("empty-project")).toBeVisible();
     await expect(page.getByTestId("worktree-chip")).toHaveCount(0);
@@ -346,6 +359,51 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送", 
     await expect(page.getByTestId("topbar-terminal")).toBeVisible();
     await expect(page.getByTestId("git-menu")).toHaveCount(0);
     await expect(page.getByTestId("topbar-review")).toHaveCount(0);
+    const plainTaskId = await page.getByTestId("conversation").getAttribute("data-task-id");
+
+    // 再开一个 git 仓库里的任务：顶栏有分支按钮。
+    await launched.app.evaluate(({ dialog }, dir) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
+    }, repo);
+    await page.getByTestId("sidebar-open-folder").click();
+    await expect(page.getByTestId("worktree-chip")).toBeVisible();
+    await page.getByTestId("composer-input").fill("仓库里的任务");
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("git-menu")).toBeVisible();
+
+    // 切回普通目录的任务：逐帧看，分支按钮和评审按钮一帧都不出现（不能先挂着上一个任务的分支，等状态回来再收掉）。
+    await page.evaluate((plainId) => {
+      const g = globalThis as unknown as {
+        document: { querySelector(selector: string): unknown };
+        requestAnimationFrame(callback: () => void): number;
+        __gitFrames?: { seen: number; stop: boolean };
+      };
+      const state = { seen: 0, stop: false };
+      g.__gitFrames = state;
+      const tick = () => {
+        const onPlain = g.document.querySelector(`[data-testid="conversation"][data-task-id="${plainId}"]`) !== null;
+        if (onPlain && g.document.querySelector('[data-testid="git-menu"], [data-testid="topbar-review"]') !== null)
+          state.seen++;
+        if (!state.stop) g.requestAnimationFrame(tick);
+      };
+      tick();
+    }, plainTaskId);
+    expect(plainTaskId).toBeTruthy();
+    await expandSidebarFolders(page);
+    await page
+      .locator(`[data-testid="task-row"]`)
+      .filter({ hasText: "普通目录里的任务" })
+      .locator(".sb-row-main")
+      .click();
+    await expect(page.getByTestId("conversation")).toHaveAttribute("data-task-id", plainTaskId as string);
+    await page.waitForTimeout(800);
+    const seen = await page.evaluate(() => {
+      const g = globalThis as unknown as { __gitFrames: { seen: number; stop: boolean } };
+      g.__gitFrames.stop = true;
+      return g.__gitFrames.seen;
+    });
+    expect(seen).toBe(0);
+    await expect(page.getByTestId("git-menu")).toHaveCount(0);
   } finally {
     await session.cleanup();
   }

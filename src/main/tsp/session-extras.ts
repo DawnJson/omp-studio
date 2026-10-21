@@ -2,7 +2,8 @@
 //   · 每轮回答下方的用量脚注（omp.turn.usage）：omp 18.12.4 的 TSP 恢复路径只重发 omp.user / 工具卡片 / omp.assistant，
 //     不带用量行。数据全在会话文件里（assistant 消息的 usage、completedAt，用户消息的 timestamp）。
 //   · 空闲回顾（omp.recap）：omp 只在空闲时生成一次，写进 agent 目录 `history.db` 的 `session_recaps` 表
-//     （`SessionManager.recordRecap`），不写会话文件，恢复时也不重放。
+//     （`SessionManager.recordRecap`），不写会话文件，恢复时也不重放。studio 只补最新一条，放回它生成时的位置
+//     （第几轮之后：`afterTurn` = 回顾之前开始的轮数）。
 // 统计口径照抄 omp 的 TurnUsageAggregator（packages/tui 的 chat-transcript-builder）：非 agent 的用户消息开一轮并清零累计，
 // assistant 消息累计 input+cacheWrite（+orchestration.input）、output（+orchestration.output）、cost.total，
 // 遇到 stopReason 不是 toolUse 的消息结算；耗时 = 该消息 completedAt − 开这一轮的用户消息 timestamp（≤0 当没有）。
@@ -16,22 +17,22 @@ import { resolveAgentDir } from "../history/session-index.ts";
 
 /** omp 显示回顾时的最长字数（`ms.RECAP`）。 */
 const RECAP_MAX_CHARS = 280;
-/** history.db 的 created_at 是秒（向下取整）：和毫秒时间戳比较时留 1 秒误差。 */
-const RECAP_CLOCK_SLACK_MS = 1000;
+/** history.db 的 created_at 是秒（向下取整）：同一秒内开始的轮算在回顾之前。 */
+const RECAP_SECOND_MS = 999;
 
 const finite = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 
 interface ParsedSession {
   /** 会话 id（session 头里的 id；history.db 用它当 session_id）。 */
   id: string | null;
-  /** 最后一条 message 的时间戳（毫秒）；没有为 0。 */
-  lastMessageAt: number;
+  /** 每个非 agent 用户消息（轮）的时间戳（毫秒）；没有为 0。 */
+  turnStarts: number[];
   turns: (TspTurnFooter | null)[];
 }
 
 /** 从会话文件内容解析；坏行（含写到一半的最后一行）跳过。 */
 export function parseSession(text: string): ParsedSession {
-  const result: ParsedSession = { id: null, lastMessageAt: 0, turns: [] };
+  const result: ParsedSession = { id: null, turnStarts: [], turns: [] };
   let userAt: number | null = null;
   let input = 0;
   let output = 0;
@@ -49,9 +50,9 @@ export function parseSession(text: string): ParsedSession {
     if (entry["type"] !== "message" || !isRecord(entry["message"])) continue;
     const message = entry["message"];
     const timestamp = finite(message["timestamp"]);
-    if (timestamp > result.lastMessageAt) result.lastMessageAt = timestamp;
     if (message["role"] === "user" && message["attribution"] !== "agent") {
       result.turns.push(null);
+      result.turnStarts.push(timestamp);
       userAt = timestamp > 0 ? timestamp : null;
       input = output = cost = 0;
       continue;
@@ -80,11 +81,8 @@ export function recapDisplayText(raw: string): string {
   return text.length <= RECAP_MAX_CHARS ? text : `${text.slice(0, RECAP_MAX_CHARS - 1)}…`;
 }
 
-/**
- * 这个会话最近一条回顾的显示文字。库不存在、没有 `session_recaps` 表、没有这个会话的回顾时为 null。
- * 回顾之后会话又有了新消息（`lastMessageAt` 比它晚）就不算：omp 的回顾是"离开期间"的小结，新一轮开始后它就过时了。
- */
-export function readLatestRecap(historyDb: string, sessionId: string, lastMessageAt: number): string | null {
+/** 这个会话最近一条回顾：显示文字和生成时间（毫秒，秒精度）。库不存在、没有 `session_recaps` 表、没有这个会话的回顾时为 null。 */
+export function readLatestRecap(historyDb: string, sessionId: string): { text: string; createdAtMs: number } | null {
   if (!existsSync(historyDb)) return null;
   // history.db 是 WAL；omp 同时在写时读方短暂等待，不直接 BUSY。
   const db = new DatabaseSync(historyDb, { readOnly: true, timeout: 2000 });
@@ -99,12 +97,16 @@ export function readLatestRecap(historyDb: string, sessionId: string, lastMessag
       )
       .get(sessionId);
     if (!isRecord(row) || typeof row["recap"] !== "string" || typeof row["created_at"] !== "number") return null;
-    if (row["created_at"] * 1000 + RECAP_CLOCK_SLACK_MS < lastMessageAt) return null;
     const text = recapDisplayText(row["recap"]);
-    return text === "" ? null : text;
+    return text === "" ? null : { text, createdAtMs: row["created_at"] * 1000 };
   } finally {
     db.close();
   }
+}
+
+/** 回顾之前开始的轮数（回顾放在第 `afterTurn` 轮之后；0 = 第一轮之前）。 */
+export function turnsBeforeRecap(turnStarts: readonly number[], createdAtMs: number): number {
+  return turnStarts.filter((start) => start <= createdAtMs + RECAP_SECOND_MS).length;
 }
 
 /** 读会话文件和 history.db 补用量脚注和回顾；没有文件（新会话第一条回复之后才落盘）、读失败时为空。 */
@@ -117,10 +119,12 @@ export async function readSessionExtras(
   const text = await readFile(file, "utf8").catch(() => null);
   if (text === null) return empty;
   const session = parseSession(text);
-  let recap: string | null = null;
+  let recap: TspSessionExtras["recap"] = null;
   if (session.id !== null) {
     try {
-      recap = readLatestRecap(path.join(agentDir, "history.db"), session.id, session.lastMessageAt);
+      const latest = readLatestRecap(path.join(agentDir, "history.db"), session.id);
+      if (latest !== null)
+        recap = { text: latest.text, afterTurn: turnsBeforeRecap(session.turnStarts, latest.createdAtMs) };
     } catch {
       // history.db 打不开（被锁、损坏）：只是少一条回顾，不影响用量脚注。
     }

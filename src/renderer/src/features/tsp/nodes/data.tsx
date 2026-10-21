@@ -10,6 +10,7 @@ import { extentToCss, keycapLabel } from "../fmt.ts";
 import { TspIcon } from "../icons.tsx";
 import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
+import { labels } from "../labels.ts";
 import { asArray, asString } from "../props-util.ts";
 import { plainText, TspSpans } from "../spans.tsx";
 import { TspChildren } from "../TspChildren.tsx";
@@ -283,7 +284,6 @@ function dataUrl(mime: string | null, data: string): string {
 }
 
 export function Image(props: NodeProps) {
-  const t = useT();
   const { node, ctx } = props;
   const p = node.p;
   const blob = useTspBlob(ctx.taskId, asString(p.blob));
@@ -337,13 +337,11 @@ export function Image(props: NodeProps) {
         className="tsp-img-card"
         role="img"
         aria-busy={blob === null}
-        title={blob === null ? t("tsp.imageNotArrived") : t("tsp.imageUnavailable")}
+        title={blob === null ? labels.imageNotArrived : labels.imageUnavailable}
         aria-label={alt}
       >
         <TspIcon name="image" />
-        <span className="tsp-img-alt">
-          {alt || (blob === null ? t("tsp.imageLoading") : t("tsp.imageUnavailable"))}
-        </span>
+        <span className="tsp-img-alt">{alt || (blob === null ? labels.imageLoading : labels.imageUnavailable)}</span>
       </div>
     );
   } else {

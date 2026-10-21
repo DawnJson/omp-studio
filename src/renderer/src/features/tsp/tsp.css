@@ -511,6 +511,43 @@
   padding-left: var(--space-4);
   box-shadow: inset 1px 0 0 var(--border);
 }
+/* 压缩 / 交接 / 分支摘要（omp.compaction / omp.handoff / omp.branch）：omp 终端里是整行分隔 `──── 📷 snap-compacted · 48K→6.1K ────`，
+   前后各空一行；TSP 里它们是折叠的 section，头文字（"Snap-compacted · 48K → 6.1K tokens"）画在两段连贯横线中间，点文字展开摘要。
+   文字比过程里的小字（--fs-xs）大一号：它是上下文的分界，要一眼认出来，但不比回答正文抢眼。 */
+.tsp-section[data-role="omp.compaction"],
+.tsp-section[data-role="omp.handoff"],
+.tsp-section[data-role="omp.branch"] {
+  margin-block: var(--space-3);
+}
+.tsp-section[data-role="omp.compaction"] > .tsp-section-head,
+.tsp-section[data-role="omp.handoff"] > .tsp-section-head,
+.tsp-section[data-role="omp.branch"] > .tsp-section-head {
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+  background: none;
+}
+.tsp-section[data-role="omp.compaction"] > .tsp-section-head::before,
+.tsp-section[data-role="omp.compaction"] > .tsp-section-head::after,
+.tsp-section[data-role="omp.handoff"] > .tsp-section-head::before,
+.tsp-section[data-role="omp.handoff"] > .tsp-section-head::after,
+.tsp-section[data-role="omp.branch"] > .tsp-section-head::before,
+.tsp-section[data-role="omp.branch"] > .tsp-section-head::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--border);
+}
+.tsp-section[data-role="omp.compaction"] > .tsp-section-head > .tsp-chev,
+.tsp-section[data-role="omp.handoff"] > .tsp-section-head > .tsp-chev,
+.tsp-section[data-role="omp.branch"] > .tsp-section-head > .tsp-chev {
+  display: none;
+}
+.tsp-section[data-role="omp.compaction"] > .tsp-section-head > .tsp-head,
+.tsp-section[data-role="omp.handoff"] > .tsp-section-head > .tsp-head,
+.tsp-section[data-role="omp.branch"] > .tsp-section-head > .tsp-head {
+  flex: none;
+  max-width: 70%;
+}
 
 /* ───────────────────────── 文字：span 样式、text、md、math ───────────────────────── */
 
@@ -2454,7 +2491,7 @@
   opacity: 0.8;
 }
 /* 空闲回顾（omp.recap）：omp 终端里是 "※ recap: …" 淡色斜体；节点里的 `history` 图标（时钟）只是 TSP 的占位。
-   隐藏它，改用 ※ 记号；悬停提示用本地化文字（layout.tsx RecapRow）。 */
+   隐藏它，改用 ※ 记号；悬停提示是 omp 原样的英文（labels.ts，过程区不汉化）。 */
 .tsp-row[data-role="omp.recap"] {
   align-items: flex-start;
   gap: var(--space-1-5);
@@ -2469,6 +2506,12 @@
   content: "※";
   font-style: normal;
   flex: none;
+}
+/* omp 状态行（切模型的 "Session-only model: …" 等）：终端里是对话里一行暗色文字，留在原地（MainFlow.tsx）。 */
+.tsp-status-note {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
 }
 .tsp-icon[data-role="omp.turn.copy"] {
   border-radius: var(--radius-sm);

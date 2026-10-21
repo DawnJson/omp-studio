@@ -21,4 +21,12 @@ export const preview = {
   imageAlt: "Image preview: {name}",
   htmlTitle: "Web page preview: {name}",
   resize: "Resize preview",
+  pages: "Panel pages",
+  pageFiles: "Files",
+  pagePreview: "Preview",
+  filesToggle: "File panel",
+  treeLabel: "File tree",
+  refresh: "Refresh",
+  emptyDir: "This folder is empty",
+  truncated: "Showing the first {count} items",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

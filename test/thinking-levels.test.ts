@@ -6,12 +6,8 @@ import {
   modelPriceCell,
   modelPriceLine,
 } from "../src/renderer/src/features/composer/model-groups.ts";
-import {
-  clampThinkingLevel,
-  nextThinkingLevel,
-  stepThinkingLevel,
-  thinkingLevelOptions,
-} from "../src/renderer/src/features/composer/thinking-levels.ts";
+import { nextThinkingLevel, stepThinkingLevel } from "../src/renderer/src/features/composer/thinking-levels.ts";
+import { clampThinkingLevel, thinkingLevelOptions } from "../src/shared/ui/new-task-default.ts";
 
 const model = (patch: Partial<ModelOption> = {}): ModelOption => ({
   key: { provider: "deepseek", modelId: "deepseek-v4-flash" },

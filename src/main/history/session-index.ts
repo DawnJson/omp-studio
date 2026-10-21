@@ -2,8 +2,8 @@
 //   <agentDir>/sessions/<编码后的 cwd>/<时间戳>_<id>.jsonl
 //   文件开头是 256 字节定宽的 {"type":"title",...} 标题槽，随后是 {"type":"session",...} 头，再往后是条目；
 //   旧版文件没有标题槽，直接从头开始。
-// 本模块只读：从不写 ~/.omp，只读每个文件的前缀，不解析正文。格式不是协议契约，升级后可能变，所以解析不了的文件
-// 计数跳过（skipped）而不是抛错，列表其余部分照常工作。细节见 docs/architecture/session-history.md。
+// 本模块只读：从不写 ~/.omp，只读每个文件的前缀（标题、首条消息）和末尾（最后一轮的结果），不解析整个正文。格式不是协议契约，
+// 升级后可能变，所以解析不了的文件计数跳过（skipped）而不是抛错，列表其余部分照常工作。细节见 docs/architecture/session-history.md。
 import { open, readdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -13,6 +13,8 @@ import { isRecord } from "../../shared/type-guards.ts";
 const PREFIX_BYTES = 32 * 1024;
 /** 没有标题、前缀里又没有用户消息时（首条消息很长，比如带图片）再放宽到这个上限。 */
 const EXTENDED_PREFIX_BYTES = 512 * 1024;
+/** 找最后一条消息读的末尾字节数；最后一条消息比这还长（长回答、大工具结果）时放宽一次到 EXTENDED_PREFIX_BYTES。 */
+const TAIL_BYTES = 64 * 1024;
 const MAX_TEXT_CHARS = 200;
 const SCAN_CONCURRENCY = 16;
 
@@ -27,6 +29,8 @@ export interface IndexedSession {
   title: string | null;
   /** 第一条用户消息的首行。 */
   firstPrompt: string | null;
+  /** 最后一轮的结果（侧栏状态图标，和任务同一套）：见 parseSessionTail。 */
+  lastTurn: SessionLastTurn;
   modifiedAt: number;
   size: number;
 }
@@ -156,6 +160,57 @@ export async function readSessionHead(file: string, size: number): Promise<Parse
   return parseSessionPrefix(extended.text, extended.truncated);
 }
 
+/** 最后一轮的结果：completed = 助手正常答完（stopReason "stop"），error = 以出错结束；其余（被停止、轮次中途断掉）为 null，不画。 */
+export type SessionLastTurn = "completed" | "error" | null;
+
+/**
+ * 从文件末尾一段里找最后一条 `type: "message"` 条目：它是助手消息且 stopReason 为 stop / error 才算有结果；
+ * 最后一条是用户消息、工具结果，或助手停在 toolUse / aborted 上，都是 null（和任务的"被停止不画"一致）。
+ * `truncated` 表示 text 不是从文件开头读的：第一行可能被截断，直接丢掉。这一段里没有完整的消息条目时返回 undefined。
+ */
+export function parseSessionTail(text: string, truncated: boolean): SessionLastTurn | undefined {
+  const lines = text.split("\n");
+  if (truncated) lines.shift();
+  for (let index = lines.length - 1; index >= 0; index--) {
+    const line = lines[index]!;
+    if (line.trim() === "") continue;
+    let entry: unknown;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (!isRecord(entry) || entry["type"] !== "message") continue;
+    const message = entry["message"];
+    if (!isRecord(message) || message["role"] !== "assistant") return null;
+    const reason = message["stopReason"];
+    return reason === "stop" ? "completed" : reason === "error" ? "error" : null;
+  }
+  return undefined;
+}
+
+/** 读文件末尾 maxBytes 字节；返回文本和"前面是否还有没读到的"。 */
+async function readSuffix(file: string, size: number, maxBytes: number): Promise<{ text: string; truncated: boolean }> {
+  const length = Math.min(size, maxBytes);
+  const handle = await open(file, "r");
+  try {
+    const buffer = Buffer.alloc(length);
+    const { bytesRead } = await handle.read(buffer, 0, length, size - length);
+    return { text: buffer.toString("utf8", 0, bytesRead), truncated: size > length };
+  } finally {
+    await handle.close();
+  }
+}
+
+/** 一个会话文件最后一轮的结果；末尾放宽后仍找不到完整的消息条目时为 null。 */
+export async function readSessionLastTurn(file: string, size: number): Promise<SessionLastTurn> {
+  const tail = await readSuffix(file, size, TAIL_BYTES);
+  const found = parseSessionTail(tail.text, tail.truncated);
+  if (found !== undefined || !tail.truncated) return found ?? null;
+  const extended = await readSuffix(file, size, EXTENDED_PREFIX_BYTES);
+  return parseSessionTail(extended.text, extended.truncated) ?? null;
+}
+
 interface CacheEntry {
   mtimeMs: number;
   size: number;
@@ -236,8 +291,10 @@ export class SessionIndex {
     if (cached !== undefined && cached.mtimeMs === info.mtimeMs && cached.size === info.size) return cached;
 
     let head: ParsedHead | null;
+    let lastTurn: SessionLastTurn = null;
     try {
       head = await readSessionHead(file, info.size);
+      if (head !== null) lastTurn = await readSessionLastTurn(file, info.size);
     } catch (error) {
       if (isMissing(error)) return null;
       // 被占用、权限等：这一次跳过，不缓存，下次重试。
@@ -256,6 +313,7 @@ export class SessionIndex {
               cwd: head.cwd,
               title: head.title,
               firstPrompt: head.firstPrompt,
+              lastTurn,
               modifiedAt: info.mtimeMs,
               size: info.size,
             },

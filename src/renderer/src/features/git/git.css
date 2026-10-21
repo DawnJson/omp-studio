@@ -132,6 +132,10 @@
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border-subtle);
 }
+/* 提交对话框里"评审改动"靠左，取消 / 提交仍在右边。 */
+.git-foot-lead {
+  margin-right: auto;
+}
 .git-text {
   margin: 0;
   font-size: var(--fs-base);

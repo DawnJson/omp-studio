@@ -12,7 +12,12 @@ import { DialogLayer } from "../features/dialogs/index.ts";
 import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts";
 import { OmpSetupView } from "../features/omp-setup/index.ts";
 import { ReviewHost } from "../features/review/index.ts";
-import { FilePreviewPane, useFilePreview } from "../features/file-preview/index.ts";
+import {
+  canShowFilesPanel,
+  FilePreviewPane,
+  toggleFilesPanel,
+  usePreviewPanel,
+} from "../features/file-preview/index.ts";
 import { CommandPalette } from "../features/palette/index.ts";
 import {
   TerminalPanel,
@@ -95,7 +100,7 @@ export function App() {
   const draftKey = useDraftTerminalKey();
   const terminalKey = taskId ?? draftKey;
   const terminalOpen = useTerminalOpen(terminalKey);
-  const preview = useFilePreview();
+  const panel = usePreviewPanel();
   useDraftTerminalCleanup(draftKey);
   const shell = useShellUi();
   const narrow = useNarrow();
@@ -213,6 +218,9 @@ export function App() {
     toggleTerminalFocus: () => {
       if (view === "conversation") toggleTerminalFocus(terminalKey);
     },
+    toggleFilesPanel: () => {
+      if (view === "conversation" && canShowFilesPanel(terminalKey)) toggleFilesPanel(terminalKey);
+    },
     closeDrawer: () => {
       if (!narrow || !shell.drawerOpen) return false;
       setDrawerOpen(false);
@@ -280,8 +288,8 @@ export function App() {
             </>
           )}
         </main>
-        {view === "conversation" && taskId !== null && preview?.taskId === taskId && (
-          <FilePreviewPane taskId={preview.taskId} path={preview.path} />
+        {view === "conversation" && panel?.key === terminalKey && (
+          <FilePreviewPane key={panel.key} panelKey={panel.key} page={panel.page} path={panel.path} />
         )}
       </div>
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />

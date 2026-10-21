@@ -28,7 +28,6 @@ import type {
   GitMergeResult,
   GitPullRequestInput,
   GitPullRequestResult,
-  GitChangeSummary,
   GitPushResult,
   GitStatus,
   ReviewComment,
@@ -77,7 +76,20 @@ type Unsubscribe = () => void;
 /** `@` 补全的数据来源：任务目录，或新任务草稿所在的项目目录。 */
 export type ProjectFilesTarget = { kind: "task"; taskId: TaskId } | { kind: "project"; projectId: ProjectId };
 
-/** 文件预览结果：path 是相对任务 cwd 的规范化路径（传入绝对路径但落在 cwd 内时会换算）。 */
+/** 文件树的一项（目录里的直接子项）；ignored = 被 .gitignore 忽略（界面调暗，不隐藏）。 */
+export interface DirEntry {
+  name: string;
+  kind: "dir" | "file";
+  ignored: boolean;
+}
+
+/** 文件树的一层：目录在前、文件在后，同类按名字排序；超过主进程上限时 truncated = true。 */
+export interface DirListing {
+  entries: DirEntry[];
+  truncated: boolean;
+}
+
+/** 文件预览结果：path 是相对根目录（任务 cwd 或草稿的项目目录）的规范化路径（传入绝对路径但落在根内时会换算）。 */
 export interface PreviewFile {
   kind: "text" | "image" | "html" | "binary" | "too_large" | "missing";
   path: string;
@@ -476,8 +488,8 @@ export interface TspTurnFooter {
 export interface TspSessionExtras {
   /** 每个用户消息一项，从旧到新；那一轮没结束或没有用量时为 null。 */
   turns: (TspTurnFooter | null)[];
-  /** 最后一次空闲回顾的显示文字（空白折叠、最长 280 字）；没有，或之后又有新消息（回顾已过时）时为 null。 */
-  recap: string | null;
+  /** 这个会话最新的一条空闲回顾（空白折叠、最长 280 字）和它的位置：`afterTurn` = 回顾之前开始的轮数（放在第 afterTurn 轮之后）；没有回顾时为 null。 */
+  recap: { text: string; afterTurn: number } | null;
 }
 
 // ───────── 会话历史 ─────────
@@ -487,6 +499,8 @@ export interface SessionSummary {
   id: string;
   title: string | null;
   firstPrompt: string | null;
+  /** 会话文件里最后一轮的结果（只读文件末尾）：completed 正常答完、error 出错结束；被停止或中途断掉为 null。 */
+  lastTurn: "completed" | "error" | null;
   cwd: string;
   /** cwd 对应的已加入项目；没有时为 null，恢复时会自动加入。 */
   projectId: ProjectId | null;
@@ -847,10 +861,16 @@ export interface StudioInvokeApi {
   /** 在系统文件管理器里打开任务的工作目录（项目目录，或开了工作树时的 worktree 根）；不是会话文件所在的 ~/.omp 目录。 */
   openTaskFolder(taskId: TaskId): Promise<void>;
   /**
-   * 读任务工作目录里的文件供右侧预览：relPath 相对任务 cwd（落在 cwd 内的绝对路径会换算），越界 reject。
+   * 读根目录（任务工作目录，或草稿的项目目录）里的文件供右侧预览：relPath 相对根目录（落在根内的绝对路径会换算），越界 reject。
    * 文本 > 2 MB、图片 > 20 MB 返回 too_large；文件不存在返回 missing（不 reject）。
    */
-  readPreviewFile(taskId: TaskId, relPath: string): Promise<PreviewFile>;
+  readPreviewFile(target: ProjectFilesTarget, relPath: string): Promise<PreviewFile>;
+  /**
+   * 文件面板的文件树：列根目录（任务 cwd，开了工作树就是工作树目录；或草稿的项目目录）下 relDir 这一层（"" = 根）。
+   * 目录在前、文件在后按名字排序，`.git` 不列出，被 .gitignore 忽略的条目带 ignored 标记；
+   * relDir 越界（绝对路径、`..`、符号链接指到根外）reject；目录不存在返回空列表；符号链接指到根外的条目不列出。
+   */
+  listDirectory(target: ProjectFilesTarget, relDir: string): Promise<DirListing>;
   /** `@` 文件引用补全：目录由主进程按任务（或新任务草稿的项目）查出，只返回相对路径，最多 20 条；query 含绝对路径或 `..` 时 reject。 */
   listProjectFiles(target: ProjectFilesTarget, query: string): Promise<string[]>;
 
@@ -985,8 +1005,6 @@ export interface StudioInvokeApi {
   // 评审（阶段 3）和 worktree / git（阶段 4）。路径一律相对仓库根；仓库根 = 任务 cwd 所在的 git 仓库（有 worktree 时是 worktree）。
   /** 任务 cwd 的 git 状态；不是仓库或没有 git 是正常的类型化结果，不 reject。 */
   getGitStatus(taskId: TaskId): Promise<GitStatus>;
-  /** 任务 cwd 里工作区相对 HEAD 的改动文件和 +N −M（TSP 任务的改动卡片）；不是仓库或没有 git 是正常的类型化结果。 */
-  getGitChangeSummary(taskId: TaskId): Promise<GitChangeSummary>;
   /** 一个文件一侧的 diff（结构化的 hunk 和新旧行号）；二进制和过大文件有对应的 kind。 */
   getGitFileDiff(taskId: TaskId, path: string, area: GitDiffArea): Promise<GitFileDiff>;
   stageGitFile(taskId: TaskId, path: string): Promise<void>;
@@ -1158,6 +1176,7 @@ export const invokeNames = {
   revealTaskFile: true,
   openTaskFolder: true,
   readPreviewFile: true,
+  listDirectory: true,
   listProjectFiles: true,
   getSessionTree: true,
   forkTask: true,
@@ -1218,7 +1237,6 @@ export const invokeNames = {
   checkForUpdate: true,
   installUpdate: true,
   getGitStatus: true,
-  getGitChangeSummary: true,
   getGitFileDiff: true,
   stageGitFile: true,
   unstageGitFile: true,

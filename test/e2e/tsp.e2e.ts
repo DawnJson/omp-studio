@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { expect, test, type Page } from "@playwright/test";
+import { parseSession } from "../../src/main/tsp/session-extras.ts";
 import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
@@ -75,7 +76,12 @@ async function sendFirst(page: Page, text: string): Promise<void> {
 const role = (page: Page, name: string) => page.locator(`[data-testid="tsp-view"] [data-role="${name}"]`);
 
 /** 页面里 getComputedStyle 用到的最小类型(e2e 的类型检查没有 DOM 类型)。 */
-type PageStyle = { getComputedStyle(el: unknown, pseudo?: string): { opacity: string; content: string } };
+type PageStyle = {
+  getComputedStyle(
+    el: unknown,
+    pseudo?: string,
+  ): { opacity: string; content: string; height: string; flexGrow: string; display: string; fontSize: string };
+};
 
 async function shoot(page: Page, state: string): Promise<void> {
   for (const [locale, scheme] of [
@@ -132,9 +138,9 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     await expect(page.locator('[data-testid="tsp-view"] [data-testid="studio-header-folder"]')).toContainText(
       "项目 目录",
     );
-    // 改动卡片不在 TSP 滚动区里(有改动时是输入框上方的改动条,同在 composer-stack 里)。
+    // TSP 任务没有改动摘要：过程区里没有改动卡片，输入框上方也没有改动条（评审从顶栏按钮 / Ctrl Shift D / 提交对话框进）。
     await expect(page.locator('.tsp-scroller [data-testid="change-card"]')).toHaveCount(0);
-    await expect(page.locator('[data-testid="tsp-view"] [data-testid="change-strip"]')).toHaveCount(0);
+    await expect(page.getByTestId("change-strip")).toHaveCount(0);
     // 在 studio 输入框里打字不会变成发给 omp 的按键。
     const before = (await received()).length;
     await page.getByTestId("composer-input").fill("还没发的草稿");
@@ -236,7 +242,8 @@ test("过程卡片:diff 的上下文行和增删行一样是一行(行号在左�
     ]);
     expect(text!.y).toBe(gutter!.y);
     expect(text!.x).toBeGreaterThan(gutter!.x + gutter!.width);
-    await expect(edit.locator(".tsp-dsep")).toContainText("行未改动");
+    // 过程区的文字是 omp 原样的英文,中文界面也一样(不走 i18n)。
+    await expect(edit.locator(".tsp-dsep")).toContainText("unchanged lines");
     // eval 的长代码行折行,代码块不能横向滚动。
     const code = role(page, "omp.tool.eval").locator(".tsp-code-body").first();
     await expect(code).toBeVisible();
@@ -303,23 +310,33 @@ test("用户消息悬停:从气泡分步移向复制按钮的整条路上按钮�
   }
 });
 
-test("恢复会话:omp 不重发的每轮用量脚注和空闲回顾,从会话文件和 history.db 补回;回顾用 ※ 不用时钟图标", async () => {
+test("恢复会话:omp 不重发的每轮用量脚注补回;回顾只补最新一条、放回它的位置(之后还有新一轮也照样补),用 ※ 不用时钟图标", async () => {
   test.setTimeout(120_000);
   // 假 omp 回放的是 omp 18.12.4 `--resume` 一个 3 轮会话的实录:旧对话重发了,但没有 omp.turn.usage / omp.recap。
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp tsp resume agent "));
   const sessionFile = path.join(agentDir, "sessions", "--e2e--", "2026-10-20T01-17-16-019Z_resume.jsonl");
   await mkdir(path.dirname(sessionFile), { recursive: true });
   await copyFile(path.join(root, "fixtures", "tsp", "resume-session.jsonl"), sessionFile);
-  // omp 的空闲回顾只进 agent 目录的 history.db(session_recaps);会话 id 是会话文件头里的 id,时间在最后一条消息之后。
+  // omp 的空闲回顾只进 agent 目录的 history.db(session_recaps);会话 id 是会话文件头里的 id。
+  // 两条:更早的一条在第 1 轮之后,最新一条在第 2 轮之后、第 3 轮开始之前——之后还有第 3 轮的消息,不能因此不显示。
+  const starts = parseSession(await readFile(sessionFile, "utf8")).turnStarts;
+  const secondsBetween = (a: number | undefined, b: number | undefined) => Math.floor(((a ?? 0) + (b ?? 0)) / 2 / 1000);
   const db = new DatabaseSync(path.join(agentDir, "history.db"));
   db.exec(
     "CREATE TABLE session_recaps (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, cwd TEXT NOT NULL, recap TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER)))",
   );
-  db.prepare("INSERT INTO session_recaps (session_id, cwd, recap, created_at) VALUES (?, ?, ?, ?)").run(
+  const insert = db.prepare("INSERT INTO session_recaps (session_id, cwd, recap, created_at) VALUES (?, ?, ?, ?)");
+  insert.run(
+    "01a156e2-5573-752f-ae26-c89b4b0fd495",
+    "E:/x",
+    "更早的回顾:刚读完 calc.py。",
+    secondsBetween(starts[0], starts[1]),
+  );
+  insert.run(
     "01a156e2-5573-752f-ae26-c89b4b0fd495",
     "E:/x",
     "目标是验证 calc.py。已读完三个文件,下一步等你的指示。",
-    1792459600,
+    secondsBetween(starts[1], starts[2]),
   );
   db.close();
   const { launched, cleanup } = await start("resume", {
@@ -344,7 +361,7 @@ test("恢复会话:omp 不重发的每轮用量脚注和空闲回顾,从会话�
     await expect(usage.nth(2)).toHaveAttribute("title", /^This turn: 4\.7s · 1,097 tokens \(838 in · 259 out\)/);
     // 补的行在每轮最后一个助手消息里面(和 omp 实时的位置一样),不是游离在外。
     await expect(page.locator('[data-role="omp.assistant"] > [data-role="omp.turn.usage"]')).toHaveCount(3);
-    // 回顾:对话末尾一行,图标是 ※(不是时钟/回退图标),斜体淡色,悬停提示是本地化文字。
+    // 回顾:整个对话里只有最新的一条,图标是 ※(不是时钟/回退图标),斜体淡色,悬停提示是 omp 原样的英文。
     const recap = role(page, "omp.recap");
     await expect(recap).toHaveCount(1);
     await expect(recap).toContainText("目标是验证 calc.py");
@@ -353,11 +370,95 @@ test("恢复会话:omp 不重发的每轮用量脚注和空闲回顾,从会话�
       await recap.evaluate((el) => (globalThis as unknown as PageStyle).getComputedStyle(el, "::before").content),
     ).toBe('"※"');
     await expect(recap).toHaveCSS("font-style", "italic");
-    await expect(recap).toHaveAttribute("title", "离开期间的回顾");
+    await expect(recap).toHaveAttribute("title", "Recap while you were away");
+    // 位置:第 2 轮之后、第 3 轮之前(前两个用户消息在它前面,第三个在它后面)。
+    const relations = await recap.evaluate((el) => {
+      type Node = { compareDocumentPosition(other: unknown): number };
+      const users = [
+        ...(
+          globalThis as unknown as { document: { querySelectorAll(selector: string): Node[] } }
+        ).document.querySelectorAll('[data-testid="tsp-view"] [data-role="omp.user"]'),
+      ];
+      return users.map((user) => (el as unknown as Node).compareDocumentPosition(user) & 6);
+    });
+    // 4 = 这个用户消息在回顾后面,2 = 在前面。
+    expect(relations).toEqual([2, 2, 4]);
     await recap.scrollIntoViewIfNeeded();
     await shoot(page, "resume");
   } finally {
     await cleanup();
     await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
+test("压缩分隔画成整行横线夹文字;切模型后 omp 的状态行留在对话里(不是一闪而过的弹层);点分隔展开摘要", async () => {
+  test.setTimeout(120_000);
+  // 假 omp 回放的是 omp 18.12.5 `--resume` 一个压缩过的会话:section omp.compaction(折叠)、启动时的状态行,
+  // 末尾是切模型后的 "Session-only model: …"(录制里选择器的那几帧去掉了,免得假 omp 等输入)。
+  const { launched, cleanup } = await start("compact");
+  try {
+    const { page } = launched;
+    await page.evaluate(async () => {
+      const [project] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: project!.id });
+    });
+    await openTaskRow(page);
+    const divider = role(page, "omp.compaction");
+    await expect(divider).toBeVisible({ timeout: 30_000 });
+    // 头文字是 omp 原样的英文,中文界面也一样。
+    const head = divider.locator(".tsp-section-head");
+    await expect(head).toContainText("Snap-compacted");
+    await expect(head).toContainText("48K");
+    await expect(head).toContainText("6.1K tokens");
+    // 整行分隔:文字两侧各一段连贯横线(伪元素,撑满剩余宽度,1px 高),没有折叠箭头。
+    const parts = await head.evaluate((el) => {
+      const win = globalThis as unknown as PageStyle;
+      const child = (selector: string) =>
+        (el as unknown as { querySelector(s: string): unknown }).querySelector(selector);
+      const before = win.getComputedStyle(el, "::before");
+      const after = win.getComputedStyle(el, "::after");
+      return {
+        before: { content: before.content, height: before.height, flexGrow: before.flexGrow },
+        after: { content: after.content, height: after.height, flexGrow: after.flexGrow },
+        chevron: win.getComputedStyle(child(".tsp-chev")).display,
+        fontSize: win.getComputedStyle(child(".tsp-head")).fontSize,
+      };
+    });
+    for (const line of [parts.before, parts.after])
+      expect(line).toEqual({ content: '""', height: "1px", flexGrow: "1" });
+    expect(parts.chevron).toBe("none");
+    // 文字 13px(--fs-sm):比过程里的小字(12px)大一号。
+    expect(parts.fontSize).toBe("13px");
+    // 摘要默认收着,点文字展开。
+    await expect(divider.locator(".tsp-section-body")).toHaveCount(0);
+    await head.click();
+    await expect(divider.locator(".tsp-section-body")).toContainText("The user asked two questions");
+    await head.click();
+    await expect(divider.locator(".tsp-section-body")).toHaveCount(0);
+    // 状态行:启动时的两条 + 切模型那条,都留在对话里,没有弹层。
+    const notes = page.getByTestId("tsp-status-note");
+    await expect(notes).toHaveCount(3);
+    await expect(notes.nth(0)).toHaveText("Session compacted 1 time");
+    await expect(notes.nth(2)).toHaveText(
+      "Session-only model: deepseek/deepseek-v4-pro. Use Alt+M or /model for roles.",
+    );
+    await expect(page.locator(".toast")).toHaveCount(0);
+    // 它们在最后一条助手回答的后面。
+    const order = await notes.nth(2).evaluate((el) => {
+      type Node = { compareDocumentPosition(other: unknown): number };
+      const assistants = [
+        ...(
+          globalThis as unknown as { document: { querySelectorAll(selector: string): Node[] } }
+        ).document.querySelectorAll('[data-testid="tsp-view"] [data-role="omp.assistant"]'),
+      ];
+      const last = assistants[assistants.length - 1];
+      return last === undefined ? -1 : (el as unknown as Node).compareDocumentPosition(last) & 2;
+    });
+    // 2 = 最后一条助手回答在状态行前面。
+    expect(order).toBe(2);
+    await notes.nth(2).scrollIntoViewIfNeeded();
+    await shoot(page, "compact");
+  } finally {
+    await cleanup();
   }
 });

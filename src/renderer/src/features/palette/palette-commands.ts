@@ -7,6 +7,7 @@ import { openReview } from "../../store/review-store.ts";
 import { archiveWithUndo } from "../sidebar/archive-store.ts";
 import { startDraft } from "../empty/index.ts";
 import { addProjectAsDraft, jumpToWaitingTask } from "../sidebar/sidebar-actions.ts";
+import { canShowFilesPanel, toggleFilesPanel } from "../file-preview/index.ts";
 import { toggleTerminal } from "../terminal/index.ts";
 import { exportConversationReporting } from "../composer/export-html.ts";
 import { openSessionTree } from "../conversation/session-tree-store.ts";
@@ -111,6 +112,13 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
       shortcut: "Ctrl Shift D",
       run: () => openReview(current.id),
     },
+    terminalKey !== null &&
+      canShowFilesPanel(terminalKey) && {
+        id: "toggleFiles",
+        label: t("preview.filesToggle"),
+        shortcut: "Ctrl Shift E",
+        run: () => toggleFilesPanel(terminalKey),
+      },
     terminalKey !== null && {
       id: "toggleTerminal",
       label: t("cmd.toggleTerminal"),

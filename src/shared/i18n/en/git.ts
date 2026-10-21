@@ -38,6 +38,7 @@ export const git = {
   "commit.message": "Commit message",
   "commit.stageAll": "Stage all changes first",
   "commit.confirm": "Commit",
+  "commit.review": "Review changes",
   "commit.done": "Committed {commit}",
   "commit.nothing": "Nothing to commit. Tick “Stage all changes first” or stage files in review.",
   "commit.failed": "git rejected the commit",

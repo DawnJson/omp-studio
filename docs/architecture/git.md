@@ -54,7 +54,7 @@
 - **任务条的 git 工具**（`GitTools`，spec §3.1）：顶栏右侧，任务目录是 git 仓库时才渲染。分支胶囊显示当前分支（worktree 任务显示 worktree 分支），后面照 omp 状态栏跟改动数：`*N` = 有改动的已跟踪文件数（`status.files` 里非 untracked 的条目），`?N` = 未跟踪文件数，worktree 领先时再加 `↑N`；完整说法都在悬停提示里。点开是 Git 菜单（2026-10-21 起不含"查看改动"，顶栏已有评审按钮）：提交、推送、创建 PR（`status.canPush` 为 true 才列；gh 缺失 / 未登录仍由结果 toast 说明）；再点胶囊或点窗口任意处收回（菜单开着时 `.git-menu-scrim` 盖住整窗，顶栏拖动区收不到点击）；worktree 任务另有"合并回 <基分支>"和"丢弃工作树"。**推送项在 `status.canPush` 为 false 时灰显（`MenuItem.disabledReason`，`aria-disabled`，不执行），悬停提示是 `git.push.noRemote`（没有可用远端）或 `git.push.detached`（detached HEAD）。** 旁边一个评审按钮直接打开评审。状态在任务 `updatedAt` 变化和每次 git 操作后重读（`refreshGit`）。
 - **侧栏任务行**：worktree 任务带分支图标，悬停提示是分支名。
 - **结果提示**（`git-actions.ts`）：主进程的类型化结果都翻译成当前语言：合并 merged / nothing_to_merge / blocked（三种原因）用 toast，conflict 用对话框列出文件；推送 pushed / no_remote / detached_head / rejected / failed；PR 的 gh_unavailable / gh_unauthenticated / failed；提交的 nothing_to_commit / failed。git 的原话放在 toast 的悬停提示里。抛出的错误走 `reportError`，不吞。
-- **对话框**（`GitDialogs.tsx`，状态在 `git-dialog-store.ts`）：提交（信息 + "先暂存全部改动"，Ctrl Enter 提交）、开 PR（标题 + 说明，先 `pushGit` 再 `createPullRequest`，推送没成功就停在推送的提示上）、丢弃确认（默认焦点在"取消"；成功后任务归档并回到空状态）、合并冲突、清理报告。
+- **对话框**（`GitDialogs.tsx`，状态在 `git-dialog-store.ts`）：提交（信息 + "先暂存全部改动"，Ctrl Enter 提交；左下角"评审改动"关掉对话框并 `openReview`，提交对话框本身不列文件，想先看改了什么从这里进评审，Esc 退出评审后再从菜单打开提交）、开 PR（标题 + 说明，先 `pushGit` 再 `createPullRequest`，推送没成功就停在推送的提示上）、丢弃确认（默认焦点在"取消"；成功后任务归档并回到空状态）、合并冲突、清理报告。
 - **项目菜单"清理无主工作树"**：调 `cleanupOrphanWorktrees`，对话框分"已移除 / 保留（原因）"两组。
 - **待仓库所有者决定**：丢弃 worktree 的任务被归档，之后"恢复"该任务会回到项目目录（见上面的已知局限）。界面没有为此做任何特殊处理。
 

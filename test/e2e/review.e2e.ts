@@ -24,6 +24,10 @@ function git(cwd: string, ...args: string[]): string {
 
 const baseLines = Array.from({ length: 30 }, (_, i) => `export const value${i + 1} = ${i + 1};`);
 
+/** 一行很长的 CSV（评审里会折成好几行）：改动是删掉它、换成短的两行——删除行要在旧行号列里显示行号。 */
+const LONG_CSV = Array.from({ length: 24 }, (_, i) => `id${i},name${i},value${i},note${i}`).join(",");
+const CSV_EDITED = "data.csv";
+
 /** 提交一份基线，再造出：calc.ts 两处不相邻的改动（两个 hunk）、README 已暂存、一个未跟踪文本和一个未跟踪二进制。 */
 async function makeRepo(parent: string): Promise<string> {
   const repo = path.join(parent, "评审 项目 目录");
@@ -32,6 +36,7 @@ async function makeRepo(parent: string): Promise<string> {
   git(repo, "config", "core.autocrlf", "false");
   await writeFile(path.join(repo, PATH_EDITED), baseLines.join("\n") + "\n");
   await writeFile(path.join(repo, "README.md"), "# demo\n");
+  await writeFile(path.join(repo, CSV_EDITED), `id,name,value,note\n${LONG_CSV}\n${"tail,1,2,3\n".repeat(3)}`);
   git(repo, "add", "-A");
   git(repo, "commit", "-q", "-m", "init");
   const edited = [...baseLines];
@@ -39,6 +44,10 @@ async function makeRepo(parent: string): Promise<string> {
   edited[25] = "export const value26 = 2600;";
   await writeFile(path.join(repo, PATH_EDITED), edited.join("\n") + "\n");
   await writeFile(path.join(repo, "README.md"), "# demo\n\n评审用的示例。\n");
+  await writeFile(
+    path.join(repo, CSV_EDITED),
+    `id,name,value,note\nid0,name0,value0,note0\nid1,name1,value1,note1\n${"tail,1,2,3\n".repeat(3)}`,
+  );
   git(repo, "add", "README.md");
   await writeFile(path.join(repo, "新 文件.txt"), "第一行\n第二行\n");
   await writeFile(path.join(repo, "logo.bin"), Buffer.from([0, 1, 2, 0, 255, 0]));
@@ -330,6 +339,79 @@ test("评审：文件树、统一/并排、暂存 hunk、两条评论、说明�
     await page.getByTestId("change-review").click();
     await page.getByTestId("tab-comments").click();
     await expect(page.getByTestId("queued-comment")).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("评审：删除行的旧行号一直在；悬停时加评论的 + 在行号左边，不顶掉也不遮住行号（长行折行也一样）", async () => {
+  const { launched, cleanup } = await start({ git: true });
+  try {
+    const { page } = launched;
+    await runTurn(page);
+    await page.getByTestId("change-review").click();
+    await openFile(page, CSV_EDITED, "unstaged").click();
+
+    // 评审盖住整个窗口：输入框所在的位置，最上面的元素在评审里面（输入框不透出来）。
+    const composerBox = await page.getByTestId("composer-input").boundingBox();
+    expect(composerBox).not.toBeNull();
+    const covered = await page.evaluate(
+      ({ x, y }) => {
+        const doc = (
+          globalThis as unknown as {
+            document: { elementFromPoint(x: number, y: number): { closest(selector: string): unknown } | null };
+          }
+        ).document;
+        return doc.elementFromPoint(x, y)?.closest("[data-testid=review]") != null;
+      },
+      {
+        x: (composerBox?.x ?? 0) + (composerBox?.width ?? 0) / 2,
+        y: (composerBox?.y ?? 0) + (composerBox?.height ?? 0) / 2,
+      },
+    );
+    expect(covered).toBe(true);
+
+    for (const mode of ["unified", "split"] as const) {
+      if (mode === "split") await page.getByTestId("mode-split").click();
+      const row = page.locator(mode === "unified" ? ".rv-row[data-kind=del]" : ".rv-half[data-kind=del]").first();
+      await expect(row).toBeVisible();
+      // 被删的是第 2 行（一整行长 CSV，折成好几行）：旧行号列写着 2，没有新行号。
+      const button = row.locator("[data-testid=line-comment][data-side=old][data-line='2']");
+      await expect(button).toBeVisible();
+      await expect(button.locator(".rv-no-n")).toHaveText("2");
+      expect(((await row.boundingBox())?.height ?? 0) > 3 * 18).toBe(true);
+
+      // 悬停前后行号都看得见（不透明）；+ 只在悬停时出现，且整个在行号左边。
+      const number = button.locator(".rv-no-n");
+      const plus = button.locator(".rv-no-plus");
+      await page.mouse.move(1, 1);
+      await expect(number).toHaveCSS("opacity", "1");
+      await expect(plus).toHaveCSS("opacity", "0");
+      await button.hover();
+      await expect(number).toHaveCSS("opacity", "1");
+      await expect(plus).toHaveCSS("opacity", "1");
+      const [numberBox, plusBox, rowBox] = await Promise.all([
+        number.boundingBox(),
+        plus.boundingBox(),
+        row.boundingBox(),
+      ]);
+      expect(numberBox && plusBox && rowBox).toBeTruthy();
+      if (!numberBox || !plusBox || !rowBox) return;
+      expect(plusBox.x + plusBox.width).toBeLessThanOrEqual(numberBox.x + 0.5);
+      // 长行折行时行号和 + 都贴着第一行，不是在整块的垂直中间。
+      expect(numberBox.y - rowBox.y).toBeLessThan(6);
+      expect(plusBox.y - rowBox.y).toBeLessThan(6);
+      if (mode === "unified") await shoot(page, "gutter");
+    }
+
+    // 新增行只有新行号，上下文行两列都有。
+    await page.getByTestId("mode-unified").click();
+    const add = page.locator(".rv-row[data-kind=add]").first();
+    await expect(add.locator(".rv-no").first()).toHaveText("");
+    await expect(add.locator(".rv-no").nth(1)).toHaveText("2");
+    const context = page.locator(".rv-row:not([data-kind=add]):not([data-kind=del])").last();
+    await expect(context.locator(".rv-no").first()).toHaveText(/^\d+$/);
+    await expect(context.locator(".rv-no").nth(1)).toHaveText(/^\d+$/);
   } finally {
     await cleanup();
   }

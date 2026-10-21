@@ -25,6 +25,7 @@ const shortcuts: { label: MessageKey; keys: string[] }[] = [
   { label: "shortcut.prevNext", keys: ["Ctrl", "Shift", "[ / ]"] },
   { label: "shortcut.regions", keys: ["F6"] },
   { label: "shortcut.review", keys: ["Ctrl", "Shift", "D"] },
+  { label: "shortcut.toggleFiles", keys: ["Ctrl", "Shift", "E"] },
   { label: "shortcut.reviewFiles", keys: ["J / K"] },
   { label: "shortcut.reviewHunks", keys: ["N / P"] },
   { label: "shortcut.reviewLayout", keys: ["V"] },

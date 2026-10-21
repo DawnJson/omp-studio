@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ModelDefaults, ModelOption } from "../src/shared/ipc.ts";
-import { resolveNewTaskDefault } from "../src/renderer/src/features/composer/new-task-resolve.ts";
+import type { DefaultModelInfo, ModelDefaults, ModelOption } from "../src/shared/ipc.ts";
+import { resolveNewTaskDefault } from "../src/shared/ui/new-task-default.ts";
 
 const model = (patch: Partial<ModelOption> = {}): ModelOption => ({
   key: { provider: "deepseek", modelId: "deepseek-v4-flash" },
@@ -34,14 +34,35 @@ describe("resolveNewTaskDefault", () => {
     expect(result.thinkingLevel).toBeNull();
   });
 
-  it("项目的 modelRoles.default 指向目录里没有的模型：模型认不出，仍显示配置的档位", () => {
-    const result = resolveNewTaskDefault(defaults({ model: "foo/bar" }), null, [model()]);
-    expect(result.model).toBeNull();
-    expect(result.thinkingLevel).toBe("high");
+  it("模型目录还没到：占位，不显示任何模型或强度", () => {
+    const result = resolveNewTaskDefault(defaults(), null, null);
+    expect(result).toMatchObject({ pending: true, model: null, thinkingLevel: null });
   });
 
-  it("模型目录还没到：显示配置的档位", () => {
-    expect(resolveNewTaskDefault(defaults(), null, null).thinkingLevel).toBe("high");
+  it("这个项目的默认值还没读到：占位，不拿 omp 的全局默认值（模型、强度）顶替", () => {
+    const global: DefaultModelInfo = {
+      key: { provider: "deepseek", modelId: "deepseek-v4-flash" },
+      name: "DeepSeek V4 Flash",
+      thinkingLevel: "max",
+    };
+    const result = resolveNewTaskDefault(null, global, [model()]);
+    expect(result).toMatchObject({ pending: true, model: null, thinkingLevel: null });
+  });
+
+  it("项目里没配模型：用 omp 自选的模型，档位用项目配的；认出来后不再占位", () => {
+    const global: DefaultModelInfo = {
+      key: { provider: "deepseek", modelId: "deepseek-v4-flash" },
+      name: "DeepSeek V4 Flash",
+      thinkingLevel: "max",
+    };
+    const result = resolveNewTaskDefault(defaults({ model: null, thinkingLevel: "low" }), global, [model()]);
+    expect(result).toMatchObject({ pending: false, thinkingLevel: "low" });
+    expect(result.model?.name).toBe("DeepSeek V4 Flash");
+  });
+
+  it("配置指向目录里没有的模型：给出它的名字（去掉档位后缀），仍显示配置的档位", () => {
+    const result = resolveNewTaskDefault(defaults({ model: "foo/bar:high" }), null, [model()]);
+    expect(result).toMatchObject({ pending: false, model: null, unknownModel: "foo/bar", thinkingLevel: "high" });
   });
 
   it("什么都没配、omp 也没读到：没有强度", () => {

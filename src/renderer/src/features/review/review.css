@@ -15,7 +15,8 @@
 
   position: fixed;
   inset: var(--titlebar-h) 0 0 0;
-  z-index: var(--z-sticky);
+  /* 比输入框栈（--z-sticky + 1）再高一层：评审盖住整个窗口，输入框不能透出来；仍低于菜单、对话框（--z-popover 起）。 */
+  z-index: calc(var(--z-sticky) + 2);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -422,11 +423,13 @@
   line-height: var(--lh-code-sm);
   font-variant-ligatures: none;
   tab-size: 2;
+  /* 行号列：4 位行号 + 左边留给悬停时的 ＋。 */
+  --rv-no-w: calc(var(--space-12) + var(--space-2));
 }
 
 .rv-row {
   display: grid;
-  grid-template-columns: var(--space-12) var(--space-12) var(--space-5) minmax(0, 1fr);
+  grid-template-columns: var(--rv-no-w) var(--rv-no-w) var(--space-5) minmax(0, 1fr);
 }
 
 .rv-row-split {
@@ -435,7 +438,7 @@
 
 .rv-half {
   display: grid;
-  grid-template-columns: var(--space-12) minmax(0, 1fr);
+  grid-template-columns: var(--rv-no-w) minmax(0, 1fr);
 }
 
 .rv-half + .rv-half {
@@ -469,9 +472,12 @@
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+/* 行号列：数字右对齐、贴着第一行（长行折成好几行时不在垂直中间）；评论按钮的 ＋ 悬停时出现在数字左边，不替换数字。 */
 .rv-no {
-  display: grid;
-  place-items: center end;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
   padding: 0 var(--space-2);
   color: var(--text-3);
   font: inherit;
@@ -485,29 +491,23 @@
   cursor: default;
 }
 
-.rv-no-n,
 .rv-no-plus {
-  grid-area: 1 / 1;
-}
-
-.rv-no-plus {
+  position: absolute;
+  top: calc((var(--lh-code-sm) - 12px) / 2);
+  left: var(--space-1);
   color: var(--accent);
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 
-.rv-no-n {
-  transition: opacity var(--dur-fast) var(--ease-out);
+.rv-no-btn:hover .rv-no-plus,
+.rv-no-btn:focus-visible .rv-no-plus {
+  opacity: 1;
 }
 
 .rv-no-btn:hover .rv-no-n,
 .rv-no-btn:focus-visible .rv-no-n {
-  opacity: 0;
-}
-
-.rv-no-btn:hover .rv-no-plus,
-.rv-no-btn:focus-visible .rv-no-plus {
-  opacity: 1;
+  color: var(--text);
 }
 
 .rv-sign {

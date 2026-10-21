@@ -4,6 +4,7 @@ import { sessionTitle, type SidebarItem } from "../../../../shared/ui/sidebar-mo
 import { formatTaskTime } from "../../../../shared/ui/task-time.ts";
 import { selectTask } from "../../store/index.ts";
 import { reportError } from "../../ui/errors.ts";
+import { SessionStatusDot } from "./StatusDot.tsx";
 import { TaskRow, type RowHandlers } from "./TaskRow.tsx";
 
 interface SessionRowProps {
@@ -32,7 +33,7 @@ function SessionRow({ session, tabStop, rows }: SessionRowProps) {
           .catch((error: unknown) => reportError(t, error, (message) => t("history.resumeFailed", { message })))
       }
     >
-      <span className="sb-dot" aria-hidden="true" />
+      <SessionStatusDot session={session} t={t} />
       <span className="sb-row-title">{label}</span>
       <span className="sb-row-tail">{formatTaskTime(t, locale, session.modifiedAt, now)}</span>
     </button>

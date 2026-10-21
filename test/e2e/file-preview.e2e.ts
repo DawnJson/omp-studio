@@ -62,7 +62,10 @@ test("readPreviewFile 按类型返回内容，越界拒绝", async () => {
   try {
     const { page } = launched;
     const read = (rel: string) =>
-      page.evaluate(([id, p]) => globalThis.studio.readPreviewFile(id as TaskId, p!), [taskId, rel]);
+      page.evaluate(
+        ([id, p]) => globalThis.studio.readPreviewFile({ kind: "task", taskId: id as TaskId }, p!),
+        [taskId, rel],
+      );
 
     const md = await read("notes.md");
     expect(md.kind).toBe("text");

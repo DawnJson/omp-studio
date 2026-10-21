@@ -73,6 +73,8 @@ const headerLine = (id: string, cwd: string) =>
   `${JSON.stringify({ type: "session", version: 3, id, timestamp: "2026-10-18T00:00:00.000Z", cwd })}\n`;
 const userLine = (text: string) =>
   `${JSON.stringify({ type: "message", id: "a1", parentId: null, message: { role: "user", content: [{ type: "text", text }] } })}\n`;
+const assistantLine = (stopReason: string) =>
+  `${JSON.stringify({ type: "message", id: "b1", parentId: "a1", message: { role: "assistant", content: [{ type: "text", text: "ok" }], stopReason } })}\n`;
 
 async function makeAgentDir(): Promise<string> {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp 会话 agent-"));
@@ -80,7 +82,7 @@ async function makeAgentDir(): Promise<string> {
   await mkdir(bucket, { recursive: true });
   await writeFile(
     path.join(bucket, "a_terminal.jsonl"),
-    headerLine("sess-terminal", projectA.path) + userLine("在终端里排查内存泄漏"),
+    headerLine("sess-terminal", projectA.path) + userLine("在终端里排查内存泄漏") + assistantLine("stop"),
     "utf8",
   );
   await writeFile(path.join(bucket, "b_broken.jsonl"), "{损坏的会话文件\n", "utf8");
@@ -191,6 +193,8 @@ for (const [locale, colorScheme] of [
       await expect(sidebar.getByTestId("sidebar-folder")).toHaveCount(3);
       await expect(sidebar.getByRole("region", { name: "api server" })).toBeVisible();
       await expect(myApp.getByTestId("sidebar-session")).toContainText("在终端里排查内存泄漏");
+      // 历史会话也带状态图标：会话文件最后一轮正常答完 = 完成的对勾；没有回复的（下面的 notes）不画。
+      await expect(myApp.getByTestId("sidebar-session").locator(".sb-dot-done")).toBeVisible();
       await expect(myApp.getByTestId("task-row")).toHaveCount(4);
       await expect(sidebar.getByTestId("waiting-strip")).toContainText(words.waitingMany);
       await myApp.getByTestId("sidebar-history-more").click();
@@ -236,7 +240,8 @@ for (const [locale, colorScheme] of [
       // 状态点：形状不同，各有 aria-label。
       await expect(sidebar.locator(".sb-dot-waiting")).toHaveCount(2);
       await expect(sidebar.locator(".sb-dot-running")).toHaveCount(1);
-      await expect(sidebar.locator(".sb-dot-done")).toHaveCount(1);
+      await expect(sidebar.getByTestId("task-row").locator(".sb-dot-done")).toHaveCount(1);
+      await expect(sidebar.getByTestId("sidebar-session").locator(".sb-dot-done")).toHaveCount(1);
       await expect(sidebar.locator(".sb-dot-error")).toHaveCount(1);
       // 键盘：Tab 进入列表后方向键移动，F2 重命名，Enter 提交。
       const firstRow = sidebar.getByTestId("task-row").first().locator(".sb-row-main");

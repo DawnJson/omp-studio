@@ -1,3 +1,4 @@
 export { FileLink } from "./FileLink.tsx";
 export { FilePreviewPane } from "./FilePreviewPane.tsx";
-export { openFilePreview, useFilePreview } from "./preview-store.ts";
+export { FilesToggle } from "./FilesToggle.tsx";
+export { canShowFilesPanel, openFilePreview, toggleFilesPanel, usePreviewPanel } from "./preview-store.ts";

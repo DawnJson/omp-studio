@@ -12,8 +12,7 @@ import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
 import { loadHeatmap, loadQuota, useUsageHeatmap, useUsageQuota } from "../settings/usage-store.ts";
 import { HeatmapView, QuotaBlock, UntouchedRow } from "../settings/usage-views.tsx";
 
-/** 对话框内宽约 690px，一周一列 16px（格子 13 + 间距 3），扣掉星期标签：41 周正好铺满不出横向滚动条。 */
-const heatmapWeeks = 41;
+// 热力图在对话框里按宽度铺满：画全部周（一年 53 周），格子大小跟着对话框内宽算，见 HeatmapView 的 fit。
 const focusableSelector = "button:not(:disabled), [tabindex]:not([tabindex='-1'])";
 
 type Tab = "quota" | "daily";
@@ -31,7 +30,7 @@ function DailyUsage() {
           {t("usage.heatmap.failed", { message: describeError(t, heatmap.error) })}
         </p>
       )}
-      {heatmap.data?.hasDatabase && <HeatmapView heatmap={heatmap.data} metric="cost" recentWeeks={heatmapWeeks} />}
+      {heatmap.data?.hasDatabase && <HeatmapView heatmap={heatmap.data} metric="cost" fit />}
       {heatmap.data && !heatmap.data.hasDatabase && !heatmap.busy && (
         <p className="ctx-note">{t("usage.heatmap.noDatabase")}</p>
       )}
@@ -142,21 +141,14 @@ function UsageDialogBody({
         className="usage-dialog"
         role="dialog"
         aria-modal="true"
-        aria-labelledby={`${baseId}-title`}
+        aria-label={t("composer.usage.overview")}
         data-testid="usage-dialog"
         onPointerDown={(event) => event.stopPropagation()}
         onKeyDown={onDialogKey}
         {...exitProps}
       >
-        <header className="mp-head">
-          <h2 id={`${baseId}-title`} className="mp-title">
-            {t("composer.usage.overview")}
-          </h2>
-          <button type="button" className="tool-btn" aria-label={t("common.close")} onClick={onClose}>
-            <Close size={14} />
-          </button>
-        </header>
-        <div className="qm">
+        <header className="mp-head usage-head">
+          <span aria-hidden="true" />
           <div
             className="segments qm-tabs"
             role="tablist"
@@ -181,6 +173,11 @@ function UsageDialogBody({
               </button>
             ))}
           </div>
+          <button type="button" className="tool-btn usage-close" aria-label={t("common.close")} onClick={onClose}>
+            <Close size={14} />
+          </button>
+        </header>
+        <div className="qm">
           {/* 对话框高度固定（见 composer.css），只渲染选中的那页，页内容多了在 .qm-stack 里滚动。 */}
           <div className="qm-stack">
             <div

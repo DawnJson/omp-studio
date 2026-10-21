@@ -1,4 +1,4 @@
-// 全局快捷键（spec §5.1）：Ctrl N / Ctrl Shift N / Ctrl Shift O / K / F / , / B / J / L / 1…9、Ctrl Shift [ ]、F6、Alt+←/→。
+// 全局快捷键（spec §5.1）：Ctrl N / Ctrl Shift N / Ctrl Shift O / Ctrl Shift D / Ctrl Shift E / K / F / , / B / J / L / 1…9、Ctrl Shift [ ]、F6、Alt+←/→。
 // 窗口内的 keydown 监听，不注册系统级快捷键。输入框里只有带 Ctrl/Alt 修饰的键会走到这里；单独按下/松开修饰键（Alt、Ctrl、Shift）不触发任何动作。
 import { useEffect, useRef } from "react";
 
@@ -24,6 +24,8 @@ export interface ShortcutActions {
   goForward(): void;
   /** Ctrl Shift D：打开当前任务的评审。 */
   openReview(): void;
+  /** Ctrl Shift E：打开 / 关闭当前任务（或有项目的草稿）的文件面板。 */
+  toggleFilesPanel(): void;
   /** Ctrl `：终端 打开 / 聚焦 / 收起并回到输入框。 */
   toggleTerminalFocus(): void;
   /** Esc 栈第 5 层：侧栏抽屉打开时收起。返回是否处理了。 */
@@ -47,7 +49,7 @@ export function useShortcuts(actions: ShortcutActions): void {
           return;
         }
         const handlers: Record<string, () => void> = event.shiftKey
-          ? { n: act.newTaskInCurrentProject, d: act.openReview, o: act.openFolder }
+          ? { n: act.newTaskInCurrentProject, d: act.openReview, o: act.openFolder, e: act.toggleFilesPanel }
           : {
               n: act.newTask,
               k: act.togglePalette,

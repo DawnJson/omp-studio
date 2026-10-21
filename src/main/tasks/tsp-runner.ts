@@ -53,6 +53,7 @@ import {
   type TspSessionExit,
   type TspSessionOptions,
 } from "../tsp/tsp-session.ts";
+import { resolveNewTaskDefault } from "../../shared/ui/new-task-default.ts";
 import { titleFromPrompt } from "./convert.ts";
 import { readSessionExtras } from "../tsp/session-extras.ts";
 import { readTurnCosts } from "../tsp/turn-costs.ts";
@@ -817,24 +818,8 @@ export class TspRunner {
     try {
       const defaults = await load(this.#project);
       const catalog = this.#catalog.length > 0 ? this.#catalog : await this.#refreshCatalog();
-      const role = defaults.model;
-      const model =
-        catalog.find((option) => {
-          const id = `${option.key.provider}/${option.key.modelId}`;
-          if (role !== null) return role === id || role.startsWith(`${id}:`);
-          return (
-            option.key.provider === defaults.ompDefault?.key.provider &&
-            option.key.modelId === defaults.ompDefault.key.modelId
-          );
-        }) ?? null;
-      const configured = toThinkingLevel(defaults.thinkingLevel ?? defaults.ompDefault?.thinkingLevel ?? null);
-      const supported = model !== null && model.reasoning && (model.thinkingEfforts?.length ?? 0) > 0;
-      const thinkingLevel =
-        configured !== null &&
-        supported &&
-        (configured === "off" || (model.thinkingEfforts as string[]).includes(configured))
-          ? configured
-          : null;
+      // 和草稿、起进程前的输入框同一份计算（shared/ui/new-task-default.ts）：档位按模型钳制，不会只有模型名没有强度。
+      const { model, thinkingLevel } = resolveNewTaskDefault(defaults, defaults.ompDefault, catalog);
       this.#newTaskDefault = { model, thinkingLevel };
       if (!this.#disposed) this.#publish();
     } catch (error) {

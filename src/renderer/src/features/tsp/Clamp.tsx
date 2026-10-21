@@ -1,8 +1,8 @@
 // 行数夹紧（card / tool 的 collapsed + preview，ansi / code 的 preview）：内容超过 N 行时只露出头（lines）或尾（tail），
-// 渐隐收口，下面（lines）或上面（tail）一个"还有 N 行"按钮。行高取自 --tsp-lh；超出不到一行的零头不算。
+// 渐隐收口，下面（lines）或上面（tail）一个"N more lines"按钮（文字是 omp 原样的英文，见 labels.ts）。行高取自 --tsp-lh；超出不到一行的零头不算。
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { useT } from "../../i18n/use-t.ts";
 import { ChevronDown } from "../../icons.tsx";
+import { labels } from "./labels.ts";
 
 interface ClampProps {
   /** 夹紧到几行；null = 不夹。 */
@@ -21,7 +21,6 @@ function lineHeight(el: HTMLElement): number {
 }
 
 export function Clamp({ lines, tail = false, onExpand, className, children }: ClampProps) {
-  const t = useT();
   const inner = useRef<HTMLDivElement>(null);
   const [hidden, setHidden] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -58,7 +57,7 @@ export function Clamp({ lines, tail = false, onExpand, className, children }: Cl
         else setExpanded(true);
       }}
     >
-      {t(tail ? "tsp.earlierLines" : "tsp.moreLines", { count: hidden })}
+      {tail ? labels.earlierLines(hidden) : labels.moreLines(hidden)}
       <ChevronDown size={12} />
     </button>
   );
@@ -71,7 +70,7 @@ export function Clamp({ lines, tail = false, onExpand, className, children }: Cl
       {clamped && !tail && label}
       {!active && expanded && onExpand === undefined && lines !== null && hidden > 0 && (
         <button type="button" className="tsp-more" onClick={() => setExpanded(false)}>
-          {t("tsp.showLess")}
+          {labels.showLess}
         </button>
       )}
     </div>

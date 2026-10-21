@@ -13,12 +13,12 @@ import { useStickToBottom } from "../conversation/use-stick-to-bottom.ts";
 import type { TspContext } from "./node-props.ts";
 import { TspHosts } from "./TspHosts.tsx";
 import { TspChildren } from "./TspChildren.tsx";
+import { MainFlow } from "./MainFlow.tsx";
 import { StudioHeader } from "../empty/StudioHeader.tsx";
 import { useTask } from "../../store/index.ts";
 import { TspCtx } from "./tsp-context.ts";
 import {
   ensureTspDocument,
-  useTspHasRecap,
   useTspHasUserMessage,
   useTspNode,
   useTspReady,
@@ -27,7 +27,7 @@ import {
   useTspTurnCount,
 } from "./tsp-store.ts";
 import { clearFirstPrompt, useFirstPrompt } from "./first-prompt-store.ts";
-import { refreshSessionExtras, useSessionExtras } from "./session-extras-store.ts";
+import { refreshSessionExtras } from "./session-extras-store.ts";
 import { refreshTurnCosts } from "./turn-cost-store.ts";
 import "./tsp.css";
 
@@ -135,17 +135,7 @@ interface SurfaceParts {
   mode: "inline" | "screen";
 }
 
-function Region({
-  taskId,
-  sf,
-  id,
-  ctx,
-}: {
-  taskId: TaskId;
-  sf: string;
-  id: "main" | "dock" | "layer";
-  ctx: TspContext;
-}) {
+function Region({ taskId, sf, id, ctx }: { taskId: TaskId; sf: string; id: "dock" | "layer"; ctx: TspContext }) {
   const node = useTspNode(taskId, sf, id);
   if (node === null) return null;
   return <TspChildren node={node} ctx={ctx} />;
@@ -162,7 +152,7 @@ function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, header,
         <div ref={scroller} className="tsp-scroller" role="log" aria-label={t("tsp.layoutRegion")} tabIndex={0}>
           <div ref={column} className="tsp-column tsp-main" data-role={role}>
             {header}
-            <Region taskId={taskId} sf={sf} id="main" ctx={ctx} />
+            <MainFlow taskId={taskId} sf={sf} ctx={ctx} restoreRecap={mode === "inline"} />
             {tail}
             <div className="tsp-column-end" />
           </div>
@@ -244,13 +234,7 @@ function InlineSurface({
       surface={surface}
       mode="inline"
       header={<StudioHeader compact path={cwd} />}
-      tail={
-        pendingText !== undefined && !hasUser ? (
-          <PendingUser text={pendingText} />
-        ) : (
-          <RestoredRecap taskId={taskId} sf={surfaceId} />
-        )
-      }
+      tail={pendingText !== undefined && !hasUser ? <PendingUser text={pendingText} /> : null}
       jump={
         showJump && (
           <button type="button" className="tsp-jump" onClick={scrollToBottom} data-testid="jump-latest">
@@ -259,23 +243,6 @@ function InlineSurface({
         )
       }
     />
-  );
-}
-
-/**
- * 恢复会话后补回 omp 最后一次空闲回顾（omp 只在生成当时显示一次、不写会话文件、恢复时不重放，见 main/tsp/session-extras.ts）。
- * 实时收到过 omp.recap 就用实时的；文档里的轮数和会话文件对不上（正在发新消息）时不画，免得盖在新一轮后面。
- */
-function RestoredRecap({ taskId, sf }: { taskId: TaskId; sf: string }) {
-  const t = useT();
-  const { turns, recap } = useSessionExtras(taskId);
-  const turnCount = useTspTurnCount(taskId, sf);
-  const live = useTspHasRecap(taskId, sf);
-  if (recap === null || live || turnCount !== turns.length) return null;
-  return (
-    <div className="tsp-row" data-role="omp.recap" data-restored="" title={t("tsp.recapTitle")}>
-      <div className="tsp-text">{recap}</div>
-    </div>
   );
 }
 

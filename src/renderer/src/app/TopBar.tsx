@@ -1,5 +1,6 @@
 // 顶栏 = 任务条（spec §3.1）：左 标志+字标、切换侧栏按钮（图标随侧栏显隐变化）、"关于与反馈"图标按钮；中 任务标题 + 状态胶囊；
-// 右 任务工具（分支、评审、终端），再往右是 titleBarOverlay 绘制的系统三键。空白处可拖动窗口。后退/前进不在顶栏（Alt+←/→、鼠标侧键）。
+// 右 任务工具（分支、评审、文件面板、终端），再往右是 titleBarOverlay 绘制的系统三键。空白处可拖动窗口。后退/前进不在顶栏（Alt+←/→、鼠标侧键）。
+import { FilesToggle } from "../features/file-preview/index.ts";
 import { GitTools } from "../features/git/index.ts";
 import { TerminalToggle, useDraftTerminalKey } from "../features/terminal/index.ts";
 import { useT } from "../i18n/use-t.ts";
@@ -15,7 +16,7 @@ interface TopBarProps {
   onToggleSidebar(): void;
 }
 
-/** 对话页上出现：任务有分支、评审、终端；新任务草稿只有终端。最右一条竖线把它们和系统三键隔开。 */
+/** 对话页上出现：任务有分支、评审、文件面板、终端；新任务草稿有文件面板（草稿有项目时）和终端。最右一条竖线把它们和系统三键隔开。 */
 function TaskTools() {
   const view = useMainView();
   const taskId = useSelectedTaskId();
@@ -25,6 +26,7 @@ function TaskTools() {
   return (
     <div className="topbar-tools" data-testid="topbar-tools">
       {taskId !== null && <GitTools taskId={taskId} />}
+      <FilesToggle panelKey={taskId ?? draftKey} />
       <TerminalToggle terminalKey={taskId ?? draftKey} />
       <span className="topbar-divider" aria-hidden="true" />
     </div>

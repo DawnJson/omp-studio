@@ -164,3 +164,8 @@ export function dotKind(task: TaskState): DotKind {
   if (task.status === "idle" && task.lastTurn?.status === "completed") return "done";
   return "none";
 }
+
+/** 历史会话（还没挂在任务上）的状态点：没有进程，只看会话文件里最后一轮的结果，和任务空闲时同一套。 */
+export function sessionDotKind(session: Pick<SessionSummary, "lastTurn">): DotKind {
+  return session.lastTurn === "completed" ? "done" : session.lastTurn === "error" ? "error" : "none";
+}

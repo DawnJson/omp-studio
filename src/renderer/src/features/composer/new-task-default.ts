@@ -1,6 +1,6 @@
 // 新任务默认值的"上次读到的值"：切项目时胶囊第一帧就要是最终值，每个项目最近一次现读的结果记在这里
 // （没读过时退回主进程的启动缓存），绝不拿别的项目的值顶替；现读的结果和已显示的一样就不会再变。
-// 显示什么模型、什么强度的纯计算在 new-task-resolve.ts。
+// 显示什么模型、什么强度的纯计算在 shared/ui/new-task-default.ts，读取和占位在 use-new-task-default.ts。
 import type { DefaultModelInfo, ModelDefaults, ModelOption, ProjectId } from "../../../../shared/ipc.ts";
 import { startupSnapshot } from "../../store/startup-snapshot.ts";
 

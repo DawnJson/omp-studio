@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { TspText } from "../../../../../shared/tsp/tsp.generated.ts";
 import { isRecord } from "../../../../../shared/type-guards.ts";
-import { useT } from "../../../i18n/use-t.ts";
+import { labels } from "../labels.ts";
 import { clamp01, formatElapsed, formatRate } from "../fmt.ts";
 import { TspIcon } from "../icons.tsx";
 import { nodeDomProps } from "../node-dom.ts";
@@ -43,12 +43,11 @@ export function Spinner(props: NodeProps) {
     indicator = <span className="tsp-spin-orbit" aria-hidden="true" />;
   }
   const label = p.label as TspText | undefined;
-  const t = useT();
   return (
     <span
       {...nodeDomProps(props, "tsp-spinner")}
       role="img"
-      aria-label={asString(p.aria) ?? (label ? plainText(label) : t("tsp.working"))}
+      aria-label={asString(p.aria) ?? (label ? plainText(label) : labels.working)}
     >
       {indicator}
       {label !== undefined && (
@@ -357,7 +356,6 @@ function arcPath(index: number): string {
 }
 
 export function Effort(props: NodeProps) {
-  const t = useT();
   const level = asString(props.node.p.level) ?? "";
   const known = EFFORT_RUNGS[level];
   return (
@@ -368,7 +366,7 @@ export function Effort(props: NodeProps) {
       })}
       data-level={known ? level : "auto"}
       role="img"
-      aria-label={asString(props.node.p.aria) ?? t("tsp.effortAria", { level })}
+      aria-label={asString(props.node.p.aria) ?? labels.effortAria(level)}
     >
       <svg
         viewBox="0 0 16 16"
@@ -394,7 +392,6 @@ export function Effort(props: NodeProps) {
 // ───────── chart ─────────
 
 export function Chart(props: NodeProps) {
-  const t = useT();
   const p = props.node.p;
   const kind = p.kind === "bars" || p.kind === "spark" ? p.kind : "heatmap";
   const size = p.size === "sm" || p.size === "lg" ? p.size : "md";
@@ -478,7 +475,7 @@ export function Chart(props: NodeProps) {
       role="img"
       aria-label={summary ? plainText(summary) : undefined}
     >
-      {empty ? <span className="tsp-chart-empty">{t("tsp.chartEmpty")}</span> : body}
+      {empty ? <span className="tsp-chart-empty">{labels.chartEmpty}</span> : body}
       {summary !== undefined && (
         <div className={`tsp-chart-sum ${spanClass("muted") ?? ""}`}>
           <TspSpans text={summary} />

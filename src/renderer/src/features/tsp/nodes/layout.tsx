@@ -1,12 +1,11 @@
 // 布局类节点：col、row、card、section、rule、spacer（规范 Layout）。
 import type { KeyboardEvent, ReactNode } from "react";
 import type { TspPreview, TspSpace, TspText } from "../../../../../shared/tsp/tsp.generated.ts";
-import type { MessageKey } from "../../../../../shared/i18n/index.ts";
-import { useT } from "../../../i18n/use-t.ts";
 import { ChevronDown } from "../../../icons.tsx";
 import { Clamp } from "../Clamp.tsx";
 import { FoldCtx } from "../fold-context.ts";
 import { TspIcon, resolveIconName, toolIconName } from "../icons.tsx";
+import { labels } from "../labels.ts";
 import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
 import { TspSpans } from "../spans.tsx";
@@ -15,7 +14,7 @@ import { useFold } from "../use-fold.ts";
 import { alignTurnCost, withExactCost } from "../turn-cost.ts";
 import { TurnCostCtx } from "../turn-cost-context.ts";
 import { useTurnCosts } from "../turn-cost-store.ts";
-import { useBareTurnIndex, useUsageRowFromEnd } from "../tsp-store.ts";
+import { useBareTurnIndex, useIsLatestRecap, useUsageRowFromEnd } from "../tsp-store.ts";
 import { useSessionExtras } from "../session-extras-store.ts";
 import { formatTurnFooter } from "../turn-footer.ts";
 
@@ -64,12 +63,17 @@ function AssistantCol(props: NodeProps) {
   );
 }
 
-/** 空闲回顾（omp.recap）：omp 终端里是 "※ recap: …"，节点里的图标 `history` 只是 TSP 的占位，tsp.css 里隐藏它、改画 ※。悬停提示用本地化文字。 */
+/**
+ * 空闲回顾（omp.recap）：omp 终端里是 "※ recap: …"，节点里的图标 `history` 只是 TSP 的占位，tsp.css 里隐藏它、改画 ※。
+ * 对话里只显示最新的一条：之后又来了新的回顾，这一条就收起（实时每条回顾 omp 都留在对话里，恢复时一条也不重放）。
+ */
 function RecapRow(props: NodeProps) {
-  const t = useT();
+  const { taskId, sf } = props.ctx;
+  const latest = useIsLatestRecap(taskId, sf, props.node.id);
+  if (!latest) return null;
   const dom = nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) });
   return (
-    <div {...dom} title={t("tsp.recapTitle")}>
+    <div {...dom} title={labels.recapTitle}>
       <TspChildren {...props} />
     </div>
   );
@@ -142,20 +146,12 @@ function roleIcon(role: unknown): string | null {
 }
 
 function StatusChip({ status }: { status: string }) {
-  const t = useT();
-  const labels: Record<string, MessageKey> = {
-    pending: "tsp.statusPending",
-    running: "tsp.statusRunning",
-    done: "tsp.statusDone",
-    error: "tsp.statusError",
-    cancelled: "tsp.statusCancelled",
-  };
-  const key = labels[status];
-  if (!key) return null;
+  const label = labels.status(status);
+  if (label === undefined) return null;
   return (
     <span className="tsp-chip" data-status={status}>
       {status === "running" ? <i className="tsp-chip-dot" /> : <TspIcon name={chipIcon(status)} size={12} />}
-      {t(key)}
+      {label}
     </span>
   );
 }

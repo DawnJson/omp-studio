@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import type { TspDiffHunk, TspSpan } from "../../../../../shared/tsp/tsp.generated.ts";
-import { useT } from "../../../i18n/use-t.ts";
+import { labels } from "../labels.ts";
 import { Markdown } from "../../../markdown/index.ts";
 import { cachedHighlight, highlight, resolveLanguage, type HighlightToken } from "../../../markdown/highlight.ts";
 import { openHref } from "../actions.ts";
@@ -320,7 +320,6 @@ function SplitHalf({ line, range, side }: { line: DiffLine | null; range: WordRa
 }
 
 export function Diff(props: NodeProps) {
-  const t = useT();
   const p = props.node.p;
   const hunks: DiffHunkRows[] = useMemo(() => {
     if (Array.isArray(p.hunks)) return hunksFromProps(p.hunks as TspDiffHunk[]);
@@ -331,7 +330,7 @@ export function Diff(props: NodeProps) {
   return (
     <div {...nodeDomProps(props, "tsp-diff", { className: split ? "split" : undefined })}>
       {empty ? (
-        <div className="tsp-diff-empty">{t("tsp.noChanges")}</div>
+        <div className="tsp-diff-empty">{labels.noChanges}</div>
       ) : (
         <div className="tsp-diff-body">
           {hunks.map((hunk, index) => {
@@ -342,7 +341,7 @@ export function Diff(props: NodeProps) {
               <Fragment key={index}>
                 {previous && (
                   <div className="tsp-dsep">
-                    {gap > 0 ? `⋯ ${t("tsp.unchangedLines", { count: gap })}` : "⋯"}
+                    {gap > 0 ? `⋯ ${labels.unchangedLines(gap)}` : "⋯"}
                     {hunk.fn !== "" && <span className="fn">{hunk.fn}</span>}
                   </div>
                 )}
@@ -496,7 +495,6 @@ export function Rows(props: NodeProps) {
 // ───────── media ─────────
 
 export function Media(props: NodeProps) {
-  const t = useT();
   const path = typeof props.node.p.path === "string" ? props.node.p.path : "";
   const name = path.split(/[\\/]/).pop() ?? path;
   const dir = path.slice(0, path.length - name.length);
@@ -513,7 +511,7 @@ export function Media(props: NodeProps) {
     <button
       type="button"
       {...nodeDomProps(props, "tsp-media")}
-      title={t("tsp.mediaOpen", { path })}
+      title={labels.mediaOpen(path)}
       onClick={() => openHref(path, props.ctx)}
     >
       {body}

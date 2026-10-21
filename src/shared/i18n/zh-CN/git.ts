@@ -42,6 +42,7 @@ export const git = {
   "commit.message": "提交信息",
   "commit.stageAll": "先暂存全部改动",
   "commit.confirm": "提交",
+  "commit.review": "评审改动",
   "commit.done": "已提交 {commit}",
   "commit.nothing": "没有可提交的内容。勾选“先暂存全部改动”或在评审里暂存文件。",
   "commit.failed": "提交被 git 拒绝",

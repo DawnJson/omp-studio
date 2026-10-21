@@ -20,6 +20,7 @@ import { reportError } from "../../ui/errors.ts";
 import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
 import { usePresence, type Presence } from "../../ui/presence.ts";
 import { announceCommit, discardWorktree, pushAndCreatePullRequest } from "./git-actions.ts";
+import { openReview } from "../../store/review-store.ts";
 import { closeGitDialog, useGitDialog, type GitDialogState } from "./git-dialog-store.ts";
 import { refreshGit } from "./git-store.ts";
 import "./git.css";
@@ -151,6 +152,17 @@ function CommitDialog({ taskId }: { taskId: TaskId }) {
       testId="git-commit-dialog"
       footer={
         <>
+          <button
+            type="button"
+            className="gate-btn git-foot-lead"
+            data-testid="git-commit-review"
+            onClick={() => {
+              closeGitDialog();
+              openReview(taskId);
+            }}
+          >
+            {t("git.commit.review")}
+          </button>
           <CancelButton />
           <button
             type="button"

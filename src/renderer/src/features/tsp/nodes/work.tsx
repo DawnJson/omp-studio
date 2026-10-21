@@ -11,7 +11,7 @@ import {
 } from "react";
 import type { TspPickerAction, TspText } from "../../../../../shared/tsp/tsp.generated.ts";
 import { isRecord } from "../../../../../shared/type-guards.ts";
-import { useT } from "../../../i18n/use-t.ts";
+import { labels } from "../labels.ts";
 import { Check, ChevronDown, CopyIcon } from "../../../icons.tsx";
 import { openHref, runAction } from "../actions.ts";
 import { Clamp } from "../Clamp.tsx";
@@ -138,7 +138,6 @@ function ToolTime({ status, age, took }: { status: ToolStatus; age: number | und
 }
 
 export function Tool(props: NodeProps) {
-  const t = useT();
   const { node, ctx } = props;
   const p = node.p;
   const status = toolStatus(p.status);
@@ -274,8 +273,8 @@ export function Tool(props: NodeProps) {
             <button
               type="button"
               className="tsp-tool-act"
-              title={t("tsp.copyCommand")}
-              aria-label={t("tsp.copyCommand")}
+              title={labels.copyCommand}
+              aria-label={labels.copyCommand}
               onClick={() => copyText(command)}
             >
               <CopyIcon size={12} />
@@ -335,7 +334,6 @@ function SmallTime({
 }
 
 export function Agent(props: NodeProps) {
-  const t = useT();
   const { node, ctx } = props;
   const p = node.p;
   const statusRaw = asString(p.status);
@@ -356,7 +354,7 @@ export function Agent(props: NodeProps) {
   const contextFraction = context === undefined ? undefined : context > 1 ? clamp01(context / 100) : clamp01(context);
   const contextLabel =
     asString(stats.contextLabel) ??
-    (contextFraction === undefined ? "" : t("tsp.agentContext", { percent: Math.round(contextFraction * 100) }));
+    (contextFraction === undefined ? "" : labels.agentContext(Math.round(contextFraction * 100)));
   const tools = asNumber(stats.tools);
   const requests = asNumber(stats.requests);
   const tokens = asNumber(stats.tokens);
@@ -414,14 +412,12 @@ export function Agent(props: NodeProps) {
             </span>
           )}
           {tools !== undefined && tools > 0 && (
-            <span className="tools" title={t("tsp.agentTools", { count: tools })}>
+            <span className="tools" title={labels.agentTools(tools)}>
               <TspIcon name="wrench" size={11} />
               {tools}
             </span>
           )}
-          {requests !== undefined && requests > 0 && (
-            <span className="req">{t("tsp.agentRequests", { count: requests })}</span>
-          )}
+          {requests !== undefined && requests > 0 && <span className="req">{labels.agentRequests(requests)}</span>}
           {status === "running" && doneFraction !== undefined && (
             <span className="done">
               <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
@@ -468,11 +464,11 @@ export function Agent(props: NodeProps) {
       {retry !== null ? (
         <div className="tsp-agent-now" title={asString(retry.error)}>
           <span className="retry">
-            {t("tsp.agentRetry", {
-              attempt: asNumber(retry.attempt) ?? 1,
-              max: asNumber(retry.max) ?? 1,
-              delay: formatElapsed(Math.max(0, (asNumber(retry.delay) ?? 0) - (retryAt ?? 0)), "clock"),
-            })}
+            {labels.agentRetry(
+              asNumber(retry.attempt) ?? 1,
+              asNumber(retry.max) ?? 1,
+              formatElapsed(Math.max(0, (asNumber(retry.delay) ?? 0) - (retryAt ?? 0)), "clock"),
+            )}
           </span>
         </div>
       ) : (
@@ -653,7 +649,6 @@ function FullList({ phases, fresh }: { phases: readonly Phase[]; fresh: Readonly
 }
 
 export function Checklist(props: NodeProps) {
-  const t = useT();
   const { node, ctx } = props;
   const phases = readPhases(node.p.phases);
   const mode = node.p.mode === "hud" || node.p.mode === "reminder" ? node.p.mode : "full";
@@ -678,7 +673,7 @@ export function Checklist(props: NodeProps) {
   const dom = nodeDomProps(props, "tsp-checklist", { className: `${mode}${open && mode !== "full" ? " open" : ""}` });
   if (mode === "hud") {
     const lead = all.find((item) => item.status === "active") ?? all.find((item) => item.status === "pending");
-    const label: TspText | undefined = lead ? lead.text : all.length === 0 ? t("tsp.todos") : t("tsp.allDone");
+    const label: TspText | undefined = lead ? lead.text : all.length === 0 ? labels.todos : labels.allDone;
     return (
       <div {...dom}>
         <button
@@ -727,7 +722,7 @@ export function Checklist(props: NodeProps) {
           <span className="ic">
             <TspIcon name="warn" size={12} />
           </span>
-          <span className="t">{t("tsp.todosOpen", { count: openItems.length })}</span>
+          <span className="t">{labels.todosOpen(openItems.length)}</span>
           {node.p.note !== undefined && (
             <span className="n">
               <TspSpans text={node.p.note as TspText} />
@@ -742,7 +737,7 @@ export function Checklist(props: NodeProps) {
     );
   }
   return (
-    <div {...dom} role="group" aria-label={t("tsp.todosDone", { done, total: all.length })}>
+    <div {...dom} role="group" aria-label={labels.todosDone(done, all.length)}>
       <FullList phases={phases} fresh={fresh} />
     </div>
   );
