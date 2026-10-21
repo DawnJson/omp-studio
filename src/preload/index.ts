@@ -2,6 +2,7 @@
 // 打包成 CJS（electron.vite.config.ts）；这里不写任何业务逻辑，校验在主进程（src/main/ipc/validate.ts）。
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import {
+  composerFilesChannel,
   dropFolderChannel,
   eventChannel,
   eventNames,
@@ -38,18 +39,34 @@ interface DropEvent extends Event {
 }
 // 沙箱 preload 里的 window；node 工程没有 DOM 类型，只用到 EventTarget 的接口。
 const pageWindow = globalThis as unknown as EventTarget;
+/** 事件目标是不是输入框的拖放区（带 data-composer-drop 的元素或它的子孙）。 */
+function inComposerDrop(target: EventTarget | null): boolean {
+  return (
+    target !== null &&
+    "closest" in target &&
+    typeof target.closest === "function" &&
+    target.closest("[data-composer-drop]") !== null
+  );
+}
 pageWindow.addEventListener(
   "drop",
   (event) => {
-    const file = (event as DropEvent).dataTransfer?.files[0];
-    if (file) void ipcRenderer.invoke(dropFolderChannel, webUtils.getPathForFile(file));
+    const files = Array.from((event as DropEvent).dataTransfer?.files ?? []);
+    if (files[0]) void ipcRenderer.invoke(dropFolderChannel, webUtils.getPathForFile(files[0]));
+    // 拖到输入框上的非图片文件：登记成文件附件（图片由输入框自己的 onDrop 转成图片附件）。
+    if (inComposerDrop(event.target)) {
+      const paths = files
+        .filter((file) => !file.type.startsWith("image/"))
+        .map((file) => webUtils.getPathForFile(file));
+      if (paths.length > 0) void ipcRenderer.invoke(composerFilesChannel, { paths });
+    }
   },
   true,
 );
 
-// 粘贴文件（资源管理器里复制的文件、文件夹）进输入框：和终端里一样插入路径，有空白的加引号，多个用空格隔开。
-// 路径同样只在这里取（理由同上），用 execCommand("insertText") 插进正在粘贴的输入框：走输入框自己的 input 事件，
-// 能撤销。图片不管，交给输入框的 onPaste 作附件。
+// 粘贴文件（资源管理器里复制的文件、文件夹）进输入框：普通文件登记成文件附件（主进程校验，渲染进程只拿到 id）；
+// 其余（文件夹）和终端里一样插入路径，有空白的加引号，多个用空格隔开，用 execCommand("insertText") 插进正在粘贴的输入框：
+// 走输入框自己的 input 事件，能撤销。路径同样只在这里取（理由同上）。图片不管，交给输入框的 onPaste 作附件。
 interface PasteEvent extends Event {
   clipboardData: { files: ArrayLike<File> } | null;
 }
@@ -79,7 +96,9 @@ pageWindow.addEventListener(
       .filter((path) => path !== "");
     if (paths.length === 0) return;
     event.preventDefault();
-    pageGlobal.document.execCommand("insertText", false, paths.map(quotePath).join(" "));
+    void ipcRenderer.invoke(composerFilesChannel, { paths, paste: true }).then((rest: string[]) => {
+      if (rest.length > 0) pageGlobal.document.execCommand("insertText", false, rest.map(quotePath).join(" "));
+    });
   },
   true,
 );

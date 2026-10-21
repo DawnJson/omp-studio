@@ -11,7 +11,7 @@ export const goalSlash: StudioSlashCommand = {
   async run(taskId, args, t) {
     const parsed = parseGoalArgs(args);
     if (parsed.kind === "show") await showGoal(taskId, t);
-    else if (parsed.kind === "op") await applyGoalOp(taskId, parsed.op, t);
-    else await createGoal(taskId, parsed.objective, t);
+    else if (parsed.kind === "op") await applyGoalOp(taskId, parsed.op);
+    else await createGoal(taskId, parsed.objective);
   },
 };

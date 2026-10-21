@@ -10,7 +10,7 @@ import { Markdown } from "../../markdown/index.ts";
 import { formatDuration } from "../conversation/format.ts";
 import { buildTurns } from "../conversation/model.ts";
 import { ProcessDetails } from "../conversation/ProcessDetails.tsx";
-import { formatCost, formatTokens, shortModel } from "../lanes/format.ts";
+import { formatCost, formatTokens, shortModel } from "./format.ts";
 import { agentElapsed, canKill, canRevive, canSteer, dotStatus, statusKey } from "./agent-model.ts";
 import { killAgent, reviveAgent } from "./agents-actions.ts";
 import { SteerBox } from "./SteerBox.tsx";

@@ -19,7 +19,6 @@ export const tspi = {
   changedFromDefault: "Changed from default",
   changedFromDefaultTo: "Changed from default: {value}",
   changedCount: "{count} changed from default",
-  edit: "Edit…",
   notSet: "Not set",
   decrease: "Decrease",
   increase: "Increase",

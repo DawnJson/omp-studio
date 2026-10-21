@@ -9,8 +9,7 @@ import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
 import { findOmp, isolateOmp, makeRepo, makeScratch, sh } from "./git-helpers.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
-const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
-const fixture = path.join(root, "fixtures", "rpc", "simple-reply.ndjson");
+const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
 const settings: StudioSettings = {
   locale: "zh-CN",
   theme: "system",
@@ -19,7 +18,6 @@ const settings: StudioSettings = {
   enterWhileRunning: "steer",
   notifyOnGate: true,
   copyOnSelect: true,
-  taskEngine: "rpc",
   yoloConfirmed: false,
 };
 
@@ -47,12 +45,18 @@ async function setup(name: string, existingRepo?: string) {
   const pool = new TaskPool({
     registry,
     getSettings: async () => settings,
-    buildLaunch: async (record, project) => {
-      const cwd = record.worktreePath ?? project.path;
-      launches.push(cwd);
-      return { command: process.execPath, args: [fakeOmp, fixture], cwd, env: process.env };
+    tsp: {
+      buildLaunch: async (record, project) => {
+        const cwd = record.worktreePath ?? project.path;
+        launches.push(cwd);
+        return { command: process.execPath, args: [fakeOmp, "slash-status", "--speed=100"], cwd, env: process.env };
+      },
+      session: {
+        appVersion: "9.9.9",
+        appearance: () => ({ dark: true, reduceMotion: false }),
+        assignJob: () => () => undefined,
+      },
     },
-    assignJob: () => {},
     worktrees: {
       create: async (project) => {
         const wt = await createWorktree(project.path, { ompPath: omp ?? "omp" });
@@ -62,11 +66,8 @@ async function setup(name: string, existingRepo?: string) {
     },
     events: {
       state: () => {},
-      transcript: () => {},
       notice: () => {},
       taskRemoved: (id) => removed.push(id),
-      slashCommands: () => {},
-      subagents: () => {},
     },
   });
   pools.push(pool);

@@ -9,7 +9,6 @@ export const agents = {
   open: "Open the subagents panel",
   cmd: "Subagents (view, steer, kill, revive)",
   slashDesc: "Open the subagents panel: view, steer, kill, revive",
-  rpcHint: "This task's subagents are in the conversation's process rows: open one to steer or cancel it.",
   listLabel: "Subagent list",
   count: "{count}",
   empty: "No subagents yet. They appear here when the main agent spawns them.",
@@ -56,5 +55,4 @@ export const agents = {
   killed: "Killed {name}",
   revive: "Revive",
   revived: "Revived {name}",
-  failed: "Operation failed",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

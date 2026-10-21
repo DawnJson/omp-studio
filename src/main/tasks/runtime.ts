@@ -13,11 +13,10 @@ import { t } from "../../shared/i18n/index.ts";
 import { forgetExport } from "./export-record.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { appHandlers } from "../ipc/app-handlers.ts";
-import { buildOmpLaunch, buildTspLaunch, setTestOmpOverride } from "../omp/launch.ts";
+import { buildTspLaunch, setTestOmpOverride } from "../omp/launch.ts";
 import { exportSessionHtml } from "../omp/export-session.ts";
 import { parseTestOmpOverride } from "../omp/launch-args.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
-import { assignToAppJob } from "../platform/win32/job-object.ts";
 import { closeTaskTerminal } from "../terminal/active.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
 import { listModelOptions, readDefaultModel } from "../service/default-model.ts";
@@ -89,17 +88,7 @@ function createPool(): Promise<TaskPool> {
   const taskPool = new TaskPool({
     registry,
     getSettings: () => appHandlers.getSettings(),
-    buildLaunch: (record, project) =>
-      buildOmpLaunch({
-        // worktree 任务以 worktree 根为 cwd（没有 RPC 能改 cwd，只能在 spawn 时定）。
-        cwd: record.worktreePath ?? project.path,
-        model: record.model,
-        thinkingLevel: record.thinkingLevel,
-        // 项目目录就是用户主目录时 omp 会自动换到临时目录（cli-reference.md --allow-home）。
-        allowHome: pathKey(record.worktreePath ?? project.path) === pathKey(os.homedir()),
-      }),
     worktrees: worktreeOps,
-    assignJob: assignToAppJob,
     beforeTaskClose: closeTaskTerminal,
     forkTitle: (title) => t(resolveLocale(), "task.forkTitle", { title }),
     knownModel: (key) => startupCache().model(key),
@@ -116,11 +105,13 @@ function createPool(): Promise<TaskPool> {
     exportSession: exportSessionHtml,
     tsp: {
       buildLaunch: (record, project) => {
+        // worktree 任务以 worktree 根为 cwd（omp 会话绑 cwd，只能在 spawn 时定）。
         const cwd = record.worktreePath ?? project.path;
         return buildTspLaunch({
           cwd,
           model: record.model,
           thinkingLevel: record.thinkingLevel,
+          // 项目目录就是用户主目录时 omp 会自动换到临时目录（cli-reference.md --allow-home）。
           allowHome: pathKey(cwd) === pathKey(os.homedir()),
           resumeSessionFile: record.sessionFile,
           forkSessionFile: record.forkFrom ?? null,
@@ -138,7 +129,6 @@ function createPool(): Promise<TaskPool> {
         void notifier.onState(state);
         refreshTray(taskPool.listTasks());
       },
-      transcript: (batch) => emitEvent("transcript", batch),
       tspBatch: (batch) => emitEvent("tspBatch", batch),
       notice: (notice) => emitEvent("taskNotice", notice),
       taskRemoved: (id) => {
@@ -146,8 +136,6 @@ function createPool(): Promise<TaskPool> {
         emitEvent("taskRemoved", id);
         refreshTray(taskPool.listTasks());
       },
-      slashCommands: (taskId, commands) => emitEvent("slashCommands", { taskId, commands }),
-      subagents: (taskId, lanes) => emitEvent("subagents", { taskId, lanes }),
       btw: (taskId, event) => emitEvent("btw", { taskId, event }),
     },
   });

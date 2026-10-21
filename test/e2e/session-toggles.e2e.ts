@@ -21,15 +21,12 @@ async function start(): Promise<Started> {
   const project = path.join(work, "项目 目录");
   await mkdir(project);
   const log = path.join(work, "omp-received.jsonl");
-  const launched = await launchApp(
-    {
-      STUDIO_TEST_OMP: JSON.stringify({
-        command: process.execPath,
-        args: [fakeOmp, "status-toggles", "--speed=20", `--log=${log}`],
-      }),
-    },
-    { taskEngine: "tsp" },
-  );
+  const launched = await launchApp({
+    STUDIO_TEST_OMP: JSON.stringify({
+      command: process.execPath,
+      args: [fakeOmp, "status-toggles", "--speed=20", `--log=${log}`],
+    }),
+  });
   await launched.app.evaluate(({ dialog, ipcMain }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
     const item = (key: string, value: unknown) => ({

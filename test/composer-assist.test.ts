@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AvailableSlashCommand } from "../src/shared/omp-wire/rpc-wire.generated.ts";
 import type { TaskId } from "../src/shared/ipc.ts";
-import type { TranscriptItem } from "../src/shared/transcript.ts";
 import { applyFileCompletion, atReference } from "../src/renderer/src/features/composer/file-complete.ts";
 import {
   MAX_HISTORY,
@@ -11,7 +10,6 @@ import {
   recordSent,
   shouldCycle,
   stepHistory,
-  transcriptUserTexts,
 } from "../src/renderer/src/features/composer/input-history.ts";
 import { decideSlashSend, leadingSlashName } from "../src/renderer/src/features/composer/slash-guard.ts";
 import { matchSlash } from "../src/renderer/src/features/composer/slash-match.ts";
@@ -95,32 +93,18 @@ describe("输入历史", () => {
     expect(shouldCycle("down", "a\nb", 3, true, true)).toBe(true);
   });
 
-  const user = (text: string, extra: object = {}): TranscriptItem => ({
-    kind: "message",
-    key: text,
-    message: { role: "user", content: text, timestamp: 0, ...extra },
-    streaming: false,
-    at: 0,
-    endedAt: null,
-  });
-
-  it("transcriptUserTexts：只取非合成的用户文字", () => {
-    expect(
-      transcriptUserTexts([user("hello"), user("synthetic", { synthetic: true }), user("  "), user("again")]),
-    ).toEqual(["hello", "again"]);
-  });
-
-  it("按任务记：对话做种子，发送追加，cycleHistory 走完后恢复草稿", () => {
+  it("按任务记：发送追加，cycleHistory 走完后恢复草稿", () => {
     const id = "history-task" as TaskId;
-    const items = [user("first"), user("second")];
-    expect(hasHistory(id, items)).toBe(true);
-    recordSent(id, "third", items);
-    expect(cycleHistory(id, "wip", "up", items)).toBe("third");
-    expect(cycleHistory(id, "third", "up", items)).toBe("second");
-    expect(cycleHistory(id, "second", "down", items)).toBe("third");
-    expect(cycleHistory(id, "third", "down", items)).toBe("wip");
-    expect(cycleHistory(id, "wip", "down", items)).toBeNull();
-    expect(hasHistory("other-task" as TaskId, [])).toBe(false);
+    expect(hasHistory(id)).toBe(false);
+    recordSent(id, "second");
+    recordSent(id, "third");
+    expect(hasHistory(id)).toBe(true);
+    expect(cycleHistory(id, "wip", "up")).toBe("third");
+    expect(cycleHistory(id, "third", "up")).toBe("second");
+    expect(cycleHistory(id, "second", "down")).toBe("third");
+    expect(cycleHistory(id, "third", "down")).toBe("wip");
+    expect(cycleHistory(id, "wip", "down")).toBeNull();
+    expect(hasHistory("other-task" as TaskId)).toBe(false);
   });
 });
 

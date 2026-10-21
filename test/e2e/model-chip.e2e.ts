@@ -82,6 +82,8 @@ test("切换项目：模型胶囊逐帧无闪变、无空白，档位随项目�
     };
 
     await expect.poll(() => chipText(page), { timeout: 30_000 }).toContain(projects[2]!.model);
+    // 默认模型读到后，草稿的上下文圆环是可点的 0%（窗口取默认模型的），不再是占位。
+    await expect(page.getByTestId("draft-composer").getByTestId("context-meter")).toHaveAttribute("aria-label", /0%/);
     // 第二阶段：每个项目都读过了，来回切换。第一帧就是这个项目的最终值，不许有占位，也不许出现别的项目的值。
     const first = await readRecording(page);
     await startRecording(page);

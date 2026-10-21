@@ -168,12 +168,6 @@
   box-shadow: var(--shadow-1);
 }
 
-/* 改动卡片头里的入口（卡片在 conversation 里，样式放这里避免动它的 css）。 */
-.change-review {
-  margin-left: auto;
-  margin-right: var(--space-1);
-}
-
 /* ───────── 三栏 ───────── */
 
 .rv-body {
@@ -213,7 +207,6 @@
   min-height: 0;
   padding: var(--space-2);
   overflow-y: auto;
-  scrollbar-width: thin;
 }
 
 /* 提交框：左栏底部，摘要 / 说明 / 提交。 */
@@ -430,7 +423,6 @@
   min-height: 0;
   padding: var(--space-3) 0 var(--space-6);
   overflow-y: auto;
-  scrollbar-width: thin;
 }
 
 .rv-note {
@@ -625,7 +617,6 @@
 .rv-hunk[data-wrap="off"] {
   overflow-x: auto;
   container-type: inline-size;
-  scrollbar-width: thin;
 }
 
 .rv-hunk[data-wrap="off"] .rv-lines {
@@ -728,37 +719,17 @@
   border-left: 1px solid var(--border-subtle);
 }
 
-.rv-tabs {
+.rv-aside-title {
   display: flex;
   flex: none;
-  gap: var(--space-1);
-  height: var(--control-h-lg);
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding: 0 var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.rv-tab {
-  display: inline-flex;
   align-items: center;
   gap: var(--space-1-5);
-  padding: 0 var(--space-1-5);
-  color: var(--text-2);
-  font: inherit;
-  white-space: nowrap;
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  cursor: default;
-  transition:
-    color var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out);
-}
-
-.rv-tab[aria-selected="true"] {
+  height: var(--control-h-lg);
+  margin: 0;
+  padding: 0 var(--space-3);
   color: var(--text);
-  border-bottom-color: var(--accent);
+  font: inherit;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .rv-badge {
@@ -772,12 +743,11 @@
   border-radius: var(--radius-pill);
 }
 
-.rv-tabpanel {
+.rv-aside-body {
   flex: 1;
   min-height: 0;
   padding: var(--space-3);
   overflow-y: auto;
-  scrollbar-width: thin;
 }
 
 .rv-empty {
@@ -785,53 +755,16 @@
   color: var(--text-2);
 }
 
-.rv-notes,
-.rv-note-edits,
 .rv-queue {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.rv-note-turn + .rv-note-turn,
 .rv-queue-item + .rv-queue-item {
   margin-top: var(--space-4);
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-subtle);
-}
-
-.rv-note-request {
-  overflow: hidden;
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rv-note-edits {
-  margin: var(--space-1-5) 0;
-}
-
-.rv-note-edit {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.rv-note-intent {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.rv-note-body {
-  max-height: calc(var(--lh-sm) * 6);
-  overflow: hidden;
-  color: var(--text-2);
-  overflow-wrap: anywhere;
-}
-
-.rv-note-conclusion[data-open] .rv-note-body {
-  max-height: none;
 }
 
 .rv-queue-ref {

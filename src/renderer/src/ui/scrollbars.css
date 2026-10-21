@@ -1,0 +1,38 @@
+/* 全局滚动条（spec §5.4.1）：细灰滑块、无轨道无底色，只在滚动时（scroll-activity.ts 给元素挂 data-scrolling）
+ * 或鼠标压在滑块上时显示，停下后淡出。尺寸、颜色只读 tokens.css。
+ *
+ * 不要在组件里写 scrollbar-width / scrollbar-color：Chromium 里只要它们不是 auto，下面的 ::-webkit-scrollbar 就整套失效。
+ * 例外：scrollbar-width: none 用在由 OverlayScrollbar 自绘滚动条的容器上，或确实不要滚动条的标签条上。
+ *
+ * 滚动条一直占着 --scrollbar-hit 宽，只改滑块颜色，所以出现/消失不会让内容横移。
+ * 横向滚动条一律不画（owner 2026-10-21）：代码、diff、表格默认折行，需要横向滚动的少数容器
+ * （评审“折行”关闭、标签条）仍可 Shift+滚轮 / 触控板横滑。 */
+::-webkit-scrollbar {
+  width: var(--scrollbar-hit);
+  height: var(--scrollbar-hit);
+  background: transparent;
+}
+::-webkit-scrollbar:horizontal {
+  display: none;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner,
+::-webkit-scrollbar-button {
+  display: none;
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  min-height: calc(var(--scrollbar-hit) * 3);
+  border: calc((var(--scrollbar-hit) - var(--scrollbar-thumb-w)) / 2) solid transparent;
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  background-clip: content-box;
+  transition: background-color var(--dur-fade) var(--ease-out);
+}
+[data-scrolling]::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+}
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--scrollbar-thumb-hover);
+}

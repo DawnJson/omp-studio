@@ -26,7 +26,6 @@ export const plugins = {
   "install.scope": "Install to",
   "install.projectNote":
     "This install only applies to the selected project; its files go in the project's .omp folder.",
-  "enabled.label": "Enable {name}",
   details: "Details",
   "details.hide": "Hide",
   upgrade: "Upgrade",

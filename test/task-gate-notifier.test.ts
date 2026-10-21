@@ -8,13 +8,7 @@ import {
   type GateNotifierDeps,
 } from "../src/main/tasks/gate-notifier.ts";
 
-const select: DialogRequest = {
-  id: "d",
-  kind: "select",
-  title: "Allow tool: bash\nCommand: ls",
-  options: [{ label: "Approve" }],
-  approval: true,
-};
+const select: DialogRequest = { id: "d", kind: "confirm", title: "Allow tool: bash\nCommand: ls", message: "" };
 
 function state(status: TaskState["status"], overrides: Partial<TaskState> = {}): TaskState {
   return {
@@ -54,7 +48,7 @@ describe("等你确认的系统通知", () => {
     expect(clicked).toEqual(["t1"]);
   });
 
-  it("同一次等待不重复通知（第二个对话框到达、状态重复推送）；离开后再次进入才算新的一次", async () => {
+  it("同一次等待不重复通知（第二个门到达、状态重复推送）；离开后再次进入才算新的一次", async () => {
     const { notifier, shown } = setup();
     await notifier.onState(state("needs_you"));
     await notifier.onState(state("needs_you"));
@@ -82,10 +76,10 @@ describe("等你确认的系统通知", () => {
     expect(shown[0]?.body).not.toMatch(/需要/);
   });
 
-  it("ask 取第一题作为正文", () => {
-    expect(
-      dialogSummary({ id: "a", kind: "ask", questions: [{ id: "q", question: "用哪种语言？", options: [] }] }),
-    ).toBe("用哪种语言？");
+  it("提问取问题的第一行作为正文", () => {
+    expect(dialogSummary({ id: "a", kind: "confirm", title: "用哪种语言？\n（单选）", message: "" })).toBe(
+      "用哪种语言？",
+    );
   });
 
   it("系统通知对象被持有到点击或关闭为止（没人引用的 Notification 会被回收，点击就不触发了）", () => {

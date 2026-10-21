@@ -29,6 +29,7 @@ import {
   useTspTurnCount,
 } from "./tsp-store.ts";
 import { useForwardOmpKeys } from "./use-forward-omp-keys.ts";
+import { useTaskCommands } from "./use-task-commands.ts";
 import { clearFirstPrompt, useFirstPrompt } from "./first-prompt-store.ts";
 import { refreshSessionExtras } from "./session-extras-store.ts";
 import { refreshTurnCosts } from "./turn-cost-store.ts";
@@ -288,6 +289,7 @@ export function TspView({ taskId }: { taskId: TaskId }) {
   const goal = task?.goal ?? null;
   useEffect(() => ensureTspDocument(taskId), [taskId]);
   useForwardOmpKeys(taskId);
+  useTaskCommands(taskId);
   // 任务出错 / 退出：首发的文字不再等 omp 回显。
   useEffect(() => {
     if (status === "error" || status === "stopped") clearFirstPrompt(taskId);

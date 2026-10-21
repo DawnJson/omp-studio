@@ -13,7 +13,6 @@ import { AgentRow } from "./AgentRow.tsx";
 import { sameAgents, sortAgents } from "./agent-model.ts";
 import { closeAgentsPanel, selectAgent } from "./agents-store.ts";
 import "../file-preview/file-preview.css";
-import "../lanes/lanes.css";
 import "./agents.css";
 
 const minWidth = 280;

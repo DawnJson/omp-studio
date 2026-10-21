@@ -7,6 +7,7 @@ import { useHasTrailingErrorCard, useTspNode } from "./tsp-store.ts";
 import { TODO_HUD_ROLE } from "../../../../shared/tsp/todos.ts";
 import { ERROR_BANNER_ROLE, isOmpErrorDuplicate } from "../../../../shared/tsp/error-turn.ts";
 import { isBtwOverlayNode } from "../../../../shared/tsp/btw.ts";
+import { HIDDEN_HUD_ROLES } from "../../../../shared/tsp/working.ts";
 
 /**
  * omp 自己的输入框卡片（dock 里 role `omp.editor`：编辑器 + 模型 / 思考强度 / 上下文 / 费用 / 发送）不画：
@@ -16,7 +17,7 @@ import { isBtwOverlayNode } from "../../../../shared/tsp/btw.ts";
 const OMP_COMPOSER_ROLE = "omp.editor";
 /** omp 自己的欢迎块（logo、"omp"、版本、小提示）不画：过程区顶部是 studio 自己的标题块（TspView 的 StudioHeader）。 */
 const OMP_WELCOME_ROLE = "omp.welcome";
-// omp 的 HUD 待办药丸（role omp.hud.todo，TODO_HUD_ROLE）也不画：待办是 studio 的待办板（composer/TspTodoBar.tsx），数据同源（shared/tsp/todos.ts）。
+// omp 的 HUD（`omp.hud` 作业 / 子代理胶囊、`omp.hud.activity` 运行状态行 + 待办药丸，HIDDEN_HUD_ROLES）不画：输入框上方是 studio 自己的 ComposerTop（composer/ComposerTop.tsx，药丸 + 状态行 + 待办板），数据同源（shared/tsp/{working,jobs,agent-hub,todos}.ts）。
 // omp 错误卡的"Retry F5"和 dock 里的错误横幅（isOmpErrorDuplicate；横幅只在有错误卡时不画）也不画：错误文字以卡片为准，重试只留 studio 的按钮（session-info/RetryButton.tsx）；F5 照常转发。
 // omp 的旁路提问弹窗（role omp.overlay.btwHistory，isBtwOverlayNode）也不画：旁路提问是 studio 的 BtwPanel（features/btw），数据同源（shared/tsp/btw.ts）。
 
@@ -25,6 +26,7 @@ export const TspNode = memo(function TspNode({ id, ctx }: { id: string; ctx: Tsp
   if (node === null) return null;
   const nodeRole = node.p["role"];
   if (nodeRole === OMP_COMPOSER_ROLE || nodeRole === OMP_WELCOME_ROLE || nodeRole === TODO_HUD_ROLE) return null;
+  if (typeof nodeRole === "string" && HIDDEN_HUD_ROLES.has(nodeRole)) return null;
   if (isBtwOverlayNode(node) || isOmpErrorDuplicate(node, false)) return null;
   const Component = nodeRegistry()[node.k] ?? TextFallback;
   // 错误横幅只在有错误卡时才不画：只有它订阅"有没有错误卡"，别的节点不多订阅。

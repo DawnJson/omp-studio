@@ -36,7 +36,7 @@ export function useDraftSlashMenu(
 ): DraftSlashMenu {
   const omp = useDraftSlashCommands();
   const commands = useMemo(
-    () => (omp.length === 0 ? omp : withStudioSlash(omp, studioSlashCommands, "draft", t)),
+    () => (omp.length === 0 ? omp : withStudioSlash(omp, studioSlashCommands, t, "draft")),
     [omp, t],
   );
   const [index, setIndex] = useState(0);

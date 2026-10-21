@@ -8,11 +8,7 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
 import { findOmp, makeRepo, makeScratch } from "../git-helpers.ts";
-import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
-
-const root = path.resolve(import.meta.dirname, "..", "..");
-const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
-const fixture = path.join(root, "fixtures", "rpc", "bash-tool.ndjson");
+import { launchApp, openTaskRow, screenshotsDir, testOmp, type LaunchedApp } from "./launch.ts";
 
 // 开发机/CI 的 shell 常设 NO_COLOR=1：应用和终端里的 PowerShell 会继承它并去掉输出里的颜色（空串也算设置了），
 // 截图就看不到 ANSI 色板。只在本文件的测试进程里去掉。
@@ -29,9 +25,7 @@ async function start(): Promise<Started> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp 终端 e2e-"));
   const project = path.join(work, "项目 目录");
   await mkdir(project);
-  const launched = await launchApp({
-    STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }),
-  });
+  const launched = await launchApp({ STUDIO_TEST_OMP: testOmp("slash-status") });
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
@@ -229,6 +223,8 @@ test("shell 退出显示提示，按任意键在同一目录重新启动；重�
 
     await page.getByTestId("terminal-restart").click();
     await expectGone([second]);
+    // 重启先 reset 屏幕再接新 shell：旧屏幕（旧提示符和 pid 行）还在时，输入会被丢在还没接上的终端外。
+    await expect.poll(async () => (await termRows(page)).some((row) => /^pid=\d+$/.test(row))).toBe(false);
     await waitPrompt(page);
     await run(page, '"pid=$PID"');
     const third = Number((await expectRow(page, /^pid=(\d+)$/))?.[1]);
@@ -312,24 +308,14 @@ test("拖拽条和键盘调整高度：最小 120px、最大主区 70%，松手�
   }
 });
 
-test("命令面板可切换终端；对话已吸底时打开面板仍吸底", async () => {
+test("命令面板可切换终端", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
-    await page.getByTestId("composer-input").fill("用 bash 工具运行 echo omp-studio");
-    await page.keyboard.press("Enter");
-    await expect(page.getByTestId("assistant-message")).not.toHaveAttribute("data-live", "true", { timeout: 20_000 });
     await page.keyboard.press("Control+k");
     await page.getByTestId("command-palette").getByRole("combobox").fill("切换终端");
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("terminal-panel")).toBeVisible();
-    await expect
-      .poll(() =>
-        page.evaluate(
-          "(() => { const el = document.querySelector('.scroller'); return Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) <= 1; })()",
-        ),
-      )
-      .toBe(true);
   } finally {
     await cleanup();
   }
@@ -385,7 +371,7 @@ test("worktree 任务的终端在 worktree 目录里；丢弃 worktree 时先结
     OMP_WORKTREE_DIR: path.join(scratch, "omp worktrees"),
     PI_CODING_AGENT_DIR: path.join(scratch, "omp agent"),
     STUDIO_TEST_WORKTREE_OMP: realOmp ?? "",
-    STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }),
+    STUDIO_TEST_OMP: testOmp("slash-status"),
   });
   try {
     const { page } = launched;

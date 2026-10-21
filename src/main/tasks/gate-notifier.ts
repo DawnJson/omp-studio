@@ -1,6 +1,6 @@
 // "等你确认"系统通知（决策 8）：任务进入 needs_you、窗口没有焦点、开关打开时发一条。
 // 窗口隐藏在托盘（或最小化）时，任务跑完 / 出错也发一条：用户看不到窗口，只能靠通知知道；窗口可见时不发，侧栏已经有完成点。
-// 同一次等待只通知一次：状态没离开 needs_you 时（第二个对话框到达）不重复；回到别的状态后再次进入才算新的一次。
+// 同一次等待只通知一次：状态没离开 needs_you 时（第二个门到达）不重复；回到别的状态后再次进入才算新的一次。
 // 不 import electron：Notification 和窗口由 runtime.ts 注入，单元测试直接实例化。
 import type { DialogRequest, Locale, TaskId, TaskState } from "../../shared/ipc.ts";
 import { t } from "../../shared/i18n/index.ts";
@@ -18,10 +18,9 @@ export interface GateNotifierDeps {
   onClick(taskId: TaskId): void;
 }
 
-/** 通知正文里的"要确认什么"：审批/select/confirm/input/editor 取标题第一行，ask 取第一题。 */
+/** 通知正文里的"要确认什么"：门标题（提问的问题、审批的"Allow tool: …"）的第一行。 */
 export function dialogSummary(dialog: DialogRequest): string {
-  const text = dialog.kind === "ask" ? (dialog.questions[0]?.question ?? "") : dialog.title;
-  return text.split(/\r?\n/)[0]?.trim() ?? "";
+  return dialog.title.split(/\r?\n/)[0]?.trim() ?? "";
 }
 
 /** Electron 的 Notification 对象没人引用就可能被回收，之后 click 不再触发：持有到点击或关闭。 */

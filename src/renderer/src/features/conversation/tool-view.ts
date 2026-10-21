@@ -60,23 +60,6 @@ export function formatElapsed(ms: number): string {
   return `${Math.floor(total / 60)}m ${String(total % 60).padStart(2, "0")}s`;
 }
 
-/** 轮尾 token 数：不足 1000 原样，其后 1.2K / 19K / 1.3M（K、M 不翻译，同 Tern）。 */
-export function formatTokenCount(count: number): string {
-  if (count < 1000) return String(Math.round(count));
-  if (count < 1_000_000) {
-    const value = count / 1000;
-    return `${value < 10 ? value.toFixed(1).replace(/\.0$/, "") : Math.round(value)}K`;
-  }
-  const value = count / 1_000_000;
-  return `${value < 10 ? value.toFixed(1).replace(/\.0$/, "") : Math.round(value)}M`;
-}
-
-/** 轮尾费用：0 / 未知返回 null（不显示）；不足一分显示 <$0.01。 */
-export function formatTurnCost(cost: number): string | null {
-  if (!Number.isFinite(cost) || cost <= 0) return null;
-  return cost < 0.01 ? "<$0.01" : `$${cost.toFixed(2)}`;
-}
-
 // —— diff ——
 
 export type DiffRow =
@@ -486,41 +469,6 @@ export function askViews(args: unknown, result: unknown): AskView[] {
         selected: [],
         custom: null,
         note: null,
-      },
-    ];
-  });
-}
-
-/** task 工具参数里派出的代理名（和子代理泳道的 id 对应）。 */
-export function taskAgentNames(args: unknown): string[] {
-  const tasks = asRecord(args)?.["tasks"];
-  if (!Array.isArray(tasks)) return [];
-  return tasks.flatMap((item) => {
-    const name = asRecord(item)?.["name"];
-    return typeof name === "string" && name !== "" ? [name] : [];
-  });
-}
-
-export interface WaitJob {
-  id: string;
-  label: string;
-  status: string;
-  durationMs: number | null;
-}
-
-/** wait 工具（运行中的部分结果或最终结果）details.jobs：它在等的任务。 */
-export function waitJobs(result: unknown): WaitJob[] {
-  const jobs = asRecord(resultDetails(result))?.["jobs"];
-  if (!Array.isArray(jobs)) return [];
-  return jobs.flatMap((raw) => {
-    const job = asRecord(raw);
-    if (!job || typeof job["id"] !== "string") return [];
-    return [
-      {
-        id: job["id"],
-        label: typeof job["label"] === "string" && job["label"] !== "" ? job["label"] : job["id"],
-        status: typeof job["status"] === "string" ? job["status"] : "running",
-        durationMs: typeof job["durationMs"] === "number" ? job["durationMs"] : null,
       },
     ];
   });

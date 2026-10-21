@@ -28,6 +28,7 @@ import {
 import { isRecord } from "../../shared/type-guards.ts";
 import { log } from "../log/log.ts";
 import { assignToOwnJob } from "../platform/win32/job-object.ts";
+import { withPtyLock } from "../platform/pty-lock.ts";
 import { TspStreamParser, type TspStreamEvent } from "./stream.ts";
 
 /** 回 hello 和 error 事件的终端名。 */
@@ -39,6 +40,8 @@ const DEFAULT_ROWS = 40;
 const BATCH_INTERVAL_MS = 16;
 const HELLO_TIMEOUT_MS = 30_000;
 const CLOSE_TIMEOUT_MS = 5_000;
+/** taskkill 之后等退出事件多久；到点还没退出才 `pty.kill()`（见 close）。 */
+const KILL_GRACE_MS = 2_000;
 /** 报错时带上的 omp 原始文字（启动失败时它直接打在终端上）。 */
 const TEXT_TAIL_CHARS = 4_000;
 /** 规范：一个 blob 解码后最大 16 MiB。 */
@@ -241,7 +244,7 @@ export class TspSession {
 
   static async start(options: TspSessionOptions): Promise<TspSession> {
     const rows = options.rows ?? DEFAULT_ROWS;
-    const pty = await (options.spawn ?? spawnNodePty)(options.launch, { cols: options.cols, rows });
+    const pty = await withPtyLock(() => (options.spawn ?? spawnNodePty)(options.launch, { cols: options.cols, rows }));
     log.info("tsp session started", { pid: pty.pid });
     return new TspSession(options, pty);
   }
@@ -295,28 +298,45 @@ export class TspSession {
     this.sendEvent({ ev: "resize", cols });
   }
 
-  /** 结束进程树并等它退出。可重复调用；超时后不再等（进程树已被 taskkill）。 */
+  /**
+   * 结束进程树并等它退出。可重复调用；超时后不再等（进程树已被 taskkill）。
+   * 整个"taskkill → 等退出"在 `withPtyLock` 里：node-pty 的原生层没有锁（见 platform/pty-lock.ts），退出线程收尾时不能有别的 spawn / kill。
+   * taskkill 一返回就 `pty.kill()` 正好撞上退出线程的收尾（`CloseHandle(hShell)` + 释放 baton，`kill` 又去读它们），
+   * 所以先等退出事件；`pty.kill()` 只留给 taskkill 没能结束的进程。
+   */
   async close(timeoutMs = CLOSE_TIMEOUT_MS): Promise<void> {
     if (this.#hasExited) return;
     this.#closing = true;
-    const pid = this.#pty.pid;
-    await this.#killTree(pid);
-    try {
-      this.#pty.kill();
-    } catch (error) {
-      // 进程刚好自己退出了。
-      log.info("tsp session: kill after exit", { message: String(error) });
-    }
-    const timedOut = Symbol("timeout");
-    const timeout = Promise.withResolvers<typeof timedOut>();
-    const timer = setTimeout(() => timeout.resolve(timedOut), timeoutMs);
-    const outcome = await Promise.race([this.#exited.promise, timeout.promise]);
-    clearTimeout(timer);
-    if (outcome === timedOut) {
+    await withPtyLock(async () => {
+      if (this.#hasExited) return;
+      const pid = this.#pty.pid;
+      await this.#killTree(pid);
+      const deadline = Date.now() + timeoutMs;
+      // 非 Windows 的 killTree 什么也不做，进程只会被下面的 pty.kill() 结束，不用等。
+      const grace = process.platform === "win32" ? Math.min(KILL_GRACE_MS, timeoutMs) : 0;
+      if (await this.#exitedWithin(grace)) return;
+      try {
+        this.#pty.kill();
+      } catch (error) {
+        // 进程刚好自己退出了。
+        log.info("tsp session: kill after exit", { message: String(error) });
+      }
+      if (await this.#exitedWithin(Math.max(0, deadline - Date.now()))) return;
       log.warn("tsp session: omp did not report exit after being killed", { pid });
       // 退出事件不会来了：按已退出处理，释放资源。
       this.#onExit({ exitCode: -1 });
-    }
+    });
+  }
+
+  /** 进程在 `ms` 毫秒内退出（`onExit` 已处理）返回 true。 */
+  async #exitedWithin(ms: number): Promise<boolean> {
+    if (this.#hasExited) return true;
+    const timedOut = Symbol("timeout");
+    const timeout = Promise.withResolvers<typeof timedOut>();
+    const timer = setTimeout(() => timeout.resolve(timedOut), ms);
+    const outcome = await Promise.race([this.#exited.promise, timeout.promise]);
+    clearTimeout(timer);
+    return outcome !== timedOut;
   }
 
   // ───── pty 数据 ─────

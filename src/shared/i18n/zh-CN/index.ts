@@ -16,13 +16,9 @@ import { tool } from "../run/tool.ts";
 import { msg } from "./msg.ts";
 import { code } from "./code.ts";
 import { scroll } from "./scroll.ts";
-import { turn } from "./turn.ts";
-import { change } from "./change.ts";
-import { gate } from "./gate.ts";
 import { toast } from "./toast.ts";
 import { notify } from "./notify.ts";
 import { error } from "./error.ts";
-import { a11y } from "./a11y.ts";
 import { slash } from "./slash.ts";
 import { common } from "./common.ts";
 import { duration } from "./duration.ts";
@@ -41,7 +37,6 @@ import { usage } from "./usage.ts";
 import { plugins } from "./plugins.ts";
 import { review } from "./review.ts";
 import { git } from "./git.ts";
-import { lanes } from "./lanes.ts";
 import { custom } from "./custom.ts";
 import { terminal } from "./terminal.ts";
 import { btw } from "./btw.ts";
@@ -74,13 +69,9 @@ export const zhCN = {
   msg,
   code,
   scroll,
-  turn,
-  change,
-  gate,
   toast,
   notify,
   error,
-  a11y,
   slash,
   common,
   duration,
@@ -99,7 +90,6 @@ export const zhCN = {
   plugins,
   review,
   git,
-  lanes,
   custom,
   terminal,
   btw,

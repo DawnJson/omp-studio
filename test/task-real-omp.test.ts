@@ -1,4 +1,4 @@
-// 真实 omp 冒烟：任务池 → 真实 omp（临时 PI_CODING_AGENT_DIR）→ 真实模型，一轮 prompt 跑到 prompt_result。
+// 真实 omp 冒烟：任务池 → 伪终端里的真实 omp（临时 PI_CODING_AGENT_DIR）→ 真实模型，一轮 prompt 跑完。
 // 会调真实模型，默认跳过；`STUDIO_REAL_OMP=1 npx vitest run test/task-real-omp.test.ts` 才跑。需要仓库根 .env（STUDIO_TEST_MODEL 和 key）。
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
@@ -7,7 +7,7 @@ import { parseEnv } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { TaskState } from "../src/shared/ipc.ts";
 import { findOmpOnPath } from "../src/main/omp/discover.ts";
-import { buildOmpArgs } from "../src/main/omp/launch-args.ts";
+import { buildTspArgs } from "../src/main/omp/launch-args.ts";
 import { TaskPool } from "../src/main/tasks/task-pool.ts";
 import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
 
@@ -49,21 +49,26 @@ describe.skipIf(!enabled)("真实 omp", () => {
         enterWhileRunning: "steer",
         notifyOnGate: true,
         copyOnSelect: true,
-        taskEngine: "rpc",
         yoloConfirmed: false,
       }),
-      buildLaunch: async (record, project) => ({
-        command: omp,
-        args: buildOmpArgs({
+      tsp: {
+        buildLaunch: async (record, project) => ({
+          command: omp,
+          args: buildTspArgs({
+            cwd: project.path,
+            // 新任务不带模型（跟随 omp 配置）；这里的临时 agent 目录没有配置，用 .env 里的测试模型。
+            model: record.model ?? { provider: provider!, modelId: rest.join("/") },
+            thinkingLevel: record.thinkingLevel,
+            resumeSessionFile: record.sessionFile,
+          }),
           cwd: project.path,
-          // 新任务不带模型（跟随 omp 配置）；这里的临时 agent 目录没有配置，用 .env 里的测试模型。
-          model: record.model ?? { provider: provider!, modelId: rest.join("/") },
-          thinkingLevel: record.thinkingLevel,
+          env: { ...process.env, ...dotenv, PI_CODING_AGENT_DIR: path.join(scratch, "agent") },
         }),
-        cwd: project.path,
-        env: { ...process.env, ...dotenv, PI_CODING_AGENT_DIR: path.join(scratch, "agent") },
-      }),
-      assignJob: () => {},
+        session: {
+          appVersion: "0.0.0-test",
+          appearance: () => ({ dark: true, reduceMotion: false }),
+        },
+      },
       events: {
         state: (state) => {
           states.push(state);
@@ -73,11 +78,8 @@ describe.skipIf(!enabled)("真实 omp", () => {
             waiter.resolve(state);
           }
         },
-        transcript: () => {},
         notice: () => {},
         taskRemoved: () => {},
-        slashCommands: () => {},
-        subagents: () => {},
       },
     });
     await pool.init();
@@ -103,11 +105,8 @@ describe.skipIf(!enabled)("真实 omp", () => {
       "running",
       "idle",
     ]);
-    const snapshot = pool.getTranscript(created.id);
-    const assistant = snapshot.transcript.items.find(
-      (item) => item.kind === "message" && item.message.role === "assistant",
-    );
-    expect(assistant).toBeDefined();
+    // 回答在节点树里（role omp.assistant）。
+    expect(JSON.stringify(pool.getTspSnapshot(created.id).document)).toContain("omp.assistant");
     await until(() => registry.findTask(created.id)?.sessionFile != null);
     expect(registry.findTask(created.id)?.sessionFile).toContain(path.join(scratch, "agent"));
   }, 120_000);

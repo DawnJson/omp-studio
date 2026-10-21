@@ -321,7 +321,6 @@
 }
 
 /* 真有话要说才多出来的一行：被覆盖、保存或校验错误 */
-.cfg-note,
 .cfg-error {
   margin: var(--space-1) 0;
   padding: var(--space-1) var(--space-2);
@@ -329,11 +328,6 @@
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
   overflow-wrap: anywhere;
-}
-
-.cfg-note {
-  background: var(--st-waiting-soft);
-  color: var(--st-waiting-text);
 }
 
 .cfg-error {

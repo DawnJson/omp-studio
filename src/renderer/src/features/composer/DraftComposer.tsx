@@ -2,16 +2,7 @@
 // projectId 为 null（一个项目都没有）时，发送前先让主进程建好 AppInfo.chatsDir 并加入项目，任务在那里开始。
 // 模型胶囊显示和修改的都是 omp 的默认值（modelRoles.default / defaultThinkingLevel，设计原则 7）；新任务不传 --model/--thinking。
 import { reportError } from "../../ui/errors.ts";
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ClipboardEvent,
-  type DragEvent,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { draftKey } from "../../../../shared/ipc.ts";
 import { worktreeBlockerKey } from "../../../../shared/ui/errors.ts";
@@ -23,18 +14,21 @@ import { takePendingDraftText } from "../palette/index.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { blockWorktree, ensureSetupApproved, getWorktreeDraft, setWorktreeOn } from "../git/index.ts";
 import { handOverDraftTerminal, withDraftHandover } from "../terminal/index.ts";
-import { convertImageFiles } from "./actions.ts";
+import { AttachButton } from "./AttachButton.tsx";
 import { ApprovalChip } from "./ApprovalChip.tsx";
-import { Attachments } from "./Attachments.tsx";
-import { getDraft, setDraft, setDraftText, useDraft } from "./draft-store.ts";
+import { buildSubmission, slotsToNames, viewToText } from "./composer-tokens.ts";
+import { ComposerInput } from "./ComposerInput.tsx";
+import { clearDraft, getDraft, restoreDraft, setDraftText, useDraft } from "./draft-store.ts";
 import { ModelChip } from "./ModelChip.tsx";
-import { decideEnter, isShellDraft } from "./send-logic.ts";
+import { decideEnter } from "./send-logic.ts";
 import { SendStop } from "./SendStop.tsx";
 import { DraftContextMeter } from "./UsageMeter.tsx";
 import { SessionCost } from "./SessionCost.tsx";
 import { FileMenu } from "./FileMenu.tsx";
 import { SlashMenu } from "./SlashMenu.tsx";
 import { draftSlashRunner, useDraftSlashMenu } from "./use-draft-slash.ts";
+import { useAttach } from "./use-attach.ts";
+import { useDraftView } from "./use-draft-view.ts";
 import { useFileMenu } from "./use-file-menu.ts";
 import { useNewTaskDefault } from "./use-new-task-default.ts";
 import { clearFirstPrompt, setFirstPrompt } from "../tsp/first-prompt-store.ts";
@@ -51,7 +45,8 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
   const [sending, setSending] = useState(false);
   // 新任务默认值（项目 .omp/config.yml 会盖过全局，所以按项目读；初值和占位规则见 use-new-task-default.ts）。
   const { resolved, omp, models, reread } = useNewTaskDefault(projectId);
-  const hasContent = draft.text.trim() !== "" || draft.images.length > 0;
+  const hasContent = draft.text.trim() !== "" || draft.images.length > 0 || draft.files.length > 0;
+  const view = useDraftView(draft);
 
   useEffect(() => {
     // 命令面板"在新任务中提问"带来的文字：放进草稿并聚焦，不自动发送。
@@ -61,43 +56,34 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
     if (document.activeElement?.closest('[aria-modal="true"]') == null)
       fieldRef.current?.focus({ preventScroll: true });
   }, [projectId, key]);
-  useLayoutEffect(() => {
-    const field = fieldRef.current;
-    if (!field) return;
-    field.style.height = "auto";
-    field.style.height = `${field.scrollHeight}px`;
-  }, [draft.text]);
 
   const { model, levels, thinkingLevel } = resolved;
 
   // `@` 文件引用补全：目录是这个项目的目录；没有项目 = 默认文件夹（主进程解析，目录还没建时没有候选）。
   const fileMenu = useFileMenu(
     projectId === null ? { kind: "defaultFolder" } : { kind: "project", projectId },
-    draft.text,
+    view.text,
     true,
     fieldRef,
-    (next) => setDraftText(key, next),
+    (next) => setDraftText(key, viewToText(next, getDraft(key))),
   );
   // `/` 命令菜单：服务进程的命令列表加草稿页能用的 studio 命令（use-draft-slash.ts）。
   const slashMenu = useDraftSlashMenu(draft.text, (next) => setDraftText(key, next), fieldRef, t);
 
   const send = async () => {
     const current = getDraft(key);
-    const text = current.text.trim();
-    if (sending || (text === "" && current.images.length === 0)) return;
-    // `!命令` 要在任务里跑；还没有任务，不能当成第一条消息发给模型。
-    if (isShellDraft(current)) {
-      pushToast({ level: "warning", message: t("conversation.shell.needsTask") });
-      return;
-    }
+    const submission = buildSubmission(current);
+    const text = submission.text.trim();
+    if (sending || (text === "" && submission.images.length === 0 && submission.files.length === 0)) return;
     // studio 接管的命令（/settings /usage /model …）：不创建任务，直接开 studio 的界面。
-    const runStudio = current.images.length === 0 ? draftSlashRunner(text, t) : null;
+    const runStudio =
+      submission.images.length === 0 && submission.files.length === 0 ? draftSlashRunner(text, t) : null;
     if (runStudio !== null) {
-      setDraft(key, { text: "", images: [] });
+      clearDraft(key);
       try {
         await runStudio();
       } catch (error) {
-        setDraft(key, current);
+        restoreDraft(key, current);
         reportError(t, error);
       }
       return;
@@ -122,23 +108,25 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
         await handOverDraftTerminal(terminalDraftKey, created.id, worktreeProject !== null);
         return created;
       });
-      // TSP 任务：omp 建好 surface、回显用户消息之前，主区先把这句话画成气泡（features/tsp/first-prompt-store.ts）。
-      const recordFirstPrompt = task.engine === "tsp" && text !== "";
-      if (recordFirstPrompt) setFirstPrompt(task.id, { text, model, thinkingLevel });
+      // omp 建好 surface、回显用户消息之前，主区先把这句话画成气泡（features/tsp/first-prompt-store.ts）。
+      const recordFirstPrompt = text !== "";
+      if (recordFirstPrompt)
+        setFirstPrompt(task.id, { text: slotsToNames(text, submission.files), model, thinkingLevel });
       await selectTask(task.id);
       // 主进程没有项目变更事件：新加的 chats 项目要重新取列表，侧栏才有它的分组。
       if (projectId === null) void refreshProjects();
       try {
         await window.studio.sendPrompt(task.id, {
           text,
-          ...(current.images.length > 0 ? { images: [...current.images] } : {}),
+          ...(submission.images.length > 0 ? { images: submission.images } : {}),
+          ...(submission.files.length > 0 ? { fileIds: submission.files.map((file) => file.id) } : {}),
           whenBusy: "steer",
         });
       } catch (error) {
         if (recordFirstPrompt) clearFirstPrompt(task.id);
         throw error;
       }
-      setDraft(key, { text: "", images: [] });
+      clearDraft(key);
       if (projectId !== null) setWorktreeOn(projectId, false);
     } catch (error) {
       if (worktreeProject !== null) {
@@ -151,13 +139,7 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
     }
   };
 
-  const addFiles = async (files: Iterable<File>) => {
-    const converted = await convertImageFiles(files, t);
-    if (converted.length > 0) {
-      const current = getDraft(key);
-      setDraft(key, { text: current.text, images: [...current.images, ...converted] });
-    }
-  };
+  const attach = useAttach(key, fieldRef, undefined);
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (slashMenu.onKeyDown(event) || fileMenu.onKeyDown(event)) return;
@@ -171,28 +153,16 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
         isComposing: event.nativeEvent.isComposing,
         keyCode: event.keyCode,
       },
-      { running: false, gate: false, hasContent, swapped: false, shell: false },
+      { running: false, gate: false, hasContent, swapped: false },
     );
     if (action !== "send") return;
     event.preventDefault();
     void send();
   };
-  // 粘贴：图片作附件；其余文件由 preload 把路径插进输入框（src/preload/index.ts）。
-  const onPaste = (event: ClipboardEvent) => {
-    const images = [...event.clipboardData.files].filter((file) => file.type.startsWith("image/"));
-    if (images.length === 0) return;
-    event.preventDefault();
-    void addFiles(images);
-  };
-  const onDrop = (event: DragEvent) => {
-    if (event.dataTransfer.files.length === 0) return;
-    event.preventDefault();
-    void addFiles(event.dataTransfer.files);
-  };
 
   return (
     <div className="composer-stack" data-testid="draft-composer" data-draft>
-      <div className="composer" onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
+      <div className="composer" data-composer-drop onDragOver={attach.onDragOver} onDrop={attach.onDrop}>
         <SlashMenu
           id="slash-menu"
           open={slashMenu.open}
@@ -209,41 +179,30 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
           onHover={fileMenu.setActive}
           onPick={fileMenu.pick}
         />
-        <div className="composer-body">
-          <Attachments
-            images={draft.images}
-            onRemove={(index) =>
-              setDraft(key, { text: draft.text, images: draft.images.filter((_, i) => i !== index) })
-            }
-          />
-          <textarea
-            ref={fieldRef}
-            className="composer-field"
-            data-composer-input
-            data-testid="composer-input"
-            rows={1}
-            value={draft.text}
-            placeholder={t("composer.placeholderNew")}
-            aria-label={t("composer.placeholderNew")}
-            aria-controls={slashMenu.open ? "slash-menu" : fileMenu.open ? "file-menu-list" : undefined}
-            aria-activedescendant={
-              slashMenu.open && slashMenu.matches.length > 0
-                ? `slash-menu-${slashMenu.active}`
-                : fileMenu.open
-                  ? `file-menu-list-${fileMenu.active}`
-                  : undefined
-            }
-            onChange={(event) => {
-              setDraftText(key, event.target.value);
-              slashMenu.reset();
-              fileMenu.trackCaret(event.target.selectionStart);
-            }}
-            onSelect={(event) => fileMenu.trackCaret(event.currentTarget.selectionStart)}
-            onKeyDown={onKeyDown}
-            onPaste={onPaste}
-          />
-        </div>
+        <ComposerInput
+          draftKey={key}
+          draft={draft}
+          view={view}
+          fieldRef={fieldRef}
+          placeholder={t("composer.placeholderNew")}
+          controls={slashMenu.open ? "slash-menu" : fileMenu.open ? "file-menu-list" : undefined}
+          activeDescendant={
+            slashMenu.open && slashMenu.matches.length > 0
+              ? `slash-menu-${slashMenu.active}`
+              : fileMenu.open
+                ? `file-menu-list-${fileMenu.active}`
+                : undefined
+          }
+          addFiles={attach.addFiles}
+          onEdit={(caret) => {
+            slashMenu.reset();
+            fileMenu.trackCaret(caret);
+          }}
+          onCaret={fileMenu.trackCaret}
+          onKeyDown={onKeyDown}
+        />
         <div className="composer-tools">
+          <AttachButton onPick={attach.pickFiles} />
           <ModelChip
             model={model}
             thinkingLevel={thinkingLevel}

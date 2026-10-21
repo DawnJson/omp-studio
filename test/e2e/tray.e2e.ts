@@ -2,16 +2,15 @@
 // 真正退出（和托盘菜单"退出"同一条 app.quit() 路径）时 omp 子进程不留残留。
 // 托盘图标和右键菜单由系统绘制，Playwright 点不到：菜单模板在 test/tray-model.test.ts 里单测。
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import electronPath from "electron";
 import { expect, test } from "@playwright/test";
-import { launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
+import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
+import { launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
-const fixtureDir = path.join(root, "fixtures", "rpc");
-const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
 
 const isAlive = (pid: number): boolean => {
   try {
@@ -22,40 +21,10 @@ const isAlive = (pid: number): boolean => {
   }
 };
 
-interface Frame {
-  kind: string;
-  frame?: { type?: string; message?: { role?: string; content?: { type: string; text?: string }[] } };
-}
+/** approval 录制里用户发的那句话：发出后 omp 停在"等你确认"（任务不会自己结束，窗口隐藏期间一直在"跑"）。 */
+const PROMPT = (recordedUserEvents(loadTspFixture("approval"))[0]?.event as { text?: string } | undefined)?.text ?? "";
 
-/**
- * bash-tool 录制。slow：工具结束前停几秒，任务在窗口隐藏期间仍在"跑"，之后才收尾；
- * hang：停在工具执行中不再继续，用来测"任务还在跑时退出"。
- */
-async function recording(mode: "slow" | "hang"): Promise<{ text: string; answer: string }> {
-  const raw = (await readFile(path.join(fixtureDir, "bash-tool.ndjson"), "utf8")).split("\n").filter(Boolean);
-  const lines = raw.map((line): Frame => JSON.parse(line));
-  const endIndex = lines.findIndex((line) => line.kind === "out" && line.frame?.type === "tool_execution_end");
-  expect(endIndex).toBeGreaterThan(0);
-  const out =
-    mode === "slow"
-      ? [...raw.slice(0, endIndex), JSON.stringify({ kind: "delay", ms: 4000 }), ...raw.slice(endIndex)]
-      : [...raw.slice(0, endIndex), JSON.stringify({ kind: "hang" })];
-  const answer = lines
-    .filter((line) => line.frame?.type === "message_end" && line.frame.message?.role === "assistant")
-    .map((line) =>
-      (line.frame?.message?.content ?? [])
-        .filter((block) => block.type === "text")
-        .map((block) => block.text ?? "")
-        .join(" "),
-    )
-    .filter((text) => text.trim() !== "")
-    .at(-1);
-  return { text: out.join("\n") + "\n", answer: answer ?? "" };
-}
-
-const plain = (markdown: string) => markdown.replace(/[`*_]/g, "").replace(/\s+/g, " ").trim();
-
-async function start(fixtureText: string): Promise<{
+async function start(): Promise<{
   launched: LaunchedApp;
   pidFile: string;
   cleanup(): Promise<void>;
@@ -63,11 +32,9 @@ async function start(fixtureText: string): Promise<{
   const work = await mkdtemp(path.join(os.tmpdir(), "omp 托盘 e2e-"));
   const project = path.join(work, "项目 目录");
   await mkdir(project);
-  const fixture = path.join(work, "tray.ndjson");
-  await writeFile(fixture, fixtureText);
   const pidFile = path.join(work, "omp-pids.txt");
   const launched = await launchApp({
-    STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }),
+    STUDIO_TEST_OMP: testOmp("approval"),
     FAKE_OMP_PID_FILE: pidFile,
   });
   await launched.app.evaluate(({ dialog }, dir) => {
@@ -90,7 +57,7 @@ async function sendPrompt(launched: LaunchedApp): Promise<void> {
   await openTaskRow(page);
   const input = page.getByTestId("composer-input");
   await expect(input).toBeVisible();
-  await input.fill("用 bash 工具运行 echo omp-studio");
+  await input.fill(PROMPT);
   await page.keyboard.press("Enter");
 }
 
@@ -108,13 +75,12 @@ async function readPids(file: string): Promise<number[]> {
   return text.split("\n").filter(Boolean).map(Number);
 }
 
-test("关窗口只隐藏：主进程和 omp 还活着，任务继续跑完；再次启动应用把窗口带回，对话接着走", async () => {
-  const slow = await recording("slow");
-  const { launched, pidFile, cleanup } = await start(slow.text);
+test("关窗口只隐藏：主进程和 omp 还活着，任务还在；再次启动应用把窗口带回，对话接着走", async () => {
+  const { launched, pidFile, cleanup } = await start();
   try {
     const { page } = launched;
     await sendPrompt(launched);
-    await expect(page.getByTestId("run-status-main")).toBeVisible();
+    await expect(page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
     const [ompPid] = await readPids(pidFile);
     expect(ompPid).toBeGreaterThan(0);
 
@@ -129,10 +95,10 @@ test("关窗口只隐藏：主进程和 omp 还活着，任务继续跑完；再
     };
     expect(state.trayNoticeShown).toBe(true);
 
-    // 隐藏期间工具结束、一轮收尾：等任务状态在主进程里变成 idle（渲染进程仍然收得到事件）。
+    // 隐藏期间任务仍在主进程里：停在"等你确认"（渲染进程仍然收得到事件）。
     await expect
       .poll(() => page.evaluate(async () => (await globalThis.studio.listTasks())[0]?.status), { timeout: 20_000 })
-      .toBe("idle");
+      .toBe("needs_you");
 
     // 第二个实例启动：拿不到单实例锁，通知第一个实例后自己退出。
     const { ELECTRON_RENDERER_URL: _dev, ...baseEnv } = process.env;
@@ -146,11 +112,8 @@ test("关窗口只隐藏：主进程和 omp 还活着，任务继续跑完；再
     });
     await expect.poll(() => windowVisible(launched)).toBe(true);
 
-    // 对话停在隐藏前的那个任务上，最终答案完整。
-    const answer = page.getByTestId("assistant-message");
-    await expect(answer).toBeVisible();
-    await expect(answer).not.toHaveAttribute("data-live", "true");
-    expect(plain((await answer.textContent()) ?? "")).toContain(plain(slow.answer));
+    // 对话停在隐藏前的那个任务上，审批还在等。
+    await expect(page.getByTestId("tsp-view")).toBeVisible();
     expect(isAlive(ompPid as number)).toBe(true);
   } finally {
     await launched.close();
@@ -159,12 +122,11 @@ test("关窗口只隐藏：主进程和 omp 还活着，任务继续跑完；再
 });
 
 test("任务还在跑时退出（等同托盘“退出”的 app.quit()）：窗口不再拦，omp 子进程不留残留", async () => {
-  const hang = await recording("hang");
-  const { launched, pidFile, cleanup } = await start(hang.text);
+  const { launched, pidFile, cleanup } = await start();
   const exited = new Promise<void>((resolve) => launched.app.process().once("exit", () => resolve()));
   try {
     await sendPrompt(launched);
-    await expect(launched.page.getByTestId("run-status-main")).toBeVisible();
+    await expect(launched.page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
     const [ompPid] = await readPids(pidFile);
     expect(ompPid).toBeGreaterThan(0);
 

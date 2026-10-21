@@ -44,9 +44,11 @@ export function List({ node, ctx }: NodeProps) {
   const surface = useTspSurface(ctx.taskId, ctx.sf);
   const reveal = surface?.reveal ?? null;
 
-  // 没有别的输入控件拿着键盘时，list（审批门、提问的选项）接键盘。
+  // 没有别的输入控件拿着键盘时，list（审批门、提问的选项）接键盘。studio 输入框在打字（审批门到来时用户正在写拒绝理由）时不抢：
+  // 审批门由输入框接管（Enter 拒绝并发理由，Ctrl+Enter 批准）。提问对话框自己的根节点另有焦点逻辑（AskGate.tsx），提问期间输入框不能发送。
   useEffect(() => {
     const active = document.activeElement;
+    if (active !== null && active.closest("[data-composer-input]") !== null) return;
     if (active === null || active === document.body || !active.closest("[data-tspi-keys]"))
       root.current?.focus({ preventScroll: true });
   }, []);

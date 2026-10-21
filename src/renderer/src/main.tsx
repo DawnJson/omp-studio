@@ -3,11 +3,14 @@ import { createRoot } from "react-dom/client";
 import "../styles/tokens.css";
 import "./app/app.css";
 import "./ui/motion.css";
+import "./ui/scrollbars.css";
 import { App } from "./app/App.tsx";
+import { installScrollActivity } from "./ui/scroll-activity.ts";
 import { startShellStore } from "./app/shell-store.ts";
 import { startStores } from "./store/index.ts";
 import { loadStartupSnapshot } from "./store/startup-snapshot.ts";
 
+installScrollActivity();
 startStores();
 startShellStore();
 

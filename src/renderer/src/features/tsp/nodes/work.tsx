@@ -1,4 +1,5 @@
 // 工作类节点：tool、agent、checklist（规范 Tool, Agent and Task Kinds）。
+import { finished, phaseMarkKind, readPhases, type Item, type ItemStatus, type Phase } from "./checklist-model.ts";
 import {
   Fragment,
   useEffect,
@@ -504,58 +505,18 @@ export function Agent(props: NodeProps) {
 
 // ───────── checklist ─────────
 
-type ItemStatus = "pending" | "active" | "done" | "dropped" | "blocked";
-
-function itemStatus(value: unknown): ItemStatus {
-  return value === "active" || value === "done" || value === "dropped" || value === "blocked" ? value : "pending";
-}
-
-interface Item {
-  id: string;
-  text: TspText | undefined;
-  status: ItemStatus;
-  note: TspText | undefined;
-}
-
-interface Phase {
-  id: string;
-  title: TspText | undefined;
-  items: Item[];
-  collapsed: boolean | undefined;
-}
-
-function readPhases(value: unknown): Phase[] {
-  return asArray(value)
-    .filter(isRecord)
-    .map((phase) => ({
-      id: asString(phase.id) ?? "",
-      title: phase.title as TspText | undefined,
-      collapsed: typeof phase.collapsed === "boolean" ? phase.collapsed : undefined,
-      items: asArray(phase.items)
-        .filter(isRecord)
-        .filter((item) => typeof item.id === "string")
-        .map((item) => ({
-          id: item.id as string,
-          text: item.text as TspText | undefined,
-          status: itemStatus(item.status),
-          note: item.note as TspText | undefined,
-        })),
-    }));
-}
-
-const finished = (item: Item): boolean => item.status === "done" || item.status === "dropped";
-
-function Ring({ done, total }: { done: number; total: number }) {
+/** 阶段行最前面的标记：做完是对勾（和待办板一致），否则是进度环（phaseMarkKind）。 */
+function PhaseMark({ done, total }: { done: number; total: number }) {
+  if (phaseMarkKind(done, total) === "check")
+    return (
+      <span className="tsp-ck-phase-done" aria-hidden="true">
+        <Check size={12} />
+      </span>
+    );
   const C = 2 * Math.PI * 5.5;
   const fraction = total === 0 ? 0 : done / total;
   return (
-    <svg
-      className={total > 0 && done === total ? "tsp-ring full" : "tsp-ring"}
-      viewBox="0 0 16 16"
-      width="14"
-      height="14"
-      aria-hidden="true"
-    >
+    <svg className="tsp-ring" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
       <circle className="tr" cx="8" cy="8" r="5.5" />
       <circle className="fl" cx="8" cy="8" r="5.5" strokeDasharray={`${C * fraction} ${C}`} />
     </svg>
@@ -632,7 +593,7 @@ function FullList({ phases, fresh }: { phases: readonly Phase[]; fresh: Readonly
                   }
                 }}
               >
-                <Ring done={done} total={phase.items.length} />
+                <PhaseMark done={done} total={phase.items.length} />
                 <span className="t">
                   <TspSpans text={phase.title} />
                 </span>
@@ -686,7 +647,7 @@ export function Checklist(props: NodeProps) {
             ctx.send({ ev: "activate", sf: ctx.sf, id: node.id, item: "hud" });
           }}
         >
-          <Ring done={done} total={all.length} />
+          <PhaseMark done={done} total={all.length} />
           <span className="t">
             <TspSpans text={label} />
           </span>

@@ -96,6 +96,54 @@ describe("parseSession（会话文件 → 每轮用量脚注）", () => {
   });
 });
 
+describe("最近一条回复的速度和上下文构成（会话文件 assistant 消息，omp 18.12.5 实测字段）", () => {
+  // 数字来自一次真实回复：output 2073、duration 9801.9ms、ttft 1015.8ms；contextSnapshot 的 nonMessage 7971、toolSchema 4347。
+  const real = (stopReason = "stop") =>
+    JSON.stringify({
+      type: "message",
+      message: {
+        role: "assistant",
+        stopReason,
+        usage: { input: 201, output: 2073, cost: { total: 0 } },
+        duration: 9801.8974,
+        ttft: 1015.7713,
+        completedAt: 2000,
+        contextSnapshot: { promptTokens: 9673, nonMessageTokens: 7971, toolSchemaTokens: 4347, compactionEpoch: 0 },
+        requestControls: { tools: { declared: ["read", "bash", "edit"], active: ["read", "bash"] } },
+      },
+    });
+
+  it("速度 = 输出 ÷ (duration − ttft)；系统提示词 = nonMessage − toolSchema，工具个数取 active", () => {
+    const parsed = parseSession([user(1000), real()].join("\n"));
+    expect(parsed.tokensPerSecond).toBeCloseTo(235.9, 1);
+    expect(parsed.contextParts).toEqual({ systemTokens: 3624, toolTokens: 4347, toolCount: 2 });
+  });
+
+  it("取最后一条：后面有速度的回复覆盖前面的；出错和被停止的回复不改速度", () => {
+    const fast = JSON.stringify({
+      type: "message",
+      message: { role: "assistant", stopReason: "toolUse", usage: { output: 100 }, duration: 1000, ttft: 0 },
+    });
+    const text = [user(1), real(), user(2), fast, user(3), real("error"), real("aborted")].join("\n");
+    expect(parseSession(text).tokensPerSecond).toBe(100);
+  });
+
+  it("老版本 omp 的消息没有 duration / contextSnapshot：两项都是 null，不抛错", () => {
+    const parsed = parseSession([user(1), assistant("stop", tokens(1, 5, 0), 10)].join("\n"));
+    expect(parsed.tokensPerSecond).toBeNull();
+    expect(parsed.contextParts).toBeNull();
+  });
+
+  it("readSessionExtras 没有会话文件时全空", async () => {
+    expect(await readSessionExtras(null)).toEqual({
+      turns: [],
+      recap: null,
+      tokensPerSecond: null,
+      contextParts: null,
+    });
+  });
+});
+
 describe("脚注文字（和 omp 的 tLo 同格式）", () => {
   it("耗时、token 数的缩写和 omp 一致", () => {
     expect(formatDuration(244)).toBe("244ms");
@@ -197,8 +245,9 @@ describe("空闲回顾（history.db 的 session_recaps）", () => {
     expect(extras.turns).toHaveLength(3);
     expect(extras.recap).toEqual({ text: "回顾 text", afterTurn: 2 });
     // 没有会话文件 / 文件读不到：空
-    expect(await readSessionExtras(null, agentDir)).toEqual({ turns: [], recap: null });
-    expect(await readSessionExtras(path.join(dir, "missing.jsonl"), agentDir)).toEqual({ turns: [], recap: null });
+    const none = { turns: [], recap: null, tokensPerSecond: null, contextParts: null };
+    expect(await readSessionExtras(null, agentDir)).toEqual(none);
+    expect(await readSessionExtras(path.join(dir, "missing.jsonl"), agentDir)).toEqual(none);
     // history.db 损坏：只丢回顾，用量脚注还在
     await writeFile(path.join(agentDir, "history.db"), "not a database");
     const broken = await readSessionExtras(file, agentDir);

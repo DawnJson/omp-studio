@@ -1,8 +1,6 @@
-// get_tree → 面板节点（缩进、当前分支、当前节点），以及对话流用户消息 → 会话条目 id 的对应。
+// 会话树的原始节点 → 面板节点（缩进、当前分支、当前节点）。
 import { describe, expect, it } from "vitest";
-import { buildSessionTree, locateUserEntry, userEntryText } from "../src/main/tasks/session-tree.ts";
-import type { AgentMessage } from "../src/shared/omp-wire/rpc-wire.generated.ts";
-import type { TranscriptItem } from "../src/shared/transcript.ts";
+import { buildSessionTree, userEntryText } from "../src/main/tasks/session-tree.ts";
 
 interface RawNode {
   entry: Record<string, unknown>;
@@ -109,53 +107,5 @@ describe("userEntryText", () => {
     expect(userEntryText(user("u", null, "注入", { attribution: "agent" }).entry)).toBeNull();
     expect(userEntryText(reply("a", "u").entry)).toBeNull();
     expect(userEntryText(other("m", null, "model_change").entry)).toBeNull();
-  });
-});
-
-describe("locateUserEntry", () => {
-  const item = (key: string, role: "user" | "assistant", text: string, synthetic = false): TranscriptItem => ({
-    kind: "message",
-    key,
-    message: (role === "user"
-      ? { role, content: [{ type: "text", text }], timestamp: 0, ...(synthetic && { synthetic }) }
-      : { role, content: [{ type: "text", text }] }) as unknown as AgentMessage,
-    streaming: false,
-    at: 0,
-    endedAt: null,
-  });
-  const branch = [
-    { entryId: "e1", text: "问" },
-    { entryId: "e2", text: "重复" },
-    { entryId: "e3", text: "重复" },
-    { entryId: "e4", text: "最后" },
-  ];
-
-  it("null 取最后一条用户消息；按 key 取指定的那条", () => {
-    const items = [item("k1", "user", "问"), item("k2", "assistant", "答"), item("k3", "user", "最后")];
-    expect(locateUserEntry(items, branch, null)).toBe("e4");
-    expect(locateUserEntry(items, branch, "k1")).toBe("e1");
-  });
-
-  it("同样文字的消息按从后往前数第几次出现对应", () => {
-    const items = [item("k1", "user", "重复"), item("k2", "user", "重复"), item("k3", "user", "最后")];
-    expect(locateUserEntry(items, branch, "k1")).toBe("e2");
-    expect(locateUserEntry(items, branch, "k2")).toBe("e3");
-  });
-
-  it("压缩过的会话：对话流只有后半段，仍按文字对上，不被前面的条目错开", () => {
-    const items = [item("k1", "user", "重复"), item("k2", "user", "最后")];
-    expect(locateUserEntry(items, branch, "k1")).toBe("e3");
-  });
-
-  it("synthetic 用户消息不算；文字两边首尾空白不影响", () => {
-    const items = [item("k1", "user", " 问 "), item("s", "user", "提醒", true)];
-    expect(locateUserEntry(items, branch, null)).toBe("e1");
-  });
-
-  it("key 不存在、没有用户消息、会话里找不到：抛错，不猜", () => {
-    const items = [item("k1", "user", "问")];
-    expect(() => locateUserEntry(items, branch, "nope")).toThrow(/not in the conversation/);
-    expect(() => locateUserEntry([], branch, null)).toThrow(/not in the conversation/);
-    expect(() => locateUserEntry([item("k9", "user", "没记录的")], branch, null)).toThrow(/cannot find that message/);
   });
 });

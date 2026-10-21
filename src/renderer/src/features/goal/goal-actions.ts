@@ -1,57 +1,25 @@
-// 目标模式的操作：创建 / 暂停 / 继续 / 放弃（IPC taskGoal → RPC goal）。
-// 状态不在这里缓存：结果经 TaskState.goal 回到界面（主进程以 get_state / goal_updated 为准）。
+// 目标模式的操作：创建 / 暂停 / 继续 / 放弃（IPC taskGoal → omp 的 /goal 命令）。
+// 状态不在这里缓存：结果经 TaskState.goal 回到界面（主进程读输入框卡片上的目标行为准）。
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskGoal, TaskId } from "../../../../shared/ipc.ts";
-import { goalContinuationKey, goalContinuationOn } from "../../../../shared/ui/goal-continuation.ts";
-import { getTask, showView } from "../../store/index.ts";
 import { reportError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
 import type { GoalButton } from "./goal-model.ts";
 
-/** 这条 toast 带着操作按钮，比默认的 5 秒留得久一点。 */
-const INFO_MS = 10_000;
-
-/**
- * 目标要靠 omp 的 `goal.continuationModes` 含 "rpc" 才会在 rpc-ui 下自己推进（实测）。这个设置和终端里的 omp 共用，
- * 在 设置 → 子代理与规划 里以「目标自动推进」开关呈现；关着时创建或恢复目标，告诉用户目标不会自己推进，按钮跳到那一节。
- * 读不到设置（omp 版本没有这项等）时什么也不弹。
- */
-async function noteIfAutoContinueOff(t: TFunction): Promise<void> {
-  let snapshot;
-  try {
-    snapshot = await window.studio.getOmpConfig();
-  } catch {
-    return;
-  }
-  const item = snapshot.items.find((candidate) => candidate.key === goalContinuationKey);
-  if (!item || goalContinuationOn(item.value)) return;
-  pushToast({
-    level: "info",
-    message: t("goal.autoContinueOff"),
-    durationMs: INFO_MS,
-    action: { label: t("goal.openSettings"), run: () => showView("settings", { section: "cfg:agents" }) },
-  });
-}
-
-/** TSP 任务是 omp 的交互模式（`goal.continuationModes` 默认含 interactive）：目标自己推进（实测），不需要那个提示。 */
-const continuesByItself = (taskId: TaskId): boolean => getTask(taskId)?.engine === "tsp";
-
 /** `/goal <目标>`：失败时抛出（斜杠命令的约定：草稿放回输入框，错误由调用方报告）。 */
-export async function createGoal(taskId: TaskId, objective: string, t: TFunction): Promise<void> {
+export async function createGoal(taskId: TaskId, objective: string): Promise<void> {
   await window.studio.taskGoal(taskId, "create", objective);
-  if (!continuesByItself(taskId)) await noteIfAutoContinueOff(t);
 }
 
-/** 暂停 / 继续 / 放弃；失败时抛出。继续之后同样看一下自动推进是不是开着。 */
-export async function applyGoalOp(taskId: TaskId, op: GoalButton, t: TFunction): Promise<void> {
+/** 暂停 / 继续 / 放弃；失败时抛出。 */
+export async function applyGoalOp(taskId: TaskId, op: GoalButton): Promise<void> {
   await window.studio.taskGoal(taskId, op);
-  if (op === "resume" && !continuesByItself(taskId)) await noteIfAutoContinueOff(t);
 }
 
 /** 按钮和命令面板用：失败弹 toast（omp 的原话在悬停提示里）。 */
 export async function runGoalOp(taskId: TaskId, op: GoalButton, t: TFunction): Promise<void> {
   try {
-    await applyGoalOp(taskId, op, t);
+    await applyGoalOp(taskId, op);
   } catch (error) {
     reportError(t, error, t(`goal.${op}Failed`));
   }

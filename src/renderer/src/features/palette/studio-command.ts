@@ -1,12 +1,11 @@
 // 命令面板和斜杠命令里"别的功能负责执行"的命令：发出方只负责发，负责的功能订阅。
-// 例：输入框订阅 compact / stop / copyLast，模型胶囊订阅 model / thinking，外壳订阅 toggleSidebar，
+// 例：输入框订阅 stop，TSP 过程区订阅 copyLast / toggleProcess，模型胶囊订阅 model / thinking，外壳订阅 toggleSidebar，
 // 费用按钮订阅 usage，上下文圆环订阅 context，待办板订阅 todo，侧栏订阅 rename（给当前任务就地改名）。
 // 没人订阅的命令什么也不会发生，所以新增命令时要同时通知对应功能。
 export type StudioCommand =
   | "toggleSidebar"
   | "model"
   | "thinking"
-  | "compact"
   | "stop"
   | "copyLast"
   | "toggleProcess"

@@ -1,6 +1,6 @@
 # TSP 任务的旁路提问（`/btw`）
 
-TSP 任务里 `/btw` 由 studio 自己的面板（`features/btw/BtwPanel`，和 rpc 任务是同一个组件、同一套 `askBtw` / `cancelBtw` / `getBtw` IPC）承接。omp 在 TSP 下把 `/btw` 画成一个弹窗，studio 读弹窗里的问答、不画这个弹窗，所有操作由主进程在后台对弹窗发事件完成。
+TSP 任务里 `/btw` 由 studio 自己的面板（`features/btw/BtwPanel`，`askBtw` / `cancelBtw` / `getBtw` IPC）承接。omp 在 TSP 下把 `/btw` 画成一个弹窗，studio 读弹窗里的问答、不画这个弹窗，所有操作由主进程在后台对弹窗发事件完成。
 
 范围：只做 `/btw`。`/tree`、`/fork`、`/goal` 见各自的文档（`session-tree.md`、`conversation.md`「目标模式」）。
 

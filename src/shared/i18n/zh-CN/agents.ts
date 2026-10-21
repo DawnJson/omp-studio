@@ -9,7 +9,6 @@ export const agents = {
   open: "打开子代理面板",
   cmd: "子代理（查看、插话、结束、恢复）",
   slashDesc: "打开子代理面板：查看、插话、结束、恢复",
-  rpcHint: "这个任务的子代理在对话的过程行里：点开一个就能插话或取消。",
   listLabel: "子代理列表",
   count: "{count} 个",
   empty: "还没有子代理。主代理派出子代理后，它们会出现在这里。",
@@ -56,5 +55,4 @@ export const agents = {
   killed: "已结束 {name}",
   revive: "恢复",
   revived: "已恢复 {name}",
-  failed: "操作失败",
 } satisfies Record<string, MessageEntry>;

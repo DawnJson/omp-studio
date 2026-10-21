@@ -3,7 +3,7 @@
 // 键盘：↑↓ / Home / End 移动，Enter 选中，Shift+Enter 分叉（TSP），Esc 关闭；焦点在面板上，关闭后还给打开前的元素。
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import type { SessionTreeNode, TaskId } from "../../../../shared/ipc.ts";
-import { useTask, useTaskIdle } from "../../store/tasks-store.ts";
+import { useTaskIdle } from "../../store/tasks-store.ts";
 import { Branch } from "../../icons.tsx";
 import { useT } from "../../i18n/use-t.ts";
 import { reportError } from "../../ui/errors.ts";
@@ -33,7 +33,6 @@ function TreeDialog({
   const [forking, setForking] = useState(false);
   const [summarize, setSummarize] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
-  const canFork = useTask(taskId)?.engine === "tsp";
   const idle = useTaskIdle(taskId);
   const rootRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
@@ -73,8 +72,8 @@ function TreeDialog({
 
   const pick = (node: SessionTreeNode) => {
     if (forking || summarizing) return;
-    if (canFork && summarize) {
-      // TSP：omp 要调一次模型给被放弃的分支写摘要，等它写完再关面板（期间标题提示，行都不可点）。
+    if (summarize) {
+      // omp 要调一次模型给被放弃的分支写摘要，等它写完再关面板（期间标题提示，行都不可点）。
       setSummarizing(true);
       branchToNode(taskId, node.entryId, true).then(close, (error: unknown) => {
         setSummarizing(false);
@@ -125,7 +124,7 @@ function TreeDialog({
       case "Enter": {
         event.preventDefault();
         const node = nodes?.[active];
-        if (node) (event.shiftKey && canFork ? fork : pick)(node);
+        if (node) (event.shiftKey ? fork : pick)(node);
         return;
       }
       case "Tab":
@@ -188,28 +187,26 @@ function TreeDialog({
               >
                 <span className="tree-text">{node.text === "" ? t("tree.imageOnly") : node.text}</span>
                 {node.current && <span className="tree-badge">{t("tree.current")}</span>}
-                {canFork && (
-                  <button
-                    type="button"
-                    className="tree-fork"
-                    tabIndex={-1}
-                    aria-label={t("tree.fork")}
-                    title={`${t("tree.fork")}\n${t("tree.forkTitle")}`}
-                    data-testid="session-tree-fork"
-                    disabled={forking || summarizing || !idle}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      fork(node);
-                    }}
-                  >
-                    <Branch size={14} />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="tree-fork"
+                  tabIndex={-1}
+                  aria-label={t("tree.fork")}
+                  title={`${t("tree.fork")}\n${t("tree.forkTitle")}`}
+                  data-testid="session-tree-fork"
+                  disabled={forking || summarizing || !idle}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    fork(node);
+                  }}
+                >
+                  <Branch size={14} />
+                </button>
               </div>
             ))}
           </div>
         )}
-        {canFork && nodes !== null && nodes.length > 0 && (
+        {nodes !== null && nodes.length > 0 && (
           <label className="tree-option" title={t("tree.summarizeHint")}>
             <input
               type="checkbox"

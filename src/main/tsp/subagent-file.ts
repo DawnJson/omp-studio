@@ -9,7 +9,20 @@ import type { AgentMessage } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { subagentLimits } from "../../shared/subagents.ts";
 import { isAgentName } from "../../shared/tsp/agent-hub.ts";
 import { isRecord } from "../../shared/type-guards.ts";
-import { trimSubagentMessages } from "../tasks/subagent-tracker.ts";
+
+/** 详情里的完整记录：保留最近的 detailMessages 条，且序列化后不超过 detailBytes。 */
+export function trimSubagentMessages<T>(messages: T[]): { messages: T[]; truncated: boolean } {
+  let start = Math.max(0, messages.length - subagentLimits.detailMessages);
+  let bytes = 0;
+  for (let index = messages.length - 1; index >= start; index--) {
+    bytes += JSON.stringify(messages[index]).length;
+    if (bytes > subagentLimits.detailBytes) {
+      start = index + 1;
+      break;
+    }
+  }
+  return start === 0 ? { messages, truncated: false } : { messages: messages.slice(start), truncated: true };
+}
 
 /** 最终输出 `.md` 读多少字节（再大的是异常文件，截断显示）。 */
 const OUTPUT_MAX_BYTES = 512 * 1024;

@@ -2,10 +2,12 @@
 // fake-tsp-omp(在伪终端里回放 fixtures/tsp 的 omp 录制,不调真实模型),驱动真实的 主进程 → 伪终端 → IPC → 渲染进程。
 // 假 omp 只有在收到和录制完全一样的事件(send / action / activate)后才继续回放,所以"界面走到下一步"本身就证明
 // 渲染进程发对了事件;另外用 --log 断言它收到了什么。截图:完成 / 等你确认(审批) / 提问,中英 × 深浅。
+import { existsSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { crc32, deflateSync } from "node:zlib";
 import { expect, test, type Page } from "@playwright/test";
 import { parseSession } from "../../src/main/tsp/session-extras.ts";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
@@ -28,16 +30,13 @@ async function start(fixture: string, env: Record<string, string> = {}): Promise
   const project = path.join(work, "项目 目录");
   await mkdir(project);
   const log = path.join(work, "omp-received.jsonl");
-  const launched = await launchApp(
-    {
-      STUDIO_TEST_OMP: JSON.stringify({
-        command: process.execPath,
-        args: [fakeOmp, fixture, "--speed=20", `--log=${log}`],
-      }),
-      ...env,
-    },
-    { taskEngine: "tsp" },
-  );
+  const launched = await launchApp({
+    STUDIO_TEST_OMP: JSON.stringify({
+      command: process.execPath,
+      args: [fakeOmp, fixture, "--speed=20", `--log=${log}`],
+    }),
+    ...env,
+  });
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
@@ -131,6 +130,10 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     const board = page.getByTestId("tsp-todo-bar").getByTestId("todo-board");
     await expect(board).toBeVisible({ timeout: 30_000 });
     await expect(role(page, "omp.hud.todo")).toHaveCount(0);
+    // 输入框上方的状态行(照 Tern):运行图标 + 翻牌计时(role=timer,data-value 是完整文字)+ omp 状态行的那句话;omp 自己的状态行(含 Stop)不画。
+    await expect(page.getByTestId("run-elapsed")).toHaveAttribute("data-value", /^\d+s$|^\d+m \d+s$/);
+    await expect(page.getByTestId("run-activity")).not.toBeEmpty();
+    await expect(role(page, "omp.working")).toHaveCount(0);
     await board.click();
     await expect(page.getByTestId("todo-popover")).toContainText("Inspect");
     await expect(page.getByTestId("todo-popover")).not.toContainText("I. Inspect");
@@ -215,6 +218,201 @@ test("审批:omp 的审批门出现时任务是等你确认;点批准发出门�
     ]);
   } finally {
     await cleanup();
+  }
+});
+
+test("审批门出现时焦点不从输入框被抢走：在输入框里打字的时候门到了，焦点和已输入的字都还在，Ctrl+Enter 批准", async () => {
+  test.setTimeout(90_000);
+  const { launched, received, cleanup } = await start("approval");
+  try {
+    const { page } = launched;
+    const input = page.getByTestId("composer-input");
+    await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
+    const approve = page.locator('[data-testid="tsp-view"] [data-id="t.actions/approve"]');
+    // 门还没到：焦点在输入框，正在打字。
+    await expect(approve).toHaveCount(0);
+    await page.keyboard.type("先别跑");
+    await expect(approve).toBeVisible({ timeout: 30_000 });
+    // 门到了：焦点留在输入框（不是门的列表），打的字没丢，继续打也进输入框。
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue("先别跑");
+    await page.keyboard.type("这个");
+    await expect(input).toHaveValue("先别跑这个");
+    // Ctrl+Enter 批准：发出门上的 action。
+    await page.keyboard.press("Control+Enter");
+    await expect(approve).toHaveCount(0, { timeout: 30_000 });
+    expect((await received()).filter((event) => event["ev"] === "action")).toEqual([
+      expect.objectContaining({ ev: "action", id: "t.actions/approve", act: "approve" }),
+    ]);
+  } finally {
+    await cleanup();
+  }
+});
+
+/** 纯色 PNG（不依赖浏览器的画布）：粘贴图片用例里当截图。 */
+function solidPng(width: number, height: number): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header[8] = 8; // 8 位
+  header[9] = 2; // RGB
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(width * 3, 0x80)]);
+  const raw = Buffer.concat(Array.from({ length: height }, () => row));
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", header),
+    chunk("IDAT", deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+/** 往输入框派发一个带图片文件的 paste 事件（和粘贴截图同一条路径）。 */
+async function pasteImage(page: Page, png: Buffer): Promise<void> {
+  await page.evaluate((base64) => {
+    const page = globalThis as unknown as {
+      document: { querySelector(selector: string): { dispatchEvent(event: unknown): boolean } | null };
+      ClipboardEvent: new (
+        type: string,
+        init: { clipboardData: unknown; bubbles: boolean; cancelable: boolean },
+      ) => unknown;
+    };
+    const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+    const data = new DataTransfer();
+    data.items.add(new File([bytes], "shot.png", { type: "image/png" }));
+    page.document
+      .querySelector('[data-testid="composer-input"]')!
+      .dispatchEvent(new page.ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  }, png.toString("base64"));
+}
+
+test("输入框附件：粘贴图片 = 顶部卡片 + 文字里的 #1 芯片，大段粘贴折叠成芯片；发送后 omp 收到占位符、@路径和展开的原文", async () => {
+  test.setTimeout(90_000);
+  const { launched, received, cleanup } = await start("approval");
+  try {
+    const { page } = launched;
+    // 草稿页的输入框（任务的输入框在模型不收图片时拒绝图片；假 omp 的模型目录里没有它，按不收图片算）。
+    const input = page.getByTestId("composer-input");
+    await input.click();
+    await input.pressSequentially("对比 ");
+    await pasteImage(page, solidPng(40, 30));
+    // 附件卡片在输入框顶部：缩略图 + #1 + 尺寸；文字里是 #1 芯片，不是 omp 的占位符原文。
+    const card = page.getByTestId("attachment");
+    await expect(card).toHaveCount(1);
+    await expect(card).toContainText("#1");
+    await expect(card).toContainText("40×30");
+    await expect(input).not.toHaveValue(/\[Image/);
+    await expect(input).toHaveValue(/#1/);
+    // 大段粘贴（30 行）折叠成 `#2 +30 行` 芯片（界面上所有附件共用一个编号：图片 #1，粘贴 #2），原文不在输入框里。
+    const big = Array.from({ length: 30 }, (_, index) => `line ${index + 1}`).join("\n");
+    await launched.app.evaluate(({ clipboard }, text) => clipboard.writeText(text), big);
+    await page.keyboard.press("Control+V");
+    await expect(input).toHaveValue(/#2\u00a0\+30\u00a0(行|lines)/);
+    await expect(input).not.toHaveValue(/line 30/);
+    await page.screenshot({ path: path.join(screenshotsDir, "composer-attachments.png") });
+    // 发送第一句话（创建任务）：占位符里的图片尺寸、展开的原文、临时图片文件的 @"路径" 一起到 omp。
+    await input.press("Enter");
+    await expect(page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
+    await expect
+      .poll(async () => (await received()).filter((event) => String(event["text"]).includes("[Image #1, 40x30]")))
+      .toHaveLength(1);
+    const sent = String((await received()).find((event) => String(event["text"]).includes("[Image #1"))!["text"]);
+    const match = /^对比 \[Image #1, 40x30\] ([\s\S]*) @"([^"]*omp-studio-images[^"]*\.webp)"$/.exec(sent);
+    expect(match, sent).not.toBeNull();
+    expect(match![1]).toBe(big);
+    expect(existsSync(match![2]!)).toBe(true);
+    // 发出去之后任务的输入框是空的，没有附件卡片。
+    await expect(page.getByTestId("composer-input")).toHaveValue("");
+    await expect(card).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("输入框附件：删掉文字里的 #1 芯片就删掉对应的图片；Ctrl+Shift+V 原样粘贴不折叠；拖拽条调高度、双击还原", async () => {
+  test.setTimeout(60_000);
+  const { launched, cleanup } = await start("task");
+  try {
+    const { page } = launched;
+    const input = page.getByTestId("composer-input");
+    await input.click();
+    await pasteImage(page, solidPng(64, 48));
+    await expect(page.getByTestId("attachment")).toHaveCount(1);
+    // 光标在芯片后面：Backspace 一步删掉整个芯片和附件（芯片是原子的）。
+    await input.press("End");
+    await input.press("Backspace"); // 芯片后面的空格
+    await expect(page.getByTestId("attachment")).toHaveCount(1);
+    await input.press("Backspace");
+    await expect(page.getByTestId("attachment")).toHaveCount(0);
+    await expect(input).toHaveValue("");
+    // Ctrl+Shift+V：同样的大段文字，原样进输入框。
+    const big = Array.from({ length: 30 }, (_, index) => `line ${index + 1}`).join("\n");
+    await launched.app.evaluate(({ clipboard }, text) => clipboard.writeText(text), big);
+    await page.keyboard.press("Control+Shift+V");
+    await expect(input).toHaveValue(new RegExp(`line 30`));
+    await input.fill("");
+    // 拖拽条：向上拖高度变大，不超过主区的 60%；双击还原。
+    const grip = page.getByTestId("composer-resize");
+    const before = (await input.boundingBox())!.height;
+    const box = (await grip.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y - 160, { steps: 6 });
+    await page.mouse.up();
+    const grown = (await input.boundingBox())!.height;
+    expect(grown).toBeGreaterThan(before + 100);
+    const main = (await page.getByTestId("main-panel").boundingBox())!;
+    expect(grown).toBeLessThanOrEqual(main.height * 0.6 + 1);
+    await grip.dblclick();
+    expect((await input.boundingBox())!.height).toBe(before);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('输入框附件：附件按钮选文件 = 文件卡片（图标、名字、大小、#1）+ 文字里的 #1 芯片；发送后 omp 收到内联的 @"路径"，路径从不进渲染进程', async () => {
+  test.setTimeout(90_000);
+  const { launched, received, cleanup } = await start("approval");
+  const dir = await mkdtemp(path.join(os.tmpdir(), "omp attach e2e-"));
+  const file = path.join(dir, "报告 final.txt");
+  await writeFile(file, "hello");
+  try {
+    const { page } = launched;
+    await launched.app.evaluate(({ dialog }, picked) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [picked] });
+    }, file);
+    const input = page.getByTestId("composer-input");
+    await input.click();
+    await input.pressSequentially("看 ");
+    await page.getByTestId("composer-attach").click();
+    const card = page.getByTestId("attachment");
+    await expect(card).toHaveCount(1);
+    await expect(card).toHaveAttribute("data-kind", "file");
+    await expect(card).toContainText("#1");
+    await expect(card).toContainText("报告 final.txt");
+    await expect(card).toContainText("5 B");
+    await expect(input).toHaveValue(/#1\s报告/);
+    // 渲染进程里没有路径：输入框、卡片、页面文字里都找不到目录名。
+    expect(await page.locator("body").innerText()).not.toContain("omp attach e2e-");
+    await input.pressSequentially("谢谢");
+    await page.screenshot({ path: path.join(screenshotsDir, "round-0.3.26", "composer-input-file-card.png") });
+    await input.press("Enter");
+    await expect(page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
+    await expect
+      .poll(async () => (await received()).filter((event) => String(event["text"]).includes('@"')).length)
+      .toBe(1);
+    const sent = String((await received()).find((event) => String(event["text"]).includes('@"'))!["text"]);
+    expect(sent).toBe(`看 @"${file.replaceAll("\\", "/")}" 谢谢`);
+  } finally {
+    await cleanup();
+    await rm(dir, { recursive: true, force: true, maxRetries: 5 });
   }
 });
 
@@ -599,7 +797,8 @@ test("后台作业弹窗:卡片不超出 tsp-view、作业列表顶对齐;输入
     const jobsSent = async () =>
       (await received()).filter((body) => body["ev"] === "send" && String(body["text"]).startsWith("/jobs")).length;
     const sentBefore = await jobsSent();
-    await expect(page.getByTestId("jobs-pill-bash")).toBeVisible();
+    // 作业已结束:药丸右半段 `⚡ N` 只数运行中的,所以不画;但 /jobs 仍能打开看板看已结束的。
+    await expect(page.getByTestId("pill-jobs")).toHaveCount(0);
     const input = page.getByTestId("composer-input");
     await input.fill("/jobs");
     await page.keyboard.press("Enter");
@@ -622,7 +821,7 @@ test("后台作业弹窗:卡片不超出 tsp-view、作业列表顶对齐;输入
   }
 });
 
-test("待办 / 作业浮层:/todo 再 /jobs 只留后一个;输入框里按 Esc 关掉最上面的一个并被消耗(不是停止任务),焦点留在输入框", async () => {
+test("待办浮层:/todo 打开,输入框里按 Esc 关掉并被消耗(不是停止任务),焦点留在输入框", async () => {
   test.setTimeout(120_000);
   const { launched, receivedKeys, cleanup } = await start("task");
   try {
@@ -631,34 +830,111 @@ test("待办 / 作业浮层:/todo 再 /jobs 只留后一个;输入框里按 Esc 
     await expect(role(page, "omp.turn.usage")).toBeVisible({ timeout: 60_000 });
     const input = page.getByTestId("composer-input");
     const todo = page.getByTestId("todo-popover");
-    const jobs = page.getByTestId("jobs-board");
-    await expect(page.getByTestId("jobs-pill-task")).toBeVisible();
-    const slash = async (command: string) => {
-      await input.focus();
-      await input.fill(command);
-      await page.keyboard.press("Enter");
-    };
-    await slash("/todo");
+    await input.focus();
+    await input.fill("/todo");
+    await page.keyboard.press("Enter");
     await expect(todo).toBeVisible();
-    // 再开作业浮层:待办浮层被关掉,不会叠在一起。
-    await slash("/jobs");
-    await expect(jobs).toBeVisible();
-    await expect(todo).toHaveCount(0);
-    await slash("/todo");
-    await expect(todo).toBeVisible();
-    await expect(jobs).toHaveCount(0);
     // Esc 从输入框发出:关掉浮层、焦点还在输入框、这个 Esc 不写给 omp。
     const before = (await receivedKeys()).join("");
     await input.focus();
     await page.keyboard.press("Escape");
     await expect(todo).toHaveCount(0);
     await expect(input).toBeFocused();
-    await slash("/jobs");
-    await expect(jobs).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(jobs).toHaveCount(0);
-    await expect(input).toBeFocused();
     expect((await receivedKeys()).join("")).toBe(before);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('输入框上方(照 Tern):药丸 [👥 N | ⚡ N] 每段个数大于 0 才出现、各自点各自的;状态行 = 运行图标 + 翻牌计时 + 活动文字 + 右端待办板;omp 自己的 HUD(▷ N、运行状态行)和旧的"后台任务"按钮都不画', async () => {
+  test.setTimeout(120_000);
+  const jobs = await start("jobs-chart");
+  try {
+    const { page } = jobs.launched;
+    await sendFirst(page, JOBS_PROMPT);
+    // 一个后台 bash 在跑:只有右半段(⚡ 1),没有子代理那一段;状态行里有计时和活动文字。
+    const pill = page.getByTestId("pill-jobs");
+    await expect(pill).toBeVisible({ timeout: 60_000 });
+    await expect(pill).toHaveAttribute("data-count", "1");
+    await expect(page.getByTestId("pill-agents")).toHaveCount(0);
+    // 旧的"后台任务"按钮、omp 的 HUD(▷ 1 胶囊、运行状态行)一个都不画。
+    await expect(page.getByTestId("jobs-pill-bash")).toHaveCount(0);
+    await expect(page.getByTestId("tsp-jobs-bar")).toHaveCount(0);
+    await expect(role(page, "omp.hud")).toHaveCount(0);
+    await expect(role(page, "omp.hud.seg")).toHaveCount(0);
+    await expect(role(page, "omp.working")).toHaveCount(0);
+    // 点右半段 = 打开作业看板(只列 bash 作业)。
+    await pill.click();
+    await expect(page.getByTestId("jobs-board")).toBeVisible();
+    await expect(page.getByTestId("job-row").first()).toHaveAttribute("data-type", "bash");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("jobs-board")).toHaveCount(0);
+  } finally {
+    await jobs.cleanup();
+  }
+  const hub = await start("hub-steer");
+  try {
+    const { page } = hub.launched;
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("hub-steer"))[0]!.event["text"]));
+    // 两个子代理在跑:只有左半段(👥 2);点它 = 打开右栏的子代理面板(不发给 omp)。
+    const pill = page.getByTestId("pill-agents");
+    await expect(pill).toBeVisible({ timeout: 60_000 });
+    await expect(pill).toHaveAttribute("data-count", "2");
+    await expect(page.getByTestId("pill-jobs")).toHaveCount(0);
+    await pill.click();
+    await expect(page.getByTestId("agents-panel")).toBeVisible();
+    expect((await hub.received()).some((event) => event["act"] === "agents.open")).toBe(false);
+  } finally {
+    await hub.cleanup();
+  }
+});
+
+test("小窗口(800×600 / 960×600):输入框整个在窗口里,工具行不被切掉——缩的是对话滚动区,不是输入框;药丸在状态行/输入框正上方、不重叠", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("hub-steer");
+  try {
+    const { page, app } = launched;
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("hub-steer"))[0]!.event["text"]));
+    await expect(page.getByTestId("pill-agents")).toBeVisible({ timeout: 60_000 });
+    for (const [width, height] of [
+      [1200, 800],
+      [960, 600],
+      [800, 600],
+    ] as const) {
+      // setSize 设的是含窗口边框的外框；渲染进程的 innerWidth 等于主进程的内容宽度才算收到了新尺寸（resize 是异步的），再量布局。
+      await app.evaluate(
+        ({ BrowserWindow }, size: readonly [number, number]) => {
+          const win = BrowserWindow.getAllWindows()[0]!;
+          win.unmaximize();
+          win.setSize(size[0], size[1]);
+        },
+        [width, height],
+      );
+      await expect
+        .poll(async () => {
+          const contentWidth =
+            (await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getContentSize()[0])) ?? 0;
+          return (
+            (await page.evaluate("window.innerWidth")) === contentWidth && contentWidth > 0 && contentWidth <= width
+          );
+        })
+        .toBe(true);
+      await expect.poll(() => page.evaluate("window.innerHeight")).toBeLessThanOrEqual(height);
+      const inner = (await page.evaluate("window.innerHeight")) as number;
+      const tools = await page.locator(".composer-tools").boundingBox();
+      const composer = await page.locator(".composer").boundingBox();
+      const pills = await page.getByTestId("status-pills").boundingBox();
+      const view = await page.getByTestId("tsp-view").boundingBox();
+      expect(tools).not.toBeNull();
+      // 输入框整个在窗口里(工具行底边 + 面板下边距不越过窗口底)。
+      expect(tools!.y + tools!.height).toBeLessThanOrEqual(inner);
+      expect(composer!.y + composer!.height).toBeLessThanOrEqual(inner);
+      // 药丸在输入框上方,和输入框、对话区都不重叠。
+      expect(pills!.y + pills!.height).toBeLessThanOrEqual(composer!.y);
+      expect(view!.y + view!.height).toBeLessThanOrEqual(pills!.y + 1);
+      // 对话区还有可读的高度。
+      expect(view!.height).toBeGreaterThan(120);
+    }
   } finally {
     await cleanup();
   }
@@ -691,7 +967,7 @@ test("错误回合只留一份:错误文字只在卡片里(没有 dock 里的红
   }
 });
 
-test("omp 的快捷键(B18):输入框有焦点时 F5 / ⇧Tab / ⌃P / ⌃⇧P / ⌥P / ⌥⇧P / ⌃T / ⌃R / ⌥↑ 编码后写给 omp;studio 自己的键(⌥T、⌃L、⌃O)和普通字符不转发", async () => {
+test("omp 的快捷键(B18):输入框有焦点时 F5 / ⇧Tab / ⌃P / ⌃⇧P / ⌥P / ⌥⇧P / ⌃T / ⌃R / ⌥↑ 编码后写给 omp;studio 自己的键(⌥T、⌃L)和普通字符不转发,⌃O 是 studio 的展开/收起、自己写一次 ⌃O", async () => {
   test.setTimeout(90_000);
   const { launched, receivedKeys, cleanup } = await start("error-turn");
   try {
@@ -716,12 +992,15 @@ test("omp 的快捷键(B18):输入框有焦点时 F5 / ⇧Tab / ⌃P / ⌃⇧P /
     ];
     for (const [chord] of chords) await page.keyboard.press(chord);
     const expected = chords.map(([, bytes]) => bytes).join("");
-    await expect.poll(async () => (await receivedKeys()).join("").slice(before.length)).toBe(expected);
-    // 输入框里没有多出字符;studio 自己的键不写给 omp(⌃O 展开过程行、⌥T 切思考、⌃L 聚焦输入框)。
+    const sent = async () => JSON.stringify((await receivedKeys()).join("").slice(before.length));
+    await expect.poll(sent).toBe(JSON.stringify(expected));
+    // 输入框里没有多出字符;studio 自己的键不写给 omp(⌥T 切思考、⌃L 聚焦输入框);⌃O 是 studio 的"展开/收起工具卡片"，
+    // 它自己把 ⌃O(\x0f) 写给 omp 一次(use-task-commands.ts)，不是输入框把按键原样转发；普通字符 x 留在输入框里。
     await expect(input).toHaveValue("");
     for (const chord of ["Alt+t", "Control+l", "Control+o", "x"]) await page.keyboard.press(chord);
+    await expect(input).toHaveValue("x");
     await page.keyboard.press("F5");
-    await expect.poll(async () => (await receivedKeys()).join("").slice(before.length)).toBe(expected + `${ESC}[15~`);
+    await expect.poll(sent).toBe(JSON.stringify(`${expected}\x0f${ESC}[15~`));
   } finally {
     await cleanup();
   }
@@ -785,8 +1064,8 @@ test("子代理面板:👥 打开右栏面板(不画 omp 的 Hub),列出 Alpha /
   try {
     const { page } = launched;
     await sendFirst(page, firstPrompt);
-    // 录制里两个后台子代理在跑时用户点了 👥(agents.open):假 omp 在这一步等事件,hud 里的胶囊在。
-    const pill = page.locator('[data-testid="tsp-view"] [data-id="3.running/agents"]');
+    // 录制里两个后台子代理在跑时用户点了 👥(agents.open):假 omp 在这一步等事件。输入框上方药丸的左半段(👥 2)就是入口,omp 自己的 hud 胶囊不画。
+    const pill = page.getByTestId("pill-agents");
     await expect(pill).toBeVisible({ timeout: 60_000 });
     await pill.click();
     const panel = page.getByTestId("agents-panel");

@@ -34,7 +34,6 @@ const goalCommandKey = { pause: "goal.cmdPause", resume: "goal.cmdResume", drop:
 
 export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiting }: CommandContext): CommandEntry[] {
   const guard = (promise: Promise<unknown>) => void promise.catch((error: unknown) => reportError(t, error));
-  const rpcTask = current !== null && current.engine !== "tsp" ? current : null;
   const entries: (CommandEntry | null)[] = [
     { id: "newTask", label: t("cmd.newTask"), shortcut: "Ctrl N", run: () => startDraft(null) },
     current && {
@@ -74,9 +73,9 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
       shortcut: "Alt T",
       run: () => emitStudioCommand("thinking"),
     },
-    // 压缩、目标、会话树、旁路提问靠 rpc，TSP 任务用不了（omp 自己的同名命令走斜杠命令：输入 / 选取）；导出两种引擎都行。
-    rpcTask && { id: "compact", label: t("cmd.compact"), run: () => emitStudioCommand("compact") },
-    // 目标（`/goal`）两种引擎都有：rpc 走 goal 命令，TSP 走 omp 的 `/goal pause|resume|drop`（docs/architecture/conversation.md「目标模式」）。
+    // 压缩：发 omp 的 `/compact`，等压缩分隔出现（TspRunner.compact）；失败（会话太小等）按 omp 的原文报错。
+    current && { id: "compact", label: t("cmd.compact"), run: () => guard(window.studio.compactTask(current.id)) },
+    // 目标（`/goal`）：走 omp 的 `/goal pause|resume|drop`（docs/architecture/conversation.md「目标模式」）。
     ...(current
       ? goalButtons(current.goal).map((op) => ({
           id: `goal-${op}`,
@@ -85,8 +84,8 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
         }))
       : []),
     current && { id: "sessionTree", label: t("cmd.sessionTree"), run: () => openSessionTree(current.id) },
-    // 子代理面板（右栏，TSP 任务；rpc 任务的子代理在过程行的泳道里）。
-    current?.engine === "tsp" && { id: "agents", label: t("agents.cmd"), run: () => toggleAgentsPanel(current.id) },
+    // 子代理面板（右栏）。
+    current && { id: "agents", label: t("agents.cmd"), run: () => toggleAgentsPanel(current.id) },
     current && {
       id: "exportHtml",
       label: t("cmd.exportHtml"),
@@ -147,7 +146,7 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
     { id: "checkUpdate", label: t("cmd.checkUpdate"), run: () => showView("settings", { section: "omp" }) },
     { id: "shortcuts", label: t("cmd.shortcuts"), run: () => showView("settings", { section: "shortcuts" }) },
     current && { id: "archive", label: t("cmd.archive"), run: () => archiveWithUndo(current.id, current.id, t) },
-    // 会话信息、请求记录、置顶、分享、重试（S3，session-info）：两种引擎都能用；分享和置顶需要任务已有会话文件，没有时对话框里说明。
+    // 会话信息、请求记录、置顶、分享、重试（S3，session-info）：分享和置顶需要任务已有会话文件，没有时对话框里说明。
     current && { id: "sessionInfo", label: t("sessionInfo.cmd.info"), run: () => openSessionInfo(current.id, "info") },
     current && { id: "trace", label: t("sessionInfo.cmd.trace"), run: () => openSessionInfo(current.id, "trace") },
     current && { id: "share", label: t("sessionInfo.cmd.share"), run: () => openShareDialog(current.id) },

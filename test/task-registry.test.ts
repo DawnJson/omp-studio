@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promis
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { ProjectId } from "../src/shared/ipc.ts";
+import type { ProjectId, TaskId } from "../src/shared/ipc.ts";
 import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
 
 let scratch: string;
@@ -15,7 +15,6 @@ afterAll(async () => {
 
 const newTask = (projectId: ProjectId) => ({
   projectId,
-  engine: "rpc" as const,
   sessionFile: null,
   title: "t",
   model: null,
@@ -61,21 +60,57 @@ describe("TaskRegistry（tasks.json）", () => {
     expect(second.findTask(task.id)).toMatchObject({ worktreePath: null, worktreeBranch: null, worktreeBase: null });
   });
 
-  it("引擎随任务落盘；迁移前没有 engine 字段的老记录读出来是 rpc", async () => {
+  it("rpc 引擎时代写的记录（engine: rpc / tsp）读出来是同一个任务：engine 字段去掉，会话文件、标题、归档状态、模型原样保留；下次保存时落盘", async () => {
     const file = path.join(scratch, "engine", "tasks.json");
-    const first = new TaskRegistry(file);
-    await first.load();
-    const project = await first.addProject(path.join(scratch, "engine 项目"));
-    const tsp = await first.addTask({ ...newTask(project.id), engine: "tsp" });
-    const rpc = await first.addTask(newTask(project.id));
+    const project = { id: "p1", path: path.join(scratch, "engine 项目"), name: "engine 项目" };
+    const record = (id: string, engine: string | null, extra: Record<string, unknown> = {}) => ({
+      id,
+      projectId: project.id,
+      ...(engine === null ? {} : { engine }),
+      sessionFile: path.join(scratch, "sessions", `${id}.jsonl`),
+      title: `任务 ${id}`,
+      createdAt: 1,
+      updatedAt: 2,
+      archived: false,
+      model: { provider: "deepseek", modelId: "deepseek-v4-flash" },
+      thinkingLevel: "high",
+      ...extra,
+    });
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(
+      file,
+      JSON.stringify({
+        version: 1,
+        projects: [project],
+        tasks: [
+          record("rpc", "rpc"),
+          record("tsp", "tsp"),
+          record("ancient", null),
+          record("gone", "rpc", { archived: true }),
+        ],
+      }),
+    );
+    const registry = new TaskRegistry(file);
+    await registry.load();
+    for (const id of ["rpc", "tsp", "ancient", "gone"]) {
+      const task = registry.findTask(id as TaskId);
+      expect(task).toBeDefined();
+      expect(task).not.toHaveProperty("engine");
+      expect(task).toMatchObject({
+        sessionFile: path.join(scratch, "sessions", `${id}.jsonl`),
+        title: `任务 ${id}`,
+        model: { provider: "deepseek", modelId: "deepseek-v4-flash" },
+        thinkingLevel: "high",
+        worktreePath: null,
+      });
+    }
+    expect(registry.findTask("gone" as TaskId)?.archived).toBe(true);
+    // 记下的会话文件还能按路径找回任务（恢复历史会话时据此回到同一个任务）。
+    expect(registry.findTaskBySessionFile(path.join(scratch, "sessions", "rpc.jsonl"))?.id).toBe("rpc");
 
-    const legacy = JSON.parse(await readFile(file, "utf8")) as { tasks: Record<string, unknown>[] };
-    delete legacy.tasks[1]?.["engine"];
-    await writeFile(file, JSON.stringify(legacy));
-    const second = new TaskRegistry(file);
-    await second.load();
-    expect(second.findTask(tsp.id)?.engine).toBe("tsp");
-    expect(second.findTask(rpc.id)?.engine).toBe("rpc");
+    await registry.save();
+    const saved = JSON.parse(await readFile(file, "utf8")) as { tasks: Record<string, unknown>[] };
+    expect(saved.tasks.every((task) => !("engine" in task))).toBe(true);
   });
 
   it("同一个目录只加一次（路径写法不同、Windows 上大小写不同也算同一个）", async () => {

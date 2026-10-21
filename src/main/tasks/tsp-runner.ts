@@ -1,7 +1,6 @@
 // TSP 任务的运行时：一个任务 = 一个项目目录 + 一个 omp 会话 + （存活时）一个伪终端里的交互式 omp（TspSession）。
-// 和 TaskRunner 并存（新任务按设置 `taskEngine` 定引擎；设置是 tsp 时没有进程的 rpc 老任务下次启动也换成它）；对任务池的接口（生命周期、回收、状态）一致，
-// rpc 专有的操作（队列、子代理详情、分叉…）由池对 tsp 任务直接拒绝；旁路提问（/btw）两种引擎都有（tsp-btw.ts）。
-// 状态来自 omp 发来的节点树（task-status.ts，规则和依据见那里），状态机复用 rpc 路径的 task-machine。
+// 对任务池的接口（生命周期、回收、状态）：start / close / state；状态来自 omp 发来的节点树（task-status.ts，规则和依据见那里），
+// 状态机是 task-machine。旁路提问（/btw）见 tsp-btw.ts。
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -19,7 +18,6 @@ import type {
   TaskId,
   TaskNotice,
   TaskState,
-  TranscriptSnapshot,
   TspBatch,
   TspSessionExtras,
   TspSnapshot,
@@ -66,7 +64,6 @@ import {
   TSP_SCREEN_OPEN,
   findMessageTarget,
 } from "../../shared/tsp/gate.ts";
-import { emptyTranscript } from "../../shared/transcript.ts";
 import { log } from "../log/log.ts";
 import type { OmpLaunch } from "../omp/omp-connection.ts";
 import type { ThinkingLevel, AvailableSlashCommand, GoalOp } from "../../shared/omp-wire/rpc-wire.generated.ts";
@@ -96,12 +93,18 @@ import {
 } from "../tsp/session-tree-file.ts";
 import { initialMachineState, transition, type MachineInput, type MachineState } from "./task-machine.ts";
 import type { TaskRecord } from "./task-registry.ts";
-import { TooManyTasksError } from "./task-runner.ts";
 import { WorkspaceDirs } from "./workspace-dirs.ts";
 import { TspGoalTracker } from "./tsp-goal.ts";
 import { GOAL_TOASTS, findGoalDropPrompt } from "../../shared/tsp/goal.ts";
 import { TspBtw } from "./tsp-btw.ts";
+import { fillFileSlots } from "../../shared/composer-files.ts";
+import { resolveComposerFiles } from "../files/composer-files.ts";
 import { isBtwRunning, type BtwHistoryRecord, type BtwUiEvent } from "../../shared/btw.ts";
+
+/** 存活进程数到了硬上限（软上限 × 2），拒绝再起。 */
+export class TooManyTasksError extends Error {
+  override name = "TooManyTasksError";
+}
 
 /** 新进程的初始列数；渲染进程挂载后用 resizeTsp 改成真实宽度。 */
 const INITIAL_COLS = 100;
@@ -225,7 +228,6 @@ export function cleanOmpTitle(raw: string): string {
 }
 
 export class TspRunner {
-  readonly engine = "tsp" as const;
   readonly id: TaskId;
   #record: TaskRecord;
   readonly #project: Project;
@@ -296,7 +298,7 @@ export class TspRunner {
     changed: () => this.#publish(),
     completed: () => this.#host.onNotice?.({ taskId: this.id, kind: "goal_complete" }),
   });
-  /** 旁路提问（`/btw`）：omp 画成 modal 弹窗，这里读成 rpc 同形的话题镜像（tsp-btw.ts、docs/architecture/tsp-btw.md）。 */
+  /** 旁路提问（`/btw`）：omp 画成 modal 弹窗，这里读成话题镜像（tsp-btw.ts、docs/architecture/tsp-btw.md）。 */
   #btwDriving = false;
   readonly #btw = new TspBtw({
     document: () => this.#session?.document ?? null,
@@ -395,7 +397,6 @@ export class TspRunner {
       id: this.id,
       projectId: this.#record.projectId,
       title: this.#record.title,
-      engine: "tsp",
       status: m.status,
       unread: m.unread,
       lastTurn: m.lastTurn,
@@ -408,10 +409,8 @@ export class TspRunner {
       thinkingLevels: this.#derived.thinkingLevels,
       contextUsage: this.#derived.contextUsage,
       sessionUsage: this.#derived.sessionUsage,
-      queue: { steering: [], followUp: [] },
       dialogs: m.dialogs,
       todoPhases: this.#todoPhases,
-      runningSubagents: 0,
       workspaceDirs: this.#workspace.dirs,
       cwd: this.cwd,
       runStartedAt: m.working ? this.#runStartedAt : null,
@@ -419,16 +418,8 @@ export class TspRunner {
       // omp 没有慢速模式的状态节点和"支持与否"的信息：一律 supported，不支持的模型 omp 的 toast 原文作为错误抛出（同 fast）。
       slowMode: { supported: true, enabled: this.#slowEnabled, scope: null },
       sessionToggles: this.#toggles,
-      usageLimit: null,
-      tokensPerSecond: null,
       goal: this.#goalTracker.goal,
-      contextParts: null,
     };
-  }
-
-  /** TSP 任务没有 rpc 的对话流：打开任务时给一份空的（界面渲染的是节点树）。 */
-  snapshot(): TranscriptSnapshot {
-    return { taskId: this.id, seq: 0, transcript: emptyTranscript() };
   }
 
   /** 池按"有对话快照的已停止任务"做 LRU 淘汰：TSP 任务的最后一份文档是它的快照。 */
@@ -494,7 +485,6 @@ export class TspRunner {
         this.#apply({
           type: "prompt_result",
           status: aborted ? "aborted" : "completed",
-          sessionSettled: true,
           at: endedAt,
           foreground: this.#host.isForeground(this.id),
         });
@@ -790,13 +780,15 @@ export class TspRunner {
    * 工具行显示 "Read <路径> (image)"；带空格的路径要用引号）。
    */
   async sendPrompt(input: PromptInput): Promise<void> {
+    // 文件附件：id → 路径，文字里的占位符换成 omp 的 `@"路径"` 提及（omp 自己读文件）。
+    const body = fillFileSlots(input.text, input.fileIds ? await resolveComposerFiles(input.fileIds) : []);
     await this.start();
     const target = await this.#awaitComposer(true);
     const session = this.#session;
     if (!session) throw new Error("the omp process exited");
     const paths = input.images && input.images.length > 0 ? await this.#stageImages(input.images) : [];
     if (this.#record.title === "") {
-      this.#provisionalTitle = titleFromPrompt(input.text);
+      this.#provisionalTitle = titleFromPrompt(body);
       this.#record = await this.#host.persist(this.id, { title: this.#provisionalTitle });
       this.#publish();
     }
@@ -804,7 +796,7 @@ export class TspRunner {
     this.#publish();
     this.#lastActiveAt = Date.now();
     const mentions = paths.map((file) => `@"${file}"`).join(" ");
-    const text = mentions === "" ? input.text : input.text === "" ? mentions : `${input.text} ${mentions}`;
+    const text = mentions === "" ? body : body === "" ? mentions : `${body} ${mentions}`;
     session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text });
   }
 

@@ -143,13 +143,3 @@ export function summarizeChanges(tools: readonly ToolForChanges[]): FileChange[]
   }
   return [...byPath.values()];
 }
-
-/** 工具参数里的路径 → 相对任务目录的路径；落在目录之外（或无法判断）返回 null。 */
-export function relativeToProject(file: string, project: string | null): string | null {
-  const norm = (value: string) => value.replaceAll("\\", "/").replace(/\/+$/, "");
-  const f = norm(file);
-  if (!/^([a-zA-Z]:|\/)/.test(f)) return f.split("/").includes("..") ? null : f;
-  if (project === null) return null;
-  const p = norm(project);
-  return f.toLowerCase().startsWith(p.toLowerCase() + "/") ? f.slice(p.length + 1) : null;
-}

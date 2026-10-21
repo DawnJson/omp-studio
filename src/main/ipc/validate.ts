@@ -1,9 +1,8 @@
 // IPC 入口校验：发送方校验 + 参数校验工具。渲染进程传来的一切都不可信（AGENTS.md "Electron 安全"）。
-// 这里只管"形状"：类型、长度、枚举。"id 是否存在""对话框是否还在 pending 表里"这类状态校验在各 handler 里做。
+// 这里只管"形状"：类型、长度、枚举。"id 是否存在"这类状态校验在各 handler 里做。
 import type { IpcMainInvokeEvent } from "electron";
 import {
   limits,
-  type DialogResponse,
   type LocalePreference,
   type ModelKey,
   type PromptImage,
@@ -18,7 +17,7 @@ import {
   type BuiltinCommand,
   type TaskCommand,
 } from "../../shared/omp-output/index.ts";
-import type { AskAnswer, ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
+import type { ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import type { TspEvent } from "../../shared/tsp/tsp.generated.ts";
 import { getMainWindow, isAppUrl } from "../window/main-window.ts";
 
@@ -140,50 +139,25 @@ function parseImages(value: unknown): PromptImage[] {
   });
 }
 
-/** 形状校验；整帧不超过 ready.maxFrameBytes 由任务运行时按实际大小检查（它才知道协商出的上限）。 */
+function parseFileIds(value: unknown): string[] {
+  if (!Array.isArray(value)) throw new IpcValidationError("fileIds 必须是数组");
+  if (value.length > limits.promptMaxFiles) throw new IpcValidationError(`文件最多 ${limits.promptMaxFiles} 个`);
+  return value.map((item, i) => parseString(item, `fileIds[${i}]`, 64));
+}
+
+/** 形状校验：文字长度不限，图片张数和 base64 格式在这里查；文件只收 id（路径在主进程的登记表里）。 */
 export function parsePromptInput(value: unknown): PromptInput {
   const record = parseRecord(value, "input");
   const text = parseString(record["text"], "input.text", Number.MAX_SAFE_INTEGER, { allowEmpty: true });
   const images = record["images"] === undefined ? undefined : parseImages(record["images"]);
+  const fileIds = record["fileIds"] === undefined ? undefined : parseFileIds(record["fileIds"]);
   if (text.length === 0 && !images?.length) throw new IpcValidationError("消息不能为空");
   return {
     text,
     whenBusy: parseOneOf(record["whenBusy"], "input.whenBusy", ["steer", "followUp"]),
     ...(images && { images }),
+    ...(fileIds && { fileIds }),
   };
-}
-
-function parseAskAnswers(value: unknown): AskAnswer[] {
-  if (!Array.isArray(value)) throw new IpcValidationError("answers 必须是数组");
-  return value.map((item, i) => {
-    const record = parseRecord(item, `answers[${i}]`);
-    const selected = record["selectedOptions"];
-    if (!Array.isArray(selected)) throw new IpcValidationError(`answers[${i}].selectedOptions 必须是数组`);
-    const selectedOptions = selected.map((option, j) =>
-      parseString(option, `answers[${i}].selectedOptions[${j}]`, 10_000),
-    );
-    const answer: AskAnswer = { id: parseString(record["id"], `answers[${i}].id`, 200), selectedOptions };
-    if (record["customInput"] !== undefined)
-      answer.customInput = parseString(record["customInput"], `answers[${i}].customInput`, 100_000, {
-        allowEmpty: true,
-      });
-    return answer;
-  });
-}
-
-/** 形状校验；"值在 options 里""答案和题目一一对应"要对照 pending 的对话框，由任务运行时做。 */
-export function parseDialogResponse(value: unknown): DialogResponse {
-  const record = parseRecord(value, "response");
-  switch (parseOneOf(record["kind"], "response.kind", ["value", "confirm", "answers", "cancel"])) {
-    case "value":
-      return { kind: "value", value: parseString(record["value"], "response.value", 1_000_000, { allowEmpty: true }) };
-    case "confirm":
-      return { kind: "confirm", confirmed: parseBoolean(record["confirmed"], "response.confirmed") };
-    case "answers":
-      return { kind: "answers", answers: parseAskAnswers(record["answers"]) };
-    case "cancel":
-      return { kind: "cancel" };
-  }
 }
 
 export function parseApiKey(value: unknown): string {

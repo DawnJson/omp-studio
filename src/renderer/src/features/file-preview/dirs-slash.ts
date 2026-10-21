@@ -25,7 +25,6 @@ export const dirsSlashCommands: readonly StudioSlashCommand[] = [
   {
     name: "dirs",
     descKey: "slash.dirsDesc",
-    tsp: "studio",
     run: async (taskId) => {
       await window.studio.refreshWorkspaceDirs(taskId);
       openFilesPanel(taskId);
@@ -34,7 +33,6 @@ export const dirsSlashCommands: readonly StudioSlashCommand[] = [
   {
     name: "add-dir",
     descKey: "slash.addDirDesc",
-    tsp: "studio",
     run: async (taskId, args, t) => {
       // 不带路径：系统文件夹选择框（主进程）；带路径：按用户输入的整行交给 omp（相对路径按任务目录解析）。
       const result =
@@ -51,7 +49,6 @@ export const dirsSlashCommands: readonly StudioSlashCommand[] = [
   {
     name: "remove-dir",
     descKey: "slash.removeDirDesc",
-    tsp: "studio",
     run: async (taskId, args, t) => {
       if (args === "") {
         openFilesPanel(taskId);

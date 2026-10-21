@@ -9,6 +9,7 @@ import { ContextBreakdown, prefetchCompaction, type ContextBreakdownProps } from
 import { ModelBreakdown } from "./ModelBreakdown.tsx";
 import { Popover } from "./Popover.tsx";
 import { onStudioCommand } from "../palette/studio-command.ts";
+import { useSessionExtras } from "../tsp/session-extras-store.ts";
 import { formatTokensPerSecond } from "./speed-limit-format.ts";
 import { formatCount, formatPercent } from "./usage-format.ts";
 
@@ -128,12 +129,13 @@ function ContextPlaceholder() {
 
 /** 任务的上下文圆环（发送键左边、费用之前）；omp 还没给出上下文占用时是占位圆环。 */
 export function ContextMeter({ task }: { task: TaskState }) {
+  const { contextParts } = useSessionExtras(task.id);
   const context = task.contextUsage;
   if (context === null) return <ContextPlaceholder />;
   return (
     <ContextButton
       context={context}
-      parts={task.contextParts}
+      parts={contextParts}
       modelKey={task.model?.key ?? null}
       projectId={task.projectId}
       sessionUsage={<ModelBreakdown task={task} />}
@@ -155,11 +157,15 @@ export function DraftContextMeter({ model, projectId }: { model: ModelOption | n
   );
 }
 
-/** 工具行里模型/审批胶囊右边的速度：omp 只在回复结束后给出（实测流式中为 null）；运行中显示的是上一条回复的，空闲时不显示。 */
+/**
+ * 工具行里模型/审批胶囊右边的速度：TSP 里 omp 没有实时速度，取会话文件里最近一条回复的（`useSessionExtras().tokensPerSecond`，
+ * output ÷ (duration − ttft)，一轮结束时刷新）；运行中显示的是上一条回复的，空闲时不显示。
+ */
 export function UsageMeter({ task }: { task: TaskState }) {
   const t = useT();
+  const { tokensPerSecond } = useSessionExtras(task.id);
   const busy = task.status === "running" || task.status === "needs_you";
-  const speedText = busy ? formatTokensPerSecond(task.tokensPerSecond) : null;
+  const speedText = busy ? formatTokensPerSecond(tokensPerSecond) : null;
   if (speedText === null) return null;
   return (
     <div className="usage" role="group" aria-label={t("composer.usage.aria")} data-testid="usage-meter">

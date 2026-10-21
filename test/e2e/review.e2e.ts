@@ -1,18 +1,13 @@
-// 全屏评审端到端：临时 git 仓库（路径带空格和中文）+ 假 omp 回放一次 edit 工具调用，
-// 驱动真实的 主进程 → git IPC → 渲染进程：打开评审、统一/并排、暂存一个 hunk、两条评论、发给 agent（断言 omp 收到的 prompt 文本）。
+// 全屏评审端到端：临时 git 仓库（路径带空格和中文）+ 假 omp（fake-tsp-omp，伪终端里回放 fixtures/tsp/slash-status），
+// 驱动真实的 主进程 → git IPC → 渲染进程：打开评审（顶栏评审按钮）、统一/并排、暂存一个 hunk、两条评论、发给 agent（断言 omp 收到的 send 事件文本）。
 // 中英 × 深浅各截图到 screenshots/review-*.png。
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, screenshotsDir, testOmp, type LaunchedApp } from "./launch.ts";
 
-const root = path.resolve(import.meta.dirname, "..", "..");
-const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
-
-const INTENT = "Bump the calc constants";
-const CONCLUSION = "Changed two constants in calc.ts.";
 const PATH_EDITED = "src/calc.ts";
 
 function git(cwd: string, ...args: string[]): string {
@@ -54,90 +49,6 @@ async function makeRepo(parent: string): Promise<string> {
   return repo;
 }
 
-const usage = {
-  input: 1,
-  output: 1,
-  cacheRead: 0,
-  cacheWrite: 0,
-  totalTokens: 2,
-  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-};
-const assistant = (content: unknown[], stopReason: string) => ({
-  role: "assistant",
-  content,
-  api: "openai-completions",
-  provider: "deepseek",
-  model: "deepseek-v4-flash",
-  usage,
-  stopReason,
-  timestamp: 1792285889005,
-});
-const out = (frame: Record<string, unknown>) => JSON.stringify({ kind: "out", frame });
-
-/**
- * 握手部分取自真实录制（bash-tool 的前 19 行：到第一个 prompt 的应答为止），后面手写：
- * 一次成功的 edit 调用（intent + 结论）、会话结束；再回放评审评论带来的第二个 prompt。
- */
-async function editFixture(): Promise<string> {
-  const recorded = (await readFile(path.join(root, "fixtures", "rpc", "bash-tool.ndjson"), "utf8"))
-    .split("\n")
-    .filter(Boolean);
-  const args = { i: INTENT, path: PATH_EDITED };
-  const call = { type: "toolCall", id: "call_edit_1", name: "edit", arguments: args, intent: INTENT };
-  const userMessage = {
-    role: "user",
-    content: [{ type: "text", text: "bump the constants" }],
-    attribution: "user",
-    timestamp: 1792285888969,
-  };
-  const result = {
-    content: [{ type: "text", text: "Updated src/calc.ts" }],
-    details: {
-      diff: "-export const value3 = 3;\n+export const value3 = 300;\n-export const value26 = 26;\n+export const value26 = 2600;",
-    },
-  };
-  const toolResult = {
-    role: "toolResult",
-    toolCallId: "call_edit_1",
-    toolName: "edit",
-    content: result.content,
-    details: result.details,
-    isError: false,
-    timestamp: 1792285890611,
-  };
-  const text = assistant([{ type: "text", text: CONCLUSION }], "stop");
-  return (
-    [
-      ...recorded.slice(0, 19),
-      out({ type: "agent_start" }),
-      out({ type: "turn_start" }),
-      out({ type: "message_start", message: userMessage, messageId: "msg-1" }),
-      out({ type: "message_end", message: userMessage, messageId: "msg-1" }),
-      out({ type: "message_start", message: assistant([call], "toolUse"), messageId: "msg-2" }),
-      out({ type: "message_end", message: assistant([call], "toolUse"), messageId: "msg-2" }),
-      out({ type: "tool_execution_start", toolCallId: "call_edit_1", toolName: "edit", args, intent: INTENT }),
-      out({ type: "tool_execution_end", toolCallId: "call_edit_1", toolName: "edit", result, isError: false }),
-      out({ type: "message_start", message: toolResult, messageId: "msg-3" }),
-      out({ type: "message_end", message: toolResult, messageId: "msg-3" }),
-      out({ type: "turn_end", message: assistant([call], "toolUse"), toolResults: [] }),
-      out({ type: "turn_start" }),
-      out({ type: "message_start", message: text, messageId: "msg-4" }),
-      out({ type: "message_end", message: text, messageId: "msg-4" }),
-      out({ type: "turn_end", message: text, toolResults: [] }),
-      out({ type: "agent_end", messages: [], isTerminal: true, yielded: false }),
-      out({ type: "prompt_result", id: "req-7", agentInvoked: true, status: "completed", sessionSettled: true }),
-      out({ type: "session_settled" }),
-      // 评审评论发出的 prompt
-      JSON.stringify({ kind: "in", frame: { message: "(review comments)", id: "req-8", type: "prompt" } }),
-      out({ id: "req-8", type: "response", command: "prompt", success: true }),
-      out({ type: "agent_start" }),
-      out({ type: "agent_end", messages: [], isTerminal: true, yielded: false }),
-      out({ type: "prompt_result", id: "req-8", agentInvoked: true, status: "completed", sessionSettled: true }),
-      out({ type: "session_settled" }),
-    ].join("\n") + "\n"
-  );
-}
-
 interface Started {
   launched: LaunchedApp;
   repo: string;
@@ -149,12 +60,8 @@ async function start(options: { git: boolean }): Promise<Started> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp 评审 e2e-"));
   const repo = options.git ? await makeRepo(work) : path.join(work, "没有 git 的目录");
   if (!options.git) await mkdir(repo);
-  const fixture = path.join(work, "edit.ndjson");
-  const inputLog = path.join(work, "omp-input.log");
-  await writeFile(fixture, await editFixture());
-  const launched = await launchApp({
-    STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture, inputLog] }),
-  });
+  const inputLog = path.join(work, "omp-input.jsonl");
+  const launched = await launchApp({ STUDIO_TEST_OMP: testOmp("slash-status", { log: inputLog }) });
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, repo);
@@ -179,13 +86,10 @@ async function createAndSelectTask(page: Page): Promise<void> {
   await openTaskRow(page);
 }
 
-async function runTurn(page: Page): Promise<void> {
+async function openTask(page: Page): Promise<void> {
   await createAndSelectTask(page);
-  const input = page.getByTestId("composer-input");
-  await expect(input).toBeVisible();
-  await input.fill("bump the constants");
-  await page.keyboard.press("Enter");
-  await expect(page.getByTestId("change-card")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("composer-input")).toBeVisible();
 }
 
 async function shoot(page: Page, state: string): Promise<void> {
@@ -215,14 +119,14 @@ const gutter = (page: Page, line: number, side: "new" | "old" = "new") =>
 const openFile = (page: Page, file: string, area: string) =>
   page.locator(`[data-testid=review-file][data-path="${file}"][data-area=${area}]`);
 
-test("评审：文件树、统一/并排、暂存 hunk、两条评论、说明面板、发给 agent", async () => {
+test("评审：文件树、统一/并排、暂存 hunk、两条评论、发给 agent", async () => {
   const { launched, repo, inputLog, cleanup } = await start({ git: true });
   try {
     const { page } = launched;
-    await runTurn(page);
+    await openTask(page);
 
-    // 打开评审：改动卡片上的入口。
-    await page.getByTestId("change-review").click();
+    // 打开评审：顶栏的评审按钮。
+    await page.getByTestId("topbar-review").click();
     const review = page.getByTestId("review");
     await expect(review).toBeVisible();
     await expect(page.getByTestId("review-branch")).toBeVisible();
@@ -285,19 +189,12 @@ test("评审：文件树、统一/并排、暂存 hunk、两条评论、说明�
     await expect(page.getByTestId("comment-count")).toHaveText("2");
     await shoot(page, "comments");
 
-    // 说明面板：这个文件被哪个 edit 工具改的（intent）和那一轮的结论。
-    await page.getByTestId("tab-explain").click();
-    await expect(page.getByTestId("explain-edit")).toContainText(INTENT);
-    await expect(page.getByTestId("explain-conclusion")).toContainText(CONCLUSION);
-
     // 评论队列：两条，按行排序；Esc 退出评审后再打开仍在（队列跨关闭保留）。
-    await page.getByTestId("tab-comments").click();
     await expect(page.getByTestId("queued-comment")).toHaveCount(2);
     await shoot(page, "queue");
     await page.keyboard.press("Escape");
     await expect(review).toBeHidden();
-    await page.getByTestId("change-review").click();
-    await page.getByTestId("tab-comments").click();
+    await page.getByTestId("topbar-review").click();
     await expect(page.getByTestId("queued-comment")).toHaveCount(2);
 
     // 丢弃要确认：取消后 hunk 还在；确认丢弃未跟踪文件后文件从磁盘和树里消失。
@@ -319,25 +216,24 @@ test("评审：文件树、统一/并排、暂存 hunk、两条评论、说明�
     await page.getByTestId("review-send").click();
     await expect(review).toBeHidden();
     await expect
-      .poll(async () => (await readFile(inputLog, "utf8").catch(() => "")).split("\n").filter(Boolean).length, {
+      .poll(async () => (await readFile(inputLog, "utf8").catch(() => "")).includes('"ev":"send"'), {
         timeout: 15_000,
       })
-      .toBeGreaterThan(0);
+      .toBe(true);
     const prompts = (await readFile(inputLog, "utf8"))
       .split("\n")
       .filter(Boolean)
-      .map((line) => JSON.parse(line) as { type?: string; message?: string })
-      .filter((frame) => frame.type === "prompt");
-    expect(prompts).toHaveLength(2);
-    const sent = prompts[1]?.message ?? "";
+      .map((line) => JSON.parse(line) as { kind?: string; body?: { ev?: string; text?: string } })
+      .filter((record) => record.kind === "tsp" && record.body?.ev === "send");
+    expect(prompts).toHaveLength(1);
+    const sent = prompts[0]?.body?.text ?? "";
     expect(sent).toContain(`${PATH_EDITED}:23-25`);
     expect(sent).toContain(`${PATH_EDITED}:26`);
     expect(sent).toContain("Why 2600? Use a named constant.");
     expect(sent).toContain("请补上注释。");
     expect(sent.indexOf(":23-25")).toBeLessThan(sent.indexOf(":26"));
 
-    await page.getByTestId("change-review").click();
-    await page.getByTestId("tab-comments").click();
+    await page.getByTestId("topbar-review").click();
     await expect(page.getByTestId("queued-comment")).toHaveCount(0);
   } finally {
     await cleanup();
@@ -348,8 +244,8 @@ test("评审：删除行的旧行号一直在；悬停时加评论的 + 在行�
   const { launched, cleanup } = await start({ git: true });
   try {
     const { page } = launched;
-    await runTurn(page);
-    await page.getByTestId("change-review").click();
+    await openTask(page);
+    await page.getByTestId("topbar-review").click();
     await openFile(page, CSV_EDITED, "unstaged").click();
 
     // 评审盖住整个窗口：输入框所在的位置，最上面的元素在评审里面（输入框不透出来）。
@@ -424,8 +320,8 @@ test("评审：文件树每行 +a −d、变更行左缘竖条、改动块/整�
     git(repo, "config", "user.name", "t");
     git(repo, "config", "user.email", "t@example.com");
     git(repo, "config", "commit.gpgsign", "false");
-    await runTurn(page);
-    await page.getByTestId("change-review").click();
+    await openTask(page);
+    await page.getByTestId("topbar-review").click();
     const review = page.getByTestId("review");
     await expect(review).toBeVisible();
 
@@ -475,7 +371,7 @@ test("评审：文件树每行 +a −d、变更行左缘竖条、改动块/整�
     // 选择在评审关闭再打开后还在（会话内记住）；键盘 f 切回改动块。
     await page.keyboard.press("Escape");
     await expect(review).toBeHidden();
-    await page.getByTestId("change-review").click();
+    await page.getByTestId("topbar-review").click();
     await expect(page.getByTestId("scope-file")).toHaveAttribute("aria-pressed", "true");
     await openFile(page, PATH_EDITED, "unstaged").click();
     await page.keyboard.press("f");

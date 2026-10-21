@@ -10,7 +10,6 @@ import { draftHandlers } from "./draft-handlers.ts";
 import { gitHandlers } from "./git-handlers.ts";
 import { historyHandlers } from "./history-handlers.ts";
 import { ompHandlers } from "./omp-handlers.ts";
-import { subagentHandlers } from "./subagent-handlers.ts";
 import { btwHandlers } from "./btw-handlers.ts";
 import { taskHandlers } from "./task-handlers.ts";
 import { terminalHandlers } from "./terminal-handlers.ts";
@@ -23,6 +22,7 @@ import { integrationsHandlers } from "./integrations-handlers.ts";
 import { sessionInfoHandlers } from "./session-info-handlers.ts";
 import { agentsHandlers } from "./agents-handlers.ts";
 import { registerDropFolder } from "./drop-folder.ts";
+import { composerFilesHandlers, registerComposerFilesChannel } from "./composer-files-handlers.ts";
 import { assertTrustedSender } from "./validate.ts";
 import { log } from "../log/log.ts";
 
@@ -34,11 +34,11 @@ const handlers: InvokeHandlers = {
   ...customModelHandlers,
   ...ompHandlers,
   ...draftHandlers,
+  ...composerFilesHandlers,
   ...gitHandlers,
   ...updateHandlers,
   ...usageHandlers,
   ...pluginHandlers,
-  ...subagentHandlers,
   ...btwHandlers,
   ...terminalHandlers,
   ...fileHandlers,
@@ -64,4 +64,5 @@ export function registerIpcHandlers(): void {
     });
   }
   registerDropFolder();
+  registerComposerFilesChannel();
 }

@@ -102,8 +102,8 @@
 
   /* 版式 */
   --titlebar-h: 40px;
-  --sidebar-w: 264px;
-  --sidebar-w-min: 220px;
+  --sidebar-w: 240px; /* 任务行标题 + 尾部时间放得下：中文约 10 个字、英文带 "Just now" 约 14 个字符；旧值 264 */
+  --sidebar-w-min: 200px;
   --sidebar-w-max: 360px;
   --content-w: 840px; /* 对话列与输入框同宽同轴 */
   --gutter: 24px; /* 对话区最小左右留白 */

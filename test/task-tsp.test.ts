@@ -1,19 +1,11 @@
-// 任务池 + TSP 任务：设置定引擎、TspRunner 的生命周期和状态推导、会话文件和标题、只有 rpc 才有的操作被拒。
-// 进程是 test/fake-omp/fake-tsp-omp.ts（伪终端里回放 fixtures/tsp 的录制），rpc 任务是 fake-omp.ts。
+// 任务池 + TSP 任务：TspRunner 的生命周期和状态推导、会话文件和标题、老 rpc 任务的迁移。
+// 进程是 test/fake-omp/fake-tsp-omp.ts（伪终端里回放 fixtures/tsp 的录制）。
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import type {
-  ModelOption,
-  ProjectId,
-  StudioSettings,
-  TaskEngine,
-  TaskId,
-  TaskState,
-  TspBatch,
-} from "../src/shared/ipc.ts";
+import type { ModelOption, ProjectId, StudioSettings, TaskId, TaskState, TspBatch } from "../src/shared/ipc.ts";
 import type { TspEvent } from "../src/shared/tsp/tsp.generated.ts";
 import { applyMessage, createDocument, restoreDocument, snapshotDocument } from "../src/shared/tsp/document.ts";
 import { titleFromPrompt } from "../src/main/tasks/convert.ts";
@@ -35,7 +27,6 @@ function approvalEvents(): { text: string; approve: TspEvent } {
 
 const root = path.resolve(import.meta.dirname, "..");
 const fakeTsp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
-const fakeRpc = path.join(root, "test", "fake-omp", "fake-omp.ts");
 let scratch: string;
 let projectDir: string;
 
@@ -48,7 +39,7 @@ afterAll(async () => {
   await rm(scratch, { recursive: true, force: true });
 });
 
-const settings = (taskEngine: TaskEngine): StudioSettings => ({
+const settings = (): StudioSettings => ({
   locale: "zh-CN",
   theme: "system",
   maxLiveProcesses: 6,
@@ -56,7 +47,6 @@ const settings = (taskEngine: TaskEngine): StudioSettings => ({
   enterWhileRunning: "steer",
   notifyOnGate: true,
   copyOnSelect: true,
-  taskEngine,
   yoloConfirmed: false,
 });
 
@@ -85,11 +75,8 @@ class Events {
         waiter.predicate(state) ? (waiter.resolve(state), false) : true,
       );
     },
-    transcript: () => {},
     notice: () => {},
     taskRemoved: () => {},
-    slashCommands: () => {},
-    subagents: () => {},
     tspBatch: (batch: TspBatch) => this.tspBatches.push(batch),
   };
 
@@ -125,17 +112,12 @@ interface Harness {
   next: { fixture: string; env: Record<string, string> };
   /** 假 omp 的收件记录。 */
   log: string;
-  engine: { current: TaskEngine };
 }
 
 const pools: TaskPool[] = [];
 let counter = 0;
 
-async function harness(
-  tasksFile?: string,
-  engine: TaskEngine = "tsp",
-  extra: Partial<PoolDeps> = {},
-): Promise<Harness> {
+async function harness(tasksFile?: string, extra: Partial<PoolDeps> = {}): Promise<Harness> {
   counter += 1;
   const events = new Events();
   const file = tasksFile ?? path.join(await mkdtemp(path.join(scratch, "ud-")), "tasks.json");
@@ -143,17 +125,9 @@ async function harness(
   const launches: Launch[] = [];
   const log = path.join(scratch, `omp-log-${counter}.jsonl`);
   const next = { fixture: "slash", env: {} as Record<string, string> };
-  const current = { current: engine };
   const pool = new TaskPool({
     registry,
-    getSettings: async () => settings(current.current),
-    buildLaunch: async (_record, project) => ({
-      command: process.execPath,
-      args: [fakeRpc, path.join(root, "fixtures", "rpc", "simple-reply.ndjson")],
-      cwd: project.path,
-      env: process.env,
-    }),
-    assignJob: () => {},
+    getSettings: async () => settings(),
     events: events.sink,
     listModels: async () => catalog,
     ...extra,
@@ -182,7 +156,7 @@ async function harness(
   pools.push(pool);
   await pool.init();
   const project = await pool.ensureProject(projectDir);
-  return { pool, events, registry, tasksFile: file, projectId: project.id, launches, next, log, engine: current };
+  return { pool, events, registry, tasksFile: file, projectId: project.id, launches, next, log };
 }
 
 afterEach(async () => {
@@ -206,14 +180,13 @@ async function waitForLog(file: string, predicate: (records: LogRecord[]) => boo
   }
 }
 
-describe("任务池：按设置的引擎建 runner", () => {
+describe("任务池：TSP 任务", () => {
   it("TSP 任务：starting → idle → running → needs_you（审批门）→ running → idle，节点树和批次一致", async () => {
     const events = approvalEvents();
     const h = await harness();
     h.next.fixture = "approval";
     const created = await h.pool.createTask({ projectId: h.projectId });
-    expect(created).toMatchObject({ engine: "tsp", status: "starting", title: "" });
-    expect(h.registry.findTask(created.id)?.engine).toBe("tsp");
+    expect(created).toMatchObject({ status: "starting", title: "" });
     await h.events.until(created.id, (state) => state.status === "idle");
 
     await h.pool.sendPrompt(created.id, { text: events.text, whenBusy: "steer" });
@@ -337,7 +310,7 @@ describe("任务池：按设置的引擎建 runner", () => {
     await h.pool.shutdown();
     const again = await harness(h.tasksFile);
     again.next.fixture = "slash";
-    expect(again.pool.listTasks().map((state) => [state.engine, state.status])).toEqual([["tsp", "stopped"]]);
+    expect(again.pool.listTasks().map((state) => state.status)).toEqual(["stopped"]);
     await again.pool.openTask(first.id);
     expect(again.launches).toEqual([{ sessionFile }]);
   }, 60_000);
@@ -423,15 +396,13 @@ describe("任务池：按设置的引擎建 runner", () => {
     expect(last.sessionToggles.prewalk).toMatch(/^Prewalk: target /);
   }, 60_000);
 
-  it("只有 rpc 才有的操作对 TSP 任务报明确的错误；带图片的 prompt 走 @ 提及", async () => {
+  it("带图片的 prompt 走 @ 提及；没有会话文件的任务不能分叉", async () => {
     const h = await harness();
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (state) => state.status === "idle");
-    expect(() => h.pool.getSubagents(created.id)).toThrow(/TSP engine/);
-    // compactTask 不再是 rpc 专有：TSP 任务发 /compact（这里的录制里没有，不测它）。
-    // forkTask 也不再是 rpc 专有：TSP 任务分叉会话文件（docs/architecture/session-tree.md）；这个任务还没有会话文件，所以被拒绝。
+    // 分叉会话文件（docs/architecture/session-tree.md）：这个任务还没有会话文件，所以被拒绝。
     await expect(h.pool.forkTask(created.id, null)).rejects.toThrow(/no session file yet/);
-    // TSP 任务也有模型目录（listTaskModels 不再是 rpc 专有）。
+    // 模型目录来自服务进程。
     await expect(h.pool.listTaskModels(created.id)).resolves.toEqual(catalog);
     // 图片没有 TSP 通道：落成临时文件，用 omp 的 `@"路径"` 提及发出去。
     await h.pool.sendPrompt(created.id, {
@@ -448,23 +419,6 @@ describe("任务池：按设置的引擎建 runner", () => {
     const staged = /^看图 @"(.+\.png)"$/.exec(sent)?.[1];
     expect(staged).toBeTruthy();
     expect(readFileSync(staged!)).toEqual(Buffer.from([0]));
-    // 对话流不是 TSP 任务的东西：给空的。
-    expect(h.pool.getTranscript(created.id).transcript.items).toEqual([]);
-  }, 60_000);
-
-  it("引擎在创建时定下：改设置不影响已有任务，TSP 任务的 tspSnapshot 对 rpc 任务报错", async () => {
-    const h = await harness();
-    const tspTask = await h.pool.createTask({ projectId: h.projectId });
-    await h.events.until(tspTask.id, (state) => state.status === "idle");
-
-    h.engine.current = "rpc";
-    const rpcTask = await h.pool.createTask({ projectId: h.projectId });
-    expect(rpcTask.engine).toBe("rpc");
-    await h.events.until(rpcTask.id, (state) => state.status === "idle");
-    expect(h.registry.findTask(tspTask.id)?.engine).toBe("tsp");
-    expect(h.registry.findTask(rpcTask.id)?.engine).toBe("rpc");
-    expect(() => h.pool.getTspSnapshot(rpcTask.id)).toThrow(/does not run on the TSP engine/);
-    expect(h.pool.listTasks().find((state) => state.id === tspTask.id)?.engine).toBe("tsp");
   }, 60_000);
 
   it("omp 还没起来时 resizeTsp 不报错，列数记下来，进程起来就用它", async () => {
@@ -482,7 +436,7 @@ describe("TSP 任务：斜杠命令列表（B1）和导出 HTML（B7）", () => 
   const commands = [{ name: "model", source: "builtin" as const }];
 
   it("命令列表来自服务进程，任务还在 starting（没有会话）时也照给，草稿页（null）同源", async () => {
-    const h = await harness(undefined, "tsp", { listSlashCommands: async () => commands });
+    const h = await harness(undefined, { listSlashCommands: async () => commands });
     const created = await h.pool.createTask({ projectId: h.projectId });
     expect(created.status).toBe("starting");
     await expect(h.pool.listSlashCommands(created.id)).resolves.toEqual(commands);
@@ -501,7 +455,7 @@ describe("TSP 任务：斜杠命令列表（B1）和导出 HTML（B7）", () => 
     await mkdir(path.dirname(sessionFile), { recursive: true });
     await writeFile(sessionFile, "{}\n");
     const calls: { sessionFile: string; outputPath: string; cwd: string }[] = [];
-    const h = await harness(undefined, "tsp", {
+    const h = await harness(undefined, {
       exportSession: async (file, outputPath, cwd) => {
         calls.push({ sessionFile: file, outputPath, cwd });
       },
@@ -519,7 +473,7 @@ describe("TSP 任务：斜杠命令列表（B1）和导出 HTML（B7）", () => 
 
   it("还没有会话文件（没发过消息）时导出被拒绝，不调 omp", async () => {
     const calls: string[] = [];
-    const h = await harness(undefined, "tsp", {
+    const h = await harness(undefined, {
       exportSession: async (file) => {
         calls.push(file);
       },
@@ -634,68 +588,68 @@ describe("TSP 任务：输入框状态、切模型、提问时的发送", () => 
   }, 60_000);
 });
 
-describe("引擎统一：设置是 tsp 时，没在运行的 rpc 老任务下次启动改用 TSP", () => {
+describe("rpc 引擎时代的老任务：按记录里的会话文件用 TSP 恢复", () => {
   const sessionFile = () => path.join(scratch, "sessions 二", "old.jsonl");
 
-  it("应用启动时：记录里的 rpc 任务改成 tsp（落盘），用 --resume=<会话文件> 起", async () => {
-    const old = await harness(undefined, "rpc");
-    const created = await old.pool.createTask({ projectId: old.projectId });
-    await old.events.until(created.id, (s) => s.status === "idle");
-    await old.registry.updateTask(created.id, { sessionFile: sessionFile() });
-    await old.pool.shutdown();
+  async function legacyTasksFile(tasks: Record<string, unknown>[]): Promise<{ file: string; projectId: string }> {
+    const file = path.join(await mkdtemp(path.join(scratch, "legacy-")), "tasks.json");
+    const project = { id: "legacy-project", path: projectDir, name: "project" };
+    await writeFile(file, JSON.stringify({ version: 1, projects: [project], tasks }));
+    return { file, projectId: project.id };
+  }
+  const legacyTask = (extra: Record<string, unknown> = {}) => ({
+    id: "legacy-task",
+    projectId: "legacy-project",
+    engine: "rpc",
+    sessionFile: sessionFile(),
+    title: "老任务",
+    createdAt: Date.UTC(2026, 8, 1),
+    updatedAt: Date.UTC(2026, 9, 1),
+    archived: false,
+    model: null,
+    thinkingLevel: null,
+    ...extra,
+  });
 
-    const again = await harness(old.tasksFile, "tsp");
-    expect(again.registry.findTask(created.id)?.engine).toBe("tsp");
-    expect(again.pool.listTasks().map((s) => [s.engine, s.status])).toEqual([["tsp", "stopped"]]);
-    await again.pool.openTask(created.id);
-    expect(again.launches).toEqual([{ sessionFile: sessionFile() }]);
+  it("应用启动时：engine: rpc 的记录原样列出（stopped），打开它用 --resume=<同一个会话文件> 起 TSP", async () => {
+    const { file } = await legacyTasksFile([legacyTask()]);
+    const h = await harness(file);
+    expect(h.pool.listTasks().map((s) => [s.id, s.title, s.status])).toEqual([["legacy-task", "老任务", "stopped"]]);
+    await h.pool.openTask("legacy-task" as TaskId);
+    await h.events.until("legacy-task" as TaskId, (s) => s.status === "idle");
+    expect(h.launches).toEqual([{ sessionFile: sessionFile() }]);
   }, 60_000);
 
-  it("引擎迁移只改 engine，不动任务时间", async () => {
-    const old = await harness(undefined, "rpc");
-    const created = await old.pool.createTask({ projectId: old.projectId });
-    await old.events.until(created.id, (s) => s.status === "idle");
+  it("迁移不动任务时间；没有会话文件的老任务就是新会话；归档的老任务恢复时同样用 TSP", async () => {
     const stamped = Date.UTC(2026, 9, 1);
-    await old.registry.updateTask(created.id, { sessionFile: sessionFile(), updatedAt: stamped });
-    await old.pool.shutdown();
+    const { file } = await legacyTasksFile([
+      legacyTask({ updatedAt: stamped }),
+      legacyTask({ id: "fresh", sessionFile: null, title: "" }),
+      legacyTask({ id: "archived", sessionFile: path.join(scratch, "sessions 二", "archived.jsonl"), archived: true }),
+    ]);
+    const h = await harness(file);
+    expect(h.pool.listTasks().map((s) => s.id)).toEqual(["legacy-task", "fresh"]);
+    expect(h.pool.listTasks()[0]?.updatedAt).toBe(stamped);
+    await h.pool.openTask("legacy-task" as TaskId);
+    await h.events.until("legacy-task" as TaskId, (s) => s.status === "idle");
+    expect(h.registry.findTask("legacy-task" as TaskId)?.updatedAt).toBe(stamped);
+    expect(h.pool.listTasks()[0]?.updatedAt).toBe(stamped);
 
-    const again = await harness(old.tasksFile, "tsp");
-    expect(again.registry.findTask(created.id)).toMatchObject({ engine: "tsp", updatedAt: stamped });
-    expect(again.pool.listTasks()[0]?.updatedAt).toBe(stamped);
-    await again.pool.openTask(created.id);
-    await again.events.until(created.id, (s) => s.status === "idle");
-    expect(again.pool.listTasks()[0]?.updatedAt).toBe(stamped);
-    expect(again.registry.findTask(created.id)?.updatedAt).toBe(stamped);
-  }, 60_000);
+    await h.pool.openTask("fresh" as TaskId);
+    await h.events.until("fresh" as TaskId, (s) => s.status === "idle");
+    expect(h.launches).toEqual([{ sessionFile: sessionFile() }, { sessionFile: null }]);
 
-  it("设置在运行期间改成 tsp：运行中的 rpc 任务不动，停下后下次启动才换；没有会话文件就是新会话", async () => {
-    const h = await harness(undefined, "rpc");
-    const created = await h.pool.createTask({ projectId: h.projectId });
-    await h.events.until(created.id, (s) => s.status === "idle");
-    h.engine.current = "tsp";
-    await h.pool.openTask(created.id);
-    expect(h.pool.listTasks()[0]?.engine).toBe("rpc");
-    expect(h.registry.findTask(created.id)?.engine).toBe("rpc");
-
-    await h.pool.shutdown();
-    const again = await harness(h.tasksFile, "rpc");
-    expect(again.pool.listTasks()[0]?.engine).toBe("rpc");
-    again.engine.current = "tsp";
-    await again.pool.openTask(created.id);
-    expect(again.pool.listTasks()[0]?.engine).toBe("tsp");
-    expect(again.registry.findTask(created.id)?.engine).toBe("tsp");
-    expect(again.launches).toEqual([{ sessionFile: null }]);
-  }, 60_000);
-
-  it("设置是 rpc 时老任务照旧", async () => {
-    const old = await harness(undefined, "rpc");
-    const created = await old.pool.createTask({ projectId: old.projectId });
-    await old.events.until(created.id, (s) => s.status === "idle");
-    await old.pool.shutdown();
-    const again = await harness(old.tasksFile, "rpc");
-    await again.pool.openTask(created.id);
-    expect(again.pool.listTasks()[0]?.engine).toBe("rpc");
-    expect(again.launches).toEqual([]);
+    const revived = await h.pool.resume({
+      sessionFile: path.join(scratch, "sessions 二", "archived.jsonl"),
+      cwd: projectDir,
+      projectId: h.projectId,
+      title: null,
+      modifiedAt: stamped,
+    });
+    expect(revived).toMatchObject({ id: "archived", status: "stopped" });
+    await h.pool.openTask("archived" as TaskId);
+    await h.events.until("archived" as TaskId, (s) => s.status === "idle");
+    expect(h.launches.at(-1)).toEqual({ sessionFile: path.join(scratch, "sessions 二", "archived.jsonl") });
   }, 60_000);
 });
 

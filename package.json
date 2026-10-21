@@ -22,7 +22,6 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "rpc:update-wire": "node scripts/update-rpc-wire.ts",
-    "rpc:record": "node scripts/record-rpc.ts",
     "icons": "node scripts/make-icons.ts",
     "dist": "electron-vite build && electron-builder --win nsis --publish never",
     "feed": "node scripts/make-feed.ts ../omp-studio-updates",

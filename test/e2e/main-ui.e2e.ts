@@ -1,22 +1,18 @@
 // 阶段 2.6 主界面返工的端到端：空状态（最近任务、输入框贴底）、输入框两层布局、模型选择对话框、用量行、侧栏搜索。
-// 用 fixtures/rpc/session-stats 回放（不调真实模型）；中英 × 深浅各截图到 screenshots/。
+// 用 fixtures/tsp/slash-status 回放（假 omp，不调真实模型）；中英 × 深浅各截图到 screenshots/。
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { launchApp, screenshotsDir, testOmp, type LaunchedApp } from "./launch.ts";
 
-const root = path.resolve(import.meta.dirname, "..", "..");
-const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
-const fixture = path.join(root, "fixtures", "rpc", "session-stats.ndjson");
+const fixture = "slash-status";
 
 async function start(): Promise<{ launched: LaunchedApp; cleanup(): Promise<void> }> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp 主界面 e2e-"));
   const project = path.join(work, "项目 目录");
   await mkdir(project);
-  const launched = await launchApp({
-    STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }),
-  });
+  const launched = await launchApp({ STUDIO_TEST_OMP: testOmp(fixture) });
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
@@ -59,12 +55,13 @@ async function shoot(page: Page, state: string): Promise<void> {
   }
 }
 
-/** 在草稿输入框里发出第一条消息，等这一轮跑完（费用从 $0.00 变成 fixture 的值 = get_session_stats 的结果到了）。 */
+/** 在草稿输入框里发出第一条消息，等任务的输入框和 omp 的过程区出现（上下文占用来自 omp 输入框卡片上的 meter）。 */
 async function sendFirst(page: Page, text: string): Promise<void> {
   const input = page.getByTestId("composer-input");
   await input.fill(text);
   await page.keyboard.press("Enter");
-  await expect(page.getByTestId("composer-stack").getByTestId("usage-cost")).toContainText("$0.0001");
+  await expect(page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("composer-stack").getByTestId("context-meter")).toHaveAttribute("aria-label", /0\.\d/);
 }
 
 test("输入框：上面输入区、下面工具行，同一块底上没有分隔线，控件和输入区之间有留白", async () => {
@@ -99,9 +96,7 @@ test("输入框：上面输入区、下面工具行，同一块底上没有分�
 });
 
 test("没有项目时直接发送：在 chats 目录里建项目和任务，侧栏出现这个项目；截图", async () => {
-  const launched = await launchApp({
-    STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }),
-  });
+  const launched = await launchApp({ STUDIO_TEST_OMP: testOmp(fixture) });
   try {
     const { page, userDataDir } = launched;
     const chats = path.join(userDataDir, "chats");
@@ -129,15 +124,16 @@ test("没有项目时直接发送：在 chats 目录里建项目和任务，侧�
   }
 });
 
-test("空状态、对话里的用量、模型选择对话框；截图", async () => {
+test("空状态、对话里的用量；截图", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
-    // 新任务草稿：还没有会话，发送键左边是上下文圆环（0%，只有圆、没有文字，窗口取默认模型的）和 $0.00。
+    // 新任务草稿：还没有会话，发送键左边是上下文圆环和 $0.00。STUDIO_TEST_OMP 的假 omp 不回答模型目录，
+    // 草稿拿不到默认模型的窗口，所以这里是不能点的占位圆环（有数据时的 0% 圆环见 model-chip.e2e.ts）。
     // 项目不是 git 仓库：输入框下面只有项目按钮，没有工作树开关。
     const draft = page.getByTestId("draft-composer");
-    await expect(draft.getByTestId("context-meter")).toHaveAttribute("aria-label", /0%/);
-    await expect(draft.getByTestId("context-meter")).toHaveText("");
+    await expect(draft.getByTestId("context-meter-pending")).toHaveCount(1);
+    await expect(draft.getByTestId("context-meter")).toHaveCount(0);
     await expect(draft.getByTestId("usage-cost")).toHaveText("$0.00");
     await expect(page.getByTestId("model-chip").locator("svg:not(.chip-caret)")).toHaveCount(0);
     await expect(draft.getByTestId("empty-project")).toBeVisible();
@@ -145,7 +141,7 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
 
     // 工具行里不再有本会话 token 图标：模型胶囊之后，发送键左边依次是上下文圆环
-    // （fixture 上下文不到 1%，没有文字）和费用 $0.00006513，每日用量和额度在费用的对话框里。
+    // （fixture 上下文不到 1%，没有文字）和费用 $0.00，每日用量和额度在费用的对话框里。
     const tools = page.locator(".composer-tools");
     await expect(page.getByTestId("usage-tokens")).toHaveCount(0);
     const contextMeter = tools.getByTestId("context-meter");
@@ -153,7 +149,7 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     await expect(contextMeter).toHaveText("");
     await expect(page.locator(".composer-stack > [data-testid=usage-meter]")).toHaveCount(0);
     const cost = tools.getByTestId("usage-cost");
-    await expect(cost).toContainText("$0.0001");
+    await expect(cost).toContainText("$0.00");
     // 四个框一起量：发送后输入框还在从草稿换成任务的布局，分开量会量到不同时刻的位置。
     const [chipBox, contextBox, costBox, sendBox] = await Promise.all(
       [page.getByTestId("model-chip"), contextMeter, cost, page.getByTestId("send-button")].map((locator) =>
@@ -173,12 +169,12 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     expect(panel && stack && panel.y + panel.height - (stack.y + stack.height)).toBeLessThanOrEqual(24);
     await shoot(page, "conversation");
 
-    // 上下文构成：系统提示词、工具定义（估算）、消息、剩余空间各一行（自动压缩预留要读 omp 设置，测试环境里不一定有）；
+    // 上下文构成：消息、剩余空间各一行（自动压缩预留要读 omp 设置，测试环境里不一定有）；
     // 下面是"会话用量"按钮（不再有"压缩上下文"）。Esc 关闭后焦点回到圆环。
     await page.getByTestId("context-meter").click();
     const breakdown = page.getByTestId("context-breakdown");
     await expect(breakdown).toBeVisible();
-    for (const part of ["system", "tools", "messages", "free"])
+    for (const part of ["messages", "free"])
       await expect(breakdown.locator(`[data-testid="context-row"][data-part="${part}"]`)).toHaveCount(1);
     // 构成下面不再有说明小字。
     await expect(breakdown.locator(".ctx-note")).toHaveCount(0);
@@ -238,40 +234,6 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     await page.keyboard.press("Escape");
     await expect(overview).toHaveCount(0);
     await expect(cost).toBeFocused();
-
-    // 模型选择对话框：焦点进搜索框，Tab 在框内循环，Esc 关闭后焦点回到胶囊。
-    const chip = page.getByTestId("model-chip");
-    await chip.click();
-    const picker = page.getByTestId("model-picker");
-    await expect(picker).toBeVisible();
-    await expect(page.getByTestId("model-search")).toBeFocused();
-    // 一张表：没有 provider 组头，行直接可见；底部是正在生效的模型的参数（照终端版 omp）。
-    await expect(page.getByTestId("model-option").first()).toBeVisible();
-    const details = page.getByTestId("model-details");
-    await expect(details).toContainText("1M");
-    await expect(page.getByTestId("model-speed").first()).not.toHaveText("…");
-    for (let i = 0; i < 8; i++) {
-      await page.keyboard.press("Tab");
-      expect(
-        await inPage<boolean>(page, '[data-testid="model-picker"]', "(el) => el.contains(document.activeElement)"),
-      ).toBe(true);
-    }
-    // 搜索过滤：不存在的词没有结果，清空后恢复。
-    await page.getByTestId("model-search").fill("zzz-no-such-model");
-    await expect(page.getByTestId("model-option")).toHaveCount(0);
-    await page.getByTestId("model-search").fill("");
-    await expect(page.getByTestId("model-option").first()).toBeVisible();
-    // @ 开头列角色（每个角色一行，带绑定的模型），清空后回到模型表。
-    await page.getByTestId("model-search").fill("@");
-    await expect(page.getByTestId("model-role-option").first()).toBeVisible();
-    await expect(page.getByTestId("model-option")).toHaveCount(0);
-    await page.getByTestId("model-search").fill("");
-    await expect(page.getByTestId("model-option").first()).toBeVisible();
-    await page.getByTestId("model-search").focus();
-    await shoot(page, "model-picker");
-    await page.keyboard.press("Escape");
-    await expect(picker).toHaveCount(0);
-    await expect(chip).toBeFocused();
 
     // 回到空状态：Ctrl N 一律是默认文件夹，不沿用刚才任务的项目；只有标志和输入框，没有最近的任务和历史会话。
     await page.keyboard.press("Control+n");

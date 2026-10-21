@@ -8,6 +8,7 @@ import { parseDraftKey, type TaskId, type TerminalKey } from "../../shared/ipc.t
 import { emitEvent } from "../ipc/events.ts";
 import { log } from "../log/log.ts";
 import { managedOmpBin } from "../omp-manager/index.ts";
+import { withPtyLock } from "../platform/pty-lock.ts";
 import { assignToOwnJob } from "../platform/win32/job-object.ts";
 import { chatsDir } from "../tasks/chats-dir.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
@@ -71,14 +72,16 @@ function createManager(pool: TaskPool): TerminalManager {
     async spawn(shell, options) {
       // 原生模块按需加载（见文件头），静态 import 做不到。
       const nodePty = await import("node-pty");
-      // useConpty 不传：用 node-pty 的默认（Windows 10 1809+ 走 ConPTY）。
-      const pty = nodePty.spawn(shell.file, shell.args, {
-        name: "xterm-256color",
-        cols: options.cols,
-        rows: options.rows,
-        cwd: options.cwd,
-        env: options.env,
-      });
+      // useConpty 不传：用 node-pty 的默认（Windows 10 1809+ 走 ConPTY）。spawn 和别的 pty 的结束排队（platform/pty-lock.ts）。
+      const pty = await withPtyLock(async () =>
+        nodePty.spawn(shell.file, shell.args, {
+          name: "xterm-256color",
+          cols: options.cols,
+          rows: options.rows,
+          cwd: options.cwd,
+          env: options.env,
+        }),
+      );
       log.info("terminal spawned", { shell: shell.name });
       return pty;
     },

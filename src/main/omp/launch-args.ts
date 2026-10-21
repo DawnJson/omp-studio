@@ -3,18 +3,15 @@ import path from "node:path";
 import type { ModelKey } from "../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
 
+/** `--mode rpc-ui` 后台进程（服务进程、项目 rpc-ui 池）的启动参数；任务进程是 TSP，见 TspLaunchSpec。 */
 export interface LaunchSpec {
-  /** 项目目录。没有 RPC 命令能改 cwd，只能在 spawn 时定（arch 1.1）。 */
+  /** 工作目录。没有 RPC 命令能改 cwd，只能在 spawn 时定。 */
   cwd: string;
-  model?: ModelKey | null;
-  thinkingLevel?: ThinkingLevel | null;
-  /** 服务进程：不落会话文件。 */
+  /** 不落会话文件。 */
   noSession?: boolean;
-  /** 项目目录就是用户主目录时 omp 会自动换到临时目录，要带 --allow-home（cli-reference.md）。 */
-  allowHome?: boolean;
 }
 
-/** 只在 `!app.isPackaged` 时由运行时设置，指向 `node test/fake-omp/fake-omp.ts <fixture>`（STUDIO_TEST_OMP）。 */
+/** 只在 `!app.isPackaged` 时由运行时设置，指向 `node test/fake-omp/fake-tsp-omp.ts <录制>`（STUDIO_TEST_OMP）。 */
 export interface TestOmpOverride {
   command: string;
   args: string[];
@@ -32,7 +29,7 @@ export function parseTestOmpOverride(json: string): TestOmpOverride {
     !Array.isArray(value.args) ||
     !value.args.every((arg: unknown) => typeof arg === "string")
   ) {
-    throw new Error('STUDIO_TEST_OMP must be JSON like {"command": "node", "args": ["fake-omp.ts", "fixture.ndjson"]}');
+    throw new Error('STUDIO_TEST_OMP must be JSON like {"command": "node", "args": ["fake-tsp-omp.ts", "task"]}');
   }
   return { command: value.command, args: value.args as string[] };
 }
@@ -41,9 +38,6 @@ export function buildOmpArgs(spec: LaunchSpec): string[] {
   // 不传 --approval-mode：审批模式只看 omp 自己的 tools.approvalMode（输入框改的也是它）。
   const args = ["--mode", "rpc-ui"];
   if (spec.noSession) args.push("--no-session");
-  if (spec.model) args.push("--model", `${spec.model.provider}/${spec.model.modelId}`);
-  if (spec.thinkingLevel && spec.thinkingLevel !== "inherit") args.push("--thinking", spec.thinkingLevel);
-  if (spec.allowHome) args.push("--allow-home");
   return args;
 }
 
@@ -58,7 +52,7 @@ export interface TspLaunchSpec {
   forkSessionFile?: string | null;
 }
 
-/** TSP 任务：交互式 omp（没有 `--mode`），模型、思考强度、`--allow-home` 和 rpc 路径一致，恢复会话用 `--resume=<路径>`。 */
+/** TSP 任务：交互式 omp（没有 `--mode`），恢复会话用 `--resume=<路径>`。 */
 export function buildTspArgs(spec: TspLaunchSpec): string[] {
   const args: string[] = [];
   if (spec.resumeSessionFile) args.push(`--resume=${spec.resumeSessionFile}`);

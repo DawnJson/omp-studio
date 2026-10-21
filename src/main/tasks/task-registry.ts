@@ -3,15 +3,13 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import type { ModelKey, Project, ProjectId, TaskEngine, TaskId } from "../../shared/ipc.ts";
+import type { ModelKey, Project, ProjectId, TaskId } from "../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { writeFileAtomic } from "./atomic-write.ts";
 
 export interface TaskRecord {
   id: TaskId;
   projectId: ProjectId;
-  /** 新任务按设置 `taskEngine` 定；设置是 tsp 时没有进程的 rpc 老任务下次启动改记成 tsp（TaskPool.#unifiedRecord）。TSP 迁移之前的记录没有这个字段，读出来是 rpc。 */
-  engine: TaskEngine;
   /** 会话文件在第一条 assistant 消息之后才落盘；之前为 null。 */
   sessionFile: string | null;
   title: string;
@@ -66,14 +64,16 @@ export class TaskRegistry {
     const parsed: unknown = JSON.parse(text);
     if (typeof parsed !== "object" || parsed === null || !("version" in parsed) || parsed.version !== 1)
       throw new Error(`${this.#file}: unsupported tasks.json format`);
-    // 老版本写的记录没有 worktree、engine 字段：补默认值，不迁移文件。
-    const tasks = (parsed as TasksFile).tasks.map((task) => ({
-      ...task,
-      engine: task.engine ?? "rpc",
-      worktreePath: task.worktreePath ?? null,
-      worktreeBranch: task.worktreeBranch ?? null,
-      worktreeBase: task.worktreeBase ?? null,
-    }));
+    // 老版本写的记录：没有 worktree 字段的补 null；带 `engine` 字段的（rpc 引擎删除之前写的，`rpc` 或 `tsp`）去掉这个字段——
+    // 现在只有 TSP 一种引擎，rpc 老任务沿用原来的 sessionFile，下次启动由 TspRunner 用 `--resume` 打开同一个会话。文件不在这里改写，下次保存时落盘。
+    const tasks = (parsed as TasksFile).tasks.map(
+      ({ engine: _engine, ...task }: TaskRecord & { engine?: unknown }) => ({
+        ...task,
+        worktreePath: task.worktreePath ?? null,
+        worktreeBranch: task.worktreeBranch ?? null,
+        worktreeBase: task.worktreeBase ?? null,
+      }),
+    );
     this.#data = { ...(parsed as TasksFile), tasks };
   }
 

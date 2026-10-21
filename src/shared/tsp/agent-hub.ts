@@ -135,6 +135,11 @@ export function isAgentActive(status: AgentStatus): boolean {
   return status === "running" || status === "pending";
 }
 
+/** 运行中的子代理个数（输入框上方药丸左半段 `👥 N`）；`listAgents` 按名字去重，hud 和 task 卡片里的同一个只算一次。 */
+export function countActiveAgents(doc: TspDocument): number {
+  return listAgents(doc).filter((agent) => isAgentActive(agent.status)).length;
+}
+
 // ───────── Hub 选择器 ─────────
 
 export interface HubAction {

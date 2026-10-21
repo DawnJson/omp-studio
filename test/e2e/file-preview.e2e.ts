@@ -1,15 +1,12 @@
 // 文件预览的端到端：项目目录里写 .md / .svg / .html / 二进制，经真实 IPC（readPreviewFile）读回，
-// 断言分类、内容、绝对路径换算、越界拒绝和不存在。从工具卡点文件链接打开面板的用例在 subagent-lanes.e2e.ts。
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+// 断言分类、内容、绝对路径换算、越界拒绝和不存在。
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { expect, test } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
-import { launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
-
-const root = path.resolve(import.meta.dirname, "..", "..");
-const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
-const fixture = path.join(root, "fixtures", "rpc", "bash-tool.ndjson");
+import { launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
 
 const svg =
   '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#0b7a66"/></svg>';
@@ -21,7 +18,8 @@ interface Started {
   cleanup(): Promise<void>;
 }
 
-async function start(): Promise<Started> {
+/** `fixtureFor`：给了就用它造回放录制（返回 `testOmp(...)` 的值），默认回放 slash-status。 */
+async function start(fixtureFor?: (work: string, project: string) => Promise<string>): Promise<Started> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp 预览 e2e-"));
   const project = path.join(work, "项目 目录");
   await mkdir(project);
@@ -30,7 +28,7 @@ async function start(): Promise<Started> {
   await writeFile(path.join(project, "page.html"), "<h1>hello page</h1>");
   await writeFile(path.join(project, "blob.bin"), Buffer.from([1, 2, 0, 3, 4]));
   const launched = await launchApp({
-    STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }),
+    STUDIO_TEST_OMP: fixtureFor ? await fixtureFor(work, project) : testOmp("slash-status"),
   });
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
@@ -93,6 +91,42 @@ test("readPreviewFile 按类型返回内容，越界拒绝", async () => {
 
     await expect(read("../outside.txt")).rejects.toThrow();
     await expect(read(path.join(os.tmpdir(), "x.txt"))).rejects.toThrow();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("工具卡片上的文件链接在右侧打开预览，Esc 关闭、焦点回到链接", async () => {
+  // 录制 task.jsonl（omp 18.12.5）里 read 卡片的两个文件链接是 file:///E:/tern-probe/demo/…；
+  // 换成任务目录，让 tests/test_all.py 指向真文件。录制在等第一条用户消息（第一个 send 事件），发出同样的文字才继续回放。
+  const recordedPath = path.join(import.meta.dirname, "..", "..", "fixtures", "tsp", "task.jsonl");
+  const recordedLines = (await readFile(recordedPath, "utf8")).split("\n").filter((line) => line.trim() !== "");
+  const prompt = recordedLines
+    .map((line) => JSON.parse(line) as { dir: string; body: { ev?: string; text?: string } })
+    .find((entry) => entry.dir === "in" && entry.body.ev === "send")?.body.text;
+  if (prompt === undefined) throw new Error("task.jsonl 里没有 send 事件");
+  const { launched, cleanup } = await start(async (work, project) => {
+    await mkdir(path.join(project, "tests"));
+    await writeFile(path.join(project, "tests", "test_all.py"), "def test_links():\n    assert 链接内容\n");
+    const fixture = path.join(work, "task-links.jsonl");
+    const links = recordedLines.join("\n").replaceAll("file:///E:/tern-probe/demo/", `${pathToFileURL(project).href}/`);
+    await writeFile(fixture, `${links}\n`);
+    return testOmp(fixture);
+  });
+  try {
+    const { page } = launched;
+    await page.getByTestId("composer-input").fill(prompt);
+    await page.getByTestId("composer-input").press("Enter");
+    const link = page.locator('a.tsp-link[data-href$="tests/test_all.py"]').first();
+    await expect(link).toBeVisible({ timeout: 30_000 });
+    await link.click();
+    const preview = page.getByTestId("file-preview");
+    await expect(preview).toBeVisible();
+    await expect(page.getByTestId("file-preview-name")).toHaveText("test_all.py");
+    await expect(page.getByTestId("file-preview-body")).toContainText("链接内容");
+    await page.keyboard.press("Escape");
+    await expect(preview).toHaveCount(0);
+    await expect(link).toBeFocused();
   } finally {
     await cleanup();
   }

@@ -1,24 +1,12 @@
-// 待办板：状态栏右侧一个按钮（环 + 当前项 + done/total），点开向上弹出阶段与条目。
-// 数据是主进程的 TaskState.todoPhases（get_state，todo 工具结束后刷新）；这里只显示。
+// 待办板：状态行右端一个按钮（状态图标 + 当前项 + done/total），点开向上弹出阶段与条目（ComposerTop 摆它）。
+// 数据是主进程的 TaskState.todoPhases（TSP 的 omp.hud.todo 节点换算，shared/tsp/todos.ts）；这里只显示。
 import { useCallback, useEffect, useId, useState } from "react";
 import type { TodoPhase } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Check } from "../../icons.tsx";
+import { TodoMark } from "./TodoMark.tsx";
 import { summarizePhase, toRoman, type TodoSummary } from "../conversation/todo-model.ts";
 import { Popover } from "./Popover.tsx";
 import { onStudioCommand } from "../palette/studio-command.ts";
-
-/** 圆环：底圈 + 已完成比例的弧；进行中且任务在跑时，再叠一段慢慢转的弧。 */
-function Ring({ done, total, spinning }: { done: number; total: number; spinning: boolean }) {
-  const percent = total > 0 ? (done / total) * 100 : 0;
-  return (
-    <svg className="todo-ring" viewBox="0 0 16 16" aria-hidden="true">
-      <circle className="todo-ring-track" cx="8" cy="8" r="6" />
-      <circle className="todo-ring-done" cx="8" cy="8" r="6" pathLength="100" strokeDasharray={`${percent} 100`} />
-      {spinning && <circle className="todo-ring-run" cx="8" cy="8" r="6" pathLength="100" strokeDasharray="22 78" />}
-    </svg>
-  );
-}
 
 export function TodoBoard({
   phases,
@@ -54,12 +42,13 @@ export function TodoBoard({
         title={current?.content}
         onClick={() => setOpen((value) => !value)}
       >
-        {/* 全部完成时换成对勾：满圈的完成色(--st-done)和底圈太接近，看着像空的。 */}
-        {finished ? (
-          <Check size={14} className="todo-ring-check" />
-        ) : (
-          <Ring done={done} total={total} spinning={spinning} />
-        )}
+        {/* 全部完成 = 对勾；进行中且任务在跑 = 转动的细弧；其余是细圈（带已完成比例的弧）。 */}
+        <TodoMark
+          state={finished ? "done" : spinning ? "active" : done > 0 ? "active" : "pending"}
+          spinning={spinning}
+          progress={spinning ? undefined : total > 0 ? done / total : 0}
+          className="todo-board-mark"
+        />
         {current && <span className="todo-current">{current.content}</span>}
         <span className="todo-count">
           {done}/{total}
@@ -78,9 +67,12 @@ export function TodoBoard({
             return (
               <section key={`${index}:${phase.name}`} className="todo-phase">
                 <h3 className="todo-phase-head">
-                  <span className="todo-phase-mark" data-state={state} aria-hidden="true">
-                    {state === "done" && <Check size={10} />}
-                  </span>
+                  <TodoMark
+                    state={state === "done" ? "done" : state === "partial" ? "active" : "pending"}
+                    spinning={running && progress.active}
+                    progress={progress.total > 0 ? progress.done / progress.total : 0}
+                    className="todo-phase-mark"
+                  />
                   <span className="todo-phase-no">{toRoman(index + 1)}.</span>
                   <span className="todo-phase-name">{phase.name}</span>
                   <span className="todo-phase-count">
@@ -90,9 +82,21 @@ export function TodoBoard({
                 <ul>
                   {phase.tasks.map((item, itemIndex) => (
                     <li key={itemIndex} className="todo-item" data-status={item.status}>
-                      <span className="todo-mark" aria-hidden="true">
-                        {item.status === "completed" && <Check size={10} />}
-                      </span>
+                      <TodoMark
+                        state={
+                          item.status === "completed"
+                            ? "done"
+                            : item.status === "in_progress"
+                              ? "active"
+                              : item.status === "blocked"
+                                ? "blocked"
+                                : item.status === "abandoned"
+                                  ? "abandoned"
+                                  : "pending"
+                        }
+                        spinning={running && item.status === "in_progress"}
+                        className="todo-mark"
+                      />
                       <span className="todo-text">
                         <span className="todo-content">{item.content}</span>
                         <span className="sr-only">{t(`conversation.todo.${item.status}`)}</span>

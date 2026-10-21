@@ -2,6 +2,7 @@
 // 外部能力（起 pty、终端目录、Job Object、事件出口）都从 deps 进来，单元测试用假 pty。
 // 生命周期和 cwd 规则见 docs/architecture/terminal.md。
 import type { DraftKey, TaskId, TerminalKey, TerminalOpenResult } from "../../shared/ipc.ts";
+import { withPtyLock } from "../platform/pty-lock.ts";
 import { Backlog } from "./backlog.ts";
 import { OutputBatcher } from "./output-batcher.ts";
 import type { ShellChoice } from "./shell.ts";
@@ -9,6 +10,8 @@ import type { ShellChoice } from "./shell.ts";
 const BACKLOG_CHARS = 256 * 1024;
 const BATCH_INTERVAL_MS = 16;
 const BATCH_MAX_CHARS = 64 * 1024;
+/** taskkill 之后等退出事件多久；到点还没退出才 `pty.kill()`。 */
+const KILL_GRACE_MS = 2_000;
 
 export interface PtyLike {
   readonly pid: number;
@@ -200,19 +203,39 @@ export class TerminalManager {
     return this.#kill(entry);
   }
 
+  /**
+   * 整个"taskkill → 等退出事件"在 `withPtyLock` 里（node-pty 原生层没有锁，见 platform/pty-lock.ts）：
+   * taskkill 一返回就 `pty.kill()` 会撞上退出线程的收尾；所以先等退出，`pty.kill()` 只留给没被结束的进程。
+   */
   async #kill(entry: Entry): Promise<void> {
-    // 先杀整棵树再关 pty：shell 先死的话子进程被重新挂靠，按父子关系就找不到它们了。
-    try {
-      await this.#deps.killTree(entry.pty.pid);
-    } catch (error) {
-      this.#deps.onError("terminal: killing the process tree failed", error);
-    }
-    try {
-      entry.pty.kill();
-    } catch (error) {
-      // 树已经杀掉时 node-pty 可能报进程不存在。
-      this.#deps.onError("terminal: kill failed", error);
-    }
+    await withPtyLock(async () => {
+      let hasExited = false;
+      const exited = Promise.withResolvers<void>();
+      const subscription = entry.pty.onExit(() => {
+        hasExited = true;
+        exited.resolve();
+      });
+      // 先杀整棵树再关 pty：shell 先死的话子进程被重新挂靠，按父子关系就找不到它们了。
+      try {
+        await this.#deps.killTree(entry.pty.pid);
+      } catch (error) {
+        this.#deps.onError("terminal: killing the process tree failed", error);
+      }
+      // 非 Windows 的 killTree 什么也不做，不用等。
+      if (process.platform === "win32" && !hasExited) {
+        const timer = setTimeout(() => exited.resolve(), KILL_GRACE_MS);
+        await exited.promise;
+        clearTimeout(timer);
+      }
+      // 退出之后再 kill：原生层的句柄已经被退出线程清掉，这一下只是关 node-pty 这一侧的管道；没退出的（taskkill 没结束它）由它结束。
+      try {
+        entry.pty.kill();
+      } catch (error) {
+        // 树已经杀掉时 node-pty 可能报进程不存在。
+        this.#deps.onError("terminal: kill failed", error);
+      }
+      subscription.dispose();
+    });
     entry.releaseJob();
   }
 

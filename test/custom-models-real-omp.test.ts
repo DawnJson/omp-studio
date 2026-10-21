@@ -1,6 +1,6 @@
 // 真实 omp 冒烟（自定义模型）：用 models-file 写 models.yml → 真实 omp（临时 PI_CODING_AGENT_DIR）→ 本地假的 OpenAI 兼容服务。
 // 验证：1) 新进程的 get_available_models 里有这些模型；2) 同一个进程里改文件不会重新加载（所以保存后要重启服务进程）；
-// 3) 任务能把 prompt 发到假服务并拿到它的回复。三种 key 写法都跑：字面量、环境变量名、auth: none。
+// 3) 任务（伪终端里的交互式 omp）能把 prompt 发到假服务并拿到它的回复。三种 key 写法都跑：字面量、环境变量名、auth: none。
 // 不调真实模型、不需要 key，但需要 PATH 上有 omp；默认跳过：`STUDIO_REAL_OMP=1 npx vitest run test/custom-models-real-omp.test.ts`。
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
@@ -8,7 +8,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { TaskState } from "../src/shared/ipc.ts";
 import { findOmpOnPath } from "../src/main/omp/discover.ts";
-import { buildOmpArgs } from "../src/main/omp/launch-args.ts";
+import { buildOmpArgs, buildTspArgs } from "../src/main/omp/launch-args.ts";
 import { OmpConnection } from "../src/main/omp/omp-connection.ts";
 import { saveCustomProvider } from "../src/main/omp-config/models-file.ts";
 import { TaskPool } from "../src/main/tasks/task-pool.ts";
@@ -124,16 +124,20 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
         enterWhileRunning: "steer",
         notifyOnGate: true,
         copyOnSelect: true,
-        taskEngine: "rpc",
         yoloConfirmed: false,
       }),
-      buildLaunch: async (record, project) => ({
-        command: omp,
-        args: buildOmpArgs({ cwd: project.path, model, thinkingLevel: record.thinkingLevel }),
-        cwd: project.path,
-        env: ompEnv(),
-      }),
-      assignJob: () => {},
+      tsp: {
+        buildLaunch: async (record, project) => ({
+          command: omp,
+          args: buildTspArgs({ cwd: project.path, model, thinkingLevel: record.thinkingLevel }),
+          cwd: project.path,
+          env: ompEnv(),
+        }),
+        session: {
+          appVersion: "0.0.0-test",
+          appearance: () => ({ dark: true, reduceMotion: false }),
+        },
+      },
       events: {
         state: (state) => {
           states.push(state);
@@ -143,11 +147,8 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
             waiter.resolve(state);
           }
         },
-        transcript: () => {},
         notice: () => {},
         taskRemoved: () => {},
-        slashCommands: () => {},
-        subagents: () => {},
       },
     });
     await pool.init();
@@ -180,8 +181,7 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
       expect(done.lastTurn?.status).toBe("completed");
       expect(server.prompts.length).toBe(before + 1);
       expect(server.prompts.at(-1)).toContain(prompt);
-      const transcript = JSON.stringify(pool.getTranscript(created.id).transcript);
-      expect(transcript).toContain(reply);
+      expect(JSON.stringify(pool.getTspSnapshot(created.id).document)).toContain(reply);
     }
   }, 240_000);
 });

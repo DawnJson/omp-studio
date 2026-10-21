@@ -1,11 +1,10 @@
-// 展开后的过程（spec 4.11，3.1 起照 Tern）：一个工具一个块——头部一行（图标 + 工具名 + 目标 + 右侧数字，无底色无折叠箭头），
-// 结果直接摆在下面：Read / Glob = 文件胶囊，Grep = 按文件分组的命中行，Bash = 卡片，Task / wait = 子代理小卡，
+// 子代理记录里的过程（agents 面板，spec 4.28）：一个工具一个块——头部一行（图标 + 工具名 + 目标 + 右侧数字，无底色无折叠箭头），
+// 结果直接摆在下面：Read / Glob = 文件胶囊，Grep = 按文件分组的命中行，Bash = 卡片，
 // Todo = 分组清单，Ask = 问题 + 全部选项，其余 = diff / 行号输出 / 纯文本（超过 12 行底部渐隐，可全部显示）。
 // 叙述（· 开头单行）、思考照旧。>200 行只渲染最后 100 条。
 import { createElement, memo, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
-import type { SubagentLane } from "../../../../shared/subagents.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Check, ChevronRight, CopyIcon, Dots, FileIcon, Pencil, Search, Terminal, Users } from "../../icons.tsx";
 import { FileLink } from "../file-preview/index.ts";
@@ -28,20 +27,19 @@ import {
   headerTarget,
   toolDisplayName,
   todoPhases,
-  waitJobs,
   type DiffRow,
   type GrepFile,
   type ToolBody,
   type ToolInfo,
 } from "./tool-view.ts";
-import { AskAnswers, TaskView, TodoView, WaitView, askTarget } from "./ToolViews.tsx";
+import { AskAnswers, TodoView, askTarget } from "./ToolViews.tsx";
 import { useNow } from "./use-now.ts";
+import "./conversation.css";
 
 const PREVIEW_LINES = 12;
 const GREP_LINES = 8;
 const MANY = 200;
 const KEEP = 100;
-const NO_LANES: readonly SubagentLane[] = [];
 
 export function toolLabel(step: ToolStep, t: TFunction): string {
   if (step.intent) return step.intent;
@@ -257,17 +255,7 @@ function FileChips({ taskId, paths }: { taskId: TaskId; paths: readonly string[]
   );
 }
 
-const ToolRow = memo(function ToolRow({
-  step,
-  taskId,
-  projectPath,
-  lanes,
-}: {
-  step: ToolStep;
-  taskId: TaskId;
-  projectPath: string | null;
-  lanes: readonly SubagentLane[];
-}) {
+const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId: TaskId }) {
   const t = useT();
   const failed = step.status === "error";
   const running = step.status === "running";
@@ -281,7 +269,6 @@ const ToolRow = memo(function ToolRow({
   const found = useMemo(() => globPaths(step.name, step.output), [step.name, step.output]);
   const todos = step.name.includes("todo") ? todoPhases(step.result) : null;
   const asks = step.name === "ask" ? askViews(step.args, step.result) : [];
-  const jobs = step.name === "wait" ? waitJobs(step.result) : [];
   const info = buildInfo(step.name, step.args, body);
   const total = bodyLineCount(body);
   const target = headerTarget(step.name, step.args);
@@ -340,18 +327,13 @@ const ToolRow = memo(function ToolRow({
     formatElapsed(duration)
   ) : null;
 
-  const name =
-    step.name === "wait" && jobs.length > 0 ? t("tool.wait.title", { count: jobs.length }) : toolDisplayName(step.name);
+  const name = toolDisplayName(step.name);
 
   let content: ReactNode = null;
   if (todos !== null) {
     content = <TodoView phases={todos} />;
   } else if (step.name === "ask") {
     content = <AskAnswers step={step} />;
-  } else if (step.name === "task") {
-    content = <TaskView step={step} taskId={taskId} projectPath={projectPath} lanes={lanes} />;
-  } else if (jobs.length > 0) {
-    content = <WaitView step={step} taskId={taskId} projectPath={projectPath} lanes={lanes} />;
   } else if (bash) {
     const status = bashStatus(step.result);
     const wall = step.startedAt !== null && step.endedAt !== null ? duration : status.wallMs;
@@ -447,16 +429,10 @@ function TextStepRow({ step }: { step: Extract<Step, { kind: "narration" | "thin
 export function ProcessDetails({
   steps,
   taskId,
-  projectPath = null,
-  lanes = NO_LANES,
   header,
 }: {
   steps: readonly Step[];
   taskId: TaskId;
-  /** Task / wait 的子代理卡点开详情要用。 */
-  projectPath?: string | null;
-  /** 这一轮的子代理泳道（Task / wait 的卡片按它显示状态）。 */
-  lanes?: readonly SubagentLane[];
   header?: ReactNode;
 }) {
   const t = useT();
@@ -469,13 +445,7 @@ export function ProcessDetails({
       )}
       {trimmed.map((step) =>
         step.kind === "tool" ? (
-          <ToolRow
-            key={step.key}
-            step={step}
-            taskId={taskId}
-            projectPath={projectPath}
-            lanes={step.name === "task" || step.name === "wait" ? lanes : NO_LANES}
-          />
+          <ToolRow key={step.key} step={step} taskId={taskId} />
         ) : (
           <TextStepRow key={step.key} step={step} />
         ),

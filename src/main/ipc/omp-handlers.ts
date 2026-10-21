@@ -180,7 +180,6 @@ export const ompHandlers: HandlerGroup<
   | "setEnterWhileRunning"
   | "setNotifyOnGate"
   | "setCopyOnSelect"
-  | "setTaskEngine"
   | "setYoloConfirmed"
   | "getDefaultModel"
   | "getStartupSnapshot"
@@ -227,8 +226,6 @@ export const ompHandlers: HandlerGroup<
     ),
   setNotifyOnGate: (on) => Promise.resolve(updateSettings({ notifyOnGate: parseBoolean(on, "notifyOnGate") })),
   setCopyOnSelect: (on) => Promise.resolve(updateSettings({ copyOnSelect: parseBoolean(on, "copyOnSelect") })),
-  setTaskEngine: (engine) =>
-    Promise.resolve(updateSettings({ taskEngine: parseOneOf(engine, "taskEngine", ["rpc", "tsp"]) })),
   setYoloConfirmed: () => Promise.resolve(updateSettings({ yoloConfirmed: true })),
   getDefaultModel: () => readDefaultModel(),
   getStartupSnapshot: () => Promise.resolve(startupCache().snapshot()),

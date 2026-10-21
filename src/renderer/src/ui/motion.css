@@ -99,30 +99,12 @@
 }
 
 /* 换页：新挂载的页面根节点淡入上移；输入框同属主区一起动，不单独蹦出来 */
-.panel > :is(.empty, .settings, .conversation, .composer-stack, .composer) {
+.panel > :is(.empty, .settings, .composer-stack, .composer) {
   animation: view-in var(--dur-base) var(--ease-out);
 }
 /* 草稿发出第一条消息后同一位置接着用：输入框不重放换页淡入（见 App.tsx fromDraft） */
 .panel > .composer-stack[data-from-draft] {
   animation: none;
-}
-
-/* 切任务：.conversation 不重挂载，ConversationView 用 data-switching(a/b 交替)重放对话列动画。
-   切换期间压掉消息自己的 turn-in，避免两层动画叠加。 */
-.conversation[data-switching] :is(.user, .change) {
-  animation: none;
-}
-.conversation[data-switching="a"] .column {
-  animation: view-in var(--dur-base) var(--ease-out);
-}
-.conversation[data-switching="b"] .column {
-  animation: view-in-b var(--dur-base) var(--ease-out);
-}
-@keyframes view-in-b {
-  from {
-    opacity: 0;
-    transform: translateY(var(--travel-sm));
-  }
 }
 
 /* 设置换节：key 变化时新节淡入 */

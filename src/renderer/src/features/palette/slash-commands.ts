@@ -1,5 +1,5 @@
-// 任务的可用斜杠命令（omp get_available_commands / available_commands_update）。命令面板和输入框的 "/" 补全共用。
-// 有人用到某个任务（或草稿页）时向主进程取，拿到非空列表之前每次任务状态变化都会再取（规则见 slash-cache.ts），之后靠 slashCommands 事件更新。
+// 任务的可用斜杠命令（服务进程的 get_available_commands）。命令面板和输入框的 "/" 补全共用。
+// 有人用到某个任务（或草稿页）时向主进程取，拿到非空列表之前每次任务状态变化都会再取（规则见 slash-cache.ts）。
 import { useEffect } from "react";
 import type { AvailableSlashCommand } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
@@ -11,7 +11,6 @@ import { createSlashLoader } from "./slash-cache.ts";
 const DRAFT_KEY = "draft";
 
 const byKey = createStore<Readonly<Record<string, readonly AvailableSlashCommand[]>>>({});
-let subscribed = false;
 const none: readonly AvailableSlashCommand[] = [];
 
 const loader = createSlashLoader(
@@ -21,19 +20,9 @@ const loader = createSlashLoader(
   (error) => console.error("listSlashCommands 失败", error),
 );
 
-function subscribe(): void {
-  if (subscribed) return;
-  subscribed = true;
-  window.studio.onSlashCommands(({ taskId, commands }) => {
-    loader.loaded(taskId, commands);
-    byKey.set({ ...byKey.get(), [taskId]: commands });
-  });
-}
-
 function useCommandsFor(key: string | null, refetchOn: unknown): readonly AvailableSlashCommand[] {
   useEffect(() => {
     if (key === null) return;
-    subscribe();
     void loader.request(key);
   }, [key, refetchOn]);
   return useStoreValue(byKey, (state) => (key === null ? none : (state[key] ?? none)));

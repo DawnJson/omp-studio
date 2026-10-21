@@ -1,5 +1,6 @@
 // 贴图：长边缩到 1568px，转 WebP（arch 3.1：入站帧不超过 1 MiB，不分块）。
 import type { PromptImage } from "../../../../shared/ipc.ts";
+import type { DraftImage } from "./composer-tokens.ts";
 
 const MAX_EDGE = 1568;
 
@@ -11,7 +12,8 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(binary);
 }
 
-export async function fileToPromptImage(file: Blob): Promise<PromptImage> {
+/** 缩放后的图片和它的像素尺寸（占位符 `[Image #N, WxH]` 里写的就是这个尺寸）。 */
+export async function fileToPromptImage(file: Blob): Promise<DraftImage> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
@@ -22,7 +24,7 @@ export async function fileToPromptImage(file: Blob): Promise<PromptImage> {
   context.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
   const out = await canvas.convertToBlob({ type: "image/webp", quality: 0.9 });
-  return { mimeType: "image/webp", data: await blobToBase64(out) };
+  return { mimeType: "image/webp", data: await blobToBase64(out), width, height };
 }
 
 export function imageSrc(image: PromptImage): string {

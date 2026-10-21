@@ -1,36 +1,38 @@
-# 对话框（extension_ui_request）
+# 提问、审批和一次性提示
 
-主进程侧实现：`src/main/tasks/dialogs.ts`（转换和校验）、`task-runner.ts`（pending 表）。帧的真实形状来自 omp 18.12.1 的录制：`fixtures/rpc/approval-select.ndjson`、`ask-dialog.ndjson`。
+所有任务都是 TSP（交互式 omp 跑在伪终端里，见 [tsp-migration.md](tsp-migration.md)）：omp 的提问（`ask` 工具）和工具审批都由 omp 画成节点，studio 渲染节点、把点击和按键变成 TSP 事件写回去。主进程不再有自己的"门"请求表，也没有应答校验：能不能答、答什么由 omp 判断。
 
-## 流程
+## 门在哪里
 
-1. omp 发 `extension_ui_request`。`select/confirm/input/editor/ask` 转成 `DialogRequest` 进任务的 `dialogs[]`（pending 表），状态变 `needs_you`，立即推 `taskState`。
-2. `notify` → `TaskNotice{kind:"toast"}`；`set_editor_text` → `{kind:"editor_text"}`；`setStatus/setWidget/setTitle` 忽略（内置扩展每轮都发 `setWidget autoresearch`）。
-3. `cancel {targetId}`（omp 超时或中止）→ 从 pending 表移除。之后渲染进程再答，因为已不在表里而被拒（omp 本来也会忽略未知 id）。
-4. `respondDialog(taskId, dialogId, response)`：dialogId 必须在 pending 表里；`toUiResponse` 对照原始请求校验，通过才发 `extension_ui_response` 并移出表；校验失败抛 `DialogResponseError`，请求仍留在表里（用户可以重答）。
+- **节点**：提问是 dock 里的 `col role=omp.editor.ask`；审批是 `col role=omp.editor.ask.approval`（插在输入框卡片前面，不换掉它）。实测依据和逐帧结构见 [tsp-migration.md](tsp-migration.md) §10.1、§10.6（提问）、§10.7（审批），录制 `fixtures/tsp/{ask,ask-multi,approval}.jsonl`。
+- **渲染**：`features/tsp/interactive/AskGate.tsx`（提问，含多题 / 多选 / Review 页）和审批卡（`omp.btn` 画成真 `<button>`，点 = 节点自己的 `actions.click`）；键盘由对话框根节点接，按键编码后写进伪终端（`keys.ts`）。纯函数在 `src/shared/tsp/ask-gate.ts`、`gate.ts`。
+- **输入框的行为**（`shared/tsp/gate.ts` 的 `findMessageTarget`）：提问在等时输入框不能发送（placeholder 提示先回答）；审批在等时输入框里写的字 = 拒绝并说明理由，omp 把这条消息当插话交给模型（omp 18.12.5 实测，[tsp-real-omp-probes.md](tsp-real-omp-probes.md) §14）；Ctrl+Enter 批准，Ctrl+O 看详情，Esc 拒绝。
 
-## 应答校验
+## 任务状态里的"门"
 
-| 请求 | 允许的应答 | 额外校验 |
-|---|---|---|
-| select | `{kind:"value"}` | 值必须是某个 `option.label` 原文 |
-| confirm | `{kind:"confirm"}` | — |
-| input / editor | `{kind:"value"}` | — |
-| ask | `{kind:"answers"}` | 条数 = 题数，`id` 与题目按顺序对应；选项必须在题目里、不重复；单选最多一个且不能同时有自由文本；多选可空；`customInput` trim，空串忽略 |
-| 任意 | `{kind:"cancel"}` | 发 `{cancelled:true}` |
+主进程从文档推导任务状态（`shared/tsp/task-status.ts`）：dock 里有 role 以 `omp.editor.ask` 开头的节点 = `needs_you`。`TspRunner` 据此给 `TaskState.dialogs` 放一个**合成**的 `DialogRequest`（`kind: "confirm"`，id 固定为 `tsp-ask` 或 `tsp-approval`，`title` 取问题 / 审批标题，`receivedAt` 是收到的时间），门消失时移除。它不显示成对话框，只为让 `needs_you` 的任务有内容可写：
 
-## 审批
+- 侧栏的"等你确认"点、托盘提示；
+- `GateNotifier`（`src/main/tasks/gate-notifier.ts`）的系统通知：任务进入 `needs_you`、窗口没有焦点、设置里开着时发一条，正文是 `dialogSummary`（标题第一行，如 `Allow tool: bash`）；同一次等待只通知一次；窗口隐藏在托盘或最小化时，任务跑完 / 出错也发一条；点击通知聚焦窗口并选中任务。
 
-**omp 没有结构化字段区分审批和普通 select。** `--approval-mode always-ask` 下 bash 触发的实录（18.12.1）：
+状态机见 [task-model.md](task-model.md)：有 `dialogs` 一定是 `needs_you`，`dialog_close` 清空后按 `working` 回到 `running` / `idle`。
 
-```json
-{"type":"extension_ui_request","id":"…","method":"select","title":"Allow tool: bash\nCommand: echo omp-studio","options":["Approve","Approve bash for this session","Deny"]}
-```
+## 一次性提示（`NoticeLayer`）
 
-没有 `optionDetails`、没有 `timeout`。识别规则（`isApprovalSelect`）：`title` 以 `Allow tool: ` 开头，且 `options[0] === "Approve"`、最后一项 `=== "Deny"`；满足则 `DialogRequest.approval = true`，否则按普通 select，功能不受影响。`title` 原样给渲染进程（首行 `Allow tool: <tool>`，其余各行是 `Command:`/`Path:` 等细节，可能还有 `Reason:`/`Origin:`）。`omp` 的 `approval-mode.md` 说明三个选项是 Approve / Approve `<tool>` for this session / Deny。omp 升级后这条规则可能失效：`test/task-dialogs.test.ts` 用 fixture 里的真实帧固定它。
+`src/renderer/src/features/dialogs/`：
 
-审批模式：studio 启动时从不传 `--approval-mode`，只看 omp 配置的 `tools.approvalMode`（omp 默认 `yolo`，不会出现审批对话框）；输入框胶囊改的就是这个配置项（`write` 时只有 exec 类工具如 bash 才会问）。
+- **toast**：主区面板上沿正中的气泡，5 秒，同类合并；`pushToast` 是各功能共用的入口。
+- **`TaskNotice`**（主进程 → 渲染进程，不进对话）现在只有一种 `goal_complete`：目标完成（目标条消失且会话文件里最后一条目标记录是 complete）时弹一条 info toast。
+- **别的任务进入"等你确认"**：渲染进程比较任务状态，当前任务之外的任务从别的状态进入 `needs_you` 时弹一条 warning toast（8 秒，带"查看"按钮选中该任务）。
 
-## ask
+omp 自己的 toast（`omp.toast.status`，如 "Session-only model: …"）不弹层，而是作为对话里的一行暗字留下（[tsp-migration.md](tsp-migration.md) §10.1 "状态行"）。
 
-`set_ask_dialog {enabled:true}` 之后 ask 工具发 `method:"ask"`（实录：`questions:[{id,question,header,options:[{label,description}],multi,recommended}]`，无 timeout）。永远提供自由文本。超时由 omp 自己取推荐项并发 `cancel`。`set_ask_dialog` 失败（旧版）时 ask 回退成 `select` + `editor{promptStyle:true}`，两者都已支持。
+## 审批模式
+
+omp 的 `tools.approvalMode`（`always-ask` / `always-ask-cached` / `write` / `yolo`，默认 `yolo` 不出现审批）由输入框的审批胶囊读写，写的是 omp 的全局配置；项目 `.omp/config.yml` 盖过全局时胶囊只读。详见 [omp-settings.md](omp-settings.md)「审批模式」。studio 启动 omp 时从不传 `--approval-mode`。
+
+审批的识别靠节点 role `omp.editor.ask.approval`（`deriveTaskStatus().ask.approval`）。role 是 omp 自己的命名，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在 `shared/tsp/`，由 `test/tsp-task-status.test.ts`、`test/tsp-gate.test.ts` 用录制的帧固定。
+
+## 测试
+
+`test/tsp-task-status.test.ts`、`test/tsp-gate.test.ts`、`test/tsp-ask-gate.test.ts`（纯函数，逐帧重放录制）、`test/task-gate-notifier.test.ts`（通知规则）、`test/task-machine.test.ts`、`test/task-tsp.test.ts`（合成的 `dialogs`）；e2e `test/e2e/tsp.e2e.ts` 的"审批"、"提问"、"多题提问"。

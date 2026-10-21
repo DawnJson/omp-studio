@@ -1,19 +1,20 @@
-// 上下文构成的分段（ContextBreakdown 用，纯函数）：系统提示词、工具定义（估算）、消息、剩余空间、自动压缩预留，
-// 各段之和正好是窗口。估算超过 omp 给的实际用量时收到用量以内，消息不会是负数。
-import type { TaskState } from "../../../../shared/ipc.ts";
+// 上下文构成的分段（ContextBreakdown 用，纯函数）：系统提示词、工具定义（omp 在会话文件里记的 token 数）、消息、剩余空间、自动压缩预留，
+// 各段之和正好是窗口。系统提示词 + 工具定义超过 omp 给的实际用量时收到用量以内，消息不会是负数。
+import type { ContextParts, TaskState } from "../../../../shared/ipc.ts";
 
 type ContextPart = "system" | "tools" | "messages" | "free" | "buffer";
 
 export interface ContextRow {
   part: ContextPart;
   tokens: number;
+  /** 系统提示词、工具定义是 omp 按请求估的数，不是供应商返回的用量：前面画 ≈。 */
   estimated: boolean;
 }
 
-/** trigger：omp 的压缩触发点（token 数）；读不到压缩设置时为 null，不分出预留段。 */
+/** trigger：omp 的压缩触发点（token 数）；读不到压缩设置时为 null，不分出预留段。parts 为 null（草稿、omp 没记）时没有系统提示词和工具定义两行。 */
 export function contextRows(
   context: NonNullable<TaskState["contextUsage"]>,
-  parts: TaskState["contextParts"],
+  parts: ContextParts | null,
   trigger: number | null,
 ): ContextRow[] {
   const window = context.contextWindow;

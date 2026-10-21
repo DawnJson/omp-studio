@@ -24,16 +24,13 @@ import {
   useReviewScope,
   useReviewWrap,
 } from "../../store/review-store.ts";
-import { useSettings, useTask, useTranscript } from "../../store/index.ts";
+import { useSettings, useTask } from "../../store/index.ts";
 import { describeError, reportError } from "../../ui/errors.ts";
-import { buildTurns } from "../conversation/model.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { CommentQueue } from "./CommentQueue.tsx";
 import { CommitBox } from "./CommitBox.tsx";
-import { ExplainPanel } from "./ExplainPanel.tsx";
 import { FileDiffView } from "./FileDiffView.tsx";
 import { FileTree } from "./FileTree.tsx";
-import { explainChanges, notesForFile } from "./explain.ts";
 import { useReviewKeys } from "./review-keys.ts";
 import { useChangeStats, useFileDiff, useReviewStatus } from "./use-review-data.ts";
 import "./review.css";
@@ -46,7 +43,6 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
   const t = useT();
   const task = useTask(taskId);
   const settings = useSettings();
-  const transcript = useTranscript(taskId);
   const comments = useReviewComments(taskId);
   const mode = useReviewMode();
   const scope = useReviewScope();
@@ -54,7 +50,6 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
   const root = useRef<HTMLDivElement>(null);
   const { status, error, stamp, refresh } = useReviewStatus(taskId, task?.status);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [tab, setTab] = useState<"explain" | "comments">("explain");
   const [sending, setSending] = useState(false);
   const lastIndex = useRef(0);
 
@@ -68,8 +63,6 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
   const diffState = useFileDiff(taskId, entry, scope, stamp);
   const stats = useChangeStats(taskId, stamp);
   const stagedCount = groups.find((group) => group.area === "staged")?.entries.length ?? 0;
-  const explanations = useMemo(() => explainChanges(transcript ? buildTurns(transcript) : []), [transcript]);
-  const notes = entry === null ? [] : notesForFile(explanations, entry.path, task?.cwd ?? null);
 
   // 进入时把焦点放进评审、底下的页面不可达（inert）；退出（开始退出动画或卸载）时焦点回到触发它的元素，已经不在了就回输入框。
   const release = useRef<() => void>(() => undefined);
@@ -196,39 +189,16 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
           />
         </main>
         <aside className="rv-aside">
-          <div className="rv-tabs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              className="rv-tab"
-              aria-selected={tab === "explain"}
-              data-testid="tab-explain"
-              onClick={() => setTab("explain")}
-            >
-              {t("review.tabExplain")}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              className="rv-tab"
-              aria-selected={tab === "comments"}
-              data-testid="tab-comments"
-              onClick={() => setTab("comments")}
-            >
-              {t("review.tabComments")}
-              {comments.length > 0 && (
-                <span className="rv-badge" data-testid="comment-count">
-                  {comments.length}
-                </span>
-              )}
-            </button>
-          </div>
-          <div className="rv-tabpanel" role="tabpanel">
-            {tab === "explain" ? (
-              <ExplainPanel notes={notes} />
-            ) : (
-              <CommentQueue taskId={taskId} comments={comments} onJump={jumpTo} />
+          <h2 className="rv-aside-title" data-testid="aside-comments">
+            {t("review.tabComments")}
+            {comments.length > 0 && (
+              <span className="rv-badge" data-testid="comment-count">
+                {comments.length}
+              </span>
             )}
+          </h2>
+          <div className="rv-aside-body">
+            <CommentQueue taskId={taskId} comments={comments} onJump={jumpTo} />
           </div>
         </aside>
       </div>

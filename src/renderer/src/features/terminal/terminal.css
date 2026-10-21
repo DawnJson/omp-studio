@@ -87,9 +87,7 @@
   height: 100%;
 }
 
-/* xterm 自带的滚动条换成和应用一致的细滚动条；背景交给主题，不让它画自己的底色 */
+/* xterm 的滚动条走全局细滚动条（ui/scrollbars.css）；背景交给主题，不让它画自己的底色 */
 .terminal-host .xterm .xterm-viewport {
   background: transparent !important;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
 }

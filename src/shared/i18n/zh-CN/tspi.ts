@@ -19,7 +19,6 @@ export const tspi = {
   changedFromDefault: "与默认值不同",
   changedFromDefaultTo: "与默认值不同：{value}",
   changedCount: "{count} 项与默认值不同",
-  edit: "编辑…",
   notSet: "未设置",
   decrease: "减少",
   increase: "增加",

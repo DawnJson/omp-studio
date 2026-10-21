@@ -3,8 +3,8 @@ import { limits, type HistoryOrder, type ShellState } from "../../../shared/ipc.
 import { defaultTerminalHeight } from "../../../shared/ui/terminal-model.ts";
 import { createStore, useStoreValue } from "../store/create-store.ts";
 
-export const defaultSidebarWidth = 264;
-export const sidebarWidthRange = [220, 360] as const;
+export const defaultSidebarWidth = 240;
+export const sidebarWidthRange = [200, 360] as const;
 
 interface ShellUiState extends ShellState {
   drawerOpen: boolean;

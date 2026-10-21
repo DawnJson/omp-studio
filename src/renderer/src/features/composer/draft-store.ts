@@ -2,17 +2,22 @@
 import { reportErrorNow } from "../../ui/errors.ts";
 import type { PromptImage, TaskId } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
+import {
+  appendDraft,
+  draftFromRestored,
+  EMPTY_DRAFT,
+  persistedText,
+  reconcileDraft,
+  type Draft,
+} from "./composer-tokens.ts";
 
-export interface Draft {
-  text: string;
-  images: readonly PromptImage[];
-}
+export type { Draft } from "./composer-tokens.ts";
 
-const emptyDraft: Draft = { text: "", images: [] };
+const emptyDraft = EMPTY_DRAFT;
+/** 和主进程 draft-handlers.ts 的 maxChars 一致。 */
+const maxPersistedChars = 200_000;
 
 const drafts = createStore<Readonly<Record<string, Draft>>>({});
-/** set_editor_text 建议的文本；输入框已有草稿时先问"替换/保留"。 */
-const suggestions = createStore<Readonly<Record<string, string>>>({});
 
 export function useDraft(taskId: TaskId): Draft {
   return useStoreValue(drafts, (state) => state[taskId] ?? emptyDraft);
@@ -26,8 +31,14 @@ export function setDraft(taskId: TaskId, draft: Draft): void {
   drafts.set({ ...drafts.get(), [taskId]: draft });
 }
 
+/** 换掉文字；文字里不再引用的附件（图片、大段粘贴）跟着删。 */
 export function setDraftText(taskId: TaskId, text: string): void {
-  setDraft(taskId, { ...getDraft(taskId), text });
+  setDraft(taskId, reconcileDraft({ ...getDraft(taskId), text }));
+}
+
+/** 清空草稿（发送后）。 */
+export function clearDraft(taskId: TaskId): void {
+  setDraft(taskId, EMPTY_DRAFT);
 }
 
 // ───── 持久化：文字经主进程存盘（防抖），图片不存 ─────
@@ -70,7 +81,7 @@ if (typeof window !== "undefined") {
 }
 
 drafts.subscribe(() => {
-  for (const [key, draft] of Object.entries(drafts.get())) scheduleSave(key, draft.text);
+  for (const [key, draft] of Object.entries(drafts.get())) scheduleSave(key, persistedText(draft, maxPersistedChars));
 });
 
 /** 启动时把已存的草稿读回来；用户在读回来之前已经打过字的 key 不覆盖。 */
@@ -79,7 +90,7 @@ if (typeof window !== "undefined" && "studio" in window) {
     const restored: Record<string, Draft> = {};
     for (const [key, text] of Object.entries(saved)) {
       lastSaved.set(key, text);
-      if (!touched.has(key)) restored[key] = { text, images: [] };
+      if (!touched.has(key)) restored[key] = { ...EMPTY_DRAFT, text };
     }
     drafts.set({ ...restored, ...drafts.get() });
   }, reportErrorNow);
@@ -87,24 +98,10 @@ if (typeof window !== "undefined" && "studio" in window) {
 
 /** 把撤回的排队消息放回草稿末尾（空行分隔，图片作为附件）。 */
 export function appendToDraft(taskId: TaskId, texts: readonly string[], images: readonly PromptImage[] = []): void {
-  const current = getDraft(taskId);
-  const added = texts.filter((text) => text !== "");
-  const text = [current.text, ...added].filter((part) => part !== "").join("\n\n");
-  setDraft(taskId, { text, images: [...current.images, ...images] });
+  setDraft(taskId, appendDraft(getDraft(taskId), draftFromRestored(texts, images)));
 }
 
-export function suggestEditorText(taskId: TaskId, text: string): void {
-  if (getDraft(taskId).text === "" && getDraft(taskId).images.length === 0) setDraftText(taskId, text);
-  else suggestions.set({ ...suggestions.get(), [taskId]: text });
-}
-
-export function useEditorSuggestion(taskId: TaskId): string | null {
-  return useStoreValue(suggestions, (state) => state[taskId] ?? null);
-}
-
-export function resolveSuggestion(taskId: TaskId, replace: boolean): void {
-  const text = suggestions.get()[taskId];
-  const { [taskId]: _removed, ...rest } = suggestions.get();
-  suggestions.set(rest);
-  if (replace && text !== undefined) setDraftText(taskId, text);
+/** 发送失败：把整份草稿（文字、图片、大段粘贴）接回现在的草稿后面。 */
+export function restoreDraft(taskId: TaskId, draft: Draft): void {
+  setDraft(taskId, appendDraft(getDraft(taskId), draft));
 }

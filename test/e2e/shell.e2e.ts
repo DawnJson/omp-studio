@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -162,6 +162,87 @@ test("窄于 1000px 侧栏变抽屉：开关打开，Esc 收起", async () => {
     await expect(page.getByTestId("drawer-scrim")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(root).toHaveAttribute("data-sidebar", "hidden");
+  } finally {
+    await launched.close();
+  }
+});
+
+test("侧栏默认 240 宽；磁盘上存着旧默认 264 的按新默认处理，拖出来的宽度原样保留，越界的回到默认", async () => {
+  const sidebarWidth = async (stored: number | null): Promise<number> => {
+    const userDataDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-sbw-"));
+    try {
+      if (stored !== null) {
+        await writeFile(
+          path.join(userDataDir, "window-state.json"),
+          JSON.stringify({ shell: { sidebarWidth: stored } }),
+          "utf8",
+        );
+      }
+      const launched = await launchApp({ STUDIO_USER_DATA: userDataDir });
+      try {
+        const { page, app } = launched;
+        await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setSize(1200, 800));
+        await expect(page.getByTestId("app-root")).toHaveAttribute("data-sidebar", "shown");
+        const resizer = page.getByTestId("sidebar-resizer");
+        await expect(resizer).toBeVisible();
+        // 侧栏列有宽度过渡：等 aria-valuenow 稳定再量。
+        const value = Number(await resizer.getAttribute("aria-valuenow"));
+        await expect
+          .poll(async () => page.evaluate(`document.querySelector(".sidebar-column").getBoundingClientRect().width`))
+          .toBe(value);
+        return value;
+      } finally {
+        await launched.close();
+      }
+    } finally {
+      await rm(userDataDir, { recursive: true, force: true });
+    }
+  };
+  expect(await sidebarWidth(null)).toBe(240);
+  expect(await sidebarWidth(264)).toBe(240);
+  expect(await sidebarWidth(300)).toBe(300);
+  expect(await sidebarWidth(210)).toBe(210);
+  expect(await sidebarWidth(100)).toBe(240);
+});
+
+test("全局滚动条：滚动时挂 data-scrolling、停后摘掉，出现和消失不改内容宽度；不画横向滚动条", async () => {
+  const launched = await launchApp();
+  try {
+    const { page } = launched;
+    await page.evaluate(`(() => {
+      const box = document.createElement("div");
+      box.setAttribute("data-testid", "probe-scroll");
+      box.style.cssText = "position:fixed;right:40px;top:120px;width:260px;height:180px;overflow:auto;z-index:9999";
+      box.innerHTML = Array.from({ length: 40 }, (_, i) => "<div>line " + i + "</div>").join("") +
+        '<div style="white-space:pre">' + "x".repeat(300) + "</div>";
+      document.body.appendChild(box);
+    })()`);
+    const probe = page.getByTestId("probe-scroll");
+    interface Box {
+      clientWidth: number;
+      clientHeight: number;
+      offsetHeight: number;
+      scrollWidth: number;
+      scrollTop: number;
+    }
+    const widthOf = () => probe.evaluate((el) => (el as unknown as Box).clientWidth);
+    const widthBefore = await widthOf();
+    await expect(probe).not.toHaveAttribute("data-scrolling", "");
+    await probe.evaluate((el) => {
+      (el as unknown as Box).scrollTop = 60;
+    });
+    await expect(probe).toHaveAttribute("data-scrolling", "");
+    expect(await widthOf()).toBe(widthBefore);
+    // 滚动条停 800ms 后淡出（属性摘掉）。
+    await expect(probe).not.toHaveAttribute("data-scrolling", "", { timeout: 3000 });
+    expect(await widthOf()).toBe(widthBefore);
+    // 里面有 300 个字符不折行的长行：能横向滚（scrollWidth 更大），但没有横向滚动条（下沿没被占高）。
+    const metrics = await probe.evaluate((el) => {
+      const box = el as unknown as Box;
+      return { overflowX: box.scrollWidth - box.clientWidth, barHeight: box.offsetHeight - box.clientHeight };
+    });
+    expect(metrics.overflowX).toBeGreaterThan(0);
+    expect(metrics.barHeight).toBe(0);
   } finally {
     await launched.close();
   }

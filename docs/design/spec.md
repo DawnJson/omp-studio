@@ -14,12 +14,12 @@
 
 | 决定 | 采用 | 理由 |
 |---|---|---|
-| Calm-1：审批/ask 就地替换输入框 | **否决，改为停靠在输入框上方的“门”**（[Bold]），但保留 Calm 的防误触规则：打字时不抢焦点、Enter 不隐式允许 | omp 自己的设计就是“提示停靠在输入框上方，输入框保留光标，可输入文字来拒绝并改道”（`omp://approval-mode.md`）。替换输入框会丢掉“拒绝并告诉 agent 怎么做”这个真实能力，还要为输入框消失/草稿还原写额外状态 |
-| Calm-2：叙述文本不留在正文，只剩结论 | **采用，加一条兜底**：一轮结束时若没有“不带工具调用的最后一条消息”，把最后一条助手文本当结论显示，只有整轮没有任何文本才显示“没有得到结果”（Calm 原文是后者） | 守住“结果优先”；叙述仍在展开的过程里可读。启发式的误判风险用兜底吃掉，并要求用 `fixtures/rpc/` 的回放做测试（见 §7）。Bold 的“候选结论迁移进现场窗”动画被否决：对话流里不允许有块迁移 |
+| Calm-1：审批/ask 就地替换输入框 | **否决，门停靠在输入框上方**（[Bold]）：门就是 omp 画在 dock 里的审批卡 / 提问对话框，dock 在 studio 输入框正上方（§4.17）。审批时输入框照常能用：`Enter` 不会批准（有草稿 = 拒绝并发送，空草稿不动作），批准要 `Ctrl+Enter` 或点 Approve。Calm 的“打字时不抢焦点”没有保留：门里的选项列表出现时会拿走键盘焦点（§4.17“焦点”） | omp 自己的设计就是“提示停靠在输入框上方，输入框保留光标，可输入文字来拒绝并改道”（`omp://approval-mode.md`）。替换输入框会丢掉“拒绝并告诉 agent 怎么做”这个真实能力 |
+| Calm-2：叙述文本不留在正文，只剩结论 | **不适用**：对话是 omp 发来的 TSP 节点，助手文字和工具卡片按 omp 给的顺序排列，studio 不区分叙述和结论（§4.9） | 结构由 omp 决定、外观由 studio 的 CSS 决定（`docs/architecture/tsp-migration.md` §3）；“结果优先”靠 omp 节点的折叠（`collapsed`，§4.11）和每轮末尾的用量行 |
 | Calm-3：自绘标题栏 + 无菜单栏 + 审批胶囊放在输入框 | **采用标题栏与无菜单栏**；**审批胶囊保留，显示和修改的是 omp 配置里的 `tools.approvalMode`**（见 §5.8） | 两份方案一致（`titleBarOverlay` 保留系统三键与 Snap Layouts [推测，需在 Win11 实测]）。审批模式没有运行中 RPC（`omp://approval-mode.md`），omp 在进程启动时读配置，所以胶囊的修改对之后启动的任务生效 |
 | Bold-1：运行中展开 4 行“现场窗” | **否决，改为一行实时状态**（[Calm]）：`[点] 当前工具的 intent 原话 · 1:12 ›` | 一行已经回答“它在干什么、有没有卡住”；4 行滚动窗每次换行都是一次动画，并把“过程默认折叠”在运行中反过来。点击这一行展开完整工具列表。`intent` 的数据已核实 ✔：`fixtures/rpc/bash-tool.ndjson` 里 `tool_execution_start` 带 `"intent":"Running echo command"`，wire schema 中为可选字段（`src/shared/omp-wire/rpc-wire.generated.ts:836`），缺失时用工具名映射的动词兜底 |
 | Bold-2：运行中 Enter=插话（steer）、Ctrl+Enter=稍后（follow-up）、Esc=停止并把排队消息放回输入框 | **采用**；设置页可对调 Enter / Ctrl+Enter；Esc 不做二次确认 | 两份方案一致。运行中发消息多数是纠偏；`abort_and_restore_queue` 保证 Esc 不丢字，终端用户零学习成本。误停的代价由 toast 说明消息去向 + 草稿保留来吃 |
-| Bold-3：一批“有性格的小东西” | **部分采用**。保留：intent 原话、输入框首次发送“落下”、弹簧只用于浮层出现与发送↔停止形变、状态点用形状区分（菱形=等你）、可操作的 steer/later 队列条、模型切换细分隔线、`继续` 列表（含终端会话）、todo 进度胶囊。**砍掉**：任务点卫星点、子代理字母头像与哈希色、4 行现场窗、流式文字平滑追赶、悬停显示模型署名、第二条“软弹簧”曲线 | 取舍标准：不增加常驻动效、不增加信息量、实现成本低、数据只依赖 omp 现有帧。卫星点是侧栏常驻运动；头像/哈希色属于阶段 5 的泳道，提前做会和泳道设计打架 |
+| Bold-3：一批“有性格的小东西” | **部分采用**。保留：intent 原话、输入框首次发送“落下”、弹簧只用于浮层出现与发送↔停止形变、状态点用形状区分（菱形=等你）、`继续` 列表（含终端会话）、todo 进度胶囊；排队的消息由 omp 的 `omp.queue` 显示，studio 没有自己的队列条（§4.14）。**砍掉**：任务点卫星点、子代理字母头像与哈希色、4 行现场窗、流式文字平滑追赶、悬停显示模型署名、第二条“软弹簧”曲线 | 取舍标准：不增加常驻动效、不增加信息量、实现成本低、数据只依赖 omp 现有的输出。卫星点是侧栏常驻运动；子代理不靠头像 / 哈希色区分，右栏子代理面板（§4.28）用状态点和等宽名字 |
 
 ### 1.2 逐项裁决
 
@@ -42,7 +42,7 @@
 | reduced-motion | [Calm] 系统开启或应用内开关任一为真即生效；应用内**只能强制开，不能在系统要求减少时关闭**；保留 100ms 纯透明度渐变；位移/缩放通过 `--travel-*` / `--scale-pop` 归零 | AGENTS 把它列为硬约束；token 化位移量后，组件不用逐个写 reduced 分支 |
 | 循环动画 | [新] 统一用 `animation-play-state: var(--play-state)`，keyframes 的 0% 帧即静态终态 | 比“时长设为 0 且无限循环”可靠，不依赖浏览器对 0s infinite 动画的行为 |
 | 主题机制 | [新] CSS 默认跟随 `prefers-color-scheme`；`<html data-theme>` 显式覆盖 | 任务要求；Calm/Bold 都让主进程解析后写属性，仍然可以：主进程只在用户选择“浅色/深色”时写 `data-theme`，选“跟随系统”时移除属性 |
-| 滚动条 | [融合] 自绘覆盖式，原生滚动行为保留，`scrollbar-width: none` | 打磨标准（参照 magpie）要求；覆盖式保证阅读列不因滚动条出现而横移 |
+| 滚动条 | [融合 → 2026-10-21 改] 全局统一：细灰滑块，无轨道无底色，只在滚动时（和悬停到滑块上时）显示，停下约 0.8s 后淡出；不画横向滚动条。实现见 §5.4 “滚动条与横向溢出”。`.scroller` 等少数容器仍用自绘 `OverlayScrollbar`（`scrollbar-width: none`） | 仓库所有者 2026-10-21：不要经典的 Windows 滚动条，照 Tern/macOS 的覆盖式；全局一套样式，组件里不再各写各的 |
 | 状态点 | [融合] 形状 + 颜色（2026-10-20 起改为图标）：进行中=转圈、等你=圆圈感叹号、未读完成=对勾、出错=圆圈叉号；已读完成与空闲**不画**（[Calm]） | 形状是第二信号（色盲友好）；已读无标记让列表安静。Bold 的“空心圆=空闲”和“卫星点”不要 |
 
 #### 布局
@@ -54,7 +54,7 @@
 | 菜单栏 | 无系统菜单栏；顶栏左侧只有标志、切换侧栏按钮和“关于”按钮（帮助与反馈、关于；2026-10-19 起），其余命令在侧栏、快捷键和 `Ctrl K` | 菜单栏是“导航混乱”的来源（竞品的共同问题） |
 | 窗口尺寸 | [融合] 默认 1200×800，最小 800×560 | Calm 最小 720 太窄，Bold 900 太保守；800 时侧栏已是抽屉 |
 | 阅读列宽 | [融合] 840（2026-10-19 所有者要求输入框离两边近一些，由 720 加宽），输入框与对话列同宽同轴（[Bold] 的同轴） | Calm 把输入框做得更宽 40px，破坏同轴；列宽只改 `--content-w` |
-| 侧栏宽 | 264，可拖 220–360；折叠为 0（不留图标条） | 一个主导航 |
+| 侧栏宽 | 默认 240，可拖 200–360；折叠为 0（不留图标条）。2026-10-21 起（原 264，可拖 220–360）：仓库所有者要求侧栏窄一些。240 是实测定的：行内宽 = 240 − 2×8（侧栏列表内边距）= 224，扣掉 16 状态槽、20 `⋯`、间距，标题剩约 134px（13px 字号中文约 10 个字）；尾部是 `Just now` 这类长时间文字时（英文约 52px）标题还有约 104px；试过 224，英文 `Just now` 时标题只剩 88px（七八个字符就省略），搜索框占位也被截；200 是下限，给想要更窄的人，标题靠省略号，悬停提示全文 | 一个主导航。磁盘上存着旧默认值 264 的人从没拖过，读取时按新默认 240 处理；其它拖出来的宽度原样保留（只夹到新范围） |
 | 窄窗口 | [融合] <1000px 侧栏改覆盖式抽屉 | 抽屉不挤压正文，保证“缩放后保住阅读位置” |
 | “等你确认”的呈现 | [Bold] 侧栏头下方一条提示条（计数，点击依次跳转）+ 行内菱形，**不把行搬出文件夹**（所在文件夹默认展开，折叠时头上有琥珀菱形） | Calm 把等待行移到顶部聚合段，确认后再移回——列表在用户眼皮下重排，与“稳定>灵动”冲突 |
 | 任务排序 | [Bold] 文件夹内任务和会话按最近活动混排（任务取 `lastActivityAt`，会话取修改时间），按时间排列时全部平铺；文件夹排列里默认文件夹永远第一个，其余文件夹按最近活动；不按 agent 活动重排 | 列表不跳；默认文件夹是新任务的落脚处（2026-10-20 仓库所有者定） |
@@ -79,18 +79,16 @@
 | 过程行（已结束） | [融合] `Worked for 2m 14s · 12 tool calls · 2 subagents`；不足 1 秒或 0 次调用不显示；有失败时追加红色 `· 1 failure`（[Bold]）；等待时间从工作时长中扣除（[Calm]） | 对应设计原则“过程默认折叠”的原文 |
 | 展开后的工具行 | 一个工具一个块：头一行 + 结果直接摆在下面，长内容最多若干行、底部渐隐 + `N more lines · Show all`（3.1，`direction-3.1.md` §2 行 1–4；细节见 §4.11） | 仓库所有者 2026-10-20 要求过程区照搬 Tern 里 omp 的显示 |
 | 思考内容 | 永不进正文；过程里折叠成一行 `Thinking`（`process.thoughtShort`，不带时长，同 omp 的 Thinking），点开看全文（§4.11） | 两份一致；2026-10-20 起照终端版 omp 去掉时长 |
-| 子代理 | 展开区顶部是子代理表（照 Tern 里 omp 的 Agents，2026-10-20 起替换原来的时间轴泳道，§4.11）；`task` / `wait` 工具块下面是子代理两列小卡，点卡就地展开 `SubagentDetailPanel`（3.1，`direction-3.1.md` §2 行 5） | 表的行和小卡打开的是同一个详情面板，不另做一份 |
-| 改动卡片 | [融合] 头部 `N 个文件已更改 +42 −7`；最多 5 行文件；点文件行 = 在资源管理器中显示（[Bold]）；等本轮完全结束（`session_settled`）再计算显示 | 用系统默认应用“打开文件”可能执行 agent 刚写的脚本，风险比“显示”高；半途出现的改动会跳 |
-| 改动卡片里的测试结果 | **v1 不做**（[Bold]） | omp 没有结构化测试结果帧；靠解析 bash 输出猜“通过/失败”会出错（Calm 也承认是推测）。设计原则“结果优先”提到的测试结果推迟，卡片头部右侧留位 |
+| 子代理 | 过程区里是 omp 的节点：`task` / `wait` 工具卡片的 body 是子代理 / 后台作业磁贴（`omp.job.tile`，两列，`tsp.css`）；查看、插话、结束、恢复在右栏的子代理面板（§4.28），入口是输入框上方药丸的 `👥 N`、`/hub`、命令面板 | 结构由 omp 决定（§4.11）；omp 的 Agent Hub 不弹出，面板由主进程在后台驱动 Hub（`docs/architecture/subagents.md`） |
+| 改动卡片 | **没有**（2026-10-21 删除）：过程区和输入框上方都不显示本轮改动汇总；看改动用评审（§4.25），入口是顶栏评审按钮、提交对话框的“评审改动”、`Ctrl Shift D`、命令面板 | 评审已经能看全部改动（`docs/architecture/tsp-migration.md` §6 取舍 1） |
+| 测试结果 | **不做**（[Bold]） | omp 不给结构化的测试结果；靠解析 bash 输出猜“通过/失败”会出错（Calm 也承认是推测）。设计原则“结果优先”提到的测试结果推迟 |
 | 输入框正文字号 | [Bold] 15px（`--fs-prose`） | 所见即所得；Calm 的 14 是控件字号 |
 | 胶囊 | [融合] 模型+思考强度合并为一颗，弹层里分段选择（[Bold]）；审批为独立一颗；⊕ 添加图片按钮 | 少一颗胶囊；Calm 的“思考”单独胶囊在不支持思考的模型上要隐藏，合并后自然消失 |
 | 发送/停止 | [Bold] 运行中输入非空时并排显示“发送(↑)”和“停止(■)” | Calm 在这种状态让停止键让位，只剩 Esc，不直观 |
-| 队列条 | [Bold] 虚线、`插话`/`稍后` 标签、`现在插话`、✕ | 虚线=尚未发生；文案“插话/稍后”比 Calm 的“引导/排队”自然 |
+| 排队的消息 | omp 的 `omp.queue`（dock 里，studio 照画）；studio 没有自己的队列条 | 运行中 `Enter`（插话）和 `Ctrl+Enter`（稍后）都是 `send`，排队由 omp 管（`docs/architecture/tsp-real-omp-probes.md` §5） |
 | 上下文提示 | [融合] 输入框工具行里的上下文圆环默认显示；≥90% 变琥珀；点击弹出上下文构成和本会话用量 | 琥珀而非红：不是错误 |
 | 门（审批/ask） | [Bold] 停靠在输入框上方；两份方案的各自细节见 §4.17 | 见 §1.1 Calm-1 |
-| ask 的推荐项 | [Bold] 标“推荐”但**不预选** | 超时才会自动选推荐项；预选会让 Enter 误提交 |
-| 门的按钮文案 | 按 `method` 数据驱动：`confirm` 用“确认/取消”；审批 `select` 的选项**原样显示 omp 给的文本**，仅对精确匹配的 `Approve`/`Deny`/``Approve `x` for this session`` 做本地化 | Calm 统一“允许/拒绝”会把非审批 confirm 说错；Bold 的“不靠标签判断”被保留（按键位置决定行为，标签只影响显示） |
-| 审批请求正文 | 统一等宽、`pre-wrap` | 审批内容主要是命令和路径，空白敏感；不尝试猜“像不像命令” |
+| 门的文字 | omp 原样的英文：标题、选项、按钮（Details / Deny / Approve，Hide / Note / Skip / Next / Submit）都不本地化（§4.17） | 门是 omp 的节点；过程区文字不汉化（§4.14） |
 | 命令面板 | [融合] 宽 600；分组 任务/会话/命令/斜杠命令；无结果时“在新任务中提问”（[Bold]） | Bold 的“模型”分组由 `Alt M` 覆盖，不进面板 |
 | 设置页 | [融合] 主区页面（不是弹窗），四节：通用 / 模型与账号 / omp / 用量 | Calm 的页面形态 + Bold 的卡片分组；Bold 的“关于/快捷键/对话”并入“通用/omp” |
 | 用量 | [Calm] 默认折叠成一句说明，点“显示用量”才请求数据 | 遥测克制 |
@@ -100,7 +98,6 @@
 | Toast | [Calm → 2026-10-20 改] 主区面板上沿正中的气泡，向下叠放，不占布局（见 §4 组件表的 Toast 行）| 仓库所有者 2026-10-20：“所有提示都应该用气泡悬浮提示,上方中间”；原先右下角宽 360 的卡片已废 |
 | 通知 | [Bold] 只有“等你确认”会叫你：任务栏闪烁 + 角标 + 窗口失焦时系统通知；不播声音 | 这是对 Tern/终端的核心差异；**不做“任务完成”通知**（注意力预算），侧栏对勾足够 |
 | todo 进度胶囊 | [Bold] 主区头部，仅有 todo 时出现 | omp 专属、是“进度”不是遥测；可砍，不影响布局 |
-| 模型切换分隔线 | [Bold] 流中插一条细线 `切换到 {model} · {level}` | 署名不是遥测，只在切换时出现 |
 | 流式光标 | [Bold] 末尾 2px 强调色竖条，1.2s 透明度脉冲；结束淡出 | 低成本的“它在写”信号；reduced-motion 下常亮 |
 | 流式文字淡入 | **不做** | 逐块淡入需要把文本拆成 span，破坏选区与 DOM 稳定 |
 | 发送后滚动 | [Bold] 发送后吸底 | Calm 的“把用户消息钉在视口顶部”需要额外占位，和“内容不跳动”冲突 |
@@ -243,7 +240,7 @@
 | 流式光标 | opacity 脉冲 | `--dur-caret` |
 | Toast | 从上方滑入：`translateY(calc(var(--travel-md) * -1))→0` + opacity | `max(--dur-base, --dur-fade)`（减少动效时位移为 0，只淡入 100ms），停留 5s；退出反向（向上滑回 + 淡出，`max(--dur-base-exit, --dur-fade)`） |
 | 浮层、菜单、对话框、toast **消失** | 反向：opacity→0 + 下沉 `--travel-sm` + 缩到 `--scale-pop`；遮罩只淡出 | `--dur-fast-exit` `--ease-in`；放完才卸载（`ui/presence.ts` 的 `usePresence`，`data-closing="pop"/"fade"`，规则在 `ui/motion.css`） |
-| 折叠区域展开/收起（过程行、改动卡片、侧栏文件夹、设置分组、队列条、目标条、旁路提问面板等） | `grid-template-rows: 0fr↔1fr` + opacity；首次渲染就展开的不放 | 展开 `--dur-base` `--ease-out`，收起 `--dur-base-exit` `--ease-in`（`ui/Reveal.tsx`） |
+| 折叠区域展开/收起（侧栏文件夹、设置分组、目标条、旁路提问面板等） | `grid-template-rows: 0fr↔1fr` + opacity；首次渲染就展开的不放 | 展开 `--dur-base` `--ease-out`，收起 `--dur-base-exit` `--ease-in`（`ui/Reveal.tsx`） |
 | 主区换页（新任务页 / 对话 / 设置）、切任务、设置换节 | `view-in`：opacity + `translateY(var(--travel-sm))→0`；例外：草稿发出第一句话变成任务时，输入框不播（`.composer-stack[data-from-draft]`，它在原位接着用，播了就是“闪一下”） | `--dur-base` `--ease-out` |
 | 可交互元素的 hover / 选中 / 聚焦 | 背景、边框、文字颜色、阴影、透明度渐变 | `--dur-fast` `--ease-out`（`motion.css` 里 `:where(button, …)` 零优先级的默认值，组件自己写的优先） |
 
@@ -277,13 +274,13 @@
 │ ◆ 1 个任务在等你 · x   ││ .scroller（唯一滚动容器，铺满主区面板）              │
 │ ▾ 项目                ││   └ .column：width min(100% − 2×--gutter, --content-w)│
 │   任务行 …            ││ ┌ 底部栈（钉底，同列宽）───────────────────────────┐ │
-│ ▸ 项目                ││ │ [门] [队列条] [输入框]                            │ │
+│ ▸ 项目                ││ │ [dock：门、排队] [输入框]                         │ │
 │                      ││ └────────────────────────────────────────────────┘ │
 │ ⚙ 设置               ││                         主区面板 --bg-app，左上圆角 │
 └──────────────────────┴┴─────────────────────────────────────────────────────┘
 ```
 
-- 侧栏底色 `--bg-sidebar`，与顶栏连成一片；主区面板 `--bg-app` 带左上圆角，两者之间不画线。侧栏拖拽条（命中区 4px）贴在面板左缘，hover 显示 `--border`；双击恢复 264。
+- 侧栏底色 `--bg-sidebar`，与顶栏连成一片；主区面板 `--bg-app` 带左上圆角，两者之间不画线。侧栏拖拽条（命中区 4px）贴在面板左缘，hover 显示 `--border`；双击恢复 240（`--sidebar-w`；范围 `--sidebar-w-min` 200 – `--sidebar-w-max` 360）。
 - `.scroller` 铺满主区、滚动条贴窗口边缘；`.column` 在其中居中；底部 padding = 底部栈高度 + `--space-8`（栈高度由 `ResizeObserver` 写入组件私有变量 `--stack-h`）。
 - 输入框距窗口底 `--space-4`；其上有 24px 高 `linear-gradient(transparent, var(--bg-app))` 软遮罩，内容从输入框后面淡出而不是被切。
 - 对话列 840px：15px 正文下英文约 99 字符/行、中文约 54 字/行。
@@ -293,7 +290,7 @@
 | 窗口宽度 | 行为 |
 |---|---|
 | ≥1000 | 侧栏常驻固定列；列宽 `min(100% − 2×--gutter, --content-w)` |
-| <1000 | 侧栏默认隐藏，`Ctrl B` 或左上按钮以**覆盖式抽屉**滑出（宽 264，`--bg-scrim`；点击空白、Esc、选择任务后关闭）；正文不被挤压 |
+| <1000 | 侧栏默认隐藏，`Ctrl B` 或左上按钮以**覆盖式抽屉**滑出（宽 240，`--bg-scrim`；点击空白、Esc、选择任务后关闭）；正文不被挤压 |
 | 高度 <560 | 输入框最大高度降为 120px |
 | 侧栏折叠（任一宽度） | 侧栏宽 0（不留图标条）；主区头左侧出现同一个 `[≡]` 按钮；任务状态靠任务栏角标补偿 |
 
@@ -347,8 +344,8 @@
 
 头 40；左：任务标题（`--fs-sm` `--text`，点击=重命名）+ ` · 项目名`（`--text-3`），省略；右：`ProgressPill`、`⋯` 菜单（重命名、在资源管理器中显示、复制会话路径、归档）。无任务时标题区空白。
 - **任务菜单 `⋯`（2026-10-21，S3）**：顶栏任务工具区最右（终端按钮之后、分隔线之前）一个 `topbar-tool` 三点图标按钮（`task-menu`，`aria-haspopup="menu"`），只在对话页且选中了任务时出现；菜单项：会话信息、请求记录、分享链接…，分别打开 §4.31 的对话框 / 页签。
-- `TodoBoard`（有 `todoPhases` 时才出现；`features/composer/TodoBoard.tsx`，2026-10-19 起取代对话流顶部的 `TodoStrip`）：输入框正上方状态行的右端一个按钮：进度环（`--accent` 弧 = 完成比例，任务在跑且有进行中的项时叠一段慢转的弧；全部完成时换成 `--st-done` 对勾）+ 当前项文字（省略）+ `{done}/{total}`（tabular）；点击向上弹 popover 列出阶段（罗马数字编号 + 每阶段 `完成/总数`）与条目：`pending` 空圈、`in_progress` 呼吸点、`completed` 对勾、`blocked` 红点 + 原因、`abandoned` 删除线。数据 `get_state.todoPhases` ✔（字段在 `src/shared/omp-wire/rpc-wire.generated.ts`）。
-- **TSP 任务的 `TodoBoard`**（2026-10-21）：同一个组件，挂在 `features/composer/TspTodoBar.tsx`（输入框正上方，没有待办时整行收起；rpc 任务仍在 `RunStatus` 里）。数据 `TaskState.todoPhases` 由主进程从 omp 的 HUD 待办节点（role `omp.hud.todo`，`checklist` 的 `mode:"hud"`）换算（`src/shared/tsp/todos.ts`，`fixtures/tsp/task.jsonl` 逐帧测试，omp 18.12.3）：`active→in_progress`、`done→completed`、`dropped→abandoned`，阶段标题去掉 omp 加的罗马数字前缀（板自己编号）。omp 自己画的 HUD 药丸不再画（`TspChildren.tsx`），避免两个入口；工具卡片里的 `omp.tool.todo` 清单仍在过程区里（过程默认折叠的那一层）。omp 在回合结束清理已完成的待办时 HUD 节点消失，板随之收起。`/todo` 在 TSP 任务里由 studio 接管（`tsp:"studio"`，无待办时提示“还没有待办”）。
+- `TodoBoard`（有 `todoPhases` 时才出现；`features/composer/TodoBoard.tsx`，2026-10-19 起取代对话流顶部的 `TodoStrip`）：输入框正上方状态行（`ComposerTop`，§4.14）右端的一个按钮：状态图标 `TodoMark`（2026-10-21 重画，原来的粗环 + 实心圆点丑：**细线条**，16×16 画布、`stroke 1.5`、圆角端点：全部完成 = 一个干净的 `--st-done` 对勾，没有圈；进行中且任务在跑 = 一圈 `--border` 底 + 一段 `--accent` 细弧（占整圈 28%）绕圈转（`--dur-spin` × 2，`animation-play-state: var(--play-state)`，减少动效时弧停在 12 点钟位置、仍看得出“进行中”）；任务没在跑 = 同一圈底 + 弧长按完成比例的静止弧，一项也没完成 = 一圈细线）+ 当前项文字（省略，容器 ≤480px 时隐藏）+ `{done}/{total}`（tabular）；点击向上弹 popover 列出阶段（罗马数字编号 + 每阶段 `完成/总数`，阶段图标同 `TodoMark`：完成 = 对勾、有进度 = 弧、未开始 = 细圈）与条目：`pending` 细圈、`in_progress` 转动的细弧、`completed` 对勾（文字 `--text-2`）、`blocked` 红色细圈 + 感叹号 + 原因、`abandoned` 淡化虚线圈 + 删除线。数据 `TaskState.todoPhases`。
+- **TSP 任务的 `TodoBoard`**（2026-10-21）：数据 `TaskState.todoPhases` 由主进程从 omp 的 HUD 待办节点（role `omp.hud.todo`，`checklist` 的 `mode:"hud"`）换算（`src/shared/tsp/todos.ts`，`fixtures/tsp/task.jsonl` 逐帧测试，omp 18.12.3）：`active→in_progress`、`done→completed`、`dropped→abandoned`，阶段标题去掉 omp 加的罗马数字前缀（板自己编号）。位置由 `ComposerTop` 定（状态行右端，`data-testid="tsp-todo-bar"` 在 `.run-todo` 上，板按钮 `todo-board`，浮层 `todo-popover`）。omp 自己画的 HUD 药丸不画（`TspChildren.tsx`），避免两个入口；工具卡片里的 `omp.tool.todo` 清单仍在过程区里（过程默认折叠的那一层）。omp 在回合结束清理已完成的待办时 HUD 节点消失，板随之收起。`/todo` 由 studio 接管（`tsp:"studio"`，无待办时提示“还没有待办”）。
 - `GoalStrip`（目标模式，`/goal`；`features/goal/GoalStrip.tsx`，样式 `goal.css`）：有 `TaskState.goal` 时出现在对话流顶部，一行：`goal.title`（`--text` medium）+ 目标文字（`--text` 省略，完整文字在悬停提示）+ 状态词（进行中 `--st-running`、已暂停 `--st-waiting-text`、预算用尽 `--st-error`）+ 用量（`已用 / 预算`，tabular，悬停是完整 token 数）+ 文字按钮：进行中 `暂停 / 放弃`、已暂停 `继续 / 放弃`、预算用尽 `放弃`。高 ≥28，`--radius-pill`，`--bg-hover`，`--fs-xs`。文字按钮 `.goal-action` 自己重置 `border: 0` + 透明底（此前漏了，带出浏览器默认按钮的粗边和灰底，看着像双层描边 / 深色下像禁用）；点下后只有被点的那颗 `disabled`，另一颗不变灰；没有自动聚焦，焦点环只在键盘聚焦（`:focus-visible`）时出现。数据 `get_state.goal` / `goal_updated` ✔；完成或放弃后目标条消失。创建和语义见 `docs/architecture/conversation.md` 的“目标模式”。 **TSP 任务**（2026-10-21）：同一个组件挂在 `TspView` 顶部（`.tsp-view` 的第一个子节点，`goal-strip`），数据同样是 `TaskState.goal`，但来自 omp 输入框卡片上的 `Goal …` 行 + 会话文件（`docs/architecture/tsp-migration.md` “目标模式(TSP…)”）；`/goal` 的创建 / 暂停 / 继续 / 放弃发 omp 的 `/goal …` 命令，放弃要点掉 omp 的 “Drop goal?” 确认；omp 自己的输入框卡片不画，所以没有重复。目标文字读不到时（会话文件还没落盘且不是 studio 创建的）目标条只有“目标 · 状态 · 用量”。
 
 ### 4.7 EmptyState
@@ -364,15 +361,15 @@
 **没有运行脊线**（2026-10-19 起去掉）：对话列左侧不画竖线，也不给用户消息、过程行、结论画节点；`.turn` 不再缩进，内容占满列宽，和输入框左缘对齐。
 
 聊天式**右对齐**（2026-10-19 起），最宽列宽的 85%，短消息只占文字宽度；气泡（3.0 起，`direction-3.0.md` §3.3）：`--bg-bubble` 底、无边框，左上 / 右上 / 左下 `--radius-bubble`、右下 `--radius-sm`（小"尾巴"），`padding: --space-2-5 --space-3-5`；`--fs-prose`；`white-space: pre-wrap; overflow-wrap: anywhere`。>12 行折叠成前 8 行 + 渐隐（渐隐到 `--bg-bubble`）+ `common.expand`（展开状态不记忆）。附件：文字上方一排靠右的 64×64 缩略图（`--radius-md`，点击用系统默认查看器打开）。hover 时气泡下方右侧一行（不换行）出现两个 28×28 图标按钮：复制（`CopyIcon`，复制后 1.2 秒变对勾）和从这里分叉（`Branch`）；文字只在 `aria-label` / 悬停提示里（`common.copy` / `common.copied`、`tree.fork` + `tree.forkTitle`）。出现动画见 §2.6。
-- 状态：默认 / 发送失败（下方一行 `--fs-xs` `--st-error`：`msg.sendFailed` · `msg.retry`）。运行中发出的消息**不在流里**，只在队列条里；进入会话后才作为气泡出现。
+- 状态：默认 / 发送失败（下方一行 `--fs-xs` `--st-error`：`msg.sendFailed` · `msg.retry`）。运行中发出的消息：`Enter`（插话）由 omp 立刻作为用户消息上屏；`Ctrl+Enter`（稍后）进 omp 的排队（dock 里的 `omp.queue`），轮到时才上屏（`docs/architecture/tsp-real-omp-probes.md` §5）。
 
 ### 4.9 AssistantMessage 与 Markdown
 
-- 无气泡、无头像、无名字，`--fs-prose` `--text`，占满列宽。hover 底部左侧出现 28px 高操作行，仅 `复制`（复制 Markdown 原文）。
-- **叙述 vs 结论**：一轮（`agent_start`…终止的 `agent_end`）里，**以工具调用结尾的消息中的文本 = 叙述**，进入过程行（展开后可读）；**最后一条不带工具调用的消息 = 结论**。兜底：整轮没有这样的消息时，把最后一条助手文本当结论；整轮没有任何助手文本才显示 `turn.noResult`。非终止的 `agent_end`（`isTerminal === false`，✔ 字段存在）后紧跟新一轮：过程行合并计时，不显示中间结论。
-- 流式中，当前正在流的文本以 `--text-2` 显示在过程行下方；它所在消息结束时：带工具调用 → 淡出（`--dur-fade`，无位移）并进入过程行；是最后一条 → `--dur-base` 渐变为 `--text`。
-- 思考内容永不显示在正文。
-- **轮尾一行**（3.1，`direction-3.1.md` §2 行 8；`TurnView.tsx` 的 `TurnFooter`）：一轮结束（`runFinished`）且有助手输出时，结论下方 `--space-3` 一行 `--font-mono` `--fs-xs` `--text-3` tabular：`时长 · tokens · 费用`，如 `32.4s · 19K tokens · $0.01`。时长 = 这一轮从用户消息到最后一次活动（不扣等待确认的时间），格式同 `formatElapsed`（`52.1s` / `1m 05s` / `1h 10m`）；tokens = 本轮所有助手消息 `usage` 的输入 + 输出（不含缓存），不足 1000 原样，其后 `1.2K` / `19K` / `1.3M`（`process.turnTokens`）；费用 = 各消息 `usage.cost.total` 之和，不足一分写 `<$0.01`。哪一段为 0 就省略，三段都没有就不画；老会话的消息没有 `usage` 时按 0 算。悬停提示 `process.turnUsage`：`This turn: 32.4s · 19,156 tokens (15,450 in · 3,706 out · N cache)`，缓存 = 缓存读 + 缓存写。运行中的一轮不显示。
+- 助手消息是 omp 的 `omp.assistant` 节点（`col`）：思考块（`omp.thinking*`，`section`）和正文 `md`，由 `features/tsp/` 画（`nodes/layout.tsx` 的 `AssistantCol`）；无气泡、无头像、无名字。复制回答用 omp 放在每轮用量行里的图标（`omp.turn.copy`，悬停提示 `Copy answer`），或命令面板的“复制最后一条回答”。
+- **没有“叙述 / 结论”之分**：一轮里的助手文字和工具卡片按 omp 发来的顺序排列，studio 不拆分、不挑结论，也没有“没有得到结果”兜底。
+- 流式：`md` 节点带 `stream: true` 时按流式渲染（`nodes/text.tsx` 传给 `Markdown` 的 `streaming`）。
+- 思考块折叠与否跟着节点的 `collapsed`（§4.11）；展开后的内容 `--text-2`、`--fs-sm`（`tsp.css`）。
+- **每轮用量行**：omp 在每轮最后一个助手消息里发 `omp.turn.usage`（时长 · token · 费用，悬停提示是完整明细），文字是 omp 原样的英文。恢复会话时 omp 不重发这一行，studio 从会话文件补回（§4.14“恢复会话时补回的用量脚注和空闲回顾”）。
 - Markdown：
 
 | 元素 | 样式 |
@@ -395,71 +392,41 @@
 
 容器 `--radius-md`，`1px --border-subtle`，`overflow: hidden`，上下外边距 `--space-3`。头高 32、`--bg-raised`、`padding: 0 --space-3`：左语言名 `--fs-xs` `--text-3`（无语言显示 `text`），右 24×24 复制图标按钮（hover、聚焦代码块或键盘 Tab 到它时显示，复制后变对勾 1.2s，`aria-live` 播报 `common.copied`）。正文 `--bg-sunken`、`--font-mono` `--fs-code`，`padding: --space-3 --space-3-5`，长行折行（`pre-wrap` + `overflow-wrap: anywhere`，2026-10-20 起不再横向滚动；工具卡输出、门里的预览、设置里的 JSON 编辑框同样折行），`tab-size: 2`。>24 行：流式结束后折叠到 20 行 + 底部渐隐 + `code.expand`（若用户正读到该块底部，折叠推迟到其滚出视口）。流式中以最终样式创建，围栏闭合后**只改颜色**加高亮；闭合前不高亮。` ```diff ` 用 `--diff-add-fg/del-fg` 给整行着色，不加背景条。
 
-### 4.11 ProcessRow（三个形态，同一个位置）
+### 4.11 过程区（TSP 节点）
 
-**运行中（照终端版 omp，2026-10-19 起）**——这一轮的步骤直接列在对话里，不折叠、不套底色卡片，每个工具调用的样子同下面“展开”（3.1，`direction-3.1.md` §2 行 1）：运行中的工具头右侧是 10px 转圈 + 实时秒数，bash 卡片的状态脚是 `● Running` + 实时秒数；思考折叠成一行 `process.thoughtShort`；新步骤追加在底部（用户不在底部时不改变视口）。
-
-"在做什么"和计时不在对话里，而在输入框正上方的状态行（`RunStatus`，`features/composer/RunStatus.tsx`）：左边 `[点阵球 20][已用时间 tabular][|][当前动作 单行省略]`，右边是 `TodoBoard`（§4.6）；两边都没有内容时整行收起。点阵球（`DotSphereMark` + `dot-sphere.ts`，2026-10-20 起替代转圈）：3×3×3 魔方去掉中心的 26 个点推到球面上，`--accent` 填色，近大远小、近实远淡；像拧魔方一样每次随机转一层 90°（420ms，停 140ms，不连续拧同一根轴），整球 7 秒自转一圈，略俯视。逐帧由脚本改 `<circle>` 属性；`--play-state: paused`（减少动效）时停在当前一帧。等你确认时换成静止的 `--st-waiting` 圆点。
-
-- 当前动作文字优先 `tool_execution_start.intent` 原话（✔ 主代理事件带 `intent`，可选字段）；缺失时 `tool.verb.*` 映射（`read`→`tool.verb.read` …，未知工具 `tool.verb.other`）。其它阶段：`process.starting`、`process.thinking`、`process.replying`、`process.retryingNow`、`process.compacting`（来自 `auto_retry_*`、`auto_compaction_*`）。有进行中的子代理时尾部追加 `· {n} subagents`（`process.subagentsRunning`）。
-- 一次只换一条：旧文字 `--dur-fast` 淡出、新文字淡入，**不位移**，高度固定（`conversation/live-status.ts`）。
-- 等你确认：文字 `process.waiting`（`Waiting for you · paused 12s`，暂停时长用 `conversation/format.ts` 的 `formatElapsed`，每秒更新）。
-- 一轮结束后，同一位置折叠成下面的“已结束”一行。`Ctrl O` 展开 / 收起最近一个。
-
-**已结束（2026-10-20 起默认展开，照 Tern 里的 omp）**——头一行高 28、`--text-3`，左 chevron 14px：`process.done`（时长用 `conversation/format.ts` 的 `formatElapsed`：`3s` / `2m 14s` / `1h 10m`；不足 1 秒不写时长）`· {n} tool calls`（`process.toolCalls`；有子代理再 `· {m} subagents`；有失败再 `· {k} failures`，`--st-error`）。0 次工具调用的轮次**不显示此行**。时长 = 主进程接收 `agent_start` 到终止 `agent_end` 的时间（帧无时间戳，`docs/architecture/subagents.md`），等待确认的时间扣除；扣除超过 5 秒时在展开区顶部写 `process.waited`。点头一行收起 / 展开，`Ctrl O` 切换最近一轮。hover：文字 `--text-2`。
-
-**展开（运行中与已结束一致，不套底色卡片；3.1 起照 Tern 里的 omp，`direction-3.1.md` §2 行 1–7）**——一个工具调用一个块（`.step-tool`，块间 `--space-3`），头一行，结果直接摆在下面（比头缩进 `--space-2`）：
-- **头**（3.1，`direction-3.1.md` §2 行 1）：高 ≥ `--row-tool`(28)，无底色、无折叠箭头，点了不收起。`[图标 14 --text-2][工具名][目标][右侧数字]`。图标按类别：文件（read / write）、铅笔（edit）、终端（bash）、放大镜（搜索类）、两个人（`task` / `wait`）、对话点（`ask`）、对勾（todo），其余 `›`。工具名 `--fs-sm` `--fw-strong` `--text`，取 `toolDisplayName`（`ast_edit`→`Edit`、`ast_grep`→`Grep`、`web_search`→`Search`、`todo_write`→`Todo`，其余首字母大写、`_` 换空格）。目标 `--font-mono` `--fs-xs` `--text-2`，单行省略：路径、模式或命令；读文件只写行范围（`:起-止`，文件本身在下面的胶囊里），单个文件的 edit / write 是 `FileLink`（点开右侧文件预览，§4.27），路径带行范围时范围跟在后面（`--text-3`），多文件写 `tool.info.readFiles`。右侧 `--font-mono` `--fs-xs` `--text-3` tabular：搜索的 `tool.info.matches` · `tool.info.files`、Glob 的 `tool.info.files` 或 diff 的 `+a −d`，再接耗时（≥1 秒才写，`formatElapsed`：`52.1s` / `1m 05s` / `1h 10m`）。失败时工具名和右侧变 `--st-error`，耗时位置写 `tool.failed`。悬停 / 键盘聚焦头部时最右出现 28×28 复制按钮（`common.copy`；复制命令 + 输出、带 +/− 的 diff、`路径:行号: 内容` 的命中行等纯文本）。
-- **Read / Glob**（3.1，`direction-3.1.md` §2 行 2）：头下一排文件胶囊（`FileChip`），不显示文件内容（读失败时才在下面的输出框里显示错误文字）。胶囊高 24（`--row-tool` − `--space-1`），`--radius-pill`，`--bg-raised` + 1px `--border-subtle`，`--font-mono` `--fs-xs`：12px 文件图标（`--text-3`）+ 目录（`--text-3`）+ 文件名（`--text`），悬停提示完整路径，hover `--bg-hover`，点开右侧文件预览；一排最多 3 行，超出按下面的“截断”渐隐。Glob / find 的胶囊来自输出（每行一个路径）；多文件的 edit / write 也排胶囊。
-- **Grep**（3.1，`direction-3.1.md` §2 行 2）：按文件分组，每组一个文件胶囊（右端命中数，`--bg-active` 小胶囊），下面是带行号的行（`--font-mono` `--fs-code-sm`）：命中行左侧 2px `--accent` 竖线 + `--accent-soft` 底，上下文行 `--text-3`；整块最多 8 行。
-- **Bash**（3.1，`direction-3.1.md` §2 行 3；`BashCard`）：卡片 `--bg-raised`、1px `--border-subtle`、`--radius-lg`，`--font-mono` `--fs-code-sm`，三段之间 1px `--border-subtle`。上：命令（`--text`，最多 6 行）。中：输出只留最后 8 行；多出时上面一行 `tool.bash.earlier`（`N earlier lines` + 12px 箭头，`--fs-xs` `--text-3`），点开显示全部（最高 30 行，内部滚动），折叠时最上面约一行半渐隐；没有输出写 `tool.output.empty`。下：状态脚（`--fs-xs` `--text-2`）：运行中 = 8px `--accent` 圆点 + `tool.bash.running` + 实时秒数；完成 = 12px ✓ + `tool.bash.done` + 耗时；工具出错或退出码非 0 = 12px ✕ + `tool.bash.exit`（`Exit code N`；没有退出码写 `tool.failed`），整行 `--st-error`。耗时等宽 `--text-3`，取工具起止，没有时取 omp 给的 `wallTimeMs`；卡片头右侧不再写耗时。用户在输入框里的 `!命令` 用同一张卡（`ShellBlock` / `ShellRunning`）：运行中只有命令和状态脚（omp 结束时才给输出），状态脚右端是 `conversation.shell.stop`；结束后不写耗时，`tool.bash.cancelled`（`Cancelled`）、`tool.bash.exit` 按失败画，omp 截断了输出时状态脚加 `tool.bash.truncated`（`omp truncated the output`）。
-- **其余**（edit 的 diff 带新旧行号、带行号的输出、纯文本）：`--bg-sunken` 框，1px `--border-subtle`，`--radius-md`，`--font-mono` `--fs-code-sm`，最多 12 行；失败时 `--st-error` 边 + `--st-error-soft` 底。没有可读输出的工具只有头。edit 的 diff 解析（`tool-view.ts parseDiff`，2026-10-21）：omp 的 `details.diff` 每行是 `<+|-|空格><行号>|<原文>`（行号按最大位数左补空格，`|` 之后全是原文，可为空、可以以 `- ` / `+ ` 开头），一个空行表示跳过了未改动的行（按前后行号算 `··· N 行未改动`）；之前把 `|` 当成原文的一部分显示。
-- **截断**（3.1，`direction-3.1.md` §2 行 4；`Clamp.tsx`）：上面各块共用一个组件：最多 N 行（高 = N × 行高），超出时用 `mask-image` 把底部两行渐隐到透明（不依赖底色），下面一行 `--fs-xs` `--text-3`：`tool.output.more` · `tool.output.showAll`（`N more lines · Show all`，N 由隐藏部分的高度折算）；展开后只剩 `tool.output.collapse`（`Collapse`），内容最多长到 40 行，更长的在块内滚动。没超出时不多画任何东西。
-- **Task / wait**（3.1，`direction-3.1.md` §2 行 5）：Task 头 = `Task` + `tool.info.agents`（`N agents`）+ 后台时一个 1px `--border` 描边小胶囊 `tool.info.background`，右侧只有耗时；`wait` 有任务时头写 `tool.wait.title`（`Waiting on N jobs`），运行中就用 omp 的部分结果（`partialResult`）更新。下面一行状态（14px 两人图标）：有在跑的写 `tool.task.waiting`（`waiting on M of N`，`--text` 600），都结束了写 `tool.task.settled`（`N jobs settled`），后面 `--fs-xs` `--text-3` 接 `tool.task.done` / `tool.task.failed`（多项 `·` 分隔）。再下面是子代理两列小卡（外框 1px `--border-subtle` + `--radius-lg`，卡间 1px 线，个数为奇数时最后一张占满一行）：每张 `--bg-raised`、`--fs-sm`：状态（运行中 8px `--accent` 圆点、完成 12px ✓、失败 `✕` `--st-error`）+ 名字（省略）+ 右侧耗时（等宽 `--fs-xs` `--text-3`，运行中实时走）。卡片按名字对上本轮的子代理泳道；对上的是按钮（`tool.task.open`），点开在卡片下方就地展开 `SubagentDetailPanel`（和泳道、`JobsBoard` 同一个详情），选中的卡 `--bg-active`，再点收起；对不上的（历史里没有泳道）只显示、不能点。Task 的文字结果在卡片下面，`--fs-xs` `--text-3`，最多 3 行。
-- **Todo**（3.1，`direction-3.1.md` §2 行 6）：头写 `Todo` + `完成/总数`；下面按阶段分组。阶段行 = 14px 状态环（未开始空心 `--border-strong`；有进行中的项 = `--accent` 环 + 4px 点；全部完成 = ✓）+ 阶段名（`--fw-medium` `--text`）+ 右侧 `完成/总数`（等宽 `--fs-xs` `--text-3`）。阶段下是任务行（缩进 `--space-5`，`--text-2`，悬停提示 `tool.todo.<status>`：`Pending` / `In progress` / `Completed` / `Blocked` / `Abandoned`；输入框上方 `TodoBoard` 弹层里的状态仍用翻译的 `conversation.todo.*`）：同样的环；`blocked` 环 `--st-waiting`，后面写原因（`--fs-xs` `--st-waiting-text`）；`abandoned` 环 `--st-error`、文字删除线；完成项文字 `--text-3`。阶段全部完成后只剩阶段行。
-- **Ask**（3.1，`direction-3.1.md` §2 行 7）：提问中不画内容（问题在门里，§4.17）。回答后头写问题本身（多题写 `tool.ask.count`），下面每题：问题（`--fs-xs` `--text-2`）+ 全部选项（`--fs-xs`）：选中的带 12px ✓、`--text`，没选的 `--text-3`，选项说明在悬停提示里；自己填的答案作为一项带 ✓ 列在最后；有备注时再一行 `tool.ask.note: …`（`--text-3`）。
-- 叙述文本以 `·` 开头、`--text-3` 单行（可展开全文）按时间穿插。思考（2026-10-20 起同 omp 的 Thinking）：默认折叠成一行，行首 12px 箭头 + `process.thoughtShort`（`--text-3`，和工具卡头的工具名同一列），不再在行里预览第一句；点开展开全文，箭头转 90°。
-- 子代理（2026-10-20 起照 Tern 里 omp 的 Agents 表，替换原来的时间轴泳道；`features/lanes/LanesPanel.tsx`，数据来源见 `docs/architecture/subagents.md`）：这一轮有子代理时，展开区顶部是一张表。头行（可折叠，默认展开）：箭头 + 14px 两人图标 + `process.agents`（`Agents`，`--fw-strong` `--text`）+ `process.agentsTotals`（`$0.0006 · 6.6s · 5 req · 2.5K tok`，`--fs-xs` `--text-3`）：费用、用时（各子代理用时之和，同 Tern，不是墙钟）、请求数、token 全部求和（`lane-model.ts` 的 `laneTotals`，有单测）。其下一行列头 `process.agents.cost/time/req/tools/tok/ctx`（`Cost Time Req Tools Tok Ctx`，`--fs-2xs` `--text-3`，右对齐）。每个子代理一行（高 30，按父在前、子缩进 14px 排）：左边弹性区 = 8px 状态点（同侧栏：运行中实心 `--st-running` + 呼吸光晕，完成空心圆，失败实心 `--st-error`，取消虚线空心；悬停提示 `process.lane.<status>`）+ 名字（`--font-mono` `--fs-code-sm` `--text`）+ 模型胶囊（短名，1px `--border-subtle` 圆角胶囊 `--fs-2xs`；悬停提示完整名 · 思考强度；备用模型时琥珀描边）+ 任务（`--text-3`，省略，悬停看全文）；右边六列定宽：费用、用时（`tool-view.ts` 的 `formatElapsed`，`37.5s`；运行中取到现在，不小于 omp 报的 `durationMs`，`laneElapsed`）、请求数、工具数、token（`formatTokenCount`，`5.5K`）、上下文小条（32×4，填充 = 已用 / 窗口，悬停 `process.agentsContext`；没有数据只画空轨道），全部等宽 `--fs-2xs` tabular。窄于 560px 收起任务，窄于 440px 再收 Req / Tools（容器查询）。点一行就地展开详情（`--bg-raised` 卡片：统计、任务、摘要、完整记录 / 改动两个分段、运行中的 steer 输入框和二次确认的取消；面板头的状态同样是 `process.lane.<status>`，其余文字走翻译的 `lanes.*`，统计里的时长用本地化的 `formatDuration`），选中行 `--bg-active`，再点收起。不加头像和哈希色，颜色只用 `--st-*` token。
-- >200 个工具行时只渲染最后 100 条 + `process.earlier`。
-
-### 4.12 ChangeCard
-
-- 出现条件：主进程用工具事件 + git 汇总得出本轮有改动，并且本轮已 `session_settled`（✔ 帧存在，`omp-rpc.md`）。没有改动、非 git 仓库、git 失败：**不出现，也不报错**。加载中 ≤3 秒内不占位。
-- 容器列宽（3.0 起，`direction-3.0.md` §3.4），`--bg-raised` + `1px --border-subtle`，`--radius-xl`，`margin-top: --space-4`，出现动画 `--dur-base`。头高 40，`padding: 0 --space-3-5`：折叠箭头 + `change.summary` + `+{add}`（`--diff-add-fg`）`−{del}`（`--diff-del-fg`，tabular），整段 `--fw-strong`；右侧 `打开评审`（26 高、透明底、1px `--border` 描边按钮）和 `…` 菜单（复制文件列表）；为阶段 4 的 `提交 / 开 PR` 在 `…` 左侧预留插槽，**不渲染占位或禁用按钮**。
-- 文件行高 32，上沿 1px `--border-subtle`：左 14px 文件图标（`--text-2`，装饰，`aria-hidden`）+ 路径（`--font-mono` `--fs-xs`，目录部分 `--text-3`、文件名 `--text`，中段省略）；右侧 `+30 −5`（tabular）后面接一条行数条（照 `git diff --stat`，`aria-hidden`）：一列固定 24 个字符宽、左对齐，`+` `--diff-add-fg`、`−` `--diff-del-fg`，`--font-mono` `--fs-code-sm`；整张卡改动最多的文件不超过 24 行时一行一个字符，超过时整张卡按同一比例缩小，不为 0 的一边至少 1 个字符（`conversation/diffstat.ts` 的 `diffBars`，有单测）。行数未知（二进制等）时数字和条都不画。≤5 个文件默认展开，>5 个默认折叠只留头；超出 5 行显示 `change.more`。点文件行 = 在右侧文件预览里打开（§4.27）；悬停行尾出现"在资源管理器中显示"图标按钮（主进程校验路径在任务目录内）。
-- 本轮被中断：头部追加 `change.interrupted`。
-- v1 不显示测试结果（见 §1.2）；头部右侧留位。
-
-### 4.13 ModelDivider
-
-流中一条细线，仅在会话中途换了模型/思考强度时出现：两侧 1px `--border-subtle`，中间 `model.switched`（`--fs-xs` `--text-3`）。
+对话里 omp 的工作过程（工具卡片、思考块、子代理卡片、待办、压缩分隔、每轮用量脚注）都是 omp 发来的 TSP 节点，由 `features/tsp/` 渲染：结构由 omp 决定，外观由 `features/tsp/tsp.css` 决定（见 §4.14 末尾"过程卡片外观"和 `docs/architecture/tsp-migration.md` §8）。折叠 / 展开跟着节点的 `collapsed`，`Ctrl O` 展开或收起所有工具卡片（`docs/architecture/conversation.md`）。运行状态、用时和当前活动在输入框上方的状态行（`ComposerTop`，§4.14），子代理在右栏的子代理面板（§4.28）。没有改动卡片：评审入口是顶栏评审按钮、提交对话框、`Ctrl Shift D` 和命令面板（§4.25）。
 
 ### 4.14 Composer
 
 **尺寸与结构**
 - 外容器宽 = 列宽；`--bg-raised`；`1px --border`（hover `--border-strong`）；`--radius-composer`（22，3.0 起，`direction-3.0.md` §3.6）；`--shadow-composer`；`padding: 6px 6px 6px 8px`，输入区和工具行在同一块底上，**中间不画分隔线**：输入区最小高 42、`padding: --space-2-5 --space-2-5 --space-1`，工具行最小高 36、左右不再留白；聚焦样式见通则。
-- 文本区：`--fs-prose`，placeholder `--text-3`，最小 1 行（2026-10-19 由 2 行降低；常数高度，空状态与对话中一致），自动增高到 `min(40vh, 12 行)` 后内部滚动，`resize: none`。
+- 文本区：`--fs-prose`，placeholder `--text-3`，最小 1 行（2026-10-19 由 2 行降低；常数高度，空状态与对话中一致），自动增高到 `min(40vh, 12 行)` 后内部滚动，`resize: none`。**高度可拖**（2026-10-21）：输入框顶边一条拖拽条（`composer-resize`，`role="separator"`，悬停 / 聚焦时露出一根 `--border-strong` 短横线）向上拖变高，下限一行、上限主区高度的 60%（窗口变矮时重新夹取）；拖过之后高度固定、内容内部滚动；键盘 ↑↓ 每次 16px，双击还原成自动增高；整个应用一个值（`localStorage["composer.fieldHeight"]`）。
 - 底部工具行：左起 ModelChip、ApprovalChip（2026-10-20 起没有 `⊕` 附件按钮，见下方附件预览行；模型和审批两个胶囊后面各一个 12px `⌄`，只是提示能点；**审批胶囊 2026-10-21 起只有图标 + `⌄`，不写文字**，见 §5.8，"全部自动"照旧琥珀色）；输出速度（`UsageMeter`，只在运行中，见下）；右起上下文圆环（`ContextMeter`，见下）、本会话费用（`SessionCost`，对应 omp 状态栏的 cost 段：`get_session_stats.cost`，按模型的 API 价格估算，订阅登录的模型也照样累计；等宽 `--fs-xs` `--text-2`，`$0.0001` 这种不到一美分的保留 4 位小数；一直显示，新任务草稿和还没有统计时是 `$0.00`；当前模型的 provider 有 OAuth 登录凭据时（omp 优先用 OAuth，`get_logout_accounts`，按 provider 缓存 5 分钟）后面跟 `--text-3` 的 ` (sub)`，悬停换成 `composer.usage.costTipSub`；悬停 `composer.usage.costTip` + 输入/输出/缓存读取/高级请求数；是按钮，点开居中的 `UsageDialog`，见下）、SendStop。仪表不收缩（`flex: none`），空间不够时的让位顺序：项目路径先缩到只剩文件夹图标（`flex-shrink: 100`），再是思考强度后缀（容器宽 401–460px 时隐藏，完整的“模型 · 强度”在胶囊悬停提示里），模型名最后才省略，且不窄过 `--chip-name-min-w`（9ch，胶囊自身 `min-width` 同步）——开着子代理 / 文件面板时不再缩成 “D…” 或只剩 “· 高”；≤860px 去掉速度，≤400px（比如开着文件预览）工具行折成两行：模型、审批胶囊在上，计数、圆环、费用、发送换到下一行靠右；圆环和费用一直在。胶囊 `overflow: hidden`，内容不会画到旁边。本会话 token 不在工具行里（2026-10-19 起去掉图标按钮），在上下文浮层的“会话用量”里。
 
-**JobsBoard**（2026-10-20 起，照 Tern 里 omp 的后台任务胶囊与看板；3.0 起拆成两个按钮，`direction-3.0.md` §3.5）：omp 没有列后台任务的 RPC，从工具帧推导（`src/shared/ui/jobs.ts` 的 `deriveJobs`）：`bash` 带 `async: true` 的调用（`details.async = {state, jobId}`、"Backgrounded as job bg_N"）、`task` 派出的子代理（"Spawned agent `X` (job `Y`)" + 子代理泳道状态）、`wait` 工具的 `details.jobs[]` 快照（状态、标签、时长以它为准）。两个按钮 `jobs.btn.bash`（`后台任务`，`jobs-pill-bash`，终端图标）和 `jobs.btn.task`（`子代理`，`jobs-pill-task`，两个人的图标），本会话出现过那一类任务才有：高 24、`--radius-md`、1px `--border`、`--bg-raised`，13px 图标 `--text-2` + `--fs-xs` 文字 + 计数（`jobs-pill-count`，`data-state`）：有在跑的写 `● N`（`--st-running` 点，600 tabular），都结束了写 `✓ N`（`--text-3`，这一类有失败时标红）；悬停提示和 `aria-label` 写全"N 个运行中，M 个已结束"（`jobs.pill.bash` / `jobs.pill.task`）。不在输入框里，而是在输入框右上方，和状态行（`RunStatus`）同一行靠右、上下居中对齐（`.status-bar`；状态行收起时按钮仍在原位靠右），右边和输入框对齐；点开同一个 `Popover` 看板 `jobs-board`，只列这一类：每个任务一行（类型图标、名字、状态、耗时），点一行展开——命令看输出尾部，子代理内嵌 `SubagentDetailPanel`；Esc 关闭并还焦点给按钮。agent 在等后台任务时，状态行（`RunStatus`）的动作文字是 `process.waitingJobs`（“waiting on 2 of 3 jobs · 1 done”；还没有完成的时候是 `process.waitingJobsNone`，“waiting on 2 jobs”）。状态行下不再另列运行中 job 的小卡（2026-10-20 起去掉：和按钮、看板重复，同一个 job 显示两遍）。实测录制见 `fixtures/rpc/bg-jobs.ndjson`（omp 18.12.3）。
-- **TSP 任务的 JobsBoard**（2026-10-21，S2Jobs）：同一个 `JobsBoard`，由 `TspJobsBar`（`status-bar` 里只有它，没有作业时整行不占位）；`/jobs` 在没有作业时不开浮层，弹一条提示“这个任务还没有后台作业”（和 `/todo` 没有待办时一样）挂在待办条下面；数据换成从 omp 节点推出的（`src/shared/tsp/jobs.ts` 的 `deriveTspJobs` / `mergeTspJobs`，`tsp-jobs-store.ts` 每批文档消息后并一次；omp 自己的 hud 作业胶囊不画）。弹层里展开一行（`job-row`）后多一行动作（`.job-actions`，`--fs-xs`，1px `--border`、`--radius-md` 的小按钮）：**bash 作业**＝`在 omp 的作业窗口查看输出`（`tsp-job-view-output`：输出只在 omp 的 `/jobs` 弹窗里有，没有别的通道，所以让 omp 打开它——hud 有作业胶囊就点它，没有就 `sendPrompt("/jobs")`——再对弹窗里这个作业的列表项发 `select`，弹窗由 TspView 渲染）和运行中才有的 `结束`（`tsp-job-kill`，`runTaskCommand {kind:"jobsKill", id}`，主进程拼 `/jobs kill <id>`；omp 成功时没有任何回应，出错才弹 toast `No running background job with id "x".`）；**子代理作业**＝`在子代理面板中查看`（`tsp-job-open-agent`，`openAgentsPanel(taskId, name)`，结束 / 插话在面板里）。`/jobs` 由 studio 接管（`tsp: "studio"`）：不带参数打开第一个按钮的弹层（没有作业提示 `jobs.none`），`/jobs kill <id>|all` 直接结束。已结束的作业只有在 omp 的 `/jobs` 弹窗开着时才在文档里；弹层按"运行中消失 = 完成"（子代理看 `agent` 节点的 done / failed / aborted）和结束动作自己记录，不保证重启 studio 后还在。
+**后台任务看板**（`JobsBoard`，`features/composer/JobsBoard.tsx`；2026-10-21 起改成药丸右半段的弹层，见 §4.14“输入框上方”；原来的 `后台任务` / `子代理` 两个独立按钮（`jobs-pill-bash` / `jobs-pill-task`）、状态行 `process.waitingJobs`、rpc 的 `deriveJobs` 都已删除）：药丸 `⚡ N`（`pill-jobs`）点开向上弹出 `Popover` 看板 `jobs-board`，**只列 bash 后台作业**（子代理在右栏的子代理面板），每行 `job-row`：展开箭头、命令、状态（`job-dot` + 文字）、耗时（运行中实时走）；点一行展开动作（`.job-actions`，`--fs-xs`，1px `--border`、`--radius-md` 的小按钮）：`在 omp 的作业窗口查看输出`（`tsp-job-view-output`：输出只在 omp 的 `/jobs` 弹窗里有，没有别的通道，所以让 omp 打开它——hud 有作业胶囊就点它，没有就 `sendPrompt("/jobs")`——再对弹窗里这个作业的列表项发 `select`，弹窗由 TspView 渲染）和运行中才有的 `结束`（`tsp-job-kill`，`runTaskCommand {kind:"jobsKill", id}`，主进程拼 `/jobs kill <id>`；omp 成功时没有任何回应，出错才弹 toast `No running background job with id "x".`）。Esc 关闭并还焦点。
+- **作业数据**（2026-10-21，S2Jobs）：从 omp 的节点推出（`src/shared/tsp/jobs.ts` 的 `deriveTspJobs` / `mergeTspJobs`，`tsp-jobs-store.ts` 每批文档消息后并一次）；药丸只数**运行中**的 bash 作业。`/jobs` 由 studio 接管（`tsp: "studio"`）：不带参数打开看板（有 bash 作业就开，**含已结束的**——药丸那一段没有时看板从药丸的位置弹出；没有 bash 作业提示“这个任务还没有后台作业”，`ComposerTop` 一直挂着收请求），`/jobs kill <id>|all` 直接结束。已结束的作业只有在 omp 的 `/jobs` 弹窗开着时才在文档里；看板按"运行中消失 = 完成"和结束动作自己记录，不保证重启 studio 后还在。omp 自己的 hud 作业胶囊（`▷ N`，`omp.hud.seg`）不画。
+- **输入框上方**（2026-10-21，仓库所有者定，照 Tern；`features/composer/ComposerTop.tsx`，`data-testid="composer-top"`）：输入框正上方、列宽、`padding: 0 --space-1 --space-2`，自上而下最多两行，`Reveal` 展开收起：
+  - **药丸行**：右对齐一颗描边药丸 `[👥 N | ⚡ N]`（`StatusPills.tsx`，`status-pills`；高 24、`--radius-pill`、1px `--border`、`--bg-raised`；两个半段是各自独立的按钮：高 20、`--radius-pill`、`--fs-xs`、`--text-2`、hover `--bg-hover`，13px 图标 + 个数 tabular，中间 1px 分隔线）。**左半段** = 运行中的子代理数（`pill-agents`，`data-count`；`shared/tsp/agent-hub.ts` 的 `countActiveAgents`，按名字去重），点击 = 打开 / 收起右栏的子代理面板（`toggleAgentsPanel`，§4.28，`aria-expanded` 跟面板）；**右半段** = 运行中的后台 bash 作业数（`pill-jobs`；`tsp-jobs-store`），点击 = 向上弹出后台任务看板（上面的 `JobsBoard`）。**每段只在个数 > 0 时画**，两段都没有就不画药丸（看板仍可由 `/jobs` 从药丸的位置打开）。悬停提示 / `aria-label`：`composer.pills.agents` / `composer.pills.jobs`（“子代理：2 个运行中”）。药丸本身不是按钮。**位置**：有待办板时药丸单独一行、在待办板（状态行）的正上方；没有待办板时并到状态行的右端（运行中）或直接在输入框上面（空闲）——不留空行。
+  - **状态行**（`.run-status`，§4.11）：左 = 运行图标 + 翻牌计时 `FlipText` + 细分隔线 + 当前活动；右 = `TodoBoard`（§4.6，点击展开阶段与条目，最宽 55%）。只在任务启动中 / 运行中 / 等你确认或有待办时出现。
+  - **删掉的**：独立的 `后台任务` 按钮（`jobs-pill-bash`）和 `子代理` 按钮（`jobs-pill-task`）、`TspJobsBar` / `TspTodoBar`、rpc 的 `RunStatus` / `QueueStrip` / `UsageLimitBanner`；omp 自己的 HUD（`omp.hud` 里的作业 / 子代理胶囊——就是之前那个孤零零的 `▷ 1`——和 `omp.hud.activity` 里的运行状态行、待办药丸，`HIDDEN_HUD_ROLES`，`TspChildren.tsx`）不画，数据都在 ComposerTop 里。omp 的 Stop 键帽也随运行状态行去掉了：停止用输入框的发送 / 停止键和 `Esc`。
+  - **小窗口**（最小 800×600）：输入框和它上面这块是 `flex: none` 的整体，**永远完整可见**；让出高度的是上面的对话滚动区（`.tsp-view`、`.tsp-scroller` 都是 `min-height: 0`），e2e 在 1200×800 / 960×600 / 800×600 断言工具行底边在窗口内、药丸不压输入框、对话区 > 120px（`test/e2e/tsp.e2e.ts`）。
 - **过程里的作业磁贴**（`omp.job.tile`，Task / wait 工具卡的 body，`tsp.css`）：磁贴落在 `--bg-raised` 的工具卡里，底色用 `--bg-sunken`（不是半透明的 `--bg-hover`：它叠在不同底上深色下一块亮一块暗、对比不均匀），1px `--border-subtle` 内描边。
 - 草稿的工具行在审批胶囊右边多出项目标签 + 工作树开关（§4.7）；输入框下面不再有单独一行。发出第一句话换成任务的输入框时：文件夹标签留在原位（`composer-folder`），焦点在绘制前就落到新输入框（App 的 layout effect），边框不从灰色过渡回聚焦色（`data-from-draft` 时 `.composer` 无过渡），所以看不出换了一个输入框。
 - 工具行各项**从第一帧起都在原位**（2026-10-19）：模型胶囊、审批胶囊、上下文圆环、费用都直接画出来，数据到了再填，不等 omp。数据先用上次读到的（主进程每次现读成功就记进 `userData/startup-cache.json`：默认模型、模型目录、各项目的默认值、各 provider 是否订阅、审批模式；渲染进程在第一次渲染前取 `getStartupSnapshot()`），现读到了再替换；从没读到过（第一次启动）时模型胶囊写 `composer.modelLoading`、审批写 `approval.loading`，圆环是同位置同大小、不能点的空环（`data-pending`）。任务在进程起来之前，胶囊用上次读到的模型目录里的名字和窗口（不是模型 id）。主进程在应用启动时就拉起服务进程读默认模型和模型目录，不等输入框来要。
 - **切项目时模型胶囊第一帧就是最终值**（2026-10-21）：草稿和任务的输入框都不再经过"上一个项目的模型 / `composer.modelLoading` / `composer.noModel`"这类中间状态。渲染进程按项目记最近一次现读的新任务默认值（`composer/new-task-default.ts`，没读过的项目退回启动缓存），草稿的胶囊每次渲染都按**当前项目**的记录算，现读到了才换、读不到就保持，绝不显示别的项目的值；任务在进程起来之前（`stopped` / `starting` 且任务状态里还没有模型）用同一份记录和算法先画出模型和思考强度，主进程随后报出的是同源的值，一般不再变化。草稿页的默认模型、模型目录同样先用本次运行里最近读到的值。**草稿胶囊的思考强度**（2026-10-21）：档位取项目里 `omp config list` 的 `defaultThinkingLevel`（没有就用 omp 自选默认模型的档位）；模型认出来后按它的档位钳制，不支持思考的模型不显示强度；模型认不出来（模型目录还没到，或项目 `.omp/config.yml` 的 `modelRoles.default` 指向目录里没有的模型）时没有档位可钳，原样显示配置的档位，不再因为"认不出模型"整段隐藏。
 - **冷读占位与单一算法**（2026-10-21，逐帧复现后改）：切到一个这次运行和启动缓存里都没读过的项目时，旧做法在 `omp config list` 返回前拿 omp 自选的全局默认值和全局强度顶上，返回后再换成项目自己的——实测逐帧记录是 `模型…` → `模型…中`（模型没认出来，档位却用了全局的）→ `模型…高` → `Chip Global高`（全局模型配项目的档位）→ `Chip Alpha高`，同一个项目里连变四次。现在项目的默认值或模型目录有一样没读到，胶囊就是占位 `composer.modelLoading`，**不带强度**，两样都到了一次换成最终值（`shared/ui/new-task-default.ts` 的 `pending`）；读过的项目切回来第一帧就是最终值，逐帧只变一次（`test/e2e/model-chip.e2e.ts`）。读不到项目配置（omp 没就绪）时按“什么都没配”算，不一直占位。配置的 `modelRoles.default` 指向目录里没有的模型时胶囊写它的名字，不写 omp 自选的那个。显示什么模型、什么档位的计算草稿、起进程前的任务输入框、主进程的 TSP 任务状态（`tsp-runner.ts` 的新任务默认值）共用这一份：此前主进程那份不钳制档位，配的档位不在模型支持的档位里（如 `medium` 配 `low/high/max` 的模型）时任务状态里有模型名没有强度，胶囊只剩模型名。顶栏分支按钮（`GitTools`）的状态连同任务 id 一起记，切到非 git 目录的任务第一帧就不画，不会挂着上一个任务的分支（`test/e2e/git-worktree.e2e.ts` 逐帧断言）。
-- 附件预览行（有附件时）：文本区上方，64×64，右上 ✕（`composer.attachment.remove`）；来源是粘贴图片（截图、资源管理器里复制的图片文件）和拖入图片，没有附件按钮（2026-10-20 起去掉 `⊕`，照 Tern 里的 omp：要什么直接粘贴）。当前模型不收图片时 toast `composer.attach.unsupported`；非图片文件拖入：toast `composer.attach.imageOnly`。
-- **粘贴文件**（2026-10-20 起，照终端）：资源管理器里复制的非图片文件、文件夹粘贴进输入框时，插入它们的绝对路径，含空白的加双引号，多个用空格隔开；图片文件仍作附件。路径由 preload 在隔离世界里用 `webUtils.getPathForFile` 取，`document.execCommand("insertText")` 插进输入框（走输入框自己的 input 事件，`Ctrl Z` 能撤回），渲染进程拿不到路径，也没有传路径的函数（同拖入文件夹，`src/preload/index.ts`）。
+- **附件卡片与 `#N` 芯片**（2026-10-21 起，`features/composer/ComposerInput.tsx`、`Attachments.tsx`，机制和 omp 实测见 `docs/architecture/composer-attachments.md`）：附件卡片在输入框**顶部**（文本区上方），每张 `attachment`：32×32 缩略图 + `#N`（`--fs-xs` 500）+ 像素尺寸（`--font-mono` `--fs-2xs` `--text-3`，`1568×165`）；右上 ✕（`attachment-remove`，悬停 / 聚焦才显示，`composer.attachment.remove`）。来源是粘贴图片（截图、资源管理器里复制的图片文件）和拖入图片，工具行最左有附件按钮（`composer-attach`，`＋`，`composer.attach.pick`，主进程弹系统文件对话框，多选）。**非图片文件**（拖到输入框、粘贴、附件按钮）同样是卡片（文件图标 + `#N 名字` + 大小）和 `[File #N, 名字]` 芯片，发送时内联换成 omp 的 `@"路径"` 提及；路径只在 preload / 主进程里，渲染进程只有不透明的 id（`docs/architecture/composer-attachments.md` §2.1）。当前模型不收图片时 toast `composer.attach.unsupported`。文字里引用附件的是 omp 的占位符 `[Image #N, WxH]`，在输入框里显示成 `#N` 芯片（`.composer-chip`，`--accent-soft` 底、`--radius-sm`）；芯片是原子的（光标 / 选区不能落进去，Backspace / Delete / ← / → 一步越过，删掉芯片 = 删掉附件，删卡片 = 删掉芯片）。**大段粘贴**（超过 10 行或 1000 字符，omp 的阈值）折叠成 `[Paste #N, +X lines]`，显示成 `#N +X 行` / `#N M 字符` 芯片（`--bg-sunken` 底、`1px --border-subtle`），发送时换回原文；`Ctrl+Shift+V` 原样粘贴不折叠（omp 的 `pasteTextRaw`）。发送时图片按文字里引用的编号重排、没引用的不发。
+- **粘贴文件**（2026-10-20 起，照终端；2026-10-21 起普通文件改成文件附件，见上）：资源管理器里复制的文件夹粘贴进输入框时，插入它们的绝对路径，含空白的加双引号，多个用空格隔开；图片文件仍作附件。路径由 preload 在隔离世界里用 `webUtils.getPathForFile` 取，`document.execCommand("insertText")` 插进输入框（走输入框自己的 input 事件，`Ctrl Z` 能撤回），渲染进程拿不到路径，也没有传路径的函数（同拖入文件夹，`src/preload/index.ts`）。
 - 草稿按任务保留，由主进程持久化。
 - 占位符：新任务 `composer.placeholderNew`；有对话 `composer.placeholder`；运行中 `composer.placeholderRunning`（设置里对调后用 `…Swapped`）；有门时 `composer.placeholderGate`。
 - **输入法**：`isComposing` 或 `keyCode === 229` 时 `Enter` 一律不发送；组合结束后才发送。（测试必写。）
 
-**TSP 任务的混合形态**（2026-10-20 起，引擎 `tsp`，见 `docs/architecture/tsp-migration.md`）：输入框上方的整个过程区——对话、工具卡片、待办、子代理、后台任务、HUD 状态行、omp 的排队（`omp.queue`）、提问 / 审批（`omp.editor.ask`、`omp.editor.ask.approval`）、选择器等浮层——是 omp 发来的 TSP 节点（`features/tsp/TspView`）；输入框和它下面的一切（本节的 Composer：模型胶囊、思考强度、审批胶囊、上下文圆环、费用、发送 / 停止）仍是 studio 的同一个 `Composer`，位置、大小、外观与 rpc 任务完全相同。设置里“新任务的引擎”为 tsp（默认）时，老任务下次启动也走 TSP，所以同一段对话在 studio 和 Tern 里显示一样。
+**输入框与过程区的分工**：输入框上方的整个过程区——对话、工具卡片、待办、子代理、后台任务、HUD 状态行、omp 的排队（`omp.queue`）、提问 / 审批（`omp.editor.ask`、`omp.editor.ask.approval`）、选择器等浮层——是 omp 发来的 TSP 节点（`features/tsp/TspView`，见 `docs/architecture/tsp-migration.md`）；输入框和它下面的一切（本节的 Composer：模型胶囊、思考强度、审批胶囊、上下文圆环、费用、发送 / 停止）是 studio 的 `Composer`。所有任务都是 TSP，所以同一段对话在 studio 和 Tern 里显示一样。
 - 布局：`TspView`（`flex: 1`，内部滚动，吸底）在上，`Composer` 在下；TSP 的 dock（HUD、排队、提问 / 审批）停在过程区底部、Composer 正上方，宽度同对话列（`--content-w`）。omp 自己的输入框卡片（dock 里 role `omp.editor`：编辑器、模型、思考强度、上下文、费用、发送 / 停止）**不渲染**（`TspChildren.tsx`），所以也没有看不见的编辑器抢键盘焦点；对话列宽度（`resizeTsp` 的列数）照旧量对话列。提问 / 审批被撤掉、拿着焦点的选项列表消失后，焦点回到 studio 输入框（`use-reclaim-focus.ts`）。过程区里的 `Esc` 是写给 omp 的按键，不触发 Composer 的“停止”。
 - 过程区顶部的标题块（2026-10-20 起）：omp 自己的欢迎块（`omp.welcome`：logo、"omp"、版本、小提示）不渲染（`TspChildren.tsx`），inline surface 的对话列最上面改画 studio 自己的 `StudioHeader`（`features/empty/StudioHeader.tsx`，空状态用的同一个组件）：像素标志 `omp studio`（compact，`unit` 4，比空状态小一号）+ 版本号 + 任务工作目录的文件夹标签（`TaskState.cwd`，开了工作树时是 worktree 根；`PathLabel`，同空状态的 `empty-project` 样式）。它在滚动内容里，随对话一起滚走；screen surface（如 `/settings`）盖住一切，不画。testid：`studio-header`、`studio-header-folder`。
-- 发送 / 停止：`sendPrompt` / `stopTask`；运行中直接发送（omp 自己排队并在 dock 里显示，studio 的 `QueueStrip` 不出现，`Enter` / `Ctrl+Enter` 都走 `send`，不分插话 / 稍后）。**提问**（合成门 `tsp-ask`）：发送键和 `Enter` 不发送，占位符 `composer.placeholderAsk`，studio 的门槽（`GateSlot`）不挂载，回答在过程区里完成。**审批**（合成门 `tsp-approval`，2026-10-21）：输入框照常能发——写的字 `Enter` 发出去 = 拒绝待批的调用并把这句话告诉 omp（omp 自己的行为，studio 只是 `send`），占位符 `composer.placeholderGate`；`Ctrl+Enter` = 批准、`Ctrl+O` = Details（对审批卡上同名按钮发 `action`）；审批卡底栏的 Details / Deny / Approve 是真按钮（`omp.btn`，点击发 `action`），键帽留在按钮里。**omp 的面板开着**（全屏 surface 或 Agent Hub 的 `picker`，2026-10-21）：不往主代理发——发送键禁用、`Enter` 不发、占位符 `composer.placeholderScreen`、工具行右侧一条 `composer-note`（`composer.screenOpenNote`，不加新行），`Esc` / 停止键只把 Esc 交给 omp 关面板。在 Hub 里选中子代理后 omp 进入聚焦模式，此时输入框照常发送，omp 把话交给那个子代理（`docs/architecture/tsp-migration.md` §10.7）。
-- 输入框的功能不变：斜杠菜单、`@` 文件菜单、斜杠命令守卫、模型 / 思考强度 / 速度开关、输入历史照常。斜杠菜单的命令来自 omp 自己的命令列表（`listSlashCommands`，主进程对 TSP 任务也提供，不含项目本地命令 / skills）；选中后和手敲一样，`/命令` 文字原样 `sendPrompt` 给 omp，由 omp 处理并在过程区里画自己的界面（注意裸 `/model` 打开的是 omp 的“角色”选择器；切本会话模型用模型胶囊）。studio 接管的 `/btw` 在 TSP 里也由 studio 接管（旁路提问面板，见 §4.14 BtwPanel；`/tree` `/fork` 同样，见 §4.14 SessionTreePanel；`/goal` 见 GoalStrip）：omp 有同名命令但 studio 没接管的，就是 omp 的（照发给 omp），没有就不出现在菜单里；命令面板里的条目：压缩只对 rpc 任务出现，旁路提问两种任务都有；“目标”的暂停 / 继续 / 放弃两种任务都有；“会话树”两种任务都有。`!` 开头的文字也原样发给 omp。状态栏（`RunStatus` / `JobsBoard`）和 `QueueStrip` 不出现（过程区里 omp 的 HUD / 排队取代它们）。
-- 模型、思考强度、上下文、费用读 `TaskState` 的同名字段（主进程从 TSP 文档推导）；换模型 / 思考强度由主进程在 omp 的选择器 / `thinking.cycle` 上操作；速度开关由主进程发 `/fast on|off`、`/slow on|off` 并按 omp 的 toast 成功 / 失败。图片：主进程写成临时文件，把 `@"路径"` 附在文字后交给 omp（omp 读成图片附件），和 rpc 任务一样粘贴 / 拖入。
+- 发送 / 停止：`sendPrompt` / `stopTask`；运行中直接发送（omp 自己排队并在 dock 里显示，studio 没有自己的队列条，`Enter` / `Ctrl+Enter` 都走 `send`，不分插话 / 稍后）。**提问**（合成门 `tsp-ask`）：发送键和 `Enter` 不发送，占位符 `composer.placeholderAsk`，回答在过程区里完成。**审批**（合成门 `tsp-approval`，2026-10-21）：输入框照常能发——写的字 `Enter` 发出去 = 拒绝待批的调用并把这句话告诉 omp（omp 自己的行为，studio 只是 `send`），占位符 `composer.placeholderGate`；`Ctrl+Enter` = 批准、`Ctrl+O` = Details（对审批卡上同名按钮发 `action`）；审批卡底栏的 Details / Deny / Approve 是真按钮（`omp.btn`，点击发 `action`），键帽留在按钮里。门的完整行为见 §4.17。**omp 的面板开着**（全屏 surface 或 Agent Hub 的 `picker`，2026-10-21）：不往主代理发——发送键禁用、`Enter` 不发、占位符 `composer.placeholderScreen`、工具行右侧一条 `composer-note`（`composer.screenOpenNote`，不加新行），`Esc` / 停止键只把 Esc 交给 omp 关面板。在 Hub 里选中子代理后 omp 进入聚焦模式，此时输入框照常发送，omp 把话交给那个子代理（`docs/architecture/tsp-migration.md` §10.7）。
+- 输入框的功能不变：斜杠菜单、`@` 文件菜单、斜杠命令守卫、模型 / 思考强度 / 速度开关、输入历史照常。斜杠菜单的命令来自 omp 自己的命令列表（`listSlashCommands`，服务进程提供，不含项目本地命令 / skills）；选中后和手敲一样，`/命令` 文字原样 `sendPrompt` 给 omp，由 omp 处理并在过程区里画自己的界面（注意裸 `/model` 打开的是 omp 的“角色”选择器；切本会话模型用模型胶囊）。studio 接管的命令（`/btw` 旁路提问面板，见 §4.14 BtwPanel；`/tree` `/fork` 见 §4.14 SessionTreePanel；`/goal` 见 GoalStrip）不发给 omp；omp 有同名命令但 studio 没接管的，就是 omp 的（照发给 omp）。命令面板里的条目：压缩上下文、复制最后一条回答、展开或收起所有工具卡片、旁路提问、暂停 / 继续 / 放弃目标、会话树。`!` 开头的文字也原样发给 omp。omp 的 HUD / 排队取代了旧的状态栏和队列条（studio 不画）。
+- 模型、思考强度、上下文、费用读 `TaskState` 的同名字段（主进程从 TSP 文档推导）；换模型 / 思考强度由主进程在 omp 的选择器 / `thinking.cycle` 上操作；速度开关由主进程发 `/fast on|off`、`/slow on|off` 并按 omp 的 toast 成功 / 失败。图片：主进程写成临时文件，把 `@"路径"` 附在文字后交给 omp（omp 读成图片附件），粘贴 / 拖入照旧。
 - **没有改动条**（2026-10-21 删除）：TSP 任务的输入框上方不再有“N 个文件已更改 +a −d · 打开评审”那一行，过程区里也没有 ChangeCard；评审（§4.25）已经能看全部改动。评审入口是顶栏评审按钮（`topbar-review`）、提交对话框里的“评审改动”、`Ctrl Shift D`、命令面板。
 - **过程卡片外观**（2026-10-21，`features/tsp/tsp.css`，结构由 omp 决定、外观由我们决定）：工具卡片 body 里的 `code` 不论 omp 有没有给 `wrap` 一律折行（`pre-wrap` + `overflow-wrap: anywhere`），不出横向滚动条；`code` / `rows` / `table` 真要滚动时用细滚动条（`scrollbar-width: thin` + `--scrollbar-thumb`，无箭头按钮）。bash / eval 的 body（一层 `col`：命令 `code` + 输出 `ansi` + 底栏）命令和输出共用卡片底色，中间一条 `--border-subtle` 细分隔线，底栏（`omp.run.foot`）和 Done / Running 状态用 `--text-3`；卡片头里的无色调徽章（语言、`background`）无底色、`--text-3`。ask 卡片完成后 body 第一块 md 与头上的 `target` 相同时不再画第二遍（`work.tsx` 的 `duplicateId`），头上的问题允许折行；答案行（`omp.tool.answer`）和未选项（`omp.tool.answer.off`）同字号、同一列，未选项用等宽的空位代替勾。状态行（`omp.working`）的计时用正文字体 + tabular 数字，不再和文字混用等宽字形。
 - **恢复会话时补回的用量脚注和空闲回顾**（2026-10-21，回顾部分 2026-10-21 改）：omp 的 `--resume` 只重发旧对话，不重发每轮末尾的 `omp.turn.usage`，也不重放空闲回顾 `omp.recap`（实测 18.12.4，见 `docs/architecture/tsp-migration.md` §10.1），所以重新打开任务后这两样会消失；studio 从 omp 的存档补回（只读）。① 用量脚注：每轮最后一个助手消息后面补一行 `[time 图标][11.2s · 2.9K tok · $0.0019 this turn]`，样式同 omp 实时的那行（`.tsp-row[data-role="omp.turn.usage"]`，`data-restored`），文字格式照抄 omp 的英文（`features/tsp/turn-footer.ts`，不走 i18n，费用用准确值）；数据来自会话文件（`getTspSessionExtras`），文档轮数和文件轮数对不上时不补。② 回顾：**对话里只显示最新的一条**，实时和恢复一样。样式：一行，**图标是 `※`（不是时钟 / `history` 图标）**，`--text-3` 斜体、`--fs` 同正文，悬停提示是 omp 原样的英文 `Recap while you were away`（过程区不汉化）；omp 实时发来的 `omp.recap`（节点里的 `history` 图标被隐藏、改画 ※）和恢复补的用同一套样式。实时：omp 每条回顾都留在对话中间，新回顾来了旧的收起（`RecapRow` 只画 main 里最后一个 `omp.recap`）。恢复：读 agent 目录 `history.db` 的 `session_recaps` 最新一条，按生成时间放回它的位置——第 `afterTurn` 轮之后、下一轮用户消息之前（`afterTurn` = 回顾之前开始的轮数；`shared/tsp/recap-slot.ts`，`features/tsp/MainFlow.tsx`），回顾之后又有新消息**不影响**显示；会话压缩过（文档轮数少于文件轮数，omp 只重发保留的最后几轮）时从末尾对齐，落在没重发的旧轮里的不画；实时已经收到过 `omp.recap` 时不再补。omp 的触发：`recap.enabled`（默认开）、`recap.idleSeconds`（默认 240 秒）、有模型、一轮结束后空闲。
@@ -475,7 +442,8 @@
 |---|---|---|---|---|
 | 空闲 | 发送（`prompt`） | 发送 | 换行 | 发送 ↑ |
 | 运行中 | **插话**（`prompt` + `streamingBehavior: "steer"` 或 `steer`） | **稍后**（`follow_up`） | 换行 | 空文本=停止 ■；有文本=并排 发送 ↑ + 停止 ■ |
-| 有门停靠 | 见 §4.17：**拒绝并发送** | 门的主操作（§4.17）；输入框有草稿时无效 | 换行 | `composer.sendDeny` |
+| 等你确认：审批（§4.17） | 有草稿：**拒绝并发送**；空草稿：不动作 | **批准**（有没有草稿都一样） | 换行 | 同运行中 |
+| 等你确认：提问（§4.17） | 不发送 | 不发送 | 换行 | 发送键禁用 |
 
 运行中发消息必须指明行为：wire 里 `prompt` 的 `streamingBehavior?: "steer" | "followUp"` ✔ 存在，`rpc.md` 说流式中缺省会失败（两份方案均引用；以 `rpc.md` 为准）。设置页可对调 `Enter` 与 `Ctrl+Enter` 在运行中的含义。
 
@@ -517,11 +485,7 @@
 
 **速度开关与指示**（`get_state.fastModeEnabled/fastModeActive/slowModeSupported/slowModeEnabled/slowModeScope`；命令 `set_fast_mode` / `set_slow_mode`）：ModelPicker 底部控件行里、思考强度右边（3.1，`direction-3.1.md` §2 行 10），只在高亮行是**正在生效的模型**时出现（草稿里没有任务，不出现）。两个开关在一行里排开，每个是 `标签 + 开/关` 两段（`.segments`），方向键切换，说明在悬停提示里。`快速模式`始终可点（悬停 `model.fast.hint`；RPC 没有“是否支持”字段；不支持的模型 omp 返回错误 `Fast mode is unavailable for the current model.`，原文进 toast）。`慢速模式`只在 `slowModeSupported` 时出现，悬停提示说明范围：`global` → `model.slow.scope.global`（写进 omp 配置，所有会话共用），`session` → `model.slow.scope.session`；不支持时这里只写 `model.slow.unsupported`。ModelChip 在模型名后追加 `--fs-2xs` 的 `--accent-soft` 小胶囊：`fastModeActive` 为真时 `快速`，慢速开着时 `慢速`；都关时不显示。实测（Tern omp，临时 agent 目录）：fast 只对本会话有效，**不落配置**，切到不支持的模型会自动关；slow 在 Anthropic 模型上 scope 是 `global`，**落在 omp 配置里**并跨进程保留（`session` 范围对应 OpenAI/Google 的 flex 层级，未能实测）。studio 不存副本；键入的 `/fast`、`/slow` 照常走 omp，本地完成的斜杠命令（prompt 应答 `agentInvoked:false`）之后主进程会重读 `get_state`。
 
-**UsageLimitBanner**（`get_state.usageLimit`，输入框上方，复用 `.suggest` 样式，`role="status"`，无关闭按钮，不挡发送）：`wrap_up` → `composer.limit.wrapUp`（`extraUsage` 为真时 `composer.limit.wrapUpExtra`）；`low_priority` → `composer.limit.lowPriority`，有 `allowanceLeftPercent` 时追加 `composer.limit.left`；有 `resetsAtSec` 时追加 `composer.limit.resets`（当天只写 `HH:mm`，否则 `M-D HH:mm`，本机时区）；`usageLimit` 缺省（没超限）时不渲染。
-
 **输出速度**（`get_state.tokensPerSecond`）：UsageMeter 末尾一项，等宽 `--text-3`，`composer.usage.tps`，只在任务运行（running / needs_you）且值为有限正数时显示。实测 omp 在一条回复流式输出期间给 `null`，回复结束（message_end 之后）才有值，所以运行中显示的是上一条回复的速度；主进程在 `message_end` 等事件后按 1 秒节流重读 `get_state`，不另外轮询。
-
-**QueueStrip**（门/输入框正上方，仅有排队消息时存在，宽 = 列宽，`margin-bottom: --space-2`）：容器 `--bg-raised`，`1px dashed --border`，`--radius-lg`，`padding: --space-1 --space-2`；条目高 32：`[标签][文本首行省略][现在插话][✕]`；标签是 `--fs-2xs` 小胶囊：`插话` 用 `--accent-soft` 底，`稍后` 用 `--bg-hover` 底。`现在插话`（`promote_queued_message`，仅稍后条目有）成功后标签原地变 `插话`（交叉缩放 `--dur-fast`），响应 `promoted:false` = 已送出，条目淡出。`✕`（`remove_queued_message`）：只有响应 `removed:true` 才移除，并把文本放回草稿；`removed:false` 静默刷新快照。数据**只渲染** `queue_update` / `get_state.queuedMessages` 快照，自己不另记。>3 条只显示前 3 条 + `composer.queue.more`。旧版 omp 没有后两个命令：命令失败时隐藏对应按钮，**不要回退成 `steer`**（会重复入队）。出现/消失 `grid-template-rows`，`--dur-base`。
 
 **SlashMenu**：行首 `/` 打开，浮在输入框上方，行高 32，最多同时显示 8 行，更多的在菜单内滚动（`↑↓` 选中行始终可见），`[/名称][描述 --text-3]`，`↑↓` 选，`Tab/Enter` 补全，`Esc` 关闭；数据 `get_available_commands` / `available_commands_update`，加上 studio 接管的命令（`studio-slash-table.ts`：`/new /resume /settings /hotkeys /git /rename /delete /model /effort /usage /context /export …`，描述 `slash.*Desc`，发送后开 studio 自己的界面而不是 omp 的终端弹窗；TSP 任务和新任务草稿页各取其中能用的子集）。任务输入框和新任务草稿页都有这个菜单。无匹配 `slash.empty`。
 
@@ -534,11 +498,9 @@
 
 **FileMenu**（`@` 文件引用）：光标前的词以 `@` 开头（文本开头或空白之后）时，在输入框上方打开和斜杠菜单同款的菜单，每行一个相对路径（文件名 `--font-mono`，目录部分 `--text-3`），最多同时显示 8 行（超出滚动），`↑↓` 选，`Tab/Enter` 把 `@词` 换成 `@相对路径 `，`Esc` 关闭（到这个 `@词` 变化为止），空查询列出浅层文件。数据 `listProjectFiles({ kind: "task", taskId } | { kind: "project", projectId }, query)`：主进程按任务（新任务草稿按项目目录）查出 cwd，优先 `git ls-files -co --exclude-standard`，不是仓库时退回有界遍历（广度优先，跳过 `node_modules`、`.git`、符号链接）；缓存 10 秒，最多索引 10000 条，每次最多返回 20 条（前缀 > 文件名前缀 > 文件名包含 > 路径包含 > 子序列），只返回相对路径，含空白的路径不收；`query` 含绝对路径或 `..` 时 reject。引用本身由 omp 展开成 `fileMention` 消息，studio 只做补全。
 
-**用户消息的“从这里分叉”与 SessionTreePanel**（`features/conversation/`，语义和实测见 `docs/architecture/session-tree.md`）：①用户消息悬停时，“复制”右边出现 `tree.fork`（任务空闲时才有；`title` 是 `tree.forkTitle`），点它新建一个任务（同项目、同工作目录、同模型），会话是这条消息**之前**的历史，新任务被选中，输入框里已填好这条消息的文字，改了再发即可；原任务不动。`/fork` = 从最后一条用户消息分叉。②`/tree` 或命令面板“会话树”（`cmd.sessionTree`）打开居中浮层（样子同命令面板，`--z-dialog`，`role="dialog"`）：每行一条用户消息的首行文字，只有真的分叉处才缩进一级，当前分支上的文字用 `--text`、其余 `--text-3`，当前节点文字 `--accent` + 右侧 `tree.current`；`↑↓ Home End` 移动、`Enter` / 点击选中、`Esc` 关闭并还焦点，焦点陷阱在面板内。选中 = 任务就地回到那条消息**之前**（omp `branch`：任务改用 omp 为它新建的会话文件，对话流重载），那条消息的文字追加进输入框；任务不空闲时主进程拒绝，toast `error.sessionBusy`。
+**会话树与分叉**（面板 `SessionTreePanel`，`App.tsx` 在 `TspView` 旁挂它；数据与动作见 `docs/architecture/session-tree.md`，实测 omp 18.12.5）：①节点只读 omp 会话文件（不拉起进程），叶子 = 文件最后一个条目；②选中 = 驱动 omp 自己的 `/tree`（同一个会话文件里移动叶子，不新建文件，原来的分支留在文件里，omp 重画对话），文字追加进输入框；③每行右侧悬停/选中时出现“从这里分叉”按钮（`session-tree-fork`，`tree.fork`；`Shift+Enter` 同效），新任务由 `omp --fork=<原会话文件>` 起、再在新进程里回溯，期间面板标题换成 `tree.forking`，成功后关面板并选中新任务（面板底部还有开关 `tree.summarize`：勾上后选中 = 让 omp 先给被放弃的分支写摘要再回溯，期间标题 `tree.summarizing`，面板保持打开）；④omp 在用户消息卡片上画的“回退”图标（`actions.click: "rewind"`）由 studio 接管：点它打开这个面板并把光标放在对应的那条消息上（按卡片从末尾数第几张对位），不把 `rewind` 发给 omp；⑤`/tree`、`/fork`、命令面板“会话树”都能用；`/fork` = 从当前分支最后一条用户消息分叉。
 
-**TSP 任务的会话树与分叉**（同一面板，`App.tsx` 在 `TspView` 旁挂 `SessionTreePanel`；数据与动作见 `docs/architecture/session-tree.md` 的 TSP 一节，实测 omp 18.12.5）：①节点只读 omp 会话文件（不拉起进程），叶子 = 文件最后一个条目；②选中 = 驱动 omp 自己的 `/tree`（同一个会话文件里移动叶子，不新建文件，原来的分支留在文件里，omp 重画对话），文字追加进输入框；③每行右侧悬停/选中时出现“从这里分叉”按钮（`session-tree-fork`，`tree.fork`；`Shift+Enter` 同效），新任务由 `omp --fork=<原会话文件>` 起、再在新进程里回溯，期间面板标题换成 `tree.forking`，成功后关面板并选中新任务（TSP 面板底部还有开关 `tree.summarize`：勾上后选中 = 让 omp 先给被放弃的分支写摘要再回溯，期间标题 `tree.summarizing`，面板保持打开）；④omp 在用户消息卡片上画的“回退”图标（`actions.click: "rewind"`）由 studio 接管：点它打开这个面板并把光标放在对应的那条消息上（按卡片从末尾数第几张对位），不把 `rewind` 发给 omp；⑤`/tree`、`/fork`、命令面板“会话树”在 TSP 任务里同样可用；`/fork` = 从当前分支最后一条用户消息分叉。
-
-**会话开关菜单与模型预设**（S4，`features/session-toggles/`，语义和实测见 `docs/architecture/session-toggles.md`）：①输入框工具行里审批胶囊右边一颗滑杆图标按钮（`.tool-btn`，`toggles.button`，`data-testid="toggles-button"`），点开 `Popover`（宽 340）：顶上一行 `--fs-xs` 说明（`toggles.note`：只对本会话生效、不改配置默认值、圆点 = 和默认值不同），然后每行 `名称 + 一句说明（--text-3）`、右侧开关（复用设置页 `Switch`）：技能清单、扩展上下文、电脑操作、顾问模型；浏览器窗口是“可见 / 后台”分段（复用 `Segmented`），因为分段控件比开关宽，这一行（`.tg-row-stack`）让名称和说明占满第一行，“本会话”标记和分段控件在下一行靠右，说明不会被挤成一字一行；分隔线后是快速 / 慢速（模型选择器里也有，是快捷入口）；再一条分隔线后是 prewalk 的三个动作按钮“启用 / 重启 / 关闭”，omp 对 prewalk 的最近一次回话原文显示在说明下面（omp 没有 prewalk 状态查询，`/prewalk status` 是用法错误，只能记最后一句）。②**状态**：`TaskState.sessionToggles`（`{skillful, extendedContext, computer, advisor, browser, prewalk}`，`null` = 本会话没动过）由 `TspRunner` 在每次文档变化时读新出现的状态 toast（`statusNotes` + `omp.toast.status` 节点）用 `parseToggleToast`（`shared/omp-output/toggles.ts`，omp 18.12.5 原文入测）解析得到，所以用户在输入框里自己敲的 `/skillful` 也同步；新进程从头开始。没动过的开关显示 `omp config list --json` 的配置默认值（`skillful`、`extendedContext`、`computer.enabled`、`advisor.enabled`、`browser.headless`、`prewalk.enabled`），值读不到时按关显示、不画圆点。③**标记**：开关的值来自本会话的命令时，行上有 `toggles.session`（“本会话”）小胶囊；和配置默认值不同时，名称后一个 6px `--accent` 圆点（`role="img"`，`aria-label` = `toggles.differs`），按钮角上同样亮一个圆点；快速 / 慢速开着就算“和默认不同”。④**电脑操作**：开启（菜单里点开关或 `/computer on`）先把菜单换成确认页（`toggles.computerConfirmTitle/Body`：模型将能看屏幕、操作键鼠，只对本会话生效），“开启”才发命令，取消不发；关闭直接执行。⑤动作一律是封闭的 `TaskCommand`（`toggle` / `browserMode` / `prewalk` / `modelPreset`，主进程拼成 `/skillful on` 等文本，渲染进程不发自由文本）经 `runTaskCommand`；同一时间只有一条命令在飞（菜单里其余控件禁用）；omp 的拒绝（如“当前模型没有 /fast 的服务层级”）作为错误 toast 原文显示，认不出的回话（用法提示、预设保存结果）作为 info toast 原文显示。⑥**斜杠命令**：`/skillful` `/extended-context` `/computer` `/advisor` `/browser` `/prewalk` 不带参数（或 `status`）打开这个菜单；带 `on` / `off`（`/browser visible|headless`、`/prewalk restart|off`）直接执行，其中 `/computer on` 先弹确认；参数不认识抛出用法（草稿放回输入框）。`/modelpreset`（无参数 / `list`）打开模型选择器；`/modelpreset save|switch|delete <名字>` 直接执行：`save` 的新名字只许字母、数字和 `. _ -`（`presetNameUsable`）；`switch` / `delete` 的已有名字可以含空格（`presetRefUsable`，见下）。TSP 和 rpc 任务都由 studio 接管（rpc 任务不读开关状态，菜单按配置默认值显示，rpc 引擎下一轮删除）。⑦**模型选择器的“预设”一节**（任务里才有，草稿没有）：在思考强度和速度开关之后，列出配置项 `modelPresets` 的预设（名字 + 默认角色的模型，悬停提示是模型和思考强度），点一个 = `/modelpreset switch <名字>`（omp 文档 models.md：按 `modelRoleStorage` 把各角色的模型写进配置、预设的思考强度写全局配置，并把当前会话切到预设的默认模型——**不是只对本会话生效**），成功后重读配置快照并关闭选择器；“把当前设置存为预设…”（`.mp-link`，和本节左对齐）展开名字输入框，Enter / “保存” = `/modelpreset save <名字>`（omp 自己写全局配置），之后重读配置快照。**带空格的预设名可以应用**（omp 18.12.5 实测：`/modelpreset` 把参数按空白切开再用单个空格拼回名字，`/modelpreset switch my preset` 切换成功；`delete` 同理）；只有含连续空格、首尾空白或控制字符的名字 omp 经命令找不到（`a  b` 回 `Preset not found: a b`），这样的预设仍按正常对比度显示，`aria-disabled`、点击无效，悬停提示 `toggles.presets.nameUnusable` 说明原因（需在 config.yml 里改名）。注意 omp 的 `save` 自己只收 `^[a-zA-Z][\w-]*$`，所以通过界面存不出带空格的名字，带空格的预设来自手写配置。
+**会话开关菜单与模型预设**（S4，`features/session-toggles/`，语义和实测见 `docs/architecture/session-toggles.md`）：①输入框工具行里审批胶囊右边一颗滑杆图标按钮（`.tool-btn`，`toggles.button`，`data-testid="toggles-button"`），点开 `Popover`（宽 340）：顶上一行 `--fs-xs` 说明（`toggles.note`：只对本会话生效、不改配置默认值、圆点 = 和默认值不同），然后每行 `名称 + 一句说明（--text-3）`、右侧开关（复用设置页 `Switch`）：技能清单、扩展上下文、电脑操作、顾问模型；浏览器窗口是“可见 / 后台”分段（复用 `Segmented`），因为分段控件比开关宽，这一行（`.tg-row-stack`）让名称和说明占满第一行，“本会话”标记和分段控件在下一行靠右，说明不会被挤成一字一行；分隔线后是快速 / 慢速（模型选择器里也有，是快捷入口）；再一条分隔线后是 prewalk 的三个动作按钮“启用 / 重启 / 关闭”，omp 对 prewalk 的最近一次回话原文显示在说明下面（omp 没有 prewalk 状态查询，`/prewalk status` 是用法错误，只能记最后一句）。②**状态**：`TaskState.sessionToggles`（`{skillful, extendedContext, computer, advisor, browser, prewalk}`，`null` = 本会话没动过）由 `TspRunner` 在每次文档变化时读新出现的状态 toast（`statusNotes` + `omp.toast.status` 节点）用 `parseToggleToast`（`shared/omp-output/toggles.ts`，omp 18.12.5 原文入测）解析得到，所以用户在输入框里自己敲的 `/skillful` 也同步；新进程从头开始。没动过的开关显示 `omp config list --json` 的配置默认值（`skillful`、`extendedContext`、`computer.enabled`、`advisor.enabled`、`browser.headless`、`prewalk.enabled`），值读不到时按关显示、不画圆点。③**标记**：开关的值来自本会话的命令时，行上有 `toggles.session`（“本会话”）小胶囊；和配置默认值不同时，名称后一个 6px `--accent` 圆点（`role="img"`，`aria-label` = `toggles.differs`），按钮角上同样亮一个圆点；快速 / 慢速开着就算“和默认不同”。④**电脑操作**：开启（菜单里点开关或 `/computer on`）先把菜单换成确认页（`toggles.computerConfirmTitle/Body`：模型将能看屏幕、操作键鼠，只对本会话生效），“开启”才发命令，取消不发；关闭直接执行。⑤动作一律是封闭的 `TaskCommand`（`toggle` / `browserMode` / `prewalk` / `modelPreset`，主进程拼成 `/skillful on` 等文本，渲染进程不发自由文本）经 `runTaskCommand`；同一时间只有一条命令在飞（菜单里其余控件禁用）；omp 的拒绝（如“当前模型没有 /fast 的服务层级”）作为错误 toast 原文显示，认不出的回话（用法提示、预设保存结果）作为 info toast 原文显示。⑥**斜杠命令**：`/skillful` `/extended-context` `/computer` `/advisor` `/browser` `/prewalk` 不带参数（或 `status`）打开这个菜单；带 `on` / `off`（`/browser visible|headless`、`/prewalk restart|off`）直接执行，其中 `/computer on` 先弹确认；参数不认识抛出用法（草稿放回输入框）。`/modelpreset`（无参数 / `list`）打开模型选择器；`/modelpreset save|switch|delete <名字>` 直接执行：`save` 的新名字只许字母、数字和 `. _ -`（`presetNameUsable`）；`switch` / `delete` 的已有名字可以含空格（`presetRefUsable`，见下）。这些命令都由 studio 接管。⑦**模型选择器的“预设”一节**（任务里才有，草稿没有）：在思考强度和速度开关之后，列出配置项 `modelPresets` 的预设（名字 + 默认角色的模型，悬停提示是模型和思考强度），点一个 = `/modelpreset switch <名字>`（omp 文档 models.md：按 `modelRoleStorage` 把各角色的模型写进配置、预设的思考强度写全局配置，并把当前会话切到预设的默认模型——**不是只对本会话生效**），成功后重读配置快照并关闭选择器；“把当前设置存为预设…”（`.mp-link`，和本节左对齐）展开名字输入框，Enter / “保存” = `/modelpreset save <名字>`（omp 自己写全局配置），之后重读配置快照。**带空格的预设名可以应用**（omp 18.12.5 实测：`/modelpreset` 把参数按空白切开再用单个空格拼回名字，`/modelpreset switch my preset` 切换成功；`delete` 同理）；只有含连续空格、首尾空白或控制字符的名字 omp 经命令找不到（`a  b` 回 `Preset not found: a b`），这样的预设仍按正常对比度显示，`aria-disabled`、点击无效，悬停提示 `toggles.presets.nameUnusable` 说明原因（需在 config.yml 里改名）。注意 omp 的 `save` 自己只收 `^[a-zA-Z][\w-]*$`，所以通过界面存不出带空格的名字，带空格的预设来自手写配置。
 
 ### 4.15 JumpToLatest 药丸
 
@@ -548,39 +510,24 @@
 
 拖入文件时全窗口覆盖（`--dur-fade` 淡入）：虚线 2px `--accent` 描边、`--accent-soft` 底，居中 `dropzone.folder`（拖入文件夹）或 `dropzone.image`。非支持类型无反应、不报错。
 
-### 4.17 Gate（“门”：审批、ask 与其它 `extension_ui_request`）
+### 4.17 门（omp 的审批卡与提问对话框）
 
-**位置与行为**
-- 停靠在输入框**正上方**（队列条之上），宽 = 列宽；不是模态、不遮罩，对话照常可读可滚动；滚动区底部 padding 随门高度增加，**不改变滚动位置**（吸底时内容随之上移，是唯一允许的位移）。
-- 同一任务同一时刻只有一个门；后来的请求排队（`gate.pending`），答完才出现下一个。非当前任务的请求不出现在当前界面：侧栏菱形 + 提示条 + 通知（§5.7）。
-- **不抢焦点**：门出现时若用户在过去 1.5 秒内有按键，或焦点在输入框且有草稿，门不夺焦点，只做一次琥珀边框脉冲；否则焦点落到门容器（`tabindex=-1`，显示焦点环）。门里的数字键与 `Enter` 只在门聚焦时生效。
-- **Enter 永不隐式允许**：初始焦点在门容器，没有预选的按钮；用户用 `Tab`/`↑↓`/数字键/点击选择。
-- **`Ctrl+Enter` = 门的主操作**（第一个按钮；`confirm` 的“确认”；审批 `select` 的第一项）。从任务视图任何位置生效，但：门出现后前 500ms 忽略；输入框里有草稿时忽略（避免误批）；对 `input`/`editor`/`ask` 在其自身输入控件内为“提交”。
-- `Esc`：门聚焦 → 拒绝/取消（`{cancelled:true}` 或 `{confirmed:false}`）；门没聚焦 → 走 §5.2 栈（运行中则停止任务，待答请求随之作废）。
-- 数字键 `1–9` 选择并提交对应选项（门聚焦、选项 ≤9、没有文本输入时）。
-- 计时：请求带 `timeout`（毫秒）时，门顶边画 2px `--st-waiting` 线，从满到空线性缩短（reduced：不动画，只更新右上角 `0:25` 读数），右上角 `0:25`（tabular）；最后 10 秒读数变 `--st-waiting-text`；`ask` 超时会替用户选推荐项（没推荐选第一项），所以 ask 门写明 `gate.timeoutAsk`；其余写 `gate.timeout`。收到 `cancel`（`targetId`）→ 门收起为 `gate.cancelled` 或 `gate.timedOut` 一行，1.2 秒后消失；之后的回答 omp 会忽略，界面不再发。
-- 所有 `title`/`message`/`options` 都是**不可信文本**：纯文本渲染，保留换行，不渲染 Markdown/HTML；长文本在门内滚动。
+门是 omp 在 dock 里画的 TSP 节点，studio 照画（`features/tsp/`），不自绘门，也不本地化门里的文字。dock 停在过程区底部、studio 输入框正上方，宽同对话列（§4.14“输入框与过程区的分工”）；门不是模态，对话照常可读、可滚动。
 
-**外观**：`--bg-overlay`，`1px solid` `--st-waiting`（50% 透明度混合），`--radius-lg`，`--shadow-2`，`padding: --space-3-5 --space-4`，最大高 `min(60vh, 520px)` 内部滚动；头部 7px 菱形 + 标题（`--fs-base` `--fw-strong`）+ 右侧计时；按钮高 `--control-h-md`，`--radius-md`，`padding: 0 --space-3-5`，右侧各带键帽（`1`、`Esc`…）；主按钮 `--primary`，次按钮透明 + `--border`，拒绝类 hover 时文字变 `--st-error`。
-
-**按 `method` 的变体**
-
-| method | 形态 | 响应 |
+| 门 | 节点（role） | studio 输入框 |
 |---|---|---|
-| `confirm` `title,message,timeout?` | 标题 + `message`（等宽 `--fs-code-sm`，`pre-wrap`，>8 行折叠 + `gate.detailsExpand`）+ `[取消 Esc] [确认 Ctrl+Enter]` | `{confirmed:true/false}` |
-| `select` `title,options[],optionDetails?` | 选项 ≤3 且都无 `optionDetails.description` → **一排按钮**，第一个为主按钮；否则选项列表（行高 36，左侧数字键帽，描述 `--fs-xs` `--text-3` 在标签下一行；>7 项顶部出现筛选框）。审批提示（omp 给 RPC 宿主的就是这种 select，选项见 `omp://approval-mode.md`：Approve / Approve `<tool>` for this session / Deny）因此自然落成一排按钮 | `{value:<被选中的选项原文>}`；Esc=`{cancelled:true}` |
-| `input` `title,placeholder?,timeout?` | 标题 + 单行输入（高 `--control-h-lg`）+ `[取消 Esc] [确定 Enter]`；IME 组合态 Enter 不提交 | `{value}` 或 `{cancelled:true}`；机密输入 omp 直接拒绝，界面不处理密码型 |
-| `editor` `title,prefill?,promptStyle?` | 多行编辑器卡片（160–320 自适应）；`promptStyle:true` 用 `--font-sans`，否则 `--font-mono`；`Ctrl+Enter` 提交；无超时 | `{value}` / `{cancelled:true}` |
-| `ask` `questions[]` | 见下 | `{answers[]}` |
-| `cancel` `targetId` | 关闭对应的门 | 无 |
-| `notify` | **不是门**：顶部气泡 toast（`info` 点用 `--accent`、`warning` `--st-waiting`、`error` `--st-error`），5 秒，同类合并 | 无 |
-| `setStatus` `setWidget` `setTitle` | v1 忽略（presentation 类；✔ 每轮结束都会收到 `setWidget autoresearch`，`omp-rpc.md`） | 无 |
-| `set_editor_text` | 写入输入框；若输入框已有草稿则弹内联条 `gate.suggestReplace` + `[替换] [保留]`，不静默覆盖 | 无 |
-| `open_url` | 仅登录流，见 §4.20 | 无 |
+| 审批 | `omp.editor.ask.approval`：插在 omp 的输入框卡片（`omp.editor`，studio 不画）前面；标题（如 `Allow tool: bash`）、命令详情、选项 `list`、Details / Deny / Approve 三个按钮 | 照常能发。有草稿时 `Enter` = 拒绝待批的调用，并把这句话作为插话交给 omp；空草稿 `Enter` 不动作；`Ctrl+Enter` = 批准（有没有草稿都一样）；`Ctrl+O` = Details。占位符 `composer.placeholderGate` |
+| 提问 | `omp.editor.ask`：把 omp 的输入框卡片整个换掉；问题 `md`、选项 `list`、“其他”输入；多题时有页签和 Review 页；底栏 Hide / Note / Skip / Next（最后是 Submit） | 不能发：发送键禁用，`Enter` 不发，占位符 `composer.placeholderAsk`。在提问对话框里回答 |
 
-**审批选项的显示规则（审批 `select`）**：按键位置决定行为，标签只影响显示——选项文本若**精确**等于 `Approve` / `Deny`，显示 `gate.allow` / `gate.deny`；若匹配 ``Approve `X` for this session``，显示 `gate.allowTool`（`{tool}`=X）；其余**原样显示**。任何不匹配都不报错、不丢选项。**[推测]**：这些字面文本来自 `approval-mode.md` 的描述，要用 `always-ask` 下录一份真实 fixture 确认（§附录 B-1）。
-
-**`ask` 门**（需先发 `set_ask_dialog { enabled: true }`，否则 omp 退回成一串 select + editor；每个进程启动后各发一次）：一次 `ask` 调用的所有问题在同一个门里，**一次显示一题**。顶部 `gate.step`（仅多题时）+ `header` 小标签（`--fs-xs`，`--bg-hover` 胶囊）→ `question`（`--fs-base` `--fw-strong`）→ 选项（行高 40，单选圆点 / `multi` 方框；`description` 第二行；`recommended` 项右侧 `gate.recommended` 标签，**不预选**；`preview` 选中/悬停时在右侧（门宽 ≥560）或下方显示 `--bg-sunken` 等宽预览，最高 8 行）→ 固定末项 `gate.other`（选中后出现输入框并聚焦；单选下与其它选项互斥，`multi` 下并存 [推测，需回放验证]）→ `[上一题] [下一题 Enter]`（末题为 `[提交 Ctrl+Enter]`）。单选选完**不自动前进**。单选题必须选择或填写才能前进，`multi` 可空。`answers` 每题一项、顺序同 `questions`、`id` 一致，`selectedOptions` 用原样 label 去重（主进程再校验形状）。`Esc` = `{cancelled:true}`，门底部写 `gate.cancelNote`。
+- **判断集中在 `src/shared/tsp/gate.ts`**，主进程 `TspRunner` 和渲染进程 `Composer.tsx` 共用：`findMessageTarget` 返回 `ready`（`approval: true` = 有审批在等）、`ask`、`panel`（omp 的全屏面板或 Agent Hub 开着）或 `pending`；`findGateButton` 找审批卡上 `actions.click` 为 `approve` / `expand` 的 `omp.btn`。role 和动作名是 omp 自己的，不在 TSP 规范里，omp 改名这条规则就失效。
+- **任务状态**：dock 里有 role 以 `omp.editor.ask` 开头的节点 = `needs_you`（`shared/tsp/task-status.ts`）。主进程为它合成一个 `TaskState.dialogs[0]`（`kind: "confirm"`，id `tsp-approval` / `tsp-ask`，标题取审批 / 问题标题的第一行），给侧栏的等你提示条、托盘和系统通知（§5.7）用；输入框也按这个 id 区分审批和提问。同一时刻 dock 里只有 omp 画的那一个门，studio 不另外排队。
+- **拒绝并发送**是普通的 `send`，不另发 deny：omp 收到消息就拒绝待批的调用，并把消息作为插话交给模型（`omp://approval-mode.md`；真实 omp 18.12.5 上确认过，`docs/architecture/tsp-real-omp-probes.md` §14）。批准和 Details 是对审批卡上对应按钮发 `action` 事件，和鼠标点按钮是同一个事件。键位在 `composer/send-logic.ts` 的 `decideEnter`：有审批时不带 Ctrl 且有内容 → `denyAndSend`，带 Ctrl → `gatePrimary`。
+- **审批期间不做的事**：切模型、切思考强度、studio 代发的斜杠命令（`runTaskCommand`、`/fast`、`/slow` 等）立刻 reject（`composer_unavailable`），否则它们的 `send` 会顺手拒掉审批（`TspRunner.#awaitComposer`）。
+- **焦点**：门里的选项 `list`（`interactive/List.tsx`）和提问对话框根节点（`interactive/AskGate.tsx`）出现时拿走键盘焦点，除非焦点已在另一个 TSP 输入控件（`[data-tspi-keys]`）里。studio 输入框不算这种控件，所以正在输入框里打字时焦点也会移到门上。门被 omp 撤掉、焦点掉到 `<body>` 时，焦点回到 studio 输入框（`composer/use-reclaim-focus.ts`）。
+- **键盘**：焦点在门里时，方向键、`Enter`、`Esc` 等按键编码后写给 omp（`features/tsp/keys.ts` 的 `encodeKey`），选中、提交、取消都由 omp 决定；这些按键不会被输入框当成“停止任务”。omp 对提问的 `Esc` 是取消整个提问并结束这一轮。焦点在输入框里时 `Esc` 走 §5.2（运行中 = 停止，`stopTask` 把 Esc 写给 omp）。
+- **按钮**：底栏的 `omp.btn`（Details / Deny / Approve，Hide / Note / Skip / Next / Submit）画成真 `<button>`（`.tspi-ask-btn`），点击发节点自己的 `actions.click`，不抢焦点。样式在 `interactive/interactive.css`：hover `--bg-hover`；`tone` accent 是 `--accent` 描边加字；Deny 的 `tone` error 用 `--st-error`。
+- **超时**：由 omp 自己处理。提问的 `ask.timeout`（omp 默认 0 = 关）打开时，倒计时画在提问对话框底栏，到期 omp 自动选第一项（`docs/architecture/tsp-real-omp-probes.md` §6）。
+- 录制和测试：`fixtures/tsp/{approval,ask,ask-multi}.jsonl`；单测 `test/tsp-gate.test.ts`、`test/tsp-ask-gate.test.ts`。细节见 `docs/architecture/tsp-migration.md` §10.6（提问对话框）、§10.7（审批与输入框）。
 
 ### 4.18 CommandPalette（`Ctrl K`）
 
@@ -650,7 +597,7 @@
 | Input | 高 `--control-h-lg`，`--bg-raised`，`1px --border-strong`，`--radius-md`，聚焦样式同通则 |
 | Switch | 36×20，圆；开 `--accent`，关 `--bg-active` |
 | 内联错误条 `InlineNotice` | 左 2px `--st-error` + `--st-error-soft` 底，`--radius-md`，`padding: --space-2 --space-3`；人话一句 + 可选详情折叠 + 一个恢复动作；警告变体用 `--st-waiting-*` |
-| OverlayScrollbar | 命中区 `--scrollbar-hit`，滑块宽 `--scrollbar-thumb-w`（hover 8px），`--scrollbar-thumb`（hover `--scrollbar-thumb-hover`）；平时隐藏，滚动时出现，停止 800ms 后淡出；**覆盖**在内容上不占布局宽度；原生滚动行为与键盘不重写；reduced-motion：常显、无淡入淡出；代码块/表格横向滚动条同样规范，高 6px。用于 `.scroller`、侧栏列表 |
+| OverlayScrollbar | 命中区 `--scrollbar-hit`，滑块宽 `--scrollbar-thumb-w`（hover 8px），`--scrollbar-thumb`（hover `--scrollbar-thumb-hover`）；平时隐藏，滚动时出现，停止 800ms 后淡出；**覆盖**在内容上不占布局宽度；原生滚动行为与键盘不重写；reduced-motion：常显、无淡入淡出。用于 `.scroller`、侧栏列表、设置页、命令面板、下拉列表等自绘的容器；其余容器的滚动条走全局样式（§5.4 “滚动条与横向溢出”） |
 
 ### 4.24 空状态与错误汇总
 
@@ -675,7 +622,7 @@
 
 ### 4.25 ReviewView（全屏评审，阶段 3）
 
-入口：顶栏评审按钮（`topbar-review`，`Diff` 图标，在分支胶囊右边）、提交对话框左下角的 `评审改动`（关掉对话框再打开评审，提交前想看看改了什么）、rpc 任务 ChangeCard 头部的 `打开评审`（`…` 左侧）、`Ctrl Shift D`、命令面板 `打开评审`。分支菜单里**不放**评审项（2026-10-21 复核仍不放：顶栏按钮就在胶囊右边一步到位，菜单只放会改 git 的动作）；TSP 任务没有输入框上方的改动条（2026-10-21 删除）。盖住顶栏以下的整个窗口（`position: fixed`，`z-index: --z-sticky + 2`，比输入框栈的 `--z-sticky + 1` 高一层，输入框不会透出来盖住评审底部；仍低于菜单 / 对话框），底下的页面 `inert`；`Esc` 或 `退出评审` 关闭，焦点回到触发它的元素（已不在则回输入框）。切到别的任务或任务被删除时自动退出。实现在 `features/review/`，样式只用 token（`--diff-add-bg` / `--diff-del-bg` 是评审行背景，`--review-tree-w` / `--review-aside-w` 是两侧栏宽）。
+入口：顶栏评审按钮（`topbar-review`，`Diff` 图标，在分支胶囊右边）、提交对话框左下角的 `评审改动`（关掉对话框再打开评审，提交前想看看改了什么）、`Ctrl Shift D`、命令面板 `打开评审`。分支菜单里**不放**评审项（2026-10-21 复核仍不放：顶栏按钮就在胶囊右边一步到位，菜单只放会改 git 的动作）；输入框上方没有改动条（2026-10-21 删除）。盖住顶栏以下的整个窗口（`position: fixed`，`z-index: --z-sticky + 2`，比输入框栈的 `--z-sticky + 1` 高一层，输入框不会透出来盖住评审底部；仍低于菜单 / 对话框），底下的页面 `inert`；`Esc` 或 `退出评审` 关闭，焦点回到触发它的元素（已不在则回输入框）。切到别的任务或任务被删除时自动退出。实现在 `features/review/`，样式只用 token（`--diff-add-bg` / `--diff-del-bg` 是评审行背景，`--review-tree-w` / `--review-aside-w` 是两侧栏宽）。
 
 - **头**（高 `--control-h-lg`）：`退出评审`、标题、分支名（等宽）、右侧 `统一 / 并排` 分段、`改动块 / 文件` 分段、`折行` 开关（`aria-pressed`；三者在 `ViewControls.tsx`，选择存 `review-store`，会话内记住，关掉评审再打开沿用）、`刷新`、主按钮 `发给 agent 修改（n）`（队列为空时禁用；任务在运行时悬停提示说明是插话还是排到本轮之后，取输入框同一个设置 `enterWhileRunning`）。
 - **三栏**：左 `--review-tree-w` 文件树（`已暂存 / 未暂存 / 未跟踪` 三组，空组不显示；同一文件两侧都有改动时各出现一次；行 = 状态字母 + 路径（目录部分 `--text-3`）+ 行尾 `+a −d`（`--diff-add-fg` / `--diff-del-fg`，等宽 `--fs-2xs`，数字来自主进程一次 `getGitChangeStats`：暂存 / 未暂存各一次 `git diff --numstat`，未跟踪文件直接数行；二进制、过大的文件没有数字）；树下面是**提交框**（`CommitBox.tsx`，`--border-subtle` 上边线）：标题 `提交改动` + `已暂存 n 个文件`、`摘要`（单行，必填）、`说明`（3 行，可选）、`先暂存全部改动`（默认不勾：评审里暂存是显式动作）、主按钮 `提交`（摘要为空或正在提交时禁用）；`Ctrl Enter` 在摘要 / 说明里提交。走和提交对话框同一条路径（`git-actions.ts` 的 `commitChanges` → `commitGit`，提交信息 = 摘要 + 空行 + 说明，`composeCommitMessage`），成功后清空两栏并刷新状态，失败 / 没有可提交内容走同样的 toast。没做 `生成提交信息` 和 `Amend`（没有对应的 IPC）。提交对话框和它的 `评审改动` 按钮照旧；中间 diff；右 `--review-aside-w`，两个标签 `改动说明 / 评论（n）`。<1000px 两侧栏收窄到 `--sidebar-w-min`。
@@ -715,21 +662,21 @@
 
 主进程：内容一律经 `readPreviewFile(target, path)` 读，目录经 `listDirectory(target, relDir)` 列，`target` 是 `{ kind: "task", taskId }`、`{ kind: "project", projectId }` 或 `{ kind: "defaultFolder" }`（渲染进程不传根路径，由主进程按 id 查；`defaultFolder` 不带任何字段，主进程自己取 `chatsDir()`，`@` 补全用同一个 target，默认文件夹的草稿里也能用）。相对路径按根目录解析，落在根内的绝对路径先换成相对路径，越界（绝对路径、`..`、符号链接解析后在根外，`resolveInsideReal` / `listDirectory` 的 realpath 校验）拒绝；读文件不存在返回 `missing`，列目录不存在返回空列表，`@` 补全根目录不存在时没有候选（`@` 补全不收名字里有空白的文件，这是已有行为）。打开面板时焦点进面板（预览页）或进树（文件页），Esc 或 × 关闭并把焦点还给打开前的元素。实现在 `features/file-preview/`（`FilePreviewPane` 外壳、`FileTree` + `tree-model.ts` 纯逻辑、`PreviewPage`/`PreviewContent`）与 `src/main/files/`（`list-directory.ts`、`preview-file.ts`）、`src/main/ipc/file-handlers.ts`（`parseFilesTarget` / `targetCwd`）。参照说明：Tern 的命令行帮助里只有 `tern open [--preview] PATH`（在标签页旁开文件块），没有文件树（只查了 `tern help` / `tern open --help`，没有逐个点界面），所以树的交互参照常见编辑器的资源管理器。
 
-**工作区目录（`/add-dir`，2026-10-21 起；只有任务有，草稿没有）**：文件页头部下面一行（`workspace-roots`，`file-preview-roots`，`--fs-xs`，下沿 1px `--border-subtle`，窄时折行）：没有额外目录时只有一个虚线描边的 `添加文件夹…`（`workspace-add-dir`，`Plus` 图标）；有额外目录时前面多一枚 `任务目录`（`workspace-root-0`）和每个额外目录一枚胶囊（`workspace-root-<n>`，显示目录名、悬停提示完整路径，`aria-pressed` = 树当前看的根，高 22、`--radius-sm`、1px `--border-subtle`，选中 `--bg-raised`）+ 紧挨着的 × 按钮（`workspace-root-remove-<n>`，`aria-label` = `preview.removeDir`，悬停提示“不会删除文件夹”）。整行的悬停提示 `preview.dirsNote`：额外目录只在这次运行里有效（实测 omp 不把它们写进配置，进程退出就没了，所以列表随进程清空，树里选的根落回任务目录）。点胶囊 = 树换成那个根（展开状态、光标、滚动位置按“任务 + 根”分别记）；预览页看的是打开文件时的那个根（`PanelState.root`），切根不会让预览读错目录。`添加文件夹…`：主进程弹系统文件夹选择框（`addWorkspaceDir(taskId)`，渲染进程不传路径），选中后在这个任务自己的 omp 里执行 `/add-dir <路径>`，成功后选中新根并弹一条 `preview.dirAdded` toast；取消什么都不做；omp 拒绝（目录不存在、已在工作区）时错误 toast 显示 omp 原文（`reportError`）。× = `removeWorkspaceDir(taskId, 下标)`，主进程按它记的列表取路径执行 `/remove-dir`，成功后如果正看着这个根就回任务目录。执行期间两个按钮禁用（rpc 任务会等这一轮结束才能执行）。斜杠命令是快捷入口（`tsp: "studio"`，`features/file-preview/dirs-slash.ts`）：`/dirs` 向 omp 重新问一次列表并打开文件页；`/add-dir` 不带路径弹选择框、带路径把用户输入的整行交给 omp（相对路径按任务目录解析）；`/remove-dir` 不带路径只打开文件页、带路径执行。
+**工作区目录（`/add-dir`，2026-10-21 起；只有任务有，草稿没有）**：文件页头部下面一行（`workspace-roots`，`file-preview-roots`，`--fs-xs`，下沿 1px `--border-subtle`，窄时折行）：没有额外目录时只有一个虚线描边的 `添加文件夹…`（`workspace-add-dir`，`Plus` 图标）；有额外目录时前面多一枚 `任务目录`（`workspace-root-0`）和每个额外目录一枚胶囊（`workspace-root-<n>`，显示目录名、悬停提示完整路径，`aria-pressed` = 树当前看的根，高 22、`--radius-sm`、1px `--border-subtle`，选中 `--bg-raised`）+ 紧挨着的 × 按钮（`workspace-root-remove-<n>`，`aria-label` = `preview.removeDir`，悬停提示“不会删除文件夹”）。整行的悬停提示 `preview.dirsNote`：额外目录只在这次运行里有效（实测 omp 不把它们写进配置，进程退出就没了，所以列表随进程清空，树里选的根落回任务目录）。点胶囊 = 树换成那个根（展开状态、光标、滚动位置按“任务 + 根”分别记）；预览页看的是打开文件时的那个根（`PanelState.root`），切根不会让预览读错目录。`添加文件夹…`：主进程弹系统文件夹选择框（`addWorkspaceDir(taskId)`，渲染进程不传路径），选中后在这个任务自己的 omp 里执行 `/add-dir <路径>`，成功后选中新根并弹一条 `preview.dirAdded` toast；取消什么都不做；omp 拒绝（目录不存在、已在工作区）时错误 toast 显示 omp 原文（`reportError`）。× = `removeWorkspaceDir(taskId, 下标)`，主进程按它记的列表取路径执行 `/remove-dir`，成功后如果正看着这个根就回任务目录。执行期间两个按钮禁用。命令走 `TspRunner.runSessionCommand`：没有进程时先启动 omp，在任务的界面操作队列里串行执行，不等这一轮结束；有审批或提问在等、或 omp 的面板开着时立刻 reject（`#awaitComposer`），同样是错误 toast。斜杠命令是快捷入口（`tsp: "studio"`，`features/file-preview/dirs-slash.ts`）：`/dirs` 向 omp 重新问一次列表并打开文件页；`/add-dir` 不带路径弹选择框、带路径把用户输入的整行交给 omp（相对路径按任务目录解析）；`/remove-dir` 不带路径只打开文件页、带路径执行。
 
-数据流：`TaskState.workspaceDirs`（额外目录，不含任务 cwd，按 omp 给的顺序）只来自 omp 的输出——`/dirs`、`/add-dir`、`/remove-dir` 的 toast（TSP）或 `command_output`（rpc），解析在 `src/shared/omp-output/dirs.ts`（`parseDirsOutput`，用 omp 18.12.5 实测原文写单测）；主进程 `tasks/workspace-dirs.ts` 记最近一次的列表，`TaskPool.runWorkspaceDirsCommand` 执行并更新，解析不了或 omp 拒绝时以 omp 原文 reject、列表不变。命令文本由封闭的 `TaskCommand`（`addDir` / `removeDir` / `dirs`）拼，路径是命令名后面的整行，**绝不加引号**（实测引号会被当成路径的一部分），含换行 / 控制字符的路径被拒绝。
+数据流：`TaskState.workspaceDirs`（额外目录，不含任务 cwd，按 omp 给的顺序）只来自 omp 的输出——`/dirs`、`/add-dir`、`/remove-dir` 的状态 toast（`omp.toast.status`），解析在 `src/shared/omp-output/dirs.ts`（`parseDirsOutput`，用 omp 18.12.5 实测原文写单测）；主进程 `tasks/workspace-dirs.ts` 记最近一次的列表，`TaskPool.runWorkspaceDirsCommand` 执行并更新，解析不了或 omp 拒绝时以 omp 原文 reject、列表不变。命令文本由封闭的 `TaskCommand`（`addDir` / `removeDir` / `dirs`）拼，路径是命令名后面的整行，**绝不加引号**（实测引号会被当成路径的一部分），含换行 / 控制字符的路径被拒绝。
 
 **路径校验放宽（2026-10-21 所有者拍板）**：从“只能在任务目录内”变成“在任务目录内，或在这个任务的某个工作区目录内”。渲染进程只能用整数下标选根：`ProjectFilesTarget` 的 `{ kind: "task", taskId, root? }`（`root` 缺省 / 0 = 任务 cwd，n = 第 n 个额外目录，0…64 的整数，`parseFilesTarget` 校验；别的 kind 的 `root` 被丢掉），`openTaskFile` / `revealTaskFile` 的第三个参数同理；绝对根路径由主进程从自己记的 omp 列表里按下标取（`files/task-roots.ts` 的 `rootDir`），下标过期（目录刚被移除）直接 reject，不会落到别的根。选定根之后的校验和以前完全一样：相对路径、`..`、符号链接解析后（`resolveInsideReal` / `listDirectory` 的 realpath）必须在**那个根**内——额外目录里的链接指向任务目录或别的地方同样被拒绝。`@` 补全仍然只在任务 cwd 里找（不扫额外目录）；工具卡上的文件链接按任务 cwd 解析，落在额外目录里的绝对路径不会被换算。
 
 ### 4.28 子代理面板（右栏，TSP 任务，S1Agents；2026-10-21）
 
-代码 `features/agents/`（`AgentsPanel` 外壳 + `AgentRow` + `AgentDetail` + `SteerBox`，`agents-store.ts` / `agents-actions.ts` / `agents-slash.ts`，样式 `agents.css`），文案 `agents.*`。**不弹 omp 的 Agent Hub**：`👥` 胶囊、`/hub`、命令面板都打开这个面板。rpc 任务不做第二套面板：它们的子代理继续在对话过程行的泳道里（`LanesPanel`，数据来源见 `docs/architecture/subagents.md`），`/hub` 在 rpc 任务里只提示一句（`agents.rpcHint`）。
+代码 `features/agents/`（`AgentsPanel` 外壳 + `AgentRow` + `AgentDetail` + `SteerBox`，`agents-store.ts` / `agents-actions.ts` / `agents-slash.ts`，样式 `agents.css`），文案 `agents.*`。**不弹 omp 的 Agent Hub**：`👥` 胶囊、`/hub`、命令面板都打开这个面板。数据来源和后台驱动 Hub 的步骤见 `docs/architecture/subagents.md`。
 
 **入口**：① hud 里 `👥 N agents running` 胶囊（omp 的 `omp.hud.seg`，点击动作 `agents.open`）——`tsp/actions.ts` 的 `runAction` 认出这个动作名（`shared/tsp/agent-hub.ts` 的 `isHubOpenAction`）就改开面板，**不把动作发给 omp**；② 命令面板 `子代理（查看、插话、结束、恢复）`（`agents`，只在 TSP 任务里列，再选一次关闭）；③ 斜杠命令 `/hub`（`tsp: "studio"`）；④ 后台作业弹层里子代理作业的“查看”（S2Jobs 调 `openAgentsPanel(taskId, name)`，打开并选中那一个）。面板和文件面板同一栏，**同一时间只开一个**：开子代理面板先关文件面板（`openAgentsPanel`），文件面板一打开 `App` 就收起子代理面板；Esc 或 × 关闭，焦点还给打开前的元素。只在对话页、且面板属于当前 TSP 任务时显示；宽度和文件面板共用（`usePreviewWidth`，默认约 45%，左缘拖动 / ←→ 调宽，最宽 70%）。
 
-**布局**（`agents-panel`，外框沿用 `.file-preview`，状态点 / 统计 / 按钮沿用泳道详情的 `lane-*`）：头部 `子代理` + 个数（`agents-count`）+ 关闭；**列表**（`agents-list`，每行 `agents-row`，`data-name` / `data-status`）：状态点、名字（等宽）、类型和 `后台` 小标签、右端状态文字；第二行是正在用的工具和意图（`bash · Sleeping 90 seconds`），没有工具时是任务说明；运行 / 等待中的排在前面；点一行选中（再点取消），选中行 `--accent-soft`。**详情**（`agents-detail`，选中后出现在列表下方）：状态 + 统计（费用、token、请求、工具调用、用时、上下文、模型；**费用和 token 折在详情里，不进列表行**）、任务说明、**最终输出**（Markdown，来自 omp 写在会话目录里的 `<名字>.md`；运行中显示“还在运行……”）、**对话记录**（`<details>`，**默认折叠**，展开才读 `<名字>.jsonl` 并用和主对话同一套 `buildTurns` + `ProcessDetails` 渲染）、操作行、插话框。没有子代理时列表位置显示空状态 `agents.empty`。
+**布局**（`agents-panel`，外框沿用 `.file-preview`，状态点 / 统计 / 按钮用 `agents.css` 里的 `lane-*` 类——名字是已删除的泳道详情留下的，现在只有子代理面板在用）：头部 `子代理` + 个数（`agents-count`）+ 关闭；**列表**（`agents-list`，每行 `agents-row`，`data-name` / `data-status`）：状态点、名字（等宽）、类型和 `后台` 小标签、右端状态文字；第二行是正在用的工具和意图（`bash · Sleeping 90 seconds`），没有工具时是任务说明；运行 / 等待中的排在前面；点一行选中（再点取消），选中行 `--accent-soft`。**详情**（`agents-detail`，选中后出现在列表下方）：状态 + 统计（费用、token、请求、工具调用、用时、上下文、模型；**费用和 token 折在详情里，不进列表行**）、任务说明、**最终输出**（Markdown，来自 omp 写在会话目录里的 `<名字>.md`；运行中显示“还在运行……”）、**对话记录**（`<details>`，**默认折叠**，展开才读 `<名字>.jsonl`，用 `features/conversation/` 留下的 `buildTurns` + `ProcessDetails` 渲染；主对话是 TSP，这套只剩子代理记录在用）、操作行、插话框。没有子代理时列表位置显示空状态 `agents.empty`。
 
-**操作**（都是主进程在后台驱动 omp 的 Agent Hub，见 `docs/architecture/subagents.md` "TSP 任务里的子代理面板"）：**插话**（`SteerBox`：Enter 发送，Shift+Enter 换行，输入法组字时不发；运行 / 等待 / 空闲 / 挂起的子代理才有，已完成 / 被结束 / 失败的没有）、**结束**（运行中才有；先内联确认 `结束 X？它正在做的事会被中止（之后可以恢复）`，因为 omp 自己对 kill 没有确认框）、**恢复**（被结束或挂起的才有）。**驱动期间**（`useTspDrive`，调 IPC 前后）面板顶部出现一条 `agents-driving`（`role="status"`，`data-op` = steer / kill / revive，`data-name`）：`正在发给 Beta…` / `正在结束 Beta…` / `正在恢复 Beta…` + 一行小字说明 studio 在后台操作 Agent Hub、完成后自动恢复主输入框；面板里所有操作按钮和插话框此时停用。**omp 的 Hub 不画出来**（`TspView` 的 layer 区在驱动期间不渲染 picker），过程区压暗且不可点（`.tsp-surface[data-driving]`，`opacity: 0.45`；聚焦模式里过程区暂时是那个子代理的记录，不能当成主对话）；`useTspPanelOpen` 在驱动期间不把这个 Hub 当“面板开着”，主输入框照常可输入——此时发出的消息主进程让它等驱动结束再发到主会话，**不会变成对子代理的插话**。结果用一条 toast（`已发给 Beta` / `已结束 Beta` / `已恢复 Beta`），失败用 `reportOmpError` 带 omp 的原文（例如恢复运行中的子代理时 `Only parked or killed agents can be revived`），插话失败时文字留在框里。
+**操作**（都是主进程在后台驱动 omp 的 Agent Hub，见 `docs/architecture/subagents.md` "后台驱动 Hub"）：**插话**（`SteerBox`：Enter 发送，Shift+Enter 换行，输入法组字时不发；运行 / 等待 / 空闲 / 挂起的子代理才有，已完成 / 被结束 / 失败的没有）、**结束**（运行中才有；先内联确认 `结束 X？它正在做的事会被中止（之后可以恢复）`，因为 omp 自己对 kill 没有确认框）、**恢复**（被结束或挂起的才有）。**驱动期间**（`useTspDrive`，调 IPC 前后）面板顶部出现一条 `agents-driving`（`role="status"`，`data-op` = steer / kill / revive，`data-name`）：`正在发给 Beta…` / `正在结束 Beta…` / `正在恢复 Beta…` + 一行小字说明 studio 在后台操作 Agent Hub、完成后自动恢复主输入框；面板里所有操作按钮和插话框此时停用。**omp 的 Hub 不画出来**（`TspView` 的 layer 区在驱动期间不渲染 picker），过程区压暗且不可点（`.tsp-surface[data-driving]`，`opacity: 0.45`；聚焦模式里过程区暂时是那个子代理的记录，不能当成主对话）；`useTspPanelOpen` 在驱动期间不把这个 Hub 当“面板开着”，主输入框照常可输入——此时发出的消息主进程让它等驱动结束再发到主会话，**不会变成对子代理的插话**。结果用一条 toast（`已发给 Beta` / `已结束 Beta` / `已恢复 Beta`），失败用 `reportOmpError` 带 omp 的原文（例如恢复运行中的子代理时 `Only parked or killed agents can be revived`），插话失败时文字留在框里。
 
 **列表的数据**直接来自 TSP 文档（`shared/tsp/agent-hub.ts` 的 `listAgents`：`agent` 节点，task 工具卡片和 hud 里各有一份，按名字去重取“更活”的），渲染进程用 `useTspDerived` 推导，随 omp 的帧实时更新，**不需要 IPC**；记录和最终输出经 `getTspSubagentRecord(taskId, name)`（主进程只读会话目录里的 `.jsonl` / `.md`，名字限 `isAgentName`、路径必须落在会话目录内，读不到给 `unavailable` + 原因，界面显示原因不吞错）；三个操作经 `steerTspSubagent` / `killTspSubagent` / `reviveTspSubagent`（渲染进程只传任务 id + 名字 + 文字，名字必须是文档里确有的子代理）。
 
@@ -739,7 +686,7 @@
 
 ### 4.31 会话信息、请求记录与分享（对话框，S3；2026-10-21）
 
-代码 `features/session-info/`，样式 `session-info.css`，文案 `sessionInfo.*`。**不弹 omp 的 `/session`、`/trace`、`/pin`、`/share`、`/retry` 界面**：这五条斜杠命令两种引擎都由 studio 接管（`tsp: "studio"`），数据和动作的取舍见 `docs/architecture/session-history.md` "会话信息"。
+代码 `features/session-info/`，样式 `session-info.css`，文案 `sessionInfo.*`。**不弹 omp 的 `/session`、`/trace`、`/pin`、`/share`、`/retry` 界面**：这五条斜杠命令由 studio 接管（`tsp: "studio"`），数据和动作的取舍见 `docs/architecture/session-history.md` "会话信息"。
 
 入口：① 顶栏任务工具区最右的 `⋯` 任务菜单（`task-menu`，`SessionMenu.tsx`，只在对话页且有任务时出现，16px 三点图标，用侧栏的 `Menu`）：会话信息、请求记录、分享链接…；② 命令面板：会话信息、请求记录、分享会话链接…、置顶 / 取消置顶本会话、重试上一轮（任务空闲时）；③ 斜杠命令 `/session`（概览页）、`/trace`（请求记录页）、`/pin`（切换置顶，提示一条 toast）、`/share`（确认框）、`/retry`。
 
@@ -807,9 +754,9 @@ v1 **禁用** Chromium 默认缩放 `Ctrl +/-/0`。
 ### 5.2 Esc 栈（自上而下，命中即停）
 
 1. 有菜单/弹层/面板/对话框打开 → 关闭最上层
-2. 门被聚焦 → 拒绝/取消
+2. 焦点在过程区里（门的选项列表、提问对话框、omp 的选择器 / 弹窗）→ Esc 写给 omp（取消提问、关选择器 / 弹窗，由 omp 决定），不当成停止
 3. 斜杠菜单打开 → 关闭
-4. 任务正在运行 → 停止（`abort_and_restore_queue`）
+4. 任务正在运行 → 停止（`stopTask`：主进程把 Esc 写给 omp）；omp 的面板开着时只把 Esc 交给 omp 关面板，不停止主代理
 5. 侧栏抽屉打开 → 收起
 6. 否则无动作（**不**清空输入框）
 
@@ -854,11 +801,23 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 **窗口缩放保位置**：自由态下记录阅读锚点（视口顶部下方第一个可见块的 id 与相对偏移），`ResizeObserver` 观察 `.column`，重排后还原；吸底态保持吸底。列宽 = `min(100% − 2×--gutter, --content-w)`，主区宽 >约 890px 时缩放不改变列宽，不重排。侧栏折叠/抽屉切换：主区宽度**立即变一次**（一次重排 + 一次补偿），不逐帧；拖动侧栏分隔线时对话列宽度冻结为拖动开始时的像素值，松手时一次性提交并补偿；`ResizeObserver` 回调合并到 rAF，不在 `mousemove` 里同步测量。验收：滚到中间 → 窗口宽度 1200→800→1200，锚点块视口偏移变化 ≤2px。
 
+**滚动条与横向溢出**（仓库所有者 2026-10-21；`ui/scrollbars.css` + `ui/scroll-activity.ts`，`main.tsx` 里装一次，组件里没有任何滚动条代码）：
+1. 外观：`::-webkit-scrollbar` 宽 `--scrollbar-hit`（10px），滑块 `--scrollbar-thumb-w`（6px，两边各 2px 透明描边撑出来，`background-clip: content-box`）、`--radius-pill`、颜色 `--scrollbar-thumb`（浅 / 深各一份），悬停或拖动时 `--scrollbar-thumb-hover`；轨道、两端按钮、角落全部 `display: none`，没有任何底色。平时滑块透明，滚动时变成 `--scrollbar-thumb`，用 `--dur-fade` 淡入淡出（reduced-motion 下 100ms，不闪现）。
+2. 滚动活动：`document` 上一个捕获阶段、`passive` 的 `scroll` 监听（scroll 不冒泡，捕获才收得到所有容器），给正在滚动的元素挂 `data-scrolling`，停 800ms 摘掉；已挂着只续期，不重复写属性。不需要每个组件登记。
+3. 不挤内容：滚动条一直占着 10px 宽（只有滑块颜色在变），出现和消失不改变内容宽度，阅读列不横移。（Chromium 对 `::-webkit-scrollbar` 没有真正的覆盖模式；只要容器可滚动就占 10px，这一点和 `OverlayScrollbar` 不同。）要“完全不占位”的容器（`.scroller`、侧栏、设置页、命令面板、下拉列表）继续用 `OverlayScrollbar` + `scrollbar-width: none`。
+4. **不要在组件里写 `scrollbar-width: thin` 或 `scrollbar-color`**：Chromium 里它们不是 `auto` 时整套 `::-webkit-scrollbar` 失效。`scrollbar-width: none` 只用于自绘滚动条的容器和不要滚动条的标签条。
+5. **横向滚动条一律不画**（`::-webkit-scrollbar:horizontal { display: none }`）。能折行的先折行，不能折行的容器仍可用 Shift+滚轮 / 触控板横滑，但看不到条。逐处决定：
+   - 折行（本来就折）：对话里的代码块与工具卡输出、门里的预览、`job-output`、设置里的 JSON 与原文输出、omp 安装详情、TSP 的 diff 行和工具卡里的 `code`（`.tsp-tool-body .tsp-code` 一律 `pre-wrap`）。
+   - 评审 diff：有自己的 `折行` 开关，默认开；关掉时每个 hunk 自己横向滚动（行不折，hunk 头和评论框贴左），无条。
+   - 不折、无条、可横滑：Markdown 表格（整词不拆，`.md-table`）、KaTeX 块级公式、TSP 的 ANSI 行（`.tsp-rows`，列对齐，折了会错位）和 TSP `code` 节点没有 `wrap` 时、用量热力图（`usage-scroll`）、评审的标签条。
+   - 其余 `overflow: auto` 的容器（`.job-output`、`.lane-record` 等）内容本身折行，实际只有纵向滚动。
+6. 验收（800×600 窗口）：走新任务页、TSP 对话（edit / eval 卡）、设置全部分节、命令面板、终端，断言页面自身 `scrollWidth <= clientWidth`，且没有任何元素下沿被横向滚动条占高（`offsetHeight − clientHeight − 边框 = 0`）；滚动时 `data-scrolling` 出现、停后消失，且元素 `clientWidth` 不变。
+
 ### 5.5 新任务与项目
 
 1. `Ctrl N` / `新任务` → **草稿任务**：主区显示 §4.7，主区头标题 `task.untitled`，侧栏顶部出现临时行；**此时不启动 omp 进程**。项目一律是默认文件夹（2026-10-20 起，不再沿用当前或最近的项目）。
 2. 草稿期间可换项目（侧栏文件夹头 `＋`、`打开文件夹`、拖入文件夹）、可改模型/思考/审批；发送后项目不可换。
-3. **发送第一条消息 = 创建任务**：主进程启动 `omp --mode rpc-ui`（不传 `--approval-mode`，§5.8；✔ `--mode rpc-ui`，AGENTS），协商 v2，`set_ask_dialog`，再 `prompt`。用户消息乐观上屏，过程行显示 `process.starting`（握手约 0.65s，`omp-rpc.md`）；失败走 §4.24。
+3. **发送第一条消息 = 创建任务**：主进程用 `omp`（伪终端里的交互式 omp，TSP，不传 `--approval-mode`，§5.8）起进程，等输入框就绪后用 `send` 事件提交第一句话（`TspRunner.sendPrompt`）。用户消息乐观上屏（`first-prompt-store`），omp 回显后接上；握手期间状态行显示 `composer.status.starting`；失败走 §4.24。
 4. 离开草稿时输入为空则丢弃，不留空任务；同一文件夹可并行多个任务（各一个进程）。
 5. 文件夹头 `＋` 与 `Ctrl Shift N` 直接在该项目下新建。
 
@@ -885,7 +844,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 ### 5.9 无障碍
 
 - 对话区 `role="log"`，流式期间 `aria-busy="true"`、**不逐字播报**；轮次结束时一次性更新 live region 为 `a11y.done`（结论首句）。
-- 门 `role="alertdialog"` + `aria-labelledby`/`aria-describedby`，出现时 live region 播报标题（`gate.aria`）。
+- 门（审批卡、提问对话框）是 omp 的 TSP 节点，studio 不给它加 `alertdialog`；出现时任务变 `needs_you`，侧栏状态、提示条和通知照 §5.7。
 - 状态点有 `aria-label`（§4.1）；侧栏列表 `role="tree"`/roving tabindex；侧栏拖拽条 `aria-label=a11y.resizeSidebar`。
 - `forced-colors: active`：状态点靠形状仍可辨；选中行加左 2px 条；边框用 `CanvasText`。
 - 所有颜色对比见 §2.5。
@@ -896,15 +855,14 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 | 功能（阶段） | 为它预留的位置 | v1 的做法 |
 |---|---|---|
-| diff 评审（3）**已落地（待设计方向确认）** | 见 §4.25；入口：顶栏评审按钮、提交对话框的 `评审改动`、rpc 任务 ChangeCard 头部 `…` 左侧、`Ctrl Shift D`、命令面板 | 全屏评审、逐行评论、发给 agent、改动说明面板 |
-| worktree / git / PR（4）**已落地（待设计方向确认）** | 新任务草稿输入框工具行里、项目标签右边的工作树开关（`features/git/WorktreeChip.tsx`；只在草稿项目是"项目目录正好是 git 仓库根"时出现，`canUseWorktree`；默认文件夹不是项目仓库所以没有；工具行放不下时由文件夹标签和模型名省略，开关自己 `flex: none` 不被挤没）；任务条右侧的分支胶囊（点开是 `Git` 菜单：提交、推送、开 PR（有可用远端时才列）、合并回、丢弃）和评审按钮（§3.1）；侧栏任务行的分支图标；项目菜单“清理无主工作树”。ChangeCard 的 `提交 / 开 PR` 没做（评审入口在 ChangeCard，由评审模式负责） | 不是 git 仓库（或项目目录不是仓库根）时没有工作树开关，分支胶囊和评审按钮不渲染 |
-| 子代理泳道（5）**已落地** | 过程展开区顶部的子代理表（可折叠，默认展开；2026-10-20 起照 Tern 里 omp 的 Agents 表，替换时间轴）：合计 + 每个子代理一行，点行就地展开 `SubagentDetailPanel`（§4.11、`docs/architecture/subagents.md`）；`task` / `wait` 工具块下的子代理小卡打开同一个面板（3.1）。子代理字母头像 / 哈希色 token 没做 | — |
+| diff 评审（3）**已落地（待设计方向确认）** | 见 §4.25；入口：顶栏评审按钮、提交对话框的 `评审改动`、`Ctrl Shift D`、命令面板 | 全屏评审、逐行评论、发给 agent |
+| worktree / git / PR（4）**已落地（待设计方向确认）** | 新任务草稿输入框工具行里、项目标签右边的工作树开关（`features/git/WorktreeChip.tsx`；只在草稿项目是"项目目录正好是 git 仓库根"时出现，`canUseWorktree`；默认文件夹不是项目仓库所以没有；工具行放不下时由文件夹标签和模型名省略，开关自己 `flex: none` 不被挤没）；任务条右侧的分支胶囊（点开是 `Git` 菜单：提交、推送、开 PR（有可用远端时才列）、合并回、丢弃）和评审按钮（§3.1）；侧栏任务行的分支图标；项目菜单“清理无主工作树” | 不是 git 仓库（或项目目录不是仓库根）时没有工作树开关，分支胶囊和评审按钮不渲染 |
+| 子代理（5）**已落地** | 右栏的子代理面板（§4.28、`docs/architecture/subagents.md`）：列表、详情、插话 / 结束 / 恢复；输入框上方药丸 `👥 N` 打开它。子代理字母头像 / 哈希色 token 没做 | — |
 | 内置终端（6） | 右栏或底部面板（`--aside-w` 或新增面板高度 token）；每任务终端在其 worktree 目录 | 不做 |
-| 子代理费用/token **已落地** | `SubagentDetailPanel` 顶部一行统计：费用、token、请求数、工具数、用时 | — |
-| 门的“收起”（`Alt H`，omp 的 `app.ask.hide`） | 门头部右侧 | 不做；门不遮挡对话，可滚动阅读 |
+| 子代理费用/token **已落地** | 右栏子代理面板详情里的一行统计：费用、token、请求数、工具数、用时（§4.28） | — |
+| 门的“收起” | 提问对话框底栏 omp 自己的 Hide 按钮（§4.17） | studio 不另做；审批卡没有收起 |
 | 任务删除、自定义快捷键、界面缩放、角色（default/plan）选择、测试结果显示 | — | 不做 |
-| 编辑/分叉用户消息、会话树（rpc：`get_tree` / `branch`；TSP：读会话文件 + omp `/tree` + `--fork`） | 用户消息悬停动作“从这里分叉”（rpc）/ omp 的回退图标（TSP）、`/fork`、`/tree`、命令面板“会话树” | 已做，见 §4.14 SessionTreePanel；原地编辑已发出的消息不做（omp 没有改写历史的命令） |
-| 用量限制提示条（`get_state.usageLimit`） | 输入框上方横幅 | 已做，见 §4.14 UsageLimitBanner |
+| 编辑/分叉用户消息、会话树（读会话文件 + omp `/tree` + `--fork`） | omp 用户消息上的回退图标、`/fork`、`/tree`、命令面板“会话树” | 已做，见 §4.14 SessionTreePanel；原地编辑已发出的消息不做（omp 没有改写历史的命令） |
 | macOS | 侧栏头左侧 inset（红绿灯）、`⌘` 映射、系统菜单 | Windows 优先；CSS 已不写死三键宽度 |
 | API key 登录输入 | 设置 → 模型与账号 的提供商行 | 只显示终端登录指引 |
 
@@ -918,12 +876,11 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 4. 缩放窗口：锚点块的视口偏移变化 ≤2px。
 5. IME 组合态 `Enter` 不发送；组合结束后才发送。
 6. `Esc` 停止不丢字（排队消息放回草稿）。
-7. 门：打字时不抢焦点；Enter 不隐式允许；`Ctrl+Enter` 前 500ms 与输入框有草稿时无效；关闭后焦点回原处。
-8. 过程行：叙述/结论判定在 `fixtures/rpc/` 的回放上正确；整轮无“最后一条无工具调用的消息”时兜底显示最后一条文本。
-9. 英文长文案不撑破胶囊/按钮/侧栏（无溢出、无意外换行）；中/英 × 浅/深 4 种组合截图。
-10. Tab 顺序与 `F6` 循环可预期；侧栏列表只占一个 Tab 停靠点。
-11. 冷启动到可输入 <1.5s（窗口先出骨架，omp 握手在后台）；流式时主线程每帧脚本 <8ms。
-12. `tokens.css` 的两份深色块、两份 reduced-motion 块一致（单元测试）。
+7. 门：输入框里 `Enter` 不会批准（有草稿 = 拒绝并发送，空草稿不动作）；`Ctrl+Enter` = 批准、`Ctrl+O` = Details；提问时发送键禁用；门被 omp 撤掉后焦点回到 studio 输入框（§4.17）。
+8. 英文长文案不撑破胶囊/按钮/侧栏（无溢出、无意外换行）；中/英 × 浅/深 4 种组合截图。
+9. Tab 顺序与 `F6` 循环可预期；侧栏列表只占一个 Tab 停靠点。
+10. 冷启动到可输入 <1.5s（窗口先出骨架，omp 握手在后台）；流式时主线程每帧脚本 <8ms。
+11. `tokens.css` 的两份深色块、两份 reduced-motion 块一致（单元测试）。
 
 ---
 
@@ -1443,7 +1400,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 |---|---|---|
 | 1 | 审批模式默认值 | **已定（2026-10-18）：完全跟随 omp 的配置**（`tools.approvalMode`，omp 默认 `yolo`），启动时从不传 `--approval-mode`；胶囊改的就是 omp 配置（§5.8）。原方案"Studio 默认 `write`"和"Studio 自己存一份默认值"都作废 |
 | 2 | 审批模式切换语义 | omp 在进程启动时读配置；胶囊改配置后，之后启动的任务生效，运行中的任务要重启（见 §5.8）。备选"重启进程并恢复会话"需先实测 `open_session` 无损恢复 |
-| 3 | 改动卡片的测试结果 | v1 不显示（设计原则“结果优先”提到）；若要做，需先决定识别规则 |
+| 3 | 测试结果显示 | 不显示（设计原则“结果优先”提到）；若要做，需先决定识别规则（omp 不给结构化的测试结果） |
 | 4 | API key 类提供商登录 | 只给终端指引。若要在设置页输入 key（Electron `safeStorage` 保存、以环境变量传给 omp），与 AGENTS“不写 `~/.omp`”需要一次明确的规则变更 |
 | 5 | 新增运行时依赖 / 未定技术选型 | 语法高亮库（要求：同步、按需加载语言、只输出 `<span class>`）、Markdown 库（要求：块边界、可关闭原始 HTML）、i18n 库（要求：ICU 复数、运行时切换语言）、自绘覆盖式滚动条的实现 |
 | 6 | 字体是否打包 Inter / JetBrains Mono | v1 不打包；做完第一版中英深浅 4 象限截图后由所有者按肉眼决定，只改 `--font-*` |
@@ -1453,8 +1410,6 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 **需要实测 / 录制 fixture（[推测] 项）**
 
-1. 在 `--approval-mode always-ask` 下让 agent 跑一条 bash，用 `npm run rpc:record` 录下审批提示的真实帧：`method`（`select`？）、选项原文、是否带 `timeout`，以及“发送消息会拒绝待批准调用并改道”（`approval-mode.md` 描述）在 RPC 下是否同样成立。结果决定门按钮的本地化映射与 `composer.sendDeny` 的行为。
-2. 主进程需要提供：每轮 `{turnId, startedAt, endedAt, waitedMs, toolCalls, subagents}`（时间戳用主进程接收时间）；`taskStatusChanged`；`taskTurnSummary`（文件、状态、+/−，由工具事件 + `git diff --numstat` 汇总，仅 git 仓库）；`onQueue`/`removeQueued`/`promoteQueued`/`abortAndRestore`；`respondUi`（校验 `ask` 的 `answers` 形状）；`listSessions`/`openTranscript`/`resumeTask`；`pickFolder`/`openExternal`（校验 http/https）/`revealInFolder`（路径校验在任务目录内）；`ompStatus`；草稿、侧栏状态、归档、重命名的持久化。
-3. 叙述/结论启发式（§4.9）在 `fixtures/rpc/` 的多轮带工具回放上验证；误判率高时的退路：只折叠纯工具行，叙述保留为灰色单行。
-4. `titleBarOverlay` 在 Win11 上是否保留 Snap Layouts；无应用菜单时编辑快捷键是否正常；Electron 44 的 `linear()` 弹簧、`text-wrap: pretty` 支持。
-5. `session_settled` 后再计算改动卡片的时序；终端正在使用同一会话文件的探测方法；`multi` 型 ask 是否允许“选项 + 其他”并存；运行中 `set_model` 的生效时机（决定 `composer.nextRequest` 文案是否保留）。
+1. 主进程需要提供：每轮 `{turnId, startedAt, endedAt, waitedMs, toolCalls, subagents}`（时间戳用主进程接收时间）；`taskStatusChanged`；`taskTurnSummary`（文件、状态、+/−，由工具事件 + `git diff --numstat` 汇总，仅 git 仓库）；`onQueue`/`removeQueued`/`promoteQueued`/`abortAndRestore`；`respondUi`（校验 `ask` 的 `answers` 形状）；`listSessions`/`openTranscript`/`resumeTask`；`pickFolder`/`openExternal`（校验 http/https）/`revealInFolder`（路径校验在任务目录内）；`ompStatus`；草稿、侧栏状态、归档、重命名的持久化。
+2. `titleBarOverlay` 在 Win11 上是否保留 Snap Layouts；无应用菜单时编辑快捷键是否正常；Electron 44 的 `linear()` 弹簧、`text-wrap: pretty` 支持。
+3. 终端正在使用同一会话文件的探测方法；运行中 `set_model` 的生效时机（决定 `composer.nextRequest` 文案是否保留）。

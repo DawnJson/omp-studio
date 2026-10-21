@@ -14,7 +14,6 @@ import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const fakeTsp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
-const fakeRpc = path.join(root, "test", "fake-omp", "fake-omp.ts");
 let scratch: string;
 let projectDir: string;
 
@@ -35,7 +34,6 @@ const settings: StudioSettings = {
   enterWhileRunning: "steer",
   notifyOnGate: true,
   copyOnSelect: true,
-  taskEngine: "tsp",
   yoloConfirmed: false,
 };
 
@@ -78,20 +76,10 @@ async function start(fixture = "btw"): Promise<{
   const pool = new TaskPool({
     registry: new TaskRegistry(path.join(dir, "tasks.json")),
     getSettings: async () => settings,
-    buildLaunch: async (_record, project) => ({
-      command: process.execPath,
-      args: [fakeRpc, path.join(root, "fixtures", "rpc", "simple-reply.ndjson")],
-      cwd: project.path,
-      env: process.env,
-    }),
-    assignJob: () => {},
     events: {
       state: (state) => states.push(state),
-      transcript: () => {},
       notice: () => {},
       taskRemoved: () => {},
-      slashCommands: () => {},
-      subagents: () => {},
       btw: (_taskId, event) => btw.push(event),
     },
     listModels: async () => [],

@@ -1,5 +1,5 @@
 // 任务和项目的 IPC handler：校验参数，委托任务池。参数一律是 unknown，先校验再用（AGENTS.md "Electron 安全"）。
-// "id 是否存在""对话框是否还在 pending 表里""select 的值是否在 options 里"由任务池/运行时查表确认。
+// "id 是否存在"由任务池查表确认。
 import { app, dialog, shell } from "electron";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -15,7 +15,6 @@ import { getMainWindow } from "../window/main-window.ts";
 import {
   IpcValidationError,
   parseBoolean,
-  parseDialogResponse,
   parseModelKey,
   parseOneOf,
   parseInteger,
@@ -28,9 +27,6 @@ import {
   parseThinkingLevel,
   parseTitle,
 } from "./validate.ts";
-
-/** 排队消息的文本是 omp 给的 chip 文本，上限和 prompt 一致（不限长度，帧大小由运行时检查）。 */
-const queuedTextMaxChars = Number.MAX_SAFE_INTEGER;
 
 function parseCreateTaskInput(value: unknown) {
   const record = parseRecord(value, "input");
@@ -48,13 +44,9 @@ export const taskHandlers: HandlerGroup<
   | "listTasks"
   | "createTask"
   | "openTask"
-  | "getTranscript"
   | "markTaskRead"
   | "sendPrompt"
-  | "removeQueuedMessage"
-  | "promoteQueuedMessage"
   | "stopTask"
-  | "respondDialog"
   | "renameTask"
   | "archiveTask"
   | "restartTask"
@@ -66,8 +58,6 @@ export const taskHandlers: HandlerGroup<
   | "compactTask"
   | "exportTaskHtml"
   | "revealTaskExport"
-  | "runBash"
-  | "abortBash"
   | "getSessionTree"
   | "forkTask"
   | "branchTask"
@@ -105,16 +95,10 @@ export const taskHandlers: HandlerGroup<
     if (file === undefined) throw new Error("this task has no exported file yet");
     shell.showItemInFolder(file);
   },
-  runBash: async (taskId, command) =>
-    (await getTaskPool()).runBash(parseTaskId(taskId), parseString(command, "command", limits.bashCommandMaxChars)),
-  abortBash: async (taskId) => (await getTaskPool()).abortBash(parseTaskId(taskId)),
   getSessionTree: async (taskId) => (await getTaskPool()).getSessionTree(parseTaskId(taskId)),
-  // key 是对话流里用户消息的 key（`h:<序号>` 或 `<gen>:<messageId>`），null = 最后一条；主进程只拿它在自己的快照里查，查不到就拒绝。
-  forkTask: async (taskId, userMessageKey) =>
-    (await getTaskPool()).forkTask(
-      parseTaskId(taskId),
-      userMessageKey === null ? null : parseString(userMessageKey, "userMessageKey", 200),
-    ),
+  // entryId 是会话树面板里的会话条目 id，null = 当前分支最后一条用户消息；主进程在会话文件里查，查不到就拒绝。
+  forkTask: async (taskId, entryId) =>
+    (await getTaskPool()).forkTask(parseTaskId(taskId), entryId === null ? null : parseString(entryId, "entryId", 200)),
   branchTask: async (taskId, entryId, summarize) =>
     (await getTaskPool()).branchTask(
       parseTaskId(taskId),
@@ -188,9 +172,7 @@ export const taskHandlers: HandlerGroup<
 
   openTask: async (taskId) => (await getTaskPool()).openTask(parseTaskId(taskId)),
 
-  getTranscript: async (taskId) => (await getTaskPool()).getTranscript(parseTaskId(taskId)),
-
-  // TSP 任务：节点树快照、用户操作 → TSP 事件、按键字节、面板宽度（任务不是 tsp 引擎时任务池抛错）。
+  // 节点树快照、用户操作 → TSP 事件、按键字节、面板宽度。
   getTspSnapshot: async (taskId) => (await getTaskPool()).getTspSnapshot(parseTaskId(taskId)),
   getTspTurnCosts: async (taskId) => (await getTaskPool()).getTspTurnCosts(parseTaskId(taskId)),
   getTspSessionExtras: async (taskId) => (await getTaskPool()).getTspSessionExtras(parseTaskId(taskId)),
@@ -207,24 +189,7 @@ export const taskHandlers: HandlerGroup<
 
   sendPrompt: async (taskId, input) => (await getTaskPool()).sendPrompt(parseTaskId(taskId), parsePromptInput(input)),
 
-  removeQueuedMessage: async (taskId, text, queue) =>
-    (await getTaskPool()).removeQueuedMessage(
-      parseTaskId(taskId),
-      parseString(text, "text", queuedTextMaxChars),
-      parseOneOf(queue, "queue", ["steering", "followUp"]),
-    ),
-
-  promoteQueuedMessage: async (taskId, text) =>
-    (await getTaskPool()).promoteQueuedMessage(parseTaskId(taskId), parseString(text, "text", queuedTextMaxChars)),
-
   stopTask: async (taskId) => (await getTaskPool()).stopTask(parseTaskId(taskId)),
-
-  respondDialog: async (taskId, dialogId, response) =>
-    (await getTaskPool()).respondDialog(
-      parseTaskId(taskId),
-      parseString(dialogId, "dialogId", 200),
-      parseDialogResponse(response),
-    ),
 
   renameTask: async (taskId, title) => (await getTaskPool()).renameTask(parseTaskId(taskId), parseTitle(title)),
 

@@ -1,10 +1,10 @@
 // 点上下文圆环弹出的构成（照 Claude Code 的 /context）：一条按类别分段的横条 + 每类的 token 和占窗口的比例。
-// 总量是 omp 的 contextUsage；系统提示词、工具定义按 get_state 的 systemPrompt / dumpTools 字符数估（omp 不给分项），
+// 总量是 omp 的 contextUsage；系统提示词、工具定义取会话文件里 omp 记的 contextSnapshot（getTspSessionExtras），
 // 消息 = 总量 - 这两项；自动压缩预留 = 窗口 - omp 的压缩触发点（compaction.* 设置，读不到就不画这一段）。
 // 新任务草稿还没有会话：用量是 0，窗口取所选模型的，只有剩余空间和预留两段。
 import { useEffect, useState } from "react";
 import { compactionTrigger } from "../../../../shared/compaction-trigger.ts";
-import type { CompactionSettings, ModelKey, ProjectId, TaskState } from "../../../../shared/ipc.ts";
+import type { CompactionSettings, ContextParts, ModelKey, ProjectId, TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { contextRows, type ContextRow } from "./context-rows.ts";
 import { formatCount, formatPercent } from "./usage-format.ts";
@@ -54,8 +54,8 @@ function useCompaction(projectId: ProjectId | null): CompactionSettings | null {
 
 export interface ContextBreakdownProps {
   context: NonNullable<TaskState["contextUsage"]>;
-  /** 系统提示词 / 工具定义的估算；草稿（还没有会话）时为 null。 */
-  parts: TaskState["contextParts"];
+  /** 系统提示词 / 工具定义各占多少；草稿（还没有会话）或 omp 没记时为 null。 */
+  parts: ContextParts | null;
   modelKey: ModelKey | null;
   projectId: ProjectId | null;
 }

@@ -97,18 +97,15 @@ async function start(pinned: string[] = []): Promise<Started> {
   await mkdir(configDir);
   seedStats(path.join(configDir, "stats.db"), sessionFile);
   const log = path.join(work, "omp-received.jsonl");
-  const launched = await launchApp(
-    {
-      STUDIO_TEST_OMP: JSON.stringify({
-        command: process.execPath,
-        args: [fakeOmp, "error-turn", "--speed=20", `--log=${log}`],
-      }),
-      PI_CODING_AGENT_DIR: agentDir,
-      PI_CONFIG_DIR: configDir,
-      FAKE_TSP_SESSION_FILE: sessionFile,
-    },
-    { taskEngine: "tsp" },
-  );
+  const launched = await launchApp({
+    STUDIO_TEST_OMP: JSON.stringify({
+      command: process.execPath,
+      args: [fakeOmp, "error-turn", "--speed=20", `--log=${log}`],
+    }),
+    PI_CODING_AGENT_DIR: agentDir,
+    PI_CONFIG_DIR: configDir,
+    FAKE_TSP_SESSION_FILE: sessionFile,
+  });
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);

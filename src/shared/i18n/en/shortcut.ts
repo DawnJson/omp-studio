@@ -12,7 +12,7 @@ export const shortcut = {
   newline: "New line",
   later: "While running: later",
   stop: "Stop and take back queued messages",
-  toggleProcess: "Expand or collapse the latest work row",
+  toggleProcess: "Expand or collapse all tool cards",
   focusComposer: "Focus the message box",
   nthTask: "Go to task N",
   prevNext: "Previous or next task",

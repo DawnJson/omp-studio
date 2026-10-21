@@ -148,11 +148,7 @@ button.usage-context:hover,
 .usage-item,
 .send,
 .queue-btn,
-.queue-icon,
-.attachment-remove,
-.segment,
-.pop-item,
-.pop-search {
+.segment {
   font: inherit;
 }
 .tool-btn {
@@ -170,11 +166,7 @@ button.usage-context:hover,
 }
 .tool-btn:hover,
 .chip:hover,
-.queue-icon:hover,
-.queue-btn:hover,
-.pop-item:hover,
-.pop-item[data-active],
-.pop-item[data-highlighted="true"] {
+.queue-btn:hover {
   background: var(--bg-hover);
 }
 .tool-btn:active,
@@ -185,12 +177,9 @@ button.usage-context:hover,
 .chip:focus-visible,
 .send:focus-visible,
 .queue-btn:focus-visible,
-.queue-icon:focus-visible,
-.pop-item:focus-visible,
 .segment:focus-visible,
 .usage-item:focus-visible,
-.session-cost:focus-visible,
-.attachment-remove:focus-visible {
+.session-cost:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -689,60 +678,23 @@ html[data-motion="reduced"] .ctx-usage-chev {
   background: currentColor;
 }
 
-.attachments {
+/* 输入框上方（ComposerTop.tsx）：药丸行（有待办板时单独一行、右对齐）+ 状态行（左 = 运行图标 + 翻牌计时 + 分隔线 + 当前活动，
+   右 = 待办板；没有待办板时药丸并到右端）。下边距放在这里：Reveal 收起时整块连同间距一起缩没。 */
+.composer-top {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding: 0 var(--space-1) var(--space-2);
 }
-.attachment {
-  position: relative;
-  width: 64px;
-  height: 64px;
-}
-.attachment img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-}
-.attachment-remove {
-  position: absolute;
-  top: calc(var(--space-1) * -1);
-  right: calc(var(--space-1) * -1);
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--bg-overlay);
-  color: var(--text-2);
-  cursor: pointer;
-}
-
-/* 输入框上方一行：左 = 状态栏（RunStatus，可收起），右 = 后台任务胶囊（JobsBoard）。
-   两边底部留白相同（--space-2），上下居中后胶囊正好和状态文字同一条中线；状态栏收起时胶囊仍靠右。 */
-.status-bar {
+.top-pills {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  justify-content: flex-end;
 }
-.status-bar > .reveal {
-  flex: 1 1 0;
-  min-width: 0;
-}
-/* 状态栏：左 = 用时 + 当前活动，右 = 待办板；窄了先收右边的文字，再省略左边的活动。
-   间距放在 padding 里：Reveal 收起时整行连同间距一起缩没。 */
 .run-status {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   min-height: var(--control-h-sm);
-  padding: 0 var(--space-1) var(--space-2);
   color: var(--text-2);
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
@@ -753,6 +705,21 @@ html[data-motion="reduced"] .ctx-usage-chev {
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+}
+.run-todo,
+.run-pills {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+.run-todo {
+  max-width: 55%;
+}
+.run-todo .todo-anchor {
+  flex: 0 1 auto;
+  max-width: none;
+  margin-left: 0;
 }
 /* 运行中：立体点阵球（DotSphereMark，每帧由脚本改点的位置、大小、深浅）；等你确认：静止的琥珀色点。 */
 .run-mark {
@@ -772,7 +739,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
 .run-elapsed {
   flex: none;
   color: var(--text);
-  font-variant-numeric: tabular-nums;
 }
 .run-sep {
   flex: none;
@@ -819,31 +785,40 @@ html[data-motion="reduced"] .ctx-usage-chev {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
-.todo-ring {
+/* 待办状态图标（TodoMark.tsx）：细线条，同一画布；对勾 = 完成，细弧（进行中时转动）= 进行中，细圈 = 未开始。 */
+.todo-mark-ico {
   flex: none;
   width: var(--icon-sm);
   height: var(--icon-sm);
   fill: none;
-  stroke-width: 2;
-  transform: rotate(-90deg);
-}
-.todo-ring-track {
   stroke: var(--border-strong);
-}
-.todo-ring-done,
-.todo-ring-run {
-  stroke: var(--accent);
+  stroke-width: 1.5;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
-.todo-ring-run {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: run-spin calc(var(--dur-spin) * 3) linear infinite;
+.todo-mark-ico[data-state="done"] {
+  stroke: var(--st-done);
+  stroke-width: 1.8;
+}
+.todo-mark-ico[data-state="blocked"] {
+  stroke: var(--st-error);
+}
+.todo-mark-ico[data-state="abandoned"] {
+  stroke-dasharray: 2.4 2.6;
+  opacity: 0.6;
+}
+.todo-mark-track {
+  stroke: var(--border);
+}
+/* 弧从 12 点钟开始；转动的是整张图（底圈是对称的），--play-state 为 paused（减少动效）时弧停在原位。 */
+.todo-mark-arc {
+  stroke: var(--accent);
+  transform: rotate(-90deg);
+  transform-origin: 8px 8px;
+}
+.todo-mark-ico[data-spinning] {
+  animation: run-spin calc(var(--dur-spin) * 2) linear infinite;
   animation-play-state: var(--play-state);
-}
-.todo-ring-check {
-  flex: none;
-  color: var(--st-done);
 }
 .todo-current {
   min-width: 0;
@@ -895,30 +870,7 @@ html[data-motion="reduced"] .ctx-usage-chev {
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
-/* 阶段标记：完成 = 实心环带勾，进行到一半 = 半环，未开始 = 虚线环。 */
-.todo-phase-mark {
-  flex: none;
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-  width: var(--icon-sm);
-  height: var(--icon-sm);
-  border: 1.5px solid var(--border-strong);
-  border-radius: var(--radius-pill);
-}
-.todo-phase-mark[data-state="pending"] {
-  border-style: dashed;
-}
-.todo-phase-mark[data-state="partial"] {
-  border-color: var(--accent);
-  border-right-color: var(--border-strong);
-  border-bottom-color: var(--border-strong);
-}
-.todo-phase-mark[data-state="done"] {
-  border-color: var(--st-done);
-  background: var(--st-done);
-  color: var(--bg-overlay);
-}
+/* 阶段图标：同 TodoMark（和条目共用），和阶段名之间的间距由 .todo-phase-head 的 gap 给。 */
 .todo-phase ul {
   margin: 0;
   padding: 0;
@@ -931,32 +883,7 @@ html[data-motion="reduced"] .ctx-usage-chev {
   padding: var(--space-0-5) 0 var(--space-0-5) var(--space-1);
 }
 .todo-mark {
-  flex: none;
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-  width: var(--icon-sm);
-  height: var(--icon-sm);
   margin-top: calc((var(--lh-sm) - var(--icon-sm)) / 2);
-  border: 1.5px solid var(--border-strong);
-  border-radius: var(--radius-pill);
-}
-.todo-item[data-status="completed"] .todo-mark {
-  border-color: var(--st-done);
-  background: var(--st-done);
-  color: var(--bg-overlay);
-}
-.todo-item[data-status="in_progress"] .todo-mark {
-  border-color: var(--accent);
-  background: radial-gradient(circle, var(--accent) 0 2.5px, transparent 3px);
-}
-.todo-item[data-status="blocked"] .todo-mark {
-  border-color: var(--st-error);
-  background: radial-gradient(circle, var(--st-error) 0 2.5px, transparent 3px);
-}
-.todo-item[data-status="abandoned"] .todo-mark {
-  border-style: dashed;
-  opacity: 0.6;
 }
 .todo-item[data-status="completed"] .todo-content {
   color: var(--text-2);
@@ -987,34 +914,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   border: 1px dashed var(--border);
   border-radius: var(--radius-lg);
 }
-.queue-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--control-h-md);
-}
-.queue-tag {
-  flex: none;
-  padding: 0 var(--space-1-5);
-  border-radius: var(--radius-pill);
-  background: var(--bg-hover);
-  color: var(--text-2);
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-xs);
-}
-.queue-tag[data-kind="steering"] {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-.queue-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-}
 .queue-btn {
   flex: none;
   height: var(--control-h-sm);
@@ -1025,24 +924,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   color: var(--link);
   font-size: var(--fs-xs);
   cursor: pointer;
-}
-.queue-icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-3);
-  cursor: pointer;
-}
-.queue-more {
-  padding: var(--space-1) 0;
-  font-size: var(--fs-xs);
-  color: var(--text-3);
 }
 
 .suggest {
@@ -1096,56 +977,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
     opacity: 1;
     transform: none;
   }
-}
-.pop-search {
-  height: var(--control-h-lg);
-  margin: var(--space-0-5) var(--space-0-5) var(--space-1-5);
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
-  color: var(--text);
-  font-size: var(--fs-sm);
-}
-.pop-search:focus-visible {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-.pop-item {
-  transition:
-    background-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 36px;
-  padding: var(--space-1-5) var(--space-2-5);
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text);
-  font-size: var(--fs-sm);
-  text-align: left;
-  cursor: pointer;
-}
-.pop-item-text {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-direction: column;
-  overflow-wrap: anywhere;
-}
-.pop-item-meta {
-  flex: none;
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-  white-space: nowrap;
-}
-.pop-group {
-  margin: var(--space-1-5) var(--space-2-5) var(--space-1);
-  font-size: var(--fs-xs);
-  color: var(--text-3);
 }
 .pop-note {
   margin: var(--space-1-5) var(--space-2-5);
@@ -1685,28 +1516,36 @@ html[data-motion="reduced"] .ctx-usage-chev {
   background: var(--text-3);
 }
 
-/* 输入框右上方，和状态栏同一行（状态栏收起时仍靠右）；底部留白同 .run-status，没有 job 时不渲染。
-   两个按钮（后台任务 / 子代理）并排，各自是一个 pop-anchor，浮层从自己的按钮上方弹出。 */
-.jobs-group {
-  display: flex;
+/* 输入框上方的药丸 `[👥 N | ⚡ N]`（StatusPills.tsx）：一颗描边药丸，两个半段各自是按钮，中间一条细分隔线；个数为 0 的半段不画。
+   两段都没有时（只剩看板的锚点，作业都结束后 `/jobs` 打开的看板）药丸收成 0 高，看板仍从它的位置弹出。 */
+.status-pills {
+  display: inline-flex;
   flex: none;
   align-items: center;
-  gap: var(--space-1-5);
-  margin-left: auto;
-  padding-bottom: var(--space-2);
+  height: 24px;
+  padding: 0 1px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+}
+.status-pills[data-empty] {
+  height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
 }
 .jobs-anchor {
   flex: none;
 }
-.jobs-pill {
+.status-pill-seg {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1-5);
-  height: 24px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
+  height: 20px;
+  padding: 0 var(--space-2-5);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
   color: var(--text-2);
   font: inherit;
   font-size: var(--fs-xs);
@@ -1714,43 +1553,23 @@ html[data-motion="reduced"] .ctx-usage-chev {
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out);
 }
-.jobs-pill:hover,
-.jobs-pill[aria-expanded="true"] {
+.status-pill-seg:hover,
+.status-pill-seg[aria-expanded="true"] {
   background: var(--bg-hover);
   color: var(--text);
 }
-.jobs-pill:focus-visible {
+.status-pill-seg:focus-visible {
   outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
-.jobs-pill-icon {
+.status-pill-count {
+  font-weight: var(--fw-medium);
+}
+.status-pill-sep {
   flex: none;
-  color: var(--text-2);
-}
-.jobs-pill-label {
-  white-space: nowrap;
-}
-/* 计数：运行中 = ● N（点用 --st-running，数字 600 等宽）；都结束了 = ✓ N（--text-3）；有失败的结束计数标红。 */
-.jobs-pill-count {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-weight: 600;
-}
-.jobs-pill-count[data-state="done"] {
-  color: var(--text-3);
-}
-.jobs-pill[data-failed] .jobs-pill-count[data-state="done"] {
-  color: var(--st-error);
-}
-.jobs-pill[data-running] .job-dot {
-  animation: job-pulse calc(var(--dur-spin) * 2) ease-in-out infinite;
-  animation-play-state: var(--play-state);
-}
-@keyframes job-pulse {
-  50% {
-    opacity: 0.35;
-  }
+  width: 1px;
+  height: 12px;
+  background: var(--border);
 }
 
 .jobs-board {
@@ -1807,12 +1626,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
 .job-row[aria-expanded="true"] .job-caret {
   transform: rotate(90deg);
 }
-.job-type {
-  display: grid;
-  flex: none;
-  place-items: center;
-  color: var(--text-2);
-}
 .job-label {
   flex: 1 1 0;
   min-width: 0;
@@ -1835,20 +1648,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   text-align: right;
-}
-.job-output {
-  max-height: 200px;
-  margin: var(--space-1) var(--space-2) var(--space-2);
-  padding: var(--space-2);
-  overflow: auto;
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 .job-note {
   margin: var(--space-1) var(--space-2) var(--space-2);

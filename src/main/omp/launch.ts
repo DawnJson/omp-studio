@@ -42,7 +42,7 @@ export async function buildOmpLaunch(spec: LaunchSpec): Promise<OmpLaunch> {
   };
 }
 
-/** TSP 任务（伪终端里的交互式 omp）的启动：可执行文件、API key 环境变量和测试替换与 rpc 路径一致，参数不带 `--mode rpc-ui`。 */
+/** TSP 任务（伪终端里的交互式 omp）的启动：可执行文件、API key 环境变量和测试替换与 rpc-ui 后台进程一致，参数不带 `--mode rpc-ui`。 */
 export async function buildTspLaunch(spec: TspLaunchSpec): Promise<OmpLaunch> {
   const apiKeys = await getApiKeyEnv();
   if (testOverride) {

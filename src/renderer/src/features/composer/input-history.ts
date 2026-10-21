@@ -1,7 +1,5 @@
-// 输入历史（↑↓ 翻看本任务发过的消息）。只放渲染进程内存，按任务记；第一次用到时用对话里的用户消息做种子。
-import type { AgentMessage } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+// 输入历史（↑↓ 翻看本任务发过的消息）。只放渲染进程内存，按任务记。
 import type { TaskId } from "../../../../shared/ipc.ts";
-import type { TranscriptItem } from "../../../../shared/transcript.ts";
 
 export const MAX_HISTORY = 100;
 
@@ -60,40 +58,13 @@ export function stepHistory(
   return { text: entries[index] ?? "", cursor: { index, stash: cursor.stash } };
 }
 
-/** 对话里用户发过的文字（旧到新）；合成消息和纯图片消息不算。 */
-export function transcriptUserTexts(items: readonly TranscriptItem[]): string[] {
-  const texts: string[] = [];
-  for (const item of items) {
-    if (item.kind !== "message") continue;
-    const message: AgentMessage = item.message;
-    if (message.role !== "user" || message.synthetic) continue;
-    const text =
-      typeof message.content === "string"
-        ? message.content
-        : message.content.flatMap((block) => (block.type === "text" ? [block.text] : [])).join("\n");
-    if (text.trim() !== "") texts.push(text.trim());
-  }
-  return texts;
-}
-
 // ───── 按任务的内存状态 ─────
 const histories = new Map<string, string[]>();
-const seeded = new Set<string>();
 const cursors = new Map<string, HistoryCursor>();
 
-function seed(taskId: TaskId, items: readonly TranscriptItem[] | null): string[] {
-  if (!seeded.has(taskId) && items !== null) {
-    seeded.add(taskId);
-    const base = transcriptUserTexts(items).reduce<string[]>((acc, text) => pushEntry(acc, text), []);
-    // 种子在前：seed 之前就已经记下的本地发送留在后面。
-    histories.set(taskId, [...base, ...(histories.get(taskId) ?? [])].slice(-MAX_HISTORY));
-  }
-  return histories.get(taskId) ?? [];
-}
-
 /** 发送前调用：记下这条，并结束翻看。 */
-export function recordSent(taskId: TaskId, text: string, items: readonly TranscriptItem[] | null): void {
-  histories.set(taskId, pushEntry(seed(taskId, items), text));
+export function recordSent(taskId: TaskId, text: string): void {
+  histories.set(taskId, pushEntry(histories.get(taskId) ?? [], text));
   cursors.delete(taskId);
 }
 
@@ -106,18 +77,13 @@ export function isCycling(taskId: TaskId): boolean {
   return cursors.has(taskId);
 }
 
-export function hasHistory(taskId: TaskId, items: readonly TranscriptItem[] | null): boolean {
-  return seed(taskId, items).length > 0;
+export function hasHistory(taskId: TaskId): boolean {
+  return (histories.get(taskId) ?? []).length > 0;
 }
 
 /** 翻一步；返回要放进输入框的文字，没动返回 null。 */
-export function cycleHistory(
-  taskId: TaskId,
-  current: string,
-  direction: HistoryDirection,
-  items: readonly TranscriptItem[] | null,
-): string | null {
-  const step = stepHistory(seed(taskId, items), cursors.get(taskId) ?? null, current, direction);
+export function cycleHistory(taskId: TaskId, current: string, direction: HistoryDirection): string | null {
+  const step = stepHistory(histories.get(taskId) ?? [], cursors.get(taskId) ?? null, current, direction);
   if (step === null) return null;
   if (step.cursor === null) cursors.delete(taskId);
   else cursors.set(taskId, step.cursor);

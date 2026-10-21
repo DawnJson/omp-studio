@@ -14,7 +14,7 @@
 - 托盘图标（`resources/tray.png`，像素 π 加“层叠”淡影，和界面里的标志同一份数据，由 `npm run icons` 生成，见 `docs/design/spec.md` §3.1“标志”；打包时经 `extraResources` 放到 `resources/tray.png`）：悬停提示是应用名，有任务在忙时附 "N 个运行中，M 个等你确认"；左键显示并聚焦窗口；右键菜单：打开 omp-studio / 摘要行（灰）/ 最多 6 条在忙的任务（点击显示窗口并定位到该任务）/ 退出。托盘图标和菜单由系统绘制，自动化测试点不到，菜单模板是纯函数（`tray-model.ts`）单测。
 - 再次启动应用（`second-instance`）、macOS 的 `activate`、点系统通知、点托盘：都走 `showMainWindow()`——显示隐藏的窗口，最小化的先还原，窗口不在了才重建。
 - 通知：任务进入"等你确认"时照旧发（窗口隐藏时 `isFocused()` 为 false，天然满足"没焦点"）；新增：窗口看不见（隐藏在托盘、最小化）时，任务正常跑完或出错也发一条。窗口可见时不发（侧栏已有完成点）。两种通知共用设置里的"有任务在等你时通知我"开关。点通知显示窗口并定位到该任务。
-- 真正的退出入口：托盘"退出"、应用菜单的退出（`quitApp`）、自动更新"重启并安装"（`finishShutdown()` 之后 `quitAndInstall`）、系统注销/关机（窗口的 `session-end` 事件触发 `finishShutdown()`）。它们都经过 `shutdown.ts`：`before-quit` 或 `finishShutdown()` 把 `isQuitting()` 置 true，`hide-on-close.ts` 的 close 处理器此后放行，不会吞掉 `quitAndInstall` 触发的退出。退出流程本身没改：并行关所有 omp 的 stdin，超时按进程树强杀，Job Object 兜底。
+- 真正的退出入口：托盘"退出"、应用菜单的退出（`quitApp`）、自动更新"重启并安装"（`finishShutdown()` 之后 `quitAndInstall`）、系统注销/关机（窗口的 `session-end` 事件触发 `finishShutdown()`）。它们都经过 `shutdown.ts`：`before-quit` 或 `finishShutdown()` 把 `isQuitting()` 置 true，`hide-on-close.ts` 的 close 处理器此后放行，不会吞掉 `quitAndInstall` 触发的退出。退出流程本身没改：并行关所有任务的 omp（结束进程树再关伪终端，见下文"现状"），服务进程和项目 rpc-ui 池关 stdin，超时强杀，Job Object 兜底。
 - `window-all-closed` 不再退出（装了空监听以关掉 Electron 的默认退出）；最后一个窗口只会在真正退出或渲染进程被销毁时关掉。
 
 **为什么隐藏而不销毁（对调研里"3a 不推荐"的修正）：** 调研推荐销毁窗口、靠快照冷启动恢复，是因为收尾模式下进程很快会退出，省的是内存。常驻模式下用户会反复把窗口调出来，隐藏不销毁能原样保留输入草稿、滚动位置、展开状态，也省掉"重建窗口时渲染进程订阅事件的时序"这一类问题。代价是常驻一个渲染进程的内存（Chromium 渲染进程通常几十 MB 量级，**未实测**），对一个本来就要常驻的桌面客户端可以接受。
@@ -55,7 +55,7 @@ Tern 0.9.4（`%LOCALAPPDATA%\Tern\updates\state.json` 的 `installed.release.ver
 - `tern daemon [--socket PATH] [--login]`：`--login` 在后台启动 daemon，等同"开机自启"。macOS 27 上 daemon 被登记为登录项。
 - 版本不一致问题是真实存在的：字符串里有 "This machine's session daemon runs another build: restart it first"、"only a window on this machine may upgrade the daemon"。
 
-**对我们的意义：** Tern 的 daemon 里是 PTY 子进程，客户端只转发字节和屏幕状态，所以 daemon 协议很薄，也不关心 omp 在说什么。我们的任务运行时（`task-runner`、`translate`、状态机、对话框）都在主进程里，要拆就得把这一整块拆进 daemon。另外 Tern 在 Windows 上的更新也逃不掉"替换 daemon 会断程序"。
+**对我们的意义：** Tern 的 daemon 里是 PTY 子进程，客户端只转发字节和屏幕状态，所以 daemon 协议很薄，也不关心 omp 在说什么。我们的任务运行时（`tsp-runner`、`tsp-session`、状态机、任务池）都在主进程里，要拆就得把这一整块拆进 daemon。另外 Tern 在 Windows 上的更新也逃不掉"替换 daemon 会断程序"。
 
 **没测到的：** 在 Windows 上点掉最后一个窗口后 daemon 是否继续存活（日志里 daemon 在窗口全部 detach 之后没有再写日志，无法区分"在跑"和"没动静"）。不要据此下结论。
 
@@ -124,12 +124,12 @@ Tern 0.9.4（`%LOCALAPPDATA%\Tern\updates\state.json` 的 `installed.release.ver
 读自当前代码（未改）：
 
 - `src/main/index.ts:31`：`app.on("window-all-closed", () => app.quit())`。关最后一个窗口 = 退出。
-- `src/main/window/shutdown.ts`：`before-quit` 拦一次，跑完所有 hook 再放行；`runtime.ts:71` 注册 `pool.shutdown()`，并行 `close(5000)`（关 stdin，超时 `taskkill /T /F`），见 `task-model.md`"进程上限和回收"。
-- `src/main/omp/omp-connection.ts:258`：`close()` 关 stdin，继续读 stdout 到退出，超时按进程树强杀。
-- `src/main/platform/win32/job-object.ts`：应用级 Job，只设 `KILL_ON_JOB_CLOSE`，每个 omp spawn 后同步 `AssignProcessToJobObject`。主进程被强杀时由系统收掉整棵树。
+- `src/main/window/shutdown.ts`：`before-quit` 拦一次，跑完所有 hook 再放行；`runtime.ts` 注册 `pool.shutdown()`，并行 `close(5000)`（每个任务 `taskkill /T /F` 进程树再关伪终端），见 `task-model.md`"进程上限和回收"。
+- `src/main/tsp/tsp-session.ts`：`close()` 先结束进程树、等退出事件，超时才 `pty.kill()`；spawn 和结束在 `platform/pty-lock.ts` 里排队（node-pty 原生层没有锁）。
+- `src/main/platform/win32/job-object.ts`：任务的 omp 在伪终端里，每个进程放进自己的 `KILL_ON_JOB_CLOSE` Job（`assignToOwnJob`）；后台服务进程用应用级 Job。主进程被强杀时由系统收掉整棵树。
 - 自动更新：`UpdateService.install` 先 `prepareInstall()`（= `finishShutdown()`）再 `quitAndInstall(false, true)`（`auto-update.md`）。`autoDownload = true`。
 - 通知：`gate-notifier.ts` 只在任务进入 `needs_you`、窗口没焦点、设置打开时发；`runtime.ts` 里 `windowFocused: () => getMainWindow()?.isFocused() ?? false`，**没有窗口时也成立**，主进程不需要窗口就能发通知。`onClick` 在没窗口时直接 `return`（`runtime.ts:40`），需要改成"重新创建窗口"。
-- 已有的"进程回收"（`task-pool.ts` 的 `sweep`）只回收 idle、无对话框、已安静、非前台的任务（`task-model.md`），不会误收正在跑的任务。后台模式下"前台"概念要重新定义（见下文方案 1 的待验证项）。
+- 已有的"进程回收"（`task-pool.ts` 的 `sweep`）只回收 idle、无未答的门、已安静、非前台的任务（`task-model.md`），不会误收正在跑的任务。后台模式下"前台"概念要重新定义（见下文方案 1 的待验证项）。
 
 ## 方案对比
 
@@ -168,7 +168,7 @@ Tern 0.9.4（`%LOCALAPPDATA%\Tern\updates\state.json` 的 `installed.release.ver
 - 测试（见验证）。
 
 **风险：**
-- 窗口销毁后重建，渲染进程要能从主进程快照冷启动恢复：`task-model.md` 说回收后的任务保留快照、`getTranscript` 的 `seq` 和渲染进程累计事件数一致，应该已经支持，但"所有任务都在跑时重建窗口"没有端到端测过，列入验证。
+- 窗口销毁后重建，渲染进程要能从主进程快照冷启动恢复：`task-model.md` 说回收后的任务保留最后一份节点树快照，渲染进程按 `getTspSnapshot` + `tspBatch` 序号同步，应该已经支持，但"所有任务都在跑时重建窗口"没有端到端测过，列入验证。
 - "前台任务"：`sweep` 的回收判据含"不是前台"。窗口关闭后没有前台，所有 idle 任务 15 分钟后会被回收，对"正在跑"的任务无影响，但对"idle 且想马上回来继续"的任务有影响，需要明确（建议：无窗口时停掉 sweep，因为反正快退出了）。
 - 系统注销/关机时 Electron 的退出事件在无窗口的 Windows 应用上是否可靠触发 `before-quit`：**未测**。即使不触发，Job Object 也会在主进程消失时收掉 omp，会话文件按实测 B 可恢复，只是那一轮丢失。
 - 常驻模式带来"忘了退出，后台占内存"和"托盘图标被 Win11 折叠看不见"的发现性问题。
@@ -190,7 +190,7 @@ Tern 0.9.4（`%LOCALAPPDATA%\Tern\updates\state.json` 的 `installed.release.ver
 | `AGENTS.md` "孤儿进程" | **要改** | 新增"服务进程自身是否孤儿"的规则：单实例锁、版本不匹配、没有客户端时的空闲退出 |
 
 **其他代价：**
-- `StudioApi` 的 20 个任务函数、全部事件（`taskState`、`transcript` 批、对话框、`slashCommands`……）、历史列表、`getTranscript` 快照都要走服务的 IPC；需要自定协议、帧格式、鉴权（本机命名管道要设 ACL，Tern 的日志里有 `os error 1314` 的权限类告警可以参考这类坑的存在）、版本协商。
+- `StudioApi` 的 20 个任务函数、全部事件（`taskState`、`tspBatch`、`taskNotice`、旁路提问……）、历史列表、`getTspSnapshot` 快照都要走服务的 IPC；需要自定协议、帧格式、鉴权（本机命名管道要设 ACL，Tern 的日志里有 `os error 1314` 的权限类告警可以参考这类坑的存在）、版本协商。
 - 版本差异：Tern 日志里 7 次 `client protocol level differs`，说明这是常态问题（实测）；每次更新窗口和服务可能不同版本。
 - 服务进程要么是 Electron 本身（`ELECTRON_RUN_AS_NODE` 或隐藏窗口的第二个主进程），要么自带 Node（**打包版没有系统 Node**，推测不能依赖用户装的 Node）。要发系统通知就必须是完整 Electron 进程（`Notification` 需要 Electron 主进程；纯 Node 模式下不可用，推测），那它和"留在托盘的主进程"其实是同一个东西，再多一层 IPC。
 - **更新 / 安装器：** NSIS 安装要替换安装目录里的文件。服务进程如果是同一个 `omp-studio.exe`，安装器的"应用在运行"检测（electron-builder NSIS 默认行为，**推测**按进程可执行文件名检测）会把它当成正在运行的应用，要么提示关闭，要么被结束；如果被结束，任务就断了——和 Tern 在 Windows 上更新时 daemon 被替换、靠 `omp --restore` 重拉的结果一样（实测）。要避免只有两条路：服务用独立于安装目录的拷贝运行（占磁盘、版本管理更复杂），或更新时先 drain 再替换（那和方案 1 的结果一样，多了一堆复杂度）。Claude Desktop 的 SSH helper 同样"更新带来新 helper 时会替换，可能结束任务"（文档），他们的对策是 Desktop 自己更新重启时等任务做完。
@@ -204,7 +204,7 @@ Tern 0.9.4（`%LOCALAPPDATA%\Tern\updates\state.json` 的 `installed.release.ver
 
 **3a. 方案 1 的变体：隐藏窗口而不销毁。** 关窗口只 `hide()`。实现更省，冷启动最快，但常驻渲染进程占内存（Chromium 渲染进程通常几十到上百 MB，**未测**）。不推荐，收益只是不用验证冷启动恢复。
 
-**3b. 薄 holder：每个 omp 配一个小进程握 stdin，主进程通过命名管道接。** 只中继 RPC 帧，不碰任务逻辑，主进程重启后重连并重新 `initializeSession`+`get_messages_page` 重建状态。比方案 2 范围小（不拆 `TaskPool`、不改 `StudioApi`），但仍要处理 holder 的生命周期、Job Object、更新时的 holder、重连后丢失事件（需要 holder 缓冲帧）、重建后工具执行细节丢失（`task-model.md` 已知：从会话文件恢复历史会丢工具执行细节）。适合作为方案 1 之后的**增量**，用来解决"更新/主进程崩溃时任务也不断"。实测 C 证明这条路径的第一步成立。
+**3b. 薄 holder：每个 omp 配一个小进程握住伪终端，主进程通过命名管道接。** 只中继字节流，不碰任务逻辑，主进程重启后重连并按节点树快照重建状态。比方案 2 范围小（不拆 `TaskPool`、不改 `StudioApi`），但仍要处理 holder 的生命周期、Job Object、更新时的 holder、重连后丢失的帧（需要 holder 缓冲）。适合作为方案 1 之后的**增量**，用来解决"更新/主进程崩溃时任务也不断"。实测 C 证明这条路径的第一步成立（当时用的是 rpc-ui 的 stdin，现在任务进程改成伪终端里的 TSP，这一步要在 pty 上重新验证，未测）。
 
 **3c. 不做后台：关窗口前提示"有任务在运行，退出会中止它们"。** 成本最低，是现状的 UX 补丁。实测 A 说明中止后那一轮会丢（B：悬空工具调用）。可以作为方案 1 的降级兜底（用户选了"退出"时）。
 
@@ -236,11 +236,11 @@ Tern 0.9.4（`%LOCALAPPDATA%\Tern\updates\state.json` 的 `installed.release.ver
 **验证步骤：**
 
 - 单测：`hasBackgroundWork` 覆盖每个状态；`GateNotifier` 无窗口时仍发通知；回收在无窗口时不触发。
-- 集成（用 `test/fake-omp`）：任务在跑时触发窗口关闭决策 → 进程仍存活、omp 仍在读 stdin、任务跑完后进程自动退出且没有残留 omp 进程（沿用 `AGENTS.md` 的"检查有没有残留进程"）。
-- e2e（Playwright，单个 spec）：开任务 → 关窗口 → 托盘/进程还在 → 重新打开窗口 → 状态和历史一致（`seq` 对得上）。
+- 集成（用 `test/fake-omp/fake-tsp-omp.ts`）：任务在跑时触发窗口关闭决策 → 进程仍存活、伪终端仍连着、任务跑完后进程自动退出且没有残留 omp 进程（沿用 `AGENTS.md` 的"检查有没有残留进程"）。
+- e2e（Playwright，单个 spec）：开任务 → 关窗口 → 托盘/进程还在 → 重新打开窗口 → 状态和历史一致（`tspBatch` 序号对得上）。
 - 手工：真实 omp，跑一个 30 秒的 bash 命令，关窗口，确认完成通知并自动退出；等确认的审批在窗口关闭状态下弹通知，点击后窗口出现并定位到该任务。
 - 更新：用 `auto-update.md` 的本地验证流程，在后台有任务时点安装，确认弹确认，选"等待"后任务完成再安装成功。
-- 系统注销 / 关机路径：手工验证 `before-quit` 是否触发；不触发时确认 Job Object 仍然收掉 omp，重启后任务能 `switch_session` 恢复。
+- 系统注销 / 关机路径：手工验证 `before-quit` 是否触发；不触发时确认 Job Object 仍然收掉 omp，重启后任务能用 `omp --resume=<会话文件>` 恢复。
 - 内存：任务在后台时主进程 + omp 的占用，记录一个基线。
 
 ## 需要仓库所有者决定的事

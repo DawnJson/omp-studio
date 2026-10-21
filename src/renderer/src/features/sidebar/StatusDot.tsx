@@ -56,9 +56,7 @@ export function StatusDot({ task, t }: { task: TaskState; t: TFunction }) {
   const kind = dotKind(task);
   const label =
     kind === "running"
-      ? task.runningSubagents > 0
-        ? t("status.runningAgents", { count: task.runningSubagents })
-        : t("status.running")
+      ? t("status.running")
       : kind === "waiting"
         ? t("status.waiting")
         : kind === "done"

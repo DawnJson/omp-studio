@@ -5,11 +5,11 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, typ
 import { useVisibleTaskIds } from "../features/sidebar/visible-order-store.ts";
 import { Composer } from "../features/composer/index.ts";
 import { BtwPanel } from "../features/btw/index.ts";
-import { ConversationView, SessionTreePanel } from "../features/conversation/index.ts";
+import { SessionTreePanel } from "../features/conversation/index.ts";
 import { TspView } from "../features/tsp/index.ts";
 import { GitDialogHost } from "../features/git/index.ts";
 import { SessionInfoHost } from "../features/session-info/index.ts";
-import { DialogLayer } from "../features/dialogs/index.ts";
+import { NoticeLayer } from "../features/dialogs/index.ts";
 import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts";
 import { OmpSetupView } from "../features/omp-setup/index.ts";
 import { ReviewHost } from "../features/review/index.ts";
@@ -127,7 +127,6 @@ export function App() {
   useEffect(() => setDrawerOpen(false), [taskId, narrow]);
 
   const tasks = useTasks();
-  const taskEngine = tasks.find((task) => task.id === taskId)?.engine;
   // 草稿发出第一条消息后建出任务：输入框在原位接着用，不重放换页的淡入（否则从透明闪一下）。
   // 记的是"从草稿来的那个任务"，之后同一任务的重渲染保持不变，换到别的任务才清掉。
   const previousTaskId = useRef(taskId);
@@ -281,22 +280,11 @@ export function App() {
             </>
           ) : (
             <>
-              {taskEngine === "tsp" ? (
-                // TSP 任务：过程区是 omp 的节点（TspView），输入框是 studio 的 Composer，和 rpc 任务同一个位置、同一个组件。
-                // 两个兄弟的 key 必须不同：同一个 key 会让 React 切任务时留下上一个任务的 TspView。
-                <>
-                  <TspView key={`tsp:${taskId}`} taskId={taskId} />
-                  <SessionTreePanel key={`tree:${taskId}`} taskId={taskId} />
-                  <BtwPanel key={`btw:${taskId}`} taskId={taskId} />
-                  <Composer key={`composer:${taskId}`} taskId={taskId} fromDraft={fromDraft} />
-                </>
-              ) : (
-                <>
-                  <ConversationView taskId={taskId} />
-                  <BtwPanel taskId={taskId} />
-                  <Composer key={taskId} taskId={taskId} fromDraft={fromDraft} />
-                </>
-              )}
+              {/* 过程区是 omp 的节点（TspView），输入框是 studio 的 Composer。两个兄弟的 key 必须不同：同一个 key 会让 React 切任务时留下上一个任务的 TspView。 */}
+              <TspView key={`tsp:${taskId}`} taskId={taskId} />
+              <SessionTreePanel key={`tree:${taskId}`} taskId={taskId} />
+              <BtwPanel key={`btw:${taskId}`} taskId={taskId} />
+              <Composer key={`composer:${taskId}`} taskId={taskId} fromDraft={fromDraft} />
               <TerminalPanel key={`terminal:${taskId}`} terminalKey={taskId} open={terminalOpen} />
             </>
           )}
@@ -304,7 +292,7 @@ export function App() {
         {view === "conversation" && panel?.key === terminalKey && (
           <FilePreviewPane key={panel.key} panelKey={panel.key} page={panel.page} path={panel.path} />
         )}
-        {view === "conversation" && taskId !== null && taskEngine === "tsp" && agentsPanel?.taskId === taskId && (
+        {view === "conversation" && taskId !== null && agentsPanel?.taskId === taskId && (
           <AgentsPanel key={taskId} taskId={taskId} selected={agentsPanel.selected} />
         )}
       </div>
@@ -313,7 +301,7 @@ export function App() {
       <ReviewHost />
       <GitDialogHost />
       <SessionInfoHost />
-      <DialogLayer taskId={taskId} />
+      <NoticeLayer />
       <CommandPalette />
       <OmpSetupView />
     </div>

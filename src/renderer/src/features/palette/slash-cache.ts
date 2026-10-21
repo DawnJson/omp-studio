@@ -1,5 +1,5 @@
 // 斜杠命令列表的加载规则（纯逻辑，slash-commands.ts 接上 IPC 和 store）：
-// 每个键（任务 id 或草稿）同时只有一个请求在飞；拿到非空列表才算"已载入"，之后不再请求（更新靠 slashCommands 事件）。
+// 每个键（任务 id 或草稿）同时只有一个请求在飞；拿到非空列表才算"已载入"，之后不再请求。
 // 空数组（omp 还没就绪）和失败都不记，下次 request（任务状态变了、重新挂载）会再取——
 // 以前空数组也被记成"已取过"，新建的 TSP 任务里斜杠菜单就永远不出现（差距清单 B1）。
 import type { AvailableSlashCommand } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
@@ -7,8 +7,6 @@ import type { AvailableSlashCommand } from "../../../../shared/omp-wire/rpc-wire
 export interface SlashLoader {
   /** 需要时发请求；返回本次请求结束（成功、空、失败都 resolve，失败已交给 onError）的 promise，没发请求时已 resolve。 */
   request(key: string): Promise<void>;
-  /** 事件推来了列表：记为已载入（空数组不算）。 */
-  loaded(key: string, commands: readonly AvailableSlashCommand[]): void;
 }
 
 export function createSlashLoader(
@@ -34,9 +32,6 @@ export function createSlashLoader(
           onError(error);
         },
       );
-    },
-    loaded(key, commands) {
-      if (commands.length > 0) done.add(key);
     },
   };
 }

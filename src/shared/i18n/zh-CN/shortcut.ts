@@ -11,7 +11,7 @@ export const shortcut = {
   newline: "换行",
   later: "运行中：稍后",
   stop: "停止并取回排队消息",
-  toggleProcess: "展开或收起最近一个过程行",
+  toggleProcess: "展开或收起所有工具卡片",
   focusComposer: "聚焦输入框",
   nthTask: "切到第 N 个任务",
   prevNext: "上一个或下一个任务",

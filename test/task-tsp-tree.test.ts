@@ -12,7 +12,6 @@ import { buildTspArgs } from "../src/main/omp/launch-args.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const fakeTsp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
-const fakeRpc = path.join(root, "test", "fake-omp", "fake-omp.ts");
 const ALPHA = "beac8e08";
 const BETA = "b772c2f5";
 let scratch: string;
@@ -35,7 +34,6 @@ const settings: StudioSettings = {
   enterWhileRunning: "steer",
   notifyOnGate: true,
   copyOnSelect: true,
-  taskEngine: "tsp",
   yoloConfirmed: false,
 };
 
@@ -73,20 +71,10 @@ async function harness(): Promise<Harness> {
   const pool = new TaskPool({
     registry,
     getSettings: async () => settings,
-    buildLaunch: async (_record, project) => ({
-      command: process.execPath,
-      args: [fakeRpc, path.join(root, "fixtures", "rpc", "simple-reply.ndjson")],
-      cwd: project.path,
-      env: process.env,
-    }),
-    assignJob: () => {},
     events: {
       state: (state) => states.push(state),
-      transcript: () => {},
       notice: () => {},
       taskRemoved: () => {},
-      slashCommands: () => {},
-      subagents: () => {},
       tspBatch: () => {},
     },
     listModels: async () => [],
@@ -267,7 +255,7 @@ describe("forkTask（TSP：omp --fork 起新任务，再在新进程里回溯）
     const result = await h.pool.forkTask(id, BETA);
     expect(result.text).toBe("Reply with exactly: BETA. No tools.");
     expect(result.task.id).not.toBe(id);
-    expect(result.task).toMatchObject({ engine: "tsp", projectId: h.projectId });
+    expect(result.task).toMatchObject({ projectId: h.projectId });
 
     const forkLaunch = h.launches.find((launch) => launch.taskId === result.task.id);
     expect(forkLaunch).toMatchObject({ sessionFile: null, forkFrom: file, args: [`--fork=${file}`] });

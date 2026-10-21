@@ -58,15 +58,9 @@ async function seedTakeoverDeclined(userDataDir: string, exePaths: string[]): Pr
  */
 export async function launchApp(
   extraEnv: Record<string, string> = {},
-  options: { askTakeover?: boolean; taskEngine?: "rpc" | "tsp" } = {},
+  options: { askTakeover?: boolean } = {},
 ): Promise<LaunchedApp> {
   const userDataDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-"));
-  // 设置的默认引擎是 tsp；现有 e2e 都是针对 rpc 路径写的（假 omp 回放 RPC 录制），默认仍跑 rpc。
-  await writeFile(
-    path.join(userDataDir, "settings.json"),
-    JSON.stringify({ taskEngine: options.taskEngine ?? "rpc" }),
-    "utf8",
-  );
   if (options.askTakeover !== true) {
     const testOmp = extraEnv["STUDIO_TEST_OMP"] ?? process.env["STUDIO_TEST_OMP"];
     const onPath = await findOmpOnPath().catch(() => null);
@@ -123,6 +117,26 @@ export async function launchApp(
     await removeDirs();
     throw error;
   }
+}
+
+const fakeTspOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
+
+/**
+ * STUDIO_TEST_OMP 的值：用假 omp（伪终端里回放 fixtures/tsp/<fixture>.jsonl 的 omp 录制）顶替 omp。
+ * `log` 给了就把假 omp 收到的 TSP 事件和按键逐行追加进这个文件（见 fake-tsp-omp.ts 的 --log）；
+ * `speed` 是回放速度（录制里的间隔除以它）。
+ */
+export function testOmp(fixture: string, options: { log?: string; speed?: number; args?: string[] } = {}): string {
+  return JSON.stringify({
+    command: process.execPath,
+    args: [
+      fakeTspOmp,
+      fixture,
+      `--speed=${options.speed ?? 20}`,
+      ...(options.log === undefined ? [] : [`--log=${options.log}`]),
+      ...(options.args ?? []),
+    ],
+  });
 }
 
 export const screenshotsDir = path.join(root, "screenshots");

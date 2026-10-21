@@ -743,12 +743,6 @@
   padding: var(--space-2) var(--space-3);
   overflow-x: auto;
 }
-.tsp-code-body,
-.tsp-rows,
-.tsp-table {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
-}
 .tsp-code-lines {
   min-width: max-content;
 }
@@ -2008,6 +2002,18 @@
   box-shadow: none;
   border-radius: 0;
 }
+/* Task 卡片里嵌套的子代理行也不画框：自己的 1px 框贴在卡片底边上，看上去像卡片的边从行中间穿过 */
+.tsp-tool-body .tsp-agent {
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+.tsp-tool-body .tsp-agent-row {
+  border-radius: 0;
+}
+.tsp-tool-body .tsp-agent:last-child .tsp-agent-row {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
 .tsp-tool-body .tsp-card > .tsp-card-head .tsp-chip {
   display: none;
 }
@@ -2282,8 +2288,14 @@
   transform: rotate(-90deg);
   transform-origin: center;
 }
-.tsp-ring.full .fl {
-  stroke: var(--text-3);
+.tsp-ck-phase-done {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-3-5);
+  height: var(--space-3-5);
+  color: var(--st-done);
 }
 .tsp-ck-items {
   display: flex;
@@ -2562,29 +2574,6 @@
   font-size: var(--fs-xs);
 }
 
-/* 输入框上方的 dock：状态行（omp 的输入框卡片不画，输入框是 studio 的 Composer） */
-.tsp-row[data-role="omp.hud.activity"] {
-  gap: var(--space-3);
-  padding: 0 var(--space-2);
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-}
-.tsp-col[data-role="omp.hud.status"] {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.tsp-row[data-role="omp.working"] {
-  gap: var(--space-2);
-}
-/* 状态行是"数字 + 一句话"：计时用正文字体（等宽数字对齐，不混进等宽字形），和文字同字号 */
-.tsp-row[data-role="omp.working"] .tsp-elapsed {
-  font-family: inherit;
-  font-size: inherit;
-}
-.tsp-row[data-role="omp.working"] .tsp-shimmer {
-  font-size: var(--fs-xs);
-}
-
 /* ask 卡片：答案和未选项一列对齐——未选项没有勾，用同宽的空位占着；同字号 */
 .tsp-row[data-role="omp.tool.answer"],
 .tsp-row[data-role="omp.tool.answer.off"] {
@@ -2607,22 +2596,6 @@
 .tsp-tool[data-name="ask"] .tsp-tool-target.text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-.tsp-text[data-role="omp.working.sep"] {
-  color: var(--text-3);
-}
-.tsp-shimmer[data-role="omp.working.label"] {
-  font-size: var(--fs-xs);
-}
-.tsp-row[data-role="omp.working.stop"] {
-  gap: var(--space-1);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  padding: 0 var(--space-1);
-}
-.tsp-row[data-role="omp.working.stop"]:hover {
-  background: var(--bg-hover);
-  color: var(--text);
 }
 
 /* ───────────────────────── 兜底 ───────────────────────── */

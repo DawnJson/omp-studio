@@ -2,10 +2,8 @@
 // 规则（AGENTS.md "Electron 安全"）：一个函数只做一件事；渲染进程传来的每个参数都当不可信输入；
 // 渲染进程不传路径，只传主进程发的 id。
 import type {
-  AskAnswer,
   AvailableSlashCommand,
   Effort,
-  AskQuestion,
   GoalOp,
   ContextUsage,
   LoginProvider,
@@ -18,7 +16,6 @@ import type {
   ThinkingLevel,
   TodoPhase,
   TokenUsage,
-  UsageLimitState,
 } from "./omp-wire/rpc-wire.generated.ts";
 import type {
   GitCommitResult,
@@ -37,7 +34,6 @@ import type {
   WorktreeCleanupResult,
   WorktreeSetupInfo,
 } from "./git.ts";
-import type { Transcript, TranscriptEvent } from "./transcript.ts";
 import type {
   CustomModelsFileInfo,
   CustomModelsOutcome,
@@ -49,7 +45,6 @@ import type { BuiltinCommand, TaskCommand } from "./omp-output/index.ts";
 import type { DiscoverEntry, DoctorCheck, PluginAction, PluginConfig, PluginsSnapshot } from "./omp-output/plugins.ts";
 import type { SessionToggles } from "./omp-output/toggles.ts";
 import type { SshHost, SshHostInput, SshScope } from "./omp-output/ssh.ts";
-import type { SubagentDetail, SubagentLane } from "./subagents.ts";
 import type { AgentMessage } from "./omp-wire/rpc-wire.generated.ts";
 import type { BtwHistoryRecord, BtwUiEvent } from "./btw.ts";
 import type { DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
@@ -190,8 +185,6 @@ export interface StudioSettings {
   notifyOnGate: boolean;
   /** 在对话等处用鼠标选中文字后自动复制到剪贴板（输入框、终端除外）。默认开。 */
   copyOnSelect: boolean;
-  /** 任务用的引擎（docs/architecture/tsp-migration.md §10.5）。默认 tsp；设成 tsp 时，没有进程的 rpc 任务下次启动前改记成 tsp。 */
-  taskEngine: TaskEngine;
   /** 用户确认过"全部自动"。 */
   yoloConfirmed: boolean;
 }
@@ -251,17 +244,10 @@ interface SessionUsage {
   /** 美元。 */
   cost: number;
   premiumRequests: number;
-  /** 模型请求数（assistant 消息数）：TSP 任务从会话文件数出来；rpc 任务没填。 */
+  /** 模型请求数（assistant 消息数）：从会话文件数出来。 */
   requests?: number;
   /** 订阅计费的会话才有。 */
   credits?: SessionCredits;
-}
-
-/** 上下文里系统提示词、工具定义各占的 token（估算）。 */
-interface ContextParts {
-  systemTokens: number;
-  toolTokens: number;
-  toolCount: number;
 }
 
 /** 会话文件里一个模型的累计用量（assistant 消息的 usage 相加）。 */
@@ -293,12 +279,6 @@ export interface TaskState {
   id: TaskId;
   projectId: ProjectId;
   title: string;
-  /**
-   * 这个任务的 omp 怎么跑（docs/architecture/tsp-migration.md）：`rpc` = `--mode rpc-ui`，界面由 omp-studio 拼；
-   * `tsp` = 交互式 omp 跑在伪终端里，界面是 omp 发来的 TSP 节点树。创建时按设置 `taskEngine` 定；设置是 tsp 时，
-   * 没有进程的 rpc 任务在下次启动前改成 tsp（tsp-migration.md §10.5）。
-   */
-  engine: TaskEngine;
   status: TaskStatus;
   /** 跑完了但用户还没看过：侧栏的"完成"点。 */
   unread: boolean;
@@ -308,36 +288,26 @@ export interface TaskState {
   updatedAt: number;
   model: ModelOption | null;
   thinkingLevel: ThinkingLevel | null;
-  /** get_available_thinking_levels，随模型变化。 */
+  /** 当前模型能选的思考强度（模型目录的 thinkingEfforts 加 off），随模型变化。 */
   thinkingLevels: ThinkingLevel[];
-  /** get_state.contextUsage；percent 是 0–100 的百分数。omp 没给时为 null。 */
+  /** 上下文占用（输入框卡片上的 meter）；percent 是 0–100 的百分数。omp 没给时为 null。 */
   contextUsage: ContextUsage | null;
-  /** get_session_stats，每轮结束后刷新；还没取到（或 omp 取不到）时为 null。 */
+  /** 本会话累计费用等（输入框卡片 + 会话文件）；还没取到时为 null。 */
   sessionUsage: SessionUsage | null;
-  /** queue_update 的快照；chip 文本原样传给 removeQueuedMessage / promoteQueuedMessage。 */
-  queue: { steering: string[]; followUp: string[] };
-  /** 未答的对话框，按到达顺序。 */
+  /** 未答的门（omp 的提问、审批），按到达顺序。主进程为它们合成，只为让"等你确认"的任务有内容可写（通知、侧栏）。 */
   dialogs: DialogRequest[];
-  /** get_state.todoPhases：omp 的待办阶段。主进程在 todo 工具结束、todo_auto_clear 和每次状态刷新后更新；没有待办时是空数组。 */
+  /** omp 的待办阶段，从 dock 里 HUD 的待办节点换算（shared/tsp/todos.ts）；没有待办时是空数组。 */
   todoPhases: TodoPhase[];
-  /** 正在运行的子代理数，用于过程折叠行。 */
-  runningSubagents: number;
   /** 任务实际的工作目录（有 worktree 时是 worktree 根，否则是项目目录）；界面把工具参数里的绝对路径换成相对它的路径。 */
   cwd: string;
   /** 这一次 running 开始的时间戳（ms，主进程接收时间）；非 running/needs_you 时为 null。侧栏显示"已运行 N 分钟"。 */
   runStartedAt: number | null;
-  /** get_state.fastModeEnabled / fastModeActive：本会话的 `/fast`（实测不落配置，换到不支持的模型就关）。 */
+  /** 本会话的 `/fast`（模型名后面的闪电图标，实测不落配置，换到不支持的模型就关）。 */
   fastMode: { enabled: boolean; active: boolean };
-  /** get_state.slowMode*：`supported` 为 false 时 enabled 恒为 false、scope 为 null。 */
+  /** 本会话的 `/slow`：omp 没有状态节点，按最后一次 toast 记（TspRunner）。 */
   slowMode: { supported: boolean; enabled: boolean; scope: SlowModeScope | null };
-  /** get_state.usageLimit：账号超限后的阶段；没超限时为 null。 */
-  usageLimit: UsageLimitState | null;
-  /** get_state.tokensPerSecond：最近一条回复的输出速度；omp 没给（流式中、还没有回复）时为 null。 */
-  tokensPerSecond: number | null;
-  /** get_state.goal / goal_updated：本会话还挂着的目标（active / paused / budget-limited）；没有、已完成、已放弃时为 null。 */
+  /** 本会话还挂着的目标（active / paused / budget-limited）；没有、已完成、已放弃时为 null。 */
   goal: TaskGoal | null;
-  /** get_state.systemPrompt / dumpTools 估出来的上下文构成（omp 不给分项数，按字符估）；omp 没给时为 null。 */
-  contextParts: ContextParts | null;
   /** 会话开关（/skillful /extended-context /computer /advisor /browser /prewalk）本会话里被命令改过的值，来自 omp 的状态 toast（omp-output/toggles.ts）；null 项 = 没动过，生效的是配置默认值。 */
   sessionToggles: SessionToggles;
   /**
@@ -370,9 +340,18 @@ export interface PromptImage {
   data: string;
 }
 
+/** 输入框里的文件附件：路径只留在主进程（composer-files.ts），渲染进程只拿到这个不透明的 id 和显示用的名字 / 大小。 */
+export interface ComposerFile {
+  id: string;
+  name: string;
+  size: number;
+}
+
 export interface PromptInput {
   text: string;
   images?: PromptImage[];
+  /** 文字里的 `\uE000file:N\uE001` 占位对应 fileIds[N-1]；主进程换成 omp 的 `@"路径"` 提及。 */
+  fileIds?: string[];
   /** omp 正在跑时这条消息怎么投递；空闲时忽略，直接开新一轮。 */
   whenBusy: "steer" | "followUp";
 }
@@ -426,64 +405,28 @@ export interface BranchTaskResult {
   summarized?: boolean;
 }
 
-// ───────── 对话框（extension_ui_request） ─────────
+// ───────── 等你确认的门 ─────────
 
-interface SelectOption {
-  label: string;
-  description?: string;
+/**
+ * 主进程为 omp 的提问和审批合成的门（TSP：omp 把它们画在过程区里，studio 不画）：只为让"等你确认"的任务有内容可写（通知的标题、状态）。
+ * 提问和审批各一个固定 id（shared/tsp/gate.ts）。每个请求带主进程收到它的时间戳。
+ */
+export interface DialogRequest {
+  id: string;
+  kind: "confirm";
+  title: string;
+  message: string;
+  receivedAt?: number;
 }
-
-/** 每种请求都带主进程收到它的时间戳，门的倒计时据此计算（组件重挂载、切任务回来都不会重新计时）。 */
-export type DialogRequest = (
-  | {
-      id: string;
-      kind: "select";
-      title: string;
-      options: SelectOption[];
-      timeoutMs?: number;
-      /** 主进程判断这是工具审批（按标题特征，推测，见 docs/architecture/dialogs.md）。只影响样式。 */
-      approval: boolean;
-    }
-  | { id: string; kind: "confirm"; title: string; message: string; timeoutMs?: number }
-  | { id: string; kind: "input"; title: string; placeholder?: string; timeoutMs?: number }
-  | { id: string; kind: "editor"; title: string; prefill?: string; promptStyle: boolean }
-  | { id: string; kind: "ask"; questions: AskQuestion[]; timeoutMs?: number }
-) & { receivedAt?: number };
-
-export type DialogResponse =
-  /** select（必须是 options 里的 label 原文）、input、editor。 */
-  | { kind: "value"; value: string }
-  | { kind: "confirm"; confirmed: boolean }
-  /** ask：每题一条，按题目顺序。 */
-  | { kind: "answers"; answers: AskAnswer[] }
-  | { kind: "cancel" };
 
 /** 不进对话流的一次性提示。 */
-export type TaskNotice =
-  | { taskId: TaskId; kind: "toast"; level: NotifyType; message: string }
-  /** omp 要求把这段文字放进输入框（set_editor_text）。 */
-  | { taskId: TaskId; kind: "editor_text"; text: string }
-  /** 目标完成（goal_updated 的 status 为 complete）：渲染进程弹一条本地化的 info toast。 */
-  | { taskId: TaskId; kind: "goal_complete" };
-
-// ───────── 对话流同步 ─────────
-
-/** 第 i 个事件的序号是 firstSeq + i；渲染进程要求 firstSeq === 本地 seq + 1，否则调 getTranscript 重同步。 */
-export interface TranscriptBatch {
+export interface TaskNotice {
   taskId: TaskId;
-  firstSeq: number;
-  events: TranscriptEvent[];
+  /** 目标完成（TSP 里目标条消失且会话文件里最后一条是 complete）：渲染进程弹一条本地化的 info toast。 */
+  kind: "goal_complete";
 }
 
-/** seq 是快照里已应用的最后一个事件的序号，0 表示还没有事件。 */
-export interface TranscriptSnapshot {
-  taskId: TaskId;
-  seq: number;
-  transcript: Transcript;
-}
-
-/** 任务引擎，见 TaskState.engine。 */
-export type TaskEngine = "rpc" | "tsp";
+// ───────── 节点树同步 ─────────
 
 /**
  * 主进程转发的 TSP 消息（主进程已经应用到自己的文档上）。第 i 条的序号是 firstSeq + i；
@@ -513,6 +456,13 @@ export interface TspSnapshot {
   document: DocumentSnapshot;
 }
 
+/** 上下文里系统提示词、工具定义各占的 token（omp 写在会话文件里）。 */
+export interface ContextParts {
+  systemTokens: number;
+  toolTokens: number;
+  toolCount: number;
+}
+
 /** 一轮的用量脚注数据（从 omp 会话文件算：一个用户消息到它的最终回复）。 */
 export interface TspTurnFooter {
   /** 用户消息到最终回复完成的毫秒数；会话文件里没有时间戳时为 null。 */
@@ -530,6 +480,10 @@ export interface TspSessionExtras {
   turns: (TspTurnFooter | null)[];
   /** 这个会话最新的一条空闲回顾（空白折叠、最长 280 字）和它的位置：`afterTurn` = 回顾之前开始的轮数（放在第 afterTurn 轮之后）；没有回顾时为 null。 */
   recap: { text: string; afterTurn: number } | null;
+  /** 最近一条回复的输出速度（token/秒，会话文件里 assistant 消息的 output ÷ (duration − ttft)）；还没有回复时为 null。 */
+  tokensPerSecond: number | null;
+  /** 最近一次请求里系统提示词、工具定义各占多少 token（会话文件的 contextSnapshot）；没有（老版本 omp、没有回复）时为 null。 */
+  contextParts: ContextParts | null;
 }
 
 // ───────── 会话历史 ─────────
@@ -849,7 +803,7 @@ export interface OmpConfigWriteResult {
 
 /** 外壳界面状态，主进程持久化；窗口位置/尺寸/最大化由主进程自己记，不经过渲染进程。 */
 export interface ShellState {
-  /** 侧栏宽度（px），220–360。 */
+  /** 侧栏宽度（px），200–360，默认 240。 */
   sidebarWidth: number;
   sidebarCollapsed: boolean;
   /** 终端面板高度（px），120–4000；实际上限（主区 70%）由界面夹取。 */
@@ -904,15 +858,13 @@ export interface StudioInvokeApi {
   // 任务
   listTasks(): Promise<TaskState[]>;
   createTask(input: CreateTaskInput): Promise<TaskState>;
-  /** 切到这个任务：需要时拉起 omp 并恢复会话，返回对话快照，并清除 unread。 */
-  openTask(taskId: TaskId): Promise<TranscriptSnapshot>;
-  /** 只取快照，不拉起进程；用于丢帧或渲染进程重载后的重同步。 */
-  getTranscript(taskId: TaskId): Promise<TranscriptSnapshot>;
-  /** TSP 任务的文档快照（不拉起进程）；任务不是 tsp 引擎时抛错。 */
+  /** 切到这个任务：需要时拉起 omp 并恢复会话，并清除 unread。启动失败不 reject，状态里有 error。 */
+  openTask(taskId: TaskId): Promise<void>;
+  /** 任务的节点树快照（不拉起进程）；用于丢帧或渲染进程重载后的重同步。 */
   getTspSnapshot(taskId: TaskId): Promise<TspSnapshot>;
-  /** TSP 任务每一轮的总费用（美元，从旧到新）：从 omp 会话文件算；没有会话文件、读失败、任务不是 tsp 引擎时返回 []，不抛错。 */
+  /** 每一轮的总费用（美元，从旧到新）：从 omp 会话文件算；没有会话文件、读失败时返回 []，不抛错。 */
   getTspTurnCosts(taskId: TaskId): Promise<number[]>;
-  /** TSP 任务的用量脚注和空闲回顾（omp 恢复会话时不重发这两样，从会话文件和 history.db 补）；读不到时 `{ turns: [], recap: null }`，不抛错。 */
+  /** 用量脚注和空闲回顾（omp 恢复会话时不重发这两样，从会话文件和 history.db 补）；读不到时 `{ turns: [], recap: null }`，不抛错。 */
   getTspSessionExtras(taskId: TaskId): Promise<TspSessionExtras>;
   /** 把一个终端 → 程序事件（action / select / activate / toggle / change / edit / undo / send / focus）发给 omp。 */
   sendTspEvent(taskId: TaskId, event: TspEvent): Promise<void>;
@@ -923,13 +875,8 @@ export interface StudioInvokeApi {
   markTaskRead(taskId: TaskId): Promise<void>;
   /** 应答到达（消息被 omp 接收）即 resolve，不等这一轮跑完。 */
   sendPrompt(taskId: TaskId, input: PromptInput): Promise<void>;
-  /** 删掉排队中的一条；成功时返回它的草稿以便放回输入框，没删到返回 null。 */
-  removeQueuedMessage(taskId: TaskId, text: string, queue: "steering" | "followUp"): Promise<RestoredDraft | null>;
-  /** 把一条 follow-up 提前为 steer。 */
-  promoteQueuedMessage(taskId: TaskId, text: string): Promise<boolean>;
   /** 停止：撤回排队消息并中止当前一轮。 */
   stopTask(taskId: TaskId): Promise<RestoredQueue>;
-  respondDialog(taskId: TaskId, dialogId: string, response: DialogResponse): Promise<void>;
   renameTask(taskId: TaskId, title: string): Promise<void>;
   /** 关掉进程并从侧栏移除；会话文件不动。 */
   archiveTask(taskId: TaskId): Promise<void>;
@@ -938,9 +885,9 @@ export interface StudioInvokeApi {
   listTaskModels(taskId: TaskId): Promise<ModelOption[]>;
   setTaskModel(taskId: TaskId, model: ModelKey): Promise<void>;
   setTaskThinkingLevel(taskId: TaskId, level: ThinkingLevel): Promise<void>;
-  /** `/fast`：omp 的 set_fast_mode。模型不支持时 reject（omp 的原文）。 */
+  /** `/fast`：模型不支持时 reject（omp 的 toast 原文）。 */
   setTaskFastMode(taskId: TaskId, enabled: boolean): Promise<void>;
-  /** `/slow`：omp 的 set_slow_mode。模型不支持时 reject（omp 的原文）。 */
+  /** `/slow`：模型不支持时 reject（omp 的 toast 原文）。 */
   setTaskSlowMode(taskId: TaskId, enabled: boolean): Promise<void>;
 
   // 内置终端（阶段 6）：每个任务至多一个终端，cwd 由主进程按任务定（worktree 根或项目目录），渲染进程不传路径。
@@ -988,10 +935,12 @@ export interface StudioInvokeApi {
   /** 输入框草稿（文字）：key 是任务 id 或 `new:<projectId>`。主进程持久化，重启不丢。 */
   getDrafts(): Promise<Record<string, string>>;
   saveDraft(key: string, text: string): Promise<void>;
-  /** 压缩上下文（RPC compact）。任务没有进程时先拉起；运行中拒绝。 */
+  /** 附件选择器（主进程弹系统文件对话框，多选）：选中的文件登记到主进程，返回 id + 名字 + 大小；取消返回空数组。 */
+  pickComposerFiles(): Promise<ComposerFile[]>;
+  /** 压缩上下文：发 `/compact`，等 omp 画出压缩分隔；失败（会话太小等）以 omp 的原文 reject。任务没有进程时先拉起。 */
   compactTask(taskId: TaskId): Promise<void>;
   /**
-   * 会话级斜杠命令（native-ui-plan I1）：封闭联合类型，主进程拼命令文本，在该任务自己的 omp 里执行；返回 omp 的状态 toast / command_output 原文。
+   * 会话级斜杠命令（native-ui-plan I1）：封闭联合类型，主进程拼命令文本，在该任务自己的 omp 里执行；返回 omp 的状态 toast 原文。
    * 任务没有进程时先拉起；omp 报错（别的 toast）时以原文 reject。渲染进程不传自由文本。
    */
   runTaskCommand(taskId: TaskId, cmd: TaskCommand): Promise<{ text: string }>;
@@ -1001,22 +950,14 @@ export interface StudioInvokeApi {
    */
   runBuiltin(cmd: BuiltinCommand, scope: { projectId: ProjectId } | null): Promise<{ text: string }>;
   /**
-   * 导出对话为 HTML（RPC export_html）：主进程弹保存对话框（默认桌面、`<标题>-<日期>.html`）并决定路径，渲染进程不传路径。
-   * 用户取消返回 null；成功返回写出的文件名。任务没有进程时先拉起。
+   * 导出对话为 HTML（对会话文件跑 `omp --export`）：主进程弹保存对话框（默认桌面、`<标题>-<日期>.html`）并决定路径，渲染进程不传路径。
+   * 用户取消返回 null；成功返回写出的文件名。还没有会话文件时 reject。
    */
   exportTaskHtml(taskId: TaskId): Promise<{ fileName: string } | null>;
   /** 在系统文件管理器里选中该任务最近一次导出的文件（只认主进程自己写过的路径）；没导出过时拒绝。 */
   revealTaskExport(taskId: TaskId): Promise<void>;
   /**
-   * 输入框里 `!命令`：经 omp 的 bash 命令在任务工作目录执行（和终端版 `!cmd` 同信任级别，命令由用户键入）。
-   * 任务没有进程时先拉起；结果由 omp 记进会话，主进程把它作为 bashExecution 消息放进对话流，返回时已在流里。
-   * 同时只能有一条在跑；命令限长（limits.bashCommandMaxChars）。
-   */
-  runBash(taskId: TaskId, command: string): Promise<void>;
-  /** 中止正在跑的 `!命令`（RPC abort_bash）；没有在跑的命令时什么也不发生。 */
-  abortBash(taskId: TaskId): Promise<void>;
-  /**
-   * 目标模式（RPC goal）：`create` 带目标文字（1–`limits.goalObjectiveMaxChars` 字符）创建，`pause` / `resume` / `drop` 作用于当前目标，
+   * 目标模式（`/goal`）：`create` 带目标文字（1–`limits.goalObjectiveMaxChars` 字符）创建，`pause` / `resume` / `drop` 作用于当前目标，
    * `get` 只读。返回操作后的目标（没有目标为 null）。omp 拒绝时（已有目标、计划模式、没有可恢复的目标…）reject，原文透传。
    */
   taskGoal(taskId: TaskId, op: GoalOp, objective?: string): Promise<TaskGoal | null>;
@@ -1050,38 +991,21 @@ export interface StudioInvokeApi {
   listProjectFiles(target: ProjectFilesTarget, query: string): Promise<string[]>;
 
   // 会话树与分叉（docs/architecture/session-tree.md）
-  /** 会话里的用户消息树：rpc 任务用 get_tree（没有进程时先拉起）；TSP 任务只读会话文件（不拉起进程，还没有会话文件时 nodes 为空）。 */
+  /** 会话里的用户消息树：只读会话文件（不拉起进程，还没有会话文件时 nodes 为空）。 */
   getSessionTree(taskId: TaskId): Promise<SessionTreeView>;
   /**
-   * 从一条用户消息分叉出新任务（RPC branch，在原任务的进程上做完就切回原会话）：新任务的会话是这条消息之前的历史，
-   * 同项目、同工作目录（worktree 任务的分叉共用同一个 worktree）。`userMessageKey` 是对话流里那条用户消息的 key，
-   * null 表示最后一条用户消息。只在原任务空闲时可用，原任务的会话和对话流不变。
-   * TSP 任务：新任务用 `omp --fork=<原会话文件>` 起（omp 自己复制会话文件），在新进程里用 `/tree` 回到那条消息之前；
-   * 这时 `userMessageKey` 是会话条目 id（会话树面板的节点 `SessionTreeNode.entryId`），不是对话流 key。
+   * 从一条用户消息分叉出新任务：新任务的会话是这条消息之前的历史，同项目、同工作目录（worktree 任务的分叉共用同一个 worktree）。
+   * `entryId` 是会话条目 id（会话树面板的节点 `SessionTreeNode.entryId`），null 表示当前分支最后一条用户消息。
+   * 新任务用 `omp --fork=<原会话文件>` 起（omp 自己复制会话文件），在新进程里用 `/tree` 回到那条消息之前；原任务不动。
    */
-  forkTask(taskId: TaskId, userMessageKey: string | null): Promise<ForkResult>;
+  forkTask(taskId: TaskId, entryId: string | null): Promise<ForkResult>;
   /**
-   * 就地回到树里的一个用户消息节点（RPC branch，任务改用 omp 为它新建的会话文件，原文件留在磁盘上），
-   * 对话流重载为该节点之前的历史；返回那条消息的文字。只在任务空闲时可用。
-   * TSP 任务：驱动 omp 自己的 `/tree`（同一个会话文件里移动叶子，不新建文件，原来的分支留在文件里），节点树由 omp 自己重画；
-   * `summarize` 为真时让 omp 给被放弃的分支写摘要（调一次模型，写进会话文件一个 branch_summary 条目），rpc 任务忽略它。
+   * 就地回到树里的一个用户消息节点：驱动 omp 自己的 `/tree`（同一个会话文件里移动叶子，不新建文件，原来的分支留在文件里），节点树由 omp 自己重画；
+   * 返回那条消息的文字。只在任务空闲时可用。`summarize` 为真时让 omp 给被放弃的分支写摘要（调一次模型，写进会话文件一个 branch_summary 条目）。
    */
   branchTask(taskId: TaskId, entryId: string, summarize?: boolean): Promise<BranchTaskResult>;
 
-  // 子代理泳道（阶段 5）
-  /** 当前泳道快照（含已结束的）；渲染进程打开任务或重载后用它对齐，之后靠 subagents 事件。 */
-  getSubagents(taskId: TaskId): Promise<SubagentLane[]>;
-  /**
-   * 子代理详情：泳道 + get_subagent_messages 读到的记录。主进程按子代理缓存已读部分并按 fromByte 增量读；
-   * since 是调用方已有的记录条数（绝对序号），传了就只返回它还没有的部分（见 SubagentDetail.from）。任务没有进程时 messages 为 null。
-   */
-  getSubagentDetail(taskId: TaskId, subagentId: string, since?: number): Promise<SubagentDetail>;
-  /** steer_subagent：给运行中的子代理插一句话。子代理不在运行时 reject。 */
-  steerSubagent(taskId: TaskId, subagentId: string, text: string): Promise<void>;
-  /** cancel_subagent；返回 omp 说是否真的取消了（已经结束的是 false）。 */
-  cancelSubagent(taskId: TaskId, subagentId: string): Promise<boolean>;
-
-  // TSP 任务的子代理面板（S1，spec §4.28）：omp 只在 Agent Hub 里提供插话 / 结束 / 恢复，主进程在后台驱动它再恢复（tasks/tsp-hub-driver.ts）。
+  // 子代理面板（S1，spec §4.28）：omp 只在 Agent Hub 里提供插话 / 结束 / 恢复，主进程在后台驱动它再恢复（tasks/tsp-hub-driver.ts）。
   /** 子代理的记录（会话文件）和最终输出（`.md`），只读 omp 存档；读不到时 `unavailable` + 原因，不抛错。 */
   getTspSubagentRecord(taskId: TaskId, name: string): Promise<TspSubagentRecord>;
   /** 给子代理插一句话（Hub → 聚焦 → send → 退出聚焦）；名字必须是文档里确有的子代理，文字限长 subagentLimits.steerChars。 */
@@ -1093,13 +1017,13 @@ export interface StudioInvokeApi {
 
   // 旁路提问（/btw）
   /**
-   * 发一条旁路提问（RPC btw）：不进主对话流，主轮在跑时也能问。recordId 给了就是对那个话题追问。返回话题 id；答案经 btw 事件流回来。
+   * 发一条旁路提问（`/btw`）：不进主对话流，主轮在跑时也能问。recordId 给了就是对那个话题追问。返回话题 id；答案经 btw 事件流回来。
    * omp 同一时刻只许一条在跑（再问会被拒绝）；问题限长（btwLimits.questionChars）；任务没有进程时先拉起。
    */
   askBtw(taskId: TaskId, question: string, recordId?: string): Promise<string>;
-  /** 取消在跑的旁路提问（RPC btw_cancel）；recordId 省略时取消正在跑的那条。返回是否真的取消了。没有进程时返回 false。 */
+  /** 取消在跑的旁路提问；recordId 省略时取消正在跑的那条。返回是否真的取消了。没有进程时返回 false。 */
   cancelBtw(taskId: TaskId, recordId?: string): Promise<boolean>;
-  /** 旁路提问记录（新到旧，含追问；get_btw_history，历史随会话落盘）。没有进程时返回主进程已知的部分，不拉起 omp。 */
+  /** 旁路提问记录（新到旧，含追问；历史随会话落盘）。没有进程时返回主进程已知的部分，不拉起 omp。 */
   getBtw(taskId: TaskId): Promise<BtwHistoryRecord[]>;
 
   // 账号和模型（走服务进程）
@@ -1189,8 +1113,6 @@ export interface StudioInvokeApi {
   setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
   setNotifyOnGate(on: boolean): Promise<void>;
   setCopyOnSelect(on: boolean): Promise<void>;
-  /** 新任务用哪个引擎（已有任务不变）：rpc = `omp --mode rpc-ui`，tsp = 伪终端里的交互式 omp。 */
-  setTaskEngine(engine: TaskEngine): Promise<void>;
   /** 记下用户已经确认过"全部自动"，之后选它不再弹确认。 */
   setYoloConfirmed(): Promise<void>;
   /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值；读不到（没登录、没有可用模型）时为 null。 */
@@ -1259,7 +1181,6 @@ export interface StudioEventPayloads {
   taskRemoved: TaskId;
   /** 点了"等你确认"系统通知：主进程已聚焦窗口，渲染进程切到这个任务（selectTask）。 */
   focusTask: TaskId;
-  transcript: TranscriptBatch;
   tspBatch: TspBatch;
   taskNotice: TaskNotice;
   login: LoginEvent;
@@ -1267,14 +1188,12 @@ export interface StudioEventPayloads {
   settings: StudioSettings;
   /** 用户把文件夹拖进了窗口，主进程已把它加入项目。 */
   projectDropped: Project;
+  /** 用户把文件拖进了输入框 / 粘贴了文件：preload 取到路径交给主进程，主进程校验是普通文件后登记并推送（渲染进程拿不到路径）。 */
+  composerFilesAdded: ComposerFile[];
   /** 新任务实际会用的默认模型变了（在 omp 设置里改了 modelRoles、defaultThinkingLevel 等）；null = 读不到。 */
   defaultModel: DefaultModelInfo | null;
   /** 主进程自己改了 omp 的设置（启动时 goal.continuationModes 的默认值）；设置页静默重读。 */
   ompConfigChanged: { key: string };
-  /** omp 的可用斜杠命令变了（available_commands_update）。 */
-  slashCommands: { taskId: TaskId; commands: AvailableSlashCommand[] };
-  /** 任务的子代理泳道变了（整份快照，主进程合并过高频的 progress 帧）。 */
-  subagents: { taskId: TaskId; lanes: SubagentLane[] };
   /** 旁路提问的变化：新记录 / 生命周期变化（整条记录）、流式增量、整份对齐。 */
   btw: { taskId: TaskId; event: BtwUiEvent };
   /** 终端输出（主进程已按 ~16ms 合并）。 */
@@ -1310,9 +1229,16 @@ export const eventChannel = <K extends keyof StudioEventPayloads>(name: K) => `s
  */
 export const dropFolderChannel = "studio:dropFolder";
 
+/**
+ * 拖入 / 粘贴到输入框的文件：同 dropFolderChannel，路径只在 preload 里取。载荷 `{ paths, paste }`；主进程把普通文件登记成 ComposerFile 并推送
+ * composerFilesAdded，返回其余路径（目录等，只有粘贴时用得上：preload 把它们当文字插进输入框，和终端一样）。
+ */
+export const composerFilesChannel = "studio:composerFiles";
+
 export const limits = {
   titleMaxChars: 200,
   promptMaxImages: 8,
+  promptMaxFiles: 20,
   apiKeyMaxChars: 4096,
   /** 一次 writeTerminal 的最大字符数（粘贴大段文本时界面分块发）。 */
   terminalInputMaxChars: 65_536,
@@ -1320,8 +1246,6 @@ export const limits = {
   terminalHeightRange: [120, 4000],
   urlMaxChars: 8192,
   maxLiveProcessesRange: [2, 16],
-  /** 一条 `!命令` 的最大字符数。 */
-  bashCommandMaxChars: 16_384,
   /** `/goal` 的目标文字最大字符数。 */
   goalObjectiveMaxChars: 4_096,
 } as const;
@@ -1349,7 +1273,6 @@ export const invokeNames = {
   listTasks: true,
   createTask: true,
   openTask: true,
-  getTranscript: true,
   getTspSnapshot: true,
   getTspTurnCosts: true,
   getTspSessionExtras: true,
@@ -1358,10 +1281,7 @@ export const invokeNames = {
   resizeTsp: true,
   markTaskRead: true,
   sendPrompt: true,
-  removeQueuedMessage: true,
-  promoteQueuedMessage: true,
   stopTask: true,
-  respondDialog: true,
   renameTask: true,
   archiveTask: true,
   restartTask: true,
@@ -1385,13 +1305,12 @@ export const invokeNames = {
   listSlashCommands: true,
   getDrafts: true,
   saveDraft: true,
+  pickComposerFiles: true,
   compactTask: true,
   runTaskCommand: true,
   runBuiltin: true,
   exportTaskHtml: true,
   revealTaskExport: true,
-  runBash: true,
-  abortBash: true,
   taskGoal: true,
   openTaskFile: true,
   revealTaskFile: true,
@@ -1410,13 +1329,9 @@ export const invokeNames = {
   resizeTerminal: true,
   closeTerminal: true,
   rekeyTerminal: true,
-  getSubagents: true,
   askBtw: true,
   cancelBtw: true,
   getBtw: true,
-  getSubagentDetail: true,
-  steerSubagent: true,
-  cancelSubagent: true,
   getTspSubagentRecord: true,
   steerTspSubagent: true,
   killTspSubagent: true,
@@ -1460,7 +1375,6 @@ export const invokeNames = {
   setEnterWhileRunning: true,
   setNotifyOnGate: true,
   setCopyOnSelect: true,
-  setTaskEngine: true,
   setYoloConfirmed: true,
   getDefaultModel: true,
   getStartupSnapshot: true,
@@ -1499,17 +1413,15 @@ export const eventNames = {
   taskState: true,
   taskRemoved: true,
   focusTask: true,
-  transcript: true,
   tspBatch: true,
   taskNotice: true,
   login: true,
   ompStatus: true,
   settings: true,
   projectDropped: true,
+  composerFilesAdded: true,
   defaultModel: true,
   ompConfigChanged: true,
-  slashCommands: true,
-  subagents: true,
   btw: true,
   updateState: true,
   terminalData: true,

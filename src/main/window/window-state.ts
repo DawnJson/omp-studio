@@ -6,9 +6,11 @@ import { historyOrders, limits, type ShellState } from "../../shared/ipc.ts";
 import { parseBoolean, parseInteger, parseOneOf, parseRecord } from "../ipc/validate.ts";
 import { readJsonFile, writeJsonFileAtomic } from "../settings/json-file.ts";
 
-export const sidebarWidthRange = [220, 360] as const;
+export const sidebarWidthRange = [200, 360] as const;
+/** 2026-10-21 起默认 240；264 是旧默认值，磁盘上存着 264 的人从没拖过，按新默认处理。 */
+const legacyDefaultSidebarWidth = 264;
 const defaultShellState: ShellState = {
-  sidebarWidth: 264,
+  sidebarWidth: 240,
   sidebarCollapsed: false,
   terminalHeight: 280,
   historyOrder: "folder",
@@ -76,7 +78,8 @@ function load(): PersistedState {
   const raw = record["shell"] === undefined ? {} : parseShellRecord(record["shell"]);
   // 字段各自校验：旧文件缺字段或某一项越界，只影响那一项。
   try {
-    shell.sidebarWidth = parseInteger(raw["sidebarWidth"], "sidebarWidth", ...sidebarWidthRange);
+    const stored = parseInteger(raw["sidebarWidth"], "sidebarWidth", ...sidebarWidthRange);
+    if (stored !== legacyDefaultSidebarWidth) shell.sidebarWidth = stored;
   } catch {
     // 保留默认值。
   }

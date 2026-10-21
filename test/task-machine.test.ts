@@ -7,7 +7,7 @@ import {
   type MachineState,
 } from "../src/main/tasks/task-machine.ts";
 
-const select: DialogRequest = { id: "d1", kind: "select", title: "t", options: [{ label: "a" }], approval: false };
+const select: DialogRequest = { id: "d1", kind: "confirm", title: "t", message: "m" };
 const confirm: DialogRequest = { id: "d2", kind: "confirm", title: "t", message: "m" };
 const exited: TaskError = { kind: "exited", message: "omp exited with code 1" };
 
@@ -19,7 +19,6 @@ const running = run([{ type: "agent_start" }], idle);
 const settledResult: MachineInput = {
   type: "prompt_result",
   status: "completed",
-  sessionSettled: true,
   at: 5,
   foreground: true,
 };
@@ -42,23 +41,23 @@ describe("task 状态机：转换表（用户看到的任务状态）", () => {
     expect(again.error).toBeNull();
   });
 
-  it("prompt 被接受进入 running；agentInvoked=false（本地斜杠命令）不进 running", () => {
-    expect(run([{ type: "prompt_accepted", agentInvoked: true }], idle).status).toBe("running");
-    expect(run([{ type: "prompt_accepted", agentInvoked: false }], idle).status).toBe("idle");
-  });
-
-  it("后台任务唤醒 agent（没有 prompt）时 agent_start 也进 running", () => {
+  it("agent_start 进 running（用户发消息、后台任务唤醒 agent 都一样）", () => {
     expect(running.status).toBe("running");
   });
 
-  it("prompt 应答失败：留在原状态，记 lastTurn=error（侧栏错误色），markRead 之后清除", () => {
-    const rejected = run([{ type: "prompt_rejected", message: "boom", at: 7 }], idle);
-    expect(rejected.status).toBe("idle");
-    expect(rejected.lastTurn).toMatchObject({ status: "error", endedAt: 7 });
-    expect(transition(rejected, { type: "mark_read" }).lastTurn).toBeNull();
+  it("一轮出错结束：lastTurn=error（侧栏错误色），markRead 之后清除", () => {
+    const failedTurn = transition(running, {
+      type: "prompt_result",
+      status: "error",
+      error: { message: "boom", retryable: false },
+      at: 7,
+      foreground: true,
+    });
+    expect(failedTurn.lastTurn).toMatchObject({ status: "error", endedAt: 7 });
+    expect(transition(failedTurn, { type: "mark_read" }).lastTurn).toBeNull();
   });
 
-  it("prompt_result(sessionSettled=true) 直接 idle 并写 lastTurn；前台任务不置 unread", () => {
+  it("prompt_result 直接 idle 并写 lastTurn；前台任务不置 unread", () => {
     const done = transition(running, settledResult);
     expect(done.status).toBe("idle");
     expect(done.lastTurn).toEqual({ status: "completed", endedAt: 5 });
@@ -73,18 +72,11 @@ describe("task 状态机：转换表（用户看到的任务状态）", () => {
     expect(read.lastTurn?.status).toBe("completed");
   });
 
-  it("prompt_result(sessionSettled=false) 仍是 running，直到 session_settled（后台任务还能唤醒 agent）", () => {
-    const pending = transition(running, { ...settledResult, sessionSettled: false } as MachineInput);
-    expect(pending.status).toBe("running");
-    expect(transition(pending, { type: "session_settled" }).status).toBe("idle");
-  });
-
   it("prompt 失败的结局（error）：任务回到 idle，lastTurn 带错误详情", () => {
     const failedTurn = transition(running, {
       type: "prompt_result",
       status: "error",
       error: { message: "401", retryable: false },
-      sessionSettled: true,
       at: 9,
       foreground: true,
     });
@@ -92,14 +84,14 @@ describe("task 状态机：转换表（用户看到的任务状态）", () => {
     expect(failedTurn.lastTurn?.error?.message).toBe("401");
   });
 
-  it("有未答对话框一定是 needs_you，全部答完且仍在跑回 running，已 settled 回 idle", () => {
+  it("有未答的门一定是 needs_you，全部答完且仍在跑回 running，这一轮已结束回 idle", () => {
     const one = transition(running, { type: "dialog_open", request: select });
     const two = transition(one, { type: "dialog_open", request: confirm });
     expect(two.status).toBe("needs_you");
     const afterFirst = transition(two, { type: "dialog_close", id: "d1" });
     expect(afterFirst.status).toBe("needs_you");
     expect(transition(afterFirst, { type: "dialog_close", id: "d2" }).status).toBe("running");
-    // 审批答完之前这一轮已经 settled（例如被 cancel 后中止）：回 idle。
+    // 门答完之前这一轮已经结束（例如被中止）：门全部关掉后回 idle。
     const settledWhileWaiting = transition(two, settledResult);
     expect(settledWhileWaiting.status).toBe("needs_you");
     const answered = transition(transition(settledWhileWaiting, { type: "dialog_close", id: "d1" }), {
@@ -109,17 +101,17 @@ describe("task 状态机：转换表（用户看到的任务状态）", () => {
     expect(answered.status).toBe("idle");
   });
 
-  it("idle 时来的对话框（极少见）也是 needs_you；omp 发 cancel 后对话框消失", () => {
+  it("idle 时来的门（极少见）也是 needs_you；门消失后回 idle", () => {
     const waiting = transition(idle, { type: "dialog_open", request: select });
     expect(waiting.status).toBe("needs_you");
     expect(transition(waiting, { type: "dialog_close", id: "d1" }).status).toBe("idle");
   });
 
-  it("对不上的 dialog_close（已被 cancel 的对话框收到迟到的应答）不改变状态", () => {
+  it("对不上的 dialog_close不改变状态", () => {
     expect(transition(running, { type: "dialog_close", id: "ghost" })).toBe(running);
   });
 
-  it("同一 id 的对话框重复到达只保留一份", () => {
+  it("同一 id 的门重复到达只保留一份", () => {
     const twice = run(
       [
         { type: "dialog_open", request: select },
@@ -130,7 +122,7 @@ describe("task 状态机：转换表（用户看到的任务状态）", () => {
     expect(twice.dialogs).toHaveLength(1);
   });
 
-  it("进程意外退出：任何存活状态都进 error，清空对话框，保留 kind", () => {
+  it("进程意外退出：任何存活状态都进 error，清空门，保留 kind", () => {
     const waiting = transition(running, { type: "dialog_open", request: select });
     const failed = transition(waiting, { type: "failed", error: exited });
     expect(failed).toMatchObject({ status: "error", dialogs: [], working: false, error: exited });
@@ -140,7 +132,7 @@ describe("task 状态机：转换表（用户看到的任务状态）", () => {
     expect(transition(running, { type: "stopped" })).toMatchObject({ status: "stopped", working: false });
   });
 
-  it("没有进程的状态不接收会话事件：stopped 收到 agent_start 或对话框保持 stopped", () => {
+  it("没有进程的状态不接收会话事件：stopped 收到 agent_start 或门保持 stopped", () => {
     const stopped = initialMachineState("stopped");
     expect(transition(stopped, { type: "agent_start" })).toBe(stopped);
     expect(transition(stopped, { type: "dialog_open", request: select })).toBe(stopped);

@@ -14,21 +14,18 @@ export const pluginsSlashCommands: readonly StudioSlashCommand[] = [
   {
     name: "plugins",
     descKey: "slash.pluginsDesc",
-    tsp: "studio",
     run: (_taskId, args, t) => openPlugins(args, t),
     draft: (args, t) => openPlugins(args, t),
   },
   {
     name: "marketplace",
     descKey: "slash.marketplaceDesc",
-    tsp: "studio",
     run: (_taskId, args, t) => openPlugins(args, t),
     draft: (args, t) => openPlugins(args, t),
   },
   {
     name: "reload-plugins",
     descKey: "slash.reloadPluginsDesc",
-    tsp: "studio",
     run: async (taskId, args, t) => {
       if (args !== "") throw new Error(t("slash.reloadPluginsArgs"));
       await window.studio.runTaskCommand(taskId, { kind: "reloadPlugins" });

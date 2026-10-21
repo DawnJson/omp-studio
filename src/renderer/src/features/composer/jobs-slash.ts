@@ -30,6 +30,5 @@ export async function runJobsSlash(taskId: TaskId, args: string, t: TFunction): 
 export const jobsSlash: StudioSlashCommand = {
   name: "jobs",
   descKey: "slash.jobsDesc",
-  tsp: "studio",
   run: runJobsSlash,
 };

@@ -5,12 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
-import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, screenshotsDir, testOmp, type LaunchedApp } from "./launch.ts";
 
-const root = path.resolve(import.meta.dirname, "..", "..");
-const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
-const fixture = path.join(root, "fixtures", "rpc", "bash-tool.ndjson");
-const simpleReply = path.join(root, "fixtures", "rpc", "simple-reply.ndjson");
 const bigCount = 1500;
 
 /** 页面里的元素：node 工程没有 DOM 类型，回调里只用到这几个成员。 */
@@ -26,7 +22,7 @@ interface Started {
   taskId: TaskId;
   /** `/add-dir` 要加的额外目录（空格和中文）。 */
   extra: string;
-  /** `start({ dirs: true })` 时 fake-omp 记下的、主进程写给 omp 的帧。 */
+  /** 假 omp 记下的、主进程写给它的 TSP 事件和按键（--log）。 */
   inputLog: string;
   cleanup(): Promise<void>;
 }
@@ -46,39 +42,53 @@ async function start(options: { dirs?: boolean } = {}): Promise<Started> {
   await Promise.all(
     Array.from({ length: bigCount }, (_, i) => writeFile(path.join(project, "big", `file-${i}.txt`), `${i}\n`)),
   );
-  // `/add-dir` 的额外目录（带空格和中文）和对应的回放录制：simple-reply 的握手部分 + 两条内置命令（Added / Removed，omp 18.12.5 实测原文）。
+  // `/add-dir` 的额外目录（带空格和中文）和对应的回放录制：slash-status 录制的握手部分 + 两条命令的 toast（Added / Removed，omp 18.12.5 实测原文）。
   const extra = path.join(work, "额外 目录");
   await mkdir(path.join(extra, "sub"), { recursive: true });
   await writeFile(path.join(extra, "额外 笔记.md"), "# 额外目录里的笔记\n");
-  const inputLog = path.join(work, "omp-input.ndjson");
+  const inputLog = path.join(work, "omp-input.jsonl");
   const listing = (...dirs: string[]) =>
     ["Workspace directories:", `  ${project} (working directory)`, ...dirs.map((dir) => `  ${dir}`)].join("\n");
-  const command = (id: string, text: string) => [
-    { kind: "in", frame: { type: "prompt", id } },
-    { kind: "out", frame: { type: "command_output", text } },
-    { kind: "out", frame: { type: "response", command: "prompt", id, success: true, data: { agentInvoked: false } } },
+  // omp 用同一个 toast 节点（id "u"）显示状态：第一条命令 add 它，第二条换文字；每条命令等收到和录制一样的 send 才回放。
+  const toast = (text: string) => ({ k: "toast", p: { text, ttl: 2400, role: "omp.toast.status" } });
+  const command = (t: number, seq: number, text: string, reply: string, first: boolean) => [
+    { t, dir: "in", verb: "e", body: { ev: "send", sf: "s:1", id: "j.line/input", text } },
+    {
+      t: t + 5,
+      dir: "out",
+      verb: "f",
+      body: {
+        sf: "s:1",
+        s: seq,
+        ops: [
+          first ? ["add", "u", "main", null, { id: "u", ...toast(reply) }] : ["set", "u", toast(reply).p],
+          ["settle", "u"],
+        ],
+      },
+    },
   ];
-  const handshake = (await readFile(simpleReply, "utf8"))
+  const handshake = (
+    await readFile(path.join(import.meta.dirname, "..", "..", "fixtures", "tsp", "slash-status.jsonl"), "utf8")
+  )
     .split("\n")
     .filter((line) => line.trim() !== "")
-    .map((line) => JSON.parse(line) as { kind: string; frame?: { type?: string } });
-  const firstPrompt = handshake.findIndex((entry) => entry.kind === "in" && entry.frame?.type === "prompt");
-  const dirsFixture = path.join(work, "dirs.ndjson");
+    .map((line) => JSON.parse(line) as { dir: string; t: number; body: { ev?: string } });
+  const firstSend = handshake.findIndex((entry) => entry.dir === "in" && entry.body.ev === "send");
+  const kept = handshake.slice(0, firstSend);
+  const last = kept.at(-1)?.t ?? 0;
+  const dirsFixture = path.join(work, "dirs.jsonl");
   await writeFile(
     dirsFixture,
     [
-      ...handshake.slice(0, firstPrompt),
-      ...command("p-add", `Added ${extra}.\n${listing(extra)}`),
-      ...command("p-remove", `Removed ${extra}.\n${listing()}`),
+      ...kept,
+      ...command(last + 10, 4, `/add-dir ${extra}`, `Added ${extra}.\n${listing(extra)}`, true),
+      ...command(last + 30, 5, `/remove-dir ${extra}`, `Removed ${extra}.\n${listing()}`, false),
     ]
       .map((entry) => JSON.stringify(entry))
       .join("\n") + "\n",
   );
   const launched = await launchApp({
-    STUDIO_TEST_OMP: JSON.stringify({
-      command: process.execPath,
-      args: options.dirs ? [fakeOmp, dirsFixture, inputLog] : [fakeOmp, fixture],
-    }),
+    STUDIO_TEST_OMP: options.dirs ? testOmp(dirsFixture, { log: inputLog }) : testOmp("slash-status"),
   });
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
@@ -411,9 +421,9 @@ test("工作区目录：添加文件夹（空格和中文）→ 额外根出现�
     const sent = (await readFile(inputLog, "utf8"))
       .split("\n")
       .filter((line) => line.trim() !== "")
-      .map((line) => JSON.parse(line) as { type?: string; message?: string })
-      .filter((frame) => frame.type === "prompt")
-      .map((frame) => frame.message);
+      .map((line) => JSON.parse(line) as { kind?: string; body?: { ev?: string; text?: string } })
+      .filter((record) => record.kind === "tsp" && record.body?.ev === "send")
+      .map((record) => record.body?.text);
     expect(sent).toEqual([`/add-dir ${extra}`, `/remove-dir ${extra}`]);
   } finally {
     await cleanup();

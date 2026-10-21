@@ -23,7 +23,6 @@ export const plugins = {
   scope: "范围",
   "install.scope": "安装到",
   "install.projectNote": "这次安装只对所选项目生效，文件放在项目的 .omp 目录里。",
-  "enabled.label": "启用 {name}",
   details: "详情",
   "details.hide": "收起",
   upgrade: "升级",

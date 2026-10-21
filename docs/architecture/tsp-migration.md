@@ -1,6 +1,6 @@
 # 从 rpc-ui 迁到 TSP
 
-> 状态:**已确认**(2026-10-20)。仓库所有者定了方向"改成 TSP:伪终端里跑交互式 omp",第 6 节三项取舍按推荐答案确认。这份文档记实测结果、要改的范围和已定的取舍。
+> 状态:**已完成**。仓库所有者 2026-10-20 定了方向"改成 TSP:伪终端里跑交互式 omp",第 6 节三项取舍按推荐答案确认;**rpc 任务引擎已在 0.3.26 删除(§11)**,所有任务都是 TSP。这份文档是迁移记录:正文里写到 rpc 任务、`TaskRunner`、`TaskRecord.engine`、`taskEngine`、"两种引擎"的地方,描述的是迁移期间的状态,现行行为以 §11 和 `docs/design/spec.md` 为准。`--mode rpc-ui` 只剩服务进程(登录、模型列表、斜杠命令列表、内置命令)和项目 rpc-ui 池。
 
 ## 1. TSP 是什么
 
@@ -75,7 +75,7 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 |---|---|
 | 1. 改动卡片(本轮改了哪些文件 +N -M、打开评审) | **保留**,改为按 git 状态计算;2026-10-20 再定:过程区只放 omp 的内容,改动摘要移到输入框上方的一行"改动条";2026-10-21 撤销:有评审视图了,改动条删掉,TSP 任务不再有改动摘要,评审入口是顶栏评审按钮、提交对话框里的"评审改动"、`Ctrl Shift D`、命令面板 |
 | 2. 设置页的登录、账号、默认模型,新任务草稿的模型下拉 | **保留后台 omp**:无会话的 rpc-ui 服务进程只给这两处用,界面不变;任务对话全走 TSP |
-| 3. 切换方式 | **并存**:设置里能切回 rpc-ui;TSP 路径的功能和测试对齐后,在同一个大版本里删掉 rpc-ui 任务路径(服务进程保留) |
+| 3. 切换方式 | ~~并存~~ **已删除 rpc 任务引擎**(仓库所有者 2026-10-21 批准,0.3.26):设置里的"新任务的引擎"和 `setTaskEngine` IPC 去掉,`TaskRecord.engine` / `TaskState.engine` 去掉;服务进程(`--mode rpc-ui`,登录/模型列表/斜杠命令列表/内置命令)和项目 rpc-ui 池保留。老记录迁移见 §11 |
 
 ## 7. 主进程实现(TSP 引擎)
 
@@ -86,7 +86,8 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 - **ack / error**:每个数据块处理完,对块内每个 surface 回一次最高帧号的 `ack`(规范:ack 覆盖此前所有帧);被拒的 op 回 `{"ev":"error","sf","s","op","msg"}`,整帧被丢没有 `op`;JSON 坏了回 `malformed <verb> body`;分块被打断回 `chunked … dropped: interrupted`。
 - **批次**:消息应用到主进程的 `TspDocument` 后按 16ms 合批,序号 = 已应用消息数;`snapshot()` 先把待发批次推出去再取文档。进程换了(回收后再打开)序号接在上一个进程之后并空一位,渲染进程发现不连续就重取快照,不会把新进程的消息接在旧文档上。
 - **状态推导**(`task-status.ts`,依据是 `fixtures/tsp/{task,approval,ask}.jsonl` 逐帧,`test/tsp-task-status.test.ts`):`dock` 里有 role 以 `omp.editor.ask` 开头的节点 = `needs_you`(提问 `omp.editor.ask`、审批 `omp.editor.ask.approval`;提问时 composer 被换掉但运行状态行还在);`dock` 里有 `omp.working` / `omp.working.stop` / `omp.composer.stop` = `running`(发出消息那一帧出现,回合结束那一帧消失);否则 `idle`。主区里的 spinner 和 `omp.hud.activity`(待办面板,回合结束后还在)不可靠,不用。回收判据另外要求没有 `pending`/`running` 的 `tool`/`agent` 卡片(转到后台的任务)。
-- **待办**(`shared/tsp/todos.ts`,依据 `fixtures/tsp/task.jsonl`,`test/tsp-todos.test.ts`,omp 18.12.3):dock 里 `omp.hud.activity` 行中 role `omp.hud.todo` 的 `checklist`(`mode:"hud"`)就是当前待办:todo 工具第一次写入时出现(帧 27),之后每次调用整体更新 `p.phases`,回合结束的最后一帧(145)随 omp 的清理消失。阶段标题带罗马数字前缀(`I. Inspect`,工具卡片里的 `omp.tool.todo` 没有),状态 `pending/active/done/dropped/blocked`。`TspRunner#syncComposer` 每次文档变化时换算成 rpc 的 `TodoPhase[]` 放进 `TaskState.todoPhases`(变了才发布),`Composer` 的 `TspTodoBar` 画待办板,HUD 药丸不画。只认 HUD、不回退到工具卡片:否则 omp 清理之后会把旧待办复活。
+- **待办**(`shared/tsp/todos.ts`,依据 `fixtures/tsp/task.jsonl`,`test/tsp-todos.test.ts`,omp 18.12.3):dock 里 `omp.hud.activity` 行中 role `omp.hud.todo` 的 `checklist`(`mode:"hud"`)就是当前待办:todo 工具第一次写入时出现(帧 27),之后每次调用整体更新 `p.phases`,回合结束的最后一帧(145)随 omp 的清理消失。阶段标题带罗马数字前缀(`I. Inspect`,工具卡片里的 `omp.tool.todo` 没有),状态 `pending/active/done/dropped/blocked`。`TspRunner#syncComposer` 每次文档变化时换算成 `TodoPhase[]` 放进 `TaskState.todoPhases`(变了才发布),输入框上方的 `ComposerTop`(`features/composer/ComposerTop.tsx`)在状态行右端画待办板,HUD 药丸不画。只认 HUD、不回退到工具卡片:否则 omp 清理之后会把旧待办复活。
+- **输入框上方的 HUD 全部由 studio 自己画**(2026-10-21,omp 18.12.5 实测,`test/tsp-working.test.ts`):dock 里 `omp.hud`(`omp.hud.pill` 下的 `omp.hud.seg`:作业胶囊 `▷ N`、子代理胶囊 `👥 N`)和 `omp.hud.activity`(`omp.hud.status` 下的运行状态行 `omp.working` = spinner + `elapsed` + `omp.working.sep` + `omp.working.label` + 带 Stop 键帽的 `omp.working.stop`,偶发的 `omp.loader`;待办药丸 `omp.hud.todo`)不渲染(`HIDDEN_HUD_ROLES`)。取代它们的是 `ComposerTop`:药丸 `[👥 N | ⚡ N]`(子代理数 = `countActiveAgents`,作业数 = 运行中的 bash 作业)、状态行(用时取 `TaskState.runStartedAt`,活动文字取 `deriveWorkingLabel` = `omp.working.label` 的 spans,没有时取 `omp.loader` 的文字)、待办板。运行状态仍由 `deriveTaskStatus` 判断(`omp.working` 在文档里),与是否渲染无关。
 - **会话文件**:`OSC 1337 SetUserVar=omp_session_file=<base64>` 在启动时就发了,这时文件还没落盘(第一条回复之后才写);所以只在文件存在时才记进任务,在回合结束、进程退出、关闭时重试。
 - **标题**:OSC 0/2 是 `<Nerd Font 图标> <标题>`,去掉私有区字符;`omp` 是没有标题时的占位。omp 的标题只在记录里的标题为空、是草稿第一句话临时取的、或是上一次采用的 omp 标题时才覆盖——用户改过名就不再动。**改名只改本地记录**:交互模式下没有从外部改会话名的入口(rpc 的 `set_session_name` 不存在),往输入框塞 `/rename` 会混进用户的草稿。
 - **通知**:不在 OSC 9/99 上发系统通知(omp 回合结束就发一条 `omp: Complete`,而窗口可见时不该通知);`needs_you` 和结束通知走 `GateNotifier` 的 TaskState 路径,等待中的任务有一个合成的 `dialogs[0]`(`kind: "confirm"`,标题取问题/审批标题的第一行)只为让它有内容可写。
@@ -108,14 +109,14 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 
 ## 9. 还没对齐的地方
 
-取舍 3 定的是"功能和测试对齐后再删 rpc-ui 任务路径",下面这些对齐之前不删:
+取舍 3 的前提(功能和测试对齐)已满足,rpc 任务路径已在 0.3.26 删除(§11);下面是当时的对齐清单:
 
 - ~~侧栏和标题栏用的上下文用量、费用、思考强度对 TSP 任务是空的~~ 已由 §10.2 解析(token 分项和请求数 omp 不给,仍是 0)。
 - ~~旁路提问(`/btw`)面板没有 TSP 版本~~ 已做(2026-10-21,`docs/architecture/tsp-btw.md`):omp 在 TSP 下把 `/btw` 画成 modal 弹窗,studio 读它的问答、不画它;话题 id 和历史读会话旁边的 `btw-history/`。
 - hello 没声明 `aside`、`styles`、`flow`:prefs 贴在面板旁、程序自带样式表、`flow` 模式的 surface 都不支持,omp 会退回不依赖它们的画法。
 - 停止 = 发 Esc;用户按过停止的那一轮 `lastTurn` 记为 `aborted`,哪怕之后 omp 又继续跑完(例如审批后)。
 - md 节点的 `marks`(用户消息里的芯片着色)、diff 的语法高亮、`editor` 的 `gutter` / `virt` / vim 样式、超过 200 项的 `list` 虚拟化没做;录制里只有 `marks` 出现过。
-- 依赖 rpc-ui 的现有 e2e 都固定跑 `taskEngine: "rpc"`(`test/e2e/launch.ts`),对应的 TSP 版本只有 `tsp.e2e.ts` 这三条。
+- ~~依赖 rpc-ui 的现有 e2e 固定跑 rpc~~ 已在 0.3.26 全部改成 fake-tsp-omp 回放(`test/e2e/launch.ts` 的 `testOmp`),rpc 专有界面的 e2e(`conversation`、`jobs`、`subagent-lanes`)随界面删除。
 
 ## 10. 混合形态:TSP 过程区 + studio 输入框(2026-10-20)
 
@@ -162,7 +163,7 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 
 运行中 `sendPrompt` 也直接 `send`,omp 自己排队/steer,`whenBusy` 忽略。**发送目标由 `shared/tsp/gate.ts` 的 `findMessageTarget` 定**(`#awaitComposer`):提问把输入框换掉(没有 `sendable` 的编辑器)、或有全屏面板开着(见 §10.7),`sendPrompt` 立刻 reject;切模型、切思考强度、斜杠命令在**审批在等**时也立刻 reject(它们不该顺手拒绝掉审批)。reject 的消息分别以 `composer_unavailable:`(`TSP_COMPOSER_UNAVAILABLE`)和 `screen_open:`(`TSP_SCREEN_OPEN`)开头(IPC 只带得过 message,渲染进程按它识别并显示"先回答 omp 的提问/审批"/"先关掉 omp 的面板"),不等 30 秒超时。**审批在等时 `sendPrompt` 照发**,见 §10.7。
 
-### 10.5 引擎统一
+### 10.5 引擎统一(已被 §11 取代:引擎只剩 TSP,下面是过渡期做法)
 
 `TaskRecord.engine` 不再"创建后不变":设置 `taskEngine === "tsp"` 时,**没有进程**的 `rpc` 任务在下次启动之前被改记成 `tsp`(持久化)再建 runner,于是用 `omp --resume=<sessionFile>` 起(没有会话文件就是新会话)。入口:应用启动时 `TaskPool.init`、已归档任务的恢复和历史会话 `resume`、分叉出的新任务、以及设置在运行期间被改后的 `openTask` / `restartTask` / `sendPrompt`(`#runnerForStart` 把没进程的 rpc runner 换成 tsp runner,同 id)。正在运行的 rpc 任务不动,结束或回收后下次启动才换。设置是 `rpc` 时一切照旧。
 
@@ -205,7 +206,7 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 
 ### 10.8 后台作业(2026-10-21,omp 18.12.5,S2Jobs)
 
-纯函数 `src/shared/tsp/jobs.ts`(`test/tsp-jobs.test.ts`,录制 `jobs-chart` / `hub-steer` / `jobs-kill`),渲染进程 `features/composer/{tsp-jobs-store,TspJobsBar,TspJobActions,jobs-slash}`。
+纯函数 `src/shared/tsp/jobs.ts`(`test/tsp-jobs.test.ts`,录制 `jobs-chart` / `hub-steer` / `jobs-kill`),渲染进程 `features/composer/{tsp-jobs-store,StatusPills,JobsBoard,TspJobActions,jobs-slash}`(药丸 `⚡ N` 只数运行中的 bash 作业,点开 `JobsBoard` 只列 bash 作业;子代理在子代理面板)。
 
 - **作业在文档里的两处**(role 是 omp 自己的命名,不是规范):hud 作业胶囊 `omp.hud.seg`(`actions.click = "jobs.open"`),**只在有作业运行中时存在**,`title` = `"2 jobs running  /jobs\n<id>  <标题>\n…"`(第一行之后每行一个作业,id 和标题间两个空格;bash 的 id 是 `bg_N`,子代理作业的 id 就是子代理名,同名有 `agent` 节点);`/jobs` 弹窗 `omp.overlay.jobs` 里 `omp.jobs.master` 下的 `list`,每个 `item` 的 `title` 第二行是 `<Running|Done|Failed|Cancelled> · <bash|…> · <id>`,`value` 是时长(`43.9s`、`305ms`)。弹窗里状态最全,但只有它开着时在文档里;子代理自己起的 bash 作业(如 `bg_2`)也列在里面,`label` 的 span 带 `└─ ` 前缀,标题第一行是纯命令。
 - **合并**:`mergeTspJobs` 把每次的快照并进已知作业:开始时间沿用第一次看到的;已知运行中而快照里没了 → 子代理按 `agent` 节点(`done` / `failed` / `aborted`),其余记为完成;弹窗里的状态覆盖推断。结束动作成功后 `markJobsCancelled`。
@@ -234,3 +235,9 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 - 服务进程:`src/main/service/{service-omp,default-model,login}.ts`,`src/main/ipc/account-handlers.ts`。
 - 渲染:`features/{conversation,composer,dialogs,lanes,btw,goal}`,`store/{transcript,lanes,btw}-store.ts`,`shared/{transcript,subagents,btw}.ts`。
 - 测试:`fixtures/rpc/`、`test/fake-omp/`、`scripts/{record-rpc,update-rpc-wire}.ts`,约 27 个 vitest 文件,e2e 的 `conversation`、`subagent-lanes`、`jobs`、`main-ui`、`clipboard`、`review`、`tray`、`terminal`、`file-preview`、`git-worktree`、`model-picker`、`custom-models`。
+
+## 11. rpc 任务引擎已删除(0.3.26,仓库所有者 2026-10-21 批准)
+
+- **删掉的**:`tasks/{task-runner,translate,event-batcher,dialogs,subagent-tracker,subagent-record,session-extras,goal-state}.ts`、`omp/session-init.ts`、`ipc/subagent-handlers.ts`、`scripts/record-rpc.ts`(`npm run rpc:record`)、`fixtures/rpc/`(只留 `bash-tool.ndjson`,给 `OmpConnection` 的单测)、渲染进程的 `ConversationView` 及其过程行 / 门(`Gate*`)/ 泳道(`lanes`)/ 队列条 / 状态栏、`store/{transcript,lanes}-store`、设置里的"新任务的引擎"、IPC `getTranscript / removeQueuedMessage / promoteQueuedMessage / respondDialog / runBash / abortBash / getSubagents / getSubagentDetail / steerSubagent / cancelSubagent / setTaskEngine` 和事件 `transcript / slashCommands / subagents`。`TaskState` 去掉 `engine / queue / runningSubagents / usageLimit / tokensPerSecond / contextParts`,`DialogRequest` 只剩 TSP 合成的 `confirm`,`TaskNotice` 只剩 `goal_complete`。评审的"改动说明"页签(读 rpc 对话流)一并删除。
+- **保留的**:`serviceOmp`、`service/project-omp.ts`、`omp/omp-connection.ts`(rpc-ui 客户端)、`rpc-wire.generated.ts` 和 `npm run rpc:update-wire`、`test/fake-omp/fake-omp.ts`(只给连接 / 服务进程的单测)。子代理面板(`features/agents`)的记录视图还用 `conversation/{ProcessDetails,ToolViews,model,tool-view}` 和 `shared/transcript.ts` 渲染子代理的会话记录。
+- **老任务迁移**:`TaskRegistry.load` 把每条记录的 `engine` 字段(`rpc` / `tsp` / 没有)丢掉,其余原样保留(会话文件、标题、模型、归档状态、`updatedAt`);下次保存时落盘。所有任务打开时都是 `omp --resume=<sessionFile>`(没有会话文件就是新会话)。测试:`test/task-registry.test.ts`(迁移)、`test/task-tsp.test.ts`"rpc 引擎时代的老任务"。设置文件里残留的 `taskEngine` 会在下次写设置时被丢掉(`sanitize` 只认已知字段)。

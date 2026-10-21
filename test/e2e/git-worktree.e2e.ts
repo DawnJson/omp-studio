@@ -1,4 +1,4 @@
-// 阶段 4 worktree 与 git 操作的端到端：真实临时仓库（路径含空格和中文）+ 假 omp 回放。
+// 阶段 4 worktree 与 git 操作的端到端：真实临时仓库（路径含空格和中文）+ 假 omp 回放（fake-tsp-omp，伪终端里）。
 // 覆盖：工作树胶囊 → 任务在 worktree 里运行 → 提交对话框 → 合并回基分支 → 推送到本地裸仓库 → 丢弃确认 → 清理无主 worktree；
 // 冲突 / 被拒绝的合并；不是 git 仓库时没有胶囊，空仓库时胶囊禁用。中英 × 深浅截图到 screenshots/。
 import { execFileSync, spawnSync } from "node:child_process";
@@ -8,17 +8,13 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { findOmp, makeRepo, put, sh } from "../git-helpers.ts";
-import { expandSidebarFolders, launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
-
-const root = path.resolve(import.meta.dirname, "..", "..");
-const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
-const fixture = path.join(root, "fixtures", "rpc", "simple-reply.ndjson");
+import { expandSidebarFolders, launchApp, screenshotsDir, testOmp, type LaunchedApp } from "./launch.ts";
 
 interface Session {
   launched: LaunchedApp;
   page: Page;
   work: string;
-  /** fake-omp 每次启动记下的工作目录。 */
+  /** 假 omp 每次启动记下的工作目录。 */
   cwdFile: string;
   cleanup(): Promise<void>;
 }
@@ -41,7 +37,7 @@ async function start(prepare: (work: string) => Promise<string>): Promise<Sessio
   const launched = await launchApp({
     ...ompEnv(work),
     STUDIO_TEST_WORKTREE_OMP: realOmp ?? "",
-    STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }),
+    STUDIO_TEST_OMP: testOmp("slash-status"),
     FAKE_OMP_CWD_FILE: cwdFile,
   });
   const { page } = launched;
@@ -127,7 +123,7 @@ async function createTaskFromDraft(
   await page.getByTestId("composer-input").fill(text);
   await page.keyboard.press("Enter");
   if (setup === "confirm") await page.getByTestId("git-setup-confirm").click();
-  const conversation = page.getByTestId("conversation");
+  const conversation = page.getByTestId("tsp-view");
   await expect(conversation).toBeVisible();
   const taskId = await conversation.getAttribute("data-task-id");
   expect(taskId).toBeTruthy();
@@ -354,12 +350,12 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
     await expect(page.getByTestId("worktree-chip")).toHaveCount(0);
     await page.getByTestId("composer-input").fill("普通目录里的任务");
     await page.keyboard.press("Enter");
-    await expect(page.getByTestId("conversation")).toBeVisible();
+    await expect(page.getByTestId("tsp-view")).toBeVisible();
     await expect(page.getByTestId("task-row-worktree")).toHaveCount(0);
     await expect(page.getByTestId("topbar-terminal")).toBeVisible();
     await expect(page.getByTestId("git-menu")).toHaveCount(0);
     await expect(page.getByTestId("topbar-review")).toHaveCount(0);
-    const plainTaskId = await page.getByTestId("conversation").getAttribute("data-task-id");
+    const plainTaskId = await page.getByTestId("tsp-view").getAttribute("data-task-id");
 
     // 再开一个 git 仓库里的任务：顶栏有分支按钮。
     await launched.app.evaluate(({ dialog }, dir) => {
@@ -381,7 +377,7 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
       const state = { seen: 0, stop: false };
       g.__gitFrames = state;
       const tick = () => {
-        const onPlain = g.document.querySelector(`[data-testid="conversation"][data-task-id="${plainId}"]`) !== null;
+        const onPlain = g.document.querySelector(`[data-testid="tsp-view"][data-task-id="${plainId}"]`) !== null;
         if (onPlain && g.document.querySelector('[data-testid="git-menu"], [data-testid="topbar-review"]') !== null)
           state.seen++;
         if (!state.stop) g.requestAnimationFrame(tick);
@@ -395,7 +391,7 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
       .filter({ hasText: "普通目录里的任务" })
       .locator(".sb-row-main")
       .click();
-    await expect(page.getByTestId("conversation")).toHaveAttribute("data-task-id", plainTaskId as string);
+    await expect(page.getByTestId("tsp-view")).toHaveAttribute("data-task-id", plainTaskId as string);
     await page.waitForTimeout(800);
     const seen = await page.evaluate(() => {
       const g = globalThis as unknown as { __gitFrames: { seen: number; stop: boolean } };
@@ -431,7 +427,7 @@ test("仓库还没有提交：胶囊在，创建被拒绝后胶囊禁用并写�
     await shoot(page, "chip-blocked");
 
     await page.keyboard.press("Enter");
-    await expect(page.getByTestId("conversation")).toBeVisible();
+    await expect(page.getByTestId("tsp-view")).toBeVisible();
     await expect(page.getByTestId("task-row-worktree")).toHaveCount(0);
   } finally {
     await session.cleanup();

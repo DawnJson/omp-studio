@@ -3,7 +3,13 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { parseSubagentMessages, readSubagentRecord, subagentPaths } from "../src/main/tsp/subagent-file.ts";
+import { subagentLimits } from "../src/shared/subagents.ts";
+import {
+  parseSubagentMessages,
+  readSubagentRecord,
+  subagentPaths,
+  trimSubagentMessages,
+} from "../src/main/tsp/subagent-file.ts";
 
 let scratch: string;
 let sessionFile: string;
@@ -76,5 +82,25 @@ describe("readSubagentRecord", () => {
     const bad = await readSubagentRecord(sessionFile, "../x");
     expect(bad.unavailable).toBe("error");
     expect(bad.error).toContain("invalid subagent name");
+  });
+});
+
+describe("trimSubagentMessages", () => {
+  it("条数超限时留最近的并标记截断", () => {
+    const messages = Array.from({ length: subagentLimits.detailMessages + 3 }, (_, i) => ({ i }));
+    const out = trimSubagentMessages(messages);
+    expect(out.truncated).toBe(true);
+    expect(out.messages).toHaveLength(subagentLimits.detailMessages);
+    expect(out.messages[0]).toEqual({ i: 3 });
+  });
+  it("大小超限时从前面丢", () => {
+    const big = "x".repeat(subagentLimits.detailBytes / 2 + 1);
+    const out = trimSubagentMessages([{ big }, { big }, { small: 1 }]);
+    expect(out.truncated).toBe(true);
+    expect(out.messages.at(-1)).toEqual({ small: 1 });
+    expect(out.messages.length).toBeLessThan(3);
+  });
+  it("没超限原样返回", () => {
+    expect(trimSubagentMessages([1, 2])).toEqual({ messages: [1, 2], truncated: false });
   });
 });

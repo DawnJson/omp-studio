@@ -5,7 +5,7 @@ import { runToggleSlash } from "./toggle-actions.ts";
 import type { ToggleSlashName } from "./toggle-slash.ts";
 
 function row(name: ToggleSlashName, descKey: StudioSlashCommand["descKey"]): StudioSlashCommand {
-  return { name, descKey, tsp: "studio", run: (taskId, args, t) => runToggleSlash(taskId, name, args, t) };
+  return { name, descKey, run: (taskId, args, t) => runToggleSlash(taskId, name, args, t) };
 }
 
 export const toggleSlashCommands: readonly StudioSlashCommand[] = [

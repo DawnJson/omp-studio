@@ -14,7 +14,7 @@ const STATUS_KEY: Record<AgentStatus, MessageKey> = {
 
 export const statusKey = (status: AgentStatus): MessageKey => STATUS_KEY[status];
 
-/** 复用泳道的状态点样式（lanes.css）：运行 / 等待 = 呼吸点，失败 = 红，被结束 = 虚线，其余 = 空心。 */
+/** 状态点样式（agents.css 的 .lane-dot）：运行 / 等待 = 呼吸点，失败 = 红，被结束 = 虚线，其余 = 空心。 */
 export function dotStatus(status: AgentStatus): "running" | "failed" | "aborted" | "completed" {
   if (status === "running" || status === "pending") return "running";
   if (status === "failed") return "failed";

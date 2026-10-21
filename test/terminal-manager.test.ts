@@ -57,7 +57,11 @@ function setup(overrides: Partial<TerminalDeps> = {}) {
     directoryExists: async () => true,
     resolveShell: () => ({ file: "/bin/sh", args: [], name: "sh" }),
     buildEnv: () => ({ A: "1" }),
-    killTree: async (pid) => void killed.push(pid),
+    // 和 taskkill 一样：进程树被结束，pty 随后报退出（TerminalManager 等这个事件再 kill pty）。
+    killTree: async (pid) => {
+      killed.push(pid);
+      ptys.find((pty) => pty.pid === pid)?.exit(0);
+    },
     spawn: async (_shell, options) => {
       const pty = new FakePty(100 + ptys.length);
       pty.size = { cols: options.cols, rows: options.rows };

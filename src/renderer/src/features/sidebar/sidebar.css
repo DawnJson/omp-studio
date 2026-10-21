@@ -141,6 +141,7 @@
   background: none;
   border: 0;
   outline: none;
+  text-overflow: ellipsis;
   user-select: text;
 }
 .sb-search input::placeholder {

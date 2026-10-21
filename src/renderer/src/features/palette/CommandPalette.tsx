@@ -67,11 +67,10 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
   const terminalKey = current?.id ?? (selectedTaskId === null && view === "conversation" ? draftTerminalKey : null);
   const labels = useMemo(() => projectLabels(projects), [projects]);
   const ompCommands = useSlashCommands(current?.id ?? null);
-  const host = current?.engine === "tsp" ? "tsp" : "rpc";
   // 和输入框同一份列表：studio 接管的命令在前，omp 里被它盖住的去掉。
   const slashCommands = useMemo(
-    () => (ompCommands.length === 0 ? ompCommands : withStudioSlash(ompCommands, studioSlashCommands, host, t)),
-    [ompCommands, host, t],
+    () => (ompCommands.length === 0 ? ompCommands : withStudioSlash(ompCommands, studioSlashCommands, t)),
+    [ompCommands, t],
   );
 
   useEffect(() => {
@@ -138,7 +137,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
     else if (row.kind === "task") void selectTask(row.task.id).catch((error: unknown) => reportError(t, error));
     else if (row.kind === "slash" && current) {
       // studio 接管的命令不发给 omp（和输入框的 sendDraft 一致）；它自己报错。
-      const studio = findStudioSlash(row.text, handledCommands(studioSlashCommands, host));
+      const studio = findStudioSlash(row.text, handledCommands(studioSlashCommands));
       if (studio !== null && row.send)
         void Promise.resolve()
           .then(() => studio.command.run(current.id, studio.args, t))

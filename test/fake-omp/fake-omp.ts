@@ -1,7 +1,7 @@
 // 假 omp：按顺序回放一份 RPC 录制，用来在不调真实模型的情况下复现界面和主进程的各种状态。
 // 用法：node test/fake-omp/fake-omp.ts <录制文件> [输入记录文件]
 // 给了第二个参数就把收到的每一行（主进程写给 omp 的帧）原样追加进去，测试据此断言 omp 收到了什么。
-// 录制格式见 docs/architecture/rpc-replay.md。
+// 录制是 NDJSON，每行一个 Entry（见下面的类型）。
 import { appendFileSync, readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
@@ -27,17 +27,6 @@ const IDEMPOTENT: Record<string, true> = {
   get_available_models: true,
   get_available_commands: true,
   get_session_stats: true,
-};
-
-/**
- * 子代理命令：详情面板和干预按钮在不固定的时刻发，同样不占回放顺序（不在"下一条期望的 in"时才就地应答）。
- * get_subagent_messages 按 subagentId 回录制里那个子代理的应答；steer / cancel 直接答成功（cancel 答 cancelled: true）。
- */
-const SUBAGENT_ACKS: Record<string, unknown> = {
-  steer_subagent: undefined,
-  cancel_subagent: { cancelled: true },
-  // 改名：和子代理命令一样随时可能到，不占回放顺序（测试从输入记录里看它）。
-  set_session_name: undefined,
 };
 
 const fixture = process.argv[2];
@@ -79,31 +68,6 @@ const latestData = new Map<string, unknown>();
   }
 }
 
-// 子代理的查询和干预（get_subagent_messages / steer_subagent / cancel_subagent）是录制脚本在特定时刻发的，回放时由界面在不固定的时刻发：
-// 这几条 `in` 和它们的应答 `out` 不占回放顺序，应答由 nextFrame 就地给。get_subagent_messages 的应答按录制里请求的 subagentId 索引。
-interface RecordedMessages {
-  nextByte: number;
-  entries: unknown[];
-  messages: unknown[];
-}
-const subagentMessages = new Map<string, RecordedMessages>();
-const unsequenced = new Set<string>();
-{
-  const subagentById = new Map<string, string>();
-  for (const entry of entries) {
-    if (entry.kind === "in" && typeof entry.frame.id === "string") {
-      if (entry.frame.type === "get_subagent_messages")
-        subagentById.set(entry.frame.id, String(entry.frame.subagentId));
-      if (entry.frame.type === "get_subagent_messages" || Object.hasOwn(SUBAGENT_ACKS, String(entry.frame.type)))
-        unsequenced.add(entry.frame.id);
-    }
-    if (entry.kind === "out" && entry.frame.type === "response" && typeof entry.frame.id === "string") {
-      const subagent = subagentById.get(entry.frame.id);
-      if (subagent !== undefined) subagentMessages.set(subagent, entry.frame.data as RecordedMessages);
-    }
-  }
-}
-
 const stdinLines = createInterface({ input: process.stdin })[Symbol.asyncIterator]();
 // 录制里的请求 id → 这次运行里主进程实际用的 id。
 const ids = new Map<string, string>();
@@ -117,32 +81,6 @@ async function nextFrame(expectedType: string | null): Promise<{ raw: string; fr
     const frame: unknown = JSON.parse(next.value);
     if (typeof frame !== "object" || frame === null) return { raw: next.value, frame: {} };
     const received = frame as Record<string, unknown>;
-    if (typeof received.type === "string" && received.type !== expectedType) {
-      const reply = { type: "response", command: received.type, id: received.id };
-      if (received.type === "get_subagent_messages") {
-        const data = subagentMessages.get(String(received.subagentId));
-        const fromByte = typeof received.fromByte === "number" ? received.fromByte : 0;
-        // 和真实 omp 一样按字节续读：从录制里的 nextByte 往后没有新内容。
-        const body =
-          data !== undefined && fromByte >= data.nextByte
-            ? { ...data, fromByte, nextByte: data.nextByte, entries: [], messages: [] }
-            : data;
-        process.stdout.write(
-          JSON.stringify(
-            body === undefined
-              ? { ...reply, success: false, error: `unknown subagent ${String(received.subagentId)}` }
-              : { ...reply, success: true, data: body },
-          ) + "\n",
-        );
-        continue;
-      }
-      if (Object.hasOwn(SUBAGENT_ACKS, received.type)) {
-        const data = SUBAGENT_ACKS[received.type];
-        if (inputLog && received.type === "set_session_name") appendFileSync(inputLog, `${next.value}\n`);
-        process.stdout.write(JSON.stringify({ ...reply, success: true, ...(data !== undefined && { data }) }) + "\n");
-        continue;
-      }
-    }
     if (typeof received.type === "string" && IDEMPOTENT[received.type] && received.type !== expectedType) {
       const data = latestData.get(received.type);
       process.stdout.write(
@@ -161,9 +99,6 @@ async function nextFrame(expectedType: string | null): Promise<{ raw: string; fr
 }
 
 for (const entry of entries) {
-  if ("frame" in entry && typeof entry.frame.id === "string" && unsequenced.has(entry.frame.id)) {
-    if (entry.kind === "in" || (entry.kind === "out" && entry.frame.type === "response")) continue;
-  }
   switch (entry.kind) {
     case "meta":
       break;

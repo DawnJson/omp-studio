@@ -482,6 +482,15 @@ button {
   margin-top: var(--space-6);
 }
 
+/* 只给读屏器看的文字 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
 /* ───────── 动画 ───────── */
 
 @keyframes fade-in {

@@ -4,7 +4,6 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { RpcProtocolError } from "../src/main/omp/frame-decoder.ts";
 import { OmpConnection, OmpExitedError, RpcCommandError } from "../src/main/omp/omp-connection.ts";
-import { initializeSession } from "../src/main/omp/session-init.ts";
 import type { RpcServerFrame } from "../src/shared/omp-wire/rpc-wire.generated.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -67,8 +66,12 @@ describe("OmpConnection replaying a recorded omp 18.12.0 session", () => {
     connection.onFrame((frame: RpcServerFrame) => types.push(frame.type));
     await connection.ready;
     expect(connection.protocolVersion).toBe(2);
-    // fixture 里的初始化序列由 initializeSession 产生（录制和应用共用）。
-    await initializeSession(connection);
+    // 假 omp 严格按录制的顺序比对收到的帧：先发 fixture 里的初始化序列。
+    await connection.request("set_event_filter", { events: null, messageUpdates: "delta" });
+    await connection.request("set_ask_dialog", { enabled: true });
+    await connection.request("set_subagent_subscription", { level: "progress" });
+    await connection.request("get_state");
+    await connection.request("get_available_thinking_levels");
 
     const outcome = await connection.prompt({ message: "用 bash 工具运行 echo omp-studio" });
     expect(outcome).toMatchObject({ type: "prompt_result", agentInvoked: true, status: "completed" });

@@ -26,17 +26,14 @@ async function start(fixture = "session-tree", session = "linear"): Promise<Star
   await mkdir(path.dirname(sessionFile), { recursive: true });
   await copyFile(path.join(root, "fixtures", "omp-session", `${session}.jsonl`), sessionFile);
   const log = path.join(work, "omp-received.jsonl");
-  const launched = await launchApp(
-    {
-      STUDIO_TEST_OMP: JSON.stringify({
-        command: process.execPath,
-        args: [fakeOmp, fixture, "--speed=20", `--log=${log}`],
-      }),
-      PI_CODING_AGENT_DIR: path.join(work, "agent"),
-      FAKE_TSP_SESSION_FILE: sessionFile,
-    },
-    { taskEngine: "tsp" },
-  );
+  const launched = await launchApp({
+    STUDIO_TEST_OMP: JSON.stringify({
+      command: process.execPath,
+      args: [fakeOmp, fixture, "--speed=20", `--log=${log}`],
+    }),
+    PI_CODING_AGENT_DIR: path.join(work, "agent"),
+    FAKE_TSP_SESSION_FILE: sessionFile,
+  });
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);

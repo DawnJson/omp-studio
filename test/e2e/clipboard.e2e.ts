@@ -6,13 +6,10 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { expect, test, type Page } from "@playwright/test";
-import { launchApp, type LaunchedApp } from "./launch.ts";
+import { expect, test } from "@playwright/test";
+import { launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
 
 const run = promisify(execFile);
-const root = path.resolve(import.meta.dirname, "..", "..");
-const fakeOmp = path.join(root, "test", "fake-omp", "fake-omp.ts");
-const fixture = path.join(root, "fixtures", "rpc", "session-stats.ndjson");
 
 interface Started {
   launched: LaunchedApp;
@@ -24,15 +21,19 @@ async function start(): Promise<Started> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp 剪贴板 e2e-"));
   const project = path.join(work, "项目 目录");
   await mkdir(project);
-  const launched = await launchApp({
-    STUDIO_TEST_OMP: JSON.stringify({ command: process.execPath, args: [fakeOmp, fixture] }),
-  });
+  // resume 录制：omp 起来就把整段旧对话（用户消息、工具卡片、回答）画出来，不用先发消息。
+  const launched = await launchApp({ STUDIO_TEST_OMP: testOmp("resume") });
   const saved = await launched.app.evaluate(({ clipboard }) => clipboard.readText());
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
-  await launched.page.getByTestId("sidebar-open-folder").click();
-  await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+  await launched.page.evaluate(async () => {
+    const added = await globalThis.studio.addProject();
+    if (!added) throw new Error("addProject 没有返回项目");
+    await globalThis.studio.createTask({ projectId: added.id });
+  });
+  await openTaskRow(launched.page);
+  await expect(launched.page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
   return {
     launched,
     work,
@@ -54,13 +55,7 @@ function clipboardText(launched: LaunchedApp): Promise<string> {
   return launched.app.evaluate(({ clipboard }) => clipboard.readText());
 }
 
-async function sendFirst(page: Page, text: string): Promise<void> {
-  await page.getByTestId("composer-input").fill(text);
-  await page.keyboard.press("Enter");
-  await expect(page.getByTestId("assistant-message")).toContainText("4");
-}
-
-test("粘贴文件：插入路径（有空格的加引号），图片以外不弹提示；输入框没有添加附件的按钮", async () => {
+test("粘贴文件：普通文件变成附件卡片和 #N 芯片，文件夹插入路径（有空格的加引号）；图片以外不弹提示；输入框有添加附件按钮但没有 file input", async () => {
   const { launched, work, cleanup } = await start();
   try {
     const { page } = launched;
@@ -69,7 +64,9 @@ test("粘贴文件：插入路径（有空格的加引号），图片以外不�
     await writeFile(spaced, "# 草稿\n");
     await writeFile(plain, "a,b\n");
 
-    await expect(page.locator(".composer-tools .tool-btn")).toHaveCount(0);
+    // 工具行里的 .tool-btn：添加附件按钮和会话开关（齿轮）；附件按钮是点开系统文件对话框的，页面里没有 input[type=file]。
+    await expect(page.getByTestId("composer-attach")).toHaveCount(1);
+    await expect(page.locator(".composer-tools .tool-btn")).toHaveCount(2);
     await expect(page.locator(".composer input[type=file]")).toHaveCount(0);
 
     const input = page.getByTestId("composer-input");
@@ -78,10 +75,25 @@ test("粘贴文件：插入路径（有空格的加引号），图片以外不�
     await input.focus();
     await page.keyboard.press("End");
     await page.keyboard.press("Control+V");
-    // 临时目录名里有空格，两个路径都加引号。
-    await expect(input).toHaveValue(`看看 "${spaced}" "${plain}"`);
+    // 普通文件是附件：顶部两张文件卡片，文字里是 #1 #2 芯片，路径不进输入框。
+    const cards = page.getByTestId("attachment");
+    await expect(cards).toHaveCount(2);
+    await expect(cards.nth(0)).toHaveAttribute("data-kind", "file");
+    await expect(cards.nth(0)).toContainText("笔记 草稿.md");
+    await expect(cards.nth(1)).toContainText("data.csv");
+    await expect(input).toHaveValue(/^看看 .*#1.*笔记.*草稿\.md.*#2.*data\.csv/);
+    expect(await input.inputValue()).not.toContain(work);
     await expect(page.getByTestId("toasts")).toHaveText("");
-    // 插入走的是输入框自己的编辑：Ctrl+Z 能撤回。
+
+    // 文件夹不是附件：和终端里一样插入路径，临时目录名里有空格，所以加引号；走输入框自己的编辑，Ctrl+Z 能撤回。
+    await input.fill("看看 ");
+    await expect(cards).toHaveCount(0);
+    await copyFiles([work]);
+    await input.focus();
+    await page.keyboard.press("End");
+    await page.keyboard.press("Control+V");
+    await expect(input).toHaveValue(`看看 "${work}"`);
+    await expect(cards).toHaveCount(0);
     await page.keyboard.press("Control+Z");
     await expect(input).toHaveValue("看看 ");
   } finally {
@@ -89,16 +101,19 @@ test("粘贴文件：插入路径（有空格的加引号），图片以外不�
   }
 });
 
-test("选中即复制：对话里鼠标选中就进剪贴板并提示；输入框里选中不动剪贴板；设置里关掉后不再复制；复制按钮照常可用", async () => {
+test("选中即复制：对话里鼠标选中就进剪贴板并提示；输入框里选中不动剪贴板；设置里关掉后不再复制", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
-    await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
     await launched.app.evaluate(({ clipboard }) => clipboard.writeText("原来的内容"));
 
-    const answer = page.getByTestId("assistant-message").locator("p").first();
+    // 恢复出来的最后一条回答的第一段。
+    const answer = page.locator('[data-testid="tsp-view"] [data-role="omp.assistant"] p').first();
+    await expect(answer).toBeVisible();
+    const expected = ((await answer.textContent()) ?? "").trim();
+    expect(expected).not.toBe("");
     await answer.click({ clickCount: 3 });
-    await expect.poll(async () => (await clipboardText(launched)).trim()).toBe("4。");
+    await expect.poll(async () => (await clipboardText(launched)).trim()).toBe(expected);
     await expect(page.getByTestId("toasts").filter({ hasText: "已复制" })).toBeVisible();
 
     // 输入框里选中：剪贴板不变。
@@ -115,11 +130,6 @@ test("选中即复制：对话里鼠标选中就进剪贴板并提示；输入�
     await answer.click({ clickCount: 3 });
     await page.waitForTimeout(200);
     expect(await clipboardText(launched)).toBe("原来的内容");
-
-    // 复制按钮（写剪贴板的权限只放行应用自己的页面，之前全拒时按钮也复制不了）。
-    await page.getByTestId("assistant-message").hover();
-    await page.locator(".answer-copy").click();
-    await expect.poll(() => clipboardText(launched)).toBe("4。");
   } finally {
     await cleanup();
   }

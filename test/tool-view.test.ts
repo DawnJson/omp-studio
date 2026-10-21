@@ -15,9 +15,7 @@ import {
   parseGrep,
   splitGutter,
   splitPath,
-  taskAgentNames,
   todoPhases,
-  waitJobs,
 } from "../src/renderer/src/features/conversation/tool-view.ts";
 
 const unified = [
@@ -253,24 +251,5 @@ describe("专用工具的结果", () => {
     const pending = askViews(args, undefined);
     expect(pending[0]?.selected).toEqual([]);
     expect(pending[0]?.options.map((option) => option.label)).toEqual(["Go", "Rust"]);
-  });
-
-  it("task / wait：代理名和 job 列表", () => {
-    expect(taskAgentNames({ tasks: [{ name: "A" }, { name: "" }, {}, { name: "B" }] })).toEqual(["A", "B"]);
-    expect(taskAgentNames({})).toEqual([]);
-    expect(
-      waitJobs({
-        details: {
-          jobs: [
-            { id: "A", status: "completed", label: "A", durationMs: 2594 },
-            { id: "B", status: "running", durationMs: 10 },
-            { status: "running" },
-          ],
-        },
-      }),
-    ).toEqual([
-      { id: "A", label: "A", status: "completed", durationMs: 2594 },
-      { id: "B", label: "B", status: "running", durationMs: 10 },
-    ]);
   });
 });

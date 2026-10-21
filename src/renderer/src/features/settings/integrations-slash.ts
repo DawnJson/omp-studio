@@ -15,7 +15,6 @@ function row(name: string, descKey: MessageKey, section: SettingsSection): Studi
   return {
     name,
     descKey,
-    tsp: "studio",
     run: (_taskId, args, t) => open(args, t),
     draft: (args, t) => open(args, t),
   };

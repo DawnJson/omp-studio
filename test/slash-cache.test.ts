@@ -50,14 +50,6 @@ describe("slash 命令列表加载（B1）", () => {
     expect(published).toEqual([["t1", list]]);
   });
 
-  it("事件推来非空列表就算已载入，不再请求；推来空数组不算", async () => {
-    const { loader, calls } = setup([]);
-    loader.loaded("t1", list);
-    loader.loaded("t2", []);
-    await Promise.all([loader.request("t1"), loader.request("t2")]);
-    expect(calls).toEqual(["t2"]);
-  });
-
   it("任务和草稿各记各的", async () => {
     const { loader, calls } = setup([]);
     await Promise.all([loader.request("draft"), loader.request("t1")]);

@@ -31,7 +31,6 @@ omp（任务进程）──状态 toast──▶ TspRunner.#syncToggles ──pa
 - 状态来源只有 omp 的 toast：用户在输入框里自己敲 `/skillful` 也会同步。两条读取路径：`DocSurface.statusNotes`（toast 在 main 里 `add` 的那一帧记下来，只增不减，见 `docs/architecture/tsp-migration.md` 状态行一节）和仍在文档里的 `omp.toast.status` 节点（`freshToasts` 取新出现 / 同位置换了文字的；实测 `tsp-status-subcommands` 里 omp 复用同一个节点 `set` 换文字，`statusNotes` 只记 `add`，所以两条都要读）。两条路径重复读到同一句没有副作用（合并是幂等的）。
 - `TaskState.sessionToggles`：`{skillful, extendedContext, computer, advisor, browser, prewalk}`，`null` = 本会话没动过。新进程（任务重启）清零。`/slow` 的状态顺便在同一处记进 `#slowEnabled`（用户自己敲 `/slow on` 也同步）；`/fast` 的状态本来就从输入框卡片读（`composer-state`），不在这里。
 - 初始值 = 配置默认值：渲染进程用设置页同一份快照（`omp config list --json`）的 `skillful`、`extendedContext`、`computer.enabled`、`advisor.enabled`、`browser.headless`、`prewalk.enabled` 补"没动过"的开关（`toggleDefaults` / `toggleView`），和默认不同时画圆点。读不到快照时按关显示、不画圆点。不在主进程里再起一个 `omp config list`：快照已经是现成的、设置页刷新时跟着更新。
-- rpc 任务：`sessionToggles` 恒为全 null（rpc 引擎下一轮删除，不为它再做一套状态读取）；命令仍能执行（S0 的 rpc `runSessionCommand`），菜单按配置默认值显示。
 - `/computer on`（菜单里或斜杠）必须先确认（仓库所有者决定 2026-10-21）：确认页在菜单里就地换出，取消不发命令。
 
 ## 代码

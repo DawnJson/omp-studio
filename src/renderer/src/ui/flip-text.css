@@ -1,0 +1,35 @@
+/* 翻牌文字（FlipText.tsx）：一个字符一个格，格高 = 行高、裁掉滚出格子的部分；旧字符滚出、新字符滚入。
+   位移用字符高度的比例，时长和缓动走令牌：减少动效时 --dur-base 为 0ms（FlipText 也不再渲染旧字符）。 */
+.flip-text {
+  display: inline-flex;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+}
+.flip-char {
+  position: relative;
+  display: inline-block;
+  overflow: clip;
+  /* 上下各留一点，字形的上伸 / 下伸不被裁 */
+  padding-block: 0.1em;
+  margin-block: -0.1em;
+}
+.flip-old {
+  position: absolute;
+  inset: 0.1em auto auto 0;
+  animation: flip-out var(--dur-base) var(--ease-out) forwards;
+}
+.flip-char[data-flipping] .flip-new {
+  animation: flip-in var(--dur-base) var(--ease-out);
+}
+@keyframes flip-out {
+  to {
+    transform: translateY(-70%);
+    opacity: 0;
+  }
+}
+@keyframes flip-in {
+  from {
+    transform: translateY(70%);
+    opacity: 0;
+  }
+}
