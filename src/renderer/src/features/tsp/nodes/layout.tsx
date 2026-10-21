@@ -15,7 +15,9 @@ import { useFold } from "../use-fold.ts";
 import { alignTurnCost, withExactCost } from "../turn-cost.ts";
 import { TurnCostCtx } from "../turn-cost-context.ts";
 import { useTurnCosts } from "../turn-cost-store.ts";
-import { useUsageRowFromEnd } from "../tsp-store.ts";
+import { useBareTurnIndex, useUsageRowFromEnd } from "../tsp-store.ts";
+import { useSessionExtras } from "../session-extras-store.ts";
+import { formatTurnFooter } from "../turn-footer.ts";
 
 const GAPS: readonly TspSpace[] = ["none", "xs", "sm", "md", "lg"];
 
@@ -29,6 +31,7 @@ function stackClasses(p: Readonly<Record<string, unknown>>): string {
 }
 
 export function Col(props: NodeProps) {
+  if (props.node.p.role === "omp.assistant") return <AssistantCol {...props} />;
   return (
     <div {...nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p) })}>
       <TspChildren {...props} />
@@ -36,8 +39,45 @@ export function Col(props: NodeProps) {
   );
 }
 
+/**
+ * omp 的助手消息容器。恢复会话时 omp 不重发每轮末尾的用量行（实测 18.12.4），这里在一轮的最后一个助手消息后面
+ * 补一行（数据来自会话文件，见 main/tsp/session-extras.ts）；实时的轮 omp 自己带这一行，不补。
+ */
+function AssistantCol(props: NodeProps) {
+  const { taskId, sf } = props.ctx;
+  const { turns } = useSessionExtras(taskId);
+  const index = useBareTurnIndex(taskId, sf, props.node.id, turns.length);
+  const footer = index >= 0 ? (turns[index] ?? null) : null;
+  const text = footer === null ? null : formatTurnFooter(footer);
+  return (
+    <div {...nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p) })}>
+      <TspChildren {...props} />
+      {text !== null && (
+        <div className="tsp-row" data-role="omp.turn.usage" data-restored="" title={text.title}>
+          <span className="tsp-icon" aria-hidden="true">
+            <TspIcon name="time" />
+          </span>
+          <div className="tsp-text">{text.text}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 空闲回顾（omp.recap）：omp 终端里是 "※ recap: …"，节点里的图标 `history` 只是 TSP 的占位，tsp.css 里隐藏它、改画 ※。悬停提示用本地化文字。 */
+function RecapRow(props: NodeProps) {
+  const t = useT();
+  const dom = nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) });
+  return (
+    <div {...dom} title={t("tsp.recapTitle")}>
+      <TspChildren {...props} />
+    </div>
+  );
+}
+
 export function Row(props: NodeProps) {
   if (props.node.p.role === "omp.turn.usage") return <UsageRow {...props} />;
+  if (props.node.p.role === "omp.recap") return <RecapRow {...props} />;
   return (
     <div {...nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) })}>
       <TspChildren {...props} />

@@ -107,12 +107,21 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 快捷键提示：平时不显示，悬停或键盘聚焦这一行时出现（占位不变，标题不跳） */
 .sb-new-hint {
   flex: none;
   color: var(--text-3);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--dur-instant) var(--ease-out);
+}
+.sb-new:hover .sb-new-hint,
+.sb-new:focus-visible .sb-new-hint,
+.sb-search:hover .sb-new-hint,
+.sb-search:focus-within .sb-new-hint {
+  opacity: 1;
 }
 /* 搜索行：还是那个输入框，平时画成一行；聚焦时出现 1px 边框和 --bg-raised 底。
    输入框自己的矩形 outline 去掉（.sb input:focus-visible 特异性更高，要同级覆盖） */
@@ -233,11 +242,16 @@
 }
 /* 历史会话：标题右边是"文件夹 | 时间"两段切换（排列方式，记在外壳状态里） */
 .sb-history-head {
+  /* 钉在滚动区顶部：底色和侧栏一致，下面滚过的行不透出；z-index 压住行里的绝对定位元素 */
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
   padding-right: var(--space-1);
+  background: var(--bg-sidebar);
 }
 /* 两段等宽：按较长的那段（“文件夹”/“Folder”）定宽 */
 .sb-history-order {

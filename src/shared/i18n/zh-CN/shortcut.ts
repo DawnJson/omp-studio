@@ -3,6 +3,8 @@ import type { MessageEntry } from "../index.ts";
 export const shortcut = {
   palette: "命令面板",
   newTask: "新任务",
+  focusSearch: "搜索任务和会话",
+  openFolder: "打开文件夹",
   settings: "设置",
   toggleSidebar: "切换侧栏",
   send: "发送",

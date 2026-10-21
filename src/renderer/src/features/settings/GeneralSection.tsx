@@ -10,6 +10,8 @@ import { systemReducesMotion } from "./motion-preference.ts";
 const shortcuts: { label: MessageKey; keys: string[] }[] = [
   { label: "shortcut.palette", keys: ["Ctrl", "K"] },
   { label: "shortcut.newTask", keys: ["Ctrl", "N"] },
+  { label: "shortcut.focusSearch", keys: ["Ctrl", "F"] },
+  { label: "shortcut.openFolder", keys: ["Ctrl", "Shift", "O"] },
   { label: "shortcut.settings", keys: ["Ctrl", ","] },
   { label: "shortcut.toggleSidebar", keys: ["Ctrl", "B"] },
   { label: "shortcut.focusComposer", keys: ["Ctrl", "L"] },

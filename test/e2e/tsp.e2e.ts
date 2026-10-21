@@ -2,11 +2,12 @@
 // fake-tsp-omp(在伪终端里回放 fixtures/tsp 的 omp 录制,不调真实模型),驱动真实的 主进程 → 伪终端 → IPC → 渲染进程。
 // 假 omp 只有在收到和录制完全一样的事件(send / action / activate)后才继续回放,所以"界面走到下一步"本身就证明
 // 渲染进程发对了事件;另外用 --log 断言它收到了什么。截图:完成 / 等你确认(审批) / 提问,中英 × 深浅。
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -18,7 +19,7 @@ interface Started {
   cleanup(): Promise<void>;
 }
 
-async function start(fixture: string): Promise<Started> {
+async function start(fixture: string, env: Record<string, string> = {}): Promise<Started> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp e2e-"));
   const project = path.join(work, "项目 目录");
   await mkdir(project);
@@ -29,6 +30,7 @@ async function start(fixture: string): Promise<Started> {
         command: process.execPath,
         args: [fakeOmp, fixture, "--speed=20", `--log=${log}`],
       }),
+      ...env,
     },
     { taskEngine: "tsp" },
   );
@@ -71,6 +73,9 @@ async function sendFirst(page: Page, text: string): Promise<void> {
 }
 
 const role = (page: Page, name: string) => page.locator(`[data-testid="tsp-view"] [data-role="${name}"]`);
+
+/** 页面里 getComputedStyle 用到的最小类型(e2e 的类型检查没有 DOM 类型)。 */
+type PageStyle = { getComputedStyle(el: unknown, pseudo?: string): { opacity: string; content: string } };
 
 async function shoot(page: Page, state: string): Promise<void> {
   for (const [locale, scheme] of [
@@ -245,5 +250,114 @@ test("过程卡片:diff 的上下文行和增删行一样是一行(行号在左�
     await shoot(page, "cards");
   } finally {
     await cleanup();
+  }
+});
+
+test("用户消息悬停:从气泡分步移向复制按钮的整条路上按钮都在,点击发出 copy-message;Tab 到按钮也显示", async () => {
+  test.setTimeout(120_000);
+  const { launched, received, cleanup } = await start("task");
+  try {
+    const { page } = launched;
+    await sendFirst(page, TASK_PROMPT);
+    await expect(role(page, "omp.turn.usage")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 20_000 });
+    const bubble = role(page, "omp.user").first();
+    const tools = role(page, "omp.user.tools").first();
+    const copy = tools.locator('[data-id$="/copy"]');
+    await bubble.scrollIntoViewIfNeeded();
+    // 没悬停:按钮不显示。
+    await page.mouse.move(1, 1);
+    await expect(tools).toHaveCSS("opacity", "0");
+    // 鼠标先进气泡正文,再一小步一小步移到按钮中心:每一步都要保持显示(间隙不能断开悬停)。
+    const box = (await bubble.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(tools).toHaveCSS("opacity", "1");
+    const target = (await copy.boundingBox())!;
+    const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    const to = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+    const steps = 30;
+    for (let i = 1; i <= steps; i++) {
+      await page.mouse.move(from.x + ((to.x - from.x) * i) / steps, from.y + ((to.y - from.y) * i) / steps);
+      // evaluate 只把回调本身发进页面,所以 getComputedStyle 写在回调里;e2e 的类型检查没有 DOM 类型,经 globalThis 取。
+      expect(await tools.evaluate((el) => (globalThis as unknown as PageStyle).getComputedStyle(el).opacity)).toBe("1");
+    }
+    await page.mouse.down();
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await received()).some((e) => e["ev"] === "action" && e["act"] === "copy-message"))
+      .toBe(true);
+    // 鼠标点过复制按钮后焦点留在它上面,但鼠标移走按钮行照样收起(只认键盘焦点)。
+    await page.mouse.move(1, 1);
+    await expect(tools).toHaveCSS("opacity", "0");
+    // 键盘:Shift+Tab 离开、Tab 回到复制按钮,按钮行显示且有焦点;回车同样触发。
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    await expect(copy).toBeFocused();
+    await expect(tools).toHaveCSS("opacity", "1");
+    await page.keyboard.press("Enter");
+    await expect
+      .poll(async () => (await received()).filter((e) => e["ev"] === "action" && e["act"] === "copy-message").length)
+      .toBe(2);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("恢复会话:omp 不重发的每轮用量脚注和空闲回顾,从会话文件和 history.db 补回;回顾用 ※ 不用时钟图标", async () => {
+  test.setTimeout(120_000);
+  // 假 omp 回放的是 omp 18.12.4 `--resume` 一个 3 轮会话的实录:旧对话重发了,但没有 omp.turn.usage / omp.recap。
+  const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp tsp resume agent "));
+  const sessionFile = path.join(agentDir, "sessions", "--e2e--", "2026-10-20T01-17-16-019Z_resume.jsonl");
+  await mkdir(path.dirname(sessionFile), { recursive: true });
+  await copyFile(path.join(root, "fixtures", "tsp", "resume-session.jsonl"), sessionFile);
+  // omp 的空闲回顾只进 agent 目录的 history.db(session_recaps);会话 id 是会话文件头里的 id,时间在最后一条消息之后。
+  const db = new DatabaseSync(path.join(agentDir, "history.db"));
+  db.exec(
+    "CREATE TABLE session_recaps (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, cwd TEXT NOT NULL, recap TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER)))",
+  );
+  db.prepare("INSERT INTO session_recaps (session_id, cwd, recap, created_at) VALUES (?, ?, ?, ?)").run(
+    "01a156e2-5573-752f-ae26-c89b4b0fd495",
+    "E:/x",
+    "目标是验证 calc.py。已读完三个文件,下一步等你的指示。",
+    1792459600,
+  );
+  db.close();
+  const { launched, cleanup } = await start("resume", {
+    PI_CODING_AGENT_DIR: agentDir,
+    FAKE_TSP_SESSION_FILE: sessionFile,
+  });
+  try {
+    const { page } = launched;
+    await page.evaluate(async () => {
+      const [project] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: project!.id });
+    });
+    // 侧栏的项目文件夹默认折叠,openTaskRow 先展开再点任务行。
+    await openTaskRow(page);
+    await expect(role(page, "omp.user")).toHaveCount(3, { timeout: 30_000 });
+    // 每轮末尾补一行用量:3 行,按会话文件算(第 1 轮 11.2s · 2859 tok · $0.0019),和 omp 实时那行同格式。
+    const usage = page.locator('[data-testid="tsp-view"] [data-role="omp.turn.usage"][data-restored]');
+    await expect(usage).toHaveCount(3);
+    await expect(usage.nth(0)).toHaveText("11.2s · 2.9K tok · $0.0019 this turn");
+    await expect(usage.nth(1)).toHaveText("47.5s · 2.8K tok · $0.0023 this turn");
+    await expect(usage.nth(2)).toHaveText("4.7s · 1.1K tok · $0.0009 this turn");
+    await expect(usage.nth(2)).toHaveAttribute("title", /^This turn: 4\.7s · 1,097 tokens \(838 in · 259 out\)/);
+    // 补的行在每轮最后一个助手消息里面(和 omp 实时的位置一样),不是游离在外。
+    await expect(page.locator('[data-role="omp.assistant"] > [data-role="omp.turn.usage"]')).toHaveCount(3);
+    // 回顾:对话末尾一行,图标是 ※(不是时钟/回退图标),斜体淡色,悬停提示是本地化文字。
+    const recap = role(page, "omp.recap");
+    await expect(recap).toHaveCount(1);
+    await expect(recap).toContainText("目标是验证 calc.py");
+    await expect(recap.locator(".tsp-icon")).toHaveCount(0);
+    expect(
+      await recap.evaluate((el) => (globalThis as unknown as PageStyle).getComputedStyle(el, "::before").content),
+    ).toBe('"※"');
+    await expect(recap).toHaveCSS("font-style", "italic");
+    await expect(recap).toHaveAttribute("title", "离开期间的回顾");
+    await recap.scrollIntoViewIfNeeded();
+    await shoot(page, "resume");
+  } finally {
+    await cleanup();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });

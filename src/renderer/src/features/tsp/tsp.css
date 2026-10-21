@@ -2390,7 +2390,9 @@
 .tsp-row[data-role="omp.user.tools"] {
   position: absolute;
   right: 0;
-  bottom: calc(100% + var(--space-0-5));
+  /* 贴着气泡上沿，间隙用 padding 填：行在气泡的 :hover 范围内，鼠标从气泡移到按钮的路上不会中断悬停 */
+  bottom: 100%;
+  padding-bottom: var(--space-0-5);
   gap: var(--space-1);
   color: var(--text-3);
   font-size: var(--fs-2xs);
@@ -2398,10 +2400,22 @@
   pointer-events: none;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
+/* 键盘聚焦（:focus-visible）也显示；鼠标点过按钮留下的焦点不算，否则点完复制鼠标移走按钮还挂着 */
 .tsp-card[data-role="omp.user"]:hover .tsp-row[data-role="omp.user.tools"],
-.tsp-card[data-role="omp.user"]:focus-within .tsp-row[data-role="omp.user.tools"] {
+.tsp-card[data-role="omp.user"]:has(:focus-visible) .tsp-row[data-role="omp.user.tools"] {
   opacity: 1;
   pointer-events: auto;
+}
+/* 悬停桥：按钮行靠右、比气泡窄，鼠标从气泡中部斜着移向按钮时会经过气泡上方、按钮行左边的空白，
+   那里既不是气泡也不是按钮行，悬停会断。悬停期间在气泡上方铺一条同宽、和按钮行一样高的透明条接住；
+   只在悬停时存在，平时不挡上方内容的点击和选择。 */
+.tsp-card[data-role="omp.user"]:hover::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: calc(var(--icon-md) + var(--space-0-5));
 }
 .tsp-icon[data-role="omp.user.tool"] {
   border-radius: var(--radius-sm);
@@ -2409,6 +2423,18 @@
 .tsp-icon[data-role="omp.user.tool"]:hover {
   background: var(--bg-active);
   color: var(--text);
+}
+.tsp-icon[role="button"]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+}
+/* 表情反应（omp 的 tui.reactions）只是装饰，终端里也点不了：不画成胶囊按钮 */
+.tsp-badge[data-role="omp.reaction"] {
+  height: auto;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  cursor: default;
+  font-size: var(--fs-base);
 }
 .tsp-text[data-role="omp.user.time"] {
   font-family: var(--font-mono);
@@ -2426,6 +2452,23 @@
   color: var(--text-3);
   font-size: var(--fs-2xs);
   opacity: 0.8;
+}
+/* 空闲回顾（omp.recap）：omp 终端里是 "※ recap: …" 淡色斜体；节点里的 `history` 图标（时钟）只是 TSP 的占位。
+   隐藏它，改用 ※ 记号；悬停提示用本地化文字（layout.tsx RecapRow）。 */
+.tsp-row[data-role="omp.recap"] {
+  align-items: flex-start;
+  gap: var(--space-1-5);
+  padding-block: var(--space-2);
+  color: var(--text-3);
+  font-style: italic;
+}
+.tsp-row[data-role="omp.recap"] > .tsp-icon {
+  display: none;
+}
+.tsp-row[data-role="omp.recap"]::before {
+  content: "※";
+  font-style: normal;
+  flex: none;
 }
 .tsp-icon[data-role="omp.turn.copy"] {
   border-radius: var(--radius-sm);

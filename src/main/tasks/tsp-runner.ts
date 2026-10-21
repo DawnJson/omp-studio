@@ -18,6 +18,7 @@ import type {
   TaskState,
   TranscriptSnapshot,
   TspBatch,
+  TspSessionExtras,
   TspSnapshot,
 } from "../../shared/ipc.ts";
 import type { TspEvent } from "../../shared/tsp/tsp.generated.ts";
@@ -53,6 +54,7 @@ import {
   type TspSessionOptions,
 } from "../tsp/tsp-session.ts";
 import { titleFromPrompt } from "./convert.ts";
+import { readSessionExtras } from "../tsp/session-extras.ts";
 import { readTurnCosts } from "../tsp/turn-costs.ts";
 import { initialMachineState, transition, type MachineInput, type MachineState } from "./task-machine.ts";
 import type { TaskRecord } from "./task-registry.ts";
@@ -1056,6 +1058,11 @@ export class TspRunner {
   /** 这个任务每一轮的费用（见 tsp/turn-costs.ts）；会话文件还没落盘、读失败时 []。 */
   turnCosts(): Promise<number[]> {
     return readTurnCosts(this.#sessionFile ?? this.#record.sessionFile);
+  }
+
+  /** 用量脚注和空闲回顾：omp 恢复会话时不重发，从会话文件和 history.db 补（见 tsp/session-extras.ts）。 */
+  sessionExtras(): Promise<TspSessionExtras> {
+    return readSessionExtras(this.#sessionFile ?? this.#record.sessionFile);
   }
 
   /** omp 的命令列表（服务进程的 get_available_commands：内置命令一致，项目目录里的自定义命令/技能看不到）；没有进程时 []。 */

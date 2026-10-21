@@ -4,6 +4,8 @@ import type { shortcut as zhCN } from "../zh-CN/shortcut.ts";
 export const shortcut = {
   palette: "Command palette",
   newTask: "New task",
+  focusSearch: "Search tasks and sessions",
+  openFolder: "Open folder",
   settings: "Settings",
   toggleSidebar: "Toggle sidebar",
   send: "Send",

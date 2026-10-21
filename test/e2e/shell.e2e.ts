@@ -303,6 +303,29 @@ test("有项目的空状态：输入框贴主区底部、没有历史会话列�
     await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
     expect(await page.evaluate(() => globalThis.studio.listTasks())).toEqual([]);
 
+    // Ctrl F 聚焦侧栏搜索框并全选；悬停提示出现在行上（默认隐藏）。
+    const search = page.getByTestId("sidebar-search");
+    await page.getByTestId("empty-draft").locator("[data-composer-input]").focus();
+    await search.fill("abc");
+    await page.keyboard.press("Control+n");
+    await page.keyboard.press("Control+f");
+    await expect(search).toBeFocused();
+    expect(await search.evaluate((el) => (el as unknown as { selectionEnd: number }).selectionEnd)).toBe(3);
+    await search.fill("");
+    // Ctrl Shift O = 点“打开文件夹”：对话框被桩成 projectDir，草稿切到它；之后 Ctrl N 回到默认文件夹。
+    await page.keyboard.press("Control+Shift+O");
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+    await expect(page.getByTestId("empty-project")).toHaveAttribute("title", projectDir);
+    await page.keyboard.press("Control+n");
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
+    // 三行的快捷键提示默认隐藏，悬停才出现。先把鼠标移开：前面添加项目时点过“打开文件夹”这一行，鼠标还停在上面。
+    const hint = page.getByTestId("sidebar-open-folder").locator(".sb-new-hint");
+    await expect(hint).toHaveText("Ctrl Shift O");
+    await page.getByTestId("main-panel").hover();
+    await expect(hint).toHaveCSS("opacity", "0");
+    await page.getByTestId("sidebar-open-folder").hover();
+    await expect(hint).toHaveCSS("opacity", "1");
+
     // 工具行的项目标签只显示、不能点（不是按钮），写默认文件夹的路径，悬停提示同一个完整路径。
     const label = page.getByTestId("empty-project");
     await expect(label).toHaveText(/[\\/]chats$/);

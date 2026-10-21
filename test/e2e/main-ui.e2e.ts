@@ -301,6 +301,13 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     expect(approvalBox && projectBox && approvalBox.x + approvalBox.width <= projectBox.x).toBe(true);
     const midY = (box: { y: number; height: number }) => box.y + box.height / 2;
     expect(approvalBox && projectBox && Math.abs(midY(approvalBox) - midY(projectBox)) <= 2).toBe(true);
+    // 审批胶囊只有图标 + 下拉箭头（没有文字），完整名称在悬停提示和 aria-label 里；模型胶囊里项目草稿也显示思考强度（模型支持思考时）。
+    const approvalChip = draftTools.getByTestId("approval-chip");
+    await expect(approvalChip).toHaveText("");
+    await expect(approvalChip.locator("svg:not(.chip-caret)")).toHaveCount(1);
+    await expect(approvalChip).toHaveAttribute("aria-label", /.+ · .+/);
+    await expect(approvalChip).toHaveAttribute("title", /.+ · .+/);
+    expect(approvalBox && approvalBox.width).toBeLessThanOrEqual(60);
     // 不画成胶囊：没有底色。
     await expect(draftTools.getByTestId("empty-project")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await page.locator("[data-composer-input]").focus();

@@ -46,7 +46,7 @@ export function WorktreeChip({ projectId }: { projectId: ProjectId }) {
   return (
     <button
       type="button"
-      className="chip"
+      className="chip worktree-chip"
       data-testid="worktree-chip"
       data-on={on || undefined}
       aria-pressed={on}

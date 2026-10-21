@@ -251,9 +251,26 @@ export function Kbd(props: NodeProps) {
 }
 
 export function Icon(props: NodeProps) {
-  const label = typeof props.node.p.aria === "string";
+  const dom = nodeDomProps(props, "tsp-icon");
+  // 带点击动作的图标（复制 / 回退）当按钮用：能 Tab 到，回车和空格触发点击。
+  if (dom.onClick !== undefined) {
+    return (
+      <span
+        {...dom}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          event.currentTarget.click();
+        }}
+      >
+        <TspIcon name={asString(props.node.p.name)} />
+      </span>
+    );
+  }
   return (
-    <span {...nodeDomProps(props, "tsp-icon")} aria-hidden={label ? undefined : true}>
+    <span {...dom} aria-hidden={typeof props.node.p.aria === "string" ? undefined : true}>
       <TspIcon name={asString(props.node.p.name)} />
     </span>
   );

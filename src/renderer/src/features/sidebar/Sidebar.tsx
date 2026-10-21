@@ -230,7 +230,7 @@ export function Sidebar() {
               }
             }}
           />
-          {query !== "" && (
+          {query !== "" ? (
             <button
               type="button"
               className="sb-search-clear"
@@ -239,6 +239,10 @@ export function Sidebar() {
             >
               <Close size={12} />
             </button>
+          ) : (
+            <span className="sb-new-hint" aria-hidden="true">
+              Ctrl F
+            </span>
           )}
         </div>
 
@@ -262,11 +266,14 @@ export function Sidebar() {
           type="button"
           className="sb-new"
           data-testid="sidebar-open-folder"
-          title={t("sidebar.openFolder")}
+          title={`${t("sidebar.openFolder")} (Ctrl Shift O)`}
           onClick={() => void addProjectAsDraft(t)}
         >
           <FolderPlusIcon />
           <span className="sb-new-label">{t("sidebar.openFolder")}</span>
+          <span className="sb-new-hint" aria-hidden="true">
+            Ctrl Shift O
+          </span>
         </button>
       </div>
 

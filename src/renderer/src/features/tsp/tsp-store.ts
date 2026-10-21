@@ -39,10 +39,22 @@ const roleKey = (taskId: TaskId, sf: string): string => `u${SEP}${taskId}${SEP}$
 /** omp 每轮末尾的用量行。 */
 const USAGE_ROLE = "omp.turn.usage";
 const USER_ROLE = "omp.user";
-const TRACKED_ROLES: readonly string[] = [USAGE_ROLE, USER_ROLE];
+/** omp 每条助手消息的容器；每轮最后一个是用量行的父节点。 */
+const ASSISTANT_ROLE = "omp.assistant";
+/** omp 的空闲回顾行。 */
+const RECAP_ROLE = "omp.recap";
+const TRACKED_ROLES: readonly string[] = [USAGE_ROLE, USER_ROLE, ASSISTANT_ROLE, RECAP_ROLE];
 const NO_IDS: readonly string[] = [];
+interface RoleIndex {
+  mirror: Mirror;
+  byRole: Map<string, string[]>;
+  /** 轮数（轮 = 一个 omp.user 到下一个）。 */
+  turnCount: number;
+  /** 没有用量行的轮的最后一个助手节点 id → 这一轮是第几轮（从 0 数）。 */
+  lastAssistantOfBareTurn: Map<string, number>;
+}
 /** main 区里 TRACKED_ROLES 节点的 id（文档顺序），按 (任务, surface) 缓存；镜像换了（快照）或有节点变了就作废。 */
-const roleIndexes = new Map<string, { mirror: Mirror; byRole: Map<string, string[]> }>();
+const roleIndexes = new Map<string, RoleIndex>();
 
 function subscribe(key: string, listener: () => void): () => void {
   let set = listeners.get(key);
@@ -315,26 +327,43 @@ export function useTspSurface(taskId: TaskId, sf: string): TspSurfaceView | null
 
 // ───────── main 区里按 role 找节点（用量行的位置、用户消息有没有） ─────────
 
-function roleIds(taskId: TaskId, sf: string, role: string): readonly string[] {
+function roleIndex(taskId: TaskId, sf: string): RoleIndex | null {
   const mirror = mirrors.get(taskId);
-  if (!mirror) return NO_IDS;
+  if (!mirror) return null;
   const cacheKey = `${taskId}${SEP}${sf}`;
   let cached = roleIndexes.get(cacheKey);
   if (!cached || cached.mirror !== mirror) {
     const nodes = mirror.doc.surfaces.get(sf)?.nodes;
     const byRole = new Map<string, string[]>(TRACKED_ROLES.map((r) => [r, []]));
+    /** 按文档顺序切轮：第一个 omp.user 之前的内容不算轮。 */
+    const turns: { lastAssistant: string | null; hasUsage: boolean }[] = [];
     const walk = (id: string): void => {
       const node = nodes?.get(id);
       if (!node) return;
       const nodeRole = node.p["role"];
-      if (typeof nodeRole === "string") byRole.get(nodeRole)?.push(id);
+      if (typeof nodeRole === "string") {
+        byRole.get(nodeRole)?.push(id);
+        const turn = turns[turns.length - 1];
+        if (nodeRole === USER_ROLE) turns.push({ lastAssistant: null, hasUsage: false });
+        else if (turn && nodeRole === ASSISTANT_ROLE) turn.lastAssistant = id;
+        else if (turn && nodeRole === USAGE_ROLE) turn.hasUsage = true;
+      }
       for (const child of node.c) walk(child);
     };
     walk("main");
-    cached = { mirror, byRole };
+    const lastAssistantOfBareTurn = new Map<string, number>();
+    turns.forEach((turn, index) => {
+      if (turn.lastAssistant === null || turn.hasUsage) return;
+      lastAssistantOfBareTurn.set(turn.lastAssistant, index);
+    });
+    cached = { mirror, byRole, turnCount: turns.length, lastAssistantOfBareTurn };
     roleIndexes.set(cacheKey, cached);
   }
-  return cached.byRole.get(role) ?? NO_IDS;
+  return cached;
+}
+
+function roleIds(taskId: TaskId, sf: string, role: string): readonly string[] {
+  return roleIndex(taskId, sf)?.byRole.get(role) ?? NO_IDS;
 }
 
 /** 这个用量行是 main 区里从末尾数第几个（0 = 最后一个）；不在 main 里返回 -1。 */
@@ -345,6 +374,32 @@ export function useUsageRowFromEnd(taskId: TaskId, sf: string, id: string): numb
     const index = ids.indexOf(id);
     return index < 0 ? -1 : ids.length - 1 - index;
   });
+}
+
+/**
+ * 这个助手节点是不是一轮的最后一个、而这一轮 omp 没发用量行（恢复会话时 omp 不重发）：是则返回这一轮是第几轮（从 0 数），
+ * 否则 -1。`fileTurns` 是会话文件里的轮数：和文档里的轮数不一致（正在发新消息、压缩过、文件还没读到）时一律 -1，
+ * 宁可不补也不把别的轮的用量补错位置。
+ */
+export function useBareTurnIndex(taskId: TaskId, sf: string, assistantId: string, fileTurns: number): number {
+  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
+  return useSyncExternalStore(sub, () => {
+    const index = roleIndex(taskId, sf);
+    if (index === null || index.turnCount !== fileTurns) return -1;
+    return index.lastAssistantOfBareTurn.get(assistantId) ?? -1;
+  });
+}
+
+/** main 区里的轮数（omp.user 的个数）；用它在新增一轮时重读会话文件。 */
+export function useTspTurnCount(taskId: TaskId, sf: string): number {
+  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
+  return useSyncExternalStore(sub, () => roleIndex(taskId, sf)?.turnCount ?? 0);
+}
+
+/** main 区里有没有 omp 自己发的空闲回顾（omp.recap）。 */
+export function useTspHasRecap(taskId: TaskId, sf: string): boolean {
+  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
+  return useSyncExternalStore(sub, () => roleIds(taskId, sf, RECAP_ROLE).length > 0);
 }
 
 /** main 区里有没有 omp 的用户消息（omp.user）。 */

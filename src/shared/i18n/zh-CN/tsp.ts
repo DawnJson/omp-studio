@@ -30,4 +30,5 @@ export const tsp = {
   chartEmpty: "无数据",
   loading: "正在载入…",
   layoutRegion: "对话",
+  recapTitle: "离开期间的回顾",
 } satisfies Record<string, MessageEntry>;

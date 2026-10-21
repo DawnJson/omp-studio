@@ -24,6 +24,7 @@ import {
 import { SettingsView } from "../features/settings/index.ts";
 import { onStudioCommand } from "../features/palette/studio-command.ts";
 import { jumpToWaitingTask, Sidebar } from "../features/sidebar/index.ts";
+import { addProjectAsDraft } from "../features/sidebar/sidebar-actions.ts";
 import { useLocale, useT } from "../i18n/use-t.ts";
 import { openReview } from "../store/review-store.ts";
 import {
@@ -190,6 +191,18 @@ export function App() {
     },
     cycleRegion: focusRegion,
     togglePalette: () => setPaletteOpen(!paletteOpenRef.current),
+    focusSidebarSearch: () => {
+      if (!sidebarShown) toggleSidebar();
+      // 侧栏收起时容器是 inert：等展开提交后再聚焦。
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          const input = document.querySelector<HTMLInputElement>("[data-testid=sidebar-search]");
+          input?.focus();
+          input?.select();
+        }),
+      );
+    },
+    openFolder: () => void addProjectAsDraft(t),
     openSettings: () => showView("settings"),
     toggleSidebar,
     goBack: navigation.goBack,

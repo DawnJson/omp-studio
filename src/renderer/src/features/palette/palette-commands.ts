@@ -40,7 +40,12 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
       shortcut: "Ctrl Shift N",
       run: () => startDraft(current.projectId),
     },
-    { id: "openFolder", label: t("cmd.openFolder"), run: () => void addProjectAsDraft(t) },
+    {
+      id: "openFolder",
+      label: t("cmd.openFolder"),
+      shortcut: "Ctrl Shift O",
+      run: () => void addProjectAsDraft(t),
+    },
     { id: "settings", label: t("cmd.settings"), shortcut: "Ctrl ,", run: () => showView("settings") },
     {
       id: "toggleSidebar",

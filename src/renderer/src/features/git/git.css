@@ -11,6 +11,10 @@
 .chip[aria-disabled="true"]:hover {
   background: var(--bg-hover);
 }
+/* 工具行放不下时由文件夹标签和模型名省略，工作树开关保持原宽，不被挤没。 */
+.worktree-chip {
+  flex: none;
+}
 .chip-note {
   color: var(--text-3);
   font-size: var(--fs-xs);

@@ -30,4 +30,5 @@ export const tsp = {
   chartEmpty: "No data",
   loading: "Loading…",
   layoutRegion: "Conversation",
+  recapTitle: "Recap while you were away",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

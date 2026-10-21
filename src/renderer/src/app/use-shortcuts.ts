@@ -1,4 +1,4 @@
-// 全局快捷键（spec §5.1）：Ctrl N / Ctrl Shift N / K / , / B / J / L / 1…9、Ctrl Shift [ ]、F6、Alt+←/→。
+// 全局快捷键（spec §5.1）：Ctrl N / Ctrl Shift N / Ctrl Shift O / K / F / , / B / J / L / 1…9、Ctrl Shift [ ]、F6、Alt+←/→。
 // 窗口内的 keydown 监听，不注册系统级快捷键。输入框里只有带 Ctrl/Alt 修饰的键会走到这里；单独按下/松开修饰键（Alt、Ctrl、Shift）不触发任何动作。
 import { useEffect, useRef } from "react";
 
@@ -14,6 +14,10 @@ export interface ShortcutActions {
   /** F6：在 侧栏 → 对话区 → 输入框 之间循环。 */
   cycleRegion(delta: 1 | -1): void;
   togglePalette(): void;
+  /** Ctrl F：聚焦侧栏搜索框并全选（侧栏收起时先展开）。 */
+  focusSidebarSearch(): void;
+  /** Ctrl Shift O：打开文件夹（同侧栏"打开文件夹"）。 */
+  openFolder(): void;
   openSettings(): void;
   toggleSidebar(): void;
   goBack(): void;
@@ -43,10 +47,11 @@ export function useShortcuts(actions: ShortcutActions): void {
           return;
         }
         const handlers: Record<string, () => void> = event.shiftKey
-          ? { n: act.newTaskInCurrentProject, d: act.openReview }
+          ? { n: act.newTaskInCurrentProject, d: act.openReview, o: act.openFolder }
           : {
               n: act.newTask,
               k: act.togglePalette,
+              f: act.focusSidebarSearch,
               ",": act.openSettings,
               b: act.toggleSidebar,
               j: act.jumpToWaiting,

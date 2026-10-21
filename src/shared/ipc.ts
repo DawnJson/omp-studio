@@ -461,6 +461,25 @@ export interface TspSnapshot {
   document: DocumentSnapshot;
 }
 
+/** 一轮的用量脚注数据（从 omp 会话文件算：一个用户消息到它的最终回复）。 */
+export interface TspTurnFooter {
+  /** 用户消息到最终回复完成的毫秒数；会话文件里没有时间戳时为 null。 */
+  elapsedMs: number | null;
+  /** 输入 token（含缓存写入）。 */
+  input: number;
+  output: number;
+  /** 美元。 */
+  cost: number;
+}
+
+/** 从 omp 会话文件和 history.db 补出来的、omp 恢复会话时不重发的内容。 */
+export interface TspSessionExtras {
+  /** 每个用户消息一项，从旧到新；那一轮没结束或没有用量时为 null。 */
+  turns: (TspTurnFooter | null)[];
+  /** 最后一次空闲回顾的显示文字（空白折叠、最长 280 字）；没有，或之后又有新消息（回顾已过时）时为 null。 */
+  recap: string | null;
+}
+
 // ───────── 会话历史 ─────────
 
 export interface SessionSummary {
@@ -737,6 +756,8 @@ export interface StudioInvokeApi {
   getTspSnapshot(taskId: TaskId): Promise<TspSnapshot>;
   /** TSP 任务每一轮的总费用（美元，从旧到新）：从 omp 会话文件算；没有会话文件、读失败、任务不是 tsp 引擎时返回 []，不抛错。 */
   getTspTurnCosts(taskId: TaskId): Promise<number[]>;
+  /** TSP 任务的用量脚注和空闲回顾（omp 恢复会话时不重发这两样，从会话文件和 history.db 补）；读不到时 `{ turns: [], recap: null }`，不抛错。 */
+  getTspSessionExtras(taskId: TaskId): Promise<TspSessionExtras>;
   /** 把一个终端 → 程序事件（action / select / activate / toggle / change / edit / undo / send / focus）发给 omp。 */
   sendTspEvent(taskId: TaskId, event: TspEvent): Promise<void>;
   /** 按键字节（xterm 序列）原样写进伪终端。 */
@@ -1099,6 +1120,7 @@ export const invokeNames = {
   getTranscript: true,
   getTspSnapshot: true,
   getTspTurnCosts: true,
+  getTspSessionExtras: true,
   sendTspEvent: true,
   sendTspKeys: true,
   resizeTsp: true,

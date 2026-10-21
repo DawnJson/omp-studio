@@ -18,13 +18,16 @@ import { useTask } from "../../store/index.ts";
 import { TspCtx } from "./tsp-context.ts";
 import {
   ensureTspDocument,
+  useTspHasRecap,
   useTspHasUserMessage,
   useTspNode,
   useTspReady,
   useTspSurface,
   useTspSurfaces,
+  useTspTurnCount,
 } from "./tsp-store.ts";
 import { clearFirstPrompt, useFirstPrompt } from "./first-prompt-store.ts";
+import { refreshSessionExtras, useSessionExtras } from "./session-extras-store.ts";
 import { refreshTurnCosts } from "./turn-cost-store.ts";
 import "./tsp.css";
 
@@ -224,6 +227,9 @@ function InlineSurface({
   useColumns(taskId, column, surface);
   // 每轮用量行的准确费用：挂载时取一次，一轮结束（lastTurn 变）再取。
   useEffect(() => refreshTurnCosts(taskId), [taskId, lastTurn]);
+  // 恢复会话时 omp 不重发的用量脚注和回顾：挂载时取一次，一轮结束或新增一轮时再取。
+  const turnCount = useTspTurnCount(taskId, surfaceId);
+  useEffect(() => refreshSessionExtras(taskId), [taskId, lastTurn, turnCount]);
   // omp 回显了用户消息：首发的文字用完了。
   useEffect(() => {
     if (hasUser) clearFirstPrompt(taskId);
@@ -238,7 +244,13 @@ function InlineSurface({
       surface={surface}
       mode="inline"
       header={<StudioHeader compact path={cwd} />}
-      tail={pendingText !== undefined && !hasUser ? <PendingUser text={pendingText} /> : null}
+      tail={
+        pendingText !== undefined && !hasUser ? (
+          <PendingUser text={pendingText} />
+        ) : (
+          <RestoredRecap taskId={taskId} sf={surfaceId} />
+        )
+      }
       jump={
         showJump && (
           <button type="button" className="tsp-jump" onClick={scrollToBottom} data-testid="jump-latest">
@@ -247,6 +259,23 @@ function InlineSurface({
         )
       }
     />
+  );
+}
+
+/**
+ * 恢复会话后补回 omp 最后一次空闲回顾（omp 只在生成当时显示一次、不写会话文件、恢复时不重放，见 main/tsp/session-extras.ts）。
+ * 实时收到过 omp.recap 就用实时的；文档里的轮数和会话文件对不上（正在发新消息）时不画，免得盖在新一轮后面。
+ */
+function RestoredRecap({ taskId, sf }: { taskId: TaskId; sf: string }) {
+  const t = useT();
+  const { turns, recap } = useSessionExtras(taskId);
+  const turnCount = useTspTurnCount(taskId, sf);
+  const live = useTspHasRecap(taskId, sf);
+  if (recap === null || live || turnCount !== turns.length) return null;
+  return (
+    <div className="tsp-row" data-role="omp.recap" data-restored="" title={t("tsp.recapTitle")}>
+      <div className="tsp-text">{recap}</div>
+    </div>
   );
 }
 

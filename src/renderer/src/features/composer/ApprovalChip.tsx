@@ -6,7 +6,7 @@ import type { ApprovalMode } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { MenuItem, onMenuKeyDown } from "../../app/AppMenu.tsx";
 import { useT } from "../../i18n/use-t.ts";
-import { ChevronDown, Shield } from "../../icons.tsx";
+import { Bolt, ChevronDown, Pencil, Shield } from "../../icons.tsx";
 import { useSettings } from "../../store/index.ts";
 import { startupSnapshot } from "../../store/startup-snapshot.ts";
 import { ensureOmpConfigLoaded, saveOmpConfigOrThrow, useOmpConfigValue } from "../settings/config-store.ts";
@@ -14,10 +14,10 @@ import { Popover } from "./Popover.tsx";
 
 const configKey = "tools.approvalMode";
 
-const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey }[] = [
-  { mode: "always-ask", label: "approval.alwaysAsk", desc: "approval.desc.alwaysAsk" },
-  { mode: "write", label: "approval.write", desc: "approval.desc.write" },
-  { mode: "yolo", label: "approval.yolo", desc: "approval.desc.yolo" },
+const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey; icon: typeof Shield }[] = [
+  { mode: "always-ask", label: "approval.alwaysAsk", desc: "approval.desc.alwaysAsk", icon: Shield },
+  { mode: "write", label: "approval.write", desc: "approval.desc.write", icon: Pencil },
+  { mode: "yolo", label: "approval.yolo", desc: "approval.desc.yolo", icon: Bolt },
 ];
 
 export function ApprovalChip() {
@@ -25,10 +25,13 @@ export function ApprovalChip() {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  // 快照还没读到时先用上次读到的（启动缓存），第一帧就显示模式而不是"审批…"。
+  // 快照还没读到时先用上次读到的（启动缓存），第一帧就显示当前档位的图标。
   const value = useOmpConfigValue(configKey) ?? startupSnapshot().approvalMode;
   const currentEntry = modes.find((entry) => entry.mode === value);
   const current = currentEntry?.mode;
+  const ModeIcon = currentEntry?.icon ?? Shield;
+  // 胶囊只有图标：完整名称放进悬停提示和 aria-label（没读到档位时写"审批…"）。
+  const chipName = `${t("approval.title")} · ${currentEntry ? t(currentEntry.label) : t("approval.loading")}`;
 
   useEffect(ensureOmpConfigLoaded, []);
 
@@ -66,11 +69,11 @@ export function ApprovalChip() {
         data-yolo={current === "yolo" || undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
-        title={t("approval.title")}
+        aria-label={chipName}
+        title={chipName}
         onClick={() => setOpen((value) => !value)}
       >
-        <Shield size={13} />
-        <span className="chip-text">{currentEntry ? t(currentEntry.label) : t("approval.loading")}</span>
+        <ModeIcon size={14} />
         <ChevronDown size={12} className="chip-caret" />
       </button>
       <Popover open={open} onClose={close} label={t("approval.title")}>

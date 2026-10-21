@@ -123,7 +123,9 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 
 录制在 `E:/tern-probe/out/scn-*/record.jsonl`(`PI_TUI_TSP_RECORD`),fixtures 里的 `picker.jsonl` 等是其中几份。
 
-- `--resume=<会话文件>` 启动后,omp 把整段旧对话重新用 TSP 节点发出来(`omp.user`、工具卡片、`omp.job.tile`、`omp.assistant`、`omp.turn.usage`),和 Tern 里显示一致。
+- `--resume=<会话文件>` 启动后,omp 把整段旧对话重新用 TSP 节点发出来(`omp.user`、工具卡片、`omp.job.tile`、`omp.assistant`),和 Tern 里显示一致。**18.12.4 实测不再带每轮末尾的 `omp.turn.usage` 用量行**(录制 `fixtures/tsp/resume.jsonl`:3 个 `omp.user`、14 个 `omp.assistant`、0 个 `omp.turn.usage`;`test/tsp-session-extras.test.ts` 钉住),也不会重放空闲回顾 `omp.recap`:
+  - 用量行:实时的轮 omp 自己发(助手消息 `col` 里最后一个子节点 `row role=omp.turn.usage`,图标 `time` + 文字 `13.4s · 728 tok · <$0.01 this turn`);恢复出来的轮 studio 从会话文件补(`main/tsp/session-extras.ts` 的 `parseSession`,口径照抄 omp 的 `TurnUsageAggregator`;渲染在 `nodes/layout.tsx` 的 `AssistantCol`,只补文档里"没有用量行的轮的最后一个 `omp.assistant`",文档轮数和文件轮数对不上时不补)。
+  - 空闲回顾:omp 在一轮结束后、`recap.idleSeconds`(默认 240,夹在 1–3600)秒内没有输入、有模型、输入框是空的时,跑一次临时对话生成回顾(`recap.enabled` 默认开),用 `omp.recap` 节点显示(`row`,`title` "Recap while you were away",子节点是 `icon name=history` + `text`;omp 终端里画成 `※ recap: …` 淡色斜体,`history` 只是 TSP 里没有 ※ 字形时的占位),同时 `SessionManager.recordRecap` 把原文写进 **agent 目录 `history.db` 的 `session_recaps` 表**(`session_id` = 会话文件头的 id,`created_at` 秒)——不写会话文件。studio 恢复时读这张表(只读,`readLatestRecap`)补最后一条,回顾之后会话又有新消息就不补(已过时);实时收到 `omp.recap` 就用实时的。
 - 运行中再 `send`:omp 自己排队(dock 里的 `omp.queue` / `omp.queue.item`,带 Edit 按钮)再作为 steer 交给模型,不需要 studio 自己的队列。
 - `send` 一条 `/model <id>`、`/thinking low` 是普通消息(发给模型),不是命令;单独的 `/model` 才打开模型选择器。
 - 输入框编辑器节点的 id 每次不同(`j.line/input`、`3.line/input`…):只能按 `k === "editor" && p.sendable === true` 找。**选择器节点的 id 也每次不同**(同一个脚本里是 `p`、`t`),必须从文档里读,不能写死。

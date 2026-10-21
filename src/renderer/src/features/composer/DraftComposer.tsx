@@ -42,8 +42,8 @@ import {
   rememberDefaults,
   rememberModels,
   rememberOmp,
-  resolveNewTaskDefault,
 } from "./new-task-default.ts";
+import { resolveNewTaskDefault } from "./new-task-resolve.ts";
 import { clearFirstPrompt, setFirstPrompt } from "../tsp/first-prompt-store.ts";
 import "./composer.css";
 

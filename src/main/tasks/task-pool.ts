@@ -22,6 +22,7 @@ import type {
   TranscriptBatch,
   TranscriptSnapshot,
   TspBatch,
+  TspSessionExtras,
   TspSnapshot,
   TaskEngine,
 } from "../../shared/ipc.ts";
@@ -338,6 +339,12 @@ export class TaskPool {
   async getTspTurnCosts(id: TaskId): Promise<number[]> {
     const runner = this.#runner(id);
     return runner.engine === "tsp" ? runner.turnCosts() : [];
+  }
+
+  /** TSP 任务的用量脚注和空闲回顾（omp 恢复会话时不重发）；非 TSP 任务、读不到时为空。 */
+  async getTspSessionExtras(id: TaskId): Promise<TspSessionExtras> {
+    const runner = this.#runner(id);
+    return runner.engine === "tsp" ? runner.sessionExtras() : { turns: [], recap: null };
   }
 
   sendTspEvent(id: TaskId, event: TspEvent): void {

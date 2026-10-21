@@ -172,7 +172,9 @@
   outline-offset: 2px;
 }
 .user:hover .hover-action,
-.answer:hover .hover-action {
+.user:focus-within .hover-action,
+.answer:hover .hover-action,
+.answer:focus-within .hover-action {
   opacity: 1;
 }
 /* 复制按钮悬在块下方的间隙里：给块底部留出按钮高度（扣掉下一块自带的 --space-3 上边距），不盖住下一块的文字。 */

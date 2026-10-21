@@ -222,12 +222,12 @@
   --primary-hover: #2e2b36;
   --text-on-primary: #ffffff;
 
-  /* 状态：进行中 / 等你确认 / 完成 / 出错。完成是中性色（--text-2），不用绿色 */
+  /* 状态：进行中 / 等你确认 / 完成 / 出错。完成是绿（和 diff 新增同一族），和紫、琥珀、红都分得开 */
   --st-running: #6b46d9;
   --st-waiting: #b76e00; /* 状态点（非文本，≥3:1） */
   --st-waiting-text: #8e5a00; /* 文字用，5.5:1 */
   --st-waiting-soft: rgba(183, 110, 0, 0.1);
-  --st-done: #4e4b56;
+  --st-done: #1f7a3f;
   --st-error: #b42e2e;
   --st-error-soft: rgba(180, 46, 46, 0.08);
 
@@ -297,7 +297,7 @@
     --st-waiting: #f0b545;
     --st-waiting-text: #f0b545;
     --st-waiting-soft: rgba(240, 181, 69, 0.12);
-    --st-done: #a6a3af;
+    --st-done: #5fcb86;
     --st-error: #f27373;
     --st-error-soft: rgba(242, 115, 115, 0.12);
 
@@ -363,7 +363,7 @@
   --st-waiting: #f0b545;
   --st-waiting-text: #f0b545;
   --st-waiting-soft: rgba(240, 181, 69, 0.12);
-  --st-done: #a6a3af;
+  --st-done: #5fcb86;
   --st-error: #f27373;
   --st-error-soft: rgba(242, 115, 115, 0.12);
 
