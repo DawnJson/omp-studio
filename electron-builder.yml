@@ -23,6 +23,9 @@ extraResources:
     to: tray.png
   - from: resources/icon.ico
     to: icon.ico
+  # Geist / Geist Mono 字体（打进 out/ 的渲染进程资源）是 SIL OFL 1.1：再分发时许可证要随软件一起带上。
+  - from: src/renderer/styles/fonts/OFL.txt
+    to: licenses/Geist-OFL.txt
 # koffi 的原生 .node 在 @koromix/koffi-<平台> 包里，electron-builder 会自动把 .node 解出 asar；
 # 已在打包产物里实测 koffi 能加载并调用 kernel32。
 win:

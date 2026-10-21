@@ -14,20 +14,40 @@
  *  - 媒体查询不能使用变量，窄窗断点写在 spec.md §3.3：1000px 侧栏改为抽屉。
  */
 
+/* ───────────────────────── 字体文件 ─────────────────────────
+   Geist / Geist Mono（Vercel，SIL OFL 1.1，许可证 fonts/OFL.txt，随安装包放在 resources/licenses/）：
+   取自 npm 包 geist@1.8.2 的 dist/fonts，只放直立的可变字体（100–900），斜体由浏览器倾斜生成。
+   字体从本地 app:// 读，几乎立即可用：font-display: block，启动时不先用回退字体画一遍再跳。 */
+@font-face {
+  font-family: "Geist";
+  src: url("./fonts/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("./fonts/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
 /* ───────────────────────── 非颜色 token（深浅共用） ───────────────────────── */
 :root {
-  /* 字体：Latin 在前、CJK 在后（逐字符回退，汉字落到微软雅黑 UI / 苹方）。不打包字体 */
+  /* 字体（仓库所有者 2026-10-21 定，照 Tern）：正文 Geist，代码 Geist Mono，中文微软雅黑 UI。
+     Latin 在前、CJK 在后，逐字符回退：Geist 没有的汉字落到微软雅黑 UI / 苹方；其余系统字体只在字体文件没读到时兜底 */
   --font-sans:
-    "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "SF Pro Text",
+    "Geist", "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "SF Pro Text",
     "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC", "Segoe UI Emoji",
     "Apple Color Emoji", "Noto Color Emoji", sans-serif;
   --font-display:
-    "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "SF Pro Display",
+    "Geist", "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "SF Pro Display",
     "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Segoe UI Emoji", "Apple Color Emoji",
     "Noto Color Emoji", sans-serif;
   --font-mono:
-    "Cascadia Code", "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, "Microsoft YaHei UI", "PingFang SC",
-    "Noto Sans Mono CJK SC", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", monospace;
+    "Geist Mono", "Cascadia Code", "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, "Microsoft YaHei UI",
+    "PingFang SC", "Noto Sans Mono CJK SC", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", monospace;
 
   /* 字号 / 行高（px，行高用像素值，避免嵌套漂移） */
   --fs-2xs: 11px;

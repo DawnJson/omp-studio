@@ -64,6 +64,28 @@ async function sendFirst(page: Page, text: string): Promise<void> {
   await expect(page.getByTestId("composer-stack").getByTestId("context-meter")).toHaveAttribute("aria-label", /0\.\d/);
 }
 
+test("界面字体是打包的 Geist / Geist Mono：第一帧之前两个字体文件都读进来了", async () => {
+  const launched = await launchApp({ STUDIO_TEST_OMP: testOmp(fixture) });
+  try {
+    const { page } = launched;
+    await expect(page.getByTestId("empty-state")).toBeVisible();
+    // CSP 拦了 font-src、打包后路径不对、或 --font-* 不再以它们开头时，浏览器静默落回系统字体，界面照样能用，只能这样查出来。
+    // 其它 @font-face（如 KaTeX）按需才读，不在这里比。
+    const faces = await page.evaluate(() =>
+      [
+        ...(globalThis as unknown as { document: { fonts: Iterable<{ family: string; status: string }> } }).document
+          .fonts,
+      ]
+        .map((face) => `${face.family.replaceAll('"', "")}:${face.status}`)
+        .filter((face) => face.startsWith("Geist"))
+        .sort(),
+    );
+    expect(faces).toEqual(["Geist Mono:loaded", "Geist:loaded"]);
+  } finally {
+    await launched.close();
+  }
+});
+
 test("输入框：上面输入区、下面工具行，同一块底上没有分隔线，控件和输入区之间有留白", async () => {
   const { launched, cleanup } = await start();
   try {

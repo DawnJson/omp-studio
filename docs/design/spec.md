@@ -27,7 +27,7 @@
 
 | 决定 | 采用 | 理由 |
 |---|---|---|
-| 字体来源 | [Calm] 系统字体，不打包 | Segoe UI Variable → 雅黑 UI；零依赖、安装包小。Bold 的 Inter + JetBrains Mono 打包留给截图评审后再议（只改 `--font-*`） |
+| 字体来源 | 打包 Geist（正文、标题）+ Geist Mono（代码、路径、内置终端），中文用系统的微软雅黑 UI（仓库所有者 2026-10-21 定，照 Tern；原来是系统字体 Segoe UI Variable / Cascadia Code、不打包） | 字体文件取自 npm 包 `geist@1.8.2`，只放直立的可变字体 `src/renderer/styles/fonts/{Geist,GeistMono}-Variable.woff2`（各约 70 KB，100–900 字重，斜体由浏览器倾斜生成），`@font-face` 在 `tokens.css`，`font-display: block`；SIL OFL 1.1，许可证 `fonts/OFL.txt` 随安装包放在 `resources/licenses/Geist-OFL.txt`。`main.tsx` 在第一帧之前 `document.fonts.load` 两个字体栈：第一帧就是最终字体，xterm 打开时量到的是 Geist Mono 的字符宽度。Tern 的等宽是 Berkeley Mono（商业授权，不能打包），用同家族的 Geist Mono 代替 |
 | 字体栈顺序 | [Calm/Bold 一致] Latin 在前，CJK 在后 | 浏览器逐字符回退，汉字走雅黑，两边字形互不污染 |
 | 字号体系 | [融合] 命名用 `--fs-*`/`--lh-*`（Bold），数值取两边公共部分；正文 15px | 颜色里已有 `--text` 系列，字号再叫 `--text-sm` 会撞名。正文 15px 两边一致，中文行高 27、英文 24 |
 | 字重 | [Bold] 状态不靠字重；500 只给 Latin 标签；中文标题用 600 | 雅黑 UI 只有 400/700，500 会回落，列表宽度与省略号位置会跳。Calm 的“选中行标题 500”被否决 |
