@@ -6,7 +6,7 @@ import type { ApprovalMode, ProjectId, TaskId } from "../../../../shared/ipc.ts"
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { MenuItem, onMenuKeyDown } from "../../app/AppMenu.tsx";
 import { useT } from "../../i18n/use-t.ts";
-import { ChevronDown, Pencil, Shield, ShieldCheck, ShieldOff } from "../../icons.tsx";
+import { Pencil, Shield, ShieldCheck, ShieldOff } from "../../icons.tsx";
 import { useSettings } from "../../store/index.ts";
 import { startupSnapshot } from "../../store/startup-snapshot.ts";
 import { ensureOmpConfigLoaded } from "../settings/config-store.ts";
@@ -104,7 +104,6 @@ export function ApprovalChip({
         onClick={() => setOpen((value) => !value)}
       >
         <ModeIcon size={14} />
-        <ChevronDown size={12} className="chip-caret" />
       </button>
       <Popover open={open} onClose={close} label={t("approval.title")}>
         {confirming ? (

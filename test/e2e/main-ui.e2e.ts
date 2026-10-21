@@ -157,7 +157,7 @@ test("空状态、对话里的用量；截图", async () => {
     await expect(draft.getByTestId("context-meter-pending")).toHaveCount(1);
     await expect(draft.getByTestId("context-meter")).toHaveCount(0);
     await expect(draft.getByTestId("usage-cost")).toHaveText("$0.00");
-    await expect(page.getByTestId("model-chip").locator("svg:not(.chip-caret)")).toHaveCount(0);
+    await expect(page.getByTestId("model-chip").locator("svg")).toHaveCount(0);
     await expect(draft.getByTestId("empty-project")).toBeVisible();
     await expect(page.getByTestId("worktree-chip")).toHaveCount(0);
     await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
@@ -281,7 +281,7 @@ test("空状态、对话里的用量；截图", async () => {
     // 审批胶囊只有图标 + 下拉箭头（没有文字），完整名称在悬停提示和 aria-label 里；模型胶囊里项目草稿也显示思考强度（模型支持思考时）。
     const approvalChip = draftTools.getByTestId("approval-chip");
     await expect(approvalChip).toHaveText("");
-    await expect(approvalChip.locator("svg:not(.chip-caret)")).toHaveCount(1);
+    await expect(approvalChip.locator("svg")).toHaveCount(1);
     await expect(approvalChip).toHaveAttribute("aria-label", /.+ · .+/);
     await expect(approvalChip).toHaveAttribute("title", /.+ · .+/);
     expect(approvalBox && approvalBox.width).toBeLessThanOrEqual(60);

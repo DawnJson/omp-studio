@@ -200,14 +200,9 @@ button.usage-context:hover,
   /* 极窄时内容（思考强度）不能画到旁边的胶囊上。 */
   overflow: hidden;
 }
-/* 带名字的胶囊（模型）：名字最小宽 + 左右内边距 + 箭头，工具行再挤也不会窄过这个；只有图标的胶囊（审批）不受影响。 */
+/* 带名字的胶囊（模型）：名字最小宽 + 左右内边距，工具行再挤也不会窄过这个；只有图标的胶囊（审批）不受影响。 */
 .chip:has(> .chip-text) {
-  min-width: calc(var(--chip-name-min-w) + 2 * var(--space-2-5) + var(--space-1) + var(--space-3));
-}
-/* 胶囊末尾的 ⌄：只是提示"点了会展开"，不是独立按钮。 */
-.chip-caret {
-  flex: none;
-  color: var(--text-3);
+  min-width: calc(var(--chip-name-min-w) + 2 * var(--space-2-5));
 }
 .chip-text {
   overflow: hidden;
