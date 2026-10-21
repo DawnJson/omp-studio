@@ -70,3 +70,13 @@
 | 集成 | 37 | MCP、浏览器、搜索（exa、searxng）、`secrets.*`、扩展处理器 |
 | 语音 | 11 | `stt.*`、`tts.*`、`speech.*`、`live.*` |
 | 其他 | 31 | `gc.*`、`dev.*`、`commit.*`、`collab.*`、`share.*`、`stream.*`、`telemetry.*` 和以后新增的键 |
+
+## 审批模式（输入框胶囊）
+
+- 取值（`omp config list` 的 enum 选项，omp 18.12.5）：`always-ask` | `always-ask-cached` | `write` | `yolo`；`always-ask-cached` 在 omp 里叫 Ask and remember（读文件也询问，批准可记住文件/文件夹，记住的批准用 `/forget-approvals` 清）。取值和 `toApprovalMode` 在 `src/shared/approval-mode.ts`；omp 给了不认识的值，胶囊显示 `approval.loading`，不当成别的档位。
+- **项目盖过全局**（实测 18.12.5，临时 `PI_CODING_AGENT_DIR`）：全局 `omp config set tools.approvalMode write`，项目 `.omp/config.yml` 写 `tools.approvalMode: always-ask-cached`；在项目目录里 `omp config list --json` / `omp config get` 给 `always-ask-cached`，在别处给 `write`。omp 只看 cwd 下的 `.omp/config.yml`，父目录里的不算（cwd 在 `proj/sub`、`proj/.omp/config.yml` 设了值：读到 omp 默认 `yolo`）。`PI_APPROVAL_MODE` 环境变量 [推测，未实测] 会盖过两者（`test/omp-config.test.ts` 的假数据里 `omp config set` 结果带 `overriddenBy`），studio 不处理。
+- **读**：`getApprovalMode(projectId)`（`omp-config/approval-mode.ts`）在项目目录里跑 `omp config list --json` 得生效值；`list` 不带来源，所以另外只读解析项目 `.omp/config.yml`，`tools.approvalMode` 是字符串就记 `source: "project"`，否则 `"global"`（项目文件解析不了会报错，不当成没设）。projectId 为 null（无项目的聊天）只看全局。只有全局来源的值记进启动缓存。
+- **写**：只经 `omp config set tools.approvalMode`（全局，用设置页同一条 `setOmpConfig`）。omp 没有写项目层的命令（实测 18.12.5：`omp config set --help` 只有 `--json`；在项目目录里 `omp config set tools.approvalMode write` 仍然写全局，项目文件不动，并提示 “Project settings override this value here; edit or remove it there for the saved value to apply.”），studio 不自己改项目文件（AGENTS 只允许两处例外）。所以项目 `.omp/config.yml` 设了这一项时，胶囊菜单里的四档置灰不可选，悬停提示加一句 `approval.projectLocked`（“由项目配置决定（.omp/config.yml）”）；「清除已记住的批准」不受影响。
+- **清除已记住的批准**：胶囊菜单里给任务的 omp 会话发 `/forget-approvals`（`sendPrompt`，同 `/retry`）。实测 18.12.5 `omp --mode rpc-ui` 下 `prompt` 发 `/forget-approvals` 不调模型（应答 `agentInvoked:false`），先回一条 `command_output`：“Remembered approvals forgotten; the next read or write asks again.”。清的是整个 agent 目录的批准库，不分项目。草稿、标题为空（还没发过消息）的任务里禁用，否则第一次 `sendPrompt` 会拿这条命令当标题。
+- worktree 任务：胶囊按项目目录（不是 worktree 根）读；worktree 里没有的未提交 `.omp/config.yml` 在那里不生效，这种情况显示可能和 omp 实际行为不同。
+- 测试：`test/approval-mode.test.ts`（生效值与来源、四档文案）。

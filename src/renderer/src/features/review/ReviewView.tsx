@@ -17,21 +17,27 @@ import {
   clearComments,
   closeReview,
   setReviewMode,
+  setReviewScope,
+  setReviewWrap,
   useReviewComments,
   useReviewMode,
+  useReviewScope,
+  useReviewWrap,
 } from "../../store/review-store.ts";
 import { useSettings, useTask, useTranscript } from "../../store/index.ts";
 import { describeError, reportError } from "../../ui/errors.ts";
 import { buildTurns } from "../conversation/model.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { CommentQueue } from "./CommentQueue.tsx";
+import { CommitBox } from "./CommitBox.tsx";
 import { ExplainPanel } from "./ExplainPanel.tsx";
 import { FileDiffView } from "./FileDiffView.tsx";
 import { FileTree } from "./FileTree.tsx";
 import { explainChanges, notesForFile } from "./explain.ts";
 import { useReviewKeys } from "./review-keys.ts";
-import { useFileDiff, useReviewStatus } from "./use-review-data.ts";
+import { useChangeStats, useFileDiff, useReviewStatus } from "./use-review-data.ts";
 import "./review.css";
+import { ViewControls } from "./ViewControls.tsx";
 import type { ExitProps } from "../../ui/presence.ts";
 
 const BUSY: readonly TaskState["status"][] = ["starting", "running", "needs_you"];
@@ -43,6 +49,8 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
   const transcript = useTranscript(taskId);
   const comments = useReviewComments(taskId);
   const mode = useReviewMode();
+  const scope = useReviewScope();
+  const wrap = useReviewWrap();
   const root = useRef<HTMLDivElement>(null);
   const { status, error, stamp, refresh } = useReviewStatus(taskId, task?.status);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -57,7 +65,9 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
     lastIndex.current = entry === null ? 0 : entries.indexOf(entry);
   }, [entries, entry]);
 
-  const diffState = useFileDiff(taskId, entry, stamp);
+  const diffState = useFileDiff(taskId, entry, scope, stamp);
+  const stats = useChangeStats(taskId, stamp);
+  const stagedCount = groups.find((group) => group.area === "staged")?.entries.length ?? 0;
   const explanations = useMemo(() => explainChanges(transcript ? buildTurns(transcript) : []), [transcript]);
   const notes = entry === null ? [] : notesForFile(explanations, entry.path, task?.cwd ?? null);
 
@@ -97,6 +107,14 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
     }
     if (key === "v") {
       setReviewMode(mode === "unified" ? "split" : "unified");
+      return true;
+    }
+    if (key === "f") {
+      setReviewScope(scope === "hunks" ? "file" : "hunks");
+      return true;
+    }
+    if (key === "w") {
+      setReviewWrap(!wrap);
       return true;
     }
     return false;
@@ -160,7 +178,10 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
   else
     content = (
       <div className="rv-body">
-        <FileTree groups={groups} selectedKey={entry.key} onSelect={setSelectedKey} />
+        <div className="rv-side">
+          <FileTree groups={groups} stats={stats} selectedKey={entry.key} onSelect={setSelectedKey} />
+          <CommitBox taskId={taskId} stagedCount={stagedCount} onCommitted={refresh} />
+        </div>
         <main className="rv-main">
           <FileDiffView
             key={entry.key}
@@ -168,6 +189,8 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
             entry={entry}
             state={diffState}
             mode={mode}
+            scope={scope}
+            wrap={wrap}
             comments={comments.filter((comment) => comment.file === entry.path && comment.area === entry.area)}
             onChanged={refresh}
           />
@@ -233,26 +256,7 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
           </span>
         )}
         <span className="rv-spacer" />
-        <div className="rv-seg" role="group" aria-label={t("review.layout")}>
-          <button
-            type="button"
-            className="rv-seg-btn"
-            aria-pressed={mode === "unified"}
-            data-testid="mode-unified"
-            onClick={() => setReviewMode("unified")}
-          >
-            {t("review.unified")}
-          </button>
-          <button
-            type="button"
-            className="rv-seg-btn"
-            aria-pressed={mode === "split"}
-            data-testid="mode-split"
-            onClick={() => setReviewMode("split")}
-          >
-            {t("review.split")}
-          </button>
-        </div>
+        <ViewControls mode={mode} scope={scope} wrap={wrap} />
         <button type="button" className="rv-btn" data-testid="review-refresh" onClick={refresh}>
           {t("review.refresh")}
         </button>

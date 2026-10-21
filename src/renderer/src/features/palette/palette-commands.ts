@@ -7,7 +7,7 @@ import { openReview } from "../../store/review-store.ts";
 import { archiveWithUndo } from "../sidebar/archive-store.ts";
 import { startDraft } from "../empty/index.ts";
 import { addProjectAsDraft, jumpToWaitingTask } from "../sidebar/sidebar-actions.ts";
-import { canShowFilesPanel, toggleFilesPanel } from "../file-preview/index.ts";
+import { toggleFilesPanel } from "../file-preview/index.ts";
 import { toggleTerminal } from "../terminal/index.ts";
 import { exportConversationReporting } from "../composer/export-html.ts";
 import { openSessionTree } from "../conversation/session-tree-store.ts";
@@ -72,7 +72,7 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
       shortcut: "Alt T",
       run: () => emitStudioCommand("thinking"),
     },
-    // 下面几条（压缩、目标、会话树、导出、旁路提问）靠 rpc，TSP 任务用不了；omp 自己的同名命令走斜杠命令（输入 / 选取）。
+    // 压缩、目标、会话树、旁路提问靠 rpc，TSP 任务用不了（omp 自己的同名命令走斜杠命令：输入 / 选取）；导出两种引擎都行。
     rpcTask && { id: "compact", label: t("cmd.compact"), run: () => emitStudioCommand("compact") },
     ...(rpcTask
       ? goalButtons(rpcTask.goal).map((op) => ({
@@ -82,10 +82,10 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
         }))
       : []),
     rpcTask && { id: "sessionTree", label: t("cmd.sessionTree"), run: () => openSessionTree(rpcTask.id) },
-    rpcTask && {
+    current && {
       id: "exportHtml",
       label: t("cmd.exportHtml"),
-      run: () => void exportConversationReporting(rpcTask.id, t),
+      run: () => void exportConversationReporting(current.id, t),
     },
     rpcTask && { id: "btw", label: t("cmd.btw"), run: () => openBtw(rpcTask.id) },
     current?.status === "running" && {
@@ -112,13 +112,12 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
       shortcut: "Ctrl Shift D",
       run: () => openReview(current.id),
     },
-    terminalKey !== null &&
-      canShowFilesPanel(terminalKey) && {
-        id: "toggleFiles",
-        label: t("preview.filesToggle"),
-        shortcut: "Ctrl Shift E",
-        run: () => toggleFilesPanel(terminalKey),
-      },
+    terminalKey !== null && {
+      id: "toggleFiles",
+      label: t("preview.filesToggle"),
+      shortcut: "Ctrl Shift E",
+      run: () => toggleFilesPanel(terminalKey),
+    },
     terminalKey !== null && {
       id: "toggleTerminal",
       label: t("cmd.toggleTerminal"),

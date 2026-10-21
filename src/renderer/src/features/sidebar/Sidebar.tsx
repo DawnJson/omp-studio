@@ -2,6 +2,7 @@
 // 从顶栏下面开始，不画标题栏；底色 --bg-sidebar 与顶栏连成一片。宽度由外层容器给。
 import { reportError } from "../../ui/errors.ts";
 import { publishVisibleTaskIds } from "./visible-order-store.ts";
+import { onStudioCommand } from "../palette/studio-command.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectId, TaskId, TaskState } from "../../../../shared/ipc.ts";
 import { useShellUi } from "../../app/shell-store.ts";
@@ -59,6 +60,14 @@ export function Sidebar() {
   const [limits, setLimits] = useState<Record<string, number>>({});
   const [tabStop, setTabStop] = useState("");
   const [renamingId, setRenamingId] = useState<TaskState["id"] | null>(null);
+  // 斜杠命令 /rename（不带新名字）：当前任务的行进入就地改名；侧栏收起时 App 同时把它展开。
+  useEffect(
+    () =>
+      onStudioCommand((command) => {
+        if (command === "rename" && selectedTaskId !== null) setRenamingId(selectedTaskId);
+      }),
+    [selectedTaskId],
+  );
   const [query, setQuery] = useState("");
   const searching = query.trim() !== "";
   // 任务列表变了（新建、恢复、第一轮结束后会话挂上任务）就重取历史会话，挂上任务的会话从历史里消失。

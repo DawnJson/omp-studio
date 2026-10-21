@@ -8,6 +8,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { expect, test, type Page } from "@playwright/test";
 import { parseSession } from "../../src/main/tsp/session-extras.ts";
+import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
 import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
@@ -17,6 +18,8 @@ interface Started {
   launched: LaunchedApp;
   /** 假 omp 收到的 TSP 事件(不含 ack / resize 等终端自发的)。 */
   received(): Promise<Record<string, unknown>[]>;
+  /** 假 omp 收到的按键(写进伪终端的原始字节),按顺序。 */
+  receivedKeys(): Promise<string[]>;
   cleanup(): Promise<void>;
 }
 
@@ -51,6 +54,15 @@ async function start(fixture: string, env: Record<string, string> = {}): Promise
         .filter((record) => record.kind === "tsp" && record.body !== undefined)
         .map((record) => record.body as Record<string, unknown>)
         .filter((body) => ["send", "action", "activate", "select"].includes(String(body["ev"])));
+    },
+    async receivedKeys() {
+      const text = await readFile(log, "utf8").catch(() => "");
+      return text
+        .split("\n")
+        .filter((line) => line.trim() !== "")
+        .map((line) => JSON.parse(line) as { kind: string; data?: string })
+        .filter((record) => record.kind === "keys" && typeof record.data === "string")
+        .map((record) => record.data as string);
     },
     async cleanup() {
       await launched.close();
@@ -180,6 +192,13 @@ test("审批:omp 的审批门出现时任务是等你确认;点批准发出门�
     await expect(role(page, "omp.editor.ask.approval")).toBeVisible();
     await expect(role(page, "omp.editor")).toHaveCount(0);
     await shoot(page, "gate");
+    // 输入框写的字 Enter 发出去 = omp 的"拒绝并说明理由"：send 事件发到 omp 还在的输入框（假 omp 不会因多出的事件失败）。
+    await expect(page.getByTestId("composer-input")).toHaveAttribute("placeholder", /拒绝|Deny/);
+    await page.getByTestId("composer-input").fill("先别跑这个");
+    await page.getByTestId("composer-input").press("Enter");
+    await expect
+      .poll(async () => (await received()).filter((event) => event["ev"] === "send" && event["text"] === "先别跑这个"))
+      .toEqual([expect.objectContaining({ ev: "send", id: "j.line/input" })]);
     await approve.click();
     await expect(approve).toHaveCount(0, { timeout: 30_000 });
     await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
@@ -217,6 +236,54 @@ test("提问:选项是 omp 的列表,双击一项发 activate;提问期间 studi
     // 提问被撤掉后焦点回到 studio 输入框。
     await expect(page.getByTestId("composer-input")).toBeFocused();
     await shoot(page, "ask-done");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("多题提问(omp 18.12.5 录制):多选题点高亮项是勾选不跳页;Review 页没有 list 也由对话框接键盘(Enter 写给 omp);按钮是真按钮,点 Submit 提交", async () => {
+  test.setTimeout(90_000);
+  const { launched, received, receivedKeys, cleanup } = await start("ask-multi");
+  try {
+    const { page } = launched;
+    const prompt = recordedUserEvents(loadTspFixture("ask-multi")).find((entry) => entry.event["ev"] === "send")!.event[
+      "text"
+    ] as string;
+    await sendFirst(page, prompt);
+    const item = (id: string) => page.locator(`[data-testid="tsp-view"] [data-id="${id}"]`);
+    await expect(item("s.q0/option:1")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "needs_you");
+    // 底栏是真按钮。
+    await expect(item("s.actions/submit")).toHaveJSProperty("tagName", "BUTTON");
+    // 单选:点没高亮的一项 = select(omp 直接作答并跳页)。
+    await item("s.q0/option:1").click();
+    // 多选:点已高亮的第一项(Logging)= select(勾选),不是 activate;Cache 同理。
+    await expect(item("s.q1/option:0")).toHaveAttribute("data-role", "omp.ask.check", { timeout: 30_000 });
+    await item("s.q1/option:0").click();
+    await expect(item("s.q1/option:0").locator(".tspi-item-ic")).toBeVisible();
+    await item("s.q1/option:2").click();
+    await expect(item("s.q1/option:2").locator(".tspi-item-ic")).toBeVisible();
+    // Next 按钮发 action submit,翻到第三题。
+    await item("s.actions/submit").click();
+    await item("s.q2/option:1").click();
+    // Review 页:没有 list;焦点由对话框根节点拿着,Enter 写给 omp。
+    await expect(role(page, "omp.ask.answers")).toBeVisible({ timeout: 30_000 });
+    await expect(role(page, "omp.editor.ask")).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect.poll(receivedKeys).toContain("\r");
+    // 点 Submit 按钮提交,对话框消失,任务回到空闲。
+    await item("s.actions/submit").click();
+    await expect(role(page, "omp.editor.ask")).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
+    expect(await received()).toEqual([
+      expect.objectContaining({ ev: "send" }),
+      { ev: "select", sf: "s:1", id: "s.q0", item: "s.q0/option:1" },
+      { ev: "select", sf: "s:1", id: "s.q1", item: "s.q1/option:0" },
+      { ev: "select", sf: "s:1", id: "s.q1", item: "s.q1/option:2" },
+      { ev: "action", sf: "s:1", id: "s.actions/submit", act: "submit" },
+      { ev: "select", sf: "s:1", id: "s.q2", item: "s.q2/option:1" },
+      { ev: "action", sf: "s:1", id: "s.actions/submit", act: "submit" },
+    ]);
   } finally {
     await cleanup();
   }
@@ -458,6 +525,66 @@ test("压缩分隔画成整行横线夹文字;切模型后 omp 的状态行留�
     expect(order).toBe(2);
     await notes.nth(2).scrollIntoViewIfNeeded();
     await shoot(page, "compact");
+  } finally {
+    await cleanup();
+  }
+});
+
+const JOBS_PROMPT =
+  "Run `npx playwright test` in the current directory as a background bash job (async/background mode, do not wait for it in the foreground). Right after starting it, reply only with the word STARTED and stop.";
+
+test("后台作业对话框:omp 的测试进度和逐条用时柱状图(omp.job.widget)画出来,柱数 = series 长度,进度条显示 36/36", async () => {
+  test.setTimeout(90_000);
+  const { launched, cleanup } = await start("jobs-chart");
+  try {
+    const { page } = launched;
+    await sendFirst(page, JOBS_PROMPT);
+    // 录制(omp 18.12.5)里 /jobs 打开了两次:跑到一半(17/36)和跑完(36/36),第二次的 overlay 留到录制结束。
+    const widget = role(page, "omp.job.widget");
+    await expect(widget.locator("[role=meter]")).toBeVisible({ timeout: 60_000 });
+    await expect(widget).toContainText("playwright · 36 tests", { timeout: 60_000 });
+    await expect(widget).toContainText("36/36", { timeout: 60_000 });
+    await expect(role(page, "omp.job.widget.stat")).toContainText("passed 36 · failed 0");
+    // 柱状图:最后一帧的 series 有 21 项(omp 只留最近的一段),每项一根柱。
+    await expect(widget.locator(".tsp-chart-bars i")).toHaveCount(21);
+    await expect(widget.locator(".tsp-chart-sum")).toHaveText("test duration 711 ms");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("后台作业弹窗:卡片不超出 tsp-view、作业列表顶对齐;输入框有焦点时按 Esc 把 Esc 键写给 omp 一次", async () => {
+  test.setTimeout(90_000);
+  const { launched, receivedKeys, cleanup } = await start("jobs-chart");
+  try {
+    const { page } = launched;
+    await sendFirst(page, JOBS_PROMPT);
+    // 录制里第二次 /jobs 的 overlay(layer.ov-16)留到录制结束;前一个(layer.ov-z)omp 自己 del 了,界面上只有一层。
+    const overlay = role(page, "omp.overlay.jobs");
+    await expect(overlay).toHaveCount(1, { timeout: 60_000 });
+    await expect(role(page, "omp.job.widget")).toContainText("36/36", { timeout: 60_000 });
+    // 卡片装在 tsp-view 里,底部的 Close 够得着(max-height 100% + 内部滚动)。
+    const card = overlay.locator(".tspi-ov-card");
+    const viewBox = await page.getByTestId("tsp-view").boundingBox();
+    const cardBox = await card.boundingBox();
+    expect(viewBox).not.toBeNull();
+    expect(cardBox).not.toBeNull();
+    expect(cardBox!.y).toBeGreaterThanOrEqual(viewBox!.y - 1);
+    expect(cardBox!.y + cardBox!.height).toBeLessThanOrEqual(viewBox!.y + viewBox!.height + 1);
+    // 内容比卡片高时卡片体自己滚动:滚到底,Close 那一行就在视口里(不是被卡片切掉够不着)。
+    await role(page, "omp.actions").scrollIntoViewIfNeeded();
+    await expect(role(page, "omp.actions")).toBeInViewport({ ratio: 1 });
+    // 列表和详情顶对齐(row 默认垂直居中会让列表漂到详情中间)。
+    const masterBox = await role(page, "omp.jobs.master").boundingBox();
+    const detailBox = await role(page, "omp.jobs.detail").boundingBox();
+    expect(Math.abs(masterBox!.y - detailBox!.y)).toBeLessThanOrEqual(1);
+
+    // Esc:焦点在 studio 输入框里,弹窗把 Esc 写给 omp(弹窗没有关闭动作,关它就是这个键),只写一次。
+    const escCount = async () => (await receivedKeys()).join("").split("\x1b").length - 1;
+    const before = await escCount();
+    await page.getByTestId("composer-input").focus();
+    await page.keyboard.press("Escape");
+    await expect.poll(escCount).toBe(before + 1);
   } finally {
     await cleanup();
   }

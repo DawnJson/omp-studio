@@ -359,8 +359,18 @@ button {
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 
-.menu-item:hover {
+.menu-item:hover:not(:disabled) {
   background: var(--bg-hover);
+}
+
+.menu-item:disabled {
+  color: var(--text-disabled);
+}
+
+.menu-sep {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--border-subtle);
 }
 
 .menu-item:focus-visible {

@@ -8,6 +8,7 @@ export function MenuItem(props: {
   shortcut?: string;
   checked?: boolean;
   title?: string;
+  disabled?: boolean;
   onSelect(): void;
 }) {
   const role = props.checked === undefined ? "menuitem" : "menuitemradio";
@@ -19,6 +20,7 @@ export function MenuItem(props: {
       className="menu-item"
       title={props.title}
       tabIndex={-1}
+      disabled={props.disabled}
       onClick={props.onSelect}
     >
       <span className="menu-item-label">{props.children}</span>
@@ -33,7 +35,7 @@ export function onMenuKeyDown(
   menu: RefObject<HTMLElement | null>,
   onClose: () => void,
 ) {
-  const items = [...(menu.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [])];
+  const items = [...(menu.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled)') ?? [])];
   const index = items.indexOf(document.activeElement as HTMLElement);
   const move = (next: number) => {
     event.preventDefault();

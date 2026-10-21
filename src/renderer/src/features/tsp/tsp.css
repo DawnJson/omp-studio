@@ -2521,6 +2521,20 @@
   color: var(--text);
 }
 
+/* /jobs 弹窗（omp.overlay.jobs）：左边作业列表、右边详情。row 默认垂直居中，列表会漂到详情中间，改成顶对齐拉伸；
+   列表占三分之一、不被详情挤没，长命令截断而不是出横向滚动条。 */
+.tsp-row[data-role="omp.jobs.split"] {
+  align-items: stretch;
+  gap: var(--space-3);
+}
+.tsp-col[data-role="omp.jobs.master"] {
+  flex: 0 0 33%;
+  overflow: hidden;
+}
+.tsp-col[data-role="omp.jobs.detail"] {
+  flex: 1 1 0;
+}
+
 /* 子代理 / 后台作业的磁贴（Task、wait 的 body） */
 .tsp-row[data-role="omp.job.tiles"] {
   gap: 0;

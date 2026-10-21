@@ -1,6 +1,6 @@
 // 文件树：已暂存 / 未暂存 / 未跟踪三组，一个文件两侧都有改动时在两组各出现一次。点一行看那一侧的 diff。
 import type { GitChangeKind } from "../../../../shared/git.ts";
-import type { ReviewGroup } from "../../../../shared/ui/review-model.ts";
+import type { LineCounts, ReviewGroup } from "../../../../shared/ui/review-model.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 
@@ -28,10 +28,13 @@ function splitPath(path: string): { dir: string; name: string } {
 
 export function FileTree({
   groups,
+  stats,
   selectedKey,
   onSelect,
 }: {
   groups: readonly ReviewGroup[];
+  /** 每个文件每一侧的 `+a −d`（按 entry.key）；二进制、过大的没有。 */
+  stats: ReadonlyMap<string, LineCounts>;
   selectedKey: string | null;
   onSelect(key: string): void;
 }) {
@@ -48,6 +51,7 @@ export function FileTree({
             {group.entries.map((entry) => {
               const { dir, name } = splitPath(entry.path);
               const kind = KIND[entry.kind];
+              const counts = stats.get(entry.key);
               return (
                 <li key={entry.key}>
                   <button
@@ -67,6 +71,17 @@ export function FileTree({
                       <span className="rv-dir">{dir}</span>
                       <span className="rv-name">{name}</span>
                     </span>
+                    {counts && (
+                      <span
+                        className="rv-file-counts"
+                        data-testid="review-file-counts"
+                        role="img"
+                        aria-label={t("review.counts", counts)}
+                      >
+                        <span className="rv-add">+{counts.added}</span>
+                        <span className="rv-del">−{counts.removed}</span>
+                      </span>
+                    )}
                   </button>
                 </li>
               );

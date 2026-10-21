@@ -62,6 +62,13 @@ describe("发送行为表", () => {
     expect(decideEnter(key({ ctrlKey: true }), ctx({ gate: true, running: true }))).toBe("followUp");
     expect(decideEnter(key({ ctrlKey: true }), ctx({ gate: true, swapped: true }))).toBe("steer");
   });
+  it("TSP 审批门（ctrlApproves）：有草稿时 Enter 拒绝并发送，Ctrl+Enter 仍是批准，不当成稍后发送", () => {
+    const approval = { gate: true, running: true, ctrlApproves: true };
+    expect(decideEnter(key(), ctx(approval))).toBe("denyAndSend");
+    expect(decideEnter(key({ ctrlKey: true }), ctx(approval))).toBe("gatePrimary");
+    expect(decideEnter(key({ ctrlKey: true }), ctx({ ...approval, hasContent: false }))).toBe("gatePrimary");
+    expect(decideEnter(key({ isComposing: true }), ctx(approval))).toBe("default");
+  });
   it("别的键不拦截", () => {
     expect(decideEnter(key({ key: "a" }), ctx())).toBe("default");
   });

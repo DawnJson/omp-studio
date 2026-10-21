@@ -19,10 +19,9 @@ import { useSelectedTaskId } from "../../store/index.ts";
 import { reportError } from "../../ui/errors.ts";
 import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
 import { usePresence, type Presence } from "../../ui/presence.ts";
-import { announceCommit, discardWorktree, pushAndCreatePullRequest } from "./git-actions.ts";
+import { commitChanges, discardWorktree, pushAndCreatePullRequest } from "./git-actions.ts";
 import { openReview } from "../../store/review-store.ts";
 import { closeGitDialog, useGitDialog, type GitDialogState } from "./git-dialog-store.ts";
-import { refreshGit } from "./git-store.ts";
 import "./git.css";
 
 const focusableSelector = "button:not(:disabled), input:not(:disabled), textarea:not(:disabled)";
@@ -136,14 +135,8 @@ function CommitDialog({ taskId }: { taskId: TaskId }) {
   const submit = async () => {
     if (busy || message.trim() === "") return;
     setBusy(true);
-    try {
-      if (announceCommit(t, await window.studio.commitGit(taskId, message.trim(), stageAll))) closeGitDialog();
-    } catch (error) {
-      reportError(t, error, t("git.commit.failed"));
-    } finally {
-      setBusy(false);
-      refreshGit(taskId);
-    }
+    if (await commitChanges(t, taskId, message.trim(), stageAll)) closeGitDialog();
+    setBusy(false);
   };
 
   return (

@@ -94,3 +94,10 @@
 - 运行中在 `progress` 和 `events` 之间切换订阅级别（泳道没用到）。
 - `get_session_stats` 是否包含子代理的 token 和费用。
 - 子代理运行时间长时 `recentTools` 保留多少条（`subagents-control` 里约 30 秒、3 次工具调用，都在里面）。
+
+## TSP 任务里的 Agent Hub 和输入框（2026-10-21）
+
+TSP 任务没有上面的泳道和 `steerSubagent`（那些靠 rpc），子代理在 omp 的 Agents 弹窗 / Agent Hub 里看。omp 文档（`agent-hub.md`）：Hub 里 `Enter` 聚焦一个本地子代理后，主界面的转录、状态行、编辑器都属于这个子代理，输入 `Enter` = steer（运行中）或 prompt（空闲）；没有本地可聚焦会话时用 Hub 自己的全屏转录页，只有"能发消息"的子代理才有输入行，语义相同。
+
+差距清单 B5：studio 把 omp 的编辑器藏了、用自己的输入框，Hub 开着时在输入框发的话成了对主代理的插话（"Wait interrupted by message"）。**实测（omp 18.12.5，`fixtures/tsp/hub-steer.jsonl`，由 NativeUiPlan 录制）**：Hub 是 inline surface 的 `layer` 里的 `picker`（标题 "Agents"，`tabs` 含 `agents` / `activity`，`items` 是子代理 id；`action agents.open`（`omp.hud.seg`）或 `send "/hub"` 打开），不是 `mode: "screen"`。对 `picker` `activate` 一个子代理（`item: "Beta"`）后 Hub 关掉，omp 进入聚焦模式：dock 里多一行 `omp.composer.focus`（"Viewing subagent Beta: what you send goes to it"，退出按钮 `omp.composer.exit`，`actions.click: "focus:Main"`），编辑器占位符 "Message Beta"；往**同一个编辑器 id**（`j.line/input`）`send` 就 steer 那个子代理（Beta.jsonl 收到消息，主会话没有），Esc 回主会话（toast "Returned to main session"）。所以**路由不需要新协议**：聚焦模式下 studio 照常 `sendPrompt` 就是 steer 子代理；要拦的只是 Hub 的 `picker` 开着、没选子代理的那段（`hasAgentHub`，`findMessageTarget` 返回 `panel`，`sendPrompt` reject `screen_open:`，输入框禁用发送并提示）。全屏 surface（`/settings` 等）同样拦。规则和测试见 `docs/architecture/tsp-migration.md` §10.7、`test/tsp-gate.test.ts`。聚焦模式下 studio 没有任何标识（输入框占位符还是主任务的）、Stop 按钮发的 Esc 在聚焦模式下是"回主会话"不是停止：这两处没改，属于后面的原生子代理面板。
+

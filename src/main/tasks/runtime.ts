@@ -14,6 +14,7 @@ import { forgetExport } from "./export-record.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { appHandlers } from "../ipc/app-handlers.ts";
 import { buildOmpLaunch, buildTspLaunch, setTestOmpOverride } from "../omp/launch.ts";
+import { exportSessionHtml } from "../omp/export-session.ts";
 import { parseTestOmpOverride } from "../omp/launch-args.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
 import { assignToAppJob } from "../platform/win32/job-object.ts";
@@ -112,6 +113,7 @@ function createPool(): Promise<TaskPool> {
     },
     listSlashCommands: async () =>
       (await serviceOmp.use((connection) => connection.request("get_available_commands"))).commands,
+    exportSession: exportSessionHtml,
     tsp: {
       buildLaunch: (record, project) => {
         const cwd = record.worktreePath ?? project.path;

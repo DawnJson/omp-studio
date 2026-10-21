@@ -38,7 +38,8 @@ export const historyHandlers: HandlerGroup<
   | "listSlashCommands"
 > = {
   async listSlashCommands(taskId) {
-    return (await getTaskPool()).listSlashCommands(parseTaskId(taskId));
+    const pool = await getTaskPool();
+    return taskId === null ? pool.listDraftSlashCommands() : pool.listSlashCommands(parseTaskId(taskId));
   },
 
   async listSessions(projectId) {

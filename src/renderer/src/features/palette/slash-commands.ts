@@ -1,38 +1,51 @@
 // 任务的可用斜杠命令（omp get_available_commands / available_commands_update）。命令面板和输入框的 "/" 补全共用。
-// 第一次有人用到某个任务时向主进程取一次，之后靠 slashCommands 事件更新。
+// 有人用到某个任务（或草稿页）时向主进程取，拿到非空列表之前每次任务状态变化都会再取（规则见 slash-cache.ts），之后靠 slashCommands 事件更新。
 import { useEffect } from "react";
 import type { AvailableSlashCommand } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
+import { useTask } from "../../store/index.ts";
+import { createSlashLoader } from "./slash-cache.ts";
 
-const byTask = createStore<Readonly<Record<string, readonly AvailableSlashCommand[]>>>({});
-const requested = new Set<TaskId>();
+/** 草稿页（还没有任务）在列表里的键；任务 id 是 UUID，不会撞。 */
+const DRAFT_KEY = "draft";
+
+const byKey = createStore<Readonly<Record<string, readonly AvailableSlashCommand[]>>>({});
 let subscribed = false;
 const none: readonly AvailableSlashCommand[] = [];
+
+const loader = createSlashLoader(
+  (key) => window.studio.listSlashCommands(key === DRAFT_KEY ? null : (key as TaskId)),
+  (key, commands) => byKey.set({ ...byKey.get(), [key]: commands }),
+  // 失败时界面退回"把输入当消息发送"；下次 request 会再取。
+  (error) => console.error("listSlashCommands 失败", error),
+);
 
 function subscribe(): void {
   if (subscribed) return;
   subscribed = true;
   window.studio.onSlashCommands(({ taskId, commands }) => {
-    byTask.set({ ...byTask.get(), [taskId]: commands });
+    loader.loaded(taskId, commands);
+    byKey.set({ ...byKey.get(), [taskId]: commands });
   });
 }
 
-/** 当前任务的斜杠命令；没有任务或还没载入时是空数组（稳定引用）。 */
-export function useSlashCommands(taskId: TaskId | null): readonly AvailableSlashCommand[] {
+function useCommandsFor(key: string | null, refetchOn: unknown): readonly AvailableSlashCommand[] {
   useEffect(() => {
-    if (taskId === null) return;
+    if (key === null) return;
     subscribe();
-    if (requested.has(taskId)) return;
-    requested.add(taskId);
-    window.studio.listSlashCommands(taskId).then(
-      (commands) => byTask.set({ ...byTask.get(), [taskId]: commands }),
-      (error: unknown) => {
-        // 失败时允许下次再取；界面退回"把输入当消息发送"。
-        requested.delete(taskId);
-        console.error("listSlashCommands 失败", error);
-      },
-    );
-  }, [taskId]);
-  return useStoreValue(byTask, (state) => (taskId === null ? none : (state[taskId] ?? none)));
+    void loader.request(key);
+  }, [key, refetchOn]);
+  return useStoreValue(byKey, (state) => (key === null ? none : (state[key] ?? none)));
+}
+
+/** 当前任务的斜杠命令；没有任务或还没载入时是空数组（稳定引用）。任务状态变化时（如起进程完成）没取到的会再取。 */
+export function useSlashCommands(taskId: TaskId | null): readonly AvailableSlashCommand[] {
+  const status = useTask(taskId)?.status;
+  return useCommandsFor(taskId, status);
+}
+
+/** 草稿页的斜杠命令（服务进程的列表）。 */
+export function useDraftSlashCommands(): readonly AvailableSlashCommand[] {
+  return useCommandsFor(DRAFT_KEY, null);
 }

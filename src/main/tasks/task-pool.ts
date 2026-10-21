@@ -78,6 +78,8 @@ export interface PoolDeps {
   listModels?(): Promise<ModelOption[]>;
   /** omp 的命令列表（服务进程）：TSP 任务的 listSlashCommands 用；没传时为空。 */
   listSlashCommands?(): Promise<AvailableSlashCommand[]>;
+  /** TSP 任务导出 HTML：对会话文件跑 `omp --export <文件> <输出路径>`（omp/export-session.ts）；没传时 TSP 任务不能导出。 */
+  exportSession?(sessionFile: string, outputPath: string, cwd: string): Promise<void>;
   /** omp 对这个项目的新任务默认值（和草稿页同源）：TSP 任务在输入框出现之前用它显示模型和思考强度；没传时不显示。 */
   newTaskDefaults?(project: Project): Promise<NewTaskDefaults>;
   /** TSP 引擎的依赖（伪终端里的交互式 omp）；没提供时只能建 rpc 任务。 */
@@ -141,6 +143,10 @@ export class TaskPool {
           ...(deps.listModels && { listModels: () => deps.listModels!() }),
           ...(deps.newTaskDefaults && { newTaskDefaults: (project: Project) => deps.newTaskDefaults!(project) }),
           ...(deps.listSlashCommands && { listSlashCommands: () => deps.listSlashCommands!() }),
+          ...(deps.exportSession && {
+            exportSession: (sessionFile: string, outputPath: string, cwd: string) =>
+              deps.exportSession!(sessionFile, outputPath, cwd),
+          }),
         }
       : null;
   }
@@ -444,9 +450,10 @@ export class TaskPool {
     return this.#runner(id).state.title;
   }
 
-  /** 导出成 HTML 写到 `outputPath`（绝对路径，由调用方经保存对话框得到）；返回 omp 写到的路径。 */
+  /** 导出成 HTML 写到 `outputPath`（绝对路径，由调用方经保存对话框得到）；返回写到的路径。rpc 任务发 `export_html`，TSP 任务对会话文件跑 `omp --export`。 */
   exportTaskHtml(id: TaskId, outputPath: string): Promise<string> {
-    return this.#rpcRunner(id).exportHtml(outputPath);
+    const runner = this.#runner(id);
+    return runner.engine === "tsp" ? runner.exportHtml(outputPath) : this.#rpcRunner(id).exportHtml(outputPath);
   }
 
   runBash(id: TaskId, command: string): Promise<void> {
@@ -556,6 +563,11 @@ export class TaskPool {
 
   listSlashCommands(id: TaskId): Promise<AvailableSlashCommand[]> {
     return this.#runner(id).listSlashCommands();
+  }
+
+  /** 草稿页（还没有任务）的命令列表：服务进程的 get_available_commands，和 TSP 任务用的同一份；没接服务进程时 []。 */
+  async listDraftSlashCommands(): Promise<AvailableSlashCommand[]> {
+    return (await this.#deps.listSlashCommands?.()) ?? [];
   }
 
   listTaskModels(id: TaskId): Promise<ModelOption[]> {

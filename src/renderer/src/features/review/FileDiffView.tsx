@@ -1,8 +1,9 @@
 // 一个文件（某一侧）的 diff：文件头（暂存/取消暂存/丢弃）、每个 hunk、评论状态、n/p 切换改动块、丢弃前的确认。
 import { useEffect, useRef, useState } from "react";
-import type { GitDiffArea, GitHunkRef } from "../../../../shared/git.ts";
+import type { GitDiffArea, GitDiffContext, GitHunkRef } from "../../../../shared/git.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import {
+  countChangeBlocks,
   selectionOf,
   selectRange,
   stepHunk,
@@ -34,6 +35,8 @@ export function FileDiffView({
   entry,
   state,
   mode,
+  scope,
+  wrap,
   comments,
   onChanged,
 }: {
@@ -41,6 +44,8 @@ export function FileDiffView({
   entry: ReviewEntry;
   state: FileDiffState;
   mode: "unified" | "split";
+  scope: GitDiffContext;
+  wrap: boolean;
   comments: readonly QueuedComment[];
   /** 暂存/丢弃之后（无论成败）让上层重新取状态。 */
   onChanged(): void;
@@ -53,12 +58,18 @@ export function FileDiffView({
   const [activeHunk, setActiveHunk] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const area: GitDiffArea = entry.area;
-  const diff = state.key === entry.key ? state.diff : null;
+  const diffKey = `${area}:${scope}:${entry.path}`;
+  const diff = state.key === diffKey ? state.diff : null;
   const hunkCount = diff?.kind === "text" ? diff.hunks.length : 0;
+  // n / p 的单位：改动块视图走 hunk，整个文件视图走文件里的改动块。
+  const stepCount =
+    scope === "hunks" || diff?.kind !== "text"
+      ? hunkCount
+      : diff.hunks.reduce((sum, hunk) => sum + countChangeBlocks(hunk.lines), 0);
 
   useReviewKeys((key) => {
     if (key !== "n" && key !== "p") return false;
-    const next = stepHunk(hunkCount, activeHunk, key === "n" ? 1 : -1);
+    const next = stepHunk(stepCount, activeHunk, key === "n" ? 1 : -1);
     if (next === null) return false;
     setActiveHunk(next);
     return true;
@@ -66,15 +77,19 @@ export function FileDiffView({
 
   useEffect(() => {
     if (activeHunk === null) return;
-    scroller.current?.querySelector(`[data-hunk="${activeHunk}"]`)?.scrollIntoView({ block: "nearest" });
-  }, [activeHunk]);
+    const selector = scope === "file" ? `[data-block="${activeHunk}"]` : `[data-hunk="${activeHunk}"]`;
+    scroller.current?.querySelector(selector)?.scrollIntoView({ block: "nearest" });
+  }, [activeHunk, scope]);
 
-  // 暂存一个 hunk 后这一侧的 hunk 变少，当前序号可能越界。
+  // 换了视图，序号的含义变了；暂存一个 hunk 后这一侧的 hunk 变少，当前序号也可能越界。
+  useEffect(() => {
+    setActiveHunk(null);
+  }, [scope]);
   useEffect(() => {
     setActiveHunk((current) =>
-      current !== null && current >= hunkCount ? (hunkCount > 0 ? hunkCount - 1 : null) : current,
+      current !== null && current >= stepCount ? (stepCount > 0 ? stepCount - 1 : null) : current,
     );
-  }, [hunkCount]);
+  }, [stepCount]);
 
   const run = (operation: Promise<void>) => {
     operation.catch((error: unknown) => reportError(t, error)).finally(onChanged);
@@ -157,7 +172,7 @@ export function FileDiffView({
   };
 
   let body;
-  if (state.key === entry.key && state.error !== null) {
+  if (state.key === diffKey && state.error !== null) {
     body = (
       <div className="rv-note" role="alert">
         <span>
@@ -182,21 +197,29 @@ export function FileDiffView({
       </div>
     );
   else if (diff.hunks.length === 0) body = <div className="rv-note">{t("review.noTextChanges")}</div>;
-  else
-    body = diff.hunks.map((hunk, index) => (
-      <HunkView
-        key={`${hunk.header}:${index}`}
-        file={entry.path}
-        area={area}
-        hunk={hunk}
-        index={index}
-        mode={mode}
-        active={activeHunk === index}
-        lang={lang}
-        ctx={ctx}
-        actions={hunkActions(index)}
-      />
-    ));
+  else {
+    let base = 0;
+    body = diff.hunks.map((hunk, index) => {
+      const blocks = scope === "file" ? { base, active: activeHunk } : null;
+      base += countChangeBlocks(hunk.lines);
+      return (
+        <HunkView
+          key={`${hunk.header}:${index}`}
+          file={entry.path}
+          area={area}
+          hunk={hunk}
+          index={index}
+          mode={mode}
+          wrap={wrap}
+          active={scope === "hunks" && activeHunk === index}
+          blocks={blocks}
+          lang={lang}
+          ctx={ctx}
+          actions={hunkActions(index)}
+        />
+      );
+    });
+  }
 
   return (
     <div className="rv-file" data-testid="file-diff" data-path={entry.path} data-area={area}>

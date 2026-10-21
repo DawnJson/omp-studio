@@ -20,6 +20,7 @@ const taskErrorKinds: Record<TaskError["kind"], Parameters<TFunction>[0]> = {
 const knownMessages: [RegExp, Parameters<TFunction>[0]][] = [
   [/the session is busy|session_busy/i, "error.sessionBusy"],
   [/composer_unavailable/i, "error.composerUnavailable"],
+  [/screen_open/i, "error.screenOpen"],
   [/worktree is shared with another task/i, "error.worktreeShared"],
   [/not in the conversation|cannot find that message in the session/i, "error.forkNoMessage"],
   [/too many tasks/i, "error.tooManyTasks"],

@@ -12,7 +12,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import type { ProjectFilesTarget, ProjectId, TaskId } from "../../../../shared/ipc.ts";
+import type { ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { draftKey } from "../../../../shared/ipc.ts";
 import { worktreeBlockerKey } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -33,13 +33,12 @@ import { SendStop } from "./SendStop.tsx";
 import { DraftContextMeter } from "./UsageMeter.tsx";
 import { SessionCost } from "./SessionCost.tsx";
 import { FileMenu } from "./FileMenu.tsx";
+import { SlashMenu } from "./SlashMenu.tsx";
+import { draftSlashRunner, useDraftSlashMenu } from "./use-draft-slash.ts";
 import { useFileMenu } from "./use-file-menu.ts";
 import { useNewTaskDefault } from "./use-new-task-default.ts";
 import { clearFirstPrompt, setFirstPrompt } from "../tsp/first-prompt-store.ts";
 import "./composer.css";
-
-/** 没有项目时 `@` 补全不开（目录还没建），这个目标不会被查询。 */
-const noFilesTarget: ProjectFilesTarget = { kind: "project", projectId: "" as ProjectId };
 
 /** projectTools：工具行里紧跟审批胶囊的部分（空状态放项目按钮和工作树开关）。 */
 export function DraftComposer({ projectId, projectTools }: { projectId: ProjectId | null; projectTools?: ReactNode }) {
@@ -69,14 +68,16 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
 
   const { model, levels, thinkingLevel } = resolved;
 
-  // `@` 文件引用补全：目录是这个项目的目录。
+  // `@` 文件引用补全：目录是这个项目的目录；没有项目 = 默认文件夹（主进程解析，目录还没建时没有候选）。
   const fileMenu = useFileMenu(
-    projectId === null ? noFilesTarget : { kind: "project", projectId },
+    projectId === null ? { kind: "defaultFolder" } : { kind: "project", projectId },
     draft.text,
-    projectId !== null,
+    true,
     fieldRef,
     (next) => setDraftText(key, next),
   );
+  // `/` 命令菜单：服务进程的命令列表加草稿页能用的 studio 命令（use-draft-slash.ts）。
+  const slashMenu = useDraftSlashMenu(draft.text, (next) => setDraftText(key, next), fieldRef, t);
 
   const send = async () => {
     const current = getDraft(key);
@@ -85,6 +86,18 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
     // `!命令` 要在任务里跑；还没有任务，不能当成第一条消息发给模型。
     if (isShellDraft(current)) {
       pushToast({ level: "warning", message: t("conversation.shell.needsTask") });
+      return;
+    }
+    // studio 接管的命令（/settings /usage /model …）：不创建任务，直接开 studio 的界面。
+    const runStudio = current.images.length === 0 ? draftSlashRunner(text, t) : null;
+    if (runStudio !== null) {
+      setDraft(key, { text: "", images: [] });
+      try {
+        await runStudio();
+      } catch (error) {
+        setDraft(key, current);
+        reportError(t, error);
+      }
       return;
     }
     setSending(true);
@@ -145,7 +158,7 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (fileMenu.onKeyDown(event)) return;
+    if (slashMenu.onKeyDown(event) || fileMenu.onKeyDown(event)) return;
     const action = decideEnter(
       {
         key: event.key,
@@ -178,6 +191,14 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
   return (
     <div className="composer-stack" data-testid="draft-composer" data-draft>
       <div className="composer" onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
+        <SlashMenu
+          id="slash-menu"
+          open={slashMenu.open}
+          commands={slashMenu.matches}
+          active={slashMenu.active}
+          onHover={slashMenu.setActive}
+          onPick={slashMenu.pick}
+        />
         <FileMenu
           id="file-menu-list"
           open={fileMenu.open}
@@ -202,10 +223,17 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
             value={draft.text}
             placeholder={t("composer.placeholderNew")}
             aria-label={t("composer.placeholderNew")}
-            aria-controls={fileMenu.open ? "file-menu-list" : undefined}
-            aria-activedescendant={fileMenu.open ? `file-menu-list-${fileMenu.active}` : undefined}
+            aria-controls={slashMenu.open ? "slash-menu" : fileMenu.open ? "file-menu-list" : undefined}
+            aria-activedescendant={
+              slashMenu.open && slashMenu.matches.length > 0
+                ? `slash-menu-${slashMenu.active}`
+                : fileMenu.open
+                  ? `file-menu-list-${fileMenu.active}`
+                  : undefined
+            }
             onChange={(event) => {
               setDraftText(key, event.target.value);
+              slashMenu.reset();
               fileMenu.trackCaret(event.target.selectionStart);
             }}
             onSelect={(event) => fileMenu.trackCaret(event.currentTarget.selectionStart)}
@@ -235,7 +263,7 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
             setModel={(modelKey) => saveOmpModelRole(projectId, "default", modelKey).finally(reread)}
             setThinking={(level) => saveOmpDefaultThinking(level).finally(reread)}
           />
-          <ApprovalChip />
+          <ApprovalChip projectId={projectId} forgetTaskId={null} />
           {projectTools}
           <span className="composer-spacer" />
           <DraftContextMeter model={model ?? null} projectId={projectId} />

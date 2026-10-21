@@ -17,7 +17,7 @@ import type {
 import type { TspEvent } from "../src/shared/tsp/tsp.generated.ts";
 import { applyMessage, createDocument, restoreDocument, snapshotDocument } from "../src/shared/tsp/document.ts";
 import { titleFromPrompt } from "../src/main/tasks/convert.ts";
-import { TaskPool } from "../src/main/tasks/task-pool.ts";
+import { TaskPool, type PoolDeps } from "../src/main/tasks/task-pool.ts";
 import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
 import { loadTspFixture, recordedUserEvents } from "./tsp-fixtures.ts";
 
@@ -128,7 +128,11 @@ interface Harness {
 const pools: TaskPool[] = [];
 let counter = 0;
 
-async function harness(tasksFile?: string, engine: TaskEngine = "tsp"): Promise<Harness> {
+async function harness(
+  tasksFile?: string,
+  engine: TaskEngine = "tsp",
+  extra: Partial<PoolDeps> = {},
+): Promise<Harness> {
   counter += 1;
   const events = new Events();
   const file = tasksFile ?? path.join(await mkdtemp(path.join(scratch, "ud-")), "tasks.json");
@@ -149,6 +153,7 @@ async function harness(tasksFile?: string, engine: TaskEngine = "tsp"): Promise<
     assignJob: () => {},
     events: events.sink,
     listModels: async () => catalog,
+    ...extra,
     newTaskDefaults: async () => ({
       model: "deepseek/deepseek-v4-flash:high",
       thinkingLevel: "high",
@@ -346,6 +351,59 @@ describe("任务池：按设置的引擎建 runner", () => {
   }, 60_000);
 });
 
+describe("TSP 任务：斜杠命令列表（B1）和导出 HTML（B7）", () => {
+  const commands = [{ name: "model", source: "builtin" as const }];
+
+  it("命令列表来自服务进程，任务还在 starting（没有会话）时也照给，草稿页（null）同源", async () => {
+    const h = await harness(undefined, "tsp", { listSlashCommands: async () => commands });
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    expect(created.status).toBe("starting");
+    await expect(h.pool.listSlashCommands(created.id)).resolves.toEqual(commands);
+    await expect(h.pool.listDraftSlashCommands()).resolves.toEqual(commands);
+  }, 60_000);
+
+  it("没接服务进程时列表是空的", async () => {
+    const h = await harness();
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await expect(h.pool.listSlashCommands(created.id)).resolves.toEqual([]);
+    await expect(h.pool.listDraftSlashCommands()).resolves.toEqual([]);
+  }, 60_000);
+
+  it("导出：对任务的会话文件和主进程选的输出路径调 exportSession，返回这个路径；cwd 是任务目录", async () => {
+    const sessionFile = path.join(scratch, "sessions 三", "export.jsonl");
+    await mkdir(path.dirname(sessionFile), { recursive: true });
+    await writeFile(sessionFile, "{}\n");
+    const calls: { sessionFile: string; outputPath: string; cwd: string }[] = [];
+    const h = await harness(undefined, "tsp", {
+      exportSession: async (file, outputPath, cwd) => {
+        calls.push({ sessionFile: file, outputPath, cwd });
+      },
+    });
+    h.next.env = { FAKE_TSP_SESSION_FILE: sessionFile };
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, () => h.registry.findTask(created.id)?.sessionFile === sessionFile);
+    const output = path.join(scratch, "导 出", "对话.html");
+    await expect(h.pool.exportTaskHtml(created.id, output)).resolves.toBe(output);
+    expect(calls).toEqual([{ sessionFile, outputPath: output, cwd: projectDir }]);
+    // 相对路径直接拒绝，不调 omp。
+    await expect(h.pool.exportTaskHtml(created.id, "relative.html")).rejects.toThrow(/absolute/);
+    expect(calls).toHaveLength(1);
+  }, 60_000);
+
+  it("还没有会话文件（没发过消息）时导出被拒绝，不调 omp", async () => {
+    const calls: string[] = [];
+    const h = await harness(undefined, "tsp", {
+      exportSession: async (file) => {
+        calls.push(file);
+      },
+    });
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await expect(h.pool.exportTaskHtml(created.id, path.join(scratch, "x.html"))).rejects.toThrow(/no session file/);
+    expect(calls).toEqual([]);
+  }, 60_000);
+});
+
 const flashKey = { provider: "deepseek", modelId: "deepseek-v4-flash" };
 
 describe("TSP 任务：输入框状态、切模型、提问时的发送", () => {
@@ -401,14 +459,42 @@ describe("TSP 任务：输入框状态、切模型、提问时的发送", () => 
     await waitForLog(h.log, (records) => records.some((record) => record.kind === "keys" && record.data === "\x1b"));
   }, 60_000);
 
-  it("提问/审批替换了输入框：sendPrompt 和切模型立刻 reject（composer_unavailable），不等超时", async () => {
+  it("审批在等：sendPrompt 往还在的输入框发 send（omp 把它当拒绝+理由）；切模型和思考强度立刻 reject", async () => {
     const events = approvalEvents();
     const h = await harness();
     h.next.fixture = "approval";
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (s) => s.status === "idle");
     await h.pool.sendPrompt(created.id, { text: events.text, whenBusy: "steer" });
-    await h.events.until(created.id, (s) => s.status === "needs_you");
+    const waiting = await h.events.until(created.id, (s) => s.status === "needs_you");
+    // 审批和提问是两个门：输入框靠 id 区分，审批不拦发送。
+    expect(waiting.dialogs[0]).toMatchObject({ id: "tsp-approval", kind: "confirm", title: "Allow tool: bash" });
+    const started = Date.now();
+    await h.pool.sendPrompt(created.id, { text: "别跑这个，改成 echo", whenBusy: "steer" });
+    await waitForLog(h.log, (records) =>
+      records.some(
+        (record) =>
+          record.kind === "tsp" &&
+          record.body?.["ev"] === "send" &&
+          record.body["id"] === "j.line/input" &&
+          record.body["text"] === "别跑这个，改成 echo",
+      ),
+    );
+    await expect(h.pool.setTaskModel(created.id, flashKey)).rejects.toThrow(/composer_unavailable/);
+    await expect(h.pool.setTaskThinkingLevel(created.id, "low")).rejects.toThrow(/composer_unavailable/);
+    expect(Date.now() - started).toBeLessThan(5_000);
+  }, 60_000);
+
+  it("提问换掉了输入框：sendPrompt 和切模型立刻 reject（composer_unavailable），不等超时", async () => {
+    const send = recordedUserEvents(loadTspFixture("ask"))[0]?.event as unknown as TspEvent | undefined;
+    if (send?.ev !== "send") throw new Error("unexpected ask fixture");
+    const h = await harness();
+    h.next.fixture = "ask";
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (s) => s.status === "idle");
+    await h.pool.sendPrompt(created.id, { text: send.text, whenBusy: "steer" });
+    const waiting = await h.events.until(created.id, (s) => s.status === "needs_you");
+    expect(waiting.dialogs[0]).toMatchObject({ id: "tsp-ask", kind: "confirm" });
     const started = Date.now();
     await expect(h.pool.sendPrompt(created.id, { text: "再说一句", whenBusy: "steer" })).rejects.toThrow(
       /composer_unavailable/,

@@ -1,11 +1,12 @@
 // 待办板：状态栏右侧一个按钮（环 + 当前项 + done/total），点开向上弹出阶段与条目。
 // 数据是主进程的 TaskState.todoPhases（get_state，todo 工具结束后刷新）；这里只显示。
-import { useCallback, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import type { TodoPhase } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Check } from "../../icons.tsx";
 import { summarizePhase, toRoman, type TodoSummary } from "../conversation/todo-model.ts";
 import { Popover } from "./Popover.tsx";
+import { onStudioCommand } from "../palette/studio-command.ts";
 
 /** 圆环：底圈 + 已完成比例的弧；进行中且任务在跑时，再叠一段慢慢转的弧。 */
 function Ring({ done, total, spinning }: { done: number; total: number; spinning: boolean }) {
@@ -30,6 +31,8 @@ export function TodoBoard({
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  // 斜杠命令 /todo：打开待办板。
+  useEffect(() => onStudioCommand((command) => command === "todo" && setOpen(true)), []);
   const close = useCallback(() => setOpen(false), []);
   const panelId = useId();
   const { done, total, current } = summary;

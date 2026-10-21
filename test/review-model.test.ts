@@ -3,12 +3,16 @@
 import { describe, expect, it } from "vitest";
 import type { GitDiffLine, GitFileChange } from "../src/shared/git.ts";
 import {
+  changeBlockStarts,
   commentCovers,
+  composeCommitMessage,
+  countChangeBlocks,
   commentsEndingAt,
   entryKey,
   flattenGroups,
   groupChanges,
   inSelection,
+  indexStats,
   lineRef,
   rangeText,
   resolveSelection,
@@ -187,5 +191,67 @@ describe("comment queue", () => {
     ]);
     expect(sent[0]).not.toHaveProperty("id");
     expect(sent[0]).not.toHaveProperty("area");
+  });
+});
+
+describe("unified view single line-number column", () => {
+  const number = (line: GitDiffLine) => lineRef(line)?.line ?? null;
+  it("deleted lines show the old number, added and context lines the new one", () => {
+    expect(number({ kind: "del", oldNo: 7, newNo: null, text: "" })).toBe(7);
+    expect(number({ kind: "add", oldNo: null, newNo: 9, text: "" })).toBe(9);
+    // 上下文行两个行号不同时（前面有增删）取新行号，评论才落在 agent 手里的新文件上
+    expect(number({ kind: "context", oldNo: 12, newNo: 14, text: "" })).toBe(14);
+  });
+});
+
+describe("changeBlockStarts / countChangeBlocks", () => {
+  it("numbers each run of changed rows once, at its first row", () => {
+    expect(changeBlockStarts([false, true, true, false, true, false, false, true])).toEqual([
+      null,
+      0,
+      null,
+      null,
+      1,
+      null,
+      null,
+      2,
+    ]);
+    expect(changeBlockStarts([true, true])).toEqual([0, null]);
+    expect(changeBlockStarts([])).toEqual([]);
+  });
+
+  it("a deletion run directly followed by an addition run is one block", () => {
+    const lines: GitDiffLine[] = [
+      { kind: "context", oldNo: 1, newNo: 1, text: "" },
+      { kind: "del", oldNo: 2, newNo: null, text: "" },
+      { kind: "add", oldNo: null, newNo: 2, text: "" },
+      { kind: "context", oldNo: 3, newNo: 3, text: "" },
+      { kind: "add", oldNo: null, newNo: 4, text: "" },
+    ];
+    expect(countChangeBlocks(lines)).toBe(2);
+    expect(countChangeBlocks([])).toBe(0);
+  });
+});
+
+describe("indexStats", () => {
+  it("keys stats by area and path so the same file on both sides keeps both counts", () => {
+    const stats = indexStats([
+      { area: "staged", path: "a.ts", added: 3, removed: 1 },
+      { area: "unstaged", path: "a.ts", added: 0, removed: 5 },
+    ]);
+    expect(stats.get(entryKey("staged", "a.ts"))).toEqual({ added: 3, removed: 1 });
+    expect(stats.get(entryKey("unstaged", "a.ts"))).toEqual({ added: 0, removed: 5 });
+    expect(stats.get(entryKey("untracked", "a.ts"))).toBeUndefined();
+  });
+});
+
+describe("composeCommitMessage", () => {
+  it("joins summary and description with a blank line, trimming both", () => {
+    expect(composeCommitMessage("  fix: bug \n", "\n  why it broke\n\nmore\n")).toBe(
+      "fix: bug\n\nwhy it broke\n\nmore",
+    );
+  });
+  it("is just the summary when the description is blank", () => {
+    expect(composeCommitMessage("fix: bug", "  \n ")).toBe("fix: bug");
   });
 });

@@ -1,7 +1,7 @@
-// 点发送键左边的费用弹出的用量对话框（居中，盖一层遮罩，高度固定）：顶上一个切换框，"订阅额度"是各订阅账号的额度（当前 provider 排最前，
-// 每个账号一张卡，每个窗口一格），"每日用量"是最近几周的每日用量热力图，格子按花费着色，悬停给金额和请求数；上次看的那一页下次打开还在。
-// 数据和设置页共用 usage-store（omp usage --json / stats.db）：打开时额度重读，热力图还没有数据时才读。
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+// 点发送键左边的费用弹出的用量对话框（居中，盖一层遮罩，高度固定）：标题栏是"用量与额度"，下面一页滚动内容，没有页签：
+// 先是各订阅账号的额度（当前 provider 排最前，每个账号一张卡，每个窗口一格），再是"每日用量"小节：最近几周的每日用量热力图，
+// 格子按花费着色，悬停给金额和请求数。数据和设置页共用 usage-store（omp usage --json / stats.db）：打开时额度重读，热力图还没有数据时才读。
+import { useEffect, useId, useRef, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { isUntouched } from "../../../../shared/ui/usage-summary.ts";
 import { Close } from "../../icons.tsx";
@@ -14,11 +14,6 @@ import { HeatmapView, QuotaBlock, UntouchedRow } from "../settings/usage-views.t
 
 // 热力图在对话框里按宽度铺满：画全部周（一年 53 周），格子大小跟着对话框内宽算，见 HeatmapView 的 fit。
 const focusableSelector = "button:not(:disabled), [tabindex]:not([tabindex='-1'])";
-
-type Tab = "quota" | "daily";
-const tabs: readonly Tab[] = ["quota", "daily"];
-/** 本次运行里上次看的页；对话框每次打开都重新挂载，所以记在模块里。 */
-let lastTab: Tab = "quota";
 
 function DailyUsage() {
   const t = useT();
@@ -81,25 +76,21 @@ function UsageDialogBody({
   const t = useT();
   useTitleBarDim(open);
   const heatmap = useUsageHeatmap();
-  const [tab, setTabState] = useState<Tab>(lastTab);
   const baseId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const setTab = (next: Tab) => {
-    lastTab = next;
-    setTabState(next);
-  };
+  const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     void loadQuota();
     if (heatmap.data === null && !heatmap.busy) void loadHeatmap();
     // 只在打开（挂载）时读一次。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // 焦点：打开时进选中的页签；open 变 false（退出动画开始）就还给打开前的元素，不等卸载。
+  // 焦点：打开时进关闭按钮；open 变 false（退出动画开始）就还给打开前的元素，不等卸载。
   const openerRef = useRef<Element | null>(null);
   useEffect(() => {
     openerRef.current = document.activeElement;
-    document.getElementById(`${baseId}-${lastTab}`)?.focus();
-  }, [baseId]);
+    closeRef.current?.focus();
+  }, []);
   useEffect(() => {
     if (open) return;
     const opener = openerRef.current;
@@ -126,14 +117,6 @@ function UsageDialogBody({
       first.focus();
     }
   };
-  // ←/→ 在两页之间切换，焦点跟着走（tablist 的常规键盘行为）。
-  const onTabsKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-    event.preventDefault();
-    const next = tabs[(tabs.indexOf(tab) + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length] ?? tab;
-    setTab(next);
-    document.getElementById(`${baseId}-${next}`)?.focus();
-  };
   return createPortal(
     <div className="scrim" data-closing={closing ? "fade" : undefined} onPointerDown={onClose}>
       <div
@@ -147,49 +130,30 @@ function UsageDialogBody({
         onKeyDown={onDialogKey}
         {...exitProps}
       >
-        <header className="mp-head usage-head">
-          <span aria-hidden="true" />
-          <div
-            className="segments qm-tabs"
-            role="tablist"
-            aria-label={t("composer.usage.overview")}
-            onKeyDown={onTabsKey}
+        <header className="mp-head">
+          <h2 className="mp-title">{t("composer.usage.overview")}</h2>
+          <button
+            ref={closeRef}
+            type="button"
+            className="tool-btn usage-close"
+            aria-label={t("common.close")}
+            onClick={onClose}
           >
-            {tabs.map((id) => (
-              <button
-                key={id}
-                id={`${baseId}-${id}`}
-                type="button"
-                role="tab"
-                className="segment"
-                aria-selected={tab === id}
-                aria-controls={tab === id ? `${baseId}-panel` : undefined}
-                tabIndex={tab === id ? 0 : -1}
-                data-checked={tab === id || undefined}
-                data-testid={`usage-tab-${id}`}
-                onClick={() => setTab(id)}
-              >
-                {t(id === "quota" ? "composer.quota.title" : "composer.quota.daily")}
-              </button>
-            ))}
-          </div>
-          <button type="button" className="tool-btn usage-close" aria-label={t("common.close")} onClick={onClose}>
             <Close size={14} />
           </button>
         </header>
         <div className="qm">
-          {/* 对话框高度固定（见 composer.css），只渲染选中的那页，页内容多了在 .qm-stack 里滚动。 */}
+          {/* 对话框高度固定（见 composer.css）：额度在上、热力图在下，同一页，内容多了在 .qm-stack 里滚动。 */}
           <div className="qm-stack">
-            <div
-              id={`${baseId}-panel`}
-              className="qm-panel"
-              data-tab={tab}
-              role="tabpanel"
-              aria-labelledby={`${baseId}-${tab}`}
-              data-testid={tab === "quota" ? "quota-section" : "heatmap-section"}
-            >
-              {tab === "quota" ? <Quota provider={provider} /> : <DailyUsage />}
-            </div>
+            <section className="qm-panel" data-testid="quota-section">
+              <Quota provider={provider} />
+            </section>
+            <section className="qm-panel" data-testid="heatmap-section" aria-labelledby={`${baseId}-daily`}>
+              <h3 className="uq-section-title" id={`${baseId}-daily`}>
+                {t("composer.quota.daily")}
+              </h3>
+              <DailyUsage />
+            </section>
           </div>
         </div>
       </div>

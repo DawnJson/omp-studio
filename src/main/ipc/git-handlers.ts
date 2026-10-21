@@ -4,10 +4,12 @@ import {
   formatReviewComments,
   REVIEW_COMMENTS_MAX,
   type GitDiffArea,
+  type GitDiffContext,
   type GitHunkRef,
   type ReviewComment,
 } from "../../shared/git.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
+import { getChangeStats } from "../git/numstat.ts";
 import { commit, createPullRequest, push } from "../git/remote.ts";
 import { requireRepoRoot } from "../git/repo.ts";
 import {
@@ -75,6 +77,7 @@ const parseArea = (value: unknown): GitDiffArea => parseOneOf(value, "area", ["s
 export const gitHandlers: HandlerGroup<
   | "getGitStatus"
   | "getGitFileDiff"
+  | "getGitChangeStats"
   | "stageGitFile"
   | "unstageGitFile"
   | "discardGitFile"
@@ -98,9 +101,19 @@ export const gitHandlers: HandlerGroup<
     return getGitStatus(pool.taskGitContext(parseTaskId(taskId)).cwd);
   },
 
-  getGitFileDiff: async (taskId, path, area) => {
+  getGitFileDiff: async (taskId, path, area, context) => {
     const pool = await getTaskPool();
-    return getFileDiff(pool.taskGitContext(parseTaskId(taskId)).cwd, parseString(path, "path", 1024), parseArea(area));
+    return getFileDiff(
+      pool.taskGitContext(parseTaskId(taskId)).cwd,
+      parseString(path, "path", 1024),
+      parseArea(area),
+      parseOneOf<GitDiffContext>(context, "context", ["hunks", "file"]),
+    );
+  },
+
+  getGitChangeStats: async (taskId) => {
+    const pool = await getTaskPool();
+    return getChangeStats(pool.taskGitContext(parseTaskId(taskId)).cwd);
   },
 
   stageGitFile: async (taskId, path) => {

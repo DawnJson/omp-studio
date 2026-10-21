@@ -64,6 +64,13 @@ export const Shield = (props: IconProps) => (
     <path d="M8 2 3.5 3.8v3.6c0 3 2 5 4.5 6.1 2.5-1.1 4.5-3.1 4.5-6.1V3.8L8 2Z" />
   </Icon>
 );
+/** 每次询问并记住：盾牌里一个勾 */
+export const ShieldCheck = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M8 2 3.5 3.8v3.6c0 3 2 5 4.5 6.1 2.5-1.1 4.5-3.1 4.5-6.1V3.8L8 2Z" />
+    <path d="m5.8 8 1.6 1.6L10.300 6.500" />
+  </Icon>
+);
 /** 全部自动：闪电 */
 export const Bolt = (props: IconProps) => (
   <Icon {...props}>

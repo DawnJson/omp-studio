@@ -1,7 +1,9 @@
 // `list` / `item`（规范 elements-lists.md）。选中项由 omp 决定：单击发 `select`，双击发 `activate`，id 是 list、item 是 item 节点 id。
-// 再点已选中的行也算 activate（和 picker 的规则一致），审批门 / 提问的选项一下就能点；双击不会重复激活。
+// 再点已选中的行也算 activate（和 picker 的规则一致），审批门的选项一下就能点；双击不会重复激活。
+// 多选提问的选项（`omp.ask.check`）例外：单击永远是 `select`（omp 把它当勾选切换），双击不 activate（规则在 shared/tsp/ask-gate.ts）。
 // 方向键、Enter 这些归 omp：list 自己可聚焦，按键用 keys.ts 编码写进伪终端。
 import { createContext, useContext, useEffect, useLayoutEffect, useRef } from "react";
+import { askItemClick, askItemDoubleActivates } from "../../../../../shared/tsp/ask-gate.ts";
 import type { TspItemProps, TspListProps } from "../../../../../shared/tsp/tsp.generated.ts";
 import { nodeActionHandlers } from "../actions.ts";
 import { TspIcon } from "../icons.tsx";
@@ -123,13 +125,13 @@ export function Item({ node, ctx }: NodeProps) {
   const onClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (disabled) return;
     if (own.onClick) return own.onClick(e);
-    if (isSelected) activate(ctx);
+    if (askItemClick(node.p["role"], isSelected) === "activate") activate(ctx);
     else select(ctx);
   };
   const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (disabled) return;
     if (own.onDoubleClick) return own.onDoubleClick(e);
-    activate(ctx);
+    if (askItemDoubleActivates(node.p["role"])) activate(ctx);
   };
 
   const hits = list !== null && list.filter.trim() !== "" ? filterHits(plainText(p.label), list.filter) : undefined;

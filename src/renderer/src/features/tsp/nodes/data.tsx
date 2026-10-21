@@ -6,6 +6,7 @@ import { isRecord } from "../../../../../shared/type-guards.ts";
 import { useT } from "../../../i18n/use-t.ts";
 import { ChevronRight } from "../../../icons.tsx";
 import { PiMark } from "../../../ui/PiMark.tsx";
+import { columnChars, columnTrack } from "../../../../../shared/tsp/table-layout.ts";
 import { extentToCss, keycapLabel } from "../fmt.ts";
 import { TspIcon } from "../icons.tsx";
 import { nodeDomProps } from "../node-dom.ts";
@@ -53,6 +54,18 @@ function cellText(cell: Cell): string {
   return plainText(cell as TspText);
 }
 
+/** 一列里最长单元格（含表头）的字数，给藏列和列轨道下限共用。 */
+function charsOf(col: TspTableColumn, rows: readonly { cells: Readonly<Record<string, unknown>> }[]): number {
+  return columnChars(
+    col.head === undefined ? null : plainText(col.head),
+    rows.map((row) => {
+      const cell = row.cells[col.id];
+      return cell === undefined ? null : cellText(cell as Cell);
+    }),
+    8,
+  );
+}
+
 /** 按优先级藏列：估算每列自然宽度（字数 × 字宽 + 14px 内边距），装不下就先藏 priority 最低（同级藏最右）的。 */
 function visibleColumns(
   cols: readonly TspTableColumn[],
@@ -60,14 +73,8 @@ function visibleColumns(
   width: number,
   charWidth: number,
 ): Set<string> {
-  const natural = (col: TspTableColumn): number => {
-    let chars = col.head === undefined ? 0 : plainText(col.head).length;
-    for (const row of rows) {
-      const cell = row.cells[col.id];
-      chars = Math.max(chars, cell === undefined ? 0 : cellText(cell as Cell).length || 8);
-    }
-    return Math.min(col.grow ? 24 : Number.POSITIVE_INFINITY, chars) * charWidth + 14;
-  };
+  const natural = (col: TspTableColumn): number =>
+    Math.min(col.grow ? 24 : Number.POSITIVE_INFINITY, charsOf(col, rows)) * charWidth + 14;
   const shown = [...cols];
   let total = shown.reduce((sum, col) => sum + natural(col), 0);
   while (shown.length > 1 && total > width) {
@@ -107,7 +114,7 @@ export function Table(props: NodeProps) {
 
   const visible = cols.filter((col) => shown === null || shown.has(col.id));
   const hasHead = visible.some((col) => col.head !== undefined && plainText(col.head) !== "");
-  const template = visible.map((col) => ((col.grow ?? 0) > 0 ? `minmax(0, ${col.grow}fr)` : "auto")).join(" ");
+  const template = visible.map((col) => columnTrack(col.grow, charsOf(col, rows))).join(" ");
   const align = (col: TspTableColumn): string =>
     col.align === "end" || col.align === "center" ? ` ta-${col.align}` : "";
   return (

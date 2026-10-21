@@ -67,6 +67,17 @@ export type GitFileDiff =
   /** 文件或 diff 太大（超过 GIT_DIFF_MAX_BYTES），不解析。 */
   | { kind: "too_large" };
 
+/** 评审的"文件 / 改动块"视图：file = 整个文件带着改动（主进程用超大的上下文取 diff，只有一个 hunk）；hunks = 每处改动加 3 行上下文。 */
+export type GitDiffContext = "hunks" | "file";
+
+/** 一个文件一侧的 `+a −d`（文件树每行显示）；二进制、过大或读不出的文件没有这一项。 */
+export interface GitChangeStat {
+  area: GitDiffArea;
+  path: string;
+  added: number;
+  removed: number;
+}
+
 export const GIT_DIFF_MAX_BYTES = 2 * 1024 * 1024;
 
 /** 定位一个 hunk：index 是它在文件 diff 里的序号，header 用来确认文件没有在两次调用之间变过。 */

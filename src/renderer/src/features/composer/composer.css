@@ -536,8 +536,8 @@ html[data-motion="reduced"] .ctx-usage-chev {
   margin: 0;
 }
 
-/* 费用点开的用量对话框（居中，同模型选择框的外观）：标题栏正中是"订阅额度 / 每日用量"切换框（没有标题文字），下面是选中的那页。
-   对话框高度固定（--dialog-h-usage，窗口矮时取 80vh）：额度异步到达、切页、中英文换行都不改变大小，页内容多了在 .qm-stack 里滚动。
+/* 费用点开的用量对话框（居中，同模型选择框的外观）：标题栏是标题 + 关闭按钮，下面一页滚动内容：先额度，再"每日用量"小节（热力图）。
+   对话框高度固定（--dialog-h-usage，窗口矮时取 80vh）：额度异步到达、中英文换行都不改变大小，内容多了在 .qm-stack 里滚动。
    账号块和热力图的组件、样式见 settings/usage.css，这里只改额度的版式：每个账号一张卡，卡内窗口按两列排，
    每个窗口 = 名称 + 重置时间 + 剩余（重置在剩余左边，同一行，右对齐、等宽数字）/ 整宽进度条。 */
 .usage-dialog {
@@ -557,33 +557,23 @@ html[data-motion="reduced"] .ctx-usage-chev {
   min-height: 0;
   padding: var(--space-3) var(--space-4) var(--space-4);
 }
-/* 页签在标题栏正中：左右各一列等宽，中间自适应；每段按自己的文字定宽(.segment 默认 flex: 1 + min-width: 0,会把英文 "Subscription quota" 截掉) */
-.usage-dialog .usage-head {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-}
 .usage-close {
-  justify-self: end;
-}
-.qm-tabs {
-  flex: none;
-}
-.qm-tabs .segment {
-  flex: none;
-  padding: 0 var(--space-3);
-  white-space: nowrap;
+  margin-left: auto;
 }
 .qm-stack {
+  display: flex;
   flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-5);
   min-height: 0;
   overflow-y: auto;
 }
 .qm-panel {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
-  min-height: 100%;
 }
 /* 热力图铺满对话框内宽：格子边长由 HeatmapView 的 fit 按宽度算（--uq-cell），不再横向滚动 */
 .usage-dialog .uq-heat {

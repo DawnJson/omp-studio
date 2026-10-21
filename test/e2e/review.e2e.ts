@@ -404,14 +404,110 @@ test("评审：删除行的旧行号一直在；悬停时加评论的 + 在行�
       if (mode === "unified") await shoot(page, "gutter");
     }
 
-    // 新增行只有新行号，上下文行两列都有。
+    // 新增行只有一列行号（新行号）；上下文行也只有一列。
     await page.getByTestId("mode-unified").click();
     const add = page.locator(".rv-row[data-kind=add]").first();
-    await expect(add.locator(".rv-no").first()).toHaveText("");
-    await expect(add.locator(".rv-no").nth(1)).toHaveText("2");
+    await expect(add.locator(".rv-no")).toHaveCount(1);
+    await expect(add.locator(".rv-no")).toHaveText("2");
     const context = page.locator(".rv-row:not([data-kind=add]):not([data-kind=del])").last();
-    await expect(context.locator(".rv-no").first()).toHaveText(/^\d+$/);
-    await expect(context.locator(".rv-no").nth(1)).toHaveText(/^\d+$/);
+    await expect(context.locator(".rv-no")).toHaveCount(1);
+    await expect(context.locator(".rv-no")).toHaveText(/^\d+$/);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("评审：文件树每行 +a −d、变更行左缘竖条、改动块/整个文件视图、折行、内嵌提交框", async () => {
+  const { launched, repo, cleanup } = await start({ git: true });
+  try {
+    const { page } = launched;
+    git(repo, "config", "user.name", "t");
+    git(repo, "config", "user.email", "t@example.com");
+    git(repo, "config", "commit.gpgsign", "false");
+    await runTurn(page);
+    await page.getByTestId("change-review").click();
+    const review = page.getByTestId("review");
+    await expect(review).toBeVisible();
+
+    // 1. 文件树每行 +a −d（二进制没有）；状态字母还在。
+    const counts = (file: string, area: string) => openFile(page, file, area).getByTestId("review-file-counts");
+    await expect(counts(PATH_EDITED, "unstaged")).toHaveText("+2−2");
+    await expect(counts("README.md", "staged")).toHaveText("+2−0");
+    await expect(counts("新 文件.txt", "untracked")).toHaveText("+2−0");
+    await expect(counts(CSV_EDITED, "unstaged")).toHaveText("+2−1");
+    await expect(counts("logo.bin", "untracked")).toHaveCount(0);
+    await expect(openFile(page, PATH_EDITED, "unstaged").locator(".rv-kind")).toHaveText("M");
+
+    // 2. 新增 / 删除行左缘有彩色竖条（上下文行没有）；3. 统一视图只有一列行号。
+    await openFile(page, PATH_EDITED, "unstaged").click();
+    await expect(page.getByTestId("hunk")).toHaveCount(2);
+    const barOf = (selector: string) =>
+      page
+        .locator(selector)
+        .first()
+        .evaluate((element) => {
+          const view = globalThis as unknown as { getComputedStyle(target: unknown): { boxShadow: string } };
+          return view.getComputedStyle(element).boxShadow;
+        });
+    const addBar = await barOf(".rv-row[data-kind=add]");
+    const delBar = await barOf(".rv-row[data-kind=del]");
+    const contextBar = await barOf(".rv-row:not([data-kind=add]):not([data-kind=del])");
+    expect(addBar).not.toContain("rgba(0, 0, 0, 0)");
+    expect(delBar).not.toContain("rgba(0, 0, 0, 0)");
+    expect(addBar).not.toBe(delBar);
+    expect(contextBar).toContain("rgba(0, 0, 0, 0)");
+    await expect(page.locator(".rv-row[data-kind=add]").first().locator(".rv-no")).toHaveCount(1);
+    await expect(page.locator(".rv-row[data-kind=add]").first().locator(".rv-no")).toHaveText("3");
+
+    // 4. 整个文件视图：一个 hunk、没有 @@ 头和 hunk 级操作，30 行里两处替换 = 28 + 2×2 = 32 行；n / p 在改动块之间走。
+    await expect(page.getByTestId("scope-hunks")).toHaveAttribute("aria-pressed", "true");
+    await page.getByTestId("scope-file").click();
+    await expect(page.getByTestId("scope-file")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("hunk")).toHaveCount(1);
+    await expect(page.locator(".rv-hunk-head")).toHaveCount(0);
+    await expect(page.locator(".rv-row")).toHaveCount(32);
+    await page.keyboard.press("n");
+    await expect(page.locator(".rv-row[data-block-active]")).toHaveAttribute("data-block", "0");
+    await page.keyboard.press("n");
+    await expect(page.locator(".rv-row[data-block-active]")).toHaveAttribute("data-block", "1");
+    await page.keyboard.press("p");
+    await expect(page.locator(".rv-row[data-block-active]")).toHaveAttribute("data-block", "0");
+    // 选择在评审关闭再打开后还在（会话内记住）；键盘 f 切回改动块。
+    await page.keyboard.press("Escape");
+    await expect(review).toBeHidden();
+    await page.getByTestId("change-review").click();
+    await expect(page.getByTestId("scope-file")).toHaveAttribute("aria-pressed", "true");
+    await openFile(page, PATH_EDITED, "unstaged").click();
+    await page.keyboard.press("f");
+    await expect(page.getByTestId("scope-hunks")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("hunk")).toHaveCount(2);
+
+    // 折行开关：默认折行；关掉后代码不折行、hunk 自己横向滚动。
+    const wrap = page.getByTestId("wrap-toggle");
+    await expect(wrap).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".rv-hunk .rv-code").first()).toHaveCSS("white-space", "pre-wrap");
+    await wrap.click();
+    await expect(wrap).toHaveAttribute("aria-pressed", "false");
+    await expect(page.locator(".rv-hunk[data-wrap=off]")).toHaveCount(2);
+    await expect(page.locator(".rv-hunk .rv-code").first()).toHaveCSS("white-space", "pre");
+    await page.keyboard.press("w");
+    await expect(wrap).toHaveAttribute("aria-pressed", "true");
+
+    // 5. 内嵌提交框：没有摘要时不能提交；只提交已暂存的（README），其余仍在树里；提交信息 = 摘要 + 空行 + 说明。
+    const summary = page.getByTestId("review-commit-summary");
+    const submit = page.getByTestId("review-commit-submit");
+    await expect(page.getByTestId("review-commit-staged")).toContainText("1");
+    await expect(submit).toBeDisabled();
+    await summary.fill("Add readme");
+    await page.getByTestId("review-commit-description").fill("评审里提交。");
+    await shoot(page, "commit");
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    await expect(openFile(page, "README.md", "staged")).toHaveCount(0);
+    await expect(openFile(page, PATH_EDITED, "unstaged")).toBeVisible();
+    await expect(summary).toHaveValue("");
+    expect(git(repo, "log", "-1", "--format=%B").trim()).toBe("Add readme\n\n评审里提交。");
+    expect(git(repo, "show", "--name-only", "--format=", "HEAD").trim()).toBe("README.md");
   } finally {
     await cleanup();
   }

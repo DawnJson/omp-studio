@@ -132,7 +132,7 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 - 运行中再 `send`:omp 自己排队(dock 里的 `omp.queue` / `omp.queue.item`,带 Edit 按钮)再作为 steer 交给模型,不需要 studio 自己的队列。
 - `send` 一条 `/model <id>`、`/thinking low` 是普通消息(发给模型),不是命令;单独的 `/model` 才打开模型选择器。
 - 输入框编辑器节点的 id 每次不同(`j.line/input`、`3.line/input`…):只能按 `k === "editor" && p.sendable === true` 找。**选择器节点的 id 也每次不同**(同一个脚本里是 `p`、`t`),必须从文档里读,不能写死。
-- 提问/审批出现时 dock 里的 composer(role `omp.editor`)被 `omp.editor.ask` / `omp.editor.ask.approval` 替换。
+- 提问时 dock 里的 composer(role `omp.editor`)被 `omp.editor.ask` 换掉(`fixtures/tsp/ask.jsonl` 第 37 帧 `del j`);**审批时不换**:`omp.editor.ask.approval` 插在 composer 前面(`approval.jsonl` 第 33 帧 `add t … before j`),composer 的编辑器一直 `sendable`,之后只有占位文字变了、没有 `del j`。
 
 ### 10.2 TaskState 的字段从哪来
 
@@ -158,7 +158,7 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 
 ### 10.4 发送
 
-运行中 `sendPrompt` 也直接 `send`,omp 自己排队/steer,`whenBusy` 忽略。提问/审批替换了输入框时没有 `sendable` 的编辑器:`sendPrompt`、切模型、切思考强度立刻 reject,消息以 `composer_unavailable:` 开头(`TSP_COMPOSER_UNAVAILABLE`;IPC 只带得过 message,渲染进程按它识别并显示"先回答 omp 的提问/审批"),不等 30 秒超时。
+运行中 `sendPrompt` 也直接 `send`,omp 自己排队/steer,`whenBusy` 忽略。**发送目标由 `shared/tsp/gate.ts` 的 `findMessageTarget` 定**(`#awaitComposer`):提问把输入框换掉(没有 `sendable` 的编辑器)、或有全屏面板开着(见 §10.7),`sendPrompt` 立刻 reject;切模型、切思考强度、斜杠命令在**审批在等**时也立刻 reject(它们不该顺手拒绝掉审批)。reject 的消息分别以 `composer_unavailable:`(`TSP_COMPOSER_UNAVAILABLE`)和 `screen_open:`(`TSP_SCREEN_OPEN`)开头(IPC 只带得过 message,渲染进程按它识别并显示"先回答 omp 的提问/审批"/"先关掉 omp 的面板"),不等 30 秒超时。**审批在等时 `sendPrompt` 照发**,见 §10.7。
 
 ### 10.5 引擎统一
 
@@ -168,10 +168,35 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 
 ### 10.6 斜杠命令、快速/慢速、图片(实测 omp 18.12.3)
 
-- **命令列表**:`listSlashCommands` = 服务进程的 `get_available_commands`(内置命令一致,项目目录里自定义的命令/技能没有;没有进程时 `[]`)。单独的 `/cmd` 经 `send` 在空闲和运行中都当命令执行(`/fast`、`/slow`、`/model` 实测),`/fast on` 这类带参数的也行;但 `/model <id>`、`/thinking low` 是普通消息。注意单独的 `/model` 打开的是**角色**选择器("Models",会改角色模型),不是会话内切换器——切模型用 §10.3。
+- **命令列表**:`listSlashCommands` = 服务进程的 `get_available_commands`(内置命令一致,项目目录里自定义的命令/技能没有)。列表和任务进程无关,任务 `starting`、还没有会话时照给(以前这时返回 `[]`,渲染进程又把 `[]` 缓存了,新建任务里斜杠菜单永远不出现,B1);草稿页用 `listSlashCommands(null)`(`TaskPool.listDraftSlashCommands`,同一份)。单独的 `/cmd` 经 `send` 在空闲和运行中都当命令执行(`/fast`、`/slow`、`/model` 实测),`/fast on` 这类带参数的也行;但 `/model <id>`、`/thinking low` 是普通消息。注意单独的 `/model` 打开的是**角色**选择器("Models",会改角色模型),不是会话内切换器——切模型用 §10.3;所以 studio 里 `/model`、`/effort` 开 studio 自己的模型选择器,不发给 omp。studio 接管哪些 `/命令`(`/new /resume /settings /hotkeys /git /rename /delete /model /switch /effort /usage /context /export`;`/btw /tree /fork /goal` 在 TSP 里只列在菜单并原样交给 omp)见 `docs/architecture/conversation.md` "studio 接管的斜杠命令"。导出:TSP 任务的 HTML 导出用 `omp --export <会话文件> <输出路径>`(见 conversation.md "TSP 任务的导出")。
 - **`/fast`**:`setTaskFastMode` 发 `/fast on|off`,等 toast "Fast mode enabled." / "Fast mode disabled." 才算完成,出现别的新 toast(如 "…has no service-tier control for /fast to toggle.")就以它的原文 reject。真实状态在模型名后面的闪电图标 span(U+F0E7,样式含 `icon`)——`composer-state.ts` 读成 `TspComposerInfo.fast`,模型名取非图标 span,所以不受影响;`TaskState.fastMode.enabled/active` 取它。
 - **`/slow`**:同上发 `/slow on|off`,toast "Slow mode on: …" / "Slow mode off: …";omp 界面上没有慢速状态节点,`TaskState.slowMode.enabled` 按最后一次 toast 记(起始为关),`supported` 恒为 true(不支持的模型 omp 的 toast "…has no slow mode…" 作为错误抛出)。
 - **图片**:TSP 没有图片通道。`sendPrompt` 把图片写到 `os.tmpdir()/omp-studio-images/<任务 id>/`,在文字后面加 `@"<路径>"`(omp 的文件提及,带空格要引号),omp 读成图片附件(工具行 "Read <路径> (image)");任务移除时删目录。
+- **提问对话框(omp.editor.ask)的实测、键盘和鼠标**(实测 omp 18.12.5,deepseek-v4-flash,真实模型录制 `fixtures/tsp/ask-multi.jsonl`:三题——单选 / 多选 / 单选,走到 Review 页提交;代码 `interactive/AskGate.tsx`、`src/shared/tsp/ask-gate.ts`,单测 `test/tsp-ask-gate.test.ts`,e2e `tsp.e2e.ts` "多题提问")。
+  - **节点**:根 `col role=omp.editor.ask` = `row omp.ask.head`(`tabs role=omp.ask.questions`,`items` 是每题一个 `{id:"0".."n", label}` + `{id:"submit", label:"Review"}`,`actions.click:"select"`,点标签发 `select` item=标签 id,实测能切页;答过的标签前面加 `✓ `)+ `md omp.ask.question` + 当前题的 `list omp.ask.options`(每翻一页 omp `del` 旧 list、`add` 新 list)+ `row omp.actions`(Hide / Note / Skip / Next|Submit 四个 `omp.btn`,`actions.click` = `hide` / `note` / `cancel` / `submit`,`kbd` 子节点标键)。**单选题选项 role `omp.ask.option`,多选题选项 role `omp.ask.check`**(这是区分单选 / 多选的节点标记,对应 `ask` 工具的 `multi:true`),末项 `omp.ask.other`。推荐项在 `item.p.value` 里是 `Recommended`。
+  - **单选**:`select` 事件(点任何一项,包括已高亮的)= 回答并跳到下一页(tabs 加 ✓);`activate` 同效;Space 什么也不做(没有任何帧)。最后一题答完 `active:"submit"` 进 Review 页。
+  - **多选**:`select` = 勾选 / 取消勾选这一项并把高亮移过去(每次都切换,已高亮的也是),选中状态是 item 的 `icon:"check"` + `tone:"accent"`(取消时两者变 `null`);Space 切换当前高亮项;`activate` / Enter = 下一页(不管点的是哪项,也不会勾选)。底栏 Next 按钮的 title 多一段 `· Toggle  space`。不勾任何项直接 Enter 会让这题在 Review 页显示 `Unanswered`(warning),B6 就是这样来的:以前再点已高亮项发 `activate`。
+  - **Review 页**:`omp.ask.question`、list、Note 按钮都被 `del`,新增 `text omp.ask.notice`("All answered · Submit sends them" 或 "1 unanswered · Submit still sends the rest")和 `kv omp.ask.answers`(`items:[{k:题名, v:答案 spans}]`),Submit 按钮 title "Submit answers  enter"、文字改成 "Submit"。**页里没有 list / editor,没有任何可聚焦节点**——所以 studio 以前没有 `data-tspi-keys` 元素接键盘(B3)。**Enter 提交**(实测:发 Enter 后 `ask` 工具卡变 done,带答案);点 Submit 的 `action submit` 事件同样提交(实测)。
+  - **Esc**:在任意页(含 Review)Esc = 取消整个提问(`del` 提问节点,`ask` 工具卡 `status:error`,文字 "Ask tool was cancelled by the user"),omp 随后不再继续这一轮(没有新的助手输出,要用户再发消息)。也就是说"Esc 取消整个 ask 并结束这一轮"是 omp 自己的行为;studio 之前的 Esc 落在 body 上还会被输入框当成停止任务,现在对话框接 Esc(见下)。`Note`(`action note` 或键 `n`)打开 `omp.overlay.hook-editor`(一个带编辑器的 overlay,ask 根节点被 `del`),这里 Esc 是返回(ask 根节点重新 `add`,第一页的状态;从后面的页进 Note 再返回的状态没测);`Hide`(`action hide`,Alt+H)把根 role 改成 `omp.editor.ask.hidden`,留一条摘要 + Skip + `Show`(`action show`)按钮,Show 还原成 `omp.editor.ask`。
+  - **studio 的做法**:① 对话框根(`AskGateCol`,`.tspi-ask-gate`、`data-tspi-keys`、`tabIndex=-1`)自己接键盘:按键用 `encodeKey` 写进伪终端(里面的 list / editor 已经处理过的键不重复发,Review 页没人拿键盘时由它接),Esc 同时 `stopPropagation`,不冒到 Composer 的 window 监听;焦点被换页拆掉(`del` 旧 list)后由 MutationObserver 拿回根节点。② `omp.btn`(`AskButtonRow`,含审批卡的 Details / Deny / Approve)画成真 `<button>`,点 = 节点自己的 `actions.click`(`action` 事件);点按钮不抢焦点。③ 点选项(`askItemClick`):`omp.ask.check` 永远发 `select`(= 勾选切换),双击也不 `activate`(会跳页);单选 / Other / 其它列表保持"点非高亮 = `select`,再点已高亮 = `activate`"(实测单选两者都是作答)。**未实测**:Ctrl+Enter 在提问里的作用(`encodeKey` 编成 CSI-u,没发给真实 omp 试过);Other 的自由输入页和 Note 的编辑器 overlay 在 studio 里的渲染没有逐帧测;`cancel` 按钮的 `action` 事件没发过(Esc 键实测会取消)。
+- **omp 弹窗(`overlay`:`/jobs` `/session` `/usage` `/changelog` `/marketplace`…)的 Esc、高度、列宽**(`interactive/Overlay.tsx`、`src/shared/tsp/overlay-esc.ts`、`table-layout.ts`,`test/tsp-overlay-esc.test.ts`,e2e `tsp.e2e.ts` "后台作业弹窗"):
+  - **Esc**:`TspOverlayProps` 没有关闭动作,关它就是把 Esc 键(`\x1b`)写给 omp;弹窗底栏的 `omp.btn`("Close  esc",`actions.click: "close"`)只是同一件事的按钮。焦点通常在 studio 输入框(不在 tsp-view 里),以前这一下 Esc 只落到 Composer 的 window 监听上被当成"停止任务"(空闲时什么都没发生)。现在每个可关闭的 overlay(不含锚在光标 / 节点上的补全菜单)在 window **捕获阶段**监听 Esc:焦点在输入框 / body / 弹窗卡片上、没人处理过(`defaultPrevented`)、没有修饰键和输入法组合、没有选择器、且自己是 tsp-view 里最上面一个可关闭 overlay 时,`ctx.keys("\x1b")` + `preventDefault` + `stopPropagation`(Composer 的 Esc 看 `defaultPrevented`,不会停止任务)。tsp-view 里自己发 Esc 的控件(`textarea` / `input` / `[data-tspi-keys]`:list、ask 对话框)不重复发。
+  - **叠层不是 studio 文档的 bug**:`fixtures/tsp/jobs-chart.jsonl`(omp 18.12.5)里第一个 `/jobs` 的 `layer.ov-z` 由 omp 自己 `del`(`["del","layer.ov-z"],["focus","j.line/input"]`),之后才 `add` 第二个 `layer.ov-16`;文档里没有残留层。截图里叠几层是因为 Esc 到不了 omp,弹窗一直开着、用户又从 studio 输入框发了下一条斜杠命令。**未对真实 omp 复现**"弹窗开着时 `send` 仍写进 omp 的编辑器并再开一层",以上是按录制和截图的推断;Esc 能关之后正常使用不该再叠。
+  - **高度**:`.tspi-ov-card { max-height: 100% }`(相对铺满 layer 的 overlay 根),`.tspi-ov-body` 本来就是 `flex: 1; min-height: 0; overflow-y: auto`,内容多(`/changelog` 9378px)时在卡片里滚动,头和底部 Close 行留在视口内。
+  - **`/tools` 第一列被挤成一个字宽**(omp 18.12.5 实录 `local://tsp-slash-overlays-18.12.5.jsonl`,NativeUiPlan 提供):body 是 `md` 节点(role `omp.report.body`),文字是 markdown 管道表(`| Tool | Description |`),**不是 `table` 节点**。原因:`.md` 的 `overflow-wrap: anywhere` 让自动表格布局的最小内容宽度变成 1 个字。修法在 `markdown/markdown.css`:`.md-table th/td` 用 `overflow-wrap: break-word`(不影响最小内容宽度)。`table` 节点(`TspTableProps`)的列轨道也加了下限(`columnTrack`:最长单元格字数 × `--tsp-cw` + 14px;不撑开的列封顶 24 字、撑开的列封顶 12 字),是同类问题的预防,`/tools` 本身不依赖它。CSS 改动没有在真实页面验证。
+  - **`/jobs` 布局**:`omp.jobs.split` 的 `row` 默认 `align-items: center` 让列表漂到详情中间,`tsp.css` 按 role 改成 `stretch`;列表 `flex: 0 0 33%`、详情 `flex: 1 1 0`。
+
+### 10.7 审批门与全屏面板(Agent Hub)时的输入框(2026-10-21)
+
+纯函数在 `src/shared/tsp/gate.ts`(`test/tsp-gate.test.ts` 对 `approval` / `ask` / `slash` 三份录制逐帧验证),主进程 `TspRunner.#awaitComposer`、渲染进程 `Composer.tsx` 共用。
+
+**审批:输入框里写的字 = 拒绝并说明理由,和 omp 的 TUI 一样。** omp 文档(`approval-mode.md`):审批停靠在输入框上方,输入框保留光标、接受输入;发消息(来自输入框、Tern 或协作访客)会拒绝所有待批的调用(以及同一批工具之后又要批的),再把这条消息作为插话交给模型,模型知道为什么被拒。录制里审批期间 composer 的编辑器一直 `sendable`(见 §10.1 最后一条),所以 studio 的做法就是把消息原样 `send` 给它(`sendPrompt`,`findMessageTarget` 返回 `ready` 且 `approval: true`),不另发 `deny`。**这条路径(审批期间 `send`)没有录制**:依据是 omp 文档加上"编辑器 sendable 且没被换掉",e2e 和单测里假 omp 只验证 studio 发出了 `send`(`test/task-tsp.test.ts`、`tsp.e2e.ts` "审批"),没有验证真实 omp 的拒绝行为。需要用真实 omp(always-ask 项目触发一次审批,输入框写理由回车)确认一次。
+
+- 按键:Enter(有草稿)= 拒绝并发送;Ctrl+Enter = 批准(`app.approval.approve`,有没有草稿都一样;rpc 的门有草稿时 Ctrl+Enter 仍是"稍后发送",由 `SendContext.ctrlApproves` 区分);Ctrl+O = Details(`app.tools.expand`)。批准和 Details 是对审批卡上对应按钮(role `omp.btn`,`actions.click` = `approve` / `expand`;`findGateButton`)发 `action` 事件,和点按钮同一个事件(`approval.jsonl` 录到了 `approve`,`expand` / `deny` 的点击没录)。Esc = 拒绝(omp 自己的键,Composer 的 Esc 照旧发 Esc)。
+- 门:主进程给审批合成的 `dialogs[0]` id 是 `tsp-approval`,提问是 `tsp-ask`(`TSP_APPROVAL_DIALOG_ID` / `TSP_ASK_DIALOG_ID`;`deriveTaskStatus().ask.approval` = 节点 role 是 `omp.editor.ask.approval`)。输入框按它区分:提问仍不能发送(placeholder "先在上面回答 omp 的提问…"),审批能发(placeholder "拒绝并告诉 omp 该怎么做…")。
+- 切模型、思考强度、斜杠命令(`#runSlash`)在审批期间仍 reject(`composer_unavailable`),不然它们的 `send` 会顺手把审批拒掉。
+
+**面板开着时输入框不发(B5)。** 面板 = 全屏 surface(`mode: "screen"`,`/settings` 的录制里是 `s:2`)或 **Agent Hub**:实测(omp 18.12.5,`fixtures/tsp/hub-steer.jsonl`)Hub 是 inline surface `layer` 里的 `picker`(`tabs` 含 `agents`;`hasAgentHub`),不是 screen surface。`findMessageTarget` 看到任一种就返回 `panel`,`sendPrompt` 立刻 reject(`screen_open:`),不再把消息当成对主代理的插话(旧行为:消息写进主会话的 composer)。输入框这时:发送按钮禁用、Enter 不发、placeholder 换成提示、工具行加一条 `composer-note`("面板开着,Esc 关掉后再发送");Esc(以及运行中的停止按钮)只把 Esc 键交给 omp 关面板,**不**当成停止主代理、也不记 `stopRequested`。**给子代理 steer 不用单独路由**:Hub 里 `activate` 一个子代理后 omp 进入聚焦模式(dock 里 `omp.composer.focus`),Hub 关掉,同一个编辑器的 `send` 就 steer 那个子代理(实测),`findMessageTarget` 此时是 `ready`,studio 照常发。聚焦模式下输入框还没有"正在给 X 发"的标识,Stop/Esc 也是回主会话,留给后面的原生子代理面板。
 
 ## 附录:依赖 rpc-ui 的代码
 

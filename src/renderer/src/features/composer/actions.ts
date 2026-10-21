@@ -9,14 +9,15 @@ import { appendToDraft, getDraft, setDraft } from "./draft-store.ts";
 import { stopToasts } from "./stop-outcome.ts";
 import { fileToPromptImage } from "./image-resize.ts";
 import { canRunShell, isShellDraft } from "./send-logic.ts";
-import { findStudioSlash } from "./studio-slash.ts";
+import { findStudioSlash, handledCommands } from "./studio-slash.ts";
 import { studioSlashCommands } from "./studio-slash-table.ts";
 
 export type Delivery = "steer" | "followUp";
 
 /**
  * 发送草稿。先清空输入框（乐观），发送失败再放回去并提示；发送后强制吸底。
- * `tsp`（TSP 任务）：`/` `!` 开头的文字原样交给 omp（它自己处理并在过程区里画界面），不走 studio 的斜杠命令和 RPC bash。
+ * studio 接管的斜杠命令（studio-slash-table.ts）不发给 omp，rpc 和 TSP 任务各有自己能接管的那些（`handledCommands`）；
+ * `tsp`（TSP 任务）：别的 `/` `!` 开头的文字原样交给 omp（它自己处理并在过程区里画界面），不走 RPC bash。
  */
 export async function sendDraft(
   taskId: TaskId,
@@ -29,7 +30,8 @@ export async function sendDraft(
   const text = draft.text.trim();
   if (text === "" && draft.images.length === 0) return;
   if (!tsp && isShellDraft(draft)) return runShellDraft(taskId, text, t, running);
-  const studio = !tsp && draft.images.length === 0 ? findStudioSlash(text, studioSlashCommands) : null;
+  const studio =
+    draft.images.length === 0 ? findStudioSlash(text, handledCommands(studioSlashCommands, tsp ? "tsp" : "rpc")) : null;
   if (studio !== null) {
     setDraft(taskId, { text: "", images: [] });
     try {

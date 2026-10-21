@@ -13,7 +13,12 @@ const debounceMs = 80;
 function useProjectFiles(target: ProjectFilesTarget, reference: AtReference | null): readonly string[] {
   const [result, setResult] = useState<{ key: string; files: readonly string[] }>({ key: "", files: [] });
   const query = reference?.query ?? null;
-  const targetKey = target.kind === "task" ? `task:${target.taskId}` : `project:${target.projectId}`;
+  const targetKey =
+    target.kind === "task"
+      ? `task:${target.taskId}`
+      : target.kind === "project"
+        ? `project:${target.projectId}`
+        : "defaultFolder";
   const key = query === null ? "" : `${targetKey}\0${query}`;
 
   useEffect(() => {

@@ -18,7 +18,12 @@ export function prefixTitle(locale: Locale, prefix: string): string {
 }
 
 /** 审批模式的值 → 输入框胶囊（approval 命名空间）里同一个模式的文案 key。 */
-const approvalModeLabel: Readonly<Record<string, string>> = { "always-ask": "alwaysAsk", write: "write", yolo: "yolo" };
+const approvalModeLabel: Readonly<Record<string, string>> = {
+  "always-ask": "alwaysAsk",
+  "always-ask-cached": "alwaysAskCached",
+  write: "write",
+  yolo: "yolo",
+};
 /** 值就是思考强度档位的设置，文案和输入框的思考强度同源（thinking 命名空间）。 */
 const thinkingLevelSettings: Readonly<Record<string, true>> = { defaultThinkingLevel: true, "task.maxEffort": true };
 

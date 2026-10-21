@@ -3,6 +3,8 @@
 import { useEffect, type RefObject } from "react";
 
 const tspSelector = '[data-testid="tsp-view"]';
+// 提问对话框还在（只是换了页）：它自己的根节点会把焦点拿回去（AskGate.tsx），这里不能先抢走。
+const askGateSelector = `${tspSelector} [data-role="omp.editor.ask"][data-tspi-keys]`;
 
 export function useReclaimFocus(field: RefObject<HTMLTextAreaElement | null>, enabled: boolean): void {
   useEffect(() => {
@@ -14,6 +16,7 @@ export function useReclaimFocus(field: RefObject<HTMLTextAreaElement | null>, en
     const observer = new MutationObserver(() => {
       if (held === null || held.isConnected) return;
       held = null;
+      if (document.querySelector(askGateSelector) !== null) return;
       const active = document.activeElement;
       if ((active === null || active === document.body) && document.hasFocus()) {
         field.current?.focus({ preventScroll: true });

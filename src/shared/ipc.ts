@@ -22,7 +22,9 @@ import type {
 } from "./omp-wire/rpc-wire.generated.ts";
 import type {
   GitCommitResult,
+  GitChangeStat,
   GitDiffArea,
+  GitDiffContext,
   GitFileDiff,
   GitHunkRef,
   GitMergeResult,
@@ -73,8 +75,9 @@ export function parseDraftKey(key: string): { projectId: ProjectId | null } | un
 }
 type Unsubscribe = () => void;
 
-/** `@` 补全的数据来源：任务目录，或新任务草稿所在的项目目录。 */
-export type ProjectFilesTarget = { kind: "task"; taskId: TaskId } | { kind: "project"; projectId: ProjectId };
+/** `@` 补全和文件面板的数据来源：任务目录、新任务草稿所在的项目目录，或默认文件夹（`AppInfo.chatsDir`，主进程自己解析，不传路径）。 */
+export type ProjectFilesTarget =
+  { kind: "task"; taskId: TaskId } | { kind: "project"; projectId: ProjectId } | { kind: "defaultFolder" };
 
 /** 文件树的一项（目录里的直接子项）；ignored = 被 .gitignore 忽略（界面调暗，不隐藏）。 */
 export interface DirEntry {
@@ -108,7 +111,13 @@ export type Locale = "zh-CN" | "en";
 export type LocalePreference = Locale | "system";
 export type ThemePreference = "system" | "light" | "dark";
 /** omp 的 tools.approvalMode（omp 文档 approval-mode.md）。只存在 omp 的配置里，omp-studio 不另存、启动时不传 --approval-mode。 */
-export type ApprovalMode = "always-ask" | "write" | "yolo";
+export type ApprovalMode = "always-ask" | "always-ask-cached" | "write" | "yolo";
+
+/** 审批模式在某个项目目录里的生效值：项目 `.omp/config.yml` 设了就盖过全局（实测 omp 18.12.5）。mode 为 null = omp 给了本版本不认识的值。 */
+export interface ApprovalModeInfo {
+  mode: ApprovalMode | null;
+  source: "project" | "global";
+}
 
 export interface AppInfo {
   version: string;
@@ -827,8 +836,8 @@ export interface StudioInvokeApi {
   getTaskSessionRef(taskId: TaskId): Promise<TaskSessionRef | null>;
   /** 本会话按模型的 token 和费用：读任务的会话文件（只读）；还没有会话文件时 models 为空。 */
   getSessionModelUsage(taskId: TaskId): Promise<SessionModelUsage>;
-  /** 任务当前可用的斜杠命令（get_available_commands）；任务没有 omp 进程时返回空数组。 */
-  listSlashCommands(taskId: TaskId): Promise<AvailableSlashCommand[]>;
+  /** 任务当前可用的斜杠命令（get_available_commands）；`null` = 草稿页（还没有任务），用服务进程的列表。没有可用的 omp 进程时返回空数组。 */
+  listSlashCommands(taskId: TaskId | null): Promise<AvailableSlashCommand[]>;
   /** 输入框草稿（文字）：key 是任务 id 或 `new:<projectId>`。主进程持久化，重启不丢。 */
   getDrafts(): Promise<Record<string, string>>;
   saveDraft(key: string, text: string): Promise<void>;
@@ -991,6 +1000,8 @@ export interface StudioInvokeApi {
   getModelDefaults(projectId: ProjectId | null): Promise<ModelDefaults>;
   /** 项目目录里生效的 modelRoles（角色 → `provider/model[:thinking]` 原文）；projectId 为 null 时只看全局。 */
   getModelRoles(projectId: ProjectId | null): Promise<Record<string, string>>;
+  /** 项目目录里生效的审批模式和来源；projectId 为 null 时只看全局配置。 */
+  getApprovalMode(projectId: ProjectId | null): Promise<ApprovalModeInfo>;
   /** 给某个角色（default、smol、task…）指定模型（null = 去掉）；default 即新任务的默认模型。写到哪层和 omp 终端一致。 */
   setModelRole(projectId: ProjectId | null, role: string, model: ModelKey | null): Promise<void>;
   /** 模型选择对话框右栏的速度、智能分和压缩设置；只读 omp 的 agent.db / models.db / `omp config list`。 */
@@ -1005,8 +1016,10 @@ export interface StudioInvokeApi {
   // 评审（阶段 3）和 worktree / git（阶段 4）。路径一律相对仓库根；仓库根 = 任务 cwd 所在的 git 仓库（有 worktree 时是 worktree）。
   /** 任务 cwd 的 git 状态；不是仓库或没有 git 是正常的类型化结果，不 reject。 */
   getGitStatus(taskId: TaskId): Promise<GitStatus>;
-  /** 一个文件一侧的 diff（结构化的 hunk 和新旧行号）；二进制和过大文件有对应的 kind。 */
-  getGitFileDiff(taskId: TaskId, path: string, area: GitDiffArea): Promise<GitFileDiff>;
+  /** 一个文件一侧的 diff（结构化的 hunk 和新旧行号）；二进制和过大文件有对应的 kind。context = file 时整个文件连成一个 hunk（评审的"文件"视图），hunk 级操作只认 hunks。 */
+  getGitFileDiff(taskId: TaskId, path: string, area: GitDiffArea, context: GitDiffContext): Promise<GitFileDiff>;
+  /** 所有改动文件每一侧的 `+a −d`（评审文件树）；二进制、过大的文件没有这一项。 */
+  getGitChangeStats(taskId: TaskId): Promise<GitChangeStat[]>;
   stageGitFile(taskId: TaskId, path: string): Promise<void>;
   unstageGitFile(taskId: TaskId, path: string): Promise<void>;
   /** 把文件的所有改动退回 HEAD（未跟踪的文件直接删除）。不确认，确认由界面做。 */
@@ -1232,12 +1245,14 @@ export const invokeNames = {
   getModelDefaults: true,
   getModelRoles: true,
   setModelRole: true,
+  getApprovalMode: true,
   getModelInsights: true,
   getUpdateState: true,
   checkForUpdate: true,
   installUpdate: true,
   getGitStatus: true,
   getGitFileDiff: true,
+  getGitChangeStats: true,
   stageGitFile: true,
   unstageGitFile: true,
   discardGitFile: true,

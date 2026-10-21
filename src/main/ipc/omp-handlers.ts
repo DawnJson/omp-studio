@@ -6,9 +6,11 @@ import path from "node:path";
 import { resolveAgentDir } from "../history/session-index.ts";
 import { log } from "../log/log.ts";
 import { emitEvent } from "./events.ts";
-import type { ApprovalMode, HandlerGroup, ModelDefaults, OmpConfigSnapshot, ProjectId } from "../../shared/ipc.ts";
+import type { HandlerGroup, ModelDefaults, OmpConfigSnapshot, ProjectId } from "../../shared/ipc.ts";
+import { toApprovalMode } from "../../shared/approval-mode.ts";
 import { goalContinuationKey } from "../../shared/ui/goal-continuation.ts";
 import { applyGoalContinuationDefault, isGoalContinuationExplicit } from "../omp-config/goal-default.ts";
+import { readApprovalMode, type ApprovalModeDeps } from "../omp-config/approval-mode.ts";
 import { listJson, OmpConfigService, runOmpConfig } from "../omp-config/config-service.ts";
 import {
   readModelDefaults,
@@ -118,11 +120,13 @@ export async function readProjectModelDefaults(projectId: ProjectId, cwd: string
 }
 
 const approvalKey = "tools.approvalMode";
-const approvalModes: readonly unknown[] = ["always-ask", "write", "yolo"] satisfies ApprovalMode[];
 
-/** 输入框的审批胶囊读的是快照里的 tools.approvalMode：读到就记进启动缓存。 */
+const approvalModeDeps: ApprovalModeDeps = { list: modelDefaultsDeps.list };
+
+/** 输入框的审批胶囊读的是全局生效值：读到就记进启动缓存（项目覆盖的值不记，别的项目会读到）。 */
 function recordApprovalMode(value: unknown): void {
-  if (approvalModes.includes(value)) startupCache().setApprovalMode(value as ApprovalMode);
+  const mode = toApprovalMode(value);
+  if (mode !== null) startupCache().setApprovalMode(mode);
 }
 
 function recordSnapshot(snapshot: OmpConfigSnapshot): OmpConfigSnapshot {
@@ -154,6 +158,7 @@ export const ompHandlers: HandlerGroup<
   | "getModelDefaults"
   | "getModelRoles"
   | "setModelRole"
+  | "getApprovalMode"
   | "getModelInsights"
 > = {
   getOmpStatus: () => {
@@ -204,6 +209,11 @@ export const ompHandlers: HandlerGroup<
     return defaults;
   },
   getModelRoles: async (projectId) => readModelRoles(modelDefaultsDeps, await projectPath(projectId)),
+  getApprovalMode: async (projectId) => {
+    const info = await readApprovalMode(approvalModeDeps, await projectPath(projectId));
+    if (info.source === "global") recordApprovalMode(info.mode);
+    return info;
+  },
   setModelRole: async (projectId, role, model) => {
     await writeModelRole(
       modelDefaultsDeps,

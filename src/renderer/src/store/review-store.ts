@@ -1,18 +1,26 @@
 // 评审模式的界面状态：哪个任务正在评审、每个任务攒下的待发评论。
 // 评论队列在评审关闭后继续保留（同一任务再打开还在），发送成功后才清空；任务被删除时一并丢弃。只在内存里，重启应用即清空。
-import { REVIEW_COMMENTS_MAX } from "../../../shared/git.ts";
+import { REVIEW_COMMENTS_MAX, type GitDiffContext } from "../../../shared/git.ts";
 import type { TaskId } from "../../../shared/ipc.ts";
 import type { CommentDraft, QueuedComment } from "../../../shared/ui/review-model.ts";
 import { createStore, useStoreValue } from "./create-store.ts";
 
 interface ReviewState {
   openTaskId: TaskId | null;
-  /** 统一 / 并排：整个会话里记住，下次打开评审沿用。 */
+  /** 统一 / 并排、改动块 / 整个文件、是否折行：整个会话里记住，下次打开评审沿用。 */
   mode: "unified" | "split";
+  scope: GitDiffContext;
+  wrap: boolean;
   comments: Readonly<Record<string, readonly QueuedComment[]>>;
 }
 
-const reviewStore = createStore<ReviewState>({ openTaskId: null, mode: "unified", comments: {} });
+const reviewStore = createStore<ReviewState>({
+  openTaskId: null,
+  mode: "unified",
+  scope: "hunks",
+  wrap: true,
+  comments: {},
+});
 const NONE: readonly QueuedComment[] = [];
 let nextId = 1;
 
@@ -22,6 +30,14 @@ export function openReview(taskId: TaskId): void {
 
 export function setReviewMode(mode: "unified" | "split"): void {
   reviewStore.set({ ...reviewStore.get(), mode });
+}
+
+export function setReviewScope(scope: GitDiffContext): void {
+  reviewStore.set({ ...reviewStore.get(), scope });
+}
+
+export function setReviewWrap(wrap: boolean): void {
+  reviewStore.set({ ...reviewStore.get(), wrap });
 }
 
 export function closeReview(): void {
@@ -79,4 +95,12 @@ export function useReviewComments(taskId: TaskId | null): readonly QueuedComment
 
 export function useReviewMode(): "unified" | "split" {
   return useStoreValue(reviewStore, (state) => state.mode);
+}
+
+export function useReviewScope(): GitDiffContext {
+  return useStoreValue(reviewStore, (state) => state.scope);
+}
+
+export function useReviewWrap(): boolean {
+  return useStoreValue(reviewStore, (state) => state.wrap);
 }

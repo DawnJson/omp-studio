@@ -32,6 +32,8 @@ export interface SendContext {
   swapped: boolean;
   /** 草稿是 `!命令`（以 ! 开头且没有图片）。 */
   shell: boolean;
+  /** 审批门上 Ctrl+Enter 一律是"批准"（omp 的 `app.approval.approve`，TSP 任务）；rpc 的门有草稿时 Ctrl+Enter 还是"稍后发送"。 */
+  ctrlApproves?: boolean;
 }
 
 /** `!命令`草稿：去掉首尾空白后以 ! 开头，且没有图片（带图片的一律当普通消息发给模型）。 */
@@ -54,8 +56,8 @@ export function decideEnter(key: KeyInfo, ctx: SendContext): EnterAction {
   if (ctx.shell && ctx.hasContent) return "shell";
   if (ctx.gate) {
     if (!ctrl) return ctx.hasContent ? "denyAndSend" : "default";
-    // 草稿为空：Ctrl+Enter 是门的主操作；有草稿则门不响应，落到下面和没有门时一样的"稍后发送"。
-    if (!ctx.hasContent) return "gatePrimary";
+    // 草稿为空：Ctrl+Enter 是门的主操作；有草稿则门不响应，落到下面和没有门时一样的"稍后发送"（TSP 审批除外，见 ctrlApproves）。
+    if (!ctx.hasContent || ctx.ctrlApproves === true) return "gatePrimary";
   }
   if (!ctx.hasContent) return "default";
   // 门停靠时 omp 必然在跑（等这个门），即使调用方的 running 还没跟上。

@@ -17,7 +17,7 @@ import type { DirListing, TerminalKey } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { ChevronDown, ChevronRight, FileIcon, Folder } from "../../icons.tsx";
 import { reportError } from "../../ui/errors.ts";
-import { filesTarget } from "./preview-store.ts";
+import { filesTarget } from "./files-target.ts";
 import { flattenTree, treeKeyAction, type NodeRow, type TreeKey, type TreeRow } from "./tree-model.ts";
 import { treeMemory } from "./tree-state.ts";
 

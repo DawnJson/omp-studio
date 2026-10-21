@@ -1,6 +1,6 @@
 // 右侧文件面板的端到端（spec §4.27）：顶栏按钮 / Ctrl Shift E 打开，文件树懒加载、展开、键盘操作，点文件在同一面板的预览页里看，
 // 一层 1500 项只画眼前的行，展开状态按任务记住，越界的 listDirectory 被拒绝。中英 × 深浅各截图到 screenshots/（files-*）。
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -254,5 +254,52 @@ test("一层上千项：只渲染眼前的行，滚到底能看到最后一项�
     await expect(list(os.tmpdir())).rejects.toThrow();
   } finally {
     await cleanup();
+  }
+});
+
+test("默认文件夹里的新任务草稿也有文件面板：目录还没建时为空，建好后刷新能看到文件，`@` 补全在那里也能用", async () => {
+  const launched = await launchApp();
+  try {
+    const { page, userDataDir } = launched;
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "no-project");
+    const chats = path.join(userDataDir, "chats");
+    const toggle = page.getByTestId("topbar-files");
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+    const pane = page.getByTestId("file-preview");
+    await expect(pane).toBeVisible();
+    await expect(page.getByTestId("file-tree")).toBeFocused();
+    await expect(page.locator("[data-testid=file-tree-row]")).toHaveCount(0);
+    await expect(pane.locator(".file-preview-note")).toBeVisible();
+    // 只读浏览不建目录。
+    expect(
+      await stat(chats).then(
+        () => true,
+        () => false,
+      ),
+    ).toBe(false);
+    // 越界仍被拒绝。
+    await expect(
+      page.evaluate(() => globalThis.studio.listDirectory({ kind: "defaultFolder" }, "..")),
+    ).rejects.toThrow();
+
+    await mkdir(chats, { recursive: true });
+    await writeFile(path.join(chats, "笔记 文件.md"), "# 草稿笔记\n");
+    // `@` 补全不收名字里有空白的文件，另放一个没有空白的。
+    await writeFile(path.join(chats, "笔记二.md"), "# 另一篇\n");
+    await page.getByTestId("file-tree-refresh").click();
+    await expect(row(page, "笔记 文件.md")).toBeVisible();
+    await row(page, "笔记 文件.md").click();
+    await expect(page.getByTestId("file-preview-md")).toContainText("草稿笔记");
+
+    // `@` 补全。
+    await page.keyboard.press("Escape");
+    await expect(pane).toHaveCount(0);
+    const input = page.locator("[data-composer-input]");
+    await input.focus();
+    await input.pressSequentially("看看 @笔记");
+    await expect(page.getByTestId("file-menu")).toContainText("笔记二.md");
+  } finally {
+    await launched.close();
   }
 });

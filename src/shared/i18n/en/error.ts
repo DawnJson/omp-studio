@@ -4,6 +4,7 @@ import type { error as zhCN } from "../zh-CN/error.ts";
 export const error = {
   sessionBusy: "The task is still running. Try again when this turn ends.",
   composerUnavailable: "omp is waiting for your answer to its question or approval. Answer it first.",
+  screenOpen: "An omp panel (such as the Agent Hub) is still open. Press Esc to close it before sending.",
   worktreeShared: "Other tasks, including archived forks, share this worktree, so it can’t be discarded.",
   forkNoMessage: "Couldn’t find a user message to fork from.",
   exited: "The omp process for this task exited (code {code}). Your session is saved.",

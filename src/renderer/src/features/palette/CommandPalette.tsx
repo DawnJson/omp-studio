@@ -24,6 +24,8 @@ import { projectLabels, sessionTitle, taskTitle } from "../../../../shared/ui/si
 import { commandIcon } from "./command-icons.ts";
 import { buildCommands } from "./palette-commands.ts";
 import { useSlashCommands } from "./slash-commands.ts";
+import { findStudioSlash, handledCommands, withStudioSlash } from "../composer/studio-slash.ts";
+import { studioSlashCommands } from "../composer/studio-slash-table.ts";
 import { emitComposerText, setPendingDraftText } from "./studio-command.ts";
 import { buildSections, type PaletteRow } from "../../../../shared/ui/palette-model.ts";
 import "../sidebar/sidebar.css";
@@ -64,7 +66,13 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
   // 终端命令：当前任务，或对话页上的新任务草稿。
   const terminalKey = current?.id ?? (selectedTaskId === null && view === "conversation" ? draftTerminalKey : null);
   const labels = useMemo(() => projectLabels(projects), [projects]);
-  const slashCommands = useSlashCommands(current?.id ?? null);
+  const ompCommands = useSlashCommands(current?.id ?? null);
+  const host = current?.engine === "tsp" ? "tsp" : "rpc";
+  // 和输入框同一份列表：studio 接管的命令在前，omp 里被它盖住的去掉。
+  const slashCommands = useMemo(
+    () => (ompCommands.length === 0 ? ompCommands : withStudioSlash(ompCommands, studioSlashCommands, host, t)),
+    [ompCommands, host, t],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +137,13 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
     if (row.kind === "command") row.command.run();
     else if (row.kind === "task") void selectTask(row.task.id).catch((error: unknown) => reportError(t, error));
     else if (row.kind === "slash" && current) {
-      if (row.send)
+      // studio 接管的命令不发给 omp（和输入框的 sendDraft 一致）；它自己报错。
+      const studio = findStudioSlash(row.text, handledCommands(studioSlashCommands, host));
+      if (studio !== null && row.send)
+        void Promise.resolve()
+          .then(() => studio.command.run(current.id, studio.args, t))
+          .catch((error: unknown) => reportError(t, error));
+      else if (row.send)
         void window.studio
           .sendPrompt(current.id, { text: row.text, whenBusy: "followUp" })
           .catch((error: unknown) => reportError(t, error));

@@ -12,12 +12,7 @@ import { DialogLayer } from "../features/dialogs/index.ts";
 import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts";
 import { OmpSetupView } from "../features/omp-setup/index.ts";
 import { ReviewHost } from "../features/review/index.ts";
-import {
-  canShowFilesPanel,
-  FilePreviewPane,
-  toggleFilesPanel,
-  usePreviewPanel,
-} from "../features/file-preview/index.ts";
+import { FilePreviewPane, toggleFilesPanel, usePreviewPanel } from "../features/file-preview/index.ts";
 import { CommandPalette } from "../features/palette/index.ts";
 import {
   TerminalPanel,
@@ -167,10 +162,19 @@ export function App() {
     else setSidebarCollapsed(!shell.sidebarCollapsed);
   };
 
-  // 命令面板的"切换侧栏"以事件发来；用 ref 取最新的 toggleSidebar。
+  // 命令面板的"切换侧栏"以事件发来；用 ref 取最新的 toggleSidebar。/rename 要在侧栏里就地改名，收起时先展开。
   const toggleSidebarRef = useRef(toggleSidebar);
   toggleSidebarRef.current = toggleSidebar;
-  useEffect(() => onStudioCommand((command) => command === "toggleSidebar" && toggleSidebarRef.current()), []);
+  const sidebarShownRef = useRef(sidebarShown);
+  sidebarShownRef.current = sidebarShown;
+  useEffect(
+    () =>
+      onStudioCommand((command) => {
+        if (command === "toggleSidebar" || (command === "rename" && !sidebarShownRef.current))
+          toggleSidebarRef.current();
+      }),
+    [],
+  );
   const reportErrorRef = useRef((error: unknown) => reportError(t, error));
   reportErrorRef.current = (error: unknown) => reportError(t, error);
   // 点系统通知：主进程聚焦窗口并发 focusTask，切到对应任务。
@@ -219,7 +223,7 @@ export function App() {
       if (view === "conversation") toggleTerminalFocus(terminalKey);
     },
     toggleFilesPanel: () => {
-      if (view === "conversation" && canShowFilesPanel(terminalKey)) toggleFilesPanel(terminalKey);
+      if (view === "conversation") toggleFilesPanel(terminalKey);
     },
     closeDrawer: () => {
       if (!narrow || !shell.drawerOpen) return false;

@@ -1,7 +1,9 @@
 // 布局类节点：col、row、card、section、rule、spacer（规范 Layout）。
 import type { KeyboardEvent, ReactNode } from "react";
+import { ASK_BUTTON_ROLE, ASK_GATE_ROLE } from "../../../../../shared/tsp/ask-gate.ts";
 import type { TspPreview, TspSpace, TspText } from "../../../../../shared/tsp/tsp.generated.ts";
 import { ChevronDown } from "../../../icons.tsx";
+import { AskButtonRow, AskGateCol } from "../interactive/AskGate.tsx";
 import { Clamp } from "../Clamp.tsx";
 import { FoldCtx } from "../fold-context.ts";
 import { TspIcon, resolveIconName, toolIconName } from "../icons.tsx";
@@ -31,6 +33,9 @@ function stackClasses(p: Readonly<Record<string, unknown>>): string {
 
 export function Col(props: NodeProps) {
   if (props.node.p.role === "omp.assistant") return <AssistantCol {...props} />;
+  if (props.node.p.role === ASK_GATE_ROLE) {
+    return <AskGateCol {...props} dom={nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p) })} />;
+  }
   return (
     <div {...nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p) })}>
       <TspChildren {...props} />
@@ -82,6 +87,9 @@ function RecapRow(props: NodeProps) {
 export function Row(props: NodeProps) {
   if (props.node.p.role === "omp.turn.usage") return <UsageRow {...props} />;
   if (props.node.p.role === "omp.recap") return <RecapRow {...props} />;
+  if (props.node.p.role === ASK_BUTTON_ROLE) {
+    return <AskButtonRow {...props} dom={nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) })} />;
+  }
   return (
     <div {...nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) })}>
       <TspChildren {...props} />

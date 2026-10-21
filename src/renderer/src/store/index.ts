@@ -25,7 +25,7 @@ export function startStores(): void {
 export { useOmpStatus } from "./omp-store.ts";
 export { useAppInfo, useSettings } from "./settings-store.ts";
 export { useUpdateState } from "./update-store.ts";
-export { useTask, useTasks, useTasksState } from "./tasks-store.ts";
+export { getTask, useTask, useTasks, useTasksState } from "./tasks-store.ts";
 export { useTranscript } from "./transcript-store.ts";
 export { useLanes } from "./lanes-store.ts";
 export { useBtwRecords } from "./btw-store.ts";

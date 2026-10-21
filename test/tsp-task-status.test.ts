@@ -49,7 +49,7 @@ describe("deriveTaskStatus：omp 18.12.3 的录制逐帧", () => {
       [21, "running"],
       [39, "idle"],
     ]);
-    expect(steps[19]?.ask).toEqual({ title: "这个项目你最看重哪个方向?" });
+    expect(steps[19]?.ask).toEqual({ title: "这个项目你最看重哪个方向?", approval: false });
     // 提问时 composer 被换掉，但运行状态行还在：任务没有结束。
     expect(steps[19]?.working).toBe(true);
     // 以用户回答的时间为准：回答之前最后一帧在等，之后第一帧不再等。
@@ -69,7 +69,7 @@ describe("deriveTaskStatus：omp 18.12.3 的录制逐帧", () => {
       [19, "running"],
       [22, "idle"],
     ]);
-    expect(steps[17]?.ask).toEqual({ title: "Allow tool: bash" });
+    expect(steps[17]?.ask).toEqual({ title: "Allow tool: bash", approval: true });
     const approvedAt = user.find((entry) => entry.event["act"] === "approve")!.t;
     expect(steps.findLast((step) => step.t < approvedAt)?.status).toBe("needs_you");
     expect(steps.find((step) => step.t > approvedAt)?.status).toBe("running");

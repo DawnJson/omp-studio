@@ -1,8 +1,11 @@
 // 评审的数据：git 状态和当前文件的 diff。主进程是权威，这里只取、不缓存第二份：
 // 状态在 挂载、窗口重新聚焦、任务状态变化（agent 刚改完文件）、手动刷新、每次操作之后重新取；diff 随每次状态刷新重取。
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GitDiffArea, GitFileDiff, GitStatus } from "../../../../shared/git.ts";
+import type { GitDiffArea, GitDiffContext, GitFileDiff, GitStatus } from "../../../../shared/git.ts";
 import type { TaskId, TaskState } from "../../../../shared/ipc.ts";
+import { indexStats, type LineCounts } from "../../../../shared/ui/review-model.ts";
+import { useT } from "../../i18n/use-t.ts";
+import { reportError } from "../../ui/errors.ts";
 
 export interface ReviewStatus {
   status: GitStatus | null;
@@ -41,7 +44,7 @@ export function useReviewStatus(taskId: TaskId, taskStatus: TaskState["status"] 
 }
 
 export interface FileDiffState {
-  /** 已经取到的那份 diff 属于哪个文件/哪一侧；和当前选中的不一致时界面显示"加载中"。 */
+  /** 已经取到的那份 diff 属于哪个文件/哪一侧/哪种视图；和当前选中的不一致时界面显示"加载中"。 */
   key: string | null;
   diff: GitFileDiff | null;
   error: unknown;
@@ -50,6 +53,7 @@ export interface FileDiffState {
 export function useFileDiff(
   taskId: TaskId,
   target: { path: string; area: GitDiffArea } | null,
+  scope: GitDiffContext,
   stamp: number,
 ): FileDiffState {
   const [state, setState] = useState<FileDiffState>({ key: null, diff: null, error: null });
@@ -59,13 +63,31 @@ export function useFileDiff(
 
   useEffect(() => {
     if (path === null || area === null) return;
-    const key = `${area}:${path}`;
+    const key = `${area}:${scope}:${path}`;
     const request = ++latest.current;
-    window.studio.getGitFileDiff(taskId, path, area).then(
+    window.studio.getGitFileDiff(taskId, path, area, scope).then(
       (diff) => request === latest.current && setState({ key, diff, error: null }),
       (error: unknown) => request === latest.current && setState({ key, diff: null, error }),
     );
-  }, [taskId, path, area, stamp]);
+  }, [taskId, path, area, scope, stamp]);
 
   return state;
+}
+
+/** 文件树每行的 `+a −d`：随状态一起重取（stamp），取不到时保留上一份、报错（不吞）。 */
+export function useChangeStats(taskId: TaskId, stamp: number): ReadonlyMap<string, LineCounts> {
+  const t = useT();
+  const [stats, setStats] = useState<ReadonlyMap<string, LineCounts>>(new Map());
+  useEffect(() => {
+    if (stamp === 0) return;
+    let current = true;
+    window.studio.getGitChangeStats(taskId).then(
+      (list) => current && setStats(indexStats(list)),
+      (error: unknown) => current && reportError(t, error),
+    );
+    return () => {
+      current = false;
+    };
+  }, [taskId, stamp, t]);
+  return stats;
 }

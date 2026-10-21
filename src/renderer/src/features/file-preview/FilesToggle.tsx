@@ -2,12 +2,11 @@
 import type { TerminalKey } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Folder } from "../../icons.tsx";
-import { canShowFilesPanel, toggleFilesPanel, usePreviewPanel } from "./preview-store.ts";
+import { toggleFilesPanel, usePreviewPanel } from "./preview-store.ts";
 
 export function FilesToggle({ panelKey }: { panelKey: TerminalKey }) {
   const t = useT();
   const open = usePreviewPanel()?.key === panelKey;
-  if (!canShowFilesPanel(panelKey)) return null;
   return (
     <button
       type="button"

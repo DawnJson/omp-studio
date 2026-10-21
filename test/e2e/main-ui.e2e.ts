@@ -202,20 +202,17 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     await page.keyboard.press("Escape");
     await expect(breakdown).toHaveCount(0);
     await expect(page.getByTestId("context-meter")).toBeFocused();
-    // 点费用：居中的对话框（不是贴着按钮的浮层），顶上是"订阅额度 / 每日用量"切换框，默认订阅额度，←/→ 切页，
-    // 切页时对话框大小不变；没有"去设置看全年"；Esc 关闭后焦点回到费用。
+    // 点费用：居中的对话框（不是贴着按钮的浮层），标题"用量与额度"，没有页签：订阅额度和每日用量热力图在同一页，
+    // 对话框大小固定；没有"去设置看全年"；Esc 关闭后焦点回到费用。
     await cost.click();
     const overview = page.getByRole("dialog", { name: /用量与额度|Usage and quota/ });
     await expect(overview).toBeVisible();
-    await expect(overview.getByTestId("usage-tab-quota")).toHaveAttribute("aria-selected", "true");
+    await expect(overview.getByRole("tablist")).toHaveCount(0);
+    await expect(overview.getByRole("heading", { name: /用量与额度|Usage and quota/ })).toBeVisible();
     await expect(overview.getByTestId("quota-section")).toBeVisible();
-    const openBox = await overview.boundingBox();
-    await expect(overview.getByTestId("heatmap-section")).toBeHidden();
-    await overview.getByTestId("usage-tab-quota").focus();
-    await page.keyboard.press("ArrowRight");
-    await expect(overview.getByTestId("usage-tab-daily")).toBeFocused();
     await expect(overview.getByTestId("heatmap-section")).toBeVisible();
-    // 热力图占满对话框内容宽度；页签在标题栏正中，标题文字不显示。
+    const openBox = await overview.boundingBox();
+    // 热力图占满对话框内容宽度。
     const [heatBox, sectionBox] = await Promise.all([
       overview.getByTestId("heatmap-section").locator(".uq-heat").boundingBox(),
       overview.getByTestId("heatmap-section").boundingBox(),
@@ -225,22 +222,8 @@ test("空状态、对话里的用量、模型选择对话框；截图", async ()
     expect((gridBox?.x ?? 0) + (gridBox?.width ?? 0)).toBeGreaterThan(
       (sectionBox?.x ?? 0) + (sectionBox?.width ?? 0) - 24,
     );
-    await expect(overview.locator(".mp-title")).toHaveCount(0);
-    const [tabsBox, headBox] = await Promise.all([
-      overview.getByRole("tablist").boundingBox(),
-      overview.locator("header").boundingBox(),
-    ]);
-    expect(
-      Math.abs((tabsBox?.x ?? 0) + (tabsBox?.width ?? 0) / 2 - ((headBox?.x ?? 0) + (headBox?.width ?? 0) / 2)),
-    ).toBeLessThanOrEqual(2);
-    await expect(overview.getByTestId("quota-section")).toBeHidden();
-    const dailyBox = await overview.boundingBox();
-    // 对话框高度固定：和刚打开（额度还在加载）时一样高。
-    expect(dailyBox?.height).toBe(openBox?.height);
-    await page.keyboard.press("ArrowLeft");
-    await expect(overview.getByTestId("quota-section")).toBeVisible();
-    expect(await overview.boundingBox()).toEqual(dailyBox);
-    await page.keyboard.press("ArrowRight");
+    // 对话框高度固定：额度加载完成前后一样高。
+    expect((await overview.boundingBox())?.height).toBe(openBox?.height);
     // 每日用量只按花费看：没有 token / 花费 / 请求数切换。对话框在窗口正中。
     await expect(overview.getByTestId("usage-metric")).toHaveCount(0);
     const dialogBox = await overview.boundingBox();

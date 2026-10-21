@@ -1,6 +1,6 @@
 // 右侧文件面板的状态：同一时间只有一个面板（任务 id 或新任务草稿的键），两页——文件树 / 预览；关闭时把焦点还给打开它的元素。
 // 文件树的展开状态按键记在 tree-state.ts（面板关了、切走任务再回来仍在）。
-import { parseDraftKey, type ProjectFilesTarget, type TaskId, type TerminalKey } from "../../../../shared/ipc.ts";
+import type { TaskId, TerminalKey } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 
 export type PanelPage = "files" | "preview";
@@ -22,19 +22,6 @@ function rememberFocus(): void {
   if (store.get() !== null) return;
   const active = document.activeElement;
   returnFocus = active instanceof HTMLElement && active !== document.body ? active : null;
-}
-
-/** 面板的数据来源：任务的工作目录，或草稿的项目目录（主进程按 id 查出，渲染进程不传路径）。 */
-export function filesTarget(key: TerminalKey): ProjectFilesTarget {
-  const draft = parseDraftKey(key);
-  if (draft === undefined) return { kind: "task", taskId: key as TaskId };
-  if (draft.projectId === null) throw new Error("the default folder has no files panel");
-  return { kind: "project", projectId: draft.projectId };
-}
-
-/** 默认文件夹里的草稿（还没有项目）没有可浏览的目录，不显示文件面板入口。 */
-export function canShowFilesPanel(key: TerminalKey): boolean {
-  return parseDraftKey(key)?.projectId !== null;
 }
 
 /** 在预览页打开一个文件（工具卡上的文件链接）。 */

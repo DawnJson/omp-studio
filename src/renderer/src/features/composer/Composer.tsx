@@ -47,6 +47,8 @@ import { JobsBoard } from "./JobsBoard.tsx";
 import { useJobs } from "./use-jobs.ts";
 import { useReclaimFocus } from "./use-reclaim-focus.ts";
 import { useFirstPrompt } from "../tsp/first-prompt-store.ts";
+import { peekGateButton, useTspPanelOpen } from "../tsp/tsp-store.ts";
+import { GATE_ACTION_APPROVE, GATE_ACTION_DETAILS, TSP_APPROVAL_DIALOG_ID } from "../../../../shared/tsp/gate.ts";
 import type { Transcript } from "../../../../shared/transcript.ts";
 import { PathLabel } from "../empty/ProjectLabel.tsx";
 
@@ -60,9 +62,6 @@ function StatusBar({ taskId, task, transcript }: { taskId: TaskId; task: TaskSta
     </div>
   );
 }
-
-/** TSP 任务没有 studio 接管的斜杠命令（它们靠 rpc）。 */
-const noStudioCommands: typeof studioSlashCommands = [];
 
 export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDraft?: boolean }) {
   const t = useT();
@@ -91,11 +90,11 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   const stopping = stoppingId === taskId;
   const ompCommands = useSlashCommands(taskId);
   // omp 的列表还没载入时保持空：守卫在空列表时一律放行（studio-slash 的命令发送时照样会被接管）。
-  // TSP 任务：studio 接管的命令（/tree /fork /btw /goal /export）靠 rpc，用不了；菜单只列 omp 自己的命令（同名的也是 omp 的），选中后文字原样发给 omp。
-  const studioCommands = tsp ? noStudioCommands : studioSlashCommands;
+  // studio 接管哪些命令、哪些交给 omp 由命令表按宿主（rpc / TSP）定，见 studio-slash.ts。
+  const host = tsp ? "tsp" : "rpc";
   const commands = useMemo(
-    () => (ompCommands.length === 0 ? ompCommands : withStudioSlash(ompCommands, studioCommands, t)),
-    [ompCommands, studioCommands, t],
+    () => (ompCommands.length === 0 ? ompCommands : withStudioSlash(ompCommands, studioSlashCommands, host, t)),
+    [ompCommands, host, t],
   );
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashClosedFor, setSlashClosedFor] = useState<string | null>(null);
@@ -119,8 +118,12 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
 
   const running = task?.status === "running" || task?.status === "needs_you";
   const gate = (task?.dialogs.length ?? 0) > 0;
-  // TSP 任务：omp 正在画提问/审批（任务 needs_you，或有合成的 tsp-ask 门）。回答在过程区里，输入框这时不能发送。
-  const tspAsking = tsp && (task?.status === "needs_you" || gate);
+  // TSP 任务：omp 正在画提问/审批（任务 needs_you，或有合成的 tsp-ask / tsp-approval 门）。提问要在过程区里回答，输入框这时不能发送；
+  // 审批不拦：输入框里写的字发出去 = 拒绝并说明理由（omp 自己的行为），Ctrl+Enter 批准，Ctrl+O 看详情。
+  const approval = tsp && (task?.dialogs.some((dialog) => dialog.id === TSP_APPROVAL_DIALOG_ID) ?? false);
+  const tspAsking = tsp && (task?.status === "needs_you" || gate) && !approval;
+  // omp 的全屏面板（Agent Hub 等）开着：输入框不往主代理发（B5）。
+  const screenOpen = useTspPanelOpen(taskId) && tsp;
   const hasContent = draft.text.trim() !== "" || draft.images.length > 0;
   const swapped = settings?.enterWhileRunning === "followUp";
   const tooOld = omp?.state === "ready" && omp.belowMinimum;
@@ -145,15 +148,28 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
     void sendDraft(taskId, whenBusy, t, running, tsp);
   };
 
+  /** 点审批卡上动作名为 `act` 的按钮（和用鼠标点同一个 `action` 事件）；卡上没有这个按钮就什么都不做。 */
+  const gateAction = (act: string) => {
+    const button = peekGateButton(taskId, act);
+    if (button === null) return;
+    window.studio
+      .sendTspEvent(taskId, { ev: "action", sf: button.sf, id: button.id, act })
+      .catch((error: unknown) => reportError(t, error));
+  };
+
   const placeholder = worktreeGone
     ? t("error.worktreeMissing")
-    : gate || tspAsking
-      ? t("composer.placeholderGate")
-      : running
-        ? t(swapped ? "composer.placeholderRunningSwapped" : "composer.placeholderRunning")
-        : (transcript?.items.length ?? 0) > 0
-          ? t("composer.placeholder")
-          : t("composer.placeholderNew");
+    : screenOpen
+      ? t("composer.placeholderScreen")
+      : tspAsking
+        ? t("composer.placeholderAsk")
+        : gate
+          ? t("composer.placeholderGate")
+          : running
+            ? t(swapped ? "composer.placeholderRunningSwapped" : "composer.placeholderRunning")
+            : (transcript?.items.length ?? 0) > 0
+              ? t("composer.placeholder")
+              : t("composer.placeholderNew");
 
   // 自动增高：最小 2 行（CSS），最大 min(40vh, 12 行)（CSS）；超出内部滚动。
   useLayoutEffect(() => {
@@ -182,6 +198,11 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   }, [running]);
 
   const stop = useCallback(() => {
+    // 全屏面板开着时的"停止"只是把 Esc 交给 omp 关面板：不能当成停止主代理（也不记 stopRequested）。
+    if (screenOpen) {
+      window.studio.sendTspKeys(taskId, "\x1b").catch((error: unknown) => reportError(t, error));
+      return;
+    }
     if (!running || stopping) return;
     setStoppingId(taskId);
     // 请求结束（成功或失败）都复位，否则失败后按钮永远停在"正在停止"。
@@ -189,7 +210,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
       setStoppingId((current) => (current === taskId ? null : current));
       fieldRef.current?.focus();
     });
-  }, [running, stopping, taskId, t]);
+  }, [running, screenOpen, stopping, taskId, t]);
 
   // Esc 栈第 4 层：前面的层（菜单、门、弹层）会消耗掉 Esc（preventDefault），没人消耗才动手：
   // 有 `!命令` 在跑先中止命令，否则停止任务。这是 Esc 中止的唯一入口（ShellBlock 里不另挂监听，免得顺序不定）。
@@ -201,14 +222,14 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
       if (getShellRun(taskId) !== null) {
         event.preventDefault();
         window.studio.abortBash(taskId).catch((error: unknown) => reportError(t, error));
-      } else if (running) {
+      } else if (running || screenOpen) {
         event.preventDefault();
         stop();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [stop, running, taskId, t]);
+  }, [stop, running, screenOpen, taskId, t]);
 
   useEffect(
     () =>
@@ -289,6 +310,19 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
         }
       }
     }
+    // 审批门：Ctrl+O = 键帽上的 Details（omp 的 `app.tools.expand`），输入框有焦点时 omp 收不到这个键。
+    if (
+      approval &&
+      !composing &&
+      event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey &&
+      event.key.toLowerCase() === "o"
+    ) {
+      event.preventDefault();
+      gateAction(GATE_ACTION_DETAILS);
+      return;
+    }
     const action = decideEnter(
       {
         key: event.key,
@@ -300,16 +334,32 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
         keyCode: event.keyCode,
       },
       // TSP 任务：`!` 原样发给 omp，不当 shell 命令；门由 omp 画（tspAsking 时上面直接不发送）。
-      { running, gate: gate && !tsp, hasContent, swapped, shell: !tsp && isShellDraft(draft) },
+      {
+        running,
+        gate: (gate && !tsp) || approval,
+        hasContent,
+        swapped,
+        shell: !tsp && isShellDraft(draft),
+        ctrlApproves: approval,
+      },
     );
     if (action === "default") return;
     event.preventDefault();
     if (tspAsking) return;
     if ((tooOld || worktreeGone) && action !== "gatePrimary") return;
-    if (action === "gatePrimary") getGateControl()?.primary();
-    else if (action === "shell") sendNow("steer");
+    // omp 的全屏面板（Agent Hub 等）开着：消息只会变成对主代理的插话，不发（主进程也拒绝，见 tsp-runner 的 #awaitComposer）。
+    if (screenOpen && action !== "gatePrimary") return;
+    if (action === "gatePrimary") {
+      if (tsp) gateAction(GATE_ACTION_APPROVE);
+      else getGateControl()?.primary();
+    } else if (action === "shell") sendNow("steer");
     else if (action === "denyAndSend") {
       if (!allowSend()) return;
+      // TSP 审批：omp 收到消息就拒绝待批的调用并把消息当插话（approval-mode.md），不用另发 deny。
+      if (tsp) {
+        sendNow("steer");
+        return;
+      }
       void getGateControl()
         ?.deny()
         .then(
@@ -452,19 +502,21 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
               ? { emptyLabel: t("composer.modelLoading") }
               : {})}
           />
-          <ApprovalChip />
+          {/* 还没发过消息的任务（标题为空）不能发斜杠命令：第一次发送会拿它当标题 */}
+          <ApprovalChip projectId={task.projectId} forgetTaskId={task.title === "" ? null : taskId} />
           {/* 和草稿工具行同一个位置：任务在哪个文件夹里跑（有 worktree 时是 worktree 根），发出第一句话后不消失 */}
           <PathLabel path={task.cwd} testId="composer-folder" />
           <UsageMeter task={task} />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
+          {screenOpen && <span className="composer-note">{t("composer.screenOpenNote")}</span>}
           <ContextMeter task={task} />
           <SessionCost usage={task.sessionUsage} provider={task.model?.key.provider ?? null} />
           <SendStop
             running={running}
             stopping={stopping}
             hasContent={hasContent}
-            disabled={tooOld === true || worktreeGone || tspAsking}
+            disabled={tooOld === true || worktreeGone || tspAsking || screenOpen}
             onSend={() => {
               if (allowSend()) sendNow("steer");
             }}

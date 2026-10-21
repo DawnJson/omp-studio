@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   GIT_DIFF_MAX_BYTES,
   type GitDiffArea,
+  type GitDiffContext,
   type GitFileChange,
   type GitFileDiff,
   type GitHunkRef,
@@ -32,26 +33,32 @@ async function findEntry(root: string, rel: string): Promise<GitFileChange> {
   return entry;
 }
 
-const DIFF_FLAGS = [
-  "diff",
-  "--no-color",
-  "--no-ext-diff",
-  "--no-textconv",
-  "--src-prefix=a/",
-  "--dst-prefix=b/",
-  "-U3",
-];
+/** 改动块视图的上下文行数（hunk 级暂存/丢弃也认这个，见 loadHunkPatch）。 */
+const HUNK_CONTEXT = 3;
+/** 整个文件视图的上下文行数：大到所有改动连成一个 hunk（文件上限 2 MiB，行数远小于它）。 */
+const FILE_CONTEXT = 1_000_000;
+
+const DIFF_FLAGS = ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--src-prefix=a/", "--dst-prefix=b/"];
 
 /** 取已跟踪文件一侧的原始 diff；输出超过上限返回 "too_large"。 */
 async function readTrackedDiff(
   root: string,
   entry: GitFileChange,
   area: "staged" | "unstaged",
+  context = HUNK_CONTEXT,
 ): Promise<Buffer | "too_large"> {
   const args =
     area === "staged"
-      ? [...DIFF_FLAGS, "--cached", "-M", "--", ...(entry.oldPath === null ? [] : [entry.oldPath]), entry.path]
-      : [...DIFF_FLAGS, "--", entry.path];
+      ? [
+          ...DIFF_FLAGS,
+          `-U${context}`,
+          "--cached",
+          "-M",
+          "--",
+          ...(entry.oldPath === null ? [] : [entry.oldPath]),
+          entry.path,
+        ]
+      : [...DIFF_FLAGS, `-U${context}`, "--", entry.path];
   try {
     return await git(root, args, { maxBuffer: GIT_DIFF_MAX_BYTES });
   } catch (error) {
@@ -71,7 +78,12 @@ async function untrackedDiff(root: string, rel: string): Promise<GitFileDiff> {
   return looksBinary(content) ? { kind: "binary" } : diffOfNewFile(content);
 }
 
-export async function getFileDiff(cwd: string, rel: string, area: GitDiffArea): Promise<GitFileDiff> {
+export async function getFileDiff(
+  cwd: string,
+  rel: string,
+  area: GitDiffArea,
+  context: GitDiffContext = "hunks",
+): Promise<GitFileDiff> {
   const root = await requireRepoRoot(cwd);
   const file = checkRepoPath(root, rel);
   const entry = await findEntry(root, file);
@@ -79,7 +91,7 @@ export async function getFileDiff(cwd: string, rel: string, area: GitDiffArea): 
     if (entry.unstaged !== "untracked") throw new Error(`${file} is tracked`);
     return untrackedDiff(root, file);
   }
-  const raw = await readTrackedDiff(root, entry, area);
+  const raw = await readTrackedDiff(root, entry, area, context === "file" ? FILE_CONTEXT : HUNK_CONTEXT);
   if (raw === "too_large") return { kind: "too_large" };
   return toFileDiff(splitRawDiff(raw));
 }

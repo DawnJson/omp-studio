@@ -17,6 +17,8 @@
 
 - 状态：`git status --porcelain=v2 -z --branch --untracked-files=all`。每个路径一条 `GitFileChange`，暂存区和工作区各一个 `GitChangeKind`。未跟踪目录展开成文件。冲突文件两侧都是 `conflicted`。
 - diff：`git diff [--cached] -U3 --no-ext-diff --no-textconv --src-prefix=a/ --dst-prefix=b/`（后两项让用户的 `diff.noprefix` 之类设置不会破坏补丁头）。解析成 `GitDiffHunk[]`，每行带 `oldNo/newNo`；`\ No newline` 记成 `noEol`。`toSideBySide(hunk)` 把删除块和新增块逐行配对给并排视图。
+- **diff 的上下文范围**（2026-10-21）：`getGitFileDiff(taskId, path, area, context)` 的 `context` 是 `"hunks"`（`-U3`，每处改动一个 hunk，评审默认）或 `"file"`（`-U1000000`，所有改动连成一个覆盖整个文件的 hunk，评审的“文件”视图）。hunk 级暂存 / 取消暂存 / 丢弃只认 `-U3`：`loadHunkPatch` 重新取 diff 时不传 context，header 对不上 `file` 视图里的 hunk，所以界面在文件视图里不给 hunk 级操作。输出超过 `GIT_DIFF_MAX_BYTES` 照旧是 `too_large`（整文件上下文更容易超）。未跟踪文件的 diff 本来就是整文件，不受 context 影响。
+- **每个文件的 `+a −d`**（2026-10-21，`src/main/git/numstat.ts`，IPC `getGitChangeStats(taskId)` → `GitChangeStat[] = {area, path, added, removed}`）：评审文件树每行要显示行数，逐个取 diff 要起 N 个 git 进程，所以一次取全部：`git diff --cached -M --numstat -z`（已暂存，重命名取新路径）和 `git diff --no-renames --numstat -z`（未暂存），未跟踪文件在主进程里直接数行（`countLines`，和 `diffOfNewFile` 同一个分法：末尾换行不多算一行；符号链接数链接指向的文字；二进制、超过 `GIT_DIFF_MAX_BYTES`、读之前被删了的文件没有这一项；每 32 个并发读一批）。二进制（numstat 的 `-\t-`）和冲突文件同样没有这一项。每次评审状态重取时一起重取。数字和同一文件同一侧的 `getFileDiff` 的 `added / removed` 一致（`test/git-numstat.test.ts` 对照）。
 - 二进制（git 输出 "Binary files … differ"，或未跟踪文件前 8000 字节有 NUL）→ `binary`；diff 输出或未跟踪文件超过 2 MiB（`GIT_DIFF_MAX_BYTES`）→ `too_large`，不解析。未跟踪文件的 diff 由主进程自己合成（整个文件一个新增 hunk）；符号链接不跟随，显示链接指向的文字。
 - 内容不一定是 UTF-8：diff 先按 latin1 切（字节与字符一一对应），拼补丁时还原成字节，只有给界面的 `text` 才按 UTF-8 解码。
 - hunk 级操作：重新取一次 diff，核对第 `index` 个 hunk 的 `@@` 行与界面传来的 `header` 一致（不一致 = 文件已变，拒绝），再用原 header + 该 hunk 做补丁：暂存 `apply --cached`，取消暂存 `apply --cached -R`，丢弃 `apply -R`（工作区）。丢弃 hunk 只针对"未暂存"侧，已暂存的先取消暂存。未跟踪文件没有 hunk，只能整文件暂存。
@@ -54,12 +56,13 @@
 - **任务条的 git 工具**（`GitTools`，spec §3.1）：顶栏右侧，任务目录是 git 仓库时才渲染。分支胶囊显示当前分支（worktree 任务显示 worktree 分支），后面照 omp 状态栏跟改动数：`*N` = 有改动的已跟踪文件数（`status.files` 里非 untracked 的条目），`?N` = 未跟踪文件数，worktree 领先时再加 `↑N`；完整说法都在悬停提示里。点开是 Git 菜单（2026-10-21 起不含"查看改动"，顶栏已有评审按钮）：提交、推送、创建 PR（`status.canPush` 为 true 才列；gh 缺失 / 未登录仍由结果 toast 说明）；再点胶囊或点窗口任意处收回（菜单开着时 `.git-menu-scrim` 盖住整窗，顶栏拖动区收不到点击）；worktree 任务另有"合并回 <基分支>"和"丢弃工作树"。**推送项在 `status.canPush` 为 false 时灰显（`MenuItem.disabledReason`，`aria-disabled`，不执行），悬停提示是 `git.push.noRemote`（没有可用远端）或 `git.push.detached`（detached HEAD）。** 旁边一个评审按钮直接打开评审。状态在任务 `updatedAt` 变化和每次 git 操作后重读（`refreshGit`）。
 - **侧栏任务行**：worktree 任务带分支图标，悬停提示是分支名。
 - **结果提示**（`git-actions.ts`）：主进程的类型化结果都翻译成当前语言：合并 merged / nothing_to_merge / blocked（三种原因）用 toast，conflict 用对话框列出文件；推送 pushed / no_remote / detached_head / rejected / failed；PR 的 gh_unavailable / gh_unauthenticated / failed；提交的 nothing_to_commit / failed。git 的原话放在 toast 的悬停提示里。抛出的错误走 `reportError`，不吞。
+- **评审里的提交框**（2026-10-21，`features/review/CommitBox.tsx`）：和提交对话框走同一条路径 `git-actions.ts` 的 `commitChanges(t, taskId, message, stageAll)`（提示结果、之后 `refreshGit`），不另开提交通道；摘要 + 空行 + 说明合成提交信息（`shared/ui/review-model.ts` 的 `composeCommitMessage`）。默认 `stageAll = false`（评审里暂存是显式动作，只提交已暂存的），勾上才 `add -A`。没有“生成提交信息”和 `Amend`：`commitGit(taskId, message, stageAll)` 没有对应的参数 / IPC，没有为它新增 git 功能。
 - **对话框**（`GitDialogs.tsx`，状态在 `git-dialog-store.ts`）：提交（信息 + "先暂存全部改动"，Ctrl Enter 提交；左下角"评审改动"关掉对话框并 `openReview`，提交对话框本身不列文件，想先看改了什么从这里进评审，Esc 退出评审后再从菜单打开提交）、开 PR（标题 + 说明，先 `pushGit` 再 `createPullRequest`，推送没成功就停在推送的提示上）、丢弃确认（默认焦点在"取消"；成功后任务归档并回到空状态）、合并冲突、清理报告。
 - **项目菜单"清理无主工作树"**：调 `cleanupOrphanWorktrees`，对话框分"已移除 / 保留（原因）"两组。
 - **待仓库所有者决定**：丢弃 worktree 的任务被归档，之后"恢复"该任务会回到项目目录（见上面的已知局限）。界面没有为此做任何特殊处理。
 
 ## 测试
 
-`test/git-*.test.ts`，全部在真实临时仓库里跑，目录名带空格和中文：`git-review`（状态、diff 解析、hunk 暂存/取消/丢弃、过期 hunk、二进制/过大、路径校验）、`git-worktree`（真实 omp 创建、omp 目录解析、setup 脚本、回滚、合并、冲突、丢弃、清理、旧位置兼容）、`git-remote`（提交、push 含被拒、gh 不可用）、`git-pure`（评论格式化、status 解析）、`git-task-worktree`（任务池接线、worktree 被删后拒绝启动）。创建 worktree 的用例需要 PATH 上有真实 omp，没有就 skip；测试把 `OMP_WORKTREE_DIR`、`PI_CODING_AGENT_DIR`、`USERPROFILE`/`HOME` 都指到临时目录，不碰开发机的 `~/.omp`。`gh pr create` 的成功路径没有测（没有可用的 GitHub 仓库）。
+`test/git-*.test.ts`，全部在真实临时仓库里跑，目录名带空格和中文：`git-review`（状态、diff 解析、hunk 暂存/取消/丢弃、过期 hunk、二进制/过大、路径校验）、`git-worktree`（真实 omp 创建、omp 目录解析、setup 脚本、回滚、合并、冲突、丢弃、清理、旧位置兼容）、`git-remote`（提交、push 含被拒、gh 不可用）、`git-pure`（评论格式化、status 解析）、`git-numstat`（numstat 解析、行数、两侧 / 重命名 / 未跟踪的 `+a −d`、`file` 与 `hunks` 上下文）、`git-task-worktree`（任务池接线、worktree 被删后拒绝启动）。创建 worktree 的用例需要 PATH 上有真实 omp，没有就 skip；测试把 `OMP_WORKTREE_DIR`、`PI_CODING_AGENT_DIR`、`USERPROFILE`/`HOME` 都指到临时目录，不碰开发机的 `~/.omp`。`gh pr create` 的成功路径没有测（没有可用的 GitHub 仓库）。
 
 界面的端到端是 `test/e2e/git-worktree.e2e.ts`（真实临时仓库 + 本地裸仓库 + 假 omp；`FAKE_OMP_CWD_FILE` 让假 omp 记下启动目录，据此断言任务在 worktree 里运行）：胶囊 → 创建 → 提交 → 合并 → 推送 → 丢弃 → 清理；冲突和被拒绝的合并；非 git 项目的胶囊禁用。

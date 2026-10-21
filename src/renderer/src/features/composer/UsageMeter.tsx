@@ -8,6 +8,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { ContextBreakdown, prefetchCompaction, type ContextBreakdownProps } from "./ContextBreakdown.tsx";
 import { ModelBreakdown } from "./ModelBreakdown.tsx";
 import { Popover } from "./Popover.tsx";
+import { onStudioCommand } from "../palette/studio-command.ts";
 import { formatTokensPerSecond } from "./speed-limit-format.ts";
 import { formatCount, formatPercent } from "./usage-format.ts";
 
@@ -52,6 +53,8 @@ function ContextButton({ sessionUsage, ...props }: ContextBreakdownProps & { ses
   const [usageOpen, setUsageOpen] = useState(false);
   const { context, projectId } = props;
   useEffect(() => prefetchCompaction(projectId), [projectId]);
+  // 斜杠命令 /context：打开上下文构成。
+  useEffect(() => onStudioCommand((command) => command === "context" && setOpen(true)), []);
   const close = () => {
     setOpen(false);
     setUsageOpen(false);

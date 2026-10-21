@@ -46,6 +46,8 @@
     "src/renderer/src/features/composer/stop-outcome.ts",
     "src/renderer/src/features/composer/thinking-levels.ts",
     "src/renderer/src/features/file-preview/tree-model.ts",
+    "src/renderer/src/features/file-preview/files-target.ts",
+    "src/renderer/src/features/palette/slash-cache.ts",
     "src/renderer/src/features/composer/usage-format.ts",
     "src/renderer/src/features/composer/speed-limit-format.ts",
     "src/renderer/src/features/composer/context-rows.ts",

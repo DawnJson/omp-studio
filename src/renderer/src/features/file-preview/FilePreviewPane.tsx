@@ -6,9 +6,9 @@ import { useT } from "../../i18n/use-t.ts";
 import { Close, Restart } from "../../icons.tsx";
 import { FileTree } from "./FileTree.tsx";
 import { PreviewPage } from "./PreviewPage.tsx";
+import { filesTarget } from "./files-target.ts";
 import {
   closeFilePreview,
-  filesTarget,
   previewFileInPanel,
   setPanelPage,
   setPreviewWidth,

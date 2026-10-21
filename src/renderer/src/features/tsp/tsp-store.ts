@@ -16,6 +16,7 @@ import {
   type TspDocument,
 } from "../../../../shared/tsp/document.ts";
 import { recapBefore } from "../../../../shared/tsp/recap-slot.ts";
+import { findGateButton, hasBlockingPanel } from "../../../../shared/tsp/gate.ts";
 import type { StatusNote } from "../../../../shared/tsp/status-notes.ts";
 import { planTspBatch } from "./tsp-sync.ts";
 
@@ -36,6 +37,7 @@ const surfaceKey = (taskId: TaskId, sf: string): string => `s${SEP}${taskId}${SE
 const surfacesKey = (taskId: TaskId): string => `l${SEP}${taskId}`;
 const blobKey = (taskId: TaskId, id: string): string => `b${SEP}${taskId}${SEP}${id}`;
 const readyKey = (taskId: TaskId): string => `r${SEP}${taskId}`;
+const panelKey = (taskId: TaskId): string => `p${SEP}${taskId}`;
 const roleKey = (taskId: TaskId, sf: string): string => `u${SEP}${taskId}${SEP}${sf}`;
 
 /** omp 每轮末尾的用量行。 */
@@ -141,6 +143,7 @@ function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDoc
   }
   for (const sf of touchedSurfaces) notify(surfaceKey(taskId, sf));
   for (const id of touchedBlobs) notify(blobKey(taskId, id));
+  notify(panelKey(taskId));
   if (structural) notify(surfacesKey(taskId));
 }
 
@@ -213,6 +216,21 @@ export function peekTspNode(taskId: TaskId, sf: string, id: string): DocNode | n
 
 export function peekTspBlob(taskId: TaskId, id: string | undefined): DocBlob | null {
   return id === undefined ? null : (mirrors.get(taskId)?.doc.blobs.get(id.toLowerCase()) ?? null);
+}
+
+/** 审批/提问卡上点击动作为 `act` 的按钮（键盘快捷键用）；没有门、没有这个按钮或没有镜像为 null。 */
+export function peekGateButton(taskId: TaskId, act: string): { sf: string; id: string } | null {
+  const doc = mirrors.get(taskId)?.doc;
+  return doc ? findGateButton(doc, act) : null;
+}
+
+/** omp 的面板（全屏 surface 或 Agent Hub）盖在会话上：输入框不往主会话发（见 shared/tsp/gate.ts）。每批消息后重算，值没变不重画。 */
+export function useTspPanelOpen(taskId: TaskId): boolean {
+  const sub = useMemo(() => (l: () => void) => subscribe(panelKey(taskId), l), [taskId]);
+  return useSyncExternalStore(sub, () => {
+    const doc = mirrors.get(taskId)?.doc;
+    return doc ? hasBlockingPanel(doc) : false;
+  });
 }
 
 export function useTspReady(taskId: TaskId): boolean {

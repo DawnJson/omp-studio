@@ -115,6 +115,11 @@
   color: var(--st-error);
 }
 
+.rv-toggle[aria-pressed="true"] {
+  color: var(--text);
+  background: var(--bg-active);
+}
+
 .rv-btn-text {
   height: auto;
   padding: 0 var(--space-1-5);
@@ -193,14 +198,68 @@
   margin: 0;
 }
 
-.rv-tree {
+.rv-side {
+  display: flex;
   flex: none;
+  flex-direction: column;
   width: var(--review-tree-w);
-  padding: var(--space-2);
-  overflow-y: auto;
+  min-height: 0;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-subtle);
+}
+
+.rv-tree {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
   scrollbar-width: thin;
+}
+
+/* 提交框：左栏底部，摘要 / 说明 / 提交。 */
+.rv-commit {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2-5) var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.rv-commit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-0-5);
+}
+
+.rv-commit-title {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  font-weight: var(--fw-strong);
+}
+
+.rv-commit-staged {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.rv-commit-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+
+.rv-commit .rv-box-input {
+  font-size: var(--fs-sm);
+}
+
+.rv-commit textarea.rv-box-input {
+  resize: none;
 }
 
 .rv-tree ul {
@@ -336,6 +395,16 @@
   white-space: nowrap;
 }
 
+.rv-file-counts {
+  display: flex;
+  flex: none;
+  gap: var(--space-1-5);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
 .rv-counts {
   flex: none;
   font-variant-numeric: tabular-nums;
@@ -429,7 +498,7 @@
 
 .rv-row {
   display: grid;
-  grid-template-columns: var(--rv-no-w) var(--rv-no-w) var(--space-5) minmax(0, 1fr);
+  grid-template-columns: var(--rv-no-w) var(--space-5) minmax(0, 1fr);
 }
 
 .rv-row-split {
@@ -454,11 +523,13 @@
 
 .rv-row[data-kind="add"],
 .rv-half[data-kind="add"] {
+  --rv-bar: var(--diff-add-fg);
   background-color: var(--diff-add-bg);
 }
 
 .rv-row[data-kind="del"],
 .rv-half[data-kind="del"] {
+  --rv-bar: var(--diff-del-fg);
   background-color: var(--diff-del-bg);
 }
 
@@ -467,9 +538,23 @@
   background-image: linear-gradient(var(--accent-soft), var(--accent-soft));
 }
 
+/* 左缘：新增 / 删除行有 2px 绿 / 红竖条；已评论的行在它外面再加一条 2px --accent（两条并排，不抢位置）。 */
+.rv-row,
+.rv-half {
+  box-shadow: inset 2px 0 0 var(--rv-bar, transparent);
+}
+
 .rv-row[data-commented],
 .rv-half[data-commented] {
-  box-shadow: inset 2px 0 0 var(--accent);
+  box-shadow:
+    inset 2px 0 0 var(--accent),
+    inset 4px 0 0 var(--rv-bar, transparent);
+}
+
+/* "文件"视图里 n / p 停在哪块改动：块的第一行描一圈 --accent。 */
+.rv-row[data-block-active] {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
 }
 
 /* 行号列：数字右对齐、贴着第一行（长行折成好几行时不在垂直中间）；评论按钮的 ＋ 悬停时出现在数字左边，不替换数字。 */
@@ -534,6 +619,31 @@
 
 .rv-half .rv-code {
   padding-left: var(--space-2);
+}
+
+/* 不折行：每个 hunk 自己横向滚动，行撑到最长一行那么宽（背景和变更竖条铺满）；评论框和 hunk 头贴在可见区左边。 */
+.rv-hunk[data-wrap="off"] {
+  overflow-x: auto;
+  container-type: inline-size;
+  scrollbar-width: thin;
+}
+
+.rv-hunk[data-wrap="off"] .rv-lines {
+  width: max-content;
+  min-width: 100%;
+}
+
+.rv-hunk[data-wrap="off"] .rv-code {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.rv-hunk[data-wrap="off"] .rv-thread,
+.rv-hunk[data-wrap="off"] .rv-hunk-head {
+  position: sticky;
+  left: 0;
+  box-sizing: border-box;
+  width: 100cqw;
 }
 
 /* ───────── 评论 ───────── */
@@ -760,7 +870,7 @@
 
 /* 窄窗口：两侧栏收窄给 diff 留位置 */
 @media (max-width: 999px) {
-  .rv-tree,
+  .rv-side,
   .rv-aside {
     width: var(--sidebar-w-min);
   }

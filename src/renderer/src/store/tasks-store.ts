@@ -50,6 +50,11 @@ export function useTask(taskId: TaskId | null): TaskState | null {
   return useStoreValue(tasksStore, (state) => (taskId === null ? null : (state.byId[taskId] ?? null)));
 }
 
+/** 当前的任务状态（给斜杠命令这类不在渲染里的动作用）；任务不存在时 null。 */
+export function getTask(taskId: TaskId): TaskState | null {
+  return tasksStore.get().byId[taskId] ?? null;
+}
+
 /** 任务是否空闲（只在这个布尔值变化时重渲染，对话流里每条用户消息都订阅它）。 */
 export function useTaskIdle(taskId: TaskId): boolean {
   return useStoreValue(tasksStore, (state) => state.byId[taskId]?.status === "idle");

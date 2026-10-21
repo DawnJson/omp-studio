@@ -24,7 +24,7 @@ export async function ensureSetupApproved(projectId: ProjectId): Promise<boolean
 }
 
 /** 提交结果 → 提示；true = 已提交。 */
-export function announceCommit(t: TFunction, result: GitCommitResult): boolean {
+function announceCommit(t: TFunction, result: GitCommitResult): boolean {
   if (result.kind === "committed") {
     pushToast({ message: t("git.commit.done", { commit: result.commit.slice(0, 8) }) });
     return true;
@@ -32,6 +32,23 @@ export function announceCommit(t: TFunction, result: GitCommitResult): boolean {
   if (result.kind === "nothing_to_commit") pushToast({ level: "warning", message: t("git.commit.nothing") });
   else pushToast({ level: "error", message: t("git.commit.failed"), title: result.message });
   return false;
+}
+
+/** 提交（提交对话框和评审里的提交框共用这一条路径）：提示结果、之后重读 git 状态；true = 已提交。 */
+export async function commitChanges(
+  t: TFunction,
+  taskId: TaskId,
+  message: string,
+  stageAll: boolean,
+): Promise<boolean> {
+  try {
+    return announceCommit(t, await window.studio.commitGit(taskId, message, stageAll));
+  } catch (error) {
+    reportError(t, error, t("git.commit.failed"));
+    return false;
+  } finally {
+    refreshGit(taskId);
+  }
 }
 
 /** 推送结果 → 提示；true = 已推送。quiet 时成功不弹（开 PR 流程里随后还有自己的提示）。 */

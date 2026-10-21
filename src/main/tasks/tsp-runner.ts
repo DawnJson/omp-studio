@@ -24,7 +24,6 @@ import type {
 import type { TspEvent } from "../../shared/tsp/tsp.generated.ts";
 import {
   createDocument,
-  findNode,
   snapshotDocument,
   type DocumentSnapshot,
   type TspDocument,
@@ -41,6 +40,12 @@ import {
   type TspComposerTargets,
 } from "../../shared/tsp/composer-state.ts";
 import { deriveTaskStatus, hasRunningWork } from "../../shared/tsp/task-status.ts";
+import {
+  TSP_APPROVAL_DIALOG_ID,
+  TSP_ASK_DIALOG_ID,
+  TSP_SCREEN_OPEN,
+  findMessageTarget,
+} from "../../shared/tsp/gate.ts";
 import { emptyTranscript } from "../../shared/transcript.ts";
 import { log } from "../log/log.ts";
 import type { OmpLaunch } from "../omp/omp-connection.ts";
@@ -77,8 +82,6 @@ const CONFIRM_TIMEOUT_MS = 5_000;
 /** 思考强度循环的最多步数（omp 最多 8 个级别，转满一圈就不会再有新的）。 */
 const MAX_THINKING_CYCLES = 10;
 const STDERR_LINES_IN_ERROR = 8;
-/** 提问/审批的门在 TaskState.dialogs 里的 id：GateNotifier 靠 dialogs[0] 发"等你确认"通知。 */
-const ASK_DIALOG_ID = "tsp-ask";
 const ESC_KEY = "\x1b";
 /** omp 的终端标题是 `<图标字形> <标题>`：去掉私有区字符（Nerd Font 图标）。 */
 const ICON_GLYPHS = /[\uE000-\uF8FF\u{F0000}-\u{FFFFD}\u{100000}-\u{10FFFD}]/gu;
@@ -107,6 +110,8 @@ export interface TspRunnerHost {
   listModels?(): Promise<ModelOption[]>;
   /** omp 的命令列表（服务进程）；没提供时 TSP 任务的列表为空。 */
   listSlashCommands?(): Promise<AvailableSlashCommand[]>;
+  /** 把会话文件导出成 HTML（`omp --export`，见 omp/export-session.ts）；没提供时 TSP 任务不能导出。 */
+  exportSession?(sessionFile: string, outputPath: string, cwd: string): Promise<void>;
   /** 新任务默认值；没提供时输入框出现之前不显示模型。 */
   newTaskDefaults?(project: Project): Promise<NewTaskDefaults>;
 }
@@ -391,15 +396,19 @@ export class TspRunner {
         void this.#persistSessionFile();
       }
     }
-    const open = this.#machine.dialogs.find((dialog) => dialog.id === ASK_DIALOG_ID);
+    const open = this.#machine.dialogs.find(
+      (dialog) => dialog.id === TSP_ASK_DIALOG_ID || dialog.id === TSP_APPROVAL_DIALOG_ID,
+    );
     if (info.ask) {
-      if (!open || (open.kind === "confirm" && open.title !== info.ask.title))
+      const id = info.ask.approval ? TSP_APPROVAL_DIALOG_ID : TSP_ASK_DIALOG_ID;
+      if (open && open.id !== id) this.#apply({ type: "dialog_close", id: open.id });
+      if (!open || open.id !== id || (open.kind === "confirm" && open.title !== info.ask.title))
         this.#apply({
           type: "dialog_open",
-          request: { id: ASK_DIALOG_ID, kind: "confirm", title: info.ask.title, message: "", receivedAt: Date.now() },
+          request: { id, kind: "confirm", title: info.ask.title, message: "", receivedAt: Date.now() },
         });
     } else if (open) {
-      this.#apply({ type: "dialog_close", id: ASK_DIALOG_ID });
+      this.#apply({ type: "dialog_close", id: open.id });
     }
   }
 
@@ -658,7 +667,7 @@ export class TspRunner {
    */
   async sendPrompt(input: PromptInput): Promise<void> {
     await this.start();
-    const target = await this.#awaitComposer();
+    const target = await this.#awaitComposer(true);
     const session = this.#session;
     if (!session) throw new Error("the omp process exited");
     const paths = input.images && input.images.length > 0 ? await this.#stageImages(input.images) : [];
@@ -726,17 +735,6 @@ export class TspRunner {
 
   // ───── 等文档 ─────
 
-  /** 输入框节点（`editor`，`sendable: true`）：`send` 事件的目标。 */
-  #findComposer(document: TspDocument): { sf: string; id: string } | null {
-    for (const sf of document.live) {
-      const surface = document.surfaces.get(sf);
-      if (!surface) continue;
-      const node = findNode(surface, (candidate) => candidate.k === "editor" && candidate.p.sendable === true, "dock");
-      if (node) return { sf, id: node.id };
-    }
-    return null;
-  }
-
   /**
    * 等文档满足 `check`（返回非 null）：现在就满足立刻返回，否则每次文档变化时再查，到时间 reject。
    * `check` 抛错 = 等不到了（reject）。进程退出、任务移除时所有等待者被 reject。
@@ -771,13 +769,27 @@ export class TspRunner {
     return promise;
   }
 
-  /** 等输入框就绪；提问/审批把它换掉时立刻 reject（回答之前没有地方可发，不让调用方白等 30 秒）。 */
-  #awaitComposer(): Promise<{ sf: string; id: string }> {
+  /**
+   * 等输入框就绪（目标选择见 shared/tsp/gate.ts）。提问把它换掉、全屏面板（Agent Hub 等）开着时立刻 reject
+   * （回答/关掉之前没有该发的地方，不让调用方白等 30 秒，更不能让消息变成对主代理的插话）。
+   * 有审批在等时：`allowApproval` 为真（发用户消息）就往里发，omp 会拒绝这个审批并把消息当插话；
+   * 为假（切模型、斜杠命令）立刻 reject，不能让这些操作顺手拒绝掉审批。
+   */
+  #awaitComposer(allowApproval = false): Promise<{ sf: string; id: string }> {
     return this.#awaitDocument(
       (document) => {
-        // 提问/审批期间 dock 里可能还留着旧的可发送编辑器节点：以"在等用户"为准，不往里发。
-        if (deriveTaskStatus(document).ask) throw new Error(TSP_COMPOSER_UNAVAILABLE);
-        return this.#findComposer(document);
+        const target = findMessageTarget(document);
+        switch (target.kind) {
+          case "panel":
+            throw new Error(TSP_SCREEN_OPEN);
+          case "ask":
+            throw new Error(TSP_COMPOSER_UNAVAILABLE);
+          case "pending":
+            return null;
+          case "ready":
+            if (target.approval && !allowApproval) throw new Error(TSP_COMPOSER_UNAVAILABLE);
+            return { sf: target.sf, id: target.id };
+        }
       },
       COMPOSER_TIMEOUT_MS,
       "omp's input box did not become ready in time",
@@ -1050,11 +1062,25 @@ export class TspRunner {
     return readSessionExtras(this.#sessionFile ?? this.#record.sessionFile);
   }
 
-  /** omp 的命令列表（服务进程的 get_available_commands：内置命令一致，项目目录里的自定义命令/技能看不到）；没有进程时 []。 */
+  /** omp 的命令列表（服务进程的 get_available_commands，和任务进程无关：内置命令一致，项目目录里的自定义命令/技能看不到）；任务还没起进程（草稿、starting）时照给，没接服务进程时 []。 */
   async listSlashCommands(): Promise<AvailableSlashCommand[]> {
     const list = this.#host.listSlashCommands;
-    if (!list || !this.#session || this.#machine.status === "starting") return [];
+    if (!list) return [];
     return list();
+  }
+
+  /**
+   * 导出成 HTML：不经 omp 进程，对会话文件跑 `omp --export <文件> <输出路径>`（omp/export-session.ts）。
+   * `outputPath` 必须是主进程自己经保存对话框拿到的绝对路径；还没有会话文件（没发过消息）时拒绝。返回写出的路径。
+   */
+  async exportHtml(outputPath: string): Promise<string> {
+    const exportSession = this.#host.exportSession;
+    if (!exportSession) throw new Error("exporting is not available for this task");
+    if (!path.isAbsolute(outputPath)) throw new Error("export path must be absolute");
+    const file = this.#sessionFile ?? this.#record.sessionFile;
+    if (file === null) throw new Error("this task has no session file yet");
+    await exportSession(file, outputPath, this.cwd);
+    return outputPath;
   }
 
   /**

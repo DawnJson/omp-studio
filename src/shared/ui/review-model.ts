@@ -1,5 +1,5 @@
 // 评审界面的纯逻辑：文件分组、行选择（评论范围）、评论队列的整理。不碰 DOM，test/review-model.test.ts 覆盖。
-import type { GitChangeKind, GitDiffArea, GitDiffLine, GitFileChange, ReviewComment } from "../git.ts";
+import type { GitChangeKind, GitChangeStat, GitDiffArea, GitDiffLine, GitFileChange, ReviewComment } from "../git.ts";
 
 // ───────── 文件树 ─────────
 
@@ -92,6 +92,38 @@ export function stepHunk(count: number, current: number | null, delta: 1 | -1): 
   if (count === 0) return null;
   if (current === null) return delta === 1 ? 0 : count - 1;
   return Math.min(Math.max(current + delta, 0), count - 1);
+}
+
+/**
+ * 一串行里哪些行是一块改动的开头（"文件"视图里 n / p 在改动块之间走）：返回每一行的块序号，
+ * 不是开头的行是 null。连续的非上下文行算一块；删除块紧跟新增块也是一块（并排视图把它们配成同一批行）。
+ */
+export function changeBlockStarts(isChange: readonly boolean[]): (number | null)[] {
+  let blocks = 0;
+  return isChange.map((change, at) => (change && !isChange[at - 1] ? blocks++ : null));
+}
+
+/** 一个 hunk 里有几块改动（与 changeBlockStarts 同一个分法）。 */
+export function countChangeBlocks(lines: readonly GitDiffLine[]): number {
+  return changeBlockStarts(lines.map((line) => line.kind !== "context")).filter((n) => n !== null).length;
+}
+
+// ───────── 文件树的 +a −d ─────────
+
+export type LineCounts = { added: number; removed: number };
+
+/** 主进程给的统计列表 → 按 entryKey 查。 */
+export function indexStats(stats: readonly GitChangeStat[]): ReadonlyMap<string, LineCounts> {
+  return new Map(stats.map((stat) => [entryKey(stat.area, stat.path), { added: stat.added, removed: stat.removed }]));
+}
+
+// ───────── 提交信息 ─────────
+
+/** 评审里的提交框有 摘要 / 说明 两栏，合成 git 的提交信息：摘要、空一行、说明（都去掉首尾空白；说明为空就只有摘要）。 */
+export function composeCommitMessage(summary: string, description: string): string {
+  const head = summary.trim();
+  const body = description.trim();
+  return body === "" ? head : `${head}\n\n${body}`;
 }
 
 // ───────── 行选择与评论范围 ─────────

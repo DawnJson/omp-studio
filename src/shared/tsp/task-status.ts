@@ -2,7 +2,8 @@
 //
 // 依据是 omp 18.12.3 的实测录制（fixtures/tsp/{task,approval,ask}.jsonl，test/tsp-task-status.test.ts 逐帧验证）：
 // - 输入框区域（`dock`）里有 role 以 `omp.editor.ask` 开头的节点 = 在等用户：提问是 `omp.editor.ask`，工具审批是
-//   `omp.editor.ask.approval`。这时 composer 被它替换掉，但 `omp.working` 那一行仍在（任务其实还没跑完）。
+//   `omp.editor.ask.approval`。提问时 composer 被换掉；审批时 composer（`omp.editor`）留在文档里，审批卡插在它前面
+//   （approval.jsonl 第 33 帧，没有 `del j`）。两种情况 `omp.working` 那一行都仍在（任务其实还没跑完）。
 // - `dock` 里有 `omp.working`（运行状态行，含 `omp.working.stop`）或 composer 的停止按钮 `omp.composer.stop` = 在跑：
 //   发出消息的那一帧出现，这一轮结束的那一帧消失。主区里的 spinner 不可靠（子代理、后台任务的卡片停在 running 时
 //   主回合已经结束），`omp.hud.activity`（待办面板）也会在回合结束后继续显示，都不用。
@@ -16,10 +17,11 @@ export interface TspStatusInfo {
   /** 有运行中的迹象（needs_you 时通常也是 true：提问和审批发生在一轮的中间）。 */
   working: boolean;
   /** 在等用户时，问题或审批标题的第一行；节点里找不到文字时为空串。没有等待为 null。 */
-  ask: { title: string } | null;
+  ask: { title: string; approval: boolean } | null;
 }
 
 const ASK_ROLE_PREFIX = "omp.editor.ask";
+export const APPROVAL_ROLE = "omp.editor.ask.approval";
 const WORKING_ROLES: ReadonlySet<string> = new Set(["omp.working", "omp.working.stop", "omp.composer.stop"]);
 /** 提问的问题 `md`、审批的标题 `text`。 */
 const ASK_TITLE_ROLES: ReadonlySet<string> = new Set(["omp.ask.question", "omp.approval.title"]);
@@ -48,13 +50,13 @@ function askTitle(surface: DocSurface, ask: DocNode): string {
 
 export function deriveTaskStatus(doc: TspDocument): TspStatusInfo {
   let working = false;
-  let ask: { title: string } | null = null;
+  let ask: { title: string; approval: boolean } | null = null;
   for (const id of doc.live) {
     const surface = doc.surfaces.get(id);
     if (!surface?.nodes.has("dock")) continue;
     if (ask === null) {
       const node = findNode(surface, (candidate) => nodeRole(candidate)?.startsWith(ASK_ROLE_PREFIX) === true, "dock");
-      if (node) ask = { title: askTitle(surface, node) };
+      if (node) ask = { title: askTitle(surface, node), approval: nodeRole(node) === APPROVAL_ROLE };
     }
     if (!working)
       working = findNode(surface, (candidate) => WORKING_ROLES.has(nodeRole(candidate) ?? ""), "dock") !== null;

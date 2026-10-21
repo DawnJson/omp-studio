@@ -21,7 +21,7 @@ export const ompcfg = {
 
   "tools.approvalMode.label": "Tool approval mode",
   "tools.approvalMode.desc":
-    "Always ask: only read-only tools run on their own. Write: reads and workspace edits run on their own. Yolo: everything runs (user policy may still block)",
+    "Always ask: only read-only tools run on their own. Ask and remember: also asks before file reads and can remember a file or folder. Write: reads and workspace edits run on their own. Yolo: everything runs (user policy may still block)",
   "tools.approval.label": "Per-tool approval policy",
   "tools.approval.desc":
     "JSON object: a tool name mapped to allow, prompt (ask first) or deny. Applies in every approval mode",
