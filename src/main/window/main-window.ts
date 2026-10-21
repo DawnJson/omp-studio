@@ -175,6 +175,10 @@ export function createMainWindow(): BrowserWindow {
       webSecurity: true,
     },
   });
+  // 开发和 e2e 跑的是 node_modules 里没改过图标的 electron.exe，任务栏按钮用 exe 自带的 Electron 图标，不认上面的 icon。
+  // 给任务栏按钮单独指定图标（实测有效）；appId 和安装版不同，测试窗口不会并进装好的 omp-studio 的任务栏按钮。
+  if (!app.isPackaged && process.platform === "win32")
+    window.setAppDetails({ appId: "dev.omp-studio.app.dev", appIconPath: windowIconPath() });
 
   // 窗口内禁止导航到外部地址，也禁止新开窗口；http/https 链接交给系统浏览器。
   window.webContents.on("will-navigate", (event, url) => {

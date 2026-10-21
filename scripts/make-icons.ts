@@ -1,6 +1,6 @@
 // 从标志数据（src/shared/ui/pixel-pi.ts）生成应用图标和托盘图标，产物提交进仓库：
-//   resources/icon.ico：应用图标（exe、安装包、窗口、任务栏）。深色圆角方块上放像素 π（同 omp 官网图标的做法），
-//                       16–256 共 9 个尺寸，每个尺寸单独按整数倍画，不靠缩放，小图标也不糊。
+//   resources/icon.ico：应用图标（exe、安装包、窗口、任务栏）。透明底，只有像素 π 和它的淡影，和界面里的标志一样
+//                       画在什么底上就透出什么底；16–256 共 11 个尺寸，每个尺寸单独画（见 markIcon），不靠缩放。
 //   resources/tray.png：托盘图标，64×64 透明底，π 每像素 4×4；系统缩到 16 / 32 时正好整数倍。
 // 用法：node scripts/make-icons.ts（改了 pixel-pi.ts 之后重跑）。
 import { writeFile } from "node:fs/promises";
@@ -9,8 +9,6 @@ import { deflateSync } from "node:zlib";
 import { cellRects, markHeight, markWidth, piCells, shadow } from "../src/shared/ui/pixel-pi.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
-/** 图标底色：近黑带一点紫，和 π 的粉紫渐变同一色系（omp 官网图标是 #0f0a14）。 */
-const tileColor = "#15101b";
 
 type Rgba = [number, number, number, number];
 const hex = (value: string, alpha = 1): Rgba => [
@@ -44,22 +42,6 @@ class Canvas {
       for (let x = Math.floor(x0); x < Math.ceil(x1); x++) {
         const cover = (Math.min(x + 1, x1) - Math.max(x, x0)) * (Math.min(y + 1, y1) - Math.max(y, y0));
         if (cover > 0) this.blend(x, y, color, cover);
-      }
-  }
-  /** 圆角方块铺满画布：每像素 4×4 采样算覆盖率。 */
-  roundedTile(radius: number, color: Rgba): void {
-    const n = this.size;
-    const inside = (px: number, py: number) => {
-      const cx = Math.min(Math.max(px, radius), n - radius);
-      const cy = Math.min(Math.max(py, radius), n - radius);
-      return (px - cx) ** 2 + (py - cy) ** 2 <= radius ** 2;
-    };
-    for (let y = 0; y < n; y++)
-      for (let x = 0; x < n; x++) {
-        let hits = 0;
-        for (let sy = 0; sy < 4; sy++)
-          for (let sx = 0; sx < 4; sx++) if (inside(x + (sx + 0.5) / 4, y + (sy + 0.5) / 4)) hits++;
-        this.blend(x, y, color, hits / 16);
       }
   }
   /** 画标志：先淡影后 π；unit = 每个标志像素占几个设备像素，(ox, oy) 是左上角。 */
@@ -120,19 +102,14 @@ function chunk(type: string, body: Buffer): Buffer {
   return Buffer.concat([length, typed, crc]);
 }
 
-/** 应用图标的一个尺寸：圆角方块 + 居中的 π。π 宽约占八成，取不超过它的最大整数倍（32px 时每像素 2×2，16px 时 1×1）。 */
-function appIcon(size: number): Buffer {
+/**
+ * 一个尺寸的图标：透明底，π 居中、尽量铺满宽度。每个标志像素占整数个设备像素最清楚（16px 时 1×1，32px 时 2×2）；
+ * 整数倍铺不到四分之三宽时（20、24、36px）改按半像素放大，边上带一点过渡，换来不显小（任务栏在 100% 缩放下用 24px 那张）。
+ */
+function markIcon(size: number): Buffer {
   const canvas = new Canvas(size);
-  canvas.roundedTile(size * 0.22, hex(tileColor));
-  const unit = Math.max(1, Math.floor((size * 0.82) / markWidth));
-  canvas.mark(unit, Math.round((size - markWidth * unit) / 2), Math.round((size - markHeight * unit) / 2));
-  return canvas.png();
-}
-
-/** 托盘图标：透明底，只有 π。 */
-function trayIcon(size: number): Buffer {
-  const canvas = new Canvas(size);
-  const unit = Math.floor(size / markWidth);
+  const whole = Math.max(1, Math.floor(size / markWidth));
+  const unit = whole * markWidth >= size * 0.75 ? whole : Math.floor((size / markWidth) * 2) / 2;
   canvas.mark(unit, Math.round((size - markWidth * unit) / 2), Math.round((size - markHeight * unit) / 2));
   return canvas.png();
 }
@@ -158,7 +135,7 @@ function ico(images: { size: number; png: Buffer }[]): Buffer {
   return Buffer.concat([header, ...entries, ...images.map(({ png }) => png)]);
 }
 
-const sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256];
-await writeFile(path.join(root, "resources", "icon.ico"), ico(sizes.map((size) => ({ size, png: appIcon(size) }))));
-await writeFile(path.join(root, "resources", "tray.png"), trayIcon(64));
+const sizes = [16, 20, 24, 30, 32, 36, 40, 48, 64, 128, 256];
+await writeFile(path.join(root, "resources", "icon.ico"), ico(sizes.map((size) => ({ size, png: markIcon(size) }))));
+await writeFile(path.join(root, "resources", "tray.png"), markIcon(64));
 console.log(`resources/icon.ico（${sizes.join("、")}）和 resources/tray.png（64）已生成`);
