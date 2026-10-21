@@ -82,13 +82,16 @@ test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后�
     await page.getByTestId("topbar-about").click();
     const about = page.getByTestId("about-dialog");
     await expect(about).toBeVisible();
-    // 一个对话框里既有关于（名称+版本）也有反馈入口。
-    await expect(about.getByRole("heading", { level: 2 })).toContainText("omp-studio");
-    await expect(about.getByTestId("about-feedback").getByRole("button")).toHaveText([
-      "帮助与反馈",
-      "打开日志文件夹",
-      "导出诊断信息",
-    ]);
+    // 关于：标志、名称、版本（带 omp 版本）；动作只有复制版本信息和报告问题，Tab 在框内循环。
+    await expect(about.getByRole("heading", { level: 2 })).toHaveText("omp-studio");
+    await expect(about.getByTestId("about-version")).toContainText("版本 ");
+    await expect(about.locator(".about-actions").getByRole("button")).toHaveText(["复制版本信息", "报告问题"]);
+    await page.keyboard.press("Tab");
+    await expect(about.getByTestId("about-close")).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(about.getByTestId("about-report")).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(about.getByTestId("about-close")).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(about).toHaveCount(0);
     await expect(page.getByTestId("topbar-about")).toBeFocused();

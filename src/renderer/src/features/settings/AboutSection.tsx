@@ -1,34 +1,12 @@
 // 设置 → 关于：当前版本、omp-studio 自身的更新（检查、下载进度、重启并安装）、问题排查。
 // 更新源和只有安装版才生效的规则见 src/main/update/instance.ts。
 import { useState } from "react";
-import type { TFunction } from "../../../../shared/i18n/index.ts";
-import type { UpdateState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { useAppInfo, useUpdateState } from "../../store/index.ts";
 import { describeError } from "../../ui/errors.ts";
 import { Button, Card, SettingRow } from "./controls.tsx";
 import { TroubleshootCard } from "./TroubleshootCard.tsx";
-
-function statusText(state: UpdateState, t: TFunction): string {
-  switch (state.phase) {
-    case "disabled":
-      return state.disabledReason === "not-packaged"
-        ? t("settings.about.disabled.notPackaged")
-        : t("settings.about.disabled.noFeed");
-    case "idle":
-      return t("settings.about.idle");
-    case "checking":
-      return t("settings.about.checking");
-    case "up-to-date":
-      return t("settings.about.upToDate");
-    case "downloading":
-      return t("settings.about.downloading", { version: state.latestVersion ?? "?", percent: state.percent });
-    case "downloaded":
-      return t("settings.about.downloaded", { version: state.latestVersion ?? "?" });
-    case "error":
-      return t("settings.about.failed");
-  }
-}
+import { updateStatusText } from "./update-status.ts";
 
 export function AboutSection() {
   const t = useT();
@@ -82,7 +60,7 @@ export function AboutSection() {
         <SettingRow title={t("settings.about.update")}>
           {() => (
             <div className="st-update">
-              <span data-testid="update-status">{statusText(state, t)}</span>
+              <span data-testid="update-status">{updateStatusText(state, t)}</span>
               {state.phase === "downloaded" ? (
                 <Button variant="primary" loading={busy} onClick={() => void install()} testId="update-install">
                   {t("settings.about.install")}

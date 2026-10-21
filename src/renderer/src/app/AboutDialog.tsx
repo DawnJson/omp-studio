@@ -1,15 +1,26 @@
-// "关于与反馈"对话框（顶栏 ⓘ 按钮和单按 Alt 打开）：名称、版本、一句话说明，加反馈入口（Issues 页、日志文件夹、导出诊断）。
-// Esc 或点遮罩关闭，Tab 在框内循环，关闭后焦点回到打开前的元素。
+// "关于与反馈"对话框（顶栏 ⓘ 按钮和单按 Alt 打开）。照 macOS 标准关于面板、Chrome 的"关于"页、VS Code 的关于框：
+// 标志、名称、版本（带上 omp 的版本）、更新状态，两个动作——复制版本信息（报问题时贴，运行时版本只在这里面）、报告问题。
+// 日志和诊断信息在设置 → 关于。Esc、右上角 ×、点遮罩关闭，Tab 在框内循环，关闭后焦点回到打开前的元素。
+// 打开时焦点放在对话框本身（不落在 × 上，免得一打开就是一圈焦点环），第一下 Tab 到第一个按钮。
 import { useEffect, useRef, useState } from "react";
+import { markHeight, markWidth } from "../../../shared/ui/pixel-pi.ts";
+import { pushToast } from "../features/dialogs/index.ts";
+import { Button } from "../features/settings/controls.tsx";
+import { updateStatusText } from "../features/settings/update-status.ts";
+import "../features/settings/settings.css";
+import { Close } from "../icons.tsx";
 import { useT } from "../i18n/use-t.ts";
-import { useAppInfo, useOmpStatus } from "../store/index.ts";
+import { useAppInfo, useOmpStatus, useUpdateState } from "../store/index.ts";
 import { reportError } from "../ui/errors.ts";
+import { PiMark } from "../ui/PiMark.tsx";
 import { usePresence } from "../ui/presence.ts";
 import { useTitleBarDim } from "../ui/title-bar-dim.ts";
-import { pushToast } from "../features/dialogs/index.ts";
 
-/** 帮助与反馈的落点：本仓库的 Issues（选模板页）。内测期间仓库私有，内测用户需要先被加为协作者才能打开。 */
-const helpUrl = "https://github.com/DawnJson/omp-studio/issues/new/choose";
+/** 报告问题的落点：本仓库的 Issues（选模板页）。内测期间仓库私有，内测用户需要先被加为协作者才能打开。 */
+const issuesUrl = "https://github.com/DawnJson/omp-studio/issues/new/choose";
+
+/** 标志每像素占几个 CSS 像素。 */
+const MARK_SCALE = 4;
 
 export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void }) {
   const t = useT();
@@ -17,47 +28,48 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void 
   useTitleBarDim(open);
   const appInfo = useAppInfo();
   const ompStatus = useOmpStatus();
+  const update = useUpdateState();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const [exporting, setExporting] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   // 焦点在 open 变化时立即处理，不等退出动画放完。
   useEffect(() => {
     if (!open) return;
     const opener = document.activeElement;
-    closeRef.current?.focus();
+    dialogRef.current?.focus();
     return () => {
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
     };
   }, [open]);
 
-  const exportDiagnostics = async () => {
-    setExporting(true);
-    try {
-      if (await window.studio.exportDiagnostics()) pushToast({ message: t("settings.about.exported") });
-    } catch (error) {
-      reportError(t, error);
-    } finally {
-      setExporting(false);
-    }
-  };
+  const ompVersion = ompStatus?.state === "ready" ? ompStatus.version : null;
+  const version = appInfo?.version ?? "—";
 
-  // 版本信息：定义列表显示，同一份行也是"复制版本信息"的纯文本。omp 还没就绪（没找到、安装中等）时只有"未找到"一行。
-  const ready = ompStatus?.state === "ready" ? ompStatus : null;
-  const rows: [label: string, value: string][] = [
-    [t("shell.appName"), appInfo?.version ?? "—"],
-    [t("window.aboutOmp"), ready?.version ?? t("window.aboutOmpMissing")],
-    ...(ready ? [[t("window.aboutOmpPath"), ready.path] as [string, string]] : []),
-    [t("window.aboutElectron"), appInfo?.runtime.electron ?? "—"],
-    [t("window.aboutChromium"), appInfo?.runtime.chromium ?? "—"],
-    [t("window.aboutNode"), appInfo?.runtime.node ?? "—"],
-    [t("window.aboutLicense"), "MIT"],
-  ];
+  // 复制的是给报问题用的纯文本：标签固定英文（和 VS Code 一样，贴进 issue 谁都看得懂），不带 omp 的路径（里面有用户名）。
   const copyInfo = () => {
-    void navigator.clipboard.writeText(rows.map(([label, value]) => `${label}: ${value}`).join("\n")).then(
+    const lines = [
+      `omp-studio: ${version}`,
+      `omp: ${ompVersion ?? "not found"}`,
+      `Electron: ${appInfo?.runtime.electron ?? "—"}`,
+      `Chromium: ${appInfo?.runtime.chromium ?? "—"}`,
+      `Node: ${appInfo?.runtime.node ?? "—"}`,
+      `OS: ${appInfo?.platform ?? "—"}`,
+    ];
+    void navigator.clipboard.writeText(lines.join("\n")).then(
       () => pushToast({ message: t("common.copied") }),
       (cause: unknown) => reportError(t, cause),
     );
+  };
+
+  const run = async (action: () => Promise<unknown>) => {
+    setBusy(true);
+    try {
+      await action();
+    } catch (error) {
+      reportError(t, error);
+    } finally {
+      setBusy(false);
+    }
   };
 
   // Tab 只在对话框内的按钮之间循环。
@@ -66,18 +78,24 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void 
     const first = buttons[0];
     const last = buttons[buttons.length - 1];
     if (first === undefined || last === undefined) return;
-    const active = document.activeElement;
-    if (shift ? active === first : active === last) (shift ? last : first).focus();
-    else buttons[buttons.indexOf(active as HTMLButtonElement) + (shift ? -1 : 1)]?.focus();
+    const active = document.activeElement as HTMLButtonElement;
+    const index = buttons.indexOf(active);
+    if (index === -1 || (shift ? active === first : active === last)) (shift ? last : first).focus();
+    else buttons[index + (shift ? -1 : 1)]?.focus();
   };
 
   if (!presence.mounted) return null;
+
+  // 更新：开发版、免安装版和没配更新源时不显示这一行（原因在设置 → 关于里说）。
+  const showUpdate = update !== null && update.phase !== "disabled";
+  const canCheck = update?.phase === "idle" || update?.phase === "up-to-date" || update?.phase === "error";
 
   return (
     <div className="scrim" data-closing={presence.closing ? "fade" : undefined} onPointerDown={onClose}>
       <div
         ref={dialogRef}
         className="about"
+        tabIndex={-1}
         {...presence.exitProps}
         role="dialog"
         aria-modal="true"
@@ -94,57 +112,70 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void 
           }
         }}
       >
+        <button
+          type="button"
+          className="tool-btn about-close"
+          aria-label={t("common.close")}
+          data-testid="about-close"
+          onClick={onClose}
+        >
+          <Close size={14} />
+        </button>
+        <svg
+          className="about-mark"
+          viewBox={`0 0 ${markWidth} ${markHeight}`}
+          width={markWidth * MARK_SCALE}
+          height={markHeight * MARK_SCALE}
+          shapeRendering="crispEdges"
+          aria-hidden="true"
+        >
+          <PiMark />
+        </svg>
         <h2 id="about-title" className="about-title">
-          {t("shell.appName")} <span className="about-version">{appInfo?.version ?? ""}</span>
+          {t("shell.appName")}
         </h2>
-        <p className="about-text">{t("window.aboutTagline")}</p>
-        <dl className="about-info" data-testid="about-info">
-          {rows.map(([label, value]) => (
-            <div key={label} className="about-info-row">
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
-        <button type="button" className="button about-copy" data-testid="about-copy-info" onClick={copyInfo}>
-          {t("window.aboutCopyInfo")}
-        </button>
-        <section className="about-feedback" aria-labelledby="about-feedback-title" data-testid="about-feedback">
-          <h3 id="about-feedback-title" className="about-heading">
-            {t("window.feedbackTitle")}
-          </h3>
-          <p className="about-text">{t("window.feedbackDesc")}</p>
-          <div className="about-actions">
-            <button
-              type="button"
-              className="button"
-              data-testid="about-help"
-              onClick={() => void window.studio.openExternal(helpUrl).catch((error: unknown) => reportError(t, error))}
-            >
-              {t("menu.helpFeedback")}
-            </button>
-            <button
-              type="button"
-              className="button"
-              data-testid="about-open-logs"
-              onClick={() => void window.studio.openLogsFolder().catch((error: unknown) => reportError(t, error))}
-            >
-              {t("settings.about.openLogs")}
-            </button>
-            <button
-              type="button"
-              className="button"
-              data-testid="about-export-diagnostics"
-              disabled={exporting}
-              onClick={() => void exportDiagnostics()}
-            >
-              {t("window.exportDiagnostics")}
-            </button>
+        <p className="about-meta" data-testid="about-version">
+          {t("window.aboutVersion", { version })}
+          <span aria-hidden="true"> · </span>
+          {ompVersion === null ? t("window.aboutOmpMissing") : t("window.aboutOmp", { version: ompVersion })}
+        </p>
+        {showUpdate && (
+          <div className="about-update" data-testid="about-update">
+            <span>{updateStatusText(update, t)}</span>
+            {update.phase === "downloaded" ? (
+              <Button
+                variant="primary"
+                loading={busy}
+                onClick={() => void run(() => window.studio.installUpdate())}
+                testId="about-update-install"
+              >
+                {t("settings.about.install")}
+              </Button>
+            ) : (
+              canCheck && (
+                <Button
+                  variant="text"
+                  loading={busy}
+                  onClick={() => void run(() => window.studio.checkForUpdate())}
+                  testId="about-update-check"
+                >
+                  {t("settings.about.check")}
+                </Button>
+              )
+            )}
           </div>
-        </section>
-        <button ref={closeRef} type="button" className="button about-close" onClick={onClose}>
-          {t("common.close")}
-        </button>
+        )}
+        <div className="about-actions">
+          <Button onClick={copyInfo} testId="about-copy-info">
+            {t("window.aboutCopyInfo")}
+          </Button>
+          <Button
+            onClick={() => void window.studio.openExternal(issuesUrl).catch((error: unknown) => reportError(t, error))}
+            testId="about-report"
+          >
+            {t("window.aboutReportIssue")}
+          </Button>
+        </div>
       </div>
     </div>
   );

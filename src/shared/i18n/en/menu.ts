@@ -11,5 +11,4 @@ export const menu = {
   themeSystem: "System default",
   themeLight: "Light",
   themeDark: "Dark",
-  helpFeedback: "Help & feedback",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

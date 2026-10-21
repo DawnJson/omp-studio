@@ -10,5 +10,4 @@ export const menu = {
   themeSystem: "跟随系统",
   themeLight: "浅色",
   themeDark: "深色",
-  helpFeedback: "帮助与反馈",
 } satisfies Record<string, MessageEntry>;

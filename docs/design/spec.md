@@ -258,7 +258,7 @@
 - `BrowserWindow`：`titleBarStyle: "hidden"`，`titleBarOverlay: { color, symbolColor, height: 40 }`（取值见 §2.1），`backgroundColor` 同 `color`；默认 1200×800，最小 800×560；`Menu.setApplicationMenu(null)`，快捷键用窗口内 `keydown` 处理。窗口图标 `resources/icon.ico`（见下方“标志”）。
 - **标志**（2026-10-20 仓库所有者选定“层叠”，取代圆环 + π 临时版）：omp 终端启动画面的块字符 π（12 × 10 像素，逐格粉→紫→蓝，左腿末格 ▒，颜色与主题无关），身后往右下错开 1 像素再叠一层同色 32% 淡影——终端里的 π 只有一层，到了桌面上多一层。数据只有一份：`src/shared/ui/pixel-pi.ts`；渲染进程 `ui/PiMark.tsx` 画 SVG（`shape-rendering: crispEdges`），整幅标志（π + 像素字 `omp studio`）是 `ui/PixelLogo.tsx`，新任务页和顶栏左上角用同一个组件，只是大小不同；应用图标 `resources/icon.ico`（透明底，只有 π 和淡影，尽量铺满宽度，2026-10-21 仓库所有者定：不要深色底，淡影要和界面里一样看得出两层，图标别显小；16–256 共 11 个尺寸，每个尺寸单独画，能整数倍就整数倍，整数倍铺不到四分之三宽的 20、24、36 按半像素放大）和托盘图标 `resources/tray.png`（64，透明底）由 `npm run icons`（`scripts/make-icons.ts`）从同一份数据生成并提交进仓库；改了 π 要重新生成。
 - **顶栏 = 任务条（通栏，高 40 = `--titlebar-h`；仓库所有者 2026-10-19 选定方案 B「任务条 + 工具区」）**：底色 `--bg-sidebar`（与 `titleBarOverlay.color` 相同，系统三键融进同一条）。控件统一高 28（`--control-h-sm`），上下各留 6。三段：
-  - 左段（宽 = 侧栏宽，侧栏收起/抽屉时自适应）：`padding-left: --space-2`，横排三样：标志（`topbar-brand`，2026-10-20 起和新任务页同一个像素标志 `PixelLogo`：π + 像素字 `omp`（`--text`）`studio`（`--text-2`），每像素 2 CSS 像素，124×22，不带版本号；见上方“标志”），只是标识，不可点、可拖动窗口；切换侧栏按钮（28×28 `topbar-sidebar`，`aria-expanded` = 侧栏显示着，同 `Ctrl B`；2026-10-20 起图标随状态变：侧栏显示时左栏半透明填充、收起时淡出，`--dur-base` 过渡；侧栏本身的宽度收起/展开也有短过渡，拖拽调宽时关掉）；信息按钮（2026-10-20 起，28×28 `topbar-about`，圆圈里一个感叹号，`window.about` 作 aria-label 和悬停提示；`Alt` 键同），点开居中的“关于与反馈”对话框（`AboutDialog`）：标题 `omp-studio` + 版本（`--text-3`），一句 `window.aboutTagline`；下面是版本信息列表（3.1，`direction-3.1.md` §2 行 12；`<dl>`，标签列宽 5.5em `--text-3`，值 `--font-mono` `--text-2`、可选中）：`omp-studio` 版本、`omp` 版本（omp 没就绪时写 `window.aboutOmpMissing`，也不列路径）、`omp 路径`、`Electron`、`Chromium`、`Node`、`许可`（MIT）；列表下一个 `window.aboutCopyInfo` 按钮，把这几行按 `标签: 值` 逐行复制，成功 toast `common.copied`；再下面“反馈”区三个按钮——帮助与反馈（Issues 页）、打开日志文件夹、导出诊断信息（成功 toast）；Tab 在框内的按钮之间循环，Esc 或点遮罩关闭并还焦点。新任务、命令面板、设置、退出不在这里：新任务和设置在侧栏，命令面板 `Ctrl K`，退出走系统三键。语言和主题在侧栏底部（§4.5）。
+  - 左段（宽 = 侧栏宽，侧栏收起/抽屉时自适应）：`padding-left: --space-2`，横排三样：标志（`topbar-brand`，2026-10-20 起和新任务页同一个像素标志 `PixelLogo`：π + 像素字 `omp`（`--text`）`studio`（`--text-2`），每像素 2 CSS 像素，124×22，不带版本号；见上方“标志”），只是标识，不可点、可拖动窗口；切换侧栏按钮（28×28 `topbar-sidebar`，`aria-expanded` = 侧栏显示着，同 `Ctrl B`；2026-10-20 起图标随状态变：侧栏显示时左栏半透明填充、收起时淡出，`--dur-base` 过渡；侧栏本身的宽度收起/展开也有短过渡，拖拽调宽时关掉）；信息按钮（2026-10-20 起，28×28 `topbar-about`，圆圈里一个感叹号，`window.about` 作 aria-label 和悬停提示；`Alt` 键同），点开居中的“关于与反馈”对话框（`AboutDialog`，2026-10-21 重做，照 macOS 标准关于面板、Chrome 的“关于”、VS Code 的关于框，只留有用的）：宽 `--dialog-w-sm`，内容居中一列——π 标志（`PiMark`，每像素 4 CSS 像素）、`omp-studio`（`--font-display` `--fs-xl`）、一行 `--text-3` 的 `window.aboutVersion` · `window.aboutOmp`（omp 没就绪时 `window.aboutOmpMissing`；可选中）；安装版再多一行更新状态（与设置 → 关于同一句话），可检查时跟一个文字按钮“检查更新”，新版本已下载时跟主按钮“重启并安装”，开发版、免安装版、没配更新源时这一行不显示；底部两个等宽按钮：`window.aboutCopyInfo`（复制给报问题用的纯文本：omp-studio、omp、Electron、Chromium、Node、OS 的版本，标签固定英文，不带 omp 路径，成功 toast `common.copied`）、`window.aboutReportIssue`（打开 Issues 选模板页）。关闭是右上角 ×（`tool-btn`）、Esc 或点遮罩；打开时焦点在对话框本身（不在 × 上画焦点环），Tab 在框内的按钮之间循环，关闭后还焦点。不再有一句话简介、运行时版本列表、omp 路径、日志文件夹和导出诊断（后两个在设置 → 关于 → 问题排查）。新任务、命令面板、设置、退出不在这里：新任务和设置在侧栏，命令面板 `Ctrl K`，退出走系统三键。语言和主题在侧栏底部（§4.5）。
   - 中段（左缘对齐主区面板）：**只有任务标题**（`--fs-sm`，`--text` 600 / 中文 700，过长省略，悬停提示完整标题；不显示项目名，项目在侧栏分组里）。2026-10-20 起不再有状态胶囊（运行中 / 等你确认 / 出错）：侧栏任务行的状态图标和输入框上方的状态行已经在说，不重复。空状态显示 `新任务`，设置页显示页面标题。
   - 右段（只在有任务的对话页出现，`data-testid="topbar-tools"`）：分支胶囊（`features/git/GitTools.tsx`；`--font-mono` `--fs-code-sm`，1px `--border-subtle`，`--radius-md`，最宽 32ch；内容 分支图标 + 分支名 + worktree 任务领先时 `↑N`（`--accent`）+ ⌄；点开是 Git 菜单；"分支 · 工作树 · 基于 main · 领先 N 个提交"在悬停提示里；窄于 1000px 只留图标和 `↑N`；任务目录不是 git 仓库时不渲染）→ 评审按钮（28×28，同 `Ctrl Shift D`；不是 git 仓库时不渲染）→ 终端按钮（28×28，按下 = `--accent-soft` 底、`--accent` 图标）→ 1px×16 `--border` 竖线，与系统三键隔开。再往右是系统三键（`titleBarOverlay` 绘制）；顶栏 `padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw))` 让位。
   - **没有后退/前进按钮**（仓库所有者 2026-10-18 确认）：后退/前进在 `Alt+←/→` 和鼠标侧键（button 3/4）。导航历史栈仍在渲染进程。
@@ -868,14 +868,11 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `time.yesterday` | 昨天 | Yesterday |
 | `window.more` | 更多 | More |
 | `window.about` | 关于与反馈 | About & feedback |
-| `window.aboutOmp` / `window.aboutOmpPath` / `window.aboutOmpMissing` | omp / omp 路径 / 未找到 | omp / omp path / Not found |
-| `window.aboutElectron` / `window.aboutChromium` / `window.aboutNode` / `window.aboutLicense` | Electron / Chromium / Node / 许可 | Electron / Chromium / Node / License |
-| `window.aboutCopyInfo` | 复制版本信息 | Copy version info |
+| `window.aboutVersion` / `window.aboutOmp` / `window.aboutOmpMissing` | 版本 {version} / omp {version} / 未找到 omp | Version {version} / omp {version} / omp not found |
+| `window.aboutCopyInfo` / `window.aboutReportIssue` | 复制版本信息 / 报告问题 | Copy version info / Report an issue |
 | `menu.toggleSidebar` | 切换侧栏 | Toggle sidebar |
 | `window.whatsNew` | 新功能 | What's new |
 | `window.ompUpdate` | omp 可升级 | omp update available |
-| `menu.helpFeedback` | 帮助与反馈 | Help & feedback |
-| `window.feedbackTitle` | 反馈 | Feedback |
 | `dropzone.folder` | 松开以用这个文件夹新建任务 | Drop to start a task in this folder |
 | `dropzone.image` | 松开以添加图片 | Drop to add images |
 
