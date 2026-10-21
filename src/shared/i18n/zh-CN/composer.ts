@@ -50,7 +50,6 @@ export const composer = {
   "breakdown.failed": "读不到会话文件：{message}",
   "breakdown.empty": "还没有回复",
   "breakdown.whole": { other: "压缩过 {count} 次，整个会话（含压缩前）共 {tokens} token · {cost}" },
-  "quota.daily": "每日用量",
   "usage.overview": "用量与额度",
   defaultModel: "默认模型",
   modelLoading: "模型…",

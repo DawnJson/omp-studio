@@ -1,7 +1,7 @@
 // 点发送键左边的费用弹出的用量对话框（居中，盖一层遮罩，高度固定）：标题栏是"用量与额度"，下面一页滚动内容，没有页签：
-// 先是各订阅账号的额度（当前 provider 排最前，每个账号一张卡，每个窗口一格），再是"每日用量"小节：最近几周的每日用量热力图，
+// 先是各订阅账号的额度（当前 provider 排最前，每个账号一张卡，每个窗口一格），再是最近一年的每日用量热力图（不带小标题），
 // 格子按花费着色，悬停给金额和请求数。数据和设置页共用 usage-store（omp usage --json / stats.db）：打开时额度重读，热力图还没有数据时才读。
-import { useEffect, useId, useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { isUntouched } from "../../../../shared/ui/usage-summary.ts";
 import { Close } from "../../icons.tsx";
@@ -76,7 +76,6 @@ function UsageDialogBody({
   const t = useT();
   useTitleBarDim(open);
   const heatmap = useUsageHeatmap();
-  const baseId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -148,10 +147,7 @@ function UsageDialogBody({
             <section className="qm-panel" data-testid="quota-section">
               <Quota provider={provider} />
             </section>
-            <section className="qm-panel" data-testid="heatmap-section" aria-labelledby={`${baseId}-daily`}>
-              <h3 className="uq-section-title" id={`${baseId}-daily`}>
-                {t("composer.quota.daily")}
-              </h3>
+            <section className="qm-panel" data-testid="heatmap-section">
               <DailyUsage />
             </section>
           </div>

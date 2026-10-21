@@ -58,7 +58,6 @@ export const composer = {
     one: "Compacted once; the whole session (including before compaction) used {tokens} tokens · {cost}",
     other: "Compacted {count} times; the whole session (including before compaction) used {tokens} tokens · {cost}",
   },
-  "quota.daily": "Daily usage",
   "usage.overview": "Usage and quota",
   defaultModel: "Default model",
   modelLoading: "Model…",
