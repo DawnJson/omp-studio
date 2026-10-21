@@ -15,6 +15,16 @@ const minute = 60_000;
 const projectA = { id: "pa" as ProjectId, path: "E:\\研究 项目\\my app", name: "my app" };
 const projectB = { id: "pb" as ProjectId, path: "E:\\work\\api server", name: "api server" };
 
+/** 页面里量布局用到的最小类型（e2e 的类型检查没有 DOM 类型）。 */
+type PageRect = { top: number; left: number; width: number };
+type PageScrollBox = {
+  style: { maxHeight: string };
+  scrollTop: number;
+  scrollHeight: number;
+  querySelector(selector: string): { getBoundingClientRect(): PageRect } | null;
+  getBoundingClientRect(): PageRect;
+};
+
 function makeTask(
   id: string,
   projectId: ProjectId,
@@ -232,6 +242,39 @@ for (const [locale, colorScheme] of [
       await expect(history.locator(".sb-row-main")).toHaveCount(11);
       await sidebar.getByTestId("sidebar-history-by-folder").click();
       await expect(sidebar.getByTestId("sidebar-folder")).toHaveCount(3);
+
+      // 排列切换两段等宽，短的那段（"时间"）文字也在格子正中。
+      const timeTextOffset = await sidebar.getByTestId("sidebar-history-by-time").evaluate((button) => {
+        const page = globalThis as unknown as {
+          document: { createRange(): { selectNodeContents(node: unknown): void; getBoundingClientRect(): PageRect } };
+        };
+        const range = page.document.createRange();
+        range.selectNodeContents(button);
+        const textBox = range.getBoundingClientRect();
+        // e2e 没有 DOM 类型：按钮是页面里的元素，只用它的外框。
+        const element = button as unknown as { getBoundingClientRect(): PageRect };
+        const box = element.getBoundingClientRect();
+        return textBox.left + textBox.width / 2 - (box.left + box.width / 2);
+      });
+      expect(Math.abs(timeTextOffset)).toBeLessThan(1);
+      // 标题行钉在滚动区顶部：滚下去后上沿贴着滚动区上沿，上面不留一条透出行的缝。
+      // 夹具行数撑不满默认窗口，临时把列表压矮让它能滚。
+      const list = sidebar.locator(".sb-list");
+      const stuckGap = await list.evaluate((el) => {
+        const element = el as unknown as PageScrollBox;
+        element.style.maxHeight = "160px";
+        element.scrollTop = element.scrollHeight;
+        const head = element.querySelector(".sb-history-head");
+        if (element.scrollTop === 0 || head === null) throw new Error("侧栏列表没有滚动");
+        return head.getBoundingClientRect().top - element.getBoundingClientRect().top;
+      });
+      expect(stuckGap).toBe(0);
+      await sidebar.screenshot({ path: path.join(screenshotsDir, `sidebar-scrolled-${locale}-${colorScheme}.png`) });
+      await list.evaluate((el) => {
+        const element = el as unknown as PageScrollBox;
+        element.scrollTop = 0;
+        element.style.maxHeight = "";
+      });
 
       // 状态点：形状不同，各有 aria-label。
       await expect(sidebar.locator(".sb-dot-waiting")).toHaveCount(2);

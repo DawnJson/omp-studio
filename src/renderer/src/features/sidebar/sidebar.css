@@ -243,9 +243,10 @@
 }
 /* 历史会话：标题右边是"文件夹 | 时间"两段切换（排列方式，记在外壳状态里） */
 .sb-history-head {
-  /* 钉在滚动区顶部：底色和侧栏一致，下面滚过的行不透出；z-index 压住行里的绝对定位元素 */
+  /* 钉在滚动区顶部：底色和侧栏一致，下面滚过的行不透出；z-index 压住行里的绝对定位元素。
+     sticky 的 top 从滚动区的内边距内侧算，抵掉 .sb-list 的上内边距，否则上面留一条缝透出滚过的行 */
   position: sticky;
-  top: 0;
+  top: calc(var(--space-1) * -1);
   z-index: 1;
   display: flex;
   align-items: center;
@@ -274,6 +275,8 @@
   font: inherit;
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
+  /* 侧栏按钮统一左对齐，这里两段等宽，短的那段要居中 */
+  text-align: center;
   cursor: default;
 }
 .sb-history-order-btn:hover {
