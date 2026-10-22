@@ -33,7 +33,7 @@ describe("resolveToggleSlash", () => {
     expect(text("browser", "headless")).toBe("/browser headless");
     expect(text("browser", "visible")).toBe("/browser visible");
     expect(resolveToggleSlash("browser", "fullscreen")).toMatchObject({ kind: "usage" });
-    expect(resolveToggleSlash("prewalk", "")).toEqual({ kind: "menu" });
+    expect(resolveToggleSlash("prewalk", "")).toEqual({ kind: "models" });
     expect(text("prewalk", "restart")).toBe("/prewalk restart");
     expect(text("prewalk", "off")).toBe("/prewalk off");
     expect(resolveToggleSlash("prewalk", "on")).toMatchObject({ kind: "usage" });

@@ -1,5 +1,5 @@
 // 输入框工具行里的"会话开关"菜单（spec 4.14）：工具行里当前文件夹右边一颗滑杆图标按钮，弹出本会话的开关：技能清单、扩展上下文、
-// 电脑操作（开启要确认）、顾问模型、浏览器窗口（可见 / 后台）、prewalk（启用 / 重启 / 关闭）。快速 / 慢速只在模型选择器里。
+// 电脑操作（开启要确认）、顾问模型、浏览器窗口（可见 / 后台）。快速 / 慢速和 Prewalk 在模型选择器里。
 // 状态来自 TaskState.sessionToggles（主进程读 omp 的状态 toast，用户自己在输入框敲的命令也同步）；
 // 本会话没动过的开关显示配置默认值；和默认值不同的行有小圆点，并标"本会话"。
 import { useEffect, useRef, useState } from "react";
@@ -20,7 +20,6 @@ import "./toggles.css";
 
 type SessionToggleName = Exclude<ToggleName, "fast" | "slow">;
 const sessionRows: readonly SessionToggleName[] = ["skillful", "extendedContext", "computer", "advisor"];
-const prewalkOps = ["arm", "restart", "off"] as const;
 
 export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: TaskState }) {
   const t = useT();
@@ -167,32 +166,6 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
                     runCommand("browser", { kind: "browserMode", mode });
                 }}
               />
-            </div>
-            <div className="menu-sep" role="separator" />
-            <div className="tg-row tg-prewalk" data-testid="toggle-prewalk">
-              <div className="tg-text">
-                <span className="tg-label">{t("toggles.prewalk")}</span>
-                <span className="tg-hint">{t("toggles.prewalk.hint")}</span>
-                {toggles.prewalk !== null && (
-                  <span className="tg-reply" data-testid="toggle-prewalk-reply">
-                    {toggles.prewalk}
-                  </span>
-                )}
-              </div>
-              <span className="tg-actions">
-                {prewalkOps.map((op) => (
-                  <button
-                    key={op}
-                    type="button"
-                    className="gate-btn"
-                    data-testid={`toggle-prewalk-${op}`}
-                    disabled={busy !== null}
-                    onClick={() => runCommand("prewalk", { kind: "prewalk", op })}
-                  >
-                    {t(`toggles.prewalk.${op}`)}
-                  </button>
-                ))}
-              </span>
             </div>
           </div>
         )}

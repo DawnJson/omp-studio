@@ -28,6 +28,27 @@ async function start(): Promise<Started> {
     }),
   });
   await launched.app.evaluate(({ dialog, ipcMain }, dir) => {
+    // 模型列表和角色表：smol 指 V4 Lite，Prewalk 一行才能写出"换成谁"、能点启用。
+    const model = (modelId: string, name: string) => ({
+      key: { provider: "deepseek", modelId },
+      name,
+      contextWindow: 128_000,
+      reasoning: true,
+      acceptsImages: false,
+      maxTokens: null,
+      thinkingEfforts: null,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    });
+    ipcMain.removeHandler("studio:listTaskModels");
+    ipcMain.handle("studio:listTaskModels", () => [
+      model("deepseek-v4-flash", "DeepSeek V4 Flash"),
+      model("deepseek-v4-lite", "DeepSeek V4 Lite"),
+    ]);
+    ipcMain.removeHandler("studio:getModelRoles");
+    ipcMain.handle("studio:getModelRoles", () => ({
+      default: "deepseek/deepseek-v4-flash",
+      smol: "deepseek/deepseek-v4-lite",
+    }));
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
     const item = (key: string, value: unknown) => ({
       key,
@@ -151,9 +172,15 @@ test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来�
       "/browser headless",
     ]);
 
-    // prewalk：单发动作，omp 的回话原样显示在这一行。
-    await page.getByTestId("toggle-prewalk-arm").click();
-    await expect(page.getByTestId("toggle-prewalk-reply")).toContainText("Prewalk: target");
+    await shoot(page, "session-toggles");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("toggle-skillful")).toHaveCount(0);
+
+    // prewalk 在模型选择器里：写明从当前模型换到 smol 角色的哪个模型；单发动作，omp 的回话原样显示在下面。
+    await page.getByTestId("model-chip").click();
+    await expect(page.getByTestId("prewalk-plan")).toContainText("DeepSeek V4 Lite");
+    await page.getByTestId("prewalk-arm").click();
+    await expect(page.getByTestId("prewalk-reply")).toContainText("Prewalk: target");
     expect(await sent()).toEqual([
       "/skillful off",
       "/extended-context on",
@@ -162,13 +189,13 @@ test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来�
       "/browser headless",
       "/prewalk",
     ]);
-    await shoot(page);
+    await shoot(page, "model-prewalk");
   } finally {
     await cleanup();
   }
 });
 
-async function shoot(page: Page): Promise<void> {
+async function shoot(page: Page, name: string): Promise<void> {
   for (const [locale, scheme] of [
     ["zh-CN", "light"],
     ["en", "dark"],
@@ -183,11 +210,11 @@ async function shoot(page: Page): Promise<void> {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
     await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
     await page.waitForTimeout(250);
-    await page.screenshot({ path: path.join(screenshotsDir, `session-toggles-${locale}-${scheme}.png`) });
+    await page.screenshot({ path: path.join(screenshotsDir, `${name}-${locale}-${scheme}.png`) });
   }
 }
 
-test("斜杠命令：/skillful 不带参数打开菜单，/computer on 打开确认，不直接发给 omp", async () => {
+test("斜杠命令：/skillful 不带参数打开菜单，/computer on 打开确认，/prewalk 打开模型选择器，不直接发给 omp", async () => {
   test.setTimeout(90_000);
   const { launched, sent, cleanup } = await start();
   try {
@@ -207,6 +234,15 @@ test("斜杠命令：/skillful 不带参数打开菜单，/computer on 打开确
     await input.fill("/computer on");
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("toggles-computer-confirm")).toBeVisible();
+    await page
+      .getByTestId("toggles-computer-confirm")
+      .getByRole("button", { name: /取消|Cancel/ })
+      .click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("toggles-computer-confirm")).toHaveCount(0);
+    await input.fill("/prewalk");
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("model-prewalk")).toBeVisible();
     expect(await sent()).toEqual([]);
   } finally {
     await cleanup();

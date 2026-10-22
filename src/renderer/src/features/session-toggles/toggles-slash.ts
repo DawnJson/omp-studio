@@ -1,5 +1,5 @@
 // 会话开关类斜杠命令在 studio-slash-table.ts 里的行：不带参数打开输入框上的"会话开关"菜单，带 on / off 等参数直接执行；
-// /modelpreset 打开模型选择器（预设在那里）。TSP 和 rpc 任务一样由 studio 接管，不触发 omp 的终端界面。
+// /modelpreset、/prewalk 打开模型选择器（预设和 Prewalk 在那里）。TSP 和 rpc 任务一样由 studio 接管，不触发 omp 的终端界面。
 import type { StudioSlashCommand } from "../composer/studio-slash.ts";
 import { runToggleSlash } from "./toggle-actions.ts";
 import type { ToggleSlashName } from "./toggle-slash.ts";

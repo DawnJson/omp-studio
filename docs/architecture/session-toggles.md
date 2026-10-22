@@ -12,7 +12,7 @@
 | `/computer` | 切换："Computer use enabled for this session. Computer use: enabled · prelude: active · configured: display=active, …"；`status` → "Computer use: disabled · prelude: inactive · configured: …" | `/computer on\|off`（computer-use.md:31） |
 | `/advisor` | 切换："Advisor enabled."；`/advisor status` 在 TSP 里开弹窗（所以只用开关命令自己的 toast） | `/advisor on\|off`（advisor-watchdog.md:104-105） |
 | `/browser` | "Browser mode: visible"；`/browser status` → "Usage: /browser [headless\|visible]"（不是状态查询） | `/browser visible\|headless` |
-| `/prewalk` | "prewalk: Prewalk: target … already matches the active model and thinking level; nothing to switch."；`/prewalk status` → "Usage: /prewalk [restart\|off]" | `/prewalk`（arm）、`/prewalk restart`、`/prewalk off` |
+| `/prewalk` | "prewalk: Prewalk: target … already matches the active model and thinking level; nothing to switch."；`/prewalk status` → "Usage: /prewalk [restart\|off]" | 模型选择器的 Prewalk 一行（2026-10-22 起，原在会话开关菜单）：`/prewalk`（arm）、`/prewalk restart`、`/prewalk off` |
 | `/fast` `/slow` | 已有（`setFastMode` / `setSlowMode`）；不支持的模型：`/fast` → "priority: The current model has no service-tier control for /fast to toggle."、`/slow` → "The current model has no slow mode: …" | 只在模型选择器里（`SpeedToggle`，走 `setTaskFastMode` / `setTaskSlowMode`）；会话开关菜单 2026-10-22 起不再放 |
 | `/modelpreset` | 无预设时 "No model presets saved. Use /modelpreset save <name> to create one." | `/modelpreset save\|switch\|delete <名字>` |
 

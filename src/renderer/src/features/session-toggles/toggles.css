@@ -80,11 +80,26 @@
   flex: none;
   gap: var(--space-1);
 }
-.tg-prewalk {
-  align-items: flex-start;
-}
 .tg-confirm-body {
   margin-inline: 0;
+}
+
+/* 模型选择器里的 Prewalk 一行：标签 + 换模型说明（长了换行）+ 三个动作；omp 的回话在下一行。 */
+.tg-prewalk {
+  display: flex;
+  flex: 1 1 100%;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.tg-prewalk-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.tg-prewalk-plan {
+  flex: 1;
+  min-width: 0;
 }
 
 /* 模型选择器里的预设一节。 */

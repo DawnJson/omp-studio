@@ -21,9 +21,12 @@ export const toggles = {
   "browser.visible": "可见",
   "browser.headless": "后台",
   prewalk: "Prewalk",
-  "prewalk.hint": "规划模型先走一遍，到第一次编辑时切到 smol 模型接手。",
+  "prewalk.plan": "先用 {from} 规划，第一次改文件时换成 {to}",
+  "prewalk.current": "当前模型",
+  "prewalk.noSmol": "没有设置 smol 模型（在上面的 Smol 页签里选），换不了模型",
+  "prewalk.sameModel": "smol 模型和当前模型相同，Prewalk 不起作用",
   "prewalk.arm": "启用",
-  "prewalk.restart": "重启",
+  "prewalk.restart": "重来",
   "prewalk.off": "关闭",
   computerConfirmTitle: "开启电脑操作？",
   computerConfirmBody:
@@ -45,6 +48,6 @@ export const toggles = {
   computerDesc: "开关电脑操作（本会话，开启前会确认）",
   advisorDesc: "开关顾问模型（本会话）",
   browserDesc: "浏览器窗口：可见或后台（本会话）",
-  prewalkDesc: "Prewalk：规划模型先走一遍再切到 smol 模型",
+  prewalkDesc: "Prewalk：先用当前模型规划，改文件时换成 smol 模型（在模型选择器里）",
   modelpresetDesc: "模型预设：应用或保存（在模型选择器里）",
 } satisfies Record<string, MessageEntry>;
