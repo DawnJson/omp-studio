@@ -1,4 +1,4 @@
-// 发版：改版本号 → 把 CHANGELOG 的"未发布"改成这个版本 → 类型检查和单测 → 提交并打 tag → 打安装包和更新目录 → 删 release\ 里旧版本的安装包。
+// 发版：改版本号 → 把 CHANGELOG 的"未发布"改成这个版本 → 类型检查和受改动影响的单测 → 提交并打 tag → 打安装包和更新目录 → 删 release\ 里旧版本的安装包。
 // 用法：npm run release -- <版本，如 0.1.0> [--dry-run]
 // 只在本地做，不推送。
 import { execFileSync } from "node:child_process";
@@ -46,8 +46,11 @@ if (dryRun) {
 }
 
 // 先检查再改文件：检查失败时工作区还是干净的。
+// 单测只跑上一个 tag 以来改过的文件影响到的（vitest --changed，按 import 关系算；录制、假 omp、依赖和配置一改就跑全量，
+// 见 vitest.config.ts）。还没有 tag 时跑全量。
+const lastTag = git("tag", "--list", "v*", "--sort=-v:refname").split("\n")[0] ?? "";
 npm("run", "typecheck");
-npm("test");
+npm("test", "--", ...(lastTag === "" ? [] : ["--changed", lastTag, "--passWithNoTests"]));
 await writeFile(changelogPath, changelog, "utf8");
 npm("version", version, "--no-git-tag-version", "--allow-same-version");
 git("add", "package.json", "package-lock.json", "CHANGELOG.md");
