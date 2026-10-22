@@ -360,6 +360,14 @@ test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史
     // 设置图标不再是太阳：齿轮轮廓是一条闭合路径加中心圆。
     await expect(sidebar.locator(".sb-settings svg path")).toHaveCount(1);
     await expect(sidebar.locator(".sb-settings svg circle")).toHaveCount(1);
+    // 设置按钮是开关：点一下进设置，再点一下回到刚才的任务。
+    await sidebar.locator(".sb-settings").click();
+    await expect(page.getByTestId("settings")).toBeVisible();
+    await expect(sidebar.locator(".sb-settings")).toHaveAttribute("aria-pressed", "true");
+    await sidebar.locator(".sb-settings").click();
+    await expect(page.getByTestId("settings")).toHaveCount(0);
+    await expect(page.getByTestId("tsp-view")).toBeVisible();
+    await expect(sidebar.locator(".sb-settings")).toHaveAttribute("aria-pressed", "false");
   } finally {
     await cleanup();
   }

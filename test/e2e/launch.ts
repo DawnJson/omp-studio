@@ -1,8 +1,10 @@
 // 启动构建产物（先 npm run build）：Playwright 的 _electron.launch。userData 和 omp 的 agent 目录都指到临时目录，
 // 和真实数据隔离：会话索引读的是 PI_CODING_AGENT_DIR，里面只有这里造的假会话，真实 ~/.omp 不会出现在界面或截图里。
+import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { _electron as electron, type ElectronApplication, type Page } from "@playwright/test";
 import { findOmpOnPath } from "../../src/main/omp/discover.ts";
 import { parseTestOmpOverride } from "../../src/main/omp/launch-args.ts";
@@ -16,6 +18,12 @@ export interface LaunchedApp {
   /** 本次启动用的 omp agent 目录（调用方没传 PI_CODING_AGENT_DIR 时是自动造的临时目录）。 */
   agentDir: string;
   close(): Promise<void>;
+}
+
+/** 像在资源管理器里选中这些文件按 Ctrl+C：PowerShell 的 Set-Clipboard -LiteralPath 放真实的文件列表（CF_HDROP）。会改系统剪贴板。 */
+export async function copyFilesToClipboard(files: readonly string[]): Promise<void> {
+  const list = files.map((file) => `'${file.replaceAll("'", "''")}'`).join(",");
+  await promisify(execFile)("powershell", ["-NoProfile", "-Command", `Set-Clipboard -LiteralPath ${list}`]);
 }
 
 const headerLine = (id: string, cwd: string) =>

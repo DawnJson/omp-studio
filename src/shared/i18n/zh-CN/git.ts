@@ -1,41 +1,41 @@
 import type { MessageEntry } from "../index.ts";
 
 export const git = {
-  // 输入框的工作树胶囊
-  "chip.label": "工作树",
-  "chip.title": "在独立的 git 工作树里做这个任务：新分支 studio/…，不动主目录里的文件",
+  // 输入框的 worktree 胶囊
+  "chip.label": "Worktree",
+  "chip.title": "在独立的 git worktree 里做这个任务：新分支 studio/…，不动主目录里的文件",
   "chip.setup": "创建时会运行 {script}",
-  "chip.blocked": "不能用工作树：{reason}",
+  "chip.blocked": "不能用 worktree：{reason}",
   "setup.title": "运行这个项目的 setup 脚本？",
   "setup.body":
-    "{script} 来自这个项目的仓库，会在新的工作树里运行，拥有和你一样的权限。只运行你信任的脚本。脚本内容改变后会再问一次。",
+    "{script} 来自这个项目的仓库，会在新的 worktree 里运行，拥有和你一样的权限。只运行你信任的脚本。脚本内容改变后会再问一次。",
   "setup.confirm": "运行并创建",
-  "setup.declined": "没有创建工作树。",
+  "setup.declined": "没有创建 worktree。",
 
-  // 创建工作树被拒绝的原因（主进程的错误原文映射，shared/ui/errors.ts）
+  // 创建 worktree 被拒绝的原因（主进程的错误原文映射，shared/ui/errors.ts）
   "err.notGit": "这个项目目录不是 git 仓库。",
   "err.notRoot": "项目目录必须正好是仓库根目录。",
   "err.noCommits": "仓库还没有任何提交，先提交一次。",
   "err.detached": "仓库处于 detached HEAD，先切到一个分支。",
   "err.gitMissing": "找不到 git，请先安装并加入 PATH。",
-  "err.setupFailed": "工作树的 setup 脚本运行失败，工作树已撤销。",
+  "err.setupFailed": "worktree 的 setup 脚本运行失败，worktree 已撤销。",
 
   // 任务条的 git 工具
   "bar.menu": "Git 操作",
   "bar.branch": "分支 {branch}",
-  "bar.worktree": "工作树 · 基于 {base}",
+  "bar.worktree": "Worktree · 基于 {base}",
   "bar.changed": { one: "{count} 个文件有改动", other: "{count} 个文件有改动" },
   "bar.untracked": { one: "{count} 个未跟踪文件", other: "{count} 个未跟踪文件" },
   "bar.ahead": { one: "领先 {count} 个提交", other: "领先 {count} 个提交" },
-  "row.worktree": "工作树分支 {branch}",
+  "row.worktree": "Worktree 分支 {branch}",
 
   // 菜单
   "menu.commit": "提交",
   "menu.push": "推送",
   "menu.pr": "创建 PR",
   "menu.merge": "合并回 {base}",
-  "menu.discard": "丢弃工作树",
-  "menu.cleanup": "清理无主工作树",
+  "menu.discard": "丢弃 worktree",
+  "menu.cleanup": "清理无主 worktree",
 
   // 提交
   "commit.title": "提交改动",
@@ -70,21 +70,21 @@ export const git = {
   "merge.nothing": "没有新的提交可合并。",
   "merge.conflictTitle": "合并有冲突",
   "merge.conflictBody":
-    "已撤销这次合并，主目录和工作树都没有被改动。把下面的文件冲突处理好（可以让 agent 处理）后再合并。",
-  "merge.blocked.worktree_dirty": "工作树里有没提交的改动，先提交或丢弃它们。",
+    "已撤销这次合并，主目录和 worktree 都没有被改动。把下面的文件冲突处理好（可以让 agent 处理）后再合并。",
+  "merge.blocked.worktree_dirty": "worktree 里有没提交的改动，先提交或丢弃它们。",
   "merge.blocked.base_dirty": "主目录里有没提交的改动，合并可能覆盖它们，先处理掉。",
   "merge.blocked.base_not_checked_out": "主目录当前不在 {base} 分支上（现在是 {current}），先切回去。",
   "merge.detached": "detached HEAD",
 
   // 丢弃
-  "discard.title": "丢弃这个工作树？",
-  "discard.body": "会删除分支 {branch} 和工作树目录，里面没提交和没合并的改动都会丢失，任务会被归档。不能撤销。",
+  "discard.title": "丢弃这个 worktree？",
+  "discard.body": "会删除分支 {branch} 和 worktree 目录，里面没提交和没合并的改动都会丢失，任务会被归档。不能撤销。",
   "discard.confirm": "丢弃",
-  "discard.done": "已丢弃工作树",
+  "discard.done": "已丢弃 worktree",
 
-  // 清理无主工作树
-  "cleanup.title": "清理无主工作树",
-  "cleanup.none": "没有无主的工作树。",
+  // 清理无主 worktree
+  "cleanup.title": "清理无主 worktree",
+  "cleanup.none": "没有无主的 worktree。",
   "cleanup.removed": "已移除",
   "cleanup.kept": "保留",
   "cleanup.dirty": "有没提交的改动",

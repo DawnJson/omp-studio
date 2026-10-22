@@ -354,7 +354,9 @@ export function Sidebar() {
           type="button"
           className="sb-settings"
           data-active={view === "settings"}
-          onClick={() => showView("settings")}
+          aria-pressed={view === "settings"}
+          // 再点一次退出设置，回到进入前的对话（同设置页里的 Esc）。
+          onClick={() => showView(view === "settings" ? "conversation" : "settings")}
         >
           <GearIcon />
           <span>{t("sidebar.settings")}</span>

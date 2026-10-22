@@ -6,7 +6,6 @@ import { useOmpStatus, useSettings, useTask } from "../../store/index.ts";
 import { onComposerText, onStudioCommand, useSlashCommands } from "../palette/index.ts";
 import { sendDraft, stopAndRestore, type Delivery } from "./actions.ts";
 import { reportError } from "../../ui/errors.ts";
-import { AttachButton } from "./AttachButton.tsx";
 import { ApprovalChip } from "./ApprovalChip.tsx";
 import { SessionTogglesMenu } from "../session-toggles/SessionTogglesMenu.tsx";
 import { getDraft, setDraftText, useDraft } from "./draft-store.ts";
@@ -367,7 +366,6 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           onKeyDown={onKeyDown}
         />
         <div className="composer-tools">
-          <AttachButton onPick={attach.pickFiles} disabled={worktreeGone} />
           <ModelChip
             model={shownModel}
             thinkingLevel={shownThinking}

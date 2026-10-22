@@ -935,8 +935,6 @@ export interface StudioInvokeApi {
   /** 输入框草稿（文字）：key 是任务 id 或 `new:<projectId>`。主进程持久化，重启不丢。 */
   getDrafts(): Promise<Record<string, string>>;
   saveDraft(key: string, text: string): Promise<void>;
-  /** 附件选择器（主进程弹系统文件对话框，多选）：选中的文件登记到主进程，返回 id + 名字 + 大小；取消返回空数组。 */
-  pickComposerFiles(): Promise<ComposerFile[]>;
   /** 压缩上下文：发 `/compact`，等 omp 画出压缩分隔；失败（会话太小等）以 omp 的原文 reject。任务没有进程时先拉起。 */
   compactTask(taskId: TaskId): Promise<void>;
   /**
@@ -1305,7 +1303,6 @@ export const invokeNames = {
   listSlashCommands: true,
   getDrafts: true,
   saveDraft: true,
-  pickComposerFiles: true,
   compactTask: true,
   runTaskCommand: true,
   runBuiltin: true,

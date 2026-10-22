@@ -14,7 +14,6 @@ export const composer = {
   stopping: "正在停止…",
   stopped: "已停止",
   todoBoard: "待办 {done}/{total}",
-  "attach.pick": "添加文件或图片",
   "attach.unsupported": "当前模型不支持图片",
   "attach.failed": "这张图片没能处理",
   "attachment.remove": "移除",
@@ -68,12 +67,12 @@ export const composer = {
   "jobs.status.cancelled": "已取消",
   // TSP 作业（S2Jobs）
   "jobs.kill": "结束",
-  "jobs.viewOutput": "在 omp 的作业窗口查看输出",
+  "jobs.viewOutput": "在 omp 的后台任务窗口查看输出",
   "pills.aria": "子代理与后台任务",
   "pills.agents": "子代理：{count} 个运行中",
   "pills.jobs": "后台任务：{count} 个运行中",
   "status.starting": "启动中…",
   "status.working": "运行中…",
   "status.needsYou": "等你确认",
-  "jobs.tspOutputHint": "bash 作业的输出只在 omp 自己的作业窗口里有，点按钮会让 omp 打开它。",
+  "jobs.tspOutputHint": "bash 后台任务的输出只在 omp 自己的后台任务窗口里有，点按钮会让 omp 打开它。",
 } satisfies Record<string, MessageEntry>;

@@ -31,7 +31,7 @@ export const sessionInfo = {
   "row.file": "会话文件",
   "row.project": "项目目录",
   "row.cwd": "工作目录",
-  "row.worktree": "工作树分支 {branch}（基于 {base}）",
+  "row.worktree": "Worktree 分支 {branch}（基于 {base}）",
   "row.model": "模型",
   "row.thinking": "思考强度",
   "row.context": "上下文",
@@ -97,7 +97,7 @@ export const sessionInfo = {
   "share.warnGist":
     "这会把本会话的加密快照上传到 GitHub 的 secret gist（需要已登录的 gh；不可用时 omp 会退回上传到 {server}）。拿到完整链接的人都能看到会话内容。",
   "share.redactOn": "已开启脱敏（share.redactSecrets）：上传前 omp 会把识别出的密钥打码。",
-  "share.redactOff": "脱敏已关闭（share.redactSecrets = false）：会话里的密钥、令牌会原样上传。",
+  "share.redactOff": "脱敏已关闭（share.redactSecrets = false）：会话里的密钥、token 会原样上传。",
   "share.gist": "改为上传到 secret gist",
   "share.settingsFailed": "读取分享设置失败：{message}",
   "share.confirm": "上传并生成链接",

@@ -11,7 +11,7 @@ import { crc32, deflateSync } from "node:zlib";
 import { expect, test, type Page } from "@playwright/test";
 import { parseSession } from "../../src/main/tsp/session-extras.ts";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
-import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { copyFilesToClipboard, launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -384,21 +384,20 @@ test("输入框附件：删掉文字里的 #1 芯片就删掉对应的图片；C
   }
 });
 
-test('输入框附件：附件按钮选文件 = 文件卡片（图标、名字、大小、#1）+ 文字里的 #1 芯片；发送后 omp 收到内联的 @"路径"，路径从不进渲染进程', async () => {
+test('输入框附件：粘贴资源管理器复制的文件 = 文件卡片（图标、名字、大小、#1）+ 文字里的 #1 芯片；发送后 omp 收到内联的 @"路径"，路径从不进渲染进程', async () => {
   test.setTimeout(90_000);
   const { launched, received, cleanup } = await start("approval");
   const dir = await mkdtemp(path.join(os.tmpdir(), "omp attach e2e-"));
   const file = path.join(dir, "报告 final.txt");
   await writeFile(file, "hello");
+  const savedClipboard = await launched.app.evaluate(({ clipboard }) => clipboard.readText());
   try {
     const { page } = launched;
-    await launched.app.evaluate(({ dialog }, picked) => {
-      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [picked] });
-    }, file);
     const input = page.getByTestId("composer-input");
     await input.click();
     await input.pressSequentially("看 ");
-    await page.getByTestId("composer-attach").click();
+    await copyFilesToClipboard([file]);
+    await page.keyboard.press("Control+V");
     const card = page.getByTestId("attachment");
     await expect(card).toHaveCount(1);
     await expect(card).toHaveAttribute("data-kind", "file");
@@ -418,6 +417,9 @@ test('输入框附件：附件按钮选文件 = 文件卡片（图标、名字�
     const sent = String((await received()).find((event) => String(event["text"]).includes('@"'))!["text"]);
     expect(sent).toBe(`看 @"${file.replaceAll("\\", "/")}" 谢谢`);
   } finally {
+    await launched.app
+      .evaluate(({ clipboard }, text) => clipboard.writeText(text), savedClipboard)
+      .catch(() => undefined);
     await cleanup();
     await rm(dir, { recursive: true, force: true, maxRetries: 5 });
   }
@@ -874,6 +876,7 @@ test('输入框上方(照 Tern):药丸 [👥 N | ⚡ N] 每段个数大于 0 才
     await pill.click();
     await expect(page.getByTestId("jobs-board")).toBeVisible();
     await expect(page.getByTestId("job-row").first()).toHaveAttribute("data-type", "bash");
+    await shoot(page, "jobs-board");
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("jobs-board")).toHaveCount(0);
   } finally {
@@ -967,7 +970,7 @@ test("错误回合只留一份:错误文字只在卡片里(没有 dock 里的红
     // 这个任务没有后台作业:/jobs 不打开浮层,给一条提示(和 /todo 没有待办时一样)。
     await page.getByTestId("composer-input").fill("/jobs");
     await page.keyboard.press("Enter");
-    await expect(page.locator(".toast")).toContainText(/这个任务还没有后台作业|no background jobs/);
+    await expect(page.locator(".toast")).toContainText(/这个任务还没有后台任务|no background jobs/);
     await expect(page.getByTestId("jobs-board")).toHaveCount(0);
   } finally {
     await cleanup();
@@ -1074,6 +1077,7 @@ test("子代理面板:👥 打开右栏面板(不画 omp 的 Hub),列出 Alpha /
     // 录制里两个后台子代理在跑时用户点了 👥(agents.open):假 omp 在这一步等事件。输入框上方药丸的左半段(👥 2)就是入口,omp 自己的 hud 胶囊不画。
     const pill = page.getByTestId("pill-agents");
     await expect(pill).toBeVisible({ timeout: 60_000 });
+    await shoot(page, "pills");
     await pill.click();
     const panel = page.getByTestId("agents-panel");
     await expect(panel).toBeVisible();

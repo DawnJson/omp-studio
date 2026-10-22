@@ -1,10 +1,9 @@
-// 往输入框加附件：图片（粘贴 / 拖入，转成 WebP）和文件（拖入 / 粘贴 / 选择器；路径只在主进程，这里只有 id）。
+// 往输入框加附件：图片（粘贴 / 拖入，转成 WebP）和文件（拖入 / 粘贴；路径只在主进程，这里只有 id）。
 // 都在光标处插入占位符（输入框里显示成 `#N` 芯片）。Composer 和 DraftComposer 共用。
 import { useCallback, useEffect, type DragEvent, type RefObject } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { ComposerFile, TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { reportError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { requestCaret } from "./caret-request.ts";
 import {
@@ -34,8 +33,6 @@ export async function convertImageFiles(files: Iterable<File>, t: TFunction): Pr
 
 export interface Attach {
   addFiles(files: Iterable<File>): Promise<void>;
-  /** 附件选择器（主进程的系统对话框）。 */
-  pickFiles(): void;
   onDragOver(event: DragEvent): void;
   onDrop(event: DragEvent): void;
 }
@@ -94,9 +91,6 @@ export function useAttach(
 
   return {
     addFiles,
-    pickFiles: () => {
-      window.studio.pickComposerFiles().then(addComposerFiles, (error: unknown) => reportError(t, error));
-    },
     onDragOver: (event) => {
       if ([...event.dataTransfer.items].some((item) => item.kind === "file")) event.preventDefault();
     },

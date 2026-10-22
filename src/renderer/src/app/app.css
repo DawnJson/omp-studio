@@ -26,6 +26,27 @@ body {
   background: var(--selection-bg);
 }
 
+/* 切换主题：整窗交叉淡入（App.tsx 用 document.startViewTransition）。纯透明度渐变，减少动效时缩到 --dur-fade；
+   淡入期间点击照常落到页面上。 */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-slow);
+  animation-timing-function: var(--ease-in-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: var(--dur-fade);
+  }
+}
+:root[data-motion="reduced"]::view-transition-old(root),
+:root[data-motion="reduced"]::view-transition-new(root) {
+  animation-duration: var(--dur-fade);
+}
+
 button {
   font: inherit;
   color: inherit;

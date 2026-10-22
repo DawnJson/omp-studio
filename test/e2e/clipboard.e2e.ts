@@ -1,15 +1,11 @@
 // 剪贴板的端到端：在输入框里粘贴资源管理器复制的文件 → 插入路径（preload 取路径）；对话里鼠标选中文字 → 自动复制（设置项可关），
 // 输入框里选中不动剪贴板。用 PowerShell 的 Set-Clipboard -LiteralPath 放真实的文件列表（CF_HDROP），和在资源管理器里按 Ctrl+C 一样。
 // 测试会改系统剪贴板，结束时恢复原来的文字内容（文件列表等其它格式恢复不了）。
-import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
 import { expect, test } from "@playwright/test";
-import { launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
-
-const run = promisify(execFile);
+import { copyFilesToClipboard as copyFiles, launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
 
 interface Started {
   launched: LaunchedApp;
@@ -45,17 +41,11 @@ async function start(): Promise<Started> {
   };
 }
 
-/** 像在资源管理器里选中这些文件按 Ctrl+C。 */
-async function copyFiles(files: readonly string[]): Promise<void> {
-  const list = files.map((file) => `'${file.replaceAll("'", "''")}'`).join(",");
-  await run("powershell", ["-NoProfile", "-Command", `Set-Clipboard -LiteralPath ${list}`]);
-}
-
 function clipboardText(launched: LaunchedApp): Promise<string> {
   return launched.app.evaluate(({ clipboard }) => clipboard.readText());
 }
 
-test("粘贴文件：普通文件变成附件卡片和 #N 芯片，文件夹插入路径（有空格的加引号）；图片以外不弹提示；输入框有添加附件按钮但没有 file input", async () => {
+test("粘贴文件：普通文件变成附件卡片和 #N 芯片，文件夹插入路径（有空格的加引号）；图片以外不弹提示；输入框没有附件按钮，也没有 file input", async () => {
   const { launched, work, cleanup } = await start();
   try {
     const { page } = launched;
@@ -64,9 +54,9 @@ test("粘贴文件：普通文件变成附件卡片和 #N 芯片，文件夹插�
     await writeFile(spaced, "# 草稿\n");
     await writeFile(plain, "a,b\n");
 
-    // 工具行里的 .tool-btn：添加附件按钮和会话开关（齿轮）；附件按钮是点开系统文件对话框的，页面里没有 input[type=file]。
-    await expect(page.getByTestId("composer-attach")).toHaveCount(1);
-    await expect(page.locator(".composer-tools .tool-btn")).toHaveCount(2);
+    // 附件只来自粘贴和拖入（2026-10-22 起没有附件按钮）：工具行里的 .tool-btn 只剩会话开关（齿轮），页面里没有 input[type=file]。
+    await expect(page.getByTestId("composer-attach")).toHaveCount(0);
+    await expect(page.locator(".composer-tools .tool-btn")).toHaveCount(1);
     await expect(page.locator(".composer input[type=file]")).toHaveCount(0);
 
     const input = page.getByTestId("composer-input");

@@ -14,7 +14,6 @@ import { takePendingDraftText } from "../palette/index.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { blockWorktree, ensureSetupApproved, getWorktreeDraft, setWorktreeOn } from "../git/index.ts";
 import { handOverDraftTerminal, withDraftHandover } from "../terminal/index.ts";
-import { AttachButton } from "./AttachButton.tsx";
 import { ApprovalChip } from "./ApprovalChip.tsx";
 import { buildSubmission, slotsToNames, viewToText } from "./composer-tokens.ts";
 import { ComposerInput } from "./ComposerInput.tsx";
@@ -202,7 +201,6 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
           onKeyDown={onKeyDown}
         />
         <div className="composer-tools">
-          <AttachButton onPick={attach.pickFiles} />
           <ModelChip
             model={model}
             thinkingLevel={thinkingLevel}

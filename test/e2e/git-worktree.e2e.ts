@@ -167,7 +167,7 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await shoot(page, "setup-dialog");
     await setupDialog.getByRole("button", { name: "取消" }).click();
     await expect(setupDialog).toHaveCount(0);
-    await expect(page.getByTestId("toasts")).toContainText("没有创建工作树");
+    await expect(page.getByTestId("toasts")).toContainText("没有创建 worktree");
     await expect(page.getByTestId("composer-input")).toHaveValue("在工作树里干活");
     await expect(page.getByTestId("task-row")).toHaveCount(0);
     expect(findStudioWorktree(repo)).toBeNull();
@@ -270,11 +270,11 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     }
 
     // ── 丢弃：先确认；任务归档、目录和分支都没了
-    await openGitMenu(page, /^丢弃工作树/);
+    await openGitMenu(page, /^丢弃 worktree/);
     await expect(page.getByTestId("git-discard-dialog")).toContainText(branch);
     await page.getByTestId("git-discard-dialog").getByRole("button", { name: "取消" }).click();
     expect(existsSync(dir)).toBe(true);
-    await openGitMenu(page, /^丢弃工作树/);
+    await openGitMenu(page, /^丢弃 worktree/);
     await shoot(page, "discard-dialog");
     await page.getByTestId("git-discard-confirm").click();
     await expect(page.getByTestId("task-row")).toHaveCount(0);
@@ -290,7 +290,7 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     sh(path.join(parent, "orphan2"), "commit", "-m", "孤儿提交");
     // 文件夹折叠时 ⋯ 不显示（那一格是行数），项目菜单走右键文件夹头。
     await page.locator(".sb-group-head").first().click({ button: "right" });
-    await page.getByRole("menuitem", { name: "清理无主工作树" }).click();
+    await page.getByRole("menuitem", { name: "清理无主 worktree" }).click();
     await expect(page.getByTestId("git-cleanup-removed")).toContainText("orphan1");
     await expect(page.getByTestId("git-cleanup-kept")).toContainText("orphan2");
     await expect(page.getByTestId("git-cleanup-kept")).toContainText("没合并的提交");
@@ -421,7 +421,7 @@ test("仓库还没有提交：胶囊在，创建被拒绝后胶囊禁用并写�
     await expect(page.getByTestId("toasts")).toContainText("还没有任何提交");
     await expect(chip).toHaveAttribute("aria-disabled", "true");
     await expect(chip).toHaveAttribute("aria-pressed", "false");
-    await expect(chip).toHaveAttribute("title", /不能用工作树：.*还没有任何提交/);
+    await expect(chip).toHaveAttribute("title", /不能用 worktree：.*还没有任何提交/);
     await expect(page.getByTestId("composer-input")).toHaveValue("不能用工作树");
     await expect(page.getByTestId("task-row")).toHaveCount(0);
     await shoot(page, "chip-blocked");

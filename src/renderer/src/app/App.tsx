@@ -109,11 +109,20 @@ export function App() {
   const navigation = useNavigation();
   const [aboutOpen, setAboutOpen] = useState(false);
 
-  const theme = settings?.theme ?? "system";
+  const theme = settings?.theme ?? null;
+  const shownTheme = useRef<typeof theme>(null);
   useEffect(() => {
+    if (theme === null) return;
     const root = document.documentElement;
-    if (theme === "system") delete root.dataset["theme"];
-    else root.dataset["theme"] = theme;
+    const apply = () => {
+      if (theme === "system") delete root.dataset["theme"];
+      else root.dataset["theme"] = theme;
+    };
+    const previous = shownTheme.current;
+    shownTheme.current = theme;
+    // 用户切换主题时整窗交叉淡入（View Transitions，时长见 app.css）；启动时第一次套用不动画。
+    if (previous === null || previous === theme) apply();
+    else document.startViewTransition(apply);
   }, [theme]);
   useEffect(() => {
     document.documentElement.lang = locale;

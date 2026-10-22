@@ -30,7 +30,7 @@ export const review = {
   discardHunkTitle: "丢弃这处改动？",
   discardHunkBody: "这处改动会从 {path} 中移除，无法撤销。",
   binary: "二进制文件，不显示内容",
-  tooLarge: "文件太大，不显示差异",
+  tooLarge: "文件太大，不显示 diff",
   noTextChanges: "没有文本改动",
   noFiles: "没有改动",
   notGit: "这个任务的目录不是 git 仓库",

@@ -30,7 +30,7 @@ export const integrations = {
   "mcp.command": "命令",
   "mcp.args": "参数",
   "mcp.args.tip": "一行一个参数；参数里有空格也没关系，每行就是一个整体。参数里不能有双引号。",
-  "mcp.token": "令牌",
+  "mcp.token": "Token",
   "mcp.token.tip": "可选。omp 会把它存成 Authorization: Bearer 请求头，写在配置文件里。",
 
   "ssh.title": "SSH 主机",

@@ -106,7 +106,7 @@ test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来�
       "true",
     );
 
-    // 技能清单关掉：和默认（开）不同 → 圆点 + 本会话。
+    // Skill 清单关掉：和默认（开）不同 → 圆点 + 本会话。
     await page.getByTestId("toggle-skillful-switch").click();
     await expect(page.getByTestId("toggle-skillful-switch")).toHaveAttribute("aria-checked", "false");
     await expect(page.getByTestId("toggle-skillful-dot")).toBeVisible();
