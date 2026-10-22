@@ -1175,22 +1175,25 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
   try {
     const { page } = launched;
     await sendFirst(page, String(recordedUserEvents(loadTspFixture("agent-progress"))[0]!.event["text"]));
-    // omp 把 Task 卡片发成 collapsed:true(preview "none":只剩标题);studio 默认展开它(2026-10-22 仓库所有者),
-    // 每个子代理一行一直看得见。录制里探针点开卡片发过一次 toggle collapsed:false:收起再展开,回放才对得上。
+    // omp 把 Task 卡片和里面的子代理行都发成 collapsed:true(preview "none":只剩标题),studio 照画;
+    // 子代理进度在下面 wait 卡片的磁贴上,omp 发 preview "children",卡片收起时磁贴也一直显示(2026-10-22 仓库所有者)。
     const task = role(page, "omp.tool.task");
     const taskHead = task.locator(".tsp-tool-head");
-    await expect(taskHead).toHaveAttribute("aria-expanded", "true", { timeout: 30_000 });
-    await expect(task.locator(".tsp-agent")).toHaveCount(2);
-    await expect(task.locator(".tsp-agent").first()).toBeVisible();
-    await shoot(page, "task-default-expanded");
-    await taskHead.click();
-    await expect(taskHead).toHaveAttribute("aria-expanded", "false");
+    await expect(taskHead).toHaveAttribute("aria-expanded", "false", { timeout: 30_000 });
+    await expect(task.locator(".tsp-agent")).toHaveCount(0);
+    const tiles = role(page, "omp.job.tiles").locator('[data-role="omp.job.tile"]');
+    await expect(tiles).toHaveCount(2, { timeout: 30_000 });
+    await expect(tiles.first()).toBeVisible();
+    // 录制里探针点开过 Task 卡片(toggle collapsed:false),omp 收到才往下发:点一下回放才走得下去,看完再收起来。
     await taskHead.click();
     await expect(taskHead).toHaveAttribute("aria-expanded", "true");
     const rings = role(page, "omp.job.tile.ring");
     await expect(rings).toHaveCount(2, { timeout: 60_000 });
     await expect(rings.nth(0)).toContainText("66%");
     await expect(rings.nth(1)).toContainText("55%");
+    await taskHead.click();
+    await expect(taskHead).toHaveAttribute("aria-expanded", "false");
+    await expect(tiles.first()).toBeVisible();
     await shoot(page, "agent-progress-tiles");
     await page.getByTestId("pill-agents").click();
     const panel = page.getByTestId("agents-panel");

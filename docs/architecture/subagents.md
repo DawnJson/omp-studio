@@ -54,7 +54,7 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 - 结果进 `agent` 节点 `stats.done`（0–1，Alpha `0.66`、Beta `0.55`），`listAgents` 解析成 `HubAgent.stats.done`。同时 wait 卡片的磁贴头上多一个 `meter` 节点：`role:"omp.job.tile.ring"`、`style:"ring"`、`size:"sm"`、`value`、`label:"66%"`、`title:"The agent's own completion estimate: 66%"`；studio 按 meter 正常画，CSS 只把百分比改成强调色加粗。
 - 子代理面板：只在 `running` 且有 `done` 时，行右端的状态文字换成小进度环 + 百分比，详情统计多一格"完成度"；结束后不再显示（估计已过时）。
 - 同一录制里 `agent` 节点的 `stats.age` 一直是 `0`（运行中的用时在 `tool.age`），所以详情的"用时"运行中显示 0 秒：这是 omp 给的值，没改。
-- 折叠默认值（omp 发的，studio 照画）：Task 卡片（`omp.tool.task`）`collapsed:true`、`preview:"none"`，只剩标题行 `Task 2 agents`；里面每个 `agent` 节点也是 `collapsed:true`。wait 卡片（`omp.tool.wait`）同样 `collapsed:true`，但 `preview:"children"`，所以磁贴（状态点、名字、用时、进度环）收起时也一直显示。录制里约 41 秒时 Task 卡片变成 `collapsed:false`，是因为探针点了卡片头、studio 发了 `toggle`，omp 不会自己展开；`hub-steer.jsonl` 里没人点，从头到尾都是 `true`。studio 默认展开 Task 卡片（2026-10-22 仓库所有者，`expandsByDefault`），只改起始显示、不给 omp 发 `toggle`，所以子代理行仍是 omp 给的收起状态（一行：状态、用时、统计）；用户点卡片头照常发 `toggle`，omp 收到 `collapsed:false` 会把子代理行也展开（露出任务说明）。fixture 里保留了探针那条 `toggle`，e2e 收起再展开一次才回放得下去。
+- 折叠默认值（omp 发的，studio 照画，没有例外）：Task 卡片（`omp.tool.task`）`collapsed:true`、`preview:"none"`，只剩标题行 `Task 2 agents`；里面每个 `agent` 节点也是 `collapsed:true`。wait 卡片（`omp.tool.wait`）同样 `collapsed:true`，但 `preview:"children"`，所以磁贴（状态点、名字、用时、进度环）收起时也一直显示：默认看得见的子代理进度就是这排磁贴。录制里约 41 秒时 Task 卡片变成 `collapsed:false`，是因为探针点了卡片头、studio 发了 `toggle`，omp 不会自己展开；`hub-steer.jsonl` 里没人点，从头到尾都是 `true`。fixture 里保留了探针那条 `toggle`，e2e 先点开卡片头才回放得下去。0.3.31 曾让 studio 默认展开 Task 卡片，是把仓库所有者说的"子代理进度默认展开"理解错了（他指的是 wait 卡片的磁贴），2026-10-22 撤回。
 
 ### 实测：运行中的记录（omp 18.12.6，`deepseek/deepseek-v4-flash`，真实 omp、临时 agent 目录，2026-10-22 一次性探针，未存为 fixture）
 

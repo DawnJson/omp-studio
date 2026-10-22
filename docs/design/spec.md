@@ -393,7 +393,7 @@
 
 ### 4.11 过程区（TSP 节点）
 
-对话里 omp 的工作过程（工具卡片、思考块、子代理卡片、待办、压缩分隔、每轮用量脚注）都是 omp 发来的 TSP 节点，由 `features/tsp/` 渲染：结构由 omp 决定，外观由 `features/tsp/tsp.css` 决定（见 §4.14 末尾"过程卡片外观"和 `docs/architecture/tsp-migration.md` §8）。折叠 / 展开跟着节点的 `collapsed`，唯一的例外是派子代理的 task 卡片（`omp.tool.task`）：omp 发成收起、只剩标题，studio 默认展开，每个子代理一行一直看得见（2026-10-22 仓库所有者；判断在 `shared/tsp/agent-hub.ts` 的 `expandsByDefault`）；`Ctrl O` 展开或收起所有工具卡片（`docs/architecture/conversation.md`）。运行状态、用时和当前活动在输入框上方的状态行（`ComposerTop`，§4.14），子代理在右栏的子代理面板（§4.28）。没有改动卡片：评审入口是顶栏评审按钮、提交对话框、`Ctrl Shift D` 和命令面板（§4.25）。
+对话里 omp 的工作过程（工具卡片、思考块、子代理卡片、待办、压缩分隔、每轮用量脚注）都是 omp 发来的 TSP 节点，由 `features/tsp/` 渲染：结构由 omp 决定，外观由 `features/tsp/tsp.css` 决定（见 §4.14 末尾"过程卡片外观"和 `docs/architecture/tsp-migration.md` §8）。折叠 / 展开跟着节点的 `collapsed`，没有例外：派子代理的 Task 卡片（`omp.tool.task`）omp 发成收起、只剩标题，studio 照画；子代理的进度在下面等待卡片（`omp.tool.wait`）的磁贴上，omp 发的 `preview:"children"` 让磁贴收起时也一直显示（2026-10-22 仓库所有者）。`Ctrl O` 展开或收起所有工具卡片（`docs/architecture/conversation.md`）。运行状态、用时和当前活动在输入框上方的状态行（`ComposerTop`，§4.14），子代理在右栏的子代理面板（§4.28）。没有改动卡片：评审入口是顶栏评审按钮、提交对话框、`Ctrl Shift D` 和命令面板（§4.25）。
 
 ### 4.14 Composer
 
