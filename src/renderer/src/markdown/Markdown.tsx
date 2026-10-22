@@ -9,31 +9,25 @@ import { renderBlock, type RenderContext } from "./render.ts";
 import "katex/dist/katex.min.css";
 import "./markdown.css";
 
-function createContext(streaming: boolean, t: TFunction): RenderContext {
+function createContext(t: TFunction): RenderContext {
   return {
     openLink: (href) => {
       window.studio.openExternal(href).catch((error: unknown) => reportError(t, error));
     },
-    renderCode: ({ code, lang, closed }): ReactNode => (
-      <CodeBlock code={code} lang={lang} closed={closed} streaming={streaming} />
-    ),
+    renderCode: ({ code, lang, closed }): ReactNode => <CodeBlock code={code} lang={lang} closed={closed} />,
   };
 }
 
 const Block = memo(
-  function Block({ block, streaming, t }: { block: MarkdownBlock; streaming: boolean; t: TFunction }) {
-    const context = useMemo(() => createContext(streaming, t), [streaming, t]);
+  function Block({ block, t }: { block: MarkdownBlock; t: TFunction }) {
+    const context = useMemo(() => createContext(t), [t]);
     return (
       <div className="md-block" data-anchor>
         {renderBlock(block, context)}
       </div>
     );
   },
-  (prev, next) =>
-    prev.streaming === next.streaming &&
-    prev.t === next.t &&
-    prev.block.src === next.block.src &&
-    prev.block.closed === next.block.closed,
+  (prev, next) => prev.t === next.t && prev.block.src === next.block.src && prev.block.closed === next.block.closed,
 );
 
 export function Markdown({ source, streaming = false }: { source: string; streaming?: boolean }) {
@@ -42,7 +36,7 @@ export function Markdown({ source, streaming = false }: { source: string; stream
   return (
     <div className="md" data-streaming={streaming || undefined}>
       {blocks.map((block, index) => (
-        <Block key={index} block={block} streaming={streaming} t={t} />
+        <Block key={index} block={block} t={t} />
       ))}
     </div>
   );

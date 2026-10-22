@@ -12,7 +12,6 @@ export const agents = {
   listLabel: "Subagent list",
   count: "{count}",
   empty: "No subagents yet. They appear here when the main agent spawns them.",
-  pick: "Pick a subagent in the list to see its details.",
   background: "background",
   statusPending: "Pending",
   statusRunning: "Running",

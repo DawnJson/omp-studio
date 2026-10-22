@@ -60,7 +60,7 @@ export function PreviewContent({ file, ext, name, source, scripts, zoom, isMarkd
       );
     case "image": {
       const dataUrl = file.dataUrl ?? "";
-      if (source) return <CodeBlock code={decodeDataUrl(dataUrl)} lang="xml" closed streaming />;
+      if (source) return <CodeBlock code={decodeDataUrl(dataUrl)} lang="xml" closed />;
       return (
         <div className="file-preview-image" data-fit={zoom === "fit" || undefined}>
           <img
@@ -74,7 +74,7 @@ export function PreviewContent({ file, ext, name, source, scripts, zoom, isMarkd
       );
     }
     case "html":
-      if (source) return <CodeBlock code={file.text ?? ""} lang="html" closed streaming />;
+      if (source) return <CodeBlock code={file.text ?? ""} lang="html" closed />;
       // 没有 allow-same-origin：页面拿不到应用的任何权限；脚本默认关，用户勾选后才放行。
       return (
         <iframe
@@ -93,7 +93,6 @@ export function PreviewContent({ file, ext, name, source, scripts, zoom, isMarkd
           </div>
         );
       }
-      // streaming 在这里只用来关掉代码块的"超过 24 行折叠"：文件源码要整段可读。
-      return <CodeBlock code={file.text ?? ""} lang={ext} closed streaming />;
+      return <CodeBlock code={file.text ?? ""} lang={ext} closed />;
   }
 }

@@ -281,26 +281,3 @@
 .md-diff-del {
   color: var(--diff-del-fg);
 }
-.md-codebody[data-collapsed] {
-  padding-bottom: var(--space-8);
-}
-.md-codeexpand {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: var(--space-10);
-  border: 0;
-  padding: 0;
-  background: linear-gradient(transparent, var(--bg-sunken) 70%);
-  color: var(--link);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-}
-.md-codeexpand:hover {
-  text-decoration: underline;
-}
-.md-codeexpand:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
-}

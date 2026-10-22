@@ -6,7 +6,7 @@ import { closeFilePreview } from "../file-preview/preview-store.ts";
 
 interface AgentsPanelState {
   taskId: TaskId;
-  /** 详情里看的子代理名；null = 只看列表。 */
+  /** 详情里看的子代理名；null = 没选过，看列表第一个（同 omp 的 Agent Hub）。 */
   selected: string | null;
 }
 
@@ -37,7 +37,7 @@ export function toggleAgentsPanel(taskId: TaskId): void {
   else openAgentsPanel(taskId);
 }
 
-export function selectAgent(name: string | null): void {
+export function selectAgent(name: string): void {
   const current = store.get();
   if (current === null || current.selected === name) return;
   store.set({ ...current, selected: name });

@@ -1,7 +1,7 @@
 // 子代理记录里的过程（agents 面板，spec 4.28）：一个工具一个块——头部一行（图标 + 工具名 + 目标 + 右侧数字，无底色无折叠箭头），
 // 结果直接摆在下面：Read / Glob = 文件胶囊，Grep = 按文件分组的命中行，Bash = 卡片，
 // Todo = 分组清单，Ask = 问题 + 全部选项，其余 = diff / 行号输出 / 纯文本（超过 12 行底部渐隐，可全部显示）。
-// 叙述（· 开头单行）、思考照旧。>200 行只渲染最后 100 条。
+// 叙述（助手在调工具前说的话）照 omp 全文显示；思考同 omp 默认折叠成一行。>200 行只渲染最后 100 条。
 import { createElement, memo, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
@@ -9,6 +9,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Check, ChevronRight, CopyIcon, Dots, FileIcon, Pencil, Search, Terminal, Users } from "../../icons.tsx";
 import { FileLink } from "../file-preview/index.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
+import { Markdown } from "../../markdown/index.ts";
 import { BashCard, type BashState } from "./BashCard.tsx";
 import { Clamp } from "./Clamp.tsx";
 import { FileChip } from "./FileChip.tsx";
@@ -243,13 +244,11 @@ function CopyButton({ text }: { text: string }) {
 /** 文件胶囊一排（Read / Glob）：一行的高度是 --row-tool，最多 3 行，超出渐隐。 */
 function FileChips({ taskId, paths }: { taskId: TaskId; paths: readonly string[] }) {
   return (
-    <Clamp lines={3} lineHeight="var(--row-tool)">
-      <div className="file-chips">
-        {paths.map((path) => (
-          <FileChip key={path} taskId={taskId} path={path} />
-        ))}
-      </div>
-    </Clamp>
+    <div className="file-chips">
+      {paths.map((path) => (
+        <FileChip key={path} taskId={taskId} path={path} />
+      ))}
+    </div>
   );
 }
 
@@ -379,34 +378,30 @@ const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId
   );
 });
 
-/** 思考默认折叠成一行"思考"（同 omp 的 Thinking），点开才看全文；叙述行显示第一行，点开看全文。 */
-function TextStepRow({ step }: { step: Extract<Step, { kind: "narration" | "thinking" }> }) {
+/** 思考默认折叠成一行"思考"（同 omp 的 Thinking），点开才看全文。 */
+function ThinkingRow({ text }: { text: string }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const thinking = step.kind === "thinking";
-  if (step.text.trim() === "") return null;
   return (
-    <div className="step-text" data-anchor data-kind={step.kind}>
+    <div className="step-text" data-anchor data-kind="thinking">
       <button type="button" className="step-row" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        {thinking ? (
-          <>
-            <span className="step-icon">
-              <ChevronRight size={12} className="step-chevron" data-open={open || undefined} />
-            </span>
-            <span className="step-label step-thinking">{t("process.thoughtShort")}</span>
-          </>
-        ) : (
-          <>
-            <span className="step-icon">·</span>
-            <span className="step-label" data-muted>
-              {step.text.split("\n")[0]}
-            </span>
-          </>
-        )}
+        <span className="step-icon">
+          <ChevronRight size={12} className="step-chevron" data-open={open || undefined} />
+        </span>
+        <span className="step-label step-thinking">{t("process.thoughtShort")}</span>
       </button>
       <Reveal open={open}>
-        <div className="step-full">{thinking ? step.text.trim() : step.text}</div>
+        <div className="step-full">{text.trim()}</div>
       </Reveal>
+    </div>
+  );
+}
+
+/** 叙述：全文 Markdown（omp 的助手文字从不折叠）。 */
+function NarrationRow({ text }: { text: string }) {
+  return (
+    <div className="step-text step-say" data-anchor data-kind="narration">
+      <Markdown source={text} streaming={false} />
     </div>
   );
 }
@@ -431,8 +426,10 @@ export function ProcessDetails({
       {trimmed.map((step) =>
         step.kind === "tool" ? (
           <ToolRow key={step.key} step={step} taskId={taskId} />
+        ) : step.text.trim() === "" ? null : step.kind === "thinking" ? (
+          <ThinkingRow key={step.key} text={step.text} />
         ) : (
-          <TextStepRow key={step.key} step={step} />
+          <NarrationRow key={step.key} text={step.text} />
         ),
       )}
     </div>

@@ -12,7 +12,6 @@ export const agents = {
   listLabel: "子代理列表",
   count: "{count} 个",
   empty: "还没有子代理。主代理派出子代理后，它们会出现在这里。",
-  pick: "在列表里选一个子代理查看详情。",
   background: "后台",
   statusPending: "等待中",
   statusRunning: "运行中",

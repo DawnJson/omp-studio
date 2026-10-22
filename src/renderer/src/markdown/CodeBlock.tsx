@@ -1,11 +1,8 @@
-// 代码块（spec 4.10）：头部语言名 + 复制；围栏闭合后才高亮（只改颜色）；>24 行在流式结束后折叠到 20 行。
+// 代码块（spec 4.10）：头部语言名 + 复制；围栏闭合后才高亮（只改颜色）；全文显示（omp 的 md 节点不限行数）。
 import { memo, useEffect, useState } from "react";
 import { useT } from "../i18n/use-t.ts";
 import { Check, CopyIcon } from "../icons.tsx";
 import { cachedHighlight, highlight, resolveLanguage, type HighlightToken } from "./highlight.ts";
-
-const COLLAPSE_OVER = 24;
-const COLLAPSED_LINES = 20;
 
 function useHighlighted(code: string, lang: string, enabled: boolean): HighlightToken[][] | null {
   const [tokens, setTokens] = useState<HighlightToken[][] | null>(() => (enabled ? cachedHighlight(code, lang) : null));
@@ -36,20 +33,14 @@ interface CodeBlockProps {
   code: string;
   lang: string;
   closed: boolean;
-  /** 整条消息是否已经流完；折叠要等它。 */
-  streaming: boolean;
 }
 
-export const CodeBlock = memo(function CodeBlock({ code, lang, closed, streaming }: CodeBlockProps) {
+export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlockProps) {
   const t = useT();
   const [copied, setCopied] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const tokens = useHighlighted(code, lang, closed);
-  const plainLines = code.split("\n");
+  const lines = code.split("\n");
   const isDiff = resolveLanguage(lang) === "diff";
-  const collapsible = !streaming && closed && plainLines.length > COLLAPSE_OVER;
-  const collapsed = collapsible && !expanded;
-  const shown = collapsed ? plainLines.slice(0, COLLAPSED_LINES) : plainLines;
 
   useEffect(() => {
     if (!copied) return;
@@ -75,9 +66,9 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed, streaming
           {copied ? t("common.copied") : ""}
         </span>
       </div>
-      <pre className="md-codebody" data-collapsed={collapsed || undefined}>
+      <pre className="md-codebody">
         <code>
-          {shown.map((line, index) => (
+          {lines.map((line, index) => (
             <span key={index} className={lineClass(line, isDiff)}>
               {tokens?.[index]
                 ? tokens[index].map((token, i) => (
@@ -98,11 +89,6 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed, streaming
           ))}
         </code>
       </pre>
-      {collapsed && (
-        <button type="button" className="md-codeexpand" onClick={() => setExpanded(true)}>
-          {t("code.expand", { n: plainLines.length })}
-        </button>
-      )}
     </div>
   );
 });

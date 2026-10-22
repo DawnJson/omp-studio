@@ -613,7 +613,8 @@ export function Checklist(props: NodeProps) {
   const { node, ctx } = props;
   const phases = readPhases(node.p.phases);
   const mode = node.p.mode === "hud" || node.p.mode === "reminder" ? node.p.mode : "full";
-  const [open, setOpen] = useState(false);
+  // reminder 按规范是"列出未完成条目的提示"：默认展开（omp 不给它 collapsed）；hud 的弹层默认收起。
+  const [open, setOpen] = useState(mode === "reminder");
   const all = phases.flatMap((phase) => phase.items);
   const done = all.filter(finished).length;
   // 刚变成 done 的条目带 fresh（勾选和删除线的入场动画只放一次）。

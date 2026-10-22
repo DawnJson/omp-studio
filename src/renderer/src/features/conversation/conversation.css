@@ -51,10 +51,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.step-label[data-muted] {
-  flex: 1;
-  max-width: none;
-  color: var(--text-3);
+/* 叙述：助手在调工具前说的话，全文（同 omp），和工具名同一列起头 */
+.step-say {
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-2);
 }
 /* 折叠的思考行：只写"思考"，和工具卡头部的工具名同一列 */
 .step-thinking {
@@ -390,7 +390,7 @@ html[data-motion="reduced"] .step-actions {
   font-variant-numeric: tabular-nums;
 }
 
-/* Bash 卡片：命令 / 输出（最后 8 行，最上一行渐隐）/ 状态脚。 */
+/* Bash 卡片：命令 / 输出（最后 10 行，最上一行渐隐）/ 状态脚。 */
 .bash-card {
   overflow: hidden;
   border: 1px solid var(--border-subtle);

@@ -1,12 +1,12 @@
-// Bash 卡片（Tern 的样子）：上 = 命令；中 = 输出只留最后 8 行，上面一行"N 行更早的输出"可展开；下 = 状态脚（完成 / 运行中 / 失败）。
+// Bash 卡片（Tern 的样子）：上 = 命令；中 = 输出只留最后 10 行（同 omp 的 bash 卡片），上面一行"N 行更早的输出"可展开；下 = 状态脚（完成 / 运行中 / 失败）。
 import { useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { Check, ChevronRight, Close } from "../../icons.tsx";
 import { Clamp } from "./Clamp.tsx";
 import { formatElapsed } from "./tool-view.ts";
 
-/** 折叠时输出只显示最后这么多行。 */
-const BASH_TAIL_LINES = 8;
+/** 折叠时输出只显示最后这么多行（omp 的 bash 卡片也是最后 10 行，`fixtures/tsp/approval.jsonl`）。 */
+const BASH_TAIL_LINES = 10;
 
 export type BashState =
   | { kind: "running" }

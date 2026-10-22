@@ -1,5 +1,5 @@
 // 子代理详情（列表下方，不再套一层卡片）：头行 = 名字 + 模型 + 结束 / 恢复；一排统计（数字在上、标签在下）；
-// 任务说明（Markdown，默认四行，可展开）；最终输出；对话记录（默认折叠）。状态在选中的那一行上，这里不重复。
+// 任务说明（Markdown 全文）；最终输出；对话记录（默认展开，同 omp Hub 详情里的 Recent activity）。状态在选中的那一行上，这里不重复。
 // 统计来自文档里的 `agent` 节点；最终输出（`.md`）和记录（会话文件）经 IPC 只读 omp 的存档。插话框在面板底部（AgentsPanel）。
 import { useMemo, useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
@@ -14,9 +14,6 @@ import { formatCost, formatTokens, shortModel } from "./format.ts";
 import { agentElapsed, agentProgress, canKill, canRevive, cleanTask } from "./agent-model.ts";
 import { killAgent, reviveAgent } from "./agents-actions.ts";
 import { useAgentRecord, type AgentRecordState } from "./use-agent-record.ts";
-
-/** 任务说明超过这么多字才折叠成四行、给"展开"：短的直接显示全文。 */
-const TASK_CLAMP_CHARS = 240;
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -67,29 +64,22 @@ function KillControl({ taskId, name, busy }: { taskId: TaskId; name: string; bus
   );
 }
 
-/** text：任务说明原文（带换行的 Markdown）；omp 没给原文时是压成一行、去掉 # 的说明。 */
+/** text：任务说明原文（带换行的 Markdown）；omp 没给原文时是压成一行、去掉 # 的说明。全文显示，同 omp 的 Hub。 */
 function TaskBlock({ text }: { text: string }) {
   const t = useT();
-  const [expanded, setExpanded] = useState(false);
-  const long = text.length > TASK_CLAMP_CHARS;
   return (
     <div className="agents-block">
       <h4>{t("agents.task")}</h4>
-      <div className="agents-task" data-clamped={long && !expanded ? "" : undefined}>
+      <div className="agents-task">
         <Markdown source={text} streaming={false} />
       </div>
-      {long && (
-        <button type="button" className="agents-link" onClick={() => setExpanded((value) => !value)}>
-          {t(expanded ? "common.collapse" : "common.expand")}
-        </button>
-      )}
     </div>
   );
 }
 
 function RecordSection({ taskId, state, live }: { taskId: TaskId; state: AgentRecordState; live: boolean }) {
   const t = useT();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const { record, loading, error, reload } = state;
   const messages = record?.messages ?? null;
   const turns = useMemo(() => (open && messages !== null ? buildTurns(messages, live) : []), [open, messages, live]);

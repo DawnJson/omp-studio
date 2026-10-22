@@ -1183,6 +1183,9 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     await expect(
       panel.locator('[data-testid="agents-row"][data-name="Alpha"]').getByTestId("agents-row-progress"),
     ).toHaveText("66%");
+    // 同 omp 的 Agent Hub:一打开就有选中项(列表第一个)和它的详情,对话记录默认展开。
+    await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Alpha");
+    await expect(panel.getByTestId("agents-record-toggle")).toHaveAttribute("aria-expanded", "true");
     await beta.click();
     await expect(panel.getByTestId("agents-detail")).toContainText("55%");
     await shoot(page, "agent-progress-panel");

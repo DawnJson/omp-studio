@@ -5,7 +5,7 @@
 ## 对话区（`features/tsp/`）
 
 - `TspView`：inline surface 的 `main` 在可滚动的对话区，`dock`（运行状态、提问 / 审批、排队）贴在下面、Composer 正上方，`layer` 是盖在整块上的浮层容器（选择器、弹窗）；screen surface（如 `/settings`）盖住整个过程区。
-- 用户消息、助手消息（`omp.assistant`，正文是 `md` 节点）、工具卡片、子代理卡片、待办、压缩分隔、用量脚注都是 omp 的节点，折叠 / 展开状态跟着节点的 `collapsed`（用户翻过之后以本地状态为准，见 `use-fold.ts`）。"结果优先、过程折叠"这类编排由 omp 的节点结构决定，studio 不再自己把对话流切成"轮"。
+- 用户消息、助手消息（`omp.assistant`，正文是 `md` 节点）、工具卡片、子代理卡片、待办、压缩分隔、用量脚注都是 omp 的节点，折叠 / 展开状态跟着节点的 `collapsed`（用户翻过之后以本地状态为准，见 `use-fold.ts`）。过程怎么展开 / 折叠由 omp 的节点决定，studio 不另外折叠，也不自己把对话流切成"轮"（2026-10-22 仓库所有者：没有"过程默认折叠"这条规则）。
 - 过程区里 studio 自己加的文字不汉化（所有者 2026-10-21，集中在 `features/tsp/labels.ts`）。
 - 文件链接（工具卡片上的路径、`file://` 的 `href`）点开在右侧预览（`openHref` → `openFilePreview`），Esc 关闭、焦点回到链接；e2e `test/e2e/file-preview.e2e.ts`。
 

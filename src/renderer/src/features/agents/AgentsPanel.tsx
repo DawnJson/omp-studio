@@ -35,7 +35,8 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
   const derived = useTspDerived(taskId, listAgents, sameAgents) ?? NO_AGENTS;
   const agents = useMemo(() => sortAgents(derived), [derived]);
   const drive = useTspDrive(taskId);
-  const current = agents.find((agent) => agent.name === selected) ?? null;
+  // 没选过就看列表第一个（同 omp 的 Agent Hub：打开时总有一个选中项、详情直接显示）。
+  const current = agents.find((agent) => agent.name === selected) ?? agents[0] ?? null;
 
   // 打开时把焦点放进面板：Esc 才关得掉它；关闭后由 store 还焦点。
   useLayoutEffect(() => {
@@ -135,17 +136,13 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
               <AgentRow
                 key={agent.name}
                 agent={agent}
-                selected={agent.name === selected}
-                onSelect={() => selectAgent(agent.name === selected ? null : agent.name)}
+                selected={agent === current}
+                onSelect={() => selectAgent(agent.name)}
               />
             ))}
           </ul>
         )}
-        {current !== null ? (
-          <AgentDetail key={current.name} taskId={taskId} agent={current} busy={drive !== null} />
-        ) : (
-          agents.length > 0 && <p className="agents-muted agents-pick">{t("agents.pick")}</p>
-        )}
+        {current !== null && <AgentDetail key={current.name} taskId={taskId} agent={current} busy={drive !== null} />}
       </div>
       {current !== null && canSteer(current.status) && (
         <SteerBox key={current.name} taskId={taskId} name={current.name} busy={drive !== null} />

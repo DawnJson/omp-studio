@@ -1,6 +1,6 @@
 # omp-studio
 
-[oh-my-pi](https://github.com/can1357/oh-my-pi)（`omp`）的桌面端，形态类似 Codex 桌面版和 Claude Code 桌面版：一个任务一段对话，结果和改动在前，过程默认折叠。目前只有 Windows 版，处于内测阶段（`0.x`）。
+[oh-my-pi](https://github.com/can1357/oh-my-pi)（`omp`）的桌面端，形态类似 Codex 桌面版和 Claude Code 桌面版：一个任务一段对话，过程按 omp 发来的样子显示（展开 / 折叠跟 omp 一致）。目前只有 Windows 版，处于内测阶段（`0.x`）。
 
 > omp-studio 是暂定名，和 omp 官方没有关系。
 
