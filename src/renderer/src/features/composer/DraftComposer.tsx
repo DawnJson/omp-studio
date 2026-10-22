@@ -33,7 +33,7 @@ import { useNewTaskDefault } from "./use-new-task-default.ts";
 import { clearFirstPrompt, setFirstPrompt } from "../tsp/first-prompt-store.ts";
 import "./composer.css";
 
-/** projectTools：工具行里紧跟审批胶囊的部分（空状态放项目按钮和工作树开关）。 */
+/** projectTools：工具行里紧跟审批胶囊的部分（空状态放项目标签）。 */
 export function DraftComposer({ projectId, projectTools }: { projectId: ProjectId | null; projectTools?: ReactNode }) {
   const t = useT();
   const terminalDraftKey = draftKey(projectId);

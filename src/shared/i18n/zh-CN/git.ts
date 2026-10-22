@@ -1,11 +1,12 @@
 import type { MessageEntry } from "../index.ts";
 
 export const git = {
-  // 输入框的 worktree 胶囊
-  "chip.label": "Worktree",
-  "chip.title": "在独立的 git worktree 里做这个任务：新分支 studio/…，不动主目录里的文件",
-  "chip.setup": "创建时会运行 {script}",
-  "chip.blocked": "不能用 worktree：{reason}",
+  // 新任务草稿的顶栏分支胶囊（项目是 git 仓库时）
+  "draft.worktree": "在独立 worktree 里开始",
+  "draft.title": "在独立的 git worktree 里做这个任务：新分支 studio/…，不动主目录里的文件",
+  "draft.on": "新 worktree",
+  "draft.setup": "创建时会运行 {script}",
+  "draft.blocked": "不能用 worktree：{reason}",
   "setup.title": "运行这个项目的 setup 脚本？",
   "setup.body":
     "{script} 来自这个项目的仓库，会在新的 worktree 里运行，拥有和你一样的权限。只运行你信任的脚本。脚本内容改变后会再问一次。",

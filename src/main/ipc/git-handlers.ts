@@ -11,7 +11,7 @@ import {
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { getChangeStats } from "../git/numstat.ts";
 import { commit, createPullRequest, push } from "../git/remote.ts";
-import { requireRepoRoot } from "../git/repo.ts";
+import { currentBranch, requireRepoRoot } from "../git/repo.ts";
 import {
   checkRepoPath,
   discardFile,
@@ -85,7 +85,7 @@ export const gitHandlers: HandlerGroup<
   | "unstageGitHunk"
   | "discardGitHunk"
   | "sendReviewComments"
-  | "canUseWorktree"
+  | "getDraftGit"
   | "getWorktreeSetupScript"
   | "approveWorktreeSetup"
   | "getTaskWorktree"
@@ -167,12 +167,13 @@ export const gitHandlers: HandlerGroup<
     });
   },
 
-  canUseWorktree: async (projectId) => {
+  getDraftGit: async (projectId) => {
     const pool = await getTaskPool();
     const id = parseProjectId(projectId);
     const project = pool.listProjects().find((candidate) => candidate.id === id);
     if (!project) throw new Error(`unknown project ${id}`);
-    return isRepoRootProject(project.path);
+    if (!(await isRepoRootProject(project.path))) return null;
+    return { branch: await currentBranch(project.path) };
   },
 
   getWorktreeSetupScript: async (projectId) => {

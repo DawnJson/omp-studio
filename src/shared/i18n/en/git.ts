@@ -2,10 +2,11 @@ import type { MessageEntry } from "../index.ts";
 import type { git as zhCN } from "../zh-CN/git.ts";
 
 export const git = {
-  "chip.label": "Worktree",
-  "chip.title": "Do this task in its own git worktree: a new studio/… branch, your main folder stays untouched",
-  "chip.setup": "Will run {script} on creation",
-  "chip.blocked": "Worktree unavailable: {reason}",
+  "draft.worktree": "Start in a separate worktree",
+  "draft.title": "Do this task in its own git worktree: a new studio/… branch, your main folder stays untouched",
+  "draft.on": "new worktree",
+  "draft.setup": "Will run {script} on creation",
+  "draft.blocked": "Worktree unavailable: {reason}",
   "setup.title": "Run this project's setup script?",
   "setup.body":
     "{script} comes from this project's repository. It will run in the new worktree with your permissions. Only run scripts you trust. You will be asked again if the script changes.",

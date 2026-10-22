@@ -1,10 +1,9 @@
 // 没选任务时的主区（spec §4.7）：贴底的草稿输入框；上方居中只有 omp 式的像素标志，升级后第一次启动时标志下面有"最近更新"。
-// 项目标签（只显示，不能点）和工作树开关在输入框工具行里审批胶囊的右边。没选项目就是默认文件夹（AppInfo.chatsDir，
+// 项目标签在输入框工具行里审批胶囊的右边（是 git 仓库时，顶栏另有分支胶囊，可勾选在 worktree 里开始）。没选项目就是默认文件夹（AppInfo.chatsDir，
 // 发送时才建目录、加项目）；换项目走侧栏：项目旁的 ＋、"打开文件夹"，或拖入文件夹。最近的任务和历史会话只在侧栏。
 import { useEffect } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { DraftComposer } from "../composer/index.ts";
-import { WorktreeChip } from "../git/index.ts";
 import { refreshProjects, useProjectsState } from "../sidebar/projects-store.ts";
 import { describeError } from "../../ui/errors.ts";
 import { useAppInfo } from "../../store/index.ts";
@@ -50,15 +49,7 @@ export function EmptyState() {
         <StudioHeader>{whatsNew !== null && <WhatsNew summary={whatsNew} />}</StudioHeader>
       </div>
       <div className="empty-draft" data-testid="empty-draft">
-        <DraftComposer
-          projectId={project?.id ?? null}
-          projectTools={
-            <>
-              <ProjectLabel project={project} />
-              {project !== null && <WorktreeChip projectId={project.id} />}
-            </>
-          }
-        />
+        <DraftComposer projectId={project?.id ?? null} projectTools={<ProjectLabel project={project} />} />
       </div>
     </div>
   );

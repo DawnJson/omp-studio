@@ -18,6 +18,7 @@ import type {
   TokenUsage,
 } from "./omp-wire/rpc-wire.generated.ts";
 import type {
+  DraftGitInfo,
   GitCommitResult,
   GitChangeStat,
   GitDiffArea,
@@ -1152,8 +1153,8 @@ export interface StudioInvokeApi {
   discardGitHunk(taskId: TaskId, path: string, hunk: GitHunkRef): Promise<void>;
   /** 校验每条评论的文件路径在任务目录内，格式化成一条消息（formatReviewComments）并作为 prompt 发出。 */
   sendReviewComments(taskId: TaskId, comments: ReviewComment[], whenBusy: PromptInput["whenBusy"]): Promise<void>;
-  /** 项目目录能不能开 worktree 任务：git 可用且目录正好是仓库根。不是的话界面不显示"工作树"开关。 */
-  canUseWorktree(projectId: ProjectId): Promise<boolean>;
+  /** 草稿项目能不能开 worktree 任务（git 可用且目录正好是仓库根）及当前分支；不能为 null，顶栏就不显示草稿的分支胶囊。 */
+  getDraftGit(projectId: ProjectId): Promise<DraftGitInfo | null>;
   /** 项目仓库里的 setup 脚本（name 相对仓库根，如 `.omp-studio/setup.ps1`）及内容哈希；没有为 null。新建 worktree 任务时会运行它：只运行用户确认过这份内容（approved）的，界面先用 approveWorktreeSetup 征得同意。 */
   getWorktreeSetupScript(projectId: ProjectId): Promise<WorktreeSetupInfo | null>;
   /** 记下用户同意运行这个项目的这份 setup 脚本；sha256 必须是用户看到的那份，脚本此后变了就 reject（重新确认）。 */
@@ -1393,7 +1394,7 @@ export const invokeNames = {
   unstageGitHunk: true,
   discardGitHunk: true,
   sendReviewComments: true,
-  canUseWorktree: true,
+  getDraftGit: true,
   getWorktreeSetupScript: true,
   approveWorktreeSetup: true,
   getTaskWorktree: true,

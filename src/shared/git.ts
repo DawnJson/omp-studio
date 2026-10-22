@@ -169,6 +169,11 @@ export interface WorktreeSetupInfo {
   approved: boolean;
 }
 
+/** 草稿项目的 git 情况（顶栏分支胶囊）：只有项目目录正好是仓库根（能开 worktree）时才有；branch 是当前分支，detached HEAD 为 null。 */
+export interface DraftGitInfo {
+  branch: string | null;
+}
+
 export interface TaskWorktreeInfo {
   branch: string;
   baseBranch: string;

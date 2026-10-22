@@ -106,8 +106,14 @@ async function openGitMenu(page: Page, item: RegExp): Promise<void> {
   await page.getByRole("menuitem", { name: item }).click();
 }
 
+/** 草稿顶栏分支胶囊的菜单里勾上 / 取消"在独立 worktree 里开始"（点了菜单就收回）。 */
+async function toggleDraftWorktree(page: Page): Promise<void> {
+  await page.getByTestId("draft-git-menu").click();
+  await page.getByRole("menuitemcheckbox", { name: /在独立 worktree 里开始/ }).click();
+}
+
 /**
- * 在草稿里发第一条消息；withWorktree 时先打开工作树胶囊。setup 给了就处理项目 setup 脚本的确认对话框。返回新任务的 id。
+ * 在草稿里发第一条消息；withWorktree 时先在顶栏分支胶囊里勾上 worktree。setup 给了就处理项目 setup 脚本的确认对话框。返回新任务的 id。
  */
 async function createTaskFromDraft(
   page: Page,
@@ -116,9 +122,8 @@ async function createTaskFromDraft(
   setup?: "confirm",
 ): Promise<string> {
   if (withWorktree) {
-    const chip = page.getByTestId("worktree-chip");
-    await chip.click();
-    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    await toggleDraftWorktree(page);
+    await expect(page.getByTestId("draft-git-menu")).toHaveAttribute("data-worktree", "true");
   }
   await page.getByTestId("composer-input").fill(text);
   await page.keyboard.press("Enter");
@@ -149,14 +154,25 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
   });
   const { page } = session;
   try {
-    // ── 胶囊：默认关；打开后写明会运行 setup 脚本
-    const chip = page.getByTestId("worktree-chip");
-    await expect(chip).toHaveAttribute("aria-pressed", "false");
+    // ── 草稿顶栏的分支胶囊：显示项目当前分支，默认在主目录里做；菜单里勾上后胶囊写明"→ 新 worktree"，
+    //    勾选项和悬停提示写明会运行 setup 脚本。输入框工具行里不再有 worktree 开关。
+    const chip = page.getByTestId("draft-git-menu");
+    await expect(page.getByTestId("draft-git-branch")).toHaveText("main");
+    await expect(page.getByTestId("draft-git-worktree")).toHaveCount(0);
+    await expect(page.getByTestId("draft-composer").getByText("Worktree")).toHaveCount(0);
     await chip.click();
-    await expect(chip).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByTestId("worktree-setup-note")).toContainText("setup");
+    const item = page.getByRole("menuitemcheckbox", { name: /在独立 worktree 里开始/ });
+    await expect(item).toHaveAttribute("aria-checked", "false");
     await expect(chip).toHaveAttribute("title", /\.omp-studio\/setup\.(ps1|sh)/);
-    await shoot(page, "composer-chip");
+    await item.click();
+    await expect(page.getByTestId("draft-git-worktree")).toHaveText("→ 新 worktree");
+    await expect(chip).toHaveAttribute("data-worktree", "true");
+    await chip.click();
+    await expect(item).toHaveAttribute("aria-checked", "true");
+    await shoot(page, "draft-chip");
+    await expect(item).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(item).toHaveCount(0);
 
     // ── 首次用 setup 脚本：先问；取消 = 不建 worktree、草稿保留、脚本没运行
     await page.getByTestId("composer-input").fill("在工作树里干活");
@@ -171,7 +187,7 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await expect(page.getByTestId("composer-input")).toHaveValue("在工作树里干活");
     await expect(page.getByTestId("task-row")).toHaveCount(0);
     expect(findStudioWorktree(repo)).toBeNull();
-    await chip.click();
+    await toggleDraftWorktree(page);
 
     // ── 创建：任务 cwd = worktree
     const taskId = await createTaskFromDraft(page, "在工作树里干活", true, "confirm");
@@ -347,7 +363,7 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
   const { page, launched } = session;
   try {
     await expect(page.getByTestId("empty-project")).toBeVisible();
-    await expect(page.getByTestId("worktree-chip")).toHaveCount(0);
+    await expect(page.getByTestId("draft-git-menu")).toHaveCount(0);
     await page.getByTestId("composer-input").fill("普通目录里的任务");
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("tsp-view")).toBeVisible();
@@ -362,7 +378,7 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
     }, repo);
     await page.getByTestId("sidebar-open-folder").click();
-    await expect(page.getByTestId("worktree-chip")).toBeVisible();
+    await expect(page.getByTestId("draft-git-menu")).toBeVisible();
     await page.getByTestId("composer-input").fill("仓库里的任务");
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("git-menu")).toBeVisible();
@@ -405,7 +421,7 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
   }
 });
 
-test("仓库还没有提交：胶囊在，创建被拒绝后胶囊禁用并写明原因，草稿保留；之后可以正常发送", async () => {
+test("仓库还没有提交：顶栏胶囊在，创建被拒绝后 worktree 勾选项禁用并写明原因，草稿保留；之后可以正常发送", async () => {
   const session = await start(async (work) => {
     const dir = path.join(work, "空 仓库");
     await mkdir(dir);
@@ -414,19 +430,28 @@ test("仓库还没有提交：胶囊在，创建被拒绝后胶囊禁用并写�
   });
   const { page } = session;
   try {
-    const chip = page.getByTestId("worktree-chip");
-    await chip.click();
+    const chip = page.getByTestId("draft-git-menu");
+    await toggleDraftWorktree(page);
     await page.getByTestId("composer-input").fill("不能用工作树");
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("toasts")).toContainText("还没有任何提交");
-    await expect(chip).toHaveAttribute("aria-disabled", "true");
-    await expect(chip).toHaveAttribute("aria-pressed", "false");
+    await expect(page.getByTestId("draft-git-worktree")).toHaveCount(0);
     await expect(chip).toHaveAttribute("title", /不能用 worktree：.*还没有任何提交/);
+    await chip.click();
+    const item = page.getByRole("menuitemcheckbox", { name: /在独立 worktree 里开始/ });
+    await expect(item).toHaveAttribute("aria-disabled", "true");
+    await expect(item).toHaveAttribute("aria-checked", "false");
+    await expect(item).toHaveAttribute("title", /不能用 worktree：.*还没有任何提交/);
+    await shoot(page, "chip-blocked");
+    await expect(item).toBeVisible();
+    // Esc 收回菜单，焦点回到胶囊；回输入框再发。
+    await page.keyboard.press("Escape");
+    await expect(item).toHaveCount(0);
+    await expect(page.getByTestId("draft-git-menu")).toBeFocused();
     await expect(page.getByTestId("composer-input")).toHaveValue("不能用工作树");
     await expect(page.getByTestId("task-row")).toHaveCount(0);
-    await shoot(page, "chip-blocked");
 
-    await page.keyboard.press("Enter");
+    await page.getByTestId("composer-input").press("Enter");
     await expect(page.getByTestId("tsp-view")).toBeVisible();
     await expect(page.getByTestId("task-row-worktree")).toHaveCount(0);
   } finally {
@@ -472,8 +497,7 @@ test("setup 脚本确认：同意后记住，同一份内容不再问；改了�
 
     // 同一份内容：第二个任务不再问（项目分组旁的 ＋ 在这个仓库里开新任务；侧栏"新任务"是默认文件夹）
     await page.getByTestId("sidebar-project-new").first().click();
-    const chip = page.getByTestId("worktree-chip");
-    await chip.click();
+    await toggleDraftWorktree(page);
     await page.getByTestId("composer-input").fill("第二个");
     await page.keyboard.press("Enter");
     await expandSidebarFolders(page);
@@ -483,7 +507,7 @@ test("setup 脚本确认：同意后记住，同一份内容不再问；改了�
     // 改了脚本：再问；取消则不建
     await writeFile(path.join(repo, ".omp-studio", scriptName), scriptBody("v2"), "utf8");
     await page.getByTestId("sidebar-project-new").first().click();
-    await page.getByTestId("worktree-chip").click();
+    await toggleDraftWorktree(page);
     await page.getByTestId("composer-input").fill("第三个");
     await page.keyboard.press("Enter");
     await expect(dialog).toBeVisible();

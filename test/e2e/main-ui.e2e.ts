@@ -152,14 +152,14 @@ test("空状态、对话里的用量；截图", async () => {
     const { page } = launched;
     // 新任务草稿：还没有会话，发送键左边是上下文圆环和 $0.00。STUDIO_TEST_OMP 的假 omp 不回答模型目录，
     // 草稿拿不到默认模型的窗口，所以这里是不能点的占位圆环（有数据时的 0% 圆环见 model-chip.e2e.ts）。
-    // 项目不是 git 仓库：输入框下面只有项目按钮，没有工作树开关。
+    // 项目不是 git 仓库：输入框下面只有项目标签，顶栏没有草稿的分支胶囊。
     const draft = page.getByTestId("draft-composer");
     await expect(draft.getByTestId("context-meter-pending")).toHaveCount(1);
     await expect(draft.getByTestId("context-meter")).toHaveCount(0);
     await expect(draft.getByTestId("usage-cost")).toHaveText("$0.00");
     await expect(page.getByTestId("model-chip").locator("svg")).toHaveCount(0);
     await expect(draft.getByTestId("empty-project")).toBeVisible();
-    await expect(page.getByTestId("worktree-chip")).toHaveCount(0);
+    await expect(page.getByTestId("draft-git-menu")).toHaveCount(0);
     await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
 
     // 工具行里不再有本会话 token 图标：模型胶囊之后，发送键左边依次是上下文圆环

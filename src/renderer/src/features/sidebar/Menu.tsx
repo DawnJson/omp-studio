@@ -1,5 +1,6 @@
 // 轻量弹出菜单（任务行和项目头的右键 / … 菜单）：固定定位、方向键移动、Esc 关闭并把焦点还给触发它的元素。
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Check } from "../../icons.tsx";
 import { usePresence } from "../../ui/presence.ts";
 
 export interface MenuItem {
@@ -9,6 +10,8 @@ export interface MenuItem {
   shortcut?: string;
   /** 有值表示这一项现在不能用（灰显，不执行），值是悬停提示里的原因。 */
   disabledReason?: string;
+  /** 给了就是勾选项（menuitemcheckbox），选中时右侧画勾。 */
+  checked?: boolean;
   onSelect(): void;
 }
 
@@ -55,7 +58,7 @@ export function Menu({
   }, [anchor.x, anchor.y]);
 
   useEffect(() => {
-    ref.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
+    ref.current?.querySelector<HTMLElement>('[role^="menuitem"]')?.focus();
   }, []);
 
   useEffect(() => {
@@ -79,7 +82,7 @@ export function Menu({
   };
 
   const onKeyDown = (event: React.KeyboardEvent) => {
-    const buttons = [...(ref.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? [])];
+    const buttons = [...(ref.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [])];
     const at = buttons.indexOf(document.activeElement as HTMLElement);
     const move = (to: number) => {
       event.preventDefault();
@@ -113,7 +116,8 @@ export function Menu({
         <button
           key={item.id}
           type="button"
-          role="menuitem"
+          role={item.checked === undefined ? "menuitem" : "menuitemcheckbox"}
+          aria-checked={item.checked}
           className="sb-menu-item"
           aria-disabled={item.disabledReason !== undefined || undefined}
           title={item.disabledReason}
@@ -127,6 +131,7 @@ export function Menu({
         >
           <span>{item.label}</span>
           {item.shortcut !== undefined && <kbd className="kbd">{item.shortcut}</kbd>}
+          {item.checked === true && <Check size={14} />}
         </button>
       ))}
     </div>

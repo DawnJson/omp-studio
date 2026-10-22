@@ -29,7 +29,7 @@ async function requireRepoRootProject(projectPath: string): Promise<string> {
   return repo.root;
 }
 
-/** 项目目录能不能开 worktree 任务（git 可用、目录正好是仓库根）。界面据此决定显不显示"工作树"开关；没提交、detached 等仍在创建时拒绝。 */
+/** 项目目录能不能开 worktree 任务（git 可用、目录正好是仓库根）。界面据此决定新任务草稿的顶栏显不显示分支胶囊；没提交、detached 等仍在创建时拒绝。 */
 export async function isRepoRootProject(projectPath: string): Promise<boolean> {
   try {
     await requireRepoRootProject(projectPath);

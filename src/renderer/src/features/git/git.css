@@ -1,25 +1,4 @@
-/* worktree / git：输入框的工作树胶囊、任务条的分支胶囊、git 对话框。只用设计 token。 */
-
-.chip[data-on] {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-.chip[aria-disabled="true"] {
-  color: var(--text-disabled);
-  cursor: default;
-}
-.chip[aria-disabled="true"]:hover {
-  background: var(--bg-hover);
-}
-/* 工具行放不下时由文件夹标签和模型名省略，工作树开关保持原宽，不被挤没。 */
-.worktree-chip {
-  flex: none;
-}
-.chip-note {
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-  white-space: nowrap;
-}
+/* worktree / git：任务条的分支胶囊（任务的、新任务草稿的）、git 对话框。只用设计 token。 */
 
 /* 菜单打开时盖住整个窗口：顶栏空白处是拖动区，点击收不到 pointerdown，菜单就收不回；scrim 是 no-drag，点哪里都会让菜单关闭（分支按钮也在它下面，所以再点按钮 = 收回）。 */
 .git-menu-scrim {
@@ -82,6 +61,14 @@
   color: var(--text-3);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
+}
+/* 草稿勾选了"在独立 worktree 里开始"：分支名后面的"→ 新 worktree" */
+.topbar-branch-worktree {
+  flex: none;
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
 }
 /* 窄窗口：分支名收进悬停提示，只留图标和领先数 */
 @media (max-width: 999px) {
