@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyMessage, createDocument } from "../src/shared/tsp/document.ts";
+import { applyMessage, createDocument, nodeRole } from "../src/shared/tsp/document.ts";
 import {
   GATE_ACTION_APPROVE,
   GATE_ACTION_DENY,
@@ -7,6 +7,7 @@ import {
   findGateButton,
   findMessageTarget,
   hasLiveScreen,
+  isApprovalDuplicateButton,
   type TspMessageTarget,
 } from "../src/shared/tsp/gate.ts";
 import { deriveTaskStatus } from "../src/shared/tsp/task-status.ts";
@@ -70,6 +71,29 @@ describe("approval.jsonl：审批期间输入框还在，发消息 = 拒绝并�
 
   it("没有全屏面板", () => {
     expect(steps.every((step) => !step.screen)).toBe(true);
+  });
+
+  it("不画的只有底栏的 Deny / Approve：Details、选项、提问对话框和旁路提问的按钮都照画", () => {
+    const hidden = (name: string) => {
+      const doc = createDocument();
+      const ids = new Set<string>();
+      const buttons = new Set<string>();
+      for (const { message } of tspDocMessages(loadTspFixture(name))) {
+        applyMessage(doc, message);
+        for (const sf of doc.live)
+          for (const node of doc.surfaces.get(sf)!.nodes.values()) {
+            if (nodeRole(node) === "omp.btn") buttons.add(node.id);
+            if (isApprovalDuplicateButton(node)) ids.add(node.id);
+          }
+      }
+      return { hidden: [...ids].sort(), buttons: buttons.size };
+    };
+    expect(hidden("approval").hidden).toEqual(["t.actions/approve", "t.actions/deny"]);
+    for (const name of ["ask", "ask-multi", "btw"]) {
+      const result = hidden(name);
+      expect(result.buttons).toBeGreaterThan(0);
+      expect(result.hidden).toEqual([]);
+    }
   });
 });
 

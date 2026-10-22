@@ -11,7 +11,7 @@
 //   Hub 里 `activate` 一个子代理进入聚焦模式后，同一个编辑器的 `send` 就是 steer 那个子代理（实测），所以聚焦模式照常能发。
 // role 和 action 名是 omp 自己的，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
 import { isRecord } from "../type-guards.ts";
-import { findNode, nodeRole, type TspDocument } from "./document.ts";
+import { findNode, nodeRole, type DocNode, type TspDocument } from "./document.ts";
 import { deriveTaskStatus } from "./task-status.ts";
 
 /** 主进程为"在等用户"合成的门（TaskState.dialogs）的 id：审批和提问分开，输入框按它区分。 */
@@ -22,6 +22,16 @@ export const TSP_APPROVAL_DIALOG_ID = "tsp-approval";
 export const GATE_ACTION_DETAILS = "expand";
 export const GATE_ACTION_DENY = "deny";
 export const GATE_ACTION_APPROVE = "approve";
+
+/**
+ * 审批卡底栏的 Deny / Approve 按钮和上面选项列表里的 Approve / Deny 是同一件事，studio 不画这两个按钮（2026-10-22 仓库所有者：
+ * "右下角怎么是单独的"）；Details 照画（放到标题那一行）。节点仍在文档里，Ctrl+Enter 批准照样找得到它（findGateButton）。
+ */
+export function isApprovalDuplicateButton(node: DocNode): boolean {
+  if (nodeRole(node) !== BUTTON_ROLE || !isRecord(node.p.actions)) return false;
+  const click = node.p.actions.click;
+  return click === GATE_ACTION_APPROVE || click === GATE_ACTION_DENY;
+}
 
 /**
  * 面板开着时往 omp 发消息的 reject 消息（IPC 只带得过 message，渲染进程按 `screen_open` 识别后给文案）。

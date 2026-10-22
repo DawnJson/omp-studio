@@ -197,28 +197,36 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
   }
 });
 
-test("审批:omp 的审批门出现时任务是等你确认;点批准发出门上的 action,命令接着跑完", async () => {
+test("审批:omp 的审批门出现时任务是等你确认;底栏只剩 Details 且在标题那一行,Deny / Approve 不画;Ctrl+Enter 发出门上的批准 action,命令接着跑完", async () => {
   test.setTimeout(90_000);
   const { launched, received, cleanup } = await start("approval");
   try {
     const { page } = launched;
     await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
-    const approve = page.locator('[data-testid="tsp-view"] [data-id="t.actions/approve"]');
-    await expect(approve).toBeVisible({ timeout: 30_000 });
+    const gate = role(page, "omp.editor.ask.approval");
+    await expect(gate).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "needs_you");
     await expect(page.getByTestId("gate-slot")).toHaveCount(0);
-    await expect(role(page, "omp.editor.ask.approval")).toBeVisible();
     await expect(role(page, "omp.editor")).toHaveCount(0);
+    // 和选项列表重复的 Deny / Approve 按钮不画；Details 和标题在同一行（不再单独吊在卡片右下角）。
+    await expect(gate.locator('[data-id="t.actions/approve"], [data-id="t.actions/deny"]')).toHaveCount(0);
+    await expect(gate.locator('[data-role="omp.approval.choice"]')).toHaveCount(3);
+    const title = await gate.locator('[data-role="omp.approval.title"]').boundingBox();
+    const details = await gate.locator('[data-id="t.actions/expand"]').boundingBox();
+    expect(title && details).toBeTruthy();
+    expect(Math.abs(title!.y + title!.height / 2 - (details!.y + details!.height / 2))).toBeLessThan(2);
+    expect(details!.x).toBeGreaterThan(title!.x + title!.width);
     await shoot(page, "gate");
-    // 输入框写的字 Enter 发出去 = omp 的"拒绝并说明理由"：send 事件发到 omp 还在的输入框（假 omp 不会因多出的事件失败）。
-    await expect(page.getByTestId("composer-input")).toHaveAttribute("placeholder", /拒绝|Deny/);
-    await page.getByTestId("composer-input").fill("先别跑这个");
-    await page.getByTestId("composer-input").press("Enter");
+    // 输入框写的字 Enter 发出去 = omp 的"拒绝并说明理由":send 事件发到 omp 还在的输入框(假 omp 不会因多出的事件失败)。
+    const input = page.getByTestId("composer-input");
+    await expect(input).toHaveAttribute("placeholder", /Ctrl\+Enter/);
+    await input.fill("先别跑这个");
+    await input.press("Enter");
     await expect
       .poll(async () => (await received()).filter((event) => event["ev"] === "send" && event["text"] === "先别跑这个"))
       .toEqual([expect.objectContaining({ ev: "send", id: "j.line/input" })]);
-    await approve.click();
-    await expect(approve).toHaveCount(0, { timeout: 30_000 });
+    await input.press("Control+Enter");
+    await expect(gate).toHaveCount(0, { timeout: 30_000 });
     await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
     expect((await received()).filter((event) => event["ev"] === "action")).toEqual([
       expect.objectContaining({ ev: "action", id: "t.actions/approve", act: "approve" }),
@@ -235,7 +243,7 @@ test("审批门出现时焦点不从输入框被抢走：在输入框里打字�
     const { page } = launched;
     const input = page.getByTestId("composer-input");
     await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
-    const approve = page.locator('[data-testid="tsp-view"] [data-id="t.actions/approve"]');
+    const approve = role(page, "omp.editor.ask.approval");
     // 门还没到：焦点在输入框，正在打字。
     await expect(approve).toHaveCount(0);
     await page.keyboard.type("先别跑");
@@ -511,9 +519,9 @@ test("过程卡片:diff 的上下文行和增删行一样是一行(行号在左�
   try {
     const { page } = launched;
     await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
-    const approve = page.locator('[data-testid="tsp-view"] [data-id="t.actions/approve"]');
-    await expect(approve).toBeVisible({ timeout: 30_000 });
-    await approve.click();
+    const gate = role(page, "omp.editor.ask.approval");
+    await expect(gate).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("composer-input").press("Control+Enter");
     const edit = role(page, "omp.tool.edit");
     await expect(edit).toBeVisible({ timeout: 30_000 });
     // 上下文行(第 8 行是长段落):行号和文字同一行开始,文字不掉到行号下面。

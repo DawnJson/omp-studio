@@ -6,7 +6,7 @@ export const composer = {
   placeholder: "Reply…",
   placeholderRunning: "Tell omp what to change (Enter to steer, Ctrl+Enter for later)…",
   placeholderRunningSwapped: "Tell omp what to change (Enter for later, Ctrl+Enter to steer)…",
-  placeholderGate: "Deny and tell omp what to do instead…",
+  placeholderGate: "Deny and tell omp what to do instead (Ctrl+Enter to approve)…",
   placeholderAsk: "Answer omp’s question above first…",
   placeholderScreen: "An omp panel (such as the Agent Hub) is open. Press Esc to close it before sending…",
   screenOpenNote: "Panel open: Esc to close first",

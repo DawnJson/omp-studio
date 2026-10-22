@@ -121,3 +121,14 @@
 | F5 `ESC [15~` / ⌥R `ESC r` | toast `Nothing to retry`(没有失败的回合;有错误卡时才真的重试) |
 
 结论:这些键的编码 omp 都认,studio 之前只是没写。转发规则见 `src/shared/tsp/forward-keys.ts`(白名单 = 上表里 studio 没占用的键 + 文档里 `kbd` 节点的键,studio 自己的键优先)。
+
+## 18. 审批卡的选项列表：点一下就提交（实测 omp 18.12.6，2026-10-22，`deepseek/deepseek-v4-flash`，临时 agent 目录，`tools.approvalMode=always-ask`）
+
+背景：studio 不再画审批卡底栏的 Deny / Approve 按钮（和选项列表重复，spec §4.17），鼠标批准 / 拒绝只剩点选项，所以实测选项列表的事件。门的结构固定：list `<G>.choices`，item `<G>.choices/once|session|deny`（`<G>` 每次不同）。
+
+- `{ev:"activate", sf, id:"<G>.choices", item:"<G>.choices/once"}`：门消失，工具卡 `done`，命令执行。
+- 同上 item `deny`：门消失，工具卡 `error`，输出 `Tool call denied by user: bash`，命令没跑。
+- 同上 item `session`：命令执行，同一进程里第二次 bash 不再出门。
+- **`select` 本身就提交**：只发 `select` 不跟 `activate`，结果和 activate 那一项一样（deny 两次、once、session 各验证过）；没观察到"只高亮不提交"的中间状态（轮询 0.3 秒）。`select` 和 `activate` 背靠背发，结果只算一次。
+- 所以 `List.tsx` 点未选中项发 `select`、点已选中项发 `activate`，在审批卡里都是单击即提交该项，和 omp 自己的按钮一样没有二次确认。
+

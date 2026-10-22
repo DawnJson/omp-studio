@@ -5,7 +5,7 @@ export const composer = {
   placeholder: "回复…",
   placeholderRunning: "告诉 omp 要改什么（Enter 插话，Ctrl+Enter 稍后）…",
   placeholderRunningSwapped: "告诉 omp 要改什么（Enter 稍后，Ctrl+Enter 插话）…",
-  placeholderGate: "拒绝并告诉 omp 该怎么做…",
+  placeholderGate: "拒绝并告诉 omp 该怎么做（Ctrl+Enter 批准）…",
   placeholderAsk: "先在上面回答 omp 的提问…",
   placeholderScreen: "omp 的面板（如 Agent Hub）开着，按 Esc 关掉后再发送…",
   screenOpenNote: "面板开着，Esc 关掉后再发送",

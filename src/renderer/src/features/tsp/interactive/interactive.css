@@ -1704,7 +1704,27 @@
   box-shadow: inset 0 0 0 1px var(--accent);
   color: var(--accent);
 }
-/* 审批卡的 Deny（tone error） */
+/* tone error 的按钮（Stop 等） */
 .tspi-ask-btn[data-tone="error"] {
   color: var(--st-error);
+}
+
+/* ───────────────────────── 审批卡（omp.editor.ask.approval） ───────────────────────── */
+/* omp 的顺序是 标题 / 命令 / 选项 / 底栏（Details、Deny、Approve）。Deny / Approve 和选项重复，不画（gate.ts
+   isApprovalDuplicateButton）；只剩 Details 的底栏挪到标题那一行的右端，不再单独吊在卡片右下角。 */
+.tsp-col[data-role="omp.editor.ask.approval"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.tsp-col[data-role="omp.editor.ask.approval"] > * {
+  grid-column: 1 / -1;
+}
+.tsp-col[data-role="omp.editor.ask.approval"] > [data-role="omp.approval.title"] {
+  grid-row: 1;
+  grid-column: 1;
+}
+.tsp-col[data-role="omp.editor.ask.approval"] > [data-role="omp.actions"] {
+  grid-row: 1;
+  grid-column: 2;
 }
