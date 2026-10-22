@@ -105,12 +105,12 @@ export function SettingsView({ compactNav }: { compactNav: boolean }) {
     <div ref={root} className="settings" tabIndex={-1} onKeyDown={onSettingsKeyDown} data-testid="settings">
       <div className="settings-scroll-host">
         <div ref={scroller} className="settings-scroll">
-          <div className="settings-content" data-wide={!searching && section === "advanced" ? "" : undefined}>
+          <div className="settings-content">
             {compactNav && <SettingsCompactNav />}
             <div className="st-page-head">
-              <h2 ref={title} tabIndex={-1} className="settings-title">
+              <h1 ref={title} tabIndex={-1} className="settings-title">
                 {heading}
-              </h2>
+              </h1>
               <div ref={setSlot} className="st-page-end" />
             </div>
             <PageHeadSlot value={slot}>

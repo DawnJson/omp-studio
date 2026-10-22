@@ -44,7 +44,7 @@
 .ui-btn[data-size="sm"] {
   --btn-h: var(--control-h-sm);
   padding: 0 var(--space-2-5);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 .ui-btn:hover {
   background: var(--bg-hover);
@@ -206,7 +206,7 @@
 }
 .ui-field[data-size="sm"] {
   height: var(--control-h-sm);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 .ui-field:focus-within {
   border-color: transparent;
@@ -461,7 +461,7 @@
 }
 .ui-seg[data-size="sm"] > button {
   padding: 0 var(--space-2);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 .ui-seg.ui-mono > button {
   font-family: var(--font-mono);
@@ -871,9 +871,9 @@
   width: max-content;
   max-width: min(360px, 70vw);
   padding: var(--space-2) var(--space-3);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: var(--fw-regular);
-  line-height: var(--lh-xs);
+  line-height: var(--lh-sm);
   color: var(--text-2);
   text-wrap: pretty;
   overflow-wrap: anywhere;
@@ -967,6 +967,50 @@
   display: flex;
   gap: var(--space-1-5);
   align-items: center;
+}
+/* 卡片排法（.ui-cards 包 ListRow）：一格一张卡片，图标 + 名称、元信息在上，动作在卡片底部靠右；同一行卡片等高 */
+.ui-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+.ui-cards > .ui-list-row {
+  grid-template-rows: auto 1fr;
+  grid-template-columns: 28px minmax(0, 1fr);
+  row-gap: var(--space-3);
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.ui-cards > .ui-list-row > .ui-list-actions {
+  grid-column: 1 / -1;
+  align-self: end;
+  justify-content: flex-end;
+}
+.ui-cards > .ui-list-row > .ui-list-icon {
+  align-self: start;
+}
+/* 名称放不下时徽标换到下一行，名称先占满整行再省略 */
+.ui-cards > .ui-list-row .ui-list-title {
+  flex-wrap: wrap;
+  row-gap: var(--space-0-5);
+}
+.ui-cards > .ui-list-row .ui-list-name {
+  flex: none;
+  max-width: 100%;
+}
+.ui-cards > .ui-list-row .ui-list-meta {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.ui-cards > .ui-list-row:has(> .ui-list-actions:empty) {
+  grid-template-rows: auto;
+}
+.ui-cards > .ui-list-row > .ui-list-actions:empty {
+  display: none;
 }
 
 /* ───────── Notice（内联提示条）、Toast、Kbd、Chip、Disclosure ───────── */

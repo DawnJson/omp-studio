@@ -89,7 +89,7 @@ export function ProvidersSection() {
             {t("login.connected.empty")}
           </p>
         )}
-        {groups.configured.length > 0 && <div className="ui-rows">{groups.configured.map(row)}</div>}
+        {groups.configured.length > 0 && <div className="ui-cards">{groups.configured.map(row)}</div>}
       </div>
 
       <CustomProviders />

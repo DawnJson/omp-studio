@@ -56,7 +56,7 @@ export function SshCard({ scope }: { scope: ScopeKey }) {
   };
 
   return (
-    <div data-testid="ssh-card">
+    <div className="st-section" data-testid="ssh-card">
       <SectionHead
         title={t("integrations.ssh.title")}
         count={hosts?.length}

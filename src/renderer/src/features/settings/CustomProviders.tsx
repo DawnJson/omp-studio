@@ -84,7 +84,7 @@ export function CustomProviders() {
     target?.kind === "edit" ? (data?.providers.find((provider) => provider.id === target.id) ?? null) : null;
 
   return (
-    <div data-testid="custom-providers">
+    <div className="st-section" data-testid="custom-providers">
       <SectionHead
         title={t("custom.title")}
         count={data?.providers.length}
@@ -122,7 +122,7 @@ export function CustomProviders() {
         </p>
       )}
       {data !== null && data.providers.length > 0 && (
-        <div className="ui-rows">
+        <div className="ui-cards">
           {data.providers.map((provider) => (
             <ListRow
               key={provider.id}

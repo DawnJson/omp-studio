@@ -180,7 +180,7 @@ export function MarketplacesCard({
   };
 
   return (
-    <section data-testid="plugins-marketplaces">
+    <section className="st-section" data-testid="plugins-marketplaces">
       <SectionHead
         title={t("plugins.marketplaces")}
         count={snapshot?.marketplaces.length}

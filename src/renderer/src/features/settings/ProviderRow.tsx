@@ -1,4 +1,4 @@
-// 设置 → 提供商与账号 里的一个提供商：一行列表行，状态是徽标，动作是 sm 按钮，清除 key 收进 ⋯（spec §4.20）。
+// 设置 → 提供商与账号 里的一个提供商（ui/ListRow：页面上排成卡片，选择对话框里是一行），状态是徽标，动作是 sm 按钮，清除 key 收进 ⋯（spec §4.20）。
 // 登录 / 填 key / 选账号都交给 ProviderFlowDialog；这里只直接做"只有一个账号时退出"和"清除 key"两个不需要输入的动作。
 import { useState } from "react";
 import type { LoginKind } from "../../../../shared/provider-login.ts";

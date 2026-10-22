@@ -149,7 +149,7 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
   };
 
   return (
-    <div data-testid="mcp-card">
+    <div className="st-section" data-testid="mcp-card">
       <SectionHead
         title={t("integrations.mcp.title")}
         count={data?.servers.length}

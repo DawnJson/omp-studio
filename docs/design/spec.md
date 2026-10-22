@@ -36,7 +36,7 @@
 | 表面层级 | [Bold] 五级表面；深色下侧栏比内容区更暗，浅色下更灰 | Calm 深色侧栏比内容区更亮，与“导航退后、内容突出”相反 |
 | 强调色 | [3.0 改] 鸢尾紫（`#6B46D9` / `#A48BFF`；2.6 的松石绿作废） | 仓库所有者 2026-10-20 选定：取像素标志 π 渐变的中段，让标志和界面同一色系（`direction-3.0.md` §2.1）。强调色只出现在：进行中状态、主输入焦点环、链接、上下文圆环、开关、选中；主按钮近黑底（深色主题近白底），不用强调色 |
 | 对比度修正 | [新] 深色 `--text-3` 调到 `#8A8D97`、浅色调到 `#666972`；浅色错误色调到 `#B93030`；代码注释与浅色数字色同步调亮 | 重算后 Bold 原值在深色 overlay 上 4.19、浅色悬停底上 4.17，低于 4.5:1。修正后全部主文本组合 ≥4.5:1（§2.5 表） |
-| 阴影 | [Bold] 三级 + `--shadow-composer` | 输入框是视觉焦点，值得单独一档 |
+| 阴影 | [Bold] 三级 + `--shadow-composer` | 输入框是视觉焦点，值得单独一档；2026-10-22 起 `--shadow-composer` 只剩一层贴底的小阴影（浅色 `0 1px 2px` + `0 2px 6px` 3%，深色 `0 1px 3px`），输入框靠 1px 边框和底色分开，不再浮起 |
 | 动效曲线 | [Bold] ease-out-quint 为默认，一条弹簧（`linear()`） | Calm 的弹簧过冲 6%，偏弹；Bold 的 ζ≈0.8、过冲 1.5% 更克制。砍掉第二条软弹簧，只用 ease-out |
 | 动效时长 | [Bold] 80/140/200/320/420 | — |
 | reduced-motion | [Calm] 系统开启或应用内开关任一为真即生效；应用内**只能强制开，不能在系统要求减少时关闭**；保留 100ms 纯透明度渐变；位移/缩放通过 `--travel-*` / `--scale-pop` 归零 | AGENTS 把它列为硬约束；token 化位移量后，组件不用逐个写 reduced 分支 |
@@ -297,7 +297,7 @@
 
 ## 4. 组件清单（v1）
 
-通则：所有可点击元素有 `:hover`（`--bg-hover`）、`:active`（`--bg-active`，无位移）、`:focus-visible`（`outline: 2px solid var(--focus-ring); outline-offset: 2px`，仅键盘）、`:disabled`（`--text-disabled`，`cursor: default`）；下表不再重复。输入类容器用 `:focus-within` 画 `--accent` 焦点环（`ui/controls.css` 的 `.ui-field`：1px `--accent` + 外圈 `--accent-soft`；2026-10-22 起侧栏搜索框也是 `TextField`，不再例外）。选中文字 `::selection { background: var(--selection-bg) }`。侧栏、按钮、标题栏 `user-select: none`；对话区全部可选。**选中即复制**（2026-10-20 起，设置项 `copyOnSelect`，默认开；`app/use-copy-on-select.ts`）：鼠标松开时页面上有选中的文字（拖选、双击、三击）就写进剪贴板，toast `common.copied`（1.2 秒）；同一段选区只复制一次；键盘选中不自动复制；输入框、文本域、可编辑区、内置终端里的选中不复制（在输入框里选中多半是要改写或粘贴覆盖）。写剪贴板要 `clipboard-sanitized-write` 权限，主进程只对应用自己页面的主框架放行，其余权限照旧全拒（`main/window/security.ts`）。
+通则：所有可点击元素有 `:hover`（`--bg-hover`）、`:active`（`--bg-active`，无位移）、`:focus-visible`（`outline: 2px solid var(--focus-ring); outline-offset: 2px`，仅键盘）、`:disabled`（`--text-disabled`，`cursor: default`；2026-10-22 起浅色 `#8f8c96`、深色 `#6a6772`，在卡片底上约 3.2:1，禁用的按钮字也认得出，仍明显淡于 `--text-3`）；下表不再重复。输入类容器用 `:focus-within` 画 `--accent` 焦点环（`ui/controls.css` 的 `.ui-field`：1px `--accent` + 外圈 `--accent-soft`；2026-10-22 起侧栏搜索框也是 `TextField`，不再例外）。选中文字 `::selection { background: var(--selection-bg) }`。侧栏、按钮、标题栏 `user-select: none`；对话区全部可选。**选中即复制**（2026-10-20 起，设置项 `copyOnSelect`，默认开；`app/use-copy-on-select.ts`）：鼠标松开时页面上有选中的文字（拖选、双击、三击）就写进剪贴板，toast `common.copied`（1.2 秒）；同一段选区只复制一次；键盘选中不自动复制；输入框、文本域、可编辑区、内置终端里的选中不复制（在输入框里选中多半是要改写或粘贴覆盖）。写剪贴板要 `clipboard-sanitized-write` 权限，主进程只对应用自己页面的主框架放行，其余权限照旧全拒（`main/window/security.ts`）。
 
 ### 4.1 StatusDot（状态槽 16×16，居中；2026-10-21 起换成 14px 的图标，原来 8px 的点太不显眼）
 
@@ -551,7 +551,7 @@
 
 **内容列与页头**（`SettingsView.tsx`、`settings.css`）
 
-- 内容列**最大 880、左对齐**（窗口变宽时右侧留白，不把控件拉开），内边距 `--space-6 --space-10 --space-12`；`高级`（不在搜索时）放宽到 1080，放目录 + 行。滚动条用 `ui/OverlayScrollbar`。换节或开始搜索时滚回顶部，换节时新节整体淡入（`motion.css`）。
+- 内容列**最大 1080、左对齐**（2026-10-22 起，原来 880；格子、快捷键、卡片在这个宽度里排到 3 列，再宽才在右侧留白），内边距 `--space-6 --space-10 --space-12`。节标题是页面的 `h1`。管理块（MCP、SSH、自定义提供商、插件市场）的根节点带 `.st-section`，和上一块之间留分组间距。滚动条用 `ui/OverlayScrollbar`。换节或开始搜索时滚回顶部，换节时新节整体淡入（`motion.css`）。
 - 页头一行（最小高 36）：左边节标题（`--font-display` `--fs-xl` `--fw-strong`；搜索中写 `settings.search`）；右边是页头动作槽（`PageHeadActions.tsx`，各节把 sm 控件 portal 进来）：Provider 与账号 = `连接 provider…`（§4.20）；集成、插件 = `范围` 标签 + `Select` sm 168 宽。一页最多一个主按钮。
 - 节内分组用 `ui/SectionHead`（标题 + 个数，右侧 ↻ `IconButton` 或 sm 按钮，可带一行说明）。
 
@@ -628,7 +628,7 @@
 - **数据**：`accounts-store.ts` 一次读 `get_login_providers`（提供商列表）、studio 存了 key 的提供商、模型列表，再对已认证的提供商逐个读 `get_logout_accounts`（账号）；有缓存先显示，进入时后台刷新；登录、退出、改 key 之后强制重读。读取失败是 error `Notice` `login.loadFailed`；后台刷新失败时保留上次结果，上面一条 warning `Notice` `login.refreshFailed`。
 - **分组**（`splitProviders`）：**已连接** = omp 认为已认证（登录过、环境变量或配置里有凭据）或 studio 存了 key 的；其余是"没连接"。两组内都保持 omp 的顺序。
 - **页面自上而下**：页头右侧 `连接 provider…`（`login.connect`，sm 次要按钮带 `+`，`providers-connect`；还在读取或没有未连接的提供商时禁用）。分组 `已连接`（`login.connected`，带个数）：每个一行；一个都没有时一句 `login.connected.empty`。分组 `自定义提供商`（见下）。最后分组 `其他提供商`（`login.others`，带个数，`providers-others`）：只有一行说明 `login.others.note`，不列行。
-- **一行**（`ProviderRow.tsx`，`ui/ListRow`，`provider-<id>`）：28 方图标块（名称首字母）、名称 + 一个状态 `Badge`、一行元信息、右侧 sm 按钮、⋯。
+- **卡片**（2026-10-22 起，仓库所有者嫌一行一个太占地方；`ProviderRow.tsx`，`ui/ListRow` 放进 `.ui-cards`，`provider-<id>`）：已连接和自定义提供商都排成卡片网格（每格最小 260，内容列 1080 时一行 3 张，窄了减列），同一行卡片等高。卡片内：左上 28 方图标块（名称首字母），右边名称 + 状态 `Badge`（名称放不下时徽标换到下一行，名称先占满一行再省略）、元信息（可换行）；底部靠右是 sm 按钮和 ⋯。选择对话框里同一个 `ProviderRow` 仍是一行。
 
 | 状态（按顺序取第一条命中的） | 徽标 | 元信息 |
 |---|---|---|
@@ -693,7 +693,7 @@
 
 | 控件 | 规格 |
 |---|---|
-| Button `.ui-btn` | `data-variant`：`primary`（`--primary` 底、`--text-on-primary`）、默认次要（透明底 + 1px `--border-strong`）、`quiet`（无框 `--text-2`，"稍后""显示全部"）、`danger`（红字 + 红框）、`danger-solid`（`--st-error` 底、`--text-on-danger`，只给破坏性确认框的确认键）。`data-size="sm"`。加载：文字透明、**宽度不变**、14px 环，同时禁用。禁用：`--text-disabled` + `--border`。快捷键提示 `.ui-hint`：按钮里尾随的等宽淡色小字，不画键帽框 |
+| Button `.ui-btn` | `data-variant`：`primary`（`--primary` 底、`--text-on-primary`）、默认次要（透明底 + 1px `--border-strong`）、`quiet`（无框 `--text-2`，"稍后""显示全部"）、`danger`（红字 + 红框）、`danger-solid`（`--st-error` 底、`--text-on-danger`，只给破坏性确认框的确认键）。`data-size="sm"`（28 高，`--fs-sm`；2026-10-22 起，原来 `--fs-xs`；sm 的 TextField、Segmented 同样是 `--fs-sm`）。加载：文字透明、**宽度不变**、14px 环，同时禁用。禁用：`--text-disabled` + `--border`。快捷键提示 `.ui-hint`：按钮里尾随的等宽淡色小字，不画键帽框 |
 | IconButton `.ui-icon-btn` | 28 方（md 32），无框，`--text-2`，悬停 `--bg-hover`，按下 / 展开 `--bg-active`；必须有悬停提示（`label`，可另给 `tip` 带快捷键）。"刷新"永远是 ↻ 图标按钮 |
 | Field `.ui-field`（TextField / NumberField） | 文本、数字、搜索、下拉触发器共用：`--bg-raised`，1px `--border-strong`，`--radius-md`；错误时 `--st-error` 边，错误文字在框下一行（`.ui-help[data-tone=error]`）。数字框 112 宽、右对齐、`tabular-nums`，单位写在框内（`.ui-affix`）。前后可放 14px 图标（搜索、清空） |
 | Select `.ui-select` | Field + 右侧 chevron；展开的列表是选择菜单（portal 到 body、`fixed` 定位，下方放不下向上展开，滚动或窗口变化时关闭）。键盘：焦点留在触发器（combobox + `aria-activedescendant`），`↑↓` / `Home` / `End` 移动，`Enter` / 空格选择，`Esc` 关闭，首字母跳转 |
@@ -706,7 +706,7 @@
 | Menu `.ui-menu` | `--bg-overlay` + `--shadow-2` + `--radius-lg`，`padding: --space-1`，项高 `--row-menu`(32)。第一列 16px：动作菜单放图标，选择菜单放 ✓（**当前项只靠 ✓**，灰底只表示悬停 / 键盘焦点）；破坏性项红字、放最后、前面一条分隔线；不可用项灰字，原因写在第二行小字；小节标题 `--fs-2xs` `--text-3`；最宽 320。`Menu` 按锚点 `fixed` 弹出，贴边时翻到锚点另一侧；打开时焦点进第一项，`↑↓` 移动，`Esc` / 点外面关闭，焦点回到打开它的元素。`MenuList` 是嵌在 Popover 里的同一种菜单 |
 | Popover `.ui-popover` | 输入框胶囊上方弹出的浮层：`--bg-overlay`、`--shadow-2`、`--radius-lg`；确认类内容宽 300，标题 `--fs-sm` 粗、正文 `--text-2`、按钮 sm 右对齐。**同一时刻只开一个**：新开的会关掉已开的（`/todo` 再 `/jobs` 不叠放）；`Esc` 只关最上面（最后打开）的一个并被消耗（不会再当作"停止任务"），焦点在输入框、胶囊或浮层里都管，焦点在 `aria-modal` 对话框或 TSP 过程区里不管；从输入框用斜杠命令打开的，关闭后焦点留在输入框 |
 | Dialog `.ui-dialog` | **唯一外壳**：sm 400 / md 520 / lg 720（要横向空间的用量、模型选择再加宽到 `--dialog-w-xl` 960），`--radius-xl`、`--shadow-3`，居中、遮罩 `--bg-scrim`；标题 `--fs-lg` + 可选一句说明，右上 ×（选择器类对话框可以用 `head` 换掉标题行：顶上是搜索框，标题只作读屏名、没有 ×，如模型选择）；正文竖排字段（`FormField`：标签在上，帮助 / 错误在下）；页脚按钮右对齐、取消在前确认在后，附带选项放页脚左侧。`Esc` 关闭并被消耗，`Tab` 在对话框内循环，打开时焦点进 `[data-autofocus]`（没有就进 ×），关闭时焦点回到打开前的元素。焦点掉到 body（按下的按钮转成 loading 被禁用、获得焦点的元素被卸载）时，`Esc` 照样关最上面的对话框、`Tab` 把焦点拉回对话框。自己管开关的对话框（打开即挂载，放完退出动画才通知父级）由父级用 `useDialogSlot`（`ui/presence.ts`）记开着的是哪一次：退出动画没放完又点打开，立刻开一个新的，旧实例迟到的通知不会把它关掉。确认框（`ConfirmDialog`）是 sm 宽的同一外壳，破坏性确认用 `danger-solid`，打开时焦点在**取消**。**不叠对话框** |
-| SectionHead / Row / ListRow | 分组标题 `.ui-section-head`：`--fs-sm` 粗 + 计数，右侧图标按钮或一个 sm 按钮，可带一行说明。设置行 `.ui-row`：最小 40 高，标签列 200，控件紧跟标签列，改过的值左侧 2px `--accent` 竖线、控件后面一个"恢复默认"图标按钮（悬停提示写出默认值）。列表行 `.ui-list-row`：28px 图标、名称 + 徽标、一行元信息、动作；删除 / 移除收进 ⋯ 菜单 |
+| SectionHead / Row / ListRow | 分组标题 `.ui-section-head`：`--fs-sm` 粗 + 计数，右侧图标按钮或一个 sm 按钮，可带一行说明。设置行 `.ui-row`：最小 40 高，标签列 200，控件紧跟标签列，改过的值左侧 2px `--accent` 竖线、控件后面一个"恢复默认"图标按钮（悬停提示写出默认值）。列表行 `.ui-list-row`：28px 图标、名称 + 徽标、一行元信息、动作；删除 / 移除收进 ⋯ 菜单。外面包 `.ui-cards` 时排成卡片网格（`repeat(auto-fill, minmax(260px, 1fr))`，`--bg-raised` 底、1px `--border`、`--radius-lg`，动作在卡片底部靠右，元信息可换行） |
 | Notice `.ui-notice` | 内联提示条：左 2px 等级色 + 同色 soft 底，`--radius-md`，`padding: --space-2 --space-3`；info（`--accent`）/ warning（`--st-waiting`）/ error（`--st-error`）；一句人话 + 最多一个动作 |
 | Chip `.ui-chip` | 输入框工具条专用：28 高胶囊，**无底色**，悬停 / 打开时 `--bg-hover`；审批胶囊写出模式名，全自动用 `--st-waiting-text` |
 | Disclosure `.ui-disclosure` | 展开 / 收起一律 chevron 转 90°，内容用 `ui/Reveal.tsx` 包；不用原生 `<details>` |

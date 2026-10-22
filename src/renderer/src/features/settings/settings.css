@@ -113,14 +113,9 @@
 }
 
 .settings-content {
-  max-width: 880px; /* 左对齐，窗口变宽时右侧留白而不是把控件拉开 */
+  max-width: 1080px; /* 左对齐；格子和卡片在这个宽度里排到 3 列，再宽才在右侧留白 */
   padding: var(--space-6) var(--space-10) var(--space-12);
   container-type: inline-size; /* 格子（.st-cells、快捷键）按内容宽度减列 */
-}
-
-/* 高级：目录 + 行，比普通节宽一点 */
-.settings-content[data-wide] {
-  max-width: 1080px;
 }
 
 .st-page-head {

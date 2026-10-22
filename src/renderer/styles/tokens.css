@@ -236,7 +236,7 @@
   --text: #131118;
   --text-2: #4e4b56;
   --text-3: #625f6a;
-  --text-disabled: #a6a4ad;
+  --text-disabled: #8f8c96; /* 白底 3.3:1：禁用的按钮字也认得出 */
   --text-on-accent: #ffffff;
   --text-on-danger: #ffffff;
   /* 分段控件的选中块 */
@@ -290,7 +290,8 @@
   --shadow-1: 0 1px 2px rgba(19, 17, 24, 0.06);
   --shadow-2: 0 8px 24px rgba(19, 17, 24, 0.1), 0 0 0 1px var(--border-subtle);
   --shadow-3: 0 24px 64px rgba(19, 17, 24, 0.18), 0 0 0 1px var(--border);
-  --shadow-composer: 0 1px 2px rgba(19, 17, 24, 0.04), 0 8px 28px rgba(19, 17, 24, 0.08);
+  --shadow-composer:
+    0 1px 2px rgba(19, 17, 24, 0.04), 0 2px 6px rgba(19, 17, 24, 0.03); /* 贴着底色，靠边框分开，不做浮起 */
 
   --scrollbar-thumb: rgba(19, 17, 24, 0.28);
   --scrollbar-thumb-hover: rgba(19, 17, 24, 0.46);
@@ -319,7 +320,7 @@
     --text: #e8e6ec;
     --text-2: #a6a3af;
     --text-3: #87848f;
-    --text-disabled: #585560;
+    --text-disabled: #6a6772;
     --text-on-accent: #0c0b0e;
     /* 深色的 --st-error 是浅红，白字对比度不够 */
     --text-on-danger: #0c0b0e;
@@ -366,7 +367,7 @@
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
     --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border);
-    --shadow-composer: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 32px rgba(0, 0, 0, 0.35);
+    --shadow-composer: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 3px rgba(0, 0, 0, 0.3);
 
     --scrollbar-thumb: rgba(232, 230, 236, 0.26);
     --scrollbar-thumb-hover: rgba(232, 230, 236, 0.44);
@@ -394,7 +395,7 @@
   --text: #e8e6ec;
   --text-2: #a6a3af;
   --text-3: #87848f;
-  --text-disabled: #585560;
+  --text-disabled: #6a6772;
   --text-on-accent: #0c0b0e;
   --text-on-danger: #0c0b0e;
   --control-on: #2b2931;
@@ -440,7 +441,7 @@
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
   --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border);
-  --shadow-composer: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 32px rgba(0, 0, 0, 0.35);
+  --shadow-composer: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 3px rgba(0, 0, 0, 0.3);
 
   --scrollbar-thumb: rgba(232, 230, 236, 0.26);
   --scrollbar-thumb-hover: rgba(232, 230, 236, 0.44);
