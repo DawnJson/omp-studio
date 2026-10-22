@@ -1,5 +1,5 @@
 // 模型选择对话框底部的参数行，照 Tern：上下文 · 输出 · 价格 · 推理 + 胶囊（当前 / 绑定的角色）。
-// 压缩于、实测速度、智能分、输入类型放在悬停提示里；速度、智能分、压缩设置来自 getModelInsights（还在读时显示"…"）。
+// 压缩于、速度、智能分、输入类型放在悬停提示里；实测速度、压缩设置来自 getModelInsights（还在读时显示"…"），智能分和目录速度是模型自带的。
 import type { ModelInsights, ModelOption } from "../../../../shared/ipc.ts";
 import { compactionTrigger, type CompactionTrigger } from "../../../../shared/compaction-trigger.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
@@ -64,18 +64,19 @@ export function ModelDetails({ option, isCurrent, roles, insights }: ModelDetail
   const speed =
     insights === null
       ? loading
-      : perf === undefined
-        ? t("model.perf.none")
-        : [
+      : perf !== undefined
+        ? [
             perf.tokensPerSecond !== null && t("model.perf.tps", { value: count(perf.tokensPerSecond) }),
             perf.ttftMs !== null && t("model.perf.ttft", { value: (perf.ttftMs / 1000).toFixed(1) }),
-            perf.samples > 0 ? t("model.perf.samples", { count: perf.samples }) : t("model.perf.catalog"),
+            t("model.perf.samples", { count: perf.samples }),
           ]
             .filter((part) => part !== false)
-            .join(" · ");
+            .join(" · ")
+        : option.catalogTps !== null
+          ? `${t("model.perf.tps", { value: count(option.catalogTps) })} · ${t("model.perf.catalog")}`
+          : t("model.perf.none");
 
-  const score = insights?.intelligence[fullKey];
-  const intelligence = insights === null ? loading : score === undefined ? unknown : count(score);
+  const intelligence = option.intelligence === null ? unknown : count(option.intelligence);
   const inputs = [t("model.input.text"), ...(option.acceptsImages ? [t("model.input.image")] : [])].join(" · ");
 
   // 行里放不下的参数（压缩于、实测速度明细、智能分、输入类型、完整价格）放在悬停提示里。

@@ -534,11 +534,11 @@ html[data-motion="reduced"] .ctx-usage-chev {
   margin: 0;
 }
 
-/* 费用点开的用量对话框（ui/Dialog lg 再加宽到 --dialog-w-usage，className usage-dialog）：高度跟内容走，没有额度账号时不留空；窗口矮了由 Dialog 正文滚动。
+/* 费用点开的用量对话框（ui/Dialog lg 再加宽到 --dialog-w-xl，className usage-dialog）：高度跟内容走，没有额度账号时不留空；窗口矮了由 Dialog 正文滚动。
    汇总条、账号块和热力图的组件、样式见 usage-views.tsx / usage.css，这里只改额度的版式：每个账号一张卡，卡内窗口按两列排，
    每个窗口 = 名称 + 重置时间 + 剩余（重置在剩余左边，同一行，右对齐、等宽数字）/ 整宽进度条。 */
 .ui-dialog.usage-dialog[data-size] {
-  --dialog-w: var(--dialog-w-usage);
+  --dialog-w: var(--dialog-w-xl);
 }
 .usage-dialog .qm {
   gap: var(--space-5);
@@ -957,32 +957,32 @@ html[data-motion="reduced"] .ctx-usage-chev {
   font-size: var(--fs-xs);
 }
 
-/* 模型选择对话框（ui/Dialog lg，className mp-dialog）：标题 + 角色标签页 + 搜索行 + 一张表（粘性表头）+ 参数行 + 三行控件。数字列按 ch 定宽，等宽右对齐。
-   对话框定高（表自己滚），正文改成纵向 flex：搜索行 / 底部固定，表占满中间。 */
+/* 模型选择对话框（ui/Dialog，className mp-dialog，照 Tern 里 omp 的 /models）：加宽到 --dialog-w-xl、定高（表自己滚）。
+   顶上是搜索框（Dialog 的 head，没有标题和 ×）；正文两栏：左栏范围（角色 / 全部模型 / 各提供商，样子同设置页左栏），
+   右栏一张表（粘性表头）+ 参数行 + 三行控件。数字列按 ch 定宽，等宽右对齐。 */
 .mp-dialog {
   --mp-cols: minmax(0, 1fr) 5ch 6ch 7ch 13ch var(--space-6);
-  height: min(80vh, var(--content-w));
+  height: min(85vh, var(--content-w));
 }
-.mp-dialog .ui-dialog-body {
+.ui-dialog.mp-dialog[data-size] {
+  --dialog-w: var(--dialog-w-xl);
+}
+.mp-head {
   display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-height: 0;
-  padding-bottom: var(--space-3);
-  overflow: hidden;
-}
-/* 角色标签页：default 是本任务的模型，其余是 omp 的 modelRoles；选中的标签下面的表改成"给这个角色选模型"。 */
-.mp-tabs {
-  padding: var(--space-3) var(--space-5) 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.mp-search-row {
-  display: flex;
-  flex: none;
   align-items: center;
   gap: var(--space-3);
+  padding: var(--space-4) var(--space-5) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.mp-head > .ui-field {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.mp-target {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
 }
 .mp-count {
   flex: none;
@@ -990,6 +990,96 @@ html[data-motion="reduced"] .ctx-usage-chev {
   font-size: var(--fs-xs);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
+}
+.mp-dialog .ui-dialog-body {
+  grid-template-columns: var(--sidebar-w-min) minmax(0, 1fr);
+  flex: 1 1 0;
+  gap: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.mp-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--space-3) var(--space-2);
+  border-right: 1px solid var(--border-subtle);
+}
+.mp-scopes {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+.mp-scope {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--row-task);
+  padding: 0 var(--space-2-5);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  text-align: left;
+  cursor: default;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+}
+.mp-scope:hover {
+  background: var(--bg-hover);
+}
+.mp-scope[aria-current="true"] {
+  color: var(--text);
+  background: var(--bg-active);
+}
+.mp-scope:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.mp-scope-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 正在生效的模型所在的提供商 */
+.mp-scope-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+.mp-scope-count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.mp-scopes-head {
+  margin: var(--space-3) 0 var(--space-1);
+  padding: 0 var(--space-2-5);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.mp-add-provider {
+  flex: none;
+  justify-content: flex-start;
+  margin-top: var(--space-2);
+}
+.mp-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-2) var(--space-5) var(--space-3);
 }
 .mp-role-badge {
   flex: none;

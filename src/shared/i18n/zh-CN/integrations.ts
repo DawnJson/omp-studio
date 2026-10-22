@@ -82,7 +82,7 @@ export const integrations = {
   "slash.mcp": "管理 MCP 服务器（打开设置 → 集成）",
   "slash.ssh": "管理 SSH 主机（打开设置 → 集成）",
   "slash.tools": "查看可用工具（打开设置 → 工具与权限）",
-  "slash.memory": "查看和整理记忆（打开设置 → 上下文与记忆）",
+  "slash.memory": "查看和整理记忆（打开设置 → Context 与记忆）",
   "slash.changelog": "查看 omp 更新日志（打开设置 → 关于）",
   "slash.args": "这条命令的参数写法没有执行：不带参数输入它会打开设置页，增删改在页面里的卡片上做。",
 

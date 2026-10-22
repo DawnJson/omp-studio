@@ -192,7 +192,7 @@ test("空状态、对话里的用量；截图", async () => {
       await expect(breakdown.locator(`[data-testid="context-row"][data-part="${part}"]`)).toHaveCount(1);
     // 构成下面不再有说明小字。
     await expect(breakdown.locator(".ctx-note")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /压缩上下文|Compact context/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /压缩 context|Compact context/i })).toHaveCount(0);
     await shoot(page, "context");
 
     // 这个任务的会话文件里还没有回复（假 omp 不写会话文件）：浮层是单栏，没有"会话用量"按钮，也没有空的左栏。

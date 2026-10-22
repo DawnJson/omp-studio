@@ -1,5 +1,6 @@
 // 对话框（spec §4.23 Dialog）：唯一的外壳。sm 400 / md 520 / lg 720；标题 + 可选一句说明，右上 ×；正文竖排字段；
 // 页脚按钮右对齐、取消在前确认在后，附带选项放页脚左侧（footStart）。不叠对话框。
+// 选择器类对话框（模型选择）用 head 换掉标题行：顶上是搜索框，标题只作读屏名，没有 ×（Esc、点遮罩关）。
 // 行为：Esc 关闭（消耗掉，不触发"停止任务"），Tab 在对话框内循环，打开时焦点进 `[data-autofocus]`（没有就进 ×），
 // 关闭时焦点回到打开前的元素；点遮罩关闭。关闭时先放退出动画再卸载，放完调 onExited。
 // 焦点掉到 body 时（按下的按钮转成 loading 被禁用、获得焦点的元素被卸载），按键不再经过对话框：
@@ -46,6 +47,8 @@ export interface DialogProps {
   className?: string | undefined;
   /** 标题行右侧、× 之前的图标按钮（如用量对话框的 ↻）。 */
   headAction?: ReactNode | undefined;
+  /** 换掉标题行（标题只作读屏名，不显示 ×）：搜索框当顶栏的选择器类对话框用。 */
+  head?: ReactNode | undefined;
 }
 
 export function Dialog({
@@ -63,6 +66,7 @@ export function Dialog({
   testId,
   className,
   headAction,
+  head,
 }: DialogProps) {
   const t = useT();
   const presence = usePresence(open);
@@ -154,37 +158,40 @@ export function Dialog({
         data-size={size === "md" ? undefined : size}
         role={role}
         aria-modal="true"
-        aria-labelledby={titleId}
+        aria-labelledby={head === undefined ? titleId : undefined}
+        aria-label={head === undefined ? undefined : title}
         aria-describedby={desc === undefined ? undefined : descId}
         data-testid={testId}
         onPointerDown={(event) => event.stopPropagation()}
         onKeyDown={onKeyDown}
         {...presence.exitProps}
       >
-        <header className="ui-dialog-head">
-          <div>
-            <h2 id={titleId} className="ui-dialog-title">
-              {title}
-            </h2>
-            {desc !== undefined && (
-              <p id={descId} className="ui-dialog-desc">
-                {desc}
-              </p>
-            )}
-          </div>
-          {headAction}
-          <button
-            type="button"
-            className="ui-icon-btn"
-            data-dialog-close=""
-            aria-label={t("common.close")}
-            title={t("common.close")}
-            onClick={onClose}
-            data-testid={testId === undefined ? undefined : `${testId}-close`}
-          >
-            <Close />
-          </button>
-        </header>
+        {head ?? (
+          <header className="ui-dialog-head">
+            <div>
+              <h2 id={titleId} className="ui-dialog-title">
+                {title}
+              </h2>
+              {desc !== undefined && (
+                <p id={descId} className="ui-dialog-desc">
+                  {desc}
+                </p>
+              )}
+            </div>
+            {headAction}
+            <button
+              type="button"
+              className="ui-icon-btn"
+              data-dialog-close=""
+              aria-label={t("common.close")}
+              title={t("common.close")}
+              onClick={onClose}
+              data-testid={testId === undefined ? undefined : `${testId}-close`}
+            >
+              <Close />
+            </button>
+          </header>
+        )}
         {tabs}
         {children !== undefined && <div className="ui-dialog-body">{children}</div>}
         {(footer !== undefined || footStart !== undefined) && (

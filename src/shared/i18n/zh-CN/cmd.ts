@@ -11,7 +11,7 @@ export const cmd = {
   language: "切换语言",
   model: "切换模型",
   thinking: "切换思考强度",
-  compact: "压缩上下文",
+  compact: "压缩 context",
   stop: "停止当前任务",
   copyLast: "复制最后一条回答",
   copyLastEmpty: "还没有可复制的回答",

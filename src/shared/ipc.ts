@@ -237,6 +237,13 @@ export interface ModelOption {
   thinkingEfforts: Effort[] | null;
   /** 价格，美元 / 百万 token（ModelInfo.cost）；本地模型和未知价格是全 0。 */
   cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
+  /**
+   * omp 模型目录给的智能分（`Model.int`，Tern 里 omp 选择器的 Int 列）；omp 自己按跨 provider 的写法归一补齐，目录没评分为 null。
+   * wire 类型的 ModelInfo 没列这一项，实测 omp 18.12.6 的 get_available_models 发的是完整 Model、带着它（docs/architecture/conversation.md）。
+   */
+  intelligence: number | null;
+  /** omp 模型目录给的输出速度（`Model.tps`，t/s；0 和没有都是 null），没有实测时显示它。来源同上。 */
+  catalogTps: number | null;
 }
 
 /** get_session_stats 里界面用得上的部分：本会话累计的 token、费用、请求数。 */
@@ -757,7 +764,7 @@ export interface CompactionSettings {
   source: "global" | "project";
 }
 
-/** omp 记下的实测速度（agent.db 的 model_perf）；没有实测时用模型目录里的 tps，samples 为 0。 */
+/** omp 记下的实测速度（agent.db 的 model_perf）；只收 samples > 0 的。 */
 export interface ModelPerf {
   tokensPerSecond: number | null;
   /** 首字延迟的平均值，毫秒。 */
@@ -765,11 +772,9 @@ export interface ModelPerf {
   samples: number;
 }
 
-/** 模型选择对话框右栏的补充参数：键是 `provider/modelId`，没有数据的模型不在表里。 */
+/** 模型选择对话框的补充参数：键是 `provider/modelId`，没有实测的模型不在表里。 */
 export interface ModelInsights {
   perf: Record<string, ModelPerf>;
-  /** omp 模型目录（models.db）里的智能分。 */
-  intelligence: Record<string, number>;
   /** 读 omp 设置失败时为 null。 */
   compaction: CompactionSettings | null;
 }

@@ -62,7 +62,7 @@
 
 ## 压缩上下文
 
-命令面板"压缩上下文"（`cmd.compact`）→ `window.studio.compactTask(taskId)` → `TaskPool.compactTask` → `TspRunner.compact()`：发 `/compact`，等 omp 画出压缩分隔（成功）或 "Error: Compaction failed: …"（失败，原文作为错误抛出），上限 5 分钟；没有进程时先拉起。omp 18.12.5 实测见 [tsp-migration.md](tsp-migration.md) §10.6「`/compact` 的结局」。输入框里直接输入 `/compact` 是 omp 自己的命令，同样会压缩（没有等待结果的封装）。
+命令面板"压缩 context"（`cmd.compact`）→ `window.studio.compactTask(taskId)` → `TaskPool.compactTask` → `TspRunner.compact()`：发 `/compact`，等 omp 画出压缩分隔（成功）或 "Error: Compaction failed: …"（失败，原文作为错误抛出），上限 5 分钟；没有进程时先拉起。omp 18.12.5 实测见 [tsp-migration.md](tsp-migration.md) §10.6「`/compact` 的结局」。输入框里直接输入 `/compact` 是 omp 自己的命令，同样会压缩（没有等待结果的封装）。
 
 ## 斜杠菜单和 studio 接管的命令
 

@@ -129,7 +129,7 @@
 | 句末标点 | 句子保留句号；标签/按钮不加；不用感叹号；用“你”不用“您” | — |
 | 复数 | 英文用 ICU `{n, plural, …}`，中文单一形式（`process.*`、`tool.*` 两种语言都是英文，照英文复数） | 见附录 A 说明 |
 | 审批模式标签 | `总是询问` / `询问并记住` / `自动写入` / `全自动` 对应 `always-ask` / `always-ask-cached` / `write` / `yolo`（2026-10-21 由 `每次询问` / `每次询问并记住` / `写入自动，执行询问` / `全部自动` 简化）；英文直接用 omp 设置页的名字 `Always ask` / `Ask and remember` / `Write` / `Yolo`（omp 18.12.6 的 settings schema 里 `tools.approvalMode` 的 option label） | 与 omp 的四种模式一一对应（`omp://approval-mode.md`）；omp 设置页里 `tools.approvalMode` 的取值显示同一套文案（`approval.*`）。其余枚举设置的取值走 `ompcfg` 的 `<键>.opt.<值>` / `opt.<值>`，没有翻译的显示 omp 原值；设置键第一段的分组名走 `ompcfg` 的 `prefix.<段>` |
-| 开发者常用的英文术语 | 中文界面里**保留英文**：MCP、Skill、Hook、token、worktree（独立出现的标签首字母大写：`Worktree`、`Token`、`Skill 清单`）、diff、LSP、Bash、API key（表单里统一叫 key，不混用"密钥"）；**照常翻译**：子代理、后台任务（omp 的 job，界面里不叫"作业"）、插件 / 插件市场、提交 / 分支 / 暂存 / 合并、上下文、会话、系统提示词、分叉、检查点、快照 | 仓库所有者 2026-10-22：“不是所有英文都要汉化的，常用的不需要汉化，例如 mcp skill”。判断标准：中文开发者口头和文档里直接说英文的保留（工作树、钩子、令牌、技能、差异这类直译反而要停一下才认得出）；Git 客户端（VS Code、GitHub Desktop）中文界面已经通用的中文说法照常翻译 |
+| 开发者常用的英文术语 | 中文界面里**保留英文**：MCP、Skill、Hook、token、worktree（独立出现的标签首字母大写：`Worktree`、`Token`、`Skill 清单`）、diff、LSP、Bash、API key（表单里统一叫 key，不混用"密钥"）、context（独立的标签写 `Context`：`Context 与记忆`、`扩展 Context`、`Context 构成`；句子里小写：`压缩 context`、`context 窗口`；仓库所有者 2026-10-22 补充，原来译作"上下文"）、数量单位 K / M（`每 M token`、`$0.3 / M`，不写"每百万"）、provider（`Provider 与账号`、`添加 provider…`）、subagent / main agent（`Subagent 与规划`、`Subagent 面板`）、system prompt、reasoning、vision、模型目录的 Int（同 omp 表头；以上同为 2026-10-22 补充）；**照常翻译**：后台任务（omp 的 job，界面里不叫"作业"）、插件 / 插件市场、提交 / 分支 / 暂存 / 合并、会话、分叉、检查点、快照 | 仓库所有者 2026-10-22：“不是所有英文都要汉化的，常用的不需要汉化，例如 mcp skill”。判断标准：中文开发者口头和文档里直接说英文的保留（工作树、钩子、令牌、技能、差异这类直译反而要停一下才认得出）；Git 客户端（VS Code、GitHub Desktop）中文界面已经通用的中文说法照常翻译 |
 
 ---
 
@@ -315,7 +315,7 @@
 
 - 高 `--row-task`(32)，`padding: 0 --space-2`，`--radius-md`，间距 `--space-2`；结构 `[状态槽][标题 flex:1][尾部]`。任务行和还没挂在任务上的会话行（同高、同一套 `.sb-row` 样式；会话没有进程，状态槽只画完成 / 失败两种，看会话文件里最后一轮的结果——`shared/ui/sidebar-model.ts` 的 `sessionDotKind`、`StatusDot.tsx` 的 `SessionStatusDot`；没有结果时不画但保留 16px，让标题和任务行对齐；标题 + 修改时间，§4.5）在文件夹里混排。标题去掉私用区图标字形（`stripIconGlyphs`）。
 - 标题 `--fs-sm`，单行省略；默认 `--text-2`，选中、等待、有未读结果时 `--text`（只换颜色，不换字重）。
-- 尾部（一次只放一个）：等待中不放；运行中满一分钟才放 `task.runningFor`（不满不放，状态点已在转）；否则相对时间 `--fs-2xs` `--text-3`；所有行共用 15 秒一跳的时钟；`aborted` 放 `task.stopped`。**时间规则**（仓库所有者 2026-10-20 定）：时间是任务的最后活动时间，持久化在 `TaskRecord.updatedAt`（`lastActivityAt` 只读它），**只在两种时刻变**：用户发了消息（首条、插话、稍后都算），和一轮结束（完成、失败、中止；两个引擎的 runner 各自在这两处 `#touch`）。选中或打开任务、恢复历史会话、重命名、引擎迁移、存会话文件、采用标题、记模型、归档/撤销归档都不变；`TaskRegistry.updateTask` 不再自动刷新 `updatedAt`，要改只能在 patch 里显式给。从历史会话建的任务，时间起点是会话文件的修改时间（`ResumeInput.modifiedAt`），不是建任务的时刻。“等你确认”条按 `updatedAt` 从早到晚排，即这一轮是什么时候发出的。hover/键盘聚焦时尾部换成 `⋯` 图标按钮（`IconButton` 28×28，`.sb-row-more`，`task.more`；菜单开着时也显示）。
+- 尾部（一次只放一个）：等待中不放；运行中满一分钟才放 `task.runningFor`（不满不放，状态点已在转）；否则相对时间 `--fs-2xs` `--text-3`；尾部是一列：右对齐、最小宽 `--control-h-sm`，任务行 hover 时行尾 `⋯` 盖在这一格上（尾部淡出），没有尾部的任务行也留着这一格，所以任务行和历史会话行的时间右边对齐（2026-10-22 起；原来任务行另外让出 ⋯ 的宽度，时间比会话行靠左一截）；所有行共用 15 秒一跳的时钟；`aborted` 放 `task.stopped`。**时间规则**（仓库所有者 2026-10-20 定）：时间是任务的最后活动时间，持久化在 `TaskRecord.updatedAt`（`lastActivityAt` 只读它），**只在两种时刻变**：用户发了消息（首条、插话、稍后都算），和一轮结束（完成、失败、中止；两个引擎的 runner 各自在这两处 `#touch`）。选中或打开任务、恢复历史会话、重命名、引擎迁移、存会话文件、采用标题、记模型、归档/撤销归档都不变；`TaskRegistry.updateTask` 不再自动刷新 `updatedAt`，要改只能在 patch 里显式给。从历史会话建的任务，时间起点是会话文件的修改时间（`ResumeInput.modifiedAt`），不是建任务的时刻。“等你确认”条按 `updatedAt` 从早到晚排，即这一轮是什么时候发出的。hover/键盘聚焦时尾部换成 `⋯` 图标按钮（`IconButton` 28×28，`.sb-row-more`，`task.more`；菜单开着时也显示）。
 - 选中（3.0 起）：`--bg-raised` 底 + `box-shadow: 0 0 0 1px --border-subtle, --shadow-1`，像一张浮起的小卡；不画竖条。尾部相对时间用 `--font-mono` `--fs-2xs` `--text-3`。
 - 重命名：行内 input（`F2` 或菜单），Enter 确认、Esc 取消；存应用元数据（不写 omp）。
 - 菜单（2026-10-22 起只有一份：`features/sidebar/task-menu.tsx` 的 `buildTaskMenu`，侧栏任务行右键、行尾 `⋯`、顶栏任务菜单 `⋯`（§4.6）三个入口共用，项和顺序一致；`ui/Menu`，每项第一列一个图标）：重命名 `F2`、会话信息（`sessionInfo.menu.info`）、请求记录（`sessionInfo.menu.trace`）、分享链接…（`sessionInfo.menu.share`；后三项见 §4.31）—分隔线—打开工作目录（`task.openFolder`，`openTaskFolder`：系统文件管理器打开任务 cwd，开了 worktree 时是 worktree 根）、显示会话文件（`task.reveal`，选中 `~/.omp/agent/sessions/` 下 omp 自己存的会话记录，和工作目录不是一个地方；2026-10-20 起拆成两项，原来只有一项“在资源管理器中显示”却打开会话目录）、复制会话 ID、复制会话文件路径（会话还没有文件时 toast `task.noSession`）、导出为 HTML…（`task.exportHtml`，主进程弹保存对话框，见 `conversation.md`「导出 HTML」；命令面板 `cmd.exportHtml` 和输入框 `/export` 同一动作）—分隔线—归档 `Del`。归档立即从侧栏移除并 toast `task.archived` + `task.undo`（8 秒）。
@@ -467,14 +467,13 @@
 
 **ApprovalChip**：见 §5.8。
 
-**ModelPicker**（3.1 起照 Tern 改成一张表，`direction-3.1.md` §2 行 10；2026-10-22 起换成 `ui/Dialog`）：胶囊点开（`Alt M`、命令面板同）是 `ui/Dialog` lg（`--dialog-w-lg` 720，`className="mp-dialog"`，`data-testid="model-picker"`；遮罩、Esc、Tab 循环、关闭后还焦点按 Dialog 通则，§4.23），高固定 `min(80vh, --content-w)`，搜索行和底部固定、表在中间自己滚。自上而下：
-- 标题行（Dialog 标题）：`model.title`，角色页签下换成 `model.roleTitle`（“切换 Task 模型”）；右上 ×。
-- 角色页签（2026-10-20 起，照 Tern 里 omp 的模型角色；2026-10-22 起是 `ui/Tabs`，`model-role-tab-<角色>`，原来是小胶囊）：Default / Smol / Slow / Plan / Task / Commit / Advisor，外加 `modelRoles` 里指向可用模型的其它角色（`tablist`，←/→/Home/End 切换；悬停提示 `model.roleCurrent`；数据 `getModelRoles(projectId)`）。Default 是切换本任务的模型（草稿里是新任务默认模型）；选了其它角色，选模型就写 `modelRoles.<role>`（`setModelRole`，遵循 `modelRoleStorage` 的全局 / 项目层，去掉 `:thinking` 后缀），不影响当前会话。
-- 搜索行：`TextField` md（通宽，前面放大镜，`model-search`，占位 `model.search`，打开时聚焦，`combobox` + `aria-activedescendant` 指向高亮行）+ 右端总数（`model-count`，等宽 `--fs-xs` `--text-3`；有搜索词时 `匹配数 / 总数`）。
-- 表：列 `model.colModel` | `model.colIntelligence` | `model.colSpeed` | `model.colContext` | `model.colPrice`（模型 | 智能 | t/s | 上下文 | $/M）+ 勾，表头粘在顶部（`--fs-xs` `--text-3`）。模型列 = `provider/`（`--text-3`）+ 模型 id（`--text`），`--font-mono` `--fs-code-sm`，后面跟它被分配到的角色胶囊（`--fs-2xs`，`--bg-hover` 底）。数字列等宽 `--fs-code-sm` `--text-2` 右对齐：智能分（omp `models.db` 模型目录的 `int`，取整）、速度（omp `agent.db` `model_perf` 实测的 t/s，没有实测时用模型目录的 `tps`，取整）、上下文（如 `1M`）、价格（输入·输出，美元 / 百万 token，如 `$0.3·1.2`）；没有数据写 `–`，智能分和速度读取中写 `…`（两个库都只读，`getModelInsights`，`src/main/omp-config/model-insights.ts`）。行高 `--control-h-md`、`--radius-md`；方向键 / 鼠标所在行 `--bg-hover`；当前模型（角色页签下是该角色的模型）`--bg-active` + 右端 14px `--accent` ✓。
-- 分组（组头 `--fs-xs` 500 `--text-2` + 等宽 `--text-3` 计数）：没有搜索词时 `model.pinned`（`常用`：当前模型、各角色绑定的模型、最近用过的 3 个，去重；打开时定下来，选了别的模型行也不跳）在前，`model.all`（`全部`：其余，按 provider、名称排序）在后；有搜索词时（名称、provider、模型 id 包含即可）只有一组 `model.matches`（`匹配`）。搜索框以 `@` 开头时表里列角色（组 `model.rolesGroup`）：每行 `@角色` + 它绑定的 `provider/id`（没设置写 `model.roleUnset`）和那个模型的数字列，悬停提示角色用途（`model.role.hint.*`）；选中 = 切到那个角色页签并清空搜索；没有匹配写 `model.noRoles`。
+**ModelPicker**（3.1 起照 Tern 改成一张表，`direction-3.1.md` §2 行 10；2026-10-22 起换成 `ui/Dialog`）：胶囊点开（`Alt M`、命令面板同）是 `ui/Dialog` lg 再加宽到 `--dialog-w-xl` 960（`className="mp-dialog"`，`data-testid="model-picker"`；遮罩、Esc、Tab 循环、关闭后还焦点按 Dialog 通则，§4.23），高固定 `min(85vh, --content-w)`。2026-10-22 起照 Tern 里 omp 的 `/models` 排：顶上搜索框，下面两栏——左栏范围，右栏表 + 底部；搜索框和底部固定、表自己滚：
+- 顶栏（Dialog 的 `head`：没有标题和 ×，`model.title` 只作读屏名，Esc、点遮罩关闭；2026-10-22 起，原来是标题行“切换模型” + ×）：搜索框 `TextField` md（通宽，前面放大镜，`model-search`，占位 `model.search`，打开时聚焦，`combobox` + `aria-activedescendant` 指向高亮行）+ 给角色选模型时的标记（`model-role-target`：accent `Badge` `model.roleTarget`“为 Task 选模型” + 小 × `model.roleTargetClear` 改回 Default）+ 右端总数（`model-count`，等宽 `--fs-xs` `--text-3`；有搜索词时 `匹配数 / 总数`）。
+- 左栏范围（`.mp-side`，宽 `--sidebar-w-min` 200，右边一条 `--border-subtle`；项的样子同设置页左栏 `.snav-item`：高 `--row-task`、选中 `--bg-active` 底，右端等宽计数）：`model.rolesGroup` 角色（`model-scope-roles`）、`model.all` 全部模型（`model-scope-all`，默认）、小标题 `model.providers` 下各提供商（`model-scope-provider`，按名称排，和表里的分组同序；正在生效的模型所在的提供商后面一个 6px `--accent` 圆点）；最下面 quiet 按钮 `model.addProvider`（`model-add-provider`：关对话框、跳设置页“Provider 与账号”）。角色范围列 omp 的角色（Default / Smol / Slow / Plan / Task / Commit / Advisor，外加 `modelRoles` 里指向可用模型的其它角色；数据 `getModelRoles(projectId)`），这时搜索框过滤角色。点一个角色 = 之后选的模型给它：回到全部模型，顶栏出现角色标记。Default 是切换本任务的模型（草稿里是新任务默认模型）；其它角色选模型就写 `modelRoles.<role>`（`setModelRole`，遵循 `modelRoleStorage` 的全局 / 项目层，去掉 `:thinking` 后缀），不影响当前会话。（角色 2026-10-20 起有；原来在标题下的 `ui/Tabs` 页签里，2026-10-22 起挪进左栏）
+- 表：模型列没有表头，数字列表头照 omp 原文 `Int` | `t/s` | `Ctx` | `$/M`（`model.colIntelligence` / `.colSpeed` / `.colContext` / `.colPrice`，中英相同；2026-10-22 起）+ 勾，表头粘在顶部（`--fs-xs` `--text-3`）。模型列 = `provider/`（`--text-3`）+ 模型 id（`--text`），`--font-mono` `--fs-code-sm`，后面跟它被分配到的角色胶囊（`--fs-2xs`，`--bg-hover` 底）。数字列等宽 `--fs-code-sm` `--text-2` 右对齐：智能分（`get_available_models` 每个模型带的 `int`，取整：omp 按 provider 的各种写法归一后查模型目录，和 omp 自己的 `/models` 一致；2026-10-22 起，原来 studio 按 provider/id 原样查 `models.db`，中转站和改过写法的 provider 大多查不到、显示 `–`，实测 omp 18.12.6）、速度（omp `agent.db` `model_perf` 实测的 t/s，没有实测时用 `get_available_models` 带的 `tps`，取整）、上下文（如 `1M`）、价格（输入·输出，美元 / 百万 token，如 `$0.3·1.2`）；没有数据写 `–`，智能分和速度读取中写 `…`（两个库都只读，`getModelInsights`，`src/main/omp-config/model-insights.ts`）。行高 `--control-h-md`、`--radius-md`；方向键 / 鼠标所在行 `--bg-hover`；当前模型（角色页签下是该角色的模型）`--bg-active` + 右端 14px `--accent` ✓。
+- 分组（组头 `--fs-xs` 500 `--text-2` + 等宽 `--text-3` 计数）：全部模型范围、没有搜索词时 `model.pinned`（`常用`：当前模型、各角色绑定的模型、最近用过的 3 个，去重；打开时定下来，选了别的模型行也不跳）在前，其余按提供商分组（组头是 provider 名 + 计数，组内按名称排序）在后；提供商范围只列它的模型、不单列常用；有搜索词时（名称、provider、模型 id 包含即可）只有一组 `model.matches`（`匹配`）。角色范围、或搜索框以 `@` 开头时表里列角色（组 `model.rolesGroup`）：每行 `@角色` + 它绑定的 `provider/id`（没设置写 `model.roleUnset`）和那个模型的数字列，悬停提示角色用途（`model.role.hint.*`）；选中 = 之后给那个角色选模型（见左栏），清空搜索、回到全部模型；没有匹配写 `model.noRoles`。
 - 键盘：焦点留在搜索框，↑↓ 在行之间移动，鼠标悬停也会移过去；Enter 或点击选用（选用后对话框保持打开，方便接着调思考强度）。
-- 底部（`.mp-foot`）：①参数行（`ModelDetails`，等宽 `--fs-code-sm`，标签 `--text-3`）：高亮行模型的 `上下文 1M`、`输出 393K`、`价格 $0.3/1.2 每百万`（全 0 写 `model.free`）、`推理 支持 / 不支持`，后面胶囊 `视觉`、`当前`（`--accent-soft` 底 `--accent` 字）和绑定的角色；放不下的在悬停提示里：`provider/id`、`压缩于`、完整上下文、完整价格（`输入 $4 · 输出 $20 · 缓存 $0.2（每百万 token）`）、`实测速度`、`智能分`、`输入类型`。`压缩于` = `触发 token · 怎么来的 · 来源`（如 `315,000 · 窗口的 90% · 全局设置`），按 omp 的 `compaction.thresholdTokens / thresholdPercent / reserveTokens / modelThresholds` 规则算（`src/shared/compaction-trigger.ts`），来源是全局 / 项目（项目目录里读到的和中性目录不同）/ 按模型设置。`实测速度` = `t/s · 首字 s · N 次采样`，只有模型目录的 `tps` 时写 `model.perf.catalog`，都没有写 `model.perf.none`。没有高亮行时写 `model.noSelection`。下面三行控件（`.mp-ctl`：88px 标签列 + 内容，左缘对齐）：②`思考强度` + 分段条（`ThinkingSegments`，`ui/Segmented` sm，`thinking-segments`；只对正在生效的模型可调，其余写 `model.thinking.pending`；不支持思考写 `model.thinking.unsupported`；运行中加 `composer.nextRequest`）+ 速度开关（见下）；角色页签下这一行换成两句：`model.roleUse`（`用于 {用途}`）和 `model.roleSaved`，后两行不出现；③Prewalk、④预设（任务里才有，见下“会话开关菜单与模型预设”⑦）。**页脚**（Dialog 页脚）三个按钮：左侧 quiet 按钮 `model.addProvider`（`model-add-provider`：关对话框、跳设置页），右侧次要按钮 `model.close` + 主按钮 `model.use`（`用于此任务`：选用高亮的模型并关闭，已是当前模型就只关闭；没有高亮行时禁用）；`@` 列表或角色页签下主按钮是 `model.useRole`（`应用角色`）。
+- 底部（`.mp-foot`）：①参数行（`ModelDetails`，等宽 `--fs-code-sm`，标签 `--text-3`）：高亮行模型的 `上下文 1M`、`输出 393K`、`价格 $0.3/1.2 每百万`（全 0 写 `model.free`）、`推理 支持 / 不支持`，后面胶囊 `视觉`、`当前`（`--accent-soft` 底 `--accent` 字）和绑定的角色；放不下的在悬停提示里：`provider/id`、`压缩于`、完整上下文、完整价格（`输入 $4 · 输出 $20 · 缓存 $0.2（每百万 token）`）、`实测速度`、`智能分`、`输入类型`。`压缩于` = `触发 token · 怎么来的 · 来源`（如 `315,000 · 窗口的 90% · 全局设置`），按 omp 的 `compaction.thresholdTokens / thresholdPercent / reserveTokens / modelThresholds` 规则算（`src/shared/compaction-trigger.ts`），来源是全局 / 项目（项目目录里读到的和中性目录不同）/ 按模型设置。`实测速度` = `t/s · 首字 s · N 次采样`，只有模型目录的 `tps` 时写 `model.perf.catalog`，都没有写 `model.perf.none`。没有高亮行时写 `model.noSelection`。下面三行控件（`.mp-ctl`：88px 标签列 + 内容，左缘对齐）：②`思考强度` + 分段条（`ThinkingSegments`，`ui/Segmented` sm，`thinking-segments`；只对正在生效的模型可调，其余写 `model.thinking.pending`；不支持思考写 `model.thinking.unsupported`；运行中加 `composer.nextRequest`）+ 速度开关（见下）；给角色选模型时这一行换成两句：`model.roleUse`（`用于 {用途}`）和 `model.roleSaved`，后两行不出现；③Prewalk、④预设（任务里才有，见下“会话开关菜单与模型预设”⑦）。**页脚**（Dialog 页脚）只有主按钮 `model.use`（2026-10-22 起；原来还有次要按钮“关闭”，和 Esc、点遮罩重复，“添加提供商…”挪到左栏底部）（`用于此任务`：选用高亮的模型并关闭，已是当前模型就只关闭；没有高亮行时禁用）；`@` 列表或角色页签下主按钮是 `model.useRole`（`应用角色`）。
 
 分段条只列这个模型实际支持的档位：任务里取 `get_available_thinking_levels`（含 `off`），草稿里取模型的 `thinking.efforts`（不含 `off`）；分段条、方向键、`Alt T` 共用同一份列表和顺序；草稿的胶囊显示 omp 钳制后实际采用的档位。**思考强度是乐观更新**：点下 / `Alt T` 立即显示新档位，omp 往返在后台，失败退回并报错，写入成功 2 秒内新值没回到界面也退回真实值。分段条就是普通的 `ui/Segmented`（§4.23；2026-10-22 起，原来按档位分级的弹簧滑块和光晕动画已去掉）。胶囊上的强度文字按档位分级（`.chip-level[data-level]`：`off` / `minimal` `--text-3`，`high` `--accent` 加粗，`xhigh`/`max` 渐变字，`max` 缓慢流动）；流动动画写 `animation-play-state: var(--play-state)`，减少动效时不流动。数据来自 `get_available_models`（`ModelOption`：`contextWindow`、`maxTokens`、`cost`、`reasoning`、`acceptsImages`、`thinkingEfforts`）。
 
@@ -482,7 +481,7 @@
 
 **UsageMeter**（输入框工具行里，审批胶囊之后）：只剩输出速度（见下），不在运行中时不渲染。
 
-**UsageDialog**（点发送键左边的费用打开，2026-10-19 起是居中对话框；2026-10-22 起是 `ui/Dialog` lg：`--dialog-w-lg` 720，`className="usage-dialog"`，`data-testid="usage-dialog"`，遮罩、Esc、Tab 循环、关闭后还焦点按 Dialog 通则，§4.23）。**没有页签**（2026-10-21 所有者定：原来的“订阅额度 / 每日用量”两页合并成一页）：标题 `composer.usage.overview`；标题行右边只有 ↻ 图标按钮（`IconButton`，`usage-refresh`，额度和热力图一起重读，读取中禁用）和 ×。**更新时间在 ↻ 的悬停提示里**（2026-10-22 起，标题行不再单独写一行字）：`usage.refresh` · `usage.updated.*`（如“刷新 · 7 秒前更新”，`useNow` 每秒重算；额度还没读到时只有“刷新”）。打开时焦点在 ×。正文一页内容（`.qm`，纵向排列，段间 `--space-5`）：先汇总条（2026-10-22 从原来的设置 → 用量页搬来，`usage-summary`：一个带 `--bg-sunken` 底的圆角卡，四格竖线分隔：`最紧的额度`（`usedFraction` 最大的窗口，大字 `剩余 76%`，小字 `窗口名 · provider`）、`过去一年`（花费 + 请求数）、`最近 30 天`（花费 + 30 根迷你柱 + 请求数）、`最忙的一天`；容器 <640px 变 2×2；算法在 `src/shared/ui/usage-summary.ts`，有单测；额度和热力图都没有数据时不画），再额度（`data-testid="quota-section"`），再最近一年（365 天）的每日用量热力图（`data-testid="heatmap-section"`；2026-10-21 起不带小标题，原来的“每日用量”标题由仓库所有者定去掉）。**高度跟内容走**（2026-10-22 起，原来固定 `min(80vh, 620)`）：没有额度账号时下面不留空；窗口矮了由 Dialog 正文滚动（Dialog 最高 `100vh − 96px`）。额度：各订阅账号的额度，当前 provider 排最前；每个账号一张卡（`.uq-block`，`--bg-raised` + 1px `--border-subtle` + `--radius-lg`，卡间 `--space-3`）：头一行 状态点 + provider（粗）+ 账号邮箱/备注（`--text-3`）；卡内窗口按 `repeat(auto-fill, minmax(16rem, 1fr))` 排成两列（窄了一列），每个窗口两行：第一行 名称（`--text-2`，占满剩余宽度）+ `--text-3` 的重置时间 + `剩余 N%`（`--text`，tabular，用尽 `--st-error`、warning `--st-waiting-text`），**重置时间在剩余的左边**，二者右对齐；第二行整宽 6px 进度条（`--accent`，warning `--st-waiting`）；未使用的账号合成一行 `未使用 · provider…` 放在最后。组件和样式都在 `features/composer/`：`usage-views.tsx`、`usage.css`、状态 `usage-store.ts`（2026-10-22 设置页的"用量"一节删掉后从 `features/settings/` 搬来）；`/usage`、命令面板"用量"打开的也是这个对话框（`usage-store` 的 `setUsageDialogOpen`）。每日用量：全年（53 周）热力图（`HeatmapView`，始终占满宽度）**占满对话框内容宽度**：格子边长由 `ResizeObserver` 按容器宽度和周数算出（`--uq-cell`，上限 24px，间距 3px），星期标签、月份标签跟着对齐，不出横向滚动条，右侧不留空白；只按花费着色，没有 token / 花费 / 请求数切换，悬停给日期、金额和请求数。打开时重读额度，热力图还没有数据时才读。没有"去设置看全年"的入口。
+**UsageDialog**（点发送键左边的费用打开，2026-10-19 起是居中对话框；2026-10-22 起是 `ui/Dialog` lg 再加宽到 `--dialog-w-xl` 960，`className="usage-dialog"`，`data-testid="usage-dialog"`，遮罩、Esc、Tab 循环、关闭后还焦点按 Dialog 通则，§4.23）。**没有页签**（2026-10-21 所有者定：原来的“订阅额度 / 每日用量”两页合并成一页）：标题 `composer.usage.overview`；标题行右边只有 ↻ 图标按钮（`IconButton`，`usage-refresh`，额度和热力图一起重读，读取中禁用）和 ×。**更新时间在 ↻ 的悬停提示里**（2026-10-22 起，标题行不再单独写一行字）：`usage.refresh` · `usage.updated.*`（如“刷新 · 7 秒前更新”，`useNow` 每秒重算；额度还没读到时只有“刷新”）。打开时焦点在 ×。正文一页内容（`.qm`，纵向排列，段间 `--space-5`）：先汇总条（2026-10-22 从原来的设置 → 用量页搬来，`usage-summary`：一个带 `--bg-sunken` 底的圆角卡，四格竖线分隔：`最紧的额度`（`usedFraction` 最大的窗口，大字 `剩余 76%`，小字 `窗口名 · provider`）、`过去一年`（花费 + 请求数）、`最近 30 天`（花费 + 30 根迷你柱 + 请求数）、`最忙的一天`；容器 <640px 变 2×2；算法在 `src/shared/ui/usage-summary.ts`，有单测；额度和热力图都没有数据时不画），再额度（`data-testid="quota-section"`），再最近一年（365 天）的每日用量热力图（`data-testid="heatmap-section"`；2026-10-21 起不带小标题，原来的“每日用量”标题由仓库所有者定去掉）。**高度跟内容走**（2026-10-22 起，原来固定 `min(80vh, 620)`）：没有额度账号时下面不留空；窗口矮了由 Dialog 正文滚动（Dialog 最高 `100vh − 96px`）。额度：各订阅账号的额度，当前 provider 排最前；每个账号一张卡（`.uq-block`，`--bg-raised` + 1px `--border-subtle` + `--radius-lg`，卡间 `--space-3`）：头一行 状态点 + provider（粗）+ 账号邮箱/备注（`--text-3`）；卡内窗口按 `repeat(auto-fill, minmax(16rem, 1fr))` 排成两列（窄了一列），每个窗口两行：第一行 名称（`--text-2`，占满剩余宽度）+ `--text-3` 的重置时间 + `剩余 N%`（`--text`，tabular，用尽 `--st-error`、warning `--st-waiting-text`），**重置时间在剩余的左边**，二者右对齐；第二行整宽 6px 进度条（`--accent`，warning `--st-waiting`）；未使用的账号合成一行 `未使用 · provider…` 放在最后。组件和样式都在 `features/composer/`：`usage-views.tsx`、`usage.css`、状态 `usage-store.ts`（2026-10-22 设置页的"用量"一节删掉后从 `features/settings/` 搬来）；`/usage`、命令面板"用量"打开的也是这个对话框（`usage-store` 的 `setUsageDialogOpen`）。每日用量：全年（53 周）热力图（`HeatmapView`，始终占满宽度）**占满对话框内容宽度**：格子边长由 `ResizeObserver` 按容器宽度和周数算出（`--uq-cell`，上限 24px，间距 3px），星期标签、月份标签跟着对齐，不出横向滚动条，右侧不留空白；只按花费着色，没有 token / 花费 / 请求数切换，悬停给日期、金额和请求数。打开时重读额度，热力图还没有数据时才读。没有"去设置看全年"的入口。
 
 新任务草稿（`DraftComposer`）的工具行同一位置放 `DraftContextMeter`：还没有会话，圆环是 0，窗口取胶囊上默认模型的 `contextWindow`（模型还没读到或没报窗口时是不能点的空环），构成里只有消息 0、剩余空间和自动压缩预留，没有“会话用量”。费用显示 `$0.00`，同样能点开 `UsageDialog`（额度按默认模型的 provider 排序）。
 
@@ -537,12 +536,12 @@
 居中浮层（`features/palette/`，样式 `palette.css`），宽 `--palette-w`(600)，距顶 15vh，`--bg-overlay`，`--shadow-3`，`--radius-xl`。出现：面板 `pl-in` = `--dur-slow` `--ease-spring`（从上方 `--travel-md`、`--scale-pop` 缩放淡入；减少动效时 `--dur-slow`、`--travel-md` 归零，`--scale-pop` 为 1，`--ease-spring` 为 `linear`），背后 `--bg-scrim` 以 `--dur-fade` 淡入（点击/Esc 关闭）。输入行高 52（`--fs-lg`，无边框，下边 `--border-subtle`），左搜索图标 16px、右 `Esc` 键帽（悬停提示 `palette.hint`；没有底部提示行）。结果行高 `--row-palette`(40)，`padding: 0 --space-3`，`[图标 16][标题][右侧：项目名/快捷键键帽]`，当前行 `--bg-active` + 左 2px `--accent` 竖条（常驻，只切透明度）。分组标题高 `--control-h-sm`(28)，`--fs-xs` `--text-3`，**无结果的分组不渲染**。键帽一律 `<kbd class="ui-kbd">`（`ui/controls.css`：18 高、等宽 `--fs-2xs`）：`Esc`、命令的快捷键、终端历史会话的 `>_`、无结果行的 `↵`。
 - 空查询：`palette.recent`（最近 5 个任务）→ `palette.commands`。有输入：任务（标题+项目名模糊匹配）→ `palette.sessions`（含终端历史会话，`>_` 标）→ 命令 → 斜杠命令（仅当前任务有进程时，`get_available_commands`）；输入以 `/` 开头时只显示斜杠命令。匹配字符 `--accent` 高亮。
 - 无结果：`palette.noResults` + 一行 `palette.askNew`（把查询当成新任务的 prompt）。
-- 命令清单（`palette-commands.ts` 的 `buildCommands`，“当前任务”类只在有任务时列）：新任务 `Ctrl N`、在当前项目新任务 `Ctrl Shift N`、打开文件夹 `Ctrl Shift O`、设置 `Ctrl ,`、切换侧栏 `Ctrl B`、切换主题、切换语言、切换模型 `Alt M`、切换思考强度 `Alt T`、压缩上下文、目标（当前任务有目标时按状态列 `暂停目标` / `继续目标` / `放弃目标`，`goal.cmd*`）、会话树（`cmd.sessionTree`）、子代理（`agents.cmd`，§4.28）、导出对话为 HTML（`cmd.exportHtml`）、旁路提问（`cmd.btw`）、停止当前任务 `Esc`（运行中）、复制最后一条回答 `Ctrl Shift C`、展开或收起所有工具卡片 `Ctrl O`、打开评审 `Ctrl Shift D`、文件面板 `Ctrl Shift E`、切换终端 `` Ctrl ` ``、跳到等你确认的任务 `Ctrl J`（有等待的任务时）、查看用量（打开用量对话框，§4.14 UsageDialog）、管理插件和市场、MCP 服务器 / SSH 主机 / 可用工具 / 记忆 / omp 更新日志 / 检查 omp 更新（都跳到设置页对应分节）、**关于与反馈**（id `about`，`window.about`：`emitStudioCommand("about")`，`app/App.tsx` 订阅后打开 `AboutDialog`，§3.1）、快捷键、归档当前任务、会话信息 / 请求记录 / 分享会话链接… / 置顶或取消置顶本会话 / 重试上一轮（任务空闲时）（`sessionInfo.cmd.*`，§4.31）。**每个快捷键动作必须在此有一条**。每条命令按 id 配自己的 16px 图标（`palette/command-icons.ts` 的 `commandIcon`；会话树、导出、旁路提问是 `TreeIcon` / `ExportIcon` / `BtwIcon`，关于是 `Info`）；没登记的（目标、子代理、文件面板、插件、集成类、会话信息类等）回退到 `CommandIcon`（`>_` 形）。
+- 命令清单（`palette-commands.ts` 的 `buildCommands`，“当前任务”类只在有任务时列）：新任务 `Ctrl N`、在当前项目新任务 `Ctrl Shift N`、打开文件夹 `Ctrl Shift O`、设置 `Ctrl ,`、切换侧栏 `Ctrl B`、切换主题、切换语言、切换模型 `Alt M`、切换思考强度 `Alt T`、压缩 context、目标（当前任务有目标时按状态列 `暂停目标` / `继续目标` / `放弃目标`，`goal.cmd*`）、会话树（`cmd.sessionTree`）、子代理（`agents.cmd`，§4.28）、导出对话为 HTML（`cmd.exportHtml`）、旁路提问（`cmd.btw`）、停止当前任务 `Esc`（运行中）、复制最后一条回答 `Ctrl Shift C`、展开或收起所有工具卡片 `Ctrl O`、打开评审 `Ctrl Shift D`、文件面板 `Ctrl Shift E`、切换终端 `` Ctrl ` ``、跳到等你确认的任务 `Ctrl J`（有等待的任务时）、查看用量（打开用量对话框，§4.14 UsageDialog）、管理插件和市场、MCP 服务器 / SSH 主机 / 可用工具 / 记忆 / omp 更新日志 / 检查 omp 更新（都跳到设置页对应分节）、**关于与反馈**（id `about`，`window.about`：`emitStudioCommand("about")`，`app/App.tsx` 订阅后打开 `AboutDialog`，§3.1）、快捷键、归档当前任务、会话信息 / 请求记录 / 分享会话链接… / 置顶或取消置顶本会话 / 重试上一轮（任务空闲时）（`sessionInfo.cmd.*`，§4.31）。**每个快捷键动作必须在此有一条**。每条命令按 id 配自己的 16px 图标（`palette/command-icons.ts` 的 `commandIcon`；会话树、导出、旁路提问是 `TreeIcon` / `ExportIcon` / `BtwIcon`，关于是 `Info`）；没登记的（目标、子代理、文件面板、插件、集成类、会话信息类等）回退到 `CommandIcon`（`>_` 形）。
 - 键盘：`↑↓` 移动，`Enter` 执行，`Ctrl+Enter` 在新任务中执行，`Tab` 无动作（焦点陷阱）。打开前记住 `document.activeElement`，关闭后还原（那个元素已被移除时不抢焦点）。
 
 ### 4.19 SettingsPage
 
-占据主区的页面（3.2 起改版，`direction-3.2.md` §4）。入口：侧栏底部 `设置`、`Ctrl ,`、命令面板 `设置`、斜杠 `/settings`；命令面板和斜杠命令可以直接定位到某一节（`showView("settings", { section })`：切到那一节、清掉搜索，焦点放到节标题；`/hotkeys` 和命令面板 `快捷键` 定位到通用页的快捷键分组并滚到眼前）。离开：`Esc`（搜索框里有内容时先清搜索）、导航顶上的 `返回任务`、`Alt ←` / 鼠标后退键，回到对话视图（进入前选中的任务）；进入前的焦点元素还在 DOM 里时焦点还给它。进设置不停止任何任务。**只有一列分节，不分"omp-studio 的 / omp 的"**（omp 的设置和终端共用一份，就是 omp-studio 的设置；仓库所有者 2026-10-19 定）：`通用 / 模型 / 提供商与账号 / 工具与权限 / 上下文与记忆 / 子代理与规划 / 集成 / 插件 / 高级 / 关于`，10 节固定、平铺，没有二级标题（`SettingsNav.tsx` 的 `settingsPages`；2026-10-22 仓库所有者定：原来 13 节里"对话行为 / 语音 / 其他"三节只有一两项或全是没翻译的 omp 原文，"用量"和输入框旁的用量对话框重复，"omp 版本"和"关于"各有一个检查更新）。`ui-store` 的 `SettingsSection` 是这 10 节 + `shortcuts`（通用页的快捷键分组）；`SettingsPage` 是导航里的 10 节；当前节 `settingsPage` 和搜索词 `settingsQuery` 也在 `ui-store`，导航和内容共用。**各节只放常用项**（有人话标签的 omp 设置：`ompcfg` 字典里有 `<key>.label` 的键，`config-meta.ts` 的 `commonItems`，按字典顺序），和该节的管理列表放在同一页；其余 omp 键全部进 `高级`。
+占据主区的页面（3.2 起改版，`direction-3.2.md` §4）。入口：侧栏底部 `设置`、`Ctrl ,`、命令面板 `设置`、斜杠 `/settings`；命令面板和斜杠命令可以直接定位到某一节（`showView("settings", { section })`：切到那一节、清掉搜索，焦点放到节标题；`/hotkeys` 和命令面板 `快捷键` 定位到通用页的快捷键分组并滚到眼前）。离开：`Esc`（搜索框里有内容时先清搜索）、导航顶上的 `返回任务`、`Alt ←` / 鼠标后退键，回到对话视图（进入前选中的任务）；进入前的焦点元素还在 DOM 里时焦点还给它。进设置不停止任何任务。**只有一列分节，不分"omp-studio 的 / omp 的"**（omp 的设置和终端共用一份，就是 omp-studio 的设置；仓库所有者 2026-10-19 定）：`通用 / 模型 / Provider 与账号 / 工具与权限 / Context 与记忆 / Subagent 与规划 / 集成 / 插件 / 高级 / 关于`，10 节固定、平铺，没有二级标题（`SettingsNav.tsx` 的 `settingsPages`；2026-10-22 仓库所有者定：原来 13 节里"对话行为 / 语音 / 其他"三节只有一两项或全是没翻译的 omp 原文，"用量"和输入框旁的用量对话框重复，"omp 版本"和"关于"各有一个检查更新）。`ui-store` 的 `SettingsSection` 是这 10 节 + `shortcuts`（通用页的快捷键分组）；`SettingsPage` 是导航里的 10 节；当前节 `settingsPage` 和搜索词 `settingsQuery` 也在 `ui-store`，导航和内容共用。**各节只放常用项**（有人话标签的 omp 设置：`ompcfg` 字典里有 `<key>.label` 的键，`config-meta.ts` 的 `commonItems`，按字典顺序），和该节的管理列表放在同一页；其余 omp 键全部进 `高级`。
 
 **导航**（`SettingsNav.tsx`；2026-10-22 起占侧栏的位置，`direction-3.2.md` §7 第 1 项）
 
@@ -553,7 +552,7 @@
 **内容列与页头**（`SettingsView.tsx`、`settings.css`）
 
 - 内容列**最大 880、左对齐**（窗口变宽时右侧留白，不把控件拉开），内边距 `--space-6 --space-10 --space-12`；`高级`（不在搜索时）放宽到 1080，放目录 + 行。滚动条用 `ui/OverlayScrollbar`。换节或开始搜索时滚回顶部，换节时新节整体淡入（`motion.css`）。
-- 页头一行（最小高 36）：左边节标题（`--font-display` `--fs-xl` `--fw-strong`；搜索中写 `settings.search`）；右边是页头动作槽（`PageHeadActions.tsx`，各节把 sm 控件 portal 进来）：提供商与账号 = `连接提供商…`（§4.20）；集成、插件 = `范围` 标签 + `Select` sm 168 宽。一页最多一个主按钮。
+- 页头一行（最小高 36）：左边节标题（`--font-display` `--fs-xl` `--fw-strong`；搜索中写 `settings.search`）；右边是页头动作槽（`PageHeadActions.tsx`，各节把 sm 控件 portal 进来）：Provider 与账号 = `连接 provider…`（§4.20）；集成、插件 = `范围` 标签 + `Select` sm 168 宽。一页最多一个主按钮。
 - 节内分组用 `ui/SectionHead`（标题 + 个数，右侧 ↻ `IconButton` 或 sm 按钮，可带一行说明）。
 
 **行**（`ui/Row`，样式 `ui/controls.css` 的 `.ui-row`；omp 设置的行是 `ConfigRow.tsx`）
@@ -583,7 +582,7 @@
 **高级**（`ConfigSection.tsx` 的 `AdvancedConfig`；2026-10-22 起页内目录 + 平铺，`direction-3.2.md` §7 第 4 项）
 
 - 页头下一行说明 `其余 {count} 项 omp 设置，和终端版共用`（`settings.advanced.note`）。
-- 左侧页内目录（196 宽，随页面吸顶，`advanced-toc`）：omp-studio 的分组（`shared/ui/config-groups.ts`：模型与推理、工具与权限、上下文与记忆、子代理与规划、对话行为、集成、语音、其他；没有项的组不出现）一行一个，带项数；当前分组加粗，下面列出它的前缀小组（带项数，左边一条 `--border` 线，当前小组 `--bg-active`），点小组滚到它。选中的分组和小组记在模块里，换节再回来保持原样。
+- 左侧页内目录（196 宽，随页面吸顶，`advanced-toc`）：omp-studio 的分组（`shared/ui/config-groups.ts`：模型与 reasoning、工具与权限、Context 与记忆、Subagent 与规划、对话行为、集成、语音、其他；没有项的组不出现）一行一个，带项数；当前分组加粗，下面列出它的前缀小组（带项数，左边一条 `--border` 线，当前小组 `--bg-active`），点小组滚到它。选中的分组和小组记在模块里，换节再回来保持原样。
 - 右侧只显示当前分组的行，**全部平铺、没有折叠**：按 key 第一段分小组（`prefixGroups`，保持 omp 的顺序；只有一项的前缀和没有点号的键并进最后的 `其他`），每个小组一个分组标题：前缀的中文名 + 等宽淡色 `prefix.*`，右端 `N 项 · M 项改过`（没改过的不写后半）。行里的 key 去掉小标题已经写出的前缀。
 - 常用项只在各节页面上，不在高级里重复；终端专用的键（`config-groups.ts` 的 `terminalOnly`）哪里都不显示。
 
@@ -596,11 +595,11 @@
 | 节 | 内容 |
 |---|---|
 | 通用 | 分组 `外观`：语言（分段：跟随系统 / 简体中文 / English）、主题（分段：跟随系统 / 浅色 / 深色）、减少动效（开关；系统已要求时开关禁用在"开"，后面徽标 `系统已要求`）、有任务在等你时通知我（开关）、选中即复制（开关，默认开，见 §4 通则）。分组 `任务运行中`（`settings.whileRunning`）：运行中按 Enter（分段：插话 / 稍后，studio 自己的设置）+ omp"对话行为"组的常用项（插话的处理方式、稍后消息的处理方式、插话何时打断工具）。分组 `快捷键`（带个数，`id="settings-shortcuts"`）：只读，两列，键名用 Kbd，v1 不可自定义（`GeneralSection.tsx`） |
-| 模型 | 一组行：新任务的默认模型（`Select` 280 宽，第一项 `由 omp 自动选择`）、默认思考强度（`Select`）——**就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，经 `omp config` 读写**，和草稿输入框的模型胶囊是同一份（omp 的设置就是 omp-studio 的设置，不另存）；后面接 omp"模型与推理"组的常用项（模型角色的保存位置、模型角色、出错重试与备用模型），`defaultThinkingLevel` 不重复一行（`ModelsSection.tsx`）。审批模式不在这里：在输入框胶囊或"工具与权限"里改 |
-| 提供商与账号 | 见 §4.20 |
+| 模型 | 一组行：新任务的默认模型（`Select` 280 宽，第一项 `由 omp 自动选择`）、默认思考强度（`Select`）——**就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，经 `omp config` 读写**，和草稿输入框的模型胶囊是同一份（omp 的设置就是 omp-studio 的设置，不另存）；后面接 omp"模型与 reasoning"组的常用项（模型角色的保存位置、模型角色、出错重试与备用模型），`defaultThinkingLevel` 不重复一行（`ModelsSection.tsx`）。审批模式不在这里：在输入框胶囊或"工具与权限"里改 |
+| Provider 与账号 | 见 §4.20 |
 | 工具与权限 | omp"工具与权限"组的常用项（工具审批模式、按工具的审批策略、工具调用格式、允许执行命令）+ 分组 `可用工具`（`ToolsCard.tsx`，`/tools` 的列表）：标题带个数、右侧 ↻，说明写明这是全局列表（项目插件和 MCP 的工具不在内）；网格（每格最小 220 宽）每格一样：等宽工具名 + 状态徽标（`已启用` / `未启用` / `xd 设备`）+ 有对应 `<工具>.enabled` 设置项的在格尾放开关（就是那一项设置）。关掉的工具会从 omp 的列表里消失，所以不自动重读，格子保留，点 ↻ 才重读 |
-| 上下文与记忆 | omp"上下文与记忆"组的常用项（自动压缩及其阈值、记忆后端、Mnemopi / Hindsight 的自动回忆、自动记住、记忆范围）+ 分组 `记忆`（`MemoryCard.tsx`）：标题右侧 ↻ 和 `清空`（`danger` sm，先 `ConfirmDialog` danger；正文写明本地记忆下次会话启动时重新生成、Hindsight 只清本地）；`项目` 行（下拉只有项目，默认当前任务所在项目，记忆按项目目录分）；`统计 / 诊断 / 待整理 / 注入内容` 是 `Tabs`，原文放等宽 `<pre>`。没有项目时只一句 `integrations.memory.noProject`。没有 `立即整理` / `重建`：实测它们在 omp 18.12.5 里没有可观察的效果，记忆只在会话启动时生成 |
-| 子代理与规划 | omp"子代理与规划"组的常用项（子代理并发、嵌套层数、任务隔离与合并方式、委派积极程度、批量派发、运行时限、最高思考强度、停用的子代理、子代理的模型覆盖、目标自动推进） |
+| Context 与记忆 | omp"Context 与记忆"组的常用项（自动压缩及其阈值、记忆后端、Mnemopi / Hindsight 的自动回忆、自动记住、记忆范围）+ 分组 `记忆`（`MemoryCard.tsx`）：标题右侧 ↻ 和 `清空`（`danger` sm，先 `ConfirmDialog` danger；正文写明本地记忆下次会话启动时重新生成、Hindsight 只清本地）；`项目` 行（下拉只有项目，默认当前任务所在项目，记忆按项目目录分）；`统计 / 诊断 / 待整理 / 注入内容` 是 `Tabs`，原文放等宽 `<pre>`。没有项目时只一句 `integrations.memory.noProject`。没有 `立即整理` / `重建`：实测它们在 omp 18.12.5 里没有可观察的效果，记忆只在会话启动时生成 |
+| Subagent 与规划 | omp"Subagent 与规划"组的常用项（子代理并发、嵌套层数、任务隔离与合并方式、委派积极程度、批量派发、运行时限、最高思考强度、停用的子代理、子代理的模型覆盖、目标自动推进） |
 | 集成 | 页头 `范围` 下拉（`用户（全局）` / 各项目；MCP 和 SSH 共用，`integrations-store.ts` 的键 `integrations`）。分组 `MCP 服务器`、`SSH 主机`，见下"管理列表"。这一节没有常用项 |
 | 插件 | 页头 `范围` 下拉。分组 `已安装`、`市场`、`诊断`，见下"管理列表" |
 | 高级 | 见上 |
@@ -620,15 +619,15 @@
   - `诊断`：`运行诊断` / `诊断并尝试修复`，结果每项一行，徽标 `正常` / `警告` / `错误`。
   - 同一时间只执行一个改动（主进程串行 + 渲染进程按钮禁用）；失败时报 omp 的原话（`✘` 前缀去掉）。测试：`test/omp-plugins-output.test.ts`、`test/plugin-cli.test.ts`、e2e `settings-functional.e2e.ts` 的"插件"；集成的测试 `test/omp-output-integrations.test.ts`、`test/integrations-ssh.test.ts`、e2e 同文件的"集成"。细节与实测见 `docs/architecture/omp-settings.md`「集成卡片」。
 
-"子代理与规划"里的「目标自动推进」（常用项）：开关，是 omp 的 `goal.continuationModes` 里有没有 `rpc`，切换时只增减 `rpc`、别的条目保留（`shared/ui/goal-continuation.ts`）；读写走 `omp config`，和终端里的 omp 共用同一份，不另存副本。omp 就绪后主进程检查一次：用户没明确设过（`config.yml` 里没有这个键）就加上 `rpc`，设过的不碰（`src/main/omp-config/goal-default.ts`）。
+"Subagent 与规划"里的「目标自动推进」（常用项）：开关，是 omp 的 `goal.continuationModes` 里有没有 `rpc`，切换时只增减 `rpc`、别的条目保留（`shared/ui/goal-continuation.ts`）；读写走 `omp config`，和终端里的 omp 共用同一份，不另存副本。omp 就绪后主进程检查一次：用户没明确设过（`config.yml` 里没有这个键）就加上 `rpc`，设过的不碰（`src/main/omp-config/goal-default.ts`）。
 
-### 4.20 提供商与账号（设置页的一节；登录流）
+### 4.20 Provider 与账号（设置页的一节；登录流）
 
 代码 `features/settings/`：`ProvidersSection.tsx`（页面）、`ProviderRow.tsx`（一行）、`ProviderPickDialog.tsx`（连接提供商）、`ProviderFlowDialog.tsx` + `ProviderPanels.tsx`（登录 / 填 key / 选账号 / 失败）、`CustomProviders.tsx` + `CustomProviderForm.tsx` + `CustomModelList.tsx`（自定义提供商）、`RowMenu.tsx`（⋯），分组规则 `src/shared/ui/provider-list.ts`，样式 `providers.css`、`custom-providers.css`，文案 `login.*`、`custom.*`。omp 列出 80 多个提供商，**没连接的不在页面上铺开**（2026-10-22 起，`direction-3.2.md` §7 第 3 项；原来是 `显示其余 N 个提供商` 展开）。
 
 - **数据**：`accounts-store.ts` 一次读 `get_login_providers`（提供商列表）、studio 存了 key 的提供商、模型列表，再对已认证的提供商逐个读 `get_logout_accounts`（账号）；有缓存先显示，进入时后台刷新；登录、退出、改 key 之后强制重读。读取失败是 error `Notice` `login.loadFailed`；后台刷新失败时保留上次结果，上面一条 warning `Notice` `login.refreshFailed`。
 - **分组**（`splitProviders`）：**已连接** = omp 认为已认证（登录过、环境变量或配置里有凭据）或 studio 存了 key 的；其余是"没连接"。两组内都保持 omp 的顺序。
-- **页面自上而下**：页头右侧 `连接提供商…`（`login.connect`，sm 次要按钮带 `+`，`providers-connect`；还在读取或没有未连接的提供商时禁用）。分组 `已连接`（`login.connected`，带个数）：每个一行；一个都没有时一句 `login.connected.empty`。分组 `自定义提供商`（见下）。最后分组 `其他提供商`（`login.others`，带个数，`providers-others`）：只有一行说明 `login.others.note`，不列行。
+- **页面自上而下**：页头右侧 `连接 provider…`（`login.connect`，sm 次要按钮带 `+`，`providers-connect`；还在读取或没有未连接的提供商时禁用）。分组 `已连接`（`login.connected`，带个数）：每个一行；一个都没有时一句 `login.connected.empty`。分组 `自定义提供商`（见下）。最后分组 `其他提供商`（`login.others`，带个数，`providers-others`）：只有一行说明 `login.others.note`，不列行。
 - **一行**（`ProviderRow.tsx`，`ui/ListRow`，`provider-<id>`）：28 方图标块（名称首字母）、名称 + 一个状态 `Badge`、一行元信息、右侧 sm 按钮、⋯。
 
 | 状态（按顺序取第一条命中的） | 徽标 | 元信息 |
@@ -653,9 +652,9 @@
 
 流程对话框成功（登录完成、key 已保存、已退出）后关闭并重读列表；登录结果是 `cancelled` 时直接关闭，不报错。
 
-- **自定义提供商**（`CustomProviders.tsx`，`custom-providers`）：omp 的 `models.yml` 里 `providers.*` 的列表，直接读写 omp 的文件（`docs/architecture/custom-models.md`）。分组标题 `自定义提供商`（带个数），右侧 `显示 models.yml`（quiet sm）+ `添加提供商…`（sm，读取中或读取失败时禁用）。一行 = 首字母图标块 + ID，元信息 `接口类型 · Base URL · N 个模型（或 运行时发现模型） · key 状态（无需 key / 已设置 key / 环境变量 X / 命令取 key）`，动作 `编辑`（sm）+ ⋯ `删除`（先 `ConfirmDialog` danger，正文写明只去掉这个提供商、留一份 `models.yml.bak`）。读取失败是 error `Notice`；没有时一句 `还没有自定义提供商`。
+- **自定义提供商**（`CustomProviders.tsx`，`custom-providers`）：omp 的 `models.yml` 里 `providers.*` 的列表，直接读写 omp 的文件（`docs/architecture/custom-models.md`）。分组标题 `自定义提供商`（带个数），右侧 `显示 models.yml`（quiet sm）+ `添加 provider…`（sm，读取中或读取失败时禁用）。一行 = 首字母图标块 + ID，元信息 `接口类型 · Base URL · N 个模型（或 运行时发现模型） · key 状态（无需 key / 已设置 key / 环境变量 X / 命令取 key）`，动作 `编辑`（sm）+ ⋯ `删除`（先 `ConfirmDialog` danger，正文写明只去掉这个提供商、留一份 `models.yml.bak`）。读取失败是 error `Notice`；没有时一句 `还没有自定义提供商`。
 - **添加 / 编辑对话框**（`CustomProviderForm.tsx`，`ui/Dialog` md，标题 `添加自定义提供商` / `编辑 {id}`）：字段竖排——ID（编辑时禁用）、Base URL、接口类型（`Select`：OpenAI Chat Completions / OpenAI Responses / Anthropic Messages）、API key（分段：直接填 key / 环境变量 / 无需 key，编辑原来是直接填或命令取 key 的提供商时前面多一个 `保持不变`；直接填的 key 默认遮住，框尾 quiet `显示 / 隐藏`）、模型（`拉取模型` sm；有模型后 `全选` / `全不选` quiet + `已选 n / m`；超过 12 个时出现筛选框；每个模型一个 `Checkbox`；底部手动添加框 + `添加`；拉取的结果或失败原因用 `Notice` 写一句）。页脚 `取消` + 主按钮 `保存`；保存后 toast `custom.saved`，新模型出现在模型选择器。
-- **没有可用模型时没有引导卡片**：输入框的模型胶囊显示 `composer.noModel`；模型选择器底部的 `添加提供商…` 关掉选择器、打开设置页的这一节。首次启动不另走一套登录流程，登录都在这一节。
+- **没有可用模型时没有引导卡片**：输入框的模型胶囊显示 `composer.noModel`；模型选择器底部的 `添加 provider…` 关掉选择器、打开设置页的这一节。首次启动不另走一套登录流程，登录都在这一节。
 
 ### 4.21 omp 版本过旧
 
@@ -706,7 +705,7 @@
 | Badge `.ui-badge` | 18 高、`--radius-sm`、`--fs-2xs`；neutral / accent / success / warning / error，可带圆点。状态、范围、来源、"推荐""默认"都用它，不再用整句彩色文字 |
 | Menu `.ui-menu` | `--bg-overlay` + `--shadow-2` + `--radius-lg`，`padding: --space-1`，项高 `--row-menu`(32)。第一列 16px：动作菜单放图标，选择菜单放 ✓（**当前项只靠 ✓**，灰底只表示悬停 / 键盘焦点）；破坏性项红字、放最后、前面一条分隔线；不可用项灰字，原因写在第二行小字；小节标题 `--fs-2xs` `--text-3`；最宽 320。`Menu` 按锚点 `fixed` 弹出，贴边时翻到锚点另一侧；打开时焦点进第一项，`↑↓` 移动，`Esc` / 点外面关闭，焦点回到打开它的元素。`MenuList` 是嵌在 Popover 里的同一种菜单 |
 | Popover `.ui-popover` | 输入框胶囊上方弹出的浮层：`--bg-overlay`、`--shadow-2`、`--radius-lg`；确认类内容宽 300，标题 `--fs-sm` 粗、正文 `--text-2`、按钮 sm 右对齐。**同一时刻只开一个**：新开的会关掉已开的（`/todo` 再 `/jobs` 不叠放）；`Esc` 只关最上面（最后打开）的一个并被消耗（不会再当作"停止任务"），焦点在输入框、胶囊或浮层里都管，焦点在 `aria-modal` 对话框或 TSP 过程区里不管；从输入框用斜杠命令打开的，关闭后焦点留在输入框 |
-| Dialog `.ui-dialog` | **唯一外壳**：sm 400 / md 520 / lg 720，`--radius-xl`、`--shadow-3`，居中、遮罩 `--bg-scrim`；标题 `--fs-lg` + 可选一句说明，右上 ×；正文竖排字段（`FormField`：标签在上，帮助 / 错误在下）；页脚按钮右对齐、取消在前确认在后，附带选项放页脚左侧。`Esc` 关闭并被消耗，`Tab` 在对话框内循环，打开时焦点进 `[data-autofocus]`（没有就进 ×），关闭时焦点回到打开前的元素。焦点掉到 body（按下的按钮转成 loading 被禁用、获得焦点的元素被卸载）时，`Esc` 照样关最上面的对话框、`Tab` 把焦点拉回对话框。自己管开关的对话框（打开即挂载，放完退出动画才通知父级）由父级用 `useDialogSlot`（`ui/presence.ts`）记开着的是哪一次：退出动画没放完又点打开，立刻开一个新的，旧实例迟到的通知不会把它关掉。确认框（`ConfirmDialog`）是 sm 宽的同一外壳，破坏性确认用 `danger-solid`，打开时焦点在**取消**。**不叠对话框** |
+| Dialog `.ui-dialog` | **唯一外壳**：sm 400 / md 520 / lg 720（要横向空间的用量、模型选择再加宽到 `--dialog-w-xl` 960），`--radius-xl`、`--shadow-3`，居中、遮罩 `--bg-scrim`；标题 `--fs-lg` + 可选一句说明，右上 ×（选择器类对话框可以用 `head` 换掉标题行：顶上是搜索框，标题只作读屏名、没有 ×，如模型选择）；正文竖排字段（`FormField`：标签在上，帮助 / 错误在下）；页脚按钮右对齐、取消在前确认在后，附带选项放页脚左侧。`Esc` 关闭并被消耗，`Tab` 在对话框内循环，打开时焦点进 `[data-autofocus]`（没有就进 ×），关闭时焦点回到打开前的元素。焦点掉到 body（按下的按钮转成 loading 被禁用、获得焦点的元素被卸载）时，`Esc` 照样关最上面的对话框、`Tab` 把焦点拉回对话框。自己管开关的对话框（打开即挂载，放完退出动画才通知父级）由父级用 `useDialogSlot`（`ui/presence.ts`）记开着的是哪一次：退出动画没放完又点打开，立刻开一个新的，旧实例迟到的通知不会把它关掉。确认框（`ConfirmDialog`）是 sm 宽的同一外壳，破坏性确认用 `danger-solid`，打开时焦点在**取消**。**不叠对话框** |
 | SectionHead / Row / ListRow | 分组标题 `.ui-section-head`：`--fs-sm` 粗 + 计数，右侧图标按钮或一个 sm 按钮，可带一行说明。设置行 `.ui-row`：最小 40 高，标签列 200，控件紧跟标签列，改过的值左侧 2px `--accent` 竖线、控件后面一个"恢复默认"图标按钮（悬停提示写出默认值）。列表行 `.ui-list-row`：28px 图标、名称 + 徽标、一行元信息、动作；删除 / 移除收进 ⋯ 菜单 |
 | Notice `.ui-notice` | 内联提示条：左 2px 等级色 + 同色 soft 底，`--radius-md`，`padding: --space-2 --space-3`；info（`--accent`）/ warning（`--st-waiting`）/ error（`--st-error`）；一句人话 + 最多一个动作 |
 | Chip `.ui-chip` | 输入框工具条专用：28 高胶囊，**无底色**，悬停 / 打开时 `--bg-hover`；审批胶囊写出模式名，全自动用 `--st-waiting-text` |
@@ -985,7 +984,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | 任务删除、自定义快捷键、界面缩放、角色（default/plan）选择、测试结果显示 | — | 不做 |
 | 编辑/分叉用户消息、会话树（读会话文件 + omp `/tree` + `--fork`） | omp 用户消息上的回退图标、`/fork`、`/tree`、命令面板“会话树” | 已做，见 §4.14 SessionTreePanel；原地编辑已发出的消息不做（omp 没有改写历史的命令） |
 | macOS | 侧栏头左侧 inset（红绿灯）、`⌘` 映射、系统菜单 | Windows 优先；CSS 已不写死三键宽度 |
-| API key 登录输入 | 设置 → 提供商与账号 的提供商行 | 只显示终端登录指引 |
+| API key 登录输入 | 设置 → Provider 与账号 的提供商行 | 只显示终端登录指引 |
 
 ---
 
@@ -1093,7 +1092,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `composer.queueRestored` | 已停止 · {n} 条排队消息已放回输入框 | Stopped · {n, plural, one {# queued message} other {# queued messages}} put back in the box |
 | `composer.imagesDropped` | 图片太大，没能放回 | The images were too large to restore |
 | `composer.nextRequest` | 下一次请求生效 | Applies from the next request |
-| `composer.context` | 上下文 {p}% | Context {p}% |
+| `composer.context` | Context {p}% | Context {p}% |
 | `composer.usage.tps` | {n} token/s | {n} tok/s |
 | `composer.usage.tpsTip` | 最近一条回复的输出速度 | Output speed of the latest reply |
 | `composer.badge.fast` / `composer.badge.slow` | 快速 / 慢速 | Fast / Slow |
@@ -1104,19 +1103,21 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `composer.versionTooOld` | omp 版本过旧 | omp is too old |
 | `model.search` | 搜索模型，@ 选角色… | Search models, @ for roles… |
 | `model.empty` | 没有可用模型 | No models available |
-| `model.pinned` / `model.all` / `model.matches` / `model.rolesGroup` | 常用 / 全部 / 匹配 / 角色 | Frequent / All / Matches / Roles |
+| `model.pinned` / `model.all` / `model.matches` / `model.rolesGroup` | 常用 / 全部模型 / 匹配 / 角色 | Frequent / All models / Matches / Roles |
+| `model.scopes` / `model.providers` | 模型范围（左栏读屏名）/ Provider | Model scopes / Providers |
+| `model.roleTarget` / `model.roleTargetClear` | 为 {role} 选模型 / 改回切换 Default | Picking for {role} / Back to Default |
 | `model.noRoles` | 没有匹配的角色 | No matching roles |
 | `model.thinking` | 思考强度 | Thinking |
 | `model.thinking.unsupported` | 这个模型不支持思考 | This model doesn't support thinking |
-| `model.context` / `model.compactsAt` / `model.out` | 上下文 / 压缩于 / 输出（单次输出上限） | Context / Compacts at / Output (max tokens per response) |
+| `model.context` / `model.compactsAt` / `model.out` | Context / 压缩于 / 输出（单次输出上限） | Context / Compacts at / Output (max tokens per response) |
 | `model.compact.percent` / `.percentOfBase` | 窗口的 {percent}% / 基数 {base} 的 {percent}% | {percent}% of window / {percent}% of {base} base |
 | `model.compact.fixed` / `.capped` | 固定值 / 到达窗口，改为窗口减预留 | fixed / capped by window |
 | `model.compact.reserve` / `.reserveOfBase` | 窗口减预留 {reserve} / 基数 {base} 减预留 {reserve} | window − {reserve} reserve / {base} base − {reserve} reserve |
 | `model.compact.source.global` / `.project` / `.model` | 全局设置 / 项目设置 / 按模型设置 | global / project / per-model |
-| `model.price` · `model.price.input` / `.output` / `.cache` / `.line` | 价格 · 输入 {value} / 输出 {value} / 缓存 {value} / {parts}（每百万 token） | Price · {value} in / {value} out / {value} cache / {parts} per M |
+| `model.price` · `model.price.input` / `.output` / `.cache` / `.line` | 价格 · 输入 {value} / 输出 {value} / 缓存 {value} / {parts}（每 M token） | Price · {value} in / {value} out / {value} cache / {parts} per M |
 | `model.perf` · `model.perf.tps` / `.ttft` / `.samples` | 实测速度 · {value} t/s / 首字 {value} s / {count} 次采样 | Speed · {value} t/s / {value} s TTFT / {count} sample(s) |
 | `model.perf.catalog` / `model.perf.none` | 模型目录给出 / 还没有实测 | from the model catalog / Not measured yet |
-| `model.intelligence` / `model.input` · `.text` / `.image` | 智能分 / 输入类型 · 文本 / 图片 | Intelligence / Input · text / image |
+| `model.intelligence` / `model.input` · `.text` / `.image` | Int / 输入类型 · 文本 / 图片 | Intelligence / Input · text / image |
 | `model.fast` | 快速模式 | Fast mode |
 | `model.fast.hint` | 更快的服务层级，只对本会话生效；模型不支持时 omp 会拒绝。 | A faster service tier for this session only; omp rejects it on models that don't support it. |
 | `model.slow` | 慢速模式 | Slow mode |
@@ -1124,9 +1125,9 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `model.slow.scope.session` | 只对本会话生效 | This session only |
 | `model.slow.unsupported` | 这个模型没有慢速模式 | This model has no slow mode |
 | `model.on` / `model.off` | 开 / 关 | On / Off |
-| `model.addProvider` | 添加提供商… | Add a provider… |
-| `model.colModel` / `.colIntelligence` / `.colSpeed` / `.colContext` / `.colPrice` | 模型 / 智能 / t/s / 上下文 / $/M | Model / Int / t/s / Ctx / $/M |
-| `model.out` / `model.price.perM` | 输出 / {value} 每百万 | Output / {value} per M |
+| `model.addProvider` | 添加 provider… | Add a provider… |
+| `model.colIntelligence` / `.colSpeed` / `.colContext` / `.colPrice` | Int / t/s / Ctx / $/M（照 omp 原文，中英相同） | Int / t/s / Ctx / $/M |
+| `model.out` / `model.price.perM` | 输出 / {value} / M | Output / {value} per M |
 | `model.use` / `model.useRole` | 用于此任务 / 应用角色 | Use for this task / Apply role |
 | `thinking.off` | 关 | Off |
 | `thinking.minimal` | 极低 | Minimal |
@@ -1149,7 +1150,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `approval.sourceGlobal` | 全局配置 | global config |
 | `approval.forget` | 清除已记住的批准 | Forget remembered approvals |
 | `approval.desc.forget` | 清掉“询问并记住”记下的所有文件和文件夹批准（所有会话都生效） | Clears every file and folder approval that Ask and remember has recorded (all sessions) |
-| `approval.subagents` | 子代理在后台以全自动运行，不会单独询问。 | Subagents run in the background in Yolo mode and don't ask separately. |
+| `approval.subagents` | Subagent 在后台以全自动运行，不会单独询问。 | Subagents run in the background in Yolo mode and don't ask separately. |
 | `approval.loading` | 审批… | Approval… |
 | `approval.yoloConfirmTitle` | 使用全自动？ | Use Yolo? |
 | `approval.yoloConfirmBody` | 全自动模式下，omp 不会在执行命令前询问你。 | In Yolo mode, omp won't ask before running commands. |
@@ -1218,7 +1219,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `cmd.language` | 切换语言 | Switch language |
 | `cmd.model` | 切换模型 | Switch model |
 | `cmd.thinking` | 切换思考强度 | Cycle thinking level |
-| `cmd.compact` | 压缩上下文 | Compact context |
+| `cmd.compact` | 压缩 context | Compact context |
 | `cmd.exportHtml` | 导出对话为 HTML… | Export conversation as HTML… |
 | `cmd.stop` | 停止当前任务 | Stop current task |
 | `cmd.copyLast` | 复制最后一条回答 | Copy last answer |
@@ -1296,10 +1297,10 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 |---|---|---|
 | `settings.general` | 通用 | General |
 | `settings.models` | 模型 | Models |
-| `settings.providers` | 提供商与账号 | Providers & accounts |
+| `settings.providers` | Provider 与账号 | Providers & accounts |
 | `settings.tools` | 工具与权限 | Tools & permissions |
-| `settings.context` | 上下文与记忆 | Context & memory |
-| `settings.agents` | 子代理与规划 | Subagents & planning |
+| `settings.context` | Context 与记忆 | Context & memory |
+| `settings.agents` | Subagent 与规划 | Subagents & planning |
 | `settings.integrations` | 集成 | Integrations |
 | `settings.advanced` | 高级 | Advanced |
 | `settings.whileRunning` | 任务运行中 | While a task is running |
@@ -1323,7 +1324,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `settings.defaultModel` | 新任务的默认模型 | Default model for new tasks |
 | `settings.defaultThinking` | 默认思考强度 | Default thinking level |
 | `settings.ompPicksModel` | 由 omp 自动选择 | Let omp choose |
-| `login.providers` | 提供商 | Providers |
+| `login.providers` | Provider | Providers |
 | `login.signIn` | 登录 | Sign in |
 | `login.signOut` | 退出登录 | Sign out |
 | `login.signedIn` | 已登录 · {account} | Signed in · {account} |
@@ -1333,7 +1334,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `login.fallback` | 如果浏览器没有打开，复制这个链接： | If your browser didn't open, copy this link: |
 | `login.reopen` | 重新打开浏览器 | Open the browser again |
 | `login.pasteCode` | 粘贴授权码 | Paste the authorization code |
-| `login.terminalOnly` | 这个提供商需要在终端里登录：运行 omp，再输入 /login。 | This provider has to be set up in the terminal: run omp, then type /login. |
+| `login.terminalOnly` | 这个 provider 需要在终端里登录：运行 omp，再输入 /login。 | This provider has to be set up in the terminal: run omp, then type /login. |
 | `login.copyCommand` | 复制命令 | Copy command |
 | `login.chooseAccount` | 选择要退出的账号 | Choose an account to sign out |
 | `login.failed` | 登录没有完成。 | Sign-in didn't complete. |

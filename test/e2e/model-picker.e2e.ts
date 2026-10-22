@@ -1,4 +1,4 @@
-// 模型选择对话框的角色标签：给非 default 角色指定模型，写进 omp 的 modelRoles（持久化），重新打开能看到徽标。
+// 模型选择对话框的角色范围：给非 default 角色指定模型，写进 omp 的 modelRoles（持久化），重新打开能看到徽标。
 // 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR，里面一个 auth: none 的本地 provider 提供两个模型；不连任何真实服务。
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -18,7 +18,7 @@ async function roles(page: Page): Promise<Record<string, string>> {
   return page.evaluate(() => globalThis.studio.getModelRoles(null));
 }
 
-test("角色标签：选 Task 再选模型，modelRoles.task 写入 omp 配置，default 不动；重新打开有 task 徽标", async () => {
+test("角色范围：选 Task 再选模型，modelRoles.task 写入 omp 配置，default 不动；重新打开有 task 徽标", async () => {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-roles-"));
   await writeFile(path.join(agentDir, "models.yml"), modelsYml, "utf8");
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
@@ -32,22 +32,21 @@ test("角色标签：选 Task 再选模型，modelRoles.task 写入 omp 配置�
     await page.setViewportSize({ width: 1200, height: 900 });
     await openPicker(page);
 
-    // 角色标签：omp 的内置角色，默认停在 default。
-    const tabs = page.locator('[data-testid^="model-role-tab-"]');
-    await expect(tabs).toHaveCount(7);
-    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+    // 左栏"角色"：omp 的 7 个内置角色各一行，默认在给 default 选（顶栏没有角色标记）。
+    await page.getByTestId("model-scope-roles").click();
+    await expect(page.getByTestId("model-scope-roles")).toHaveAttribute("aria-current", "true");
+    await expect(page.getByTestId("model-role-option")).toHaveCount(7);
+    await expect(page.getByTestId("model-role-target")).toHaveCount(0);
 
-    // 选 Task：标题变成"切换 Task 模型"，并说明用途。
-    await page.getByTestId("model-role-tab-task").click();
-    await expect(page.getByTestId("model-picker")).toContainText(/Task/);
+    // 角色范围里搜索框过滤角色，Enter 切到它：回到全部模型，顶栏写明在给 Task 选，并说明用途。
+    await page.getByTestId("model-search").fill("task");
+    await expect(page.getByTestId("model-role-option")).toHaveCount(1);
+    await page.getByTestId("model-search").press("Enter");
+    await expect(page.getByTestId("model-role-target")).toContainText("Task");
+    await expect(page.getByTestId("model-scope-all")).toHaveAttribute("aria-current", "true");
     await expect(page.getByTestId("model-role-use")).toBeVisible();
-    // ←/→ 在标签间移动（键盘可达）。
-    await page.keyboard.press("ArrowRight");
-    await expect(page.getByTestId("model-role-tab-commit")).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("ArrowLeft");
-    await expect(page.getByTestId("model-role-tab-task")).toHaveAttribute("aria-selected", "true");
 
-    // 搜索出的模型行直接在表里；点模型 = 给 task 指定它。
+    // 点模型 = 给 task 指定它。
     await page.getByTestId("model-search").fill("role-two");
     const option = page.getByTestId("model-option").first();
     await expect(option).toBeVisible({ timeout: 30_000 });
@@ -56,7 +55,11 @@ test("角色标签：选 Task 再选模型，modelRoles.task 写入 omp 配置�
     expect((await roles(page))["default"]).toBeUndefined();
     await expect(option.getByTestId("model-role-badge")).toHaveText("task");
 
-    // 关掉再打开：徽标还在（读的是 omp 里持久化的值）。
+    // 顶栏的 × 改回给 default 选。
+    await page.getByTestId("model-role-clear").click();
+    await expect(page.getByTestId("model-role-target")).toHaveCount(0);
+
+    // 关掉再打开：徽标还在、角色行写着它的模型（读的是 omp 里持久化的值）。
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("model-picker")).toHaveCount(0);
     await openPicker(page);
@@ -64,7 +67,9 @@ test("角色标签：选 Task 再选模型，modelRoles.task 写入 omp 配置�
     await expect(page.getByTestId("model-option").first().locator('[data-role="task"]')).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.getByTestId("model-role-tab-task")).toHaveAttribute("title", /role-two/);
+    await page.getByTestId("model-search").fill("");
+    await page.getByTestId("model-scope-roles").click();
+    await expect(page.locator('[data-testid="model-role-option"][data-role="task"]')).toContainText("role-two");
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
@@ -109,6 +114,15 @@ test("模型选择对话框：一张表、底部是生效模型的参数（窗�
     await expect(page.getByTestId("model-option")).toHaveCount(0);
     await page.getByTestId("model-search").fill("");
     await expect(page.getByTestId("model-option").first()).toBeVisible();
+    // 左栏的提供商（真实 omp 还会列它自带的几个）：只列它的模型；只有正在生效的模型所在的提供商带点。
+    const provider = page.getByTestId("model-scope-provider").filter({ hasText: "table-local" });
+    await expect(provider).toHaveCount(1);
+    await expect(page.locator('[data-testid="model-picker"] .mp-scope-dot')).toHaveCount(1);
+    await expect(provider.locator(".mp-scope-dot")).toHaveCount(1);
+    await provider.click();
+    await expect(provider).toHaveAttribute("aria-current", "true");
+    await expect(page.getByTestId("model-option")).toHaveCount(1);
+    await page.getByTestId("model-scope-all").click();
     // @ 开头列角色（每个角色一行，带绑定的模型），清空后回到模型表。
     await page.getByTestId("model-search").fill("@");
     await expect(page.getByTestId("model-role-option").first()).toBeVisible();

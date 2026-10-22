@@ -21,7 +21,7 @@ export const task = {
   restartBusyRunning: "任务正在运行，结束后才能重开",
   restartBusyWaiting: "任务在等你回答，答完才能重开",
   restartBusyStarting: "任务正在启动",
-  restartBusyBackground: "还有后台作业、子代理或旁路提问在运行，结束后才能重开",
+  restartBusyBackground: "还有后台作业、subagent 或旁路提问在运行，结束后才能重开",
   restarted: "已重开会话",
   exportHtml: "导出为 HTML…",
 } satisfies Record<string, MessageEntry>;

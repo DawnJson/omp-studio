@@ -12,7 +12,7 @@ import type {
 } from "../../shared/ipc.ts";
 
 /** 文件格式版本；StartupSnapshot 的形状变了就加一，旧文件整个作废。 */
-const formatVersion = 1;
+const formatVersion = 2;
 
 export interface StartupCacheDeps {
   file: string;

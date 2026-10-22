@@ -19,7 +19,7 @@
 
 ## 界面
 
-- 导航只有一列（3.2 起占侧栏的位置：进设置时 App.tsx 在侧栏位置渲染 `SettingsNav`，顶上 `‹ 返回任务 Esc`、搜索全部设置、10 节；窗口窄到侧栏变抽屉、或侧栏被收起时，导航改成内容顶上的一个节下拉 + 搜索框 `SettingsCompactNav`；当前节和搜索词在 `ui-store` 的 `settingsPage` / `settingsQuery`，内容从 x≈281 开始、最宽 880 左对齐），不分"omp-studio 的 / omp 的"（仓库所有者 2026-10-19 定；omp 的设置和终端共用，就是 omp-studio 的设置）：通用、模型、提供商与账号、工具与权限、上下文与记忆、子代理与规划、集成、插件、高级、关于，10 节固定（`SettingsNav.tsx` 的 `settingsPages`；2026-10-22 仓库所有者定，原来按 omp 分组自动出节，共 13 节）。**各节只放常用项**——有人话标签的键（`ompcfg` 字典里有 `<key>.label` 的，`config-meta.ts` 的 `commonItems`，按字典顺序），和管理卡片同页：模型 = 默认模型 / 思考强度 + "模型与推理"组的常用项（`defaultThinkingLevel` 上面已有控件，不再重复一行，`useCommonConfigItems` 的 `omit`）；通用的"任务运行中"卡 = studio 的 Enter 行为 + "对话行为"组的常用项；工具与权限、上下文与记忆、子代理与规划 = 各自组的常用项。**其余全部在"高级"**（`AdvancedConfig`）：每个 omp-studio 分组一个小标题，组内按 key 第一段折叠成小组（`prefixGroups`，只有一项的前缀并进末尾的"其他"），默认收起；常用项不在高级里重复。搜索覆盖全部可见项。主进程自己改了设置（启动时 `goal.continuationModes` 的默认值）会发 `ompConfigChanged`，打开着的设置页静默重读。分组按用户要做的事分，不照搬 omp 的 tab（那是按终端菜单分的）；分组规则在 `src/shared/ui/config-groups.ts`（`test/config-groups.test.ts`）。rpc-ui 下没有作用的项隐藏（见下节），搜索也不找它们；顶部搜索框按 key、omp 英文描述、中英文标签和说明过滤（多个词要全部命中），`Ctrl F` 聚焦，`Esc` 先清搜索。
+- 导航只有一列（3.2 起占侧栏的位置：进设置时 App.tsx 在侧栏位置渲染 `SettingsNav`，顶上 `‹ 返回任务 Esc`、搜索全部设置、10 节；窗口窄到侧栏变抽屉、或侧栏被收起时，导航改成内容顶上的一个节下拉 + 搜索框 `SettingsCompactNav`；当前节和搜索词在 `ui-store` 的 `settingsPage` / `settingsQuery`，内容从 x≈281 开始、最宽 880 左对齐），不分"omp-studio 的 / omp 的"（仓库所有者 2026-10-19 定；omp 的设置和终端共用，就是 omp-studio 的设置）：通用、模型、Provider 与账号、工具与权限、Context 与记忆、Subagent 与规划、集成、插件、高级、关于，10 节固定（`SettingsNav.tsx` 的 `settingsPages`；2026-10-22 仓库所有者定，原来按 omp 分组自动出节，共 13 节）。**各节只放常用项**——有人话标签的键（`ompcfg` 字典里有 `<key>.label` 的，`config-meta.ts` 的 `commonItems`，按字典顺序），和管理卡片同页：模型 = 默认模型 / 思考强度 + "模型与 reasoning"组的常用项（`defaultThinkingLevel` 上面已有控件，不再重复一行，`useCommonConfigItems` 的 `omit`）；通用的"任务运行中"卡 = studio 的 Enter 行为 + "对话行为"组的常用项；工具与权限、Context 与记忆、Subagent 与规划 = 各自组的常用项。**其余全部在"高级"**（`AdvancedConfig`）：每个 omp-studio 分组一个小标题，组内按 key 第一段折叠成小组（`prefixGroups`，只有一项的前缀并进末尾的"其他"），默认收起；常用项不在高级里重复。搜索覆盖全部可见项。主进程自己改了设置（启动时 `goal.continuationModes` 的默认值）会发 `ompConfigChanged`，打开着的设置页静默重读。分组按用户要做的事分，不照搬 omp 的 tab（那是按终端菜单分的）；分组规则在 `src/shared/ui/config-groups.ts`（`test/config-groups.test.ts`）。rpc-ui 下没有作用的项隐藏（见下节），搜索也不找它们；顶部搜索框按 key、omp 英文描述、中英文标签和说明过滤（多个词要全部命中），`Ctrl F` 聚焦，`Esc` 先清搜索。
 - 每项是一个 `ui/Row`（最小 40 高，标签列 200，控件一律 sm 28）：标签 + ⓘ（描述、key、"omp 原文"标记都在悬停/聚焦/点击出现的说明里，紧贴标签文字），控件后面是保存反馈、被覆盖的徽标；改过的值（和 omp 默认不同）左侧一道强调色竖线 + 控件后一个"恢复默认"图标（悬停提示写出默认值）。搜索命中的是描述时，才在控件下面显示那一句。保存或校验出错时才多一行。没有人话标签的项显示 key（等宽、不截断）。
 - 控件（`ConfigControls.tsx`，两种语言一致、只看个数不看宽度）：boolean → 开关；enum ≤4 个值 → 分段，更多 → 下拉（有人话标签的常用项显示翻译后的取值，其余原样显示 omp 的取值并用等宽字）；number → 112 宽数字框，单位从 key 末段后缀推（`Ms` → ms、`Seconds` → 秒 / s、`Percent` → %），标签里不再写单位；omp 说明里写了 -1 / 0 含义的四个键（`compaction.thresholdPercent`、`compaction.thresholdTokens`、`task.maxRuntimeMs`、`retry.maxDelayMs`，`config-meta.ts` 的 `numberSpecials`）在框里显示成占位文字（`ompcfg` 的 `<key>.special`），清空输入 = 存回特殊值，没有说明的键照原值；string → 文本框；字符串数组 → 标签输入（`TagInput.tsx`，增删立即存）；对象和其余 JSON → "编辑…"按钮 + 等宽摘要，点开 `ui/Dialog` 里编辑并校验（解析失败、类型不对就地报错、不能保存）。文本和数字停手 700 ms、失焦或 Enter 保存；开关、选择、标签增删立即保存。
 - **`goal.continuationModes` 画成开关「目标自动推进」**（`ConfigControls.tsx`，`ompcfg` 里有标签和说明，所以也在“常用”里）：开 ⇔ 列表里有 `"rpc"`；切换时只增减 `"rpc"`，别的条目保留（`src/shared/ui/goal-continuation.ts`，`test/goal-continuation.test.ts`），写的就是上面那条 `omp config set`，不另存副本、不用 `--config` 覆盖，所以终端里的 omp 看到同一份值，反过来也一样。omp-studio 启动时若发现它没被用户明确设置过，会加上 `"rpc"` 一次（默认允许，细节和“怎么分辨设过”见 `conversation.md` 目标一节）。终端版 omp 只看 `"interactive"`，不受影响。
@@ -63,10 +63,10 @@
 
 | 组 | 项数 | 主要内容 |
 |---|---|---|
-| 模型与推理 | 100 | 模型角色/预设/提供商开关、思考强度和预算、采样参数、`retry.*`、`providers.*`、`tier.*`、`prewalk.*`、`advisor.*`、图像发送、`auth.*`、订阅重置 |
+| 模型与 reasoning | 100 | 模型角色/预设/提供商开关、思考强度和预算、采样参数、`retry.*`、`providers.*`、`tier.*`、`prewalk.*`、`advisor.*`、图像发送、`auth.*`、订阅重置 |
 | 工具与权限 | 112 | `tools.approval*`、各工具开关与参数（bash、edit、read、grep、lsp、eval、python、todo…） |
-| 上下文与记忆 | 112 | 压缩（`compaction.*`、`snapcompact.*`）、上下文文件、记忆后端（`memory`、`mnemopi`、`hindsight` 等）、`ttsr.*` |
-| 子代理与规划 | 60 | `task.*`、隔离/worktree、`plan.*`、`goal.*`、标题生成、skills、commands、扩展 |
+| Context 与记忆 | 112 | 压缩（`compaction.*`、`snapcompact.*`）、上下文文件、记忆后端（`memory`、`mnemopi`、`hindsight` 等）、`ttsr.*` |
+| Subagent 与规划 | 60 | `task.*`、隔离/worktree、`plan.*`、`goal.*`、标题生成、skills、commands、扩展 |
 | 对话行为 | 14 | 插话/稍后消息/打断、`ask.*`、`loop.*`、魔法关键词、`power.*` |
 | 集成 | 37 | MCP、浏览器、搜索（exa、searxng）、`secrets.*`、扩展处理器 |
 | 语音 | 11 | `stt.*`、`tts.*`、`speech.*`、`live.*` |
@@ -84,7 +84,7 @@
 
 ## 集成卡片：MCP、SSH、可用工具、记忆、更新日志（S5，omp 18.12.5 实测）
 
-斜杠命令 `/mcp /ssh /tools /memory /changelog` 由 studio 接管（`tsp:"studio"`），界面是设置页对应节里的卡片（集成 = MCP + SSH，工具与权限 = 可用工具，上下文与记忆 = 记忆，关于 = omp 更新日志；spec §4.19「集成卡片」）。代码：`src/renderer/src/features/settings/{McpCard,McpForm,SshCard,SshForm,ToolsCard,MemoryCard,OmpChangelog,ScopePicker}.tsx`；解析器 `src/shared/omp-output/{mcp,ssh,tools,changelog}.ts`；SSH 的主进程 `src/main/integrations/ssh.ts` + `src/main/ipc/integrations-handlers.ts`；MCP / 记忆 / 工具 / 更新日志走 S0 的 `runBuiltin`（用户范围 = 服务进程，项目范围 = 项目目录里的短命 rpc-ui）。文本格式不是 omp 的契约：解析不了的行原样显示，omp 的话原样给用户，不吞。以下都是临时 `PI_CODING_AGENT_DIR` + `--mode rpc-ui --no-session`（或 CLI）实测，2026-10-21。
+斜杠命令 `/mcp /ssh /tools /memory /changelog` 由 studio 接管（`tsp:"studio"`），界面是设置页对应节里的卡片（集成 = MCP + SSH，工具与权限 = 可用工具，Context 与记忆 = 记忆，关于 = omp 更新日志；spec §4.19「集成卡片」）。代码：`src/renderer/src/features/settings/{McpCard,McpForm,SshCard,SshForm,ToolsCard,MemoryCard,OmpChangelog,ScopePicker}.tsx`；解析器 `src/shared/omp-output/{mcp,ssh,tools,changelog}.ts`；SSH 的主进程 `src/main/integrations/ssh.ts` + `src/main/ipc/integrations-handlers.ts`；MCP / 记忆 / 工具 / 更新日志走 S0 的 `runBuiltin`（用户范围 = 服务进程，项目范围 = 项目目录里的短命 rpc-ui）。文本格式不是 omp 的契约：解析不了的行原样显示，omp 的话原样给用户，不吞。以下都是临时 `PI_CODING_AGENT_DIR` + `--mode rpc-ui --no-session`（或 CLI）实测，2026-10-21。
 
 ### `/mcp`（rpc-ui 的 `command_output`，全部 `agentInvoked:false`，不调模型）
 

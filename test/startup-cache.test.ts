@@ -30,6 +30,8 @@ const opus: ModelOption = {
   maxTokens: 64_000,
   thinkingEfforts: ["low", "medium", "high"],
   cost: { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
+  intelligence: 57.6,
+  catalogTps: null,
 };
 
 describe("StartupCache（startup-cache.json）", () => {

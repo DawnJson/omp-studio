@@ -11,6 +11,8 @@ const model = (patch: Partial<ModelOption> = {}): ModelOption => ({
   maxTokens: null,
   thinkingEfforts: ["low", "high", "max"],
   cost: { input: 0.3, output: 1.2, cacheRead: 0, cacheWrite: 0 },
+  intelligence: null,
+  catalogTps: null,
   ...patch,
 });
 

@@ -48,18 +48,38 @@ export function pinnedKeys(
   return keys;
 }
 
-export function groupModels(models: readonly ModelOption[], query: string, pinned: readonly ModelKey[]): ModelRows {
+const byProvider = (a: string, b: string) => a.localeCompare(b);
+
+/** provider 为 null = 全部模型；给了就只列这个 provider 的，不单列常用。 */
+export function groupModels(
+  models: readonly ModelOption[],
+  query: string,
+  pinned: readonly ModelKey[],
+  provider: string | null = null,
+): ModelRows {
   const needle = query.trim().toLowerCase();
   const filtered = models.filter(
     (model) =>
-      needle === "" || `${model.name} ${model.key.provider} ${model.key.modelId}`.toLowerCase().includes(needle),
+      (provider === null || model.key.provider === provider) &&
+      (needle === "" || `${model.name} ${model.key.provider} ${model.key.modelId}`.toLowerCase().includes(needle)),
   );
   const pinnedRows =
-    needle === "" ? pinned.flatMap((key) => filtered.filter((model) => sameModel(model.key, key))) : [];
+    needle === "" && provider === null
+      ? pinned.flatMap((key) => filtered.filter((model) => sameModel(model.key, key)))
+      : [];
   const rest = filtered
     .filter((model) => !pinnedRows.includes(model))
-    .sort((a, b) => a.key.provider.localeCompare(b.key.provider) || a.name.localeCompare(b.name));
+    .sort((a, b) => byProvider(a.key.provider, b.key.provider) || a.name.localeCompare(b.name));
   return { pinned: pinnedRows, rest, flat: [...pinnedRows, ...rest] };
+}
+
+/** 对话框左栏的提供商：列表里出现的 provider 和各自的模型数，顺序和表里的分组一致。 */
+export function providerCounts(models: readonly ModelOption[]): { provider: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const model of models) counts.set(model.key.provider, (counts.get(model.key.provider) ?? 0) + 1);
+  return [...counts]
+    .map(([provider, count]) => ({ provider, count }))
+    .sort((a, b) => byProvider(a.provider, b.provider));
 }
 
 /** 搜索框以 @ 开头时按角色名过滤（@ 之后的部分，前缀 / 包含都算）；不是 @ 开头为 null。 */

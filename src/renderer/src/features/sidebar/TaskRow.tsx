@@ -134,7 +134,8 @@ export function TaskRow(props: TaskRowProps) {
             <Branch size={12} />
           </span>
         )}
-        {tail !== null && <span className="sb-row-tail">{tail}</span>}
+        {/* 没有时间也占着位置：⋯ 盖在这一格上，标题不跑到按钮底下 */}
+        <span className="sb-row-tail">{tail}</span>
       </button>
       <IconButton
         className="sb-row-more"

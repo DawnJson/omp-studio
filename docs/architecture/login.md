@@ -1,6 +1,6 @@
 # 登录、API key 和模型列表
 
-实现：`src/main/service/`（服务进程、OAuth 登录）、`src/main/omp-manager/api-key-store.ts`、`src/main/ipc/account-handlers.ts`；界面是设置 → 提供商与账号（`features/settings/ProviderRow.tsx`）。协议出处：omp 文档 `rpc.md`（`get_login_providers`、`login`、`get_logout_accounts`、`logout`，以及 `extension_ui_request` 的 `open_url`/`input`/`notify`）；`environment-variables.md` §1（API key 的变量名）。
+实现：`src/main/service/`（服务进程、OAuth 登录）、`src/main/omp-manager/api-key-store.ts`、`src/main/ipc/account-handlers.ts`；界面是设置 → Provider 与账号（`features/settings/ProviderRow.tsx`）。协议出处：omp 文档 `rpc.md`（`get_login_providers`、`login`、`get_logout_accounts`、`logout`，以及 `extension_ui_request` 的 `open_url`/`input`/`notify`）；`environment-variables.md` §1（API key 的变量名）。
 
 ## 路线（决策 D3）
 
@@ -38,6 +38,8 @@
 ## 模型列表
 
 `listModels` 在服务进程上发 `get_available_models`（会等 omp 后台发现完成），映射成 `ModelOption`（`acceptsImages` = `input` 含 `image`）。新任务的默认模型/思考强度就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，omp-studio 不另存（omp 的设置就是 omp-studio 的设置）；新任务启动时不传 `--model`/`--thinking`。`modelRoles` 只能整体写（实测 18.12.1：`omp config set modelRoles.default` 报 Unknown setting），所以总是读出角色表只换 `default`；`defaultThinkingLevel` 不接受 `off`，胶囊里不提供。
+
+**智能分和目录速度**（实测 omp 18.12.6，2026-10-22，临时 agent 目录 + 真实 key）：`get_available_models` 回的每个模型除了 wire 类型 `ModelInfo` 列出的字段，还带 omp 从模型目录补好的 `int`（智能分）和 `tps`（输出速度），没有就不带。omp 查目录前按 provider 的各种写法归一（`packages/catalog/src/identity/metrics.ts`），所以中转站（如 `relay-x/claude-fable-5-1`）也能查到；studio 原来自己按 `provider/id` 原样读 `models.db` 的 `model_cache`，同一批模型大多查不到。现在 `toModelOption`（`src/main/tasks/convert.ts`）直接取这两个值（`ModelOption.intelligence` / `catalogTps`，非有限数或 `tps ≤ 0` 当没有），`model-insights.ts` 只读 `agent.db` 的实测速度和压缩设置。启动缓存格式版本因此升到 2。
 
 启动缓存（`src/main/service/startup-cache.ts`，单例在 `startup-cache-instance.ts`）：服务进程每次现读成功（默认模型、`listModels`、各项目的 `getModelDefaults`、`listAccounts` 得出的"有没有 OAuth 凭据"、`tools.approvalMode`）就记进 `userData/startup-cache.json`（原子写，串行）。渲染进程在第一次渲染前取一次 `getStartupSnapshot()`，工具行先用它画，现读到了再替换；缓存只用来显示，不参与任何决定，文件坏了或版本不对当成没有。应用启动时 `prewarmToolbarData()` 就拉起服务进程读默认模型和模型目录。任务进程起来之前，`TaskRunner` 用缓存的模型目录（`knownModel`）给胶囊名字和上下文窗口，查不到才用模型 id。
 
@@ -77,4 +79,4 @@ omp-studio 的做法（`src/main/omp-config/model-defaults.ts`，和 omp 终端�
 
 ## 界面（3.2）
 
-设置 → 提供商与账号只列"已连接"（`ProviderRow` 列表行：徽标 + sm 按钮，清除 key 在 ⋯ 里）和自定义提供商；没连接的不铺开，页头"连接提供商…"打开 `ProviderPickDialog`（可搜索），选中后进 `ProviderFlowDialog`——OAuth 进度、授权码 / API key 输入、选账号退出、失败重试都在这一个对话框里走。IPC 和登录行为不变。
+设置 → Provider 与账号只列"已连接"（`ProviderRow` 列表行：徽标 + sm 按钮，清除 key 在 ⋯ 里）和自定义提供商；没连接的不铺开，页头"连接提供商…"打开 `ProviderPickDialog`（可搜索），选中后进 `ProviderFlowDialog`——OAuth 进度、授权码 / API key 输入、选账号退出、失败重试都在这一个对话框里走。IPC 和登录行为不变。

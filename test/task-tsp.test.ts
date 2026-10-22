@@ -60,6 +60,8 @@ const catalog: ModelOption[] = [
     maxTokens: null,
     thinkingEfforts: ["low", "medium", "high"],
     cost: { input: 0.3, output: 1.2, cacheRead: 0, cacheWrite: 0 },
+    intelligence: 34.3,
+    catalogTps: null,
   },
 ];
 

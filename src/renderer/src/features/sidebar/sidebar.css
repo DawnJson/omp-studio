@@ -335,10 +335,6 @@
   border-radius: var(--radius-md);
   color: var(--text-2);
 }
-/* 有 ⋯ 的行（任务行）右边让出按钮的位置；历史会话行没有 ⋯，不让 */
-.sb-row[data-menu] .sb-row-main {
-  padding-right: calc(var(--control-h-sm) + var(--space-1));
-}
 .sb-row[data-selected="true"] .sb-row-main,
 .sb-row[data-status="needs_you"] .sb-row-main {
   color: var(--text);
@@ -350,12 +346,15 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 时间一列：所有行的右边对齐；任务行 hover 时 ⋯ 盖在这一格上（最小宽 = ⋯ 的宽），所以任务行不再另外让位 */
 .sb-row-tail {
   flex: none;
+  min-width: var(--control-h-sm);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
+  text-align: right;
   transition:
     opacity var(--dur-fast) var(--ease-out),
     visibility 0s;

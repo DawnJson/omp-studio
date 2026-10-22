@@ -6,6 +6,7 @@ import {
   groupModels,
   parseRoleSelector,
   pinnedKeys,
+  providerCounts,
   roleView,
 } from "../src/renderer/src/features/composer/model-groups.ts";
 
@@ -18,6 +19,8 @@ const make = (provider: string, modelId: string, name = modelId): ModelOption =>
   maxTokens: null,
   thinkingEfforts: null,
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+  intelligence: null,
+  catalogTps: null,
 });
 const models = [
   make("openai", "gpt-5", "GPT-5"),
@@ -51,6 +54,20 @@ describe("groupModels", () => {
     expect(rows.pinned).toEqual([]);
     expect(rows.rest[0]?.name).toBe("GPT-5");
     expect(groupModels(models, "nope", []).flat).toEqual([]);
+  });
+
+  it("选了提供商只列它的模型、不单列常用，搜索也只在它里面找；左栏的提供商和表里分组同序", () => {
+    const pinned = [{ provider: "openai", modelId: "gpt-5" }];
+    const rows = groupModels(models, "", pinned, "anthropic");
+    expect(rows.pinned).toEqual([]);
+    expect(rows.flat.map((m) => m.name)).toEqual(["Claude Haiku", "Claude Sonnet"]);
+    expect(groupModels(models, "gpt", pinned, "anthropic").flat).toEqual([]);
+    expect(groupModels(models, "sonnet", pinned, "anthropic").flat.map((m) => m.name)).toEqual(["Claude Sonnet"]);
+    expect(providerCounts(models)).toEqual([
+      { provider: "anthropic", count: 2 },
+      { provider: "deepseek", count: 1 },
+      { provider: "openai", count: 1 },
+    ]);
   });
 });
 
