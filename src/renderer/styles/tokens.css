@@ -138,9 +138,10 @@
 
   /* 层级 */
   --z-sticky: 10;
+  /* toast 在菜单、浮层、对话框下面（3.2）：提示不能盖住用户正在点的东西 */
+  --z-toast: 30;
   --z-popover: 40;
   --z-dialog: 50;
-  --z-toast: 60;
   --z-palette: 70;
 
   /* 动效：曲线 */
@@ -224,6 +225,9 @@
   --text-3: #625f6a;
   --text-disabled: #a6a4ad;
   --text-on-accent: #ffffff;
+  --text-on-danger: #ffffff;
+  /* 分段控件的选中块 */
+  --control-on: #ffffff;
 
   /* 强调（鸢尾紫，3.0）：只给进行中状态、主输入焦点环、链接、上下文圆环、开关、选中 */
   --accent: #6b46d9;
@@ -296,6 +300,9 @@
     --text-3: #87848f;
     --text-disabled: #585560;
     --text-on-accent: #0c0b0e;
+    /* 深色的 --st-error 是浅红，白字对比度不够 */
+    --text-on-danger: #0c0b0e;
+    --control-on: #2b2931;
 
     --accent: #a48bff;
     --accent-soft: rgba(164, 139, 255, 0.14);
@@ -361,6 +368,8 @@
   --text-3: #87848f;
   --text-disabled: #585560;
   --text-on-accent: #0c0b0e;
+  --text-on-danger: #0c0b0e;
+  --control-on: #2b2931;
 
   --accent: #a48bff;
   --accent-soft: rgba(164, 139, 255, 0.14);

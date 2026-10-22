@@ -9,7 +9,7 @@ import { toggleView, type BrowserMode, type ToggleName } from "../../../../share
 import { useT } from "../../i18n/use-t.ts";
 import { Sliders } from "../../icons.tsx";
 import { reportOmpError } from "../../ui/errors.ts";
-import { Popover } from "../composer/Popover.tsx";
+import { Popover } from "../../ui/Popover.tsx";
 import { Segmented } from "../settings/controls.tsx";
 import { ToggleRow } from "./ToggleRow.tsx";
 import { runToggleCommand } from "./toggle-actions.ts";
@@ -76,7 +76,7 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
   const anyDiffers = sessionRows.some((name) => toggleView(toggles[name], defaults[name]).differs) || browser.differs;
 
   return (
-    <div className="pop-anchor">
+    <div className="ui-popover-anchor">
       <button
         type="button"
         className="tool-btn tg-button"

@@ -10,7 +10,7 @@ import { Pencil, Shield, ShieldCheck, ShieldOff } from "../../icons.tsx";
 import { useSettings } from "../../store/index.ts";
 import { startupSnapshot } from "../../store/startup-snapshot.ts";
 import { ensureOmpConfigLoaded } from "../settings/config-store.ts";
-import { Popover } from "./Popover.tsx";
+import { Popover } from "../../ui/Popover.tsx";
 import { useApprovalMode } from "./use-approval-mode.ts";
 
 const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey; icon: typeof Shield }[] = [
@@ -89,7 +89,7 @@ export function ApprovalChip({
   };
 
   return (
-    <div className="pop-anchor">
+    <div className="ui-popover-anchor">
       <button
         type="button"
         className="chip"

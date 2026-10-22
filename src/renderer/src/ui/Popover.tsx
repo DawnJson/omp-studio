@@ -1,9 +1,9 @@
-// 自胶囊上方弹出的浮层。点外面、Esc 关闭；关闭后焦点回到触发器（`/todo`、`/jobs` 从输入框打开的，焦点就留在输入框）。
+// 自胶囊上方弹出的浮层（spec §4.23 Popover，样式 .ui-popover）。外面包一层 .ui-popover-anchor。点外面、Esc 关闭；关闭后焦点回到触发器（`/todo`、`/jobs` 从输入框打开的，焦点就留在输入框）。
 // 同一时刻只开一个：新开的浮层会关掉已开的；Esc 只关最上面（最后打开）的一个，并且被消耗，不会再触发"停止"。
 // Esc 在焦点于输入框、胶囊或浮层里时都管；焦点在 aria-modal 对话框或 TSP 过程区（那里的 Esc 是写给 omp 的按键）时不管。
 // 关闭时先放退出动画再卸载（presence.ts）。
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
-import { usePresence } from "../../ui/presence.ts";
+import { usePresence } from "./presence.ts";
 
 interface PopoverProps {
   open: boolean;
@@ -12,6 +12,8 @@ interface PopoverProps {
   width?: number | undefined;
   align?: "start" | "end";
   label: string;
+  /** confirm：行内确认（宽 300、最小 280，标题 / 正文 / 按钮用 .ui-pop-*）。 */
+  kind?: "confirm" | undefined;
 }
 
 /** 浮层离可见区域（最近的裁剪祖先，一般是主区面板）边缘至少留这么多。 */
@@ -42,7 +44,7 @@ function fitInside(el: HTMLElement): void {
 /** 已打开的浮层，后开的在后面。 */
 const openStack: { close(): void }[] = [];
 
-export function Popover({ open, onClose, children, width, align = "start", label }: PopoverProps) {
+export function Popover({ open, onClose, children, width, align = "start", label, kind }: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null);
   const presence = usePresence(open);
   const onCloseRef = useRef(onClose);
@@ -106,7 +108,8 @@ export function Popover({ open, onClose, children, width, align = "start", label
   return (
     <div
       ref={ref}
-      className="pop"
+      className="ui-popover"
+      data-kind={kind}
       role="dialog"
       aria-label={label}
       data-align={align}

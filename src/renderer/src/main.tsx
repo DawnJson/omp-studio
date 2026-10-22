@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "../styles/tokens.css";
 import "./app/app.css";
+import "./ui/controls.css";
 import "./ui/motion.css";
 import "./ui/scrollbars.css";
 import { App } from "./app/App.tsx";

@@ -7,7 +7,7 @@ import { ChevronRight } from "../../icons.tsx";
 import { useT } from "../../i18n/use-t.ts";
 import { ContextBreakdown, prefetchCompaction, type ContextBreakdownProps } from "./ContextBreakdown.tsx";
 import { ModelBreakdown } from "./ModelBreakdown.tsx";
-import { Popover } from "./Popover.tsx";
+import { Popover } from "../../ui/Popover.tsx";
 import { onStudioCommand } from "../palette/studio-command.ts";
 import { useSessionExtras } from "../tsp/session-extras-store.ts";
 import { formatTokensPerSecond } from "./speed-limit-format.ts";
@@ -63,7 +63,7 @@ function ContextButton({ sessionUsage, ...props }: ContextBreakdownProps & { ses
   const label = t("composer.context", { p: formatPercent(context.percent) });
   const expanded = usageOpen && sessionUsage !== undefined;
   return (
-    <div className="pop-anchor usage-context-anchor">
+    <div className="ui-popover-anchor usage-context-anchor">
       <button
         type="button"
         className="usage-context"

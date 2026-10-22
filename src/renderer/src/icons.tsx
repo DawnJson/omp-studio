@@ -157,3 +157,29 @@ export const Sliders = (props: IconProps) => (
     <circle cx="6" cy="11" r="1.7" />
   </Icon>
 );
+/** ⓘ 说明 */
+export const Info = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="8" cy="8" r="6" />
+    <path d="M8 7.2v3.6" />
+    <circle cx="8" cy="5" r=".4" />
+  </Icon>
+);
+/** 恢复默认：逆时针 ↺（"刷新"用 Restart ↻） */
+export const Reset = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M3 8a5 5 0 1 0 1.6-3.7" />
+    <path d="M3.5 2v3h3" />
+  </Icon>
+);
+/** 在系统浏览器 / 外部程序里打开 */
+export const External = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M9.5 3H13v3.5M13 3 7.5 8.5M11 9.5V13H3V5h3.5" />
+  </Icon>
+);
+export const Trash = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" />
+  </Icon>
+);

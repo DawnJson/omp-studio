@@ -8,7 +8,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { ChevronRight } from "../../icons.tsx";
 import { formatElapsed } from "../conversation/format.ts";
 import { useNow } from "../conversation/use-now.ts";
-import { Popover } from "./Popover.tsx";
+import { Popover } from "../../ui/Popover.tsx";
 import { TspJobActions } from "./TspJobActions.tsx";
 
 /** 已结束的用 omp 量的时长，运行中的用现在 - 开始；都没有就不显示。 */

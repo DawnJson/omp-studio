@@ -86,7 +86,7 @@
   flex: 1;
 }
 /* 审批胶囊保持原宽，空间不够时由模型胶囊收窄（它的名字会省略）。 */
-.composer-tools > .pop-anchor:has(> [data-testid="approval-chip"]) {
+.composer-tools > .ui-popover-anchor:has(> [data-testid="approval-chip"]) {
   flex: none;
 }
 .composer-note {
@@ -316,7 +316,7 @@ button.usage-context:hover,
   }
 }
 /* 圆环的浮层：不继承工具行的等宽小字，数字列自己用等宽 */
-.usage-context-anchor .pop {
+.usage-context-anchor .ui-popover {
   color: var(--text);
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
@@ -740,7 +740,7 @@ html[data-motion="reduced"] .ctx-usage-chev {
   color: var(--st-waiting-text);
 }
 
-/* 待办板：右侧一个按钮；点开向上弹出阶段与条目（浮层用上面的 .pop）。 */
+/* 待办板：右侧一个按钮；点开向上弹出阶段与条目（浮层是 ui/Popover）。 */
 .todo-anchor {
   flex: 0 1 auto;
   max-width: 40%;
@@ -916,42 +916,7 @@ html[data-motion="reduced"] .ctx-usage-chev {
   min-width: 0;
 }
 
-/* 浮层 */
-.pop-anchor {
-  position: relative;
-  display: inline-flex;
-  min-width: 0;
-}
-.pop {
-  position: absolute;
-  bottom: calc(100% + var(--space-2));
-  left: 0;
-  z-index: var(--z-popover);
-  display: flex;
-  flex-direction: column;
-  max-width: calc(100vw - var(--space-8));
-  max-height: 60vh;
-  padding: var(--space-1-5);
-  background: var(--bg-overlay);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-2);
-  overflow: hidden auto;
-  animation: pop-in var(--dur-base) var(--ease-out);
-}
-.pop[data-align="end"] {
-  left: auto;
-  right: 0;
-}
-@keyframes pop-in {
-  from {
-    opacity: 0;
-    transform: translateY(var(--travel-sm)) scale(var(--scale-pop));
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
+/* 浮层（ui/Popover）里的内容 */
 .pop-note {
   margin: var(--space-1-5) var(--space-2-5);
   font-size: var(--fs-xs);
@@ -1464,12 +1429,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
 }
 .mp-actions .gate-btn[data-primary] {
   border-color: var(--primary);
-}
-
-/* 审批菜单：和侧栏底部语言 / 主题菜单同一种紧凑菜单（共用 MenuItem），浮层的内边距和圆角收到和 .menu 一样。 */
-.pop:has(> [role="menu"]) {
-  padding: var(--space-1);
-  border-radius: var(--radius-lg);
 }
 
 /* 后台任务：输入框右上方的看板胶囊 + 看板浮层（状态行下不再另列 job 小卡，免得同一个 job 显示两遍）。 */

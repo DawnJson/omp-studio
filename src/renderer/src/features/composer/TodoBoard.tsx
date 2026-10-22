@@ -5,7 +5,7 @@ import type { TodoPhase } from "../../../../shared/omp-wire/rpc-wire.generated.t
 import { useT } from "../../i18n/use-t.ts";
 import { TodoMark } from "./TodoMark.tsx";
 import { summarizePhase, toRoman, type TodoSummary } from "../conversation/todo-model.ts";
-import { Popover } from "./Popover.tsx";
+import { Popover } from "../../ui/Popover.tsx";
 import { onStudioCommand } from "../palette/studio-command.ts";
 
 export function TodoBoard({
@@ -29,7 +29,7 @@ export function TodoBoard({
   const finished = total > 0 && done === total;
 
   return (
-    <div className="pop-anchor todo-anchor">
+    <div className="ui-popover-anchor todo-anchor">
       <button
         type="button"
         className="todo-board"

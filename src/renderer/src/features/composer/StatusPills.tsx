@@ -59,7 +59,7 @@ export function StatusPills({
         </button>
       )}
       {showAgents && showJobs && <span className="status-pill-sep" aria-hidden="true" />}
-      <div className="pop-anchor jobs-anchor">
+      <div className="ui-popover-anchor jobs-anchor">
         {showJobs && (
           <button
             type="button"

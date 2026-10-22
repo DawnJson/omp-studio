@@ -1,0 +1,1106 @@
+/*
+ * 通用控件（spec §4.23，3.2 起）。只用 tokens.css 的变量；各功能目录不再自己写按钮 / 开关 / 分段 / 下拉 / 菜单 / 对话框样式。
+ * React 组件在 ui/controls.tsx、Select.tsx、Menu.tsx、Popover.tsx、Dialog.tsx、InfoTip.tsx。
+ *
+ * - 控件只有两档高度：md 32（表单、对话框、设置页）、sm 28（工具条、面板标题、列表行、浮层）。
+ * - 一个视图最多一个主要按钮；链接（.ui-link）只出现在句子里，不当独立按钮。
+ * - 互斥取值用 Segmented（≤4 个短选项）或 Select（更多）；切换视图用 Tabs。由选项个数决定，不由语言或宽度决定。
+ * - 输入框聚焦不画外描边，边框隐去、换成双环阴影（1px 强调色环 + 3px 淡色光环）；同时留一条透明 outline，Windows
+ *   高对比度模式会把它画成系统色（forced-colors 下 box-shadow 被清掉，border / outline 颜色被强制成系统色）。
+ *   按钮等键盘焦点仍是 :focus-visible 的外描边。
+ * - 夹在文字里的图标 vertical-align: -0.125em；放在 flex 容器里的图标靠 align-items: center，不加偏移。
+ * - 多行的说明文字 text-wrap: pretty，短标题 text-wrap: balance。
+ */
+
+/* ───────── Button ───────── */
+.ui-btn {
+  --btn-h: var(--control-h-md);
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1-5);
+  align-items: center;
+  justify-content: center;
+  height: var(--btn-h);
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  color: var(--text);
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    border-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
+}
+.ui-btn svg {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.ui-btn[data-size="sm"] {
+  --btn-h: var(--control-h-sm);
+  padding: 0 var(--space-2-5);
+  font-size: var(--fs-xs);
+}
+.ui-btn:hover {
+  background: var(--bg-hover);
+}
+.ui-btn:active {
+  background: var(--bg-active);
+}
+.ui-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-btn[data-variant="primary"] {
+  color: var(--text-on-primary);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.ui-btn[data-variant="primary"]:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.ui-btn[data-variant="quiet"] {
+  color: var(--text-2);
+  border-color: transparent;
+}
+.ui-btn[data-variant="quiet"]:hover {
+  color: var(--text);
+}
+
+.ui-btn[data-variant="danger"] {
+  color: var(--st-error);
+  border-color: color-mix(in srgb, var(--st-error) 45%, transparent);
+}
+.ui-btn[data-variant="danger"]:hover {
+  background: var(--st-error-soft);
+}
+
+/* 只用在破坏性确认对话框的确认按钮 */
+.ui-btn[data-variant="danger-solid"] {
+  color: var(--text-on-danger);
+  background: var(--st-error);
+  border-color: var(--st-error);
+}
+.ui-btn[data-variant="danger-solid"]:hover {
+  background: color-mix(in srgb, var(--st-error) 88%, var(--text));
+}
+
+.ui-btn:disabled,
+.ui-btn[aria-disabled="true"] {
+  color: var(--text-disabled);
+  cursor: default;
+  background: transparent;
+  border-color: var(--border);
+}
+.ui-btn[data-variant="primary"]:disabled,
+.ui-btn[data-variant="danger-solid"]:disabled {
+  background: var(--bg-active);
+  border-color: transparent;
+}
+.ui-btn[data-variant="quiet"]:disabled {
+  border-color: transparent;
+}
+
+/* 加载：文字隐藏、宽度不变，环叠在中间 */
+.ui-btn[data-loading] {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+.ui-btn[data-loading]::after {
+  position: absolute;
+  inset: 0;
+  width: 14px;
+  height: 14px;
+  margin: auto;
+  content: "";
+  border: 1.5px solid var(--text-2);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ui-spin var(--dur-spin) linear infinite;
+}
+.ui-btn[data-variant="primary"][data-loading]::after {
+  border-color: var(--text-on-primary);
+  border-right-color: transparent;
+}
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 按钮里的快捷键提示：不画键帽框，只是尾随的淡色小字（门的 Hide / Skip / Submit 等） */
+.ui-btn .ui-hint {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+.ui-btn[data-variant="primary"] .ui-hint {
+  color: color-mix(in srgb, var(--text-on-primary) 65%, transparent);
+}
+
+/* ───────── Icon button ───────── */
+.ui-icon-btn {
+  --btn-h: var(--control-h-sm);
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--btn-h);
+  height: var(--btn-h);
+  padding: 0;
+  color: var(--text-2);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    color var(--dur-instant) var(--ease-out);
+}
+.ui-icon-btn[data-size="md"] {
+  --btn-h: var(--control-h-md);
+}
+.ui-icon-btn svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+.ui-icon-btn:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.ui-icon-btn[aria-pressed="true"],
+.ui-icon-btn[aria-expanded="true"] {
+  color: var(--text);
+  background: var(--bg-active);
+}
+.ui-icon-btn:disabled {
+  color: var(--text-disabled);
+  background: transparent;
+}
+
+/* 句子里的链接；不当独立按钮用 */
+.ui-link {
+  color: var(--link);
+  text-decoration: none;
+  cursor: pointer;
+}
+.ui-link:hover {
+  text-decoration: underline;
+}
+
+/* ───────── Field（文本 / 数字 / 搜索 / 下拉触发器共用一个框） ───────── */
+.ui-field {
+  display: inline-flex;
+  gap: var(--space-1-5);
+  align-items: center;
+  width: var(--field-w, 280px);
+  max-width: 100%;
+  height: var(--control-h-md);
+  padding: 0 var(--space-2-5);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  transition:
+    border-color var(--dur-instant) var(--ease-out),
+    box-shadow var(--dur-instant) var(--ease-out);
+}
+.ui-field[data-size="sm"] {
+  height: var(--control-h-sm);
+  font-size: var(--fs-xs);
+}
+.ui-field:focus-within {
+  border-color: transparent;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 0 4px var(--accent-soft);
+}
+.ui-field[data-invalid] {
+  border-color: var(--st-error);
+}
+.ui-field[data-invalid]:focus-within {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px var(--st-error),
+    0 0 0 4px var(--st-error-soft);
+}
+.ui-field[aria-disabled="true"] {
+  color: var(--text-disabled);
+  background: var(--bg-sunken);
+  border-color: var(--border);
+}
+.ui-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+.ui-field input::placeholder,
+.ui-field .ui-placeholder {
+  color: var(--text-3);
+}
+.ui-field > svg {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  color: var(--text-3);
+}
+.ui-field .ui-affix {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.ui-field.ui-number {
+  --field-w: 112px;
+}
+.ui-field.ui-number input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ui-field.ui-mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+}
+
+/* 下拉触发器：就是一个 Field，右侧 chevron */
+.ui-select {
+  --field-w: 200px;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+}
+.ui-select > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-textarea {
+  display: block;
+  width: 100%;
+  min-height: 76px;
+  padding: var(--space-1-5) var(--space-2-5);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text);
+  resize: vertical;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+.ui-textarea:focus {
+  border-color: transparent;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 0 4px var(--accent-soft);
+}
+.ui-textarea.ui-mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+}
+.ui-textarea[data-invalid] {
+  border-color: var(--st-error);
+}
+.ui-textarea:disabled {
+  color: var(--text-disabled);
+  background: var(--bg-sunken);
+  border-color: var(--border);
+}
+
+.ui-help {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  text-wrap: pretty;
+  color: var(--text-3);
+}
+.ui-help[data-tone="error"] {
+  color: var(--st-error);
+}
+
+/* 对话框 / 表单里的竖排字段：标签在上 */
+.ui-form-field {
+  display: grid;
+  gap: var(--space-1-5);
+}
+.ui-form-field > label,
+.ui-form-field > .ui-label {
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+
+/* ───────── Switch / Checkbox / Radio ───────── */
+.ui-switch {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  cursor: pointer;
+  background: var(--border-strong);
+  border: 0;
+  border-radius: var(--radius-pill);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.ui-switch::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  content: "";
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: var(--shadow-1);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.ui-switch[aria-checked="true"] {
+  background: var(--accent);
+}
+.ui-switch[aria-checked="true"]::after {
+  transform: translateX(16px);
+}
+.ui-switch:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.ui-check,
+.ui-radio {
+  display: inline-grid;
+  flex: none;
+  place-content: center;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  background: var(--bg-raised);
+  border: 1.5px solid var(--border-strong);
+  appearance: none;
+}
+.ui-check {
+  border-radius: var(--radius-sm);
+}
+.ui-radio {
+  border-radius: 50%;
+}
+.ui-check:checked,
+.ui-check:indeterminate {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.ui-check:checked::after {
+  width: 9px;
+  height: 5px;
+  content: "";
+  border-bottom: 2px solid var(--text-on-accent);
+  border-left: 2px solid var(--text-on-accent);
+  transform: translateY(-1px) rotate(-45deg);
+}
+.ui-check:indeterminate::after {
+  width: 8px;
+  height: 2px;
+  content: "";
+  background: var(--text-on-accent);
+}
+.ui-radio:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--bg-raised);
+}
+.ui-check:disabled,
+.ui-radio:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.ui-choice {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* ───────── Segmented（设一个值）与 Tabs（切一个视图） ───────── */
+.ui-seg {
+  --seg-h: var(--control-h-md);
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-0-5);
+  height: var(--seg-h);
+  padding: var(--space-0-5);
+  background: var(--bg-active);
+  border-radius: var(--radius-md);
+}
+.ui-seg[data-size="sm"] {
+  --seg-h: var(--control-h-sm);
+}
+.ui-seg > button {
+  padding: 0 var(--space-2-5);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.ui-seg[data-size="sm"] > button {
+  padding: 0 var(--space-2);
+  font-size: var(--fs-xs);
+}
+.ui-seg.ui-mono > button {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+}
+.ui-seg > button:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+.ui-seg > button:hover {
+  color: var(--text);
+}
+.ui-seg > button[aria-checked="true"] {
+  color: var(--text);
+  background: var(--control-on);
+  box-shadow: var(--shadow-1);
+}
+
+.ui-tabs {
+  display: flex;
+  gap: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.ui-tab {
+  position: relative;
+  display: inline-flex;
+  gap: var(--space-1-5);
+  align-items: center;
+  height: var(--control-h-md);
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+.ui-tab:hover {
+  color: var(--text);
+}
+.ui-tab[aria-selected="true"] {
+  color: var(--text);
+}
+.ui-tab[aria-selected="true"]::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  content: "";
+  background: var(--text);
+  border-radius: 1px;
+}
+
+/* ───────── Badge（状态、范围、计数） ───────── */
+.ui-badge {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  height: 18px;
+  padding: 0 var(--space-1-5);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  color: var(--text-2);
+  white-space: nowrap;
+  background: var(--bg-active);
+  border-radius: var(--radius-sm);
+}
+.ui-badge[data-tone="accent"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.ui-badge[data-tone="success"] {
+  color: var(--st-done);
+  background: color-mix(in srgb, var(--st-done) 13%, transparent);
+}
+.ui-badge[data-tone="warning"] {
+  color: var(--st-waiting-text);
+  background: var(--st-waiting-soft);
+}
+.ui-badge[data-tone="error"] {
+  color: var(--st-error);
+  background: var(--st-error-soft);
+}
+.ui-badge .ui-dot {
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  border-radius: 50%;
+}
+.ui-count {
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+/* ───────── Menu ───────── */
+.ui-menu {
+  min-width: 200px;
+  max-width: 320px;
+  padding: var(--space-1);
+  background: var(--bg-overlay);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+}
+/* 浮动的菜单 / 下拉列表（Menu.tsx、Select.tsx）：fixed 定位，挂在 body 上 */
+.ui-menu[data-floating] {
+  position: fixed;
+  z-index: var(--z-popover);
+  animation: pop-in var(--dur-base) var(--ease-out);
+}
+/* 下拉的选项列表（Select.tsx）：自己滚，滚动条用 OverlayScrollbar */
+.ui-select-list {
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.ui-select-list::-webkit-scrollbar {
+  display: none;
+}
+.ui-menu-label-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 浮层里嵌的菜单（审批模式等）：外框由浮层给 */
+.ui-menu[data-inline] {
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+/* 第一列 16px：动作菜单放图标，选择菜单放 ✓（当前项）；同一个菜单里不混用 */
+.ui-menu-item {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  min-height: var(--row-menu);
+  padding: var(--space-1) var(--space-2-5) var(--space-1) var(--space-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+.ui-menu-item > svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  color: var(--text-2);
+}
+.ui-menu-item:hover,
+.ui-menu-item[data-active],
+.ui-menu-item:focus-visible {
+  outline: none;
+  background: var(--bg-hover);
+}
+.ui-menu-item[data-tone="danger"],
+.ui-menu-item[data-tone="danger"] > svg {
+  color: var(--st-error);
+}
+.ui-menu-item[aria-disabled="true"] {
+  color: var(--text-disabled);
+  cursor: default;
+  background: transparent;
+}
+.ui-menu-item[aria-disabled="true"] > svg {
+  color: var(--text-disabled);
+}
+.ui-menu-text {
+  display: grid;
+  min-width: 0;
+}
+.ui-menu-note {
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-2xs);
+  color: var(--text-3);
+  text-wrap: pretty;
+}
+.ui-menu-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.ui-menu-sep {
+  height: 1px;
+  margin: var(--space-1) calc(-1 * var(--space-1));
+  background: var(--border-subtle);
+}
+.ui-menu-label {
+  padding: var(--space-1-5) var(--space-2-5) var(--space-1) calc(var(--space-2) + 16px + var(--space-2));
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+
+/* ───────── Popover（输入框胶囊上方弹出；Popover.tsx） ───────── */
+.ui-popover-anchor {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+.ui-popover {
+  position: absolute;
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  max-width: calc(100vw - var(--space-8));
+  max-height: 60vh;
+  padding: var(--space-1-5);
+  overflow: hidden auto;
+  background: var(--bg-overlay);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  animation: pop-in var(--dur-base) var(--ease-out);
+}
+.ui-popover[data-align="end"] {
+  right: 0;
+  left: auto;
+}
+.ui-popover:has(> .ui-menu[data-inline]) {
+  padding: var(--space-1);
+}
+/* 行内确认（全自动、会话开关、结束子代理）：宽 300，最小 280，不会被挤成一字一行 */
+.ui-popover[data-kind="confirm"] {
+  width: 300px;
+  min-width: 280px;
+  padding: var(--space-3) var(--space-3-5);
+}
+.ui-pop-title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-strong);
+  color: var(--text);
+  text-wrap: balance;
+}
+.ui-pop-body {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+.ui-pop-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+/* ───────── Dialog（唯一的对话框外壳；确认框是它的 sm 宽） ───────── */
+.ui-dialog {
+  display: flex;
+  flex-direction: column;
+  width: var(--dialog-w, var(--dialog-w-md));
+  max-width: calc(100vw - var(--space-8));
+  max-height: calc(100vh - 96px);
+  background: var(--bg-overlay);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+  animation: pop-in var(--dur-slow) var(--ease-spring);
+}
+.ui-dialog[data-size="sm"] {
+  --dialog-w: var(--dialog-w-sm);
+}
+.ui-dialog[data-size="lg"] {
+  --dialog-w: 720px;
+}
+.ui-dialog-head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-4) var(--space-3) 0 var(--space-5);
+}
+.ui-dialog-head > div {
+  flex: 1;
+  min-width: 0;
+  padding-top: var(--space-1);
+}
+.ui-dialog-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-strong);
+  line-height: var(--lh-lg);
+  color: var(--text);
+  text-wrap: balance;
+}
+.ui-dialog-desc {
+  margin: var(--space-0-5) 0 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+.ui-dialog-body {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5) var(--space-1);
+  overflow: auto;
+}
+.ui-dialog-foot {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+/* 页脚左侧放一个附带选项（如"暂存全部改动"）；按钮永远在右边，取消在前、确认在后 */
+.ui-dialog-foot > .ui-foot-start {
+  margin-right: auto;
+}
+
+/* ───────── 分组标题 + 设置行 + 列表行 ───────── */
+.ui-section-head {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: var(--control-h-md);
+  margin: var(--space-6) 0 var(--space-1);
+}
+.ui-section-head:first-child {
+  margin-top: 0;
+}
+.ui-section-title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-strong);
+  color: var(--text);
+}
+.ui-section-actions {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  margin-left: auto;
+}
+.ui-section-note {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-3);
+  text-wrap: pretty;
+}
+.ui-rows {
+  border-top: 1px solid var(--border);
+}
+
+.ui-row {
+  position: relative;
+  display: grid;
+  /* 标签 | 控件 | 恢复默认（紧跟控件，改过才出现）| 余下留白 */
+  grid-template-columns: var(--row-label-w, 200px) minmax(0, max-content) 28px 1fr;
+  column-gap: var(--space-2);
+  align-items: center;
+  min-height: 40px;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+/* 标签是普通文字块：英文折两行时 ⓘ 跟在最后一个词后面，不漂到列尾 */
+.ui-row-label {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+/* ⓘ（InfoTip.tsx）：跟在文字后面，和文字同一行基线下移 0.125em */
+.ui-info {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-left: var(--space-1);
+  vertical-align: -0.125em;
+}
+.ui-info-btn {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  color: var(--text-3);
+  cursor: default;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+}
+.ui-info-btn:hover,
+.ui-info-btn[aria-expanded="true"] {
+  color: var(--text);
+}
+.ui-info-pop {
+  position: absolute;
+  top: calc(100% + var(--space-1-5));
+  left: calc(var(--space-2) * -1);
+  z-index: var(--z-popover);
+  display: block;
+  width: max-content;
+  max-width: min(360px, 70vw);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-xs);
+  color: var(--text-2);
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+  background: var(--bg-overlay);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  animation: fade-in var(--dur-fade) var(--ease-out);
+}
+.ui-info-key {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  color: var(--text);
+}
+.ui-info-line {
+  display: block;
+  margin-top: var(--space-1);
+}
+/* 句子里的图标（链接后的 ↗、说明里的状态图标） */
+.ui-icon-inline {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+}
+.ui-row-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+/* 改过的值：标签左侧一道强调色竖线 + 行尾"恢复默认"图标 */
+.ui-row[data-modified]::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: -12px;
+  width: 2px;
+  content: "";
+  background: var(--accent);
+  border-radius: 1px;
+}
+
+.ui-list-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  min-height: 48px;
+  padding: var(--space-1-5) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.ui-list-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-strong);
+  color: var(--text-2);
+  background: var(--bg-active);
+  border-radius: var(--radius-md);
+}
+.ui-list-main {
+  display: grid;
+  min-width: 0;
+}
+.ui-list-title {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.ui-list-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-list-meta {
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ui-list-actions {
+  display: flex;
+  gap: var(--space-1-5);
+  align-items: center;
+}
+
+/* ───────── Notice（内联提示条）、Toast、Kbd、Chip、Disclosure ───────── */
+.ui-notice {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text);
+  background: var(--accent-soft);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-md);
+}
+.ui-notice[data-tone="warning"] {
+  background: var(--st-waiting-soft);
+  border-left-color: var(--st-waiting);
+}
+.ui-notice[data-tone="error"] {
+  background: var(--st-error-soft);
+  border-left-color: var(--st-error);
+}
+.ui-notice > p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.ui-toast {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  height: 36px;
+  padding: 0 var(--space-1) 0 var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  background: var(--bg-overlay);
+  border-radius: var(--radius-pill);
+  box-shadow:
+    var(--shadow-2),
+    0 0 0 1px var(--border-subtle);
+}
+.ui-toast .ui-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--st-done);
+  border-radius: 50%;
+}
+
+.ui-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-2);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+}
+
+/* 输入框工具条的胶囊：一种样式，全部无底色，hover / 打开时才有底 */
+.ui-chip {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1-5);
+  align-items: center;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2-5);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+}
+.ui-chip svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.ui-chip:hover,
+.ui-chip[aria-expanded="true"] {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.ui-chip[data-tone="warning"] {
+  color: var(--st-waiting-text);
+}
+.ui-chip .ui-sub {
+  color: var(--text-3);
+}
+
+.ui-disclosure {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+.ui-disclosure svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.ui-disclosure[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+.ui-tip {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  max-width: 280px;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text);
+  background: var(--bg-overlay);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-2);
+}
