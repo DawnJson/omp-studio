@@ -32,6 +32,15 @@ export function isHubOpenAction(act: string): boolean {
   return act === HUB_OPEN_ACTION;
 }
 
+/**
+ * 派子代理的 task 工具卡片（`omp.tool.task`）。omp 18.12.6 把它发成 `collapsed:true` + `preview:"none"`（只剩标题行，
+ * 见 docs/architecture/subagents.md）；studio 默认展开它，让每个子代理一行（状态、用时、统计）一直看得见
+ * （2026-10-22 仓库所有者）。只改起始状态：子代理行自己的折叠照 omp，点卡片头照常发 `toggle`。
+ */
+export function expandsByDefault(role: unknown): boolean {
+  return role === "omp.tool.task";
+}
+
 const finiteNumber = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
 

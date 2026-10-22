@@ -1171,10 +1171,16 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
   try {
     const { page } = launched;
     await sendFirst(page, String(recordedUserEvents(loadTspFixture("agent-progress"))[0]!.event["text"]));
-    // omp 把 Task 卡片和里面的子代理行都发成 collapsed:true(preview "none":只剩标题);展开要用户点,
-    // 录制里这一下是 toggle 事件,omp 收到后才发 collapsed:false。进度常驻在 wait 卡片的磁贴上(preview "children")。
-    const taskHead = role(page, "omp.tool.task").locator(".tsp-tool-head");
-    await expect(taskHead).toHaveAttribute("aria-expanded", "false", { timeout: 30_000 });
+    // omp 把 Task 卡片发成 collapsed:true(preview "none":只剩标题);studio 默认展开它(2026-10-22 仓库所有者),
+    // 每个子代理一行一直看得见。录制里探针点开卡片发过一次 toggle collapsed:false:收起再展开,回放才对得上。
+    const task = role(page, "omp.tool.task");
+    const taskHead = task.locator(".tsp-tool-head");
+    await expect(taskHead).toHaveAttribute("aria-expanded", "true", { timeout: 30_000 });
+    await expect(task.locator(".tsp-agent")).toHaveCount(2);
+    await expect(task.locator(".tsp-agent").first()).toBeVisible();
+    await shoot(page, "task-default-expanded");
+    await taskHead.click();
+    await expect(taskHead).toHaveAttribute("aria-expanded", "false");
     await taskHead.click();
     await expect(taskHead).toHaveAttribute("aria-expanded", "true");
     const rings = role(page, "omp.job.tile.ring");

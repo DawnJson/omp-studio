@@ -43,16 +43,20 @@
     "vitest": "5.0.5"
   },
   "dependencies": {
+    "@xmldom/xmldom": "0.8.15",
     "@xterm/addon-fit": "0.11.0",
     "@xterm/xterm": "6.0.0",
     "electron-updater": "6.8.9",
+    "jszip": "3.10.2",
     "katex": "0.19.0",
     "koffi": "3.3.3",
+    "mammoth": "1.13.0",
     "markdown-it": "15.0.3",
     "node-pty": "1.1.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "shiki": "4.5.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "yaml": "2.9.1"
   }
 }

@@ -10,6 +10,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
+import { expandsByDefault } from "../../../../../shared/tsp/agent-hub.ts";
 import type { TspPickerAction, TspText } from "../../../../../shared/tsp/tsp.generated.ts";
 import { isRecord } from "../../../../../shared/type-guards.ts";
 import { labels } from "../labels.ts";
@@ -143,7 +144,7 @@ export function Tool(props: NodeProps) {
   const p = node.p;
   const status = toolStatus(p.status);
   const collapsible = p.collapsible === true;
-  const [collapsed, toggle] = useFold(props, collapsible && p.collapsed === true);
+  const [collapsed, toggle] = useFold(props, collapsible && p.collapsed === true && !expandsByDefault(p.role));
   const preview = toolPreview(p.preview);
   const inline = p.frame === "inline";
   const exit = asNumber(p.exit);

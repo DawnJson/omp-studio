@@ -97,11 +97,14 @@ export interface DirListing {
 
 /** 文件预览结果：path 是相对根目录（任务 cwd 或草稿的项目目录）的规范化路径（传入绝对路径但落在根内时会换算）。 */
 export interface PreviewFile {
-  kind: "text" | "image" | "html" | "binary" | "too_large" | "missing";
+  /** document：Word / Excel / PowerPoint，主进程已转成完整的 HTML（放在 text 里），只能在沙箱 iframe 里显示、不跑脚本。 */
+  kind: "text" | "image" | "html" | "document" | "binary" | "too_large" | "missing";
   path: string;
   size: number;
-  /** text / html 才有。 */
+  /** text / html / document 才有。 */
   text?: string;
+  /** document 才有：表格太大，只画了每个工作表的前一部分。 */
+  truncated?: boolean;
   /** image 才有（data URL，svg 也走这里，渲染进程只能当图片显示）。 */
   dataUrl?: string;
   /** 能否用系统默认应用直接打开（同 openTaskFile 的白名单）；否则只能在文件夹中显示。 */

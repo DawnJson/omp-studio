@@ -393,7 +393,7 @@
 
 ### 4.11 过程区（TSP 节点）
 
-对话里 omp 的工作过程（工具卡片、思考块、子代理卡片、待办、压缩分隔、每轮用量脚注）都是 omp 发来的 TSP 节点，由 `features/tsp/` 渲染：结构由 omp 决定，外观由 `features/tsp/tsp.css` 决定（见 §4.14 末尾"过程卡片外观"和 `docs/architecture/tsp-migration.md` §8）。折叠 / 展开跟着节点的 `collapsed`，`Ctrl O` 展开或收起所有工具卡片（`docs/architecture/conversation.md`）。运行状态、用时和当前活动在输入框上方的状态行（`ComposerTop`，§4.14），子代理在右栏的子代理面板（§4.28）。没有改动卡片：评审入口是顶栏评审按钮、提交对话框、`Ctrl Shift D` 和命令面板（§4.25）。
+对话里 omp 的工作过程（工具卡片、思考块、子代理卡片、待办、压缩分隔、每轮用量脚注）都是 omp 发来的 TSP 节点，由 `features/tsp/` 渲染：结构由 omp 决定，外观由 `features/tsp/tsp.css` 决定（见 §4.14 末尾"过程卡片外观"和 `docs/architecture/tsp-migration.md` §8）。折叠 / 展开跟着节点的 `collapsed`，唯一的例外是派子代理的 task 卡片（`omp.tool.task`）：omp 发成收起、只剩标题，studio 默认展开，每个子代理一行一直看得见（2026-10-22 仓库所有者；判断在 `shared/tsp/agent-hub.ts` 的 `expandsByDefault`）；`Ctrl O` 展开或收起所有工具卡片（`docs/architecture/conversation.md`）。运行状态、用时和当前活动在输入框上方的状态行（`ComposerTop`，§4.14），子代理在右栏的子代理面板（§4.28）。没有改动卡片：评审入口是顶栏评审按钮、提交对话框、`Ctrl Shift D` 和命令面板（§4.25）。
 
 ### 4.14 Composer
 
@@ -652,7 +652,7 @@
 
 键盘（树有焦点时；打开文件页时焦点自动进树）：`↑ ↓` 移动光标，`→` 展开目录 / 已展开则进入第一个子项，`←` 收起 / 回到父目录，`Enter` 或空格 = 文件打开预览（切到预览页）、目录展开收起，`Home / End`，`Esc` 关闭面板。点击：目录展开收起，文件在同一面板里切到预览页。
 
-**预览页**：工具栏（`file-preview-bar`）：文件名 + 路径（和文件名相同时不重复）+ 预览/源码、缩放、用系统默认应用打开（`openTaskFile` 白名单里的类型才有）、在文件夹中显示（`revealTaskFile`）；这两个只有任务有，草稿的项目目录里没有。按类型渲染：`.md` 渲染 Markdown，可切到源码（`.segments`）；图片（png/jpg/gif/webp/svg）用 `<img>` 加载 data URL，适应面板宽度，可缩放，SVG 也只当图片、可切源码；`.html` 放进没有 `allow-same-origin` 的 `<iframe sandbox>`，脚本默认关，勾“运行脚本”才放行，可切源码；其他文本用 `CodeBlock` 语法高亮整段显示；二进制（前 8000 字节含 NUL）和过大（文本 > 2 MB、图片 > 20 MB）只给提示和“默认应用打开”。
+**预览页**：工具栏（`file-preview-bar`）：文件名 + 路径（和文件名相同时不重复）+ 预览/源码、缩放、用系统默认应用打开（`openTaskFile` 白名单里的类型才有）、在文件夹中显示（`revealTaskFile`）；这两个只有任务有，草稿的项目目录里没有。按类型渲染：`.md` 渲染 Markdown，可切到源码（`.segments`）；图片（png/jpg/gif/webp/svg）用 `<img>` 加载 data URL，适应面板宽度，可缩放，SVG 也只当图片、可切源码；`.html` 放进没有 `allow-same-origin` 的 `<iframe sandbox>`，脚本默认关，勾“运行脚本”才放行，可切源码；Word（`.docx`）、表格（`.xlsx` / `.xlsm` / `.xls` / `.ods`）、PowerPoint（`.pptx`）由主进程转成 HTML（`files/office-preview.ts`：Word 用 mammoth，表格用 SheetJS，每个工作表一个标题 + 一张表，超过 1000 行或 100 列只画前面并在上方提示 `preview.documentTruncated`；PowerPoint 读 pptx 的 XML，每页一个带页码的方框，按形状顺序列出标题、分级文字、图片和表格，不还原位置和动画），同样放进没有 `allow-same-origin` 的 `<iframe sandbox>`，从不放行脚本、没有源码切换，白底，和 `.html` 一样不跟应用主题；不支持旧的 `.doc` / `.ppt`（按二进制提示），Word 里的形状 / SmartArt 这类绘图不显示；其他文本用 `CodeBlock` 语法高亮整段显示；二进制（前 8000 字节含 NUL）和过大（文本 > 2 MB、图片和 Office 文档 > 20 MB）只给提示和“默认应用打开”。
 
 主进程：内容一律经 `readPreviewFile(target, path)` 读，目录经 `listDirectory(target, relDir)` 列，`target` 是 `{ kind: "task", taskId }`、`{ kind: "project", projectId }` 或 `{ kind: "defaultFolder" }`（渲染进程不传根路径，由主进程按 id 查；`defaultFolder` 不带任何字段，主进程自己取 `chatsDir()`，`@` 补全用同一个 target，默认文件夹的草稿里也能用）。相对路径按根目录解析，落在根内的绝对路径先换成相对路径，越界（绝对路径、`..`、符号链接解析后在根外，`resolveInsideReal` / `listDirectory` 的 realpath 校验）拒绝；读文件不存在返回 `missing`，列目录不存在返回空列表，`@` 补全根目录不存在时没有候选（`@` 补全不收名字里有空白的文件，这是已有行为）。打开面板时焦点进面板（预览页）或进树（文件页），Esc 或 × 关闭并把焦点还给打开前的元素。实现在 `features/file-preview/`（`FilePreviewPane` 外壳、`FileTree` + `tree-model.ts` 纯逻辑、`PreviewPage`/`PreviewContent`）与 `src/main/files/`（`list-directory.ts`、`preview-file.ts`）、`src/main/ipc/file-handlers.ts`（`parseFilesTarget` / `targetCwd`）。参照说明：Tern 的命令行帮助里只有 `tern open [--preview] PATH`（在标签页旁开文件块），没有文件树（只查了 `tern help` / `tern open --help`，没有逐个点界面），所以树的交互参照常见编辑器的资源管理器。
 

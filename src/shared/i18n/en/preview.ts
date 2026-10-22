@@ -20,6 +20,8 @@ export const preview = {
   readFailed: "Failed to read: {message}",
   imageAlt: "Image preview: {name}",
   htmlTitle: "Web page preview: {name}",
+  documentTitle: "Document preview: {name}",
+  documentTruncated: "Large sheet: only the first 1,000 rows and 100 columns of each sheet are shown.",
   resize: "Resize preview",
   pages: "Panel pages",
   pageFiles: "Files",
