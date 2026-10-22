@@ -1,5 +1,5 @@
-// 设置 → 通用：外观（语言、主题、减少动效、通知、选中即复制）；任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式）；
-// 快捷键（只读，两列）。
+// 设置 → 通用：外观（第一行语言、主题；第二行减少动效、通知、选中即复制）；任务运行中发消息的方式（studio 的 Enter + omp 的
+// 插话/稍后处理方式，两两一行）；快捷键（只读，三列）。格子排法见 settings.css 的 .st-cells。
 import type { LocalePreference, ThemePreference } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -59,7 +59,7 @@ export function GeneralSection() {
   return (
     <>
       <SectionHead title={t("settings.appearance")} />
-      <div className="ui-rows st-rows">
+      <div className="st-cells" data-cols="2">
         <Row label={t("settings.language")}>
           {(labelId) => (
             <Segmented<LocalePreference>
@@ -84,6 +84,8 @@ export function GeneralSection() {
             />
           )}
         </Row>
+      </div>
+      <div className="st-cells" data-cols="3">
         <Row label={t("settings.motion")} info={t("settings.motion.desc")}>
           {(labelId) => (
             <>
@@ -120,7 +122,7 @@ export function GeneralSection() {
         </Row>
       </div>
       <SectionHead title={t("settings.whileRunning")} />
-      <div className="ui-rows st-rows">
+      <div className="st-cells" data-cols="2">
         <Row label={t("settings.enterBehavior")} info={t("settings.enterBehavior.desc")}>
           {(labelId) => (
             <Segmented<"steer" | "followUp">

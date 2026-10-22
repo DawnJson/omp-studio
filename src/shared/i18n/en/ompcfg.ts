@@ -30,10 +30,10 @@ export const ompcfg = {
     "How tools are exposed to the model. Auto uses the model's native tool calls and falls back to the GLM format when it has none",
   "bash.enabled.label": "Allow running commands",
   "bash.enabled.desc": "When off, the model can't use the bash tool",
-  "steeringMode.label": "How steering messages are handled",
+  "steeringMode.label": "Steering message delivery",
   "steeringMode.desc":
     "How steering messages queued while the agent works are processed: one at a time, or all together",
-  "followUpMode.label": "How follow-ups are handled",
+  "followUpMode.label": "Follow-up delivery",
   "followUpMode.desc": "How queued follow-up messages are drained after a turn: one at a time, or all together",
   "interruptMode.label": "When steering interrupts tools",
   "interruptMode.desc": "Immediate: interrupt the running tool right away. Wait: let the current tool finish first",

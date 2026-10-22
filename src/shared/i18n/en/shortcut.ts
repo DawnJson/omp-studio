@@ -11,8 +11,8 @@ export const shortcut = {
   send: "Send",
   newline: "New line",
   later: "While running: later",
-  stop: "Stop and take back queued messages",
-  toggleProcess: "Expand or collapse all tool cards",
+  stop: "Stop and recall the queue",
+  toggleProcess: "Expand / collapse tool cards",
   focusComposer: "Focus the message box",
   nthTask: "Go to task N",
   prevNext: "Previous or next task",
@@ -21,6 +21,6 @@ export const shortcut = {
   reviewFiles: "Review: previous / next file",
   reviewHunks: "Review: previous / next change",
   reviewLayout: "Review: unified / side by side",
-  toggleTerminal: "Terminal: open / focus / back to the message box",
+  toggleTerminal: "Terminal: open / focus / return",
   toggleFiles: "File panel: open / close",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

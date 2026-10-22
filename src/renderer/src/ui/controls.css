@@ -882,6 +882,11 @@
   box-shadow: var(--shadow-2);
   animation: fade-in var(--dur-fade) var(--ease-out);
 }
+/* 右边放不下时往左展开（InfoTip.tsx 量过后给 data-align） */
+.ui-info-pop[data-align="end"] {
+  right: calc(var(--space-2) * -1);
+  left: auto;
+}
 .ui-info-key {
   display: block;
   margin-bottom: var(--space-1);

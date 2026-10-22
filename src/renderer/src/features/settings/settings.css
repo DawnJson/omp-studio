@@ -115,6 +115,7 @@
 .settings-content {
   max-width: 880px; /* 左对齐，窗口变宽时右侧留白而不是把控件拉开 */
   padding: var(--space-6) var(--space-10) var(--space-12);
+  container-type: inline-size; /* 格子（.st-cells、快捷键）按内容宽度减列 */
 }
 
 /* 高级：目录 + 行，比普通节宽一点 */
@@ -164,6 +165,50 @@
 /* 行：标签列 200，控件紧跟（ui/Row） */
 .st-rows {
   --row-label-w: 200px;
+}
+
+/* 格子：一行放 2 或 3 个设置（data-cols），每格是一条 ui/Row：标签靠左、控件靠右；
+   "恢复默认"夹在两者之间，出现时控件不动。窄了先减到 2 列，再减到 1 列。 */
+.st-cells {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  column-gap: var(--space-6);
+  border-top: 1px solid var(--border);
+}
+.st-cells[data-cols="2"] {
+  --cols: 2;
+}
+.st-cells[data-cols="3"] {
+  --cols: 3;
+}
+.st-cells + .st-cells {
+  border-top: 0;
+}
+.st-cells .ui-row {
+  grid-template-columns: minmax(0, 1fr) auto max-content;
+}
+.st-cells .ui-row > :last-child {
+  grid-row: 1;
+  grid-column: 2;
+}
+.st-cells .ui-row-control {
+  grid-row: 1;
+  grid-column: 3;
+  justify-content: flex-end;
+}
+/* "保存中 / 已保存"放在控件左边，控件不被挤动 */
+.st-cells .cfg-feedback {
+  order: -1;
+}
+@container (max-width: 700px) {
+  .st-cells[data-cols="3"] {
+    --cols: 2;
+  }
+}
+@container (max-width: 480px) {
+  .st-cells[data-cols] {
+    --cols: 1;
+  }
 }
 
 /* 没有人话标签的行显示 key：等宽，不截断（长 key 在标签列里折行） */
@@ -242,13 +287,23 @@
   font-size: var(--fs-sm);
 }
 
-/* ───────── 通用：快捷键两列 ───────── */
+/* ───────── 通用：快捷键三列（窄了减到 2 列、1 列，同 .st-cells） ───────── */
 
 .st-kb-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: var(--space-10);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: var(--space-6);
   border-top: 1px solid var(--border);
+}
+@container (max-width: 700px) {
+  .st-kb-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (max-width: 480px) {
+  .st-kb-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .st-kb-row {

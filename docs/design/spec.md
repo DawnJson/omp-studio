@@ -594,7 +594,7 @@
 
 | 节 | 内容 |
 |---|---|
-| 通用 | 分组 `外观`：语言（分段：跟随系统 / 简体中文 / English）、主题（分段：跟随系统 / 浅色 / 深色）、减少动效（开关；系统已要求时开关禁用在"开"，后面徽标 `系统已要求`）、有任务在等你时通知我（开关）、选中即复制（开关，默认开，见 §4 通则）。分组 `任务运行中`（`settings.whileRunning`）：运行中按 Enter（分段：插话 / 稍后，studio 自己的设置）+ omp"对话行为"组的常用项（插话的处理方式、稍后消息的处理方式、插话何时打断工具）。分组 `快捷键`（带个数，`id="settings-shortcuts"`）：只读，两列，键名用 Kbd，v1 不可自定义（`GeneralSection.tsx`） |
+| 通用 | **格子排法**（2026-10-22 仓库所有者定，`.st-cells`：一行 2 或 3 格，每格一条 `ui/Row`，标签靠左、控件靠右，"恢复默认"夹在两者之间、出现时控件不动；内容区窄于 700 时三格减到两格，窄于 480 一格一行，`.settings-content` 是 `inline-size` 容器）。分组 `外观`：第一行语言（分段：跟随系统 / 简体中文 / English）、主题（分段：跟随系统 / 浅色 / 深色）；第二行减少动效（开关；系统已要求时开关禁用在"开"，后面徽标 `系统已要求`）、有任务在等你时通知我（开关）、选中即复制（开关，默认开，见 §4 通则）。分组 `任务运行中`（`settings.whileRunning`）：运行中按 Enter（分段：插话 / 稍后，studio 自己的设置）+ omp"对话行为"组的常用项（插话的处理方式、稍后消息的处理方式、插话何时打断工具），两格一行。分组 `快捷键`（带个数，`id="settings-shortcuts"`）：只读，三列（窄时同上减列），键名用 Kbd，v1 不可自定义（`GeneralSection.tsx`） |
 | 模型 | 一组行：新任务的默认模型（`Select` 280 宽，第一项 `由 omp 自动选择`）、默认思考强度（`Select`）——**就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，经 `omp config` 读写**，和草稿输入框的模型胶囊是同一份（omp 的设置就是 omp-studio 的设置，不另存）；后面接 omp"模型与 reasoning"组的常用项（模型角色的保存位置、模型角色、出错重试与备用模型），`defaultThinkingLevel` 不重复一行（`ModelsSection.tsx`）。审批模式不在这里：在输入框胶囊或"工具与权限"里改 |
 | Provider 与账号 | 见 §4.20 |
 | 工具与权限 | omp"工具与权限"组的常用项（工具审批模式、按工具的审批策略、工具调用格式、允许执行命令）+ 分组 `可用工具`（`ToolsCard.tsx`，`/tools` 的列表）：标题带个数、右侧 ↻，说明写明这是全局列表（项目插件和 MCP 的工具不在内）；网格（每格最小 220 宽）每格一样：等宽工具名 + 状态徽标（`已启用` / `未启用` / `xd 设备`）+ 有对应 `<工具>.enabled` 设置项的在格尾放开关（就是那一项设置）。关掉的工具会从 omp 的列表里消失，所以不自动重读，格子保留，点 ↻ 才重读 |
@@ -710,7 +710,7 @@
 | Notice `.ui-notice` | 内联提示条：左 2px 等级色 + 同色 soft 底，`--radius-md`，`padding: --space-2 --space-3`；info（`--accent`）/ warning（`--st-waiting`）/ error（`--st-error`）；一句人话 + 最多一个动作 |
 | Chip `.ui-chip` | 输入框工具条专用：28 高胶囊，**无底色**，悬停 / 打开时 `--bg-hover`；审批胶囊写出模式名，全自动用 `--st-waiting-text` |
 | Disclosure `.ui-disclosure` | 展开 / 收起一律 chevron 转 90°，内容用 `ui/Reveal.tsx` 包；不用原生 `<details>` |
-| InfoTip `.ui-info` | 设置行、表单字段的说明：标签后面一个 ⓘ，悬停 250ms 出现，点击固定，点外面或 `Esc` 关闭（`Esc` 只关它，不退出设置页） |
+| InfoTip `.ui-info` | 设置行、表单字段的说明：标签后面一个 ⓘ，悬停 250ms 出现，点击固定，点外面或 `Esc` 关闭（`Esc` 只关它，不退出设置页）；弹层从 ⓘ 往右展开，右边会被最近的滚动 / 裁剪容器切掉时改成往左展开（`data-align="end"`，2026-10-22） |
 | Tooltip | 2026-10-22 起全应用的 `title` 都由 `ui/Tooltip.tsx`（`TooltipLayer`，挂在 `App` 末尾，`data-testid="tooltip"`）画，不出 Windows 原生提示：指针停 500ms 出（刚收起一个时 400ms 内移到下一个元素 0ms），键盘 `:focus-visible` 立即；画在元素下方 6px，下方放不下翻到上方，左右离窗口边 ≥8px；离开、按下、按键、滚动、窗口失焦收起。`--bg-overlay`，1px `--border`，`--shadow-2`，`--fs-xs`，`--radius-sm`，最大宽 280，层级 `--z-tooltip`（80，在对话框和命令面板之上）；文字末尾的 `(Ctrl …)` 拆成尾随 Kbd |
 | Toast | **气泡**（2026-10-20 起，仓库所有者："所有提示都应该用气泡悬浮提示,上方中间"）。`position: fixed`，不占布局：顶边在顶栏下 `--space-2`，水平居中于主区面板（侧栏之外那块纸，不是整个窗口；`Toasts.tsx` 用 `ResizeObserver` 量 `[data-testid="main-panel"]` 的左缘和宽度写进 `--toasts-left` / `--toasts-width`，侧栏收起 / 拖宽 / 抽屉、窗口缩放都跟着）；**层级 `--z-toast`(30) 低于菜单、浮层(40)和对话框(50)**，不盖住用户正在点的东西；多条向下叠放，最多 3；每条是一个 `--radius-pill` 的单行气泡：`--bg-overlay`、`--shadow-2` + 1px `--border-subtle`，`--fs-sm`，`[8px 等级圆点][文字（单行省略，完整文字在悬停提示）][×N 合并计数][可选一个文字按钮][×]`，最宽 `--toast-w` × 2。等级色只落在圆点上（`info` `--accent`、`success` `--st-done`、`warning` `--st-waiting`、`error` `--st-error`），警告和错误再加一圈同色 1px 细框。5 秒（`common.copied` 这类确认 1.2 秒）；`role="status"`（错误 `role="alert"`）；跨任务"等你确认"toast 点击切到该任务，不抢焦点。动效见 §2.6。omp 自己的提示（TSP 的 `toast` 节点）画成同一种气泡、排在同一叠放区里（`features/tsp/interactive/Toast.tsx` portal 进 `Toasts.tsx` 的 `.toasts-host`），停留时间仍按 omp 节点的 `tone` / `ttl`（成功 2.2 秒、其余 5.2 秒，`ttl` 只能缩短），整个窗口同一时刻一条，点一下收起；**例外**：role `omp.toast.status` 的状态行（`Session-only model: …` 等）不弹，留在对话里（§4.14「omp 的状态行」） |
 | Kbd | 高 18，`padding: 0 5px`，`--fs-2xs`，`--bg-sunken`，`1px --border`，`--radius-xs`，`--font-mono`；Windows 显示 `Ctrl`，macOS 显示 `⌘` |
@@ -1284,8 +1284,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `shortcut.send` | 发送 | Send |
 | `shortcut.newline` | 换行 | New line |
 | `shortcut.later` | 运行中：稍后 | While running: later |
-| `shortcut.stop` | 停止并取回排队消息 | Stop and take back queued messages |
-| `shortcut.toggleProcess` | 展开或收起最近一个过程行 | Expand or collapse the latest work row |
+| `shortcut.stop` | 停止并取回排队消息 | Stop and recall the queue |
+| `shortcut.toggleProcess` | 展开或收起所有工具卡片 | Expand / collapse tool cards |
 | `shortcut.focusComposer` | 聚焦输入框 | Focus the message box |
 | `shortcut.nthTask` | 切到第 N 个任务 | Go to task N |
 | `shortcut.prevNext` | 上一个或下一个任务 | Previous or next task |
@@ -1317,7 +1317,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `settings.enterBehavior` | 运行中按 Enter | Enter while running |
 | `settings.enterBehavior.steer` | 插话 | Steer |
 | `settings.enterBehavior.later` | 稍后 | Queue for later |
-| `settings.notifyWaiting` | 有任务在等你时通知我 | Notify me when a task is waiting for me |
+| `settings.notifyWaiting` | 有任务在等你时通知我 | Notify when a task needs me |
 | `settings.copyOnSelect` | 选中即复制 | Copy on select |
 | `settings.copyOnSelect.desc` | 在对话里用鼠标选中文字后自动复制到剪贴板；输入框和终端不受影响 | Text you select with the mouse in the conversation is copied to the clipboard; the input box and terminal are unaffected |
 | `settings.shortcuts` | 快捷键 | Keyboard shortcuts |

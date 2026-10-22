@@ -1,21 +1,43 @@
 // ⓘ 说明：设置项、表单字段的描述不在标签下面另起一行灰字，而是放在这里（悬停、键盘聚焦、点击都能看）。
 // 悬停 250 ms 后出现，离开消失；点击固定住，点外面或 Esc 关闭（Esc 只关它，不退出设置页）。
 // 跟在文字后面（.ui-info 是行内块，基线下移 0.125em），英文标签折两行时 ⓘ 跟着最后一个词。
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+// 弹层默认从 ⓘ 往右展开；右边会被裁掉（ⓘ 在格子排法的最右一格时）就改成往左展开。
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useT } from "../i18n/use-t.ts";
 import { Info } from "../icons.tsx";
 import { usePresence } from "./presence.ts";
 
 const hoverDelayMs = 250;
+const edgePx = 8;
+
+/** 裁剪弹层的右边界：最近一个 overflow 不是 visible 的祖先，没有就是窗口。 */
+function clipRight(from: HTMLElement): number {
+  for (let node = from.parentElement; node !== null; node = node.parentElement) {
+    if (getComputedStyle(node).overflowX !== "visible") return node.getBoundingClientRect().right;
+  }
+  return document.documentElement.clientWidth;
+}
 
 export function InfoTip({ children }: { children: ReactNode }) {
   const t = useT();
   const id = useId();
   const root = useRef<HTMLSpanElement>(null);
+  const pop = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [shown, setShown] = useState(false);
   const [pinned, setPinned] = useState(false);
+  const [alignEnd, setAlignEnd] = useState(false);
   const presence = usePresence(shown, "fade");
+
+  // 每次出现先按往右展开量一次，超出裁剪边界就翻到左边（布局阶段完成，不闪）。
+  useLayoutEffect(() => {
+    const element = pop.current;
+    if (!presence.mounted || element === null) {
+      setAlignEnd(false);
+      return;
+    }
+    setAlignEnd(element.getBoundingClientRect().right > clipRight(element) - edgePx);
+  }, [presence.mounted]);
 
   useEffect(() => {
     if (!pinned) return;
@@ -63,7 +85,14 @@ export function InfoTip({ children }: { children: ReactNode }) {
         <Info size={14} />
       </button>
       {presence.mounted && (
-        <span role="tooltip" id={id} className="ui-info-pop" {...presence.exitProps}>
+        <span
+          ref={pop}
+          role="tooltip"
+          id={id}
+          className="ui-info-pop"
+          data-align={alignEnd ? "end" : undefined}
+          {...presence.exitProps}
+        >
           {children}
         </span>
       )}
