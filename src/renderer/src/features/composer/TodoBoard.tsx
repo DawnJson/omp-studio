@@ -1,5 +1,6 @@
-// 待办板：状态行右端一个按钮（状态图标 + 当前项 + done/total），点开向上弹出阶段与条目（ComposerTop 摆它）。
+// 待办板：状态行右端一个按钮（进度环 + 当前项 + done/total，照 Tern 里的 omp），点开向上弹出阶段与条目（ComposerTop 摆它）。
 // 数据是主进程的 TaskState.todoPhases（TSP 的 omp.hud.todo 节点换算，shared/tsp/todos.ts）；这里只显示。
+// 全部完成后 omp 过 `tasks.todoClearDelay` 秒自己把这个节点删掉（omp 18.12.6），todoPhases 变空，按钮跟着消失。
 import { useCallback, useEffect, useId, useState } from "react";
 import type { TodoPhase } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -25,8 +26,8 @@ export function TodoBoard({
   const panelId = useId();
   const { done, total, current } = summary;
   const shown = phases.filter((phase) => phase.tasks.length > 0);
-  const spinning = running && current?.status === "in_progress";
   const finished = total > 0 && done === total;
+  const label = finished ? t("composer.todoAllDone") : current?.content;
 
   return (
     <div className="ui-popover-anchor todo-anchor">
@@ -42,14 +43,9 @@ export function TodoBoard({
         title={current?.content}
         onClick={() => setOpen((value) => !value)}
       >
-        {/* 全部完成 = 对勾；进行中且任务在跑 = 转动的细弧；其余是细圈（带已完成比例的弧）。 */}
-        <TodoMark
-          state={finished ? "done" : spinning || done > 0 ? "active" : "pending"}
-          spinning={spinning}
-          progress={spinning ? undefined : total > 0 ? done / total : 0}
-          className="todo-board-mark"
-        />
-        {current && <span className="todo-current">{current.content}</span>}
+        {/* 照 Tern 里的 omp：进度环（已完成 / 总数，0 是一个圆点）+ 当前项（全部完成时写"全部完成"）+ 计数。 */}
+        <TodoMark state="progress" progress={total > 0 ? done / total : 0} className="todo-board-mark" />
+        {label && <span className="todo-current">{label}</span>}
         <span className="todo-count">
           {done}/{total}
         </span>

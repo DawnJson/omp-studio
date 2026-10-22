@@ -316,6 +316,11 @@ export interface TaskState {
    * 只来自 omp 的输出（`/dirs`、`/add-dir`、`/remove-dir`），只活在 omp 进程里：进程退出后清空。
    */
   workspaceDirs: readonly string[];
+  /**
+   * 能不能"重开会话"（结束 omp 进程、用 `--resume` 重新起，重新读 skill、MCP、插件和配置）：空闲且没有后台作业、子代理、旁路提问在跑，
+   * 或者进程已经不在（stopped / error）。在跑、等你回答、启动中时为 false，界面把重开按钮置灰。
+   */
+  restartable: boolean;
 }
 
 /** 目标模式的目标（omp goal 模式）：`/goal` 创建，agent 完成或用户放弃后消失。 */
@@ -934,6 +939,8 @@ export interface StudioInvokeApi {
   saveDraft(key: string, text: string): Promise<void>;
   /** 压缩上下文：发 `/compact`，等 omp 画出压缩分隔；失败（会话太小等）以 omp 的原文 reject。任务没有进程时先拉起。 */
   compactTask(taskId: TaskId): Promise<void>;
+  /** 重开会话：结束这个任务的 omp 进程，再用 `--resume` 恢复同一个会话文件（等于终端里退出再进）。`restartable` 为 false 时 reject。 */
+  restartTask(taskId: TaskId): Promise<void>;
   /**
    * 会话级斜杠命令（native-ui-plan I1）：封闭联合类型，主进程拼命令文本，在该任务自己的 omp 里执行；返回 omp 的状态 toast 原文。
    * 任务没有进程时先拉起；omp 报错（别的 toast）时以原文 reject。渲染进程不传自由文本。
@@ -1298,6 +1305,7 @@ export const invokeNames = {
   getDrafts: true,
   saveDraft: true,
   compactTask: true,
+  restartTask: true,
   runTaskCommand: true,
   runBuiltin: true,
   exportTaskHtml: true,

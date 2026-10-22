@@ -691,11 +691,18 @@ html[data-motion="reduced"] .ctx-usage-chev {
   max-width: 40%;
   margin-left: auto;
 }
-/* 待办板按钮：ui-chip，放不下时当前项省略 */
+/* 待办板按钮：ui-chip，放不下时当前项省略；照 Tern：进度环 + 当前项 + 淡一些的计数 */
 .todo-board {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
+}
+/* 进度环比条目图标粗一点（Tern 的环约 1.75px）；完成一项时弧平滑长过去 */
+.todo-board .todo-board-mark {
+  stroke-width: 2;
+}
+.todo-board-mark .todo-mark-arc {
+  transition: stroke-dasharray var(--dur-slow) var(--ease-out);
 }
 /* 待办状态图标（TodoMark.tsx）：细线条，同一画布；对勾 = 完成，细弧（进行中时转动）= 进行中，细圈 = 未开始。 */
 .todo-mark-ico {
@@ -740,7 +747,7 @@ html[data-motion="reduced"] .ctx-usage-chev {
 }
 .todo-count {
   flex: none;
-  color: var(--text);
+  color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
 @container (max-width: 480px) {

@@ -3,7 +3,7 @@ import type { MessageEntry } from "../index.ts";
 export const toggles = {
   button: "会话开关",
   title: "会话开关",
-  note: "只对本会话生效；圆点表示和默认值不同。",
+  note: "扩展上下文和浏览器窗口会写进 omp 的配置，以后的任务也用；其余只对本会话生效。圆点表示和默认值不同。",
   session: "本会话",
   differs: "和配置默认值不同",
   skillful: "Skill 清单",
@@ -41,10 +41,10 @@ export const toggles = {
   "presets.saveConfirm": "保存",
   "presets.cancel": "取消",
   skillfulDesc: "开关 Skill 清单（本会话）",
-  extendedContextDesc: "开关扩展上下文窗口（本会话）",
+  extendedContextDesc: "开关扩展上下文窗口（写进 omp 配置）",
   computerDesc: "开关电脑操作（本会话，开启前会确认）",
   advisorDesc: "开关顾问模型（本会话）",
-  browserDesc: "浏览器窗口：可见或后台（本会话）",
+  browserDesc: "浏览器窗口：可见或后台（写进 omp 配置）",
   prewalkDesc: "Prewalk：先用当前模型规划，改文件时换成 smol 模型（在模型选择器里）",
   modelpresetDesc: "模型预设：应用或保存（在模型选择器里）",
 } satisfies Record<string, MessageEntry>;

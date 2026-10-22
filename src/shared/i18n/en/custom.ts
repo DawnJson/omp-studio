@@ -48,7 +48,8 @@ export const custom = {
   "form.title.edit": "Edit {id}",
   more: "More actions",
   "form.save": "Save",
-  saved: "Saved. New tasks will see these models; running tasks pick them up after a restart.",
+  saved:
+    "Saved. New tasks will see these models; an open task picks them up after you click “Restart session” next to its title.",
   deleted: "Deleted.",
   saveFailed: "Couldn't save: {message}",
   "delete.title": "Delete provider “{id}”?",

@@ -113,11 +113,16 @@ button {
 .crumb {
   display: flex;
   flex: 0 1 auto;
+  gap: var(--space-1);
   align-items: center;
   min-width: 0;
   padding: 0 var(--space-3);
   font-size: var(--fs-sm);
   white-space: nowrap;
+}
+
+.crumb-restart {
+  flex: none;
 }
 
 .crumb-title {

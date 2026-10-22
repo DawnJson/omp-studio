@@ -276,6 +276,8 @@ export class TspRunner {
   #uiChain: Promise<void> = Promise.resolve();
   /** `/slow` 的状态：omp 没有状态节点，按 toast 记；一开始未知，当关。 */
   #slowEnabled = false;
+  /** 上一次发布出去的 TaskState.restartable（#syncRestartable 只在它变了时补发）。 */
+  #publishedRestartable = false;
   /** 后台驱动 Agent Hub（插话 / 结束 / 恢复）期间为真：#awaitComposer 等它结束，渲染进程这期间也不画 Hub。 */
   #hubDriving = false;
   readonly #hub = new HubDriver({
@@ -388,6 +390,12 @@ export class TspRunner {
     );
   }
 
+  /** 能重开会话：可回收（空闲、没有等待和后台工作），或者进程已经不在。 */
+  get restartable(): boolean {
+    const status = this.#machine.status;
+    return status === "stopped" || status === "error" || this.recyclable;
+  }
+
   get cwd(): string {
     return this.#record.worktreePath ?? this.#project.path;
   }
@@ -420,6 +428,7 @@ export class TspRunner {
       slowMode: { supported: true, enabled: this.#slowEnabled, scope: null },
       sessionToggles: this.#toggles,
       goal: this.#goalTracker.goal,
+      restartable: this.restartable,
     };
   }
 
@@ -461,7 +470,14 @@ export class TspRunner {
 
   #publish(): void {
     if (this.#disposed) return;
-    this.#host.onState(this.state);
+    const state = this.state;
+    this.#publishedRestartable = state.restartable;
+    this.#host.onState(state);
+  }
+
+  /** 后台作业、子代理、旁路提问的起止不经过状态机：文档变了就看一眼"能否重开"变没变，变了才发布。 */
+  #syncRestartable(): void {
+    if (this.restartable !== this.#publishedRestartable) this.#publish();
   }
 
   markRead(): void {
@@ -579,6 +595,7 @@ export class TspRunner {
             this.#goalTracker.observe(document);
             this.#btw.sync(document);
             this.#notifyWaiters(document);
+            this.#syncRestartable();
           },
           onSessionFile: (file) => {
             if (gen !== this.#gen) return;
@@ -706,6 +723,13 @@ export class TspRunner {
     if (!session) return;
     await this.#persistSessionFile();
     await session.close(timeoutMs);
+  }
+
+  /** 重开会话：关进程、再用 `--resume` 起（等于终端里退出再进），skill、MCP、插件和配置全部重新读。忙的时候拒绝，不打断正在做的事。 */
+  async restart(): Promise<void> {
+    if (!this.restartable) throw new Error("the task is busy; restart it when it is idle");
+    await this.close();
+    await this.start();
   }
 
   /** 关掉进程、释放等待者；任务从池里移除时调用。 */

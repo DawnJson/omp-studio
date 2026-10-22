@@ -71,7 +71,7 @@
 
 ## 待办板
 
-数据 `TaskState.todoPhases`（主进程从 dock 里 `omp.hud.todo` 的 checklist 换算，见 [tsp-migration.md](tsp-migration.md) §7「待办」）。没有任何待办项时不渲染。位置：输入框上方状态行的右端（`ComposerTop` → `TodoBoard.tsx`，`todo-model.ts`）；omp 自己的待办药丸不画。胶囊：`{done}/{total}`（tabular）+ 当前项（第一个进行中，否则第一个未开始）+ 展开箭头；`abandoned` 不计入 total。点击展开，Esc 或点外面收起。列表按阶段分组：`pending` 空圈、`in_progress` 呼吸点（reduced-motion 下不呼吸）、`completed` 对勾、`blocked` 红点 + blocker 原因、`abandoned` 删除线。状态词另有 sr-only 文本。
+数据 `TaskState.todoPhases`（主进程从 dock 里 `omp.hud.todo` 的 checklist 换算，见 [tsp-migration.md](tsp-migration.md) §7「待办」）。没有任何待办项时不渲染。位置：输入框上方状态行的右端（`ComposerTop` → `TodoBoard.tsx`，`todo-model.ts`）；omp 自己的待办药丸不画。按钮照 Tern 里的 omp（2026-10-22 起；omp 18.12.6 在隔离的 Tern 里从列出计划跑到全部完成逐帧截图）：进度环（弧长正好是 完成/总数，0 是 12 点钟一个圆点，进行中的那项不算半格）+ 当前项（第一个进行中，否则第一个未开始；全部完成时写“全部完成”）+ `{done}/{total}`（tabular，比文字淡）；`abandoned` 不计入 total。全部完成后 omp 过 `tasks.todoClearDelay` 秒自己删掉 HUD 节点（omp 源码 `interactive-mode.ts` 的 `#syncTodoHudState`：在会话里记一条 dismissed 再重画 HUD；Tern 里“All done 8/8”停十几秒后消失），`todoPhases` 变空，按钮跟着消失。点击展开，Esc 或点外面收起。列表按阶段分组：`pending` 空圈、`in_progress` 细弧（任务在跑时转动，reduced-motion 下停住）、`completed` 对勾、`blocked` 红色细圈 + 感叹号 + blocker 原因、`abandoned` 删除线。状态词另有 sr-only 文本。
 
 ## 旁路提问（`/btw`，`features/btw/`）
 

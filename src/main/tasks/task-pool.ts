@@ -343,6 +343,11 @@ export class TaskPool {
     await this.#runner(id).compact();
   }
 
+  /** 重开会话（`TspRunner.restart`）：关进程再 `--resume`；任务忙时拒绝。 */
+  async restartTask(id: TaskId): Promise<void> {
+    await this.#runner(id).restart();
+  }
+
   /**
    * 会话级斜杠命令（`TaskCommand` → `/命令`，渲染进程从不传文本）。工作区目录三件走 `runWorkspaceDirsCommand`（要更新状态）；
    * `compact` 走 `compactTask`（没有 toast，看压缩分隔）；`jobsKill`、`retry` 成功时 omp 没有 toast，走 `runQuietCommand`；

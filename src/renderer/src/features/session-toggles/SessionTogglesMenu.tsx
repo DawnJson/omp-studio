@@ -1,15 +1,21 @@
 // 输入框工具行里的"会话开关"菜单（spec 4.14）：工具行里当前文件夹右边一颗滑杆图标按钮，弹出本会话的开关：技能清单、扩展上下文、
 // 电脑操作（开启要确认）、顾问模型、浏览器窗口（可见 / 后台）。快速 / 慢速和 Prewalk 在模型选择器里。
 // 状态来自 TaskState.sessionToggles（主进程读 omp 的状态 toast，用户自己在输入框敲的命令也同步）；
-// 本会话没动过的开关显示配置默认值；和默认值不同的行有小圆点，并标"本会话"。
+// 本会话没动过的开关显示配置默认值；和默认值不同的行有小圆点。只对本会话生效的开关改过后标"本会话"；
+// 扩展上下文和浏览器窗口 omp 直接写进配置（SAVED_TO_CONFIG），改完重读配置，不标"本会话"。
 import { useEffect, useRef, useState } from "react";
 import type { TaskId, TaskState } from "../../../../shared/ipc.ts";
 import type { TaskCommand } from "../../../../shared/omp-output/index.ts";
-import { toggleView, type BrowserMode, type ToggleName } from "../../../../shared/omp-output/toggles.ts";
+import {
+  SAVED_TO_CONFIG,
+  toggleView,
+  type BrowserMode,
+  type ToggleName,
+} from "../../../../shared/omp-output/toggles.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Sliders } from "../../icons.tsx";
 import { reportOmpError } from "../../ui/errors.ts";
-import { Badge, Button, Segmented } from "../../ui/controls.tsx";
+import { Button, Segmented } from "../../ui/controls.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import { ToggleRow } from "./ToggleRow.tsx";
 import { runToggleCommand } from "./toggle-actions.ts";
@@ -129,14 +135,14 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
                   label={t(`toggles.${name}`)}
                   hint={t(`toggles.${name}.hint`)}
                   checked={view.value ?? false}
-                  session={view.session}
+                  session={view.session && !SAVED_TO_CONFIG.has(name)}
                   differs={view.differs}
                   busy={busy !== null}
                   onChange={(next) => onToggle(name, next)}
                 />
               );
             })}
-            <div className="tg-row" data-testid="toggle-browser" data-session={browser.session || undefined}>
+            <div className="tg-row" data-testid="toggle-browser">
               <div className="tg-text">
                 <span id="tg-browser-label" className="tg-label">
                   {t("toggles.browser")}
@@ -152,11 +158,6 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
                 </span>
                 <span className="tg-hint">{t("toggles.browser.hint")}</span>
               </div>
-              {browser.session && (
-                <Badge tone="accent" testId="toggle-browser-session">
-                  {t("toggles.session")}
-                </Badge>
-              )}
               <Segmented<BrowserMode>
                 size="sm"
                 value={browser.value ?? "visible"}

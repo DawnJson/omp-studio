@@ -49,6 +49,8 @@ import { useNavigation } from "./use-navigation.ts";
 import { usePresence } from "../ui/presence.ts";
 import { useShortcuts } from "./use-shortcuts.ts";
 import { useCopyOnSelect } from "./use-copy-on-select.ts";
+import { restartSession } from "./restart-session.ts";
+import { TooltipLayer } from "../ui/Tooltip.tsx";
 
 /** spec §3.3：窄于 1000px 侧栏改成覆盖式抽屉。 */
 const narrowQuery = "(max-width: 999px)";
@@ -239,6 +241,10 @@ export function App() {
     toggleFilesPanel: () => {
       if (view === "conversation") toggleFilesPanel(terminalKey);
     },
+    restartSession: () => {
+      const current = tasks.find((task) => task.id === taskId);
+      if (current !== undefined && view === "conversation") void restartSession(t, current);
+    },
     closeDrawer: () => {
       if (!narrow || !shell.drawerOpen) return false;
       setDrawerOpen(false);
@@ -308,6 +314,7 @@ export function App() {
       <NoticeLayer />
       <CommandPalette />
       <OmpSetupView />
+      <TooltipLayer />
     </div>
   );
 }

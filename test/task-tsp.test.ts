@@ -396,6 +396,35 @@ describe("任务池：TSP 任务", () => {
     expect(last.sessionToggles.prewalk).toMatch(/^Prewalk: target /);
   }, 60_000);
 
+  it("重开会话：忙时拒绝、restartable 为 false；空闲时关进程再用 --resume=<同一个会话文件> 起，回到 idle", async () => {
+    const events = approvalEvents();
+    const sessionFile = path.join(scratch, "sessions 重开", "r.jsonl");
+    await mkdir(path.dirname(sessionFile), { recursive: true });
+    await writeFile(sessionFile, "{}\n");
+    const h = await harness();
+    h.next.fixture = "approval";
+    h.next.env = { FAKE_TSP_SESSION_FILE: sessionFile };
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    const idle = await h.events.until(created.id, (state) => state.status === "idle");
+    expect(idle.restartable).toBe(true);
+
+    await h.pool.sendPrompt(created.id, { text: events.text, whenBusy: "steer" });
+    const waiting = await h.events.until(created.id, (state) => state.status === "needs_you");
+    expect(waiting.restartable).toBe(false);
+    await expect(h.pool.restartTask(created.id)).rejects.toThrow("busy");
+
+    h.pool.sendTspEvent(created.id, events.approve);
+    await h.events.until(
+      created.id,
+      (state) =>
+        state.status === "idle" && state.restartable && h.registry.findTask(created.id)?.sessionFile === sessionFile,
+    );
+    h.next.fixture = "slash";
+    await h.pool.restartTask(created.id);
+    expect(h.launches).toEqual([{ sessionFile: null }, { sessionFile }]);
+    expect(h.events.statuses(created.id).slice(-3)).toEqual(["stopped", "starting", "idle"]);
+  }, 60_000);
+
   it("带图片的 prompt 走 @ 提及；没有会话文件的任务不能分叉", async () => {
     const h = await harness();
     const created = await h.pool.createTask({ projectId: h.projectId });

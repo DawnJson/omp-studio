@@ -15,6 +15,7 @@ export const composer = {
   stopping: "Stopping…",
   stopped: "Stopped",
   todoBoard: "Todo {done}/{total}",
+  todoAllDone: "All done",
   "attach.unsupported": "The current model doesn't accept images",
   "attach.failed": "Couldn't process this image",
   "attachment.remove": "Remove",

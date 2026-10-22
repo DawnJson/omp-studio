@@ -1,11 +1,12 @@
 // 待办的状态图标（待办板按钮、阶段头、条目共用）：细线条、同一套 16×16 画布。
 //   done      一个干净的对勾（没有圈、没有实心底）；
 //   active    进行中：一圈很淡的底 + 一段细弧，`spinning`（任务在跑）时弧绕圈转，不转时停住；`progress`（0–1）给弧的长度；
+//   progress  进度环（待办板按钮，照 Tern）：弧长就是 `progress`，不夹取——0 是 12 点钟的一个圆点，1 是整圈；
 //   pending   未开始：一圈细线；
 //   blocked   受阻：红色细圈 + 感叹号；
 //   abandoned 放弃：虚线圈，淡化。
 // 转动用 --play-state：减少动效时弧停在原位（仍看得出"进行中"）。
-export type TodoMarkState = "done" | "active" | "pending" | "blocked" | "abandoned";
+export type TodoMarkState = "done" | "active" | "progress" | "pending" | "blocked" | "abandoned";
 
 export function TodoMark({
   state,
@@ -15,7 +16,7 @@ export function TodoMark({
 }: {
   state: TodoMarkState;
   spinning?: boolean;
-  /** active：弧占整圈的比例（0–1）；缺省 0.28（进行中的一小段）。 */
+  /** active / progress：弧占整圈的比例（0–1）；active 缺省 0.28（进行中的一小段）。 */
   progress?: number | undefined;
   className?: string;
 }) {
@@ -24,6 +25,22 @@ export function TodoMark({
     return (
       <svg className={cls} data-state="done" viewBox="0 0 16 16" aria-hidden="true">
         <path d="M3.5 8.6 6.7 11.7 12.5 4.8" />
+      </svg>
+    );
+  }
+  if (state === "progress") {
+    const arc = Math.min(Math.max(progress ?? 0, 0), 1) * 100;
+    return (
+      <svg className={cls} data-state="progress" viewBox="0 0 16 16" aria-hidden="true">
+        <circle className="todo-mark-track" cx="8" cy="8" r="6" />
+        <circle
+          className="todo-mark-arc"
+          cx="8"
+          cy="8"
+          r="6"
+          pathLength="100"
+          strokeDasharray={`${arc} ${100 - arc}`}
+        />
       </svg>
     );
   }

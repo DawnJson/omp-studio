@@ -62,19 +62,22 @@ async function start(): Promise<Started> {
       defaultValue: value,
       hasDefault: true,
     });
+    // 配置快照可以改（setConfigValue）：模拟 omp 把 /extended-context、/browser 写进 config.yml。
+    const config: Record<string, unknown> = {
+      skillful: true,
+      extendedContext: false,
+      "computer.enabled": false,
+      "advisor.enabled": false,
+      "browser.headless": false,
+      "prewalk.enabled": false,
+      modelPresets: {},
+    };
+    (globalThis as unknown as { toggleConfig: Record<string, unknown> }).toggleConfig = config;
     ipcMain.removeHandler("studio:getOmpConfig");
     ipcMain.handle("studio:getOmpConfig", () => ({
       ompVersion: "18.12.5",
       tabs: ["tools"],
-      items: [
-        item("skillful", true),
-        item("extendedContext", false),
-        item("computer.enabled", false),
-        item("advisor.enabled", false),
-        item("browser.headless", false),
-        item("prewalk.enabled", false),
-        item("modelPresets", {}),
-      ],
+      items: Object.entries(config).map(([key, value]) => item(key, value)),
     }));
   }, project);
   await launched.page.getByTestId("sidebar-open-folder").click();
@@ -97,12 +100,22 @@ async function start(): Promise<Started> {
   };
 }
 
+/** 改主进程里假配置快照的一项（下次 getOmpConfig 返回新值）。 */
+async function setConfigValue(launched: LaunchedApp, key: string, value: unknown): Promise<void> {
+  await launched.app.evaluate(
+    (_electron, [k, v]) => {
+      (globalThis as unknown as { toggleConfig: Record<string, unknown> }).toggleConfig[k as string] = v;
+    },
+    [key, value] as const,
+  );
+}
+
 async function openMenu(page: Page): Promise<void> {
   await page.getByTestId("toggles-button").click();
   await expect(page.getByTestId("toggle-skillful")).toBeVisible();
 }
 
-test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来后标本会话、亮小圆点；/computer 开启先确认", async () => {
+test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来后标本会话、亮小圆点；写进配置的两项重读配置不标；/computer 开启先确认", async () => {
   test.setTimeout(120_000);
   const { launched, sent, cleanup } = await start();
   try {
@@ -133,10 +146,12 @@ test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来�
     await expect(page.getByTestId("toggle-skillful-session")).toBeVisible();
     await expect(page.getByTestId("toggles-button")).toHaveAttribute("data-differs", "true");
 
-    // 扩展上下文开：同上。
+    // 扩展上下文开：omp 把它写进 config.yml（实测 omp 18.12.6），菜单重读配置 → 和默认相同，没有圆点、不标本会话。
+    await setConfigValue(launched, "extendedContext", true);
     await page.getByTestId("toggle-extendedContext-switch").click();
     await expect(page.getByTestId("toggle-extendedContext-switch")).toHaveAttribute("aria-checked", "true");
-    await expect(page.getByTestId("toggle-extendedContext-dot")).toBeVisible();
+    await expect(page.getByTestId("toggle-extendedContext-dot")).toHaveCount(0);
+    await expect(page.getByTestId("toggle-extendedContext-session")).toHaveCount(0);
 
     // 电脑操作：开启先确认；取消不发命令。
     await page.getByTestId("toggle-computer-switch").click();
@@ -154,7 +169,8 @@ test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来�
     await page.getByTestId("toggle-advisor-switch").click();
     await expect(page.getByTestId("toggle-advisor-switch")).toHaveAttribute("aria-checked", "true");
 
-    // 浏览器窗口：默认可见，点"后台"发 /browser headless，回来后标本会话、亮圆点。
+    // 浏览器窗口：默认可见，点"后台"发 /browser headless；omp 同样写进配置，重读后没有圆点。
+    await setConfigValue(launched, "browser.headless", true);
     await page
       .getByTestId("toggle-browser-mode")
       .getByRole("radio", { name: /后台|Background/ })
@@ -162,7 +178,7 @@ test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来�
     await expect(
       page.getByTestId("toggle-browser-mode").getByRole("radio", { name: /后台|Background/ }),
     ).toHaveAttribute("aria-checked", "true");
-    await expect(page.getByTestId("toggle-browser-dot")).toBeVisible();
+    await expect(page.getByTestId("toggle-browser-dot")).toHaveCount(0);
     expect(await sent()).toEqual([
       "/skillful off",
       "/extended-context on",

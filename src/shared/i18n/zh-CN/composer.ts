@@ -14,6 +14,7 @@ export const composer = {
   stopping: "正在停止…",
   stopped: "已停止",
   todoBoard: "待办 {done}/{total}",
+  todoAllDone: "全部完成",
   "attach.unsupported": "当前模型不支持图片",
   "attach.failed": "这张图片没能处理",
   "attachment.remove": "移除",

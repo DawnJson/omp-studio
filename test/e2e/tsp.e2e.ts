@@ -147,6 +147,10 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     // 回放跑完:本轮用量出现,omp 的工作状态行消失,侧栏变回空闲。
     await expect(role(page, "omp.turn.usage")).toBeVisible({ timeout: 60_000 });
     await expect(row).toHaveAttribute("data-status", "idle", { timeout: 20_000 });
+    // 录制最后待办 5/5 全部完成:待办板照 Tern 里的 omp,进度环整圈,当前项那里写"全部完成"(omp 过 todoClearDelay 才删节点,录制没录到)。
+    await expect(board).toContainText("全部完成");
+    await expect(board).toContainText("5/5");
+    await expect(board.locator('[data-state="progress"] .todo-mark-arc')).toHaveAttribute("stroke-dasharray", "100 0");
     await expect(role(page, "omp.user").first()).toContainText("calc/ops.py");
     await expect(role(page, "omp.tool.todo").first()).toBeVisible();
     await expect(role(page, "omp.tool.bash").first()).toContainText("pytest");
@@ -232,6 +236,55 @@ test("审批:omp 的审批门出现时任务是等你确认;底栏只剩 Details
     ]);
   } finally {
     await cleanup();
+  }
+});
+
+test("重开会话:顶栏标题旁的按钮;门开着时置灰,悬停出自绘提示写明原因(原生 title 拿掉);空闲时点它 omp 重新起一次进程、任务回到空闲;Ctrl+Shift+R 同样", async () => {
+  test.setTimeout(90_000);
+  const scratch = await mkdtemp(path.join(os.tmpdir(), "omp restart e2e-"));
+  const pidFile = path.join(scratch, "pids.txt");
+  const sessionFile = path.join(scratch, "会话 文件.jsonl");
+  await writeFile(sessionFile, "{}\n");
+  const pids = async () =>
+    (await readFile(pidFile, "utf8").catch(() => "")).split("\n").filter((line) => line.trim() !== "");
+  const { launched, cleanup } = await start("approval", {
+    FAKE_OMP_PID_FILE: pidFile,
+    FAKE_TSP_SESSION_FILE: sessionFile,
+  });
+  try {
+    const { page } = launched;
+    await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
+    await expect(role(page, "omp.editor.ask.approval")).toBeVisible({ timeout: 30_000 });
+    const restart = page.getByTestId("topbar-restart");
+    await expect(restart).toBeDisabled();
+    await restart.hover();
+    const tip = page.getByTestId("tooltip");
+    await expect(tip).toHaveText(/任务在等你回答|waiting for your answer/i);
+    await expect(restart).not.toHaveAttribute("title", /.*/);
+    await shoot(page, "restart-blocked");
+    await page.getByTestId("composer-input").hover();
+    await expect(tip).toHaveCount(0);
+    await expect(restart).toHaveAttribute("title", /任务在等你回答|waiting for your answer/i);
+
+    await page.getByTestId("composer-input").press("Control+Enter");
+    const row = page.getByTestId("task-row").first();
+    await expect(row).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
+    await expect(restart).toBeEnabled();
+    // 进程数按增量算：rpc-ui 后台进程也走同一个假 omp，同样写 pid。
+    const before = (await pids()).length;
+
+    await restart.click();
+    await expect(page.getByText(/已重开会话|Session restarted/)).toBeVisible({ timeout: 30_000 });
+    expect(await pids()).toHaveLength(before + 1);
+    await expect(row).toHaveAttribute("data-status", "idle");
+    await expect(restart).toBeEnabled();
+
+    await page.getByTestId("composer-input").press("Control+Shift+R");
+    await expect.poll(pids, { timeout: 30_000 }).toHaveLength(before + 2);
+    await expect(row).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
+  } finally {
+    await cleanup();
+    await rm(scratch, { recursive: true, force: true, maxRetries: 10 });
   }
 });
 

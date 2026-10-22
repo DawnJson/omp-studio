@@ -142,6 +142,8 @@
   --z-popover: 40;
   --z-dialog: 50;
   --z-palette: 70;
+  /* 悬停提示在最上面：对话框、命令面板里的按钮也有提示 */
+  --z-tooltip: 80;
 
   /* 动效：曲线 */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);

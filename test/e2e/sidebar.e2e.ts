@@ -55,6 +55,7 @@ function makeTask(
     goal: null,
     sessionToggles: emptySessionToggles(),
     workspaceDirs: [],
+    restartable: false,
     ...patch,
   };
 }

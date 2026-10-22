@@ -17,5 +17,12 @@ export const task = {
   more: "More actions",
   runningFor: "{n}m",
   noSession: "This task has no session file yet.",
+  restart: "Restart session",
+  restartTip: "Restart session: reload skills, MCP servers, plugins and omp settings",
+  restartBusyRunning: "Running; restart when it finishes",
+  restartBusyWaiting: "Waiting for your answer; answer it first",
+  restartBusyStarting: "The task is starting",
+  restartBusyBackground: "Background jobs, subagents or a side question are still running; restart when they finish",
+  restarted: "Session restarted",
   exportHtml: "Export as HTML…",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

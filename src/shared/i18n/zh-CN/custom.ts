@@ -47,7 +47,7 @@ export const custom = {
   "form.title.edit": "编辑 {id}",
   more: "更多操作",
   "form.save": "保存",
-  saved: "已保存。新开的任务会用上这些模型，正在运行的任务重启后生效。",
+  saved: "已保存。新开的任务会用上这些模型；已经打开的任务点标题旁的“重开会话”后生效。",
   deleted: "已删除。",
   saveFailed: "没能保存：{message}",
   "delete.title": "删除提供商“{id}”？",

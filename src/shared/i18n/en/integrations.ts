@@ -21,7 +21,7 @@ export const integrations = {
   "mcp.unmanageable":
     "The name has spaces or special characters: omp's /mcp commands cannot manage it. Edit the config file instead.",
   "mcp.note":
-    "Changes are written to omp's config and apply to new tasks; a task that is already open needs /mcp reload in its own session to reconnect. Servers that need OAuth sign-in or sign-out (/mcp reauth, /mcp unauth) only work in omp's terminal UI; that cannot be done here.",
+    "Changes are written to omp's config and apply to new tasks; a task that is already open reconnects after you click “Restart session” next to its title in the top bar (Ctrl Shift R). Servers that need OAuth sign-in or sign-out (/mcp reauth, /mcp unauth) only work in omp's terminal UI; that cannot be done here.",
   "mcp.remove.title": "Remove MCP server “{name}”?",
   "mcp.remove.body":
     "This removes the entry from omp's {scope} config. A server with the same name in the other scope is not affected.",

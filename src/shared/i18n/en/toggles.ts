@@ -4,7 +4,7 @@ import type { toggles as zhCN } from "../zh-CN/toggles.ts";
 export const toggles = {
   button: "Session switches",
   title: "Session switches",
-  note: "This session only; a dot means it differs from the default.",
+  note: "Extended context and Browser window are saved to omp's config and carry over to later tasks; the rest apply to this session only. A dot means it differs from the default.",
   session: "This session",
   differs: "Differs from the configured default",
   skillful: "Skill listing",
@@ -44,10 +44,10 @@ export const toggles = {
   "presets.saveConfirm": "Save",
   "presets.cancel": "Cancel",
   skillfulDesc: "Turn the skill listing on or off (this session)",
-  extendedContextDesc: "Turn the extended context window on or off (this session)",
+  extendedContextDesc: "Turn the extended context window on or off (saved to omp's config)",
   computerDesc: "Turn computer use on or off (this session; asks before turning on)",
   advisorDesc: "Turn the advisor on or off (this session)",
-  browserDesc: "Browser window: visible or background (this session)",
+  browserDesc: "Browser window: visible or background (saved to omp's config)",
   prewalkDesc: "Prewalk: plan with the current model, switch to the smol model at the first edit (in the model picker)",
   modelpresetDesc: "Model presets: apply or save (in the model picker)",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

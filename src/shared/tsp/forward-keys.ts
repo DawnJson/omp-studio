@@ -191,6 +191,7 @@ export const STUDIO_RESERVED: ReadonlySet<string> = new Set([
   "ctrl+shift+o",
   "ctrl+shift+d",
   "ctrl+shift+e",
+  "ctrl+shift+r",
   "ctrl+k",
   "ctrl+f",
   "ctrl+,",

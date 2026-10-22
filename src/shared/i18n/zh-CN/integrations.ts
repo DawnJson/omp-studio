@@ -20,7 +20,7 @@ export const integrations = {
   "mcp.connected": "已连接，{count} 个工具",
   "mcp.unmanageable": "名字里有空格或特殊字符：omp 的 /mcp 命令管不了这种名字，只能在配置文件里改。",
   "mcp.note":
-    "改动写进 omp 的配置，新任务会用到；已经打开的任务要在它自己的会话里执行 /mcp reload 才会重新连接。需要 OAuth 登录或取消授权（/mcp reauth、/mcp unauth）的服务器，omp 只在终端界面里支持，这里做不了。",
+    "改动写进 omp 的配置，新任务会用到；已经打开的任务点顶栏标题右边的“重开会话”（Ctrl Shift R）才会重新连接。需要 OAuth 登录或取消授权（/mcp reauth、/mcp unauth）的服务器，omp 只在终端界面里支持，这里做不了。",
   "mcp.remove.title": "删除 MCP 服务器“{name}”？",
   "mcp.remove.body": "会从 omp 的{scope}配置里删掉这一项，不会影响别的范围里的同名服务器。",
   "mcp.name": "名称",

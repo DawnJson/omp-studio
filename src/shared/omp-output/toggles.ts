@@ -42,6 +42,13 @@ export function emptySessionToggles(): SessionToggles {
   return { skillful: null, extendedContext: null, computer: null, advisor: null, browser: null, prewalk: null };
 }
 
+/**
+ * omp 直接写进全局 config.yml 的开关（实测 omp 18.12.6：`/extended-context on` 写 `extendedContext: true`，
+ * `/browser headless` 写 `browser.headless: true`，重开会话、新任务都沿用）。其余（skillful / computer / advisor）只对本会话生效，
+ * 重开会话后回到配置默认值。见 docs/architecture/session-toggles.md。
+ */
+export const SAVED_TO_CONFIG: ReadonlySet<ToggleName | "browser"> = new Set(["extendedContext", "browser"]);
+
 /** 每个开关的状态句式：`word` 捕获开/关词。 */
 const ENABLE_WORDS = "enabled|disabled|on|off";
 const patterns: readonly { name: ToggleName; pattern: RegExp }[] = [

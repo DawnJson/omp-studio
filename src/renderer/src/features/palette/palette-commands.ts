@@ -19,6 +19,7 @@ import type { CommandEntry } from "../../../../shared/ui/palette-model.ts";
 import { emitStudioCommand } from "./studio-command.ts";
 import { setUsageDialogOpen } from "../composer/usage-store.ts";
 import { openSessionInfo, openShareDialog, retryTask, togglePin } from "../session-info/index.ts";
+import { restartSession } from "../../app/restart-session.ts";
 
 export interface CommandContext {
   t: TFunction;
@@ -76,6 +77,13 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
     },
     // 压缩：发 omp 的 `/compact`，等压缩分隔出现（TspRunner.compact）；失败（会话太小等）按 omp 的原文报错。
     current && { id: "compact", label: t("cmd.compact"), run: () => guard(window.studio.compactTask(current.id)) },
+    // 重开会话：结束 omp 进程再 `--resume`，重新读 skill、MCP、插件和配置；任务忙时不列。
+    current?.restartable && {
+      id: "restartSession",
+      label: t("task.restart"),
+      shortcut: "Ctrl Shift R",
+      run: () => void restartSession(t, current),
+    },
     // 目标（`/goal`）：走 omp 的 `/goal pause|resume|drop`（docs/architecture/conversation.md「目标模式」）。
     ...(current
       ? goalButtons(current.goal).map((op) => ({
