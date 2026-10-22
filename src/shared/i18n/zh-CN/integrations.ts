@@ -58,8 +58,6 @@ export const integrations = {
     "这是 omp 在不带项目时看到的全局列表：项目里的插件和 MCP 服务器提供的工具不在里面。工具的开关就是下面设置里的 <工具>.enabled；关掉后它会从 omp 的列表里消失，这里的行先保留着，点“刷新”才重读。",
 
   "memory.title": "记忆",
-  "memory.backend": "记忆后端",
-  "memory.backend.desc": "来自设置项 memory.backend，在下面的设置里改。off 表示不用记忆。",
   "memory.noProject": "记忆是按项目分的，先打开一个项目才能查看和整理。",
   "memory.project": "项目",
   "memory.project.desc": "记忆按项目目录分开存放，这里的所有操作都在所选项目的目录里执行。",
@@ -87,7 +85,7 @@ export const integrations = {
   "slash.ssh": "管理 SSH 主机（打开设置 → 集成）",
   "slash.tools": "查看可用工具（打开设置 → 工具与权限）",
   "slash.memory": "查看和整理记忆（打开设置 → 上下文与记忆）",
-  "slash.changelog": "查看 omp 更新日志（打开设置 → omp 版本）",
+  "slash.changelog": "查看 omp 更新日志（打开设置 → 关于）",
   "slash.args": "这条命令的参数写法没有执行：不带参数输入它会打开设置页，增删改在页面里的卡片上做。",
 
   "cmd.mcp": "MCP 服务器",

@@ -1,6 +1,6 @@
 import type { MessageEntry } from "../index.ts";
 
-// 设置 → 模型与账号 → 自定义提供商（直接编辑 omp 的 models.yml）。
+// 设置 → 提供商与账号 → 自定义提供商（直接编辑 omp 的 models.yml）。
 export const custom = {
   title: "自定义提供商",
   empty: "还没有自定义提供商",

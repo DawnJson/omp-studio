@@ -1,10 +1,12 @@
-// 设置 → 通用：语言、主题、减少动效、新任务的引擎、快捷键（只读）。
+// 设置 → 通用：语言、主题、减少动效、通知、选中即复制；任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式）；快捷键（只读）。
 import type { LocalePreference, ThemePreference } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { useSettings } from "../../store/index.ts";
+import { ConfigRow } from "./ConfigRow.tsx";
 import { Card, Segmented, SettingRow, Switch } from "./controls.tsx";
 import { systemReducesMotion } from "./motion-preference.ts";
+import { useCommonConfigItems } from "./OmpConfigPane.tsx";
 
 /** 只读的快捷键表（spec §5.1 的主要几条）；键名本身不翻译。 */
 const shortcuts: { label: MessageKey; keys: string[] }[] = [
@@ -35,6 +37,8 @@ export function GeneralSection() {
   const t = useT();
   const settings = useSettings();
   const systemMotion = systemReducesMotion();
+  // omp 的插话 / 稍后消息处理方式（"对话行为"组的常用项），和 Enter 的行为放在一起。
+  const whileRunning = useCommonConfigItems("behavior");
 
   const localeOptions = [
     { value: "system", label: t("settings.language.system") },
@@ -87,17 +91,6 @@ export function GeneralSection() {
             />
           )}
         </SettingRow>
-        <SettingRow title={t("settings.enterBehavior")} desc={t("settings.enterBehavior.desc")}>
-          {(labelId) => (
-            <Segmented<"steer" | "followUp">
-              value={settings?.enterWhileRunning ?? "steer"}
-              options={enterOptions}
-              labelledBy={labelId}
-              onChange={(next) => void window.studio.setEnterWhileRunning(next)}
-              testId="setting-enter"
-            />
-          )}
-        </SettingRow>
         <SettingRow title={t("settings.notifyWaiting")} desc={t("settings.notifyWaiting.desc")}>
           {(labelId) => (
             <Switch
@@ -119,6 +112,23 @@ export function GeneralSection() {
           )}
         </SettingRow>
       </Card>
+      <h3 className="settings-group-title">{t("settings.whileRunning")}</h3>
+      <div className="st-card cfg-card">
+        <SettingRow title={t("settings.enterBehavior")} desc={t("settings.enterBehavior.desc")}>
+          {(labelId) => (
+            <Segmented<"steer" | "followUp">
+              value={settings?.enterWhileRunning ?? "steer"}
+              options={enterOptions}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setEnterWhileRunning(next)}
+              testId="setting-enter"
+            />
+          )}
+        </SettingRow>
+        {whileRunning.map((item) => (
+          <ConfigRow key={item.key} item={item} />
+        ))}
+      </div>
       <h3 id="settings-shortcuts" tabIndex={-1} className="settings-group-title">
         {t("settings.shortcuts")}
       </h3>

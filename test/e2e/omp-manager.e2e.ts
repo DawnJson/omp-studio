@@ -59,7 +59,7 @@ test("PATH 上是 Tern 管理的 omp：问一次要不要接管，选继续用 T
     });
 
     await page.keyboard.press("Control+,");
-    await page.getByTestId("settings-nav-omp").click();
+    await page.getByTestId("settings-nav-about").click();
     await expect(page.getByTestId("omp-source")).toContainText("Tern");
     await expect(page.getByTestId("omp-path")).toHaveText(onPath ?? "");
   } finally {
@@ -78,17 +78,19 @@ test("设置页和 omp 准备页截图：中英文 × 浅深主题", async () =>
       })
       .toBe("ready");
     await page.setViewportSize({ width: 1200, height: 800 });
+    // omp 可能比界面先就绪：等 React 挂上（快捷键监听才在），再按 Ctrl ,。
+    await expect(page.getByTestId("app-root")).toBeVisible();
     await page.keyboard.press("Control+,");
     await expect(page.getByTestId("settings")).toBeVisible();
 
     for (const locale of ["zh-CN", "en"] as const) {
       for (const theme of ["light", "dark"] as const) {
         await localeAndTheme(page, locale, theme);
-        for (const section of ["general", "models", "omp"] as const) {
+        for (const section of ["general", "providers", "about"] as const) {
           await page.getByTestId(`settings-nav-${section}`).click();
-          if (section === "models") await expect(page.getByTestId("providers")).toBeVisible();
-          // 模型与账号要等服务进程读完 provider 列表；读不出来时界面显示原因，同样截下来。
-          if (section === "models") await page.waitForTimeout(4000);
+          if (section === "providers") await expect(page.getByTestId("providers")).toBeVisible();
+          // 提供商与账号要等服务进程读完 provider 列表；读不出来时界面显示原因，同样截下来。
+          if (section === "providers") await page.waitForTimeout(4000);
           await page.screenshot({
             path: path.join(screenshotsDir, `omp-e-settings-${section}-${locale}-${theme}.png`),
           });

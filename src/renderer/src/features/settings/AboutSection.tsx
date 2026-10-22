@@ -1,14 +1,30 @@
-// 设置 → 关于：当前版本、omp-studio 自身的更新（检查、下载进度、重启并安装）、问题排查。
-// 更新源和只有安装版才生效的规则见 src/main/update/instance.ts。
+// 设置 → 关于：omp-studio 的版本和更新（检查、下载进度、重启并安装），omp 的路径、版本和更新（OmpSection）、omp 更新日志，问题排查。
+// 两个"检查更新"各管各的：上面是 omp-studio 自己，下面是 omp。更新源和只有安装版才生效的规则见 src/main/update/instance.ts。
 import { useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { useAppInfo, useUpdateState } from "../../store/index.ts";
 import { describeError } from "../../ui/errors.ts";
 import { Button, Card, SettingRow } from "./controls.tsx";
+import { OmpChangelog } from "./OmpChangelog.tsx";
+import { OmpSection } from "./OmpSection.tsx";
 import { TroubleshootCard } from "./TroubleshootCard.tsx";
 import { updateStatusText } from "./update-status.ts";
 
 export function AboutSection() {
+  const t = useT();
+  return (
+    <>
+      <StudioUpdate />
+      <h3 className="settings-group-title">{t("settings.about.omp")}</h3>
+      <OmpSection />
+      <OmpChangelog />
+      <h3 className="settings-group-title">{t("settings.about.troubleshoot")}</h3>
+      <TroubleshootCard />
+    </>
+  );
+}
+
+function StudioUpdate() {
   const t = useT();
   const info = useAppInfo();
   const state = useUpdateState();
@@ -98,7 +114,6 @@ export function AboutSection() {
           <span className="st-error-text">{note}</span>
         </div>
       )}
-      <TroubleshootCard />
     </>
   );
 }

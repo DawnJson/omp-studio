@@ -1,48 +1,85 @@
-// 设置页（spec §4.19）：占据主区；左侧分节列表（顶部是搜索框，下面是 omp-studio 自己的几组和 omp 的全部设置按它的 tab 分组），
+// 设置页（spec §4.19）：占据主区；左侧一列平铺的分节（顶部是搜索框），右侧是当前节；
 // 搜索按 key、描述、中英文标签过滤 omp 的全部设置。Esc 回到进入前的视图和焦点（顶栏的后退按钮也能回去，所以页内没有"返回"）；
 // 命令面板可以直接定位到某一节（ui-store 的 settingsSection）。导出名和 props 是 App.tsx 的约定。
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Close, Search } from "../../icons.tsx";
-import { useLocale, useT } from "../../i18n/use-t.ts";
-import { clearSettingsSection, showView, useSettingsSection } from "../../store/index.ts";
+import { useT } from "../../i18n/use-t.ts";
+import { clearSettingsSection, showView, useSettingsSection, type SettingsSection } from "../../store/index.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
-import { configGroups, groupConfigItems, type ConfigGroup } from "../../../../shared/ui/config-groups.ts";
-import { groupTitle } from "./config-meta.ts";
-import { useConfigLoad } from "./config-store.ts";
 import { AboutSection } from "./AboutSection.tsx";
 import { GeneralSection } from "./GeneralSection.tsx";
+import { McpCard } from "./McpCard.tsx";
+import { MemoryCard } from "./MemoryCard.tsx";
 import { ModelsSection } from "./ModelsSection.tsx";
 import { OmpConfigPane, useOmpConfigLoader } from "./OmpConfigPane.tsx";
-import { IntegrationCards } from "./IntegrationCards.tsx";
-import { OmpSection } from "./OmpSection.tsx";
-import { OmpChangelog } from "./OmpChangelog.tsx";
-import { UsageSection } from "./UsageSection.tsx";
 import { PluginsSection } from "./PluginsSection.tsx";
+import { ProvidersSection } from "./ProvidersSection.tsx";
+import { SshCard } from "./SshCard.tsx";
+import { ToolsCard } from "./ToolsCard.tsx";
 import "./motion-preference.ts";
 import "./settings.css";
 import "./config.css";
 
-// 设置页只有一列分节，不按"omp-studio 的 / omp 的"分：omp 的设置和终端共用一份（omp-settings.md），按要做的事排。
-// omp 的"模型与推理"并进"模型与账号"，同一页先账号和模型、再模型相关的 omp 设置。
-type PageSection = "general" | "models" | "usage" | "plugins" | "omp" | "about";
-type NavItem = { kind: "page"; id: PageSection } | { kind: "cfg"; group: ConfigGroup };
-const MERGED_INTO_MODELS: ConfigGroup = "models";
-const navOrder: readonly NavItem[] = [
-  { kind: "page", id: "general" },
-  { kind: "page", id: "models" },
-  ...configGroups.filter((group) => group !== MERGED_INTO_MODELS).map((group) => ({ kind: "cfg" as const, group })),
-  { kind: "page", id: "usage" },
-  { kind: "page", id: "plugins" },
-  { kind: "page", id: "omp" },
-  { kind: "page", id: "about" },
+// 只有一列分节，不分"omp-studio 的 / omp 的"（omp 的设置和终端共用一份，omp-settings.md），按要做的事排。
+// 每节只放常用的 omp 设置（有人话标签的）和管理卡片；其余几百个 omp 键全在"高级"，搜索覆盖全部。
+type Page = Exclude<SettingsSection, "shortcuts">;
+const pages: readonly Page[] = [
+  "general",
+  "models",
+  "providers",
+  "tools",
+  "context",
+  "agents",
+  "integrations",
+  "plugins",
+  "advanced",
+  "about",
 ];
+
+function PageContent({ page }: { page: Page }) {
+  switch (page) {
+    case "general":
+      return <GeneralSection />;
+    case "models":
+      return <ModelsSection />;
+    case "providers":
+      return <ProvidersSection />;
+    case "tools":
+      return (
+        <>
+          <OmpConfigPane view={{ kind: "common", group: "tools" }} />
+          <ToolsCard />
+        </>
+      );
+    case "context":
+      return (
+        <>
+          <OmpConfigPane view={{ kind: "common", group: "context" }} />
+          <MemoryCard />
+        </>
+      );
+    case "agents":
+      return <OmpConfigPane view={{ kind: "common", group: "agents" }} />;
+    case "integrations":
+      return (
+        <>
+          <McpCard />
+          <SshCard />
+        </>
+      );
+    case "plugins":
+      return <PluginsSection />;
+    case "advanced":
+      return <OmpConfigPane view={{ kind: "advanced" }} />;
+    case "about":
+      return <AboutSection />;
+  }
+}
 
 export function SettingsView() {
   const t = useT();
-  const locale = useLocale();
-  const load = useConfigLoad();
   const requested = useSettingsSection();
-  const [section, setSection] = useState<string>("general");
+  const [section, setSection] = useState<Page>("general");
   const [query, setQuery] = useState("");
   const root = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
@@ -69,9 +106,7 @@ export function SettingsView() {
   useEffect(() => {
     if (requested === null) return;
     setQuery("");
-    setSection(
-      requested === "shortcuts" ? "general" : requested === `cfg:${MERGED_INTO_MODELS}` ? "models" : requested,
-    );
+    setSection(requested === "shortcuts" ? "general" : requested);
     clearSettingsSection();
     requestAnimationFrame(() => {
       if (requested === "shortcuts") document.getElementById("settings-shortcuts")?.scrollIntoView({ block: "start" });
@@ -88,23 +123,11 @@ export function SettingsView() {
   };
 
   const searching = query.trim() !== "";
-  // 读到 omp 设置之前按全部分组显示，读到后去掉没有项的分组（导航不跳动）。
-  const groups = useMemo(
-    () => (load.kind === "ready" ? new Set(groupConfigItems(load.snapshot.items).keys()) : new Set(configGroups)),
-    [load],
-  );
-  const nav = navOrder.filter((item) => item.kind === "page" || groups.has(item.group));
-  const cfgGroup = section.startsWith("cfg:") ? (section.slice(4) as ConfigGroup) : null;
-  const heading = searching
-    ? t("settings.search")
-    : cfgGroup !== null
-      ? groupTitle(locale, cfgGroup)
-      : t(`settings.${section as PageSection}`);
-  const choose = (next: string) => {
+  const heading = searching ? t("settings.search") : t(`settings.${section}`);
+  const choose = (next: Page) => {
     setQuery("");
     setSection(next);
   };
-
   return (
     <div ref={root} className="settings" tabIndex={-1} onKeyDown={onKeyDown} data-testid="settings">
       <nav className="settings-nav" aria-label={t("settings.sections")}>
@@ -142,17 +165,16 @@ export function SettingsView() {
             </button>
           )}
         </div>
-        {nav.map((item) => {
-          const id = item.kind === "page" ? item.id : `cfg:${item.group}`;
-          const label = item.kind === "page" ? t(`settings.${item.id}`) : groupTitle(locale, item.group);
+        {pages.map((page) => {
+          const label = t(`settings.${page}`);
           return (
             <button
-              key={id}
+              key={page}
               type="button"
               title={label}
-              aria-current={!searching && section === id ? "page" : undefined}
-              onClick={() => choose(id)}
-              data-testid={item.kind === "page" ? `settings-nav-${item.id}` : `settings-nav-cfg-${item.group}`}
+              aria-current={!searching && section === page ? "page" : undefined}
+              onClick={() => choose(page)}
+              data-testid={`settings-nav-${page}`}
             >
               {label}
             </button>
@@ -167,36 +189,7 @@ export function SettingsView() {
             </h2>
             {/* 换节时 key 变，新节整体淡入上移（样式在 motion.css 末尾） */}
             <div key={searching ? "search" : section} className="settings-section">
-              {searching || cfgGroup !== null ? (
-                <>
-                  {!searching && cfgGroup !== null && <IntegrationCards group={cfgGroup} />}
-                  <OmpConfigPane group={cfgGroup} query={query} />
-                </>
-              ) : (
-                <>
-                  {section === "general" && <GeneralSection />}
-                  {section === "models" && (
-                    <>
-                      <ModelsSection />
-                      {groups.has(MERGED_INTO_MODELS) && (
-                        <>
-                          <h3 className="settings-group-title">{groupTitle(locale, MERGED_INTO_MODELS)}</h3>
-                          <OmpConfigPane group={MERGED_INTO_MODELS} query="" omit={["defaultThinkingLevel"]} />
-                        </>
-                      )}
-                    </>
-                  )}
-                  {section === "usage" && <UsageSection />}
-                  {section === "plugins" && <PluginsSection />}
-                  {section === "omp" && (
-                    <>
-                      <OmpSection />
-                      <OmpChangelog />
-                    </>
-                  )}
-                  {section === "about" && <AboutSection />}
-                </>
-              )}
+              {searching ? <OmpConfigPane view={{ kind: "search", query }} /> : <PageContent page={section} />}
             </div>
           </div>
         </div>

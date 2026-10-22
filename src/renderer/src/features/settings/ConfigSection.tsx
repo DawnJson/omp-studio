@@ -1,4 +1,5 @@
-// omp 设置的一个分组（omp-studio 自己的分组，见 config-groups.ts）或搜索结果：常用项在最前面，其余按 key 前缀折叠成小组，长列表不一次全展开。
+// omp 设置的展示：各节页面上的常用项（一张卡）、"高级"（全部非常用项）、搜索结果。
+// 高级：按 omp-studio 的分组（config-groups.ts）一个小标题，组内按 key 前缀折叠成小组，默认全部收起。
 import { useId, useState, type ReactNode } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { ChevronRight } from "../../icons.tsx";
@@ -7,12 +8,9 @@ import { ConfigRow } from "./ConfigRow.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { groupConfigItems } from "../../../../shared/ui/config-groups.ts";
 import { prefixTitle } from "../../../../shared/ui/config-labels.ts";
-import { groupItems, groupTitle } from "./config-meta.ts";
+import { groupTitle, prefixGroups } from "./config-meta.ts";
 
-/** 超过这个数量的分组，非"常用"的小组默认折叠。 */
-const collapseThreshold = 30;
-
-// 折叠状态记在模块里：切换分组再回来保持原样。
+// 折叠状态记在模块里：换节再回来保持原样。
 const openState = new Map<string, boolean>();
 
 function Disclosure({
@@ -53,51 +51,56 @@ function Disclosure({
   );
 }
 
-/** 一个分组的全部设置。 */
-export function ConfigTab({ tab, items }: { tab: string; items: readonly OmpConfigItem[] }) {
+/** 一节页面上的常用项：一张卡，不折叠。 */
+export function ConfigCard({ items }: { items: readonly OmpConfigItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="st-card cfg-card">
+      {items.map((item) => (
+        <ConfigRow key={item.key} item={item} />
+      ))}
+    </div>
+  );
+}
+
+/** 高级：每个分组一个小标题（带项数），下面是按前缀折叠的小组，默认收起。 */
+export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
   const t = useT();
   const locale = useLocale();
   const [, rerender] = useState(0);
-  const groups = groupItems(items);
-  const many = items.length > collapseThreshold;
   return (
     <>
-      {groups.map((group, index) => {
-        const key = `${tab}|${group.id}`;
-        const open = openState.get(key) ?? (group.prefix === null || !many || (index === 0 && groups.length === 1));
-        const title =
-          group.prefix === null
-            ? t("settings.cfg.common")
-            : group.prefix === ""
-              ? t("settings.cfg.other")
-              : prefixTitle(locale, group.prefix);
-        const body = (
-          <>
-            {group.items.map((item) => (
-              <ConfigRow key={item.key} item={item} />
-            ))}
-          </>
-        );
-        if (groups.length === 1)
-          return (
-            <div key={key} className="st-card cfg-card">
-              {body}
-            </div>
-          );
+      {[...groupConfigItems(items)].map(([group, inGroup]) => {
+        const groups = prefixGroups(inGroup);
+        if (groups.length === 0) return null;
+        const count = groups.reduce((sum, { items: bucket }) => sum + bucket.length, 0);
         return (
-          <Disclosure
-            key={key}
-            id={group.id}
-            title={title}
-            count={group.items.length}
-            open={open}
-            onToggle={() => {
-              openState.set(key, !open);
-              rerender((n) => n + 1);
-            }}
-          >
-            {body}
-          </Disclosure>
+          <section key={group} data-testid={`cfg-advanced-${group}`}>
+            <h3 className="settings-group-title cfg-advanced-title">
+              {groupTitle(locale, group)} <span className="cfg-group-count">{count}</span>
+            </h3>
+            {groups.map(({ prefix, items: bucket }) => {
+              const key = `${group}|${prefix}`;
+              const open = openState.get(key) ?? false;
+              return (
+                <Disclosure
+                  key={key}
+                  id={`${group}-${prefix || "other"}`}
+                  title={prefix === "" ? t("settings.cfg.other") : prefixTitle(locale, prefix)}
+                  count={bucket.length}
+                  open={open}
+                  onToggle={() => {
+                    openState.set(key, !open);
+                    rerender((n) => n + 1);
+                  }}
+                >
+                  {bucket.map((item) => (
+                    <ConfigRow key={item.key} item={item} />
+                  ))}
+                </Disclosure>
+              );
+            })}
+          </section>
         );
       })}
     </>

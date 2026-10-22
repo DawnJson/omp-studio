@@ -17,6 +17,7 @@ import { goalButtons } from "../goal/goal-model.ts";
 import { runGoalOp } from "../goal/goal-actions.ts";
 import type { CommandEntry } from "../../../../shared/ui/palette-model.ts";
 import { emitStudioCommand } from "./studio-command.ts";
+import { setUsageDialogOpen } from "../composer/usage-store.ts";
 import { openSessionInfo, openShareDialog, retryTask, togglePin } from "../session-info/index.ts";
 
 export interface CommandContext {
@@ -134,16 +135,24 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
       shortcut: "Ctrl J",
       run: () => void jumpToWaitingTask(current?.id ?? null, t),
     },
-    // 更新检查、用量、快捷键清单在设置页里，直接定位到对应分节。
-    { id: "usage", label: t("cmd.usage"), run: () => showView("settings", { section: "usage" }) },
+    // 用量：回到对话页，打开输入框旁的用量对话框（费用按钮打开的同一个）。
+    {
+      id: "usage",
+      label: t("cmd.usage"),
+      run: () => {
+        showView("conversation");
+        setUsageDialogOpen(true);
+      },
+    },
+    // 插件、更新检查、快捷键清单在设置页里，直接定位到对应分节。
     { id: "plugins", label: t("cmd.plugins"), run: () => showView("settings", { section: "plugins" }) },
-    // MCP / SSH / 可用工具 / 记忆 / omp 更新日志的设置卡片（S5）。
-    { id: "mcp", label: t("integrations.cmd.mcp"), run: () => showView("settings", { section: "cfg:integrations" }) },
-    { id: "ssh", label: t("integrations.cmd.ssh"), run: () => showView("settings", { section: "cfg:integrations" }) },
-    { id: "tools", label: t("integrations.cmd.tools"), run: () => showView("settings", { section: "cfg:tools" }) },
-    { id: "memory", label: t("integrations.cmd.memory"), run: () => showView("settings", { section: "cfg:context" }) },
-    { id: "changelog", label: t("integrations.cmd.changelog"), run: () => showView("settings", { section: "omp" }) },
-    { id: "checkUpdate", label: t("cmd.checkUpdate"), run: () => showView("settings", { section: "omp" }) },
+    // MCP / SSH / 可用工具 / 记忆 / omp 更新日志所在的设置分节（S5）。
+    { id: "mcp", label: t("integrations.cmd.mcp"), run: () => showView("settings", { section: "integrations" }) },
+    { id: "ssh", label: t("integrations.cmd.ssh"), run: () => showView("settings", { section: "integrations" }) },
+    { id: "tools", label: t("integrations.cmd.tools"), run: () => showView("settings", { section: "tools" }) },
+    { id: "memory", label: t("integrations.cmd.memory"), run: () => showView("settings", { section: "context" }) },
+    { id: "changelog", label: t("integrations.cmd.changelog"), run: () => showView("settings", { section: "about" }) },
+    { id: "checkUpdate", label: t("cmd.checkUpdate"), run: () => showView("settings", { section: "about" }) },
     { id: "shortcuts", label: t("cmd.shortcuts"), run: () => showView("settings", { section: "shortcuts" }) },
     current && { id: "archive", label: t("cmd.archive"), run: () => archiveWithUndo(current.id, current.id, t) },
     // 会话信息、请求记录、置顶、分享、重试（S3，session-info）：分享和置顶需要任务已有会话文件，没有时对话框里说明。

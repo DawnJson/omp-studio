@@ -19,7 +19,7 @@
 
 ## 界面
 
-- 左侧导航只有一列，不分"omp-studio 的 / omp 的"（仓库所有者 2026-10-19 定；omp 的设置和终端共用，就是 omp-studio 的设置）：通用、模型与账号、工具与权限、上下文与记忆、子代理与规划、对话行为、集成、语音、其他、用量、omp 版本、关于（`SettingsView.tsx` 的 `navOrder`）。omp 的"模型与推理"组并进"模型与账号"页，排在账号和模型下面（`defaultThinkingLevel` 上面已有"默认思考强度"，组里不再重复，`OmpConfigPane` 的 `omit`；搜索照样找得到）；命令面板等定位到 `cfg:models` 时打开这一页。主进程自己改了设置（启动时 `goal.continuationModes` 的默认值）会发 `ompConfigChanged`，打开着的设置页静默重读。分组按用户要做的事分，不照搬 omp 的 tab（那是按终端菜单分的）；分组规则在 `src/shared/ui/config-groups.ts`（`test/config-groups.test.ts`）。rpc-ui 下没有作用的项隐藏（见下节），搜索也不找它们；顶部搜索框按 key、omp 英文描述、中英文标签和说明过滤（多个词要全部命中），`Ctrl F` 聚焦，`Esc` 先清搜索。
+- 左侧导航只有一列，不分"omp-studio 的 / omp 的"（仓库所有者 2026-10-19 定；omp 的设置和终端共用，就是 omp-studio 的设置）：通用、模型、提供商与账号、工具与权限、上下文与记忆、子代理与规划、集成、插件、高级、关于，10 节固定（`SettingsView.tsx` 的 `pages`；2026-10-22 仓库所有者定，原来按 omp 分组自动出节，共 13 节）。**各节只放常用项**——有人话标签的键（`ompcfg` 字典里有 `<key>.label` 的，`config-meta.ts` 的 `commonItems`，按字典顺序），和管理卡片同页：模型 = 默认模型 / 思考强度 + "模型与推理"组的常用项（`defaultThinkingLevel` 上面已有控件，不再重复一行，`useCommonConfigItems` 的 `omit`）；通用的"任务运行中"卡 = studio 的 Enter 行为 + "对话行为"组的常用项；工具与权限、上下文与记忆、子代理与规划 = 各自组的常用项。**其余全部在"高级"**（`AdvancedConfig`）：每个 omp-studio 分组一个小标题，组内按 key 第一段折叠成小组（`prefixGroups`，只有一项的前缀并进末尾的"其他"），默认收起；常用项不在高级里重复。搜索覆盖全部可见项。主进程自己改了设置（启动时 `goal.continuationModes` 的默认值）会发 `ompConfigChanged`，打开着的设置页静默重读。分组按用户要做的事分，不照搬 omp 的 tab（那是按终端菜单分的）；分组规则在 `src/shared/ui/config-groups.ts`（`test/config-groups.test.ts`）。rpc-ui 下没有作用的项隐藏（见下节），搜索也不找它们；顶部搜索框按 key、omp 英文描述、中英文标签和说明过滤（多个词要全部命中），`Ctrl F` 聚焦，`Esc` 先清搜索。
 - 每项默认一行：标签 + ⓘ（描述、key、"omp 原文"标记都在悬停/聚焦/点击出现的说明里）+ "已修改"标记 + 保存反馈，右边是"恢复默认"和控件。搜索命中的是描述时，才在行下面显示那一句。被覆盖、保存或校验出错时才多一行。
 - 控件：boolean 开关；enum 三个及以内且短的用分段，否则下拉；number 文本框（要求是数字）；string 文本框；array/record JSON 编辑器（解析失败、类型不对就地报错，不保存）。文本类停手 700 ms（JSON 1 s）、失焦或 Enter 保存；开关和选择立即保存。
 - **`goal.continuationModes` 画成开关「目标自动推进」**（`ConfigControls.tsx`，`ompcfg` 里有标签和说明，所以也在“常用”里）：开 ⇔ 列表里有 `"rpc"`；切换时只增减 `"rpc"`，别的条目保留（`src/shared/ui/goal-continuation.ts`，`test/goal-continuation.test.ts`），写的就是上面那条 `omp config set`，不另存副本、不用 `--config` 覆盖，所以终端里的 omp 看到同一份值，反过来也一样。omp-studio 启动时若发现它没被用户明确设置过，会加上 `"rpc"` 一次（默认允许，细节和“怎么分辨设过”见 `conversation.md` 目标一节）。终端版 omp 只看 `"interactive"`，不受影响。
@@ -84,7 +84,7 @@
 
 ## 集成卡片：MCP、SSH、可用工具、记忆、更新日志（S5，omp 18.12.5 实测）
 
-斜杠命令 `/mcp /ssh /tools /memory /changelog` 由 studio 接管（`tsp:"studio"`），界面是设置页里放在对应分组最前面的卡片（spec §4.19「集成卡片」）。代码：`src/renderer/src/features/settings/{McpCard,McpForm,SshCard,SshForm,ToolsCard,MemoryCard,OmpChangelog,ScopePicker,IntegrationCards}.tsx`；解析器 `src/shared/omp-output/{mcp,ssh,tools,changelog}.ts`；SSH 的主进程 `src/main/integrations/ssh.ts` + `src/main/ipc/integrations-handlers.ts`；MCP / 记忆 / 工具 / 更新日志走 S0 的 `runBuiltin`（用户范围 = 服务进程，项目范围 = 项目目录里的短命 rpc-ui）。文本格式不是 omp 的契约：解析不了的行原样显示，omp 的话原样给用户，不吞。以下都是临时 `PI_CODING_AGENT_DIR` + `--mode rpc-ui --no-session`（或 CLI）实测，2026-10-21。
+斜杠命令 `/mcp /ssh /tools /memory /changelog` 由 studio 接管（`tsp:"studio"`），界面是设置页对应节里的卡片（集成 = MCP + SSH，工具与权限 = 可用工具，上下文与记忆 = 记忆，关于 = omp 更新日志；spec §4.19「集成卡片」）。代码：`src/renderer/src/features/settings/{McpCard,McpForm,SshCard,SshForm,ToolsCard,MemoryCard,OmpChangelog,ScopePicker}.tsx`；解析器 `src/shared/omp-output/{mcp,ssh,tools,changelog}.ts`；SSH 的主进程 `src/main/integrations/ssh.ts` + `src/main/ipc/integrations-handlers.ts`；MCP / 记忆 / 工具 / 更新日志走 S0 的 `runBuiltin`（用户范围 = 服务进程，项目范围 = 项目目录里的短命 rpc-ui）。文本格式不是 omp 的契约：解析不了的行原样显示，omp 的话原样给用户，不吞。以下都是临时 `PI_CODING_AGENT_DIR` + `--mode rpc-ui --no-session`（或 CLI）实测，2026-10-21。
 
 ### `/mcp`（rpc-ui 的 `command_output`，全部 `agentInvoked:false`，不调模型）
 

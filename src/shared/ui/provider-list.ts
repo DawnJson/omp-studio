@@ -1,6 +1,6 @@
-// 设置 → 模型与账号 的提供商列表：搜索过滤和排序（纯函数）。
-// omp 返回的是 80 多个 provider 的平铺列表；已配置的（登录过、环境变量/配置里有凭据、或 studio 存了 key）排前面，
-// 同一组内保持 omp 给的顺序（omp 把常用的订阅类放在前面），搜索按名称和 id 匹配。
+// 设置 → 提供商与账号 的提供商列表：搜索过滤和分组（纯函数）。
+// omp 返回的是 80 多个 provider 的平铺列表；已配置的（登录过、环境变量/配置里有凭据、或 studio 存了 key）单独一组排前面，
+// 界面上没在搜索时只先列这一组；同一组内保持 omp 给的顺序（omp 把常用的订阅类放在前面），搜索按名称和 id 匹配。
 
 export interface ListedProvider {
   id: string;
@@ -21,15 +21,15 @@ function isConfigured(provider: Pick<ListedProvider, "id" | "authenticated">, st
   return provider.authenticated || storedKeys.includes(provider.id);
 }
 
-/** 过滤后把已配置的放前面；两组内部保持原顺序。 */
-export function arrangeProviders<T extends ListedProvider>(
+/** 过滤后分成已配置的和其余的；两组内部保持原顺序。 */
+export function splitProviders<T extends ListedProvider>(
   providers: readonly T[],
   storedKeys: readonly string[],
   query: string,
-): T[] {
+): { configured: T[]; others: T[] } {
   const matched = providers.filter((provider) => matchesProvider(provider, query));
-  return [
-    ...matched.filter((provider) => isConfigured(provider, storedKeys)),
-    ...matched.filter((provider) => !isConfigured(provider, storedKeys)),
-  ];
+  return {
+    configured: matched.filter((provider) => isConfigured(provider, storedKeys)),
+    others: matched.filter((provider) => !isConfigured(provider, storedKeys)),
+  };
 }

@@ -1,4 +1,4 @@
-// 自定义模型（设置 → 模型与账号 → 自定义 provider）：界面和主进程共用的类型和校验。
+// 自定义模型（设置 → 提供商与账号 → 自定义 provider）：界面和主进程共用的类型和校验。
 // 对应 omp 的 `models.yml` 里的 `providers.<id>`（omp://models.md）。纯逻辑，不引 React、DOM 或 Node。
 
 /** omp 的聊天传输 `api`（omp://models.md "Allowed provider/model api values" 去掉判定类和 runner 类）。 */

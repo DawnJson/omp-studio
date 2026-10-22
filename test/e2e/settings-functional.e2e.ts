@@ -1,4 +1,4 @@
-// 设置页的功能项（阶段 2.6）：模型与账号缓存、omp 版本检查、omp 设置分组（隐藏终端专用项）、用量。
+// 设置页的功能项（阶段 2.6）：提供商与账号缓存、omp 版本检查、omp 设置分节（常用项 / 高级，隐藏终端专用项）、用量对话框。
 // 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR；用量用例还把 USERPROFILE 指到临时目录，omp 的 stats.db 不会碰真实 ~/.omp。
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -26,14 +26,23 @@ async function launchSettings(
 ): Promise<{ launched: LaunchedApp; agentDir: string }> {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir, ...extraEnv });
-  await expect
-    .poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
-      timeout: 30_000,
-    })
-    .toBe("ready");
-  await launched.page.setViewportSize({ width: 1200, height: 800 });
-  await launched.page.keyboard.press("Control+,");
-  await expect(launched.page.getByTestId("settings")).toBeVisible();
+  try {
+    await expect
+      .poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
+        timeout: 30_000,
+      })
+      .toBe("ready");
+    await launched.page.setViewportSize({ width: 1200, height: 800 });
+    // omp 可能比界面先就绪：等 React 挂上（快捷键监听才在），再按 Ctrl ,。
+    await expect(launched.page.getByTestId("app-root")).toBeVisible();
+    await launched.page.keyboard.press("Control+,");
+    await expect(launched.page.getByTestId("settings")).toBeVisible();
+  } catch (error) {
+    // 中途失败调用方拿不到 launched：在这里关掉应用、删掉目录，不留进程和临时目录。
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    throw error;
+  }
   return { launched, agentDir };
 }
 
@@ -47,19 +56,19 @@ async function screenshots(page: Page, name: string, prepare?: () => Promise<voi
   }
 }
 
-test("模型与账号：再次进入时立即显示上次的结果，不再出现“正在读取”", async () => {
+test("提供商与账号：再次进入时立即显示上次的结果，不再出现“正在读取”", async () => {
   const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
     await localeAndTheme(page, "zh-CN", "light");
-    await page.getByTestId("settings-nav-models").click();
+    await page.getByTestId("settings-nav-providers").click();
     const rows = page.getByTestId("providers").locator(".st-provider-head");
     await expect(rows.first()).toBeVisible({ timeout: 30_000 });
     const firstCount = await rows.count();
     expect(firstCount).toBeGreaterThan(0);
 
     await page.getByTestId("settings-nav-general").click();
-    await page.getByTestId("settings-nav-models").click();
+    await page.getByTestId("settings-nav-providers").click();
     // 点击后同一次渲染里就有内容：不等刷新、没有加载提示。
     await expect(page.getByText("正在读取模型…")).toHaveCount(0);
     expect(await rows.count()).toBe(firstCount);
@@ -70,7 +79,7 @@ test("模型与账号：再次进入时立即显示上次的结果，不再出�
   }
 });
 
-test("omp 版本：用户自装/他人管理的 omp 也会检查，有新版本时提示（不下载、不改文件）", async () => {
+test("关于 → omp：用户自装/他人管理的 omp 也会检查，有新版本时提示（不下载、不改文件）", async () => {
   const body = Buffer.from("not downloaded");
   const server = http.createServer((request, response) => {
     if (request.url?.startsWith("/api/")) {
@@ -90,11 +99,14 @@ test("omp 版本：用户自装/他人管理的 omp 也会检查，有新版本�
   const { launched, agentDir } = await launchSettings({ PI_BUILD_URL: baseUrl });
   try {
     const { page } = launched;
-    await page.getByTestId("settings-nav-omp").click();
+    await page.getByTestId("settings-nav-about").click();
     // 启动后马上查了一次（不用等一小时）。
     await expect(page.getByTestId("omp-available")).toContainText("99.0.0", { timeout: 15_000 });
-    // 手动检查：结果行里同样提示。
-    await page.getByRole("button", { name: /检查更新|Check for updates/ }).click();
+    // 手动检查（omp 那张卡上的按钮；上面那张是 omp-studio 自己的）：结果行里同样提示。
+    await page
+      .getByTestId("omp-info")
+      .getByRole("button", { name: /检查更新|Check for updates/ })
+      .click();
     await expect(page.getByTestId("omp-available")).toBeVisible();
     await screenshots(page, "omp-update");
     // 没有下载：版本没变。
@@ -108,19 +120,22 @@ test("omp 版本：用户自装/他人管理的 omp 也会检查，有新版本�
   }
 });
 
-test("omp 设置按 omp-studio 的分组显示：终端专用项被隐藏，搜索也找不到；起作用的项都在", async () => {
+test("omp 设置：各节只放常用项，其余在“高级”；终端专用项被隐藏，搜索也找不到", async () => {
   const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
     await localeAndTheme(page, "zh-CN", "light");
-    await page.getByTestId("settings-nav-cfg-tools").click();
+    await page.getByTestId("settings-nav-tools").click();
     await expect(page.getByTestId("cfg-bash.enabled")).toBeVisible({ timeout: 30_000 });
-    // 一列分节：omp 的"模型与推理"并进"模型与账号"，没有单独的一节。
-    await expect(page.getByTestId("settings-nav-cfg-models")).toHaveCount(0);
     await page.getByTestId("settings-nav-models").click();
     await expect(page.getByTestId("cfg-modelRoles")).toBeVisible();
-    for (const hidden of ["appearance", "interaction", "internal", "shell"])
-      await expect(page.getByTestId(`settings-nav-cfg-${hidden}`)).toHaveCount(0);
+    // 插话 / 稍后消息的处理方式和 Enter 的行为在"通用"同一张卡里。
+    await page.getByTestId("settings-nav-general").click();
+    await expect(page.getByTestId("cfg-steeringMode")).toBeVisible();
+    // 高级：按分组列出非常用项，常用项不重复出现。
+    await page.getByTestId("settings-nav-advanced").click();
+    await expect(page.getByTestId("cfg-advanced-tools")).toBeVisible();
+    await expect(page.getByTestId("cfg-tools.approvalMode")).toHaveCount(0);
     await page.getByTestId("settings-search").fill("theme.dark");
     await expect(page.getByText("没有匹配")).toBeVisible();
     await page.getByTestId("settings-search").fill("statusLine");
@@ -128,9 +143,11 @@ test("omp 设置按 omp-studio 的分组显示：终端专用项被隐藏，搜�
     await page.getByTestId("settings-search").fill("tools.approvalMode");
     await expect(page.getByTestId("cfg-tools.approvalMode")).toBeVisible();
     await page.getByTestId("settings-search").fill("");
-    await page.getByTestId("settings-nav-cfg-tools").click();
+    await page.getByTestId("settings-nav-tools").click();
     await expect(page.getByTestId("cfg-bash.enabled")).toBeVisible();
     await screenshots(page, "groups");
+    await page.getByTestId("settings-nav-advanced").click();
+    await screenshots(page, "advanced");
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
@@ -187,7 +204,7 @@ async function seedUsageSession(agentDir: string, index: number, daysAgo: number
   );
 }
 
-test("用量：近一年热力图读 omp 的 stats.db（先同步再读，只读），额度没有账号时说明；中英文 × 浅深主题截图", async () => {
+test("用量对话框：近一年热力图读 omp 的 stats.db（先同步再读，只读），额度没有账号时说明；中英文 × 浅深主题截图", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "omp-studio-home-"));
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
   // 三天有用量，一天在一年多以前（不应出现在窗口里）。
@@ -207,28 +224,30 @@ test("用量：近一年热力图读 omp 的 stats.db（先同步再读，只读
       })
       .toBe("ready");
     await page.setViewportSize({ width: 1200, height: 800 });
+    // 设置页里没有"用量"了：从发送键左边的费用打开对话框。
+    await expect(page.getByTestId("app-root")).toBeVisible();
     await page.keyboard.press("Control+,");
-    await page.getByTestId("settings-nav-usage").click();
-    await expect(page.getByTestId("usage-quota-empty")).toBeVisible({ timeout: 60_000 });
-    // 同步（omp 首次要解出原生库，给足时间）后有 3 个有用量的日子。
-    await expect(page.getByTestId("usage-heatmap")).toBeVisible({ timeout: 180_000 });
-    await expect(page.getByTestId("usage-syncing")).toHaveCount(0, { timeout: 180_000 });
-    await expect(page.locator(".usage-grid .usage-cell:not([data-level='0'])")).toHaveCount(3);
-    // 换指标：请求数每天都是 1，三个格子同样深。
-    await page
-      .getByTestId("usage-metric")
-      .getByRole("radio", { name: /请求数|Requests/ })
-      .click();
-    await expect(page.locator(".usage-grid .usage-cell[data-level='4']")).toHaveCount(3);
-    await page.getByTestId("usage-metric").getByRole("radio", { name: /Token/ }).click();
+    await expect(page.getByTestId("settings")).toBeVisible();
+    await expect(page.getByTestId("settings-nav-usage")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await page.getByTestId("usage-cost").click();
+    const dialog = page.getByTestId("usage-dialog");
+    await expect(dialog.getByTestId("usage-quota-empty")).toBeVisible({ timeout: 60_000 });
+    // 同步（omp 首次要解出原生库，给足时间）后有 3 个有用量的日子，按花费着色：最贵的那天最深。
+    await expect(dialog.locator(".usage-grid")).toBeVisible({ timeout: 180_000 });
+    await expect(dialog.getByTestId("usage-syncing")).toHaveCount(0, { timeout: 180_000 });
+    await expect(dialog.locator(".usage-grid .usage-cell:not([data-level='0'])")).toHaveCount(3);
+    await expect(dialog.locator(".usage-grid .usage-cell[data-level='4']")).toHaveCount(1);
+    await expect(dialog.getByTestId("usage-summary")).toBeVisible();
     await screenshots(page, "usage");
     // 读库是只读的：不存在我们写的东西，窗口之外的一天没出现。
     const heatmap = await page.evaluate(() => globalThis.studio.getUsageHeatmap(false));
     expect(heatmap.days).toHaveLength(3);
   } finally {
     await launched.close();
-    await rm(agentDir, { recursive: true, force: true });
-    await rm(home, { recursive: true, force: true });
+    // omp 的原生库（home 里的 .omp/natives）在进程退出后还要一会儿才放开：EPERM/EBUSY 时重试。
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -255,7 +274,7 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
   try {
     const { page } = launched;
     await localeAndTheme(page, "en", "light");
-    await page.getByTestId("settings-nav-cfg-integrations").click({ timeout: 60_000 });
+    await page.getByTestId("settings-nav-integrations").click({ timeout: 60_000 });
 
     // ── MCP：本地命令（参数里有空格和单引号，靠 omp 的双引号切词存对）──
     await expect(page.getByTestId("mcp-empty")).toBeVisible({ timeout: 60_000 });
@@ -353,16 +372,16 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await page.screenshot({ path: path.join(screenshotsDir, "settings-f-integrations-en-light.png") });
 
     // ── 可用工具：omp 的 /tools，read 一定在 ──
-    await page.getByTestId("settings-nav-cfg-tools").click();
+    await page.getByTestId("settings-nav-tools").click();
     await expect(page.getByTestId("tool-read")).toBeVisible({ timeout: 60_000 });
 
-    // ── 记忆：卡片在，后端值来自设置项 ──
-    await page.getByTestId("settings-nav-cfg-context").click();
+    // ── 记忆：卡片在，后端是同一页上面的常用设置项 ──
+    await page.getByTestId("settings-nav-context").click();
     await expect(page.getByTestId("memory-card")).toBeVisible();
-    await expect(page.getByTestId("memory-backend")).toHaveText("off");
+    await expect(page.getByTestId("cfg-memory.backend")).toBeVisible();
 
-    // ── omp 更新日志：点开才读，最新一节默认展开 ──
-    await page.getByTestId("settings-nav-omp").click();
+    // ── omp 更新日志（在"关于"里）：点开才读，最新一节默认展开 ──
+    await page.getByTestId("settings-nav-about").click();
     await page.getByTestId("changelog-show").click();
     await expect(page.getByTestId("changelog-section-0")).toBeVisible({ timeout: 60_000 });
     await expect(page.getByTestId("changelog-section-0").locator(".md")).toBeVisible();

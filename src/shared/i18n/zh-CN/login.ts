@@ -32,5 +32,6 @@ export const login = {
   "apiKey.add": "添加 API key",
   search: "搜索提供商",
   noMatch: "没有匹配的提供商",
+  showOthers: "显示其余 {count} 个提供商",
   terminalLogin: "需在终端登录",
 } satisfies Record<string, MessageEntry>;

@@ -54,29 +54,41 @@ export function matchesQuery(item: OmpConfigItem, query: string): boolean {
   return words.every((word) => haystack.includes(word));
 }
 
-export interface ConfigGroup {
-  id: string;
-  /** null = 常用项那一组（标题用"常用"）。 */
-  prefix: string | null;
+/** 常用项：有人话标签的键（各节页面上只放这些），按字典顺序。 */
+function isCommon(key: string): boolean {
+  return commonOrder.has(key);
+}
+
+export function commonItems(items: readonly OmpConfigItem[]): OmpConfigItem[] {
+  return items
+    .filter((item) => isCommon(item.key))
+    .sort((a, b) => (commonOrder.get(a.key) ?? 0) - (commonOrder.get(b.key) ?? 0));
+}
+
+export interface PrefixGroup {
+  /** key 的第一段；"" = 没有点号的顶层键和只有一项的前缀，合成"其他"。 */
+  prefix: string;
   items: OmpConfigItem[];
 }
 
-/** 一个分组里的项：常用项排在最前面（"常用"），其余按 key 的第一段分组，保持 omp 的顺序。 */
-export function groupItems(items: readonly OmpConfigItem[]): ConfigGroup[] {
-  const common = items
-    .filter((item) => commonOrder.has(item.key))
-    .sort((a, b) => (commonOrder.get(a.key) ?? 0) - (commonOrder.get(b.key) ?? 0));
-  const groups: ConfigGroup[] = common.length > 0 ? [{ id: "common", prefix: null, items: common }] : [];
+/** "高级"里一个分组的非常用项：按 key 的第一段分小组，保持 omp 的顺序；只有一项的前缀并进最后的"其他"，不单独占一行。 */
+export function prefixGroups(items: readonly OmpConfigItem[]): PrefixGroup[] {
   const byPrefix = new Map<string, OmpConfigItem[]>();
   for (const item of items) {
-    if (commonOrder.has(item.key)) continue;
+    if (isCommon(item.key)) continue;
     const dot = item.key.indexOf(".");
     const prefix = dot === -1 ? "" : item.key.slice(0, dot);
     const bucket = byPrefix.get(prefix);
     if (bucket) bucket.push(item);
     else byPrefix.set(prefix, [item]);
   }
-  for (const [prefix, bucket] of byPrefix) groups.push({ id: `p:${prefix}`, prefix, items: bucket });
+  const groups: PrefixGroup[] = [];
+  const rest: OmpConfigItem[] = [];
+  for (const [prefix, bucket] of byPrefix) {
+    if (prefix === "" || bucket.length === 1) rest.push(...bucket);
+    else groups.push({ prefix, items: bucket });
+  }
+  if (rest.length > 0) groups.push({ prefix: "", items: rest });
   return groups;
 }
 

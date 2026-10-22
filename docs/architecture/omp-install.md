@@ -66,16 +66,16 @@ Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次�
 
 ## omp-studio 的实现（`src/main/omp-manager/`）
 
-状态机在 `manager.ts`，决策在 `resolve.ts`（纯函数，`test/omp-manager-resolve.test.ts` 逐分支覆盖），下载校验在 `build-service.ts`，目录和换 exe 在 `installer.ts`，应用里的接线（`net.fetch`、`userData`、事件推送）在 `index.ts`。渲染进程的 `OmpStatus` 就是这个状态机的状态，界面见 `features/omp-setup/` 和设置 → omp。
+状态机在 `manager.ts`，决策在 `resolve.ts`（纯函数，`test/omp-manager-resolve.test.ts` 逐分支覆盖），下载校验在 `build-service.ts`，目录和换 exe 在 `installer.ts`，应用里的接线（`net.fetch`、`userData`、事件推送）在 `index.ts`。渲染进程的 `OmpStatus` 就是这个状态机的状态，界面见 `features/omp-setup/` 和设置 → 关于 → omp。
 
 - **自管目录**：`%LOCALAPPDATA%\omp-studio\omp\`（`versions\<版本>.exe`、`bin\omp.exe`、`manager.json`、`update.lock`）。未打包时 `STUDIO_OMP_HOME` 或测试的 `STUDIO_USER_DATA`（→ `<userData>\omp`）可以改位置，测试不碰真实目录。
 - **每次启动的发现**（第一次 `getOmpStatus` 触发）：PATH 上没有 omp → 有自管副本就用，没有就进 `missing`；PATH 上第一个是 omp-studio 自己管理的 → 直接用；用户自装的（含 `.cmd`）和别的管理者（Tern 等有 `manager.json` 的）→ 同一个 `ask_takeover` 弹窗（别的管理者时 `managerName` 是它的名字，文案不同），回答按 exe 路径记在 `userData\omp-studio-state.json`（`takeover[exe 路径小写]`）。同意 → 下载自管副本并把 `bin` 放到用户 PATH 最前面，原来那份（含 Tern 的目录和 `manager.json`）不碰；拒绝 → 用原来那份（自装的来源是 `user_installed`，Tern 的是 `managed_by_other`，由 Tern 更新；`.cmd` 则 `unusable`，"重新选择"会忘掉那次拒绝重新问）。
 - **`missing` 状态**：PATH 上没有 omp 且没有自管副本时，不直接下载 220 MB：向构建服务问版本和大小，准备页写明大小和来源，用户点"下载并安装"（`installOmp`）才下载；下载中可以取消（`cancelOmpInstall`，丢弃 `.partial`，回到 `missing`）。上一条里"没有就直接下载"以本条为准。用户同意过接管（`takeover` 已记录为 accepted）时视为已授权，直接下载。
-- **自管 omp 装好后直接放到用户 PATH 最前面**，照 Tern 做管理者，不另问：用户点"下载并安装"或同意接管的那一次就是授权（准备页和接管弹窗的文案写明会改 PATH）。以后启动发现 bin 被用户移出 PATH 不悄悄加回，设置 → omp 显示"加入 PATH"按钮（`addManagedOmpToPath`）。
+- **自管 omp 装好后直接放到用户 PATH 最前面**，照 Tern 做管理者，不另问：用户点"下载并安装"或同意接管的那一次就是授权（准备页和接管弹窗的文案写明会改 PATH）。以后启动发现 bin 被用户移出 PATH 不悄悄加回，设置 → 关于 → omp 显示"加入 PATH"按钮（`addManagedOmpToPath`）。
 - **写用户 PATH**：`platform/win32/user-path.ts`（koffi，不用 reg.exe/setx）。只做"去重 + 放最前"，值类型和 `%VAR%` 原样保留；写之前把原值存成 `userData\path-backup-<时间>.txt`。测试用 `HKCU\Software\omp-studio-test-<pid>` 临时子键（`test/user-path.test.ts`）。
 - **下载**：`net.fetch`（系统代理）→ `…/latest/windows-x86_64?channel=stable`，`PI_BUILD_URL` 可改服务地址（omp 自己也认）。2026-10-18 实测应答：`build.version`（当时 18.12.1）、`file.{name,size,sha256,url}`、`download`（绝对地址的签名直链，字符串）。边下边算 sha256，size 和 sha256 都对上才从 `.partial` 改名；对不上删掉并报 `verify` 错误。`test/omp-manager-install.test.ts` 用本地假服务器覆盖损坏、长度不对、进度、目录有空格和中文。
 - **换 exe**：先复制到 `bin\.omp.exe.new-<pid>`，旧的改名为 `.omp.exe.old-<时间戳>`，新的改名到位，失败回滚。`.old-*` 每次启动清理，删不掉的留着。`versions\` 保留最近 3 个（当前版本一定留）。
-- **后台更新**：自管时每小时请求一次最新版，更新了就在后台下载换掉 `bin\omp.exe`，状态里 `stagedUpdate` 是装上的版本；不切到 `installing`（那会把界面换成准备页）。`update.lock` 用 `open(…, "wx")` 独占，超过 30 分钟的残留当作崩溃遗留。设置 → omp 的"检查更新"走同一条路径（`checkOmpUpdate`）。
+- **后台更新**：自管时每小时请求一次最新版，更新了就在后台下载换掉 `bin\omp.exe`，状态里 `stagedUpdate` 是装上的版本；不切到 `installing`（那会把界面换成准备页）。`update.lock` 用 `open(…, "wx")` 独占，超过 30 分钟的残留当作崩溃遗留。设置 → 关于 → omp 的"检查更新"走同一条路径（`checkOmpUpdate`）。
 - **差量补丁**：后台更新带 `fromVersion` 请求；`installBuild` 收到 `patch` 且当前 `bin\omp.exe` 的 sha256 等于 `from_sha256` 时，下载补丁到 `versions\<版本>.exe.patch`（按 size + sha256 校验），应用到 `.partial`，结果再按完整文件的 size + sha256 校验通过才改名。补丁的任何一步失败（起点不对、格式不支持、数据损坏、结果对不上）都退回全量下载，不报错。首次安装没有起点，总是全量。`pruneVersions` 顺带清掉残留的 `.patch`。实测（2026-10-18，Tern 的 18.12.0 副本 → 18.12.1）：只请求了补丁，约 7.6 秒，结果 sha256 和官方一致。测试用的补丁由 `test/hpatch-encoder.ts` 手工编码。
 - **升级按钮**（`upgradePathOmp`）只在"用户自装且拒绝了接管"时对 PATH 上那个 omp 执行 `omp update`（不用 shell，输出原样返回，界面显示末 3 行）。自管、他人管理的会被拒绝。
 - **启动子进程**时 `getOmpExecutable()` 返回 `{ path, managedBin }`，自管时 `managedBin` 非空，调用方把它前置到子进程 PATH，让 `omp update` 认到 `manager.json`。
@@ -90,7 +90,7 @@ Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次�
 - **Tern 自己的终端里用哪个 omp**：Tern 的 shell 集成脚本按 `TERN_PATH_PREPEND` 在第一个提示符前把指定目录放到 PATH 最前（"makes it the `omp` in every Tern terminal"），所以 Tern 终端里仍是 Tern 的 omp；普通终端（Windows Terminal、cmd）里是 omp-studio 的。从 Tern 终端里启动 omp-studio 时，进程 PATH 上第一个是 Tern 的，发现流程按 exe 路径查到"已接受接管"，照样用自管那份。
 - **Tern 会不会把 omp-studio 那份当成别人的 omp 来问**：Tern 的接管询问"每台机器只问一次"（`state.json` 的 `offered: true`，开发机上已经是 true），只认 Homebrew、mise、npm、bun、install.ps1 几种来源。已经由 Tern 管理时不会再问（推测：`offered` 为 true 后不再检查别的 omp）。Tern 的设置页会显示"PATH 上排在前面的其他 omp"。
 
-### omp 版本检查（设置 → omp，2026-10-18）
+### omp 版本检查（设置 → 关于 → omp，2026-10-18）
 
 `OmpManager.checkUpdate()`，**所有来源都检查**，区别只在查到新版本之后：
 
@@ -101,6 +101,6 @@ Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次�
 | 他人管理（如 Tern，`managed_by_other`） | 同上 | 同上显示"有新版本 X"，没有按钮，提示去管理者（Tern）那里更新 |
 
 - **自动：** omp 进入 `ready` 后马上查一次，之后每小时一次（`UPDATE_INTERVAL_MS`，定时器 `unref`，`stop()` 清掉）。之前定时器只在自管时启动、而且要等一小时才有第一次；现在所有来源都启动，第一次不用等。后台检查失败只记日志（`warn`），下个小时再试。
-- **手动：** 设置 → omp 的"检查更新"按钮（所有来源都有）走同一个 `checkOmpUpdate`，返回 `{ installedVersion, availableVersion }`：装上了新版本 / 有新版本但没装 / 都是 null（已最新）；失败时界面显示错误。
+- **手动：** 设置 → 关于 → omp 的"检查更新"按钮（所有来源都有）走同一个 `checkOmpUpdate`，返回 `{ installedVersion, availableVersion }`：装上了新版本 / 有新版本但没装 / 都是 null（已最新）；失败时界面显示错误。
 - "有新版本"的判断只用 `compareVersions(build.version, 当前版本) > 0`；用户升级（`upgradePathOmp`）之后，如果当前版本追上了就清掉 `availableVersion`。
 - 测试：`test/omp-manager-flow.test.ts`（拒绝接管的 Tern 副本：启动后自动出现 `availableVersion`，手动检查返回同样结果，没有进入 `installing`）；`test/e2e/settings-functional.e2e.ts`（假构建服务返回 99.0.0，设置页出现"有新版本 99.0.0"，版本没变）。

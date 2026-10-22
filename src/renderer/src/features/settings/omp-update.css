@@ -1,4 +1,4 @@
-/* 设置 → omp：版本提示和按钮同一行。 */
+/* 设置 → 关于 → omp：版本提示和按钮同一行。 */
 .st-inline-actions {
   display: inline-flex;
   align-items: center;

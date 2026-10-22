@@ -1,4 +1,4 @@
-// 设置 → 模型与账号 → 自定义提供商的渲染进程缓存：models.yml 里的 providers。
+// 设置 → 提供商与账号 → 自定义提供商的渲染进程缓存：models.yml 里的 providers。
 // 和 accounts-store 一样先显示上次的结果、后台刷新；保存/删除之后 force 重读，同时重读模型列表（新模型要出现在选择器里）。
 import type { CustomModelsFileInfo } from "../../../../shared/custom-models.ts";
 import { createCachedLoader, type CachedLoad } from "../../../../shared/ui/cached-loader.ts";

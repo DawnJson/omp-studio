@@ -61,8 +61,6 @@ export const integrations = {
     "This is the global list omp sees without a project: tools from a project's plugins or MCP servers are not included. A tool's switch is the <tool>.enabled setting below; once turned off the tool disappears from omp's list, so the row stays here until you press Refresh.",
 
   "memory.title": "Memory",
-  "memory.backend": "Memory backend",
-  "memory.backend.desc": "From the memory.backend setting; change it in the settings below. off means no memory.",
   "memory.noProject": "Memory is kept per project. Open a project first to view and consolidate it.",
   "memory.project": "Project",
   "memory.project.desc":
@@ -91,7 +89,7 @@ export const integrations = {
   "slash.ssh": "Manage SSH hosts (opens Settings → Integrations)",
   "slash.tools": "See available tools (opens Settings → Tools & permissions)",
   "slash.memory": "View and consolidate memory (opens Settings → Context & memory)",
-  "slash.changelog": "See the omp changelog (opens Settings → omp version)",
+  "slash.changelog": "See the omp changelog (opens Settings → About)",
   "slash.args":
     "The arguments of this command were not run: type it without arguments to open the settings page, and add or remove entries on its cards.",
 

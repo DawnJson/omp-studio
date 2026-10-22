@@ -1,19 +1,16 @@
 // 工具行里发送键左边的本会话费用（omp 状态栏的 cost 段）：get_session_stats 的 cost，按模型目录价格估算，
 // 订阅登录的模型也照样累计（等价 API 价格），并像 omp 一样在后面标 "(sub)"。一直显示：新任务草稿、还没有统计时是 $0.00；
-// 悬停给 token 明细，点开是居中的用量对话框（订阅额度 + 每日用量，UsageDialog）。
-import { useEffect, useState } from "react";
+// 悬停给 token 明细，点开是居中的用量对话框（汇总 + 订阅额度 + 每日用量，UsageDialog）；`/usage`、命令面板"用量"打开的也是它（usage-store）。
 import type { TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { formatCount, formatMoney } from "./usage-format.ts";
 import { UsageDialog } from "./UsageDialog.tsx";
+import { setUsageDialogOpen, useUsageDialogOpen } from "./usage-store.ts";
 import { useSubscription } from "./use-subscription.ts";
-import { onStudioCommand } from "../palette/studio-command.ts";
 
 export function SessionCost({ usage, provider }: { usage: TaskState["sessionUsage"]; provider: string | null }) {
   const t = useT();
-  const [open, setOpen] = useState(false);
-  // 斜杠命令 /usage：打开同一个用量对话框。
-  useEffect(() => onStudioCommand((command) => command === "usage" && setOpen(true)), []);
+  const open = useUsageDialogOpen();
   const subscription = useSubscription(provider);
   const detail = [
     t(subscription ? "composer.usage.costTipSub" : "composer.usage.costTip"),
@@ -41,7 +38,7 @@ export function SessionCost({ usage, provider }: { usage: TaskState["sessionUsag
         title={detail}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen(!open)}
+        onClick={() => setUsageDialogOpen(!open)}
       >
         {formatMoney(usage?.cost ?? 0)}
         {subscription && (
@@ -51,7 +48,7 @@ export function SessionCost({ usage, provider }: { usage: TaskState["sessionUsag
           </span>
         )}
       </button>
-      <UsageDialog provider={provider} open={open} onClose={() => setOpen(false)} />
+      <UsageDialog provider={provider} open={open} onClose={() => setUsageDialogOpen(false)} />
     </div>
   );
 }

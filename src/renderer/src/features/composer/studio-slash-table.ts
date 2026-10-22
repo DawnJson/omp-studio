@@ -21,11 +21,12 @@ import { emitStudioCommand } from "../palette/studio-command.ts";
 import { archiveWithUndo } from "../sidebar/archive-store.ts";
 import { getTask, setPaletteOpen, showView } from "../../store/index.ts";
 import type { StudioSlashCommand } from "./studio-slash.ts";
+import { setUsageDialogOpen } from "./usage-store.ts";
 
 const openSettings = () => showView("settings");
 const openShortcuts = () => showView("settings", { section: "shortcuts" });
 const openModelPicker = () => emitStudioCommand("model");
-const openUsage = () => emitStudioCommand("usage");
+const openUsage = () => setUsageDialogOpen(true);
 const openPalette = () => setPaletteOpen(true);
 
 export const studioSlashCommands: readonly StudioSlashCommand[] = [

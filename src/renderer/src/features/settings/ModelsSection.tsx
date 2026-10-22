@@ -1,11 +1,9 @@
-// 设置 → 模型与账号：提供商列表（登录/API key）、新任务的默认模型/思考强度。
-// 默认值就是 omp 自己的 modelRoles.default / defaultThinkingLevel（设计原则 7），和输入框的模型胶囊、omp 设置页是同一份。
-import { describeError, reportError } from "../../ui/errors.ts";
-import { useCallback, useEffect, useMemo, useState } from "react";
+// 设置 → 模型：新任务的默认模型 / 思考强度，以及 omp "模型与推理"组的常用项（模型角色、重试与备用模型），同一张卡。
+// 默认值就是 omp 自己的 modelRoles.default / defaultThinkingLevel（设计原则 7），和输入框的模型胶囊、omp 设置是同一份。
+// 模型列表来自提供商与账号页同一份读取（accounts-store）。
+import { reportError } from "../../ui/errors.ts";
+import { useCallback, useEffect } from "react";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
-import { apiKeyEnvName } from "../../../../shared/provider-keys.ts";
-import { loginKind } from "../../../../shared/provider-login.ts";
-import { arrangeProviders } from "../../../../shared/ui/provider-list.ts";
 import { useT } from "../../i18n/use-t.ts";
 import {
   defaultModelRole,
@@ -15,12 +13,14 @@ import {
   useOmpConfigValue,
 } from "./config-store.ts";
 import { loadAccounts, useAccountLoad } from "./accounts-store.ts";
-import { Card, Select, SettingRow, type Option } from "./controls.tsx";
-import { ProviderRow } from "./ProviderRow.tsx";
-import { CustomProviders } from "./CustomProviders.tsx";
+import { Select, SettingRow, type Option } from "./controls.tsx";
+import { ConfigRow } from "./ConfigRow.tsx";
+import { useCommonConfigItems } from "./OmpConfigPane.tsx";
 
 const thinkingLevels = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
 const inherit = "";
+// 默认思考强度上面已经有下拉，omp 的同一项不再重复一行。
+const shownAbove = ["defaultThinkingLevel"];
 
 const modelKey = (model: { provider: string; modelId: string }) => `${model.provider}/${model.modelId}`;
 
@@ -31,21 +31,12 @@ export function ModelsSection() {
   const thinking = useOmpConfigValue("defaultThinkingLevel");
   const load = useAccountLoad();
   const data = load.kind === "ready" ? load.data : null;
-  const error = load.kind === "error" ? load.error : null;
-  const [loginBusy, setLoginBusy] = useState(false);
-  const [providerQuery, setProviderQuery] = useState("");
-  const visibleProviders = useMemo(
-    () => (data ? arrangeProviders(data.providers, data.keyProviders, providerQuery) : []),
-    [data, providerQuery],
-  );
+  const common = useCommonConfigItems("models", shownAbove);
 
   // 有缓存就直接显示，进入时后台刷新一次。
   const enter = useCallback(() => void loadAccounts(), []);
   useEffect(enter, [enter]);
-  // 登录/退出/改 key 之后必须重读，不能并进改动之前发起的旧读取。
-  const reload = useCallback(() => void loadAccounts(true), []);
   useEffect(ensureOmpConfigLoaded, []);
-
   const modelOptions: Option<string>[] = [{ value: inherit, label: t("settings.ompPicksModel") }];
   for (const model of data?.models ?? []) modelOptions.push({ value: modelKey(model.key), label: model.name });
   // modelRoles.default 可能带思考后缀或写成别的形式，也可能已不在列表里：原样保留，别让下拉悄悄显示成别的。
@@ -60,93 +51,44 @@ export function ModelsSection() {
   if (typeof thinking === "string" && !thinkingOptions.some((option) => option.value === thinking))
     thinkingOptions.push({ value: thinking, label: thinking });
 
+  // 和 omp 的常用项同一张卡（cfg-card：ConfigRow 的窄宽布局靠它的容器查询）。
   return (
-    <>
-      <CustomProviders />
-
-      <h3 className="settings-group-title">{t("login.providers")}</h3>
-      <Card testId="providers">
-        {error !== null && (
-          <div className="st-block st-error-text" role="alert">
-            {t("login.loadFailed", { message: describeError(t, error) })}
-          </div>
+    <div className="st-card cfg-card">
+      <SettingRow title={t("settings.defaultModel")}>
+        {(labelId) => (
+          <Select
+            value={defaultModel ?? inherit}
+            options={modelOptions}
+            labelledBy={labelId}
+            disabled={data === null || roles === undefined}
+            onChange={(value) => {
+              const model = data?.models.find((candidate) => modelKey(candidate.key) === value);
+              if (value !== inherit && !model) return;
+              saveOmpModelRole(null, "default", model ? model.key : null).catch((error: unknown) =>
+                reportError(t, error),
+              );
+            }}
+            testId="setting-default-model"
+          />
         )}
-        {load.kind === "ready" && load.refreshError !== null && (
-          <div className="st-block st-muted" role="status" data-testid="providers-refresh-failed">
-            {t("login.refreshFailed", { message: describeError(t, load.refreshError) })}
-          </div>
+      </SettingRow>
+      <SettingRow title={t("settings.defaultThinking")}>
+        {(labelId) => (
+          <Select
+            value={typeof thinking === "string" ? thinking : ""}
+            options={thinkingOptions}
+            labelledBy={labelId}
+            disabled={thinking === undefined}
+            onChange={(value) =>
+              saveOmpDefaultThinking(value as ThinkingLevel).catch((error: unknown) => reportError(t, error))
+            }
+            testId="setting-default-thinking"
+          />
         )}
-        {error === null && data === null && <div className="st-block st-muted">{t("settings.modelsLoading")}</div>}
-        {data?.providers.length === 0 && <div className="st-block st-muted">{t("login.empty")}</div>}
-        {data !== null && data.providers.length > 0 && (
-          <div className="st-block">
-            <input
-              type="search"
-              className="st-input"
-              value={providerQuery}
-              placeholder={t("login.search")}
-              aria-label={t("login.search")}
-              spellCheck={false}
-              onChange={(event) => setProviderQuery(event.target.value)}
-              data-testid="provider-search"
-            />
-          </div>
-        )}
-        {data !== null && data.providers.length > 0 && visibleProviders.length === 0 && (
-          <div className="st-block st-muted" data-testid="provider-no-match">
-            {t("login.noMatch")}
-          </div>
-        )}
-        {data !== null &&
-          visibleProviders.map((provider) => (
-            <ProviderRow
-              key={provider.id}
-              provider={provider}
-              accounts={data.accounts[provider.id] ?? []}
-              hasStoredKey={data.keyProviders.includes(provider.id)}
-              canSetKey={apiKeyEnvName(provider.id) !== null}
-              loginKind={loginKind(provider.id)}
-              blocked={loginBusy}
-              onLoginActive={setLoginBusy}
-              onChanged={reload}
-            />
-          ))}
-      </Card>
-
-      <Card>
-        <SettingRow title={t("settings.defaultModel")}>
-          {(labelId) => (
-            <Select
-              value={defaultModel ?? inherit}
-              options={modelOptions}
-              labelledBy={labelId}
-              disabled={data === null || roles === undefined}
-              onChange={(value) => {
-                const model = data?.models.find((candidate) => modelKey(candidate.key) === value);
-                if (value !== inherit && !model) return;
-                saveOmpModelRole(null, "default", model ? model.key : null).catch((error: unknown) =>
-                  reportError(t, error),
-                );
-              }}
-              testId="setting-default-model"
-            />
-          )}
-        </SettingRow>
-        <SettingRow title={t("settings.defaultThinking")}>
-          {(labelId) => (
-            <Select
-              value={typeof thinking === "string" ? thinking : ""}
-              options={thinkingOptions}
-              labelledBy={labelId}
-              disabled={thinking === undefined}
-              onChange={(value) =>
-                saveOmpDefaultThinking(value as ThinkingLevel).catch((error: unknown) => reportError(t, error))
-              }
-              testId="setting-default-thinking"
-            />
-          )}
-        </SettingRow>
-      </Card>
-    </>
+      </SettingRow>
+      {common.map((item) => (
+        <ConfigRow key={item.key} item={item} />
+      ))}
+    </div>
   );
 }

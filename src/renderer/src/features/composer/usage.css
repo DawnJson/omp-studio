@@ -1,5 +1,5 @@
-/* 设置 → 用量，以及输入框下方额度 / 每日用量浮层共用。只用设计 token。
-   窄屏靠容器查询：汇总条 4 列 → 2×2，账号块表头在上，额度行名称在上、条在下。 */
+/* 用量对话框（UsageDialog）里的汇总条、账号额度块、热力图。只用设计 token。
+   窄窗口靠容器查询：汇总条 4 列 → 2×2，账号块表头在上，额度行名称在上、条在下。 */
 .uq-muted {
   min-width: 0;
   color: var(--text-3);
@@ -7,18 +7,9 @@
   line-height: var(--lh-xs);
 }
 
-.uq-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-3);
-}
-
 /* 汇总条 */
 .uq-summary {
   container-type: inline-size;
-  margin-top: var(--space-4);
 }
 .uq-strip {
   display: grid;
@@ -94,44 +85,6 @@
   .uq-stat:nth-child(n + 3) {
     border-top: 1px solid var(--border-subtle);
   }
-}
-
-/* 分节标题：左标题，右侧说明；下面一条细线 */
-.uq-section {
-  margin-top: var(--space-6);
-}
-.uq-section-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-3);
-  padding-bottom: var(--space-1-5);
-  border-bottom: 1px solid var(--border);
-}
-.uq-section-title {
-  margin: 0;
-  color: var(--text);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
-  font-weight: var(--fw-strong);
-}
-.uq-section-aside {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2) var(--space-3);
-  min-width: 0;
-  margin-left: auto;
-}
-.uq-note {
-  padding: var(--space-3) 0;
-}
-.uq-error {
-  margin-top: var(--space-3);
-  color: var(--st-error);
-  font-size: var(--fs-sm);
 }
 
 /* 账号块：左 provider + 账号 + 备注，右各窗口一行 */
@@ -286,11 +239,7 @@
   white-space: nowrap;
 }
 
-.usage-syncing {
-  margin-top: var(--space-3);
-}
-
-/* 热力图：星期标签在左，月份标签在上，格子区自己横向滚动；标签和格子共用同一组尺寸变量保证对齐 */
+/* 热力图：星期标签在左，月份标签在上；格子边长由 HeatmapView 按宽度算（--uq-cell），铺满不横向滚动。标签和格子共用同一组尺寸变量保证对齐 */
 .uq-heat {
   --uq-cell: 11px;
   --uq-gap: 3px;
@@ -298,12 +247,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  width: 100%;
   min-width: 0;
   padding-top: var(--space-3);
-}
-.uq-heat[data-compact] {
-  --uq-cell: 13px;
-  padding-top: var(--space-1);
 }
 .uq-heat-body {
   display: flex;
@@ -327,7 +273,7 @@
 .usage-scroll {
   flex: 1 1 0;
   min-width: 0;
-  overflow-x: auto;
+  overflow-x: hidden;
   padding-bottom: var(--space-1);
 }
 .uq-months,

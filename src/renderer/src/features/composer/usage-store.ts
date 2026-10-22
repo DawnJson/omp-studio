@@ -1,4 +1,5 @@
-// "用量"的渲染进程缓存：额度和热力图各一份，在模块里保存；再次进入设置页（或打开输入框下方的额度浮层）立即显示上次结果，后台刷新。
+// "用量"对话框的渲染进程状态：额度和热力图各一份缓存，在模块里保存，再次打开立即显示上次结果、后台刷新；
+// 以及对话框开没开（费用按钮、`/usage`、命令面板"用量"都打开同一个对话框）。
 // 热力图的刷新分两步：先读现有的库（马上有东西看），再让 omp 同步新会话后重读（首次可能要几分钟）。
 import type { QuotaSnapshot, UsageHeatmap } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
@@ -22,6 +23,7 @@ const empty = { data: null, busy: false, error: null, at: null } as const;
 const store = createStore<UsageState>({ quota: empty, heatmap: empty });
 let quotaJob: Promise<void> | null = null;
 let heatmapJob: Promise<void> | null = null;
+const dialogOpen = createStore(false);
 
 function patch<K extends keyof UsageState>(key: K, next: Partial<UsageState[K]>): void {
   const state = store.get();
@@ -63,4 +65,12 @@ export function useUsageQuota(): Slot<QuotaSnapshot> {
 
 export function useUsageHeatmap(): Slot<UsageHeatmap> {
   return useStoreValue(store, (state) => state.heatmap);
+}
+
+export function setUsageDialogOpen(open: boolean): void {
+  dialogOpen.set(open);
+}
+
+export function useUsageDialogOpen(): boolean {
+  return useStoreValue(dialogOpen, (open) => open);
 }

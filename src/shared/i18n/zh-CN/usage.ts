@@ -1,6 +1,6 @@
 import type { MessageEntry } from "../index.ts";
 
-// 设置 → 用量：订阅账号额度 + 近一年每日消耗热力图。
+// 用量对话框（点发送键左边的费用打开）：汇总条 + 订阅账号额度 + 近一年每日花费热力图。
 export const usage = {
   loading: "正在读取…",
   "updated.now": "刚刚更新",
@@ -15,20 +15,15 @@ export const usage = {
   "summary.last30": "最近 30 天",
   "summary.busiest": "最忙的一天",
   "summary.requests": "{value} 次请求",
-  quota: "额度",
+  refresh: "刷新",
   "quota.empty": "没有登录订阅账号，或账号没有额度窗口。登录后会显示在这里。",
   "quota.failed": "没能读取额度：{message}",
   "quota.resets": "{time} 重置",
   "quota.left": "剩余 {percent}%",
   "quota.unknown": "用量未知",
-  "quota.refresh": "刷新",
   "quota.exhausted": "已用尽",
-  "quota.providers": "{count} 个服务商",
   "quota.untouched": "未使用",
   heatmap: "活动",
-  "heatmap.tokens": "Token",
-  "heatmap.cost": "花费",
-  "heatmap.requests": "请求数",
   "heatmap.syncing": "正在同步 omp 的统计数据…",
   "heatmap.failed": "没能读取统计数据：{message}",
   "heatmap.noDatabase": "omp 还没有统计数据。同步完成后会显示在这里。",

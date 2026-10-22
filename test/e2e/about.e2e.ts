@@ -47,6 +47,8 @@ test("导出诊断信息：一个文件里有版本、omp 状态和日志，不�
         { locale, theme },
       );
       await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
+      // 关于页上面还有 omp 的卡片和更新日志：问题排查在最下面。
+      await page.getByTestId("about-troubleshoot").scrollIntoViewIfNeeded();
       await page.screenshot({ path: path.join(screenshotsDir, `about-troubleshoot-${locale}-${theme}.png`) });
     }
 

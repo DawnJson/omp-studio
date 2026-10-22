@@ -1,4 +1,4 @@
-// 设置 → omp 版本 → omp 更新日志（spec §4.19）：`/changelog` 的 markdown，按版本折叠，只展开最新一节；点开才读（输出很长）。
+// 设置 → 关于 → omp 更新日志（spec §4.19）：`/changelog` 的 markdown，按版本折叠，只展开最新一节；点开才读（输出很长）。
 // 渲染用对话流同一个 Markdown（markdown-it 的 token，不用 dangerouslySetInnerHTML）；链接经主进程打开系统浏览器。
 import { useState } from "react";
 import { errorDetail } from "../../../../shared/ui/errors.ts";

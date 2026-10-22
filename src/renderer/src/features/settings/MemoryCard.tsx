@@ -2,7 +2,7 @@
 // 记忆是按项目分的（实测 18.12.5：sharpshooter 后端的 bank 来自工作目录，`proj-dir-<hash>`；local 后端是项目级的摘要；omp 的 memory.md 同），
 // 所以每次操作都在所选项目的目录里跑（短命 rpc-ui）。没有项目时没有可操作的对象。
 // 输出是 omp 的原文（stats、diagnose 是 markdown，queue / view 是文本），放在等宽的 `<pre>` 里，不当 HTML 渲染。
-// 后端本身（memory.backend）就是下面设置列表里的那一项，这里只显示当前值，不另存。
+// 后端（memory.backend）是同一页上面的常用设置项，这里不再重复显示。
 import { useEffect, useId, useState } from "react";
 import { MEMORY_OPS } from "../../../../shared/omp-output/index.ts";
 import { errorDetail } from "../../../../shared/ui/errors.ts";
@@ -12,7 +12,6 @@ import { pushToast } from "../dialogs/toast-store.ts";
 import { useProjects } from "../sidebar/projects-store.ts";
 import { Button, Card, SettingRow, Segmented, type Option } from "./controls.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
-import { useOmpConfigValue } from "./config-store.ts";
 import { runBuiltinText } from "./integrations-data.ts";
 import { setCardScope, useCardScope, type ScopeKey } from "./integrations-store.ts";
 import { ScopePicker } from "./ScopePicker.tsx";
@@ -28,7 +27,6 @@ export function MemoryCard() {
   const projects = useProjects();
   const selected = useCardScope("memory");
   const taskProject = useTask(useSelectedTaskId())?.projectId ?? null;
-  const backend = useOmpConfigValue("memory.backend");
   const readId = useId();
   const [readOp, setReadOp] = useState<ReadOp>("stats");
   const [text, setText] = useState<string | null>(null);
@@ -67,19 +65,11 @@ export function MemoryCard() {
   }, [ready, scope, readOp]);
 
   const readOptions: Option<ReadOp>[] = READ_OPS.map((op) => ({ value: op, label: t(`integrations.memory.op.${op}`) }));
-  const backendLabel = typeof backend === "string" ? backend : "—";
 
   return (
     <>
       <h3 className="settings-group-title">{t("integrations.memory.title")}</h3>
       <Card testId="memory-card">
-        <SettingRow title={t("integrations.memory.backend")} desc={t("integrations.memory.backend.desc")}>
-          {() => (
-            <span className="st-mono" data-testid="memory-backend">
-              {backendLabel}
-            </span>
-          )}
-        </SettingRow>
         {projects.length === 0 ? (
           <div className="st-block st-muted" data-testid="memory-no-project">
             {t("integrations.memory.noProject")}

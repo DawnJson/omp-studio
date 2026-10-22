@@ -1,5 +1,5 @@
-// 用量的视图：汇总条、账号额度块、每日消耗热力图。设置 → 用量和输入框下方的两个浮层共用。
-import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
+// 用量对话框（点发送键左边的费用打开）的视图：汇总条、账号额度块、每日花费热力图。
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import type {
   Locale,
   QuotaAccount,
@@ -12,10 +12,7 @@ import { formatQuotaReset } from "../../../../shared/ui/reset-time.ts";
 import { activityStats, leftPercent, summarizeUsage, tightestQuota } from "../../../../shared/ui/usage-summary.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { useNow } from "../sidebar/task-time.ts";
-import { Segmented, type Option } from "./controls.tsx";
 import "./usage.css";
-
-export type Metric = "tokens" | "cost" | "requests";
 
 function parseDate(text: string): Date {
   const [y, m, d] = text.split("-").map(Number);
@@ -220,32 +217,6 @@ export function SummaryStrip({ quota, heatmap }: { quota: QuotaSnapshot | null; 
   );
 }
 
-export function MetricSwitch({
-  value,
-  onChange,
-  labelledBy,
-}: {
-  value: Metric;
-  onChange(next: Metric): void;
-  labelledBy: string;
-}) {
-  const t = useT();
-  const options: Option<Metric>[] = [
-    { value: "tokens", label: t("usage.heatmap.tokens") },
-    { value: "cost", label: t("usage.heatmap.cost") },
-    { value: "requests", label: t("usage.heatmap.requests") },
-  ];
-  return (
-    <Segmented<Metric>
-      value={value}
-      options={options}
-      labelledBy={labelledBy}
-      onChange={onChange}
-      testId="usage-metric"
-    />
-  );
-}
-
 interface Cell {
   date: string;
   day: UsageDay | null;
@@ -274,10 +245,6 @@ function layoutDays(heatmap: UsageHeatmap): Cell[][] {
   return weeks;
 }
 
-function metricValue(day: UsageDay, metric: Metric): number {
-  return metric === "tokens" ? day.tokens : metric === "cost" ? day.costUsd : day.requests;
-}
-
 /** 每列（周）上方的月份标签：含 1 号的那一周写月份；第一列没有标签又不挤着第二列时补一个。 */
 function monthLabels(weeks: readonly Cell[][], locale: Locale): (string | null)[] {
   const format = new Intl.DateTimeFormat(locale, { month: "short" });
@@ -295,39 +262,21 @@ function monthLabels(weeks: readonly Cell[][], locale: Locale): (string | null)[
 const weekdayRows = [0, 2, 4];
 
 /**
- * 热力图本体（不带外框）：左边星期、上面月份、中间格子、下面"N 天有记录 · 最长连续 N 天"和图例。
- * recentWeeks 给了就只画最近这么多周，统计和颜色档位也只按这几周算。
- * fit：画全部周，格子边长按容器宽度算（铺满、不出横向滚动条），不用固定尺寸。
+ * 热力图本体（不带外框）：左边星期、上面月份、中间格子（按花费着色）、下面"N 天有记录 · 最长连续 N 天"和图例。
+ * 画全部周（一年 53 周），格子边长按容器宽度算（铺满、不出横向滚动条）。
  */
-export function HeatmapView({
-  heatmap,
-  metric,
-  recentWeeks,
-  fit = false,
-}: {
-  heatmap: UsageHeatmap;
-  metric: Metric;
-  recentWeeks?: number;
-  fit?: boolean;
-}) {
+export function HeatmapView({ heatmap }: { heatmap: UsageHeatmap }) {
   const t = useT();
   const locale = useLocale();
   const root = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
-  // 一年的格子比卡片宽：默认停在最近的一端。
-  useEffect(() => {
-    scroller.current?.scrollTo({ left: scroller.current.scrollWidth });
-  }, [heatmap, recentWeeks]);
-  const weeks = useMemo(() => {
-    const all = layoutDays(heatmap);
-    return recentWeeks === undefined ? all : all.slice(-recentWeeks);
-  }, [heatmap, recentWeeks]);
+  const weeks = useMemo(() => layoutDays(heatmap), [heatmap]);
   const labels = useMemo(() => monthLabels(weeks, locale), [weeks, locale]);
   const weekCount = weeks.length;
   useLayoutEffect(() => {
     const host = root.current;
     const area = scroller.current;
-    if (!fit || !host || !area || weekCount === 0) return;
+    if (!host || !area || weekCount === 0) return;
     const gap = 3;
     const apply = () => {
       const cell = (area.clientWidth - gap * (weekCount - 1)) / weekCount;
@@ -337,37 +286,25 @@ export function HeatmapView({
     const observer = new ResizeObserver(apply);
     observer.observe(area);
     return () => observer.disconnect();
-  }, [fit, weekCount]);
-  const days = useMemo(() => {
-    if (recentWeeks === undefined) return heatmap.days;
-    const from = weeks[0]?.[0]?.date ?? heatmap.from;
-    return heatmap.days.filter((day) => day.date >= from);
-  }, [heatmap, weeks, recentWeeks]);
-  const stats = useMemo(() => activityStats(days), [days]);
+  }, [weekCount]);
+  const stats = useMemo(() => activityStats(heatmap.days), [heatmap]);
   const weekdays = useMemo(() => {
     const format = new Intl.DateTimeFormat(locale, { weekday: "short" });
     return Array.from({ length: 7 }, (_, row) =>
       weekdayRows.includes(row) ? format.format(new Date(2024, 0, 1 + row)) : null,
     );
   }, [locale]);
-  const max = Math.max(0, ...days.map((day) => metricValue(day, metric)));
-  // 按花费着色时悬停一并给出请求数（浮层里只看花费，不再有指标切换）。
+  const max = Math.max(0, ...heatmap.days.map((day) => day.costUsd));
+  // 悬停给金额和请求数。
   const format = (day: UsageDay) =>
-    metric === "cost"
-      ? `${money(locale, day.costUsd, 2)} · ${t("usage.summary.requests", { count: day.requests, value: compact(locale, day.requests) })}`
-      : compact(locale, metricValue(day, metric));
+    `${money(locale, day.costUsd, 2)} · ${t("usage.summary.requests", { count: day.requests, value: compact(locale, day.requests) })}`;
   // 5 档：0 = 无记录；1..4 按占最大值的比例。
   const level = (day: UsageDay | null) => {
-    const value = day ? metricValue(day, metric) : 0;
+    const value = day?.costUsd ?? 0;
     return value <= 0 || max <= 0 ? 0 : Math.min(4, Math.ceil((value / max) * 4));
   };
   return (
-    <div
-      ref={root}
-      className="uq-heat"
-      data-compact={recentWeeks !== undefined || undefined}
-      data-fit={fit || undefined}
-    >
+    <div ref={root} className="uq-heat">
       <div className="uq-heat-body">
         <div className="uq-weekdays" aria-hidden="true">
           {weekdays.map((name, row) => (

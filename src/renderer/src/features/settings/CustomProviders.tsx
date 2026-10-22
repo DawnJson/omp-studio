@@ -1,4 +1,4 @@
-// 设置 → 模型与账号 → 自定义提供商：models.yml 里 providers.* 的列表，添加/编辑/删除（删除先确认）。
+// 设置 → 提供商与账号 → 自定义提供商：models.yml 里 providers.* 的列表，添加/编辑/删除（删除先确认）。
 // 编辑的是 omp 自己的配置文件（src/main/omp-config/models-file.ts），终端版 omp 同样用它。
 import { useEffect, useState } from "react";
 import type { CustomProviderInfo } from "../../../../shared/custom-models.ts";

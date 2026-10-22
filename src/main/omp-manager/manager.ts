@@ -209,7 +209,7 @@ export class OmpManager {
     }
     const { userPath } = this.#deps;
     // 照 Tern 做管理者：用户点了"下载并安装"或同意接管的这一次，直接把 bin 放到用户 PATH 最前面，不再另问。
-    // 之后启动发现 bin 被移走就不再悄悄加回：onUserPath 为 false，设置 → omp 页提供"加入 PATH"按钮（addManagedOmpToPath）。
+    // 之后启动发现 bin 被移走就不再悄悄加回：onUserPath 为 false，设置 → 关于 → omp 提供"加入 PATH"按钮（addManagedOmpToPath）。
     if ((this.#consentPathNow || downloadConfirmed) && userPath) {
       try {
         userPath.addFront(this.#layout.binDir);
@@ -316,7 +316,7 @@ export class OmpManager {
     await this.#running;
   }
 
-  /** 设置 → omp：自管 omp 的 bin 不在用户 PATH 上（比如用户手动删了）时，再放回最前面。 */
+  /** 设置 → 关于 → omp：自管 omp 的 bin 不在用户 PATH 上（比如用户手动删了）时，再放回最前面。 */
   async addManagedOmpToPath(): Promise<void> {
     const status = this.#status;
     if (status.state !== "ready" || status.source.kind !== "studio_managed")

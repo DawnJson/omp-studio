@@ -5,8 +5,19 @@ import { createStore, useStoreValue } from "./create-store.ts";
 
 export type MainView = "conversation" | "settings";
 
-/** 设置页的分节；命令面板用它直接定位。"shortcuts" 是通用页里的快捷键卡片；`cfg:<tab>` 是 omp 自己的设置分组。 */
-export type SettingsSection = "general" | "models" | "usage" | "plugins" | "omp" | "shortcuts" | `cfg:${string}`;
+/** 设置页的分节；命令面板和斜杠命令用它直接定位。"shortcuts" 是通用页里的快捷键卡片。 */
+export type SettingsSection =
+  | "general"
+  | "models"
+  | "providers"
+  | "tools"
+  | "context"
+  | "agents"
+  | "integrations"
+  | "plugins"
+  | "advanced"
+  | "about"
+  | "shortcuts";
 
 interface UiState {
   selectedTaskId: TaskId | null;

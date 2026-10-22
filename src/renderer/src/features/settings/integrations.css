@@ -1,8 +1,3 @@
-/* 卡片区和下面的 omp 设置之间留出间距 */
-.ig-cards {
-  margin-bottom: var(--space-6);
-}
-
 /* 设置 → 集成 / 工具 / 记忆 / omp 更新日志的卡片（spec §4.19）。只用设计 token；没有动画。 */
 
 .ig-name {

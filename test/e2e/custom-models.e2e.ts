@@ -34,15 +34,24 @@ async function screenshots(page: Page, name: string, target = page.getByTestId("
 async function launchSettings(): Promise<{ launched: LaunchedApp; agentDir: string }> {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio 代理 agent-"));
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
-  await expect
-    .poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
-      timeout: 30_000,
-    })
-    .toBe("ready");
-  await launched.page.setViewportSize({ width: 1200, height: 900 });
-  await launched.page.keyboard.press("Control+,");
-  await expect(launched.page.getByTestId("settings")).toBeVisible();
-  await launched.page.getByTestId("settings-nav-models").click();
+  try {
+    await expect
+      .poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
+        timeout: 30_000,
+      })
+      .toBe("ready");
+    await launched.page.setViewportSize({ width: 1200, height: 900 });
+    // omp 可能比界面先就绪：等 React 挂上（快捷键监听才在），再按 Ctrl ,。
+    await expect(launched.page.getByTestId("app-root")).toBeVisible();
+    await launched.page.keyboard.press("Control+,");
+    await expect(launched.page.getByTestId("settings")).toBeVisible();
+    await launched.page.getByTestId("settings-nav-providers").click();
+  } catch (error) {
+    // 中途失败调用方拿不到 launched：在这里关掉应用、删掉目录，不留进程和临时目录。
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    throw error;
+  }
   return { launched, agentDir };
 }
 
@@ -58,7 +67,7 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
       "utf8",
     );
     await page.getByTestId("settings-nav-general").click();
-    await page.getByTestId("settings-nav-models").click();
+    await page.getByTestId("settings-nav-providers").click();
     await localeAndTheme(page, "zh-CN", "light");
 
     const card = page.getByTestId("custom-providers");
@@ -125,14 +134,16 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
         { timeout: 30_000 },
       )
       .toEqual(["fake-chat", "fake-mini", "manual-x"]);
-    // 默认模型下拉里能选到它。
+    // 默认模型下拉（"模型"一节）里能选到它。
     // 模型列表是保存后异步重读的；重读完成前下拉里还是旧的，所以整段重试。
+    await page.getByTestId("settings-nav-models").click();
     await expect(async () => {
       if (await page.getByRole("listbox").isVisible()) await page.keyboard.press("Escape");
       await page.getByTestId("setting-default-model").click();
       await expect(page.getByRole("listbox")).toContainText("manual-x", { timeout: 2_000 });
     }).toPass({ timeout: 30_000 });
     await page.keyboard.press("Escape");
+    await page.getByTestId("settings-nav-providers").click();
     await screenshots(page, "list");
 
     // 编辑：取消勾选手动添加的那个，key 保持不变。
@@ -182,7 +193,7 @@ test("自定义提供商：读不懂的 models.yml 显示错误，不覆盖文�
     const { page } = launched;
     await writeFile(path.join(agentDir, "models.yml"), "providers: [1, 2", "utf8");
     await page.getByTestId("settings-nav-general").click();
-    await page.getByTestId("settings-nav-models").click();
+    await page.getByTestId("settings-nav-providers").click();
     await localeAndTheme(page, "en", "light");
     await expect(page.getByTestId("custom-load-failed")).toBeVisible();
     await expect(page.getByTestId("custom-add")).toBeDisabled();

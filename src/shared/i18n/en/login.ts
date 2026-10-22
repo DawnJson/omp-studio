@@ -34,5 +34,6 @@ export const login = {
   "apiKey.add": "Add API key",
   search: "Search providers",
   noMatch: "No matching providers",
+  showOthers: { one: "Show {count} more provider", other: "Show {count} more providers" },
   terminalLogin: "Sign in from the terminal",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

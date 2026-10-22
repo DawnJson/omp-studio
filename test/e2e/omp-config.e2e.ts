@@ -10,14 +10,23 @@ async function launchIsolated(
 ): Promise<{ launched: LaunchedApp; agentDir: string }> {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir, ...extraEnv });
-  await expect
-    .poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
-      timeout: 30_000,
-    })
-    .toBe("ready");
-  await launched.page.setViewportSize({ width: 1200, height: 800 });
-  await launched.page.keyboard.press("Control+,");
-  await expect(launched.page.getByTestId("settings")).toBeVisible();
+  try {
+    await expect
+      .poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
+        timeout: 30_000,
+      })
+      .toBe("ready");
+    await launched.page.setViewportSize({ width: 1200, height: 800 });
+    // omp 可能比界面先就绪：等 React 挂上（快捷键监听才在），再按 Ctrl ,。
+    await expect(launched.page.getByTestId("app-root")).toBeVisible();
+    await launched.page.keyboard.press("Control+,");
+    await expect(launched.page.getByTestId("settings")).toBeVisible();
+  } catch (error) {
+    // 中途失败调用方拿不到 launched：在这里关掉应用、删掉目录，不留进程和临时目录。
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    throw error;
+  }
   return { launched, agentDir };
 }
 
@@ -131,9 +140,10 @@ test("只是打开设置页、切分组、搜索、展开编辑器，不会写 o
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
-    await page.getByTestId("settings-nav-cfg-tools").click();
+    await page.getByTestId("settings-nav-tools").click();
     await expect(page.locator(".cfg-row").first()).toBeVisible({ timeout: 30_000 });
-    for (const tab of ["context", "tools", "agents"]) await page.getByTestId(`settings-nav-cfg-${tab}`).click();
+    for (const section of ["context", "tools", "agents", "advanced"])
+      await page.getByTestId(`settings-nav-${section}`).click();
     await page.getByTestId("settings-nav-models").click();
     await search(page, "modelRoles");
     await expect(page.getByTestId("roles-editor")).toBeVisible();
@@ -209,15 +219,14 @@ test("截图：omp 设置分组、搜索，中英文 × 浅深主题", async () 
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
-    await page.getByTestId("settings-nav-cfg-agents").click();
+    await page.getByTestId("settings-nav-agents").click();
     await expect(page.locator(".cfg-row").first()).toBeVisible({ timeout: 30_000 });
     for (const locale of ["zh-CN", "en"] as const) {
       for (const theme of ["light", "dark"] as const) {
         await localeAndTheme(page, locale, theme);
         await search(page, "");
         for (const tab of ["agents", "models", "tools"] as const) {
-          // omp 的"模型与推理"并在"模型与账号"页里。
-          await page.getByTestId(tab === "models" ? "settings-nav-models" : `settings-nav-cfg-${tab}`).click();
+          await page.getByTestId(`settings-nav-${tab}`).click();
           await expect(page.locator(".cfg-row").first()).toBeVisible();
           await page.screenshot({ path: path.join(screenshotsDir, `omp-e-config-${tab}-${locale}-${theme}.png`) });
         }
@@ -232,7 +241,7 @@ test("截图：omp 设置分组、搜索，中英文 × 浅深主题", async () 
     // 窄窗口：分节列表收成一行，长文本不溢出。
     await localeAndTheme(page, "zh-CN", "light");
     await search(page, "");
-    await page.getByTestId("settings-nav-cfg-tools").click();
+    await page.getByTestId("settings-nav-tools").click();
     await page.setViewportSize({ width: 820, height: 800 });
     // 窄窗口侧栏是抽屉：如果开着，用顶栏按钮收起，免得挡住设置页。
     await page.waitForTimeout(400);

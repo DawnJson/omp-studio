@@ -1,4 +1,4 @@
-// 设置 → 模型与账号 里的一个提供商：状态、登录/退出登录、API key（spec §4.20）。
+// 设置 → 提供商与账号 里的一个提供商：状态、登录/退出登录、API key（spec §4.20）。
 // OAuth 登录：行内展开进度卡（打开浏览器、可复制的链接、授权码输入）；登录的过程事件由主进程经 onLogin 推来。
 import { describeError } from "../../ui/errors.ts";
 import { useRef, useState } from "react";

@@ -34,4 +34,5 @@ export {
   useSelectedTaskId,
   useSettingsSection,
   type MainView,
+  type SettingsSection,
 } from "./ui-store.ts";

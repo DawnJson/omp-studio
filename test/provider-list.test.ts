@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loginKind } from "../src/shared/provider-login.ts";
-import { arrangeProviders, matchesProvider } from "../src/shared/ui/provider-list.ts";
+import { matchesProvider, splitProviders } from "../src/shared/ui/provider-list.ts";
 
 const providers = [
   { id: "anthropic", name: "Anthropic (Claude Pro/Max)", authenticated: false },
@@ -19,26 +19,31 @@ describe("提供商搜索", () => {
     expect(matchesProvider({ id: "anthropic", name: "Anthropic" }, "   ")).toBe(true);
   });
 
-  it("没有命中返回空列表", () => {
-    expect(arrangeProviders(providers, [], "zzz")).toEqual([]);
+  it("没有命中两组都是空的", () => {
+    expect(splitProviders(providers, [], "zzz")).toEqual({ configured: [], others: [] });
   });
 });
 
-describe("提供商排序", () => {
-  it("已认证和 studio 存了 key 的排前面，组内保持 omp 的顺序", () => {
-    const ids = arrangeProviders(providers, ["deepseek"], "").map((provider) => provider.id);
-    expect(ids).toEqual(["openrouter", "deepseek", "anthropic", "tavily", "xai-oauth"]);
+describe("提供商分组", () => {
+  const ids = (list: readonly { id: string }[]) => list.map((provider) => provider.id);
+
+  it("已认证和 studio 存了 key 的分到已配置，组内保持 omp 的顺序", () => {
+    const { configured, others } = splitProviders(providers, ["deepseek"], "");
+    expect(ids(configured)).toEqual(["openrouter", "deepseek"]);
+    expect(ids(others)).toEqual(["anthropic", "tavily", "xai-oauth"]);
   });
 
-  it("先过滤再排序", () => {
-    const ids = arrangeProviders(providers, ["deepseek"], "e").map((provider) => provider.id);
-    expect(ids).toEqual(["openrouter", "deepseek", "anthropic", "xai-oauth"]);
-    expect(arrangeProviders(providers, ["deepseek"], "deep").map((provider) => provider.id)).toEqual(["deepseek"]);
+  it("先过滤再分组", () => {
+    const filtered = splitProviders(providers, ["deepseek"], "e");
+    expect(ids(filtered.configured)).toEqual(["openrouter", "deepseek"]);
+    expect(ids(filtered.others)).toEqual(["anthropic", "xai-oauth"]);
+    const deep = splitProviders(providers, ["deepseek"], "deep");
+    expect([...ids(deep.configured), ...ids(deep.others)]).toEqual(["deepseek"]);
   });
 
   it("不改动传入的数组", () => {
     const copy = providers.map((provider) => provider.id);
-    arrangeProviders(providers, ["deepseek"], "");
+    splitProviders(providers, ["deepseek"], "");
     expect(providers.map((provider) => provider.id)).toEqual(copy);
   });
 });

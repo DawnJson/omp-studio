@@ -1,4 +1,4 @@
-// 用量页汇总（shared/ui/usage-summary.ts）：30 天与一年的边界、最忙的一天、活跃天数、连续天数、最紧的额度。
+// 用量对话框的汇总条（shared/ui/usage-summary.ts）：30 天与一年的边界、最忙的一天、活跃天数、连续天数、最紧的额度。
 import { describe, expect, it } from "vitest";
 import type { QuotaAccount, QuotaLimit, UsageDay, UsageHeatmap } from "../src/shared/ipc.ts";
 import {
