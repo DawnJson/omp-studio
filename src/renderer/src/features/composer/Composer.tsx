@@ -389,9 +389,9 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           />
           {/* 还没发过消息的任务（标题为空）不能发斜杠命令：第一次发送会拿它当标题 */}
           <ApprovalChip projectId={task.projectId} forgetTaskId={task.title === "" ? null : taskId} />
-          <SessionTogglesMenu taskId={taskId} task={task} />
           {/* 和草稿工具行同一个位置：任务在哪个文件夹里跑（有 worktree 时是 worktree 根），发出第一句话后不消失 */}
           <PathLabel path={task.cwd} testId="composer-folder" />
+          <SessionTogglesMenu taskId={taskId} task={task} />
           <UsageMeter task={task} />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
