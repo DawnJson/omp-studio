@@ -1,11 +1,11 @@
 // 输入框工具行里的用量仪表（输入框下方不再有单独一行）：
 // 模型、审批胶囊右边是速度（UsageMeter，只在运行中）；发送键左边依次是上下文圆环（ContextMeter）和费用（SessionCost）。
 // 点圆环弹出上下文构成；任务里构成下面有"会话用量"按钮，点了在构成左边展开按模型的本会话用量（ModelBreakdown）。
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { ModelOption, ProjectId, TaskState } from "../../../../shared/ipc.ts";
 import { ChevronRight } from "../../icons.tsx";
 import { useT } from "../../i18n/use-t.ts";
-import { ContextBreakdown, prefetchCompaction, type ContextBreakdownProps } from "./ContextBreakdown.tsx";
+import { DraftContextBreakdown, prefetchCompaction, TaskContextBreakdown } from "./ContextBreakdown.tsx";
 import { hasModelUsage, ModelBreakdown, useModelUsage } from "./ModelBreakdown.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import { onStudioCommand } from "../palette/studio-command.ts";
@@ -45,17 +45,23 @@ const contextWidth = 320;
 const usageWidth = 300;
 
 /**
- * 上下文占用：只有圆环（百分比和已用/总量在悬停提示和构成里），点开是上下文构成。
+ * 上下文占用：只有圆环（百分比和已用/总量在悬停提示和构成里），点开是上下文构成（children，浮层开着时才挂载）。
  * 给了 task（任务里）且会话里已有回复时，构成下面有"会话用量"按钮，点了浮层向左加宽，左边是它（右边的构成不动）；关掉浮层就收回。
  * 还没有回复时没有这个按钮，浮层是单栏。
  */
-function ContextButton({ task, ...props }: ContextBreakdownProps & { task?: TaskState }) {
+function ContextButton({
+  context,
+  task,
+  children,
+}: {
+  context: NonNullable<TaskState["contextUsage"]>;
+  task?: TaskState;
+  children: ReactNode;
+}) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
-  const { context, projectId } = props;
   const usage = useModelUsage(task, open);
-  useEffect(() => prefetchCompaction(projectId), [projectId]);
   // 斜杠命令 /context：打开上下文构成。
   useEffect(() => onStudioCommand((command) => command === "context" && setOpen(true)), []);
   const close = () => {
@@ -96,7 +102,7 @@ function ContextButton({ task, ...props }: ContextBreakdownProps & { task?: Task
             </div>
           )}
           <div className="ctx-pop-main">
-            <ContextBreakdown {...props} />
+            {children}
             {task !== undefined && hasModelUsage(usage) && (
               <div className="ctx-usage-row">
                 <button
@@ -131,31 +137,24 @@ function ContextPlaceholder() {
 
 /** 任务的上下文圆环（发送键左边、费用之前）；omp 还没给出上下文占用时是占位圆环。 */
 export function ContextMeter({ task }: { task: TaskState }) {
-  const { contextParts } = useSessionExtras(task.id);
   const context = task.contextUsage;
   if (context === null) return <ContextPlaceholder />;
   return (
-    <ContextButton
-      context={context}
-      parts={contextParts}
-      modelKey={task.model?.key ?? null}
-      projectId={task.projectId}
-      task={task}
-    />
+    <ContextButton context={context} task={task}>
+      <TaskContextBreakdown key={task.id} taskId={task.id} context={context} />
+    </ContextButton>
   );
 }
 
 /** 新任务草稿的上下文圆环：还没有会话，占用是 0，窗口取所选模型的；模型还没读到或没报窗口时是占位圆环。 */
 export function DraftContextMeter({ model, projectId }: { model: ModelOption | null; projectId: ProjectId | null }) {
   const window = model?.contextWindow ?? null;
+  useEffect(() => prefetchCompaction(projectId), [projectId]);
   if (window === null || window <= 0) return <ContextPlaceholder />;
   return (
-    <ContextButton
-      context={{ tokens: 0, contextWindow: window, percent: 0 }}
-      parts={null}
-      modelKey={model?.key ?? null}
-      projectId={projectId}
-    />
+    <ContextButton context={{ tokens: 0, contextWindow: window, percent: 0 }}>
+      <DraftContextBreakdown window={window} modelKey={model?.key ?? null} projectId={projectId} />
+    </ContextButton>
   );
 }
 

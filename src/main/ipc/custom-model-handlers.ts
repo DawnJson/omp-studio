@@ -74,7 +74,7 @@ async function fetchProviderModels(value: unknown): Promise<FetchModelsOutcome> 
 }
 
 export const customModelHandlers: HandlerGroup<
-  "listCustomProviders" | "saveCustomProvider" | "deleteCustomProvider" | "fetchProviderModels" | "revealModelsFile"
+  "listCustomProviders" | "saveCustomProvider" | "deleteCustomProvider" | "fetchProviderModels" | "openModelsFile"
 > = {
   listCustomProviders: () => readModelsFile(resolveAgentDir()),
   saveCustomProvider: async (mode, input) => {
@@ -96,10 +96,12 @@ export const customModelHandlers: HandlerGroup<
     return outcome;
   },
   fetchProviderModels,
-  revealModelsFile: async () => {
+  openModelsFile: async () => {
     const info = await readModelsFile(resolveAgentDir());
-    if (info.exists) shell.showItemInFolder(info.path);
-    else if (existsSync(path.dirname(info.path))) await shell.openPath(path.dirname(info.path));
-    else throw new Error("the omp agent directory does not exist yet");
+    const target = info.exists ? info.path : path.dirname(info.path);
+    if (!existsSync(target)) throw new Error("the omp agent directory does not exist yet");
+    // openPath 失败不抛，返回错误文字（比如没有程序关联 .yml）。
+    const failure = await shell.openPath(target);
+    if (failure !== "") throw new Error(failure);
   },
 };

@@ -183,14 +183,29 @@ test("空状态、对话里的用量；截图", async () => {
     expect(panel && stack && panel.y + panel.height - (stack.y + stack.height)).toBeLessThanOrEqual(24);
     await shoot(page, "conversation");
 
-    // 上下文构成：消息、剩余空间各一行（自动压缩预留要读 omp 设置，测试环境里不一定有）；
-    // 下面是"会话用量"按钮（不再有"压缩上下文"）。Esc 关闭后焦点回到圆环。
+    // 上下文构成：omp 的 /context 怎么读见 context-report.e2e.ts（slash-status 回放里没有报告），这里换掉主进程的读取，
+    // 只看浮层排版：每类一行，下面没有说明小字。Esc 关闭后焦点回到圆环。
+    await launched.app.evaluate(({ ipcMain }) => {
+      const rows = [
+        ["systemPrompt", "System prompt", 2958],
+        ["systemTools", "System tools", 4543],
+        ["systemContext", "System context", 115],
+        ["skills", "Skills", 549],
+        ["messages", "Messages", 1200],
+        ["free", "Free space", 160635],
+        ["buffer", "Autocompact buffer", 30000],
+      ] as const;
+      ipcMain.removeHandler("studio:readTspContext");
+      ipcMain.handle("studio:readTspContext", () => ({
+        rows: rows.map(([key, label, tokens]) => ({ key, label, tokens })),
+        used: 9365,
+        window: 200000,
+      }));
+    });
     await page.getByTestId("context-meter").click();
     const breakdown = page.getByTestId("context-breakdown");
     await expect(breakdown).toBeVisible();
-    for (const part of ["messages", "free"])
-      await expect(breakdown.locator(`[data-testid="context-row"][data-part="${part}"]`)).toHaveCount(1);
-    // 构成下面不再有说明小字。
+    await expect(breakdown.getByTestId("context-row")).toHaveCount(7);
     await expect(breakdown.locator(".ctx-note")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /压缩 context|Compact context/i })).toHaveCount(0);
     await shoot(page, "context");

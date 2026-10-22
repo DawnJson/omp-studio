@@ -55,6 +55,8 @@ export interface TspComposerTargets {
   sf: string;
   model: string | null;
   effort: string | null;
+  /** 上下文 meter（`actions.click` 是 `status.context`，打开 omp 的 /context 报告）。 */
+  context: string | null;
 }
 
 export interface TspPicker {
@@ -170,6 +172,7 @@ export function findComposerTargets(doc: TspDocument): TspComposerTargets | null
     sf: surface.id,
     model: findNode(surface, (node) => nodeRole(node) === MODEL_ROLE, card.id)?.id ?? null,
     effort: findNode(surface, (node) => nodeRole(node) === EFFORT_ROLE, card.id)?.id ?? null,
+    context: findNode(surface, (node) => nodeRole(node) === CONTEXT_ROLE, card.id)?.id ?? null,
   };
 }
 

@@ -487,28 +487,34 @@ export function useHasTrailingErrorCard(taskId: TaskId, sf: string): boolean {
   return useSyncExternalStore(sub, () => roleIndex(taskId, sf)?.trailingError != null);
 }
 
-// ───────── 子代理面板（S1，spec §4.28） ─────────
+// ───────── 主进程在后台驱动 omp（子代理面板 S1，spec §4.28；上下文构成） ─────────
 
-/** 主进程正在后台驱动 omp 的 Agent Hub（插话 / 结束 / 恢复）：这期间不画 Hub、不当成"面板开着"。 */
-export interface TspDrive {
-  name: string;
-  op: "steer" | "kill" | "revive";
-}
+/**
+ * 主进程正在后台驱动 omp：这期间不画 layer（omp 被驱动时弹出的 Hub / 报告），也不当成"面板开着"。
+ * `hub`：子代理面板的插话 / 结束 / 恢复（过程区压暗，面板显示"正在发给 <名字>"）；`context`：读 omp 的 /context 报告。
+ */
+export type TspDrive = { kind: "hub"; name: string; op: "steer" | "kill" | "revive" } | { kind: "context" };
 
 const drives = new Map<TaskId, TspDrive>();
 const driveKey = (taskId: TaskId): string => `d${SEP}${taskId}`;
 
-/** 一次驱动开始（调 IPC 之前）；主进程在 Hub 开着的那几帧里渲染进程已经知道该藏它。 */
+/** 一次驱动开始（调 IPC 之前）；主进程在 omp 弹出东西的那几帧里渲染进程已经知道该藏它。 */
 export function beginTspDrive(taskId: TaskId, drive: TspDrive): void {
   drives.set(taskId, drive);
   notify(driveKey(taskId));
   notify(panelKey(taskId));
 }
 
-export function endTspDrive(taskId: TaskId): void {
-  if (!drives.delete(taskId)) return;
+/** 结束这一次驱动；期间被另一次驱动接替（主进程会排在这次之后做）就留给那一次结束。 */
+export function endTspDrive(taskId: TaskId, drive: TspDrive): void {
+  if (drives.get(taskId) !== drive) return;
+  drives.delete(taskId);
   notify(driveKey(taskId));
   notify(panelKey(taskId));
+}
+
+export function isTspDriving(taskId: TaskId): boolean {
+  return drives.has(taskId);
 }
 
 export function useTspDrive(taskId: TaskId): TspDrive | null {

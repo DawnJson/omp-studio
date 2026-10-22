@@ -117,7 +117,6 @@ export const settings = {
   "motion.system": "系统已要求",
   "unit.seconds": "秒",
   "tools.off": "未启用",
-  "advanced.note": "其余 {count} 项 omp 设置，和终端版共用",
   "advanced.toc": "高级设置目录",
   "cfg.edit": "编辑…",
   "cfg.save": "保存",

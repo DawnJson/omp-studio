@@ -471,11 +471,22 @@ export interface TspSnapshot {
   document: DocumentSnapshot;
 }
 
-/** 上下文里系统提示词、工具定义各占的 token（omp 写在会话文件里）。 */
-export interface ContextParts {
-  systemTokens: number;
-  toolTokens: number;
-  toolCount: number;
+/** omp `/context` 报告里的一行（shared/tsp/context-report.ts）。 */
+export interface ContextReportRow {
+  /** omp 的类别 id（systemPrompt / systemTools / systemContext / skills / messages），剩余空间 `free`，自动压缩预留 `buffer`。 */
+  key: string;
+  /** omp 的英文名称：不认识的类别直接显示它。 */
+  label: string;
+  tokens: number;
+}
+
+/** omp 现算的上下文构成（点输入框上的上下文 meter 弹出的报告），行序照 omp。 */
+export interface ContextReport {
+  rows: ContextReportRow[];
+  /** 已用 = 各类别之和（不含剩余空间和预留）。 */
+  used: number;
+  /** 窗口 = 所有行之和；用量超出窗口时（剩余和预留都是 0）这个和不是窗口，为 null。 */
+  window: number | null;
 }
 
 /** 一轮的用量脚注数据（从 omp 会话文件算：一个用户消息到它的最终回复）。 */
@@ -497,8 +508,6 @@ export interface TspSessionExtras {
   recap: { text: string; afterTurn: number } | null;
   /** 最近一条回复的输出速度（token/秒，会话文件里 assistant 消息的 output ÷ (duration − ttft)）；还没有回复时为 null。 */
   tokensPerSecond: number | null;
-  /** 最近一次请求里系统提示词、工具定义各占多少 token（会话文件的 contextSnapshot）；没有（老版本 omp、没有回复）时为 null。 */
-  contextParts: ContextParts | null;
 }
 
 // ───────── 会话历史 ─────────
@@ -884,6 +893,11 @@ export interface StudioInvokeApi {
   getTspTurnCosts(taskId: TaskId): Promise<number[]>;
   /** 用量脚注和空闲回顾（omp 恢复会话时不重发这两样，从会话文件和 history.db 补）；读不到时 `{ turns: [], recap: null }`，不抛错。 */
   getTspSessionExtras(taskId: TaskId): Promise<TspSessionExtras>;
+  /**
+   * omp 现算的上下文构成：主进程点 omp 输入框上的上下文 meter，读它弹出的报告再关掉（运行中也能读）。
+   * 没有 omp 进程、输入框被提问 / 审批 / 全屏面板占着时为 null。
+   */
+  readTspContext(taskId: TaskId): Promise<ContextReport | null>;
   /** 把一个终端 → 程序事件（action / select / activate / toggle / change / edit / undo / send / focus）发给 omp。 */
   sendTspEvent(taskId: TaskId, event: TspEvent): Promise<void>;
   /** 按键字节（xterm 序列）原样写进伪终端。 */
@@ -1069,8 +1083,8 @@ export interface StudioInvokeApi {
   deleteCustomProvider(providerId: string): Promise<CustomModelsOutcome>;
   /** 一键拉取：主进程 GET <baseUrl>/models。key 为 keep 时用文件里这个 provider 已有的 key。 */
   fetchProviderModels(request: FetchModelsRequest): Promise<FetchModelsOutcome>;
-  /** 在文件夹里显示 models.yml（还不存在时打开它所在的目录）。 */
-  revealModelsFile(): Promise<void>;
+  /** 用系统默认程序打开 models.yml（还不存在时打开它所在的目录）。 */
+  openModelsFile(): Promise<void>;
 
   // omp 管理
   getOmpStatus(): Promise<OmpStatus>;
@@ -1292,6 +1306,7 @@ export const invokeNames = {
   getTspSnapshot: true,
   getTspTurnCosts: true,
   getTspSessionExtras: true,
+  readTspContext: true,
   sendTspEvent: true,
   sendTspKeys: true,
   resizeTsp: true,
@@ -1364,7 +1379,7 @@ export const invokeNames = {
   saveCustomProvider: true,
   deleteCustomProvider: true,
   fetchProviderModels: true,
-  revealModelsFile: true,
+  openModelsFile: true,
   getOmpStatus: true,
   answerTakeover: true,
   addManagedOmpToPath: true,

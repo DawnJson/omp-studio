@@ -5,6 +5,7 @@ import { mkdir, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type {
+  ContextReport,
   PromptImage,
   DefaultModelInfo,
   ModelKey,
@@ -43,6 +44,7 @@ import {
   type TspComposerTargets,
 } from "../../shared/tsp/composer-state.ts";
 import { compactionMark, compactionOutcome } from "../../shared/tsp/compaction.ts";
+import { ACTION_CONTEXT_REPORT, findContextReport } from "../../shared/tsp/context-report.ts";
 import {
   applyToggleObservation,
   emptySessionToggles,
@@ -1296,6 +1298,37 @@ export class TspRunner {
   /** 用量脚注和空闲回顾：omp 恢复会话时不重发，从会话文件和 history.db 补（见 tsp/session-extras.ts）。 */
   sessionExtras(): Promise<TspSessionExtras> {
     return readSessionExtras(this.#currentSessionFile());
+  }
+
+  /**
+   * omp 现算的上下文构成：点输入框上的上下文 meter（action `status.context`），omp 当场按会话现在的状态算一遍并弹出报告
+   * （shared/tsp/context-report.ts），读完点报告的 Close。运行中也能读：正在生成的回复按已生成的部分算进 Messages。
+   * 渲染进程在调用期间不画 layer（tsp-store 的 drive），报告不会闪一下。
+   * 没有进程、输入框被提问 / 审批 / 全屏面板占着（报告会盖住它们）时为 null。
+   */
+  readContext(): Promise<ContextReport | null> {
+    return this.#exclusive(async () => {
+      const session = this.#session;
+      if (!session) return null;
+      const gate = findMessageTarget(session.document);
+      if (gate.kind !== "ready" || gate.approval) return null;
+      const targets = findComposerTargets(session.document);
+      if (targets?.context == null) return null;
+      session.sendEvent({ ev: "action", sf: targets.sf, id: targets.context, act: ACTION_CONTEXT_REPORT });
+      const shown = await this.#awaitDocument(
+        findContextReport,
+        PICKER_TIMEOUT_MS,
+        "omp did not show its context report",
+      );
+      if (shown.close === null) throw new Error("omp's context report has no Close button");
+      session.sendEvent({ ev: "action", sf: shown.sf, id: shown.close.id, act: shown.close.act });
+      await this.#awaitDocument(
+        (document) => (findContextReport(document) === null ? true : null),
+        CONFIRM_TIMEOUT_MS,
+        "omp did not close its context report",
+      );
+      return shown.report;
+    });
   }
 
   // ───── 旁路提问（/btw，tsp-btw.ts） ─────

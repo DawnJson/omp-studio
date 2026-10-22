@@ -391,9 +391,10 @@ button.usage-context:hover,
   color: var(--text-2);
   white-space: nowrap;
 }
-/* 一条完整的横条：整条圆角裁切，各段按占窗口的百分比宽度紧挨着填，剩余空间 = 底色轨道 */
+/* 一条完整的横条：整条圆角裁切，各段按占窗口的百分比宽度填，段间 1px 露出底色（相邻类别同色系，靠它分开），剩余空间 = 底色轨道 */
 .ctx-bar {
   display: flex;
+  gap: 1px;
   height: 8px;
   overflow: hidden;
   border-radius: var(--radius-pill);
@@ -402,6 +403,11 @@ button.usage-context:hover,
 .ctx-seg {
   flex: 0 1 0;
   min-width: 2px;
+}
+/* omp 的类别：同一个强调色由浅到深（照 omp /context 的行序），消息最深；omp 新加、界面还不认识的类别用中间色 */
+.ctx-seg,
+.ctx-swatch {
+  background: color-mix(in srgb, var(--accent) 55%, var(--border-subtle));
 }
 .ctx-usage-toggle {
   display: inline-flex;
@@ -435,13 +441,21 @@ button.usage-context:hover,
 html[data-motion="reduced"] .ctx-usage-chev {
   transition: none;
 }
-.ctx-seg[data-part="system"],
-.ctx-swatch[data-part="system"] {
-  background: color-mix(in srgb, var(--accent) 40%, var(--border-subtle));
+.ctx-seg[data-part="systemPrompt"],
+.ctx-swatch[data-part="systemPrompt"] {
+  background: color-mix(in srgb, var(--accent) 25%, var(--border-subtle));
 }
-.ctx-seg[data-part="tools"],
-.ctx-swatch[data-part="tools"] {
-  background: color-mix(in srgb, var(--accent) 70%, var(--border-subtle));
+.ctx-seg[data-part="systemTools"],
+.ctx-swatch[data-part="systemTools"] {
+  background: color-mix(in srgb, var(--accent) 45%, var(--border-subtle));
+}
+.ctx-seg[data-part="systemContext"],
+.ctx-swatch[data-part="systemContext"] {
+  background: color-mix(in srgb, var(--accent) 65%, var(--border-subtle));
+}
+.ctx-seg[data-part="skills"],
+.ctx-swatch[data-part="skills"] {
+  background: color-mix(in srgb, var(--accent) 82%, var(--border-subtle));
 }
 .ctx-seg[data-part="messages"],
 .ctx-swatch[data-part="messages"] {

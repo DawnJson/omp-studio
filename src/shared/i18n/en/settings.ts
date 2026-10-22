@@ -123,10 +123,6 @@ export const settings = {
   "motion.system": "Required by system",
   "unit.seconds": "s",
   "tools.off": "Off",
-  "advanced.note": {
-    one: "{count} more omp setting, shared with the terminal version",
-    other: "{count} more omp settings, shared with the terminal version",
-  },
   "advanced.toc": "Advanced settings groups",
   "cfg.edit": "Edit…",
   "cfg.save": "Save",

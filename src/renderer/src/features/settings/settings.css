@@ -408,19 +408,18 @@
 
 /* ───────── 高级：页内目录 + 选中分组的行（平铺） ───────── */
 
+/* 目录吸顶的位置就是它不滚动时的位置（内容区上内边距 + 页头 36 + 页头下边距），点小组时目录不跟着上下跳；
+   小组标题滚到和目录顶端齐平（scroll-margin-top 同值）。 */
 .st-adv {
+  --st-adv-top: calc(var(--space-6) + 36px + var(--space-3));
   display: grid;
   grid-template-columns: 196px minmax(0, 1fr);
   gap: 28px;
 }
 
-.st-adv-note {
-  margin-bottom: var(--space-4);
-}
-
 .st-toc {
   position: sticky;
-  top: 0;
+  top: var(--st-adv-top);
   display: grid;
   align-content: start;
   align-self: start;
@@ -429,6 +428,10 @@
   padding-top: 2px;
   overflow-y: auto;
   scrollbar-width: none;
+}
+
+.st-adv-sub {
+  scroll-margin-top: var(--st-adv-top);
 }
 
 .st-toc::-webkit-scrollbar {

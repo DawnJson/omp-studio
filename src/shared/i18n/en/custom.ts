@@ -9,7 +9,7 @@ export const custom = {
   add: "Add provider…",
   edit: "Edit",
   delete: "Delete",
-  reveal: "Show models.yml",
+  open: "Open models.yml",
   models: { one: "{count} model", other: "{count} models" },
   discovery: "Models discovered at runtime",
   "key.none": "No key needed",

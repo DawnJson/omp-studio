@@ -67,6 +67,7 @@ export const taskHandlers: HandlerGroup<
   | "getTspSnapshot"
   | "getTspTurnCosts"
   | "getTspSessionExtras"
+  | "readTspContext"
   | "sendTspEvent"
   | "sendTspKeys"
   | "resizeTsp"
@@ -176,6 +177,7 @@ export const taskHandlers: HandlerGroup<
   getTspSnapshot: async (taskId) => (await getTaskPool()).getTspSnapshot(parseTaskId(taskId)),
   getTspTurnCosts: async (taskId) => (await getTaskPool()).getTspTurnCosts(parseTaskId(taskId)),
   getTspSessionExtras: async (taskId) => (await getTaskPool()).getTspSessionExtras(parseTaskId(taskId)),
+  readTspContext: async (taskId) => (await getTaskPool()).readTspContext(parseTaskId(taskId)),
 
   sendTspEvent: async (taskId, event) => (await getTaskPool()).sendTspEvent(parseTaskId(taskId), parseTspEvent(event)),
 

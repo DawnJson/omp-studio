@@ -51,6 +51,7 @@ export function ProvidersSection() {
       hasStoredKey={data?.keyProviders.includes(provider.id) ?? false}
       canSetKey={apiKeyEnvName(provider.id) !== null}
       loginKind={loginKind(provider.id)}
+      shortName
       onFlow={(target, action) => openFlow(target, action, false)}
       onChanged={reload}
     />

@@ -88,81 +88,77 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
   const [, rerender] = useState(0);
   const current = groups.find((group) => group.group === picked.group) ?? groups[0];
   if (current === undefined) return null;
-  const total = groups.reduce((sum, group) => sum + group.count, 0);
   const activePrefix = picked.prefix ?? current.prefixes[0]?.prefix ?? "";
 
   return (
-    <>
-      <p className="ui-section-note st-adv-note">{t("settings.advanced.note", { count: total })}</p>
-      <div className="st-adv">
-        <nav className="st-toc" aria-label={t("settings.advanced.toc")} data-testid="advanced-toc">
-          {groups.map((group) => {
-            const open = group.group === current.group;
-            return (
-              <div key={group.group} className="st-toc-block">
-                <button
-                  type="button"
-                  className="st-toc-group"
-                  aria-current={open ? "true" : undefined}
-                  onClick={(event) => {
-                    picked.group = group.group;
-                    picked.prefix = null;
-                    rerender((n) => n + 1);
-                    event.currentTarget.closest(".settings-scroll")?.scrollTo({ top: 0 });
-                  }}
-                  data-testid={`advanced-toc-${group.group}`}
-                >
-                  {groupTitle(locale, group.group)}
-                  <span className="ui-count">{group.count}</span>
-                </button>
-                {open &&
-                  group.prefixes.map(({ prefix, items: bucket }) => (
-                    <button
-                      key={prefix}
-                      type="button"
-                      className="st-toc-item"
-                      aria-current={prefix === activePrefix ? "true" : undefined}
-                      onClick={() => {
-                        picked.prefix = prefix;
-                        rerender((n) => n + 1);
-                        document.getElementById(anchorId(group.group, prefix))?.scrollIntoView({ block: "start" });
-                      }}
-                      data-testid={`advanced-toc-${group.group}-${prefix || "other"}`}
-                    >
-                      {prefix === "" ? t("settings.cfg.other") : prefixTitle(locale, prefix)}
-                      <span className="ui-count">{bucket.length}</span>
-                    </button>
-                  ))}
-              </div>
-            );
-          })}
-        </nav>
-        <div className="st-adv-rows" data-testid={`cfg-advanced-${current.group}`}>
-          {current.prefixes.map(({ prefix, items: bucket, modified }) => (
-            <section
-              key={prefix}
-              id={anchorId(current.group, prefix)}
-              className="st-adv-sub"
-              data-testid={`cfg-group-${current.group}-${prefix || "other"}`}
-            >
-              <SectionHead
-                title={
-                  <>
+    <div className="st-adv">
+      <nav className="st-toc" aria-label={t("settings.advanced.toc")} data-testid="advanced-toc">
+        {groups.map((group) => {
+          const open = group.group === current.group;
+          return (
+            <div key={group.group} className="st-toc-block">
+              <button
+                type="button"
+                className="st-toc-group"
+                aria-current={open ? "true" : undefined}
+                onClick={(event) => {
+                  picked.group = group.group;
+                  picked.prefix = null;
+                  rerender((n) => n + 1);
+                  event.currentTarget.closest(".settings-scroll")?.scrollTo({ top: 0 });
+                }}
+                data-testid={`advanced-toc-${group.group}`}
+              >
+                {groupTitle(locale, group.group)}
+                <span className="ui-count">{group.count}</span>
+              </button>
+              {open &&
+                group.prefixes.map(({ prefix, items: bucket }) => (
+                  <button
+                    key={prefix}
+                    type="button"
+                    className="st-toc-item"
+                    aria-current={prefix === activePrefix ? "true" : undefined}
+                    onClick={() => {
+                      picked.prefix = prefix;
+                      rerender((n) => n + 1);
+                      document.getElementById(anchorId(group.group, prefix))?.scrollIntoView({ block: "start" });
+                    }}
+                    data-testid={`advanced-toc-${group.group}-${prefix || "other"}`}
+                  >
                     {prefix === "" ? t("settings.cfg.other") : prefixTitle(locale, prefix)}
-                    {prefix !== "" && <span className="st-prefix-key">{prefix}.*</span>}
-                  </>
-                }
-                count={
-                  t("settings.cfg.itemCount", { count: bucket.length }) +
-                  (modified > 0 ? ` · ${t("settings.cfg.modifiedCount", { count: modified })}` : "")
-                }
-              />
-              <ConfigGrid items={bucket} keyPrefix={prefix} />
-            </section>
-          ))}
-        </div>
+                    <span className="ui-count">{bucket.length}</span>
+                  </button>
+                ))}
+            </div>
+          );
+        })}
+      </nav>
+      <div className="st-adv-rows" data-testid={`cfg-advanced-${current.group}`}>
+        {current.prefixes.map(({ prefix, items: bucket, modified }) => (
+          <section
+            key={prefix}
+            id={anchorId(current.group, prefix)}
+            className="st-adv-sub"
+            data-testid={`cfg-group-${current.group}-${prefix || "other"}`}
+          >
+            <SectionHead
+              title={
+                <>
+                  {prefix === "" ? t("settings.cfg.other") : prefixTitle(locale, prefix)}
+                  {prefix !== "" && <span className="st-prefix-key">{prefix}.*</span>}
+                </>
+              }
+              count={
+                t("settings.cfg.itemCount", { count: bucket.length }) +
+                (modified > 0 ? ` · ${t("settings.cfg.modifiedCount", { count: modified })}` : "")
+              }
+            />
+            <ConfigGrid items={bucket} keyPrefix={prefix} />
+          </section>
+        ))}
       </div>
-    </>
+    </div>
   );
 }
 

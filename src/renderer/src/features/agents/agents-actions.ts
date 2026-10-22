@@ -10,11 +10,12 @@ async function drive(
   t: TFunction,
   taskId: TaskId,
   name: string,
-  op: TspDrive["op"],
+  op: Extract<TspDrive, { kind: "hub" }>["op"],
   run: () => Promise<void>,
   doneKey: "agents.steered" | "agents.killed" | "agents.revived",
 ): Promise<boolean> {
-  beginTspDrive(taskId, { name, op });
+  const current: TspDrive = { kind: "hub", name, op };
+  beginTspDrive(taskId, current);
   try {
     await run();
     pushToast({ level: "info", message: t(doneKey, { name }) });
@@ -23,7 +24,7 @@ async function drive(
     reportOmpError(t, error);
     return false;
   } finally {
-    endTspDrive(taskId);
+    endTspDrive(taskId, current);
   }
 }
 

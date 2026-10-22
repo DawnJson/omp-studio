@@ -11,7 +11,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import type { ContextParts, TspSessionExtras, TspTurnFooter } from "../../shared/ipc.ts";
+import type { TspSessionExtras, TspTurnFooter } from "../../shared/ipc.ts";
 import { tokensPerSecond } from "../../shared/ui/session-trace.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
@@ -31,8 +31,6 @@ interface ParsedSession {
   turns: (TspTurnFooter | null)[];
   /** 最近一条回复的输出速度（见 replySpeed）；没有时为 null。 */
   tokensPerSecond: number | null;
-  /** 最近一次请求的系统提示词 / 工具定义大小（见 contextPartsOf）；没有时为 null。 */
-  contextParts: ContextParts | null;
 }
 
 /**
@@ -51,27 +49,9 @@ function replySpeed(message: Record<string, unknown>): number | null {
   });
 }
 
-/**
- * 一条 assistant 消息对应的请求里，系统提示词和工具定义各占多少 token：omp 18.12.5 在 `contextSnapshot` 里写
- * `nonMessageTokens`（系统提示词 + 工具定义）和 `toolSchemaTokens`（工具定义），工具个数取 `requestControls.tools.active`。
- * 缺任何一项（老版本 omp 写的消息）返回 null，界面不画这两行。
- */
-function contextPartsOf(message: Record<string, unknown>): ContextParts | null {
-  const snapshot = message["contextSnapshot"];
-  const controls = message["requestControls"];
-  if (!isRecord(snapshot) || !isRecord(controls) || !isRecord(controls["tools"])) return null;
-  const active = controls["tools"]["active"];
-  const nonMessage = snapshot["nonMessageTokens"];
-  const toolSchema = snapshot["toolSchemaTokens"];
-  if (!Array.isArray(active) || typeof nonMessage !== "number" || typeof toolSchema !== "number") return null;
-  if (!Number.isFinite(nonMessage) || !Number.isFinite(toolSchema) || nonMessage < 0 || toolSchema < 0) return null;
-  const tools = Math.min(toolSchema, nonMessage);
-  return { systemTokens: nonMessage - tools, toolTokens: tools, toolCount: active.length };
-}
-
 /** 从会话文件内容解析；坏行（含写到一半的最后一行）跳过。 */
 export function parseSession(text: string): ParsedSession {
-  const result: ParsedSession = { id: null, turnStarts: [], turns: [], tokensPerSecond: null, contextParts: null };
+  const result: ParsedSession = { id: null, turnStarts: [], turns: [], tokensPerSecond: null };
   let userAt: number | null = null;
   let input = 0;
   let output = 0;
@@ -99,8 +79,6 @@ export function parseSession(text: string): ParsedSession {
     if (message["role"] !== "assistant") continue;
     const speed = replySpeed(message);
     if (speed !== null) result.tokensPerSecond = speed;
-    const parts = contextPartsOf(message);
-    if (parts !== null) result.contextParts = parts;
     const usage = isRecord(message["usage"]) ? message["usage"] : {};
     const orchestration = isRecord(usage["orchestration"]) ? usage["orchestration"] : {};
     const usageCost = isRecord(usage["cost"]) ? finite(usage["cost"]["total"]) : 0;
@@ -152,12 +130,12 @@ export function turnsBeforeRecap(turnStarts: readonly number[], createdAtMs: num
   return turnStarts.filter((start) => start <= createdAtMs + RECAP_SECOND_MS).length;
 }
 
-/** 读会话文件和 history.db 补用量脚注、回顾、最近一条回复的速度和上下文构成；没有文件（新会话第一条回复之后才落盘）、读失败时为空。 */
+/** 读会话文件和 history.db 补用量脚注、回顾和最近一条回复的速度；没有文件（新会话第一条回复之后才落盘）、读失败时为空。 */
 export async function readSessionExtras(
   file: string | null,
   agentDir: string = resolveAgentDir(),
 ): Promise<TspSessionExtras> {
-  const empty: TspSessionExtras = { turns: [], recap: null, tokensPerSecond: null, contextParts: null };
+  const empty: TspSessionExtras = { turns: [], recap: null, tokensPerSecond: null };
   if (file === null) return empty;
   const text = await readFile(file, "utf8").catch(() => null);
   if (text === null) return empty;
@@ -172,5 +150,5 @@ export async function readSessionExtras(
       // history.db 打不开（被锁、损坏）：只是少一条回顾，不影响用量脚注。
     }
   }
-  return { turns: session.turns, recap, tokensPerSecond: session.tokensPerSecond, contextParts: session.contextParts };
+  return { turns: session.turns, recap, tokensPerSecond: session.tokensPerSecond };
 }

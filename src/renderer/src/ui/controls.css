@@ -993,14 +993,17 @@
 .ui-cards > .ui-list-row > .ui-list-icon {
   align-self: start;
 }
-/* 名称放不下时徽标换到下一行，名称先占满整行再省略 */
+/* 卡片上名称可以换行，徽标固定在右上角 */
 .ui-cards > .ui-list-row .ui-list-title {
-  flex-wrap: wrap;
-  row-gap: var(--space-0-5);
+  align-items: flex-start;
 }
 .ui-cards > .ui-list-row .ui-list-name {
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.ui-cards > .ui-list-row .ui-list-title > :not(.ui-list-name) {
   flex: none;
-  max-width: 100%;
 }
 .ui-cards > .ui-list-row .ui-list-meta {
   overflow-wrap: anywhere;

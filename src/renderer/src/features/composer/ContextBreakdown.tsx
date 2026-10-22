@@ -1,15 +1,28 @@
-// 点上下文圆环弹出的构成（照 Claude Code 的 /context）：一条按类别分段的横条 + 每类的 token 和占窗口的比例。
-// 总量是 omp 的 contextUsage；系统提示词、工具定义取会话文件里 omp 记的 contextSnapshot（getTspSessionExtras），
-// 消息 = 总量 - 这两项；自动压缩预留 = 窗口 - omp 的压缩触发点（compaction.* 设置，读不到就不画这一段）。
-// 新任务草稿还没有会话：用量是 0，窗口取所选模型的，只有剩余空间和预留两段。
+// 点上下文圆环弹出的构成（照 omp 的 /context）：头部已用 / 窗口 · 百分比，一条按类别分段的横条 + 每类的 token 和占窗口的比例。
+// 任务里（TaskContextBreakdown）：打开时请 omp 现算（readTspContext：主进程点 omp 输入框上的上下文 meter、读它弹出的报告），
+// 行和数字和 omp 的 /context 一致；算好之前显示这个任务上次读到的，从没读到过时头部用输入框上的用量，行的位置是一句说明。
+// 新任务草稿（DraftContextBreakdown）：还没有 omp 进程，已用 0，窗口取所选模型的，只有剩余空间和自动压缩预留
+// （窗口 - omp 的压缩触发点，compaction.* 设置，读不到就不画这一段）。
 import { useEffect, useState } from "react";
 import { compactionTrigger } from "../../../../shared/compaction-trigger.ts";
-import type { CompactionSettings, ContextParts, ModelKey, ProjectId, TaskState } from "../../../../shared/ipc.ts";
+import type {
+  CompactionSettings,
+  ContextReport,
+  ContextReportRow,
+  ModelKey,
+  ProjectId,
+  TaskId,
+  TaskState,
+} from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { contextRows, type ContextRow } from "./context-rows.ts";
+import { reportErrorNow } from "../../ui/errors.ts";
+import { beginTspDrive, endTspDrive, isTspDriving, type TspDrive } from "../tsp/tsp-store.ts";
+import { draftContextRows } from "./context-rows.ts";
 import { formatCount, formatPercent } from "./usage-format.ts";
 
-/** 压缩设置（和模型无关，按项目读，`omp config list` 要零点几秒到一秒）：按项目记住，圆环一出现就预读，打开构成时直接有，再在后台重读。读不到就不画预留段。 */
+type ContextUsage = NonNullable<TaskState["contextUsage"]>;
+
+/** 压缩设置（和模型无关，按项目读，`omp config list` 要零点几秒到一秒）：按项目记住，草稿的圆环一出现就预读，打开构成时直接有，再在后台重读。读不到就不画预留段。 */
 const compactionCache = new Map<string, CompactionSettings | null>();
 const compactionInflight = new Map<string, Promise<CompactionSettings | null>>();
 
@@ -32,7 +45,7 @@ function loadCompaction(projectId: ProjectId | null): Promise<CompactionSettings
   return job;
 }
 
-/** 圆环挂上时调：还没读过这个项目的压缩设置就先读。 */
+/** 草稿的圆环挂上时调：还没读过这个项目的压缩设置就先读。 */
 export function prefetchCompaction(projectId: ProjectId | null): void {
   if (!compactionCache.has(projectId ?? "")) void loadCompaction(projectId);
 }
@@ -52,60 +65,136 @@ function useCompaction(projectId: ProjectId | null): CompactionSettings | null {
   return settings;
 }
 
-export interface ContextBreakdownProps {
-  context: NonNullable<TaskState["contextUsage"]>;
-  /** 系统提示词 / 工具定义各占多少；草稿（还没有会话）或 omp 没记时为 null。 */
-  parts: ContextParts | null;
-  modelKey: ModelKey | null;
-  projectId: ProjectId | null;
+/** omp 的类别 id（加上剩余空间、预留）：有自己的名称和颜色；别的（omp 新加的类别）显示 omp 的英文名。 */
+const KNOWN_PARTS = ["systemPrompt", "systemTools", "systemContext", "skills", "messages", "free", "buffer"] as const;
+type KnownPart = (typeof KNOWN_PARTS)[number];
+const isKnownPart = (key: string): key is KnownPart => (KNOWN_PARTS as readonly string[]).includes(key);
+
+interface BreakdownProps {
+  used: number;
+  window: number;
+  percent: number;
+  /** null：还没有行（omp 还在算、读不到），换成 note 这一句。 */
+  rows: readonly ContextReportRow[] | null;
+  note?: string;
 }
 
-export function ContextBreakdown({ context, parts, modelKey, projectId }: ContextBreakdownProps) {
+function Breakdown({ used, window, percent, rows, note }: BreakdownProps) {
   const t = useT();
-  const settings = useCompaction(projectId);
-  const window = context.contextWindow;
-  const trigger = settings !== null && modelKey !== null ? compactionTrigger(settings, modelKey, window).tokens : null;
-  const rows = contextRows(context, parts, trigger);
   const share = (tokens: number) => (window > 0 ? (tokens / window) * 100 : 0);
-  const label = (row: ContextRow) =>
-    row.part === "tools" && parts !== null
-      ? t("composer.context.tools", { n: parts.toolCount })
-      : t(`composer.context.${row.part}`);
+  const label = (row: ContextReportRow) => (isKnownPart(row.key) ? t(`composer.context.${row.key}`) : row.label);
   return (
     <div className="ctx" data-testid="context-breakdown">
       <div className="ctx-head">
         <strong>{t("composer.context.title")}</strong>
         <span className="ctx-num">
-          {formatCount(context.tokens)} / {formatCount(window)} · {formatPercent(context.percent)}%
+          {formatCount(used)} / {formatCount(window)} · {formatPercent(percent)}%
         </span>
       </div>
-      <div className="ctx-bar" aria-hidden="true">
-        {rows.map((row) =>
-          row.tokens > 0 ? (
-            <span
-              key={row.part}
-              className="ctx-seg"
-              data-part={row.part}
-              style={{ flexBasis: `${share(row.tokens)}%` }}
-            />
-          ) : null,
-        )}
-      </div>
-      <dl className="ctx-rows">
-        {rows.map((row) => (
-          <div key={row.part} className="ctx-row" data-testid="context-row" data-part={row.part}>
-            <dt>
-              <span className="ctx-swatch" data-part={row.part} aria-hidden="true" />
-              {label(row)}
-            </dt>
-            <dd className="ctx-num">
-              {row.estimated && "≈"}
-              {formatCount(row.tokens)}
-            </dd>
-            <dd className="ctx-num ctx-share">{formatPercent(share(row.tokens))}%</dd>
+      {rows === null ? (
+        <p className="ctx-note" data-testid="context-note">
+          {note}
+        </p>
+      ) : (
+        <>
+          <div className="ctx-bar" aria-hidden="true">
+            {rows.map((row) =>
+              row.tokens > 0 ? (
+                <span
+                  key={row.key}
+                  className="ctx-seg"
+                  data-part={row.key}
+                  style={{ flexBasis: `${share(row.tokens)}%` }}
+                />
+              ) : null,
+            )}
           </div>
-        ))}
-      </dl>
+          <dl className="ctx-rows">
+            {rows.map((row) => (
+              <div key={row.key} className="ctx-row" data-testid="context-row" data-part={row.key}>
+                <dt>
+                  <span className="ctx-swatch" data-part={row.key} aria-hidden="true" />
+                  {label(row)}
+                </dt>
+                <dd className="ctx-num">{formatCount(row.tokens)}</dd>
+                <dd className="ctx-num ctx-share">{formatPercent(share(row.tokens))}%</dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      )}
     </div>
   );
+}
+
+/** 每个任务最近一次读到的报告：再打开构成时先显示它，omp 现算的到了再换。 */
+const reports = new Map<TaskId, ContextReport>();
+
+/** 任务的构成；挂载 = 构成打开：请 omp 现算一次（调用期间不画 omp 的 layer，报告不会闪出来）。 */
+export function TaskContextBreakdown({ taskId, context }: { taskId: TaskId; context: ContextUsage }) {
+  const t = useT();
+  const [report, setReport] = useState(() => reports.get(taskId) ?? null);
+  const [reading, setReading] = useState(true);
+  useEffect(() => {
+    // 主进程正在驱动 omp（子代理面板的插话 / 结束 / 恢复）：不排在它后面等，显示上次的。
+    if (isTspDriving(taskId)) {
+      setReading(false);
+      return undefined;
+    }
+    let alive = true;
+    const drive: TspDrive = { kind: "context" };
+    beginTspDrive(taskId, drive);
+    window.studio
+      .readTspContext(taskId)
+      .then(
+        (next) => {
+          if (next === null) return;
+          reports.set(taskId, next);
+          if (alive) setReport(next);
+        },
+        (error: unknown) => reportErrorNow(error),
+      )
+      .finally(() => {
+        endTspDrive(taskId, drive);
+        if (alive) setReading(false);
+      });
+    return () => {
+      alive = false;
+    };
+    // 只跟着任务走：浮层开着时换界面语言（t 变了）不再请 omp 重算一次。
+  }, [taskId]);
+  if (report === null)
+    return (
+      <Breakdown
+        used={context.tokens}
+        window={context.contextWindow}
+        percent={context.percent}
+        rows={null}
+        note={t(reading ? "composer.context.reading" : "composer.context.unavailable")}
+      />
+    );
+  const total = report.window ?? context.contextWindow;
+  return (
+    <Breakdown
+      used={report.used}
+      window={total}
+      percent={total > 0 ? (report.used / total) * 100 : 0}
+      rows={report.rows}
+    />
+  );
+}
+
+/** 新任务草稿的构成：已用 0，窗口取所选模型的。 */
+export function DraftContextBreakdown({
+  window,
+  modelKey,
+  projectId,
+}: {
+  window: number;
+  modelKey: ModelKey | null;
+  projectId: ProjectId | null;
+}) {
+  const settings = useCompaction(projectId);
+  const trigger = settings !== null && modelKey !== null ? compactionTrigger(settings, modelKey, window).tokens : null;
+  return <Breakdown used={0} window={window} percent={0} rows={draftContextRows(window, trigger)} />;
 }

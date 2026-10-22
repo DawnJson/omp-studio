@@ -35,7 +35,8 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
   const width = usePreviewWidth();
   const derived = useTspDerived(taskId, listAgents, sameAgents) ?? NO_AGENTS;
   const agents = useMemo(() => sortAgents(derived), [derived]);
-  const drive = useTspDrive(taskId);
+  const driving = useTspDrive(taskId);
+  const drive = driving?.kind === "hub" ? driving : null;
   // 没选过就看列表第一个（同 omp 的 Agent Hub：打开时总有一个选中项、详情直接显示）。
   const current = agents.find((agent) => agent.name === selected) ?? agents[0] ?? null;
 

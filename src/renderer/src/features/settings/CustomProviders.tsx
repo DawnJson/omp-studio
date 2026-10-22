@@ -46,7 +46,6 @@ export function CustomProviders() {
   const metaText = (provider: CustomProviderInfo): string =>
     [
       provider.api,
-      provider.baseUrl,
       provider.models.length > 0 || !provider.discovery
         ? t("custom.models", { count: provider.models.length })
         : t("custom.discovery"),
@@ -94,10 +93,10 @@ export function CustomProviders() {
             <Button
               size="sm"
               variant="quiet"
-              onClick={() => void window.studio.revealModelsFile().catch((e: unknown) => reportError(t, e))}
-              testId="custom-reveal"
+              onClick={() => void window.studio.openModelsFile().catch((e: unknown) => reportError(t, e))}
+              testId="custom-open"
             >
-              {t("custom.reveal")}
+              {t("custom.open")}
             </Button>
             <Button
               size="sm"

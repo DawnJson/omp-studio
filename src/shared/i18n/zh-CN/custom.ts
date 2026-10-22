@@ -9,7 +9,7 @@ export const custom = {
   add: "添加 provider…",
   edit: "编辑",
   delete: "删除",
-  reveal: "显示 models.yml",
+  open: "打开 models.yml",
   models: "{count} 个模型",
   discovery: "运行时发现模型",
   "key.none": "无需 key",

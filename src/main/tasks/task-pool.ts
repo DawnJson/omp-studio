@@ -19,6 +19,7 @@ import type {
   TaskState,
   TspBatch,
   TspSessionExtras,
+  ContextReport,
   TspSubagentRecord,
   TspSnapshot,
 } from "../../shared/ipc.ts";
@@ -271,6 +272,11 @@ export class TaskPool {
   /** 用量脚注和空闲回顾（omp 恢复会话时不重发）；读不到时为空。 */
   getTspSessionExtras(id: TaskId): Promise<TspSessionExtras> {
     return this.#runner(id).sessionExtras();
+  }
+
+  /** omp 现算的上下文构成（TspRunner.readContext）；读不到为 null。 */
+  readTspContext(id: TaskId): Promise<ContextReport | null> {
+    return this.#runner(id).readContext();
   }
 
   sendTspEvent(id: TaskId, event: TspEvent): void {

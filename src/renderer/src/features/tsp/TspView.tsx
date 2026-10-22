@@ -149,8 +149,8 @@ function Region({ taskId, sf, id, ctx }: { taskId: TaskId; sf: string; id: "dock
 function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, header, tail, mode }: SurfaceParts) {
   const t = useT();
   const main = useTspNode(taskId, sf, "main");
-  // 子代理面板在后台驱动 omp 的 Agent Hub（插话 / 结束 / 恢复）：期间 omp 的 Hub 不画，过程区压暗（聚焦模式里它暂时显示那个子代理的记录）。
-  const driving = useTspDrive(taskId) !== null;
+  // 子代理面板在后台驱动 omp 的 Agent Hub（插话 / 结束 / 恢复）：期间过程区压暗（聚焦模式里它暂时显示那个子代理的记录）。
+  const driving = useTspDrive(taskId)?.kind === "hub";
   const role = typeof main?.p.role === "string" ? main.p.role : undefined;
   useReveal(taskId, sf, surface);
   return (

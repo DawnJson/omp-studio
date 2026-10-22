@@ -42,7 +42,7 @@
 
 模型、思考强度、上下文占用、费用不是命令的应答，而是从 omp 输入框卡片上的节点读（`shared/tsp/composer-state.ts`，`TspRunner` 每次文档变化调用，变了才发布）：`omp.composer.model`、`omp.composer.model.effort`、`omp.composer.context`（meter）、`omp.composer.usage`。对照表在 [tsp-migration.md](tsp-migration.md) §10.2。待办阶段从 dock 里 `omp.hud.todo` 的 checklist 换算成 `TaskState.todoPhases`（`shared/tsp/todos.ts`）。输入框被提问 / 审批替换的那几帧读不到，沿用上一次的值。
 
-omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的用量脚注、最近一条回复的输出速度、上下文构成里系统提示词和工具定义的 token 数、每轮费用、按模型的累计用量，见 `src/main/tsp/session-extras.ts`、`turn-costs.ts` 和 [tsp-migration.md](tsp-migration.md) §10.1。
+omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的用量脚注、最近一条回复的输出速度、每轮费用、按模型的累计用量，见 `src/main/tsp/session-extras.ts`、`turn-costs.ts` 和 [tsp-migration.md](tsp-migration.md) §10.1。
 
 ## 进程上限和回收
 

@@ -38,7 +38,7 @@
 - Esc：没人消耗（`defaultPrevented`）且任务在运行时 `stopTask`：主进程把 Esc 交给 omp 停下这一轮，返回被撤回的排队消息（`omp.queue` 节点，`shared/tsp/queue-restore.ts`），按原文追加回草稿（图片作附件）。toast 由纯函数 `stop-outcome.ts stopToasts` 决定：只有这一轮确实停下才说"已停止"（有排队消息则带条数），没停下只报 `stopFailed`；用户按过停止的那一轮 `lastTurn` 记为 `aborted`。
 - 模型 / 思考胶囊（`ModelChip`）：`listTaskModels` → 分组、搜索、最近 3 个；模型行右侧是紧凑的"上下文窗口 · 输入/输出价格"（`model-groups.ts` 的 `modelContextCell` / `modelPriceCell`，价格全 0 不显示）。切换是给 omp 的节点发事件（[tsp-migration.md](tsp-migration.md) §10.3），不往输入框塞文字。思考档位只有一份列表（`thinking-levels.ts thinkingLevelOptions`），picker 分段条、方向键、Alt T 共用：任务里是模型目录的 `thinkingEfforts` 加 `off`，草稿里没有进程，用 `get_available_models` 里的 `thinking.efforts`（不含 `off`）。omp 会把设置的档位钳到模型支持的档位（实测 omp 18.12.2、`deepseek-v4-flash`、efforts `low/high/max`：minimal→low、medium→low、xhigh→high、auto→high；`off` 保留），草稿胶囊用同一规则（`clampThinkingLevel`：取最近的，一样近取较低）显示 omp 会采用的档位，所以草稿和发送后的任务显示一致。不支持思考的模型没有档位。Alt M / Alt T、命令面板的 `model` / `thinking` 命令。
 - 审批胶囊（`ApprovalChip`）：读写 omp 的 `tools.approvalMode`，没有进程的任务（`stopped` / `error`）可改，其余只读；首次选 yolo 内联确认一次（localStorage 记住）。详见 [omp-settings.md](omp-settings.md)「审批模式」。
-- 工具行右侧的用量：上下文圆环（点开是构成：系统提示词、工具定义、消息、剩余、自动压缩预留；系统提示词和工具定义的 token 数来自会话文件里 omp 记的 `contextSnapshot`，前面画 ≈）、费用（`SessionCost`）；运行中模型 / 审批胶囊右边是上一条回复的输出速度（`UsageMeter`：会话文件里 assistant 消息的 output ÷ (duration − ttft)，一轮结束时刷新；omp 没有实时速度）。数据来源见 [task-model.md](task-model.md)「输入框上的状态从哪来」。上下文 ≥90% 圆环变琥珀。
+- 工具行右侧的用量：上下文圆环（点开是构成，类别和数字都是 omp `/context` 算的，见下面「上下文构成」）、费用（`SessionCost`）；运行中模型 / 审批胶囊右边是上一条回复的输出速度（`UsageMeter`：会话文件里 assistant 消息的 output ÷ (duration − ttft)，一轮结束时刷新；omp 没有实时速度）。数据来源见 [task-model.md](task-model.md)「输入框上的状态从哪来」。上下文 ≥90% 圆环变琥珀。
 - 贴图、粘贴、拖入文件：见 [composer-attachments.md](composer-attachments.md)。TSP 没有图片通道：`sendPrompt` 把图片写到 `os.tmpdir()/omp-studio-images/<任务 id>/`，在文字后面加 `@"<路径>"`（omp 的文件提及，带空格要引号），omp 读成图片附件（[tsp-migration.md](tsp-migration.md) §10.6）。粘贴的非图片文件不走图片流程：preload 在隔离世界里取路径（`src/preload/index.ts`，spec §4.14）。
 - 输入框三个辅助：①斜杠守卫（`slash-guard.ts`）：`/名称` 不在命令列表（非空时）里就先提示一次，同一文字再发或点"仍作为文字发送"才发；studio 接管的命令（见下）算已知命令。守卫在 `Composer` 的发送入口。②输入历史（`input-history.ts`）：↑↓ 翻本任务发过的消息，内存按任务记。③`@` 文件补全（`file-complete.ts` + `use-file-menu.ts` + `FileMenu.tsx`）：IPC `listProjectFiles(target, query)`，主进程 `files/project-files.ts` 按 cwd 缓存 10 秒的索引（git ls-files，退回有界遍历），≤10000 条、返回 ≤20 条相对路径；`query` 含绝对路径 / `..` 拒绝；发给 omp 后由 omp 展开 `@路径`。
 - **草稿持久化**：`getDrafts` / `saveDraft`（`draft-handlers.ts` → `userData/drafts.json`，串行写、先写临时文件再改名；限 300 条、每条 20 万字）。渲染进程 400ms 防抖保存，启动读回（读回之前已经打过字的 key 不覆盖）。只存文字，图片不存。`flushDrafts()` 在 `pagehide` / `beforeunload` / 页面隐藏时把防抖中的草稿立刻发给主进程（e2e `composer-draft.e2e.ts`：fill 后立刻 reload，drafts.json 里有内容）。
@@ -59,6 +59,18 @@
 - 后端：对会话文件跑 `omp --export <会话文件> <输出路径>`（主进程 `omp/export-session.ts`，`PoolDeps.exportSession`，`runtime.ts` 接上）。实测（omp 18.12.5）：第二个位置参数就是输出路径，绝对路径（含中文、空格、不存在的上级目录）原样照写、不补扩展名，不带输出路径时写成当前目录下的 `omp-session-<文件名>.html`（会弄脏项目目录，所以总是传路径）；会话文件不存在时退出码 1，stderr 是 `Error: File not found: …`。任务还没有会话文件（没发过消息）时拒绝（`this task has no session file yet`）。任务运行中也能导出（读的是磁盘上已写的部分）。
 - 成功后 toast `toast.exported` + `toast.revealExport`；按钮调 `revealTaskExport(taskId)`，主进程只显示**它自己选的、该任务最近一次导出的路径**（`tasks/export-record.ts`：记下的是 target，且要求返回的路径解析后与 target 一致，否则不记录；任务归档 / 移除时清掉记录），没导出过就拒绝。
 - 测试：`test/export-name.test.ts`、`test/export-record.test.ts`、`test/task-tsp.test.ts` "导出" 两条。
+
+## 上下文构成
+
+点圆环弹出的构成照抄 omp `/context` 的数字（2026-10-22 起；之前 studio 自己按会话文件里的 `contextSnapshot` 估算系统提示词和工具定义，和 omp 对不上，也不随对话刷新）。
+
+- 怎么读：`TspRunner.readContext()`（`shared/tsp/context-report.ts` 解析）。主进程向 omp 输入框卡片上的 meter（role `omp.composer.context`）发 `action`（`actions.click` = `status.context`），等报告出现，读完再向报告底栏的 Close（role `omp.btn`）发它自己的 `action` 关掉。**不用 Esc 关**：运行中 Esc 会打断这一轮。渲染进程读的期间 `beginTspDrive(taskId, { kind: "context" })`，`TspView` 不画 layer，omp 的弹窗不会闪出来。
+- 实测 omp 18.12.6（真实 omp 探针，临时 `PI_CODING_AGENT_DIR`；录制 `fixtures/tsp/context-report.jsonl`）：
+  - 报告是 layer 里一个 modal overlay，role `omp.overlay.report`，正文 role `omp.context`；`omp.context.cats` 下每类一行 role `omp.context.cat`，节点 id 末段是类别 id：`systemPrompt` / `systemTools` / `systemContext` / `skills` / `messages`，然后是 `omp.context.cat.free`、有预留时 `omp.context.cat.buffer`。
+  - 每行的 `title` 是 `<名称> · <token 数，千分位> tokens`，是精确值（行里画的是 `3K` 这样的缩写）。各类之和 + 剩余 + 预留 = 窗口（200K 窗口：2,958 + 4,543 + 115 + 549 + 0 + 161,835 + 30,000）。
+  - **运行中也能读**：一轮 bash 工具调用进行中点 meter，omp 当场弹出报告，Close 关掉后这一轮照常跑完（回复正确，没有 "Stopped"）。空闲时 omp 在收到点击后 5-11 ms 画出报告（录制里两次）；运行中没有计时。
+  - omp 没在运行、输入框被提问 / 审批换掉时读不到（`TSP_COMPOSER_UNAVAILABLE`），界面显示 `composer.context.unavailable`。
+- 新任务草稿没有 omp 进程：已用 0，只画剩余空间和按压缩设置算的自动压缩预留（`composer/context-rows.ts`）。
 
 ## 压缩上下文
 
