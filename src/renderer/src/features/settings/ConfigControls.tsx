@@ -290,6 +290,30 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
+function isStructured(item: OmpConfigItem): boolean {
+  return (item.key === "modelRoles" || item.key === "retry.fallbackChains") && canEditStructured(item);
+}
+
+/**
+ * 控件窄到能放进格子（.st-cells 的半行）：开关、数字、分段 / 下拉、"编辑…"按钮（结构化编辑和 JSON 都是，摘要在格子里收窄）、
+ * 凭据徽标。文本框、标签输入要整行。和下面 ConfigControl 的分派一一对应，改一处要看另一处。
+ */
+export function fitsCell(item: OmpConfigItem): boolean {
+  if (item.redacted) return true;
+  switch (item.type) {
+    case "boolean":
+    case "number":
+    case "record":
+      return true;
+    case "enum":
+      return item.options !== null;
+    case "string":
+      return false;
+    case "array":
+      return item.key === goalContinuationKey || isStructured(item) || (item.hasValue && !isStringArray(item.value));
+  }
+}
+
 /** 按 omp 给的类型选控件；凭据另外处理（ConfigRow）。 */
 export function ConfigControl(props: ControlProps) {
   const { item, labelId, onSave } = props;
@@ -313,8 +337,7 @@ export function ConfigControl(props: ControlProps) {
             onChange={(on) => onSave(withGoalContinuation(item.value, on))}
           />
         );
-      if (item.key === "modelRoles" && canEditStructured(item)) return <StructuredControl {...props} />;
-      if (item.key === "retry.fallbackChains" && canEditStructured(item)) return <StructuredControl {...props} />;
+      if (isStructured(item)) return <StructuredControl {...props} />;
       if (item.type === "array" && (!item.hasValue || isStringArray(item.value)))
         return (
           <TagInput

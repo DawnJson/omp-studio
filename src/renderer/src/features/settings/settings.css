@@ -195,6 +195,14 @@
 .st-cells .cfg-feedback {
   order: -1;
 }
+/* 独占一整行的格子（记忆后端：下面左右两列是它的子设置） */
+.st-span {
+  grid-column: 1 / -1;
+}
+/* 格子下面整行排的项（文本框、标签输入）：和格子共用分隔线，不再加一道上边框 */
+.st-cells + .ui-rows {
+  border-top: 0;
+}
 @container (max-width: 700px) {
   .st-cells[data-cols="3"] {
     --cols: 2;
@@ -213,6 +221,12 @@
   overflow-wrap: anywhere;
 }
 
+/* provider 的 logo（ProviderLogo）：放在 ListRow 的 28px 图标格里 */
+.provider-logo {
+  width: 16px;
+  height: 16px;
+}
+
 /* 数组 / 对象行："编辑…"旁的等宽摘要 */
 .st-summary {
   max-width: 280px;
@@ -222,6 +236,11 @@
   color: var(--text-3);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 格子只有半行宽："编辑…"后面的摘要收窄，悬停看全文 */
+.st-cells .st-summary {
+  max-width: 120px;
 }
 
 .st-mono {
@@ -469,8 +488,20 @@
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
+/* 高级的右栏自己算宽度：格子按右栏减列（目录占了一块，按整页宽算会太挤） */
+.st-adv-rows {
+  container-type: inline-size;
+}
+
 .st-adv-rows .st-rows {
   --row-label-w: 236px;
+}
+
+/* 高级的标签是 omp 的英文 key（等宽、很长）：右栏不到 760 时两列会把 key 拆成好几行，改成一列 */
+@container (max-width: 760px) {
+  .st-adv-rows .st-cells[data-cols] {
+    --cols: 1;
+  }
 }
 
 .st-adv-sub + .st-adv-sub {

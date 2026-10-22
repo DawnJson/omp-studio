@@ -1,6 +1,6 @@
 # 登录、API key 和模型列表
 
-实现：`src/main/service/`（服务进程、OAuth 登录）、`src/main/omp-manager/api-key-store.ts`、`src/main/ipc/account-handlers.ts`；界面是设置 → Provider 与账号（`features/settings/ProviderRow.tsx`）。协议出处：omp 文档 `rpc.md`（`get_login_providers`、`login`、`get_logout_accounts`、`logout`，以及 `extension_ui_request` 的 `open_url`/`input`/`notify`）；`environment-variables.md` §1（API key 的变量名）。
+实现：`src/main/service/`（服务进程、OAuth 登录）、`src/main/omp-manager/api-key-store.ts`、`src/main/ipc/account-handlers.ts`；界面是设置 → Provider 与订阅（`features/settings/ProviderRow.tsx`）。协议出处：omp 文档 `rpc.md`（`get_login_providers`、`login`、`get_logout_accounts`、`logout`，以及 `extension_ui_request` 的 `open_url`/`input`/`notify`）；`environment-variables.md` §1（API key 的变量名）。
 
 ## 路线（决策 D3）
 
@@ -79,4 +79,4 @@ omp-studio 的做法（`src/main/omp-config/model-defaults.ts`，和 omp 终端�
 
 ## 界面（3.2）
 
-设置 → Provider 与账号只列"已连接"（`ProviderRow` 列表行：徽标 + sm 按钮，清除 key 在 ⋯ 里）和自定义提供商；没连接的不铺开，页头"连接提供商…"打开 `ProviderPickDialog`（可搜索），选中后进 `ProviderFlowDialog`——OAuth 进度、授权码 / API key 输入、选账号退出、失败重试都在这一个对话框里走。IPC 和登录行为不变。
+设置 → Provider 与订阅只列"已连接"（`ProviderRow` 卡片：provider 的单色 logo（`ProviderLogo.tsx`，图形拷自 LobeHub Icons，没有的写首字母）+ 徽标 + sm 按钮，清除 key 在 ⋯ 里）和自定义提供商；没连接的不铺开，页头"连接提供商…"打开 `ProviderPickDialog`（可搜索），选中后进 `ProviderFlowDialog`——OAuth 进度、授权码 / API key 输入、选账号退出、失败重试都在这一个对话框里走。IPC 和登录行为不变。

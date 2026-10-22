@@ -129,7 +129,7 @@
 | 句末标点 | 句子保留句号；标签/按钮不加；不用感叹号；用“你”不用“您” | — |
 | 复数 | 英文用 ICU `{n, plural, …}`，中文单一形式（`process.*`、`tool.*` 两种语言都是英文，照英文复数） | 见附录 A 说明 |
 | 审批模式标签 | `总是询问` / `询问并记住` / `自动写入` / `全自动` 对应 `always-ask` / `always-ask-cached` / `write` / `yolo`（2026-10-21 由 `每次询问` / `每次询问并记住` / `写入自动，执行询问` / `全部自动` 简化）；英文直接用 omp 设置页的名字 `Always ask` / `Ask and remember` / `Write` / `Yolo`（omp 18.12.6 的 settings schema 里 `tools.approvalMode` 的 option label） | 与 omp 的四种模式一一对应（`omp://approval-mode.md`）；omp 设置页里 `tools.approvalMode` 的取值显示同一套文案（`approval.*`）。其余枚举设置的取值走 `ompcfg` 的 `<键>.opt.<值>` / `opt.<值>`，没有翻译的显示 omp 原值；设置键第一段的分组名走 `ompcfg` 的 `prefix.<段>` |
-| 开发者常用的英文术语 | 中文界面里**保留英文**：MCP、Skill、Hook、token、worktree（独立出现的标签首字母大写：`Worktree`、`Token`、`Skill 清单`）、diff、LSP、Bash、API key（表单里统一叫 key，不混用"密钥"）、context（独立的标签写 `Context`：`Context 与记忆`、`扩展 Context`、`Context 构成`；句子里小写：`压缩 context`、`context 窗口`；仓库所有者 2026-10-22 补充，原来译作"上下文"）、数量单位 K / M（`每 M token`、`$0.3 / M`，不写"每百万"）、provider（`Provider 与账号`、`添加 provider…`）、subagent / main agent（`Subagent 与规划`、`Subagent 面板`）、system prompt、reasoning、vision、模型目录的 Int（同 omp 表头；以上同为 2026-10-22 补充）；**照常翻译**：后台任务（omp 的 job，界面里不叫"作业"）、插件 / 插件市场、提交 / 分支 / 暂存 / 合并、会话、分叉、检查点、快照 | 仓库所有者 2026-10-22：“不是所有英文都要汉化的，常用的不需要汉化，例如 mcp skill”。判断标准：中文开发者口头和文档里直接说英文的保留（工作树、钩子、令牌、技能、差异这类直译反而要停一下才认得出）；Git 客户端（VS Code、GitHub Desktop）中文界面已经通用的中文说法照常翻译 |
+| 开发者常用的英文术语 | 中文界面里**保留英文**：MCP、Skill、Hook、token、worktree（独立出现的标签首字母大写：`Worktree`、`Token`、`Skill 清单`）、diff、LSP、Bash、API key（表单里统一叫 key，不混用"密钥"）、context（独立的标签写 `Context`：`Context 与记忆`、`扩展 Context`、`Context 构成`；句子里小写：`压缩 context`、`context 窗口`；仓库所有者 2026-10-22 补充，原来译作"上下文"）、数量单位 K / M（`每 M token`、`$0.3 / M`，不写"每百万"）、provider（`Provider 与订阅`、`添加 provider…`）、subagent / main agent（`Subagent 与规划`、`Subagent 面板`）、system prompt、reasoning、vision、模型目录的 Int（同 omp 表头；以上同为 2026-10-22 补充）；**照常翻译**：后台任务（omp 的 job，界面里不叫"作业"）、插件 / 插件市场、提交 / 分支 / 暂存 / 合并、会话、分叉、检查点、快照 | 仓库所有者 2026-10-22：“不是所有英文都要汉化的，常用的不需要汉化，例如 mcp skill”。判断标准：中文开发者口头和文档里直接说英文的保留（工作树、钩子、令牌、技能、差异这类直译反而要停一下才认得出）；Git 客户端（VS Code、GitHub Desktop）中文界面已经通用的中文说法照常翻译 |
 
 ---
 
@@ -469,7 +469,7 @@
 
 **ModelPicker**（3.1 起照 Tern 改成一张表，`direction-3.1.md` §2 行 10；2026-10-22 起换成 `ui/Dialog`）：胶囊点开（`Alt M`、命令面板同）是 `ui/Dialog` lg 再加宽到 `--dialog-w-xl` 960（`className="mp-dialog"`，`data-testid="model-picker"`；遮罩、Esc、Tab 循环、关闭后还焦点按 Dialog 通则，§4.23），高固定 `min(85vh, --content-w)`。2026-10-22 起照 Tern 里 omp 的 `/models` 排：顶上搜索框，下面两栏——左栏范围，右栏表 + 底部；搜索框和底部固定、表自己滚：
 - 顶栏（Dialog 的 `head`：没有标题和 ×，`model.title` 只作读屏名，Esc、点遮罩关闭；2026-10-22 起，原来是标题行“切换模型” + ×）：搜索框 `TextField` md（通宽，前面放大镜，`model-search`，占位 `model.search`，打开时聚焦，`combobox` + `aria-activedescendant` 指向高亮行）+ 给角色选模型时的标记（`model-role-target`：accent `Badge` `model.roleTarget`“为 Task 选模型” + 小 × `model.roleTargetClear` 改回 Default）+ 右端总数（`model-count`，等宽 `--fs-xs` `--text-3`；有搜索词时 `匹配数 / 总数`）。
-- 左栏范围（`.mp-side`，宽 `--sidebar-w-min` 200，右边一条 `--border-subtle`；项的样子同设置页左栏 `.snav-item`：高 `--row-task`、选中 `--bg-active` 底，右端等宽计数）：`model.rolesGroup` 角色（`model-scope-roles`）、`model.all` 全部模型（`model-scope-all`，默认）、小标题 `model.providers` 下各提供商（`model-scope-provider`，按名称排，和表里的分组同序；正在生效的模型所在的提供商后面一个 6px `--accent` 圆点）；最下面 quiet 按钮 `model.addProvider`（`model-add-provider`：关对话框、跳设置页“Provider 与账号”）。角色范围列 omp 的角色（Default / Smol / Slow / Plan / Task / Commit / Advisor，外加 `modelRoles` 里指向可用模型的其它角色；数据 `getModelRoles(projectId)`），这时搜索框过滤角色。点一个角色 = 之后选的模型给它：回到全部模型，顶栏出现角色标记。Default 是切换本任务的模型（草稿里是新任务默认模型）；其它角色选模型就写 `modelRoles.<role>`（`setModelRole`，遵循 `modelRoleStorage` 的全局 / 项目层，去掉 `:thinking` 后缀），不影响当前会话。（角色 2026-10-20 起有；原来在标题下的 `ui/Tabs` 页签里，2026-10-22 起挪进左栏）
+- 左栏范围（`.mp-side`，宽 `--sidebar-w-min` 200，右边一条 `--border-subtle`；项的样子同设置页左栏 `.snav-item`：高 `--row-task`、选中 `--bg-active` 底，右端等宽计数）：`model.rolesGroup` 角色（`model-scope-roles`）、`model.all` 全部模型（`model-scope-all`，默认）、小标题 `model.providers` 下各提供商（`model-scope-provider`，按名称排，和表里的分组同序；正在生效的模型所在的提供商后面一个 6px `--accent` 圆点）；最下面 quiet 按钮 `model.addProvider`（`model-add-provider`：关对话框、跳设置页“Provider 与订阅”）。角色范围列 omp 的角色（Default / Smol / Slow / Plan / Task / Commit / Advisor，外加 `modelRoles` 里指向可用模型的其它角色；数据 `getModelRoles(projectId)`），这时搜索框过滤角色。点一个角色 = 之后选的模型给它：回到全部模型，顶栏出现角色标记。Default 是切换本任务的模型（草稿里是新任务默认模型）；其它角色选模型就写 `modelRoles.<role>`（`setModelRole`，遵循 `modelRoleStorage` 的全局 / 项目层，去掉 `:thinking` 后缀），不影响当前会话。（角色 2026-10-20 起有；原来在标题下的 `ui/Tabs` 页签里，2026-10-22 起挪进左栏）
 - 表：模型列没有表头，数字列表头照 omp 原文 `Int` | `t/s` | `Ctx` | `$/M`（`model.colIntelligence` / `.colSpeed` / `.colContext` / `.colPrice`，中英相同；2026-10-22 起）+ 勾，表头粘在顶部（`--fs-xs` `--text-3`）。模型列 = `provider/`（`--text-3`）+ 模型 id（`--text`），`--font-mono` `--fs-code-sm`，后面跟它被分配到的角色胶囊（`--fs-2xs`，`--bg-hover` 底）。数字列等宽 `--fs-code-sm` `--text-2` 右对齐：智能分（`get_available_models` 每个模型带的 `int`，取整：omp 按 provider 的各种写法归一后查模型目录，和 omp 自己的 `/models` 一致；2026-10-22 起，原来 studio 按 provider/id 原样查 `models.db`，中转站和改过写法的 provider 大多查不到、显示 `–`，实测 omp 18.12.6）、速度（omp `agent.db` `model_perf` 实测的 t/s，没有实测时用 `get_available_models` 带的 `tps`，取整）、上下文（如 `1M`）、价格（输入·输出，美元 / 百万 token，如 `$0.3·1.2`）；没有数据写 `–`，智能分和速度读取中写 `…`（两个库都只读，`getModelInsights`，`src/main/omp-config/model-insights.ts`）。行高 `--control-h-md`、`--radius-md`；方向键 / 鼠标所在行 `--bg-hover`；当前模型（角色页签下是该角色的模型）`--bg-active` + 右端 14px `--accent` ✓。
 - 分组（组头 `--fs-xs` 500 `--text-2` + 等宽 `--text-3` 计数）：全部模型范围、没有搜索词时 `model.pinned`（`常用`：当前模型、各角色绑定的模型、最近用过的 3 个，去重；打开时定下来，选了别的模型行也不跳）在前，其余按提供商分组（组头是 provider 名 + 计数，组内按名称排序）在后；提供商范围只列它的模型、不单列常用；有搜索词时（名称、provider、模型 id 包含即可）只有一组 `model.matches`（`匹配`）。角色范围、或搜索框以 `@` 开头时表里列角色（组 `model.rolesGroup`）：每行 `@角色` + 它绑定的 `provider/id`（没设置写 `model.roleUnset`）和那个模型的数字列，悬停提示角色用途（`model.role.hint.*`）；选中 = 之后给那个角色选模型（见左栏），清空搜索、回到全部模型；没有匹配写 `model.noRoles`。
 - 键盘：焦点留在搜索框，↑↓ 在行之间移动，鼠标悬停也会移过去；Enter 或点击选用（选用后对话框保持打开，方便接着调思考强度）。
@@ -541,7 +541,7 @@
 
 ### 4.19 SettingsPage
 
-占据主区的页面（3.2 起改版，`direction-3.2.md` §4）。入口：侧栏底部 `设置`、`Ctrl ,`、命令面板 `设置`、斜杠 `/settings`；命令面板和斜杠命令可以直接定位到某一节（`showView("settings", { section })`：切到那一节、清掉搜索，焦点放到节标题；`/hotkeys` 和命令面板 `快捷键` 定位到通用页的快捷键分组并滚到眼前）。离开：`Esc`（搜索框里有内容时先清搜索）、导航顶上的 `返回任务`、`Alt ←` / 鼠标后退键，回到对话视图（进入前选中的任务）；进入前的焦点元素还在 DOM 里时焦点还给它。进设置不停止任何任务。**只有一列分节，不分"omp-studio 的 / omp 的"**（omp 的设置和终端共用一份，就是 omp-studio 的设置；仓库所有者 2026-10-19 定）：`通用 / 模型 / Provider 与账号 / 工具与权限 / Context 与记忆 / Subagent 与规划 / 集成 / 插件 / 高级 / 关于`，10 节固定、平铺，没有二级标题（`SettingsNav.tsx` 的 `settingsPages`；2026-10-22 仓库所有者定：原来 13 节里"对话行为 / 语音 / 其他"三节只有一两项或全是没翻译的 omp 原文，"用量"和输入框旁的用量对话框重复，"omp 版本"和"关于"各有一个检查更新）。`ui-store` 的 `SettingsSection` 是这 10 节 + `shortcuts`（通用页的快捷键分组）；`SettingsPage` 是导航里的 10 节；当前节 `settingsPage` 和搜索词 `settingsQuery` 也在 `ui-store`，导航和内容共用。**各节只放常用项**（有人话标签的 omp 设置：`ompcfg` 字典里有 `<key>.label` 的键，`config-meta.ts` 的 `commonItems`，按字典顺序），和该节的管理列表放在同一页；其余 omp 键全部进 `高级`。
+占据主区的页面（3.2 起改版，`direction-3.2.md` §4）。入口：侧栏底部 `设置`、`Ctrl ,`、命令面板 `设置`、斜杠 `/settings`；命令面板和斜杠命令可以直接定位到某一节（`showView("settings", { section })`：切到那一节、清掉搜索，焦点放到节标题；`/hotkeys` 和命令面板 `快捷键` 定位到通用页的快捷键分组并滚到眼前）。离开：`Esc`（搜索框里有内容时先清搜索）、导航顶上的 `返回任务`、`Alt ←` / 鼠标后退键，回到对话视图（进入前选中的任务）；进入前的焦点元素还在 DOM 里时焦点还给它。进设置不停止任何任务。**只有一列分节，不分"omp-studio 的 / omp 的"**（omp 的设置和终端共用一份，就是 omp-studio 的设置；仓库所有者 2026-10-19 定）：`通用 / 模型 / Provider 与订阅（2026-10-22 仓库所有者改名，原"Provider 与账号"） / 工具与权限 / Context 与记忆 / Subagent 与规划 / 集成 / 插件 / 高级 / 关于`，10 节固定、平铺，没有二级标题（`SettingsNav.tsx` 的 `settingsPages`；2026-10-22 仓库所有者定：原来 13 节里"对话行为 / 语音 / 其他"三节只有一两项或全是没翻译的 omp 原文，"用量"和输入框旁的用量对话框重复，"omp 版本"和"关于"各有一个检查更新）。`ui-store` 的 `SettingsSection` 是这 10 节 + `shortcuts`（通用页的快捷键分组）；`SettingsPage` 是导航里的 10 节；当前节 `settingsPage` 和搜索词 `settingsQuery` 也在 `ui-store`，导航和内容共用。**各节只放常用项**（有人话标签的 omp 设置：`ompcfg` 字典里有 `<key>.label` 的键，`config-meta.ts` 的 `commonItems`，按字典顺序），和该节的管理列表放在同一页；其余 omp 键全部进 `高级`。
 
 **导航**（`SettingsNav.tsx`；2026-10-22 起占侧栏的位置，`direction-3.2.md` §7 第 1 项）
 
@@ -552,7 +552,7 @@
 **内容列与页头**（`SettingsView.tsx`、`settings.css`）
 
 - 内容列**最大 1080、左对齐**（2026-10-22 起，原来 880；格子、快捷键、卡片在这个宽度里排到 3 列，再宽才在右侧留白），内边距 `--space-6 --space-10 --space-12`。节标题是页面的 `h1`。管理块（MCP、SSH、自定义提供商、插件市场）的根节点带 `.st-section`，和上一块之间留分组间距。滚动条用 `ui/OverlayScrollbar`。换节或开始搜索时滚回顶部，换节时新节整体淡入（`motion.css`）。
-- 页头一行（最小高 36）：左边节标题（`--font-display` `--fs-xl` `--fw-strong`；搜索中写 `settings.search`）；右边是页头动作槽（`PageHeadActions.tsx`，各节把 sm 控件 portal 进来）：Provider 与账号 = `连接 provider…`（§4.20）；集成、插件 = `范围` 标签 + `Select` sm 168 宽。一页最多一个主按钮。
+- 页头一行（最小高 36）：左边节标题（`--font-display` `--fs-xl` `--fw-strong`；搜索中写 `settings.search`）；右边是页头动作槽（`PageHeadActions.tsx`，各节把 sm 控件 portal 进来）：Provider 与订阅 = `连接 provider…`（§4.20）；集成、插件 = `范围` 标签 + `Select` sm 168 宽。一页最多一个主按钮。
 - 节内分组用 `ui/SectionHead`（标题 + 个数，右侧 ↻ `IconButton` 或 sm 按钮，可带一行说明）。
 
 **行**（`ui/Row`，样式 `ui/controls.css` 的 `.ui-row`；omp 设置的行是 `ConfigRow.tsx`）
@@ -594,24 +594,24 @@
 
 | 节 | 内容 |
 |---|---|
-| 通用 | **格子排法**（2026-10-22 仓库所有者定，`.st-cells`：一行 2 或 3 格，每格一条 `ui/Row`，标签靠左、控件靠右，"恢复默认"夹在两者之间、出现时控件不动；内容区窄于 700 时三格减到两格，窄于 480 一格一行，`.settings-content` 是 `inline-size` 容器）。分组 `外观`：第一行语言（分段：跟随系统 / 简体中文 / English）、主题（分段：跟随系统 / 浅色 / 深色）；第二行减少动效（开关；系统已要求时开关禁用在"开"，后面徽标 `系统已要求`）、选中即复制（开关，默认开，见 §4 通则）；第三行有任务在等你时通知我（开关）、任务完成时响提示音（`settings.soundOnDone`，开关，默认关，2026-10-22：正常跑完一轮响一声系统默认提示音 `shell.beep()`，窗口可见也响；出错、中止不响；窗口在托盘、已发完成通知时不另响，`gate-notifier.ts`）。外观六项两两一行。分组 `任务运行中`（`settings.whileRunning`）：运行中按 Enter（分段：插话 / 稍后，studio 自己的设置）+ omp"对话行为"组的常用项（插话的处理方式、稍后消息的处理方式、插话何时打断工具），两格一行。分组 `快捷键`（带个数，`id="settings-shortcuts"`）：只读，三列（窄时同上减列），键名用 Kbd，v1 不可自定义（`GeneralSection.tsx`） |
+| 通用 | **格子排法**（2026-10-22 仓库所有者定，`.st-cells`：一行 2 或 3 格，每格一条 `ui/Row`，标签靠左、控件靠右，"恢复默认"夹在两者之间、出现时控件不动；内容区窄于 700 时三格减到两格，窄于 480 一格一行，`.settings-content` 是 `inline-size` 容器）。各节的 omp 常用项也这样排：按小块（`config-meta.ts` 的 `commonBlocks`，按 key 前缀归块，每块一个小标题 `settings.block.<id>`：默认与角色、出错重试、备用模型、审批与执行、自动压缩、记忆后端、Subagent、目标）两列逐行填，所以字典里成对的项挨着放；开关、数字、分段 / 下拉、`编辑…`按钮（结构化编辑和 JSON）进格子（`ConfigControls.tsx` 的 `fitsCell`，格子里 `编辑…` 后的摘要最宽 120，悬停看全文），文本框和标签输入整行排在格子下面；`记忆后端` 独占一行，下面左列 Mnemopi、右列 Hindsight。高级也用格子，右栏窄于 760 时一格一行（标签是很长的等宽 key）。分组 `外观`：第一行语言（分段：跟随系统 / 简体中文 / English）、主题（分段：跟随系统 / 浅色 / 深色）；第二行减少动效（开关；系统已要求时开关禁用在"开"，后面徽标 `系统已要求`）、选中即复制（开关，默认开，见 §4 通则）；第三行有任务在等你时通知我（开关）、任务完成时响提示音（`settings.soundOnDone`，开关，默认关，2026-10-22：正常跑完一轮响一声系统默认提示音 `shell.beep()`，窗口可见也响；出错、中止不响；窗口在托盘、已发完成通知时不另响，`gate-notifier.ts`）。外观六项两两一行。分组 `任务运行中`（`settings.whileRunning`）：运行中按 Enter（分段：插话 / 稍后，studio 自己的设置）+ omp"对话行为"组的常用项（插话的处理方式、稍后消息的处理方式、插话何时打断工具），两格一行。分组 `快捷键`（带个数，`id="settings-shortcuts"`）：只读，三列（窄时同上减列），键名用 Kbd，v1 不可自定义（`GeneralSection.tsx`） |
 | 模型 | 一组行：新任务的默认模型（`Select` 280 宽，第一项 `由 omp 自动选择`）、默认思考强度（`Select`）——**就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，经 `omp config` 读写**，和草稿输入框的模型胶囊是同一份（omp 的设置就是 omp-studio 的设置，不另存）；后面接 omp"模型与 reasoning"组的常用项（模型角色的保存位置、模型角色、出错重试与备用模型），`defaultThinkingLevel` 不重复一行（`ModelsSection.tsx`）。审批模式不在这里：在输入框胶囊或"工具与权限"里改 |
-| Provider 与账号 | 见 §4.20 |
+| Provider 与订阅 | 见 §4.20 |
 | 工具与权限 | omp"工具与权限"组的常用项（工具审批模式、按工具的审批策略、工具调用格式、允许执行命令）+ 分组 `可用工具`（`ToolsCard.tsx`，`/tools` 的列表）：标题带个数、右侧 ↻，说明写明这是全局列表（项目插件和 MCP 的工具不在内）；网格（每格最小 220 宽）每格一样：等宽工具名 + 状态徽标（`已启用` / `未启用` / `xd 设备`）+ 有对应 `<工具>.enabled` 设置项的在格尾放开关（就是那一项设置）。关掉的工具会从 omp 的列表里消失，所以不自动重读，格子保留，点 ↻ 才重读 |
 | Context 与记忆 | omp"Context 与记忆"组的常用项（自动压缩及其阈值、记忆后端、Mnemopi / Hindsight 的自动回忆、自动记住、记忆范围）+ 分组 `记忆`（`MemoryCard.tsx`）：标题右侧 ↻ 和 `清空`（`danger` sm，先 `ConfirmDialog` danger；正文写明本地记忆下次会话启动时重新生成、Hindsight 只清本地）；`项目` 行（下拉只有项目，默认当前任务所在项目，记忆按项目目录分）；`统计 / 诊断 / 待整理 / 注入内容` 是 `Tabs`，原文放等宽 `<pre>`。没有项目时只一句 `integrations.memory.noProject`。没有 `立即整理` / `重建`：实测它们在 omp 18.12.5 里没有可观察的效果，记忆只在会话启动时生成 |
 | Subagent 与规划 | omp"Subagent 与规划"组的常用项（子代理并发、嵌套层数、任务隔离与合并方式、委派积极程度、批量派发、运行时限、最高思考强度、停用的子代理、子代理的模型覆盖、目标自动推进） |
 | 集成 | 页头 `范围` 下拉（`用户（全局）` / 各项目；MCP 和 SSH 共用，`integrations-store.ts` 的键 `integrations`）。分组 `MCP 服务器`、`SSH 主机`，见下"管理列表"。这一节没有常用项 |
 | 插件 | 页头 `范围` 下拉。分组 `已安装`、`市场`、`诊断`，见下"管理列表" |
 | 高级 | 见上 |
-| 关于 | 分组 `omp-studio`：一行 `当前版本` = 版本号 + 更新状态 + `检查更新`（下载完成后换成主按钮 `重启并安装`），下载中行内一条 4 高进度条（`AboutSection.tsx`）。分组 `omp`（`OmpSection.tsx`）：低于最低版本时顶部 error `Notice` `omp.outdated`（§4.21）；`版本` 行 = 版本号 + 来源徽标（`由 {name} 管理` / `由 omp-studio 管理` / `你自己安装的`）+ 有新版时 `omp.newVersion` + `检查更新`（这一个查的是 omp）+ 只有用户自装的才有 `升级`（执行 `omp update`，下面显示输出最后 3 行）；ⓘ：omp-studio 自管时 `omp.autoUpdate.note`，受管者管理时 `omp.updateByManager` + `omp.autoUpdate.noteOther`；`路径` 行；自管且不在用户 PATH 上时多一行 `omp.addPath`（按钮 `加入 PATH`）。分组 `omp 更新日志`（`OmpChangelog.tsx`）：`显示更新日志` 点开才读，按版本 `Disclosure` 折叠（最新一节展开），每次多显示 8 节，正文用对话流的 `Markdown`。分组 `问题排查`（`TroubleshootCard.tsx`）：日志（`打开日志文件夹`）、诊断信息（`导出…`）。命令面板"检查更新""omp 更新日志"、斜杠 `/changelog` 都定位到这一节 |
+| 关于 | 分组 `版本`（`settings.about.versions`；两行内容宽，不排格子）：低于最低版本时顶部 error `Notice` `omp.outdated`（§4.21）；`omp-studio` 行 = 版本号 + 更新状态 + `检查更新`（下载完成后换成主按钮 `重启并安装`），下载中行内一条 4 高进度条（`AboutSection.tsx`）；`omp` 行（`OmpSection.tsx`）= 版本号 + 来源徽标（`由 {name} 管理` / `由 omp-studio 管理` / `你自己安装的`）+ 有新版时 `omp.newVersion` + `检查更新`（这一个查的是 omp）+ 只有用户自装的才有 `升级`（执行 `omp update`，下面显示输出最后 3 行）；ⓘ：omp-studio 自管时 `omp.autoUpdate.note`，受管者管理时 `omp.updateByManager` + `omp.autoUpdate.noteOther`；`omp 路径` 行；自管且不在用户 PATH 上时多一行 `omp.addPath`（按钮 `加入 PATH`）。分组 `omp 更新日志`（`OmpChangelog.tsx`）：`显示更新日志` 点开才读，按版本 `Disclosure` 折叠（最新一节展开），每次多显示 8 节，正文用对话流的 `Markdown`。分组 `问题排查`（`TroubleshootCard.tsx`）：一行两格，日志（`打开日志文件夹`）、诊断信息（`导出…`）。命令面板"检查更新""omp 更新日志"、斜杠 `/changelog` 都定位到这一节 |
 
 **管理列表**（集成、插件；提供商、自定义提供商见 §4.20。2026-10-22 起，`direction-3.2.md` §4 第 5 条、§7 第 2 项）
 
-- 每项一个 `ui/ListRow`（最小高 48，下边 1px `--border-subtle`）：28 方图标块（名称前两个字）、名称 + 徽标（范围、状态都用 `Badge`）、一行元信息（`--fs-xs` `--text-3`，单行省略）、右侧动作（sm 按钮、开关）。删除 / 移除 / 卸载收进行尾 ⋯（`RowMenu.tsx`：`IconButton` + `ui/Menu`，红字项）。
+- 每项一个 `ui/ListRow`；MCP、SSH、市场里的可安装插件、诊断结果排成卡片（`.ui-cards`，同 §4.20 的卡片），已安装插件和市场列表一行一项（下边 1px `--border-subtle`，最小高 48；要整行展开详情）。28 方图标块（名称前两个字）、名称 + 徽标（范围、状态都用 `Badge`）、一行元信息（`--fs-xs` `--text-3`，单行省略）、右侧动作（sm 按钮、开关）。删除 / 移除 / 卸载收进行尾 ⋯（`RowMenu.tsx`：`IconButton` + `ui/Menu`，红字项）。
 - MCP、SSH 的分组标题右侧是 ↻ 和一个 sm 的 `添加…` 按钮。添加表单（MCP、SSH、市场）是对话框（`ui/Dialog` md，字段竖排 `FormField`，说明写在字段下的 help，页脚 `取消` + 主按钮），不在列表里展开。
 - 错误显示 omp 的原话（`errorDetail`），不吞；MCP、SSH 读取或写入失败是 error `Notice`。入口：斜杠 `/mcp` `/ssh` `/tools` `/memory` `/changelog`（`integrations-slash.ts`）、`/plugins` `/marketplace`（`plugins-slash.ts`）都由 studio 接管并定位到对应节，带参数时报错、草稿放回输入框；`/reload-plugins` 在当前任务里重新加载并弹 toast；命令面板有同名项和 `管理插件和市场`。
 - **范围**（集成）：`用户（全局）`（服务进程 / 中性目录）或某个项目（项目目录里的短命 rpc-ui / CLI；列表同时含用户和项目两层，每行带范围徽标）。换范围时关掉添加对话框、清掉上一个范围的失败提示。数据 `integrations-store.ts`（按范围键缓存，回来先显示上次结果再后台刷新）、`integrations-data.ts`。
-- **MCP**（`McpCard.tsx`）：行 = 名称 + 范围徽标，元信息 `传输 · 目标`（stdio 只有命令，参数 omp 不显示）；动作 `测试连接`（sm，进行中 loading；结果写在行下：`已连接，N 个工具：…` 或 omp 原话）+ 启用开关 + ⋯ `删除`（先 `ConfirmDialog` danger）。名字里有空格或特殊字符的服务器（别处建的）只读，行下写 `integrations.mcp.unmanageable`。分组下方说明 `integrations.mcp.note`（已开的任务要在自己的会话里 `/mcp reload`；`reauth` / `unauth` 只在终端界面支持）。`添加服务器…` → 对话框 `添加 MCP 服务器`：名称、范围（页头选了项目时才有，分段 用户 / 项目）、类型（分段 本地命令 / HTTP / SSE）、命令 + 参数（`Textarea`，一行一个；含空格的参数由主进程加引号，参数里不能有双引号）或 URL + 可选 Token。omp 把失败也当普通输出，只认已知成功句式，其余显示原话。
+- **MCP**（`McpCard.tsx`）：行 = 名称 + 范围徽标，元信息 `传输 · 目标`（stdio 只有命令，参数 omp 不显示）；动作 `测试连接`（sm，进行中 loading；结果写在卡片的元信息下面：`已连接，N 个工具：…` 或 omp 原话）+ 启用开关 + ⋯ `删除`（先 `ConfirmDialog` danger）。名字里有空格或特殊字符的服务器（别处建的）只读，卡片里写 `integrations.mcp.unmanageable`。分组标题下面一行说明 `integrations.mcp.note`（已开的任务要在自己的会话里 `/mcp reload`；`reauth` / `unauth` 只在终端界面支持）。`添加服务器…` → 对话框 `添加 MCP 服务器`：名称、范围（页头选了项目时才有，分段 用户 / 项目）、类型（分段 本地命令 / HTTP / SSE）、命令 + 参数（`Textarea`，一行一个；含空格的参数由主进程加引号，参数里不能有双引号）或 URL + 可选 Token。omp 把失败也当普通输出，只认已知成功句式，其余显示原话。
 - **SSH**（`SshCard.tsx`）：行 = 名称 + 范围徽标（+ `兼容模式` 徽标），元信息 `user@host:port · 密钥路径 · 说明`，⋯ `删除`（先确认）。`添加主机…` → 对话框：名称、主机地址、用户名 + 端口、密钥路径、说明、范围（页头选了项目时才有）、兼容模式（`Checkbox`）。经 `omp ssh … --json`，值写成 `--flag=value`（`src/main/integrations/ssh.ts`）。
 - **插件**（`PluginsSection.tsx` + `PluginRow.tsx` + `PluginDetails.tsx` + `MarketplacesCard.tsx`，状态 `plugins-store.ts`，样式 `plugins.css`）：数据和动作都经 `omp plugin …` CLI（主进程 `src/main/plugins/plugin-cli.ts`，输出解析在 `src/shared/omp-output/plugins.ts`，见 `docs/architecture/plugins.md`）；渲染进程只能发封闭的 `PluginAction`，不传命令文本。页头 `范围`（`用户` / 各项目，默认用户）：选项目后列表同时显示该项目范围的安装，项目范围的行带 `项目` 徽标，同一个插件两个范围都装了就是两行，每行的动作带各自的 `--scope`；项目目录由主进程按 projectId 取。页头下一行简介 `plugins.intro`。改动后出现 info `Notice`：`plugins.reload.title` + `稍后`（quiet）+ `在运行中的任务里重新加载`——只对空闲任务发 `reloadPlugins`，忙的不碰并 toast 个数。
   - `已安装`（个数；右侧有市场插件时 `升级全部`，再一个 ↻）：行 = 名称 + 元信息 `版本 x · 说明`，动作 `详情`（`Disclosure`）+ `升级`（只有市场插件）+ 启用开关 + ⋯ `卸载`（先 `ConfirmDialog` danger）。展开后 npm / link 插件有 `功能`（每项一行开关，默认开的功能名后 `默认` 徽标）和 `设置`（布尔 = 开关、枚举 = 下拉、其余 = 输入框 + `保存`；已设置的算改过，有恢复默认；值不能以 `-` 开头，omp 会当成选项），市场插件只有一句 `plugins.settings.marketplaceOnly`。
@@ -621,14 +621,14 @@
 
 "Subagent 与规划"里的「目标自动推进」（常用项）：开关，是 omp 的 `goal.continuationModes` 里有没有 `rpc`，切换时只增减 `rpc`、别的条目保留（`shared/ui/goal-continuation.ts`）；读写走 `omp config`，和终端里的 omp 共用同一份，不另存副本。omp 就绪后主进程检查一次：用户没明确设过（`config.yml` 里没有这个键）就加上 `rpc`，设过的不碰（`src/main/omp-config/goal-default.ts`）。
 
-### 4.20 Provider 与账号（设置页的一节；登录流）
+### 4.20 Provider 与订阅（设置页的一节；登录流）
 
 代码 `features/settings/`：`ProvidersSection.tsx`（页面）、`ProviderRow.tsx`（一行）、`ProviderPickDialog.tsx`（连接提供商）、`ProviderFlowDialog.tsx` + `ProviderPanels.tsx`（登录 / 填 key / 选账号 / 失败）、`CustomProviders.tsx` + `CustomProviderForm.tsx` + `CustomModelList.tsx`（自定义提供商）、`RowMenu.tsx`（⋯），分组规则 `src/shared/ui/provider-list.ts`，样式 `providers.css`、`custom-providers.css`，文案 `login.*`、`custom.*`。omp 列出 80 多个提供商，**没连接的不在页面上铺开**（2026-10-22 起，`direction-3.2.md` §7 第 3 项；原来是 `显示其余 N 个提供商` 展开）。
 
 - **数据**：`accounts-store.ts` 一次读 `get_login_providers`（提供商列表）、studio 存了 key 的提供商、模型列表，再对已认证的提供商逐个读 `get_logout_accounts`（账号）；有缓存先显示，进入时后台刷新；登录、退出、改 key 之后强制重读。读取失败是 error `Notice` `login.loadFailed`；后台刷新失败时保留上次结果，上面一条 warning `Notice` `login.refreshFailed`。
 - **分组**（`splitProviders`）：**已连接** = omp 认为已认证（登录过、环境变量或配置里有凭据）或 studio 存了 key 的；其余是"没连接"。两组内都保持 omp 的顺序。
 - **页面自上而下**：页头右侧 `连接 provider…`（`login.connect`，sm 次要按钮带 `+`，`providers-connect`；还在读取或没有未连接的提供商时禁用）。分组 `已连接`（`login.connected`，带个数）：每个一行；一个都没有时一句 `login.connected.empty`。分组 `自定义提供商`（见下）。最后分组 `其他提供商`（`login.others`，带个数，`providers-others`）：只有一行说明 `login.others.note`，不列行。
-- **卡片**（2026-10-22 起，仓库所有者嫌一行一个太占地方；`ProviderRow.tsx`，`ui/ListRow` 放进 `.ui-cards`，`provider-<id>`）：已连接和自定义提供商都排成卡片网格（每格最小 260，内容列 1080 时一行 3 张，窄了减列），同一行卡片等高。卡片内：左上 28 方图标块（名称首字母），右边名称 + 状态 `Badge`（名称放不下时徽标换到下一行，名称先占满一行再省略）、元信息（可换行）；底部靠右是 sm 按钮和 ⋯。选择对话框里同一个 `ProviderRow` 仍是一行。
+- **卡片**（2026-10-22 起，仓库所有者嫌一行一个太占地方；`ProviderRow.tsx`，`ui/ListRow` 放进 `.ui-cards`，`provider-<id>`）：已连接和自定义提供商都排成卡片网格（每格最小 260，内容列 1080 时一行 3 张，窄了减列），同一行卡片等高。卡片内：左上 28 方图标块（provider 的单色 logo，16px、`currentColor` 跟主题：`ProviderLogo.tsx`，图形拷自 LobeHub Icons，MIT，许可证随安装包放进 `resources/licenses/`；没有 logo 的写名称首字母），右边名称 + 状态 `Badge`（名称放不下时徽标换到下一行，名称先占满一行再省略）、元信息（可换行）；底部靠右是 sm 按钮和 ⋯。选择对话框里同一个 `ProviderRow` 仍是一行。
 
 | 状态（按顺序取第一条命中的） | 徽标 | 元信息 |
 |---|---|---|
@@ -984,7 +984,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | 任务删除、自定义快捷键、界面缩放、角色（default/plan）选择、测试结果显示 | — | 不做 |
 | 编辑/分叉用户消息、会话树（读会话文件 + omp `/tree` + `--fork`） | omp 用户消息上的回退图标、`/fork`、`/tree`、命令面板“会话树” | 已做，见 §4.14 SessionTreePanel；原地编辑已发出的消息不做（omp 没有改写历史的命令） |
 | macOS | 侧栏头左侧 inset（红绿灯）、`⌘` 映射、系统菜单 | Windows 优先；CSS 已不写死三键宽度 |
-| API key 登录输入 | 设置 → Provider 与账号 的提供商行 | 只显示终端登录指引 |
+| API key 登录输入 | 设置 → Provider 与订阅 的提供商行 | 只显示终端登录指引 |
 
 ---
 
@@ -1299,7 +1299,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 |---|---|---|
 | `settings.general` | 通用 | General |
 | `settings.models` | 模型 | Models |
-| `settings.providers` | Provider 与账号 | Providers & accounts |
+| `settings.providers` | Provider 与订阅 | Providers & subscriptions |
 | `settings.tools` | 工具与权限 | Tools & permissions |
 | `settings.context` | Context 与记忆 | Context & memory |
 | `settings.agents` | Subagent 与规划 | Subagents & planning |
@@ -1371,8 +1371,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `omp.newVersion` | 有新版本 {version} | {version} is available |
 | `omp.checkUpdate` | 检查更新 | Check for updates |
 | `omp.upToDate` | 已是最新版本 | You're up to date |
-| `omp.path` | 路径 | Path |
-| `omp.version` | 版本 | Version |
+| `omp.path` | omp 路径 | omp path |
+| `settings.about.versions` | 版本 | Versions |
 | `omp.source` | 来源 | Source |
 | `omp.error.title` | 没能启动 omp | Couldn't start omp |
 | `omp.error.details` | 显示详情 | Show details |

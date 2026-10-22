@@ -21,7 +21,7 @@ export function TroubleshootCard() {
   };
 
   return (
-    <div className="ui-rows st-rows" data-testid="about-troubleshoot">
+    <div className="st-cells" data-cols="2" data-testid="about-troubleshoot">
       <Row label={t("settings.about.logs")} info={t("settings.about.logs.desc")}>
         {() => (
           <Button

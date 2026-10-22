@@ -1,4 +1,4 @@
-// 设置 → 模型：新任务的默认模型 / 思考强度，以及 omp "模型与推理"组的常用项（模型角色、重试与备用模型），同一张卡。
+// 设置 → 模型：新任务的默认模型 / 思考强度，以及 omp "模型与推理"组的常用项（模型角色、重试与备用模型），按小块排成格子。
 // 默认值就是 omp 自己的 modelRoles.default / defaultThinkingLevel（设计原则 7），和输入框的模型胶囊、omp 设置是同一份。
 // 模型列表来自提供商与账号页同一份读取（accounts-store）。
 import { reportError } from "../../ui/errors.ts";
@@ -15,7 +15,7 @@ import {
 import { loadAccounts, useAccountLoad } from "./accounts-store.ts";
 import { Row, type Option } from "../../ui/controls.tsx";
 import { Select } from "../../ui/Select.tsx";
-import { ConfigRow } from "./ConfigRow.tsx";
+import { CommonConfig } from "./ConfigSection.tsx";
 import { useCommonConfigItems } from "./OmpConfigPane.tsx";
 
 const thinkingLevels = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
@@ -52,9 +52,9 @@ export function ModelsSection() {
   if (typeof thinking === "string" && !thinkingOptions.some((option) => option.value === thinking))
     thinkingOptions.push({ value: thinking, label: thinking });
 
-  // 和 omp 的常用项同一组行。
-  return (
-    <div className="ui-rows st-rows">
+  // 默认模型和思考强度放在"默认与角色"块的最前面，和 omp 的常用项同一组格子。
+  const lead = (
+    <>
       <Row label={t("settings.defaultModel")}>
         {(labelId) => (
           <Select
@@ -90,9 +90,7 @@ export function ModelsSection() {
           />
         )}
       </Row>
-      {common.map((item) => (
-        <ConfigRow key={item.key} item={item} />
-      ))}
-    </div>
+    </>
   );
+  return <CommonConfig items={common} lead={{ block: "defaults", cells: lead }} />;
 }

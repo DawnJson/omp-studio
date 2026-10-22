@@ -1,6 +1,6 @@
 # WorkBuddy 账号内置（计划，未实现）
 
-目标：在 studio 的"设置 → Provider 与账号"里登录 WorkBuddy（腾讯 CodeBuddy 套餐）账号，它套餐里的模型（Hy3、GLM、Kimi、DeepSeek……）出现在模型选择器里，任务直接用。studio 自带这个功能，不装 omp 插件，也不依赖 magpie。
+目标：在 studio 的"设置 → Provider 与订阅"里登录 WorkBuddy（腾讯 CodeBuddy 套餐）账号，它套餐里的模型（Hy3、GLM、Kimi、DeepSeek……）出现在模型选择器里，任务直接用。studio 自带这个功能，不装 omp 插件，也不依赖 magpie。
 
 状态：仓库所有者 2026-10-21 要求先出计划。下面第 1 节的决定没拍板之前不动代码。
 
@@ -22,7 +22,7 @@
 
 ```mermaid
 flowchart LR
-  UI[设置 → Provider 与账号<br/>WorkBuddy 行] -->|IPC| Auth[main/workbuddy/auth.ts<br/>登录 / 刷新 / 退出]
+  UI[设置 → Provider 与订阅<br/>WorkBuddy 行] -->|IPC| Auth[main/workbuddy/auth.ts<br/>登录 / 刷新 / 退出]
   Auth --> Store[(userData/workbuddy-auth.json<br/>safeStorage 加密)]
   Auth -->|登录成功| Models[models-file.ts<br/>providers.workbuddy]
   Omp[omp 任务 / 服务进程] -->|OpenAI Chat<br/>Bearer = OMP_STUDIO_GATEWAY_KEY| GW[main/workbuddy/gateway.ts<br/>127.0.0.1:port]
@@ -103,7 +103,7 @@ providers:
 
 ## 6. 界面
 
-- 设置 → Provider 与账号的提供商列表里加一行 WorkBuddy（`ProviderRow` 的同一套样式）：未登录显示"登录"；登录中显示"等待浏览器登录 · 重新打开 · 取消"；已登录显示"已登录 · <昵称>"、"退出登录"，D6 选 b 时再加积分余额。
+- 设置 → Provider 与订阅的提供商列表里加一行 WorkBuddy（`ProviderRow` 的同一套样式）：未登录显示"登录"；登录中显示"等待浏览器登录 · 重新打开 · 取消"；已登录显示"已登录 · <昵称>"、"退出登录"，D6 选 b 时再加积分余额。
 - 网关启动失败（端口、密钥）在这一行就地报错，走 `reportError`。
 - 模型选择器不用改：模型名是 `workbuddy/<id>`，和其它提供商一样。
 - 文案中英各一份（`src/shared/i18n/`），检查较长的英文会不会撑破这一行。截图：中英文 × 深浅主题。

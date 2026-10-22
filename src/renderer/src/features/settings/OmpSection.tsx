@@ -1,9 +1,10 @@
-// 设置 → 关于 → omp：路径、版本、来源，以及对应来源的更新方式（spec §4.19、§4.21）。
+// 设置 → 关于 → 版本：omp-studio 一行（由 AboutSection 传进来）、omp 一行，下面是 omp 的路径，
+// 以及对应来源的更新方式（spec §4.19、§4.21）。两行内容宽（版本 + 说明 + 按钮），不排格子。
 //   自管：检查更新（omp-studio 自己请求构建服务）、加入用户 PATH；
 //   用户自装（拒绝了接管）：升级 = 对它执行 omp update；
 //   别人管理（如 Tern）：只提示去管理者那里更新，没有按钮。
 import { describeError } from "../../ui/errors.ts";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { OmpSource, OmpStatus, OmpUpgradeResult } from "../../../../shared/ipc.ts";
 import { MIN_OMP_VERSION } from "../../../../shared/omp-version.ts";
@@ -33,14 +34,20 @@ function tail(output: string): string {
     .join("\n");
 }
 
-export function OmpSection() {
+export function OmpSection({ studio }: { studio: ReactNode }) {
   const t = useT();
   const status = useOmpStatus();
   const [note, setNote] = useState<{ text: string; error: boolean } | null>(null);
   const [busy, setBusy] = useState<"check" | "upgrade" | "path" | null>(null);
   const [upgrade, setUpgrade] = useState<OmpUpgradeResult | null>(null);
 
-  if (status?.state !== "ready") return <p className="st-muted">{t("omp.finding")}</p>;
+  if (status?.state !== "ready")
+    return (
+      <div className="ui-rows st-rows">
+        {studio}
+        <Row label={t("settings.about.omp")}>{() => <span className="st-muted">{t("omp.finding")}</span>}</Row>
+      </div>
+    );
   const ready: Ready = status;
 
   const run = async (kind: "check" | "upgrade" | "path", job: () => Promise<void>) => {
@@ -88,9 +95,11 @@ export function OmpSection() {
       {ready.belowMinimum && (
         <Notice tone="error">{t("omp.outdated", { current: ready.version, min: MIN_OMP_VERSION })}</Notice>
       )}
-      <div className="ui-rows st-rows" data-testid="omp-info">
+      <div className="ui-rows st-rows">
+        {studio}
         <Row
-          label={t("omp.version")}
+          label={t("settings.about.omp")}
+          testId="omp-info"
           info={
             source.kind === "studio_managed"
               ? t("omp.autoUpdate.note")

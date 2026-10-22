@@ -6,6 +6,7 @@ import { pushToast } from "../dialogs/toast-store.ts";
 import { describeError, reportError } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
+import { ProviderLogo } from "./ProviderLogo.tsx";
 import { Button, ListRow, Notice, SectionHead } from "../../ui/controls.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
@@ -127,7 +128,7 @@ export function CustomProviders() {
             <ListRow
               key={provider.id}
               testId={`custom-provider-${provider.id}`}
-              icon={provider.id.slice(0, 1).toUpperCase()}
+              icon={<ProviderLogo id={provider.id} name={provider.id} />}
               title={provider.id}
               meta={metaText(provider)}
               actions={

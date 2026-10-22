@@ -66,6 +66,56 @@ export function commonItems(items: readonly OmpConfigItem[]): OmpConfigItem[] {
     .sort((a, b) => (commonOrder.get(a.key) ?? 0) - (commonOrder.get(b.key) ?? 0));
 }
 
+/**
+ * 各节页面上常用项的小块（spec §4.19）：一个小标题（`settings.block.<id>`）+ 一组格子。按 key 前缀归块，最长的前缀算数；
+ * 块按这里的顺序排，块里按常用项的顺序（两列逐行填，所以字典里成对的项挨着放）。没归进任何块的放在最后，不带小标题。
+ */
+export type CommonBlockId =
+  "defaults" | "retry" | "fallback" | "approval" | "compaction" | "memory" | "subagents" | "goal";
+
+const blockSpecs: readonly { id: CommonBlockId; prefixes: readonly string[] }[] = [
+  { id: "defaults", prefixes: ["modelRole", "defaultThinkingLevel"] },
+  { id: "retry", prefixes: ["retry."] },
+  {
+    id: "fallback",
+    prefixes: ["retry.modelFallback", "retry.fallbackOn", "retry.fallbackChains", "retry.waitForUsageReset"],
+  },
+  { id: "approval", prefixes: ["tools.", "bash."] },
+  { id: "compaction", prefixes: ["compaction."] },
+  { id: "memory", prefixes: ["memory.", "mnemopi.", "hindsight."] },
+  { id: "subagents", prefixes: ["task."] },
+  { id: "goal", prefixes: ["goal."] },
+];
+
+/** 格子里独占一整行的项：它下面那几格是它的子设置（记忆后端下面左列 Mnemopi、右列 Hindsight）。 */
+export const spanKeys: ReadonlySet<string> = new Set(["memory.backend"]);
+
+export interface CommonBlock {
+  /** "" = 没归进任何块。 */
+  id: CommonBlockId | "";
+  items: OmpConfigItem[];
+}
+
+export function commonBlocks(items: readonly OmpConfigItem[]): CommonBlock[] {
+  const byId = new Map<CommonBlockId | "", OmpConfigItem[]>();
+  for (const item of items) {
+    let id: CommonBlockId | "" = "";
+    let longest = 0;
+    for (const spec of blockSpecs)
+      for (const prefix of spec.prefixes)
+        if (item.key.startsWith(prefix) && prefix.length > longest) {
+          id = spec.id;
+          longest = prefix.length;
+        }
+    byId.set(id, [...(byId.get(id) ?? []), item]);
+  }
+  const order: (CommonBlockId | "")[] = [...blockSpecs.map((spec) => spec.id), ""];
+  return order.flatMap((id) => {
+    const inBlock = byId.get(id);
+    return inBlock === undefined ? [] : [{ id, items: inBlock }];
+  });
+}
+
 export interface PrefixGroup {
   /** key 的第一段；"" = 没有点号的顶层键和只有一项的前缀，合成"其他"。 */
   prefix: string;

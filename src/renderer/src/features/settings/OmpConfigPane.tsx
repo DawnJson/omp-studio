@@ -5,7 +5,7 @@ import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { useOmpStatus } from "../../store/index.ts";
 import { Button, Notice } from "../../ui/controls.tsx";
-import { AdvancedConfig, ConfigCard, ConfigResults } from "./ConfigSection.tsx";
+import { AdvancedConfig, CommonConfig, ConfigResults } from "./ConfigSection.tsx";
 import { groupConfigItems, groupOf, type ConfigGroup } from "../../../../shared/ui/config-groups.ts";
 import { commonItems, matchesQuery } from "./config-meta.ts";
 import { loadOmpConfig, useConfigLoad } from "./config-store.ts";
@@ -90,6 +90,6 @@ export function OmpConfigPane({ view }: { view: ConfigView }) {
     case "advanced":
       return <AdvancedConfig items={snapshot.items} />;
     case "common":
-      return <ConfigCard items={commonItems(groupConfigItems(snapshot.items).get(view.group) ?? [])} />;
+      return <CommonConfig items={commonItems(groupConfigItems(snapshot.items).get(view.group) ?? [])} />;
   }
 }

@@ -17,6 +17,12 @@
   color: var(--st-error);
 }
 
+/* MCP 卡片里元信息下面的说明和"测试连接"结果 */
+.ig-card-note {
+  display: block;
+  margin-top: var(--space-1);
+}
+
 /* omp 的原话：保留换行，长路径可以断开 */
 .ig-raw {
   white-space: pre-wrap;

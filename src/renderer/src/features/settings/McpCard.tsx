@@ -44,62 +44,66 @@ function McpRow({
       : row.scope === "project"
         ? t("integrations.scope.project")
         : row.scope;
+  // 卡片（.ui-cards）：说明和"测试连接"的结果写在元信息下面，同一张卡里。
   return (
-    <div data-testid={`mcp-row-${row.name}`}>
-      <ListRow
-        icon={row.name.slice(0, 2)}
-        title={row.name}
-        badges={scopeText !== "" ? <Badge>{scopeText}</Badge> : undefined}
-        meta={[row.transport, row.target].filter((part) => part !== "").join(" · ")}
-        actions={
-          <>
-            <Button
-              size="sm"
-              disabled={busy || !manageable}
-              loading={test === "running"}
-              onClick={onTest}
-              testId={`mcp-test-${row.name}`}
+    <ListRow
+      testId={`mcp-row-${row.name}`}
+      icon={row.name.slice(0, 2)}
+      title={row.name}
+      badges={scopeText !== "" ? <Badge>{scopeText}</Badge> : undefined}
+      meta={
+        <>
+          {[row.transport, row.target].filter((part) => part !== "").join(" · ")}
+          {!manageable && <span className="ig-card-note">{t("integrations.mcp.unmanageable")}</span>}
+          {test !== undefined && test !== "running" && (
+            <span
+              className={test.connected ? "ig-card-note" : "ig-card-note ig-raw ig-error"}
+              role={test.connected ? "status" : "alert"}
+              data-testid={`mcp-test-result-${row.name}`}
             >
-              {t("integrations.mcp.test")}
-            </Button>
-            <Switch
-              checked={row.enabled}
-              disabled={busy || !manageable}
-              label={row.name}
-              onChange={onToggle}
-              testId={`mcp-enabled-${row.name}`}
-            />
-            <RowMenu
-              label={t("integrations.more")}
-              disabled={busy || !removable}
-              testId={`mcp-more-${row.name}`}
-              items={[
-                {
-                  id: "remove",
-                  label: t("integrations.remove"),
-                  tone: "danger",
-                  testId: `mcp-remove-${row.name}`,
-                  onSelect: onRemove,
-                },
-              ]}
-            />
-          </>
-        }
-      />
-      {!manageable && <p className="ig-note">{t("integrations.mcp.unmanageable")}</p>}
-      {test !== undefined && test !== "running" && (
-        <p
-          className={test.connected ? "ig-note" : "ig-note ig-raw ig-error"}
-          role={test.connected ? "status" : "alert"}
-          data-testid={`mcp-test-result-${row.name}`}
-        >
-          {test.connected
-            ? t("integrations.mcp.connected", { count: test.toolCount }) +
-              (test.tools.length > 0 ? `：${test.tools.join(", ")}` : "")
-            : test.message}
-        </p>
-      )}
-    </div>
+              {test.connected
+                ? t("integrations.mcp.connected", { count: test.toolCount }) +
+                  (test.tools.length > 0 ? `：${test.tools.join(", ")}` : "")
+                : test.message}
+            </span>
+          )}
+        </>
+      }
+      actions={
+        <>
+          <Button
+            size="sm"
+            disabled={busy || !manageable}
+            loading={test === "running"}
+            onClick={onTest}
+            testId={`mcp-test-${row.name}`}
+          >
+            {t("integrations.mcp.test")}
+          </Button>
+          <Switch
+            checked={row.enabled}
+            disabled={busy || !manageable}
+            label={row.name}
+            onChange={onToggle}
+            testId={`mcp-enabled-${row.name}`}
+          />
+          <RowMenu
+            label={t("integrations.more")}
+            disabled={busy || !removable}
+            testId={`mcp-more-${row.name}`}
+            items={[
+              {
+                id: "remove",
+                label: t("integrations.remove"),
+                tone: "danger",
+                testId: `mcp-remove-${row.name}`,
+                onSelect: onRemove,
+              },
+            ]}
+          />
+        </>
+      }
+    />
   );
 }
 
@@ -175,6 +179,7 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
           </>
         }
       />
+      <p className="ig-note">{t("integrations.mcp.note")}</p>
       {load.kind === "error" && (
         <Notice tone="error" testId="mcp-load-failed">
           <span className="ig-raw">{t("integrations.loadFailed", { message: errorDetail(load.error) })}</span>
@@ -188,7 +193,7 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
         </p>
       )}
       {data !== null && data.servers.length > 0 && (
-        <div className="ui-rows">
+        <div className="ui-cards">
           {data.servers.map((row) => (
             <McpRow
               key={`${row.scope}:${row.name}`}
@@ -214,7 +219,6 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
           <span className="ig-raw">{failure}</span>
         </Notice>
       )}
-      <p className="ig-note">{t("integrations.mcp.note")}</p>
       {adding !== null && (
         <McpForm
           key={adding.key}

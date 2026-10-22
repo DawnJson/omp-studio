@@ -1,6 +1,6 @@
 # 自定义模型（第三方 API 提供商）
 
-设置 → Provider 与账号 → 自定义提供商：添加、编辑、删除 `providers.<id>`，一键拉取第三方地址的模型列表并勾选加入。
+设置 → Provider 与订阅 → 自定义提供商：添加、编辑、删除 `providers.<id>`，一键拉取第三方地址的模型列表并勾选加入。
 
 实现：`src/main/omp-config/models-file.ts`（读写 `models.yml`）、`fetch-models.ts`（拉取）、`src/main/ipc/custom-model-handlers.ts`（IPC）、`src/shared/custom-models.ts`（类型和校验，界面和主进程共用）；界面 `features/settings/CustomProviders.tsx`、`CustomProviderForm.tsx`、`CustomModelList.tsx`。
 

@@ -1,24 +1,78 @@
-// omp 设置的展示：各节页面上的常用项（一组行）、"高级"（页内目录 + 选中分组的全部行平铺）、搜索结果。
-// 高级：左侧目录 = omp-studio 的 8 个分组 + 当前分组下的前缀小组（带个数）；右侧是选中分组的行，没有折叠，前缀做小标题。
-import { useMemo, useState } from "react";
+// omp 设置的展示：各节页面上的常用项（小标题 + 格子）、"高级"（页内目录 + 选中分组的全部项平铺）、搜索结果（一列行）。
+// 高级：左侧目录 = omp-studio 的 8 个分组 + 当前分组下的前缀小组（带个数）；右侧是选中分组的项，没有折叠，前缀做小标题。
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { SectionHead } from "../../ui/controls.tsx";
 import { groupConfigItems } from "../../../../shared/ui/config-groups.ts";
 import { prefixTitle } from "../../../../shared/ui/config-labels.ts";
+import { fitsCell } from "./ConfigControls.tsx";
 import { ConfigRow } from "./ConfigRow.tsx";
-import { advancedGroups, groupTitle } from "./config-meta.ts";
+import { advancedGroups, commonBlocks, groupTitle, spanKeys, type CommonBlockId } from "./config-meta.ts";
 
-/** 一节页面上的常用项：一组行，不折叠。 */
-export function ConfigCard({ items }: { items: readonly OmpConfigItem[] }) {
-  if (items.length === 0) return null;
+/**
+ * 一组设置的排法（spec §4.19 格子排法）：控件窄的两列排（按顺序逐行填，spanKeys 独占一行），
+ * 文本框、标签输入、JSON 整行排在后面。`lead`：页面自己的几格，放在最前面。
+ */
+function ConfigGrid({
+  items,
+  keyPrefix = "",
+  lead,
+}: {
+  items: readonly OmpConfigItem[];
+  keyPrefix?: string;
+  lead?: ReactNode;
+}) {
+  const cells = items.filter(fitsCell);
+  const rows = items.filter((item) => !fitsCell(item));
   return (
-    <div className="ui-rows st-rows">
-      {items.map((item) => (
-        <ConfigRow key={item.key} item={item} />
-      ))}
-    </div>
+    <>
+      {(lead !== undefined || cells.length > 0) && (
+        <div className="st-cells" data-cols="2">
+          {lead}
+          {cells.map((item) =>
+            spanKeys.has(item.key) ? (
+              <div key={item.key} className="st-span">
+                <ConfigRow item={item} keyPrefix={keyPrefix} />
+              </div>
+            ) : (
+              <ConfigRow key={item.key} item={item} keyPrefix={keyPrefix} />
+            ),
+          )}
+        </div>
+      )}
+      {rows.length > 0 && (
+        <div className="ui-rows st-rows">
+          {rows.map((item) => (
+            <ConfigRow key={item.key} item={item} keyPrefix={keyPrefix} />
+          ))}
+        </div>
+      )}
+    </>
   );
+}
+
+/**
+ * 一节页面上的常用项：按小块排（config-meta 的 commonBlocks），每块一个小标题 + ConfigGrid。
+ * `lead`：页面自己的控件，放进 `block` 那一块的最前面（模型页的默认模型、默认思考强度）；常用项还没读到时也显示。
+ */
+export function CommonConfig({
+  items,
+  lead,
+}: {
+  items: readonly OmpConfigItem[];
+  lead?: { block: CommonBlockId; cells: ReactNode };
+}) {
+  const t = useT();
+  const blocks = commonBlocks(items);
+  if (lead !== undefined && !blocks.some((block) => block.id === lead.block))
+    blocks.unshift({ id: lead.block, items: [] });
+  return blocks.map((block) => (
+    <Fragment key={block.id}>
+      {block.id !== "" && <SectionHead title={t(`settings.block.${block.id}`)} />}
+      <ConfigGrid items={block.items} lead={lead?.block === block.id ? lead.cells : undefined} />
+    </Fragment>
+  ));
 }
 
 // 目录选中的分组和小组记在模块里：换节再回来保持原样。
@@ -103,11 +157,7 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
                   (modified > 0 ? ` · ${t("settings.cfg.modifiedCount", { count: modified })}` : "")
                 }
               />
-              <div className="ui-rows st-rows">
-                {bucket.map((item) => (
-                  <ConfigRow key={item.key} item={item} keyPrefix={prefix} />
-                ))}
-              </div>
+              <ConfigGrid items={bucket} keyPrefix={prefix} />
             </section>
           ))}
         </div>

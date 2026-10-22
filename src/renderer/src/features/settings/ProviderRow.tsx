@@ -1,4 +1,4 @@
-// 设置 → 提供商与账号 里的一个提供商（ui/ListRow：页面上排成卡片，选择对话框里是一行），状态是徽标，动作是 sm 按钮，清除 key 收进 ⋯（spec §4.20）。
+// 设置 → Provider 与订阅 里的一个 provider（ui/ListRow：页面上排成卡片，选择对话框里是一行；图标是 provider 的 logo），状态是徽标，动作是 sm 按钮，清除 key 收进 ⋯（spec §4.20）。
 // 登录 / 填 key / 选账号都交给 ProviderFlowDialog；这里只直接做"只有一个账号时退出"和"清除 key"两个不需要输入的动作。
 import { useState } from "react";
 import type { LoginKind } from "../../../../shared/provider-login.ts";
@@ -8,6 +8,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Badge, Button, ListRow } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import type { FlowAction } from "./ProviderFlowDialog.tsx";
+import { ProviderLogo } from "./ProviderLogo.tsx";
 import { RowMenu } from "./RowMenu.tsx";
 
 interface ProviderRowProps {
@@ -75,7 +76,7 @@ export function ProviderRow({
   return (
     <ListRow
       testId={`provider-${provider.id}`}
-      icon={provider.name.slice(0, 1).toUpperCase()}
+      icon={<ProviderLogo id={provider.id} name={provider.name} />}
       title={provider.name}
       badges={<Badge tone={badge.tone}>{badge.text}</Badge>}
       meta={meta === "" ? undefined : meta}

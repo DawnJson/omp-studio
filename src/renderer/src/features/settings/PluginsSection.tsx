@@ -101,7 +101,7 @@ export function PluginsSection() {
         </Notice>
       )}
 
-      <section data-testid="plugins-installed">
+      <section className="st-section" data-testid="plugins-installed">
         <SectionHead
           title={t("plugins.installed")}
           count={snapshot.data === null ? undefined : installedCount}
@@ -140,26 +140,28 @@ export function PluginsSection() {
             {t("plugins.installed.empty")}
           </p>
         )}
-        <div className="ui-rows">
-          {snapshot.data?.npm.map((plugin) => (
-            <PluginRow key={`npm:${plugin.name}`} plugin={plugin} working={state.working} />
-          ))}
-          {snapshot.data?.marketplace.flatMap((plugin) =>
-            plugin.installs.map((install) => (
-              <PluginRow
-                key={`mk:${plugin.id}:${install.scope}`}
-                plugin={plugin}
-                install={install}
-                working={state.working}
-              />
-            )),
-          )}
-        </div>
+        {installedCount > 0 && (
+          <div className="ui-rows">
+            {snapshot.data?.npm.map((plugin) => (
+              <PluginRow key={`npm:${plugin.name}`} plugin={plugin} working={state.working} />
+            ))}
+            {snapshot.data?.marketplace.flatMap((plugin) =>
+              plugin.installs.map((install) => (
+                <PluginRow
+                  key={`mk:${plugin.id}:${install.scope}`}
+                  plugin={plugin}
+                  install={install}
+                  working={state.working}
+                />
+              )),
+            )}
+          </div>
+        )}
       </section>
 
       <MarketplacesCard snapshot={snapshot.data} working={state.working} projectId={state.projectId} />
 
-      <section data-testid="plugins-doctor">
+      <section className="st-section" data-testid="plugins-doctor">
         <SectionHead
           title={t("plugins.doctor")}
           actions={
@@ -185,7 +187,7 @@ export function PluginsSection() {
           }
         />
         {state.doctor.data != null && state.doctor.data.length > 0 && (
-          <div className="ui-rows">
+          <div className="ui-cards">
             {state.doctor.data.map((check) => (
               <ListRow
                 key={check.name}

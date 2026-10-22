@@ -95,7 +95,7 @@ export function SshCard({ scope }: { scope: ScopeKey }) {
         </p>
       )}
       {hosts !== null && hosts.length > 0 && (
-        <div className="ui-rows">
+        <div className="ui-cards">
           {hosts.map((host) => (
             <ListRow
               key={`${host.scope}:${host.name}`}

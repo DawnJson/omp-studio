@@ -58,7 +58,7 @@ function Browse({
       {slot?.data != null && slot.data.length > 0 && entries.length === 0 && (
         <p className="pl-muted">{t("plugins.marketplaces.noMatch")}</p>
       )}
-      <div className="ui-rows">
+      <div className="ui-cards">
         {entries.map((entry) => {
           const id = `${entry.name}@${marketplace}`;
           const has = installed.has(id);
@@ -216,66 +216,68 @@ export function MarketplacesCard({
       {snapshot !== null && snapshot.marketplaces.length === 0 && (
         <p className="pl-muted">{t("plugins.marketplaces.empty")}</p>
       )}
-      <div className="ui-rows">
-        {snapshot?.marketplaces.map((marketplace) => (
-          <div key={marketplace.name} data-testid={`marketplace-${marketplace.name}`}>
-            <ListRow
-              icon={marketplace.name.slice(0, 2)}
-              title={marketplace.name}
-              meta={marketplace.source}
-              actions={
-                <>
-                  <Button
-                    size="sm"
-                    onClick={() => toggleBrowse(marketplace.name)}
-                    testId={`marketplace-browse-btn-${marketplace.name}`}
-                  >
-                    {browsing === marketplace.name
-                      ? t("plugins.marketplaces.browse.hide")
-                      : t("plugins.marketplaces.browse")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={busy}
-                    loading={working === `marketplace:update:${marketplace.name}`}
-                    onClick={() =>
-                      void runAction(
-                        t,
-                        { kind: "marketplaceUpdate", name: marketplace.name },
-                        `marketplace:update:${marketplace.name}`,
-                      )
-                    }
-                  >
-                    {t("plugins.marketplaces.update")}
-                  </Button>
-                  <RowMenu
-                    label={t("plugins.more")}
-                    disabled={busy}
-                    testId={`marketplace-more-${marketplace.name}`}
-                    items={[
-                      {
-                        id: "remove",
-                        label: t("plugins.marketplaces.remove"),
-                        tone: "danger",
-                        testId: `marketplace-remove-${marketplace.name}`,
-                        onSelect: () =>
-                          void runAction(
-                            t,
-                            { kind: "marketplaceRemove", name: marketplace.name },
-                            `marketplace:remove:${marketplace.name}`,
-                          ),
-                      },
-                    ]}
-                  />
-                </>
-              }
-            />
-            {browsing === marketplace.name && (
-              <Browse marketplace={marketplace.name} installed={installed} working={working} onInstall={setPending} />
-            )}
-          </div>
-        ))}
-      </div>
+      {(snapshot?.marketplaces.length ?? 0) > 0 && (
+        <div className="ui-rows">
+          {snapshot?.marketplaces.map((marketplace) => (
+            <div key={marketplace.name} data-testid={`marketplace-${marketplace.name}`}>
+              <ListRow
+                icon={marketplace.name.slice(0, 2)}
+                title={marketplace.name}
+                meta={marketplace.source}
+                actions={
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => toggleBrowse(marketplace.name)}
+                      testId={`marketplace-browse-btn-${marketplace.name}`}
+                    >
+                      {browsing === marketplace.name
+                        ? t("plugins.marketplaces.browse.hide")
+                        : t("plugins.marketplaces.browse")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      loading={working === `marketplace:update:${marketplace.name}`}
+                      onClick={() =>
+                        void runAction(
+                          t,
+                          { kind: "marketplaceUpdate", name: marketplace.name },
+                          `marketplace:update:${marketplace.name}`,
+                        )
+                      }
+                    >
+                      {t("plugins.marketplaces.update")}
+                    </Button>
+                    <RowMenu
+                      label={t("plugins.more")}
+                      disabled={busy}
+                      testId={`marketplace-more-${marketplace.name}`}
+                      items={[
+                        {
+                          id: "remove",
+                          label: t("plugins.marketplaces.remove"),
+                          tone: "danger",
+                          testId: `marketplace-remove-${marketplace.name}`,
+                          onSelect: () =>
+                            void runAction(
+                              t,
+                              { kind: "marketplaceRemove", name: marketplace.name },
+                              `marketplace:remove:${marketplace.name}`,
+                            ),
+                        },
+                      ]}
+                    />
+                  </>
+                }
+              />
+              {browsing === marketplace.name && (
+                <Browse marketplace={marketplace.name} installed={installed} working={working} onInstall={setPending} />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       {adding !== null && (
         <AddMarketplaceDialog key={adding.key} working={working} onClose={() => addingClosed(adding.key)} />
       )}
