@@ -16,7 +16,7 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 
 | 数据 | 来源 | 代码 |
 |---|---|---|
-| 列表（名字、类型、状态、模型、当前工具和意图、统计、`background` 徽章） | TSP 文档里的 `agent` 节点（规范 §7.6，公开契约）：task 工具卡片下的 `1a.<名字>` 和 hud 里的 `r.<名字>` 各一份，按名字去重取更活的（运行 > 等待 > 空闲 / 挂起 > 结束）；状态取值 `pending / running / done / failed / aborted / idle / parked`。**被结束的子代理节点变 `aborted`，不会消失** | `shared/tsp/agent-hub.ts` 的 `listAgents`；渲染进程 `useTspDerived`，不需要 IPC |
+| 列表（名字、类型、状态、模型、当前工具和意图、统计、`background` 徽章） | TSP 文档里的 `agent` 节点（规范 §7.6，公开契约）：task 工具卡片下的 `<卡片id>.<名字>`（omp 重排转录时卡片 id 会变，录制里先后是 `r.` / `t.` / `1a.`，2026-10-22 逐帧核对过父节点都是 `omp.tool.task`），按名字去重取更活的（运行 > 等待 > 空闲 / 挂起 > 结束）；状态取值 `pending / running / done / failed / aborted / idle / parked`。**被结束的子代理节点变 `aborted`，不会消失** | `shared/tsp/agent-hub.ts` 的 `listAgents`；渲染进程 `useTspDerived`，不需要 IPC |
 | 最终输出、对话记录 | 会话文件旁的同名目录 `<会话文件去掉 .jsonl>/<名字>.md` 和 `<名字>.jsonl`（omp 18.12.5 实测路径；格式同主会话，每行 `{type:"message", message}`）。只读，不写 `~/.omp` | `main/tsp/subagent-file.ts`，IPC `getTspSubagentRecord` |
 | 插话、结束、恢复 | 只有 Agent Hub（`picker`）的动作：没有别的通道 | `main/tasks/tsp-hub-driver.ts`，IPC `steerTspSubagent` / `killTspSubagent` / `reviveTspSubagent` |
 
@@ -24,7 +24,7 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 
 ### 界面
 
-面板（`AgentsPanel`，和文件面板同一栏、同时只开一个）：列表（`AgentRow`：状态点、名字、类型、模型、当前工具、统计）→ 点一行进详情（`AgentDetail`：任务说明、最终输出、完整记录——工具卡片按顺序排，用的是 `conversation/ProcessDetails` / `ToolViews` 的精简版，不含 task / wait 卡）→ 插话框（`SteerBox`）、结束、恢复按钮。输入框上方的药丸 `[👥 N | ⚡ N]` 左半段（运行中的子代理数，`countActiveAgents`）点击 = 打开 / 收起这个面板。驱动 Hub 期间面板顶部显示"正在发给 <名字>" / "正在结束…" / "正在恢复…"，omp 的 Hub 一帧也不画。命令面板 `agents.cmd`、斜杠命令（`agents-slash.ts`）同样打开它。
+面板（`AgentsPanel`，和文件面板同一栏、同时只开一个）：列表（`AgentRow`：状态点、名字、`后台` 标签、当前工具或任务第一句）→ 点一行进详情（`AgentDetail`：名字 + 模型 + 结束 / 恢复，统计格，任务说明原文 Markdown（`HubAgent.assignment`），最终输出、完整记录——工具卡片按顺序排，用的是 `conversation/ProcessDetails` / `ToolViews` 的精简版，不含 task / wait 卡）→ 插话框（`SteerBox`，钉在面板底边）。输入框上方的药丸 `[👥 N | ⚡ N]` 左半段（运行中的子代理数，`countActiveAgents`）点击 = 打开 / 收起这个面板。驱动 Hub 期间面板顶部显示"正在发给 <名字>" / "正在结束…" / "正在恢复…"，omp 的 Hub 一帧也不画。命令面板 `agents.cmd`、斜杠命令（`agents-slash.ts`）同样打开它。
 
 ### 实测：kill / revive（`fixtures/tsp/hub-kill.jsonl`，omp 18.12.5，`deepseek/deepseek-v4-flash`，S1Agents 录制，真实 omp、临时 agent 目录）
 
@@ -36,6 +36,15 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 - **关 Hub**：Esc 键（按键，不进 `.jsonl`）；此时 Hub 的 `layer` 被删。
 - **竞争**：一次中间录制里主代理看到取消后自己用 IRC 工具把 Beta 复活了，随后 studio 发的 `revive` 对已在运行的项是无效操作。最后一次录制在提示里禁止主代理复活才得到干净的序列（`hub-kill.jsonl` 是这一次）。**真实使用中同样可能发生**：恢复前 studio 看 Hub 里 `revive` 是否可用，禁用就以 omp 的原文报错。
 - **没测到**：`select` 之后 `kill` 一个已 `done` 的子代理会怎样；`aborted` / `failed` 的子代理被 `activate` 聚焦会怎样（Hub 的 Enter 对它们是"打开记录"，所以面板不提供对这几种状态的插话）；嵌套子代理（名字带点号）在 Hub 里的 item id。
+
+### 实测：历史子代理和 `--resume`（omp 18.12.6，`deepseek/deepseek-v4-flash`，真实 omp、临时 agent 目录，2026-10-22 一次性探针，未存为 fixture）
+
+同一会话两个回合各派子代理（Alpha、Beta，然后 Gamma），再退出、`--resume=<会话文件>` 重开。
+
+- **同一进程**：回合结束后 `agent` 节点留在各自的 task 卡片下（`<卡片id>.<名字>`，`status:"done"`，统计齐全），两个回合的都在；没有子代理在跑时 hud 里没有 `agents.open`。omp 的 Hub（`/hub`）默认落在 Activity 页，Agents 页列出全部三个（`dot:"success"`，详情徽标叫 `idle`）。所以面板天然显示历史子代理，不用另读。
+- **任务说明**：`agent` 节点的 `task` 属性被压成一行（换行变空格，`# Target No files. # Change 1. …`）；带换行的原文在子节点 `<id>/0`（`k:"md"`，`role:"omp.task.assignment"`）。Hub 的 item `detail` 也是压平的一行。面板详情用原文（`HubAgent.assignment`），列表行用压平的那句。
+- **磁盘**：会话文件旁的同名目录里每个子代理一对 `<名字>.jsonl` + `<名字>.md`，不按回合分。子代理 `.jsonl` 第一条 user 消息是 `Complete assignment thoroughly:\n\n<原文>`，换行保留。
+- **`--resume` 之后**：旧 task 卡片重放出来是 `done`，卡下的 `agent` 节点却**一律是 `status:"pending"`**，没有 `model`，`stats` 只有 `took:0`（用量丢了），几秒后仍是 pending；omp 的 Hub 把它们列成 `dot:"muted"`、徽标 `parked`，`revive` 可用。所以 `listAgents` 把"卡片已结束（不是 pending / running）而节点还写着 pending / running"的子代理当作 `parked`：不算运行中（药丸不亮、不能结束），可以恢复和插话。录制里（`hub-steer` / `hub-kill`）子代理在跑时卡片一直是 pending / running，不受影响。
 
 ### 实测：退出聚焦（真实 omp，一次性探针，未存为 fixture）
 

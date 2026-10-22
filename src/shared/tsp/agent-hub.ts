@@ -1,7 +1,7 @@
 // 子代理面板（spec §4.28）读 omp 的 TSP 文档：列表、Hub 选择器、聚焦模式。纯函数，主进程（驱动 Hub）和渲染进程（画面板）共用。
 //
 // 依据是 omp 18.12.5 的实测录制：
-// - fixtures/tsp/hub-steer.jsonl（NativeUiPlan）：`agent` 节点（task 工具卡片下 `1a.<名字>`，dock 的 hud 里另有 `r.<名字>`）；
+// - fixtures/tsp/hub-steer.jsonl（NativeUiPlan）：`agent` 节点在 task 工具卡片下（`<卡片id>.<名字>`，卡片 id 随转录重排变化，同一个名字可能同时有两份）；
 //   `action agents.open`（hud 的 `omp.hud.seg`，`actions.click`）打开 Hub = layer 里的 `picker`（`tabs` 有 agents / activity）；
 //   对 picker `activate item=<名字>` → Hub 关闭，composer 卡片里多一行 `omp.composer.focus`（`omp.composer.exit` 的 `actions.click` 是
 //   `focus:Main`），之后同一个编辑器的 `send` 只写进那个子代理的会话。
@@ -50,8 +50,10 @@ export interface HubAgent {
   name: string;
   /** 代理类型（`task` 等）。 */
   agent: string | null;
-  /** 一句话任务说明。 */
+  /** 一句话任务说明（omp 把换行压成了空格）。 */
   task: string;
+  /** 任务说明原文（带换行的 Markdown，`agent` 节点下 `omp.task.assignment` 子节点）；没有时为 null。 */
+  assignment: string | null;
   status: AgentStatus;
   model: string | null;
   tool: { name: string; intent: string; age: number | null } | null;
@@ -69,7 +71,11 @@ export interface HubAgent {
   depth: number;
 }
 
-function toAgent(node: DocNode): HubAgent | null {
+const ASSIGNMENT_ROLE = "omp.task.assignment";
+/** 还在跑的子代理所在的 task 卡片状态；卡片已经结束而子代理还写着等待/运行，是 `--resume` 重放出来的旧节点。 */
+const LIVE_CARD_STATUSES: Readonly<Record<string, true>> = { pending: true, running: true };
+
+function toAgent(node: DocNode, nodes: ReadonlyMap<string, DocNode>): HubAgent | null {
   const p = node.p;
   const name = p["name"];
   const status = p["status"];
@@ -78,11 +84,20 @@ function toAgent(node: DocNode): HubAgent | null {
   const tool = isRecord(p["tool"]) && typeof p["tool"]["name"] === "string" ? p["tool"] : null;
   const stats = isRecord(p["stats"]) ? p["stats"] : {};
   const badges = Array.isArray(p["badges"]) ? p["badges"] : [];
+  const assignment = node.c.map((id) => nodes.get(id)).find((child) => child && nodeRole(child) === ASSIGNMENT_ROLE);
+  const card = node.parent === null ? undefined : nodes.get(node.parent);
+  // 实测 omp 18.12.6：`--resume` 之后旧 task 卡片是 done，卡下的子代理却一律是 pending（用量也没了），omp 的 Hub 把它们算作 parked。
+  const cardStatus = card?.p["status"];
+  const stale =
+    isAgentActive(status as AgentStatus) &&
+    typeof cardStatus === "string" &&
+    !Object.hasOwn(LIVE_CARD_STATUSES, cardStatus);
   return {
     name,
     agent: typeof p["agent"] === "string" ? p["agent"] : null,
     task: spansText(p["task"]),
-    status: status as AgentStatus,
+    assignment: assignment && typeof assignment.p["text"] === "string" ? assignment.p["text"] : null,
+    status: stale ? "parked" : (status as AgentStatus),
     model: typeof p["model"] === "string" ? p["model"] : null,
     tool: tool
       ? { name: tool["name"] as string, intent: spansText(tool["intent"]), age: finiteNumber(tool["age"]) }
@@ -101,7 +116,7 @@ function toAgent(node: DocNode): HubAgent | null {
   };
 }
 
-/** 同一个名字在 task 工具卡片和 hud 里各有一份：取"更活"的那份（运行中 > 等待 > 空闲/挂起 > 其它），同级取文档里更靠后的。 */
+/** 同一个名字可能有两份节点：取"更活"的那份（运行中 > 等待 > 空闲/挂起 > 其它），同级取文档里更靠后的。 */
 const LIVENESS: Record<AgentStatus, number> = {
   running: 5,
   pending: 4,
@@ -120,7 +135,7 @@ export function listAgents(doc: TspDocument): HubAgent[] {
     if (!surface) continue;
     for (const node of surface.nodes.values()) {
       if (node.k !== "agent") continue;
-      const agent = toAgent(node);
+      const agent = toAgent(node, surface.nodes);
       if (!agent) continue;
       const previous = byName.get(agent.name);
       if (!previous) byName.set(agent.name, agent);
@@ -135,7 +150,7 @@ export function isAgentActive(status: AgentStatus): boolean {
   return status === "running" || status === "pending";
 }
 
-/** 运行中的子代理个数（输入框上方药丸左半段 `👥 N`）；`listAgents` 按名字去重，hud 和 task 卡片里的同一个只算一次。 */
+/** 运行中的子代理个数（输入框上方药丸左半段 `👥 N`）；`listAgents` 按名字去重，同一个只算一次。 */
 export function countActiveAgents(doc: TspDocument): number {
   return listAgents(doc).filter((agent) => isAgentActive(agent.status)).length;
 }

@@ -14,7 +14,7 @@ const STATUS_KEY: Record<AgentStatus, MessageKey> = {
 
 export const statusKey = (status: AgentStatus): MessageKey => STATUS_KEY[status];
 
-/** 状态点样式（agents.css 的 .lane-dot）：运行 / 等待 = 呼吸点，失败 = 红，被结束 = 虚线，其余 = 空心。 */
+/** 状态点样式（agents.css 的 .agents-dot）：运行 / 等待 = 呼吸点，失败 = 红，被结束 = 虚线，其余 = 空心。 */
 export function dotStatus(status: AgentStatus): "running" | "failed" | "aborted" | "completed" {
   if (status === "running" || status === "pending") return "running";
   if (status === "failed") return "failed";
@@ -47,4 +47,10 @@ export function canRevive(status: AgentStatus): boolean {
 /** 运行中的已用时间 / 结束后的总时间（毫秒）；都没有为 null。 */
 export function agentElapsed(agent: HubAgent): number | null {
   return agent.stats.took ?? agent.stats.age;
+}
+
+/** 任务说明去掉 Markdown 标题的 #：omp 的 `agent` 节点里任务说明的换行被压成了空格（`# Target … # Change 1. …`），
+ *  标题符号夹在句中，原样显示就是一串 #。 */
+export function cleanTask(task: string): string {
+  return task.replace(/(^|\s)#{1,6}\s+/g, "$1").trim();
 }

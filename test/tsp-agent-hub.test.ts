@@ -6,6 +6,7 @@ import {
   AGENT_NAME_PATTERN,
   HUB_ACTION_KILL,
   HUB_ACTION_REVIVE,
+  countActiveAgents,
   countEchoNodes,
   findAgentHub,
   findFocus,
@@ -186,5 +187,52 @@ describe("子代理名校验", () => {
     for (const bad of ["", "..", "a/b", "a\\b", "../x", ".hidden", "a..b", " a", "x".repeat(200), 5, null])
       expect(isAgentName(bad)).toBe(false);
     expect(AGENT_NAME_PATTERN.test("Alpha")).toBe(true);
+  });
+});
+
+describe("--resume 之后的旧子代理（omp 18.12.6 实测形状）", () => {
+  const add = (id: string, parent: string, k: string, p: Record<string, unknown> = {}) =>
+    ["add", id, parent, null, { id, k, p }] as const;
+  function resumed(cardStatus: string): TspDocument {
+    const doc = createDocument();
+    applyMessage(doc, { verb: "o", body: { id: "s:1", mode: "inline", title: "omp", role: "omp.session" } });
+    applyMessage(doc, {
+      verb: "f",
+      body: {
+        sf: "s:1",
+        s: 1,
+        ops: [
+          add("main", "s:1", "col"),
+          add("v", "main", "tool", { role: "omp.tool.task", status: cardStatus }),
+          add("v.Alpha", "v", "agent", {
+            name: "Alpha",
+            task: "# Target No files. # Change 1. Run `echo hi`.",
+            status: "pending",
+            stats: { took: 0 },
+          }),
+          add("v.Alpha/0", "v.Alpha", "md", {
+            role: "omp.task.assignment",
+            text: "# Target\nNo files.\n\n# Change\n1. Run `echo hi`.",
+          }),
+        ],
+      },
+    } as never);
+    return doc;
+  }
+
+  it("卡片已结束、子代理还写着 pending：当作挂起，不算运行中（药丸不亮），可以恢复", () => {
+    const doc = resumed("done");
+    expect(listAgents(doc).map((agent) => agent.status)).toEqual(["parked"]);
+    expect(countActiveAgents(doc)).toBe(0);
+  });
+
+  it("卡片还在跑时 pending 照旧是等待中", () => {
+    const doc = resumed("running");
+    expect(listAgents(doc).map((agent) => agent.status)).toEqual(["pending"]);
+    expect(countActiveAgents(doc)).toBe(1);
+  });
+
+  it("任务说明原文取 omp.task.assignment 子节点（带换行），不是压成一行的 task", () => {
+    expect(listAgents(resumed("done"))[0]!.assignment).toBe("# Target\nNo files.\n\n# Change\n1. Run `echo hi`.");
   });
 });

@@ -8,4 +8,5 @@ export const common = {
   copied: "Copied",
   retry: "Retry",
   expand: "Expand",
+  collapse: "Collapse",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

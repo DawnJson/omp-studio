@@ -15,6 +15,7 @@ const agent = (name: string, status: HubAgent["status"], stats: Partial<HubAgent
   name,
   agent: "task",
   task: "",
+  assignment: null,
   status,
   model: null,
   tool: null,

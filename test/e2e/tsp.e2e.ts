@@ -876,9 +876,12 @@ test('输入框上方(照 Tern):药丸 [👥 N | ⚡ N] 每段个数大于 0 才
     await pill.click();
     await expect(page.getByTestId("jobs-board")).toBeVisible();
     await expect(page.getByTestId("job-row").first()).toHaveAttribute("data-type", "bash");
-    await shoot(page, "jobs-board");
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("jobs-board")).toHaveCount(0);
+    // 截图会切语言和主题、焦点跟着跑掉，放在 Esc 断言之后重新打开再截。
+    await pill.click();
+    await expect(page.getByTestId("jobs-board")).toBeVisible();
+    await shoot(page, "jobs-board");
   } finally {
     await jobs.cleanup();
   }

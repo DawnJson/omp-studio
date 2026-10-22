@@ -1,9 +1,11 @@
-// 面板底部的插话框：Enter 发送（Shift+Enter 换行、输入法组字时不发）。发送期间显示"正在发给 <名字>"（主进程在后台走 Hub，要一两秒），
+// 面板底部的插话框（钉在面板底边，不随详情滚动）：圆角框里一个多行输入 + 右下角的发送键，样子同主输入框。
+// Enter 发送（Shift+Enter 换行、输入法组字时不发）。发送期间面板顶部显示"正在发给 <名字>"（主进程在后台走 Hub，要一两秒），
 // 成功后清空，失败（omp 的原文已经 toast）文字留着。
 import { useState, type KeyboardEvent } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { subagentLimits } from "../../../../shared/subagents.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { ArrowUp } from "../../icons.tsx";
 import { steerAgent } from "./agents-actions.ts";
 
 export function SteerBox({ taskId, name, busy }: { taskId: TaskId; name: string; busy: boolean }) {
@@ -29,7 +31,7 @@ export function SteerBox({ taskId, name, busy }: { taskId: TaskId; name: string;
         rows={2}
         value={text}
         maxLength={subagentLimits.steerChars}
-        placeholder={t("agents.steerPlaceholder")}
+        placeholder={t("agents.steerPlaceholder", { name })}
         aria-label={t("agents.steerLabel", { name })}
         disabled={busy}
         onChange={(event) => setText(event.target.value)}
@@ -37,12 +39,14 @@ export function SteerBox({ taskId, name, busy }: { taskId: TaskId; name: string;
       />
       <button
         type="button"
-        className="lane-btn"
+        className="agents-steer-send"
         data-testid="agents-steer-send"
+        aria-label={t("agents.steerSend")}
+        title={t("agents.steerSend")}
         disabled={busy || message === ""}
         onClick={send}
       >
-        {t("agents.steerSend")}
+        <ArrowUp size={14} />
       </button>
     </div>
   );

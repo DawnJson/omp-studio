@@ -1,4 +1,4 @@
-// 右栏的子代理面板（spec §4.28，TSP 任务；和文件面板同一栏，同时只开一个）：列表 → 详情 → 插话框。
+// 右栏的子代理面板（spec §4.28，TSP 任务；和文件面板同一栏，同时只开一个）：列表 → 详情（列表下方）→ 插话框（钉在面板底边）。
 // 列表直接从 TSP 文档推导（listAgents），所以随 omp 的帧实时更新；插话 / 结束 / 恢复由主进程在后台驱动 omp 的 Agent Hub，
 // 期间面板顶部显示"正在发给 <名字>"，omp 的 Hub 不画出来。
 import { useLayoutEffect, useMemo, useRef, type KeyboardEvent, type PointerEvent } from "react";
@@ -10,8 +10,9 @@ import { setPreviewWidth, usePreviewWidth } from "../file-preview/preview-store.
 import { useTspDerived, useTspDrive } from "../tsp/tsp-store.ts";
 import { AgentDetail } from "./AgentDetail.tsx";
 import { AgentRow } from "./AgentRow.tsx";
-import { sameAgents, sortAgents } from "./agent-model.ts";
+import { canSteer, sameAgents, sortAgents } from "./agent-model.ts";
 import { closeAgentsPanel, selectAgent } from "./agents-store.ts";
+import { SteerBox } from "./SteerBox.tsx";
 import "../file-preview/file-preview.css";
 import "./agents.css";
 
@@ -125,7 +126,7 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
 
       <div className="agents-body">
         {agents.length === 0 ? (
-          <p className="lane-muted agents-empty" data-testid="agents-empty">
+          <p className="agents-muted agents-empty" data-testid="agents-empty">
             {t("agents.empty")}
           </p>
         ) : (
@@ -141,17 +142,14 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
           </ul>
         )}
         {current !== null ? (
-          <AgentDetail
-            key={current.name}
-            taskId={taskId}
-            agent={current}
-            busy={drive !== null}
-            onClose={() => selectAgent(null)}
-          />
+          <AgentDetail key={current.name} taskId={taskId} agent={current} busy={drive !== null} />
         ) : (
-          agents.length > 0 && <p className="lane-muted agents-pick">{t("agents.pick")}</p>
+          agents.length > 0 && <p className="agents-muted agents-pick">{t("agents.pick")}</p>
         )}
       </div>
+      {current !== null && canSteer(current.status) && (
+        <SteerBox key={current.name} taskId={taskId} name={current.name} busy={drive !== null} />
+      )}
     </section>
   );
 }
