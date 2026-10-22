@@ -19,6 +19,7 @@ export const tool = {
   "output.empty": "No output",
   "output.collapse": "Collapse",
   "info.readFiles": { one: "{count} file", other: "{count} files" },
+  "bash.running": "Running",
   "bash.done": "Done",
   "bash.exit": "Exit code {code}",
   "bash.earlier": { one: "{count} earlier line", other: "{count} earlier lines" },

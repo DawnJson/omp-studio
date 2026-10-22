@@ -88,6 +88,22 @@
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
 }
+/* 运行中的工具调用（子代理记录里结果还没写进来的那次）：工具行右侧和 bash 卡片脚里的小转圈。 */
+.step-spin {
+  flex: none;
+  width: var(--space-2-5);
+  height: var(--space-2-5);
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: var(--radius-pill);
+  animation: step-spin var(--dur-spin) linear infinite;
+  animation-play-state: var(--play-state);
+}
+@keyframes step-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* —— Tern 风格工具块：头部一行（无底色、无折叠箭头），结果直接摆在下面 —— */
 .step-tool {

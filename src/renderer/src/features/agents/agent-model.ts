@@ -49,6 +49,12 @@ export function agentElapsed(agent: HubAgent): number | null {
   return agent.stats.took ?? agent.stats.age;
 }
 
+/** 完成度百分比（0–100 的整数）：只在运行中、omp 给了估计时有，其余为 null（和 omp 一样，结束后不再显示）。 */
+export function agentProgress(agent: HubAgent): number | null {
+  if (agent.status !== "running" || agent.stats.done === null) return null;
+  return Math.round(Math.min(1, Math.max(0, agent.stats.done)) * 100);
+}
+
 /** 任务说明去掉 Markdown 标题的 #：omp 的 `agent` 节点里任务说明的换行被压成了空格（`# Target … # Change 1. …`），
  *  标题符号夹在句中，原样显示就是一串 #。 */
 export function cleanTask(task: string): string {

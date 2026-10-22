@@ -2569,6 +2569,14 @@
 .tsp-text[data-role="omp.job.tile.title"] {
   font-weight: var(--fw-medium);
 }
+/* 子代理自己估计的完成度（omp 18.12.6 的 task.completionProbe）：照 Tern，百分比用强调色加粗。 */
+.tsp-meter[data-role="omp.job.tile.ring"] {
+  flex: none;
+}
+.tsp-meter[data-role="omp.job.tile.ring"] .tsp-mt-lbl {
+  color: var(--accent);
+  font-weight: var(--fw-strong);
+}
 .tsp-text[data-role="omp.tool.context"] {
   color: var(--text-3);
   font-size: var(--fs-xs);

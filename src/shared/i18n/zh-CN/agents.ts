@@ -22,6 +22,8 @@ export const agents = {
   statusIdle: "空闲",
   statusParked: "已挂起",
   usingTool: "{tool} · {intent}",
+  progress: "完成度",
+  progressTitle: "子代理自己估计的完成度：{percent}%",
   cost: "费用",
   tokens: "token",
   requests: "请求",

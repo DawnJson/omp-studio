@@ -172,6 +172,31 @@
 .agents-row-status[data-status="failed"] {
   color: var(--st-error);
 }
+/* 运行中有完成度估计时右端是进度环 + 百分比（照 Tern 里 omp 的子代理磁贴）。 */
+.agents-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: var(--fw-strong);
+  font-variant-numeric: tabular-nums;
+}
+.agents-progress svg {
+  width: var(--space-3);
+  height: var(--space-3);
+}
+.agents-progress circle {
+  fill: none;
+  stroke-width: 2;
+}
+.agents-progress .tr {
+  stroke: var(--bg-active);
+}
+.agents-progress .fl {
+  stroke: currentColor;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dasharray var(--dur-slow) var(--ease-out);
+}
 .agents-row-line {
   overflow: hidden;
   font-size: var(--fs-xs);

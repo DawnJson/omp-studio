@@ -11,7 +11,7 @@ import { formatDuration } from "../conversation/format.ts";
 import { buildTurns } from "../conversation/model.ts";
 import { ProcessDetails } from "../conversation/ProcessDetails.tsx";
 import { formatCost, formatTokens, shortModel } from "./format.ts";
-import { agentElapsed, canKill, canRevive, cleanTask } from "./agent-model.ts";
+import { agentElapsed, agentProgress, canKill, canRevive, cleanTask } from "./agent-model.ts";
 import { killAgent, reviveAgent } from "./agents-actions.ts";
 import { useAgentRecord, type AgentRecordState } from "./use-agent-record.ts";
 
@@ -87,12 +87,12 @@ function TaskBlock({ text }: { text: string }) {
   );
 }
 
-function RecordSection({ taskId, state }: { taskId: TaskId; state: AgentRecordState }) {
+function RecordSection({ taskId, state, live }: { taskId: TaskId; state: AgentRecordState; live: boolean }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const { record, loading, error, reload } = state;
   const messages = record?.messages ?? null;
-  const turns = useMemo(() => (open && messages !== null ? buildTurns(messages) : []), [open, messages]);
+  const turns = useMemo(() => (open && messages !== null ? buildTurns(messages, live) : []), [open, messages, live]);
   return (
     <div className="agents-record" data-testid="agents-record">
       <div className="agents-record-head">
@@ -136,11 +136,13 @@ function RecordSection({ taskId, state }: { taskId: TaskId; state: AgentRecordSt
 
 export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: HubAgent; busy: boolean }) {
   const t = useT();
-  const recordState = useAgentRecord(taskId, agent.name, agent.status);
+  // 运行中每多一次工具调用重读一次记录（omp 的 Hub 也是实时的"最近活动"）；结束时再读一次拿最终输出。
+  const recordState = useAgentRecord(taskId, agent.name, `${agent.status}:${agent.stats.tools ?? 0}`);
   const { record } = recordState;
   const elapsed = agentElapsed(agent);
   const output = record?.output?.trim() ?? "";
   const stats = agent.stats;
+  const progress = agentProgress(agent);
   return (
     <section className="agents-detail" data-testid="agents-detail" data-name={agent.name} aria-label={agent.name}>
       <header className="agents-detail-head">
@@ -167,6 +169,7 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
       </header>
 
       <dl className="agents-stats">
+        {progress !== null && <Stat label={t("agents.progress")} value={`${progress}%`} />}
         {stats.cost !== null && <Stat label={t("agents.cost")} value={formatCost(stats.cost)} />}
         {stats.tokens !== null && <Stat label={t("agents.tokens")} value={formatTokens(stats.tokens)} />}
         {stats.requests !== null && <Stat label={t("agents.requests")} value={String(stats.requests)} />}
@@ -190,7 +193,7 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
         )}
       </div>
 
-      <RecordSection taskId={taskId} state={recordState} />
+      <RecordSection taskId={taskId} state={recordState} live={isAgentActive(agent.status)} />
     </section>
   );
 }

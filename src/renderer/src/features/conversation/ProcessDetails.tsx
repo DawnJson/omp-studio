@@ -256,6 +256,7 @@ function FileChips({ taskId, paths }: { taskId: TaskId; paths: readonly string[]
 const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId: TaskId }) {
   const t = useT();
   const failed = step.status === "error";
+  const running = step.status === "running";
   const verb = toolVerb(step.name);
   const body = useMemo(
     () => buildBody(step.name, step.args, step.result, step.output),
@@ -303,14 +304,14 @@ const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId
     arg = target;
   }
 
-  // 右侧：数字（匹配数 / 文件数 / 行数 / 代理数）+ 失败标记；bash 的状态在卡片脚里。
+  // 右侧：数字（匹配数 / 文件数 / 行数 / 代理数）+ 失败标记或运行中的转圈；bash 的状态在卡片脚里。
   const metaInfo: ReactNode =
     found.length > 0 ? (
       <span className="step-info">{t("tool.info.files", { count: found.length })}</span>
     ) : info !== null && info.kind !== "task" ? (
       <InfoSegment info={info} />
     ) : null;
-  const time = failed ? t("tool.failed") : null;
+  const time = failed ? t("tool.failed") : running ? <span className="step-spin" aria-hidden="true" /> : null;
 
   const name = toolDisplayName(step.name);
 
@@ -321,8 +322,9 @@ const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId
     content = <AskAnswers step={step} />;
   } else if (bash) {
     const status = bashStatus(step.result);
-    const state: BashState =
-      failed || (status.exitCode !== null && status.exitCode !== 0)
+    const state: BashState = running
+      ? { kind: "running" }
+      : failed || (status.exitCode !== null && status.exitCode !== 0)
         ? {
             kind: "failed",
             label: status.exitCode !== null ? t("tool.bash.exit", { code: status.exitCode }) : t("tool.failed"),

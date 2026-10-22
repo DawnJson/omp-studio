@@ -22,6 +22,8 @@ export const agents = {
   statusIdle: "Idle",
   statusParked: "Parked",
   usingTool: "{tool} · {intent}",
+  progress: "Progress",
+  progressTitle: "The agent's own completion estimate: {percent}%",
   cost: "Cost",
   tokens: "Tokens",
   requests: "Requests",

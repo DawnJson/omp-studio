@@ -60,6 +60,8 @@ export interface HubAgent {
     /** 运行中的已用毫秒 / 结束的总用时。 */
     age: number | null;
     took: number | null;
+    /** 子代理自己估计的完成度 0–1（omp 18.12.6 起的 `task.completionProbe`：跑了 2、5、10、30 分钟后各问一次，之后每小时）；omp 只在运行中给。 */
+    done: number | null;
   };
   background: boolean;
   depth: number;
@@ -104,6 +106,7 @@ function toAgent(node: DocNode, nodes: ReadonlyMap<string, DocNode>): HubAgent |
       cost: finiteNumber(stats["cost"]),
       age: finiteNumber(stats["age"]),
       took: finiteNumber(stats["took"]),
+      done: finiteNumber(stats["done"]),
     },
     background: badges.some((badge: unknown) => isRecord(badge) && badge["text"] === "background"),
     depth: finiteNumber(p["depth"]) ?? 0,

@@ -1,5 +1,5 @@
-// 子代理的记录和最终输出：主进程只读 omp 存档（IPC getTspSubagentRecord）。名字或状态变了、手动刷新时重读；
-// 运行中的子代理 `.md` 还没写，状态变成结束后再读一次就有了。过期的响应（切了子代理）丢弃。
+// 子代理的记录和最终输出：主进程只读 omp 存档（IPC getTspSubagentRecord）。名字或 `statusKey` 变了、手动刷新时重读；
+// 运行中的子代理 `.md` 还没写，状态变成结束后再读一次就有了。过期的响应（切了子代理）丢弃。重读时保留上一份，不闪。
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TaskId, TspSubagentRecord } from "../../../../shared/ipc.ts";
 import { describeError } from "../../ui/errors.ts";
@@ -13,7 +13,7 @@ export interface AgentRecordState {
   reload(): void;
 }
 
-/** 一次读取同时带回消息（记录）和最终输出；`statusKey` 变了（运行 → 结束）重读。 */
+/** 一次读取同时带回消息（记录）和最终输出；`statusKey` 变了（调用方放状态 + 工具调用数：每次工具调用、运行 → 结束）重读。 */
 export function useAgentRecord(taskId: TaskId, name: string, statusKey: string): AgentRecordState {
   const t = useT();
   const [record, setRecord] = useState<TspSubagentRecord | null>(null);

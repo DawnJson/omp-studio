@@ -1163,6 +1163,34 @@ test("子代理面板:👥 打开右栏面板(不画 omp 的 Hub),列出 Alpha /
   }
 });
 
+// 子代理完成度(omp 18.12.6 录制 agent-progress,task.completionProbe):子代理跑满 2 分钟后 omp 问它完成了多少,
+// 估计值进 `agent` 节点的 stats.done,同时在 wait 磁贴上画进度环 + 百分比。studio 照画磁贴,子代理面板的行和详情也显示。
+test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面板的行和详情显示同一个估计", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("agent-progress");
+  try {
+    const { page } = launched;
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("agent-progress"))[0]!.event["text"]));
+    const rings = role(page, "omp.job.tile.ring");
+    await expect(rings).toHaveCount(2, { timeout: 60_000 });
+    await expect(rings.nth(0)).toContainText("66%");
+    await expect(rings.nth(1)).toContainText("55%");
+    await shoot(page, "agent-progress-tiles");
+    await page.getByTestId("pill-agents").click();
+    const panel = page.getByTestId("agents-panel");
+    const beta = panel.locator('[data-testid="agents-row"][data-name="Beta"]');
+    await expect(beta.getByTestId("agents-row-progress")).toHaveText("55%");
+    await expect(
+      panel.locator('[data-testid="agents-row"][data-name="Alpha"]').getByTestId("agents-row-progress"),
+    ).toHaveText("66%");
+    await beta.click();
+    await expect(panel.getByTestId("agents-detail")).toContainText("55%");
+    await shoot(page, "agent-progress-panel");
+  } finally {
+    await cleanup();
+  }
+});
+
 // 旁路提问面板(omp 18.12.5 录制 btw):omp 在 TSP 下把 /btw 画成 layer 里的 modal 弹窗,studio 的 BtwPanel 读它的问答、
 // 不画 omp 的弹窗;提问 / 追问 / 取消都是主进程在后台对弹窗发的事件(action / select / edit),回答收尾后自动关弹窗。
 // 假 omp 只在事件和录制逐字相同时才往下放帧,所以走完就证明事件发对了;话题 id 靠会话旁边的 btw-history/,

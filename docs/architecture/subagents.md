@@ -46,6 +46,22 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 - **磁盘**：会话文件旁的同名目录里每个子代理一对 `<名字>.jsonl` + `<名字>.md`，不按回合分。子代理 `.jsonl` 第一条 user 消息是 `Complete assignment thoroughly:\n\n<原文>`，换行保留。
 - **`--resume` 之后**：旧 task 卡片重放出来是 `done`，卡下的 `agent` 节点却**一律是 `status:"pending"`**，没有 `model`，`stats` 只有 `took:0`（用量丢了），几秒后仍是 pending；omp 的 Hub 把它们列成 `dot:"muted"`、徽标 `parked`，`revive` 可用。所以 `listAgents` 把"卡片已结束（不是 pending / running）而节点还写着 pending / running"的子代理当作 `parked`：不算运行中（药丸不亮、不能结束），可以恢复和插话。录制里（`hub-steer` / `hub-kill`）子代理在跑时卡片一直是 pending / running，不受影响。
 
+### 实测：完成度估计（`fixtures/tsp/agent-progress.jsonl`，omp 18.12.6，`deepseek/deepseek-v4-flash`，真实 omp、临时 agent 目录，2026-10-22）
+
+两个后台子代理各串行跑三次 `sleep 80`，主代理 `wait`。
+
+- omp 的 `task.completionProbe` 设置（默认开）：子代理跑了 2、5、10、30 分钟后各问它一次完成了多少，之后每小时一次。录制里约 130 秒时第一次出现。
+- 结果进 `agent` 节点 `stats.done`（0–1，Alpha `0.66`、Beta `0.55`），`listAgents` 解析成 `HubAgent.stats.done`。同时 wait 卡片的磁贴头上多一个 `meter` 节点：`role:"omp.job.tile.ring"`、`style:"ring"`、`size:"sm"`、`value`、`label:"66%"`、`title:"The agent's own completion estimate: 66%"`；studio 按 meter 正常画，CSS 只把百分比改成强调色加粗。
+- 子代理面板：只在 `running` 且有 `done` 时，行右端的状态文字换成小进度环 + 百分比，详情统计多一格"完成度"；结束后不再显示（估计已过时）。
+- 同一录制里 `agent` 节点的 `stats.age` 一直是 `0`（运行中的用时在 `tool.age`），所以详情的"用时"运行中显示 0 秒：这是 omp 给的值，没改。
+
+### 实测：运行中的记录（omp 18.12.6，`deepseek/deepseek-v4-flash`，真实 omp、临时 agent 目录，2026-10-22 一次性探针，未存为 fixture）
+
+- omp 的 Hub 详情里有 "Recent activity"（时间、工具名、意图，点开跳记录）；studio 的对应物是面板详情里的"对话记录"（读 `<名字>.jsonl`）。
+- 子代理在跑时 omp **边跑边写** `<名字>.jsonl`：一次工具调用开始时 assistant 消息（带 `toolCall`）已经落盘，`toolResult` 要等调用结束才写。所以记录里"有调用、没结果"= 正在执行（子代理已结束时 = 被中断）。
+- 面板按 `agent` 节点的 `status` + `stats.tools` 重读记录：每多一次工具调用读一次，结束时再读一次（拿 `.md` 里的最终输出）。实测 `sleep 20` 跑着时记录里那次调用显示转圈 + `Running`，结束后变成 `Done 20.0s`，不用点"重新读取"。
+- 正在跑的那一轮没有结论：之前"整轮没有不带工具调用的消息就拿最后一句叙述当结论"的规则会把 `I'll execute the steps in order.` 画到最下面当回答，运行中的最后一轮不再这样做。
+
 ### 实测：退出聚焦（真实 omp，一次性探针，未存为 fixture）
 
 `hub-steer` 的录制里用户用 Esc 键退出聚焦，键不进录制。另用真实 omp 跑了 `activate Beta` → 聚焦行出现 → `send` → omp 回显 → 对聚焦行里的退出按钮（`omp.composer.exit`）发 `{ev:"action", sf, id:"j.focus/exit", act:"focus:Main"}`：聚焦行消失，toast "Returned to main session"，两个子代理仍是 `running`，输入框恢复成 `sendable`（`findMessageTarget` 为 ready）。所以退出聚焦用这个 action（不是中断子代理的键）；它不灵时再退到 Esc。`send` 后回显：`omp.user` / `omp.queue` 节点个数增加（`hub-steer` 帧 168 / 170），等不到不算失败（最多等 3 秒）。

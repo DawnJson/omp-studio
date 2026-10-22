@@ -1,14 +1,17 @@
-// 列表里的一行：状态点、名字、类型（只在不是默认的 task 时显示）和 `后台` 标签、右端状态；
+// 列表里的一行：状态点、名字、类型（只在不是默认的 task 时显示）和 `后台` 标签、右端状态（运行中有完成度估计时换成进度环 + 百分比）；
 // 第二行是正在用的工具和意图（运行中）或任务说明（去掉 Markdown 标题的 #）。token 和费用在详情里。
 import type { HubAgent } from "../../../../shared/tsp/agent-hub.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { cleanTask, dotStatus, statusKey } from "./agent-model.ts";
+import { agentProgress, cleanTask, dotStatus, statusKey } from "./agent-model.ts";
+
+const RING = 2 * Math.PI * 5.5;
 
 export function AgentRow({ agent, selected, onSelect }: { agent: HubAgent; selected: boolean; onSelect(): void }) {
   const t = useT();
   const line = agent.tool
     ? t("agents.usingTool", { tool: agent.tool.name, intent: agent.tool.intent || cleanTask(agent.task) })
     : cleanTask(agent.task);
+  const progress = agentProgress(agent);
   return (
     <li>
       <button
@@ -26,9 +29,24 @@ export function AgentRow({ agent, selected, onSelect }: { agent: HubAgent; selec
             <span className="agents-row-name">{agent.name}</span>
             {agent.agent !== null && agent.agent !== "task" && <span className="agents-chip">{agent.agent}</span>}
             {agent.background && <span className="agents-chip">{t("agents.background")}</span>}
-            <span className="agents-row-status" data-status={agent.status}>
-              {t(statusKey(agent.status))}
-            </span>
+            {progress === null ? (
+              <span className="agents-row-status" data-status={agent.status}>
+                {t(statusKey(agent.status))}
+              </span>
+            ) : (
+              <span
+                className="agents-row-status agents-progress"
+                data-status={agent.status}
+                data-testid="agents-row-progress"
+                title={t("agents.progressTitle", { percent: progress })}
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <circle className="tr" cx="8" cy="8" r="5.5" />
+                  <circle className="fl" cx="8" cy="8" r="5.5" strokeDasharray={`${(progress / 100) * RING} ${RING}`} />
+                </svg>
+                {progress}%
+              </span>
+            )}
           </span>
           {line !== "" && <span className="agents-row-line">{line}</span>}
         </span>

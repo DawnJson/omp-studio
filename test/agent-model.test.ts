@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { HubAgent } from "../src/shared/tsp/agent-hub.ts";
 import {
   agentElapsed,
+  agentProgress,
   canKill,
   canRevive,
   canSteer,
@@ -19,7 +20,17 @@ const agent = (name: string, status: HubAgent["status"], stats: Partial<HubAgent
   status,
   model: null,
   tool: null,
-  stats: { tools: null, requests: null, tokens: null, contextLabel: null, cost: null, age: null, took: null, ...stats },
+  stats: {
+    tools: null,
+    requests: null,
+    tokens: null,
+    contextLabel: null,
+    cost: null,
+    age: null,
+    took: null,
+    done: null,
+    ...stats,
+  },
   background: true,
   depth: 0,
 });
@@ -59,6 +70,13 @@ describe("子代理面板的操作规则", () => {
     expect(agentElapsed(agent("A", "done", { took: 5000, age: 1 }))).toBe(5000);
     expect(agentElapsed(agent("A", "running", { age: 1200 }))).toBe(1200);
     expect(agentElapsed(agent("A", "running"))).toBeNull();
+  });
+
+  it("完成度只在运行中显示（结束后 omp 的估计已过时），取整成百分比", () => {
+    expect(agentProgress(agent("A", "running", { done: 0.664 }))).toBe(66);
+    expect(agentProgress(agent("A", "running"))).toBeNull();
+    expect(agentProgress(agent("A", "done", { done: 0.9 }))).toBeNull();
+    expect(agentProgress(agent("A", "parked", { done: 0.4 }))).toBeNull();
   });
 
   it("sameAgents 按内容比较（IPC 之外的文档推导每次产生新对象）", () => {
