@@ -72,14 +72,14 @@ export const ompcfg = {
   "mnemopi.autoRecall.desc": "Bring local memories into the first turn of every session",
   "mnemopi.autoRetain.label": "Mnemopi: remember automatically",
   "mnemopi.autoRetain.desc": "Save finished conversation turns into local memory",
-  "mnemopi.scoping.label": "Mnemopi: memory scope",
+  "mnemopi.scoping.label": "Mnemopi: scope",
   "mnemopi.scoping.desc":
     "global: one shared bank. per-project: a bank per directory. per-project-tagged: writes to the project bank, recall also sees global",
   "hindsight.autoRecall.label": "Hindsight: recall automatically",
   "hindsight.autoRecall.desc": "Recall memories on the first turn of every session",
   "hindsight.autoRetain.label": "Hindsight: remember automatically",
   "hindsight.autoRetain.desc": "Save the transcript every few turns and at session boundaries",
-  "hindsight.scoping.label": "Hindsight: memory scope",
+  "hindsight.scoping.label": "Hindsight: scope",
   "hindsight.scoping.desc":
     "global: one shared bank. per-project: a bank per directory. per-project-tagged: a shared bank with project tags",
 
