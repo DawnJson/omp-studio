@@ -58,7 +58,7 @@ const MAX_BLOB_BYTES = 16 * 1024 * 1024;
  * - `reduce-motion`：hello 的 `reduceMotion` 和 `motion` 事件。
  * 不声明：`aside`（prefs 贴在面板旁边）、`styles`（`s` 消息：程序自带 CSS 不支持）、`flow`（flow surface）。
  */
-export const TSP_TERMINAL_FEATURES = [
+const TSP_TERMINAL_FEATURES = [
   "blobs",
   "settle",
   "adopt",
@@ -86,7 +86,7 @@ export interface TspPtyLaunch {
 }
 
 /** 真实的 node-pty。Windows 必须用 node-pty 自带的 ConPTY（`useConptyDll`）：系统自带的会吞掉 APC，一帧都收不到。 */
-export async function spawnNodePty(launch: TspPtyLaunch, size: { cols: number; rows: number }): Promise<TspPty> {
+async function spawnNodePty(launch: TspPtyLaunch, size: { cols: number; rows: number }): Promise<TspPty> {
   // 原生模块按需加载（同 terminal/runtime.ts）：加载失败只影响 TSP 任务，不影响应用启动。
   const nodePty = await import("node-pty");
   return nodePty.spawn(launch.command, [...launch.args], {
@@ -122,13 +122,14 @@ export function buildTspEnv(base: NodeJS.ProcessEnv, appVersion: string): Record
   return env;
 }
 
-/** 把 TSP 消息写给 omp：`ESC _ tsp;e;<json> ESC \`。U+0080–U+009F 在 JSON 里转义：它们是 C1 控制字符，会被终端层当成序列终止符。 */
+/** U+0080–U+009F 在 JSON 里转义：它们是 C1 控制字符，会被终端层当成序列终止符。 */
+function escapeC1(json: string): string {
+  return json.replace(/[\u0080-\u009f]/g, (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
+
+/** 把 TSP 消息写给 omp：`ESC _ tsp;e;<json> ESC \`。 */
 export function encodeTspEvent(event: TspEvent): string {
-  const json = JSON.stringify(event).replace(
-    /[\u0080-\u009f]/g,
-    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`,
-  );
-  return `\x1b_tsp;e;${json}\x1b\\`;
+  return `\x1b_tsp;e;${escapeC1(JSON.stringify(event))}\x1b\\`;
 }
 
 export interface TspSessionBatch {
@@ -355,7 +356,6 @@ export class TspSession {
         message: error instanceof Error ? error.stack : String(error),
       });
     }
-    if (this.#acks.size === 0) return;
     for (const [sf, s] of this.#acks) this.#safeEvent({ ev: "ack", sf, s });
     this.#acks.clear();
   }
@@ -375,11 +375,7 @@ export class TspSession {
   }
 
   #sendReply(reply: object): void {
-    const json = JSON.stringify(reply).replace(
-      /[\u0080-\u009f]/g,
-      (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`,
-    );
-    this.#safeSend(`\x1b_tsp;r;${json}\x1b\\`);
+    this.#safeSend(`\x1b_tsp;r;${escapeC1(JSON.stringify(reply))}\x1b\\`);
   }
 
   #onStream(event: TspStreamEvent): void {
@@ -538,7 +534,7 @@ export class TspSession {
           msg: error.msg,
         });
       }
-    } else if (result.errors.length > 0) {
+    } else {
       for (const error of result.errors) this.#safeEvent({ ev: "error", msg: error.msg });
     }
     this.#options.onChange?.(this.#doc);

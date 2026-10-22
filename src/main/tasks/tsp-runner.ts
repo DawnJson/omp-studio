@@ -21,6 +21,7 @@ import type {
   TspBatch,
   TspSessionExtras,
   TspSnapshot,
+  TspSubagentRecord,
 } from "../../shared/ipc.ts";
 import type { TspEvent } from "../../shared/tsp/tsp.generated.ts";
 import {
@@ -77,11 +78,11 @@ import {
 } from "../tsp/tsp-session.ts";
 import { resolveNewTaskDefault } from "../../shared/ui/new-task-default.ts";
 import { titleFromPrompt } from "./convert.ts";
+import { stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 import { readSessionExtras } from "../tsp/session-extras.ts";
 import { readTurnCosts } from "../tsp/turn-costs.ts";
 import { readSubagentRecord } from "../tsp/subagent-file.ts";
 import { HubDriver } from "./tsp-hub-driver.ts";
-import type { TspSubagentRecord } from "../../shared/ipc.ts";
 import { readSessionUsage, totalUsage, type SessionTotals } from "../history/session-usage.ts";
 import {
   buildTreeFromEntries,
@@ -134,8 +135,6 @@ const QUIET_SETTLED = "quiet-settled";
 const MAX_THINKING_CYCLES = 10;
 const STDERR_LINES_IN_ERROR = 8;
 const ESC_KEY = "\x1b";
-/** omp 的终端标题是 `<图标字形> <标题>`：去掉私有区字符（Nerd Font 图标）。 */
-const ICON_GLYPHS = /[\uE000-\uF8FF\u{F0000}-\u{FFFFD}\u{100000}-\u{10FFFD}]/gu;
 
 /** TSP 会话的外部依赖：池和测试各自提供。 */
 export type TspSessionDeps = Pick<
@@ -223,7 +222,7 @@ function thinkingLevelsOf(model: ModelOption | null): ThinkingLevel[] {
 
 /** 去掉图标字形；"omp" 是 omp 没有标题时的占位，不是标题。 */
 export function cleanOmpTitle(raw: string): string {
-  const title = raw.replace(ICON_GLYPHS, "").trim();
+  const title = stripIconGlyphs(raw);
   return title === "omp" ? "" : title;
 }
 
@@ -294,12 +293,13 @@ export class TspRunner {
   #workspace = new WorkspaceDirs();
   /** 目标模式（`/goal`）：状态来自输入框卡片上的"Goal …"事实行，目标文字来自会话文件（shared/tsp/goal.ts、tsp-goal.ts）。 */
   #goalTracker = new TspGoalTracker({
-    sessionFile: () => this.#sessionFile ?? this.#record.sessionFile,
+    sessionFile: () => this.#currentSessionFile(),
     changed: () => this.#publish(),
     completed: () => this.#host.onNotice?.({ taskId: this.id, kind: "goal_complete" }),
   });
-  /** 旁路提问（`/btw`）：omp 画成 modal 弹窗，这里读成话题镜像（tsp-btw.ts、docs/architecture/tsp-btw.md）。 */
+  /** 后台驱动旁路提问期间为真：#awaitComposer 等它结束。 */
   #btwDriving = false;
+  /** 旁路提问（`/btw`）：omp 画成 modal 弹窗，这里读成话题镜像（tsp-btw.ts、docs/architecture/tsp-btw.md）。 */
   readonly #btw = new TspBtw({
     document: () => this.#session?.document ?? null,
     sendEvent: (event) => this.sendTspEvent(event),
@@ -309,7 +309,7 @@ export class TspRunner {
       return this.#awaitComposer();
     },
     exclusive: (job) => this.#exclusive(job),
-    sessionFile: () => this.#sessionFile ?? this.#record.sessionFile,
+    sessionFile: () => this.#currentSessionFile(),
     emit: (event) => this.#host.onBtw?.(this.id, event),
     setDriving: (on) => {
       this.#btwDriving = on;
@@ -765,7 +765,7 @@ export class TspRunner {
       .catch((error: unknown) => log.warn(`task ${this.id} saving the omp title failed`, { message: String(error) }));
   }
 
-  /** 改名：只改本地记录。omp 没有可以从外部调用的"改会话名"入口（rpc 的 set_session_name 在交互模式下不存在），
+  /** 改名：只改本地记录。omp 没有可以从外部调用的"改会话名"入口，
    *  往输入框塞 `/rename` 会混进用户的草稿，所以不同步给 omp；之后 omp 自己改标题时也不会覆盖用户起的名字（见 #onTitle）。 */
   async rename(title: string): Promise<void> {
     this.#record = await this.#host.persist(this.id, { title });
@@ -1056,8 +1056,8 @@ export class TspRunner {
   }
 
   /**
-   * 本会话用量：费用是 omp 输入框卡片上的值；token 分项和请求数 omp 的 TSP 卡片不给，从会话文件读（`#refreshTotals`，范围和
-   * rpc 的 get_session_stats 一致）。读到之前 token 是 0。不用 stats.db 的 session_rollup：它只在 `omp stats` 运行时才同步，
+   * 本会话用量：费用是 omp 输入框卡片上的值；token 分项和请求数 omp 的 TSP 卡片不给，从会话文件读（`#refreshTotals`）。
+   * 读到之前 token 是 0。不用 stats.db 的 session_rollup：它只在 `omp stats` 运行时才同步，
    * 对正在进行的会话是旧的；会话信息对话框里才用它（session-info/session-stats.ts）。
    */
   #sessionUsageFor(cost: number | null): TaskState["sessionUsage"] {
@@ -1073,7 +1073,7 @@ export class TspRunner {
 
   /** 读会话文件里的 token 和请求数；读失败只记日志（费用照常显示，token 保持上一次的值）。 */
   async #refreshTotals(): Promise<void> {
-    const file = this.#sessionFile ?? this.#record.sessionFile;
+    const file = this.#currentSessionFile();
     if (file === null) return;
     try {
       const totals = totalUsage((await readSessionUsage(file)).models);
@@ -1134,7 +1134,7 @@ export class TspRunner {
   }
 
   /**
-   * 和 rpc 一样把当前模型和思考强度记进任务记录（下次 `--resume` 起来用）。只记目录里确有、且不会认错的模型：
+   * 把当前模型和思考强度记进任务记录（下次 `--resume` 起来用）。只记目录里确有、且不会认错的模型：
    * 显示用的占位（provider 为空）和目录里重名又没有明确选择的不记（记错 provider 会让下次 `--model` 指到别家）。
    */
   async #persistModelChoice(model: ModelOption | null, thinkingLevel: ThinkingLevel | null): Promise<void> {
@@ -1258,12 +1258,12 @@ export class TspRunner {
 
   /** 这个任务每一轮的费用（见 tsp/turn-costs.ts）；会话文件还没落盘、读失败时 []。 */
   turnCosts(): Promise<number[]> {
-    return readTurnCosts(this.#sessionFile ?? this.#record.sessionFile);
+    return readTurnCosts(this.#currentSessionFile());
   }
 
   /** 用量脚注和空闲回顾：omp 恢复会话时不重发，从会话文件和 history.db 补（见 tsp/session-extras.ts）。 */
   sessionExtras(): Promise<TspSessionExtras> {
-    return readSessionExtras(this.#sessionFile ?? this.#record.sessionFile);
+    return readSessionExtras(this.#currentSessionFile());
   }
 
   // ───── 旁路提问（/btw，tsp-btw.ts） ─────
@@ -1298,7 +1298,7 @@ export class TspRunner {
     const exportSession = this.#host.exportSession;
     if (!exportSession) throw new Error("exporting is not available for this task");
     if (!path.isAbsolute(outputPath)) throw new Error("export path must be absolute");
-    const file = this.#sessionFile ?? this.#record.sessionFile;
+    const file = this.#currentSessionFile();
     if (file === null) throw new Error("this task has no session file yet");
     await exportSession(file, outputPath, this.cwd);
     return outputPath;
@@ -1397,7 +1397,7 @@ export class TspRunner {
   // ───── 目标模式（/goal） ─────
 
   /**
-   * `/goal` 的四个操作（和 rpc 的 `goal` 同一个入口）：`get` 读当前目标；`create` 发 `/goal <文字>`（成功时 omp 不发 toast，
+   * `/goal` 的四个操作：`get` 读当前目标；`create` 发 `/goal <文字>`（成功时 omp 不发 toast，
    * 输入框卡片上出现"Goal …"事实行；已有目标时 omp 以 toast 拒绝，原文抛出）；`pause` / `resume` 发 `/goal pause|resume`
    * 等 omp 的确认 toast；`drop` 发 `/goal drop`，在 omp 弹出的 "Drop goal?" 选择器里点 Yes。返回操作之后的目标（已放弃 / 没有为 null）。
    * 实测依据见 shared/tsp/goal.ts。
@@ -1507,7 +1507,7 @@ export class TspRunner {
   /** 回溯之后、文件还没有新条目之前的叶子位置（`/tree` 在进程内移动叶子，不写文件）。 */
   #leafOverride: LeafOverride | null = null;
 
-  #treeFile(): string | null {
+  #currentSessionFile(): string | null {
     return this.#sessionFile ?? this.#record.sessionFile;
   }
 
@@ -1523,7 +1523,7 @@ export class TspRunner {
   }
 
   async #readTreeEntries(): Promise<SessionEntry[]> {
-    const file = this.#treeFile();
+    const file = this.#currentSessionFile();
     if (file === null) return [];
     try {
       return await readSessionEntries(file);
@@ -1545,7 +1545,7 @@ export class TspRunner {
    */
   async prepareFork(entryId: string | null): Promise<{ sourceFile: string; entryId: string; target: RewindTarget }> {
     this.#assertTurnFinished();
-    const file = this.#treeFile();
+    const file = this.#currentSessionFile();
     const entries = await this.#readTreeEntries();
     if (file === null || entries.length === 0) throw new Error("this task has no session file yet");
     const id = entryId ?? buildTreeFromEntries(entries, this.#leafOverride).find((node) => node.current)?.entryId;
@@ -1660,7 +1660,7 @@ export class TspRunner {
 
   /** 子代理的记录和最终输出（会话文件旁的 `<名字>.jsonl` / `.md`）；名字不合规时返回 unavailable，不抛错。 */
   subagentRecord(name: string): Promise<TspSubagentRecord> {
-    return readSubagentRecord(this.#sessionFile ?? this.#record.sessionFile, name);
+    return readSubagentRecord(this.#currentSessionFile(), name);
   }
 
   steerSubagent(name: string, text: string): Promise<void> {

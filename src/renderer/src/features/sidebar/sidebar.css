@@ -213,6 +213,7 @@
   color: var(--text-3);
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
+  overflow-wrap: anywhere;
 }
 .sb-note-error {
   color: var(--st-error);
@@ -320,7 +321,8 @@
   gap: var(--space-1);
   min-width: 0;
   height: 100%;
-  padding: 0 var(--space-2);
+  /* 右侧常驻一个 ＋（在此项目新建任务），＋ 左边一格是行数或 ⋯；名称始终让出这两格，展开/折叠时名称不跳 */
+  padding: 0 calc(2 * var(--control-h-sm) + var(--space-1)) 0 var(--space-2);
   border-radius: var(--radius-sm);
   color: var(--text-2);
   font-weight: var(--fw-medium);
@@ -329,10 +331,6 @@
 }
 .sb-group-toggle:hover {
   background: var(--bg-hover);
-}
-/* 右侧常驻一个 ＋（在此项目新建任务），＋ 左边一格是行数或 ⋯；名称始终让出这两格，展开/折叠时名称不跳 */
-.sb-group-toggle {
-  padding-right: calc(2 * var(--control-h-sm) + var(--space-1));
 }
 .sb-chevron {
   display: inline-flex;
@@ -702,9 +700,4 @@
 }
 .sb-menu-item[aria-disabled="true"]:hover {
   background: none;
-}
-
-.sb-note,
-.sb-note-error {
-  overflow-wrap: anywhere;
 }

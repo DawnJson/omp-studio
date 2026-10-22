@@ -1,13 +1,7 @@
 // 工具步骤的展示数据：把 args / result 解析成头部信息和正文行（diff 行、grep 命中、行号输出）。纯函数，不碰 DOM。
 // 工具结果的文本形状由 omp 决定，这里只认已知形状；认不出就退回纯文本，不猜。
 import type { TodoItem, TodoPhase, TodoStatus } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
-import { resultDetails, toolTarget, toolVerb, type ToolVerb } from "./tool-info.ts";
-
-type Rec = Record<string, unknown>;
-
-function asRecord(value: unknown): Rec | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Rec) : null;
-}
+import { asRecord, resultDetails, toolTarget, toolVerb, type Rec, type ToolVerb } from "./tool-info.ts";
 
 /** 统一换行（CRLF → LF）并去掉末尾一个换行；空文本得到空数组。 */
 function splitLines(text: string): string[] {

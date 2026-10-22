@@ -1,7 +1,7 @@
 // 布局类节点：col、row、card、section、rule、spacer（规范 Layout）。
 import type { KeyboardEvent, ReactNode } from "react";
 import { ASK_BUTTON_ROLE, ASK_GATE_ROLE } from "../../../../../shared/tsp/ask-gate.ts";
-import type { TspPreview, TspSpace, TspText } from "../../../../../shared/tsp/tsp.generated.ts";
+import type { TspSpace, TspText } from "../../../../../shared/tsp/tsp.generated.ts";
 import { ChevronDown } from "../../../icons.tsx";
 import { AskButtonRow, AskGateCol } from "../interactive/AskGate.tsx";
 import { ERROR_CARD_ROLE } from "../../../../../shared/tsp/error-turn.ts";
@@ -14,6 +14,7 @@ import { labels } from "../labels.ts";
 import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
 import { TspSpans } from "../spans.tsx";
+import { previewToLines } from "../props-util.ts";
 import { TspChildren, TspNode } from "../TspChildren.tsx";
 import { useFold } from "../use-fold.ts";
 import { alignTurnCost, withExactCost } from "../turn-cost.ts";
@@ -117,9 +118,8 @@ function UsageRow(props: NodeProps) {
 }
 
 // ───────── card / section 共用：head 可以是文字，也可以是某个子节点的 id ─────────
-
 /** head 是子节点 id 时返回这个 id（该子节点画在头里，不在 body 里）。 */
-export function headChildId(node: NodeProps["node"]): string | null {
+function headChildId(node: NodeProps["node"]): string | null {
   const { head } = node.p;
   return typeof head === "string" && node.c.includes(head) ? head : null;
 }
@@ -128,15 +128,6 @@ function HeadContent({ props, headId }: { props: NodeProps; headId: string | nul
   const head = props.node.p.head as TspText | undefined;
   if (headId !== null) return <TspNode id={headId} ctx={props.ctx} />;
   return <TspSpans text={head} />;
-}
-
-function previewLines(preview: TspPreview | undefined): number | null {
-  if (preview === "auto") return 10;
-  if (preview && typeof preview === "object" && typeof preview.lines === "number") {
-    const lines = Math.floor(preview.lines);
-    return lines >= 1 ? lines : null;
-  }
-  return null;
 }
 
 function onHeadKey(toggle: () => void): (event: KeyboardEvent) => void {
@@ -179,7 +170,7 @@ export function Card(props: NodeProps) {
   const headId = headChildId(node);
   const hasHead =
     headId !== null || (p.head !== undefined && p.head !== "") || typeof p.status === "string" || collapsible;
-  const lines = collapsed ? previewLines(p.preview as TspPreview | undefined) : null;
+  const lines = collapsed ? previewToLines(p.preview) : null;
   const classes = [
     collapsible && "collapsible",
     collapsed && "collapsed",

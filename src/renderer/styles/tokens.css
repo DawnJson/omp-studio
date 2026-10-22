@@ -64,8 +64,6 @@
   --lh-lg: 26px;
   --fs-xl: 20px;
   --lh-xl: 28px;
-  --fs-2xl: 28px;
-  --lh-2xl: 34px;
   --fs-code: 13px;
   --lh-code: 20px;
   --fs-code-sm: 12px;
@@ -122,12 +120,10 @@
 
   /* 版式 */
   --titlebar-h: 40px;
-  --sidebar-w: 240px; /* 任务行标题 + 尾部时间放得下：中文约 10 个字、英文带 "Just now" 约 14 个字符；旧值 264 */
+  --sidebar-w: 240px; /* 任务行标题 + 尾部时间放得下：中文约 10 个字、英文带 "Just now" 约 14 个字符 */
   --sidebar-w-min: 200px;
-  --sidebar-w-max: 360px;
   --content-w: 840px; /* 对话列与输入框同宽同轴 */
   --gutter: 24px; /* 对话区最小左右留白 */
-  --aside-w: 0px; /* 阶段 3 之后的右栏占位，v1 恒为 0 */
   --review-tree-w: 240px; /* 评审：文件树 */
   --review-aside-w: 320px; /* 评审：改动说明 / 评论队列 */
   --dialog-w-sm: 400px;
@@ -178,7 +174,6 @@
   --dur-base: 200ms; /* 折叠展开、popover、门出现 */
   --dur-slow: 320ms; /* 侧栏、对话框、命令面板 */
   --dur-spring: 420ms; /* 配 --ease-spring */
-  --dur-stream: 120ms; /* 流式新增块淡入 */
   --dur-fade: 140ms; /* 必须保留的纯透明度渐变；reduced-motion 下为 100ms */
   --dur-breathe: 2400ms; /* 进行中状态点呼吸 */
   --dur-spin: 1100ms; /* 加载环 */
@@ -191,7 +186,6 @@
   /* 动效：位移与缩放量。reduced-motion 下归零，位移/缩放动画自动退化为纯淡入 */
   --travel-sm: 4px; /* 菜单、tooltip */
   --travel-md: 8px; /* toast、用户消息、卡片 */
-  --travel-lg: 12px; /* 门 */
   --scale-pop: 0.98; /* 浮层出现起始缩放 */
   --play-state: running; /* 循环动画（呼吸、旋转、光标）统一写 animation-play-state: var(--play-state) */
 }
@@ -233,7 +227,6 @@
 
   /* 强调（鸢尾紫，3.0）：只给进行中状态、主输入焦点环、链接、上下文圆环、开关、选中 */
   --accent: #6b46d9;
-  --accent-hover: #5129c8;
   --accent-soft: rgba(107, 70, 217, 0.1);
   --selection-bg: rgba(107, 70, 217, 0.2);
   --focus-ring: #6b46d9;
@@ -305,7 +298,6 @@
     --text-on-accent: #0c0b0e;
 
     --accent: #a48bff;
-    --accent-hover: #bcaaff;
     --accent-soft: rgba(164, 139, 255, 0.14);
     --selection-bg: rgba(164, 139, 255, 0.3);
     --focus-ring: #a48bff;
@@ -371,7 +363,6 @@
   --text-on-accent: #0c0b0e;
 
   --accent: #a48bff;
-  --accent-hover: #bcaaff;
   --accent-soft: rgba(164, 139, 255, 0.14);
   --selection-bg: rgba(164, 139, 255, 0.3);
   --focus-ring: #a48bff;
@@ -422,14 +413,12 @@
     --dur-base: 0ms;
     --dur-slow: 0ms;
     --dur-spring: 0ms;
-    --dur-stream: 0ms;
     --dur-fade: 100ms;
     --dur-breathe: 0ms;
     --dur-spin: 0ms;
     --dur-caret: 0ms;
     --travel-sm: 0px;
     --travel-md: 0px;
-    --travel-lg: 0px;
     --scale-pop: 1;
     --ease-spring: linear;
     --play-state: paused;
@@ -442,14 +431,12 @@
   --dur-base: 0ms;
   --dur-slow: 0ms;
   --dur-spring: 0ms;
-  --dur-stream: 0ms;
   --dur-fade: 100ms;
   --dur-breathe: 0ms;
   --dur-spin: 0ms;
   --dur-caret: 0ms;
   --travel-sm: 0px;
   --travel-md: 0px;
-  --travel-lg: 0px;
   --scale-pop: 1;
   --ease-spring: linear;
   --play-state: paused;

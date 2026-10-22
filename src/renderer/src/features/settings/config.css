@@ -232,6 +232,9 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   overflow-y: auto;
+  field-sizing: content;
+  min-height: calc(var(--lh-code-sm) * 2 + var(--space-4));
+  max-height: 320px;
 }
 
 .cfg-credential {
@@ -328,9 +331,6 @@
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
   overflow-wrap: anywhere;
-}
-
-.cfg-error {
   border-left: 2px solid var(--st-error);
   background: var(--st-error-soft);
   color: var(--st-error);
@@ -398,12 +398,6 @@
 }
 
 /* ───────── 结构化编辑（模型角色、回退链） ───────── */
-
-.cfg-json {
-  field-sizing: content;
-  min-height: calc(var(--lh-code-sm) * 2 + var(--space-4));
-  max-height: 320px;
-}
 
 .se {
   display: flex;

@@ -6,7 +6,7 @@
 
 ## 它做什么
 
-- 每个任务在伪终端里跑一个交互式 omp，按 TSP 协议收发界面节点（omp 描述界面，omp-studio 绘制）；设置里可切回经典的 `omp --mode rpc-ui`。用的是官方原版 omp，不 fork，不打补丁。
+- 每个任务在伪终端里跑一个交互式 omp，按 TSP 协议收发界面节点（omp 描述界面，omp-studio 绘制）。用的是官方原版 omp，不 fork，不打补丁。
 - 侧栏按项目列出任务；需要你确认的任务（审批、提问）会置顶提示。
 - 能读取终端里的 omp 会话历史，接着聊。和终端共用 `~/.omp`，登录、模型、设置两边一致。
 - 设置页可以登录模型提供商、选默认模型、修改 omp 的全部设置。
@@ -38,7 +38,7 @@ npm run dist         # 打 NSIS 安装包到 release/
 npm run icons        # 改了标志（src/shared/ui/pixel-pi.ts）后重新生成 resources/icon.ico 和 tray.png
 ```
 
-- 真实调模型的测试和 RPC 录制要用 `.env`（模板 `.env.example`），里面放测试用的 provider key 和 `STUDIO_TEST_MODEL`。不会读你真实 `~/.omp` 里的凭据。
+- 真实调模型的测试（`test/task-real-omp.test.ts`）要用 `.env`（模板 `.env.example`），里面放测试用的 provider key 和 `STUDIO_TEST_MODEL`。不会读你真实 `~/.omp` 里的凭据。
 - 发版：`npm run release -- <版本>`（先加 `--dry-run` 看一遍），把 `CHANGELOG.md` 的"未发布"改成这个版本、改版本号、跑检查、提交、打 tag、打安装包。
 - 架构文档在 `docs/architecture/`（实测出来的 omp 行为也记在对应功能的文档里），设计规范在 `docs/design/spec.md`，版本变化在 `CHANGELOG.md`。
 

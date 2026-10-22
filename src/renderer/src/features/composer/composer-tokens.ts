@@ -34,8 +34,8 @@ export const EMPTY_DRAFT: Draft = { text: "", images: [], files: [], pastes: {},
 export type TokenKind = "image" | "paste" | "file";
 
 /** omp 的 `#nt`：超过 10 行或超过 1000 个字符就折叠成占位符。 */
-export const PASTE_MAX_LINES = 10;
-export const PASTE_MAX_CHARS = 1000;
+const PASTE_MAX_LINES = 10;
+const PASTE_MAX_CHARS = 1000;
 
 /** omp 对粘贴文字的整理（`#Re`）：换行统一成 \n，NFC，Tab 换成 3 个空格，去掉其余控制字符。 */
 export function normalizePaste(raw: string): string {
@@ -49,7 +49,7 @@ export function normalizePaste(raw: string): string {
   );
 }
 
-export function lineCount(text: string): number {
+function lineCount(text: string): number {
   return text.split("\n").length;
 }
 
@@ -58,14 +58,14 @@ export function isLargePaste(normalized: string): boolean {
   return lineCount(normalized) > PASTE_MAX_LINES || normalized.length > PASTE_MAX_CHARS;
 }
 
-export function imageMarker(n: number, image: DraftImage | undefined): string {
+function imageMarker(n: number, image: DraftImage | undefined): string {
   return image?.width !== undefined && image.height !== undefined
     ? `[Image #${n}, ${image.width}x${image.height}]`
     : `[Image #${n}]`;
 }
 
 /** 文件占位符 `[File #N, 名字]`（studio 自己的写法，omp 没有文件附件；发送时换成 omp 的 `@"路径"` 提及）。名字里的 `]` 和换行换成 `_`。 */
-export function fileMarker(n: number, file: DraftFile | undefined): string {
+function fileMarker(n: number, file: DraftFile | undefined): string {
   return file === undefined ? `[File #${n}]` : `[File #${n}, ${file.name.replace(/[\]\n\r]/g, "_")}]`;
 }
 
@@ -85,7 +85,7 @@ export interface TokenSpan {
 }
 
 /** 文字里和现有附件对得上的占位符（编号超出的、没有原文的 `[Paste #9]` 只是普通文字）。 */
-export function scanTokens(text: string, draft: Pick<Draft, "images" | "files" | "pastes">): TokenSpan[] {
+function scanTokens(text: string, draft: Pick<Draft, "images" | "files" | "pastes">): TokenSpan[] {
   const spans: TokenSpan[] = [];
   for (const match of text.matchAll(new RegExp(tokenSource, "g"))) {
     const kind: TokenKind = match[1] === "Image" ? "image" : match[1] === "File" ? "file" : "paste";

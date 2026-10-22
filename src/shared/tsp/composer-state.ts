@@ -9,13 +9,13 @@
 // - `omp.composer.usage`（text）：`p.text` 如 "$0.00 (+0.02) ↓"，`p.title` 如 "Session cost $0.00 (+0.02) ↓"。
 // - 模型选择器：layer 里 `k: "picker"`，`p.items[].id` 是 `provider/model`，`p.current` 是当前模型的 id 列表。
 // role 是 omp 自己的命名，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
-import { findNode, nodeRole, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import { findNode, nodeRole, plainText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
 
 export const COMPOSER_ROLE = "omp.editor";
-export const MODEL_ROLE = "omp.composer.model";
-export const EFFORT_ROLE = "omp.composer.model.effort";
-export const CONTEXT_ROLE = "omp.composer.context";
-export const USAGE_ROLE = "omp.composer.usage";
+const MODEL_ROLE = "omp.composer.model";
+const EFFORT_ROLE = "omp.composer.model.effort";
+const CONTEXT_ROLE = "omp.composer.context";
+const USAGE_ROLE = "omp.composer.usage";
 
 /**
  * 提问/审批把输入框换掉时，`sendPrompt`、切模型、切思考强度都没有可操作的节点：主进程立刻用这条消息 reject
@@ -62,17 +62,6 @@ export interface TspPicker {
   /** `provider/model`。 */
   items: string[];
   current: string[];
-}
-
-function plainText(node: DocNode): string {
-  const { text, spans } = node.p;
-  if (typeof text === "string") return text;
-  if (!Array.isArray(spans)) return "";
-  let joined = "";
-  for (const span of spans as readonly unknown[]) {
-    if (span !== null && typeof span === "object" && "t" in span && typeof span.t === "string") joined += span.t;
-  }
-  return joined;
 }
 
 /** `/fast` 打开时 omp 在模型名后面加一个闪电图标 span（Nerd Font U+F0E7，样式含 `icon`；实测 sonnet-5-5 的 /fast on / off）。 */
@@ -127,7 +116,7 @@ export function parseCost(text: string): number | null {
 }
 
 /** 文档里的 omp 输入框卡片：dock 里 role `omp.editor` 的节点。composer 被提问/审批替换时没有。 */
-function findComposerCard(doc: TspDocument): { surface: DocSurface; card: DocNode } | null {
+export function findComposerCard(doc: TspDocument): { surface: DocSurface; card: DocNode } | null {
   for (const sf of doc.live) {
     const surface = doc.surfaces.get(sf);
     if (!surface?.nodes.has("dock")) continue;

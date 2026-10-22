@@ -8,6 +8,7 @@ import path from "node:path";
 import { parseDocument } from "yaml";
 import { toApprovalMode } from "../../shared/approval-mode.ts";
 import type { ApprovalModeInfo } from "../../shared/ipc.ts";
+import { valueOf } from "./model-defaults.ts";
 
 export interface ApprovalModeDeps {
   /** `omp config list --json` 的结果；cwd 为 null 时在中性目录里跑（只有全局配置）。 */
@@ -32,10 +33,7 @@ async function projectSets(cwd: string): Promise<boolean> {
 }
 
 export async function readApprovalMode(deps: ApprovalModeDeps, cwd: string | null): Promise<ApprovalModeInfo> {
-  const listed = await deps.list(cwd);
-  const entry: unknown =
-    typeof listed === "object" && listed !== null ? (listed as Record<string, unknown>)[configKey] : undefined;
-  const value = typeof entry === "object" && entry !== null && "value" in entry ? entry.value : undefined;
+  const value = valueOf(await deps.list(cwd), configKey);
   return {
     mode: toApprovalMode(value),
     source: cwd !== null && (await projectSets(cwd)) ? "project" : "global",

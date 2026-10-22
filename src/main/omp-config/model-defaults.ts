@@ -17,7 +17,8 @@ export interface ModelDefaultsDeps {
   setGlobalRoles(roles: Record<string, unknown> | null): Promise<void>;
 }
 
-function valueOf(listed: unknown, key: string): unknown {
+/** `omp config list --json` 结果里某个键的 value；键不存在或形状不对是 undefined。 */
+export function valueOf(listed: unknown, key: string): unknown {
   if (typeof listed !== "object" || listed === null || !(key in listed)) return undefined;
   const entry: unknown = (listed as Record<string, unknown>)[key];
   return typeof entry === "object" && entry !== null && "value" in entry ? entry.value : undefined;

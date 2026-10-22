@@ -226,7 +226,6 @@ export function Prefs({ node, ctx }: NodeProps) {
 }
 
 type SendFn = (ev: "action" | "activate" | "select" | "change", fields: Record<string, unknown>) => void;
-type TFn = TFunction;
 
 interface SectionProps {
   section: TspPrefsSection;
@@ -234,7 +233,7 @@ interface SectionProps {
   query: string;
   send: SendFn;
   action(act: string, value?: string): void;
-  t: TFn;
+  t: TFunction;
 }
 
 function Section({ section, p, query, send, action, t }: SectionProps) {
@@ -334,7 +333,7 @@ interface ControlProps {
   close(): void;
   hover(value: string): void;
   act(act: string): void;
-  t: TFn;
+  t: TFunction;
 }
 
 function Control({ row, control, off, editing, change, activate, close, hover, act, t }: ControlProps) {

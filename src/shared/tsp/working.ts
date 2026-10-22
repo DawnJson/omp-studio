@@ -4,7 +4,7 @@
 // （composer/ComposerStatus.tsx）：用时用主进程记的这一轮开始时间，文字取这里。omp 18.12.5 实测，录制见 fixtures/tsp/*.jsonl
 // （test/tsp-working.test.ts 逐帧核对）。role 是 omp 自己的命名，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
 // 另有一次性的 `omp.loader`（旋转图标 + `text`）出现在同一个位置，没有 label 时用它的文字。
-import { findNode, nodeRole, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import { findNode, nodeRole, plainText, type DocSurface, type TspDocument } from "./document.ts";
 
 const LABEL_ROLE = "omp.working.label";
 /**
@@ -15,25 +15,14 @@ const LABEL_ROLE = "omp.working.label";
 export const HIDDEN_HUD_ROLES: ReadonlySet<string> = new Set(["omp.hud", "omp.hud.activity"]);
 const LOADER_ROLE = "omp.loader";
 
-function spansText(node: DocNode): string {
-  const { spans, text } = node.p;
-  if (typeof text === "string") return text;
-  if (!Array.isArray(spans)) return "";
-  let joined = "";
-  for (const span of spans as readonly unknown[]) {
-    if (span !== null && typeof span === "object" && "t" in span && typeof span.t === "string") joined += span.t;
-  }
-  return joined;
-}
-
 function labelIn(surface: DocSurface): string | null {
   const label = findNode(surface, (node) => nodeRole(node) === LABEL_ROLE, "dock");
-  const text = label ? spansText(label).trim() : "";
+  const text = label ? plainText(label).trim() : "";
   if (text !== "") return text;
   const loader = findNode(surface, (node) => nodeRole(node) === LOADER_ROLE, "dock");
   if (!loader) return null;
-  const inner = findNode(surface, (node) => node.k === "text" && spansText(node).trim() !== "", loader.id);
-  const loaded = inner ? spansText(inner).trim() : "";
+  const inner = findNode(surface, (node) => node.k === "text" && plainText(node).trim() !== "", loader.id);
+  const loaded = inner ? plainText(inner).trim() : "";
   return loaded === "" ? null : loaded;
 }
 

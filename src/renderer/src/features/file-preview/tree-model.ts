@@ -21,11 +21,11 @@ export interface TruncatedRow {
 
 export type TreeRow = NodeRow | TruncatedRow;
 
-export function joinPath(dir: string, name: string): string {
+function joinPath(dir: string, name: string): string {
   return dir === "" ? name : `${dir}/${name}`;
 }
 
-export function parentPath(path: string): string {
+function parentPath(path: string): string {
   const slash = path.lastIndexOf("/");
   return slash === -1 ? "" : path.slice(0, slash);
 }

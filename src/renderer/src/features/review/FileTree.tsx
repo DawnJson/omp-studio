@@ -21,7 +21,7 @@ const GROUP_LABEL: Record<ReviewGroup["area"], MessageKey> = {
   untracked: "review.groupUntracked",
 };
 
-function splitPath(path: string): { dir: string; name: string } {
+export function splitPath(path: string): { dir: string; name: string } {
   const slash = path.lastIndexOf("/");
   return slash === -1 ? { dir: "", name: path } : { dir: path.slice(0, slash + 1), name: path.slice(slash + 1) };
 }

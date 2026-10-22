@@ -8,7 +8,7 @@ function entry(locale: Locale, name: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-export interface ConfigText {
+interface ConfigText {
   /** 常用项的人话标签；其余为 null（界面显示 key）。 */
   label: string | null;
   /** 描述；常用项是中/英文说明，其余是 omp 原文。 */
@@ -65,7 +65,7 @@ export function commonItems(items: readonly OmpConfigItem[]): OmpConfigItem[] {
     .sort((a, b) => (commonOrder.get(a.key) ?? 0) - (commonOrder.get(b.key) ?? 0));
 }
 
-export interface PrefixGroup {
+interface PrefixGroup {
   /** key 的第一段；"" = 没有点号的顶层键和只有一项的前缀，合成"其他"。 */
   prefix: string;
   items: OmpConfigItem[];

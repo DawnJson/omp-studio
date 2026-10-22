@@ -75,7 +75,7 @@ function load(): PersistedState {
     // 没有文件或内容不对：全部用默认值。
   }
   const shell = { ...defaultShellState };
-  const raw = record["shell"] === undefined ? {} : parseShellRecord(record["shell"]);
+  const raw = parseShellRecord(record["shell"]);
   // 字段各自校验：旧文件缺字段或某一项越界，只影响那一项。
   try {
     const stored = parseInteger(raw["sidebarWidth"], "sidebarWidth", ...sidebarWidthRange);

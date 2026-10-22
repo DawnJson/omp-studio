@@ -1,12 +1,10 @@
 // 设置 → 集成 → SSH 主机的 IPC：参数校验后转调 src/main/integrations/ssh.ts。
 // MCP / 记忆 / 工具 / 更新日志走 runBuiltin（command-handlers.ts），这里没有。
-import { app } from "electron";
-import { mkdir } from "node:fs/promises";
-import path from "node:path";
 import type { HandlerGroup, ProjectId } from "../../shared/ipc.ts";
 import type { SshHostInput } from "../../shared/omp-output/ssh.ts";
 import { checkSshName, listSshHosts, runSshWrite, sshAddArgs, sshRemoveArgs } from "../integrations/ssh.ts";
-import { getApiKeyEnv, ompManager } from "../omp-manager/index.ts";
+import { getApiKeyEnv, readyOmp } from "../omp-manager/index.ts";
+import { serviceCwd } from "../service/service-omp.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { runOmpCommand, type RunOmp } from "../usage/usage-service.ts";
 import { IpcValidationError, parseBoolean, parseOneOf, parseProjectId, parseRecord, parseString } from "./validate.ts";
@@ -15,17 +13,8 @@ const SSH_TIMEOUT_MS = 30_000;
 
 /** projectId 为 null：中性目录 userData/service（不混进任何项目层配置）；否则主进程记录里的项目目录，不用渲染进程传的路径。 */
 async function ssh(projectId: ProjectId | null): Promise<RunOmp> {
-  const status = ompManager().status;
-  if (status.state !== "ready") throw new Error("omp is not ready");
-  let cwd: string;
-  if (projectId === null) {
-    cwd = path.join(app.getPath("userData"), "service");
-    await mkdir(cwd, { recursive: true });
-  } else {
-    const project = (await getTaskPool()).listProjects().find((candidate) => candidate.id === projectId);
-    if (!project) throw new Error(`unknown project ${projectId}`);
-    cwd = project.path;
-  }
+  const status = readyOmp();
+  const cwd = projectId === null ? await serviceCwd() : (await getTaskPool()).projectPath(projectId);
   return runOmpCommand(status.path, cwd, SSH_TIMEOUT_MS, await getApiKeyEnv());
 }
 

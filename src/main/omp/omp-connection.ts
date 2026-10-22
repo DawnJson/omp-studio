@@ -26,13 +26,9 @@ export interface OmpLaunch {
   env: NodeJS.ProcessEnv;
 }
 
-/** 收发的每一个逻辑帧，用于录制回放。`in` 是主进程写给 omp 的，`out` 是 omp 写出的（已重组）。 */
-export type WireTap = (direction: "in" | "out", frame: object) => void;
-
 export interface OmpConnectionOptions {
   /** 等 `ready` 帧的上限。 */
   readyTimeoutMs?: number;
-  tap?: WireTap;
 }
 
 export interface OmpExit {
@@ -105,7 +101,6 @@ export class OmpConnection {
 
   #child: ChildProcessWithoutNullStreams;
   #decoder = new FrameDecoder(DEFAULT_MAX_REASSEMBLED_BYTES);
-  #tap: WireTap | undefined;
   #pending = new Map<string, PendingRequest>();
   #promptWaiters = new Map<string, PromiseWithResolvers<PromptResultEvent>>();
   #frameListeners = new Set<(frame: RpcServerFrame) => void>();
@@ -129,7 +124,6 @@ export class OmpConnection {
   }
 
   private constructor(launch: OmpLaunch, options: OmpConnectionOptions) {
-    this.#tap = options.tap;
     this.#child = spawn(launch.command, launch.args, {
       cwd: launch.cwd,
       env: launch.env,
@@ -273,12 +267,11 @@ export class OmpConnection {
   }
 
   #write(frame: object): void {
-    this.#tap?.("in", frame);
     this.#child.stdin.write(JSON.stringify(frame) + "\n");
   }
 
   #dispatch(frame: RawFrame): void {
-    // tap 和监听器是主进程自己的代码。它们抛错说明主进程状态已经不可信，按致命错误结束这个连接，
+    // 监听器是主进程自己的代码。它们抛错说明主进程状态已经不可信，按致命错误结束这个连接，
     // 错误放进 `exited.error`，而不是变成 uncaughtException 并丢掉同一批里后面的帧。
     try {
       this.#route(frame);
@@ -288,7 +281,6 @@ export class OmpConnection {
   }
 
   #route(frame: RawFrame): void {
-    this.#tap?.("out", frame);
     // 帧的结构由 omp 的 wire schema 约定，这里只按 `type` 分发，不做逐字段校验。
     // 不认识的 `type` 也原样交给监听器（rpc.md：未知帧当作未知通知），所以监听器要有默认分支。
     const serverFrame = frame as RpcServerFrame;

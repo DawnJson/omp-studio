@@ -5,7 +5,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Button } from "./controls.tsx";
 import { InfoTip } from "./InfoTip.tsx";
 
-export interface LoginProgress {
+interface LoginProgress {
   url?: string | undefined;
   launchUrl?: string | undefined;
   instructions?: string | undefined;

@@ -88,20 +88,6 @@
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
 }
-.step-spin {
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--border-strong);
-  border-top-color: var(--accent);
-  border-radius: var(--radius-pill);
-  animation: step-spin var(--dur-spin) linear infinite;
-  animation-play-state: var(--play-state);
-}
-@keyframes step-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 /* —— Tern 风格工具块：头部一行（无底色、无折叠箭头），结果直接摆在下面 —— */
 .step-tool {
@@ -146,7 +132,7 @@
 .step-range {
   color: var(--text-3);
 }
-/* 右侧数字：等宽、--text-3（匹配数、文件数、行数、耗时）。 */
+/* 右侧数字：等宽、--text-3（匹配数、文件数、行数）。 */
 .step-meta {
   display: inline-flex;
   flex: none;
@@ -388,7 +374,7 @@ html[data-motion="reduced"] .step-actions {
   font-variant-numeric: tabular-nums;
 }
 
-/* Bash 卡片：命令 / 输出（最后 8 行，最上一行渐隐）/ 状态脚。模型的 bash 工具和用户的 !命令共用。 */
+/* Bash 卡片：命令 / 输出（最后 8 行，最上一行渐隐）/ 状态脚。 */
 .bash-card {
   overflow: hidden;
   border: 1px solid var(--border-subtle);
@@ -472,13 +458,6 @@ html[data-motion="reduced"] .step-actions {
 .bash-foot[data-status="failed"] {
   color: var(--st-error);
 }
-.bash-dot {
-  flex: none;
-  width: var(--space-2);
-  height: var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-}
 .bash-time {
   color: var(--text-3);
   font-family: var(--font-mono);
@@ -486,12 +465,6 @@ html[data-motion="reduced"] .step-actions {
 }
 .bash-foot[data-status="failed"] .bash-time {
   color: inherit;
-}
-.bash-note {
-  color: var(--text-3);
-}
-.bash-action {
-  margin-left: auto;
 }
 
 /* Todo：阶段行（状态环 + 名字 + 右侧 完成/总数）+ 任务行。 */

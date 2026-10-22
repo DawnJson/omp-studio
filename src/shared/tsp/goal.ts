@@ -13,9 +13,9 @@
 // role / 文字是 omp 自己的命名，不在 TSP 规范里：omp 改名这些规则就失效，判断集中在这里。
 import type { TaskGoal } from "../ipc.ts";
 import type { GoalRecord } from "../omp-output/goal.ts";
-import { findNode, nodeRole, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import { findComposerCard } from "./composer-state.ts";
+import { findNode, nodeRole, plainText, type DocNode, type TspDocument } from "./document.ts";
 
-const COMPOSER_ROLE = "omp.editor";
 const FACT_ROLE = "omp.composer.fact";
 const GOAL_FACT = /^Goal\b\s*(.*)$/;
 
@@ -44,19 +44,8 @@ export function parseTokenLabel(label: string): number | null {
   return Number.isFinite(value) ? Math.round(value) : null;
 }
 
-function plainText(node: DocNode): string {
-  const { text, spans } = node.p;
-  if (typeof text === "string") return text;
-  if (!Array.isArray(spans)) return "";
-  let joined = "";
-  for (const span of spans as readonly unknown[]) {
-    if (span !== null && typeof span === "object" && "t" in span && typeof span.t === "string") joined += span.t;
-  }
-  return joined;
-}
-
 /** 一个"状态事实"节点 → 目标事实；不是目标的事实（计划模式等）为 null。 */
-export function parseGoalFact(node: DocNode): GoalFact | null {
+function parseGoalFact(node: DocNode): GoalFact | null {
   if (node.k !== "seg" || nodeRole(node) !== FACT_ROLE) return null;
   const match = GOAL_FACT.exec(plainText(node).trim());
   if (!match) return null;
@@ -64,16 +53,6 @@ export function parseGoalFact(node: DocNode): GoalFact | null {
   const icon = node.p["icon"];
   const status = icon === "pause" ? "paused" : icon === "warning" ? "budget-limited" : "active";
   return { status, usedLabel, budgetLabel: budgetLabel === undefined || budgetLabel === "" ? null : budgetLabel };
-}
-
-function findComposerCard(doc: TspDocument): { surface: DocSurface; card: DocNode } | null {
-  for (const sf of doc.live) {
-    const surface = doc.surfaces.get(sf);
-    if (!surface?.nodes.has("dock")) continue;
-    const card = findNode(surface, (node) => nodeRole(node) === COMPOSER_ROLE, "dock");
-    if (card) return { surface, card };
-  }
-  return null;
 }
 
 export function deriveGoalFact(doc: TspDocument): GoalDocumentState {

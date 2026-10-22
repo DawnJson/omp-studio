@@ -3,7 +3,7 @@
 import type { ProjectId } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 
-export type Load<T> =
+type Load<T> =
   | { kind: "idle" }
   | { kind: "loading"; previous: T | null }
   | { kind: "ready"; data: T }

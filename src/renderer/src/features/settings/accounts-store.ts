@@ -13,7 +13,7 @@ interface AccountData {
   models: ModelOption[];
 }
 
-export type AccountLoad = CachedLoad<AccountData>;
+type AccountLoad = CachedLoad<AccountData>;
 
 const store = createStore<AccountLoad>({ kind: "idle" });
 

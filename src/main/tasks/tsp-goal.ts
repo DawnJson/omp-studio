@@ -15,7 +15,7 @@ const TAIL_BYTES = 256 * 1024;
 const COMPLETE_SETTLE_MS = 400;
 
 /** 读会话文件尾部并解析目标状态；文件不存在 / 读失败为 null。 */
-export async function readGoalSession(file: string): Promise<GoalSessionState | null> {
+async function readGoalSession(file: string): Promise<GoalSessionState | null> {
   let handle;
   try {
     handle = await open(file, "r");

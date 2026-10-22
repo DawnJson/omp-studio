@@ -4,7 +4,7 @@ import type { DefaultModelInfo, ModelDefaults, ModelOption } from "../ipc.ts";
 import type { Effort, ThinkingLevel } from "../omp-wire/rpc-wire.generated.ts";
 
 /** 从弱到强。`off` 不在里面：它不是 effort，只有任务里 omp 报告了才有。 */
-export const effortOrder: readonly Effort[] = ["minimal", "low", "medium", "high", "xhigh", "max"];
+const effortOrder: readonly Effort[] = ["minimal", "low", "medium", "high", "xhigh", "max"];
 
 const rank = (level: ThinkingLevel): number => effortOrder.indexOf(level as Effort);
 

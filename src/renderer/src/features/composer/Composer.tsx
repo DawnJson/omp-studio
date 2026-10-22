@@ -61,7 +61,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   const stopping = stoppingId === taskId;
   const ompCommands = useSlashCommands(taskId);
   // omp 的列表还没载入时保持空：守卫在空列表时一律放行（studio-slash 的命令发送时照样会被接管）。
-  // studio 接管哪些命令、哪些交给 omp 由命令表按宿主（rpc / TSP）定，见 studio-slash.ts。
+  // studio 接管哪些命令、哪些交给 omp 由命令表按宿主（task / draft）定，见 studio-slash.ts。
   const commands = useMemo(
     () => (ompCommands.length === 0 ? ompCommands : withStudioSlash(ompCommands, studioSlashCommands, t)),
     [ompCommands, t],
@@ -292,9 +292,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
     if (screenOpen && action !== "gatePrimary") return;
     if (action === "gatePrimary") gateAction(GATE_ACTION_APPROVE);
     // TSP 审批：omp 收到消息就拒绝待批的调用并把消息当插话（approval-mode.md），不用另发 deny。
-    else if (action === "denyAndSend") {
-      if (allowSend()) sendNow("steer");
-    } else if (allowSend()) sendNow(action === "followUp" ? "followUp" : "steer");
+    else if (allowSend()) sendNow(action === "followUp" ? "followUp" : "steer");
   };
 
   if (!task) return null;

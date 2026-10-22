@@ -1,4 +1,4 @@
-// 评审里的单字符快捷键（j/k 文件、n/p 改动块、v 切换对比方式）和 Esc。
+// 评审里的单字符快捷键（j/k 文件、n/p 改动块、v/f/w 显示选项）和 Esc。
 // 只在焦点不在输入控件、没有对话框/命令面板盖在上面、没有被别处处理过（defaultPrevented）时生效；带 Ctrl/Alt/Meta 的组合键不管。
 import { useEffect, useRef } from "react";
 import { usePaletteOpen } from "../../store/index.ts";

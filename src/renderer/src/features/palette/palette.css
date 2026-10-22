@@ -95,8 +95,6 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   user-select: none;
-}
-.pl-row {
   transition: background-color var(--dur-fast) var(--ease-out);
 }
 .pl-row[data-active="true"] {

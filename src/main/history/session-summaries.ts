@@ -1,6 +1,7 @@
 // 把索引项和任务池的项目/任务对上，得到界面用的 SessionSummary。纯函数，不碰文件系统和 electron。
 import type { Project, ProjectId, SessionSummary, TaskId } from "../../shared/ipc.ts";
-import { pathKey, type IndexedSession } from "./session-index.ts";
+import { pathKey } from "../tasks/task-registry.ts";
+import type { IndexedSession } from "./session-index.ts";
 
 export interface SessionLink {
   id: TaskId;

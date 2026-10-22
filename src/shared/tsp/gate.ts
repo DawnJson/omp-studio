@@ -11,6 +11,7 @@
 //   Hub 里 `activate` 一个子代理进入聚焦模式后，同一个编辑器的 `send` 就是 steer 那个子代理（实测），所以聚焦模式照常能发。
 // role 和 action 名是 omp 自己的，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
 import { isRecord } from "../type-guards.ts";
+import { COMPOSER_ROLE } from "./composer-state.ts";
 import { findNode, nodeRole, type DocNode, type TspDocument } from "./document.ts";
 import { deriveTaskStatus } from "./task-status.ts";
 
@@ -39,7 +40,6 @@ export function isApprovalDuplicateButton(node: DocNode): boolean {
 export const TSP_SCREEN_OPEN = "screen_open: an omp panel (such as the Agent Hub) is open; close it before sending";
 
 const BUTTON_ROLE = "omp.btn";
-const COMPOSER_ROLE = "omp.editor";
 
 export type TspMessageTarget =
   /** 可以发：`send` 事件的目标。`approval` = 有审批在等，这条消息会拒绝它。 */
@@ -64,7 +64,7 @@ export function hasLiveScreen(doc: TspDocument): boolean {
  * 它开着时输入框不是发送目标；`activate` 一个子代理后 Hub 关掉、omp 进入聚焦模式（dock 里 `omp.composer.focus`），
  * 这时往同一个编辑器 `send` 就是 steer 那个子代理（实测），不需要特别处理。
  */
-export function hasAgentHub(doc: TspDocument): boolean {
+function hasAgentHub(doc: TspDocument): boolean {
   for (const sf of doc.live) {
     const surface = doc.surfaces.get(sf);
     if (!surface?.nodes.has("layer")) continue;

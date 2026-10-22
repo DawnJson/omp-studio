@@ -1,4 +1,4 @@
-// omp 启动参数和环境的纯函数部分：不 import electron 和 omp-manager，单元测试和录制脚本可以直接用。
+// omp 启动参数和环境的纯函数部分：不 import electron 和 omp-manager，单元测试可以直接用。
 import path from "node:path";
 import type { ModelKey } from "../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
@@ -63,8 +63,9 @@ export function buildTspArgs(spec: TspLaunchSpec): string[] {
   return args;
 }
 
-/** 把 `bin` 放到 PATH 最前（保持原有的变量名大小写：Windows 上常见 `Path`）。 */
-export function prependToPath(env: NodeJS.ProcessEnv, bin: string): NodeJS.ProcessEnv {
+/** 把 `bin` 放到 PATH 最前（保持原有的变量名大小写：Windows 上常见 `Path`）；`bin` 为空（非自管 omp）时原样返回 env。 */
+export function prependToPath(env: NodeJS.ProcessEnv, bin: string | null): NodeJS.ProcessEnv {
+  if (!bin) return env;
   const key =
     process.platform === "win32" ? (Object.keys(env).find((name) => name.toUpperCase() === "PATH") ?? "Path") : "PATH";
   const current = env[key];

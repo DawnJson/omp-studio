@@ -41,7 +41,7 @@ export const piCells: readonly PiCell[] = rows.flatMap((row, rowIndex) =>
 
 /** π 本身 12×10；加上往右下错开 1 像素的淡影，整个标志 13×11。 */
 export const piWidth = 12;
-export const piHeight = 10;
+const piHeight = 10;
 export const shadow = { dx: 1, dy: 1, opacity: 0.32 } as const;
 export const markWidth = piWidth + shadow.dx;
 export const markHeight = piHeight + shadow.dy;

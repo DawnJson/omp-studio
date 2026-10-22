@@ -7,7 +7,7 @@ import { keycapLabel } from "./fmt.ts";
 import { spanTokens, cleanGlyphs } from "./span-tokens.ts";
 import { useTspContext } from "./tsp-context.ts";
 
-export { semanticOf, spanClass, spanTokens, cleanGlyphs } from "./span-tokens.ts";
+export { semanticOf, spanClass, cleanGlyphs } from "./span-tokens.ts";
 
 /** `ctrl+r` 这种不含空格的键 id → 键帽符号（⌃R）；不是键 id 返回 null。 */
 function keyId(text: string): string | null {

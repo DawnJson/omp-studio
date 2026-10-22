@@ -72,7 +72,7 @@ export function askTarget(t: TFunction, views: readonly AskView[]): string | nul
 export function AskAnswers({ step }: { step: ToolStep }) {
   const t = useT();
   const views = askViews(step.args, step.result);
-  if (step.status === "running" || views.length === 0) return null;
+  if (views.length === 0) return null;
   return (
     <div className="ask-list" data-testid="ask-answers">
       {views.map((view, index) => (

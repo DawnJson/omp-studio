@@ -6,15 +6,14 @@ import { encodeKey } from "../keys.ts";
 import type { NodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
 import { TspChildren } from "../TspChildren.tsx";
-
-type DomProps = NodeDomProps;
+import { likeOf } from "./key-event.ts";
 
 function isBlankFocus(): boolean {
   const active = document.activeElement;
   return active === null || active === document.body;
 }
 
-export function AskGateCol(props: NodeProps & { dom: DomProps }) {
+export function AskGateCol(props: NodeProps & { dom: NodeDomProps }) {
   const { ctx, dom } = props;
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -51,17 +50,7 @@ export function AskGateCol(props: NodeProps & { dom: DomProps }) {
     if (e.defaultPrevented) return;
     // 里面的 list / editor 自己有处理按键的逻辑，只接没人要的键（Review 页、按钮上的键）。
     if (!(e.target instanceof Element) || e.target.closest("[data-tspi-keys]") !== e.currentTarget) return;
-    const data = encodeKey({
-      key: e.key,
-      code: e.code,
-      ctrlKey: e.ctrlKey,
-      shiftKey: e.shiftKey,
-      altKey: e.altKey,
-      metaKey: e.metaKey,
-      isComposing: e.nativeEvent.isComposing,
-      keyCode: e.keyCode,
-      altGraph: e.getModifierState("AltGraph"),
-    });
+    const data = encodeKey(likeOf(e.nativeEvent));
     if (data === null) return;
     e.preventDefault();
     ctx.keys(data);
@@ -85,7 +74,7 @@ export function AskGateCol(props: NodeProps & { dom: DomProps }) {
  * 提问 / 审批的按钮（role `omp.btn`）画成真按钮：点一下发节点自己的 `actions.click`（`action` 事件，实录里 submit / note /
  * hide / show 都有效）。点按钮不抢焦点，键盘留在原处（提问对话框根节点）。
  */
-export function AskButtonRow(props: NodeProps & { dom: DomProps }) {
+export function AskButtonRow(props: NodeProps & { dom: NodeDomProps }) {
   const { dom } = props;
   return (
     <button

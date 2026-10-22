@@ -14,7 +14,7 @@ import type { TspPickerAction, TspText } from "../../../../../shared/tsp/tsp.gen
 import { isRecord } from "../../../../../shared/type-guards.ts";
 import { labels } from "../labels.ts";
 import { Check, ChevronDown, CopyIcon } from "../../../icons.tsx";
-import { openHref, runAction } from "../actions.ts";
+import { copyText, openHref, runAction } from "../actions.ts";
 import { Clamp } from "../Clamp.tsx";
 import { FoldCtx, type FoldState } from "../fold-context.ts";
 import { clamp01, formatCost, formatCount, formatElapsed } from "../fmt.ts";
@@ -26,7 +26,6 @@ import { asArray, asNumber, asString } from "../props-util.ts";
 import { tokenizeCommand } from "../shell-tokens.ts";
 import { plainText, semanticOf, TspSpans } from "../spans.tsx";
 import { TspNode } from "../TspChildren.tsx";
-import { copyText } from "../actions.ts";
 import { peekTspNode } from "../tsp-store.ts";
 import { useFold } from "../use-fold.ts";
 import { useAge } from "../use-clock.ts";

@@ -1,8 +1,8 @@
 // 会话信息对话框、请求记录、分享的 IPC。数据来源和取舍见 docs/architecture/session-history.md "会话信息"：
 // 会话文件头 + 置顶文件 + stats.db 都只读；分享经 `omp share`（会上传，界面先确认）。参数一律是 unknown，先校验再用，路径由主进程按任务 id 查表。
-import type { HandlerGroup, SessionHeaderInfo, TaskId } from "../../shared/ipc.ts";
+import type { HandlerGroup, SessionHeaderInfo } from "../../shared/ipc.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
-import { getApiKeyEnv, ompManager } from "../omp-manager/index.ts";
+import { getApiKeyEnv, readyOmp } from "../omp-manager/index.ts";
 import { listJson, runOmpConfig } from "../omp-config/config-service.ts";
 import { readSessionHeader } from "../session-info/session-header.ts";
 import { readSessionPins } from "../session-info/session-pins.ts";
@@ -15,18 +15,6 @@ import { parseBoolean, parseTaskId } from "./validate.ts";
 
 /** 上传和加密都在本机和网络上，大会话要几秒；给足时间，超时杀进程。 */
 const SHARE_TIMEOUT_MS = 2 * 60 * 1000;
-
-async function sessionFileOf(taskId: TaskId): Promise<string | null> {
-  const link = (await getTaskPool()).listSessionLinks().find((candidate) => candidate.id === taskId);
-  if (link === undefined) throw new Error("任务不存在");
-  return link.sessionFile;
-}
-
-function readyOmp(): { path: string; version: string } {
-  const status = ompManager().status;
-  if (status.state !== "ready") throw new Error("omp is not ready");
-  return status;
-}
 
 /** refresh 时先让 omp 同步 stats.db；同步失败照常抛（界面显示原因），不拿旧数据冒充新的。 */
 async function maybeSync(refresh: boolean): Promise<void> {
@@ -41,7 +29,7 @@ export const sessionInfoHandlers: HandlerGroup<
     const doRefresh = parseBoolean(refresh, "refresh");
     const pool = await getTaskPool();
     const context = pool.taskGitContext(id);
-    const sessionFile = await sessionFileOf(id);
+    const sessionFile = pool.sessionFileOf(id);
     await maybeSync(doRefresh);
     const parsed = sessionFile === null ? null : await readSessionHeader(sessionFile);
     const pins = await readSessionPins(resolveAgentDir());
@@ -63,7 +51,7 @@ export const sessionInfoHandlers: HandlerGroup<
   async getTaskSessionTrace(taskId, refresh) {
     const id = parseTaskId(taskId);
     const doRefresh = parseBoolean(refresh, "refresh");
-    const sessionFile = await sessionFileOf(id);
+    const sessionFile = (await getTaskPool()).sessionFileOf(id);
     await maybeSync(doRefresh);
     if (sessionFile === null) return { hasDatabase: true, requests: [], truncated: false };
     return readSessionTrace(statsDbPath(), sessionFile);
@@ -79,7 +67,7 @@ export const sessionInfoHandlers: HandlerGroup<
   async shareTask(taskId, gist) {
     const id = parseTaskId(taskId);
     const useGist = parseBoolean(gist, "gist");
-    const sessionFile = await sessionFileOf(id);
+    const sessionFile = (await getTaskPool()).sessionFileOf(id);
     if (sessionFile === null) throw new Error("这个任务还没有会话文件，没有可分享的内容");
     const { cwd } = (await getTaskPool()).taskGitContext(id);
     return shareSession(

@@ -44,12 +44,10 @@ export const taskHandlers: HandlerGroup<
   | "listTasks"
   | "createTask"
   | "openTask"
-  | "markTaskRead"
   | "sendPrompt"
   | "stopTask"
   | "renameTask"
   | "archiveTask"
-  | "restartTask"
   | "listTaskModels"
   | "setTaskModel"
   | "setTaskThinkingLevel"
@@ -185,8 +183,6 @@ export const taskHandlers: HandlerGroup<
   resizeTsp: async (taskId, cols) =>
     (await getTaskPool()).resizeTsp(parseTaskId(taskId), parseInteger(cols, "cols", 20, 1000)),
 
-  markTaskRead: async (taskId) => (await getTaskPool()).markTaskRead(parseTaskId(taskId)),
-
   sendPrompt: async (taskId, input) => (await getTaskPool()).sendPrompt(parseTaskId(taskId), parsePromptInput(input)),
 
   stopTask: async (taskId) => (await getTaskPool()).stopTask(parseTaskId(taskId)),
@@ -194,8 +190,6 @@ export const taskHandlers: HandlerGroup<
   renameTask: async (taskId, title) => (await getTaskPool()).renameTask(parseTaskId(taskId), parseTitle(title)),
 
   archiveTask: async (taskId) => (await getTaskPool()).archiveTask(parseTaskId(taskId)),
-
-  restartTask: async (taskId) => (await getTaskPool()).restartTask(parseTaskId(taskId)),
 
   listTaskModels: async (taskId) => (await getTaskPool()).listTaskModels(parseTaskId(taskId)),
 

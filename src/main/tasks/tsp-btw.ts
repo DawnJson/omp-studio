@@ -1,5 +1,5 @@
 // TSP 任务的旁路提问（`/btw`，docs/architecture/tsp-btw.md）：omp 在 TSP 下把它画成 layer 里的 modal 弹窗（role omp.overlay.btwHistory），
-// 不碰主对话。studio 自己的面板（features/btw）显示它，所以这里把弹窗里的问答读成和 rpc 一样的 BtwHistoryRecord 镜像（`#records`），
+// 不碰主对话。studio 自己的面板（features/btw）显示它，所以这里把弹窗里的问答读成 BtwHistoryRecord 镜像（`#records`），
 // 用同一组 BtwUiEvent 推给渲染进程；渲染进程不画 omp 的弹窗（shared/tsp/btw.ts isBtwOverlayNode）。
 //
 // 数据来源：
@@ -38,13 +38,13 @@ import { log } from "../log/log.ts";
 import { readBtwHistory } from "../tsp/btw-history.ts";
 
 /** 弹窗出现、追问输入框出现、新的一问出现各自等 omp 的上限。 */
-export const BTW_OPEN_TIMEOUT_MS = 8_000;
-export const BTW_STEP_TIMEOUT_MS = 6_000;
+const BTW_OPEN_TIMEOUT_MS = 8_000;
+const BTW_STEP_TIMEOUT_MS = 6_000;
 /** 提问后等磁盘记录落下来（换真 id）：次数 × 间隔；等不到就用临时 id，之后读到再换。 */
 const ID_POLLS = 6;
 const ID_POLL_MS = 150;
 
-/** 和 rpc 的 omp 一致的拒绝文案（面板据此提示）。 */
+/** omp 的拒绝文案（面板据此提示）。 */
 export const BTW_STILL_RUNNING = "A /btw question is still running; cancel it first";
 
 export interface BtwHost {

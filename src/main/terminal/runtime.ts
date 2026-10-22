@@ -1,6 +1,5 @@
 // 终端管理器单例和它的 Electron 接线：任务目录取自任务池、node-pty 按需加载、事件出口、退出时结束所有终端。
 // node-pty 是原生模块，放在第一次真正起终端时才加载：它加载失败只影响终端，不影响应用启动。
-import { execFile } from "node:child_process";
 import { accessSync, constants } from "node:fs";
 import { mkdir, stat } from "node:fs/promises";
 import path from "node:path";
@@ -13,6 +12,7 @@ import { assignToOwnJob } from "../platform/win32/job-object.ts";
 import { chatsDir } from "../tasks/chats-dir.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import type { TaskPool } from "../tasks/task-pool.ts";
+import { killProcessTree } from "../tsp/tsp-session.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
 import { setActiveTerminalManager } from "./active.ts";
 import { buildTerminalEnv, resolveShell } from "./shell.ts";
@@ -33,16 +33,6 @@ function which(command: string): string | null {
   return null;
 }
 
-/** Windows：结束 shell 和它起的所有进程（node-pty 的 kill 只关 shell）。用绝对路径：不带路径时 Windows 会先在当前目录里找。 */
-function killProcessTree(pid: number): Promise<void> {
-  if (process.platform !== "win32") return Promise.resolve();
-  const killer = path.join(process.env["SystemRoot"] ?? "C:\\Windows", "System32", "taskkill.exe");
-  const done = Promise.withResolvers<void>();
-  // shell 已经自己退出时命令会失败，忽略即可。
-  execFile(killer, ["/T", "/F", "/PID", String(pid)], { windowsHide: true, timeout: 5000 }, () => done.resolve());
-  return done.promise;
-}
-
 let manager: TerminalManager | null = null;
 
 /** 任务的有效目录；草稿的项目目录，无项目的草稿用 chats 目录（和 ensureChatsProject 一样现建）。 */
@@ -54,9 +44,7 @@ async function terminalCwd(pool: TaskPool, key: TerminalKey): Promise<string> {
     await mkdir(dir, { recursive: true });
     return dir;
   }
-  const project = pool.listProjects().find((candidate) => candidate.id === draft.projectId);
-  if (!project) throw new Error(`unknown project ${draft.projectId}`);
-  return project.path;
+  return pool.projectPath(draft.projectId);
 }
 
 function createManager(pool: TaskPool): TerminalManager {

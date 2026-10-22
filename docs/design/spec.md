@@ -38,7 +38,7 @@
 | 对比度修正 | [新] 深色 `--text-3` 调到 `#8A8D97`、浅色调到 `#666972`；浅色错误色调到 `#B93030`；代码注释与浅色数字色同步调亮 | 重算后 Bold 原值在深色 overlay 上 4.19、浅色悬停底上 4.17，低于 4.5:1。修正后全部主文本组合 ≥4.5:1（§2.5 表） |
 | 阴影 | [Bold] 三级 + `--shadow-composer` | 输入框是视觉焦点，值得单独一档 |
 | 动效曲线 | [Bold] ease-out-quint 为默认，一条弹簧（`linear()`） | Calm 的弹簧过冲 6%，偏弹；Bold 的 ζ≈0.8、过冲 1.5% 更克制。砍掉第二条软弹簧，只用 ease-out |
-| 动效时长 | [Bold] 80/140/200/320/420 + Calm 的 `--dur-stream` | — |
+| 动效时长 | [Bold] 80/140/200/320/420 | — |
 | reduced-motion | [Calm] 系统开启或应用内开关任一为真即生效；应用内**只能强制开，不能在系统要求减少时关闭**；保留 100ms 纯透明度渐变；位移/缩放通过 `--travel-*` / `--scale-pop` 归零 | AGENTS 把它列为硬约束；token 化位移量后，组件不用逐个写 reduced 分支 |
 | 循环动画 | [新] 统一用 `animation-play-state: var(--play-state)`，keyframes 的 0% 帧即静态终态 | 比“时长设为 0 且无限循环”可靠，不依赖浏览器对 0s infinite 动画的行为 |
 | 主题机制 | [新] CSS 默认跟随 `prefers-color-scheme`；`<html data-theme>` 显式覆盖 | 任务要求；Calm/Bold 都让主进程解析后写属性，仍然可以：主进程只在用户选择“浅色/深色”时写 `data-theme`，选“跟随系统”时移除属性 |
@@ -63,7 +63,6 @@
 | 侧栏搜索框 | 在操作按钮最上一行；直接过滤侧栏里的任务和历史会话（不是命令面板，`Ctrl K` 才是命令面板） | 找任务和会话不必先开面板 |
 | 空状态 | [Bold] 项目名作大标题 + 路径 + 最近 3 个任务（历史会话在侧栏，含终端会话） | Calm 的欢迎语是填充文案；“继续”列表是回答“已经在用 Tern 的人为什么还要装它”的零迁移卖点，成本只是读 `~/.omp`（只读） |
 | 输入框位置 | [Bold] 空状态在内容区 38% 处，首次发送后弹簧落到底部，之后不再移动 | 一次性、仅 `transform`；reduced-motion 下瞬时 |
-| 右栏 | 预留 `--aside-w: 0px` | 阶段 3/5 用 |
 
 #### 组件
 
@@ -115,7 +114,7 @@
 | 焦点 | [融合] 见 §5.3 | — |
 | 流式不跳动 | [融合] §5.4 的 8 条规则 | 两份方案公共部分 |
 | 窗口缩放保位置 | [融合] 阅读锚点 + 拖动侧栏时冻结列宽（[Bold]） | — |
-| 会话历史 | [Calm] 休眠任务先显示只读转录，发送时才启动进程并恢复 | 切换任务即时，不为每个历史会话起进程 |
+| 会话历史 | [Calm → 已改] 点开休眠任务或历史会话立即启动 omp 并 `--resume`，旧对话由 omp 重发；不再先显示只读转录 | 所有任务都是 TSP，对话内容只有 omp 能画 |
 | 草稿持久化 | [Bold] 主进程持久化，经 preload 读写 | 崩溃也不丢；渲染层不碰存储 |
 | `@` 文件引用 | [新增] 输入 `@` 弹出项目文件补全菜单，插入 `@相对路径`，omp 自己展开 | 终端版 omp 的 `@` 补全是日常高频操作；展开由 omp 完成，studio 只补全（见 FileMenu） |
 
@@ -184,7 +183,6 @@
 | `--fs-prose` | 15/24（zh 27） | **对话正文、用户消息、输入框** |
 | `--fs-lg` | 17/26 | 对话里的 h1、对话框标题、设置分组标题 |
 | `--fs-xl` | 20/28 | 设置页大标题 |
-| `--fs-2xl` | 28/34 | 空状态项目名 |
 | `--fs-code` / `--fs-code-sm` | 13/20 · 12/18 | 代码块 · 工具输出、行内代码 0.92em |
 
 ### 2.4 间距、尺寸、层级
@@ -199,7 +197,7 @@
 | 交互态 | `--bg-hover`、`--bg-active`、`--bg-scrim` | `:active` 无位移、无缩放 |
 | 线 | `--border-subtle`（分隔）/ `--border`（外框）/ `--border-strong`（hover、输入框默认描边） | — |
 | 文本 | `--text` / `--text-2` / `--text-3` / `--text-disabled` / `--text-on-accent` | `--text-3` 只用于次要元信息，不用于可操作文字；在 `--bg-overlay`、`--bg-active` 等较亮的底上对比度较低，见下表与例外 |
-| 强调 | `--accent` / `--accent-hover` / `--accent-soft` / `--focus-ring` / `--link` / `--selection-bg` | 鸢尾紫（3.0）；只给进行中、主输入焦点、链接、上下文圆环、开关、选中 |
+| 强调 | `--accent` / `--accent-soft` / `--focus-ring` / `--link` / `--selection-bg` | 鸢尾紫（3.0）；只给进行中、主输入焦点、链接、上下文圆环、开关、选中 |
 | 主按钮 | `--primary` / `--primary-hover` / `--text-on-primary` | 浅色近黑底白字，深色近白底深字；每个视图最多一个 |
 | 状态 | `--st-running`（=强调色）、`--st-waiting`（点）+ `--st-waiting-text`（字）+ `--st-waiting-soft`、`--st-done`、`--st-error` + `--st-error-soft` | 四个语义色之外界面是灰的 |
 | 代码 | `--syn-*`（7 色）；`--diff-add-fg` / `--diff-del-fg`（改动卡片的 +N/−N 文字和行数条） | 评审里的行背景 `--diff-add-bg` / `--diff-del-bg`（阶段 3 加入，深浅色各一份） |
@@ -230,7 +228,6 @@
 |---|---|---|
 | 菜单、popover、tooltip 出现 | opacity 0→1 + `translateY(var(--travel-sm))→0` + `scale(var(--scale-pop))→1` | `--dur-base` `--ease-out`；消失 `--dur-fast-exit` `--ease-in` |
 | 命令面板、对话框出现 | 同上，位移 `--travel-md` | `--dur-slow` `--ease-spring` |
-| 门出现 | opacity + `translateY(var(--travel-lg))→0`；边框一次琥珀脉冲 | `--dur-base` `--ease-out`；脉冲 `--dur-slow`×2 |
 | 过程行展开/折叠 | `grid-template-rows: 0fr↔1fr` + 内容 opacity | `--dur-base` `--ease-out` |
 | 输入框首次发送“落下” | FLIP，`translateY` 到底部 | `--dur-spring` `--ease-spring` |
 | 发送 ↔ 停止 | `border-radius` + 图标交叉淡入 | `--dur-fast` `--ease-spring` |
@@ -282,7 +279,7 @@
 └──────────────────────┴┴─────────────────────────────────────────────────────┘
 ```
 
-- 侧栏底色 `--bg-sidebar`，与顶栏连成一片；主区面板 `--bg-app` 带左上圆角，两者之间不画线。侧栏拖拽条（命中区 4px）贴在面板左缘，hover 显示 `--border`；双击恢复 240（`--sidebar-w`；范围 `--sidebar-w-min` 200 – `--sidebar-w-max` 360）。
+- 侧栏底色 `--bg-sidebar`，与顶栏连成一片；主区面板 `--bg-app` 带左上圆角，两者之间不画线。侧栏拖拽条（命中区 4px）贴在面板左缘，hover 显示 `--border`；双击恢复 240（`--sidebar-w`；范围 200 – 360，`app/shell-store.ts` 的 `sidebarWidthRange`）。
 - `.scroller` 铺满主区、滚动条贴窗口边缘；`.column` 在其中居中；底部 padding = 底部栈高度 + `--space-8`（栈高度由 `ResizeObserver` 写入组件私有变量 `--stack-h`）。
 - 输入框距窗口底 `--space-4`；其上有 24px 高 `linear-gradient(transparent, var(--bg-app))` 软遮罩，内容从输入框后面淡出而不是被切。
 - 对话列 840px：15px 正文下英文约 99 字符/行、中文约 54 字/行。
@@ -304,9 +301,9 @@
 
 ### 4.1 StatusDot（状态槽 16×16，居中；2026-10-21 起换成 14px 的图标，原来 8px 的点太不显眼）
 
-| 状态（主进程为准，渲染层只收 `taskStatusChanged`） | 视觉 | token | aria-label |
+| 状态（主进程为准，渲染层只收 `taskState` 事件） | 视觉 | token | aria-label |
 |---|---|---|---|
-| `running` / `starting` | 半径 6 的圆环：淡轨道（22% 不透明）+ 占三成的弧，弧按 `--dur-spin` 匀速转（`sb-spin`，0% 帧是静止的弧；`--play-state` 暂停或减少动效时静止） | `--st-running` | `status.running`（有子代理：`status.runningAgents`） |
+| `running` / `starting` | 半径 6 的圆环：淡轨道（22% 不透明）+ 占三成的弧，弧按 `--dur-spin` 匀速转（`sb-spin`，0% 帧是静止的弧；`--play-state` 暂停或减少动效时静止） | `--st-running` | `status.running` |
 | `needs_you` | 14px 实心圆底 + 白色 `!`（`--text-on-accent`），静止 | `--st-waiting` | `status.waiting` |
 | `done` | 空心圆（描边 1.5）里一个对勾（描边 1.7），**绿色**（2026-10-21 起） | `--st-done`（绿） | `status.done` |
 | `error` | 14px 实心圆底 + `×`（`--text-on-accent`） | `--st-error` | `status.error` |
@@ -342,9 +339,9 @@
 
 操作按钮和等待条下面只有**一个列表**（2026-10-20 仓库所有者定：原来上面是按项目分的任务块、下面单独一个"历史会话"区块，同一个文件夹出现两次，已合并；`features/sidebar/HistorySection.tsx`，数据整理在 `shared/ui/sidebar-model.ts` 的 `buildFolders` / `buildTimeline`）：区块标题行（`.sb-history-head`：`sidebar.searchHistory` + 排列切换，2026-10-21 起 `position: sticky; top: 0`、`--bg-sidebar` 底；`.sb-list` 上边没有内边距（`padding: 0 --space-2 --space-1`），标题行一开始就在滚动区顶部，上下滚动时它**完全不动**、行从下面滚过（滚动区有上内边距时 sticky 会先跟着走一段再钉住，或者上面留缝透出滚过的行）；顶部三行操作和等待条在滚动区外，本来就固定）`sidebar.searchHistory`（会话；2026-10-20 起不再叫“历史会话”），studio 任务和 omp 会话目录里还没挂在任务上的会话（含终端里开的）都在这个列表里，不搜索也显示。标题右边一个两段切换（两段等宽、文字居中）`sidebar.historyByFolder` / `sidebar.historyByTime`（`role="group"` `aria-label=sidebar.historyOrder`，按下的一段 `--bg-raised` 底 + 1px `--border-subtle` 描边），选择记在外壳状态 `ShellState.historyOrder`（默认 `folder`）。**按文件夹**：文件夹 = studio 项目 ∪ 会话 cwd，按规范化路径合并（斜杠、大小写、尾斜杠归一，同一个文件夹只出现一次）；文件夹头见 §4.3；文件夹里任务行（§4.2，状态点、尾部、`⋯` 菜单、`F2` / `Del` 全部照旧）和会话行混排，按最近活动从新到旧（任务取 `lastActivityAt`，会话取修改时间）；文件夹按其中最新的一行从新到旧，没有任何行的项目（空项目）排最后（它仍在，所以 `＋` 可用），搜索时不显示。展开：用户点过的优先；没点过时，有选中的任务、正在跑或等你确认的任务的文件夹默认展开，其余折叠；展开后先 5 行（选中的、运行中的、等你确认的任务不会被藏进"显示更多"），`sidebar.showMore` 每次 +20；展开状态只在本次会话里，不持久化。**按时间**：任务和会话平铺一列（没有文件夹头），同样按最近活动从新到旧，先 8 行，`sidebar.showMore` 每次 +20。会话行 = 会话图标 + 标题（无标题取首条消息）+ 修改时间，悬停提示标题和 cwd，点开 = `resumeSession` 恢复成任务（项目不在列表里时自动加入）；任务列表变化（新建、恢复、第一轮结束）时重取，挂上任务的会话随即离开这个列表、以任务行出现。**标题清理**：任务和会话标题显示前去掉私用区图标字形（`shared/ui/clean-title.ts` 的 `stripIconGlyphs`：U+E000–U+F8FF 及补充私用区，和主进程 TSP 标题同一个集合；omp 的会话标题带这些字形，系统字体里没有，会显示成方框）。**搜索**同时过滤任务和会话（按清理后的标题，不区分大小写），两种排列一样；按文件夹时有匹配的文件夹全部展开，没有匹配行的文件夹不显示。键盘：整个列表（文件夹头、任务行、会话行、显示更多）一个 Tab 停靠点，`↑↓` 移动。侧栏自己没有头（标志和切换侧栏在顶栏）；列表区自绘覆盖式滚动条；底部 44：左边 `设置` 文本按钮（齿轮 + 文案；2026-10-22 起是开关，`aria-pressed`：在设置页时再点一次回到对话视图，同设置页里的 Esc），右边两个 28×28 图标按钮：语言（地球，`menu.language`）和主题（半圆，`menu.theme`），点开从按钮上方弹出单选菜单（右缘对齐按钮，宽度按内容收紧，`menu.languageSystem`/简体中文/English，`menu.themeSystem`/`menu.themeLight`/`menu.themeDark`；当前项用 `--bg-active` 底色标出，不画勾，2026-10-20 起），选了立即生效，打开时焦点在当前项，Esc/Tab 关闭并还焦点给按钮；打开时按钮 `--bg-active`。命令面板只走 `Ctrl K`，底部没有放大镜。底部不放键帽、不放小字。
 
-### 4.6 MainHeader 与 ProgressPill
+### 4.6 顶栏任务标题与待办板
 
-头 40；左：任务标题（`--fs-sm` `--text`，点击=重命名）+ ` · 项目名`（`--text-3`），省略；右：`ProgressPill`、`⋯` 菜单（重命名、在资源管理器中显示、复制会话路径、归档）。无任务时标题区空白。
+头 40；左：任务标题（`--fs-sm` `--text`，点击=重命名）+ ` · 项目名`（`--text-3`），省略；右：`⋯` 菜单（重命名、在资源管理器中显示、复制会话路径、归档）。无任务时标题区空白。
 - **任务菜单 `⋯`（2026-10-21，S3）**：顶栏任务工具区最右（终端按钮之后、分隔线之前）一个 `topbar-tool` 三点图标按钮（`task-menu`，`aria-haspopup="menu"`），只在对话页且选中了任务时出现；菜单项：会话信息、请求记录、分享链接…，分别打开 §4.31 的对话框 / 页签。
 - `TodoBoard`（有 `todoPhases` 时才出现；`features/composer/TodoBoard.tsx`，2026-10-19 起取代对话流顶部的 `TodoStrip`）：输入框正上方状态行（`ComposerTop`，§4.14）右端的一个按钮：状态图标 `TodoMark`（2026-10-21 重画，原来的粗环 + 实心圆点丑：**细线条**，16×16 画布、`stroke 1.5`、圆角端点：全部完成 = 一个干净的 `--st-done` 对勾，没有圈；进行中且任务在跑 = 一圈 `--border` 底 + 一段 `--accent` 细弧（占整圈 28%）绕圈转（`--dur-spin` × 2，`animation-play-state: var(--play-state)`，减少动效时弧停在 12 点钟位置、仍看得出“进行中”）；任务没在跑 = 同一圈底 + 弧长按完成比例的静止弧，一项也没完成 = 一圈细线）+ 当前项文字（省略，容器 ≤480px 时隐藏）+ `{done}/{total}`（tabular）；点击向上弹 popover 列出阶段（罗马数字编号 + 每阶段 `完成/总数`，阶段图标同 `TodoMark`：完成 = 对勾、有进度 = 弧、未开始 = 细圈）与条目：`pending` 细圈、`in_progress` 转动的细弧、`completed` 对勾（文字 `--text-2`）、`blocked` 红色细圈 + 感叹号 + 原因、`abandoned` 淡化虚线圈 + 删除线。数据 `TaskState.todoPhases`。
 - **TSP 任务的 `TodoBoard`**（2026-10-21）：数据 `TaskState.todoPhases` 由主进程从 omp 的 HUD 待办节点（role `omp.hud.todo`，`checklist` 的 `mode:"hud"`）换算（`src/shared/tsp/todos.ts`，`fixtures/tsp/task.jsonl` 逐帧测试，omp 18.12.3）：`active→in_progress`、`done→completed`、`dropped→abandoned`，阶段标题去掉 omp 加的罗马数字前缀（板自己编号）。位置由 `ComposerTop` 定（状态行右端，`data-testid="tsp-todo-bar"` 在 `.run-todo` 上，板按钮 `todo-board`，浮层 `todo-popover`）。omp 自己画的 HUD 药丸不画（`TspChildren.tsx`），避免两个入口；工具卡片里的 `omp.tool.todo` 清单仍在过程区里（过程默认折叠的那一层）。omp 在回合结束清理已完成的待办时 HUD 节点消失，板随之收起。`/todo` 由 studio 接管（`tsp:"studio"`，无待办时提示“还没有待办”）。
@@ -363,7 +360,7 @@
 **没有运行脊线**（2026-10-19 起去掉）：对话列左侧不画竖线，也不给用户消息、过程行、结论画节点；`.turn` 不再缩进，内容占满列宽，和输入框左缘对齐。
 
 聊天式**右对齐**（2026-10-19 起），最宽列宽的 85%，短消息只占文字宽度；气泡（3.0 起，`direction-3.0.md` §3.3）：`--bg-bubble` 底、无边框，左上 / 右上 / 左下 `--radius-bubble`、右下 `--radius-sm`（小"尾巴"），`padding: --space-2-5 --space-3-5`；`--fs-prose`；`white-space: pre-wrap; overflow-wrap: anywhere`。>12 行折叠成前 8 行 + 渐隐（渐隐到 `--bg-bubble`）+ `common.expand`（展开状态不记忆）。附件：文字上方一排靠右的 64×64 缩略图（`--radius-md`，点击用系统默认查看器打开）。hover 时气泡下方右侧一行（不换行）出现两个 28×28 图标按钮：复制（`CopyIcon`，复制后 1.2 秒变对勾）和从这里分叉（`Branch`）；文字只在 `aria-label` / 悬停提示里（`common.copy` / `common.copied`、`tree.fork` + `tree.forkTitle`）。出现动画见 §2.6。
-- 状态：默认 / 发送失败（下方一行 `--fs-xs` `--st-error`：`msg.sendFailed` · `msg.retry`）。运行中发出的消息：`Enter`（插话）由 omp 立刻作为用户消息上屏；`Ctrl+Enter`（稍后）进 omp 的排队（dock 里的 `omp.queue`），轮到时才上屏（`docs/architecture/tsp-real-omp-probes.md` §5）。
+- 状态：默认 / 发送失败（弹错误 toast：`msg.sendFailed` · 原因；清空输入框是乐观的，失败时草稿放回输入框，由用户重发——没有消息下方的失败行，也没有重试链接，`features/composer/actions.ts`）。运行中发出的消息：`Enter`（插话）由 omp 立刻作为用户消息上屏；`Ctrl+Enter`（稍后）进 omp 的排队（dock 里的 `omp.queue`），轮到时才上屏（`docs/architecture/tsp-real-omp-probes.md` §5）。
 
 ### 4.9 AssistantMessage 与 Markdown
 
@@ -405,7 +402,7 @@
 - 文本区：`--fs-prose`，placeholder `--text-3`，最小 1 行（2026-10-19 由 2 行降低；常数高度，空状态与对话中一致），自动增高到 `min(40vh, 12 行)` 后内部滚动，`resize: none`。**高度可拖**（2026-10-21）：输入框顶边一条拖拽条（`composer-resize`，`role="separator"`，悬停 / 聚焦时露出一根 `--border-strong` 短横线）向上拖变高，下限一行、上限主区高度的 60%（窗口变矮时重新夹取）；拖过之后高度固定、内容内部滚动；键盘 ↑↓ 每次 16px，双击还原成自动增高；整个应用一个值（`localStorage["composer.fieldHeight"]`）。
 - 底部工具行：左起 ModelChip、ApprovalChip（没有附件按钮：2026-10-20 去掉 `⊕`，后来加回的 `＋`（`composer-attach`）2026-10-22 仓库所有者定再去掉，附件只来自粘贴和拖入；模型和审批两个胶囊后面不带 `⌄`（2026-10-21 仓库所有者定去掉；原来各有一个 12px `⌄` 提示能点）；**审批胶囊 2026-10-21 起只有图标，不写文字**，见 §5.8，"全自动"照旧琥珀色）；输出速度（`UsageMeter`，只在运行中，见下）；右起上下文圆环（`ContextMeter`，见下）、本会话费用（`SessionCost`，对应 omp 状态栏的 cost 段：`get_session_stats.cost`，按模型的 API 价格估算，订阅登录的模型也照样累计；等宽 `--fs-xs` `--text-2`，`$0.0001` 这种不到一美分的保留 4 位小数；一直显示，新任务草稿和还没有统计时是 `$0.00`；当前模型的 provider 有 OAuth 登录凭据时（omp 优先用 OAuth，`get_logout_accounts`，按 provider 缓存 5 分钟）后面跟 `--text-3` 的 ` (sub)`，悬停换成 `composer.usage.costTipSub`；悬停 `composer.usage.costTip` + 输入/输出/缓存读取/高级请求数；是按钮，点开居中的 `UsageDialog`，见下）、SendStop。仪表不收缩（`flex: none`），空间不够时的让位顺序：项目路径先缩到只剩文件夹图标（`flex-shrink: 100`），再是思考强度后缀（容器宽 401–460px 时隐藏，完整的“模型 · 强度”在胶囊悬停提示里），模型名最后才省略，且不窄过 `--chip-name-min-w`（9ch，胶囊自身 `min-width` 同步）——开着子代理 / 文件面板时不再缩成 “D…” 或只剩 “· 高”；≤860px 去掉速度，≤400px（比如开着文件预览）工具行折成两行：模型、审批胶囊在上，计数、圆环、费用、发送换到下一行靠右；圆环和费用一直在。胶囊 `overflow: hidden`，内容不会画到旁边。本会话 token 不在工具行里（2026-10-19 起去掉图标按钮），在上下文浮层的“会话用量”里。
 
-**后台任务看板**（`JobsBoard`，`features/composer/JobsBoard.tsx`；2026-10-21 起改成药丸右半段的弹层，见 §4.14“输入框上方”；原来的 `后台任务` / `子代理` 两个独立按钮（`jobs-pill-bash` / `jobs-pill-task`）、状态行 `process.waitingJobs`、rpc 的 `deriveJobs` 都已删除）：药丸 `⚡ N`（`pill-jobs`）点开向上弹出 `Popover` 看板 `jobs-board`，**只列 bash 后台任务**（子代理在右栏的子代理面板），每行 `job-row`：展开箭头、命令、状态（`job-dot` + 文字）、耗时（运行中实时走）；点一行展开动作（`.job-actions`，`--fs-xs`，1px `--border`、`--radius-md` 的小按钮）：`在 omp 的后台任务窗口查看输出`（`tsp-job-view-output`：输出只在 omp 的 `/jobs` 弹窗里有，没有别的通道，所以让 omp 打开它——hud 有作业胶囊就点它，没有就 `sendPrompt("/jobs")`——再对弹窗里这个作业的列表项发 `select`，弹窗由 TspView 渲染）和运行中才有的 `结束`（`tsp-job-kill`，`runTaskCommand {kind:"jobsKill", id}`，主进程拼 `/jobs kill <id>`；omp 成功时没有任何回应，出错才弹 toast `No running background job with id "x".`）。Esc 关闭并还焦点。
+**后台任务看板**（`JobsBoard`，`features/composer/JobsBoard.tsx`；2026-10-21 起改成药丸右半段的弹层，见 §4.14“输入框上方”；原来的 `后台任务` / `子代理` 两个独立按钮（`jobs-pill-bash` / `jobs-pill-task`）、状态行里等待后台任务的那句提示、rpc 的 `deriveJobs` 都已删除）：药丸 `⚡ N`（`pill-jobs`）点开向上弹出 `Popover` 看板 `jobs-board`，**只列 bash 后台任务**（子代理在右栏的子代理面板），每行 `job-row`：展开箭头、命令、状态（`job-dot` + 文字）、耗时（运行中实时走）；点一行展开动作（`.job-actions`，`--fs-xs`，1px `--border`、`--radius-md` 的小按钮）：`在 omp 的后台任务窗口查看输出`（`tsp-job-view-output`：输出只在 omp 的 `/jobs` 弹窗里有，没有别的通道，所以让 omp 打开它——hud 有作业胶囊就点它，没有就 `sendPrompt("/jobs")`——再对弹窗里这个作业的列表项发 `select`，弹窗由 TspView 渲染）和运行中才有的 `结束`（`tsp-job-kill`，`runTaskCommand {kind:"jobsKill", id}`，主进程拼 `/jobs kill <id>`；omp 成功时没有任何回应，出错才弹 toast `No running background job with id "x".`）。Esc 关闭并还焦点。
 - **作业数据**（2026-10-21，S2Jobs）：从 omp 的节点推出（`src/shared/tsp/jobs.ts` 的 `deriveTspJobs` / `mergeTspJobs`，`tsp-jobs-store.ts` 每批文档消息后并一次）；药丸只数**运行中**的 bash 作业。`/jobs` 由 studio 接管（`tsp: "studio"`）：不带参数打开看板（有 bash 作业就开，**含已结束的**——药丸那一段没有时看板从药丸的位置弹出；没有 bash 作业提示“这个任务还没有后台任务”，`ComposerTop` 一直挂着收请求），`/jobs kill <id>|all` 直接结束。已结束的作业只有在 omp 的 `/jobs` 弹窗开着时才在文档里；看板按"运行中消失 = 完成"和结束动作自己记录，不保证重启 studio 后还在。omp 自己的 hud 作业胶囊（`▷ N`，`omp.hud.seg`）不画。
 - **输入框上方**（2026-10-21，仓库所有者定，照 Tern；`features/composer/ComposerTop.tsx`，`data-testid="composer-top"`）：输入框正上方、列宽、`padding: 0 --space-1 --space-2`，自上而下最多两行，`Reveal` 展开收起：
   - **药丸行**：右对齐一颗描边药丸 `[👥 N | ⚡ N]`（`StatusPills.tsx`，`status-pills`；高 24、`--radius-pill`、1px `--border`、`--bg-raised`；两个半段是各自独立的按钮：高 20、`--radius-pill`、`--fs-xs`、`--text-2`、hover `--bg-hover`，13px 图标 + 个数 tabular，中间 1px 分隔线）。**左半段** = 运行中的子代理数（`pill-agents`，`data-count`；`shared/tsp/agent-hub.ts` 的 `countActiveAgents`，按名字去重），点击 = 打开 / 收起右栏的子代理面板（`toggleAgentsPanel`，§4.28，`aria-expanded` 跟面板）；**右半段** = 运行中的后台 bash 作业数（`pill-jobs`；`tsp-jobs-store`），点击 = 向上弹出后台任务看板（上面的 `JobsBoard`）。**每段只在个数 > 0 时画**，两段都没有就不画药丸（看板仍可由 `/jobs` 从药丸的位置打开）。悬停提示 / `aria-label`：`composer.pills.agents` / `composer.pills.jobs`（“子代理：2 个运行中”）。药丸本身不是按钮。**位置**：有待办板时药丸单独一行、在待办板（状态行）的正上方；没有待办板时并到状态行的右端（运行中）或直接在输入框上面（空闲）——不留空行。
@@ -510,7 +507,7 @@
 
 ### 4.16 DropOverlay
 
-拖入文件时全窗口覆盖（`--dur-fade` 淡入）：虚线 2px `--accent` 描边、`--accent-soft` 底，居中 `dropzone.folder`（拖入文件夹）或 `dropzone.image`。非支持类型无反应、不报错。
+拖入文件夹时全窗口覆盖（`--dur-fade` 淡入）：虚线 2px `--accent` 描边、`--accent-soft` 底，居中 `dropzone.folder`（`features/empty/DropOverlay.tsx`）。拖入的全是图片时不出这个覆盖层，由输入框自己接（`data-composer-drop`，没有覆盖层文案）。非支持类型无反应、不报错。
 
 ### 4.17 门（omp 的审批卡与提问对话框）
 
@@ -548,7 +545,7 @@
 | 通用 | 语言（跟随系统 / 简体中文 / English）；主题（跟随系统 / 浅色 / 深色）；减少动效（开关，系统已要求时始终生效）；系统通知（有任务在等你时）；选中即复制（开关，默认开，见 §4 通则）——这几项一张卡。小标题 `任务运行中`（`settings.whileRunning`）一张卡：运行中按 Enter（插话 / 稍后，studio 自己的）+ omp"对话行为"组的常用项（插话 / 稍后消息的处理方式、打断方式）。快捷键（只读列表，v1 不可自定义） |
 | 模型 | 新任务的默认模型、默认思考强度——**就是 omp 的 `modelRoles.default` / `defaultThinkingLevel`，经 `omp config` 读写**，和草稿输入框的模型胶囊是同一份（omp 的设置就是 omp-studio 的设置，不另存）；同一张卡里接 omp"模型与推理"组的常用项（模型角色、重试与备用模型），默认思考强度不重复一行（`ModelsSection.tsx`）。审批模式不在这里：在输入框胶囊或"工具与权限"里改 |
 | 提供商与账号 | **自定义提供商**（在提供商列表上方，`features/settings/CustomProviders.tsx`）：`models.yml` 里 `providers.*` 的列表（ID、Base URL、模型数 · key 状态），`添加提供商` / `编辑` / `删除`（删除先 `ConfirmDialog`）；表单行内展开（`.st-login` 卡，标签列 112）：ID（编辑时只读）、Base URL、接口类型、key（分段：直接填 key / 环境变量 / 无需 key，编辑时多一个“保持不变”；key 默认遮住，`显示 / 隐藏`）、模型（`拉取模型` 后勾选，可筛选、全选，手动添加；拉取失败用一句人话写在按钮下面）；保存后 toast，新模型出现在模型选择器。直接读写 omp 的 `models.yml`，见 `docs/architecture/custom-models.md`。提供商列表（§4.20，`ProvidersSection.tsx`）：不搜索时只列已配置的（登录过、环境变量、配置里有凭据或 studio 存了 key，`provider-list.ts` 的 `splitProviders`），下面一个 `显示其余 N 个提供商` 按钮展开其余；一个都没配置时全部列出；搜索时匹配的全部列出（已配置的在前）。 |
-| 关于 | 自上而下：omp-studio 的版本和更新（`检查更新` / 下载进度 / `重启并安装`）；小标题 `omp`：路径、版本、来源（`由 Tern 管理` / `由 omp-studio 管理` / `你自己安装的`）、`检查更新`（这一个查的是 omp；受管者管理时升级按钮禁用并写 `omp.updateInTern`；自管时显示自动更新开关，`OmpSection.tsx`）；omp 更新日志；问题排查（日志、导出诊断）。命令面板"检查更新""omp 更新日志"、斜杠 `/changelog` 都定位到这一节 |
+| 关于 | 自上而下：omp-studio 的版本和更新（`检查更新` / 下载进度 / `重启并安装`）；小标题 `omp`：路径、版本、来源（`由 {name} 管理` / `由 omp-studio 管理` / `你自己安装的`）、`检查更新`（这一个查的是 omp；受管者管理时没有升级按钮，行说明写 `omp.updateByManager`；omp-studio 自管时行说明是 `omp.autoUpdate.note`，另有 `加入 PATH` 行；只有用户自装的 omp 才有 `升级` 行，`OmpSection.tsx`）；omp 更新日志；问题排查（日志、导出诊断）。命令面板"检查更新""omp 更新日志"、斜杠 `/changelog` 都定位到这一节 |
 | 插件 | 导航在 `集成` 之后、`高级` 之前（`ui-store` 的 `SettingsSection` 有 `plugins`；命令面板 `管理插件和市场`、斜杠 `/plugins` `/marketplace` 直接定位到这里；`/reload-plugins` 在当前任务里重新加载并弹 toast）。组件 `features/settings/PluginsSection.tsx` + `PluginRow.tsx` + `PluginDetails.tsx` + `MarketplacesCard.tsx`，状态 `plugins-store.ts`，样式 `plugins.css`。数据和动作都经 `omp plugin …` CLI（主进程 `src/main/plugins/plugin-cli.ts`，输出解析在 `src/shared/omp-output/plugins.ts`，有 omp 18.12.5 实测样本的单测，见 `docs/architecture/plugins.md`）；渲染进程只能发封闭的 `PluginAction`，不传命令文本。自上而下：①简介（`--text-3`）+ `范围` 下拉（`用户` / 各项目，默认用户；选项目后列表同时显示该项目范围的安装，项目范围的行名称后有 `项目` 小标，同一个插件在两个范围都装了就是两行，每行的动作带各自的 `--scope`；项目目录由主进程按 projectId 取，渲染进程不传路径）；②改动后出现的提示条（`--accent-soft` 底）：`改动已保存。正在运行的任务要重新加载后才会用上。` + `稍后` + `在运行中的任务里重新加载`——只对**空闲**任务发 `reloadPlugins`，忙的任务不碰并提示数量；③`已安装` 节（右侧 `升级全部`、`刷新`）：每个插件一行 `[▸][名称 + 版本 · 说明][升级（仅市场插件）][卸载（危险按钮，先 ConfirmDialog）][启用开关]`，展开后 npm / link 插件有 `功能`（开关，标 `默认`）和 `设置`（布尔=开关、枚举=下拉、其余=输入框 + `保存`，已设置的有 `恢复默认`；值不能以 `-` 开头，omp 会当成选项），市场插件只有一句说明（omp 的 features / config 子命令对它们报 not found）；④`市场` 节：选了项目时顶部多一个 `安装到` 分段（`用户` / `项目`，装到项目时确认正文多一句"只对所选项目生效，文件放在项目的 .omp 目录里"）；每个来源一行（名称 + 来源，`浏览` / `更新目录` / `移除`；移除只删来源，已装的插件不卸载），`浏览` 展开该市场的可装插件（可搜索，按要装进的范围判断 `已安装`，其余 `安装`），底部添加表单（owner/repo、Git 地址、catalog 的 .json 地址或本地目录）；**安装前必须确认**（ConfirmDialog，正文写明会把第三方代码装进 omp、以你的权限运行）；⑤`诊断` 节：`运行诊断` / `诊断并尝试修复`，结果每项一行（正常 `--st-done`、警告 `--st-waiting`、错误 `--st-error`）。同一时间只执行一个改动（主进程串行 + 渲染进程按钮禁用）；失败时 toast 是 omp 的原话（`✘` 前缀去掉）。测试：`test/omp-plugins-output.test.ts`、`test/plugin-cli.test.ts`、e2e `settings-functional.e2e.ts` 的"插件"。 |
 | 集成卡片（S5） | 和该节的常用 omp 设置放在同一页（常用项一张卡在上，管理卡片在下）：`集成` 页 = `MCP 服务器` + `SSH 主机`（这一节没有常用项）；`工具与权限` 页 = `可用工具`；`上下文与记忆` 页 = `记忆`；`关于` 页 = `omp 更新日志`。入口：斜杠 `/mcp` `/ssh` `/tools` `/memory` `/changelog`（`features/settings/integrations-slash.ts`，`tsp:"studio"` + 草稿页；带参数时报错、草稿放回输入框）、命令面板同名项。组件 `features/settings/{McpCard,McpForm,SshCard,SshForm,ToolsCard,MemoryCard,OmpChangelog,ScopePicker}.tsx`，数据 `integrations-store.ts`（按范围键缓存，切页回来先显示上次结果再后台刷新）、`integrations-data.ts`，样式 `integrations.css`，文案 `integrations` 命名空间。**范围**：MCP、SSH 卡片顶部一个下拉：`用户（全局）`（服务进程 / 中性目录）或某个项目（项目目录里的短命 rpc-ui / CLI；列表同时含用户和项目两层，每行标范围）；记忆卡片只有项目（记忆按项目目录分，实测）。**MCP**：每行 名称 + 目标（stdio 只有命令，参数 omp 不显示）+ `传输 · 范围` + 启用开关 + `测试连接`（结果行：`已连接，N 个工具` 或 omp 原话）+ `删除`（先 `ConfirmDialog`）；`添加服务器…` 行内表单（`.st-login`，标签列 112）：名称、类型（本地命令 / HTTP / SSE）、命令 + **一行一个参数**（含空格的参数主进程加双引号；不能含 `"`）、URL + 可选 Token。名字有空格的服务器（别处建的）只读，说明 `mcp.unmanageable`。omp 把失败也当普通输出，所以只认已知成功句式，其余显示原话；`reauth` / `unauth` / `reconnect` 在 rpc-ui 里做不了，卡片底部说明去终端做。**SSH**：每行 名称 + `user@host:port` + 密钥/说明 + 范围；`添加主机…` 表单（名称、地址、用户、端口、密钥路径、说明、兼容模式、范围）；经 `omp ssh … --json`，值写成 `--flag=value`。**可用工具**：`/tools` 的列表成网格，每格 名称 + 状态（已启用 / 可用未启用 / xd 设备），有对应 `<工具>.enabled` 设置项的带开关（就是那一项设置）；注明是全局列表（项目插件和 MCP 的工具不在内）。**记忆**：项目下拉（后端就是同一页上面的常用项 `memory.backend`，卡片里不再重复显示）、`统计 / 诊断 / 待整理 / 注入内容` 分段（原文放等宽 `<pre>`）、`清空`（先确认；说明下次会话启动会重新生成、Hindsight 只清本地）。没有 `立即整理` / `重建`：实测它们在 omp 18.12.5 里没有可观察的效果，记忆只在会话启动时生成。**omp 更新日志**：`显示更新日志` 点开才读，按版本折叠（最新一节展开），正文用对话流的 `Markdown`。所有错误显示 omp 的原话（`errorDetail`），不吞。细节与实测见 `docs/architecture/omp-settings.md`「集成卡片」。测试：`test/omp-output-integrations.test.ts`、`test/integrations-ssh.test.ts`，e2e `settings-functional.e2e.ts` 的「集成」用例。 |
 
@@ -561,12 +558,12 @@
 - 提供商行：名称 + 状态（`login.signedIn` / `login.notSignedIn` / `login.viaEnv`，来自 `logout` 响应的 `remainingSource`）+ 按钮 `登录`（`login`）/ `退出登录`（`get_logout_accounts` → 多账号时先弹小菜单 `login.chooseAccount` → `logout`）。数据 `get_login_providers`。
 - 提供商列表顶部有搜索框（`login.search`，按名称和 id 过滤，无结果显示 `login.noMatch`）；已配置的（已认证或 studio 存了 key）排在前面，其余保持 omp 的顺序。按钮按登录方式给（`src/shared/provider-login.ts`，omp 的 `get_login_providers` 没有这个字段，按实测分类，见 `docs/architecture/login.md`）：OAuth 类 `登录`；只认 API key 的（Tavily、Exa、Kagi、Parallel 等）不显示 `登录`，有已知环境变量名的显示 `设置 API key`，没有的显示 `添加 API key`（走 omp 的 `login`，输入框遮住）；RPC 里只能在终端登录的，状态写 `login.terminalLogin`、不显示按钮。
 - OAuth 登录：行内展开进度卡：`login.opening` → 收到 `open_url`：主进程用系统浏览器打开 `url`（用户点击登录即授权，不二次确认）；卡内显示 `login.fallback` + 可复制的 `launchUrl ?? url`（等宽，复制按钮，`rpc.md` 推荐用 `launchUrl` 避免截断 OAuth 参数）+ `instructions`（纯文本）+ `login.reopen`；随后的非机密 `input` 请求 → 卡内输入行（`login.pasteCode`）；成功 → `login.signedIn`；失败 → 红字 `login.failed` + `重试`。
-- 需要机密输入（API key 类）：omp 直接拒绝，界面显示 `login.terminalOnly` + `login.copyCommand`。**v1 设置页不提供输入 API key 的框**（避免我们去写 `~/.omp`，AGENTS 禁止）。
-- 引导态（首次连接 / 无可用模型）：输入框位置换成 `connect.title` 卡片（与门同位），最多 6 个提供商按钮，其余 `connect.more`；不阻塞浏览历史，没有模型时输入框胶囊区显示 `composer.noModel`。
+- API key 类：行内输入框 `login.apiKey`（`login.apiKey.save`），key 由主进程用 `safeStorage` 加密保存、启动 omp 时以环境变量传入，不写 `~/.omp`（`docs/architecture/login.md`）。omp 拒绝的机密输入登录显示 `login.terminalOnly` + `login.copyCommand`。
+- 没有可用模型时没有引导卡片：输入框的模型胶囊显示 `composer.noModel`，登录在设置 → 提供商与账号。
 
-### 4.21 OutdatedBanner
+### 4.21 omp 版本过旧
 
-不全屏；主区顶部横幅，高 40，`--st-waiting-soft`，`--fs-sm`：`omp.outdated` + `[升级]`（对 PATH 上用户自装的 omp 执行 `omp update`，显示输出尾 3 行）；受管者管理（Tern）→ `omp.updateInTern`，无按钮。低于最低版本时**禁用发送**（输入框区显示 `composer.versionTooOld`）。运行中有任务时升级按钮提示 `omp.busy`。有新版但不强制：只在设置 → omp 里显示 `omp.newVersion`，不弹窗不横幅。
+不全屏，**没有主区顶部横幅**（OutdatedBanner 没做）。低于最低版本时：设置 → omp 页顶部一张红字警示卡 `omp.outdated`（`OmpSection.tsx`），同时**禁用发送**（输入框区显示 `composer.versionTooOld`，`Composer.tsx`）。升级在设置 → omp 里：PATH 上用户自装的 omp 有 `omp.upgrade` 行（执行 `omp update`，显示输出尾部）；受管者管理（Tern 等）没有升级按钮，行说明写 `omp.updateByManager`。运行中有任务时升级没有额外提示。有新版但不强制：只在设置 → omp 里显示 `omp.newVersion`，不弹窗不横幅。
 
 ### 4.22 OmpSetupCard（首次启动与 omp 管理）
 
@@ -575,8 +572,6 @@
 | 状态 | 条件 | 内容 | 动作 |
 |---|---|---|---|
 | A 检测中 | 启动 | `omp.finding`（超过 300ms 才显示） | — |
-| B 找到 | PATH 有可用 omp | `omp.found` + `omp.found.note`（“不会修改它”是对 Tern 用户的承诺） | `omp.continue` |
-| C 过旧 | 低于最低支持版本 | 同 §4.21 的文案；用户自装 → `升级`；受管 → `omp.updateInTern` | `升级` / `稍后` |
 | D 脚本 | PATH 第一个是 `.cmd`/`.bat` | `omp.takeover.title/body`；正文写明会修改用户 PATH；同意后再有一个单独勾选 `omp.addPath`（默认勾选，附 `omp.addPath.note`） | `omp.takeover.yes` / `omp.takeover.no`（拒绝 → `omp.takeover.declined`）；**默认焦点在保守的一项（`no` / `keep`）**；`ask_takeover` 时背后的应用只压 `--bg-scrim`，不用不透明底 |
 | E 没有 | PATH 无 omp | `omp.missing.title/body`（含大小）+ `omp.addPath` 勾选 | `omp.install` / `omp.recheck` |
 | F 下载中 | — | 进度条（高 4，`--accent`，`--radius-pill`）+ `omp.progress`；阶段 `omp.downloading` → `omp.verifying`；失败红字 + 重试；校验失败 `omp.verifyFailed` | `取消` |
@@ -607,18 +602,15 @@
 |---|---|---|
 | 侧栏无任务 | `sidebar.empty`（`--text-3`） | — |
 | 搜索/面板无结果 | `palette.noResults` | `palette.askNew` |
-| omp 进程意外退出 | 对话流末尾内联条 + 侧栏该行变 `!`：`error.exited` | `error.reconnect`（重启进程 + `open_session`）、`error.copyDetails` |
-| 协议错误 | 同上：`error.protocol` | `error.reconnect`、`error.copyDetails` |
-| `prompt` 被拒 | 用户消息下方一行：`msg.sendFailed` | `msg.retry` |
-| 模型不可用 | 输入框上方内联条：`error.modelUnavailable` | `error.pickModel` |
-| 模型返回错误 | 该轮过程区末尾一行：`error.model`；判断为未登录再加 `error.goSignIn` | — |
-| 工具失败 | 仅在过程展开里标红；折叠行尾 `· N failures`；若本轮因此无结论 `turn.noResult` | — |
-| 项目目录不存在 | 对话区居中：`error.cwdMissing` | `error.pickFolder` / `error.removeFromList` |
-| 会话无法读取 | 对话区居中：`error.sessionUnreadable` | `error.copyDetails` |
-| 会话正在终端中使用 | 输入框区内联条：`session.inUse` | `session.continueAnyway`（默认不继续）[推测，需主进程给探测方法] |
-| 会话没能保存（`notice` `source: "session-persistence"`） | 持久 toast：`error.persist` | 复制 |
-| 渲染层崩溃（`render-process-gone`） | 主进程重载窗口，顶部 toast：`error.renderRecovered` | — |
-| 渲染层未捕获错误 | 全屏居中：`error.ui` + `error.reload` | 复制错误 |
+| omp 进程意外退出 | 侧栏该行变错误态（`shared/ui/sidebar-model.ts`）；某个操作因此失败时弹错误 toast `error.exitedNoCode`（`TaskError.kind` 由 `shared/ui/errors.ts` 映射）。没有对话流末尾的内联条，也没有“重新连接”按钮 | — |
+| 协议错误 | 同上：toast `error.protocol` | — |
+| `prompt` 被拒 | 错误 toast：`msg.sendFailed` · 原因；草稿放回输入框（`features/composer/actions.ts`） | 用户重发 |
+| 模型不可用 | 恢复任务时模型不可用：toast `error.modelUnavailable`（`TaskError.kind` = `restore_model_failed`）；没有输入框上方的内联条 | — |
+| 本轮以错误结束（含模型返回错误） | 对话末尾 omp 自己的错误卡（`omp.error`；dock 里重复的错误横幅不画，`shared/tsp/error-turn.ts`） | `sessionInfo.retry.button`（发 `/retry`；只在末尾那张错误卡且任务空闲时出现，`RetryButton.tsx`） |
+| 工具失败 | 工具卡片显示失败状态（omp 的节点，studio 照画） | — |
+| 项目目录 / 工作区不存在 | 从历史恢复会话时目录已不在：toast `history.resumeFailed`（`TaskPool.resume` 先 `stat` 目录，不替用户迁移会话）；worktree 任务的工作区被删：输入框禁用，占位文案 `error.worktreeMissing`（`Composer.tsx`） | — |
+| 渲染层崩溃（`render-process-gone`） | 只写日志（`main/log/instance.ts`），没有自动重载窗口，也没有 toast | — |
+| 渲染层未捕获错误 | 没有全屏错误页，也没有错误边界 | — |
 
 错误文案原则：说发生了什么、数据有没有丢、下一步按什么；不显示堆栈（堆栈只在“复制详情”里）。
 
@@ -809,10 +801,10 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 3. 不挤内容：滚动条一直占着 10px 宽（只有滑块颜色在变），出现和消失不改变内容宽度，阅读列不横移。（Chromium 对 `::-webkit-scrollbar` 没有真正的覆盖模式；只要容器可滚动就占 10px，这一点和 `OverlayScrollbar` 不同。）要“完全不占位”的容器（`.scroller`、侧栏、设置页、命令面板、下拉列表）继续用 `OverlayScrollbar` + `scrollbar-width: none`。
 4. **不要在组件里写 `scrollbar-width: thin` 或 `scrollbar-color`**：Chromium 里它们不是 `auto` 时整套 `::-webkit-scrollbar` 失效。`scrollbar-width: none` 只用于自绘滚动条的容器和不要滚动条的标签条。
 5. **横向滚动条一律不画**（`::-webkit-scrollbar:horizontal { display: none }`）。能折行的先折行，不能折行的容器仍可用 Shift+滚轮 / 触控板横滑，但看不到条。逐处决定：
-   - 折行（本来就折）：对话里的代码块与工具卡输出、门里的预览、`job-output`、设置里的 JSON 与原文输出、omp 安装详情、TSP 的 diff 行和工具卡里的 `code`（`.tsp-tool-body .tsp-code` 一律 `pre-wrap`）。
+   - 折行（本来就折）：对话里的代码块与工具卡输出、门里的预览、设置里的 JSON 与原文输出、omp 安装详情、TSP 的 diff 行和工具卡里的 `code`（`.tsp-tool-body .tsp-code` 一律 `pre-wrap`）。
    - 评审 diff：有自己的 `折行` 开关，默认开；关掉时每个 hunk 自己横向滚动（行不折，hunk 头和评论框贴左），无条。
    - 不折、无条、可横滑：Markdown 表格（整词不拆，`.md-table`）、KaTeX 块级公式、TSP 的 ANSI 行（`.tsp-rows`，列对齐，折了会错位）和 TSP `code` 节点没有 `wrap` 时、用量热力图（`usage-scroll`）、评审的标签条。
-   - 其余 `overflow: auto` 的容器（`.job-output`、`.lane-record` 等）内容本身折行，实际只有纵向滚动。
+   - 其余 `overflow: auto` 的容器内容本身折行，实际只有纵向滚动。
 6. 验收（800×600 窗口）：走新任务页、TSP 对话（edit / eval 卡）、设置全部分节、命令面板、终端，断言页面自身 `scrollWidth <= clientWidth`，且没有任何元素下沿被横向滚动条占高（`offsetHeight − clientHeight − 边框 = 0`）；滚动时 `data-scrolling` 出现、停后消失，且元素 `clientWidth` 不变。
 
 ### 5.5 新任务与项目
@@ -825,7 +817,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 ### 5.6 会话历史
 
-历史来自 `~/.omp` 的只读扫描（主进程）[推测：RPC 没有“列出会话”命令]，渲染层只拿到 `{id, title, projectPath, updatedAt, status}`。点击休眠任务：立即显示**只读转录**（历史轮次按“结果态”渲染：过程折叠 + 结论 + 改动卡片）；用户第一次聚焦输入框并发送时才启动 omp 并 `switch_session`/`open_session`，期间胶囊区显示 `composer.resuming`。恢复的任务和新任务一样，用启动时 omp 配置里的审批模式。
+历史来自 `~/.omp` 的只读扫描（主进程）[推测：RPC 没有“列出会话”命令]，渲染层只拿到 `{id, title, projectPath, updatedAt, status}`。点击历史会话或休眠任务：主进程立刻拉起 omp 并用 `--resume` 恢复该会话（`TaskPool.resume` / `openTask`），不等第一次发送；启动期间状态行显示 `composer.status.starting`；会话对应的目录已不存在时恢复失败，弹 toast `history.resumeFailed`。恢复的任务和新任务一样，用启动时 omp 配置里的审批模式。
 
 ### 5.7 通知（只有“等你确认”会叫你）
 
@@ -838,7 +830,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 **设计**（仓库所有者 2026-10-18 定：审批模式完全按 omp 的设置来，omp-studio 不另设一层）
 1. **启动时从不传 `--approval-mode` / `--yolo` / `--auto-approve`。** omp 用配置里的 `tools.approvalMode`；没设置过就是 omp 的默认 `yolo`，此时不会出现审批门。`tools.approval.*` 与 `bash.patterns` 由 omp 按文档规则叠加，我们不改。
 2. **ApprovalChip 显示 omp 对这个项目目录实际生效的值和来源**：项目 `.omp/config.yml` 设了 `tools.approvalMode` 就盖过全局（实测 18.12.5：全局 `write`、项目 `always-ask-cached`，在项目目录里 `omp config list --json` 给 `always-ask-cached`；omp 只看 cwd 下的 `.omp/config.yml`，不找父目录）；没设置过显示 omp 默认值。主进程 `getApprovalMode(projectId)` 在项目目录里跑 `omp config list --json` 取值，来源 = 项目文件有没有设这一项（只读解析，`omp-config/approval-mode.ts`）；草稿和任务都按它的项目取（无项目的聊天只看全局）。来源写进悬停提示 / `aria-label` 的最后一段（`approval.sourceProject` / `approval.sourceGlobal`），不加新的行。读到之前先用上次读到的全局值（启动缓存，见 §4.14；项目覆盖的值不进缓存），从没读到过才显示 `approval.loading`。全局快照（`config-store.ts`）里的值变了会重读，设置页和胶囊一致。
-3. **在胶囊里选一个模式 = `omp config set tools.approvalMode <模式>`**（写入只经 omp，AGENTS；改的是用户全局配置，终端里的 omp 也跟着变）。**项目 `.omp/config.yml` 设了这一项时不可改**：omp 没有写项目层的命令（实测 18.12.5，在项目目录里 `omp config set` 仍写全局并提示被项目覆盖），studio 也不自己改项目文件，所以四档置灰，悬停提示加 `approval.projectLocked`（“由项目配置决定（.omp/config.yml）”），不加新的行。之后启动的任务生效，已在运行的任务要重启。弹层里不再写这段说明（2026-10-20 起去掉 `approval.note`）；胶囊不再区分"有没有进程"。
+3. **在胶囊里选一个模式 = `omp config set tools.approvalMode <模式>`**（写入只经 omp，AGENTS；改的是用户全局配置，终端里的 omp 也跟着变）。**项目 `.omp/config.yml` 设了这一项时不可改**：omp 没有写项目层的命令（实测 18.12.5，在项目目录里 `omp config set` 仍写全局并提示被项目覆盖），studio 也不自己改项目文件，所以四档置灰，悬停提示加 `approval.projectLocked`（“由项目配置决定（.omp/config.yml）”），不加新的行。之后启动的任务生效，已在运行的任务要重启。弹层里不再写这段说明（2026-10-20 起去掉）；胶囊不再区分"有没有进程"。
 4. **外观**（2026-10-21 起胶囊只有图标）：高 28，同其它胶囊；一个 14px 线性图标（`always-ask` = 盾牌 `Shield`，`always-ask-cached` = 带勾的盾牌 `ShieldCheck`，`write` = 铅笔 `Pencil`，`yolo` = 划掉的盾牌 `ShieldOff`（2026-10-21 起；原来的闪电 `Bolt` 和输入框上方后台任务药丸的图标撞了，意思也不对），都在 `icons.tsx`），没有 `⌄`，**不写文字**；完整名称 `审批模式 · {档位名} · {来源}`（`approval.title` · `approval.alwaysAsk` / `approval.alwaysAskCached` / `approval.write` / `approval.yolo` · `approval.sourceProject` / `approval.sourceGlobal`，没读到档位时是 `approval.loading`，来源没读到前不写）放在悬停 `title` 和 `aria-label`；`yolo` 时胶囊底用 `--st-waiting-soft`、图标用 `--st-waiting-text`。弹层是和侧栏语言 / 主题菜单同一种单选菜单（`app/AppMenu.tsx` 的 `MenuItem`；3.1，`direction-3.1.md` §2 行 11）：菜单里保留文字（档位名）：项高 `--row-menu`(32)、`padding: 0 --space-2`、`--radius-md`，当前项 `--bg-active` 底、`--text`，不打勾；描述（`approval.desc.*`）在悬停提示里，`yolo` 项的提示再加 `approval.subagents`。四档下面一条 1px `--border-subtle` 分隔线（`.menu-sep`），再一项普通菜单项「清除已记住的批准」（`approval.forget`，提示 `approval.desc.forget`）：给当前任务的 omp 会话发 `/forget-approvals`（`sendPrompt`，`whenBusy: "followUp"`，同 `/retry` 的做法；实测 18.12.5 rpc-ui 下会回一条 `command_output` “Remembered approvals forgotten; the next read or write asks again.”，显示在对话流里）。清的是整个 agent 目录的批准库和所有会话的临时批准，和模式、项目无关。草稿里、以及还没发过消息的任务里这一项置灰（`disabled`，不可聚焦；任务标题为空时发斜杠命令会被当成标题）。打开时焦点落在当前项，↑↓ / Home / End 在可用项之间移动（首尾循环），Enter 选，Esc / Tab 关闭。
    四档置灰（项目覆盖）时 `MenuItem` 为 `disabled`、不可聚焦，打开菜单的初始焦点落在第一个可用项；「清除已记住的批准」不受影响。
 5. 在胶囊里把模式切到 `yolo`：首次弹一次确认（`approval.yoloConfirm*`），确认后记住（`StudioSettings.yoloConfirmed`）。omp 本身默认就是 `yolo` 时不弹（没有"切换"动作）。
@@ -860,7 +852,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | diff 评审（3）**已落地（待设计方向确认）** | 见 §4.25；入口：顶栏评审按钮、提交对话框的 `评审改动`、`Ctrl Shift D`、命令面板 | 全屏评审、逐行评论、发给 agent |
 | worktree / git / PR（4）**已落地（待设计方向确认）** | 新任务草稿的顶栏分支胶囊里的勾选项 `在独立 worktree 里开始`（`features/git/DraftGitTools.tsx`；只在草稿项目是"项目目录正好是 git 仓库根"时出现，`getDraftGit`；默认文件夹不是项目仓库所以没有；§3.1）；任务条右侧的分支胶囊（点开是 `Git` 菜单：提交、推送、开 PR（有可用远端时才列）、合并回、丢弃）和评审按钮（§3.1）；侧栏任务行的分支图标；项目菜单“清理无主 worktree” | 不是 git 仓库（或项目目录不是仓库根）时没有 worktree 选项，分支胶囊和评审按钮不渲染 |
 | 子代理（5）**已落地** | 右栏的子代理面板（§4.28、`docs/architecture/subagents.md`）：列表、详情、插话 / 结束 / 恢复；输入框上方药丸 `👥 N` 打开它。子代理字母头像 / 哈希色 token 没做 | — |
-| 内置终端（6） | 右栏或底部面板（`--aside-w` 或新增面板高度 token）；每任务终端在其 worktree 目录 | 不做 |
+| 内置终端（6） | 右栏或底部面板；每任务终端在其 worktree 目录 | 不做 |
 | 子代理费用/token **已落地** | 右栏子代理面板详情里的一行统计：费用、token、请求数、工具数、用时（§4.28） | — |
 | 门的“收起” | 提问对话框底栏 omp 自己的 Hide 按钮（§4.17） | studio 不另做；审批卡没有收起 |
 | 任务删除、自定义快捷键、界面缩放、角色（default/plan）选择、测试结果显示 | — | 不做 |
@@ -895,15 +887,12 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | key | 中文 | English |
 |---|---|---|
 | `common.cancel` | 取消 | Cancel |
-| `common.confirm` | 确认 | Confirm |
 | `common.close` | 关闭 | Close |
-| `common.back` | 返回 | Back |
 | `common.copy` | 复制 | Copy |
 | `common.copied` | 已复制 | Copied |
 | `common.retry` | 重试 | Retry |
 | `common.expand` | 展开 | Expand |
 | `common.collapse` | 收起 | Collapse |
-| `common.showMore` | 显示更多（{n}） | Show {n} more |
 | `duration.s` | {s} 秒 | {s}s |
 | `duration.ms` | {m} 分 {s} 秒 | {m}m {s}s |
 | `duration.hm` | {h} 小时 {m} 分 | {h}h {m}m |
@@ -911,15 +900,11 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `time.minutes` | {n} 分钟 | {n}m |
 | `time.hours` | {n} 小时 | {n}h |
 | `time.yesterday` | 昨天 | Yesterday |
-| `window.more` | 更多 | More |
 | `window.about` | 关于与反馈 | About & feedback |
 | `window.aboutVersion` / `window.aboutOmp` / `window.aboutOmpMissing` | 版本 {version} / omp {version} / 未找到 omp | Version {version} / omp {version} / omp not found |
 | `window.aboutCopyInfo` / `window.aboutReportIssue` | 复制版本信息 / 报告问题 | Copy version info / Report an issue |
 | `menu.toggleSidebar` | 切换侧栏 | Toggle sidebar |
-| `window.whatsNew` | 新功能 | What's new |
-| `window.ompUpdate` | omp 可升级 | omp update available |
 | `dropzone.folder` | 松开以用这个文件夹新建任务 | Drop to start a task in this folder |
-| `dropzone.image` | 松开以添加图片 | Drop to add images |
 
 ### A.2 侧栏与任务
 
@@ -951,16 +936,9 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `toast.revealExport` | 在文件夹中显示 | Show in folder |
 | `task.stopped` | 已停止 | Stopped |
 | `status.running` | 进行中 | Running |
-| `status.runningAgents` | 进行中，{n} 个子代理 | Running, {n, plural, one {# subagent} other {# subagents}} |
 | `status.waiting` | 等你确认 | Waiting for you |
 | `status.done` | 完成 | Done |
 | `status.error` | 出错 | Error |
-| `todo.title` | 进度 | Progress |
-| `todo.pending` | 未开始 | Pending |
-| `todo.inProgress` | 进行中 | In progress |
-| `todo.completed` | 已完成 | Completed |
-| `todo.blocked` | 受阻 | Blocked |
-| `todo.abandoned` | 已放弃 | Abandoned |
 
 ### A.3 空状态
 
@@ -980,17 +958,11 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `composer.placeholderRunningSwapped` | 告诉 omp 要改什么（Enter 稍后，Ctrl+Enter 插话）… | Tell omp what to change (Enter for later, Ctrl+Enter to steer)… |
 | `composer.placeholderGate` | 拒绝并告诉 omp 该怎么做… | Deny and tell omp what to do instead… |
 | `composer.send` | 发送 | Send |
-| `composer.sendDeny` | 拒绝并发送 | Deny and send |
 | `composer.stop` | 停止 | Stop |
 | `composer.stopping` | 正在停止… | Stopping… |
-| `composer.steer` | 插话 | Steer |
-| `composer.later` | 稍后 | Later |
 | `composer.attach.unsupported` | 当前模型不支持图片 | The current model doesn't accept images |
-| `composer.attach.imageOnly` | 目前只能添加图片 | Only images can be added for now |
 | `composer.attachment.remove` | 移除 | Remove |
 | `composer.queue.promote` | 现在插话 | Steer now |
-| `composer.queue.remove` | 撤回 | Withdraw |
-| `composer.queue.more` | 还有 {n} 条 | {n} more |
 | `composer.queueRestored` | 已停止 · {n} 条排队消息已放回输入框 | Stopped · {n, plural, one {# queued message} other {# queued messages}} put back in the box |
 | `composer.imagesDropped` | 图片太大，没能放回 | The images were too large to restore |
 | `composer.nextRequest` | 下一次请求生效 | Applies from the next request |
@@ -998,25 +970,18 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `composer.usage.tps` | {n} token/s | {n} tok/s |
 | `composer.usage.tpsTip` | 最近一条回复的输出速度 | Output speed of the latest reply |
 | `composer.badge.fast` / `composer.badge.slow` | 快速 / 慢速 | Fast / Slow |
-| `composer.limit.aria` | 用量限额 | Usage limit |
-| `composer.limit.wrapUp` | 账号已超出用量限额，当前只有一小段收尾额度，请尽快收尾。 | Your account is past its usage limit and only has a short wrap-up allowance. Finish up soon. |
-| `composer.limit.wrapUpExtra` | 账号已超出用量限额，当前只有一小段收尾额度，用完后按额外用量计费。 | Your account is past its usage limit and only has a short wrap-up allowance; extra usage is billed after it runs out. |
-| `composer.limit.lowPriority` | 账号已超出用量限额，请求走低优先级通道，会比平时慢。 | Your account is past its usage limit. Requests run on the low-priority lane and will be slower. |
-| `composer.limit.resets` | {time} 重置 | Resets at {time} |
-| `composer.limit.left` | 低优先级额度还剩 {p}% | {p}% of the low-priority allowance left |
 | `composer.context.tip` | 接近上限时 omp 会自动压缩 | omp compacts automatically near the limit |
 | `composer.breakdown.toggle` | 会话用量 | Session usage |
 | `composer.noModel` | 未连接模型 | No model connected |
 | `composer.modelLoading` | 模型… | Model… |
 | `composer.versionTooOld` | omp 版本过旧 | omp is too old |
-| `composer.resuming` | 正在恢复… | Resuming… |
 | `model.search` | 搜索模型，@ 选角色… | Search models, @ for roles… |
 | `model.empty` | 没有可用模型 | No models available |
 | `model.pinned` / `model.all` / `model.matches` / `model.rolesGroup` | 常用 / 全部 / 匹配 / 角色 | Frequent / All / Matches / Roles |
 | `model.noRoles` | 没有匹配的角色 | No matching roles |
 | `model.thinking` | 思考强度 | Thinking |
 | `model.thinking.unsupported` | 这个模型不支持思考 | This model doesn't support thinking |
-| `model.context` / `model.compactsAt` / `model.maxOutput` | 上下文 / 压缩于 / 最大输出 | Context / Compacts at / Max output |
+| `model.context` / `model.compactsAt` / `model.out` | 上下文 / 压缩于 / 输出（单次输出上限） | Context / Compacts at / Output (max tokens per response) |
 | `model.compact.percent` / `.percentOfBase` | 窗口的 {percent}% / 基数 {base} 的 {percent}% | {percent}% of window / {percent}% of {base} base |
 | `model.compact.fixed` / `.capped` | 固定值 / 到达窗口，改为窗口减预留 | fixed / capped by window |
 | `model.compact.reserve` / `.reserveOfBase` | 窗口减预留 {reserve} / 基数 {base} 减预留 {reserve} | window − {reserve} reserve / {base} base − {reserve} reserve |
@@ -1025,8 +990,6 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `model.perf` · `model.perf.tps` / `.ttft` / `.samples` | 实测速度 · {value} t/s / 首字 {value} s / {count} 次采样 | Speed · {value} t/s / {value} s TTFT / {count} sample(s) |
 | `model.perf.catalog` / `model.perf.none` | 模型目录给出 / 还没有实测 | from the model catalog / Not measured yet |
 | `model.intelligence` / `model.input` · `.text` / `.image` | 智能分 / 输入类型 · 文本 / 图片 | Intelligence / Input · text / image |
-| `model.tag.reasoning` / `model.tag.vision` | 推理 / 视觉 | reasoning / vision |
-| `model.speed` | 速度 | Speed |
 | `model.fast` | 快速模式 | Fast mode |
 | `model.fast.hint` | 更快的服务层级，只对本会话生效；模型不支持时 omp 会拒绝。 | A faster service tier for this session only; omp rejects it on models that don't support it. |
 | `model.slow` | 慢速模式 | Slow mode |
@@ -1038,7 +1001,6 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `model.colModel` / `.colIntelligence` / `.colSpeed` / `.colContext` / `.colPrice` | 模型 / 智能 / t/s / 上下文 / $/M | Model / Int / t/s / Ctx / $/M |
 | `model.out` / `model.price.perM` | 输出 / {value} 每百万 | Output / {value} per M |
 | `model.use` / `model.useRole` | 用于此任务 / 应用角色 | Use for this task / Apply role |
-| `model.switched` | 切换到 {model} · {level} | Switched to {model} · {level} |
 | `thinking.off` | 关 | Off |
 | `thinking.minimal` | 极低 | Minimal |
 | `thinking.low` | 低 | Low |
@@ -1073,28 +1035,9 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 | key | 中文 | English |
 |---|---|---|
-| `process.starting` | Starting… | Starting… |
-| `process.thinking` | Thinking… | Thinking… |
-| `process.replying` | Replying… | Replying… |
-| `process.retryingNow` | Model error, retrying… | Model error, retrying… |
-| `process.compacting` | Compacting context… | Compacting context… |
-| `process.compacted` | Context compacted | Context compacted |
-| `process.waiting` | Waiting for you · paused {duration} | Waiting for you · paused {duration} |
-| `process.subagentsRunning` | {count, plural, one {# subagent} other {# subagents}} | {count, plural, one {# subagent} other {# subagents}} |
-| `process.done` | Worked for {duration} | Worked for {duration} |
 | `process.toolCalls` | {count, plural, one {# tool call} other {# tool calls}} | {count, plural, one {# tool call} other {# tool calls}} |
-| `process.subagents` | {count, plural, one {# subagent} other {# subagents}} | {count, plural, one {# subagent} other {# subagents}} |
-| `process.failures` | {count, plural, one {# failure} other {# failures}} | {count, plural, one {# failure} other {# failures}} |
 | `process.thoughtShort` | Thinking | Thinking |
 | `process.earlier` | {n} earlier | {n} earlier |
-| `process.waitingJobs` | waiting on {running} of {total} jobs · {done} done | waiting on {running} of {total} jobs · {done} done |
-| `process.waitingJobsNone` | {count, plural, one {waiting on # job} other {waiting on # jobs}} | {count, plural, one {waiting on # job} other {waiting on # jobs}} |
-| `process.turnTokens` | {count} tokens | {count} tokens |
-| `process.turnUsage` | This turn: {duration} · {total} tokens ({input} in · {output} out · {cache} cache) | This turn: {duration} · {total} tokens ({input} in · {output} out · {cache} cache) |
-| `process.agents` / `process.agentsTotals` | Agents / {cost} · {time} · {requests} req · {tokens} tok | Agents / {cost} · {time} · {requests} req · {tokens} tok |
-| `process.agents.cost` / `.time` / `.req` / `.tools` / `.tok` / `.ctx` | Cost / Time / Req / Tools / Tok / Ctx | Cost / Time / Req / Tools / Tok / Ctx |
-| `process.agentsContext` | Context {used} / {window} ({percent}%) | Context {used} / {window} ({percent}%) |
-| `process.lane.running` / `process.lane.completed` / `process.lane.failed` / `process.lane.aborted` | Running / Completed / Failed / Cancelled | Running / Completed / Failed / Cancelled |
 | `tool.verb.read` | Reading {target} | Reading {target} |
 | `tool.verb.edit` | Editing {target} | Editing {target} |
 | `tool.verb.write` | Writing {target} | Writing {target} |
@@ -1109,61 +1052,18 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `tool.output.unchanged` | {count, plural, one {# unchanged line} other {# unchanged lines}} | {count, plural, one {# unchanged line} other {# unchanged lines}} |
 | `tool.output.showAll` / `tool.output.collapse` | Show all / Collapse | Show all / Collapse |
 | `tool.output.empty` | No output | No output |
-| `tool.bash.running` / `tool.bash.done` / `tool.bash.exit` | Running / Done / Exit code {code} | Running / Done / Exit code {code} |
-| `tool.bash.cancelled` / `tool.bash.truncated` | Cancelled / omp truncated the output | Cancelled / omp truncated the output |
+| `tool.bash.done` / `tool.bash.exit` | Done / Exit code {code} | Done / Exit code {code} |
 | `tool.bash.earlier` | {count, plural, one {# earlier line} other {# earlier lines}} | {count, plural, one {# earlier line} other {# earlier lines}} |
-| `tool.task.waiting` / `tool.task.settled` | waiting on {running} of {total} / {count, plural, one {# job settled} other {# jobs settled}} | waiting on {running} of {total} / {count, plural, one {# job settled} other {# jobs settled}} |
-| `tool.task.done` / `tool.task.failed` / `tool.task.open` | {count} done / {count} failed / Open subagent {name} | {count} done / {count} failed / Open subagent {name} |
-| `tool.wait.title` | {count, plural, one {Waiting on # job} other {Waiting on # jobs}} | {count, plural, one {Waiting on # job} other {Waiting on # jobs}} |
 | `tool.ask.count` / `tool.ask.note` | {count, plural, one {# question} other {# questions}} / Note | {count, plural, one {# question} other {# questions}} / Note |
 | `tool.todo.pending` / `tool.todo.in_progress` / `tool.todo.completed` / `tool.todo.blocked` / `tool.todo.abandoned` | Pending / In progress / Completed / Blocked / Abandoned | Pending / In progress / Completed / Blocked / Abandoned |
-| `subagent.row` | 子代理 {name} · {n} 次工具调用 · {status} | Subagent {name} · {n, plural, one {# tool call} other {# tool calls}} · {status} |
-| `subagent.status.running` | 进行中 | running |
-| `subagent.status.completed` | 已完成 | completed |
-| `subagent.status.failed` | 已失败 | failed |
-| `subagent.status.aborted` | 已中断 | aborted |
 | `msg.sendFailed` | 没有发出 | Not sent |
-| `msg.retry` | 重试 | Retry |
 | `code.expand` | 展开全部（{n} 行） | Show all ({n} lines) |
 | `scroll.latest` | 回到最新 | Jump to latest |
-| `turn.noResult` | 没有得到结果。展开过程查看原因。 | No result. Expand the work to see why. |
-| `change.summary` | {n} 个文件已更改 | {n, plural, one {# file changed} other {# files changed}} |
-| `change.more` | 还有 {n} 个文件 | {n} more files |
-| `change.new` | 新 | New |
-| `change.interrupted` | 已中断 | Interrupted |
-| `change.copyList` | 复制文件列表 | Copy file list |
 
 ### A.6 门（审批、ask、其它请求）与通知
 
 | key | 中文 | English |
 |---|---|---|
-| `gate.title.waiting` | 等你确认 | Waiting for you |
-| `gate.allow` | 允许 | Allow |
-| `gate.allowTool` | 本任务内允许 {tool} | Allow {tool} for this task |
-| `gate.deny` | 拒绝 | Deny |
-| `gate.confirm` | 确认 | Confirm |
-| `gate.cancel` | 取消 | Cancel |
-| `gate.submit` | 提交 | Submit |
-| `gate.ok` | 确定 | OK |
-| `gate.next` | 下一题 | Next |
-| `gate.back` | 上一题 | Back |
-| `gate.step` | {i} / {n} | {i} of {n} |
-| `gate.other` | 其他… | Other… |
-| `gate.otherPlaceholder` | 输入你自己的答案 | Type your own answer |
-| `gate.recommended` | 推荐 | Recommended |
-| `gate.required` | 请选择一项或填写内容 | Choose an option or type an answer |
-| `gate.filter` | 筛选… | Filter… |
-| `gate.timeout` | 将在 {s} 秒后自动取消 | Cancels automatically in {s}s |
-| `gate.timeoutAsk` | {s} 秒后将自动选择推荐项 | Picks the recommended option in {s}s |
-| `gate.timedOut` | 已超时 | Timed out |
-| `gate.cancelled` | 已取消 | Cancelled |
-| `gate.cancelNote` | 取消后 omp 会自行决定 | If you cancel, omp will decide on its own |
-| `gate.detailsExpand` | 显示全部 | Show all |
-| `gate.pending` | 还有 {n} 个请求在等待 | {n} more waiting |
-| `gate.aria` | omp 需要你的回应 | omp needs your response |
-| `gate.suggestReplace` | 用建议的文本替换当前输入？ | Replace your draft with the suggested text? |
-| `gate.suggestReplaceYes` | 替换 | Replace |
-| `gate.suggestKeep` | 保留 | Keep mine |
 | `toast.needsYou` | {task} 需要你确认 | {task} needs your confirmation |
 | `toast.view` | 查看 | View |
 | `notify.title` | {project} · {task} | {project} · {task} |
@@ -1237,8 +1137,6 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `goal.usageBudgetTitle` | 已用 {used} / 预算 {budget} tokens | {used} of {budget} tokens used |
 | `goal.current` | 当前目标（{status}）：{objective} | Current goal ({status}): {objective} |
 | `goal.none` | 当前没有目标。用 /goal 加上目标文字来设定一个 | No goal right now. Use /goal followed by the goal text to set one |
-| `goal.autoContinueOff` | 目标不会自动推进，可在 设置 → 子代理与规划 打开「目标自动推进」（和终端里的 omp 共用） | The goal won't keep going on its own. Turn on “Let goals keep going” in Settings → Subagents & planning (shared with the omp in your terminal) |
-| `goal.openSettings` | 打开设置 | Open settings |
 | `goal.pauseFailed` | 暂停目标失败 | Couldn't pause the goal |
 | `goal.resumeFailed` | 继续目标失败 | Couldn't resume the goal |
 | `goal.dropFailed` | 放弃目标失败 | Couldn't drop the goal |
@@ -1257,11 +1155,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `tree.summarizing` | 正在摘要… | Summarizing… |
 | `shortcut.send` | 发送 | Send |
 | `shortcut.newline` | 换行 | New line |
-| `shortcut.steer` | 运行中：插话 | While running: steer |
 | `shortcut.later` | 运行中：稍后 | While running: later |
 | `shortcut.stop` | 停止并取回排队消息 | Stop and take back queued messages |
-| `shortcut.gatePrimary` | 门：主操作 | Prompt: primary action |
-| `shortcut.gateDeny` | 门：拒绝或取消 | Prompt: deny or cancel |
 | `shortcut.toggleProcess` | 展开或收起最近一个过程行 | Expand or collapse the latest work row |
 | `shortcut.focusComposer` | 聚焦输入框 | Focus the message box |
 | `shortcut.nthTask` | 切到第 N 个任务 | Go to task N |
@@ -1272,8 +1167,6 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 
 | key | 中文 | English |
 |---|---|---|
-| `settings.title` | 设置 | Settings |
-| `settings.back` | 返回 | Back |
 | `settings.general` | 通用 | General |
 | `settings.models` | 模型 | Models |
 | `settings.providers` | 提供商与账号 | Providers & accounts |
@@ -1303,14 +1196,6 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `settings.defaultModel` | 新任务的默认模型 | Default model for new tasks |
 | `settings.defaultThinking` | 默认思考强度 | Default thinking level |
 | `settings.ompPicksModel` | 由 omp 自动选择 | Let omp choose |
-| `settings.usage.hidden` | 用量统计默认不在界面中显示。 | Usage isn't shown by default. |
-| `settings.usage.show` | 显示用量 | Show usage |
-| `settings.usage.noTask` | 先打开一个任务 | Open a task first |
-| `settings.usage.tokens` | Token | Tokens |
-| `settings.usage.cost` | 费用 | Cost |
-| `connect.title` | 连接一个模型提供商 | Connect a model provider |
-| `connect.body` | 登录后就可以开始。账号信息由 omp 保存，和终端版共用。 | Sign in to get started. omp stores your credentials and shares them with the terminal version. |
-| `connect.more` | 更多… | More… |
 | `login.providers` | 提供商 | Providers |
 | `login.signIn` | 登录 | Sign in |
 | `login.signOut` | 退出登录 | Sign out |
@@ -1332,11 +1217,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 |---|---|---|
 | `omp.finding` | 正在查找 omp… | Looking for omp… |
 | `omp.found` | 检测到 omp {version}（{source}） | Found omp {version} ({source}) |
-| `omp.found.note` | omp-studio 会直接使用它，不会修改它。 | omp-studio will use it as is and won't modify it. |
-| `omp.source.tern` | 由 Tern 管理 | managed by Tern |
 | `omp.source.studio` | 由 omp-studio 管理 | managed by omp-studio |
 | `omp.source.user` | 你自己安装的 | installed by you |
-| `omp.continue` | 继续 | Continue |
 | `omp.missing.title` | 需要安装 omp | omp is required |
 | `omp.missing.body` | omp-studio 不内置 omp。可以由 omp-studio 下载并管理一份官方版本（约 {size}），之后自动更新。 | omp-studio doesn't bundle omp. It can download and manage an official copy (about {size}) and keep it up to date. |
 | `omp.install` | 下载并安装 | Download and install |
@@ -1355,13 +1237,9 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `omp.outdated` | omp 版本过旧（{current}），需要 {min} 或更高。 | omp {current} is too old. Version {min} or newer is required. |
 | `omp.upgrade` | 升级 | Upgrade |
 | `omp.upgrading` | 正在升级… | Upgrading… |
-| `omp.later` | 稍后再说 | Later |
-| `omp.updateInTern` | 请在 Tern 中更新 omp。 | Update omp from Tern. |
-| `omp.busy` | 有 {n} 个任务正在运行，完成后再升级。 | {n, plural, one {# task is running.} other {# tasks are running.}} Upgrade when {n, plural, one {it finishes.} other {they finish.}} |
 | `omp.newVersion` | 有新版本 {version} | {version} is available |
 | `omp.checkUpdate` | 检查更新 | Check for updates |
 | `omp.upToDate` | 已是最新版本 | You're up to date |
-| `omp.autoUpdate` | 自动更新 | Automatic updates |
 | `omp.path` | 路径 | Path |
 | `omp.version` | 版本 | Version |
 | `omp.source` | 来源 | Source |
@@ -1376,26 +1254,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 |---|---|---|
 | `error.exited` | 这个任务的 omp 进程退出了（退出码 {code}）。会话已保存。 | The omp process for this task exited (code {code}). Your session is saved. |
 | `error.protocol` | 和 omp 的通信出错了，已断开。可能是版本不兼容。 | Communication with omp failed and was disconnected. The version may be incompatible. |
-| `error.reconnect` | 重新连接 | Reconnect |
-| `error.copyDetails` | 复制详情 | Copy details |
 | `error.model` | 模型返回错误：{message} | The model returned an error: {message} |
-| `error.goSignIn` | 去登录 | Go to sign-in |
 | `error.modelUnavailable` | 这个会话用的模型现在不可用。 | The model used by this session isn't available. |
-| `error.pickModel` | 选择模型 | Choose a model |
-| `error.cwdMissing` | 找不到项目文件夹 {path} | Can't find the project folder {path} |
-| `error.pickFolder` | 重新选择文件夹 | Choose another folder |
-| `error.removeFromList` | 从列表移除 | Remove from list |
-| `error.sessionUnreadable` | 这个会话无法打开。 | This session can't be opened. |
-| `error.persist` | 会话没能保存到磁盘：{message} | The session couldn't be saved to disk: {message} |
-| `error.renderRecovered` | 界面已恢复。任务没有受影响。 | The window recovered. Your tasks weren't affected. |
-| `error.ui` | 界面出错了 | Something went wrong in the window |
-| `error.reload` | 重新加载 | Reload |
-| `session.inUse` | 这个会话正在终端里被使用。 | This session is in use in a terminal. |
-| `session.continueAnyway` | 仍然继续 | Continue anyway |
-| `a11y.chat` | 对话 | Conversation |
-| `a11y.taskList` | 任务列表 | Task list |
-| `a11y.done` | 已完成：{summary} | Finished: {summary} |
-| `a11y.resizeSidebar` | 调整侧栏宽度 | Resize sidebar |
 
 ---
 
@@ -1408,15 +1268,14 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | 1 | 审批模式默认值 | **已定（2026-10-18）：完全跟随 omp 的配置**（`tools.approvalMode`，omp 默认 `yolo`），启动时从不传 `--approval-mode`；胶囊改的就是 omp 配置（§5.8）。原方案"Studio 默认 `write`"和"Studio 自己存一份默认值"都作废 |
 | 2 | 审批模式切换语义 | omp 在进程启动时读配置；胶囊改配置后，之后启动的任务生效，运行中的任务要重启（见 §5.8）。备选"重启进程并恢复会话"需先实测 `open_session` 无损恢复 |
 | 3 | 测试结果显示 | 不显示（设计原则“结果优先”提到）；若要做，需先决定识别规则（omp 不给结构化的测试结果） |
-| 4 | API key 类提供商登录 | 只给终端指引。若要在设置页输入 key（Electron `safeStorage` 保存、以环境变量传给 omp），与 AGENTS“不写 `~/.omp`”需要一次明确的规则变更 |
-| 5 | 新增运行时依赖 / 未定技术选型 | 语法高亮库（要求：同步、按需加载语言、只输出 `<span class>`）、Markdown 库（要求：块边界、可关闭原始 HTML）、i18n 库（要求：ICU 复数、运行时切换语言）、自绘覆盖式滚动条的实现 |
-| 6 | 字体是否打包 Inter / JetBrains Mono | v1 不打包；做完第一版中英深浅 4 象限截图后由所有者按肉眼决定，只改 `--font-*` |
+| 4 | API key 类提供商登录 | **已定**：设置页输入，Electron `safeStorage` 加密存在 `userData/api-keys.json`，启动 omp 时以环境变量传入，不写 `~/.omp`（`docs/architecture/login.md`） |
+| 5 | 新增运行时依赖 / 未定技术选型 | **已定**：语法高亮 `shiki`、Markdown `markdown-it`、公式 `katex`；i18n 和覆盖式滚动条自己写（`src/shared/i18n/`、`ui/OverlayScrollbar.tsx`） |
+| 6 | 字体是否打包 | **已定（0.3.29）**：打包 Geist / Geist Mono，中文仍用微软雅黑 UI；只改 `--font-*` |
 | 7 | 阅读列宽 / 正文 15px 是否偏大 | 已定 840（2026-10-19）；正文仍可凭肉眼调，只改 `--fs-prose` |
 | 8 | 任务完成不发系统通知 | 取“只有等你会叫你”的立场；若内测反馈需要，再加一个默认关闭的设置项 |
 | 9 | 产品名/Logo | 暂定名 omp-studio，侧栏头不放 Logo/应用名 |
 
 **需要实测 / 录制 fixture（[推测] 项）**
 
-1. 主进程需要提供：每轮 `{turnId, startedAt, endedAt, waitedMs, toolCalls, subagents}`（时间戳用主进程接收时间）；`taskStatusChanged`；`taskTurnSummary`（文件、状态、+/−，由工具事件 + `git diff --numstat` 汇总，仅 git 仓库）；`onQueue`/`removeQueued`/`promoteQueued`/`abortAndRestore`；`respondUi`（校验 `ask` 的 `answers` 形状）；`listSessions`/`openTranscript`/`resumeTask`；`pickFolder`/`openExternal`（校验 http/https）/`revealInFolder`（路径校验在任务目录内）；`ompStatus`；草稿、侧栏状态、归档、重命名的持久化。
-2. `titleBarOverlay` 在 Win11 上是否保留 Snap Layouts；无应用菜单时编辑快捷键是否正常；Electron 44 的 `linear()` 弹簧、`text-wrap: pretty` 支持。
-3. 终端正在使用同一会话文件的探测方法；运行中 `set_model` 的生效时机（决定 `composer.nextRequest` 文案是否保留）。
+1. `titleBarOverlay` 在 Win11 上是否保留 Snap Layouts；无应用菜单时编辑快捷键是否正常；Electron 44 的 `linear()` 弹簧、`text-wrap: pretty` 支持。
+2. 终端正在使用同一会话文件的探测方法；运行中 `set_model` 的生效时机（决定 `composer.nextRequest` 文案是否保留）。

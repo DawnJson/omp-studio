@@ -1,1 +1,0 @@
-✘ Failed to remove marketplace: Error: Marketplace "claude-plugins-official" not found

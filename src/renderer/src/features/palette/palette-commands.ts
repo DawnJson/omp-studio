@@ -146,7 +146,7 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
     },
     // 插件、更新检查、快捷键清单在设置页里，直接定位到对应分节。
     { id: "plugins", label: t("cmd.plugins"), run: () => showView("settings", { section: "plugins" }) },
-    // MCP / SSH / 可用工具 / 记忆 / omp 更新日志所在的设置分节（S5）。
+    // MCP / SSH / 可用工具 / 记忆 / omp 更新日志所在的设置分节。
     { id: "mcp", label: t("integrations.cmd.mcp"), run: () => showView("settings", { section: "integrations" }) },
     { id: "ssh", label: t("integrations.cmd.ssh"), run: () => showView("settings", { section: "integrations" }) },
     { id: "tools", label: t("integrations.cmd.tools"), run: () => showView("settings", { section: "tools" }) },
@@ -155,7 +155,7 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
     { id: "checkUpdate", label: t("cmd.checkUpdate"), run: () => showView("settings", { section: "about" }) },
     { id: "shortcuts", label: t("cmd.shortcuts"), run: () => showView("settings", { section: "shortcuts" }) },
     current && { id: "archive", label: t("cmd.archive"), run: () => archiveWithUndo(current.id, current.id, t) },
-    // 会话信息、请求记录、置顶、分享、重试（S3，session-info）：分享和置顶需要任务已有会话文件，没有时对话框里说明。
+    // 会话信息、请求记录、置顶、分享、重试（session-info）：分享和置顶需要任务已有会话文件，没有时对话框里说明。
     current && { id: "sessionInfo", label: t("sessionInfo.cmd.info"), run: () => openSessionInfo(current.id, "info") },
     current && { id: "trace", label: t("sessionInfo.cmd.trace"), run: () => openSessionInfo(current.id, "trace") },
     current && { id: "share", label: t("sessionInfo.cmd.share"), run: () => openShareDialog(current.id) },

@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { PreviewFile } from "../../shared/ipc.ts";
 import { canOpenDirectly, resolveInside, resolveInsideReal } from "../ipc/task-file-path.ts";
+import { isMissing } from "./list-directory.ts";
 
 const previewTextMaxBytes = 2 * 1024 * 1024;
 const previewImageMaxBytes = 20 * 1024 * 1024;
@@ -25,11 +26,6 @@ function toRelative(cwd: string, input: string): string {
   if (!path.isAbsolute(input)) return input;
   const relative = path.relative(cwd, input);
   return relative === "" || relative.startsWith("..") || path.isAbsolute(relative) ? input : relative;
-}
-
-function isMissing(error: unknown): boolean {
-  const code = (error as NodeJS.ErrnoException | null)?.code;
-  return code === "ENOENT" || code === "ENOTDIR";
 }
 
 export async function readPreviewFile(cwd: string, input: string): Promise<PreviewFile> {

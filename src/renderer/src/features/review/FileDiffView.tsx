@@ -1,6 +1,6 @@
 // 一个文件（某一侧）的 diff：文件头（暂存/取消暂存/丢弃）、每个 hunk、评论状态、n/p 切换改动块、丢弃前的确认。
 import { useEffect, useRef, useState } from "react";
-import type { GitDiffArea, GitDiffContext, GitHunkRef } from "../../../../shared/git.ts";
+import { REVIEW_COMMENTS_MAX, type GitDiffArea, type GitDiffContext, type GitHunkRef } from "../../../../shared/git.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import {
   countChangeBlocks,
@@ -17,18 +17,13 @@ import { addComment, removeComment, updateComment } from "../../store/review-sto
 import { describeError, reportError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { ConfirmDialog } from "../settings/ConfirmDialog.tsx";
-import { REVIEW_COMMENTS_MAX } from "../../../../shared/git.ts";
+import { splitPath } from "./FileTree.tsx";
 import { HunkView, type CommentCtx, type HunkActions } from "./HunkView.tsx";
 import { useReviewKeys } from "./review-keys.ts";
 import { languageOf } from "./use-hunk-tokens.ts";
 import type { FileDiffState } from "./use-review-data.ts";
 
 type Confirm = { kind: "file" } | { kind: "hunk"; hunk: GitHunkRef };
-
-function splitPath(path: string): { dir: string; name: string } {
-  const slash = path.lastIndexOf("/");
-  return slash === -1 ? { dir: "", name: path } : { dir: path.slice(0, slash + 1), name: path.slice(slash + 1) };
-}
 
 export function FileDiffView({
   taskId,

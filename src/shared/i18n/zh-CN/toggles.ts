@@ -6,8 +6,6 @@ export const toggles = {
   note: "只对本会话生效；圆点表示和默认值不同。",
   session: "本会话",
   differs: "和配置默认值不同",
-  default: "默认",
-  busy: "正在切换…",
   skillful: "Skill 清单",
   "skillful.hint": "在系统提示里列出可用的 Skill",
   extendedContext: "扩展上下文",

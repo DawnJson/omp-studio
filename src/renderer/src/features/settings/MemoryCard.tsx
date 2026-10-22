@@ -17,9 +17,9 @@ import { setCardScope, useCardScope, type ScopeKey } from "./integrations-store.
 import { ScopePicker } from "./ScopePicker.tsx";
 import "./integrations.css";
 
-type ReadOp = "stats" | "diagnose" | "queue" | "view";
-// MEMORY_OPS 是 S0 定的封闭集合；这里只用其中的子集，编译期确认它们都在里面。
+// 只用 MEMORY_OPS 里的子集，编译期确认它们都在里面。
 const READ_OPS = ["stats", "diagnose", "queue", "view"] as const satisfies readonly (typeof MEMORY_OPS)[number][];
+type ReadOp = (typeof READ_OPS)[number];
 
 export function MemoryCard() {
   const t = useT();

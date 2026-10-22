@@ -1,6 +1,6 @@
-// 会话树面板：列出这个任务会话里的用户消息（分叉处缩进），当前分支上的高亮，选中一条就回到它之前（rpc 用 branch，TSP 用 omp 的 /tree）。
-// TSP 任务每行还有"从这里分叉"：新建任务，从那条消息之前接着聊（omp --fork，docs/architecture/session-tree.md）。
-// 键盘：↑↓ / Home / End 移动，Enter 选中，Shift+Enter 分叉（TSP），Esc 关闭；焦点在面板上，关闭后还给打开前的元素。
+// 会话树面板：列出这个任务会话里的用户消息（分叉处缩进），当前分支上的高亮，选中一条就回到它之前（omp 的 /tree）。
+// 每行还有"从这里分叉"：新建任务，从那条消息之前接着聊（omp --fork，docs/architecture/session-tree.md）。
+// 键盘：↑↓ / Home / End 移动，Enter 选中，Shift+Enter 分叉，Esc 关闭；焦点在面板上，关闭后还给打开前的元素。
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import type { SessionTreeNode, TaskId } from "../../../../shared/ipc.ts";
 import { useTaskIdle } from "../../store/tasks-store.ts";

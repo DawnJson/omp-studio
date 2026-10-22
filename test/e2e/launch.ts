@@ -161,7 +161,7 @@ export async function expandSidebarFolders(page: Page): Promise<void> {
 }
 
 /** 第 nth 个任务行（先展开折叠的文件夹）。 */
-export async function taskRow(page: Page, nth = 0) {
+async function taskRow(page: Page, nth = 0) {
   await expandSidebarFolders(page);
   return page.getByTestId("task-row").nth(nth);
 }

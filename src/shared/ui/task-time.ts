@@ -7,7 +7,7 @@ const hour = 60 * minute;
 
 /**
  * 任务最后一次活动的时间：主进程持久化的 updatedAt，只在用户发消息和一轮结束时变
- * （选中、恢复、改名、迁移引擎、归档都不动它；历史会话建的任务取会话文件的修改时间）。
+ * （选中、恢复、改名、归档都不动它；历史会话建的任务取会话文件的修改时间）。
  */
 export function lastActivityAt(task: Pick<TaskState, "updatedAt">): number {
   return task.updatedAt;

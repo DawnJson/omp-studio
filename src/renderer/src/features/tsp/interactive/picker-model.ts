@@ -41,9 +41,9 @@ export type PickerEntry =
   | { kind: "group"; group: TspPickerGroup; top: number; height: number }
   | { kind: "row"; item: TspPickerItem; top: number; height: number };
 
-export const GROUP_HEIGHT = 32;
+const GROUP_HEIGHT = 32;
 
-export function rowHeight(layout: TspPickerProps["layout"], item: TspPickerItem): number {
+function rowHeight(layout: TspPickerProps["layout"], item: TspPickerItem): number {
   switch (layout) {
     case "cards":
       return 54;
@@ -116,9 +116,9 @@ const COLUMN_WIDTH: Readonly<Record<string, number>> = {
   dim: 64,
 };
 
-export const LABEL_MIN_WIDTH = 260;
+const LABEL_MIN_WIDTH = 260;
 
-export function columnWidth(column: TspPickerColumn): number {
+function columnWidth(column: TspPickerColumn): number {
   return COLUMN_WIDTH[column.format ?? "text"] ?? 96;
 }
 

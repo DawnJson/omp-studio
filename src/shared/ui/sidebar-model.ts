@@ -37,7 +37,7 @@ export interface SidebarFolder {
   items: SidebarItem[];
 }
 
-export function folderKey(cwd: string): string {
+function folderKey(cwd: string): string {
   return cwd.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
 }
 

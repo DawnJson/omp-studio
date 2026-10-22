@@ -5,7 +5,7 @@ import type { TaskGoal } from "../../../../shared/ipc.ts";
 export type GoalButton = "pause" | "resume" | "drop";
 
 /** `/goal` 后面的文字：空 = 显示当前目标；单独一个 pause / resume / drop 是操作；其余整段是新目标。 */
-export type GoalArgs = { kind: "show" } | { kind: "op"; op: GoalButton } | { kind: "create"; objective: string };
+type GoalArgs = { kind: "show" } | { kind: "op"; op: GoalButton } | { kind: "create"; objective: string };
 
 export function parseGoalArgs(args: string): GoalArgs {
   const text = args.trim();

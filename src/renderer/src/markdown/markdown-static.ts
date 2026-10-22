@@ -1,4 +1,4 @@
-// 不依赖 DOM 的整篇渲染入口：测试和"复制纯文本"之类场景用。界面里用 Markdown.tsx（按块 memo）。
+// 不依赖 DOM 的整篇渲染入口：只有 test/markdown.test.ts 用。界面里用 Markdown.tsx（按块 memo）。
 import { createElement as h, Fragment, type ReactNode } from "react";
 import { parseBlocks } from "./parse.ts";
 import { renderBlock, type RenderContext } from "./render.ts";

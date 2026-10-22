@@ -58,13 +58,10 @@ function subscribe(taskId: TaskId, listener: () => void): () => void {
   };
 }
 
-/** 本任务已知的后台作业（TSP）；`enabled` 为 false（rpc 任务）时不订阅，返回空。 */
-export function useTspJobs(taskId: TaskId, enabled: boolean): readonly Job[] {
-  const sub = useMemo(
-    () => (listener: () => void) => (enabled ? subscribe(taskId, listener) : () => undefined),
-    [taskId, enabled],
-  );
-  return useSyncExternalStore(sub, () => (enabled ? (states.get(taskId) ?? NO_JOBS) : NO_JOBS));
+/** 本任务已知的后台作业（TSP）。 */
+export function useTspJobs(taskId: TaskId): readonly Job[] {
+  const sub = useMemo(() => (listener: () => void) => subscribe(taskId, listener), [taskId]);
+  return useSyncExternalStore(sub, () => states.get(taskId) ?? NO_JOBS);
 }
 
 /** 结束作业（`id` 或 "all"）：主进程拼 `/jobs kill <id>`；成功后把运行中的记为已取消（omp 成功时没有任何回应，实测 18.12.5）。出错抛 omp 的 toast 原文。 */
@@ -126,9 +123,4 @@ export function useJobsOpenRequests(taskId: TaskId): number {
     [],
   );
   return useSyncExternalStore(sub, () => requests.get(taskId) ?? 0);
-}
-
-/** 非 hook：现在有没有已知作业（`/jobs` 在 TSP 任务里决定是开弹层还是提示没有）。 */
-export function peekTspJobCount(taskId: TaskId): number {
-  return (states.get(taskId) ?? NO_JOBS).length;
 }

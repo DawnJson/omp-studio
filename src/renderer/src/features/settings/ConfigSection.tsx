@@ -37,7 +37,9 @@ function Disclosure({
         className="cfg-group-head"
         aria-expanded={open}
         aria-controls={bodyId}
-        aria-label={`${open ? t("settings.cfg.collapseGroup", { group: title }) : t("settings.cfg.expandGroup", { group: title })}`}
+        aria-label={
+          open ? t("settings.cfg.collapseGroup", { group: title }) : t("settings.cfg.expandGroup", { group: title })
+        }
         onClick={onToggle}
       >
         <ChevronRight size={14} className="icon cfg-chevron" data-open={open || undefined} />

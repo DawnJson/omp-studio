@@ -136,13 +136,12 @@ export function Picker({ node, ctx }: NodeProps) {
   const current = new Set(p.current ?? []);
   const query = p.query ?? null;
   const cursor = Math.max(0, Math.min((query ?? "").length, p.cursor ?? (query ?? "").length));
-  const shown = rows;
   const countText =
     state === "loading"
       ? "…"
-      : p.total !== undefined && p.total !== shown
-        ? t("tspi.countOf", { shown, total: p.total.toLocaleString() })
-        : String(shown);
+      : p.total !== undefined && p.total !== rows
+        ? t("tspi.countOf", { shown: rows, total: p.total.toLocaleString() })
+        : String(rows);
   const tabs = p.tabs ?? [];
   const scopes = p.scopes ?? [];
   const noQuery = (query ?? "").trim() === "";
@@ -555,10 +554,8 @@ function Row({ entry, layout, columns, selected, current, hasCurrent, hits, onCl
   const lead =
     layout === "timeline" ? (
       <span className={`tspi-pk-node n-${item.node ?? "assistant"}`} />
-    ) : item.dot !== undefined && item.mark === undefined && item.icon === undefined ? (
-      <span className="tspi-pk-dot" data-tone={item.dot} />
     ) : (
-      <Lead icon={item.icon} mark={item.mark} dot={undefined} />
+      <Lead icon={item.icon} mark={item.mark} dot={item.dot} />
     );
   return (
     <div

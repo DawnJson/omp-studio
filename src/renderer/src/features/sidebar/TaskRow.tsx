@@ -26,7 +26,7 @@ export interface TaskRowProps {
   onArchive(task: TaskState): void;
 }
 
-export const taskNavId = (task: TaskState) => `task:${task.id}`;
+const taskNavId = (task: TaskState) => `task:${task.id}`;
 
 /** 任务行和会话行共用的回调与格式化上下文。 */
 export type RowHandlers = Pick<

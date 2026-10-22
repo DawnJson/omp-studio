@@ -37,8 +37,7 @@ export function useCommonConfigItems(group: ConfigGroup, omit: readonly string[]
   );
 }
 
-export type ConfigView =
-  { kind: "common"; group: ConfigGroup } | { kind: "advanced" } | { kind: "search"; query: string };
+type ConfigView = { kind: "common"; group: ConfigGroup } | { kind: "advanced" } | { kind: "search"; query: string };
 
 export function OmpConfigPane({ view }: { view: ConfigView }) {
   const t = useT();

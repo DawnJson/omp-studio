@@ -50,16 +50,6 @@ export function resolveAgentDir(env: NodeJS.ProcessEnv = process.env, home: stri
   return path.join(home, configDirName !== undefined && configDirName !== "" ? configDirName : ".omp", "agent");
 }
 
-function resolveSessionsDir(env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): string {
-  return path.join(resolveAgentDir(env, home), "sessions");
-}
-
-/** 路径比较用的键：Windows 文件系统不区分大小写，且可能混用 / 和 \。 */
-export function pathKey(value: string): string {
-  const resolved = path.resolve(value);
-  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
-}
-
 /** 标题和提示文本：只留第一个非空行，去掉控制字符，限长。 */
 function sanitizeText(value: string): string | null {
   for (const line of value.split(/\r?\n/)) {
@@ -139,7 +129,11 @@ export function parseSessionPrefix(text: string, truncated: boolean): ParsedHead
 }
 
 /** 读文件前 maxBytes 字节；返回文本和"文件是否比读到的更长"。 */
-async function readPrefix(file: string, size: number, maxBytes: number): Promise<{ text: string; truncated: boolean }> {
+export async function readPrefix(
+  file: string,
+  size: number,
+  maxBytes: number,
+): Promise<{ text: string; truncated: boolean }> {
   const length = Math.min(size, maxBytes);
   const handle = await open(file, "r");
   try {
@@ -203,7 +197,7 @@ async function readSuffix(file: string, size: number, maxBytes: number): Promise
 }
 
 /** 一个会话文件最后一轮的结果；末尾放宽后仍找不到完整的消息条目时为 null。 */
-export async function readSessionLastTurn(file: string, size: number): Promise<SessionLastTurn> {
+async function readSessionLastTurn(file: string, size: number): Promise<SessionLastTurn> {
   const tail = await readSuffix(file, size, TAIL_BYTES);
   const found = parseSessionTail(tail.text, tail.truncated);
   if (found !== undefined || !tail.truncated) return found ?? null;
@@ -222,7 +216,7 @@ export class SessionIndex {
   readonly sessionsDir: string;
   private readonly cache = new Map<string, CacheEntry>();
 
-  constructor(sessionsDir: string = resolveSessionsDir()) {
+  constructor(sessionsDir: string = path.join(resolveAgentDir(), "sessions")) {
     this.sessionsDir = sessionsDir;
   }
 

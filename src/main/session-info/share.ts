@@ -3,7 +3,7 @@
 // 输出解析见 src/shared/omp-output/share.ts；确认框要显示的设置来自 `omp config list --json`（share.*）。
 import type { ShareResult, ShareSettings } from "../../shared/ipc.ts";
 import { parseShareOutput, shareErrorMessage } from "../../shared/omp-output/share.ts";
-import { isRecord } from "../../shared/type-guards.ts";
+import { valueOf } from "../omp-config/model-defaults.ts";
 import type { RunOmp } from "../usage/usage-service.ts";
 
 /** omp 文档（collab.md）里的默认值：`omp config list --json` 缺键时才用。 */
@@ -15,14 +15,9 @@ export class ShareError extends Error {
 
 /** `omp config list --json` 的结果 → 分享确认框要说明的三项。 */
 export function readShareSettings(listed: unknown): ShareSettings {
-  const value = (key: string): unknown => {
-    if (!isRecord(listed)) return undefined;
-    const entry = listed[key];
-    return isRecord(entry) ? entry["value"] : undefined;
-  };
-  const serverUrl = value("share.serverUrl");
-  const store = value("share.store");
-  const redact = value("share.redactSecrets");
+  const serverUrl = valueOf(listed, "share.serverUrl");
+  const store = valueOf(listed, "share.store");
+  const redact = valueOf(listed, "share.redactSecrets");
   return {
     serverUrl: typeof serverUrl === "string" && serverUrl !== "" ? serverUrl : DEFAULT_SERVER_URL,
     store: typeof store === "string" && store !== "" ? store : "blob",

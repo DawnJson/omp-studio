@@ -43,7 +43,7 @@ export function resolveShell(probe: ShellProbe): ShellChoice {
  * 值为 undefined 的项去掉：node-pty 在 Windows 上会把它们拼成字符串 "undefined"。
  */
 export function buildTerminalEnv(base: NodeJS.ProcessEnv, managedOmpBin: string | null): Record<string, string> {
-  const withPath = managedOmpBin === null ? base : prependToPath(base, managedOmpBin);
+  const withPath = prependToPath(base, managedOmpBin);
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(withPath)) if (value !== undefined) env[key] = value;
   env["TERM"] = "xterm-256color";

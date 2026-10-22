@@ -22,7 +22,6 @@ import {
   buildBody,
   buildInfo,
   filePaths,
-  formatElapsed,
   globPaths,
   headerTarget,
   toolDisplayName,
@@ -33,7 +32,6 @@ import {
   type ToolInfo,
 } from "./tool-view.ts";
 import { AskAnswers, TodoView, askTarget } from "./ToolViews.tsx";
-import { useNow } from "./use-now.ts";
 import "./conversation.css";
 
 const PREVIEW_LINES = 12;
@@ -41,7 +39,7 @@ const GREP_LINES = 8;
 const MANY = 200;
 const KEEP = 100;
 
-export function toolLabel(step: ToolStep, t: TFunction): string {
+function toolLabel(step: ToolStep, t: TFunction): string {
   if (step.intent) return step.intent;
   const target = toolTarget(step.args) ?? "";
   switch (toolVerb(step.name)) {
@@ -258,8 +256,6 @@ function FileChips({ taskId, paths }: { taskId: TaskId; paths: readonly string[]
 const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId: TaskId }) {
   const t = useT();
   const failed = step.status === "error";
-  const running = step.status === "running";
-  const now = useNow(running);
   const verb = toolVerb(step.name);
   const body = useMemo(
     () => buildBody(step.name, step.args, step.result, step.output),
@@ -272,8 +268,6 @@ const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId
   const info = buildInfo(step.name, step.args, body);
   const total = bodyLineCount(body);
   const target = headerTarget(step.name, step.args);
-  const duration = step.startedAt !== null && step.endedAt !== null ? step.endedAt - step.startedAt : 0;
-  const elapsed = step.startedAt !== null ? now - step.startedAt : null;
 
   const bash = body.kind === "bash" && verb === "bash";
   // 文件胶囊：Read 总是胶囊；多文件的 edit / write 也列出来。Glob 的胶囊来自输出。
@@ -303,29 +297,20 @@ const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId
   } else if (paths.length > 1) {
     arg = t("tool.info.readFiles", { count: paths.length });
   } else if (info?.kind === "task") {
-    // Task：`2 个代理  [后台]` 紧跟工具名，右侧只留耗时。
+    // Task：`2 个代理  [后台]` 紧跟工具名。
     arg = <InfoSegment info={info} />;
   } else if (!bash && step.name !== "wait") {
     arg = target;
   }
 
-  // 右侧：数字（匹配数 / 文件数 / 行数 / 代理数）+ 耗时或运行中的实时秒数；bash 的状态在卡片脚里。
+  // 右侧：数字（匹配数 / 文件数 / 行数 / 代理数）+ 失败标记；bash 的状态在卡片脚里。
   const metaInfo: ReactNode =
     found.length > 0 ? (
       <span className="step-info">{t("tool.info.files", { count: found.length })}</span>
     ) : info !== null && info.kind !== "task" ? (
       <InfoSegment info={info} />
     ) : null;
-  const time = failed ? (
-    t("tool.failed")
-  ) : running ? (
-    <>
-      <span className="step-spin" aria-hidden="true" />
-      {elapsed !== null && formatElapsed(elapsed)}
-    </>
-  ) : duration >= 1000 ? (
-    formatElapsed(duration)
-  ) : null;
+  const time = failed ? t("tool.failed") : null;
 
   const name = toolDisplayName(step.name);
 
@@ -336,16 +321,14 @@ const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId
     content = <AskAnswers step={step} />;
   } else if (bash) {
     const status = bashStatus(step.result);
-    const wall = step.startedAt !== null && step.endedAt !== null ? duration : status.wallMs;
-    const state: BashState = running
-      ? { kind: "running", elapsedMs: elapsed }
-      : failed || (status.exitCode !== null && status.exitCode !== 0)
+    const state: BashState =
+      failed || (status.exitCode !== null && status.exitCode !== 0)
         ? {
             kind: "failed",
             label: status.exitCode !== null ? t("tool.bash.exit", { code: status.exitCode }) : t("tool.failed"),
-            elapsedMs: wall,
+            elapsedMs: status.wallMs,
           }
-        : { kind: "done", elapsedMs: wall };
+        : { kind: "done", elapsedMs: status.wallMs };
     content = (
       <BashCard
         command={body.kind === "bash" ? body.command : null}

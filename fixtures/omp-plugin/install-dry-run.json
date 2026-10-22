@@ -1,6 +1,0 @@
-{
-  "dryRun": true,
-  "action": "install",
-  "plugin": "agent-sdk-dev",
-  "marketplace": "claude-plugins-official"
-}

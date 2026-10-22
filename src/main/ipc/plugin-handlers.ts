@@ -1,13 +1,11 @@
 // 插件和市场（设置 → 插件）：`omp plugin …` CLI，逻辑在 src/main/plugins/plugin-cli.ts。
 // 用户范围在 userData/service 里跑；项目范围（`--scope project`，以及要看到项目范围的安装列表）在项目目录里跑——
 // 目录取自主进程的项目记录，渲染进程只传 projectId。
-import { app } from "electron";
-import { mkdir } from "node:fs/promises";
-import path from "node:path";
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { parseMarketplaceName, parsePluginAction, parsePluginName } from "../../shared/omp-output/plugins.ts";
-import { ompManager } from "../omp-manager/index.ts";
+import { readyOmp } from "../omp-manager/index.ts";
 import { discoverPlugins, listPlugins, readPluginConfig, runPluginAction } from "../plugins/plugin-cli.ts";
+import { serviceCwd } from "../service/service-omp.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { runOmpCommand } from "../usage/usage-service.ts";
 import { IpcValidationError, parseProjectId } from "./validate.ts";
@@ -18,16 +16,15 @@ const ACTION_TIMEOUT_MS = 10 * 60 * 1000;
 
 /** cwd：projectId 非空时是该项目的目录（项目必须存在），否则 userData/service。 */
 async function omp(timeoutMs: number, projectId: unknown = null) {
-  const status = ompManager().status;
-  if (status.state !== "ready") throw new Error("omp is not ready");
-  let cwd = path.join(app.getPath("userData"), "service");
+  const status = readyOmp();
+  let cwd: string;
   if (projectId !== null && projectId !== undefined) {
     const id = parseProjectId(projectId);
     const project = (await getTaskPool()).listProjects().find((candidate) => candidate.id === id);
     if (!project) throw new IpcValidationError(`unknown project ${id}`);
     cwd = project.path;
   } else {
-    await mkdir(cwd, { recursive: true });
+    cwd = await serviceCwd();
   }
   return runOmpCommand(status.path, cwd, timeoutMs);
 }

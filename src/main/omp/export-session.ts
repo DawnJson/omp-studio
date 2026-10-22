@@ -14,7 +14,7 @@ const EXPORT_TIMEOUT_MS = 60_000;
 export async function exportSessionHtml(sessionFile: string, outputPath: string, cwd: string): Promise<void> {
   if (!path.isAbsolute(outputPath)) throw new Error("export path must be absolute");
   const executable = await getOmpExecutable();
-  const env = executable.managedBin ? prependToPath(process.env, executable.managedBin) : process.env;
+  const env = prependToPath(process.env, executable.managedBin);
   const done = Promise.withResolvers<void>();
   execFile(
     executable.path,

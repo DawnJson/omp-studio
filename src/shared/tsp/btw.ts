@@ -16,9 +16,9 @@
 import type { BtwHistoryRecord, BtwHistoryTurn, BtwStatus } from "../omp-wire/rpc-wire.generated.ts";
 import { isRecord } from "../type-guards.ts";
 import { applyBtwEvent, latestTurn, type BtwUiEvent } from "../btw.ts";
-import { nodeRole, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import { nodeRole, spansText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
 
-export const BTW_OVERLAY_ROLE = "omp.overlay.btwHistory";
+const BTW_OVERLAY_ROLE = "omp.overlay.btwHistory";
 const THREAD_ROLE = "omp.btw.thread";
 const TURN_ROLE = "omp.btw.turn";
 const QUESTION_ROLE = "omp.btw.question";
@@ -42,12 +42,6 @@ const CLOCK_SKEW_MS = 10_000;
 
 export function isProvisionalBtwId(id: string): boolean {
   return id.startsWith(PROVISIONAL_BTW_PREFIX);
-}
-
-function spansText(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (!Array.isArray(value)) return "";
-  return value.map((span: unknown) => (isRecord(span) && typeof span["t"] === "string" ? span["t"] : "")).join("");
 }
 
 /** 渲染进程：这个节点是 omp 的旁路提问弹窗，studio 的面板已经显示了它，不画。 */

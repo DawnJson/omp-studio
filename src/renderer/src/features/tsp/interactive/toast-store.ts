@@ -17,10 +17,10 @@ export interface ToastState extends ToastData {
   leaving: boolean;
 }
 
-export const SUCCESS_STAY_MS = 2200;
-export const INFO_STAY_MS = 5200;
-export const FADE_MS = 260;
-export const TTL_FADE_MS = 200;
+const SUCCESS_STAY_MS = 2200;
+const INFO_STAY_MS = 5200;
+const FADE_MS = 260;
+const TTL_FADE_MS = 200;
 
 /** `tone` 属性 → 显示的类别：error 为错误，info / accent 为提示，其余为成功。 */
 export function toastTone(tone: unknown): ToastTone {
@@ -30,7 +30,7 @@ export function toastTone(tone: unknown): ToastTone {
 }
 
 /** 实际停留多久（ms）：默认由 tone 定，ttl 只能缩短，负数忽略。 */
-export function stayMs(tone: ToastTone, ttl: number | undefined): number {
+function stayMs(tone: ToastTone, ttl: number | undefined): number {
   const base = tone === "success" ? SUCCESS_STAY_MS : INFO_STAY_MS;
   if (ttl === undefined || !Number.isFinite(ttl) || ttl < 0) return base;
   return Math.min(base, Math.trunc(ttl));

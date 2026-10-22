@@ -190,7 +190,7 @@ export function Editor({ node, ctx }: NodeProps) {
 
     let route: EditorKeyRoute = "pty";
     if (native) {
-      const wantsLines = (e.key === "ArrowUp" || e.key === "ArrowDown") && mirror.current !== null;
+      const wantsLines = e.key === "ArrowUp" || e.key === "ArrowDown";
       const lines = wantsLines && mirror.current ? measureLines(mirror.current, el, el.value, el.selectionStart) : null;
       const state: EditorKeyState = {
         hasSelection,

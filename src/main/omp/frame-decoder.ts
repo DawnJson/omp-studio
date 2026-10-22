@@ -149,8 +149,7 @@ function parseFrame(text: string): RawFrame {
     throw new RpcProtocolError(`frame is not an object with a string type: ${text.slice(0, 200)}`);
   }
   // JSON.parse 的结果是普通对象，上面已校验 `type` 是字符串，其余字段由调用方按 `type` 自行判断。
-  const frame: RawFrame = value as RawFrame;
-  return frame;
+  return value as RawFrame;
 }
 
 function isNonNegativeInteger(value: unknown): value is number {

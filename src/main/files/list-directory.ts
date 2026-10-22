@@ -12,7 +12,7 @@ export const MAX_DIR_ENTRIES = 20_000;
 const HIDDEN_DIR = ".git";
 const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
 
-function isMissing(error: unknown): boolean {
+export function isMissing(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException | null)?.code;
   return code === "ENOENT" || code === "ENOTDIR";
 }

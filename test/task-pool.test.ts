@@ -212,7 +212,7 @@ describe("任务池：恢复历史会话", () => {
 });
 
 describe("任务池：失败路径", () => {
-  it("omp 意外退出：任务进 error（kind=exited）；restartTask 能重新拉起", async () => {
+  it("omp 意外退出：任务进 error（kind=exited）", async () => {
     const h = await harness();
     const pidFile = path.join(scratch, "crash.pid");
     h.next.push({ fixture: "slash-status", env: { FAKE_OMP_PID_FILE: pidFile } });
@@ -222,8 +222,6 @@ describe("任务池：失败路径", () => {
     process.kill(Number((await readFile(pidFile, "utf8")).trim().split("\n")[0]));
     const failed = await h.events.until(created.id, (s) => s.status === "error");
     expect(failed.error?.kind).toBe("exited");
-    await h.pool.restartTask(created.id);
-    expect(h.pool.listTasks()[0]?.status).toBe("idle");
   }, 60_000);
 
   it("找不到可用的 omp：任务进 error，而不是卡在 starting", async () => {

@@ -39,7 +39,7 @@ interface ParsedSession {
  * 一条 assistant 消息的输出速度（token/秒）：输出 ÷（`duration` − `ttft`），算法同请求记录页（shared/ui/session-trace.ts）。
  * `duration` / `ttft` 是毫秒（omp 18.12.5 实测，消息写盘时带上）；出错、被停止的消息、没有输出或耗时的消息返回 null。
  */
-export function replySpeed(message: Record<string, unknown>): number | null {
+function replySpeed(message: Record<string, unknown>): number | null {
   if (message["stopReason"] === "error" || message["stopReason"] === "aborted") return null;
   const usage = isRecord(message["usage"]) ? message["usage"] : {};
   const duration = finite(message["duration"]);
@@ -56,7 +56,7 @@ export function replySpeed(message: Record<string, unknown>): number | null {
  * `nonMessageTokens`（系统提示词 + 工具定义）和 `toolSchemaTokens`（工具定义），工具个数取 `requestControls.tools.active`。
  * 缺任何一项（老版本 omp 写的消息）返回 null，界面不画这两行。
  */
-export function contextPartsOf(message: Record<string, unknown>): ContextParts | null {
+function contextPartsOf(message: Record<string, unknown>): ContextParts | null {
   const snapshot = message["contextSnapshot"];
   const controls = message["requestControls"];
   if (!isRecord(snapshot) || !isRecord(controls) || !isRecord(controls["tools"])) return null;

@@ -2,6 +2,7 @@
 // 各功能入口的导出名和 props 是约定（props 只有 id，数据从 store hook 取）。
 import { reportError } from "../ui/errors.ts";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import type { TaskId } from "../../../shared/ipc.ts";
 import { useVisibleTaskIds } from "../features/sidebar/visible-order-store.ts";
 import { Composer } from "../features/composer/index.ts";
 import { BtwPanel } from "../features/btw/index.ts";
@@ -129,8 +130,7 @@ export function App() {
   }, [locale]);
 
   const sidebarShown = narrow ? shell.drawerOpen : !shell.sidebarCollapsed;
-  const asDrawer = narrow;
-  const drawerScrim = usePresence(asDrawer && shell.drawerOpen, "fade");
+  const drawerScrim = usePresence(narrow && shell.drawerOpen, "fade");
 
   // 选了任务或变宽之后，抽屉自动收起。
   useEffect(() => setDrawerOpen(false), [taskId, narrow]);
@@ -146,8 +146,8 @@ export function App() {
   }
   const fromDraft = taskId !== null && fromDraftTaskId.current === taskId;
   // Ctrl 1…9 和任务循环切换跟着侧栏眼前画出来的任务顺序（合并列表里展开着的行）。
-  const order = useVisibleTaskIds().map((id) => ({ id }));
-  const openTask = (id: (typeof order)[number]["id"] | undefined) => {
+  const order = useVisibleTaskIds();
+  const openTask = (id: TaskId | undefined) => {
     if (id !== undefined) selectTask(id).catch((error: unknown) => reportError(t, error));
   };
 
@@ -205,13 +205,11 @@ export function App() {
     newTaskInCurrentProject: () => startDraft(tasks.find((task) => task.id === taskId)?.projectId ?? null),
     jumpToWaiting: () => void jumpToWaitingTask(taskId, t),
     focusComposer: () => focusComposer(true),
-    nthTask: (n) => openTask(order[n - 1]?.id),
+    nthTask: (n) => openTask(order[n - 1]),
     cycleTask: (delta) => {
       if (order.length === 0) return;
-      const at = order.findIndex((task) => task.id === taskId);
-      openTask(
-        order[at === -1 ? (delta === 1 ? 0 : order.length - 1) : (at + delta + order.length) % order.length]?.id,
-      );
+      const at = order.findIndex((id) => id === taskId);
+      openTask(order[at === -1 ? (delta === 1 ? 0 : order.length - 1) : (at + delta + order.length) % order.length]);
     },
     cycleRegion: focusRegion,
     togglePalette: () => setPaletteOpen(!paletteOpenRef.current),
@@ -253,7 +251,7 @@ export function App() {
       data-testid="app-root"
       data-locale={appInfo?.locale}
       data-sidebar={sidebarShown ? "shown" : "hidden"}
-      data-drawer={asDrawer}
+      data-drawer={narrow}
     >
       <TopBar
         aboutOpen={aboutOpen}
@@ -279,7 +277,7 @@ export function App() {
           <Sidebar />
         </div>
         <main className="panel" data-testid="main-panel">
-          {!asDrawer && sidebarShown && <SidebarResizer width={shell.sidebarWidth} />}
+          {!narrow && sidebarShown && <SidebarResizer width={shell.sidebarWidth} />}
           {view === "settings" ? (
             <SettingsView />
           ) : taskId === null ? (

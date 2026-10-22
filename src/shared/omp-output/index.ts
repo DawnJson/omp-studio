@@ -1,7 +1,7 @@
 // omp 斜杠命令的"确定性文本"：渲染进程只能传下面两个封闭的联合类型，主进程把它们拼成 `/命令` 文本再交给 omp。
 // 渲染进程从不发自由文本（AGENTS.md "preload 不暴露执行任意命令"）。
 //
-// - TaskCommand：会话级命令，在任务自己的 omp 进程里执行（TSP 任务走伪终端里的 `send`，rpc 任务走 `prompt`）。
+// - TaskCommand：会话级命令，在任务自己的 omp 进程里执行（走伪终端里的 `send`）。
 // - BuiltinCommand：和会话无关的内置命令，在服务进程（用户范围）或项目目录里的短命 rpc-ui（项目范围）里执行。
 //
 // 每个功能切片在自己的注释块里追加联合成员、`parse*` 的 case 和 `*CommandText` 的 case；先重读再改，不动别人的块。
@@ -103,9 +103,9 @@ const TOGGLE_SLASH: Record<(typeof TOGGLE_NAMES)[number], string> = {
   slow: "slow",
 };
 /** `arm` = 不带参数的 `/prewalk`（单发动作）。 */
-export const PREWALK_OPS = ["arm", "restart", "off"] as const;
-export const MODEL_PRESET_OPS = ["list", "save", "switch", "delete"] as const;
-export const BROWSER_MODES = ["headless", "visible"] as const;
+const PREWALK_OPS = ["arm", "restart", "off"] as const;
+const MODEL_PRESET_OPS = ["list", "save", "switch", "delete"] as const;
+const BROWSER_MODES = ["headless", "visible"] as const;
 
 export type TaskCommand =
   | { kind: "toggle"; name: (typeof TOGGLE_NAMES)[number]; on: boolean }
@@ -193,10 +193,10 @@ export function taskCommandText(cmd: TaskCommand): string {
 
 // ── S0 基础（tools / session / mcp / memory / changelog）──
 
-export const MCP_SCOPES = ["user", "project"] as const;
+const MCP_SCOPES = ["user", "project"] as const;
 /** rpc-ui 下 `/mcp reauth|unauth|reconnect` 只回 "only available in the TUI client"（实测 18.12.5），不收。 */
-export const MCP_SIMPLE_OPS = ["enable", "disable", "test"] as const;
-export const MCP_TRANSPORTS = ["http", "sse"] as const;
+const MCP_SIMPLE_OPS = ["enable", "disable", "test"] as const;
+const MCP_TRANSPORTS = ["http", "sse"] as const;
 export const MEMORY_OPS = ["view", "stats", "diagnose", "queue", "sync", "clear", "reset", "rebuild"] as const;
 
 export type McpAddSpec =

@@ -7,6 +7,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { CompactionSettings, ModelInsights, ModelKey, ModelPerf } from "../../shared/ipc.ts";
 import { isRecord } from "../../shared/type-guards.ts";
+import { valueOf } from "./model-defaults.ts";
 
 const num = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
 const keyOf = (key: ModelKey) => `${key.provider}/${key.modelId}`;
@@ -92,12 +93,6 @@ function readCatalogStats(
   } finally {
     db.close();
   }
-}
-
-function valueOf(listed: unknown, key: string): unknown {
-  if (!isRecord(listed)) return undefined;
-  const entry = listed[key];
-  return isRecord(entry) ? entry["value"] : undefined;
 }
 
 const compactionKeys = [

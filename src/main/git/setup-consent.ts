@@ -1,9 +1,8 @@
 // worktree setup 脚本的"用户确认过"记录：userData/setup-consent.json，按项目路径 + 脚本内容 sha256 记。
 // 脚本内容变了（哈希变）就没有记录，要重新问。这是 omp-studio 自己的偏好，和 omp 配置无关。
 // 主进程在运行脚本前查它（createWorktree 的 approveSetup），渲染进程的确认只是申请写入。
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { renameWithRetry } from "../tasks/atomic-write.ts";
+import { readFile } from "node:fs/promises";
+import { writeFileAtomic } from "../tasks/atomic-write.ts";
 import { pathKey } from "../tasks/task-registry.ts";
 
 type Records = Record<string, string[]>;
@@ -44,10 +43,7 @@ export class SetupConsent {
       const known = records[key] ?? [];
       if (known.includes(sha256)) return;
       records[key] = [...known, sha256];
-      await mkdir(path.dirname(this.#file), { recursive: true });
-      const temp = `${this.#file}.tmp`;
-      await writeFile(temp, JSON.stringify(records, null, 2), "utf8");
-      await renameWithRetry(temp, this.#file);
+      await writeFileAtomic(this.#file, JSON.stringify(records, null, 2), `omp-studio-${process.pid}`);
     };
     const next = this.#queue.then(run, run);
     this.#queue = next.catch(() => undefined);

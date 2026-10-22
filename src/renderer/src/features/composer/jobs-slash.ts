@@ -9,7 +9,7 @@ import type { StudioSlashCommand } from "./studio-slash.ts";
 
 const KILL = /^kill(?:\s+(\S+))?$/i;
 
-export async function runJobsSlash(taskId: TaskId, args: string, t: TFunction): Promise<void> {
+async function runJobsSlash(taskId: TaskId, args: string, t: TFunction): Promise<void> {
   const kill = KILL.exec(args);
   if (!kill) {
     requestOpenJobs(taskId);

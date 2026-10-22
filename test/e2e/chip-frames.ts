@@ -51,11 +51,6 @@ export async function startRecording(page: Page): Promise<void> {
   await page.evaluate(install);
 }
 
-/** 之后每次加载页面（含 reload）都从第一帧开始记录。 */
-export async function recordFromLoad(page: Page): Promise<void> {
-  await page.addInitScript(install);
-}
-
 export async function readRecording(page: Page): Promise<Recording> {
   return page.evaluate(() => {
     const g = globalThis as unknown as PageGlobals;

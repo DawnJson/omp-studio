@@ -4,6 +4,7 @@
 //
 // 节点记录不可变：任何改动都换一个新对象（父节点的 children 变了也换父节点），渲染进程按对象身份判断要不要重画。
 // 表（Map）本身原地改。
+import { isRecord } from "../type-guards.ts";
 import { statusNotesIn, type StatusNote } from "./status-notes.ts";
 import type { TspClose, TspFrame, TspNode, TspOpen, TspOp, TspPalette } from "./tsp.generated.ts";
 
@@ -75,7 +76,7 @@ export interface ApplyResult {
 }
 
 /** 有主文字（`text` / `splice` 操作的对象）的节点种类。 */
-export const TEXT_KINDS: ReadonlySet<string> = new Set([
+const TEXT_KINDS: ReadonlySet<string> = new Set([
   "text",
   "md",
   "code",
@@ -488,4 +489,18 @@ export function findNode(
 
 export function nodeRole(node: DocNode): string | null {
   return typeof node.p.role === "string" ? node.p.role : null;
+}
+
+/** `spans`（`{t}` 片段数组）拼成纯文字；字符串原样返回，其它为空串。 */
+export function spansText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (!Array.isArray(value)) return "";
+  return value.map((span: unknown) => (isRecord(span) && typeof span["t"] === "string" ? span["t"] : "")).join("");
+}
+
+/** 节点的纯文字：`text` 属性，或把 `spans` 拼起来。 */
+export function plainText(node: DocNode): string {
+  const { text, spans } = node.p;
+  if (typeof text === "string") return text;
+  return Array.isArray(spans) ? spansText(spans) : "";
 }

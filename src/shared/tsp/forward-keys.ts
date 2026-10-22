@@ -239,7 +239,7 @@ export const STUDIO_RESERVED: ReadonlySet<string> = new Set([
 ]);
 
 /** 键帽提示（kbd 节点）里的键只有这些才值得转发：带 Ctrl / Alt 的，或者单独的功能键。单个字符、Enter、Esc、方向键这类输入框要用，不转发。 */
-export function isForwardableHint(chord: string): boolean {
+function isForwardableHint(chord: string): boolean {
   const parts = chord.split("+");
   if (parts.includes("ctrl") || parts.includes("alt")) return true;
   return /^f\d{1,2}$/.test(parts[parts.length - 1]!);

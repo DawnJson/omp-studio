@@ -1,4 +1,4 @@
-// 决定用哪个 omp（arch.md 第 6.1 节的流程图）。纯函数：输入是"PATH 上有什么、自管副本有没有、问过没有"，
+// 决定用哪个 omp（流程见 docs/architecture/omp-install.md）。纯函数：输入是"PATH 上有什么、自管副本有没有、问过没有"，
 // 输出是下一步做什么。读盘、执行 omp --version 都在 manager.ts，这里不碰文件系统，方便逐分支单测。
 import type { OmpInstall } from "../omp/discover.ts";
 import type { OmpSource } from "../../shared/ipc.ts";

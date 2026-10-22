@@ -11,7 +11,7 @@ import type {
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 
-export interface RowState {
+interface RowState {
   phase: "idle" | "saving" | "saved" | "error";
   /** 字符串 = 本地校验的提示；其他 = 请求失败的原始错误，显示时走 describeError。 */
   error?: unknown;
@@ -20,7 +20,7 @@ export interface RowState {
   fallbackEnv?: string;
 }
 
-export type ConfigLoad =
+type ConfigLoad =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "ready"; snapshot: OmpConfigSnapshot }

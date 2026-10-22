@@ -255,7 +255,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onCancel }: Custom
         <span className="cp-label">{t("custom.form.models")}</span>
         <CustomModelList
           rows={rows}
-          onRows={(update) => setRows(update)}
+          onRows={setRows}
           notice={notice}
           onNotice={setNotice}
           fetching={fetching}

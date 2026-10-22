@@ -4,16 +4,7 @@
 // 逐项的依据和实测结果见 docs/architecture/omp-settings.md「rpc-ui 下的逐项核对」。
 import type { OmpConfigItem } from "../ipc.ts";
 
-export const configGroups = [
-  "models",
-  "tools",
-  "context",
-  "agents",
-  "behavior",
-  "integrations",
-  "voice",
-  "other",
-] as const;
+const configGroups = ["models", "tools", "context", "agents", "behavior", "integrations", "voice", "other"] as const;
 export type ConfigGroup = (typeof configGroups)[number];
 
 /** 匹配：键完全相等，或以 `<匹配串>.` 开头（`tools` 命中 `tools.format`，不命中 `toolsX`）。 */

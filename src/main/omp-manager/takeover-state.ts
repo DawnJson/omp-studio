@@ -1,8 +1,7 @@
 // "问过没有"的记录：userData/omp-studio-state.json（照 Tern 的 state.json `offered`）。
 // 接管询问按 exe 路径记，用户换了一个新的自装 omp 会再问一次。
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { renameWithRetry } from "../tasks/atomic-write.ts";
+import { readFile } from "node:fs/promises";
+import { writeFileAtomic } from "../tasks/atomic-write.ts";
 
 type TakeoverAnswer = "accepted" | "declined";
 
@@ -35,8 +34,5 @@ export async function readState(file: string): Promise<OmpStudioState> {
 }
 
 export async function writeState(file: string, state: OmpStudioState): Promise<void> {
-  await mkdir(path.dirname(file), { recursive: true });
-  const temp = `${file}.tmp`;
-  await writeFile(temp, JSON.stringify(state, null, 2), "utf8");
-  await renameWithRetry(temp, file);
+  await writeFileAtomic(file, JSON.stringify(state, null, 2), `omp-studio-${process.pid}`);
 }

@@ -3,11 +3,11 @@
 // /tools 的第一列（`xd://debug` 这类名字）就被挤成一个字宽、竖着排。下限 = 最长单元格的字数（封顶）× 字宽 + 内边距。
 
 /** 单元格左右内边距合计（`.tsp-tbl-c` 的 `--space-2` × 2 的估计值）。 */
-export const CELL_PAD_PX = 14;
+const CELL_PAD_PX = 14;
 /** 不撑开的列（`grow` 为 0）下限最多按这么多个字算：再长的内容让它折行，不把别的列挤没。 */
-export const FIXED_COL_MAX_CHARS = 24;
+const FIXED_COL_MAX_CHARS = 24;
 /** 撑开的列（`grow` > 0）下限最多按这么多个字算。 */
-export const GROW_COL_MIN_CHARS = 12;
+const GROW_COL_MIN_CHARS = 12;
 
 /** 一列里最长单元格（含表头）的字数；没有这个单元格（`null`）不算，空串 / meter 单元格按 `emptyChars` 算。 */
 export function columnChars(

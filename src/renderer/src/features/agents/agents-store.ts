@@ -4,7 +4,7 @@ import type { TaskId } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 import { closeFilePreview } from "../file-preview/preview-store.ts";
 
-export interface AgentsPanelState {
+interface AgentsPanelState {
   taskId: TaskId;
   /** 详情里看的子代理名；null = 只看列表。 */
   selected: string | null;

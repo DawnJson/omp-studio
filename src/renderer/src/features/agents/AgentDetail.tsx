@@ -4,7 +4,6 @@
 import { useMemo, useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { isAgentActive, type HubAgent } from "../../../../shared/tsp/agent-hub.ts";
-import { applyTranscriptEvent, emptyTranscript } from "../../../../shared/transcript.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { ChevronRight } from "../../icons.tsx";
 import { Markdown } from "../../markdown/index.ts";
@@ -93,13 +92,7 @@ function RecordSection({ taskId, state }: { taskId: TaskId; state: AgentRecordSt
   const [open, setOpen] = useState(false);
   const { record, loading, error, reload } = state;
   const messages = record?.messages ?? null;
-  const turns = useMemo(
-    () =>
-      open && messages !== null
-        ? buildTurns(applyTranscriptEvent(emptyTranscript(), { type: "history", messages }))
-        : [],
-    [open, messages],
-  );
+  const turns = useMemo(() => (open && messages !== null ? buildTurns(messages) : []), [open, messages]);
   return (
     <div className="agents-record" data-testid="agents-record">
       <div className="agents-record-head">
@@ -132,7 +125,7 @@ function RecordSection({ taskId, state }: { taskId: TaskId; state: AgentRecordSt
           {turns.map((turn) => (
             <div key={turn.key} className="agents-record-turn">
               {turn.steps.length > 0 && <ProcessDetails steps={turn.steps} taskId={taskId} />}
-              {turn.answer && <Markdown source={turn.answer.text} streaming={false} />}
+              {turn.answer && <Markdown source={turn.answer} streaming={false} />}
             </div>
           ))}
         </div>

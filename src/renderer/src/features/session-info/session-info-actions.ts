@@ -6,22 +6,20 @@ import { pushToast } from "../dialogs/index.ts";
 
 /**
  * `/pin` 是切换。切换前后各读一次 `session-pins.json`（主进程只读，写入是 omp 的事）：状态变了就按新状态提示；
- * 没变（任务没有会话文件、omp 拒绝…）就把 omp 的原话当警告显示，不假装成功。返回切换后的状态；失败返回 null。
+ * 没变（任务没有会话文件、omp 拒绝…）就把 omp 的原话当警告显示，不假装成功。
  */
-export async function togglePin(t: TFunction, taskId: TaskId): Promise<boolean | null> {
+export async function togglePin(t: TFunction, taskId: TaskId): Promise<void> {
   try {
     const before = (await window.studio.getTaskSessionInfo(taskId, false)).pinned;
     const { text } = await window.studio.runTaskCommand(taskId, { kind: "pin" });
     const after = (await window.studio.getTaskSessionInfo(taskId, false)).pinned;
     if (after === before) {
       pushToast({ level: "warning", message: text === "" ? t("sessionInfo.pinUnchanged") : text });
-      return after;
+    } else {
+      pushToast({ message: t(after ? "sessionInfo.pinnedToast" : "sessionInfo.unpinnedToast") });
     }
-    pushToast({ message: t(after ? "sessionInfo.pinnedToast" : "sessionInfo.unpinnedToast") });
-    return after;
   } catch (error) {
     reportOmpError(t, error);
-    return null;
   }
 }
 

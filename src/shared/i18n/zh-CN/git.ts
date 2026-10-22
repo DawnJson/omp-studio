@@ -90,5 +90,4 @@ export const git = {
   "cleanup.kept": "保留",
   "cleanup.dirty": "有没提交的改动",
   "cleanup.unmerged": "有没合并的提交",
-  "cleanup.unregistered": "git 不认识或不是 studio/ 分支",
 } satisfies Record<string, MessageEntry>;

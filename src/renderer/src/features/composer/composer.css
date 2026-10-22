@@ -6,6 +6,7 @@
   position: relative;
   z-index: calc(var(--z-sticky) + 1);
   flex: none;
+  container-type: inline-size;
   width: min(100% - 2 * var(--gutter), var(--content-w));
   margin: 0 auto;
   padding-bottom: var(--space-4);
@@ -257,12 +258,6 @@ button.usage-context:hover,
   background: var(--st-waiting-soft);
   color: var(--st-waiting-text);
 }
-.chip[data-locked] {
-  cursor: default;
-}
-.chip[data-locked]:hover {
-  background: var(--bg-hover);
-}
 @container (max-width: 520px) {
   .chip-text {
     max-width: 18ch;
@@ -288,9 +283,6 @@ button.usage-context:hover,
 }
 
 /* 工具行里模型、审批胶囊之后的速度（只在运行中），数字一律等宽字体 + --text-2；输入框变窄时收起。 */
-.composer-stack {
-  container-type: inline-size;
-}
 /* 仪表本身不收缩（会让按钮互相压住）：空间不够时由模型胶囊省略名字，再按下面的宽度逐级收起。 */
 .usage {
   display: flex;
@@ -896,16 +888,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   color: var(--st-error);
 }
 
-/* 队列条：虚线 = 尚未发生 */
-.queue {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  background: var(--bg-raised);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-lg);
-}
 .queue-btn {
   flex: none;
   height: var(--control-h-sm);
@@ -1647,7 +1629,7 @@ html[data-motion="reduced"] .ctx-usage-chev {
   font-size: var(--fs-xs);
 }
 
-/* TSP 作业弹层的动作（S2Jobs）：展开一行后的"查看输出 / 结束 / 在子代理面板中查看"。 */
+/* TSP 作业弹层的动作（S2Jobs）：展开一行后的"查看输出 / 结束"。 */
 .job-actions {
   display: flex;
   flex-wrap: wrap;

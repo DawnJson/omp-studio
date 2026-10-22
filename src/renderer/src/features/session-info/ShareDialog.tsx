@@ -60,11 +60,10 @@ function Body({
       </>
     );
   }
-  const store = gist ? "gist" : "blob";
   return (
     <>
       <p className="si-warn" data-testid="share-warning">
-        {t(store === "gist" ? "sessionInfo.share.warnGist" : "sessionInfo.share.warn", { server: settings.serverUrl })}
+        {t(gist ? "sessionInfo.share.warnGist" : "sessionInfo.share.warn", { server: settings.serverUrl })}
       </p>
       <p className="si-note" data-testid="share-redact" data-redact={settings.redactSecrets}>
         {t(settings.redactSecrets ? "sessionInfo.share.redactOn" : "sessionInfo.share.redactOff")}

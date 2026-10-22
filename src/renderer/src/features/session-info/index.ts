@@ -1,4 +1,3 @@
-export { RetryButton } from "./RetryButton.tsx";
 export { SessionInfoHost } from "./SessionInfoHost.tsx";
 export { SessionMenu } from "./SessionMenu.tsx";
 export { retryTask, togglePin } from "./session-info-actions.ts";

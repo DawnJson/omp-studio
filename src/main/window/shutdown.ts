@@ -1,4 +1,4 @@
-// 退出流程：before-quit 拦一次，等所有注册的 hook 结束（关 omp 子进程等）再真正退出（arch.md §2.4）。
+// 退出流程：before-quit 拦一次，等所有注册的 hook 结束（关 omp 子进程等）再真正退出（docs/architecture/background-run.md）。
 // 关闭过程中的重复退出请求（菜单"退出"后又点 ×）一律被拦下，等同一个 promise，不会提前放行去硬杀子进程。
 // 安装更新时也要先跑完这套流程：electron-updater 的 quitAndInstall 自己会触发退出，
 // 如果那时 omp 还在跑，Job Object 会把它连同安装过程一起收掉。

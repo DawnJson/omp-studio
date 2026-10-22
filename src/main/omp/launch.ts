@@ -38,7 +38,7 @@ export async function buildOmpLaunch(spec: LaunchSpec): Promise<OmpLaunch> {
     command: executable.path,
     args: buildOmpArgs(spec),
     cwd: spec.cwd,
-    env: executable.managedBin ? prependToPath(env, executable.managedBin) : env,
+    env: prependToPath(env, executable.managedBin),
   };
 }
 
@@ -61,6 +61,6 @@ export async function buildTspLaunch(spec: TspLaunchSpec): Promise<OmpLaunch> {
     command: executable.path,
     args: buildTspArgs(spec),
     cwd: spec.cwd,
-    env: executable.managedBin ? prependToPath(env, executable.managedBin) : env,
+    env: prependToPath(env, executable.managedBin),
   };
 }

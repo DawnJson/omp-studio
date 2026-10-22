@@ -34,13 +34,13 @@ import { log } from "../log/log.ts";
 
 const ESC_KEY = "\x1b";
 /** Hub 打开、聚焦、动作生效各自等 omp 的上限。 */
-export const HUB_OPEN_TIMEOUT_MS = 8_000;
-export const HUB_FOCUS_TIMEOUT_MS = 8_000;
-export const HUB_ACTION_TIMEOUT_MS = 6_000;
+const HUB_OPEN_TIMEOUT_MS = 8_000;
+const HUB_FOCUS_TIMEOUT_MS = 8_000;
+const HUB_ACTION_TIMEOUT_MS = 6_000;
 /** 插话发出后等 omp 回显（用户消息 / 排队消息节点）的上限；等不到不算失败（子代理可能很快处理完、回显被收掉）。 */
-export const HUB_ECHO_TIMEOUT_MS = 3_000;
+const HUB_ECHO_TIMEOUT_MS = 3_000;
 /** 恢复主输入框：每一种办法等多久再换下一种。 */
-export const HUB_RESTORE_STEP_MS = 3_000;
+const HUB_RESTORE_STEP_MS = 3_000;
 /** 恢复不了时的错误（渲染进程原样显示）。 */
 export const HUB_RESTORE_FAILED =
   "omp's Agent Hub could not be closed after the operation; press Esc in the task or restart it";

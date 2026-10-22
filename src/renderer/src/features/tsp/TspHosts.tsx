@@ -12,7 +12,7 @@ function actionLabel(act: string, copy: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-export function TspMenuHost() {
+function TspMenuHost() {
   const t = useT();
   const menu = useTspMenu();
   useEffect(() => {
@@ -51,7 +51,7 @@ export function TspMenuHost() {
   );
 }
 
-export function TspZoomHost() {
+function TspZoomHost() {
   const t = useT();
   const zoom = useZoom();
   useEffect(() => {

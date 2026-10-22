@@ -834,7 +834,6 @@ export interface StudioInvokeApi {
   getSettings(): Promise<StudioSettings>;
   setLocale(preference: LocalePreference): Promise<void>;
   setTheme(preference: ThemePreference): Promise<void>;
-  setMaxLiveProcesses(count: number): Promise<void>;
   /** 用系统浏览器打开链接；只接受 http/https。 */
   openExternal(url: string): Promise<void>;
   /** 在资源管理器里打开 userData/logs。 */
@@ -873,7 +872,6 @@ export interface StudioInvokeApi {
   sendTspKeys(taskId: TaskId, data: string): Promise<void>;
   /** 对话区按等宽字符算出的列数变了（omp 用它决定 ansi / rows 的宽度）。 */
   resizeTsp(taskId: TaskId, cols: number): Promise<void>;
-  markTaskRead(taskId: TaskId): Promise<void>;
   /** 应答到达（消息被 omp 接收）即 resolve，不等这一轮跑完。 */
   sendPrompt(taskId: TaskId, input: PromptInput): Promise<void>;
   /** 停止：撤回排队消息并中止当前一轮。 */
@@ -881,8 +879,6 @@ export interface StudioInvokeApi {
   renameTask(taskId: TaskId, title: string): Promise<void>;
   /** 关掉进程并从侧栏移除；会话文件不动。 */
   archiveTask(taskId: TaskId): Promise<void>;
-  /** 出错后重新拉起。 */
-  restartTask(taskId: TaskId): Promise<void>;
   listTaskModels(taskId: TaskId): Promise<ModelOption[]>;
   setTaskModel(taskId: TaskId, model: ModelKey): Promise<void>;
   setTaskThinkingLevel(taskId: TaskId, level: ThinkingLevel): Promise<void>;
@@ -1258,7 +1254,6 @@ export const invokeNames = {
   getSettings: true,
   setLocale: true,
   setTheme: true,
-  setMaxLiveProcesses: true,
   openExternal: true,
   openLogsFolder: true,
   exportDiagnostics: true,
@@ -1278,12 +1273,10 @@ export const invokeNames = {
   sendTspEvent: true,
   sendTspKeys: true,
   resizeTsp: true,
-  markTaskRead: true,
   sendPrompt: true,
   stopTask: true,
   renameTask: true,
   archiveTask: true,
-  restartTask: true,
   listTaskModels: true,
   setTaskModel: true,
   setTaskThinkingLevel: true,

@@ -10,7 +10,7 @@
 
 - studio 的输入框这期间一直显示"有 omp 面板开着(例如 Agent Hub),按 Esc 关掉"(`screen_open`,§10.7),发送被拒("Not sent");新手第一句话发不出去(草稿保留在输入框)。
 - 引导走完后模型胶囊显示 omp 的默认模型(`Opus 5.5`),没有 key 时第一次发送直接报 `Request failed`。
-- 关掉引导只需 `omp config set startup.setupWizard false`(探针里这样做了,之后一切正常)。**已处理(仓库所有者 2026-10-21 批准,AGENTS.md"omp 的边界"):** studio 启动时(omp 就绪后)若 config.yml 里没有 `startup.setupWizard`,就经 `omp config set startup.setupWizard false` 设一次(`src/main/omp-config/setup-wizard-default.ts`,判断"设过"的方法同 `goal-default.ts`);用户设过(true/false 都算)不碰、读不了 config.yml 按设过处理。任务启动(`buildTspLaunch`)先等这个启动默认(上限 15 s,失败/超时照常启动),所以第一个任务就没有引导。两个启动默认依次执行(并发的 `omp config set` 会互相覆盖)。服务进程和项目 rpc-ui 池(`--mode rpc-ui`)不画 TUI 引导,不受影响。
+- 关掉引导只需 `omp config set startup.setupWizard false`(探针里这样做了,之后一切正常)。**已处理(仓库所有者 2026-10-21 批准,AGENTS.md"omp 的边界"):** studio 启动时没设过就设一次,做法和"设过"的判断见 [omp-settings.md](omp-settings.md)(`startup.setupWizard` 一条)。任务启动(`buildTspLaunch`)先等这个启动默认(上限 15 s,失败/超时照常启动),所以第一个任务就没有引导。两个启动默认依次执行(并发的 `omp config set` 会互相覆盖)。服务进程和项目 rpc-ui 池(`--mode rpc-ui`)不画 TUI 引导,不受影响。
 - 证据:`s2-t20.png`(sign-in 步骤)、`s22-01…s22-03*.png`。
 
 ## 2. 键盘

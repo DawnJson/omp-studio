@@ -19,7 +19,7 @@ export interface TaskRecord {
   archived: boolean;
   model: ModelKey | null;
   thinkingLevel: ThinkingLevel | null;
-  /** 阶段 4：任务的 worktree 根目录（omp 以它为 cwd）；没有 worktree 为 null。 */
+  /** 任务的 worktree 根目录（omp 以它为 cwd）；没有 worktree 为 null。 */
   worktreePath: string | null;
   /** worktree 的分支（studio/<slug>）和创建时所在的基分支；合并回哪里以它为准。 */
   worktreeBranch: string | null;

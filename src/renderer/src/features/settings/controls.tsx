@@ -101,11 +101,12 @@ export function Segmented<T extends string>({
           : 0;
     if (step === 0) return;
     event.preventDefault();
-    const next = options[(index + step + options.length) % options.length];
+    const target = (index + step + options.length) % options.length;
+    const next = options[target];
     if (!next) return;
     onChange(next.value);
     const buttons = event.currentTarget.parentElement?.querySelectorAll("button");
-    buttons?.[(index + step + options.length) % options.length]?.focus();
+    buttons?.[target]?.focus();
   };
   return (
     <div role="radiogroup" className="st-segmented" aria-labelledby={labelledBy} data-testid={testId}>

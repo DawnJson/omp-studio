@@ -19,7 +19,7 @@ import { fileToPromptImage } from "./image-resize.ts";
 import { useChipLabels } from "./use-draft-view.ts";
 
 /** 把粘贴 / 拖入的文件里的图片转成可发送的图片（非图片忽略：它们走主进程的文件附件）；转换失败的 toast 并跳过。 */
-export async function convertImageFiles(files: Iterable<File>, t: TFunction): Promise<DraftImage[]> {
+async function convertImageFiles(files: Iterable<File>, t: TFunction): Promise<DraftImage[]> {
   const converted: DraftImage[] = [];
   for (const file of [...files].filter((entry) => entry.type.startsWith("image/"))) {
     try {

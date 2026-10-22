@@ -109,8 +109,9 @@ export function SettingsView() {
     setSection(requested === "shortcuts" ? "general" : requested);
     clearSettingsSection();
     requestAnimationFrame(() => {
-      if (requested === "shortcuts") document.getElementById("settings-shortcuts")?.scrollIntoView({ block: "start" });
-      (requested === "shortcuts" ? document.getElementById("settings-shortcuts") : title.current)?.focus();
+      const target = requested === "shortcuts" ? document.getElementById("settings-shortcuts") : title.current;
+      if (requested === "shortcuts") target?.scrollIntoView({ block: "start" });
+      target?.focus();
     });
   }, [requested]);
 

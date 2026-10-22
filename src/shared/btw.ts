@@ -1,5 +1,5 @@
 // `/btw` 旁路提问的数据和纯逻辑（docs/architecture/conversation.md「旁路提问」）。
-// 主进程的 TaskRunner 和渲染进程的 store 各持一份记录列表，都用 applyBtwEvent 推进：同一条规则，投影不会和权威状态分叉。
+// 主进程（TspBtw）和渲染进程的 store 各持一份记录列表，都用 applyBtwEvent 推进：同一条规则，投影不会和权威状态分叉。
 // 记录就是 omp 的 BtwHistoryRecord（一个话题 = 第一问 + 追问），列表按创建时间从新到旧，和 get_btw_history 一致。
 import type { BtwHistoryRecord, BtwHistoryTurn } from "./omp-wire/rpc-wire.generated.ts";
 
@@ -65,18 +65,6 @@ export function applyBtwEvent(records: readonly BtwHistoryRecord[], event: BtwUi
       );
     }
   }
-}
-
-/**
- * get_btw_history 的应答和镜像合并：应答在途期间到过 btw_record / btw_delta 帧时，镜像里的记录比应答新，同 id 以镜像为准，
- * 只在应答里有的补上；结果按创建时间从新到旧。
- */
-export function mergeBtwHistory(
-  mirror: readonly BtwHistoryRecord[],
-  history: readonly BtwHistoryRecord[],
-): BtwHistoryRecord[] {
-  const known = new Set(mirror.map((record) => record.id));
-  return [...mirror, ...history.filter((record) => !known.has(record.id))].sort((a, b) => b.createdAt - a.createdAt);
 }
 
 /** omp 进程退出时还在跑的提问：标成 interrupted（omp 重新读历史时也这么标）。 */

@@ -1,4 +1,4 @@
-// 输入框草稿（按任务）。spec 要求由主进程持久化，契约里还没有对应接口，先放在渲染进程内存里：切任务不丢，重启丢。
+// 输入框草稿（按任务）：内存里一份，文字经主进程防抖存盘（下面的持久化段），图片和大段粘贴原文不存。
 import { reportErrorNow } from "../../ui/errors.ts";
 import type { PromptImage, TaskId } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
@@ -13,18 +13,17 @@ import {
 
 export type { Draft } from "./composer-tokens.ts";
 
-const emptyDraft = EMPTY_DRAFT;
 /** 和主进程 draft-handlers.ts 的 maxChars 一致。 */
 const maxPersistedChars = 200_000;
 
 const drafts = createStore<Readonly<Record<string, Draft>>>({});
 
 export function useDraft(taskId: TaskId): Draft {
-  return useStoreValue(drafts, (state) => state[taskId] ?? emptyDraft);
+  return useStoreValue(drafts, (state) => state[taskId] ?? EMPTY_DRAFT);
 }
 
 export function getDraft(taskId: TaskId): Draft {
-  return drafts.get()[taskId] ?? emptyDraft;
+  return drafts.get()[taskId] ?? EMPTY_DRAFT;
 }
 
 export function setDraft(taskId: TaskId, draft: Draft): void {

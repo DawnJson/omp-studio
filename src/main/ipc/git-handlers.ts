@@ -170,36 +170,33 @@ export const gitHandlers: HandlerGroup<
   getDraftGit: async (projectId) => {
     const pool = await getTaskPool();
     const id = parseProjectId(projectId);
-    const project = pool.listProjects().find((candidate) => candidate.id === id);
-    if (!project) throw new Error(`unknown project ${id}`);
-    if (!(await isRepoRootProject(project.path))) return null;
-    return { branch: await currentBranch(project.path) };
+    const projectPath = pool.projectPath(id);
+    if (!(await isRepoRootProject(projectPath))) return null;
+    return { branch: await currentBranch(projectPath) };
   },
 
   getWorktreeSetupScript: async (projectId) => {
     const pool = await getTaskPool();
     const id = parseProjectId(projectId);
-    const project = pool.listProjects().find((candidate) => candidate.id === id);
-    if (!project) throw new Error(`unknown project ${id}`);
-    const script = await findSetupScript(project.path);
+    const projectPath = pool.projectPath(id);
+    const script = await findSetupScript(projectPath);
     if (!script) return null;
     return {
       name: script.name,
       sha256: script.sha256,
-      approved: await getSetupConsent().isApproved(project.path, script.sha256),
+      approved: await getSetupConsent().isApproved(projectPath, script.sha256),
     };
   },
 
   approveWorktreeSetup: async (projectId, sha256) => {
     const pool = await getTaskPool();
     const id = parseProjectId(projectId);
-    const project = pool.listProjects().find((candidate) => candidate.id === id);
-    if (!project) throw new Error(`unknown project ${id}`);
-    const script = await findSetupScript(project.path);
+    const projectPath = pool.projectPath(id);
+    const script = await findSetupScript(projectPath);
     // 只确认用户看到的那份：脚本已经变了（或没了）就拒绝，界面重新取、重新问。
     if (!script || script.sha256 !== parseString(sha256, "sha256", 64))
       throw new Error("the setup script changed; review it again");
-    await getSetupConsent().approve(project.path, script.sha256);
+    await getSetupConsent().approve(projectPath, script.sha256);
     log.info("worktree setup script approved");
   },
 
@@ -223,9 +220,10 @@ export const gitHandlers: HandlerGroup<
   cleanupOrphanWorktrees: async (projectId) => {
     const pool = await getTaskPool();
     const id = parseProjectId(projectId);
-    const project = pool.listProjects().find((candidate) => candidate.id === id);
-    if (!project) throw new Error(`unknown project ${id}`);
-    const result = await cleanupOrphanWorktrees(await requireRepoRoot(project.path), pool.referencedWorktreePaths(id));
+    const result = await cleanupOrphanWorktrees(
+      await requireRepoRoot(pool.projectPath(id)),
+      pool.referencedWorktreePaths(id),
+    );
     log.info("orphan worktrees cleaned", { removed: result.removed.length, kept: result.kept.length });
     return result;
   },

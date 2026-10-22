@@ -1,7 +1,6 @@
 // omp 管理的 IPC：状态、接管询问、下载安装、加 PATH、升级，omp 的全部设置，以及几项和 omp 管理一起交付的应用设置。
 // 逻辑在 src/main/omp-manager/、src/main/omp-config/；这里只校验参数后转调。
 import { app } from "electron";
-import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { resolveAgentDir } from "../history/session-index.ts";
 import { log } from "../log/log.ts";
@@ -21,9 +20,9 @@ import {
   type ModelDefaultsDeps,
 } from "../omp-config/model-defaults.ts";
 import { readModelInsights } from "../omp-config/model-insights.ts";
-import { ompManager } from "../omp-manager/index.ts";
+import { ompManager, readyOmp } from "../omp-manager/index.ts";
 import { onOmpConfigChanged, readDefaultModel } from "../service/default-model.ts";
-import { serviceOmp } from "../service/service-omp.ts";
+import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
 import { updateSettings } from "../settings/settings-store.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
@@ -55,7 +54,7 @@ async function applyGoalContinuationDefaultOnStartup(): Promise<void> {
     await ompManager().ensureReady();
     const outcome = await applyGoalContinuationDefault({
       readValue: async () => {
-        const json = (await listJson(runOmpConfig(readyOmp().path, await neutralCwd()))) as Record<
+        const json = (await listJson(runOmpConfig(readyOmp().path, await serviceCwd()))) as Record<
           string,
           { value?: unknown }
         >;
@@ -102,23 +101,10 @@ export function applyOmpStartupDefaults(): Promise<void> {
 
 let config: OmpConfigService | null = null;
 
-/** 中性目录 userData/service：不让任何项目层配置混进来。 */
-async function neutralCwd(): Promise<string> {
-  const cwd = path.join(app.getPath("userData"), "service");
-  await mkdir(cwd, { recursive: true });
-  return cwd;
-}
-
-function readyOmp(): { path: string; version: string } {
-  const status = ompManager().status;
-  if (status.state !== "ready") throw new Error("omp is not ready");
-  return status;
-}
-
 /** omp config 子命令的执行者：用当前就绪的 omp，cwd 是中性目录。 */
 function configService(): OmpConfigService {
   config ??= new OmpConfigService({
-    run: async (args, env) => runOmpConfig(readyOmp().path, await neutralCwd())(args, env),
+    run: async (args, env) => runOmpConfig(readyOmp().path, await serviceCwd())(args, env),
     version: async () => readyOmp().version,
     cacheFile: path.join(app.getPath("userData"), "omp-config-schema.json"),
   });
@@ -126,7 +112,7 @@ function configService(): OmpConfigService {
 }
 
 const modelDefaultsDeps: ModelDefaultsDeps = {
-  list: async (cwd) => listJson(runOmpConfig(readyOmp().path, cwd ?? (await neutralCwd()))),
+  list: async (cwd) => listJson(runOmpConfig(readyOmp().path, cwd ?? (await serviceCwd()))),
   async setGlobalRoles(roles) {
     if (roles === null) await configService().reset("modelRoles");
     else await configService().set("modelRoles", JSON.stringify(roles));
@@ -135,10 +121,7 @@ const modelDefaultsDeps: ModelDefaultsDeps = {
 
 async function projectPath(projectId: unknown): Promise<string | null> {
   if (projectId === null) return null;
-  const id = parseProjectId(projectId);
-  const project = (await getTaskPool()).listProjects().find((candidate) => candidate.id === id);
-  if (!project) throw new Error(`unknown project ${id}`);
-  return project.path;
+  return (await getTaskPool()).projectPath(parseProjectId(projectId));
 }
 
 /** 项目目录里 omp 对新任务实际用的默认值（同时记进启动缓存）；TSP 任务在输入框出现之前用它显示模型。 */

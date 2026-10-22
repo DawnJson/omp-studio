@@ -38,16 +38,6 @@ export interface SessionToggles {
   prewalk: string | null;
 }
 
-/** 共用的"全没动过"（rpc 任务、不会被改的场合）；改状态总是产出新对象，不要原地改它。 */
-export const NO_SESSION_TOGGLES: SessionToggles = {
-  skillful: null,
-  extendedContext: null,
-  computer: null,
-  advisor: null,
-  browser: null,
-  prewalk: null,
-};
-
 export function emptySessionToggles(): SessionToggles {
   return { skillful: null, extendedContext: null, computer: null, advisor: null, browser: null, prewalk: null };
 }

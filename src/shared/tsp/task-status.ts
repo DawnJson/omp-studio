@@ -8,7 +8,7 @@
 //   发出消息的那一帧出现，这一轮结束的那一帧消失。主区里的 spinner 不可靠（子代理、后台任务的卡片停在 running 时
 //   主回合已经结束），`omp.hud.activity`（待办面板）也会在回合结束后继续显示，都不用。
 // role 是 omp 自己的命名，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
-import { findNode, nodeRole, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import { findNode, nodeRole, plainText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
 
 export type TspTaskStatus = "running" | "needs_you" | "idle";
 
@@ -21,22 +21,10 @@ export interface TspStatusInfo {
 }
 
 const ASK_ROLE_PREFIX = "omp.editor.ask";
-export const APPROVAL_ROLE = "omp.editor.ask.approval";
+const APPROVAL_ROLE = "omp.editor.ask.approval";
 const WORKING_ROLES: ReadonlySet<string> = new Set(["omp.working", "omp.working.stop", "omp.composer.stop"]);
 /** 提问的问题 `md`、审批的标题 `text`。 */
 const ASK_TITLE_ROLES: ReadonlySet<string> = new Set(["omp.ask.question", "omp.approval.title"]);
-
-/** 节点的纯文字：`text` 属性，或把 `spans` 拼起来。 */
-function plainText(node: DocNode): string {
-  const { text, spans } = node.p;
-  if (typeof text === "string") return text;
-  if (!Array.isArray(spans)) return "";
-  let joined = "";
-  for (const span of spans as readonly unknown[]) {
-    if (span !== null && typeof span === "object" && "t" in span && typeof span.t === "string") joined += span.t;
-  }
-  return joined;
-}
 
 function firstLine(text: string): string {
   return text.split(/\r?\n/)[0]?.trim() ?? "";

@@ -1,7 +1,7 @@
 // 会话历史：只读 omp 的会话目录建索引（src/main/history），恢复会话交给任务池。参数一律是 unknown，先校验再用。
 import { stat } from "node:fs/promises";
 import { shell } from "electron";
-import type { HandlerGroup, TaskId } from "../../shared/ipc.ts";
+import type { HandlerGroup } from "../../shared/ipc.ts";
 import { readSessionHead, resolveAgentDir, SessionIndex } from "../history/session-index.ts";
 import { buildSessionSummaries } from "../history/session-summaries.ts";
 import { readSessionUsage } from "../history/session-usage.ts";
@@ -10,13 +10,6 @@ import { getTaskPool } from "../tasks/runtime.ts";
 import { parseProjectId, parseString, parseTaskId } from "./validate.ts";
 
 const index = new SessionIndex();
-
-async function sessionFileOf(taskId: TaskId): Promise<string | null> {
-  const links = (await getTaskPool()).listSessionLinks();
-  const link = links.find((candidate) => candidate.id === taskId);
-  if (link === undefined) throw new Error("任务不存在");
-  return link.sessionFile;
-}
 
 async function findLiveSession(sessionId: unknown) {
   const id = parseString(sessionId, "sessionId", 200);
@@ -79,14 +72,14 @@ export const historyHandlers: HandlerGroup<
   },
 
   async revealTaskSession(taskId) {
-    const file = await sessionFileOf(parseTaskId(taskId));
+    const file = (await getTaskPool()).sessionFileOf(parseTaskId(taskId));
     if (file === null) throw new Error("这个任务还没有会话文件");
     await stat(file);
     shell.showItemInFolder(file);
   },
 
   async getTaskSessionRef(taskId) {
-    const file = await sessionFileOf(parseTaskId(taskId));
+    const file = (await getTaskPool()).sessionFileOf(parseTaskId(taskId));
     if (file === null) return null;
     const info = await stat(file).catch(() => null);
     if (info === null) return null;
@@ -95,6 +88,6 @@ export const historyHandlers: HandlerGroup<
   },
 
   async getSessionModelUsage(taskId) {
-    return readSessionUsage(await sessionFileOf(parseTaskId(taskId)));
+    return readSessionUsage((await getTaskPool()).sessionFileOf(parseTaskId(taskId)));
   },
 };

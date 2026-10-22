@@ -44,7 +44,6 @@ export interface InstallOptions {
   /** 当前装着的 exe。build 带补丁且补丁正是从它做出来的（sha256 对得上）时，先试补丁。 */
   fromExe?: string | undefined;
   onProgress?: ((receivedBytes: number, totalBytes: number) => void) | undefined;
-  onVerifying?: (() => void) | undefined;
   signal?: AbortSignal | undefined;
 }
 
@@ -71,7 +70,6 @@ export async function installBuild(layout: ManagedLayout, options: InstallOption
         source: { url: build.downloadUrl, size: build.file.size, sha256: build.file.sha256 },
         dest: target,
         onProgress: options.onProgress,
-        onVerifying: options.onVerifying,
         signal: options.signal,
       });
     }

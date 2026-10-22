@@ -41,7 +41,7 @@ function modifiers(event: MouseEvent | undefined): readonly string[] | undefined
 }
 
 /** 节点的文字：text 属性、spans、或者子孙文字（copy 动作没有 href 时复制它）。 */
-export function nodeText(node: DocNode, ctx: Pick<TspContext, "taskId" | "sf">): string {
+function nodeText(node: DocNode, ctx: Pick<TspContext, "taskId" | "sf">): string {
   const { text, spans } = node.p;
   if (typeof text === "string") return text;
   if (Array.isArray(spans)) return spans.map((s: { t?: unknown }) => (typeof s.t === "string" ? s.t : "")).join("");
@@ -54,7 +54,7 @@ export function nodeText(node: DocNode, ctx: Pick<TspContext, "taskId" | "sf">):
 }
 
 /** 去掉 file:// 前缀和 `:12`、`#L3` 之类的位置后缀，得到可交给文件预览的路径。 */
-export function hrefToPath(href: string): string {
+function hrefToPath(href: string): string {
   let path = href;
   if (/^file:\/\//i.test(path)) {
     path = decodeURIComponent(path.replace(/^file:\/\//i, ""));

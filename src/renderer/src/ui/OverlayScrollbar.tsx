@@ -25,7 +25,7 @@ function measure(el: HTMLElement): Metrics {
   return { thumbTop, thumbHeight, trackHeight: clientHeight, scrollable: true };
 }
 
-export function OverlayScrollbar({ target, label }: { target: RefObject<HTMLElement | null>; label?: string }) {
+export function OverlayScrollbar({ target }: { target: RefObject<HTMLElement | null> }) {
   const [metrics, setMetrics] = useState<Metrics>(none);
   const [active, setActive] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -139,7 +139,6 @@ export function OverlayScrollbar({ target, label }: { target: RefObject<HTMLElem
       data-dragging={dragging || undefined}
       onPointerDown={onTrackDown}
       aria-hidden="true"
-      data-label={label}
     >
       <div
         className="osb-thumb"

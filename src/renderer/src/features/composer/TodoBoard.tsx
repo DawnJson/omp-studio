@@ -44,7 +44,7 @@ export function TodoBoard({
       >
         {/* 全部完成 = 对勾；进行中且任务在跑 = 转动的细弧；其余是细圈（带已完成比例的弧）。 */}
         <TodoMark
-          state={finished ? "done" : spinning ? "active" : done > 0 ? "active" : "pending"}
+          state={finished ? "done" : spinning || done > 0 ? "active" : "pending"}
           spinning={spinning}
           progress={spinning ? undefined : total > 0 ? done / total : 0}
           className="todo-board-mark"
@@ -62,13 +62,13 @@ export function TodoBoard({
               progress.total > 0 && progress.done === progress.total
                 ? "done"
                 : progress.done > 0 || progress.active
-                  ? "partial"
+                  ? "active"
                   : "pending";
             return (
               <section key={`${index}:${phase.name}`} className="todo-phase">
                 <h3 className="todo-phase-head">
                   <TodoMark
-                    state={state === "done" ? "done" : state === "partial" ? "active" : "pending"}
+                    state={state}
                     spinning={running && progress.active}
                     progress={progress.total > 0 ? progress.done / progress.total : 0}
                     className="todo-phase-mark"

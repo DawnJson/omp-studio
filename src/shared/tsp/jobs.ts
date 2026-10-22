@@ -1,4 +1,4 @@
-// TSP 任务的后台作业（输入框上方"后台任务 / 子代理"按钮的数据）。rpc 任务从工具帧推（shared/ui/jobs.ts），TSP 任务从 omp 的节点读。
+// 后台作业（输入框上方"后台任务 / 子代理"按钮的数据）：从 omp 的节点读，数据形状见 shared/ui/jobs.ts。
 //
 // 数据来源（omp 18.12.5 实测，fixtures/tsp/jobs-chart.jsonl、hub-steer.jsonl；role 是 omp 自己的命名，不在 TSP 规范里，
 // 判断集中在这里，omp 改名就失效，升级时跑一遍录制）：
@@ -12,7 +12,7 @@
 // 纯函数，不碰 DOM；解析不了的行跳过，界面只是少一行，不会报错。
 import type { Job } from "../ui/jobs.ts";
 import { isRecord } from "../type-guards.ts";
-import { findNode, nodeRole, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import { findNode, nodeRole, spansText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
 
 type JobStatus = Job["status"];
 
@@ -25,12 +25,6 @@ const BASH_ID = /^bg_\d+$/;
 function isJobsClick(node: DocNode): boolean {
   const actions = node.p["actions"];
   return isRecord(actions) && actions["click"] === HUD_JOBS_ACTION;
-}
-
-function spansText(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (!Array.isArray(value)) return "";
-  return value.map((span: unknown) => (isRecord(span) && typeof span["t"] === "string" ? span["t"] : "")).join("");
 }
 
 /** `43.9s` / `305ms` / `1m 12s` / `2h 3m` → 毫秒；认不出为 null。 */

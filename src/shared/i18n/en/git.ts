@@ -84,5 +84,4 @@ export const git = {
   "cleanup.kept": "Kept",
   "cleanup.dirty": "has uncommitted changes",
   "cleanup.unmerged": "has unmerged commits",
-  "cleanup.unregistered": "unknown to git or not a studio/ branch",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

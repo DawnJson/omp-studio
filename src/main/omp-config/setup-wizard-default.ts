@@ -4,35 +4,13 @@
 // 为什么：空 agent 目录里 omp 18.12.5 交互模式（TSP 任务）启动后先画 5 步 `omp.app.setup` 引导，占满第一个任务、输入框发不出
 // （docs/architecture/tsp-real-omp-probes.md §1）。仓库所有者 2026-10-21 批准这一处自动写入。
 // 怎么分辨“明确设过”：同 goal-default.ts——`omp config set` 一定会把键写进 agent 目录的 config.yml，所以只读 config.yml，不写。
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { parse } from "yaml";
+import { isConfigKeyExplicit } from "./startup-defaults.ts";
 
 export const setupWizardKey = "startup.setupWizard";
 
-/** config.yml 里是否有 `startup.setupWizard`（嵌套 `startup: { setupWizard }` 或平铺的键都算）。读不了、解析不了时按“设过”处理：宁可不改。 */
-export async function isSetupWizardExplicit(agentDir: string): Promise<boolean> {
-  let text: string;
-  try {
-    text = await readFile(path.join(agentDir, "config.yml"), "utf8");
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code !== "ENOENT";
-  }
-  let root: unknown;
-  try {
-    root = parse(text);
-  } catch {
-    return true;
-  }
-  if (root === null || root === undefined) return false;
-  if (typeof root !== "object" || Array.isArray(root)) return true;
-  const record = root as Record<string, unknown>;
-  const startup = record["startup"];
-  const nested =
-    typeof startup === "object" && startup !== null && !Array.isArray(startup)
-      ? (startup as Record<string, unknown>)
-      : {};
-  return setupWizardKey in record || "setupWizard" in nested;
+/** config.yml 里是否有 `startup.setupWizard`（判断规则见 isConfigKeyExplicit）。 */
+export function isSetupWizardExplicit(agentDir: string): Promise<boolean> {
+  return isConfigKeyExplicit(agentDir, setupWizardKey);
 }
 
 export interface SetupWizardDefaultDeps {

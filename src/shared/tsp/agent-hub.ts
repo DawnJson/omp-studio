@@ -11,7 +11,7 @@
 //   revived"`）→ `dot` 变 `success`（被复活的代理空闲着）、`revive` 又被禁用；Esc 键关掉 Hub。
 // role、action、dot 名都是 omp 自己的、不在 TSP 规范里：omp 改名这里就失效，所以判断全部集中在这个文件（gate.ts 同理）。
 import { isRecord } from "../type-guards.ts";
-import { findNode, nodeRole, type DocNode, type TspDocument } from "./document.ts";
+import { findNode, nodeRole, spansText, type DocNode, type TspDocument } from "./document.ts";
 
 /** hud 里 `👥` 胶囊（`omp.hud.seg`）的点击动作：打开 Agent Hub。studio 拦截它改开自己的子代理面板。 */
 export const HUB_OPEN_ACTION = "agents.open";
@@ -30,12 +30,6 @@ const FOCUS_EXIT_ROLE = "omp.composer.exit";
 /** 点 `👥` 这类动作：studio 不把它转给 omp。 */
 export function isHubOpenAction(act: string): boolean {
   return act === HUB_OPEN_ACTION;
-}
-
-function spansText(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (!Array.isArray(value)) return "";
-  return value.map((span: unknown) => (isRecord(span) && typeof span["t"] === "string" ? span["t"] : "")).join("");
 }
 
 const finiteNumber = (value: unknown): number | null =>

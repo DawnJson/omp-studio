@@ -158,6 +158,13 @@ export class TaskPool {
     return this.#deps.registry.listProjects();
   }
 
+  /** 项目目录；项目不存在就抛错。IPC 只传 projectId，目录一律取自主进程的记录。 */
+  projectPath(projectId: ProjectId): string {
+    const project = this.#deps.registry.findProject(projectId);
+    if (!project) throw new Error(`unknown project ${projectId}`);
+    return project.path;
+  }
+
   /** 已有同路径项目就返回它；会话恢复时自动加入，不弹框。 */
   ensureProject(cwd: string): Promise<Project> {
     return this.#deps.registry.addProject(cwd);
@@ -173,6 +180,13 @@ export class TaskPool {
   /** 含已归档的任务；历史列表据此填 SessionSummary.taskId。 */
   listSessionLinks(): { id: TaskId; projectId: ProjectId; sessionFile: string | null }[] {
     return this.#deps.registry.listTasks().map(({ id, projectId, sessionFile }) => ({ id, projectId, sessionFile }));
+  }
+
+  /** 任务的会话文件（含已归档的任务）；还没有会话文件时为 null，任务不存在就抛错。 */
+  sessionFileOf(taskId: TaskId): string | null {
+    const record = this.#deps.registry.findTask(taskId);
+    if (!record) throw new Error("任务不存在");
+    return record.sessionFile;
   }
 
   // ───── 任务 ─────
@@ -288,10 +302,6 @@ export class TaskPool {
     return this.#runner(id).reviveSubagent(name);
   }
 
-  markTaskRead(id: TaskId): void {
-    this.#runner(id).markRead();
-  }
-
   sendPrompt(id: TaskId, input: PromptInput): Promise<void> {
     return this.#runner(id).sendPrompt(input);
   }
@@ -326,11 +336,6 @@ export class TaskPool {
     this.#recyclableSince.delete(id);
     if (this.#foreground === id) this.#foreground = null;
     this.#deps.events.taskRemoved(id);
-  }
-
-  /** 出错后重新拉起。 */
-  async restartTask(id: TaskId): Promise<void> {
-    await this.#runner(id).start();
   }
 
   /** 压缩上下文：发 `/compact`，等 omp 画出压缩分隔（成功）或 "Error: Compaction failed: …"（失败，原文抛出），见 `TspRunner.compact`。 */

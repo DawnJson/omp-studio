@@ -1,8 +1,9 @@
 // 会话文件头（`{"type":"session",...}`，在 256 字节标题槽之后）里会话信息对话框要的字段：版本、时间、cwd、标题、父会话、额外工作区目录。
 // 格式依据 omp 18.12.x 的 session.md "File Format"；只读文件前缀。不是会话文件（头缺 id 或 cwd）时返回 null，界面就只显示任务自己的信息。
-import { open, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import type { SessionHeaderInfo } from "../../shared/ipc.ts";
 import { isRecord } from "../../shared/type-guards.ts";
+import { readPrefix } from "../history/session-index.ts";
 
 /** 标题槽 256 字节 + 头；头里带 additionalDirectories 也远不到这个长度。 */
 const PREFIX_BYTES = 32 * 1024;
@@ -43,15 +44,7 @@ export function parseSessionHeader(text: string): (SessionHeaderInfo & { id: str
 export async function readSessionHeader(file: string): Promise<(SessionHeaderInfo & { id: string }) | null> {
   const info = await stat(file).catch(() => null);
   if (info === null) return null;
-  const handle = await open(file, "r");
-  try {
-    const length = Math.min(info.size, PREFIX_BYTES);
-    const buffer = Buffer.alloc(length);
-    const { bytesRead } = await handle.read(buffer, 0, length, 0);
-    const text = buffer.toString("utf8", 0, bytesRead);
-    // 前缀被截断时最后一行可能不完整：丢掉它（头在前面，不受影响）。
-    return parseSessionHeader(info.size > bytesRead ? text.slice(0, text.lastIndexOf("\n")) : text);
-  } finally {
-    await handle.close();
-  }
+  const { text, truncated } = await readPrefix(file, info.size, PREFIX_BYTES);
+  // 前缀被截断时最后一行可能不完整：丢掉它（头在前面，不受影响）。
+  return parseSessionHeader(truncated ? text.slice(0, text.lastIndexOf("\n")) : text);
 }

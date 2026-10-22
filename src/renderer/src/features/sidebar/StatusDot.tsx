@@ -41,7 +41,7 @@ function Glyph({ kind }: { kind: Kind }) {
 }
 
 /** 按形状画一个状态图标；none 只留槽位。任务和历史会话共用。 */
-export function StatusMark({ kind, label }: { kind: DotKind; label: string }) {
+function StatusMark({ kind, label }: { kind: DotKind; label: string }) {
   if (kind === "none") return <span key="none" className="sb-dot" aria-hidden="true" />;
   return (
     <span key={kind} className={`sb-dot sb-dot-${kind}`} role="img" aria-label={label}>

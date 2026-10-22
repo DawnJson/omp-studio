@@ -64,7 +64,7 @@ omp-studio 的做法（`src/main/omp-config/model-defaults.ts`，和 omp 终端�
 
 ## 服务进程的关闭
 
-`ServiceOmp.close()` 会递增代号：启动到一半（准备参数、等 ready）时被关掉的进程在 ready 后自己关闭并报错；放进 Job Object 失败的进程立刻关闭，不留下没有兜底的进程。
+`serviceOmp.close()`（`IdleOmp.close()`）会递增代号：启动到一半（准备参数、等 ready）时被关掉的进程在 ready 后自己关闭并报错；放进 Job Object 失败的进程立刻关闭，不留下没有兜底的进程。
 
 ## 自定义模型（第三方 API 提供商）：omp 没有写 `models.yml` 的接口
 

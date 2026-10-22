@@ -7,12 +7,10 @@ import koffi from "koffi";
 export const win32Constants = {
   // 注册表根键（winreg.h）
   HKEY_CURRENT_USER: 0x80000001,
-  HKEY_LOCAL_MACHINE: 0x80000002,
   // 访问权限
   KEY_QUERY_VALUE: 0x0001,
   KEY_SET_VALUE: 0x0002,
   KEY_CREATE_SUB_KEY: 0x0004,
-  KEY_READ: 0x20019,
   KEY_WRITE: 0x20006,
   // 值类型
   REG_SZ: 1,
@@ -61,7 +59,6 @@ export interface Win32Api {
     SetInformationJobObject(job: Handle, infoClass: number, info: JobExtendedLimitInformation): boolean;
     AssignProcessToJobObject(job: Handle, process: Handle): boolean;
     IsProcessInJob(process: Handle, job: Handle | null): boolean | null;
-    TerminateJobObject(job: Handle, exitCode: number): boolean;
     /** 失败返回 0。 */
     OpenProcess(desiredAccess: number, inheritHandle: boolean, pid: number): Handle;
     CloseHandle(handle: Handle): boolean;
@@ -77,15 +74,10 @@ export interface Win32Api {
     RegQueryValueExW(hKey: Handle, valueName: string): { status: number; type: number; data: Buffer | null };
     /** data 是 UTF-16LE 字节，必须包含结尾的 NUL（REG_SZ / REG_EXPAND_SZ 的要求）。 */
     RegSetValueExW(hKey: Handle, valueName: string, type: number, data: Buffer): number;
-    RegDeleteValueW(hKey: Handle, valueName: string): number;
-    /** 只删没有子键的键（测试用的临时子键）。 */
-    RegDeleteKeyW(hKey: Handle, subKey: string): number;
     RegCloseKey(hKey: Handle): number;
   };
   user32: {
-    /** 广播 `WM_SETTINGCHANGE`，lParam 是字符串（如 "Environment"）。返回 SendMessageTimeoutW 的结果（0 = 失败或超时）。 */
-    broadcastSettingChange(setting: string, timeoutMs: number): number;
-    /** 同上，但在线程池里执行，不阻塞主线程。 */
+    /** 广播 `WM_SETTINGCHANGE`，lParam 是字符串（如 "Environment"）；在线程池里执行，不阻塞主线程。返回 SendMessageTimeoutW 的结果（0 = 失败或超时）。 */
     broadcastSettingChangeAsync(setting: string, timeoutMs: number): Promise<number>;
   };
 }
@@ -138,7 +130,6 @@ function createApi(): Win32Api {
   );
   const AssignProcessToJobObject = kernel32.func("bool AssignProcessToJobObject(uintptr job, uintptr process)");
   const IsProcessInJob = kernel32.func("bool IsProcessInJob(uintptr process, uintptr job, _Out_ int *result)");
-  const TerminateJobObject = kernel32.func("bool TerminateJobObject(uintptr job, uint32 exitCode)");
   const OpenProcess = kernel32.func("uintptr OpenProcess(uint32 access, bool inherit, uint32 pid)");
   const CloseHandle = kernel32.func("bool CloseHandle(uintptr handle)");
   // koffi.errno() 读的是 C 运行库的 errno，Win32 调用失败时恒为 0；真正的错误码要调 GetLastError。
@@ -158,8 +149,6 @@ function createApi(): Win32Api {
   const RegSetValueExW = advapi32.func(
     "int32 RegSetValueExW(uintptr key, str16 name, uint32 reserved, uint32 type, void *data, uint32 size)",
   );
-  const RegDeleteValueW = advapi32.func("int32 RegDeleteValueW(uintptr key, str16 name)");
-  const RegDeleteKeyW = advapi32.func("int32 RegDeleteKeyW(uintptr key, str16 subKey)");
   const RegCloseKey = advapi32.func("int32 RegCloseKey(uintptr key)");
 
   // ───── user32 ─────
@@ -181,7 +170,6 @@ function createApi(): Win32Api {
         const ok = IsProcessInJob(process, job ?? 0, out);
         return ok ? out[0] !== 0 : null;
       },
-      TerminateJobObject: (job, exitCode) => TerminateJobObject(job, exitCode),
       OpenProcess: (access, inherit, pid) => num(OpenProcess(access, inherit, pid)),
       CloseHandle: (handle) => CloseHandle(handle),
       lastError: () => GetLastError(),
@@ -215,14 +203,10 @@ function createApi(): Win32Api {
         }
       },
       RegSetValueExW: (hKey, valueName, type, data) => RegSetValueExW(hKey, valueName, 0, type, data, data.length),
-      RegDeleteValueW: (hKey, valueName) => RegDeleteValueW(hKey, valueName),
-      RegDeleteKeyW: (hKey, subKey) => RegDeleteKeyW(hKey, subKey),
       RegCloseKey: (hKey) => RegCloseKey(hKey),
     },
     user32: {
-      broadcastSettingChange: (setting, timeoutMs) =>
-        num(SendMessageTimeoutW(c.HWND_BROADCAST, c.WM_SETTINGCHANGE, 0, setting, c.SMTO_ABORTIFHUNG, timeoutMs, [0])),
-      // koffi 的 .async 在线程池里调用，不占主线程（挂起的窗口最长会让同步广播卡 timeoutMs）。
+      // koffi 的 .async 在线程池里调用，不占主线程（挂起的窗口最长会让 SendMessageTimeoutW 卡 timeoutMs）。
       broadcastSettingChangeAsync: (setting, timeoutMs) => {
         const { promise, resolve, reject } = Promise.withResolvers<number>();
         SendMessageTimeoutW.async(

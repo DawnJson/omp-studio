@@ -21,7 +21,7 @@ export interface KeyEventLike {
 const ESC = "\x1b";
 
 /** xterm 修饰参数：1 + Shift(1) + Alt(2) + Ctrl(4)。 */
-export function modifierParam(e: Pick<KeyEventLike, "shiftKey" | "altKey" | "ctrlKey">): number {
+function modifierParam(e: Pick<KeyEventLike, "shiftKey" | "altKey" | "ctrlKey">): number {
   return 1 + (e.shiftKey ? 1 : 0) + (e.altKey ? 2 : 0) + (e.ctrlKey ? 4 : 0);
 }
 

@@ -7,7 +7,6 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { Locale, ProjectId, TaskId, TaskState } from "../../src/shared/ipc.ts";
 import { emptySessionToggles } from "../../src/shared/omp-output/toggles.ts";
-import { emptyTranscript } from "../../src/shared/transcript.ts";
 import { launchApp, screenshotsDir } from "./launch.ts";
 
 const now = Date.now();
@@ -124,7 +123,7 @@ async function stubMain(app: Awaited<ReturnType<typeof launchApp>>["app"], local
       }));
       stub("listProjects", () => data.projects);
       stub("listTasks", () => data.tasks);
-      stub("openTask", (taskId) => ({ taskId, seq: 0, transcript: data.transcript }));
+      stub("openTask", () => undefined);
       stub("renameTask", () => undefined);
       stub("archiveTask", () => undefined);
       stub("createTask", () => data.tasks[0]);
@@ -137,7 +136,6 @@ async function stubMain(app: Awaited<ReturnType<typeof launchApp>>["app"], local
       locale,
       projects: [projectA, projectB],
       tasks,
-      transcript: emptyTranscript(),
       slash: [
         { name: "compact", source: "builtin", description: "Compact the context" },
         { name: "model", source: "builtin", input: { hint: "<model>" } },

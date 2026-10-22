@@ -7,8 +7,6 @@ export const toggles = {
   note: "This session only; a dot means it differs from the default.",
   session: "This session",
   differs: "Differs from the configured default",
-  default: "Default",
-  busy: "Switching…",
   skillful: "Skill listing",
   "skillful.hint": "List available skills in the system prompt",
   extendedContext: "Extended context",

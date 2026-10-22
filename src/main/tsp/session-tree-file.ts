@@ -9,7 +9,7 @@ import { isRecord } from "../../shared/type-guards.ts";
 import { buildSessionTree, userEntryText } from "../tasks/session-tree.ts";
 
 /** 会话文件超过这个大小就不读了（树面板打开时整份读进内存）。 */
-export const MAX_SESSION_FILE_BYTES = 256 * 1024 * 1024;
+const MAX_SESSION_FILE_BYTES = 256 * 1024 * 1024;
 
 export interface SessionEntry {
   id: string;

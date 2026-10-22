@@ -2,7 +2,7 @@
 // 行按 main 区里出现的顺序和费用数组"从末尾对齐"（最后一行 ↔ 最后一个数）；对不上就保留原文。
 
 /** omp 对一分钱以下的费用的写法。 */
-export const SUB_CENT = "<$0.01";
+const SUB_CENT = "<$0.01";
 
 /** 准确费用：一分钱以上两位小数（$0.42），以下四位（$0.0031）。 */
 export function formatExactCost(usd: number): string {

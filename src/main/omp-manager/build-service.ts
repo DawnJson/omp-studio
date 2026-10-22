@@ -144,8 +144,6 @@ export interface DownloadOptions {
   /** 最终文件；下载先写到 `<dest>.partial`，校验通过才改名。 */
   dest: string;
   onProgress?: ((receivedBytes: number, totalBytes: number) => void) | undefined;
-  /** 全部字节收完、开始比对 sha256 时调一次。 */
-  onVerifying?: (() => void) | undefined;
   signal?: AbortSignal | undefined;
 }
 
@@ -172,7 +170,6 @@ export async function downloadVerified(options: DownloadOptions): Promise<void> 
       createWriteStream(partial),
       ...(options.signal ? [{ signal: options.signal }] : []),
     );
-    options.onVerifying?.();
     const digest = hash.digest("hex");
     if (received !== source.size)
       throw new VerifyError(`size mismatch: expected ${source.size} bytes, got ${received}`);

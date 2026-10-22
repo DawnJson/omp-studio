@@ -7,7 +7,7 @@ import { findOmpOnPath, inspectOmp, type OmpInstall } from "../omp/discover.ts";
 import { addToUserPath, pathContains, readUserPath } from "../platform/win32/user-path.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { OmpManager, runOmpUpdate, type ManagerDeps, type UserPathAccess } from "./manager.ts";
-import { MIN_OMP_VERSION } from "./version.ts";
+import { MIN_OMP_VERSION } from "../../shared/omp-version.ts";
 
 export { getApiKeyEnv } from "./api-keys.ts";
 
@@ -22,7 +22,7 @@ function managedRoot(): string {
   return path.join(base, "omp-studio", "omp");
 }
 
-/** 写用户 PATH 之前把原值留一份（写坏用户 PATH 的风险对策，arch.md 风险表）。 */
+/** 写用户 PATH 之前把原值留一份（写坏用户 PATH 的风险对策）。 */
 function windowsUserPath(): UserPathAccess {
   return {
     contains: (dir) => pathContains(readUserPath().raw, dir),
@@ -74,6 +74,13 @@ export function ompManager(): OmpManager {
 /** 等到有可用的 omp 再返回它的路径。`managedBin` 非空时（自管）启动子进程要把它前置到子进程 PATH，让 `omp update` 认到 manager.json。 */
 export function getOmpExecutable(): Promise<{ path: string; managedBin: string | null }> {
   return ompManager().ensureReady();
+}
+
+/** 同步取当前就绪的 omp；没就绪就抛错（IPC handler 不等待发现流程，和 getOmpExecutable 不同）。 */
+export function readyOmp(): { path: string; version: string } {
+  const status = ompManager().status;
+  if (status.state !== "ready") throw new Error("omp is not ready");
+  return status;
 }
 
 /**

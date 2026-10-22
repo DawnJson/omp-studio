@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import type { GitMergeResult, TaskWorktreeInfo, WorktreeCleanupResult } from "../../shared/git.ts";
 import { log } from "../log/log.ts";
+import { pathKey } from "../tasks/task-registry.ts";
 import { git, gitRaw, gitText, runCommand } from "./exec.ts";
 import { currentBranch, findRepo, hasCommits, headCommit } from "./repo.ts";
 import { statusAt } from "./status.ts";
@@ -317,8 +318,6 @@ async function listWorktrees(repoRoot: string): Promise<RegisteredWorktree[]> {
   }
   return out;
 }
-
-const pathKey = (p: string) => (process.platform === "win32" ? path.resolve(p).toLowerCase() : path.resolve(p));
 
 /**
  * 清理无主 worktree：先 `git worktree prune`（目录已不在的登记），再看 git 登记的、分支是 `studio/` 前缀、没有任何任务记录

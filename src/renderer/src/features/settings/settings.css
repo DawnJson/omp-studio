@@ -295,14 +295,12 @@
 }
 
 .st-block {
+  padding: var(--space-3) 0;
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.st-row-text {
-  min-width: 0;
-}
-
 .st-row-title {
+  min-width: 0;
   font-size: var(--fs-base);
   line-height: var(--lh-base);
 }
@@ -313,10 +311,6 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-}
-
-.st-block {
-  padding: var(--space-3) 0;
 }
 
 .st-mono {
@@ -365,18 +359,27 @@
 .st-provider-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--space-3);
   min-height: 40px;
 }
 
+/* 名称列、状态列定宽，登录按钮在各行对齐，紧跟状态而不是被推到最右 */
 .st-provider-name {
+  flex: 0 1 280px;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--fs-base);
   line-height: var(--lh-base);
 }
 
 .st-provider-status {
+  flex: 0 1 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text-3);
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
@@ -536,10 +539,6 @@
   min-width: 0;
 }
 
-.st-row-title {
-  min-width: 0;
-}
-
 .st-tip {
   position: relative;
   display: inline-flex;
@@ -601,26 +600,6 @@
 .st-card + .st-card,
 .st-card + .settings-group-title {
   margin-top: var(--space-4);
-}
-
-.st-provider-head {
-  justify-content: flex-start;
-}
-
-/* 名称列、状态列定宽，登录按钮在各行对齐，紧跟状态而不是被推到最右 */
-.st-provider-name {
-  flex: 0 1 280px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.st-provider-status {
-  flex: 0 1 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .st-result {

@@ -113,7 +113,7 @@ export function ComposerTop({ task }: { task: TaskState }) {
   const taskId = task.id;
   const label = useTspDerived(taskId, deriveWorkingLabel, Object.is);
   const agents = useTspDerived(taskId, countActiveAgents, Object.is) ?? 0;
-  const allJobs = useTspJobs(taskId, true);
+  const allJobs = useTspJobs(taskId);
   const bash = useMemo(() => allJobs.filter((job) => job.type === "bash"), [allJobs]);
   const running = useMemo(() => bash.filter((job) => job.status === "running").length, [bash]);
   const [jobsOpen, setJobsOpen] = useState(false);

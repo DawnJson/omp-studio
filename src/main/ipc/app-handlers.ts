@@ -13,7 +13,6 @@ import {
   parseExternalUrl,
   parseInteger,
   parseLocalePreference,
-  parseMaxLiveProcesses,
   parseOneOf,
   parseRecord,
   parseThemePreference,
@@ -28,7 +27,6 @@ export const appHandlers: HandlerGroup<
   | "getSettings"
   | "setLocale"
   | "setTheme"
-  | "setMaxLiveProcesses"
   | "openExternal"
   | "openLogsFolder"
   | "exportDiagnostics"
@@ -48,7 +46,6 @@ export const appHandlers: HandlerGroup<
   getSettings: async () => getSettings(),
   setLocale: async (value) => updateSettings({ locale: parseLocalePreference(value) }),
   setTheme: async (value) => updateSettings({ theme: parseThemePreference(value) }),
-  setMaxLiveProcesses: async (value) => updateSettings({ maxLiveProcesses: parseMaxLiveProcesses(value) }),
   openExternal: async (value) => shell.openExternal(parseExternalUrl(value)),
   openLogsFolder: () => openLogsFolder(),
   exportDiagnostics: () => exportDiagnostics(),

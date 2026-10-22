@@ -30,8 +30,7 @@ export const commandHandlers: HandlerGroup<"runTaskCommand" | "runBuiltin"> = {
     const parsed = parseBuiltinScope(scope);
     if (parsed === null) return { text: await serviceOmp.use((connection) => runBuiltinOn(connection, command)) };
     // 项目目录取自主进程的项目记录，不用渲染进程传的路径。
-    const project = (await getTaskPool()).listProjects().find((candidate) => candidate.id === parsed.projectId);
-    if (!project) throw new Error(`unknown project ${parsed.projectId}`);
-    return { text: await projectOmp.use(project.path, (connection) => runBuiltinOn(connection, command)) };
+    const projectPath = (await getTaskPool()).projectPath(parsed.projectId);
+    return { text: await projectOmp.use(projectPath, (connection) => runBuiltinOn(connection, command)) };
   },
 };
