@@ -257,11 +257,14 @@
         --row-label-w: 236px;
       }
       .key {
+        display: inline-block;
+        max-width: calc(100% - 18px);
         overflow: hidden;
         font-family: var(--font-mono);
         font-size: var(--fs-code-sm);
         text-overflow: ellipsis;
         white-space: nowrap;
+        vertical-align: top;
       }
       .ui-seg.mono > button {
         font-family: var(--font-mono);

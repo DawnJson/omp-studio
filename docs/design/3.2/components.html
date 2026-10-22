@@ -189,6 +189,7 @@
         <symbol id="i-down" viewBox="0 0 16 16"><path d="M3.5 6 8 10.5 12.5 6" /></symbol>
         <symbol id="i-right" viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5" /></symbol>
         <symbol id="i-check" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7" /></symbol>
+        <symbol id="i-external" viewBox="0 0 16 16"><path d="M9.5 3H13v3.5M13 3 7.5 8.5M11 9.5V13H3V5h3.5" /></symbol>
         <symbol id="i-pencil" viewBox="0 0 16 16">
           <path d="m3 13 .8-3L10.5 3.3a1.2 1.2 0 0 1 1.7 0l.5.5a1.2 1.2 0 0 1 0 1.7L6 12.2 3 13Z" />
         </symbol>
@@ -329,7 +330,11 @@
           </div>
           <div class="demo">
             <span class="cap">链接</span>
-            <span style="color: var(--text-2)">key 存在系统凭据里，<a class="ui-link">怎么获取 key</a>。</span>
+            <span style="color: var(--text-2)"
+              >key 存在系统凭据里，<a class="ui-link"
+                >怎么获取 key<svg class="i ui-icon-inline"><use href="#i-external" /></svg></a
+              >。（句中图标下移 0.125em）</span
+            >
           </div>
           <div class="demo">
             <span class="cap">键帽</span>
@@ -349,11 +354,15 @@
           <h2>输入框 <small>.ui-field .ui-select .ui-textarea</small></h2>
           <p class="rule">
             文本、数字、搜索、下拉触发器共用一个 32 高的框。数字框 112 宽、右对齐、单位写在框里（不写进标签）；"-1 =
-            不限"显示成占位文字"不限"。错误写在框下面一行。
+            不限"显示成占位文字"不限"。错误写在框下面一行。聚焦不画外描边：边框隐去，换成 1px 强调色环 + 3px
+            淡色光环两层阴影，另有一条透明 outline 给 Windows 高对比度模式用。
           </p>
           <div class="demo">
             <span class="cap">文本</span>
             <label class="ui-field"><input placeholder="https://api.example.com/v1" /></label>
+          </div>
+          <div class="demo">
+            <span class="cap">聚焦</span>
             <label class="ui-field is-focus"><input value="other-local" /></label>
           </div>
           <div class="demo" style="align-items: flex-start">
@@ -362,6 +371,10 @@
               <label class="ui-field" data-invalid><input value="Other Local" /></label>
               <p class="ui-help" data-tone="error">ID 只能用小写字母、数字和 -</p>
             </div>
+          </div>
+          <div class="demo">
+            <span class="cap">错误聚焦</span>
+            <label class="ui-field is-focus" data-invalid><input value="Other Local" /></label>
           </div>
           <div class="demo">
             <span class="cap">数字</span>
@@ -377,6 +390,8 @@
               ><svg class="i"><use href="#i-search" /></svg><input value="anthropic" /><svg class="i">
                 <use href="#i-close" /></svg
             ></label>
+          </div>
+          <div class="demo">
             <span class="cap">下拉</span>
             <button class="ui-field ui-select">
               <span>跟随系统</span><svg class="i"><use href="#i-down" /></svg>

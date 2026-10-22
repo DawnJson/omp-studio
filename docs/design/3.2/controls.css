@@ -8,6 +8,11 @@
  * - 圆角：按钮 / 输入 / 分段外框 --radius-md；分段内块、勾选框 --radius-sm；胶囊只给输入框工具条的 Chip、Toast、徽标以外不用。
  * - 一个视图最多一个主要按钮；链接（.ui-link）只出现在句子里，不当独立按钮。
  * - 互斥取值用 Segmented（≤4 个短选项）或 Select（更多）；切换视图用 Tabs。由选项个数决定，不由语言或宽度决定。
+ * - 输入框聚焦不画外描边，边框隐去、换成双环阴影（1px 强调色环 + 3px 淡色光环）；同时留一条透明 outline，Windows
+ *   高对比度模式会把它画成系统色（forced-colors 下 box-shadow 被清掉，border / outline 颜色被强制成系统色）。
+ *   按钮等键盘焦点仍是 :focus-visible 的外描边。
+ * - 夹在文字里的图标 vertical-align: -0.125em；放在 flex 容器里的图标靠 align-items: center，不加偏移。
+ * - 多行的说明文字 text-wrap: pretty（避免末行只剩一两个字），短标题 text-wrap: balance。
  */
 
 /* ── 新增 token 提案（落地时并进 tokens.css 的三处主题块） ── */
@@ -236,15 +241,22 @@
 }
 .ui-field:focus-within,
 .ui-field.is-focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: transparent;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 0 4px var(--accent-soft);
 }
 .ui-field[data-invalid] {
   border-color: var(--st-error);
 }
 .ui-field[data-invalid]:focus-within,
 .ui-field[data-invalid].is-focus {
-  box-shadow: 0 0 0 3px var(--st-error-soft);
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px var(--st-error),
+    0 0 0 4px var(--st-error-soft);
 }
 .ui-field[aria-disabled="true"] {
   color: var(--text-disabled);
@@ -319,15 +331,19 @@
 }
 .ui-textarea.is-focus,
 .ui-textarea:focus {
-  border-color: var(--accent);
-  outline: none;
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: transparent;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 0 4px var(--accent-soft);
 }
 
 .ui-help {
   margin: var(--space-1) 0 0;
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
+  text-wrap: pretty;
   color: var(--text-3);
 }
 .ui-help[data-tone="error"] {
@@ -614,6 +630,7 @@
   font-size: var(--fs-2xs);
   line-height: var(--lh-2xs);
   color: var(--text-3);
+  text-wrap: pretty;
 }
 .ui-menu-hint {
   font-size: var(--fs-xs);
@@ -643,12 +660,14 @@
   font-size: var(--fs-sm);
   font-weight: var(--fw-strong);
   color: var(--text);
+  text-wrap: balance;
 }
 .ui-pop-body {
   margin: var(--space-1) 0 0;
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
   color: var(--text-2);
+  text-wrap: pretty;
 }
 .ui-pop-actions {
   display: flex;
@@ -690,12 +709,14 @@
   font-weight: var(--fw-strong);
   line-height: var(--lh-lg);
   color: var(--text);
+  text-wrap: balance;
 }
 .ui-dialog-desc {
   margin: var(--space-0-5) 0 0;
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
   color: var(--text-2);
+  text-wrap: pretty;
 }
 .ui-dialog-body {
   display: grid;
@@ -743,6 +764,7 @@
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
   color: var(--text-3);
+  text-wrap: pretty;
 }
 .ui-rows {
   border-top: 1px solid var(--border);
@@ -759,19 +781,26 @@
   padding: var(--space-1) 0;
   border-bottom: 1px solid var(--border-subtle);
 }
+/* 标签是普通文字块：英文折两行时 ⓘ 跟在最后一个词后面，不漂到列尾 */
 .ui-row-label {
-  display: flex;
-  gap: var(--space-1);
-  align-items: center;
   min-width: 0;
   font-size: var(--fs-sm);
   color: var(--text);
 }
 .ui-row-label .ui-info {
-  flex: none;
+  display: inline-block;
   width: 14px;
   height: 14px;
+  margin-left: var(--space-1);
+  vertical-align: -0.125em;
   color: var(--text-3);
+}
+/* 句子里的图标（链接后的 ↗、说明里的状态图标） */
+.ui-icon-inline {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
 }
 .ui-row-control {
   display: flex;
@@ -863,6 +892,7 @@
   flex: 1;
   min-width: 0;
   margin: 0;
+  text-wrap: pretty;
 }
 
 .ui-toast {

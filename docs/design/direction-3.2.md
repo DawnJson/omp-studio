@@ -102,7 +102,7 @@ v0.3.32，用临时 e2e（Playwright + 构建产物，隔离的 userData / agent
 | Button `.ui-btn` | `data-variant`：`primary`（`--primary` 底，一个视图最多一个）、默认次要（透明底 + 1px `--border-strong`）、`quiet`（无框 `--text-2`，给"稍后""显示全部"）、`danger`（红字 + 45% 红框）、`danger-solid`（红底，只给破坏性确认框的确认键）。`data-size="sm"`。加载：文字透明、宽度不变、14px 环。禁用：`--text-disabled` + `--border`。快捷键提示 `.ui-hint`：按钮里尾随的等宽淡色小字，不画键帽框 | 17 个按钮家族、`.gate-btn` |
 | IconButton `.ui-icon-btn` | 28 方（`md` 32），无框，`--text-2`，悬停 `--bg-hover`；按下 / 展开 `--bg-active`。必须有悬停提示。"刷新"永远是 ↻ 图标按钮 | `icon-button`、`sb-icon-btn`、`topbar-tool`、各处"刷新"文字 |
 | Link `.ui-link` | 只出现在句子里，不当独立按钮 | "设置 API key""删除""取消"这类紫色链接按钮 |
-| Field `.ui-field` | 文本 / 数字 / 搜索 / 下拉触发器共用：32 高，`--bg-raised`，1px `--border-strong`，聚焦 `--accent` 边 + 3px `--accent-soft` 光圈；错误 `--st-error` 边，错误文字在框下一行 `.ui-help[data-tone=error]`。数字框 112 宽、右对齐、等宽数字、单位写在框内（`.ui-affix`）。前后可放 14px 图标（搜索、清空） | `st-input`、`mp-search`、`sb-search`、`tg-preset-input` |
+| Field `.ui-field` | 文本 / 数字 / 搜索 / 下拉触发器共用：32 高，`--bg-raised`，1px `--border-strong`；聚焦见下面"通则"；错误 `--st-error` 边，错误文字在框下一行 `.ui-help[data-tone=error]`。数字框 112 宽、右对齐、等宽数字、单位写在框内（`.ui-affix`）。前后可放 14px 图标（搜索、清空） | `st-input`、`mp-search`、`sb-search`、`tg-preset-input` |
 | Select `.ui-select` | 就是 Field + 右侧 chevron；展开的列表是 Menu（选择菜单） | `dd-trigger`、`tspi-pf-pick` |
 | Textarea `.ui-textarea` | 同 Field 的框，`resize: vertical` | 原生 textarea |
 | Switch `.ui-switch` | 36×20，关 `--border-strong`（两套主题都看得见），开 `--accent`。被系统强制打开的：禁用的开 + 旁边一个徽标说明原因 | `st-switch`、`tspi-pf-sw` |
@@ -120,6 +120,21 @@ v0.3.32，用临时 e2e（Playwright + 构建产物，隔离的 userData / agent
 | Kbd / Disclosure / Tooltip | Kbd 照旧；展开一律 chevron 旋转 90°；Tooltip 照旧 | 原生 `▶ details` |
 
 新增 token（三处主题块都要加）：`--control-on`、`--text-on-danger`（浅色白、深色 `#0c0b0e`；深色的 `--st-error` 是浅红，白字对比度不够）。
+
+**通则**（2026-10-22 仓库所有者同意，写在 `controls.css` 开头）：
+
+| 规则 | 做法 | 范围 |
+|---|---|---|
+| 输入框聚焦不画外描边 | 边框隐去，换成两层阴影：`0 0 0 1px var(--accent)` + `0 0 0 4px var(--accent-soft)`；错误态用 `--st-error` / `--st-error-soft`。同时写 `outline: 2px solid transparent`：Windows 高对比度模式（`forced-colors`）会清掉 `box-shadow`、把 outline 和边框换成系统色，只靠阴影时那里看不到焦点。现在整个渲染进程没有处理 `forced-colors`，这条是唯一的兜底 | Field、Select、Textarea；按钮、菜单项、开关等键盘焦点不变，仍是全局 `:focus-visible` 的 2px 外描边 |
+| 句子里的图标下移 0.125em | `vertical-align: -0.125em`，图标宽高 1em（`.ui-icon-inline`）；设置行标签改成普通文字块，ⓘ 跟在最后一个字后面（英文标签折两行时不漂到列尾） | 只给夹在文字里的图标：链接后的 ↗、标签后的 ⓘ、说明里的状态图标。按钮、菜单项、胶囊里的图标放在 `align-items: center` 的 flex 里，`vertical-align` 不起作用，不加 |
+| 多行文字 `text-wrap: pretty`，短标题 `balance` | `pretty`：`.ui-help`、`.ui-menu-note`、`.ui-pop-body`、`.ui-dialog-desc`、`.ui-section-note`、`.ui-notice`；`balance`：`.ui-pop-title`、`.ui-dialog-title` | 对话流正文属于过程区，不动 |
+
+同一轮看过、没有采纳的（来源是一份外部的界面约束清单）：
+
+- 不用 `#000`、背景靠 1-3% 明度分层：已经是这样。各层 L\* 浅色 93.9 / 95.3 / 97.7 / 100，深色 3.2 / 4.1 / 5.3 / 8.0 / 10.7；`#000` 只出现在 `tsp.css` 的渐隐遮罩里（只取透明度）。
+- 数字 `tabular-nums`、折叠用 `grid-template-rows: 0fr -> 1fr`：已经在用（约 60 处；`ui/Reveal.tsx` + `motion.css` 的 `.reveal`）。剩下的原生 `<details>` 在本节表里已经换成 Disclosure + `Reveal`。
+- 深色主题字重统一降 40：中文回退的微软雅黑 UI 只有 400 / 700 两档，按 CSS 的字重匹配 360 仍取 400、560 仍取 700，变细的只有 Geist 的拉丁字母，同一行中英文粗细不一；`body` 也没有设 `font-weight: var(--fw-regular)`，只改 token 不生效。要试只在英文界面降 20-30，截图对比后再定。
+- 流式文字逐字 `blur(6px)` 渐显、字间隔 30ms：在过程区里（不在本次范围）；字间隔 30ms 等于每秒最多约 33 个字，模型吐字比这快，显示会越积越慢；逐字包元素会影响选中复制、Markdown 渲染和 omp 整段替换文本，几百个元素同时做滤镜在滚动时掉帧。
 
 ## 4. 设置页（替换 spec §4.19 的版式部分）
 
