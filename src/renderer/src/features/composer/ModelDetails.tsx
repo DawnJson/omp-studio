@@ -5,6 +5,7 @@ import { compactionTrigger, type CompactionTrigger } from "../../../../shared/co
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { modelPriceLine } from "./model-groups.ts";
+import { RoleIcon } from "./RoleIcon.tsx";
 import { formatCount } from "./usage-format.ts";
 
 interface ModelDetailsProps {
@@ -114,7 +115,8 @@ export function ModelDetails({ option, isCurrent, roles, insights }: ModelDetail
         </span>
       )}
       {roles.map((role) => (
-        <span key={role} className="mp-pill">
+        <span key={role} className="mp-pill" data-kind="role">
+          <RoleIcon role={role} size={12} />
           {role}
         </span>
       ))}

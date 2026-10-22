@@ -22,7 +22,7 @@ export const toggles = {
   prewalk: "Prewalk",
   "prewalk.plan": "Plan with {from}, switch to {to} at the first file edit",
   "prewalk.current": "the current model",
-  "prewalk.noSmol": "No smol model set (pick one in the Smol tab above), so there is nothing to switch to",
+  "prewalk.noSmol": "No smol model set (pick one under Roles on the left), so there is nothing to switch to",
   "prewalk.sameModel": "The smol model is the current model, so Prewalk has no effect",
   "prewalk.arm": "Arm",
   "prewalk.restart": "Restart",

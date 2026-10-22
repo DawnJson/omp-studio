@@ -1,4 +1,4 @@
-// 模型选择对话框里的思考强度：ui/Segmented（设一个值）。键盘 ←/→ 换档由 Segmented 负责。
+// 模型选择对话框里的思考强度：ui/Segmented md（设一个值），每档等宽。键盘 ←/→ 换档由 Segmented 负责。
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -15,7 +15,6 @@ export function ThinkingSegments({ levels, level, onPick }: ThinkingSegmentsProp
   const t = useT();
   return (
     <Segmented<string>
-      size="sm"
       label={t("model.thinking")}
       testId="thinking-segments"
       value={level ?? ""}

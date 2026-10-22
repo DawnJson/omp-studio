@@ -207,3 +207,41 @@ export const Comment = (props: IconProps) => (
     <path d="M3 3.500h10v7H8.500L5.500 13v-2.500H3v-7Z" />
   </Icon>
 );
+/** 模型角色 default：星 */
+export const Star = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M8 2.5 9.7 6l3.8.5-2.8 2.6.7 3.8L8 11.1l-3.4 1.8.7-3.8-2.8-2.6L6.3 6 8 2.5Z" />
+  </Icon>
+);
+/** 模型角色 slow（深度思考）：沙漏 */
+export const Hourglass = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M4.5 2.5h7M4.5 13.5h7M5.5 2.5c0 3 2.5 3.5 2.5 5.5s-2.5 2.5-2.5 5.5M10.5 2.5c0 3-2.5 3.5-2.5 5.5s2.5 2.5 2.5 5.5" />
+  </Icon>
+);
+/** 模型角色 plan（规划）：折页地图 */
+export const MapIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M2.5 4.3 6 3l4 1.5 3.5-1.3v8.5L10 13l-4-1.5-3.5 1.3V4.3ZM6 3v8.5M10 4.5V13" />
+  </Icon>
+);
+/** 模型角色 commit：一个提交节点 */
+export const Commit = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="8" cy="8" r="2.5" />
+    <path d="M2 8h3.5M10.5 8H14" />
+  </Icon>
+);
+/** 模型角色 advisor（顾问）：灯泡 */
+export const Bulb = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M6.2 13.5h3.6M8 2.5a3.5 3.5 0 0 0-2.1 6.3c.4.3.6.8.6 1.3v1.4h3v-1.4c0-.5.2-1 .6-1.3A3.5 3.5 0 0 0 8 2.5Z" />
+  </Icon>
+);
+/** 自定义的模型角色：标签 */
+export const Tag = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M2.5 3.5v4l6 6 5-5-6-6h-4a1 1 0 0 0-1 1Z" />
+    <circle cx="5.5" cy="5.5" r=".75" />
+  </Icon>
+);

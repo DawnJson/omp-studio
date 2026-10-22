@@ -1,19 +1,22 @@
-// 模型选择对话框（ui/Dialog，照 Tern 里 omp 的 /models）：顶上是搜索框（没有标题和 ×，Esc、点遮罩关）；左栏是范围：角色 / 全部模型 / 各提供商；
-// 右边一张表（模型 | Int | t/s | Ctx | $/M，列名照 omp 原文）+ 参数行 + 三行控件（思考强度 / Prewalk / 预设）；页脚只有主按钮。
-// 全部模型：没有搜索词时"常用"在前，其余按提供商分组；有搜索词时是"匹配"。角色范围（或搜索框以 @ 开头）列角色，点一个角色 = 之后选的模型给它。
-// 键盘：搜索框里 ↑↓ 在行之间移动，Enter 选用模型（角色行上是切到这个角色），鼠标悬停也会高亮；Tab 循环、Esc 关闭、焦点回到打开前的元素由 Dialog 负责。
+// 模型选择对话框（ui/Dialog，照 Tern 里 omp 的 /models）：顶上是搜索框（没有标题和 ×，Esc、点遮罩、"关闭"关）；左栏是范围：角色 / 全部模型 / 各提供商；
+// 右边一张表（模型 | Int | t/s | Ctx | $/M，列名照 omp 原文）+ 参数行 + 三行控件（思考强度 / Prewalk / 预设）；页脚"关闭"+ 主按钮。
+// 全部模型：没有搜索词时"常用"在前，其余按提供商分组；有搜索词时是"匹配"。角色范围（或搜索框以 @ 开头）列角色，应用一个角色 = 之后选的模型给它。
+// 点行（或 ↑↓）只是选中：参数行和思考强度跟着选中的模型走；点"用于此任务"（Enter、双击行同）才切模型、设思考强度并关闭。
+// Tab 循环、Esc 关闭、焦点回到打开前的元素由 Dialog 负责。
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { usePresence } from "../../ui/presence.ts";
 import type { ModelInsights, ModelKey, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
+import { clampThinkingLevel, thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Check, Close, Plus, Search } from "../../icons.tsx";
+import { Close, Plus, Search, Check } from "../../icons.tsx";
 import { Badge, Button, IconButton, TextField } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { showView } from "../../store/index.ts";
 import { ModelDetails } from "./ModelDetails.tsx";
+import { RoleIcon } from "./RoleIcon.tsx";
 import { saveOmpModelRole } from "../settings/config-store.ts";
 import {
   builtinRoles,
@@ -48,9 +51,10 @@ function readRecent(): ModelKey[] {
 }
 
 export interface ModelPickerProps {
-  /** 正在生效的模型；表里它高亮并带勾，底部的思考强度也是针对它。 */
+  /** 正在生效的模型；表里它带勾，打开时选中的是它。 */
   model: ModelOption | null;
   thinkingLevel: ThinkingLevel | null;
+  /** 正在生效的模型的档位（任务里是 omp 报的，含 off）。 */
   thinkingLevels: readonly ThinkingLevel[];
   running: boolean;
   /** 读压缩设置用哪个项目的配置；草稿里没有项目时为 null（只看全局）。 */
@@ -90,8 +94,10 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
   const [insights, setInsights] = useState<ModelInsights | null>(null);
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<Scope>({ kind: "all" });
-  // 方向键 / 鼠标所在的行；null = 跟着正在生效的模型走。
-  const [cursor, setCursor] = useState<string | null>(null);
+  // 选中的行（点击、↑↓）：参数行和思考强度跟着它走，"用于此任务"才真的切换；null = 正在生效的模型。
+  const [selection, setSelection] = useState<string | null>(null);
+  // 分段条上点过的档位；null = 没动过（切模型时交给 omp 钳到新模型的档位）。
+  const [pickedLevel, setPickedLevel] = useState<ThinkingLevel | null>(null);
   // 给谁选模型：default = 切换本任务（草稿里是新任务默认）的模型；其它角色 = 给那个角色指定模型，写进 omp 配置。
   const [roles, setRoles] = useState<Record<string, string> | null>(null);
   const [roleTab, setRoleTab] = useState("default");
@@ -136,7 +142,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
   const view = useMemo(() => roleView(roles ?? {}, models ?? []), [roles, models]);
   const providers = useMemo(() => providerCounts(models ?? []), [models]);
   const roleMode = roleTab !== "default";
-  // 表里高亮、打勾、底部"当前"指的模型：给角色选时是这个角色现在的模型。
+  // 表里打勾的模型：给角色选时是这个角色现在的模型。
   const activeModel = roleMode ? (view.modelOf[roleTab] ?? null) : model;
   const scopeProvider = scope.kind === "provider" ? scope.provider : null;
 
@@ -172,34 +178,41 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
     [roleMatches, rows, view],
   );
   const currentId = roleMatches !== null ? roleItemId(roleTab) : activeModel ? modelItemId(activeModel.key) : null;
-  const cursorItem = items.find((item) => item.id === (cursor ?? currentId)) ?? items[0] ?? null;
-  const cursorId = cursorItem?.id ?? null;
-  const shown = cursorItem === null ? null : cursorItem.option;
+  const selectedItem = items.find((item) => item.id === (selection ?? currentId)) ?? items[0] ?? null;
+  const selectedId = selectedItem?.id ?? null;
+  const shown = selectedItem === null ? null : selectedItem.option;
   const shownIsCurrent = shown !== null && activeModel !== null && sameModel(shown.key, activeModel.key);
 
   useEffect(() => {
-    tableRef.current?.querySelector('[data-highlighted="true"]')?.scrollIntoView({ block: "nearest" });
-  }, [cursorId]);
+    tableRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [selectedId]);
 
-  const pick = (option: ModelOption): Promise<void> => {
-    const recent = [option.key, ...readRecent().filter((key) => !sameModel(key, option.key))].slice(0, 3);
-    localStorage.setItem(recentKey, JSON.stringify(recent));
-    setCursor(modelItemId(option.key));
-    const done = roleMode ? saveOmpModelRole(props.projectId, roleTab, option.key) : props.setModel(option.key);
-    return done.then(reloadRoles).catch(report);
+  // 模型能用的档位：正在生效的模型用 omp 报的；别的模型按模型目录，omp 报的里有 off（任务里）时也给 off。
+  const levelsOf = (option: ModelOption): readonly ThinkingLevel[] => {
+    if (model !== null && sameModel(option.key, model.key)) return props.thinkingLevels;
+    const efforts = thinkingLevelOptions(option, []);
+    return efforts.length > 0 && props.thinkingLevels.includes("off") ? ["off", ...efforts] : efforts;
   };
+  // 分段条上亮哪一档：点过的，没点过是现在的；这个模型没有那一档时照 omp 的规则钳到最近的。
+  const levelIn = (levels: readonly ThinkingLevel[]): ThinkingLevel | null => {
+    const wanted = pickedLevel ?? thinkingLevel;
+    if (wanted === null || levels.length === 0) return null;
+    return levels.includes(wanted) ? wanted : clampThinkingLevel(wanted, levels);
+  };
+  const shownLevels = shown === null ? [] : levelsOf(shown);
+  const shownLevel = levelIn(shownLevels);
 
   const selectRole = (role: string) => {
     setRoleTab(role);
-    setCursor(null);
+    setSelection(null);
   };
 
   const selectScope = (next: Scope) => {
     setScope(next);
-    setCursor(null);
+    setSelection(null);
   };
 
-  // 角色行：切到这个角色（之后表里选模型 = 给它指定模型），搜索词清空，从角色范围回到全部模型。
+  // 应用角色行：切到这个角色（之后选的模型给它），搜索词清空，从角色范围回到全部模型。
   const applyRole = (role: string) => {
     selectRole(role);
     setQuery("");
@@ -207,16 +220,35 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
     searchRef.current?.focus();
   };
 
-  const activate = (item: Item) => {
-    if (item.kind === "role") applyRole(item.role);
-    else void pick(item.option);
+  // 用于此任务：先关对话框，切模型、设思考强度在后台按顺序做（omp 的往返不挡界面，失败弹 toast）；给角色选时是写 modelRoles。
+  const apply = (item: Item | null) => {
+    if (item === null) return;
+    if (item.kind === "role") {
+      applyRole(item.role);
+      return;
+    }
+    const option = item.option;
+    onClose();
+    localStorage.setItem(
+      recentKey,
+      JSON.stringify([option.key, ...readRecent().filter((key) => !sameModel(key, option.key))].slice(0, 3)),
+    );
+    if (roleMode) {
+      saveOmpModelRole(props.projectId, roleTab, option.key).catch(report);
+      return;
+    }
+    const switching = activeModel === null || !sameModel(option.key, activeModel.key);
+    const level = pickedLevel === null ? null : levelIn(levelsOf(option));
+    let done = switching ? props.setModel(option.key) : Promise.resolve();
+    if (level !== null && (switching || level !== thinkingLevel)) done = done.then(() => props.setThinking(level));
+    done.catch(report);
   };
 
   const move = (delta: number) => {
     if (items.length === 0) return;
-    const index = cursorItem ? items.indexOf(cursorItem) : -1;
+    const index = selectedItem ? items.indexOf(selectedItem) : -1;
     const next = items[Math.min(Math.max(index + delta, 0), items.length - 1)];
-    if (next) setCursor(next.id);
+    if (next) setSelection(next.id);
   };
 
   const onSearchKey = (event: KeyboardEvent) => {
@@ -225,27 +257,15 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
       move(event.key === "ArrowDown" ? 1 : -1);
     } else if (event.key === "Enter" && !(event.nativeEvent.isComposing || event.keyCode === 229)) {
       event.preventDefault();
-      if (cursorItem) activate(cursorItem);
+      apply(selectedItem);
     }
   };
 
-  const supportsThinking = model?.reasoning === true && props.thinkingLevels.length > 0;
   const roleHint = (role: string) =>
     t(`model.role.hint.${(builtinRoles as readonly string[]).includes(role) ? role : "custom"}` as MessageKey);
 
-  // 主按钮：角色行上 = 应用角色（切到它）；否则 = 选用高亮的模型并关闭（已经是当前模型就只关闭）。
   const atRoles = roleMatches !== null;
   const primaryLabel = atRoles || roleMode ? t("model.useRole") : t("model.use");
-  const onPrimary = () => {
-    if (cursorItem === null) return;
-    if (cursorItem.kind === "role") {
-      applyRole(cursorItem.role);
-    } else if (shownIsCurrent) {
-      onClose();
-    } else {
-      void pick(cursorItem.option).then(onClose);
-    }
-  };
 
   const total = atRoles
     ? view.tabs.length
@@ -268,7 +288,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
   };
 
   const renderItem = (item: Item): ReactNode => {
-    const isHighlighted = item.id === cursorId;
+    const isSelected = item.id === selectedId;
     const isCurrent =
       item.kind === "role"
         ? item.role === roleTab
@@ -280,26 +300,26 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
         key={item.id}
         id={`${listId}${item.id}`}
         role="option"
-        aria-selected={isCurrent}
+        aria-selected={isSelected}
         className="mp-row"
         data-testid={item.kind === "role" ? "model-role-option" : "model-option"}
         data-role={item.kind === "role" ? item.role : undefined}
-        data-highlighted={isHighlighted}
         data-current={isCurrent || undefined}
         title={
           item.kind === "role"
             ? `${roleLabel(item.role)}：${roleHint(item.role)}`
             : `${item.option.name}\n${item.option.key.provider}/${item.option.key.modelId}`
         }
-        onClick={() => activate(item)}
-        onMouseMove={() => {
-          if (!isHighlighted) setCursor(item.id);
-        }}
+        onClick={() => setSelection(item.id)}
+        onDoubleClick={() => apply(item)}
         onMouseDown={(event) => event.preventDefault()}
       >
         <span className="mp-cell-model">
           {item.kind === "role" ? (
             <>
+              <span className="mp-role-icon" aria-hidden="true">
+                <RoleIcon role={item.role} />
+              </span>
               <span className="mp-id-name">@{item.role}</span>
               <span className="mp-id-dim">
                 {option === null ? t("model.roleUnset") : `${option.key.provider}/${option.key.modelId}`}
@@ -312,8 +332,16 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
                 <span className="mp-id-name">{item.option.key.modelId}</span>
               </span>
               {(view.badges.get(modelItemId(item.option.key)) ?? []).map((role) => (
-                <span key={role} className="mp-role-badge" data-testid="model-role-badge" data-role={role}>
-                  {role}
+                <span
+                  key={role}
+                  className="mp-role-badge"
+                  data-testid="model-role-badge"
+                  data-role={role}
+                  role="img"
+                  aria-label={`@${role}`}
+                  title={`@${role}：${roleHint(role)}`}
+                >
+                  <RoleIcon role={role} size={12} />
                 </span>
               ))}
             </>
@@ -398,20 +426,23 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
             aria-haspopup="listbox"
             aria-expanded="true"
             aria-controls={listId}
-            aria-activedescendant={cursorId === null ? undefined : `${listId}${cursorId}`}
+            aria-activedescendant={selectedId === null ? undefined : `${listId}${selectedId}`}
             aria-label={t("model.search")}
             placeholder={t("model.search")}
             leading={<Search size={14} />}
             value={query}
             onChange={(next) => {
               setQuery(next);
-              setCursor(null);
+              setSelection(null);
             }}
             onKeyDown={onSearchKey}
           />
           {roleMode && (
             <span className="mp-target" data-testid="model-role-target">
-              <Badge tone="accent">{t("model.roleTarget", { role: roleLabel(roleTab) })}</Badge>
+              <Badge tone="accent">
+                <RoleIcon role={roleTab} size={12} />
+                {t("model.roleTarget", { role: roleLabel(roleTab) })}
+              </Badge>
               <IconButton
                 label={t("model.roleTargetClear")}
                 testId="model-role-clear"
@@ -426,35 +457,9 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
           </span>
         </div>
       }
-      footer={
-        <Button variant="primary" testId="model-use" disabled={cursorItem === null} onClick={onPrimary}>
-          {primaryLabel}
-        </Button>
-      }
-    >
-      <div className="mp-side">
-        <nav className="mp-scopes" aria-label={t("model.scopes")}>
-          {scopeButton({ kind: "roles" }, t("model.rolesGroup"), view.tabs.length, "model-scope-roles")}
-          {scopeButton({ kind: "all" }, t("model.all"), models?.length ?? 0, "model-scope-all")}
-          {providers.length > 0 && (
-            <p className="mp-scopes-head" aria-hidden="true">
-              {t("model.providers")}
-            </p>
-          )}
-          {providers.map((entry) =>
-            scopeButton(
-              { kind: "provider", provider: entry.provider },
-              entry.provider,
-              entry.count,
-              "model-scope-provider",
-              activeModel?.key.provider === entry.provider,
-            ),
-          )}
-        </nav>
+      footStart={
         <Button
           variant="quiet"
-          size="sm"
-          className="mp-add-provider"
           icon={<Plus size={14} />}
           testId="model-add-provider"
           onClick={() => {
@@ -464,7 +469,41 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
         >
           {t("model.addProvider")}
         </Button>
-      </div>
+      }
+      footer={
+        <>
+          <Button testId="model-close" onClick={onClose}>
+            {t("common.close")}
+          </Button>
+          <Button
+            variant="primary"
+            testId="model-use"
+            disabled={selectedItem === null}
+            onClick={() => apply(selectedItem)}
+          >
+            {primaryLabel}
+          </Button>
+        </>
+      }
+    >
+      <nav className="mp-side" aria-label={t("model.scopes")}>
+        {scopeButton({ kind: "roles" }, t("model.rolesGroup"), view.tabs.length, "model-scope-roles")}
+        {scopeButton({ kind: "all" }, t("model.all"), models?.length ?? 0, "model-scope-all")}
+        {providers.length > 0 && (
+          <p className="mp-scopes-head" aria-hidden="true">
+            {t("model.providers")}
+          </p>
+        )}
+        {providers.map((entry) =>
+          scopeButton(
+            { kind: "provider", provider: entry.provider },
+            entry.provider,
+            entry.count,
+            "model-scope-provider",
+            activeModel?.key.provider === entry.provider,
+          ),
+        )}
+      </nav>
       <div className="mp-main">
         <div ref={tableRef} className="mp-table">
           <div className="mp-cols" aria-hidden="true">
@@ -493,37 +532,37 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
               insights={insights}
             />
           )}
-          {roleMode ? (
+          {roleMode || atRoles ? (
             <div className="mp-hints">
               <p className="mp-hint" data-testid="model-role-use">
-                {t("model.roleUse", { hint: roleHint(roleTab) })}
+                {t("model.roleUse", {
+                  hint: roleHint(atRoles && selectedItem?.kind === "role" ? selectedItem.role : roleTab),
+                })}
               </p>
-              <p className="mp-hint" data-testid="model-role-saved">
-                {t("model.roleSaved")}
-              </p>
+              {roleMode && !atRoles && (
+                <p className="mp-hint" data-testid="model-role-saved">
+                  {t("model.roleSaved")}
+                </p>
+              )}
             </div>
           ) : (
             <>
-              <div className="mp-ctl">
-                <span className="mp-ctl-label">{t("model.thinking")}</span>
-                <div className="mp-ctl-body">
-                  {!shownIsCurrent ? (
-                    <span className="mp-hint">{t("model.thinking.pending")}</span>
-                  ) : !supportsThinking ? (
-                    <span className="mp-hint">{t("model.thinking.unsupported")}</span>
-                  ) : (
-                    <>
-                      <ThinkingSegments
-                        levels={props.thinkingLevels}
-                        level={thinkingLevel}
-                        onPick={(level) => void props.setThinking(level).catch(report)}
-                      />
-                      {running && <span className="mp-hint">{t("composer.nextRequest")}</span>}
-                    </>
-                  )}
-                  {props.speed && shownIsCurrent && <SpeedToggle speed={props.speed} />}
+              {shown !== null && (
+                <div className="mp-ctl">
+                  <span className="mp-ctl-label">{t("model.thinking")}</span>
+                  <div className="mp-ctl-body">
+                    {shownLevels.length === 0 ? (
+                      <span className="mp-hint">{t("model.thinking.unsupported")}</span>
+                    ) : (
+                      <>
+                        <ThinkingSegments levels={shownLevels} level={shownLevel} onPick={setPickedLevel} />
+                        {running && <span className="mp-hint">{t("composer.nextRequest")}</span>}
+                      </>
+                    )}
+                    {props.speed && shownIsCurrent && <SpeedToggle speed={props.speed} />}
+                  </div>
                 </div>
-              </div>
+              )}
               {props.taskId !== undefined && (
                 <PrewalkSection taskId={props.taskId} model={model} smol={view.modelOf["smol"] ?? null} />
               )}

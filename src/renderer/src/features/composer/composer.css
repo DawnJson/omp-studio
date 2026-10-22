@@ -161,7 +161,7 @@ button.usage-context:hover,
 }
 
 /* 工具条胶囊统一用 ui/controls.css 的 .ui-chip（28 高、无底色、悬停 / 打开时 --bg-hover）。这里只放模型胶囊的收缩和内部排版。 */
-/* 模型胶囊：左边档位刻度、右边模型名，两个 .ui-chip 拼成一颗（各自悬停有底）。工具行再挤也能收窄（名字省略），
+/* 模型胶囊：左边模型名、右边档位刻度，两个 .ui-chip 拼成一颗（各自悬停有底）。工具行再挤也能收窄（名字省略），
    但不窄过名字的最小宽；审批胶囊不收窄（见上面 .composer-tools > .ui-popover-anchor）。 */
 .chip-model {
   display: inline-flex;
@@ -175,11 +175,11 @@ button.usage-context:hover,
   overflow: hidden;
 }
 .ui-chip.chip-effort {
-  padding: 0 var(--space-1) 0 var(--space-2-5);
+  padding: 0 var(--space-2-5) 0 var(--space-1);
 }
-.chip-effort + .ui-chip.chip-name {
-  min-width: calc(var(--chip-name-min-w) + var(--space-1) + var(--space-2-5));
-  padding-left: var(--space-1);
+.ui-chip.chip-name:has(+ .chip-effort) {
+  min-width: calc(var(--chip-name-min-w) + var(--space-2-5) + var(--space-1));
+  padding-right: var(--space-1);
 }
 .chip-text {
   overflow: hidden;
@@ -957,12 +957,16 @@ html[data-motion="reduced"] .ctx-usage-chev {
   font-size: var(--fs-xs);
 }
 
-/* 模型选择对话框（ui/Dialog，className mp-dialog，照 Tern 里 omp 的 /models）：加宽到 --dialog-w-xl、定高（表自己滚）。
+/* 模型选择对话框（ui/Dialog，className mp-dialog，照 Tern 里 omp 的 /models）：加宽到 --dialog-w-xl。
    顶上是搜索框（Dialog 的 head，没有标题和 ×）；正文两栏：左栏范围（角色 / 全部模型 / 各提供商，样子同设置页左栏），
-   右栏一张表（粘性表头）+ 参数行 + 三行控件。数字列按 ch 定宽，等宽右对齐。 */
+   右栏一张表（粘性表头）+ 参数行 + 三行控件；页脚左边"添加提供商…"，右边"关闭"+ 主按钮。
+   高度跟右栏内容走（最低 360、最高 84vh，表自己滚；左栏不撑高度，自己滚）。贴着上方 8vh 放，
+   打字过滤时只有下沿动，搜索框不跳。数字列按 px 定宽：表头和行字体不同，按 ch 算出来的列宽对不齐。 */
 .mp-dialog {
-  --mp-cols: minmax(0, 1fr) 5ch 6ch 7ch 13ch var(--space-6);
-  height: min(85vh, var(--content-w));
+  --mp-cols: minmax(0, 1fr) 36px 40px 48px 88px var(--space-5);
+  align-self: flex-start;
+  margin-top: 8vh;
+  max-height: min(84vh, var(--content-w));
 }
 .ui-dialog.mp-dialog[data-size] {
   --dialog-w: var(--dialog-w-xl);
@@ -993,9 +997,10 @@ html[data-motion="reduced"] .ctx-usage-chev {
 }
 .mp-dialog .ui-dialog-body {
   grid-template-columns: var(--sidebar-w-min) minmax(0, 1fr);
-  flex: 1 1 0;
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1 1 auto;
   gap: 0;
-  min-height: 0;
+  min-height: 360px;
   padding: 0;
   overflow: hidden;
 }
@@ -1004,14 +1009,10 @@ html[data-motion="reduced"] .ctx-usage-chev {
   flex-direction: column;
   min-height: 0;
   padding: var(--space-3) var(--space-2);
-  border-right: 1px solid var(--border-subtle);
-}
-.mp-scopes {
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
-  min-height: 0;
   overflow-y: auto;
+  border-right: 1px solid var(--border-subtle);
+  /* 不按自己的内容撑高对话框：提供商再多也只占右栏的高度，多出来的在左栏里滚 */
+  contain: size;
 }
 .mp-scope {
   display: flex;
@@ -1068,10 +1069,11 @@ html[data-motion="reduced"] .ctx-usage-chev {
   font-size: var(--fs-xs);
   color: var(--text-3);
 }
-.mp-add-provider {
+/* 角色图标：角色行的行首、参数行的角色胶囊、"为 X 选模型"标记里 */
+.mp-role-icon {
+  display: inline-flex;
   flex: none;
-  justify-content: flex-start;
-  margin-top: var(--space-2);
+  color: var(--text-2);
 }
 .mp-main {
   display: flex;
@@ -1081,18 +1083,20 @@ html[data-motion="reduced"] .ctx-usage-chev {
   min-height: 0;
   padding: var(--space-2) var(--space-5) var(--space-3);
 }
+/* 模型行上它被分配到的角色：只画图标，名字在悬停提示里 */
 .mp-role-badge {
+  display: inline-grid;
   flex: none;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
+  place-items: center;
+  width: 20px;
+  height: 18px;
+  border-radius: var(--radius-sm);
   background: var(--bg-hover);
   color: var(--text-2);
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-xs);
 }
 /* 表：表头粘在顶部，行是 grid（模型 | 智能 | 速度 | 上下文 | 价格 | 勾）。 */
 .mp-table {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   margin: 0 calc(-1 * var(--space-2));
   padding: 0 var(--space-2) var(--space-2);
@@ -1140,10 +1144,11 @@ html[data-motion="reduced"] .ctx-usage-chev {
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out);
 }
-.mp-row[data-highlighted="true"] {
+/* 悬停 --bg-hover；选中的行（点击、↑↓，参数行和思考强度跟着它）--bg-active；正在生效的模型行尾一个勾 */
+.mp-row:hover {
   background: var(--bg-hover);
 }
-.mp-row[data-current] {
+.mp-row[aria-selected="true"] {
   background: var(--bg-active);
 }
 .mp-cell-model {
@@ -1227,13 +1232,18 @@ html[data-motion="reduced"] .ctx-usage-chev {
   background: var(--accent-soft);
   color: var(--accent);
 }
+.mp-pill[data-kind="role"] {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+}
 /* 一行控件：标签列 88 + 内容；三行（思考强度 / Prewalk / 预设）左缘对齐。 */
 .mp-ctl {
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr);
   align-items: center;
   gap: var(--space-3);
-  min-height: var(--control-h-sm);
+  min-height: var(--control-h-md);
 }
 .mp-ctl-body {
   display: flex;
@@ -1241,6 +1251,14 @@ html[data-motion="reduced"] .ctx-usage-chev {
   align-items: center;
   gap: var(--space-2) var(--space-4);
   min-width: 0;
+}
+/* 思考强度分段条：md 高，每档等宽、至少 56 */
+.mp-ctl-body > .ui-seg {
+  flex: 0 1 auto;
+}
+.mp-ctl-body > .ui-seg > button {
+  flex: 1 1 0;
+  min-width: 56px;
 }
 .mp-hints {
   display: grid;

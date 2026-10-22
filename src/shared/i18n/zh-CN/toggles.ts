@@ -21,7 +21,7 @@ export const toggles = {
   prewalk: "Prewalk",
   "prewalk.plan": "先用 {from} 规划，第一次改文件时换成 {to}",
   "prewalk.current": "当前模型",
-  "prewalk.noSmol": "没有设置 smol 模型（在上面的 Smol 页签里选），换不了模型",
+  "prewalk.noSmol": "没有设置 smol 模型（在左栏“角色”里给 Smol 选），换不了模型",
   "prewalk.sameModel": "smol 模型和当前模型相同，Prewalk 不起作用",
   "prewalk.arm": "启用",
   "prewalk.restart": "重来",

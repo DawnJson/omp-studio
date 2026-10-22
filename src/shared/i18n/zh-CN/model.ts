@@ -43,7 +43,6 @@ export const model = {
   unknown: "未知",
   free: "免费或未标价",
   current: "当前",
-  "thinking.pending": "选用此模型后可调",
   fast: "快速模式",
   "fast.hint": "更快的服务层级，只对本会话生效；模型不支持时 omp 会拒绝。",
   slow: "慢速模式",

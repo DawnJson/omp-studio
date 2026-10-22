@@ -1,10 +1,10 @@
-// 模型 + 思考强度的胶囊（spec 4.14）：左边是档位刻度（点它或 Alt T 轮换思考强度），右边是模型名（点开模型选择对话框
-// ModelPicker；Alt M / 命令面板也能打开）。刻度的格数是这个模型的档位数，亮几格是第几档，颜色和运行中的动效按档位
+// 模型 + 思考强度的胶囊（spec 4.14）：左边是模型名（点开模型选择对话框 ModelPicker；Alt M / 命令面板也能打开），右边是
+// 档位刻度（点它或 Alt T 轮换思考强度）。刻度的格数是这个模型的档位数，亮几格是第几档，颜色和运行中的动效按档位
 // 加强（composer.css 的 .chip-effort[data-level]）；快速模式在模型名后面加一个闪电。
 // 思考强度是乐观更新：点下去（或 Alt T）立刻显示新值，omp 的往返（任务里要等会话空闲、草稿里要跑 `omp config`）在后台完成；
 // 失败时退回原值并报错。
 import { reportError } from "../../ui/errors.ts";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -99,23 +99,11 @@ export function ModelChip(task: ModelChipProps) {
   const showEffort = supportsThinking && efforts.length > 0 && levelText !== null;
   const effortText = t("composer.effort", { level: levelText ?? "", n: lit, total: efforts.length });
   const fastText = badges.includes("fast") ? t("composer.badge.fast") : null;
+  // 两颗按钮按下时不抢焦点：鼠标点开对话框，关掉后焦点回到原来的输入框，胶囊上不留焦点框。键盘 Tab 过来的照常有焦点框。
+  const keepFocus = (event: MouseEvent) => event.preventDefault();
   return (
     <>
       <div className="chip-model" data-testid="model-chip-group">
-        {showEffort && (
-          <button
-            type="button"
-            className="ui-chip chip-effort"
-            data-testid="chip-thinking"
-            data-level={thinkingLevel}
-            data-running={task.running || undefined}
-            aria-label={effortText}
-            title={`${effortText} (Alt T)`}
-            onClick={cycleThinking}
-          >
-            <EffortBars total={efforts.length} lit={lit} />
-          </button>
-        )}
         <button
           type="button"
           className="ui-chip chip-name"
@@ -124,6 +112,7 @@ export function ModelChip(task: ModelChipProps) {
           aria-expanded={open}
           aria-label={t("composer.modelChip")}
           title={fastText === null ? name : `${name} · ${fastText}`}
+          onMouseDown={keepFocus}
           onClick={() => setOpen(true)}
         >
           <span className="chip-text">{name}</span>
@@ -138,6 +127,21 @@ export function ModelChip(task: ModelChipProps) {
             </span>
           )}
         </button>
+        {showEffort && (
+          <button
+            type="button"
+            className="ui-chip chip-effort"
+            data-testid="chip-thinking"
+            data-level={thinkingLevel}
+            data-running={task.running || undefined}
+            aria-label={effortText}
+            title={`${effortText} (Alt T)`}
+            onMouseDown={keepFocus}
+            onClick={cycleThinking}
+          >
+            <EffortBars total={efforts.length} lit={lit} />
+          </button>
+        )}
       </div>
       <ModelPicker
         {...pickerProps}

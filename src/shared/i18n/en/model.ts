@@ -44,7 +44,6 @@ export const model = {
   unknown: "Unknown",
   free: "Free or unpriced",
   current: "Current",
-  "thinking.pending": "Adjustable once selected",
   fast: "Fast mode",
   "fast.hint": "A faster service tier for this session only; omp rejects it on models that don't support it.",
   slow: "Slow mode",

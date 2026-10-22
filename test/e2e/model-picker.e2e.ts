@@ -1,6 +1,7 @@
-// 模型选择对话框的角色范围：给非 default 角色指定模型，写进 omp 的 modelRoles（持久化），重新打开能看到徽标。
-// 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR，里面一个 auth: none 的本地 provider 提供两个模型；不连任何真实服务。
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+// 模型选择对话框：点行只是选中，"用于此任务" / "应用角色"才写进 omp 配置并关闭；角色范围给非 default 角色指定模型
+// （写进 omp 的 modelRoles，持久化），重新打开能看到徽标。
+// 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR，里面一个 auth: none 的本地 provider；不连任何真实服务。
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -18,7 +19,7 @@ async function roles(page: Page): Promise<Record<string, string>> {
   return page.evaluate(() => globalThis.studio.getModelRoles(null));
 }
 
-test("角色范围：选 Task 再选模型，modelRoles.task 写入 omp 配置，default 不动；重新打开有 task 徽标", async () => {
+test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp 配置，default 不动；重新打开有 task 徽标", async () => {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-roles-"));
   await writeFile(path.join(agentDir, "models.yml"), modelsYml, "utf8");
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
@@ -46,22 +47,26 @@ test("角色范围：选 Task 再选模型，modelRoles.task 写入 omp 配置�
     await expect(page.getByTestId("model-scope-all")).toHaveAttribute("aria-current", "true");
     await expect(page.getByTestId("model-role-use")).toBeVisible();
 
-    // 点模型 = 给 task 指定它。
+    // 顶栏的 × 改回给 default 选；@ 开头搜角色、Enter 再切回 task。
+    await page.getByTestId("model-role-clear").click();
+    await expect(page.getByTestId("model-role-target")).toHaveCount(0);
+    await page.getByTestId("model-search").fill("@task");
+    await page.getByTestId("model-search").press("Enter");
+    await expect(page.getByTestId("model-role-target")).toContainText("Task");
+
+    // 点模型只是选中，还没写；"应用角色"才给 task 指定它并关闭。
     await page.getByTestId("model-search").fill("role-two");
     const option = page.getByTestId("model-option").first();
     await expect(option).toBeVisible({ timeout: 30_000 });
     await option.click();
+    await expect(option).toHaveAttribute("aria-selected", "true");
+    expect((await roles(page))["task"]).toBeUndefined();
+    await page.getByTestId("model-use").click();
+    await expect(page.getByTestId("model-picker")).toHaveCount(0);
     await expect.poll(async () => (await roles(page))["task"], { timeout: 30_000 }).toBe("role-local/role-two");
     expect((await roles(page))["default"]).toBeUndefined();
-    await expect(option.getByTestId("model-role-badge")).toHaveText("task");
 
-    // 顶栏的 × 改回给 default 选。
-    await page.getByTestId("model-role-clear").click();
-    await expect(page.getByTestId("model-role-target")).toHaveCount(0);
-
-    // 关掉再打开：徽标还在、角色行写着它的模型（读的是 omp 里持久化的值）。
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("model-picker")).toHaveCount(0);
+    // 重新打开：徽标在、角色行写着它的模型（读的是 omp 里持久化的值）。
     await openPicker(page);
     await page.getByTestId("model-search").fill("role-two");
     await expect(page.getByTestId("model-option").first().locator('[data-role="task"]')).toBeVisible({
@@ -77,12 +82,13 @@ test("角色范围：选 Task 再选模型，modelRoles.task 写入 omp 配置�
 });
 
 const tableModelsYml =
-  "providers:\n  table-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: table-one\n        contextWindow: 1000000\n";
+  "providers:\n  table-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: table-one\n        contextWindow: 1000000\n      - id: table-two\n        reasoning: true\n        contextWindow: 400000\n";
 
-test("模型选择对话框：一张表、底部是生效模型的参数（窗口、速度）；Tab 在框内循环；搜索过滤；@ 列角色；Esc 后焦点回到胶囊；截图", async () => {
+test("模型选择对话框：一张表、表头和数字列对齐；Tab 在框内循环；搜索过滤；@ 列角色；点行只选中、用于此任务才切换；Esc 后焦点回到输入框；截图", async () => {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-picker-"));
   await writeFile(path.join(agentDir, "models.yml"), tableModelsYml, "utf8");
   await writeFile(path.join(agentDir, "config.yml"), "modelRoles:\n  default: table-local/table-one\n", "utf8");
+  const config = () => readFile(path.join(agentDir, "config.yml"), "utf8");
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
   try {
     const { page } = launched;
@@ -93,6 +99,9 @@ test("模型选择对话框：一张表、底部是生效模型的参数（窗�
       .toBe("ready");
     await page.setViewportSize({ width: 1200, height: 900 });
     const chip = page.getByTestId("model-chip");
+    await expect(chip).toHaveText("table-one", { timeout: 30_000 });
+    const input = page.getByTestId("composer-input");
+    await input.focus();
     await chip.click();
     const picker = page.getByTestId("model-picker");
     await expect(picker).toBeVisible();
@@ -101,6 +110,16 @@ test("模型选择对话框：一张表、底部是生效模型的参数（窗�
     await expect(page.getByTestId("model-option").first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("model-details")).toContainText("1M");
     await expect(page.getByTestId("model-speed").first()).not.toHaveText("…");
+    // 表头 Int / t/s / Ctx / $/M 和每行的数字右缘对齐（表头字体和行不同，曾经按 ch 定宽对不齐）。
+    const rightEdges = (selector: string) =>
+      page
+        .locator(selector)
+        .evaluateAll((cells) =>
+          (cells as unknown as { getBoundingClientRect(): { right: number } }[])
+            .slice(0, 4)
+            .map((cell) => Math.round(cell.getBoundingClientRect().right)),
+        );
+    expect(await rightEdges('[data-testid="model-option"] .mp-num')).toEqual(await rightEdges(".mp-cols .mp-num"));
     for (let i = 0; i < 8; i++) {
       await page.keyboard.press("Tab");
       expect(
@@ -121,7 +140,7 @@ test("模型选择对话框：一张表、底部是生效模型的参数（窗�
     await expect(provider.locator(".mp-scope-dot")).toHaveCount(1);
     await provider.click();
     await expect(provider).toHaveAttribute("aria-current", "true");
-    await expect(page.getByTestId("model-option")).toHaveCount(1);
+    await expect(page.getByTestId("model-option")).toHaveCount(2);
     await page.getByTestId("model-scope-all").click();
     // @ 开头列角色（每个角色一行，带绑定的模型），清空后回到模型表。
     await page.getByTestId("model-search").fill("@");
@@ -140,9 +159,33 @@ test("模型选择对话框：一张表、底部是生效模型的参数（窗�
       await setLocaleTheme(page, locale, scheme);
       await page.screenshot({ path: path.join(screenshotsDir, `main-model-picker-${locale}-${scheme}.png`) });
     }
+
+    // 点另一个模型只是选中：参数行和思考强度跟着它（它支持思考，档位可选），胶囊和 omp 配置都不变。
+    await page.getByTestId("model-search").fill("table-two");
+    await page.getByTestId("model-option").first().click();
+    await expect(page.getByTestId("model-details")).toContainText("400K");
+    await page.getByTestId("thinking-segments-high").click();
+    await expect(page.getByTestId("thinking-segments-high")).toHaveAttribute("aria-checked", "true");
+    await expect(chip).toHaveText("table-one");
+    expect(await config()).not.toContain("table-two");
+    // Esc 放弃：什么都没写；焦点回到打开前的输入框，胶囊上没有焦点框。
     await page.keyboard.press("Escape");
     await expect(picker).toHaveCount(0);
-    await expect(chip).toBeFocused();
+    await expect(input).toBeFocused();
+    await expect(chip).not.toBeFocused();
+    expect(await config()).not.toContain("table-two");
+
+    // 选中 + 档位 + "用于此任务"：关闭对话框，切到它并设好思考强度。
+    await chip.click();
+    await page.getByTestId("model-search").fill("table-two");
+    await page.getByTestId("model-option").first().click();
+    await page.getByTestId("thinking-segments-high").click();
+    await page.getByTestId("model-use").click();
+    await expect(picker).toHaveCount(0);
+    await expect.poll(config, { timeout: 30_000 }).toContain("default: table-local/table-two");
+    await expect.poll(config, { timeout: 30_000 }).toContain("defaultThinkingLevel: high");
+    await expect(chip).toHaveText("table-two", { timeout: 30_000 });
+    await expect(page.getByTestId("chip-thinking")).toHaveAttribute("data-level", "high");
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
