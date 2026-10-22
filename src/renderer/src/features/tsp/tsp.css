@@ -63,18 +63,6 @@
   --tsp-ansi-13: var(--syn-keyword);
   --tsp-ansi-14: var(--syn-type);
   --tsp-ansi-15: var(--text-2);
-  /* shiki 的 CSS 变量主题接到设计 token（同 markdown.css 的 .md） */
-  --shiki-foreground: var(--text);
-  --shiki-background: transparent;
-  --shiki-token-constant: var(--syn-number);
-  --shiki-token-string: var(--syn-string);
-  --shiki-token-comment: var(--syn-comment);
-  --shiki-token-keyword: var(--syn-keyword);
-  --shiki-token-parameter: var(--text);
-  --shiki-token-function: var(--syn-func);
-  --shiki-token-string-expression: var(--syn-string);
-  --shiki-token-punctuation: var(--syn-punct);
-  --shiki-token-link: var(--link);
   --tsp-stroke: calc(var(--icon-stroke) * 1px);
 
   position: relative;

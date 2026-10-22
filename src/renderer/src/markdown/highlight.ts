@@ -110,6 +110,23 @@ export function cachedHighlight(code: string, lang: string): HighlightToken[][] 
   return language ? (cache.get(cacheKey(code, language)) ?? null) : null;
 }
 
+async function ensureLoaded(core: HighlighterCore, language: string): Promise<void> {
+  if (loaded.has(language)) return;
+  const load = languages[language] as LangModule;
+  await core.loadLanguage((await load()).default);
+  loaded.add(language);
+}
+
+/** Markdown 源码里围栏代码块用到的语言：先加载，markdown 语法才会把块里的代码交给它着色。 */
+function fencedLanguages(code: string): string[] {
+  const names = new Set<string>();
+  for (const match of code.matchAll(/^[ \t]{0,3}(?:`{3,}|~{3,})[ \t]*([\w+#.-]+)/gm)) {
+    const language = resolveLanguage(match[1]!);
+    if (language) names.add(language);
+  }
+  return [...names];
+}
+
 export async function highlight(code: string, lang: string): Promise<HighlightToken[][] | null> {
   const language = resolveLanguage(lang);
   if (!language) return null;
@@ -117,11 +134,8 @@ export async function highlight(code: string, lang: string): Promise<HighlightTo
   const hit = cache.get(key);
   if (hit) return hit;
   const core = await getHighlighter();
-  if (!loaded.has(language)) {
-    const load = languages[language] as LangModule;
-    await core.loadLanguage((await load()).default);
-    loaded.add(language);
-  }
+  const needed = language === "markdown" ? [...fencedLanguages(code), language] : [language];
+  for (const name of needed) await ensureLoaded(core, name);
   const lines = core.codeToTokensBase(code, { lang: language, theme: themeName }).map((line) =>
     line.map((token) => ({
       text: token.content,

@@ -42,14 +42,6 @@
   gap: 2px;
   min-width: 0;
 }
-/* 控件比"开关"宽的行（分段控件）：说明占满第一行，控件和"本会话"标记在下一行靠右，免得说明被挤成一字一行 */
-.tg-row-stack {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-.tg-row-stack > .tg-text {
-  flex: 1 1 100%;
-}
 .tg-label {
   display: inline-flex;
   align-items: center;

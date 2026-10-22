@@ -94,7 +94,7 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
         onClose={close}
         label={t("toggles.title")}
         kind={confirming ? "confirm" : undefined}
-        width={confirming ? undefined : 340}
+        width={confirming ? undefined : 380}
       >
         {confirming ? (
           <div data-testid="toggles-computer-confirm">
@@ -136,11 +136,7 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
                 />
               );
             })}
-            <div
-              className="tg-row tg-row-stack"
-              data-testid="toggle-browser"
-              data-session={browser.session || undefined}
-            >
+            <div className="tg-row" data-testid="toggle-browser" data-session={browser.session || undefined}>
               <div className="tg-text">
                 <span id="tg-browser-label" className="tg-label">
                   {t("toggles.browser")}

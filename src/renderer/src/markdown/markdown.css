@@ -4,18 +4,6 @@
   line-height: var(--lh-prose);
   color: var(--text);
   overflow-wrap: anywhere;
-  /* 把 shiki 的 CSS 变量主题接到设计 token：深浅主题切换不用重新高亮。 */
-  --shiki-foreground: var(--text);
-  --shiki-background: transparent;
-  --shiki-token-constant: var(--syn-number);
-  --shiki-token-string: var(--syn-string);
-  --shiki-token-comment: var(--syn-comment);
-  --shiki-token-keyword: var(--syn-keyword);
-  --shiki-token-parameter: var(--text);
-  --shiki-token-function: var(--syn-func);
-  --shiki-token-string-expression: var(--syn-string);
-  --shiki-token-punctuation: var(--syn-punct);
-  --shiki-token-link: var(--link);
 }
 
 .md-block > :first-child {

@@ -143,7 +143,7 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 
 | TaskState | 来源 |
 |---|---|
-| `model` | dock 里 `omp.composer.model` 下的 text(显示名,如 "DeepSeek V4 Flash")→ 在模型目录(`PoolDeps.listModels` = 服务进程的 `get_available_models`,和草稿输入框同一份)里按 `name` 找;重名时先取刚选的、再取任务记录里的、再取第一个;目录里没有时用名字造一个只显示的占位(`provider: ""`);输入框还没出现时用任务记录里的模型 |
+| `model` | dock 里 `omp.composer.model` 下的 text(显示名,如 "DeepSeek V4 Flash")→ 在模型目录(`PoolDeps.listModels` = 服务进程的 `get_available_models`,和草稿输入框同一份)里按 `name` 找(omp 显示时去掉名字开头的 `Claude `,目录里的 "Claude Opus 5.5" 卡片上是 "Opus 5.5";omp 18.12.6 `packages/tui/src/status-line/segments.ts` 的 `modelDisplayName`,`composer-state.ts` 的 `isShownModelName`;以前按原名比,Claude 模型落到占位上、没有思考强度档位);重名时先取刚选的、再取任务记录里的、再取第一个;目录里没有时用名字造一个只显示的占位(`provider: ""`);输入框还没出现时用任务记录里的模型 |
 | `thinkingLevel` | `omp.composer.model.effort` 的 `p.level`;`auto`(omp 自选,不是 `ThinkingLevel`)为 null,退回记录里的值 |
 | `thinkingLevels` | 模型目录里的 `thinkingEfforts` 加 `off`;目录里没有时为空 |
 | `contextUsage` | `omp.composer.context`(meter):`p.value` × 100 = `percent`;`p.title` 的 "8.7K of 1M tokens" 给 `tokens` / `contextWindow`(K = 10³),没有时窗口取 `p.total`、再取目录里的 `contextWindow` |

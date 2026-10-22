@@ -37,6 +37,7 @@ import {
   deriveComposerInfo,
   findComposerTargets,
   findPicker,
+  isShownModelName,
   statusToastTexts,
   type TspComposerInfo,
   type TspComposerTargets,
@@ -999,9 +1000,10 @@ export class TspRunner {
 
   /** omp 显示的模型名 → 模型：重名时先取刚选的、再取记录里的，最后取目录里第一个；目录里没有时用名字造一个只显示用的。 */
   #resolveModel(name: string): ModelOption {
-    const candidates = this.#catalog.filter((option) => option.name === name);
-    if (this.#model?.name === name && !candidates.some((option) => sameKey(option.key, this.#model!.key)))
-      candidates.push(this.#model);
+    const candidates = this.#catalog.filter((option) => isShownModelName(option.name, name));
+    const own = this.#model;
+    if (own && isShownModelName(own.name, name) && !candidates.some((option) => sameKey(option.key, own.key)))
+      candidates.push(own);
     const preferred = [this.#chosenKey, this.#record.model];
     for (const key of preferred) {
       const hit = key && candidates.find((option) => sameKey(option.key, key));

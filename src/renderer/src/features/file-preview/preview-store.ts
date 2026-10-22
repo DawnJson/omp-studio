@@ -82,7 +82,7 @@ export function usePreviewPanel(): PanelState | null {
   return useStoreValue(store, (state) => state);
 }
 
-/** 面板宽度（px）；null = 默认占主区约 45%（CSS 里给）。只在内存，不持久化。 */
+/** 面板宽度（px）；null = 默认占主区约 36%（CSS 里给）。只在内存，不持久化。 */
 const widthStore = createStore<number | null>(null);
 
 export function setPreviewWidth(width: number): void {

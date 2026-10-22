@@ -198,10 +198,42 @@ test("空状态、对话里的用量；截图", async () => {
     // 这个任务的会话文件里还没有回复（假 omp 不写会话文件）：浮层是单栏，没有"会话用量"按钮，也没有空的左栏。
     await expect(page.getByTestId("session-usage-toggle")).toHaveCount(0);
     await expect(page.getByTestId("session-usage")).toHaveCount(0);
-    await shoot(page, "model-usage");
     await page.keyboard.press("Escape");
     await expect(breakdown).toHaveCount(0);
     await expect(page.getByTestId("context-meter")).toBeFocused();
+
+    // 有回复时（换掉主进程读会话用量的处理，给三个模型，用量栏比构成高）：点"会话用量"浮层向左加宽，
+    // 右边的构成原地不动，宽度也不变（文字不重新折行）。
+    await launched.app.evaluate(({ ipcMain }) => {
+      const row = (modelId: string, total: number) => ({
+        provider: "deepseek",
+        modelId,
+        input: total / 2,
+        output: total / 4,
+        cacheRead: total / 4,
+        cacheWrite: 0,
+        total,
+        cost: total / 1e6,
+        requests: 3,
+      });
+      ipcMain.removeHandler("studio:getSessionModelUsage");
+      ipcMain.handle("studio:getSessionModelUsage", () => ({
+        models: [row("deepseek-v4-flash", 120_000), row("deepseek-v4-pro", 80_000), row("deepseek-v4-lite", 9_000)],
+        compactions: 0,
+        whole: null,
+      }));
+    });
+    await page.getByTestId("context-meter").click();
+    const toggle = page.getByTestId("session-usage-toggle");
+    await expect(toggle).toBeVisible();
+    const before = await breakdown.boundingBox();
+    await toggle.click();
+    await expect(page.getByTestId("model-usage")).toHaveCount(3);
+    const after = await breakdown.boundingBox();
+    expect(after).toEqual(before);
+    await shoot(page, "model-usage");
+    await page.keyboard.press("Escape");
+    await expect(breakdown).toHaveCount(0);
     // 点费用：居中的对话框（不是贴着按钮的浮层），标题"用量与额度"，没有页签：订阅额度和每日用量热力图在同一页，
     // 对话框大小固定；没有"去设置看全年"；Esc 关闭后焦点回到费用。
     await cost.click();
@@ -235,6 +267,16 @@ test("空状态、对话里的用量；截图", async () => {
     expect(Math.abs((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) / 2 - viewport.width / 2)).toBeLessThanOrEqual(2);
     expect(Math.abs((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0) / 2 - viewport.height / 2)).toBeLessThanOrEqual(2);
     await expect(overview.getByRole("button", { name: /设置|Settings/ })).toHaveCount(0);
+    // 内容不超出对话框边框：汇总条、热力图的右边都在对话框里，正文不出横向滚动。
+    for (const testId of ["heatmap-section", "quota-section"]) {
+      const box = await overview.getByTestId(testId).boundingBox();
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0));
+    }
+    const bodyOverflows = await overview.locator(".ui-dialog-body").evaluate((element) => {
+      const body = element as unknown as { scrollWidth: number; clientWidth: number };
+      return body.scrollWidth > body.clientWidth;
+    });
+    expect(bodyOverflows).toBe(false);
     await shoot(page, "quota");
     await page.keyboard.press("Escape");
     await expect(overview).toHaveCount(0);

@@ -98,8 +98,12 @@
   }
 }
 
-/* 换页：新挂载的页面根节点淡入上移；输入框同属主区一起动，不单独蹦出来 */
-.panel > :is(.empty, .settings, .composer-stack, .composer) {
+/* 换页：新挂载的页面根节点淡入上移（从设置返回任务、切任务时的过程区也是）；输入框同属主区一起动，不单独蹦出来 */
+.panel > :is(.empty, .settings, .tsp-view, .composer-stack, .composer) {
+  animation: view-in var(--dur-base) var(--ease-out);
+}
+/* 进出设置时侧栏位置换成设置导航 / 换回会话列表：同样淡入 */
+.sidebar-column > :is(.sb, .snav) {
   animation: view-in var(--dur-base) var(--ease-out);
 }
 /* 草稿发出第一条消息后同一位置接着用：输入框不重放换页淡入（见 App.tsx fromDraft） */

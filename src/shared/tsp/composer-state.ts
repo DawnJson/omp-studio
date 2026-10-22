@@ -82,6 +82,14 @@ function modelNameParts(node: DocNode): { name: string; fast: boolean } {
   return { name: name.trim(), fast };
 }
 
+/**
+ * 输入框上的模型名是不是目录里这个模型：omp 的状态栏去掉了名字开头的 `Claude `（omp 18.12.6
+ * `packages/tui/src/status-line/segments.ts` 的 `modelDisplayName`），目录里是 "Claude Opus 5.5"，卡片上是 "Opus 5.5"。
+ */
+export function isShownModelName(catalogName: string, shown: string): boolean {
+  return catalogName === shown || (catalogName.startsWith("Claude ") && catalogName.slice(7) === shown);
+}
+
 /** "8.7K" / "1M" / "1,234" → 数。K = 10^3（实测：0.00797 × 1M ≈ 8K）。解析不了为 null。 */
 export function parseTokenCount(text: string): number | null {
   const match = /^\s*([\d.,]+)\s*([kKmMbB])?\s*$/.exec(text);

@@ -131,3 +131,30 @@ test("工具卡片上的文件链接在右侧打开预览，Esc 关闭、焦点�
     await cleanup();
   }
 });
+
+test("源码视图有语法颜色：md 源码里围栏代码块的语言也着色，html 源码同样", async () => {
+  const { launched, project, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await writeFile(path.join(project, "code.md"), "# 标题\n\n```ts\nconst answer: number = 42; // 注释\n```\n");
+    await writeFile(path.join(project, "code.html"), '<h1 class="title">hi</h1>\n<script>const x = 1;</script>\n');
+    // 源码区里不同颜色的数目（高亮异步，加载完才只改颜色）。
+    const colorCount = () =>
+      page.getByTestId("file-preview-body").evaluate((root) => {
+        const g = globalThis as unknown as { getComputedStyle(element: unknown): { color: string } };
+        const spans = (root as unknown as { querySelectorAll(selector: string): ArrayLike<unknown> }).querySelectorAll(
+          "pre span",
+        );
+        return new Set(Array.from(spans, (span) => g.getComputedStyle(span).color)).size;
+      });
+    await page.getByTestId("topbar-files").click();
+    for (const file of ["code.md", "code.html"]) {
+      await page.getByTestId("file-preview-page-files").click();
+      await page.locator(`[data-testid="file-tree-row"][data-path="${file}"]`).click();
+      await page.getByTestId("file-preview-mode-source").click();
+      await expect.poll(colorCount, { timeout: 15_000 }).toBeGreaterThanOrEqual(3);
+    }
+  } finally {
+    await cleanup();
+  }
+});

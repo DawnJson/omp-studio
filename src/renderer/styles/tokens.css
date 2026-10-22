@@ -127,6 +127,7 @@
   --dialog-w-sm: 400px;
   --dialog-w-md: 520px;
   --dialog-w-lg: 720px;
+  --dialog-w-usage: 960px; /* 用量与额度：汇总四格、额度两列、一年热力图都要横向空间 */
   --main-min-w: 480px; /* 主区（对话 + 输入框）的最小宽：右侧文件面板先让位，输入框工具行不被挤成三行 */
   --chip-name-min-w: 9ch; /* 输入框模型胶囊里模型名的最小宽：更窄就先收思考强度和路径，名字不缩成 "D…" */
   --palette-w: 600px;
@@ -186,6 +187,19 @@
   --travel-md: 8px; /* toast、用户消息、卡片 */
   --scale-pop: 0.98; /* 浮层出现起始缩放 */
   --play-state: running; /* 循环动画（呼吸、旋转、光标）统一写 animation-play-state: var(--play-state) */
+
+  /* Shiki 的 CSS 变量主题接到语法色：全应用一份，深浅主题切换不用重新高亮（markdown/highlight.ts） */
+  --shiki-foreground: var(--text);
+  --shiki-background: transparent;
+  --shiki-token-constant: var(--syn-number);
+  --shiki-token-string: var(--syn-string);
+  --shiki-token-comment: var(--syn-comment);
+  --shiki-token-keyword: var(--syn-keyword);
+  --shiki-token-parameter: var(--text);
+  --shiki-token-function: var(--syn-func);
+  --shiki-token-string-expression: var(--syn-string);
+  --shiki-token-punctuation: var(--syn-punct);
+  --shiki-token-link: var(--link);
 }
 
 /* 中文行高：正文 1.8 */

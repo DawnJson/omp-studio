@@ -518,6 +518,15 @@ describe("TSP 任务：输入框状态、切模型、提问时的发送", () => 
     );
   }, 60_000);
 
+  it("目录名以 `Claude ` 开头：omp 卡片上的名字去掉了这个前缀（omp 18.12.6），仍对上目录里的模型和思考强度档位", async () => {
+    const claudeNamed: ModelOption = { ...catalog[0]!, name: "Claude DeepSeek V4 Flash" };
+    const h = await harness(undefined, { listModels: async () => [claudeNamed] });
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    const state = await h.events.until(created.id, (s) => s.contextUsage !== null);
+    expect(state.model).toEqual(claudeNamed);
+    expect(state.thinkingLevels).toEqual(["off", "low", "medium", "high"]);
+  }, 60_000);
+
   it("setTaskModel：点模型胶囊、在选择器里 activate 那一项，omp 确认后 resolve", async () => {
     const h = await harness();
     h.next.fixture = "picker";

@@ -231,13 +231,12 @@ for (const [locale, colorScheme] of [
       await expect(myApp.getByTestId("sidebar-session")).toHaveCount(1);
       await search.fill("");
 
-      // 按时间：任务和会话平铺成一列，没有文件夹；先 8 行再"显示更多"。
+      // 按时间：任务和会话平铺成一列，没有文件夹；先显示 40 行，这里一共 11 行，全部露出、没有"显示更多"。
       await sidebar.getByTestId("sidebar-history-by-time").click();
       await expect(sidebar.getByTestId("sidebar-folder")).toHaveCount(0);
       await expect(sidebar.getByTestId("sidebar-session")).toHaveCount(2);
-      await expect(history.locator(".sb-row-main")).toHaveCount(8);
-      await history.getByTestId("sidebar-history-more").click();
       await expect(history.locator(".sb-row-main")).toHaveCount(11);
+      await expect(history.getByTestId("sidebar-history-more")).toHaveCount(0);
       await sidebar.getByTestId("sidebar-history-by-folder").click();
       await expect(sidebar.getByTestId("sidebar-folder")).toHaveCount(3);
 

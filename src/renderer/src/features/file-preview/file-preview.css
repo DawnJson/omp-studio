@@ -1,9 +1,9 @@
-/* 右侧文件预览面板：和主区"纸面"并排的另一张纸，默认占主区约 45%，左边缘可拖。只用 tokens.css 里的变量。 */
+/* 右侧文件预览面板：和主区"纸面"并排的另一张纸，默认占主区约 36%，左边缘可拖。只用 tokens.css 里的变量。 */
 
 .file-preview {
   position: relative;
   display: flex;
-  flex: 0 1 45%;
+  flex: 0 1 36%;
   flex-direction: column;
   min-width: 280px;
   max-width: 70%;

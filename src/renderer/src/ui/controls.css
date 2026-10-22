@@ -766,8 +766,10 @@
   color: var(--text-2);
   text-wrap: pretty;
 }
+/* 单列宽度锁在对话框内：网格项默认 min-width:auto，内容（热力图、不换行的数字）会把列撑出对话框边框 */
 .ui-dialog-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5) var(--space-1);
   overflow: auto;

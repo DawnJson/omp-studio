@@ -1,18 +1,5 @@
 /* 全屏评审。只用 tokens.css 里的变量；配色全部来自 token，换色板只改 tokens.css。 */
 .review {
-  /* 把 shiki 的 CSS 变量主题接到设计 token（同 markdown.css）。 */
-  --shiki-foreground: var(--text);
-  --shiki-background: transparent;
-  --shiki-token-constant: var(--syn-number);
-  --shiki-token-string: var(--syn-string);
-  --shiki-token-comment: var(--syn-comment);
-  --shiki-token-keyword: var(--syn-keyword);
-  --shiki-token-parameter: var(--text);
-  --shiki-token-function: var(--syn-func);
-  --shiki-token-string-expression: var(--syn-string);
-  --shiki-token-punctuation: var(--syn-punct);
-  --shiki-token-link: var(--link);
-
   position: fixed;
   inset: var(--titlebar-h) 0 0 0;
   /* 比输入框栈（--z-sticky + 1）再高一层：评审盖住整个窗口，输入框不能透出来；仍低于菜单、对话框（--z-popover 起）。 */

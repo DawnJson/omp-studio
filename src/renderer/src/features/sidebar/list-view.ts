@@ -3,7 +3,7 @@ import type { TaskId } from "../../../../shared/ipc.ts";
 import type { SidebarFolder, SidebarItem } from "../../../../shared/ui/sidebar-model.ts";
 
 /** 按时间排列时先显示几行。 */
-export const initialByTime = 8;
+export const initialByTime = 40;
 /** 按文件夹排列时，一个展开的文件夹先显示几行。 */
 export const initialPerFolder = 5;
 /** "显示更多"每次多露出几行。 */

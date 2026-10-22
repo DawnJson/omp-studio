@@ -286,20 +286,25 @@ button.usage-context:hover,
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
 }
-/* 上下文浮层展开"会话用量"时：左边用量明细、右边上下文构成，中间一条竖线；构成那一栏宽度不变 */
+/* 上下文浮层展开"会话用量"时：左边用量明细、右边上下文构成，中间一条竖线。
+ * 构成那一栏不动：浮层加宽的 300px（UsageMeter.tsx 的 usageWidth）正好是用量栏连同外边距占的宽度，构成栏宽度和单栏时相同；
+ * 浮层从圆环往上长：用量栏更高时构成栏贴底（浮层到了 60vh 开始滚动时也粘在可见区域底部），留在原来的位置。 */
 .ctx-pop {
   display: flex;
   align-items: stretch;
   min-width: 0;
 }
 .ctx-pop-main {
+  position: sticky;
+  bottom: 0;
   display: flex;
-  flex: 1 1 320px;
+  flex: 1 1 0;
   flex-direction: column;
+  align-self: flex-end;
   min-width: 0;
 }
 .ctx-pop-aside {
-  flex: 1 1 300px;
+  flex: 0 1 calc(300px - var(--space-3));
   min-width: 0;
   padding-right: var(--space-3);
   margin-right: var(--space-3);
@@ -493,9 +498,12 @@ html[data-motion="reduced"] .ctx-usage-chev {
   margin: 0;
 }
 
-/* 费用点开的用量对话框（ui/Dialog lg，className usage-dialog）：高度跟内容走，没有额度账号时不留空；窗口矮了由 Dialog 正文滚动。
+/* 费用点开的用量对话框（ui/Dialog lg 再加宽到 --dialog-w-usage，className usage-dialog）：高度跟内容走，没有额度账号时不留空；窗口矮了由 Dialog 正文滚动。
    汇总条、账号块和热力图的组件、样式见 usage-views.tsx / usage.css，这里只改额度的版式：每个账号一张卡，卡内窗口按两列排，
    每个窗口 = 名称 + 重置时间 + 剩余（重置在剩余左边，同一行，右对齐、等宽数字）/ 整宽进度条。 */
+.ui-dialog.usage-dialog[data-size] {
+  --dialog-w: var(--dialog-w-usage);
+}
 .usage-dialog .qm {
   gap: var(--space-5);
 }
