@@ -33,7 +33,8 @@ import { useAttach } from "./use-attach.ts";
 import { useDraftView } from "./use-draft-view.ts";
 import { useReclaimFocus } from "./use-reclaim-focus.ts";
 import { useFirstPrompt } from "../tsp/first-prompt-store.ts";
-import { peekGateButton, useTspPanelOpen } from "../tsp/tsp-store.ts";
+import { peekGateButton, peekTspDocument, useTspPanelOpen } from "../tsp/tsp-store.ts";
+import { userMessageTexts } from "../../../../shared/tsp/user-messages.ts";
 import { GATE_ACTION_APPROVE, GATE_ACTION_DETAILS, TSP_APPROVAL_DIALOG_ID } from "../../../../shared/tsp/gate.ts";
 import { PathLabel } from "../empty/ProjectLabel.tsx";
 import { Button } from "../../ui/controls.tsx";
@@ -232,7 +233,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
       }
     }
     if (fileMenu.onKeyDown(event)) return;
-    // 输入历史：菜单没抢走 ↑↓ 时，空输入框（或光标在最开头）按 ↑ 翻看本任务发过的消息。
+    // 输入历史：菜单没抢走 ↑↓ 时，空输入框（或光标在最开头）按 ↑ 翻看这个会话里发过的消息。
     if (
       (event.key === "ArrowUp" || event.key === "ArrowDown") &&
       !composing &&
@@ -244,12 +245,13 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
       const field = event.currentTarget;
       const direction = event.key === "ArrowUp" ? "up" : "down";
       // 带附件 / 大段粘贴的草稿不翻历史：换掉文字会把它们一起丢掉。
+      const session = userMessageTexts(peekTspDocument(taskId));
       if (
         field.selectionStart === field.selectionEnd &&
         view.spans.length === 0 &&
-        shouldCycle(direction, view.text, field.selectionStart, isCycling(taskId), hasHistory(taskId))
+        shouldCycle(direction, view.text, field.selectionStart, isCycling(taskId), hasHistory(taskId, session))
       ) {
-        const next = cycleHistory(taskId, draft.text, direction);
+        const next = cycleHistory(taskId, session, draft.text, direction);
         if (next !== null) {
           event.preventDefault();
           setRecalled(next);

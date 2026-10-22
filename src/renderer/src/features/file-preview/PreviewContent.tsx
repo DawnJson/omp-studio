@@ -1,5 +1,5 @@
 // 预览页的正文：md 渲染 / 图片（svg 也只当图片）/ html 沙箱 iframe / 其余文本高亮源码；二进制和过大文件只给提示。
-import { useState } from "react";
+import { useRef, useState, type RefObject } from "react";
 import type { PreviewFile } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Markdown } from "../../markdown/index.ts";
@@ -36,13 +36,77 @@ interface ContentProps {
   source: boolean;
   scripts: boolean;
   zoom: number | "fit";
+  /** 图片元素：缩放按钮要从"适应窗口"时的实际比例开始算。 */
+  imageRef: RefObject<HTMLImageElement | null>;
   isMarkdown: boolean;
   onExternal: (() => void) | null;
 }
 
-export function PreviewContent({ file, ext, name, source, scripts, zoom, isMarkdown, onExternal }: ContentProps) {
-  const t = useT();
+/**
+ * 图片：放大后按住左键拖动平移（滚动外框）。原生拖动关掉：拖的是整张 data URL 图片，又慢又会被当成拖进来的文件；
+ * 适应窗口时整张图都在眼前，不平移。
+ */
+function ImageView({
+  src,
+  alt,
+  zoom,
+  imageRef,
+}: {
+  src: string;
+  alt: string;
+  zoom: number | "fit";
+  imageRef: RefObject<HTMLImageElement | null>;
+}) {
   const [natural, setNatural] = useState(0);
+  const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+  const end = () => {
+    pan.current = null;
+  };
+  return (
+    <div
+      className="file-preview-image"
+      data-fit={zoom === "fit" || undefined}
+      onPointerDown={(event) => {
+        if (zoom === "fit" || event.button !== 0) return;
+        const box = event.currentTarget;
+        pan.current = { x: event.clientX, y: event.clientY, left: box.scrollLeft, top: box.scrollTop };
+        box.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      }}
+      onPointerMove={(event) => {
+        const start = pan.current;
+        if (start === null) return;
+        event.currentTarget.scrollLeft = start.left - (event.clientX - start.x);
+        event.currentTarget.scrollTop = start.top - (event.clientY - start.y);
+      }}
+      onPointerUp={end}
+      onPointerCancel={end}
+    >
+      <img
+        ref={imageRef}
+        src={src}
+        alt={alt}
+        draggable={false}
+        data-testid="file-preview-image"
+        style={zoom === "fit" || natural === 0 ? undefined : { width: natural * zoom }}
+        onLoad={(event) => setNatural(event.currentTarget.naturalWidth)}
+      />
+    </div>
+  );
+}
+
+export function PreviewContent({
+  file,
+  ext,
+  name,
+  source,
+  scripts,
+  zoom,
+  imageRef,
+  isMarkdown,
+  onExternal,
+}: ContentProps) {
+  const t = useT();
   switch (file.kind) {
     case "missing":
       return <p className="file-preview-note">{t("preview.missing", { path: file.path })}</p>;
@@ -61,17 +125,7 @@ export function PreviewContent({ file, ext, name, source, scripts, zoom, isMarkd
     case "image": {
       const dataUrl = file.dataUrl ?? "";
       if (source) return <CodeBlock code={decodeDataUrl(dataUrl)} lang="xml" closed />;
-      return (
-        <div className="file-preview-image" data-fit={zoom === "fit" || undefined}>
-          <img
-            src={dataUrl}
-            alt={t("preview.imageAlt", { name })}
-            data-testid="file-preview-image"
-            style={zoom === "fit" || natural === 0 ? undefined : { width: natural * zoom }}
-            onLoad={(event) => setNatural(event.currentTarget.naturalWidth)}
-          />
-        </div>
-      );
+      return <ImageView src={dataUrl} alt={t("preview.imageAlt", { name })} zoom={zoom} imageRef={imageRef} />;
     }
     case "html":
       if (source) return <CodeBlock code={file.text ?? ""} lang="html" closed />;

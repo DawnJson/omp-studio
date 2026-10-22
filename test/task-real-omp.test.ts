@@ -48,6 +48,7 @@ describe.skipIf(!enabled)("真实 omp", () => {
         reduceMotion: false,
         enterWhileRunning: "steer",
         notifyOnGate: true,
+        soundOnDone: false,
         copyOnSelect: true,
         yoloConfirmed: false,
       }),

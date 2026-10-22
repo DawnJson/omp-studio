@@ -1,4 +1,4 @@
-// 设置 → 通用：外观（第一行语言、主题；第二行减少动效、通知、选中即复制）；任务运行中发消息的方式（studio 的 Enter + omp 的
+// 设置 → 通用：外观（两两一行：语言、主题；减少动效、选中即复制；等你时通知、完成提示音）；任务运行中发消息的方式（studio 的 Enter + omp 的
 // 插话/稍后处理方式，两两一行）；快捷键（只读，三列）。格子排法见 settings.css 的 .st-cells。
 import type { LocalePreference, ThemePreference } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
@@ -84,8 +84,6 @@ export function GeneralSection() {
             />
           )}
         </Row>
-      </div>
-      <div className="st-cells" data-cols="3">
         <Row label={t("settings.motion")} info={t("settings.motion.desc")}>
           {(labelId) => (
             <>
@@ -100,6 +98,16 @@ export function GeneralSection() {
             </>
           )}
         </Row>
+        <Row label={t("settings.copyOnSelect")} info={t("settings.copyOnSelect.desc")}>
+          {(labelId) => (
+            <Switch
+              checked={settings?.copyOnSelect ?? true}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setCopyOnSelect(next)}
+              testId="setting-copy-on-select"
+            />
+          )}
+        </Row>
         <Row label={t("settings.notifyWaiting")} info={t("settings.notifyWaiting.desc")}>
           {(labelId) => (
             <Switch
@@ -110,13 +118,13 @@ export function GeneralSection() {
             />
           )}
         </Row>
-        <Row label={t("settings.copyOnSelect")} info={t("settings.copyOnSelect.desc")}>
+        <Row label={t("settings.soundOnDone")} info={t("settings.soundOnDone.desc")}>
           {(labelId) => (
             <Switch
-              checked={settings?.copyOnSelect ?? true}
+              checked={settings?.soundOnDone ?? false}
               labelledBy={labelId}
-              onChange={(next) => void window.studio.setCopyOnSelect(next)}
-              testId="setting-copy-on-select"
+              onChange={(next) => void window.studio.setSoundOnDone(next)}
+              testId="setting-sound-on-done"
             />
           )}
         </Row>

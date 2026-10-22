@@ -36,6 +36,9 @@ export const settings = {
   notifyWaiting: "Notify when a task needs me",
   "notifyWaiting.desc":
     "System notifications when a task needs your approval, and when a task finishes or fails while the window is hidden in the tray",
+  soundOnDone: "Sound when a task finishes",
+  "soundOnDone.desc":
+    "Plays the system alert sound when a task finishes its turn; skipped when a completion notification is already shown (window in the tray)",
   copyOnSelect: "Copy on select",
   "copyOnSelect.desc":
     "Text you select with the mouse in the conversation is copied to the clipboard; the input box and terminal are unaffected",

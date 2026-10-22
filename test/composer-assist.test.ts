@@ -6,6 +6,7 @@ import {
   MAX_HISTORY,
   cycleHistory,
   hasHistory,
+  mergeEntries,
   pushEntry,
   recordSent,
   shouldCycle,
@@ -95,16 +96,29 @@ describe("输入历史", () => {
 
   it("按任务记：发送追加，cycleHistory 走完后恢复草稿", () => {
     const id = "history-task" as TaskId;
-    expect(hasHistory(id)).toBe(false);
+    expect(hasHistory(id, [])).toBe(false);
     recordSent(id, "second");
     recordSent(id, "third");
-    expect(hasHistory(id)).toBe(true);
-    expect(cycleHistory(id, "wip", "up")).toBe("third");
-    expect(cycleHistory(id, "third", "up")).toBe("second");
-    expect(cycleHistory(id, "second", "down")).toBe("third");
-    expect(cycleHistory(id, "third", "down")).toBe("wip");
-    expect(cycleHistory(id, "wip", "down")).toBeNull();
-    expect(hasHistory("other-task" as TaskId)).toBe(false);
+    expect(hasHistory(id, [])).toBe(true);
+    expect(cycleHistory(id, [], "wip", "up")).toBe("third");
+    expect(cycleHistory(id, [], "third", "up")).toBe("second");
+    expect(cycleHistory(id, [], "second", "down")).toBe("third");
+    expect(cycleHistory(id, [], "third", "down")).toBe("wip");
+    expect(cycleHistory(id, [], "wip", "down")).toBeNull();
+    expect(hasHistory("other-task" as TaskId, [])).toBe(false);
+  });
+
+  it("恢复的会话：没在 studio 里发过也能翻到会话里的用户消息", () => {
+    const id = "resumed-task" as TaskId;
+    expect(hasHistory(id, ["旧问题一", "旧问题二"])).toBe(true);
+    expect(cycleHistory(id, ["旧问题一", "旧问题二"], "", "up")).toBe("旧问题二");
+    expect(cycleHistory(id, ["旧问题一", "旧问题二"], "旧问题二", "up")).toBe("旧问题一");
+  });
+
+  it("mergeEntries：以会话为准，studio 记下但 omp 还没回显的（斜杠命令、排队中）按发送顺序插进去，相邻重复只留一条", () => {
+    expect(mergeEntries(["a", "c"], ["a", "b", "c", "/context"])).toEqual(["a", "b", "c", "/context"]);
+    expect(mergeEntries(["a", "a "], [])).toEqual(["a"]);
+    expect(mergeEntries([], ["x"])).toEqual(["x"]);
   });
 });
 

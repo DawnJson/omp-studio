@@ -124,3 +124,41 @@ test("选中即复制：对话里鼠标选中就进剪贴板并提示；输入�
     await cleanup();
   }
 });
+
+test("输入框右键菜单：没选中时只有撤销 / 粘贴 / 全选；粘贴、全选后剪切进剪贴板；任务行的右键菜单不受影响", async () => {
+  const { launched, cleanup } = await start();
+  try {
+    const { page } = launched;
+    const input = page.getByTestId("composer-input");
+    const menu = page.getByTestId("edit-menu");
+    await launched.app.evaluate(({ clipboard }) => clipboard.writeText("剪贴板里的 text"));
+
+    await input.click({ button: "right" });
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole("menuitem")).toHaveText([/撤销|Undo/, /粘贴|Paste/, /全选|Select all/]);
+    await page.getByTestId("edit-menu-paste").click();
+    await expect(menu).toHaveCount(0);
+    await expect(input).toHaveValue("剪贴板里的 text");
+    await expect(input).toBeFocused();
+
+    await input.click({ button: "right" });
+    await page.getByTestId("edit-menu-selectAll").click();
+    await input.click({ button: "right" });
+    await expect(page.getByTestId("edit-menu-cut")).toBeVisible();
+    await expect(page.getByTestId("edit-menu-copy")).toBeVisible();
+    await launched.app.evaluate(({ clipboard }) => clipboard.writeText(""));
+    await page.getByTestId("edit-menu-cut").click();
+    await expect(input).toHaveValue("");
+    await expect.poll(() => clipboardText(launched)).toBe("剪贴板里的 text");
+
+    // Esc 关菜单；自己画右键菜单的任务行照旧弹它的菜单。
+    await input.click({ button: "right" });
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await page.getByTestId("task-row").first().click({ button: "right" });
+    await expect(page.getByRole("menu")).toHaveCount(1);
+    await expect(menu).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});

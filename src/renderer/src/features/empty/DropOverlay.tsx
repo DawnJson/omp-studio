@@ -20,9 +20,18 @@ export function DropOverlay() {
   const presence = usePresence(active, "fade");
 
   useEffect(() => {
+    // 窗口里自己拖起来的东西（图片、选中的文字）不是从外面拖进来的文件夹：Chromium 拖图片时也带一个 type 为空的文件项，
+    // 不排除的话在预览里拖一下图片就弹"松开以用这个文件夹新建任务"。
+    let internal = false;
+    const onDragStart = () => {
+      internal = true;
+    };
+    const onDragEnd = () => {
+      internal = false;
+    };
     const onDragEnter = (event: DragEvent) => {
       depth.current += 1;
-      if (carriesFolder(event.dataTransfer)) setActive(true);
+      if (!internal && carriesFolder(event.dataTransfer)) setActive(true);
     };
     const onDragOver = (event: DragEvent) => {
       if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
@@ -35,7 +44,10 @@ export function DropOverlay() {
       if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
       depth.current = 0;
       setActive(false);
+      internal = false;
     };
+    window.addEventListener("dragstart", onDragStart);
+    window.addEventListener("dragend", onDragEnd);
     window.addEventListener("dragenter", onDragEnter);
     window.addEventListener("dragover", onDragOver);
     window.addEventListener("dragleave", onDragLeave);
@@ -47,6 +59,8 @@ export function DropOverlay() {
       pickDraftProject(project.id);
     });
     return () => {
+      window.removeEventListener("dragstart", onDragStart);
+      window.removeEventListener("dragend", onDragEnd);
       window.removeEventListener("dragenter", onDragEnter);
       window.removeEventListener("dragover", onDragOver);
       window.removeEventListener("dragleave", onDragLeave);

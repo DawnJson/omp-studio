@@ -109,6 +109,11 @@ button {
   align-items: center;
   padding: 0 var(--space-2) 0 var(--space-1-5);
 }
+/* 顶栏里 2px 一格的像素字:x 高中线和 π 中线对齐时，字的基线比旁边标题的基线高 1px、x 高中线比侧栏按钮的图标高 1px，
+   看起来字整体偏上。往下挪半格(1px):基线对上标题的拉丁字母，x 高中线对上按钮图标。新任务页的大标志不挪。 */
+.topbar-brand .pixel-logo-text {
+  transform: translateY(0.5px);
+}
 
 .crumb {
   display: flex;

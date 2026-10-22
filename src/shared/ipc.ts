@@ -184,6 +184,8 @@ export interface StudioSettings {
   enterWhileRunning: "steer" | "followUp";
   /** 有任务在等你确认时发系统通知（只对"等你确认"生效）。默认开。 */
   notifyOnGate: boolean;
+  /** 任务跑完一轮（正常结束）时响一声系统提示音。默认关。 */
+  soundOnDone: boolean;
   /** 在对话等处用鼠标选中文字后自动复制到剪贴板（输入框、终端除外）。默认开。 */
   copyOnSelect: boolean;
   /** 用户确认过"全自动"。 */
@@ -826,6 +828,10 @@ export interface ShellState {
 export type HistoryOrder = "folder" | "time";
 export const historyOrders: readonly HistoryOrder[] = ["folder", "time"];
 
+/** 输入框右键菜单的编辑命令（editField），名字和 webContents 的方法一致。 */
+export const editCommands = ["undo", "cut", "copy", "paste", "selectAll"] as const;
+export type EditCommand = (typeof editCommands)[number];
+
 /** openTerminal 的结果。 */
 export interface TerminalOpenResult {
   /** 终端的工作目录，只用于显示（任务 cwd：worktree 根或项目目录）。 */
@@ -855,6 +861,8 @@ export interface StudioInvokeApi {
   setShellState(patch: Partial<ShellState>): Promise<void>;
   /** 有遮罩的弹窗（模型选择、命令面板、确认框等）打开/全部关闭时调用：系统三键（titleBarOverlay）的颜色跟着遮罩一起变暗/恢复。 */
   setTitleBarDimmed(dimmed: boolean): Promise<void>;
+  /** 输入框右键菜单：对当前获得焦点的输入框执行编辑命令（主进程调 webContents 的同名方法；粘贴不经过渲染进程读剪贴板）。 */
+  editField(command: EditCommand): Promise<void>;
 
   // 项目
   listProjects(): Promise<Project[]>;
@@ -1119,6 +1127,7 @@ export interface StudioInvokeApi {
   setReduceMotion(on: boolean): Promise<void>;
   setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
   setNotifyOnGate(on: boolean): Promise<void>;
+  setSoundOnDone(on: boolean): Promise<void>;
   setCopyOnSelect(on: boolean): Promise<void>;
   /** 记下用户已经确认过"全自动"，之后选它不再弹确认。 */
   setYoloConfirmed(): Promise<void>;
@@ -1272,6 +1281,7 @@ export const invokeNames = {
   getShellState: true,
   setShellState: true,
   setTitleBarDimmed: true,
+  editField: true,
   listProjects: true,
   addProject: true,
   ensureChatsProject: true,
@@ -1378,6 +1388,7 @@ export const invokeNames = {
   setReduceMotion: true,
   setEnterWhileRunning: true,
   setNotifyOnGate: true,
+  setSoundOnDone: true,
   setCopyOnSelect: true,
   setYoloConfirmed: true,
   getDefaultModel: true,

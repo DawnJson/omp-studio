@@ -1,6 +1,6 @@
 // 文件面板的"预览"页：一条工具栏（文件名、路径、预览/源码、缩放、打开、在文件夹中显示）+ 正文。
 // 内容由主进程 readPreviewFile 读（校验落在根目录内）；这里不拼任何文件路径去加载，避免绕过主进程校验。
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PreviewFile, ProjectFilesTarget } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { External, FileIcon, Folder } from "../../icons.tsx";
@@ -19,6 +19,13 @@ export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarg
   const [source, setSource] = useState(false);
   const [scripts, setScripts] = useState(false);
   const [zoom, setZoom] = useState<number | "fit">("fit");
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  // 从"适应窗口"开始缩放时以眼前的实际比例为起点：大图适应窗口时可能只有 25%，按 100% 算的话"缩小"反而变大。
+  const stepZoom = (factor: number) => {
+    const img = imageRef.current;
+    const current = zoom !== "fit" ? zoom : img && img.naturalWidth > 0 ? img.clientWidth / img.naturalWidth : 1;
+    setZoom(Math.min(zoomRange[1], Math.max(zoomRange[0], current * factor)));
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -89,19 +96,13 @@ export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarg
         )}
         {file?.kind === "image" && !source && (
           <span className="file-preview-zoom" role="group" aria-label={t("preview.zoom")}>
-            <IconButton
-              label={t("preview.zoomOut")}
-              onClick={() => setZoom(Math.max(zoomRange[0], (zoom === "fit" ? 1 : zoom) / zoomStep))}
-            >
+            <IconButton label={t("preview.zoomOut")} onClick={() => stepZoom(1 / zoomStep)}>
               −
             </IconButton>
             <Button variant="quiet" size="sm" title={t("preview.zoomFit")} onClick={() => setZoom("fit")}>
               {zoom === "fit" ? t("preview.zoomFit") : `${Math.round(zoom * 100)}%`}
             </Button>
-            <IconButton
-              label={t("preview.zoomIn")}
-              onClick={() => setZoom(Math.min(zoomRange[1], (zoom === "fit" ? 1 : zoom) * zoomStep))}
-            >
+            <IconButton label={t("preview.zoomIn")} onClick={() => stepZoom(zoomStep)}>
               +
             </IconButton>
           </span>
@@ -132,6 +133,7 @@ export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarg
             source={source}
             scripts={scripts}
             zoom={zoom}
+            imageRef={imageRef}
             isMarkdown={isMarkdown}
             onExternal={taskId === null ? null : () => run(file.canOpen ? "openTaskFile" : "revealTaskFile")}
           />

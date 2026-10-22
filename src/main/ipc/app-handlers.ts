@@ -1,11 +1,11 @@
 // 应用和设置：读写走 settings-store（userData/settings.json）；外壳状态走 window-state。
 import { app, shell } from "electron";
-import { historyOrders, limits, type AppInfo, type HandlerGroup } from "../../shared/ipc.ts";
+import { editCommands, historyOrders, limits, type AppInfo, type HandlerGroup } from "../../shared/ipc.ts";
 import { exportDiagnostics } from "../log/diagnostics.ts";
 import { openLogsFolder } from "../log/instance.ts";
 import { getSettings, resolveLocale, updateSettings } from "../settings/settings-store.ts";
 import { getShellState, setShellState, sidebarWidthRange } from "../window/window-state.ts";
-import { setTitleBarDimmed } from "../window/main-window.ts";
+import { getMainWindow, setTitleBarDimmed } from "../window/main-window.ts";
 import { chatsDir } from "../tasks/chats-dir.ts";
 import { whatsNewForThisLaunch } from "../whats-new.ts";
 import {
@@ -33,6 +33,7 @@ export const appHandlers: HandlerGroup<
   | "getShellState"
   | "setShellState"
   | "setTitleBarDimmed"
+  | "editField"
 > = {
   getAppInfo: async () => ({
     version: app.getVersion(),
@@ -68,4 +69,8 @@ export const appHandlers: HandlerGroup<
     });
   },
   setTitleBarDimmed: async (value) => setTitleBarDimmed(parseBoolean(value, "dimmed")),
+  // 作用于主窗口里当前获得焦点的输入框，和系统编辑菜单的同名命令一样；粘贴由 Chromium 自己读剪贴板、发 paste 事件。
+  editField: async (value) => {
+    getMainWindow()?.webContents[parseOneOf(value, "command", editCommands)]();
+  },
 };

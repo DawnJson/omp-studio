@@ -158,9 +158,10 @@ export function Menu({
     });
   }, [anchor.x, anchor.y]);
 
+  // 退出动画中被重新打开（同一个实例换了锚点）也要把焦点放进菜单，不然 Esc 和方向键落在原来的元素上。
   useEffect(() => {
     ref.current?.querySelector<HTMLElement>('[role^="menuitem"]')?.focus();
-  }, []);
+  }, [anchor]);
 
   useEffect(() => {
     if (!open) return;

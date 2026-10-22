@@ -25,6 +25,10 @@ async function start(fixtureFor?: (work: string, project: string) => Promise<str
   await mkdir(project);
   await writeFile(path.join(project, "notes.md"), "# 预览标题\n\n- 第一项\n- 第二项\n");
   await writeFile(path.join(project, "logo.svg"), svg);
+  await writeFile(
+    path.join(project, "big.svg"),
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><rect width="1600" height="1000" fill="#0b7a66"/><rect width="800" height="500" fill="#7a0b66"/></svg>',
+  );
   await writeFile(path.join(project, "page.html"), "<h1>hello page</h1>");
   await writeFile(path.join(project, "blob.bin"), Buffer.from([1, 2, 0, 3, 4]));
   const launched = await launchApp({
@@ -213,6 +217,48 @@ test("svg 围栏画成图：颜色换成主题色，切主题重画；<> 看源�
     await expect(bad!.getByTestId("codeblock-figure")).toHaveCount(0);
     await expect(bad!).toContainText(/这张图画不出来|couldn't be drawn/);
     await expect(bad!.locator("pre")).toContainText("这不是 svg");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("预览大图：适应窗口时缩小会更小、放大会更大；放大后按住拖动平移，图片本身不能被拖走", async () => {
+  const { launched, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 1225, height: 756 });
+    await page.getByTestId("topbar-files").click();
+    await page.locator('[data-testid=file-tree-row][data-path="big.svg"]').click();
+    const img = page.getByTestId("file-preview-image");
+    await expect(img).toBeVisible();
+    const width = async () => (await img.boundingBox())!.width;
+    const fit = await width();
+    expect(fit).toBeLessThan(1600);
+    expect(await img.getAttribute("draggable")).toBe("false");
+
+    // 起点是适应窗口时眼前的大小：缩小一步变小，再放大两步比适应窗口大。
+    await page.getByRole("button", { name: "缩小" }).click();
+    await expect.poll(width).toBeLessThan(fit);
+    await page.getByRole("button", { name: "放大" }).click();
+    await page.getByRole("button", { name: "放大" }).click();
+    await expect.poll(width).toBeGreaterThan(fit);
+    for (let i = 0; i < 6; i += 1) await page.getByRole("button", { name: "放大" }).click();
+
+    // 按住往左上拖：外框滚到右下。
+    const box = page.locator(".file-preview-image");
+    const scroll = () =>
+      box.evaluate((el) => {
+        const node = el as unknown as { scrollLeft: number; scrollTop: number };
+        return { left: node.scrollLeft, top: node.scrollTop };
+      });
+    expect(await scroll()).toEqual({ left: 0, top: 0 });
+    const area = (await box.boundingBox())!;
+    await page.mouse.move(area.x + area.width / 2, area.y + area.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(area.x + area.width / 2 - 120, area.y + area.height / 2 - 80, { steps: 5 });
+    await page.mouse.up();
+    expect(await scroll()).toEqual({ left: 120, top: 80 });
+    await expect(page.getByTestId("drop-overlay")).toHaveCount(0);
   } finally {
     await cleanup();
   }

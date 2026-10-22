@@ -51,6 +51,7 @@ import { useShortcuts } from "./use-shortcuts.ts";
 import { useCopyOnSelect } from "./use-copy-on-select.ts";
 import { restartSession } from "./restart-session.ts";
 import { TooltipLayer } from "../ui/Tooltip.tsx";
+import { EditMenu } from "./EditMenu.tsx";
 
 /** spec §3.3：窄于 1000px 侧栏改成覆盖式抽屉。 */
 const narrowQuery = "(max-width: 999px)";
@@ -308,6 +309,7 @@ export function App() {
       </div>
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <DropOverlay />
+      <EditMenu />
       <ReviewHost />
       <GitDialogHost />
       <SessionInfoHost />

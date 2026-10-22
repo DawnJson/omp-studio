@@ -24,8 +24,11 @@ function state(status: TaskState["status"], overrides: Partial<TaskState> = {}):
 function setup(overrides: Partial<GateNotifierDeps> = {}) {
   const shown: { title: string; body: string }[] = [];
   const clicked: TaskId[] = [];
+  const sounds: number[] = [];
   const notifier = new GateNotifier({
     enabled: async () => true,
+    soundEnabled: async () => true,
+    playSound: () => sounds.push(1),
     locale: () => "zh-CN",
     windowFocused: () => false,
     windowHidden: () => true,
@@ -37,7 +40,7 @@ function setup(overrides: Partial<GateNotifierDeps> = {}) {
     onClick: (id) => clicked.push(id),
     ...overrides,
   });
-  return { notifier, shown, clicked };
+  return { notifier, shown, clicked, sounds };
 }
 
 describe("等你确认的系统通知", () => {
@@ -126,5 +129,34 @@ describe("等你确认的系统通知", () => {
     await notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
     await notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
     expect(shown).toHaveLength(1);
+  });
+
+  it("完成提示音：正常跑完才响（窗口可见也响）；出错、中止、开关关闭不响；发了完成通知（窗口在托盘）不再另响", async () => {
+    const completed = state("idle", { lastTurn: { status: "completed", endedAt: 1 } });
+    const visible = setup({ windowHidden: () => false });
+    await visible.notifier.onState(state("running"));
+    await visible.notifier.onState(completed);
+    expect(visible.sounds).toHaveLength(1);
+    await visible.notifier.onState(state("running"));
+    await visible.notifier.onState(state("error"));
+    await visible.notifier.onState(state("running"));
+    await visible.notifier.onState(state("idle", { lastTurn: { status: "aborted", endedAt: 2 } }));
+    expect(visible.sounds).toHaveLength(1);
+
+    const off = setup({ windowHidden: () => false, soundEnabled: async () => false });
+    await off.notifier.onState(state("running"));
+    await off.notifier.onState(completed);
+    expect(off.sounds).toHaveLength(0);
+
+    const tray = setup();
+    await tray.notifier.onState(state("running"));
+    await tray.notifier.onState(completed);
+    expect(tray.shown).toHaveLength(1);
+    expect(tray.sounds).toHaveLength(0);
+    // 在托盘但通知开关关着：没有通知，就响提示音。
+    const quiet = setup({ enabled: async () => false });
+    await quiet.notifier.onState(state("running"));
+    await quiet.notifier.onState(completed);
+    expect(quiet.sounds).toHaveLength(1);
   });
 });

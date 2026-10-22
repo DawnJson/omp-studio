@@ -68,8 +68,8 @@ export function PixelLogo({ version, unit = 6 }: { version?: string | null; unit
       data-testid="pixel-logo"
     >
       <PiMark />
-      <path d={pathOf(omp.pixels)} fill="var(--text)" />
-      <path d={pathOf(studio.pixels)} fill="var(--text-2)" />
+      <path className="pixel-logo-text" d={pathOf(omp.pixels)} fill="var(--text)" />
+      <path className="pixel-logo-text" d={pathOf(studio.pixels)} fill="var(--text-2)" />
       {version && (
         <text
           x={textX}

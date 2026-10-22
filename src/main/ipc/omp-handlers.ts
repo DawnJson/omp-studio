@@ -162,6 +162,7 @@ export const ompHandlers: HandlerGroup<
   | "setReduceMotion"
   | "setEnterWhileRunning"
   | "setNotifyOnGate"
+  | "setSoundOnDone"
   | "setCopyOnSelect"
   | "setYoloConfirmed"
   | "getDefaultModel"
@@ -208,6 +209,7 @@ export const ompHandlers: HandlerGroup<
       updateSettings({ enterWhileRunning: parseOneOf(mode, "enterWhileRunning", ["steer", "followUp"]) }),
     ),
   setNotifyOnGate: (on) => Promise.resolve(updateSettings({ notifyOnGate: parseBoolean(on, "notifyOnGate") })),
+  setSoundOnDone: (on) => Promise.resolve(updateSettings({ soundOnDone: parseBoolean(on, "soundOnDone") })),
   setCopyOnSelect: (on) => Promise.resolve(updateSettings({ copyOnSelect: parseBoolean(on, "copyOnSelect") })),
   setYoloConfirmed: () => Promise.resolve(updateSettings({ yoloConfirmed: true })),
   getDefaultModel: () => readDefaultModel(),

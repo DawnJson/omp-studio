@@ -95,9 +95,13 @@ describe("解析函数", () => {
     expect(parseContextMeter({ title: "x" })).toBeNull();
   });
 
-  it("parseCost：取第一个美元数，括号里的增量不计", () => {
+  it("parseCost：取本会话花费，括号里的子代理增量不计；订阅登录时没有 $ 也能读", () => {
     expect(parseCost("$0.00 (+0.02) ↓")).toBe(0);
     expect(parseCost("Session cost $1,234.50 (+0.02) ↓")).toBe(1234.5);
+    expect(parseCost("S0.44 (+0.10)")).toBe(0.44);
+    expect(parseCost("\uf0e7 0.44 ★ 3")).toBe(0.44);
+    expect(parseCost("(sub) (+0.12)")).toBe(0);
+    expect(parseCost("(sub)")).toBe(0);
     expect(parseCost("no cost")).toBeNull();
   });
 });

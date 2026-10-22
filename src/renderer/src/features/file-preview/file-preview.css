@@ -229,10 +229,18 @@
   padding: var(--space-3);
   overflow: auto;
   background: var(--bg-sunken);
+  user-select: none;
 }
 .file-preview-image img {
   display: block;
   max-width: none;
+}
+/* 放大后按住拖动平移（PreviewContent.tsx 的 ImageView） */
+.file-preview-image:not([data-fit]) {
+  cursor: grab;
+}
+.file-preview-image:not([data-fit]):active {
+  cursor: grabbing;
 }
 .file-preview-image[data-fit] {
   overflow: hidden;

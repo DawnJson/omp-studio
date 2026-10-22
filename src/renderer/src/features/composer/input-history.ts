@@ -1,4 +1,5 @@
-// 输入历史（↑↓ 翻看本任务发过的消息）。只放渲染进程内存，按任务记。
+// 输入历史（↑↓ 翻看本任务发过的消息，像终端里的命令历史）：会话里的用户消息（omp 文档里的，含恢复的会话、草稿页发出的第一句）
+// 加上 studio 记下但 omp 没画成用户消息的（斜杠命令、排队中、刚发还没回显的）。studio 记的那部分只放渲染进程内存，按任务记。
 import type { TaskId } from "../../../../shared/ipc.ts";
 
 export const MAX_HISTORY = 100;
@@ -21,6 +22,25 @@ export function pushEntry(entries: readonly string[], text: string): string[] {
   const trimmed = text.trim();
   if (trimmed === "" || entries[entries.length - 1] === trimmed) return [...entries];
   return [...entries, trimmed].slice(-MAX_HISTORY);
+}
+
+/**
+ * 合并会话里的用户消息和 studio 记下的发送：以会话为准；studio 记的不在会话里的，插在它前一条已回显消息的后面（没有就放最前），
+ * 保持发送顺序。相邻重复只留一条。
+ */
+export function mergeEntries(session: readonly string[], recorded: readonly string[]): string[] {
+  const merged = session.map((text) => text.trim());
+  let at = 0;
+  for (const text of recorded) {
+    const seen = merged.indexOf(text, at);
+    if (seen >= 0) {
+      at = seen + 1;
+      continue;
+    }
+    merged.splice(at, 0, text);
+    at += 1;
+  }
+  return merged.filter((text, index) => text !== "" && text !== merged[index - 1]);
 }
 
 /**
@@ -73,17 +93,27 @@ export function resetHistoryCursor(taskId: TaskId): void {
   cursors.delete(taskId);
 }
 
+/** 本任务能翻的全部条目；`session` 是会话里的用户消息（userMessageTexts）。 */
+function entriesOf(taskId: TaskId, session: readonly string[]): string[] {
+  return mergeEntries(session, histories.get(taskId) ?? []);
+}
+
 export function isCycling(taskId: TaskId): boolean {
   return cursors.has(taskId);
 }
 
-export function hasHistory(taskId: TaskId): boolean {
-  return (histories.get(taskId) ?? []).length > 0;
+export function hasHistory(taskId: TaskId, session: readonly string[]): boolean {
+  return entriesOf(taskId, session).length > 0;
 }
 
 /** 翻一步；返回要放进输入框的文字，没动返回 null。 */
-export function cycleHistory(taskId: TaskId, current: string, direction: HistoryDirection): string | null {
-  const step = stepHistory(histories.get(taskId) ?? [], cursors.get(taskId) ?? null, current, direction);
+export function cycleHistory(
+  taskId: TaskId,
+  session: readonly string[],
+  current: string,
+  direction: HistoryDirection,
+): string | null {
+  const step = stepHistory(entriesOf(taskId, session), cursors.get(taskId) ?? null, current, direction);
   if (step === null) return null;
   if (step.cursor === null) cursors.delete(taskId);
   else cursors.set(taskId, step.cursor);

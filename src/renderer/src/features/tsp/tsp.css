@@ -1917,7 +1917,8 @@
   background: none;
   border-radius: 0;
 }
-.tsp-tool-body > .tsp-code .tsp-code-head {
+/* TSP 规范:code 的 `path` 只在工具卡片外面当块头画;卡片里(read 的头、grep / ast-grep 的文件行)已经写了路径,再画就是重复的一行 */
+.tsp-tool-body .tsp-code .tsp-code-head {
   display: none;
 }
 .tsp-tool-body > .tsp-ansi {
@@ -2483,6 +2484,18 @@
 }
 .tsp-section[data-role^="omp.thinking"] {
   color: var(--text-2);
+}
+/* 思考头照 Tern 里的 omp：`✳ Thinking… 2.7s ›`，斜体，折叠箭头跟在用时后面（不在行首） */
+.tsp-section[data-role^="omp.thinking"] > .tsp-section-head {
+  align-self: flex-start;
+  padding-right: var(--space-1);
+  font-style: italic;
+}
+.tsp-section[data-role^="omp.thinking"] > .tsp-section-head > .tsp-head {
+  flex: 0 1 auto;
+}
+.tsp-section[data-role^="omp.thinking"] > .tsp-section-head > .tsp-chev {
+  order: 1;
 }
 .tsp-row[data-role="omp.turn.usage"] {
   gap: var(--space-1-5);

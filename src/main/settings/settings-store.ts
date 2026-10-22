@@ -21,6 +21,7 @@ const defaults: StudioSettings = {
   reduceMotion: false,
   enterWhileRunning: "steer",
   notifyOnGate: true,
+  soundOnDone: false,
   copyOnSelect: true,
   yoloConfirmed: false,
 };
@@ -57,6 +58,7 @@ function sanitize(raw: unknown): StudioSettings {
       defaults.enterWhileRunning,
     ),
     notifyOnGate: field((value) => parseBoolean(value, "notifyOnGate"), record["notifyOnGate"], defaults.notifyOnGate),
+    soundOnDone: field((value) => parseBoolean(value, "soundOnDone"), record["soundOnDone"], defaults.soundOnDone),
     copyOnSelect: field((value) => parseBoolean(value, "copyOnSelect"), record["copyOnSelect"], defaults.copyOnSelect),
     yoloConfirmed: field(
       (value) => parseBoolean(value, "yoloConfirmed"),

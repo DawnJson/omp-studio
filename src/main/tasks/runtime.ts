@@ -2,7 +2,7 @@
 // 其余任务运行时代码（task-pool/runner/registry）不 import electron，单元测试直接实例化。
 import os from "node:os";
 import path from "node:path";
-import { app, nativeTheme, Notification } from "electron";
+import { app, nativeTheme, Notification, shell } from "electron";
 import { getSettings, resolveLocale } from "../settings/settings-store.ts";
 import { getMainWindow } from "../window/main-window.ts";
 import { showMainWindow } from "../window/show-window.ts";
@@ -66,6 +66,9 @@ function createPool(): Promise<TaskPool> {
   if (!app.isPackaged && testOmp) setTestOmpOverride(parseTestOmpOverride(testOmp));
   const notifier = new GateNotifier({
     enabled: async () => (await appHandlers.getSettings()).notifyOnGate,
+    soundEnabled: async () => (await appHandlers.getSettings()).soundOnDone,
+    // Windows 上是系统"默认提示音"（声音设置里可换），不随安装包带音频文件。
+    playSound: () => shell.beep(),
     locale: resolveLocale,
     windowFocused: () => getMainWindow()?.isFocused() ?? false,
     windowHidden: () => !(getMainWindow()?.isVisible() ?? false),

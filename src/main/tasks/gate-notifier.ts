@@ -1,5 +1,6 @@
 // "等你确认"系统通知（决策 8）：任务进入 needs_you、窗口没有焦点、开关打开时发一条。
 // 窗口隐藏在托盘（或最小化）时，任务跑完 / 出错也发一条：用户看不到窗口，只能靠通知知道；窗口可见时不发，侧栏已经有完成点。
+// 任务正常跑完一轮时，"完成提示音"开着就响一声（窗口可见也响：用户可能在看别的任务或别的程序）。
 // 同一次等待只通知一次：状态没离开 needs_you 时（第二个门到达）不重复；回到别的状态后再次进入才算新的一次。
 // 不 import electron：Notification 和窗口由 runtime.ts 注入，单元测试直接实例化。
 import type { DialogRequest, Locale, TaskId, TaskState } from "../../shared/ipc.ts";
@@ -8,6 +9,10 @@ import { stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 
 export interface GateNotifierDeps {
   enabled(): Promise<boolean>;
+  /** 设置里的"任务完成时响提示音"。 */
+  soundEnabled(): Promise<boolean>;
+  /** 响一声系统提示音。 */
+  playSound(): void;
   locale(): Locale;
   windowFocused(): boolean;
   /** 窗口看不见（隐藏在托盘、最小化或不存在）。 */
@@ -68,11 +73,14 @@ export class GateNotifier {
     );
   }
 
-  /** 任务从忙碌变成"正常跑完"或"出错"，且窗口看不见时发一条结果通知。 */
+  /** 任务从忙碌变成"正常跑完"或"出错"：跑完时按设置响提示音；窗口看不见时发一条结果通知。 */
   async #notifyEnded(state: TaskState): Promise<void> {
     const done = state.status === "idle" && state.lastTurn?.status === "completed";
     if (!done && state.status !== "error") return;
-    if (!this.#deps.windowHidden() || !(await this.#deps.enabled())) return;
+    const notify = this.#deps.windowHidden() && (await this.#deps.enabled());
+    // 系统通知自己带提示音，发通知时不再另响一声。
+    if (done && !notify && (await this.#deps.soundEnabled())) this.#deps.playSound();
+    if (!notify) return;
     const locale = this.#deps.locale();
     this.#deps.show(
       {

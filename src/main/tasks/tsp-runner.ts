@@ -1145,8 +1145,10 @@ export class TspRunner {
             percent: composer.context.percent,
           }
         : null;
-    // 费用变了 = 又结束了一次请求：会话文件里的 token 分项和请求数也该重读（见 #refreshTotals）。
-    if (composer.cost !== previous.cost) void this.#refreshTotals();
+    // 费用或上下文用量变了 = 又结束了一次请求：会话文件里的 token 分项和请求数也该重读（见 #refreshTotals）。
+    // 不能只看费用：费用读不出来（omp 改了写法）或一直是 0 时，token 分项会永远停在 0。
+    if (composer.cost !== previous.cost || composer.context?.tokens !== previous.context?.tokens)
+      void this.#refreshTotals();
     const sessionUsage = this.#sessionUsageFor(composer.cost);
     const thinkingLevels = thinkingLevelsOf(model);
     const next: DerivedComposerState = {

@@ -34,6 +34,8 @@ export const settings = {
   "enterBehavior.desc": "任务正在运行时，Enter 发出的消息是插话还是排到后面",
   notifyWaiting: "有任务在等你时通知我",
   "notifyWaiting.desc": "任务需要你确认时发系统通知；窗口收在托盘时，任务完成或出错也会通知",
+  soundOnDone: "任务完成时响提示音",
+  "soundOnDone.desc": "任务正常跑完一轮时响一声系统提示音；窗口收在托盘、已经发了完成通知时不再另响",
   copyOnSelect: "选中即复制",
   "copyOnSelect.desc": "在对话里用鼠标选中文字后自动复制到剪贴板；输入框和终端不受影响",
   search: "搜索设置",

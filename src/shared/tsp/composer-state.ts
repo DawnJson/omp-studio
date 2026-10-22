@@ -6,7 +6,8 @@
 //   "Context 1% used\n8.7K of 1M tokens\nAuto-compact at 90%"。
 // - `omp.composer.model`（row，点击 action `status.model` 打开模型选择器）：子孙里有一个 text（模型显示名）和一个
 //   `omp.composer.model.effort`（`p.level`，点击 action `thinking.cycle`，等于 ⇧⇥）。
-// - `omp.composer.usage`（text）：`p.text` 如 "$0.00 (+0.02) ↓"，`p.title` 如 "Session cost $0.00 (+0.02) ↓"。
+// - `omp.composer.usage`（text）：`p.text` 如 "$0.00 (+0.02) ↓"，`p.title` 如 "Session cost $0.00 (+0.02) ↓"。订阅登录的模型
+//   omp 不写 `$`：花费前面是订阅记号（"S0.44"，nerd 字形时是一个图标加空格），还没花费时只有 "(sub)"（omp 18.12.6 `formatBillingSummary`）。
 // - 模型选择器：layer 里 `k: "picker"`，`p.items[].id` 是 `provider/model`，`p.current` 是当前模型的 id 列表。
 // role 是 omp 自己的命名，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
 import { findNode, nodeRole, plainText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
@@ -115,10 +116,13 @@ export function parseContextMeter(props: Readonly<Record<string, unknown>>): Tsp
   };
 }
 
-/** "$0.00 (+0.02) ↓" 或 "Session cost $0.00 …" → 第一个美元数；没有为 null。 */
+/**
+ * 本会话花费：第一个带小数点的数（omp 总是保留两位小数；`$`、订阅记号 "S" 或图标在它前面）；括号里的子代理增量、★ 高级请求数在后面，不取。
+ * 只有 "(sub)" = 订阅、还没花费，算 0。都没有为 null。
+ */
 export function parseCost(text: string): number | null {
-  const match = /\$\s*([\d,]*\.?\d+)/.exec(text);
-  if (!match) return null;
+  const match = /(?<![\d(+])([\d,]*\d\.\d+)/.exec(text);
+  if (!match) return /\(sub\)/.test(text) ? 0 : null;
   const value = Number.parseFloat(match[1]!.replaceAll(",", ""));
   return Number.isFinite(value) ? value : null;
 }

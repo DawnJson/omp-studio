@@ -147,7 +147,7 @@ Tern Surface Protocol(TSP,v1)是 Tern 终端和在它面板里运行的程序之
 | `thinkingLevel` | `omp.composer.model.effort` 的 `p.level`;`auto`(omp 自选,不是 `ThinkingLevel`)为 null,退回记录里的值 |
 | `thinkingLevels` | 模型目录里的 `thinkingEfforts` 加 `off`;目录里没有时为空 |
 | `contextUsage` | `omp.composer.context`(meter):`p.value` × 100 = `percent`;`p.title` 的 "8.7K of 1M tokens" 给 `tokens` / `contextWindow`(K = 10³),没有时窗口取 `p.total`、再取目录里的 `contextWindow` |
-| `sessionUsage` | `omp.composer.usage` 的文字("$0.00 (+0.02) ↓")取第一个美元数 = `cost`;token 分项和请求数 omp 不给,置 0 |
+| `sessionUsage` | `omp.composer.usage` 的文字取花费 = `cost`:按量计费是 "$0.00 (+0.02) ↓"(第一个美元数);订阅登录的模型 omp 不写 `$`,花费前面是订阅记号 "S0.44"(nerd 字形时是一个图标加空格),还没花费时只有 "(sub)"(算 0)——读的是 omp 18.12.6 源码 `formatBillingSummary`(2026-10-22),订阅账号下的真实帧没录;括号里的子代理增量、★ 高级请求数不取(`parseCost`)。token 分项和请求数 omp 不给,主进程在费用或上下文用量变了时从会话文件重读(`tsp-runner` 的 `#refreshTotals`) |
 
 输入框被提问/审批替换的那几帧读不到,沿用上一次的值。`model` / `thinkingLevel`(模型目录里唯一匹配或明确选过的)也和 rpc 一样记进 `TaskRecord`,下次 `--resume` 带 `--model` / `--thinking`。
 
