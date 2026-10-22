@@ -41,7 +41,7 @@
   flex: none;
   align-items: center;
   gap: var(--space-2);
-  height: var(--control-h-lg);
+  height: var(--panel-head-h);
   padding: 0 var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -67,70 +67,9 @@
   flex: 1;
 }
 
-.rv-btn {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1-5);
-  height: var(--control-h-sm);
-  padding: 0 var(--space-2-5);
-  color: var(--text);
-  font: inherit;
-  white-space: nowrap;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: default;
-  transition: background-color var(--dur-instant) var(--ease-out);
-}
-
-.rv-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
-.rv-btn:active:not(:disabled) {
-  background: var(--bg-active);
-}
-
-.rv-btn:disabled {
-  color: var(--text-disabled);
-}
-
-.rv-btn-primary {
-  color: var(--text-on-primary);
-  background: var(--primary);
-  border-color: transparent;
-}
-
-.rv-btn-primary:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-
-.rv-btn-primary:disabled {
-  color: var(--text-disabled);
-  background: var(--bg-active);
-}
-
-.rv-btn-danger {
-  color: var(--st-error);
-}
-
-.rv-toggle[aria-pressed="true"] {
-  color: var(--text);
-  background: var(--bg-active);
-}
-
-.rv-btn-text {
-  height: auto;
-  padding: 0 var(--space-1-5);
-  color: var(--text-2);
-  background: transparent;
-  border-color: transparent;
-}
-
-.review button:focus-visible,
-.rv-scroll:focus-visible,
-.rv-box-input:focus-visible {
+.rv-file-row:focus-visible,
+.rv-no-btn:focus-visible,
+.rv-scroll:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -139,36 +78,7 @@
   outline-offset: -2px;
 }
 
-.rv-seg {
-  display: inline-flex;
-  padding: var(--space-0-5);
-  background: var(--bg-sunken);
-  border-radius: var(--radius-sm);
-}
-
-.rv-seg-btn {
-  height: calc(var(--control-h-sm) - var(--space-1));
-  padding: 0 var(--space-2-5);
-  color: var(--text-2);
-  font: inherit;
-  white-space: nowrap;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-xs);
-  cursor: default;
-  transition:
-    color var(--dur-fast) var(--ease-out),
-    background-color var(--dur-fast) var(--ease-out),
-    box-shadow var(--dur-fast) var(--ease-out);
-}
-
-.rv-seg-btn[aria-pressed="true"] {
-  color: var(--text);
-  background: var(--bg-raised);
-  box-shadow: var(--shadow-1);
-}
-
-/* ───────── 三栏 ───────── */
+/* ───────── 两栏（文件树 | diff） ───────── */
 
 .rv-body {
   display: flex;
@@ -239,19 +149,17 @@
   font-size: var(--fs-xs);
 }
 
-.rv-commit-check {
+.rv-commit-foot {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-2);
   color: var(--text-2);
   font-size: var(--fs-xs);
 }
 
-.rv-commit .rv-box-input {
-  font-size: var(--fs-sm);
-}
-
-.rv-commit textarea.rv-box-input {
+.rv-commit .rv-commit-description {
+  min-height: 0;
   resize: none;
 }
 
@@ -374,7 +282,7 @@
   flex: none;
   align-items: center;
   gap: var(--space-3);
-  height: var(--control-h-lg);
+  height: var(--panel-head-h);
   padding: 0 var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -657,43 +565,26 @@
   gap: var(--space-2);
 }
 
-.rv-box-input {
-  box-sizing: border-box;
-  width: 100%;
-  padding: var(--space-2) var(--space-2-5);
-  color: var(--text);
-  font: inherit;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  resize: vertical;
-}
-
-.rv-box-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.rv-box-input:focus-visible {
-  outline: none;
-}
-
-.rv-box-actions,
-.rv-card-actions {
+.rv-box-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-1-5);
 }
 
+/* 评论卡：正文 + 右上角 ⋯（编辑 / 删除在菜单里） */
 .rv-card {
-  padding: var(--space-2) var(--space-2-5);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-2-5);
   background: var(--bg-raised);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
 }
 
-.rv-card-body,
-.rv-queue-body {
+.rv-card-body {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -708,103 +599,13 @@
   border-radius: var(--radius-xs);
 }
 
-/* ───────── 右栏 ───────── */
-
-.rv-aside {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  width: var(--review-aside-w);
-  min-height: 0;
-  border-left: 1px solid var(--border-subtle);
-}
-
-.rv-aside-title {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1-5);
-  height: var(--control-h-lg);
-  margin: 0;
-  padding: 0 var(--space-3);
-  color: var(--text);
-  font: inherit;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.rv-badge {
-  min-width: var(--space-4);
-  padding: 0 var(--space-1);
-  color: var(--accent);
-  font-size: var(--fs-2xs);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  background: var(--accent-soft);
-  border-radius: var(--radius-pill);
-}
-
-.rv-aside-body {
-  flex: 1;
-  min-height: 0;
-  padding: var(--space-3);
-  overflow-y: auto;
-}
-
-.rv-empty {
-  margin: 0;
-  color: var(--text-2);
-}
-
-.rv-queue {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.rv-queue-item + .rv-queue-item {
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-subtle);
-}
-
-.rv-queue-ref {
-  display: flex;
-  align-items: center;
-  max-width: 100%;
-  margin-bottom: var(--space-1);
-  padding: 0;
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  background: transparent;
-  border: 0;
-  cursor: default;
-}
-
-.rv-queue-ref:hover .rv-queue-file {
-  color: var(--text);
-}
-
-.rv-queue-file {
-  transition: color var(--dur-fast) var(--ease-out);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rv-queue-range {
-  flex: none;
-}
-
-.rv-queue-ref .rv-tag {
-  margin: 0 0 0 var(--space-1-5);
-}
-
-/* 窄窗口：两侧栏收窄给 diff 留位置 */
+/* 窄窗口：文件树收窄给 diff 留位置；工具条里分支名先让位（视图选项已收成菜单，见 ViewControls） */
 @media (max-width: 999px) {
-  .rv-side,
-  .rv-aside {
+  .rv-side {
     width: var(--sidebar-w-min);
   }
+}
+
+.rv-title {
+  flex: none;
 }

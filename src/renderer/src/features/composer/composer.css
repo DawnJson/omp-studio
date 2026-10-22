@@ -89,6 +89,11 @@
 .composer-tools > .ui-popover-anchor:has(> [data-testid="approval-chip"]) {
   flex: none;
 }
+/* 工具行里的文件夹标签（PathLabel，只读）：高度和左右内边距同 .ui-chip，和模型 / 审批 / 会话开关对齐；没有底色，不能点。 */
+.composer-tools > .empty-project {
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2-5);
+}
 .composer-note {
   min-width: 0;
   overflow: hidden;
@@ -144,66 +149,25 @@ button.usage-context:hover,
   color: var(--text-3);
 }
 
-.tool-btn,
-.chip,
 .usage-item,
-.send,
-.queue-btn,
-.segment {
+.send {
   font: inherit;
 }
-.tool-btn {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-2);
-  cursor: pointer;
-}
-.tool-btn:hover,
-.chip:hover,
-.queue-btn:hover {
-  background: var(--bg-hover);
-}
-.tool-btn:active,
-.chip:active {
-  background: var(--bg-active);
-}
-.tool-btn:focus-visible,
-.chip:focus-visible,
 .send:focus-visible,
-.queue-btn:focus-visible,
-.segment:focus-visible,
 .usage-item:focus-visible,
 .session-cost:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: var(--control-h-sm);
+/* 工具条胶囊统一用 ui/controls.css 的 .ui-chip（28 高、无底色、悬停 / 打开时 --bg-hover）。这里只放模型胶囊的收缩和内部排版。 */
+/* 模型胶囊：工具行再挤也能收窄（名字省略），但不窄过名字的最小宽；审批胶囊不收窄（见上面 .composer-tools > .ui-popover-anchor）。 */
+.ui-chip.chip-model {
+  flex: 0 1 auto;
   max-width: 100%;
-  padding: 0 var(--space-2-5);
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--bg-hover);
-  color: var(--text-2);
-  font-size: var(--fs-sm);
-  cursor: pointer;
+  min-width: calc(var(--chip-name-min-w) + 2 * var(--space-2-5));
   /* 极窄时内容（思考强度）不能画到旁边的胶囊上。 */
   overflow: hidden;
-}
-/* 带名字的胶囊（模型）：名字最小宽 + 左右内边距，工具行再挤也不会窄过这个；只有图标的胶囊（审批）不受影响。 */
-.chip:has(> .chip-text) {
-  min-width: calc(var(--chip-name-min-w) + 2 * var(--space-2-5));
 }
 .chip-text {
   overflow: hidden;
@@ -254,9 +218,9 @@ button.usage-context:hover,
   animation: thinking-flow calc(var(--dur-breathe) * 2) linear infinite;
   animation-play-state: var(--play-state);
 }
-.chip[data-yolo] {
-  background: var(--st-waiting-soft);
-  color: var(--st-waiting-text);
+/* 审批胶囊上的模式名 */
+.chip-mode {
+  white-space: nowrap;
 }
 @container (max-width: 520px) {
   .chip-text {
@@ -340,6 +304,9 @@ button.usage-context:hover,
   padding-right: var(--space-3);
   margin-right: var(--space-3);
   border-right: 1px solid var(--border-subtle);
+}
+.ctx-usage-row {
+  padding: var(--space-1) var(--space-1-5);
 }
 .usage-ring-track,
 .usage-ring-fill {
@@ -526,41 +493,11 @@ html[data-motion="reduced"] .ctx-usage-chev {
   margin: 0;
 }
 
-/* 费用点开的用量对话框（居中，同模型选择框的外观）：标题栏是 标题 + "N 秒前更新" + 刷新 + 关闭，下面一页滚动内容：汇总条、额度、每日花费热力图。
-   对话框高度固定（--dialog-h-usage，刚好装下汇总条 + 两个账号块 + 热力图，窗口矮时取 80vh）：额度异步到达、中英文换行都不改变大小，内容多了在 .qm-stack 里滚动。
+/* 费用点开的用量对话框（ui/Dialog lg，className usage-dialog）：高度跟内容走，没有额度账号时不留空；窗口矮了由 Dialog 正文滚动。
    汇总条、账号块和热力图的组件、样式见 usage-views.tsx / usage.css，这里只改额度的版式：每个账号一张卡，卡内窗口按两列排，
    每个窗口 = 名称 + 重置时间 + 剩余（重置在剩余左边，同一行，右对齐、等宽数字）/ 整宽进度条。 */
-.usage-dialog {
-  display: flex;
-  flex-direction: column;
-  width: min(720px, calc(100vw - var(--space-8)));
-  height: min(80vh, var(--dialog-h-usage));
-  background: var(--bg-overlay);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-3);
-  overflow: hidden;
-  animation: pop-in var(--dur-slow) var(--ease-spring);
-}
 .usage-dialog .qm {
-  flex: 1 1 0;
-  gap: var(--space-3);
-  min-height: 0;
-  padding: var(--space-3) var(--space-4) var(--space-4);
-}
-.usage-updated {
-  margin-left: auto;
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  white-space: nowrap;
-}
-.qm-stack {
-  display: flex;
-  flex: 1 1 0;
-  flex-direction: column;
   gap: var(--space-5);
-  min-height: 0;
-  overflow-y: auto;
 }
 .qm-panel {
   display: flex;
@@ -746,28 +683,11 @@ html[data-motion="reduced"] .ctx-usage-chev {
   max-width: 40%;
   margin-left: auto;
 }
+/* 待办板按钮：ui-chip，放不下时当前项省略 */
 .todo-board {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1-5);
+  flex: 0 1 auto;
   min-width: 0;
-  height: var(--control-h-sm);
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-.todo-board:hover,
-.todo-board[aria-expanded="true"] {
-  background: var(--bg-hover);
-}
-.todo-board:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+  overflow: hidden;
 }
 /* 待办状态图标（TodoMark.tsx）：细线条，同一画布；对勾 = 完成，细弧（进行中时转动）= 进行中，细圈 = 未开始。 */
 .todo-mark-ico {
@@ -888,18 +808,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   color: var(--st-error);
 }
 
-.queue-btn {
-  flex: none;
-  height: var(--control-h-sm);
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--link);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-}
-
 .suggest {
   display: flex;
   align-items: center;
@@ -916,151 +824,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   min-width: 0;
 }
 
-/* 浮层（ui/Popover）里的内容 */
-.pop-note {
-  margin: var(--space-1-5) var(--space-2-5);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  color: var(--text-3);
-}
-.pop-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1-5);
-  padding: var(--space-1) var(--space-1-5);
-}
-.pop-title {
-  margin: 0;
-  font-size: var(--fs-base);
-  font-weight: var(--fw-strong);
-}
-.pop-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-}
-
-.segments {
-  display: flex;
-  padding: var(--space-0-5);
-  border-radius: var(--radius-md);
-  background: var(--bg-sunken);
-}
-.segment {
-  flex: 1;
-  min-width: 0;
-  height: var(--control-h-sm);
-  padding: 0 var(--space-1);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-2);
-  font-size: var(--fs-xs);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.segment[data-checked] {
-  background: var(--bg-raised);
-  color: var(--text);
-  box-shadow: var(--shadow-1);
-}
-/* 思考强度档位多（7 档）时按文字宽度分配，放不下就省略，不会压到相邻档位上。 */
-.thinking-segments .segment {
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/*
- * 思考强度分段：选中项下面是一块滑动的滑块（ThinkingSegments），切换时用弹簧曲线滑过去。
- * 档位越高效果越强：off 中性、minimal 一道细线、low / medium 浅强调底、high 实心强调 + 光晕、
- * xhigh 实心 + 扫光、max 强调色和琥珀色流动渐变 + 呼吸光晕。循环动画遵守 --play-state（减少动效时暂停）。
- */
-.thinking-segments {
-  position: relative;
-  isolation: isolate;
-}
-.thinking-segments .segment {
-  position: relative;
-  z-index: 1;
-  transition: color var(--dur-fast) var(--ease-out);
-}
-.thinking-segments .segment[data-checked] {
-  background: transparent;
-  box-shadow: none;
-}
-.thinking-thumb {
-  position: absolute;
-  top: var(--space-0-5);
-  bottom: var(--space-0-5);
-  z-index: 0;
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
-  box-shadow: var(--shadow-1);
-  overflow: hidden;
-  transition:
-    background-color var(--dur-base) var(--ease-out),
-    box-shadow var(--dur-base) var(--ease-out);
-}
-.thinking-thumb[data-placed] {
-  transition:
-    left var(--dur-spring) var(--ease-spring),
-    width var(--dur-spring) var(--ease-spring),
-    background-color var(--dur-base) var(--ease-out),
-    box-shadow var(--dur-base) var(--ease-out);
-}
-.thinking-thumb[data-level="minimal"] {
-  box-shadow:
-    var(--shadow-1),
-    inset 0 -2px 0 color-mix(in srgb, var(--accent) 55%, transparent);
-}
-.thinking-thumb[data-level="low"] {
-  background: color-mix(in srgb, var(--accent) 12%, var(--bg-raised));
-}
-.thinking-thumb[data-level="medium"] {
-  background: color-mix(in srgb, var(--accent) 20%, var(--bg-raised));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
-}
-.thinking-thumb[data-level="high"],
-.thinking-thumb[data-level="xhigh"] {
-  background: var(--accent);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-.thinking-thumb[data-level="xhigh"]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
-  background-size: 250% 100%;
-  animation: thinking-sweep var(--dur-breathe) var(--ease-in-out) infinite;
-  animation-play-state: var(--play-state);
-}
-.thinking-thumb[data-level="max"] {
-  background: linear-gradient(90deg, var(--accent), var(--st-waiting), var(--accent));
-  background-size: 200% 100%;
-  animation:
-    thinking-flow var(--dur-breathe) linear infinite,
-    thinking-glow var(--dur-breathe) var(--ease-in-out) infinite;
-  animation-play-state: var(--play-state);
-}
-.thinking-segments .segment[data-checked][data-level="low"],
-.thinking-segments .segment[data-checked][data-level="medium"] {
-  color: var(--accent);
-}
-.thinking-segments .segment[data-checked][data-level="high"],
-.thinking-segments .segment[data-checked][data-level="xhigh"],
-.thinking-segments .segment[data-checked][data-level="max"] {
-  color: var(--text-on-primary);
-  font-weight: var(--fw-strong);
-}
-@keyframes thinking-sweep {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: -150% 0;
-  }
-}
 @keyframes thinking-flow {
   from {
     background-position: 0% 0;
@@ -1069,17 +832,7 @@ html[data-motion="reduced"] .ctx-usage-chev {
     background-position: 200% 0;
   }
 }
-@keyframes thinking-glow {
-  0%,
-  100% {
-    box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent);
-  }
-  50% {
-    box-shadow: 0 0 16px color-mix(in srgb, var(--st-waiting) 55%, transparent);
-  }
-}
-
-/* 斜杠菜单 */
+/* 斜杠菜单 / @ 文件菜单：listbox，焦点一直留在输入框，所以不能用 ui/MenuList；外观同 .ui-menu（--bg-overlay + --shadow-2 + --radius-lg，行高 --row-menu，悬停 / 键盘选中 --bg-hover）。 */
 .composer {
   position: relative;
 }
@@ -1091,13 +844,13 @@ html[data-motion="reduced"] .ctx-usage-chev {
   z-index: var(--z-popover);
   display: flex;
   flex-direction: column;
-  padding: var(--space-1-5);
+  padding: var(--space-1);
   /* 最多同时显示 8 行，更多的滚动。 */
-  max-height: calc(8 * var(--control-h-md) + 2 * var(--space-1-5));
+  max-height: calc(8 * var(--row-menu) + 2 * var(--space-1));
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--bg-overlay);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-2);
   animation: pop-in var(--dur-base) var(--ease-out);
 }
@@ -1106,10 +859,10 @@ html[data-motion="reduced"] .ctx-usage-chev {
   flex: none;
   align-items: baseline;
   gap: var(--space-2);
-  min-height: var(--control-h-md);
-  padding: var(--space-1-5) var(--space-2-5);
+  min-height: var(--row-menu);
+  padding: var(--space-1) var(--space-2-5) var(--space-1) var(--space-2);
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -1119,6 +872,12 @@ html[data-motion="reduced"] .ctx-usage-chev {
 }
 .slash-row[data-active] {
   background: var(--bg-hover);
+}
+.slash-empty {
+  margin: var(--space-1-5) var(--space-2-5);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-3);
 }
 /* 文件名太长时和目录一起让位（目录先缩），全文在行的悬停提示里。 */
 .slash-name {
@@ -1146,55 +905,32 @@ html[data-motion="reduced"] .ctx-usage-chev {
   font-size: var(--fs-xs);
 }
 
-/* 模型选择对话框（照 Tern）：标题行 + 角色页签 + 一张表（粘性表头）+ 底部参数行 / 控件 / 操作。数字列按 ch 定宽，等宽右对齐。 */
-.model-picker {
+/* 模型选择对话框（ui/Dialog lg，className mp-dialog）：标题 + 角色标签页 + 搜索行 + 一张表（粘性表头）+ 参数行 + 三行控件。数字列按 ch 定宽，等宽右对齐。
+   对话框定高（表自己滚），正文改成纵向 flex：搜索行 / 底部固定，表占满中间。 */
+.mp-dialog {
   --mp-cols: minmax(0, 1fr) 5ch 6ch 7ch 13ch var(--space-6);
-  display: flex;
-  flex-direction: column;
-  width: min(var(--content-w), calc(100vw - var(--space-8)));
   height: min(80vh, var(--content-w));
-  background: var(--bg-overlay);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-3);
-  overflow: hidden;
-  animation: pop-in var(--dur-slow) var(--ease-spring);
 }
-.mp-head {
+.mp-dialog .ui-dialog-body {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  padding-bottom: var(--space-3);
+  overflow: hidden;
+}
+/* 角色标签页：default 是本任务的模型，其余是 omp 的 modelRoles；选中的标签下面的表改成"给这个角色选模型"。 */
+.mp-tabs {
+  padding: var(--space-3) var(--space-5) 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.mp-search-row {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
-}
-.mp-glyph {
-  flex: none;
-  color: var(--text-2);
-}
-.mp-title {
-  flex: none;
-  margin: 0;
-  font-size: var(--fs-base);
-  line-height: var(--lh-lg);
-  font-weight: var(--fw-strong);
-  white-space: nowrap;
-}
-.mp-search {
-  flex: 1;
-  min-width: 0;
-  height: var(--control-h-md);
-  padding: 0 0 0 var(--space-3);
-  border: 0;
-  border-left: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text);
-  font-size: var(--fs-base);
-}
-.mp-search:focus-visible {
-  outline: none;
-}
-.mp-search::placeholder {
-  color: var(--text-3);
 }
 .mp-count {
   flex: none;
@@ -1202,37 +938,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   font-size: var(--fs-xs);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
-}
-/* 角色页签：default 是本任务的模型，其余是 omp 的 modelRoles；选中的页签下面的表改成"给这个角色选模型"。 */
-.mp-roles {
-  display: flex;
-  flex: none;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-4) 0;
-}
-.mp-role-tab {
-  padding: 0 var(--space-2-5);
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-2);
-  font: inherit;
-  font-size: var(--fs-xs);
-  line-height: var(--lh-sm);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.mp-role-tab:hover {
-  background: var(--bg-hover);
-}
-.mp-role-tab[aria-selected="true"] {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-.mp-role-tab:focus-visible {
-  box-shadow: var(--focus-ring);
-  outline: none;
 }
 .mp-role-badge {
   flex: none;
@@ -1247,6 +952,7 @@ html[data-motion="reduced"] .ctx-usage-chev {
 .mp-table {
   flex: 1;
   min-height: 0;
+  margin: 0 calc(-1 * var(--space-2));
   padding: 0 var(--space-2) var(--space-2);
   overflow-y: auto;
 }
@@ -1277,6 +983,12 @@ html[data-motion="reduced"] .ctx-usage-chev {
 .mp-group-count {
   margin-left: var(--space-1);
   font-family: var(--font-mono);
+  color: var(--text-3);
+}
+.mp-empty {
+  margin: var(--space-1-5) var(--space-2-5);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
   color: var(--text-3);
 }
 .mp-row {
@@ -1334,13 +1046,13 @@ html[data-motion="reduced"] .ctx-usage-chev {
   justify-content: flex-end;
   color: var(--accent);
 }
-/* 底部：参数行、思考强度 / 速度开关、操作。 */
+/* 底部：参数行 + 三行控件（思考强度 / Prewalk / 预设）。操作按钮在对话框页脚。 */
 .mp-foot {
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2-5);
+  padding-top: var(--space-3);
   border-top: 1px solid var(--border-subtle);
 }
 .mp-params {
@@ -1373,13 +1085,25 @@ html[data-motion="reduced"] .ctx-usage-chev {
   background: var(--accent-soft);
   color: var(--accent);
 }
-.mp-controls {
+/* 一行控件：标签列 88 + 内容；三行（思考强度 / Prewalk / 预设）左缘对齐。 */
+.mp-ctl {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-h-sm);
+}
+.mp-ctl-body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-4);
+  min-width: 0;
 }
-.mp-thinking,
+.mp-hints {
+  display: grid;
+  gap: var(--space-1);
+}
 .mp-speed,
 .mp-speed-row {
   display: flex;
@@ -1395,40 +1119,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   margin: 0;
   font-size: var(--fs-xs);
   color: var(--text-3);
-}
-.mp-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-.mp-actions-end {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.mp-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-2);
-  font: inherit;
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-.mp-link:hover {
-  color: var(--text);
-}
-.mp-link:focus-visible {
-  box-shadow: var(--focus-ring);
-  outline: none;
-}
-.mp-actions .gate-btn {
-  border-color: transparent;
-  border-radius: var(--radius-pill);
-}
-.mp-actions .gate-btn[data-primary] {
-  border-color: var(--primary);
 }
 
 /* 后台任务：输入框右上方的看板胶囊 + 看板浮层（状态行下不再另列 job 小卡，免得同一个 job 显示两遍）。 */
@@ -1533,10 +1223,10 @@ html[data-motion="reduced"] .ctx-usage-chev {
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  min-height: var(--control-h-sm);
+  min-height: var(--row-menu);
   padding: var(--space-1) var(--space-2);
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -1599,27 +1289,4 @@ html[data-motion="reduced"] .ctx-usage-chev {
 .job-actions .job-note {
   flex: 1 0 100%;
   margin: 0;
-}
-.job-action {
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text-2);
-  font-size: var(--fs-xs);
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-.job-action:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-.job-action[data-danger]:hover:not(:disabled) {
-  color: var(--st-error);
-}
-.job-action:disabled {
-  opacity: 0.5;
-}
-.job-action:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
 }

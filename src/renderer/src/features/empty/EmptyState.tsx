@@ -6,6 +6,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { DraftComposer } from "../composer/index.ts";
 import { refreshProjects, useProjectsState } from "../sidebar/projects-store.ts";
 import { describeError } from "../../ui/errors.ts";
+import { Button } from "../../ui/controls.tsx";
 import { useAppInfo } from "../../store/index.ts";
 import { ProjectLabel } from "./ProjectLabel.tsx";
 import { StudioHeader } from "./StudioHeader.tsx";
@@ -35,9 +36,9 @@ export function EmptyState() {
       <div className="empty" data-testid="empty-state" data-kind="error">
         <div className="empty-card" role="alert">
           <p className="empty-error">{t("empty.loadFailed", { message: describeError(t, error) })}</p>
-          <button type="button" className="empty-primary" onClick={() => void refreshProjects()}>
+          <Button variant="primary" onClick={() => void refreshProjects()}>
             {t("common.retry")}
-          </button>
+          </Button>
         </div>
       </div>
     );

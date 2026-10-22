@@ -1,19 +1,18 @@
-// 顶栏 = 任务条（spec §3.1）：左 标志+字标、切换侧栏按钮（图标随侧栏显隐变化）、"关于与反馈"图标按钮；中 任务标题 + 状态胶囊；
-// 右 任务工具（分支、评审、文件面板、终端），再往右是 titleBarOverlay 绘制的系统三键。空白处可拖动窗口。后退/前进不在顶栏（Alt+←/→、鼠标侧键）。
+// 顶栏 = 任务条（spec §3.1）：左 标志+字标、切换侧栏按钮（图标随侧栏显隐变化）；中 任务标题；
+// 右 任务工具（分支、评审、文件面板、终端、任务菜单 ⋯），再往右是 titleBarOverlay 绘制的系统三键。空白处可拖动窗口。后退/前进不在顶栏（Alt+←/→、鼠标侧键）。关于在设置 → 关于和命令面板里。
 import { FilesToggle } from "../features/file-preview/index.ts";
 import { DraftGitTools, GitTools } from "../features/git/index.ts";
 import { SessionMenu } from "../features/session-info/index.ts";
 import { TerminalToggle, useDraftTerminalKey } from "../features/terminal/index.ts";
 import { useT } from "../i18n/use-t.ts";
-import { InfoIcon, SidebarIcon } from "./icons.tsx";
+import { SidebarIcon } from "./icons.tsx";
 import { useDraftProject } from "../features/empty/use-draft-project.ts";
 import { useMainView, useSelectedTaskId, useTask } from "../store/index.ts";
+import { IconButton } from "../ui/controls.tsx";
 import { PixelLogo } from "../ui/PixelLogo.tsx";
 import { TaskCrumb } from "./TaskCrumb.tsx";
 
 interface TopBarProps {
-  aboutOpen: boolean;
-  onOpenAbout(): void;
   sidebarShown: boolean;
   onToggleSidebar(): void;
 }
@@ -46,29 +45,15 @@ export function TopBar(props: TopBarProps) {
         <span className="topbar-brand" data-testid="topbar-brand">
           <PixelLogo unit={2} />
         </span>
-        <button
-          type="button"
-          className="topbar-tool"
-          data-testid="topbar-sidebar"
-          aria-label={t("menu.toggleSidebar")}
-          aria-expanded={props.sidebarShown}
-          title={`${t("menu.toggleSidebar")} (Ctrl B)`}
+        <IconButton
+          label={t("menu.toggleSidebar")}
+          tip={`${t("menu.toggleSidebar")} (Ctrl B)`}
+          testId="topbar-sidebar"
+          expanded={props.sidebarShown}
           onClick={props.onToggleSidebar}
         >
           <SidebarIcon shown={props.sidebarShown} />
-        </button>
-        <button
-          type="button"
-          className="topbar-tool"
-          data-testid="topbar-about"
-          aria-haspopup="dialog"
-          aria-expanded={props.aboutOpen}
-          aria-label={t("window.about")}
-          title={t("window.about")}
-          onClick={props.onOpenAbout}
-        >
-          <InfoIcon />
-        </button>
+        </IconButton>
       </div>
       <TaskCrumb />
       <TaskTools />

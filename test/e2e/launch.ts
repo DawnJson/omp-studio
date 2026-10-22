@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { _electron as electron, type ElectronApplication, type Page } from "@playwright/test";
+import { _electron as electron, expect, type ElectronApplication, type Page } from "@playwright/test";
 import { findOmpOnPath } from "../../src/main/omp/discover.ts";
 import { parseTestOmpOverride } from "../../src/main/omp/launch-args.ts";
 
@@ -148,6 +148,40 @@ export function testOmp(fixture: string, options: { log?: string; speed?: number
 }
 
 export const screenshotsDir = path.join(root, "screenshots");
+
+/**
+ * 切换语言和主题，等界面真的换好再返回。换主题是整窗交叉淡入（App.tsx 的 view transition）：
+ * html 上的 data-theme 已经变了，淡入放完之前截图拍到的还是上一个主题。
+ */
+export async function setLocaleTheme(page: Page, locale: "zh-CN" | "en", theme: "light" | "dark"): Promise<void> {
+  await page.evaluate(
+    async ({ locale: nextLocale, theme: nextTheme }) => {
+      await globalThis.studio.setLocale(nextLocale);
+      await globalThis.studio.setTheme(nextTheme);
+    },
+    { locale, theme },
+  );
+  await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
+  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+  await page.evaluate(async () => {
+    const g = globalThis as unknown as {
+      requestAnimationFrame(callback: () => void): number;
+      document: {
+        getAnimations(): { effect: { pseudoElement?: string | null } | null; finished: Promise<unknown> }[];
+      };
+    };
+    // 过渡的伪元素和动画在更新回调之后的下一帧才建起来：先等两帧，再等它们放完。
+    const frames = Promise.withResolvers<void>();
+    g.requestAnimationFrame(() => g.requestAnimationFrame(() => frames.resolve()));
+    await frames.promise;
+    await Promise.all(
+      g.document
+        .getAnimations()
+        .filter((animation) => animation.effect?.pseudoElement?.startsWith("::view-transition") === true)
+        .map((animation) => animation.finished),
+    );
+  });
+}
 
 /** 展开侧栏里所有折叠着的文件夹（任务行只在文件夹展开时才画出来）；文件夹还没出现时先等它出现。 */
 export async function expandSidebarFolders(page: Page): Promise<void> {

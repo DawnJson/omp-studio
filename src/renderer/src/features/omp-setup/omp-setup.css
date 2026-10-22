@@ -61,13 +61,21 @@
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
   color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
   overflow-wrap: anywhere;
 }
 
+.setup-error {
+  color: var(--st-error);
+}
+
+/* 按钮右对齐，取消 / 次要在前、主按钮在后；一张卡最多一个主按钮 */
 .setup-actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  justify-content: flex-end;
   margin-top: var(--space-5);
 }
 
@@ -89,12 +97,6 @@
 
 .setup-details {
   margin: 0 0 var(--space-2);
-  color: var(--text-2);
-  font-size: var(--fs-sm);
-}
-
-.setup-details summary {
-  cursor: default;
 }
 
 .setup-details pre {
@@ -104,6 +106,8 @@
   overflow: auto;
   border-radius: var(--radius-md);
   background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

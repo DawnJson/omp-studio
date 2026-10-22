@@ -50,9 +50,7 @@ export const composer = {
   "context.buffer": "Auto-compact buffer",
   "breakdown.toggle": "Session usage",
   "breakdown.title": "Session usage by model",
-  "breakdown.loading": "Loading…",
   "breakdown.failed": "Couldn't read the session file: {message}",
-  "breakdown.empty": "No replies yet",
   "breakdown.whole": {
     one: "Compacted once; the whole session (including before compaction) used {tokens} tokens · {cost}",
     other: "Compacted {count} times; the whole session (including before compaction) used {tokens} tokens · {cost}",

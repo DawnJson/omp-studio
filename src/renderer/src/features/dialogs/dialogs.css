@@ -102,37 +102,3 @@
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
-.toast-action,
-.toast-close {
-  flex: none;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-  transition:
-    background-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
-}
-.toast-action {
-  padding: var(--space-1) var(--space-2);
-  color: var(--link);
-  font-size: var(--fs-sm);
-}
-.toast-close {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  color: var(--text-3);
-}
-.toast-action:hover,
-.toast-close:hover {
-  background: var(--bg-hover);
-}
-.toast-action:focus-visible,
-.toast-close:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}

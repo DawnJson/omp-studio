@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, screenshotsDir, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -117,10 +117,9 @@ test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来�
     await openMenu(page);
 
     // 没动过：显示配置默认值，没有"本会话"、没有圆点。
-    const skillful = page.getByTestId("toggle-skillful");
     await expect(page.getByTestId("toggle-skillful-switch")).toHaveAttribute("aria-checked", "true");
     await expect(page.getByTestId("toggle-extendedContext-switch")).toHaveAttribute("aria-checked", "false");
-    await expect(skillful.locator(".tg-session")).toHaveCount(0);
+    await expect(page.getByTestId("toggle-skillful-session")).toHaveCount(0);
     await expect(page.getByTestId("toggle-skillful-dot")).toHaveCount(0);
     await expect(page.getByTestId("toggle-browser-mode").getByRole("radio", { name: /可见|Visible/ })).toHaveAttribute(
       "aria-checked",
@@ -131,7 +130,7 @@ test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来�
     await page.getByTestId("toggle-skillful-switch").click();
     await expect(page.getByTestId("toggle-skillful-switch")).toHaveAttribute("aria-checked", "false");
     await expect(page.getByTestId("toggle-skillful-dot")).toBeVisible();
-    await expect(skillful.locator(".tg-session")).toBeVisible();
+    await expect(page.getByTestId("toggle-skillful-session")).toBeVisible();
     await expect(page.getByTestId("toggles-button")).toHaveAttribute("data-differs", "true");
 
     // 扩展上下文开：同上。
@@ -200,16 +199,8 @@ async function shoot(page: Page, name: string): Promise<void> {
     ["zh-CN", "light"],
     ["en", "dark"],
   ] as const) {
-    await page.evaluate(
-      async ({ locale, scheme }) => {
-        await globalThis.studio.setLocale(locale);
-        await globalThis.studio.setTheme(scheme);
-      },
-      { locale, scheme },
-    );
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-    await page.waitForTimeout(250);
+    await setLocaleTheme(page, locale, scheme);
     await page.screenshot({ path: path.join(screenshotsDir, `${name}-${locale}-${scheme}.png`) });
   }
 }

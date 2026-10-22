@@ -1,13 +1,15 @@
-// 常用的两个对象设置不让用户手写 JSON：
+// 常用的两个对象设置不让用户手写 JSON，在设置行"编辑…"对话框里编辑（ConfigControls 的 StructuredControl）：
 //   modelRoles          角色 → 模型选择器（每个角色一行，选模型用下拉）
 //   retry.fallbackChains 角色/模型 → 有序的回退模型列表（可增删、上下移）
 // 选择器是 omp 的 "provider/model-id"，可以带 ":high" 之类的思考后缀、写 "@role" 别名；列表里没有的值照样保留并显示原文。
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
+import type { TFunction } from "../../../../shared/i18n/index.ts";
+import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { ChevronDown, ChevronRight, Close, Plus } from "../../icons.tsx";
 import { useT } from "../../i18n/use-t.ts";
+import { Button, IconButton, TextField, type Option } from "../../ui/controls.tsx";
+import { Select } from "../../ui/Select.tsx";
 import type { ControlProps } from "./ConfigControls.tsx";
-import { Button, type Option } from "./controls.tsx";
-import { Dropdown } from "./Dropdown.tsx";
 
 let selectors: Promise<Option<string>[]> | null = null;
 
@@ -73,50 +75,23 @@ function AddKey({
   const free = suggestions.filter((name) => !taken.includes(name));
   return (
     <div className="se-add">
-      <input
-        className="st-input se-add-input"
+      <TextField
         value={text}
-        spellCheck={false}
+        width={200}
         placeholder={label}
         aria-label={label}
-        onChange={(event) => setText(event.target.value)}
+        onChange={setText}
         onKeyDown={(event) => event.key === "Enter" && add(text)}
       />
       <Button disabled={text.trim() === "" || taken.includes(text.trim())} onClick={() => add(text)}>
         {t("settings.cfg.add")}
       </Button>
       {free.map((name) => (
-        <button key={name} type="button" className="se-chip" onClick={() => add(name)}>
-          <Plus size={12} className="icon" />
+        <Button key={name} variant="quiet" size="sm" icon={<Plus size={12} />} onClick={() => add(name)}>
           {name}
-        </button>
+        </Button>
       ))}
     </div>
-  );
-}
-
-function IconButton({
-  label,
-  disabled = false,
-  onClick,
-  children,
-}: {
-  label: string;
-  disabled?: boolean;
-  onClick(): void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      className="se-icon-btn"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -144,6 +119,13 @@ export function canEditStructured(item: { key: string; value: unknown; hasValue:
   return false;
 }
 
+/** 设置行上"编辑…"旁边的等宽摘要：角色名 / 回退链个数。 */
+export function structuredSummary(item: OmpConfigItem, t: TFunction): string {
+  if (item.key === "modelRoles") return isStringRecord(item.value) ? Object.keys(item.value).join(" · ") : "";
+  const count = isChainRecord(item.value) ? Object.keys(item.value).length : 0;
+  return t("settings.cfg.chainCount", { count });
+}
+
 export function RolesEditor({ item, labelId, onSave }: ControlProps) {
   const t = useT();
   const options = useSelectors();
@@ -156,10 +138,11 @@ export function RolesEditor({ item, labelId, onSave }: ControlProps) {
           <span className="se-name" title={role}>
             {role}
           </span>
-          <Dropdown
+          <Select
             value={roles[role] ?? ""}
             options={withCurrent(options, roles[role] ?? "")}
             labelledBy={labelId}
+            width="100%"
             onChange={(next) => onSave({ ...roles, [role]: next })}
             placeholder={t("settings.cfg.pickModel")}
           />
@@ -167,7 +150,7 @@ export function RolesEditor({ item, labelId, onSave }: ControlProps) {
             label={t("settings.cfg.remove")}
             onClick={() => onSave(Object.fromEntries(Object.entries(roles).filter(([name]) => name !== role)))}
           >
-            <Close size={12} className="icon" />
+            <Close size={12} />
           </IconButton>
         </div>
       ))}
@@ -197,22 +180,22 @@ export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
               <span className="se-name" title={key}>
                 {key}
               </span>
-              <span className="se-spacer" />
               <IconButton
                 label={t("settings.cfg.removeChain")}
                 onClick={() => onSave(Object.fromEntries(Object.entries(chains).filter(([name]) => name !== key)))}
               >
-                <Close size={12} className="icon" />
+                <Close size={12} />
               </IconButton>
             </div>
             {chain.length === 0 && <div className="se-empty">{t("settings.cfg.noFallbacks")}</div>}
             {chain.map((entry, index) => (
               <div key={`${index}:${entry}`} className="se-row se-entry">
                 <span className="se-index">{index + 1}</span>
-                <Dropdown
+                <Select
                   value={entry}
                   options={withCurrent(options, entry)}
                   labelledBy={labelId}
+                  width="100%"
                   onChange={(next) =>
                     set(
                       key,
@@ -232,7 +215,7 @@ export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
                     )
                   }
                 >
-                  <ChevronRight size={14} className="icon se-up" />
+                  <ChevronRight size={14} className="se-up" />
                 </IconButton>
                 <IconButton
                   label={t("settings.cfg.moveDown")}
@@ -246,7 +229,7 @@ export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
                     )
                   }
                 >
-                  <ChevronDown size={14} className="icon" />
+                  <ChevronDown size={14} />
                 </IconButton>
                 <IconButton
                   label={t("settings.cfg.remove")}
@@ -257,16 +240,17 @@ export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
                     )
                   }
                 >
-                  <Close size={12} className="icon" />
+                  <Close size={12} />
                 </IconButton>
               </div>
             ))}
             <div className="se-row se-entry">
               <span className="se-index" />
-              <Dropdown
+              <Select
                 value=""
                 options={options}
                 labelledBy={labelId}
+                width="100%"
                 placeholder={t("settings.cfg.addFallback")}
                 onChange={(next) => set(key, [...chain, next])}
               />

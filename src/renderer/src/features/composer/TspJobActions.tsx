@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import type { Job } from "../../../../shared/ui/jobs.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { Button } from "../../ui/controls.tsx";
 import { reportOmpError } from "../../ui/errors.ts";
 import { killTspJob, viewTspJobOutput } from "./tsp-jobs-store.ts";
 
@@ -13,23 +14,21 @@ export function TspJobActions({ taskId, job, onClose }: { taskId: TaskId; job: J
   return (
     <div className="job-actions" data-testid="tsp-job-actions">
       <p className="job-note">{t("composer.jobs.tspOutputHint")}</p>
-      <button
-        type="button"
-        className="job-action"
-        data-testid="tsp-job-view-output"
+      <Button
+        size="sm"
+        testId="tsp-job-view-output"
         onClick={() => {
           onClose();
           viewTspJobOutput(taskId, job.id).catch((error: unknown) => reportOmpError(t, error));
         }}
       >
         {t("composer.jobs.viewOutput")}
-      </button>
+      </Button>
       {job.status === "running" && (
-        <button
-          type="button"
-          className="job-action"
-          data-testid="tsp-job-kill"
-          data-danger=""
+        <Button
+          size="sm"
+          variant="danger"
+          testId="tsp-job-kill"
           disabled={busy}
           onClick={() => {
             setBusy(true);
@@ -39,7 +38,7 @@ export function TspJobActions({ taskId, job, onClose }: { taskId: TaskId; job: J
           }}
         >
           {t("composer.jobs.kill")}
-        </button>
+        </Button>
       )}
     </div>
   );

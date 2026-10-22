@@ -2,12 +2,9 @@ import type { MessageEntry } from "../index.ts";
 import type { login as zhCN } from "../zh-CN/login.ts";
 
 export const login = {
-  providers: "Providers",
   signIn: "Sign in",
   signOut: "Sign out",
-  signedIn: "Signed in · {account}",
   notSignedIn: "Not signed in",
-  viaEnv: "Using an environment variable or config key",
   keyInApp: "API key set",
   unavailable: "Unavailable right now",
   opening: "Opening your browser…",
@@ -25,6 +22,7 @@ export const login = {
   empty: "No providers available",
   apiKey: "API key",
   "apiKey.set": "Set API key",
+  "apiKey.replace": "Replace key",
   "apiKey.placeholder": "Paste an API key",
   "apiKey.save": "Save",
   "apiKey.clear": "Clear API key",
@@ -34,6 +32,19 @@ export const login = {
   "apiKey.add": "Add API key",
   search: "Search providers",
   noMatch: "No matching providers",
-  showOthers: { one: "Show {count} more provider", other: "Show {count} more providers" },
   terminalLogin: "Sign in from the terminal",
+  more: "More actions",
+  back: "Back",
+  connect: "Connect provider…",
+  "connect.title": "Connect a provider",
+  "connect.desc": "Search by name, then sign in or enter an API key.",
+  connected: "Connected",
+  "connected.empty": "No providers connected yet. Use “Connect provider…” to start.",
+  "others.note":
+    "Not connected. Use “Connect provider…” to search by name, then sign in or enter a key. All {count} aren't listed here.",
+  others: "Other providers",
+  "badge.signedIn": "Signed in",
+  "badge.env": "Env var or config",
+  "kind.oauth": "OAuth sign-in",
+  "kind.apiKey": "API key",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

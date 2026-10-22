@@ -13,7 +13,8 @@ import {
   useOmpConfigValue,
 } from "./config-store.ts";
 import { loadAccounts, useAccountLoad } from "./accounts-store.ts";
-import { Select, SettingRow, type Option } from "./controls.tsx";
+import { Row, type Option } from "../../ui/controls.tsx";
+import { Select } from "../../ui/Select.tsx";
 import { ConfigRow } from "./ConfigRow.tsx";
 import { useCommonConfigItems } from "./OmpConfigPane.tsx";
 
@@ -51,12 +52,14 @@ export function ModelsSection() {
   if (typeof thinking === "string" && !thinkingOptions.some((option) => option.value === thinking))
     thinkingOptions.push({ value: thinking, label: thinking });
 
-  // 和 omp 的常用项同一张卡（cfg-card：ConfigRow 的窄宽布局靠它的容器查询）。
+  // 和 omp 的常用项同一组行。
   return (
-    <div className="st-card cfg-card">
-      <SettingRow title={t("settings.defaultModel")}>
+    <div className="ui-rows st-rows">
+      <Row label={t("settings.defaultModel")}>
         {(labelId) => (
           <Select
+            size="sm"
+            width={280}
             value={defaultModel ?? inherit}
             options={modelOptions}
             labelledBy={labelId}
@@ -71,10 +74,11 @@ export function ModelsSection() {
             testId="setting-default-model"
           />
         )}
-      </SettingRow>
-      <SettingRow title={t("settings.defaultThinking")}>
+      </Row>
+      <Row label={t("settings.defaultThinking")}>
         {(labelId) => (
           <Select
+            size="sm"
             value={typeof thinking === "string" ? thinking : ""}
             options={thinkingOptions}
             labelledBy={labelId}
@@ -85,7 +89,7 @@ export function ModelsSection() {
             testId="setting-default-thinking"
           />
         )}
-      </SettingRow>
+      </Row>
       {common.map((item) => (
         <ConfigRow key={item.key} item={item} />
       ))}

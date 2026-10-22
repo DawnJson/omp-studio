@@ -10,6 +10,8 @@ import type {
 } from "../../../../../shared/tsp/tsp.generated.ts";
 import type { TFunction } from "../../../../../shared/i18n/index.ts";
 import { useT } from "../../../i18n/use-t.ts";
+import { Check, ChevronDown } from "../../../icons.tsx";
+import { Badge, Button, Switch } from "../../../ui/controls.tsx";
 import { TspIcon } from "../icons.tsx";
 import type { NodeProps, TspContext } from "../node-props.ts";
 import { useTspNode, useTspSurface } from "../tsp-store.ts";
@@ -113,14 +115,6 @@ export function Prefs({ node, ctx }: NodeProps) {
           <div className="tspi-pf-brand">
             <span className="tspi-pf-mark" aria-hidden="true" />
             <span className="tspi-pf-brand-t">{p.title}</span>
-            <button
-              type="button"
-              className="tspi-pf-close"
-              aria-label={t("tspi.close")}
-              onClick={() => action("close")}
-            >
-              ×
-            </button>
           </div>
           <div className="tspi-pf-search">
             <span className="tspi-pf-search-ic">
@@ -159,9 +153,9 @@ export function Prefs({ node, ctx }: NodeProps) {
                       <TspIcon name={pg.icon ?? "sliders"} size={16} />
                       <span className="lbl">{pg.label}</span>
                       {pg.changed !== undefined && pg.changed > 0 ? (
-                        <span className="meta" title={t("tspi.changedCount", { count: pg.changed })}>
+                        <Badge tone="accent" title={t("tspi.changedCount", { count: pg.changed })}>
                           {pg.changed}
-                        </span>
+                        </Badge>
                       ) : null}
                     </button>
                   );
@@ -212,10 +206,9 @@ export function Prefs({ node, ctx }: NodeProps) {
           </div>
         </div>
         <div className="tspi-pf-top">
-          <button type="button" className="tspi-pf-closebtn" onClick={() => action("close")}>
-            <kbd className="tspi-kbd">esc</kbd>
+          <Button size="sm" hint="Esc" onClick={() => action("close")}>
             {t("tspi.close")}
-          </button>
+          </Button>
         </div>
         <div className="tspi-pf-editor on">
           <Slots node={node} ctx={ctx} slot="editor" />
@@ -302,9 +295,9 @@ function Row({ row, p, query, send, action, t }: Omit<SectionProps, "section"> &
       </div>
       <div className="tspi-pf-ctl">
         {resettable ? (
-          <button type="button" className="tspi-pf-reset" onClick={() => change(null)}>
+          <Button size="sm" variant="quiet" onClick={() => change(null)}>
             {t("tspi.reset")}
-          </button>
+          </Button>
         ) : null}
         <Control
           row={row}
@@ -339,30 +332,17 @@ interface ControlProps {
 function Control({ row, control, off, editing, change, activate, close, hover, act, t }: ControlProps) {
   switch (control.k) {
     case "switch":
-      return (
-        <button
-          type="button"
-          role="switch"
-          aria-checked={control.on}
-          aria-label={row.label}
-          className={control.on ? "tspi-pf-sw on" : "tspi-pf-sw"}
-          disabled={off}
-          onClick={() => change(!control.on)}
-        >
-          <i className="knob" />
-        </button>
-      );
+      return <Switch checked={control.on} disabled={off} label={row.label} onChange={change} />;
     case "choice": {
       if (isSegmented(control)) {
         return (
-          <div className="tspi-pf-seg" role="radiogroup">
+          <div className="ui-seg" data-size="sm" role="radiogroup">
             {control.options.map((o) => (
               <button
                 type="button"
                 key={o.value}
                 role="radio"
                 aria-checked={o.value === control.value}
-                className={o.value === control.value ? "on" : ""}
                 title={o.detail}
                 disabled={off}
                 onClick={() => change(o.value)}
@@ -380,39 +360,32 @@ function Control({ row, control, off, editing, change, activate, close, hover, a
         <div className="tspi-pf-pop">
           <button
             type="button"
-            className={control.mono ? "tspi-pf-pick mono" : "tspi-pf-pick"}
+            className={control.mono ? "ui-field ui-select ui-mono tspi-pf-pick" : "ui-field ui-select tspi-pf-pick"}
+            data-size="sm"
             aria-haspopup="listbox"
             aria-expanded={open}
             disabled={off}
             onClick={() => (open ? close() : activate())}
           >
             <span>{current?.label ?? control.value}</span>
-            <span className="chev" aria-hidden="true">
-              ▾
-            </span>
+            <ChevronDown />
           </button>
           {open ? (
-            <div className="tspi-pf-menu" role="listbox">
+            <div className="ui-menu tspi-pf-menu" role="listbox">
               {control.options.map((o) => (
                 <div
                   key={o.value}
                   role="option"
                   aria-selected={o.value === control.value}
-                  className={[
-                    "mi",
-                    o.value === control.value ? "cur" : "",
-                    o.value === highlighted ? "sel" : "",
-                    o.detail !== undefined ? "two" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
+                  className="ui-menu-item"
+                  data-active={o.value === highlighted ? "" : undefined}
                   onMouseEnter={() => hover(o.value)}
                   onClick={() => change(o.value)}
                 >
-                  <span className="tspi-pf-check">{o.value === control.value ? "✓" : ""}</span>
-                  <span className="tspi-pf-ml">
-                    <span className={control.mono ? "t mono" : "t"}>{o.label}</span>
-                    {o.detail !== undefined ? <span className="d">{o.detail}</span> : null}
+                  {o.value === control.value ? <Check /> : <span />}
+                  <span className="ui-menu-text">
+                    <span className={control.mono ? "tspi-pf-mono" : undefined}>{o.label}</span>
+                    {o.detail !== undefined ? <span className="ui-menu-note">{o.detail}</span> : null}
                   </span>
                 </div>
               ))}
@@ -426,23 +399,23 @@ function Control({ row, control, off, editing, change, activate, close, hover, a
       const up = nextNumber(control, 1);
       return (
         <div className="tspi-pf-step">
-          <button
-            type="button"
+          <Button
+            size="sm"
             aria-label={t("tspi.decrease")}
             disabled={off || down === null}
             onClick={() => down !== null && change(down)}
           >
             −
-          </button>
+          </Button>
           <span className="v">{numberLabel(control)}</span>
-          <button
-            type="button"
+          <Button
+            size="sm"
             aria-label={t("tspi.increase")}
             disabled={off || up === null}
             onClick={() => up !== null && change(up)}
           >
             +
-          </button>
+          </Button>
         </div>
       );
     }
@@ -451,15 +424,16 @@ function Control({ row, control, off, editing, change, activate, close, hover, a
       const shown = control.secret === true ? "•".repeat([...draft].length) : draft;
       const caret = editing?.cursor;
       const classes = [
+        "ui-field",
         "tspi-pf-in",
-        control.mono ? "mono" : "",
+        control.mono ? "ui-mono" : "",
         editing ? "editing" : "",
         control.secret ? "secret" : "",
       ]
         .filter(Boolean)
         .join(" ");
       return (
-        <div className={classes} role="textbox" aria-readonly onClick={() => !off && activate()}>
+        <div className={classes} data-size="sm" role="textbox" aria-readonly onClick={() => !off && activate()}>
           {editing !== null && caret !== undefined ? (
             <span className="v">
               {shown.slice(0, caret)}
@@ -497,13 +471,9 @@ function Control({ row, control, off, editing, change, activate, close, hover, a
             <button
               type="button"
               key={o.value}
-              className={[
-                "tspi-pf-chip",
-                control.values.includes(o.value) ? "on" : "",
-                editing?.option === o.value ? "sel" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
+              className={["ui-btn", "tspi-pf-chip", editing?.option === o.value ? "sel" : ""].filter(Boolean).join(" ")}
+              data-size="sm"
+              aria-pressed={control.values.includes(o.value)}
               title={o.detail}
               disabled={off}
               onClick={() => change(toggleMulti(control, o.value))}
@@ -515,9 +485,9 @@ function Control({ row, control, off, editing, change, activate, close, hover, a
       );
     case "action":
       return (
-        <button type="button" className="tspi-pf-actbtn" disabled={off} onClick={() => act(control.act)}>
+        <Button size="sm" disabled={off} onClick={() => act(control.act)}>
           {control.label}
-        </button>
+        </Button>
       );
   }
 }
@@ -568,17 +538,12 @@ function OrderedList({
             </span>
             <span className="n">{on ? position + 1 : ""}</span>
             <span className="lbl">{o.label}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={on}
-              aria-label={o.label}
-              className={on ? "tspi-pf-sw sm on" : "tspi-pf-sw sm"}
+            <Switch
+              checked={on}
               disabled={off}
-              onClick={() => change(toggleMulti(control, o.value))}
-            >
-              <i className="knob" />
-            </button>
+              label={o.label}
+              onChange={() => change(toggleMulti(control, o.value))}
+            />
           </div>
         );
       })}

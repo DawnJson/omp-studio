@@ -271,6 +271,9 @@ export interface Tab<T extends string> {
   id: T;
   label: string;
   count?: number | undefined;
+  disabled?: boolean | undefined;
+  /** 悬停提示。 */
+  title?: string | undefined;
 }
 
 /** 标签页：切一个视图。role=tablist，方向键移动并切换。面板的 id 是 `${idBase}-panel-${tab}`，用 tabPanelProps 取。 */
@@ -295,7 +298,7 @@ export function Tabs<T extends string>({
     event.preventDefault();
     const target = (index + step + tabs.length) % tabs.length;
     const next = tabs[target];
-    if (!next) return;
+    if (!next || next.disabled === true) return;
     onChange(next.id);
     event.currentTarget.parentElement?.querySelectorAll("button")[target]?.focus();
   };
@@ -311,6 +314,8 @@ export function Tabs<T extends string>({
           aria-selected={tab.id === value}
           aria-controls={`${idBase}-panel-${tab.id}`}
           tabIndex={tab.id === value ? 0 : -1}
+          disabled={tab.disabled}
+          title={tab.title}
           onClick={() => onChange(tab.id)}
           onKeyDown={(event) => move(event, index)}
           data-testid={testId === undefined ? undefined : `${testId}-${tab.id}`}
@@ -449,7 +454,7 @@ export function TextField({
 }
 
 /** 数字框：112 宽、右对齐、等宽数字，单位写在框内。值按字符串进出，解析 / 校验由调用方做。 */
-export function NumberField({ unit, width = 112, ...rest }: TextFieldProps & { unit?: string }) {
+export function NumberField({ unit, width = 112, ...rest }: TextFieldProps & { unit?: string | undefined }) {
   return (
     <TextField
       {...rest}

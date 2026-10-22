@@ -11,7 +11,14 @@ import { crc32, deflateSync } from "node:zlib";
 import { expect, test, type Page } from "@playwright/test";
 import { parseSession } from "../../src/main/tsp/session-extras.ts";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
-import { copyFilesToClipboard, launchApp, openTaskRow, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import {
+  copyFilesToClipboard,
+  launchApp,
+  openTaskRow,
+  screenshotsDir,
+  setLocaleTheme,
+  type LaunchedApp,
+} from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -108,16 +115,8 @@ async function shoot(page: Page, state: string): Promise<void> {
     ["en", "light"],
     ["en", "dark"],
   ] as const) {
-    await page.evaluate(
-      async ({ locale, scheme }) => {
-        await globalThis.studio.setLocale(locale);
-        await globalThis.studio.setTheme(scheme);
-      },
-      { locale, scheme },
-    );
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-    await page.waitForTimeout(250);
+    await setLocaleTheme(page, locale, scheme);
     await page.screenshot({ path: path.join(screenshotsDir, `tsp-${state}-${locale}-${scheme}.png`) });
   }
 }
@@ -478,14 +477,19 @@ test("多题提问(omp 18.12.5 录制):多选题点高亮项是勾选不跳页;R
     await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "needs_you");
     // 底栏是真按钮。
     await expect(item("s.actions/submit")).toHaveJSProperty("tagName", "BUTTON");
+    // 按钮里的快捷键是尾随小字、写 Windows 键名（不是 ⏎ ⌥ 这类符号）；门有外框；单选题的选项带单选圈。
+    await expect(item("s.actions/submit")).toContainText("Enter");
+    await expect(item("s.actions/hide")).toContainText("Alt+H");
+    await expect(role(page, "omp.editor.ask")).toHaveCSS("border-top-width", "1px");
+    await expect(item("s.q0/option:1").locator("input.ui-radio")).toHaveCount(1);
     // 单选:点没高亮的一项 = select(omp 直接作答并跳页)。
     await item("s.q0/option:1").click();
     // 多选:点已高亮的第一项(Logging)= select(勾选),不是 activate;Cache 同理。
     await expect(item("s.q1/option:0")).toHaveAttribute("data-role", "omp.ask.check", { timeout: 30_000 });
     await item("s.q1/option:0").click();
-    await expect(item("s.q1/option:0").locator(".tspi-item-ic")).toBeVisible();
+    await expect(item("s.q1/option:0").getByTestId("tspi-item-mark")).toBeChecked();
     await item("s.q1/option:2").click();
-    await expect(item("s.q1/option:2").locator(".tspi-item-ic")).toBeVisible();
+    await expect(item("s.q1/option:2").getByTestId("tspi-item-mark")).toBeChecked();
     // Next 按钮发 action submit,翻到第三题。
     await item("s.actions/submit").click();
     await item("s.q2/option:1").click();
@@ -1286,12 +1290,12 @@ test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 �
     await panel.getByTestId("btw-new-topic").click();
     await panel.getByTestId("btw-input").fill("Reply with exactly the word: ping");
     await panel.getByTestId("btw-input").press("Enter");
-    await expect(panel.locator(".btw-topic")).toHaveCount(2, { timeout: 30_000 });
+    await expect(panel.locator('[data-testid^="btw-topics-"]')).toHaveCount(2, { timeout: 30_000 });
     await expect(turns.first()).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
     await expect(turns.first()).toContainText("ping");
     // 3) 选回 pong 话题追问:主进程在后台开历史 → select → follow-up → 填字 → send。
     // 标签只截前 28 个字(两个话题的标签都是 "Reply with exactly the word:…"),完整问题在 title 上。
-    await panel.locator('.btw-topic[title$="pong"]').click();
+    await panel.locator('[data-testid^="btw-topics-"][title$="pong"]').click();
     await expect(turns.first()).toContainText("pong");
     await panel.getByTestId("btw-input").fill("Say gamma");
     await panel.getByTestId("btw-input").press("Enter");

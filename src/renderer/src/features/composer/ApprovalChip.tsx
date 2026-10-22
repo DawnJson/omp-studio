@@ -1,15 +1,17 @@
 // 审批模式胶囊（spec 5.8）：显示和修改的都是 omp 自己的 tools.approvalMode（按项目目录解析：项目配置盖过全局，见 use-approval-mode.ts），
 // omp-studio 不另存、启动时不传 --approval-mode。omp 的审批模式在进程启动时读一次：改了之后新启动的任务生效，已在运行的任务要重启。
+// 胶囊 = 图标 + 模式名（ui-chip，全自动用 warning 色）；点开是选择菜单（ui/MenuList，当前项只靠 ✓，第二行写说明）；切到全自动先出行内确认（Popover kind="confirm"）。
 import { reportError } from "../../ui/errors.ts";
 import { useEffect, useRef, useState } from "react";
 import type { ApprovalMode, ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
-import { MenuItem, onMenuKeyDown } from "../../app/AppMenu.tsx";
 import { useT } from "../../i18n/use-t.ts";
 import { Pencil, Shield, ShieldCheck, ShieldOff } from "../../icons.tsx";
 import { useSettings } from "../../store/index.ts";
 import { startupSnapshot } from "../../store/startup-snapshot.ts";
 import { ensureOmpConfigLoaded } from "../settings/config-store.ts";
+import { Button } from "../../ui/controls.tsx";
+import { MenuList, type MenuEntry } from "../../ui/Menu.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import { useApprovalMode } from "./use-approval-mode.ts";
 
@@ -41,7 +43,7 @@ export function ApprovalChip({
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const approval = useApprovalMode(projectId);
-  // 还没读到时先用上次读到的全局值（启动缓存），第一帧就显示当前档位的图标。
+  // 还没读到时先用上次读到的全局值（启动缓存），第一帧就显示当前档位的图标和名称。
   const value = approval.info === null ? startupSnapshot().approvalMode : approval.info.mode;
   const currentEntry = modes.find((entry) => entry.mode === value);
   const current = currentEntry?.mode;
@@ -50,20 +52,21 @@ export function ApprovalChip({
     approval.info === null
       ? ""
       : ` · ${t(approval.info.source === "project" ? "approval.sourceProject" : "approval.sourceGlobal")}`;
-  // 胶囊只有图标：完整名称（含来源）放进悬停提示和 aria-label（没读到档位时写"审批…"）。
-  const chipName = `${t("approval.title")} · ${currentEntry ? t(currentEntry.label) : t("approval.loading")}${source}`;
+  const modeName = currentEntry ? t(currentEntry.label) : t("approval.loading");
+  // 胶囊上写模式名；来源（项目配置 / 全局配置）放进悬停提示和 aria-label。
+  const chipName = `${t("approval.title")} · ${modeName}${source}`;
 
-  // 项目 .omp/config.yml 设了它：omp 没有写项目层的命令，改全局不生效，所以四档不可选，只在提示里说明（见 omp-config/approval-mode.ts）。
+  // 项目 .omp/config.yml 设了它：omp 没有写项目层的命令，改全局不生效，所以四档不可选，只在菜单里说明（见 omp-config/approval-mode.ts）。
   const locked = approval.info?.source === "project";
 
   useEffect(ensureOmpConfigLoaded, []);
 
-  // 菜单打开时焦点落在当前项（同语言/主题菜单），↑↓ 才有起点。
+  // 菜单打开时焦点落在当前项，↑↓ 才有起点。
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open || confirming) return;
     const checked = menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]');
-    (checked ?? menuRef.current?.querySelector<HTMLElement>('[role^="menuitem"]:not(:disabled)'))?.focus();
+    (checked ?? menuRef.current?.querySelector<HTMLElement>('[role^="menuitem"]'))?.focus();
   }, [open, confirming]);
 
   const close = () => {
@@ -88,15 +91,38 @@ export function ApprovalChip({
       .catch((error: unknown) => reportError(t, error, t("msg.sendFailed")));
   };
 
+  const items: MenuEntry[] = [
+    ...modes.map((entry) => {
+      const desc = entry.mode === "yolo" ? `${t(entry.desc)} ${t("approval.subagents")}` : t(entry.desc);
+      return {
+        id: entry.mode,
+        label: t(entry.label),
+        note: desc,
+        checked: entry.mode === current,
+        ...(locked ? { disabledReason: t("approval.projectLocked") } : {}),
+        testId: `approval-mode-${entry.mode}`,
+        onSelect: () => choose(entry.mode),
+      };
+    }),
+    { kind: "separator", id: "sep" },
+    {
+      id: "forget",
+      label: t("approval.forget"),
+      note: t("approval.desc.forget"),
+      ...(forgetTaskId === null ? { disabledReason: t("approval.forgetUnavailable") } : {}),
+      onSelect: forget,
+    },
+  ];
+
   return (
     <div className="ui-popover-anchor">
       <button
         type="button"
-        className="chip"
+        className="ui-chip"
         data-testid="approval-chip"
         data-mode={current}
         data-source={approval.info?.source}
-        data-yolo={current === "yolo" || undefined}
+        data-tone={current === "yolo" ? "warning" : undefined}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={chipName}
@@ -104,54 +130,39 @@ export function ApprovalChip({
         onClick={() => setOpen((value) => !value)}
       >
         <ModeIcon size={14} />
+        <span className="chip-mode">{modeName}</span>
       </button>
-      <Popover open={open} onClose={close} label={t("approval.title")}>
+      <Popover
+        open={open}
+        onClose={close}
+        label={t("approval.title")}
+        kind={confirming ? "confirm" : undefined}
+        width={confirming ? undefined : 320}
+      >
         {confirming ? (
-          <div className="pop-section">
-            <p className="pop-title">{t("approval.yoloConfirmTitle")}</p>
-            <p className="pop-note">{t("approval.yoloConfirmBody")}</p>
-            <div className="pop-actions">
-              <button type="button" className="gate-btn" onClick={() => setConfirming(false)}>
+          <div data-testid="approval-yolo-confirm">
+            <p className="ui-pop-title">{t("approval.yoloConfirmTitle")}</p>
+            <p className="ui-pop-body">{t("approval.yoloConfirmBody")}</p>
+            <div className="ui-pop-actions">
+              <Button size="sm" onClick={() => setConfirming(false)}>
                 {t("common.cancel")}
-              </button>
-              <button
-                type="button"
-                className="gate-btn"
-                data-primary
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                testId="approval-yolo-confirm-yes"
                 onClick={() => {
                   window.studio.setYoloConfirmed().catch((error: unknown) => reportError(t, error));
                   apply("yolo");
                 }}
               >
                 {t("approval.yoloConfirmYes")}
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
-          <div
-            ref={menuRef}
-            role="menu"
-            aria-label={t("approval.title")}
-            onKeyDown={(event) => onMenuKeyDown(event, menuRef, close)}
-          >
-            {modes.map((entry) => {
-              const desc = entry.mode === "yolo" ? `${t(entry.desc)}\n${t("approval.subagents")}` : t(entry.desc);
-              return (
-                <MenuItem
-                  key={entry.mode}
-                  checked={entry.mode === current}
-                  title={locked ? `${desc}\n${t("approval.projectLocked")}` : desc}
-                  disabled={locked}
-                  onSelect={() => choose(entry.mode)}
-                >
-                  {t(entry.label)}
-                </MenuItem>
-              );
-            })}
-            <div className="menu-sep" role="separator" />
-            <MenuItem title={t("approval.desc.forget")} disabled={forgetTaskId === null} onSelect={forget}>
-              {t("approval.forget")}
-            </MenuItem>
+          <div ref={menuRef}>
+            <MenuList items={items} label={t("approval.title")} onPicked={() => undefined} />
           </div>
         )}
       </Popover>

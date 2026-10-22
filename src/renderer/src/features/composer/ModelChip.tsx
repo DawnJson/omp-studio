@@ -95,7 +95,7 @@ export function ModelChip(task: ModelChipProps) {
     <>
       <button
         type="button"
-        className="chip"
+        className="ui-chip chip-model"
         data-testid="model-chip"
         aria-haspopup="dialog"
         aria-expanded={open}

@@ -1,4 +1,4 @@
-// 侧栏（spec §3.2、第 4 章）：竖排三行（新任务 / 搜索 / 打开文件夹）、"等你确认"条、按项目分组的任务、底部设置和语言/主题切换。
+// 侧栏（spec §3.2、第 4 章）：竖排三行（搜索 / 新任务 / 打开文件夹）、"等你确认"条、按项目分组的任务、底部只有设置。
 // 从顶栏下面开始，不画标题栏；底色 --bg-sidebar 与顶栏连成一片。宽度由外层容器给。
 import { reportError } from "../../ui/errors.ts";
 import { publishVisibleTaskIds } from "./visible-order-store.ts";
@@ -9,6 +9,7 @@ import { useShellUi } from "../../app/shell-store.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { selectTask, showView, useAppInfo, useMainView, useSelectedTaskId, useTasksState } from "../../store/index.ts";
 import { Close } from "../../icons.tsx";
+import { Button, IconButton, TextField } from "../../ui/controls.tsx";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { archiveWithUndo, useHiddenTasks } from "./archive-store.ts";
 import { FolderPlusIcon, GearIcon, PlusIcon, SearchIcon } from "./icons.tsx";
@@ -23,7 +24,6 @@ import {
   timeLimitKey,
   visibleItems,
 } from "./list-view.ts";
-import { PreferenceMenus } from "./PreferenceMenus.tsx";
 import { refreshProjects, useProjectsState } from "./projects-store.ts";
 import { addProjectAsDraft, startDraftInFolder } from "./sidebar-actions.ts";
 import { startDraft } from "../empty/index.ts";
@@ -213,47 +213,43 @@ export function Sidebar() {
   return (
     <nav className="sb" aria-label={t("sidebar.label")} data-testid="sidebar">
       <div className="sb-actions">
-        <div className="sb-search">
-          <SearchIcon />
-          <input
-            type="text"
-            role="searchbox"
-            data-testid="sidebar-search"
-            value={query}
-            placeholder={t("sidebar.search")}
-            aria-label={t("sidebar.search")}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing) return;
-              if (event.key === "Escape" && query !== "") {
+        <TextField
+          size="sm"
+          width="100%"
+          role="searchbox"
+          testId="sidebar-search"
+          value={query}
+          placeholder={t("sidebar.search")}
+          aria-label={t("sidebar.search")}
+          leading={<SearchIcon />}
+          trailing={
+            query !== "" ? (
+              <IconButton className="sb-search-clear" label={t("sidebar.clearSearch")} onClick={() => setQuery("")}>
+                <Close size={12} />
+              </IconButton>
+            ) : (
+              <span className="ui-affix" aria-hidden="true">
+                Ctrl F
+              </span>
+            )
+          }
+          onChange={setQuery}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
+            if (event.key === "Escape" && query !== "") {
+              event.preventDefault();
+              event.stopPropagation();
+              setQuery("");
+            } else if (event.key === "ArrowDown") {
+              // 从搜索框直接进结果列表。
+              const first = listRef.current?.querySelector<HTMLElement>("[data-nav]");
+              if (first) {
                 event.preventDefault();
-                event.stopPropagation();
-                setQuery("");
-              } else if (event.key === "ArrowDown") {
-                // 从搜索框直接进结果列表。
-                const first = listRef.current?.querySelector<HTMLElement>("[data-nav]");
-                if (first) {
-                  event.preventDefault();
-                  first.focus();
-                }
+                first.focus();
               }
-            }}
-          />
-          {query !== "" ? (
-            <button
-              type="button"
-              className="sb-search-clear"
-              aria-label={t("sidebar.clearSearch")}
-              onClick={() => setQuery("")}
-            >
-              <Close size={12} />
-            </button>
-          ) : (
-            <span className="sb-new-hint" aria-hidden="true">
-              Ctrl F
-            </span>
-          )}
-        </div>
+            }
+          }}
+        />
 
         <button
           type="button"
@@ -315,9 +311,9 @@ export function Sidebar() {
           {projectsState.error !== null && (
             <div className="sb-no-projects">
               <p className="sb-note sb-note-error">{t("sidebar.projectsFailed", { message: projectsState.error })}</p>
-              <button type="button" className="sb-secondary" onClick={() => void refreshProjects()}>
+              <Button size="sm" onClick={() => void refreshProjects()}>
                 {t("common.retry")}
-              </button>
+              </Button>
             </div>
           )}
           <HistorySection
@@ -361,7 +357,6 @@ export function Sidebar() {
           <GearIcon />
           <span>{t("sidebar.settings")}</span>
         </button>
-        <PreferenceMenus />
       </div>
       {menu}
     </nav>

@@ -9,8 +9,7 @@ import type { OmpSource, OmpStatus, OmpUpgradeResult } from "../../../../shared/
 import { MIN_OMP_VERSION } from "../../../../shared/omp-version.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { useOmpStatus } from "../../store/index.ts";
-import { Button, Card, SettingRow } from "./controls.tsx";
-import "./omp-update.css";
+import { Badge, Button, Notice, Row } from "../../ui/controls.tsx";
 
 type Ready = Extract<OmpStatus, { state: "ready" }>;
 
@@ -41,7 +40,7 @@ export function OmpSection() {
   const [busy, setBusy] = useState<"check" | "upgrade" | "path" | null>(null);
   const [upgrade, setUpgrade] = useState<OmpUpgradeResult | null>(null);
 
-  if (status?.state !== "ready") return <div className="st-muted">{t("omp.finding")}</div>;
+  if (status?.state !== "ready") return <p className="st-muted">{t("omp.finding")}</p>;
   const ready: Ready = status;
 
   const run = async (kind: "check" | "upgrade" | "path", job: () => Promise<void>) => {
@@ -87,79 +86,76 @@ export function OmpSection() {
   return (
     <>
       {ready.belowMinimum && (
-        <div className="st-card st-block st-error-text st-alert" role="alert">
-          {t("omp.outdated", { current: ready.version, min: MIN_OMP_VERSION })}
-        </div>
+        <Notice tone="error">{t("omp.outdated", { current: ready.version, min: MIN_OMP_VERSION })}</Notice>
       )}
-      <Card testId="omp-info">
-        <SettingRow title={t("omp.path")}>
+      <div className="ui-rows st-rows" data-testid="omp-info">
+        <Row
+          label={t("omp.version")}
+          info={
+            source.kind === "studio_managed"
+              ? t("omp.autoUpdate.note")
+              : source.kind === "managed_by_other"
+                ? `${t("omp.updateByManager", { name: source.managerName })} ${t("omp.autoUpdate.noteOther")}`
+                : t("omp.autoUpdate.noteOther")
+          }
+        >
+          {() => (
+            <>
+              <span className="st-mono" data-testid="omp-version">
+                {ready.version}
+              </span>
+              <Badge testId="omp-source">{sourceLabel(source, t)}</Badge>
+              {ready.availableVersion && (
+                <span data-testid="omp-available">{t("omp.newVersion", { version: ready.availableVersion })}</span>
+              )}
+              <Button
+                size="sm"
+                loading={busy === "check"}
+                disabled={busy !== null}
+                onClick={() => void checkUpdate()}
+                testId="omp-check-update"
+              >
+                {t("omp.checkUpdate")}
+              </Button>
+              {source.kind === "user_installed" && (
+                <Button
+                  size="sm"
+                  loading={busy === "upgrade"}
+                  disabled={busy !== null}
+                  onClick={() => void upgradeOmp()}
+                  testId="omp-upgrade"
+                >
+                  {busy === "upgrade" ? t("omp.upgrading") : t("omp.upgrade")}
+                </Button>
+              )}
+            </>
+          )}
+        </Row>
+        <Row label={t("omp.path")}>
           {() => (
             <span className="st-mono st-path" title={ready.path} data-testid="omp-path">
               {ready.path}
             </span>
           )}
-        </SettingRow>
-        <SettingRow title={t("omp.version")}>{() => <span data-testid="omp-version">{ready.version}</span>}</SettingRow>
-        <SettingRow title={t("omp.source")}>
-          {() => <span data-testid="omp-source">{sourceLabel(source, t)}</span>}
-        </SettingRow>
-        {source.kind === "studio_managed" && (
-          <>
-            <SettingRow title={t("omp.checkUpdate")} desc={t("omp.autoUpdate.note")}>
-              {() => (
-                <Button loading={busy === "check"} disabled={busy !== null} onClick={() => void checkUpdate()}>
-                  {t("omp.checkUpdate")}
-                </Button>
-              )}
-            </SettingRow>
-            {!source.onUserPath && (
-              <SettingRow title={t("omp.addPath")} desc={t("omp.addPath.note")}>
-                {() => (
-                  <Button
-                    loading={busy === "path"}
-                    disabled={busy !== null}
-                    onClick={() => void run("path", () => window.studio.addManagedOmpToPath())}
-                  >
-                    {t("omp.addPath.yes")}
-                  </Button>
-                )}
-              </SettingRow>
-            )}
-          </>
-        )}
-        {source.kind !== "studio_managed" && (
-          <SettingRow
-            title={t("omp.checkUpdate")}
-            desc={
-              source.kind === "managed_by_other"
-                ? `${t("omp.updateByManager", { name: source.managerName })} ${t("omp.autoUpdate.noteOther")}`
-                : t("omp.autoUpdate.noteOther")
-            }
-          >
+        </Row>
+        {source.kind === "studio_managed" && !source.onUserPath && (
+          <Row label={t("omp.addPath")} info={t("omp.addPath.note")}>
             {() => (
-              <span className="st-inline-actions">
-                {ready.availableVersion && (
-                  <span data-testid="omp-available">{t("omp.newVersion", { version: ready.availableVersion })}</span>
-                )}
-                <Button loading={busy === "check"} disabled={busy !== null} onClick={() => void checkUpdate()}>
-                  {t("omp.checkUpdate")}
-                </Button>
-              </span>
-            )}
-          </SettingRow>
-        )}
-        {source.kind === "user_installed" && (
-          <SettingRow title={t("omp.upgrade")}>
-            {() => (
-              <Button loading={busy === "upgrade"} disabled={busy !== null} onClick={() => void upgradeOmp()}>
-                {busy === "upgrade" ? t("omp.upgrading") : t("omp.upgrade")}
+              <Button
+                size="sm"
+                loading={busy === "path"}
+                disabled={busy !== null}
+                onClick={() => void run("path", () => window.studio.addManagedOmpToPath())}
+                testId="omp-add-path"
+              >
+                {t("omp.addPath.yes")}
               </Button>
             )}
-          </SettingRow>
+          </Row>
         )}
-      </Card>
+      </div>
       {(note !== null || upgrade !== null) && (
-        <div className="st-block st-result" role="status">
+        <div className="st-result" role="status">
           {note && <div className={note.error ? "st-error-text" : undefined}>{note.text}</div>}
           {upgrade && (
             <>

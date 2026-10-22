@@ -51,14 +51,13 @@ export function createResource<T>(fetch: (key: string) => Promise<T>): Resource<
   };
 }
 
-/** 卡片里选中的范围（每张卡片各记各的）：null = 用户范围。 */
+/** 页头选中的范围（集成页的 MCP 和 SSH 共用一个，记忆自己一个）：null = 还没选。 */
 interface Scopes {
-  mcp: ScopeKey;
-  ssh: ScopeKey;
+  integrations: ScopeKey;
   memory: ScopeKey | null;
 }
 
-const scopes = createStore<Scopes>({ mcp: "user", ssh: "user", memory: null });
+const scopes = createStore<Scopes>({ integrations: "user", memory: null });
 
 export function setCardScope(card: keyof Scopes, key: ScopeKey): void {
   scopes.set({ ...scopes.get(), [card]: key });

@@ -15,8 +15,7 @@
   user-select: none;
 }
 
-/* .sb-menu：Menu 也在侧栏外用（任务条的 Git 菜单），按钮 reset 跟着菜单走 */
-:where(.sb, .pl-root, .sb-menu) button {
+:where(.sb) button {
   font: inherit;
   color: inherit;
   background: none;
@@ -26,51 +25,32 @@
   text-align: left;
 }
 
-.sb button:focus-visible,
-.sb input:focus-visible,
-.pl-root button:focus-visible {
+.sb button:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
-.sb .icon,
-.pl-root .icon {
+.sb .icon {
   flex: none;
 }
 
-.sb .kbd,
-.pl-root .kbd {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 var(--space-1-5);
-  height: var(--lh-2xs);
-  font-family: var(--font-sans);
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-2xs);
-  color: var(--text-3);
-  background: var(--bg-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xs);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* ───── 顶部三行：搜索 / [新任务] / [打开文件夹]。无边框的行；新任务在草稿页时用选中底色突出 ───── */
+/* ───── 顶部三行：搜索（ui/TextField sm）/ [新任务] / [打开文件夹]。后两行是无边框的导航行；新任务在草稿页时用选中底色突出 ───── */
 .sb-actions {
   display: flex;
   flex-direction: column;
   gap: var(--space-0-5);
   margin: var(--space-1) var(--space-2) var(--space-2);
 }
-.sb-new,
-.sb-search {
+.sb-new {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  width: 100%;
   min-width: 0;
   height: 30px;
   padding: 0 var(--space-2);
   color: var(--text-2);
+  text-align: left;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -78,17 +58,11 @@
     background var(--dur-instant) var(--ease-out),
     border-color var(--dur-instant) var(--ease-out);
 }
-.sb-new {
-  width: 100%;
-  text-align: left;
-}
-.sb-new .icon,
-.sb-search .icon {
+.sb-new .icon {
   width: 15px;
   height: 15px;
 }
-.sb-new:hover,
-.sb-search:hover {
+.sb-new:hover {
   background: var(--bg-hover);
 }
 .sb-new:active,
@@ -118,48 +92,12 @@
   transition: opacity var(--dur-instant) var(--ease-out);
 }
 .sb-new:hover .sb-new-hint,
-.sb-new:focus-visible .sb-new-hint,
-.sb-search:hover .sb-new-hint,
-.sb-search:focus-within .sb-new-hint {
+.sb-new:focus-visible .sb-new-hint {
   opacity: 1;
 }
-/* 搜索行：还是那个输入框，平时画成一行；聚焦时出现 1px 边框和 --bg-raised 底。
-   输入框自己的矩形 outline 去掉（.sb input:focus-visible 特异性更高，要同级覆盖） */
-.sb-search:focus-within {
-  background: var(--bg-raised);
-  border-color: var(--border-strong);
-}
-.sb .sb-search input:focus-visible {
-  outline: none;
-}
-.sb-search input {
-  flex: 1;
-  min-width: 0;
-  padding: 0;
-  color: var(--text);
-  font: inherit;
-  background: none;
-  border: 0;
-  outline: none;
-  text-overflow: ellipsis;
-  user-select: text;
-}
-.sb-search input::placeholder {
-  color: var(--text-2);
-}
-.sb-search-clear {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  color: var(--text-3);
-  border-radius: var(--radius-xs);
-}
-.sb-search-clear:hover {
-  color: var(--text);
-  background: var(--bg-hover);
+/* 搜索框里的清除按钮比框矮一圈，贴在框内 */
+.ui-field .sb-search-clear {
+  --btn-h: 20px;
 }
 
 /* ───── 等你确认条 ───── */
@@ -225,24 +163,8 @@
   gap: var(--space-2);
   padding: var(--space-3) 0;
 }
-.sb-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--control-h-md);
-  padding: 0 var(--space-3);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.sb-secondary:hover {
-  background: var(--bg-hover);
-}
 
 /* ───── 项目分组 ───── */
-.sb-session {
-  width: 100%;
-}
 /* 历史会话：标题右边是"文件夹 | 时间"两段切换（排列方式，记在外壳状态里） */
 .sb-history-head {
   /* 钉在滚动区顶部，滚动时完全不动（.sb-list 上边没有内边距，起始位置就是钉住的位置）；
@@ -256,42 +178,6 @@
   gap: var(--space-2);
   padding-right: var(--space-1);
   background: var(--bg-sidebar);
-}
-/* 两段等宽：按较长的那段（“文件夹”/“Folder”）定宽 */
-.sb-history-order {
-  display: inline-grid;
-  grid-auto-columns: 1fr;
-  grid-auto-flow: column;
-  flex: none;
-  padding: 2px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-hover);
-}
-.sb-history-order-btn {
-  height: 20px;
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-xs);
-  background: transparent;
-  color: var(--text-3);
-  font: inherit;
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  /* 侧栏按钮统一左对齐，这里两段等宽，短的那段要居中 */
-  text-align: center;
-  cursor: default;
-}
-.sb-history-order-btn:hover {
-  color: var(--text);
-}
-.sb-history-order-btn[aria-pressed="true"] {
-  background: var(--bg-raised);
-  color: var(--text);
-  box-shadow: 0 0 0 1px var(--border-subtle);
-}
-.sb-history-order-btn:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
 }
 /* 文件夹：头部（箭头 + 名称，折叠时行数）+ 任务和会话混排的行 */
 .sb-folder + .sb-folder {
@@ -372,18 +258,18 @@
   position: absolute;
   top: 0;
 }
-.sb-group-new {
+.sb-group-head .sb-group-new {
   right: 0;
   color: var(--text-3);
 }
-.sb-group-new:hover {
+.sb-group-head .sb-group-new:hover {
   color: var(--text);
 }
 .sb-group-more {
   right: calc(var(--control-h-sm) + var(--space-0-5));
 }
 .sb-group-count,
-.sb-group-more {
+.sb-group-head .sb-group-more {
   opacity: 0;
   visibility: hidden;
   transform: scale(var(--scale-pop));
@@ -393,7 +279,7 @@
     visibility 0s linear var(--dur-base);
 }
 .sb-group-count[data-shown],
-.sb-group-more[data-shown] {
+.sb-group-head .sb-group-more[data-shown] {
   opacity: 1;
   visibility: visible;
   transform: none;
@@ -401,21 +287,6 @@
     opacity var(--dur-base) var(--ease-out),
     transform var(--dur-base) var(--ease-out),
     visibility 0s;
-}
-.sb-icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
-  border-radius: var(--radius-sm);
-  color: var(--text-2);
-}
-.sb-icon-btn:hover {
-  background: var(--bg-hover);
-}
-.sb-icon-btn:active {
-  background: var(--bg-active);
 }
 .sb-group-empty {
   margin: 0;
@@ -460,9 +331,13 @@
   gap: var(--space-2);
   min-width: 0;
   height: 100%;
-  padding: 0 calc(20px + var(--space-2)) 0 var(--space-2);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-md);
   color: var(--text-2);
+}
+/* 有 ⋯ 的行（任务行）右边让出按钮的位置；历史会话行没有 ⋯，不让 */
+.sb-row[data-menu] .sb-row-main {
+  padding-right: calc(var(--control-h-sm) + var(--space-1));
 }
 .sb-row[data-selected="true"] .sb-row-main,
 .sb-row[data-status="needs_you"] .sb-row-main {
@@ -487,25 +362,16 @@
 }
 .sb-row-more {
   position: absolute;
-  right: var(--space-1);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-xs);
-  color: var(--text-2);
+  right: var(--space-0-5);
   opacity: 0;
 }
-.sb-row-more:hover {
-  background: var(--bg-active);
-}
 .sb-row:hover .sb-row-more,
-.sb-row:focus-within .sb-row-more {
+.sb-row:focus-within .sb-row-more,
+.sb-row-more[aria-expanded="true"] {
   opacity: 1;
 }
-.sb-row:hover .sb-row-tail,
-.sb-row:focus-within .sb-row-tail {
+.sb-row[data-menu]:hover .sb-row-tail,
+.sb-row[data-menu]:focus-within .sb-row-tail {
   opacity: 0;
   visibility: hidden;
   /* 隐藏时 visibility 等淡出放完再切，不然看不到渐隐。 */
@@ -647,57 +513,4 @@
 .sb-settings[data-active="true"] {
   background: var(--bg-active);
   color: var(--text);
-}
-/* 设置右边的语言、主题菜单：从按钮上方弹出，右边与按钮对齐（位置由 PreferenceMenus 算），宽度按内容 */
-.menu.sb-pref-menu {
-  top: auto;
-  left: auto;
-  min-width: 0;
-  transform-origin: bottom right;
-}
-.sb-bottom .sb-icon-btn[aria-expanded="true"] {
-  color: var(--text);
-  background: var(--bg-active);
-}
-
-/* ───── 菜单 ───── */
-/* 宽度随内容：项目菜单只有几个短项，不留一截空白；有键帽的任务菜单靠 gap 隔开 */
-.sb-menu {
-  position: fixed;
-  z-index: var(--z-popover);
-  width: max-content;
-  padding: var(--space-1);
-  background: var(--bg-overlay);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-2);
-  animation: sb-menu-in var(--dur-base) var(--ease-out);
-}
-@keyframes sb-menu-in {
-  from {
-    opacity: 0;
-    transform: translateY(calc(var(--travel-sm) * -1)) scale(var(--scale-pop));
-  }
-}
-.sb-menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  width: 100%;
-  height: var(--row-menu);
-  padding: 0 var(--space-2-5);
-  border-radius: var(--radius-md);
-  white-space: nowrap;
-}
-.sb-menu-item:hover,
-.sb-menu-item:focus-visible {
-  background: var(--bg-hover);
-  outline: none;
-}
-.sb-menu-item[aria-disabled="true"] {
-  color: var(--text-3);
-  cursor: default;
-}
-.sb-menu-item[aria-disabled="true"]:hover {
-  background: none;
 }

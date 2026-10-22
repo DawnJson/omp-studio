@@ -44,7 +44,6 @@ export const sessionInfo = {
   pinnedToast: "Session pinned.",
   unpinnedToast: "Session unpinned.",
   pinUnchanged: "The pin state did not change (omp gave no message).",
-  "share.button": "Share link…",
 
   "usage.title": "Usage and requests",
   "usage.requests": "Requests",

@@ -40,7 +40,7 @@ export const ompcfg = {
 
   "compaction.enabled.label": "Compact context automatically",
   "compaction.enabled.desc": "Compact the context when it gets too large so the conversation can go on",
-  "compaction.thresholdPercent.label": "Compaction threshold (%)",
+  "compaction.thresholdPercent.label": "Compaction threshold",
   "compaction.thresholdPercent.desc":
     "Start maintaining context at this percent of the window; -1 uses the older reserve-based behavior",
   "compaction.thresholdTokens.label": "Compaction threshold (tokens)",
@@ -57,7 +57,7 @@ export const ompcfg = {
     "Compact in the background when the conversation is idle and the token count is above the threshold",
   "compaction.idleThresholdTokens.label": "Idle compaction threshold (tokens)",
   "compaction.idleThresholdTokens.desc": "Idle compaction only triggers above this token count",
-  "compaction.idleTimeoutSeconds.label": "Idle time before compacting (s)",
+  "compaction.idleTimeoutSeconds.label": "Idle time before compacting",
   "compaction.idleTimeoutSeconds.desc": "How long the conversation stays quiet before idle compaction starts",
   "compaction.methodOrder.label": "Compaction method order",
   "compaction.methodOrder.desc":
@@ -96,7 +96,7 @@ export const ompcfg = {
   "task.eager.desc": "How strongly to push work onto subagents",
   "task.batch.label": "Batch subagent calls",
   "task.batch.desc": "One call carries several tasks, one subagent each. Off restores one spawn per call",
-  "task.maxRuntimeMs.label": "Subagent time limit (ms)",
+  "task.maxRuntimeMs.label": "Subagent time limit",
   "task.maxRuntimeMs.desc": "A hard wall-clock limit per subagent; 0 means no limit",
   "task.maxEffort.label": "Highest subagent thinking level",
   "task.maxEffort.desc": "Caps the thinking level a caller can request for a subagent",
@@ -113,9 +113,9 @@ export const ompcfg = {
   "retry.enabled.desc": "Retry automatically when the model API fails",
   "retry.maxRetries.label": "Max retries",
   "retry.maxRetries.desc": "How many times to retry after an API error",
-  "retry.baseDelayMs.label": "First retry delay (ms)",
+  "retry.baseDelayMs.label": "First retry delay",
   "retry.baseDelayMs.desc": "How long to wait before the first retry; later ones wait longer",
-  "retry.maxDelayMs.label": "Longest retry wait (ms)",
+  "retry.maxDelayMs.label": "Longest retry wait",
   "retry.maxDelayMs.desc":
     "When the provider asks for a longer wait and no credential or model fallback works, fail instead of sleeping; 0 removes the ceiling",
   "retry.modelFallback.label": "Switch to a fallback model on errors",
@@ -275,4 +275,8 @@ export const ompcfg = {
   "worktree.onStart.opt.create": "Create",
   "worktree.onExit.opt.keep": "Keep",
   "worktree.onExit.opt.remove": "Remove",
+  "compaction.thresholdPercent.special": "Legacy",
+  "compaction.thresholdTokens.special": "Off",
+  "task.maxRuntimeMs.special": "No limit",
+  "retry.maxDelayMs.special": "No cap",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

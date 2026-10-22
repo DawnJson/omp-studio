@@ -46,7 +46,6 @@ export const sessionInfo = {
   pinnedToast: "已置顶本会话。",
   unpinnedToast: "已取消置顶。",
   pinUnchanged: "置顶状态没有变化（omp 没有给出提示）。",
-  "share.button": "分享链接…",
 
   // 用量（来自 omp 的统计库）
   "usage.title": "用量与请求",

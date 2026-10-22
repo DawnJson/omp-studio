@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import type { GitStatus } from "../../../../shared/git.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Branch, ChevronDown, Diff } from "../../icons.tsx";
+import { ArrowUp, Branch, Check, ChevronDown, Diff, External, Trash } from "../../icons.tsx";
 import { useTask } from "../../store/index.ts";
 import { openReview } from "../../store/review-store.ts";
-import { Menu, type MenuAnchor, type MenuItem } from "../sidebar/Menu.tsx";
+import { IconButton } from "../../ui/controls.tsx";
+import { anchorBelow, Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
 import { mergeBack, pushBranch } from "./git-actions.ts";
 import { openGitDialog } from "./git-dialog-store.ts";
 import { useGitVersion, useTaskWorktree } from "./git-store.ts";
@@ -52,12 +53,19 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
     .filter((part) => typeof part === "string")
     .join(" · ");
 
-  const menuItems = (): MenuItem[] => {
-    const items: MenuItem[] = [
-      { id: "commit", label: t("git.menu.commit"), onSelect: () => openGitDialog({ kind: "commit", taskId }) },
+  // 动作菜单：图标 + 分隔线；破坏性的"丢弃 worktree…"红字放最后、前面一条分隔线；不可用项第二行写原因。
+  const menuItems = (): MenuEntry[] => {
+    const items: MenuEntry[] = [
+      {
+        id: "commit",
+        label: t("git.menu.commit"),
+        icon: <Check />,
+        onSelect: () => openGitDialog({ kind: "commit", taskId }),
+      },
       {
         id: "push",
         label: t("git.menu.push"),
+        icon: <ArrowUp />,
         ...(!status.canPush && {
           disabledReason: status.branch.head === null ? t("git.push.detached") : t("git.push.noRemote"),
         }),
@@ -69,6 +77,7 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
       items.push({
         id: "pr",
         label: t("git.menu.pr"),
+        icon: <External />,
         onSelect: () => openGitDialog({ kind: "pr", taskId, defaultTitle: task?.title ?? "" }),
       });
     }
@@ -77,11 +86,15 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
         {
           id: "merge",
           label: t("git.menu.merge", { base: worktree.baseBranch }),
+          icon: <Branch />,
           onSelect: () => void mergeBack(t, taskId, worktree),
         },
+        { kind: "separator", id: "sep-danger" },
         {
           id: "discard",
           label: t("git.menu.discard"),
+          icon: <Trash />,
+          tone: "danger",
           onSelect: () => openGitDialog({ kind: "discard", taskId, branch: worktree.branch }),
         },
       );
@@ -89,14 +102,7 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
     return items;
   };
 
-  const toggleMenu = (button: HTMLElement) => {
-    if (menu !== null) {
-      setMenu(null);
-      return;
-    }
-    const box = button.getBoundingClientRect();
-    setMenu({ x: box.left, y: box.bottom + 4, returnFocus: button });
-  };
+  const toggleMenu = (button: HTMLElement) => setMenu(menu !== null ? null : anchorBelow(button));
 
   return (
     <>
@@ -132,16 +138,14 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
         )}
         <ChevronDown size={12} />
       </button>
-      <button
-        type="button"
-        className="topbar-tool"
-        data-testid="topbar-review"
-        aria-label={t("review.open")}
-        title={`${t("review.open")} (Ctrl Shift D)`}
+      <IconButton
+        label={t("review.open")}
+        tip={`${t("review.open")} (Ctrl Shift D)`}
+        testId="topbar-review"
         onClick={() => openReview(taskId)}
       >
         <Diff size={16} />
-      </button>
+      </IconButton>
       {menu && <div className="git-menu-scrim" />}
       {menu && <Menu anchor={menu} items={menuItems()} label={t("git.bar.menu")} onClose={() => setMenu(null)} />}
     </>

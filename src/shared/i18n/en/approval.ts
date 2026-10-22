@@ -16,6 +16,7 @@ export const approval = {
   projectLocked: "Set by the project config (.omp/config.yml)",
   forget: "Forget remembered approvals",
   "desc.forget": "Clears every file and folder approval that Ask and remember has recorded (all sessions)",
+  forgetUnavailable: "Available after the first message",
   subagents: "Subagents run in the background in Yolo mode and don't ask separately.",
   loading: "Approval…",
   yoloConfirmTitle: "Use Yolo?",

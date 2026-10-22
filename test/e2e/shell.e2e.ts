@@ -1,43 +1,26 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, seedFakeSessions, type LaunchedApp } from "./launch.ts";
+import { expect, test } from "@playwright/test";
+import { launchApp, screenshotsDir, seedFakeSessions, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
-async function settled(page: Page, locale: "zh-CN" | "en", theme: "light" | "dark"): Promise<void> {
-  await page.evaluate(
-    async ({ locale: nextLocale, theme: nextTheme }) => {
-      await globalThis.studio.setLocale(nextLocale);
-      await globalThis.studio.setTheme(nextTheme);
-    },
-    { locale, theme },
-  );
-  await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-}
-
-test("顶栏是任务条：标志+字标、切换侧栏按钮、关于与反馈图标按钮；中段只有标题（不带项目名）；没有后退/前进按钮", async () => {
+test("顶栏是任务条：标志+字标、切换侧栏按钮（没有关于按钮）；中段只有标题（不带项目名）；没有后退/前进按钮", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
     await expect(page.getByTestId("topbar-sidebar")).toBeVisible();
-    await expect(page.getByTestId("topbar-about")).toBeVisible();
     // 左上角的标志和新任务页同一个像素标志（π + 像素字 omp studio），不带版本号。
     const brand = page.getByTestId("topbar-brand");
     await expect(brand.getByTestId("pixel-logo")).toBeVisible();
     await expect(brand.getByTestId("pixel-logo-version")).toHaveCount(0);
     await expect(page.getByTestId("topbar-crumb")).toHaveText(/^(新任务|New task)$/);
     for (const id of ["topbar-back", "topbar-forward"]) await expect(page.getByTestId(id)).toHaveCount(0);
-    // 三样横排在同一行：标志在最左，后面依次是切换侧栏、关于。
-    const [logo, sidebar, menu] = await Promise.all(
-      [brand, page.getByTestId("topbar-sidebar"), page.getByTestId("topbar-about")].map((locator) =>
-        locator.boundingBox(),
-      ),
+    // 两样横排在同一行：标志在最左，后面是切换侧栏。顶栏左侧没有"关于与反馈"按钮。
+    await expect(page.getByTestId("topbar-about")).toHaveCount(0);
+    const [logo, sidebar] = await Promise.all(
+      [brand, page.getByTestId("topbar-sidebar")].map((locator) => locator.boundingBox()),
     );
-    expect((logo?.x ?? 0) < (sidebar?.x ?? 0) && (sidebar?.x ?? 0) < (menu?.x ?? 0)).toBe(true);
-    expect(
-      Math.abs((sidebar?.y ?? 0) + (sidebar?.height ?? 0) / 2 - ((menu?.y ?? 0) + (menu?.height ?? 0) / 2)),
-    ).toBeLessThanOrEqual(1);
+    expect((logo?.x ?? 0) < (sidebar?.x ?? 0)).toBe(true);
 
     // 页面第一个 Tab 停靠点是切换侧栏按钮（标志不是按钮）。启动后焦点在草稿输入框（spec §5.3），blur 后 Chromium 仍从输入框接着走，
     // 所以按文档顺序找第一个可聚焦控件，再确认它确实能拿到焦点。
@@ -47,8 +30,6 @@ test("顶栏是任务条：标志+字标、切换侧栏按钮、关于与反馈�
         ?.getAttribute("data-testid"))()`,
     );
     expect(firstStop).toBe("topbar-sidebar");
-    await page.getByTestId("topbar-about").focus();
-    await expect(page.getByTestId("topbar-about")).toBeFocused();
     const topbar = await page.getByTestId("topbar").boundingBox();
     expect(topbar?.height).toBe(40);
   } finally {
@@ -74,52 +55,42 @@ test("侧栏开关：顶栏按钮和 Ctrl B 都能收起/展开", async () => {
   }
 });
 
-test("侧栏底部的语言、主题菜单：选了立即生效，Esc 关闭后焦点回到按钮；顶栏 ⓘ 打开关于与反馈对话框，单按 Alt 不触发任何动作", async () => {
+test("侧栏底部只有设置（没有语言、主题菜单）；命令面板里切换主题 / 语言还在；关于与反馈从命令面板打开，页脚按钮右对齐；单按 Alt 不触发任何动作", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
-    await settled(page, "zh-CN", "light");
-    await page.getByTestId("topbar-about").click();
+    await setLocaleTheme(page, "zh-CN", "light");
+    for (const id of ["sidebar-theme", "sidebar-language"]) await expect(page.getByTestId(id)).toHaveCount(0);
+    const bottom = page.getByTestId("sidebar").locator(".sb-bottom");
+    await expect(bottom.getByRole("button")).toHaveCount(1);
+    await expect(bottom.locator(".sb-settings")).toBeVisible();
+
+    await page.keyboard.press("Control+k");
+    const palette = page.getByTestId("command-palette");
+    await palette.getByRole("combobox").fill("关于与反馈");
+    await expect(palette.getByRole("option").first()).toContainText("关于与反馈");
+    await page.keyboard.press("Enter");
     const about = page.getByTestId("about-dialog");
     await expect(about).toBeVisible();
-    // 关于：标志、名称、版本（带 omp 版本）；动作只有复制版本信息和报告问题，Tab 在框内循环。
+    // 关于：ui/Dialog sm，标题 omp-studio、版本（带 omp 版本）；页脚两个按钮右对齐，Tab 在框内循环。
     await expect(about.getByRole("heading", { level: 2 })).toHaveText("omp-studio");
     await expect(about.getByTestId("about-version")).toContainText("版本 ");
-    await expect(about.locator(".about-actions").getByRole("button")).toHaveText(["复制版本信息", "报告问题"]);
-    await page.keyboard.press("Tab");
-    await expect(about.getByTestId("about-close")).toBeFocused();
-    await page.keyboard.press("Shift+Tab");
-    await expect(about.getByTestId("about-report")).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(about.getByTestId("about-close")).toBeFocused();
+    await expect(about.locator(".ui-dialog-foot").getByRole("button")).toHaveText(["复制版本信息", "报告问题"]);
+    const [dialogBox, reportBox] = await Promise.all([
+      about.boundingBox(),
+      about.getByTestId("about-report").boundingBox(),
+    ]);
+    expect((reportBox?.x ?? 0) + (reportBox?.width ?? 0)).toBeGreaterThan(
+      (dialogBox?.x ?? 0) + (dialogBox?.width ?? 0) - 40,
+    );
     await page.keyboard.press("Escape");
     await expect(about).toHaveCount(0);
-    await expect(page.getByTestId("topbar-about")).toBeFocused();
 
-    await page.getByTestId("sidebar-theme").click();
-    const themeMenu = page.getByTestId("sidebar-theme-menu");
-    // 打开后焦点在当前选中项上。
-    await expect(themeMenu.getByRole("menuitemradio", { name: "浅色" })).toBeFocused();
-    await themeMenu.getByRole("menuitemradio", { name: "深色" }).click();
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await expect(themeMenu).toHaveCount(0);
-
-    await page.getByTestId("sidebar-language").click();
-    await page.getByTestId("sidebar-language-menu").getByRole("menuitemradio", { name: "English" }).click();
-    await expect(page.getByTestId("topbar-about")).toHaveAttribute("aria-label", "About & feedback");
-    await expect(page.locator("html")).toHaveAttribute("lang", "en");
-
-    // 菜单在按钮上方、不出窗口。
-    await page.getByTestId("sidebar-theme").click();
-    const [button, menu] = await Promise.all([
-      page.getByTestId("sidebar-theme").boundingBox(),
-      page.getByTestId("sidebar-theme-menu").boundingBox(),
-    ]);
-    expect(button && menu && menu.y + menu.height).toBeLessThanOrEqual(button?.y ?? 0);
-    expect(menu && menu.x).toBeGreaterThanOrEqual(0);
+    // 命令面板里切换主题 / 语言保留。
+    await page.keyboard.press("Control+k");
+    await palette.getByRole("combobox").fill("语言");
+    await expect(palette.getByRole("option").first()).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("sidebar-theme-menu")).toHaveCount(0);
-    await expect(page.getByTestId("sidebar-theme")).toBeFocused();
 
     // 单按 Alt、Ctrl+Alt+A（QQ/微信截图等全局热键吞掉字母后，应用只看到 Alt 按下抬起）都不触发任何动作。
     await page.keyboard.press("Alt");
@@ -252,7 +223,7 @@ test("设置、侧栏折叠和窗口尺寸写入 userData，重启后恢复", as
   const userDataDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-shell-"));
   try {
     const first = await launchApp({ STUDIO_USER_DATA: userDataDir });
-    await settled(first.page, "en", "dark");
+    await setLocaleTheme(first.page, "en", "dark");
     await first.page.keyboard.press("Control+b");
     await expect(first.page.getByTestId("app-root")).toHaveAttribute("data-sidebar", "hidden");
     await first.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setSize(1100, 700));
@@ -315,8 +286,7 @@ test("截图：中英文 × 浅深主题", async () => {
     const { page } = launched;
     for (const locale of ["zh-CN", "en"] as const) {
       for (const theme of ["light", "dark"] as const) {
-        await settled(page, locale, theme);
-        await page.waitForTimeout(250);
+        await setLocaleTheme(page, locale, theme);
         await page.screenshot({
           path: path.join(screenshotsDir, `shell-${locale === "zh-CN" ? "zh" : "en"}-${theme}.png`),
         });
@@ -421,8 +391,7 @@ test("有项目的空状态：输入框贴主区底部、没有历史会话列�
     await page.locator("[data-composer-input]").focus();
     for (const locale of ["zh-CN", "en"] as const) {
       for (const theme of ["light", "dark"] as const) {
-        await settled(page, locale, theme);
-        await page.waitForTimeout(250);
+        await setLocaleTheme(page, locale, theme);
         await page.screenshot({
           path: path.join(screenshotsDir, `shell-project-${locale === "zh-CN" ? "zh" : "en"}-${theme}.png`),
         });

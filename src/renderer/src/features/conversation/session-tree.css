@@ -1,49 +1,7 @@
-/* 会话树面板：居中浮层，样子和命令面板一致，只用 tokens.css 里的变量。 */
-.tree-root {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-dialog);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 15vh;
-  background: var(--bg-scrim);
-  font-family: var(--font-sans);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
-  color: var(--text);
-  animation: tree-fade var(--dur-fade) linear;
-}
-.tree-panel {
-  display: flex;
-  flex-direction: column;
-  width: min(var(--palette-w), calc(100vw - var(--space-8)));
-  max-height: 70vh;
-  background: var(--bg-overlay);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-3);
-  overflow: hidden;
-  outline: none;
-  animation: tree-in var(--dur-slow) var(--ease-spring);
-}
-@keyframes tree-fade {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes tree-in {
-  from {
-    opacity: 0;
-    transform: translateY(calc(var(--travel-md) * -1)) scale(var(--scale-pop));
-  }
-}
-.tree-head {
-  display: flex;
-  align-items: center;
-  height: var(--row-palette);
-  padding: 0 var(--space-4);
-  color: var(--text-2);
-  border-bottom: 1px solid var(--border-subtle);
+/* 会话树：外壳是 ui/Dialog（标题 + ×），这里只管里面的列表。 */
+.tree-dialog .ui-dialog-body {
+  padding: var(--space-1) var(--space-2);
+  overflow-y: auto;
 }
 .tree-note {
   margin: 0;
@@ -51,31 +9,28 @@
   color: var(--text-3);
 }
 .tree-list {
-  flex: 1;
-  min-height: 0;
+  max-height: 50vh;
   overflow-y: auto;
-  padding: var(--space-1) var(--space-2);
+  outline: none;
 }
 .tree-row {
   position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  height: var(--row-palette);
-  padding: 0 var(--space-3) 0 calc(var(--space-3) + var(--indent, 0) * var(--space-4));
+  height: var(--row-menu);
+  padding: 0 var(--space-2) 0 calc(var(--space-3) + var(--indent, 0) * var(--space-4));
   border-radius: var(--radius-md);
   color: var(--text-3);
   font-weight: var(--fw-regular);
   cursor: pointer;
   user-select: none;
-}
-.tree-row[data-branch="true"] {
-  color: var(--text);
-}
-.tree-row {
   transition:
     background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
+}
+.tree-row[data-branch="true"] {
+  color: var(--text);
 }
 .tree-row[data-active="true"] {
   background: var(--bg-active);
@@ -98,7 +53,6 @@
   opacity: 1;
 }
 .tree-text {
-  transition: color var(--dur-fast) var(--ease-out);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -108,53 +62,14 @@
 .tree-row[data-current="true"] .tree-text {
   color: var(--accent);
 }
-.tree-badge {
-  flex: none;
-  font-size: var(--fs-xs);
-  color: var(--accent);
-}
 /* TSP 任务每行的"从这里分叉"：悬停或选中这一行时才出现（和用户消息气泡的悬停按钮同一套手势）。 */
-.tree-fork {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--icon-lg);
-  height: var(--icon-lg);
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-3);
-  cursor: pointer;
+.tree-row .tree-fork {
   opacity: 0;
-  transition:
-    opacity var(--dur-fast) var(--ease-out),
-    background-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
 }
 .tree-row[data-active="true"] .tree-fork,
 .tree-row:hover .tree-fork {
   opacity: 1;
 }
-.tree-fork:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text);
-}
 .tree-row .tree-fork:disabled {
-  cursor: default;
   opacity: 0.4;
-}
-/* TSP 面板底部的"回溯时摘要被放弃的分支"开关。 */
-.tree-option {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-top: 1px solid var(--border-subtle);
-  color: var(--text-3);
-  cursor: pointer;
-  user-select: none;
-}
-.tree-option input {
-  accent-color: var(--accent);
 }

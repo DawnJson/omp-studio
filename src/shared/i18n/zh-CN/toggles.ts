@@ -25,7 +25,7 @@ export const toggles = {
   "prewalk.sameModel": "smol 模型和当前模型相同，Prewalk 不起作用",
   "prewalk.arm": "启用",
   "prewalk.restart": "重来",
-  "prewalk.off": "关闭",
+  "prewalk.off": "停用",
   computerConfirmTitle: "开启电脑操作？",
   computerConfirmBody:
     "模型将能查看你的屏幕，并操作键盘和鼠标，可能动到真实的应用和文件。只对当前会话生效；开启前请关掉不想被看到的窗口。",
@@ -33,8 +33,7 @@ export const toggles = {
   slashUsage: "用法：{usage}",
   presets: "模型预设",
   "presets.empty": "还没有保存的预设。",
-  "presets.apply": "应用预设 {name}",
-  "presets.applyTitle": "应用预设：{summary}。像模型选择器一样把各角色的模型写进 omp 配置，并切换当前会话",
+  "presets.choose": "选择预设…",
   "presets.save": "把当前设置存为预设…",
   "presets.name": "预设名",
   "presets.nameInvalid": "预设名以字母开头，之后只能用字母、数字和 _ -，最长 100 个字符",

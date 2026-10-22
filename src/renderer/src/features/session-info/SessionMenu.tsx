@@ -1,43 +1,40 @@
-// 顶栏任务工具里的"⋯"任务菜单（会话信息、请求记录、分享链接…）。只给有任务的对话页；菜单项每次渲染现算。
+// 顶栏任务工具里的"⋯"任务菜单：和侧栏任务行的 ⋯ / 右键是同一份菜单（features/sidebar/task-menu.tsx）。只给有任务的对话页；菜单项每次渲染现算。
+// 重命名：侧栏订阅 rename 命令，给当前任务就地改名（侧栏收起时 App 先把它展开）。
 import { useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Dots } from "../../icons.tsx";
-import { Menu, type MenuAnchor, type MenuItem } from "../sidebar/Menu.tsx";
-import { openSessionInfo, openShareDialog } from "./session-info-store.ts";
+import { IconButton } from "../../ui/controls.tsx";
+import { Menu, anchorBelow, type MenuAnchor } from "../../ui/Menu.tsx";
+import { emitStudioCommand } from "../palette/studio-command.ts";
+import { buildTaskMenu } from "../sidebar/task-menu.tsx";
 
 export function SessionMenu({ taskId }: { taskId: TaskId }) {
   const t = useT();
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
-  const items: MenuItem[] = [
-    { id: "info", label: t("sessionInfo.menu.info"), onSelect: () => openSessionInfo(taskId, "info") },
-    { id: "trace", label: t("sessionInfo.menu.trace"), onSelect: () => openSessionInfo(taskId, "trace") },
-    { id: "share", label: t("sessionInfo.menu.share"), onSelect: () => openShareDialog(taskId) },
-  ];
   return (
     <>
-      <button
-        type="button"
-        className="topbar-tool"
-        data-testid="task-menu"
+      <IconButton
+        label={t("sessionInfo.menu.label")}
+        testId="task-menu"
+        expanded={menu !== null}
         aria-haspopup="menu"
-        aria-expanded={menu !== null}
-        aria-label={t("sessionInfo.menu.label")}
-        title={t("sessionInfo.menu.label")}
-        onClick={(event) => {
-          if (menu !== null) {
-            setMenu(null);
-            return;
-          }
-          const button = event.currentTarget;
-          const box = button.getBoundingClientRect();
-          setMenu({ x: box.left, y: box.bottom + 4, returnFocus: button });
-        }}
+        onClick={(event) => setMenu(menu === null ? anchorBelow(event.currentTarget) : null)}
       >
-        <Dots size={16} />
-      </button>
+        <Dots />
+      </IconButton>
       {menu !== null && (
-        <Menu anchor={menu} items={items} label={t("sessionInfo.menu.label")} onClose={() => setMenu(null)} />
+        <Menu
+          anchor={menu}
+          items={buildTaskMenu({
+            t,
+            taskId,
+            selectedTaskId: taskId,
+            onRename: () => emitStudioCommand("rename"),
+          })}
+          label={t("sessionInfo.menu.label")}
+          onClose={() => setMenu(null)}
+        />
       )}
     </>
   );

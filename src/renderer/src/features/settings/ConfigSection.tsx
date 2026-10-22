@@ -1,63 +1,19 @@
-// omp 设置的展示：各节页面上的常用项（一张卡）、"高级"（全部非常用项）、搜索结果。
-// 高级：按 omp-studio 的分组（config-groups.ts）一个小标题，组内按 key 前缀折叠成小组，默认全部收起。
-import { useId, useState, type ReactNode } from "react";
+// omp 设置的展示：各节页面上的常用项（一组行）、"高级"（页内目录 + 选中分组的全部行平铺）、搜索结果。
+// 高级：左侧目录 = omp-studio 的 8 个分组 + 当前分组下的前缀小组（带个数）；右侧是选中分组的行，没有折叠，前缀做小标题。
+import { useMemo, useState } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
-import { ChevronRight } from "../../icons.tsx";
 import { useLocale, useT } from "../../i18n/use-t.ts";
-import { ConfigRow } from "./ConfigRow.tsx";
-import { Reveal } from "../../ui/Reveal.tsx";
+import { SectionHead } from "../../ui/controls.tsx";
 import { groupConfigItems } from "../../../../shared/ui/config-groups.ts";
 import { prefixTitle } from "../../../../shared/ui/config-labels.ts";
-import { groupTitle, prefixGroups } from "./config-meta.ts";
+import { ConfigRow } from "./ConfigRow.tsx";
+import { advancedGroups, groupTitle } from "./config-meta.ts";
 
-// 折叠状态记在模块里：换节再回来保持原样。
-const openState = new Map<string, boolean>();
-
-function Disclosure({
-  id,
-  title,
-  count,
-  open,
-  onToggle,
-  children,
-}: {
-  id: string;
-  title: string;
-  count: number;
-  open: boolean;
-  onToggle(): void;
-  children: ReactNode;
-}) {
-  const t = useT();
-  const bodyId = useId();
-  return (
-    <section className="cfg-group" data-testid={`cfg-group-${id}`}>
-      <button
-        type="button"
-        className="cfg-group-head"
-        aria-expanded={open}
-        aria-controls={bodyId}
-        aria-label={
-          open ? t("settings.cfg.collapseGroup", { group: title }) : t("settings.cfg.expandGroup", { group: title })
-        }
-        onClick={onToggle}
-      >
-        <ChevronRight size={14} className="icon cfg-chevron" data-open={open || undefined} />
-        <span className="cfg-group-title">{title}</span>
-        <span className="cfg-group-count">{count}</span>
-      </button>
-      <Reveal open={open} id={bodyId}>
-        <div className="st-card cfg-card">{children}</div>
-      </Reveal>
-    </section>
-  );
-}
-
-/** 一节页面上的常用项：一张卡，不折叠。 */
+/** 一节页面上的常用项：一组行，不折叠。 */
 export function ConfigCard({ items }: { items: readonly OmpConfigItem[] }) {
   if (items.length === 0) return null;
   return (
-    <div className="st-card cfg-card">
+    <div className="ui-rows st-rows">
       {items.map((item) => (
         <ConfigRow key={item.key} item={item} />
       ))}
@@ -65,61 +21,110 @@ export function ConfigCard({ items }: { items: readonly OmpConfigItem[] }) {
   );
 }
 
-/** 高级：每个分组一个小标题（带项数），下面是按前缀折叠的小组，默认收起。 */
+// 目录选中的分组和小组记在模块里：换节再回来保持原样。
+const picked: { group: string | null; prefix: string | null } = { group: null, prefix: null };
+
+const anchorId = (group: string, prefix: string) => `cfg-sub-${group}-${prefix === "" ? "other" : prefix}`;
+
+/** 高级：左侧目录 + 选中分组的全部行（按前缀小标题分段）。 */
 export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
   const t = useT();
   const locale = useLocale();
+  const groups = useMemo(() => advancedGroups(items), [items]);
   const [, rerender] = useState(0);
+  const current = groups.find((group) => group.group === picked.group) ?? groups[0];
+  if (current === undefined) return null;
+  const total = groups.reduce((sum, group) => sum + group.count, 0);
+  const activePrefix = picked.prefix ?? current.prefixes[0]?.prefix ?? "";
+
   return (
     <>
-      {[...groupConfigItems(items)].map(([group, inGroup]) => {
-        const groups = prefixGroups(inGroup);
-        if (groups.length === 0) return null;
-        const count = groups.reduce((sum, { items: bucket }) => sum + bucket.length, 0);
-        return (
-          <section key={group} data-testid={`cfg-advanced-${group}`}>
-            <h3 className="settings-group-title cfg-advanced-title">
-              {groupTitle(locale, group)} <span className="cfg-group-count">{count}</span>
-            </h3>
-            {groups.map(({ prefix, items: bucket }) => {
-              const key = `${group}|${prefix}`;
-              const open = openState.get(key) ?? false;
-              return (
-                <Disclosure
-                  key={key}
-                  id={`${group}-${prefix || "other"}`}
-                  title={prefix === "" ? t("settings.cfg.other") : prefixTitle(locale, prefix)}
-                  count={bucket.length}
-                  open={open}
-                  onToggle={() => {
-                    openState.set(key, !open);
+      <p className="ui-section-note st-adv-note">{t("settings.advanced.note", { count: total })}</p>
+      <div className="st-adv">
+        <nav className="st-toc" aria-label={t("settings.advanced.toc")} data-testid="advanced-toc">
+          {groups.map((group) => {
+            const open = group.group === current.group;
+            return (
+              <div key={group.group} className="st-toc-block">
+                <button
+                  type="button"
+                  className="st-toc-group"
+                  aria-current={open ? "true" : undefined}
+                  onClick={(event) => {
+                    picked.group = group.group;
+                    picked.prefix = null;
                     rerender((n) => n + 1);
+                    event.currentTarget.closest(".settings-scroll")?.scrollTo({ top: 0 });
                   }}
+                  data-testid={`advanced-toc-${group.group}`}
                 >
-                  {bucket.map((item) => (
-                    <ConfigRow key={item.key} item={item} />
+                  {groupTitle(locale, group.group)}
+                  <span className="ui-count">{group.count}</span>
+                </button>
+                {open &&
+                  group.prefixes.map(({ prefix, items: bucket }) => (
+                    <button
+                      key={prefix}
+                      type="button"
+                      className="st-toc-item"
+                      aria-current={prefix === activePrefix ? "true" : undefined}
+                      onClick={() => {
+                        picked.prefix = prefix;
+                        rerender((n) => n + 1);
+                        document.getElementById(anchorId(group.group, prefix))?.scrollIntoView({ block: "start" });
+                      }}
+                      data-testid={`advanced-toc-${group.group}-${prefix || "other"}`}
+                    >
+                      {prefix === "" ? t("settings.cfg.other") : prefixTitle(locale, prefix)}
+                      <span className="ui-count">{bucket.length}</span>
+                    </button>
                   ))}
-                </Disclosure>
-              );
-            })}
-          </section>
-        );
-      })}
+              </div>
+            );
+          })}
+        </nav>
+        <div className="st-adv-rows" data-testid={`cfg-advanced-${current.group}`}>
+          {current.prefixes.map(({ prefix, items: bucket, modified }) => (
+            <section
+              key={prefix}
+              id={anchorId(current.group, prefix)}
+              className="st-adv-sub"
+              data-testid={`cfg-group-${current.group}-${prefix || "other"}`}
+            >
+              <SectionHead
+                title={
+                  <>
+                    {prefix === "" ? t("settings.cfg.other") : prefixTitle(locale, prefix)}
+                    {prefix !== "" && <span className="st-prefix-key">{prefix}.*</span>}
+                  </>
+                }
+                count={
+                  t("settings.cfg.itemCount", { count: bucket.length }) +
+                  (modified > 0 ? ` · ${t("settings.cfg.modifiedCount", { count: modified })}` : "")
+                }
+              />
+              <div className="ui-rows st-rows">
+                {bucket.map((item) => (
+                  <ConfigRow key={item.key} item={item} keyPrefix={prefix} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
     </>
   );
 }
 
-/** 搜索结果：按 omp-studio 的分组分节，全部展开（匹配的项数通常不多）。 */
+/** 搜索结果：按 omp-studio 的分组分段，全部展开（匹配的项数通常不多）。 */
 export function ConfigResults({ items, query }: { items: readonly OmpConfigItem[]; query: string }) {
   const locale = useLocale();
   return (
     <>
       {[...groupConfigItems(items)].map(([group, inGroup]) => (
-        <section key={group} className="cfg-group" data-testid={`cfg-result-${group}`}>
-          <h3 className="settings-group-title cfg-result-title">
-            {groupTitle(locale, group)} <span className="cfg-group-count">{inGroup.length}</span>
-          </h3>
-          <div className="st-card cfg-card">
+        <section key={group} className="st-section" data-testid={`cfg-result-${group}`}>
+          <SectionHead title={groupTitle(locale, group)} count={inGroup.length} />
+          <div className="ui-rows st-rows">
             {inGroup.map((item) => (
               <ConfigRow key={item.key} item={item} query={query} />
             ))}

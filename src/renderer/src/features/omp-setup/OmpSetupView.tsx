@@ -8,8 +8,8 @@ import { usePresence } from "../../ui/presence.ts";
 import type { OmpStatus } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { showView, useOmpStatus } from "../../store/index.ts";
-import { Button } from "../settings/controls.tsx";
-import "../settings/settings.css";
+import { Button, Disclosure } from "../../ui/controls.tsx";
+import { Reveal } from "../../ui/Reveal.tsx";
 import "./omp-setup.css";
 
 /** 检测通常很快，超过这个时间才显示"正在查找"，免得一闪而过。 */
@@ -44,6 +44,21 @@ function ProgressBar({ received, total }: { received: number; total: number | nu
       aria-valuenow={Math.round(fraction * 100)}
     >
       <div className="setup-bar-fill" style={{ transform: `scaleX(${fraction})` }} />
+    </div>
+  );
+}
+/** 出错详情：默认收起，点开看原始报错。 */
+function ErrorDetails({ message, label }: { message: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+  return (
+    <div className="setup-details">
+      <Disclosure expanded={open} onToggle={() => setOpen(!open)} controls={panelId}>
+        {label}
+      </Disclosure>
+      <Reveal open={open} id={panelId}>
+        <pre>{message}</pre>
+      </Reveal>
     </div>
   );
 }
@@ -117,22 +132,17 @@ export function OmpSetupView() {
                 ? t("omp.takeover.exeBody")
                 : t("omp.takeover.body")}
           </p>
-          <p className="setup-path st-mono">{t("omp.takeover.where", { path: status.path })}</p>
+          <p className="setup-path">{t("omp.takeover.where", { path: status.path })}</p>
           <div className="setup-actions">
-            <Button
-              variant="primary"
-              large
-              onClick={() => answer(window.studio.answerTakeover(true))}
-              testId="takeover-yes"
-            >
-              {t("omp.takeover.yes")}
-            </Button>
-            <Button large autoFocus onClick={() => answer(window.studio.answerTakeover(false))} testId="takeover-no">
+            <Button autoFocus onClick={() => answer(window.studio.answerTakeover(false))} testId="takeover-no">
               {other !== null
                 ? t("omp.takeover.keepOther", { name: other })
                 : status.launchable
                   ? t("omp.takeover.keep")
                   : t("omp.takeover.no")}
+            </Button>
+            <Button variant="primary" onClick={() => answer(window.studio.answerTakeover(true))} testId="takeover-yes">
+              {t("omp.takeover.yes")}
             </Button>
           </div>
         </>
@@ -149,17 +159,11 @@ export function OmpSetupView() {
               : t("omp.missing.bodyNoSize", { source: status.source })}
           </p>
           <div className="setup-actions">
-            <Button
-              variant="primary"
-              large
-              autoFocus
-              onClick={() => answer(window.studio.installOmp())}
-              testId="install-omp"
-            >
-              {t("omp.install")}
-            </Button>
-            <Button large onClick={() => answer(window.studio.retryOmpSetup())} testId="recheck-omp">
+            <Button onClick={() => answer(window.studio.retryOmpSetup())} testId="recheck-omp">
               {t("omp.recheck")}
+            </Button>
+            <Button variant="primary" autoFocus onClick={() => answer(window.studio.installOmp())} testId="install-omp">
+              {t("omp.install")}
             </Button>
           </div>
         </>
@@ -181,7 +185,7 @@ export function OmpSetupView() {
           </p>
           {!verifying && (
             <div className="setup-actions">
-              <Button large onClick={() => answer(window.studio.cancelOmpInstall())} testId="install-cancel">
+              <Button onClick={() => answer(window.studio.cancelOmpInstall())} testId="install-cancel">
                 {t("omp.cancelDownload")}
               </Button>
             </div>
@@ -195,9 +199,9 @@ export function OmpSetupView() {
         <>
           {title(t("omp.unusable.title"))}
           <p className="setup-text">{t("omp.takeover.declined")}</p>
-          <p className="setup-path st-mono">{t("omp.takeover.where", { path: status.path })}</p>
+          <p className="setup-path">{t("omp.takeover.where", { path: status.path })}</p>
           <div className="setup-actions">
-            <Button variant="primary" large autoFocus onClick={() => answer(window.studio.retryOmpSetup())}>
+            <Button variant="primary" autoFocus onClick={() => answer(window.studio.retryOmpSetup())}>
               {t("omp.reconsider")}
             </Button>
           </div>
@@ -208,32 +212,27 @@ export function OmpSetupView() {
       body = (
         <>
           {title(t("omp.error.title"))}
-          <p className="setup-text st-error-text">
+          <p className="setup-text setup-error">
             {status.stage === "verify" ? t("omp.verifyFailed") : t(`omp.error.${status.stage}`)}
           </p>
           {status.stage === "verify" && <p className="setup-text">{t("omp.error.verify")}</p>}
-          <details className="setup-details">
-            <summary>{t("omp.error.details")}</summary>
-            <pre className="st-mono">{status.message}</pre>
-          </details>
+          <ErrorDetails message={status.message} label={t("omp.error.details")} />
           <div className="setup-actions">
             <Button
-              variant="primary"
-              large
-              autoFocus
-              onClick={() => answer(window.studio.retryOmpSetup())}
-              testId="omp-retry"
-            >
-              {t("omp.retry")}
-            </Button>
-            <Button
-              large
               onClick={() => {
                 setDismissed(status);
                 showView("settings");
               }}
             >
               {t("omp.openSettings")}
+            </Button>
+            <Button
+              variant="primary"
+              autoFocus
+              onClick={() => answer(window.studio.retryOmpSetup())}
+              testId="omp-retry"
+            >
+              {t("omp.retry")}
             </Button>
           </div>
         </>

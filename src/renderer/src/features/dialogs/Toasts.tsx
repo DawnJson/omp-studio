@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
+import { Button, IconButton } from "../../ui/controls.tsx";
 import { usePresence } from "../../ui/presence.ts";
 import { setToastHost } from "./toast-host.ts";
 import { dismissToast, useToasts, type Toast } from "./toast-store.ts";
@@ -29,25 +30,20 @@ function ToastCard({ toast, open, onGone }: { toast: Toast; open: boolean; onGon
         {toast.count > 1 && <span className="toast-count"> ×{toast.count}</span>}
       </span>
       {toast.action && (
-        <button
-          type="button"
-          className="toast-action"
+        <Button
+          size="sm"
+          variant="quiet"
           onClick={() => {
             toast.action?.run();
             dismissToast(toast.id);
           }}
         >
           {toast.action.label}
-        </button>
+        </Button>
       )}
-      <button
-        type="button"
-        className="toast-close"
-        aria-label={t("toast.dismiss")}
-        onClick={() => dismissToast(toast.id)}
-      >
+      <IconButton label={t("toast.dismiss")} onClick={() => dismissToast(toast.id)}>
         <Close size={14} />
-      </button>
+      </IconButton>
     </div>
   );
 }

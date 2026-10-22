@@ -2,6 +2,8 @@
 // 页脚按钮右对齐、取消在前确认在后，附带选项放页脚左侧（footStart）。不叠对话框。
 // 行为：Esc 关闭（消耗掉，不触发"停止任务"），Tab 在对话框内循环，打开时焦点进 `[data-autofocus]`（没有就进 ×），
 // 关闭时焦点回到打开前的元素；点遮罩关闭。关闭时先放退出动画再卸载，放完调 onExited。
+// 焦点掉到 body 时（按下的按钮转成 loading 被禁用、获得焦点的元素被卸载），按键不再经过对话框：
+// 窗口捕获阶段兜底，Esc 照样关最上面的对话框，Tab 把焦点拉回对话框。
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useT } from "../i18n/use-t.ts";
@@ -12,6 +14,14 @@ import { useTitleBarDim } from "./title-bar-dim.ts";
 
 const focusableSelector =
   "button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex]:not([tabindex='-1'])";
+
+/** 打开着的对话框，最后一个在最上面。 */
+const openStack: object[] = [];
+
+/** 有对话框开着（页面级的单键快捷键据此让路；焦点掉到 body 时也算）。 */
+export function isDialogOpen(): boolean {
+  return openStack.length > 0;
+}
 
 export interface DialogProps {
   open: boolean;
@@ -32,6 +42,10 @@ export interface DialogProps {
   /** 退出动画放完、卸载之后调用。 */
   onExited?: (() => void) | undefined;
   testId?: string | undefined;
+  /** 外壳上追加的类名（只放尺寸 / 布局，不改控件样式）。 */
+  className?: string | undefined;
+  /** 标题行右侧、× 之前的图标按钮（如用量对话框的 ↻）。 */
+  headAction?: ReactNode | undefined;
 }
 
 export function Dialog({
@@ -47,6 +61,8 @@ export function Dialog({
   role = "dialog",
   onExited,
   testId,
+  className,
+  headAction,
 }: DialogProps) {
   const t = useT();
   const presence = usePresence(open);
@@ -58,6 +74,8 @@ export function Dialog({
   const mounted = presence.mounted;
   const onExitedRef = useRef(onExited);
   onExitedRef.current = onExited;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const wasMounted = useRef(false);
 
   useEffect(() => {
@@ -79,6 +97,30 @@ export function Dialog({
     if (open) return;
     const opener = openerRef.current;
     if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const entry = {};
+    openStack.push(entry);
+    const onLostFocusKey = (event: globalThis.KeyboardEvent) => {
+      if (openStack.at(-1) !== entry) return;
+      const active = document.activeElement;
+      if (active !== null && active !== document.body) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onCloseRef.current();
+      } else if (event.key === "Tab") {
+        event.preventDefault();
+        event.stopPropagation();
+        ref.current?.querySelector<HTMLElement>(focusableSelector)?.focus();
+      }
+    };
+    window.addEventListener("keydown", onLostFocusKey, true);
+    return () => {
+      window.removeEventListener("keydown", onLostFocusKey, true);
+      openStack.splice(openStack.indexOf(entry), 1);
+    };
   }, [open]);
 
   if (!mounted) return null;
@@ -108,7 +150,7 @@ export function Dialog({
     <div className="scrim" data-closing={presence.closing ? "fade" : undefined} onPointerDown={onClose}>
       <div
         ref={ref}
-        className="ui-dialog"
+        className={className ? `ui-dialog ${className}` : "ui-dialog"}
         data-size={size === "md" ? undefined : size}
         role={role}
         aria-modal="true"
@@ -130,6 +172,7 @@ export function Dialog({
               </p>
             )}
           </div>
+          {headAction}
           <button
             type="button"
             className="ui-icon-btn"

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEve
 import { parseDraftKey, type ProjectFilesTarget, type TaskId, type TerminalKey } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close, Restart } from "../../icons.tsx";
+import { IconButton, Tabs } from "../../ui/controls.tsx";
 import { useTask } from "../../store/index.ts";
 import { FileTree } from "./FileTree.tsx";
 import { PreviewPage } from "./PreviewPage.tsx";
@@ -121,48 +122,35 @@ export function FilePreviewPane({
         onKeyDown={onResizerKey}
       />
       <header className="file-preview-head">
-        <div className="file-preview-seg" role="group" aria-label={t("preview.pages")}>
-          <button
-            type="button"
-            aria-pressed={page === "files"}
-            data-testid="file-preview-page-files"
-            onClick={() => setPanelPage("files")}
-          >
-            {t("preview.pageFiles")}
-          </button>
-          <button
-            type="button"
-            aria-pressed={page === "preview"}
-            disabled={path === null}
-            data-testid="file-preview-page-preview"
-            onClick={() => setPanelPage("preview")}
-          >
-            {t("preview.pagePreview")}
-          </button>
-        </div>
+        <Tabs
+          tabs={[
+            { id: "files", label: t("preview.pageFiles") },
+            { id: "preview", label: t("preview.pagePreview"), disabled: path === null },
+          ]}
+          value={page}
+          onChange={setPanelPage}
+          label={t("preview.pages")}
+          idBase="file-preview"
+          testId="file-preview-page"
+        />
         <span className="file-preview-spacer" />
         {page === "files" && (
-          <button
-            type="button"
-            className="icon-button file-preview-action"
-            data-testid="file-tree-refresh"
-            aria-label={t("preview.refresh")}
-            title={t("preview.refresh")}
+          <IconButton
+            label={t("preview.refresh")}
+            testId="file-tree-refresh"
             onClick={() => setReload((count) => count + 1)}
           >
             <Restart size={14} />
-          </button>
+          </IconButton>
         )}
-        <button
-          type="button"
-          className="icon-button file-preview-action"
-          data-testid="file-preview-close"
-          aria-label={t("preview.close")}
-          title={`${t("preview.close")} (Esc)`}
+        <IconButton
+          label={t("preview.close")}
+          tip={`${t("preview.close")} (Esc)`}
+          testId="file-preview-close"
           onClick={closeFilePreview}
         >
           <Close size={14} />
-        </button>
+        </IconButton>
       </header>
       {taskId !== null && page === "files" && (
         <WorkspaceRoots

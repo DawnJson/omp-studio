@@ -21,14 +21,3 @@ export function nextThinkingLevel(
   const index = current === null ? -1 : levels.indexOf(current);
   return levels[(index + 1) % levels.length] ?? null;
 }
-
-/** 方向键在分段条里移动：到头循环。 */
-export function stepThinkingLevel(
-  levels: readonly ThinkingLevel[],
-  current: ThinkingLevel | null,
-  delta: 1 | -1,
-): ThinkingLevel | null {
-  if (levels.length === 0) return null;
-  const index = current === null ? 0 : Math.max(levels.indexOf(current), 0);
-  return levels[(index + delta + levels.length) % levels.length] ?? null;
-}

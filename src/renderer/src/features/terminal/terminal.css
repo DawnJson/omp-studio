@@ -58,11 +58,6 @@
   flex: 1;
 }
 
-.terminal-action {
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
-}
-
 .terminal-body {
   position: relative;
   flex: 1 1 auto;

@@ -1,10 +1,11 @@
-// 设置 → 通用：语言、主题、减少动效、通知、选中即复制；任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式）；快捷键（只读）。
+// 设置 → 通用：外观（语言、主题、减少动效、通知、选中即复制）；任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式）；
+// 快捷键（只读，两列）。
 import type { LocalePreference, ThemePreference } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { useSettings } from "../../store/index.ts";
+import { Badge, Row, SectionHead, Segmented, Switch } from "../../ui/controls.tsx";
 import { ConfigRow } from "./ConfigRow.tsx";
-import { Card, Segmented, SettingRow, Switch } from "./controls.tsx";
 import { systemReducesMotion } from "./motion-preference.ts";
 import { useCommonConfigItems } from "./OmpConfigPane.tsx";
 
@@ -57,10 +58,12 @@ export function GeneralSection() {
 
   return (
     <>
-      <Card>
-        <SettingRow title={t("settings.language")}>
+      <SectionHead title={t("settings.appearance")} />
+      <div className="ui-rows st-rows">
+        <Row label={t("settings.language")}>
           {(labelId) => (
             <Segmented<LocalePreference>
+              size="sm"
               value={settings?.locale ?? "system"}
               options={localeOptions}
               labelledBy={labelId}
@@ -68,10 +71,11 @@ export function GeneralSection() {
               testId="setting-language"
             />
           )}
-        </SettingRow>
-        <SettingRow title={t("settings.theme")}>
+        </Row>
+        <Row label={t("settings.theme")}>
           {(labelId) => (
             <Segmented<ThemePreference>
+              size="sm"
               value={settings?.theme ?? "system"}
               options={themeOptions}
               labelledBy={labelId}
@@ -79,19 +83,22 @@ export function GeneralSection() {
               testId="setting-theme"
             />
           )}
-        </SettingRow>
-        <SettingRow title={t("settings.motion")} desc={t("settings.motion.desc")}>
+        </Row>
+        <Row label={t("settings.motion")} info={t("settings.motion.desc")}>
           {(labelId) => (
-            <Switch
-              checked={(settings?.reduceMotion ?? false) || systemMotion}
-              disabled={systemMotion}
-              labelledBy={labelId}
-              onChange={(next) => void window.studio.setReduceMotion(next)}
-              testId="setting-motion"
-            />
+            <>
+              <Switch
+                checked={(settings?.reduceMotion ?? false) || systemMotion}
+                disabled={systemMotion}
+                labelledBy={labelId}
+                onChange={(next) => void window.studio.setReduceMotion(next)}
+                testId="setting-motion"
+              />
+              {systemMotion && <Badge>{t("settings.motion.system")}</Badge>}
+            </>
           )}
-        </SettingRow>
-        <SettingRow title={t("settings.notifyWaiting")} desc={t("settings.notifyWaiting.desc")}>
+        </Row>
+        <Row label={t("settings.notifyWaiting")} info={t("settings.notifyWaiting.desc")}>
           {(labelId) => (
             <Switch
               checked={settings?.notifyOnGate ?? true}
@@ -100,8 +107,8 @@ export function GeneralSection() {
               testId="setting-notify"
             />
           )}
-        </SettingRow>
-        <SettingRow title={t("settings.copyOnSelect")} desc={t("settings.copyOnSelect.desc")}>
+        </Row>
+        <Row label={t("settings.copyOnSelect")} info={t("settings.copyOnSelect.desc")}>
           {(labelId) => (
             <Switch
               checked={settings?.copyOnSelect ?? true}
@@ -110,13 +117,14 @@ export function GeneralSection() {
               testId="setting-copy-on-select"
             />
           )}
-        </SettingRow>
-      </Card>
-      <h3 className="settings-group-title">{t("settings.whileRunning")}</h3>
-      <div className="st-card cfg-card">
-        <SettingRow title={t("settings.enterBehavior")} desc={t("settings.enterBehavior.desc")}>
+        </Row>
+      </div>
+      <SectionHead title={t("settings.whileRunning")} />
+      <div className="ui-rows st-rows">
+        <Row label={t("settings.enterBehavior")} info={t("settings.enterBehavior.desc")}>
           {(labelId) => (
             <Segmented<"steer" | "followUp">
+              size="sm"
               value={settings?.enterWhileRunning ?? "steer"}
               options={enterOptions}
               labelledBy={labelId}
@@ -124,28 +132,26 @@ export function GeneralSection() {
               testId="setting-enter"
             />
           )}
-        </SettingRow>
+        </Row>
         {whileRunning.map((item) => (
           <ConfigRow key={item.key} item={item} />
         ))}
       </div>
-      <h3 id="settings-shortcuts" tabIndex={-1} className="settings-group-title">
-        {t("settings.shortcuts")}
-      </h3>
-      <Card>
-        {shortcuts.map((shortcut) => (
-          <div key={shortcut.label} className="st-shortcut">
-            <span>{t(shortcut.label)}</span>
-            <span className="st-kbds">
+      <section id="settings-shortcuts" tabIndex={-1} className="st-section">
+        <SectionHead title={t("settings.shortcuts")} count={shortcuts.length} />
+        <div className="st-kb-grid">
+          {shortcuts.map((shortcut) => (
+            <div key={shortcut.label} className="st-kb-row">
+              <span>{t(shortcut.label)}</span>
               {shortcut.keys.map((key) => (
                 <kbd key={key} className="kbd">
                   {key}
                 </kbd>
               ))}
-            </span>
-          </div>
-        ))}
-      </Card>
+            </div>
+          ))}
+        </div>
+      </section>
     </>
   );
 }

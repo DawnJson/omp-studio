@@ -9,12 +9,12 @@ export const integrations = {
   remove: "Remove",
   refresh: "Refresh",
   loading: "Loading…",
+  more: "More actions",
   loadFailed: "Could not load: {message}",
 
   "mcp.title": "MCP servers",
-  "mcp.scope.desc":
-    "User scope is written to omp's global mcp.json and shared by every project. Pick a project to read and write in that project's directory; the list then shows both layers and marks which one each row comes from.",
   "mcp.empty": "No MCP servers configured.",
+  "mcp.form.title": "Add MCP server",
   "mcp.add": "Add server…",
   "mcp.test": "Test connection",
   "mcp.connected": "Connected, {count} tools",
@@ -37,9 +37,8 @@ export const integrations = {
   "mcp.token.tip": "Optional. omp stores it as an Authorization: Bearer header in the config file.",
 
   "ssh.title": "SSH hosts",
-  "ssh.scope.desc":
-    "User-scope hosts are shared by every project. Pick a project to read and write in that project's directory (its .omp/ssh.json); the list shows both layers.",
   "ssh.empty": "No SSH hosts configured.",
+  "ssh.form.title": "Add SSH host",
   "ssh.add": "Add host…",
   "ssh.remove.title": "Remove SSH host “{name}”?",
   "ssh.remove.body": "This only removes the entry from omp's config; it does not connect to that machine.",
@@ -55,7 +54,6 @@ export const integrations = {
 
   "tools.title": "Available tools",
   "tools.enabled": "Enabled",
-  "tools.inactive": "Available, not enabled now",
   "tools.device": "xd device",
   "tools.note":
     "This is the global list omp sees without a project: tools from a project's plugins or MCP servers are not included. A tool's switch is the <tool>.enabled setting below; once turned off the tool disappears from omp's list, so the row stays here until you press Refresh.",

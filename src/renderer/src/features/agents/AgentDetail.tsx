@@ -5,8 +5,9 @@ import { useMemo, useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { isAgentActive, type HubAgent } from "../../../../shared/tsp/agent-hub.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { ChevronRight } from "../../icons.tsx";
 import { Markdown } from "../../markdown/index.ts";
+import { Button, Disclosure, SectionHead } from "../../ui/controls.tsx";
+import { Popover } from "../../ui/Popover.tsx";
 import { formatDuration } from "../conversation/format.ts";
 import { buildTurns } from "../conversation/model.ts";
 import { ProcessDetails } from "../conversation/ProcessDetails.tsx";
@@ -27,40 +28,47 @@ function Stat({ label, value }: { label: string; value: string }) {
 function KillControl({ taskId, name, busy }: { taskId: TaskId; name: string; busy: boolean }) {
   const t = useT();
   const [confirming, setConfirming] = useState(false);
-  if (!confirming)
-    return (
-      <button
-        type="button"
-        className="agents-btn"
-        data-danger
-        data-testid="agents-kill"
+  return (
+    <span className="ui-popover-anchor agents-kill">
+      <Button
+        variant="danger"
+        size="sm"
+        testId="agents-kill"
         disabled={busy}
-        onClick={() => setConfirming(true)}
+        aria-expanded={confirming}
+        onClick={() => setConfirming((value) => !value)}
       >
         {t("agents.kill")}
-      </button>
-    );
-  return (
-    <div className="agents-confirm" role="alertdialog" aria-label={t("agents.kill")} data-testid="agents-kill-confirm">
-      <span>{t("agents.killConfirm", { name })}</span>
-      <span className="agents-confirm-actions">
-        <button type="button" className="agents-btn" onClick={() => setConfirming(false)}>
-          {t("agents.killConfirmNo")}
-        </button>
-        <button
-          type="button"
-          className="agents-btn"
-          data-danger
-          data-testid="agents-kill-yes"
-          onClick={() => {
-            setConfirming(false);
-            void killAgent(t, taskId, name);
-          }}
-        >
-          {t("agents.killConfirmYes")}
-        </button>
-      </span>
-    </div>
+      </Button>
+      <Popover
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        kind="confirm"
+        align="end"
+        label={t("agents.kill")}
+      >
+        <div data-testid="agents-kill-confirm">
+          <p className="ui-pop-title">{t("agents.kill")}</p>
+          <p className="ui-pop-body">{t("agents.killConfirm", { name })}</p>
+          <div className="ui-pop-actions">
+            <Button size="sm" autoFocus onClick={() => setConfirming(false)}>
+              {t("agents.killConfirmNo")}
+            </Button>
+            <Button
+              variant="danger-solid"
+              size="sm"
+              testId="agents-kill-yes"
+              onClick={() => {
+                setConfirming(false);
+                void killAgent(t, taskId, name);
+              }}
+            >
+              {t("agents.killConfirmYes")}
+            </Button>
+          </div>
+        </div>
+      </Popover>
+    </span>
   );
 }
 
@@ -69,7 +77,7 @@ function TaskBlock({ text }: { text: string }) {
   const t = useT();
   return (
     <div className="agents-block">
-      <h4>{t("agents.task")}</h4>
+      <SectionHead title={t("agents.task")} />
       <div className="agents-task">
         <Markdown source={text} streaming={false} />
       </div>
@@ -85,23 +93,20 @@ function RecordSection({ taskId, state, live }: { taskId: TaskId; state: AgentRe
   const turns = useMemo(() => (open && messages !== null ? buildTurns(messages, live) : []), [open, messages, live]);
   return (
     <div className="agents-record" data-testid="agents-record">
-      <div className="agents-record-head">
-        <button
-          type="button"
-          className="agents-disclosure"
-          aria-expanded={open}
-          data-testid="agents-record-toggle"
-          onClick={() => setOpen((value) => !value)}
-        >
-          <ChevronRight size={14} className="icon agents-chevron" data-open={open || undefined} />
-          {t("agents.record")}
-        </button>
-        {open && (
-          <button type="button" className="agents-link" onClick={reload}>
-            {t("agents.recordRefresh")}
-          </button>
-        )}
-      </div>
+      <SectionHead
+        title={
+          <Disclosure expanded={open} onToggle={() => setOpen((value) => !value)} testId="agents-record-toggle">
+            {t("agents.record")}
+          </Disclosure>
+        }
+        actions={
+          open ? (
+            <Button variant="quiet" size="sm" onClick={reload}>
+              {t("agents.recordRefresh")}
+            </Button>
+          ) : undefined
+        }
+      />
       {open && (
         <div className="agents-record-body">
           {loading && record === null && <p className="agents-muted">{t("agents.recordLoading")}</p>}
@@ -146,15 +151,14 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
         </span>
         {canKill(agent.status) && <KillControl taskId={taskId} name={agent.name} busy={busy} />}
         {canRevive(agent.status) && (
-          <button
-            type="button"
-            className="agents-btn"
-            data-testid="agents-revive"
+          <Button
+            size="sm"
+            testId="agents-revive"
             disabled={busy}
             onClick={() => void reviveAgent(t, taskId, agent.name)}
           >
             {t("agents.revive")}
-          </button>
+          </Button>
         )}
       </header>
 
@@ -171,7 +175,7 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
       {agent.task !== "" && <TaskBlock text={agent.assignment ?? cleanTask(agent.task)} />}
 
       <div className="agents-block" data-testid="agents-output">
-        <h4>{t("agents.output")}</h4>
+        <SectionHead title={t("agents.output")} />
         {output !== "" ? (
           <div className="agents-output">
             <Markdown source={output} streaming={false} />

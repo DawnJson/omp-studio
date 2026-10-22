@@ -6,6 +6,7 @@ import type { TaskId } from "../../../../shared/ipc.ts";
 import { listAgents, type HubAgent } from "../../../../shared/tsp/agent-hub.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
+import { IconButton } from "../../ui/controls.tsx";
 import { setPreviewWidth, usePreviewWidth } from "../file-preview/preview-store.ts";
 import { useTspDerived, useTspDrive } from "../tsp/tsp-store.ts";
 import { AgentDetail } from "./AgentDetail.tsx";
@@ -99,16 +100,9 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
           {t("agents.count", { count: agents.length })}
         </span>
         <span className="file-preview-spacer" />
-        <button
-          type="button"
-          className="icon-button file-preview-action"
-          data-testid="agents-close"
-          aria-label={t("agents.close")}
-          title={t("agents.close")}
-          onClick={() => closeAgentsPanel()}
-        >
+        <IconButton label={t("agents.close")} testId="agents-close" onClick={() => closeAgentsPanel()}>
           <Close size={14} />
-        </button>
+        </IconButton>
       </header>
 
       {drive !== null && (

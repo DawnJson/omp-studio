@@ -19,12 +19,18 @@ export type SettingsSection =
   | "about"
   | "shortcuts";
 
+/** 设置页左侧导航里的一节（不含 "shortcuts"）。 */
+export type SettingsPage = Exclude<SettingsSection, "shortcuts">;
+
 interface UiState {
   selectedTaskId: TaskId | null;
   view: MainView;
   paletteOpen: boolean;
   /** 打开设置页时要定位到的分节；设置页处理完调 clearSettingsSection。 */
   settingsSection: SettingsSection | null;
+  /** 设置页当前节和搜索词：导航在侧栏位置、内容在主区，两处共用。 */
+  settingsPage: SettingsPage;
+  settingsQuery: string;
 }
 
 const uiStore = createStore<UiState>({
@@ -32,6 +38,8 @@ const uiStore = createStore<UiState>({
   view: "conversation",
   paletteOpen: false,
   settingsSection: null,
+  settingsPage: "general",
+  settingsQuery: "",
 });
 
 /** 切到某个任务并回到对话视图。openTask 失败时 reject（任务自己的 error 状态由 taskState 事件带来），选中状态保留。 */
@@ -44,8 +52,28 @@ export function clearSelection(): void {
   uiStore.set({ ...uiStore.get(), selectedTaskId: null });
 }
 
+/** 进设置页（从对话来、或带了要定位的节）时回到那一节并清掉搜索；已在设置页里再调就保持原样。 */
 export function showView(view: MainView, options: { section?: SettingsSection } = {}): void {
-  uiStore.set({ ...uiStore.get(), view, settingsSection: view === "settings" ? (options.section ?? null) : null });
+  const state = uiStore.get();
+  const section = view === "settings" ? (options.section ?? null) : null;
+  const enteringSettings = view === "settings" && (state.view !== "settings" || section !== null);
+  uiStore.set({
+    ...state,
+    view,
+    settingsSection: section,
+    ...(enteringSettings
+      ? { settingsPage: section === null || section === "shortcuts" ? "general" : section, settingsQuery: "" }
+      : {}),
+  });
+}
+
+/** 选设置页的一节：同时清掉搜索，回到这一节的内容。 */
+export function setSettingsPage(page: SettingsPage): void {
+  uiStore.set({ ...uiStore.get(), settingsPage: page, settingsQuery: "" });
+}
+
+export function setSettingsQuery(query: string): void {
+  uiStore.set({ ...uiStore.get(), settingsQuery: query });
 }
 
 export function clearSettingsSection(): void {
@@ -76,4 +104,12 @@ export function usePaletteOpen(): boolean {
 
 export function useSettingsSection(): SettingsSection | null {
   return useStoreValue(uiStore, (state) => state.settingsSection);
+}
+
+export function useSettingsPage(): SettingsPage {
+  return useStoreValue(uiStore, (state) => state.settingsPage);
+}
+
+export function useSettingsQuery(): string {
+  return useStoreValue(uiStore, (state) => state.settingsQuery);
 }

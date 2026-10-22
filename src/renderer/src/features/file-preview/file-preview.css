@@ -41,7 +41,7 @@
   flex: none;
   align-items: center;
   gap: var(--space-2);
-  height: var(--control-h-lg);
+  height: var(--panel-head-h);
   padding: 0 var(--space-2) 0 var(--space-3);
   font-size: var(--fs-xs);
   color: var(--text-2);
@@ -70,57 +70,18 @@
   flex: 1;
 }
 
-.file-preview-action {
-  flex: none;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
+/* 顶层页签放在面板头里：头自己有下边线，页签条不再画一条 */
+.file-preview-head .ui-tabs {
+  align-self: stretch;
+  border-bottom: 0;
 }
-
-/* 预览/源码、缩放：小分段按钮 */
-.file-preview-seg {
-  display: inline-flex;
-  flex: none;
-  padding: 2px;
-  background: var(--bg-sunken);
-  border-radius: var(--radius-md);
+.file-preview-head .ui-tab {
+  height: 100%;
 }
-.file-preview-seg button {
-  min-width: var(--control-h-sm);
-  height: 22px;
-  padding: 0 var(--space-2);
-  font: inherit;
-  color: var(--text-2);
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.file-preview-seg button:hover {
-  background: var(--bg-hover);
-}
-.file-preview-seg button[aria-pressed="true"] {
-  color: var(--text);
-  background: var(--bg-raised);
-  box-shadow: 0 0 0 1px var(--border-subtle);
-}
-.file-preview-seg button:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
-}
-
-.file-preview-scripts {
+.file-preview-zoom {
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: var(--space-1);
-  cursor: pointer;
-}
-.file-preview-seg button:disabled {
-  color: var(--text-disabled);
-  cursor: default;
-}
-.file-preview-seg button:disabled:hover {
-  background: transparent;
 }
 
 /* 预览页：工具栏 + 正文；hidden 时整页不占位（两页同时挂载，切页只是显隐） */
@@ -359,13 +320,9 @@
   color: var(--text-disabled);
   cursor: default;
 }
-.file-preview-root:focus-visible,
-.file-preview-root-remove:focus-visible {
+.file-preview-root:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
-}
-.file-preview-root-add {
-  border-style: dashed;
 }
 .file-preview-root-remove {
   width: 18px;

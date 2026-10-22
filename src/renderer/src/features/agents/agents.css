@@ -292,12 +292,8 @@
   gap: var(--space-1-5);
   min-width: 0;
 }
-.agents-block h4 {
+.agents-block .ui-section-head {
   margin: 0;
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  font-weight: var(--fw-medium);
-  color: var(--text-3);
 }
 .agents-task,
 .agents-output {
@@ -318,62 +314,15 @@
   font-size: inherit;
   line-height: inherit;
 }
-/* 文字按钮（重新读取） */
-.agents-link {
-  padding: 0;
-  font: inherit;
-  font-size: var(--fs-xs);
-  color: var(--link);
-  background: none;
-  border: 0;
-  cursor: pointer;
-}
-.agents-link:hover {
-  text-decoration: underline;
-}
-.agents-link:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
 
-/* 对话记录：和应用里其它折叠一样，用右箭头，展开时转 90° */
+/* 对话记录：小节标题里放展开箭头 + 重新读取 */
 .agents-record {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
-.agents-record-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-.agents-disclosure {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0;
-  font: inherit;
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-medium);
-  color: var(--text-2);
-  background: none;
-  border: 0;
-  cursor: pointer;
-}
-.agents-disclosure:hover {
-  color: var(--text);
-}
-.agents-disclosure:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-.agents-chevron {
-  color: var(--text-3);
-  transition: transform var(--dur-fast) var(--ease-out);
-}
-.agents-chevron[data-open] {
-  transform: rotate(90deg);
+.agents-record .ui-section-head {
+  margin: 0;
 }
 .agents-record-body {
   display: flex;
@@ -384,108 +333,22 @@
   margin-top: 0;
 }
 
-/* 结束 / 恢复 */
-.agents-btn {
-  flex: none;
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  font: inherit;
-  font-size: var(--fs-xs);
-  color: var(--text);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.agents-btn:hover:not(:disabled) {
-  border-color: var(--border-strong);
-}
-.agents-btn:disabled {
-  color: var(--text-3);
-  cursor: default;
-}
-.agents-btn:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-.agents-btn[data-danger] {
-  color: var(--st-error);
-}
-/* 结束前的确认：占头行下面整整一行 */
-.agents-confirm {
-  display: flex;
-  flex-basis: 100%;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2-5);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  color: var(--text-2);
-  background: var(--bg-sunken);
-  border-radius: var(--radius-md);
-}
-.agents-confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
+/* 结束：确认浮层向下展开（上面是列表，往上放不下），右对齐按钮 */
+.agents-kill .ui-popover {
+  top: calc(100% + var(--space-2));
+  bottom: auto;
 }
 
-/* 插话框：钉在面板底边，样子同主输入框（圆角框 + 右下角发送键） */
+/* 插话框：钉在面板底边，输入框 + 发送键 */
 .agents-steer {
   display: flex;
   flex: none;
   align-items: flex-end;
   gap: var(--space-2);
-  margin: var(--space-2) var(--space-3) var(--space-3);
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  padding: var(--space-2) var(--space-3) var(--space-3);
 }
-.agents-steer:focus-within {
-  border-color: var(--border-strong);
-}
-.agents-steer-input {
+.agents-steer .ui-textarea {
   flex: 1;
   min-width: 0;
-  padding: var(--space-1) 0;
-  font: inherit;
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
-  color: var(--text);
   resize: none;
-  background: transparent;
-  border: 0;
-  outline: none;
-}
-.agents-steer-input::placeholder {
-  color: var(--text-3);
-}
-.agents-steer-input:disabled {
-  color: var(--text-3);
-}
-.agents-steer-send {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
-  padding: 0;
-  color: var(--text-on-primary);
-  background: var(--primary);
-  border: 0;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-}
-.agents-steer-send:hover:not(:disabled) {
-  background: var(--primary-hover);
-}
-.agents-steer-send:disabled {
-  color: var(--text-disabled);
-  background: var(--bg-active);
-  cursor: default;
-}
-.agents-steer-send:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
 }

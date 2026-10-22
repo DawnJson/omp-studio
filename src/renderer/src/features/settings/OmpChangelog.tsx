@@ -5,9 +5,9 @@ import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Markdown } from "../../markdown/Markdown.tsx";
 import { useOmpStatus } from "../../store/index.ts";
-import { Button, Card } from "./controls.tsx";
+import { Button, Disclosure, Notice, SectionHead } from "../../ui/controls.tsx";
+import { Reveal } from "../../ui/Reveal.tsx";
 import { changelogResource } from "./integrations-data.ts";
-import "./integrations.css";
 
 const PAGE = 8;
 
@@ -28,12 +28,14 @@ export function OmpChangelog() {
     });
 
   return (
-    <>
-      <h3 className="settings-group-title">{t("integrations.changelog.title")}</h3>
-      <Card testId="omp-changelog">
-        {!shown ? (
-          <div className="st-block ig-footer">
+    <section className="st-section" data-testid="omp-changelog">
+      <SectionHead
+        title={t("integrations.changelog.title")}
+        note={shown ? undefined : t("integrations.changelog.hint")}
+        actions={
+          !shown && (
             <Button
+              size="sm"
               disabled={!ready}
               onClick={() => {
                 setShown(true);
@@ -43,50 +45,44 @@ export function OmpChangelog() {
             >
               {t("integrations.changelog.show")}
             </Button>
-            <span className="st-muted">{t("integrations.changelog.hint")}</span>
-          </div>
-        ) : (
-          <>
-            {load.kind === "error" && (
-              <div className="st-block st-error-text ig-raw" role="alert" data-testid="changelog-failed">
-                {t("integrations.loadFailed", { message: errorDetail(load.error) })}
+          )
+        }
+      />
+      {shown && (
+        <>
+          {load.kind === "error" && (
+            <Notice tone="error" testId="changelog-failed">
+              {t("integrations.loadFailed", { message: errorDetail(load.error) })}
+            </Notice>
+          )}
+          {sections === null && load.kind !== "error" && <p className="st-muted">{t("integrations.loading")}</p>}
+          {sections?.slice(0, limit).map((section, index) => {
+            const expanded = open.has(index);
+            const label = section.version === null ? t("integrations.changelog.all") : section.version;
+            const bodyId = `changelog-body-${index}`;
+            return (
+              <div
+                className="st-changelog"
+                key={`${section.version ?? "all"}-${index}`}
+                data-testid={`changelog-section-${index}`}
+              >
+                <Disclosure expanded={expanded} controls={bodyId} onToggle={() => toggleOpen(index)}>
+                  <span className="st-changelog-version">{label}</span>
+                  {section.date !== null && <span className="st-muted">{section.date}</span>}
+                </Disclosure>
+                <Reveal open={expanded} id={bodyId}>
+                  <Markdown source={section.body} />
+                </Reveal>
               </div>
-            )}
-            {sections === null && load.kind !== "error" && (
-              <div className="st-block st-muted">{t("integrations.loading")}</div>
-            )}
-            {sections?.slice(0, limit).map((section, index) => {
-              const expanded = open.has(index);
-              const label = section.version === null ? t("integrations.changelog.all") : section.version;
-              return (
-                <div
-                  className="st-block"
-                  key={`${section.version ?? "all"}-${index}`}
-                  data-testid={`changelog-section-${index}`}
-                >
-                  <button
-                    type="button"
-                    className="ig-section-head"
-                    aria-expanded={expanded}
-                    onClick={() => toggleOpen(index)}
-                  >
-                    <span className="ig-title">{label}</span>
-                    {section.date !== null && <span className="st-muted">{section.date}</span>}
-                  </button>
-                  {expanded && <Markdown source={section.body} />}
-                </div>
-              );
-            })}
-            {sections !== null && sections.length > limit && (
-              <div className="st-block ig-footer">
-                <Button variant="text" onClick={() => setLimit(limit + PAGE)} testId="changelog-more">
-                  {t("integrations.changelog.more", { count: sections.length - limit })}
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </Card>
-    </>
+            );
+          })}
+          {sections !== null && sections.length > limit && (
+            <Button variant="quiet" size="sm" onClick={() => setLimit(limit + PAGE)} testId="changelog-more">
+              {t("integrations.changelog.more", { count: sections.length - limit })}
+            </Button>
+          )}
+        </>
+      )}
+    </section>
   );
 }

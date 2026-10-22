@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, openTaskRow, screenshotsDir, testOmp, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, screenshotsDir, setLocaleTheme, testOmp, type LaunchedApp } from "./launch.ts";
 
 const PATH_EDITED = "src/calc.ts";
 
@@ -99,16 +99,8 @@ async function shoot(page: Page, state: string): Promise<void> {
     ["en", "light"],
     ["en", "dark"],
   ] as const) {
-    await page.evaluate(
-      async ({ locale, scheme }) => {
-        await globalThis.studio.setLocale(locale);
-        await globalThis.studio.setTheme(scheme);
-      },
-      { locale, scheme },
-    );
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-    await page.waitForTimeout(250);
+    await setLocaleTheme(page, locale, scheme);
     await page.screenshot({ path: path.join(screenshotsDir, `review-${state}-${locale}-${scheme}.png`) });
   }
 }
@@ -189,20 +181,26 @@ test("评审：文件树、统一/并排、暂存 hunk、两条评论、发给 a
     await expect(page.getByTestId("comment-count")).toHaveText("2");
     await shoot(page, "comments");
 
-    // 评论队列：两条，按行排序；Esc 退出评审后再打开仍在（队列跨关闭保留）。
+    // 评论只在 diff 里；工具条"评论 N"打开列表浮层（按行排序）。Esc 先收浮层，再退出评审；再打开队列仍在（跨关闭保留）。
+    await page.getByTestId("comment-queue-button").click();
     await expect(page.getByTestId("queued-comment")).toHaveCount(2);
     await shoot(page, "queue");
     await page.keyboard.press("Escape");
+    await expect(page.getByTestId("queued-comment")).toHaveCount(0);
+    await expect(review).toBeVisible();
+    await page.keyboard.press("Escape");
     await expect(review).toBeHidden();
     await page.getByTestId("topbar-review").click();
-    await expect(page.getByTestId("queued-comment")).toHaveCount(2);
+    await expect(page.getByTestId("comment-count")).toHaveText("2");
 
-    // 丢弃要确认：取消后 hunk 还在；确认丢弃未跟踪文件后文件从磁盘和树里消失。
+    // 丢弃要确认：确认框开着时 j 不切文件；取消后 hunk 还在；确认丢弃未跟踪文件后文件从磁盘和树里消失。
     await openFile(page, PATH_EDITED, "unstaged").click();
     await page.getByTestId("hunk-discard").click();
     await expect(page.getByRole("alertdialog")).toBeVisible();
+    await page.keyboard.press("j");
     await page.keyboard.press("Escape");
     await expect(page.getByRole("alertdialog")).toBeHidden();
+    await expect(openFile(page, PATH_EDITED, "unstaged")).toHaveAttribute("aria-current", "true");
     await expect(review).toBeVisible();
     await expect(page.getByTestId("hunk")).toHaveCount(1);
     await openFile(page, "新 文件.txt", "untracked").click();
@@ -234,7 +232,7 @@ test("评审：文件树、统一/并排、暂存 hunk、两条评论、发给 a
     expect(sent.indexOf(":23-25")).toBeLessThan(sent.indexOf(":26"));
 
     await page.getByTestId("topbar-review").click();
-    await expect(page.getByTestId("queued-comment")).toHaveCount(0);
+    await expect(page.getByTestId("comment-queue-button")).toBeDisabled();
   } finally {
     await cleanup();
   }
@@ -356,9 +354,9 @@ test("评审：文件树每行 +a −d、变更行左缘竖条、改动块/整�
     await expect(page.locator(".rv-row[data-kind=add]").first().locator(".rv-no")).toHaveText("3");
 
     // 4. 整个文件视图：一个 hunk、没有 @@ 头和 hunk 级操作，30 行里两处替换 = 28 + 2×2 = 32 行；n / p 在改动块之间走。
-    await expect(page.getByTestId("scope-hunks")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("scope-hunks")).toHaveAttribute("aria-checked", "true");
     await page.getByTestId("scope-file").click();
-    await expect(page.getByTestId("scope-file")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("scope-file")).toHaveAttribute("aria-checked", "true");
     await expect(page.getByTestId("hunk")).toHaveCount(1);
     await expect(page.locator(".rv-hunk-head")).toHaveCount(0);
     await expect(page.locator(".rv-row")).toHaveCount(32);
@@ -372,10 +370,10 @@ test("评审：文件树每行 +a −d、变更行左缘竖条、改动块/整�
     await page.keyboard.press("Escape");
     await expect(review).toBeHidden();
     await page.getByTestId("topbar-review").click();
-    await expect(page.getByTestId("scope-file")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("scope-file")).toHaveAttribute("aria-checked", "true");
     await openFile(page, PATH_EDITED, "unstaged").click();
     await page.keyboard.press("f");
-    await expect(page.getByTestId("scope-hunks")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("scope-hunks")).toHaveAttribute("aria-checked", "true");
     await expect(page.getByTestId("hunk")).toHaveCount(2);
 
     // 折行开关：默认折行；关掉后代码不折行、hunk 自己横向滚动。

@@ -6,7 +6,7 @@ import { TspSpans } from "../spans.tsx";
 export function Tabs({ node, ctx }: NodeProps) {
   const p = node.p as unknown as TspTabsProps;
   return (
-    <div className="tspi-tabs" data-id={node.id} role="tablist">
+    <div className="ui-tabs" data-id={node.id} role="tablist">
       {(p.items ?? [])
         .filter((tab) => typeof tab.id === "string")
         .map((tab) => (
@@ -16,7 +16,7 @@ export function Tabs({ node, ctx }: NodeProps) {
             role="tab"
             data-tab={tab.id}
             aria-selected={tab.id === p.active}
-            className={tab.id === p.active ? "tspi-tab on" : "tspi-tab"}
+            className="ui-tab"
             onClick={() => ctx.send({ ev: "select", sf: ctx.sf, id: node.id, item: tab.id })}
           >
             <TspSpans text={tab.label} />

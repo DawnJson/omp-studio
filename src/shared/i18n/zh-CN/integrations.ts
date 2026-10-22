@@ -9,12 +9,12 @@ export const integrations = {
   remove: "删除",
   refresh: "刷新",
   loading: "正在读取…",
+  more: "更多操作",
   loadFailed: "读取失败：{message}",
 
   "mcp.title": "MCP 服务器",
-  "mcp.scope.desc":
-    "用户范围写进 omp 的全局 mcp.json，所有项目共用；选一个项目则在该项目目录里读写，列表同时显示用户和项目两层，每行标出来自哪一层。",
   "mcp.empty": "还没有配置 MCP 服务器。",
+  "mcp.form.title": "添加 MCP 服务器",
   "mcp.add": "添加服务器…",
   "mcp.test": "测试连接",
   "mcp.connected": "已连接，{count} 个工具",
@@ -34,9 +34,8 @@ export const integrations = {
   "mcp.token.tip": "可选。omp 会把它存成 Authorization: Bearer 请求头，写在配置文件里。",
 
   "ssh.title": "SSH 主机",
-  "ssh.scope.desc":
-    "用户范围的主机所有项目共用；选一个项目则在该项目目录里读写（项目的 .omp/ssh.json），列表同时显示两层。",
   "ssh.empty": "还没有配置 SSH 主机。",
+  "ssh.form.title": "添加 SSH 主机",
   "ssh.add": "添加主机…",
   "ssh.remove.title": "删除 SSH 主机“{name}”？",
   "ssh.remove.body": "只是从 omp 的配置里删掉这一项，不会连接那台机器。",
@@ -52,7 +51,6 @@ export const integrations = {
 
   "tools.title": "可用工具",
   "tools.enabled": "已启用",
-  "tools.inactive": "可用，当前没启用",
   "tools.device": "xd 设备",
   "tools.note":
     "这是 omp 在不带项目时看到的全局列表：项目里的插件和 MCP 服务器提供的工具不在里面。工具的开关就是下面设置里的 <工具>.enabled；关掉后它会从 omp 的列表里消失，这里的行先保留着，点“刷新”才重读。",

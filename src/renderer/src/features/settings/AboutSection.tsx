@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { useAppInfo, useUpdateState } from "../../store/index.ts";
 import { describeError } from "../../ui/errors.ts";
-import { Button, Card, SettingRow } from "./controls.tsx";
+import { Button, Row, SectionHead } from "../../ui/controls.tsx";
 import { OmpChangelog } from "./OmpChangelog.tsx";
 import { OmpSection } from "./OmpSection.tsx";
 import { TroubleshootCard } from "./TroubleshootCard.tsx";
@@ -15,10 +15,10 @@ export function AboutSection() {
   return (
     <>
       <StudioUpdate />
-      <h3 className="settings-group-title">{t("settings.about.omp")}</h3>
+      <SectionHead title={t("settings.about.omp")} />
       <OmpSection />
       <OmpChangelog />
-      <h3 className="settings-group-title">{t("settings.about.troubleshoot")}</h3>
+      <SectionHead title={t("settings.about.troubleshoot")} />
       <TroubleshootCard />
     </>
   );
@@ -54,7 +54,7 @@ function StudioUpdate() {
     }
   };
 
-  if (info === null || state === null) return <div className="st-muted">{t("settings.about.idle")}</div>;
+  if (info === null || state === null) return <p className="st-muted">{t("settings.about.idle")}</p>;
 
   const canCheck =
     state.phase !== "downloaded" &&
@@ -65,24 +65,30 @@ function StudioUpdate() {
 
   return (
     <>
-      <Card testId="about-info">
-        <SettingRow title={t("settings.about.version")}>
+      <SectionHead title="omp-studio" />
+      <div className="ui-rows st-rows" data-testid="about-info">
+        <Row label={t("settings.about.version")}>
           {() => (
-            <span className="st-mono" data-testid="app-version">
-              {info.version}
-            </span>
-          )}
-        </SettingRow>
-        <SettingRow title={t("settings.about.update")}>
-          {() => (
-            <div className="st-update">
-              <span data-testid="update-status">{updateStatusText(state, t)}</span>
+            <>
+              <span className="st-mono" data-testid="app-version">
+                {info.version}
+              </span>
+              <span className="st-muted" data-testid="update-status">
+                {updateStatusText(state, t)}
+              </span>
               {state.phase === "downloaded" ? (
-                <Button variant="primary" loading={busy} onClick={() => void install()} testId="update-install">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  loading={busy}
+                  onClick={() => void install()}
+                  testId="update-install"
+                >
                   {t("settings.about.install")}
                 </Button>
               ) : (
                 <Button
+                  size="sm"
                   loading={busy || state.phase === "checking"}
                   disabled={!canCheck}
                   onClick={() => void check()}
@@ -91,29 +97,27 @@ function StudioUpdate() {
                   {t("settings.about.check")}
                 </Button>
               )}
-            </div>
+              {downloading && (
+                <div
+                  className="st-update-bar"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={state.percent}
+                  data-testid="update-progress"
+                >
+                  <div className="st-update-bar-fill" style={{ transform: `scaleX(${state.percent / 100})` }} />
+                </div>
+              )}
+              {note !== null && (
+                <span className="cfg-note cfg-error" role="status">
+                  {note}
+                </span>
+              )}
+            </>
           )}
-        </SettingRow>
-      </Card>
-      {downloading && (
-        <div
-          className="st-block"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={state.percent}
-          data-testid="update-progress"
-        >
-          <div className="st-update-bar">
-            <div className="st-update-bar-fill" style={{ transform: `scaleX(${state.percent / 100})` }} />
-          </div>
-        </div>
-      )}
-      {note !== null && (
-        <div className="st-block st-result" role="status">
-          <span className="st-error-text">{note}</span>
-        </div>
-      )}
+        </Row>
+      </div>
     </>
   );
 }

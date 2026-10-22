@@ -6,7 +6,7 @@ import {
   modelPriceCell,
   modelPriceLine,
 } from "../src/renderer/src/features/composer/model-groups.ts";
-import { nextThinkingLevel, stepThinkingLevel } from "../src/renderer/src/features/composer/thinking-levels.ts";
+import { nextThinkingLevel } from "../src/renderer/src/features/composer/thinking-levels.ts";
 import { clampThinkingLevel, thinkingLevelOptions } from "../src/shared/ui/new-task-default.ts";
 
 const model = (patch: Partial<ModelOption> = {}): ModelOption => ({
@@ -66,7 +66,7 @@ describe("clampThinkingLevel（真实 omp 18.12.2 的实测：efforts low/high/m
   });
 });
 
-describe("Alt T 轮换和方向键用同一份列表、同一个顺序", () => {
+describe("Alt T 轮换", () => {
   const levels: ThinkingLevel[] = ["off", "low", "high", "max"];
   it("依次走完整个列表再回到开头", () => {
     const seen: ThinkingLevel[] = [];
@@ -81,11 +81,6 @@ describe("Alt T 轮换和方向键用同一份列表、同一个顺序", () => {
     expect(nextThinkingLevel(levels, "minimal")).toBe("off");
     expect(nextThinkingLevel(levels, null)).toBe("off");
     expect(nextThinkingLevel([], "low")).toBeNull();
-  });
-  it("方向键到头循环，顺序和 Alt T 一致", () => {
-    expect(stepThinkingLevel(levels, "max", 1)).toBe("off");
-    expect(stepThinkingLevel(levels, "off", -1)).toBe("max");
-    expect(stepThinkingLevel(levels, "low", 1)).toBe(nextThinkingLevel(levels, "low"));
   });
 });
 

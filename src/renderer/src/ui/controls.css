@@ -3,7 +3,7 @@
  * React 组件在 ui/controls.tsx、Select.tsx、Menu.tsx、Popover.tsx、Dialog.tsx、InfoTip.tsx。
  *
  * - 控件只有两档高度：md 32（表单、对话框、设置页）、sm 28（工具条、面板标题、列表行、浮层）。
- * - 一个视图最多一个主要按钮；链接（.ui-link）只出现在句子里，不当独立按钮。
+ * - 一个视图最多一个主要按钮；链接只出现在句子里，不当独立按钮。
  * - 互斥取值用 Segmented（≤4 个短选项）或 Select（更多）；切换视图用 Tabs。由选项个数决定，不由语言或宽度决定。
  * - 输入框聚焦不画外描边，边框隐去、换成双环阴影（1px 强调色环 + 3px 淡色光环）；同时留一条透明 outline，Windows
  *   高对比度模式会把它画成系统色（forced-colors 下 box-shadow 被清掉，border / outline 颜色被强制成系统色）。
@@ -186,16 +186,6 @@
   background: transparent;
 }
 
-/* 句子里的链接；不当独立按钮用 */
-.ui-link {
-  color: var(--link);
-  text-decoration: none;
-  cursor: pointer;
-}
-.ui-link:hover {
-  text-decoration: underline;
-}
-
 /* ───────── Field（文本 / 数字 / 搜索 / 下拉触发器共用一个框） ───────── */
 .ui-field {
   display: inline-flex;
@@ -343,8 +333,7 @@
   display: grid;
   gap: var(--space-1-5);
 }
-.ui-form-field > label,
-.ui-form-field > .ui-label {
+.ui-form-field > label {
   font-size: var(--fs-sm);
   color: var(--text);
 }
@@ -512,6 +501,10 @@
 }
 .ui-tab:hover {
   color: var(--text);
+}
+.ui-tab:disabled {
+  color: var(--text-disabled);
+  cursor: default;
 }
 .ui-tab[aria-selected="true"] {
   color: var(--text);
@@ -745,7 +738,7 @@
   --dialog-w: var(--dialog-w-sm);
 }
 .ui-dialog[data-size="lg"] {
-  --dialog-w: 720px;
+  --dialog-w: var(--dialog-w-lg);
 }
 .ui-dialog-head {
   display: flex;
@@ -898,13 +891,6 @@
   display: block;
   margin-top: var(--space-1);
 }
-/* 句子里的图标（链接后的 ↗、说明里的状态图标） */
-.ui-icon-inline {
-  display: inline-block;
-  width: 1em;
-  height: 1em;
-  vertical-align: -0.125em;
-}
 .ui-row-control {
   display: flex;
   flex-wrap: wrap;
@@ -1004,27 +990,6 @@
   text-wrap: pretty;
 }
 
-.ui-toast {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-  height: 36px;
-  padding: 0 var(--space-1) 0 var(--space-3);
-  font-size: var(--fs-sm);
-  color: var(--text);
-  background: var(--bg-overlay);
-  border-radius: var(--radius-pill);
-  box-shadow:
-    var(--shadow-2),
-    0 0 0 1px var(--border-subtle);
-}
-.ui-toast .ui-dot {
-  width: 8px;
-  height: 8px;
-  background: var(--st-done);
-  border-radius: 50%;
-}
-
 .ui-kbd {
   display: inline-flex;
   align-items: center;
@@ -1067,9 +1032,6 @@
 .ui-chip[data-tone="warning"] {
   color: var(--st-waiting-text);
 }
-.ui-chip .ui-sub {
-  color: var(--text-3);
-}
 
 .ui-disclosure {
   display: inline-flex;
@@ -1090,17 +1052,4 @@
 }
 .ui-disclosure[aria-expanded="true"] svg {
   transform: rotate(90deg);
-}
-
-.ui-tip {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-  max-width: 280px;
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--fs-xs);
-  color: var(--text);
-  background: var(--bg-overlay);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-2);
 }

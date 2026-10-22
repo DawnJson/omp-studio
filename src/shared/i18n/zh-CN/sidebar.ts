@@ -2,7 +2,7 @@ import type { MessageEntry } from "../index.ts";
 
 export const sidebar = {
   newTask: "新任务",
-  search: "搜索任务和会话",
+  search: "搜索",
   searchHistory: "会话",
   historyOrder: "会话排列",
   historyByFolder: "文件夹",

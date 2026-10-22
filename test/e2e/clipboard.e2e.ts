@@ -54,9 +54,9 @@ test("粘贴文件：普通文件变成附件卡片和 #N 芯片，文件夹插�
     await writeFile(spaced, "# 草稿\n");
     await writeFile(plain, "a,b\n");
 
-    // 附件只来自粘贴和拖入（2026-10-22 起没有附件按钮）：工具行里的 .tool-btn 只剩会话开关（齿轮），页面里没有 input[type=file]。
+    // 附件只来自粘贴和拖入（2026-10-22 起没有附件按钮）：工具行里的图标按钮只剩会话开关（滑杆），页面里没有 input[type=file]。
     await expect(page.getByTestId("composer-attach")).toHaveCount(0);
-    await expect(page.locator(".composer-tools .tool-btn")).toHaveCount(1);
+    await expect(page.locator(".composer-tools").getByTestId("toggles-button")).toHaveCount(1);
     await expect(page.locator(".composer input[type=file]")).toHaveCount(0);
 
     const input = page.getByTestId("composer-input");

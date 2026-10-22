@@ -36,6 +36,7 @@ import { useFirstPrompt } from "../tsp/first-prompt-store.ts";
 import { peekGateButton, useTspPanelOpen } from "../tsp/tsp-store.ts";
 import { GATE_ACTION_APPROVE, GATE_ACTION_DETAILS, TSP_APPROVAL_DIALOG_ID } from "../../../../shared/tsp/gate.ts";
 import { PathLabel } from "../empty/ProjectLabel.tsx";
+import { Button } from "../../ui/controls.tsx";
 
 export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDraft?: boolean }) {
   const t = useT();
@@ -307,9 +308,8 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
         {heldNotice && (
           <div className="suggest" role="status" data-testid="slash-guard">
             <span>{heldNotice.terminal ? t("slash.terminalOnly") : t("slash.unknown", { name: heldNotice.name })}</span>
-            <button
-              type="button"
-              className="queue-btn"
+            <Button
+              size="sm"
               disabled={tooOld === true || worktreeGone}
               onClick={() => {
                 sendNow("steer");
@@ -317,7 +317,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
               }}
             >
               {t("slash.sendAnyway")}
-            </button>
+            </Button>
           </div>
         )}
       </Reveal>

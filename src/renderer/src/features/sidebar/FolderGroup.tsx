@@ -2,8 +2,10 @@
 // + 左边同一个位置：折叠时是行数（组内有等待任务再加一个琥珀菱形），展开时换成 ⋯ 项目菜单（只有 studio 项目才有），两者交叉淡入淡出。
 import type { Project, TaskId } from "../../../../shared/ipc.ts";
 import type { SidebarFolder } from "../../../../shared/ui/sidebar-model.ts";
+import { Dots, Plus } from "../../icons.tsx";
+import { IconButton } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
-import { ChevronIcon, MoreIcon, PlusIcon } from "./icons.tsx";
+import { ChevronIcon } from "./icons.tsx";
 import { ItemRow } from "./ItemRow.tsx";
 import { folderNavId, moreNavId, showMoreStep, visibleItems } from "./list-view.ts";
 import type { RowHandlers } from "./TaskRow.tsx";
@@ -77,33 +79,30 @@ export function FolderGroup(props: FolderGroupProps) {
             {folder.items.length}
           </span>
         </button>
-        <button
-          type="button"
-          className="sb-icon-btn sb-group-action sb-group-new"
-          data-testid="sidebar-project-new"
+        <IconButton
+          className="sb-group-action sb-group-new"
+          testId="sidebar-project-new"
           tabIndex={-1}
-          aria-label={t("sidebar.newInProject")}
-          title={t("sidebar.newInProject")}
+          label={t("sidebar.newInProject")}
           onClick={() => props.onNewTask(folder)}
         >
-          <PlusIcon />
-        </button>
+          <Plus />
+        </IconButton>
         {project !== null && (
-          <button
-            type="button"
-            className="sb-icon-btn sb-group-action sb-group-more"
+          <IconButton
+            className="sb-group-action sb-group-more"
             data-shown={open || undefined}
             tabIndex={-1}
             aria-hidden={!open || undefined}
-            aria-label={t("sidebar.projectMenu")}
+            label={t("sidebar.projectMenu")}
             aria-haspopup="menu"
             onClick={(event) => {
               const box = event.currentTarget.getBoundingClientRect();
               props.onOpenProjectMenu(project, box.left, box.bottom + 4, event.currentTarget);
             }}
           >
-            <MoreIcon />
-          </button>
+            <Dots />
+          </IconButton>
         )}
       </div>
       <Reveal open={open}>

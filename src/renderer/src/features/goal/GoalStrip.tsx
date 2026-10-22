@@ -5,9 +5,12 @@ import type { TaskGoal, TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { runGoalOp } from "./goal-actions.ts";
 import { goalButtons, goalUsage, type GoalButton } from "./goal-model.ts";
+import { Badge, Button } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { useHeld } from "../composer/use-held.ts";
 import "./goal.css";
+
+const STATUS_TONE = { active: "accent", paused: "warning", "budget-limited": "error" } as const;
 
 export function GoalStrip({ taskId, goal: liveGoal }: { taskId: TaskId; goal: TaskGoal | null }) {
   const t = useT();
@@ -35,9 +38,9 @@ export function GoalStrip({ taskId, goal: liveGoal }: { taskId: TaskId; goal: Ta
           <span className="goal-objective" title={goal.objective}>
             {goal.objective}
           </span>
-          <span className="goal-status" data-testid="goal-status">
+          <Badge tone={STATUS_TONE[goal.status]} testId="goal-status">
             {t(`goal.status.${goal.status}`)}
-          </span>
+          </Badge>
           {(goal.tokensUsed > 0 || goal.tokenBudget !== null) && (
             <span
               className="goal-usage"
@@ -50,16 +53,16 @@ export function GoalStrip({ taskId, goal: liveGoal }: { taskId: TaskId; goal: Ta
             </span>
           )}
           {goalButtons(goal).map((op) => (
-            <button
+            <Button
               key={op}
-              type="button"
-              className="goal-action"
-              data-testid={`goal-${op}`}
+              size="sm"
+              variant={op === "drop" ? "quiet" : "secondary"}
+              testId={`goal-${op}`}
               disabled={pending === op}
               onClick={() => act(op)}
             >
               {t(`goal.${op}`)}
-            </button>
+            </Button>
           ))}
         </div>
       )}

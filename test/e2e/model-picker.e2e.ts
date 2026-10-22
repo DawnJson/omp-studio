@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir } from "./launch.ts";
+import { launchApp, screenshotsDir, setLocaleTheme } from "./launch.ts";
 
 const modelsYml =
   "providers:\n  role-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: role-one\n      - id: role-two\n";
@@ -33,19 +33,19 @@ test("角色标签：选 Task 再选模型，modelRoles.task 写入 omp 配置�
     await openPicker(page);
 
     // 角色标签：omp 的内置角色，默认停在 default。
-    const tabs = page.getByTestId("model-role-tab");
+    const tabs = page.locator('[data-testid^="model-role-tab-"]');
     await expect(tabs).toHaveCount(7);
-    await expect(page.getByTestId("model-role-tab").first()).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
 
     // 选 Task：标题变成"切换 Task 模型"，并说明用途。
-    await page.getByTestId("model-role-tab").and(page.locator('[data-role-tab="task"]')).click();
+    await page.getByTestId("model-role-tab-task").click();
     await expect(page.getByTestId("model-picker")).toContainText(/Task/);
     await expect(page.getByTestId("model-role-use")).toBeVisible();
     // ←/→ 在标签间移动（键盘可达）。
     await page.keyboard.press("ArrowRight");
-    await expect(page.locator('[data-role-tab="commit"]')).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("model-role-tab-commit")).toHaveAttribute("aria-selected", "true");
     await page.keyboard.press("ArrowLeft");
-    await expect(page.locator('[data-role-tab="task"]')).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("model-role-tab-task")).toHaveAttribute("aria-selected", "true");
 
     // 搜索出的模型行直接在表里；点模型 = 给 task 指定它。
     await page.getByTestId("model-search").fill("role-two");
@@ -64,7 +64,7 @@ test("角色标签：选 Task 再选模型，modelRoles.task 写入 omp 配置�
     await expect(page.getByTestId("model-option").first().locator('[data-role="task"]')).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.locator('[data-role-tab="task"]')).toHaveAttribute("title", /role-two/);
+    await expect(page.getByTestId("model-role-tab-task")).toHaveAttribute("title", /role-two/);
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
@@ -122,15 +122,8 @@ test("模型选择对话框：一张表、底部是生效模型的参数（窗�
       ["en", "light"],
       ["en", "dark"],
     ] as const) {
-      await page.evaluate(
-        async ({ locale, scheme }) => {
-          await globalThis.studio.setLocale(locale);
-          await globalThis.studio.setTheme(scheme);
-        },
-        { locale, scheme },
-      );
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
+      await setLocaleTheme(page, locale, scheme);
       await page.screenshot({ path: path.join(screenshotsDir, `main-model-picker-${locale}-${scheme}.png`) });
     }
     await page.keyboard.press("Escape");

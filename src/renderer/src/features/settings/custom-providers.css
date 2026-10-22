@@ -1,130 +1,67 @@
-/* 设置 → 提供商与账号 → 自定义提供商。只用设计 token；表单放在 .st-login（提供商行展开的卡）里。 */
+/* 设置 → 提供商与账号 → 自定义提供商：只有布局；控件样式在 ui/controls.css。 */
 
-.cp-name {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.cp-title {
-  font-size: var(--fs-base);
-  line-height: var(--lh-base);
-}
-
-.cp-status {
-  flex: none;
+.cp-text {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
   color: var(--text-3);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-}
-
-.cp-footer {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 
 .cp-form {
-  gap: var(--space-3);
-}
-
-.cp-field {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
-  align-items: start;
-  gap: var(--space-3);
-}
-
-.cp-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: var(--control-h-lg);
-  color: var(--text-2);
-  font-size: var(--fs-sm);
-}
-
-.cp-control {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.cp-field > .st-input {
-  width: 100%;
-}
-
-.cp-key-input,
-.cp-manual {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
+  gap: var(--space-4);
 }
 
 .cp-models {
-  align-items: stretch;
+  display: grid;
+  gap: var(--space-2);
 }
 
 .cp-models-bar {
   display: flex;
-  flex-wrap: wrap;
+  gap: var(--space-1-5);
   align-items: center;
-  gap: var(--space-2);
 }
 
 .cp-count {
   margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
 }
 
 .cp-model-list {
-  display: flex;
-  flex-direction: column;
-  max-height: 224px;
+  display: grid;
+  max-height: 220px;
   overflow-y: auto;
-  padding: var(--space-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--bg-raised);
 }
 
-.cp-model {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--control-h-md);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
+.cp-model-list .ui-choice {
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
 }
 
-.cp-model:hover {
+.cp-model-list .ui-choice:hover {
   background: var(--bg-hover);
 }
 
-.cp-model input {
-  flex: none;
-  accent-color: var(--accent);
+.cp-model-id {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.cp-actions {
-  justify-content: flex-end;
+.cp-manual {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
 }
 
-@media (max-width: 720px) {
-  .cp-field {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-1);
-  }
-
-  .cp-label {
-    min-height: 0;
-  }
-}
-
-.cp-form:focus {
-  outline: none;
+.cp-manual > .ui-field {
+  flex: 1;
+  min-width: 0;
 }

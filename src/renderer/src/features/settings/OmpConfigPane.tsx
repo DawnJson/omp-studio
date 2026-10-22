@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { useOmpStatus } from "../../store/index.ts";
-import { Button } from "./controls.tsx";
+import { Button, Notice } from "../../ui/controls.tsx";
 import { AdvancedConfig, ConfigCard, ConfigResults } from "./ConfigSection.tsx";
 import { groupConfigItems, groupOf, type ConfigGroup } from "../../../../shared/ui/config-groups.ts";
 import { commonItems, matchesQuery } from "./config-meta.ts";
@@ -56,16 +56,22 @@ export function OmpConfigPane({ view }: { view: ConfigView }) {
     return <p className="st-muted cfg-state">{t("settings.cfg.notReady")}</p>;
   if (load.kind === "error") {
     return (
-      <div className="st-card st-block cfg-state" role="alert">
-        <p className="st-error-text">{t("settings.cfg.failed", { message: describeError(t, load.error) })}</p>
-        <Button onClick={() => void loadOmpConfig()}>{t("settings.cfg.retry")}</Button>
-      </div>
+      <Notice
+        tone="error"
+        action={
+          <Button size="sm" onClick={() => void loadOmpConfig()}>
+            {t("settings.cfg.retry")}
+          </Button>
+        }
+      >
+        {t("settings.cfg.failed", { message: describeError(t, load.error) })}
+      </Notice>
     );
   }
   if (snapshot === null) {
     return (
       <p className="st-muted cfg-state cfg-loading" role="status">
-        <span className="st-spinner cfg-spinner" aria-hidden="true" />
+        <span className="cfg-spinner" aria-hidden="true" />
         {t("settings.cfg.loading")}
       </p>
     );

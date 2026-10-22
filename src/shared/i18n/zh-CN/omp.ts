@@ -48,7 +48,6 @@ export const omp = {
   "autoUpdate.note": "omp-studio 每小时检查一次更新",
   path: "路径",
   version: "版本",
-  source: "来源",
   "error.title": "没能启动 omp",
   "error.discover": "没能检测到可用的 omp。",
   "error.download": "没能从构建服务获取 omp。检查网络后重试。",

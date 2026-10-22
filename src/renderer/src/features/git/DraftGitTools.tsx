@@ -7,7 +7,7 @@ import type { DraftGitInfo } from "../../../../shared/git.ts";
 import type { ProjectId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Branch, ChevronDown } from "../../icons.tsx";
-import { Menu, type MenuAnchor } from "../sidebar/Menu.tsx";
+import { anchorBelow, Menu, type MenuAnchor } from "../../ui/Menu.tsx";
 import { setWorktreeOn, useWorktreeDraft } from "./git-store.ts";
 import "./git.css";
 
@@ -58,14 +58,7 @@ export function DraftGitTools({ projectId }: { projectId: ProjectId }) {
     .filter((line) => line !== null)
     .join("\n");
 
-  const toggleMenu = (button: HTMLElement) => {
-    if (menu !== null) {
-      setMenu(null);
-      return;
-    }
-    const box = button.getBoundingClientRect();
-    setMenu({ x: box.left, y: box.bottom + 4, returnFocus: button });
-  };
+  const toggleMenu = (button: HTMLElement) => setMenu(menu !== null ? null : anchorBelow(button));
 
   return (
     <>

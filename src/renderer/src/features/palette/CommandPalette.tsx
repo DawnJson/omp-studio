@@ -28,7 +28,6 @@ import { findStudioSlash, handledCommands, withStudioSlash } from "../composer/s
 import { studioSlashCommands } from "../composer/studio-slash-table.ts";
 import { emitComposerText, setPendingDraftText } from "./studio-command.ts";
 import { buildSections, type PaletteRow } from "../../../../shared/ui/palette-model.ts";
-import "../sidebar/sidebar.css";
 import "./palette.css";
 import { usePresence, type ExitProps } from "../../ui/presence.ts";
 
@@ -198,7 +197,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onKeyDown}
           />
-          <kbd className="kbd" title={t("palette.hint")}>
+          <kbd className="ui-kbd" title={t("palette.hint")}>
             Esc
           </kbd>
         </div>
@@ -229,14 +228,14 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
                         <Highlight text={row.title} indices={row.indices} />
                       </span>
                       {row.kind === "session" && (
-                        <kbd className="kbd" title={t("empty.fromTerminal")}>
+                        <kbd className="ui-kbd" title={t("empty.fromTerminal")}>
                           {">_"}
                         </kbd>
                       )}
                       {(row.kind === "task" || row.kind === "session" || row.kind === "slash") &&
                         row.subtitle !== "" && <span className="pl-row-meta">{row.subtitle}</span>}
                       {row.kind === "command" && row.command.shortcut !== undefined && (
-                        <kbd className="kbd">{row.command.shortcut}</kbd>
+                        <kbd className="ui-kbd">{row.command.shortcut}</kbd>
                       )}
                     </div>
                   );
@@ -256,7 +255,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
                 >
                   <SlashIcon />
                   <span className="pl-row-title">{t("palette.askNew")}</span>
-                  <kbd className="kbd">↵</kbd>
+                  <kbd className="ui-kbd">↵</kbd>
                 </div>
               </div>
             )}

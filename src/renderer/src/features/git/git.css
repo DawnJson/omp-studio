@@ -77,91 +77,11 @@
   }
 }
 
-.git-dialog {
-  display: flex;
-  flex-direction: column;
-  width: var(--dialog-w-md);
-  max-width: calc(100vw - var(--space-8));
-  max-height: calc(100vh - var(--space-8));
-  background: var(--bg-overlay);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-3);
-  overflow: hidden;
-  animation: pop-in var(--dur-slow) var(--ease-spring);
-}
-.git-dialog-head {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
-}
-.git-dialog-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--fs-lg);
-  line-height: var(--lh-lg);
-  font-weight: var(--fw-strong);
-}
-.git-dialog-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-height: 0;
-  padding: var(--space-2) var(--space-4) var(--space-4);
-  overflow-y: auto;
-}
-.git-dialog-foot {
-  display: flex;
-  flex: none;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--border-subtle);
-}
-/* 提交对话框里"评审改动"靠左，取消 / 提交仍在右边。 */
-.git-foot-lead {
-  margin-right: auto;
-}
 .git-text {
   margin: 0;
   font-size: var(--fs-base);
   line-height: var(--lh-base);
   overflow-wrap: anywhere;
-}
-.git-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  font-size: var(--fs-sm);
-  color: var(--text-2);
-}
-.git-input {
-  width: 100%;
-  padding: var(--space-2) var(--space-2-5);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-base);
-  resize: vertical;
-}
-.git-input:focus-visible {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-.git-check {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--fs-sm);
-}
-.git-check input {
-  flex: none;
-  margin: 0;
-  accent-color: var(--accent);
 }
 .git-group {
   margin: 0 0 var(--space-1);

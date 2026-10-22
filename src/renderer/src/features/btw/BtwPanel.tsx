@@ -8,6 +8,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Close, Plus } from "../../icons.tsx";
 import { Markdown } from "../../markdown/index.ts";
 import { useBtwRecords } from "../../store/index.ts";
+import { Badge, Button, IconButton, Tabs, TextField } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { askBtwQuestion, cancelBtwQuestion } from "./btw-actions.ts";
@@ -100,52 +101,37 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
       <header className="btw-head">
         <span className="btw-title">{t("btw.title")}</span>
         {running && (
-          <span className="btw-running" data-testid="btw-running">
+          <Badge tone="accent" dot testId="btw-running">
             {t("btw.status.running")}
-          </span>
+          </Badge>
         )}
         <span className="btw-spacer" />
         {topic !== null && (
-          <button
-            type="button"
-            className="btw-icon-btn"
-            title={t("btw.newTopic")}
-            aria-label={t("btw.newTopic")}
-            data-testid="btw-new-topic"
+          <IconButton
+            label={t("btw.newTopic")}
+            testId="btw-new-topic"
             onClick={() => {
               selectBtwTopic(taskId, NEW_TOPIC);
               inputRef.current?.focus();
             }}
           >
             <Plus size={14} />
-          </button>
+          </IconButton>
         )}
-        <button
-          type="button"
-          className="btw-icon-btn"
-          title={t("btw.close")}
-          aria-label={t("btw.close")}
-          data-testid="btw-close"
-          onClick={() => closeBtw(taskId)}
-        >
+        <IconButton label={t("btw.close")} testId="btw-close" onClick={() => closeBtw(taskId)}>
           <Close size={14} />
-        </button>
+        </IconButton>
       </header>
       {records.length > 1 && (
-        <div className="btw-topics" role="group" aria-label={t("btw.topics")} data-testid="btw-topics">
-          {records.map((record) => (
-            <button
-              key={record.id}
-              type="button"
-              className="btw-topic"
-              aria-pressed={topic?.id === record.id}
-              data-status={latestTurn(record).status}
-              title={record.question}
-              onClick={() => selectBtwTopic(taskId, record.id)}
-            >
-              {topicLabel(record)}
-            </button>
-          ))}
+        <div className="btw-topics">
+          <Tabs
+            label={t("btw.topics")}
+            idBase={`btw-${taskId}`}
+            testId="btw-topics"
+            value={topic?.id ?? ""}
+            tabs={records.map((record) => ({ id: record.id, label: topicLabel(record), title: record.question }))}
+            onChange={(id) => selectBtwTopic(taskId, id)}
+          />
         </div>
       )}
       {topic !== null && (
@@ -170,33 +156,29 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
           ask();
         }}
       >
-        <input
+        <TextField
           ref={inputRef}
+          size="sm"
+          width="100%"
           className="btw-input"
-          data-testid="btw-input"
+          testId="btw-input"
           value={text}
           placeholder={topic === null ? t("btw.placeholder") : t("btw.placeholderFollowUp")}
           aria-label={t("btw.title")}
-          onChange={(event) => setText(event.target.value)}
+          onChange={setText}
           onKeyDown={(event) => {
             // 输入法选词的回车不是提交；Esc 交给 section 的处理。
             if (event.key === "Enter" && event.nativeEvent.isComposing) event.preventDefault();
           }}
         />
         {running ? (
-          <button
-            type="button"
-            className="btw-btn"
-            data-danger
-            data-testid="btw-cancel"
-            onClick={() => void cancelBtwQuestion(taskId, t)}
-          >
+          <Button size="sm" variant="danger" testId="btw-cancel" onClick={() => void cancelBtwQuestion(taskId, t)}>
             {t("btw.cancel")}
-          </button>
+          </Button>
         ) : (
-          <button type="submit" className="btw-btn" data-testid="btw-send" disabled={sending || !canAsk(records, text)}>
+          <Button size="sm" testId="btw-send" disabled={sending || !canAsk(records, text)} onClick={ask}>
             {t("btw.send")}
-          </button>
+          </Button>
         )}
       </form>
     </section>

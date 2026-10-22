@@ -1,11 +1,11 @@
-// 添加 MCP 服务器的表单：stdio（命令 + 每行一个参数）、http、sse（URL + 可选 token）。
+// 添加 MCP 服务器的对话框：stdio（命令 + 每行一个参数）、http、sse（URL + 可选 token）。
 // 参数一行一个，避免在界面里再做一遍"切词"：含空格的参数主进程拼命令时加引号（omp 的 add 认双引号，实测 18.12.5）。
-import { useId, useState, type KeyboardEvent } from "react";
+import { useId, useState } from "react";
 import type { BuiltinCommand } from "../../../../shared/omp-output/index.ts";
 import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Button, Segmented, type Option } from "./controls.tsx";
-import { InfoTip } from "./InfoTip.tsx";
+import { Button, FormField, Notice, Segmented, TextField, Textarea, type Option } from "../../ui/controls.tsx";
+import { Dialog } from "../../ui/Dialog.tsx";
 import { runMcpWrite } from "./integrations-data.ts";
 import type { ScopeKey } from "./integrations-store.ts";
 import "./integrations.css";
@@ -41,6 +41,7 @@ function addCommand(
 export function McpForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(message: string | null): void }) {
   const t = useT();
   const uid = useId();
+  const [open, setOpen] = useState(true);
   const [name, setName] = useState("");
   const [scope, setScope] = useState<Scope>("user");
   const [kind, setKind] = useState<Kind>("stdio");
@@ -53,6 +54,7 @@ export function McpForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(messa
 
   const nameOk = NAME.test(name);
   const specOk = kind === "stdio" ? command.trim() !== "" : url.trim() !== "";
+  const canSave = nameOk && specOk;
   const kinds: Option<Kind>[] = [
     { value: "stdio", label: t("integrations.mcp.kind.stdio") },
     { value: "http", label: "HTTP" },
@@ -79,152 +81,129 @@ export function McpForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(messa
     }
   };
 
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== "Escape") return;
-    event.preventDefault(); // 只关表单，不让设置页把这次 Esc 当成"退出设置"
-    onDone(null);
-  };
-
   return (
-    <form
-      className="st-login ig-form"
-      data-testid="mcp-form"
-      onKeyDown={onKeyDown}
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (nameOk && specOk && !busy) void submit();
-      }}
+    <Dialog
+      open={open}
+      onClose={() => setOpen(false)}
+      onExited={() => onDone(null)}
+      title={t("integrations.mcp.form.title")}
+      testId="mcp-form"
+      footer={
+        <>
+          <Button onClick={() => setOpen(false)} testId="mcp-cancel">
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" disabled={!canSave} loading={busy} onClick={() => void submit()} testId="mcp-save">
+            {t("integrations.add")}
+          </Button>
+        </>
+      }
     >
-      <div className="ig-field">
-        <label className="ig-label" htmlFor={`${uid}-name`}>
-          {t("integrations.mcp.name")}
-          <InfoTip>{t("integrations.mcp.name.tip")}</InfoTip>
-        </label>
-        <input
-          id={`${uid}-name`}
-          className="st-input"
-          data-mono
-          autoComplete="off"
-          spellCheck={false}
-          autoFocus
-          value={name}
-          placeholder="my-server"
-          data-testid="mcp-name"
-          onChange={(event) => setName(event.target.value)}
-        />
-      </div>
-      {scopeKey !== "user" && (
-        <div className="ig-field">
-          <span className="ig-label" id={`${uid}-scope`}>
-            {t("integrations.field.scope")}
-          </span>
-          <Segmented<Scope>
-            value={scope}
-            options={scopes}
-            labelledBy={`${uid}-scope`}
-            onChange={setScope}
-            testId="mcp-scope"
+      <form
+        className="ig-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (canSave && !busy) void submit();
+        }}
+      >
+        <FormField label={t("integrations.mcp.name")} htmlFor={`${uid}-name`} help={t("integrations.mcp.name.tip")}>
+          <TextField
+            id={`${uid}-name`}
+            mono
+            width="100%"
+            autoComplete="off"
+            data-autofocus=""
+            value={name}
+            placeholder="my-server"
+            testId="mcp-name"
+            onChange={setName}
           />
-        </div>
-      )}
-      <div className="ig-field">
-        <span className="ig-label" id={`${uid}-kind`}>
-          {t("integrations.mcp.kind")}
-        </span>
-        <Segmented<Kind> value={kind} options={kinds} labelledBy={`${uid}-kind`} onChange={setKind} testId="mcp-kind" />
-      </div>
-      {kind === "stdio" ? (
-        <>
-          <div className="ig-field">
-            <label className="ig-label" htmlFor={`${uid}-cmd`}>
-              {t("integrations.mcp.command")}
-            </label>
-            <input
-              id={`${uid}-cmd`}
-              className="st-input"
-              data-mono
-              autoComplete="off"
-              spellCheck={false}
-              value={command}
-              placeholder="npx"
-              data-testid="mcp-command"
-              onChange={(event) => setCommand(event.target.value)}
+        </FormField>
+        {scopeKey !== "user" && (
+          <FormField label={t("integrations.field.scope")}>
+            <Segmented<Scope>
+              value={scope}
+              options={scopes}
+              label={t("integrations.field.scope")}
+              onChange={setScope}
+              testId="mcp-scope"
             />
-          </div>
-          <div className="ig-field">
-            <label className="ig-label" htmlFor={`${uid}-args`}>
-              {t("integrations.mcp.args")}
-              <InfoTip>{t("integrations.mcp.args.tip")}</InfoTip>
-            </label>
-            <textarea
-              id={`${uid}-args`}
-              className="st-input ig-textarea"
-              data-mono
-              spellCheck={false}
-              rows={3}
-              value={args}
-              placeholder={"-y\n@scope/server"}
-              data-testid="mcp-args"
-              onChange={(event) => setArgs(event.target.value)}
-            />
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="ig-field">
-            <label className="ig-label" htmlFor={`${uid}-url`}>
-              URL
-            </label>
-            <input
-              id={`${uid}-url`}
-              className="st-input"
-              data-mono
-              autoComplete="off"
-              spellCheck={false}
-              value={url}
-              placeholder="https://example.com/mcp"
-              data-testid="mcp-url"
-              onChange={(event) => setUrl(event.target.value)}
-            />
-          </div>
-          <div className="ig-field">
-            <label className="ig-label" htmlFor={`${uid}-token`}>
-              {t("integrations.mcp.token")}
-              <InfoTip>{t("integrations.mcp.token.tip")}</InfoTip>
-            </label>
-            <input
-              id={`${uid}-token`}
-              className="st-input"
-              data-mono
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              value={token}
-              data-testid="mcp-token"
-              onChange={(event) => setToken(event.target.value)}
-            />
-          </div>
-        </>
-      )}
-      {error !== null && (
-        <div className="st-error-text ig-raw" role="alert" data-testid="mcp-form-error">
-          {error}
-        </div>
-      )}
-      <div className="st-login-actions">
-        <Button
-          variant="primary"
-          disabled={!nameOk || !specOk}
-          loading={busy}
-          onClick={() => void submit()}
-          testId="mcp-save"
-        >
-          {t("integrations.add")}
-        </Button>
-        <Button variant="text" onClick={() => onDone(null)} testId="mcp-cancel">
-          {t("common.cancel")}
-        </Button>
-      </div>
-    </form>
+          </FormField>
+        )}
+        <FormField label={t("integrations.mcp.kind")}>
+          <Segmented<Kind>
+            value={kind}
+            options={kinds}
+            label={t("integrations.mcp.kind")}
+            onChange={setKind}
+            testId="mcp-kind"
+          />
+        </FormField>
+        {kind === "stdio" ? (
+          <>
+            <FormField label={t("integrations.mcp.command")} htmlFor={`${uid}-cmd`}>
+              <TextField
+                id={`${uid}-cmd`}
+                mono
+                width="100%"
+                autoComplete="off"
+                value={command}
+                placeholder="npx"
+                testId="mcp-command"
+                onChange={setCommand}
+              />
+            </FormField>
+            <FormField label={t("integrations.mcp.args")} htmlFor={`${uid}-args`} help={t("integrations.mcp.args.tip")}>
+              <Textarea
+                id={`${uid}-args`}
+                mono
+                rows={3}
+                value={args}
+                placeholder={"-y\n@scope/server"}
+                testId="mcp-args"
+                onChange={setArgs}
+              />
+            </FormField>
+          </>
+        ) : (
+          <>
+            <FormField label="URL" htmlFor={`${uid}-url`}>
+              <TextField
+                id={`${uid}-url`}
+                mono
+                width="100%"
+                autoComplete="off"
+                value={url}
+                placeholder="https://example.com/mcp"
+                testId="mcp-url"
+                onChange={setUrl}
+              />
+            </FormField>
+            <FormField
+              label={t("integrations.mcp.token")}
+              htmlFor={`${uid}-token`}
+              help={t("integrations.mcp.token.tip")}
+            >
+              <TextField
+                id={`${uid}-token`}
+                mono
+                width="100%"
+                type="password"
+                autoComplete="off"
+                value={token}
+                testId="mcp-token"
+                onChange={setToken}
+              />
+            </FormField>
+          </>
+        )}
+        {error !== null && (
+          <Notice tone="error" testId="mcp-form-error">
+            <span className="ig-raw">{error}</span>
+          </Notice>
+        )}
+        <button type="submit" hidden />
+      </form>
+    </Dialog>
   );
 }

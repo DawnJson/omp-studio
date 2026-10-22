@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import type { TaskSessionInfo, TaskState } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { describeError, reportError } from "../../ui/errors.ts";
-import { Switch } from "../settings/controls.tsx";
+import { Button, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
 import { formatCount, formatMoney } from "../composer/usage-format.ts";
 import { copyText, togglePin } from "./session-info-actions.ts";
 import { thinkingLabel } from "../composer/thinking-levels.ts";
@@ -28,7 +28,7 @@ function UsageSection({ read }: { read: SyncedRead<TaskSessionInfo> }) {
   const date = (ms: number) => new Date(ms).toLocaleString(locale);
   return (
     <section className="si-section" data-testid="si-usage">
-      <h3 className="si-section-title">{t("sessionInfo.usage.title")}</h3>
+      <SectionHead title={t("sessionInfo.usage.title")} />
       {rollup !== null && (
         <dl className="si-grid">
           <Row label={t("sessionInfo.usage.requests")}>
@@ -80,9 +80,9 @@ function UsageSection({ read }: { read: SyncedRead<TaskSessionInfo> }) {
               ? t("sessionInfo.usage.syncFailed", { message: describeError(t, read.syncError) })
               : t("sessionInfo.usage.note")}
         </span>
-        <button type="button" className="si-link" disabled={read.syncing} onClick={read.refresh}>
+        <Button variant="quiet" size="sm" disabled={read.syncing} onClick={read.refresh}>
           {t("sessionInfo.usage.refresh")}
-        </button>
+        </Button>
       </div>
     </section>
   );
@@ -96,11 +96,7 @@ export function InfoTab({ task, read }: { task: TaskState; read: SyncedRead<Task
   const info = read.data;
 
   if (read.error !== null && info === null)
-    return (
-      <p className="si-error" role="alert">
-        {t("sessionInfo.loadFailed", { message: describeError(t, read.error) })}
-      </p>
-    );
+    return <Notice tone="error">{t("sessionInfo.loadFailed", { message: describeError(t, read.error) })}</Notice>;
   if (info === null) return <p className="si-note">{t("sessionInfo.loading")}</p>;
 
   const onPin = async () => {
@@ -131,9 +127,9 @@ export function InfoTab({ task, read }: { task: TaskState; read: SyncedRead<Task
             <span className="si-mono" data-testid="si-id">
               {info.sessionId}
             </span>
-            <button type="button" className="si-link" onClick={() => copyText(t, info.sessionId ?? "")}>
+            <Button variant="quiet" size="sm" onClick={() => copyText(t, info.sessionId ?? "")}>
               {t("sessionInfo.copy")}
-            </button>
+            </Button>
           </Row>
         )}
         {info.sessionFile !== null && (
@@ -141,13 +137,13 @@ export function InfoTab({ task, read }: { task: TaskState; read: SyncedRead<Task
             <span className="si-mono" data-testid="si-file">
               {info.sessionFile}
             </span>
-            <button
-              type="button"
-              className="si-link"
+            <Button
+              variant="quiet"
+              size="sm"
               onClick={() => window.studio.revealTaskSession(task.id).catch((error: unknown) => reportError(t, error))}
             >
               {t("sessionInfo.reveal")}
-            </button>
+            </Button>
           </Row>
         )}
         <Row label={t("sessionInfo.row.project")}>

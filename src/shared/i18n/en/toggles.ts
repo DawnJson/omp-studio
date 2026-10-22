@@ -26,7 +26,7 @@ export const toggles = {
   "prewalk.sameModel": "The smol model is the current model, so Prewalk has no effect",
   "prewalk.arm": "Arm",
   "prewalk.restart": "Restart",
-  "prewalk.off": "Off",
+  "prewalk.off": "Disable",
   computerConfirmTitle: "Turn on computer use?",
   computerConfirmBody:
     "The model will be able to see your screen and operate the keyboard and mouse, which can touch real apps and files. It only applies to this session; close any windows you don't want it to see first.",
@@ -34,9 +34,7 @@ export const toggles = {
   slashUsage: "Usage: {usage}",
   presets: "Model presets",
   "presets.empty": "No presets saved yet.",
-  "presets.apply": "Apply preset {name}",
-  "presets.applyTitle":
-    "Apply preset: {summary}. Like the model picker, it writes each role's model into the omp config and switches this session",
+  "presets.choose": "Choose a preset…",
   "presets.save": "Save current setup as a preset…",
   "presets.name": "Preset name",
   "presets.nameInvalid":

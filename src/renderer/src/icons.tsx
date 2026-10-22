@@ -28,6 +28,11 @@ export const ChevronRight = (props: IconProps) => (
     <path d="M6 3.5 10.5 8 6 12.5" />
   </Icon>
 );
+export const ChevronLeft = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M10 3.5 5.5 8l4.5 4.5" />
+  </Icon>
+);
 export const ChevronDown = (props: IconProps) => (
   <Icon {...props}>
     <path d="M3.5 6 8 10.5 12.5 6" />
@@ -181,5 +186,18 @@ export const External = (props: IconProps) => (
 export const Trash = (props: IconProps) => (
   <Icon {...props}>
     <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" />
+  </Icon>
+);
+/** 折行：一行文字绕回下一行 */
+export const Wrap = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M2.5 4h11M2.5 12h4M2.5 8h8.5a2 2 0 0 1 0 4H9.5" />
+    <path d="m11 10.500-1.500 1.500 1.500 1.500" />
+  </Icon>
+);
+/** 评论：对话气泡 */
+export const Comment = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M3 3.500h10v7H8.500L5.500 13v-2.500H3v-7Z" />
   </Icon>
 );

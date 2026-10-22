@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
-import { launchApp, openTaskRow, screenshotsDir, testOmp, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, screenshotsDir, setLocaleTheme, testOmp, type LaunchedApp } from "./launch.ts";
 
 const bigCount = 1500;
 
@@ -125,16 +125,8 @@ async function shoot(page: Page, state: string): Promise<void> {
     ["en", "light"],
     ["en", "dark"],
   ] as const) {
-    await page.evaluate(
-      async ({ locale, scheme }) => {
-        await globalThis.studio.setLocale(locale);
-        await globalThis.studio.setTheme(scheme);
-      },
-      { locale, scheme },
-    );
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-    await page.waitForTimeout(250);
+    await setLocaleTheme(page, locale, scheme);
     await page.screenshot({ path: path.join(screenshotsDir, `files-${state}-${locale}-${scheme}.png`) });
   }
   await page.evaluate(async () => {

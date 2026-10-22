@@ -1,6 +1,6 @@
-// 全屏评审：文件树 | diff | 右栏（改动说明 / 评论队列）。盖住顶栏以下的整个窗口，Esc 或"退出评审"回到对话。
+// 全屏评审：文件树 | diff。评论只在 diff 里（行内卡片），工具条的"评论 N"打开列表浮层。盖住顶栏以下的整个窗口，Esc 或"退出评审"回到对话。
 // 数据：git 状态和 diff 每次都向主进程取（use-review-data.ts）；评论队列在 store/review-store.ts，关闭评审后仍保留。
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TaskId, TaskState } from "../../../../shared/ipc.ts";
 import {
   entryKey,
@@ -12,7 +12,7 @@ import {
   type QueuedComment,
 } from "../../../../shared/ui/review-model.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Close } from "../../icons.tsx";
+import { Close, Restart } from "../../icons.tsx";
 import {
   clearComments,
   closeReview,
@@ -25,6 +25,7 @@ import {
   useReviewWrap,
 } from "../../store/review-store.ts";
 import { useSettings, useTask } from "../../store/index.ts";
+import { Button, IconButton } from "../../ui/controls.tsx";
 import { describeError, reportError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { CommentQueue } from "./CommentQueue.tsx";
@@ -51,6 +52,8 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
   const { status, error, stamp, refresh } = useReviewStatus(taskId, task?.status);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [reveal, setReveal] = useState<string | null>(null);
+  const clearReveal = useCallback(() => setReveal(null), []);
   const lastIndex = useRef(0);
 
   const groups = useMemo(() => (status?.kind === "ok" ? groupChanges(status.files) : []), [status]);
@@ -117,6 +120,7 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
     const exact = entries.find((candidate) => candidate.key === entryKey(comment.area, comment.file));
     const target = exact ?? entries.find((candidate) => candidate.path === comment.file);
     if (target) setSelectedKey(target.key);
+    setReveal(comment.id);
   };
 
   const running = task !== null && BUSY.includes(task.status);
@@ -144,9 +148,7 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
         <p>
           {t("review.loadFailed")} · {describeError(t, error)}
         </p>
-        <button type="button" className="rv-btn" onClick={refresh}>
-          {t("common.retry")}
-        </button>
+        <Button onClick={refresh}>{t("common.retry")}</Button>
       </div>
     );
   } else if (status === null) content = <div className="rv-state">{t("review.loading")}</div>;
@@ -185,22 +187,11 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
             scope={scope}
             wrap={wrap}
             comments={comments.filter((comment) => comment.file === entry.path && comment.area === entry.area)}
+            reveal={reveal}
+            onRevealed={clearReveal}
             onChanged={refresh}
           />
         </main>
-        <aside className="rv-aside">
-          <h2 className="rv-aside-title" data-testid="aside-comments">
-            {t("review.tabComments")}
-            {comments.length > 0 && (
-              <span className="rv-badge" data-testid="comment-count">
-                {comments.length}
-              </span>
-            )}
-          </h2>
-          <div className="rv-aside-body">
-            <CommentQueue taskId={taskId} comments={comments} onJump={jumpTo} />
-          </div>
-        </aside>
       </div>
     );
 
@@ -215,10 +206,9 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
       {...exit}
     >
       <header className="rv-head">
-        <button type="button" className="rv-btn" data-testid="review-close" onClick={closeReview}>
-          <Close size={14} />
-          <span>{t("review.close")}</span>
-        </button>
+        <Button variant="quiet" size="sm" icon={<Close size={14} />} testId="review-close" onClick={closeReview}>
+          {t("review.close")}
+        </Button>
         <h2 className="rv-title">{t("review.title")}</h2>
         {status?.kind === "ok" && status.branch.head !== null && (
           <span className="rv-branch" data-testid="review-branch">
@@ -227,19 +217,21 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
         )}
         <span className="rv-spacer" />
         <ViewControls mode={mode} scope={scope} wrap={wrap} />
-        <button type="button" className="rv-btn" data-testid="review-refresh" onClick={refresh}>
-          {t("review.refresh")}
-        </button>
-        <button
-          type="button"
-          className="rv-btn rv-btn-primary"
-          data-testid="review-send"
-          disabled={comments.length === 0 || sending}
+        <IconButton label={t("review.refresh")} testId="review-refresh" onClick={refresh}>
+          <Restart size={14} />
+        </IconButton>
+        <CommentQueue comments={comments} onJump={jumpTo} />
+        <Button
+          variant="primary"
+          size="sm"
+          testId="review-send"
+          disabled={comments.length === 0}
+          loading={sending}
           title={running ? t(whenBusy === "steer" ? "review.sendSteer" : "review.sendFollowUp") : undefined}
           onClick={() => void send()}
         >
-          {comments.length > 0 ? t("review.sendCount", { count: comments.length }) : t("review.send")}
-        </button>
+          {t("review.send")}
+        </Button>
       </header>
       {error !== null && status !== null && (
         <div className="rv-state" role="alert" data-testid="review-stale-error">

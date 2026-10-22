@@ -1,5 +1,6 @@
 // 命令面板里每条命令的图标（按命令 id 对应）；没登记的命令回退到 CommandIcon。
 import type { ComponentType } from "react";
+import { Info } from "../../icons.tsx";
 import {
   ArchiveIcon,
   BellIcon,
@@ -49,6 +50,7 @@ const commandIcons: Record<string, ComponentType> = {
   sessionTree: TreeIcon,
   exportHtml: ExportIcon,
   btw: BtwIcon,
+  about: Info,
 };
 
 export function commandIcon(id: string): ComponentType {

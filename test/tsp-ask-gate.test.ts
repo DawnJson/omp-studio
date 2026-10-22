@@ -3,7 +3,7 @@
 //   select 单选的非高亮项、select 多选的高亮项（Logging）、select 多选的另一项（Cache）、action submit（Next）、
 //   select 第三题的非高亮项、action submit（Review 页的 Submit）。
 import { describe, expect, it } from "vitest";
-import { askItemClick, askItemDoubleActivates } from "../src/shared/tsp/ask-gate.ts";
+import { askItemClick, askItemDoubleActivates, askItemMarker } from "../src/shared/tsp/ask-gate.ts";
 import { applyMessage, createDocument, findNode, nodeRole, type DocNode } from "../src/shared/tsp/document.ts";
 import { deriveTaskStatus } from "../src/shared/tsp/task-status.ts";
 import { loadTspFixture, recordedUserEvents, tspDocMessages } from "./tsp-fixtures.ts";
@@ -117,5 +117,16 @@ describe("提问选项的点击规则（B6）", () => {
       expect(askItemClick(role, false)).toBe("select");
       expect(askItemDoubleActivates(role)).toBe(true);
     }
+  });
+});
+
+describe("提问选项的标记", () => {
+  it("单选题的选项是单选圈，多选题的是勾选框，审批选项和其它列表没有", () => {
+    expect(askItemMarker("omp.ask.option")).toBe("radio");
+    expect(askItemMarker("omp.ask.other")).toBe("radio");
+    expect(askItemMarker("omp.ask.check")).toBe("check");
+    expect(askItemMarker("omp.ask.other.check")).toBe("check");
+    expect(askItemMarker("omp.approval.choice")).toBeNull();
+    expect(askItemMarker(undefined)).toBeNull();
   });
 });

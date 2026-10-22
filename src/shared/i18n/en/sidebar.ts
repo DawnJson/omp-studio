@@ -3,7 +3,7 @@ import type { sidebar as zhCN } from "../zh-CN/sidebar.ts";
 
 export const sidebar = {
   newTask: "New task",
-  search: "Search tasks and sessions",
+  search: "Search",
   searchHistory: "Sessions",
   historyOrder: "Arrange sessions",
   historyByFolder: "Folder",

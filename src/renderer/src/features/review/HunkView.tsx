@@ -15,6 +15,7 @@ import {
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
 import type { HighlightToken } from "../../markdown/highlight.ts";
+import { Button } from "../../ui/controls.tsx";
 import { CommentBox, CommentCard } from "./CommentBox.tsx";
 import { displayText, useHunkTokens, type LineTokens } from "./use-hunk-tokens.ts";
 
@@ -119,6 +120,7 @@ function Thread({ refs, file, area, ctx }: { refs: LineRef[]; file: string; area
         ) : (
           <CommentCard
             key={comment.id}
+            id={comment.id}
             body={comment.body}
             old={comment.side === "old"}
             onEdit={() => ctx.edit(comment.id)}
@@ -301,24 +303,19 @@ export function HunkView({
           {section !== "" && <span className="rv-hunk-section">{section}</span>}
           <span className="rv-hunk-actions">
             {actions.stage && (
-              <button type="button" className="rv-btn" data-testid="hunk-stage" onClick={actions.stage}>
+              <Button size="sm" testId="hunk-stage" onClick={actions.stage}>
                 {t("review.stage")}
-              </button>
+              </Button>
             )}
             {actions.unstage && (
-              <button type="button" className="rv-btn" data-testid="hunk-unstage" onClick={actions.unstage}>
+              <Button size="sm" testId="hunk-unstage" onClick={actions.unstage}>
                 {t("review.unstage")}
-              </button>
+              </Button>
             )}
             {actions.discard && (
-              <button
-                type="button"
-                className="rv-btn rv-btn-danger"
-                data-testid="hunk-discard"
-                onClick={actions.discard}
-              >
+              <Button size="sm" variant="danger" testId="hunk-discard" onClick={actions.discard}>
                 {t("review.discard")}
-              </button>
+              </Button>
             )}
           </span>
         </header>

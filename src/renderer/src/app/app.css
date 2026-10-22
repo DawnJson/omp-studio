@@ -1,4 +1,4 @@
-/* 应用外壳样式：全局 reset、顶栏、侧栏列、主区面板、应用菜单、关于对话框。只用 tokens.css 里的变量。 */
+/* 应用外壳样式：全局 reset、顶栏、侧栏列、主区面板、关于对话框的正文。只用 tokens.css 里的变量。 */
 
 *,
 *::before,
@@ -152,71 +152,11 @@ button {
   opacity: 0;
 }
 
-.topbar-tool {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
-  padding: 0;
-  color: var(--text-2);
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-md);
-  cursor: default;
-  transition:
-    background-color var(--dur-instant) var(--ease-out),
-    color var(--dur-instant) var(--ease-out);
-}
-
-.topbar-tool:hover {
-  color: var(--text);
-  background: var(--bg-hover);
-}
-
-.topbar-tool:active {
-  background: var(--bg-active);
-}
-
-.topbar-tool[aria-pressed="true"] {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
 .topbar-divider {
   width: 1px;
   height: var(--space-4);
   margin-left: var(--space-1-5);
   background: var(--border);
-}
-
-.icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-h-md);
-  height: var(--control-h-md);
-  padding: 0;
-  color: var(--text-2);
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-sm);
-  cursor: default;
-  transition: background-color var(--dur-instant) var(--ease-out);
-}
-
-.icon-button:hover,
-.icon-button[aria-expanded="true"] {
-  background: var(--bg-hover);
-}
-
-.icon-button:active {
-  background: var(--bg-active);
-}
-
-.icon-button[aria-disabled="true"] {
-  color: var(--text-disabled);
-  background: transparent;
 }
 
 /* ───────── 侧栏列和主区面板 ───────── */
@@ -340,77 +280,8 @@ button {
   animation-fill-mode: forwards;
 }
 
-/* ───────── 应用菜单 ───────── */
-
-.menu-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-popover);
-}
-
-.menu {
-  position: fixed;
-  top: var(--titlebar-h);
-  left: var(--space-3);
-  z-index: var(--z-popover);
-  display: flex;
-  flex-direction: column;
-  min-width: calc(var(--sidebar-w) - var(--space-4));
-  max-height: calc(100vh - var(--titlebar-h) - var(--space-4));
-  padding: var(--space-1);
-  overflow-y: auto;
-  background: var(--bg-overlay);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-2);
-  user-select: none;
-  animation: pop-in var(--dur-base) var(--ease-out);
-  transform-origin: top left;
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--row-menu);
-  padding: 0 var(--space-2);
-  text-align: left;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-md);
-  cursor: default;
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-
-.menu-item:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
-.menu-item:disabled {
-  color: var(--text-disabled);
-}
-
-.menu-sep {
-  height: 1px;
-  margin: var(--space-1) 0;
-  background: var(--border-subtle);
-}
-
-.menu-item:focus-visible {
-  background: var(--bg-active);
-  outline-offset: -2px;
-}
-
-/* 单选菜单（语言/主题）的当前项：底色标出，不画勾 */
-.menu-item[aria-checked="true"] {
-  background: var(--bg-active);
-  color: var(--text);
-}
-
-.menu-item-label {
-  flex: 1;
-  white-space: nowrap;
-}
-
+/* ───────── 键帽 ───────── */
+/* 设置页的快捷键清单在用；命令面板用 ui/controls.css 的 .ui-kbd */
 .kbd {
   padding: 0 var(--space-1-5);
   font-family: inherit;
@@ -434,48 +305,21 @@ button {
   animation: fade-in var(--dur-fade) var(--ease-out);
 }
 
-/* 关于：居中一列（照 macOS 标准关于面板）。标志 → 名称 → 版本 → 更新状态 → 两个动作；关闭是右上角的 ×。 */
-.about {
-  position: relative;
+/* 关于（ui/Dialog sm 的正文）：标志 → 版本 → 更新状态，左对齐；动作在页脚右对齐。 */
+.about-body {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  width: var(--dialog-w-sm);
-  max-width: calc(100vw - var(--space-8));
-  padding: var(--space-8) var(--space-6) var(--space-6);
-  text-align: center;
-  background: var(--bg-overlay);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-3);
-  animation: pop-in var(--dur-slow) var(--ease-spring);
-}
-
-/* 打开时焦点在对话框本身（见 AboutDialog），它不是控件，不画焦点环。 */
-.about:focus {
-  outline: none;
-}
-
-.about-close {
-  position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
+  align-items: flex-start;
+  gap: var(--space-2);
 }
 
 .about-mark {
   flex: none;
-  margin-bottom: var(--space-4);
-}
-
-.about-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--fs-xl);
-  line-height: var(--lh-xl);
-  font-weight: var(--fw-strong);
+  margin-bottom: var(--space-2);
 }
 
 .about-meta {
-  margin: var(--space-1) 0 0;
+  margin: 0;
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
   color: var(--text-3);
@@ -487,20 +331,10 @@ button {
 .about-update {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: var(--space-2);
-  min-height: var(--control-h-md);
-  margin-top: var(--space-2);
+  min-height: var(--control-h-sm);
   font-size: var(--fs-sm);
   color: var(--text-2);
-}
-
-.about-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
-  align-self: stretch;
-  margin-top: var(--space-6);
 }
 
 /* 只给读屏器看的文字 */

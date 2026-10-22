@@ -2,6 +2,7 @@
 // 常用项的标签和中文说明在 i18n 的 ompcfg 命名空间（`<键>.label` / `<键>.desc`）；没有的显示 key 加 omp 原始英文描述。
 import { dictionaries } from "../../../../shared/i18n/index.ts";
 import type { Locale, OmpConfigItem } from "../../../../shared/ipc.ts";
+import { groupConfigItems, type ConfigGroup } from "../../../../shared/ui/config-groups.ts";
 
 function entry(locale: Locale, name: string): string | undefined {
   const value = dictionaries[locale]["ompcfg"]?.[name];
@@ -65,7 +66,7 @@ export function commonItems(items: readonly OmpConfigItem[]): OmpConfigItem[] {
     .sort((a, b) => (commonOrder.get(a.key) ?? 0) - (commonOrder.get(b.key) ?? 0));
 }
 
-interface PrefixGroup {
+export interface PrefixGroup {
   /** key 的第一段；"" = 没有点号的顶层键和只有一项的前缀，合成"其他"。 */
   prefix: string;
   items: OmpConfigItem[];
@@ -107,4 +108,58 @@ export function isModified(item: OmpConfigItem): boolean {
 export function shortValue(value: unknown, max = 48): string {
   const text = typeof value === "string" ? value : JSON.stringify(value);
   return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+export type NumberUnit = "ms" | "seconds" | "percent";
+
+/** 数字项的单位，从 key 最后一段的后缀推：Ms → ms、Seconds → 秒 / s、Percent → %。 */
+export function numberUnit(key: string): NumberUnit | null {
+  const last = key.slice(key.lastIndexOf(".") + 1);
+  if (last.endsWith("Ms")) return "ms";
+  if (last.endsWith("Seconds")) return "seconds";
+  if (last.endsWith("Percent")) return "percent";
+  return null;
+}
+
+/**
+ * 数字项里有特殊含义的取值（omp 的说明里写了 -1 / 0 表示什么）：框里不显示这个数，显示成 `<键>.special` 的占位文字；
+ * 清空输入框就是存回这个值。没有说明的键照原值显示。
+ */
+const numberSpecials: Readonly<Record<string, number>> = {
+  "compaction.thresholdPercent": -1,
+  "compaction.thresholdTokens": -1,
+  "task.maxRuntimeMs": 0,
+  "retry.maxDelayMs": 0,
+};
+
+export function numberSpecial(locale: Locale, key: string): { value: number; placeholder: string } | null {
+  const value = numberSpecials[key];
+  const placeholder = entry(locale, `${key}.special`);
+  return value === undefined || placeholder === undefined ? null : { value, placeholder };
+}
+
+/** 高级页的一个分组：前缀小组（带个数和改过的个数）。 */
+export interface AdvancedGroup {
+  group: ConfigGroup;
+  prefixes: (PrefixGroup & { modified: number })[];
+  count: number;
+  modified: number;
+}
+
+export function advancedGroups(items: readonly OmpConfigItem[]): AdvancedGroup[] {
+  const result: AdvancedGroup[] = [];
+  for (const [group, inGroup] of groupConfigItems(items)) {
+    const prefixes = prefixGroups(inGroup).map((bucket) => ({
+      ...bucket,
+      modified: bucket.items.filter(isModified).length,
+    }));
+    if (prefixes.length === 0) continue;
+    result.push({
+      group,
+      prefixes,
+      count: prefixes.reduce((sum, bucket) => sum + bucket.items.length, 0),
+      modified: prefixes.reduce((sum, bucket) => sum + bucket.modified, 0),
+    });
+  }
+  return result;
 }

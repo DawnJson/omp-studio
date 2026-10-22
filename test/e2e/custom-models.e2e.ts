@@ -5,26 +5,14 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { startFakeOpenAi } from "../fake-openai/server.ts";
-import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { launchApp, screenshotsDir, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 const SECRET = "sk-fake-e2e-secret";
-
-async function localeAndTheme(page: Page, locale: "zh-CN" | "en", theme: "light" | "dark"): Promise<void> {
-  await page.evaluate(
-    async ({ locale: nextLocale, theme: nextTheme }) => {
-      await globalThis.studio.setLocale(nextLocale);
-      await globalThis.studio.setTheme(nextTheme);
-    },
-    { locale, theme },
-  );
-  await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-}
 
 async function screenshots(page: Page, name: string, target = page.getByTestId("custom-providers")): Promise<void> {
   for (const locale of ["zh-CN", "en"] as const) {
     for (const theme of ["light", "dark"] as const) {
-      await localeAndTheme(page, locale, theme);
+      await setLocaleTheme(page, locale, theme);
       await target.scrollIntoViewIfNeeded();
       await page.screenshot({ path: path.join(screenshotsDir, `custom-models-${name}-${locale}-${theme}.png`) });
     }
@@ -68,7 +56,7 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     );
     await page.getByTestId("settings-nav-general").click();
     await page.getByTestId("settings-nav-providers").click();
-    await localeAndTheme(page, "zh-CN", "light");
+    await setLocaleTheme(page, "zh-CN", "light");
 
     const card = page.getByTestId("custom-providers");
     await expect(card.getByTestId("custom-provider-other-local")).toBeVisible();
@@ -102,7 +90,7 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await expect(page.getByTestId("custom-selected-count")).toContainText("3 / 4");
     await screenshots(page, "form", form);
 
-    await localeAndTheme(page, "zh-CN", "light");
+    await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("custom-save").click();
     await expect(form).toHaveCount(0);
     const row = page.getByTestId("custom-provider-fake-proxy");
@@ -147,7 +135,7 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await screenshots(page, "list");
 
     // 编辑：取消勾选手动添加的那个，key 保持不变。
-    await localeAndTheme(page, "zh-CN", "light");
+    await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("custom-edit-fake-proxy").click();
     await expect(page.getByTestId("custom-id")).toBeDisabled();
     await expect(page.getByTestId("custom-model-manual-x")).toBeChecked();
@@ -170,9 +158,11 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await expect(page.getByTestId("settings")).toBeVisible(); // Esc 只关了表单
 
     // 删除：先取消，再确认。
+    await page.getByTestId("custom-more-fake-proxy").click();
     await page.getByTestId("custom-delete-fake-proxy").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "取消" }).click();
     await expect(row).toBeVisible();
+    await page.getByTestId("custom-more-fake-proxy").click();
     await page.getByTestId("custom-delete-fake-proxy").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();
     await expect(row).toHaveCount(0);
@@ -194,7 +184,7 @@ test("自定义提供商：读不懂的 models.yml 显示错误，不覆盖文�
     await writeFile(path.join(agentDir, "models.yml"), "providers: [1, 2", "utf8");
     await page.getByTestId("settings-nav-general").click();
     await page.getByTestId("settings-nav-providers").click();
-    await localeAndTheme(page, "en", "light");
+    await setLocaleTheme(page, "en", "light");
     await expect(page.getByTestId("custom-load-failed")).toBeVisible();
     await expect(page.getByTestId("custom-add")).toBeDisabled();
     expect(await readFile(path.join(agentDir, "models.yml"), "utf8")).toBe("providers: [1, 2");

@@ -10,12 +10,12 @@ import { useT } from "../../i18n/use-t.ts";
 import { useOmpStatus, useSelectedTaskId, useTask } from "../../store/index.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
 import { useProjects } from "../sidebar/projects-store.ts";
-import { Button, Card, SettingRow, Segmented, type Option } from "./controls.tsx";
-import { ConfirmDialog } from "./ConfirmDialog.tsx";
+import { Restart } from "../../icons.tsx";
+import { Button, IconButton, Row, SectionHead, Tabs, tabPanelProps, type Tab } from "../../ui/controls.tsx";
+import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { runBuiltinText } from "./integrations-data.ts";
 import { setCardScope, useCardScope, type ScopeKey } from "./integrations-store.ts";
 import { ScopePicker } from "./ScopePicker.tsx";
-import "./integrations.css";
 
 // 只用 MEMORY_OPS 里的子集，编译期确认它们都在里面。
 const READ_OPS = ["stats", "diagnose", "queue", "view"] as const satisfies readonly (typeof MEMORY_OPS)[number][];
@@ -27,7 +27,7 @@ export function MemoryCard() {
   const projects = useProjects();
   const selected = useCardScope("memory");
   const taskProject = useTask(useSelectedTaskId())?.projectId ?? null;
-  const readId = useId();
+  const tabsId = useId();
   const [readOp, setReadOp] = useState<ReadOp>("stats");
   const [text, setText] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,19 +64,45 @@ export function MemoryCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, scope, readOp]);
 
-  const readOptions: Option<ReadOp>[] = READ_OPS.map((op) => ({ value: op, label: t(`integrations.memory.op.${op}`) }));
+  const readTabs: Tab<ReadOp>[] = READ_OPS.map((op) => ({ id: op, label: t(`integrations.memory.op.${op}`) }));
 
   return (
-    <>
-      <h3 className="settings-group-title">{t("integrations.memory.title")}</h3>
-      <Card testId="memory-card">
-        {projects.length === 0 ? (
-          <div className="st-block st-muted" data-testid="memory-no-project">
-            {t("integrations.memory.noProject")}
-          </div>
-        ) : (
-          <>
-            <SettingRow title={t("integrations.memory.project")} desc={t("integrations.memory.project.desc")}>
+    <section className="st-section" data-testid="memory-card">
+      <SectionHead
+        title={t("integrations.memory.title")}
+        actions={
+          projects.length > 0 && (
+            <>
+              <IconButton
+                label={t("integrations.refresh")}
+                disabled={!ready || busy}
+                onClick={() => void run(readOp)}
+                testId="memory-refresh"
+              >
+                <Restart />
+              </IconButton>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={!ready || busy}
+                onClick={() => setConfirmClear(true)}
+                testId="memory-clear"
+              >
+                {t("integrations.memory.clear")}
+              </Button>
+            </>
+          )
+        }
+        note={t("integrations.memory.note")}
+      />
+      {projects.length === 0 ? (
+        <p className="st-muted" data-testid="memory-no-project">
+          {t("integrations.memory.noProject")}
+        </p>
+      ) : (
+        <>
+          <div className="ui-rows st-rows">
+            <Row label={t("integrations.memory.project")} info={t("integrations.memory.project.desc")}>
               {(labelId) =>
                 scope !== null && (
                   <ScopePicker
@@ -88,53 +114,32 @@ export function MemoryCard() {
                   />
                 )
               }
-            </SettingRow>
-            <div className="st-block ig-memory-tabs">
-              <span id={readId} className="st-row-title">
-                {t("integrations.memory.view")}
-              </span>
-              <Segmented<ReadOp>
-                value={readOp}
-                options={readOptions}
-                labelledBy={readId}
-                onChange={setReadOp}
-                testId="memory-op"
-              />
-            </div>
-            <div className="st-block">
-              {error !== null ? (
-                <div className="st-error-text ig-raw" role="alert" data-testid="memory-error">
-                  {error}
-                </div>
-              ) : (
-                <pre className="ig-pre" data-testid="memory-output" aria-busy={busy}>
-                  {text === null
-                    ? t("integrations.loading")
-                    : text === ""
-                      ? t("integrations.memory.emptyOutput")
-                      : text}
-                </pre>
-              )}
-            </div>
-            <div className="st-block ig-footer">
-              <Button
-                variant="danger"
-                disabled={!ready || busy}
-                onClick={() => setConfirmClear(true)}
-                testId="memory-clear"
-              >
-                {t("integrations.memory.clear")}
-              </Button>
-              <Button variant="text" disabled={!ready || busy} onClick={() => void run(readOp)} testId="memory-refresh">
-                {t("integrations.refresh")}
-              </Button>
-            </div>
-          </>
-        )}
-        <div className="st-block st-muted">{t("integrations.memory.note")}</div>
-      </Card>
+            </Row>
+          </div>
+          <Tabs<ReadOp>
+            tabs={readTabs}
+            value={readOp}
+            onChange={setReadOp}
+            label={t("integrations.memory.view")}
+            idBase={tabsId}
+            testId="memory-op"
+          />
+          <div {...tabPanelProps(tabsId, readOp)} className="st-tab-panel">
+            {error !== null ? (
+              <p className="st-error-text st-raw" role="alert" data-testid="memory-error">
+                {error}
+              </p>
+            ) : (
+              <pre className="st-pre" data-testid="memory-output" aria-busy={busy}>
+                {text === null ? t("integrations.loading") : text === "" ? t("integrations.memory.emptyOutput") : text}
+              </pre>
+            )}
+          </div>
+        </>
+      )}
       {confirmClear && (
         <ConfirmDialog
+          danger
           title={t("integrations.memory.clear.title")}
           body={t("integrations.memory.clear.body")}
           confirmLabel={t("integrations.memory.clear")}
@@ -146,6 +151,6 @@ export function MemoryCard() {
           onCancel={() => setConfirmClear(false)}
         />
       )}
-    </>
+    </section>
   );
 }

@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, testOmp, type LaunchedApp } from "./launch.ts";
+import { launchApp, screenshotsDir, setLocaleTheme, testOmp, type LaunchedApp } from "./launch.ts";
 
 const fixture = "slash-status";
 
@@ -41,16 +41,8 @@ async function shoot(page: Page, state: string): Promise<void> {
     ["en", "light"],
     ["en", "dark"],
   ] as const) {
-    await page.evaluate(
-      async ({ locale, scheme }) => {
-        await globalThis.studio.setLocale(locale);
-        await globalThis.studio.setTheme(scheme);
-      },
-      { locale, scheme },
-    );
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-    await page.waitForTimeout(250);
+    await setLocaleTheme(page, locale, scheme);
     await page.screenshot({ path: path.join(screenshotsDir, `main-${state}-${locale}-${scheme}.png`) });
   }
 }
@@ -203,20 +195,10 @@ test("空状态、对话里的用量；截图", async () => {
     await expect(page.getByRole("button", { name: /压缩上下文|Compact context/ })).toHaveCount(0);
     await shoot(page, "context");
 
-    // 点"会话用量"：浮层向左加宽，按模型的明细出现在构成左边，构成的位置不动；再点收回。
-    const breakdownBefore = await breakdown.boundingBox();
-    const usageToggle = page.getByTestId("session-usage-toggle");
-    await expect(usageToggle).toHaveAttribute("aria-expanded", "false");
-    await usageToggle.click();
-    const sessionUsage = page.getByTestId("session-usage");
-    await expect(sessionUsage.getByTestId("model-breakdown")).toBeVisible();
-    await expect(usageToggle).toHaveAttribute("aria-expanded", "true");
-    const [usageBox, breakdownAfter] = await Promise.all([sessionUsage.boundingBox(), breakdown.boundingBox()]);
-    expect((usageBox?.x ?? 0) + (usageBox?.width ?? 0)).toBeLessThanOrEqual(breakdownAfter?.x ?? 0);
-    expect(Math.abs((breakdownAfter?.x ?? 0) - (breakdownBefore?.x ?? 0))).toBeLessThanOrEqual(2);
+    // 这个任务的会话文件里还没有回复（假 omp 不写会话文件）：浮层是单栏，没有"会话用量"按钮，也没有空的左栏。
+    await expect(page.getByTestId("session-usage-toggle")).toHaveCount(0);
+    await expect(page.getByTestId("session-usage")).toHaveCount(0);
     await shoot(page, "model-usage");
-    await usageToggle.click();
-    await expect(sessionUsage).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(breakdown).toHaveCount(0);
     await expect(page.getByTestId("context-meter")).toBeFocused();
@@ -229,7 +211,7 @@ test("空状态、对话里的用量；截图", async () => {
     await expect(overview.getByRole("heading", { name: /用量与额度|Usage and quota/ })).toBeVisible();
     await expect(overview.getByTestId("quota-section")).toBeVisible();
     await expect(overview.getByTestId("heatmap-section")).toBeVisible();
-    const openBox = await overview.boundingBox();
+    // 对话框高度跟内容走（没有固定高度）：底部不留空，不超出窗口。
     // 热力图占满对话框内容宽度。
     const [heatBox, sectionBox] = await Promise.all([
       overview.getByTestId("heatmap-section").locator(".uq-heat").boundingBox(),
@@ -240,8 +222,9 @@ test("空状态、对话里的用量；截图", async () => {
     expect((gridBox?.x ?? 0) + (gridBox?.width ?? 0)).toBeGreaterThan(
       (sectionBox?.x ?? 0) + (sectionBox?.width ?? 0) - 24,
     );
-    // 对话框高度固定：额度加载完成前后一样高。
-    expect((await overview.boundingBox())?.height).toBe(openBox?.height);
+    expect((await overview.boundingBox())?.height ?? 0).toBeLessThan(
+      ((await page.evaluate("innerHeight")) as number) - 96 + 1,
+    );
     // 每日用量只按花费看：没有 token / 花费 / 请求数切换。对话框在窗口正中。
     await expect(overview.getByTestId("usage-metric")).toHaveCount(0);
     const dialogBox = await overview.boundingBox();
@@ -278,13 +261,16 @@ test("空状态、对话里的用量；截图", async () => {
     expect(approvalBox && projectBox && approvalBox.x + approvalBox.width <= projectBox.x).toBe(true);
     const midY = (box: { y: number; height: number }) => box.y + box.height / 2;
     expect(approvalBox && projectBox && Math.abs(midY(approvalBox) - midY(projectBox)) <= 2).toBe(true);
-    // 审批胶囊只有图标 + 下拉箭头（没有文字），完整名称在悬停提示和 aria-label 里；模型胶囊里项目草稿也显示思考强度（模型支持思考时）。
+    // 审批胶囊：图标 + 模式名，来源（项目 / 全局配置）在悬停提示和 aria-label 里；模型胶囊里项目草稿也显示思考强度（模型支持思考时）。
     const approvalChip = draftTools.getByTestId("approval-chip");
-    await expect(approvalChip).toHaveText("");
+    await expect(approvalChip).toHaveText(
+      /总是询问|询问并记住|自动写入|全自动|审批|Always ask|Ask and remember|Write|Yolo|Approval/,
+    );
     await expect(approvalChip.locator("svg")).toHaveCount(1);
     await expect(approvalChip).toHaveAttribute("aria-label", /.+ · .+/);
     await expect(approvalChip).toHaveAttribute("title", /.+ · .+/);
-    expect(approvalBox && approvalBox.width).toBeLessThanOrEqual(60);
+    // 和模型胶囊同高（28），不被右栏挤窄：宽度至少放得下图标 + 文字。
+    expect(approvalBox && approvalBox.height).toBe(28);
     // 不画成胶囊：没有底色。
     await expect(draftTools.getByTestId("empty-project")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await page.locator("[data-composer-input]").focus();
@@ -319,7 +305,7 @@ test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史
     await expect(page.getByTestId("task-row")).toHaveCount(1);
     await expect(history.getByTestId("task-row")).toHaveCount(1);
     await expect(sidebar.locator(".sb-group")).toHaveCount(1);
-    await expect(page.getByTestId("sidebar-history-by-folder")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("sidebar-history-by-folder")).toHaveAttribute("aria-checked", "true");
     const folders = history.getByTestId("sidebar-folder");
     await expect(folders).toHaveCount(2);
     // 不搜索也列出历史会话（launchApp 造的 6 条假会话，cwd 都是"omp studio 假项目"）；刚发的那条已挂在任务上，不在这里。
@@ -337,7 +323,7 @@ test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史
     await shoot(page, "sidebar-history-folder");
     // 切到按时间：任务和全部会话平铺一列，新到旧（刚跑完的任务在最上面）。
     await page.getByTestId("sidebar-history-by-time").click();
-    await expect(page.getByTestId("sidebar-history-by-time")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("sidebar-history-by-time")).toHaveAttribute("aria-checked", "true");
     await expect(folders).toHaveCount(0);
     await expect(history.getByTestId("task-row")).toHaveCount(1);
     await expect(history.getByTestId("sidebar-session")).toHaveCount(6);
@@ -360,12 +346,14 @@ test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史
     // 设置图标不再是太阳：齿轮轮廓是一条闭合路径加中心圆。
     await expect(sidebar.locator(".sb-settings svg path")).toHaveCount(1);
     await expect(sidebar.locator(".sb-settings svg circle")).toHaveCount(1);
-    // 设置按钮是开关：点一下进设置，再点一下回到刚才的任务。
+    // 点设置进设置页：侧栏位置换成设置导航（会话列表不在了），点"返回任务"回到刚才的任务。
     await sidebar.locator(".sb-settings").click();
     await expect(page.getByTestId("settings")).toBeVisible();
-    await expect(sidebar.locator(".sb-settings")).toHaveAttribute("aria-pressed", "true");
-    await sidebar.locator(".sb-settings").click();
+    await expect(page.getByTestId("settings-nav")).toBeVisible();
+    await expect(page.getByTestId("sidebar")).toHaveCount(0);
+    await page.getByTestId("settings-back").click();
     await expect(page.getByTestId("settings")).toHaveCount(0);
+    await expect(page.getByTestId("settings-nav")).toHaveCount(0);
     await expect(page.getByTestId("tsp-view")).toBeVisible();
     await expect(sidebar.locator(".sb-settings")).toHaveAttribute("aria-pressed", "false");
   } finally {

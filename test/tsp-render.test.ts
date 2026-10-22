@@ -7,6 +7,7 @@ import {
   formatCount,
   formatElapsed,
   formatRate,
+  gateKeyHint,
   keycapLabel,
 } from "../src/renderer/src/features/tsp/fmt.ts";
 import { tokenizeCommand } from "../src/renderer/src/features/tsp/shell-tokens.ts";
@@ -67,6 +68,13 @@ describe("数字格式", () => {
     expect(keycapLabel("o")).toBe("O");
     expect(keycapLabel("f5")).toBe("F5");
     expect(keycapLabel("fn")).toBe("fn");
+  });
+
+  it("门和弹层的快捷键提示：Windows 键名，不用 mac 符号", () => {
+    expect(gateKeyHint(["ctrl", "enter"])).toBe("Ctrl+Enter");
+    expect(gateKeyHint(["alt", "h"])).toBe("Alt+H");
+    expect(gateKeyHint(["escape"])).toBe("Esc");
+    expect(gateKeyHint(["shift", "tab"])).toBe("Shift+Tab");
   });
 
   it("extent：ch / lines 按字符和行高算，小数是比例，像素和其它写法忽略", () => {

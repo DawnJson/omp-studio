@@ -24,7 +24,7 @@ import {
   useDraftTerminalKey,
   useTerminalOpen,
 } from "../features/terminal/index.ts";
-import { SettingsView } from "../features/settings/index.ts";
+import { SettingsNav, SettingsView } from "../features/settings/index.ts";
 import { onStudioCommand } from "../features/palette/studio-command.ts";
 import { jumpToWaitingTask, Sidebar } from "../features/sidebar/index.ts";
 import { addProjectAsDraft } from "../features/sidebar/sidebar-actions.ts";
@@ -187,6 +187,7 @@ export function App() {
       onStudioCommand((command) => {
         if (command === "toggleSidebar" || (command === "rename" && !sidebarShownRef.current))
           toggleSidebarRef.current();
+        else if (command === "about") setAboutOpen(true);
       }),
     [],
   );
@@ -253,12 +254,7 @@ export function App() {
       data-sidebar={sidebarShown ? "shown" : "hidden"}
       data-drawer={narrow}
     >
-      <TopBar
-        aboutOpen={aboutOpen}
-        onOpenAbout={() => setAboutOpen(true)}
-        sidebarShown={sidebarShown}
-        onToggleSidebar={toggleSidebar}
-      />
+      <TopBar sidebarShown={sidebarShown} onToggleSidebar={toggleSidebar} />
       <div className="body">
         {drawerScrim.mounted && (
           <div
@@ -274,12 +270,13 @@ export function App() {
           inert={!sidebarShown}
           style={{ "--sidebar-current": `${shell.sidebarWidth}px` } as CSSProperties}
         >
-          <Sidebar />
+          {/* 进设置时侧栏位置换成设置导航；窄窗口的抽屉里仍是会话列表，设置导航改成内容顶上的下拉 */}
+          {view === "settings" && !narrow ? <SettingsNav /> : <Sidebar />}
         </div>
         <main className="panel" data-testid="main-panel">
           {!narrow && sidebarShown && <SidebarResizer width={shell.sidebarWidth} />}
           {view === "settings" ? (
-            <SettingsView />
+            <SettingsView compactNav={narrow || !sidebarShown} />
           ) : taskId === null ? (
             <>
               <EmptyState />

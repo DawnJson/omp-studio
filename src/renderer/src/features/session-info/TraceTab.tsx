@@ -4,6 +4,7 @@ import type { SessionTrace, TraceRequest } from "../../../../shared/ipc.ts";
 import { isFailedRequest, stopKind, summarizeTrace, tokensPerSecond } from "../../../../shared/ui/session-trace.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { describeError } from "../../ui/errors.ts";
+import { Button, Notice } from "../../ui/controls.tsx";
 import { formatCount, formatMoney } from "../composer/usage-format.ts";
 import type { SyncedRead } from "./use-synced-read.ts";
 
@@ -89,11 +90,7 @@ export function TraceTab({ read }: { read: SyncedRead<SessionTrace> }) {
   const t = useT();
   const trace = read.data;
   if (read.error !== null && trace === null)
-    return (
-      <p className="si-error" role="alert">
-        {t("sessionInfo.loadFailed", { message: describeError(t, read.error) })}
-      </p>
-    );
+    return <Notice tone="error">{t("sessionInfo.loadFailed", { message: describeError(t, read.error) })}</Notice>;
   if (trace === null) return <p className="si-note">{t("sessionInfo.loading")}</p>;
   const summary = summarizeTrace(trace.requests);
   return (
@@ -107,15 +104,13 @@ export function TraceTab({ read }: { read: SyncedRead<SessionTrace> }) {
             cost: formatMoney(summary.costUsd),
           })}
         </span>
-        <button type="button" className="si-link" disabled={read.syncing} onClick={read.refresh}>
+        <Button variant="quiet" size="sm" disabled={read.syncing} onClick={read.refresh}>
           {t("sessionInfo.usage.refresh")}
-        </button>
+        </Button>
       </div>
       {read.syncing && <p className="si-note">{t("sessionInfo.usage.syncing")}</p>}
       {read.syncError !== null && (
-        <p className="si-error" role="alert">
-          {t("sessionInfo.usage.syncFailed", { message: describeError(t, read.syncError) })}
-        </p>
+        <Notice tone="error">{t("sessionInfo.usage.syncFailed", { message: describeError(t, read.syncError) })}</Notice>
       )}
       {trace.requests.length === 0 && !read.syncing && (
         <p className="si-note" data-testid="trace-empty">

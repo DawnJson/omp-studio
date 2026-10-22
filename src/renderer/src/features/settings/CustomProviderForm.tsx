@@ -1,6 +1,6 @@
-// 自定义提供商的添加/编辑表单：ID、Base URL、接口类型、key、模型（CustomModelList）。
+// 自定义提供商的添加 / 编辑对话框：ID、Base URL、接口类型、key、模型（CustomModelList）。
 // 写 models.yml 在主进程（src/main/omp-config/models-file.ts）；这里只收集输入、把主进程返回的错误码翻成文案。
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useId, useState } from "react";
 import {
   formApis,
   isFetchableApi,
@@ -11,9 +11,10 @@ import {
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { describeError } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Button, Segmented, Select, type Option } from "./controls.tsx";
+import { Button, FormField, Notice, Segmented, TextField, type Option } from "../../ui/controls.tsx";
+import { Dialog } from "../../ui/Dialog.tsx";
+import { Select } from "../../ui/Select.tsx";
 import { CustomModelList, type FetchNotice, type ModelRow } from "./CustomModelList.tsx";
-import { InfoTip } from "./InfoTip.tsx";
 import "./custom-providers.css";
 
 type KeyMode = "keep" | "literal" | "env" | "none";
@@ -39,12 +40,14 @@ interface CustomProviderFormProps {
   mode: "add" | "edit";
   provider?: CustomProviderInfo;
   onSaved(): void;
-  onCancel(): void;
+  /** 对话框退出动画放完、卸载时调用。 */
+  onClose(): void;
 }
 
-export function CustomProviderForm({ mode, provider, onSaved, onCancel }: CustomProviderFormProps) {
+export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomProviderFormProps) {
   const t = useT();
   const uid = useId();
+  const [open, setOpen] = useState(true);
   const [id, setId] = useState(provider?.id ?? "");
   const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? "");
   const [api, setApi] = useState(provider?.api ?? "openai-completions");
@@ -59,12 +62,6 @@ export function CustomProviderForm({ mode, provider, onSaved, onCancel }: Custom
   const [fetching, setFetching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
-  // 拉取/保存期间按钮是禁用的，会丢焦点；结束后焦点还在页面外（body）就放回表单，Esc 才仍然只关这个表单。
-  useEffect(() => {
-    if (!fetching && !saving && document.activeElement === document.body)
-      formRef.current?.focus({ preventScroll: true });
-  }, [fetching, saving]);
 
   const keyInput = (): CustomKeyInput => {
     if (keyMode === "literal") return { kind: "literal", value: keyText };
@@ -146,78 +143,78 @@ export function CustomProviderForm({ mode, provider, onSaved, onCancel }: Custom
     }
   };
 
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
-      event.preventDefault(); // 只关表单，不让设置页把这次 Esc 当成"退出设置"
-      onCancel();
-    }
-  };
-
   return (
-    <form
-      ref={formRef}
-      tabIndex={-1}
-      className="st-login cp-form"
-      data-testid="custom-provider-form"
-      onKeyDown={onKeyDown}
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (canSave && !saving) void save();
-      }}
+    <Dialog
+      open={open}
+      onClose={() => setOpen(false)}
+      onExited={onClose}
+      title={mode === "add" ? t("custom.form.title.add") : t("custom.form.title.edit", { id: provider?.id ?? "" })}
+      testId="custom-provider-form"
+      footer={
+        <>
+          <Button onClick={() => setOpen(false)} testId="custom-cancel">
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="primary"
+            disabled={!canSave}
+            loading={saving}
+            onClick={() => void save()}
+            testId="custom-save"
+          >
+            {t("custom.form.save")}
+          </Button>
+        </>
+      }
     >
-      <div className="cp-field">
-        <label className="cp-label" htmlFor={`${uid}-id`}>
-          {t("custom.form.id")}
-          <InfoTip>{t("custom.form.id.tip")}</InfoTip>
-        </label>
-        <input
-          id={`${uid}-id`}
-          className="st-input"
-          data-mono
-          autoComplete="off"
-          spellCheck={false}
-          value={id}
-          disabled={mode === "edit"}
-          autoFocus={mode === "add"}
-          placeholder="my-proxy"
-          data-testid="custom-id"
-          onChange={(event) => setId(event.target.value)}
-        />
-      </div>
-      <div className="cp-field">
-        <label className="cp-label" htmlFor={`${uid}-url`}>
-          {t("custom.form.baseUrl")}
-        </label>
-        <input
-          id={`${uid}-url`}
-          className="st-input"
-          data-mono
-          autoComplete="off"
-          spellCheck={false}
-          value={baseUrl}
-          placeholder={t("custom.form.baseUrl.placeholder")}
-          data-testid="custom-base-url"
-          onChange={(event) => setBaseUrl(event.target.value)}
-        />
-      </div>
-      <div className="cp-field">
-        <span className="cp-label" id={`${uid}-api`}>
-          {t("custom.form.api")}
-        </span>
-        <div className="cp-control">
-          <Select value={api} options={apiOptions} labelledBy={`${uid}-api`} onChange={setApi} testId="custom-api" />
-        </div>
-      </div>
-      <div className="cp-field">
-        <span className="cp-label" id={`${uid}-key`}>
-          {t("custom.form.key")}
-          <InfoTip>{t("custom.form.key.tip")}</InfoTip>
-        </span>
-        <div className="cp-control cp-key">
+      <form
+        className="cp-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (canSave && !saving) void save();
+        }}
+      >
+        <FormField label={t("custom.form.id")} htmlFor={`${uid}-id`} help={t("custom.form.id.tip")}>
+          <TextField
+            id={`${uid}-id`}
+            mono
+            width="100%"
+            autoComplete="off"
+            value={id}
+            disabled={mode === "edit"}
+            data-autofocus={mode === "add" ? "" : undefined}
+            placeholder="my-proxy"
+            testId="custom-id"
+            onChange={setId}
+          />
+        </FormField>
+        <FormField label={t("custom.form.baseUrl")} htmlFor={`${uid}-url`}>
+          <TextField
+            id={`${uid}-url`}
+            mono
+            width="100%"
+            autoComplete="off"
+            value={baseUrl}
+            placeholder={t("custom.form.baseUrl.placeholder")}
+            testId="custom-base-url"
+            onChange={setBaseUrl}
+          />
+        </FormField>
+        <FormField label={t("custom.form.api")}>
+          <Select
+            value={api}
+            options={apiOptions}
+            label={t("custom.form.api")}
+            width="100%"
+            onChange={setApi}
+            testId="custom-api"
+          />
+        </FormField>
+        <FormField label={t("custom.form.key")} help={t("custom.form.key.tip")}>
           <Segmented
             value={keyMode}
             options={keyOptions}
-            labelledBy={`${uid}-key`}
+            label={t("custom.form.key")}
             onChange={(next) => {
               setKeyMode(next);
               setKeyText(next === "env" ? envName : "");
@@ -225,58 +222,51 @@ export function CustomProviderForm({ mode, provider, onSaved, onCancel }: Custom
             testId="custom-key-mode"
           />
           {(keyMode === "literal" || keyMode === "env") && (
-            <div className="cp-key-input">
-              <input
-                className="st-input"
-                data-mono
-                type={keyMode === "literal" && !showKey ? "password" : "text"}
-                autoComplete="off"
-                spellCheck={false}
-                value={keyText}
-                placeholder={
-                  keyMode === "literal"
-                    ? t("custom.form.key.literal.placeholder")
-                    : t("custom.form.key.env.placeholder")
-                }
-                aria-label={t("custom.form.key")}
-                data-testid="custom-key"
-                onChange={(event) => setKeyText(event.target.value)}
-              />
-              {keyMode === "literal" && (
-                <Button variant="text" onClick={() => setShowKey((shown) => !shown)} testId="custom-key-toggle">
-                  {showKey ? t("custom.form.key.hide") : t("custom.form.key.show")}
-                </Button>
-              )}
-            </div>
+            <TextField
+              mono
+              width="100%"
+              type={keyMode === "literal" && !showKey ? "password" : "text"}
+              autoComplete="off"
+              value={keyText}
+              placeholder={
+                keyMode === "literal" ? t("custom.form.key.literal.placeholder") : t("custom.form.key.env.placeholder")
+              }
+              aria-label={t("custom.form.key")}
+              testId="custom-key"
+              onChange={setKeyText}
+              trailing={
+                keyMode === "literal" ? (
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    onClick={() => setShowKey((shown) => !shown)}
+                    testId="custom-key-toggle"
+                  >
+                    {showKey ? t("custom.form.key.hide") : t("custom.form.key.show")}
+                  </Button>
+                ) : undefined
+              }
+            />
           )}
-        </div>
-      </div>
-      <div className="cp-field cp-models-field">
-        <span className="cp-label">{t("custom.form.models")}</span>
-        <CustomModelList
-          rows={rows}
-          onRows={setRows}
-          notice={notice}
-          onNotice={setNotice}
-          fetching={fetching}
-          fetchDisabled={baseUrl.trim() === "" || !isFetchableApi(api)}
-          onFetch={() => void fetchModels()}
-        />
-      </div>
-
-      {saveError !== null && (
-        <div className="st-error-text" role="alert" data-testid="custom-save-error">
-          {saveError}
-        </div>
-      )}
-      <div className="st-login-actions cp-actions">
-        <Button variant="primary" disabled={!canSave} loading={saving} onClick={() => void save()} testId="custom-save">
-          {t("custom.form.save")}
-        </Button>
-        <Button variant="text" onClick={onCancel} testId="custom-cancel">
-          {t("common.cancel")}
-        </Button>
-      </div>
-    </form>
+        </FormField>
+        <FormField label={t("custom.form.models")}>
+          <CustomModelList
+            rows={rows}
+            onRows={setRows}
+            notice={notice}
+            onNotice={setNotice}
+            fetching={fetching}
+            fetchDisabled={baseUrl.trim() === "" || !isFetchableApi(api)}
+            onFetch={() => void fetchModels()}
+          />
+        </FormField>
+        {saveError !== null && (
+          <Notice tone="error" testId="custom-save-error">
+            {saveError}
+          </Notice>
+        )}
+        <button type="submit" hidden />
+      </form>
+    </Dialog>
   );
 }

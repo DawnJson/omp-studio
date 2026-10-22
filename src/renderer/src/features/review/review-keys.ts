@@ -2,6 +2,7 @@
 // 只在焦点不在输入控件、没有对话框/命令面板盖在上面、没有被别处处理过（defaultPrevented）时生效；带 Ctrl/Alt/Meta 的组合键不管。
 import { useEffect, useRef } from "react";
 import { usePaletteOpen } from "../../store/index.ts";
+import { isDialogOpen } from "../../ui/Dialog.tsx";
 
 function isEditable(target: EventTarget | null): boolean {
   return (
@@ -23,8 +24,7 @@ export function useReviewKeys(handler: (key: string) => boolean): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
-      if (paletteRef.current || isEditable(event.target)) return;
-      if (event.target instanceof Element && event.target.closest(".st-scrim") !== null) return;
+      if (paletteRef.current || isDialogOpen() || isEditable(event.target)) return;
       if (latest.current(event.key)) event.preventDefault();
     };
     window.addEventListener("keydown", onKeyDown);

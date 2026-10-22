@@ -1,7 +1,7 @@
-// 自定义提供商表单里的"模型"一栏：一键拉取、勾选、筛选、手动添加。状态（rows、提示）由表单持有。
+// 自定义提供商对话框里的"模型"一栏：一键拉取、勾选、筛选、手动添加。状态（rows、提示）由表单持有。
 import { useMemo, useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
-import { Button } from "./controls.tsx";
+import { Button, Checkbox, Notice, TextField } from "../../ui/controls.tsx";
 
 export interface ModelRow {
   id: string;
@@ -58,81 +58,80 @@ export function CustomModelList({
   };
 
   return (
-    <div className="cp-control cp-models">
+    <div className="cp-models">
       <div className="cp-models-bar">
-        <Button loading={fetching} disabled={fetchDisabled} onClick={onFetch} testId="custom-fetch">
+        <Button size="sm" loading={fetching} disabled={fetchDisabled} onClick={onFetch} testId="custom-fetch">
           {t("custom.form.models.fetch")}
         </Button>
         {rows.length > 0 && (
           <>
-            <Button variant="text" onClick={() => onRows((cur) => cur.map((row) => ({ ...row, checked: true })))}>
+            <Button
+              size="sm"
+              variant="quiet"
+              onClick={() => onRows((cur) => cur.map((row) => ({ ...row, checked: true })))}
+            >
               {t("custom.form.models.all")}
             </Button>
-            <Button variant="text" onClick={() => onRows((cur) => cur.map((row) => ({ ...row, checked: false })))}>
+            <Button
+              size="sm"
+              variant="quiet"
+              onClick={() => onRows((cur) => cur.map((row) => ({ ...row, checked: false })))}
+            >
               {t("custom.form.models.none")}
             </Button>
-            <span className="st-muted cp-count" data-testid="custom-selected-count">
+            <span className="cp-count" data-testid="custom-selected-count">
               {t("custom.form.models.selected", { selected: selectedCount, total: rows.length })}
             </span>
           </>
         )}
       </div>
       {notice !== null && (
-        <div
-          className={notice.tone === "error" ? "st-error-text" : "st-muted"}
-          role={notice.tone === "error" ? "alert" : "status"}
-          data-testid="custom-fetch-notice"
-        >
+        <Notice tone={notice.tone === "error" ? "error" : "info"} testId="custom-fetch-notice">
           {notice.text}
-        </div>
+        </Notice>
       )}
       {rows.length > 12 && (
-        <input
-          className="st-input"
+        <TextField
+          width="100%"
           autoComplete="off"
-          spellCheck={false}
           value={filter}
           placeholder={t("custom.form.models.filter")}
           aria-label={t("custom.form.models.filter")}
-          onChange={(event) => setFilter(event.target.value)}
+          onChange={setFilter}
         />
       )}
       {rows.length === 0 ? (
-        <div className="st-muted">{t("custom.form.models.empty")}</div>
+        <p className="cp-text">{t("custom.form.models.empty")}</p>
       ) : (
         <div className="cp-model-list" data-testid="custom-model-list">
           {visibleRows.map((row) => (
-            <label key={row.id} className="cp-model">
-              <input
-                type="checkbox"
-                checked={row.checked}
-                data-testid={`custom-model-${row.id}`}
-                onChange={(event) =>
-                  onRows((current) =>
-                    current.map((candidate) =>
-                      candidate.id === row.id ? { ...candidate, checked: event.target.checked } : candidate,
-                    ),
-                  )
-                }
-              />
-              <span className="st-mono st-ellipsis" title={row.id}>
+            <Checkbox
+              key={row.id}
+              checked={row.checked}
+              testId={`custom-model-${row.id}`}
+              onChange={(next) =>
+                onRows((current) =>
+                  current.map((candidate) => (candidate.id === row.id ? { ...candidate, checked: next } : candidate)),
+                )
+              }
+            >
+              <span className="cp-model-id" title={row.id}>
                 {row.id}
               </span>
-            </label>
+            </Checkbox>
           ))}
         </div>
       )}
       <div className="cp-manual">
-        <input
-          className="st-input"
-          data-mono
+        <TextField
+          mono
+          width="100%"
           autoComplete="off"
-          spellCheck={false}
           value={manual}
           placeholder={t("custom.form.models.add.placeholder")}
           aria-label={t("custom.form.models.add.placeholder")}
-          data-testid="custom-manual-model"
-          onChange={(event) => setManual(event.target.value)}
+          testId="custom-manual-model"
+          onChange={setManual}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.nativeEvent.isComposing) {
               // 在表单里按 Enter 是"添加这个模型"，不是"保存提供商"。

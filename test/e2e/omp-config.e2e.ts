@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
+import { launchApp, screenshotsDir, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 async function launchIsolated(
   extraEnv: Record<string, string> = {},
@@ -30,18 +30,6 @@ async function launchIsolated(
   return { launched, agentDir };
 }
 
-async function localeAndTheme(page: Page, locale: "zh-CN" | "en", theme: "light" | "dark"): Promise<void> {
-  await page.evaluate(
-    async ({ locale: nextLocale, theme: nextTheme }) => {
-      await globalThis.studio.setLocale(nextLocale);
-      await globalThis.studio.setTheme(nextTheme);
-    },
-    { locale, theme },
-  );
-  await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-}
-
 async function search(page: Page, text: string): Promise<void> {
   await page.getByTestId("settings-search").fill(text);
 }
@@ -53,21 +41,22 @@ async function configValue(page: Page, key: string): Promise<unknown> {
   );
 }
 
-test("改一项：已修改 + 已保存，值真的写进了 omp；恢复默认后回到默认值", async () => {
+test("改一项：改过的标记 + 已保存，值真的写进了 omp；恢复默认后回到默认值", async () => {
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
     await search(page, "compaction.keepRecentTokens");
     const row = page.getByTestId("cfg-compaction.keepRecentTokens");
     await expect(row).toBeVisible();
-    await expect(row.getByText("已修改")).toHaveCount(0);
+    const reset = page.getByTestId("cfg-compaction.keepRecentTokens-reset");
+    await expect(reset).toHaveCount(0);
     await row.getByRole("textbox").fill("12345");
     await expect(row.getByText("已保存")).toBeVisible({ timeout: 10_000 });
-    await expect(row.getByText("已修改")).toBeVisible();
+    await expect(reset).toBeVisible();
     expect(await configValue(page, "compaction.keepRecentTokens")).toBe(12345);
 
-    await row.getByRole("button", { name: "恢复默认" }).click();
-    await expect(row.getByText("已修改")).toHaveCount(0);
+    await reset.click();
+    await expect(reset).toHaveCount(0);
     expect(await configValue(page, "compaction.keepRecentTokens")).toBe(20000);
   } finally {
     await launched.close();
@@ -75,7 +64,7 @@ test("改一项：已修改 + 已保存，值真的写进了 omp；恢复默认�
   }
 });
 
-test("纯键盘：Tab 到开关，空格切换，保存后" + "已修改" + "出现", async () => {
+test("纯键盘：Tab 到开关，空格切换，保存后恢复默认图标出现", async () => {
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
@@ -83,7 +72,7 @@ test("纯键盘：Tab 到开关，空格切换，保存后" + "已修改" + "出
     const toggle = page.getByTestId("cfg-compaction.idleEnabled").getByRole("switch");
     await toggle.focus();
     await page.keyboard.press("Space");
-    await expect(page.getByTestId("cfg-compaction.idleEnabled").getByText("已修改")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("cfg-compaction.idleEnabled-reset")).toBeVisible({ timeout: 10_000 });
     expect(await configValue(page, "compaction.idleEnabled")).toBe(true);
   } finally {
     await launched.close();
@@ -91,7 +80,7 @@ test("纯键盘：Tab 到开关，空格切换，保存后" + "已修改" + "出
   }
 });
 
-test("被环境变量覆盖：保存成功但提示实际生效的值来自环境变量；JSON 写错就地报错、不保存", async () => {
+test("被环境变量覆盖：保存成功但提示实际生效的值来自环境变量；对象设置的 JSON 写错就地报错、不保存", async () => {
   const { launched, agentDir } = await launchIsolated({ HINDSIGHT_API_URL: "http://example.invalid:1" });
   try {
     const { page } = launched;
@@ -101,19 +90,18 @@ test("被环境变量覆盖：保存成功但提示实际生效的值来自环�
     await expect(row.getByText(/覆盖/)).toContainText("HINDSIGHT_API_URL", { timeout: 10_000 });
     await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-overridden-zh-CN-light.png") });
 
-    await search(page, "compaction.methodOrder");
-    const json = page.getByTestId("cfg-compaction.methodOrder");
-    await json.getByRole("textbox").fill('["remote",');
-    await expect(json.getByRole("alert")).toContainText("JSON");
+    // 对象设置：行上是"编辑…"按钮，点开对话框里写 JSON，校验不过不能保存。
+    await search(page, "compaction.modelThresholds");
+    await page.getByTestId("cfg-compaction.modelThresholds").getByRole("button", { name: "编辑…" }).click();
+    const dialog = page.getByTestId("cfg-json-dialog");
+    await dialog.getByTestId("cfg-json-text").fill('{"a":');
+    await expect(dialog.getByRole("alert")).toContainText("JSON");
+    await expect(dialog.getByTestId("cfg-json-save")).toBeDisabled();
     await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-json-error-zh-CN-light.png") });
-    // 没通过校验的内容不会被保存：值还是默认的数组。
-    expect(await configValue(page, "compaction.methodOrder")).toEqual([
-      "remote",
-      "snapcompact",
-      "handoff",
-      "shake",
-      "soft",
-    ]);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    // 没通过校验的内容不会被保存：值还是默认的空对象。
+    expect(await configValue(page, "compaction.modelThresholds")).toEqual({});
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
@@ -141,14 +129,18 @@ test("只是打开设置页、切分组、搜索、展开编辑器，不会写 o
   try {
     const { page } = launched;
     await page.getByTestId("settings-nav-tools").click();
-    await expect(page.locator(".cfg-row").first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator(".ui-row").first()).toBeVisible({ timeout: 30_000 });
     for (const section of ["context", "tools", "agents", "advanced"])
       await page.getByTestId(`settings-nav-${section}`).click();
     await page.getByTestId("settings-nav-models").click();
     await search(page, "modelRoles");
+    await page.getByTestId("cfg-modelRoles").getByRole("button", { name: "编辑…" }).click();
     await expect(page.getByTestId("roles-editor")).toBeVisible();
+    await page.keyboard.press("Escape");
     await search(page, "fallbackChains");
+    await page.getByTestId("cfg-retry.fallbackChains").getByRole("button", { name: "编辑…" }).click();
     await expect(page.getByTestId("chains-editor")).toBeVisible();
+    await page.keyboard.press("Escape");
     await search(page, "compaction.methodOrder");
     await expect(page.getByTestId("cfg-compaction.methodOrder").getByRole("textbox")).toBeVisible();
     // 防抖和卸载时的提交都已经过去：没有"正在保存"。
@@ -198,6 +190,8 @@ test("模型角色：结构化编辑，不用手写 JSON", async () => {
   try {
     const { page } = launched;
     await search(page, "modelRoles");
+    // 快照要起一次 omp 才读得到：行上的"编辑…"按钮出现后点开对话框。
+    await page.getByTestId("cfg-modelRoles").getByRole("button", { name: "编辑…" }).click({ timeout: 30_000 });
     const editor = page.getByTestId("roles-editor");
     // 快照要起一次 omp 才读得到（机器忙时远超 5 秒），和别的用例一样给读取留 30 秒。
     await expect(editor).toBeVisible({ timeout: 30_000 });
@@ -206,7 +200,10 @@ test("模型角色：结构化编辑，不用手写 JSON", async () => {
     await expect(editor.locator(".se-name", { hasText: "plan" })).toBeVisible({ timeout: 10_000 });
     await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-roles-zh-CN-light.png") });
     expect(Object.keys((await configValue(page, "modelRoles")) as object)).toContain("plan");
+    await page.keyboard.press("Escape");
+    await expect(editor).toHaveCount(0);
     await search(page, "fallbackChains");
+    await page.getByTestId("cfg-retry.fallbackChains").getByRole("button", { name: "编辑…" }).click();
     await expect(page.getByTestId("chains-editor")).toBeVisible();
     await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-chains-zh-CN-light.png") });
   } finally {
@@ -220,26 +217,26 @@ test("截图：omp 设置分组、搜索，中英文 × 浅深主题", async () 
   try {
     const { page } = launched;
     await page.getByTestId("settings-nav-agents").click();
-    await expect(page.locator(".cfg-row").first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator(".ui-row").first()).toBeVisible({ timeout: 30_000 });
     for (const locale of ["zh-CN", "en"] as const) {
       for (const theme of ["light", "dark"] as const) {
-        await localeAndTheme(page, locale, theme);
+        await setLocaleTheme(page, locale, theme);
         await search(page, "");
         for (const tab of ["agents", "models", "tools"] as const) {
           await page.getByTestId(`settings-nav-${tab}`).click();
-          await expect(page.locator(".cfg-row").first()).toBeVisible();
+          await expect(page.locator(".ui-row").first()).toBeVisible();
           await page.screenshot({ path: path.join(screenshotsDir, `omp-e-config-${tab}-${locale}-${theme}.png`) });
         }
         await search(page, locale === "zh-CN" ? "压缩" : "compaction");
-        await expect(page.locator(".cfg-row").first()).toBeVisible();
+        await expect(page.locator(".ui-row").first()).toBeVisible();
         await page.screenshot({ path: path.join(screenshotsDir, `omp-e-config-search-${locale}-${theme}.png`) });
         await search(page, "zzzz-no-such-setting");
         await expect(page.getByText(locale === "zh-CN" ? "没有匹配" : "No settings match")).toBeVisible();
         await page.screenshot({ path: path.join(screenshotsDir, `omp-e-config-empty-${locale}-${theme}.png`) });
       }
     }
-    // 窄窗口：分节列表收成一行，长文本不溢出。
-    await localeAndTheme(page, "zh-CN", "light");
+    // 窄窗口：设置导航变成内容顶上的下拉，长文本不溢出。
+    await setLocaleTheme(page, "zh-CN", "light");
     await search(page, "");
     await page.getByTestId("settings-nav-tools").click();
     await page.setViewportSize({ width: 820, height: 800 });

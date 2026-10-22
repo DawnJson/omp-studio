@@ -8,7 +8,7 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
 import { findOmp, makeRepo, makeScratch } from "../git-helpers.ts";
-import { launchApp, openTaskRow, screenshotsDir, testOmp, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, screenshotsDir, setLocaleTheme, testOmp, type LaunchedApp } from "./launch.ts";
 
 // 开发机/CI 的 shell 常设 NO_COLOR=1：应用和终端里的 PowerShell 会继承它并去掉输出里的颜色（空串也算设置了），
 // 截图就看不到 ANSI 色板。只在本文件的测试进程里去掉。
@@ -338,16 +338,8 @@ test("截图：中英 × 深浅", async () => {
       ["en", "light"],
       ["en", "dark"],
     ] as const) {
-      await page.evaluate(
-        async ({ locale, scheme }) => {
-          await globalThis.studio.setLocale(locale);
-          await globalThis.studio.setTheme(scheme);
-        },
-        { locale, scheme },
-      );
       await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-      await page.waitForTimeout(300);
+      await setLocaleTheme(page, locale, scheme);
       await page.screenshot({ path: path.join(screenshotsDir, `terminal-${locale}-${scheme}.png`) });
     }
     // 退出后的提示行也截一张（英文深色）。

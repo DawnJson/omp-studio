@@ -3,11 +3,14 @@
 import { useEffect, useId, useMemo } from "react";
 import type { ProjectId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { Restart } from "../../icons.tsx";
 import { useOmpStatus, useTasks } from "../../store/index.ts";
+import { Badge, Button, IconButton, ListRow, Notice, SectionHead, type Tone } from "../../ui/controls.tsx";
 import { describeError } from "../../ui/errors.ts";
+import { Select } from "../../ui/Select.tsx";
 import { useProjects } from "../sidebar/projects-store.ts";
-import { Button, Select } from "./controls.tsx";
 import { MarketplacesCard } from "./MarketplacesCard.tsx";
+import { PageHeadActions } from "./PageHeadActions.tsx";
 import { PluginRow } from "./PluginRow.tsx";
 import {
   dismissReload,
@@ -24,6 +27,8 @@ const STATUS_KEYS = {
   warning: "plugins.doctor.warning",
   error: "plugins.doctor.error",
 } as const;
+
+const STATUS_TONES: Record<keyof typeof STATUS_KEYS, Tone> = { ok: "success", warning: "warning", error: "error" };
 
 export function PluginsSection() {
   const t = useT();
@@ -57,114 +62,141 @@ export function PluginsSection() {
 
   return (
     <>
-      <p className="pl-note">{t("plugins.intro")}</p>
-      <div className="pl-scope">
-        <span id={scopeLabel} className="pl-muted">
+      <PageHeadActions>
+        <span id={scopeLabel} className="pl-scope-label">
           {t("plugins.scope")}
         </span>
         <Select
+          size="sm"
+          width={168}
           value={state.projectId ?? "user"}
           options={scopeOptions}
           labelledBy={scopeLabel}
           onChange={(next) => setPluginProject(next === "user" ? null : (next as ProjectId))}
           testId="plugins-scope"
         />
-      </div>
+      </PageHeadActions>
+      <p className="pl-note">{t("plugins.intro")}</p>
 
       {state.reloadPending && (
-        <div className="pl-reload" role="status" data-testid="plugins-reload">
-          <span>{t("plugins.reload.title")}</span>
-          <span className="pl-actions">
-            <Button variant="text" onClick={dismissReload}>
-              {t("plugins.reload.dismiss")}
-            </Button>
-            <Button
-              variant="primary"
-              loading={state.reloading}
-              onClick={() => void reloadRunningTasks(t, tasks)}
-              testId="plugins-reload-action"
-            >
-              {t("plugins.reload.action")}
-            </Button>
-          </span>
-        </div>
+        <Notice
+          testId="plugins-reload"
+          action={
+            <span className="pl-actions">
+              <Button size="sm" variant="quiet" onClick={dismissReload}>
+                {t("plugins.reload.dismiss")}
+              </Button>
+              <Button
+                size="sm"
+                loading={state.reloading}
+                onClick={() => void reloadRunningTasks(t, tasks)}
+                testId="plugins-reload-action"
+              >
+                {t("plugins.reload.action")}
+              </Button>
+            </span>
+          }
+        >
+          {t("plugins.reload.title")}
+        </Notice>
       )}
 
-      <section className="pl-section" data-testid="plugins-installed">
-        <div className="pl-head">
-          <h3 className="settings-group-title">{t("plugins.installed")}</h3>
-          <span className="pl-actions">
-            {hasMarketplacePlugins && (
-              <Button
-                disabled={busy}
-                loading={state.working === "upgrade:all"}
-                onClick={() => void runAction(t, { kind: "upgrade", id: null }, "upgrade:all")}
-                testId="plugins-upgrade-all"
+      <section data-testid="plugins-installed">
+        <SectionHead
+          title={t("plugins.installed")}
+          count={snapshot.data === null ? undefined : installedCount}
+          actions={
+            <>
+              {hasMarketplacePlugins && (
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  loading={state.working === "upgrade:all"}
+                  onClick={() => void runAction(t, { kind: "upgrade", id: null }, "upgrade:all")}
+                  testId="plugins-upgrade-all"
+                >
+                  {t("plugins.upgrade.all")}
+                </Button>
+              )}
+              <IconButton
+                label={t("plugins.refresh")}
+                disabled={snapshot.busy}
+                onClick={() => void loadPlugins()}
+                testId="plugins-refresh"
               >
-                {t("plugins.upgrade.all")}
-              </Button>
-            )}
-            <Button loading={snapshot.busy} onClick={() => void loadPlugins()}>
-              {t("plugins.refresh")}
-            </Button>
-          </span>
-        </div>
+                <Restart />
+              </IconButton>
+            </>
+          }
+        />
         {snapshot.error !== null && (
-          <div className="pl-error" role="alert" data-testid="plugins-error">
+          <Notice tone="error" testId="plugins-error">
             {t("plugins.failed", { message: describeError(t, snapshot.error) })}
-          </div>
+          </Notice>
         )}
-        {snapshot.data === null && snapshot.busy && <div className="pl-note">{t("plugins.loading")}</div>}
+        {snapshot.data === null && snapshot.busy && <p className="pl-muted">{t("plugins.loading")}</p>}
         {snapshot.data !== null && installedCount === 0 && (
-          <div className="pl-note" data-testid="plugins-empty">
+          <p className="pl-muted" data-testid="plugins-empty">
             {t("plugins.installed.empty")}
-          </div>
+          </p>
         )}
-        {snapshot.data?.npm.map((plugin) => (
-          <PluginRow key={`npm:${plugin.name}`} plugin={plugin} working={state.working} />
-        ))}
-        {snapshot.data?.marketplace.flatMap((plugin) =>
-          plugin.installs.map((install) => (
-            <PluginRow
-              key={`mk:${plugin.id}:${install.scope}`}
-              plugin={plugin}
-              install={install}
-              working={state.working}
-            />
-          )),
-        )}
+        <div className="ui-rows">
+          {snapshot.data?.npm.map((plugin) => (
+            <PluginRow key={`npm:${plugin.name}`} plugin={plugin} working={state.working} />
+          ))}
+          {snapshot.data?.marketplace.flatMap((plugin) =>
+            plugin.installs.map((install) => (
+              <PluginRow
+                key={`mk:${plugin.id}:${install.scope}`}
+                plugin={plugin}
+                install={install}
+                working={state.working}
+              />
+            )),
+          )}
+        </div>
       </section>
 
       <MarketplacesCard snapshot={snapshot.data} working={state.working} projectId={state.projectId} />
 
-      <section className="pl-section" data-testid="plugins-doctor">
-        <div className="pl-head">
-          <h3 className="settings-group-title">{t("plugins.doctor")}</h3>
-          <span className="pl-actions">
-            <Button
-              disabled={busy}
-              loading={state.working === "doctor"}
-              onClick={() => void runAction(t, { kind: "doctor", fix: false }, "doctor")}
-              testId="plugins-doctor-run"
-            >
-              {t("plugins.doctor.run")}
-            </Button>
-            <Button
-              disabled={busy}
-              loading={state.working === "doctor:fix"}
-              onClick={() => void runAction(t, { kind: "doctor", fix: true }, "doctor:fix")}
-            >
-              {t("plugins.doctor.fix")}
-            </Button>
-          </span>
-        </div>
-        {state.doctor.data?.map((check) => (
-          <div key={check.name} className="pl-check" data-status={check.status}>
-            <span className="pl-check-status">{t(STATUS_KEYS[check.status])}</span>
-            <span className="pl-check-name">{check.name}</span>
-            <span className="pl-muted">{check.message}</span>
+      <section data-testid="plugins-doctor">
+        <SectionHead
+          title={t("plugins.doctor")}
+          actions={
+            <>
+              <Button
+                size="sm"
+                disabled={busy}
+                loading={state.working === "doctor"}
+                onClick={() => void runAction(t, { kind: "doctor", fix: false }, "doctor")}
+                testId="plugins-doctor-run"
+              >
+                {t("plugins.doctor.run")}
+              </Button>
+              <Button
+                size="sm"
+                disabled={busy}
+                loading={state.working === "doctor:fix"}
+                onClick={() => void runAction(t, { kind: "doctor", fix: true }, "doctor:fix")}
+              >
+                {t("plugins.doctor.fix")}
+              </Button>
+            </>
+          }
+        />
+        {state.doctor.data != null && state.doctor.data.length > 0 && (
+          <div className="ui-rows">
+            {state.doctor.data.map((check) => (
+              <ListRow
+                key={check.name}
+                icon={check.name.slice(0, 2)}
+                title={check.name}
+                badges={<Badge tone={STATUS_TONES[check.status]}>{t(STATUS_KEYS[check.status])}</Badge>}
+                meta={check.message}
+              />
+            ))}
           </div>
-        ))}
+        )}
       </section>
     </>
   );

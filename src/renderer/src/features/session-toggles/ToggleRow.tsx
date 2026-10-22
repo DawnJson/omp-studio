@@ -1,7 +1,7 @@
 // 会话开关菜单里的一行：名称 + 一句说明 + "本会话"标记 + 和配置默认值不同时的小圆点 + 开关。
 import { useId } from "react";
 import { useT } from "../../i18n/use-t.ts";
-import { Switch } from "../settings/controls.tsx";
+import { Badge, Switch } from "../../ui/controls.tsx";
 
 export interface ToggleRowProps {
   id: string;
@@ -42,7 +42,11 @@ export function ToggleRow({ id, label, hint, checked, session, differs, busy, on
         </span>
         <span className="tg-hint">{hint}</span>
       </div>
-      {session && <span className="tg-session">{t("toggles.session")}</span>}
+      {session && (
+        <Badge tone="accent" testId={`toggle-${id}-session`}>
+          {t("toggles.session")}
+        </Badge>
+      )}
       <Switch
         checked={checked}
         disabled={busy}

@@ -45,7 +45,7 @@
   height: auto;
 }
 
-/* 最近更新（照 omp 的 What's New）：标志下面一行，标题加粗，后面是统计；窄了截断（title 里有全文） */
+/* 最近更新（照 omp 的 What's New）：标志下面一行；窄了截断（title 里有全文） */
 .whats-new {
   max-width: 100%;
   margin: 0;
@@ -61,10 +61,6 @@
 /* 显示 5 秒后慢慢淡出（WhatsNew.tsx），位置留着，标志不跳 */
 .whats-new[data-fading] {
   opacity: 0;
-}
-.whats-new-h {
-  font-weight: 600;
-  color: var(--text-2);
 }
 
 .empty-card {
@@ -108,26 +104,6 @@
   text-align: left;
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
-}
-
-.empty-primary {
-  min-height: var(--control-h-md);
-  padding: 0 var(--space-4);
-  margin-top: var(--space-3);
-  color: var(--text-on-primary);
-  background: var(--primary);
-  border: 0;
-  border-radius: var(--radius-md);
-  cursor: default;
-  transition: background-color var(--dur-fast) var(--ease-out);
-}
-
-.empty-primary:hover {
-  background: var(--primary-hover);
-}
-
-.empty-card .empty-primary {
-  margin-top: 0;
 }
 
 .empty-error {

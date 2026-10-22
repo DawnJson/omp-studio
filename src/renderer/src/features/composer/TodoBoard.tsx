@@ -32,7 +32,7 @@ export function TodoBoard({
     <div className="ui-popover-anchor todo-anchor">
       <button
         type="button"
-        className="todo-board"
+        className="ui-chip todo-board"
         data-testid="todo-board"
         data-finished={finished || undefined}
         aria-expanded={open}

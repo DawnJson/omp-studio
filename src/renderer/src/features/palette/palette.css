@@ -1,4 +1,8 @@
-/* 命令面板样式（spec §4.18）。.kbd 和 button 基础样式在 ../sidebar/sidebar.css 里与 .sb 共用（CommandPalette.tsx 一并 import）。 */
+/* 命令面板样式（spec §4.18）：保持自己的外壳；键帽用 ui/controls.css 的 .ui-kbd。 */
+.pl-root .icon {
+  flex: none;
+}
+
 .pl-root {
   position: fixed;
   inset: 0;

@@ -1,269 +1,12 @@
-/* omp 全部设置的界面：搜索框、导航分组、分组折叠、单行设置项。只用 tokens.css 里的变量。 */
+/* omp 全部设置的界面：行里的保存反馈和提示、标签输入、加载 / 出错 / 空状态、结构化编辑器（对话框里）。
+   行本身（标签、控件、改过的竖线、恢复默认）是 ui/Row，控件在 ui/controls.css。只用 tokens.css 里的变量。 */
 
-/* ───────── 顶部搜索 ───────── */
-
-.cfg-search {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex: none;
-  width: 100%;
-  margin-bottom: var(--space-2);
-}
-
-.cfg-search-input {
-  width: 100%;
-  height: var(--control-h-md);
-  padding: 0 var(--space-8);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  color: var(--text);
-  font-size: var(--fs-sm);
-}
-
-.cfg-search-input::-webkit-search-cancel-button {
-  display: none;
-}
-
-.cfg-search-input::placeholder {
-  color: var(--text-3);
-}
-
-.cfg-search-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.cfg-search-icon {
-  position: absolute;
-  left: var(--space-2-5);
-  color: var(--text-3);
-  pointer-events: none;
-}
-
-.cfg-search-clear {
-  position: absolute;
-  right: var(--space-1);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-3);
-}
-
-.cfg-search-clear:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
-/* ───────── 导航分组 ───────── */
-
-.settings-nav {
-  overflow-y: auto;
-}
-
-.settings-nav button {
-  flex: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ───────── 分组 ───────── */
-
-.cfg-group {
-  margin-bottom: var(--space-4);
-}
-
-.cfg-group-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  width: 100%;
-  height: var(--control-h-md);
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text-2);
-  font-size: var(--fs-sm);
-  text-align: left;
-  cursor: default;
-}
-
-.cfg-group-head:hover {
-  background: var(--bg-hover);
-}
-
-.cfg-chevron {
-  flex: none;
-  transition: transform var(--dur-fast) var(--ease-out);
-}
-
-.cfg-chevron[data-open] {
-  transform: rotate(90deg);
-}
-
-.cfg-group-title {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text);
-  font-size: var(--fs-base);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cfg-group-count {
-  color: var(--text-3);
-  font-size: var(--fs-sm);
-  font-variant-numeric: tabular-nums;
-}
-
-.cfg-result-title {
-  margin-top: var(--space-4);
-}
-
-.cfg-card {
-  container-type: inline-size;
-  margin-top: var(--space-1);
-}
-/* 提示气泡展开时把所在卡片抬到后面的卡片之上，避免被盖住 */
-.cfg-card:has(.st-tip-btn[aria-expanded="true"]) {
-  position: relative;
-  z-index: var(--z-popover);
-}
-
-/* ───────── 设置行：默认一行 ───────── */
-
-.cfg-row {
-  padding: var(--space-1) 0;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.cfg-row[data-modified] {
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-
-.cfg-line {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: var(--control-h-lg);
-}
-
-.cfg-name {
-  display: flex;
-  flex: 0 1 var(--settings-label-w);
-  width: var(--settings-label-w);
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: var(--space-1-5);
-  min-width: 0;
-}
-
-.cfg-title {
-  flex: 0 1 auto;
-  min-width: 6ch;
-  max-width: 100%;
-  overflow: hidden;
-  font-size: var(--fs-base);
-  line-height: var(--lh-base);
-  /* 人话标签在英文里比标签列（--settings-label-w）长：最多折两行再省略，而不是在一行里被切掉（全文在 title 里） */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow-wrap: anywhere;
-}
-
-/* key 是单个长词，保持一行省略 */
-.cfg-key-title {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cfg-control {
-  display: flex;
-  flex: 0 1 auto;
-  order: 2;
-  align-items: center;
-  justify-content: flex-start;
-  min-width: 0;
-  max-width: calc(100% - var(--settings-label-w) - var(--space-3));
-}
-
-.cfg-number {
-  flex: none;
-  font-variant-numeric: tabular-nums;
-}
-
-.cfg-control .cfg-string {
-  max-width: 100%;
-}
-
-/* 数组/对象：编辑器占满下一行，标签、"恢复默认"仍在第一行 */
-.cfg-row[data-stacked] .cfg-line {
-  flex-wrap: wrap;
-  row-gap: var(--space-1);
-}
-
-.cfg-row[data-stacked] .cfg-control {
-  order: 3;
-  flex: 1 1 100%;
-  max-width: none;
-}
-
-.cfg-json {
-  width: 100%;
-  height: auto;
-  padding: var(--space-2) var(--space-3);
-  font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
-  line-height: var(--lh-code-sm);
-  resize: vertical;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  overflow-y: auto;
-  field-sizing: content;
-  min-height: calc(var(--lh-code-sm) * 2 + var(--space-4));
-  max-height: 320px;
-}
-
-.cfg-credential {
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--bg-sunken);
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-sm);
-}
-
-.cfg-credential[data-set] {
-  color: var(--st-done);
-}
-
-.cfg-chip {
-  flex: none;
-  padding: 0 var(--space-1-5);
-  border-radius: var(--radius-xs);
-  background: var(--accent-soft);
-  color: var(--link);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-sm);
-  white-space: nowrap;
-}
+/* ───────── 行里的控件旁 ───────── */
 
 .cfg-feedback {
   flex: none;
   font-size: var(--fs-xs);
+  color: var(--text-3);
 }
 
 .cfg-feedback:empty {
@@ -275,65 +18,102 @@
   animation: cfg-fade var(--dur-fade) var(--ease-out);
 }
 
-.cfg-reset {
-  flex: none;
-  padding: 0 var(--space-1-5);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--link);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-sm);
-  white-space: nowrap;
-  cursor: default;
-}
-
-.cfg-row:not([data-stacked]) .cfg-reset {
-  order: 3;
-}
-
-.cfg-reset:hover:not(:disabled) {
-  background: var(--bg-hover);
-}
-
-.cfg-reset:disabled {
-  color: var(--text-disabled);
-}
-
-.cfg-badge {
-  display: inline-block;
-  margin-left: var(--space-1-5);
-  padding: 0 var(--space-1-5);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xs);
-  color: var(--text-3);
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-2xs);
-  white-space: nowrap;
-}
-
-/* 搜索命中的是描述：就地显示那一句，单行省略 */
-.cfg-snippet {
-  overflow: hidden;
-  padding-bottom: var(--space-1);
-  color: var(--text-3);
+/* 控件下面单独一行的小字（搜索命中的描述、保存 / 校验错误）：宽度不撑大控件列 */
+.cfg-note {
+  flex: 1 0 100%;
+  width: 0;
+  min-width: 100%;
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+
+.cfg-error {
+  color: var(--st-error);
+}
+
+/* ───────── 标签输入（字符串数组） ───────── */
+
+.st-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+  width: 360px;
+  max-width: 100%;
+  min-height: var(--control-h-sm);
+  padding: 2px var(--space-1-5);
+  font-size: var(--fs-xs);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  transition:
+    border-color var(--dur-instant) var(--ease-out),
+    box-shadow var(--dur-instant) var(--ease-out);
+}
+
+.st-tags:focus-within {
+  border-color: transparent;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 0 4px var(--accent-soft);
+}
+
+.st-tag {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  max-width: 100%;
+  height: 20px;
+  padding: 0 2px 0 var(--space-1-5);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  background: var(--bg-active);
+  border-radius: var(--radius-sm);
+}
+
+.st-tag-text {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* 真有话要说才多出来的一行：被覆盖、保存或校验错误 */
-.cfg-error {
-  margin: var(--space-1) 0;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  overflow-wrap: anywhere;
-  border-left: 2px solid var(--st-error);
-  background: var(--st-error-soft);
-  color: var(--st-error);
+.st-tag-remove {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  color: var(--text-3);
+  cursor: default;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-xs);
+}
+
+.st-tag-remove:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.st-tags .st-tags-input {
+  flex: 1 1 80px;
+  min-width: 60px;
+  height: 20px;
+  padding: 0;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.st-tags-input::placeholder {
+  color: var(--text-3);
 }
 
 /* ───────── 状态：加载、出错、空 ───────── */
@@ -349,8 +129,14 @@
 }
 
 .cfg-spinner {
-  position: static;
   flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: var(--radius-pill);
+  animation: ui-spin var(--dur-spin) linear infinite;
+  animation-play-state: var(--play-state);
 }
 
 .cfg-empty-title {
@@ -364,57 +150,23 @@
   }
 }
 
-/* 窄的内容列：控件换到标签下面，占满一行 */
-@container (max-width: 460px) {
-  .cfg-line {
-    flex-wrap: wrap;
-    row-gap: var(--space-1);
-    padding: var(--space-1) 0;
-  }
-
-  .cfg-control {
-    order: 3;
-    flex: 1 1 100%;
-    max-width: none;
-    justify-content: flex-start;
-  }
-
-  .cfg-control .dd-trigger,
-  .cfg-control .cfg-string,
-  .cfg-number {
-    width: 100%;
-  }
-}
-
-@media (max-width: 999px) {
-  .settings-nav {
-    flex-wrap: wrap;
-    overflow: visible;
-  }
-  .cfg-search {
-    width: 200px;
-    margin-bottom: 0;
-  }
-}
-
-/* ───────── 结构化编辑（模型角色、回退链） ───────── */
+/* ───────── 结构化编辑（模型角色、回退链；在"编辑…"对话框里） ───────── */
 
 .se {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1-5);
+  gap: var(--space-2);
   width: 100%;
 }
 
 .se-row {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
   gap: var(--space-2);
-  min-height: var(--control-h-md);
+  align-items: center;
 }
 
 .se-name {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   font-size: var(--fs-sm);
@@ -422,36 +174,30 @@
   white-space: nowrap;
 }
 
-.se-spacer {
-  flex: 1;
-}
-
 .se-chain {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-1-5);
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
   background: var(--bg-sunken);
+  border-radius: var(--radius-md);
 }
 
+/* 链的标题行：名字 + 删除 */
+.se-chain > .se-row:first-child {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+/* 链里每一项：序号 | 模型 | 上移 下移 删除 */
 .se-entry {
-  padding-left: var(--space-2);
+  grid-template-columns: var(--space-4) minmax(0, 1fr) auto auto auto;
 }
 
-.se-entry .dd-trigger {
-  flex: 1;
-  width: auto;
-  min-width: 0;
-}
-
-.se-row > .dd-trigger {
-  flex: none;
+.se-entry:last-child {
+  grid-template-columns: var(--space-4) minmax(0, 1fr);
 }
 
 .se-index {
-  flex: none;
-  width: var(--space-4);
   color: var(--text-3);
   font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
@@ -459,32 +205,8 @@
 }
 
 .se-empty {
-  padding-left: var(--space-2);
   color: var(--text-3);
   font-size: var(--fs-sm);
-}
-
-.se-icon-btn {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-h-sm);
-  height: var(--control-h-sm);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-3);
-  cursor: default;
-}
-
-.se-icon-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
-.se-icon-btn:disabled {
-  color: var(--text-disabled);
 }
 
 .se-up {
@@ -494,39 +216,6 @@
 .se-add {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: var(--space-2);
-}
-
-.se-add-input {
-  flex: 1 1 140px;
-  height: var(--control-h-md);
-  min-width: 0;
-}
-
-.se-chip {
-  display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  height: var(--control-h-sm);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-2);
-  font-size: var(--fs-sm);
-  cursor: default;
-}
-
-.se-chip:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
-.cfg-chip-warn {
-  background: var(--st-waiting-soft);
-  color: var(--st-waiting-text);
-  max-width: 24%;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }

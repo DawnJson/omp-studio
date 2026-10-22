@@ -32,68 +32,14 @@
 .btw-title {
   font-weight: var(--fw-medium);
 }
-.btw-running {
-  color: var(--st-running);
-}
 .btw-spacer {
   flex: 1;
 }
-.btw-icon-btn {
-  display: grid;
-  place-items: center;
-  width: var(--space-6);
-  height: var(--space-6);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-3);
-  cursor: pointer;
-}
-.btw-icon-btn:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-.btw-icon-btn:focus-visible {
-  outline: 2px solid var(--focus-ring);
-}
 
+/* 话题标签的外观归 ui/Tabs；这里只管留白。 */
 .btw-topics {
-  display: flex;
   flex: none;
-  flex-wrap: wrap;
-  gap: var(--space-1-5);
-  padding: var(--space-1) var(--space-3) var(--space-2);
-}
-.btw-topic {
-  flex: none;
-  max-width: var(--chip-max-w);
-  height: var(--control-h-sm);
-  padding: 0 var(--space-2-5);
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-2);
-  font: inherit;
-  font-size: var(--fs-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.btw-topic:hover {
-  border-color: var(--border-strong);
-}
-.btw-topic[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--text);
-}
-.btw-topic[data-status="running"] {
-  color: var(--st-running);
-}
-.btw-topic:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
+  padding: 0 var(--space-3);
 }
 
 .btw-body {
@@ -126,51 +72,15 @@
   color: var(--st-error);
 }
 
+/* 面板里的输入框是次要的：28 高、跟在回答下面，和主输入框（大、有阴影）分清主次。 */
 .btw-ask {
   display: flex;
   flex: none;
   gap: var(--space-2);
+  align-items: center;
   padding: var(--space-2) var(--space-3);
   border-top: 1px solid var(--border-subtle);
 }
-.btw-input {
+.btw-ask .btw-input {
   flex: 1;
-  min-width: 0;
-  height: var(--control-h-sm);
-  padding: 0 var(--space-2-5);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-app);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-xs);
-}
-.btw-input:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -1px;
-}
-.btw-btn {
-  height: var(--control-h-sm);
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-raised);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-xs);
-  cursor: pointer;
-}
-.btw-btn:hover:not(:disabled) {
-  border-color: var(--border-strong);
-}
-.btw-btn:disabled {
-  color: var(--text-3);
-  cursor: default;
-}
-.btw-btn:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-.btw-btn[data-danger] {
-  color: var(--st-error);
 }

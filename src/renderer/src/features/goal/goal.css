@@ -11,8 +11,8 @@
   width: min(100% - 2 * var(--gutter), var(--content-w));
   min-height: var(--control-h-sm);
   margin: var(--space-2) auto 0;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-lg);
   background: var(--bg-hover);
   color: var(--text-2);
   font-size: var(--fs-xs);
@@ -30,40 +30,7 @@
   white-space: nowrap;
   color: var(--text);
 }
-.goal-status {
-  flex: none;
-  color: var(--st-running);
-}
-.goal-strip[data-status="paused"] .goal-status {
-  color: var(--st-waiting-text);
-}
-.goal-strip[data-status="budget-limited"] .goal-status {
-  color: var(--st-error);
-}
 .goal-usage {
   flex: none;
   font-variant-numeric: tabular-nums;
-}
-.goal-action {
-  flex: none;
-  height: calc(var(--space-5) + var(--space-0-5));
-  padding: 0 var(--space-2);
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  border-radius: var(--radius-pill);
-  color: var(--text-2);
-  font-size: var(--fs-xs);
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.goal-action:hover:not(:disabled) {
-  background: var(--accent-soft);
-  color: var(--text);
-}
-.goal-action:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-.goal-action:disabled {
-  color: var(--text-disabled);
 }

@@ -1,16 +1,15 @@
-// 模型选择对话框（模态），照 Tern：标题行（图标 + 标题 + 搜索框 + 总数）、角色页签、一张表（模型 | 智能 | 速度 | 上下文 | 价格）、
-// 底部参数行 + 思考强度/速度开关 + 操作行。没有搜索词时"常用"在前、"全部"在后，有搜索词时是"匹配"；搜索框以 @ 开头时列角色。
-// 键盘：搜索框里 ↑↓ 在行之间移动，Enter 选用模型（@ 角色行上是切到这个角色），鼠标悬停也会高亮；Tab 在对话框内循环；
-// Esc 关闭，焦点回到打开前的元素。
+// 模型选择对话框（ui/Dialog，lg）：标题 + 角色标签页（ui/Tabs）+ 搜索框 + 一张表（模型 | 智能 | 速度 | 上下文 | 价格）+ 参数行 + 三行控件（思考强度 / Prewalk / 预设）；
+// 页脚：添加提供商…（左）+ 关闭 + 用于此任务（主）。没有搜索词时"常用"在前、"全部"在后，有搜索词时是"匹配"；搜索框以 @ 开头时列角色。
+// 键盘：搜索框里 ↑↓ 在行之间移动，Enter 选用模型（@ 角色行上是切到这个角色），鼠标悬停也会高亮；Tab 循环、Esc 关闭、焦点回到打开前的元素由 Dialog 负责。
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { createPortal } from "react-dom";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
-import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
-import { usePresence, type ExitProps } from "../../ui/presence.ts";
+import { usePresence } from "../../ui/presence.ts";
 import type { ModelInsights, ModelKey, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Check } from "../../icons.tsx";
+import { Check, Search } from "../../icons.tsx";
+import { Button, TextField, Tabs, tabPanelProps } from "../../ui/controls.tsx";
+import { Dialog } from "../../ui/Dialog.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { showView } from "../../store/index.ts";
 import { ModelDetails } from "./ModelDetails.tsx";
@@ -69,41 +68,15 @@ type Item =
   | { kind: "model"; id: string; option: ModelOption }
   | { kind: "role"; id: string; role: string; option: ModelOption | null };
 
-const focusableSelector = "button:not(:disabled), input:not(:disabled)";
-
 const roleLabel = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
 
-/** 标题行的图标：芯片。 */
-function ChipGlyph() {
-  return (
-    <svg
-      className="mp-glyph"
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="var(--icon-stroke)"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <rect x="4" y="4" width="8" height="8" rx="1.5" />
-      <rect x="6.5" y="6.5" width="3" height="3" rx="0.5" />
-      <path d="M6 2v2M10 2v2M6 12v2M10 12v2M2 6h2M2 10h2M12 6h2M12 10h2" />
-    </svg>
-  );
-}
-
-/** 对话框本体：open 变 false 后留着放完退出动画，由外层 ModelPicker 卸载。 */
-function ModelPickerBody(props: ModelPickerProps & { open: boolean; closing: boolean; exitProps: ExitProps }) {
-  const { model, thinkingLevel, running, onClose, open, closing, exitProps } = props;
+/** 对话框本体：每次打开都是全新的状态；退出动画由 Dialog 放，外层 ModelPicker 等它放完再卸载。 */
+function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
+  const { model, thinkingLevel, running, onClose, open } = props;
   const t = useT();
-  useTitleBarDim(open);
-  const titleId = useId();
   const listId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+
   const searchRef = useRef<HTMLInputElement>(null);
   const [models, setModels] = useState<ModelOption[] | null>(null);
   const [insights, setInsights] = useState<ModelInsights | null>(null);
@@ -150,18 +123,6 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean; closing: boo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 焦点：打开时进搜索框；open 变 false（退出动画开始）就还给打开前的元素，不等卸载。
-  const openerRef = useRef<Element | null>(null);
-  useEffect(() => {
-    openerRef.current = document.activeElement;
-    searchRef.current?.focus();
-  }, []);
-  useEffect(() => {
-    if (open) return;
-    const opener = openerRef.current;
-    if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
-  }, [open]);
-
   const searching = query.trim() !== "";
   const view = useMemo(() => roleView(roles ?? {}, models ?? []), [roles, models]);
   const roleMode = roleTab !== "default";
@@ -201,7 +162,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean; closing: boo
   const shownIsCurrent = shown !== null && activeModel !== null && sameModel(shown.key, activeModel.key);
 
   useEffect(() => {
-    dialogRef.current?.querySelector('[data-highlighted="true"]')?.scrollIntoView({ block: "nearest" });
+    tableRef.current?.querySelector('[data-highlighted="true"]')?.scrollIntoView({ block: "nearest" });
   }, [cursorId]);
 
   const pick = (option: ModelOption): Promise<void> => {
@@ -229,27 +190,6 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean; closing: boo
     else void pick(item.option);
   };
 
-  // 标签是 tablist：←/→/Home/End 换标签，选中的那个在 Tab 顺序里。
-  const onRoleKey = (event: KeyboardEvent) => {
-    const last = view.tabs.length - 1;
-    const index = view.tabs.indexOf(roleTab);
-    const target =
-      event.key === "ArrowRight"
-        ? Math.min(index + 1, last)
-        : event.key === "ArrowLeft"
-          ? Math.max(index - 1, 0)
-          : event.key === "Home"
-            ? 0
-            : event.key === "End"
-              ? last
-              : null;
-    const next = target === null ? undefined : view.tabs[target];
-    if (next === undefined) return;
-    event.preventDefault();
-    selectRole(next);
-    dialogRef.current?.querySelector<HTMLElement>(`[data-role-tab="${CSS.escape(next)}"]`)?.focus();
-  };
-
   const move = (delta: number) => {
     if (items.length === 0) return;
     const index = cursorItem ? items.indexOf(cursorItem) : -1;
@@ -264,31 +204,6 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean; closing: boo
     } else if (event.key === "Enter" && !(event.nativeEvent.isComposing || event.keyCode === 229)) {
       event.preventDefault();
       if (cursorItem) activate(cursorItem);
-    }
-  };
-
-  const onDialogKey = (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
-      // 消耗掉 Esc：输入框的"Esc 停止任务"在 window 上监听，不能被它连带触发。
-      event.preventDefault();
-      event.stopPropagation();
-      onClose();
-      return;
-    }
-    if (event.key !== "Tab") return;
-    // tabIndex -1 的（没选中的角色页签、没选中的思考强度）不在 Tab 顺序里，不算首尾。
-    const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])].filter(
-      (element) => element.tabIndex >= 0,
-    );
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
     }
   };
 
@@ -423,108 +338,125 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean; closing: boo
           ...(items.length > pinnedCount ? [renderGroup(t("model.all"), items.slice(pinnedCount))] : []),
         ];
 
-  return createPortal(
-    <div className="scrim" data-closing={closing ? "fade" : undefined} onPointerDown={onClose}>
-      <div
-        ref={dialogRef}
-        className="model-picker"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-testid="model-picker"
-        onPointerDown={(event) => event.stopPropagation()}
-        onKeyDown={onDialogKey}
-        {...exitProps}
-      >
-        <header className="mp-head">
-          <ChipGlyph />
-          <h2 id={titleId} className="mp-title">
-            {roleMode ? t("model.roleTitle", { role: roleLabel(roleTab) }) : t("model.title")}
-          </h2>
-          <input
-            ref={searchRef}
-            className="mp-search"
-            data-testid="model-search"
-            role="combobox"
-            aria-haspopup="listbox"
-            aria-expanded="true"
-            aria-controls={listId}
-            aria-activedescendant={cursorId === null ? undefined : `${listId}${cursorId}`}
-            value={query}
-            placeholder={t("model.search")}
-            aria-label={t("model.search")}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setCursor(null);
-            }}
-            onKeyDown={onSearchKey}
+  const tabs = view.tabs.map((role) => ({
+    id: role,
+    label: roleLabel(role),
+    title: t("model.roleCurrent", {
+      role: roleLabel(role),
+      model: view.modelOf[role]?.name ?? roles?.[role] ?? t("model.roleUnset"),
+    }),
+  }));
+  const tabsId = `${listId}-roles`;
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      size="lg"
+      className="mp-dialog"
+      testId="model-picker"
+      title={roleMode ? t("model.roleTitle", { role: roleLabel(roleTab) }) : t("model.title")}
+      tabs={
+        <div className="mp-tabs">
+          <Tabs
+            tabs={tabs}
+            value={roleTab}
+            onChange={selectRole}
+            label={t("model.roles")}
+            idBase={tabsId}
+            testId="model-role-tab"
           />
-          <span className="mp-count" data-testid="model-count">
-            {searching ? `${matched} / ${total}` : total}
-          </span>
-        </header>
-        <div className="mp-roles" role="tablist" aria-label={t("model.roles")} onKeyDown={onRoleKey}>
-          {view.tabs.map((role) => {
-            const assigned = view.modelOf[role]?.name ?? roles?.[role] ?? t("model.roleUnset");
-            const selected = role === roleTab;
-            return (
-              <button
-                key={role}
-                type="button"
-                role="tab"
-                tabIndex={selected ? 0 : -1}
-                aria-selected={selected}
-                className="mp-role-tab"
-                data-testid="model-role-tab"
-                data-role-tab={role}
-                title={t("model.roleCurrent", { role: roleLabel(role), model: assigned })}
-                onClick={() => selectRole(role)}
-              >
-                {roleLabel(role)}
-              </button>
-            );
-          })}
         </div>
-        <div className="mp-table">
-          <div className="mp-cols" aria-hidden="true">
-            <span>{t("model.colModel")}</span>
-            <span className="mp-num">{t("model.colIntelligence")}</span>
-            <span className="mp-num">{t("model.colSpeed")}</span>
-            <span className="mp-num">{t("model.colContext")}</span>
-            <span className="mp-num">{t("model.colPrice")}</span>
-            <span className="mp-tick" />
-          </div>
-          <div id={listId} className="mp-list" role="listbox" aria-label={t("model.list")}>
-            {models !== null && items.length === 0 && (
-              <p className="pop-note">{atRoles ? t("model.noRoles") : t("model.empty")}</p>
-            )}
-            {groups}
-          </div>
+      }
+      footStart={
+        <Button
+          variant="quiet"
+          testId="model-add-provider"
+          onClick={() => {
+            onClose();
+            showView("settings", { section: "providers" });
+          }}
+        >
+          {t("model.addProvider")}
+        </Button>
+      }
+      footer={
+        <>
+          <Button testId="model-close" onClick={onClose}>
+            {t("model.close")}
+          </Button>
+          <Button variant="primary" testId="model-use" disabled={cursorItem === null} onClick={onPrimary}>
+            {primaryLabel}
+          </Button>
+        </>
+      }
+    >
+      <div className="mp-search-row">
+        <TextField
+          ref={searchRef}
+          width="100%"
+          testId="model-search"
+          data-autofocus=""
+          role="combobox"
+          aria-haspopup="listbox"
+          aria-expanded="true"
+          aria-controls={listId}
+          aria-activedescendant={cursorId === null ? undefined : `${listId}${cursorId}`}
+          aria-label={t("model.search")}
+          placeholder={t("model.search")}
+          leading={<Search size={14} />}
+          value={query}
+          onChange={(next) => {
+            setQuery(next);
+            setCursor(null);
+          }}
+          onKeyDown={onSearchKey}
+        />
+        <span className="mp-count" data-testid="model-count">
+          {searching ? `${matched} / ${total}` : total}
+        </span>
+      </div>
+      <div ref={tableRef} className="mp-table" {...tabPanelProps(tabsId, roleTab)}>
+        <div className="mp-cols" aria-hidden="true">
+          <span>{t("model.colModel")}</span>
+          <span className="mp-num">{t("model.colIntelligence")}</span>
+          <span className="mp-num">{t("model.colSpeed")}</span>
+          <span className="mp-num">{t("model.colContext")}</span>
+          <span className="mp-num">{t("model.colPrice")}</span>
+          <span className="mp-tick" />
         </div>
-        <footer className="mp-foot">
-          {shown === null ? (
-            <p className="mp-params mp-params-empty">{t("model.noSelection")}</p>
-          ) : (
-            <ModelDetails
-              option={shown}
-              isCurrent={shownIsCurrent}
-              roles={view.badges.get(modelItemId(shown.key)) ?? []}
-              insights={insights}
-            />
+        <div id={listId} className="mp-list" role="listbox" aria-label={t("model.list")}>
+          {models !== null && items.length === 0 && (
+            <p className="mp-empty">{atRoles ? t("model.noRoles") : t("model.empty")}</p>
           )}
-          {roleMode ? (
-            <div className="mp-controls">
-              <p className="mp-hint" data-testid="model-role-use">
-                {t("model.roleUse", { hint: roleHint(roleTab) })}
-              </p>
-              <p className="mp-hint" data-testid="model-role-saved">
-                {t("model.roleSaved")}
-              </p>
-            </div>
-          ) : (
-            <div className="mp-controls">
-              <div className="mp-thinking">
-                <span className="mp-ctl-label">{t("model.thinking")}</span>
+          {groups}
+        </div>
+      </div>
+      <div className="mp-foot">
+        {shown === null ? (
+          <p className="mp-params mp-params-empty">{t("model.noSelection")}</p>
+        ) : (
+          <ModelDetails
+            option={shown}
+            isCurrent={shownIsCurrent}
+            roles={view.badges.get(modelItemId(shown.key)) ?? []}
+            insights={insights}
+          />
+        )}
+        {roleMode ? (
+          <div className="mp-hints">
+            <p className="mp-hint" data-testid="model-role-use">
+              {t("model.roleUse", { hint: roleHint(roleTab) })}
+            </p>
+            <p className="mp-hint" data-testid="model-role-saved">
+              {t("model.roleSaved")}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="mp-ctl">
+              <span className="mp-ctl-label">{t("model.thinking")}</span>
+              <div className="mp-ctl-body">
                 {!shownIsCurrent ? (
                   <span className="mp-hint">{t("model.thinking.pending")}</span>
                 ) : !supportsThinking ? (
@@ -539,50 +471,23 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean; closing: boo
                     {running && <span className="mp-hint">{t("composer.nextRequest")}</span>}
                   </>
                 )}
+                {props.speed && shownIsCurrent && <SpeedToggle speed={props.speed} />}
               </div>
-              {props.speed && shownIsCurrent && <SpeedToggle speed={props.speed} />}
-              {props.taskId !== undefined && (
-                <PrewalkSection taskId={props.taskId} model={model} smol={view.modelOf["smol"] ?? null} />
-              )}
-              {props.taskId !== undefined && <PresetSection taskId={props.taskId} onApplied={onClose} />}
             </div>
-          )}
-          <div className="mp-actions">
-            <button
-              type="button"
-              className="mp-link"
-              onClick={() => {
-                onClose();
-                showView("settings");
-              }}
-            >
-              {t("model.addProvider")}
-            </button>
-            <span className="mp-actions-end">
-              <button type="button" className="gate-btn" onClick={onClose}>
-                {t("model.close")}
-              </button>
-              <button
-                type="button"
-                className="gate-btn"
-                data-primary
-                disabled={cursorItem === null}
-                onClick={onPrimary}
-              >
-                {primaryLabel}
-              </button>
-            </span>
-          </div>
-        </footer>
+            {props.taskId !== undefined && (
+              <PrewalkSection taskId={props.taskId} model={model} smol={view.modelOf["smol"] ?? null} />
+            )}
+            {props.taskId !== undefined && <PresetSection taskId={props.taskId} onApplied={onClose} />}
+          </>
+        )}
       </div>
-    </div>,
-    document.body,
+    </Dialog>
   );
 }
 
-/** open 变 false 后先放退出动画再卸载；每次打开都是全新的对话框状态。 */
+/** open 变 false 后等 Dialog 放完退出动画再卸载；每次打开都是全新的对话框状态。 */
 export function ModelPicker(props: ModelPickerProps & { open: boolean }) {
   const presence = usePresence(props.open);
   if (!presence.mounted) return null;
-  return <ModelPickerBody {...props} closing={presence.closing} exitProps={presence.exitProps} />;
+  return <ModelPickerBody {...props} />;
 }

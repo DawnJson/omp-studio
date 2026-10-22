@@ -8,6 +8,7 @@ import { commitTerminalHeight, previewTerminalHeight, useShellUi } from "../../a
 import { useT } from "../../i18n/use-t.ts";
 import { Close, Restart, Terminal } from "../../icons.tsx";
 import { useAppInfo } from "../../store/index.ts";
+import { IconButton } from "../../ui/controls.tsx";
 import { usePresence, type ExitProps } from "../../ui/presence.ts";
 import { setTerminalOpen } from "./terminal-store.ts";
 import { useTerminalSession } from "./use-terminal-session.ts";
@@ -106,26 +107,17 @@ function TerminalPanelBody({ terminalKey, exitProps }: { terminalKey: TerminalKe
           </span>
         )}
         <span className="terminal-spacer" />
-        <button
-          type="button"
-          className="icon-button terminal-action"
-          data-testid="terminal-restart"
-          aria-label={t("terminal.restart")}
-          title={t("terminal.restart")}
-          onClick={session.restart}
-        >
+        <IconButton label={t("terminal.restart")} testId="terminal-restart" onClick={session.restart}>
           <Restart size={14} />
-        </button>
-        <button
-          type="button"
-          className="icon-button terminal-action"
-          data-testid="terminal-hide"
-          aria-label={t("terminal.hide")}
-          title={`${t("terminal.hide")} (Ctrl \`)`}
+        </IconButton>
+        <IconButton
+          label={t("terminal.hide")}
+          tip={`${t("terminal.hide")} (Ctrl \`)`}
+          testId="terminal-hide"
           onClick={() => setTerminalOpen(terminalKey, false)}
         >
           <Close size={14} />
-        </button>
+        </IconButton>
       </header>
       <div className="terminal-body">
         <div ref={host} className="terminal-host" data-terminal-host data-testid="terminal-host" />

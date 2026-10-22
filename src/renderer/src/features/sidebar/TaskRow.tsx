@@ -2,9 +2,9 @@
 import { useRef } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { limits, type Locale, type TaskState } from "../../../../shared/ipc.ts";
-import { Branch } from "../../icons.tsx";
+import { Branch, Dots } from "../../icons.tsx";
 import { useTaskWorktree } from "../git/git-store.ts";
-import { MoreIcon } from "./icons.tsx";
+import { IconButton } from "../../ui/controls.tsx";
 import { StatusDot } from "./StatusDot.tsx";
 import { taskTail } from "../../../../shared/ui/task-time.ts";
 import { taskTitle } from "../../../../shared/ui/sidebar-model.ts";
@@ -90,6 +90,7 @@ export function TaskRow(props: TaskRowProps) {
   return (
     <div
       className="sb-row"
+      data-menu=""
       data-selected={selected}
       data-status={task.status}
       data-testid="task-row"
@@ -135,19 +136,18 @@ export function TaskRow(props: TaskRowProps) {
         )}
         {tail !== null && <span className="sb-row-tail">{tail}</span>}
       </button>
-      <button
-        type="button"
+      <IconButton
         className="sb-row-more"
+        label={t("task.more")}
         tabIndex={-1}
-        aria-label={t("task.more")}
         aria-haspopup="menu"
         onClick={(event) => {
           const box = event.currentTarget.getBoundingClientRect();
           props.onOpenMenu(task, box.left, box.bottom + 4, event.currentTarget);
         }}
       >
-        <MoreIcon />
-      </button>
+        <Dots />
+      </IconButton>
     </div>
   );
 }

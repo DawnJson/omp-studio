@@ -153,6 +153,7 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
     { id: "memory", label: t("integrations.cmd.memory"), run: () => showView("settings", { section: "context" }) },
     { id: "changelog", label: t("integrations.cmd.changelog"), run: () => showView("settings", { section: "about" }) },
     { id: "checkUpdate", label: t("cmd.checkUpdate"), run: () => showView("settings", { section: "about" }) },
+    { id: "about", label: t("window.about"), run: () => emitStudioCommand("about") },
     { id: "shortcuts", label: t("cmd.shortcuts"), run: () => showView("settings", { section: "shortcuts" }) },
     current && { id: "archive", label: t("cmd.archive"), run: () => archiveWithUndo(current.id, current.id, t) },
     // 会话信息、请求记录、置顶、分享、重试（session-info）：分享和置顶需要任务已有会话文件，没有时对话框里说明。

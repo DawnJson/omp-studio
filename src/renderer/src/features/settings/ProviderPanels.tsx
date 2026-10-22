@@ -1,9 +1,7 @@
-// 提供商行里展开的几种面板：OAuth 进度卡、选账号、输入 API key、失败。状态和动作都由 ProviderRow 持有，这里只画。
-import type { RefObject } from "react";
+// 提供商登录对话框里的几种内容：OAuth 进度、选账号、输入 API key、失败。状态和动作都由 ProviderFlowDialog 持有，这里只画正文；按钮在对话框页脚。
 import type { LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Button } from "./controls.tsx";
-import { InfoTip } from "./InfoTip.tsx";
+import { Button, FormField, TextField } from "../../ui/controls.tsx";
 
 interface LoginProgress {
   url?: string | undefined;
@@ -20,7 +18,7 @@ export type Flow =
   | { kind: "accounts" }
   | { kind: "key" };
 
-export function LoginCard({
+export function LoginBody({
   flow,
   code,
   copied,
@@ -40,18 +38,18 @@ export function LoginCard({
 }) {
   const t = useT();
   return (
-    <div className="st-login" role="status">
+    <div className="pv-flow" role="status">
       {flow.url === undefined ? (
-        <span>{t("login.opening")}</span>
+        <p className="pv-text">{t("login.opening")}</p>
       ) : (
-        <>
-          <span>{t("login.fallback")}</span>
-          <div className="st-login-line">
-            <input
-              className="st-input"
-              data-mono=""
+        <FormField label={t("login.fallback")}>
+          <div className="pv-line">
+            <TextField
+              mono
               readOnly
+              width="100%"
               value={flow.launchUrl ?? flow.url}
+              onChange={() => undefined}
               onFocus={(event) => event.target.select()}
               aria-label={t("login.fallback")}
             />
@@ -60,158 +58,104 @@ export function LoginCard({
             </Button>
             <Button onClick={() => void window.studio.openExternal(flow.url ?? "")}>{t("login.reopen")}</Button>
           </div>
-          {flow.instructions && <span className="st-muted">{flow.instructions}</span>}
-        </>
+        </FormField>
       )}
-      {flow.progress && <span className="st-muted">{flow.progress}</span>}
+      {flow.instructions && <p className="pv-text pv-muted">{flow.instructions}</p>}
+      {flow.progress && <p className="pv-text pv-muted">{flow.progress}</p>}
       {flow.input && (
-        <div className="st-login-line">
-          <input
-            className="st-input"
+        <FormField label={flow.input.title}>
+          <TextField
+            width="100%"
             type={maskInput ? "password" : "text"}
             autoComplete="off"
-            autoFocus
+            data-autofocus=""
             value={code}
             placeholder={flow.input.placeholder ?? t("login.pasteCode")}
             aria-label={flow.input.title}
-            onChange={(event) => onCode(event.target.value)}
+            onChange={onCode}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+              event.preventDefault();
+              if (code.trim() !== "" && flow.input) onSubmitCode(flow.input.inputId);
+            }}
           />
-          <Button
-            variant="primary"
-            disabled={code.trim() === ""}
-            onClick={() => flow.input && onSubmitCode(flow.input.inputId)}
-          >
-            {t("login.submit")}
-          </Button>
-        </div>
+        </FormField>
       )}
-      <div className="st-login-actions">
-        <Button variant="text" onClick={() => void window.studio.cancelLogin()}>
-          {t("login.cancel")}
-        </Button>
-      </div>
     </div>
   );
 }
 
-export function AccountsCard({
+export function AccountsBody({
   accounts,
   busy,
   onPick,
-  onCancel,
 }: {
   accounts: LogoutAccount[];
   busy: boolean;
   onPick(credentialId: number): void;
-  onCancel(): void;
 }) {
   const t = useT();
   return (
-    <div className="st-login">
-      <span>{t("login.chooseAccount")}</span>
-      <div className="st-accounts">
+    <div className="pv-flow">
+      <p className="pv-text">{t("login.chooseAccount")}</p>
+      <div className="pv-accounts">
         {accounts.map((account) => (
           <button
             key={account.credentialId}
             type="button"
-            className="st-account"
+            className="pv-account"
             disabled={busy}
             onClick={() => onPick(account.credentialId)}
           >
             <span>{account.label}</span>
-            <span className="st-muted">{account.detail}</span>
+            <span className="pv-muted">{account.detail}</span>
           </button>
         ))}
-      </div>
-      <div className="st-login-actions">
-        <Button variant="text" onClick={onCancel}>
-          {t("common.cancel")}
-        </Button>
       </div>
     </div>
   );
 }
 
-export function KeyForm({
+export function KeyBody({
   value,
-  busy,
-  inputRef,
   onChange,
-  onSave,
-  onCancel,
+  onSubmit,
 }: {
   value: string;
-  busy: boolean;
-  inputRef: RefObject<HTMLInputElement | null>;
   onChange(next: string): void;
-  onSave(): void;
-  onCancel(): void;
+  onSubmit(): void;
 }) {
   const t = useT();
   return (
-    <form
-      className="st-login"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (value.trim() !== "") onSave();
-      }}
-    >
-      <div className="st-login-line">
-        <input
-          ref={inputRef}
-          className="st-input"
+    <div className="pv-flow">
+      <FormField label={t("login.apiKey")} help={t("login.apiKey.note")}>
+        <TextField
+          mono
+          width="100%"
           type="password"
           autoComplete="off"
-          spellCheck={false}
+          data-autofocus=""
           value={value}
           placeholder={t("login.apiKey.placeholder")}
           aria-label={t("login.apiKey")}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={onChange}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+            event.preventDefault();
+            if (value.trim() !== "") onSubmit();
+          }}
         />
-        <InfoTip>{t("login.apiKey.note")}</InfoTip>
-        <Button variant="primary" disabled={value.trim() === ""} loading={busy} onClick={onSave}>
-          {t("login.apiKey.save")}
-        </Button>
-        <Button variant="text" onClick={onCancel}>
-          {t("common.cancel")}
-        </Button>
-      </div>
-    </form>
+      </FormField>
+    </div>
   );
 }
 
-export function FailedCard({
-  message,
-  copied,
-  disabled,
-  onCopy,
-  onRetry,
-  onClose,
-}: {
-  message: string;
-  copied: boolean;
-  disabled: boolean;
-  onCopy(text: string): void;
-  onRetry(): void;
-  onClose(): void;
-}) {
+export function FailedBody({ message, terminalOnly }: { message: string; terminalOnly: boolean }) {
   const t = useT();
-  const terminalOnly = /secret|terminal/i.test(message);
   return (
-    <div className="st-login" role="alert">
-      <span className="st-error-text">{t("login.failed")}</span>
-      <span className="st-muted">{terminalOnly ? t("login.terminalOnly") : message}</span>
-      <div className="st-login-actions">
-        {terminalOnly && (
-          <Button onClick={() => onCopy("omp")}>{copied ? t("common.copied") : t("login.copyCommand")}</Button>
-        )}
-        <Button disabled={disabled} onClick={onRetry}>
-          {t("common.retry")}
-        </Button>
-        <Button variant="text" onClick={onClose}>
-          {t("common.close")}
-        </Button>
-      </div>
+    <div className="pv-flow" role="alert">
+      <p className="pv-text pv-error">{t("login.failed")}</p>
+      <p className="pv-text pv-muted">{terminalOnly ? t("login.terminalOnly") : message}</p>
     </div>
   );
 }

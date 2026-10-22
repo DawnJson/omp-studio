@@ -8,7 +8,14 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { findOmp, makeRepo, put, sh } from "../git-helpers.ts";
-import { expandSidebarFolders, launchApp, screenshotsDir, testOmp, type LaunchedApp } from "./launch.ts";
+import {
+  expandSidebarFolders,
+  launchApp,
+  screenshotsDir,
+  setLocaleTheme,
+  testOmp,
+  type LaunchedApp,
+} from "./launch.ts";
 
 interface Session {
   launched: LaunchedApp;
@@ -67,25 +74,13 @@ async function shoot(page: Page, state: string): Promise<void> {
     ["en", "light"],
     ["en", "dark"],
   ] as const) {
-    await page.evaluate(
-      async ({ locale, scheme }) => {
-        await globalThis.studio.setLocale(locale);
-        await globalThis.studio.setTheme(scheme);
-      },
-      { locale, scheme },
-    );
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-    await page.waitForTimeout(250);
+    await setLocaleTheme(page, locale, scheme);
     await page.screenshot({ path: path.join(screenshotsDir, `git-${state}-${locale}-${scheme}.png`) });
   }
   // 回到中文浅色：后面的步骤按中文菜单文案找元素。
-  await page.evaluate(async () => {
-    await globalThis.studio.setLocale("zh-CN");
-    await globalThis.studio.setTheme("light");
-  });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
-  await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", "zh-CN");
+  await setLocaleTheme(page, "zh-CN", "light");
 }
 
 /** worktree 任务的 worktree 目录和分支（从主仓库的 `git worktree list` 读）。 */
@@ -109,7 +104,7 @@ async function openGitMenu(page: Page, item: RegExp): Promise<void> {
 /** 草稿顶栏分支胶囊的菜单里勾上 / 取消"在独立 worktree 里开始"（点了菜单就收回）。 */
 async function toggleDraftWorktree(page: Page): Promise<void> {
   await page.getByTestId("draft-git-menu").click();
-  await page.getByRole("menuitemcheckbox", { name: /在独立 worktree 里开始/ }).click();
+  await page.getByRole("menuitemradio", { name: /在独立 worktree 里开始/ }).click();
 }
 
 /**
@@ -161,7 +156,7 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await expect(page.getByTestId("draft-git-worktree")).toHaveCount(0);
     await expect(page.getByTestId("draft-composer").getByText("Worktree")).toHaveCount(0);
     await chip.click();
-    const item = page.getByRole("menuitemcheckbox", { name: /在独立 worktree 里开始/ });
+    const item = page.getByRole("menuitemradio", { name: /在独立 worktree 里开始/ });
     await expect(item).toHaveAttribute("aria-checked", "false");
     await expect(chip).toHaveAttribute("title", /\.omp-studio\/setup\.(ps1|sh)/);
     await item.click();
@@ -292,7 +287,7 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     expect(existsSync(dir)).toBe(true);
     await openGitMenu(page, /^丢弃 worktree/);
     await shoot(page, "discard-dialog");
-    await page.getByTestId("git-discard-confirm").click();
+    await page.getByTestId("git-discard-dialog-confirm").click();
     await expect(page.getByTestId("task-row")).toHaveCount(0);
     await expect.poll(() => existsSync(dir)).toBe(false);
     expect(sh(repo, "branch", "--list", "studio/*")).toBe("");
@@ -438,10 +433,10 @@ test("仓库还没有提交：顶栏胶囊在，创建被拒绝后 worktree 勾�
     await expect(page.getByTestId("draft-git-worktree")).toHaveCount(0);
     await expect(chip).toHaveAttribute("title", /不能用 worktree：.*还没有任何提交/);
     await chip.click();
-    const item = page.getByRole("menuitemcheckbox", { name: /在独立 worktree 里开始/ });
+    const item = page.getByRole("menuitemradio", { name: /在独立 worktree 里开始/ });
     await expect(item).toHaveAttribute("aria-disabled", "true");
     await expect(item).toHaveAttribute("aria-checked", "false");
-    await expect(item).toHaveAttribute("title", /不能用 worktree：.*还没有任何提交/);
+    await expect(item).toContainText(/不能用 worktree：.*还没有任何提交/);
     await shoot(page, "chip-blocked");
     await expect(item).toBeVisible();
     // Esc 收回菜单，焦点回到胶囊；回输入框再发。

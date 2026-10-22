@@ -41,3 +41,4 @@ omp（任务进程）──状态 toast──▶ TspRunner.#syncToggles ──pa
 - `src/main/tasks/tsp-runner.ts`：`#syncToggles`、`#toggles`；`test/task-tsp.test.ts` "会话开关"用 fake-tsp-omp 回放 `fixtures/tsp/status-toggles.jsonl`，经 `pool.runTaskCommand` 断言 `TaskState.sessionToggles` 逐项更新。
 - `src/renderer/src/features/session-toggles/`：`SessionTogglesMenu`（Composer 工具行挂载点）、`ToggleRow`、`PresetSection`（ModelPicker 里）、`toggle-slash.ts`（斜杠参数判定，纯函数，`test/toggle-slash.test.ts`）、`toggle-actions.ts`、`toggle-bus.ts`（斜杠命令请求打开菜单）、`toggles-slash.ts`（命令表里的七行）。
 - e2e：`test/e2e/session-toggles.e2e.ts`（fake-tsp-omp 回放；`getOmpConfig` 在主进程里被替换成固定的配置默认值）。
+- 界面（3.2 起，通用控件库 `ui/`）：会话开关浮层用 `ui/Switch` / `ui/Segmented` / `ui/Badge`（"本会话"，testid `toggle-<name>-session`）；"电脑操作"确认是 `Popover kind="confirm"`（宽 300）。模型选择器里思考强度是 `ui/Segmented`，Prewalk 一行是 `ui/Button` sm（启用 / 重来 / 停用——不写"关闭"，免得和对话框"关闭"同字不同义），预设是 `ui/Select`（选一项即应用，testid `model-preset-select`；命名保存时换成 `ui/TextField` + 取消 / 保存）。

@@ -7,6 +7,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Close, Folder, Plus } from "../../icons.tsx";
 import { parseDirsOutput } from "../../../../shared/omp-output/dirs.ts";
 import { pushToast } from "../dialogs/index.ts";
+import { Button, IconButton } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { baseName } from "./PreviewContent.tsx";
 import { selectRootWhenListed } from "./roots-store.ts";
@@ -91,31 +92,30 @@ export function WorkspaceRoots({ taskId, cwd, dirs, root, onSelect }: WorkspaceR
               <Folder size={12} />
               <span>{name}</span>
             </button>
-            <button
-              type="button"
-              className="icon-button file-preview-root-remove"
+            <IconButton
+              label={t("preview.removeDir", { name })}
+              tip={t("preview.removeDirTitle", { path: dir })}
+              className="file-preview-root-remove"
               disabled={busy}
-              data-testid={`workspace-root-remove-${index}`}
-              aria-label={t("preview.removeDir", { name })}
-              title={t("preview.removeDirTitle", { path: dir })}
+              testId={`workspace-root-remove-${index}`}
               onClick={() => remove(index)}
             >
               <Close size={10} />
-            </button>
+            </IconButton>
           </span>
         );
       })}
-      <button
-        type="button"
-        className="file-preview-root file-preview-root-add"
+      <Button
+        variant="quiet"
+        size="sm"
+        icon={<Plus size={12} />}
         disabled={busy}
-        data-testid="workspace-add-dir"
+        testId="workspace-add-dir"
         title={t("preview.addDirTitle")}
         onClick={add}
       >
-        <Plus size={12} />
-        <span>{t("preview.addDir")}</span>
-      </button>
+        {t("preview.addDir")}
+      </Button>
     </div>
   );
 }

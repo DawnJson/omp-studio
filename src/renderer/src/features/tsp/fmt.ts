@@ -93,3 +93,50 @@ export function keycapLabel(name: string): string {
   if ([...name].length === 1) return name.toUpperCase();
   return name;
 }
+
+const GATE_KEY_NAMES: Record<string, string> = {
+  ctrl: "Ctrl",
+  control: "Ctrl",
+  alt: "Alt",
+  option: "Alt",
+  opt: "Alt",
+  shift: "Shift",
+  cmd: "Win",
+  command: "Win",
+  meta: "Win",
+  super: "Win",
+  win: "Win",
+  enter: "Enter",
+  return: "Enter",
+  esc: "Esc",
+  escape: "Esc",
+  tab: "Tab",
+  backspace: "Backspace",
+  delete: "Del",
+  del: "Del",
+  space: "Space",
+  up: "↑",
+  down: "↓",
+  left: "←",
+  right: "→",
+  pageup: "PgUp",
+  pagedown: "PgDn",
+  home: "Home",
+  end: "End",
+};
+
+/**
+ * 门（提问 / 审批）和 omp 弹层里按钮的快捷键提示：Windows 上写键名（`Ctrl+Enter`、`Alt+H`、`Esc`），不用 mac 符号。
+ * 过程区的 kbd 节点仍走 keycapLabel，不受影响。
+ */
+export function gateKeyHint(keys: readonly string[]): string {
+  return keys
+    .map((name) => {
+      const key = name.toLowerCase();
+      const named = GATE_KEY_NAMES[key];
+      if (named !== undefined) return named;
+      if (/^f\d{1,2}$/.test(key)) return key.toUpperCase();
+      return [...name].length === 1 ? name.toUpperCase() : name;
+    })
+    .join("+");
+}

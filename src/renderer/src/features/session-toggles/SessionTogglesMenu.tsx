@@ -9,13 +9,12 @@ import { toggleView, type BrowserMode, type ToggleName } from "../../../../share
 import { useT } from "../../i18n/use-t.ts";
 import { Sliders } from "../../icons.tsx";
 import { reportOmpError } from "../../ui/errors.ts";
+import { Badge, Button, Segmented } from "../../ui/controls.tsx";
 import { Popover } from "../../ui/Popover.tsx";
-import { Segmented } from "../settings/controls.tsx";
 import { ToggleRow } from "./ToggleRow.tsx";
 import { runToggleCommand } from "./toggle-actions.ts";
 import { onTogglesMenuRequest } from "./toggle-bus.ts";
 import { useToggleDefaults } from "./use-toggle-defaults.ts";
-import "../settings/settings.css";
 import "./toggles.css";
 
 type SessionToggleName = Exclude<ToggleName, "fast" | "slow">;
@@ -79,7 +78,7 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
     <div className="ui-popover-anchor">
       <button
         type="button"
-        className="tool-btn tg-button"
+        className="ui-chip tg-button"
         data-testid="toggles-button"
         data-differs={anyDiffers || undefined}
         aria-haspopup="dialog"
@@ -90,32 +89,37 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
       >
         <Sliders size={16} />
       </button>
-      <Popover open={open} onClose={close} label={t("toggles.title")} width={340}>
+      <Popover
+        open={open}
+        onClose={close}
+        label={t("toggles.title")}
+        kind={confirming ? "confirm" : undefined}
+        width={confirming ? undefined : 340}
+      >
         {confirming ? (
-          <div className="pop-section" data-testid="toggles-computer-confirm">
-            <p className="pop-title">{t("toggles.computerConfirmTitle")}</p>
-            <p className="pop-note tg-confirm-body">{t("toggles.computerConfirmBody")}</p>
-            <div className="pop-actions">
-              <button type="button" className="gate-btn" onClick={() => setConfirming(false)}>
+          <div data-testid="toggles-computer-confirm">
+            <p className="ui-pop-title">{t("toggles.computerConfirmTitle")}</p>
+            <p className="ui-pop-body">{t("toggles.computerConfirmBody")}</p>
+            <div className="ui-pop-actions">
+              <Button size="sm" onClick={() => setConfirming(false)}>
                 {t("common.cancel")}
-              </button>
-              <button
-                type="button"
-                className="gate-btn"
-                data-primary
-                data-testid="toggles-computer-confirm-yes"
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                testId="toggles-computer-confirm-yes"
                 onClick={() => {
                   setConfirming(false);
                   runCommand("computer", { kind: "toggle", name: "computer", on: true });
                 }}
               >
                 {t("toggles.computerConfirmYes")}
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
           <div ref={menuRef} className="tg-menu" role="group" aria-label={t("toggles.title")} aria-busy={busy !== null}>
-            <p className="pop-note">{t("toggles.note")}</p>
+            <p className="tg-note">{t("toggles.note")}</p>
             {sessionRows.map((name) => {
               const view = toggleView(toggles[name], defaults[name]);
               return (
@@ -152,8 +156,13 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
                 </span>
                 <span className="tg-hint">{t("toggles.browser.hint")}</span>
               </div>
-              {browser.session && <span className="tg-session">{t("toggles.session")}</span>}
+              {browser.session && (
+                <Badge tone="accent" testId="toggle-browser-session">
+                  {t("toggles.session")}
+                </Badge>
+              )}
               <Segmented<BrowserMode>
+                size="sm"
                 value={browser.value ?? "visible"}
                 labelledBy="tg-browser-label"
                 testId="toggle-browser-mode"

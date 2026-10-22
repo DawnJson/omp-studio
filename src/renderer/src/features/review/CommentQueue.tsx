@@ -1,64 +1,63 @@
-// 待发送的评论：按文件和行排序，可改、可删、点标题跳到对应文件。
+// 待发送的评论：工具条上"评论 N"按钮，点开是列表浮层（按文件和行排序），点一条跳到对应文件；评论本身只在 diff 里改 / 删。
+import { useState } from "react";
 import { rangeText, sortComments, type QueuedComment } from "../../../../shared/ui/review-model.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { removeComment, updateComment } from "../../store/review-store.ts";
-import type { TaskId } from "../../../../shared/ipc.ts";
-import { useState } from "react";
-import { CommentBox } from "./CommentBox.tsx";
+import { Comment } from "../../icons.tsx";
+import { Badge, Button } from "../../ui/controls.tsx";
+import { anchorBelow, Menu, type MenuAnchor } from "../../ui/Menu.tsx";
+
+const NOTE_MAX = 80;
+
+function preview(body: string): string {
+  const flat = body.replace(/\s+/g, " ").trim();
+  return flat.length > NOTE_MAX ? `${flat.slice(0, NOTE_MAX)}…` : flat;
+}
 
 export function CommentQueue({
-  taskId,
   comments,
   onJump,
 }: {
-  taskId: TaskId;
   comments: readonly QueuedComment[];
   onJump(comment: QueuedComment): void;
 }) {
   const t = useT();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  if (comments.length === 0) return <p className="rv-empty">{t("review.queueEmpty")}</p>;
+  const [menu, setMenu] = useState<MenuAnchor | null>(null);
+  const empty = comments.length === 0;
   return (
-    <ol className="rv-queue" aria-label={t("review.queue")} data-testid="comment-queue">
-      {sortComments(comments).map((comment) => (
-        <li key={comment.id} className="rv-queue-item" data-testid="queued-comment">
-          <button type="button" className="rv-queue-ref" onClick={() => onJump(comment)} title={comment.file}>
-            <span className="rv-queue-file">{comment.file}</span>
-            <span className="rv-queue-range">:{rangeText(comment.startLine, comment.endLine)}</span>
-            {comment.side === "old" && <span className="rv-tag">{t("review.commentOld")}</span>}
-          </button>
-          {editingId === comment.id ? (
-            <CommentBox
-              initial={comment.body}
-              submitLabel={t("review.commentSave")}
-              startLine={comment.startLine}
-              endLine={comment.endLine}
-              onSubmit={(body) => {
-                updateComment(taskId, comment.id, body.trim());
-                setEditingId(null);
-              }}
-              onCancel={() => setEditingId(null)}
-            />
-          ) : (
-            <>
-              <p className="rv-queue-body">{comment.body}</p>
-              <div className="rv-card-actions">
-                <button type="button" className="rv-btn rv-btn-text" onClick={() => setEditingId(comment.id)}>
-                  {t("review.edit")}
-                </button>
-                <button
-                  type="button"
-                  className="rv-btn rv-btn-text"
-                  data-testid="queued-delete"
-                  onClick={() => removeComment(taskId, comment.id)}
-                >
-                  {t("review.delete")}
-                </button>
-              </div>
-            </>
-          )}
-        </li>
-      ))}
-    </ol>
+    <>
+      <Button
+        size="sm"
+        icon={<Comment size={14} />}
+        disabled={empty}
+        title={empty ? t("review.queueEmpty") : t("review.queue")}
+        aria-haspopup="menu"
+        aria-expanded={menu !== null}
+        data-testid="comment-queue-button"
+        onClick={(event) => setMenu(menu !== null ? null : anchorBelow(event.currentTarget))}
+      >
+        {t("review.tabComments")}
+        {!empty && (
+          <Badge tone="accent" testId="comment-count">
+            {comments.length}
+          </Badge>
+        )}
+      </Button>
+      {menu && !empty && (
+        <Menu
+          anchor={menu}
+          label={t("review.queue")}
+          testId="comment-queue"
+          onClose={() => setMenu(null)}
+          items={sortComments(comments).map((comment) => ({
+            id: comment.id,
+            label: `${comment.file}:${rangeText(comment.startLine, comment.endLine)}`,
+            note:
+              comment.side === "old" ? `${t("review.commentOld")} · ${preview(comment.body)}` : preview(comment.body),
+            testId: "queued-comment",
+            onSelect: () => onJump(comment),
+          }))}
+        />
+      )}
+    </>
   );
 }

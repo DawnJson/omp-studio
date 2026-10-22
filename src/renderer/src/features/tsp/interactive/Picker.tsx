@@ -13,6 +13,7 @@ import type {
   TspTone,
 } from "../../../../../shared/tsp/tsp.generated.ts";
 import { useT } from "../../../i18n/use-t.ts";
+import { Badge, Button, type Tone } from "../../../ui/controls.tsx";
 import { TspIcon } from "../icons.tsx";
 import type { NodeProps } from "../node-props.ts";
 import { TspSpans } from "../spans.tsx";
@@ -212,9 +213,9 @@ export function Picker({ node, ctx }: NodeProps) {
           )}
           <span className="tspi-pk-count">{countText}</span>
           {actions.some(isEscape) ? null : (
-            <button type="button" className="tspi-pk-esc" onClick={() => send(closeAction)}>
-              <kbd className="tspi-kbd">esc</kbd>
-            </button>
+            <Button size="sm" variant="quiet" hint="Esc" onClick={() => send(closeAction)}>
+              {t("tspi.close")}
+            </Button>
           )}
         </div>
 
@@ -223,16 +224,18 @@ export function Picker({ node, ctx }: NodeProps) {
           <div className="tspi-pk-center">
             <div className="tspi-pk-main" ref={main}>
               {tabs.length > 0 ? (
-                <div className={tabs.length <= 4 ? "tspi-pk-tabs seg" : "tspi-pk-tabs chips"}>
+                <div className="ui-tabs tspi-pk-tabs" role="tablist">
                   {tabs.map((tab) => (
                     <button
                       type="button"
                       key={tab.id}
-                      className={tab.id === p.tab ? "tspi-pk-tab on" : "tspi-pk-tab"}
+                      role="tab"
+                      aria-selected={tab.id === p.tab}
+                      className="ui-tab"
                       onClick={() => send("tab", tab.id)}
                     >
                       <TspSpans text={tab.label} />
-                      {tab.count !== undefined ? <span className="n">{tab.count}</span> : null}
+                      {tab.count !== undefined ? <span className="ui-count">{tab.count}</span> : null}
                     </button>
                   ))}
                 </div>
@@ -293,16 +296,12 @@ export function Picker({ node, ctx }: NodeProps) {
                       <span className="tspi-pk-ct">
                         <TspSpans text={p.confirm.text} />
                       </span>
-                      <button
-                        type="button"
-                        className="tspi-pk-btn danger"
-                        onClick={() => send(p.confirm?.act ?? "confirm")}
-                      >
+                      <Button size="sm" variant="danger" onClick={() => send(p.confirm?.act ?? "confirm")}>
                         {p.confirm.label ?? t("tspi.delete")}
-                      </button>
-                      <button type="button" className="tspi-pk-btn" onClick={() => send("cancel")}>
+                      </Button>
+                      <Button size="sm" onClick={() => send("cancel")}>
                         {t("tspi.keep")}
-                      </button>
+                      </Button>
                     </div>
                   ) : null}
                 </div>
@@ -321,9 +320,9 @@ export function Picker({ node, ctx }: NodeProps) {
                     <TspSpans text={p.message} />
                   </div>
                   {actions.some((a) => a.id === "retry") ? (
-                    <button type="button" className="tspi-pk-btn" onClick={() => send("retry")}>
+                    <Button size="sm" onClick={() => send("retry")}>
                       {t("tspi.retry")}
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               ) : null}
@@ -341,14 +340,14 @@ export function Picker({ node, ctx }: NodeProps) {
                     )}
                   </div>
                   {noQuery && tabAction ? (
-                    <button type="button" className="tspi-pk-btn" onClick={() => send(tabAction.id)}>
+                    <Button size="sm" onClick={() => send(tabAction.id)}>
                       {tabAction.label}
-                    </button>
+                    </Button>
                   ) : null}
                   {!noQuery ? (
-                    <button type="button" className="tspi-pk-btn" onClick={() => send("clear")}>
+                    <Button size="sm" onClick={() => send("clear")}>
                       {t("tspi.clearSearch")}
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               ) : null}
@@ -379,9 +378,11 @@ export function Picker({ node, ctx }: NodeProps) {
               <button
                 type="button"
                 key={chip.id}
-                className={["tspi-pk-schip", chip.on ? "on" : "", p.strip?.selected === chip.id ? "sel" : ""]
+                className={["ui-btn", "tspi-pk-schip", p.strip?.selected === chip.id ? "sel" : ""]
                   .filter(Boolean)
                   .join(" ")}
+                data-size="sm"
+                aria-pressed={chip.on === true}
                 onClick={() => send("strip", chip.id)}
               >
                 {chip.dot !== undefined ? <span className="dot" data-dot={chip.dot} /> : null}
@@ -421,17 +422,10 @@ function ActionButton({ action, onPick }: { action: TspPickerAction; onPick(act:
   const hint = action.keys?.map((k) => (k.length === 1 ? k.toUpperCase() : k[0]?.toUpperCase() + k.slice(1))).join("+");
   const title = typeof action.disabled === "string" ? action.disabled : hint;
   return (
-    <button
-      type="button"
-      className={[
-        "tspi-pk-btn",
-        action.primary ? "primary" : "",
-        action.danger ? "danger" : "",
-        action.on ? "on" : "",
-        off ? "off" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
+    <Button
+      size="sm"
+      variant={action.primary ? "primary" : action.danger ? "danger" : "secondary"}
+      className={action.on ? "tspi-pk-on" : undefined}
       aria-pressed={action.on}
       aria-disabled={off || undefined}
       title={title}
@@ -440,8 +434,13 @@ function ActionButton({ action, onPick }: { action: TspPickerAction; onPick(act:
       }}
     >
       {action.label}
-    </button>
+    </Button>
   );
+}
+
+/** picker 的徽标 / 芯片色：只有 ui 的五种色有对应的样式，其余（pending、muted 等）用中性。 */
+function isUiTone(tone: TspTone | undefined): tone is Tone {
+  return tone === "neutral" || tone === "success" || tone === "accent" || tone === "warning" || tone === "error";
 }
 
 function GroupLabel({ entry }: { entry: Extract<PickerEntry, { kind: "group" }> }) {
@@ -600,29 +599,25 @@ function Row({ entry, layout, columns, selected, current, hasCurrent, hits, onCl
           {badges.length > 0 || (item.chips?.length ?? 0) > 0 ? (
             <span className="tspi-pk-tags">
               {badges.slice(0, 3).map((b, i) => (
-                <span key={i} className="tspi-pk-badge" data-tone={b.tone} title={b.title}>
+                <Badge key={i} tone={isUiTone(b.tone) ? b.tone : "neutral"} title={b.title}>
                   {b.text}
-                </span>
+                </Badge>
               ))}
               {badges.length > 3 ? (
-                <span
-                  className="tspi-pk-badge"
+                <Badge
                   title={badges
                     .slice(3)
                     .map((b) => b.text)
                     .join(", ")}
                 >
                   +{badges.length - 3}
-                </span>
+                </Badge>
               ) : null}
               {(item.chips ?? []).map((c, i) => (
-                <span
-                  key={`c${i}`}
-                  className={["tspi-pk-chip", c.on ? "on" : "", c.auto ? "auto" : ""].filter(Boolean).join(" ")}
-                >
+                <Badge key={`c${i}`} tone={c.on ? "accent" : "neutral"}>
                   {c.dot !== undefined ? <span className="dot" data-dot={c.dot} /> : null}
                   {c.text}
-                </span>
+                </Badge>
               ))}
             </span>
           ) : null}

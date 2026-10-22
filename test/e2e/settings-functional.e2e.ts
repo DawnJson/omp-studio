@@ -7,19 +7,7 @@ import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
-
-async function localeAndTheme(page: Page, locale: "zh-CN" | "en", theme: "light" | "dark"): Promise<void> {
-  await page.evaluate(
-    async ({ locale: nextLocale, theme: nextTheme }) => {
-      await globalThis.studio.setLocale(nextLocale);
-      await globalThis.studio.setTheme(nextTheme);
-    },
-    { locale, theme },
-  );
-  await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-}
+import { launchApp, screenshotsDir, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 async function launchSettings(
   extraEnv: Record<string, string> = {},
@@ -49,7 +37,7 @@ async function launchSettings(
 async function screenshots(page: Page, name: string, prepare?: () => Promise<void>): Promise<void> {
   for (const locale of ["zh-CN", "en"] as const) {
     for (const theme of ["light", "dark"] as const) {
-      await localeAndTheme(page, locale, theme);
+      await setLocaleTheme(page, locale, theme);
       await prepare?.();
       await page.screenshot({ path: path.join(screenshotsDir, `settings-f-${name}-${locale}-${theme}.png`) });
     }
@@ -60,18 +48,33 @@ test("提供商与账号：再次进入时立即显示上次的结果，不再�
   const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
-    await localeAndTheme(page, "zh-CN", "light");
+    await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("settings-nav-providers").click();
-    const rows = page.getByTestId("providers").locator(".st-provider-head");
-    await expect(rows.first()).toBeVisible({ timeout: 30_000 });
-    const firstCount = await rows.count();
-    expect(firstCount).toBeGreaterThan(0);
+    // 没连接的提供商不铺开：页面上只有"其他提供商"一个带计数的小节。
+    const others = page.getByTestId("providers-others");
+    await expect(others).toBeVisible({ timeout: 30_000 });
+    const firstCount = await others.locator(".ui-count").innerText();
+    expect(Number(firstCount)).toBeGreaterThan(0);
 
     await page.getByTestId("settings-nav-general").click();
     await page.getByTestId("settings-nav-providers").click();
     // 点击后同一次渲染里就有内容：不等刷新、没有加载提示。
     await expect(page.getByText("正在读取模型…")).toHaveCount(0);
-    expect(await rows.count()).toBe(firstCount);
+    await expect(others).toBeVisible();
+    await expect(others.locator(".ui-count")).toHaveText(firstCount);
+    // "连接提供商…"打开可搜索的对话框，能搜到并走到填 key 入口。对话框里只有没连接的提供商；
+    // 哪些已连接取决于本机环境变量（如 DEEPSEEK_API_KEY），所以取列表里第一个能填 key 的，不写死名字。
+    await page.getByTestId("providers-connect").click();
+    const pick = page.getByTestId("provider-pick");
+    const firstKey = pick.locator('[data-testid^="provider-key-"]').first();
+    const id = ((await firstKey.getAttribute("data-testid")) ?? "").slice("provider-key-".length);
+    expect(id).not.toBe("");
+    await page.getByTestId("provider-search").fill(id);
+    await expect(pick.getByTestId(`provider-${id}`)).toBeVisible();
+    await pick.getByTestId(`provider-key-${id}`).click();
+    await expect(page.getByTestId(`provider-flow-${id}`)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId(`provider-flow-${id}`)).toHaveCount(0);
     await page.screenshot({ path: path.join(screenshotsDir, "settings-f-models-cached-zh-CN-light.png") });
   } finally {
     await launched.close();
@@ -124,7 +127,7 @@ test("omp 设置：各节只放常用项，其余在“高级”；终端专用�
   const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
-    await localeAndTheme(page, "zh-CN", "light");
+    await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("settings-nav-tools").click();
     await expect(page.getByTestId("cfg-bash.enabled")).toBeVisible({ timeout: 30_000 });
     await page.getByTestId("settings-nav-models").click();
@@ -132,8 +135,10 @@ test("omp 设置：各节只放常用项，其余在“高级”；终端专用�
     // 插话 / 稍后消息的处理方式和 Enter 的行为在"通用"同一张卡里。
     await page.getByTestId("settings-nav-general").click();
     await expect(page.getByTestId("cfg-steeringMode")).toBeVisible();
-    // 高级：按分组列出非常用项，常用项不重复出现。
+    // 高级：页内目录 + 选中分组的行平铺（没有折叠），常用项不重复出现。
     await page.getByTestId("settings-nav-advanced").click();
+    await expect(page.getByTestId("advanced-toc")).toBeVisible();
+    await page.getByTestId("advanced-toc-tools").click();
     await expect(page.getByTestId("cfg-advanced-tools")).toBeVisible();
     await expect(page.getByTestId("cfg-tools.approvalMode")).toHaveCount(0);
     await page.getByTestId("settings-search").fill("theme.dark");
@@ -273,7 +278,7 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
   const { launched, agentDir } = await launchSettings({ USERPROFILE: home, HOME: home });
   try {
     const { page } = launched;
-    await localeAndTheme(page, "en", "light");
+    await setLocaleTheme(page, "en", "light");
     await page.getByTestId("settings-nav-integrations").click({ timeout: 60_000 });
 
     // ── MCP：本地命令（参数里有空格和单引号，靠 omp 的双引号切词存对）──
@@ -329,10 +334,12 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(page.getByTestId("mcp-test-result-remote1")).toBeVisible({ timeout: 60_000 });
 
     // 删除先确认。
+    await page.getByTestId("mcp-more-demo").click();
     await page.getByTestId("mcp-remove-demo").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
     await expect(page.getByTestId("mcp-row-demo")).toHaveCount(0);
     await expect.poll(async () => Object.keys(await mcpServers(agentDir))).toEqual(["remote1"]);
+    await page.getByTestId("mcp-more-remote1").click();
     await page.getByTestId("mcp-remove-remote1").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
     await expect(page.getByTestId("mcp-empty")).toBeVisible();
@@ -365,6 +372,7 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(page.getByTestId("ssh-form-error")).toContainText("already exists");
     await page.getByTestId("ssh-cancel").click();
 
+    await page.getByTestId("ssh-more-box").click();
     await page.getByTestId("ssh-remove-box").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
     await expect(page.getByTestId("ssh-row-box")).toHaveCount(0);
@@ -411,16 +419,17 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
   const { launched, agentDir } = await launchSettings({ USERPROFILE: home, HOME: home });
   try {
     const { page } = launched;
-    await localeAndTheme(page, "en", "light");
+    await setLocaleTheme(page, "en", "light");
     await page.getByTestId("settings-nav-plugins").click();
     await expect(page.getByTestId("plugins-empty")).toBeVisible({ timeout: 60_000 });
+    await page.getByTestId("marketplace-add-open").click();
     await expect(page.getByTestId("marketplace-add")).toBeDisabled();
 
     // 添加市场（本地目录）。
     await page.getByTestId("marketplace-add-input").fill(market);
     await page.getByTestId("marketplace-add").click();
+    await expect(page.getByTestId("marketplace-add-dialog")).toHaveCount(0);
     await expect(page.getByTestId("marketplace-local-mk")).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByTestId("marketplace-add-input")).toHaveValue("");
     // 添加市场不影响运行中的任务，不出现重新加载提示。
     await expect(page.getByTestId("plugins-reload")).toHaveCount(0);
 
@@ -428,7 +437,7 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
     await page.getByTestId("marketplace-browse-btn-local-mk").click();
     await expect(page.getByTestId("discover-p1@local-mk")).toContainText("First local plugin", { timeout: 60_000 });
     await page.getByTestId("discover-install-p1@local-mk").click();
-    const dialog = page.getByRole("alertdialog");
+    const dialog = page.getByTestId("plugin-install-confirm");
     await expect(dialog).toContainText("third-party code");
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toHaveCount(0);
@@ -436,7 +445,7 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
     expect((await page.evaluate(() => globalThis.studio.listPlugins(null))).marketplace).toHaveLength(0);
 
     await page.getByTestId("discover-install-p1@local-mk").click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Install and trust" }).click();
+    await page.getByTestId("plugin-install-confirm").getByRole("button", { name: "Install and trust" }).click();
     await expect(page.getByTestId("plugin-row-p1@local-mk")).toBeVisible({ timeout: 120_000 });
     await expect(page.getByTestId("plugins-reload")).toBeVisible();
     await expect(page.getByTestId("discover-p1@local-mk")).toContainText("Installed");
@@ -457,17 +466,19 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
     await page.screenshot({ path: path.join(screenshotsDir, "settings-f-plugins-en-light.png") });
 
     // 卸载先确认。
+    await page.getByTestId("plugin-more-p1@local-mk").click();
     await page.getByTestId("plugin-uninstall-p1@local-mk").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Uninstall" }).click();
     await expect(page.getByTestId("plugin-row-p1@local-mk")).toHaveCount(0, { timeout: 60_000 });
     await expect(page.getByTestId("plugins-empty")).toBeVisible();
 
     // 移除市场。
+    await page.getByTestId("marketplace-more-local-mk").click();
     await page.getByTestId("marketplace-remove-local-mk").click();
     await expect(page.getByTestId("marketplace-local-mk")).toHaveCount(0, { timeout: 60_000 });
 
     // 中文界面同一页。
-    await localeAndTheme(page, "zh-CN", "dark");
+    await setLocaleTheme(page, "zh-CN", "dark");
     await expect(page.getByTestId("plugins-installed")).toContainText("已安装");
     await page.screenshot({ path: path.join(screenshotsDir, "settings-f-plugins-zh-CN-dark.png") });
   } finally {

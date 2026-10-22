@@ -2,6 +2,7 @@
 import type { TerminalKey } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Terminal } from "../../icons.tsx";
+import { IconButton } from "../../ui/controls.tsx";
 import { toggleTerminal } from "./terminal-actions.ts";
 import { useTerminalOpen } from "./terminal-store.ts";
 
@@ -9,17 +10,15 @@ export function TerminalToggle({ terminalKey }: { terminalKey: TerminalKey }) {
   const t = useT();
   const open = useTerminalOpen(terminalKey);
   return (
-    <button
-      type="button"
-      className="topbar-tool"
-      data-testid="topbar-terminal"
-      aria-label={t("terminal.toggle")}
-      aria-pressed={open}
-      aria-expanded={open}
-      title={`${t("terminal.toggle")} (Ctrl \`)`}
+    <IconButton
+      label={t("terminal.toggle")}
+      tip={`${t("terminal.toggle")} (Ctrl \`)`}
+      pressed={open}
+      expanded={open}
+      testId="topbar-terminal"
       onClick={() => toggleTerminal(terminalKey)}
     >
       <Terminal size={16} />
-    </button>
+    </IconButton>
   );
 }

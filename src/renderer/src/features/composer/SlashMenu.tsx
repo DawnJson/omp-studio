@@ -35,7 +35,7 @@ export function SlashMenu({ id, open, commands: liveCommands, active, onHover, o
       data-testid="slash-menu"
       {...presence.exitProps}
     >
-      {commands.length === 0 && <p className="pop-note">{t("slash.empty")}</p>}
+      {commands.length === 0 && <p className="slash-empty">{t("slash.empty")}</p>}
       {commands.map((command, index) => (
         <button
           key={command.name}

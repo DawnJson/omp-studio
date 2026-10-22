@@ -1,10 +1,10 @@
-// 添加 SSH 主机的表单：名称、主机、用户、端口、密钥路径、说明、兼容模式、范围。校验和报错都以 omp 的话为准（`omp ssh add` 的原文）。
-import { useId, useState, type KeyboardEvent } from "react";
+// 添加 SSH 主机的对话框：名称、主机、用户、端口、密钥路径、说明、兼容模式、范围。校验和报错都以 omp 的话为准（`omp ssh add` 的原文）。
+import { useId, useState } from "react";
 import type { SshHostInput } from "../../../../shared/omp-output/ssh.ts";
 import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Button, Segmented, Switch, type Option } from "./controls.tsx";
-import { InfoTip } from "./InfoTip.tsx";
+import { Button, Checkbox, FormField, Notice, Segmented, TextField, type Option } from "../../ui/controls.tsx";
+import { Dialog } from "../../ui/Dialog.tsx";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
 import "./integrations.css";
 
@@ -13,7 +13,7 @@ type Scope = "user" | "project";
 function Field({
   id,
   label,
-  tip,
+  help,
   value,
   onChange,
   placeholder,
@@ -22,38 +22,34 @@ function Field({
 }: {
   id: string;
   label: string;
-  tip?: string;
+  help?: string | undefined;
   value: string;
   onChange(next: string): void;
-  placeholder?: string;
+  placeholder?: string | undefined;
   testId: string;
   autoFocus?: boolean;
 }) {
   return (
-    <div className="ig-field">
-      <label className="ig-label" htmlFor={id}>
-        {label}
-        {tip !== undefined && <InfoTip>{tip}</InfoTip>}
-      </label>
-      <input
+    <FormField label={label} htmlFor={id} help={help}>
+      <TextField
         id={id}
-        className="st-input"
-        data-mono
+        mono
+        width="100%"
         autoComplete="off"
-        spellCheck={false}
-        autoFocus={autoFocus}
+        data-autofocus={autoFocus ? "" : undefined}
         value={value}
         placeholder={placeholder}
-        data-testid={testId}
-        onChange={(event) => onChange(event.target.value)}
+        testId={testId}
+        onChange={onChange}
       />
-    </div>
+    </FormField>
   );
 }
 
 export function SshForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(message: string | null): void }) {
   const t = useT();
   const uid = useId();
+  const [open, setOpen] = useState(true);
   const [name, setName] = useState("");
   const [host, setHost] = useState("");
   const [username, setUsername] = useState("");
@@ -97,103 +93,101 @@ export function SshForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(messa
     }
   };
 
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== "Escape") return;
-    event.preventDefault(); // 只关表单，不让设置页把这次 Esc 当成"退出设置"
-    onDone(null);
-  };
-
   return (
-    <form
-      className="st-login ig-form"
-      data-testid="ssh-form"
-      onKeyDown={onKeyDown}
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (canSave && !busy) void submit();
-      }}
+    <Dialog
+      open={open}
+      onClose={() => setOpen(false)}
+      onExited={() => onDone(null)}
+      title={t("integrations.ssh.form.title")}
+      testId="ssh-form"
+      footer={
+        <>
+          <Button onClick={() => setOpen(false)} testId="ssh-cancel">
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" disabled={!canSave} loading={busy} onClick={() => void submit()} testId="ssh-save">
+            {t("integrations.add")}
+          </Button>
+        </>
+      }
     >
-      <Field
-        id={`${uid}-name`}
-        label={t("integrations.ssh.name")}
-        value={name}
-        onChange={setName}
-        placeholder="my-box"
-        testId="ssh-name"
-        autoFocus
-      />
-      <Field
-        id={`${uid}-host`}
-        label={t("integrations.ssh.host")}
-        value={host}
-        onChange={setHost}
-        placeholder="192.168.1.10"
-        testId="ssh-host"
-      />
-      <Field
-        id={`${uid}-user`}
-        label={t("integrations.ssh.user")}
-        value={username}
-        onChange={setUsername}
-        testId="ssh-user"
-      />
-      <Field
-        id={`${uid}-port`}
-        label={t("integrations.ssh.port")}
-        value={port}
-        onChange={setPort}
-        placeholder="22"
-        testId="ssh-port"
-      />
-      <Field
-        id={`${uid}-key`}
-        label={t("integrations.ssh.key")}
-        tip={t("integrations.ssh.key.tip")}
-        value={keyPath}
-        onChange={setKeyPath}
-        testId="ssh-key"
-      />
-      <Field
-        id={`${uid}-desc`}
-        label={t("integrations.ssh.desc")}
-        value={description}
-        onChange={setDescription}
-        testId="ssh-desc"
-      />
-      <div className="ig-field">
-        <span className="ig-label" id={`${uid}-compat`}>
-          {t("integrations.ssh.compat")}
-          <InfoTip>{t("integrations.ssh.compat.tip")}</InfoTip>
-        </span>
-        <Switch checked={compat} labelledBy={`${uid}-compat`} onChange={setCompat} testId="ssh-compat" />
-      </div>
-      {scopeKey !== "user" && (
-        <div className="ig-field">
-          <span className="ig-label" id={`${uid}-scope`}>
-            {t("integrations.field.scope")}
-          </span>
-          <Segmented<Scope>
-            value={scope}
-            options={scopes}
-            labelledBy={`${uid}-scope`}
-            onChange={setScope}
-            testId="ssh-scope"
+      <form
+        className="ig-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (canSave && !busy) void submit();
+        }}
+      >
+        <Field
+          id={`${uid}-name`}
+          label={t("integrations.ssh.name")}
+          value={name}
+          onChange={setName}
+          placeholder="my-box"
+          testId="ssh-name"
+          autoFocus
+        />
+        <Field
+          id={`${uid}-host`}
+          label={t("integrations.ssh.host")}
+          value={host}
+          onChange={setHost}
+          placeholder="192.168.1.10"
+          testId="ssh-host"
+        />
+        <div className="ig-line">
+          <Field
+            id={`${uid}-user`}
+            label={t("integrations.ssh.user")}
+            value={username}
+            onChange={setUsername}
+            testId="ssh-user"
+          />
+          <Field
+            id={`${uid}-port`}
+            label={t("integrations.ssh.port")}
+            value={port}
+            onChange={setPort}
+            placeholder="22"
+            testId="ssh-port"
           />
         </div>
-      )}
-      {error !== null && (
-        <div className="st-error-text ig-raw" role="alert" data-testid="ssh-form-error">
-          {error}
-        </div>
-      )}
-      <div className="st-login-actions">
-        <Button variant="primary" disabled={!canSave} loading={busy} onClick={() => void submit()} testId="ssh-save">
-          {t("integrations.add")}
-        </Button>
-        <Button variant="text" onClick={() => onDone(null)} testId="ssh-cancel">
-          {t("common.cancel")}
-        </Button>
-      </div>
-    </form>
+        <Field
+          id={`${uid}-key`}
+          label={t("integrations.ssh.key")}
+          help={t("integrations.ssh.key.tip")}
+          value={keyPath}
+          onChange={setKeyPath}
+          testId="ssh-key"
+        />
+        <Field
+          id={`${uid}-desc`}
+          label={t("integrations.ssh.desc")}
+          value={description}
+          onChange={setDescription}
+          testId="ssh-desc"
+        />
+        {scopeKey !== "user" && (
+          <FormField label={t("integrations.field.scope")}>
+            <Segmented<Scope>
+              value={scope}
+              options={scopes}
+              label={t("integrations.field.scope")}
+              onChange={setScope}
+              testId="ssh-scope"
+            />
+          </FormField>
+        )}
+        <Checkbox checked={compat} onChange={setCompat} testId="ssh-compat">
+          {t("integrations.ssh.compat")} <span className="ig-note-inline">{t("integrations.ssh.compat.tip")}</span>
+        </Checkbox>
+        {error !== null && (
+          <Notice tone="error" testId="ssh-form-error">
+            <span className="ig-raw">{error}</span>
+          </Notice>
+        )}
+        <button type="submit" hidden />
+      </form>
+    </Dialog>
   );
 }

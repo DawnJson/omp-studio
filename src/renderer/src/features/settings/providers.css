@@ -1,0 +1,65 @@
+/* 设置 → 提供商与账号：登录 / 填 key 对话框的正文、选择对话框的列表。控件样式全在 ui/controls.css，这里只有布局。 */
+
+.pv-flow {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.pv-line {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.pv-line > .ui-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.pv-text {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.pv-muted {
+  color: var(--text-3);
+}
+
+.pv-error {
+  color: var(--st-error);
+}
+
+.pv-accounts {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.pv-account {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+  justify-content: space-between;
+  min-height: var(--control-h-md);
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.pv-account:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.pv-pick-list {
+  max-height: 360px;
+  margin-top: var(--space-3);
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+}

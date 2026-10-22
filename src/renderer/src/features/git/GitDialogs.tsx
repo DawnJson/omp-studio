@@ -1,132 +1,25 @@
 // git 操作的模态对话框：提交、开 PR、丢弃确认（危险操作先确认）、合并冲突、清理报告。
-// 键盘：Esc 关闭（消耗掉，不触发"停止任务"），Tab 在对话框内循环；关闭后焦点回到打开前的元素。
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
-import { createPortal } from "react-dom";
+// 外壳、键盘（Esc / Tab 循环 / 焦点回位）都是 ui/Dialog 的；提交 / 推送是主按钮，丢弃是 danger 确认框。
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { WorktreeCleanupResult, WorktreeSetupInfo } from "../../../../shared/git.ts";
 import type { ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Close } from "../../icons.tsx";
 import { useSelectedTaskId } from "../../store/index.ts";
-import { reportError } from "../../ui/errors.ts";
-import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
-import { usePresence, type Presence } from "../../ui/presence.ts";
-import { commitChanges, discardWorktree, pushAndCreatePullRequest } from "./git-actions.ts";
 import { openReview } from "../../store/review-store.ts";
+import { Button, Checkbox, FormField, Textarea, TextField } from "../../ui/controls.tsx";
+import { ConfirmDialog, Dialog } from "../../ui/Dialog.tsx";
+import { reportError } from "../../ui/errors.ts";
+import { usePresence } from "../../ui/presence.ts";
+import { commitChanges, discardWorktree, pushAndCreatePullRequest } from "./git-actions.ts";
 import { closeGitDialog, useGitDialog, type GitDialogState } from "./git-dialog-store.ts";
 import "./git.css";
 
-const focusableSelector = "button:not(:disabled), input:not(:disabled), textarea:not(:disabled)";
-
-// Shell 从这里拿退出动画状态；Host 在外面算好。
-const ExitContext = createContext<Presence>({
-  mounted: true,
-  closing: false,
-  exitProps: { onAnimationEnd: () => undefined },
-});
-function Shell({
-  title,
-  testId,
-  children,
-  footer,
-}: {
-  title: string;
-  testId: string;
-  children: ReactNode;
-  footer: ReactNode;
-}) {
-  const t = useT();
-  const presence = useContext(ExitContext);
-  useTitleBarDim(!presence.closing);
-  const titleId = useId();
-  const ref = useRef<HTMLDivElement>(null);
-  const openerRef = useRef<Element | null>(null);
-  const restored = useRef(false);
-
-  const restoreFocus = () => {
-    if (restored.current) return;
-    restored.current = true;
-    const opener = openerRef.current;
-    if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
-  };
-  useEffect(() => {
-    openerRef.current = document.activeElement;
-    ref.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus();
-    return restoreFocus;
-  }, []);
-  // 开始退出动画就还焦点，不等卸载。
-  useEffect(() => {
-    if (presence.closing) restoreFocus();
-  }, [presence.closing]);
-
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      closeGitDialog();
-      return;
-    }
-    if (event.key !== "Tab") return;
-    const items = [...(ref.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])];
-    const first = items[0];
-    const last = items.at(-1);
-    if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
-
-  return createPortal(
-    <div className="scrim" data-closing={presence.closing ? "fade" : undefined} onPointerDown={closeGitDialog}>
-      <div
-        ref={ref}
-        className="git-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-testid={testId}
-        onPointerDown={(event) => event.stopPropagation()}
-        onKeyDown={onKeyDown}
-        {...presence.exitProps}
-      >
-        <header className="git-dialog-head">
-          <h2 id={titleId} className="git-dialog-title">
-            {title}
-          </h2>
-          <button type="button" className="tool-btn" aria-label={t("common.close")} onClick={closeGitDialog}>
-            <Close size={14} />
-          </button>
-        </header>
-        <div className="git-dialog-body">{children}</div>
-        <footer className="git-dialog-foot">{footer}</footer>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
 function CancelButton() {
   const t = useT();
-  return (
-    <button type="button" className="gate-btn" onClick={closeGitDialog}>
-      {t("common.cancel")}
-    </button>
-  );
+  return <Button onClick={closeGitDialog}>{t("common.cancel")}</Button>;
 }
 
-function CommitDialog({ taskId }: { taskId: TaskId }) {
+function CommitDialog({ taskId, open }: { taskId: TaskId; open: boolean }) {
   const t = useT();
   const [message, setMessage] = useState("");
   const [stageAll, setStageAll] = useState(true);
@@ -140,45 +33,52 @@ function CommitDialog({ taskId }: { taskId: TaskId }) {
   };
 
   return (
-    <Shell
+    <Dialog
+      open={open}
+      onClose={closeGitDialog}
       title={t("git.commit.title")}
       testId="git-commit-dialog"
-      footer={
+      footStart={
         <>
-          <button
-            type="button"
-            className="gate-btn git-foot-lead"
-            data-testid="git-commit-review"
+          <Checkbox checked={stageAll} onChange={setStageAll} testId="git-commit-stage-all">
+            {t("git.commit.stageAll")}
+          </Checkbox>
+          <Button
+            variant="quiet"
+            size="sm"
+            testId="git-commit-review"
             onClick={() => {
               closeGitDialog();
               openReview(taskId);
             }}
           >
             {t("git.commit.review")}
-          </button>
+          </Button>
+        </>
+      }
+      footer={
+        <>
           <CancelButton />
-          <button
-            type="button"
-            className="gate-btn"
-            data-primary
-            data-testid="git-commit-confirm"
-            disabled={busy || message.trim() === ""}
+          <Button
+            variant="primary"
+            testId="git-commit-confirm"
+            loading={busy}
+            disabled={message.trim() === ""}
             onClick={() => void submit()}
           >
             {t("git.commit.confirm")}
-          </button>
+          </Button>
         </>
       }
     >
-      <label className="git-field">
-        <span>{t("git.commit.message")}</span>
-        <textarea
-          className="git-input"
-          data-autofocus
-          data-testid="git-commit-message"
+      <FormField label={t("git.commit.message")} htmlFor="git-commit-message">
+        <Textarea
+          id="git-commit-message"
+          data-autofocus=""
+          testId="git-commit-message"
           rows={4}
           value={message}
-          onChange={(event) => setMessage(event.target.value)}
+          onChange={setMessage}
           onKeyDown={(event) => {
             if (event.key === "Enter" && event.ctrlKey && !event.nativeEvent.isComposing) {
               event.preventDefault();
@@ -186,21 +86,12 @@ function CommitDialog({ taskId }: { taskId: TaskId }) {
             }
           }}
         />
-      </label>
-      <label className="git-check">
-        <input
-          type="checkbox"
-          data-testid="git-commit-stage-all"
-          checked={stageAll}
-          onChange={(event) => setStageAll(event.target.checked)}
-        />
-        <span>{t("git.commit.stageAll")}</span>
-      </label>
-    </Shell>
+      </FormField>
+    </Dialog>
   );
 }
 
-function PullRequestDialog({ taskId, defaultTitle }: { taskId: TaskId; defaultTitle: string }) {
+function PullRequestDialog({ taskId, defaultTitle, open }: { taskId: TaskId; defaultTitle: string; open: boolean }) {
   const t = useT();
   const [title, setTitle] = useState(defaultTitle);
   const [body, setBody] = useState("");
@@ -215,121 +106,97 @@ function PullRequestDialog({ taskId, defaultTitle }: { taskId: TaskId; defaultTi
   };
 
   return (
-    <Shell
+    <Dialog
+      open={open}
+      onClose={closeGitDialog}
       title={t("git.pr.title")}
       testId="git-pr-dialog"
       footer={
         <>
           <CancelButton />
-          <button
-            type="button"
-            className="gate-btn"
-            data-primary
-            data-testid="git-pr-confirm"
-            disabled={busy || title.trim() === ""}
+          <Button
+            variant="primary"
+            testId="git-pr-confirm"
+            loading={busy}
+            disabled={title.trim() === ""}
             onClick={() => void submit()}
           >
             {t("git.pr.confirm")}
-          </button>
+          </Button>
         </>
       }
     >
-      <label className="git-field">
-        <span>{t("git.pr.titleField")}</span>
-        <input
-          className="git-input"
-          data-autofocus
-          data-testid="git-pr-title"
+      <FormField label={t("git.pr.titleField")} htmlFor="git-pr-title">
+        <TextField
+          id="git-pr-title"
+          width="100%"
+          data-autofocus=""
+          testId="git-pr-title"
           value={title}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={setTitle}
         />
-      </label>
-      <label className="git-field">
-        <span>{t("git.pr.body")}</span>
-        <textarea
-          className="git-input"
-          data-testid="git-pr-body"
-          rows={6}
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-        />
-      </label>
-    </Shell>
+      </FormField>
+      <FormField label={t("git.pr.body")} htmlFor="git-pr-body">
+        <Textarea id="git-pr-body" testId="git-pr-body" rows={6} value={body} onChange={setBody} />
+      </FormField>
+    </Dialog>
   );
 }
 
+/** 危险确认：ConfirmDialog danger（danger-solid、焦点在取消）。确认后的动作放完退出动画才开始；失败由 toast 说明，对话框不再回来。 */
 function DiscardDialog({ taskId, branch }: { taskId: TaskId; branch: string }) {
   const t = useT();
   const selected = useSelectedTaskId();
-  const [busy, setBusy] = useState(false);
-
-  const confirm = async () => {
-    setBusy(true);
-    const done = await discardWorktree(t, taskId, selected);
-    setBusy(false);
-    if (done) closeGitDialog();
-  };
-
   return (
-    <Shell
+    <ConfirmDialog
+      danger
       title={t("git.discard.title")}
+      body={t("git.discard.body", { branch })}
+      confirmLabel={t("git.discard.confirm")}
       testId="git-discard-dialog"
-      footer={
-        <>
-          <button type="button" className="gate-btn" data-autofocus onClick={closeGitDialog}>
-            {t("common.cancel")}
-          </button>
-          <button
-            type="button"
-            className="gate-btn"
-            data-deny
-            data-testid="git-discard-confirm"
-            disabled={busy}
-            onClick={() => void confirm()}
-          >
-            {t("git.discard.confirm")}
-          </button>
-        </>
-      }
-    >
-      <p className="git-text">{t("git.discard.body", { branch })}</p>
-    </Shell>
+      onCancel={closeGitDialog}
+      onConfirm={() => void discardWorktree(t, taskId, selected).finally(closeGitDialog)}
+    />
   );
 }
 
-function ConflictDialog({ files }: { files: string[] }) {
+function ConflictDialog({ files, open }: { files: string[]; open: boolean }) {
   const t = useT();
   return (
-    <Shell
+    <Dialog
+      open={open}
+      onClose={closeGitDialog}
       title={t("git.merge.conflictTitle")}
+      desc={t("git.merge.conflictBody")}
       testId="git-conflict-dialog"
       footer={
-        <button type="button" className="gate-btn" data-primary data-autofocus onClick={closeGitDialog}>
+        <Button variant="primary" data-autofocus="" onClick={closeGitDialog}>
           {t("common.close")}
-        </button>
+        </Button>
       }
     >
-      <p className="git-text">{t("git.merge.conflictBody")}</p>
       <ul className="git-files" data-testid="git-conflict-files">
         {files.map((file) => (
           <li key={file}>{file}</li>
         ))}
       </ul>
-    </Shell>
+    </Dialog>
   );
 }
 
-function CleanupDialog({ result }: { result: WorktreeCleanupResult }) {
+function CleanupDialog({ result, open }: { result: WorktreeCleanupResult; open: boolean }) {
   const t = useT();
   const empty = result.removed.length === 0 && result.kept.length === 0;
   return (
-    <Shell
+    <Dialog
+      open={open}
+      onClose={closeGitDialog}
       title={t("git.cleanup.title")}
       testId="git-cleanup-dialog"
       footer={
-        <button type="button" className="gate-btn" data-primary data-autofocus onClick={closeGitDialog}>
+        <Button variant="primary" data-autofocus="" onClick={closeGitDialog}>
           {t("common.close")}
-        </button>
+        </Button>
       }
     >
       {empty && <p className="git-text">{t("git.cleanup.none")}</p>}
@@ -356,7 +223,7 @@ function CleanupDialog({ result }: { result: WorktreeCleanupResult }) {
           </ul>
         </section>
       )}
-    </Shell>
+    </Dialog>
   );
 }
 
@@ -365,10 +232,12 @@ function SetupDialog({
   projectId,
   script,
   settle,
+  open,
 }: {
   projectId: ProjectId;
   script: WorktreeSetupInfo;
   settle(approved: boolean): void;
+  open: boolean;
 }) {
   const t = useT();
   const settled = useRef(false);
@@ -382,11 +251,10 @@ function SetupDialog({
   };
   // 关闭（取消、Esc、点遮罩、切走）就按拒绝处理：在退出动画开始时就结算，不等卸载，
   // 否则发送流程要多等一段动画，期间再按 Enter 会被当成"还在发送"忽略掉。
-  const closing = useContext(ExitContext).closing;
   useEffect(() => {
-    if (closing) finish(false);
+    if (!open) finish(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [closing]);
+  }, [open]);
   useEffect(() => () => finish(false), []);
 
   const approve = async () => {
@@ -401,28 +269,24 @@ function SetupDialog({
   };
 
   return (
-    <Shell
+    <Dialog
+      open={open}
+      onClose={closeGitDialog}
+      size="sm"
       title={t("git.setup.title")}
+      desc={t("git.setup.body", { script: script.name })}
       testId="git-setup-dialog"
       footer={
         <>
-          <button type="button" className="gate-btn" data-autofocus onClick={closeGitDialog}>
+          <Button data-autofocus="" onClick={closeGitDialog}>
             {t("common.cancel")}
-          </button>
-          <button
-            type="button"
-            className="gate-btn"
-            data-primary
-            data-testid="git-setup-confirm"
-            onClick={() => void approve()}
-          >
+          </Button>
+          <Button variant="primary" testId="git-setup-confirm" onClick={() => void approve()}>
             {t("git.setup.confirm")}
-          </button>
+          </Button>
         </>
       }
-    >
-      <p className="git-text">{t("git.setup.body", { script: script.name })}</p>
-    </Shell>
+    />
   );
 }
 
@@ -437,26 +301,22 @@ export function GitDialogHost() {
   const shown = state ?? lastRef.current;
   const presence = usePresence(state !== null);
   if (!presence.mounted || shown === null) return null;
-  return (
-    <ExitContext.Provider value={presence} key={serialRef.current}>
-      {renderDialog(shown)}
-    </ExitContext.Provider>
-  );
+  return <Fragment key={serialRef.current}>{renderDialog(shown, state !== null)}</Fragment>;
 }
 
-function renderDialog(state: GitDialogState): ReactNode {
+function renderDialog(state: GitDialogState, open: boolean): ReactNode {
   switch (state.kind) {
     case "commit":
-      return <CommitDialog taskId={state.taskId} />;
+      return <CommitDialog taskId={state.taskId} open={open} />;
     case "pr":
-      return <PullRequestDialog taskId={state.taskId} defaultTitle={state.defaultTitle} />;
+      return <PullRequestDialog taskId={state.taskId} defaultTitle={state.defaultTitle} open={open} />;
     case "discard":
       return <DiscardDialog taskId={state.taskId} branch={state.branch} />;
     case "conflict":
-      return <ConflictDialog files={state.files} />;
+      return <ConflictDialog files={state.files} open={open} />;
     case "cleanup":
-      return <CleanupDialog result={state.result} />;
+      return <CleanupDialog result={state.result} open={open} />;
     case "setup":
-      return <SetupDialog projectId={state.projectId} script={state.script} settle={state.settle} />;
+      return <SetupDialog projectId={state.projectId} script={state.script} settle={state.settle} open={open} />;
   }
 }

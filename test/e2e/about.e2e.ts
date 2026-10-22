@@ -4,7 +4,7 @@ import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { launchApp, screenshotsDir } from "./launch.ts";
+import { launchApp, screenshotsDir, setLocaleTheme } from "./launch.ts";
 
 test("关于页显示当前版本；开发版说明不检查更新", async () => {
   const { version } = JSON.parse(await readFile(path.resolve(import.meta.dirname, "..", "..", "package.json"), "utf8"));
@@ -39,14 +39,7 @@ test("导出诊断信息：一个文件里有版本、omp 状态和日志，不�
       ["en", "light"],
       ["en", "dark"],
     ] as const) {
-      await page.evaluate(
-        async ({ locale, theme }) => {
-          await globalThis.studio.setLocale(locale);
-          await globalThis.studio.setTheme(theme);
-        },
-        { locale, theme },
-      );
-      await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
+      await setLocaleTheme(page, locale, theme);
       // 关于页上面还有 omp 的卡片和更新日志：问题排查在最下面。
       await page.getByTestId("about-troubleshoot").scrollIntoViewIfNeeded();
       await page.screenshot({ path: path.join(screenshotsDir, `about-troubleshoot-${locale}-${theme}.png`) });

@@ -2,10 +2,13 @@
 // Enter / Ctrl+Enter 没人接，Esc 落到 body 上还会被输入框当成"停止任务"。这里让对话框根节点自己接键盘（和 list 一样把
 // 按键编码写进伪终端），焦点被换页拆掉时拿回来；底栏按钮（`omp.btn`）画成真按钮。
 import { useEffect, useRef } from "react";
+import { Button } from "../../../ui/controls.tsx";
+import { gateKeyHint } from "../fmt.ts";
 import { encodeKey } from "../keys.ts";
 import type { NodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
-import { TspChildren } from "../TspChildren.tsx";
+import { useTspNode } from "../tsp-store.ts";
+import { TspChildren, TspNode } from "../TspChildren.tsx";
 import { likeOf } from "./key-event.ts";
 
 function isBlankFocus(): boolean {
@@ -70,25 +73,36 @@ export function AskGateCol(props: NodeProps & { dom: NodeDomProps }) {
   );
 }
 
+/** 按钮里的一个子节点：kbd 画成尾随的淡色快捷键小字（Windows 键名），其余节点照常画。 */
+function ButtonPart({ id, ctx }: { id: string; ctx: NodeProps["ctx"] }) {
+  const child = useTspNode(ctx.taskId, ctx.sf, id);
+  if (child === null) return null;
+  if (child.k !== "kbd") return <TspNode id={id} ctx={ctx} />;
+  const keys = Array.isArray(child.p["keys"]) ? child.p["keys"].filter((k): k is string => typeof k === "string") : [];
+  return keys.length === 0 ? null : <span className="ui-hint">{gateKeyHint(keys)}</span>;
+}
+
 /**
- * 提问 / 审批的按钮（role `omp.btn`）画成真按钮：点一下发节点自己的 `actions.click`（`action` 事件，实录里 submit / note /
- * hide / show 都有效）。点按钮不抢焦点，键盘留在原处（提问对话框根节点）。
+ * 提问 / 审批 / omp 弹层的按钮（role `omp.btn`）画成 ui 的 sm 按钮：点一下发节点自己的 `actions.click`（`action` 事件，实录里 submit /
+ * note / hide / show 都有效）。点按钮不抢焦点，键盘留在原处（提问对话框根节点）。tone accent 是主按钮，error 是危险按钮；
+ * 快捷键是按钮里尾随的小字，不画键帽框。
  */
 export function AskButtonRow(props: NodeProps & { dom: NodeDomProps }) {
-  const { dom } = props;
+  const { dom, node, ctx } = props;
+  const variant = dom["data-tone"] === "accent" ? "primary" : dom["data-tone"] === "error" ? "danger" : "secondary";
   return (
-    <button
-      type="button"
-      className={`${dom.className} tspi-ask-btn`}
+    <Button
+      size="sm"
+      variant={variant}
       data-id={dom["data-id"]}
       data-role={dom["data-role"]}
-      data-tone={dom["data-tone"]}
       title={dom.title}
-      style={dom.style}
       onMouseDown={(e) => e.preventDefault()}
       onClick={dom.onClick}
     >
-      <TspChildren {...props} />
-    </button>
+      {node.c.map((id) => (
+        <ButtonPart key={id} id={id} ctx={ctx} />
+      ))}
+    </Button>
   );
 }

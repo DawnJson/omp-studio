@@ -84,3 +84,7 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 - 命名 profile（`OMP_PROFILE`）下的 agent 目录；
 - `models.yml` 里的其它字段（`headers`、`compat`、`cost`、`contextWindow` 等）的界面编辑：条目里有就保留，界面不改；
 - 跨进程的写锁。
+
+## 界面（3.2）
+
+自定义提供商是列表行（编辑按钮 + ⋯ 里的删除，删除先 `ConfirmDialog`）；添加 / 编辑是对话框（`CustomProviderForm`，竖排字段），页面上的"添加"在对话框打开时不再被禁用。写 `models.yml` 的规则不变。

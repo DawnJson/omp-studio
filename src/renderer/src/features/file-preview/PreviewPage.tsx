@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import type { PreviewFile, ProjectFilesTarget } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { FileIcon, Folder } from "../../icons.tsx";
+import { External, FileIcon, Folder } from "../../icons.tsx";
+import { Button, Checkbox, IconButton, Segmented } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { baseName, extension, PreviewContent } from "./PreviewContent.tsx";
 
@@ -69,82 +70,51 @@ export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarg
         )}
         <span className="file-preview-spacer" />
         {toggleable && (
-          <div className="file-preview-seg" role="group" aria-label={t("preview.mode")}>
-            <button
-              type="button"
-              aria-pressed={!source}
-              data-testid="file-preview-mode-preview"
-              onClick={() => setSource(false)}
-            >
-              {t("preview.modePreview")}
-            </button>
-            <button
-              type="button"
-              aria-pressed={source}
-              data-testid="file-preview-mode-source"
-              onClick={() => setSource(true)}
-            >
-              {t("preview.modeSource")}
-            </button>
-          </div>
+          <Segmented
+            size="sm"
+            value={source ? "source" : "preview"}
+            options={[
+              { value: "preview", label: t("preview.modePreview") },
+              { value: "source", label: t("preview.modeSource") },
+            ]}
+            onChange={(next) => setSource(next === "source")}
+            label={t("preview.mode")}
+            testId="file-preview-mode"
+          />
         )}
         {file?.kind === "html" && !source && (
-          <label className="file-preview-scripts">
-            <input type="checkbox" checked={scripts} onChange={(event) => setScripts(event.target.checked)} />
+          <Checkbox checked={scripts} onChange={setScripts}>
             {t("preview.runScripts")}
-          </label>
+          </Checkbox>
         )}
         {file?.kind === "image" && !source && (
-          <div className="file-preview-seg" role="group">
-            <button
-              type="button"
-              aria-label={t("preview.zoomOut")}
-              title={t("preview.zoomOut")}
+          <span className="file-preview-zoom" role="group" aria-label={t("preview.zoom")}>
+            <IconButton
+              label={t("preview.zoomOut")}
               onClick={() => setZoom(Math.max(zoomRange[0], (zoom === "fit" ? 1 : zoom) / zoomStep))}
             >
               −
-            </button>
-            <button
-              type="button"
-              aria-label={t("preview.zoomFit")}
-              title={t("preview.zoomFit")}
-              onClick={() => setZoom("fit")}
-            >
+            </IconButton>
+            <Button variant="quiet" size="sm" title={t("preview.zoomFit")} onClick={() => setZoom("fit")}>
               {zoom === "fit" ? t("preview.zoomFit") : `${Math.round(zoom * 100)}%`}
-            </button>
-            <button
-              type="button"
-              aria-label={t("preview.zoomIn")}
-              title={t("preview.zoomIn")}
+            </Button>
+            <IconButton
+              label={t("preview.zoomIn")}
               onClick={() => setZoom(Math.min(zoomRange[1], (zoom === "fit" ? 1 : zoom) * zoomStep))}
             >
               +
-            </button>
-          </div>
+            </IconButton>
+          </span>
         )}
         {taskId !== null && file?.canOpen && (
-          <button
-            type="button"
-            className="icon-button file-preview-action"
-            data-testid="file-preview-open"
-            aria-label={t("preview.open")}
-            title={t("preview.open")}
-            onClick={() => run("openTaskFile")}
-          >
-            <FileIcon size={14} />
-          </button>
+          <IconButton label={t("preview.open")} testId="file-preview-open" onClick={() => run("openTaskFile")}>
+            <External size={14} />
+          </IconButton>
         )}
         {taskId !== null && file !== null && file.kind !== "missing" && (
-          <button
-            type="button"
-            className="icon-button file-preview-action"
-            data-testid="file-preview-reveal"
-            aria-label={t("preview.reveal")}
-            title={t("preview.reveal")}
-            onClick={() => run("revealTaskFile")}
-          >
+          <IconButton label={t("preview.reveal")} testId="file-preview-reveal" onClick={() => run("revealTaskFile")}>
             <Folder size={14} />
-          </button>
+          </IconButton>
         )}
       </div>
       <div className="file-preview-body" data-testid="file-preview-body">

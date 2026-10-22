@@ -32,14 +32,6 @@ export const ChevronIcon = () => (
   </Icon>
 );
 
-export const MoreIcon = () => (
-  <Icon>
-    <circle cx="3.5" cy="8" r="0.5" fill="currentColor" />
-    <circle cx="8" cy="8" r="0.5" fill="currentColor" />
-    <circle cx="12.5" cy="8" r="0.5" fill="currentColor" />
-  </Icon>
-);
-
 export const FolderPlusIcon = () => (
   <Icon>
     <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z" />

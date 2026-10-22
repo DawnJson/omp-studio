@@ -3,7 +3,8 @@
 // 多选提问的选项（`omp.ask.check`）例外：单击永远是 `select`（omp 把它当勾选切换），双击不 activate（规则在 shared/tsp/ask-gate.ts）。
 // 方向键、Enter 这些归 omp：list 自己可聚焦，按键用 keys.ts 编码写进伪终端。
 import { createContext, useContext, useEffect, useLayoutEffect, useRef } from "react";
-import { askItemClick, askItemDoubleActivates } from "../../../../../shared/tsp/ask-gate.ts";
+import { askItemClick, askItemDoubleActivates, askItemMarker } from "../../../../../shared/tsp/ask-gate.ts";
+import { Badge } from "../../../ui/controls.tsx";
 import type { TspItemProps, TspListProps } from "../../../../../shared/tsp/tsp.generated.ts";
 import { nodeActionHandlers } from "../actions.ts";
 import { TspIcon } from "../icons.tsx";
@@ -138,6 +139,8 @@ export function Item({ node, ctx }: NodeProps) {
 
   const hits = list !== null && list.filter.trim() !== "" ? filterHits(plainText(p.label), list.filter) : undefined;
   const hasValue = p.value !== undefined && plainText(p.value) !== "";
+  const marker = askItemMarker(node.p["role"]);
+  const checked = marker === "check" ? p.icon === "check" : isSelected;
 
   return (
     <div
@@ -153,7 +156,18 @@ export function Item({ node, ctx }: NodeProps) {
       onDoubleClick={onDoubleClick}
       onContextMenu={own.onContextMenu}
     >
-      {p.icon !== undefined ? (
+      {marker !== null ? (
+        // 非交互标记：点击落到行上（pointer-events: none），状态由 omp 的节点决定。
+        <input
+          type={marker === "check" ? "checkbox" : "radio"}
+          className={`${marker === "check" ? "ui-check" : "ui-radio"} tspi-item-mark`}
+          data-testid="tspi-item-mark"
+          checked={checked}
+          readOnly
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+      ) : p.icon !== undefined ? (
         <span className="tspi-item-ic">
           <TspIcon name={p.icon} />
         </span>
@@ -161,12 +175,17 @@ export function Item({ node, ctx }: NodeProps) {
       <span className="tspi-item-label">
         <MarkedText text={p.label} hits={hits} />
       </span>
+      {hasValue && marker !== null ? (
+        <Badge tone="accent">
+          <TspSpans text={p.value} />
+        </Badge>
+      ) : null}
       {p.detail !== undefined && plainText(p.detail) !== "" ? (
         <span className="tspi-item-detail">
           <TspSpans text={p.detail} />
         </span>
       ) : null}
-      {hasValue ? (
+      {hasValue && marker === null ? (
         <span className="tspi-item-value">
           <TspSpans text={p.value} />
         </span>

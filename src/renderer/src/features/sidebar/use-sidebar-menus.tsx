@@ -1,18 +1,18 @@
 // 任务行和项目头的菜单内容与动作（spec §4.2、§4.3）。返回要渲染的菜单元素和两个打开函数。
-import { reportError } from "../../ui/errors.ts";
+// 任务菜单和顶栏 ⋯ 是同一份（task-menu.tsx）。
 import { useCallback, useState, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { Project, TaskId, TaskState } from "../../../../shared/ipc.ts";
+import { Branch, Folder, Trash } from "../../icons.tsx";
+import { Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
 import { pushToast } from "../dialogs/index.ts";
-import { exportConversationReporting } from "../composer/export-html.ts";
 import { cleanupOrphans } from "../git/git-actions.ts";
-import { archiveWithUndo } from "./archive-store.ts";
-import { Menu, type MenuAnchor, type MenuItem } from "./Menu.tsx";
 import { refreshProjects } from "./projects-store.ts";
+import { attempt, buildTaskMenu } from "./task-menu.tsx";
 
 interface OpenMenu {
   anchor: MenuAnchor;
-  items: MenuItem[];
+  items: MenuEntry[];
   label: string;
 }
 
@@ -24,14 +24,6 @@ interface MenusOptions {
   onRename(task: TaskState): void;
 }
 
-async function attempt(t: TFunction, action: () => Promise<void>): Promise<void> {
-  try {
-    await action();
-  } catch (error) {
-    reportError(t, error);
-  }
-}
-
 export function useSidebarMenus({ t, selectedTaskId, taskCount, onRename }: MenusOptions): {
   menu: ReactNode;
   openTaskMenu(task: TaskState, x: number, y: number, trigger: HTMLElement): void;
@@ -40,44 +32,11 @@ export function useSidebarMenus({ t, selectedTaskId, taskCount, onRename }: Menu
   const [open, setOpen] = useState<OpenMenu | null>(null);
   const close = useCallback(() => setOpen(null), []);
 
-  const copySession = (task: TaskState, pick: "sessionId" | "sessionFile") =>
-    attempt(t, async () => {
-      const ref = await window.studio.getTaskSessionRef(task.id);
-      if (ref === null) pushToast({ level: "info", message: t("task.noSession") });
-      else await navigator.clipboard.writeText(ref[pick]);
-    });
-
   const openTaskMenu = (task: TaskState, x: number, y: number, trigger: HTMLElement) =>
     setOpen({
       anchor: { x, y, returnFocus: trigger },
       label: t("task.more"),
-      items: [
-        { id: "rename", label: t("task.rename"), shortcut: "F2", onSelect: () => onRename(task) },
-        // 工作目录 = omp 读写文件、跑命令的地方；会话文件是 omp 自己存在 ~/.omp/agent/sessions 下的记录，两者不是一个地方。
-        {
-          id: "openFolder",
-          label: t("task.openFolder"),
-          onSelect: () => void attempt(t, () => window.studio.openTaskFolder(task.id)),
-        },
-        {
-          id: "reveal",
-          label: t("task.reveal"),
-          onSelect: () => void attempt(t, () => window.studio.revealTaskSession(task.id)),
-        },
-        { id: "copyId", label: t("task.copyId"), onSelect: () => void copySession(task, "sessionId") },
-        { id: "copyPath", label: t("task.copyPath"), onSelect: () => void copySession(task, "sessionFile") },
-        {
-          id: "exportHtml",
-          label: t("task.exportHtml"),
-          onSelect: () => void exportConversationReporting(task.id, t),
-        },
-        {
-          id: "archive",
-          label: t("task.archive"),
-          shortcut: "Del",
-          onSelect: () => archiveWithUndo(task.id, selectedTaskId, t),
-        },
-      ],
+      items: buildTaskMenu({ t, taskId: task.id, selectedTaskId, onRename: () => onRename(task) }),
     });
 
   const openProjectMenu = (project: Project, x: number, y: number, trigger: HTMLElement) =>
@@ -88,16 +47,21 @@ export function useSidebarMenus({ t, selectedTaskId, taskCount, onRename }: Menu
         {
           id: "reveal",
           label: t("project.reveal"),
+          icon: <Folder />,
           onSelect: () => void attempt(t, () => window.studio.revealProject(project.id)),
         },
         {
           id: "cleanupWorktrees",
           label: t("git.menu.cleanup"),
+          icon: <Branch />,
           onSelect: () => void cleanupOrphans(t, project.id),
         },
+        { kind: "separator", id: "sep-remove" },
         {
           id: "remove",
           label: t("project.remove"),
+          icon: <Trash />,
+          tone: "danger",
           onSelect: () => {
             if (taskCount(project) > 0) {
               pushToast({ level: "warning", message: t("project.removeBlocked") });

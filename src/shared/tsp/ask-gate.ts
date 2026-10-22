@@ -25,3 +25,13 @@ export function askItemClick(role: unknown, isSelected: boolean): "select" | "ac
 export function askItemDoubleActivates(role: unknown): boolean {
   return role !== ASK_CHECK_ROLE;
 }
+
+/**
+ * 提问选项行前面画哪种标记：单选题的选项（`omp.ask.option`、`omp.ask.other`）是单选圈，多选题的（`omp.ask.check`、
+ * `omp.ask.other.check`）是勾选框，其它列表项没有标记。标记只是画出来，点击仍走 askItemClick 的规则。
+ */
+export function askItemMarker(role: unknown): "radio" | "check" | null {
+  if (role === "omp.ask.option" || role === "omp.ask.other") return "radio";
+  if (role === ASK_CHECK_ROLE || role === "omp.ask.other.check") return "check";
+  return null;
+}

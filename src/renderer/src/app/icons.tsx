@@ -44,14 +44,3 @@ export function SidebarIcon({ size = 16, shown }: IconProps & { shown: boolean }
     </Icon>
   );
 }
-
-/** 关于与反馈：圆圈里一个感叹号。 */
-export function InfoIcon({ size = 16 }: IconProps) {
-  return (
-    <Icon size={size}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7.5v5.5" />
-      <path d="M12 16.5v.01" />
-    </Icon>
-  );
-}

@@ -4,6 +4,7 @@ import { useState, type KeyboardEvent } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { composeCommitMessage } from "../../../../shared/ui/review-model.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { Button, Checkbox, Textarea, TextField } from "../../ui/controls.tsx";
 import { commitChanges } from "../git/git-actions.ts";
 
 export function CommitBox({
@@ -49,44 +50,40 @@ export function CommitBox({
           {t("review.commitStaged", { count: stagedCount })}
         </span>
       </div>
-      <input
-        type="text"
-        className="rv-box-input"
-        data-testid="review-commit-summary"
+      <TextField
+        width="100%"
+        testId="review-commit-summary"
         aria-label={t("review.commitSummary")}
         placeholder={t("review.commitSummaryPlaceholder")}
         value={summary}
-        onChange={(event) => setSummary(event.target.value)}
+        onChange={setSummary}
         onKeyDown={onKeyDown}
       />
-      <textarea
-        className="rv-box-input"
-        data-testid="review-commit-description"
+      <Textarea
+        className="rv-commit-description"
+        testId="review-commit-description"
         aria-label={t("review.commitDescription")}
         placeholder={t("review.commitDescriptionPlaceholder")}
         rows={3}
         value={description}
-        onChange={(event) => setDescription(event.target.value)}
+        onChange={setDescription}
         onKeyDown={onKeyDown}
       />
-      <label className="rv-commit-check">
-        <input
-          type="checkbox"
-          data-testid="review-commit-stage-all"
-          checked={stageAll}
-          onChange={(event) => setStageAll(event.target.checked)}
-        />
-        <span>{t("git.commit.stageAll")}</span>
-      </label>
-      <button
-        type="button"
-        className="rv-btn rv-btn-primary"
-        data-testid="review-commit-submit"
-        disabled={!canCommit}
-        onClick={() => void submit()}
-      >
-        {t("git.commit.confirm")}
-      </button>
+      <div className="rv-commit-foot">
+        <Checkbox checked={stageAll} onChange={setStageAll} testId="review-commit-stage-all">
+          {t("git.commit.stageAll")}
+        </Checkbox>
+        <Button
+          variant="primary"
+          size="sm"
+          testId="review-commit-submit"
+          loading={busy}
+          disabled={summary.trim() === ""}
+          onClick={() => void submit()}
+        >
+          {t("git.commit.confirm")}
+        </Button>
+      </div>
     </section>
   );
 }

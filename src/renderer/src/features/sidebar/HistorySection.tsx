@@ -6,6 +6,7 @@
 import type { Project, TaskId } from "../../../../shared/ipc.ts";
 import type { SidebarFolder, SidebarItem } from "../../../../shared/ui/sidebar-model.ts";
 import { setHistoryOrder, useShellUi } from "../../app/shell-store.ts";
+import { Segmented } from "../../ui/controls.tsx";
 import { FolderGroup } from "./FolderGroup.tsx";
 import { ItemRow } from "./ItemRow.tsx";
 import { initialPerFolder, moreNavId, showMoreStep, timeLimitKey, visibleItems, initialByTime } from "./list-view.ts";
@@ -43,20 +44,17 @@ export function HistorySection(props: HistorySectionProps) {
     <section className="sb-group sb-history" aria-label={t("sidebar.searchHistory")} data-testid="sidebar-history">
       <div className="sb-history-head">
         <p className="sb-group-title">{t("sidebar.searchHistory")}</p>
-        <div className="sb-history-order" role="group" aria-label={t("sidebar.historyOrder")}>
-          {(["folder", "time"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              className="sb-history-order-btn"
-              data-testid={`sidebar-history-by-${value}`}
-              aria-pressed={order === value}
-              onClick={() => setHistoryOrder(value)}
-            >
-              {t(value === "folder" ? "sidebar.historyByFolder" : "sidebar.historyByTime")}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          size="sm"
+          label={t("sidebar.historyOrder")}
+          testId="sidebar-history-by"
+          value={order}
+          options={[
+            { value: "folder", label: t("sidebar.historyByFolder") },
+            { value: "time", label: t("sidebar.historyByTime") },
+          ]}
+          onChange={setHistoryOrder}
+        />
       </div>
       {order === "time" ? (
         <>

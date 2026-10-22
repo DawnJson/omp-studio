@@ -2,7 +2,7 @@
 // 用法：const p = usePresence(open); if (!p.mounted) return null; 根元素上展开 {...p.exitProps}。
 // 退出动画由 motion.css 的 [data-closing] 规则给（读 --dur-*-exit 令牌，减少动效时为 0ms，animationend 照样触发）；
 // 万一动画没跑起来（元素被 display:none 等），兜底计时器到点也会卸载，不会卡住。
-import { useEffect, useRef, useState, type AnimationEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type AnimationEvent } from "react";
 
 /** 比最长的退出动画（--dur-slow-exit ≈ 192ms）宽裕；只在 animationend 没来时才用到。 */
 const exitFallbackMs = 400;
@@ -53,4 +53,27 @@ export function usePresence(open: boolean, kind: "pop" | "fade" = "pop"): Presen
       },
     },
   };
+}
+
+export interface DialogSlot<T> {
+  /** 开着的那一次：key 给对话框当 React key，value 是打开时带的参数。 */
+  slot: { key: number; value: T } | null;
+  open(value: T): void;
+  /** 对话框放完退出动画后调用；只关 key 对得上的那一次。 */
+  closed(key: number): void;
+  /** 立刻卸掉（不放退出动画），如切换了范围。 */
+  reset(): void;
+}
+
+/**
+ * 自己管开关的对话框（挂上就是打开，关掉后放完退出动画才通知父级卸载）由父级用它记"开着的是哪一次"。
+ * 退出动画还没放完又点了打开：换一个 key 立刻开新的；旧实例迟到的通知按 key 对不上，不会把新的关掉。
+ */
+export function useDialogSlot<T = true>(): DialogSlot<T> {
+  const seq = useRef(0);
+  const [slot, setSlot] = useState<{ key: number; value: T } | null>(null);
+  const open = useCallback((value: T) => setSlot({ key: ++seq.current, value }), []);
+  const closed = useCallback((key: number) => setSlot((current) => (current?.key === key ? null : current)), []);
+  const reset = useCallback(() => setSlot(null), []);
+  return { slot, open, closed, reset };
 }

@@ -51,7 +51,6 @@ export const omp = {
   "autoUpdate.noteOther": "omp-studio checks for a newer version every hour but never installs it for you",
   path: "Path",
   version: "Version",
-  source: "Source",
   "error.title": "Couldn't start omp",
   "error.discover": "Couldn't find a usable omp.",
   "error.download": "Couldn't get omp from the build service. Check your network and try again.",

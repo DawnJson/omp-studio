@@ -14,9 +14,10 @@ import {
 } from "../../../../shared/ui/review-model.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { addComment, removeComment, updateComment } from "../../store/review-store.ts";
+import { Button } from "../../ui/controls.tsx";
+import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { describeError, reportError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
-import { ConfirmDialog } from "../settings/ConfirmDialog.tsx";
 import { splitPath } from "./FileTree.tsx";
 import { HunkView, type CommentCtx, type HunkActions } from "./HunkView.tsx";
 import { useReviewKeys } from "./review-keys.ts";
@@ -33,6 +34,8 @@ export function FileDiffView({
   scope,
   wrap,
   comments,
+  reveal,
+  onRevealed,
   onChanged,
 }: {
   taskId: TaskId;
@@ -42,6 +45,9 @@ export function FileDiffView({
   scope: GitDiffContext;
   wrap: boolean;
   comments: readonly QueuedComment[];
+  /** 从评论列表点进来要滚到的评论 id（diff 载入后滚一次，滚完调 onRevealed）。 */
+  reveal: string | null;
+  onRevealed(): void;
   /** 暂存/丢弃之后（无论成败）让上层重新取状态。 */
   onChanged(): void;
 }) {
@@ -75,6 +81,14 @@ export function FileDiffView({
     const selector = scope === "file" ? `[data-block="${activeHunk}"]` : `[data-hunk="${activeHunk}"]`;
     scroller.current?.querySelector(selector)?.scrollIntoView({ block: "nearest" });
   }, [activeHunk, scope]);
+
+  useEffect(() => {
+    if (reveal === null || diff === null) return;
+    const card = scroller.current?.querySelector(`[data-comment-id="${CSS.escape(reveal)}"]`);
+    if (!card) return;
+    card.scrollIntoView({ block: "center" });
+    onRevealed();
+  }, [reveal, diff, onRevealed]);
 
   // 换了视图，序号的含义变了；暂存一个 hunk 后这一侧的 hunk 变少，当前序号也可能越界。
   useEffect(() => {
@@ -173,9 +187,9 @@ export function FileDiffView({
         <span>
           {t("review.loadFailed")} · {describeError(t, state.error)}
         </span>
-        <button type="button" className="rv-btn" onClick={onChanged}>
+        <Button size="sm" onClick={onChanged}>
           {t("common.retry")}
-        </button>
+        </Button>
       </div>
     );
   } else if (diff === null) body = <div className="rv-note">{t("review.loading")}</div>;
@@ -231,22 +245,17 @@ export function FileDiffView({
         )}
         <span className="rv-file-actions">
           {area === "staged" ? (
-            <button type="button" className="rv-btn" data-testid="file-unstage" onClick={unstageFile}>
+            <Button size="sm" testId="file-unstage" onClick={unstageFile}>
               {t("review.unstage")}
-            </button>
+            </Button>
           ) : (
-            <button type="button" className="rv-btn" data-testid="file-stage" onClick={stageFile}>
+            <Button size="sm" testId="file-stage" onClick={stageFile}>
               {t("review.stage")}
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className="rv-btn rv-btn-danger"
-            data-testid="file-discard"
-            onClick={() => setConfirm({ kind: "file" })}
-          >
+          <Button size="sm" variant="danger" testId="file-discard" onClick={() => setConfirm({ kind: "file" })}>
             {t("review.discard")}
-          </button>
+          </Button>
         </span>
       </header>
       <div className="rv-scroll" ref={scroller} data-testid="diff-scroll" tabIndex={0}>
@@ -254,6 +263,8 @@ export function FileDiffView({
       </div>
       {confirm !== null && (
         <ConfirmDialog
+          danger
+          testId="review-discard-dialog"
           title={t(confirm.kind === "file" ? "review.discardFileTitle" : "review.discardHunkTitle")}
           body={t(
             confirm.kind === "hunk"

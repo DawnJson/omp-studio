@@ -107,7 +107,6 @@
   /* 控件 / 行高 / 图标 */
   --control-h-sm: 28px;
   --control-h-md: 32px;
-  --control-h-lg: 40px;
   --row-task: 32px;
   --row-tool: 28px;
   --row-menu: 32px;
@@ -116,19 +115,18 @@
   --icon-md: 16px;
   --icon-lg: 20px;
   --icon-stroke: 1.5;
-  --chip-max-w: 220px;
 
   /* 版式 */
   --titlebar-h: 40px;
+  --panel-head-h: 40px; /* 面板 / 评审的标题条（文件面板头、评审头、评审文件头） */
   --sidebar-w: 240px; /* 任务行标题 + 尾部时间放得下：中文约 10 个字、英文带 "Just now" 约 14 个字符 */
   --sidebar-w-min: 200px;
   --content-w: 840px; /* 对话列与输入框同宽同轴 */
   --gutter: 24px; /* 对话区最小左右留白 */
   --review-tree-w: 240px; /* 评审：文件树 */
-  --review-aside-w: 320px; /* 评审：改动说明 / 评论队列 */
   --dialog-w-sm: 400px;
   --dialog-w-md: 520px;
-  --dialog-h-usage: 620px; /* 用量对话框的固定高度（加载前后都不变）：刚好装下汇总条 + 两个账号块 + 热力图，下面不留空带 */
+  --dialog-w-lg: 720px;
   --main-min-w: 480px; /* 主区（对话 + 输入框）的最小宽：右侧文件面板先让位，输入框工具行不被挤成三行 */
   --chip-name-min-w: 9ch; /* 输入框模型胶囊里模型名的最小宽：更窄就先收思考强度和路径，名字不缩成 "D…" */
   --palette-w: 600px;
@@ -174,7 +172,6 @@
   --dur-fast: 140ms; /* 胶囊、菜单项、tooltip、状态点切换 */
   --dur-base: 200ms; /* 折叠展开、popover、门出现 */
   --dur-slow: 320ms; /* 侧栏、对话框、命令面板 */
-  --dur-spring: 420ms; /* 配 --ease-spring */
   --dur-fade: 140ms; /* 必须保留的纯透明度渐变；reduced-motion 下为 100ms */
   --dur-breathe: 2400ms; /* 进行中状态点呼吸 */
   --dur-spin: 1100ms; /* 加载环 */
@@ -421,7 +418,6 @@
     --dur-fast: 0ms;
     --dur-base: 0ms;
     --dur-slow: 0ms;
-    --dur-spring: 0ms;
     --dur-fade: 100ms;
     --dur-breathe: 0ms;
     --dur-spin: 0ms;
@@ -439,7 +435,6 @@
   --dur-fast: 0ms;
   --dur-base: 0ms;
   --dur-slow: 0ms;
-  --dur-spring: 0ms;
   --dur-fade: 100ms;
   --dur-breathe: 0ms;
   --dur-spin: 0ms;

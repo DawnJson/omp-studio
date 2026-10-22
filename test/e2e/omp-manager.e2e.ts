@@ -1,22 +1,10 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { findOmpOnPath, inspectOmp } from "../../src/main/omp/discover.ts";
 import type { OmpStatus } from "../../src/shared/ipc.ts";
-import { launchApp, screenshotsDir, type LaunchedApp } from "./launch.ts";
-
-async function localeAndTheme(page: Page, locale: "zh-CN" | "en", theme: "light" | "dark"): Promise<void> {
-  await page.evaluate(
-    async ({ locale: nextLocale, theme: nextTheme }) => {
-      await globalThis.studio.setLocale(nextLocale);
-      await globalThis.studio.setTheme(nextTheme);
-    },
-    { locale, theme },
-  );
-  await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-}
+import { launchApp, screenshotsDir, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 /** 测试用的 agent 目录：服务进程不读真实 ~/.omp（AGENTS.md "开发和测试时隔离用户数据"）。 */
 async function launchIsolated(
@@ -85,7 +73,7 @@ test("设置页和 omp 准备页截图：中英文 × 浅深主题", async () =>
 
     for (const locale of ["zh-CN", "en"] as const) {
       for (const theme of ["light", "dark"] as const) {
-        await localeAndTheme(page, locale, theme);
+        await setLocaleTheme(page, locale, theme);
         for (const section of ["general", "providers", "about"] as const) {
           await page.getByTestId(`settings-nav-${section}`).click();
           if (section === "providers") await expect(page.getByTestId("providers")).toBeVisible();
@@ -128,7 +116,7 @@ test("设置页和 omp 准备页截图：中英文 × 浅深主题", async () =>
     };
     for (const locale of ["zh-CN", "en"] as const) {
       for (const theme of ["light", "dark"] as const) {
-        await localeAndTheme(page, locale, theme);
+        await setLocaleTheme(page, locale, theme);
         for (const [name, status] of Object.entries(states)) {
           await pushStatus(launched, status);
           await expect(page.getByTestId("omp-setup")).toBeVisible();

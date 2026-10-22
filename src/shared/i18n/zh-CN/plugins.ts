@@ -4,6 +4,7 @@ import type { MessageEntry } from "../index.ts";
 export const plugins = {
   intro: "插件给 omp 增加 Skill、命令、工具和 MCP 服务器。这里的改动写进 omp 的全局配置，终端里的 omp 也会用到。",
   loading: "正在读取…",
+  more: "更多操作",
   refresh: "刷新",
   failed: "没能读取插件：{message}",
   // 重新加载提示
@@ -31,7 +32,6 @@ export const plugins = {
   "uninstall.title": "卸载 {name}？",
   "uninstall.body": "会从 omp 里移除这个插件。你可以以后再装回来。",
   "uninstall.confirm": "卸载",
-  cancel: "取消",
   // 功能和设置
   features: "功能",
   "features.none": "这个插件没有可选功能。",
@@ -46,6 +46,8 @@ export const plugins = {
   // 市场
   marketplaces: "市场",
   "marketplaces.empty": "还没有添加市场。",
+  "marketplaces.add.title": "添加市场",
+  "marketplaces.add.open": "添加市场…",
   "marketplaces.add": "添加",
   "marketplaces.add.placeholder": "owner/repo、Git 地址、catalog 的 .json 地址或本地目录",
   "marketplaces.add.label": "市场来源",
