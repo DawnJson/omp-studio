@@ -206,7 +206,11 @@
   line-height: var(--lh-xs);
   color: var(--text-3);
 }
-.md-codecopy {
+.md-codeactions {
+  display: flex;
+  gap: var(--space-0-5);
+}
+.md-codebtn {
   display: grid;
   place-items: center;
   width: 24px;
@@ -222,20 +226,38 @@
     opacity var(--dur-fast) var(--ease-out),
     background var(--dur-instant);
 }
-.md-codeblock:hover .md-codecopy,
-.md-codeblock:focus-within .md-codecopy {
+.md-codeblock:hover .md-codebtn,
+.md-codeblock:focus-within .md-codebtn {
   opacity: 1;
 }
-.md-codecopy:hover {
+.md-codebtn:hover {
   background: var(--bg-hover);
 }
-.md-codecopy:active {
+.md-codebtn:active,
+.md-codebtn[aria-pressed="true"] {
   background: var(--bg-active);
 }
-.md-codecopy:focus-visible {
+.md-codebtn:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
   opacity: 1;
+}
+/* 助手画的 svg 图：不铺底色（omp 约定画布就是读者的主题），1 个单位 ≈ 1px，宽了按比例缩到列宽 */
+.md-figure {
+  padding: var(--space-3) var(--space-3-5);
+}
+.md-figure img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.md-figure-note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3-5) 0;
+  background: var(--bg-sunken);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-3);
 }
 .md-sr {
   position: absolute;

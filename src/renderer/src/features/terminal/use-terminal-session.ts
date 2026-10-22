@@ -7,6 +7,7 @@ import { limits, type TerminalKey } from "../../../../shared/ipc.ts";
 import { buildTerminalPalette, chunkInput, type PaletteToken } from "../../../../shared/ui/terminal-model.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { describeError } from "../../ui/errors.ts";
+import { onThemeChange } from "../../ui/theme-change.ts";
 import { takeFocusRequest } from "./terminal-store.ts";
 
 export interface TerminalSession {
@@ -205,14 +206,10 @@ export function useTerminalSession(
     observer.observe(el);
 
     // 主题切换（设置里改，或系统深浅色变化）：重新读 token。
-    const relook = () => {
+    const offTheme = onThemeChange(() => {
       applyLook();
       refit();
-    };
-    const themeObserver = new MutationObserver(relook);
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
-    scheme.addEventListener("change", relook);
+    });
 
     if (takeFocusRequest(terminalKey)) term.focus();
     void connect();
@@ -227,8 +224,7 @@ export function useTerminalSession(
       keys.dispose();
       sizes.dispose();
       observer.disconnect();
-      themeObserver.disconnect();
-      scheme.removeEventListener("change", relook);
+      offTheme();
       probe.remove();
       term.dispose();
     };

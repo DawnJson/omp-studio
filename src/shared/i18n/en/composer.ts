@@ -62,6 +62,7 @@ export const composer = {
   noModel: "No model connected",
   versionTooOld: "omp is too old",
   modelChip: "Choose model and thinking level",
+  effort: "Thinking: {level} ({n}/{total})",
   fileRef: "Project files",
   "usage.tps": "{n} tok/s",
   "usage.tpsTip": "Output speed of the latest reply",

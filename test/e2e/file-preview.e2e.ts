@@ -158,3 +158,62 @@ test("源码视图有语法颜色：md 源码里围栏代码块的语言也着�
     await cleanup();
   }
 });
+
+test("svg 围栏画成图：颜色换成主题色，切主题重画；<> 看源码；画不出来退回源码", async () => {
+  const { launched, project, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await page.evaluate(() => globalThis.studio.setTheme("light"));
+    await writeFile(
+      path.join(project, "figure.md"),
+      [
+        "```svg",
+        '<svg viewBox="0 0 200 40"><rect width="200" height="40" rx="6" fill="var(--accent)"/>',
+        '<text x="10" y="25" fill="var(--fg)">图</text></svg>',
+        "```",
+        "",
+        "```svg",
+        "这不是 svg",
+        "```",
+        "",
+      ].join("\n"),
+    );
+    await page.getByTestId("topbar-files").click();
+    await page.locator('[data-testid="file-tree-row"][data-path="figure.md"]').click();
+    const [good, bad] = [0, 1].map((nth) => page.getByTestId("file-preview-body").getByTestId("codeblock").nth(nth));
+    const figure = good!.getByTestId("codeblock-figure");
+    await expect(figure).toBeVisible();
+    // 真画出来了（<img> 加载失败时 naturalWidth 是 0），1 个单位 1px。
+    await expect
+      .poll(() => figure.evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth))
+      .toBe(200);
+    const source = () => figure.evaluate((img) => decodeURIComponent((img as unknown as { src: string }).src));
+    const accent = () =>
+      page.evaluate(() => {
+        const g = globalThis as unknown as {
+          getComputedStyle(element: unknown): { getPropertyValue(name: string): string };
+          document: { documentElement: unknown };
+        };
+        return g.getComputedStyle(g.document.documentElement).getPropertyValue("--accent").trim();
+      });
+    const light = await source();
+    expect(light).not.toContain("var(");
+    expect(light).toContain(`fill="${await accent()}"`);
+    await page.evaluate(() => globalThis.studio.setTheme("dark"));
+    await expect.poll(source).not.toBe(light);
+    expect(await source()).toContain(`fill="${await accent()}"`);
+
+    await good!.hover();
+    await good!.getByTestId("codeblock-source").click();
+    await expect(figure).toHaveCount(0);
+    await expect(good!.locator("pre")).toContainText('fill="var(--accent)"');
+    await good!.getByTestId("codeblock-source").click();
+    await expect(figure).toBeVisible();
+
+    await expect(bad!.getByTestId("codeblock-figure")).toHaveCount(0);
+    await expect(bad!).toContainText(/这张图画不出来|couldn't be drawn/);
+    await expect(bad!.locator("pre")).toContainText("这不是 svg");
+  } finally {
+    await cleanup();
+  }
+});

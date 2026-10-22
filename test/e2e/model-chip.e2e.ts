@@ -1,4 +1,4 @@
-// 草稿输入框的模型胶囊在项目之间切换：逐帧记录胶囊文本和宽度，不许闪变、空白、宽度跳动；配了档位的模型要显示"· 高"之类的强度。
+// 草稿输入框的模型胶囊在项目之间切换：逐帧记录胶囊文本和宽度，不许闪变、空白、宽度跳动；配了档位的模型要在档位刻度上显示这一档。
 // 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR：一个 auth: none 的本地 provider 提供三个支持思考的模型，
 // 三个项目分别用 .omp/config.yml 指定不同的 modelRoles.default / defaultThinkingLevel，第三个什么都不配（用全局的）。
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -29,7 +29,13 @@ const modelsYml = [
 
 const modelLoadingText = "模型…";
 
-const chipText = (page: Page) => page.getByTestId("model-chip").innerText();
+/** 模型名 + 档位，和 chip-frames.ts 记录的写法一样（"Chip Alpha·high"）。 */
+const chipText = async (page: Page) => {
+  const name = await page.getByTestId("model-chip").innerText();
+  const effort = page.getByTestId("chip-thinking");
+  const level = (await effort.count()) > 0 ? await effort.getAttribute("data-level") : null;
+  return level === null ? name : `${name}·${level}`;
+};
 
 test("切换项目：模型胶囊逐帧无闪变、无空白，档位随项目显示", async () => {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp-studio-chip-"));
@@ -42,9 +48,9 @@ test("切换项目：模型胶囊逐帧无闪变、无空白，档位随项目�
     "utf8",
   );
   const projects: { dir: string; model: string; level: string }[] = [
-    { dir: path.join(work, "项目 甲"), model: "Chip Alpha", level: "高" },
-    { dir: path.join(work, "项目 乙"), model: "Chip Beta Longer Name", level: "低" },
-    { dir: path.join(work, "项目 丙"), model: "Chip Global", level: "中" },
+    { dir: path.join(work, "项目 甲"), model: "Chip Alpha", level: "high" },
+    { dir: path.join(work, "项目 乙"), model: "Chip Beta Longer Name", level: "low" },
+    { dir: path.join(work, "项目 丙"), model: "Chip Global", level: "medium" },
   ];
   const configs = [
     "modelRoles:\n  default: chip-local/chip-a\ndefaultThinkingLevel: high\n",
@@ -88,17 +94,23 @@ test("切换项目：模型胶囊逐帧无闪变、无空白，档位随项目�
     const first = await readRecording(page);
     await startRecording(page);
     const order = [1, 2, 0, 1, 2, 0, 2, 1, 0];
+    const litBars: number[] = [];
     for (const index of order) {
       await pick(index);
       await page.waitForTimeout(1200);
       const text = await chipText(page);
       expect(text, `项目 ${index}`).toContain(projects[index]!.model);
-      expect(text, `项目 ${index} 的思考强度`).toContain(projects[index]!.level);
+      expect(text, `项目 ${index} 的思考强度`).toContain(`·${projects[index]!.level}`);
+      litBars[index] = await page.getByTestId("chip-thinking").locator("rect[data-lit]").count();
     }
     const revisits = await readRecording(page);
+    // 档位刻度亮的格数随档位升：low < medium < high。
+    expect(litBars[1]).toBeGreaterThan(0);
+    expect(litBars[2]).toBeGreaterThan(litBars[1]!);
+    expect(litBars[0]).toBeGreaterThan(litBars[2]!);
 
     // 第一阶段（添加三个项目，每个都是第一次读）：只许出现占位和最终值，不许出现"全局的模型配这个项目的强度"这类混合。
-    const finals = projects.map((project) => `${project.model}${project.level}`);
+    const finals = projects.map((project) => `${project.model}·${project.level}`);
     const dedupe = (frames: Frame[]) =>
       frames.map((frame) => frame.text).filter((text, i, all) => i === 0 || text !== all[i - 1]);
     const seen = dedupe(first.frames);

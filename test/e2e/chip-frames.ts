@@ -1,4 +1,5 @@
-// 模型胶囊的逐帧记录（在页面里跑）：每个动画帧读 [data-testid=model-chip] 的文本和宽度、草稿所在文件夹，只记变化；另记长任务时长。
+// 模型胶囊的逐帧记录（在页面里跑）：每个动画帧读模型名（[data-testid=model-chip]）+ 档位刻度的档位
+//（[data-testid=chip-thinking] 的 data-level，写成 "名字·high"）、整颗胶囊的宽度、草稿所在文件夹，只记变化；另记长任务时长。
 import type { Page } from "@playwright/test";
 
 export interface Frame {
@@ -15,7 +16,11 @@ export interface Recording {
 
 interface PageGlobals {
   document: {
-    querySelector(selector: string): { textContent: string | null; getBoundingClientRect(): { width: number } } | null;
+    querySelector(selector: string): {
+      textContent: string | null;
+      getAttribute(name: string): string | null;
+      getBoundingClientRect(): { width: number };
+    } | null;
   };
   requestAnimationFrame(callback: () => void): number;
   PerformanceObserver: new (callback: (list: { getEntries(): { duration: number }[] }) => void) => {
@@ -34,10 +39,13 @@ function install(): void {
   }).observe({ entryTypes: ["longtask"] });
   const tick = () => {
     const chip = g.document.querySelector('[data-testid="model-chip"]');
-    const text = chip === null ? "" : (chip.textContent ?? "");
+    const effort = g.document.querySelector('[data-testid="chip-thinking"]');
+    const group = g.document.querySelector('[data-testid="model-chip-group"]');
+    const level = effort?.getAttribute("data-level");
+    const text = (chip?.textContent ?? "") + (level ? `·${level}` : "");
     const label = g.document.querySelector('[data-testid="empty-project"]');
     const project = (label?.textContent ?? "").slice(-4);
-    const width = chip === null ? 0 : Math.round(chip.getBoundingClientRect().width);
+    const width = group === null ? 0 : Math.round(group.getBoundingClientRect().width);
     const last = recording.frames[recording.frames.length - 1];
     if (last === undefined || last.text !== text || last.width !== width || last.project !== project)
       recording.frames.push({ at: Math.round(performance.now()), text, width, project });

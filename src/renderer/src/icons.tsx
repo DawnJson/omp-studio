@@ -49,6 +49,12 @@ export const CopyIcon = (props: IconProps) => (
     <path d="M10.5 3.5v-.2a1 1 0 0 0-1-1h-5a1 1 0 0 0-1 1v7.2a1 1 0 0 0 1 1h.2" />
   </Icon>
 );
+/** 源码：尖括号 */
+export const Code = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5" />
+  </Icon>
+);
 export const Close = (props: IconProps) => (
   <Icon {...props}>
     <path d="m4 4 8 8M12 4l-8 8" />

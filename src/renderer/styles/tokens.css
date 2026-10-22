@@ -263,6 +263,14 @@
   --st-error: #b42e2e;
   --st-error-soft: rgba(180, 46, 46, 0.08);
 
+  /* 图表系列色：助手画的 svg 图里 var(--c1)…var(--c6) 映射到这里（markdown/svg-figure.ts）。首色是主色，其余色相拉开 */
+  --chart-1: #6b46d9;
+  --chart-2: #2f6fd6;
+  --chart-3: #c8611d;
+  --chart-4: #2c8a4b;
+  --chart-5: #c23c86;
+  --chart-6: #13858a;
+
   /* diff：改动卡片 +N / −N 文字色，评审里的行背景。新增用独立的绿，不跟主色 */
   --diff-add-fg: #1f7a3f;
   --diff-del-fg: #b42e2e;
@@ -335,6 +343,13 @@
     --st-error: #f27373;
     --st-error-soft: rgba(242, 115, 115, 0.12);
 
+    --chart-1: #a48bff;
+    --chart-2: #6aa5ff;
+    --chart-3: #f08c4a;
+    --chart-4: #5fcb86;
+    --chart-5: #f07ab8;
+    --chart-6: #4cc6c9;
+
     --diff-add-fg: #5fcb86;
     --diff-del-fg: #f27373;
     --diff-add-bg: rgba(95, 203, 134, 0.14);
@@ -401,6 +416,13 @@
   --st-done: #5fcb86;
   --st-error: #f27373;
   --st-error-soft: rgba(242, 115, 115, 0.12);
+
+  --chart-1: #a48bff;
+  --chart-2: #6aa5ff;
+  --chart-3: #f08c4a;
+  --chart-4: #5fcb86;
+  --chart-5: #f07ab8;
+  --chart-6: #4cc6c9;
 
   --diff-add-fg: #5fcb86;
   --diff-del-fg: #f27373;

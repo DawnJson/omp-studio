@@ -28,6 +28,7 @@
     "src/renderer/src/markdown/math.ts",
     "src/renderer/src/markdown/render.ts",
     "src/renderer/src/markdown/markdown-static.ts",
+    "src/renderer/src/markdown/svg-figure.ts",
     "src/renderer/src/features/conversation/model.ts",
     "src/renderer/src/features/conversation/tool-info.ts",
     "src/renderer/src/features/conversation/diffstat.ts",

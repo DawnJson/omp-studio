@@ -54,6 +54,7 @@ export const composer = {
   noModel: "未连接模型",
   versionTooOld: "omp 版本过旧",
   modelChip: "选择模型和思考强度",
+  effort: "思考强度：{level}（{n}/{total}）",
   fileRef: "项目文件",
   "usage.tps": "{n} token/s",
   "usage.tpsTip": "最近一条回复的输出速度",

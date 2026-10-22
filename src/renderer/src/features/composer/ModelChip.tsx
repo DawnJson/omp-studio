@@ -1,11 +1,14 @@
-// 模型 + 思考强度合并成一颗胶囊（spec 4.14）。点开是模型选择对话框（ModelPicker）；Alt M / 命令面板也能打开，Alt T 直接轮换思考强度。
+// 模型 + 思考强度的胶囊（spec 4.14）：左边是档位刻度（点它或 Alt T 轮换思考强度），右边是模型名（点开模型选择对话框
+// ModelPicker；Alt M / 命令面板也能打开）。刻度的格数是这个模型的档位数，亮几格是第几档，颜色和运行中的动效按档位
+// 加强（composer.css 的 .chip-effort[data-level]）；快速模式在模型名后面加一个闪电。
 // 思考强度是乐观更新：点下去（或 Alt T）立刻显示新值，omp 的往返（任务里要等会话空闲、草稿里要跑 `omp config`）在后台完成；
-// 失败时退回原值并报错。芯片上的强度文字按档位带不同的效果（composer.css 的 [data-level]）。
+// 失败时退回原值并报错。
 import { reportError } from "../../ui/errors.ts";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { Bolt } from "../../icons.tsx";
 import { onStudioCommand } from "../palette/index.ts";
 import { ModelPicker, type ModelPickerProps } from "./ModelPicker.tsx";
 import { nextThinkingLevel, thinkingLabel } from "./thinking-levels.ts";
@@ -34,6 +37,9 @@ export function ModelChip(task: ModelChipProps) {
   const supportsThinking = task.model?.reasoning === true && levels.length > 0;
   const levelText =
     thinkingLevel && thinkingLabel[thinkingLevel] ? t(thinkingLabel[thinkingLevel] as MessageKey) : null;
+  // 刻度只数 effort（不算"关"）：关 = 全灭，最高档 = 全亮。
+  const efforts: readonly ThinkingLevel[] = levels.filter((level) => level !== "off");
+  const lit = thinkingLevel === null ? 0 : efforts.indexOf(thinkingLevel) + 1;
   const name = task.model?.name ?? emptyLabel ?? t("composer.noModel");
   const badges = task.speed ? speedBadges(task.speed.fast, task.speed.slow) : [];
 
@@ -90,31 +96,49 @@ export function ModelChip(task: ModelChipProps) {
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const showLevel = (supportsThinking || !task.model) && levelText !== null;
+  const showEffort = supportsThinking && efforts.length > 0 && levelText !== null;
+  const effortText = t("composer.effort", { level: levelText ?? "", n: lit, total: efforts.length });
+  const fastText = badges.includes("fast") ? t("composer.badge.fast") : null;
   return (
     <>
-      <button
-        type="button"
-        className="ui-chip chip-model"
-        data-testid="model-chip"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label={t("composer.modelChip")}
-        title={showLevel ? `${name} · ${levelText}` : name}
-        onClick={() => setOpen(true)}
-      >
-        <span className="chip-text">{name}</span>
-        {showLevel && (
-          <span className="chip-level" data-level={thinkingLevel} data-testid="chip-thinking">
-            {levelText}
-          </span>
+      <div className="chip-model" data-testid="model-chip-group">
+        {showEffort && (
+          <button
+            type="button"
+            className="ui-chip chip-effort"
+            data-testid="chip-thinking"
+            data-level={thinkingLevel}
+            data-running={task.running || undefined}
+            aria-label={effortText}
+            title={`${effortText} (Alt T)`}
+            onClick={cycleThinking}
+          >
+            <EffortBars total={efforts.length} lit={lit} />
+          </button>
         )}
-        {badges.map((badge) => (
-          <span key={badge} className="chip-badge" data-testid={`speed-badge-${badge}`}>
-            {t(badge === "fast" ? "composer.badge.fast" : "composer.badge.slow")}
-          </span>
-        ))}
-      </button>
+        <button
+          type="button"
+          className="ui-chip chip-name"
+          data-testid="model-chip"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={t("composer.modelChip")}
+          title={fastText === null ? name : `${name} · ${fastText}`}
+          onClick={() => setOpen(true)}
+        >
+          <span className="chip-text">{name}</span>
+          {fastText !== null && (
+            <span className="chip-fast" data-testid="speed-badge-fast">
+              <Bolt />
+            </span>
+          )}
+          {badges.includes("slow") && (
+            <span className="chip-badge" data-testid="speed-badge-slow">
+              {t("composer.badge.slow")}
+            </span>
+          )}
+        </button>
+      </div>
       <ModelPicker
         {...pickerProps}
         open={open}
@@ -123,5 +147,32 @@ export function ModelChip(task: ModelChipProps) {
         onClose={() => setOpen(false)}
       />
     </>
+  );
+}
+
+/** 档位刻度：每档一根 2px 宽的竖条、间隔 2px，从低到高 4 → 12px（取整，落在整像素上不发虚）；前 `lit` 根亮着。
+ *  `--i` 给逐根点亮和波动错开用，`--t`（0-1）给 xhigh / max 的渐变取色。 */
+function EffortBars({ total, lit }: { total: number; lit: number }) {
+  const step = 4;
+  const width = total * step - 2;
+  return (
+    <svg viewBox={`0 0 ${width} 12`} width={width} height={12} aria-hidden="true" focusable="false">
+      {Array.from({ length: total }, (_, i) => {
+        const height = total === 1 ? 12 : Math.round(4 + (8 * i) / (total - 1));
+        const style = { "--i": i, "--t": total === 1 ? 1 : i / (total - 1) } as CSSProperties;
+        return (
+          <rect
+            key={i}
+            x={i * step}
+            y={12 - height}
+            width={2}
+            height={height}
+            rx={1}
+            data-lit={i < lit || undefined}
+            style={style}
+          />
+        );
+      })}
+    </svg>
   );
 }

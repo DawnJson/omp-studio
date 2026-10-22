@@ -161,13 +161,25 @@ button.usage-context:hover,
 }
 
 /* 工具条胶囊统一用 ui/controls.css 的 .ui-chip（28 高、无底色、悬停 / 打开时 --bg-hover）。这里只放模型胶囊的收缩和内部排版。 */
-/* 模型胶囊：工具行再挤也能收窄（名字省略），但不窄过名字的最小宽；审批胶囊不收窄（见上面 .composer-tools > .ui-popover-anchor）。 */
-.ui-chip.chip-model {
+/* 模型胶囊：左边档位刻度、右边模型名，两个 .ui-chip 拼成一颗（各自悬停有底）。工具行再挤也能收窄（名字省略），
+   但不窄过名字的最小宽；审批胶囊不收窄（见上面 .composer-tools > .ui-popover-anchor）。 */
+.chip-model {
+  display: inline-flex;
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+.ui-chip.chip-name {
   flex: 0 1 auto;
   max-width: 100%;
   min-width: calc(var(--chip-name-min-w) + 2 * var(--space-2-5));
-  /* 极窄时内容（思考强度）不能画到旁边的胶囊上。 */
   overflow: hidden;
+}
+.ui-chip.chip-effort {
+  padding: 0 var(--space-1) 0 var(--space-2-5);
+}
+.chip-effort + .ui-chip.chip-name {
+  min-width: calc(var(--chip-name-min-w) + var(--space-1) + var(--space-2-5));
+  padding-left: var(--space-1);
 }
 .chip-text {
   overflow: hidden;
@@ -186,36 +198,65 @@ button.usage-context:hover,
   font-size: var(--fs-2xs);
   line-height: var(--lh-2xs);
 }
-/* 芯片上的思考强度：档位越高越"热"。低档是普通文字，high 起用强调色，xhigh / max 是渐变字，max 慢慢流动。 */
-.chip-level {
+/* 快速模式：模型名后面一个实心闪电 */
+.chip-fast {
+  display: inline-flex;
   flex: none;
-  white-space: nowrap;
+  color: var(--st-waiting);
 }
-/* 渐变字（background-clip: text）也会裁到分隔点上，用 text-fill-color 让它保持灰色。 */
-.chip-level::before {
-  content: "· ";
-  -webkit-text-fill-color: var(--text-3);
-  color: var(--text-3);
+.ui-chip .chip-fast svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
 }
-.chip-level[data-level="off"],
-.chip-level[data-level="minimal"] {
-  color: var(--text-3);
+/* 档位刻度（ModelChip 的 EffortBars）：亮的格子按档位变"热"——minimal / low 灰，medium 主色，high 主色加柔光，
+   xhigh / max 由主色渐变到琥珀、光晕更强。切换档位时逐格点亮；任务运行中亮格从低到高波动，档位越高越快。 */
+.ui-chip.chip-effort svg {
+  width: auto;
+  height: 12px;
+  overflow: visible;
 }
-.chip-level[data-level="high"] {
-  color: var(--accent);
-  font-weight: var(--fw-strong);
+.chip-effort rect {
+  fill: var(--border-strong);
+  transition: fill var(--dur-fast) var(--ease-out);
+  transition-delay: calc(var(--i) * 30ms);
 }
-.chip-level[data-level="xhigh"],
-.chip-level[data-level="max"] {
-  font-weight: var(--fw-strong);
-  background: linear-gradient(90deg, var(--accent), var(--st-waiting), var(--accent));
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.chip-effort rect[data-lit] {
+  fill: var(--text-2);
 }
-.chip-level[data-level="max"] {
-  animation: thinking-flow calc(var(--dur-breathe) * 2) linear infinite;
+.chip-effort:is([data-level="medium"], [data-level="high"]) rect[data-lit] {
+  fill: var(--accent);
+}
+.chip-effort:is([data-level="xhigh"], [data-level="max"]) rect[data-lit] {
+  fill: color-mix(in oklch, var(--accent), var(--st-waiting) calc(var(--t) * 100%));
+}
+.chip-effort[data-level="high"] svg {
+  filter: drop-shadow(0 0 1.5px color-mix(in srgb, var(--accent) 50%, transparent));
+}
+.chip-effort[data-level="xhigh"] svg {
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--st-waiting) 50%, transparent));
+}
+.chip-effort[data-level="max"] svg {
+  filter: drop-shadow(0 0 2.5px color-mix(in srgb, var(--st-waiting) 75%, transparent));
+}
+.chip-effort {
+  --wave: var(--dur-breathe);
+}
+.chip-effort[data-level="medium"] {
+  --wave: 1600ms;
+}
+.chip-effort[data-level="high"] {
+  --wave: 1200ms;
+}
+.chip-effort[data-level="xhigh"] {
+  --wave: 900ms;
+}
+.chip-effort[data-level="max"] {
+  --wave: 700ms;
+}
+.chip-effort[data-running] rect[data-lit] {
+  animation: effort-wave var(--wave) var(--ease-in-out) infinite;
+  animation-delay: calc(var(--i) * var(--wave) / 8);
   animation-play-state: var(--play-state);
 }
 /* 审批胶囊上的模式名 */
@@ -227,14 +268,9 @@ button.usage-context:hover,
     max-width: 18ch;
   }
 }
-/* 工具行放不下时的让位顺序：先是项目路径（缩到只剩文件夹图标），再是思考强度后缀（隐藏，完整的在胶囊悬停提示里），模型名最后。 */
+/* 工具行放不下时的让位顺序：先是项目路径（缩到只剩文件夹图标），模型名最后。 */
 .composer-tools > .empty-project {
   flex-shrink: 100;
-}
-@container (min-width: 401px) and (max-width: 460px) {
-  .chip-level {
-    display: none;
-  }
 }
 /* 再窄（比如右侧开着文件预览）工具行折成两行：左边模型、审批一行，右边的计数、用量、发送换到下一行靠右，模型名不再被挤没。 */
 @container (max-width: 400px) {
@@ -839,12 +875,13 @@ html[data-motion="reduced"] .ctx-usage-chev {
   min-width: 0;
 }
 
-@keyframes thinking-flow {
-  from {
-    background-position: 0% 0;
+@keyframes effort-wave {
+  0%,
+  100% {
+    opacity: 1;
   }
-  to {
-    background-position: 200% 0;
+  50% {
+    opacity: 0.35;
   }
 }
 /* 斜杠菜单 / @ 文件菜单：listbox，焦点一直留在输入框，所以不能用 ui/MenuList；外观同 .ui-menu（--bg-overlay + --shadow-2 + --radius-lg，行高 --row-menu，悬停 / 键盘选中 --bg-hover）。 */
