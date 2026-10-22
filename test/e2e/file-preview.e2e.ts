@@ -1,6 +1,6 @@
-// 文件预览的端到端：项目目录里写 .md / .svg / .html / 二进制 / Office 文档，经真实 IPC（readPreviewFile）读回，
-// 断言分类、内容、绝对路径换算、越界拒绝和不存在；Office 文档在预览页的沙箱 iframe 里画出来。
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+// 文件预览的端到端：项目目录里写 .md / .svg / .html / 二进制，经真实 IPC（readPreviewFile）读回，
+// 断言分类、内容、绝对路径换算、越界拒绝和不存在。
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -27,9 +27,6 @@ async function start(fixtureFor?: (work: string, project: string) => Promise<str
   await writeFile(path.join(project, "logo.svg"), svg);
   await writeFile(path.join(project, "page.html"), "<h1>hello page</h1>");
   await writeFile(path.join(project, "blob.bin"), Buffer.from([1, 2, 0, 3, 4]));
-  for (const name of ["report.docx", "sales.xlsx", "deck.pptx"]) {
-    await copyFile(path.join(import.meta.dirname, "..", "..", "fixtures", "office", name), path.join(project, name));
-  }
   const launched = await launchApp({
     STUDIO_TEST_OMP: fixtureFor ? await fixtureFor(work, project) : testOmp("slash-status"),
   });
@@ -94,60 +91,6 @@ test("readPreviewFile 按类型返回内容，越界拒绝", async () => {
 
     await expect(read("../outside.txt")).rejects.toThrow();
     await expect(read(path.join(os.tmpdir(), "x.txt"))).rejects.toThrow();
-  } finally {
-    await cleanup();
-  }
-});
-
-test("Word / Excel / PowerPoint 在预览页里画成文档：文字、表格、图片都在，不跑脚本", async () => {
-  const { launched, cleanup } = await start();
-  try {
-    const { page } = launched;
-    const screenshots = path.join(import.meta.dirname, "..", "..", "screenshots");
-    await page.getByTestId("topbar-files").click();
-    const open = async (name: string) => {
-      await page.getByTestId("file-preview-page-files").click();
-      await page.locator(`[data-testid=file-tree-row][data-path="${name}"]`).click();
-      await expect(page.getByTestId("file-preview-name")).toHaveText(name);
-      return page.frameLocator("[data-testid=file-preview-document]").locator("body");
-    };
-
-    const word = await open("report.docx");
-    await expect(word).toContainText("季度报告 Quarterly report");
-    await expect(word.locator("table")).toContainText("华东");
-    // 内嵌图片是 data URL：应用的 CSP 放行，真的加载出来了。
-    await expect
-      .poll(() => word.locator("img").evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth))
-      .toBeGreaterThan(0);
-    for (const [locale, scheme] of [
-      ["zh-CN", "light"],
-      ["zh-CN", "dark"],
-      ["en", "light"],
-      ["en", "dark"],
-    ] as const) {
-      await page.evaluate(
-        async ({ locale, scheme }) => {
-          await globalThis.studio.setLocale(locale);
-          await globalThis.studio.setTheme(scheme);
-        },
-        { locale, scheme },
-      );
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
-      await page.waitForTimeout(250);
-      await page.screenshot({ path: path.join(screenshots, `preview-docx-${locale}-${scheme}.png`) });
-    }
-
-    const sheet = await open("sales.xlsx");
-    await expect(sheet.locator("h2")).toHaveText(["销售", "Notes"]);
-    await expect(sheet).toContainText("<script>alert(1)</script>");
-    await expect(sheet.locator("script")).toHaveCount(0);
-    await page.screenshot({ path: path.join(screenshots, "preview-xlsx-en-dark.png") });
-
-    const deck = await open("deck.pptx");
-    await expect(deck.locator("section.slide")).toHaveCount(2);
-    await expect(deck.locator("section.slide").first()).toContainText("项目进展");
-    await page.screenshot({ path: path.join(screenshots, "preview-pptx-en-dark.png") });
   } finally {
     await cleanup();
   }

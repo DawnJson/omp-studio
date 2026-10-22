@@ -1,15 +1,12 @@
 // 右侧文件预览的读取：路径校验复用 task-file-path（只允许落在任务 cwd 内），按扩展名/内容分类，限制大小。
-// Word / Excel / PowerPoint 在这里转成 HTML（office-preview.ts），渲染进程只管放进沙箱 iframe。
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { PreviewFile } from "../../shared/ipc.ts";
 import { canOpenDirectly, resolveInside, resolveInsideReal } from "../ipc/task-file-path.ts";
 import { isMissing } from "./list-directory.ts";
-import { isOfficeExtension, renderOfficeHtml } from "./office-preview.ts";
 
 const previewTextMaxBytes = 2 * 1024 * 1024;
 const previewImageMaxBytes = 20 * 1024 * 1024;
-const previewOfficeMaxBytes = 20 * 1024 * 1024;
 
 const imageMime: Record<string, string> = {
   ".png": "image/png",
@@ -53,11 +50,6 @@ export async function readPreviewFile(cwd: string, input: string): Promise<Previ
     if (info.size > previewImageMaxBytes) return { ...base, kind: "too_large" };
     const bytes = await readFile(file);
     return { ...base, kind: "image", dataUrl: `data:${mime};base64,${bytes.toString("base64")}` };
-  }
-  if (isOfficeExtension(ext)) {
-    if (info.size > previewOfficeMaxBytes) return { ...base, kind: "too_large" };
-    const { html, truncated } = await renderOfficeHtml(await readFile(file), ext);
-    return { ...base, kind: "document", text: html, truncated };
   }
   if (info.size > previewTextMaxBytes) return { ...base, kind: "too_large" };
   const bytes = await readFile(file);

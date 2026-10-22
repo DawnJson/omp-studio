@@ -1,5 +1,4 @@
-// 预览页的正文：md 渲染 / 图片（svg 也只当图片）/ html 沙箱 iframe / Office 文档（主进程转好的 HTML）沙箱 iframe /
-// 其余文本高亮源码；二进制和过大文件只给提示。
+// 预览页的正文：md 渲染 / 图片（svg 也只当图片）/ html 沙箱 iframe / 其余文本高亮源码；二进制和过大文件只给提示。
 import { useState } from "react";
 import type { PreviewFile } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -85,20 +84,6 @@ export function PreviewContent({ file, ext, name, source, scripts, zoom, isMarkd
           sandbox={scripts ? "allow-scripts" : ""}
           srcDoc={file.text ?? ""}
         />
-      );
-    case "document":
-      // 主进程从 Word / Excel / PowerPoint 转出来的 HTML：同样不给 allow-same-origin，也从不放行脚本。
-      return (
-        <>
-          {file.truncated === true && <p className="file-preview-note">{t("preview.documentTruncated")}</p>}
-          <iframe
-            className="file-preview-frame"
-            data-testid="file-preview-document"
-            title={t("preview.documentTitle", { name })}
-            sandbox=""
-            srcDoc={file.text ?? ""}
-          />
-        </>
       );
     case "text":
       if (isMarkdown && !source) {

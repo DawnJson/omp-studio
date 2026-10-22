@@ -19,8 +19,6 @@ export const preview = {
   readFailed: "读取失败：{message}",
   imageAlt: "图片预览：{name}",
   htmlTitle: "网页预览：{name}",
-  documentTitle: "文档预览：{name}",
-  documentTruncated: "表格太大：每个工作表只显示前 1000 行、100 列。",
   resize: "调整预览宽度",
   pages: "面板页",
   pageFiles: "文件",
