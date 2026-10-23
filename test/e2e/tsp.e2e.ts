@@ -738,6 +738,49 @@ test("恢复会话:omp 不重发的每轮用量脚注补回;回顾只补最新�
   }
 });
 
+// 对话线(假 omp 回放 resume:3 条用户消息)。窗口压矮,让三轮对话需要滚动。
+test("对话线:每条用户消息一个刻度,点刻度把那条消息滚到对话区顶部、刻度标为当前;吸底时当前是最后一条", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("resume");
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 1200, height: 600 });
+    await page.evaluate(async () => {
+      const [project] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: project!.id });
+    });
+    await openTaskRow(page);
+    await expect(role(page, "omp.user")).toHaveCount(3, { timeout: 30_000 });
+    const ticks = page.getByTestId("conversation-line-tick");
+    await expect(ticks).toHaveCount(3);
+    await expect(ticks.nth(2)).toHaveAttribute("aria-current", "location");
+    // 消息顶边到对话区顶边的距离:跳过去后是 16(--space-4)。
+    const landing = (index: number) =>
+      page.evaluate((nth) => {
+        type Box = { getBoundingClientRect(): { top: number } };
+        const d = (
+          globalThis as unknown as { document: { querySelector(s: string): Box; querySelectorAll(s: string): Box[] } }
+        ).document;
+        const scroller = d.querySelector('[data-testid="tsp-view"] .tsp-scroller');
+        const card = d.querySelectorAll('[data-testid="tsp-view"] [data-role="omp.user"]')[nth]!;
+        return Math.round(card.getBoundingClientRect().top - scroller.getBoundingClientRect().top);
+      }, index);
+    for (const index of [0, 1]) {
+      await ticks.nth(index).click();
+      await expect.poll(() => landing(index)).toBe(16);
+      await expect(ticks.nth(index)).toHaveAttribute("aria-current", "location");
+      await expect(page.locator('[data-testid="conversation-line-tick"][aria-current]')).toHaveCount(1);
+    }
+    // 刻度的说明(悬停提示 / 读屏)是那条消息的开头。
+    const second = (await role(page, "omp.user").nth(1).locator(".md").innerText()).trim().slice(0, 10);
+    await expect(ticks.nth(1)).toHaveAttribute("aria-label", new RegExp(second.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    await ticks.nth(1).hover();
+    await shoot(page, "conversation-line");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("压缩分隔画成整行横线夹文字;切模型后 omp 的状态行留在对话里(不是一闪而过的弹层);点分隔展开摘要", async () => {
   test.setTimeout(120_000);
   // 假 omp 回放的是 omp 18.12.5 `--resume` 一个压缩过的会话:section omp.compaction(折叠)、启动时的状态行,

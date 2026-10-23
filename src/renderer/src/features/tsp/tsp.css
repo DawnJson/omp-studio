@@ -189,6 +189,58 @@
   outline-offset: 2px;
 }
 
+/* 对话线：贴对话区右缘（覆盖式滚动条左边），每条用户消息一个横刻度，从上往下排；消息多时刻度间距压缩（最小 3px），
+ * 最多占对话区一半高，再多就在线里滚动（不显示滚动条）。刻度平时 --border-strong 短线，悬停 --text-2，正在读的那一条 --text 且更长。
+ * 宽 12 落在对话列的最小留白（--gutter 24）里，不压正文。 */
+.tsp-convline {
+  position: absolute;
+  top: var(--space-6);
+  right: calc(var(--scrollbar-hit) + 2px);
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  width: 12px;
+  max-height: 50%;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.tsp-convline-tick {
+  flex: 0 1 12px;
+  min-height: 3px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  cursor: pointer;
+}
+.tsp-convline-tick::after {
+  content: "";
+  width: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--border-strong);
+  transition:
+    width var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+.tsp-convline-tick:hover::after {
+  width: 12px;
+  background: var(--text-2);
+}
+.tsp-convline-tick[aria-current]::after {
+  width: 12px;
+  background: var(--text);
+}
+.tsp-convline-tick:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+  border-radius: var(--radius-xs);
+}
+
 /* ───────────────────────── 通用：tone、可点击、隐藏、空容器 ───────────────────────── */
 
 [data-tone="neutral"],

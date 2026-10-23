@@ -1,14 +1,21 @@
 // "最近更新"：照 omp 的 What's New（startup.changelogMode = summary）。升级后第一次启动时，在新任务页标志下面
 // 显示自上次看过的版本以来的条目统计；随即把当前版本记进 userData/last-changelog-version，下次启动就不再显示。
 // 没有记录（第一次装）当作从上一个版本升级来，只算当前版本这一节。说明来自打进主进程包里的 CHANGELOG.md。
+// 设置 → 关于 → 更新日志里 omp-studio 那一项也从这里取当前版本的那一节（studioReleaseNotes）。
 import { app } from "electron";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import changelog from "../../CHANGELOG.md?raw";
-import { countEntries, releasedVersions, releaseNotes } from "../shared/changelog.ts";
-import type { WhatsNew } from "../shared/ipc.ts";
+import { countEntries, releaseDate, releasedVersions, releaseNotes } from "../shared/changelog.ts";
+import type { ReleaseNotes, WhatsNew } from "../shared/ipc.ts";
 import { log } from "./log/log.ts";
 import { compareVersions } from "../shared/omp-version.ts";
+
+/** 当前版本在打包进来的 CHANGELOG.md 里的那一节；没有这一节时为 null。 */
+export function studioReleaseNotes(version: string): ReleaseNotes | null {
+  const body = releaseNotes(changelog, version);
+  return body === null ? null : { version, date: releaseDate(changelog, version), body };
+}
 
 /** lastSeen 之后、current 为止各版本的条目统计；lastSeen 为 null 时只算 current。没有可说的返回 null。 */
 export function summarizeWhatsNew(text: string, current: string, lastSeen: string | null): WhatsNew | null {

@@ -10,6 +10,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { useStickToBottom } from "../conversation/use-stick-to-bottom.ts";
+import { ConversationLine } from "./ConversationLine.tsx";
 import type { TspContext } from "./node-props.ts";
 import { TspHosts } from "./TspHosts.tsx";
 import { TspChildren } from "./TspChildren.tsx";
@@ -132,6 +133,8 @@ interface SurfaceParts {
   column: RefObject<HTMLDivElement | null>;
   surface: RefObject<HTMLDivElement | null>;
   jump?: ReactNode;
+  /** 盖在对话区右侧的对话线（只有 inline 有）。 */
+  line?: ReactNode;
   /** 对话列最上面、随对话滚动的内容（inline 的 studio 标题块）。 */
   header?: ReactNode;
   /** main 后面、对话列末尾的内容（首发气泡，omp 回显前占位）。 */
@@ -146,7 +149,7 @@ function Region({ taskId, sf, id, ctx }: { taskId: TaskId; sf: string; id: "dock
   return <TspChildren node={node} ctx={ctx} />;
 }
 
-function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, header, tail, mode }: SurfaceParts) {
+function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, line, header, tail, mode }: SurfaceParts) {
   const t = useT();
   const main = useTspNode(taskId, sf, "main");
   // 子代理面板在后台驱动 omp 的 Agent Hub（插话 / 结束 / 恢复）：期间过程区压暗（聚焦模式里它暂时显示那个子代理的记录）。
@@ -180,6 +183,7 @@ function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, header,
         <div className="tsp-layer">
           <Region taskId={taskId} sf={sf} id="layer" ctx={ctx} />
         </div>
+        {line}
         {jump}
       </div>
     </TspCtx.Provider>
@@ -249,6 +253,7 @@ function InlineSurface({
       mode="inline"
       header={<StudioHeader compact path={cwd} />}
       tail={pendingText !== undefined && !hasUser ? <PendingUser text={pendingText} /> : null}
+      line={<ConversationLine taskId={taskId} scroller={scroller} />}
       jump={
         showJump && (
           <button type="button" className="tsp-jump" onClick={scrollToBottom} data-testid="jump-latest">

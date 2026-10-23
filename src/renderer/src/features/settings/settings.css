@@ -393,17 +393,35 @@
   transition: transform var(--dur-fast) var(--ease-out);
 }
 
+/* 更新日志：每项一行（箭头 + 名字 + 版本 + 日期，整行可点），点开后正文缩进到名字下面。 */
 .st-changelog {
-  padding: var(--space-2) 0;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .st-changelog .ui-disclosure {
   gap: var(--space-2);
+  width: 100%;
+  min-height: var(--control-h-md);
+}
+
+.st-changelog .ui-disclosure:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+.st-changelog-name {
+  color: var(--text);
 }
 
 .st-changelog-version {
-  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  color: var(--text-2);
+}
+
+.st-changelog-body {
+  padding: 0 0 var(--space-3) calc(var(--icon-sm) + var(--space-2));
 }
 
 /* ───────── 高级：页内目录 + 选中分组的行（平铺） ───────── */

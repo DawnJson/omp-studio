@@ -508,6 +508,8 @@
 
 仅当用户脱离吸底且有新内容时出现；对话区底部居中、距底部栈顶 `--space-3`，高 32，`--radius-pill`，`--bg-overlay`，`--shadow-2`，文案 `scroll.latest`；点击或 `End`/`Ctrl+End` 回到底部并重新吸底。
 
+**对话线**（`ConversationLine.tsx`，2026-10-22 仓库所有者）：会话里有 2 条以上用户消息时，对话区右缘（覆盖式滚动条左边、距顶 `--space-6`）一列横刻度，每条用户消息一个，按发送顺序从上往下（消息取自 TSP 文档里的 `omp.user` 卡片，`shared/tsp/user-messages.ts`）。刻度 8×2 `--border-strong`，悬停 12 宽 `--text-2`，正在读的那一条（顶边在视口上 1/3 以上的最后一条；吸底时是最后一条）12 宽 `--text`、`aria-current="location"`。点刻度把那条消息滚到对话区顶部（留 `--space-4`）。悬停提示 / 读屏 `scroll.lineItem`（第几条 + 消息开头 80 字）。刻度间距 12，消息多时压缩到最小 3，整列最多占对话区一半高，再多就在列里滚动（不显示滚动条）。宽 12，落在对话列最小留白 `--gutter` 里，不压正文。
+
 ### 4.16 DropOverlay
 
 拖入文件夹时全窗口覆盖（`--dur-fade` 淡入）：虚线 2px `--accent` 描边、`--accent-soft` 底，居中 `dropzone.folder`（`features/empty/DropOverlay.tsx`）。拖入的全是图片时不出这个覆盖层，由输入框自己接（`data-composer-drop`，没有覆盖层文案）。非支持类型无反应、不报错。窗口里自己拖起来的东西（预览里的图片、选中的文字）不算：`dragstart` 到 `dragend` 之间不出覆盖层（Chromium 拖图片时也带一个空类型的文件项，2026-10-22）。
@@ -603,7 +605,7 @@
 | 集成 | 页头 `范围` 下拉（`用户（全局）` / 各项目；MCP 和 SSH 共用，`integrations-store.ts` 的键 `integrations`）。分组 `MCP 服务器`、`SSH 主机`，见下"管理列表"。这一节没有常用项 |
 | 插件 | 页头 `范围` 下拉。分组 `已安装`、`市场`、`诊断`，见下"管理列表" |
 | 高级 | 见上 |
-| 关于 | 分组 `版本`（`settings.about.versions`；两行内容宽，不排格子）：低于最低版本时顶部 error `Notice` `omp.outdated`（§4.21）；`omp-studio` 行 = 版本号 + 更新状态 + `检查更新`（下载完成后换成主按钮 `重启并安装`），下载中行内一条 4 高进度条（`AboutSection.tsx`）；`omp` 行（`OmpSection.tsx`）= 版本号 + 来源徽标（`由 {name} 管理` / `由 omp-studio 管理` / `你自己安装的`）+ 有新版时 `omp.newVersion` + `检查更新`（这一个查的是 omp）+ 只有用户自装的才有 `升级`（执行 `omp update`，下面显示输出最后 3 行）；ⓘ：omp-studio 自管时 `omp.autoUpdate.note`，受管者管理时 `omp.updateByManager` + `omp.autoUpdate.noteOther`；`omp 路径` 行；自管且不在用户 PATH 上时多一行 `omp.addPath`（按钮 `加入 PATH`）。分组 `omp 更新日志`（`OmpChangelog.tsx`）：`显示更新日志` 点开才读，按版本 `Disclosure` 折叠（最新一节展开），每次多显示 8 节，正文用对话流的 `Markdown`。分组 `问题排查`（`TroubleshootCard.tsx`）：一行两格，日志（`打开日志文件夹`）、诊断信息（`导出…`）。命令面板"检查更新""omp 更新日志"、斜杠 `/changelog` 都定位到这一节 |
+| 关于 | 分组 `版本`（`settings.about.versions`；两行内容宽，不排格子）：低于最低版本时顶部 error `Notice` `omp.outdated`（§4.21）；`omp-studio` 行 = 版本号 + 更新状态 + `检查更新`（下载完成后换成主按钮 `重启并安装`），下载中行内一条 4 高进度条（`AboutSection.tsx`）；`omp` 行（`OmpSection.tsx`）= 版本号 + 来源徽标（`由 {name} 管理` / `由 omp-studio 管理` / `你自己安装的`）+ 有新版时 `omp.newVersion` + `检查更新`（这一个查的是 omp）+ 只有用户自装的才有 `升级`（执行 `omp update`，下面显示输出最后 3 行）；ⓘ：omp-studio 自管时 `omp.autoUpdate.note`，受管者管理时 `omp.updateByManager` + `omp.autoUpdate.noteOther`；`omp 路径` 行；自管且不在用户 PATH 上时多一行 `omp.addPath`（按钮 `加入 PATH`）。分组 `更新日志`（`integrations.changelog.title`，`Changelog.tsx`）：`omp-studio`、`omp` 各一项，**都只显示最新一版**（2026-10-22 仓库所有者），默认收起；每项一行 `Disclosure`（整行可点，高 `--control-h-md`，下一条 `--border-subtle`）= 名字（`--text`）+ 版本号（`--font-mono` `--fs-code-sm` `--text-2`）+ 日期（`--text-3`），展开后正文缩进到名字下面，用对话流的 `Markdown`。omp-studio 的是当前版本在打包进来的 `CHANGELOG.md` 里那一节（`AppInfo.releaseNotes`，没有这一节时不显示这一项）；omp 的点开才读 `/changelog`（输出很长），取最新一节，正文上面一行 `integrations.changelog.hint`（只有英文），omp 没就绪时不显示这一项。分组 `问题排查`（`TroubleshootCard.tsx`）：一行两格，日志（`打开日志文件夹`）、诊断信息（`导出…`）。命令面板"检查更新""omp 更新日志"、斜杠 `/changelog` 都定位到这一节 |
 
 **管理列表**（集成、插件；提供商、自定义提供商见 §4.20。2026-10-22 起，`direction-3.2.md` §4 第 5 条、§7 第 2 项）
 
@@ -1189,6 +1191,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `msg.sendFailed` | 没有发出 | Not sent |
 | `code.expand` | 展开全部（{n} 行） | Show all ({n} lines) |
 | `scroll.latest` | 回到最新 | Jump to latest |
+| `scroll.line` | 对话线 | Conversation outline |
+| `scroll.lineItem` | 第 {n} 条：{text} | Message {n}: {text} |
 
 ### A.6 门（审批、ask、其它请求）与通知
 

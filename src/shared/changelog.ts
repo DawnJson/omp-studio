@@ -10,6 +10,15 @@ export function releaseNotes(text: string, version: string): string | null {
   return text.slice(bodyStart, nextHeading(text, bodyStart)).trim();
 }
 
+/** `## [<版本>] - <日期>` 里的日期；没有这一节或标题里没写日期时为 null。 */
+export function releaseDate(text: string, version: string): string | null {
+  const heading = text.indexOf(`## [${version}]`);
+  if (heading === -1) return null;
+  const end = text.indexOf("\n", heading);
+  const line = text.slice(heading, end === -1 ? text.length : end);
+  return /\]\s*-\s*(\S.*?)\s*$/.exec(line)?.[1] ?? null;
+}
+
 /** from 之后下一个二级标题的位置；没有就是文末。 */
 export function nextHeading(text: string, from: number): number {
   const index = text.indexOf("\n## ", from);

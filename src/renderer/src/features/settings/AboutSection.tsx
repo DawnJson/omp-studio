@@ -1,11 +1,11 @@
 // 设置 → 关于：版本（omp-studio、omp 各一行：各自的检查更新、下载进度、重启并安装，下面是 omp 的路径；OmpSection），
-// omp 更新日志，问题排查。两个"检查更新"各管各的。更新源和只有安装版才生效的规则见 src/main/update/instance.ts。
+// 更新日志（omp-studio、omp 各自最新一版），问题排查。两个"检查更新"各管各的。更新源和只有安装版才生效的规则见 src/main/update/instance.ts。
 import { useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { useAppInfo, useUpdateState } from "../../store/index.ts";
 import { describeError } from "../../ui/errors.ts";
 import { Button, Row, SectionHead } from "../../ui/controls.tsx";
-import { OmpChangelog } from "./OmpChangelog.tsx";
+import { Changelog } from "./Changelog.tsx";
 import { OmpSection } from "./OmpSection.tsx";
 import { TroubleshootCard } from "./TroubleshootCard.tsx";
 import { updateStatusText } from "./update-status.ts";
@@ -16,7 +16,7 @@ export function AboutSection() {
     <>
       <SectionHead title={t("settings.about.versions")} />
       <OmpSection studio={<StudioUpdate />} />
-      <OmpChangelog />
+      <Changelog />
       <SectionHead title={t("settings.about.troubleshoot")} />
       <TroubleshootCard />
     </>

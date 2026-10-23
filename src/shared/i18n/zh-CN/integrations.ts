@@ -73,11 +73,8 @@ export const integrations = {
   "memory.note":
     "本地记忆由 omp 在会话启动时自己生成（读过去的会话、要调模型，可能产生费用），没有手动触发的按钮：/memory sync 和 /memory rebuild 在这个启动流程之外没有可观察的效果，所以这里不提供。",
 
-  "changelog.title": "omp 更新日志",
-  "changelog.show": "显示更新日志",
+  "changelog.title": "更新日志",
   "changelog.hint": "来自 omp 自带的 /changelog，只有英文。",
-  "changelog.all": "全部",
-  "changelog.more": "再显示 {count} 个版本",
 
   "slash.mcp": "管理 MCP 服务器（打开设置 → 集成）",
   "slash.ssh": "管理 SSH 主机（打开设置 → 集成）",

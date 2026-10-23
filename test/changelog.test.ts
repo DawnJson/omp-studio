@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { promoteUnreleased } from "../scripts/changelog.ts";
 import { summarizeWhatsNew } from "../src/main/whats-new.ts";
-import { countEntries, releaseNotes } from "../src/shared/changelog.ts";
+import { countEntries, releaseDate, releaseNotes } from "../src/shared/changelog.ts";
 
 // whats-new.ts 引用了 electron 的 app（只在启动时读写记录用到）；vi.mock 会提升到导入之前。
 vi.mock("electron", () => ({ app: {} }));
@@ -43,6 +43,12 @@ describe("CHANGELOG", () => {
 
   it("没有这个版本的一节时不编造说明", () => {
     expect(releaseNotes(text, "9.9.9")).toBeNull();
+  });
+
+  it("关于页的版本日期取自这一节的标题；标题没写日期或没有这一节时为 null，不拿别的版本的日期", () => {
+    expect(releaseDate(text, "0.1.0")).toBe("2026-10-18");
+    expect(releaseDate(`## [0.2.0]\n\n- a\n\n${text}`, "0.2.0")).toBeNull();
+    expect(releaseDate(text, "9.9.9")).toBeNull();
   });
 
   it("统计只数新增/变更/修复下面的条目，其他小节只算进总数", () => {

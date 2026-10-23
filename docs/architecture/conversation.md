@@ -18,6 +18,7 @@
 - 阅读锚点：脱离吸底时每次滚动记录视口顶部下方第一个 `[data-anchor]` 块和偏移，列宽变化（窗口缩放、侧栏折叠）后还原；点击 `[data-anchor]` 内的按钮（展开/折叠）以该块为锚补偿。
 - TSP 的对话区关掉浏览器的滚动锚定（`overflow-anchor: none`）：omp 一直在改写视口上方的节点，锚定会把 `scrollTop` 往上推，被误认成用户上滚（[tsp-migration.md](tsp-migration.md) §8）。
 - 覆盖式滚动条 `src/renderer/src/ui/OverlayScrollbar.tsx`：宿主 `position: relative`，滚动容器隐藏原生条，组件作为兄弟节点。hover 宿主或滚动时出现（指针还在宿主上不自动隐藏），拖滑块滚动，点轨道翻 0.9 页，颜色取 `--scrollbar-thumb(-hover)`，深浅随主题。对话区、侧栏任务列表、命令面板列表共用。
+- 对话线 `features/tsp/ConversationLine.tsx`（spec §4.15）：用户消息从 TSP 文档取（`shared/tsp/user-messages.ts` 的 `userMessages`，main 里 `card role=omp.user`，id 是卡片的节点 id），页面里按 `[data-id]` 找卡片。点刻度直接改 `scrollTop`（不走 `scrollIntoView`，免得连带滚外层），上滚就按"用户主动上滚"脱离吸底。当前刻度在滚动和尺寸变化时每帧至多算一次。omp 压缩后只留压缩点之后的消息（`omp.compaction` 之前的 `omp.user` 不再发），所以对话线也只有这些。
 
 ## Markdown（`markdown/`）
 

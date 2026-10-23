@@ -7,7 +7,7 @@ import { getSettings, resolveLocale, updateSettings } from "../settings/settings
 import { getShellState, setShellState, sidebarWidthRange } from "../window/window-state.ts";
 import { getMainWindow, setTitleBarDimmed } from "../window/main-window.ts";
 import { chatsDir } from "../tasks/chats-dir.ts";
-import { whatsNewForThisLaunch } from "../whats-new.ts";
+import { studioReleaseNotes, whatsNewForThisLaunch } from "../whats-new.ts";
 import {
   parseBoolean,
   parseExternalUrl,
@@ -42,6 +42,7 @@ export const appHandlers: HandlerGroup<
     isPackaged: app.isPackaged,
     chatsDir: chatsDir(),
     whatsNew: whatsNewForThisLaunch(),
+    releaseNotes: studioReleaseNotes(app.getVersion()),
     runtime: { electron: process.versions.electron, chromium: process.versions.chrome, node: process.versions.node },
   }),
   getSettings: async () => getSettings(),

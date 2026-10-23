@@ -77,11 +77,8 @@ export const integrations = {
   "memory.note":
     "omp builds local memory itself when a session starts (it reads past sessions with a model and may cost money); there is no button to trigger it. /memory sync and /memory rebuild have no observable effect outside that startup run, so they are not offered here.",
 
-  "changelog.title": "omp changelog",
-  "changelog.show": "Show changelog",
+  "changelog.title": "Changelog",
   "changelog.hint": "From omp's own /changelog, English only.",
-  "changelog.all": "All",
-  "changelog.more": "Show {count} more versions",
 
   "slash.mcp": "Manage MCP servers (opens Settings → Integrations)",
   "slash.ssh": "Manage SSH hosts (opens Settings → Integrations)",

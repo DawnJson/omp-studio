@@ -388,11 +388,26 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(page.getByTestId("memory-card")).toBeVisible();
     await expect(page.getByTestId("cfg-memory.backend")).toBeVisible();
 
-    // ── omp 更新日志（在"关于"里）：点开才读，最新一节默认展开 ──
+    // ── 更新日志（在"关于"里）：omp-studio 和 omp 各一项，只有最新一版，默认收起；omp 的点开才读 ──
     await page.getByTestId("settings-nav-about").click();
-    await page.getByTestId("changelog-show").click();
-    await expect(page.getByTestId("changelog-section-0")).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByTestId("changelog-section-0").locator(".md")).toBeVisible();
+    const info = await page.evaluate(() => globalThis.studio.getAppInfo());
+    const studioEntry = page.getByTestId("changelog-studio");
+    await expect(studioEntry.getByTestId("changelog-studio-toggle")).toContainText(info.version);
+    await expect(studioEntry.getByTestId("changelog-studio-toggle")).toHaveAttribute("aria-expanded", "false");
+    await studioEntry.getByTestId("changelog-studio-toggle").click();
+    await expect(studioEntry.locator(".md")).toBeVisible();
+    const ompEntry = page.getByTestId("changelog-omp");
+    await expect(ompEntry.locator(".md")).toHaveCount(0);
+    await ompEntry.getByTestId("changelog-omp-toggle").click();
+    await expect(ompEntry.locator(".md")).toBeVisible({ timeout: 60_000 });
+    // 两项各一段正文，不再按版本列出一串。
+    await expect(page.locator('[data-testid="changelog"] .md')).toHaveCount(2);
+    await page
+      .getByTestId("changelog")
+      .evaluate((element) =>
+        (element as unknown as { scrollIntoView(options: { block: string }): void }).scrollIntoView({ block: "start" }),
+      );
+    await screenshots(page, "about-changelog");
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
