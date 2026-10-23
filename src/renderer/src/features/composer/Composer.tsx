@@ -443,14 +443,15 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           {/* 和草稿工具行同一个位置：任务在哪个文件夹里跑（有 worktree 时是 worktree 根），发出第一句话后不消失 */}
           <PathLabel path={task.cwd} testId="composer-folder" />
           <SessionTogglesMenu taskId={taskId} task={task} />
+          {/* 上下文和费用紧跟常驻的胶囊（2026-10-23 仓库所有者：不再挤在发送键左边）；模式、Shell、速度这些时有时无的排在后面，出现时不推动它们 */}
+          <ContextMeter task={task} />
+          <SessionCost usage={task.sessionUsage} provider={task.model?.key.provider ?? null} />
           <ModeChip taskId={taskId} task={task} />
           <ShellTag taskId={taskId} />
           <UsageMeter task={task} />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
           {screenOpen && <span className="composer-note">{t("composer.screenOpenNote")}</span>}
-          <ContextMeter task={task} />
-          <SessionCost usage={task.sessionUsage} provider={task.model?.key.provider ?? null} />
           <SendStop
             running={running}
             stopping={stopping}

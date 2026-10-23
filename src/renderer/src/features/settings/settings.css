@@ -163,8 +163,9 @@
   --row-label-w: 200px;
 }
 
-/* 格子：每格是一条 ui/Row：标签靠左、控件靠右；"恢复默认"夹在两者之间，出现时控件不动。
-   列数随容器宽度（设置内容区；高级页是它右栏）：≤640 一列（一格要容得下三段分段，约 300）、到 1100 两列、到 1500 三列、再宽四列。 */
+/* 格子：大框架是 --cols 列；每格是一条 ui/Row，标签和控件放得下一行就并排（标签靠左、控件靠右），放不下控件才换到标签下面（靠左）。
+   "恢复默认"夹在标签和控件之间，出现时控件不动。
+   列数随容器宽度（设置内容区；高级页是它右栏）：≤640 一列、到 1100 两列、到 1500 三列、再宽四列。 */
 .st-cells {
   --cols: 2;
   display: grid;
@@ -175,31 +176,29 @@
 .st-cells + .st-cells {
   border-top: 0;
 }
+/* 换不换行按"标签不折行的宽 + 控件的宽"放不放得下来定（2026-10-23 仓库所有者：原来三段以上的分段、文本框、标签输入一律另起一行）。
+   标签不收缩、占满余下的宽，控件被推到右边；标签比整格还长时自己折行（omp 的长 key 任意处断开），控件换到下一行。 */
 .st-cells .ui-row {
-  grid-template-columns: minmax(0, 1fr) auto max-content;
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
 }
-.st-cells .ui-row > :last-child {
-  grid-row: 1;
-  grid-column: 2;
+.st-cells .ui-row-label {
+  flex: 1 0 auto;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.st-cells .ui-row > :last-child:not(.ui-row-control) {
+  flex: none;
+}
+/* 没改过时恢复默认的位置是个空 span：不占位，免得多一道间距 */
+.st-cells .ui-row > span:empty {
+  display: none;
 }
 .st-cells .ui-row-control {
-  grid-row: 1;
-  grid-column: 3;
-  justify-content: flex-end;
-}
-/* 放不下一行的控件（三段以上的分段约 280 宽、文本框 260、标签输入 360）：标签在上、控件在下，整格宽，标签不会被挤成一两个字一行 */
-.st-cells .ui-row:has(.ui-seg > :nth-child(3)),
-.st-cells .ui-row:has(.st-tags),
-.st-cells .ui-row:has(.ui-field) {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-.st-cells .ui-row:has(.ui-seg > :nth-child(3)) .ui-row-control,
-.st-cells .ui-row:has(.st-tags) .ui-row-control,
-.st-cells .ui-row:has(.ui-field) .ui-row-control {
-  grid-row: 2;
-  grid-column: 1 / -1;
-  justify-content: flex-start;
-  padding-bottom: var(--space-1);
+  order: 1;
+  flex: 0 1 auto;
+  max-width: 100%;
 }
 /* "保存中 / 已保存"放在控件左边，控件不被挤动 */
 .st-cells .cfg-feedback {
@@ -224,7 +223,7 @@
     --cols: 4;
   }
 }
-/* 关于页的版本（omp-studio、omp 各一格）：永远最多两列；内容宽（版本 + 徽标 + 说明 + 按钮），所以标签在上、内容在下。 */
+/* 关于页的版本（omp-studio、omp 各一格）：永远最多两列；内容宽（版本 + 徽标 + 说明 + 按钮），放不下时照通则换到标签下面。 */
 .st-cells.st-pair {
   --cols: 2;
 }
@@ -232,14 +231,6 @@
   .st-cells.st-pair {
     --cols: 1;
   }
-}
-.st-pair .ui-row {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-.st-pair .ui-row-control {
-  grid-row: 2;
-  grid-column: 1 / -1;
-  justify-content: flex-start;
 }
 
 /* 模型页的角色表（ModelsSection）：一行两个角色格，按阅读顺序从左到右填（第一格是默认思考强度）；分隔线和格子一样。
@@ -606,21 +597,9 @@
 }
 
 /* 高级的右栏自己算宽度：格子按右栏增减列（目录占了一块，按整页宽算会太挤）。
-   标签是 omp 的英文 key（等宽、很长）：右栏不到 1000 时格子不够宽，整格标签在上、控件在下，key 不会被挤成一字一行；够宽了再并排。 */
+   标签是 omp 的英文 key（等宽、很长）：和其它格子一样，key 和控件放得下一行才并排，否则控件换到 key 下面，key 不会被挤成一字一行。 */
 .st-adv-rows {
   container-type: inline-size;
-}
-
-@container (max-width: 1000px) {
-  .st-adv-rows .st-cells .ui-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .st-adv-rows .st-cells .ui-row-control {
-    grid-row: 2;
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-    padding-bottom: var(--space-1);
-  }
 }
 
 .st-adv-sub + .st-adv-sub {

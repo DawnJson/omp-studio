@@ -232,9 +232,9 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
           />
           <ApprovalChip projectId={projectId} forgetTaskId={null} />
           {projectTools}
-          <span className="composer-spacer" />
           <DraftContextMeter model={model ?? null} projectId={projectId} />
           <SessionCost usage={null} provider={model?.key.provider ?? null} />
+          <span className="composer-spacer" />
           <SendStop
             running={false}
             stopping={false}
