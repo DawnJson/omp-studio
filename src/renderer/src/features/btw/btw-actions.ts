@@ -23,3 +23,11 @@ export async function cancelBtwQuestion(taskId: TaskId, t: TFunction): Promise<v
     reportError(t, error, t("btw.cancelFailed"));
   }
 }
+
+/** 复制答案（omp 弹窗里的 `c`）：写系统剪贴板，成功给 toast。 */
+export function copyBtwAnswer(answer: string, t: TFunction): void {
+  navigator.clipboard.writeText(answer).then(
+    () => pushToast({ message: t("common.copied") }),
+    (error: unknown) => reportError(t, error),
+  );
+}

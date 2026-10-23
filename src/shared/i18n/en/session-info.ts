@@ -50,23 +50,21 @@ export const sessionInfo = {
   "usage.requestsTip": { one: "{count} request", other: "{count} requests" },
   "usage.tokens": "Tokens",
   "usage.cost": "Cost",
-  "usage.toolCalls": "Tool calls",
   "usage.models": "Models used",
-  "usage.range": "{from} to {to}",
   "usage.breakdown": "In {input} · Out {output} · Cache read {cacheRead} · Cache write {cacheWrite}",
-  "usage.unpriced": {
-    one: "{count} request has no price; the cost excludes it",
-    other: "{count} requests have no price; the cost excludes them",
-  },
-  "usage.noRollup":
-    "omp's stats database has no entry for this session yet. It only updates when omp syncs: press Refresh to sync once.",
+  "usage.whole": "{tokens} tokens · {cost} including before compaction",
+  "usage.none": "This session has no model requests yet.",
   "usage.noDatabase": "omp's stats database does not exist yet (it appears after the first sync).",
   "usage.syncing": "Asking omp to sync stats…",
   "usage.syncFailed": "Stats sync failed: {message}",
   "usage.refresh": "Refresh",
   "usage.note":
-    "Numbers come from omp's stats database and only cover what has been synced, so they can lag the live cost in the composer.",
+    "Counted from the session file, the same figures as the composer. After a compaction only the part kept counts; the total including before it is shown beside the cost.",
 
+  "trace.open": "Open in browser",
+  "trace.openTip":
+    "Runs omp's /trace in this task: omp opens its own request trace page in your browser (not available while the task is running)",
+  "trace.opened": "omp opened the request trace in your browser",
   "trace.empty": "The stats database has no requests for this session yet. Press Refresh to let omp sync once.",
   "trace.summary": "{requests} requests · {failed} failed · {tools} tool calls · {cost}",
   "trace.truncated": "Showing only the latest {count}.",

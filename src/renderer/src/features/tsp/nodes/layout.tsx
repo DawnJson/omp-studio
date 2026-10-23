@@ -17,10 +17,7 @@ import { TspSpans } from "../spans.tsx";
 import { previewToLines } from "../props-util.ts";
 import { TspChildren, TspNode } from "../TspChildren.tsx";
 import { useFold } from "../use-fold.ts";
-import { alignTurnCost, withExactCost } from "../turn-cost.ts";
-import { TurnCostCtx } from "../turn-cost-context.ts";
-import { useTurnCosts } from "../turn-cost-store.ts";
-import { useBareTurnIndex, useIsLatestRecap, useUsageRowFromEnd } from "../tsp-store.ts";
+import { useBareTurnIndex, useIsLatestRecap } from "../tsp-store.ts";
 import { useSessionExtras } from "../session-extras-store.ts";
 import { formatTurnFooter } from "../turn-footer.ts";
 
@@ -89,7 +86,6 @@ function RecapRow(props: NodeProps) {
 }
 
 export function Row(props: NodeProps) {
-  if (props.node.p.role === "omp.turn.usage") return <UsageRow {...props} />;
   if (props.node.p.role === "omp.recap") return <RecapRow {...props} />;
   if (props.node.p.role === ASK_BUTTON_ROLE) {
     return <AskButtonRow {...props} dom={nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) })} />;
@@ -97,22 +93,6 @@ export function Row(props: NodeProps) {
   return (
     <div {...nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) })}>
       <TspChildren {...props} />
-    </div>
-  );
-}
-
-/** 每轮用量行：omp 把一分钱以下写成 `<$0.01`，按会话文件里的准确费用换掉（文字和 title）。 */
-function UsageRow(props: NodeProps) {
-  const { taskId, sf } = props.ctx;
-  const fromEnd = useUsageRowFromEnd(taskId, sf, props.node.id);
-  const cost = alignTurnCost(useTurnCosts(taskId), fromEnd);
-  const dom = nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) });
-  if (dom.title !== undefined) dom.title = withExactCost(dom.title, cost);
-  return (
-    <div {...dom}>
-      <TurnCostCtx.Provider value={cost}>
-        <TspChildren {...props} />
-      </TurnCostCtx.Provider>
     </div>
   );
 }

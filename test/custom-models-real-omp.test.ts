@@ -12,6 +12,7 @@ import { buildOmpArgs, buildTspArgs } from "../src/main/omp/launch-args.ts";
 import { OmpConnection } from "../src/main/omp/omp-connection.ts";
 import { saveCustomProvider } from "../src/main/omp-config/models-file.ts";
 import { TaskPool } from "../src/main/tasks/task-pool.ts";
+import { requireSuccess, runOmpCommand } from "../src/main/usage/usage-service.ts";
 import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
 import { startFakeOpenAi, type FakeOpenAi } from "./fake-openai/server.ts";
 
@@ -122,7 +123,6 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
         maxLiveProcesses: 6,
         reduceMotion: false,
         enterWhileRunning: "steer",
-        notifyOnGate: true,
         soundOnDone: false,
         copyOnSelect: true,
         yoloConfirmed: false,
@@ -185,4 +185,46 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
       expect(JSON.stringify(pool.getTspSnapshot(created.id).document)).toContain(reply);
     }
   }, 240_000);
+
+  it("自动发现：只写 discovery、不列模型，omp 照样从 /models 读到；omp models refresh 跑得通，之后 omp models 也列得出", async () => {
+    const omp = await findOmpOnPath();
+    if (!omp) throw new Error("omp is not on PATH");
+    await mkdir(scratch, { recursive: true });
+    const outcome = await saveCustomProvider(
+      agentDir,
+      {
+        id: "fake-disco",
+        baseUrl: keyless.baseUrl,
+        api: "openai-completions",
+        key: { kind: "none" },
+        models: [],
+        discovery: true,
+      },
+      "add",
+    );
+    expect(outcome).toEqual({ ok: true });
+
+    const run = runOmpCommand(omp, scratch, 90_000, { PI_CODING_AGENT_DIR: agentDir });
+    requireSuccess("omp models refresh", await run(["models", "refresh"]));
+    const listed = await run(["models", "fake-disco"]);
+    requireSuccess("omp models", listed);
+    expect(listed.stdout).toContain("local-one");
+    expect(await listModelIds(omp, "fake-disco")).toEqual(["local-one"]);
+
+    // Anthropic 接口类型默认写 discovery.type: proxy：同一个 OpenAI 风格的 /models 也能读到。
+    const anthropic = await saveCustomProvider(
+      agentDir,
+      {
+        id: "fake-disco-anthropic",
+        baseUrl: keyless.baseUrl,
+        api: "anthropic-messages",
+        key: { kind: "none" },
+        models: [],
+        discovery: true,
+      },
+      "add",
+    );
+    expect(anthropic).toEqual({ ok: true });
+    expect(await listModelIds(omp, "fake-disco-anthropic")).toEqual(["local-one"]);
+  }, 120_000);
 });

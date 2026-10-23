@@ -35,8 +35,8 @@ describe("buildSessionTree", () => {
       reply("a2", "u2"),
     );
     expect(buildSessionTree([tree], "a2")).toEqual([
-      { entryId: "u1", text: "第一问", indent: 0, onCurrentBranch: true, current: false },
-      { entryId: "u2", text: "第二问", indent: 0, onCurrentBranch: true, current: true },
+      { entryId: "u1", kind: "user", text: "第一问", parent: null, indent: 0, onCurrentBranch: true, current: false },
+      { entryId: "u2", kind: "user", text: "第二问", parent: "u1", indent: 0, onCurrentBranch: true, current: true },
     ]);
   });
 
@@ -92,6 +92,102 @@ describe("buildSessionTree", () => {
   it("畸形节点（缺 entry / children、没有 id）跳过，不抛错", () => {
     const tree = [null, { entry: null, children: [] }, { entry: {}, children: "x" }, user("u1", null, "好")];
     expect(buildSessionTree(tree, "u1").map((n) => n.entryId)).toEqual(["u1"]);
+  });
+
+  describe("压缩点、分支摘要和标签", () => {
+    const entry = (type: string, id: string, parentId: string | null, extra: object = {}): RawNode => ({
+      entry: { type, id, parentId, ...extra },
+      children: [],
+    });
+
+    it("compaction 和 branch_summary 是树里的节点（带 tokensBefore / 摘要第一句），后面的用户消息挂在它们下面", () => {
+      const tree = chain(
+        user("u1", null, "问"),
+        reply("a1", "u1"),
+        entry("compaction", "c1", "a1", { summary: "## Goal\n- x", tokensBefore: 8934 }),
+        user("u2", "c1", "又问"),
+        entry("branch_summary", "b1", "u2", {
+          summary:
+            'User explored another conversation branch, then returned here.\nExploration summary:## Goal\nThe user requested "BETA".\n\n## Done\n- x',
+        }),
+        user("u3", "b1", "第三问"),
+      );
+      expect(buildSessionTree([tree], "u3")).toEqual([
+        { entryId: "u1", kind: "user", text: "问", parent: null, indent: 0, onCurrentBranch: true, current: false },
+        {
+          entryId: "c1",
+          kind: "compaction",
+          text: "",
+          tokensBefore: 8934,
+          parent: "u1",
+          indent: 0,
+          onCurrentBranch: true,
+          current: false,
+        },
+        { entryId: "u2", kind: "user", text: "又问", parent: "c1", indent: 0, onCurrentBranch: true, current: false },
+        {
+          entryId: "b1",
+          kind: "branch_summary",
+          text: 'The user requested "BETA".',
+          parent: "u2",
+          indent: 0,
+          onCurrentBranch: true,
+          current: false,
+        },
+        { entryId: "u3", kind: "user", text: "第三问", parent: "b1", indent: 0, onCurrentBranch: true, current: true },
+      ]);
+    });
+
+    it("压缩点没写 tokensBefore 时没有这个字段；叶子在压缩点上时它是当前节点", () => {
+      const tree = chain(user("u1", null, "问"), entry("compaction", "c1", "u1", { summary: "s" }));
+      const nodes = buildSessionTree([tree], "c1");
+      expect(nodes[1]).toEqual({
+        entryId: "c1",
+        kind: "compaction",
+        text: "",
+        parent: "u1",
+        indent: 0,
+        onCurrentBranch: true,
+        current: true,
+      });
+      expect(nodes[0]?.current).toBe(false);
+    });
+
+    it("label 条目打在目标节点上：最后一次生效，空标签清除，打在不显示的条目上的不出现", () => {
+      const u1 = user("u1", null, "问");
+      const a1 = reply("a1", "u1");
+      const u2 = user("u2", "a1", "又问");
+      const l1 = entry("label", "l1", "u2", { targetId: "u1", label: "旧标签", timestamp: "2026-10-22T10:00:00.000Z" });
+      const l2 = entry("label", "l2", "l1", {
+        targetId: "u1",
+        label: " 新标签 ",
+        timestamp: "2026-10-22T11:00:00.000Z",
+      });
+      const l3 = entry("label", "l3", "l2", { targetId: "u2", label: "要清掉", timestamp: "2026-10-22T11:00:00.000Z" });
+      const l4 = entry("label", "l4", "l3", { targetId: "u2", label: "", timestamp: "2026-10-22T12:00:00.000Z" });
+      const l5 = entry("label", "l5", "l4", { targetId: "a1", label: "助手上的" });
+      u1.children.push(a1);
+      a1.children.push(u2);
+      u2.children.push(l1);
+      l1.children.push(l2);
+      l2.children.push(l3);
+      l3.children.push(l4);
+      l4.children.push(l5);
+      const nodes = buildSessionTree([u1], "l5");
+      expect(nodes.map((node) => [node.entryId, node.label])).toEqual([
+        ["u1", "新标签"],
+        ["u2", undefined],
+      ]);
+      expect(nodes[1]).not.toHaveProperty("label");
+    });
+
+    it("标签的先后看 timestamp，不看树里的遍历顺序（分支里晚打的标签赢）", () => {
+      const u1 = user("u1", null, "问");
+      const early = entry("label", "l1", "u1", { targetId: "u1", label: "早", timestamp: "2026-10-22T10:00:00.000Z" });
+      const late = entry("label", "l2", "u1", { targetId: "u1", label: "晚", timestamp: "2026-10-22T11:00:00.000Z" });
+      u1.children.push(late, early);
+      expect(buildSessionTree([u1], "l1")[0]?.label).toBe("晚");
+    });
   });
 });
 

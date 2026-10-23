@@ -14,7 +14,9 @@ import type {
 } from "../../../../../shared/tsp/tsp.generated.ts";
 import { useT } from "../../../i18n/use-t.ts";
 import { Badge, Button, type Tone } from "../../../ui/controls.tsx";
+import { toolIconName } from "../icon-names.ts";
 import { TspIcon } from "../icons.tsx";
+import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
 import { TspSpans } from "../spans.tsx";
 import { TspChildren } from "../TspChildren.tsx";
@@ -29,6 +31,7 @@ import {
   updateCatalog,
   visibleColumns,
   visibleRange,
+  toolNameOfRole,
   type PickerCatalog,
   type PickerEntry,
 } from "./picker-model.ts";
@@ -40,7 +43,8 @@ const SKELETON_ROWS = 8;
 
 const isEscape = (a: TspPickerAction) => a.keys?.some((k) => k === "esc" || k === "escape") === true;
 
-export function Picker({ node, ctx }: NodeProps) {
+export function Picker(props: NodeProps) {
+  const { node, ctx } = props;
   const t = useT();
   const p = node.p as TspPickerProps;
   const layout = p.layout ?? "rows";
@@ -164,7 +168,7 @@ export function Picker({ node, ctx }: NodeProps) {
     .join(" ");
 
   return (
-    <div className={classes} data-id={node.id}>
+    <div {...nodeDomProps(props, classes, { pointer: false, noTitle: true })}>
       <div className="tspi-pk-dim" aria-hidden="true" onClick={() => send(closeAction)} />
       <div
         className={`tspi-pk-sheet f-${p.focus ?? "list"}`}
@@ -550,8 +554,11 @@ function Row({ entry, layout, columns, selected, current, hasCurrent, hits, onCl
   const split =
     item.mono === true && typeof item.label === "string" && label.includes("/") ? splitMonoLabel(label) : null;
   const badges = item.badges ?? [];
+  const toolName = toolNameOfRole(item.role);
   const lead =
-    layout === "timeline" ? (
+    toolName !== null ? (
+      <TspIcon name={toolIconName(toolName)} size={14} />
+    ) : layout === "timeline" ? (
       <span className={`tspi-pk-node n-${item.node ?? "assistant"}`} />
     ) : (
       <Lead icon={item.icon} mark={item.mark} dot={item.dot} />
@@ -604,14 +611,7 @@ function Row({ entry, layout, columns, selected, current, hasCurrent, hits, onCl
                 </Badge>
               ))}
               {badges.length > 3 ? (
-                <Badge
-                  title={badges
-                    .slice(3)
-                    .map((b) => b.text)
-                    .join(", ")}
-                >
-                  +{badges.length - 3}
-                </Badge>
+                <Badge title={badges.map((b) => b.text).join(", ")}>+{badges.length - 3}</Badge>
               ) : null}
               {(item.chips ?? []).map((c, i) => (
                 <Badge key={`c${i}`} tone={c.on ? "accent" : "neutral"}>

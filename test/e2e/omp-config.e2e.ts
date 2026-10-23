@@ -1,5 +1,5 @@
 // 设置页里 omp 的全部设置：真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR，不碰真实 ~/.omp。
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -253,6 +253,64 @@ test("截图：omp 设置分组、搜索，中英文 × 浅深主题", async () 
       return size.scrollWidth > size.clientWidth;
     });
     expect(overflow).toBe(false);
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
+test("通用页：通知与回顾是 omp 自己的设置、改了写进 omp；快捷键表多一组“omp 快捷键”并跟着 keybindings.yml 变；模型页有思考块开关", async () => {
+  const { launched, agentDir } = await launchIsolated();
+  try {
+    const { page } = launched;
+    // 用户在终端版的 omp 里改过键位：改了模型切换键，禁用了重试。
+    await writeFile(
+      path.join(agentDir, "keybindings.yml"),
+      "# 我的键位\napp.model.cycleForward: Ctrl+Alt+M\napp.retry: []\n",
+      "utf8",
+    );
+    // 切走再切回：通用页挂载时重读键位文件。
+    await page.getByTestId("settings-nav-models").click();
+    await page.getByTestId("settings-nav-general").click();
+    await setLocaleTheme(page, "zh-CN", "light");
+
+    const notify = page.getByTestId("notify-settings");
+    for (const key of ["ask.notify", "completion.notify", "error.notify", "recap.enabled", "recap.idleSeconds"])
+      await expect(notify.getByTestId(`cfg-${key}`)).toBeVisible({ timeout: 30_000 });
+    await expect(notify.getByTestId("setting-sound-on-done")).toBeVisible();
+    // studio 自己的"有任务在等你时通知我"开关已经去掉：通知只看 omp 的设置。
+    await expect(page.getByTestId("setting-notify")).toHaveCount(0);
+    expect(await configValue(page, "error.notify")).toBe("off");
+    await notify.getByTestId("cfg-error.notify").getByRole("radio", { name: "开启" }).click();
+    await expect.poll(() => configValue(page, "error.notify"), { timeout: 10_000 }).toBe("on");
+
+    const shortcuts = page.getByTestId("omp-shortcuts");
+    await expect(shortcuts.getByTestId("omp-shortcut-app.model.cycleForward").locator("kbd")).toHaveText([
+      "Ctrl",
+      "Alt",
+      "M",
+    ]);
+    await expect(shortcuts.getByTestId("omp-shortcut-app.thinking.cycle").locator("kbd")).toHaveText(["Shift", "Tab"]);
+    await expect(shortcuts.getByTestId("omp-shortcut-app.retry")).toHaveCount(0);
+    await expect(page.locator("#settings-shortcuts")).toContainText("omp 快捷键");
+    for (const locale of ["zh-CN", "en"] as const) {
+      for (const theme of ["light", "dark"] as const) {
+        await setLocaleTheme(page, locale, theme);
+        await page.locator("#settings-shortcuts").scrollIntoViewIfNeeded();
+        await page.screenshot({ path: path.join(screenshotsDir, `omp-e-shortcuts-${locale}-${theme}.png`) });
+        await notify.scrollIntoViewIfNeeded();
+        await page.screenshot({ path: path.join(screenshotsDir, `omp-e-notify-${locale}-${theme}.png`) });
+      }
+    }
+
+    // 模型页：思考块的两个开关（TSP 下实测起作用，docs/architecture/omp-settings.md）。
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("settings-nav-models").click();
+    await expect(page.getByTestId("cfg-hideThinkingBlock")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("cfg-expandThinkingBlocks")).toBeVisible();
+    await page.getByTestId("cfg-expandThinkingBlocks").getByRole("switch").click();
+    await expect.poll(() => configValue(page, "expandThinkingBlocks"), { timeout: 10_000 }).toBe(true);
+    await page.screenshot({ path: path.join(screenshotsDir, "omp-e-thinking-blocks-zh-CN-light.png") });
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

@@ -3,7 +3,14 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { parseQuota, readHeatmap, statsDbPath } from "../src/main/usage/usage-service.ts";
+import {
+  fetchQuota,
+  parseQuota,
+  parseResetCredits,
+  readHeatmap,
+  statsDbPath,
+} from "../src/main/usage/usage-service.ts";
+import { creditExpiry, isUntouched, quotaFetchedAt } from "../src/shared/ui/usage-summary.ts";
 
 let dir: string;
 beforeAll(async () => {
@@ -147,5 +154,167 @@ describe("omp 命令失败不被吞", () => {
     )(["-e", "console.error('boom');process.exit(3)"]);
     expect(failed).toMatchObject({ code: 3 });
     expect(failed.stderr).toContain("boom");
+  });
+});
+
+describe("额度的套餐 / 重置券 / 取不到用量的账号（按 omp 源码类型写，没有订阅账号实测）", () => {
+  const now = Date.parse("2026-10-23T00:00:00Z");
+  const report = (extra: Record<string, unknown>) => ({
+    provider: "openai-codex",
+    fetchedAt: now - 180_000,
+    limits: [],
+    ...extra,
+  });
+
+  it("planType、daybreak 来自 metadata；没带时 null / false", () => {
+    const quota = parseQuota(
+      { reports: [report({ metadata: { planType: "pro", daybreak: true, email: "a@b.c" } }), report({})] },
+      now,
+    );
+    expect(quota.accounts.map((account) => [account.planType, account.daybreak])).toEqual([
+      ["pro", true],
+      [null, false],
+    ]);
+  });
+
+  it("重置券：攒的次数、现在能用几次、最近的到期时间；没攒（0 张）的不显示", () => {
+    const credits = (extra: Record<string, unknown>) => ({ availableCount: 3, ...extra });
+    expect(parseResetCredits(credits({ redeemableCount: 1 }), now)).toEqual({
+      bankedCount: 3,
+      redeemableCount: 1,
+      soonestExpiryAt: null,
+      unavailableReason: null,
+    });
+    expect(parseResetCredits({ availableCount: 0 }, now)).toBeNull();
+    const expiry = parseResetCredits(
+      credits({
+        credits: [
+          { expiresAt: "2026-10-30T00:00:00Z" },
+          { expiresAt: "2026-10-25T00:00:00Z" },
+          { expiresAt: "2026-10-01T00:00:00Z" }, // 已过期的不抢最近一张
+          { expiresAt: "2026-10-24T00:00:00Z", status: "redeemed" }, // 已用掉的不算
+          { expiresAt: "2026-10-24T12:00:00Z", remainingCount: 0 },
+        ],
+      }),
+      now,
+    );
+    expect(expiry?.soonestExpiryAt).toBe(Date.parse("2026-10-25T00:00:00Z"));
+    // 全过期了：取最近过期的那张。
+    const lapsed = parseResetCredits(
+      credits({ credits: [{ expiresAt: "2026-10-01T00:00:00Z" }, { expiresAt: "2026-10-10T00:00:00Z" }] }),
+      now,
+    );
+    expect(lapsed?.soonestExpiryAt).toBe(Date.parse("2026-10-10T00:00:00Z"));
+  });
+
+  it("现在用不了的原因：provider 的 reason > 冷却 > 券被哪些额度挡住 > 券状态 > 没资格 > 有券但用不了", () => {
+    const reason = (raw: Record<string, unknown>) =>
+      parseResetCredits({ availableCount: 2, redeemableCount: 0, ...raw }, now)?.unavailableReason;
+    expect(reason({ reason: "cooldown please" })).toBe("cooldown please");
+    expect(reason({ cooldownUntil: "2026-10-24T00:00:00Z" })).toBe("cooldown until 2026-10-24T00:00:00Z");
+    expect(reason({ credits: [{ blocking: ["anthropic:5h", "x"] }] })).toBe("blocked by anthropic:5h, x");
+    expect(reason({ credits: [{ status: "expired" }] })).toBe("expired");
+    expect(reason({ eligible: false })).toBe("not eligible");
+    expect(reason({})).toBe("not usable right now");
+    expect(parseResetCredits({ availableCount: 2 }, now)?.unavailableReason).toBeNull();
+  });
+
+  it("accountsWithoutUsage：按 omp 的取名规则写 label（邮箱 > 账号 id > 项目 > 企业地址 > OAuth account；API key；带组织名）", () => {
+    const quota = parseQuota(
+      {
+        reports: [],
+        accountsWithoutUsage: [
+          { provider: "anthropic", type: "oauth", email: "a@b.c" },
+          { provider: "google", type: "oauth", accountId: "acc-1", orgName: "Org" },
+          { provider: "github", type: "oauth", projectId: "p1" },
+          { provider: "copilot", type: "oauth", enterpriseUrl: "https://ghe.example" },
+          { provider: "kimi", type: "oauth" },
+          { provider: "openai", type: "api_key" },
+          { provider: "" },
+        ],
+      },
+      now,
+    );
+    expect(quota.unavailable.map((item) => `${item.provider}: ${item.label}`)).toEqual([
+      "anthropic: a@b.c",
+      "google: acc-1 · Org",
+      "github: p1",
+      "copilot: https://ghe.example",
+      "kimi: OAuth account",
+      "openai: API key",
+    ]);
+  });
+
+  it("有重置券或 Daybreak 的账号不算“未使用”；quotaFetchedAt 取最晚的取数时间", () => {
+    const quota = parseQuota(
+      {
+        reports: [
+          report({ resetCredits: { availableCount: 1 }, fetchedAt: now - 60_000 }),
+          report({ metadata: { daybreak: true }, fetchedAt: now - 10_000 }),
+          report({ fetchedAt: now - 300_000 }),
+        ],
+      },
+      now,
+    );
+    expect(quota.accounts.map(isUntouched)).toEqual([false, false, true]);
+    expect(quotaFetchedAt(quota.accounts)).toBe(now - 10_000);
+    expect(quotaFetchedAt([])).toBeNull();
+  });
+
+  it("creditExpiry：分 / 时 / 天取整，已到期是 null", () => {
+    expect(creditExpiry(now + 90 * 60_000, now)).toEqual({ value: 2, unit: "hour" });
+    expect(creditExpiry(now + 5 * 60_000, now)).toEqual({ value: 5, unit: "minute" });
+    expect(creditExpiry(now + 3 * 86_400_000, now)).toEqual({ value: 3, unit: "day" });
+    expect(creditExpiry(now - 1, now)).toBeNull();
+  });
+});
+
+describe("刷新额度绕过 omp 的缓存", () => {
+  const ok = { code: 0, stderr: "", stdout: JSON.stringify({ generatedAt: 1, reports: [] }) };
+
+  it("refresh 先 omp usage invalidate 再取；不 refresh 只取（读缓存）", async () => {
+    const calls: string[][] = [];
+    const run = (args: string[]) => {
+      calls.push(args);
+      return Promise.resolve(ok);
+    };
+    await fetchQuota(run);
+    expect(calls).toEqual([["usage", "--json"]]);
+    calls.length = 0;
+    await fetchQuota(run, true);
+    expect(calls).toEqual([
+      ["usage", "invalidate"],
+      ["usage", "--json"],
+    ]);
+  });
+
+  it("invalidate 失败就报错，不拿缓存的旧数据冒充刷新过", async () => {
+    const calls: string[][] = [];
+    const run = (args: string[]) => {
+      calls.push(args);
+      return Promise.resolve(args[1] === "invalidate" ? { code: 1, stdout: "", stderr: "locked" } : ok);
+    };
+    await expect(fetchQuota(run, true)).rejects.toThrow(/omp usage invalidate exited with code 1: locked/);
+    expect(calls).toEqual([["usage", "invalidate"]]);
+  });
+});
+
+describe("热力图读 stats.db 前的表结构自检", () => {
+  const now = new Date(2026, 9, 18, 15, 0).getTime();
+
+  it("message_rollup 缺列：报明确错误，不是一页空白", () => {
+    const dbPath = path.join(dir, "缺列.db");
+    const db = new DatabaseSync(dbPath);
+    db.exec("CREATE TABLE message_rollup (bucket INTEGER, requests INTEGER, total_tokens INTEGER)"); // 没有 cost_total
+    db.close();
+    expect(() => readHeatmap(dbPath, now)).toThrow(/schema mismatch: table message_rollup has no column cost_total/);
+  });
+
+  it("message_rollup 不存在：报明确错误", () => {
+    const dbPath = path.join(dir, "缺表.db");
+    const db = new DatabaseSync(dbPath);
+    db.exec("CREATE TABLE other (x INTEGER)");
+    db.close();
+    expect(() => readHeatmap(dbPath, now)).toThrow(/schema mismatch: table message_rollup is missing/);
   });
 });

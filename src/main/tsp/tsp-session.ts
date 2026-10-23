@@ -1,6 +1,6 @@
 // TSP 会话：伪终端里的一个交互式 omp，我们扮演 Tern 终端（docs/architecture/tsp-migration.md）。
 // 职责：起 pty、回 hello 和 DA1、把 o/f/t/x/b 应用到自己的文档（权威副本）、按规范回 ack 和 error 事件、
-// 把应用过的消息按 16ms 合批推给渲染进程、解析 OSC（会话文件、标题、通知），以及关进程树。
+// 把应用过的消息按 16ms 合批推给渲染进程、解析 OSC（会话文件、标题、当前目录 OSC 7、程序状态 OSC 7501），以及关进程树。
 // node-pty、Job Object、taskkill 都从 options 注入（默认是真实实现），单元测试可以换成假的。
 // 协议细节见 E:/tern-probe/spec/protocol-*.md（Tern SDK 文档 protocol/*）。
 import { createHash } from "node:crypto";
@@ -25,6 +25,8 @@ import {
   type TspOpen,
   type TspPalette,
 } from "../../shared/tsp/tsp.generated.ts";
+import { cwdFromFileUri } from "../../shared/tsp/osc7.ts";
+import type { RunStatusMessage } from "../../shared/tsp/run-status.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 import { log } from "../log/log.ts";
 import { assignToOwnJob } from "../platform/win32/job-object.ts";
@@ -54,19 +56,10 @@ const MAX_BLOB_BYTES = 16 * 1024 * 1024;
  * - `adopt`：`o` 带 `adopt:true` 时接管已有 surface（document.ts 已实现）。
  * - `dock`：`dock` 区域贴着面板底部（渲染进程布局）。
  * - `program-palette`：`t` 消息（文档里存调色板，渲染进程着色）。
- * - `scroll`：`scroll` 操作（文档里是空操作，滚动由渲染进程按焦点处理）。
- * - `reduce-motion`：hello 的 `reduceMotion` 和 `motion` 事件。
+ * - `reduce-motion`：hello 的 `reduceMotion` 和 `motion` 事件（`setAppearance`；`theme` 事件不需要特性）。
  * 不声明：`aside`（prefs 贴在面板旁边）、`styles`（`s` 消息：程序自带 CSS 不支持）、`flow`（flow surface）。
  */
-const TSP_TERMINAL_FEATURES = [
-  "blobs",
-  "settle",
-  "adopt",
-  "dock",
-  "program-palette",
-  "scroll",
-  "reduce-motion",
-] as const;
+const TSP_TERMINAL_FEATURES = ["blobs", "settle", "adopt", "dock", "program-palette", "reduce-motion"] as const;
 
 /** 一个伪终端。和 node-pty 的 IPty 结构兼容（onData 在 `encoding: null` 时给 Buffer）。 */
 export interface TspPty {
@@ -174,19 +167,21 @@ export interface TspSessionOptions {
   rows?: number;
   /** `TERM_PROGRAM_VERSION` 和 hello 的 `ver`：应用版本。 */
   appVersion: string;
-  /** hello 回复里的外观；之后的变化由渲染进程发 `theme` / `motion` 事件。 */
+  /** hello 回复里的外观；之后的变化用 `setAppearance` 发 `theme` / `motion` 事件。 */
   appearance: { dark: boolean; reduceMotion: boolean };
   /** 一批文档消息（16ms 合批）。 */
   onBatch(batch: TspSessionBatch): void;
   onExit(exit: TspSessionExit): void;
   /** 文档每次因 o/f/t/x/b 改变之后同步调用；任务状态据此推导。 */
   onChange?(document: TspDocument): void;
-  /** `OSC 1337 SetUserVar=omp_session_file=<base64>`：当前会话文件（此时文件可能还没落盘）。 */
-  onSessionFile?(file: string): void;
+  /** `OSC 1337 SetUserVar=omp_session_file=<base64>`：当前会话文件（此时文件可能还没落盘）；null = 清空（不带 `=` 的形式）。 */
+  onSessionFile?(file: string | null): void;
   /** OSC 0 / 2。 */
   onTitle?(title: string): void;
-  /** OSC 9 / 99。 */
-  onNotify?(notification: { title: string; body: string }): void;
+  /** OSC 7：omp 的当前目录（启动时和 `/move`、`/wt` 之后），已换成本机路径。 */
+  onCwd?(cwd: string): void;
+  /** OSC 7501：omp 的程序状态（working / blocked / idle / done / error / clear）。 */
+  onRunStatus?(status: RunStatusMessage): void;
   spawn?: (launch: TspPtyLaunch, size: { cols: number; rows: number }) => Promise<TspPty>;
   killTree?: (pid: number) => Promise<void>;
   /** 把进程放进它自己的 KILL_ON_JOB_CLOSE Job（主进程被强杀时由系统回收），返回释放函数。 */
@@ -214,6 +209,8 @@ export class TspSession {
   #hasExited = false;
   #cols: number;
   #textTail = "";
+  /** 最近一次告诉 omp 的外观（hello 回复和之后的 theme / motion 事件）。 */
+  #appearance: { dark: boolean; reduceMotion: boolean };
   /** 本块数据里每个 surface 最高的帧号：块处理完回一次 ack（规范：ack 覆盖此前所有帧）。 */
   readonly #acks = new Map<string, number>();
 
@@ -221,6 +218,7 @@ export class TspSession {
     this.#options = options;
     this.#pty = pty;
     this.#cols = options.cols;
+    this.#appearance = { ...options.appearance };
     this.#killTree = options.killTree ?? killProcessTree;
     this.#parser = new TspStreamParser((event) => this.#onStream(event));
     // 没人等 ready 时（进程在握手前就死了又不是 start() 的调用者在等）也不能变成未处理的拒绝。
@@ -297,6 +295,15 @@ export class TspSession {
     this.#cols = cols;
     this.#pty.resize(cols, this.#options.rows ?? DEFAULT_ROWS);
     this.sendEvent({ ev: "resize", cols });
+  }
+
+  /** 深浅主题或减少动效变了：给 omp 发 `theme` / `motion` 事件（规范 tsp.generated.ts 的 TspEvent）；没变的不发，之后的 hello 回复也用新值。 */
+  setAppearance(next: { dark: boolean; reduceMotion: boolean }): void {
+    const previous = this.#appearance;
+    this.#appearance = { ...next };
+    if (this.#hasExited) return;
+    if (next.dark !== previous.dark) this.#safeEvent({ ev: "theme", dark: next.dark });
+    if (next.reduceMotion !== previous.reduceMotion) this.#safeEvent({ ev: "motion", reduce: next.reduceMotion });
   }
 
   /**
@@ -393,13 +400,20 @@ export class TspSession {
         this.#safeSend(DA1_REPLY);
         return;
       case "user-var":
-        if (event.name === "omp_session_file" && event.value !== "") this.#options.onSessionFile?.(event.value);
+        // 值为空 = 清空（omp 在会话文件还没有时发不带 `=` 的 SetUserVar）：任务记录里的会话文件不能再当"当前"文件。
+        if (event.name === "omp_session_file") this.#options.onSessionFile?.(event.value === "" ? null : event.value);
         return;
       case "title":
         this.#options.onTitle?.(event.title);
         return;
-      case "notify":
-        this.#options.onNotify?.({ title: event.title, body: event.body });
+      case "cwd": {
+        const cwd = cwdFromFileUri(event.uri, process.platform);
+        if (cwd === null) log.warn("tsp session: unrecognised OSC 7 uri");
+        else this.#options.onCwd?.(cwd);
+        return;
+      }
+      case "run-status":
+        this.#options.onRunStatus?.(event.status);
         return;
       case "text":
         this.#textTail = (this.#textTail + event.text).slice(-TEXT_TAIL_CHARS);
@@ -452,8 +466,8 @@ export class TspSession {
         apc: TSP_DEFAULT_APC_LIMIT,
         credits: TSP_DEFAULT_CREDITS,
         cols: this.#cols,
-        dark: this.#options.appearance.dark,
-        reduceMotion: this.#options.appearance.reduceMotion,
+        dark: this.#appearance.dark,
+        reduceMotion: this.#appearance.reduceMotion,
         hour12: new Intl.DateTimeFormat(undefined, { hour: "numeric" }).resolvedOptions().hour12 === true,
       });
       log.info("tsp session: hello", { app: query["app"], ver: query["ver"], features: query["features"] });

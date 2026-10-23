@@ -52,12 +52,24 @@ import {
   parseToggleToast,
   type SessionToggles,
 } from "../../shared/omp-output/toggles.ts";
-import { deriveTaskStatus, hasRunningWork } from "../../shared/tsp/task-status.ts";
+import { deriveTaskStatus, hasRunningWork, resolveTaskStatus } from "../../shared/tsp/task-status.ts";
+import {
+  NO_RUN_SIGNAL,
+  applyRunStatus,
+  beginRun,
+  observeGate,
+  turnResult,
+  type RunSignal,
+  type RunStatusMessage,
+} from "../../shared/tsp/run-status.ts";
 import { deriveTodoPhases } from "../../shared/tsp/todos.ts";
 import {
   SUMMARY_NO,
+  TREE_ACT_LABEL,
+  TREE_ACT_LABEL_SAVE,
   findComposerEditor,
   findSummaryPicker,
+  findTreeLabelInput,
   findTreePicker,
   hasNavigatedToast,
 } from "../../shared/tsp/session-tree.ts";
@@ -65,6 +77,7 @@ import { hasQueuedMessages, restoredQueueEditor } from "../../shared/tsp/queue-r
 import {
   TSP_APPROVAL_DIALOG_ID,
   TSP_ASK_DIALOG_ID,
+  TSP_MODAL_DIALOG_ID,
   TSP_SCREEN_OPEN,
   findMessageTarget,
 } from "../../shared/tsp/gate.ts";
@@ -83,20 +96,20 @@ import { resolveNewTaskDefault } from "../../shared/ui/new-task-default.ts";
 import { titleFromPrompt } from "./convert.ts";
 import { stripIconGlyphs } from "../../shared/ui/clean-title.ts";
 import { readSessionExtras } from "../tsp/session-extras.ts";
-import { readTurnCosts } from "../tsp/turn-costs.ts";
 import { readSubagentRecord } from "../tsp/subagent-file.ts";
 import { HubDriver } from "./tsp-hub-driver.ts";
 import { readSessionUsage, totalUsage, type SessionTotals } from "../history/session-usage.ts";
 import {
   buildTreeFromEntries,
   findUserEntry,
+  isLabellableEntry,
   readSessionEntries,
   type LeafOverride,
   type RewindTarget,
   type SessionEntry,
 } from "../tsp/session-tree-file.ts";
 import { initialMachineState, transition, type MachineInput, type MachineState } from "./task-machine.ts";
-import type { TaskRecord } from "./task-registry.ts";
+import { pathKey, type TaskRecord } from "./task-registry.ts";
 import { WorkspaceDirs } from "./workspace-dirs.ts";
 import { TspGoalTracker } from "./tsp-goal.ts";
 import { GOAL_TOASTS, findGoalDropPrompt } from "../../shared/tsp/goal.ts";
@@ -223,9 +236,18 @@ function thinkingLevelsOf(model: ModelOption | null): ThinkingLevel[] {
   return ["off", ...model.thinkingEfforts];
 }
 
-/** 去掉图标字形；"omp" 是 omp 没有标题时的占位，不是标题。 */
+/** omp 在标题后面追加 ` · #<PR 号>`（title-generator 的 `ugr`：当前分支有 PR 时）。 */
+const PR_SUFFIX = /\s*·\s*#(\d+)$/;
+
+/** 标题里的 PR 号；没有后缀为 null。 */
+export function ompTitlePullRequest(raw: string): number | null {
+  const match = PR_SUFFIX.exec(stripIconGlyphs(raw));
+  return match ? Number(match[1]) : null;
+}
+
+/** 去掉图标字形和 ` · #12` 的 PR 后缀；"omp" 是 omp 没有标题时的占位，不是标题（`omp · #12` 也是空）。 */
 export function cleanOmpTitle(raw: string): string {
-  const title = stripIconGlyphs(raw);
+  const title = stripIconGlyphs(raw).replace(PR_SUFFIX, "").trim();
   return title === "omp" ? "" : title;
 }
 
@@ -328,14 +350,22 @@ export class TspRunner {
   #toastTexts: string[] = [];
   /** 已读过的状态行记录条数（`DocSurface.statusNotes` 只增不减；toast 节点下一帧就没了，所以两条路都读）。 */
   #noteCount = 0;
+  /** OSC 7501 的累积结果（本进程；shared/tsp/run-status.ts）。 */
+  #signal: RunSignal = NO_RUN_SIGNAL;
+  /** dock 里 `omp.loader` 的文字（交接、建 worktree、分支摘要等；TaskState.loaderText）。 */
+  #loaderText: string | null = null;
+  /** 上一次发布出去的 TaskState.loaderText（#syncStatus 只在它变了而状态机没发布时补发）。 */
+  #publishedLoaderText: string | null = null;
+  /** 标题后缀 ` · #12` 里的 PR 号（TaskState.prNumber）。 */
+  #prNumber: number | null = null;
   /** 文档里 HUD 待办节点换算出的阶段（todos.ts）；变了才发布。 */
   #todoPhases: TaskState["todoPhases"] = [];
   /** 会话文件里的 token 分项和请求数（见 #sessionUsageFor）。 */
   #totals: SessionTotals | null = null;
   /** 用户按了停止、这一轮还没结束：这一轮的结局记为 aborted。 */
   #stopRequested = false;
-  /** omp 报告的会话文件；文件在第一条回复之后才落盘，落盘之前不能存（恢复会失败）。 */
-  #sessionFile: string | null = null;
+  /** omp 报告的会话文件；文件在第一条回复之后才落盘，落盘之前不能存（恢复会失败）。undefined = 还没报过（用任务记录里的），null = omp 清空了它。 */
+  #sessionFile: string | null | undefined = undefined;
   #persistingSessionFile = false;
   /** 标题的来源：用户改名之后（既不是空、也不是下面两个）omp 的标题不再覆盖。 */
   #provisionalTitle: string | null = null;
@@ -400,8 +430,14 @@ export class TspRunner {
     return status === "stopped" || status === "error" || this.recyclable;
   }
 
+  /** omp 标题后缀里的 PR 号（TaskState.prNumber）；顶栏 PR 徽标的点击在主进程按它取地址。 */
+  get prNumber(): number | null {
+    return this.#prNumber;
+  }
+
+  /** 任务现在的工作目录：omp 里 `/move`、`/wt` 过的（OSC 7，记在任务记录里）> worktree 根 > 项目目录。 */
   get cwd(): string {
-    return this.#record.worktreePath ?? this.#project.path;
+    return this.#record.cwd ?? this.#record.worktreePath ?? this.#project.path;
   }
 
   get state(): TaskState {
@@ -433,6 +469,8 @@ export class TspRunner {
       sessionToggles: this.#toggles,
       goal: this.#goalTracker.goal,
       restartable: this.restartable,
+      loaderText: this.#loaderText,
+      prNumber: this.#prNumber,
     };
   }
 
@@ -476,6 +514,7 @@ export class TspRunner {
     if (this.#disposed) return;
     const state = this.state;
     this.#publishedRestartable = state.restartable;
+    this.#publishedLoaderText = state.loaderText;
     this.#host.onState(state);
   }
 
@@ -488,24 +527,37 @@ export class TspRunner {
     this.#apply({ type: "mark_read" });
   }
 
-  /** 让状态机和节点树一致：幂等，每次文档变化和握手完成时调用。 */
+  /** OSC 7501：折进 #signal，然后重新推一次状态（节点没变也要推：`working` 比 `omp.working` 那一帧早到，`done` 带着这一轮的结局）。 */
+  #onRunStatus(status: RunStatusMessage): void {
+    this.#signal = applyRunStatus(this.#signal, status);
+    if (this.#session) this.#syncStatus(this.#session.document);
+  }
+
+  /** 让状态机和节点树 + 7501 一致：幂等，每次文档变化、7501 到达和握手完成时调用。规则和依据见 task-status.ts。 */
   #syncStatus(document: TspDocument): void {
     if (this.#machine.status === "starting" || this.#machine.status === "stopped" || this.#machine.status === "error")
       return;
-    const info = deriveTaskStatus(document);
+    const nodes = deriveTaskStatus(document);
+    this.#signal = observeGate(this.#signal, nodes.ask !== null);
+    const info = resolveTaskStatus(nodes, this.#signal);
+    this.#loaderText = nodes.loader;
     if (info.working) this.#lastActiveAt = Date.now();
     if (info.working !== this.#machine.working) {
       if (info.working) {
+        // 7501 没报开始（交接这类只有 loader 的运行）：上一轮留下的结局不能算到这一轮头上。
+        this.#signal = beginRun(this.#signal);
         this.#apply({ type: "agent_start" });
       } else {
-        const aborted = this.#stopRequested;
+        // 结局以 7501 为准（done / error / idle = 被中断），这一轮没收到过才看用户有没有按停止。
+        const result = turnResult(this.#signal, this.#stopRequested);
         // 一轮结束的时间和任务活动时间是同一刻：只读一次时钟，两处才相等。
         const endedAt = Date.now();
         this.#touch(endedAt);
         this.#stopRequested = false;
         this.#apply({
           type: "prompt_result",
-          status: aborted ? "aborted" : "completed",
+          status: result.status,
+          ...(result.status === "error" && { error: { message: result.message ?? "", retryable: false } }),
           at: endedAt,
           foreground: this.#host.isForeground(this.id),
         });
@@ -514,19 +566,28 @@ export class TspRunner {
       }
     }
     const open = this.#machine.dialogs.find(
-      (dialog) => dialog.id === TSP_ASK_DIALOG_ID || dialog.id === TSP_APPROVAL_DIALOG_ID,
+      (dialog) =>
+        dialog.id === TSP_ASK_DIALOG_ID || dialog.id === TSP_APPROVAL_DIALOG_ID || dialog.id === TSP_MODAL_DIALOG_ID,
     );
-    if (info.ask) {
-      const id = info.ask.approval ? TSP_APPROVAL_DIALOG_ID : TSP_ASK_DIALOG_ID;
+    const waiting = info.waiting;
+    if (waiting) {
+      const id =
+        waiting.kind === "approval"
+          ? TSP_APPROVAL_DIALOG_ID
+          : waiting.kind === "modal"
+            ? TSP_MODAL_DIALOG_ID
+            : TSP_ASK_DIALOG_ID;
       if (open && open.id !== id) this.#apply({ type: "dialog_close", id: open.id });
-      if (!open || open.id !== id || (open.kind === "confirm" && open.title !== info.ask.title))
+      if (!open || open.id !== id || (open.kind === "confirm" && open.title !== waiting.title))
         this.#apply({
           type: "dialog_open",
-          request: { id, kind: "confirm", title: info.ask.title, message: "", receivedAt: Date.now() },
+          request: { id, kind: "confirm", title: waiting.title, message: "", receivedAt: Date.now() },
         });
     } else if (open) {
       this.#apply({ type: "dialog_close", id: open.id });
     }
+    // loader 的文字变了而状态机没有动（上面没发布过）：补发一次。
+    if (this.#loaderText !== this.#publishedLoaderText) this.#publish();
   }
 
   // ───── 生命周期 ─────
@@ -558,6 +619,18 @@ export class TspRunner {
         ))
       )
         throw new StartError({ kind: "worktree_missing", message: "the task's worktree no longer exists" });
+      const movedTo = this.#record.cwd;
+      if (
+        movedTo != null &&
+        !(await stat(movedTo).then(
+          (info) => info.isDirectory(),
+          () => false,
+        ))
+      ) {
+        // omp 里 `/move` 去过的目录已经没了：退回默认目录（omp 看会话文件里记的目录是否还在，由它自己报错），不让 spawn 的 ENOENT 当成启动失败。
+        log.warn(`task ${this.id} working directory no longer exists, falling back to the default`);
+        this.#record = await this.#host.persist(this.id, { cwd: null });
+      }
       const defaultsLoaded = this.#loadNewTaskDefaults();
       await this.#host.acquireSlot(this.id);
       this.#assertNotClosing();
@@ -566,6 +639,9 @@ export class TspRunner {
       // 输入框出现之前 TaskState 就要有模型：默认值读完（缓存优先，通常已就绪）再起进程，这样第一帧状态里就有它。
       await defaultsLoaded;
       this.#assertNotClosing();
+      // 新进程的 7501 从头累积；握手前就可能到（omp 一启动就发 `state=idle`），所以在起进程之前清。
+      this.#signal = NO_RUN_SIGNAL;
+      this.#loaderText = null;
       const gen = ++this.#gen;
       const deps = this.#host.session;
       try {
@@ -608,6 +684,12 @@ export class TspRunner {
           },
           onTitle: (title) => {
             if (gen === this.#gen) this.#onTitle(title);
+          },
+          onCwd: (cwd) => {
+            if (gen === this.#gen) this.#onCwd(cwd);
+          },
+          onRunStatus: (status) => {
+            if (gen === this.#gen) this.#onRunStatus(status);
           },
           onExit: (exit) => {
             if (gen === this.#gen) this.#onExit(session, exit);
@@ -693,6 +775,8 @@ export class TspRunner {
     this.#seqBase = this.#finalSnapshot.seq + 1;
     this.#session = null;
     this.#workspace.reset();
+    this.#signal = NO_RUN_SIGNAL;
+    this.#loaderText = null;
     this.#goalTracker.reset();
     this.#btw.reset();
     this.#stopRequested = false;
@@ -752,7 +836,7 @@ export class TspRunner {
 
   async #persistSessionFile(): Promise<void> {
     const file = this.#sessionFile;
-    if (file === null || file === this.#record.sessionFile || this.#persistingSessionFile) return;
+    if (!file || file === this.#record.sessionFile || this.#persistingSessionFile) return;
     this.#persistingSessionFile = true;
     try {
       const exists = await stat(file).then(
@@ -773,7 +857,30 @@ export class TspRunner {
     }
   }
 
+  /**
+   * omp 里换了会话目录（OSC 7：启动时、`/move`、`/wt`）：记进任务记录，之后文件面板、评审、git、新开终端、`--resume` 都用它（`cwd` getter）。
+   * 就是默认目录（worktree 根或项目目录）时记 null。worktree 任务的 `worktreePath` 等字段不动：合并、丢弃仍按它们。
+   */
+  #onCwd(raw: string): void {
+    const next = path.resolve(raw);
+    if (pathKey(next) === pathKey(this.cwd)) return;
+    const wanted = pathKey(next) === pathKey(this.#record.worktreePath ?? this.#project.path) ? null : next;
+    // 内存里立即生效（registry 的 updateTask 在调用时同步改它自己的表，之后别处 await persist 拿到的记录也带着它）。
+    this.#record = { ...this.#record, cwd: wanted };
+    this.#publish();
+    this.#host
+      .persist(this.id, { cwd: wanted })
+      .catch((error: unknown) =>
+        log.warn(`task ${this.id} saving the omp working directory failed`, { message: String(error) }),
+      );
+  }
+
   #onTitle(raw: string): void {
+    const prNumber = ompTitlePullRequest(raw);
+    if (prNumber !== this.#prNumber) {
+      this.#prNumber = prNumber;
+      this.#publish();
+    }
     const title = cleanOmpTitle(raw);
     if (title === "" || title === this.#lastOmpTitle) return;
     this.#lastOmpTitle = title;
@@ -892,6 +999,11 @@ export class TspRunner {
   resizeTsp(cols: number): void {
     this.#cols = cols;
     this.#session?.resize(cols);
+  }
+
+  /** 深浅主题或减少动效变了：转给运行中的会话发 `theme` / `motion` 事件；没有进程的任务下次起进程时 hello 回复读最新值（`host.session.appearance()`）。 */
+  setAppearance(next: { dark: boolean; reduceMotion: boolean }): void {
+    this.#session?.setAppearance(next);
   }
 
   #liveSession(): TspSession {
@@ -1290,11 +1402,6 @@ export class TspRunner {
 
   // ───── 斜杠命令、快速/慢速模式 ─────
 
-  /** 这个任务每一轮的费用（见 tsp/turn-costs.ts）；会话文件还没落盘、读失败时 []。 */
-  turnCosts(): Promise<number[]> {
-    return readTurnCosts(this.#currentSessionFile());
-  }
-
   /** 用量脚注和空闲回顾：omp 恢复会话时不重发，从会话文件和 history.db 补（见 tsp/session-extras.ts）。 */
   sessionExtras(): Promise<TspSessionExtras> {
     return readSessionExtras(this.#currentSessionFile());
@@ -1573,7 +1680,7 @@ export class TspRunner {
   #leafOverride: LeafOverride | null = null;
 
   #currentSessionFile(): string | null {
-    return this.#sessionFile ?? this.#record.sessionFile;
+    return this.#sessionFile === undefined ? this.#record.sessionFile : this.#sessionFile;
   }
 
   /** 回溯和分叉要求这一轮已经结束：omp 的 `/tree` 在运行中会打断或搅乱这一轮，分叉复制的文件也要写完。 */
@@ -1613,7 +1720,10 @@ export class TspRunner {
     const file = this.#currentSessionFile();
     const entries = await this.#readTreeEntries();
     if (file === null || entries.length === 0) throw new Error("this task has no session file yet");
-    const id = entryId ?? buildTreeFromEntries(entries, this.#leafOverride).find((node) => node.current)?.entryId;
+    const id =
+      entryId ??
+      buildTreeFromEntries(entries, this.#leafOverride).findLast((node) => node.kind === "user" && node.onCurrentBranch)
+        ?.entryId;
     if (id === undefined) throw new Error("the session has no user message to fork from");
     const target = findUserEntry(entries, id);
     if (target === null) throw new Error("that is not a user message of this session");
@@ -1695,6 +1805,73 @@ export class TspRunner {
       this.#leafOverride =
         target.lastEntryId === null ? null : { afterEntryId: target.lastEntryId, leafId: target.parentId };
       return { text: target.text, summarized: summarize };
+    });
+  }
+
+  /**
+   * 给会话树里的一个条目打标签 / 清掉标签（`label` 为 null 或空串 = 清除）：omp 的 `/tree` 选择器里 `select` 这个条目 → `action label`（Shift+L）→
+   * 选择器预览里出现输入框 → `edit` 填字（整段替换）→ `action label-save`（Enter）→ omp 往会话文件追加一个 `label` 条目 → Esc 关选择器。
+   * 标签不动叶子，也不动对话。要求这一轮已结束。条目必须是会话里存在的用户消息 / 压缩点 / 分支摘要，且 omp 的选择器里列着它。
+   */
+  labelEntry(entryId: string, label: string | null): Promise<void> {
+    return this.#exclusive(async () => {
+      if (!isLabellableEntry(await this.#readTreeEntries(), entryId)) throw new Error("that entry cannot be labelled");
+      const text = label === null ? "" : label.trim();
+      await this.start();
+      this.#assertTurnFinished();
+      const composer = await this.#awaitComposer();
+      const session = this.#liveSession();
+      await this.#clearComposerEditor(session);
+      session.sendEvent({ ev: "send", sf: composer.sf, id: composer.id, text: "/tree" });
+      const picker = await this.#awaitDocument(
+        (document) => findTreePicker(document),
+        PICKER_TIMEOUT_MS,
+        "omp's session tree did not open in time",
+      );
+      if (!picker.items.includes(entryId) || !picker.actions.includes(TREE_ACT_LABEL)) {
+        session.sendKeys(ESC_KEY);
+        throw new Error("omp's session tree does not offer labelling that entry");
+      }
+      try {
+        session.sendEvent({ ev: "select", sf: picker.sf, id: picker.id, item: entryId });
+        session.sendEvent({ ev: "action", sf: picker.sf, id: picker.id, act: TREE_ACT_LABEL });
+        const input = await this.#awaitDocument(
+          (document) => findTreeLabelInput(document),
+          CONFIRM_TIMEOUT_MS,
+          "omp did not open its label box",
+        );
+        if (input.text !== text) {
+          session.sendEvent({
+            ev: "edit",
+            sf: input.sf,
+            id: input.id,
+            from: 0,
+            to: input.text.length,
+            text,
+            cursor: text.length,
+            len: input.text.length,
+          });
+          await this.#awaitDocument(
+            (document) => (findTreeLabelInput(document)?.text === text ? true : null),
+            CONFIRM_TIMEOUT_MS,
+            "omp's label box did not take the text",
+          );
+        }
+        session.sendEvent({ ev: "action", sf: input.sf, id: input.pickerId, act: TREE_ACT_LABEL_SAVE });
+        await this.#awaitDocument(
+          (document) => (findTreeLabelInput(document) === null ? true : null),
+          CONFIRM_TIMEOUT_MS,
+          "omp did not save the label",
+        );
+      } finally {
+        // 不管成败都把选择器关掉：它是 modal，开着会挡住别的操作。
+        session.sendKeys(ESC_KEY);
+      }
+      await this.#awaitDocument(
+        (document) => (findTreePicker(document) === null ? true : null),
+        CONFIRM_TIMEOUT_MS,
+        "omp did not close its session tree",
+      );
     });
   }
 

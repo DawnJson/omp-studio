@@ -395,6 +395,10 @@
   white-space: nowrap;
 }
 
+.st-kb-or {
+  color: var(--text-3);
+}
+
 /* ───────── 工具与权限：工具网格，每格一样 ───────── */
 
 .st-tools {

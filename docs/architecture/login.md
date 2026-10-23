@@ -16,9 +16,11 @@
 
 1. 界面 `startLogin(providerId)`；主进程确保同一时间只有一个登录，在服务进程上发 `login`，同时监听 `extension_ui_request`：
    - `open_url {url, launchUrl?, instructions?}`：主进程只放行 http/https，用系统浏览器打开 `url`，同时推 `login` 事件 `{type:"open_url"}`；界面显示 `launchUrl ?? url`（`rpc.md` 推荐复制 `launchUrl`，避免 OAuth 参数被截断）、`instructions` 和"重新打开浏览器"。
-   - `notify`：推 `{type:"progress"}`。
-   - `input`：推 `{type:"input", inputId}`（`inputId` 就是请求 id）；界面回答走 `answerLoginInput(inputId, value|null)`，主进程只接受仍在等的 `inputId`，回 `extension_ui_response`（`null` = `cancelled:true`）。
-   - 登录用不到的 `select/confirm/editor/ask`：立刻回 `cancelled:true`，免得 omp 一直等。
+   - `notify`：推 `{type:"progress", level, message}`（`level` 是 omp 的 `notifyType`，默认 `info`）。界面把它们**按到达顺序全部保留**（`login-progress` 列表，不只显示最后一条），`warning` / `error` 分别用警告色 / 错误色（`data-level`），`info` 用次要色。
+   - `input`：推 `{type:"input", inputId}`（`inputId` 就是请求 id）；界面回答走 `answerLoginInput(inputId, value|null)`，主进程只接受仍在等的 `inputId`，回 `extension_ui_response`（`null` = `cancelled:true`）。omp 给的 `timeout`（`login` 固定 600000 ms）**不传给界面、不显示倒计时**：授权码要用户去浏览器授权后再贴回来，10 分钟的上限不是用户能据以决策的数字，倒计时反而制造压力；到点时 omp 发 `cancel`，界面按下一条处理。
+   - `cancel {targetId}`（omp 撤销了一个输入：超时或被取消）：如果 `targetId` 是还在等的 `input`，推 `{type:"input_closed", inputId}`，界面收起输入框和"提交"按钮（进度历史保留，没提交的字清掉）；之后不会再出现提交时抛 `no login input is waiting`。
+   - 登录用不到的 `select/confirm/editor/ask`：立刻回 `cancelled:true`，免得 omp 一直等。判断和连接层的常驻默认应答共用 `src/main/omp/extension-ui.ts` 的 `cancelledReply`。
+   - 登录期间 `login.ts` 通过 `connection.claimExtensionUi()` 认领应答权，连接层的默认应答（`omp-rpc.md`"后台进程对 extension_ui_request 的处理"）不会同时回答同一个请求；登录结束（含失败）释放。
 2. `login` 应答 → `startLogin` resolve `{ok:true}`；`RpcCommandError`（含 secret 提示被拒）或服务进程退出 → `{ok:false, message}`，界面显示 `login.failed` 加原因；原因里带 `secret`/`terminal` 时再提示"去终端登录"并给"复制命令"。
 3. **取消**：没有公开的取消命令。有未答的 `input` 就回 `cancelled:true`；否则（omp 停在等浏览器回调）关掉服务进程，`login` 随之失败，主进程按"已取消"返回，界面回到空闲。
 4. 登录或登出之后界面重新读 provider、账号和模型。
@@ -26,7 +28,7 @@
 ## 登出和状态显示
 
 - 状态：`authenticated` 且有账号 → `login.signedIn · <label>`（多个账号显示 `+N`）；`authenticated` 但没有账号 → 通过环境变量或配置使用（`login.viaEnv`；这是 `get_logout_accounts` 为空推出来的，**契约里 `logout` 不返回 `remainingSource`**）；有自存 key 显示"已设置 API key"。
-- `logout`：1 个账号直接退出，多个先让用户选（`login.chooseAccount`）。
+- `logout`：1 个账号直接退出，多个先让用户选（`login.chooseAccount`）。选择列表里 `LogoutAccount.active` 为 true 的账号（omp 报告它正被使用）带"正在使用"徽标（`login.accountActive`，`account-active-<credentialId>`），让用户知道退出的是正在用的凭据；只有 1 个账号时不弹选择，看不到徽标。
 - 退出只影响 omp 自己存的凭据；自存的 API key 用"清除 API key"（`clearApiKey`）。
 
 ## 提供商列表：搜索、排序、登录方式

@@ -17,4 +17,5 @@ export const error = {
   startFailed: "没能启动 omp。",
   executableBlocked: "可执行文件不会被直接打开，请在文件夹中显示它。",
   notFound: "找不到对应的任务或项目，可能已被移除。",
+  statsSchema: "omp 的统计库结构和当前 omp-studio 预期的对不上，读不了。",
 } satisfies Record<string, MessageEntry>;

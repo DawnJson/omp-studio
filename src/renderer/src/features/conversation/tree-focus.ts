@@ -4,6 +4,6 @@ import type { SessionTreeNode } from "../../../../shared/ipc.ts";
 /** 当前分支上倒数第 `fromEnd` 条用户消息（0 = 最后一条）在 `nodes` 里的下标；超出范围返回 null。 */
 export function focusIndexFromEnd(nodes: readonly SessionTreeNode[], fromEnd: number): number | null {
   const onBranch: number[] = [];
-  for (const [index, node] of nodes.entries()) if (node.onCurrentBranch) onBranch.push(index);
+  for (const [index, node] of nodes.entries()) if (node.kind === "user" && node.onCurrentBranch) onBranch.push(index);
   return onBranch[onBranch.length - 1 - fromEnd] ?? null;
 }

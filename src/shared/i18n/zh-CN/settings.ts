@@ -44,8 +44,11 @@ export const settings = {
   "enterBehavior.steer": "插话",
   "enterBehavior.later": "稍后",
   "enterBehavior.desc": "任务正在运行时，Enter 发出的消息是插话还是排到后面",
-  notifyWaiting: "有任务在等你时通知我",
-  "notifyWaiting.desc": "任务需要你确认时发系统通知；窗口收在托盘时，任务完成或出错也会通知",
+  notifications: "通知与回顾",
+  "block.thinking": "思考块",
+  "shortcuts.omp": "omp 快捷键",
+  "shortcuts.omp.desc":
+    "焦点在输入框或对话区时，这些键原样转发给任务里的 omp（omp-studio 自己用到的键除外）。键位来自 omp 的默认值和它 agent 目录里的 keybindings.yml，要改去那里改。",
   soundOnDone: "任务完成时响提示音",
   "soundOnDone.desc": "任务正常跑完一轮时响一声系统提示音；窗口收在托盘、已经发了完成通知时不再另响",
   copyOnSelect: "选中即复制",

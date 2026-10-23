@@ -8,6 +8,7 @@ import { ArrowUp, Branch, Check, ChevronDown, Diff, External, Trash } from "../.
 import { useTask } from "../../store/index.ts";
 import { openReview } from "../../store/review-store.ts";
 import { IconButton } from "../../ui/controls.tsx";
+import { reportError } from "../../ui/errors.ts";
 import { anchorBelow, Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
 import { mergeBack, pushBranch } from "./git-actions.ts";
 import { openGitDialog } from "./git-dialog-store.ts";
@@ -138,6 +139,18 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
         )}
         <ChevronDown size={12} />
       </button>
+      {task?.prNumber != null && (
+        <button
+          type="button"
+          className="topbar-pr"
+          data-testid="git-pr-badge"
+          aria-label={t("git.pr.badge", { number: task.prNumber })}
+          title={t("git.pr.badge", { number: task.prNumber })}
+          onClick={() => window.studio.openTaskPullRequest(taskId).catch((error: unknown) => reportError(t, error))}
+        >
+          #{task.prNumber}
+        </button>
+      )}
       <IconButton
         label={t("review.open")}
         tip={`${t("review.open")} (Ctrl Shift D)`}

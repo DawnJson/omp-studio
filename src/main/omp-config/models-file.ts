@@ -10,6 +10,7 @@ import { copyFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import { isMap, isScalar, isSeq, parseDocument, YAMLMap, YAMLSeq, type Document } from "yaml";
 import {
+  defaultDiscoveryType,
   isKnownApi,
   isValidEnvName,
   isValidLiteralKey,
@@ -203,7 +204,7 @@ function applyModels(doc: Document, provider: YAMLMap, input: CustomProviderInpu
   }
 }
 
-/** 新增（mode add）或修改（edit）一个 provider。只动 baseUrl / apiKey / auth / api / models 这几个键。 */
+/** 新增（mode add）或修改（edit）一个 provider。只动 baseUrl / apiKey / auth / api / models / discovery 这几个键。 */
 export function applyProvider(text: string | null, input: CustomProviderInput, mode: "add" | "edit"): Edit {
   const invalid = validateInput(input, mode);
   if (invalid !== null) return fail(invalid);
@@ -226,6 +227,13 @@ export function applyProvider(text: string | null, input: CustomProviderInput, m
     return fail("unreadable-file");
   }
 
+  // `discovery` 只整体增删：已有的（类型、timeoutMs 等）原样保留，只在 true 且还没有时按 api 写默认类型。
+  if (input.discovery === false) provider.delete("discovery");
+  else if (input.discovery === true && !provider.has("discovery")) {
+    const type = defaultDiscoveryType(input.api);
+    if (type === null) return fail("invalid-api");
+    provider.set("discovery", doc.createNode({ type }));
+  }
   if (input.models.length === 0 && !provider.has("discovery")) return fail("needs-model");
 
   provider.set("baseUrl", normalizeBaseUrl(input.baseUrl));

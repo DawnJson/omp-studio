@@ -85,6 +85,9 @@ const account = (provider: string, limits: QuotaLimit[]): QuotaAccount => ({
   limits,
   notes: [],
   fetchedAt: 0,
+  planType: null,
+  daybreak: false,
+  resetCredits: null,
 });
 
 describe("quota helpers", () => {

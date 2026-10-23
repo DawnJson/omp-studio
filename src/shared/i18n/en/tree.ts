@@ -18,4 +18,23 @@ export const tree = {
   forkFailed: "Couldn’t fork: {message}",
   branchFailed: "Couldn’t go back to that message: {message}",
   loadFailed: "Couldn’t read the session tree: {message}",
+  searchPlaceholder: "Search by message text or label",
+  searchLabel: "Search the session tree",
+  noMatch: "No matching messages",
+  compaction: "Context compacted",
+  compactionTokens: "{tokens} tokens before compaction",
+  branchSummary: "Branch summary",
+  branchSummaryTitle: "The summary omp wrote for the branch you left when going back",
+  notRewindable: "Only user messages can be rewound to or forked from",
+  discard: {
+    one: "Going back to just before this message drops {count} turn from the conversation (it stays in the session file as another branch)",
+    other:
+      "Going back to just before this message drops {count} turns from the conversation (they stay in the session file as another branch)",
+  },
+  addLabel: "Add label",
+  editLabel: "Edit label",
+  labelPlaceholder: "Label (empty clears it)",
+  labelInputLabel: "Label",
+  labelFailed: "Couldn’t label: {message}",
+  labelBusy: "Can’t label while the task is busy",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

@@ -2,10 +2,11 @@
 // 范围和 get_session_stats 一致（18.12.2 实测逐项相等）：沿 parentId 从最后一条走到根得到当前分支，
 // 只算最近一次压缩的 firstKeptEntryId 起的部分；压缩过时另给当前分支全部的合计（压缩前花掉的也是钱）。
 // 当前分支取文件最后一条：omp 只在叶子上追加；在会话树里跳到别处但还没发消息时会偏，这时只是数字差一些。
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import type { ModelUsage, SessionModelUsage } from "../../shared/ipc.ts";
 import type { TokenUsage } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { isRecord } from "../../shared/type-guards.ts";
+import { MAX_SESSION_FILE_BYTES } from "../tsp/session-tree-file.ts";
 
 const num = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 const str = (value: unknown): string | null => (typeof value === "string" ? value : null);
@@ -121,12 +122,18 @@ export function totalUsage(models: readonly ModelUsage[]): SessionTotals {
   return { tokens, requests };
 }
 
+/** 超过 MAX_SESSION_FILE_BYTES 的会话文件抛错、不读（和 readSessionEntries 同一个上限；每次费用变化都会整份重读）。 */
 export async function readSessionUsage(file: string | null): Promise<SessionModelUsage> {
   if (file === null) return { models: [], compactions: 0, whole: null };
-  const text = await readFile(file, "utf8").catch((error: unknown) => {
-    // 新会话的文件在第一条回复之后才落盘。
-    if (isRecord(error) && error["code"] === "ENOENT") return "";
-    throw error;
-  });
-  return summarizeSessionUsage(text);
+  // 新会话的文件在第一条回复之后才落盘。
+  const size = await stat(file).then(
+    (info) => info.size,
+    (error: unknown) => {
+      if (isRecord(error) && error["code"] === "ENOENT") return null;
+      throw error;
+    },
+  );
+  if (size === null) return { models: [], compactions: 0, whole: null };
+  if (size > MAX_SESSION_FILE_BYTES) throw new Error(`session file is too large to read (${size} bytes)`);
+  return summarizeSessionUsage(await readFile(file, "utf8"));
 }

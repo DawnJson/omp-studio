@@ -8,8 +8,8 @@ import type { SessionTreeNode } from "../../shared/ipc.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 import { buildSessionTree, userEntryText } from "../tasks/session-tree.ts";
 
-/** 会话文件超过这个大小就不读了（树面板打开时整份读进内存）。 */
-const MAX_SESSION_FILE_BYTES = 256 * 1024 * 1024;
+/** 会话文件超过这个大小就不读了（树面板打开时整份读进内存；每次费用变化重读的 readSessionUsage 同一个上限）。 */
+export const MAX_SESSION_FILE_BYTES = 256 * 1024 * 1024;
 
 export interface SessionEntry {
   id: string;
@@ -113,6 +113,14 @@ export function findUserEntry(entries: readonly SessionEntry[], entryId: string)
     text: fullUserText(entry.raw),
     lastEntryId: entries[entries.length - 1]?.id ?? null,
   };
+}
+
+/** 条目 id 是不是面板里能打标签的节点：用户消息、压缩点、分支摘要（助手消息等面板不显示，标签也看不到）。 */
+export function isLabellableEntry(entries: readonly SessionEntry[], entryId: string): boolean {
+  const entry = entries.find((candidate) => candidate.id === entryId);
+  if (entry === undefined) return false;
+  const type = entry.raw["type"];
+  return type === "compaction" || type === "branch_summary" || userEntryText(entry.raw) !== null;
 }
 
 /** 用户消息的完整文字（文本块用换行连起来）；回溯后放进 studio 输入框的就是它。 */

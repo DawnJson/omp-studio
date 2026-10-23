@@ -4,6 +4,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { TspOverlayProps } from "../../../../../shared/tsp/tsp.generated.ts";
 import { TspIcon } from "../icons.tsx";
+import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
 import { TspSpans } from "../spans.tsx";
 import { TspChildren } from "../TspChildren.tsx";
@@ -33,7 +34,8 @@ function defaultSize(anchor: Anchor | undefined): "sm" | "md" {
   return typeof anchor === "object" && anchor !== null ? "sm" : "md";
 }
 
-export function Overlay({ node, ctx }: NodeProps) {
+export function Overlay(props: NodeProps) {
+  const { node, ctx } = props;
   const p = node.p as unknown as TspOverlayProps & { role?: string };
   const anchor = p.anchor;
   const at = anchorClass(anchor);
@@ -138,9 +140,10 @@ export function Overlay({ node, ctx }: NodeProps) {
   return (
     <div
       ref={root}
-      className={["tspi-overlay", `sz-${size}`, at, p.modal ? "modal" : ""].filter(Boolean).join(" ")}
-      data-id={node.id}
-      data-role={typeof p.role === "string" ? p.role : undefined}
+      {...nodeDomProps(props, ["tspi-overlay", `sz-${size}`, at, p.modal ? "modal" : ""].filter(Boolean).join(" "), {
+        pointer: false,
+        noTitle: true,
+      })}
     >
       {p.modal ? <div className="tspi-ov-dim" aria-hidden="true" /> : null}
       <div

@@ -24,9 +24,10 @@ export async function ensureSetupApproved(projectId: ProjectId): Promise<boolean
 }
 
 /** 提交结果 → 提示；true = 已提交。 */
-function announceCommit(t: TFunction, result: GitCommitResult): boolean {
+function announceCommit(t: TFunction, result: GitCommitResult, amend: boolean): boolean {
   if (result.kind === "committed") {
-    pushToast({ message: t("git.commit.done", { commit: result.commit.slice(0, 8) }) });
+    const commit = result.commit.slice(0, 8);
+    pushToast({ message: t(amend ? "git.commit.amended" : "git.commit.done", { commit }) });
     return true;
   }
   if (result.kind === "nothing_to_commit") pushToast({ level: "warning", message: t("git.commit.nothing") });
@@ -34,20 +35,51 @@ function announceCommit(t: TFunction, result: GitCommitResult): boolean {
   return false;
 }
 
-/** 提交（提交对话框和评审里的提交框共用这一条路径）：提示结果、之后重读 git 状态；true = 已提交。 */
+/** 提交（提交对话框和评审里的提交框共用这一条路径）：提示结果、之后重读 git 状态；true = 已提交。amend = 改写上一次提交。 */
 export async function commitChanges(
   t: TFunction,
   taskId: TaskId,
   message: string,
   stageAll: boolean,
+  amend = false,
 ): Promise<boolean> {
   try {
-    return announceCommit(t, await window.studio.commitGit(taskId, message, stageAll));
+    return announceCommit(t, await window.studio.commitGit(taskId, message, stageAll, amend), amend);
   } catch (error) {
     reportError(t, error, t("git.commit.failed"));
     return false;
   } finally {
     refreshGit(taskId);
+  }
+}
+
+/** "生成提交信息"（omp commit）：结果翻译成提示；返回要填进提交框的标题和正文，没有可填的（取消、失败）为 null。 */
+export async function generateCommitMessage(
+  t: TFunction,
+  taskId: TaskId,
+): Promise<{ title: string; body: string } | null> {
+  try {
+    const result = await window.studio.generateCommitMessage(taskId);
+    switch (result.kind) {
+      case "generated":
+        if (result.split !== null)
+          pushToast({ level: "warning", message: t("git.generate.split", { count: result.split }) });
+        return { title: result.title, body: result.body };
+      case "nothing_staged":
+        pushToast({ level: "warning", message: t("git.generate.nothing") });
+        return null;
+      case "no_model":
+        pushToast({ level: "error", message: t("git.generate.noModel") });
+        return null;
+      case "failed":
+        pushToast({ level: "error", message: t("git.generate.failed"), title: result.message });
+        return null;
+      case "cancelled":
+        return null;
+    }
+  } catch (error) {
+    reportError(t, error, t("git.generate.failed"));
+    return null;
   }
 }
 

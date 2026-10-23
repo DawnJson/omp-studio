@@ -73,6 +73,24 @@ describe("hub-steer.jsonl（omp 18.12.5）", () => {
     expect(tool).toMatchObject({ name: "bash" });
   });
 
+  it('Ctx：agent 节点 stats.context 是 0–1 的占用比例（agent-progress 录制，omp 18.12.6 的 0.008099 / "8.1K / 1M"）', () => {
+    const doc = createDocument();
+    let seen: { context: number | null; contextLabel: string | null } | null = null;
+    for (const { message } of tspDocMessages(loadTspFixture("agent-progress"))) {
+      applyMessage(doc, message);
+      const withContext = listAgents(doc).find((agent) => agent.stats.context !== null);
+      if (withContext && seen === null) seen = withContext.stats;
+    }
+    expect(seen).toMatchObject({ contextLabel: "8.1K / 1M" });
+    expect(seen!.context).toBeCloseTo(0.008099, 6);
+    // 别的录制（hub-steer）里也带 context：全部在 0–1 之内；`--resume` 重放出来的 pending 节点没有这个字段 → null。
+    const other = createDocument();
+    for (const { message } of tspDocMessages(loadTspFixture("hub-steer"))) applyMessage(other, message);
+    for (const agent of listAgents(other)) {
+      expect(agent.stats.context === null || (agent.stats.context >= 0 && agent.stats.context <= 1)).toBe(true);
+    }
+  });
+
   it("agents.open 之前 hud 的 👥 胶囊在；Hub 开着时有两项、停在 agents 页，kill 可用、revive 被 omp 禁用", () => {
     expect(isHubOpenAction("agents.open")).toBe(true);
     expect(isHubOpenAction("copy")).toBe(false);

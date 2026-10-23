@@ -20,7 +20,6 @@ const defaults: StudioSettings = {
   maxLiveProcesses: 6,
   reduceMotion: false,
   enterWhileRunning: "steer",
-  notifyOnGate: true,
   soundOnDone: false,
   copyOnSelect: true,
   yoloConfirmed: false,
@@ -57,7 +56,6 @@ function sanitize(raw: unknown): StudioSettings {
       record["enterWhileRunning"],
       defaults.enterWhileRunning,
     ),
-    notifyOnGate: field((value) => parseBoolean(value, "notifyOnGate"), record["notifyOnGate"], defaults.notifyOnGate),
     soundOnDone: field((value) => parseBoolean(value, "soundOnDone"), record["soundOnDone"], defaults.soundOnDone),
     copyOnSelect: field((value) => parseBoolean(value, "copyOnSelect"), record["copyOnSelect"], defaults.copyOnSelect),
     yoloConfirmed: field(
@@ -78,11 +76,19 @@ export function getSettings(): StudioSettings {
   return settings;
 }
 
+const listeners: ((next: StudioSettings) => void)[] = [];
+
+/** 设置变化（每次 updateSettings 写盘之后）时调用；主进程里要跟着设置动的模块（TSP 会话的 motion 事件等）订阅。 */
+export function onSettingsChanged(listener: (next: StudioSettings) => void): void {
+  listeners.push(listener);
+}
+
 export function updateSettings(patch: Partial<StudioSettings>): void {
   settings = { ...settings, ...patch };
   writeJsonFileAtomic(settingsFile(), settings);
   nativeTheme.themeSource = settings.theme;
   emitEvent("settings", settings);
+  for (const listener of listeners) listener(settings);
 }
 
 export function resolveLocale(): Locale {

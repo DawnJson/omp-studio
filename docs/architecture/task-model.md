@@ -36,13 +36,13 @@
 | `stopped` | 主动关闭 → stopped（不是 error） |
 | `mark_read` | 清 unread；`lastTurn` 为 error 时清掉 |
 
-状态 = 有 `dialogs` ? needs_you : working ? running : idle（starting/error/stopped 由生命周期输入决定）。输入从文档推导，不是 omp 发的事件：`shared/tsp/task-status.ts` 的 `deriveTaskStatus` 看 dock 里有没有运行状态行（`omp.working` / `omp.working.stop` / `omp.composer.stop`，出现 = `agent_start`，消失 = `prompt_result`）和提问 / 审批节点（`omp.editor.ask*` = 门，主进程为它合成一个 `confirm` 型的 `DialogRequest`，见 [dialogs.md](dialogs.md)）。用户按过停止的那一轮 `lastTurn` 记为 `aborted`，哪怕之后 omp 又继续跑完。依据是 `fixtures/tsp/{task,approval,ask}.jsonl` 逐帧（`test/tsp-task-status.test.ts`）；主区里的 spinner 和 `omp.hud.activity`（待办面板，回合结束后还在）不可靠，不用。
+状态 = 有 `dialogs` ? needs_you : working ? running : idle（starting/error/stopped 由生命周期输入决定）。输入从文档推导，不是 omp 发的事件：`shared/tsp/task-status.ts` 的 `deriveTaskStatus` 看 dock 里有没有运行状态行（`omp.working` / `omp.working.stop` / `omp.composer.stop`，出现 = `agent_start`，消失 = `prompt_result`）和提问 / 审批节点（`omp.editor.ask*` = 门，主进程为它合成一个 `confirm` 型的 `DialogRequest`，见 [dialogs.md](dialogs.md)）。2026-10-23 起 omp 的 OSC 7501 是主信号（working / blocked / done / error / idle），没收到过 7501 的会话才退回上面的节点推导，另有 `omp.loader` 算 running、`omp.overlay.hook-*` 等模态弹窗算 needs_you；这一轮的结局以 7501 为准（done → completed、error → error 且错误原文在 `lastTurn.error.message`、idle → aborted），详见 [tsp-migration.md](tsp-migration.md) §7「状态推导」。依据是 `fixtures/tsp/{task,approval,ask}.jsonl` 逐帧（`test/tsp-task-status.test.ts`）；主区里的 spinner 和 `omp.hud.activity`（待办面板，回合结束后还在）不可靠，不用。
 
 ## 输入框上的状态从哪来
 
 模型、思考强度、上下文占用、费用不是命令的应答，而是从 omp 输入框卡片上的节点读（`shared/tsp/composer-state.ts`，`TspRunner` 每次文档变化调用，变了才发布）：`omp.composer.model`、`omp.composer.model.effort`、`omp.composer.context`（meter）、`omp.composer.usage`。对照表在 [tsp-migration.md](tsp-migration.md) §10.2。待办阶段从 dock 里 `omp.hud.todo` 的 checklist 换算成 `TaskState.todoPhases`（`shared/tsp/todos.ts`）。输入框被提问 / 审批替换的那几帧读不到，沿用上一次的值。
 
-omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的用量脚注、最近一条回复的输出速度、每轮费用、按模型的累计用量，见 `src/main/tsp/session-extras.ts`、`turn-costs.ts` 和 [tsp-migration.md](tsp-migration.md) §10.1。
+omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的用量脚注（含每轮费用，写法照 omp：`<$0.01`，恢复的行和实时的行一致）、最近一条回复的输出速度、按模型的累计用量，见 `src/main/tsp/session-extras.ts` 和 [tsp-migration.md](tsp-migration.md) §10.1。
 
 ## 进程上限和回收
 

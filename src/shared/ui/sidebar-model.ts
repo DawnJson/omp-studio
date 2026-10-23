@@ -159,7 +159,7 @@ export function nextWaitingTask(waiting: readonly TaskState[], current: TaskId |
   return waiting[at === -1 ? 0 : (at + 1) % waiting.length] ?? null;
 }
 
-export type DotKind = "running" | "waiting" | "done" | "error" | "none";
+export type DotKind = "running" | "waiting" | "done" | "error" | "interrupted" | "none";
 
 /** 状态点的形状：形状是第二信号（色盲友好）。"完成"= 空闲且最后一轮正常结束，看过也一直在；从没跑过、被停止的不画。 */
 export function dotKind(task: TaskState): DotKind {
@@ -170,7 +170,19 @@ export function dotKind(task: TaskState): DotKind {
   return "none";
 }
 
-/** 历史会话（还没挂在任务上）的状态点：没有进程，只看会话文件里最后一轮的结果，和任务空闲时同一套。 */
+/**
+ * 历史会话（还没挂在任务上）的状态点：没有进程，只看会话文件最后一条消息的状态（session-index 的口径，同 omp session-listing）。
+ * 画"完成"、"失败"和"中断"（轮次中途断掉：停在工具调用 / 长度上限上，可以继续）；被用户停止、最后一条是用户消息、认不出的不画。
+ */
 export function sessionDotKind(session: Pick<SessionSummary, "lastTurn">): DotKind {
-  return session.lastTurn === "completed" ? "done" : session.lastTurn === "error" ? "error" : "none";
+  switch (session.lastTurn) {
+    case "completed":
+      return "done";
+    case "error":
+      return "error";
+    case "interrupted":
+      return "interrupted";
+    default:
+      return "none";
+  }
 }

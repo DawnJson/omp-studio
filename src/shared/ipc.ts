@@ -19,12 +19,15 @@ import type {
 } from "./omp-wire/rpc-wire.generated.ts";
 import type {
   DraftGitInfo,
+  GitCommitMessageResult,
   GitCommitResult,
   GitChangeStat,
   GitDiffArea,
   GitDiffContext,
   GitFileDiff,
   GitHunkRef,
+  GitLastCommit,
+  GitLinesRef,
   GitMergeResult,
   GitPullRequestInput,
   GitPullRequestResult,
@@ -49,6 +52,7 @@ import type { SshHost, SshHostInput, SshScope } from "./omp-output/ssh.ts";
 import type { AgentMessage } from "./omp-wire/rpc-wire.generated.ts";
 import type { BtwHistoryRecord, BtwUiEvent } from "./btw.ts";
 import type { DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
+import type { OmpKeybinding } from "./tsp/omp-keybindings.ts";
 import type { TspEvent } from "./tsp/tsp.generated.ts";
 
 // ───────── 标识 ─────────
@@ -192,8 +196,6 @@ export interface StudioSettings {
   reduceMotion: boolean;
   /** 运行中按 Enter：插话（steer）还是稍后（followUp）。 */
   enterWhileRunning: "steer" | "followUp";
-  /** 有任务在等你确认时发系统通知（只对"等你确认"生效）。默认开。 */
-  notifyOnGate: boolean;
   /** 任务跑完一轮（正常结束）时响一声系统提示音。默认关。 */
   soundOnDone: boolean;
   /** 在对话等处用鼠标选中文字后自动复制到剪贴板（输入框、终端除外）。默认开。 */
@@ -350,6 +352,13 @@ export interface TaskState {
    * 或者进程已经不在（stopped / error）。在跑、等你回答、启动中时为 false，界面把重开按钮置灰。
    */
   restartable: boolean;
+  /**
+   * dock 里 `omp.hud.activity` 下 `omp.loader` 的文字（交接、建 worktree、分支摘要、debug 报告、压缩等"没有 agent 一轮但 omp 在忙"的时候）；没有 loader 为 null，
+   * 有 loader 但没有文字为空串。有 loader 时任务算 running（shared/tsp/task-status.ts）。
+   */
+  loaderText: string | null;
+  /** omp 标题后缀 ` · #12` 里的 PR 号（当前分支有 PR）；没有为 null。顶栏分支胶囊旁的 PR 徽标据此显示。 */
+  prNumber: number | null;
 }
 
 /** 目标模式的目标（omp goal 模式）：`/goal` 创建，agent 完成或用户放弃后消失。 */
@@ -413,18 +422,31 @@ export interface RestoredQueue {
   backgroundWork: boolean;
 }
 
-/** 会话树里的一个节点：只列用户消息（分支点），文字是那条消息的第一行。 */
+/**
+ * 会话树里的一个节点：用户消息（分支点，文字是那条消息的第一行）和两种分隔 / 摘要节点——`compaction`（omp 压缩过上下文）和
+ * `branch_summary`（回溯时给被放弃的分支写的摘要）。只有用户消息能回溯 / 分叉。
+ */
 export interface SessionTreeNode {
   /** omp 会话条目 id；branchTask 用它。 */
   entryId: string;
+  /** `user`：用户消息；`compaction`：压缩点（`text` 为空，`tokensBefore` 是压缩前的 token 数）；`branch_summary`：被放弃分支的摘要（`text` 是摘要的第一行）。 */
+  kind: SessionTreeNodeKind;
   text: string;
+  /** 压缩点（`compaction`）压缩前的 token 数；omp 没写时没有这个字段。 */
+  tokensBefore?: number;
+  /** omp 的 `/tree` 里给这个条目打的标签（`label` 条目，最后一次生效；清空 = 没有这个字段）。 */
+  label?: string;
+  /** 列表里离它最近的上一级节点（用户消息 / 压缩点 / 摘要）；根为 null。算"回溯会丢掉几轮"用。 */
+  parent: string | null;
   /** 缩进层级：只在有分叉的地方加一级，一条直线的对话不缩进。 */
   indent: number;
   /** 在当前分支上（从根到叶子的路径上）。 */
   onCurrentBranch: boolean;
-  /** 当前分支上最后一条用户消息（叶子在它之下）。 */
+  /** 当前分支上最后一个节点（叶子在它之下）。 */
   current: boolean;
 }
+
+export type SessionTreeNodeKind = "user" | "compaction" | "branch_summary";
 
 /** getSessionTree 的结果：先序展开的用户消息节点；会话里还没有用户消息时 nodes 为空。 */
 export interface SessionTreeView {
@@ -540,8 +562,11 @@ export interface SessionSummary {
   id: string;
   title: string | null;
   firstPrompt: string | null;
-  /** 会话文件里最后一轮的结果（只读文件末尾）：completed 正常答完、error 出错结束；被停止或中途断掉为 null。 */
-  lastTurn: "completed" | "error" | null;
+  /**
+   * 会话文件最后一条消息给出的状态（只读文件末尾，口径同 omp 的 session-listing）：completed 答完、error 出错、aborted 被用户停止、
+   * interrupted 停在工具调用 / 长度上限 / 工具结果上（轮次中途断掉）、pending 最后是用户消息；认不出为 null。
+   */
+  lastTurn: "completed" | "error" | "aborted" | "interrupted" | "pending" | null;
   cwd: string;
   /** cwd 对应的已加入项目；没有时为 null，恢复时会自动加入。 */
   projectId: ProjectId | null;
@@ -558,21 +583,6 @@ interface TaskSessionRef {
 }
 
 // ───────── 会话信息、请求记录、分享（S3） ─────────
-
-/** `stats.db.session_rollup` 的一行：omp 自己汇总的本会话请求数、token、花费。 */
-export interface SessionRollup {
-  requests: number;
-  startedAt: number;
-  endedAt: number;
-  totalTokens: number;
-  /** 美元。 */
-  costUsd: number;
-  /** 没有价格的请求数（花费不含它们）。 */
-  unpriced: number;
-  /** 用过的模型 id。 */
-  models: string[];
-  toolCalls: number;
-}
 
 /** 会话文件头（`type:"session"` 那一行）里界面用得上的字段。 */
 export interface SessionHeaderInfo {
@@ -595,14 +605,8 @@ export interface TaskSessionInfo {
   /** 项目目录；有 worktree 时 worktree 另给。 */
   projectPath: string;
   worktree: { path: string; branch: string; base: string } | null;
-  stats: {
-    /** stats.db 存在。 */
-    hasDatabase: boolean;
-    /** 库里没有这个会话（还没同步）时为 null。 */
-    rollup: SessionRollup | null;
-    /** 这个会话 messages 表里 token 的分项合计；没有行为 null。 */
-    tokens: { input: number; output: number; cacheRead: number; cacheWrite: number } | null;
-  };
+  /** 本会话按模型的用量，从会话文件算（和输入框、`getSessionModelUsage` 同一份口径；不读 stats.db）。 */
+  usage: SessionModelUsage;
 }
 
 /** 请求记录里的一次工具调用（tool_calls 表）。 */
@@ -662,7 +666,9 @@ export interface ShareResult {
 export type LoginEvent =
   | { type: "open_url"; url: string; launchUrl?: string; instructions?: string }
   | { type: "progress"; level: NotifyType; message: string }
-  | { type: "input"; inputId: string; title: string; placeholder?: string };
+  | { type: "input"; inputId: string; title: string; placeholder?: string }
+  /** omp 撤销了这个输入（超时或取消）：界面收起输入框。 */
+  | { type: "input_closed"; inputId: string };
 
 export type LoginOutcome = { ok: true; providerId: string } | { ok: false; message: string };
 
@@ -709,18 +715,42 @@ export interface QuotaLimit {
   status: "ok" | "warning" | "exhausted" | "unknown";
 }
 
+/** 重置券（omp 的 `resetCredits`）：攒着的"重置额度"次数。照 omp usage-display.ts 的 `nM` 归一。 */
+export interface QuotaResetCredits {
+  bankedCount: number;
+  redeemableCount: number;
+  /** 最近一张未过期券的到期时间（毫秒时间戳）；都过期了是最近过期的那张；没有到期信息时 null。 */
+  soonestExpiryAt: number | null;
+  /** 现在用不了的原因（omp 的原文，英文）；能用时 null。 */
+  unavailableReason: string | null;
+}
+
 export interface QuotaAccount {
   provider: string;
   account: string | null;
   limits: QuotaLimit[];
   notes: string[];
+  /** omp 取到这份用量的时间（毫秒时间戳）；omp 有约 5 分钟缓存，所以可能比"刚读"早。 */
   fetchedAt: number | null;
+  /** 套餐（`metadata.planType`，目前只有 openai-codex 带）。 */
+  planType: string | null;
+  /** omp 标成 Daybreak 账号（`metadata.daybreak`）。 */
+  daybreak: boolean;
+  resetCredits: QuotaResetCredits | null;
+}
+
+/** 登录了但 omp 取不到用量的账号（`accountsWithoutUsage`）；label 是 omp 的取名（邮箱 / 账号 id / "API key"）。 */
+export interface QuotaUnavailable {
+  provider: string;
+  label: string;
 }
 
 /** `omp usage --json` 的结果；没有登录任何订阅账号时 accounts 为空。 */
 export interface QuotaSnapshot {
   generatedAt: number;
   accounts: QuotaAccount[];
+  /** 登录了但取不到用量的账号。 */
+  unavailable: QuotaUnavailable[];
 }
 
 /** 本地时区的一天；没有用量的日子不出现在 days 里。 */
@@ -910,8 +940,6 @@ export interface StudioInvokeApi {
   openTask(taskId: TaskId): Promise<void>;
   /** 任务的节点树快照（不拉起进程）；用于丢帧或渲染进程重载后的重同步。 */
   getTspSnapshot(taskId: TaskId): Promise<TspSnapshot>;
-  /** 每一轮的总费用（美元，从旧到新）：从 omp 会话文件算；没有会话文件、读失败时返回 []，不抛错。 */
-  getTspTurnCosts(taskId: TaskId): Promise<number[]>;
   /** 用量脚注和空闲回顾（omp 恢复会话时不重发这两样，从会话文件和 history.db 补）；读不到时 `{ turns: [], recap: null }`，不抛错。 */
   getTspSessionExtras(taskId: TaskId): Promise<TspSessionExtras>;
   /**
@@ -966,12 +994,9 @@ export interface StudioInvokeApi {
   getTaskSessionRef(taskId: TaskId): Promise<TaskSessionRef | null>;
   /** 本会话按模型的 token 和费用：读任务的会话文件（只读）；还没有会话文件时 models 为空。 */
   getSessionModelUsage(taskId: TaskId): Promise<SessionModelUsage>;
-  /**
-   * 会话信息对话框的数据：会话文件头、置顶（只读 `<agentDir>/session-pins.json`）、`stats.db` 里的 session_rollup 汇总。
-   * `refresh` = 先让 omp 自己跑一次 `omp stats --json` 同步 stats.db 再读（stats.db 只在 omp stats 运行时同步，见 omp-usage.md）；false 直接读现有库。
-   */
-  getTaskSessionInfo(taskId: TaskId, refresh: boolean): Promise<TaskSessionInfo>;
-  /** 请求记录（/trace）：`stats.db` 的 messages + tool_calls，按时间从新到旧；`refresh` 同上。 */
+  /** 会话信息对话框的数据：会话文件头、置顶（只读 `<agentDir>/session-pins.json`）、按模型的用量（会话文件，和输入框同口径）。不碰 stats.db。 */
+  getTaskSessionInfo(taskId: TaskId): Promise<TaskSessionInfo>;
+  /** 请求记录：`stats.db` 的 messages + tool_calls，按时间从新到旧；`refresh` = 先让 omp 自己跑一次 `omp stats --json` 同步 stats.db 再读（它只在 omp stats 运行时同步，见 omp-usage.md）。表结构对不上时 reject（StatsSchemaError）。 */
   getTaskSessionTrace(taskId: TaskId, refresh: boolean): Promise<SessionTrace>;
   /** 分享确认框要说明的设置：`omp config list --json` 在任务目录下的 share.serverUrl / share.store / share.redactSecrets。 */
   getShareSettings(taskId: TaskId): Promise<ShareSettings>;
@@ -1041,6 +1066,11 @@ export interface StudioInvokeApi {
   listProjectFiles(target: ProjectFilesTarget, query: string): Promise<string[]>;
 
   // 会话树与分叉（docs/architecture/session-tree.md）
+  /**
+   * 给会话树里的条目（用户消息 / 压缩点 / 分支摘要）打标签；`label` 为 null 或空串 = 清除。由 omp 的 `/tree` 选择器（Shift+L）完成，
+   * 要求这一轮已结束；标签写进会话文件的 `label` 条目，下次读树时带出。
+   */
+  labelTreeEntry(taskId: TaskId, entryId: string, label: string | null): Promise<void>;
   /** 会话里的用户消息树：只读会话文件（不拉起进程，还没有会话文件时 nodes 为空）。 */
   getSessionTree(taskId: TaskId): Promise<SessionTreeView>;
   /**
@@ -1108,6 +1138,8 @@ export interface StudioInvokeApi {
   fetchProviderModels(request: FetchModelsRequest): Promise<FetchModelsOutcome>;
   /** 用系统默认程序打开 models.yml（还不存在时打开它所在的目录）。 */
   openModelsFile(): Promise<void>;
+  /** 跑 `omp models refresh`（强制重新拉各 provider 的模型目录，自动发现的模型也在内），完成后关掉服务进程，下次读模型列表时重新加载。omp 报错时抛出它的原话。 */
+  refreshModels(): Promise<void>;
 
   // omp 管理
   getOmpStatus(): Promise<OmpStatus>;
@@ -1133,8 +1165,8 @@ export interface StudioInvokeApi {
   setOmpConfig(key: string, valueJson: string): Promise<OmpConfigWriteResult>;
   /** `omp config reset <key> --json`：删掉全局配置里的这个键，回到别的层或默认值。 */
   resetOmpConfig(key: string): Promise<OmpConfigWriteResult>;
-  /** 订阅账号额度总览：`omp usage --json`，只读。 */
-  getUsageQuota(): Promise<QuotaSnapshot>;
+  /** 订阅账号额度总览：`omp usage --json`，只读。refresh=true 先 `omp usage invalidate` 清掉 omp 约 5 分钟的缓存再取。 */
+  getUsageQuota(refresh: boolean): Promise<QuotaSnapshot>;
   /**
    * 近一年每日消耗，只读 omp 的 stats.db。refresh=true 先让 omp 自己跑一次 `omp stats --json` 同步新会话（首次可能要几分钟），
    * 再读；false 直接读现有的库。
@@ -1163,7 +1195,6 @@ export interface StudioInvokeApi {
   removeSshHost(name: string, scope: SshScope, projectId: ProjectId | null): Promise<{ text: string }>;
   setReduceMotion(on: boolean): Promise<void>;
   setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
-  setNotifyOnGate(on: boolean): Promise<void>;
   setSoundOnDone(on: boolean): Promise<void>;
   setCopyOnSelect(on: boolean): Promise<void>;
   /** 记下用户已经确认过"全自动"，之后选它不再弹确认。 */
@@ -1182,6 +1213,8 @@ export interface StudioInvokeApi {
   setModelRole(role: string, model: ModelKey | null): Promise<void>;
   /** 模型选择对话框右栏的速度、智能分和压缩设置；只读 omp 的 agent.db / models.db / `omp config list`。 */
   getModelInsights(projectId: ProjectId | null, keys: ModelKey[]): Promise<ModelInsights>;
+  /** 转发给 omp 的键位：默认键位加 `<agent 目录>/keybindings.yml` 的覆盖（只读），已去掉 studio 占用的键。 */
+  getOmpKeybindings(): Promise<OmpKeybinding[]>;
   /** omp-studio 自身的更新状态（设置 → 关于）。 */
   getUpdateState(): Promise<UpdateState>;
   /** 手动检查更新；有可用更新时自动开始下载。 */
@@ -1192,8 +1225,14 @@ export interface StudioInvokeApi {
   // 评审（阶段 3）和 worktree / git（阶段 4）。路径一律相对仓库根；仓库根 = 任务 cwd 所在的 git 仓库（有 worktree 时是 worktree）。
   /** 任务 cwd 的 git 状态；不是仓库或没有 git 是正常的类型化结果，不 reject。 */
   getGitStatus(taskId: TaskId): Promise<GitStatus>;
-  /** 一个文件一侧的 diff（结构化的 hunk 和新旧行号）；二进制和过大文件有对应的 kind。context = file 时整个文件连成一个 hunk（评审的"文件"视图），hunk 级操作只认 hunks。 */
-  getGitFileDiff(taskId: TaskId, path: string, area: GitDiffArea, context: GitDiffContext): Promise<GitFileDiff>;
+  /** 一个文件一侧的 diff（结构化的 hunk 和新旧行号）；二进制和过大文件有对应的 kind。context = file 时整个文件连成一个 hunk（评审的"文件"视图），hunk 级操作只认 hunks。ignoreWhitespace = `git diff -w`，只影响显示，hunk / 行级操作不认。 */
+  getGitFileDiff(
+    taskId: TaskId,
+    path: string,
+    area: GitDiffArea,
+    context: GitDiffContext,
+    ignoreWhitespace: boolean,
+  ): Promise<GitFileDiff>;
   /** 所有改动文件每一侧的 `+a −d`（评审文件树）；二进制、过大的文件没有这一项。 */
   getGitChangeStats(taskId: TaskId): Promise<GitChangeStat[]>;
   stageGitFile(taskId: TaskId, path: string): Promise<void>;
@@ -1205,6 +1244,10 @@ export interface StudioInvokeApi {
   unstageGitHunk(taskId: TaskId, path: string, hunk: GitHunkRef): Promise<void>;
   /** 丢弃一个没暂存的 hunk（area = unstaged 里看到的）。 */
   discardGitHunk(taskId: TaskId, path: string, hunk: GitHunkRef): Promise<void>;
+  /** 暂存 / 取消暂存 / 丢弃 hunk 里选中的行（lines 是 hunk.lines 的下标）；hunk 变过时 reject。丢弃只针对没暂存的那一侧。 */
+  stageGitLines(taskId: TaskId, path: string, ref: GitLinesRef): Promise<void>;
+  unstageGitLines(taskId: TaskId, path: string, ref: GitLinesRef): Promise<void>;
+  discardGitLines(taskId: TaskId, path: string, ref: GitLinesRef): Promise<void>;
   /** 校验每条评论的文件路径在任务目录内，格式化成一条消息（formatReviewComments）并作为 prompt 发出。 */
   sendReviewComments(taskId: TaskId, comments: ReviewComment[], whenBusy: PromptInput["whenBusy"]): Promise<void>;
   /** 草稿项目能不能开 worktree 任务（git 可用且目录正好是仓库根）及当前分支；不能为 null，顶栏就不显示草稿的分支胶囊。 */
@@ -1221,12 +1264,23 @@ export interface StudioInvokeApi {
   discardTaskWorktree(taskId: TaskId): Promise<void>;
   /** 清理这个项目下没有任务记录引用的 worktree；有未提交改动或未合并提交的保留并报告。 */
   cleanupOrphanWorktrees(projectId: ProjectId): Promise<WorktreeCleanupResult>;
-  /** stageAll 为 true 时先暂存全部；否则只提交已暂存的。 */
-  commitGit(taskId: TaskId, message: string, stageAll: boolean): Promise<GitCommitResult>;
+  /** stageAll 为 true 时先暂存全部；否则只提交已暂存的。amend 为 true 时改写上一次提交（不要求有暂存内容）；已推送的提交由界面先确认。 */
+  commitGit(taskId: TaskId, message: string, stageAll: boolean, amend: boolean): Promise<GitCommitResult>;
+  /** HEAD 的完整提交信息和是否已推送（提交框"修改上一次提交"）；还没有提交为 null。 */
+  getLastCommit(taskId: TaskId): Promise<GitLastCommit | null>;
+  /**
+   * 用 omp 为已暂存的改动生成提交信息（`omp commit --dry-run`，模型是 omp 的 commit 角色）：不提交、不改文件。
+   * 每个任务同时只有一次；没有暂存内容时不运行 omp（返回 nothing_staged）。
+   */
+  generateCommitMessage(taskId: TaskId): Promise<GitCommitMessageResult>;
+  /** 取消这个任务正在进行的"生成提交信息"；没有进行中的就什么也不做。 */
+  cancelCommitMessage(taskId: TaskId): Promise<void>;
   /** 推送当前分支（需要时设置 upstream），从不强推。 */
   pushGit(taskId: TaskId): Promise<GitPushResult>;
   /** `gh pr create`，基分支是任务的 worktreeBase（没有 worktree 时由 gh 决定）。 */
   createPullRequest(taskId: TaskId, input: GitPullRequestInput): Promise<GitPullRequestResult>;
+  /** 用系统浏览器打开任务当前分支的 PR 页面（PR 号来自 omp 标题后缀 `TaskState.prNumber`，地址由分支的 remote 推出，只开 https）；没有 PR 或推不出地址时 reject。 */
+  openTaskPullRequest(taskId: TaskId): Promise<void>;
 }
 
 export interface StudioEventPayloads {
@@ -1327,7 +1381,6 @@ export const invokeNames = {
   createTask: true,
   openTask: true,
   getTspSnapshot: true,
-  getTspTurnCosts: true,
   getTspSessionExtras: true,
   readTspContext: true,
   sendTspEvent: true,
@@ -1376,6 +1429,7 @@ export const invokeNames = {
   getSessionTree: true,
   forkTask: true,
   branchTask: true,
+  labelTreeEntry: true,
   openTerminal: true,
   writeTerminal: true,
   resizeTerminal: true,
@@ -1404,6 +1458,7 @@ export const invokeNames = {
   deleteCustomProvider: true,
   fetchProviderModels: true,
   openModelsFile: true,
+  refreshModels: true,
   getOmpStatus: true,
   answerTakeover: true,
   addManagedOmpToPath: true,
@@ -1426,7 +1481,6 @@ export const invokeNames = {
   removeSshHost: true,
   setReduceMotion: true,
   setEnterWhileRunning: true,
-  setNotifyOnGate: true,
   setSoundOnDone: true,
   setCopyOnSelect: true,
   setYoloConfirmed: true,
@@ -1437,6 +1491,7 @@ export const invokeNames = {
   setModelRole: true,
   getApprovalMode: true,
   getModelInsights: true,
+  getOmpKeybindings: true,
   getUpdateState: true,
   checkForUpdate: true,
   installUpdate: true,
@@ -1449,6 +1504,9 @@ export const invokeNames = {
   stageGitHunk: true,
   unstageGitHunk: true,
   discardGitHunk: true,
+  stageGitLines: true,
+  unstageGitLines: true,
+  discardGitLines: true,
   sendReviewComments: true,
   getDraftGit: true,
   getWorktreeSetupScript: true,
@@ -1458,8 +1516,12 @@ export const invokeNames = {
   discardTaskWorktree: true,
   cleanupOrphanWorktrees: true,
   commitGit: true,
+  getLastCommit: true,
+  generateCommitMessage: true,
+  cancelCommitMessage: true,
   pushGit: true,
   createPullRequest: true,
+  openTaskPullRequest: true,
 } satisfies Record<keyof StudioInvokeApi, true>;
 
 /** StudioEventPayloads 的全部事件名；订阅函数叫 `on` + 首字母大写的名字。 */

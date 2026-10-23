@@ -23,6 +23,9 @@ interface Options {
   own?: OwnActions | undefined;
   /** 不把 `title` 当 tooltip（tool 的 title 是动词，picker 的 title 是标题）。 */
   noTitle?: boolean | undefined;
+  /** false = 不挂节点自己的 click / dblclick / menu：容器（list、tabs、picker…）的点击由各项自己发 select / activate，
+   *  容器上的 `actions`（如 `{click:"select"}`）只是告诉终端各项的默认行为，挂到根上会发出没有 item 的事件。 */
+  pointer?: boolean | undefined;
   className?: string | undefined;
   style?: CSSProperties | undefined;
 }
@@ -38,9 +41,9 @@ function flexStyle(p: Readonly<Record<string, unknown>>): CSSProperties {
   const min = isRecord(p.min) ? p.min : undefined;
   const max = isRecord(p.max) ? p.max : undefined;
   const minW = extentToCss(min?.w);
-  const minH = extentToCss(min?.h);
+  const minH = extentToCss(min?.h, "h");
   const maxW = extentToCss(max?.w);
-  const maxH = extentToCss(max?.h);
+  const maxH = extentToCss(max?.h, "h");
   if (minW) style.minWidth = minW;
   if (minH) style.minHeight = minH;
   if (maxW) style.maxWidth = maxW;
@@ -55,18 +58,19 @@ function flexStyle(p: Readonly<Record<string, unknown>>): CSSProperties {
 export function nodeDomProps({ node, ctx }: NodeProps, base: string, options: Options = {}): NodeDomProps {
   const { p } = node;
   const handlers = nodeActionHandlers(node, ctx, options.own);
+  const pointer = options.pointer !== false;
   const classes = [base];
   if (options.className) classes.push(options.className);
-  if (handlers.className) classes.push(handlers.className);
+  if (pointer && handlers.className) classes.push(handlers.className);
   if (p.hidden === true) classes.push("tsp-hidden");
   const props: NodeDomProps = {
     className: classes.join(" "),
     "data-id": node.id,
     style: { ...flexStyle(p), ...options.style },
   };
-  if (handlers.onClick) props.onClick = handlers.onClick;
-  if (handlers.onDoubleClick) props.onDoubleClick = handlers.onDoubleClick;
-  if (handlers.onContextMenu) props.onContextMenu = handlers.onContextMenu;
+  if (pointer && handlers.onClick) props.onClick = handlers.onClick;
+  if (pointer && handlers.onDoubleClick) props.onDoubleClick = handlers.onDoubleClick;
+  if (pointer && handlers.onContextMenu) props.onContextMenu = handlers.onContextMenu;
   if (handlers.title !== undefined && !options.noTitle) props.title = handlers.title;
   if (typeof p.role === "string") props["data-role"] = p.role;
   if (typeof p.tone === "string" && TONES.has(p.tone)) props["data-tone"] = p.tone;

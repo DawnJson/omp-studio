@@ -55,6 +55,11 @@ export function agentProgress(agent: HubAgent): number | null {
   return Math.round(Math.min(1, Math.max(0, agent.stats.done)) * 100);
 }
 
+/** 上下文占用百分比（0–100 的整数，omp Hub 的 Ctx 列）；omp 没给为 null。 */
+export function agentContextPercent(agent: HubAgent): number | null {
+  return agent.stats.context === null ? null : Math.round(agent.stats.context * 100);
+}
+
 /** 任务说明去掉 Markdown 标题的 #：omp 的 `agent` 节点里任务说明的换行被压成了空格（`# Target … # Change 1. …`），
  *  标题符号夹在句中，原样显示就是一串 #。 */
 export function cleanTask(task: string): string {

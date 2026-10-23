@@ -62,12 +62,12 @@ export const taskHandlers: HandlerGroup<
   | "getSessionTree"
   | "forkTask"
   | "branchTask"
+  | "labelTreeEntry"
   | "taskGoal"
   | "openTaskFile"
   | "revealTaskFile"
   | "openTaskFolder"
   | "getTspSnapshot"
-  | "getTspTurnCosts"
   | "getTspSessionExtras"
   | "readTspContext"
   | "sendTspEvent"
@@ -107,6 +107,12 @@ export const taskHandlers: HandlerGroup<
       parseTaskId(taskId),
       parseString(entryId, "entryId", 200),
       summarize === undefined ? false : parseBoolean(summarize, "summarize"),
+    ),
+  labelTreeEntry: async (taskId, entryId, label) =>
+    (await getTaskPool()).labelTreeEntry(
+      parseTaskId(taskId),
+      parseString(entryId, "entryId", 200),
+      label === null ? null : parseString(label, "label", 200, { allowEmpty: true }),
     ),
   taskGoal: async (taskId, op, objective) => {
     const pool = await getTaskPool();
@@ -177,7 +183,6 @@ export const taskHandlers: HandlerGroup<
 
   // 节点树快照、用户操作 → TSP 事件、按键字节、面板宽度。
   getTspSnapshot: async (taskId) => (await getTaskPool()).getTspSnapshot(parseTaskId(taskId)),
-  getTspTurnCosts: async (taskId) => (await getTaskPool()).getTspTurnCosts(parseTaskId(taskId)),
   getTspSessionExtras: async (taskId) => (await getTaskPool()).getTspSessionExtras(parseTaskId(taskId)),
   readTspContext: async (taskId) => (await getTaskPool()).readTspContext(parseTaskId(taskId)),
 

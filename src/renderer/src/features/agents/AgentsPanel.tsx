@@ -1,15 +1,16 @@
 // 右栏的子代理面板（spec §4.28，TSP 任务；和文件面板同一栏，同时只开一个）：列表 → 详情（列表下方）→ 插话框（钉在面板底边）。
 // 列表直接从 TSP 文档推导（listAgents），所以随 omp 的帧实时更新；插话 / 结束 / 恢复由主进程在后台驱动 omp 的 Agent Hub，
 // 期间面板顶部显示"正在发给 <名字>"，omp 的 Hub 不画出来。
-import { useLayoutEffect, useMemo, useRef, type KeyboardEvent, type PointerEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { listAgents, type HubAgent } from "../../../../shared/tsp/agent-hub.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
-import { IconButton } from "../../ui/controls.tsx";
+import { IconButton, Tabs, tabPanelProps } from "../../ui/controls.tsx";
 import { setPreviewWidth, usePreviewWidth } from "../file-preview/preview-store.ts";
 import { useTspDerived, useTspDrive } from "../tsp/tsp-store.ts";
 import { AgentDetail } from "./AgentDetail.tsx";
+import { AgentsActivity } from "./AgentsActivity.tsx";
 import { AgentRow } from "./AgentRow.tsx";
 import { canSteer, sameAgents, sortAgents } from "./agent-model.ts";
 import { closeAgentsPanel, selectAgent } from "./agents-store.ts";
@@ -39,6 +40,7 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
   const drive = driving?.kind === "hub" ? driving : null;
   // 没选过就看列表第一个（同 omp 的 Agent Hub：打开时总有一个选中项、详情直接显示）。
   const current = agents.find((agent) => agent.name === selected) ?? agents[0] ?? null;
+  const [tab, setTab] = useState<"agents" | "activity">("agents");
 
   // 打开时把焦点放进面板：Esc 才关得掉它；关闭后由 store 还焦点。
   useLayoutEffect(() => {
@@ -120,8 +122,31 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
         </div>
       )}
 
-      <div className="agents-body">
-        {agents.length === 0 ? (
+      <div className="agents-tabs">
+        <Tabs<"agents" | "activity">
+          label={t("agents.tabsLabel")}
+          idBase={`agents-${taskId}`}
+          testId="agents-tabs"
+          value={tab}
+          tabs={[
+            { id: "agents", label: t("agents.tabAgents"), count: agents.length },
+            { id: "activity", label: t("agents.tabActivity") },
+          ]}
+          onChange={setTab}
+        />
+      </div>
+
+      <div className="agents-body" {...tabPanelProps(`agents-${taskId}`, tab)}>
+        {tab === "activity" ? (
+          <AgentsActivity
+            taskId={taskId}
+            agents={agents}
+            onOpenAgent={(name) => {
+              selectAgent(name);
+              setTab("agents");
+            }}
+          />
+        ) : agents.length === 0 ? (
           <p className="agents-muted agents-empty" data-testid="agents-empty">
             {t("agents.empty")}
           </p>
@@ -137,9 +162,11 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
             ))}
           </ul>
         )}
-        {current !== null && <AgentDetail key={current.name} taskId={taskId} agent={current} busy={drive !== null} />}
+        {tab === "agents" && current !== null && (
+          <AgentDetail key={current.name} taskId={taskId} agent={current} busy={drive !== null} />
+        )}
       </div>
-      {current !== null && canSteer(current.status) && (
+      {tab === "agents" && current !== null && canSteer(current.status) && (
         <SteerBox key={current.name} taskId={taskId} name={current.name} busy={drive !== null} />
       )}
     </section>

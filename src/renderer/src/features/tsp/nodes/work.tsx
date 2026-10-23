@@ -24,6 +24,8 @@ import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
 import { asArray, asNumber, asString } from "../props-util.ts";
 import { tokenizeCommand } from "../shell-tokens.ts";
+import { resolveLanguage } from "../../../markdown/highlight.ts";
+import { Tokens, useHighlighted } from "../use-highlighted.tsx";
 import { plainText, semanticOf, TspSpans } from "../spans.tsx";
 import { TspNode } from "../TspChildren.tsx";
 import { peekTspNode } from "../tsp-store.ts";
@@ -61,23 +63,51 @@ function MetaText({ text }: { text: TspText }) {
   );
 }
 
+/**
+ * 命令行着色：bash（含没给 lang）走手写的 shell 分词，其它 lang（用户用 `!` / `$` 跑的 python / js 等）走 highlight()。
+ * bash 不走 highlight()：Shiki 的 bash 语法把子命令、选项、普通参数都标成 string，`$VAR` 不着色，
+ * 比 shell-tokens.ts 的 程序词 / 选项 / 字符串 / 变量 / 运算符 差，而且要等语言包异步加载，列表里会闪一下。
+ */
+function CommandText({ text, lang }: { text: string; lang: string | undefined }) {
+  const resolved = lang === undefined ? "bash" : resolveLanguage(lang);
+  const shell = resolved === "bash";
+  const tokens = useHighlighted(text, shell ? null : resolved);
+  if (!shell) {
+    if (!tokens) return <>{text}</>;
+    return (
+      <>
+        {tokens.map((line, index) => (
+          <Fragment key={index}>
+            {index > 0 && "\n"}
+            <Tokens tokens={line} fallback="" />
+          </Fragment>
+        ))}
+      </>
+    );
+  }
+  return (
+    <>
+      {tokenizeCommand(text).map((token, index) =>
+        token.kind === "text" ? (
+          <Fragment key={index}>{token.text}</Fragment>
+        ) : (
+          <span key={index} className={token.kind}>
+            {token.text}
+          </span>
+        ),
+      )}
+    </>
+  );
+}
+
 function Target({ p }: { p: Readonly<Record<string, unknown>> }) {
   const target = p.target as TspText | undefined;
   if (target === undefined) return null;
   const kind = asString(p.targetKind) ?? "text";
   let body: ReactNode;
   if (typeof target !== "string") body = <TspSpans text={target} />;
-  else if (kind === "command") {
-    body = tokenizeCommand(target).map((token, index) =>
-      token.kind === "text" ? (
-        <Fragment key={index}>{token.text}</Fragment>
-      ) : (
-        <span key={index} className={token.kind}>
-          {token.text}
-        </span>
-      ),
-    );
-  } else if (kind === "path") {
+  else if (kind === "command") body = <CommandText text={target} lang={asString(p.lang)} />;
+  else if (kind === "path") {
     const match = /^(.*?)(:\d+(?:[-:]\d+)?)?$/.exec(target);
     const path = match?.[1] ?? target;
     const position = match?.[2];

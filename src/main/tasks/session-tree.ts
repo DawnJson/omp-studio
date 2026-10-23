@@ -1,7 +1,7 @@
 // 会话树的原始节点 → 会话树面板用的节点列表（纯函数）。
 // omp 的树节点是 `{ entry, children }`，entry 是会话文件里的一行（model_change、message、compaction…）；
-// 面板只关心用户消息：它们是 `branch` 能去的地方，也是 TUI 里 /tree 默认显示的节点。
-import type { SessionTreeNode } from "../../shared/ipc.ts";
+// 面板列用户消息（`branch` 能去的地方，也是 TUI 里 /tree 默认显示的节点）、压缩点和分支摘要（分隔 / 摘要节点），并把 label 条目打在节点上。
+import type { SessionTreeNode, SessionTreeNodeKind } from "../../shared/ipc.ts";
 
 const MAX_TEXT_CHARS = 200;
 
@@ -10,9 +10,11 @@ interface RawNode {
   children: RawNode[];
 }
 
-interface UserNode {
+interface ListedNode {
   entryId: string;
+  kind: SessionTreeNodeKind;
   text: string;
+  tokensBefore?: number;
   parent: number;
   children: number[];
 }
@@ -57,35 +59,85 @@ export function userEntryText(entry: Record<string, unknown>): string | null {
   return line.length > MAX_TEXT_CHARS ? `${line.slice(0, MAX_TEXT_CHARS)}…` : line;
 }
 
+/** 摘要预览：去掉 omp 固定的开头（"User explored another conversation branch…" / "Exploration summary:"）、Markdown 标题和列表符号，取第一句有内容的话。 */
+export function summaryPreview(summary: string): string {
+  const body = summary
+    .replace(/^\s*User explored another conversation branch, then returned here\.\s*/, "")
+    .replace(/^\s*Exploration summary:\s*/, "");
+  const lines = body
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+  const content = lines.find((line) => !line.startsWith("#")) ?? lines[0] ?? "";
+  const line = content.replace(/^#{1,6}\s*/, "").replace(/^[-*]\s+(\[[ x]\]\s+)?/, "");
+  return line.length > MAX_TEXT_CHARS ? `${line.slice(0, MAX_TEXT_CHARS)}…` : line;
+}
+
+/** 条目 → 面板里的节点种类和文字；不显示的条目（助手消息、model_change、label…）返回 null。 */
+function displayOf(entry: Record<string, unknown>): Pick<ListedNode, "kind" | "text" | "tokensBefore"> | null {
+  const userText = userEntryText(entry);
+  if (userText !== null) return { kind: "user", text: userText };
+  if (entry["type"] === "compaction") {
+    const tokens = entry["tokensBefore"];
+    return {
+      kind: "compaction",
+      text: "",
+      ...(typeof tokens === "number" && Number.isFinite(tokens) ? { tokensBefore: tokens } : {}),
+    };
+  }
+  if (entry["type"] === "branch_summary") {
+    const summary = entry["summary"];
+    return { kind: "branch_summary", text: typeof summary === "string" ? summaryPreview(summary) : "" };
+  }
+  return null;
+}
+
 /**
- * 先序（兄弟按会话文件里的先后）展开用户消息。缩进只在"父用户消息有不止一个用户消息分支"时加一级，
+ * 先序（兄弟按会话文件里的先后）展开用户消息、压缩点和分支摘要。缩进只在"父节点有不止一个子节点"时加一级，
  * 一条直线的对话全部在第 0 级。显式栈：长会话的树很深，递归会爆栈。
+ * `label` 条目（`targetId` + `label`，空 = 清除）打在对应节点上：同一个目标多次打标签，时间最晚的算（时间相同按遍历顺序）；
+ * 打在助手消息等不显示的条目上的标签不显示。
  */
 export function buildSessionTree(tree: readonly unknown[], leafId: string | null): SessionTreeNode[] {
   const parentOf = new Map<string, string | null>();
-  const users: UserNode[] = [];
+  const listed: ListedNode[] = [];
+  const labels = new Map<string, { at: number; label: string | null }>();
 
-  const stack: { node: RawNode; userParent: number }[] = [];
+  const stack: { node: RawNode; listedParent: number }[] = [];
   for (let i = tree.length - 1; i >= 0; i--) {
     const root = tree[i];
-    if (isRawNode(root)) stack.push({ node: root, userParent: -1 });
+    if (isRawNode(root)) stack.push({ node: root, listedParent: -1 });
   }
   while (stack.length > 0) {
-    const { node, userParent } = stack.pop() as { node: RawNode; userParent: number };
+    const { node, listedParent } = stack.pop() as { node: RawNode; listedParent: number };
     const id = node.entry["id"];
     const parentId = node.entry["parentId"];
     if (typeof id === "string") parentOf.set(id, typeof parentId === "string" ? parentId : null);
-    let nextParent = userParent;
-    const text = typeof id === "string" ? userEntryText(node.entry) : null;
-    if (typeof id === "string" && text !== null) {
-      const index = users.length;
-      users.push({ entryId: id, text, parent: userParent, children: [] });
-      if (userParent >= 0) (users[userParent] as UserNode).children.push(index);
+    let nextParent = listedParent;
+    const shown = typeof id === "string" ? displayOf(node.entry) : null;
+    if (typeof id === "string" && shown !== null) {
+      const index = listed.length;
+      listed.push({ entryId: id, ...shown, parent: listedParent, children: [] });
+      if (listedParent >= 0) (listed[listedParent] as ListedNode).children.push(index);
       nextParent = index;
+    }
+    if (node.entry["type"] === "label") {
+      const target = node.entry["targetId"];
+      const label = node.entry["label"];
+      if (typeof target === "string") {
+        const at = typeof node.entry["timestamp"] === "string" ? Date.parse(node.entry["timestamp"]) : Number.NaN;
+        const previous = labels.get(target);
+        const stamp = Number.isNaN(at) ? 0 : at;
+        if (previous === undefined || stamp >= previous.at)
+          labels.set(target, {
+            at: stamp,
+            label: typeof label === "string" && label.trim() !== "" ? label.trim() : null,
+          });
+      }
     }
     for (let i = node.children.length - 1; i >= 0; i--) {
       const child = node.children[i];
-      if (isRawNode(child)) stack.push({ node: child, userParent: nextParent });
+      if (isRawNode(child)) stack.push({ node: child, listedParent: nextParent });
     }
   }
 
@@ -93,17 +145,22 @@ export function buildSessionTree(tree: readonly unknown[], leafId: string | null
   for (let id = leafId; id !== null && !onBranch.has(id); id = parentOf.get(id) ?? null) onBranch.add(id);
 
   const indents: number[] = [];
-  return users.map((user, index) => {
-    const parent = user.parent >= 0 ? (users[user.parent] as UserNode) : null;
-    const indent = parent === null ? 0 : (indents[user.parent] as number) + (parent.children.length > 1 ? 1 : 0);
+  return listed.map((item, index) => {
+    const parent = item.parent >= 0 ? (listed[item.parent] as ListedNode) : null;
+    const indent = parent === null ? 0 : (indents[item.parent] as number) + (parent.children.length > 1 ? 1 : 0);
     indents[index] = indent;
-    const here = onBranch.has(user.entryId);
+    const here = onBranch.has(item.entryId);
+    const label = labels.get(item.entryId)?.label ?? null;
     return {
-      entryId: user.entryId,
-      text: user.text,
+      entryId: item.entryId,
+      kind: item.kind,
+      text: item.text,
+      ...(item.tokensBefore === undefined ? {} : { tokensBefore: item.tokensBefore }),
+      ...(label === null ? {} : { label }),
+      parent: parent === null ? null : parent.entryId,
       indent,
       onCurrentBranch: here,
-      current: here && !user.children.some((child) => onBranch.has((users[child] as UserNode).entryId)),
+      current: here && !item.children.some((child) => onBranch.has((listed[child] as ListedNode).entryId)),
     };
   });
 }

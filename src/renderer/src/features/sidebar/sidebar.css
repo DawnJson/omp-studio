@@ -392,7 +392,7 @@
   outline: none;
 }
 
-/* ───── 状态图标：14px 放在 16×16 槽位里；形状 + 颜色双信号（进行中转动的弧 / 需要介入琥珀底 ! / 已完成圆圈对勾 / 失败红底 ×） ───── */
+/* ───── 状态图标：14px 放在 16×16 槽位里；形状 + 颜色双信号（进行中转动的弧 / 需要介入琥珀底 ! / 已完成圆圈对勾 / 失败红底 × / 历史会话中断虚线圈暂停号） ───── */
 .sb-dot {
   position: relative;
   display: inline-flex;
@@ -421,6 +421,9 @@
 .sb-dot-error {
   color: var(--st-error);
 }
+.sb-dot-interrupted {
+  color: var(--text-3);
+}
 .sb-dot-fill {
   fill: currentColor;
 }
@@ -447,6 +450,10 @@
 .sb-dot-ring {
   stroke: currentColor;
   stroke-width: 1.5;
+}
+/* 中断：虚线圈（一圈 8 段）里一个暂停号；用次要文字色，不抢"完成 / 失败"的眼 */
+.sb-dot-dashed {
+  stroke-dasharray: 3.5 1.8;
 }
 .sb-dot-track {
   stroke: currentColor;
@@ -483,7 +490,8 @@
 .sb-dot-running,
 .sb-dot-waiting,
 .sb-dot-done,
-.sb-dot-error {
+.sb-dot-error,
+.sb-dot-interrupted {
   /* StatusDot 按状态种类换 key：换了状态就是新节点，淡入而不是瞬间换形状。 */
   animation: fade-in var(--dur-base) var(--ease-out);
 }

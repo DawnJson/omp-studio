@@ -1,7 +1,7 @@
 // omp 设置在 omp-studio 里的分组：不照搬 omp 自己的 tab（那是按终端界面的菜单分的），按用户要做的事分。
-// 在 rpc-ui 下没有任何作用的项（终端外观、状态栏、终端里的快捷键和提示等）直接隐藏；
+// 在 TSP（studio 渲染 omp 节点）下没有任何作用的项（终端外观、状态栏、终端里的快捷键和提示等）直接隐藏；
 // 其余一律显示，包括这个版本的 omp 还不认识的新键（落进"其他"）——只隐藏确认没用的。
-// 逐项的依据和实测结果见 docs/architecture/omp-settings.md「rpc-ui 下的逐项核对」。
+// 逐项的依据和实测结果见 docs/architecture/omp-settings.md「TSP 下的逐项核对」。
 import type { OmpConfigItem } from "../ipc.ts";
 
 const configGroups = ["models", "tools", "context", "agents", "behavior", "integrations", "voice", "other"] as const;
@@ -38,12 +38,6 @@ const terminalOnly: readonly Matcher[] = [
   "task.showResolvedModelBadge",
   "goal.statusInFooter",
   "git.enabled",
-  "hideThinkingBlock",
-  "expandThinkingBlocks",
-  "completion.notify",
-  "error.notify",
-  "ask.notify",
-  "recap",
   "autoResume",
   "setupVersion",
 ];
@@ -67,6 +61,8 @@ const rules: readonly (readonly [ConfigGroup, readonly Matcher[]])[] = [
       "thinkingBudgets",
       "omitThinking",
       "proseOnlyThinking",
+      "hideThinkingBlock",
+      "expandThinkingBlocks",
       "externalThinking",
       "includeModelInPrompt",
       "includeWorkspaceTree",
@@ -166,7 +162,21 @@ const rules: readonly (readonly [ConfigGroup, readonly Matcher[]])[] = [
       "disabledExtensions",
     ],
   ],
-  ["behavior", ["steeringMode", "followUpMode", "interruptMode", "loop", "magicKeywords", "ask", "power"]],
+  [
+    "behavior",
+    [
+      "steeringMode",
+      "followUpMode",
+      "interruptMode",
+      "loop",
+      "magicKeywords",
+      "ask",
+      "power",
+      "completion",
+      "error",
+      "recap",
+    ],
+  ],
 ];
 
 /** 前缀命中了"终端专用"，但差分实测在 rpc-ui 里确实改变了 get_state 的项：单独放出来。 */

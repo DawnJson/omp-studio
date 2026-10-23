@@ -241,11 +241,14 @@ export function MeterView({ p }: { p: Readonly<Record<string, unknown>> }) {
             <line
               key={`m${index}`}
               className="mark"
+              data-tone={asString(mark.tone)}
               x1={8 + 4.5 * Math.cos(angle)}
               y1={8 + 4.5 * Math.sin(angle)}
               x2={8 + 7.5 * Math.cos(angle)}
               y2={8 + 7.5 * Math.sin(angle)}
-            />
+            >
+              {asString(mark.title) !== undefined && <title>{asString(mark.title)}</title>}
+            </line>
           );
         })}
       </svg>
@@ -260,11 +263,23 @@ export function MeterView({ p }: { p: Readonly<Record<string, unknown>> }) {
             ? 50
             : 20;
     const lit = Math.round((value ?? 0) * cells);
+    // 标记落在它所在的那一格上：染 tone、悬停显示 title。
+    const markAt = new Map<number, Readonly<Record<string, unknown>>>();
+    for (const mark of marks)
+      markAt.set(Math.min(cells - 1, Math.floor(clamp01(asNumber(mark.at) ?? 0) * cells)), mark);
     shape = (
       <div className="tsp-mt-blocks" data-steps={steps !== undefined ? cells : undefined}>
-        {Array.from({ length: cells }, (_, index) => (
-          <i key={index} className={index < lit ? "on" : undefined} />
-        ))}
+        {Array.from({ length: cells }, (_, index) => {
+          const mark = markAt.get(index);
+          return (
+            <i
+              key={index}
+              className={[index < lit ? "on" : "", mark ? "mark" : ""].filter(Boolean).join(" ") || undefined}
+              data-tone={mark ? asString(mark.tone) : undefined}
+              title={mark ? asString(mark.title) : undefined}
+            />
+          );
+        })}
       </div>
     );
   } else {

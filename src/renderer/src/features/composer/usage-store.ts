@@ -30,11 +30,12 @@ function patch<K extends keyof UsageState>(key: K, next: Partial<UsageState[K]>)
   store.set({ ...state, [key]: { ...state[key], ...next } });
 }
 
-export function loadQuota(): Promise<void> {
+/** refresh：绕过 omp 约 5 分钟的额度缓存（先 `omp usage invalidate`）；打开对话框时不用，直接读缓存。 */
+export function loadQuota(refresh = false): Promise<void> {
   quotaJob ??= (async () => {
     patch("quota", { busy: true, error: null });
     try {
-      patch("quota", { data: await window.studio.getUsageQuota(), busy: false, at: Date.now() });
+      patch("quota", { data: await window.studio.getUsageQuota(refresh), busy: false, at: Date.now() });
     } catch (error) {
       patch("quota", { busy: false, error });
     } finally {

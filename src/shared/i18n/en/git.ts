@@ -43,6 +43,13 @@ export const git = {
   "commit.done": "Committed {commit}",
   "commit.nothing": "Nothing to commit. Tick “Stage all changes first” or stage files in review.",
   "commit.failed": "git rejected the commit",
+  "commit.amended": "Amended the previous commit, now {commit}",
+  "commit.noPrevious": "There is no commit yet, so there is nothing to amend.",
+  "generate.nothing": "Nothing is staged. Stage the files to commit first.",
+  "generate.noModel":
+    "omp has no model for commit messages. Pick a model for the commit (or smol) role in settings and set its key.",
+  "generate.split": "omp suggests splitting these changes into {count} commits; only the first message was filled in.",
+  "generate.failed": "Could not generate a commit message",
 
   "push.done": "Pushed to {remote}/{branch}",
   "push.noRemote": "No remote is configured, so there is nowhere to push.",
@@ -60,6 +67,7 @@ export const git = {
   "pr.ghUnavailable": "The gh command was not found. Install GitHub CLI and add it to PATH to create PRs.",
   "pr.ghUnauthenticated": "gh is not signed in. Run gh auth login in a terminal and try again.",
   "pr.failed": "Creating the PR failed",
+  "pr.badge": "Open pull request #{number} in the browser",
 
   "merge.done": "Merged into {base}",
   "merge.nothing": "No new commits to merge.",

@@ -14,6 +14,7 @@
 - 托盘图标（`resources/tray.png`，像素 π 加“层叠”淡影，和界面里的标志同一份数据，由 `npm run icons` 生成，见 `docs/design/spec.md` §3.1“标志”；打包时经 `extraResources` 放到 `resources/tray.png`）：悬停提示是应用名，有任务在忙时附 "N 个运行中，M 个等你确认"；左键显示并聚焦窗口；右键菜单：打开 omp-studio / 摘要行（灰）/ 最多 6 条在忙的任务（点击显示窗口并定位到该任务）/ 退出。托盘图标和菜单由系统绘制，自动化测试点不到，菜单模板是纯函数（`tray-model.ts`）单测。
 - 再次启动应用（`second-instance`）、macOS 的 `activate`、点系统通知、点托盘：都走 `showMainWindow()`——显示隐藏的窗口，最小化的先还原，窗口不在了才重建。
 - 通知：任务进入"等你确认"时照旧发（窗口隐藏时 `isFocused()` 为 false，天然满足"没焦点"）；新增：窗口看不见（隐藏在托盘、最小化）时，任务正常跑完或出错也发一条。窗口可见时不发（侧栏已有完成点）。两种通知共用设置里的"有任务在等你时通知我"开关。点通知显示窗口并定位到该任务。
+  - **2026-10-23 起通知开关改用 omp 的设置**：上面说的 studio 自己的“有任务在等你时通知我”（`notifyOnGate`）已删，“等你确认”看 `ask.notify`、完成看 `completion.notify`、出错看 `error.notify`（`on` 才发；默认 ask 开、completion 开、error 关），触发条件（窗口没焦点 / 窗口看不见）不变；不做迁移，以前关过旧开关的用户需要在设置 → 通用 →“通知与回顾”里自己关这三项。见 `omp-settings.md`「studio 的系统通知遵守 omp 的 `*.notify`」。下面“是否复用 `notifyOnGate`”的待决策项已作废。
 - 真正的退出入口：托盘"退出"、应用菜单的退出（`quitApp`）、自动更新"重启并安装"（`finishShutdown()` 之后 `quitAndInstall`）、系统注销/关机（窗口的 `session-end` 事件触发 `finishShutdown()`）。它们都经过 `shutdown.ts`：`before-quit` 或 `finishShutdown()` 把 `isQuitting()` 置 true，`hide-on-close.ts` 的 close 处理器此后放行，不会吞掉 `quitAndInstall` 触发的退出。退出流程本身没改：并行关所有任务的 omp（结束进程树再关伪终端，见下文"现状"），服务进程和项目 rpc-ui 池关 stdin，超时强杀，Job Object 兜底。
 - `window-all-closed` 不再退出（装了空监听以关掉 Electron 的默认退出）；最后一个窗口只会在真正退出或渲染进程被销毁时关掉。
 
@@ -117,7 +118,8 @@ Tern 0.9.4（`%LOCALAPPDATA%\Tern\updates\state.json` 的 `installed.release.ver
 **其他事实：**
 
 - omp 没有 daemon / attach / serve 类的原生托管模式：`omp --help` 的 `--mode` 只有 `text/json/rpc/acp/rpc-ui`，子命令里有 `ps`（"List and control daemon-supervised background processes"），那是 omp 自己的后台进程监管，和会话托管无关（`omp://cli-reference.md`；18.12.1 的文档，未实测 `ps`）。
-- 扩展 UI 请求（审批、ask）在没人答复时 omp 一直等：`omp://rpc.md` 的 "stdin closes → pending extension UI … rejected" 是唯一提到的清理路径；是否存在默认超时，文档没写，**未实测**。后台期间等审批的任务很可能一直停着（推测），这是需要通知的原因。
+- 扩展 UI 请求（审批、ask）在没人答复时 omp 一直等：`omp://rpc.md` 的 "stdin closes → pending extension UI … rejected" 是唯一提到的清理路径；是否存在默认超时，文档没写，**未实测**。读 omp 18.12.6 源码（`modes/rpc/rpc-mode.ts` 的 `select`/`confirm`/`input`/`editor`）：只有扩展自己传了 `timeout` 才会超时，没传就一直等。后台期间等审批的任务很可能一直停着（推测），这是需要通知的原因。
+- 这条只针对**任务**里的 omp（TSP，由任务自己的门和浮层处理）。studio 自己的后台 rpc-ui 进程（服务进程、项目池里的短命进程）不同：连接层（`OmpConnection`，2026-10-23 起）常驻应答，没人认领时对 `select`/`confirm`/`input`/`editor`/`ask` 一律回 `cancelled:true`，`notify`/`setStatus`/`setWidget` 只写日志（见 `omp-rpc.md`）。所以扩展在这些进程里弹的对话框不会把 omp 一直挂住。
 
 ## 现状：会在哪里把任务收掉
 

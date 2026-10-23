@@ -81,7 +81,13 @@ describe("deriveTaskStatus：omp 18.12.3 的录制逐帧", () => {
   });
 
   it("没有 dock 的文档（刚握手、surface 还没画）是 idle", () => {
-    expect(deriveTaskStatus(createDocument())).toEqual({ status: "idle", working: false, ask: null });
+    expect(deriveTaskStatus(createDocument())).toEqual({
+      status: "idle",
+      working: false,
+      ask: null,
+      loader: null,
+      modal: null,
+    });
   });
 });
 

@@ -13,6 +13,7 @@ import { useT } from "../../../i18n/use-t.ts";
 import { Check, ChevronDown } from "../../../icons.tsx";
 import { Badge, Button, Switch } from "../../../ui/controls.tsx";
 import { TspIcon } from "../icons.tsx";
+import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps, TspContext } from "../node-props.ts";
 import { useTspNode, useTspSurface } from "../tsp-store.ts";
 import { TspNode } from "../TspChildren.tsx";
@@ -32,7 +33,8 @@ type Slot = "status" | "editor" | "extra";
 
 const RAIL_BELOW_PX = 760;
 
-export function Prefs({ node, ctx }: NodeProps) {
+export function Prefs(props: NodeProps) {
+  const { node, ctx } = props;
   const t = useT();
   const p = node.p as unknown as TspPrefsProps;
   const surface = useTspSurface(ctx.taskId, ctx.sf);
@@ -109,7 +111,7 @@ export function Prefs({ node, ctx }: NodeProps) {
   let lastSearchPage: string | undefined;
 
   return (
-    <div className="tspi-prefs" data-id={node.id} ref={root}>
+    <div {...nodeDomProps(props, "tspi-prefs", { pointer: false, noTitle: true })} ref={root}>
       <div className={rail ? "tspi-pf rail" : "tspi-pf"} aria-label={p.title} onMouseDown={onMouseDown}>
         <nav className="tspi-pf-nav">
           <div className="tspi-pf-brand">

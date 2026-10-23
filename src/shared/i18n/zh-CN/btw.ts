@@ -9,6 +9,7 @@ export const btw = {
   cancel: "取消提问",
   close: "关闭旁路提问",
   newTopic: "新话题",
+  copyAnswer: "复制答案",
   topics: "旁路提问的话题",
   "status.running": "回答中",
   "status.cancelled": "已取消",

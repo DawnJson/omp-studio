@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import type { TspToastProps } from "../../../../../shared/tsp/tsp.generated.ts";
 import { useT } from "../../../i18n/use-t.ts";
 import { useToastHost } from "../../dialogs/toast-host.ts";
+import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
 import { hideToast, showToast, toastTone, useToast } from "./toast-store.ts";
 import { STATUS_TOAST_ROLE } from "../../../../../shared/tsp/status-notes.ts";
@@ -16,7 +17,8 @@ const reducedMotion = () =>
   document.documentElement.dataset["motion"] === "reduced" ||
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export function Toast({ node, ctx }: NodeProps) {
+export function Toast(props: NodeProps) {
+  const { node, ctx } = props;
   const t = useT();
   const p = node.p as unknown as TspToastProps & { tone?: unknown; role?: unknown };
   const owner = `${ctx.taskId}\u0000${ctx.sf}\u0000${node.id}`;
@@ -33,11 +35,13 @@ export function Toast({ node, ctx }: NodeProps) {
 
   const shown = useToast();
   const host = useToastHost();
-  if (shown === null || shown.owner !== owner || host === null)
-    return <span className="tspi-toast-node" data-id={node.id} aria-hidden="true" />;
+  const marker = (
+    <span {...nodeDomProps(props, "tspi-toast-node", { pointer: false, noTitle: true })} aria-hidden="true" />
+  );
+  if (shown === null || shown.owner !== owner || host === null) return marker;
   return (
     <>
-      <span className="tspi-toast-node" data-id={node.id} aria-hidden="true" />
+      {marker}
       {createPortal(
         <div
           className="toast"

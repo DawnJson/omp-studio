@@ -15,6 +15,7 @@ import {
   findSummaryPicker,
   findComposerEditor,
   findTreePicker,
+  findTreeLabelInput,
   hasNavigatedToast,
   userCardFromEnd,
 } from "../src/shared/tsp/session-tree.ts";
@@ -62,12 +63,22 @@ describe("buildTreeFromSessionText", () => {
     expect(buildTreeFromSessionText(linear)).toEqual([
       {
         entryId: ALPHA,
+        kind: "user",
         text: "Reply with exactly: ALPHA. No tools.",
+        parent: null,
         indent: 0,
         onCurrentBranch: true,
         current: false,
       },
-      { entryId: BETA, text: "Reply with exactly: BETA. No tools.", indent: 0, onCurrentBranch: true, current: true },
+      {
+        entryId: BETA,
+        kind: "user",
+        text: "Reply with exactly: BETA. No tools.",
+        parent: ALPHA,
+        indent: 0,
+        onCurrentBranch: true,
+        current: true,
+      },
     ]);
   });
 
@@ -75,13 +86,31 @@ describe("buildTreeFromSessionText", () => {
     expect(buildTreeFromSessionText(branched)).toEqual([
       {
         entryId: ALPHA,
+        kind: "user",
         text: "Reply with exactly: ALPHA. No tools.",
+        parent: null,
         indent: 0,
         onCurrentBranch: true,
         current: false,
       },
-      { entryId: BETA, text: "Reply with exactly: BETA. No tools.", indent: 1, onCurrentBranch: false, current: false },
-      { entryId: GAMMA, text: "Reply with exactly: GAMMA. No tools.", indent: 1, onCurrentBranch: true, current: true },
+      {
+        entryId: BETA,
+        kind: "user",
+        text: "Reply with exactly: BETA. No tools.",
+        parent: ALPHA,
+        indent: 1,
+        onCurrentBranch: false,
+        current: false,
+      },
+      {
+        entryId: GAMMA,
+        kind: "user",
+        text: "Reply with exactly: GAMMA. No tools.",
+        parent: ALPHA,
+        indent: 1,
+        onCurrentBranch: true,
+        current: true,
+      },
     ]);
   });
 
@@ -226,6 +255,77 @@ describe("omp 18.12.5 的 /tree 录制（fixtures/tsp/session-tree.jsonl）", ()
   });
 });
 
+describe("打标签（omp 18.12.6 实测，fixtures/tsp/session-tree-label.jsonl + fixtures/omp-session/labeled.jsonl）", () => {
+  const LABELED = "93021031";
+  const fixture = loadTspFixture("session-tree-label");
+
+  it("录制里的用户操作：send /tree → select 条目 → action label → edit 填字（输入框节点 t）→ action label-save", () => {
+    const events = fixture.filter((line) => line.dir === "in" && (line.body as { ev?: string }).ev !== "ack");
+    expect(events.map((line) => line.body)).toEqual([
+      { ev: "send", sf: "s:1", id: "j.line/input", text: "/tree" },
+      { ev: "select", sf: "s:1", id: "s.^picker", item: LABELED },
+      { ev: "action", sf: "s:1", id: "s.^picker", act: "label" },
+      { ev: "edit", sf: "s:1", id: "t", from: 0, to: 0, text: "my label", cursor: 8, len: 0 },
+      { ev: "action", sf: "s:1", id: "s.^picker", act: "label-save" },
+      "\u001b",
+    ]);
+  });
+
+  it("选择器进入打标签状态时 actions 变成 label-save / close 并多出 input 节点；填字后 text 跟着变；保存后回到 switch 等动作", () => {
+    const doc = createDocument();
+    const seen: { actions: string[]; label: string | null }[] = [];
+    for (const { message } of tspDocMessages(fixture)) {
+      applyMessage(doc, message);
+      const picker = findTreePicker(doc);
+      if (picker === null) continue;
+      const input = findTreeLabelInput(doc);
+      const last = seen.at(-1);
+      const label = input === null ? null : input.text;
+      if (last === undefined || last.actions.join() !== picker.actions.join() || last.label !== label)
+        seen.push({ actions: picker.actions, label });
+    }
+    expect(seen).toEqual([
+      { actions: ["switch", "summarize", "label", "filter", "close"], label: null },
+      { actions: ["label-save", "close"], label: "" },
+      { actions: ["label-save", "close"], label: "my label" },
+      { actions: ["switch", "summarize", "label", "filter", "close"], label: null },
+    ]);
+    // 标签输入框归选择器所有：发 action label-save 的目标是选择器节点，edit 的目标是输入框节点。
+    const probe = createDocument();
+    for (const { message } of tspDocMessages(fixture)) {
+      applyMessage(probe, message);
+      const input = findTreeLabelInput(probe);
+      if (input !== null) {
+        expect(input).toMatchObject({ sf: "s:1", pickerId: "s.^picker", id: "t" });
+        break;
+      }
+    }
+  });
+
+  it("会话文件里的 label 条目打在用户消息上（树里带 label），没有 label 条目时没有这个字段；条目 id 在选择器 items 里", () => {
+    const labeled = readFileSync(path.join(sessionDir, "labeled.jsonl"), "utf8");
+    const withoutLabel = labeled
+      .split("\n")
+      .filter((row) => !row.includes('"type":"label"'))
+      .join("\n");
+    const [node] = buildTreeFromSessionText(labeled);
+    expect(node).toMatchObject({ entryId: LABELED, kind: "user", label: "my label", current: true });
+    expect(buildTreeFromSessionText(withoutLabel)[0]).not.toHaveProperty("label");
+    const doc = createDocument();
+    for (const { message } of tspDocMessages(fixture)) {
+      applyMessage(doc, message);
+      const picker = findTreePicker(doc);
+      if (picker !== null) {
+        expect(picker.items).toContain(LABELED);
+        expect(picker.actions).toContain("label");
+        break;
+      }
+    }
+    // label 条目（挂在叶子下）成为文件最后一个条目：叶子仍在当前分支上，用户消息仍是"当前"。
+    expect(fileLeafId(parseSessionEntries(labeled))).toBe("78e6f270");
+  });
+});
+
 describe("focusIndexFromEnd", () => {
   it("当前分支上倒数第 N 条用户消息在节点列表里的下标（不在分支上的分叉不数）", () => {
     const nodes = buildTreeFromSessionText(branched);
@@ -239,21 +339,25 @@ describe("focusIndexFromEnd", () => {
 describe("branch_summary 条目和压缩条目", () => {
   const read = (name: string) => readFileSync(path.join(sessionDir, `${name}.jsonl`), "utf8");
 
-  it("回溯时摘要（omp 18.12.5 实测）在文件末尾追加 branch_summary，挂在新叶子下：用户节点不变，叶子在 BETA 的父条目", () => {
-    expect(
-      buildTreeFromSessionText(read("summarized")).map((node) => [node.entryId, node.onCurrentBranch, node.current]),
-    ).toEqual([
-      ["5bc4a7a2", true, true],
-      ["6f8bf37c", false, false],
+  it("回溯时摘要（omp 18.12.5 实测）在文件末尾追加 branch_summary，挂在新叶子下：树里多一个摘要节点（叶子所在），用户节点不变", () => {
+    const nodes = buildTreeFromSessionText(read("summarized"));
+    expect(nodes.map((node) => [node.entryId, node.kind, node.onCurrentBranch, node.current])).toEqual([
+      ["5bc4a7a2", "user", true, false],
+      ["6f8bf37c", "user", false, false],
+      ["a3351bfc", "branch_summary", true, true],
     ]);
+    expect(nodes[2]?.text).toBe('The user requested a single, exact response: "BETA".');
     expect(fileLeafId(parseSessionEntries(read("summarized")))).toBe("a3351bfc");
   });
 
-  it("压缩过的会话：compaction 条目挂在叶子下，压缩点之前的用户消息仍在树里", () => {
-    expect(buildTreeFromSessionText(read("compacted")).map((node) => [node.entryId, node.current])).toEqual([
-      ["5bc4a7a2", false],
-      ["6f8bf37c", true],
+  it("压缩过的会话：compaction 条目挂在叶子下，是树里的分隔节点（带压缩前 token 数），压缩点之前的用户消息仍在树里", () => {
+    const nodes = buildTreeFromSessionText(read("compacted"));
+    expect(nodes.map((node) => [node.entryId, node.kind, node.current])).toEqual([
+      ["5bc4a7a2", "user", false],
+      ["6f8bf37c", "user", false],
+      ["7e4ee1fd", "compaction", true],
     ]);
+    expect(nodes[2]).toMatchObject({ tokensBefore: 8934, text: "" });
   });
 
   it("摘要提示录制：Summarize branch? 的 picker 在选了用户消息之后出现，答 0（No summary）后消失；树选择器带 summarize 动作", () => {

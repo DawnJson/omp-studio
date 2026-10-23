@@ -1,13 +1,16 @@
 // 请求记录页（/trace）：这个会话每次模型请求一行（时间、模型、输入/输出 token、费用、结果），从新到旧。
 // 来自 omp 的统计库（messages + tool_calls），所以只含已同步的部分。首字耗时、输出速度、缓存、服务等级、工具调用折在每行的"详情"里（遥测克制）。
 import { useId, useState } from "react";
-import type { SessionTrace, TraceRequest } from "../../../../shared/ipc.ts";
+import type { SessionTrace, TaskId, TraceRequest } from "../../../../shared/ipc.ts";
 import { isFailedRequest, stopKind, summarizeTrace, tokensPerSecond } from "../../../../shared/ui/session-trace.ts";
+import { External } from "../../icons.tsx";
 import { useLocale, useT } from "../../i18n/use-t.ts";
+import { useTask } from "../../store/index.ts";
 import { describeError } from "../../ui/errors.ts";
 import { Button, Disclosure, Notice } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { formatCount, formatMoney } from "../composer/usage-format.ts";
+import { openTraceInBrowser } from "./session-info-actions.ts";
 import type { SyncedRead } from "./use-synced-read.ts";
 
 /** 毫秒 → "5.7s"；不到 1 秒写成 "320ms"。 */
@@ -103,8 +106,10 @@ function RequestRow({ request }: { request: TraceRequest }) {
   );
 }
 
-export function TraceTab({ read }: { read: SyncedRead<SessionTrace> }) {
+export function TraceTab({ taskId, read }: { taskId: TaskId; read: SyncedRead<SessionTrace> }) {
   const t = useT();
+  const task = useTask(taskId);
+  const [opening, setOpening] = useState(false);
   const trace = read.data;
   if (read.error !== null && trace === null)
     return <Notice tone="error">{t("sessionInfo.loadFailed", { message: describeError(t, read.error) })}</Notice>;
@@ -121,9 +126,25 @@ export function TraceTab({ read }: { read: SyncedRead<SessionTrace> }) {
             cost: formatMoney(summary.costUsd),
           })}
         </span>
-        <Button variant="quiet" size="sm" disabled={read.syncing} onClick={read.refresh}>
-          {t("sessionInfo.usage.refresh")}
-        </Button>
+        <span className="si-trace-actions">
+          <Button
+            variant="quiet"
+            size="sm"
+            icon={<External size={12} />}
+            disabled={opening || task?.status === "running"}
+            title={t("sessionInfo.trace.openTip")}
+            testId="trace-open"
+            onClick={() => {
+              setOpening(true);
+              void openTraceInBrowser(t, taskId).finally(() => setOpening(false));
+            }}
+          >
+            {t("sessionInfo.trace.open")}
+          </Button>
+          <Button variant="quiet" size="sm" disabled={read.syncing} onClick={read.refresh}>
+            {t("sessionInfo.usage.refresh")}
+          </Button>
+        </span>
       </div>
       {read.syncing && <p className="si-note">{t("sessionInfo.usage.syncing")}</p>}
       {read.syncError !== null && (

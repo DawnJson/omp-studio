@@ -38,7 +38,6 @@ describe("omp-studio 设置分组", () => {
       "display.showTokenUsage",
       "terminal.showImages",
       "showHardwareCursor",
-      "hideThinkingBlock",
       "startup.quiet",
       "doubleEscapeAction",
     ])
@@ -48,6 +47,17 @@ describe("omp-studio 设置分组", () => {
   it("前缀是终端专用、但实测在 rpc-ui 里起作用的 tui.reactions 要显示", () => {
     expect(groupOf("tui.reactions")).toBe("behavior");
     expect(groupOf("tui.mouse")).toBeNull();
+  });
+
+  it("TSP 下实测起作用的项放出来：思考块、通知、回顾；studio 要用的 terminal.programStatus 仍隐藏", () => {
+    // 2026-10-23 omp 18.12.6 实测：hideThinkingBlock 让完成后的 omp.thinking 节点被删，expandThinkingBlocks 让它保持展开；
+    // 通知和回顾是 omp 自己发的节点 / 决定 studio 通知的取值（docs/architecture/omp-settings.md）。
+    expect(groupOf("hideThinkingBlock")).toBe("models");
+    expect(groupOf("expandThinkingBlocks")).toBe("models");
+    for (const key of ["ask.notify", "completion.notify", "error.notify", "recap.enabled", "recap.idleSeconds"])
+      expect(groupOf(key), key).toBe("behavior");
+    expect(isTerminalOnly("terminal.programStatus")).toBe(true);
+    expect(isTerminalOnly("display.showTokenUsage")).toBe(true);
   });
 
   it("这个版本的 omp 的每一项都有去处，隐藏的只占少数，认不出的新键显示在“其他”", () => {

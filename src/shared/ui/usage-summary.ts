@@ -102,9 +102,31 @@ export function tightestQuota(
   return best;
 }
 
-/** 账号的所有窗口都没用过（比例是 0 或没给）：只在一行里列名字，不占整块。 */
+/** 账号的所有窗口都没用过（比例是 0 或没给），也没有攒着的重置券、不是 Daybreak 账号（omp 的 `idle` 同口径）：只在一行里列名字，不占整块。 */
 export function isUntouched(account: QuotaAccount): boolean {
-  return account.limits.every((limit) => (limit.usedFraction ?? 0) <= 0 && limit.status !== "exhausted");
+  return (
+    account.resetCredits === null &&
+    !account.daybreak &&
+    account.limits.every((limit) => (limit.usedFraction ?? 0) <= 0 && limit.status !== "exhausted")
+  );
+}
+
+/** omp 取到这批额度的时间（各账号 fetchedAt 里最晚的，毫秒）；一个都没带时 null。omp 有缓存，比"刚读"早时说明数据是缓存的。 */
+export function quotaFetchedAt(accounts: readonly QuotaAccount[]): number | null {
+  const times = accounts.flatMap((account) => (account.fetchedAt === null ? [] : [account.fetchedAt]));
+  return times.length === 0 ? null : Math.max(...times);
+}
+
+/** 距离到期还有多久（取整到分 / 时 / 天）；已到期返回 null。给 Intl.RelativeTimeFormat 用。 */
+export function creditExpiry(
+  expiresAt: number,
+  now: number,
+): { value: number; unit: "minute" | "hour" | "day" } | null {
+  const ms = expiresAt - now;
+  if (ms <= 0) return null;
+  if (ms < 3_600_000) return { value: Math.max(1, Math.round(ms / 60_000)), unit: "minute" };
+  if (ms < 86_400_000) return { value: Math.round(ms / 3_600_000), unit: "hour" };
+  return { value: Math.round(ms / 86_400_000), unit: "day" };
 }
 
 /** 剩余百分比（0..100 的整数）；没给比例时 null。 */

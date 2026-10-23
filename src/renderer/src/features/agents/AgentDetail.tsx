@@ -13,7 +13,7 @@ import { formatDuration } from "../conversation/format.ts";
 import { buildTurns } from "../conversation/model.ts";
 import { ProcessDetails } from "../conversation/ProcessDetails.tsx";
 import { formatCost, formatTokens, shortModel } from "./format.ts";
-import { agentElapsed, agentProgress, canKill, canRevive, cleanTask } from "./agent-model.ts";
+import { agentContextPercent, agentElapsed, agentProgress, canKill, canRevive, cleanTask } from "./agent-model.ts";
 import { killAgent, reviveAgent } from "./agents-actions.ts";
 import { useAgentRecord, type AgentRecordState } from "./use-agent-record.ts";
 
@@ -139,6 +139,7 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
   const output = record?.output?.trim() ?? "";
   const stats = agent.stats;
   const progress = agentProgress(agent);
+  const context = agentContextPercent(agent);
   return (
     <section className="agents-detail" data-testid="agents-detail" data-name={agent.name} aria-label={agent.name}>
       <header className="agents-detail-head">
@@ -170,7 +171,14 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
         {stats.requests !== null && <Stat label={t("agents.requests")} value={String(stats.requests)} />}
         {stats.tools !== null && <Stat label={t("agents.tools")} value={String(stats.tools)} />}
         {elapsed !== null && <Stat label={t("agents.time")} value={formatDuration(t, elapsed)} />}
-        {stats.contextLabel !== null && <Stat label={t("agents.context")} value={stats.contextLabel} />}
+        {(stats.contextLabel !== null || context !== null) && (
+          <Stat
+            label={t("agents.context")}
+            value={[context === null ? null : `${context}%`, stats.contextLabel]
+              .filter((part) => part !== null)
+              .join(" · ")}
+          />
+        )}
       </dl>
 
       {agent.task !== "" && <TaskBlock text={agent.assignment ?? cleanTask(agent.task)} />}

@@ -105,7 +105,15 @@ type PageStyle = {
   getComputedStyle(
     el: unknown,
     pseudo?: string,
-  ): { opacity: string; content: string; height: string; flexGrow: string; display: string; fontSize: string };
+  ): {
+    opacity: string;
+    content: string;
+    height: string;
+    flexGrow: string;
+    display: string;
+    fontSize: string;
+    color: string;
+  };
 };
 
 async function shoot(page: Page, state: string): Promise<void> {
@@ -699,12 +707,12 @@ test("恢复会话:omp 不重发的每轮用量脚注补回;回顾只补最新�
     // 侧栏的项目文件夹默认折叠,openTaskRow 先展开再点任务行。
     await openTaskRow(page);
     await expect(role(page, "omp.user")).toHaveCount(3, { timeout: 30_000 });
-    // 每轮末尾补一行用量:3 行,按会话文件算(第 1 轮 11.2s · 2859 tok · $0.0019),和 omp 实时那行同格式。
+    // 每轮末尾补一行用量:3 行,按会话文件算(第 1 轮 11.2s · 2859 tok · $0.0019),和 omp 实时那行同格式(不到半分钱写 <$0.01)。
     const usage = page.locator('[data-testid="tsp-view"] [data-role="omp.turn.usage"][data-restored]');
     await expect(usage).toHaveCount(3);
-    await expect(usage.nth(0)).toHaveText("11.2s · 2.9K tok · $0.0019 this turn");
-    await expect(usage.nth(1)).toHaveText("47.5s · 2.8K tok · $0.0023 this turn");
-    await expect(usage.nth(2)).toHaveText("4.7s · 1.1K tok · $0.0009 this turn");
+    await expect(usage.nth(0)).toHaveText("11.2s · 2.9K tok · <$0.01 this turn");
+    await expect(usage.nth(1)).toHaveText("47.5s · 2.8K tok · <$0.01 this turn");
+    await expect(usage.nth(2)).toHaveText("4.7s · 1.1K tok · <$0.01 this turn");
     await expect(usage.nth(2)).toHaveAttribute("title", /^This turn: 4\.7s · 1,097 tokens \(838 in · 259 out\)/);
     // 补的行在每轮最后一个助手消息里面(和 omp 实时的位置一样),不是游离在外。
     await expect(page.locator('[data-role="omp.assistant"] > [data-role="omp.turn.usage"]')).toHaveCount(3);
@@ -776,6 +784,47 @@ test("对话线:每条用户消息一个刻度,点刻度把那条消息滚到对
     await expect(ticks.nth(1)).toHaveAttribute("aria-label", new RegExp(second.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     await ticks.nth(1).hover();
     await shoot(page, "conversation-line");
+  } finally {
+    await cleanup();
+  }
+});
+
+// resume 里:edit 卡的 diff 带 `lang:"python"`,wait 卡有 tone:"info"(两张)和 tone:"success"(一张),bash 卡 `lang:"bash"`。
+test("过程卡片(resume 录制):diff 按 lang 有语法色并叠在增删底色上;omp 给了 info 的 wait 卡和中性卡区分开(栏色 + 描边),success 的不染", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("resume");
+  try {
+    const { page } = launched;
+    await page.evaluate(async () => {
+      const [project] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: project!.id });
+    });
+    await openTaskRow(page);
+    await expect(role(page, "omp.user")).toHaveCount(3, { timeout: 30_000 });
+    // diff:语言包异步加载,token 带 --shiki 变量色;增行的底色还在。
+    const diff = page.locator('[data-testid="tsp-view"] .tsp-diff').first();
+    await expect(diff).toBeVisible();
+    await expect(diff.locator('.tsp-dl[data-kind="add"] .tsp-dt span[style*="--shiki-token"]').first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(diff.locator('.tsp-dl[data-kind="add"]').first()).not.toHaveCSS(
+      "background-color",
+      "rgba(0, 0, 0, 0)",
+    );
+    // tone:info 的 wait 卡:左栏(.tsp-tool-bar)画出来、图标染 info 色;tone:success 的那张没有栏(完成态中性)。
+    const waits = role(page, "omp.tool.wait");
+    await expect(waits).toHaveCount(3);
+    await expect(waits.nth(0)).toHaveAttribute("data-tone", "info");
+    await expect(waits.nth(0).locator(".tsp-tool-bar")).toBeVisible();
+    await expect(waits.nth(2).locator(".tsp-tool-bar")).toBeHidden();
+    const icon = async (index: number) =>
+      waits
+        .nth(index)
+        .locator(".tsp-tool-ic")
+        .evaluate((el) => (globalThis as unknown as PageStyle).getComputedStyle(el).color);
+    expect(await icon(0)).not.toBe(await icon(2));
+    await waits.first().scrollIntoViewIfNeeded();
+    await shoot(page, "tool-tone-diff");
   } finally {
     await cleanup();
   }
@@ -1354,7 +1403,43 @@ test("子代理面板:👥 打开右栏面板(不画 omp 的 Hub),列出 Alpha /
 // 估计值进 `agent` 节点的 stats.done,同时在 wait 磁贴上画进度环 + 百分比。studio 照画磁贴,子代理面板的行和详情也显示。
 test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面板的行和详情显示同一个估计", async () => {
   test.setTimeout(120_000);
-  const { launched, cleanup } = await start("agent-progress");
+  const scratch = await mkdtemp(path.join(os.tmpdir(), "omp agents activity e2e-"));
+  const sessionFile = path.join(scratch, "session.jsonl");
+  await writeFile(sessionFile, "{}\n");
+  const dir = path.join(scratch, "session");
+  await mkdir(dir, { recursive: true });
+  const row = (message: object) => JSON.stringify({ type: "message", message });
+  const call = (id: string, name: string, args: object) => ({ type: "toolCall", id, name, arguments: args });
+  const asst = (timestamp: number, content: object[], stopReason = "toolUse") => ({
+    role: "assistant",
+    content,
+    timestamp,
+    stopReason,
+  });
+  await writeFile(
+    path.join(dir, "Alpha.jsonl"),
+    [
+      row(asst(2000, [call("a1", "read", { path: "src/a.ts" })])),
+      row({ role: "toolResult", toolCallId: "a1", toolName: "read", isError: false, timestamp: 2100, content: [] }),
+      row(asst(3000, [call("a2", "bash", { command: "npm test" })])),
+      row({
+        role: "toolResult",
+        toolCallId: "a2",
+        toolName: "bash",
+        isError: true,
+        timestamp: 3500,
+        content: [{ type: "text", text: "exit code 1" }],
+      }),
+    ].join("\n"),
+  );
+  await writeFile(
+    path.join(dir, "Beta.jsonl"),
+    [
+      row(asst(3200, [call("b1", "grep", { pattern: "TODO" })])),
+      row(asst(4000, [{ type: "text", text: "All good" }], "stop")),
+    ].join("\n"),
+  );
+  const { launched, cleanup } = await start("agent-progress", { FAKE_TSP_SESSION_FILE: sessionFile });
   try {
     const { page } = launched;
     await sendFirst(page, String(recordedUserEvents(loadTspFixture("agent-progress"))[0]!.event["text"]));
@@ -1391,8 +1476,38 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     await beta.click();
     await expect(panel.getByTestId("agents-detail")).toContainText("55%");
     await shoot(page, "agent-progress-panel");
+
+    // Ctx(omp 的 agent.stats.context,录制里 0.0081 起、随回放涨到 8.6K):列表行显示细条 + 百分比,悬停提示带 omp 的 contextLabel("8.xK / 1M")。
+    const ctx = panel.getByTestId("agents-row-ctx").first();
+    await expect(ctx).toHaveAttribute("data-percent", "1");
+    await expect(ctx).toHaveAttribute("title", /1% \(8\.\dK \/ 1M\)/);
+
+    // Activity 页:读两个子代理的记录文件(假 session 目录里的 Alpha.jsonl / Beta.jsonl),按时间从新到旧;过滤 All / Errors / Responses / Tools。
+    await panel.getByTestId("agents-tabs-activity").click();
+    const rows = panel.getByTestId("agents-activity-row");
+    await expect(rows).toHaveCount(5, { timeout: 20_000 });
+    // 最新的在前:Beta 的回复(4000)→ Alpha 的出错(3500)→ Beta 的 grep(3200)→ Alpha 失败的 bash(3000)→ Alpha 的 read(2000)。
+    await expect(rows.nth(0)).toHaveAttribute("data-agent", "Beta");
+    await expect(rows.nth(0)).toHaveAttribute("data-kind", "response");
+    await expect(rows.nth(1)).toHaveAttribute("data-kind", "error");
+    await expect(rows.nth(1)).toContainText("exit code 1");
+    await shoot(page, "agents-activity");
+    await panel.getByTestId("agents-activity-filter-errors").click();
+    await expect(rows).toHaveCount(1);
+    await panel.getByTestId("agents-activity-filter-responses").click();
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText("All good");
+    await panel.getByTestId("agents-activity-filter-tools").click();
+    await expect(rows).toHaveCount(3);
+    await shoot(page, "agents-activity-tools");
+    // 点一行 = 回到 Agents 页并选中那个子代理。
+    await panel.getByTestId("agents-activity-filter-all").click();
+    await rows.nth(0).click();
+    await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Beta");
+    await expect(panel.getByTestId("agents-list")).toBeVisible();
   } finally {
     await cleanup();
+    await rm(scratch, { recursive: true, force: true });
   }
 });
 
@@ -1489,6 +1604,13 @@ test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 �
     await expect(turns.nth(1)).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
     await expect(turns.nth(1)).toContainText("gamma");
     await shoot(page, "btw-panel");
+    // 复制答案:头部的按钮把当前话题最新一问的答案写进系统剪贴板(渲染进程剪贴板),出"已复制"toast。
+    await launched.app.evaluate(({ clipboard }) => clipboard.writeText("原来的内容"));
+    await panel.getByTestId("btw-copy-answer").click();
+    await expect
+      .poll(() => launched.app.evaluate(({ clipboard }) => clipboard.readText()), { timeout: 10_000 })
+      .toContain("gamma");
+    await shoot(page, "btw-copy-answer");
     // 4) 长回答:回答中面板显示"取消提问",点它 → 已取消,保留已收到的部分。
     await panel.getByTestId("btw-new-topic").click();
     await panel.getByTestId("btw-input").fill("Write a 400 word essay about trees.");

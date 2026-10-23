@@ -1,7 +1,7 @@
 // markdown-it 的 token → React 元素。用户文本不进 dangerouslySetInnerHTML：所有文本都经 React 转义（唯一例外是 KaTeX 的输出，见 renderMath），
 // 链接只放行 http/https，图片只放行 markdown-it 已校验的 data:image。无 JSX，方便在 Node 里测试。
 import katex from "katex";
-import { createElement as h, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { createElement as h, Fragment, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import type { MarkdownBlock, Token } from "./parse.ts";
 
 export interface RenderContext {
@@ -9,6 +9,8 @@ export interface RenderContext {
   openLink(href: string): void;
   /** 代码块的渲染由调用方决定（高亮、复制按钮）；缺省是纯文本 <pre>。 */
   renderCode?(props: { code: string; lang: string; closed: boolean }): ReactNode;
+  /** 文字片段的渲染（TSP md.marks 在这里把字面标记包成 span）；缺省是原文。 */
+  renderText?: ((text: string) => ReactNode) | undefined;
 }
 
 interface TreeNode {
@@ -63,7 +65,7 @@ function renderInline(node: TreeNode, key: number, ctx: RenderContext): ReactNod
   switch (token.type) {
     case "text":
     case "html_inline":
-      return token.content;
+      return ctx.renderText ? h(Fragment, { key }, ctx.renderText(token.content)) : token.content;
     case "softbreak":
       return "\n";
     case "hardbreak":

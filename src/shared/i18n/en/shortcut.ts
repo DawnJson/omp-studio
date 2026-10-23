@@ -23,4 +23,13 @@ export const shortcut = {
   reviewLayout: "Review: unified / side by side",
   toggleTerminal: "Terminal: open / focus / return",
   toggleFiles: "File panel: open / close",
+  ompThinkingCycle: "Cycle thinking level",
+  ompThinkingToggle: "Toggle thinking mode",
+  ompModelForward: "Cycle to next model",
+  ompModelBackward: "Cycle to previous model",
+  ompModelTemporary: "Select temporary model for current session",
+  ompPlanToggle: "Toggle plan mode",
+  ompHistorySearch: "Search history",
+  ompRetry: "Retry last failed assistant turn",
+  ompDequeue: "Dequeue message",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

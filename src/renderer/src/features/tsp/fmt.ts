@@ -44,9 +44,16 @@ export function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-/** extent（"40ch" / "10lines" / 0–1 的比例）转 CSS；不认识的返回 undefined。 */
-export function extentToCss(extent: unknown): string | undefined {
-  if (typeof extent === "number") return extent > 0 ? `${extent * 100}%` : undefined;
+/**
+ * extent（"40ch" / "10lines" / 数字）转 CSS；不认识的返回 undefined。
+ * 数字：规范里是 0–1 的比例；大于 1 的不可能是比例（omp 的 find 发 `max:{w:40}`），按单位数算——宽 `w` 是字符数，高 `h` 是行数。
+ */
+export function extentToCss(extent: unknown, axis: "w" | "h" = "w"): string | undefined {
+  if (typeof extent === "number") {
+    if (!(extent > 0)) return undefined;
+    if (extent <= 1) return `${extent * 100}%`;
+    return `calc(${extent} * var(${axis === "w" ? "--tsp-cw" : "--tsp-lh"}))`;
+  }
   if (typeof extent !== "string") return undefined;
   const match = /^(\d+(?:\.\d+)?)(ch|lines)$/.exec(extent);
   if (!match) return undefined;

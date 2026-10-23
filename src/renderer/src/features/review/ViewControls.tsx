@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import type { GitDiffContext } from "../../../../shared/git.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Sliders, Wrap } from "../../icons.tsx";
+import { Sliders, Whitespace, Wrap } from "../../icons.tsx";
 import { setReviewMode, setReviewScope, setReviewWrap } from "../../store/review-store.ts";
 import { Button, IconButton, Segmented } from "../../ui/controls.tsx";
 import { anchorBelow, Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
@@ -24,10 +24,15 @@ export function ViewControls({
   mode,
   scope,
   wrap,
+  ignoreSpace,
+  onIgnoreSpace,
 }: {
   mode: "unified" | "split";
   scope: GitDiffContext;
   wrap: boolean;
+  /** 忽略空白（`git diff -w`）：只影响显示；打开时 hunk / 行级暂存不可用。 */
+  ignoreSpace: boolean;
+  onIgnoreSpace(value: boolean): void;
 }) {
   const t = useT();
   const narrow = useNarrow();
@@ -54,6 +59,12 @@ export function ViewControls({
       { id: "file", label: t("review.scopeFile"), checked: scope === "file", onSelect: () => setReviewScope("file") },
       { kind: "separator", id: "sep-wrap" },
       { id: "wrap", label: t("review.wrap"), checked: wrap, shortcut: "W", onSelect: () => setReviewWrap(!wrap) },
+      {
+        id: "ignore-space",
+        label: t("review.ignoreSpace"),
+        checked: ignoreSpace,
+        onSelect: () => onIgnoreSpace(!ignoreSpace),
+      },
     ];
     return (
       <>
@@ -104,6 +115,15 @@ export function ViewControls({
         onClick={() => setReviewWrap(!wrap)}
       >
         <Wrap size={14} />
+      </IconButton>
+      <IconButton
+        label={t("review.ignoreSpace")}
+        tip={t("review.ignoreSpaceTip")}
+        pressed={ignoreSpace}
+        testId="ignore-space-toggle"
+        onClick={() => onIgnoreSpace(!ignoreSpace)}
+      >
+        <Whitespace size={14} />
       </IconButton>
     </>
   );

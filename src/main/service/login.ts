@@ -2,13 +2,16 @@
 //   open_url → 主进程用系统浏览器打开（只放行 http/https），同时推给界面显示可复制的链接；
 //   notify   → 进度提示；
 //   input    → 转成登录卡里的输入框，界面回答后发 extension_ui_response；
-//   其它     → 登录用不到，立刻回 cancelled，免得 omp 一直等。
+//   其它     → 登录用不到，立刻回 cancelled（和连接层的常驻默认应答共用 extension-ui.ts），免得 omp 一直等；
+//   cancel   → omp 撤销了一个 input（超时 / 取消）：推 input_closed，界面收起输入框。
+// 登录期间认领 extension UI（claimExtensionUi），连接层的默认应答不会抢答。
 // API key 里的 secret 提示 omp 会直接拒绝（登录以失败应答），所以 API key 不走这里（决策 D3）。
 // 没有公开的"取消登录"命令：有未答的 input 就回 cancelled，否则关掉服务进程。流程见 docs/architecture/login.md。
 import { shell } from "electron";
 import type { LoginOutcome } from "../../shared/ipc.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { parseExternalUrl } from "../ipc/validate.ts";
+import { cancelledReply } from "../omp/extension-ui.ts";
 import { OmpExitedError, RpcCommandError } from "../omp/omp-connection.ts";
 import { serviceOmp } from "./service-omp.ts";
 
@@ -30,6 +33,7 @@ export async function startLogin(providerId: string): Promise<LoginOutcome> {
     await serviceOmp.use(async (connection) => {
       login.respond = (frame) =>
         connection.send({ type: "extension_ui_response", ...frame } as Parameters<typeof connection.send>[0]);
+      const release = connection.claimExtensionUi();
       const stop = connection.onFrame((frame) => {
         if (frame.type !== "extension_ui_request") return;
         switch (frame.method) {
@@ -58,22 +62,21 @@ export async function startLogin(providerId: string): Promise<LoginOutcome> {
             });
             break;
           case "cancel":
-            login.pendingInputs.delete(frame.targetId);
+            if (login.pendingInputs.delete(frame.targetId))
+              emitEvent("login", { type: "input_closed", inputId: frame.targetId });
             break;
-          case "select":
-          case "confirm":
-          case "editor":
-          case "ask":
-            login.respond({ id: frame.id, cancelled: true });
+          default: {
+            const reply = cancelledReply(frame);
+            if (reply) login.respond(reply);
             break;
-          default:
-            break;
+          }
         }
       });
       try {
         await connection.request("login", { providerId });
       } finally {
         stop();
+        release();
       }
     });
     return { ok: true, providerId };

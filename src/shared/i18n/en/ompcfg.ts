@@ -35,6 +35,23 @@ export const ompcfg = {
   "interruptMode.label": "When steering interrupts tools",
   "interruptMode.desc": "Immediate: interrupt the running tool right away. Wait: let the current tool finish first",
 
+  "ask.notify.label": "Notify when asked",
+  "ask.notify.desc":
+    "Send a system notification when the agent is waiting for your answer or approval (window not focused)",
+  "completion.notify.label": "Notify on completion",
+  "completion.notify.desc": "Send a system notification when the agent finishes a turn (window hidden in the tray)",
+  "error.notify.label": "Notify on error",
+  "error.notify.desc": "Send a system notification when the agent stops with an error (window hidden in the tray)",
+  "recap.enabled.label": "Idle recap",
+  "recap.enabled.desc": "After the conversation has been idle for a while, show a brief recap of where things stand",
+  "recap.idleSeconds.label": "Recap after idle",
+  "recap.idleSeconds.desc": "How long the conversation stays idle before the recap appears",
+  "hideThinkingBlock.label": "Hide thinking blocks",
+  "hideThinkingBlock.desc":
+    "Drop thinking blocks from the conversation once the model has finished thinking (they still show briefly while it thinks)",
+  "expandThinkingBlocks.label": "Keep thinking blocks expanded",
+  "expandThinkingBlocks.desc": "Keep finished thinking blocks expanded instead of collapsing them when the turn ends",
+
   "compaction.enabled.label": "Compact context automatically",
   "compaction.enabled.desc": "Compact the context when it gets too large so the conversation can go on",
   "compaction.thresholdPercent.label": "Compaction threshold",

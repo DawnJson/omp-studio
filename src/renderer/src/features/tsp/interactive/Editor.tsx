@@ -15,6 +15,7 @@ import {
   type EditorKeyRoute,
   type EditorKeyState,
 } from "../keys.ts";
+import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
 import { spanClass, TspSpans } from "../spans.tsx";
 import { useTspSurface } from "../tsp-store.ts";
@@ -44,7 +45,8 @@ function measureLines(
   return { firstLine: upToCaret < lineHeight * 1.5, lastLine: Math.abs(all - upToCaret) < lineHeight * 0.5 };
 }
 
-export function Editor({ node, ctx }: NodeProps) {
+export function Editor(props: NodeProps) {
+  const { node, ctx } = props;
   const p = node.p as TspEditorProps;
   const text = p.text ?? "";
   const cursor = clampOffset(text, p.cursor, text.length);
@@ -342,8 +344,7 @@ export function Editor({ node, ctx }: NodeProps) {
 
   return (
     <div
-      className={className}
-      data-id={node.id}
+      {...nodeDomProps(props, className, { pointer: false, noTitle: true })}
       data-mode={p.mode?.toLowerCase()}
       onMouseDown={onMouseDown}
       onMouseUp={onMouseUp}

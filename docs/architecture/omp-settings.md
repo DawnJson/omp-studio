@@ -53,8 +53,7 @@
 | `composer.*` | TUI 输入框的形状、token 速率、被清空草稿的回溯、"预测下一条"灰字；omp-studio 有自己的输入框 |
 | `input.*`、`doubleEscapeAction`、`treeFilterMode`、`autocompleteMaxVisible`、`spelling.*`、`emojiAutocomplete`、`paste.*` | TUI 编辑器的键位和自动补全 |
 | `startup.*`、`update.channel`、`marketplace.autoUpdate`、`setupVersion`、`autoResume` | 交互式启动时的闪屏、更新检查、引导；rpc-ui 由 omp-studio 自己管会话和更新（`autoResume` 是"续上当前目录最近会话"，omp-studio 总是显式打开会话） |
-| `completion.notify`、`error.notify`、`ask.notify`、`recap.*` | 终端通知和"终端空闲后"的回顾 |
-| `hideThinkingBlock`、`expandThinkingBlocks` | TUI 里折叠思考块（`hideThinkingBlock` 已实测事件照常到达） |
+| ~~`completion.notify`、`error.notify`、`ask.notify`、`recap.*`~~、~~`hideThinkingBlock`、`expandThinkingBlocks`~~ | **2026-10-23 起不再隐藏**：TSP 下实测起作用 / studio 的通知读它们，见下面「TSP 下的逐项核对」 |
 | `title.icons`、`task.showResolvedModelBadge`、`goal.statusInFooter`、`git.enabled` | TUI 标题图标、子代理徽标、页脚、git 状态栏 |
 
 "未能确认、保留显示"：`power.sleepPrevention`、`loop.*`、`magicKeywords.*`、`stt.*`、`speech.*`、`tts.*`、`live.*`、`collab.*`、`share.*`、`stream.*`。差分实测无变化，但描述不是纯终端界面，可能在 rpc-ui 的某些命令（`live_start`、`/share` 等）里起作用，没有逐个实测，按"认不出的不隐藏"保留。
@@ -71,6 +70,45 @@
 | 集成 | 37 | MCP、浏览器、搜索（exa、searxng）、`secrets.*`、扩展处理器 |
 | 语音 | 11 | `stt.*`、`tts.*`、`speech.*`、`live.*` |
 | 其他 | 31 | `gc.*`、`dev.*`、`commit.*`、`collab.*`、`share.*`、`stream.*`、`telemetry.*` 和以后新增的键 |
+
+## TSP 下的逐项核对（2026-10-23，omp 18.12.6）
+
+上一节是 rpc-ui 时代（0.3.26 删掉经典 rpc 任务引擎之前）定的隐藏名单。现在任务是 TSP（伪终端里的交互式 omp，studio 渲染它发来的节点），"在 TSP 下有没有用"要重新核对。方法和工具：真实 omp 18.12.6（PATH 上的 Tern 版），临时 `PI_CODING_AGENT_DIR`，`TERM_PROGRAM=tern`，node-pty `useConptyDll: true`，回 hello、每帧 ack，用 `send` 事件发一句话，对比两次运行收到的 TSP 帧（节点 role 集合、`collapsed`、`del`/`add` 操作）。结果：
+
+### 放出来的（从 `terminalOnly` 名单移到对应分组）
+
+| 项 | 分组 | 依据 |
+|---|---|---|
+| `hideThinkingBlock`、`expandThinkingBlocks` | 模型与 reasoning（模型页“思考块”小块） | **实测，TSP 下起作用**（`STUDIO_TEST_MODEL` 那个便宜模型，`--thinking high`，同一句 prompt，三次运行：默认 / `hideThinkingBlock=true` / `expandThinkingBlocks=true`）。默认：思考块 `omp.thinking.live` 以 `collapsed:false` 出现，思考结束时 `set q.k0 {role:"omp.thinking", collapsed:true, took}`、头部换成 `Thought for 1s`。`expandThinkingBlocks=true`：结束时 **不再** 发 `collapsed:true`，块保持展开（`took` 照发）。`hideThinkingBlock=true`：思考中的块一出现就是 `collapsed:true`（正文仍在流），思考一结束整个块 `del q.k0`（对话里不留）。omp 的 `assistant-message` 组件按这两个设置取舍同一棵节点树，studio 的折叠状态跟着节点的 `collapsed` 走，所以两项都直接生效，studio 不用另做 |
+| `recap.enabled`、`recap.idleSeconds` | 对话行为 | omp 空闲一段时间后发 `omp.recap` 节点（studio 的 `RecapRow` 渲染，只显示最新一条）；关掉就不再发、也不再写 `history.db` 的 `session_recaps`（恢复会话时补的回顾同样没有）。设置决定 omp 发不发这个节点，所以放出来。没有逐项录制对比，依据是 omp 源码 `interactive-mode` 里的回顾定时器和 studio 已有的 `omp.recap` 处理 [推测，未单独实测关掉后的帧] |
+| `ask.notify`、`completion.notify`、`error.notify` | 对话行为（通用页“通知与回顾”一节） | **studio 的系统通知直接读这三项**（见下），不再有 studio 自己的开关。取值 `on` \| `off`，默认 ask 开、completion 开、error 关（`omp config list` 实测） |
+
+### 仍然隐藏的，以及核对结果
+
+- `terminal.programStatus`：**保持隐藏**。studio 靠 omp 发的 OSC 7501 做任务状态（运行 / 等你 / 完成 / 出错），用户不应该能关掉它（关掉状态点就坏了）。同前缀的 `terminal.showImages`、`terminal.showProgress` 也隐藏：进度条是终端标签页的东西；`terminal.showImages=false` 的对比运行里节点集合多出了 `omp.overlay.console` / `omp.actions` / `omp.btn`，但没有一个和图片显示相关，看起来是那次运行里模型出错弹出的控制台浮层，不是这项设置的效果 [推测，未重复]。
+- **差分实测（`display.*`、`tui.*`、`composer.*`、`terminal.*`、`git.enabled`、`goal.statusInFooter`、`task.showResolvedModelBadge`、`statusLine.showHookStatus`、`colorBlindMode`，共 27 项，每项翻一次，让模型跑一次 bash 再答）**：节点 role 集合、节点种类和用量行文字 **没有变化** 的有：`display.hideToolActivity`、`display.showTurnTime`、`display.cacheMissMarker`、`display.collapseCompacted`、`display.subagentLivePreview`、`display.smoothStreaming`、`display.pinnedAgents`、`tui.tight`、`tui.renderMermaid`、`tui.renderSvg`、`tui.autoGraph`、`tui.hyperlinks`、`tui.titleState`、`tui.vimMode`、`tui.reactions`（提示词变了、节点不变；`tui.reactions` 本来就在 `measuredEffective` 里单独放出）、`composer.tokenRate`、`composer.predictions`、`git.enabled`、`goal.statusInFooter`、`task.showResolvedModelBadge`、`statusLine.showHookStatus`、`colorBlindMode`、`terminal.showProgress`——这些在这一次简单对话里看不到效果，保持隐藏（它们改的是终端里的显示；studio 不画对应的东西）。**有变化的只有 `display.showTokenUsage`**：打开后每条助手消息多一个 `omp.usage.turn` 节点（含 `rate` 速率节点），studio 已经有自己的每轮用量脚注（`omp.turn.usage`），多一行重复信息，所以也保持隐藏。**没能测的**：`display.shimmer=none`、`title.icons=none` 两次运行都因探针脚本的错误没跑出来，按原判断（终端动画、标题图标）隐藏。
+- `composer.*`、`input.*`、`doubleEscapeAction`、`treeFilterMode`、`autocompleteMaxVisible`、`spelling.*`、`emojiAutocomplete`、`paste.*`、`startup.*`、`update.channel`、`marketplace.autoUpdate`、`setupVersion`、`autoResume`、`theme.*`、`symbolPreset`、`statusLine.*`、`showHardwareCursor`、`title.icons`：理由同上一节，studio 的输入框、会话管理、更新、外观都是自己的；没有再逐个实测。
+
+### studio 的系统通知遵守 omp 的 `*.notify`
+
+`GateNotifier`（`src/main/tasks/gate-notifier.ts`）每次要发通知前问 `notifyEnabled(task, kind)`：主进程在任务所在项目目录里跑 `omp config list --json`（和审批模式、模型默认值同一条通道，项目的 `.omp/config.yml` 盖过全局），取对应的 `ask.notify` / `completion.notify` / `error.notify`，`on` 才发（`omp-config/notify-settings.ts`，`test/notify-settings.test.ts`、`test/task-gate-notifier.test.ts`）：
+
+| 场景 | 看哪一项 | 其余条件（不变） |
+|---|---|---|
+| 任务进入 `needs_you`（提问、审批） | `ask.notify` | 窗口没有焦点 |
+| 一轮正常跑完 | `completion.notify` | 窗口看不见（托盘 / 最小化） |
+| 任务出错 | `error.notify` | 窗口看不见 |
+
+- **去掉了 studio 自己的 `notifyOnGate` 开关**（设置 → 通用里的“有任务在等你时通知我”）：它和 omp 的三项管同一件事，只留 omp 的。要关通知，在通用页“通知与回顾”里改 omp 的那三项（终端版 omp 共用）。“任务完成时响提示音”（`soundOnDone`）是另一件事（声音，不是系统通知），仍是 studio 自己的设置：窗口在托盘、且 `completion.notify` 开着时发了通知就不再另响；`completion.notify` 关着时照样按它响。
+- **没有迁移**（仓库所有者 2026-10-23 定）：AGENTS.md 只批准了两处自动写 omp 配置，studio 不为这个开关新增第三处。旧开关已删，`settings.json` 里残留的 `notifyOnGate` 由 `sanitize` 丢掉；以前关过它的用户需要在“通知与回顾”里自己把 omp 的三项关掉，否则会按 omp 的默认值收到通知。
+- 行为变化：`error.notify` 默认是 `off`，所以不改设置的话，窗口在托盘时任务出错不再有系统通知（以前有）；要保留就在设置里把“任务出错时通知”打开。
+- `ask.notify` 在 omp 里的说明是 “Notify when the ask tool is waiting for input”；studio 的“等你处理”包括审批门（`needs_you` 状态），这里把审批也算在 `ask.notify` 下 [推测：omp 对审批门用不用同一项没有从源码里确认，omp 打包的 JS 里读这个键的位置没提取到]。
+
+### omp 快捷键（转发给 omp 的键）
+
+见 `docs/design/spec.md` §5.1 和 `docs/architecture/tsp-real-omp-probes.md` §17。键位来自 omp 自己：默认键位（`packages/tui/src/app-keybindings.ts` 的 `app.*` defaultKeys，omp 18.12.6）加用户 `<agent 目录>/keybindings.yml`（其次 `.yaml`、再其次旧的 `.json`；`omp://keybindings.md`）。文件是 `动作 ID: 键 | [键…]` 的映射，覆盖是整个动作换掉，`[]` 禁用，不认识的形状当没写，旧的不带命名空间的名字（`cycleThinkingLevel`…）也认。主进程只读（`omp-config/keybindings.ts`，不迁移、不写，omp 自己加载旧 `.json` 时才会迁移），算法在共享的纯函数 `src/shared/tsp/omp-keybindings.ts`（`resolveOmpKeybindings`），经 IPC `getOmpKeybindings` 给渲染进程；输入框 / 过程区拿到焦点、窗口回到前台、打开设置页时重读。studio 自己占用的键（`STUDIO_RESERVED`）永远赢：用户把 omp 的动作改到 studio 的键上时这个键不转发；单个字符、Shift+方向键这类输入框要用的键也不转发（只转发带 Ctrl / Alt 的、功能键、Shift+Tab）；带 Super / Cmd 的 studio 发不出去，跳过。不处理命名 profile 的继承（同 `models.yml`、会话索引：只认默认 profile）。
+
+设置页“通用 → 快捷键”表下面多一组“omp 快捷键”（`data-testid="omp-shortcuts"`），列出当前会转发的动作和键，作用文字是 omp 的英文描述（英文界面）或其中文化（`shortcut.omp*`）。
 
 ## 审批模式（输入框胶囊）
 

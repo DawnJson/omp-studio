@@ -13,8 +13,12 @@ function isEditable(target: EventTarget | null): boolean {
   );
 }
 
-/** handler 返回 true 表示处理了这个键（会 preventDefault）。 */
-export function useReviewKeys(handler: (key: string) => boolean): void {
+/**
+ * handler 返回 true 表示处理了这个键（会 preventDefault）；event 给需要看 Shift 的处理者（Shift+↑↓ 扩展行选择）。
+ * `inner`：嵌在评审里面的视图（文件 diff）在捕获阶段先拿到键，处理了（如 Esc 清行选择）外层就不再处理（Esc 关评审）；
+ * 不靠监听器注册顺序：文件视图换文件重挂载后注册得比外层晚。
+ */
+export function useReviewKeys(handler: (key: string, event: KeyboardEvent) => boolean, inner = false): void {
   const latest = useRef(handler);
   latest.current = handler;
   const paletteOpen = usePaletteOpen();
@@ -25,9 +29,9 @@ export function useReviewKeys(handler: (key: string) => boolean): void {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
       if (paletteRef.current || isDialogOpen() || isEditable(event.target)) return;
-      if (latest.current(event.key)) event.preventDefault();
+      if (latest.current(event.key, event)) event.preventDefault();
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+    window.addEventListener("keydown", onKeyDown, { capture: inner });
+    return () => window.removeEventListener("keydown", onKeyDown, { capture: inner });
+  }, [inner]);
 }

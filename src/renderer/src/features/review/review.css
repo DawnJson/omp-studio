@@ -596,3 +596,63 @@
 .rv-title {
   flex: none;
 }
+
+/* 提交框：生成按钮、勾选项、修改上一次提交的提醒。 */
+.rv-commit-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.rv-commit-opts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.rv-commit-warn {
+  margin: 0;
+  padding: var(--space-1-5) var(--space-2);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+}
+
+/* 忽略空白时的说明条。 */
+.rv-ignore-note {
+  flex: none;
+  padding: var(--space-1-5) var(--space-4);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* 按行选择：改动行可点，选中的行高亮；头部出现"已选 N 行"和对应操作。 */
+.rv-row[data-pickable],
+.rv-half[data-pickable] {
+  cursor: pointer;
+}
+
+.rv-row[data-picked],
+.rv-half[data-picked] {
+  background-image: linear-gradient(var(--accent-soft), var(--accent-soft));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.rv-lines-bar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.rv-lines-count {
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}

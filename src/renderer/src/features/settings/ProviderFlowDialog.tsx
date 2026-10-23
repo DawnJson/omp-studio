@@ -67,7 +67,11 @@ export function ProviderFlowDialog({
               ...(event.instructions !== undefined && { instructions: event.instructions }),
             };
           case "progress":
-            return { ...current, progress: event.message };
+            return { ...current, progress: [...(current.progress ?? []), event] };
+          case "input_closed":
+            // omp 撤销了这个输入（超时或取消）：收起输入框，免得再提交时报 no login input is waiting。
+            if (current.input?.inputId !== event.inputId) return current;
+            return { ...current, input: undefined };
           case "input":
             return {
               ...current,
@@ -99,6 +103,10 @@ export function ProviderFlowDialog({
     void startLogin();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [action]);
+
+  // 输入框换了一个（或被 omp 撤销）：上一个输入框里没提交的内容不带到下一个。
+  const inputId = flow.kind === "login" ? flow.input?.inputId : undefined;
+  useEffect(() => setCode(""), [inputId]);
 
   const signOut = async (credentialId: number) => {
     setBusy(true);

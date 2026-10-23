@@ -81,6 +81,16 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 
 前置检查：名字必须是文档里确有的子代理（`unknown subagent`）；有提问 / 审批在等时不碰 Hub（`TSP_COMPOSER_UNAVAILABLE`，聚焦后的 `send` 会拒绝审批）。驱动期间 `TspRunner.#hubDriving` 为真：`#awaitComposer` 把别的发消息操作挂起、驱动结束（`setDriving(false)`）时唤醒，所以用户这时在主输入框发的话会等到主会话恢复再发出，不会变成对子代理的插话。渲染进程这一侧：`tsp-store.beginTspDrive / endTspDrive` 包住 IPC 调用，`TspView` 在此期间不画 layer 区（omp 的 Hub 一帧也不出现）、过程区压暗，`useTspPanelOpen` 不把这个 Hub 当面板开着。
 
+### Activity 页和 Ctx（2026-10-23，omp 18.12.6；spec §4.28）
+
+omp 的 Agent Hub 有两页（`pyu`：`1 Agents` / `2 Activity`，源码 `overlays/agent-hub.ts`），Agents 页的表格列是 Cost / Time / Req / Tools / Tok / Ctx（`hyu`，`Ctx` 是 `format: "bar"`），Activity 页有 Agent / Time 两列和 `All / Errors / Responses / Tools` 四个过滤（`Ves` / `Tyu`，活动种类图标 `response / tool / irc / lifecycle`）。studio 补上这两样：
+
+- **Ctx**：数据是 `agent` 节点的 `stats.context`（TSP 规范 §7.6 的 `TspAgentProps.stats.context`，0–1 的占用比例；实测 `fixtures/tsp/agent-progress.jsonl` 里 `0.008099`，同一个 `stats` 里 `contextLabel` 是 `"8.1K / 1M"`）。`listAgents` 解析成 `HubAgent.stats.context`（`contextFraction`：> 1 的值按百分数 / 100，同 TSP 节点渲染 `nodes/work.tsx` 的约定，限制在 0–1；没给为 null——`--resume` 重放出来的 pending 节点只剩 `took:0`，所以历史子代理没有 Ctx）。列表行（`AgentRow`）在状态文字左边画细条 + 百分比（`agents-row-ctx`，≥ 90% 错误色），悬停带 `contextLabel`；详情的 Context 统计格 = `43% · 8.1K / 1M`。它是会话的属性，子代理结束后仍显示（不像完成度估计）。**不读记录文件算**：记录文件里 assistant 消息的 `usage` 没有上下文窗口大小，算不出占用比例。
+- **Activity 页**：数据来自面板本来就在读的子代理记录文件（`<名字>.jsonl`，同详情的"对话记录"，IPC `getTspSubagentRecord`；不新增 IPC、不读 omp 的内存状态）。`shared/tsp/agent-activity.ts`：助手消息里的 `toolCall` 块 = 工具调用（文字取 `intent`，没有就取参数里第一个有意义的 `command / path / file_path / pattern / query / url / task / description / id`）；`text` 块 = 回复（第一段、压成一行；空白不算）；`stopReason:"error"` 的助手消息 = 出错（`errorMessage`）；`toolResult` 且 `isError` = 出错（结果文字），并把对应那次调用（`toolCallId`）标成失败；时间取消息的 `completedAt`，没有取 `timestamp`（毫秒）。`mergeActivity` 把所有子代理合成一条按时间从新到旧的流（同一时间后面的子代理 / 后写的在前，最多 500 条，每个子代理的记录本来只留最近 300 条消息 / 8 MB，`subagentLimits`），`filterActivity` 做 All / Errors / Responses / Tools（Tools 含失败的调用，Errors 只含 error）。omp 的 `irc`（子代理之间的消息）、`lifecycle`（开始 / 结束）两种活动 studio 没有：记录文件里没有可靠的位置，没做。
+- **取数**（`use-agents-activity.ts`）：切到 Activity 页才读；每个子代理一份缓存，缓存键 = 状态 + 工具调用数（和详情重读记录的键相同：每多一次工具调用、运行 → 结束各读一次），只重读键变了的；子代理从列表里消失就丢缓存；响应过期（切任务 / 又来了新一轮）丢弃；某个子代理读失败时跳过它、其余照常，下一轮变化再试（不弹错：这页是汇总，单个读不到不是用户要处理的错）。运行中子代理的新活动在它下一次工具调用 / 结束时才出现（和详情的对话记录同样的节奏，不轮询文件）。
+- **界面**：头部下面一条 `Tabs`（Agents 带个数 / Activity），Activity 页 = 过滤页签 + 一行四列的活动流（时间 `HH:mm:ss`、子代理、种类、文字）；点一行回到 Agents 页并选中那个子代理（对应 omp 里 Activity 页 Enter 跳到该子代理）。页签状态在面板自己里，关闭面板后回到 Agents 页。
+- **测试**：`test/tsp-agent-activity.test.ts`（按 omp 18.12.6 行格式构造的子代理记录文件，经 `parseSubagentMessages` 读：工具调用 / 回复 / 错误的解析、失败调用标记、合并顺序、上限、四种过滤）；`test/tsp-agent-hub.test.ts`（`agent-progress` 录制里的 `context` / `contextLabel`）；`test/agent-model.test.ts`（`agentContextPercent`）；e2e `test/e2e/tsp.e2e.ts` "子代理完成度"（行上的 Ctx、Activity 页的顺序 / 过滤 / 点行跳转，截图 `tsp-agents-activity-*`，没有运行）。
+
 ### 风险和限制
 
 - Hub 的 role / action / `dot` 取值都是 omp 自己的、不在 TSP 规范里：`agents.open`、`kill`、`revive`、`tab`、`omp.composer.focus`、`omp.composer.exit`、`focus:Main`、`dot: error / success`。判断都集中在 `shared/tsp/agent-hub.ts`，omp 改名时操作超时失败、走恢复；列表和记录不受影响。

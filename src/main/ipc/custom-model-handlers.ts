@@ -14,9 +14,13 @@ import {
   readProviderKey,
   saveCustomProvider,
 } from "../omp-config/models-file.ts";
-import { getApiKeyEnv } from "../omp-manager/api-keys.ts";
-import { serviceOmp } from "../service/service-omp.ts";
-import { IpcValidationError, parseOneOf, parseRecord, parseString } from "./validate.ts";
+import { getApiKeyEnv, readyOmp } from "../omp-manager/index.ts";
+import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
+import { requireSuccess, runOmpCommand } from "../usage/usage-service.ts";
+import { IpcValidationError, parseBoolean, parseOneOf, parseRecord, parseString } from "./validate.ts";
+
+/** `omp models refresh` 要联网拉各 provider 的目录，慢的会要几十秒。 */
+const REFRESH_TIMEOUT_MS = 120_000;
 
 function parseKey(value: unknown): CustomKeyInput {
   const record = parseRecord(value, "key");
@@ -44,6 +48,7 @@ function parseInput(value: unknown): CustomProviderInput {
         ...(name !== undefined && { name: parseString(name, "model.name", 1000, { allowEmpty: true }) }),
       };
     }),
+    ...(record["discovery"] !== undefined && { discovery: parseBoolean(record["discovery"], "discovery") }),
   };
 }
 
@@ -74,7 +79,12 @@ async function fetchProviderModels(value: unknown): Promise<FetchModelsOutcome> 
 }
 
 export const customModelHandlers: HandlerGroup<
-  "listCustomProviders" | "saveCustomProvider" | "deleteCustomProvider" | "fetchProviderModels" | "openModelsFile"
+  | "listCustomProviders"
+  | "saveCustomProvider"
+  | "deleteCustomProvider"
+  | "fetchProviderModels"
+  | "refreshModels"
+  | "openModelsFile"
 > = {
   listCustomProviders: () => readModelsFile(resolveAgentDir()),
   saveCustomProvider: async (mode, input) => {
@@ -96,6 +106,13 @@ export const customModelHandlers: HandlerGroup<
     return outcome;
   },
   fetchProviderModels,
+  refreshModels: async () => {
+    const run = runOmpCommand(readyOmp().path, await serviceCwd(), REFRESH_TIMEOUT_MS, await getApiKeyEnv());
+    requireSuccess("omp models refresh", await run(["models", "refresh"]));
+    log.info("omp models refresh: done");
+    // 服务进程的模型注册表是启动时建的：关掉它，下次读模型列表时重新起、读到刷新后的目录。
+    await serviceOmp.close();
+  },
   openModelsFile: async () => {
     const info = await readModelsFile(resolveAgentDir());
     const target = info.exists ? info.path : path.dirname(info.path);

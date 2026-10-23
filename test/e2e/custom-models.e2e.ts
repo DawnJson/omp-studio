@@ -178,6 +178,88 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
   }
 });
 
+test("自定义提供商：自动发现模型——开关写 discovery、不用勾模型；omp 读到 /models 里的模型；刷新模型按钮跑通；关掉后去掉 discovery", async () => {
+  const fake = await startFakeOpenAi({ models: ["disc-a", "disc-b"] });
+  const { launched, agentDir } = await launchSettings();
+  const file = path.join(agentDir, "models.yml");
+  try {
+    const { page } = launched;
+    await writeFile(
+      file,
+      "# 我自己的模型配置\nproviders:\n  # 本地的\n  other-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: keep-me # 别动\n",
+      "utf8",
+    );
+    await page.getByTestId("settings-nav-general").click();
+    await page.getByTestId("settings-nav-providers").click();
+    await setLocaleTheme(page, "zh-CN", "light");
+    await expect(page.getByTestId("custom-provider-other-local")).toBeVisible();
+
+    await page.getByTestId("custom-add").click();
+    const form = page.getByTestId("custom-provider-form");
+    await expect(form).toBeVisible();
+    await page.getByTestId("custom-id").fill("fake-disco");
+    await page.getByTestId("custom-base-url").fill(fake.baseUrl);
+    await page.getByTestId("custom-key-mode-none").click();
+    // 没勾任何模型、也没开自动发现：不能保存；打开开关后可以。
+    await expect(page.getByTestId("custom-save")).toBeDisabled();
+    await page.getByTestId("custom-discovery").click();
+    await expect(page.getByTestId("custom-discovery")).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByTestId("custom-save")).toBeEnabled();
+    await screenshots(page, "form-discovery", form);
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("custom-save").click();
+    await expect(form).toHaveCount(0);
+    await expect(page.getByTestId("custom-provider-fake-disco")).toContainText("运行时发现模型");
+
+    // 文件：只加了 fake-disco 这一层，里面是默认的 discovery.type；别的内容原样。
+    const written = await readFile(file, "utf8");
+    expect(written).toContain("# 我自己的模型配置");
+    expect(written).toContain("# 本地的");
+    expect(written).toContain("keep-me # 别动");
+    expect(written).toMatch(/fake-disco:[\s\S]*discovery:\s+type: openai-models-list/);
+    expect(written).not.toContain("- id: disc-a"); // 发现的模型不写进文件
+
+    // omp 重新加载后从假服务的 /models 读到模型。
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() =>
+            globalThis.studio
+              .listModels()
+              .then((models) =>
+                models.filter((model) => model.key.provider === "fake-disco").map((model) => model.key.modelId),
+              ),
+          ),
+        { timeout: 30_000 },
+      )
+      .toEqual(["disc-a", "disc-b"]);
+
+    // 刷新模型：omp models refresh 跑完、给出提示。
+    await page.getByTestId("custom-refresh").click();
+    await expect(page.getByText("已刷新模型目录")).toBeVisible({ timeout: 90_000 });
+    await screenshots(page, "list-discovery");
+
+    // 编辑：开关是开的；关掉并勾选一个模型再保存 → discovery 去掉，别的内容不动。
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("custom-edit-fake-disco").click();
+    await expect(page.getByTestId("custom-discovery")).toHaveAttribute("aria-checked", "true");
+    await page.getByTestId("custom-discovery").click();
+    await expect(page.getByTestId("custom-save")).toBeDisabled(); // 没有模型、也没开发现
+    await page.getByTestId("custom-manual-model").fill("manual-only");
+    await page.getByTestId("custom-manual-model").press("Enter");
+    await page.getByTestId("custom-save").click();
+    await expect(form).toHaveCount(0);
+    const off = await readFile(file, "utf8");
+    expect(off).not.toContain("discovery:");
+    expect(off).toContain("- id: manual-only");
+    expect(off).toContain("keep-me # 别动");
+  } finally {
+    await launched.close();
+    await fake.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
 test("自定义提供商：读不懂的 models.yml 显示错误，不覆盖文件", async () => {
   const { launched, agentDir } = await launchSettings();
   try {

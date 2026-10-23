@@ -245,3 +245,15 @@ export const Tag = (props: IconProps) => (
     <circle cx="5.5" cy="5.5" r=".75" />
   </Icon>
 );
+/** 生成（提交信息）：四角星 */
+export const Sparkle = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M7 2.5 8.300 6 11.800 7.200 8.300 8.500 7 12 5.700 8.500 2.200 7.200 5.700 6 7 2.500ZM12.200 10.500l.5 1.300 1.300.5-1.300.5-.5 1.300-.5-1.300-1.300-.5 1.300-.5.5-1.300Z" />
+  </Icon>
+);
+/** 忽略空白：行尾带空格标记的折线 */
+export const Whitespace = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M2.500 4.500h11M2.500 8h5M2.500 11.500h11M10 8h3.500M11.500 6.500l2 1.500-2 1.500" />
+  </Icon>
+);

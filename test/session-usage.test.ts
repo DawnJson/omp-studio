@@ -1,7 +1,11 @@
 // 本会话按模型的用量（src/main/history/session-usage.ts）：范围要和 omp 的 get_session_stats 一致（当前分支、
 // 最近一次压缩保留下来的部分起），压缩过时另给整个分支的合计；别的分支、坏行不算。
-import { describe, expect, it } from "vitest";
-import { summarizeSessionUsage, totalUsage } from "../src/main/history/session-usage.ts";
+import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readSessionUsage, summarizeSessionUsage, totalUsage } from "../src/main/history/session-usage.ts";
+import { MAX_SESSION_FILE_BYTES } from "../src/main/tsp/session-tree-file.ts";
 
 let seq = 0;
 const reply = (id: string, parentId: string | null, model: string, total: number, cost: number) =>
@@ -94,5 +98,36 @@ describe("请求数和合计（TSP 任务的 sessionUsage 用）", () => {
       tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
       requests: 0,
     });
+  });
+});
+
+describe("readSessionUsage（读文件）", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(path.join(os.tmpdir(), "omp usage 会话 "));
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  });
+
+  it("没有文件（新会话第一条回复之后才落盘）是空表；没有路径也是空表", async () => {
+    const empty = { models: [], compactions: 0, whole: null };
+    expect(await readSessionUsage(path.join(dir, "还没有.jsonl"))).toEqual(empty);
+    expect(await readSessionUsage(null)).toEqual(empty);
+  });
+
+  it("文件超过上限（和 readSessionEntries 同一个）就报错，不整份读进内存", async () => {
+    const file = path.join(dir, "太大 的会话.jsonl");
+    const handle = await open(file, "w");
+    await handle.truncate(MAX_SESSION_FILE_BYTES + 1);
+    await handle.close();
+    await expect(readSessionUsage(file)).rejects.toThrow(/too large to read/);
+  });
+
+  it("正常大小的文件照常算", async () => {
+    const file = path.join(dir, "ok.jsonl");
+    await writeFile(file, `${reply("a", null, "m1", 10, 0.5)}\n`, "utf8");
+    const usage = await readSessionUsage(file);
+    expect(usage.models.map((row) => [row.modelId, row.total, row.cost])).toEqual([["m1", 10, 0.5]]);
   });
 });

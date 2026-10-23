@@ -3,12 +3,20 @@
 // stats.db 是临时库（PI_CONFIG_DIR 绝对路径 → <dir>/stats.db，statsDbPath 的规则），表结构抄自 omp；agent 目录里放置顶文件和历史会话。
 // 打开对话框时主进程会让 omp 同步一次统计（`omp stats --json`），这里的假 omp 不实现它：同步失败只显示一行提示，
 // 已读到的数据不受影响，所以下面的断言不依赖同步完成。分享的 IPC（getShareSettings / shareTask）在主进程里桩掉，**绝不连真实 share 服务器**。
+import fs from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { expect, test, type Page } from "@playwright/test";
-import { expandSidebarFolders, launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
+import {
+  expandSidebarFolders,
+  launchApp,
+  openTaskRow,
+  screenshotsDir,
+  setLocaleTheme,
+  type LaunchedApp,
+} from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -69,7 +77,10 @@ function seedStats(dbPath: string, sessionFile: string): void {
   db.close();
 }
 
-async function start(pinned: string[] = []): Promise<Started> {
+async function start(
+  pinned: string[] = [],
+  options: { fixture?: string; interrupted?: boolean } = {},
+): Promise<Started> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp session info e2e "));
   const project = path.join(work, "项目 目录");
   await mkdir(project);
@@ -81,7 +92,21 @@ async function start(pinned: string[] = []): Promise<Started> {
   const user = (text: string) =>
     `${JSON.stringify({ type: "message", id: "u1", parentId: null, message: { role: "user", content: [{ type: "text", text }] } })}\n`;
   const sessionFile = path.join(bucket, `2026-10-21T10-00-00-000Z_${SESSION_ID}.jsonl`);
-  await writeFile(sessionFile, header(SESSION_ID) + user(FIRST_PROMPT), "utf8");
+  // 会话文件里有一条带用量的回复：概览的用量从它算（和输入框同口径），不再读 stats.db 的 session_rollup。
+  const reply = {
+    type: "message",
+    id: "a0",
+    parentId: "u1",
+    message: {
+      role: "assistant",
+      provider: "deepseek",
+      model: "deepseek-v4-flash",
+      stopReason: "stop",
+      content: [{ type: "text", text: "hello" }],
+      usage: { input: 400, output: 150, cacheRead: 0, cacheWrite: 0, totalTokens: 550, cost: { total: 0.0456 } },
+    },
+  };
+  await writeFile(sessionFile, header(SESSION_ID) + user(FIRST_PROMPT) + `${JSON.stringify(reply)}\n`, "utf8");
   // 两个还没挂任务的历史会话：新的叫 history-new，旧的叫 history-old（置顶文件里放的是旧的）。
   for (const [id, title, age] of [
     ["hist-new", "history-new", 1],
@@ -92,6 +117,21 @@ async function start(pinned: string[] = []): Promise<Started> {
     const modified = new Date(Date.now() - age * 60 * 60 * 1000);
     await utimes(file, modified, modified);
   }
+  if (options.interrupted) {
+    // 停在工具调用上的历史会话（omp session-listing 的 interrupted）：侧栏给虚线圈暂停号。
+    const file = path.join(bucket, "2026-10-20T00-00-00-000Z_hist-int.jsonl");
+    const toolCall = {
+      type: "message",
+      id: "a1",
+      parentId: "u1",
+      message: {
+        role: "assistant",
+        stopReason: "toolUse",
+        content: [{ type: "toolCall", id: "c1", name: "read", arguments: {} }],
+      },
+    };
+    await writeFile(file, header("hist-int") + user("history-interrupted") + `${JSON.stringify(toolCall)}\n`, "utf8");
+  }
   await writeFile(path.join(agentDir, "session-pins.json"), JSON.stringify(pinned), "utf8");
   const configDir = path.join(work, "config");
   await mkdir(configDir);
@@ -100,7 +140,7 @@ async function start(pinned: string[] = []): Promise<Started> {
   const launched = await launchApp({
     STUDIO_TEST_OMP: JSON.stringify({
       command: process.execPath,
-      args: [fakeOmp, "error-turn", "--speed=20", `--log=${log}`],
+      args: [fakeOmp, options.fixture ?? "error-turn", "--speed=20", `--log=${log}`],
     }),
     PI_CODING_AGENT_DIR: agentDir,
     PI_CONFIG_DIR: configDir,
@@ -145,7 +185,7 @@ async function runErrorTurn(page: Page): Promise<void> {
   await expect(page.locator('[data-testid="tsp-view"] [data-role="omp.error"]')).toBeVisible({ timeout: 30_000 });
 }
 
-test("会话信息：顶栏任务菜单和 /session 都打开；概览有 ID、文件、用量（来自临时 stats.db）；置顶开关读 session-pins.json", async () => {
+test("会话信息：顶栏任务菜单和 /session 都打开；概览有 ID、文件、用量（从会话文件算）；置顶开关读 session-pins.json", async () => {
   test.setTimeout(120_000);
   const { launched, sessionFile, cleanup } = await start([SESSION_ID]);
   try {
@@ -157,7 +197,7 @@ test("会话信息：顶栏任务菜单和 /session 都打开；概览有 ID、�
     await expect(dialog).toBeVisible();
     await expect(dialog.getByTestId("si-id")).toHaveText(SESSION_ID);
     await expect(dialog.getByTestId("si-file")).toHaveText(sessionFile);
-    await expect(dialog.getByTestId("si-requests")).toHaveText("2");
+    await expect(dialog.getByTestId("si-requests")).toHaveText("1");
     await expect(dialog.getByTestId("si-cost")).toHaveText("$0.05");
     // 置顶文件里有这个会话：开关是开的。
     await expect(dialog.getByTestId("si-pin")).toHaveAttribute("aria-checked", "true");
@@ -274,6 +314,61 @@ test("重试：回放的 TSP 错误卡下面有“重试”按钮；点击给 om
     await expect
       .poll(async () => (await received()).map((event) => event["text"]), { timeout: 15_000 })
       .toEqual([FIRST_PROMPT, "/retry"]);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("请求记录页：“在浏览器中打开”给任务的 omp 发 /trace（omp 自己开浏览器），提示 omp 已打开；截图四种语言主题", async () => {
+  test.setTimeout(120_000);
+  // trace-link 录制：slash-status 的握手 + 真实 omp 18.12.6 对 /trace 回的 toast（Trace: http://127.0.0.1:3847/#/traces?s=…）。
+  const { launched, received, cleanup } = await start([], { fixture: "trace-link" });
+  try {
+    const { page } = launched;
+    await page.evaluate(async () => {
+      const [project] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: project!.id });
+    });
+    await openTaskRow(page);
+    await page.getByTestId("task-menu").click();
+    await page.getByRole("menuitem", { name: /会话信息|Session info/ }).click();
+    await page.getByRole("tab", { name: /请求记录|Requests/ }).click();
+    const open = page.getByTestId("trace-open");
+    await expect(open).toBeVisible();
+    await open.click();
+    await expect(page.getByText(/omp 已在浏览器中打开请求记录|omp opened the request trace/)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect.poll(async () => (await received()).map((event) => event["text"])).toContain("/trace");
+    fs.mkdirSync(screenshotsDir, { recursive: true });
+    for (const locale of ["zh-CN", "en"] as const) {
+      for (const theme of ["light", "dark"] as const) {
+        await setLocaleTheme(page, locale, theme);
+        await page.screenshot({ path: path.join(screenshotsDir, `trace-open-${locale}-${theme}.png`) });
+      }
+    }
+  } finally {
+    await cleanup();
+  }
+});
+
+test("侧栏历史：停在工具调用上的会话画虚线圈暂停号，悬停有说明（omp session-listing 的 interrupted）", async () => {
+  test.setTimeout(60_000);
+  const { launched, cleanup } = await start([], { interrupted: true });
+  try {
+    const { page } = launched;
+    await expandSidebarFolders(page);
+    const row = page.getByTestId("sidebar-session").filter({ hasText: "history-interrupted" });
+    const mark = row.locator(".sb-dot-interrupted");
+    await expect(mark).toHaveCount(1);
+    await expect(mark).toHaveAttribute("title", /停在工具调用|stopped partway/);
+    fs.mkdirSync(screenshotsDir, { recursive: true });
+    for (const locale of ["zh-CN", "en"] as const) {
+      for (const theme of ["light", "dark"] as const) {
+        await setLocaleTheme(page, locale, theme);
+        await row.screenshot({ path: path.join(screenshotsDir, `history-interrupted-${locale}-${theme}.png`) });
+      }
+    }
   } finally {
     await cleanup();
   }

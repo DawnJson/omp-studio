@@ -111,6 +111,8 @@ export type TaskCommand =
   | { kind: "toggle"; name: (typeof TOGGLE_NAMES)[number]; on: boolean }
   | { kind: "pin" }
   | { kind: "retry" }
+  /** `/trace`：omp 在任务进程里起统计面板服务（默认 127.0.0.1:3847），自己用系统浏览器打开这个会话的请求记录，状态 toast 是 `Trace: <URL>`（omp 18.12.6 实测，docs/architecture/session-history.md）。 */
+  | { kind: "trace" }
   | { kind: "compact" }
   /** `id` 是作业 id（如 `bg_1`）或 "all"。 */
   | { kind: "jobsKill"; id: string }
@@ -133,6 +135,7 @@ export function parseTaskCommand(value: unknown): TaskCommand {
       return { kind: "toggle", name: oneOf(input["name"], TOGGLE_NAMES, "name"), on: bool(input["on"], "on") };
     case "pin":
     case "retry":
+    case "trace":
     case "compact":
     case "reloadPlugins":
     case "dirs":
@@ -166,6 +169,8 @@ export function taskCommandText(cmd: TaskCommand): string {
       return `/${TOGGLE_SLASH[cmd.name]} ${cmd.on ? "on" : "off"}`;
     case "pin":
       return "/pin";
+    case "trace":
+      return "/trace";
     case "retry":
       return "/retry";
     case "compact":

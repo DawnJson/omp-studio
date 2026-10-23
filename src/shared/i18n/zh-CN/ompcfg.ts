@@ -34,6 +34,21 @@ export const ompcfg = {
   "interruptMode.label": "插话何时打断工具",
   "interruptMode.desc": "立即：马上打断正在执行的工具；等待：等当前工具结束",
 
+  "ask.notify.label": "提问等你时通知",
+  "ask.notify.desc": "agent 用提问工具在等你回答，或等你审批时，发系统通知（窗口没有焦点时）",
+  "completion.notify.label": "任务完成时通知",
+  "completion.notify.desc": "agent 完成一轮后发系统通知（窗口收在托盘时）",
+  "error.notify.label": "任务出错时通知",
+  "error.notify.desc": "agent 因出错停下时发系统通知（窗口收在托盘时）",
+  "recap.enabled.label": "空闲回顾",
+  "recap.enabled.desc": "对话空闲一段时间后，让模型简短回顾进展，显示在对话里",
+  "recap.idleSeconds.label": "多久后回顾",
+  "recap.idleSeconds.desc": "空闲多少秒后给出回顾",
+  "hideThinkingBlock.label": "隐藏思考块",
+  "hideThinkingBlock.desc": "思考结束后不在对话里保留思考块（思考过程中仍会短暂显示）",
+  "expandThinkingBlocks.label": "思考块保持展开",
+  "expandThinkingBlocks.desc": "思考结束后让思考块保持展开，而不是自动折叠",
+
   // 下面成对的项在设置页格子里左右并排（两列逐行填，config-meta 的 commonBlocks），挪动时保持成对。
   "compaction.enabled.label": "自动压缩 context",
   "compaction.enabled.desc": "context 快满时自动压缩，让对话能继续",

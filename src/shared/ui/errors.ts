@@ -25,6 +25,7 @@ const knownMessages: [RegExp, Parameters<TFunction>[0]][] = [
   [/not in the conversation|cannot find that message in the session/i, "error.forkNoMessage"],
   [/too many tasks/i, "error.tooManyTasks"],
   [/executable files are not opened directly/i, "error.executableBlocked"],
+  [/omp stats\.db schema mismatch/i, "error.statsSchema"],
   [/project still has tasks/i, "project.removeBlocked"],
   [/^unknown (task|project) /i, "error.notFound"],
   [/worktrees need a git repository/i, "git.err.notGit"],

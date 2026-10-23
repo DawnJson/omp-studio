@@ -6,21 +6,28 @@ import {
   type GitDiffArea,
   type GitDiffContext,
   type GitHunkRef,
+  type GitLinesRef,
   type ReviewComment,
 } from "../../shared/git.ts";
-import type { HandlerGroup } from "../../shared/ipc.ts";
+import { app, shell } from "electron";
+import type { HandlerGroup, TaskId } from "../../shared/ipc.ts";
+import { generateCommitMessage, type OmpCommand } from "../git/commit-message.ts";
 import { getChangeStats } from "../git/numstat.ts";
-import { commit, createPullRequest, push } from "../git/remote.ts";
+import { commit, createPullRequest, lastCommit, push } from "../git/remote.ts";
+import { taskPullRequestUrl } from "../git/pull-request-url.ts";
 import { currentBranch, requireRepoRoot } from "../git/repo.ts";
 import {
   checkRepoPath,
   discardFile,
   discardHunk,
+  discardLines,
   getFileDiff,
   stageFile,
   stageHunk,
+  stageLines,
   unstageFile,
   unstageHunk,
+  unstageLines,
 } from "../git/review.ts";
 import { getGitStatus } from "../git/status.ts";
 import {
@@ -31,11 +38,15 @@ import {
   worktreeInfo,
 } from "../git/worktree.ts";
 import { log } from "../log/log.ts";
+import { getOmpExecutable } from "../omp-manager/index.ts";
+import { getApiKeyEnv } from "../omp-manager/api-keys.ts";
+import { parseTestOmpOverride, prependToPath } from "../omp/launch-args.ts";
 import { resolveLocale } from "../settings/settings-store.ts";
 import { getSetupConsent, getTaskPool } from "../tasks/runtime.ts";
 import {
   IpcValidationError,
   parseBoolean,
+  parseExternalUrl,
   parseInteger,
   parseOneOf,
   parseProjectId,
@@ -45,6 +56,7 @@ import {
 } from "./validate.ts";
 
 const MAX_LINE = 10_000_000;
+const MAX_LINES_PER_OP = 100_000;
 
 function parseHunkRef(value: unknown): GitHunkRef {
   const record = parseRecord(value, "hunk");
@@ -74,6 +86,39 @@ function parseReviewComments(value: unknown): ReviewComment[] {
 
 const parseArea = (value: unknown): GitDiffArea => parseOneOf(value, "area", ["staged", "unstaged", "untracked"]);
 
+function parseLinesRef(value: unknown): GitLinesRef {
+  const record = parseRecord(value, "ref");
+  const lines = record["lines"];
+  if (!Array.isArray(lines) || lines.length === 0 || lines.length > MAX_LINES_PER_OP)
+    throw new IpcValidationError(`ref.lines 必须是 1–${MAX_LINES_PER_OP} 个行下标的数组`);
+  return {
+    ...parseHunkRef(value),
+    lines: lines.map((line: unknown) => parseInteger(line, "ref.lines[]", 0, MAX_LINES_PER_OP)),
+  };
+}
+
+/** 同一时刻每个任务只有一次"生成提交信息"；取消按任务找到它。 */
+const generating = new Map<TaskId, AbortController>();
+
+/**
+ * `omp commit` 用的 omp：和任务进程同一个可执行文件、同一份 API key；e2e 里任务进程是假 omp，
+ * 未打包时 `STUDIO_TEST_COMMIT_OMP`（JSON `{command, args}`，同 STUDIO_TEST_OMP）指向另一个假 omp 来扮演 `omp commit`。
+ */
+async function commitOmp(): Promise<OmpCommand> {
+  const apiKeys = await getApiKeyEnv();
+  const override = app.isPackaged ? undefined : process.env["STUDIO_TEST_COMMIT_OMP"];
+  if (override) {
+    const parsed = parseTestOmpOverride(override);
+    return { command: parsed.command, args: parsed.args, env: { ...process.env, ...apiKeys } };
+  }
+  const executable = await getOmpExecutable();
+  return {
+    command: executable.path,
+    args: [],
+    env: prependToPath({ ...process.env, ...apiKeys }, executable.managedBin),
+  };
+}
+
 export const gitHandlers: HandlerGroup<
   | "getGitStatus"
   | "getGitFileDiff"
@@ -84,6 +129,9 @@ export const gitHandlers: HandlerGroup<
   | "stageGitHunk"
   | "unstageGitHunk"
   | "discardGitHunk"
+  | "stageGitLines"
+  | "unstageGitLines"
+  | "discardGitLines"
   | "sendReviewComments"
   | "getDraftGit"
   | "getWorktreeSetupScript"
@@ -93,21 +141,26 @@ export const gitHandlers: HandlerGroup<
   | "discardTaskWorktree"
   | "cleanupOrphanWorktrees"
   | "commitGit"
+  | "getLastCommit"
+  | "generateCommitMessage"
+  | "cancelCommitMessage"
   | "pushGit"
   | "createPullRequest"
+  | "openTaskPullRequest"
 > = {
   getGitStatus: async (taskId) => {
     const pool = await getTaskPool();
     return getGitStatus(pool.taskGitContext(parseTaskId(taskId)).cwd);
   },
 
-  getGitFileDiff: async (taskId, path, area, context) => {
+  getGitFileDiff: async (taskId, path, area, context, ignoreWhitespace) => {
     const pool = await getTaskPool();
     return getFileDiff(
       pool.taskGitContext(parseTaskId(taskId)).cwd,
       parseString(path, "path", 1024),
       parseArea(area),
       parseOneOf<GitDiffContext>(context, "context", ["hunks", "file"]),
+      parseBoolean(ignoreWhitespace, "ignoreWhitespace"),
     );
   },
 
@@ -151,6 +204,33 @@ export const gitHandlers: HandlerGroup<
       pool.taskGitContext(parseTaskId(taskId)).cwd,
       parseString(path, "path", 1024),
       parseHunkRef(hunk),
+    );
+  },
+
+  stageGitLines: async (taskId, path, ref) => {
+    const pool = await getTaskPool();
+    return stageLines(
+      pool.taskGitContext(parseTaskId(taskId)).cwd,
+      parseString(path, "path", 1024),
+      parseLinesRef(ref),
+    );
+  },
+
+  unstageGitLines: async (taskId, path, ref) => {
+    const pool = await getTaskPool();
+    return unstageLines(
+      pool.taskGitContext(parseTaskId(taskId)).cwd,
+      parseString(path, "path", 1024),
+      parseLinesRef(ref),
+    );
+  },
+
+  discardGitLines: async (taskId, path, ref) => {
+    const pool = await getTaskPool();
+    return discardLines(
+      pool.taskGitContext(parseTaskId(taskId)).cwd,
+      parseString(path, "path", 1024),
+      parseLinesRef(ref),
     );
   },
 
@@ -228,15 +308,41 @@ export const gitHandlers: HandlerGroup<
     return result;
   },
 
-  commitGit: async (taskId, message, stageAll) => {
+  commitGit: async (taskId, message, stageAll, amend) => {
     const pool = await getTaskPool();
     const result = await commit(
       pool.taskGitContext(parseTaskId(taskId)).cwd,
       parseString(message, "message", 20_000),
       parseBoolean(stageAll, "stageAll"),
+      parseBoolean(amend, "amend"),
     );
     log.info("git commit", { result: result.kind });
     return result;
+  },
+
+  getLastCommit: async (taskId) => {
+    const pool = await getTaskPool();
+    return lastCommit(pool.taskGitContext(parseTaskId(taskId)).cwd);
+  },
+
+  generateCommitMessage: async (taskId) => {
+    const pool = await getTaskPool();
+    const id = parseTaskId(taskId);
+    const { cwd } = pool.taskGitContext(id);
+    if (generating.has(id)) throw new Error("a commit message is already being generated for this task");
+    const controller = new AbortController();
+    generating.set(id, controller);
+    try {
+      const result = await generateCommitMessage(cwd, await commitOmp(), controller.signal);
+      log.info("git commit message generated", { result: result.kind });
+      return result;
+    } finally {
+      generating.delete(id);
+    }
+  },
+
+  cancelCommitMessage: async (taskId) => {
+    generating.get(parseTaskId(taskId))?.abort();
   },
 
   pushGit: async (taskId) => {
@@ -260,5 +366,15 @@ export const gitHandlers: HandlerGroup<
     );
     log.info("gh pr create", { result: result.kind });
     return result;
+  },
+
+  openTaskPullRequest: async (taskId) => {
+    const pool = await getTaskPool();
+    const id = parseTaskId(taskId);
+    // PR 号取主进程记的（omp 的标题），不信渲染进程。
+    const number = pool.taskPullRequest(id);
+    if (number === null) throw new Error("this task has no pull request");
+    const url = await taskPullRequestUrl(pool.taskGitContext(id).cwd, number);
+    await shell.openExternal(parseExternalUrl(url));
   },
 };

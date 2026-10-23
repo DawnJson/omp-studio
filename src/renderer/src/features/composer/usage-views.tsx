@@ -4,13 +4,22 @@ import type {
   Locale,
   QuotaAccount,
   QuotaLimit,
+  QuotaResetCredits,
   QuotaSnapshot,
+  QuotaUnavailable,
   UsageDay,
   UsageHeatmap,
 } from "../../../../shared/ipc.ts";
 import { formatQuotaReset } from "../../../../shared/ui/reset-time.ts";
-import { activityStats, leftPercent, summarizeUsage, tightestQuota } from "../../../../shared/ui/usage-summary.ts";
+import {
+  activityStats,
+  creditExpiry,
+  leftPercent,
+  summarizeUsage,
+  tightestQuota,
+} from "../../../../shared/ui/usage-summary.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
+import { Badge } from "../../ui/controls.tsx";
 import { useNow } from "../sidebar/task-time.ts";
 import "./usage.css";
 
@@ -90,8 +99,44 @@ function accountStatus(account: QuotaAccount): "ok" | "warning" | "exhausted" {
   return "ok";
 }
 
-/** 一个账号一块：左边状态点 + provider + 账号 + 备注，右边是各窗口的行。 */
+/** 重置券徽章（omp 的 "N resets banked"，`usage-dashboard.ts:648-667`）：悬停带"现在可用几次 · 到期时间 · 不可用原因"。 */
+function ResetCreditsBadge({ credits }: { credits: QuotaResetCredits }) {
+  const t = useT();
+  const locale = useLocale();
+  const now = useNow();
+  const parts: string[] = [];
+  if (credits.redeemableCount !== credits.bankedCount)
+    parts.push(t("usage.quota.credits.usable", { count: credits.redeemableCount }));
+  if (credits.soonestExpiryAt !== null) {
+    const left = creditExpiry(credits.soonestExpiryAt, now);
+    parts.push(
+      left === null
+        ? t("usage.quota.credits.expired")
+        : t("usage.quota.credits.expires", {
+            when: new Intl.RelativeTimeFormat(locale, { numeric: "always", style: "short" }).format(
+              left.value,
+              left.unit,
+            ),
+          }),
+    );
+  }
+  if (credits.redeemableCount === 0 && credits.unavailableReason !== null)
+    parts.push(t("usage.quota.credits.unavailable", { reason: credits.unavailableReason }));
+  const label = t("usage.quota.credits", { count: credits.bankedCount });
+  return (
+    <Badge
+      tone={credits.redeemableCount > 0 ? "success" : "warning"}
+      title={parts.length > 0 ? `${label} · ${parts.join(" · ")}` : label}
+      testId="usage-credits"
+    >
+      {label}
+    </Badge>
+  );
+}
+
+/** 一个账号一块：左边状态点 + provider（套餐 / Daybreak）+ 账号 + 备注 + 重置券，右边是各窗口的行。 */
 export function QuotaBlock({ account }: { account: QuotaAccount }) {
+  const t = useT();
   return (
     <section className="uq-block" data-testid="usage-account">
       <div className="uq-block-grid">
@@ -99,6 +144,16 @@ export function QuotaBlock({ account }: { account: QuotaAccount }) {
           <div className="uq-block-name">
             <span className="uq-dot" data-status={accountStatus(account)} aria-hidden="true" />
             <strong title={account.provider}>{account.provider}</strong>
+            {account.planType !== null && (
+              <Badge testId="usage-plan" title={account.planType}>
+                {account.planType}
+              </Badge>
+            )}
+            {account.daybreak && (
+              <Badge tone="success" testId="usage-daybreak">
+                {t("usage.quota.daybreak")}
+              </Badge>
+            )}
           </div>
           {account.account && (
             <span className="uq-muted" title={account.account}>
@@ -110,6 +165,7 @@ export function QuotaBlock({ account }: { account: QuotaAccount }) {
               {note}
             </span>
           ))}
+          {account.resetCredits !== null && <ResetCreditsBadge credits={account.resetCredits} />}
         </div>
         <div className="uq-limits">
           {account.limits.map((limit) => (
@@ -118,6 +174,19 @@ export function QuotaBlock({ account }: { account: QuotaAccount }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/** 登录了但 omp 取不到用量的账号：一行 "<账号>: usage unavailable"（omp 面板同样）。 */
+export function UnavailableRow({ item }: { item: QuotaUnavailable }) {
+  const t = useT();
+  const text = t("usage.quota.accountUnavailable", { account: `${item.provider} · ${item.label}` });
+  return (
+    <div className="uq-untouched" data-testid="usage-unavailable">
+      <span className="uq-muted" title={text}>
+        {text}
+      </span>
+    </div>
   );
 }
 

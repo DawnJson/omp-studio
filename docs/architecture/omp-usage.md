@@ -44,3 +44,10 @@
 | + `OMP_PROFILE=`（空）与 `PI_PROFILE=bar` | `.omp\stats.db` |
 
 omp-studio 启动 omp 子进程用的是 `{...process.env, 额外的 API key}`（`runOmpCommand`），所以 `statsDbPath(process.env, os.homedir())` 和子进程看到的 home/配置根/profile 一致，同步写的库和读的库是同一个。
+
+## 2026-10-23 补充（omp 18.12.6）
+
+- **额度字段**：`parseQuota` 补了 `planType`（`metadata.planType`，源码里只有 openai-codex 带）、`daybreak`（`metadata.daybreak`）、`resetCredits`（照 omp `usage-display.ts` 的 `nM` 归一：攒的次数、可用次数、最近到期、不可用原因）、`accountsWithoutUsage`（omp 面板的 "usage unavailable" 行）、各账号 `fetchedAt` 的最大值（"N 分钟前取得"）。**按 omp 源码类型写，没有订阅账号实测** [推测]。
+- **刷新绕过缓存**：omp 把用量报告缓存在 agent.db（约 5 分钟，`UsageCache`）。对话框的 ↻ 先跑 `omp usage invalidate` 再 `omp usage --json`（`usage-cli.ts` 的 invalidate 分支，清全部 provider）；打开对话框只读缓存。invalidate 失败直接报错。
+- **表结构自检**：`usage/stats-schema.ts` 列出 studio 读的表和列（对照 18.12.6 真实库核过）；`readHeatmap`、请求记录读之前先检查，缺表缺列抛 `StatsSchemaError`（文字以 `omp stats.db schema mismatch` 开头，界面显示"统计库结构对不上"）。
+

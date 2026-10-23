@@ -50,10 +50,16 @@ export interface FileDiffState {
   error: unknown;
 }
 
+/** diff 状态的键：一份 diff 属于哪个文件 / 哪一侧 / 哪种视图 / 是否忽略空白。 */
+export function diffKeyOf(area: GitDiffArea, scope: GitDiffContext, ignoreWhitespace: boolean, path: string): string {
+  return `${area}:${scope}:${ignoreWhitespace ? "w" : "-"}:${path}`;
+}
+
 export function useFileDiff(
   taskId: TaskId,
   target: { path: string; area: GitDiffArea } | null,
   scope: GitDiffContext,
+  ignoreWhitespace: boolean,
   stamp: number,
 ): FileDiffState {
   const [state, setState] = useState<FileDiffState>({ key: null, diff: null, error: null });
@@ -63,13 +69,13 @@ export function useFileDiff(
 
   useEffect(() => {
     if (path === null || area === null) return;
-    const key = `${area}:${scope}:${path}`;
+    const key = diffKeyOf(area, scope, ignoreWhitespace, path);
     const request = ++latest.current;
-    window.studio.getGitFileDiff(taskId, path, area, scope).then(
+    window.studio.getGitFileDiff(taskId, path, area, scope, ignoreWhitespace).then(
       (diff) => request === latest.current && setState({ key, diff, error: null }),
       (error: unknown) => request === latest.current && setState({ key, diff: null, error }),
     );
-  }, [taskId, path, area, scope, stamp]);
+  }, [taskId, path, area, scope, ignoreWhitespace, stamp]);
 
   return state;
 }

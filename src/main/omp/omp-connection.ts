@@ -1,8 +1,10 @@
 // 一个 `omp --mode rpc-ui` 子进程的连接：启动、握手（协商协议 v2）、按 id 对应命令应答、转发其余帧、关闭。
 // 协议见 omp 文档 rpc.md；实测行为见 docs/architecture/omp-rpc.md。
+// 常驻默认应答：没人认领 extension UI（claimExtensionUi）时，要答复的请求回 cancelled，呈现类写日志。
 import { spawn, execFile, type ChildProcessWithoutNullStreams } from "node:child_process";
 import path from "node:path";
 import { FrameDecoder, type RawFrame } from "./frame-decoder.ts";
+import { cancelledReply, logPresentationRequest } from "./extension-ui.ts";
 import type {
   PromptParams,
   PromptResultEvent,
@@ -104,6 +106,8 @@ export class OmpConnection {
   #pending = new Map<string, PendingRequest>();
   #promptWaiters = new Map<string, PromiseWithResolvers<PromptResultEvent>>();
   #frameListeners = new Set<(frame: RpcServerFrame) => void>();
+  /** 认领了 extension UI 的调用方数（登录）。大于 0 时默认应答不动，由认领者自己答。 */
+  #uiClaims = 0;
   #nextId = 1;
   #protocolVersion = 1;
   #exit: OmpExit | null = null;
@@ -198,6 +202,20 @@ export class OmpConnection {
   onFrame(listener: (frame: RpcServerFrame) => void): () => void {
     this.#frameListeners.add(listener);
     return () => this.#frameListeners.delete(listener);
+  }
+
+  /**
+   * 认领 extension UI 请求的应答权（登录期间）：认领期间连接层不替它回 cancelled。返回释放函数（可重复调用）。
+   * 认领者要自己答复 select / confirm / input / editor / ask，否则 omp 会一直等。
+   */
+  claimExtensionUi(): () => void {
+    this.#uiClaims++;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.#uiClaims--;
+    };
   }
 
   /** 发送一条命令，等它的应答。`success: false` 时 reject `RpcCommandError`。 */
@@ -299,6 +317,11 @@ export class OmpConnection {
     }
     if (serverFrame.type === "prompt_result" && serverFrame.id !== undefined)
       this.#promptWaiters.get(serverFrame.id)?.resolve(serverFrame);
+    if (serverFrame.type === "extension_ui_request" && this.#uiClaims === 0) {
+      const reply = cancelledReply(serverFrame);
+      if (reply) this.send(reply);
+      else logPresentationRequest(serverFrame);
+    }
     for (const listener of this.#frameListeners) listener(serverFrame);
   }
 

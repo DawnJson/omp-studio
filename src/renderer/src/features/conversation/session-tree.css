@@ -62,14 +62,39 @@
 .tree-row[data-current="true"] .tree-text {
   color: var(--accent);
 }
-/* TSP 任务每行的"从这里分叉"：悬停或选中这一行时才出现（和用户消息气泡的悬停按钮同一套手势）。 */
-.tree-row .tree-fork {
+/* 每行的"添加标签"和（TSP 任务的）"从这里分叉"：悬停或选中这一行时才出现（和用户消息气泡的悬停按钮同一套手势）。 */
+.tree-row .tree-act {
   opacity: 0;
 }
-.tree-row[data-active="true"] .tree-fork,
-.tree-row:hover .tree-fork {
+.tree-row[data-active="true"] .tree-act,
+.tree-row:hover .tree-act {
   opacity: 1;
 }
-.tree-row .tree-fork:disabled {
+.tree-row .tree-act:disabled {
   opacity: 0.4;
+}
+.tree-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.tree-hint {
+  margin: 0;
+  padding: 0 var(--space-3);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.tree-label-edit {
+  flex: 1;
+  min-width: 0;
+}
+/* 压缩点和分支摘要是分隔 / 摘要节点，不是能回溯的消息：不可点的样子，文字用次要色。 */
+.tree-row[data-kind="compaction"],
+.tree-row[data-kind="branch_summary"] {
+  cursor: default;
+  font-size: var(--fs-xs);
+}
+.tree-row[data-kind="compaction"] .tree-text {
+  color: var(--text-3);
+  text-transform: none;
 }

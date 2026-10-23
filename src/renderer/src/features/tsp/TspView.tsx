@@ -33,7 +33,6 @@ import { useForwardOmpKeys } from "./use-forward-omp-keys.ts";
 import { useTaskCommands } from "./use-task-commands.ts";
 import { clearFirstPrompt, useFirstPrompt } from "./first-prompt-store.ts";
 import { refreshSessionExtras } from "./session-extras-store.ts";
-import { refreshTurnCosts } from "./turn-cost-store.ts";
 import "./tsp.css";
 
 // ───────── 列数 ─────────
@@ -233,8 +232,6 @@ function InlineSurface({
   const hasUser = useTspHasUserMessage(taskId, surfaceId);
   const { showJump, scrollToBottom } = useStickToBottom(taskId, scroller, column);
   useColumns(taskId, column, surface);
-  // 每轮用量行的准确费用：挂载时取一次，一轮结束（lastTurn 变）再取。
-  useEffect(() => refreshTurnCosts(taskId), [taskId, lastTurn]);
   // 恢复会话时 omp 不重发的用量脚注和回顾：挂载时取一次，一轮结束或新增一轮时再取。
   const turnCount = useTspTurnCount(taskId, surfaceId);
   useEffect(() => refreshSessionExtras(taskId), [taskId, lastTurn, turnCount]);

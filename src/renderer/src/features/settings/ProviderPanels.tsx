@@ -1,13 +1,17 @@
 // 提供商登录对话框里的几种内容：OAuth 进度、选账号、输入 API key、失败。状态和动作都由 ProviderFlowDialog 持有，这里只画正文；按钮在对话框页脚。
+import type { LoginEvent } from "../../../../shared/ipc.ts";
 import type { LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Button, FormField, TextField } from "../../ui/controls.tsx";
+import { Badge, Button, FormField, TextField } from "../../ui/controls.tsx";
+
+/** omp 发来的进度提示，按到达顺序保留（登录失败时能看出走到了哪一步）。 */
+export type ProgressEntry = Extract<LoginEvent, { type: "progress" }>;
 
 interface LoginProgress {
   url?: string | undefined;
   launchUrl?: string | undefined;
   instructions?: string | undefined;
-  progress?: string | undefined;
+  progress?: ProgressEntry[] | undefined;
   input?: { inputId: string; title: string; placeholder?: string } | undefined;
 }
 
@@ -61,7 +65,15 @@ export function LoginBody({
         </FormField>
       )}
       {flow.instructions && <p className="pv-text pv-muted">{flow.instructions}</p>}
-      {flow.progress && <p className="pv-text pv-muted">{flow.progress}</p>}
+      {flow.progress !== undefined && flow.progress.length > 0 && (
+        <ul className="pv-progress" data-testid="login-progress">
+          {flow.progress.map((entry, index) => (
+            <li key={index} className="pv-text pv-progress-item" data-level={entry.level}>
+              {entry.message}
+            </li>
+          ))}
+        </ul>
+      )}
       {flow.input && (
         <FormField label={flow.input.title}>
           <TextField
@@ -107,7 +119,17 @@ export function AccountsBody({
             disabled={busy}
             onClick={() => onPick(account.credentialId)}
           >
-            <span>{account.label}</span>
+            <span>
+              {account.label}
+              {account.active && (
+                <>
+                  {" "}
+                  <Badge tone="accent" testId={`account-active-${account.credentialId}`}>
+                    {t("login.accountActive")}
+                  </Badge>
+                </>
+              )}
+            </span>
             <span className="pv-muted">{account.detail}</span>
           </button>
         ))}

@@ -23,6 +23,7 @@ export function CustomProviders() {
   const { slot: editing, open: openEditing, closed: editingClosed, reset: resetEditing } = useDialogSlot<Editing>();
   const [deleting, setDeleting] = useState<CustomProviderInfo | null>(null);
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => void loadCustomProviders(), []);
 
@@ -60,6 +61,20 @@ export function CustomProviders() {
     pushToast({ message: t("custom.saved") });
   };
 
+  /** `omp models refresh`：重新拉各 provider 的目录（自动发现的模型也在内），主进程关掉服务进程后，这里重读模型列表。 */
+  const refreshModels = async () => {
+    setRefreshing(true);
+    try {
+      await window.studio.refreshModels();
+      reloadAfterChange();
+      pushToast({ message: t("custom.refreshed") });
+    } catch (error) {
+      pushToast({ level: "error", message: t("custom.refreshFailed", { message: describeError(t, error) }) });
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const confirmDelete = async (provider: CustomProviderInfo) => {
     setDeleting(null);
     setBusy(true);
@@ -90,6 +105,17 @@ export function CustomProviders() {
         count={data?.providers.length}
         actions={
           <>
+            <Button
+              size="sm"
+              variant="quiet"
+              loading={refreshing}
+              disabled={busy || data === null}
+              title={t("custom.refresh.tip")}
+              onClick={() => void refreshModels()}
+              testId="custom-refresh"
+            >
+              {t("custom.refresh")}
+            </Button>
             <Button
               size="sm"
               variant="quiet"

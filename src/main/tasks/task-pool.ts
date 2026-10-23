@@ -265,11 +265,6 @@ export class TaskPool {
     return this.#runner(id).tspSnapshot();
   }
 
-  /** 每一轮的费用（美元，从旧到新）；没有会话文件、读失败时 []。 */
-  getTspTurnCosts(id: TaskId): Promise<number[]> {
-    return this.#runner(id).turnCosts();
-  }
-
   /** 用量脚注和空闲回顾（omp 恢复会话时不重发）；读不到时为空。 */
   getTspSessionExtras(id: TaskId): Promise<TspSessionExtras> {
     return this.#runner(id).sessionExtras();
@@ -290,6 +285,11 @@ export class TaskPool {
 
   resizeTsp(id: TaskId, cols: number): void {
     this.#runner(id).resizeTsp(cols);
+  }
+
+  /** 深浅主题或减少动效变了（runtime.ts 订阅 nativeTheme 和设置）：通知所有运行中的 TSP 会话。 */
+  setAppearance(next: { dark: boolean; reduceMotion: boolean }): void {
+    for (const runner of this.#runners.values()) runner.setAppearance(next);
   }
 
   // 子代理面板（S1）：读会话文件，插话 / 结束 / 恢复由主进程在后台驱动 Agent Hub。
@@ -396,7 +396,7 @@ export class TaskPool {
   async forkTask(id: TaskId, entryId: string | null): Promise<ForkResult> {
     const source = this.#runner(id);
     const { sourceFile, entryId: target, target: known } = await source.prepareFork(entryId);
-    const { projectId, title, model, thinkingLevel, worktreePath, worktreeBranch, worktreeBase } = source.record;
+    const { projectId, title, model, thinkingLevel, worktreePath, worktreeBranch, worktreeBase, cwd } = source.record;
     const record = await this.#deps.registry.addTask({
       projectId,
       sessionFile: null,
@@ -404,6 +404,8 @@ export class TaskPool {
       title: title === "" ? title : (this.#deps.forkTitle?.(title) ?? title),
       model,
       thinkingLevel,
+      // omp 里 `/move` 过的会话绑在新目录上，分叉要在同一目录起。
+      ...(cwd != null && { cwd }),
       ...(worktreePath !== null &&
         worktreeBranch !== null &&
         worktreeBase !== null && { worktree: { path: worktreePath, branch: worktreeBranch, base: worktreeBase } }),
@@ -419,13 +421,23 @@ export class TaskPool {
     return this.#runner(id).rewindTo(entryId, undefined, summarize);
   }
 
+  /** 给会话树里的条目打标签（`label` 为 null / 空 = 清除），由 omp 的 `/tree` 选择器完成。 */
+  async labelTreeEntry(id: TaskId, entryId: string, label: string | null): Promise<void> {
+    return this.#runner(id).labelEntry(entryId, label);
+  }
+
   taskGoal(id: TaskId, op: GoalOp, objective?: string): Promise<TaskState["goal"]> {
     return this.#runner(id).goal(op, objective);
   }
 
-  /** 任务的工作目录：有 worktree 时是 worktree 根，否则是项目路径。 */
+  /** 任务现在的工作目录：omp 里 `/move` 过的目录 > worktree 根 > 项目路径（TspRunner.cwd）。 */
   taskCwd(id: TaskId): string {
     return this.#runner(id).cwd;
+  }
+
+  /** omp 标题里的 PR 号（当前分支有 PR）；没有为 null。 */
+  taskPullRequest(id: TaskId): number | null {
+    return this.#runner(id).prNumber;
   }
 
   // ───── 工作区目录（`/add-dir`；S7）─────
@@ -504,7 +516,13 @@ export class TaskPool {
     await this.#deps.beforeTaskClose?.(id);
     await runner.close();
     await this.#worktrees().remove(project, worktreePath, worktreeBranch);
-    await this.#deps.registry.updateTask(id, { worktreePath: null, worktreeBranch: null, worktreeBase: null });
+    // cwd 也清掉：它可能在被删的 worktree 里（OSC 7 记的是 omp 当前目录）。
+    await this.#deps.registry.updateTask(id, {
+      worktreePath: null,
+      worktreeBranch: null,
+      worktreeBase: null,
+      cwd: null,
+    });
     await this.archiveTask(id);
   }
 

@@ -1,14 +1,14 @@
-// 会话信息的"概览"页：标题、ID、文件、目录、模型、上下文，置顶开关，以及 omp 统计库里的用量汇总。
-// 标题、模型、上下文来自任务状态；ID、文件头、置顶、用量来自主进程（getTaskSessionInfo）。
+// 会话信息的"概览"页：标题、ID、文件、目录、模型、上下文，置顶开关，以及用量汇总。
+// 标题、模型、上下文来自任务状态；ID、文件头、置顶、用量来自主进程（getTaskSessionInfo）；用量是会话文件算的，和输入框同口径。
 import { useId, useState } from "react";
-import type { TaskSessionInfo, TaskState } from "../../../../shared/ipc.ts";
+import type { ModelUsage, SessionModelUsage, TaskSessionInfo, TaskState } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { describeError, reportError } from "../../ui/errors.ts";
 import { Button, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
 import { formatCount, formatMoney } from "../composer/usage-format.ts";
 import { copyText, togglePin } from "./session-info-actions.ts";
 import { thinkingLabel } from "../composer/thinking-levels.ts";
-import type { SyncedRead } from "./use-synced-read.ts";
+import type { Read } from "./use-synced-read.ts";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -19,76 +19,61 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function UsageSection({ read }: { read: SyncedRead<TaskSessionInfo> }) {
+/** 用量：会话文件算的（和输入框同口径，含进行中的会话），按 get_session_stats 的范围（压缩过只算压缩后，另给合计）。 */
+function UsageSection({ usage }: { usage: SessionModelUsage }) {
   const t = useT();
-  const locale = useLocale();
-  const stats = read.data?.stats;
-  const rollup = stats?.rollup ?? null;
-  const tokens = stats?.tokens ?? null;
-  const date = (ms: number) => new Date(ms).toLocaleString(locale);
+  const sum = (pick: (row: ModelUsage) => number) => usage.models.reduce((total, row) => total + pick(row), 0);
   return (
     <section className="si-section" data-testid="si-usage">
       <SectionHead title={t("sessionInfo.usage.title")} />
-      {rollup !== null && (
+      {usage.models.length === 0 ? (
+        <p className="si-note" data-testid="si-no-usage">
+          {t("sessionInfo.usage.none")}
+        </p>
+      ) : (
         <dl className="si-grid">
           <Row label={t("sessionInfo.usage.requests")}>
-            <span data-testid="si-requests">{rollup.requests}</span>
+            <span data-testid="si-requests">{sum((row) => row.requests)}</span>
           </Row>
           <Row label={t("sessionInfo.usage.tokens")}>
             <span data-testid="si-tokens" className="si-num">
-              {formatCount(rollup.totalTokens)}
+              {formatCount(sum((row) => row.total))}
             </span>
-            {tokens !== null && (
-              <span className="si-note">
-                {t("sessionInfo.usage.breakdown", {
-                  input: formatCount(tokens.input),
-                  output: formatCount(tokens.output),
-                  cacheRead: formatCount(tokens.cacheRead),
-                  cacheWrite: formatCount(tokens.cacheWrite),
+            <span className="si-note">
+              {t("sessionInfo.usage.breakdown", {
+                input: formatCount(sum((row) => row.input)),
+                output: formatCount(sum((row) => row.output)),
+                cacheRead: formatCount(sum((row) => row.cacheRead)),
+                cacheWrite: formatCount(sum((row) => row.cacheWrite)),
+              })}
+            </span>
+          </Row>
+          <Row label={t("sessionInfo.usage.cost")}>
+            <span data-testid="si-cost" className="si-num">
+              {formatMoney(sum((row) => row.cost))}
+            </span>
+            {usage.whole !== null && (
+              <span className="si-note" data-testid="si-whole">
+                {t("sessionInfo.usage.whole", {
+                  tokens: formatCount(usage.whole.total),
+                  cost: formatMoney(usage.whole.cost),
                 })}
               </span>
             )}
           </Row>
-          <Row label={t("sessionInfo.usage.cost")}>
-            <span data-testid="si-cost" className="si-num">
-              {formatMoney(rollup.costUsd)}
-            </span>
-            {rollup.unpriced > 0 && (
-              <span className="si-note">{t("sessionInfo.usage.unpriced", { count: rollup.unpriced })}</span>
-            )}
-          </Row>
-          <Row label={t("sessionInfo.usage.toolCalls")}>
-            <span className="si-num">{rollup.toolCalls}</span>
-          </Row>
-          {rollup.models.length > 0 && <Row label={t("sessionInfo.usage.models")}>{rollup.models.join(", ")}</Row>}
-          <Row label={t("sessionInfo.row.started")}>
-            {t("sessionInfo.usage.range", { from: date(rollup.startedAt), to: date(rollup.endedAt) })}
+          <Row label={t("sessionInfo.usage.models")}>
+            {usage.models
+              .map((row) => (row.provider === "" ? row.modelId : `${row.provider}/${row.modelId}`))
+              .join(", ")}
           </Row>
         </dl>
       )}
-      {stats !== undefined && !stats.hasDatabase && <p className="si-note">{t("sessionInfo.usage.noDatabase")}</p>}
-      {stats?.hasDatabase === true && rollup === null && !read.syncing && (
-        <p className="si-note" data-testid="si-no-rollup">
-          {t("sessionInfo.usage.noRollup")}
-        </p>
-      )}
-      <div className="si-sync">
-        <span>
-          {read.syncing
-            ? t("sessionInfo.usage.syncing")
-            : read.syncError !== null
-              ? t("sessionInfo.usage.syncFailed", { message: describeError(t, read.syncError) })
-              : t("sessionInfo.usage.note")}
-        </span>
-        <Button variant="quiet" size="sm" disabled={read.syncing} onClick={read.refresh}>
-          {t("sessionInfo.usage.refresh")}
-        </Button>
-      </div>
+      <p className="si-note">{t("sessionInfo.usage.note")}</p>
     </section>
   );
 }
 
-export function InfoTab({ task, read }: { task: TaskState; read: SyncedRead<TaskSessionInfo> }) {
+export function InfoTab({ task, read }: { task: TaskState; read: Read<TaskSessionInfo> }) {
   const t = useT();
   const locale = useLocale();
   const pinId = useId();
@@ -199,7 +184,7 @@ export function InfoTab({ task, read }: { task: TaskState; read: SyncedRead<Task
               testId="si-pin"
             />
           </div>
-          <UsageSection read={read} />
+          <UsageSection usage={info.usage} />
         </>
       )}
     </>

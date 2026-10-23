@@ -5,13 +5,13 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from
 import { btwTurns, isBtwRunning, latestTurn, type BtwHistoryTurn } from "../../../../shared/btw.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Close, Plus } from "../../icons.tsx";
+import { Close, CopyIcon, Plus } from "../../icons.tsx";
 import { Markdown } from "../../markdown/index.ts";
 import { useBtwRecords } from "../../store/index.ts";
 import { Badge, Button, IconButton, Tabs, TextField } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
-import { askBtwQuestion, cancelBtwQuestion } from "./btw-actions.ts";
+import { askBtwQuestion, cancelBtwQuestion, copyBtwAnswer } from "./btw-actions.ts";
 import { closeBtw, selectBtwTopic, useBtwUi } from "./btw-ui-store.ts";
 import { activeTopic, canAsk, NEW_TOPIC, topicLabel } from "./btw-view.ts";
 import "./btw.css";
@@ -106,6 +106,15 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
           </Badge>
         )}
         <span className="btw-spacer" />
+        {latest !== null && latest.answer !== "" && (
+          <IconButton
+            label={t("btw.copyAnswer")}
+            testId="btw-copy-answer"
+            onClick={() => copyBtwAnswer(latest.answer, t)}
+          >
+            <CopyIcon size={14} />
+          </IconButton>
+        )}
         {topic !== null && (
           <IconButton
             label={t("btw.newTopic")}

@@ -27,7 +27,7 @@ export async function syncStatsDb(): Promise<void> {
 }
 
 export const usageHandlers: HandlerGroup<"getUsageQuota" | "getUsageHeatmap"> = {
-  getUsageQuota: async () => fetchQuota(await omp(QUOTA_TIMEOUT_MS)),
+  getUsageQuota: async (refresh) => fetchQuota(await omp(QUOTA_TIMEOUT_MS), parseBoolean(refresh, "refresh")),
   getUsageHeatmap: async (refresh) => {
     if (parseBoolean(refresh, "refresh")) await syncStatsDb();
     return readHeatmap(statsDbPath());

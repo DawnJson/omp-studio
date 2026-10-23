@@ -11,6 +11,8 @@ import { goalContinuationKey } from "../../shared/ui/goal-continuation.ts";
 import { applyGoalContinuationDefault, isGoalContinuationExplicit } from "../omp-config/goal-default.ts";
 import { applySetupWizardDefault, isSetupWizardExplicit, setupWizardKey } from "../omp-config/setup-wizard-default.ts";
 import { registerStartupDefaults } from "../omp-config/startup-defaults.ts";
+import { readOmpKeybindings } from "../omp-config/keybindings.ts";
+import { notifyEnabled, type NotifyKind } from "../omp-config/notify-settings.ts";
 import { readApprovalMode, type ApprovalModeDeps } from "../omp-config/approval-mode.ts";
 import { listJson, OmpConfigService, runOmpConfig } from "../omp-config/config-service.ts";
 import {
@@ -119,6 +121,11 @@ const modelDefaultsDeps: ModelDefaultsDeps = {
   },
 };
 
+/** omp 的 ask / completion / error 通知设置现在是开还是关（在这个项目目录里跑 `omp config list --json`，项目配置盖过全局）；供系统通知用。 */
+export async function readNotifyEnabled(kind: NotifyKind, cwd: string | null): Promise<boolean> {
+  return notifyEnabled(await modelDefaultsDeps.list(cwd), kind);
+}
+
 async function projectPath(projectId: unknown): Promise<string | null> {
   if (projectId === null) return null;
   return (await getTaskPool()).projectPath(parseProjectId(projectId));
@@ -161,7 +168,6 @@ export const ompHandlers: HandlerGroup<
   | "resetOmpConfig"
   | "setReduceMotion"
   | "setEnterWhileRunning"
-  | "setNotifyOnGate"
   | "setSoundOnDone"
   | "setCopyOnSelect"
   | "setYoloConfirmed"
@@ -172,6 +178,7 @@ export const ompHandlers: HandlerGroup<
   | "setModelRole"
   | "getApprovalMode"
   | "getModelInsights"
+  | "getOmpKeybindings"
 > = {
   getOmpStatus: () => {
     const manager = ompManager();
@@ -208,7 +215,6 @@ export const ompHandlers: HandlerGroup<
     Promise.resolve(
       updateSettings({ enterWhileRunning: parseOneOf(mode, "enterWhileRunning", ["steer", "followUp"]) }),
     ),
-  setNotifyOnGate: (on) => Promise.resolve(updateSettings({ notifyOnGate: parseBoolean(on, "notifyOnGate") })),
   setSoundOnDone: (on) => Promise.resolve(updateSettings({ soundOnDone: parseBoolean(on, "soundOnDone") })),
   setCopyOnSelect: (on) => Promise.resolve(updateSettings({ copyOnSelect: parseBoolean(on, "copyOnSelect") })),
   setYoloConfirmed: () => Promise.resolve(updateSettings({ yoloConfirmed: true })),
@@ -246,4 +252,5 @@ export const ompHandlers: HandlerGroup<
       keys.map(parseModelKey),
     );
   },
+  getOmpKeybindings: () => readOmpKeybindings(resolveAgentDir()),
 };

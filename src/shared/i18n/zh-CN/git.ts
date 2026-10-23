@@ -47,6 +47,12 @@ export const git = {
   "commit.done": "已提交 {commit}",
   "commit.nothing": "没有可提交的内容。勾选“先暂存全部改动”或在评审里暂存文件。",
   "commit.failed": "提交被 git 拒绝",
+  "commit.amended": "已修改上一次提交，现在是 {commit}",
+  "commit.noPrevious": "还没有提交，没有可修改的。",
+  "generate.nothing": "没有已暂存的改动，先暂存要提交的文件。",
+  "generate.noModel": "omp 没有可用的 commit 模型。在设置里给 commit（或 smol）角色选一个模型并配好 key。",
+  "generate.split": "omp 建议把这些改动拆成 {count} 个提交，这里只填了第一个的信息。",
+  "generate.failed": "生成提交信息失败",
 
   // 推送
   "push.done": "已推送到 {remote}/{branch}",
@@ -65,6 +71,7 @@ export const git = {
   "pr.ghUnavailable": "找不到 gh 命令。安装 GitHub CLI 并加入 PATH 后才能创建 PR。",
   "pr.ghUnauthenticated": "gh 还没有登录。在终端运行 gh auth login 后重试。",
   "pr.failed": "创建 PR 失败",
+  "pr.badge": "在浏览器中打开 Pull Request #{number}",
 
   // 合并
   "merge.done": "已合并到 {base}",

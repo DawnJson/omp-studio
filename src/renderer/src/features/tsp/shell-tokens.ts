@@ -1,5 +1,6 @@
 // tool 头里 `targetKind: "command"` 的一行 shell 命令：切成 程序词 / 选项 / 字符串 / 变量 / 运算符 / 普通文字（纯函数）。
-// 不是完整的 shell 解析，只为着色；规范（Work/tool Target）列的就是这几类。
+// 不是完整的 shell 解析，只为着色；规范（Work/tool Target）列的就是这几类。只用于 bash（含没给 lang）：
+// 其它 lang 走 markdown/highlight.ts（work.tsx 的 CommandText）；bash 不走它是因为 Shiki 的 bash 语法把选项和普通参数都标成 string、`$VAR` 不着色。
 
 export type ShellTokenKind = "cmd" | "flag" | "str" | "var" | "op" | "text";
 

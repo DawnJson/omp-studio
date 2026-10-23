@@ -1,8 +1,12 @@
 // 每轮用量脚注（omp.turn.usage）的文字：omp 恢复会话时不重发这一行，studio 用会话文件算出的数据补一行。
-// 格式和 omp 的 `tLo` 一致（"13.4s · 728 tok · $0.0031 this turn"，悬停 "This turn: …"），这样同一个任务里
-// 实时的行和补出来的行长得一样；"this turn" 是 omp 自己写死的英文，不走 i18n。
+// 格式和 omp 的 `tLo`（packages/tui/src/overlays/usage-row.ts）完全一致（"13.4s · 728 tok · <$0.01 this turn"，悬停 "This turn: …"），
+// 恢复出来的行和实时的行写法相同；"this turn" 是 omp 自己写死的英文，不走 i18n。
 import type { TspTurnFooter } from "../../../../shared/ipc.ts";
-import { formatExactCost } from "./turn-cost.ts";
+
+/** omp 的费用写法：不到半分钱 `<$0.01`，否则两位小数。 */
+function formatTurnCost(usd: number): string {
+  return usd < 0.005 ? "<$0.01" : `$${usd.toFixed(2)}`;
+}
 
 /** omp 的 `bt`：毫秒 → 244ms / 13.4s / 2m5s / 1h3m / 2d4h。 */
 export function formatDuration(ms: number): string {
@@ -38,10 +42,10 @@ export function formatTokens(count: number): string {
   return `${one(count / 1_000_000_000)}B`;
 }
 
-/** 脚注的文字和悬停提示（omp 的 `tLo`；费用用准确值，不写 `<$0.01`）。 */
+/** 脚注的文字和悬停提示（omp 的 `tLo`）。 */
 export function formatTurnFooter(footer: TspTurnFooter): { text: string; title: string } {
   const total = footer.input + footer.output;
-  const cost = footer.cost > 0 ? formatExactCost(footer.cost) : undefined;
+  const cost = footer.cost > 0 ? formatTurnCost(footer.cost) : undefined;
   const elapsed = footer.elapsedMs === null ? undefined : formatDuration(footer.elapsedMs);
   const short = [elapsed, `${formatTokens(total)} tok`, cost].filter((part) => part !== undefined).join(" · ");
   const detail = `${total.toLocaleString("en-US")} tokens (${footer.input.toLocaleString("en-US")} in · ${footer.output.toLocaleString("en-US")} out)`;

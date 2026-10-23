@@ -1,8 +1,9 @@
-// pty 输出的增量解析：omp 的输出里夹着 TSP 的 APC 串、OSC（会话文件、标题、通知）和 DA1 查询，其余 ANSI 全部丢弃。
+// pty 输出的增量解析：omp 的输出里夹着 TSP 的 APC 串、OSC（会话文件、标题、当前目录、程序状态）和 DA1 查询，其余 ANSI 全部丢弃。
 // 数据可以在任意字节处断开（pty 的块边界不管转义序列），所以解析器是一个按字节推进的状态机，状态跨 write() 保留。
 //
 // 输入按字节处理（node-pty 用 `encoding: null` 给 Buffer）：规范允许 TSP 的分块切在 UTF-8 字符中间
 // （protocol/transport「Chunking」：先按字节拼接再解析），按字符串解码会把被切开的字符变成 U+FFFD。
+import { parseRunStatus, type RunStatusMessage } from "../../shared/tsp/run-status.ts";
 
 const ESC = 0x1b;
 const BEL = 0x07;
@@ -13,7 +14,7 @@ const UNDERSCORE = 0x5f;
 
 /** 规范：一个 APC 串最长 262 144 字节，之后 Tern 丢弃；omp 自己按 hello 的 apc（65 536）分块。留一倍余量。 */
 const MAX_APC_BYTES = 512 * 1024;
-/** OSC（标题、通知、SetUserVar）远小于这个值；超过的一律是垃圾。 */
+/** OSC（标题、当前目录、程序状态、SetUserVar）远小于这个值；超过的一律是垃圾。 */
 const MAX_OSC_BYTES = 256 * 1024;
 /** 分块拼接后的上限（规范：一条分块消息拼起来最多 24 MiB）。 */
 const MAX_JOINED_BYTES = 24 * 1024 * 1024;
@@ -42,7 +43,7 @@ export interface TspStreamChunkDropped {
 export interface TspStreamUserVar {
   type: "user-var";
   name: string;
-  /** 已解 base64。 */
+  /** 已解 base64；清空（`SetUserVar=<name>` 不带值，或值为空）为空串。 */
   value: string;
 }
 
@@ -51,10 +52,16 @@ export interface TspStreamTitle {
   title: string;
 }
 
-export interface TspStreamNotify {
-  type: "notify";
-  title: string;
-  body: string;
+/** OSC 7：`file://host/path`（原样 URI，换成本机路径见 shared/tsp/osc7.ts）。 */
+export interface TspStreamCwd {
+  type: "cwd";
+  uri: string;
+}
+
+/** OSC 7501：omp 的程序状态（shared/tsp/run-status.ts）。 */
+export interface TspStreamRunStatus {
+  type: "run-status";
+  status: RunStatusMessage;
 }
 
 export interface TspStreamDa1 {
@@ -72,7 +79,8 @@ export type TspStreamEvent =
   | TspStreamChunkDropped
   | TspStreamUserVar
   | TspStreamTitle
-  | TspStreamNotify
+  | TspStreamCwd
+  | TspStreamRunStatus
   | TspStreamDa1
   | TspStreamText;
 
@@ -108,8 +116,6 @@ export class TspStreamParser {
   /** 文字可能在一个 UTF-8 字符中间断开。 */
   readonly #textDecoder = new TextDecoder("utf-8");
   #sequence: ChunkSequence | null = null;
-  /** OSC 99（kitty 通知）按 id 累积：title 和 body 可能分几条到达。 */
-  readonly #kittyNotes = new Map<string, { title: string; body: string }>();
 
   constructor(emit: (event: TspStreamEvent) => void) {
     this.#emit = emit;
@@ -343,47 +349,23 @@ export class TspStreamParser {
       case "2":
         this.#emit({ type: "title", title: rest });
         return;
-      case "9":
-        // ConEmu 的 `9;4;…` 是进度条，不是通知。
-        if (/^4(;|$)/.test(rest)) return;
-        this.#emit({ type: "notify", title: "", body: rest });
+      case "7":
+        this.#emit({ type: "cwd", uri: rest });
         return;
-      case "99":
-        this.#kitty(rest);
+      case "7501": {
+        const status = parseRunStatus(rest);
+        if (status) this.#emit({ type: "run-status", status });
         return;
+      }
       case "1337": {
-        const match = /^SetUserVar=([^=]+)=(.*)$/s.exec(rest);
-        if (match) this.#emit({ type: "user-var", name: match[1] as string, value: decodeBase64(match[2] as string) });
+        // `SetUserVar=<name>=<base64>`；不带 `=` 的 `SetUserVar=<name>` 是清空（omp 在会话文件还没有时发）。
+        const match = /^SetUserVar=([^=]+)(?:=(.*))?$/s.exec(rest);
+        if (match) this.#emit({ type: "user-var", name: match[1] as string, value: decodeBase64(match[2] ?? "") });
         return;
       }
       default:
         return;
     }
-  }
-
-  /** kitty 通知协议：`99;<k=v:k=v>;<payload>`，`i` 是通知 id，`d=0` 表示还有后续，`p` 是 title（默认）或 body。 */
-  #kitty(rest: string): void {
-    const semi = rest.indexOf(";");
-    const meta = semi < 0 ? rest : rest.slice(0, semi);
-    let payload = semi < 0 ? "" : rest.slice(semi + 1);
-    const fields = new Map<string, string>();
-    for (const pair of meta.split(":")) {
-      const eq = pair.indexOf("=");
-      if (eq > 0) fields.set(pair.slice(0, eq), pair.slice(eq + 1));
-    }
-    if (fields.get("e") === "1") payload = decodeBase64(payload);
-    const id = fields.get("i") ?? "";
-    const note = this.#kittyNotes.get(id) ?? { title: "", body: "" };
-    const part = fields.get("p") ?? "title";
-    if (part === "title") note.title += payload;
-    else if (part === "body") note.body += payload;
-    else return; // close、alive、? 等控制载荷不是通知内容
-    if (fields.get("d") === "0") {
-      this.#kittyNotes.set(id, note);
-      return;
-    }
-    this.#kittyNotes.delete(id);
-    this.#emit({ type: "notify", title: note.title, body: note.body });
   }
 }
 

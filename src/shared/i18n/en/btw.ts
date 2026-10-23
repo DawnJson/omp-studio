@@ -10,6 +10,7 @@ export const btw = {
   cancel: "Cancel question",
   close: "Close side question",
   newTopic: "New topic",
+  copyAnswer: "Copy answer",
   topics: "Side-question topics",
   "status.running": "Answering",
   "status.cancelled": "Cancelled",

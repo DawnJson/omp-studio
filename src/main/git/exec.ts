@@ -16,6 +16,8 @@ export interface RunOptions {
   env?: NodeJS.ProcessEnv;
   /** Windows 上原样传参数（cmd.exe /s /c "…" 要自己控制引号）。 */
   windowsVerbatimArguments?: boolean;
+  /** 取消：杀掉子进程并以 AbortError 拒绝。 */
+  signal?: AbortSignal;
 }
 
 export interface RunResult {
@@ -106,6 +108,7 @@ export function runCommand(command: string, args: readonly string[], options: Ru
     if (settled) return;
     settled = true;
     clearTimeout(timer);
+    options.signal?.removeEventListener("abort", onAbort);
     action();
   };
   const timer = setTimeout(() => {
@@ -129,6 +132,13 @@ export function runCommand(command: string, args: readonly string[], options: Ru
   child.on("error", (error: NodeJS.ErrnoException) => {
     finish(() => reject(error.code === "ENOENT" ? new CommandNotFoundError(command) : error));
   });
+  // 取消：结束进程树，promise 以 AbortError 拒绝。
+  const onAbort = () => {
+    killTree(child);
+    finish(() => reject(new DOMException("aborted", "AbortError")));
+  };
+  if (options.signal?.aborted) onAbort();
+  else options.signal?.addEventListener("abort", onAbort, { once: true });
   child.on("close", (code) => {
     finish(() =>
       resolve({

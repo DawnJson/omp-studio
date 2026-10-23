@@ -1557,6 +1557,9 @@
   stroke: var(--text-3);
   stroke-width: 1;
 }
+.tsp-mt-ring .mark[data-tone] {
+  stroke: var(--tsp-tc);
+}
 .tsp-mt-blocks {
   display: grid;
   grid-template-columns: repeat(10, var(--space-2));
@@ -1577,6 +1580,12 @@
 }
 .tsp-mt-blocks i.on {
   background: var(--tsp-fill);
+}
+.tsp-mt-blocks i.mark {
+  box-shadow: 0 0 0 1px var(--text-3);
+}
+.tsp-mt-blocks i.mark[data-tone] {
+  box-shadow: 0 0 0 1px var(--tsp-tc);
 }
 .tsp-mt-lbl {
   color: var(--text-2);
@@ -1786,6 +1795,61 @@
   width: 2px;
   border-radius: var(--radius-pill);
   background: var(--tsp-tool-c);
+}
+/* omp 明确给了 info / warning / error 才染色（规范 §2：完成态中性，success / accent 的完成卡不染）：
+ * done 的卡片也要和成功卡区分开（没匹配 = warning、被取消 / 被重定向 = info）。running / error 状态自带颜色，不被 tone 盖掉。 */
+.tsp-tool[data-tone="info"]:not(.st-running, .st-error),
+.tsp-tool[data-tone="warning"]:not(.st-running, .st-error),
+.tsp-tool[data-tone="error"]:not(.st-running, .st-error) {
+  --tsp-tool-c: var(--tsp-tc);
+}
+.tsp-tool.st-done[data-tone="info"] .tsp-tool-ic,
+.tsp-tool.st-done[data-tone="warning"] .tsp-tool-ic,
+.tsp-tool.st-done[data-tone="error"] .tsp-tool-ic,
+.tsp-tool.st-pending[data-tone="info"] .tsp-tool-ic,
+.tsp-tool.st-pending[data-tone="warning"] .tsp-tool-ic {
+  color: var(--tsp-tool-c);
+}
+.tsp-tool.card.st-done[data-tone="info"],
+.tsp-tool.card.st-done[data-tone="warning"],
+.tsp-tool.card.st-done[data-tone="error"],
+.tsp-tool.card.st-cancelled[data-tone="info"],
+.tsp-tool.card.st-cancelled[data-tone="warning"] {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tsp-tc) 24%, transparent);
+}
+.tsp-tool.card.st-done[data-tone="info"] > .tsp-tool-bar,
+.tsp-tool.card.st-done[data-tone="warning"] > .tsp-tool-bar,
+.tsp-tool.card.st-done[data-tone="error"] > .tsp-tool-bar,
+.tsp-tool.card.st-cancelled[data-tone="info"] > .tsp-tool-bar,
+.tsp-tool.card.st-cancelled[data-tone="warning"] > .tsp-tool-bar {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: var(--space-2);
+  bottom: var(--space-2);
+  width: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--tsp-tool-c);
+}
+/* ansi / text 上的 tone（eval 报错输出变红、ask 取消提示）：只在 omp 明确给了才染色 */
+.tsp-ansi[data-tone="error"],
+.tsp-ansi[data-tone="warning"],
+.tsp-ansi[data-tone="info"],
+.tsp-ansi[data-tone="success"],
+.tsp-ansi[data-tone="accent"],
+.tsp-text[data-tone="error"],
+.tsp-text[data-tone="warning"],
+.tsp-text[data-tone="info"],
+.tsp-text[data-tone="success"],
+.tsp-text[data-tone="accent"],
+.tsp-text[data-tone="muted"],
+.tsp-md[data-tone="error"],
+.tsp-md[data-tone="warning"],
+.tsp-md[data-tone="info"],
+.tsp-md[data-tone="success"],
+.tsp-md[data-tone="accent"],
+.tsp-md[data-tone="muted"] {
+  color: var(--tsp-tc);
 }
 .tsp-tool-head {
   display: flex;

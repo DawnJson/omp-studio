@@ -421,16 +421,6 @@ function roleIds(taskId: TaskId, sf: string, role: string): readonly string[] {
   return roleIndex(taskId, sf)?.byRole.get(role) ?? NO_IDS;
 }
 
-/** 这个用量行是 main 区里从末尾数第几个（0 = 最后一个）；不在 main 里返回 -1。 */
-export function useUsageRowFromEnd(taskId: TaskId, sf: string, id: string): number {
-  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
-  return useSyncExternalStore(sub, () => {
-    const ids = roleIds(taskId, sf, USAGE_ROLE);
-    const index = ids.indexOf(id);
-    return index < 0 ? -1 : ids.length - 1 - index;
-  });
-}
-
 /**
  * 这个助手节点是不是一轮的最后一个、而这一轮 omp 没发用量行（恢复会话时 omp 不重发）：是则返回这一轮是第几轮（从 0 数），
  * 否则 -1。`fileTurns` 是会话文件里的轮数：和文档里的轮数不一致（正在发新消息、压缩过、文件还没读到）时一律 -1，

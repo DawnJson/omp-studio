@@ -1,12 +1,15 @@
-// 会话树面板：列出这个任务会话里的用户消息（分叉处缩进），当前分支上的高亮，选中一条就回到它之前（omp 的 /tree）。
-// 每行还有"从这里分叉"：新建任务，从那条消息之前接着聊（omp --fork，docs/architecture/session-tree.md）。
-// 键盘：↑↓ / Home / End 移动，Enter 选中，Shift+Enter 分叉，Esc 关闭；焦点在面板上，关闭后还给打开前的元素。
-import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+// 会话树面板：列出这个任务会话里的用户消息、压缩点（context 压缩过的分隔）和分支摘要（回溯时 omp 给被放弃的分支写的），
+// 分叉处缩进，当前分支上的高亮；节点上显示 omp `/tree` 里打的标签；顶部搜索框按消息文字 / 标签过滤。
+// 选中一条用户消息就回到它之前（omp 的 /tree），回溯前提示"下面 N 轮会离开当前对话"；每行还有"从这里分叉"（omp --fork）和"添加标签"
+// （omp /tree 里的 Shift+L，主进程驱动，docs/architecture/session-tree.md）。
+// 键盘：↑↓ / Home / End 移动，Enter 选中，Shift+Enter 分叉，Shift+L 打标签，Esc 清搜索 / 关闭；焦点在列表上，关闭后还给打开前的元素。
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import type { SessionTreeNode, TaskId } from "../../../../shared/ipc.ts";
+import { discardedTurns, filterTreeNodes } from "../../../../shared/session-tree-view.ts";
 import { useTaskIdle } from "../../store/tasks-store.ts";
-import { Branch } from "../../icons.tsx";
+import { Branch, Search, Tag } from "../../icons.tsx";
 import { useT } from "../../i18n/use-t.ts";
-import { Badge, Checkbox, IconButton } from "../../ui/controls.tsx";
+import { Badge, Checkbox, IconButton, TextField } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { branchToNode, forkFromMessage } from "./fork-actions.ts";
@@ -14,16 +17,25 @@ import { closeSessionTree, takeSessionTreeFocus, useSessionTreeOpen } from "./se
 import { focusIndexFromEnd } from "./tree-focus.ts";
 import "./session-tree.css";
 
+interface LabelEdit {
+  entryId: string;
+  value: string;
+  saving: boolean;
+}
+
 function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean; onExited(): void }) {
   const t = useT();
   const listId = useId();
   const [nodes, setNodes] = useState<SessionTreeNode[] | null>(null);
   const [active, setActive] = useState(0);
+  const [query, setQuery] = useState("");
+  const [labelEdit, setLabelEdit] = useState<LabelEdit | null>(null);
   const [forking, setForking] = useState(false);
   const [summarize, setSummarize] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const idle = useTaskIdle(taskId);
   const activeRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,12 +59,23 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
     };
   }, [taskId, t]);
 
+  const visible = useMemo(() => filterTreeNodes(nodes ?? [], query), [nodes, query]);
+  const count = visible.length;
+  const activeNode = visible[active];
+  // 回溯会让当前对话里几轮离开（只对用户消息有意义）；0 轮时不提示。
+  const discard = useMemo(
+    () => (activeNode?.kind === "user" && nodes !== null ? discardedTurns(nodes, activeNode.entryId) : 0),
+    [nodes, activeNode],
+  );
+
   useEffect(() => {
     activeRef.current?.scrollIntoView({ block: "nearest" });
-  }, [active, nodes]);
+  }, [active, visible]);
+
+  const busy = forking || summarizing;
 
   const pick = (node: SessionTreeNode) => {
-    if (forking || summarizing) return;
+    if (busy || node.kind !== "user") return;
     if (summarize) {
       // omp 要调一次模型给被放弃的分支写摘要，等它写完再关面板（期间标题提示，行都不可点）。
       setSummarizing(true);
@@ -69,7 +92,7 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
   };
 
   const fork = (node: SessionTreeNode) => {
-    if (forking || summarizing || !idle) return;
+    if (busy || !idle || node.kind !== "user") return;
     setForking(true);
     forkFromMessage(taskId, node.entryId).then(closeSessionTree, (error: unknown) => {
       setForking(false);
@@ -77,8 +100,41 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
     });
   };
 
-  const count = nodes?.length ?? 0;
+  const startLabel = (node: SessionTreeNode) => {
+    if (busy || !idle) return;
+    setLabelEdit({ entryId: node.entryId, value: node.label ?? "", saving: false });
+  };
+
+  const stopLabel = () => {
+    setLabelEdit(null);
+    listRef.current?.focus();
+  };
+
+  const saveLabel = () => {
+    if (labelEdit === null || labelEdit.saving) return;
+    const { entryId, value } = labelEdit;
+    const label = value.trim();
+    setLabelEdit({ ...labelEdit, saving: true });
+    window.studio
+      .labelTreeEntry(taskId, entryId, label === "" ? null : label)
+      .then(() => window.studio.getSessionTree(taskId))
+      .then(
+        ({ nodes: loaded }) => {
+          setNodes(loaded);
+          stopLabel();
+        },
+        (error: unknown) => {
+          setLabelEdit((current) => (current === null ? null : { ...current, saving: false }));
+          reportError(t, error, (message) => t("tree.labelFailed", { message }));
+        },
+      );
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const target = event.target;
+    // 标签输入框自己处理按键（Enter 保存、Esc 取消）。
+    if (labelEdit !== null && target instanceof HTMLInputElement && target.dataset["role"] === "label") return;
+    const inSearch = target instanceof HTMLInputElement;
     switch (event.key) {
       case "ArrowDown":
         event.preventDefault();
@@ -89,19 +145,34 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
         setActive((index) => Math.max(0, index - 1));
         return;
       case "Home":
+        if (inSearch) return;
         event.preventDefault();
         setActive(0);
         return;
       case "End":
+        if (inSearch) return;
         event.preventDefault();
         setActive(Math.max(0, count - 1));
         return;
       case "Enter": {
+        if (event.nativeEvent.isComposing) return;
         event.preventDefault();
-        const node = nodes?.[active];
-        if (node) (event.shiftKey ? fork : pick)(node);
+        if (activeNode) (event.shiftKey ? fork : pick)(activeNode);
         return;
       }
+      case "L":
+        if (inSearch || !event.shiftKey || !activeNode) return;
+        event.preventDefault();
+        startLabel(activeNode);
+        return;
+      case "Escape":
+        // 搜索框里有字时 Esc 先清字，不关面板。
+        if (!inSearch || query === "") return;
+        event.preventDefault();
+        event.stopPropagation();
+        setQuery("");
+        setActive(0);
+        return;
     }
   };
 
@@ -117,12 +188,7 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
       footStart={
         nodes !== null && nodes.length > 0 ? (
           <span title={t("tree.summarizeHint")}>
-            <Checkbox
-              checked={summarize}
-              disabled={forking || summarizing}
-              testId="session-tree-summarize"
-              onChange={setSummarize}
-            >
+            <Checkbox checked={summarize} disabled={busy} testId="session-tree-summarize" onChange={setSummarize}>
               {t("tree.summarize")}
             </Checkbox>
           </span>
@@ -134,51 +200,157 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
       ) : nodes.length === 0 ? (
         <p className="tree-note">{t("tree.empty")}</p>
       ) : (
-        <div
-          className="tree-list"
-          role="listbox"
-          tabIndex={-1}
-          data-autofocus=""
-          aria-label={t("tree.title")}
-          aria-activedescendant={`${listId}-${active}`}
-          aria-busy={forking || summarizing}
-          onKeyDown={onKeyDown}
-        >
-          {nodes.map((node, index) => (
+        <div className="tree-body" onKeyDown={onKeyDown}>
+          <TextField
+            size="sm"
+            width="100%"
+            className="tree-search"
+            testId="session-tree-search"
+            value={query}
+            placeholder={t("tree.searchPlaceholder")}
+            aria-label={t("tree.searchLabel")}
+            leading={<Search size={14} />}
+            onChange={(next) => {
+              setQuery(next);
+              setActive(0);
+            }}
+          />
+          {visible.length === 0 ? (
+            <p className="tree-note" data-testid="session-tree-nomatch">
+              {t("tree.noMatch")}
+            </p>
+          ) : (
             <div
-              key={node.entryId}
-              id={`${listId}-${index}`}
-              ref={index === active ? activeRef : undefined}
-              className="tree-row"
-              role="option"
-              aria-selected={index === active}
-              data-active={index === active}
-              data-branch={node.onCurrentBranch}
-              data-current={node.current}
-              data-testid="session-tree-node"
-              title={t("tree.pick")}
-              style={{ "--indent": node.indent } as CSSProperties}
-              onMouseMove={() => setActive(index)}
-              onClick={() => pick(node)}
+              ref={listRef}
+              className="tree-list"
+              role="listbox"
+              tabIndex={-1}
+              data-autofocus=""
+              aria-label={t("tree.title")}
+              aria-activedescendant={`${listId}-${active}`}
+              aria-busy={busy}
             >
-              <span className="tree-text">{node.text === "" ? t("tree.imageOnly") : node.text}</span>
-              {node.current && <Badge tone="accent">{t("tree.current")}</Badge>}
-              <IconButton
-                className="tree-fork"
-                label={t("tree.fork")}
-                tip={`${t("tree.fork")}\n${t("tree.forkTitle")}`}
-                tabIndex={-1}
-                testId="session-tree-fork"
-                disabled={forking || summarizing || !idle}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  fork(node);
-                }}
-              >
-                <Branch size={14} />
-              </IconButton>
+              {visible.map((node, index) => {
+                const editing = labelEdit?.entryId === node.entryId ? labelEdit : null;
+                return (
+                  <div
+                    key={node.entryId}
+                    id={`${listId}-${index}`}
+                    ref={index === active ? activeRef : undefined}
+                    className="tree-row"
+                    role="option"
+                    aria-selected={index === active}
+                    data-active={index === active}
+                    data-branch={node.onCurrentBranch}
+                    data-current={node.current}
+                    data-kind={node.kind}
+                    data-testid="session-tree-node"
+                    title={
+                      node.kind === "user"
+                        ? t("tree.pick")
+                        : node.kind === "branch_summary"
+                          ? t("tree.branchSummaryTitle")
+                          : t("tree.notRewindable")
+                    }
+                    style={{ "--indent": node.indent } as CSSProperties}
+                    onMouseMove={() => setActive(index)}
+                    onClick={() => pick(node)}
+                  >
+                    {node.kind === "compaction" && (
+                      <span className="tree-text" data-testid="session-tree-compaction">
+                        {t("tree.compaction")}
+                        {node.tokensBefore !== undefined &&
+                          ` · ${t("tree.compactionTokens", { tokens: node.tokensBefore.toLocaleString("en-US") })}`}
+                      </span>
+                    )}
+                    {node.kind === "branch_summary" && (
+                      <Badge testId="session-tree-summary-badge">{t("tree.branchSummary")}</Badge>
+                    )}
+                    {editing !== null ? (
+                      <span className="tree-label-edit" onClick={(event) => event.stopPropagation()}>
+                        <TextField
+                          size="sm"
+                          width="100%"
+                          testId="session-tree-label-input"
+                          data-role="label"
+                          autoFocus
+                          value={editing.value}
+                          disabled={editing.saving}
+                          placeholder={t("tree.labelPlaceholder")}
+                          aria-label={t("tree.labelInputLabel")}
+                          maxLength={200}
+                          onChange={(value) => setLabelEdit({ ...editing, value })}
+                          onKeyDown={(event) => {
+                            if (event.nativeEvent.isComposing) return;
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              saveLabel();
+                            } else if (event.key === "Escape") {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              stopLabel();
+                            }
+                          }}
+                        />
+                      </span>
+                    ) : (
+                      <>
+                        {node.label !== undefined && (
+                          <Badge tone="warning" testId="session-tree-label">
+                            {node.label}
+                          </Badge>
+                        )}
+                        {node.kind !== "compaction" && (
+                          <span className="tree-text">
+                            {node.text === "" && node.kind === "user" ? t("tree.imageOnly") : node.text}
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {node.current && <Badge tone="accent">{t("tree.current")}</Badge>}
+                    {editing === null && (
+                      <IconButton
+                        className="tree-act"
+                        label={node.label === undefined ? t("tree.addLabel") : t("tree.editLabel")}
+                        tip={idle ? undefined : t("tree.labelBusy")}
+                        tabIndex={-1}
+                        testId="session-tree-label-edit"
+                        disabled={busy || !idle}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          startLabel(node);
+                        }}
+                      >
+                        <Tag size={14} />
+                      </IconButton>
+                    )}
+                    {node.kind === "user" && (
+                      <IconButton
+                        className="tree-act"
+                        label={t("tree.fork")}
+                        tip={`${t("tree.fork")}\n${t("tree.forkTitle")}`}
+                        tabIndex={-1}
+                        testId="session-tree-fork"
+                        disabled={busy || !idle}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          fork(node);
+                        }}
+                      >
+                        <Branch size={14} />
+                      </IconButton>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
+          )}
+          {discard > 0 && (
+            <p className="tree-hint" role="status" data-testid="session-tree-discard" data-count={discard}>
+              {t("tree.discard", { count: discard })}
+            </p>
+          )}
         </div>
       )}
     </Dialog>

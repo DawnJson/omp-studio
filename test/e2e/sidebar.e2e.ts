@@ -56,6 +56,8 @@ function makeTask(
     sessionToggles: emptySessionToggles(),
     workspaceDirs: [],
     restartable: false,
+    loaderText: null,
+    prNumber: null,
     ...patch,
   };
 }

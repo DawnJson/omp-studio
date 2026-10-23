@@ -1,7 +1,7 @@
 // TSP 任务的会话树、回溯、分叉（docs/architecture/session-tree.md）：任务池 + TspRunner + 假 omp（fake-tsp-omp 回放 omp 18.12.5 录的
 // fixtures/tsp/session-tree.jsonl：`/tree` → activate 用户消息 → 清空预填的输入框）。会话文件是 fixtures/omp-session 里 omp 真实产出的那份。
 import { existsSync, readFileSync } from "node:fs";
-import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -32,7 +32,6 @@ const settings: StudioSettings = {
   maxLiveProcesses: 6,
   reduceMotion: false,
   enterWhileRunning: "steer",
-  notifyOnGate: true,
   soundOnDone: false,
   copyOnSelect: true,
   yoloConfirmed: false,
@@ -200,6 +199,43 @@ describe("branchTask（TSP：驱动 omp 自己的 /tree）", () => {
   }, 60_000);
 });
 
+describe("labelTreeEntry（TSP：驱动 omp /tree 的 Shift+L 打标签，omp 18.12.6 录制）", () => {
+  const LABELED = "93021031";
+
+  it("send /tree → select → action label → edit 填字 → action label-save → Esc 关选择器；omp 写 label 条目后树里带标签", async () => {
+    const h = await harness();
+    h.fixture.current = "session-tree-label";
+    const { id, file } = await taskWithSession(h, "labeled");
+    // 录制是打标签之前的状态：去掉文件里的 label 条目（omp 在 label-save 时才写它）。
+    const full = readFileSync(file, "utf8");
+    const rows = full.split("\n");
+    const labelRow = rows.find((row) => row.includes('"type":"label"')) as string;
+    await writeFile(file, rows.filter((row) => row !== labelRow).join("\n"));
+    expect((await h.pool.getSessionTree(id)).nodes[0]).not.toHaveProperty("label");
+
+    await h.pool.labelTreeEntry(id, LABELED, " my label ");
+    expect(received(h.log)).toEqual([
+      { ev: "send", sf: "s:1", id: "j.line/input", text: "/tree" },
+      { ev: "select", sf: "s:1", id: "s.^picker", item: LABELED },
+      { ev: "action", sf: "s:1", id: "s.^picker", act: "label" },
+      { ev: "edit", sf: "s:1", id: "t", from: 0, to: 0, text: "my label", cursor: 8, len: 0 },
+      { ev: "action", sf: "s:1", id: "s.^picker", act: "label-save" },
+    ]);
+    expect(readFileSync(h.log, "utf8")).toContain('"kind":"keys"');
+
+    await writeFile(file, full);
+    expect((await h.pool.getSessionTree(id)).nodes[0]).toMatchObject({ entryId: LABELED, label: "my label" });
+  }, 60_000);
+
+  it("不是用户消息 / 压缩点 / 摘要的条目（助手消息、不存在的 id）被拒绝，不往 omp 发任何东西", async () => {
+    const h = await harness();
+    const { id } = await taskWithSession(h);
+    await expect(h.pool.labelTreeEntry(id, "b05cb500", "x")).rejects.toThrow(/cannot be labelled/);
+    await expect(h.pool.labelTreeEntry(id, "nope", "x")).rejects.toThrow(/cannot be labelled/);
+    expect(received(h.log)).toEqual([]);
+  }, 60_000);
+});
+
 describe("回溯时的摘要提示、摘要、压缩过的会话（omp 18.12.5 录制）", () => {
   const SPROMPT_A = "5bc4a7a2";
   const SPROMPT_B = "6f8bf37c";
@@ -240,9 +276,10 @@ describe("回溯时的摘要提示、摘要、压缩过的会话（omp 18.12.5 �
     const h = await harness();
     h.fixture.current = "session-tree-compacted";
     const { id } = await taskWithSession(h, "compacted");
-    expect((await h.pool.getSessionTree(id)).nodes.map((node) => [node.entryId, node.current])).toEqual([
-      [SPROMPT_A, false],
-      [SPROMPT_B, true],
+    expect((await h.pool.getSessionTree(id)).nodes.map((node) => [node.entryId, node.kind, node.current])).toEqual([
+      [SPROMPT_A, "user", false],
+      [SPROMPT_B, "user", false],
+      ["7e4ee1fd", "compaction", true],
     ]);
     expect(await h.pool.branchTask(id, SPROMPT_A)).toMatchObject({ text: "Reply with exactly: ALPHA. No tools." });
     expect(received(h.log).map((event) => event["ev"])).toEqual(["send", "activate", "edit"]);

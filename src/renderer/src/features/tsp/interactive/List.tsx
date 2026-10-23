@@ -12,7 +12,10 @@ import { encodeKey } from "../keys.ts";
 import type { NodeProps, TspContext } from "../node-props.ts";
 import { TspSpans } from "../spans.tsx";
 import { useTspSurface } from "../tsp-store.ts";
-import { TspChildren } from "../TspChildren.tsx";
+import { TspChildren, TspNode } from "../TspChildren.tsx";
+import { nodeDomProps } from "../node-dom.ts";
+import { VIRTUAL_MIN_ITEMS } from "./list-virtual.ts";
+import { useVirtualList } from "./use-virtual-list.ts";
 import { likeOf } from "./key-event.ts";
 import { MarkedText } from "./MarkedText.tsx";
 import { filterHits, plainText } from "./text-model.ts";
@@ -36,12 +39,16 @@ function maxHeight(max: TspListProps["max"]): string | undefined {
   return undefined;
 }
 
-export function List({ node, ctx }: NodeProps) {
+export function List(props: NodeProps) {
+  const { node, ctx } = props;
   const p = node.p as TspListProps;
   const selected = p.selected ?? null;
   const cap = maxHeight(p.max);
   const root = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const virtual = p.virtual === true && node.c.length >= VIRTUAL_MIN_ITEMS;
+  const win = useVirtualList(body, node.c.length, virtual);
   const surface = useTspSurface(ctx.taskId, ctx.sf);
   const reveal = surface?.reveal ?? null;
 
@@ -54,15 +61,20 @@ export function List({ node, ctx }: NodeProps) {
       root.current?.focus({ preventScroll: true });
   }, []);
 
-  // 选中项变了 / 收到 reveal：只在自己带 max（自己滚动）时滚到可见。
+  // 选中项变了 / 收到 reveal：list 自己带 max（自己滚动）或虚拟化时滚到可见（虚拟化的行可能还没画出来，按下标算位置）。
+  const selectedIndex = virtual && selected !== null ? node.c.indexOf(selected) : -1;
+  const scrollToIndex = win.scrollToIndex;
   useLayoutEffect(() => {
+    if (selectedIndex >= 0) scrollToIndex(selectedIndex, "nearest");
     if (cap === undefined || selected === null) return;
     scrollItemIntoView(scroller.current, selected, "nearest");
-  }, [cap, selected]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cap, selected, selectedIndex]);
   const revealSeq = reveal?.seq;
   useLayoutEffect(() => {
-    if (cap === undefined || reveal === null || !node.c.includes(reveal.id)) return;
-    scrollItemIntoView(scroller.current, reveal.id, reveal.where);
+    if (reveal === null || !node.c.includes(reveal.id)) return;
+    if (virtual) scrollToIndex(node.c.indexOf(reveal.id), reveal.where);
+    if (cap !== undefined) scrollItemIntoView(scroller.current, reveal.id, reveal.where);
     // 只在新的 reveal（seq 变了）时滚。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealSeq]);
@@ -78,12 +90,16 @@ export function List({ node, ctx }: NodeProps) {
   const style = cap === undefined ? undefined : ({ "--tspi-list-max": cap } as React.CSSProperties);
   const empty = node.c.length === 0;
 
+  const [from, to] = win.range;
+  const visibleIds = virtual ? node.c.slice(from, to) : node.c;
+  const spacers = virtual
+    ? ({ paddingTop: from * win.rowHeight, paddingBottom: (node.c.length - to) * win.rowHeight } as React.CSSProperties)
+    : undefined;
+
   return (
     <div
       ref={root}
-      className="tspi-list"
-      data-id={node.id}
-      data-role={typeof node.p["role"] === "string" ? node.p["role"] : undefined}
+      {...nodeDomProps(props, "tspi-list", { pointer: false })}
       role="listbox"
       tabIndex={0}
       data-tspi-keys=""
@@ -91,7 +107,15 @@ export function List({ node, ctx }: NodeProps) {
     >
       <div ref={scroller} className={cap === undefined ? "tspi-list-scroll" : "tspi-list-scroll max"} style={style}>
         <ListContext.Provider value={state}>
-          <TspChildren node={node} ctx={ctx} />
+          {virtual ? (
+            <div ref={body} className="tspi-vbody" style={spacers}>
+              {visibleIds.map((id) => (
+                <TspNode key={id} id={id} ctx={ctx} />
+              ))}
+            </div>
+          ) : (
+            <TspChildren node={node} ctx={ctx} />
+          )}
         </ListContext.Provider>
       </div>
       {empty && p.empty !== undefined ? (

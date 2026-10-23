@@ -31,7 +31,6 @@ const settings = (maxLiveProcesses = 6): StudioSettings => ({
   maxLiveProcesses,
   reduceMotion: false,
   enterWhileRunning: "steer",
-  notifyOnGate: true,
   soundOnDone: false,
   copyOnSelect: true,
   yoloConfirmed: false,

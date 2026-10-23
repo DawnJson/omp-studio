@@ -247,6 +247,11 @@ test("用量对话框：近一年热力图读 omp 的 stats.db（先同步再读
     await expect(dialog.locator(".usage-grid .usage-cell[data-level='4']")).toHaveCount(1);
     await expect(dialog.getByTestId("usage-summary")).toBeVisible();
     await screenshots(page, "usage");
+    // ↻ 刷新：先让 omp 清掉额度缓存（omp usage invalidate）再重读；按钮在读完前禁用，读完恢复，额度仍是"没有账号"。
+    const refresh = dialog.getByTestId("usage-refresh");
+    await refresh.click();
+    await expect(refresh).toBeEnabled({ timeout: 180_000 });
+    await expect(dialog.getByTestId("usage-quota-empty")).toBeVisible();
     // 读库是只读的：不存在我们写的东西，窗口之外的一天没出现。
     const heatmap = await page.evaluate(() => globalThis.studio.getUsageHeatmap(false));
     expect(heatmap.days).toHaveLength(3);
@@ -503,5 +508,88 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
     await rm(agentDir, { recursive: true, force: true });
     await rm(home, { recursive: true, force: true });
     await rm(market, { recursive: true, force: true });
+  }
+});
+
+test("OAuth 登录对话框：进度按顺序保留并按级别着色，omp 撤销输入后输入框收起（不运行真实登录，主进程 IPC 换成替身）", async () => {
+  const { launched, agentDir } = await launchSettings();
+  try {
+    const { page, app } = launched;
+    // startLogin 挂起到测试放行；login 事件由主进程推给渲染进程，和真实登录同一条通道。
+    await app.evaluate(({ ipcMain }) => {
+      const state = globalThis as unknown as { finishLogin?: () => void; loginAnswers?: unknown[][] };
+      state.loginAnswers = [];
+      ipcMain.removeHandler("studio:startLogin");
+      ipcMain.handle(
+        "studio:startLogin",
+        (_event, providerId: string) =>
+          new Promise((resolve) => {
+            state.finishLogin = () => resolve({ ok: true, providerId });
+          }),
+      );
+      ipcMain.removeHandler("studio:answerLoginInput");
+      ipcMain.handle("studio:answerLoginInput", (_event, ...args: unknown[]) => {
+        state.loginAnswers?.push(args);
+      });
+      ipcMain.removeHandler("studio:cancelLogin");
+      ipcMain.handle("studio:cancelLogin", () => {
+        state.finishLogin?.();
+      });
+    });
+    const push = (payload: object) =>
+      app.evaluate(({ BrowserWindow }, event) => {
+        BrowserWindow.getAllWindows()[0]?.webContents.send("studio:event:login", event);
+      }, payload);
+
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("settings-nav-providers").click();
+    await page.getByTestId("providers-connect").click();
+    const pick = page.getByTestId("provider-pick");
+    await expect(pick).toBeVisible({ timeout: 30_000 });
+    // 取列表里第一个 OAuth 登录入口，不写死 provider 名字（哪些已连接取决于本机环境变量）。
+    const login = pick.locator('[data-testid^="provider-login-"]').first();
+    const id = ((await login.getAttribute("data-testid")) ?? "").slice("provider-login-".length);
+    expect(id).not.toBe("");
+    await login.click();
+    const flow = page.getByTestId(`provider-flow-${id}`);
+    await expect(flow).toBeVisible();
+
+    await push({ type: "progress", level: "info", message: "Starting local callback server" });
+    await push({ type: "progress", level: "warning", message: "Callback port busy, using fallback" });
+    await push({ type: "progress", level: "error", message: "Token refresh failed, retrying" });
+    await push({ type: "input", inputId: "i1", title: "Paste the authorization code" });
+    const items = flow.getByTestId("login-progress").locator("li");
+    // 历史条目按到达顺序全部保留，不只显示最后一条。
+    await expect(items).toHaveText([
+      "Starting local callback server",
+      "Callback port busy, using fallback",
+      "Token refresh failed, retrying",
+    ]);
+    await expect(items.nth(0)).toHaveAttribute("data-level", "info");
+    await expect(items.nth(1)).toHaveAttribute("data-level", "warning");
+    await expect(items.nth(2)).toHaveAttribute("data-level", "error");
+    const input = flow.getByRole("textbox", { name: "Paste the authorization code" });
+    await expect(input).toBeVisible();
+    await input.fill("half-typed");
+    await screenshots(page, "login-progress");
+
+    // omp 超时 / 取消了这个输入：输入框收起，进度历史还在；"提交"按钮也一起消失。
+    await push({ type: "input_closed", inputId: "i1" });
+    await expect(input).toHaveCount(0);
+    await expect(flow.getByRole("button", { name: /提交|Submit/ })).toHaveCount(0);
+    await expect(items).toHaveCount(3);
+    await page.screenshot({ path: path.join(screenshotsDir, "settings-f-login-input-closed.png") });
+
+    // 又来一个新输入：上一个输入框里没提交的字不带过来。
+    await push({ type: "input", inputId: "i2", title: "Paste the authorization code" });
+    await expect(input).toBeVisible();
+    await expect(input).toHaveValue("");
+
+    await page.getByTestId("provider-login-cancel").click();
+    await expect(flow).toHaveCount(0);
+    expect(await app.evaluate(() => (globalThis as unknown as { loginAnswers: unknown[] }).loginAnswers)).toEqual([]);
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
   }
 });

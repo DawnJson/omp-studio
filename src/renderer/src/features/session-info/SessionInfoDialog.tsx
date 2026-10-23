@@ -8,7 +8,7 @@ import { Dialog } from "../../ui/Dialog.tsx";
 import { InfoTab } from "./InfoTab.tsx";
 import { closeSessionInfo, openSessionInfo, type SessionInfoTab } from "./session-info-store.ts";
 import { TraceTab } from "./TraceTab.tsx";
-import { useSyncedRead } from "./use-synced-read.ts";
+import { useRead, useSyncedRead } from "./use-synced-read.ts";
 import "./session-info.css";
 
 const idBase = "si";
@@ -34,14 +34,15 @@ function TabBar({ taskId, tab }: { taskId: TaskId; tab: SessionInfoTab }) {
 
 function InfoPage({ taskId }: { taskId: TaskId }) {
   const task = useTask(taskId);
-  const read = useSyncedRead((refresh) => window.studio.getTaskSessionInfo(taskId, refresh), taskId);
+  // 进行中的会话费用变了就重读：概览的用量是会话文件算的，跟着输入框走。
+  const read = useRead(() => window.studio.getTaskSessionInfo(taskId), `${taskId}:${task?.sessionUsage?.cost ?? ""}`);
   if (task === null) return null;
   return <InfoTab task={task} read={read} />;
 }
 
 function TracePage({ taskId }: { taskId: TaskId }) {
   const read = useSyncedRead((refresh) => window.studio.getTaskSessionTrace(taskId, refresh), taskId);
-  return <TraceTab read={read} />;
+  return <TraceTab taskId={taskId} read={read} />;
 }
 
 export function SessionInfoDialog({ taskId, tab, open }: { taskId: TaskId; tab: SessionInfoTab; open: boolean }) {

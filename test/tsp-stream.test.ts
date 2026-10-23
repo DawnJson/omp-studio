@@ -112,15 +112,39 @@ describe("TspStreamParser：OSC、DA1 和其余字节", () => {
     expect(events).toEqual([{ type: "user-var", name: "omp_session_file", value: file }]);
   });
 
-  it("通知：OSC 9；OSC 99 的标题和正文可以分两条到达；OSC 9;4 是进度条不算通知", () => {
+  it("SetUserVar 不带 `=` 是清空（omp 在会话文件还没有时发）；`=` 后为空也是空串", () => {
     const events = parse(
-      Buffer.from(
-        `\x1b]9;done${bell}\x1b]9;4;1;50${bell}\x1b]99;i=1:d=0:p=title;omp: Complete\x1b\\\x1b]99;i=1:d=1:p=body;all good\x1b\\`,
-      ),
+      Buffer.from(`\x1b]1337;SetUserVar=omp_session_file${bell}\x1b]1337;SetUserVar=omp_restore=${bell}`),
     );
     expect(events).toEqual([
-      { type: "notify", title: "", body: "done" },
-      { type: "notify", title: "omp: Complete", body: "all good" },
+      { type: "user-var", name: "omp_session_file", value: "" },
+      { type: "user-var", name: "omp_restore", value: "" },
+    ]);
+  });
+
+  it("OSC 7 当前目录：原样给出 URI（空格和中文是百分号编码），BEL 或 ST 结尾", () => {
+    const uri = "file://DESKTOP-X/C:/Users/me/omp%20work/%E7%9B%AE%E5%BD%95%20two";
+    expect(parse(Buffer.from(`\x1b]7;${uri}${bell}\x1b]7;file:///tmp/a\x1b\\`), 3)).toEqual([
+      { type: "cwd", uri },
+      { type: "cwd", uri: "file:///tmp/a" },
+    ]);
+  });
+
+  it("OSC 7501：真实 omp 18.12.6 的各种状态（msg 是 base64 UTF-8）；认不出的状态和别的 OSC 丢弃", () => {
+    const msg = Buffer.from("Pick a color 选一个").toString("base64");
+    const events = parse(
+      Buffer.from(
+        `\x1b]7501;state=idle:app=omp\x1b\\\x1b]7501;state=blocked:kind=question:app=omp:msg=${msg}\x1b\\` +
+          `\x1b]7501;state=error:app=omp:msg=${msg}\x1b\\\x1b]7501;state=clear\x1b\\\x1b]7501;state=sleeping\x1b\\` +
+          `\x1b]9;4;3${bell}\x1b]9;done${bell}\x1b]99;i=1:d=0:p=title;omp: Complete\x1b\\`,
+      ),
+      7,
+    );
+    expect(events).toEqual([
+      { type: "run-status", status: { state: "idle", kind: null, msg: null } },
+      { type: "run-status", status: { state: "blocked", kind: "question", msg: "Pick a color 选一个" } },
+      { type: "run-status", status: { state: "error", kind: null, msg: "Pick a color 选一个" } },
+      { type: "run-status", status: { state: "clear" } },
     ]);
   });
 

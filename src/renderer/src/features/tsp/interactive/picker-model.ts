@@ -84,7 +84,7 @@ export function buildEntries(
 
 /** 滚动窗口内的条目下标范围（含上下各 overscan 行）。 */
 export function visibleRange(
-  entries: readonly PickerEntry[],
+  entries: readonly Pick<PickerEntry, "top" | "height">[],
   scrollTop: number,
   viewport: number,
   overscan: number,
@@ -162,4 +162,9 @@ export function markHue(seed: string): number {
 export function splitMonoLabel(label: string): { dir: string; name: string } {
   const at = label.lastIndexOf("/");
   return at < 0 ? { dir: "", name: label } : { dir: label.slice(0, at + 1), name: label.slice(at + 1) };
+}
+
+/** 行的前导图标 role（`omp.tool.grep` → `grep`）：omp 在 tree / timeline 行上给的 `item.role`；不是工具 role 返回 null。 */
+export function toolNameOfRole(role: string | undefined): string | null {
+  return /^omp\.tool\.([^.\s]+)/.exec(role ?? "")?.[1] ?? null;
 }

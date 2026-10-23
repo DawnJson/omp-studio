@@ -64,8 +64,8 @@
 | `/export` | studio 接管(TSP 走 `omp --export`),弹保存对话框后生成 HTML(870 KB),toast "Exported …html · Show in folder"。v0.3.24 里 B7 已不再出现。 |
 | `/trace` | omp 在对话末尾打一行纯文字 `Trace: http://127.0.0.1:3847/#/traces?s=<会话文件路径,URL 编码>`;`127.0.0.1:3847` 实测返回 200(omp 起了本地 trace 查看器)。studio 画成普通文字,**不是链接**(没有 `<a>`),只能手动复制。 |
 | `/handoff` | 执行了,但 omp 返回红字 `Error: Handoff failed: Nothing to hand off (already compacted)`:1 轮和 4 轮会话都是这样,没有拿到成功的交接;是 omp 对这类短会话的判断还是别的原因没有查清。 |
-| `/move <目录>` | omp 把会话 cwd 换了("Moved to <目录>"),**studio 不知道**:输入框的目录标签、顶栏分支胶囊(`main`)、侧栏分组、文件面板、评审、终端仍指向原目录。`tsp-session.ts` 只处理 OSC 0/2/9/99/1337,没处理 OSC 7(cwd)。 |
-| `/wt` | 在 git 仓库里:omp 在 `OMP_WORKTREE_DIR` 下建 `wt-<时间>-<id>` 目录和 `wt/<时间>` 分支,并把会话搬进去;之后模型写的文件落在新 worktree。**studio 仍显示原目录和 `main`,任务行没有工作树标记**(同上,cwd 漂移)。先 `/move` 到非仓库目录再 `/wt` 返回 `Worktree creation failed: Not inside a git repository`。 |
+| `/move <目录>` | omp 把会话 cwd 换了("Moved to <目录>"),(2026-10-21 的缺陷,**已修**:omp 发 OSC 7,studio 解析成任务 cwd,见 tsp-migration.md §7「当前目录」。) |
+| `/wt` | 在 git 仓库里:omp 在 `OMP_WORKTREE_DIR` 下建 `wt-<时间>-<id>` 目录和 `wt/<时间>` 分支,并把会话搬进去;之后模型写的文件落在新 worktree。(cwd 漂移已由 OSC 7 修复;studio 的 worktree 记录仍是原来的,任务行的工作树标记不会出现。)先 `/move` 到非仓库目录再 `/wt` 返回 `Worktree creation failed: Not inside a git repository`。 |
 | `/share` | 会上传,按要求没跑。 |
 
 证据 `s15-*.png`、`s16-*.png`、`s17-01-wt.png`、`s17-02-git-menu.png`。

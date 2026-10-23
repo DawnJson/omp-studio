@@ -67,6 +67,18 @@ sequenceDiagram
 - 协商的应答到达之前，omp 已经会发出别的帧（`extension_ui_request`、`advisor_cost_changed`、`available_commands_update`），读帧时不能假设协商应答是第一帧。
 - 即使 agent 目录是空的临时目录，启动和每轮结束时也会收到 `{"type":"extension_ui_request","method":"setWidget","widgetKey":"autoresearch"}`，来自 omp 内置扩展。presentation 类请求不需要回应，不认识的就忽略。18.8.7 也会发这个。
 
+### 后台进程对 `extension_ui_request` 的处理（2026-10-23，omp 18.12.6，按源码和假 omp 回放，未用真实扩展实测）
+
+rpc-ui 现在只用于服务进程（`src/main/service/service-omp.ts`）和项目池（`project-omp.ts`）；任务全走 TSP。这两类进程没有界面能回答扩展的对话框，所以 `OmpConnection`（`src/main/omp/omp-connection.ts`）在路由帧时统一处理（判断在 `src/main/omp/extension-ui.ts`，登录和连接层共用）：
+
+- `select`、`confirm`、`input`、`editor`、`ask`：回 `{"type":"extension_ui_response","id":<请求 id>,"cancelled":true}`（`CancelUiResponse`，格式见 `rpc-wire.generated.ts`）。`id` 取请求的 `id`；`cancel`、`open_url` 之类不需要应答的不回。
+- `notify`、`setStatus`、`setWidget`：写日志（`log.info`，文本截断到 200 字符，写入时经日志的脱敏）。
+- **登录期间不抢答**：`login.ts` 在登录开始时 `connection.claimExtensionUi()`，结束时释放；认领期间连接层的默认应答不动，由登录自己答（`input` 交给界面，`select`/`confirm`/`editor`/`ask` 用同一个 `cancelledReply` 回 cancelled）。认领按计数，所以别的调用方将来也能用。
+- 订阅者（`onFrame`）照旧收到所有帧，默认应答不拦截。
+- omp 只在扩展自己传了 `timeout` 时才超时；`input` 登录输入框的 `timeout` 固定 600000（`login`，`rpc-mode.ts`）。
+
+`builtin-command.ts`（设置页 MCP、记忆、更新日志、工具列表等）执行期间：`extension_error`、`rpc_frame_error`（`command_output` 超过 `maxFrameBytes` 被 omp 丢掉时就是它）按原文报错；`notice` 附在输出后面。监听器里不能抛（抛错会让连接被当致命错误关掉），所以记下来，等 `prompt` 应答后再抛。
+
 ## 读帧
 
 - stdout 按 `\n` 切行，每行 `JSON.parse`。协商 v2 之后，超过 1 MiB 的逻辑帧会拆成连续的 `rpc_chunk`，按 `rpc.md` 的规则校验 `chunkId`、`index`、`count`、`byteLength` 再重组。普通对话里最大的帧约 193 KB，不会分块。发一条 1.4 MB 的用户消息时，收到的最大逻辑帧有 1 400 155 字符，超过 `maxFrameBytes`，只能是分块传来再重组的；在 Electron 44.9.0 主进程里实测正常，这一轮 `prompt_result` 为 `completed`（omp 18.12.0）。具体是哪一帧没有记录，推测是这条用户消息的 `message_start`/`message_end`。`read` 工具读 2 MB 的文件不会产生大帧，omp 自己截断了输出（最大帧约 112 KB）。

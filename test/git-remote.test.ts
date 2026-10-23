@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { commit, createPullRequest, push } from "../src/main/git/remote.ts";
+import { commit, createPullRequest, lastCommit, push } from "../src/main/git/remote.ts";
 import { makeRepo, makeScratch, put, sh } from "./git-helpers.ts";
 
 let scratch: string;
@@ -56,6 +56,62 @@ describe("提交", () => {
     await put(dir, "a.txt", "changed\n");
     await expect(commit(dir, "   ", true)).rejects.toThrow(/empty/);
   });
+});
+
+describe("修改上一次提交（amend）", () => {
+  it("暂存的改动并入上一次提交、信息换成新的；提交数不变、哈希变了", async () => {
+    const dir = await fresh();
+    await put(dir, "a.txt", "one\n");
+    expect((await commit(dir, "第一版\n\n原来的说明", true)).kind).toBe("committed");
+    const before = sh(dir, "rev-parse", "HEAD");
+    const count = sh(dir, "rev-list", "--count", "HEAD");
+
+    await put(dir, "补 充.txt", "补充\n");
+    sh(dir, "add", "补 充.txt");
+    const result = await commit(dir, "修改后的标题\n\n新的说明", false, true);
+    expect(result).toEqual({ kind: "committed", commit: sh(dir, "rev-parse", "HEAD") });
+    expect(sh(dir, "rev-parse", "HEAD")).not.toBe(before);
+    expect(sh(dir, "rev-list", "--count", "HEAD")).toBe(count);
+    expect(sh(dir, "log", "-1", "--format=%B")).toBe("修改后的标题\n\n新的说明\n");
+    expect(sh(dir, "show", "--name-only", "--format=", "HEAD").split("\n").sort()).toEqual(["a.txt", "补 充.txt"]);
+  });
+
+  it("没有暂存内容也能只改信息；没有提交时是 failed；空信息照旧被拒绝", async () => {
+    const dir = await fresh();
+    const tree = sh(dir, "rev-parse", "HEAD^{tree}");
+    expect(await commit(dir, "只改信息", false, true)).toMatchObject({ kind: "committed" });
+    expect(sh(dir, "log", "-1", "--format=%s")).toBe("只改信息");
+    expect(sh(dir, "rev-parse", "HEAD^{tree}")).toBe(tree);
+    await expect(commit(dir, " ", false, true)).rejects.toThrow(/empty/);
+
+    const empty = path.join(scratch, "空 仓库 amend");
+    sh(scratch, "init", "-b", "main", empty);
+    expect(await commit(empty, "x", false, true)).toMatchObject({ kind: "failed" });
+  });
+
+  it("lastCommit：完整信息；没有提交是 null；推送后 pushed 为 true，amend 之后又是 false", async () => {
+    const dir = await fresh();
+    await put(dir, "a.txt", "v\n");
+    await commit(dir, "标题 行\n\n第一段\n\n第二段", true);
+    expect(await lastCommit(dir)).toEqual({
+      commit: sh(dir, "rev-parse", "HEAD"),
+      message: "标题 行\n\n第一段\n\n第二段",
+      pushed: false,
+    });
+
+    const remote = path.join(scratch, "远端 amend.git");
+    sh(scratch, "init", "--bare", "-b", "main", remote);
+    sh(dir, "remote", "add", "origin", remote);
+    await push(dir);
+    expect((await lastCommit(dir))?.pushed).toBe(true);
+
+    await commit(dir, "改写后的标题", false, true);
+    expect((await lastCommit(dir))?.pushed).toBe(false);
+
+    const empty = path.join(scratch, "空 仓库 last");
+    sh(scratch, "init", "-b", "main", empty);
+    expect(await lastCommit(empty)).toBeNull();
+  }, 30_000);
 });
 
 describe("推送", () => {

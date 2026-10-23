@@ -11,6 +11,7 @@ import {
   dotKind,
   nextWaitingTask,
   projectLabels,
+  sessionDotKind,
   sessionTitle,
   taskTitle,
   waitingTasks,
@@ -77,6 +78,17 @@ describe("dotKind", () => {
     expect(dotKind(task("t", "p", { lastTurn: { status: "aborted", endedAt: 1 } }))).toBe("none");
     expect(dotKind(task("t", "p"))).toBe("none");
     expect(dotKind(task("t", "p", { status: "stopped" }))).toBe("none");
+  });
+});
+
+describe("sessionDotKind（历史会话行）", () => {
+  it("完成 / 失败 / 中断各一个形状；被用户停止、最后是用户消息、认不出的不画", () => {
+    expect(sessionDotKind({ lastTurn: "completed" })).toBe("done");
+    expect(sessionDotKind({ lastTurn: "error" })).toBe("error");
+    expect(sessionDotKind({ lastTurn: "interrupted" })).toBe("interrupted");
+    expect(sessionDotKind({ lastTurn: "aborted" })).toBe("none");
+    expect(sessionDotKind({ lastTurn: "pending" })).toBe("none");
+    expect(sessionDotKind({ lastTurn: null })).toBe("none");
   });
 });
 

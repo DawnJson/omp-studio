@@ -29,6 +29,11 @@ export interface TaskRecord {
    * 新文件的路径一落盘（TspRunner.#persistSessionFile）就记进 sessionFile 并清掉本字段，之后一律 `--resume`。没有则不写这个字段。
    */
   forkFrom?: string | null;
+  /**
+   * omp 里换过会话目录（`/move`、`/wt`，OSC 7）之后的当前目录；下次 `--resume` 从这里启动，文件面板、评审、终端等也用它（TspRunner.cwd）。
+   * 没有或 null = 默认目录（`worktreePath ?? 项目目录`）。不写这个字段的记录行为不变。
+   */
+  cwd?: string | null;
 }
 
 interface TasksFile {

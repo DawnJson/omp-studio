@@ -131,6 +131,56 @@ describe("models.yml 编辑（纯文本）", () => {
     });
   });
 
+  it("自动发现：true 按接口类型写默认 discovery.type，只改这一个条目，注释和别的内容原样保留，可以不选模型", () => {
+    const completions = applied(existing, input({ id: "fresh", models: [], discovery: true }));
+    const entry = parseProviders(completions);
+    expect(entry.ok && entry.providers.find((p) => p.id === "fresh")).toMatchObject({ discovery: true, models: [] });
+    expect(completions).toMatch(/fresh:[\s\S]*discovery:\s+type: openai-models-list/);
+    // 原有内容整段保留（新条目只是追加）。
+    expect(completions.startsWith(existing.slice(0, existing.indexOf("unknownRoot")).trimEnd())).toBe(true);
+    expect(completions).toContain("unknownRoot: 1 # not ours");
+    expect(completions).toContain("# relay");
+
+    expect(applied(null, input({ models: [], discovery: true, api: "openai-responses" }))).toContain(
+      "type: openai-models-list",
+    );
+    expect(applied(null, input({ models: [], discovery: true, api: "anthropic-messages" }))).toContain("type: proxy");
+  });
+
+  it("自动发现：已有 discovery（类型、timeoutMs）原样保留；false 只去掉 discovery，不动别的字段和注释", () => {
+    const custom = existing.replace(
+      "      type: openai-models-list",
+      "      type: lm-studio # 本地\n      timeoutMs: 3000",
+    );
+    const kept = applied(
+      custom,
+      input({ id: "other", key: { kind: "keep" }, models: [{ id: "keep-me" }], discovery: true }),
+      "edit",
+    );
+    expect(kept).toContain("type: lm-studio # 本地");
+    expect(kept).toContain("timeoutMs: 3000");
+
+    const off = applied(
+      custom,
+      input({ id: "other", key: { kind: "keep" }, models: [{ id: "keep-me" }], discovery: false }),
+      "edit",
+    );
+    expect(off).not.toContain("discovery:");
+    expect(off).not.toContain("lm-studio");
+    expect(off).toContain("contextWindow: 32000 # custom window");
+    expect(off).toContain("# relay");
+    // 关掉自动发现、又没有模型：不能保存。
+    expect(
+      applyProvider(custom, input({ id: "other", key: { kind: "keep" }, models: [], discovery: false }), "edit"),
+    ).toEqual({ ok: false, code: "needs-model" });
+  });
+
+  it("自动发现：没有通用发现方式的接口类型不能新写（invalid-api）", () => {
+    expect(
+      applyProvider(null, input({ api: "google-generative-ai", models: [{ id: "g" }], discovery: true }), "add"),
+    ).toEqual({ ok: false, code: "invalid-api" });
+  });
+
   it("删除只去掉这个条目", () => {
     const result = removeProvider(existing, "other");
     expect(result.ok && result.text).toContain("# 内置的覆盖");

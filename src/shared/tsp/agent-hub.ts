@@ -35,6 +35,13 @@ export function isHubOpenAction(act: string): boolean {
 const finiteNumber = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
 
+/** `stats.context`：0–1 的占用比例；超过 1 的当百分数（和 `TSP 节点` 渲染里的约定一致）；限制在 0–1。 */
+function contextFraction(value: unknown): number | null {
+  const raw = finiteNumber(value);
+  if (raw === null) return null;
+  return Math.min(1, Math.max(0, raw > 1 ? raw / 100 : raw));
+}
+
 // ───────── 列表（`agent` 节点） ─────────
 
 export type AgentStatus = "pending" | "running" | "done" | "failed" | "aborted" | "idle" | "parked";
@@ -55,6 +62,8 @@ export interface HubAgent {
     tools: number | null;
     requests: number | null;
     tokens: number | null;
+    /** 上下文占用比例 0–1（omp 的 `agent.stats.context`，实测 `0.008099`；> 1 的值按百分数算，同 TSP 节点渲染）。 */
+    context: number | null;
     contextLabel: string | null;
     cost: number | null;
     /** 运行中的已用毫秒 / 结束的总用时。 */
@@ -102,6 +111,7 @@ function toAgent(node: DocNode, nodes: ReadonlyMap<string, DocNode>): HubAgent |
       tools: finiteNumber(stats["tools"]),
       requests: finiteNumber(stats["requests"]),
       tokens: finiteNumber(stats["tokens"]),
+      context: contextFraction(stats["context"]),
       contextLabel: typeof stats["contextLabel"] === "string" ? stats["contextLabel"] : null,
       cost: finiteNumber(stats["cost"]),
       age: finiteNumber(stats["age"]),

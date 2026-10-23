@@ -32,6 +32,27 @@
   color: var(--st-error);
 }
 
+/* 登录进度历史：按到达顺序一行一条，warning / error 着色，info 用次要色。 */
+.pv-progress {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.pv-progress-item {
+  color: var(--text-3);
+}
+
+.pv-progress-item[data-level="warning"] {
+  color: var(--st-waiting-text);
+}
+
+.pv-progress-item[data-level="error"] {
+  color: var(--st-error);
+}
+
 .pv-accounts {
   display: grid;
   gap: var(--space-1);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildTspArgs } from "../src/main/omp/launch-args.ts";
 import { buildTspEnv, encodeTspEvent } from "../src/main/tsp/tsp-session.ts";
-import { cleanOmpTitle } from "../src/main/tasks/tsp-runner.ts";
+import { cleanOmpTitle, ompTitlePullRequest } from "../src/main/tasks/tsp-runner.ts";
 
 describe("TSP 任务的启动参数和环境", () => {
   it("交互式 omp：没有 --mode，模型、思考强度、--allow-home 和 rpc 路径一致，恢复会话用 --resume", () => {
@@ -57,5 +57,16 @@ describe("cleanOmpTitle：omp 的终端标题是 `<图标字形> <标题>`", () 
     expect(cleanOmpTitle("omp")).toBe("");
     expect(cleanOmpTitle("\ue0a0 omp ")).toBe("");
     expect(cleanOmpTitle("修复 登录 bug")).toBe("修复 登录 bug");
+  });
+
+  it("去掉末尾的 ` · #12`（omp 在分支有 PR 时追加）：`omp · #12` 是没有标题；PR 号单独取出；标题中间的 # 不动", () => {
+    expect(cleanOmpTitle("\u{f1821} 修复 登录 bug · #12")).toBe("修复 登录 bug");
+    expect(cleanOmpTitle("omp · #12")).toBe("");
+    expect(cleanOmpTitle("Fix #3 crash · #204")).toBe("Fix #3 crash");
+    expect(cleanOmpTitle("Fix crash · #12 later")).toBe("Fix crash · #12 later");
+    expect(ompTitlePullRequest("\u{f1821} 修复 登录 bug · #12")).toBe(12);
+    expect(ompTitlePullRequest("omp · #7")).toBe(7);
+    expect(ompTitlePullRequest("修复 登录 bug")).toBeNull();
+    expect(ompTitlePullRequest("Fix #3 crash")).toBeNull();
   });
 });

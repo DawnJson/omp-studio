@@ -45,9 +45,52 @@
 
 ## 提交、推送、PR
 
-- `commitGit(taskId, message, stageAll)`：stageAll 时先 `add -A`；没有已暂存内容 → `nothing_to_commit`；有未解决冲突或 git 拒绝（钩子失败、没配 user.name/email）→ `failed` + git 原话。
+- `commitGit(taskId, message, stageAll, amend)`：stageAll 时先 `add -A`；没有已暂存内容 → `nothing_to_commit`（amend 时不要求，见下）；有未解决冲突或 git 拒绝（钩子失败、没配 user.name/email）→ `failed` + git 原话。
 - `pushGit`：当前分支；已有 upstream 就照它的 remote，否则只有一个 remote 用它、有 `origin` 用 `origin`，再没有 → `no_remote`（选择规则在 `repo.ts` 的 `pushRemote`，`push` 和状态共用）。首次推送带 `--set-upstream`。显式写 `push <remote> <branch>`，**没有任何 force 参数**。远端领先 → `rejected`；detached → `detached_head`。凭据不弹交互（`GIT_TERMINAL_PROMPT=0`），拿不到凭据时是 `failed`。`getGitStatus` 的 ok 结果带 `canPush`（非 detached 且 `pushRemote` 选得出 remote），界面据此禁用推送项，所以正常情况下点不到 `no_remote` / `detached_head`。
 - `createPullRequest(taskId, {title, body})`：`gh pr create --title … --body-file - --head <当前分支> [--base <worktreeBase>]`。gh 不在 PATH → `gh_unavailable`；未登录 → `gh_unauthenticated`；其他 → `failed`。**不会替用户先 push**，调用方先 `pushGit`。
+
+## 生成提交信息、Amend、按行操作、忽略空白（2026-10-23）
+
+实测 omp 18.12.6（`omp commit`，真实 DeepSeek V4 Flash，隔离的 `PI_CODING_AGENT_DIR`、临时仓库）。
+
+### omp `git` 应用和 `omp commit`，为什么 studio 保留自己的界面
+
+- `omp git [REVISION] [-C <dir>]`：全屏的终端界面（并排 diff、暂存侧栏、提交输入），没有机器可读的输出或协议，只能在终端里交互。studio 的评审要嵌进窗口、和任务里的评论队列 / 发给 agent 连着、行号和评论位置要自己掌握，没法把它当后端用；所以评审、暂存、提交仍是 studio 自己的界面，下面几项只补它缺的功能。
+- `omp commit [--push] [--dry-run] [--no-changelog] [--legacy] [-c <ctx>] [-m <model>]`：非交互的命令行，会让 omp 的 commit 智能体（`git_overview` / `git_file_diff` / `propose_commit` 等工具）读已暂存的 diff，生成 conventional commit 信息。**生成提交信息**用它；提交、推送、PR 仍走 studio 自己的 `git` / `gh`（见上面），不用 `omp commit` 的提交能力（它的拆分提交要在终端里确认，`--push` 也不是 studio 的推送规则）。
+
+### 生成提交信息（`src/main/git/commit-message.ts`，IPC `generateCommitMessage` / `cancelCommitMessage`）
+
+实测结论（决定了实现）：
+
+- `omp commit --dry-run --no-changelog` 的 stdout 是进度行（`● Resolving model...`、工具调用、带 ANSI 色的 `Proposed commit:` 预览），最后一段是 `\nGenerated commit message:\n<标题>\n\n- 说明…\n`。**可以解析**：取最后一个 `Generated commit message:` 之后的内容，`splitCommitMessage` 拆成标题和正文（omp 的正文是 `- ` 开头的要点）。智能体建议拆成多个提交时是 `Split commit plan (dry run):` + `Commit N:` / `Changes: …` 块，取第一个提交的信息并把个数告诉界面（toast 提示，不会真去拆）。解析在 `parseOmpCommitOutput`，单测里有一份真实输出样本。
+- **模型**：不传 `-m`。omp 自己按 `commit` 角色选，没有就退到 `smol`（源码 `commit/model-selection.ts`：`jA(["commit", "smol", ...])`）；没有可用模型 / key 时 stderr `error: No model available for commit generation`、退出码 1 → 界面提示去设置里给 commit 角色选模型。
+- **只看已暂存的改动，不提交、不改文件**：`--dry-run` 只打印。`--no-changelog` 让它不去找 / 写 CHANGELOG。验证：运行前后 `git status --porcelain`、HEAD 一致。
+- **坑 1：一个都没暂存时它会自己 `git add` 全部（含未跟踪文件），dry-run 也一样**（实测：`M a.txt` + `?? "b c.txt"` → 运行后变成 `M  a.txt` + `A  "b c.txt"`，输出第一行 `No staged changes detected, staging all changes...`）。所以主进程在没有已暂存内容时**根本不运行它**（`nothing_staged`），界面上按钮也在 `stagedCount === 0` 时灰掉。
+- **坑 2：它会在 omp 的会话目录里留一个会话文件**（实测 18.12.6：`<agentDir>/sessions/<cwd 编码>/<时间戳>_<id>.jsonl`，第一条消息以 `Propose conventional commit for staged changes.` 开头，头里的 `cwd` 是仓库；源码 `sdk.ts` 没传 sessionManager 时就持久化创建会话，终端里跑 `omp commit` 也一样）。**studio 不删它**：`~/.omp` 和终端版共用，修改只经 omp 自己的命令，删 omp 的会话文件属于修改（AGENTS.md）。所以每次"生成"会在该任务 cwd 的会话目录里多一个会话，历史里可能看到它，和终端版一致。
+- 智能体出错时 omp 回退到确定性的信息（只看 numstat，如 `chore: update a.txt`），**退出码 1** 但 stdout 里仍有 `Generated commit message:`。我们把非 0 退出一律当失败（toast 带 stderr 里的 `Agent error: …`），不把一个"没经过模型"的占位信息填给用户。
+- 实现：`spawn` 参数数组（`commit --dry-run --no-changelog`），不经 shell，cwd = 仓库根，环境 = 进程环境 + 存的 API key（和任务进程同一份）+ 自管 omp 的 PATH 前置；超时 3 分钟；`AbortSignal`（`runCommand` 新增 `signal`，结束整个进程树）。每个任务同时只有一次（`generating` 表按 taskId 存 `AbortController`），`cancelCommitMessage` 取消它。耗时：真实模型约 8–10 秒。
+- 未打包时 `STUDIO_TEST_COMMIT_OMP`（JSON `{command, args}`）顶替真实 omp，e2e 用它指向假 `omp commit`。
+
+### Amend（`commitGit(taskId, message, stageAll, amend)`，`getLastCommit`）
+
+- `commit(cwd, message, stageAll, amend)`：`amend` 时 `git commit --amend -F -`（信息走 stdin）。**不要求有暂存内容**（只改信息也行），暂存的改动并入 HEAD；没有任何提交时返回 `failed`。有冲突仍然 `failed`。
+- `lastCommit(cwd)` → `{ commit, message（%B 去掉末尾空白）, pushed }`；`pushed` = `git rev-list -n1 HEAD --not --remotes` 没有输出（HEAD 已在某个远端分支里）。没有提交为 null。
+- **已推送的提交**：主进程不拦（用户有权改自己的历史），界面在提交框里警告并在提交前要求确认（`ConfirmDialog` danger）；studio 仍然**没有任何 force 参数**，所以改写后再推送会被远端拒绝（`rejected`），用户得自己处理。这和"不改写已推送历史"的原则一致：改写必须是用户明确确认的动作，不是默认行为。
+
+### 忽略空白（`getGitFileDiff(taskId, path, area, context, ignoreWhitespace)`）
+
+- 开关打开时 diff 多一个 `-w`（`readTrackedDiff` 的 `ignoreWhitespace`），只影响显示。hunk 级和行级操作（`loadRawHunk`）**永远用不带 `-w` 的 diff** 对账，所以界面上忽略空白看到的块，和能 `git apply` 的块不是一回事：界面在这个模式下**禁用**按块 / 按行的暂存、取消暂存、丢弃并说明原因；整文件操作不受影响（暂存的是完整改动，含空白）。没有试图把 `-w` 的 hunk 翻译成可应用的补丁：被忽略的空白行恰好夹在选中行之间时补丁对不上，宁可明确禁用。
+- 未跟踪文件的 diff 是主进程合成的整文件新增，没有"空白改动"，不受影响。
+
+### 按行暂存 / 取消暂存 / 丢弃（`stageGitLines` / `unstageGitLines` / `discardGitLines`，`GitLinesRef = GitHunkRef + lines[]`）
+
+- `lines` 是 `GitDiffHunk.lines`（不含 `\ No newline` 行）里的下标，只能是新增 / 删除行。主进程重新取 `-U3` diff、核对 header（和 hunk 级一样，不一致就拒绝），再用 `diff.ts` 的 `buildLinePatch` 生成只含选中行的补丁，走和 hunk 级同样的 `git apply` 命令：暂存 `apply --cached`（工作区 diff，`forward`）、取消暂存 `apply --cached -R`（暂存区 diff，`reverse`）、丢弃 `apply -R`（工作区 diff，`reverse`）。
+- 构造规则（同 `git add -p` 的 e 编辑）：`forward` 时没选中的**删除行**变成上下文（索引里还有它）、没选中的**新增行**丢掉；`reverse` 时没选中的**新增行**变成上下文（现状里有它）、没选中的**删除行**丢掉。hunk 头重算两侧行数：没动的那一侧（forward 是旧侧、reverse 是新侧）起始行不变，另一侧从同一行起，行数为 0 的一侧起始行写成前一行（git 的约定）；`@@` 后的区段名保留。
+- **成对交错**：git 把一处改动写成"一串删除、再一串新增"。原样按上面的规则丢 / 转上下文，只挑"第 4 行的删除 + 第 4 行的新增"时，新行会落在这串里没选中的旧行（变成上下文）后面，索引里的行顺序被打乱（e2e 实测：连着改 3、4、5 行只暂存第 4 行，索引变成 3、5、4(新)）。所以一处改动里第 i 个删除和第 i 个新增交错写出（`- D_i` 或上下文，然后 `+ A_i`），补丁仍合法（删除 / 上下文行的顺序就是旧文件的顺序），新行留在旧行的位置；丢弃同理，旧行回到原位置。测试：`test/git-lines.test.ts`"连着改 3 行只挑中间那对"。
+- 行内容原样保留：整个补丁按 latin1 切 / 拼，所以 CRLF 的 `\r`、非 UTF-8 字节都不变（测试：CRLF 文件暂存后 blob 里仍是 `\r\n`）。
+- **末尾无换行**：`\ No newline at end of file` 跟着它说的那一行走（行被丢掉，标记也丢掉）。如果选中的子集会让某一侧"没有换行的那一行"后面还有同侧的行（例如只暂存 `-two⏎\ No newline` 对应的 `+two changed` 而旧行变成上下文），拼不出合法的文件，`buildLinePatch` 抛错（"cannot be applied on their own because of the missing newline"），界面 toast 报错，什么都不改。选中整处改动（删除 + 新增一起）没问题。
+- 不适用：未跟踪文件（没有 hunk）、`文件` 视图（hunk 对账只认 `-U3`）、忽略空白（见上）、冲突文件。界面在 diff 重取后丢掉选择（行下标不再可信）。
+
 
 ## 界面（阶段 4，`src/renderer/src/features/git/`）
 
@@ -56,7 +99,7 @@
 - **任务条的 git 工具**（`GitTools`，spec §3.1）：顶栏右侧，任务目录是 git 仓库时才渲染。分支胶囊显示当前分支（worktree 任务显示 worktree 分支），后面照 omp 状态栏跟改动数：`*N` = 有改动的已跟踪文件数（`status.files` 里非 untracked 的条目），`?N` = 未跟踪文件数，worktree 领先时再加 `↑N`；完整说法都在悬停提示里。点开是 Git 菜单（2026-10-21 起不含"查看改动"，顶栏已有评审按钮）：提交、推送、创建 PR（`status.canPush` 为 true 才列；gh 缺失 / 未登录仍由结果 toast 说明）；再点胶囊或点窗口任意处收回（菜单开着时 `.git-menu-scrim` 盖住整窗，顶栏拖动区收不到点击）；worktree 任务另有"合并回 <基分支>"和"丢弃 worktree"。**推送项在 `status.canPush` 为 false 时灰显（`MenuItem.disabledReason`，`aria-disabled`，不执行），悬停提示是 `git.push.noRemote`（没有可用远端）或 `git.push.detached`（detached HEAD）。** 旁边一个评审按钮直接打开评审。状态在任务 `updatedAt` 变化和每次 git 操作后重读（`refreshGit`）。
 - **侧栏任务行**：worktree 任务带分支图标，悬停提示是分支名。
 - **结果提示**（`git-actions.ts`）：主进程的类型化结果都翻译成当前语言：合并 merged / nothing_to_merge / blocked（三种原因）用 toast，conflict 用对话框列出文件；推送 pushed / no_remote / detached_head / rejected / failed；PR 的 gh_unavailable / gh_unauthenticated / failed；提交的 nothing_to_commit / failed。git 的原话放在 toast 的悬停提示里。抛出的错误走 `reportError`，不吞。
-- **评审里的提交框**（2026-10-21，`features/review/CommitBox.tsx`）：和提交对话框走同一条路径 `git-actions.ts` 的 `commitChanges(t, taskId, message, stageAll)`（提示结果、之后 `refreshGit`），不另开提交通道；摘要 + 空行 + 说明合成提交信息（`shared/ui/review-model.ts` 的 `composeCommitMessage`）。默认 `stageAll = false`（评审里暂存是显式动作，只提交已暂存的），勾上才 `add -A`。没有“生成提交信息”和 `Amend`：`commitGit(taskId, message, stageAll)` 没有对应的参数 / IPC，没有为它新增 git 功能。
+- **评审里的提交框**（2026-10-21，`features/review/CommitBox.tsx`；2026-10-23 加了生成和 Amend）：和提交对话框走同一条路径 `git-actions.ts` 的 `commitChanges(t, taskId, message, stageAll, amend)`（提示结果、之后 `refreshGit`），不另开提交通道；摘要 + 空行 + 说明合成提交信息（`shared/ui/review-model.ts` 的 `composeCommitMessage`，逆运算 `shared/git.ts` 的 `splitCommitMessage`，Amend 预填用它）。默认 `stageAll = false`（评审里暂存是显式动作，只提交已暂存的），勾上才 `add -A`。"生成"和 Amend 的细节见上面"生成提交信息、Amend、按行操作、忽略空白"。
 - **对话框**（`GitDialogs.tsx`，状态在 `git-dialog-store.ts`；3.2 起外壳是 `ui/Dialog`，输入框 / 勾选框 / 按钮都是 `ui/` 通用控件）：提交（信息 + 页脚左侧"先暂存全部改动"勾选框，Ctrl Enter 提交；页脚左侧的"评审改动"关掉对话框并 `openReview`，提交对话框本身不列文件，想先看改了什么从这里进评审，Esc 退出评审后再从菜单打开提交；"提交"是主按钮）、开 PR（标题 + 说明，先 `pushGit` 再 `createPullRequest`，推送没成功就停在推送的提示上；"推送并创建"是主按钮）、丢弃确认（`ui/ConfirmDialog danger`：danger-solid 确认键、焦点在"取消"；确认后才执行，成功后任务归档并回到空状态，失败由 toast 说明、对话框关闭）、合并冲突、清理报告。git 菜单（`GitTools` / `DraftGitTools`）用 `ui/Menu`：动作项带图标，"丢弃 worktree…"红字放最后、前面一条分隔线，不可用项第二行写原因；草稿菜单是选择菜单（✓ 表示当前值）。
 - **评审的界面**（3.2，`features/review/`）：只有两栏（文件树 | diff），没有右侧评论栏。评论只以行内卡片的形式出现在 diff 里，卡片右上角 ⋯ 菜单是"编辑 / 删除"。工具条从左到右：退出评审、标题和分支、统一 / 并排与改动块 / 文件两组分段（`ui/Segmented` sm）、折行（`IconButton` pressed，快捷键 W）、刷新（↻ 图标按钮）、"评论 N"（点开是列表浮层，按文件和行排序，点一条跳到那个文件并把评论卡滚进视野）、"发给 agent 修改"（主按钮，条数不再写在按钮里）。窗口窄于 1100 时两组分段和折行收成一个"视图"菜单，工具条不会被裁掉。左栏底部的提交框用 32 高的输入框，"提交"是右下的主按钮，不再通栏。
 - **项目菜单"清理无主 worktree"**：调 `cleanupOrphanWorktrees`，对话框分"已移除 / 保留（原因）"两组。
@@ -64,6 +107,8 @@
 
 ## 测试
 
-`test/git-*.test.ts`，全部在真实临时仓库里跑，目录名带空格和中文：`git-review`（状态、diff 解析、hunk 暂存/取消/丢弃、过期 hunk、二进制/过大、路径校验）、`git-worktree`（真实 omp 创建、omp 目录解析、setup 脚本、回滚、合并、冲突、丢弃、清理、旧位置兼容）、`git-remote`（提交、push 含被拒、gh 不可用）、`git-pure`（评论格式化、status 解析）、`git-numstat`（numstat 解析、行数、两侧 / 重命名 / 未跟踪的 `+a −d`、`file` 与 `hunks` 上下文）、`git-task-worktree`（任务池接线、worktree 被删后拒绝启动）。创建 worktree 的用例需要 PATH 上有真实 omp，没有就 skip；测试把 `OMP_WORKTREE_DIR`、`PI_CODING_AGENT_DIR`、`USERPROFILE`/`HOME` 都指到临时目录，不碰开发机的 `~/.omp`。`gh pr create` 的成功路径没有测（没有可用的 GitHub 仓库）。
+`test/git-*.test.ts`，全部在真实临时仓库里跑，目录名带空格和中文：`git-review`（状态、diff 解析、hunk 暂存/取消/丢弃、过期 hunk、二进制/过大、路径校验）、`git-lines`（选中行 → 补丁：新增 / 删除 / 混合 / reverse / 末尾无换行 / CRLF；真实 `git apply` 暂存、取消暂存、丢弃选中的行，过期 hunk、未跟踪文件、`-w` 只影响显示）、`git-commit-message`（`omp commit` 输出解析——含真实输出样本、拆分建议；用假 omp 测参数 / cwd / 没暂存不运行 / 取消）、`git-worktree`（真实 omp 创建、omp 目录解析、setup 脚本、回滚、合并、冲突、丢弃、清理、旧位置兼容）、`git-remote`（提交、amend、`lastCommit`、push 含被拒、gh 不可用）、`git-pure`（评论格式化、status 解析）、`git-numstat`（numstat 解析、行数、两侧 / 重命名 / 未跟踪的 `+a −d`、`file` 与 `hunks` 上下文）、`git-task-worktree`（任务池接线、worktree 被删后拒绝启动）；`line-selection`（点击 / Shift 点击 / Shift+↑↓ 的选择纯函数）。创建 worktree 的用例需要 PATH 上有真实 omp，没有就 skip；测试把 `OMP_WORKTREE_DIR`、`PI_CODING_AGENT_DIR`、`USERPROFILE`/`HOME` 都指到临时目录，不碰开发机的 `~/.omp`。`gh pr create` 的成功路径没有测（没有可用的 GitHub 仓库）。
 
 界面的端到端是 `test/e2e/git-worktree.e2e.ts`（真实临时仓库 + 本地裸仓库 + 假 omp；`FAKE_OMP_CWD_FILE` 让假 omp 记下启动目录，据此断言任务在 worktree 里运行）：胶囊 → 创建 → 提交 → 合并 → 推送 → 丢弃 → 清理；冲突和被拒绝的合并；非 git 项目的胶囊禁用。
+
+评审里的生成 / Amend / 忽略空白 / 按行暂存是 `test/e2e/review.e2e.ts` 的后五个用例（2026-10-23 写的，截图 `screenshots/review-{generate-loading,generate-done,amend,amend-pushed,amend-confirm,ignore-space,lines}-*.png`）。"生成"用假 `omp commit` 顶替：`STUDIO_TEST_COMMIT_OMP`（未打包时才认，JSON `{command, args}`，同 `STUDIO_TEST_OMP`）指向 `test/fake-omp/fake-omp-commit.ts`，输出格式照真实 omp 18.12.6 的录制；`FAKE_COMMIT_MODE`（ok / split / nomodel / fail / hang）、`FAKE_COMMIT_DELAY`（让"生成中"停一会儿）、`FAKE_COMMIT_LOG`（记每次调用的 cwd 和参数）控制行为和断言。

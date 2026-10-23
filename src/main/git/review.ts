@@ -1,4 +1,4 @@
-// 评审：文件 diff、暂存/取消暂存/丢弃（整文件和单个 hunk）。
+// 评审：文件 diff、暂存/取消暂存/丢弃（整文件、单个 hunk、hunk 里选中的行）。
 // 丢弃不问确认：确认由界面做（阶段 3 的约定）。所有路径相对仓库根，先做词法校验；
 // 要读写磁盘的（未跟踪文件的 diff 和丢弃）还要求它确实出现在 git status 的未跟踪列表里。
 import { lstat, readFile, readlink, realpath, rm } from "node:fs/promises";
@@ -10,9 +10,19 @@ import {
   type GitFileChange,
   type GitFileDiff,
   type GitHunkRef,
+  type GitLinesRef,
 } from "../../shared/git.ts";
 import { resolveInside } from "../ipc/task-file-path.ts";
-import { buildHunkPatch, diffOfNewFile, looksBinary, splitRawDiff, toFileDiff, type RawDiff } from "./diff.ts";
+import {
+  buildHunkPatch,
+  buildLinePatch,
+  diffOfNewFile,
+  looksBinary,
+  splitRawDiff,
+  toFileDiff,
+  type LinePatchDirection,
+  type RawDiff,
+} from "./diff.ts";
 import { git, OutputTooLargeError } from "./exec.ts";
 import { hasCommits, requireRepoRoot } from "./repo.ts";
 import { statusAt } from "./status.ts";
@@ -40,17 +50,23 @@ const FILE_CONTEXT = 1_000_000;
 
 const DIFF_FLAGS = ["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--src-prefix=a/", "--dst-prefix=b/"];
 
-/** 取已跟踪文件一侧的原始 diff；输出超过上限返回 "too_large"。 */
+/**
+ * 取已跟踪文件一侧的原始 diff；输出超过上限返回 "too_large"。
+ * ignoreWhitespace（`-w`）只给界面显示用：hunk / 行级操作永远用不带它的 diff（`loadRawHunk`），
+ * 否则界面上的块和实际能 `git apply` 的块对不上。
+ */
 async function readTrackedDiff(
   root: string,
   entry: GitFileChange,
   area: "staged" | "unstaged",
   context = HUNK_CONTEXT,
+  ignoreWhitespace = false,
 ): Promise<Buffer | "too_large"> {
+  const flags = ignoreWhitespace ? [...DIFF_FLAGS, "-w"] : DIFF_FLAGS;
   const args =
     area === "staged"
       ? [
-          ...DIFF_FLAGS,
+          ...flags,
           `-U${context}`,
           "--cached",
           "-M",
@@ -58,7 +74,7 @@ async function readTrackedDiff(
           ...(entry.oldPath === null ? [] : [entry.oldPath]),
           entry.path,
         ]
-      : [...DIFF_FLAGS, `-U${context}`, "--", entry.path];
+      : [...flags, `-U${context}`, "--", entry.path];
   try {
     return await git(root, args, { maxBuffer: GIT_DIFF_MAX_BYTES });
   } catch (error) {
@@ -83,6 +99,7 @@ export async function getFileDiff(
   rel: string,
   area: GitDiffArea,
   context: GitDiffContext = "hunks",
+  ignoreWhitespace = false,
 ): Promise<GitFileDiff> {
   const root = await requireRepoRoot(cwd);
   const file = checkRepoPath(root, rel);
@@ -91,7 +108,13 @@ export async function getFileDiff(
     if (entry.unstaged !== "untracked") throw new Error(`${file} is tracked`);
     return untrackedDiff(root, file);
   }
-  const raw = await readTrackedDiff(root, entry, area, context === "file" ? FILE_CONTEXT : HUNK_CONTEXT);
+  const raw = await readTrackedDiff(
+    root,
+    entry,
+    area,
+    context === "file" ? FILE_CONTEXT : HUNK_CONTEXT,
+    ignoreWhitespace,
+  );
   if (raw === "too_large") return { kind: "too_large" };
   return toFileDiff(splitRawDiff(raw));
 }
@@ -149,7 +172,12 @@ export async function discardFile(cwd: string, rel: string): Promise<void> {
 // ───────── hunk 级 ─────────
 
 /** 重新取 diff 并确认第 index 个 hunk 还是界面看到的那个；diff 变过就拒绝，免得改错地方。 */
-async function loadHunkPatch(root: string, rel: string, area: "staged" | "unstaged", ref: GitHunkRef): Promise<Buffer> {
+async function loadRawHunk(
+  root: string,
+  rel: string,
+  area: "staged" | "unstaged",
+  ref: GitHunkRef,
+): Promise<{ raw: RawDiff }> {
   const file = checkRepoPath(root, rel);
   const entry = await findEntry(root, file);
   if (entry.unstaged === "untracked") throw new Error("untracked files have no hunks; stage the whole file");
@@ -162,6 +190,11 @@ async function loadHunkPatch(root: string, rel: string, area: "staged" | "unstag
   const header =
     hunk === undefined ? undefined : Buffer.from(hunk.slice(0, hunk.indexOf("\n")), "latin1").toString("utf8");
   if (header !== ref.header) throw new Error("the file changed since the diff was loaded; refresh and try again");
+  return { raw };
+}
+
+async function loadHunkPatch(root: string, rel: string, area: "staged" | "unstaged", ref: GitHunkRef): Promise<Buffer> {
+  const { raw } = await loadRawHunk(root, rel, area, ref);
   return buildHunkPatch(raw, ref.index);
 }
 
@@ -181,5 +214,40 @@ export async function unstageHunk(cwd: string, rel: string, ref: GitHunkRef): Pr
 export async function discardHunk(cwd: string, rel: string, ref: GitHunkRef): Promise<void> {
   const root = await requireRepoRoot(cwd);
   const patch = await loadHunkPatch(root, rel, "unstaged", ref);
+  await git(root, ["apply", "-R", "--whitespace=nowarn", "-"], { input: patch });
+}
+
+// ───────── 行级 ─────────
+
+/** 取 hunk 的原始 diff 并按选中的行生成补丁；hunk 变过（header 对不上）就拒绝。 */
+async function loadLinesPatch(
+  root: string,
+  rel: string,
+  area: "staged" | "unstaged",
+  ref: GitLinesRef,
+  direction: LinePatchDirection,
+): Promise<Buffer> {
+  const { raw } = await loadRawHunk(root, rel, area, ref);
+  return buildLinePatch(raw, ref.index, new Set(ref.lines), direction);
+}
+
+/** 暂存 hunk 里选中的行（工作区 diff 的子集应用到索引）。 */
+export async function stageLines(cwd: string, rel: string, ref: GitLinesRef): Promise<void> {
+  const root = await requireRepoRoot(cwd);
+  const patch = await loadLinesPatch(root, rel, "unstaged", ref, "forward");
+  await git(root, ["apply", "--cached", "--whitespace=nowarn", "-"], { input: patch });
+}
+
+/** 取消暂存 hunk 里选中的行（暂存区 diff 的子集从索引里反向撤掉）。 */
+export async function unstageLines(cwd: string, rel: string, ref: GitLinesRef): Promise<void> {
+  const root = await requireRepoRoot(cwd);
+  const patch = await loadLinesPatch(root, rel, "staged", ref, "reverse");
+  await git(root, ["apply", "--cached", "-R", "--whitespace=nowarn", "-"], { input: patch });
+}
+
+/** 丢弃没暂存的 hunk 里选中的行（工作区 diff 的子集反向应用到工作区）。 */
+export async function discardLines(cwd: string, rel: string, ref: GitLinesRef): Promise<void> {
+  const root = await requireRepoRoot(cwd);
+  const patch = await loadLinesPatch(root, rel, "unstaged", ref, "reverse");
   await git(root, ["apply", "-R", "--whitespace=nowarn", "-"], { input: patch });
 }

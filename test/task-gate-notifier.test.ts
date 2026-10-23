@@ -26,7 +26,7 @@ function setup(overrides: Partial<GateNotifierDeps> = {}) {
   const clicked: TaskId[] = [];
   const sounds: number[] = [];
   const notifier = new GateNotifier({
-    enabled: async () => true,
+    notifyEnabled: async () => true,
     soundEnabled: async () => true,
     playSound: () => sounds.push(1),
     locale: () => "zh-CN",
@@ -67,7 +67,7 @@ describe("等你确认的系统通知", () => {
     focused = false;
     await notifier.onState(state("needs_you"));
     expect(shown).toHaveLength(0);
-    const off = setup({ enabled: async () => false });
+    const off = setup({ notifyEnabled: async (_task, kind) => kind !== "ask" });
     await off.notifier.onState(state("needs_you"));
     expect(off.shown).toHaveLength(0);
   });
@@ -116,10 +116,25 @@ describe("等你确认的系统通知", () => {
     await visible.notifier.onState(state("running"));
     await visible.notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
     expect(visible.shown).toHaveLength(0);
-    const off = setup({ enabled: async () => false });
+    const off = setup({ notifyEnabled: async (_task, kind) => kind !== "completion" && kind !== "error" });
     await off.notifier.onState(state("running"));
     await off.notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
     expect(off.shown).toHaveLength(0);
+  });
+
+  it("一轮以错误结束（omp 的 OSC 7501 state=error，任务回到 idle、lastTurn.error 是 omp 的原文）：窗口隐藏时通知里带这段文字的首行", async () => {
+    const { notifier, shown } = setup();
+    await notifier.onState(state("running"));
+    await notifier.onState(
+      state("idle", {
+        lastTurn: {
+          status: "error",
+          endedAt: 1,
+          error: { message: "Couldn't connect to api.deepseek.com\nsecond line", retryable: false },
+        },
+      }),
+    );
+    expect(shown).toEqual([{ title: "demo · 修 bug", body: "出错了: Couldn't connect to api.deepseek.com" }]);
   });
 
   it("idle 重复推送、没从忙碌状态来的 idle（启动恢复）都不发完成通知", async () => {
@@ -129,6 +144,23 @@ describe("等你确认的系统通知", () => {
     await notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
     await notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
     expect(shown).toHaveLength(1);
+  });
+
+  it("忙碌一阵又回到 idle、但没产生新的一轮（lastTurn 还是上一轮的出错 / 完成）：不再重复发出错或完成通知", async () => {
+    const { notifier, shown, sounds } = setup();
+    const failed = { status: "error" as const, endedAt: 1, error: { message: "boom", retryable: false } };
+    await notifier.onState(state("running"));
+    await notifier.onState(state("idle", { lastTurn: failed }));
+    expect(shown).toHaveLength(1);
+    await notifier.onState(state("needs_you", { lastTurn: failed }));
+    await notifier.onState(state("idle", { lastTurn: failed }));
+    const done = { status: "completed" as const, endedAt: 2 };
+    await notifier.onState(state("running", { lastTurn: failed }));
+    await notifier.onState(state("idle", { lastTurn: done }));
+    await notifier.onState(state("running", { lastTurn: done }));
+    await notifier.onState(state("idle", { lastTurn: done }));
+    expect(shown.map((item) => item.body)).toEqual(["出错了: boom", "需要你确认：Allow tool: bash", "已完成"]);
+    expect(sounds).toHaveLength(0);
   });
 
   it("完成提示音：正常跑完才响（窗口可见也响）；出错、中止、开关关闭不响；发了完成通知（窗口在托盘）不再另响", async () => {
@@ -154,9 +186,41 @@ describe("等你确认的系统通知", () => {
     expect(tray.shown).toHaveLength(1);
     expect(tray.sounds).toHaveLength(0);
     // 在托盘但通知开关关着：没有通知，就响提示音。
-    const quiet = setup({ enabled: async () => false });
+    const quiet = setup({ notifyEnabled: async (_task, kind) => kind !== "completion" });
     await quiet.notifier.onState(state("running"));
     await quiet.notifier.onState(completed);
     expect(quiet.sounds).toHaveLength(1);
+  });
+
+  it("三类通知各看 omp 的设置：ask 关了不发“等你处理”，completion 关了不发完成，error 开了才发出错（读的是这个任务）", async () => {
+    const asked: string[] = [];
+    const only = (on: string) => async (task: TaskState, kind: string) => {
+      asked.push(`${task.id}:${kind}`);
+      return kind === on;
+    };
+    const ask = setup({ notifyEnabled: only("ask") });
+    await ask.notifier.onState(state("needs_you"));
+    await ask.notifier.onState(state("running"));
+    await ask.notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
+    await ask.notifier.onState(state("running"));
+    await ask.notifier.onState(state("error"));
+    expect(ask.shown.map((item) => item.body)).toEqual(["需要你确认：Allow tool: bash"]);
+
+    const completion = setup({ notifyEnabled: only("completion") });
+    await completion.notifier.onState(state("needs_you"));
+    await completion.notifier.onState(state("running"));
+    await completion.notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
+    await completion.notifier.onState(state("running"));
+    await completion.notifier.onState(state("error"));
+    expect(completion.shown.map((item) => item.body)).toEqual(["已完成"]);
+
+    const error = setup({ notifyEnabled: only("error") });
+    await error.notifier.onState(state("needs_you"));
+    await error.notifier.onState(state("running"));
+    await error.notifier.onState(state("idle", { lastTurn: { status: "completed", endedAt: 1 } }));
+    await error.notifier.onState(state("running"));
+    await error.notifier.onState(state("error"));
+    expect(error.shown.map((item) => item.body)).toEqual(["出错了"]);
+    expect(asked).toContain("t1:ask");
   });
 });

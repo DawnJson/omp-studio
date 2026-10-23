@@ -352,3 +352,103 @@
   min-width: 0;
   resize: none;
 }
+
+/* Ctx：列表行里的上下文占用（omp Hub 的 Ctx 列）：细条 + 百分比 */
+.agents-ctx {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.agents-ctx-bar {
+  width: var(--space-6);
+  height: var(--space-1);
+  overflow: hidden;
+  background: var(--bg-active);
+  border-radius: var(--radius-pill);
+}
+.agents-ctx-bar i {
+  display: block;
+  height: 100%;
+  background: var(--text-3);
+  border-radius: inherit;
+}
+/* 快满了（≥ 90%）换成错误色 */
+.agents-ctx[data-high="true"] {
+  color: var(--st-error);
+}
+.agents-ctx[data-high="true"] .agents-ctx-bar i {
+  background: var(--st-error);
+}
+
+/* 页签（Agents / Activity）：头下面一条，和面板同宽 */
+.agents-tabs {
+  padding: 0 var(--space-2);
+}
+
+/* Activity 页：过滤页签 + 时间流（每行 = 时间、子代理、种类、一行文字） */
+.agents-activity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.agents-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.agents-act-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 8ch) auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: baseline;
+  width: 100%;
+  padding: var(--space-1-5) var(--space-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.agents-act-row:hover {
+  background: var(--bg-hover);
+}
+.agents-act-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.agents-act-time {
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.agents-act-agent {
+  overflow: hidden;
+  font-weight: var(--fw-strong);
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agents-act-kind {
+  color: var(--text-3);
+}
+.agents-act-row[data-kind="error"] .agents-act-kind,
+.agents-act-row[data-failed="true"] .agents-act-text {
+  color: var(--st-error);
+}
+.agents-act-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agents-act-text b {
+  font-weight: var(--fw-strong);
+}

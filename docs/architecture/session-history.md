@@ -102,3 +102,10 @@ omp 的 TSP 输入框卡片只给费用。token 分项和请求数由 `TspRunner
 ### 没做 / 没验证
 
 没有跑 e2e；没有在真实 omp 里验证 TSP `/retry` 经 `runQuietCommand` 的端到端；没有点过界面（无截图）。
+
+## 2026-10-23 补充（omp 18.12.6）
+
+- **会话信息概览的用量改读会话文件**（`readSessionUsage`，和输入框同口径），不再读 stats.db 的 `session_rollup`（进行中的会话是旧的）；概览不再有"同步"。`readSessionUsage` 加了和 `readSessionEntries` 同一个文件大小上限（256MB，超过抛错）。
+- **请求记录页"在浏览器中打开"**：实测 omp `/trace`（TSP，`PI_TUI_TSP_RECORD`）：在任务进程里起统计服务（127.0.0.1:3847，已有则复用），**omp 自己用 PowerShell Start-Process 打开浏览器**，状态 toast `Trace: http://127.0.0.1:3847/#/traces?s=<编码后的会话文件>`，对话里不加节点。选它而不是 `omp stats`：后者要 studio 管一个长驻进程，且会再打开一个根页面标签。`TaskCommand { kind: "trace" }`，任务运行中按钮禁用；studio 不再自己开链接（会出两个标签）。录制 `fixtures/tsp/trace-link.jsonl` 是 slash-status 的握手加真实的 `/trace` 帧（路径脱敏）。
+- **历史状态口径**对齐 omp `session-listing.ts`：completed / error / aborted / interrupted（length、内容里有 toolCall、最后是工具结果）/ pending（最后是用户消息）/ 认不出 null。侧栏画 completed、error、interrupted（虚线圈暂停号，悬停说明），aborted 和 pending 不画。
+

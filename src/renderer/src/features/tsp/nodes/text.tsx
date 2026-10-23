@@ -1,20 +1,11 @@
 // 文字类节点：text、md、code、diff、ansi、rows、math、media（规范 Text and Code）。
-import {
-  Fragment,
-  memo,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { Fragment, memo, useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
 import type { TspDiffHunk, TspSpan } from "../../../../../shared/tsp/tsp.generated.ts";
 import { labels } from "../labels.ts";
 import { Markdown } from "../../../markdown/index.ts";
-import { cachedHighlight, highlight, resolveLanguage, type HighlightToken } from "../../../markdown/highlight.ts";
+import type { TextMark } from "../../../markdown/marks.ts";
+import type { HighlightToken } from "../../../markdown/highlight.ts";
+import { codeLanguage, Tokens, tokenStyle, useHighlighted } from "../use-highlighted.tsx";
 import { openHref } from "../actions.ts";
 import { parseAnsi, type AnsiRun } from "../ansi.ts";
 import { Clamp } from "../Clamp.tsx";
@@ -27,15 +18,14 @@ import {
   type DiffLine,
   type WordRange,
 } from "../diff-parse.ts";
+import { applyRange, diffSides, lineTokens } from "../diff-highlight.ts";
 import { useFoldState } from "../fold-context.ts";
 import { TspIcon } from "../icons.tsx";
 import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
-import { plainText, cleanGlyphs, TspSpans } from "../spans.tsx";
+import { plainText, cleanGlyphs, spanClass, TspSpans } from "../spans.tsx";
 import { asArray, previewToLines } from "../props-util.ts";
 import { isRecord } from "../../../../../shared/type-guards.ts";
-import { TurnCostCtx } from "../turn-cost-context.ts";
-import { withExactCost } from "../turn-cost.ts";
 
 // ───────── text ─────────
 
@@ -46,14 +36,7 @@ function textSpans(p: Readonly<Record<string, unknown>>): readonly TspSpan[] | s
 
 export function Text(props: NodeProps) {
   const p = props.node.p;
-  const turnCost = useContext(TurnCostCtx);
-  const raw = textSpans(p);
-  const content =
-    turnCost === undefined
-      ? raw
-      : typeof raw === "string"
-        ? withExactCost(raw, turnCost)
-        : raw.map((span) => ({ ...span, t: withExactCost(span.t, turnCost) }));
+  const content = textSpans(p);
   const lines = typeof p.lines === "number" && p.lines > 0 ? Math.floor(p.lines) : null;
   const truncate = p.truncate === "start" || p.truncate === "middle" || p.truncate === "end" ? p.truncate : null;
   const oneLine = p.wrap === "none" || lines === 1 || (truncate !== null && lines === null && p.wrap === undefined);
@@ -116,11 +99,23 @@ export function Text(props: NodeProps) {
 export function Md(props: NodeProps) {
   const p = props.node.p;
   const text = typeof p.text === "string" ? cleanGlyphs(p.text) : "";
+  const marks = useMemo(() => textMarks(p.marks), [p.marks]);
   return (
     <div {...nodeDomProps(props, "tsp-md")}>
-      <Markdown source={text} streaming={p.stream === true} />
+      <Markdown source={text} streaming={p.stream === true} marks={marks} />
     </div>
   );
+}
+
+/** md.marks（`{t, s}`）→ 带类名的字面标记；没有可着色样式的标记丢掉。undefined = 没有标记。 */
+function textMarks(value: unknown): TextMark[] | undefined {
+  const marks = asArray(value)
+    .filter(isRecord)
+    .flatMap((mark): TextMark[] => {
+      const className = spanClass(typeof mark.s === "string" ? mark.s : undefined);
+      return typeof mark.t === "string" && className !== undefined ? [{ t: cleanGlyphs(mark.t), className }] : [];
+    });
+  return marks.length === 0 ? undefined : marks;
 }
 
 /** 公式走 Markdown 同一条 KaTeX 路径（不另开 innerHTML）：块级 `$$`，行内 `\( \)`。 */
@@ -137,62 +132,6 @@ export function MathBlock(props: NodeProps) {
 }
 
 // ───────── code ─────────
-
-const EXTENSION_LANG = /\.([A-Za-z0-9+]+)$/;
-
-function codeLanguage(p: Readonly<Record<string, unknown>>): string | null {
-  if (typeof p.lang === "string") return resolveLanguage(p.lang);
-  if (typeof p.path === "string") {
-    const ext = EXTENSION_LANG.exec(p.path)?.[1];
-    if (ext) return resolveLanguage(ext);
-    return resolveLanguage(p.path.split(/[\\/]/).pop() ?? "");
-  }
-  return null;
-}
-
-function useHighlighted(code: string, lang: string | null): HighlightToken[][] | null {
-  const [tokens, setTokens] = useState<HighlightToken[][] | null>(() => (lang ? cachedHighlight(code, lang) : null));
-  useEffect(() => {
-    if (!lang) {
-      setTokens(null);
-      return;
-    }
-    const cached = cachedHighlight(code, lang);
-    if (cached) {
-      setTokens(cached);
-      return;
-    }
-    let alive = true;
-    highlight(code, lang).then(
-      (result) => alive && setTokens(result),
-      () => alive && setTokens(null),
-    );
-    return () => {
-      alive = false;
-    };
-  }, [code, lang]);
-  return lang ? tokens : null;
-}
-
-function Tokens({ tokens, fallback }: { tokens: readonly HighlightToken[] | undefined; fallback: string }) {
-  if (!tokens) return <>{fallback}</>;
-  return (
-    <>
-      {tokens.map((token, index) => (
-        <span
-          key={index}
-          style={{
-            color: token.color,
-            fontStyle: token.italic ? "italic" : undefined,
-            fontWeight: token.bold ? "var(--fw-strong)" : undefined,
-          }}
-        >
-          {token.text}
-        </span>
-      ))}
-    </>
-  );
-}
 
 /** preview 只在折叠时生效（开着的折叠里让位）：返回要夹到几行，null = 全部显示。 */
 function usePreviewLines(preview: unknown): number | null {
@@ -261,7 +200,27 @@ export function Code(props: NodeProps) {
 
 // ───────── diff ─────────
 
-function WordMarked({ text, range }: { text: string; range: WordRange | null }) {
+/** 一行的文字：有 token 就按语法着色，词级强调（`.tsp-em`）叠在 token 上；没有就只画强调。 */
+function DiffText({
+  text,
+  range,
+  tokens,
+}: {
+  text: string;
+  range: WordRange | null;
+  tokens: readonly HighlightToken[] | undefined;
+}) {
+  if (tokens) {
+    return (
+      <>
+        {applyRange(tokens, range).map(({ token, em }, index) => (
+          <span key={index} className={em ? "tsp-em" : undefined} style={tokenStyle(token)}>
+            {token.text}
+          </span>
+        ))}
+      </>
+    );
+  }
   if (!range || range.from >= range.to) return <>{text}</>;
   return (
     <>
@@ -293,7 +252,15 @@ function wordRanges(lines: readonly DiffLine[]): Map<DiffLine, WordRange | null>
 
 const MARKS = { add: "+", del: "-", ctx: " " } as const;
 
-function UnifiedLine({ line, range }: { line: DiffLine; range: WordRange | null }) {
+function UnifiedLine({
+  line,
+  range,
+  tokens,
+}: {
+  line: DiffLine;
+  range: WordRange | null;
+  tokens: readonly HighlightToken[] | undefined;
+}) {
   return (
     // 行的种类放 data-kind，不当类名：`ctx` 和输入框上下文浮层的全局 `.ctx` 撞名，上下文行会被排成竖列。
     <div className="tsp-dl" data-kind={line.kind}>
@@ -301,21 +268,70 @@ function UnifiedLine({ line, range }: { line: DiffLine; range: WordRange | null 
       <span className="tsp-dg">{line.new ?? ""}</span>
       <span className="tsp-dm">{MARKS[line.kind]}</span>
       <span className="tsp-dt">
-        <WordMarked text={line.text} range={range} />
+        <DiffText text={line.text} range={range} tokens={tokens} />
       </span>
     </div>
   );
 }
 
-function SplitHalf({ line, range, side }: { line: DiffLine | null; range: WordRange | null; side: "old" | "new" }) {
+function SplitHalf({
+  line,
+  range,
+  side,
+  tokens,
+}: {
+  line: DiffLine | null;
+  range: WordRange | null;
+  side: "old" | "new";
+  tokens: readonly HighlightToken[] | undefined;
+}) {
   if (!line) return <div className="tsp-dl half" data-kind="nil" />;
   return (
     <div className="tsp-dl half" data-kind={line.kind}>
       <span className="tsp-dg">{(side === "old" ? line.old : line.new) ?? ""}</span>
       <span className="tsp-dt">
-        <WordMarked text={line.text} range={range} />
+        <DiffText text={line.text} range={range} tokens={tokens} />
       </span>
     </div>
+  );
+}
+
+/** 一个 hunk：旧 / 新两侧源码各高亮一次（hook 所以单独成组件）。 */
+function DiffHunk({ hunk, split, lang }: { hunk: DiffHunkRows; split: boolean; lang: string | null }) {
+  const ranges = useMemo(() => wordRanges(hunk.lines), [hunk]);
+  const sides = useMemo(() => diffSides(hunk.lines), [hunk]);
+  const oldTokens = useHighlighted(sides.oldCode, lang);
+  const newTokens = useHighlighted(sides.newCode, lang);
+  const tokensOf = (line: DiffLine | null): readonly HighlightToken[] | undefined =>
+    line ? lineTokens(line, sides, oldTokens, newTokens) : undefined;
+  if (split) {
+    return (
+      <>
+        {splitRows(hunk.lines).map((row, i) => (
+          <div key={i} className="tsp-dr">
+            <SplitHalf
+              line={row.left}
+              range={row.left ? (ranges.get(row.left) ?? null) : null}
+              side="old"
+              tokens={tokensOf(row.left)}
+            />
+            <SplitHalf
+              line={row.right}
+              range={row.right ? (ranges.get(row.right) ?? null) : null}
+              side="new"
+              tokens={tokensOf(row.right)}
+            />
+          </div>
+        ))}
+      </>
+    );
+  }
+  return (
+    <>
+      {hunk.lines.map((line, i) => (
+        <UnifiedLine key={i} line={line} range={ranges.get(line) ?? null} tokens={tokensOf(line)} />
+      ))}
+    </>
   );
 }
 
@@ -327,6 +343,7 @@ export function Diff(props: NodeProps) {
   }, [p.hunks, p.text]);
   const split = p.mode === "split";
   const empty = hunks.length === 0;
+  const lang = codeLanguage(p);
   return (
     <div {...nodeDomProps(props, "tsp-diff", { className: split ? "split" : undefined })}>
       {empty ? (
@@ -336,7 +353,6 @@ export function Diff(props: NodeProps) {
           {hunks.map((hunk, index) => {
             const previous = hunks[index - 1];
             const gap = previous ? hunk.oldStart - (previous.oldStart + previous.oldCount) : 0;
-            const ranges = wordRanges(hunk.lines);
             return (
               <Fragment key={index}>
                 {previous && (
@@ -345,22 +361,7 @@ export function Diff(props: NodeProps) {
                     {hunk.fn !== "" && <span className="fn">{hunk.fn}</span>}
                   </div>
                 )}
-                {split
-                  ? splitRows(hunk.lines).map((row, i) => (
-                      <div key={i} className="tsp-dr">
-                        <SplitHalf
-                          line={row.left}
-                          range={row.left ? (ranges.get(row.left) ?? null) : null}
-                          side="old"
-                        />
-                        <SplitHalf
-                          line={row.right}
-                          range={row.right ? (ranges.get(row.right) ?? null) : null}
-                          side="new"
-                        />
-                      </div>
-                    ))
-                  : hunk.lines.map((line, i) => <UnifiedLine key={i} line={line} range={ranges.get(line) ?? null} />)}
+                <DiffHunk hunk={hunk} split={split} lang={lang} />
               </Fragment>
             );
           })}

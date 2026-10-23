@@ -18,6 +18,23 @@ export const formApis = ["openai-completions", "openai-responses", "anthropic-me
 /** 一键拉取能处理的 api：OpenAI 兼容的 `/models` 和 Anthropic 的 `/v1/models`。 */
 const fetchableApis = ["openai-completions", "openai-responses", "anthropic-messages"] as const;
 
+/**
+ * 自动发现模型时 `discovery.type` 的默认值，按接口类型选（omp://models.md「Allowed auth/discovery values」、`config/model-registry.ts`）：
+ * OpenAI 兼容的两种读 `{baseUrl}/models` → `openai-models-list`；Anthropic 的转发站读 `GET /v1/models`，每个模型的 api 由 omp 自己判断 → `proxy`。
+ * 其它 api（Google、Bedrock……）没有通用的发现方式，返回 null。
+ */
+export function defaultDiscoveryType(api: string): string | null {
+  switch (api) {
+    case "openai-completions":
+    case "openai-responses":
+      return "openai-models-list";
+    case "anthropic-messages":
+      return "proxy";
+    default:
+      return null;
+  }
+}
+
 export const limits = {
   providerId: 64,
   url: 2048,
@@ -69,6 +86,11 @@ export interface CustomProviderInput {
   key: CustomKeyInput;
   /** name 缺省 = 不动现有的名字。 */
   models: { id: string; name?: string }[];
+  /**
+   * 自动发现模型（`providers.<id>.discovery`）：true = 没有就按 api 写默认的 `{type}`，已有的（含类型、timeoutMs 等）原样保留；
+   * false = 去掉 `discovery`；缺省 = 不动。
+   */
+  discovery?: boolean;
 }
 
 export type CustomModelsErrorCode =

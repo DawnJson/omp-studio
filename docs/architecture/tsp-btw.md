@@ -80,6 +80,8 @@ role `omp.overlay.btwHistory` / `omp.btw.*` / `omp.btn`、按钮动作名 `stop`
 - 终端里的 omp 在 studio 之外追问同一个话题（另一个进程）：磁盘上问答更多时以磁盘为准，实时流式看不到。
 - **停止（已处理）**：弹窗开着时 Esc 只会落在弹窗上，停不了主轮（实测 omp 18.12.5，录制 `btw-stop.jsonl`；对照：只发 Esc 时弹窗被关掉、主轮继续跑）。所以 `TspRunner.stop()` 在主轮 working 时先 `TspBtw.yieldToMain()`：回答中先 `action stop` → 等这一问收尾 → `action close`（`sync` 已自动发过就不重发）→ 等弹窗撤掉，然后才发 Esc、再走排队消息取回（`hasQueuedMessages` 在让开弹窗之后读）。实测这个顺序下主轮的助手消息 `stopReason: "aborted"`。让开失败（omp 没响应）只记日志，照常发 Esc。测试：`test/tsp-btw-driver.test.ts`（yieldToMain 事件和录制逐字相同）、`test/task-tsp-btw.test.ts`（stop 后 fake omp 收到 send、send、stop、close、Esc 的顺序）。
 - 没有实测 `Interrupted` 状态词（按 omp 文档推断，进程退出时 studio 自己也会标）。
+- **没有"丢弃话题"（2026-10-23 实测，真实 omp 18.12.6，临时 `PI_CODING_AGENT_DIR`，deepseek-v4-flash，探针脚本用完已删）**：`/btw Reply with exactly the word: pong` 答完后弹窗底栏按钮（`omp.btn` 的 `actions.click`）是 `close` / `copy-answer` / `follow-up`（回答中是 `stop`）；点 `follow-up` 后换成 `discard` / `send`；点 `discard` 后又回到 `close` / `copy-answer` / `follow-up`，弹窗和话题都在，`btw-history/` 里的话题文件仍是 1 个。所以 `discard` 只是丢掉追问输入框里还没发的草稿（studio 自己在追问前、让开弹窗前用它关掉残留的输入框，见 `#askFollowUp` / `yieldToMain`），**不删话题**；omp 没有别的删除话题的按钮（`fixtures/tsp/btw.jsonl` 里 `discard` 同样只在追问输入框那一行出现一次）。所以 studio 面板**没有**"丢弃话题"：omp 做不到，也不该直接删 omp 的话题文件（studio 不写 omp 的存档）。需要的话只能做成 studio 自己的"隐藏这个话题"（不动磁盘、重开又回来），没做，等仓库所有者决定。
+- **复制答案（2026-10-23）**：面板头部的按钮（`btw-copy-answer`）把当前话题最新一问的答案文字写进系统剪贴板（渲染进程 `navigator.clipboard`，同 `ProcessDetails`、`AboutDialog` 的做法），出 `common.copied` toast；不驱动 omp 弹窗里的 `copy-answer` 按钮（那是 omp 往它自己的终端剪贴板写，studio 拿不到结果，而答案文字本来就在镜像里）。没有答案（回答中还没有文字）时按钮不出现。
 
 ## 5. 测试
 

@@ -52,16 +52,20 @@ async function makeRepo(parent: string): Promise<string> {
 interface Started {
   launched: LaunchedApp;
   repo: string;
+  work: string;
   inputLog: string;
   cleanup(): Promise<void>;
 }
 
-async function start(options: { git: boolean }): Promise<Started> {
+async function start(options: { git: boolean; env?: (work: string) => Record<string, string> }): Promise<Started> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp 评审 e2e-"));
   const repo = options.git ? await makeRepo(work) : path.join(work, "没有 git 的目录");
   if (!options.git) await mkdir(repo);
   const inputLog = path.join(work, "omp-input.jsonl");
-  const launched = await launchApp({ STUDIO_TEST_OMP: testOmp("slash-status", { log: inputLog }) });
+  const launched = await launchApp({
+    STUDIO_TEST_OMP: testOmp("slash-status", { log: inputLog }),
+    ...options.env?.(work),
+  });
   await launched.app.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, repo);
@@ -69,6 +73,7 @@ async function start(options: { git: boolean }): Promise<Started> {
   return {
     launched,
     repo,
+    work,
     inputLog,
     async cleanup() {
       await launched.close();
@@ -103,6 +108,9 @@ async function shoot(page: Page, state: string): Promise<void> {
     await setLocaleTheme(page, locale, scheme);
     await page.screenshot({ path: path.join(screenshotsDir, `review-${state}-${locale}-${scheme}.png`) });
   }
+  // 回到中文浅色：后面的步骤按中文文案找元素。
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await setLocaleTheme(page, "zh-CN", "light");
 }
 
 const gutter = (page: Page, line: number, side: "new" | "old" = "new") =>
@@ -420,6 +428,293 @@ test("评审：不是 git 仓库的任务目录给出明确提示；快捷键 Ct
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("review")).toBeHidden();
     await expect(page.getByTestId("composer-input")).toBeFocused();
+  } finally {
+    await cleanup();
+  }
+});
+
+// ───────── 生成提交信息 / Amend / 忽略空白 / 按行暂存（2026-10-23） ─────────
+
+const fakeCommitOmp = path.resolve(import.meta.dirname, "..", "fake-omp", "fake-omp-commit.ts");
+
+/**
+ * "生成"按钮背后是 `omp commit --dry-run --no-changelog`，主进程在未打包时认 STUDIO_TEST_COMMIT_OMP（JSON {command, args}，
+ * 同 STUDIO_TEST_OMP）：这里指向假 `omp commit`（test/fake-omp/fake-omp-commit.ts，输出格式照真实 omp 18.12.6 的录制），
+ * FAKE_COMMIT_LOG 记每次调用的 cwd 和参数，FAKE_COMMIT_DELAY 让"生成中"停一会儿，FAKE_COMMIT_MODE 选 ok / nomodel / fail 等行为。
+ */
+function commitOmpEnv(work: string, mode = "ok", delayMs = 0): Record<string, string> {
+  return {
+    STUDIO_TEST_COMMIT_OMP: JSON.stringify({ command: process.execPath, args: [fakeCommitOmp] }),
+    FAKE_COMMIT_MODE: mode,
+    FAKE_COMMIT_LOG: path.join(work, "commit-calls.log"),
+    FAKE_COMMIT_DELAY: String(delayMs),
+  };
+}
+
+const readCalls = async (work: string) =>
+  (await readFile(path.join(work, "commit-calls.log"), "utf8").catch(() => "")).split("\n").filter(Boolean);
+
+test("评审：生成提交信息（假 omp commit）：填进输入框、可取消、没暂存时不能点、没有模型有提示", async () => {
+  const { launched, repo, work, cleanup } = await start({ git: true, env: (dir) => commitOmpEnv(dir, "ok", 8000) });
+  try {
+    const { page } = launched;
+    await openTask(page);
+    await page.getByTestId("topbar-review").click();
+    await expect(page.getByTestId("review")).toBeVisible();
+    const generate = page.getByTestId("review-commit-generate");
+    const summary = page.getByTestId("review-commit-summary");
+    const description = page.getByTestId("review-commit-description");
+    const headBefore = git(repo, "rev-parse", "HEAD");
+    const indexBefore = git(repo, "status", "--porcelain");
+
+    // README 已暂存：能点。点击后转 loading，旁边出现"取消"；取消后输入框没有被填，omp 进程被结束。
+    await expect(generate).toBeEnabled();
+    await generate.click();
+    await expect(generate).toHaveAttribute("data-loading", "true");
+    await shoot(page, "generate-loading");
+    // 等假 omp 真的起来（启动时记一行调用）再取消，否则取消可能赶在进程启动之前。
+    await expect.poll(async () => (await readCalls(work)).length).toBe(1);
+    await page.getByTestId("review-commit-generate-cancel").click();
+    await expect(generate).not.toHaveAttribute("data-loading", "true");
+    await expect(summary).toHaveValue("");
+
+    // 再点一次，等它跑完：标题、说明填进输入框（不提交）。
+    await generate.click();
+    await expect(summary).toHaveValue("feat: 假 omp 生成的标题", { timeout: 30_000 });
+    await expect(description).toHaveValue("- 第一条说明\n- 第二条说明");
+    await shoot(page, "generate-done");
+    expect(git(repo, "rev-parse", "HEAD")).toBe(headBefore);
+    expect(git(repo, "status", "--porcelain")).toBe(indexBefore);
+
+    // omp 是这样被调用的：两次，都是参数数组 commit --dry-run --no-changelog（没有 -m，模型由 omp 的 commit 角色决定），cwd 是任务目录。
+    const calls = await readCalls(work);
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      const [cwd, args] = call.split("\t");
+      expect(path.basename(cwd ?? "")).toBe("评审 项目 目录");
+      expect(args).toBe("commit --dry-run --no-changelog");
+    }
+
+    // 没有已暂存的改动：按钮灰掉，提示原因；不会去调 omp（真实的 omp 会自己暂存全部）。
+    await openFile(page, "README.md", "staged").click();
+    await page.getByTestId("file-unstage").click();
+    await expect(openFile(page, "README.md", "staged")).toHaveCount(0);
+    await expect(generate).toBeDisabled();
+    await expect(generate).toHaveAttribute("title", /暂存|staged/i);
+    expect(await readCalls(work)).toHaveLength(2);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("评审：生成提交信息：omp 没有可用模型时给出提示，输入框不动", async () => {
+  const { launched, cleanup } = await start({ git: true, env: (dir) => commitOmpEnv(dir, "nomodel") });
+  try {
+    const { page } = launched;
+    await openTask(page);
+    await page.getByTestId("topbar-review").click();
+    await page.getByTestId("review-commit-summary").fill("手写的标题");
+    await page.getByTestId("review-commit-generate").click();
+    await expect(page.getByTestId("toasts")).toContainText("没有可用的 commit 模型");
+    await expect(page.getByTestId("review-commit-summary")).toHaveValue("手写的标题");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("评审：修改上一次提交（Amend）：预填上一次的信息；取消勾选还原；已推送的提交要警告和确认", async () => {
+  const { launched, repo, work, cleanup } = await start({ git: true });
+  try {
+    const { page } = launched;
+    git(repo, "config", "user.name", "t");
+    git(repo, "config", "user.email", "t@example.com");
+    git(repo, "config", "commit.gpgsign", "false");
+    git(repo, "commit", "-q", "--amend", "--only", "-m", "init 标题\n\n原来的说明");
+    await openTask(page);
+    await page.getByTestId("topbar-review").click();
+    const summary = page.getByTestId("review-commit-summary");
+    const description = page.getByTestId("review-commit-description");
+    const amend = page.getByTestId("review-commit-amend");
+    const submit = page.getByTestId("review-commit-submit");
+    const countBefore = git(repo, "rev-list", "--count", "HEAD").trim();
+
+    // 勾上：预填上一次的标题和说明；按钮变成"修改提交"。取消勾选，还原勾选前输入的内容。
+    await summary.fill("我正在写的");
+    // 勾选要先异步读上一次提交，状态不会在点击瞬间变：用 click + 断言，不用 check()。
+    await amend.click();
+    await expect(amend).toBeChecked();
+    await expect(summary).toHaveValue("init 标题");
+    await expect(description).toHaveValue("原来的说明");
+    await expect(submit).toHaveText("修改提交");
+    await expect(page.getByTestId("review-commit-amend-note")).toBeVisible();
+    await shoot(page, "amend");
+    await amend.uncheck();
+    await expect(summary).toHaveValue("我正在写的");
+    await expect(submit).toHaveText("提交");
+
+    // 本地提交：暂存的 README 并入上一次提交，信息换成新的；提交数不变、哈希变了。
+    const hashBefore = git(repo, "rev-parse", "HEAD").trim();
+    await amend.click();
+    await expect(amend).toBeChecked();
+    await summary.fill("init 标题（已修改）");
+    await submit.click();
+    await expect(page.getByTestId("toasts")).toContainText("已修改上一次提交");
+    await expect(openFile(page, "README.md", "staged")).toHaveCount(0);
+    expect(git(repo, "rev-parse", "HEAD").trim()).not.toBe(hashBefore);
+    expect(git(repo, "rev-list", "--count", "HEAD").trim()).toBe(countBefore);
+    expect(git(repo, "log", "-1", "--format=%B").trim()).toBe("init 标题（已修改）\n\n原来的说明");
+    expect(git(repo, "show", "HEAD:README.md")).toContain("评审用的示例");
+    await expect(amend).not.toBeChecked();
+
+    // 已推送的提交：勾上就有警告；提交前再确认，取消 = 什么都没发生；确认后本地改写，远端那份不动（不强推）。
+    const remote = path.join(work, "远端 仓库.git");
+    git(work, "init", "-q", "--bare", remote);
+    git(repo, "remote", "add", "origin", remote);
+    git(repo, "push", "-q", "-u", "origin", "HEAD");
+    const pushed = git(repo, "rev-parse", "HEAD").trim();
+    // 勾选要先异步读上一次提交，状态不会在点击瞬间变：用 click + 断言，不用 check()。
+    await amend.click();
+    await expect(amend).toBeChecked();
+    await expect(page.getByTestId("review-commit-amend-note")).toHaveAttribute("data-pushed", "true");
+    await shoot(page, "amend-pushed");
+    await summary.fill("改写已推送的提交");
+    await submit.click();
+    await expect(page.getByTestId("review-amend-dialog")).toBeVisible();
+    await shoot(page, "amend-confirm");
+    await page.getByRole("alertdialog").getByRole("button").first().click();
+    await expect(page.getByTestId("review-amend-dialog")).toBeHidden();
+    expect(git(repo, "rev-parse", "HEAD").trim()).toBe(pushed);
+
+    await submit.click();
+    await page.getByTestId("review-amend-dialog").getByRole("button").last().click();
+    // 上一次的"已修改上一次提交"提示可能还在：以勾选被清掉（提交成功后才清）为准。
+    await expect(amend).not.toBeChecked();
+    expect(git(repo, "rev-parse", "HEAD").trim()).not.toBe(pushed);
+    expect(git(repo, "log", "-1", "--format=%s").trim()).toBe("改写已推送的提交");
+    expect(git(remote, "for-each-ref", "--format=%(objectname)", "refs/heads").trim()).toBe(pushed);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("评审：忽略空白：空白改动从 diff 里消失，按块 / 按行暂存禁用并说明，关掉后恢复", async () => {
+  const { launched, repo, cleanup } = await start({ git: true });
+  try {
+    const { page } = launched;
+    // 在 calc.ts 里再加一处只改缩进的改动。
+    const edited = [...baseLines];
+    edited[2] = "export const value3 = 300;";
+    edited[4] = "  export const value5 = 5;";
+    edited[25] = "export const value26 = 2600;";
+    await writeFile(path.join(repo, PATH_EDITED), edited.join("\n") + "\n");
+    await openTask(page);
+    await page.getByTestId("topbar-review").click();
+    await openFile(page, PATH_EDITED, "unstaged").click();
+
+    const indented = page.locator(".rv-row[data-kind=add]", { hasText: "  export const value5 = 5;" });
+    const toggle = page.getByTestId("ignore-space-toggle");
+    await expect(indented).toHaveCount(1);
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await expect(page.getByTestId("ignore-space-note")).toHaveCount(0);
+    await expect(page.locator(".rv-row[data-pickable]").first()).toBeVisible();
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await expect(indented).toHaveCount(0);
+    await expect(page.locator(".rv-row[data-kind=add]", { hasText: "value3 = 300" })).toHaveCount(1);
+    // 按块 / 按行：灰掉并说明，点行不选。
+    await expect(page.getByTestId("ignore-space-note")).toBeVisible();
+    await expect(page.getByTestId("hunk-stage").first()).toBeDisabled();
+    await expect(page.getByTestId("hunk-discard").first()).toBeDisabled();
+    await expect(page.locator(".rv-row[data-pickable]")).toHaveCount(0);
+    await page.locator(".rv-row[data-kind=add]").first().click();
+    await expect(page.getByTestId("lines-bar")).toHaveCount(0);
+    // 整个文件的暂存仍可用，并且暂存的是完整改动（含被忽略的缩进）。
+    await shoot(page, "ignore-space");
+    await page.getByTestId("file-stage").click();
+    await expect(openFile(page, PATH_EDITED, "staged")).toBeVisible();
+    expect(git(repo, "diff", "--cached", "--numstat", "--", PATH_EDITED)).toMatch(/3\s+3\s+src\/calc\.ts/);
+
+    // 关掉：恢复。
+    await openFile(page, PATH_EDITED, "staged").click();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await expect(indented).toHaveCount(1);
+    await expect(page.getByTestId("hunk-unstage").first()).toBeEnabled();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("评审：按行暂存 / 取消暂存 / 丢弃：点击、Shift 点击、Shift+↑↓ 选行，只处理选中的行", async () => {
+  const { launched, repo, cleanup } = await start({ git: true });
+  try {
+    const { page } = launched;
+    // 连着改 3、4、5 行：一个 hunk 里三处删除 + 三处新增。
+    const edited = [...baseLines];
+    edited[2] = "export const value3 = 300;";
+    edited[3] = "export const value4 = 400;";
+    edited[4] = "export const value5 = 500;";
+    await writeFile(path.join(repo, PATH_EDITED), edited.join("\n") + "\n");
+    await openTask(page);
+    await page.getByTestId("topbar-review").click();
+    await openFile(page, PATH_EDITED, "unstaged").click();
+    const row = (kind: "add" | "del", text: string) =>
+      page.locator(`.rv-row[data-kind=${kind}]`, { hasText: text }).first();
+    const count = page.getByTestId("lines-count");
+
+    // 1. 点击切换：选第 4 行的删除和新增 → "已选 2 行"；暂存它们。
+    await expect(page.getByTestId("lines-bar")).toHaveCount(0);
+    await row("del", "value4 = 4;").click();
+    await row("add", "value4 = 400;").click();
+    await expect(count).toHaveText("已选 2 行");
+    await expect(page.locator(".rv-row[data-picked]")).toHaveCount(2);
+    await shoot(page, "lines");
+    await page.getByTestId("lines-stage").click();
+    // 暂存是异步的：等 calc.ts 出现在"已暂存"里，再查 git。
+    await expect(openFile(page, PATH_EDITED, "staged")).toBeVisible();
+    // 索引里只有第 4 行换了，而且新行在原位置；第 3、5 行还是旧的。
+    const indexLines = [...baseLines];
+    indexLines[3] = "export const value4 = 400;";
+    expect(git(repo, "show", `:${PATH_EDITED}`)).toBe(indexLines.join("\n") + "\n");
+    // 工作区原样。
+    expect(await readFile(path.join(repo, PATH_EDITED), "utf8")).toBe(edited.join("\n") + "\n");
+
+    // 2. Shift+↓：从第一个改动行开始，再按一次扩到下一行；Esc 清除。
+    await page.locator(".rv-scroll").focus();
+    await page.keyboard.press("Shift+ArrowDown");
+    await expect(count).toHaveText("已选 1 行");
+    await page.keyboard.press("Shift+ArrowDown");
+    await expect(count).toHaveText("已选 2 行");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("lines-bar")).toHaveCount(0);
+    await expect(page.getByTestId("review")).toBeVisible();
+
+    // 3. Shift 点击：第 3 行的删除到新增 → 丢弃（要确认）：工作区只回退这两行。
+    await row("del", "value3 = 3;").click();
+    await row("add", "value3 = 300;").click({ modifiers: ["Shift"] });
+    await expect(count).toHaveText("已选 2 行");
+    await page.getByTestId("lines-discard").click();
+    await expect(page.getByTestId("review-discard-dialog")).toBeVisible();
+    await page.getByTestId("review-discard-dialog").getByRole("button").last().click();
+    await expect
+      .poll(async () => (await readFile(path.join(repo, PATH_EDITED), "utf8")).split("\n")[2])
+      .toBe("export const value3 = 3;");
+    const after = (await readFile(path.join(repo, PATH_EDITED), "utf8")).split("\n");
+    expect(after.slice(2, 5)).toEqual([
+      "export const value3 = 3;",
+      "export const value4 = 400;",
+      "export const value5 = 500;",
+    ]);
+
+    // 4. 取消暂存：已暂存那一侧选中第 4 行的两行，退回未暂存；暂存区里不再有它。
+    await openFile(page, PATH_EDITED, "staged").click();
+    await row("del", "value4 = 4;").click();
+    await row("add", "value4 = 400;").click();
+    await page.getByTestId("lines-unstage").click();
+    await expect(openFile(page, PATH_EDITED, "staged")).toHaveCount(0);
+    expect(git(repo, "diff", "--cached", "--name-only", "--", PATH_EDITED).trim()).toBe("");
+    expect(git(repo, "diff", "--numstat", "--", PATH_EDITED)).toMatch(/2\s+2\s+src\/calc\.ts/);
   } finally {
     await cleanup();
   }

@@ -4,9 +4,10 @@
 //   · 空闲回顾（omp.recap）：omp 只在空闲时生成一次，写进 agent 目录 `history.db` 的 `session_recaps` 表
 //     （`SessionManager.recordRecap`），不写会话文件，恢复时也不重放。studio 只补最新一条，放回它生成时的位置
 //     （第几轮之后：`afterTurn` = 回顾之前开始的轮数）。
-// 统计口径照抄 omp 的 TurnUsageAggregator（packages/tui 的 chat-transcript-builder）：非 agent 的用户消息开一轮并清零累计，
-// assistant 消息累计 input+cacheWrite（+orchestration.input）、output（+orchestration.output）、cost.total，
-// 遇到 stopReason 不是 toolUse 的消息结算；耗时 = 该消息 completedAt − 开这一轮的用户消息 timestamp（≤0 当没有）。
+// 统计口径照抄 omp 的 TurnUsageAggregator（`l7e`，packages/tui 的 chat-transcript-builder / usage-row）：非 agent 的用户消息
+// （和合成的 developer 消息）清零累计，assistant 消息累计 input+cacheWrite（+orchestration.input）、output（+orchestration.output）、
+// cost.total，遇到 stopReason 不是 toolUse 的消息结算（被打断、出错的消息也结算）；耗时 = 该消息 completedAt − 开这一轮的用户消息
+// timestamp（≤0 当没有）。每轮用量合一：这里是唯一一份解析，turn 里直接带 cost，文字由 turn-footer.ts 按 omp 的 `tLo` 写（`<$0.01`）。
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -73,6 +74,12 @@ export function parseSession(text: string): ParsedSession {
       result.turns.push(null);
       result.turnStarts.push(timestamp);
       userAt = timestamp > 0 ? timestamp : null;
+      input = output = cost = 0;
+      continue;
+    }
+    // 合成的 developer 消息（omp 的 chat-transcript-builder 同样清零）：用户发起的从它的时间戳起算，否则没有起点。
+    if (message["role"] === "developer" && message["synthetic"] === true) {
+      userAt = message["userInitiated"] === true && timestamp > 0 ? timestamp : null;
       input = output = cost = 0;
       continue;
     }

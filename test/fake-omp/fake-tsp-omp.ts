@@ -3,6 +3,8 @@
 //   录制名 = fixtures/tsp/<名字>.jsonl（omp 自己用 PI_TUI_TSP_RECORD 录的双向消息，每行 {t, dir, verb, params?, body}）。
 //   录制里 omp 不记按键：需要"等到终端按了某个键才继续回放"时，在录制里手工加一行 {"t":…,"dir":"in","verb":"k","body":"\u001b"}
 //   （verb k = 终端写进 pty 的按键，body 是那段字节），回放到这里会等收到同样的按键。
+//   OSC：录制里加 `{"t":…,"dir":"out","verb":"osc","body":"7501;state=working:app=omp"}` 就回放一条 `ESC ] <body>`（程序状态 7501、
+//   当前目录 `7;file://主机/C:/目录`、`1337;SetUserVar=omp_session_file=<base64>` 等）；TSP 的录制本来不含 OSC，要手工加。
 //   --speed：回放速度，录制里的间隔除以它（默认 1；测试用大数，免得等真实的 59 秒）。
 //   --log：把收到的每条 TSP 消息、按键原样追加成 JSONL（{kind:"tsp", verb, body} / {kind:"keys", data}），测试据此断言 omp 收到了什么。
 //   --exit-after-end：回放完立刻以 0 退出（默认继续活着，和真实 omp 一样等输入）。
@@ -68,6 +70,12 @@ function sleep(ms: number): Promise<void> {
 
 /** 一条回放消息 → 写到 stdout 的字节（超过 CHUNK_BYTES 的分块，切点按规范选：下一个字节不是 [A-Za-z0-9_-]）。 */
 function encode(entry: Entry): Buffer[] {
+  // verb `osc`：回放一条原样的 OSC（body 是 `ESC ]` 之后的内容，如 `7501;state=working:app=omp`、`7;file://host/C:/dir`、
+  // `1337;SetUserVar=omp_session_file`）。结尾照真实 omp 的写法：7501 用 ST，其余用 BEL。
+  if (entry.verb === "osc") {
+    const text = String(entry.body);
+    return [Buffer.from(`${ESC}]${text}${text.startsWith("7501;") ? ST : "\x07"}`, "utf8")];
+  }
   const params = Object.entries(entry.params ?? {})
     .map(([key, value]) => `${key}=${value};`)
     .join("");

@@ -297,7 +297,7 @@ export function Image(props: NodeProps) {
   const alt = asString(p.alt) ?? "";
   const w = typeof p.w === "number" && p.w > 0 ? p.w : undefined;
   const h = typeof p.h === "number" && p.h > 0 ? p.h : undefined;
-  const maxH = extentToCss(isRecord(p.max) ? p.max.h : undefined);
+  const maxH = extentToCss(isRecord(p.max) ? p.max.h : undefined, "h");
   const src = useMemo(() => (blob ? dataUrl(blob.mime, blob.data) : null), [blob]);
   const missing = p.builtin !== "omp" && (src === null || !(blob?.mime ?? "").startsWith("image/"));
 

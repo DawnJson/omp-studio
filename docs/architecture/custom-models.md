@@ -18,13 +18,13 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 
 ## 怎么改
 
-用 `yaml` 的 Document API，只动 `providers.<id>` 里的 `baseUrl`、`apiKey`/`auth`、`api`、`models`：
+用 `yaml` 的 Document API，只动 `providers.<id>` 里的 `baseUrl`、`apiKey`/`auth`、`api`、`models`、`discovery`（整体增删，见「自动发现模型」）：
 
 - 注释、别的 provider、别的根键、条目里不认识的字段（`headers`、`compat`、`discovery`、模型的 `contextWindow`/`cost`……）原样保留。
 - 模型按 `id` 复用原来的节点（所以模型上的 `contextWindow` 和行内注释不丢），按界面顺序重排，取消勾选的从列表里去掉。新增的模型只写 `id`（拉取到 `display_name` 时再写 `name`）；`contextWindow`/`maxTokens` 不写，由 omp 按默认值或内置参考行补（`omp://models.md`）。
 - CRLF 文件保持 CRLF；UTF-8 BOM 读入时去掉。
 - 原子写（`writeFileAtomic`）；每次写之前把旧内容复制成 `models.yml.bak`（只留最近一份）；同一进程里的写入串行（读-改-写不被另一次插入）。终端里的 omp 同时写同一个文件时仍可能互相覆盖，没有跨进程锁（omp 文档没有给 `models.yml` 的并发保护）。
-- 新增时 ID 不能已存在（`exists`），编辑时必须已存在（`not-found`：终端里被改过）；新增要至少一个模型，编辑已有 `discovery` 的条目可以清空模型。
+- 新增时 ID 不能已存在（`exists`），编辑时必须已存在（`not-found`：终端里被改过）；新增要至少一个模型，或者带 `discovery`（自动发现，见下）；编辑已有 `discovery` 的条目可以清空模型。
 
 ## 校验（主进程，渲染进程传来的都不可信）
 
@@ -62,6 +62,17 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 
 错误都有一句人话：连不上（`network`）、超时、key 被拒（401/403）、没有这个接口（404）、别的 HTTP 状态、返回的不是模型列表。拉到的模型默认**不勾选**，用户勾选后保存才写进 `models[]`。
 
+
+## 自动发现模型（2026-10-23，omp 18.12.6）
+
+表单里的“自动发现模型”开关写 `providers.<id>.discovery: {type: …}`：omp 运行时从这个地址的模型列表接口读模型，新上架的模型不用再手动添加。**保留原来“拉取并手动挑选”的路径**，两者可以同时用（勾选的模型仍写进 `models[]`，发现的模型不写进文件）。
+
+- **类型按接口类型选**（`defaultDiscoveryType`，`src/shared/custom-models.ts`；取值范围见 `omp://models.md`「Allowed auth/discovery values」和 `config/model-registry.ts`：`ollama`、`llama.cpp`、`lm-studio`、`openai-models-list`、`proxy`、`litellm`、`apple-foundation-models`）：`openai-completions`、`openai-responses` → `openai-models-list`（读 `{baseUrl}/v1/models`，不会再多加一个 `/v1`）；`anthropic-messages` → `proxy`（Anthropic + OpenAI 兼容的转发站：`GET /v1/models`，每个模型的 api 由它的 `supported_endpoint_types` 决定，没有时退回 provider 的 `api`）。别的接口类型（Google、Bedrock…）没有通用的发现方式：新开启时返回 `invalid-api`，表单里开关停用。
+- **只改这一层、只整体增删**：`discovery` 已存在时（用户在终端里写过 `ollama`、`timeoutMs`、`injectV1` 等）开着就原样保留，不覆盖类型；关掉就整个去掉。这个键仍受 AGENTS.md 里 models.yml 例外的全部规则约束：`yaml` Document API、注释和别的内容原样、原子写、写前 `.bak`。
+- 有 `discovery` 时可以一个模型都不选（`needs-model` 的判断看写完之后条目里有没有 `discovery`）；表单里“没有勾选模型、也没开自动发现”不能保存。
+- **输入**：`CustomProviderInput.discovery?: boolean`：`true` 确保有，`false` 去掉，缺省不动。
+- **刷新模型按钮**（设置 → Provider 与订阅 → 自定义提供商，标题行）：IPC `refreshModels`（`custom-model-handlers.ts`）在中性目录里跑 `omp models refresh`（`runOmpCommand` + `requireSuccess`，参数数组，超时 120 秒，env 带 omp-studio 存的 API key），完成后 `serviceOmp.close()`（服务进程的模型注册表是启动时建的），渲染进程 `reloadAfterChange()` 重读 models.yml 和模型列表；失败时 toast 显示 omp 的 stderr 末尾。
+- **实测**（真实 omp 18.12.6，临时 `PI_CODING_AGENT_DIR`，本地假 OpenAI 服务 `test/fake-openai/server.ts`）：models.yml 只有 `baseUrl` / `auth: none` / `api` / `discovery: {type: openai-models-list}`、没有 `models` 时，`get_available_models` 列出假服务 `/v1/models` 里的模型，`omp models refresh` 退出码 0，`omp models fake-disco` 输出含该模型；同一个假服务换成 `api: anthropic-messages` + `discovery: {type: proxy}` 也读到同一个模型。`omp models refresh` 对 `models.db` 里的目录做强制重新拉取（omp 的帮助：“Force a fresh catalog fetch”）。
 ## 保存之后：omp 怎么重新加载
 
 实测（omp 18.12.1，2026-10-18，临时 `PI_CODING_AGENT_DIR`，`test/custom-models-real-omp.test.ts`）：
@@ -73,10 +84,10 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 
 ## 测试
 
-- `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢。
+- `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、自动发现开关（默认类型按 api、已有 `discovery` 原样保留、关掉只去 `discovery`、没有默认类型的 api 被拒）、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢。
 - `test/custom-models-fetch.test.ts`：对本地假服务拉取成功、key 错、404、不通、超时、非 JSON、形状不对、Anthropic 路径和头、重定向不跟随。
-- `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt 并拿到回复。
-- `test/e2e/custom-models.e2e.ts`：设置页完整流程，截图中英 × 浅深。
+- `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt 并拿到回复；自动发现：只写 `discovery`、不列模型，`omp models refresh` 跑通，`omp models <provider>` 和 `get_available_models` 都列出假服务的模型（openai 兼容和 anthropic 两种 `discovery.type`）。
+- `test/e2e/custom-models.e2e.ts`：设置页完整流程，截图中英 × 浅深；另有"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）。
 - 假服务：`test/fake-openai/server.ts`（`GET /v1/models`、`POST /v1/chat/completions` 流式和非流式）。
 
 ## 没做的

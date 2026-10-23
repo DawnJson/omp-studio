@@ -45,6 +45,15 @@ export const custom = {
   "form.models.empty": "No models yet: fetch them, or add one manually.",
   "form.models.duplicate": "That model is already in the list",
   "form.title.add": "Add a custom provider",
+  "form.discovery": "Discover models automatically",
+  "form.discovery.tip":
+    "When on, omp reads the model list from this address at runtime (writes discovery in models.yml), so newly released models show up without adding them by hand. Models ticked below are still written too. Only OpenAI-compatible and Anthropic API types support it.",
+  "form.discovery.unsupported": "This API type has no general way to discover models; add them by hand.",
+  refresh: "Refresh models",
+  "refresh.tip":
+    "Has omp re-fetch every provider's model catalog (discovered models included), then reloads the model list.",
+  refreshed: "Model catalog refreshed.",
+  refreshFailed: "Couldn't refresh models: {message}",
   "form.title.edit": "Edit {id}",
   more: "More actions",
   "form.save": "Save",
@@ -63,7 +72,7 @@ export const custom = {
   "err.invalid-key":
     "The key isn't valid: it can't be empty, can't contain line breaks, and can't start with ! (omp's “key from command” syntax).",
   "err.invalid-models": "Model ids can't be empty, duplicated, or have leading/trailing spaces or control characters.",
-  "err.needs-model": "Add at least one model.",
+  "err.needs-model": "Add at least one model, or turn on “Discover models automatically”.",
   "err.exists": "A provider with this ID already exists.",
   "err.not-found": "models.yml no longer has this provider; it may have been changed in the terminal.",
   "err.unreadable-file": "models.yml isn't valid YAML or has the wrong structure. Fix the file before saving.",

@@ -66,4 +66,32 @@ export const review = {
   commitDescription: "Description",
   commitDescriptionPlaceholder: "Description (optional)",
   commitStaged: { one: "{count} file staged", other: "{count} files staged" },
+  commitGenerate: "Generate",
+  commitGenerateTip:
+    "Ask omp to write the commit message from the staged changes (omp commit, using omp's commit role model). Only fills the fields; nothing is committed",
+  commitGenerateNone: "Nothing is staged. Stage the files to commit first",
+  commitGenerating: "Generating…",
+  commitGenerateCancel: "Cancel",
+  commitAmend: "Amend previous commit",
+  commitAmendLoading: "Reading the previous commit…",
+  commitAmendPushed:
+    "The previous commit is already pushed. Amending rewrites history and the remote copy won't change; Studio never force-pushes.",
+  commitAmendLocal: "Staged changes are folded into the previous commit, using the message above.",
+  commitAmendConfirm: "Amend commit",
+  amendPushedTitle: "Amend a pushed commit?",
+  amendPushedBody:
+    "The previous commit is already on a remote branch. Amending changes its hash, so a normal push will be rejected and you'd need a force push (Studio doesn't offer one). Rewrite it anyway?",
+  ignoreSpace: "Ignore whitespace",
+  ignoreSpaceTip: "Ignore whitespace changes (git diff -w)",
+  ignoreSpaceNote:
+    "Whitespace is ignored: staging and discarding by hunk or by line is unavailable. Whole-file actions still work.",
+  ignoreSpaceBlocked: "Hunk actions are unavailable while ignoring whitespace; turn it off first",
+  linesSelected: { one: "{count} line selected", other: "{count} lines selected" },
+  stageLines: "Stage selected lines",
+  unstageLines: "Unstage selected lines",
+  discardLines: "Discard selected lines",
+  clearLines: "Clear selection",
+  discardLinesTitle: "Discard the selected lines?",
+  discardLinesBody: "The {count} selected changed lines will be removed from {path}. This can't be undone.",
+  pickHint: "Click a changed line to select it, Shift-click to extend, Shift+↑↓ to grow the selection, Esc to clear",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

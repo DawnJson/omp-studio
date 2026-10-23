@@ -86,6 +86,11 @@ export interface GitHunkRef {
   header: string;
 }
 
+/** 定位 hunk 里的若干行（按行暂存 / 取消暂存 / 丢弃）：lines 是 `GitDiffHunk.lines` 里的下标（0 起），只能是新增 / 删除行。 */
+export interface GitLinesRef extends GitHunkRef {
+  lines: number[];
+}
+
 /** 并排视图的一行：左旧右新；只有一侧有内容时另一侧为 null。 */
 export interface GitSideBySideRow {
   left: GitDiffLine | null;
@@ -205,6 +210,32 @@ export type GitCommitResult =
   | { kind: "nothing_to_commit" }
   /** git 拒绝了（pre-commit 钩子失败、没配 user.name/email 等）；message 是 git 的原话。 */
   | { kind: "failed"; message: string };
+
+/** 提交框的"修改上一次提交"：HEAD 的完整提交信息，和这个提交是否已经在某个远端分支里（已推送的提交改写后需要强推，界面要先让用户确认）。 */
+export interface GitLastCommit {
+  commit: string;
+  message: string;
+  pushed: boolean;
+}
+
+/** "生成提交信息"（`omp commit --dry-run`）的结果。 */
+export type GitCommitMessageResult =
+  /** title / body 可直接填进提交框；split = omp 建议拆成几个提交（只取了第一个的信息，界面要提示）。 */
+  | { kind: "generated"; title: string; body: string; split: number | null }
+  /** 没有已暂存的改动：`omp commit` 会自作主张暂存全部，所以根本不运行它。 */
+  | { kind: "nothing_staged" }
+  | { kind: "cancelled" }
+  /** omp 没有可用的 commit / smol 模型（或没有 key）。 */
+  | { kind: "no_model" }
+  | { kind: "failed"; message: string };
+
+/** 把 git 提交信息拆成摘要（第一行）和说明（空行之后的其余部分）；`composeCommitMessage` 的逆运算。 */
+export function splitCommitMessage(message: string): { summary: string; description: string } {
+  const text = message.replace(/\r\n/g, "\n").trim();
+  const at = text.indexOf("\n");
+  if (at === -1) return { summary: text, description: "" };
+  return { summary: text.slice(0, at).trim(), description: text.slice(at + 1).trim() };
+}
 
 export type GitPushResult =
   | { kind: "pushed"; remote: string; branch: string }

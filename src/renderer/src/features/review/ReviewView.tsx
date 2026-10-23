@@ -50,6 +50,7 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
   const wrap = useReviewWrap();
   const root = useRef<HTMLDivElement>(null);
   const { status, error, stamp, refresh } = useReviewStatus(taskId, task?.status);
+  const [ignoreSpace, setIgnoreSpace] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [reveal, setReveal] = useState<string | null>(null);
@@ -63,7 +64,7 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
     lastIndex.current = entry === null ? 0 : entries.indexOf(entry);
   }, [entries, entry]);
 
-  const diffState = useFileDiff(taskId, entry, scope, stamp);
+  const diffState = useFileDiff(taskId, entry, scope, ignoreSpace, stamp);
   const stats = useChangeStats(taskId, stamp);
   const stagedCount = groups.find((group) => group.area === "staged")?.entries.length ?? 0;
 
@@ -186,6 +187,7 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
             mode={mode}
             scope={scope}
             wrap={wrap}
+            ignoreSpace={ignoreSpace}
             comments={comments.filter((comment) => comment.file === entry.path && comment.area === entry.area)}
             reveal={reveal}
             onRevealed={clearReveal}
@@ -216,7 +218,7 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
           </span>
         )}
         <span className="rv-spacer" />
-        <ViewControls mode={mode} scope={scope} wrap={wrap} />
+        <ViewControls mode={mode} scope={scope} wrap={wrap} ignoreSpace={ignoreSpace} onIgnoreSpace={setIgnoreSpace} />
         <IconButton label={t("review.refresh")} testId="review-refresh" onClick={refresh}>
           <Restart size={14} />
         </IconButton>

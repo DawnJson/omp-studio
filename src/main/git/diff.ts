@@ -86,6 +86,107 @@ export function buildHunkPatch(raw: RawDiff, index: number): Buffer {
   return Buffer.from(raw.header + hunk, "latin1");
 }
 
+/** 按行补丁的方向：forward = 把选中的改动应用到 diff 的旧侧（暂存工作区改动）；reverse = 把选中的改动从 diff 的新侧撤掉（取消暂存、丢弃）。 */
+export type LinePatchDirection = "forward" | "reverse";
+
+interface PatchRow {
+  mark: " " | "+" | "-";
+  body: string;
+  /** 紧跟在这一行后面的 "\ No newline at end of file"（含行尾 \n）。 */
+  marker: string | null;
+}
+
+/**
+ * 只含选中行的补丁（等价于 `git add -p` 的 e 编辑）：
+ * - forward（`apply --cached` 用工作区 diff）：没选中的删除行变成上下文（索引里还有它），没选中的新增行丢掉；
+ * - reverse（`apply [--cached] -R` 用暂存区 / 工作区 diff）：没选中的新增行变成上下文（现状里有它），没选中的删除行丢掉。
+ * `selected` 是 hunk 里不含 "\ No newline" 行的行下标，和 `GitDiffHunk.lines` 一致。行内容原样保留（含 CRLF 的 \r）。
+ */
+export function buildLinePatch(
+  raw: RawDiff,
+  index: number,
+  selected: ReadonlySet<number>,
+  direction: LinePatchDirection,
+): Buffer {
+  const hunk = raw.hunks[index];
+  if (hunk === undefined) throw new Error(`hunk ${index} does not exist`);
+  const rows = hunk.split("\n");
+  rows.pop();
+  const headerRow = rows.shift() ?? "";
+  const match = HUNK_RE.exec(headerRow);
+  if (!match) throw new Error("not a hunk");
+  const entries: PatchRow[] = [];
+  for (const row of rows) {
+    if (row[0] === "\\") {
+      const last = entries[entries.length - 1];
+      if (last) last.marker = `${row}\n`;
+    } else entries.push({ mark: row[0] === "+" ? "+" : row[0] === "-" ? "-" : " ", body: row.slice(1), marker: null });
+  }
+  for (const at of selected) {
+    const entry = entries[at];
+    if (!Number.isInteger(at) || entry === undefined || entry.mark === " ")
+      throw new Error("only added or removed lines can be selected");
+  }
+  if (selected.size === 0) throw new Error("no lines selected");
+
+  const turnIntoContext = direction === "forward" ? "-" : "+";
+  const keep = (entry: PatchRow, at: number): PatchRow | null => {
+    if (entry.mark === " " || selected.has(at)) return entry;
+    return entry.mark === turnIntoContext ? { ...entry, mark: " " } : null;
+  };
+  // 一组改动（git 先列一串删除、再列一串新增）里，第 i 个删除和第 i 个新增成对交错写出：
+  // 只挑一对"改第 4 行"时，新行落在旧行的位置，而不是挪到这组没选中的行（变成上下文）后面去。
+  const kept: PatchRow[] = [];
+  let at = 0;
+  while (at < entries.length) {
+    const entry = entries[at]!;
+    if (entry.mark === " ") {
+      kept.push(entry);
+      at += 1;
+      continue;
+    }
+    const removed: number[] = [];
+    const added: number[] = [];
+    while (at < entries.length && entries[at]!.mark === "-") removed.push(at++);
+    while (at < entries.length && entries[at]!.mark === "+") added.push(at++);
+    for (let i = 0; i < Math.max(removed.length, added.length); i += 1) {
+      for (const row of [removed[i], added[i]]) {
+        if (row === undefined) continue;
+        const next = keep(entries[row]!, row);
+        if (next !== null) kept.push(next);
+      }
+    }
+  }
+
+  // "\ No newline" 说的是这一侧文件的最后一行：这一行之后同一侧不能再有行（挑出的行拼不出这样的文件时拒绝，而不是写出坏补丁）。
+  kept.forEach((entry, at) => {
+    if (entry.marker === null) return;
+    const later = kept.slice(at + 1);
+    const clash =
+      entry.mark === " " ? later.length > 0 : later.some((next) => next.mark === " " || next.mark === entry.mark);
+    if (clash)
+      throw new Error(
+        "these lines cannot be applied on their own because of the missing newline at the end of the file",
+      );
+  });
+
+  const oldCount = kept.filter((entry) => entry.mark !== "+").length;
+  const newCount = kept.filter((entry) => entry.mark !== "-").length;
+  // 补丁单独对一个文件状态应用：没动的那一侧（forward 是旧侧，reverse 是新侧）起始行不变，另一侧从同一行开始。
+  // 行数为 0 的一侧，起始行写成前一行（git 的约定）。
+  const originalOldCount = match[2] === undefined ? 1 : Number(match[2]);
+  const originalNewCount = match[4] === undefined ? 1 : Number(match[4]);
+  const firstLine =
+    direction === "forward"
+      ? Number(match[1]) + (originalOldCount === 0 ? 1 : 0)
+      : Number(match[3]) + (originalNewCount === 0 ? 1 : 0);
+  const startOf = (count: number) => (count === 0 ? firstLine - 1 : firstLine);
+  const section = headerRow.slice(match[0].length);
+  const header = `@@ -${startOf(oldCount)},${oldCount} +${startOf(newCount)},${newCount} @@${section}\n`;
+  const body = kept.map((entry) => `${entry.mark}${entry.body}\n${entry.marker ?? ""}`).join("");
+  return Buffer.from(raw.header + header + body, "latin1");
+}
+
 /** 文件头部 8000 字节里有 NUL 就当二进制（git 自己用的判据）。 */
 export function looksBinary(content: Buffer): boolean {
   return content.subarray(0, 8000).includes(0);

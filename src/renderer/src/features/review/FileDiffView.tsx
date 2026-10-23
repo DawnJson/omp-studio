@@ -1,6 +1,12 @@
 // 一个文件（某一侧）的 diff：文件头（暂存/取消暂存/丢弃）、每个 hunk、评论状态、n/p 切换改动块、丢弃前的确认。
 import { useEffect, useRef, useState } from "react";
-import { REVIEW_COMMENTS_MAX, type GitDiffArea, type GitDiffContext, type GitHunkRef } from "../../../../shared/git.ts";
+import {
+  REVIEW_COMMENTS_MAX,
+  type GitDiffArea,
+  type GitDiffContext,
+  type GitHunkRef,
+  type GitLinesRef,
+} from "../../../../shared/git.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import {
   countChangeBlocks,
@@ -12,6 +18,7 @@ import {
   type QueuedComment,
   type ReviewEntry,
 } from "../../../../shared/ui/review-model.ts";
+import { extendToLine, moveSelection, toggleLine, type LinePick } from "../../../../shared/ui/line-selection.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { addComment, removeComment, updateComment } from "../../store/review-store.ts";
 import { Button } from "../../ui/controls.tsx";
@@ -19,12 +26,14 @@ import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { describeError, reportError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { splitPath } from "./FileTree.tsx";
-import { HunkView, type CommentCtx, type HunkActions } from "./HunkView.tsx";
+import { HunkView, type CommentCtx, type HunkActions, type PickCtx } from "./HunkView.tsx";
 import { useReviewKeys } from "./review-keys.ts";
 import { languageOf } from "./use-hunk-tokens.ts";
-import type { FileDiffState } from "./use-review-data.ts";
+import { diffKeyOf, type FileDiffState } from "./use-review-data.ts";
 
-type Confirm = { kind: "file" } | { kind: "hunk"; hunk: GitHunkRef };
+type Confirm = { kind: "file" } | { kind: "hunk"; hunk: GitHunkRef } | { kind: "lines"; ref: GitLinesRef };
+
+const EMPTY_SET: ReadonlySet<number> = new Set();
 
 export function FileDiffView({
   taskId,
@@ -33,6 +42,7 @@ export function FileDiffView({
   mode,
   scope,
   wrap,
+  ignoreSpace,
   comments,
   reveal,
   onRevealed,
@@ -50,6 +60,8 @@ export function FileDiffView({
   onRevealed(): void;
   /** 暂存/丢弃之后（无论成败）让上层重新取状态。 */
   onChanged(): void;
+  /** 忽略空白（`git diff -w`）：只影响显示；打开时 hunk / 行级暂存不可用。 */
+  ignoreSpace: boolean;
 }) {
   const t = useT();
   const scroller = useRef<HTMLDivElement>(null);
@@ -58,8 +70,9 @@ export function FileDiffView({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeHunk, setActiveHunk] = useState<number | null>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const [picked, setPicked] = useState<LinePick | null>(null);
   const area: GitDiffArea = entry.area;
-  const diffKey = `${area}:${scope}:${entry.path}`;
+  const diffKey = diffKeyOf(area, scope, ignoreSpace, entry.path);
   const diff = state.key === diffKey ? state.diff : null;
   const hunkCount = diff?.kind === "text" ? diff.hunks.length : 0;
   // n / p 的单位：改动块视图走 hunk，整个文件视图走文件里的改动块。
@@ -68,19 +81,43 @@ export function FileDiffView({
       ? hunkCount
       : diff.hunks.reduce((sum, hunk) => sum + countChangeBlocks(hunk.lines), 0);
 
-  useReviewKeys((key) => {
+  useReviewKeys((key, event) => {
+    if (key === "Escape" && picked !== null) {
+      setPicked(null);
+      return true;
+    }
+    if (event.shiftKey && (key === "ArrowDown" || key === "ArrowUp")) {
+      if (!pickable) return false;
+      const hunk = picked?.hunk ?? activeHunk ?? 0;
+      const next = moveSelection(picked, hunk, key === "ArrowDown" ? 1 : -1, changedOf(hunk));
+      if (next === null) return false;
+      setPicked(next);
+      return true;
+    }
     if (key !== "n" && key !== "p") return false;
     const next = stepHunk(stepCount, activeHunk, key === "n" ? 1 : -1);
     if (next === null) return false;
     setActiveHunk(next);
     return true;
-  });
+  }, true);
+
+  // 键盘扩展选择时让端点留在视野里。
+  useEffect(() => {
+    if (picked === null) return;
+    const rows = scroller.current?.querySelectorAll(`[data-hunk="${picked.hunk}"] [data-idx="${picked.cursor}"]`);
+    rows?.[0]?.scrollIntoView({ block: "nearest" });
+  }, [picked]);
 
   useEffect(() => {
     if (activeHunk === null) return;
     const selector = scope === "file" ? `[data-block="${activeHunk}"]` : `[data-hunk="${activeHunk}"]`;
     scroller.current?.querySelector(selector)?.scrollIntoView({ block: "nearest" });
   }, [activeHunk, scope]);
+
+  // 换了一份 diff（重取、换文件 / 视图）：行下标不再可信，选择作废。
+  useEffect(() => {
+    setPicked(null);
+  }, [diff, ignoreSpace]);
 
   useEffect(() => {
     if (reveal === null || diff === null) return;
@@ -113,6 +150,32 @@ export function FileDiffView({
     const ref = hunkRef(index);
     if (ref) run(op(taskId, entry.path, ref));
   };
+
+  // ── 按行选择：只在改动块视图、没有忽略空白、已跟踪的文件上可用（见 docs/architecture/git.md）。
+  const pickable = scope === "hunks" && !ignoreSpace && area !== "untracked" && diff?.kind === "text";
+  const linesRef = (): GitLinesRef | null => {
+    const ref = picked === null ? null : hunkRef(picked.hunk);
+    return picked !== null && ref ? { ...ref, lines: picked.lines } : null;
+  };
+  const runLines = (op: typeof window.studio.stageGitLines, ref: GitLinesRef) => {
+    setPicked(null);
+    run(op(taskId, entry.path, ref));
+  };
+  const linesOp = (op: typeof window.studio.stageGitLines) => {
+    const ref = linesRef();
+    if (ref) runLines(op, ref);
+  };
+  const changedOf = (index: number): boolean[] =>
+    diff?.kind === "text" ? (diff.hunks[index]?.lines.map((line) => line.kind !== "context") ?? []) : [];
+  const pickCtx = (index: number): PickCtx => ({
+    selected: picked !== null && picked.hunk === index ? new Set(picked.lines) : EMPTY_SET,
+    onPick: (line, extend) =>
+      setPicked((current) =>
+        extend
+          ? extendToLine(current, index, line, changedOf(index))
+          : toggleLine(current, index, line, changedOf(index)),
+      ),
+  });
 
   const ctx: CommentCtx = {
     comments,
@@ -156,9 +219,27 @@ export function FileDiffView({
 
   const { dir, name } = splitPath(entry.path);
   const lang = languageOf(entry.path);
-  const hunkActions = (index: number): HunkActions =>
-    area === "staged"
-      ? { unstage: () => hunkOp(index, window.studio.unstageGitHunk) }
+  const hunkActions = (index: number): HunkActions => {
+    const lines: HunkActions["lines"] =
+      picked !== null && picked.hunk === index && pickable
+        ? {
+            count: picked.lines.length,
+            clear: () => setPicked(null),
+            ...(area === "staged"
+              ? { unstage: () => linesOp(window.studio.unstageGitLines) }
+              : {
+                  stage: () => linesOp(window.studio.stageGitLines),
+                  discard: () => {
+                    const ref = linesRef();
+                    if (ref) setConfirm({ kind: "lines", ref });
+                  },
+                }),
+          }
+        : undefined;
+    const blocked = ignoreSpace || undefined;
+    const rest = lines === undefined ? {} : { lines };
+    return area === "staged"
+      ? { unstage: () => hunkOp(index, window.studio.unstageGitHunk), blocked, ...rest }
       : area === "unstaged"
         ? {
             stage: () => hunkOp(index, window.studio.stageGitHunk),
@@ -166,18 +247,23 @@ export function FileDiffView({
               const ref = hunkRef(index);
               if (ref) setConfirm({ kind: "hunk", hunk: ref });
             },
+            blocked,
+            ...rest,
           }
         : {};
+  };
 
   const confirmDiscard = () => {
     const pending = confirm;
     setConfirm(null);
     if (pending === null) return;
-    run(
-      pending.kind === "file"
-        ? window.studio.discardGitFile(taskId, entry.path)
-        : window.studio.discardGitHunk(taskId, entry.path, pending.hunk),
-    );
+    if (pending.kind === "lines") runLines(window.studio.discardGitLines, pending.ref);
+    else
+      run(
+        pending.kind === "file"
+          ? window.studio.discardGitFile(taskId, entry.path)
+          : window.studio.discardGitHunk(taskId, entry.path, pending.hunk),
+      );
   };
 
   let body;
@@ -225,6 +311,7 @@ export function FileDiffView({
           lang={lang}
           ctx={ctx}
           actions={hunkActions(index)}
+          pick={pickable ? pickCtx(index) : null}
         />
       );
     });
@@ -258,6 +345,11 @@ export function FileDiffView({
           </Button>
         </span>
       </header>
+      {ignoreSpace && diff?.kind === "text" && area !== "untracked" && (
+        <div className="rv-ignore-note" data-testid="ignore-space-note">
+          {t("review.ignoreSpaceNote")}
+        </div>
+      )}
       <div className="rv-scroll" ref={scroller} data-testid="diff-scroll" tabIndex={0}>
         {body}
       </div>
@@ -265,15 +357,25 @@ export function FileDiffView({
         <ConfirmDialog
           danger
           testId="review-discard-dialog"
-          title={t(confirm.kind === "file" ? "review.discardFileTitle" : "review.discardHunkTitle")}
-          body={t(
-            confirm.kind === "hunk"
-              ? "review.discardHunkBody"
-              : area === "untracked" || (area === "staged" && (entry.kind === "added" || entry.kind === "copied"))
-                ? "review.discardUntrackedBody"
-                : "review.discardFileBody",
-            { path: entry.path },
+          title={t(
+            confirm.kind === "file"
+              ? "review.discardFileTitle"
+              : confirm.kind === "hunk"
+                ? "review.discardHunkTitle"
+                : "review.discardLinesTitle",
           )}
+          body={
+            confirm.kind === "lines"
+              ? t("review.discardLinesBody", { path: entry.path, count: confirm.ref.lines.length })
+              : t(
+                  confirm.kind === "hunk"
+                    ? "review.discardHunkBody"
+                    : area === "untracked" || (area === "staged" && (entry.kind === "added" || entry.kind === "copied"))
+                      ? "review.discardUntrackedBody"
+                      : "review.discardFileBody",
+                  { path: entry.path },
+                )
+          }
           confirmLabel={t("review.discardConfirm")}
           cancelLabel={t("common.cancel")}
           onConfirm={confirmDiscard}

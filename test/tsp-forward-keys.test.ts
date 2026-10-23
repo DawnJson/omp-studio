@@ -4,11 +4,11 @@ import {
   chordFromKbd,
   chordOf,
   kbdChordsIn,
-  OMP_GLOBAL_CHORDS,
   shouldForwardChord,
   STUDIO_RESERVED,
   type ForwardKeyEvent,
 } from "../src/shared/tsp/forward-keys.ts";
+import { forwardedChords, resolveOmpKeybindings } from "../src/shared/tsp/omp-keybindings.ts";
 import { loadTspFixture, tspDocMessages } from "./tsp-fixtures.ts";
 
 /** 回放录制，收集过程中任何一帧出现过的键帽（节点会随下一帧消失，如错误卡被新一轮顶掉、排队消息发出）。 */
@@ -80,6 +80,8 @@ describe("kbdChordsIn：omp 18.12.5 的录制", () => {
 
 describe("shouldForwardChord", () => {
   const none = () => new Set<string>();
+  // omp 的默认键位（没有 keybindings.yml）算出来的转发键。
+  const defaults = forwardedChords(resolveOmpKeybindings(null));
 
   it("omp 的全局键（⇧Tab ⌃P ⌃⇧P ⌥P ⌥⇧P ⌃T ⌃R F5 ⌥R ⌥↑）在输入框里转发", () => {
     const cases: Partial<ForwardKeyEvent>[] = [
@@ -95,8 +97,8 @@ describe("shouldForwardChord", () => {
       { key: "ArrowUp", altKey: true },
     ];
     for (const init of cases)
-      expect(shouldForwardChord(ev({ key: "x", ...init }), none), JSON.stringify(init)).toBe(true);
-    expect(OMP_GLOBAL_CHORDS.size).toBe(cases.length);
+      expect(shouldForwardChord(ev({ key: "x", ...init }), defaults, none), JSON.stringify(init)).toBe(true);
+    expect(defaults.size).toBe(cases.length);
   });
 
   it("studio 自己的键永远不转发，哪怕键帽上写着", () => {
@@ -118,8 +120,10 @@ describe("shouldForwardChord", () => {
       { key: "`", ctrlKey: true },
     ];
     for (const init of studio)
-      expect(shouldForwardChord(ev({ key: "x", ...init }), hinted), JSON.stringify(init)).toBe(false);
-    for (const chord of OMP_GLOBAL_CHORDS) expect(STUDIO_RESERVED.has(chord), chord).toBe(false);
+      expect(shouldForwardChord(ev({ key: "x", ...init }), defaults, hinted), JSON.stringify(init)).toBe(false);
+    // 用户把 omp 的动作改到 studio 的键上：studio 的键仍然赢，不会进转发集合，就算有人手写进集合也不转发。
+    expect(shouldForwardChord(ev({ key: "k", ctrlKey: true }), new Set(["ctrl+k"]), none)).toBe(false);
+    for (const chord of defaults) expect(STUDIO_RESERVED.has(chord), chord).toBe(false);
   });
 
   it("文字输入和编辑键不转发：单字符、Enter、Esc、方向键、Shift+字母、Ctrl+C/V/Z", () => {
@@ -137,31 +141,31 @@ describe("shouldForwardChord", () => {
       { key: "a", ctrlKey: true },
     ];
     for (const init of typing)
-      expect(shouldForwardChord(ev({ key: "x", ...init }), hinted), JSON.stringify(init)).toBe(false);
+      expect(shouldForwardChord(ev({ key: "x", ...init }), defaults, hinted), JSON.stringify(init)).toBe(false);
   });
 
   it("文档里的键帽提示（带 Ctrl/Alt 的、功能键）转发，没有提示的不转发", () => {
     const goal = () => new Set(["ctrl+g", "alt+h", "f2"]);
-    expect(shouldForwardChord(ev({ key: "g", ctrlKey: true }), goal)).toBe(true);
-    expect(shouldForwardChord(ev({ key: "h", altKey: true }), goal)).toBe(true);
-    expect(shouldForwardChord(ev({ key: "F2" }), goal)).toBe(true);
-    expect(shouldForwardChord(ev({ key: "g", ctrlKey: true }), none)).toBe(false);
-    expect(shouldForwardChord(ev({ key: "F3" }), goal)).toBe(false);
+    expect(shouldForwardChord(ev({ key: "g", ctrlKey: true }), defaults, goal)).toBe(true);
+    expect(shouldForwardChord(ev({ key: "h", altKey: true }), defaults, goal)).toBe(true);
+    expect(shouldForwardChord(ev({ key: "F2" }), defaults, goal)).toBe(true);
+    expect(shouldForwardChord(ev({ key: "g", ctrlKey: true }), defaults, none)).toBe(false);
+    expect(shouldForwardChord(ev({ key: "F3" }), defaults, goal)).toBe(false);
   });
 
   it("别处已处理（defaultPrevented）、焦点在别的输入 / studio 对话框 / omp 自己写键的控件里 → 不转发", () => {
     const base = { key: "t", ctrlKey: true };
-    expect(shouldForwardChord(ev({ ...base, defaultPrevented: true }), none)).toBe(false);
-    expect(shouldForwardChord(ev({ ...base, target: "other" }), none)).toBe(false);
-    expect(shouldForwardChord(ev({ ...base, target: "self-routing" }), none)).toBe(false);
-    expect(shouldForwardChord(ev({ ...base, target: "view" }), none)).toBe(true);
-    expect(shouldForwardChord(ev({ ...base, target: "body" }), none)).toBe(true);
+    expect(shouldForwardChord(ev({ ...base, defaultPrevented: true }), defaults, none)).toBe(false);
+    expect(shouldForwardChord(ev({ ...base, target: "other" }), defaults, none)).toBe(false);
+    expect(shouldForwardChord(ev({ ...base, target: "self-routing" }), defaults, none)).toBe(false);
+    expect(shouldForwardChord(ev({ ...base, target: "view" }), defaults, none)).toBe(true);
+    expect(shouldForwardChord(ev({ ...base, target: "body" }), defaults, none)).toBe(true);
   });
 
   it("⇧Tab 只在输入框里转发（别处是键盘焦点反向移动）", () => {
     const tab = { key: "Tab", shiftKey: true };
-    expect(shouldForwardChord(ev({ ...tab, target: "composer" }), none)).toBe(true);
-    expect(shouldForwardChord(ev({ ...tab, target: "view" }), none)).toBe(false);
-    expect(shouldForwardChord(ev({ ...tab, target: "body" }), none)).toBe(false);
+    expect(shouldForwardChord(ev({ ...tab, target: "composer" }), defaults, none)).toBe(true);
+    expect(shouldForwardChord(ev({ ...tab, target: "view" }), defaults, none)).toBe(false);
+    expect(shouldForwardChord(ev({ ...tab, target: "body" }), defaults, none)).toBe(false);
   });
 });

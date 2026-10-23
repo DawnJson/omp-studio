@@ -1,13 +1,14 @@
 // 会话信息对话框、请求记录、分享的 IPC。数据来源和取舍见 docs/architecture/session-history.md "会话信息"：
-// 会话文件头 + 置顶文件 + stats.db 都只读；分享经 `omp share`（会上传，界面先确认）。参数一律是 unknown，先校验再用，路径由主进程按任务 id 查表。
+// 会话文件头 + 置顶文件 + 会话文件算的用量（和输入框同口径）都只读；请求记录读 stats.db（只读）；分享经 `omp share`（会上传，界面先确认）。参数一律是 unknown，先校验再用，路径由主进程按任务 id 查表。
 import type { HandlerGroup, SessionHeaderInfo } from "../../shared/ipc.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
+import { readSessionUsage } from "../history/session-usage.ts";
 import { getApiKeyEnv, readyOmp } from "../omp-manager/index.ts";
 import { listJson, runOmpConfig } from "../omp-config/config-service.ts";
 import { readSessionHeader } from "../session-info/session-header.ts";
 import { readSessionPins } from "../session-info/session-pins.ts";
 import { readShareSettings, shareSession } from "../session-info/share.ts";
-import { readSessionStats, readSessionTrace } from "../session-info/session-stats.ts";
+import { readSessionTrace } from "../session-info/session-stats.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { runOmpCommand, statsDbPath } from "../usage/usage-service.ts";
 import { syncStatsDb } from "./usage-handlers.ts";
@@ -24,13 +25,11 @@ async function maybeSync(refresh: boolean): Promise<void> {
 export const sessionInfoHandlers: HandlerGroup<
   "getTaskSessionInfo" | "getTaskSessionTrace" | "getShareSettings" | "shareTask"
 > = {
-  async getTaskSessionInfo(taskId, refresh) {
+  async getTaskSessionInfo(taskId) {
     const id = parseTaskId(taskId);
-    const doRefresh = parseBoolean(refresh, "refresh");
     const pool = await getTaskPool();
     const context = pool.taskGitContext(id);
     const sessionFile = pool.sessionFileOf(id);
-    await maybeSync(doRefresh);
     const parsed = sessionFile === null ? null : await readSessionHeader(sessionFile);
     const pins = await readSessionPins(resolveAgentDir());
     const { id: sessionId, ...header } = parsed ?? { id: null };
@@ -41,10 +40,7 @@ export const sessionInfoHandlers: HandlerGroup<
       pinned: sessionId !== null && pins.has(sessionId),
       projectPath: context.projectPath,
       worktree: context.worktree,
-      stats:
-        sessionFile === null
-          ? { hasDatabase: true, rollup: null, tokens: null }
-          : readSessionStats(statsDbPath(), sessionFile),
+      usage: await readSessionUsage(sessionFile),
     };
   },
 

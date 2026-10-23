@@ -15,9 +15,10 @@ import { COMPOSER_ROLE } from "./composer-state.ts";
 import { findNode, nodeRole, type DocNode, type TspDocument } from "./document.ts";
 import { deriveTaskStatus } from "./task-status.ts";
 
-/** 主进程为"在等用户"合成的门（TaskState.dialogs）的 id：审批和提问分开，输入框按它区分。 */
+/** 主进程为"在等用户"合成的门（TaskState.dialogs）的 id：审批和提问分开，输入框按它区分；`tsp-modal` 是 omp 的模态弹窗（`omp.overlay.hook-*` 等，task-status.ts）。 */
 export const TSP_ASK_DIALOG_ID = "tsp-ask";
 export const TSP_APPROVAL_DIALOG_ID = "tsp-approval";
+export const TSP_MODAL_DIALOG_ID = "tsp-modal";
 
 /** 审批卡按钮（role `omp.btn`）的 click 动作名。 */
 export const GATE_ACTION_DETAILS = "expand";

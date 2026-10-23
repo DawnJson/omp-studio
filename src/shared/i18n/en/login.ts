@@ -16,6 +16,7 @@ export const login = {
   terminalOnly: "This provider has to be set up in the terminal: run omp, then type /login.",
   copyCommand: "Copy command",
   chooseAccount: "Choose an account to sign out",
+  accountActive: "In use",
   failed: "Sign-in didn't complete.",
   refreshFailed: "Couldn't refresh; showing the last result: {message}",
   loadFailed: "Couldn't load account info: {message}",

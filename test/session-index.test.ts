@@ -121,12 +121,37 @@ describe("parseSessionTail（历史会话的最后一轮结果）", () => {
     );
   });
 
-  it("被停止、停在工具调用上、最后是用户消息或工具结果（轮次中途断掉）都不画", () => {
-    expect(parseSessionTail(userMessage("hi") + assistantMessage("aborted"), false)).toBeNull();
-    expect(parseSessionTail(userMessage("hi") + assistantMessage("toolUse"), false)).toBeNull();
-    expect(parseSessionTail(assistantMessage("stop") + userMessage("下一句"), false)).toBeNull();
+  it("被用户停止 = aborted；最后是用户消息 = pending；别的角色认不出 = null（口径同 omp session-listing）", () => {
+    expect(parseSessionTail(userMessage("hi") + assistantMessage("aborted"), false)).toBe("aborted");
+    expect(parseSessionTail(assistantMessage("stop") + userMessage("下一句"), false)).toBe("pending");
+    const developer = `${JSON.stringify({ type: "message", id: "d1", message: { role: "developer", content: "x" } })}\n`;
+    expect(parseSessionTail(assistantMessage("stop") + developer, false)).toBeNull();
+  });
+
+  it("中断 = interrupted：停在工具调用上（内容里有 toolCall）、长度上限、最后是工具结果；没有 toolCall 的 toolUse 不算", () => {
+    const toolCall = {
+      content: [
+        { type: "text", text: "我来查" },
+        { type: "toolCall", id: "c1", name: "read", arguments: {} },
+      ],
+    };
+    expect(parseSessionTail(userMessage("hi") + assistantMessage("toolUse", toolCall), false)).toBe("interrupted");
+    // stopReason 不是 toolUse 但内容里有 toolCall，omp 也算中断。
+    expect(parseSessionTail(userMessage("hi") + assistantMessage("stop", toolCall), false)).toBe("interrupted");
+    expect(parseSessionTail(userMessage("hi") + assistantMessage("length"), false)).toBe("interrupted");
     const toolResult = `${JSON.stringify({ type: "message", id: "t1", message: { role: "toolResult", content: [] } })}\n`;
-    expect(parseSessionTail(assistantMessage("toolUse") + toolResult, false)).toBeNull();
+    expect(parseSessionTail(assistantMessage("toolUse", toolCall) + toolResult, false)).toBe("interrupted");
+    expect(parseSessionTail(userMessage("hi") + assistantMessage("toolUse"), false)).toBe("completed");
+  });
+
+  it("被停止后又 steer、答完，后面跟压缩条目：以最后一条消息为准", () => {
+    const compaction = `${JSON.stringify({ type: "compaction", id: "k1", parentId: "e5f6", summary: "x" })}\n`;
+    expect(
+      parseSessionTail(
+        userMessage("a") + assistantMessage("aborted") + userMessage("steer") + assistantMessage("stop") + compaction,
+        false,
+      ),
+    ).toBe("completed");
   });
 
   it("从文件中间读起时丢掉被截断的第一行；这一段里没有完整消息返回 undefined", () => {

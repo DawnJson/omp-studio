@@ -205,6 +205,12 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+/* list.virtual：只画窗口里的行，上下用 padding 撑出没画的高度 */
+.tspi-vbody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
 .tspi-list-empty {
   padding: var(--space-1-5) var(--space-2);
   color: var(--text-3);
@@ -252,6 +258,19 @@
 }
 .tspi-item[data-tone="error"] .tspi-item-ic {
   color: var(--st-error);
+}
+/* tone:"pending"（omp 的待办提醒）：还没做的项，前面一个空心圈，文字用正文色 */
+.tspi-item[data-tone="pending"]::before {
+  content: "";
+  flex: none;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--text-3);
+  border-radius: var(--radius-pill);
+}
+.tspi-item[data-tone="pending"] .tspi-item-label {
+  color: var(--text-2);
 }
 .tspi-item-label {
   flex: none;

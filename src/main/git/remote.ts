@@ -1,28 +1,49 @@
 // 提交、推送、开 PR。永远不强推；提交信息和 PR 正文走 stdin。
-import type { GitCommitResult, GitPullRequestInput, GitPullRequestResult, GitPushResult } from "../../shared/git.ts";
+import type {
+  GitCommitResult,
+  GitLastCommit,
+  GitPullRequestInput,
+  GitPullRequestResult,
+  GitPushResult,
+} from "../../shared/git.ts";
 import { log } from "../log/log.ts";
-import { CommandNotFoundError, failureMessage, git, gitRaw, runCommand, type RunOptions } from "./exec.ts";
-import { currentBranch, headCommit, pushRemote, requireRepoRoot } from "./repo.ts";
+import { CommandNotFoundError, failureMessage, git, gitRaw, gitText, runCommand, type RunOptions } from "./exec.ts";
+import { currentBranch, hasCommits, headCommit, pushRemote, requireRepoRoot } from "./repo.ts";
 import { statusAt } from "./status.ts";
 
 const PUSH_TIMEOUT_MS = 5 * 60_000;
 
-/** 提交。stageAll 为 true 时先 `git add -A`；否则只提交已暂存的内容。 */
-export async function commit(cwd: string, message: string, stageAll: boolean): Promise<GitCommitResult> {
+/**
+ * 提交。stageAll 为 true 时先 `git add -A`；否则只提交已暂存的内容。
+ * amend 为 true 时改写 HEAD（`commit --amend`）：不要求有暂存内容（只改信息也行），暂存的改动并入上一次提交。
+ * 是否改写已推送的提交由调用方（界面）在这之前让用户确认；这里不推送，更不强推。
+ */
+export async function commit(cwd: string, message: string, stageAll: boolean, amend = false): Promise<GitCommitResult> {
   const root = await requireRepoRoot(cwd);
   if (message.trim() === "") throw new Error("commit message is empty");
+  if (amend && !(await hasCommits(root))) return { kind: "failed", message: "there is no commit to amend" };
   if (stageAll) await git(root, ["add", "-A"]);
   const { files } = await statusAt(root);
-  if (!files.some((file) => file.staged !== null && file.staged !== "conflicted"))
-    return files.some((file) => file.staged === "conflicted")
-      ? { kind: "failed", message: "resolve the merge conflicts before committing" }
-      : { kind: "nothing_to_commit" };
-  const result = await gitRaw(root, ["commit", "-F", "-"], { input: message });
+  if (files.some((file) => file.staged === "conflicted"))
+    return { kind: "failed", message: "resolve the merge conflicts before committing" };
+  if (!amend && !files.some((file) => file.staged !== null)) return { kind: "nothing_to_commit" };
+  const result = await gitRaw(root, ["commit", ...(amend ? ["--amend"] : []), "-F", "-"], { input: message });
   if (result.code !== 0) {
     log.warn("git commit failed", failureMessage(result));
     return { kind: "failed", message: failureMessage(result) };
   }
   return { kind: "committed", commit: await headCommit(root) };
+}
+
+/** 上一次提交（HEAD）的信息和是否已在远端分支里；还没有提交返回 null。 */
+export async function lastCommit(cwd: string): Promise<GitLastCommit | null> {
+  const root = await requireRepoRoot(cwd);
+  if (!(await hasCommits(root))) return null;
+  const [message, notOnRemote] = await Promise.all([
+    gitText(root, ["log", "-1", "--format=%B"]),
+    gitText(root, ["rev-list", "-n1", "HEAD", "--not", "--remotes"]),
+  ]);
+  return { commit: await headCommit(root), message: message.trimEnd(), pushed: notOnRemote === "" };
 }
 
 /** 推送当前分支。已有 upstream 就照它推；没有就选 remote（只有一个就用它，否则 origin）并设 upstream。 */

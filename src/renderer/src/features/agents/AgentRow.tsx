@@ -2,7 +2,7 @@
 // 第二行是正在用的工具和意图（运行中）或任务说明（去掉 Markdown 标题的 #）。token 和费用在详情里。
 import type { HubAgent } from "../../../../shared/tsp/agent-hub.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { agentProgress, cleanTask, dotStatus, statusKey } from "./agent-model.ts";
+import { agentContextPercent, agentProgress, cleanTask, dotStatus, statusKey } from "./agent-model.ts";
 
 const RING = 2 * Math.PI * 5.5;
 
@@ -12,6 +12,7 @@ export function AgentRow({ agent, selected, onSelect }: { agent: HubAgent; selec
     ? t("agents.usingTool", { tool: agent.tool.name, intent: agent.tool.intent || cleanTask(agent.task) })
     : cleanTask(agent.task);
   const progress = agentProgress(agent);
+  const context = agentContextPercent(agent);
   return (
     <li>
       <button
@@ -29,6 +30,24 @@ export function AgentRow({ agent, selected, onSelect }: { agent: HubAgent; selec
             <span className="agents-row-name">{agent.name}</span>
             {agent.agent !== null && agent.agent !== "task" && <span className="agents-chip">{agent.agent}</span>}
             {agent.background && <span className="agents-chip">{t("agents.background")}</span>}
+            {context !== null && (
+              <span
+                className="agents-ctx"
+                data-testid="agents-row-ctx"
+                data-percent={context}
+                data-high={context >= 90 || undefined}
+                title={
+                  agent.stats.contextLabel === null
+                    ? t("agents.contextTitle", { percent: context })
+                    : t("agents.contextTitleLabel", { percent: context, label: agent.stats.contextLabel })
+                }
+              >
+                <span className="agents-ctx-bar" aria-hidden="true">
+                  <i style={{ width: `${Math.max(context > 0 ? 4 : 0, context)}%` }} />
+                </span>
+                {context}%
+              </span>
+            )}
             {progress === null ? (
               <span className="agents-row-status" data-status={agent.status}>
                 {t(statusKey(agent.status))}

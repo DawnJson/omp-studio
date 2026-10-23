@@ -2,6 +2,7 @@
 // 写 models.yml 在主进程（src/main/omp-config/models-file.ts）；这里只收集输入、把主进程返回的错误码翻成文案。
 import { useId, useState } from "react";
 import {
+  defaultDiscoveryType,
   formApis,
   isFetchableApi,
   type CustomKeyInput,
@@ -11,7 +12,7 @@ import {
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { describeError } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Button, FormField, Notice, Segmented, TextField, type Option } from "../../ui/controls.tsx";
+import { Button, FormField, Notice, Segmented, Switch, TextField, type Option } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
 import { Select } from "../../ui/Select.tsx";
 import { CustomModelList, type FetchNotice, type ModelRow } from "./CustomModelList.tsx";
@@ -60,6 +61,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   );
   const [notice, setNotice] = useState<FetchNotice | null>(null);
   const [fetching, setFetching] = useState(false);
+  const [discovery, setDiscovery] = useState(provider?.discovery ?? false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -83,11 +85,11 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
 
   const selectedCount = rows.filter((row) => row.checked).length;
   const keyReady = (keyMode !== "literal" && keyMode !== "env") || keyText.trim() !== "";
+  // 接口类型改成没有通用发现方式的：开关停用，开着也不写；条目里本来就有 discovery 的照旧能保存（原样保留）。
+  const discoverySupported = defaultDiscoveryType(api) !== null || provider?.discovery === true;
+  const discoveryOn = discovery && discoverySupported;
   const canSave =
-    (mode === "edit" || id.trim() !== "") &&
-    baseUrl.trim() !== "" &&
-    keyReady &&
-    (selectedCount > 0 || provider?.discovery === true);
+    (mode === "edit" || id.trim() !== "") && baseUrl.trim() !== "" && keyReady && (selectedCount > 0 || discoveryOn);
 
   const fetchModels = async () => {
     setFetching(true);
@@ -131,6 +133,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
       models: rows
         .filter((row) => row.checked)
         .map((row) => ({ id: row.id, ...(row.name !== undefined && { name: row.name }) })),
+      discovery: discoveryOn,
     };
     try {
       const outcome = await window.studio.saveCustomProvider(mode, input);
@@ -248,6 +251,16 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
               }
             />
           )}
+        </FormField>
+        <FormField label={t("custom.form.discovery")} help={t("custom.form.discovery.tip")}>
+          <Switch
+            checked={discoveryOn}
+            disabled={!discoverySupported}
+            label={t("custom.form.discovery")}
+            onChange={setDiscovery}
+            testId="custom-discovery"
+          />
+          {!discoverySupported && <p className="cp-text">{t("custom.form.discovery.unsupported")}</p>}
         </FormField>
         <FormField label={t("custom.form.models")}>
           <CustomModelList

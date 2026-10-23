@@ -47,25 +47,26 @@ export const sessionInfo = {
   unpinnedToast: "已取消置顶。",
   pinUnchanged: "置顶状态没有变化（omp 没有给出提示）。",
 
-  // 用量（来自 omp 的统计库）
+  // 用量（会话文件算的，和输入框同口径）
   "usage.title": "用量与请求",
   "usage.requests": "请求数",
   "usage.requestsTip": { one: "{count} 次请求", other: "{count} 次请求" },
   "usage.tokens": "Token",
   "usage.cost": "费用",
-  "usage.toolCalls": "工具调用",
   "usage.models": "用过的模型",
-  "usage.range": "{from} 至 {to}",
   "usage.breakdown": "输入 {input} · 输出 {output} · 缓存读取 {cacheRead} · 缓存写入 {cacheWrite}",
-  "usage.unpriced": { one: "{count} 次请求没有价格，费用不含它", other: "{count} 次请求没有价格，费用不含它们" },
-  "usage.noRollup": "omp 的统计库里还没有这个会话。统计库只在 omp 同步时更新，点“刷新”让 omp 同步一次。",
+  "usage.whole": "含压缩前共 {tokens} Token · {cost}",
+  "usage.none": "这个会话还没有模型请求。",
   "usage.noDatabase": "还没有 omp 的统计库（第一次同步之后才会有）。",
   "usage.syncing": "正在让 omp 同步统计…",
   "usage.syncFailed": "同步统计失败：{message}",
   "usage.refresh": "刷新",
-  "usage.note": "数字来自 omp 的统计库，只统计已同步的部分，可能比输入框里的实时费用略少。",
+  "usage.note": "数字从会话文件算，和输入框同口径。压缩过的会话只算压缩后保留的部分，压缩前的合计写在费用旁边。",
 
   // 请求记录
+  "trace.open": "在浏览器中打开",
+  "trace.openTip": "在这个任务里执行 omp 的 /trace：omp 会在浏览器里打开它自带的请求记录页（任务运行中不可用）",
+  "trace.opened": "omp 已在浏览器中打开请求记录",
   "trace.empty": "统计库里还没有这个会话的请求记录。点“刷新”让 omp 同步一次。",
   "trace.summary": "{requests} 次请求 · {failed} 次失败 · {tools} 次工具调用 · {cost}",
   "trace.truncated": "只显示最近 {count} 条。",

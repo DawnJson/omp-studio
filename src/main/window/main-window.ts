@@ -3,6 +3,7 @@ import { app, BrowserWindow, nativeTheme, shell, systemPreferences } from "elect
 import path from "node:path";
 import { appOrigin } from "./app-protocol.ts";
 import { blockZoom } from "./security.ts";
+import { attachTaskbarWindow } from "./taskbar-progress.ts";
 import { restoredBounds, trackWindowState } from "./window-state.ts";
 
 /**
@@ -205,6 +206,7 @@ export function createMainWindow(): BrowserWindow {
     if (mainWindow === window) mainWindow = null;
   });
   mainWindow = window;
+  attachTaskbarWindow(window);
 
   void window.loadURL(rendererEntryUrl());
   return window;

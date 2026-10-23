@@ -92,6 +92,34 @@ export function hasNavigatedToast(doc: TspDocument): boolean {
   return statusToastTexts(doc).some((text) => text.startsWith("Navigated to selected point"));
 }
 
+/** 树选择器里"给条目打标签"的输入框（`select` 一个条目再 `action label`；omp 18.12.6 源码：选择器预览里换成 `input` 节点，底栏动作换成 `label-save` / `close`）。 */
+export interface TspTreeLabelInput {
+  sf: string;
+  /** 选择器节点 id（`action label-save` 发给它）。 */
+  pickerId: string;
+  /** `edit` 事件的输入框节点 id。 */
+  id: string;
+  text: string;
+}
+
+export const TREE_ACT_LABEL = "label";
+export const TREE_ACT_LABEL_SAVE = "label-save";
+
+/** 标签输入框；选择器没进入打标签状态（动作里没有 `label-save`、没有 input 节点）为 null。 */
+export function findTreeLabelInput(doc: TspDocument): TspTreeLabelInput | null {
+  const picker = findTreePicker(doc);
+  if (picker === null || !picker.actions.includes(TREE_ACT_LABEL_SAVE)) return null;
+  const surface = doc.surfaces.get(picker.sf);
+  const input = surface ? findNode(surface, (node) => node.k === "input", picker.id) : null;
+  if (!input) return null;
+  return {
+    sf: picker.sf,
+    pickerId: picker.id,
+    id: input.id,
+    text: typeof input.p.text === "string" ? input.p.text : "",
+  };
+}
+
 /**
  * omp 在用户消息卡片（role `omp.user`）的工具行里画了一个"回退"图标（`actions.click: "rewind"`，omp 自己的回退选择器）。
  * studio 接管它：点了打开会话树面板，并定位到这条消息。卡片没有条目 id，只能按位置对：返回 `nodeId`（卡片里的节点）所在卡片

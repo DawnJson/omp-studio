@@ -3,10 +3,11 @@
 import os from "node:os";
 import path from "node:path";
 import { app, nativeTheme, Notification, shell } from "electron";
-import { getSettings, resolveLocale } from "../settings/settings-store.ts";
+import { getSettings, onSettingsChanged, resolveLocale } from "../settings/settings-store.ts";
 import { getMainWindow } from "../window/main-window.ts";
 import { showMainWindow } from "../window/show-window.ts";
 import { refreshTray } from "../window/tray.ts";
+import { refreshTaskbarProgress } from "../window/taskbar-progress.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
 import { GateNotifier, retainNotification } from "./gate-notifier.ts";
 import { t } from "../../shared/i18n/index.ts";
@@ -19,8 +20,9 @@ import { parseTestOmpOverride } from "../omp/launch-args.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
 import { closeTaskTerminal } from "../terminal/active.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
+import { log } from "../log/log.ts";
 import { listModelOptions, readDefaultModel } from "../service/default-model.ts";
-import { readProjectModelDefaults } from "../ipc/omp-handlers.ts";
+import { readNotifyEnabled, readProjectModelDefaults } from "../ipc/omp-handlers.ts";
 import { serviceOmp } from "../service/service-omp.ts";
 import { createWorktree, removeWorktree } from "../git/worktree.ts";
 import { SetupConsent } from "../git/setup-consent.ts";
@@ -65,7 +67,12 @@ function createPool(): Promise<TaskPool> {
   const testOmp = process.env["STUDIO_TEST_OMP"];
   if (!app.isPackaged && testOmp) setTestOmpOverride(parseTestOmpOverride(testOmp));
   const notifier = new GateNotifier({
-    enabled: async () => (await appHandlers.getSettings()).notifyOnGate,
+    // 项目目录里跑 `omp config list --json`：项目的 .omp/config.yml 盖过全局，和 omp 自己的行为一致；读不到设置时记 WARN、不发通知。
+    notifyEnabled: (task, kind) =>
+      readNotifyEnabled(kind, registry.findProject(task.projectId)?.path ?? null).catch((error: unknown) => {
+        log.warn("reading omp's notify setting failed", { kind, message: String(error) });
+        return false;
+      }),
     soundEnabled: async () => (await appHandlers.getSettings()).soundOnDone,
     // Windows 上是系统"默认提示音"（声音设置里可换），不随安装包带音频文件。
     playSound: () => shell.beep(),
@@ -108,8 +115,8 @@ function createPool(): Promise<TaskPool> {
     exportSession: exportSessionHtml,
     tsp: {
       buildLaunch: (record, project) => {
-        // worktree 任务以 worktree 根为 cwd（omp 会话绑 cwd，只能在 spawn 时定）。
-        const cwd = record.worktreePath ?? project.path;
+        // worktree 任务以 worktree 根为 cwd（omp 会话绑 cwd，只能在 spawn 时定）；omp 里 `/move` 过的任务从新目录恢复（会话文件已搬过去，OSC 7）。
+        const cwd = record.cwd ?? record.worktreePath ?? project.path;
         return buildTspLaunch({
           cwd,
           model: record.model,
@@ -122,7 +129,7 @@ function createPool(): Promise<TaskPool> {
       },
       session: {
         appVersion: app.getVersion(),
-        // hello 回复里的外观；之后的变化由渲染进程发 theme / motion 事件。
+        // hello 回复里的外观；之后的变化由 syncAppearance（下面）发 theme / motion 事件。
         appearance: () => ({ dark: nativeTheme.shouldUseDarkColors, reduceMotion: getSettings().reduceMotion }),
       },
     },
@@ -131,6 +138,7 @@ function createPool(): Promise<TaskPool> {
         emitEvent("taskState", state);
         void notifier.onState(state);
         refreshTray(taskPool.listTasks());
+        refreshTaskbarProgress(taskPool.listTasks());
       },
       tspBatch: (batch) => emitEvent("tspBatch", batch),
       notice: (notice) => emitEvent("taskNotice", notice),
@@ -138,10 +146,16 @@ function createPool(): Promise<TaskPool> {
         forgetExport(id);
         emitEvent("taskRemoved", id);
         refreshTray(taskPool.listTasks());
+        refreshTaskbarProgress(taskPool.listTasks());
       },
       btw: (taskId, event) => emitEvent("btw", { taskId, event }),
     },
   });
+  // 深浅主题（设置或系统）和"减少动效"设置变了，给所有运行中的 TSP 会话发 theme / motion 事件（TspSession.setAppearance 只发有变化的）。
+  const syncAppearance = () =>
+    taskPool.setAppearance({ dark: nativeTheme.shouldUseDarkColors, reduceMotion: getSettings().reduceMotion });
+  nativeTheme.on("updated", syncAppearance);
+  onSettingsChanged(syncAppearance);
   // 退出路径只有 Shell 的 before-quit 一条（arch 2.4）；主进程被强杀时由 Job Object 兜底。
   registerShutdownHook(() => taskPool.shutdown());
   return taskPool.init().then(() => taskPool);

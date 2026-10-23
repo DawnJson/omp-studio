@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { HubAgent } from "../src/shared/tsp/agent-hub.ts";
 import {
+  agentContextPercent,
   agentElapsed,
   agentProgress,
   canKill,
@@ -24,6 +25,7 @@ const agent = (name: string, status: HubAgent["status"], stats: Partial<HubAgent
     tools: null,
     requests: null,
     tokens: null,
+    context: null,
     contextLabel: null,
     cost: null,
     age: null,
@@ -77,6 +79,12 @@ describe("子代理面板的操作规则", () => {
     expect(agentProgress(agent("A", "running"))).toBeNull();
     expect(agentProgress(agent("A", "done", { done: 0.9 }))).toBeNull();
     expect(agentProgress(agent("A", "parked", { done: 0.4 }))).toBeNull();
+  });
+
+  it("Ctx 取整成百分比（结束后仍显示，占用是会话的属性）；omp 没给为 null", () => {
+    expect(agentContextPercent(agent("A", "running", { context: 0.008099 }))).toBe(1);
+    expect(agentContextPercent(agent("A", "done", { context: 0.43 }))).toBe(43);
+    expect(agentContextPercent(agent("A", "running"))).toBeNull();
   });
 
   it("sameAgents 按内容比较（IPC 之外的文档推导每次产生新对象）", () => {

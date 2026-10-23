@@ -61,7 +61,7 @@ interface Run {
   exit: Promise<TspSessionExit>;
   log: string;
   titles: string[];
-  sessionFiles: string[];
+  sessionFiles: (string | null)[];
 }
 
 async function run(
@@ -72,7 +72,7 @@ async function run(
   const log = path.join(scratch, `log-${counter}.jsonl`);
   const batches: TspSessionBatch[] = [];
   const titles: string[] = [];
-  const sessionFiles: string[] = [];
+  const sessionFiles: (string | null)[] = [];
   const exited = Promise.withResolvers<TspSessionExit>();
   const launch: TspPtyLaunch = {
     command: process.execPath,
@@ -128,15 +128,7 @@ describe("TspSession + 假 omp：整份录制回放", () => {
       reduceMotion: false,
     });
     expect(hello?.["kinds"]).toEqual([...TSP_KINDS]);
-    expect(hello?.["features"]).toEqual([
-      "blobs",
-      "settle",
-      "adopt",
-      "dock",
-      "program-palette",
-      "scroll",
-      "reduce-motion",
-    ]);
+    expect(hello?.["features"]).toEqual(["blobs", "settle", "adopt", "dock", "program-palette", "reduce-motion"]);
     // DA1 应答在 hello 回复之后。
     expect(records.findIndex((record) => record.kind === "da1-reply")).toBeGreaterThan(
       records.findIndex((record) => record.kind === "tsp" && record.verb === "r"),
@@ -210,6 +202,62 @@ describe("TspSession + 假 omp：整份录制回放", () => {
     // OSC：会话文件（base64 里是中文和空格）和标题。
     expect(sessionFiles).toEqual([sessionFile]);
     expect(titles).toContain("标题 title");
+  }, 60_000);
+
+  it("OSC 7 / 7501 / 不带 = 的 SetUserVar 回调给调用方（假 omp 回放 osc 行）", async () => {
+    const fixture = path.join(scratch, "osc.jsonl");
+    const cwdUri = "file://HOST/C:/Users/某人/omp%20work/%E7%9B%AE%E5%BD%95%20two";
+    const entries = [
+      { t: 0, dir: "out", verb: "o", body: { id: "s:1", mode: "inline" } },
+      { t: 1, dir: "out", verb: "osc", body: `7;${cwdUri}` },
+      { t: 2, dir: "out", verb: "osc", body: "7501;state=working:app=omp" },
+      { t: 3, dir: "out", verb: "osc", body: "1337;SetUserVar=omp_session_file" },
+      {
+        t: 4,
+        dir: "out",
+        verb: "osc",
+        body: `7501;state=error:app=omp:msg=${Buffer.from("出错了 boom").toString("base64")}`,
+      },
+    ];
+    await writeFile(fixture, entries.map((entry) => JSON.stringify(entry)).join("\n"));
+    const cwds: string[] = [];
+    const statuses: unknown[] = [];
+    const files: (string | null)[] = [];
+    const { exit } = await run(fixture, {
+      extraArgs: ["--exit-after-end"],
+      session: {
+        onCwd: (cwd) => cwds.push(cwd),
+        onRunStatus: (status) => statuses.push(status),
+        onSessionFile: (file) => files.push(file),
+      },
+    });
+    await exit;
+    // 盘符写法只在 Windows 上换成反斜杠路径（osc7.ts）。
+    if (process.platform === "win32") expect(cwds).toEqual(["C:\\Users\\某人\\omp work\\目录 two"]);
+    expect(statuses).toEqual([
+      { state: "working", kind: null, msg: null },
+      { state: "error", kind: null, msg: "出错了 boom" },
+    ]);
+    expect(files).toEqual([null]);
+  }, 60_000);
+
+  it("setAppearance：深浅主题和减少动效变了才给 omp 发 theme / motion 事件", async () => {
+    const idle = path.join(scratch, "appearance.jsonl");
+    await writeFile(idle, JSON.stringify({ t: 0, dir: "out", verb: "o", body: { id: "s:1", mode: "inline" } }) + "\n");
+    const { session, log } = await run(idle);
+    await session.ready;
+    session.setAppearance({ dark: true, reduceMotion: false });
+    session.setAppearance({ dark: false, reduceMotion: false });
+    session.setAppearance({ dark: false, reduceMotion: true });
+    const records = await waitForLog(log, (found) => found.some((record) => record.body?.["ev"] === "motion"));
+    const events = records
+      .filter((record) => record.body?.["ev"] === "theme" || record.body?.["ev"] === "motion")
+      .map((record) => record.body);
+    expect(events).toEqual([
+      { ev: "theme", dark: false },
+      { ev: "motion", reduce: true },
+    ]);
+    await session.close();
   }, 60_000);
 });
 

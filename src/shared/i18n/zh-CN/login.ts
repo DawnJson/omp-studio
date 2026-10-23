@@ -15,6 +15,7 @@ export const login = {
   terminalOnly: "这个 provider 需要在终端里登录：运行 omp，再输入 /login。",
   copyCommand: "复制命令",
   chooseAccount: "选择要退出的账号",
+  accountActive: "正在使用",
   failed: "登录没有完成。",
   refreshFailed: "没能刷新，显示的是上次的结果：{message}",
   loadFailed: "没能读取账号信息：{message}",

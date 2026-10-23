@@ -1,6 +1,6 @@
 // 一个 hunk：头部（@@ 行 + 暂存/取消暂存/丢弃）、统一或并排的行、行下面的评论线程。
 // 行号就是"评论"按钮：点一下对这行写评论，Shift 点击把范围扩到这一行（只能在旧/新同一侧内）。
-import { Fragment, useMemo, type ReactNode } from "react";
+import { Fragment, useMemo, type MouseEvent, type ReactNode } from "react";
 import { toSideBySide, type GitDiffArea, type GitDiffHunk, type GitDiffLine } from "../../../../shared/git.ts";
 import {
   changeBlockStarts,
@@ -39,6 +39,40 @@ export interface HunkActions {
   stage?: () => void;
   unstage?: () => void;
   discard?: () => void;
+  /** 忽略空白时 hunk 级操作不可用（界面上的块不是能 `git apply` 的块）。 */
+  blocked?: boolean | undefined;
+  /** 有选中行时头部多出来的按行操作。 */
+  lines?: {
+    count: number;
+    stage?: () => void;
+    unstage?: () => void;
+    discard?: () => void;
+    clear: () => void;
+  };
+}
+
+/** 按行选择：selected 是选中的行下标；点击（Shift 点击扩展）改选择。 */
+export interface PickCtx {
+  selected: ReadonlySet<number>;
+  onPick(index: number, extend: boolean): void;
+}
+
+/**
+ * 点击行 → 选择；点行号（写评论）和正在拖选文字时不当作点击。Shift 点击是明确的"扩展选择"：
+ * 按下时拦掉浏览器自己的文字选区扩展（否则它会在两次点击之间选出一段文字），点击时也不看文字选区。
+ */
+function pickProps(pick: PickCtx | null, index: number | undefined) {
+  if (pick === null || index === undefined) return {};
+  return {
+    onMouseDown: (event: MouseEvent) => {
+      if (event.shiftKey) event.preventDefault();
+    },
+    onClick: (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest(".rv-no-btn")) return;
+      if (!event.shiftKey && window.getSelection()?.toString()) return;
+      pick.onPick(index, event.shiftKey);
+    },
+  };
 }
 
 /** "文件"视图里的改动块：base = 这个 hunk 之前已有几块，active = 当前块（n / p）的序号。 */
@@ -149,6 +183,7 @@ function UnifiedRows({
   area,
   ctx,
   blocks,
+  pick,
 }: {
   hunk: GitDiffHunk;
   tokens: LineTokens | null;
@@ -156,6 +191,7 @@ function UnifiedRows({
   area: GitDiffArea;
   ctx: CommentCtx;
   blocks: BlockCtx | null;
+  pick: PickCtx | null;
 }) {
   const starts = useMemo(() => changeBlockStarts(hunk.lines.map((line) => line.kind !== "context")), [hunk]);
   return (
@@ -173,6 +209,10 @@ function UnifiedRows({
               data-commented={commented || undefined}
               data-block={block ?? undefined}
               data-block-active={block !== null && block === blocks?.active ? true : undefined}
+              data-pickable={(pick !== null && line.kind !== "context") || undefined}
+              data-picked={pick?.selected.has(index) || undefined}
+              data-idx={index}
+              {...pickProps(line.kind === "context" ? null : pick, index)}
             >
               {/* 一列行号：删除行写旧行号（评论旧版本），其余写新行号。 */}
               <Gutter line={ref?.line ?? null} target={ref} ctx={ctx} />
@@ -198,6 +238,7 @@ function SplitRows({
   area,
   ctx,
   blocks,
+  pick,
 }: {
   hunk: GitDiffHunk;
   tokens: LineTokens | null;
@@ -205,6 +246,7 @@ function SplitRows({
   area: GitDiffArea;
   ctx: CommentCtx;
   blocks: BlockCtx | null;
+  pick: PickCtx | null;
 }) {
   const positions = useMemo(() => new Map(hunk.lines.map((line, at) => [line, at])), [hunk]);
   const rows = useMemo(() => toSideBySide(hunk), [hunk]);
@@ -212,6 +254,13 @@ function SplitRows({
   const tokenOf = (line: GitDiffLine | null) => {
     const at = line === null ? undefined : positions.get(line);
     return at === undefined ? null : (tokens?.[at] ?? null);
+  };
+  // 只有改动行能选：左边的删除、右边的新增（上下文行左右各画一次，不选）。
+  const pickable = (line: GitDiffLine | null) =>
+    (pick !== null && line !== null && line.kind !== "context") || undefined;
+  const picked = (line: GitDiffLine | null) => {
+    const at = line === null ? undefined : positions.get(line);
+    return (at !== undefined && pick?.selected.has(at)) || undefined;
   };
   return (
     <>
@@ -233,6 +282,9 @@ function SplitRows({
                 data-kind={row.left?.kind ?? "empty"}
                 data-selected={left.selected || undefined}
                 data-commented={left.commented || undefined}
+                data-pickable={pickable(row.left)}
+                data-picked={picked(row.left)}
+                {...pickProps(row.left?.kind === "del" ? pick : null, row.left ? positions.get(row.left) : undefined)}
               >
                 <Gutter line={row.left?.oldNo ?? null} target={leftRef} ctx={ctx} />
                 <code className="rv-code">{row.left && <Code text={row.left.text} tokens={tokenOf(row.left)} />}</code>
@@ -242,6 +294,12 @@ function SplitRows({
                 data-kind={row.right?.kind ?? "empty"}
                 data-selected={right.selected || undefined}
                 data-commented={right.commented || undefined}
+                data-pickable={pickable(row.right)}
+                data-picked={picked(row.right)}
+                {...pickProps(
+                  row.right?.kind === "add" ? pick : null,
+                  row.right ? positions.get(row.right) : undefined,
+                )}
               >
                 <Gutter line={row.right?.newNo ?? null} target={rightRef} ctx={ctx} />
                 <code className="rv-code">
@@ -269,6 +327,7 @@ export function HunkView({
   lang,
   ctx,
   actions,
+  pick,
 }: {
   file: string;
   area: GitDiffArea;
@@ -282,10 +341,13 @@ export function HunkView({
   lang: string | null;
   ctx: CommentCtx;
   actions: HunkActions;
+  /** 按行选择；null = 这个视图 / 这一侧不能按行操作。 */
+  pick: PickCtx | null;
 }) {
   const t = useT();
   const tokens = useHunkTokens(hunk, lang);
   const section = hunk.header.replace(/^@@[^@]*@@\s?/, "");
+  const blockedTip = actions.blocked ? t("review.ignoreSpaceBlocked") : undefined;
   return (
     <section
       className="rv-hunk"
@@ -297,23 +359,67 @@ export function HunkView({
     >
       {blocks === null && (
         <header className="rv-hunk-head">
-          <code className="rv-hunk-range">
+          <code className="rv-hunk-range" title={pick === null ? undefined : t("review.pickHint")}>
             @@ −{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
           </code>
           {section !== "" && <span className="rv-hunk-section">{section}</span>}
+          {actions.lines && (
+            <span className="rv-lines-bar" data-testid="lines-bar">
+              <span className="rv-lines-count" data-testid="lines-count">
+                {t("review.linesSelected", { count: actions.lines.count })}
+              </span>
+              {actions.lines.stage && (
+                <Button size="sm" variant="primary" testId="lines-stage" onClick={actions.lines.stage}>
+                  {t("review.stageLines")}
+                </Button>
+              )}
+              {actions.lines.unstage && (
+                <Button size="sm" variant="primary" testId="lines-unstage" onClick={actions.lines.unstage}>
+                  {t("review.unstageLines")}
+                </Button>
+              )}
+              {actions.lines.discard && (
+                <Button size="sm" variant="danger" testId="lines-discard" onClick={actions.lines.discard}>
+                  {t("review.discardLines")}
+                </Button>
+              )}
+              <Button size="sm" variant="quiet" testId="lines-clear" onClick={actions.lines.clear}>
+                {t("review.clearLines")}
+              </Button>
+            </span>
+          )}
           <span className="rv-hunk-actions">
             {actions.stage && (
-              <Button size="sm" testId="hunk-stage" onClick={actions.stage}>
+              <Button
+                size="sm"
+                testId="hunk-stage"
+                disabled={actions.blocked}
+                title={blockedTip}
+                onClick={actions.stage}
+              >
                 {t("review.stage")}
               </Button>
             )}
             {actions.unstage && (
-              <Button size="sm" testId="hunk-unstage" onClick={actions.unstage}>
+              <Button
+                size="sm"
+                testId="hunk-unstage"
+                disabled={actions.blocked}
+                title={blockedTip}
+                onClick={actions.unstage}
+              >
                 {t("review.unstage")}
               </Button>
             )}
             {actions.discard && (
-              <Button size="sm" variant="danger" testId="hunk-discard" onClick={actions.discard}>
+              <Button
+                size="sm"
+                variant="danger"
+                testId="hunk-discard"
+                disabled={actions.blocked}
+                title={blockedTip}
+                onClick={actions.discard}
+              >
                 {t("review.discard")}
               </Button>
             )}
@@ -322,9 +428,9 @@ export function HunkView({
       )}
       <div className="rv-lines" data-mode={mode}>
         {mode === "unified" ? (
-          <UnifiedRows hunk={hunk} tokens={tokens} file={file} area={area} ctx={ctx} blocks={blocks} />
+          <UnifiedRows hunk={hunk} tokens={tokens} file={file} area={area} ctx={ctx} blocks={blocks} pick={pick} />
         ) : (
-          <SplitRows hunk={hunk} tokens={tokens} file={file} area={area} ctx={ctx} blocks={blocks} />
+          <SplitRows hunk={hunk} tokens={tokens} file={file} area={area} ctx={ctx} blocks={blocks} pick={pick} />
         )}
       </div>
     </section>

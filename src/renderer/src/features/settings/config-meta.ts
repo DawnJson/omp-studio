@@ -72,11 +72,21 @@ export function commonItems(items: readonly OmpConfigItem[]): OmpConfigItem[] {
  * `kinds`（特定能力的角色）没有 omp 的常用项，只放模型页自己的内容。
  */
 export type CommonBlockId =
-  "defaults" | "kinds" | "retry" | "fallback" | "approval" | "compaction" | "memory" | "subagents" | "goal";
+  | "defaults"
+  | "kinds"
+  | "thinking"
+  | "retry"
+  | "fallback"
+  | "approval"
+  | "compaction"
+  | "memory"
+  | "subagents"
+  | "goal";
 
 const blockSpecs: readonly { id: CommonBlockId; prefixes: readonly string[] }[] = [
   { id: "defaults", prefixes: ["modelRole", "defaultThinkingLevel"] },
   { id: "kinds", prefixes: [] },
+  { id: "thinking", prefixes: ["hideThinkingBlock", "expandThinkingBlocks"] },
   { id: "retry", prefixes: ["retry."] },
   {
     id: "fallback",

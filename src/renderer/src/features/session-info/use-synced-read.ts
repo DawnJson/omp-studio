@@ -12,8 +12,6 @@ export interface SyncedRead<T> {
   syncError: unknown;
   /** 重新走一遍两步（"刷新"按钮）。 */
   refresh(): void;
-  /** 只重读现有库（置顶切换之后）。 */
-  reread(): void;
 }
 
 export function useSyncedRead<T>(load: (refresh: boolean) => Promise<T>, resetKey: string): SyncedRead<T> {
@@ -52,8 +50,35 @@ export function useSyncedRead<T>(load: (refresh: boolean) => Promise<T>, resetKe
   }, [resetKey, tick]);
 
   const refresh = useCallback(() => setTick((value) => value + 1), []);
-  const reread = useCallback(() => {
-    loadRef.current(false).then(setData, setError);
-  }, []);
-  return { data, error, syncing, syncError, refresh, reread };
+  return { data, error, syncing, syncError, refresh };
+}
+
+/** 不需要同步 stats.db 的读取（概览页：数据来自会话文件和置顶文件）：挂载时读一次，`reread` 重读。 */
+export interface Read<T> {
+  data: T | null;
+  error: unknown;
+  reread(): void;
+}
+
+export function useRead<T>(load: () => Promise<T>, resetKey: string): Read<T> {
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [tick, setTick] = useState(0);
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
+  useEffect(() => {
+    let current = true;
+    setError(null);
+    loadRef.current().then(
+      (value) => current && setData(value),
+      (cause: unknown) => current && setError(cause),
+    );
+    return () => {
+      current = false;
+    };
+  }, [resetKey, tick]);
+
+  const reread = useCallback(() => setTick((value) => value + 1), []);
+  return { data, error, reread };
 }

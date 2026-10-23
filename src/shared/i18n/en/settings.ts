@@ -45,9 +45,11 @@ export const settings = {
   "enterBehavior.steer": "Steer",
   "enterBehavior.later": "Queue for later",
   "enterBehavior.desc": "While a task is running, whether Enter sends a steering message or queues it",
-  notifyWaiting: "Notify when a task needs me",
-  "notifyWaiting.desc":
-    "System notifications when a task needs your approval, and when a task finishes or fails while the window is hidden in the tray",
+  notifications: "Notifications and recap",
+  "block.thinking": "Thinking blocks",
+  "shortcuts.omp": "omp shortcuts",
+  "shortcuts.omp.desc":
+    "With the message box or the conversation focused, these keys go straight to omp in the task (when omp-studio doesn't use the key itself). They come from omp's defaults plus keybindings.yml in omp's agent directory — change them there.",
   soundOnDone: "Sound when a task finishes",
   "soundOnDone.desc":
     "Plays the system alert sound when a task finishes its turn; skipped when a completion notification is already shown (window in the tray)",

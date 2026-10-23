@@ -18,4 +18,5 @@ export const error = {
   startFailed: "Couldn’t start omp.",
   executableBlocked: "Executable files aren’t opened directly. Reveal it in the folder instead.",
   notFound: "That task or project no longer exists.",
+  statsSchema: "omp's statistics database doesn't look like the version this app expects, so it can't be read.",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

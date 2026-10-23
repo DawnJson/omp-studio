@@ -154,12 +154,41 @@ export async function readSessionHead(file: string, size: number): Promise<Parse
   return parseSessionPrefix(extended.text, extended.truncated);
 }
 
-/** 最后一轮的结果：completed = 助手正常答完（stopReason "stop"），error = 以出错结束；其余（被停止、轮次中途断掉）为 null，不画。 */
-export type SessionLastTurn = "completed" | "error" | null;
+/**
+ * 最后一条消息给出的会话状态，口径同 omp 的 `session-listing.ts`（`iVa` / `lVa`，omp 18.12.6）：
+ *   · completed   助手答完（stopReason 不是 error / aborted / length，且内容里没有 toolCall）
+ *   · error       助手以出错结束
+ *   · aborted     助手被用户停止
+ *   · interrupted 助手因长度上限停下、或停在工具调用上（内容里有 toolCall），或最后一条是工具结果——轮次中途断掉
+ *   · pending     最后一条是用户消息，助手还没答
+ *   · null        认不出（别的角色，或这一段里没有消息）
+ * 侧栏历史行画 completed / error / interrupted；aborted（用户自己停的）、pending 不画，和任务"被停止不画"一致。
+ */
+export type SessionLastTurn = "completed" | "error" | "aborted" | "interrupted" | "pending" | null;
+
+function lastTurnOf(message: Record<string, unknown>): SessionLastTurn {
+  switch (message["role"]) {
+    case "assistant": {
+      const reason = message["stopReason"];
+      if (reason === "error") return "error";
+      if (reason === "aborted") return "aborted";
+      if (reason === "length") return "interrupted";
+      const content = message["content"];
+      const hasToolCall =
+        Array.isArray(content) && content.some((part) => isRecord(part) && part["type"] === "toolCall");
+      return hasToolCall ? "interrupted" : "completed";
+    }
+    case "toolResult":
+      return "interrupted";
+    case "user":
+      return "pending";
+    default:
+      return null;
+  }
+}
 
 /**
- * 从文件末尾一段里找最后一条 `type: "message"` 条目：它是助手消息且 stopReason 为 stop / error 才算有结果；
- * 最后一条是用户消息、工具结果，或助手停在 toolUse / aborted 上，都是 null（和任务的"被停止不画"一致）。
+ * 从文件末尾一段里找最后一条 `type: "message"` 条目，按 lastTurnOf 给状态。
  * `truncated` 表示 text 不是从文件开头读的：第一行可能被截断，直接丢掉。这一段里没有完整的消息条目时返回 undefined。
  */
 export function parseSessionTail(text: string, truncated: boolean): SessionLastTurn | undefined {
@@ -174,11 +203,8 @@ export function parseSessionTail(text: string, truncated: boolean): SessionLastT
     } catch {
       continue;
     }
-    if (!isRecord(entry) || entry["type"] !== "message") continue;
-    const message = entry["message"];
-    if (!isRecord(message) || message["role"] !== "assistant") return null;
-    const reason = message["stopReason"];
-    return reason === "stop" ? "completed" : reason === "error" ? "error" : null;
+    if (!isRecord(entry) || entry["type"] !== "message" || !isRecord(entry["message"])) continue;
+    return lastTurnOf(entry["message"]);
   }
   return undefined;
 }

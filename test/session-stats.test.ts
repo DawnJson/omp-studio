@@ -3,7 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { readSessionStats, readSessionTrace, TRACE_LIMIT } from "../src/main/session-info/session-stats.ts";
+import { createT } from "../src/shared/i18n/index.ts";
+import { describeError } from "../src/shared/ui/errors.ts";
+import { readSessionTrace, TRACE_LIMIT } from "../src/main/session-info/session-stats.ts";
 
 // 表结构抄自 omp 18.12.5 的 stats.db（只留本功能用到的列之外的 NOT NULL 列，保证插入语句和真实库同样严格）。
 const SCHEMA = `
@@ -145,45 +147,41 @@ afterAll(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-describe("readSessionStats（session_rollup + messages 的 token 分项）", () => {
-  it("按会话文件取汇总行；模型列按逗号拆开；不混进别的会话", () => {
-    const stats = readSessionStats(dbPath, sessionFile);
-    expect(stats.hasDatabase).toBe(true);
-    expect(stats.rollup).toEqual({
-      requests: 8,
-      startedAt: 1000,
-      endedAt: 9000.5,
-      totalTokens: 259673,
-      costUsd: 0.210946,
-      unpriced: 1,
-      models: ["grok-4.6", "deepseek-v4-flash"],
-      toolCalls: 10,
-    });
-    // messages 里这个会话 3 行：输入 4+2+10，输出 150+189+20，缓存 700/50。
-    expect(stats.tokens).toEqual({ input: 16, output: 359, cacheRead: 700, cacheWrite: 50 });
-  });
-
-  it("库里没有这个会话：rollup 和 tokens 都是 null（还没同步），库存在", () => {
-    const stats = readSessionStats(dbPath, path.join(dir, "不存在.jsonl"));
-    expect(stats).toEqual({ hasDatabase: true, rollup: null, tokens: null });
-  });
-
-  it("库不存在：hasDatabase 为 false，不抛错", () => {
-    expect(readSessionStats(path.join(dir, "no.db"), sessionFile)).toEqual({
-      hasDatabase: false,
-      rollup: null,
-      tokens: null,
-    });
-  });
-
+describe("Windows 路径写法", () => {
   it.runIf(process.platform === "win32")(
-    "Windows 上盘符大小写、斜杠方向不影响匹配（任务记录和 omp 写库的路径写法可能不同）",
+    "盘符大小写、斜杠方向不影响匹配（任务记录和 omp 写库的路径写法可能不同）",
     () => {
       const mangled = sessionFile.toLowerCase().replaceAll("\\", "/");
-      expect(readSessionStats(dbPath, mangled).rollup?.requests).toBe(8);
       expect(readSessionTrace(dbPath, mangled).requests).toHaveLength(3);
     },
   );
+});
+
+describe("表结构自检（omp 升级改了表时给明确错误，不返回空白）", () => {
+  it("缺列：错误里写明哪张表缺哪一列", () => {
+    const broken = path.join(dir, "缺列.db");
+    const db = new DatabaseSync(broken);
+    db.exec(SCHEMA.replace("duration INTEGER, ttft INTEGER,", "duration INTEGER,"));
+    db.close();
+    expect(() => readSessionTrace(broken, sessionFile)).toThrow(/schema mismatch.*table messages has no column ttft/);
+  });
+
+  it("缺表：错误里写明哪张表不存在", () => {
+    const broken = path.join(dir, "缺表.db");
+    const db = new DatabaseSync(broken);
+    db.exec("CREATE TABLE unrelated (x INTEGER)");
+    db.close();
+    expect(() => readSessionTrace(broken, sessionFile)).toThrow(
+      /schema mismatch.*table messages is missing; table tool_calls is missing/,
+    );
+  });
+
+  it("界面把它认作已知错误（不是通用的“操作没有完成”）", () => {
+    const t = createT("en");
+    expect(describeError(t, new Error("omp stats.db schema mismatch: table messages is missing"))).toBe(
+      t("error.statsSchema"),
+    );
+  });
 });
 
 describe("readSessionTrace（messages + tool_calls）", () => {
