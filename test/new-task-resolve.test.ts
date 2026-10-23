@@ -19,7 +19,6 @@ const model = (patch: Partial<ModelOption> = {}): ModelOption => ({
 const defaults = (patch: Partial<ModelDefaults> = {}): ModelDefaults => ({
   model: "deepseek/deepseek-v4-flash",
   thinkingLevel: "high",
-  storage: "global",
   ...patch,
 });
 

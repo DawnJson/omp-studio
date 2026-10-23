@@ -131,7 +131,9 @@ test("omp 设置：各节只放常用项，其余在“高级”；终端专用�
     await page.getByTestId("settings-nav-tools").click();
     await expect(page.getByTestId("cfg-bash.enabled")).toBeVisible({ timeout: 30_000 });
     await page.getByTestId("settings-nav-models").click();
-    await expect(page.getByTestId("cfg-modelRoles")).toBeVisible();
+    // 模型角色直接展开成每个角色一格下拉，不再是 modelRoles 一行"编辑…"。
+    await expect(page.getByTestId("setting-role-smol")).toBeVisible();
+    await expect(page.getByTestId("cfg-modelRoles")).toHaveCount(0);
     // 插话 / 稍后消息的处理方式和 Enter 的行为在"通用"同一张卡里。
     await page.getByTestId("settings-nav-general").click();
     await expect(page.getByTestId("cfg-steeringMode")).toBeVisible();

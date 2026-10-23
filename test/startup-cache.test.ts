@@ -41,8 +41,8 @@ describe("StartupCache（startup-cache.json）", () => {
     expect(first.snapshot()).toEqual({});
     first.setDefaultModel({ key: opus.key, name: opus.name, thinkingLevel: "high" });
     first.setModels([opus]);
-    first.setModelDefaults(null, { model: null, thinkingLevel: "low", storage: "global" });
-    first.setModelDefaults("p1", { model: "anthropic/claude-opus-5-5", thinkingLevel: null, storage: "project" });
+    first.setModelDefaults(null, { model: null, thinkingLevel: "low" });
+    first.setModelDefaults("p1", { model: "anthropic/claude-opus-5-5", thinkingLevel: null });
     first.setSubscription("anthropic", true);
     first.setSubscription("openai", false);
     first.setApprovalMode("yolo");
@@ -53,8 +53,8 @@ describe("StartupCache（startup-cache.json）", () => {
       defaultModel: { key: opus.key, name: opus.name, thinkingLevel: "high" },
       models: [opus],
       modelDefaults: {
-        global: { model: null, thinkingLevel: "low", storage: "global" },
-        p1: { model: "anthropic/claude-opus-5-5", thinkingLevel: null, storage: "project" },
+        global: { model: null, thinkingLevel: "low" },
+        p1: { model: "anthropic/claude-opus-5-5", thinkingLevel: null },
       },
       subscriptions: { anthropic: true, openai: false },
       approvalMode: "yolo",

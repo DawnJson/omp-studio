@@ -11,9 +11,6 @@ export const ompcfg = {
   "group.voice": "Voice",
   "group.other": "Other",
 
-  "modelRoleStorage.label": "Where model roles are saved",
-  "modelRoleStorage.desc":
-    "Whether the model picked for a role (default, smol, slow…) in the model selector is saved globally or per project",
   "modelRoles.label": "Model roles",
   "modelRoles.desc": 'Maps role names to models, as a JSON object, e.g. {"default": "provider/model-id"}',
   "defaultThinkingLevel.label": "Default thinking level",
@@ -253,8 +250,6 @@ export const ompcfg = {
   "followUpMode.opt.one-at-a-time": "One at a time",
   "interruptMode.opt.immediate": "Immediately",
   "interruptMode.opt.wait": "Wait",
-  "modelRoleStorage.opt.global": "Global",
-  "modelRoleStorage.opt.project": "This project",
   "tools.format.opt.native": "Native",
   "memory.backend.opt.local": "Local summary",
   "mnemopi.scoping.opt.global": "Global",

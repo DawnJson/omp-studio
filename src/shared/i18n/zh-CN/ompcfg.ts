@@ -12,8 +12,6 @@ export const ompcfg = {
   "group.voice": "语音",
   "group.other": "其他",
 
-  "modelRoleStorage.label": "模型角色的保存位置",
-  "modelRoleStorage.desc": "在模型选择器里给角色（default、smol、slow 等）指定的模型，存在全局还是当前项目里",
   "modelRoles.label": "模型角色",
   "modelRoles.desc": '把角色名对应到具体模型，JSON 对象，例如 {"default": "provider/model-id"}',
   "defaultThinkingLevel.label": "默认思考强度",
@@ -246,8 +244,6 @@ export const ompcfg = {
   "followUpMode.opt.one-at-a-time": "一次一条",
   "interruptMode.opt.immediate": "立即",
   "interruptMode.opt.wait": "等待",
-  "modelRoleStorage.opt.global": "全局",
-  "modelRoleStorage.opt.project": "当前项目",
   "tools.format.opt.native": "原生",
   "memory.backend.opt.local": "本地总结",
   "mnemopi.scoping.opt.global": "全局",

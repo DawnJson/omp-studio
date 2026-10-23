@@ -1,14 +1,9 @@
-// 新任务的默认模型 = omp 的 modelRoles.default，按项目解析（omp 的设置就是 omp-studio 的设置，不另存）。和 omp 终端里的模型选择器一样：
+// 新任务的默认模型 = omp 的 modelRoles.default，按项目解析（omp 的设置就是 omp-studio 的设置，不另存）：
 //   读：在项目目录里跑 `omp config list --json`，项目 .omp/config.yml 的 modelRoles 会盖过全局（实测 18.12.1）。
-//   写：生效的 modelRoleStorage 是 project 时只改 `<项目>/.omp/config.yml` 的 modelRoles（omp://settings.md）；
-//       否则经 `omp config set modelRoles` 写全局。omp 没有写项目配置的命令（`omp config set` 永远写全局，实测），
-//       所以项目文件由这里用 yaml 的 Document 改，文件里的注释和其它键原样保留。
+//   写：一律经 `omp config set modelRoles` 写全局（仓库所有者 2026-10-22 定：给角色指定模型就是全局的事；
+//       只换一个任务的模型走"用于此任务"，不写配置）。项目文件里自带的 modelRoles 不碰，那个项目照旧用项目的值。
 // modelRoles 只能整体写（`omp config set modelRoles.default` 报 Unknown setting），所以总是读出角色表只换目标角色。
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { parseDocument } from "yaml";
 import type { ModelDefaults, ModelKey } from "../../shared/ipc.ts";
-import { writeFileAtomic } from "../tasks/atomic-write.ts";
 
 export interface ModelDefaultsDeps {
   /** `omp config list --json` 的结果；cwd 为 null 时在中性目录里跑（只有全局配置）。 */
@@ -37,7 +32,6 @@ export async function readModelDefaults(deps: ModelDefaultsDeps, cwd: string | n
   return {
     model: typeof role === "string" ? role : null,
     thinkingLevel: typeof thinking === "string" ? thinking : null,
-    storage: valueOf(listed, "modelRoleStorage") === "project" ? "project" : "global",
   };
 }
 
@@ -48,41 +42,10 @@ export async function readModelRoles(deps: ModelDefaultsDeps, cwd: string | null
   return Object.fromEntries(entries);
 }
 
-/** 给任意角色（default、smol、task…）指定模型；null = 去掉这个角色。写到哪层见文件头。 */
-export async function writeModelRole(
-  deps: ModelDefaultsDeps,
-  cwd: string | null,
-  role: string,
-  model: ModelKey | null,
-): Promise<void> {
-  const selector = model === null ? null : `${model.provider}/${model.modelId}`;
-  if (cwd !== null && (await readModelDefaults(deps, cwd)).storage === "project") {
-    await writeProjectRole(path.join(cwd, ".omp", "config.yml"), role, selector);
-    return;
-  }
+/** 给任意角色（default、smol、task…）指定模型；null = 去掉这个角色。写全局，见文件头。 */
+export async function writeModelRole(deps: ModelDefaultsDeps, role: string, model: ModelKey | null): Promise<void> {
   const roles = asRecord(valueOf(await deps.list(null), "modelRoles"));
-  if (selector === null) delete roles[role];
-  else roles[role] = selector;
+  if (model === null) delete roles[role];
+  else roles[role] = `${model.provider}/${model.modelId}`;
   await deps.setGlobalRoles(Object.keys(roles).length === 0 ? null : roles);
-}
-
-async function writeProjectRole(file: string, role: string, selector: string | null): Promise<void> {
-  let text = "";
-  try {
-    text = await readFile(file, "utf8");
-  } catch (error) {
-    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
-  }
-  const doc = parseDocument(text);
-  if (doc.errors.length > 0) throw new Error(`${file}: ${doc.errors[0]!.message}`);
-  if (selector === null) {
-    doc.deleteIn(["modelRoles", role]);
-    const js: unknown = doc.toJS();
-    const roles = typeof js === "object" && js !== null && "modelRoles" in js ? js.modelRoles : undefined;
-    // 删完空了就去掉整个 modelRoles，免得留一个空映射盖住全局的角色。
-    if (roles !== undefined && Object.keys(asRecord(roles)).length === 0) doc.delete("modelRoles");
-  } else {
-    doc.setIn(["modelRoles", role], selector);
-  }
-  await writeFileAtomic(file, doc.toString(), `omp-studio-${process.pid}`);
 }

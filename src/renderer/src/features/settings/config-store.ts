@@ -1,13 +1,7 @@
 // omp 设置的渲染进程镜像：快照（schema + 当前值）加每一项的保存状态。
 // 在模块里保存，切换分组、关掉再打开设置页都不重新读；打开设置页时静默刷新一次（终端里可能改过）。
 // 写入走 omp config（主进程）：成功后才更新这里的值；失败时值不变，错误显示在那一项上，用户的草稿留在输入框里。
-import type {
-  ModelKey,
-  OmpConfigItem,
-  OmpConfigSnapshot,
-  OmpConfigWriteResult,
-  ProjectId,
-} from "../../../../shared/ipc.ts";
+import type { ModelKey, OmpConfigItem, OmpConfigSnapshot, OmpConfigWriteResult } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 
@@ -151,16 +145,11 @@ export async function saveOmpConfigOrThrow(key: string, value: unknown): Promise
 }
 
 /**
- * 给某个角色（default、smol、task…）指定模型；default 就是新任务的默认模型（omp 的 modelRoles.default）。
- * 写到哪一层由主进程按 omp 的规则决定（omp-config/model-defaults.ts）；写完重读快照，设置页的 omp 分组跟着更新。
- * projectId 为 null 时只动全局配置。
+ * 给某个角色（default、smol、task…）指定模型（null = 去掉）；default 就是新任务的默认模型（omp 的 modelRoles.default）。
+ * 一律写全局（omp-config/model-defaults.ts）；写完重读快照，设置页的 omp 分组跟着更新。
  */
-export async function saveOmpModelRole(
-  projectId: ProjectId | null,
-  role: string,
-  model: ModelKey | null,
-): Promise<void> {
-  await window.studio.setModelRole(projectId, role, model);
+export async function saveOmpModelRole(role: string, model: ModelKey | null): Promise<void> {
+  await window.studio.setModelRole(role, model);
   await loadOmpConfig();
 }
 

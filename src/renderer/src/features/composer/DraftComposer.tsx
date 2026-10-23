@@ -1,6 +1,7 @@
 // 草稿输入框（空状态里的输入框）：还没有任务，发送第一条时才创建任务。
 // projectId 为 null（一个项目都没有）时，发送前先让主进程建好 AppInfo.chatsDir 并加入项目，任务在那里开始。
-// 模型胶囊显示和修改的都是 omp 的默认值（modelRoles.default / defaultThinkingLevel，设计原则 7）；新任务不传 --model/--thinking。
+// 模型胶囊显示 omp 的默认值（modelRoles.default / defaultThinkingLevel，设计原则 7）。在胶囊里改（"用于此任务"、Alt T）只管
+// 即将建的这个任务（draft-model-choice.ts）：建任务时带上，任务以 --model / --thinking 起进程，不写配置；没改的项不传。
 import { reportError } from "../../ui/errors.ts";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { ProjectId, TaskId } from "../../../../shared/ipc.ts";
@@ -8,7 +9,7 @@ import { draftKey } from "../../../../shared/ipc.ts";
 import { worktreeBlockerKey } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { selectTask } from "../../store/index.ts";
-import { saveOmpDefaultThinking, saveOmpModelRole } from "../settings/config-store.ts";
+import { chooseDraftModel, clearDraftModelChoice, useDraftModelChoice } from "./draft-model-choice.ts";
 import { refreshProjects } from "../sidebar/projects-store.ts";
 import { takePendingDraftText } from "../palette/index.ts";
 import { pushToast } from "../dialogs/index.ts";
@@ -42,8 +43,9 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
   const draft = useDraft(key);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const [sending, setSending] = useState(false);
-  // 新任务默认值（项目 .omp/config.yml 会盖过全局，所以按项目读；初值和占位规则见 use-new-task-default.ts）。
-  const { resolved, omp, models, reread } = useNewTaskDefault(projectId);
+  // 新任务默认值（项目 .omp/config.yml 会盖过全局，所以按项目读；初值和占位规则见 use-new-task-default.ts）+ 这个草稿自己选的。
+  const choice = useDraftModelChoice(key);
+  const { resolved, omp, models } = useNewTaskDefault(projectId, true, choice);
   const hasContent = draft.text.trim() !== "" || draft.images.length > 0 || draft.files.length > 0;
   const view = useDraftView(draft);
 
@@ -101,6 +103,8 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
         const created = await window.studio.createTask({
           projectId: target,
           ...(worktreeProject !== null ? { worktree: true } : {}),
+          ...(choice.model !== null ? { model: choice.model } : {}),
+          ...(choice.thinkingLevel !== null && thinkingLevel !== null ? { thinkingLevel } : {}),
         });
         // 草稿开着终端：交给新任务（worktree 任务的目录不同，那种情况直接关掉）。在 selectTask 之前，
         // 任务的面板挂载时终端已经在任务的键下。
@@ -126,6 +130,7 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
         throw error;
       }
       clearDraft(key);
+      clearDraftModelChoice(key);
       if (projectId !== null) setWorktreeOn(projectId, false);
     } catch (error) {
       if (worktreeProject !== null) {
@@ -219,8 +224,8 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
                     ? { emptyLabel: t("composer.defaultModel") }
                     : {})}
             loadModels={() => window.studio.listModels()}
-            setModel={(modelKey) => saveOmpModelRole(projectId, "default", modelKey).finally(reread)}
-            setThinking={(level) => saveOmpDefaultThinking(level).finally(reread)}
+            setModel={(modelKey) => Promise.resolve(chooseDraftModel(key, { model: modelKey }))}
+            setThinking={(level) => Promise.resolve(chooseDraftModel(key, { thinkingLevel: level }))}
           />
           <ApprovalChip projectId={projectId} forgetTaskId={null} />
           {projectTools}

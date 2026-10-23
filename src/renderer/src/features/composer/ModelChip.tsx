@@ -1,7 +1,7 @@
 // 模型 + 思考强度的胶囊（spec 4.14）：左边是模型名（点开模型选择对话框 ModelPicker；Alt M / 命令面板也能打开），右边是
 // 档位刻度（点它或 Alt T 轮换思考强度）。刻度的格数是这个模型的档位数，亮几格是第几档，颜色和运行中的动效按档位
 // 加强（composer.css 的 .chip-effort[data-level]）；快速模式在模型名后面加一个闪电。
-// 思考强度是乐观更新：点下去（或 Alt T）立刻显示新值，omp 的往返（任务里要等会话空闲、草稿里要跑 `omp config`）在后台完成；
+// 思考强度是乐观更新：点下去（或 Alt T）立刻显示新值，omp 的往返（任务里要等会话空闲）在后台完成；
 // 失败时退回原值并报错。
 import { reportError } from "../../ui/errors.ts";
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
@@ -17,7 +17,7 @@ import { speedBadges } from "./speed-limit-format.ts";
 /** 写入成功后，新值迟迟没回到 props（omp 改成了别的值、或者事件丢了）时，多久后放弃乐观值。 */
 const optimisticTimeoutMs = 2000;
 
-/** 模型胶囊的数据和动作：任务里是 setTask*，草稿（还没有任务）里改的是"新任务默认值"。 */
+/** 模型胶囊的数据和动作：任务里是 setTask*，草稿（还没有任务）里改的是即将建的这个任务的选择（draft-model-choice.ts）。 */
 export interface ModelChipProps extends Omit<ModelPickerProps, "onClose"> {
   /** 没有具体模型时显示什么（缺省"未连接模型"）。 */
   emptyLabel?: string;

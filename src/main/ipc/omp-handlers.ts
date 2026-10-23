@@ -225,10 +225,9 @@ export const ompHandlers: HandlerGroup<
     if (info.source === "global") recordApprovalMode(info.mode);
     return info;
   },
-  setModelRole: async (projectId, role, model) => {
+  setModelRole: async (role, model) => {
     await writeModelRole(
       modelDefaultsDeps,
-      await projectPath(projectId),
       parseString(role, "role", 64),
       model === null ? null : parseModelKey(model),
     );

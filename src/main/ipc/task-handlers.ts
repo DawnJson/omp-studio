@@ -33,6 +33,8 @@ function parseCreateTaskInput(value: unknown) {
   return {
     projectId: parseProjectId(record["projectId"]),
     ...(record["worktree"] !== undefined && { worktree: parseBoolean(record["worktree"], "input.worktree") }),
+    ...(record["model"] !== undefined && { model: parseModelKey(record["model"]) }),
+    ...(record["thinkingLevel"] !== undefined && { thinkingLevel: parseThinkingLevel(record["thinkingLevel"]) }),
   };
 }
 

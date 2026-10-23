@@ -1,5 +1,5 @@
-// 模型选择对话框：点行只是选中，"用于此任务" / "应用角色"才写进 omp 配置并关闭；角色范围给非 default 角色指定模型
-// （写进 omp 的 modelRoles，持久化），重新打开能看到徽标。
+// 模型选择对话框：点行只是选中；"用于此任务"只管这一个任务（草稿里是即将建的任务，以 --model / --thinking 起进程，不写配置）；
+// 点一个角色转到给它选模型，"应用"写进全局 omp 配置（modelRoles），重新打开能看到徽标。
 // 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR，里面一个 auth: none 的本地 provider；不连任何真实服务。
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -17,6 +17,20 @@ async function openPicker(page: Page): Promise<void> {
 
 async function roles(page: Page): Promise<Record<string, string>> {
   return page.evaluate(() => globalThis.studio.getModelRoles(null));
+}
+
+/** 中英文 × 浅深主题各截一张（关掉动效，免得切语言时截到淡入的半透明帧）。 */
+async function shoot(page: Page, name: string): Promise<void> {
+  for (const [locale, scheme] of [
+    ["zh-CN", "light"],
+    ["zh-CN", "dark"],
+    ["en", "light"],
+    ["en", "dark"],
+  ] as const) {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await setLocaleTheme(page, locale, scheme);
+    await page.screenshot({ path: path.join(screenshotsDir, `${name}-${locale}-${scheme}.png`) });
+  }
 }
 
 test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp 配置，default 不动；重新打开有 task 徽标", async () => {
@@ -74,7 +88,26 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     });
     await page.getByTestId("model-search").fill("");
     await page.getByTestId("model-scope-roles").click();
-    await expect(page.locator('[data-testid="model-role-option"][data-role="task"]')).toContainText("role-two");
+    const taskRole = page.locator('[data-testid="model-role-option"][data-role="task"]');
+    await expect(taskRole).toContainText("role-two");
+    // 点角色：转到给它选模型，表里选中的是它现在的模型，主按钮是"应用"。
+    await taskRole.click();
+    await expect(page.getByTestId("model-role-target")).toContainText("Task");
+    await expect(page.locator('[data-testid="model-option"][aria-selected="true"]')).toContainText("role-two");
+    await expect(page.getByTestId("model-use")).toHaveText(/^(应用|Apply)$/);
+    await shoot(page, "model-picker-role");
+
+    // 设置 → 模型：角色每个一格下拉，显示的是同一份 modelRoles；改 smol 写全局，task 不动。
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Control+,");
+    await page.getByTestId("settings-nav-models").click();
+    await expect(page.getByTestId("setting-role-task")).toContainText("role-two", { timeout: 30_000 });
+    await page.getByTestId("setting-role-smol").click();
+    await page.getByRole("option", { name: "role-one" }).click();
+    await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-one");
+    expect((await roles(page))["task"]).toBe("role-local/role-two");
+    await expect(page.getByTestId("setting-role-smol")).toContainText("role-one");
+    await shoot(page, "settings-models-roles");
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
@@ -149,16 +182,7 @@ test("模型选择对话框：一张表、表头和数字列对齐；Tab 在框�
     await page.getByTestId("model-search").fill("");
     await expect(page.getByTestId("model-option").first()).toBeVisible();
     await page.getByTestId("model-search").focus();
-    for (const [locale, scheme] of [
-      ["zh-CN", "light"],
-      ["zh-CN", "dark"],
-      ["en", "light"],
-      ["en", "dark"],
-    ] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await setLocaleTheme(page, locale, scheme);
-      await page.screenshot({ path: path.join(screenshotsDir, `main-model-picker-${locale}-${scheme}.png`) });
-    }
+    await shoot(page, "main-model-picker");
 
     // 点另一个模型只是选中：参数行和思考强度跟着它（它支持思考，档位可选），胶囊和 omp 配置都不变。
     await page.getByTestId("model-search").fill("table-two");
@@ -175,17 +199,29 @@ test("模型选择对话框：一张表、表头和数字列对齐；Tab 在框�
     await expect(chip).not.toBeFocused();
     expect(await config()).not.toContain("table-two");
 
-    // 选中 + 档位 + "用于此任务"：关闭对话框，切到它并设好思考强度。
+    // 选中 + 档位 + "用于此任务"：关闭对话框，胶囊换成它和这一档；只管即将建的这个任务，omp 配置不动。
     await chip.click();
     await page.getByTestId("model-search").fill("table-two");
     await page.getByTestId("model-option").first().click();
     await page.getByTestId("thinking-segments-high").click();
     await page.getByTestId("model-use").click();
     await expect(picker).toHaveCount(0);
-    await expect.poll(config, { timeout: 30_000 }).toContain("default: table-local/table-two");
-    await expect.poll(config, { timeout: 30_000 }).toContain("defaultThinkingLevel: high");
+    await expect(chip).toHaveText("table-two");
+    await expect(page.getByTestId("chip-thinking")).toHaveAttribute("data-level", "high");
+    expect(await config()).not.toContain("table-two");
+    // 发第一条：任务以 --model / --thinking 起进程，胶囊显示 omp 报的会话模型；配置里的默认值始终没变。
+    await input.fill("hi");
+    await input.press("Enter");
+    await expect(page.getByTestId("tsp-view")).toBeVisible({ timeout: 30_000 });
     await expect(chip).toHaveText("table-two", { timeout: 30_000 });
     await expect(page.getByTestId("chip-thinking")).toHaveAttribute("data-level", "high");
+    expect(await config()).toContain("default: table-local/table-one");
+    expect(await config()).not.toContain("table-two");
+    expect(await config()).not.toContain("defaultThinkingLevel");
+    // 新草稿：刚才的选择只属于那个任务，胶囊回到 omp 的默认值。
+    await page.keyboard.press("Control+n");
+    await expect(page.getByTestId("draft-composer")).toBeVisible();
+    await expect(chip).toHaveText("table-one", { timeout: 30_000 });
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

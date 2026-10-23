@@ -201,13 +201,14 @@ export class TaskPool {
     if (!project) throw new Error(`unknown project ${input.projectId}`);
     // worktree 先建好再落记录：建失败（不是仓库、setup 脚本失败）时没有半成品任务。
     const worktree = input.worktree === true ? await this.#worktrees().create(project) : undefined;
-    // 模型和思考强度不传：omp 按自己的配置（modelRoles.default、defaultThinkingLevel）选（设计原则 7）。
+    // 草稿里没选（"用于此任务"）的项不传：omp 按自己的配置（modelRoles.default、defaultThinkingLevel）选（设计原则 7）；
+    // 选了的进任务记录，起进程时成为 `--model` / `--thinking`，只对这个会话生效。
     const record = await this.#deps.registry.addTask({
       projectId: project.id,
       sessionFile: null,
       title: "",
-      model: null,
-      thinkingLevel: null,
+      model: input.model ?? null,
+      thinkingLevel: input.thinkingLevel ?? null,
       ...(worktree && { worktree }),
     });
     const runner = this.#adopt(record);

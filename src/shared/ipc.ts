@@ -357,6 +357,9 @@ export interface CreateTaskInput {
   projectId: ProjectId;
   /** 为这个任务建独立的 git worktree（分支 studio/<slug>），omp 在 worktree 里运行。项目不是 git 仓库时 reject。 */
   worktree?: boolean;
+  /** 草稿里"用于此任务"选的模型 / 思考强度：任务以 `--model` / `--thinking` 起进程，只对这个会话生效（omp 不写配置）。不传 = 跟 omp 的默认值。 */
+  model?: ModelKey;
+  thinkingLevel?: ThinkingLevel;
 }
 
 export interface PromptImage {
@@ -766,8 +769,6 @@ export interface ModelDefaults {
   /** modelRoles.default 原文（可能带 `:high` 这类后缀）；null = 没设置，omp 自己选。 */
   model: string | null;
   thinkingLevel: string | null;
-  /** 生效的 modelRoleStorage：project 时选模型写进项目的 .omp/config.yml，和 omp 终端的模型选择器一样。 */
-  storage: "global" | "project";
 }
 
 /** omp 的压缩触发设置（`omp config list` 里 compaction.* 的生效值），界面按它算每个模型的"压缩于"。 */
@@ -1165,8 +1166,8 @@ export interface StudioInvokeApi {
   getModelRoles(projectId: ProjectId | null): Promise<Record<string, string>>;
   /** 项目目录里生效的审批模式和来源；projectId 为 null 时只看全局配置。 */
   getApprovalMode(projectId: ProjectId | null): Promise<ApprovalModeInfo>;
-  /** 给某个角色（default、smol、task…）指定模型（null = 去掉）；default 即新任务的默认模型。写到哪层和 omp 终端一致。 */
-  setModelRole(projectId: ProjectId | null, role: string, model: ModelKey | null): Promise<void>;
+  /** 给某个角色（default、smol、task…）指定模型（null = 去掉）；default 即新任务的默认模型。一律写全局（`omp config set modelRoles`）。 */
+  setModelRole(role: string, model: ModelKey | null): Promise<void>;
   /** 模型选择对话框右栏的速度、智能分和压缩设置；只读 omp 的 agent.db / models.db / `omp config list`。 */
   getModelInsights(projectId: ProjectId | null, keys: ModelKey[]): Promise<ModelInsights>;
   /** omp-studio 自身的更新状态（设置 → 关于）。 */

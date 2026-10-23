@@ -49,12 +49,12 @@
 - `omp config set modelRoles` 不管 `modelRoleStorage` 设成什么（全局或项目里设 `project` 都试过），**永远写全局配置**；在项目目录里运行时返回 `overriddenBy: "project"`。`modelRoleStorage` 只影响 omp 终端里模型选择器的保存位置（文档：`project` 时只更新项目 `.omp/config.yml` 的 `modelRoles`；没在 TUI 里实测）。
 - RPC 的 `set_model` 只换当前会话的模型，不写任何配置文件（`modelRoleStorage` 为 global 和 project 都试过）。
 
-omp-studio 的做法（`src/main/omp-config/model-defaults.ts`，和 omp 终端的模型选择器一致）：
+omp-studio 的做法（`src/main/omp-config/model-defaults.ts`）：
 
 - 读：草稿输入框在**项目目录里**跑 `omp config list --json`（`getModelDefaults(projectId)`），显示这个项目实际会用的默认模型和思考强度；设置页（没有项目）只看全局。
-- 写模型角色（`setModelRole(projectId, role, model)`，2026-10-20 起由 `setDefaultModel` 推广到任意角色；草稿胶囊和设置页写的是 `default`，模型对话框的角色标签写其它角色）：项目里生效的 `modelRoleStorage` 是 `project` 时，只改 `<项目>/.omp/config.yml` 的 `modelRoles.<role>`（omp 没有写项目配置的命令，这里用 `yaml` 库的 Document 改，注释和其它键原样保留；没有就新建；去掉该角色后角色表空了就删掉整个 `modelRoles`）；否则经 `omp config set modelRoles` 写全局（先读出整张角色表再改一项）。项目自带 `modelRoles.<role>` 但 storage 是 global 时，写的是全局，这个项目照旧用项目的模型，和终端一样。读整张角色表：`getModelRoles(projectId)`。
-- 写思考强度：`omp config set defaultThinkingLevel`，永远是全局（omp 也只有角色走 `modelRoleStorage`）。
-- 实测（2026-10-18，omp 18.12.1，构建产物）：项目文件 `modelRoleStorage: project` + `default: deepseek-v4-pro`，全局 `deepseek-v4-flash`；草稿胶囊显示 DeepSeek-V4-Pro；在胶囊里选 V4 Flash 后只有项目文件改了（注释还在），全局不变，新任务用 V4 Flash 回复。
+- 写模型角色（`setModelRole(role, model)`；入口是设置 → 模型的默认模型和各角色下拉、模型选择对话框里点角色后的“应用”）：**一律**经 `omp config set modelRoles` 写全局（先读出全局角色表再改一项，去掉最后一个角色时 `omp config reset modelRoles`）。仓库所有者 2026-10-22 定：给角色指定模型就是全局的事；项目 `.omp/config.yml` 自带 `modelRoles.<role>` 的项目照旧用项目的值（omp 的覆盖规则），omp-studio 不写项目文件。2026-10-18 到 10-22 曾在生效的 `modelRoleStorage` 是 `project` 时改项目文件，已去掉；`modelRoleStorage` 只影响 omp 终端的模型选择器，设置页里它在“高级”。
+- 草稿胶囊里改模型 / 思考强度（“用于此任务”、`Alt T`）**不写配置**：选择按草稿键记在渲染进程内存里（`composer/draft-model-choice.ts`），发第一条时随 `createTask({ model, thinkingLevel })` 进任务记录，任务以 `--model` / `--thinking` 起 omp，只对这个会话生效；没改的项不传，跟 omp 的默认值。实测（2026-10-22，omp 18.12.6，`test/e2e/model-picker.e2e.ts`）：配置里 `default: table-local/table-one`，草稿里选 table-two + high 发第一条，任务胶囊是 table-two·high，`config.yml` 没变，新草稿回到 table-one。
+- 写思考强度：`omp config set defaultThinkingLevel`，永远是全局（omp 也只有角色走 `modelRoleStorage`）；入口只有设置 → 模型。
 
 ## 没有实测的
 
