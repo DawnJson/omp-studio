@@ -215,7 +215,8 @@
 }
 
 /* 模型页的角色表（ModelsSection）：一行两个角色格，按阅读顺序从左到右填（第一格是默认思考强度）；分隔线和格子一样。
-   格内：角色名 | 主模型 | "添加备用…"，已加的备用模型在第二行、和主模型左对齐，多了折行。内容区窄了一行一格。 */
+   格内：角色名 88 | 主模型 | "添加备用…"，已加的备用模型在第二行、和主模型左对齐，多了折行。一格至少要约 370（两个下拉各不低于 130），
+   所以内容区窄过 800 就一行一格，不把下拉压成 "Let o…" / "Not s…"。 */
 .st-roles {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -266,7 +267,7 @@
 .ui-notice + .st-roles {
   margin-top: var(--space-2);
 }
-@container (max-width: 640px) {
+@container (max-width: 800px) {
   .st-roles {
     grid-template-columns: minmax(0, 1fr);
   }

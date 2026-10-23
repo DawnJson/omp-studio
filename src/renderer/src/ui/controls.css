@@ -328,9 +328,10 @@
   color: var(--st-error);
 }
 
-/* 对话框 / 表单里的竖排字段：标签在上 */
+/* 对话框 / 表单里的竖排字段：标签在上。列 minmax(0,1fr)：宽的输入框 / 长标签不把字段撑出并排的列。 */
 .ui-form-field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-1-5);
 }
 .ui-form-field > label {
@@ -575,7 +576,7 @@
 /* 浮动的菜单 / 下拉列表（Menu.tsx、Select.tsx）：fixed 定位，挂在 body 上 */
 .ui-menu[data-floating] {
   position: fixed;
-  z-index: var(--z-popover);
+  z-index: var(--z-menu);
   animation: pop-in var(--dur-base) var(--ease-out);
 }
 /* 下拉的选项列表（Select.tsx）：自己滚，滚动条用 OverlayScrollbar */

@@ -279,6 +279,15 @@ export class TspSession {
     return { seq: this.#seq, document: snapshotDocument(this.#doc) };
   }
 
+  /**
+   * 先把攒着的批次推出去，再返回最后一条的序号。渲染进程结束一次"驱动"（聚焦子代理、读上下文报告）前按它等自己的镜像追上：
+   * IPC 的回复和事件不保证按发出的顺序到（负载高时实测回复先到约 30–50ms），不等就会把 omp 已经关掉的弹窗再画一帧。
+   */
+  flushedSeq(): number {
+    this.#flush();
+    return this.#seq;
+  }
+
   /** 用户操作 → TSP 事件（`send`、`action`、`activate`、`edit`、`resize`…）。 */
   sendEvent(event: TspEvent): void {
     this.#write(encodeTspEvent(event));

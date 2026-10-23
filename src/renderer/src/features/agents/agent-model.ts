@@ -36,6 +36,11 @@ export function canSteer(status: AgentStatus): boolean {
   return status === "pending" || status === "running" || status === "idle" || status === "parked";
 }
 
+/** 能进入对话（omp 的 Hub 里 Enter / 点击 = 聚焦；parked / 被结束的先复活）。pending 的 omp 的 Hub 还没有这一行（实测），已完成 / 失败的也只看详情。 */
+export function canFocus(status: AgentStatus): boolean {
+  return status === "running" || status === "idle" || status === "parked" || status === "aborted";
+}
+
 /** 能结束：还在跑。 */
 export const canKill = isAgentActive;
 

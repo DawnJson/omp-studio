@@ -1475,6 +1475,7 @@ html[data-motion="reduced"] .ctx-usage-chev {
 }
 .mp-hints {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-1);
 }
 .mp-speed,

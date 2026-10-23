@@ -69,6 +69,7 @@ export const taskHandlers: HandlerGroup<
   | "revealTaskFile"
   | "openTaskFolder"
   | "getTspSnapshot"
+  | "getTspSeq"
   | "getTspSessionExtras"
   | "readTspContext"
   | "sendTspEvent"
@@ -188,6 +189,7 @@ export const taskHandlers: HandlerGroup<
     const id = parseTaskId(taskId);
     return id === TERMINAL_LOGIN_ID ? terminalLogin().snapshot() : (await getTaskPool()).getTspSnapshot(id);
   },
+  getTspSeq: async (taskId) => (await getTaskPool()).getTspSeq(parseTaskId(taskId)),
   getTspSessionExtras: async (taskId) => (await getTaskPool()).getTspSessionExtras(parseTaskId(taskId)),
   readTspContext: async (taskId) => (await getTaskPool()).readTspContext(parseTaskId(taskId)),
 

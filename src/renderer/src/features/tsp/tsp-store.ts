@@ -30,6 +30,8 @@ const SEP = "\u0000";
 const mirrors = new Map<TaskId, Mirror>();
 /** 正在拉快照的任务：期间到达的批次先攒在这里。 */
 const fetching = new Map<TaskId, TspBatch[]>();
+/** 等镜像追上某个序号的（endTspDrive）：镜像每次前进、被丢掉或拉快照失败时检查。 */
+const seqWaiters = new Map<TaskId, { seq: number; resolve: () => void }[]>();
 const listeners = new Map<string, Set<() => void>>();
 let started = false;
 
@@ -148,6 +150,7 @@ function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDoc
   for (const id of touchedBlobs) notify(blobKey(taskId, id));
   notify(panelKey(taskId));
   if (structural) notify(surfacesKey(taskId));
+  releaseSeqWaiters(taskId);
 }
 
 function replay(taskId: TaskId, mirror: Mirror, batches: readonly TspBatch[]): boolean {
@@ -172,10 +175,13 @@ function fetchSnapshot(taskId: TaskId): void {
       for (const key of cachedViews.keys()) if (key.startsWith(`${taskId}${SEP}`)) cachedViews.delete(key);
       notifyTask(taskId);
       if (!replay(taskId, mirror, pending)) fetchSnapshot(taskId);
+      releaseSeqWaiters(taskId);
     },
     (error: unknown) => {
       fetching.delete(taskId);
       console.error("getTspSnapshot 失败", error);
+      // 追不上了：不让等它的驱动一直挂着。
+      releaseSeqWaiters(taskId, true);
     },
   );
 }
@@ -211,6 +217,7 @@ export function dropTspDocument(taskId: TaskId): void {
   fetching.delete(taskId);
   cachedSurfaces.delete(taskId);
   notifyTask(taskId);
+  releaseSeqWaiters(taskId);
 }
 
 // ───────── 读取 ─────────
@@ -484,9 +491,9 @@ export function useHasTrailingErrorCard(taskId: TaskId, sf: string): boolean {
 
 /**
  * 主进程正在后台驱动 omp：这期间不画 layer（omp 被驱动时弹出的 Hub / 报告），也不当成"面板开着"。
- * `hub`：子代理面板的插话 / 结束 / 恢复（过程区压暗，面板显示"正在发给 <名字>"）；`context`：读 omp 的 /context 报告。
+ * `hub`：子代理面板的聚焦 / 插话 / 结束 / 恢复（过程区压暗，面板显示"正在发给 <名字>"）；`context`：读 omp 的 /context 报告。
  */
-export type TspDrive = { kind: "hub"; name: string; op: "steer" | "kill" | "revive" } | { kind: "context" };
+export type TspDrive = { kind: "hub"; name: string; op: "focus" | "steer" | "kill" | "revive" } | { kind: "context" };
 
 const drives = new Map<TaskId, TspDrive>();
 const driveKey = (taskId: TaskId): string => `d${SEP}${taskId}`;
@@ -498,12 +505,46 @@ export function beginTspDrive(taskId: TaskId, drive: TspDrive): void {
   notify(panelKey(taskId));
 }
 
-/** 结束这一次驱动；期间被另一次驱动接替（主进程会排在这次之后做）就留给那一次结束。 */
-export function endTspDrive(taskId: TaskId, drive: TspDrive): void {
+/**
+ * 结束这一次驱动；期间被另一次驱动接替（主进程会排在这次之后做）就留给那一次结束。
+ * 先等镜像追上主进程已发出的消息（`getTspSeq`）：IPC 回复可能比之前发出的批次先到（负载高时实测先到 30–50ms），
+ * 不等的话 omp 已经关掉的弹窗（聚焦子代理时的 Hub、上下文报告）会在放开遮挡后再画一帧。
+ */
+export async function endTspDrive(taskId: TaskId, drive: TspDrive): Promise<void> {
+  try {
+    await catchUp(taskId, await window.studio.getTspSeq(taskId));
+  } catch (error) {
+    console.error("getTspSeq 失败", error);
+  }
   if (drives.get(taskId) !== drive) return;
   drives.delete(taskId);
   notify(driveKey(taskId));
   notify(panelKey(taskId));
+}
+
+/** 镜像的序号到 `seq` 为止（没有镜像时不等）。 */
+function catchUp(taskId: TaskId, seq: number): Promise<void> {
+  const mirror = mirrors.get(taskId);
+  if (mirror === undefined || mirror.seq >= seq) return Promise.resolve();
+  return new Promise((resolve) => {
+    const list = seqWaiters.get(taskId) ?? [];
+    list.push({ seq, resolve });
+    seqWaiters.set(taskId, list);
+  });
+}
+
+/** 镜像前进了（批次、快照）或被丢掉：放行已经追上的等待；`all`：拉快照失败，全部放行。 */
+function releaseSeqWaiters(taskId: TaskId, all = false): void {
+  const list = seqWaiters.get(taskId);
+  if (!list) return;
+  const seq = mirrors.get(taskId)?.seq;
+  const waiting = list.filter((waiter) => {
+    if (!all && seq !== undefined && seq < waiter.seq) return true;
+    waiter.resolve();
+    return false;
+  });
+  if (waiting.length > 0) seqWaiters.set(taskId, waiting);
+  else seqWaiters.delete(taskId);
 }
 
 export function isTspDriving(taskId: TaskId): boolean {

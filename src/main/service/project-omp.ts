@@ -2,6 +2,7 @@
 // 服务进程的 cwd 是 userData/service，不行；斜杠菜单的命令列表（`get_available_commands`，含项目的 skill、自定义命令、扩展命令）也按任务目录取。
 // 每个项目目录最多一个 `omp --mode rpc-ui --no-session`，空闲后关，
 // 放进应用 Job Object，退出时经 command-handlers.ts 注册的 shutdown hook 全部关掉。
+import path from "node:path";
 import type { AvailableSlashCommand } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { IdleOmp, type IdleOmpOptions } from "./idle-omp.ts";
 import type { OmpConnection } from "../omp/omp-connection.ts";
@@ -52,6 +53,18 @@ export class ProjectOmpPool {
       entry = created;
     }
     return entry.use(job);
+  }
+
+  /** 关掉 `root` 及其子目录里的项目进程：删目录（丢弃 worktree）之前调用，Windows 上进程的 cwd 占着目录删不掉。 */
+  async closeUnder(root: string): Promise<void> {
+    const rootKey = this.#key(root);
+    const closing: Promise<void>[] = [];
+    for (const [key, entry] of this.#entries) {
+      if (key !== rootKey && !key.startsWith(rootKey + path.sep)) continue;
+      this.#entries.delete(key);
+      closing.push(entry.close());
+    }
+    await Promise.all(closing);
   }
 
   /** 退出：关掉全部，之后不再接受操作。 */

@@ -25,7 +25,7 @@ function ToastCard({ toast, open, onGone }: { toast: Toast; open: boolean; onGon
       role={toast.level === "error" ? "alert" : "status"}
       {...presence.exitProps}
     >
-      <span className="toast-text" title={toast.title}>
+      <span className="toast-text" title={toast.title ?? toast.message}>
         {toast.message}
         {toast.count > 1 && <span className="toast-count"> ×{toast.count}</span>}
       </span>

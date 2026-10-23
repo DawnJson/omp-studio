@@ -99,11 +99,27 @@
   padding: 0;
   list-style: none;
 }
+.agents-item {
+  display: flex;
+  align-items: center;
+  padding-right: var(--space-1-5);
+  border-radius: var(--radius-md);
+}
+.agents-item:hover {
+  background: var(--bg-hover);
+}
+.agents-item[data-current="true"] {
+  background: var(--accent-soft);
+}
+.agents-row-details {
+  flex: none;
+}
 .agents-row {
   display: flex;
+  flex: 1;
   align-items: flex-start;
   gap: var(--space-2-5);
-  width: 100%;
+  min-width: 0;
   padding: var(--space-2) var(--space-2-5);
   font: inherit;
   font-size: var(--fs-sm);
@@ -118,12 +134,6 @@
 .agents-row .agents-dot {
   /* 和第一行文字的中线对齐 */
   margin-top: calc((var(--lh-sm) - 8px) / 2);
-}
-.agents-row:hover {
-  background: var(--bg-hover);
-}
-.agents-row[aria-current="true"] {
-  background: var(--accent-soft);
 }
 .agents-row:focus-visible {
   outline: 2px solid var(--focus-ring);
@@ -273,16 +283,15 @@
   line-height: var(--lh-2xs);
   color: var(--text-3);
 }
+/* 值（“1% · 14K / 1M”这类长值）折行显示完整，不用省略号：格子宽 72 起，折在 “·” 和空格处 */
 .agents-stat dd {
   margin: 0;
-  overflow: hidden;
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
   font-weight: var(--fw-medium);
   color: var(--text);
   font-variant-numeric: tabular-nums;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .agents-block {

@@ -179,7 +179,9 @@ export function SshForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(messa
           </FormField>
         )}
         <Checkbox checked={compat} onChange={setCompat} testId="ssh-compat">
-          {t("integrations.ssh.compat")} <span className="ig-note-inline">{t("integrations.ssh.compat.tip")}</span>
+          <span>
+            {t("integrations.ssh.compat")} <span className="ig-note-inline">{t("integrations.ssh.compat.tip")}</span>
+          </span>
         </Checkbox>
         {error !== null && (
           <Notice tone="error" testId="ssh-form-error">

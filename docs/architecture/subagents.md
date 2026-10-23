@@ -18,13 +18,13 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 |---|---|---|
 | 列表（名字、类型、状态、模型、当前工具和意图、统计、`background` 徽章） | TSP 文档里的 `agent` 节点（规范 §7.6，公开契约）：task 工具卡片下的 `<卡片id>.<名字>`（omp 重排转录时卡片 id 会变，录制里先后是 `r.` / `t.` / `1a.`，2026-10-22 逐帧核对过父节点都是 `omp.tool.task`），按名字去重取更活的（运行 > 等待 > 空闲 / 挂起 > 结束）；状态取值 `pending / running / done / failed / aborted / idle / parked`。**被结束的子代理节点变 `aborted`，不会消失** | `shared/tsp/agent-hub.ts` 的 `listAgents`；渲染进程 `useTspDerived`，不需要 IPC |
 | 最终输出、对话记录 | 会话文件旁的同名目录 `<会话文件去掉 .jsonl>/<名字>.md` 和 `<名字>.jsonl`（omp 18.12.5 实测路径；格式同主会话，每行 `{type:"message", message}`）。只读，不写 `~/.omp` | `main/tsp/subagent-file.ts`，IPC `getTspSubagentRecord` |
-| 插话、结束、恢复 | 只有 Agent Hub（`picker`）的动作：没有别的通道 | `main/tasks/tsp-hub-driver.ts`，IPC `steerTspSubagent` / `killTspSubagent` / `reviveTspSubagent` |
+| 聚焦、插话、结束、恢复 | 只有 Agent Hub（`picker`）的动作：没有别的通道 | `main/tasks/tsp-hub-driver.ts`，IPC `focusTspSubagent` / `steerTspSubagent` / `killTspSubagent` / `reviveTspSubagent` |
 
 子代理名来自渲染进程，不可信：`isAgentName`（`^[A-Za-z0-9_][\w.-]{0,127}$`，不含 `..`）在 IPC 校验，主进程再确认它是文档里确有的子代理；记录路径由主进程用会话文件拼，并确认落在会话目录内（拒绝 `../x`、`a/b`）。读不到文件给 `unavailable: no_session | no_file | error` + 原因，界面显示原因。记录最多读末尾 8 MB、保留最近 300 条消息（`subagentLimits`，`trimSubagentMessages`），`.md` 最多 512 KB。
 
 ### 界面
 
-面板（`AgentsPanel`，和文件面板同一栏、同时只开一个）：列表（`AgentRow`：状态点、名字、`后台` 标签、当前工具或任务第一句）→ 点一行进详情（`AgentDetail`：名字 + 模型 + 结束 / 恢复，统计格，任务说明原文 Markdown（`HubAgent.assignment`），最终输出、完整记录——工具卡片按顺序排，用的是 `conversation/ProcessDetails` / `ToolViews` 的精简版，不含 task / wait 卡）→ 插话框（`SteerBox`，钉在面板底边）。输入框上方的药丸 `[👥 N | ⚡ N]` 左半段（运行中的子代理数，`countActiveAgents`）点击 = 打开 / 收起这个面板；顶栏文件按钮右边的子代理按钮（`AgentsToggle`，`topbar-agents`）也一样，而且一直在，子代理都结束、药丸左半段消失后仍能打开（2026-10-22）。驱动 Hub 期间面板顶部显示"正在发给 <名字>" / "正在结束…" / "正在恢复…"，omp 的 Hub 一帧也不画。命令面板 `agents.cmd`、斜杠命令（`agents-slash.ts`）同样打开它。
+面板（`AgentsPanel`，和文件面板同一栏、同时只开一个）：列表（`AgentRow`：状态点、名字、`后台` 标签、当前工具或任务第一句）→ **点一行 = 进入这个子代理的对话（聚焦，见下面「聚焦」一节）**，行右端的"详情"按钮（`agents-row-details`）= 进详情（`AgentDetail`：名字 + 模型 + 进入对话 / 结束 / 恢复，统计格，任务说明原文 Markdown（`HubAgent.assignment`），最终输出、完整记录——工具卡片按顺序排，用的是 `conversation/ProcessDetails` / `ToolViews` 的精简版，不含 task / wait 卡）→ 插话框（`SteerBox`，钉在面板底边）。输入框上方的药丸 `[👥 N | ⚡ N]` 左半段（运行中的子代理数，`countActiveAgents`）点击 = 打开 / 收起这个面板；顶栏文件按钮右边的子代理按钮（`AgentsToggle`，`topbar-agents`）也一样，而且一直在，子代理都结束、药丸左半段消失后仍能打开（2026-10-22）。驱动 Hub 期间面板顶部显示"正在切到 / 发给 / 结束 / 恢复 <名字>"，omp 的 Hub 一帧也不画。命令面板 `agents.cmd`、斜杠命令（`agents-slash.ts`）同样打开它。
 
 ### 实测：kill / revive（`fixtures/tsp/hub-kill.jsonl`，omp 18.12.5，`deepseek/deepseek-v4-flash`，S1Agents 录制，真实 omp、临时 agent 目录）
 
@@ -35,7 +35,7 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 - **`revive`**：`{ev:"action", …, act:"revive"}`。运行中的项上 `revive` 带 `disabled: "Only parked or killed agents can be revived"`（studio 把这句原文作为错误给用户）。对被结束的项：`dot` 变 **`success`**（复活后空闲，等消息），`revive` 又被禁用。**复活后 `agent` 节点的 `status` 在录制的 1.5 秒内仍是 `aborted`**，所以面板的"恢复"按钮按文档状态可能晚一点才变；操作的完成判定用 Hub 项的 `dot`，不用 `agent` 节点。
 - **关 Hub**：Esc 键（按键，不进 `.jsonl`）；此时 Hub 的 `layer` 被删。
 - **竞争**：一次中间录制里主代理看到取消后自己用 IRC 工具把 Beta 复活了，随后 studio 发的 `revive` 对已在运行的项是无效操作。最后一次录制在提示里禁止主代理复活才得到干净的序列（`hub-kill.jsonl` 是这一次）。**真实使用中同样可能发生**：恢复前 studio 看 Hub 里 `revive` 是否可用，禁用就以 omp 的原文报错。
-- **没测到**：`select` 之后 `kill` 一个已 `done` 的子代理会怎样；`aborted` / `failed` 的子代理被 `activate` 聚焦会怎样（Hub 的 Enter 对它们是"打开记录"，所以面板不提供对这几种状态的插话）；嵌套子代理（名字带点号）在 Hub 里的 item id。
+- **没测到**：`select` 之后 `kill` 一个已 `done` 的子代理会怎样；`failed` 的子代理被 `activate` 会怎样；嵌套子代理（名字带点号）在 Hub 里的 item id。（`aborted` 被 `activate` 聚焦见「聚焦」一节：能进，等于复活。）
 
 ### 实测：历史子代理和 `--resume`（omp 18.12.6，`deepseek/deepseek-v4-flash`，真实 omp、临时 agent 目录，2026-10-22 一次性探针，未存为 fixture）
 
@@ -67,6 +67,18 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 
 `hub-steer` 的录制里用户用 Esc 键退出聚焦，键不进录制。另用真实 omp 跑了 `activate Beta` → 聚焦行出现 → `send` → omp 回显 → 对聚焦行里的退出按钮（`omp.composer.exit`）发 `{ev:"action", sf, id:"j.focus/exit", act:"focus:Main"}`：聚焦行消失，toast "Returned to main session"，两个子代理仍是 `running`，输入框恢复成 `sendable`（`findMessageTarget` 为 ready）。所以退出聚焦用这个 action（不是中断子代理的键）；它不灵时再退到 Esc。`send` 后回显：`omp.user` / `omp.queue` 节点个数增加（`hub-steer` 帧 168 / 170），等不到不算失败（最多等 3 秒）。
 
+### 聚焦：点行进入子代理的对话（2026-10-23，omp 18.12.6）
+
+omp 的行为（`omp://agent-hub.md`）：Hub 里 `Enter` / 点击一个本地子代理 = 主界面聚焦它的会话并关掉 Hub，聚焦 parked / killed 的会先复活；之后过程区、状态行、编辑器都属于它，发消息 = steer（运行中）或 prompt（空闲），Esc（编辑器空）或双击 ← 回主会话。studio 的面板照这个做：**点一行 = 聚焦**。
+
+- **步骤**（`HubDriver.focus`）：打开 Hub → `{ev:"activate", sf, id:<picker>, item:<名字>}`（逐字同 `hub-steer.jsonl`）→ 等聚焦行 `findFocus().name == 名字`（8 秒）→ **不恢复**，Hub 已被 omp 关掉，留在聚焦模式；`TspRunner.#hubDriving` 在聚焦成功后立刻复位（输入框的话直接 `send` 到子代理）。失败照常走恢复（Hub 开着发 Esc、聚焦着发 `focus:Main`），以 omp 的原因报错。前置检查同插话（名字在文档里、没有提问 / 审批在等）。IPC `focusTspSubagent(taskId, name)`：`parseTaskId` + `isAgentName`，任务必须是运行着 omp 的 TSP 任务（`unknown subagent` 兜底）。
+- **渲染进程**：`agents-actions.ts` 的 `focusAgent`：`beginTspDrive({op:"focus"})` 包住 IPC → 成功后 `closeAgentsPanel(false)`（收起面板、让过程区露出来）、焦点回 `[data-composer-input]`；输入框上方的聚焦提示（`FocusBanner`，上一轮做的）出现，"回到主会话"发 `focus:Main`。不弹 toast。
+- **过程区和发送不被拦**：`TspView` 只在 `useTspDrive` 为真时压暗过程区、不画 layer，聚焦成功、`endTspDrive` 之后恢复照常画——画的就是 omp 在 main 里画的子代理会话（真实 omp 实测：`Viewing agent Beta — … returns to main` 一行 + 子代理的第一条用户消息 + 它的工具卡片）。输入框发送走 `sendPrompt`，`TspRunner.#awaitComposer` 只在 `#hubDriving` / `#btwDriving` 时等待，聚焦后没有 Hub、驱动已结束，所以不拦；e2e 用回放验证发出的 `send` 事件和录制里聚焦后用户发的那一条相同。
+- **驱动结束前等镜像追上**：主进程按自己的文档判定"聚焦成功"（同一帧里 omp 加聚焦行、删 Hub），而批次是每隔 `BATCH_INTERVAL_MS` 合并、以事件发给渲染进程的；IPC 回复和事件不保证按发出顺序到，负载高时回复先到 30–50ms（实测：回复先到、删除 Hub 的批次后到），渲染进程 `endTspDrive` 后就把 omp 已经关掉的 Hub 画出一帧（全量 e2e 里"Hub 一帧没画"偶发失败，`--repeat-each 8` 时 8 次失败 2–3 次）。只在主进程回复前先推批次不够（推了也照样晚到）。所以 `endTspDrive` 先调 `getTspSeq`（主进程先推出攒着的批次，返回最后一条的序号），等渲染进程镜像的 `seq` 追上再放开遮挡；拉快照失败时直接放开（2026-10-23）。上下文报告（`ContextBreakdown`）的驱动同理。
+- **聚焦期间面板的列表是空的**：回放 `hub-steer.jsonl` 逐帧看，聚焦后（第 83 帧起）文档里没有任何 `agent` 节点，`listAgents` 为空（回到主会话后恢复）。所以聚焦中打开面板写 `agents.focusedEmpty`；聚焦中再聚焦别的子代理 / 插话 / 结束 / 恢复都按「不是文档里的子代理」拒绝（要先回主会话）。
+- **哪些状态可聚焦（真实 omp 18.12.6，`deepseek/deepseek-v4-flash`，临时 agent 目录，一次性探针，未存为 fixture）**：Alpha（`sleep 3`）、Beta（`sleep 150`）两个后台子代理。① **running**（Beta）：`activate` 后聚焦行出现，占位符 `Message Beta`，在 studio 输入框发 "Reply with the single word PONG" → 子代理回 `PONG`（过程区里 Beta 的会话，`Backgrounded early to handle an incoming message; the command keeps running`）；回到主会话 toast `Returned to main session`。② **aborted**（用 `kill` 结束 Beta 后）：`activate` 成功、聚焦行出现，过程区是 Beta 的会话（任务说明），回主会话正常；节点的 `status` 回来前仍是 `aborted`（和 revive 的实测一致，节点更新晚于 Hub）。③ **pending**：探针里 Alpha 的节点状态是 `pending`（它的 `sleep 3` 已跑完，之后变 `done`），点它聚焦被 omp 拒绝：`Alpha is not listed in omp's Agent Hub`（Hub 没有这一行）；错误原样 toast，Hub 已关、没有残留聚焦。面板因此**不对 `pending` 提供聚焦**（`canFocus` 不含它），点行进详情。④ **idle / parked / failed / done 没单独实测**（parked 只能 `--resume` 后出现，没有跑）：按 omp 文档 parked 聚焦会复活，面板对 idle / parked 同 running 处理（点行 = 聚焦，失败时 omp 的原因照样 toast）；`done` / `failed` 点行进详情，不尝试聚焦。
+- **测试**：`test/tsp-hub-driver.test.ts`（回放：事件逐字同录制、不发 `focus:Main` / Esc、驱动标志复位；聚焦期间文档没有 agent 节点所以再聚焦 / 插话被拒；omp 没切过去时以原因报错并 Esc 关 Hub）；e2e `test/e2e/tsp.e2e.ts` "子代理面板:点行进入子代理的对话"（点行 → 面板收起、`run-focus` 出现且占位符 `Message Beta`、输入框获得焦点、收到 `agents.open` / `activate`、没有 `focus:Main`、Hub 一帧没画、过程区没压暗；输入框发话 → `send`；聚焦中打开面板有空状态说明；回到主会话 → `focus:Main`；详情从行上按钮进，详情头部有「进入对话」；截图 `tsp-agent-focus-*`、`tsp-agent-detail-focus-*`）。
+
 ### 后台驱动 Hub（`HubDriver`）
 
 每个操作都在任务的界面操作队列里（`TspRunner.#exclusive`，和切模型共用），步骤、事件和等待条件：
@@ -75,6 +87,7 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 |---|---|
 | 打开 Hub | hud 里有 `actions.click == "agents.open"` 的节点（`👥`）→ `{ev:"action", sf, id, act:"agents.open"}`；没有（没子代理在跑）→ 给输入框 `send "/hub"`；打开后页签不是 agents 就 `{ev:"action", act:"tab", value:"agents"}`（和 Picker 点页签发的一样）。等 `findAgentHub`（8 秒） |
 | 插话 | 打开 → `{ev:"activate", sf, id:<picker>, item:<名字>}` → 等聚焦行 `findFocus().name == 名字`（8 秒）→ `{ev:"send", sf, id:<输入框>, text}`（输入框是 `findMessageTarget` 的 ready 目标）→ 等回显（3 秒，软）→ 恢复 |
+| 聚焦 | 打开 → `{ev:"activate", sf, id:<picker>, item:<名字>}` → 等聚焦行 `findFocus().name == 名字`（8 秒）→ **不恢复**（留在聚焦模式）；失败才恢复 |
 | 结束 | 打开 → 要先 `select`（`selected != 名字` 才发，等 `selected == 名字`）→ `kill` 可用性（缺失 / 被禁用以 omp 原因抛错）→ `{act:"kill"}` → 等该项 `dot == "error"`（6 秒）→ 恢复；已经是 `error` 的什么也不做 |
 | 恢复 | 打开 → select → `revive` 可用性（被禁用以 omp 原因抛错）→ `{act:"revive"}` → 等该项不再 `error`（6 秒）→ 恢复 |
 | **恢复主输入框** | 无论成败都做：Hub 还开着 → Esc 键，等 `findAgentHub == null`（3 秒）；聚焦着 → 发退出按钮的 `focus:Main`（没有按钮就 Esc），3 秒没退掉再发 Esc 等 3 秒。恢复不了才以 `HUB_RESTORE_FAILED` 抛出（先报原来的错）；进程已退出不算失败 |
@@ -94,9 +107,9 @@ omp 的 Agent Hub 有两页（`pyu`：`1 Agents` / `2 Activity`，源码 `overla
 ### 风险和限制
 
 - Hub 的 role / action / `dot` 取值都是 omp 自己的、不在 TSP 规范里：`agents.open`、`kill`、`revive`、`tab`、`omp.composer.focus`、`omp.composer.exit`、`focus:Main`、`dot: error / success`。判断都集中在 `shared/tsp/agent-hub.ts`，omp 改名时操作超时失败、走恢复；列表和记录不受影响。
-- 聚焦模式期间过程区暂时显示那个子代理的记录（omp 把聚焦的会话画在 main 里），约一两秒；面板压暗过程区、不让点。聚焦期间用户若按停止键（Esc）可能提前退出聚焦，插话已发出则不受影响。
+- 聚焦模式期间过程区显示那个子代理的会话（omp 把聚焦的会话画在 main 里）；面板的"进入对话"成功后留在这个状态，由输入框上方的聚焦提示回主会话。插话期间的聚焦只有一两秒，面板压暗过程区、不让点。聚焦期间用户若按停止键（Esc）会退出聚焦（omp 的行为）。
 - 驱动 Hub 会让 omp 的 `agents.open` 对应的 hud 状态瞬间变化（打开 / 关闭 Hub）；不碰主会话的消息和模型。
-- 子代理在 omp 里的 `done` 状态是否还能被聚焦 / 插话没测，面板对 `done`、`aborted`、`failed` 不提供插话。
+- `done` / `failed` 的子代理面板不提供聚焦（没测）；`pending` 的子代理 omp 的 Hub 里还没有，不提供聚焦（见「聚焦」）。
 
 ### 测试
 

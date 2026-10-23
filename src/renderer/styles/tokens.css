@@ -141,6 +141,8 @@
   --z-toast: 30;
   --z-popover: 40;
   --z-dialog: 50;
+  /* 挂在 body 上的下拉列表和菜单（Select、Menu）：对话框里也会打开，要在遮罩和对话框上面 */
+  --z-menu: 60;
   --z-palette: 70;
   /* 悬停提示在最上面：对话框、命令面板里的按钮也有提示 */
   --z-tooltip: 80;

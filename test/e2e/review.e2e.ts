@@ -680,6 +680,9 @@ test("评审：按行暂存 / 取消暂存 / 丢弃：点击、Shift 点击、Sh
     // 工作区原样。
     expect(await readFile(path.join(repo, PATH_EDITED), "utf8")).toBe(edited.join("\n") + "\n");
 
+    // 等未暂存的 diff 也按新的索引重取完（第 4 行不再是改动）：在旧 diff 上选的行，新 diff 一到就作废。
+    await expect(row("add", "value4 = 400;")).toHaveCount(0);
+
     // 2. Shift+↓：从第一个改动行开始，再按一次扩到下一行；Esc 清除。
     await page.locator(".rv-scroll").focus();
     await page.keyboard.press("Shift+ArrowDown");

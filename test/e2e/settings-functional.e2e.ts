@@ -9,6 +9,14 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { launchApp, screenshotsDir, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
+/** 页面里 DOM 元素的最小类型（e2e 的类型检查没有 DOM 类型）。 */
+interface DomBox {
+  getBoundingClientRect(): { right: number };
+  getAttribute(name: string): string | null;
+  querySelector(selector: string): DomBox | null;
+  querySelectorAll(selector: string): ArrayLike<DomBox>;
+}
+
 async function launchSettings(
   extraEnv: Record<string, string> = {},
 ): Promise<{ launched: LaunchedApp; agentDir: string }> {
@@ -373,6 +381,22 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
 
     // 同名再加：omp 的原话（错误在 stdout，退出码 1）。
     await page.getByTestId("ssh-add").click();
+    // 长内容下每个输入框的右边界都在对话框正文里（并排的“用户名 / 端口”列不被撑出边框；中英文各一次）。
+    await page.getByTestId("ssh-host").fill("h".repeat(200));
+    await page.getByTestId("ssh-key").fill("C:/Users/x/.ssh/" + "folder-".repeat(30));
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      const outside = await page.getByTestId("ssh-form").evaluate((dialog) => {
+        const root = dialog as unknown as DomBox; // e2e 的类型检查没有 DOM 类型，只声明用到的几个成员
+        const body = root.querySelector(".ui-dialog-body");
+        if (body === null) return ["no-body"];
+        const limit = body.getBoundingClientRect().right + 0.5;
+        return Array.from(root.querySelectorAll("input"))
+          .filter((input) => input.getBoundingClientRect().right > limit)
+          .map((input) => input.getAttribute("data-testid") ?? "?");
+      });
+      expect(outside).toEqual([]);
+    }
     await page.getByTestId("ssh-name").fill("box");
     await page.getByTestId("ssh-host").fill("10.0.0.1");
     await page.getByTestId("ssh-save").click();

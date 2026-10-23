@@ -517,6 +517,11 @@ export class TspRunner {
     return { taskId: this.id, seq, document: current.document };
   }
 
+  /** 已发给渲染进程的最后一条消息的序号（先把攒着的批次发出去）：渲染进程结束一次驱动前等自己的镜像追上它。 */
+  tspSeq(): number {
+    return this.#session ? this.#seqBase + this.#session.flushedSeq() : (this.#finalSnapshot?.seq ?? 0);
+  }
+
   /** 记一次任务活动（用户发消息、一轮结束）：内存里立即生效，随后落盘。其它记账写入不碰 updatedAt。 */
   #touch(at: number): void {
     this.#activityAt = at;
@@ -2046,6 +2051,10 @@ export class TspRunner {
   /** 子代理的记录和最终输出（会话文件旁的 `<名字>.jsonl` / `.md`）；名字不合规时返回 unavailable，不抛错。 */
   subagentRecord(name: string): Promise<TspSubagentRecord> {
     return readSubagentRecord(this.#currentSessionFile(), name);
+  }
+
+  focusSubagent(name: string): Promise<void> {
+    return this.#hub.focus(name);
   }
 
   steerSubagent(name: string, text: string): Promise<void> {

@@ -65,6 +65,16 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await page.getByTestId("custom-add").click();
     const form = page.getByTestId("custom-provider-form");
     await expect(form).toBeVisible();
+    // 接口类型的下拉在对话框里能选（列表挂在 body 上，层级要在遮罩之上）：换成 Responses 再换回来。
+    const api = page.getByTestId("custom-api");
+    await api.click();
+    await page.getByTestId("custom-api-list").getByRole("option").nth(1).click();
+    await expect(api).toHaveAttribute("aria-expanded", "false");
+    await expect(form).toBeVisible();
+    await expect(api).toContainText("Responses");
+    await api.click();
+    await page.getByTestId("custom-api-list").getByRole("option").first().click();
+    await expect(api).not.toContainText("Responses");
     await page.getByTestId("custom-id").fill("fake-proxy");
     await page.getByTestId("custom-base-url").fill(fake.baseUrl);
     await page.getByTestId("custom-key").fill("wrong-key");

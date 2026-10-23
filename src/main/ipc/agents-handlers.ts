@@ -13,10 +13,13 @@ function parseAgentName(value: unknown): string {
 }
 
 export const agentsHandlers: HandlerGroup<
-  "getTspSubagentRecord" | "steerTspSubagent" | "killTspSubagent" | "reviveTspSubagent"
+  "getTspSubagentRecord" | "focusTspSubagent" | "steerTspSubagent" | "killTspSubagent" | "reviveTspSubagent"
 > = {
   async getTspSubagentRecord(taskId, name) {
     return (await getTaskPool()).getTspSubagentRecord(parseTaskId(taskId), parseAgentName(name));
+  },
+  async focusTspSubagent(taskId, name) {
+    await (await getTaskPool()).focusTspSubagent(parseTaskId(taskId), parseAgentName(name));
   },
   async steerTspSubagent(taskId, name, text) {
     const message = parseString(text, "text", subagentLimits.steerChars);

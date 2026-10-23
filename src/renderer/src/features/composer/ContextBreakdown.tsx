@@ -168,8 +168,8 @@ export function TaskContextBreakdown({
         },
         (error: unknown) => reportErrorNow(error),
       )
-      .finally(() => {
-        endTspDrive(taskId, drive);
+      .finally(async () => {
+        await endTspDrive(taskId, drive);
         if (alive) setReading(false);
       });
     return () => {

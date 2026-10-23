@@ -104,6 +104,49 @@ class ReplayHost implements HubHost {
 const STEER_TEXT = "Also say PINEAPPLE in your final reply.";
 
 describe("HubDriver · hub-steer.jsonl", () => {
+  it("聚焦：agents.open → activate（和录制逐字相同）→ 聚焦行出现就停，不发 focus:Main / Esc，留在聚焦模式", async () => {
+    const host = new ReplayHost("hub-steer", 1, ["j.focus"]);
+    await new HubDriver(host).focus("Beta");
+    expect(host.accepted).toEqual([
+      { ev: "action", sf: "s:1", id: "3.running/agents", act: "agents.open" },
+      { ev: "activate", sf: "s:1", id: "w", item: "Beta" },
+    ]);
+    expect(host.ignored).toEqual([]);
+    expect(host.keys).toEqual([]);
+    expect(findFocus(host.doc)?.name).toBe("Beta");
+    expect(findAgentHub(host.doc)).toBeNull();
+    expect(host.driving).toEqual([true, false]);
+  });
+
+  it("聚焦期间 omp 的主界面画的是那个子代理的会话：文档里没有 agent 节点，所以再聚焦 / 插话都按「不认识的子代理」拒绝，不碰 omp", async () => {
+    const host = new ReplayHost("hub-steer", 1, ["j.focus"]);
+    const driver = new HubDriver(host);
+    await driver.focus("Beta");
+    host.accepted.length = 0;
+    await expect(driver.focus("Beta")).rejects.toThrow(/unknown subagent/);
+    await expect(driver.steer("Beta", "hi")).rejects.toThrow(/unknown subagent/);
+    expect(host.accepted).toEqual([]);
+    expect(host.ignored).toEqual([]);
+    expect(host.keys).toEqual([]);
+    await expect(driver.focus("../x")).rejects.toThrow(/unknown subagent/);
+  });
+
+  it("聚焦失败（omp 没切过去）：以 omp 的原因报错，并按恢复规则把 Hub 用 Esc 关掉", async () => {
+    const host = new ReplayHost("hub-steer", 1, ["j.focus"]);
+    const originalSend = host.sendEvent.bind(host);
+    host.sendEvent = (event) => {
+      if (event.ev === "activate") {
+        host.ignored.push(event as unknown as Record<string, unknown>);
+        return;
+      }
+      originalSend(event);
+    };
+    await expect(new HubDriver(host).focus("Beta")).rejects.toThrow("omp did not switch to subagent Beta");
+    expect(host.keys).toEqual(["\x1b"]);
+    expect(findAgentHub(host.doc)).toBeNull();
+    expect(host.driving).toEqual([true, false]);
+  });
+
   it("插话：agents.open → activate → 聚焦 → send，事件和录制逐字相同；然后用 focus:Main 退出聚焦，输入框恢复", async () => {
     const host = new ReplayHost("hub-steer", 1, ["j.focus"]);
     await new HubDriver(host).steer("Beta", STEER_TEXT);

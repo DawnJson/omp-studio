@@ -123,7 +123,9 @@ export function TaskRow(props: TaskRowProps) {
         }}
       >
         <StatusDot task={task} t={t} />
-        <span className="sb-row-title">{title}</span>
+        <span className="sb-row-title" title={title}>
+          {title}
+        </span>
         {worktree && (
           <span
             className="sb-row-branch"

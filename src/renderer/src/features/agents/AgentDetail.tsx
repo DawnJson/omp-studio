@@ -13,8 +13,16 @@ import { formatDuration } from "../conversation/format.ts";
 import { buildTurns } from "../conversation/model.ts";
 import { ProcessDetails } from "../conversation/ProcessDetails.tsx";
 import { formatCost, formatTokens, shortModel } from "./format.ts";
-import { agentContextPercent, agentElapsed, agentProgress, canKill, canRevive, cleanTask } from "./agent-model.ts";
-import { killAgent, reviveAgent } from "./agents-actions.ts";
+import {
+  agentContextPercent,
+  agentElapsed,
+  agentProgress,
+  canFocus,
+  canKill,
+  canRevive,
+  cleanTask,
+} from "./agent-model.ts";
+import { focusAgent, killAgent, reviveAgent } from "./agents-actions.ts";
 import { useAgentRecord, type AgentRecordState } from "./use-agent-record.ts";
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -151,6 +159,18 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
             </span>
           )}
         </span>
+        {canFocus(agent.status) && (
+          <Button
+            size="sm"
+            variant="primary"
+            testId="agents-focus"
+            title={t("agents.focusTitle", { name: agent.name })}
+            disabled={busy}
+            onClick={() => void focusAgent(t, taskId, agent.name)}
+          >
+            {t("agents.focus")}
+          </Button>
+        )}
         {canKill(agent.status) && <KillControl taskId={taskId} name={agent.name} busy={busy} />}
         {canRevive(agent.status) && (
           <Button

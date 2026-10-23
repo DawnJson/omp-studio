@@ -3,7 +3,7 @@
 // 期间面板顶部显示"正在发给 <名字>"，omp 的 Hub 不画出来。
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
-import { listAgents, type HubAgent } from "../../../../shared/tsp/agent-hub.ts";
+import { focusedAgentName, listAgents, type HubAgent } from "../../../../shared/tsp/agent-hub.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
 import { IconButton, Tabs, tabPanelProps } from "../../ui/controls.tsx";
@@ -13,6 +13,7 @@ import { AgentDetail } from "./AgentDetail.tsx";
 import { AgentsActivity } from "./AgentsActivity.tsx";
 import { AgentRow } from "./AgentRow.tsx";
 import { canSteer, sameAgents, sortAgents } from "./agent-model.ts";
+import { focusAgent } from "./agents-actions.ts";
 import { closeAgentsPanel, selectAgent } from "./agents-store.ts";
 import { SteerBox } from "./SteerBox.tsx";
 import "../file-preview/file-preview.css";
@@ -24,6 +25,7 @@ const keyboardStep = 16;
 const NO_AGENTS: readonly HubAgent[] = [];
 
 const DRIVING_KEY = {
+  focus: "agents.focusing",
   steer: "agents.steering",
   kill: "agents.killing",
   revive: "agents.reviving",
@@ -35,6 +37,8 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
   const width = usePreviewWidth();
   const derived = useTspDerived(taskId, listAgents, sameAgents) ?? NO_AGENTS;
+  // omp 聚焦在某个子代理上时，主界面画的是它的会话，文档里没有 agent 节点，列表是空的（实测 hub-steer 录制）。
+  const focusedAgent = useTspDerived(taskId, focusedAgentName, Object.is);
   const agents = useMemo(() => sortAgents(derived), [derived]);
   const driving = useTspDrive(taskId);
   const drive = driving?.kind === "hub" ? driving : null;
@@ -118,7 +122,7 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
         >
           <span className="agents-driving-dot" aria-hidden="true" />
           <span className="agents-driving-text">{t(DRIVING_KEY[drive.op], { name: drive.name })}</span>
-          <span className="agents-driving-hint">{t("agents.drivingHint")}</span>
+          {drive.op !== "focus" && <span className="agents-driving-hint">{t("agents.drivingHint")}</span>}
         </div>
       )}
 
@@ -148,7 +152,7 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
           />
         ) : agents.length === 0 ? (
           <p className="agents-muted agents-empty" data-testid="agents-empty">
-            {t("agents.empty")}
+            {focusedAgent !== null ? t("agents.focusedEmpty", { name: focusedAgent }) : t("agents.empty")}
           </p>
         ) : (
           <ul className="agents-list" aria-label={t("agents.listLabel")} data-testid="agents-list">
@@ -157,7 +161,9 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
                 key={agent.name}
                 agent={agent}
                 selected={agent === current}
+                busy={drive !== null}
                 onSelect={() => selectAgent(agent.name)}
+                onFocus={() => void focusAgent(t, taskId, agent.name)}
               />
             ))}
           </ul>

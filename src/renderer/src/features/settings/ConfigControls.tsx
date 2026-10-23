@@ -314,6 +314,16 @@ export function fitsCell(item: OmpConfigItem): boolean {
   }
 }
 
+/**
+ * 放进格子会把标签挤成一两个字一行的控件：三个以上选项的分段（约 280 宽，格子只有半行）。这样的项独占一行（和 `spanKeys` 一样）。
+ * 下拉（选项更多）固定 200 宽，格子里还留得下标签，不在此列。
+ */
+export function wideInCell(item: OmpConfigItem): boolean {
+  return (
+    item.type === "enum" && item.options !== null && item.options.length >= 3 && item.options.length <= maxSegments
+  );
+}
+
 /** 按 omp 给的类型选控件；凭据另外处理（ConfigRow）。 */
 export function ConfigControl(props: ControlProps) {
   const { item, labelId, onSave } = props;

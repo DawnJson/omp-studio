@@ -116,11 +116,13 @@
   border-top: 1px solid var(--border-subtle);
 }
 
+/* 左栏最窄 200（窄窗）：标题、已暂存数、“生成”放不下一行就折行，不撑出左栏 */
 .rv-commit-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   padding: 0 var(--space-0-5);
 }
 
@@ -138,11 +140,22 @@
 
 .rv-commit-foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
   color: var(--text-2);
   font-size: var(--fs-xs);
+}
+.rv-commit-foot > :first-child {
+  flex: 1 1 calc(var(--space-16) * 2);
+  min-width: 0;
+}
+.rv-commit-foot > .ui-btn {
+  margin-left: auto;
+}
+.rv-commit-foot .ui-choice {
+  max-width: 100%;
 }
 
 .rv-commit .rv-commit-description {

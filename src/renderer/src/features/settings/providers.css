@@ -2,6 +2,7 @@
 
 .pv-flow {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
 }
 
@@ -55,6 +56,7 @@
 
 .pv-accounts {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-1);
 }
 

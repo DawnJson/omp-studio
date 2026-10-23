@@ -57,7 +57,11 @@ const worktreeOps: WorktreeOps = {
     });
     return { path: created.path, branch: created.branch, base: created.baseBranch };
   },
-  remove: (project, worktreePath, branch) => removeWorktree(project.path, worktreePath, branch),
+  // 斜杠菜单在这个 worktree（或其子目录）里起过项目 rpc-ui 的话，它的 cwd 占着目录：先关掉再删。
+  remove: async (project, worktreePath, branch) => {
+    await projectOmp.closeUnder(worktreePath);
+    await removeWorktree(project.path, worktreePath, branch);
+  },
 };
 
 let pool: Promise<TaskPool> | null = null;

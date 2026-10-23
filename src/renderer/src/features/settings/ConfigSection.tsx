@@ -7,7 +7,7 @@ import { SectionHead } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { groupConfigItems } from "../../../../shared/ui/config-groups.ts";
 import { prefixTitle } from "../../../../shared/ui/config-labels.ts";
-import { fitsCell } from "./ConfigControls.tsx";
+import { fitsCell, wideInCell } from "./ConfigControls.tsx";
 import { ConfigRow } from "./ConfigRow.tsx";
 import { advancedGroups, commonBlocks, groupTitle, spanKeys, type CommonBlockId } from "./config-meta.ts";
 
@@ -23,7 +23,7 @@ function ConfigGrid({ items, keyPrefix = "" }: { items: readonly OmpConfigItem[]
       {cells.length > 0 && (
         <div className="st-cells" data-cols="2">
           {cells.map((item) =>
-            spanKeys.has(item.key) ? (
+            spanKeys.has(item.key) || wideInCell(item) ? (
               <div key={item.key} className="st-span">
                 <ConfigRow item={item} keyPrefix={keyPrefix} />
               </div>

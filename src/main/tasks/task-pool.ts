@@ -268,6 +268,11 @@ export class TaskPool {
     return this.#runner(id).tspSnapshot();
   }
 
+  /** 任务已发出的最后一条 TSP 消息的序号（见 TspRunner.tspSeq）。 */
+  getTspSeq(id: TaskId): number {
+    return this.#runner(id).tspSeq();
+  }
+
   /** 用量脚注和空闲回顾（omp 恢复会话时不重发）；读不到时为空。 */
   getTspSessionExtras(id: TaskId): Promise<TspSessionExtras> {
     return this.#runner(id).sessionExtras();
@@ -298,6 +303,10 @@ export class TaskPool {
   // 子代理面板（S1）：读会话文件，插话 / 结束 / 恢复由主进程在后台驱动 Agent Hub。
   getTspSubagentRecord(id: TaskId, name: string): Promise<TspSubagentRecord> {
     return this.#runner(id).subagentRecord(name);
+  }
+
+  focusTspSubagent(id: TaskId, name: string): Promise<void> {
+    return this.#runner(id).focusSubagent(name);
   }
 
   steerTspSubagent(id: TaskId, name: string, text: string): Promise<void> {

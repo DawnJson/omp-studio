@@ -979,6 +979,11 @@ export interface StudioInvokeApi {
   openTask(taskId: TaskId): Promise<void>;
   /** 任务的节点树快照（不拉起进程）；用于丢帧或渲染进程重载后的重同步。 */
   getTspSnapshot(taskId: TaskId): Promise<TspSnapshot>;
+  /**
+   * 主进程已发出的最后一条 TSP 消息的序号（先把攒着的批次发出去）。结束一次"驱动"（聚焦子代理、读上下文报告）前，
+   * 渲染进程等自己的镜像追上它：IPC 回复可能比之前发出的批次先到，不等就会把 omp 已经关掉的弹窗再画一帧。
+   */
+  getTspSeq(taskId: TaskId): Promise<number>;
   /** 用量脚注和空闲回顾（omp 恢复会话时不重发这两样，从会话文件和 history.db 补）；读不到时 `{ turns: [], recap: null }`，不抛错。 */
   getTspSessionExtras(taskId: TaskId): Promise<TspSessionExtras>;
   /**
@@ -1131,6 +1136,8 @@ export interface StudioInvokeApi {
   // 子代理面板（S1，spec §4.28）：omp 只在 Agent Hub 里提供插话 / 结束 / 恢复，主进程在后台驱动它再恢复（tasks/tsp-hub-driver.ts）。
   /** 子代理的记录（会话文件）和最终输出（`.md`），只读 omp 存档；读不到时 `unavailable` + 原因，不抛错。 */
   getTspSubagentRecord(taskId: TaskId, name: string): Promise<TspSubagentRecord>;
+  /** 聚焦一个子代理（omp 里 Hub 的 Enter；parked / aborted 的先复活）：成功后 omp 留在聚焦模式，输入框的话到子代理。名字必须是文档里确有的子代理。 */
+  focusTspSubagent(taskId: TaskId, name: string): Promise<void>;
   /** 给子代理插一句话（Hub → 聚焦 → send → 退出聚焦）；名字必须是文档里确有的子代理，文字限长 subagentLimits.steerChars。 */
   steerTspSubagent(taskId: TaskId, name: string, text: string): Promise<void>;
   /** 结束（kill）一个子代理；已经结束时什么也不做。 */
@@ -1436,6 +1443,7 @@ export const invokeNames = {
   createTask: true,
   openTask: true,
   getTspSnapshot: true,
+  getTspSeq: true,
   getTspSessionExtras: true,
   readTspContext: true,
   sendTspEvent: true,
@@ -1496,6 +1504,7 @@ export const invokeNames = {
   cancelBtw: true,
   getBtw: true,
   getTspSubagentRecord: true,
+  focusTspSubagent: true,
   steerTspSubagent: true,
   killTspSubagent: true,
   reviveTspSubagent: true,

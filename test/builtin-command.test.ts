@@ -1,6 +1,6 @@
 // runBuiltinOn：只放行 get_available_commands 里 source 为 builtin 的命令，agentInvoked:true 当失败，收集 command_output；
 // ProjectOmpPool：每个目录一个进程、空闲后关、close 全部关掉。回放文件是按 omp 18.12.5 实测（native-ui-plan §2.2）的帧手写的。
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -154,6 +154,21 @@ describe("ProjectOmpPool", () => {
     await pool.close();
     expect(alive(pid)).toBe(false);
     await expect(pool.use(scratch, async () => 1)).rejects.toThrow(/closed/);
+  });
+
+  it("closeUnder 只关这个目录和它子目录里的进程（丢弃 worktree 前），名字前缀相同的兄弟目录不动", async () => {
+    const pool = poolFor(await fixture([]), 60_000);
+    const wt = path.join(scratch, "wt 工作树");
+    const sub = path.join(wt, "src");
+    const sibling = path.join(scratch, "wt 工作树-2");
+    await mkdir(sub, { recursive: true });
+    await mkdir(sibling, { recursive: true });
+    const pid = (dir: string) => pool.use(dir, async (connection) => connection.pid!);
+    const [inRoot, inSub, inSibling] = [await pid(wt), await pid(sub), await pid(sibling)];
+    await pool.closeUnder(wt);
+    expect([alive(inRoot), alive(inSub), alive(inSibling)]).toEqual([false, false, true]);
+    expect(pool.size).toBe(1);
+    await pool.close();
   });
 });
 

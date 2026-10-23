@@ -1,8 +1,10 @@
-// 子代理面板对 omp Agent Hub 的后台驱动（spec §4.28）：插话、结束、恢复三个动作 omp 只在 Hub 里提供，没有别的通道，
-// 所以主进程替用户在后台走一遍 Hub 的操作，再把 omp 恢复成原样（Hub 关掉、退出聚焦），渲染进程在这期间不画 omp 的 Hub。
+// 子代理面板对 omp Agent Hub 的后台驱动（spec §4.28）：聚焦、插话、结束、恢复四个动作 omp 只在 Hub 里提供，没有别的通道，
+// 所以主进程替用户在后台走一遍 Hub 的操作；插话 / 结束 / 恢复做完把 omp 恢复成原样（Hub 关掉、退出聚焦），聚焦则成功后留在
+// 聚焦模式（同 omp 里 Hub 的 Enter），渲染进程在这期间不画 omp 的 Hub。
 //
 // 每一步的事件、等的条件和依据见 shared/tsp/agent-hub.ts 头部（omp 18.12.5 录制 hub-steer / hub-kill，另在真实 omp 上量过
 // 聚焦行的退出按钮 `focus:Main`：toast "Returned to main session"，子代理照常运行）：
+//   聚焦  agents.open → [activate item=名字] → 聚焦行出现（不恢复：Hub 已被 omp 关掉，留在聚焦模式）
 //   插话  agents.open → [activate item=名字] → 聚焦行出现 → send 文字 → 回显 → focus:Main → 聚焦行消失
 //   结束  agents.open → [select 名字] → action kill → 该项 dot=error → Esc 关 Hub
 //   恢复  agents.open → [select 名字] → action revive（omp 禁用时用它给的原因抛错）→ 该项不再 error → Esc 关 Hub
@@ -64,17 +66,25 @@ export class HubDriver {
     this.#host = host;
   }
 
+  /** 聚焦一个子代理（同 omp 里 Hub 的 Enter；parked / aborted 的 omp 会先复活）：成功后不恢复，留在聚焦模式。 */
+  focus(name: string): Promise<void> {
+    return this.#run(
+      name,
+      async () => {
+        const hub = await this.#openHub();
+        this.#assertListed(hub, name);
+        await this.#activate(hub, name);
+      },
+      true,
+    );
+  }
+
   /** 给子代理插一句话：打开 Hub、聚焦它、往同一个输入框 `send`、退出聚焦。 */
   steer(name: string, text: string): Promise<void> {
     return this.#run(name, async () => {
       const hub = await this.#openHub();
       this.#assertListed(hub, name);
-      this.#host.sendEvent({ ev: "activate", sf: hub.sf, id: hub.id, item: name });
-      await this.#host.awaitDocument(
-        (document) => (findFocus(document)?.name === name ? true : null),
-        HUB_FOCUS_TIMEOUT_MS,
-        `omp did not switch to subagent ${name}`,
-      );
+      await this.#activate(hub, name);
       const target = await this.#composer();
       const document = this.#document();
       const echoBefore = countEchoNodes(document);
@@ -136,8 +146,18 @@ export class HubDriver {
 
   // ───── 共用步骤 ─────
 
-  /** 校验名字（来自渲染进程，不可信：必须是文档里确有的子代理）→ 排队 → 标志 → 做 → 无论成败都恢复。 */
-  #run<T>(name: string, job: () => Promise<T>): Promise<T> {
+  /** `activate` 子代理并等聚焦行出现（omp 此时关掉 Hub）。 */
+  async #activate(hub: AgentHubView, name: string): Promise<void> {
+    this.#host.sendEvent({ ev: "activate", sf: hub.sf, id: hub.id, item: name });
+    await this.#host.awaitDocument(
+      (document) => (findFocus(document)?.name === name ? true : null),
+      HUB_FOCUS_TIMEOUT_MS,
+      `omp did not switch to subagent ${name}`,
+    );
+  }
+
+  /** 校验名字（来自渲染进程，不可信：必须是文档里确有的子代理）→ 排队 → 标志 → 做 → 无论成败都恢复（`keepOnSuccess`：成功时不恢复）。 */
+  #run<T>(name: string, job: () => Promise<T>, keepOnSuccess = false): Promise<T> {
     return this.#host.exclusive(async () => {
       // 不为它起进程：子代理只存在于正在运行的 omp 的文档里（没有进程 = 没有子代理）。
       const document = this.#document();
@@ -153,6 +173,10 @@ export class HubDriver {
         result = await job();
       } catch (error) {
         failure = error;
+      }
+      if (failure === null && keepOnSuccess) {
+        this.#host.setDriving(false);
+        return result as T;
       }
       let restored = false;
       try {

@@ -42,8 +42,10 @@
   overflow-wrap: anywhere;
 }
 
+/* 单列 minmax(0,1fr)：隐式的 auto 列会被不换行的子项（复选框说明、长路径）撑得比对话框宽，并排的字段跟着出界。 */
 .ig-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
 

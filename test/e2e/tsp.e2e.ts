@@ -1346,7 +1346,12 @@ test("子代理面板:👥 打开右栏面板(不画 omp 的 Hub),列出 Alpha /
     );
     // 同一栏只开一个面板:文件面板没有同时出现。
     await expect(page.getByTestId("file-preview")).toHaveCount(0);
-    await panel.locator('[data-testid="agents-row"][data-name="Beta"]').click();
+    // 点行 = 进入对话(见下一条用例);行右端的"详情"按钮才进详情。
+    await panel
+      .locator('[data-testid="agents-row"][data-name="Beta"]')
+      .locator("xpath=..")
+      .getByTestId("agents-row-details")
+      .click();
     await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Beta");
     await shoot(page, "agents-panel");
 
@@ -1399,6 +1404,91 @@ test("子代理面板:👥 打开右栏面板(不画 omp 的 Hub),列出 Alpha /
     await expect(role(page, "omp.composer.focus")).toHaveCount(0);
     // 插话框清空了(成功),面板还开着。
     await expect(panel.getByTestId("agents-steer-input")).toHaveValue("");
+  } finally {
+    await cleanup();
+  }
+});
+
+// 点子代理行 = 聚焦它的对话(同 omp Agent Hub 的 Enter;omp 18.12.6):主进程在后台 agents.open → activate(Beta),omp 的 Hub 一帧不画,
+// 聚焦行出现后不恢复;面板收起、焦点回输入框,输入框上方出现"正在给 Beta 发消息";输入框发的话走 sendPrompt(omp 把它 steer 给 Beta),
+// "回到主会话"发 focus:Main。详情从行右端的按钮进,详情头部也有"进入对话"。
+test("子代理面板:点行进入子代理的对话(面板收起、聚焦提示出现、Hub 一帧没画),输入框发的话给 Beta,回到主会话;详情仍可从行上的按钮进", async () => {
+  test.setTimeout(120_000);
+  const steerText = "Also say PINEAPPLE in your final reply.";
+  const firstPrompt = String(recordedUserEvents(loadTspFixture("hub-steer"))[0]!.event["text"]);
+  const { launched, received, cleanup } = await start("hub-steer");
+  try {
+    const { page } = launched;
+    await sendFirst(page, firstPrompt);
+    await expect(page.getByTestId("pill-agents")).toBeVisible({ timeout: 60_000 });
+    await page.getByTestId("pill-agents").click();
+    const panel = page.getByTestId("agents-panel");
+    await expect(panel.getByTestId("agents-row")).toHaveCount(2);
+    // 行上有次要入口"详情",点它进详情,面板不收;详情头部有"进入对话"。
+    const beta = panel.locator('[data-testid="agents-row"][data-name="Beta"]');
+    const betaDetails = beta.locator("xpath=..").getByTestId("agents-row-details");
+    await expect(betaDetails).toHaveAttribute("title", /详情|Details/);
+    await betaDetails.click();
+    await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Beta");
+    await expect(panel.getByTestId("agents-focus")).toBeVisible();
+    await shoot(page, "agent-detail-focus");
+    expect((await received()).some((event) => event["ev"] === "activate")).toBe(false);
+
+    // 盯着页面:驱动期间"正在切到 Beta"出现过,omp 的 Hub 一次也没画。
+    await page.evaluate(() => {
+      const g = globalThis as unknown as {
+        document: {
+          querySelector(s: string): { getAttribute(n: string): string | null } | null;
+          documentElement: unknown;
+        };
+        MutationObserver: new (cb: () => void) => { observe(target: unknown, o: object): void };
+        __focus: { driving: string[]; hub: boolean };
+      };
+      g.__focus = { driving: [], hub: false };
+      new g.MutationObserver(() => {
+        const banner = g.document.querySelector('[data-testid="agents-driving"]');
+        if (banner) {
+          const text = `${banner.getAttribute("data-op")}:${banner.getAttribute("data-name")}`;
+          if (!g.__focus.driving.includes(text)) g.__focus.driving.push(text);
+        }
+        if (g.document.querySelector('[data-testid="tsp-view"] .tspi-picker')) g.__focus.hub = true;
+      }).observe(g.document.documentElement, { subtree: true, childList: true, attributes: true });
+    });
+    await beta.click();
+    // 假 omp 按录制放帧:收到 agents.open → activate(Beta) 才放出聚焦行;studio 不发 focus:Main(留在聚焦模式)。
+    const banner = page.getByTestId("run-focus");
+    await expect(banner).toBeVisible({ timeout: 30_000 });
+    await expect(banner).toContainText(/Beta/);
+    await expect(panel).toHaveCount(0);
+    await expect(page.getByTestId("composer-input")).toHaveAttribute("placeholder", /Beta/);
+    await expect(page.getByTestId("composer-input")).toBeFocused();
+    await expect(page.locator("[data-driving]")).toHaveCount(0);
+    expect((await received()).map((event) => [event["ev"], event["act"] ?? event["item"] ?? event["text"]])).toEqual([
+      ["send", firstPrompt],
+      ["action", "agents.open"],
+      ["activate", "Beta"],
+    ]);
+    const seen = await page.evaluate(
+      () => (globalThis as unknown as { __focus: { driving: string[]; hub: boolean } }).__focus,
+    );
+    expect(seen.driving).toContain("focus:Beta");
+    expect(seen.hub).toBe(false);
+    await shoot(page, "agent-focus");
+
+    // 聚焦中输入框发的话走普通的 send(omp 把它 steer 给 Beta):事件和录制里用户在聚焦后发的那条相同。
+    await page.getByTestId("composer-input").fill(steerText);
+    await page.getByTestId("composer-input").press("Enter");
+    await expect.poll(async () => (await received()).at(-1)?.["text"], { timeout: 30_000 }).toBe(steerText);
+    // 聚焦中再打开面板:列表看不到(omp 画的是 Beta 的会话),写明原因。
+    await page.getByTestId("topbar-agents").click();
+    await expect(page.getByTestId("agents-empty")).toContainText(/Beta/);
+    await page.getByTestId("topbar-agents").click();
+    await expect(page.getByTestId("agents-panel")).toHaveCount(0);
+
+    await page.getByTestId("run-focus-back").click();
+    await expect.poll(async () => (await received()).some((event) => event["act"] === "focus:Main")).toBe(true);
+    await expect(banner).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.getByTestId("composer-input")).not.toHaveAttribute("placeholder", /Beta/);
   } finally {
     await cleanup();
   }
@@ -1478,7 +1568,7 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     // 同 omp 的 Agent Hub:一打开就有选中项(列表第一个)和它的详情,对话记录默认展开。
     await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Alpha");
     await expect(panel.getByTestId("agents-record-toggle")).toHaveAttribute("aria-expanded", "true");
-    await beta.click();
+    await beta.locator("xpath=..").getByTestId("agents-row-details").click();
     await expect(panel.getByTestId("agents-detail")).toContainText("55%");
     await shoot(page, "agent-progress-panel");
 
@@ -1766,10 +1856,12 @@ test("待办板(omp 18.12.6 录制 todo-commands):⋯ 菜单发 /todo drop,添�
 });
 
 test("Shell / Python 标签:输入框以 ! 或 $ 开头时工具行出现标签，点开的开关改输入框文字的前缀(! ↔ !!、$ ↔ $$)；普通消息没有标签", async () => {
-  const task = await start("jobs-chart");
+  // 只要一个有输入框的任务。不用 jobs-chart：那份录制在 64 秒处有探针往 omp 输入框里敲的 "/jobs"，
+  // 跑得慢时会被"omp 输入框的文字回到 studio 输入框"搬进来，和这里填的文字混在一起。
+  const task = await start("error-turn");
   try {
     const { page } = task.launched;
-    await sendFirst(page, JOBS_PROMPT);
+    await sendFirst(page, "Reply with exactly: hello");
     const input = page.getByTestId("composer-input");
     const tag = page.getByTestId("shell-tag");
     await input.fill("hello");
