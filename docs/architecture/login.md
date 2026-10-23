@@ -21,7 +21,7 @@
    - `cancel {targetId}`（omp 撤销了一个输入：超时或被取消）：如果 `targetId` 是还在等的 `input`，推 `{type:"input_closed", inputId}`，界面收起输入框和"提交"按钮（进度历史保留，没提交的字清掉）；之后不会再出现提交时抛 `no login input is waiting`。
    - 登录用不到的 `select/confirm/editor/ask`：立刻回 `cancelled:true`，免得 omp 一直等。判断和连接层的常驻默认应答共用 `src/main/omp/extension-ui.ts` 的 `cancelledReply`。
    - 登录期间 `login.ts` 通过 `connection.claimExtensionUi()` 认领应答权，连接层的默认应答（`omp-rpc.md`"后台进程对 extension_ui_request 的处理"）不会同时回答同一个请求；登录结束（含失败）释放。
-2. `login` 应答 → `startLogin` resolve `{ok:true}`；`RpcCommandError`（含 secret 提示被拒）或服务进程退出 → `{ok:false, message}`，界面显示 `login.failed` 加原因；原因里带 `secret`/`terminal` 时再提示"去终端登录"并给"复制命令"。
+2. `login` 应答 → `startLogin` resolve `{ok:true}`；`RpcCommandError`（含 secret 提示被拒）或服务进程退出 → `{ok:false, message}`，界面显示 `login.failed` 加原因；原因里带 `secret`/`terminal` 时（omp 升级后新增、`provider-login.ts` 表里还没有的多步登录 provider）界面不再给"复制命令"，主按钮改成"在应用内登录"，改走下面"应用内登录"。
 3. **取消**：没有公开的取消命令。有未答的 `input` 就回 `cancelled:true`；否则（omp 停在等浏览器回调）关掉服务进程，`login` 随之失败，主进程按"已取消"返回，界面回到空闲。
 4. 登录或登出之后界面重新读 provider、账号和模型。
 
@@ -35,7 +35,7 @@
 
 - 列表（`features/settings/ModelsSection.tsx`，纯函数在 `src/shared/ui/provider-list.ts`）：顶部搜索框按名称和 id 过滤（多个词都要命中）；已配置的（omp 报 `authenticated`，或 studio 存了 key）排前面，组内保持 omp 的顺序。
 - 登录方式（`src/shared/provider-login.ts`）：`get_login_providers` 只有 `{id, name, available, authenticated}`，**没有登录方式的字段**（实测 omp 18.12.2，84 个 provider 的 `available` 全是 true），所以按实测分类。方法：隔离 agent 目录、`omp --mode rpc-ui --no-session`、对每个 provider 发 `login`，看 open_url 之后 omp 要什么：授权码/等浏览器或设备授权 = `oauth`（17 个）；"Paste your … API key" 输入框 = `api-key`（Tavily、Exa、Kagi、Parallel、DeepSeek 等 60 个）；直接以"requires interactive prompts which are not supported in RPC mode"失败 = `terminal`（github-copilot、alibaba-coding-plan、alibaba-token-plan、perplexity、snowflake、lm-studio）。没在表里的新 provider 按 `oauth` 处理（保留登录按钮，失败有原因）；omp 升级后要重测更新表。
-- 界面：`oauth` 显示"登录"；`api-key` 不显示"登录"——有环境变量名（`provider-keys.ts`）的走"设置 API key"（studio 自存），没有的显示"添加 API key"，走 omp 的 `login`（key 存进 omp 的凭据库，输入框不明文显示）；`terminal` 不显示按钮，状态写"需在终端登录"。
+- 界面：`oauth` 显示"登录"；`api-key` 不显示"登录"——有环境变量名（`provider-keys.ts`）的走"设置 API key"（studio 自存），没有的显示"添加 API key"，走 omp 的 `login`（key 存进 omp 的凭据库，输入框不明文显示）；`terminal` 显示"登录"，走"应用内登录"（下面一节），元信息写"多步登录"。
 
 ## 模型列表
 
@@ -68,7 +68,52 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 
 ## 没有实测的
 
-实现时没有真实账号可登录，下面都没跑过真实 OAuth：`open_url` 之后 `input` 的实际时机、取消时关闭服务进程后 `login` 应答的形状、secret 提示被拒的错误文案（所以"去终端登录"的判断是按关键词，可能漏）。截图里的 provider 列表来自 omp 18.12.1（`get_login_providers`，隔离的临时 agent 目录，全部未登录）。
+实现时没有真实账号可登录，下面都没跑过真实 OAuth：`open_url` 之后 `input` 的实际时机、取消时关闭服务进程后 `login` 应答的形状、secret 提示被拒的错误文案（所以"改走应用内登录"的判断是按关键词，可能漏）。截图里的 provider 列表来自 omp 18.12.1（`get_login_providers`，隔离的临时 agent 目录，全部未登录）。应用内登录的实测和没实测的部分见下一节。
+
+## 应用内登录（终端类 provider）
+
+实现：`src/main/login/terminal-login.ts`（逻辑，不 import electron）、`terminal-login-instance.ts`（单例、Electron 接线）、`src/shared/tsp/login-flow.ts`（从文档判断结果）；界面 `features/settings/TerminalLoginBody.tsx` + `ProviderFlowDialog.tsx`。实测 omp 18.12.6，2026-10-23。
+
+### 为什么要一个临时 omp
+
+`github-copilot`、`alibaba-coding-plan`、`alibaba-token-plan`、`perplexity`、`snowflake`、`lm-studio` 的登录要多步交互（企业域名、区域、设备码、选登录方式……），rpc-ui 的 `login` 直接以 "requires interactive prompts which are not supported in RPC mode" 拒绝，只有交互式 omp 里的 `/login <provider>` 走得完。所以应用起一个临时的交互式 omp（和任务同一套 TSP：握手、文档、关进程树），发 `/login <provider>`，用过程区的渲染器画 omp 自己的登录窗，结果出来就关进程。
+
+### 主进程
+
+- 入口 `startTerminalLogin(providerId)` / `cancelTerminalLogin()`（`StudioInvokeApi`，`account-handlers.ts`）。`providerId` 不可信：`TerminalLogin.start` 先在 omp 的登录 provider 列表（服务进程的 `get_login_providers`）里查，不在就 reject `unknown login provider`，**不起进程**（`test/terminal-login.test.ts` 用 `nope`、`github-copilot --model x`、`../../x`、大小写不同、带换行的 id 验证；`settings-functional.e2e.ts` 的用例对真实 IPC 断言同样的拒绝）。
+- 临时 omp：`buildTspLaunch({ cwd, noSession: true })`——同一个 omp 可执行文件、同一套 PATH 和 studio 自存 key 的环境变量，参数多一个 `--no-session`（不在用户的会话目录留会话文件；探针跑完 `~/.omp/agent/sessions` 里没有当天新建的目录）。cwd 是 `userData/login-cwd`（studio 自己的空目录，不是任何项目，omp 不会读到项目配置）。**`PI_CODING_AGENT_DIR` 不动**：登录就是要把凭据写进用户真实的 agent 目录，由 omp 自己写（AGENTS.md "omp 的边界"：只经 omp 修改 `~/.omp`，studio 不碰凭据）。首次运行引导（`startup.setupWizard`）照任务的做法等启动默认写完再起。
+- 进程管理全部复用 `TspSession`：node-pty 自带 ConPTY（`useConptyDll`）、`assignToOwnJob`（主进程被强杀时系统回收）、关闭时 `taskkill /T /F` 等退出事件再 `pty.kill()`、spawn / kill 都在 `withPtyLock` 里。退出入口：对话框取消（`cancelTerminalLogin`）、被新的登录顶掉、应用退出（`registerShutdownHook`，经 `window/shutdown.ts`，托盘退出 / 菜单退出 / 安装更新 / 注销都会走）。结果（`start` 的 Promise）在进程关掉**之后**才 resolve。
+- 同一时间一个登录：`start` 遇到还没结束的旧登录先结束它（渲染进程重载后旧对话框没了，不能被挡住）。
+- 启动：等握手（30 秒超时，`TspHandshakeError`）→ 等输入框就绪（`findMessageTarget` 是 `ready`，30 秒超时）→ 发 `send` 事件 `/login <providerId>`（和任务发话同一条路径）→ 每次文档变化用 `deriveLoginFlow` 判断。omp 在握手前退出：失败，原因是 omp 终端上最后几行文字或退出码。
+- 成功后 `serviceOmp.close()`：凭据是别的进程写进去的，服务进程里 omp 缓存的认证状态是旧的（同保存 API key 后的 `applyKeyChange`），下次用时重启读到新的；界面随后重读 provider、账号和模型。已经在跑的任务进程要等下次启动才用上新凭据（和终端版一样）。
+
+### 渲染进程怎么画、怎么交互
+
+- 登录窗的节点树和用户操作走**现有 TSP 通道**，不加第二套：登录会话用固定的"任务 id" `TERMINAL_LOGIN_ID`（`"terminal-login"`，`shared/ipc.ts`），主进程在 `getTspSnapshot` / `sendTspEvent` / `sendTspKeys` 里按它路由到 `TerminalLogin`（任务池不认识它），批次经 `tspBatch` 事件推（序号规则同任务：每个进程结束后序号往后让一格，渲染进程手里的旧镜像发现丢帧就重拉快照）。preload 只多暴露 `startTerminalLogin`、`cancelTerminalLogin` 两个函数。
+- `TerminalLoginBody` 只画那个会话的 `layer`（`TspChildren`），对话区（main）、dock、toast 不画；每次打开 / 重试先 `dropTspDocument` 再 `ensureTspDocument`（新进程，镜像从空开始），卸载时丢掉。omp 的弹窗是盖在过程区上的绝对定位浮层，`providers.css` 的 `.pv-terminal` 把它摊平成对话框正文：去掉遮罩、阴影、omp 自带的标题（对话框标题是 provider 名），并隐藏 omp 自己的 Cancel 按钮（页脚的"取消"是同一件事）。
+- 点击和输入：按钮发 `action`、输入框发 `edit` / 按键字节，都经 `sendTspEvent` / `sendTspKeys`；主进程拒绝 `send` 事件（登录窗不需要，放行就是让渲染进程把临时 omp 当成可以提问的会话）。链接：`omp.btn` 的 `open` 动作走 `openHref` → `openExternal`（主进程只放行 http / https）。
+- 取消 / 关闭对话框（取消按钮、Esc、×）= `cancelTerminalLogin` = 结束进程；`start` 以 `cancelled` 结束，对话框直接关。渲染进程自己重载时旧进程不会被自动结束（对话框没了，没人调 cancel），它跑到 omp 自己结束（设备码过期会以失败结束）、被下一次 `start` 顶掉或应用退出为止。
+
+### 实测：`/login github-copilot`（omp 18.12.6，临时 agent 目录，没有账号）
+
+方法：`TspSession` 驱动真实 omp（`--no-session`，`PI_CODING_AGENT_DIR` 指向临时目录，`PI_TUI_TSP_RECORD` 录制），`send` `/login github-copilot`，再用 `action` 事件点按钮。录制裁进 `fixtures/tsp/login-github-copilot.jsonl`（设备码换成 GitHub 文档里的示例 `WDJB-MJHT`；录制里相邻帧间隔超过 400 ms 的压到 400 ms）和 `login-failed.jsonl`。
+
+1. `/login github-copilot` 之后：main 里一个 status toast `Logging in to github-copilot…`，layer 里一个 modal `overlay`（`role: omp.overlay.login`，`head: Sign in to GitHub Copilot`，`size: md`），里面 `omp.login.body` → `omp.login.prompt`（`omp.login.label` 文字 `GitHub Enterprise URL/domain (blank for github.com)`）→ 一个 `input` 节点（`placeholder: company.ghe.com`，focus 在它上），底下 `omp.actions` 行：`cancel`（`actions.click: cancel`）和 `submit`（`Continue`，`tone: accent`），都是 `omp.btn`。
+2. 空着点 `Continue`（`action act=submit id=r.^sheet/0/actions/submit`）：输入框步骤被删，body 里出现 `omp.login.lead`（"Enter this code on the sign-in page to connect your account."）、`omp.login.code`（row，`actions.click: copy`，`href` = 设备码，`title: Copy code`）、`omp.login.link`（`omp.login.url` 文字 `https://github.com/login/device`，旁边一个 `copyLink` 按钮，`copy` 动作，`href` = 链接）、`omp.login.status` → `omp.login.waiting`（spinner "Waiting for you to finish in the browser…"）；actions 行多一个 `openLink`（`Open sign-in page`，`actions.click: open`，`href`，`tone: accent`），`submit` 被删。设备码是 GitHub 真实发的（联网，不需要账号）。
+3. 点 `cancel`（或 Esc）：同一帧里 `set` 已有的 status toast 文字为 `Login cancelled`（**不是新增**，所以 `statusNotes` 里没有它），登录窗和 `r` 一起被删，omp 输入框（`omp.editor`）恢复。进程不退出。
+4. 失败（`HTTPS_PROXY` 指向关闭的端口，Continue 之后）：同一帧里 main 末尾多一个 text `Error: Login failed: ECONNREFUSED: Unable to connect. Is the computer able to access the url?`（`s: error`），登录窗被删，输入框恢复。进程不退出。
+5. 其他五个 provider 的第一步（只发 `/login`，看登录窗的 `omp.login.label`）：`lm-studio` "Optional: Paste LM Studio API key (to customize endpoint URL, set LM_STUDIO_BASE_URL env var)"；`perplexity` "Login method: sso (browser) or email; blank for sso"（同时有一行 `omp.login.waiting`）；`snowflake` "Enter your Snowflake account identifier or URL"；`alibaba-coding-plan` "Select Alibaba Coding Plan endpoint: 1=International (default), 2=China, 3=Custom — enter 1, 2, or 3"；`alibaba-token-plan` 同样的区域选择。都是 `input` 节点 + Continue / Cancel，和 github-copilot 同一个结构。
+
+### 结果判断（`deriveLoginFlow`）
+
+- `running`：有 `overlay`、role 以 `omp.overlay.login` 开头；`success`：任何 text 节点含 `Successfully logged in to`；`failed`：text 节点含 `Login failed:`，原因取它后面的文字；`cancelled`：status toast 文字是 `Login cancelled`；否则 `idle`。结果优先于 `running`（结果文字和关窗同帧）。
+- 登录窗开过、之后没了、又没有任何结果文字（omp 措辞变了）：宽限 1.5 秒后以失败结束（"omp closed the sign-in window without reporting a result"），不让对话框空着。
+- **成功的帧没有实测**（没有真实账号，也不能真的登录）：文字出自 omp 18.12.6 源码 `selector-controller.ts` 的 `#b`（`ctx.present` 一行 "<图标> Successfully logged in to <provider>[ as <账号>]" 和 "Credentials saved to <路径>"，再关登录窗；凭据在 `oauth.login` 返回时已经写进 agent.db，`refreshProvider` 也在这行文字之前）。单测里的成功帧是把失败录制的结果帧里那行错误文字换成这行文字（`test/tsp-login-flow.test.ts`、`test/terminal-login.test.ts`），不是录制。omp 改了这行文字，成功会被当成"登录窗关了没结果"报失败；界面重读 provider 状态后列表仍然是对的。
+
+### 没实测的
+
+- 成功帧（见上）、`perplexity` / `snowflake` / `lm-studio` / `alibaba-*` 第一步之后的步骤（只实测了每个的第一屏）；omp 在设备码页是否自己也去开系统浏览器（源码里登录窗的第四个构造参数 `hm` 会在 `showAuth` 时被调用 [推测：就是开浏览器]）——开了的话用户点 `Open sign-in page` 会多开一次，无害。
+- 渲染进程重载时旧登录进程的清理（见上，没有自动结束）。
 
 ## 已知风险：API key 会被 agent 执行的命令继承
 

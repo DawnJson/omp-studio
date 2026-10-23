@@ -196,18 +196,21 @@ function start(): void {
   if (started) return;
   started = true;
   window.studio.onTspBatch(onBatch);
-  window.studio.onTaskRemoved((taskId) => {
-    mirrors.delete(taskId);
-    fetching.delete(taskId);
-    cachedSurfaces.delete(taskId);
-    notifyTask(taskId);
-  });
+  window.studio.onTaskRemoved(dropTspDocument);
 }
 
 /** 打开一个 TSP 任务的画面时调用：订阅事件，没有镜像就拉快照。可重复调用。 */
 export function ensureTspDocument(taskId: TaskId): void {
   start();
   if (!mirrors.has(taskId)) fetchSnapshot(taskId);
+}
+
+/** 丢掉一份镜像（任务被移除；应用内登录的临时会话每次登录都是一个新进程，对话框打开 / 重试时先丢掉上一次的）。之后再 ensure 会重新拉快照。 */
+export function dropTspDocument(taskId: TaskId): void {
+  mirrors.delete(taskId);
+  fetching.delete(taskId);
+  cachedSurfaces.delete(taskId);
+  notifyTask(taskId);
 }
 
 // ───────── 读取 ─────────

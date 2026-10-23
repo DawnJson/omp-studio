@@ -1,0 +1,1086 @@
+{"t":1792773454833,"dir":"out","verb":"o","body":{"id":"s:1","mode":"inline","title":"omp","role":"omp.session"}}
+{"t":1792773454836,"dir":"out","verb":"t","body":{"sf":"s:1","name":{"dark":"titanium","light":"light"},"dark":{"accent":"#00b4ff","border":"#2a3038","borderAccent":"#00b4ff","borderMuted":"#1f252d","success":"#00ff88","error":"#ff4757","warning":"#ffb347","muted":"#9ca3b0","dim":"#6b7280","thinkingText":"#9ca3b0","selectedBg":"#0082b3","userMessageBg":"#0f1216","customMessageBg":"#2a3038","customMessageLabel":"#d4c090","toolPendingBg":"#0f1216","toolSuccessBg":"#0f1216","toolErrorBg":"#1a0f10","toolOutput":"#9ca3b0","mdHeading":"#00b4ff","mdLink":"#00b4ff","mdLinkUrl":"#0082b3","mdCode":"#00ff88","mdCodeBlock":"#9ca3b0","mdCodeBlockBorder":"#2a3038","mdQuote":"#9ca3b0","mdQuoteBorder":"#2a3038","mdHr":"#2a3038","mdListBullet":"#00b4ff","toolDiffAdded":"#00ff88","toolDiffRemoved":"#ff4757","toolDiffContext":"#9ca3b0","syntaxComment":"#6b7280","syntaxKeyword":"#00b4ff","syntaxFunction":"#00ff88","syntaxVariable":"#e8ecf4","syntaxString":"#d4c090","syntaxNumber":"#ffb347","syntaxType":"#00b4ff","syntaxOperator":"#00b4ff","syntaxPunctuation":"#9ca3b0","thinkingOff":"#4a5058","thinkingMinimal":"#5a6068","thinkingLow":"#6a7078","thinkingMedium":"#9ca3b0","thinkingHigh":"#00b4ff","thinkingXhigh":"#d4c090","bashMode":"#00ff88","statusLineBg":"#0f1216","statusLineSep":"#2a3038","statusLineModel":"#00b4ff","statusLinePath":"#e8ecf4","statusLineGitClean":"#00ff88","statusLineGitDirty":"#ffb347","statusLineContext":"#9ca3b0","statusLineSpend":"#d4c090","statusLineStaged":"#00ff88","statusLineDirty":"#ffb347","statusLineUntracked":"#9ca3b0","statusLineOutput":"#0082b3","statusLineCost":"#d4c090","statusLineSubagents":"#00b4ff","pythonMode":"#f0c040","pageBg":"#151820","cardBg":"#0f1216","infoBg":"#2a3038"},"light":{"accent":"#5a8080","border":"#547da7","borderAccent":"#5a8080","borderMuted":"#b0b0b0","success":"#588458","error":"#aa5555","warning":"#9a7326","muted":"#6c6c6c","dim":"#767676","thinkingText":"#6c6c6c","selectedBg":"#d0d0e0","userMessageBg":"#e8e8e8","customMessageBg":"#ede7f6","customMessageLabel":"#7e57c2","toolPendingBg":"#e8e8f0","toolSuccessBg":"#e8f0e8","toolErrorBg":"#f0e8e8","toolOutput":"#6c6c6c","mdHeading":"#9a7326","mdLink":"#547da7","mdLinkUrl":"#767676","mdCode":"#5a8080","mdCodeBlock":"#588458","mdCodeBlockBorder":"#6c6c6c","mdQuote":"#6c6c6c","mdQuoteBorder":"#6c6c6c","mdHr":"#6c6c6c","mdListBullet":"#588458","toolDiffAdded":"#588458","toolDiffRemoved":"#aa5555","toolDiffContext":"#6c6c6c","syntaxComment":"#008000","syntaxKeyword":"#0000FF","syntaxFunction":"#795E26","syntaxVariable":"#001080","syntaxString":"#A31515","syntaxNumber":"#098658","syntaxType":"#267F99","syntaxOperator":"#000000","syntaxPunctuation":"#000000","thinkingOff":"#b0b0b0","thinkingMinimal":"#767676","thinkingLow":"#547da7","thinkingMedium":"#5a8080","thinkingHigh":"#875f87","thinkingXhigh":"#8b008b","bashMode":"#588458","statusLineBg":"#e0e0e0","statusLineSep":"#808080","statusLineModel":"#875f87","statusLinePath":"#005f87","statusLineGitClean":"#005f00","statusLineGitDirty":"#af5f00","statusLineContext":"#5f5f87","statusLineSpend":"#005f5f","statusLineStaged":"#008700","statusLineDirty":"#af8700","statusLineUntracked":"#0087af","statusLineOutput":"#af5faf","statusLineCost":"#af5faf","statusLineSubagents":"#5a8080","pythonMode":"#9a7326","pageBg":"#f8f8f8","cardBg":"#ffffff","infoBg":"#fffae6"}}}
+{"t":1792773454865,"dir":"out","verb":"f","body":{"sf":"s:1","s":1,"ops":[["add","main","s:1",null,{"id":"main","k":"col"}],["add","dock","s:1",null,{"id":"dock","k":"col"}],["add","layer","s:1",null,{"id":"layer","k":"col"}],["add","0","main",null,{"id":"0","k":"spacer","p":{"size":"sm"}}],["add","1","main",null,{"id":"1","k":"card","p":{"role":"omp.welcome"},"c":[{"id":"1.lockup","k":"row","p":{"align":"center","gap":"md","role":"omp.welcome.lockup"},"c":[{"id":"1.lockup/logo","k":"image","p":{"builtin":"omp","alt":"omp","w":128,"role":"omp.welcome.logo"}},{"id":"1.lockup/mark","k":"col","p":{"role":"omp.welcome.mark"},"c":[{"id":"1.lockup/mark/omp.welcome.wordmark","k":"text","p":{"wrap":"none","role":"omp.welcome.wordmark","spans":[{"t":"omp","s":"strong"}]}},{"id":"1.lockup/mark/omp.welcome.version","k":"text","p":{"wrap":"none","role":"omp.welcome.version","spans":[{"t":"v18.12.6","s":"dim mono"}]}}]}]},{"id":"1.tip","k":"row","p":{"gap":"sm","align":"start","role":"omp.welcome.tip"},"c":[{"id":"1.tip/0","k":"icon","p":{"name":"lightbulb","role":"omp.welcome.tip-icon"}},{"id":"1.tip/1","k":"text","p":{"wrap":"word","role":"omp.welcome.tip-text","text":"Did you know? Each kitty/tmux/cmux/zellij/wezterm split keeps its own session — `omp -c` resumes the right one"}}]}]}],["add","2","main",null,{"id":"2","k":"spacer","p":{"size":"sm"}}],["add","3","dock",null,{"id":"3","k":"row","p":{"role":"omp.hud","justify":"end","hidden":true}}],["add","4","dock",null,{"id":"4","k":"col"}],["add","5","dock",null,{"id":"5","k":"col"}],["add","6","dock",null,{"id":"6","k":"col"}],["add","7","dock",null,{"id":"7","k":"col"}],["add","8","dock",null,{"id":"8","k":"col"}],["add","9","dock",null,{"id":"9","k":"col"}],["add","a","dock",null,{"id":"a","k":"col","c":[{"id":"g","k":"col","p":{"role":"omp.hud.judge"}},{"id":"h","k":"col","p":{"role":"omp.hud.downloads"}}]}],["add","b","dock",null,{"id":"b","k":"col"}],["add","c","dock",null,{"id":"c","k":"col"}],["add","d","dock",null,{"id":"d","k":"col","c":[{"id":"i","k":"col"}]}],["add","e","dock",null,{"id":"e","k":"col","c":[{"id":"j","k":"col","p":{"role":"omp.editor"},"c":[{"id":"j.context","k":"meter","p":{"role":"omp.composer.context","value":0.007946,"style":"bar","thresholds":{"warn":0.15,"bad":0.5},"marks":[{"at":0.818,"icon":"context.speculation","title":"Compaction summary starts at 82%"},{"at":0.85,"icon":"context.compaction","title":"Auto-compact at 85%"}],"label":"1%","total":"1M","title":"Context 1% used\n7.9K of 1M tokens\nAuto-compact at 85%","actions":{"click":"status.context"}}},{"id":"k","k":"row","p":{"gap":"sm","wrap":true,"role":"omp.composer.chips","hidden":true}},{"id":"j.line","k":"row","p":{"role":"omp.composer.line","align":"start","gap":"sm"},"c":[{"id":"j.line/input","k":"editor","p":{"text":"","cursor":0,"sendable":false,"placeholder":"What are we cooking?","maxLines":18}}]},{"id":"j.bar","k":"row","p":{"role":"omp.composer.bar","gap":"sm","align":"center"},"c":[{"id":"j.bar/model","k":"row","p":{"role":"omp.composer.model","gap":"xs","align":"center","title":"Switch model  Alt+P","actions":{"click":"status.model"}},"c":[{"id":"j.bar/model/effort","k":"effort","p":{"level":"high","role":"omp.composer.model.effort","title":"Thinking effort: high  ⇧⇥","actions":{"click":"thinking.cycle"}}},{"id":"j.bar/model/name","k":"text","p":{"spans":[{"t":"DeepSeek V4 Flash","s":"statusLineModel"}],"wrap":"none"}},{"id":"j.bar/model/chev","k":"icon","p":{"name":"chev"}}]},{"id":"j.bar/extras","k":"status","p":{"role":"omp.composer.extras","transparent":true,"grow":1},"c":[{"id":"j.bar/extras/git","k":"seg","p":{"role":"omp.composer.fact","priority":1004,"actions":{"click":"status.git"},"spans":[{"t":"master","s":"statusLineGitClean"}],"icon":"branch"}}]},{"id":"j.bar/usage","k":"text","p":{"role":"omp.composer.usage","text":"$0.00 ↓","wrap":"none","title":"Session cost $0.00 ↓","actions":{"click":"status.cost"}}},{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}]}]}]}],["add","f","dock",null,{"id":"f","k":"col"}],["focus","j.line/input"]]}}
+{"t":1792773454877,"dir":"out","verb":"f","body":{"sf":"s:1","s":2,"ops":[["add","l","d",null,{"id":"l","k":"col"}],["del","i"]]}}
+{"t":1792773454898,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":1}}
+{"t":1792773454898,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":2}}
+{"t":1792773454983,"dir":"out","verb":"f","body":{"sf":"s:1","s":3,"ops":[["add","m","main","1",{"id":"m","k":"spacer","p":{"size":"sm"}}],["add","n","main",null,{"id":"n","k":"spacer","p":{"size":"sm"}}],["set","j.line/input",{"sendable":true}],["del","0"],["del","2"]]}}
+{"t":1792773454986,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":3}}
+{"t":1792773458842,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"Write a 150-word paragraph about rivers."}}
+{"t":1792773458846,"dir":"out","verb":"f","body":{"sf":"s:1","s":4,"ops":[["add","o","main",null,{"id":"o","k":"card","p":{"role":"omp.user","tone":"user"},"c":[{"id":"o.tools","k":"row","p":{"gap":"xs","align":"center","role":"omp.user.tools"},"c":[{"id":"o.tools/copy","k":"icon","p":{"name":"copy","role":"omp.user.tool","title":"Copy message","aria":"Copy message","actions":{"click":"copy-message"}}},{"id":"o.tools/rewind","k":"icon","p":{"name":"rewind","role":"omp.user.tool","title":"Rewind the conversation to an earlier message","aria":"Rewind","actions":{"click":"rewind"}}},{"id":"o.tools/dot","k":"text","p":{"text":"·"}},{"id":"o.tools/3","k":"text","p":{"role":"omp.user.time","title":"2026/10/23 16:37:38","spans":[{"t":"16:37","s":"dim mono"}]}}]},{"id":"o.1","k":"md","p":{"text":"Write a 150-word paragraph about rivers."}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"row","p":{"role":"omp.hud.activity","align":"center","gap":"sm"},"c":[{"id":"b.status","k":"col","p":{"role":"omp.hud.status"},"c":[{"id":"p","k":"row","p":{"role":"omp.working","align":"center","gap":"sm"},"c":[{"id":"p.spinner","k":"spinner","p":{"style":"starburst","tone":"accent"}},{"id":"p.elapsed","k":"elapsed","p":{"age":1,"format":"short"}},{"id":"p.sep","k":"text","p":{"text":"·","role":"omp.working.sep"}},{"id":"p.label","k":"shimmer","p":{"spans":[{"t":"Working…","s":"muted"}],"mode":"classic","palette":{"low":"dim","mid":"muted","high":"accent"},"role":"omp.working.label"}},{"id":"p.fill","k":"row","p":{"grow":1}},{"id":"p.stop","k":"row","p":{"role":"omp.working.stop","gap":"xs","align":"center","title":"Stop  esc","actions":{"click":"interrupt"}},"c":[{"id":"p.stop/0","k":"kbd","p":{"keys":["escape"]}},{"id":"p.stop/1","k":"text","p":{"text":"Stop"}}]}]}]}]}],["set","j",{"tone":"pending"}],["add","j.bar/stop","j.bar",null,{"id":"j.bar/stop","k":"text","p":{"role":"omp.composer.stop","text":"Stop","tone":"error","title":"Stop  esc","actions":{"click":"interrupt"}}}],["del","j.bar/send"],["settle","o"]]}}
+{"t":1792773458852,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":4}}
+{"t":1792773458858,"dir":"out","verb":"f","body":{"sf":"s:1","s":5,"ops":[["set","j.context",{"value":0.007955,"title":"Context 1% used\n8K of 1M tokens\nAuto-compact at 85%"}]]}}
+{"t":1792773458860,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":5}}
+{"t":1792773459762,"dir":"out","verb":"f","body":{"sf":"s:1","s":6,"ops":[["add","q","main",null,{"id":"q","k":"col","p":{"role":"omp.assistant"}}]]}}
+{"t":1792773459764,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":6}}
+{"t":1792773459796,"dir":"out","verb":"f","body":{"sf":"s:1","s":7,"ops":[["add","q.k0","q",null,{"id":"q.k0","k":"section","p":{"role":"omp.thinking.live","collapsible":true,"collapsed":false,"head":"q.k0/head"},"c":[{"id":"q.k0/head","k":"row","p":{"gap":"sm"},"c":[{"id":"q.k0/head/0","k":"spinner","p":{"style":"starburst","role":"omp.thinking.spin"}},{"id":"q.k0/head/1","k":"text","p":{"spans":[{"t":"Thinking…","s":"muted"}]}},{"id":"q.k0/head/2","k":"elapsed","p":{"age":0,"format":"short"}}]},{"id":"q.k0/body","k":"md","p":{"text":"The","stream":true}}]}]]}}
+{"t":1792773459798,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":7}}
+{"t":1792773459829,"dir":"out","verb":"f","body":{"sf":"s:1","s":8,"ops":[["set","q.k0/head/2",{"age":34}],["text","q.k0/body","append"," us"]]}}
+{"t":1792773459831,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":8}}
+{"t":1792773459863,"dir":"out","verb":"f","body":{"sf":"s:1","s":9,"ops":[["set","q.k0/head/2",{"age":67}],["text","q.k0/body","append","er"]]}}
+{"t":1792773459864,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":9}}
+{"t":1792773459899,"dir":"out","verb":"f","body":{"sf":"s:1","s":10,"ops":[["set","q.k0/head/2",{"age":103}],["text","q.k0/body","append"," asks for a 150-"]]}}
+{"t":1792773459900,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":10}}
+{"t":1792773459932,"dir":"out","verb":"f","body":{"sf":"s:1","s":11,"ops":[["set","q.k0/head/2",{"age":137}],["text","q.k0/body","append","word paragraph"]]}}
+{"t":1792773459934,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":11}}
+{"t":1792773459966,"dir":"out","verb":"f","body":{"sf":"s:1","s":12,"ops":[["set","q.k0/head/2",{"age":171}],["text","q.k0/body","append"," about rivers. This"]]}}
+{"t":1792773459968,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":12}}
+{"t":1792773460000,"dir":"out","verb":"f","body":{"sf":"s:1","s":13,"ops":[["set","q.k0/head/2",{"age":204}],["text","q.k0/body","append"," is a straightfo"]]}}
+{"t":1792773460002,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":13}}
+{"t":1792773460033,"dir":"out","verb":"f","body":{"sf":"s:1","s":14,"ops":[["set","q.k0/head/2",{"age":237}],["text","q.k0/body","append","rward writing"]]}}
+{"t":1792773460034,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":14}}
+{"t":1792773460068,"dir":"out","verb":"f","body":{"sf":"s:1","s":15,"ops":[["set","q.k0/head/2",{"age":272}],["text","q.k0/body","append"," task. No need for s"]]}}
+{"t":1792773460069,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":15}}
+{"t":1792773460104,"dir":"out","verb":"f","body":{"sf":"s:1","s":16,"ops":[["set","q.k0/head/2",{"age":308}],["text","q.k0/body","append","kills. Just write"]]}}
+{"t":1792773460106,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":16}}
+{"t":1792773460137,"dir":"out","verb":"f","body":{"sf":"s:1","s":17,"ops":[["set","q.k0/head/2",{"age":341}],["text","q.k0/body","append"," ~150 words. Let m"]]}}
+{"t":1792773460139,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":17}}
+{"t":1792773460176,"dir":"out","verb":"f","body":{"sf":"s:1","s":18,"ops":[["set","q.k0/head/2",{"age":380}],["text","q.k0/body","append","e count carefully."]]}}
+{"t":1792773460178,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":18}}
+{"t":1792773460206,"dir":"out","verb":"f","body":{"sf":"s:1","s":19,"ops":[["set","q.k0/head/2",{"age":410}],["text","q.k0/body","append","\n\nLet me draft and"]]}}
+{"t":1792773460207,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":19}}
+{"t":1792773460239,"dir":"out","verb":"f","body":{"sf":"s:1","s":20,"ops":[["set","q.k0/head/2",{"age":443}],["text","q.k0/body","append"," check word count."]]}}
+{"t":1792773460241,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":20}}
+{"t":1792773460273,"dir":"out","verb":"f","body":{"sf":"s:1","s":21,"ops":[["set","q.k0/head/2",{"age":477}],["text","q.k0/body","append","\n\nDraft:\n\n\"Rivers are"]]}}
+{"t":1792773460275,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":21}}
+{"t":1792773460306,"dir":"out","verb":"f","body":{"sf":"s:1","s":22,"ops":[["set","q.k0/head/2",{"age":511}],["text","q.k0/body","append"," the arteries of t"]]}}
+{"t":1792773460308,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":22}}
+{"t":1792773460340,"dir":"out","verb":"f","body":{"sf":"s:1","s":23,"ops":[["set","q.k0/head/2",{"age":545}],["text","q.k0/body","append","he land, carryin"]]}}
+{"t":1792773460342,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":23}}
+{"t":1792773460375,"dir":"out","verb":"f","body":{"sf":"s:1","s":24,"ops":[["set","q.k0/head/2",{"age":579}],["text","q.k0/body","append","g water, sediment"]]}}
+{"t":1792773460376,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":24}}
+{"t":1792773460409,"dir":"out","verb":"f","body":{"sf":"s:1","s":25,"ops":[["set","q.k0/head/2",{"age":613}],["text","q.k0/body","append",", and stories f"]]}}
+{"t":1792773460411,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":25}}
+{"t":1792773460441,"dir":"out","verb":"f","body":{"sf":"s:1","s":26,"ops":[["set","q.k0/head/2",{"age":646}],["text","q.k0/body","append","rom high ground to"]]}}
+{"t":1792773460443,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":26}}
+{"t":1792773460475,"dir":"out","verb":"f","body":{"sf":"s:1","s":27,"ops":[["set","q.k0/head/2",{"age":679}],["text","q.k0/body","append"," the sea. A river"]]}}
+{"t":1792773460477,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":27}}
+{"t":1792773460508,"dir":"out","verb":"f","body":{"sf":"s:1","s":28,"ops":[["set","q.k0/head/2",{"age":713}],["text","q.k0/body","append"," begins as a trickle"]]}}
+{"t":1792773460509,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":28}}
+{"t":1792773460542,"dir":"out","verb":"f","body":{"sf":"s:1","s":29,"ops":[["set","q.k0/head/2",{"age":747}],["text","q.k0/body","append"," in a mountain spri"]]}}
+{"t":1792773460543,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":29}}
+{"t":1792773460577,"dir":"out","verb":"f","body":{"sf":"s:1","s":30,"ops":[["set","q.k0/head/2",{"age":781}],["text","q.k0/body","append","ng, gathers stre"]]}}
+{"t":1792773460578,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":30}}
+{"t":1792773460611,"dir":"out","verb":"f","body":{"sf":"s:1","s":31,"ops":[["set","q.k0/head/2",{"age":815}],["text","q.k0/body","append","ngth from rain and"]]}}
+{"t":1792773460612,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":31}}
+{"t":1792773460645,"dir":"out","verb":"f","body":{"sf":"s:1","s":32,"ops":[["set","q.k0/head/2",{"age":849}],["text","q.k0/body","append"," tributaries, and"]]}}
+{"t":1792773460646,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":32}}
+{"t":1792773460677,"dir":"out","verb":"f","body":{"sf":"s:1","s":33,"ops":[["set","q.k0/head/2",{"age":882}],["text","q.k0/body","append"," carves valleys as"]]}}
+{"t":1792773460679,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":33}}
+{"t":1792773460711,"dir":"out","verb":"f","body":{"sf":"s:1","s":34,"ops":[["set","q.k0/head/2",{"age":915}],["text","q.k0/body","append"," it descends. Al"]]}}
+{"t":1792773460713,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":34}}
+{"t":1792773460744,"dir":"out","verb":"f","body":{"sf":"s:1","s":35,"ops":[["set","q.k0/head/2",{"age":949}],["text","q.k0/body","append","ong the way it shap"]]}}
+{"t":1792773460746,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":35}}
+{"t":1792773460779,"dir":"out","verb":"f","body":{"sf":"s:1","s":36,"ops":[["set","q.k0/head/2",{"age":983}],["text","q.k0/body","append","es floodplains, d"]]}}
+{"t":1792773460780,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":36}}
+{"t":1792773460811,"dir":"out","verb":"f","body":{"sf":"s:1","s":37,"ops":[["set","q.k0/head/2",{"age":1016}],["text","q.k0/body","append","eposits fertile silt"]]}}
+{"t":1792773460812,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":37}}
+{"t":1792773460845,"dir":"out","verb":"f","body":{"sf":"s:1","s":38,"ops":[["set","q.k0/head/2",{"age":1049}],["text","q.k0/body","append",", and sustains we"]]}}
+{"t":1792773460847,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":38}}
+{"t":1792773460880,"dir":"out","verb":"f","body":{"sf":"s:1","s":39,"ops":[["set","q.k0/head/2",{"age":1084}],["text","q.k0/body","append","tlands that teem"]]}}
+{"t":1792773460881,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":39}}
+{"t":1792773460913,"dir":"out","verb":"f","body":{"sf":"s:1","s":40,"ops":[["set","q.k0/head/2",{"age":1117}],["text","q.k0/body","append"," with life. Civiliza"]]}}
+{"t":1792773460914,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":40}}
+{"t":1792773460947,"dir":"out","verb":"f","body":{"sf":"s:1","s":41,"ops":[["set","q.k0/head/2",{"age":1151}],["text","q.k0/body","append","tions have always"]]}}
+{"t":1792773460949,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":41}}
+{"t":1792773460980,"dir":"out","verb":"f","body":{"sf":"s:1","s":42,"ops":[["set","q.k0/head/2",{"age":1184}],["text","q.k0/body","append"," clustered along ri"]]}}
+{"t":1792773460981,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":42}}
+{"t":1792773461014,"dir":"out","verb":"f","body":{"sf":"s:1","s":43,"ops":[["set","q.k0/head/2",{"age":1218}],["text","q.k0/body","append","vers—the Nile, the"]]}}
+{"t":1792773461015,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":43}}
+{"t":1792773461052,"dir":"out","verb":"f","body":{"sf":"s:1","s":44,"ops":[["set","q.k0/head/2",{"age":1256}],["text","q.k0/body","append"," Ganges, the Yangtze—"]]}}
+{"t":1792773461053,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":44}}
+{"t":1792773461085,"dir":"out","verb":"f","body":{"sf":"s:1","s":45,"ops":[["set","q.k0/head/2",{"age":1289}],["text","q.k0/body","append","because water mean"]]}}
+{"t":1792773461086,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":45}}
+{"t":1792773461114,"dir":"out","verb":"f","body":{"sf":"s:1","s":46,"ops":[["set","q.k0/head/2",{"age":1318}],["text","q.k0/body","append","s crops, transpo"]]}}
+{"t":1792773461116,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":46}}
+{"t":1792773461149,"dir":"out","verb":"f","body":{"sf":"s:1","s":47,"ops":[["set","q.k0/head/2",{"age":1353}],["text","q.k0/body","append","rt, and trade. Riv"]]}}
+{"t":1792773461151,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":47}}
+{"t":1792773461183,"dir":"out","verb":"f","body":{"sf":"s:1","s":48,"ops":[["set","q.k0/head/2",{"age":1388}],["text","q.k0/body","append","ers also power tu"]]}}
+{"t":1792773461185,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":48}}
+{"t":1792773461219,"dir":"out","verb":"f","body":{"sf":"s:1","s":49,"ops":[["set","q.k0/head/2",{"age":1423}],["text","q.k0/body","append","rbines, irrigate fie"]]}}
+{"t":1792773461220,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":49}}
+{"t":1792773461251,"dir":"out","verb":"f","body":{"sf":"s:1","s":50,"ops":[["set","q.k0/head/2",{"age":1456}],["text","q.k0/body","append","lds, and provide d"]]}}
+{"t":1792773461253,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":50}}
+{"t":1792773461285,"dir":"out","verb":"f","body":{"sf":"s:1","s":51,"ops":[["set","q.k0/head/2",{"age":1490}],["text","q.k0/body","append","rinking water for bi"]]}}
+{"t":1792773461286,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":51}}
+{"t":1792773461319,"dir":"out","verb":"f","body":{"sf":"s:1","s":52,"ops":[["set","q.k0/head/2",{"age":1524}],["text","q.k0/body","append","llions. Yet they are f"]]}}
+{"t":1792773461321,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":52}}
+{"t":1792773461352,"dir":"out","verb":"f","body":{"sf":"s:1","s":53,"ops":[["set","q.k0/head/2",{"age":1557}],["text","q.k0/body","append","ragile. Dams fragme"]]}}
+{"t":1792773461354,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":53}}
+{"t":1792773461387,"dir":"out","verb":"f","body":{"sf":"s:1","s":54,"ops":[["set","q.k0/head/2",{"age":1591}],["text","q.k0/body","append","nt their flow, pollut"]]}}
+{"t":1792773461388,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":54}}
+{"t":1792773461419,"dir":"out","verb":"f","body":{"sf":"s:1","s":55,"ops":[["set","q.k0/head/2",{"age":1624}],["text","q.k0/body","append","ion poisons their cu"]]}}
+{"t":1792773461421,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":55}}
+{"t":1792773461453,"dir":"out","verb":"f","body":{"sf":"s:1","s":56,"ops":[["set","q.k0/head/2",{"age":1658}],["text","q.k0/body","append","rrents, and climate ch"]]}}
+{"t":1792773461454,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":56}}
+{"t":1792773461486,"dir":"out","verb":"f","body":{"sf":"s:1","s":57,"ops":[["set","q.k0/head/2",{"age":1691}],["text","q.k0/body","append","ange alters their sea"]]}}
+{"t":1792773461489,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":57}}
+{"t":1792773461520,"dir":"out","verb":"f","body":{"sf":"s:1","s":58,"ops":[["set","q.k0/head/2",{"age":1725}],["text","q.k0/body","append","sonal rhythms. Restor"]]}}
+{"t":1792773461522,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":58}}
+{"t":1792773461554,"dir":"out","verb":"f","body":{"sf":"s:1","s":59,"ops":[["set","q.k0/head/2",{"age":1758}],["text","q.k0/body","append","ing a river means r"]]}}
+{"t":1792773461555,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":59}}
+{"t":1792773461587,"dir":"out","verb":"f","body":{"sf":"s:1","s":60,"ops":[["set","q.k0/head/2",{"age":1792}],["text","q.k0/body","append","estoring everyth"]]}}
+{"t":1792773461588,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":60}}
+{"t":1792773461621,"dir":"out","verb":"f","body":{"sf":"s:1","s":61,"ops":[["set","q.k0/head/2",{"age":1825}],["text","q.k0/body","append","ing connected to it:"]]}}
+{"t":1792773461622,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":61}}
+{"t":1792773461656,"dir":"out","verb":"f","body":{"sf":"s:1","s":62,"ops":[["set","q.k0/head/2",{"age":1860}],["text","q.k0/body","append"," fish migrations, ri"]]}}
+{"t":1792773461657,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":62}}
+{"t":1792773461689,"dir":"out","verb":"f","body":{"sf":"s:1","s":63,"ops":[["set","q.k0/head/2",{"age":1893}],["text","q.k0/body","append","parian forests, and th"]]}}
+{"t":1792773461691,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":63}}
+{"t":1792773461722,"dir":"out","verb":"f","body":{"sf":"s:1","s":64,"ops":[["set","q.k0/head/2",{"age":1926}],["text","q.k0/body","append","e communities downstr"]]}}
+{"t":1792773461723,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":64}}
+{"t":1792773461755,"dir":"out","verb":"f","body":{"sf":"s:1","s":65,"ops":[["set","q.k0/head/2",{"age":1959}],["text","q.k0/body","append","eam. To understand"]]}}
+{"t":1792773461756,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":65}}
+{"t":1792773461790,"dir":"out","verb":"f","body":{"sf":"s:1","s":66,"ops":[["set","q.k0/head/2",{"age":1994}],["text","q.k0/body","append"," a river is to under"]]}}
+{"t":1792773461791,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":66}}
+{"t":1792773461824,"dir":"out","verb":"f","body":{"sf":"s:1","s":67,"ops":[["set","q.k0/head/2",{"age":2029}],["text","q.k0/body","append","stand patience and"]]}}
+{"t":1792773461825,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":67}}
+{"t":1792773461858,"dir":"out","verb":"f","body":{"sf":"s:1","s":68,"ops":[["set","q.k0/head/2",{"age":2062}],["text","q.k0/body","append"," connection—every drop"]]}}
+{"t":1792773461859,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":68}}
+{"t":1792773461892,"dir":"out","verb":"f","body":{"sf":"s:1","s":69,"ops":[["set","q.k0/head/2",{"age":2096}],["text","q.k0/body","append"," passing through is on"]]}}
+{"t":1792773461894,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":69}}
+{"t":1792773461924,"dir":"out","verb":"f","body":{"sf":"s:1","s":70,"ops":[["set","q.k0/head/2",{"age":2129}],["text","q.k0/body","append"," its way somewhere else,"]]}}
+{"t":1792773461926,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":70}}
+{"t":1792773461957,"dir":"out","verb":"f","body":{"sf":"s:1","s":71,"ops":[["set","q.k0/head/2",{"age":2161}],["text","q.k0/body","append"," linking mountain to ocea"]]}}
+{"t":1792773461958,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":71}}
+{"t":1792773461993,"dir":"out","verb":"f","body":{"sf":"s:1","s":72,"ops":[["set","q.k0/head/2",{"age":2197}],["text","q.k0/body","append","n in one continuous, g"]]}}
+{"t":1792773461994,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":72}}
+{"t":1792773462026,"dir":"out","verb":"f","body":{"sf":"s:1","s":73,"ops":[["set","q.k0/head/2",{"age":2231}],["text","q.k0/body","append","enerous journey.\"\n\nCount w"]]}}
+{"t":1792773462027,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":73}}
+{"t":1792773462060,"dir":"out","verb":"f","body":{"sf":"s:1","s":74,"ops":[["set","q.k0/head/2",{"age":2265}],["text","q.k0/body","append","ords. Let me count in c"]]}}
+{"t":1792773462062,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":74}}
+{"t":1792773462094,"dir":"out","verb":"f","body":{"sf":"s:1","s":75,"ops":[["set","q.k0/head/2",{"age":2298}],["text","q.k0/body","append","hunks.\n\nSentence 1:"]]}}
+{"t":1792773462095,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":75}}
+{"t":1792773462127,"dir":"out","verb":"f","body":{"sf":"s:1","s":76,"ops":[["set","q.k0/head/2",{"age":2332}],["text","q.k0/body","append"," Rivers(1) are2 the3 arterie"]]}}
+{"t":1792773462129,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":76}}
+{"t":1792773462160,"dir":"out","verb":"f","body":{"sf":"s:1","s":77,"ops":[["set","q.k0/head/2",{"age":2365}],["text","q.k0/body","append","s4 of5 the6 land7, carryin"]]}}
+{"t":1792773462162,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":77}}
+{"t":1792773462194,"dir":"out","verb":"f","body":{"sf":"s:1","s":78,"ops":[["set","q.k0/head/2",{"age":2399}],["text","q.k0/body","append","g8 water9, sediment10, and11 sto"]]}}
+{"t":1792773462196,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":78}}
+{"t":1792773462227,"dir":"out","verb":"f","body":{"sf":"s:1","s":79,"ops":[["set","q.k0/head/2",{"age":2432}],["text","q.k0/body","append","ries12 from13 high14 ground15"]]}}
+{"t":1792773462229,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":79}}
+{"t":1792773462261,"dir":"out","verb":"f","body":{"sf":"s:1","s":80,"ops":[["set","q.k0/head/2",{"age":2465}],["text","q.k0/body","append"," to16 the17 sea18. = 18\n\nS2: A"]]}}
+{"t":1792773462262,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":80}}
+{"t":1792773462295,"dir":"out","verb":"f","body":{"sf":"s:1","s":81,"ops":[["set","q.k0/head/2",{"age":2499}],["text","q.k0/body","append","1 river2 begins3 as4 a5 tric"]]}}
+{"t":1792773462296,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":81}}
+{"t":1792773462327,"dir":"out","verb":"f","body":{"sf":"s:1","s":82,"ops":[["set","q.k0/head/2",{"age":2531}],["text","q.k0/body","append","kle6 in7 a8 mountain9 spring10,"]]}}
+{"t":1792773462328,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":82}}
+{"t":1792773462362,"dir":"out","verb":"f","body":{"sf":"s:1","s":83,"ops":[["set","q.k0/head/2",{"age":2566}],["text","q.k0/body","append"," gathers11 strength12 from1"]]}}
+{"t":1792773462363,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":83}}
+{"t":1792773462396,"dir":"out","verb":"f","body":{"sf":"s:1","s":84,"ops":[["set","q.k0/head/2",{"age":2600}],["text","q.k0/body","append","3 rain14 and15 tributarie"]]}}
+{"t":1792773462397,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":84}}
+{"t":1792773462430,"dir":"out","verb":"f","body":{"sf":"s:1","s":85,"ops":[["set","q.k0/head/2",{"age":2635}],["text","q.k0/body","append","s16, and17 carves18 valley"]]}}
+{"t":1792773462432,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":85}}
+{"t":1792773462465,"dir":"out","verb":"f","body":{"sf":"s:1","s":86,"ops":[["set","q.k0/head/2",{"age":2669}],["text","q.k0/body","append","s19 as20 it21 descends22. ="]]}}
+{"t":1792773462466,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":86}}
+{"t":1792773462498,"dir":"out","verb":"f","body":{"sf":"s:1","s":87,"ops":[["set","q.k0/head/2",{"age":2702}],["text","q.k0/body","append"," 22 → 40\n\nS3: Along1 the2 way"]]}}
+{"t":1792773462499,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":87}}
+{"t":1792773462531,"dir":"out","verb":"f","body":{"sf":"s:1","s":88,"ops":[["set","q.k0/head/2",{"age":2735}],["text","q.k0/body","append","3 it4 shapes5 floodplains6,"]]}}
+{"t":1792773462532,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":88}}
+{"t":1792773462564,"dir":"out","verb":"f","body":{"sf":"s:1","s":89,"ops":[["set","q.k0/head/2",{"age":2769}],["text","q.k0/body","append"," deposits7 fertile8 silt9, an"]]}}
+{"t":1792773462566,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":89}}
+{"t":1792773462599,"dir":"out","verb":"f","body":{"sf":"s:1","s":90,"ops":[["set","q.k0/head/2",{"age":2803}],["text","q.k0/body","append","d10 sustains11 wetlands12"]]}}
+{"t":1792773462600,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":90}}
+{"t":1792773462632,"dir":"out","verb":"f","body":{"sf":"s:1","s":91,"ops":[["set","q.k0/head/2",{"age":2837}],["text","q.k0/body","append"," that13 teem14 with15 lif"]]}}
+{"t":1792773462634,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":91}}
+{"t":1792773462667,"dir":"out","verb":"f","body":{"sf":"s:1","s":92,"ops":[["set","q.k0/head/2",{"age":2871}],["text","q.k0/body","append","e16. = 16 → 56\n\nS4: Civiliz"]]}}
+{"t":1792773462668,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":92}}
+{"t":1792773462700,"dir":"out","verb":"f","body":{"sf":"s:1","s":93,"ops":[["set","q.k0/head/2",{"age":2905}],["text","q.k0/body","append","ations1 have2 always3 clu"]]}}
+{"t":1792773462702,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":93}}
+{"t":1792773462733,"dir":"out","verb":"f","body":{"sf":"s:1","s":94,"ops":[["set","q.k0/head/2",{"age":2938}],["text","q.k0/body","append","stered4 along5 rivers6—the7 Nil"]]}}
+{"t":1792773462735,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":94}}
+{"t":1792773462768,"dir":"out","verb":"f","body":{"sf":"s:1","s":95,"ops":[["set","q.k0/head/2",{"age":2973}],["text","q.k0/body","append","e8, the9 Ganges10, the11 Yan"]]}}
+{"t":1792773462770,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":95}}
+{"t":1792773462800,"dir":"out","verb":"f","body":{"sf":"s:1","s":96,"ops":[["set","q.k0/head/2",{"age":3005}],["text","q.k0/body","append","gtze12—because13 water14 means1"]]}}
+{"t":1792773462802,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":96}}
+{"t":1792773462836,"dir":"out","verb":"f","body":{"sf":"s:1","s":97,"ops":[["set","q.k0/head/2",{"age":3040}],["text","q.k0/body","append","5 crops16, transport17, and"]]}}
+{"t":1792773462837,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":97}}
+{"t":1792773462868,"dir":"out","verb":"f","body":{"sf":"s:1","s":98,"ops":[["set","q.k0/head/2",{"age":3073}],["text","q.k0/body","append","18 trade19. = 19 → 75\n\nS5"]]}}
+{"t":1792773462870,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":98}}
+{"t":1792773462902,"dir":"out","verb":"f","body":{"sf":"s:1","s":99,"ops":[["set","q.k0/head/2",{"age":3107}],["text","q.k0/body","append",": Rivers1 also2 power3 turbi"]]}}
+{"t":1792773462904,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":99}}
+{"t":1792773462936,"dir":"out","verb":"f","body":{"sf":"s:1","s":100,"ops":[["set","q.k0/head/2",{"age":3141}],["text","q.k0/body","append","nes4, irrigate5 fields6, an"]]}}
+{"t":1792773462938,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":100}}
+{"t":1792773462970,"dir":"out","verb":"f","body":{"sf":"s:1","s":101,"ops":[["set","q.k0/head/2",{"age":3175}],["text","q.k0/body","append","d7 provide8 drinking9 water10 fo"]]}}
+{"t":1792773462972,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":101}}
+{"t":1792773463003,"dir":"out","verb":"f","body":{"sf":"s:1","s":102,"ops":[["set","q.k0/head/2",{"age":3208}],["text","q.k0/body","append","r11 billions12. = 12 → 87\n\nS6: Yet1"]]}}
+{"t":1792773463005,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":102}}
+{"t":1792773463038,"dir":"out","verb":"f","body":{"sf":"s:1","s":103,"ops":[["set","q.k0/head/2",{"age":3242}],["text","q.k0/body","append"," they2 are3 fragile4. = 4 → 91"]]}}
+{"t":1792773463039,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":103}}
+{"t":1792773463072,"dir":"out","verb":"f","body":{"sf":"s:1","s":104,"ops":[["set","q.k0/head/2",{"age":3277}],["text","q.k0/body","append","\n\nS7: Dams1 fragment2 their3 flow"]]}}
+{"t":1792773463074,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":104}}
+{"t":1792773463106,"dir":"out","verb":"f","body":{"sf":"s:1","s":105,"ops":[["set","q.k0/head/2",{"age":3310}],["text","q.k0/body","append","4, pollution5 poisons6 their"]]}}
+{"t":1792773463107,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":105}}
+{"t":1792773463140,"dir":"out","verb":"f","body":{"sf":"s:1","s":106,"ops":[["set","q.k0/head/2",{"age":3344}],["text","q.k0/body","append","7 currents8, and9 climate10 cha"]]}}
+{"t":1792773463141,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":106}}
+{"t":1792773463174,"dir":"out","verb":"f","body":{"sf":"s:1","s":107,"ops":[["set","q.k0/head/2",{"age":3379}],["text","q.k0/body","append","nge11 alters12 their13 seasonal14"]]}}
+{"t":1792773463175,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":107}}
+{"t":1792773463208,"dir":"out","verb":"f","body":{"sf":"s:1","s":108,"ops":[["set","q.k0/head/2",{"age":3412}],["text","q.k0/body","append"," rhythms15. = 15 → 106\n\nS8: Restor"]]}}
+{"t":1792773463209,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":108}}
+{"t":1792773463241,"dir":"out","verb":"f","body":{"sf":"s:1","s":109,"ops":[["set","q.k0/head/2",{"age":3446}],["text","q.k0/body","append","ing1 a2 river3 means4 restorin"]]}}
+{"t":1792773463243,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":109}}
+{"t":1792773463275,"dir":"out","verb":"f","body":{"sf":"s:1","s":110,"ops":[["set","q.k0/head/2",{"age":3479}],["text","q.k0/body","append","g5 everything6 connected7"]]}}
+{"t":1792773463276,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":110}}
+{"t":1792773463308,"dir":"out","verb":"f","body":{"sf":"s:1","s":111,"ops":[["set","q.k0/head/2",{"age":3513}],["text","q.k0/body","append"," to8 it9: fish10 migrations11, r"]]}}
+{"t":1792773463310,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":111}}
+{"t":1792773463341,"dir":"out","verb":"f","body":{"sf":"s:1","s":112,"ops":[["set","q.k0/head/2",{"age":3546}],["text","q.k0/body","append","iparian12 forests13, and14 the15"]]}}
+{"t":1792773463343,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":112}}
+{"t":1792773463374,"dir":"out","verb":"f","body":{"sf":"s:1","s":113,"ops":[["set","q.k0/head/2",{"age":3579}],["text","q.k0/body","append"," communities16 downstream17. = 17 →"]]}}
+{"t":1792773463377,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":113}}
+{"t":1792773463409,"dir":"out","verb":"f","body":{"sf":"s:1","s":114,"ops":[["set","q.k0/head/2",{"age":3613}],["text","q.k0/body","append"," 123\n\nS9: To1 understand2 a3 ri"]]}}
+{"t":1792773463410,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":114}}
+{"t":1792773463443,"dir":"out","verb":"f","body":{"sf":"s:1","s":115,"ops":[["set","q.k0/head/2",{"age":3647}],["text","q.k0/body","append","ver4 is5 to6 understand7 patience8"]]}}
+{"t":1792773463444,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":115}}
+{"t":1792773463477,"dir":"out","verb":"f","body":{"sf":"s:1","s":116,"ops":[["set","q.k0/head/2",{"age":3682}],["text","q.k0/body","append"," and9 connection10—every11 drop12"]]}}
+{"t":1792773463479,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":116}}
+{"t":1792773463511,"dir":"out","verb":"f","body":{"sf":"s:1","s":117,"ops":[["set","q.k0/head/2",{"age":3716}],["text","q.k0/body","append"," passing13 through14 is15 on1"]]}}
+{"t":1792773463512,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":117}}
+{"t":1792773463545,"dir":"out","verb":"f","body":{"sf":"s:1","s":118,"ops":[["set","q.k0/head/2",{"age":3750}],["text","q.k0/body","append","6 its17 way18 somewhere19"]]}}
+{"t":1792773463547,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":118}}
+{"t":1792773463578,"dir":"out","verb":"f","body":{"sf":"s:1","s":119,"ops":[["set","q.k0/head/2",{"age":3783}],["text","q.k0/body","append"," else20, linking21 mountai"]]}}
+{"t":1792773463579,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":119}}
+{"t":1792773463614,"dir":"out","verb":"f","body":{"sf":"s:1","s":120,"ops":[["set","q.k0/head/2",{"age":3819}],["text","q.k0/body","append","n22 to23 ocean24 in25 one"]]}}
+{"t":1792773463616,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":120}}
+{"t":1792773463647,"dir":"out","verb":"f","body":{"sf":"s:1","s":121,"ops":[["set","q.k0/head/2",{"age":3852}],["text","q.k0/body","append","26 continuous27, generous"]]}}
+{"t":1792773463648,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":121}}
+{"t":1792773463681,"dir":"out","verb":"f","body":{"sf":"s:1","s":122,"ops":[["set","q.k0/head/2",{"age":3885}],["text","q.k0/body","append","28 journey29. = 29 → 152"]]}}
+{"t":1792773463682,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":122}}
+{"t":1792773463714,"dir":"out","verb":"f","body":{"sf":"s:1","s":123,"ops":[["set","q.k0/head/2",{"age":3919}],["text","q.k0/body","append","\n\n152 words. Close en"]]}}
+{"t":1792773463715,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":123}}
+{"t":1792773463749,"dir":"out","verb":"f","body":{"sf":"s:1","s":124,"ops":[["set","q.k0/head/2",{"age":3953}],["text","q.k0/body","append","ough to 150. Could trim \"g"]]}}
+{"t":1792773463750,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":124}}
+{"t":1792773463781,"dir":"out","verb":"f","body":{"sf":"s:1","s":125,"ops":[["set","q.k0/head/2",{"age":3986}],["text","q.k0/body","append","enerous\" and \"continuous"]]}}
+{"t":1792773463783,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":125}}
+{"t":1792773463816,"dir":"out","verb":"f","body":{"sf":"s:1","s":126,"ops":[["set","q.k0/head/2",{"age":4020}],["text","q.k0/body","append","\"? That'd be 150. Let"]]}}
+{"t":1792773463817,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":126}}
+{"t":1792773463849,"dir":"out","verb":"f","body":{"sf":"s:1","s":127,"ops":[["set","q.k0/head/2",{"age":4053}],["text","q.k0/body","append"," me remove \"continuous,"]]}}
+{"t":1792773463851,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":127}}
+{"t":1792773463884,"dir":"out","verb":"f","body":{"sf":"s:1","s":128,"ops":[["set","q.k0/head/2",{"age":4088}],["text","q.k0/body","append"," \" → 151, remove \"gen"]]}}
+{"t":1792773463885,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":128}}
+{"t":1792773463917,"dir":"out","verb":"f","body":{"sf":"s:1","s":129,"ops":[["set","q.k0/head/2",{"age":4121}],["text","q.k0/body","append","erous\" → 150? \"one co"]]}}
+{"t":1792773463919,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":129}}
+{"t":1792773463951,"dir":"out","verb":"f","body":{"sf":"s:1","s":130,"ops":[["set","q.k0/head/2",{"age":4155}],["text","q.k0/body","append","ntinuous journey\" .."]]}}
+{"t":1792773463952,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":130}}
+{"t":1792773463985,"dir":"out","verb":"f","body":{"sf":"s:1","s":131,"ops":[["set","q.k0/head/2",{"age":4190}],["text","q.k0/body","append",". Let me just remove \"ge"]]}}
+{"t":1792773463987,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":131}}
+{"t":1792773464019,"dir":"out","verb":"f","body":{"sf":"s:1","s":132,"ops":[["set","q.k0/head/2",{"age":4224}],["text","q.k0/body","append","nerous\" and keep \"con"]]}}
+{"t":1792773464021,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":132}}
+{"t":1792773464056,"dir":"out","verb":"f","body":{"sf":"s:1","s":133,"ops":[["set","q.k0/head/2",{"age":4260}],["text","q.k0/body","append","tinuous\": 151. Remo"]]}}
+{"t":1792773464057,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":133}}
+{"t":1792773464087,"dir":"out","verb":"f","body":{"sf":"s:1","s":134,"ops":[["set","q.k0/head/2",{"age":4291}],["text","q.k0/body","append","ve \"continuous\" and kee"]]}}
+{"t":1792773464088,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":134}}
+{"t":1792773464121,"dir":"out","verb":"f","body":{"sf":"s:1","s":135,"ops":[["set","q.k0/head/2",{"age":4326}],["text","q.k0/body","append","p generous: 151. Hmm."]]}}
+{"t":1792773464123,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":135}}
+{"t":1792773464156,"dir":"out","verb":"f","body":{"sf":"s:1","s":136,"ops":[["set","q.k0/head/2",{"age":4360}],["text","q.k0/body","append","\n\nTrim: \"Yet they are frag"]]}}
+{"t":1792773464158,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":136}}
+{"t":1792773464190,"dir":"out","verb":"f","body":{"sf":"s:1","s":137,"ops":[["set","q.k0/head/2",{"age":4395}],["text","q.k0/body","append","ile\" → \"Yet they are f"]]}}
+{"t":1792773464192,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":137}}
+{"t":1792773464225,"dir":"out","verb":"f","body":{"sf":"s:1","s":138,"ops":[["set","q.k0/head/2",{"age":4430}],["text","q.k0/body","append","ragile.\" fine.\n\nLet me c"]]}}
+{"t":1792773464226,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":138}}
+{"t":1792773464258,"dir":"out","verb":"f","body":{"sf":"s:1","s":139,"ops":[["set","q.k0/head/2",{"age":4463}],["text","q.k0/body","append","hange \"every drop pass"]]}}
+{"t":1792773464261,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":139}}
+{"t":1792773464292,"dir":"out","verb":"f","body":{"sf":"s:1","s":140,"ops":[["set","q.k0/head/2",{"age":4497}],["text","q.k0/body","append","ing through is on its wa"]]}}
+{"t":1792773464294,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":140}}
+{"t":1792773464326,"dir":"out","verb":"f","body":{"sf":"s:1","s":141,"ops":[["set","q.k0/head/2",{"age":4531}],["text","q.k0/body","append","y somewhere else\" → \""]]}}
+{"t":1792773464327,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":141}}
+{"t":1792773464361,"dir":"out","verb":"f","body":{"sf":"s:1","s":142,"ops":[["set","q.k0/head/2",{"age":4566}],["text","q.k0/body","append","every drop is on i"]]}}
+{"t":1792773464362,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":142}}
+{"t":1792773464395,"dir":"out","verb":"f","body":{"sf":"s:1","s":143,"ops":[["set","q.k0/head/2",{"age":4599}],["text","q.k0/body","append","ts way somewhere"]]}}
+{"t":1792773464396,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":143}}
+{"t":1792773464428,"dir":"out","verb":"f","body":{"sf":"s:1","s":144,"ops":[["set","q.k0/head/2",{"age":4633}],["text","q.k0/body","append"," else\" removes 3 wor"]]}}
+{"t":1792773464430,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":144}}
+{"t":1792773464463,"dir":"out","verb":"f","body":{"sf":"s:1","s":145,"ops":[["set","q.k0/head/2",{"age":4667}],["text","q.k0/body","append","ds: 149. Then add \"a"]]}}
+{"t":1792773464464,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":145}}
+{"t":1792773464497,"dir":"out","verb":"f","body":{"sf":"s:1","s":146,"ops":[["set","q.k0/head/2",{"age":4702}],["text","q.k0/body","append","lways\"? Let's compute"]]}}
+{"t":1792773464498,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":146}}
+{"t":1792773464528,"dir":"out","verb":"f","body":{"sf":"s:1","s":147,"ops":[["set","q.k0/head/2",{"age":4733}],["text","q.k0/body","append"," precisely: 152 - 3 = 149."]]}}
+{"t":1792773464530,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":147}}
+{"t":1792773464564,"dir":"out","verb":"f","body":{"sf":"s:1","s":148,"ops":[["set","q.k0/head/2",{"age":4769}],["text","q.k0/body","append"," Add \"quietly\" maybe: 15"]]}}
+{"t":1792773464566,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":148}}
+{"t":1792773464598,"dir":"out","verb":"f","body":{"sf":"s:1","s":149,"ops":[["set","q.k0/head/2",{"age":4802}],["text","q.k0/body","append","0. \"linking mountain to ocean in"]]}}
+{"t":1792773464599,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":149}}
+{"t":1792773464631,"dir":"out","verb":"f","body":{"sf":"s:1","s":150,"ops":[["set","q.k0/head/2",{"age":4835}],["text","q.k0/body","append"," one continuous, generous jo"]]}}
+{"t":1792773464632,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":150}}
+{"t":1792773464665,"dir":"out","verb":"f","body":{"sf":"s:1","s":151,"ops":[["set","q.k0/head/2",{"age":4870}],["text","q.k0/body","append","urney\" — keep.\n\nFinal: \"To u"]]}}
+{"t":1792773464667,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":151}}
+{"t":1792773464700,"dir":"out","verb":"f","body":{"sf":"s:1","s":152,"ops":[["set","q.k0/head/2",{"age":4904}],["text","q.k0/body","append","nderstand a river is to un"]]}}
+{"t":1792773464701,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":152}}
+{"t":1792773464733,"dir":"out","verb":"f","body":{"sf":"s:1","s":153,"ops":[["set","q.k0/head/2",{"age":4938}],["text","q.k0/body","append","derstand patience and co"]]}}
+{"t":1792773464735,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":153}}
+{"t":1792773464766,"dir":"out","verb":"f","body":{"sf":"s:1","s":154,"ops":[["set","q.k0/head/2",{"age":4971}],["text","q.k0/body","append","nnection—every drop is on"]]}}
+{"t":1792773464768,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":154}}
+{"t":1792773464801,"dir":"out","verb":"f","body":{"sf":"s:1","s":155,"ops":[["set","q.k0/head/2",{"age":5006}],["text","q.k0/body","append"," its way somewhere else, linkin"]]}}
+{"t":1792773464803,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":155}}
+{"t":1792773464834,"dir":"out","verb":"f","body":{"sf":"s:1","s":156,"ops":[["set","q.k0/head/2",{"age":5039}],["text","q.k0/body","append","g mountain to ocean in one"]]}}
+{"t":1792773464836,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":156}}
+{"t":1792773464868,"dir":"out","verb":"f","body":{"sf":"s:1","s":157,"ops":[["set","q.k0/head/2",{"age":5072}],["text","q.k0/body","append"," continuous, generous journe"]]}}
+{"t":1792773464869,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":157}}
+{"t":1792773464901,"dir":"out","verb":"f","body":{"sf":"s:1","s":158,"ops":[["set","q.k0/head/2",{"age":5106}],["text","q.k0/body","append","y.\" That's 149. Add one word: \"eve"]]}}
+{"t":1792773464903,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":158}}
+{"t":1792773464935,"dir":"out","verb":"f","body":{"sf":"s:1","s":159,"ops":[["set","q.k0/head/2",{"age":5139}],["text","q.k0/body","append","ry single drop\" → 150.\n\nLet me"]]}}
+{"t":1792773464936,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":159}}
+{"t":1792773464969,"dir":"out","verb":"f","body":{"sf":"s:1","s":160,"ops":[["set","q.k0/head/2",{"age":5174}],["text","q.k0/body","append"," recount that sentence: To1 unders"]]}}
+{"t":1792773464971,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":160}}
+{"t":1792773465003,"dir":"out","verb":"f","body":{"sf":"s:1","s":161,"ops":[["set","q.k0/head/2",{"age":5208}],["text","q.k0/body","append","tand2 a3 river4 is5 to6 underst"]]}}
+{"t":1792773465005,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":161}}
+{"t":1792773465038,"dir":"out","verb":"f","body":{"sf":"s:1","s":162,"ops":[["set","q.k0/head/2",{"age":5242}],["text","q.k0/body","append","and7 patience8 and9 connection10"]]}}
+{"t":1792773465039,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":162}}
+{"t":1792773465071,"dir":"out","verb":"f","body":{"sf":"s:1","s":163,"ops":[["set","q.k0/head/2",{"age":5275}],["text","q.k0/body","append","—every11 single12 drop13 is1"]]}}
+{"t":1792773465072,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":163}}
+{"t":1792773465105,"dir":"out","verb":"f","body":{"sf":"s:1","s":164,"ops":[["set","q.k0/head/2",{"age":5310}],["text","q.k0/body","append","4 on15 its16 way17 somewhere1"]]}}
+{"t":1792773465107,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":164}}
+{"t":1792773465138,"dir":"out","verb":"f","body":{"sf":"s:1","s":165,"ops":[["set","q.k0/head/2",{"age":5343}],["text","q.k0/body","append","8 else19, linking20 mounta"]]}}
+{"t":1792773465140,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":165}}
+{"t":1792773465172,"dir":"out","verb":"f","body":{"sf":"s:1","s":166,"ops":[["set","q.k0/head/2",{"age":5376}],["text","q.k0/body","append","in21 to22 ocean23 in24 one2"]]}}
+{"t":1792773465173,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":166}}
+{"t":1792773465208,"dir":"out","verb":"f","body":{"sf":"s:1","s":167,"ops":[["set","q.k0/head/2",{"age":5412}],["text","q.k0/body","append","5 continuous26, generou"]]}}
+{"t":1792773465209,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":167}}
+{"t":1792773465241,"dir":"out","verb":"f","body":{"sf":"s:1","s":168,"ops":[["set","q.k0/head/2",{"age":5446}],["text","q.k0/body","append","s27 journey28. = 28."]]}}
+{"t":1792773465243,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":168}}
+{"t":1792773465275,"dir":"out","verb":"f","body":{"sf":"s:1","s":169,"ops":[["set","q.k0/head/2",{"age":5480}],["text","q.k0/body","append"," Previous total 123 + 28"]]}}
+{"t":1792773465277,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":169}}
+{"t":1792773465309,"dir":"out","verb":"f","body":{"sf":"s:1","s":170,"ops":[["set","q.k0/head/2",{"age":5514}],["text","q.k0/body","append"," = 151. Hmm, earlier"]]}}
+{"t":1792773465311,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":170}}
+{"t":1792773465343,"dir":"out","verb":"f","body":{"sf":"s:1","s":171,"ops":[["set","q.k0/head/2",{"age":5547}],["text","q.k0/body","append"," I said 29 because of \""]]}}
+{"t":1792773465344,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":171}}
+{"t":1792773465376,"dir":"out","verb":"f","body":{"sf":"s:1","s":172,"ops":[["set","q.k0/head/2",{"age":5581}],["text","q.k0/body","append","passing through\" (2 e"]]}}
+{"t":1792773465377,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":172}}
+{"t":1792773465411,"dir":"out","verb":"f","body":{"sf":"s:1","s":173,"ops":[["set","q.k0/head/2",{"age":5615}],["text","q.k0/body","append","xtra words). 123+28=151.\n\nS"]]}}
+{"t":1792773465412,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":173}}
+{"t":1792773465445,"dir":"out","verb":"f","body":{"sf":"s:1","s":174,"ops":[["set","q.k0/head/2",{"age":5649}],["text","q.k0/body","append","o need 150. Remove \"sing"]]}}
+{"t":1792773465447,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":174}}
+{"t":1792773465478,"dir":"out","verb":"f","body":{"sf":"s:1","s":175,"ops":[["set","q.k0/head/2",{"age":5682}],["text","q.k0/body","append","le\": 150. Good. Let m"]]}}
+{"t":1792773465479,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":175}}
+{"t":1792773465512,"dir":"out","verb":"f","body":{"sf":"s:1","s":176,"ops":[["set","q.k0/head/2",{"age":5716}],["text","q.k0/body","append","e verify total: 123 + 27"]]}}
+{"t":1792773465513,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":176}}
+{"t":1792773465545,"dir":"out","verb":"f","body":{"sf":"s:1","s":177,"ops":[["set","q.k0/head/2",{"age":5749}],["text","q.k0/body","append"," = 150.\n\nRecount sentence"]]}}
+{"t":1792773465546,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":177}}
+{"t":1792773465579,"dir":"out","verb":"f","body":{"sf":"s:1","s":178,"ops":[["set","q.k0/head/2",{"age":5784}],["text","q.k0/body","append"," 9 without \"single\": To1 unders"]]}}
+{"t":1792773465581,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":178}}
+{"t":1792773465612,"dir":"out","verb":"f","body":{"sf":"s:1","s":179,"ops":[["set","q.k0/head/2",{"age":5817}],["text","q.k0/body","append","tand2 a3 river4 is5 to6 under"]]}}
+{"t":1792773465613,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":179}}
+{"t":1792773465646,"dir":"out","verb":"f","body":{"sf":"s:1","s":180,"ops":[["set","q.k0/head/2",{"age":5851}],["text","q.k0/body","append","stand7 patience8 and9 connect"]]}}
+{"t":1792773465647,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":180}}
+{"t":1792773465679,"dir":"out","verb":"f","body":{"sf":"s:1","s":181,"ops":[["set","q.k0/head/2",{"age":5884}],["text","q.k0/body","append","ion10—every11 drop12 is13"]]}}
+{"t":1792773465681,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":181}}
+{"t":1792773465713,"dir":"out","verb":"f","body":{"sf":"s:1","s":182,"ops":[["set","q.k0/head/2",{"age":5917}],["text","q.k0/body","append"," on14 its15 way16 somewher"]]}}
+{"t":1792773465714,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":182}}
+{"t":1792773465748,"dir":"out","verb":"f","body":{"sf":"s:1","s":183,"ops":[["set","q.k0/head/2",{"age":5952}],["text","q.k0/body","append","e17 else18, linking19 m"]]}}
+{"t":1792773465749,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":183}}
+{"t":1792773465781,"dir":"out","verb":"f","body":{"sf":"s:1","s":184,"ops":[["set","q.k0/head/2",{"age":5986}],["text","q.k0/body","append","ountain20 to21 ocean"]]}}
+{"t":1792773465782,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":184}}
+{"t":1792773465815,"dir":"out","verb":"f","body":{"sf":"s:1","s":185,"ops":[["set","q.k0/head/2",{"age":6020}],["text","q.k0/body","append","22 in23 one24 continu"]]}}
+{"t":1792773465817,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":185}}
+{"t":1792773465849,"dir":"out","verb":"f","body":{"sf":"s:1","s":186,"ops":[["set","q.k0/head/2",{"age":6054}],["text","q.k0/body","append","ous25, generous26 jo"]]}}
+{"t":1792773465851,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":186}}
+{"t":1792773465883,"dir":"out","verb":"f","body":{"sf":"s:1","s":187,"ops":[["set","q.k0/head/2",{"age":6088}],["text","q.k0/body","append","urney27. = 27. Total 150. \n\nA"]]}}
+{"t":1792773465885,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":187}}
+{"t":1792773465916,"dir":"out","verb":"f","body":{"sf":"s:1","s":188,"ops":[["set","q.k0/head/2",{"age":6121}],["text","q.k0/body","append","lso S4 uses em dashes; fin"]]}}
+{"t":1792773465918,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":188}}
+{"t":1792773465950,"dir":"out","verb":"f","body":{"sf":"s:1","s":189,"ops":[["set","q.k0/head/2",{"age":6154}],["text","q.k0/body","append","e.\n\nFormat: just paragraph. May"]]}}
+{"t":1792773465951,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":189}}
+{"t":1792773465984,"dir":"out","verb":"f","body":{"sf":"s:1","s":190,"ops":[["set","q.k0/head/2",{"age":6188}],["text","q.k0/body","append","be brief. No headers needed. De"]]}}
+{"t":1792773465985,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":190}}
+{"t":1792773466022,"dir":"out","verb":"f","body":{"sf":"s:1","s":191,"ops":[["set","q.k0",{"role":"omp.thinking","collapsed":true,"took":6226}],["del","q.k0/head"],["add","q.k0/head","q.k0","q.k0/body",{"id":"q.k0/head","k":"text","p":{"spans":[{"t":"Thought for 6s","s":"muted"}]}}],["text","q.k0/body","append","liver."],["set","q.k0/body",{"stream":null}],["add","q.t1","q",null,{"id":"q.t1","k":"md","p":{"text":"Rivers are the arteri","stream":true}}]]}}
+{"t":1792773466024,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":191}}
+{"t":1792773466056,"dir":"out","verb":"f","body":{"sf":"s:1","s":192,"ops":[["text","q.t1","append","es of the land, carrying water, s"]]}}
+{"t":1792773466058,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":192}}
+{"t":1792773466085,"dir":"out","verb":"f","body":{"sf":"s:1","s":193,"ops":[["text","q.t1","append","ediment, and stories from high"]]}}
+{"t":1792773466087,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":193}}
+{"t":1792773466123,"dir":"out","verb":"f","body":{"sf":"s:1","s":194,"ops":[["text","q.t1","append"," ground to the sea. A river begins as a"]]}}
+{"t":1792773466124,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":194}}
+{"t":1792773466153,"dir":"out","verb":"f","body":{"sf":"s:1","s":195,"ops":[["text","q.t1","append"," trickle in a mountain spring, gat"]]}}
+{"t":1792773466154,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":195}}
+{"t":1792773466187,"dir":"out","verb":"f","body":{"sf":"s:1","s":196,"ops":[["text","q.t1","append","hers strength from rain and t"]]}}
+{"t":1792773466188,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":196}}
+{"t":1792773466221,"dir":"out","verb":"f","body":{"sf":"s:1","s":197,"ops":[["text","q.t1","append","ributaries, and carves valleys as it desc"]]}}
+{"t":1792773466222,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":197}}
+{"t":1792773466254,"dir":"out","verb":"f","body":{"sf":"s:1","s":198,"ops":[["text","q.t1","append","ends. Along the way it shapes floodpla"]]}}
+{"t":1792773466256,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":198}}
+{"t":1792773466287,"dir":"out","verb":"f","body":{"sf":"s:1","s":199,"ops":[["text","q.t1","append","ins, deposits fertile silt, and sustains wet"]]}}
+{"t":1792773466288,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":199}}
+{"t":1792773466322,"dir":"out","verb":"f","body":{"sf":"s:1","s":200,"ops":[["text","q.t1","append","lands that teem with life. Civilization"]]}}
+{"t":1792773466323,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":200}}
+{"t":1792773466357,"dir":"out","verb":"f","body":{"sf":"s:1","s":201,"ops":[["text","q.t1","append","s have always clustered along rivers—the Nile"]]}}
+{"t":1792773466358,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":201}}
+{"t":1792773466391,"dir":"out","verb":"f","body":{"sf":"s:1","s":202,"ops":[["text","q.t1","append",", the Ganges, the Yangtze—because water means"]]}}
+{"t":1792773466393,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":202}}
+{"t":1792773466424,"dir":"out","verb":"f","body":{"sf":"s:1","s":203,"ops":[["text","q.t1","append"," crops, transport, and trade. Rivers als"]]}}
+{"t":1792773466426,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":203}}
+{"t":1792773466458,"dir":"out","verb":"f","body":{"sf":"s:1","s":204,"ops":[["text","q.t1","append","o power turbines, irrigate fields, and provide d"]]}}
+{"t":1792773466459,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":204}}
+{"t":1792773466492,"dir":"out","verb":"f","body":{"sf":"s:1","s":205,"ops":[["text","q.t1","append","rinking water for billions. Yet they are fragil"]]}}
+{"t":1792773466493,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":205}}
+{"t":1792773466533,"dir":"out","verb":"f","body":{"sf":"s:1","s":206,"ops":[["text","q.t1","append","e. Dams fragment their flow, pollution poisons their currents, and climate change alters their seasonal rhythms. Restoring a river means restoring everything connected to it: fish migrations, riparian forests, and the communities downstream. To understand a river is to understand patience and connection—every drop is on its way somewhere else, linking mountain to ocean in one continuous, generous journey."],["set","q.t1",{"stream":null}],["add","q.turn-usage","q",null,{"id":"q.turn-usage","k":"row","p":{"role":"omp.turn.usage","gap":"xs","align":"center","title":"This turn: 7.7s · 1,546 tokens (180 in · 1,366 out) · <$0.01"},"c":[{"id":"q.turn-usage/copy","k":"icon","p":{"name":"copy","role":"omp.turn.copy","title":"Copy answer","aria":"Copy answer","actions":{"click":"copy-answer"}}},{"id":"q.turn-usage/dot","k":"text","p":{"text":"·"}},{"id":"q.turn-usage/text","k":"text","p":{"text":"7.7s · 1.5K tok · <$0.01 this turn"}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"col"}],["add","r","d",null,{"id":"r","k":"col"}],["set","j",{"tone":null}],["set","j.context",{"value":0.009652,"title":"Context 1% used\n9.7K of 1M tokens\nAuto-compact at 85%"}],["add","j.bar/send","j.bar",null,{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}],["del","l"],["del","j.bar/stop"],["settle","q"]]}}
+{"t":1792773466535,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":206}}
+{"t":1792773467376,"dir":"out","verb":"f","body":{"sf":"s:1","s":207,"ops":[["set","j.line/input",{"placeholder":[{"t":"“ RIVR: Write a paragraph about rivers”","s":"em"}]}],["set","j.bar/model/name",{"spans":[{"t":"DeepSeek V4 Flash","s":"accent"}]}]]}}
+{"t":1792773467377,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":207}}
+{"t":1792773483847,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"Write a 150-word paragraph about mountains."}}
+{"t":1792773483850,"dir":"out","verb":"f","body":{"sf":"s:1","s":208,"ops":[["add","s","main",null,{"id":"s","k":"card","p":{"role":"omp.user","tone":"user"},"c":[{"id":"s.tools","k":"row","p":{"gap":"xs","align":"center","role":"omp.user.tools"},"c":[{"id":"s.tools/copy","k":"icon","p":{"name":"copy","role":"omp.user.tool","title":"Copy message","aria":"Copy message","actions":{"click":"copy-message"}}},{"id":"s.tools/rewind","k":"icon","p":{"name":"rewind","role":"omp.user.tool","title":"Rewind the conversation to an earlier message","aria":"Rewind","actions":{"click":"rewind"}}},{"id":"s.tools/dot","k":"text","p":{"text":"·"}},{"id":"s.tools/3","k":"text","p":{"role":"omp.user.time","title":"2026/10/23 16:38:03","spans":[{"t":"16:38","s":"dim mono"}]}}]},{"id":"s.1","k":"md","p":{"text":"Write a 150-word paragraph about mountains."}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"row","p":{"role":"omp.hud.activity","align":"center","gap":"sm"},"c":[{"id":"b.status","k":"col","p":{"role":"omp.hud.status"},"c":[{"id":"t","k":"row","p":{"role":"omp.working","align":"center","gap":"sm"},"c":[{"id":"t.spinner","k":"spinner","p":{"style":"starburst","tone":"accent"}},{"id":"t.elapsed","k":"elapsed","p":{"age":1,"format":"short"}},{"id":"t.sep","k":"text","p":{"text":"·","role":"omp.working.sep"}},{"id":"t.label","k":"shimmer","p":{"spans":[{"t":"Working…","s":"accent"}],"mode":"classic","palette":{"low":"dim","mid":"accent","high":"accent"},"role":"omp.working.label"}},{"id":"t.fill","k":"row","p":{"grow":1}},{"id":"t.stop","k":"row","p":{"role":"omp.working.stop","gap":"xs","align":"center","title":"Stop  esc","actions":{"click":"interrupt"}},"c":[{"id":"t.stop/0","k":"kbd","p":{"keys":["escape"]}},{"id":"t.stop/1","k":"text","p":{"text":"Stop"}}]}]}]}]}],["set","j",{"tone":"pending"}],["add","j.bar/stop","j.bar",null,{"id":"j.bar/stop","k":"text","p":{"role":"omp.composer.stop","text":"Stop","tone":"error","title":"Stop  esc","actions":{"click":"interrupt"}}}],["del","j.bar/send"],["settle","s"]]}}
+{"t":1792773483852,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":208}}
+{"t":1792773483856,"dir":"out","verb":"f","body":{"sf":"s:1","s":209,"ops":[["set","j.context",{"value":0.009661}]]}}
+{"t":1792773483858,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":209}}
+{"t":1792773484714,"dir":"out","verb":"f","body":{"sf":"s:1","s":210,"ops":[["add","u","main",null,{"id":"u","k":"col","p":{"role":"omp.assistant"}}]]}}
+{"t":1792773484716,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":210}}
+{"t":1792773484748,"dir":"out","verb":"f","body":{"sf":"s:1","s":211,"ops":[["add","u.k0","u",null,{"id":"u.k0","k":"section","p":{"role":"omp.thinking.live","collapsible":true,"collapsed":false,"head":"u.k0/head"},"c":[{"id":"u.k0/head","k":"row","p":{"gap":"sm"},"c":[{"id":"u.k0/head/0","k":"spinner","p":{"style":"starburst","role":"omp.thinking.spin"}},{"id":"u.k0/head/1","k":"text","p":{"spans":[{"t":"Thinking…","s":"muted"}]}},{"id":"u.k0/head/2","k":"elapsed","p":{"age":0,"format":"short"}}]},{"id":"u.k0/body","k":"md","p":{"text":"Nee","stream":true}}]}]]}}
+{"t":1792773484750,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":211}}
+{"t":1792773484781,"dir":"out","verb":"f","body":{"sf":"s:1","s":212,"ops":[["set","u.k0/head/2",{"age":33}],["text","u.k0/body","append","d"]]}}
+{"t":1792773484783,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":212}}
+{"t":1792773484870,"dir":"out","verb":"f","body":{"sf":"s:1","s":213,"ops":[["set","u.k0/head/2",{"age":122}],["text","u.k0/body","append"," a 150-"]]}}
+{"t":1792773484871,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":213}}
+{"t":1792773484903,"dir":"out","verb":"f","body":{"sf":"s:1","s":214,"ops":[["set","u.k0/head/2",{"age":155}],["text","u.k0/body","append","word p"]]}}
+{"t":1792773484905,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":214}}
+{"t":1792773484937,"dir":"out","verb":"f","body":{"sf":"s:1","s":215,"ops":[["set","u.k0/head/2",{"age":189}],["text","u.k0/body","append","aragraph about"]]}}
+{"t":1792773484938,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":215}}
+{"t":1792773484970,"dir":"out","verb":"f","body":{"sf":"s:1","s":216,"ops":[["set","u.k0/head/2",{"age":222}],["text","u.k0/body","append"," mountains. Cou"]]}}
+{"t":1792773484971,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":216}}
+{"t":1792773485004,"dir":"out","verb":"f","body":{"sf":"s:1","s":217,"ops":[["set","u.k0/head/2",{"age":256}],["text","u.k0/body","append","nt carefully.\n\nDr"]]}}
+{"t":1792773485006,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":217}}
+{"t":1792773485038,"dir":"out","verb":"f","body":{"sf":"s:1","s":218,"ops":[["set","u.k0/head/2",{"age":290}],["text","u.k0/body","append","aft:\n\n\"Mountain"]]}}
+{"t":1792773485040,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":218}}
+{"t":1792773485072,"dir":"out","verb":"f","body":{"sf":"s:1","s":219,"ops":[["set","u.k0/head/2",{"age":324}],["text","u.k0/body","append","s are the ear"]]}}
+{"t":1792773485074,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":219}}
+{"t":1792773485105,"dir":"out","verb":"f","body":{"sf":"s:1","s":220,"ops":[["set","u.k0/head/2",{"age":357}],["text","u.k0/body","append","th's memory made"]]}}
+{"t":1792773485107,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":220}}
+{"t":1792773485139,"dir":"out","verb":"f","body":{"sf":"s:1","s":221,"ops":[["set","u.k0/head/2",{"age":391}],["text","u.k0/body","append"," visible, ridge"]]}}
+{"t":1792773485141,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":221}}
+{"t":1792773485173,"dir":"out","verb":"f","body":{"sf":"s:1","s":222,"ops":[["set","u.k0/head/2",{"age":425}],["text","u.k0/body","append","s of stone th"]]}}
+{"t":1792773485175,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":222}}
+{"t":1792773485209,"dir":"out","verb":"f","body":{"sf":"s:1","s":223,"ops":[["set","u.k0/head/2",{"age":461}],["text","u.k0/body","append","at record collis"]]}}
+{"t":1792773485212,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":223}}
+{"t":1792773485242,"dir":"out","verb":"f","body":{"sf":"s:1","s":224,"ops":[["set","u.k0/head/2",{"age":494}],["text","u.k0/body","append","ions of continen"]]}}
+{"t":1792773485244,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":224}}
+{"t":1792773485277,"dir":"out","verb":"f","body":{"sf":"s:1","s":225,"ops":[["set","u.k0/head/2",{"age":529}],["text","u.k0/body","append","ts and the slow vi"]]}}
+{"t":1792773485279,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":225}}
+{"t":1792773485310,"dir":"out","verb":"f","body":{"sf":"s:1","s":226,"ops":[["set","u.k0/head/2",{"age":562}],["text","u.k0/body","append","olence of uplift"]]}}
+{"t":1792773485312,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":226}}
+{"t":1792773485345,"dir":"out","verb":"f","body":{"sf":"s:1","s":227,"ops":[["set","u.k0/head/2",{"age":597}],["text","u.k0/body","append",". They rise where p"]]}}
+{"t":1792773485346,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":227}}
+{"t":1792773485379,"dir":"out","verb":"f","body":{"sf":"s:1","s":228,"ops":[["set","u.k0/head/2",{"age":631}],["text","u.k0/body","append","lates collide or c"]]}}
+{"t":1792773485380,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":228}}
+{"t":1792773485413,"dir":"out","verb":"f","body":{"sf":"s:1","s":229,"ops":[["set","u.k0/head/2",{"age":665}],["text","u.k0/body","append","rust stretches t"]]}}
+{"t":1792773485414,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":229}}
+{"t":1792773485447,"dir":"out","verb":"f","body":{"sf":"s:1","s":230,"ops":[["set","u.k0/head/2",{"age":699}],["text","u.k0/body","append","hin, then are scu"]]}}
+{"t":1792773485449,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":230}}
+{"t":1792773485481,"dir":"out","verb":"f","body":{"sf":"s:1","s":231,"ops":[["set","u.k0/head/2",{"age":733}],["text","u.k0/body","append","lpted by ice, wind"]]}}
+{"t":1792773485482,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":231}}
+{"t":1792773485515,"dir":"out","verb":"f","body":{"sf":"s:1","s":232,"ops":[["set","u.k0/head/2",{"age":767}],["text","u.k0/body","append",", and water into p"]]}}
+{"t":1792773485517,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":232}}
+{"t":1792773485549,"dir":"out","verb":"f","body":{"sf":"s:1","s":233,"ops":[["set","u.k0/head/2",{"age":801}],["text","u.k0/body","append","eaks, cirques,"]]}}
+{"t":1792773485551,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":233}}
+{"t":1792773485584,"dir":"out","verb":"f","body":{"sf":"s:1","s":234,"ops":[["set","u.k0/head/2",{"age":836}],["text","u.k0/body","append"," and valleys. Alti"]]}}
+{"t":1792773485586,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":234}}
+{"t":1792773485618,"dir":"out","verb":"f","body":{"sf":"s:1","s":235,"ops":[["set","u.k0/head/2",{"age":870}],["text","u.k0/body","append","tude changes ev"]]}}
+{"t":1792773485620,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":235}}
+{"t":1792773485652,"dir":"out","verb":"f","body":{"sf":"s:1","s":236,"ops":[["set","u.k0/head/2",{"age":904}],["text","u.k0/body","append","erything: temperatu"]]}}
+{"t":1792773485654,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":236}}
+{"t":1792773485687,"dir":"out","verb":"f","body":{"sf":"s:1","s":237,"ops":[["set","u.k0/head/2",{"age":939}],["text","u.k0/body","append","re drops, air th"]]}}
+{"t":1792773485688,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":237}}
+{"t":1792773485720,"dir":"out","verb":"f","body":{"sf":"s:1","s":238,"ops":[["set","u.k0/head/2",{"age":972}],["text","u.k0/body","append","ins, and life ad"]]}}
+{"t":1792773485722,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":238}}
+{"t":1792773485754,"dir":"out","verb":"f","body":{"sf":"s:1","s":239,"ops":[["set","u.k0/head/2",{"age":1006}],["text","u.k0/body","append","apts in bands—for"]]}}
+{"t":1792773485755,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":239}}
+{"t":1792773485789,"dir":"out","verb":"f","body":{"sf":"s:1","s":240,"ops":[["set","u.k0/head/2",{"age":1041}],["text","u.k0/body","append","est, meadow, roc"]]}}
+{"t":1792773485790,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":240}}
+{"t":1792773485822,"dir":"out","verb":"f","body":{"sf":"s:1","s":241,"ops":[["set","u.k0/head/2",{"age":1074}],["text","u.k0/body","append","k, snow. Mountains"]]}}
+{"t":1792773485824,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":241}}
+{"t":1792773485856,"dir":"out","verb":"f","body":{"sf":"s:1","s":242,"ops":[["set","u.k0/head/2",{"age":1108}],["text","u.k0/body","append"," are water towers"]]}}
+{"t":1792773485857,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":242}}
+{"t":1792773485889,"dir":"out","verb":"f","body":{"sf":"s:1","s":243,"ops":[["set","u.k0/head/2",{"age":1141}],["text","u.k0/body","append",", storing winte"]]}}
+{"t":1792773485890,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":243}}
+{"t":1792773485923,"dir":"out","verb":"f","body":{"sf":"s:1","s":244,"ops":[["set","u.k0/head/2",{"age":1175}],["text","u.k0/body","append","r snow that melts i"]]}}
+{"t":1792773485925,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":244}}
+{"t":1792773485957,"dir":"out","verb":"f","body":{"sf":"s:1","s":245,"ops":[["set","u.k0/head/2",{"age":1209}],["text","u.k0/body","append","nto rivers serving"]]}}
+{"t":1792773485958,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":245}}
+{"t":1792773485991,"dir":"out","verb":"f","body":{"sf":"s:1","s":246,"ops":[["set","u.k0/head/2",{"age":1243}],["text","u.k0/body","append"," billions downstream."]]}}
+{"t":1792773485992,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":246}}
+{"t":1792773486026,"dir":"out","verb":"f","body":{"sf":"s:1","s":247,"ops":[["set","u.k0/head/2",{"age":1278}],["text","u.k0/body","append"," They are also barrie"]]}}
+{"t":1792773486027,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":247}}
+{"t":1792773486058,"dir":"out","verb":"f","body":{"sf":"s:1","s":248,"ops":[["set","u.k0/head/2",{"age":1310}],["text","u.k0/body","append","rs and bridges, is"]]}}
+{"t":1792773486059,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":248}}
+{"t":1792773486092,"dir":"out","verb":"f","body":{"sf":"s:1","s":249,"ops":[["set","u.k0/head/2",{"age":1344}],["text","u.k0/body","append","olating cultures whi"]]}}
+{"t":1792773486093,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":249}}
+{"t":1792773486126,"dir":"out","verb":"f","body":{"sf":"s:1","s":250,"ops":[["set","u.k0/head/2",{"age":1378}],["text","u.k0/body","append","le shaping weather"]]}}
+{"t":1792773486127,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":250}}
+{"t":1792773486160,"dir":"out","verb":"f","body":{"sf":"s:1","s":251,"ops":[["set","u.k0/head/2",{"age":1412}],["text","u.k0/body","append"," and migration routes."]]}}
+{"t":1792773486162,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":251}}
+{"t":1792773486194,"dir":"out","verb":"f","body":{"sf":"s:1","s":252,"ops":[["set","u.k0/head/2",{"age":1445}],["text","u.k0/body","append"," People climb them"]]}}
+{"t":1792773486195,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":252}}
+{"t":1792773486228,"dir":"out","verb":"f","body":{"sf":"s:1","s":253,"ops":[["set","u.k0/head/2",{"age":1480}],["text","u.k0/body","append"," for beauty and meani"]]}}
+{"t":1792773486230,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":253}}
+{"t":1792773486260,"dir":"out","verb":"f","body":{"sf":"s:1","s":254,"ops":[["set","u.k0/head/2",{"age":1512}],["text","u.k0/body","append","ng, mine them for m"]]}}
+{"t":1792773486261,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":254}}
+{"t":1792773486296,"dir":"out","verb":"f","body":{"sf":"s:1","s":255,"ops":[["set","u.k0/head/2",{"age":1548}],["text","u.k0/body","append","inerals, and farm"]]}}
+{"t":1792773486298,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":255}}
+{"t":1792773486329,"dir":"out","verb":"f","body":{"sf":"s:1","s":256,"ops":[["set","u.k0/head/2",{"age":1581}],["text","u.k0/body","append"," their terraced s"]]}}
+{"t":1792773486331,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":256}}
+{"t":1792773486363,"dir":"out","verb":"f","body":{"sf":"s:1","s":257,"ops":[["set","u.k0/head/2",{"age":1615}],["text","u.k0/body","append","lopes. Yet mou"]]}}
+{"t":1792773486364,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":257}}
+{"t":1792773486397,"dir":"out","verb":"f","body":{"sf":"s:1","s":258,"ops":[["set","u.k0/head/2",{"age":1649}],["text","u.k0/body","append","ntains are b"]]}}
+{"t":1792773486398,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":258}}
+{"t":1792773486431,"dir":"out","verb":"f","body":{"sf":"s:1","s":259,"ops":[["set","u.k0/head/2",{"age":1683}],["text","u.k0/body","append","rittle plac"]]}}
+{"t":1792773486432,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":259}}
+{"t":1792773486464,"dir":"out","verb":"f","body":{"sf":"s:1","s":260,"ops":[["set","u.k0/head/2",{"age":1716}],["text","u.k0/body","append","es. Warmi"]]}}
+{"t":1792773486466,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":260}}
+{"t":1792773486499,"dir":"out","verb":"f","body":{"sf":"s:1","s":261,"ops":[["set","u.k0/head/2",{"age":1751}],["text","u.k0/body","append","ng thaws"]]}}
+{"t":1792773486501,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":261}}
+{"t":1792773486532,"dir":"out","verb":"f","body":{"sf":"s:1","s":262,"ops":[["set","u.k0/head/2",{"age":1784}],["text","u.k0/body","append"," permaf"]]}}
+{"t":1792773486533,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":262}}
+{"t":1792773486565,"dir":"out","verb":"f","body":{"sf":"s:1","s":263,"ops":[["set","u.k0/head/2",{"age":1817}],["text","u.k0/body","append","rost,"]]}}
+{"t":1792773486566,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":263}}
+{"t":1792773486600,"dir":"out","verb":"f","body":{"sf":"s:1","s":264,"ops":[["set","u.k0/head/2",{"age":1852}],["text","u.k0/body","append"," glaciers retreat, and roads"]]}}
+{"t":1792773486601,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":264}}
+{"t":1792773486635,"dir":"out","verb":"f","body":{"sf":"s:1","s":265,"ops":[["set","u.k0/head/2",{"age":1887}],["text","u.k0/body","append"," cut scars that erosion wi"]]}}
+{"t":1792773486636,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":265}}
+{"t":1792773486667,"dir":"out","verb":"f","body":{"sf":"s:1","s":266,"ops":[["set","u.k0/head/2",{"age":1919}],["text","u.k0/body","append","dens. Protecting them mean"]]}}
+{"t":1792773486669,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":266}}
+{"t":1792773486701,"dir":"out","verb":"f","body":{"sf":"s:1","s":267,"ops":[["set","u.k0/head/2",{"age":1953}],["text","u.k0/body","append","s protecting the water,"]]}}
+{"t":1792773486702,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":267}}
+{"t":1792773486735,"dir":"out","verb":"f","body":{"sf":"s:1","s":268,"ops":[["set","u.k0/head/2",{"age":1987}],["text","u.k0/body","append"," climate, and cultures"]]}}
+{"t":1792773486736,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":268}}
+{"t":1792773486769,"dir":"out","verb":"f","body":{"sf":"s:1","s":269,"ops":[["set","u.k0/head/2",{"age":2021}],["text","u.k0/body","append"," that depend on high gr"]]}}
+{"t":1792773486770,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":269}}
+{"t":1792773486803,"dir":"out","verb":"f","body":{"sf":"s:1","s":270,"ops":[["set","u.k0/head/2",{"age":2055}],["text","u.k0/body","append","ound. Standing on a"]]}}
+{"t":1792773486805,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":270}}
+{"t":1792773486837,"dir":"out","verb":"f","body":{"sf":"s:1","s":271,"ops":[["set","u.k0/head/2",{"age":2088}],["text","u.k0/body","append"," summit, you feel small and t"]]}}
+{"t":1792773486838,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":271}}
+{"t":1792773486871,"dir":"out","verb":"f","body":{"sf":"s:1","s":272,"ops":[["set","u.k0/head/2",{"age":2123}],["text","u.k0/body","append","emporary—a brief visitor in"]]}}
+{"t":1792773486873,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":272}}
+{"t":1792773486905,"dir":"out","verb":"f","body":{"sf":"s:1","s":273,"ops":[["set","u.k0/head/2",{"age":2157}],["text","u.k0/body","append"," a landscape that will outlast"]]}}
+{"t":1792773486907,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":273}}
+{"t":1792773486939,"dir":"out","verb":"f","body":{"sf":"s:1","s":274,"ops":[["set","u.k0/head/2",{"age":2191}],["text","u.k0/body","append"," every map we draw.\"\n\nCount"]]}}
+{"t":1792773486941,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":274}}
+{"t":1792773486973,"dir":"out","verb":"f","body":{"sf":"s:1","s":275,"ops":[["set","u.k0/head/2",{"age":2225}],["text","u.k0/body","append",":\n\nS1: Mountains1 are2 the3 ear"]]}}
+{"t":1792773486975,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":275}}
+{"t":1792773487005,"dir":"out","verb":"f","body":{"sf":"s:1","s":276,"ops":[["set","u.k0/head/2",{"age":2257}],["text","u.k0/body","append","th's4 memory5 made6 visible7,"]]}}
+{"t":1792773487007,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":276}}
+{"t":1792773487039,"dir":"out","verb":"f","body":{"sf":"s:1","s":277,"ops":[["set","u.k0/head/2",{"age":2291}],["text","u.k0/body","append"," ridges8 of9 stone10 that11 recor"]]}}
+{"t":1792773487041,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":277}}
+{"t":1792773487075,"dir":"out","verb":"f","body":{"sf":"s:1","s":278,"ops":[["set","u.k0/head/2",{"age":2327}],["text","u.k0/body","append","d12 collisions13 of14 contin"]]}}
+{"t":1792773487076,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":278}}
+{"t":1792773487110,"dir":"out","verb":"f","body":{"sf":"s:1","s":279,"ops":[["set","u.k0/head/2",{"age":2361}],["text","u.k0/body","append","ents15 and16 the17 slow18 v"]]}}
+{"t":1792773487111,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":279}}
+{"t":1792773487142,"dir":"out","verb":"f","body":{"sf":"s:1","s":280,"ops":[["set","u.k0/head/2",{"age":2394}],["text","u.k0/body","append","iolence19 of20 uplift21. =21"]]}}
+{"t":1792773487144,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":280}}
+{"t":1792773487176,"dir":"out","verb":"f","body":{"sf":"s:1","s":281,"ops":[["set","u.k0/head/2",{"age":2427}],["text","u.k0/body","append","\n\nS2: They1 rise2 where3"]]}}
+{"t":1792773487178,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":281}}
+{"t":1792773487213,"dir":"out","verb":"f","body":{"sf":"s:1","s":282,"ops":[["set","u.k0/head/2",{"age":2465}],["text","u.k0/body","append"," plates4 collide5 or6"]]}}
+{"t":1792773487214,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":282}}
+{"t":1792773487244,"dir":"out","verb":"f","body":{"sf":"s:1","s":283,"ops":[["set","u.k0/head/2",{"age":2496}],["text","u.k0/body","append"," crust7 stretches8 thin9, then10"]]}}
+{"t":1792773487246,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":283}}
+{"t":1792773487277,"dir":"out","verb":"f","body":{"sf":"s:1","s":284,"ops":[["set","u.k0/head/2",{"age":2529}],["text","u.k0/body","append"," are11 sculpted12 by13 ice14"]]}}
+{"t":1792773487279,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":284}}
+{"t":1792773487311,"dir":"out","verb":"f","body":{"sf":"s:1","s":285,"ops":[["set","u.k0/head/2",{"age":2563}],["text","u.k0/body","append",", wind15, and16 water17 into18"]]}}
+{"t":1792773487313,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":285}}
+{"t":1792773487345,"dir":"out","verb":"f","body":{"sf":"s:1","s":286,"ops":[["set","u.k0/head/2",{"age":2597}],["text","u.k0/body","append"," peaks19, cirques20, and21"]]}}
+{"t":1792773487347,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":286}}
+{"t":1792773487379,"dir":"out","verb":"f","body":{"sf":"s:1","s":287,"ops":[["set","u.k0/head/2",{"age":2631}],["text","u.k0/body","append"," valleys22. =22 →43\n\nS3"]]}}
+{"t":1792773487381,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":287}}
+{"t":1792773487412,"dir":"out","verb":"f","body":{"sf":"s:1","s":288,"ops":[["set","u.k0/head/2",{"age":2664}],["text","u.k0/body","append",": Altitude1 changes2 everything3:"]]}}
+{"t":1792773487414,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":288}}
+{"t":1792773487447,"dir":"out","verb":"f","body":{"sf":"s:1","s":289,"ops":[["set","u.k0/head/2",{"age":2699}],["text","u.k0/body","append"," temperature4 drops5, air6 thins7, a"]]}}
+{"t":1792773487449,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":289}}
+{"t":1792773487481,"dir":"out","verb":"f","body":{"sf":"s:1","s":290,"ops":[["set","u.k0/head/2",{"age":2733}],["text","u.k0/body","append","nd8 life9 adapts10 in11 bands12—for"]]}}
+{"t":1792773487483,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":290}}
+{"t":1792773487514,"dir":"out","verb":"f","body":{"sf":"s:1","s":291,"ops":[["set","u.k0/head/2",{"age":2766}],["text","u.k0/body","append","est13, meadow14, rock15, snow16"]]}}
+{"t":1792773487515,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":291}}
+{"t":1792773487548,"dir":"out","verb":"f","body":{"sf":"s:1","s":292,"ops":[["set","u.k0/head/2",{"age":2800}],["text","u.k0/body","append",". =16 →59\n\nS4: Mountains1 are2 wate"]]}}
+{"t":1792773487549,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":292}}
+{"t":1792773487581,"dir":"out","verb":"f","body":{"sf":"s:1","s":293,"ops":[["set","u.k0/head/2",{"age":2833}],["text","u.k0/body","append","r3 towers4, storing5 winter6 snow"]]}}
+{"t":1792773487582,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":293}}
+{"t":1792773487616,"dir":"out","verb":"f","body":{"sf":"s:1","s":294,"ops":[["set","u.k0/head/2",{"age":2868}],["text","u.k0/body","append","7 that8 melts9 into10 rivers1"]]}}
+{"t":1792773487617,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":294}}
+{"t":1792773487648,"dir":"out","verb":"f","body":{"sf":"s:1","s":295,"ops":[["set","u.k0/head/2",{"age":2900}],["text","u.k0/body","append","1 serving12 billions13 downstream14"]]}}
+{"t":1792773487649,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":295}}
+{"t":1792773487682,"dir":"out","verb":"f","body":{"sf":"s:1","s":296,"ops":[["set","u.k0/head/2",{"age":2934}],["text","u.k0/body","append",". =14 →73\n\nS5: They1 are2 also3 barr"]]}}
+{"t":1792773487683,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":296}}
+{"t":1792773487715,"dir":"out","verb":"f","body":{"sf":"s:1","s":297,"ops":[["set","u.k0/head/2",{"age":2967}],["text","u.k0/body","append","iers4 and5 bridges6, isolating7 cult"]]}}
+{"t":1792773487717,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":297}}
+{"t":1792773487750,"dir":"out","verb":"f","body":{"sf":"s:1","s":298,"ops":[["set","u.k0/head/2",{"age":3002}],["text","u.k0/body","append","ures8 while9 shaping10 weather11 an"]]}}
+{"t":1792773487751,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":298}}
+{"t":1792773487783,"dir":"out","verb":"f","body":{"sf":"s:1","s":299,"ops":[["set","u.k0/head/2",{"age":3035}],["text","u.k0/body","append","d12 migration13 routes14. =14 →"]]}}
+{"t":1792773487784,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":299}}
+{"t":1792773487817,"dir":"out","verb":"f","body":{"sf":"s:1","s":300,"ops":[["set","u.k0/head/2",{"age":3069}],["text","u.k0/body","append","87\n\nS6: People1 climb2 them3 for"]]}}
+{"t":1792773487818,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":300}}
+{"t":1792773487851,"dir":"out","verb":"f","body":{"sf":"s:1","s":301,"ops":[["set","u.k0/head/2",{"age":3103}],["text","u.k0/body","append","4 beauty5 and6 meaning7, min"]]}}
+{"t":1792773487853,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":301}}
+{"t":1792773487885,"dir":"out","verb":"f","body":{"sf":"s:1","s":302,"ops":[["set","u.k0/head/2",{"age":3137}],["text","u.k0/body","append","e8 them9 for10 minerals11, and1"]]}}
+{"t":1792773487887,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":302}}
+{"t":1792773487920,"dir":"out","verb":"f","body":{"sf":"s:1","s":303,"ops":[["set","u.k0/head/2",{"age":3172}],["text","u.k0/body","append","2 farm13 their14 terraced15 sl"]]}}
+{"t":1792773487921,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":303}}
+{"t":1792773487953,"dir":"out","verb":"f","body":{"sf":"s:1","s":304,"ops":[["set","u.k0/head/2",{"age":3205}],["text","u.k0/body","append","opes16. =16 →103\n\nS7: Yet1 m"]]}}
+{"t":1792773487954,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":304}}
+{"t":1792773487988,"dir":"out","verb":"f","body":{"sf":"s:1","s":305,"ops":[["set","u.k0/head/2",{"age":3240}],["text","u.k0/body","append","ountains2 are3 brittle4 p"]]}}
+{"t":1792773487989,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":305}}
+{"t":1792773488021,"dir":"out","verb":"f","body":{"sf":"s:1","s":306,"ops":[["set","u.k0/head/2",{"age":3273}],["text","u.k0/body","append","laces5. =5 →108\n\nS8: W"]]}}
+{"t":1792773488022,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":306}}
+{"t":1792773488055,"dir":"out","verb":"f","body":{"sf":"s:1","s":307,"ops":[["set","u.k0/head/2",{"age":3307}],["text","u.k0/body","append","arming1 thaws2 perm"]]}}
+{"t":1792773488056,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":307}}
+{"t":1792773488091,"dir":"out","verb":"f","body":{"sf":"s:1","s":308,"ops":[["set","u.k0/head/2",{"age":3343}],["text","u.k0/body","append","afrost3, glaciers4 retreat5, an"]]}}
+{"t":1792773488093,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":308}}
+{"t":1792773488123,"dir":"out","verb":"f","body":{"sf":"s:1","s":309,"ops":[["set","u.k0/head/2",{"age":3375}],["text","u.k0/body","append","d6 roads7 cut8 scars9 that10 ero"]]}}
+{"t":1792773488126,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":309}}
+{"t":1792773488157,"dir":"out","verb":"f","body":{"sf":"s:1","s":310,"ops":[["set","u.k0/head/2",{"age":3409}],["text","u.k0/body","append","sion11 widens12. =12 →120\n\nS"]]}}
+{"t":1792773488159,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":310}}
+{"t":1792773488190,"dir":"out","verb":"f","body":{"sf":"s:1","s":311,"ops":[["set","u.k0/head/2",{"age":3442}],["text","u.k0/body","append","9: Protecting1 them2 mea"]]}}
+{"t":1792773488191,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":311}}
+{"t":1792773488224,"dir":"out","verb":"f","body":{"sf":"s:1","s":312,"ops":[["set","u.k0/head/2",{"age":3476}],["text","u.k0/body","append","ns3 protecting4 the5 water6, climate7"]]}}
+{"t":1792773488226,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":312}}
+{"t":1792773488259,"dir":"out","verb":"f","body":{"sf":"s:1","s":313,"ops":[["set","u.k0/head/2",{"age":3511}],["text","u.k0/body","append",", and8 cultures9 that10 depend11"]]}}
+{"t":1792773488261,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":313}}
+{"t":1792773488292,"dir":"out","verb":"f","body":{"sf":"s:1","s":314,"ops":[["set","u.k0/head/2",{"age":3544}],["text","u.k0/body","append"," on12 high13 ground14. =14 →13"]]}}
+{"t":1792773488293,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":314}}
+{"t":1792773488325,"dir":"out","verb":"f","body":{"sf":"s:1","s":315,"ops":[["set","u.k0/head/2",{"age":3577}],["text","u.k0/body","append","4\n\nS10: Standing1 on2 a3 summit"]]}}
+{"t":1792773488327,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":315}}
+{"t":1792773488358,"dir":"out","verb":"f","body":{"sf":"s:1","s":316,"ops":[["set","u.k0/head/2",{"age":3610}],["text","u.k0/body","append","4, you5 feel6 small7 and8 tem"]]}}
+{"t":1792773488359,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":316}}
+{"t":1792773488392,"dir":"out","verb":"f","body":{"sf":"s:1","s":317,"ops":[["set","u.k0/head/2",{"age":3644}],["text","u.k0/body","append","porary9—a10 brief11 visit"]]}}
+{"t":1792773488393,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":317}}
+{"t":1792773488427,"dir":"out","verb":"f","body":{"sf":"s:1","s":318,"ops":[["set","u.k0/head/2",{"age":3679}],["text","u.k0/body","append","or12 in13 a14 landscape15 t"]]}}
+{"t":1792773488428,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":318}}
+{"t":1792773488461,"dir":"out","verb":"f","body":{"sf":"s:1","s":319,"ops":[["set","u.k0/head/2",{"age":3713}],["text","u.k0/body","append","hat16 will17 outlast18 every1"]]}}
+{"t":1792773488463,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":319}}
+{"t":1792773488496,"dir":"out","verb":"f","body":{"sf":"s:1","s":320,"ops":[["set","u.k0/head/2",{"age":3747}],["text","u.k0/body","append","9 map20 we21 draw22. =22"]]}}
+{"t":1792773488497,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":320}}
+{"t":1792773488528,"dir":"out","verb":"f","body":{"sf":"s:1","s":321,"ops":[["set","u.k0/head/2",{"age":3780}],["text","u.k0/body","append"," →156\n\n156. Trim 6. Optio"]]}}
+{"t":1792773488529,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":321}}
+{"t":1792773488562,"dir":"out","verb":"f","body":{"sf":"s:1","s":322,"ops":[["set","u.k0/head/2",{"age":3814}],["text","u.k0/body","append","ns: S1 \"the slow violence o"]]}}
+{"t":1792773488564,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":322}}
+{"t":1792773488596,"dir":"out","verb":"f","body":{"sf":"s:1","s":323,"ops":[["set","u.k0/head/2",{"age":3848}],["text","u.k0/body","append","f uplift\" → \"slow violen"]]}}
+{"t":1792773488597,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":323}}
+{"t":1792773488631,"dir":"out","verb":"f","body":{"sf":"s:1","s":324,"ops":[["set","u.k0/head/2",{"age":3883}],["text","u.k0/body","append","ce of uplift\" (-1). S2"]]}}
+{"t":1792773488632,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":324}}
+{"t":1792773488665,"dir":"out","verb":"f","body":{"sf":"s:1","s":325,"ops":[["set","u.k0/head/2",{"age":3917}],["text","u.k0/body","append"," \"into peaks, cirques,"]]}}
+{"t":1792773488666,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":325}}
+{"t":1792773488699,"dir":"out","verb":"f","body":{"sf":"s:1","s":326,"ops":[["set","u.k0/head/2",{"age":3952}],["text","u.k0/body","append"," and valleys\" ok. S"]]}}
+{"t":1792773488701,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":326}}
+{"t":1792773488733,"dir":"out","verb":"f","body":{"sf":"s:1","s":327,"ops":[["set","u.k0/head/2",{"age":3985}],["text","u.k0/body","append","10 \"every map we dra"]]}}
+{"t":1792773488734,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":327}}
+{"t":1792773488767,"dir":"out","verb":"f","body":{"sf":"s:1","s":328,"ops":[["set","u.k0/head/2",{"age":4019}],["text","u.k0/body","append","w\" → \"every map\" ("]]}}
+{"t":1792773488768,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":328}}
+{"t":1792773488799,"dir":"out","verb":"f","body":{"sf":"s:1","s":329,"ops":[["set","u.k0/head/2",{"age":4051}],["text","u.k0/body","append","-2). S8 \"roads c"]]}}
+{"t":1792773488801,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":329}}
+{"t":1792773488833,"dir":"out","verb":"f","body":{"sf":"s:1","s":330,"ops":[["set","u.k0/head/2",{"age":4085}],["text","u.k0/body","append","ut scars that erosio"]]}}
+{"t":1792773488834,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":330}}
+{"t":1792773488867,"dir":"out","verb":"f","body":{"sf":"s:1","s":331,"ops":[["set","u.k0/head/2",{"age":4119}],["text","u.k0/body","append","n widens\" keep.\n\nNe"]]}}
+{"t":1792773488868,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":331}}
+{"t":1792773488901,"dir":"out","verb":"f","body":{"sf":"s:1","s":332,"ops":[["set","u.k0/head/2",{"age":4153}],["text","u.k0/body","append","ed -6. Remove \"of stone\""]]}}
+{"t":1792773488902,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":332}}
+{"t":1792773488935,"dir":"out","verb":"f","body":{"sf":"s:1","s":333,"ops":[["set","u.k0/head/2",{"age":4187}],["text","u.k0/body","append"," in S1? \"ridges that r"]]}}
+{"t":1792773488936,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":333}}
+{"t":1792773488970,"dir":"out","verb":"f","body":{"sf":"s:1","s":334,"ops":[["set","u.k0/head/2",{"age":4222}],["text","u.k0/body","append","ecord\" (-2). Remove \"made"]]}}
+{"t":1792773488972,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":334}}
+{"t":1792773489003,"dir":"out","verb":"f","body":{"sf":"s:1","s":335,"ops":[["set","u.k0/head/2",{"age":4255}],["text","u.k0/body","append"," visible\"? Keep.\n\nPlan"]]}}
+{"t":1792773489004,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":335}}
+{"t":1792773489037,"dir":"out","verb":"f","body":{"sf":"s:1","s":336,"ops":[["set","u.k0/head/2",{"age":4289}],["text","u.k0/body","append"," changes:\n- S1: \"ri"]]}}
+{"t":1792773489039,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":336}}
+{"t":1792773489071,"dir":"out","verb":"f","body":{"sf":"s:1","s":337,"ops":[["set","u.k0/head/2",{"age":4323}],["text","u.k0/body","append","dges of stone that record"]]}}
+{"t":1792773489072,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":337}}
+{"t":1792773489105,"dir":"out","verb":"f","body":{"sf":"s:1","s":338,"ops":[["set","u.k0/head/2",{"age":4357}],["text","u.k0/body","append"," collisions\" → \"ridges"]]}}
+{"t":1792773489106,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":338}}
+{"t":1792773489139,"dir":"out","verb":"f","body":{"sf":"s:1","s":339,"ops":[["set","u.k0/head/2",{"age":4391}],["text","u.k0/body","append"," that record collisions\""]]}}
+{"t":1792773489141,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":339}}
+{"t":1792773489174,"dir":"out","verb":"f","body":{"sf":"s:1","s":340,"ops":[["set","u.k0/head/2",{"age":4426}],["text","u.k0/body","append"," (-2) → 154\n- S10: \"every m"]]}}
+{"t":1792773489175,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":340}}
+{"t":1792773489207,"dir":"out","verb":"f","body":{"sf":"s:1","s":341,"ops":[["set","u.k0/head/2",{"age":4459}],["text","u.k0/body","append","ap we draw\" → \"every ma"]]}}
+{"t":1792773489209,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":341}}
+{"t":1792773489242,"dir":"out","verb":"f","body":{"sf":"s:1","s":342,"ops":[["set","u.k0/head/2",{"age":4494}],["text","u.k0/body","append","p\" (-2) → 152\n- S5: \"while"]]}}
+{"t":1792773489243,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":342}}
+{"t":1792773489276,"dir":"out","verb":"f","body":{"sf":"s:1","s":343,"ops":[["set","u.k0/head/2",{"age":4528}],["text","u.k0/body","append"," shaping weather and migr"]]}}
+{"t":1792773489277,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":343}}
+{"t":1792773489309,"dir":"out","verb":"f","body":{"sf":"s:1","s":344,"ops":[["set","u.k0/head/2",{"age":4561}],["text","u.k0/body","append","ation routes\" fine.\n- S9: \"t"]]}}
+{"t":1792773489311,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":344}}
+{"t":1792773489343,"dir":"out","verb":"f","body":{"sf":"s:1","s":345,"ops":[["set","u.k0/head/2",{"age":4595}],["text","u.k0/body","append","he water, climate, and cul"]]}}
+{"t":1792773489344,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":345}}
+{"t":1792773489377,"dir":"out","verb":"f","body":{"sf":"s:1","s":346,"ops":[["set","u.k0/head/2",{"age":4629}],["text","u.k0/body","append","tures\" → \"water, climat"]]}}
+{"t":1792773489378,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":346}}
+{"t":1792773489411,"dir":"out","verb":"f","body":{"sf":"s:1","s":347,"ops":[["set","u.k0/head/2",{"age":4662}],["text","u.k0/body","append","e, and cultures\" (-1) → 15"]]}}
+{"t":1792773489412,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":347}}
+{"t":1792773489445,"dir":"out","verb":"f","body":{"sf":"s:1","s":348,"ops":[["set","u.k0/head/2",{"age":4697}],["text","u.k0/body","append","1\n- S6: \"for beauty and"]]}}
+{"t":1792773489446,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":348}}
+{"t":1792773489478,"dir":"out","verb":"f","body":{"sf":"s:1","s":349,"ops":[["set","u.k0/head/2",{"age":4730}],["text","u.k0/body","append"," meaning\" → \"for beauty, mean"]]}}
+{"t":1792773489480,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":349}}
+{"t":1792773489513,"dir":"out","verb":"f","body":{"sf":"s:1","s":350,"ops":[["set","u.k0/head/2",{"age":4765}],["text","u.k0/body","append","ing\" hmm no. \n- S3: \"Alti"]]}}
+{"t":1792773489514,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":350}}
+{"t":1792773489545,"dir":"out","verb":"f","body":{"sf":"s:1","s":351,"ops":[["set","u.k0/head/2",{"age":4797}],["text","u.k0/body","append","tude changes everything"]]}}
+{"t":1792773489546,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":351}}
+{"t":1792773489580,"dir":"out","verb":"f","body":{"sf":"s:1","s":352,"ops":[["set","u.k0/head/2",{"age":4832}],["text","u.k0/body","append","\" fine.\n- S7: \"Yet m"]]}}
+{"t":1792773489581,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":352}}
+{"t":1792773489614,"dir":"out","verb":"f","body":{"sf":"s:1","s":353,"ops":[["set","u.k0/head/2",{"age":4866}],["text","u.k0/body","append","ountains are brittle places"]]}}
+{"t":1792773489615,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":353}}
+{"t":1792773489647,"dir":"out","verb":"f","body":{"sf":"s:1","s":354,"ops":[["set","u.k0/head/2",{"age":4899}],["text","u.k0/body","append","\" → \"Yet they are brittle"]]}}
+{"t":1792773489648,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":354}}
+{"t":1792773489681,"dir":"out","verb":"f","body":{"sf":"s:1","s":355,"ops":[["set","u.k0/head/2",{"age":4933}],["text","u.k0/body","append","\" (-2)? changes meanin"]]}}
+{"t":1792773489682,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":355}}
+{"t":1792773489714,"dir":"out","verb":"f","body":{"sf":"s:1","s":356,"ops":[["set","u.k0/head/2",{"age":4966}],["text","u.k0/body","append","g slightly but fine? Ori"]]}}
+{"t":1792773489715,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":356}}
+{"t":1792773489749,"dir":"out","verb":"f","body":{"sf":"s:1","s":357,"ops":[["set","u.k0/head/2",{"age":5000}],["text","u.k0/body","append","ginal \"brittle places"]]}}
+{"t":1792773489750,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":357}}
+{"t":1792773489782,"dir":"out","verb":"f","body":{"sf":"s:1","s":358,"ops":[["set","u.k0/head/2",{"age":5034}],["text","u.k0/body","append","\" nice. \n- S4: \"serving billion"]]}}
+{"t":1792773489784,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":358}}
+{"t":1792773489817,"dir":"out","verb":"f","body":{"sf":"s:1","s":359,"ops":[["set","u.k0/head/2",{"age":5069}],["text","u.k0/body","append","s downstream\" → \"for billio"]]}}
+{"t":1792773489819,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":359}}
+{"t":1792773489850,"dir":"out","verb":"f","body":{"sf":"s:1","s":360,"ops":[["set","u.k0/head/2",{"age":5102}],["text","u.k0/body","append","ns downstream\" same coun"]]}}
+{"t":1792773489852,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":360}}
+{"t":1792773489884,"dir":"out","verb":"f","body":{"sf":"s:1","s":361,"ops":[["set","u.k0/head/2",{"age":5136}],["text","u.k0/body","append","t.\n\nTake -1 more: S8 \"War"]]}}
+{"t":1792773489886,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":361}}
+{"t":1792773489918,"dir":"out","verb":"f","body":{"sf":"s:1","s":362,"ops":[["set","u.k0/head/2",{"age":5170}],["text","u.k0/body","append","ming thaws permafrost\""]]}}
+{"t":1792773489920,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":362}}
+{"t":1792773489953,"dir":"out","verb":"f","body":{"sf":"s:1","s":363,"ops":[["set","u.k0/head/2",{"age":5205}],["text","u.k0/body","append"," fine. S10 \"Standing on"]]}}
+{"t":1792773489954,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":363}}
+{"t":1792773489987,"dir":"out","verb":"f","body":{"sf":"s:1","s":364,"ops":[["set","u.k0/head/2",{"age":5239}],["text","u.k0/body","append"," a summit, you feel s"]]}}
+{"t":1792773489989,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":364}}
+{"t":1792773490020,"dir":"out","verb":"f","body":{"sf":"s:1","s":365,"ops":[["set","u.k0/head/2",{"age":5272}],["text","u.k0/body","append","mall and temporary\" →"]]}}
+{"t":1792773490022,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":365}}
+{"t":1792773490054,"dir":"out","verb":"f","body":{"sf":"s:1","s":366,"ops":[["set","u.k0/head/2",{"age":5306}],["text","u.k0/body","append"," \"On a summit, you"]]}}
+{"t":1792773490055,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":366}}
+{"t":1792773490089,"dir":"out","verb":"f","body":{"sf":"s:1","s":367,"ops":[["set","u.k0/head/2",{"age":5341}],["text","u.k0/body","append"," feel small and"]]}}
+{"t":1792773490091,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":367}}
+{"t":1792773490123,"dir":"out","verb":"f","body":{"sf":"s:1","s":368,"ops":[["set","u.k0/head/2",{"age":5375}],["text","u.k0/body","append"," temporary\" (-2) → 149. Hmm."]]}}
+{"t":1792773490124,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":368}}
+{"t":1792773490156,"dir":"out","verb":"f","body":{"sf":"s:1","s":369,"ops":[["set","u.k0/head/2",{"age":5408}],["text","u.k0/body","append","\n\nLet's instead: S1 -2,"]]}}
+{"t":1792773490159,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":369}}
+{"t":1792773490189,"dir":"out","verb":"f","body":{"sf":"s:1","s":370,"ops":[["set","u.k0/head/2",{"age":5441}],["text","u.k0/body","append"," S10 -2, S9 -1 = 151. Need 1 m"]]}}
+{"t":1792773490191,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":370}}
+{"t":1792773490224,"dir":"out","verb":"f","body":{"sf":"s:1","s":371,"ops":[["set","u.k0/head/2",{"age":5476}],["text","u.k0/body","append","ore: S6 \"People climb the"]]}}
+{"t":1792773490226,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":371}}
+{"t":1792773490258,"dir":"out","verb":"f","body":{"sf":"s:1","s":372,"ops":[["set","u.k0/head/2",{"age":5510}],["text","u.k0/body","append","m for beauty and meaning\""]]}}
+{"t":1792773490259,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":372}}
+{"t":1792773490291,"dir":"out","verb":"f","body":{"sf":"s:1","s":373,"ops":[["set","u.k0/head/2",{"age":5543}],["text","u.k0/body","append"," → \"People climb for beauty and me"]]}}
+{"t":1792773490292,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":373}}
+{"t":1792773490325,"dir":"out","verb":"f","body":{"sf":"s:1","s":374,"ops":[["set","u.k0/head/2",{"age":5577}],["text","u.k0/body","append","aning\" (-1) → 150. Good.\n\nFin"]]}}
+{"t":1792773490327,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":374}}
+{"t":1792773490358,"dir":"out","verb":"f","body":{"sf":"s:1","s":375,"ops":[["set","u.k0/head/2",{"age":5610}],["text","u.k0/body","append","al recount mentally accept 150. De"]]}}
+{"t":1792773490359,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":375}}
+{"t":1792773490392,"dir":"out","verb":"f","body":{"sf":"s:1","s":376,"ops":[["set","u.k0",{"role":"omp.thinking","collapsed":true,"took":5644}],["del","u.k0/head"],["add","u.k0/head","u.k0","u.k0/body",{"id":"u.k0/head","k":"text","p":{"spans":[{"t":"Thought for 6s","s":"muted"}]}}],["text","u.k0/body","append","liver."],["set","u.k0/body",{"stream":null}],["add","u.t1","u",null,{"id":"u.t1","k":"md","p":{"text":"Mountains are the earth'","stream":true}}]]}}
+{"t":1792773490394,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":376}}
+{"t":1792773490425,"dir":"out","verb":"f","body":{"sf":"s:1","s":377,"ops":[["text","u.t1","append","s memory made visible, rid"]]}}
+{"t":1792773490427,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":377}}
+{"t":1792773490460,"dir":"out","verb":"f","body":{"sf":"s:1","s":378,"ops":[["text","u.t1","append","ges that record collisions of contine"]]}}
+{"t":1792773490461,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":378}}
+{"t":1792773490494,"dir":"out","verb":"f","body":{"sf":"s:1","s":379,"ops":[["text","u.t1","append","nts and the slow violence of uplift"]]}}
+{"t":1792773490495,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":379}}
+{"t":1792773490528,"dir":"out","verb":"f","body":{"sf":"s:1","s":380,"ops":[["text","u.t1","append",". They rise where plates collide or"]]}}
+{"t":1792773490530,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":380}}
+{"t":1792773490561,"dir":"out","verb":"f","body":{"sf":"s:1","s":381,"ops":[["text","u.t1","append"," crust stretches thin, then are sculpte"]]}}
+{"t":1792773490563,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":381}}
+{"t":1792773490595,"dir":"out","verb":"f","body":{"sf":"s:1","s":382,"ops":[["text","u.t1","append","d by ice, wind, and water into peaks, cir"]]}}
+{"t":1792773490596,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":382}}
+{"t":1792773490630,"dir":"out","verb":"f","body":{"sf":"s:1","s":383,"ops":[["text","u.t1","append","ques, and valleys. Altitude changes"]]}}
+{"t":1792773490633,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":383}}
+{"t":1792773490666,"dir":"out","verb":"f","body":{"sf":"s:1","s":384,"ops":[["text","u.t1","append"," everything: temperature drops, air thins,"]]}}
+{"t":1792773490668,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":384}}
+{"t":1792773490699,"dir":"out","verb":"f","body":{"sf":"s:1","s":385,"ops":[["text","u.t1","append"," and life adapts in bands—forest, meadow, r"]]}}
+{"t":1792773490701,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":385}}
+{"t":1792773490732,"dir":"out","verb":"f","body":{"sf":"s:1","s":386,"ops":[["text","u.t1","append","ock, snow. Mountains are water towers"]]}}
+{"t":1792773490733,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":386}}
+{"t":1792773490766,"dir":"out","verb":"f","body":{"sf":"s:1","s":387,"ops":[["text","u.t1","append",", storing winter snow that melts into rive"]]}}
+{"t":1792773490768,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":387}}
+{"t":1792773490800,"dir":"out","verb":"f","body":{"sf":"s:1","s":388,"ops":[["text","u.t1","append","rs serving billions downstream. They ar"]]}}
+{"t":1792773490802,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":388}}
+{"t":1792773490834,"dir":"out","verb":"f","body":{"sf":"s:1","s":389,"ops":[["text","u.t1","append","e also barriers and bridges, isola"]]}}
+{"t":1792773490836,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":389}}
+{"t":1792773490868,"dir":"out","verb":"f","body":{"sf":"s:1","s":390,"ops":[["text","u.t1","append","ting cultures while shaping weather and"]]}}
+{"t":1792773490870,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":390}}
+{"t":1792773490902,"dir":"out","verb":"f","body":{"sf":"s:1","s":391,"ops":[["text","u.t1","append"," migration routes. People climb for beauty"]]}}
+{"t":1792773490904,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":391}}
+{"t":1792773490937,"dir":"out","verb":"f","body":{"sf":"s:1","s":392,"ops":[["text","u.t1","append"," and meaning, mine them for minerals, and f"]]}}
+{"t":1792773490938,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":392}}
+{"t":1792773490970,"dir":"out","verb":"f","body":{"sf":"s:1","s":393,"ops":[["text","u.t1","append","arm their terraced slopes. Yet mounta"]]}}
+{"t":1792773490971,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":393}}
+{"t":1792773491010,"dir":"out","verb":"f","body":{"sf":"s:1","s":394,"ops":[["text","u.t1","append","ins are brittle places. Warming thaws permafrost, glaciers retreat, and roads cut scars that erosion widens. Protecting them means protecting water, climate, and cultures that depend on high ground. Standing on a summit, you feel small and temporary—a brief visitor in a landscape that will outlast every map."],["set","u.t1",{"stream":null}],["add","u.turn-usage","u",null,{"id":"u.turn-usage","k":"row","p":{"role":"omp.turn.usage","gap":"xs","align":"center","title":"This turn: 7.1s · 1,404 tokens (151 in · 1,253 out) · <$0.01"},"c":[{"id":"u.turn-usage/copy","k":"icon","p":{"name":"copy","role":"omp.turn.copy","title":"Copy answer","aria":"Copy answer","actions":{"click":"copy-answer"}}},{"id":"u.turn-usage/dot","k":"text","p":{"text":"·"}},{"id":"u.turn-usage/text","k":"text","p":{"text":"7.1s · 1.4K tok · <$0.01 this turn"}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"col"}],["add","v","d",null,{"id":"v","k":"col"}],["set","j",{"tone":null}],["set","j.context",{"value":0.011031,"title":"Context 1% used\n11K of 1M tokens\nAuto-compact at 85%"}],["add","j.bar/send","j.bar",null,{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}],["del","r"],["del","j.bar/stop"],["settle","u"]]}}
+{"t":1792773491011,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":394}}
+{"t":1792773508859,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"Write a 150-word paragraph about oceans."}}
+{"t":1792773508862,"dir":"out","verb":"f","body":{"sf":"s:1","s":395,"ops":[["add","w","main",null,{"id":"w","k":"card","p":{"role":"omp.user","tone":"user"},"c":[{"id":"w.tools","k":"row","p":{"gap":"xs","align":"center","role":"omp.user.tools"},"c":[{"id":"w.tools/copy","k":"icon","p":{"name":"copy","role":"omp.user.tool","title":"Copy message","aria":"Copy message","actions":{"click":"copy-message"}}},{"id":"w.tools/rewind","k":"icon","p":{"name":"rewind","role":"omp.user.tool","title":"Rewind the conversation to an earlier message","aria":"Rewind","actions":{"click":"rewind"}}},{"id":"w.tools/dot","k":"text","p":{"text":"·"}},{"id":"w.tools/3","k":"text","p":{"role":"omp.user.time","title":"2026/10/23 16:38:28","spans":[{"t":"16:38","s":"dim mono"}]}}]},{"id":"w.1","k":"md","p":{"text":"Write a 150-word paragraph about oceans."}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"row","p":{"role":"omp.hud.activity","align":"center","gap":"sm"},"c":[{"id":"b.status","k":"col","p":{"role":"omp.hud.status"},"c":[{"id":"x","k":"row","p":{"role":"omp.working","align":"center","gap":"sm"},"c":[{"id":"x.spinner","k":"spinner","p":{"style":"starburst","tone":"accent"}},{"id":"x.elapsed","k":"elapsed","p":{"age":0,"format":"short"}},{"id":"x.sep","k":"text","p":{"text":"·","role":"omp.working.sep"}},{"id":"x.label","k":"shimmer","p":{"spans":[{"t":"Working…","s":"accent"}],"mode":"classic","palette":{"low":"dim","mid":"accent","high":"accent"},"role":"omp.working.label"}},{"id":"x.fill","k":"row","p":{"grow":1}},{"id":"x.stop","k":"row","p":{"role":"omp.working.stop","gap":"xs","align":"center","title":"Stop  esc","actions":{"click":"interrupt"}},"c":[{"id":"x.stop/0","k":"kbd","p":{"keys":["escape"]}},{"id":"x.stop/1","k":"text","p":{"text":"Stop"}}]}]}]}]}],["set","j",{"tone":"pending"}],["add","j.bar/stop","j.bar",null,{"id":"j.bar/stop","k":"text","p":{"role":"omp.composer.stop","text":"Stop","tone":"error","title":"Stop  esc","actions":{"click":"interrupt"}}}],["del","j.bar/send"],["settle","w"]]}}
+{"t":1792773508864,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":395}}
+{"t":1792773508868,"dir":"out","verb":"f","body":{"sf":"s:1","s":396,"ops":[["set","j.context",{"value":0.01104}]]}}
+{"t":1792773508869,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":396}}
+{"t":1792773509905,"dir":"out","verb":"f","body":{"sf":"s:1","s":397,"ops":[["add","y","main",null,{"id":"y","k":"col","p":{"role":"omp.assistant"}}]]}}
+{"t":1792773509907,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":397}}
+{"t":1792773509941,"dir":"out","verb":"f","body":{"sf":"s:1","s":398,"ops":[["add","y.k0","y",null,{"id":"y.k0","k":"section","p":{"role":"omp.thinking.live","collapsible":true,"collapsed":false,"head":"y.k0/head"},"c":[{"id":"y.k0/head","k":"row","p":{"gap":"sm"},"c":[{"id":"y.k0/head/0","k":"spinner","p":{"style":"starburst","role":"omp.thinking.spin"}},{"id":"y.k0/head/1","k":"text","p":{"spans":[{"t":"Thinking…","s":"muted"}]}},{"id":"y.k0/head/2","k":"elapsed","p":{"age":0,"format":"short"}}]},{"id":"y.k0/body","k":"md","p":{"text":"Nee","stream":true}}]}]]}}
+{"t":1792773509944,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":398}}
+{"t":1792773509974,"dir":"out","verb":"f","body":{"sf":"s:1","s":399,"ops":[["set","y.k0/head/2",{"age":33}],["text","y.k0/body","append","d"]]}}
+{"t":1792773509976,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":399}}
+{"t":1792773510046,"dir":"out","verb":"f","body":{"sf":"s:1","s":400,"ops":[["set","y.k0/head/2",{"age":105}],["text","y.k0/body","append"," 150-w"]]}}
+{"t":1792773510048,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":400}}
+{"t":1792773510079,"dir":"out","verb":"f","body":{"sf":"s:1","s":401,"ops":[["set","y.k0/head/2",{"age":139}],["text","y.k0/body","append","ord par"]]}}
+{"t":1792773510081,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":401}}
+{"t":1792773510112,"dir":"out","verb":"f","body":{"sf":"s:1","s":402,"ops":[["set","y.k0/head/2",{"age":172}],["text","y.k0/body","append","agraph"]]}}
+{"t":1792773510114,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":402}}
+{"t":1792773510146,"dir":"out","verb":"f","body":{"sf":"s:1","s":403,"ops":[["set","y.k0/head/2",{"age":206}],["text","y.k0/body","append"," about oceans. Cou"]]}}
+{"t":1792773510147,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":403}}
+{"t":1792773510180,"dir":"out","verb":"f","body":{"sf":"s:1","s":404,"ops":[["set","y.k0/head/2",{"age":239}],["text","y.k0/body","append","nt carefully.\n\nDr"]]}}
+{"t":1792773510181,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":404}}
+{"t":1792773510213,"dir":"out","verb":"f","body":{"sf":"s:1","s":405,"ops":[["set","y.k0/head/2",{"age":273}],["text","y.k0/body","append","aft:\n\n\"Oceans c"]]}}
+{"t":1792773510215,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":405}}
+{"t":1792773510247,"dir":"out","verb":"f","body":{"sf":"s:1","s":406,"ops":[["set","y.k0/head/2",{"age":306}],["text","y.k0/body","append","over most of the pl"]]}}
+{"t":1792773510248,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":406}}
+{"t":1792773510280,"dir":"out","verb":"f","body":{"sf":"s:1","s":407,"ops":[["set","y.k0/head/2",{"age":340}],["text","y.k0/body","append","anet, a single co"]]}}
+{"t":1792773510281,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":407}}
+{"t":1792773510313,"dir":"out","verb":"f","body":{"sf":"s:1","s":408,"ops":[["set","y.k0/head/2",{"age":373}],["text","y.k0/body","append","nnected body of salt w"]]}}
+{"t":1792773510315,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":408}}
+{"t":1792773510347,"dir":"out","verb":"f","body":{"sf":"s:1","s":409,"ops":[["set","y.k0/head/2",{"age":407}],["text","y.k0/body","append","ater that regulates"]]}}
+{"t":1792773510350,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":409}}
+{"t":1792773510381,"dir":"out","verb":"f","body":{"sf":"s:1","s":410,"ops":[["set","y.k0/head/2",{"age":441}],["text","y.k0/body","append"," climate, feeds bi"]]}}
+{"t":1792773510383,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":410}}
+{"t":1792773510416,"dir":"out","verb":"f","body":{"sf":"s:1","s":411,"ops":[["set","y.k0/head/2",{"age":476}],["text","y.k0/body","append","llions, and remains"]]}}
+{"t":1792773510417,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":411}}
+{"t":1792773510449,"dir":"out","verb":"f","body":{"sf":"s:1","s":412,"ops":[["set","y.k0/head/2",{"age":509}],["text","y.k0/body","append"," largely unexplore"]]}}
+{"t":1792773510451,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":412}}
+{"t":1792773510482,"dir":"out","verb":"f","body":{"sf":"s:1","s":413,"ops":[["set","y.k0/head/2",{"age":542}],["text","y.k0/body","append","d. They absorb heat"]]}}
+{"t":1792773510483,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":413}}
+{"t":1792773510515,"dir":"out","verb":"f","body":{"sf":"s:1","s":414,"ops":[["set","y.k0/head/2",{"age":575}],["text","y.k0/body","append"," and carbon dioxide,"]]}}
+{"t":1792773510518,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":414}}
+{"t":1792773510550,"dir":"out","verb":"f","body":{"sf":"s:1","s":415,"ops":[["set","y.k0/head/2",{"age":610}],["text","y.k0/body","append"," driving weather patt"]]}}
+{"t":1792773510552,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":415}}
+{"t":1792773510582,"dir":"out","verb":"f","body":{"sf":"s:1","s":416,"ops":[["set","y.k0/head/2",{"age":642}],["text","y.k0/body","append","erns and buffering"]]}}
+{"t":1792773510584,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":416}}
+{"t":1792773510617,"dir":"out","verb":"f","body":{"sf":"s:1","s":417,"ops":[["set","y.k0/head/2",{"age":677}],["text","y.k0/body","append"," the worst of warming"]]}}
+{"t":1792773510619,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":417}}
+{"t":1792773510651,"dir":"out","verb":"f","body":{"sf":"s:1","s":418,"ops":[["set","y.k0/head/2",{"age":711}],["text","y.k0/body","append",". Currents circulat"]]}}
+{"t":1792773510654,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":418}}
+{"t":1792773510685,"dir":"out","verb":"f","body":{"sf":"s:1","s":419,"ops":[["set","y.k0/head/2",{"age":745}],["text","y.k0/body","append","e like a global"]]}}
+{"t":1792773510687,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":419}}
+{"t":1792773510719,"dir":"out","verb":"f","body":{"sf":"s:1","s":420,"ops":[["set","y.k0/head/2",{"age":779}],["text","y.k0/body","append"," bloodstream, moving"]]}}
+{"t":1792773510721,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":420}}
+{"t":1792773510753,"dir":"out","verb":"f","body":{"sf":"s:1","s":421,"ops":[["set","y.k0/head/2",{"age":813}],["text","y.k0/body","append"," nutrients from depth"]]}}
+{"t":1792773510755,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":421}}
+{"t":1792773510785,"dir":"out","verb":"f","body":{"sf":"s:1","s":422,"ops":[["set","y.k0/head/2",{"age":845}],["text","y.k0/body","append"," to surface and linkin"]]}}
+{"t":1792773510787,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":422}}
+{"t":1792773510820,"dir":"out","verb":"f","body":{"sf":"s:1","s":423,"ops":[["set","y.k0/head/2",{"age":880}],["text","y.k0/body","append","g distant coasts."]]}}
+{"t":1792773510821,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":423}}
+{"t":1792773510853,"dir":"out","verb":"f","body":{"sf":"s:1","s":424,"ops":[["set","y.k0/head/2",{"age":913}],["text","y.k0/body","append"," Life thrives everywh"]]}}
+{"t":1792773510855,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":424}}
+{"t":1792773510888,"dir":"out","verb":"f","body":{"sf":"s:1","s":425,"ops":[["set","y.k0/head/2",{"age":948}],["text","y.k0/body","append","ere in them, from su"]]}}
+{"t":1792773510889,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":425}}
+{"t":1792773510921,"dir":"out","verb":"f","body":{"sf":"s:1","s":426,"ops":[["set","y.k0/head/2",{"age":981}],["text","y.k0/body","append","nlit coral reefs"]]}}
+{"t":1792773510922,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":426}}
+{"t":1792773510955,"dir":"out","verb":"f","body":{"sf":"s:1","s":427,"ops":[["set","y.k0/head/2",{"age":1015}],["text","y.k0/body","append"," to dark hydrothermal"]]}}
+{"t":1792773510957,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":427}}
+{"t":1792773510988,"dir":"out","verb":"f","body":{"sf":"s:1","s":428,"ops":[["set","y.k0/head/2",{"age":1048}],["text","y.k0/body","append"," vents where chemi"]]}}
+{"t":1792773510991,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":428}}
+{"t":1792773511022,"dir":"out","verb":"f","body":{"sf":"s:1","s":429,"ops":[["set","y.k0/head/2",{"age":1082}],["text","y.k0/body","append","stry replaces su"]]}}
+{"t":1792773511023,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":429}}
+{"t":1792773511056,"dir":"out","verb":"f","body":{"sf":"s:1","s":430,"ops":[["set","y.k0/head/2",{"age":1116}],["text","y.k0/body","append","nlight. Oceans also"]]}}
+{"t":1792773511057,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":430}}
+{"t":1792773511089,"dir":"out","verb":"f","body":{"sf":"s:1","s":431,"ops":[["set","y.k0/head/2",{"age":1149}],["text","y.k0/body","append"," carry our economy:"]]}}
+{"t":1792773511091,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":431}}
+{"t":1792773511124,"dir":"out","verb":"f","body":{"sf":"s:1","s":432,"ops":[["set","y.k0/head/2",{"age":1184}],["text","y.k0/body","append"," shipping lanes, f"]]}}
+{"t":1792773511125,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":432}}
+{"t":1792773511157,"dir":"out","verb":"f","body":{"sf":"s:1","s":433,"ops":[["set","y.k0/head/2",{"age":1217}],["text","y.k0/body","append","isheries, and offs"]]}}
+{"t":1792773511159,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":433}}
+{"t":1792773511191,"dir":"out","verb":"f","body":{"sf":"s:1","s":434,"ops":[["set","y.k0/head/2",{"age":1251}],["text","y.k0/body","append","hore energy all depe"]]}}
+{"t":1792773511193,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":434}}
+{"t":1792773511225,"dir":"out","verb":"f","body":{"sf":"s:1","s":435,"ops":[["set","y.k0/head/2",{"age":1285}],["text","y.k0/body","append","nd on them. Yet they"]]}}
+{"t":1792773511227,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":435}}
+{"t":1792773511259,"dir":"out","verb":"f","body":{"sf":"s:1","s":436,"ops":[["set","y.k0/head/2",{"age":1319}],["text","y.k0/body","append"," are under strain."]]}}
+{"t":1792773511261,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":436}}
+{"t":1792773511291,"dir":"out","verb":"f","body":{"sf":"s:1","s":437,"ops":[["set","y.k0/head/2",{"age":1351}],["text","y.k0/body","append"," Overfishing empties st"]]}}
+{"t":1792773511293,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":437}}
+{"t":1792773511325,"dir":"out","verb":"f","body":{"sf":"s:1","s":438,"ops":[["set","y.k0/head/2",{"age":1385}],["text","y.k0/body","append","ocks, plastic accumu"]]}}
+{"t":1792773511326,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":438}}
+{"t":1792773511358,"dir":"out","verb":"f","body":{"sf":"s:1","s":439,"ops":[["set","y.k0/head/2",{"age":1418}],["text","y.k0/body","append","lates in gyres, a"]]}}
+{"t":1792773511359,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":439}}
+{"t":1792773511391,"dir":"out","verb":"f","body":{"sf":"s:1","s":440,"ops":[["set","y.k0/head/2",{"age":1451}],["text","y.k0/body","append","nd acidification di"]]}}
+{"t":1792773511393,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":440}}
+{"t":1792773511424,"dir":"out","verb":"f","body":{"sf":"s:1","s":441,"ops":[["set","y.k0/head/2",{"age":1484}],["text","y.k0/body","append","ssolves the shell"]]}}
+{"t":1792773511426,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":441}}
+{"t":1792773511458,"dir":"out","verb":"f","body":{"sf":"s:1","s":442,"ops":[["set","y.k0/head/2",{"age":1518}],["text","y.k0/body","append","s of creatures at the"]]}}
+{"t":1792773511459,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":442}}
+{"t":1792773511492,"dir":"out","verb":"f","body":{"sf":"s:1","s":443,"ops":[["set","y.k0/head/2",{"age":1552}],["text","y.k0/body","append"," base of the food"]]}}
+{"t":1792773511494,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":443}}
+{"t":1792773511526,"dir":"out","verb":"f","body":{"sf":"s:1","s":444,"ops":[["set","y.k0/head/2",{"age":1586}],["text","y.k0/body","append"," web. Protecting o"]]}}
+{"t":1792773511527,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":444}}
+{"t":1792773511560,"dir":"out","verb":"f","body":{"sf":"s:1","s":445,"ops":[["set","y.k0/head/2",{"age":1619}],["text","y.k0/body","append","ceans means protec"]]}}
+{"t":1792773511562,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":445}}
+{"t":1792773511594,"dir":"out","verb":"f","body":{"sf":"s:1","s":446,"ops":[["set","y.k0/head/2",{"age":1654}],["text","y.k0/body","append","ting the systems"]]}}
+{"t":1792773511596,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":446}}
+{"t":1792773511628,"dir":"out","verb":"f","body":{"sf":"s:1","s":447,"ops":[["set","y.k0/head/2",{"age":1688}],["text","y.k0/body","append"," that keep land hab"]]}}
+{"t":1792773511630,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":447}}
+{"t":1792773511660,"dir":"out","verb":"f","body":{"sf":"s:1","s":448,"ops":[["set","y.k0/head/2",{"age":1720}],["text","y.k0/body","append","itable. We know the s"]]}}
+{"t":1792773511662,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":448}}
+{"t":1792773511695,"dir":"out","verb":"f","body":{"sf":"s:1","s":449,"ops":[["set","y.k0/head/2",{"age":1755}],["text","y.k0/body","append","urface of Mars bet"]]}}
+{"t":1792773511697,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":449}}
+{"t":1792773511729,"dir":"out","verb":"f","body":{"sf":"s:1","s":450,"ops":[["set","y.k0/head/2",{"age":1789}],["text","y.k0/body","append","ter than the seafloo"]]}}
+{"t":1792773511730,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":450}}
+{"t":1792773511762,"dir":"out","verb":"f","body":{"sf":"s:1","s":451,"ops":[["set","y.k0/head/2",{"age":1822}],["text","y.k0/body","append","r, a humbling remi"]]}}
+{"t":1792773511764,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":451}}
+{"t":1792773511796,"dir":"out","verb":"f","body":{"sf":"s:1","s":452,"ops":[["set","y.k0/head/2",{"age":1856}],["text","y.k0/body","append","nder that the blue majorit"]]}}
+{"t":1792773511798,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":452}}
+{"t":1792773511830,"dir":"out","verb":"f","body":{"sf":"s:1","s":453,"ops":[["set","y.k0/head/2",{"age":1890}],["text","y.k0/body","append","y of our world still gua"]]}}
+{"t":1792773511832,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":453}}
+{"t":1792773511863,"dir":"out","verb":"f","body":{"sf":"s:1","s":454,"ops":[["set","y.k0/head/2",{"age":1923}],["text","y.k0/body","append","rds its secrets.\"\n\nCount:\n\nS"]]}}
+{"t":1792773511866,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":454}}
+{"t":1792773511898,"dir":"out","verb":"f","body":{"sf":"s:1","s":455,"ops":[["set","y.k0/head/2",{"age":1958}],["text","y.k0/body","append","1: Oceans1 cover2 most3 of"]]}}
+{"t":1792773511900,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":455}}
+{"t":1792773511931,"dir":"out","verb":"f","body":{"sf":"s:1","s":456,"ops":[["set","y.k0/head/2",{"age":1991}],["text","y.k0/body","append","4 the5 planet6, a7 single8 conn"]]}}
+{"t":1792773511933,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":456}}
+{"t":1792773511965,"dir":"out","verb":"f","body":{"sf":"s:1","s":457,"ops":[["set","y.k0/head/2",{"age":2025}],["text","y.k0/body","append","ected9 body10 of11 salt12 wate"]]}}
+{"t":1792773511967,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":457}}
+{"t":1792773511999,"dir":"out","verb":"f","body":{"sf":"s:1","s":458,"ops":[["set","y.k0/head/2",{"age":2059}],["text","y.k0/body","append","r13 that14 regulates15 cli"]]}}
+{"t":1792773512001,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":458}}
+{"t":1792773512033,"dir":"out","verb":"f","body":{"sf":"s:1","s":459,"ops":[["set","y.k0/head/2",{"age":2093}],["text","y.k0/body","append","mate16, feeds17 billions18, a"]]}}
+{"t":1792773512034,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":459}}
+{"t":1792773512067,"dir":"out","verb":"f","body":{"sf":"s:1","s":460,"ops":[["set","y.k0/head/2",{"age":2127}],["text","y.k0/body","append","nd19 remains20 largely21 unexplo"]]}}
+{"t":1792773512069,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":460}}
+{"t":1792773512101,"dir":"out","verb":"f","body":{"sf":"s:1","s":461,"ops":[["set","y.k0/head/2",{"age":2161}],["text","y.k0/body","append","red22. =22\n\nS2: They1 absorb2 heat3"]]}}
+{"t":1792773512102,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":461}}
+{"t":1792773512135,"dir":"out","verb":"f","body":{"sf":"s:1","s":462,"ops":[["set","y.k0/head/2",{"age":2195}],["text","y.k0/body","append"," and4 carbon5 dioxide6, driving7"]]}}
+{"t":1792773512137,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":462}}
+{"t":1792773512170,"dir":"out","verb":"f","body":{"sf":"s:1","s":463,"ops":[["set","y.k0/head/2",{"age":2230}],["text","y.k0/body","append"," weather8 patterns9 and10 buf"]]}}
+{"t":1792773512172,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":463}}
+{"t":1792773512203,"dir":"out","verb":"f","body":{"sf":"s:1","s":464,"ops":[["set","y.k0/head/2",{"age":2263}],["text","y.k0/body","append","fering11 the12 worst13 of14 war"]]}}
+{"t":1792773512205,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":464}}
+{"t":1792773512237,"dir":"out","verb":"f","body":{"sf":"s:1","s":465,"ops":[["set","y.k0/head/2",{"age":2297}],["text","y.k0/body","append","ming15. =15 →37\n\nS3: Currents1 circu"]]}}
+{"t":1792773512240,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":465}}
+{"t":1792773512271,"dir":"out","verb":"f","body":{"sf":"s:1","s":466,"ops":[["set","y.k0/head/2",{"age":2331}],["text","y.k0/body","append","late2 like3 a4 global5 bloodstre"]]}}
+{"t":1792773512273,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":466}}
+{"t":1792773512305,"dir":"out","verb":"f","body":{"sf":"s:1","s":467,"ops":[["set","y.k0/head/2",{"age":2364}],["text","y.k0/body","append","am6, moving7 nutrients8 from9 dept"]]}}
+{"t":1792773512307,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":467}}
+{"t":1792773512337,"dir":"out","verb":"f","body":{"sf":"s:1","s":468,"ops":[["set","y.k0/head/2",{"age":2397}],["text","y.k0/body","append","h10 to11 surface12 and13 linking14 d"]]}}
+{"t":1792773512339,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":468}}
+{"t":1792773512372,"dir":"out","verb":"f","body":{"sf":"s:1","s":469,"ops":[["set","y.k0/head/2",{"age":2432}],["text","y.k0/body","append","istant15 coasts16. =16 →53\n\nS4:"]]}}
+{"t":1792773512374,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":469}}
+{"t":1792773512404,"dir":"out","verb":"f","body":{"sf":"s:1","s":470,"ops":[["set","y.k0/head/2",{"age":2464}],["text","y.k0/body","append"," Life1 thrives2 everywhere3 in4 them5"]]}}
+{"t":1792773512405,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":470}}
+{"t":1792773512438,"dir":"out","verb":"f","body":{"sf":"s:1","s":471,"ops":[["set","y.k0/head/2",{"age":2498}],["text","y.k0/body","append",", from6 sunlit7 coral8 reefs9 to10 d"]]}}
+{"t":1792773512440,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":471}}
+{"t":1792773512471,"dir":"out","verb":"f","body":{"sf":"s:1","s":472,"ops":[["set","y.k0/head/2",{"age":2531}],["text","y.k0/body","append","ark11 hydrothermal12 vents13 whe"]]}}
+{"t":1792773512473,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":472}}
+{"t":1792773512505,"dir":"out","verb":"f","body":{"sf":"s:1","s":473,"ops":[["set","y.k0/head/2",{"age":2565}],["text","y.k0/body","append","re14 chemistry15 replaces16 sunl"]]}}
+{"t":1792773512506,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":473}}
+{"t":1792773512538,"dir":"out","verb":"f","body":{"sf":"s:1","s":474,"ops":[["set","y.k0/head/2",{"age":2598}],["text","y.k0/body","append","ight17. =17 →70\n\nS5: Oceans1"]]}}
+{"t":1792773512540,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":474}}
+{"t":1792773512572,"dir":"out","verb":"f","body":{"sf":"s:1","s":475,"ops":[["set","y.k0/head/2",{"age":2632}],["text","y.k0/body","append"," also2 carry3 our4 economy5: ship"]]}}
+{"t":1792773512574,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":475}}
+{"t":1792773512606,"dir":"out","verb":"f","body":{"sf":"s:1","s":476,"ops":[["set","y.k0/head/2",{"age":2666}],["text","y.k0/body","append","ping6 lanes7, fisheries8, and9 o"]]}}
+{"t":1792773512608,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":476}}
+{"t":1792773512640,"dir":"out","verb":"f","body":{"sf":"s:1","s":477,"ops":[["set","y.k0/head/2",{"age":2700}],["text","y.k0/body","append","ffshore10 energy11 all12 dep"]]}}
+{"t":1792773512642,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":477}}
+{"t":1792773512674,"dir":"out","verb":"f","body":{"sf":"s:1","s":478,"ops":[["set","y.k0/head/2",{"age":2734}],["text","y.k0/body","append","end13 on14 them15. =15 →85\n\nS6: Y"]]}}
+{"t":1792773512675,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":478}}
+{"t":1792773512707,"dir":"out","verb":"f","body":{"sf":"s:1","s":479,"ops":[["set","y.k0/head/2",{"age":2767}],["text","y.k0/body","append","et1 they2 are3 under4 strain5."]]}}
+{"t":1792773512709,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":479}}
+{"t":1792773512742,"dir":"out","verb":"f","body":{"sf":"s:1","s":480,"ops":[["set","y.k0/head/2",{"age":2802}],["text","y.k0/body","append"," =5 →90\n\nS7: Overfishing1 empties2"]]}}
+{"t":1792773512743,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":480}}
+{"t":1792773512774,"dir":"out","verb":"f","body":{"sf":"s:1","s":481,"ops":[["set","y.k0/head/2",{"age":2834}],["text","y.k0/body","append"," stocks3, plastic4 accumulates5 i"]]}}
+{"t":1792773512776,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":481}}
+{"t":1792773512809,"dir":"out","verb":"f","body":{"sf":"s:1","s":482,"ops":[["set","y.k0/head/2",{"age":2869}],["text","y.k0/body","append","n6 gyres7, and8 acidification9 di"]]}}
+{"t":1792773512811,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":482}}
+{"t":1792773512843,"dir":"out","verb":"f","body":{"sf":"s:1","s":483,"ops":[["set","y.k0/head/2",{"age":2903}],["text","y.k0/body","append","ssolves10 the11 shells12 of13"]]}}
+{"t":1792773512845,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":483}}
+{"t":1792773512877,"dir":"out","verb":"f","body":{"sf":"s:1","s":484,"ops":[["set","y.k0/head/2",{"age":2937}],["text","y.k0/body","append"," creatures14 at15 the16 b"]]}}
+{"t":1792773512879,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":484}}
+{"t":1792773512910,"dir":"out","verb":"f","body":{"sf":"s:1","s":485,"ops":[["set","y.k0/head/2",{"age":2970}],["text","y.k0/body","append","ase17 of18 the19 food2"]]}}
+{"t":1792773512912,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":485}}
+{"t":1792773512944,"dir":"out","verb":"f","body":{"sf":"s:1","s":486,"ops":[["set","y.k0/head/2",{"age":3003}],["text","y.k0/body","append","0 web21. =21 →111\n\nS8: Protecting1 ocea"]]}}
+{"t":1792773512945,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":486}}
+{"t":1792773512977,"dir":"out","verb":"f","body":{"sf":"s:1","s":487,"ops":[["set","y.k0/head/2",{"age":3037}],["text","y.k0/body","append","ns2 means3 protecting4 the5 system"]]}}
+{"t":1792773512979,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":487}}
+{"t":1792773513011,"dir":"out","verb":"f","body":{"sf":"s:1","s":488,"ops":[["set","y.k0/head/2",{"age":3071}],["text","y.k0/body","append","s6 that7 keep8 land9 habitable"]]}}
+{"t":1792773513013,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":488}}
+{"t":1792773513046,"dir":"out","verb":"f","body":{"sf":"s:1","s":489,"ops":[["set","y.k0/head/2",{"age":3106}],["text","y.k0/body","append","10. =10 →121\n\nS9: We1 know2 the3 s"]]}}
+{"t":1792773513047,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":489}}
+{"t":1792773513079,"dir":"out","verb":"f","body":{"sf":"s:1","s":490,"ops":[["set","y.k0/head/2",{"age":3139}],["text","y.k0/body","append","urface4 of5 Mars6 better7 than8"]]}}
+{"t":1792773513081,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":490}}
+{"t":1792773513113,"dir":"out","verb":"f","body":{"sf":"s:1","s":491,"ops":[["set","y.k0/head/2",{"age":3173}],["text","y.k0/body","append"," the9 seafloor10, a11 humblin"]]}}
+{"t":1792773513115,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":491}}
+{"t":1792773513146,"dir":"out","verb":"f","body":{"sf":"s:1","s":492,"ops":[["set","y.k0/head/2",{"age":3206}],["text","y.k0/body","append","g12 reminder13 that14 th"]]}}
+{"t":1792773513148,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":492}}
+{"t":1792773513179,"dir":"out","verb":"f","body":{"sf":"s:1","s":493,"ops":[["set","y.k0/head/2",{"age":3239}],["text","y.k0/body","append","e15 blue16 majority17 of18 our19"]]}}
+{"t":1792773513180,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":493}}
+{"t":1792773513213,"dir":"out","verb":"f","body":{"sf":"s:1","s":494,"ops":[["set","y.k0/head/2",{"age":3273}],["text","y.k0/body","append"," world20 still21 guards22 its2"]]}}
+{"t":1792773513215,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":494}}
+{"t":1792773513247,"dir":"out","verb":"f","body":{"sf":"s:1","s":495,"ops":[["set","y.k0/head/2",{"age":3307}],["text","y.k0/body","append","3 secrets24. =24 →145\n\n145. Nee"]]}}
+{"t":1792773513248,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":495}}
+{"t":1792773513281,"dir":"out","verb":"f","body":{"sf":"s:1","s":496,"ops":[["set","y.k0/head/2",{"age":3340}],["text","y.k0/body","append","d 5 more. Add: S2 \"the wors"]]}}
+{"t":1792773513282,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":496}}
+{"t":1792773513314,"dir":"out","verb":"f","body":{"sf":"s:1","s":497,"ops":[["set","y.k0/head/2",{"age":3374}],["text","y.k0/body","append","t of warming\" → \"the worst effe"]]}}
+{"t":1792773513316,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":497}}
+{"t":1792773513349,"dir":"out","verb":"f","body":{"sf":"s:1","s":498,"ops":[["set","y.k0/head/2",{"age":3408}],["text","y.k0/body","append","cts of warming\" (+1) → 146."]]}}
+{"t":1792773513350,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":498}}
+{"t":1792773513382,"dir":"out","verb":"f","body":{"sf":"s:1","s":499,"ops":[["set","y.k0/head/2",{"age":3442}],["text","y.k0/body","append"," S8 \"the systems that ke"]]}}
+{"t":1792773513383,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":499}}
+{"t":1792773513416,"dir":"out","verb":"f","body":{"sf":"s:1","s":500,"ops":[["set","y.k0/head/2",{"age":3476}],["text","y.k0/body","append","ep land habitable\" → \"the vast"]]}}
+{"t":1792773513417,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":500}}
+{"t":1792773513450,"dir":"out","verb":"f","body":{"sf":"s:1","s":501,"ops":[["set","y.k0/head/2",{"age":3510}],["text","y.k0/body","append"," systems that keep land habitabl"]]}}
+{"t":1792773513451,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":501}}
+{"t":1792773513483,"dir":"out","verb":"f","body":{"sf":"s:1","s":502,"ops":[["set","y.k0/head/2",{"age":3543}],["text","y.k0/body","append","e\" (+1) → 147. S6 \"Yet they"]]}}
+{"t":1792773513485,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":502}}
+{"t":1792773513516,"dir":"out","verb":"f","body":{"sf":"s:1","s":503,"ops":[["set","y.k0/head/2",{"age":3576}],["text","y.k0/body","append"," are under strain\" → \"Yet they"]]}}
+{"t":1792773513518,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":503}}
+{"t":1792773513550,"dir":"out","verb":"f","body":{"sf":"s:1","s":504,"ops":[["set","y.k0/head/2",{"age":3610}],["text","y.k0/body","append"," are under increasing stra"]]}}
+{"t":1792773513552,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":504}}
+{"t":1792773513585,"dir":"out","verb":"f","body":{"sf":"s:1","s":505,"ops":[["set","y.k0/head/2",{"age":3645}],["text","y.k0/body","append","in\" (+1) → 148. S5 \"carry"]]}}
+{"t":1792773513588,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":505}}
+{"t":1792773513619,"dir":"out","verb":"f","body":{"sf":"s:1","s":506,"ops":[["set","y.k0/head/2",{"age":3679}],["text","y.k0/body","append"," our economy\" → \"carry"]]}}
+{"t":1792773513621,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":506}}
+{"t":1792773513655,"dir":"out","verb":"f","body":{"sf":"s:1","s":507,"ops":[["set","y.k0/head/2",{"age":3715}],["text","y.k0/body","append"," much of our economy\" ("]]}}
+{"t":1792773513657,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":507}}
+{"t":1792773513688,"dir":"out","verb":"f","body":{"sf":"s:1","s":508,"ops":[["set","y.k0/head/2",{"age":3748}],["text","y.k0/body","append","+1) → 149. S1 \"cove"]]}}
+{"t":1792773513690,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":508}}
+{"t":1792773513722,"dir":"out","verb":"f","body":{"sf":"s:1","s":509,"ops":[["set","y.k0/head/2",{"age":3782}],["text","y.k0/body","append","r most of the planet"]]}}
+{"t":1792773513723,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":509}}
+{"t":1792773513756,"dir":"out","verb":"f","body":{"sf":"s:1","s":510,"ops":[["set","y.k0/head/2",{"age":3816}],["text","y.k0/body","append","\" → \"cover most of"]]}}
+{"t":1792773513757,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":510}}
+{"t":1792773513790,"dir":"out","verb":"f","body":{"sf":"s:1","s":511,"ops":[["set","y.k0/head/2",{"age":3850}],["text","y.k0/body","append"," the planet's surf"]]}}
+{"t":1792773513791,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":511}}
+{"t":1792773513823,"dir":"out","verb":"f","body":{"sf":"s:1","s":512,"ops":[["set","y.k0/head/2",{"age":3883}],["text","y.k0/body","append","ace\" (+1) → 150. Go"]]}}
+{"t":1792773513825,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":512}}
+{"t":1792773513857,"dir":"out","verb":"f","body":{"sf":"s:1","s":513,"ops":[["set","y.k0/head/2",{"age":3917}],["text","y.k0/body","append","od.\n\nVerify final cou"]]}}
+{"t":1792773513859,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":513}}
+{"t":1792773513891,"dir":"out","verb":"f","body":{"sf":"s:1","s":514,"ops":[["set","y.k0/head/2",{"age":3951}],["text","y.k0/body","append","nts: 22+1=23; S2 16;"]]}}
+{"t":1792773513894,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":514}}
+{"t":1792773513926,"dir":"out","verb":"f","body":{"sf":"s:1","s":515,"ops":[["set","y.k0/head/2",{"age":3986}],["text","y.k0/body","append"," S3 16; S4 17; S5 16; S6 6"]]}}
+{"t":1792773513928,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":515}}
+{"t":1792773513958,"dir":"out","verb":"f","body":{"sf":"s:1","s":516,"ops":[["set","y.k0/head/2",{"age":4018}],["text","y.k0/body","append","; S7 21; S8 11; S9 24. Sum: 23"]]}}
+{"t":1792773513960,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":516}}
+{"t":1792773513992,"dir":"out","verb":"f","body":{"sf":"s:1","s":517,"ops":[["set","y.k0/head/2",{"age":4052}],["text","y.k0/body","append","+16=39, +16=55, +17=72, +1"]]}}
+{"t":1792773513994,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":517}}
+{"t":1792773514027,"dir":"out","verb":"f","body":{"sf":"s:1","s":518,"ops":[["set","y.k0/head/2",{"age":4086}],["text","y.k0/body","append","6=88, +6=94, +21=115, +11=126, +24=1"]]}}
+{"t":1792773514028,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":518}}
+{"t":1792773514060,"dir":"out","verb":"f","body":{"sf":"s:1","s":519,"ops":[["set","y.k0",{"role":"omp.thinking","collapsed":true,"took":4120}],["del","y.k0/head"],["add","y.k0/head","y.k0","y.k0/body",{"id":"y.k0/head","k":"text","p":{"spans":[{"t":"Thought for 4s","s":"muted"}]}}],["text","y.k0/body","append","50. \n\nDeliver."],["set","y.k0/body",{"stream":null}],["add","y.t1","y",null,{"id":"y.t1","k":"md","p":{"text":"Oceans cover most","stream":true}}]]}}
+{"t":1792773514062,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":519}}
+{"t":1792773514095,"dir":"out","verb":"f","body":{"sf":"s:1","s":520,"ops":[["text","y.t1","append"," of the planet's surface, a sing"]]}}
+{"t":1792773514096,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":520}}
+{"t":1792773514128,"dir":"out","verb":"f","body":{"sf":"s:1","s":521,"ops":[["text","y.t1","append","le connected body of salt water that"]]}}
+{"t":1792773514130,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":521}}
+{"t":1792773514163,"dir":"out","verb":"f","body":{"sf":"s:1","s":522,"ops":[["text","y.t1","append"," regulates climate, feeds billions, an"]]}}
+{"t":1792773514164,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":522}}
+{"t":1792773514196,"dir":"out","verb":"f","body":{"sf":"s:1","s":523,"ops":[["text","y.t1","append","d remains largely unexplored. They absorb he"]]}}
+{"t":1792773514198,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":523}}
+{"t":1792773514232,"dir":"out","verb":"f","body":{"sf":"s:1","s":524,"ops":[["text","y.t1","append","at and carbon dioxide, driving weather pat"]]}}
+{"t":1792773514234,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":524}}
+{"t":1792773514264,"dir":"out","verb":"f","body":{"sf":"s:1","s":525,"ops":[["text","y.t1","append","terns and buffering the worst effects of warming."]]}}
+{"t":1792773514266,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":525}}
+{"t":1792773514300,"dir":"out","verb":"f","body":{"sf":"s:1","s":526,"ops":[["text","y.t1","append"," Currents circulate like a global bloodstre"]]}}
+{"t":1792773514301,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":526}}
+{"t":1792773514331,"dir":"out","verb":"f","body":{"sf":"s:1","s":527,"ops":[["text","y.t1","append","am, moving nutrients from depth to sur"]]}}
+{"t":1792773514332,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":527}}
+{"t":1792773514365,"dir":"out","verb":"f","body":{"sf":"s:1","s":528,"ops":[["text","y.t1","append","face and linking distant coasts. Life thri"]]}}
+{"t":1792773514367,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":528}}
+{"t":1792773514400,"dir":"out","verb":"f","body":{"sf":"s:1","s":529,"ops":[["text","y.t1","append","ves everywhere in them, from sunlit cor"]]}}
+{"t":1792773514402,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":529}}
+{"t":1792773514434,"dir":"out","verb":"f","body":{"sf":"s:1","s":530,"ops":[["text","y.t1","append","al reefs to dark hydrothermal vents where chemis"]]}}
+{"t":1792773514435,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":530}}
+{"t":1792773514467,"dir":"out","verb":"f","body":{"sf":"s:1","s":531,"ops":[["text","y.t1","append","try replaces sunlight. Oceans also carry m"]]}}
+{"t":1792773514469,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":531}}
+{"t":1792773514500,"dir":"out","verb":"f","body":{"sf":"s:1","s":532,"ops":[["text","y.t1","append","uch of our economy: shipping lanes, fish"]]}}
+{"t":1792773514502,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":532}}
+{"t":1792773514534,"dir":"out","verb":"f","body":{"sf":"s:1","s":533,"ops":[["text","y.t1","append","eries, and offshore energy all depend on them. Yet th"]]}}
+{"t":1792773514536,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":533}}
+{"t":1792773514585,"dir":"out","verb":"f","body":{"sf":"s:1","s":534,"ops":[["text","y.t1","append","ey are under increasing strain. Overfishing empties stocks, plastic accumulates in gyres, and acidification dissolves the shells of creatures at the base of the food web. Protecting oceans means protecting the vast systems that keep land habitable. We know the surface of Mars better than the seafloor, a humbling reminder that the blue majority of our world still guards its secrets."],["set","y.t1",{"stream":null}],["add","y.turn-usage","y",null,{"id":"y.turn-usage","k":"row","p":{"role":"omp.turn.usage","gap":"xs","align":"center","title":"This turn: 5.7s · 1,150 tokens (137 in · 1,013 out) · <$0.01"},"c":[{"id":"y.turn-usage/copy","k":"icon","p":{"name":"copy","role":"omp.turn.copy","title":"Copy answer","aria":"Copy answer","actions":{"click":"copy-answer"}}},{"id":"y.turn-usage/dot","k":"text","p":{"text":"·"}},{"id":"y.turn-usage/text","k":"text","p":{"text":"5.7s · 1.1K tok · <$0.01 this turn"}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"col"}],["add","z","d",null,{"id":"z","k":"col"}],["set","j",{"tone":null}],["set","j.context",{"value":0.012297,"title":"Context 1% used\n12K of 1M tokens\nAuto-compact at 85%"}],["add","j.bar/send","j.bar",null,{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}],["del","v"],["del","j.bar/stop"],["settle","y"]]}}
+{"t":1792773514587,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":534}}
+{"t":1792773533872,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"/handoff"}}
+{"t":1792773533882,"dir":"out","verb":"f","body":{"sf":"s:1","s":535,"ops":[["del","b"],["add","b","dock","c",{"id":"b","k":"row","p":{"role":"omp.hud.activity","align":"center","gap":"sm"},"c":[{"id":"b.status","k":"col","p":{"role":"omp.hud.status"},"c":[{"id":"10","k":"row","p":{"justify":"between","role":"omp.loader"},"c":[{"id":"10.0","k":"row","p":{"gap":"sm","align":"baseline"},"c":[{"id":"10.0/0","k":"spinner"},{"id":"10.0/message","k":"text","p":{"spans":[{"t":"Generating handoff… (","s":"muted"},{"t":"󱊷","s":"muted icon"},{"t":"to cancel)","s":"muted"}]}}]}]}]}]}]]}}
+{"t":1792773533884,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":535}}
+{"t":1792773540620,"dir":"out","verb":"f","body":{"sf":"s:1","s":536,"ops":[["add","11","main",null,{"id":"11","k":"col","p":{"role":"omp.assistant"},"c":[{"id":"11.k0","k":"section","p":{"role":"omp.thinking","collapsible":true,"collapsed":true,"head":"11.k0/head"},"c":[{"id":"11.k0/head","k":"text","p":{"spans":[{"t":"Thought","s":"muted"}]}},{"id":"11.k0/body","k":"md","p":{"text":"Need 150-word paragraph about oceans. Count carefully.\n\nDraft:\n\n\"Oceans cover most of the planet, a single connected body of salt water that regulates climate, feeds billions, and remains largely unexplored. They absorb heat and carbon dioxide, driving weather patterns and buffering the worst of warming. Currents circulate like a global bloodstream, moving nutrients from depth to surface and linking distant coasts. Life thrives everywhere in them, from sunlit coral reefs to dark hydrothermal vents where chemistry replaces sunlight. Oceans also carry our economy: shipping lanes, fisheries, and offshore energy all depend on them. Yet they are under strain. Overfishing empties stocks, plastic accumulates in gyres, and acidification dissolves the shells of creatures at the base of the food web. Protecting oceans means protecting the systems that keep land habitable. We know the surface of Mars better than the seafloor, a humbling reminder that the blue majority of our world still guards its secrets.\"\n\nCount:\n\nS1: Oceans1 cover2 most3 of4 the5 planet6, a7 single8 connected9 body10 of11 salt12 water13 that14 regulates15 climate16, feeds17 billions18, and19 remains20 largely21 unexplored22. =22\n\nS2: They1 absorb2 heat3 and4 carbon5 dioxide6, driving7 weather8 patterns9 and10 buffering11 the12 worst13 of14 warming15. =15 →37\n\nS3: Currents1 circulate2 like3 a4 global5 bloodstream6, moving7 nutrients8 from9 depth10 to11 surface12 and13 linking14 distant15 coasts16. =16 →53\n\nS4: Life1 thrives2 everywhere3 in4 them5, from6 sunlit7 coral8 reefs9 to10 dark11 hydrothermal12 vents13 where14 chemistry15 replaces16 sunlight17. =17 →70\n\nS5: Oceans1 also2 carry3 our4 economy5: shipping6 lanes7, fisheries8, and9 offshore10 energy11 all12 depend13 on14 them15. =15 →85\n\nS6: Yet1 they2 are3 under4 strain5. =5 →90\n\nS7: Overfishing1 empties2 stocks3, plastic4 accumulates5 in6 gyres7, and8 acidification9 dissolves10 the11 shells12 of13 creatures14 at15 the16 base17 of18 the19 food20 web21. =21 →111\n\nS8: Protecting1 oceans2 means3 protecting4 the5 systems6 that7 keep8 land9 habitable10. =10 →121\n\nS9: We1 know2 the3 surface4 of5 Mars6 better7 than8 the9 seafloor10, a11 humbling12 reminder13 that14 the15 blue16 majority17 of18 our19 world20 still21 guards22 its23 secrets24. =24 →145\n\n145. Need 5 more. Add: S2 \"the worst of warming\" → \"the worst effects of warming\" (+1) → 146. S8 \"the systems that keep land habitable\" → \"the vast systems that keep land habitable\" (+1) → 147. S6 \"Yet they are under strain\" → \"Yet they are under increasing strain\" (+1) → 148. S5 \"carry our economy\" → \"carry much of our economy\" (+1) → 149. S1 \"cover most of the planet\" → \"cover most of the planet's surface\" (+1) → 150. Good.\n\nVerify final counts: 22+1=23; S2 16; S3 16; S4 17; S5 16; S6 6; S7 21; S8 11; S9 24. Sum: 23+16=39, +16=55, +17=72, +16=88, +6=94, +21=115, +11=126, +24=150. \n\nDeliver."}}]},{"id":"11.t1","k":"md","p":{"text":"Oceans cover most of the planet's surface, a single connected body of salt water that regulates climate, feeds billions, and remains largely unexplored. They absorb heat and carbon dioxide, driving weather patterns and buffering the worst effects of warming. Currents circulate like a global bloodstream, moving nutrients from depth to surface and linking distant coasts. Life thrives everywhere in them, from sunlit coral reefs to dark hydrothermal vents where chemistry replaces sunlight. Oceans also carry much of our economy: shipping lanes, fisheries, and offshore energy all depend on them. Yet they are under increasing strain. Overfishing empties stocks, plastic accumulates in gyres, and acidification dissolves the shells of creatures at the base of the food web. Protecting oceans means protecting the vast systems that keep land habitable. We know the surface of Mars better than the seafloor, a humbling reminder that the blue majority of our world still guards its secrets."}}]}],["add","12","main",null,{"id":"12","k":"section","p":{"role":"omp.compaction","head":[{"t":"Handed-off","s":"muted"},{"t":" · 13K","s":"muted mono"},{"t":" → ","s":"dim"},{"t":"9.8K tokens","s":"muted mono"}],"collapsible":true,"collapsed":true},"c":[{"id":"12.0","k":"text","p":{"role":"omp.compaction.caption","key":"caption","spans":[{"t":"Summary of the earlier conversation","s":"dim"}]}},{"id":"12.1","k":"md","p":{"key":"summary","text":"## Goal\nProduce short standalone prose paragraphs on requested nature topics, each exactly 150 words. Completed requests: rivers, mountains, oceans.\n\n## Constraints & Preferences\n- Hard 150-word count per paragraph (user specified \"150-word paragraph\" each time).\n- Single flowing paragraph, no headings, lists, or preamble.\n- Output only the paragraph text as the chat reply.\n- Responses so far are plain prose with no tool calls, no file writes, no repository interaction.\n\n## Progress\n### Done\n- [x] Rivers paragraph — 150 words. Opens \"Rivers are the arteries of the land…\", closes \"…one continuous, generous journey.\" Themes: source-to-sea journey, floodplains/silt, civilizations (Nile, Ganges, Yangtze), hydropower/irrigation, fragility (dams, pollution, climate), restoration, connection.\n- [x] Mountains paragraph — 150 words. Opens \"Mountains are the earth's memory made visible…\", closes \"…outlast every map.\" Themes: orogeny, glacial/aeolian erosion, altitudinal life bands, water towers, barriers and bridges, climbing/mining/terracing, permafrost thaw and glacier retreat, summit perspective.\n- [x] Oceans paragraph — 150 words. Opens \"Oceans cover most of the planet's surface…\", closes \"…still guards its secrets.\" Themes: heat/carbon absorption, currents as bloodstream, coral reefs and hydrothermal vents, shipping/fisheries/offshore energy, overfishing/plastic/acidification, Mars-seafloor comparison.\n\n### In Progress\n- [ ] None.\n\n### Pending\n- [ ] None. User has not requested further topics.\n\n## Key Decisions\n- **Manual word counting, arithmetic-verified**: Each draft was counted sentence by sentence, then trimmed or expanded by targeted word additions/removals (e.g., rivers: cut \"passing through\" and \"single\" from final sentence; oceans: added \"planet's surface\", \"worst effects\", \"vast\", \"increasing\", \"much of\" to reach 150). Reuse this method rather than relying on estimate.\n- **No tools used**: Topic-paragraph requests need no codebase reads, no writes, no verification runs; the repo at `/work/project` is unrelated to this task.\n- **Consistent register across the three paragraphs**: declarative, concrete nouns, one closing image per paragraph — keeps the set stylistically coherent if the user asks for more or for revisions.\n\n## Critical Context\n- Exact word counts: rivers = 150, mountains = 150, oceans = 150. All three were counted individually, not assumed.\n- Em dashes (—) are used in all three paragraphs; do not let them inflate or deflate counts when recounting — treat each dash-joined span as continuous tokens.\n- No files created or modified; no commands executed; no tests run. Working tree state is unchanged by this work.\n- If asked to revise for word count, adjust by adding/removing adjectives or short prepositional phrases rather than restructuring sentences, to preserve the established voice.\n\n## Next Steps\n1. If the user supplies another topic, write one 150-word paragraph in the same register, count it sentence by sentence, and adjust to exactly 150 words before replying.\n2. If the user requests edits to rivers/mountains/oceans, recount from the delivered text above and rebalance to exactly 150 words."}}]}],["add","13","main",null,{"id":"13","k":"toast","p":{"text":"Session compacted 1 time","ttl":2400,"role":"omp.toast.status"}}],["add","14","main",null,{"id":"14","k":"spacer","p":{"size":"sm"}}],["add","15","main",null,{"id":"15","k":"text","p":{"wrap":"word","spans":[{"t":"","s":"accent icon"},{"t":"Context handed off and compacted in place","s":"accent"}]}}],["del","b"],["add","b","dock","c",{"id":"b","k":"col"}],["set","j.context",{"value":0.009682,"title":"Context 1% used\n9.7K of 1M tokens\nAuto-compact at 85%"}],["del","o"],["del","q"],["del","s"],["del","u"],["del","w"],["del","y"],["settle","11"],["settle","12"],["settle","13"],["settle","14"],["settle","15"]]}}
+{"t":1792773540622,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":536}}
+{"t":1792773623875,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"/context"}}
+{"t":1792773623881,"dir":"out","verb":"f","body":{"sf":"s:1","s":537,"ops":[["add","layer.ov-16","layer",null,{"id":"layer.ov-16","k":"overlay","p":{"anchor":"center","size":"lg","modal":true,"role":"omp.overlay.report","head":[{"t":"Context","s":"strong"},{"t":" · DeepSeek V4 Flash","s":"muted"}]},"c":[{"id":"16","k":"col","p":{"gap":"md"},"c":[{"id":"16.body","k":"col","p":{"role":"omp.report.body"},"c":[{"id":"17","k":"col","p":{"role":"omp.context"},"c":[{"id":"17.summary","k":"row","p":{"role":"omp.context.summary","align":"baseline","wrap":true},"c":[{"id":"17.summary/0","k":"text","p":{"role":"omp.context.used","grow":1,"wrap":"none","spans":[{"t":"9.7K","s":"strong"},{"t":" of 1M tokens · 1%","s":"dim"}]}},{"id":"17.summary/1","k":"text","p":{"role":"omp.context.room","wrap":"none","text":"840K left before auto-compaction at 85%"}}]},{"id":"17.bar","k":"meter","p":{"value":0.009682,"style":"bar","size":"lg","parts":[{"value":0.002989,"token":"accent","label":"System prompt · 3K tokens (0.3%)"},{"value":0.004386,"token":"warning","label":"System tools · 4.4K tokens (0.4%)"},{"value":0.000112,"token":"customMessageLabel","label":"System context · 112 tokens (<0.1%)"},{"value":0.000459,"token":"success","label":"Skills · 459 tokens (<0.1%)"},{"value":0.001736,"token":"userMessageText","label":"Messages · 1.7K tokens (0.2%)"},{"value":0.840318,"token":"track","label":"Free space · 840K tokens (84.0%)"},{"value":0.15,"token":"warning","hatch":true,"label":"Autocompact buffer · 150K tokens (15.0%)"}],"marks":[{"at":0.85,"tone":"warning","title":"Auto-compaction at 85% · 850K tokens"}],"aria":"Context usage by category"}},{"id":"17.cats","k":"col","p":{"role":"omp.context.cats"},"c":[{"id":"17.cats/systemPrompt","k":"row","p":{"role":"omp.context.cat","align":"center","title":"System prompt · 2,989 tokens"},"c":[{"id":"17.cats/systemPrompt/0","k":"text","p":{"role":"omp.context.swatch","wrap":"none","spans":[{"t":"■","s":"accent"}]}},{"id":"17.cats/systemPrompt/1","k":"text","p":{"role":"omp.context.label","grow":1,"wrap":"none","truncate":"end","text":"System prompt"}},{"id":"17.cats/systemPrompt/2","k":"text","p":{"role":"omp.context.tokens","wrap":"none","text":"3K"}},{"id":"17.cats/systemPrompt/3","k":"text","p":{"role":"omp.context.share","wrap":"none","text":"0.3%"}}]},{"id":"17.cats/systemTools","k":"row","p":{"role":"omp.context.cat","align":"center","title":"System tools · 4,386 tokens"},"c":[{"id":"17.cats/systemTools/0","k":"text","p":{"role":"omp.context.swatch","wrap":"none","spans":[{"t":"■","s":"warning"}]}},{"id":"17.cats/systemTools/1","k":"text","p":{"role":"omp.context.label","grow":1,"wrap":"none","truncate":"end","text":"System tools"}},{"id":"17.cats/systemTools/2","k":"text","p":{"role":"omp.context.tokens","wrap":"none","text":"4.4K"}},{"id":"17.cats/systemTools/3","k":"text","p":{"role":"omp.context.share","wrap":"none","text":"0.4%"}}]},{"id":"17.cats/systemContext","k":"row","p":{"role":"omp.context.cat","align":"center","title":"System context · 112 tokens"},"c":[{"id":"17.cats/systemContext/0","k":"text","p":{"role":"omp.context.swatch","wrap":"none","spans":[{"t":"■","s":"customMessageLabel"}]}},{"id":"17.cats/systemContext/1","k":"text","p":{"role":"omp.context.label","grow":1,"wrap":"none","truncate":"end","text":"System context"}},{"id":"17.cats/systemContext/2","k":"text","p":{"role":"omp.context.tokens","wrap":"none","text":"112"}},{"id":"17.cats/systemContext/3","k":"text","p":{"role":"omp.context.share","wrap":"none","text":"<0.1%"}}]},{"id":"17.cats/skills","k":"row","p":{"role":"omp.context.cat","align":"center","title":"Skills · 459 tokens"},"c":[{"id":"17.cats/skills/0","k":"text","p":{"role":"omp.context.swatch","wrap":"none","spans":[{"t":"■","s":"success"}]}},{"id":"17.cats/skills/1","k":"text","p":{"role":"omp.context.label","grow":1,"wrap":"none","truncate":"end","text":"Skills"}},{"id":"17.cats/skills/2","k":"text","p":{"role":"omp.context.tokens","wrap":"none","text":"459"}},{"id":"17.cats/skills/3","k":"text","p":{"role":"omp.context.share","wrap":"none","text":"<0.1%"}}]},{"id":"17.cats/messages","k":"row","p":{"role":"omp.context.cat","align":"center","title":"Messages · 1,736 tokens"},"c":[{"id":"17.cats/messages/0","k":"text","p":{"role":"omp.context.swatch","wrap":"none","spans":[{"t":"■","s":"userMessageText"}]}},{"id":"17.cats/messages/1","k":"text","p":{"role":"omp.context.label","grow":1,"wrap":"none","truncate":"end","text":"Messages"}},{"id":"17.cats/messages/2","k":"text","p":{"role":"omp.context.tokens","wrap":"none","text":"1.7K"}},{"id":"17.cats/messages/3","k":"text","p":{"role":"omp.context.share","wrap":"none","text":"0.2%"}}]},{"id":"17.cats/free","k":"row","p":{"role":"omp.context.cat.free","align":"center","title":"Free space · 840,318 tokens"},"c":[{"id":"17.cats/free/0","k":"text","p":{"role":"omp.context.swatch","wrap":"none","spans":[{"t":"□","s":"dim"}]}},{"id":"17.cats/free/1","k":"text","p":{"role":"omp.context.label","grow":1,"wrap":"none","truncate":"end","text":"Free space"}},{"id":"17.cats/free/2","k":"text","p":{"role":"omp.context.tokens","wrap":"none","text":"840K"}},{"id":"17.cats/free/3","k":"text","p":{"role":"omp.context.share","wrap":"none","text":"84.0%"}}]},{"id":"17.cats/buffer","k":"row","p":{"role":"omp.context.cat.buffer","align":"center","title":"Autocompact buffer · 150,000 tokens"},"c":[{"id":"17.cats/buffer/0","k":"text","p":{"role":"omp.context.swatch","wrap":"none","spans":[{"t":"▨","s":"warning"}]}},{"id":"17.cats/buffer/1","k":"text","p":{"role":"omp.context.label","grow":1,"wrap":"none","truncate":"end","text":"Autocompact buffer"}},{"id":"17.cats/buffer/2","k":"text","p":{"role":"omp.context.tokens","wrap":"none","text":"150K"}},{"id":"17.cats/buffer/3","k":"text","p":{"role":"omp.context.share","wrap":"none","text":"15.0%"}}]}]}]}]},{"id":"16.actions","k":"row","p":{"role":"omp.actions","gap":"sm","align":"center"},"c":[{"id":"16.actions/0","k":"spacer","p":{"grow":1}},{"id":"16.actions/close","k":"row","p":{"role":"omp.btn","gap":"xs","align":"center","actions":{"click":"close"},"title":"Close  esc"},"c":[{"id":"16.actions/close/0","k":"text","p":{"text":"Close"}},{"id":"16.actions/close/1","k":"kbd","p":{"keys":["escape"]}}]}]}]}]}],["focus",null]]}}
+{"t":1792773623883,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":537}}
+{"t":1792773627956,"dir":"out","verb":"f","body":{"sf":"s:1","s":538,"ops":[["del","layer.ov-16"],["focus","j.line/input"]]}}
+{"t":1792773627957,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":538}}
+{"t":1792773629892,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"/compact"}}
+{"t":1792773629903,"dir":"out","verb":"f","body":{"sf":"s:1","s":539,"ops":[["add","18","main",null,{"id":"18","k":"spacer","p":{"size":"sm"}}],["add","19","main",null,{"id":"19","k":"text","p":{"wrap":"word","spans":[{"t":"Error: Compaction failed: Already compacted","s":"error"}]}}],["settle","18"],["settle","19"]]}}
+{"t":1792773629904,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":539}}

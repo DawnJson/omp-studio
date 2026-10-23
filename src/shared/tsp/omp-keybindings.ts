@@ -39,9 +39,6 @@ const ACTIONS: readonly ActionDef[] = [
 /** 转发的动作 ID（设置页的快捷键表按它找文字）。 */
 export const OMP_FORWARDED_ACTIONS: readonly string[] = ACTIONS.map((def) => def.action);
 
-/** 取回排队消息的动作：转发它的键之前，要先订阅文档、把 omp 输入框里出现的文字取回 studio 的草稿。 */
-export const OMP_DEQUEUE_ACTION = "app.message.dequeue";
-
 /** 键只有这些才值得转发：带 Ctrl / Alt 的、功能键、Shift+Tab；单个字符、Shift+方向键这类输入框要用。 */
 function isForwardable(chord: string): boolean {
   const parts = chord.split("+");
@@ -88,11 +85,6 @@ export function resolveOmpKeybindings(user: unknown): OmpKeybinding[] {
 /** 所有要转发的键（规范写法）。 */
 export function forwardedChords(bindings: readonly OmpKeybinding[]): ReadonlySet<string> {
   return new Set(bindings.flatMap((binding) => binding.chords));
-}
-
-/** 这个键属于哪个动作（同一个键被两个动作用时取先列出的）。 */
-export function actionOfChord(bindings: readonly OmpKeybinding[], chord: string): string | null {
-  return bindings.find((binding) => binding.chords.includes(chord))?.action ?? null;
 }
 
 const KEY_CAPS: Readonly<Record<string, string>> = {

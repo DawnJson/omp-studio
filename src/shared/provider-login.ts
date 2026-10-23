@@ -3,7 +3,7 @@
 // 在隔离的 agent 目录里对每个 provider 发 `login`，看 omp 接着发什么（rpc-ui 模式）：
 //   - open_url 之后是"Paste the authorization code"、"等待浏览器/设备授权"          → oauth
 //   - open_url 之后是 "Paste your <name> API key" 这类输入框（title/placeholder 提示的是 key）→ api-key
-//   - 直接以"requires interactive prompts which are not supported in RPC mode"失败 → terminal
+//   - 直接以"requires interactive prompts which are not supported in RPC mode"失败 → terminal（应用内用临时交互式 omp 跑 `/login`，docs/architecture/login.md "应用内登录"）
 // 没出现在下面两张表里的 provider（omp 升级后新增的）按 oauth 处理：保留登录按钮，失败了界面会给出原因，不会把可能能用的入口藏掉。
 // omp 升级后新增或改了登录方式的 provider 要重新实测并更新这两张表（docs/architecture/login.md）。
 
@@ -76,7 +76,7 @@ const apiKeyLogin: Readonly<Record<string, true>> = Object.fromEntries(
   ].map((id) => [id, true]),
 );
 
-/** omp 在 RPC 里直接拒绝登录、要求去终端（需要多步交互提示）的 provider。 */
+/** omp 在 RPC 里直接拒绝登录、要求多步交互提示（企业域名、区域、设备码……）的 provider：这些走应用内终端登录（`startTerminalLogin`）。 */
 const terminalLogin: Readonly<Record<string, true>> = Object.fromEntries(
   ["github-copilot", "alibaba-coding-plan", "alibaba-token-plan", "perplexity", "snowflake", "lm-studio"].map((id) => [
     id,

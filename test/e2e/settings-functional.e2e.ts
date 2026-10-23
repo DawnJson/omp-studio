@@ -593,3 +593,132 @@ test("OAuth 登录对话框：进度按顺序保留并按级别着色，omp 撤�
     await rm(agentDir, { recursive: true, force: true });
   }
 });
+
+/**
+ * 应用内终端登录（docs/architecture/login.md "应用内登录"）：github-copilot 这类 rpc 里被 omp 拒绝的 provider，应用起一个临时 omp 跑 `/login`。
+ * 未打包时 STUDIO_TEST_LOGIN_OMP（JSON `{command, args}`，同 STUDIO_TEST_OMP）指向假 omp，回放 omp 18.12.6 的真实录制
+ * `fixtures/tsp/login-github-copilot.jsonl`（企业域名输入 → Continue → 设备码页）；假 omp 的 pid 记在文件里，用来确认进程真的结束。
+ */
+const fakeLoginOmp = path.resolve(import.meta.dirname, "..", "fake-omp", "fake-tsp-omp.ts");
+
+async function readPids(file: string): Promise<number[]> {
+  const text = await readFile(file, "utf8").catch(() => "");
+  return text
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map(Number);
+}
+
+function isAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+test("应用内终端登录：对话框里看到企业域名输入、设备码和链接，Open 走系统浏览器，取消 / Esc 后临时 omp 进程结束；非法 id 被拒", async () => {
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp-studio-login-e2e-"));
+  const pidFile = path.join(work, "pids.txt");
+  const log = path.join(work, "fake-omp.jsonl");
+  const { launched, agentDir } = await launchSettings({
+    STUDIO_TEST_LOGIN_OMP: JSON.stringify({
+      command: process.execPath,
+      args: [fakeLoginOmp, "login-github-copilot", "--speed=20", `--log=${log}`],
+    }),
+    FAKE_OMP_PID_FILE: pidFile,
+    // 本机环境变量会让 omp 把 github-copilot 算成已连接，它就没有"登录"按钮了。
+    COPILOT_GITHUB_TOKEN: "",
+    GH_TOKEN: "",
+    GITHUB_TOKEN: "",
+  });
+  try {
+    const { page, app } = launched;
+    const terminal = page.getByTestId("terminal-login");
+    const flow = page.getByTestId("provider-flow-github-copilot");
+    const openDialog = async () => {
+      await page.getByTestId("providers-connect").click();
+      const pick = page.getByTestId("provider-pick");
+      await expect(pick).toBeVisible({ timeout: 30_000 });
+      await page.getByTestId("provider-search").fill("github-copilot");
+      await pick.getByTestId("provider-terminal-login-github-copilot").click();
+      await expect(flow).toBeVisible();
+    };
+    /** 点登录窗里 omp 的按钮（按节点 id 找，文字是 omp 的英文）。 */
+    const ompButton = (id: string) => terminal.locator(`button[data-id="r.^sheet/0/actions/${id}"]`);
+    /** 等假 omp 的进程结束（pid 文件里的都已不在）。 */
+    const expectAllEnded = async (count: number) => {
+      await expect.poll(async () => (await readPids(pidFile)).length).toBe(count);
+      await expect.poll(async () => (await readPids(pidFile)).some(isAlive)).toBe(false);
+    };
+
+    // 渲染进程传来的 providerId 不可信：不在 omp 登录 provider 列表里的 id 被拒绝，也不会起进程。
+    for (const bad of ["not-a-provider", "github-copilot --model x", "../../x"]) {
+      const rejected = await page.evaluate(
+        (id) =>
+          globalThis.studio.startTerminalLogin(id).then(
+            () => "resolved",
+            (error: unknown) => (error instanceof Error ? error.message : String(error)),
+          ),
+        bad,
+      );
+      expect(rejected).toContain("unknown login provider");
+    }
+    expect(await readPids(pidFile)).toEqual([]);
+
+    // 外链：Open sign-in page 走主进程的 shell.openExternal（只放行 http/https），这里换成记录器，不真的开浏览器。
+    await app.evaluate(({ shell }) => {
+      const state = globalThis as unknown as { opened: string[] };
+      state.opened = [];
+      shell.openExternal = (url: string) => {
+        state.opened.push(url);
+        return Promise.resolve();
+      };
+    });
+
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("settings-nav-providers").click();
+
+    // 第一次：走到设备码页，按 Esc 关对话框 → 进程结束。
+    await openDialog();
+    await expect(terminal).toContainText("GitHub Enterprise URL/domain");
+    await ompButton("submit").click();
+    const code = terminal.locator('[data-role="omp.login.code"]');
+    await expect(code).toContainText("WDJB-MJHT");
+    await expect(terminal).toContainText("https://github.com/login/device");
+    await ompButton("openLink").click();
+    await expect
+      .poll(() => app.evaluate(() => (globalThis as unknown as { opened: string[] }).opened))
+      .toEqual(["https://github.com/login/device"]);
+    // omp 自己的 Cancel 按钮不画（页脚的"取消"是同一件事）。
+    await expect(ompButton("cancel")).toBeHidden();
+    await page.keyboard.press("Escape");
+    await expect(flow).toHaveCount(0);
+    await expectAllEnded(1);
+
+    // 第二次：重新打开是一个新进程，从企业域名那一步重新开始（上一次的画面不残留）；截图后点页脚的取消。
+    await openDialog();
+    await expect(terminal).toContainText("GitHub Enterprise URL/domain");
+    await expect(code).toHaveCount(0);
+    await screenshots(page, "login-terminal-prompt");
+    await ompButton("submit").click();
+    await expect(code).toContainText("WDJB-MJHT");
+    await screenshots(page, "login-terminal-code");
+    await page.getByTestId("provider-terminal-cancel").click();
+    await expect(flow).toHaveCount(0);
+    await expectAllEnded(2);
+
+    // 假 omp 收到的是 `/login github-copilot`（主进程按 provider 拼的命令），而且没有别的文字。
+    const sent = (await readFile(log, "utf8"))
+      .split("\n")
+      .filter((line) => line.trim() !== "")
+      .map((line) => JSON.parse(line) as { kind: string; body?: { ev?: string; text?: string } });
+    const texts = sent.filter((record) => record.body?.ev === "send").map((record) => record.body?.text);
+    expect(texts).toEqual(["/login github-copilot", "/login github-copilot"]);
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+    await rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});

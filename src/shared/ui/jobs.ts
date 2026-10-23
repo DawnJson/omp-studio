@@ -4,7 +4,8 @@ type JobStatus = "running" | "completed" | "failed" | "cancelled";
 
 export interface Job {
   id: string;
-  type: "bash" | "task";
+  /** `bash` / `eval`（eval 工具的异步单元）/ `task`（后台子任务）/ `agent`（子代理，不算药丸里的作业，见 runningJobIds）。 */
+  type: "bash" | "eval" | "task" | "agent";
   label: string;
   status: JobStatus;
   /** 主进程接收时间（ms）；只在 /jobs 弹窗里见过的作业是按弹窗里的时长倒推的。 */

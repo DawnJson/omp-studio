@@ -55,4 +55,15 @@ describe("slash 命令列表加载（B1）", () => {
     await Promise.all([loader.request("draft"), loader.request("t1")]);
     expect(calls).toEqual(["draft", "t1"]);
   });
+
+  it("refresh：已载入过也再取一次并发布新列表；在路上时不重复发", async () => {
+    const next: AvailableSlashCommand[] = [...list, { name: "deploy", source: "custom" }];
+    const { loader, calls, published } = setup([list, next]);
+    await loader.request("t1");
+    await loader.refresh("t1");
+    expect(calls).toEqual(["t1", "t1"]);
+    expect(published.at(-1)).toEqual(["t1", next]);
+    await Promise.all([loader.refresh("t1"), loader.refresh("t1")]);
+    expect(calls).toHaveLength(3);
+  });
 });

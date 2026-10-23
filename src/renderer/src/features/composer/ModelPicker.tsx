@@ -38,6 +38,7 @@ import { SpeedToggle, type SpeedControls } from "./SpeedToggle.tsx";
 import { PresetSection } from "../session-toggles/PresetSection.tsx";
 import { PrewalkSection } from "../session-toggles/PrewalkSection.tsx";
 import { ThinkingSegments } from "./ThinkingSegments.tsx";
+import type { ModelPickerRequest } from "./slash-args.ts";
 
 const recentKey = "omp-studio.recentModels";
 /** 数据缺失（没有价格、没测过速度……）的单元格。 */
@@ -70,6 +71,8 @@ export interface ModelPickerProps {
   /** 给了任务 id（任务里；草稿没有）才显示 Prewalk 和"预设"两节：都是对这个任务发的命令（`/prewalk`、`/modelpreset`）。 */
   taskId?: TaskId;
   onClose(): void;
+  /** `/model sonnet`、`/model @task` 带来的搜索词和范围（只在打开那一刻用）。 */
+  request?: ModelPickerRequest | null;
 }
 
 /** 表里的一行：模型，或角色范围 / @ 搜索时的角色（带它绑定的模型）。 */
@@ -110,8 +113,8 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [models, setModels] = useState<ModelOption[] | null>(null);
   const [insights, setInsights] = useState<ModelInsights | null>(null);
-  const [query, setQuery] = useState("");
-  const [scope, setScope] = useState<Scope>({ kind: "all" });
+  const [query, setQuery] = useState(props.request?.query ?? "");
+  const [scope, setScope] = useState<Scope>(props.request?.scope === "roles" ? { kind: "roles" } : { kind: "all" });
   // 选中的行（点击、↑↓）：参数行和思考强度跟着它走，"用于此任务"才真的切换；null = 正在生效的模型。
   const [selection, setSelection] = useState<string | null>(null);
   // 双击的第一下点在哪一行：点角色会换掉整张表，第二下落在原位的模型行上时不能当成双击它（否则直接把那个模型写给角色）。

@@ -1,0 +1,38 @@
+import type { MessageEntry } from "../index.ts";
+
+// 输入框周围从 omp 的输入框卡片 / HUD 搬过来的控件文案：上下文圆环与压缩、待办板的操作、Shell / Python 标签。
+// 作业类型（bash / eval / task）是 omp 自己的叫法，原样显示，不在这里。
+export const board = {
+  ctxAutoAt: "在 {p}% 自动压缩",
+  ctxSummary: "压缩摘要：{state}",
+  ctxSummaryRunning: "生成中",
+  ctxSummaryReady: "已备好",
+  compactNow: "立即压缩",
+  compactNowTip: "现在压缩 context（/compact）",
+  handoff: "交接",
+  handoffTip: "把会话总结成交接文档，并就地压缩 context（/handoff）",
+  compactNeedIdle: "任务空闲时才能压缩或交接",
+  compactDone: "Context 已压缩",
+  handoffDone: "已交接，context 已压缩",
+  shellTagShell: "Shell",
+  shellTagPython: "Python",
+  shellTagTipShell: "以 ! 开头：直接在会话里运行 shell 命令，不经过模型",
+  shellTagTipPython: "以 $ 开头：直接在会话里运行 Python，不经过模型",
+  shellOptions: "命令选项",
+  shellInContext: "结果进入 context",
+  shellInContextHint: "关闭后输出只显示在对话里，不发给模型（前缀变成 !! / $$）",
+  todoActions: "条目操作：{name}",
+  todoStart: "开始",
+  todoDone: "完成",
+  todoDrop: "放弃",
+  todoRemove: "删除",
+  todoAdd: "添加条目",
+  todoAddText: "新条目",
+  todoAddPhase: "阶段（可选）",
+  todoAddSubmit: "添加",
+  todoCopyMarkdown: "复制为 Markdown",
+  todoCopied: "已复制待办（Markdown）",
+  todoExpandAll: "展开全部",
+  todoCollapseAll: "收起已完成的阶段",
+  todoPhaseCollapsed: "已完成，点击展开",
+} satisfies Record<string, MessageEntry>;

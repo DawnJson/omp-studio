@@ -1,6 +1,8 @@
 // 项目目录里的短命 rpc-ui（owner 决定 2）：项目范围的内置命令（`/mcp ... --scope project`、按项目的记忆）要在项目目录里跑，
-// 服务进程的 cwd 是 userData/service，不行。每个项目目录最多一个 `omp --mode rpc-ui --no-session`，空闲后关，
+// 服务进程的 cwd 是 userData/service，不行；斜杠菜单的命令列表（`get_available_commands`，含项目的 skill、自定义命令、扩展命令）也按任务目录取。
+// 每个项目目录最多一个 `omp --mode rpc-ui --no-session`，空闲后关，
 // 放进应用 Job Object，退出时经 command-handlers.ts 注册的 shutdown hook 全部关掉。
+import type { AvailableSlashCommand } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { IdleOmp, type IdleOmpOptions } from "./idle-omp.ts";
 import type { OmpConnection } from "../omp/omp-connection.ts";
 
@@ -13,6 +15,8 @@ export class ProjectOmpPool {
   readonly #process: ProcessOptions;
   readonly #idleCloseMs: number;
   readonly #key: (dir: string) => string;
+  /** 项目进程主动发来 `available_commands_update`（含握手期间）时调用；`dir` 是创建这个进程时传的目录。 */
+  onCommandsUpdate: ((dir: string, commands: AvailableSlashCommand[]) => void) | null = null;
   #closed = false;
 
   constructor(process: ProcessOptions, idleCloseMs: number, key: (dir: string) => string) {
@@ -36,6 +40,10 @@ export class ProjectOmpPool {
         ...this.#process,
         cwd: () => Promise.resolve(dir),
         idleCloseMs: this.#idleCloseMs,
+        onSpawn: (connection) =>
+          connection.onFrame((frame) => {
+            if (frame.type === "available_commands_update") this.onCommandsUpdate?.(dir, frame.commands);
+          }),
       });
       created.onIdleClosed = () => {
         if (this.#entries.get(key) === created && !created.active) this.#entries.delete(key);

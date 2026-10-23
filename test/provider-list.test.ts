@@ -59,7 +59,7 @@ describe("登录方式", () => {
       expect(loginKind(id), id).toBe("oauth");
   });
 
-  it("RPC 里被 omp 拒绝的要去终端登录", () => {
+  it("RPC 里被 omp 拒绝的（多步交互登录）走应用内终端登录", () => {
     for (const id of ["github-copilot", "perplexity", "snowflake"]) expect(loginKind(id), id).toBe("terminal");
   });
 

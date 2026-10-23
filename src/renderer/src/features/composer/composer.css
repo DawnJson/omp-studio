@@ -373,6 +373,11 @@ button.usage-context:hover,
   stroke: var(--accent);
   stroke-linecap: round;
 }
+/* 自动压缩触发点：横穿圆环的一道短刻度（UsageMeter 的 Ring），用已用弧和底圈之外的中性色 */
+.usage-ring-tick {
+  stroke: var(--text-2);
+  stroke-width: 1.5;
+}
 .usage-context[data-high] {
   color: var(--st-waiting-text);
 }
@@ -522,6 +527,27 @@ html[data-motion="reduced"] .ctx-usage-chev {
   line-height: var(--lh-xs);
   color: var(--text-3);
 }
+/* 构成下面的压缩一栏（ContextCompact）：触发点、摘要状态各一行小字，两个按钮并排 */
+.ctx-compact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.ctx-compact-line {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-2);
+}
+.ctx-compact-line[data-state="running"] {
+  color: var(--accent);
+}
+.ctx-compact-actions {
+  display: flex;
+  gap: var(--space-2);
+}
 
 /* 按模型的用量明细 */
 .mb-title {
@@ -667,6 +693,34 @@ html[data-motion="reduced"] .ctx-usage-chev {
   height: 12px;
   border-radius: var(--radius-xs);
   background: currentColor;
+}
+/* 发送键右边的投递方式下拉：窄的透明按钮，紧贴发送键。 */
+.send-more {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: var(--control-h-md);
+  margin-left: calc(-1 * var(--space-1));
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.send-more:hover:not(:disabled),
+.send-more[aria-expanded="true"] {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.send-more:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+.send-more:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 
 /* 输入框上方（ComposerTop.tsx）：药丸行（有待办板时单独一行、右对齐）+ 状态行（左 = 运行图标 + 翻牌计时 + 分隔线 + 当前活动，
@@ -884,6 +938,91 @@ html[data-motion="reduced"] .ctx-usage-chev {
   line-height: var(--lh-xs);
   color: var(--st-error);
 }
+/* 备注（omp 给的最后一条）：比条目小一号、次要色 */
+.todo-note {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-3);
+}
+.todo-text {
+  flex: 1 1 auto;
+}
+/* 每条右边的 ⋯：平时淡出，悬停 / 键盘聚焦 / 菜单开着时显现 */
+.todo-more {
+  flex: none;
+  margin-top: calc((var(--lh-sm) - 24px) / 2);
+  opacity: 0;
+}
+.todo-item:hover .todo-more,
+.todo-item:focus-within .todo-more,
+.todo-more[aria-expanded="true"] {
+  opacity: 1;
+}
+.todo-item .ui-menu[data-inline] {
+  margin-top: var(--space-1);
+}
+/* 已做完的阶段：整个阶段头是个按钮（点开 / 收起） */
+.todo-phase-toggle {
+  all: unset;
+  display: flex;
+  flex: 1;
+  gap: var(--space-1-5);
+  align-items: center;
+  min-width: 0;
+  cursor: pointer;
+}
+.todo-phase-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.todo-phase[data-collapsed] .todo-phase-head {
+  margin-bottom: 0;
+}
+/* 底部：添加条目表单 + 一排小按钮 */
+.todo-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  padding: var(--space-2) var(--space-1) 0;
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.todo-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+  margin-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+/* 工具行里的 Shell / Python 标签（ShellTag）：输入框以 ! / $ 开头时出现；浮层只有一行开关 */
+.ui-chip.shell-tag {
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  color: var(--accent);
+}
+.shell-pop-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-1-5) var(--space-2-5);
+}
+.shell-pop-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.shell-pop-label {
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+.shell-pop-hint {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-3);
+}
 
 .suggest {
   display: flex;
@@ -981,6 +1120,24 @@ html[data-motion="reduced"] .ctx-usage-chev {
   white-space: nowrap;
   color: var(--text-3);
   font-size: var(--fs-xs);
+}
+/* Ctrl+R 历史搜索：同斜杠菜单的浮层外观，顶上一个搜索框（不随列表滚走），行里是历史消息的第一行。 */
+.history {
+  gap: var(--space-1);
+  max-height: calc(8 * var(--row-menu) + var(--control-h-sm) + 3 * var(--space-1));
+}
+.history > .ui-field {
+  flex: none;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.history-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 模型选择对话框（ui/Dialog，className mp-dialog，照 Tern 里 omp 的 /models）：加宽到 --dialog-w-xl。
@@ -1455,6 +1612,17 @@ html[data-motion="reduced"] .ctx-usage-chev {
   font-size: var(--fs-2xs);
   font-variant-numeric: tabular-nums;
   color: var(--text-3);
+}
+/* 作业类型（bash / eval / task）：名字右边一个小标签，omp 的叫法原样写 */
+.jobs-card-type {
+  flex: none;
+  padding: 0 var(--space-1-5);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-2xs);
+  color: var(--text-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
 }
 .jobs-card-progress {
   display: flex;

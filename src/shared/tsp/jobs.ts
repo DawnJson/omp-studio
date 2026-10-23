@@ -95,7 +95,7 @@ function agentStatuses(doc: TspDocument): Map<string, JobStatus | null> {
 }
 
 /** `/jobs` 弹窗列表里的作业（全部状态）。 */
-function overlayJobs(doc: TspDocument, now: number): Job[] {
+function overlayJobs(doc: TspDocument, now: number, agents: ReadonlyMap<string, JobStatus | null>): Job[] {
   const jobs: Job[] = [];
   for (const surface of liveSurfaces(doc)) {
     const master = findNode(surface, (node) => nodeRole(node) === OVERLAY_MASTER_ROLE);
@@ -106,7 +106,7 @@ function overlayJobs(doc: TspDocument, now: number): Job[] {
       for (const itemId of list.c) {
         const item = surface.nodes.get(itemId);
         if (item) {
-          const job = overlayItem(item, now);
+          const job = overlayItem(item, now, agents);
           if (job) jobs.push(job);
         }
       }
@@ -115,7 +115,17 @@ function overlayJobs(doc: TspDocument, now: number): Job[] {
   return jobs;
 }
 
-function overlayItem(item: DocNode, now: number): Job | null {
+/**
+ * omp 的作业类型（`/jobs` 弹窗里的 `<状态> · <类型> · <id>`，job-manager 的 `register(type, …)`）：`bash`、`eval`（eval 工具的异步单元）、
+ * `task`（后台子任务：子代理、vibe、安全扫描等）。id 有对应 `agent` 节点的 task = 子代理（`agent`）：药丸另有一段数子代理，不算作业。
+ * 没见过的类型归 `task`（omp 的 hud 作业胶囊按 `type !== "task" || agentId` 数，这里同样把非子代理的都算作业）。
+ */
+function jobType(kind: string, id: string, agents: ReadonlyMap<string, JobStatus | null>): Job["type"] {
+  if (kind === "bash" || kind === "eval") return kind;
+  return agents.has(id) ? "agent" : "task";
+}
+
+function overlayItem(item: DocNode, now: number, agents: ReadonlyMap<string, JobStatus | null>): Job | null {
   const title = typeof item.p["title"] === "string" ? item.p["title"] : "";
   const meta = /^(\S+) · (\S+) · (.+)$/.exec(title.split("\n")[1] ?? "");
   if (!meta) return null;
@@ -128,7 +138,7 @@ function overlayItem(item: DocNode, now: number): Job | null {
   const durationMs = parseJobDuration(spansText(item.p["value"]));
   return {
     id,
-    type: kind === "bash" ? "bash" : "task",
+    type: jobType(kind, id, agents),
     label,
     status,
     startedAt: status === "running" && durationMs !== null ? now - durationMs : now,
@@ -150,7 +160,7 @@ function hudJobs(doc: TspDocument, now: number, agents: ReadonlyMap<string, JobS
         if (!parsed) continue;
         const id = parsed[1] as string;
         const label = parsed[2] || id;
-        const type: Job["type"] = agents.has(id) ? "task" : BASH_ID.test(id) ? "bash" : "task";
+        const type: Job["type"] = agents.has(id) ? "agent" : BASH_ID.test(id) ? "bash" : "task";
         jobs.push({ id, type, label, status: "running", startedAt: now, durationMs: null, output: null });
       }
     }
@@ -165,7 +175,7 @@ export function deriveTspJobs(doc: TspDocument, now: number): Job[] {
   const agents = agentStatuses(doc);
   const byId = new Map<string, Job>();
   for (const job of hudJobs(doc, now, agents)) byId.set(job.id, job);
-  for (const job of overlayJobs(doc, now)) byId.set(job.id, job);
+  for (const job of overlayJobs(doc, now, agents)) byId.set(job.id, job);
   return [...byId.values()];
 }
 
@@ -182,7 +192,8 @@ export function mergeTspJobs(previous: readonly Job[], snapshot: readonly Job[],
   for (const old of previous) {
     const fresh = seen.get(old.id);
     if (fresh) {
-      out.push({ ...fresh, startedAt: old.startedAt });
+      // hud 行里 bash 和 eval 的 id 都是 `bg_N`，只能猜 bash；`/jobs` 弹窗开过就知道真实类型，之后 hud 的猜测不覆盖它。
+      out.push({ ...fresh, type: fresh.type === "bash" ? old.type : fresh.type, startedAt: old.startedAt });
       seen.delete(old.id);
     } else if (old.status === "running") {
       const status = agents.get(old.id) ?? "completed";
@@ -197,6 +208,14 @@ export function mergeTspJobs(previous: readonly Job[], snapshot: readonly Job[],
   }
   for (const job of seen.values()) out.push(job);
   return out;
+}
+
+/**
+ * 药丸右半段的作业：运行中、且不是子代理的（omp hud 作业胶囊的数法：`runningBackgroundJobCount` 排除有 agentId 的 task；
+ * 子代理另有药丸左半段，bash 和 eval 作业、非子代理的后台 task 都算）。
+ */
+export function runningJobs(jobs: readonly Job[]): Job[] {
+  return jobs.filter((job) => job.status === "running" && job.type !== "agent");
 }
 
 /** 用户结束了作业（`id` 或 `all`）：已知运行中的记为取消，时长 = 现在 − 开始。 */

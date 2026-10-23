@@ -50,6 +50,8 @@ export interface TspLaunchSpec {
   resumeSessionFile?: string | null;
   /** 从这个会话文件分叉（omp 的 `--fork=<路径>`：复制它建一个新会话并在新会话里启动，原文件不动）；和 resumeSessionFile 二选一，后者优先。 */
   forkSessionFile?: string | null;
+  /** 不落会话文件（omp 的 `--no-session`）：应用内登录的临时 omp 不该在用户的会话目录里留东西。 */
+  noSession?: boolean;
 }
 
 /** TSP 任务：交互式 omp（没有 `--mode`），恢复会话用 `--resume=<路径>`。 */
@@ -58,6 +60,7 @@ export function buildTspArgs(spec: TspLaunchSpec): string[] {
   if (spec.resumeSessionFile) args.push(`--resume=${spec.resumeSessionFile}`);
   else if (spec.forkSessionFile) args.push(`--fork=${spec.forkSessionFile}`);
   if (spec.model) args.push("--model", `${spec.model.provider}/${spec.model.modelId}`);
+  if (spec.noSession) args.push("--no-session");
   if (spec.thinkingLevel && spec.thinkingLevel !== "inherit") args.push("--thinking", spec.thinkingLevel);
   if (spec.allowHome) args.push("--allow-home");
   return args;

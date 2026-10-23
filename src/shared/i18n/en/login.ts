@@ -13,8 +13,9 @@ export const login = {
   pasteCode: "Paste the authorization code",
   submit: "Submit",
   cancel: "Cancel",
-  terminalOnly: "This provider has to be set up in the terminal: run omp, then type /login.",
-  copyCommand: "Copy command",
+  terminalOnly:
+    "This provider needs a multi-step sign-in. Continue here: omp-studio runs omp's own sign-in in a window inside the app.",
+  signInHere: "Sign in here",
   chooseAccount: "Choose an account to sign out",
   accountActive: "In use",
   failed: "Sign-in didn't complete.",
@@ -33,7 +34,7 @@ export const login = {
   "apiKey.add": "Add API key",
   search: "Search providers",
   noMatch: "No matching providers",
-  terminalLogin: "Sign in from the terminal",
+  "terminal.starting": "Starting the sign-in…",
   more: "More actions",
   back: "Back",
   connect: "Connect provider…",
@@ -48,4 +49,5 @@ export const login = {
   "badge.env": "Env var or config",
   "kind.oauth": "OAuth sign-in",
   "kind.apiKey": "API key",
+  "kind.interactive": "Interactive sign-in",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

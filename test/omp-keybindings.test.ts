@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readOmpKeybindings } from "../src/main/omp-config/keybindings.ts";
 import { shouldForwardChord, type ForwardKeyEvent } from "../src/shared/tsp/forward-keys.ts";
 import {
-  actionOfChord,
   chordKeys,
   forwardedChords,
   resolveOmpKeybindings,
@@ -60,9 +59,6 @@ describe("omp 键位：用户 keybindings.yml 的覆盖", () => {
     expect(chords.has("ctrl+p")).toBe(false);
     expect(shouldForwardChord(ev({ key: "K", altKey: true, shiftKey: true }), chords, () => new Set())).toBe(true);
     expect(shouldForwardChord(ev({ key: "p", ctrlKey: true }), chords, () => new Set())).toBe(false);
-    expect(actionOfChord(bindings, "f7")).toBe("app.history.search");
-    expect(actionOfChord(bindings, "ctrl+t")).toBe("app.thinking.toggle");
-    expect(actionOfChord(bindings, "ctrl+z")).toBeNull();
   });
 
   it("空数组 = 禁用这个动作；没写的动作照旧用默认键", () => {

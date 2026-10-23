@@ -1,23 +1,11 @@
 // omp 斜杠命令的两个 IPC（native-ui-plan I1/I2）：参数是封闭联合类型，主进程拼命令文本，渲染进程从不传自由文本。
 // 会话级（runTaskCommand）在任务自己的 omp 里跑；和会话无关的（runBuiltin）在服务进程（用户范围）或项目目录里的短命 rpc-ui（项目范围）里跑。
-import { pathKey } from "../tasks/task-registry.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
-import { buildOmpLaunch } from "../omp/launch.ts";
-import { assignToAppJob } from "../platform/win32/job-object.ts";
 import { runBuiltinOn } from "../service/builtin-command.ts";
-import { PROJECT_IDLE_CLOSE_MS, ProjectOmpPool } from "../service/project-omp.ts";
+import { projectOmp } from "../service/project-omp-instance.ts";
 import { serviceOmp } from "../service/service-omp.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
-import { registerShutdownHook } from "../window/shutdown.ts";
 import { parseBuiltinScope, parseBuiltinCommandArg, parseTaskCommandArg, parseTaskId } from "./validate.ts";
-
-const projectOmp = new ProjectOmpPool(
-  { launch: (cwd) => buildOmpLaunch({ cwd, noSession: true }), assignJob: assignToAppJob },
-  PROJECT_IDLE_CLOSE_MS,
-  pathKey,
-);
-// 退出：项目里的 rpc-ui 全部关掉（主进程被强杀时由 Job Object 兜底）。
-registerShutdownHook(() => projectOmp.close());
 
 export const commandHandlers: HandlerGroup<"runTaskCommand" | "runBuiltin"> = {
   runTaskCommand: async (taskId, cmd) => {

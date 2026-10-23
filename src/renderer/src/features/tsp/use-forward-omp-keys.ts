@@ -1,17 +1,15 @@
 // omp 自己的快捷键（默认 ⇧Tab、⌃T、⌃P、⌥P、⌥⇧P、⌃R、F5……加用户 keybindings.yml 的覆盖，以及键帽提示上的键）：焦点在 studio 输入框 / tsp-view 里、
 // studio 没有占用这个键时，编码后写给这个任务的 omp（和 list、提问对话框同一条 encodeKey → sendTspKeys 路径）。
-// 判定见 src/shared/tsp/forward-keys.ts，键位见 src/shared/tsp/omp-keybindings.ts。
+// 判定见 src/shared/tsp/forward-keys.ts，键位见 src/shared/tsp/omp-keybindings.ts。omp 因此往它自己输入框里写的文字（⌥↑ 取回排队消息、
+// ⌃R 选中的历史）由主进程统一搬进 studio 的输入框（`composerPrefill` 事件，tsp-runner 的 `#syncEditorText`），这里不管。
 import { useEffect } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
-import { chordOf, kbdChordsIn, shouldForwardChord } from "../../../../shared/tsp/forward-keys.ts";
-import { actionOfChord, OMP_DEQUEUE_ACTION } from "../../../../shared/tsp/omp-keybindings.ts";
+import { kbdChordsIn, shouldForwardChord } from "../../../../shared/tsp/forward-keys.ts";
 import type { EscTarget } from "../../../../shared/tsp/overlay-esc.ts";
-import { hasQueuedMessages } from "../../../../shared/tsp/queue-restore.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
 import { currentOmpKeybindings, refreshOmpKeybindings } from "../settings/omp-keybindings-store.ts";
 import { likeOf } from "./interactive/key-event.ts";
 import { encodeKey } from "./keys.ts";
-import { restoreDequeued } from "./restore-dequeued.ts";
 import { peekTspDocument } from "./tsp-store.ts";
 
 const EMPTY: ReadonlySet<string> = new Set();
@@ -48,14 +46,6 @@ export function useForwardOmpKeys(taskId: TaskId): void {
       const data = encodeKey(like);
       if (data === null) return;
       event.preventDefault();
-      const doc = peekTspDocument(taskId);
-      const chord = chordOf(like);
-      const dequeue =
-        chord !== null &&
-        actionOfChord(omp.bindings, chord) === OMP_DEQUEUE_ACTION &&
-        doc !== null &&
-        hasQueuedMessages(doc);
-      if (dequeue) restoreDequeued(taskId);
       window.studio.sendTspKeys(taskId, data).catch((error: unknown) => reportErrorNow(error));
     };
     window.addEventListener("keydown", onKey);

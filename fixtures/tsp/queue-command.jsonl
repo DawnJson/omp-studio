@@ -1,0 +1,383 @@
+{"t":1792773714052,"dir":"out","verb":"o","body":{"id":"s:1","mode":"inline","title":"omp","role":"omp.session"}}
+{"t":1792773714053,"dir":"out","verb":"t","body":{"sf":"s:1","name":{"dark":"titanium","light":"light"},"dark":{"accent":"#00b4ff","border":"#2a3038","borderAccent":"#00b4ff","borderMuted":"#1f252d","success":"#00ff88","error":"#ff4757","warning":"#ffb347","muted":"#9ca3b0","dim":"#6b7280","thinkingText":"#9ca3b0","selectedBg":"#0082b3","userMessageBg":"#0f1216","customMessageBg":"#2a3038","customMessageLabel":"#d4c090","toolPendingBg":"#0f1216","toolSuccessBg":"#0f1216","toolErrorBg":"#1a0f10","toolOutput":"#9ca3b0","mdHeading":"#00b4ff","mdLink":"#00b4ff","mdLinkUrl":"#0082b3","mdCode":"#00ff88","mdCodeBlock":"#9ca3b0","mdCodeBlockBorder":"#2a3038","mdQuote":"#9ca3b0","mdQuoteBorder":"#2a3038","mdHr":"#2a3038","mdListBullet":"#00b4ff","toolDiffAdded":"#00ff88","toolDiffRemoved":"#ff4757","toolDiffContext":"#9ca3b0","syntaxComment":"#6b7280","syntaxKeyword":"#00b4ff","syntaxFunction":"#00ff88","syntaxVariable":"#e8ecf4","syntaxString":"#d4c090","syntaxNumber":"#ffb347","syntaxType":"#00b4ff","syntaxOperator":"#00b4ff","syntaxPunctuation":"#9ca3b0","thinkingOff":"#4a5058","thinkingMinimal":"#5a6068","thinkingLow":"#6a7078","thinkingMedium":"#9ca3b0","thinkingHigh":"#00b4ff","thinkingXhigh":"#d4c090","bashMode":"#00ff88","statusLineBg":"#0f1216","statusLineSep":"#2a3038","statusLineModel":"#00b4ff","statusLinePath":"#e8ecf4","statusLineGitClean":"#00ff88","statusLineGitDirty":"#ffb347","statusLineContext":"#9ca3b0","statusLineSpend":"#d4c090","statusLineStaged":"#00ff88","statusLineDirty":"#ffb347","statusLineUntracked":"#9ca3b0","statusLineOutput":"#0082b3","statusLineCost":"#d4c090","statusLineSubagents":"#00b4ff","pythonMode":"#f0c040","pageBg":"#151820","cardBg":"#0f1216","infoBg":"#2a3038"},"light":{"accent":"#5a8080","border":"#547da7","borderAccent":"#5a8080","borderMuted":"#b0b0b0","success":"#588458","error":"#aa5555","warning":"#9a7326","muted":"#6c6c6c","dim":"#767676","thinkingText":"#6c6c6c","selectedBg":"#d0d0e0","userMessageBg":"#e8e8e8","customMessageBg":"#ede7f6","customMessageLabel":"#7e57c2","toolPendingBg":"#e8e8f0","toolSuccessBg":"#e8f0e8","toolErrorBg":"#f0e8e8","toolOutput":"#6c6c6c","mdHeading":"#9a7326","mdLink":"#547da7","mdLinkUrl":"#767676","mdCode":"#5a8080","mdCodeBlock":"#588458","mdCodeBlockBorder":"#6c6c6c","mdQuote":"#6c6c6c","mdQuoteBorder":"#6c6c6c","mdHr":"#6c6c6c","mdListBullet":"#588458","toolDiffAdded":"#588458","toolDiffRemoved":"#aa5555","toolDiffContext":"#6c6c6c","syntaxComment":"#008000","syntaxKeyword":"#0000FF","syntaxFunction":"#795E26","syntaxVariable":"#001080","syntaxString":"#A31515","syntaxNumber":"#098658","syntaxType":"#267F99","syntaxOperator":"#000000","syntaxPunctuation":"#000000","thinkingOff":"#b0b0b0","thinkingMinimal":"#767676","thinkingLow":"#547da7","thinkingMedium":"#5a8080","thinkingHigh":"#875f87","thinkingXhigh":"#8b008b","bashMode":"#588458","statusLineBg":"#e0e0e0","statusLineSep":"#808080","statusLineModel":"#875f87","statusLinePath":"#005f87","statusLineGitClean":"#005f00","statusLineGitDirty":"#af5f00","statusLineContext":"#5f5f87","statusLineSpend":"#005f5f","statusLineStaged":"#008700","statusLineDirty":"#af8700","statusLineUntracked":"#0087af","statusLineOutput":"#af5faf","statusLineCost":"#af5faf","statusLineSubagents":"#5a8080","pythonMode":"#9a7326","pageBg":"#f8f8f8","cardBg":"#ffffff","infoBg":"#fffae6"}}}
+{"t":1792773714075,"dir":"out","verb":"f","body":{"sf":"s:1","s":1,"ops":[["add","main","s:1",null,{"id":"main","k":"col"}],["add","dock","s:1",null,{"id":"dock","k":"col"}],["add","layer","s:1",null,{"id":"layer","k":"col"}],["add","0","main",null,{"id":"0","k":"spacer","p":{"size":"sm"}}],["add","1","main",null,{"id":"1","k":"card","p":{"role":"omp.welcome"},"c":[{"id":"1.lockup","k":"row","p":{"align":"center","gap":"md","role":"omp.welcome.lockup"},"c":[{"id":"1.lockup/logo","k":"image","p":{"builtin":"omp","alt":"omp","w":128,"role":"omp.welcome.logo"}},{"id":"1.lockup/mark","k":"col","p":{"role":"omp.welcome.mark"},"c":[{"id":"1.lockup/mark/omp.welcome.wordmark","k":"text","p":{"wrap":"none","role":"omp.welcome.wordmark","spans":[{"t":"omp","s":"strong"}]}},{"id":"1.lockup/mark/omp.welcome.version","k":"text","p":{"wrap":"none","role":"omp.welcome.version","spans":[{"t":"v18.12.6","s":"dim mono"}]}}]}]},{"id":"1.tip","k":"row","p":{"gap":"sm","align":"start","role":"omp.welcome.tip"},"c":[{"id":"1.tip/0","k":"icon","p":{"name":"lightbulb","role":"omp.welcome.tip-icon"}},{"id":"1.tip/1","k":"text","p":{"wrap":"word","role":"omp.welcome.tip-text","text":"`/shake` rips heavy tool results out of context to reclaim tokens without a full /compact — `/shake images` drops just images"}}]}]}],["add","2","main",null,{"id":"2","k":"spacer","p":{"size":"sm"}}],["add","3","dock",null,{"id":"3","k":"row","p":{"role":"omp.hud","justify":"end","hidden":true}}],["add","4","dock",null,{"id":"4","k":"col"}],["add","5","dock",null,{"id":"5","k":"col"}],["add","6","dock",null,{"id":"6","k":"col"}],["add","7","dock",null,{"id":"7","k":"col"}],["add","8","dock",null,{"id":"8","k":"col"}],["add","9","dock",null,{"id":"9","k":"col"}],["add","a","dock",null,{"id":"a","k":"col","c":[{"id":"g","k":"col","p":{"role":"omp.hud.judge"}},{"id":"h","k":"col","p":{"role":"omp.hud.downloads"}}]}],["add","b","dock",null,{"id":"b","k":"col"}],["add","c","dock",null,{"id":"c","k":"col"}],["add","d","dock",null,{"id":"d","k":"col","c":[{"id":"i","k":"col"}]}],["add","e","dock",null,{"id":"e","k":"col","c":[{"id":"j","k":"col","p":{"role":"omp.editor"},"c":[{"id":"j.context","k":"meter","p":{"role":"omp.composer.context","value":0.007946,"style":"bar","thresholds":{"warn":0.15,"bad":0.5},"marks":[{"at":0.818,"icon":"context.speculation","title":"Compaction summary starts at 82%"},{"at":0.85,"icon":"context.compaction","title":"Auto-compact at 85%"}],"label":"1%","total":"1M","title":"Context 1% used\n7.9K of 1M tokens\nAuto-compact at 85%","actions":{"click":"status.context"}}},{"id":"k","k":"row","p":{"gap":"sm","wrap":true,"role":"omp.composer.chips","hidden":true}},{"id":"j.line","k":"row","p":{"role":"omp.composer.line","align":"start","gap":"sm"},"c":[{"id":"j.line/input","k":"editor","p":{"text":"","cursor":0,"sendable":false,"placeholder":"What are we cooking?","maxLines":18}}]},{"id":"j.bar","k":"row","p":{"role":"omp.composer.bar","gap":"sm","align":"center"},"c":[{"id":"j.bar/model","k":"row","p":{"role":"omp.composer.model","gap":"xs","align":"center","title":"Switch model  Alt+P","actions":{"click":"status.model"}},"c":[{"id":"j.bar/model/effort","k":"effort","p":{"level":"high","role":"omp.composer.model.effort","title":"Thinking effort: high  ⇧⇥","actions":{"click":"thinking.cycle"}}},{"id":"j.bar/model/name","k":"text","p":{"spans":[{"t":"DeepSeek V4 Flash","s":"statusLineModel"}],"wrap":"none"}},{"id":"j.bar/model/chev","k":"icon","p":{"name":"chev"}}]},{"id":"j.bar/extras","k":"status","p":{"role":"omp.composer.extras","transparent":true,"grow":1}},{"id":"j.bar/usage","k":"text","p":{"role":"omp.composer.usage","text":"$0.00 ↓","wrap":"none","title":"Session cost $0.00 ↓","actions":{"click":"status.cost"}}},{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}]}]}]}],["add","f","dock",null,{"id":"f","k":"col"}],["focus","j.line/input"]]}}
+{"t":1792773714086,"dir":"out","verb":"f","body":{"sf":"s:1","s":2,"ops":[["add","l","d",null,{"id":"l","k":"col"}],["del","i"]]}}
+{"t":1792773714105,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":1}}
+{"t":1792773714105,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":2}}
+{"t":1792773714149,"dir":"out","verb":"f","body":{"sf":"s:1","s":3,"ops":[["add","m","main","1",{"id":"m","k":"spacer","p":{"size":"sm"}}],["add","n","main",null,{"id":"n","k":"spacer","p":{"size":"sm"}}],["set","j.line/input",{"sendable":true}],["del","0"],["del","2"]]}}
+{"t":1792773714155,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":3}}
+{"t":1792773717064,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"Write a numbered list of 25 short facts about rivers, one per line, no tools."}}
+{"t":1792773717069,"dir":"out","verb":"f","body":{"sf":"s:1","s":4,"ops":[["add","o","main",null,{"id":"o","k":"card","p":{"role":"omp.user","tone":"user"},"c":[{"id":"o.tools","k":"row","p":{"gap":"xs","align":"center","role":"omp.user.tools"},"c":[{"id":"o.tools/copy","k":"icon","p":{"name":"copy","role":"omp.user.tool","title":"Copy message","aria":"Copy message","actions":{"click":"copy-message"}}},{"id":"o.tools/rewind","k":"icon","p":{"name":"rewind","role":"omp.user.tool","title":"Rewind the conversation to an earlier message","aria":"Rewind","actions":{"click":"rewind"}}},{"id":"o.tools/dot","k":"text","p":{"text":"·"}},{"id":"o.tools/3","k":"text","p":{"role":"omp.user.time","title":"2026/10/23 16:41:57","spans":[{"t":"16:41","s":"dim mono"}]}}]},{"id":"o.1","k":"md","p":{"text":"Write a numbered list of 25 short facts about rivers, one per line, no tools."}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"row","p":{"role":"omp.hud.activity","align":"center","gap":"sm"},"c":[{"id":"b.status","k":"col","p":{"role":"omp.hud.status"},"c":[{"id":"p","k":"row","p":{"role":"omp.working","align":"center","gap":"sm"},"c":[{"id":"p.spinner","k":"spinner","p":{"style":"starburst","tone":"accent"}},{"id":"p.elapsed","k":"elapsed","p":{"age":0,"format":"short"}},{"id":"p.sep","k":"text","p":{"text":"·","role":"omp.working.sep"}},{"id":"p.label","k":"shimmer","p":{"spans":[{"t":"Working…","s":"muted"}],"mode":"classic","palette":{"low":"dim","mid":"muted","high":"accent"},"role":"omp.working.label"}},{"id":"p.fill","k":"row","p":{"grow":1}},{"id":"p.stop","k":"row","p":{"role":"omp.working.stop","gap":"xs","align":"center","title":"Stop  esc","actions":{"click":"interrupt"}},"c":[{"id":"p.stop/0","k":"kbd","p":{"keys":["escape"]}},{"id":"p.stop/1","k":"text","p":{"text":"Stop"}}]}]}]}]}],["set","j",{"tone":"pending"}],["add","j.bar/stop","j.bar",null,{"id":"j.bar/stop","k":"text","p":{"role":"omp.composer.stop","text":"Stop","tone":"error","title":"Stop  esc","actions":{"click":"interrupt"}}}],["del","j.bar/send"],["settle","o"]]}}
+{"t":1792773717072,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":4}}
+{"t":1792773717079,"dir":"out","verb":"f","body":{"sf":"s:1","s":5,"ops":[["set","j.context",{"value":0.007965,"title":"Context 1% used\n8K of 1M tokens\nAuto-compact at 85%"}]]}}
+{"t":1792773717080,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":5}}
+{"t":1792773717680,"dir":"out","verb":"f","body":{"sf":"s:1","s":6,"ops":[["add","q","main",null,{"id":"q","k":"col","p":{"role":"omp.assistant"}}]]}}
+{"t":1792773717682,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":6}}
+{"t":1792773717715,"dir":"out","verb":"f","body":{"sf":"s:1","s":7,"ops":[["add","q.k0","q",null,{"id":"q.k0","k":"section","p":{"role":"omp.thinking.live","collapsible":true,"collapsed":false,"head":"q.k0/head"},"c":[{"id":"q.k0/head","k":"row","p":{"gap":"sm"},"c":[{"id":"q.k0/head/0","k":"spinner","p":{"style":"starburst","role":"omp.thinking.spin"}},{"id":"q.k0/head/1","k":"text","p":{"spans":[{"t":"Thinking…","s":"muted"}]}},{"id":"q.k0/head/2","k":"elapsed","p":{"age":0,"format":"short"}}]},{"id":"q.k0/body","k":"md","p":{"text":"The","stream":true}}]}]]}}
+{"t":1792773717716,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":7}}
+{"t":1792773717749,"dir":"out","verb":"f","body":{"sf":"s:1","s":8,"ops":[["set","q.k0/head/2",{"age":35}]]}}
+{"t":1792773717751,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":8}}
+{"t":1792773717791,"dir":"out","verb":"f","body":{"sf":"s:1","s":9,"ops":[["set","q.k0/head/2",{"age":76}],["text","q.k0/body","append"," us"]]}}
+{"t":1792773717792,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":9}}
+{"t":1792773717823,"dir":"out","verb":"f","body":{"sf":"s:1","s":10,"ops":[["set","q.k0/head/2",{"age":108}],["text","q.k0/body","append","er wants a"]]}}
+{"t":1792773717824,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":10}}
+{"t":1792773717856,"dir":"out","verb":"f","body":{"sf":"s:1","s":11,"ops":[["set","q.k0/head/2",{"age":142}],["text","q.k0/body","append"," numbered"]]}}
+{"t":1792773717859,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":11}}
+{"t":1792773717890,"dir":"out","verb":"f","body":{"sf":"s:1","s":12,"ops":[["set","q.k0/head/2",{"age":175}],["text","q.k0/body","append"," list of 25 shor"]]}}
+{"t":1792773717891,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":12}}
+{"t":1792773717923,"dir":"out","verb":"f","body":{"sf":"s:1","s":13,"ops":[["set","q.k0/head/2",{"age":209}],["text","q.k0/body","append","t facts about ri"]]}}
+{"t":1792773717925,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":13}}
+{"t":1792773717957,"dir":"out","verb":"f","body":{"sf":"s:1","s":14,"ops":[["set","q.k0/head/2",{"age":243}],["text","q.k0/body","append","vers, one per line,"]]}}
+{"t":1792773717959,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":14}}
+{"t":1792773717992,"dir":"out","verb":"f","body":{"sf":"s:1","s":15,"ops":[["set","q.k0/head/2",{"age":277}],["text","q.k0/body","append"," no tools. So I s"]]}}
+{"t":1792773717993,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":15}}
+{"t":1792773718026,"dir":"out","verb":"f","body":{"sf":"s:1","s":16,"ops":[["set","q.k0/head/2",{"age":311}],["text","q.k0/body","append","hould just answer direct"]]}}
+{"t":1792773718028,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":16}}
+{"t":1792773718060,"dir":"out","verb":"f","body":{"sf":"s:1","s":17,"ops":[["set","q.k0/head/2",{"age":345}],["text","q.k0/body","append","ly, no tool use. Keep"]]}}
+{"t":1792773718061,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":17}}
+{"t":1792773718094,"dir":"out","verb":"f","body":{"sf":"s:1","s":18,"ops":[["set","q.k0/head/2",{"age":379}],["text","q.k0/body","append"," facts short and ac"]]}}
+{"t":1792773718095,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":18}}
+{"t":1792773718126,"dir":"out","verb":"f","body":{"sf":"s:1","s":19,"ops":[["set","q.k0/head/2",{"age":412}],["text","q.k0/body","append","curate. Prefix with a"]]}}
+{"t":1792773718128,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":19}}
+{"t":1792773718160,"dir":"out","verb":"f","body":{"sf":"s:1","s":20,"ops":[["set","q.k0/head/2",{"age":446}],["text","q.k0/body","append","n emoji? The instruct"]]}}
+{"t":1792773718162,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":20}}
+{"t":1792773718193,"dir":"out","verb":"f","body":{"sf":"s:1","s":21,"ops":[["set","q.k0/head/2",{"age":479}],["text","q.k0/body","append","ions say \"MAY react"]]}}
+{"t":1792773718195,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":21}}
+{"t":1792773718226,"dir":"out","verb":"f","body":{"sf":"s:1","s":22,"ops":[["set","q.k0/head/2",{"age":512}],["text","q.k0/body","append"," to the user when chattin"]]}}
+{"t":1792773718227,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":22}}
+{"t":1792773718261,"dir":"out","verb":"f","body":{"sf":"s:1","s":23,"ops":[["set","q.k0/head/2",{"age":547}],["text","q.k0/body","append","g: start reply with e"]]}}
+{"t":1792773718263,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":23}}
+{"t":1792773718295,"dir":"out","verb":"f","body":{"sf":"s:1","s":24,"ops":[["set","q.k0/head/2",{"age":581}],["text","q.k0/body","append","moji.\" Optional. I'll keep"]]}}
+{"t":1792773718297,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":24}}
+{"t":1792773718329,"dir":"out","verb":"f","body":{"sf":"s:1","s":25,"ops":[["set","q.k0/head/2",{"age":614}],["text","q.k0/body","append"," it clean, maybe skip emoj"]]}}
+{"t":1792773718330,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":25}}
+{"t":1792773718362,"dir":"out","verb":"f","body":{"sf":"s:1","s":26,"ops":[["set","q.k0/head/2",{"age":648}],["text","q.k0/body","append","i — it says MAY. But tone gui"]]}}
+{"t":1792773718364,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":26}}
+{"t":1792773718396,"dir":"out","verb":"f","body":{"sf":"s:1","s":27,"ops":[["set","q.k0/head/2",{"age":681}],["text","q.k0/body","append","dance suggests terse. I'll"]]}}
+{"t":1792773718397,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":27}}
+{"t":1792773718429,"dir":"out","verb":"f","body":{"sf":"s:1","s":28,"ops":[["set","q.k0/head/2",{"age":714}],["text","q.k0/body","append"," just deliver the list."]]}}
+{"t":1792773718430,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":28}}
+{"t":1792773718464,"dir":"out","verb":"f","body":{"sf":"s:1","s":29,"ops":[["set","q.k0/head/2",{"age":749}],["text","q.k0/body","append","\n\nLet me write 25 accurate"]]}}
+{"t":1792773718465,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":29}}
+{"t":1792773718497,"dir":"out","verb":"f","body":{"sf":"s:1","s":30,"ops":[["set","q.k0/head/2",{"age":783}],["text","q.k0/body","append"," short facts about rivers."]]}}
+{"t":1792773718499,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":30}}
+{"t":1792773718530,"dir":"out","verb":"f","body":{"sf":"s:1","s":31,"ops":[["set","q.k0/head/2",{"age":815}],["text","q.k0/body","append","\n\n1. The Nile is tradition"]]}}
+{"t":1792773718531,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":31}}
+{"t":1792773718564,"dir":"out","verb":"f","body":{"sf":"s:1","s":32,"ops":[["set","q.k0/head/2",{"age":850}],["text","q.k0/body","append","ally considered the lon"]]}}
+{"t":1792773718566,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":32}}
+{"t":1792773718599,"dir":"out","verb":"f","body":{"sf":"s:1","s":33,"ops":[["set","q.k0/head/2",{"age":884}],["text","q.k0/body","append","gest river at about 6,650"]]}}
+{"t":1792773718601,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":33}}
+{"t":1792773718632,"dir":"out","verb":"f","body":{"sf":"s:1","s":34,"ops":[["set","q.k0/head/2",{"age":917}],["text","q.k0/body","append"," km.\n2. The Amazon carr"]]}}
+{"t":1792773718633,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":34}}
+{"t":1792773718664,"dir":"out","verb":"f","body":{"sf":"s:1","s":35,"ops":[["set","q.k0/head/2",{"age":950}],["text","q.k0/body","append","ies more water than any"]]}}
+{"t":1792773718666,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":35}}
+{"t":1792773718699,"dir":"out","verb":"f","body":{"sf":"s:1","s":36,"ops":[["set","q.k0/head/2",{"age":985}],["text","q.k0/body","append"," other river.\n3. River"]]}}
+{"t":1792773718701,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":36}}
+{"t":1792773718732,"dir":"out","verb":"f","body":{"sf":"s:1","s":37,"ops":[["set","q.k0/head/2",{"age":1018}],["text","q.k0/body","append","s flow downhill, drive"]]}}
+{"t":1792773718734,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":37}}
+{"t":1792773718766,"dir":"out","verb":"f","body":{"sf":"s:1","s":38,"ops":[["set","q.k0/head/2",{"age":1051}],["text","q.k0/body","append","n by gravity.\n4. A riv"]]}}
+{"t":1792773718767,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":38}}
+{"t":1792773718799,"dir":"out","verb":"f","body":{"sf":"s:1","s":39,"ops":[["set","q.k0/head/2",{"age":1085}],["text","q.k0/body","append","er's source is called"]]}}
+{"t":1792773718800,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":39}}
+{"t":1792773718832,"dir":"out","verb":"f","body":{"sf":"s:1","s":40,"ops":[["set","q.k0/head/2",{"age":1118}],["text","q.k0/body","append"," its headwaters.\n5. The"]]}}
+{"t":1792773718834,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":40}}
+{"t":1792773718868,"dir":"out","verb":"f","body":{"sf":"s:1","s":41,"ops":[["set","q.k0/head/2",{"age":1153}],["text","q.k0/body","append"," end of a river is it"]]}}
+{"t":1792773718871,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":41}}
+{"t":1792773718901,"dir":"out","verb":"f","body":{"sf":"s:1","s":42,"ops":[["set","q.k0/head/2",{"age":1186}],["text","q.k0/body","append","s mouth.\n6. The Am"]]}}
+{"t":1792773718902,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":42}}
+{"t":1792773718933,"dir":"out","verb":"f","body":{"sf":"s:1","s":43,"ops":[["set","q.k0/head/2",{"age":1219}],["text","q.k0/body","append","azon basin is the larg"]]}}
+{"t":1792773718935,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":43}}
+{"t":1792773718969,"dir":"out","verb":"f","body":{"sf":"s:1","s":44,"ops":[["set","q.k0/head/2",{"age":1254}],["text","q.k0/body","append","est drainage basin"]]}}
+{"t":1792773718970,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":44}}
+{"t":1792773719003,"dir":"out","verb":"f","body":{"sf":"s:1","s":45,"ops":[["set","q.k0/head/2",{"age":1288}],["text","q.k0/body","append"," on Earth.\n7. The Mi"]]}}
+{"t":1792773719004,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":45}}
+{"t":1792773719036,"dir":"out","verb":"f","body":{"sf":"s:1","s":46,"ops":[["set","q.k0/head/2",{"age":1321}],["text","q.k0/body","append","ssissippi drains int"]]}}
+{"t":1792773719038,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":46}}
+{"t":1792773719070,"dir":"out","verb":"f","body":{"sf":"s:1","s":47,"ops":[["set","q.k0/head/2",{"age":1356}],["text","q.k0/body","append","o the Gulf of Mexico."]]}}
+{"t":1792773719072,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":47}}
+{"t":1792773719104,"dir":"out","verb":"f","body":{"sf":"s:1","s":48,"ops":[["set","q.k0/head/2",{"age":1389}],["text","q.k0/body","append","\n8. Rivers erode rock a"]]}}
+{"t":1792773719105,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":48}}
+{"t":1792773719138,"dir":"out","verb":"f","body":{"sf":"s:1","s":49,"ops":[["set","q.k0/head/2",{"age":1424}],["text","q.k0/body","append","nd carve valleys ov"]]}}
+{"t":1792773719140,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":49}}
+{"t":1792773719172,"dir":"out","verb":"f","body":{"sf":"s:1","s":50,"ops":[["set","q.k0/head/2",{"age":1458}],["text","q.k0/body","append","er time.\n9. A watersh"]]}}
+{"t":1792773719173,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":50}}
+{"t":1792773719206,"dir":"out","verb":"f","body":{"sf":"s:1","s":51,"ops":[["set","q.k0/head/2",{"age":1492}],["text","q.k0/body","append","ed is the land area"]]}}
+{"t":1792773719207,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":51}}
+{"t":1792773719240,"dir":"out","verb":"f","body":{"sf":"s:1","s":52,"ops":[["set","q.k0/head/2",{"age":1526}],["text","q.k0/body","append"," draining into a"]]}}
+{"t":1792773719242,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":52}}
+{"t":1792773719274,"dir":"out","verb":"f","body":{"sf":"s:1","s":53,"ops":[["set","q.k0/head/2",{"age":1560}],["text","q.k0/body","append"," river.\n10. The Yang"]]}}
+{"t":1792773719276,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":53}}
+{"t":1792773719308,"dir":"out","verb":"f","body":{"sf":"s:1","s":54,"ops":[["set","q.k0/head/2",{"age":1594}],["text","q.k0/body","append","tze is the longest r"]]}}
+{"t":1792773719310,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":54}}
+{"t":1792773719343,"dir":"out","verb":"f","body":{"sf":"s:1","s":55,"ops":[["set","q.k0/head/2",{"age":1629}],["text","q.k0/body","append","iver entirely within"]]}}
+{"t":1792773719344,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":55}}
+{"t":1792773719376,"dir":"out","verb":"f","body":{"sf":"s:1","s":56,"ops":[["set","q.k0/head/2",{"age":1662}],["text","q.k0/body","append"," one country (China"]]}}
+{"t":1792773719378,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":56}}
+{"t":1792773719409,"dir":"out","verb":"f","body":{"sf":"s:1","s":57,"ops":[["set","q.k0/head/2",{"age":1695}],["text","q.k0/body","append",").\n11. Rivers can for"]]}}
+{"t":1792773719411,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":57}}
+{"t":1792773719446,"dir":"out","verb":"f","body":{"sf":"s:1","s":58,"ops":[["set","q.k0/head/2",{"age":1731}],["text","q.k0/body","append","m deltas where they"]]}}
+{"t":1792773719447,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":58}}
+{"t":1792773719480,"dir":"out","verb":"f","body":{"sf":"s:1","s":59,"ops":[["set","q.k0/head/2",{"age":1766}],["text","q.k0/body","append"," meet slow water.\n12."]]}}
+{"t":1792773719482,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":59}}
+{"t":1792773719513,"dir":"out","verb":"f","body":{"sf":"s:1","s":60,"ops":[["set","q.k0/head/2",{"age":1798}],["text","q.k0/body","append"," The longest river"]]}}
+{"t":1792773719515,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":60}}
+{"t":1792773719547,"dir":"out","verb":"f","body":{"sf":"s:1","s":61,"ops":[["set","q.k0/head/2",{"age":1833}],["text","q.k0/body","append"," in Europe is the"]]}}
+{"t":1792773719549,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":61}}
+{"t":1792773719581,"dir":"out","verb":"f","body":{"sf":"s:1","s":62,"ops":[["set","q.k0/head/2",{"age":1866}],["text","q.k0/body","append"," Volga.\n13. Rivers me"]]}}
+{"t":1792773719583,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":62}}
+{"t":1792773719614,"dir":"out","verb":"f","body":{"sf":"s:1","s":63,"ops":[["set","q.k0/head/2",{"age":1900}],["text","q.k0/body","append","ander as the current e"]]}}
+{"t":1792773719616,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":63}}
+{"t":1792773719649,"dir":"out","verb":"f","body":{"sf":"s:1","s":64,"ops":[["set","q.k0/head/2",{"age":1935}],["text","q.k0/body","append","rodes outer banks."]]}}
+{"t":1792773719651,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":64}}
+{"t":1792773719682,"dir":"out","verb":"f","body":{"sf":"s:1","s":65,"ops":[["set","q.k0/head/2",{"age":1968}],["text","q.k0/body","append","\n14. The Congo is the d"]]}}
+{"t":1792773719684,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":65}}
+{"t":1792773719716,"dir":"out","verb":"f","body":{"sf":"s:1","s":66,"ops":[["set","q.k0/head/2",{"age":2001}],["text","q.k0/body","append","eepest river, over"]]}}
+{"t":1792773719718,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":66}}
+{"t":1792773719750,"dir":"out","verb":"f","body":{"sf":"s:1","s":67,"ops":[["set","q.k0/head/2",{"age":2035}],["text","q.k0/body","append"," 220 m in places.\n15. O"]]}}
+{"t":1792773719754,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":67}}
+{"t":1792773719784,"dir":"out","verb":"f","body":{"sf":"s:1","s":68,"ops":[["set","q.k0/head/2",{"age":2069}],["text","q.k0/body","append","nly about 3% of Ear"]]}}
+{"t":1792773719787,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":68}}
+{"t":1792773719818,"dir":"out","verb":"f","body":{"sf":"s:1","s":69,"ops":[["set","q.k0/head/2",{"age":2103}],["text","q.k0/body","append","th's water is fre"]]}}
+{"t":1792773719821,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":69}}
+{"t":1792773719851,"dir":"out","verb":"f","body":{"sf":"s:1","s":70,"ops":[["set","q.k0/head/2",{"age":2136}],["text","q.k0/body","append","sh, and most is locked in"]]}}
+{"t":1792773719853,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":70}}
+{"t":1792773719887,"dir":"out","verb":"f","body":{"sf":"s:1","s":71,"ops":[["set","q.k0/head/2",{"age":2172}],["text","q.k0/body","append"," ice.\n16. Rivers trans"]]}}
+{"t":1792773719889,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":71}}
+{"t":1792773719920,"dir":"out","verb":"f","body":{"sf":"s:1","s":72,"ops":[["set","q.k0/head/2",{"age":2205}],["text","q.k0/body","append","port sediment downstrea"]]}}
+{"t":1792773719923,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":72}}
+{"t":1792773719953,"dir":"out","verb":"f","body":{"sf":"s:1","s":73,"ops":[["set","q.k0/head/2",{"age":2239}],["text","q.k0/body","append","m.\n17. The Colorado R"]]}}
+{"t":1792773719955,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":73}}
+{"t":1792773719984,"dir":"out","verb":"f","body":{"sf":"s:1","s":74,"ops":[["set","q.k0/head/2",{"age":2270}],["text","q.k0/body","append","iver carved the Grand Ca"]]}}
+{"t":1792773719986,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":74}}
+{"t":1792773720020,"dir":"out","verb":"f","body":{"sf":"s:1","s":75,"ops":[["set","q.k0/head/2",{"age":2306}],["text","q.k0/body","append","nyon.\n18. A tributary"]]}}
+{"t":1792773720021,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":75}}
+{"t":1792773720054,"dir":"out","verb":"f","body":{"sf":"s:1","s":76,"ops":[["set","q.k0/head/2",{"age":2340}],["text","q.k0/body","append"," is a smaller strea"]]}}
+{"t":1792773720055,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":76}}
+{"t":1792773720087,"dir":"out","verb":"f","body":{"sf":"s:1","s":77,"ops":[["set","q.k0/head/2",{"age":2373}],["text","q.k0/body","append","m feeding a larger rive"]]}}
+{"t":1792773720088,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":77}}
+{"t":1792773720120,"dir":"out","verb":"f","body":{"sf":"s:1","s":78,"ops":[["set","q.k0/head/2",{"age":2406}],["text","q.k0/body","append","r.\n19. Rivers freeze fr"]]}}
+{"t":1792773720121,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":78}}
+{"t":1792773720154,"dir":"out","verb":"f","body":{"sf":"s:1","s":79,"ops":[["set","q.k0/head/2",{"age":2440}],["text","q.k0/body","append","om the surface down, s"]]}}
+{"t":1792773720156,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":79}}
+{"t":1792773720188,"dir":"out","verb":"f","body":{"sf":"s:1","s":80,"ops":[["set","q.k0/head/2",{"age":2473}],["text","q.k0/body","append","ince ice floats.\n20."]]}}
+{"t":1792773720189,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":80}}
+{"t":1792773720222,"dir":"out","verb":"f","body":{"sf":"s:1","s":81,"ops":[["set","q.k0/head/2",{"age":2507}],["text","q.k0/body","append"," The Rhine flows through"]]}}
+{"t":1792773720223,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":81}}
+{"t":1792773720254,"dir":"out","verb":"f","body":{"sf":"s:1","s":82,"ops":[["set","q.k0/head/2",{"age":2540}],["text","q.k0/body","append"," six countries.\n21. Rive"]]}}
+{"t":1792773720255,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":82}}
+{"t":1792773720290,"dir":"out","verb":"f","body":{"sf":"s:1","s":83,"ops":[["set","q.k0/head/2",{"age":2576}],["text","q.k0/body","append","rs host a disproporti"]]}}
+{"t":1792773720291,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":83}}
+{"t":1792773720324,"dir":"out","verb":"f","body":{"sf":"s:1","s":84,"ops":[["set","q.k0/head/2",{"age":2609}],["text","q.k0/body","append","onate share of freshwa"]]}}
+{"t":1792773720325,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":84}}
+{"t":1792773720357,"dir":"out","verb":"f","body":{"sf":"s:1","s":85,"ops":[["set","q.k0/head/2",{"age":2643}],["text","q.k0/body","append","ter biodiversity.\n2"]]}}
+{"t":1792773720358,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":85}}
+{"t":1792773720390,"dir":"out","verb":"f","body":{"sf":"s:1","s":86,"ops":[["set","q.k0/head/2",{"age":2676}],["text","q.k0/body","append","2. Dams alter flow, s"]]}}
+{"t":1792773720391,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":86}}
+{"t":1792773720423,"dir":"out","verb":"f","body":{"sf":"s:1","s":87,"ops":[["set","q.k0/head/2",{"age":2709}],["text","q.k0/body","append","ediment, and fish mi"]]}}
+{"t":1792773720425,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":87}}
+{"t":1792773720458,"dir":"out","verb":"f","body":{"sf":"s:1","s":88,"ops":[["set","q.k0/head/2",{"age":2743}],["text","q.k0/body","append","gration.\n23. The Ganges"]]}}
+{"t":1792773720459,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":88}}
+{"t":1792773720490,"dir":"out","verb":"f","body":{"sf":"s:1","s":89,"ops":[["set","q.k0/head/2",{"age":2776}],["text","q.k0/body","append"," and Brahmaputra form"]]}}
+{"t":1792773720492,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":89}}
+{"t":1792773720524,"dir":"out","verb":"f","body":{"sf":"s:1","s":90,"ops":[["set","q.k0/head/2",{"age":2810}],["text","q.k0/body","append"," the world's largest"]]}}
+{"t":1792773720525,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":90}}
+{"t":1792773720558,"dir":"out","verb":"f","body":{"sf":"s:1","s":91,"ops":[["set","q.k0/head/2",{"age":2844}],["text","q.k0/body","append"," delta.\n24. River water"]]}}
+{"t":1792773720559,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":91}}
+{"t":1792773720577,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"/queue line one: reply with exactly ALPHA\nline two ignored @\"note.txt\""}}
+{"t":1792773720581,"dir":"out","verb":"f","body":{"sf":"s:1","s":92,"ops":[["add","r","main",null,{"id":"r","k":"toast","p":{"text":"Queued message for when the agent yields","ttl":2400,"role":"omp.toast.status"}}],["add","s","c",null,{"id":"s","k":"col","p":{"role":"omp.queue","gap":"xs"},"c":[{"id":"s.After yield%2F0","k":"row","p":{"role":"omp.queue.item","align":"center","gap":"sm","title":"After yield"},"c":[{"id":"s.After yield%2F0/icon","k":"icon","p":{"name":"corner-down-right"}},{"id":"s.After yield%2F0/text","k":"text","p":{"text":"line one: reply with exactly ALPHA ↵ line two ignored @\"note.txt\"","wrap":"none","truncate":"end","grow":1}},{"id":"s.After yield%2F0/edit","k":"row","p":{"role":"omp.queue.edit","gap":"xs","align":"center","title":"Edit  Alt+↑","actions":{"click":"queue.edit"}},"c":[{"id":"s.After yield%2F0/edit/0","k":"kbd","p":{"keys":["alt","up"]}},{"id":"s.After yield%2F0/edit/1","k":"text","p":{"text":"Edit"}}]}]}]}],["settle","r"]]}}
+{"t":1792773720583,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":92}}
+{"t":1792773720592,"dir":"out","verb":"f","body":{"sf":"s:1","s":93,"ops":[["set","q.k0/head/2",{"age":2878}],["text","q.k0/body","append"," eventually reaches the oc"]]}}
+{"t":1792773720593,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":93}}
+{"t":1792773720626,"dir":"out","verb":"f","body":{"sf":"s:1","s":94,"ops":[["set","q.k0/head/2",{"age":2912}],["text","q.k0/body","append","ean or an inland basin.\n2"]]}}
+{"t":1792773720628,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":94}}
+{"t":1792773720660,"dir":"out","verb":"f","body":{"sf":"s:1","s":95,"ops":[["set","q.k0/head/2",{"age":2946}],["text","q.k0/body","append","5. Most of the world's"]]}}
+{"t":1792773720662,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":95}}
+{"t":1792773720694,"dir":"out","verb":"f","body":{"sf":"s:1","s":96,"ops":[["set","q.k0/head/2",{"age":2980}],["text","q.k0/body","append"," major cities grew"]]}}
+{"t":1792773720696,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":96}}
+{"t":1792773720728,"dir":"out","verb":"f","body":{"sf":"s:1","s":97,"ops":[["set","q.k0/head/2",{"age":3014}],["text","q.k0/body","append"," along rivers.\n\nCheck"]]}}
+{"t":1792773720730,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":97}}
+{"t":1792773720762,"dir":"out","verb":"f","body":{"sf":"s:1","s":98,"ops":[["set","q.k0/head/2",{"age":3048}],["text","q.k0/body","append"," accuracy: \"Rivers fr"]]}}
+{"t":1792773720764,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":98}}
+{"t":1792773720795,"dir":"out","verb":"f","body":{"sf":"s:1","s":99,"ops":[["set","q.k0/head/2",{"age":3081}],["text","q.k0/body","append","eeze from the surface down,"]]}}
+{"t":1792773720797,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":99}}
+{"t":1792773720829,"dir":"out","verb":"f","body":{"sf":"s:1","s":100,"ops":[["set","q.k0/head/2",{"age":3115}],["text","q.k0/body","append"," since ice floats\" — correc"]]}}
+{"t":1792773720831,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":100}}
+{"t":1792773720863,"dir":"out","verb":"f","body":{"sf":"s:1","s":101,"ops":[["set","q.k0/head/2",{"age":3148}],["text","q.k0/body","append","t. \"deepest river, over 220 m"]]}}
+{"t":1792773720864,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":101}}
+{"t":1792773720896,"dir":"out","verb":"f","body":{"sf":"s:1","s":102,"ops":[["set","q.k0/head/2",{"age":3182}],["text","q.k0/body","append","\" — Congo, commonly cited ~"]]}}
+{"t":1792773720897,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":102}}
+{"t":1792773720930,"dir":"out","verb":"f","body":{"sf":"s:1","s":103,"ops":[["set","q.k0/head/2",{"age":3216}],["text","q.k0/body","append","220 m. Fine. \"Rhine flo"]]}}
+{"t":1792773720932,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":103}}
+{"t":1792773720964,"dir":"out","verb":"f","body":{"sf":"s:1","s":104,"ops":[["set","q.k0/head/2",{"age":3250}],["text","q.k0/body","append","ws through six countrie"]]}}
+{"t":1792773720966,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":104}}
+{"t":1792773720999,"dir":"out","verb":"f","body":{"sf":"s:1","s":105,"ops":[["set","q.k0/head/2",{"age":3285}],["text","q.k0/body","append","s\" — commonly cited as six"]]}}
+{"t":1792773721000,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":105}}
+{"t":1792773721033,"dir":"out","verb":"f","body":{"sf":"s:1","s":106,"ops":[["set","q.k0/head/2",{"age":3318}],["text","q.k0/body","append"," (Switzerland, Liechtenstein,"]]}}
+{"t":1792773721034,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":106}}
+{"t":1792773721067,"dir":"out","verb":"f","body":{"sf":"s:1","s":107,"ops":[["set","q.k0/head/2",{"age":3353}],["text","q.k0/body","append"," Austria, Germany, France,"]]}}
+{"t":1792773721069,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":107}}
+{"t":1792773721102,"dir":"out","verb":"f","body":{"sf":"s:1","s":108,"ops":[["set","q.k0/head/2",{"age":3387}],["text","q.k0/body","append"," Netherlands). Good, though so"]]}}
+{"t":1792773721103,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":108}}
+{"t":1792773721135,"dir":"out","verb":"f","body":{"sf":"s:1","s":109,"ops":[["set","q.k0/head/2",{"age":3421}],["text","q.k0/body","append","metimes 6. Fine.\n\nKeep each s"]]}}
+{"t":1792773721137,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":109}}
+{"t":1792773721172,"dir":"out","verb":"f","body":{"sf":"s:1","s":110,"ops":[["set","q.k0",{"role":"omp.thinking","collapsed":true,"took":3458}],["del","q.k0/head"],["add","q.k0/head","q.k0","q.k0/body",{"id":"q.k0/head","k":"text","p":{"spans":[{"t":"Thought for 3s","s":"muted"}]}}],["text","q.k0/body","append","hort, one per line."],["set","q.k0/body",{"stream":null}],["add","q.t1","q",null,{"id":"q.t1","k":"md","p":{"text":"1. The Nile is","stream":true}}]]}}
+{"t":1792773721174,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":110}}
+{"t":1792773721202,"dir":"out","verb":"f","body":{"sf":"s:1","s":111,"ops":[["text","q.t1","append"," traditionally ranked the long"]]}}
+{"t":1792773721204,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":111}}
+{"t":1792773721236,"dir":"out","verb":"f","body":{"sf":"s:1","s":112,"ops":[["text","q.t1","append","est river, at roughly 6,65"]]}}
+{"t":1792773721238,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":112}}
+{"t":1792773721271,"dir":"out","verb":"f","body":{"sf":"s:1","s":113,"ops":[["text","q.t1","append","0 km.\n2. The Amazon carries mor"]]}}
+{"t":1792773721272,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":113}}
+{"t":1792773721306,"dir":"out","verb":"f","body":{"sf":"s:1","s":114,"ops":[["text","q.t1","append","e water than any other river"]]}}
+{"t":1792773721307,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":114}}
+{"t":1792773721339,"dir":"out","verb":"f","body":{"sf":"s:1","s":115,"ops":[["text","q.t1","append",".\n3. Rivers flow downhill, driven"]]}}
+{"t":1792773721341,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":115}}
+{"t":1792773721373,"dir":"out","verb":"f","body":{"sf":"s:1","s":116,"ops":[["text","q.t1","append"," by gravity.\n4. A river's start is"]]}}
+{"t":1792773721375,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":116}}
+{"t":1792773721408,"dir":"out","verb":"f","body":{"sf":"s:1","s":117,"ops":[["text","q.t1","append"," called its headwaters or source.\n5."]]}}
+{"t":1792773721409,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":117}}
+{"t":1792773721447,"dir":"out","verb":"f","body":{"sf":"s:1","s":118,"ops":[["text","q.t1","append"," Its end is the mouth.\n6. The"]]}}
+{"t":1792773721449,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":118}}
+{"t":1792773721480,"dir":"out","verb":"f","body":{"sf":"s:1","s":119,"ops":[["text","q.t1","append"," Amazon basin is the largest draina"]]}}
+{"t":1792773721482,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":119}}
+{"t":1792773721514,"dir":"out","verb":"f","body":{"sf":"s:1","s":120,"ops":[["text","q.t1","append","ge basin on Earth.\n7. The Mississ"]]}}
+{"t":1792773721515,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":120}}
+{"t":1792773721547,"dir":"out","verb":"f","body":{"sf":"s:1","s":121,"ops":[["text","q.t1","append","ippi empties into the Gulf of Mex"]]}}
+{"t":1792773721548,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":121}}
+{"t":1792773721581,"dir":"out","verb":"f","body":{"sf":"s:1","s":122,"ops":[["text","q.t1","append","ico.\n8. Rivers erode rock and"]]}}
+{"t":1792773721583,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":122}}
+{"t":1792773721616,"dir":"out","verb":"f","body":{"sf":"s:1","s":123,"ops":[["text","q.t1","append"," carve valleys over geologi"]]}}
+{"t":1792773721617,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":123}}
+{"t":1792773721649,"dir":"out","verb":"f","body":{"sf":"s:1","s":124,"ops":[["text","q.t1","append","c time.\n9. A watershed is all t"]]}}
+{"t":1792773721651,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":124}}
+{"t":1792773721683,"dir":"out","verb":"f","body":{"sf":"s:1","s":125,"ops":[["text","q.t1","append","he land draining into a given"]]}}
+{"t":1792773721684,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":125}}
+{"t":1792773721716,"dir":"out","verb":"f","body":{"sf":"s:1","s":126,"ops":[["text","q.t1","append"," river.\n10. The Yangtze is the lon"]]}}
+{"t":1792773721718,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":126}}
+{"t":1792773721748,"dir":"out","verb":"f","body":{"sf":"s:1","s":127,"ops":[["text","q.t1","append","gest river contained within one"]]}}
+{"t":1792773721750,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":127}}
+{"t":1792773721783,"dir":"out","verb":"f","body":{"sf":"s:1","s":128,"ops":[["text","q.t1","append"," country.\n11. Deltas form whe"]]}}
+{"t":1792773721785,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":128}}
+{"t":1792773721817,"dir":"out","verb":"f","body":{"sf":"s:1","s":129,"ops":[["text","q.t1","append","re rivers drop sediment into slow"]]}}
+{"t":1792773721818,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":129}}
+{"t":1792773721851,"dir":"out","verb":"f","body":{"sf":"s:1","s":130,"ops":[["text","q.t1","append"," or standing water.\n12. The Volga"]]}}
+{"t":1792773721853,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":130}}
+{"t":1792773721884,"dir":"out","verb":"f","body":{"sf":"s:1","s":131,"ops":[["text","q.t1","append"," is the longest river in Europe"]]}}
+{"t":1792773721886,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":131}}
+{"t":1792773721919,"dir":"out","verb":"f","body":{"sf":"s:1","s":132,"ops":[["text","q.t1","append",".\n13. Rivers meander becaus"]]}}
+{"t":1792773721920,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":132}}
+{"t":1792773721952,"dir":"out","verb":"f","body":{"sf":"s:1","s":133,"ops":[["text","q.t1","append","e current erodes the outer bank o"]]}}
+{"t":1792773721953,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":133}}
+{"t":1792773721985,"dir":"out","verb":"f","body":{"sf":"s:1","s":134,"ops":[["text","q.t1","append","f each bend.\n14. The Congo is"]]}}
+{"t":1792773721987,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":134}}
+{"t":1792773722019,"dir":"out","verb":"f","body":{"sf":"s:1","s":135,"ops":[["text","q.t1","append"," the world's deepest river,"]]}}
+{"t":1792773722021,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":135}}
+{"t":1792773722053,"dir":"out","verb":"f","body":{"sf":"s:1","s":136,"ops":[["text","q.t1","append"," exceeding 220 m in places.\n15. Only"]]}}
+{"t":1792773722054,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":136}}
+{"t":1792773722086,"dir":"out","verb":"f","body":{"sf":"s:1","s":137,"ops":[["text","q.t1","append"," about 3% of Earth's water is fresh, an"]]}}
+{"t":1792773722087,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":137}}
+{"t":1792773722119,"dir":"out","verb":"f","body":{"sf":"s:1","s":138,"ops":[["text","q.t1","append","d most of that is ice.\n16. Rivers transpo"]]}}
+{"t":1792773722121,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":138}}
+{"t":1792773722153,"dir":"out","verb":"f","body":{"sf":"s:1","s":139,"ops":[["text","q.t1","append","rt sediment downstream as bedload an"]]}}
+{"t":1792773722155,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":139}}
+{"t":1792773722187,"dir":"out","verb":"f","body":{"sf":"s:1","s":140,"ops":[["text","q.t1","append","d suspended load.\n17. The Color"]]}}
+{"t":1792773722188,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":140}}
+{"t":1792773722221,"dir":"out","verb":"f","body":{"sf":"s:1","s":141,"ops":[["text","q.t1","append","ado River carved the Grand Canyon"]]}}
+{"t":1792773722223,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":141}}
+{"t":1792773722256,"dir":"out","verb":"f","body":{"sf":"s:1","s":142,"ops":[["text","q.t1","append",".\n18. A tributary is a smaller"]]}}
+{"t":1792773722258,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":142}}
+{"t":1792773722290,"dir":"out","verb":"f","body":{"sf":"s:1","s":143,"ops":[["text","q.t1","append"," stream feeding a larger river.\n19."]]}}
+{"t":1792773722291,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":143}}
+{"t":1792773722329,"dir":"out","verb":"f","body":{"sf":"s:1","s":144,"ops":[["text","q.t1","append"," Rivers freeze from the surface"]]}}
+{"t":1792773722346,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":144}}
+{"t":1792773722357,"dir":"out","verb":"f","body":{"sf":"s:1","s":145,"ops":[["text","q.t1","append"," down, because ice floats.\n20. Th"]]}}
+{"t":1792773722358,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":145}}
+{"t":1792773722390,"dir":"out","verb":"f","body":{"sf":"s:1","s":146,"ops":[["text","q.t1","append","e Rhine passes through six cou"]]}}
+{"t":1792773722391,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":146}}
+{"t":1792773722423,"dir":"out","verb":"f","body":{"sf":"s:1","s":147,"ops":[["text","q.t1","append","ntries.\n21. Freshwater species d"]]}}
+{"t":1792773722425,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":147}}
+{"t":1792773722471,"dir":"out","verb":"f","body":{"sf":"s:1","s":148,"ops":[["text","q.t1","append","iversity is concentrated in"],["set","p.elapsed",{"age":5404}],["set","p.label",{"spans":[{"t":"Working…","s":"accent"}],"palette":{"low":"dim","mid":"accent","high":"accent"}}],["set","j.line/input",{"placeholder":[{"t":"“󰞍 RIVER: List 25 short river facts”","s":"em"}]}],["set","j.bar/model/name",{"spans":[{"t":"DeepSeek V4 Flash","s":"accent"}]}]]}}
+{"t":1792773722473,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":148}}
+{"t":1792773722528,"dir":"out","verb":"f","body":{"sf":"s:1","s":149,"ops":[["text","q.t1","append"," river systems.\n22. Dams alter flow timing, sediment supply, and fish migration.\n23. The Ganges–Brahmaputra forms the largest river delta.\n24. River water ends in the ocean or an inland basin with no outlet.\n25. Most of the world's large cities grew along rivers."],["set","q.t1",{"stream":null}],["add","q.turn-usage","q",null,{"id":"q.turn-usage","k":"row","p":{"role":"omp.turn.usage","gap":"xs","align":"center","title":"This turn: 5.4s · 1,067 tokens (206 in · 861 out) · <$0.01"},"c":[{"id":"q.turn-usage/copy","k":"icon","p":{"name":"copy","role":"omp.turn.copy","title":"Copy answer","aria":"Copy answer","actions":{"click":"copy-answer"}}},{"id":"q.turn-usage/dot","k":"text","p":{"text":"·"}},{"id":"q.turn-usage/text","k":"text","p":{"text":"5.4s · 1.1K tok · <$0.01 this turn"}}]}],["set","j.context",{"value":0.009678,"title":"Context 1% used\n9.7K of 1M tokens\nAuto-compact at 85%"}],["settle","q"]]}}
+{"t":1792773722529,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":149}}
+{"t":1792773722562,"dir":"out","verb":"f","body":{"sf":"s:1","s":150,"ops":[["add","t","main",null,{"id":"t","k":"card","p":{"role":"omp.user","tone":"user"},"c":[{"id":"t.tools","k":"row","p":{"gap":"xs","align":"center","role":"omp.user.tools"},"c":[{"id":"t.tools/copy","k":"icon","p":{"name":"copy","role":"omp.user.tool","title":"Copy message","aria":"Copy message","actions":{"click":"copy-message"}}},{"id":"t.tools/rewind","k":"icon","p":{"name":"rewind","role":"omp.user.tool","title":"Rewind the conversation to an earlier message","aria":"Rewind","actions":{"click":"rewind"}}},{"id":"t.tools/dot","k":"text","p":{"text":"·"}},{"id":"t.tools/3","k":"text","p":{"role":"omp.user.time","title":"2026/10/23 16:42:00","spans":[{"t":"16:42","s":"dim mono"}]}}]},{"id":"t.1","k":"md","p":{"text":"line one: reply with exactly ALPHA\nline two ignored @\"note.txt\""}}]}],["set","j.context",{"value":0.009695}],["del","s"],["settle","t"]]}}
+{"t":1792773722564,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":150}}
+{"t":1792773723084,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"/queue"}}
+{"t":1792773723087,"dir":"out","verb":"f","body":{"sf":"s:1","s":151,"ops":[["add","u","main",null,{"id":"u","k":"spacer","p":{"size":"sm"}}],["add","v","main",null,{"id":"v","k":"text","p":{"wrap":"word","spans":[{"t":"Warning: Usage: /queue <message> (or start a prompt with -> / =>)","s":"warning"}]}}],["settle","u"],["settle","v"]]}}
+{"t":1792773723088,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":151}}
+{"t":1792773723486,"dir":"out","verb":"f","body":{"sf":"s:1","s":152,"ops":[["add","w","main",null,{"id":"w","k":"col","p":{"role":"omp.assistant"}}]]}}
+{"t":1792773723488,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":152}}
+{"t":1792773723520,"dir":"out","verb":"f","body":{"sf":"s:1","s":153,"ops":[["add","w.k0","w",null,{"id":"w.k0","k":"section","p":{"role":"omp.thinking.live","collapsible":true,"collapsed":false,"head":"w.k0/head"},"c":[{"id":"w.k0/head","k":"row","p":{"gap":"sm"},"c":[{"id":"w.k0/head/0","k":"spinner","p":{"style":"starburst","role":"omp.thinking.spin"}},{"id":"w.k0/head/1","k":"text","p":{"spans":[{"t":"Thinking…","s":"muted"}]}},{"id":"w.k0/head/2","k":"elapsed","p":{"age":0,"format":"short"}}]},{"id":"w.k0/body","k":"md","p":{"text":"The","stream":true}}]}]]}}
+{"t":1792773723522,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":153}}
+{"t":1792773723554,"dir":"out","verb":"f","body":{"sf":"s:1","s":154,"ops":[["set","w.k0/head/2",{"age":34}]]}}
+{"t":1792773723556,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":154}}
+{"t":1792773723600,"dir":"out","verb":"f","body":{"sf":"s:1","s":155,"ops":[["set","w.k0/head/2",{"age":80}],["text","w.k0/body","append"," us"]]}}
+{"t":1792773723602,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":155}}
+{"t":1792773723635,"dir":"out","verb":"f","body":{"sf":"s:1","s":156,"ops":[["set","w.k0/head/2",{"age":115}],["text","w.k0/body","append","er's me"]]}}
+{"t":1792773723637,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":156}}
+{"t":1792773723669,"dir":"out","verb":"f","body":{"sf":"s:1","s":157,"ops":[["set","w.k0/head/2",{"age":149}],["text","w.k0/body","append","ssage: \""]]}}
+{"t":1792773723671,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":157}}
+{"t":1792773723703,"dir":"out","verb":"f","body":{"sf":"s:1","s":158,"ops":[["set","w.k0/head/2",{"age":183}],["text","w.k0/body","append","line one: repl"]]}}
+{"t":1792773723705,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":158}}
+{"t":1792773723737,"dir":"out","verb":"f","body":{"sf":"s:1","s":159,"ops":[["set","w.k0/head/2",{"age":217}],["text","w.k0/body","append","y with exactly ALP"]]}}
+{"t":1792773723739,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":159}}
+{"t":1792773723770,"dir":"out","verb":"f","body":{"sf":"s:1","s":160,"ops":[["set","w.k0/head/2",{"age":250}],["text","w.k0/body","append","HA\\nline two ig"]]}}
+{"t":1792773723772,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":160}}
+{"t":1792773723804,"dir":"out","verb":"f","body":{"sf":"s:1","s":161,"ops":[["set","w.k0/head/2",{"age":285}],["text","w.k0/body","append","nored @\"note.txt\"\""]]}}
+{"t":1792773723806,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":161}}
+{"t":1792773723839,"dir":"out","verb":"f","body":{"sf":"s:1","s":162,"ops":[["set","w.k0/head/2",{"age":319}],["text","w.k0/body","append","\n\nThis looks like a pr"]]}}
+{"t":1792773723841,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":162}}
+{"t":1792773723872,"dir":"out","verb":"f","body":{"sf":"s:1","s":163,"ops":[["set","w.k0/head/2",{"age":353}],["text","w.k0/body","append","ompt injection test"]]}}
+{"t":1792773723874,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":163}}
+{"t":1792773723907,"dir":"out","verb":"f","body":{"sf":"s:1","s":164,"ops":[["set","w.k0/head/2",{"age":387}],["text","w.k0/body","append",". The instruction"]]}}
+{"t":1792773723908,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":164}}
+{"t":1792773723941,"dir":"out","verb":"f","body":{"sf":"s:1","s":165,"ops":[["set","w.k0/head/2",{"age":421}],["text","w.k0/body","append"," \"reply with exactly A"]]}}
+{"t":1792773723942,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":165}}
+{"t":1792773723974,"dir":"out","verb":"f","body":{"sf":"s:1","s":166,"ops":[["set","w.k0/head/2",{"age":454}],["text","w.k0/body","append","LPHA\" — but the messag"]]}}
+{"t":1792773723976,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":166}}
+{"t":1792773724008,"dir":"out","verb":"f","body":{"sf":"s:1","s":167,"ops":[["set","w.k0/head/2",{"age":488}],["text","w.k0/body","append","e has two lines. Second li"]]}}
+{"t":1792773724009,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":167}}
+{"t":1792773724042,"dir":"out","verb":"f","body":{"sf":"s:1","s":168,"ops":[["set","w.k0/head/2",{"age":522}],["text","w.k0/body","append","ne says \"ignored @\"note.t"]]}}
+{"t":1792773724044,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":168}}
+{"t":1792773724076,"dir":"out","verb":"f","body":{"sf":"s:1","s":169,"ops":[["set","w.k0/head/2",{"age":556}],["text","w.k0/body","append","xt\"\". Hmm. What is being a"]]}}
+{"t":1792773724077,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":169}}
+{"t":1792773724110,"dir":"out","verb":"f","body":{"sf":"s:1","s":170,"ops":[["set","w.k0/head/2",{"age":590}],["text","w.k0/body","append","sked? It seems like a test t"]]}}
+{"t":1792773724111,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":170}}
+{"t":1792773724143,"dir":"out","verb":"f","body":{"sf":"s:1","s":171,"ops":[["set","w.k0/head/2",{"age":623}],["text","w.k0/body","append","o see if I follow \"reply"]]}}
+{"t":1792773724144,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":171}}
+{"t":1792773724177,"dir":"out","verb":"f","body":{"sf":"s:1","s":172,"ops":[["set","w.k0/head/2",{"age":658}],["text","w.k0/body","append"," with exactly ALPHA\". The sec"]]}}
+{"t":1792773724179,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":172}}
+{"t":1792773724211,"dir":"out","verb":"f","body":{"sf":"s:1","s":173,"ops":[["set","w.k0/head/2",{"age":691}],["text","w.k0/body","append","ond line references a fi"]]}}
+{"t":1792773724212,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":173}}
+{"t":1792773724245,"dir":"out","verb":"f","body":{"sf":"s:1","s":174,"ops":[["set","w.k0/head/2",{"age":725}],["text","w.k0/body","append","le note.txt but says ignored"]]}}
+{"t":1792773724247,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":174}}
+{"t":1792773724280,"dir":"out","verb":"f","body":{"sf":"s:1","s":175,"ops":[["set","w.k0/head/2",{"age":760}],["text","w.k0/body","append",".\n\nThere's no actual file"]]}}
+{"t":1792773724281,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":175}}
+{"t":1792773724314,"dir":"out","verb":"f","body":{"sf":"s:1","s":176,"ops":[["set","w.k0/head/2",{"age":794}],["text","w.k0/body","append"," path context — @\"note.txt\""]]}}
+{"t":1792773724315,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":176}}
+{"t":1792773724348,"dir":"out","verb":"f","body":{"sf":"s:1","s":177,"ops":[["set","w.k0/head/2",{"age":828}],["text","w.k0/body","append"," is just text. The user say"]]}}
+{"t":1792773724350,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":177}}
+{"t":1792773724382,"dir":"out","verb":"f","body":{"sf":"s:1","s":178,"ops":[["set","w.k0/head/2",{"age":862}],["text","w.k0/body","append","s \"line two ignored\". So the"]]}}
+{"t":1792773724383,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":178}}
+{"t":1792773724417,"dir":"out","verb":"f","body":{"sf":"s:1","s":179,"ops":[["set","w.k0/head/2",{"age":897}],["text","w.k0/body","append"," actual instruction is to"]]}}
+{"t":1792773724419,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":179}}
+{"t":1792773724451,"dir":"out","verb":"f","body":{"sf":"s:1","s":180,"ops":[["set","w.k0/head/2",{"age":931}],["text","w.k0/body","append"," reply exactly ALPHA.\n\nShoul"]]}}
+{"t":1792773724453,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":180}}
+{"t":1792773724485,"dir":"out","verb":"f","body":{"sf":"s:1","s":181,"ops":[["set","w.k0/head/2",{"age":965}],["text","w.k0/body","append","d I comply? The instruct"]]}}
+{"t":1792773724486,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":181}}
+{"t":1792773724517,"dir":"out","verb":"f","body":{"sf":"s:1","s":182,"ops":[["set","w.k0/head/2",{"age":997}],["text","w.k0/body","append","ion is benign. \"reply w"]]}}
+{"t":1792773724519,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":182}}
+{"t":1792773724552,"dir":"out","verb":"f","body":{"sf":"s:1","s":183,"ops":[["set","w.k0/head/2",{"age":1032}],["text","w.k0/body","append","ith exactly ALPHA\" — I sh"]]}}
+{"t":1792773724553,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":183}}
+{"t":1792773724586,"dir":"out","verb":"f","body":{"sf":"s:1","s":184,"ops":[["set","w.k0/head/2",{"age":1066}],["text","w.k0/body","append","ould just reply \"ALPHA\". B"]]}}
+{"t":1792773724587,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":184}}
+{"t":1792773724620,"dir":"out","verb":"f","body":{"sf":"s:1","s":185,"ops":[["set","w.k0/head/2",{"age":1100}],["text","w.k0/body","append","ut wait — the system promp"]]}}
+{"t":1792773724621,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":185}}
+{"t":1792773724654,"dir":"out","verb":"f","body":{"sf":"s:1","s":186,"ops":[["set","w.k0/head/2",{"age":1134}],["text","w.k0/body","append","t says MAY react with emo"]]}}
+{"t":1792773724655,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":186}}
+{"t":1792773724687,"dir":"out","verb":"f","body":{"sf":"s:1","s":187,"ops":[["set","w.k0/head/2",{"age":1167}],["text","w.k0/body","append","ji. No, \"exactly ALPHA\" me"]]}}
+{"t":1792773724689,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":187}}
+{"t":1792773724720,"dir":"out","verb":"f","body":{"sf":"s:1","s":188,"ops":[["set","w.k0/head/2",{"age":1200}],["text","w.k0/body","append","ans exactly that.\n\nThere"]]}}
+{"t":1792773724721,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":188}}
+{"t":1792773724749,"dir":"out","verb":"f","body":{"sf":"s:1","s":189,"ops":[["set","w.k0",{"role":"omp.thinking","collapsed":true,"took":1228}],["del","w.k0/head"],["add","w.k0/head","w.k0","w.k0/body",{"id":"w.k0/head","k":"text","p":{"spans":[{"t":"Thought for 1s","s":"muted"}]}}],["text","w.k0/body","append","'s a subtlety: this could be testing injection resistance, but it's the actual user message, so it's a legitimate instruction. Reply exactly: ALPHA\n\nI should not add anything. Exactly \"ALPHA\"."],["set","w.k0/body",{"stream":null}],["add","w.t1","w",null,{"id":"w.t1","k":"md","p":{"text":"ALPHA"}}],["add","w.turn-usage","w",null,{"id":"w.turn-usage","k":"row","p":{"role":"omp.turn.usage","gap":"xs","align":"center","title":"This turn: 4.2s · 431 tokens (192 in · 239 out) · <$0.01"},"c":[{"id":"w.turn-usage/copy","k":"icon","p":{"name":"copy","role":"omp.turn.copy","title":"Copy answer","aria":"Copy answer","actions":{"click":"copy-answer"}}},{"id":"w.turn-usage/dot","k":"text","p":{"text":"·"}},{"id":"w.turn-usage/text","k":"text","p":{"text":"4.2s · 431 tok · <$0.01 this turn"}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"col"}],["add","x","d",null,{"id":"x","k":"col"}],["set","j",{"tone":null}],["set","j.context",{"value":0.01056,"title":"Context 1% used\n11K of 1M tokens\nAuto-compact at 85%"}],["add","j.bar/send","j.bar",null,{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}],["del","l"],["del","j.bar/stop"],["settle","w"]]}}
+{"t":1792773724750,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":189}}

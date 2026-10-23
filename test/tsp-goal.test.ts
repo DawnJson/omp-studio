@@ -10,15 +10,25 @@ import { applyMessage, createDocument, type TspDocument } from "../src/shared/ts
 import { statusToastTexts } from "../src/shared/tsp/composer-state.ts";
 import {
   GOAL_TOASTS,
-  deriveGoalFact,
   findGoalDropPrompt,
   parseTokenLabel,
   type GoalDropPrompt,
   taskGoalFromFact,
-  type GoalDocumentState,
 } from "../src/shared/tsp/goal.ts";
+import { deriveComposerFacts, type GoalFact } from "../src/shared/tsp/composer-facts.ts";
 import { TspGoalTracker } from "../src/main/tasks/tsp-goal.ts";
 import { loadTspFixture, recordedUserEvents, tspDocMessages } from "./tsp-fixtures.ts";
+
+interface GoalDocumentState {
+  composer: boolean;
+  fact: GoalFact | null;
+}
+
+/** 输入框卡片在不在、卡片上的目标事实行（composer-facts 的 `mode`）。 */
+function deriveGoalFact(doc: TspDocument): GoalDocumentState {
+  const facts = deriveComposerFacts(doc);
+  return { composer: facts.composer, fact: facts.mode?.kind === "goal" ? facts.mode.fact : null };
+}
 
 interface Step {
   /** 相对录制开头的秒数。 */
@@ -274,7 +284,7 @@ describe("TspGoalTracker：回放 goal-pause-resume + 会话文件", () => {
     const seen: string[] = [];
     for (const { message } of tspDocMessages(loadTspFixture("goal-pause-resume"))) {
       applyMessage(doc, message);
-      tracker.observe(doc);
+      tracker.observe(deriveComposerFacts(doc));
       const goal = tracker.goal;
       const label = goal === null ? "none" : `${goal.status}:${goal.tokensUsed}`;
       if (seen[seen.length - 1] !== label) seen.push(label);
@@ -293,7 +303,7 @@ describe("TspGoalTracker：回放 goal-pause-resume + 会话文件", () => {
     const doc = createDocument();
     for (const { message } of tspDocMessages(loadTspFixture("goal-pause-resume"))) {
       applyMessage(doc, message);
-      tracker.observe(doc);
+      tracker.observe(deriveComposerFacts(doc));
       if (tracker.goal !== null) break;
     }
     expect(tracker.goal).toMatchObject({ status: "active", objective: "typed in studio", tokensUsed: 0 });
@@ -308,7 +318,7 @@ describe("TspGoalTracker：回放 goal-pause-resume + 会话文件", () => {
     const doc = createDocument();
     for (const { message } of frames) {
       applyMessage(doc, message);
-      finished.tracker.observe(doc);
+      finished.tracker.observe(deriveComposerFacts(doc));
     }
     await vi.waitFor(() => expect(finished.completions()).toBe(1), { timeout: 3000 });
 
@@ -318,7 +328,7 @@ describe("TspGoalTracker：回放 goal-pause-resume + 会话文件", () => {
     const doc2 = createDocument();
     for (const { message } of frames) {
       applyMessage(doc2, message);
-      abandoned.tracker.observe(doc2);
+      abandoned.tracker.observe(deriveComposerFacts(doc2));
     }
     // 放弃的那份在完成检查（400 ms 之后读文件）走完之前不会通知；等一个完整的检查周期。
     // 真实计时：检查本身就是 setTimeout 之后读盘，没有可注入的时钟（主进程的实现不为测试开接口）。

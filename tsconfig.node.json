@@ -46,6 +46,7 @@
     "src/renderer/src/features/composer/field-height.ts",
     "src/renderer/src/features/composer/slash-match.ts",
     "src/renderer/src/features/composer/slash-guard.ts",
+    "src/renderer/src/features/composer/slash-args.ts",
     "src/renderer/src/features/composer/studio-slash.ts",
     "src/renderer/src/features/composer/stop-outcome.ts",
     "src/renderer/src/features/composer/thinking-levels.ts",

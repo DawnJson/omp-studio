@@ -18,6 +18,7 @@ import { reportOmpError } from "../../ui/errors.ts";
 import { Button, Segmented } from "../../ui/controls.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import { ToggleRow } from "./ToggleRow.tsx";
+import { ModeSection } from "./ModeSection.tsx";
 import { runToggleCommand } from "./toggle-actions.ts";
 import { onTogglesMenuRequest } from "./toggle-bus.ts";
 import { useToggleDefaults } from "./use-toggle-defaults.ts";
@@ -173,6 +174,7 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
                 }}
               />
             </div>
+            {task.composerMode === null && <ModeSection taskId={taskId} task={task} />}
           </div>
         )}
       </Popover>

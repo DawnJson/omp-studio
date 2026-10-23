@@ -61,6 +61,12 @@ import type { TspEvent } from "./tsp/tsp.generated.ts";
 export type TaskId = string & { readonly __brand: "TaskId" };
 export type ProjectId = string & { readonly __brand: "ProjectId" };
 /**
+ * 应用内终端登录（设置 → Provider，docs/architecture/login.md "应用内登录"）的临时 omp 会话用的"任务 id"：它没有任务记录，只是让登录对话框
+ * 复用 getTspSnapshot / sendTspEvent / sendTspKeys / tspBatch 这条 TSP 通道；主进程按它路由到登录会话，任务池不认识它。
+ */
+export const TERMINAL_LOGIN_ID = "terminal-login" as TaskId;
+
+/**
  * 终端的键：任务终端用任务 id；新任务草稿的终端用 `new:<projectId|chats>`（草稿还没有任务 id）。
  * 草稿的目录由主进程按项目解析（无项目时是 chats 目录），渲染进程不传路径。
  */
@@ -359,7 +365,40 @@ export interface TaskState {
   loaderText: string | null;
   /** omp 标题后缀 ` · #12` 里的 PR 号（当前分支有 PR）；没有为 null。顶栏分支胶囊旁的 PR 徽标据此显示。 */
   prNumber: number | null;
+  /** 输入框卡片上上下文 meter 里 omp 给的自动压缩信息（shared/tsp/context-compaction.ts）；自动压缩关着或 omp 还没给出为 null。 */
+  contextCompaction: ContextCompaction | null;
+  /**
+   * omp 的状态行"模式"片段（Plan / Plan (paused) / Prewalk / Vibe / Loop，不含目标：目标是 `goal`）；没有模式为 null。
+   * 输入框卡片被弹窗换掉时沿用上一次的值（shared/tsp/composer-facts.ts）。
+   */
+  composerMode: TaskMode | null;
+  /** 扩展 `ctx.ui.setStatus` 写的状态文字，按 omp 给的顺序；输入框卡片被换掉时沿用上一次的值。 */
+  extStatuses: readonly string[];
 }
+
+/** omp 的自动压缩（上下文圆环上的刻度和构成浮层里的说明）。百分数都是占上下文窗口的比例（0–100）。 */
+export interface ContextCompaction {
+  /** 自动压缩触发点。 */
+  autoAtPercent: number;
+  /** omp 开始预生成压缩摘要的位置；没有开预生成为 null。 */
+  summaryStartsAtPercent: number | null;
+  /** 压缩摘要：running = 生成中，ready = 已备好（到触发点时直接用）；null = 没在生成（或 omp 没给）。 */
+  summary: "running" | "ready" | null;
+}
+
+/** omp 的模式（状态行 `mode` 片段）；循环的限制 / 条件只有 omp 画出来的那一部分（条件命令被 omp 截成约 30 个字符）。 */
+export type TaskMode =
+  | { kind: "plan"; paused: boolean }
+  | { kind: "prewalk" }
+  | { kind: "vibe" }
+  | {
+      kind: "loop";
+      /** running = 在跑；waiting = 等下一条消息开始重复；paused = 被 Esc 暂停。 */
+      state: "running" | "waiting" | "paused";
+      limit:
+        { kind: "iterations"; remaining: number; initial: number } | { kind: "duration"; secondsLeft: number } | null;
+      condition: { until: boolean; command: string } | null;
+    };
 
 /** 目标模式的目标（omp goal 模式）：`/goal` 创建，agent 完成或用户放弃后消失。 */
 export interface TaskGoal {
@@ -1010,6 +1049,10 @@ export interface StudioInvokeApi {
   /** 输入框草稿（文字）：key 是任务 id 或 `new:<projectId>`。主进程持久化，重启不丢。 */
   getDrafts(): Promise<Record<string, string>>;
   saveDraft(key: string, text: string): Promise<void>;
+  /** 这个项目发过的消息（studio 自己存在 userData/input-history.json，从旧到新，最多 200 条）：输入框 ↑ 翻看和 Ctrl+R 搜索用。 */
+  getInputHistory(projectId: ProjectId): Promise<string[]>;
+  /** 记一条发出去的消息（只存文字；空的、太长的、和上一条相同的不记）。 */
+  recordInputHistory(projectId: ProjectId, text: string): Promise<void>;
   /** 压缩上下文：发 `/compact`，等 omp 画出压缩分隔；失败（会话太小等）以 omp 的原文 reject。任务没有进程时先拉起。 */
   compactTask(taskId: TaskId): Promise<void>;
   /** 重开会话：结束这个任务的 omp 进程，再用 `--resume` 恢复同一个会话文件（等于终端里退出再进）。`restartable` 为 false 时 reject。 */
@@ -1116,6 +1159,14 @@ export interface StudioInvokeApi {
   /** value 为 null 表示取消这个输入。 */
   answerLoginInput(inputId: string, value: string | null): Promise<void>;
   cancelLogin(): Promise<void>;
+  /**
+   * 应用内登录那些只能在终端里走完的 provider（`loginKind` = terminal）：主进程起一个临时的交互式 omp 跑 `/login <providerId>`，
+   * 界面经 TERMINAL_LOGIN_ID 的 TSP 通道画 omp 的登录窗。登录结束（成功、失败、取消）时 resolve，进程已关；取消的 `message` 是 "cancelled"。
+   * providerId 必须是 omp 登录 provider 列表里的 id，否则 reject；已有一个在进行时先结束它。
+   */
+  startTerminalLogin(providerId: string): Promise<LoginOutcome>;
+  /** 结束正在进行的终端登录（关临时 omp）；没有时什么都不做。 */
+  cancelTerminalLogin(): Promise<void>;
   listAccounts(providerId: string): Promise<LogoutAccount[]>;
   logout(providerId: string, credentialId: number): Promise<void>;
   /**
@@ -1303,6 +1354,10 @@ export interface StudioEventPayloads {
   ompConfigChanged: { key: string };
   /** 旁路提问的变化：新记录 / 生命周期变化（整条记录）、流式增量、整份对齐。 */
   btw: { taskId: TaskId; event: BtwUiEvent };
+  /** 任务目录的项目 rpc-ui 主动推来的命令列表（`available_commands_update`：技能 / 扩展加载完、重新加载插件之后）。只含 omp 的列表，TUI 才有的命令由渲染进程合并。 */
+  slashCommands: { taskId: TaskId; commands: AvailableSlashCommand[] };
+  /** omp 往它自己的输入框里写了 studio 没发的文字（Ctrl+R 选中的历史、`/annotate`、`/plan` 预填）：主进程已清空 omp 那边，渲染进程把文字放进这个任务的草稿。 */
+  composerPrefill: { taskId: TaskId; text: string };
   /** 终端输出（主进程已按 ~16ms 合并）。 */
   terminalData: { key: TerminalKey; data: string };
   /** 终端里的 shell 自己退出了（主动 closeTerminal 不发这个事件）。 */
@@ -1410,6 +1465,8 @@ export const invokeNames = {
   listSlashCommands: true,
   getDrafts: true,
   saveDraft: true,
+  getInputHistory: true,
+  recordInputHistory: true,
   compactTask: true,
   restartTask: true,
   runTaskCommand: true,
@@ -1448,6 +1505,8 @@ export const invokeNames = {
   startLogin: true,
   answerLoginInput: true,
   cancelLogin: true,
+  startTerminalLogin: true,
+  cancelTerminalLogin: true,
   listAccounts: true,
   logout: true,
   saveApiKey: true,
@@ -1539,6 +1598,8 @@ export const eventNames = {
   defaultModel: true,
   ompConfigChanged: true,
   btw: true,
+  slashCommands: true,
+  composerPrefill: true,
   updateState: true,
   terminalData: true,
   terminalExit: true,

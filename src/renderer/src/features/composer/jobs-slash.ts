@@ -12,8 +12,8 @@ const KILL = /^kill(?:\s+(\S+))?$/i;
 async function runJobsSlash(taskId: TaskId, args: string, t: TFunction): Promise<void> {
   const kill = KILL.exec(args);
   if (!kill) {
-    const bash = peekTspJobs(taskId).filter((job) => job.type === "bash");
-    const target = bash.find((job) => job.status === "running") ?? bash.at(-1);
+    const own = peekTspJobs(taskId).filter((job) => job.type !== "agent");
+    const target = own.find((job) => job.status === "running") ?? own.at(-1);
     if (target === undefined) {
       pushToast({ level: "info", message: t("slash.jobsEmpty") });
       return;

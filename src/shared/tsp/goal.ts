@@ -1,38 +1,20 @@
-// TSP 任务的目标模式（omp `/goal`）：从文档读状态，拼出 `TaskState.goal`；以及 `/goal drop` 要点的确认选择器。纯函数。
+// TSP 任务的目标模式（omp `/goal`）：事实行 + 会话文件 → `TaskState.goal`，以及 `/goal drop` 要点的确认选择器。纯函数。
 //
 // 实测（omp 18.12.5，fixtures/tsp/goal-{pause-resume,drop,budget}.jsonl，test/tsp-goal.test.ts 逐帧验证）：
-// - 目标状态在 omp 输入框卡片（role `omp.editor`）的"状态事实"行里：role `omp.composer.fact` 的 `seg`（id 随版本变，现在是
-//   `j.bar/extras/mode`），文字 `Goal <已用>` 或有预算时 `Goal <已用>/<预算>`（"Goal 0"、"Goal 1.2K"、"Goal 2.1K/1.5K"，
-//   数字是 omp 缩写的 K/M/B），图标 `goal` = 进行中、`pause`（tone warning）= 已暂停、`warning` = 预算用尽。没有目标时没有这个节点。
+// - 目标状态在 omp 输入框卡片（role `omp.editor`）的"状态事实"行里，由 shared/tsp/composer-facts.ts 统一读出（`mode` 片段，
+//   文字 `Goal <已用>` 或有预算时 `Goal <已用>/<预算>`，数字是 omp 缩写的 K/M/B；图标 `goal` = 进行中、`pause`（tone warning）= 已暂停、
+//   `warning` = 预算用尽）。没有目标时没有这个节点。
 // - 目标文字不在文档里（只在 `/goal` 选择器的标题里被截成 40 字、和一条 toast 里）：从会话文件读（omp-output/goal.ts）。
 // - 开着选择器 / 弹窗时 omp 把整个输入框卡片从文档里拿掉（`del j`），卡片回来时才重新出现：卡片不在 = 不知道，沿用上一次的值；
 //   卡片在而没有事实行 = 没有目标（放弃、完成都是这样）。
 // - `/goal pause` → toast "Goal mode paused."；`/goal resume` → "Goal mode resumed."；`/goal drop` 先开 picker "Drop goal?"
 //   （items Yes / No，id 0 / 1），确认后 toast "Goal dropped."；已有目标时再 `/goal <文字>` → toast
 //   "Goal mode is already active. Use /goal to manage it, or /goal drop to start over."（没有 toast 就是创建成功：事实行出现）。
-// role / 文字是 omp 自己的命名，不在 TSP 规范里：omp 改名这些规则就失效，判断集中在这里。
+// role / 文字是 omp 自己的命名，不在 TSP 规范里：omp 改名这些规则就失效，判断集中在 composer-facts.ts。
 import type { TaskGoal } from "../ipc.ts";
 import type { GoalRecord } from "../omp-output/goal.ts";
-import { findComposerCard } from "./composer-state.ts";
-import { findNode, nodeRole, plainText, type DocNode, type TspDocument } from "./document.ts";
-
-const FACT_ROLE = "omp.composer.fact";
-const GOAL_FACT = /^Goal\b\s*(.*)$/;
-
-/** 输入框卡片上的目标事实。 */
-export interface GoalFact {
-  status: TaskGoal["status"];
-  /** 标签里的已用量，原文（"1.2K"）；没有为空串。 */
-  usedLabel: string;
-  /** 标签里的预算，原文；没设预算为 null。 */
-  budgetLabel: string | null;
-}
-
-export interface GoalDocumentState {
-  /** 输入框卡片在文档里（不在 = 被选择器 / 弹窗 / 提问替换了，这时 `fact` 不可信）。 */
-  composer: boolean;
-  fact: GoalFact | null;
-}
+import type { GoalFact } from "./composer-facts.ts";
+import { findNode, type TspDocument } from "./document.ts";
 
 const MULTIPLIER: Record<string, number> = { K: 1e3, M: 1e6, B: 1e9 };
 
@@ -42,29 +24,6 @@ export function parseTokenLabel(label: string): number | null {
   if (!match) return null;
   const value = Number.parseFloat(match[1]!) * (match[2] === undefined ? 1 : MULTIPLIER[match[2].toUpperCase()]!);
   return Number.isFinite(value) ? Math.round(value) : null;
-}
-
-/** 一个"状态事实"节点 → 目标事实；不是目标的事实（计划模式等）为 null。 */
-function parseGoalFact(node: DocNode): GoalFact | null {
-  if (node.k !== "seg" || nodeRole(node) !== FACT_ROLE) return null;
-  const match = GOAL_FACT.exec(plainText(node).trim());
-  if (!match) return null;
-  const [usedLabel = "", budgetLabel] = match[1]!.split("/").map((part) => part.trim());
-  const icon = node.p["icon"];
-  const status = icon === "pause" ? "paused" : icon === "warning" ? "budget-limited" : "active";
-  return { status, usedLabel, budgetLabel: budgetLabel === undefined || budgetLabel === "" ? null : budgetLabel };
-}
-
-export function deriveGoalFact(doc: TspDocument): GoalDocumentState {
-  const found = findComposerCard(doc);
-  if (!found) return { composer: false, fact: null };
-  const node = findNode(found.surface, (candidate) => parseGoalFact(candidate) !== null, found.card.id);
-  return { composer: true, fact: node === null ? null : parseGoalFact(node) };
-}
-
-export function sameGoalFact(a: GoalFact | null, b: GoalFact | null): boolean {
-  if (a === null || b === null) return a === b;
-  return a.status === b.status && a.usedLabel === b.usedLabel && a.budgetLabel === b.budgetLabel;
 }
 
 /**

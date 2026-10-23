@@ -1224,7 +1224,7 @@ test("错误回合只留一份:错误文字只在卡片里(没有 dock 里的红
   }
 });
 
-test("omp 的快捷键(B18):输入框有焦点时 F5 / ⇧Tab / ⌃P / ⌃⇧P / ⌥P / ⌥⇧P / ⌃T / ⌃R / ⌥↑ 编码后写给 omp;studio 自己的键(⌥T、⌃L)和普通字符不转发,⌃O 是 studio 的展开/收起、自己写一次 ⌃O", async () => {
+test("omp 的快捷键(B18):输入框有焦点时 F5 / ⇧Tab / ⌃P / ⌃⇧P / ⌥P / ⌥⇧P / ⌃T / ⌥↑ 编码后写给 omp;studio 自己的键(⌥T、⌃L、⌃R 历史搜索)和普通字符不转发,⌃O 是 studio 的展开/收起、自己写一次 ⌃O", async () => {
   test.setTimeout(90_000);
   const { launched, receivedKeys, cleanup } = await start("error-turn");
   try {
@@ -1244,7 +1244,7 @@ test("omp 的快捷键(B18):输入框有焦点时 F5 / ⇧Tab / ⌃P / ⌃⇧P /
       ["Alt+p", `${ESC}p`],
       ["Alt+Shift+P", `${ESC}P`],
       ["Control+t", "\x14"],
-      ["Control+r", "\x12"],
+      // ⌃R 在输入框里是 studio 自己的历史搜索(Composer.tsx),不写给 omp,见下面。
       ["Alt+ArrowUp", `${ESC}[1;3A`],
     ];
     for (const [chord] of chords) await page.keyboard.press(chord);
@@ -1254,6 +1254,11 @@ test("omp 的快捷键(B18):输入框有焦点时 F5 / ⇧Tab / ⌃P / ⌃⇧P /
     // 输入框里没有多出字符;studio 自己的键不写给 omp(⌥T 切思考、⌃L 聚焦输入框);⌃O 是 studio 的"展开/收起工具卡片"，
     // 它自己把 ⌃O(\x0f) 写给 omp 一次(use-task-commands.ts)，不是输入框把按键原样转发；普通字符 x 留在输入框里。
     await expect(input).toHaveValue("");
+    await page.keyboard.press("Control+r");
+    await expect(page.getByTestId("history-search")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("history-search")).toHaveCount(0);
+    await input.focus();
     for (const chord of ["Alt+t", "Control+l", "Control+o", "x"]) await page.keyboard.press(chord);
     await expect(input).toHaveValue("x");
     await page.keyboard.press("F5");
@@ -1633,14 +1638,16 @@ test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 �
   }
 });
 
-test("排队消息按 Esc(omp 18.12.5 录制):任务停止,omp 写回它自己输入框的排队文字回到 studio 输入框,omp 的输入框被清空", async () => {
+test("排队消息按 Esc(omp 18.12.6 录制,Ctrl+Enter = /queue):任务停止,omp 写回它自己输入框的排队文字回到 studio 输入框,omp 的输入框被清空", async () => {
   test.setTimeout(90_000);
   // 假 omp 在收到 Esc 键之前不放最后一帧(那一帧删掉排队区、把排队文字写进 omp 的输入框,和真实 omp 按 Esc 时一样)。
-  const [first, queued] = recordedUserEvents(loadTspFixture("queue-esc")).filter(
+  // 运行中"稍后"发出的是 omp 的 `/queue <文字>`(录制里 omp 的 follow-up 队列);Esc 后写回输入框的是不带 /queue 的原文。
+  const [first, queued] = recordedUserEvents(loadTspFixture("queue-follow-up-esc")).filter(
     (entry) => entry.event["ev"] === "send",
   );
-  const queuedText = String(queued!.event["text"]);
-  const { launched, received, receivedKeys, cleanup } = await start("queue-esc");
+  const wireText = String(queued!.event["text"]);
+  const queuedText = wireText.replace(/^\/queue /, "");
+  const { launched, received, receivedKeys, cleanup } = await start("queue-follow-up-esc");
   try {
     const { page } = launched;
     await sendFirst(page, String(first!.event["text"]));
@@ -1650,9 +1657,7 @@ test("排队消息按 Esc(omp 18.12.5 录制):任务停止,omp 写回它自己�
     await input.fill(queuedText);
     await input.press("Control+Enter");
     await expect
-      .poll(
-        async () => (await received()).filter((body) => body["ev"] === "send" && body["text"] === queuedText).length,
-      )
+      .poll(async () => (await received()).filter((body) => body["ev"] === "send" && body["text"] === wireText).length)
       .toBe(1);
     await expect(input).toHaveValue("");
     // 排队区(dock 里的 omp.queue.item)画出了这句话 = 这一帧已到主进程和渲染进程(Esc 时没有排队消息就不会等输入框)。
@@ -1669,5 +1674,160 @@ test("排队消息按 Esc(omp 18.12.5 录制):任务停止,omp 写回它自己�
     await expect(page.getByTestId("stop-button")).toHaveCount(0, { timeout: 15_000 });
   } finally {
     await cleanup();
+  }
+});
+
+/** 板上的截图：中英 × 深浅，名字 board-<名>-<语言>-<主题>.png；每种主题换好以后调 `ready` 重新摆好界面再截（换主题会收起浮层）。 */
+async function shootBoard(page: Page, name: string, ready: () => Promise<void>): Promise<void> {
+  for (const [locale, scheme] of [
+    ["zh-CN", "light"],
+    ["zh-CN", "dark"],
+    ["en", "light"],
+    ["en", "dark"],
+  ] as const) {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await setLocaleTheme(page, locale, scheme);
+    await ready();
+    await page.screenshot({ path: path.join(screenshotsDir, `board-${name}-${locale}-${scheme}.png`) });
+  }
+}
+
+test("待办板(omp 18.12.6 录制 todo-commands):⋯ 菜单发 /todo drop,添加条目发 /todo append(阶段、任务都加引号),复制为 Markdown 和 omp 的 /todo 同文,已做完的阶段默认收起、展开全部", async () => {
+  test.setTimeout(120_000);
+  const todo = await start("todo-commands");
+  try {
+    const { page } = todo.launched;
+    const commands = recordedUserEvents(loadTspFixture("todo-commands"))
+      .map((entry) => String(entry.event["text"]))
+      .slice(0, 7);
+    expect(commands.at(-1)).toBe("/todo done");
+    const taskId = await page.evaluate(async () => {
+      const [p] = await globalThis.studio.listProjects();
+      return (await globalThis.studio.createTask({ projectId: p!.id })).id;
+    });
+    await openTaskRow(page);
+    // 回放里录的前 7 条命令：三次 append、start、done；每条等 omp 回应（假 omp 收到和录制一样的 send 才继续）。
+    for (const text of commands) {
+      await page.evaluate(
+        ([id, body]) => globalThis.studio.sendPrompt(id as never, { text: body!, whenBusy: "steer" }),
+        [taskId, text],
+      );
+    }
+    const board = page.getByTestId("todo-board");
+    await expect(board).toHaveText(/3\/3/, { timeout: 60_000 });
+    await board.click();
+    // 全部做完：三个阶段默认收起，只剩阶段头；展开全部之后三条都在。
+    await expect(page.getByTestId("todo-phase")).toHaveCount(2);
+    await expect(page.getByTestId("todo-item")).toHaveCount(0);
+    await page.getByTestId("todo-expand-all").click();
+    await expect(page.getByTestId("todo-item")).toHaveCount(3);
+
+    // 复制为 Markdown：本地拼，剪贴板里和 omp `/todo` 弹出的 Markdown 同文（末尾多一个换行）。
+    // Windows 上 Chromium 写系统剪贴板时把 \n 换成 \r\n，比较前换回来。
+    await page.getByTestId("todo-copy").click();
+    await expect
+      .poll(async () =>
+        (await todo.launched.app.evaluate(({ clipboard }) => clipboard.readText())).replace(/\r\n/g, "\n"),
+      )
+      .toBe("# Alpha\n- [x] Write tests\n- [x] Fix bug\n\n# Beta\n- [x] Ship it\n");
+
+    // ⋯ 菜单：已完成的条目只剩 放弃 / 删除；点放弃 → omp 收到 /todo drop <内容>。
+    await page.getByTestId("todo-item-more").first().click();
+    const menu = page.getByTestId("todo-item-menu");
+    await expect(menu.getByTestId("todo-op-drop")).toBeVisible();
+    await expect(menu.getByTestId("todo-op-done")).toHaveCount(0);
+    await shootBoard(page, "todo-menu", async () => {
+      if ((await page.getByTestId("todo-popover").count()) === 0) await page.getByTestId("todo-board").click();
+      if ((await page.getByTestId("todo-item-menu").count()) === 0)
+        await page.getByTestId("todo-item-more").first().click();
+      await expect(page.getByTestId("todo-item-menu")).toBeVisible();
+    });
+    await menu.getByTestId("todo-op-drop").click();
+    await expect
+      .poll(async () => (await todo.received()).map((event) => event["text"]))
+      .toContain("/todo drop Write tests");
+
+    // 添加条目：阶段可选；写了阶段就是 /todo append "阶段" "任务"。
+    await page.getByTestId("todo-add").click();
+    await page.getByTestId("todo-add-text").fill("write the docs");
+    await page.getByTestId("todo-add-phase").fill("Alpha");
+    await shootBoard(page, "todo-add", async () => {
+      if ((await page.getByTestId("todo-popover").count()) === 0) await page.getByTestId("todo-board").click();
+      if ((await page.getByTestId("todo-add-form").count()) === 0) await page.getByTestId("todo-add").click();
+      await expect(page.getByTestId("todo-add-form")).toBeVisible();
+    });
+    await page.getByTestId("todo-add-submit").click();
+    await expect
+      .poll(async () => (await todo.received()).map((event) => event["text"]))
+      .toContain('/todo append "Alpha" "write the docs"');
+  } finally {
+    await todo.cleanup();
+  }
+});
+
+test("Shell / Python 标签:输入框以 ! 或 $ 开头时工具行出现标签，点开的开关改输入框文字的前缀(! ↔ !!、$ ↔ $$)；普通消息没有标签", async () => {
+  const task = await start("jobs-chart");
+  try {
+    const { page } = task.launched;
+    await sendFirst(page, JOBS_PROMPT);
+    const input = page.getByTestId("composer-input");
+    const tag = page.getByTestId("shell-tag");
+    await input.fill("hello");
+    await expect(tag).toHaveCount(0);
+    await input.fill("!ls -la");
+    await expect(tag).toHaveText(/Shell/);
+    await tag.click();
+    const toggle = page.getByTestId("shell-in-context");
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+    await toggle.click();
+    await expect(input).toHaveValue("!!ls -la");
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+    await toggle.click();
+    await expect(input).toHaveValue("!ls -la");
+    await shootBoard(page, "shell-tag", async () => {
+      await input.fill("$ print(1)");
+      await expect(tag).toHaveText(/Python/);
+      if ((await page.getByTestId("shell-pop").count()) === 0) await tag.click();
+      await expect(page.getByTestId("shell-pop")).toBeVisible();
+    });
+    await page.getByTestId("shell-in-context").click();
+    await expect(input).toHaveValue("$$ print(1)");
+    // 单 $ 后面像 shell 命令的不是 Python：没有标签。
+    await input.fill("$ git status");
+    await expect(tag).toHaveCount(0);
+  } finally {
+    await task.cleanup();
+  }
+});
+
+test("作业卡片标出类型:悬停药丸的作业那一段，每个作业块里有类型标签(bash)；药丸数 = 除子代理外的作业", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("jobs-chart", {}, 2);
+  try {
+    const { page } = launched;
+    await sendFirst(page, JOBS_PROMPT);
+    const pill = page.getByTestId("pill-jobs");
+    await expect(pill).toBeVisible({ timeout: 60_000 });
+    await expect(pill).toHaveAttribute("data-count", "1");
+    const card = page.getByTestId("jobs-card");
+    await shootBoard(page, "jobs-type", async () => {
+      await pill.hover();
+      await expect(card.getByTestId("jobs-card-type")).toHaveText("bash");
+    });
+    await expect(card.getByTestId("jobs-card-type")).toHaveAttribute("data-type", "bash");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("作业药丸不数子代理(hub-steer):两个后台子代理在跑时只有 👥 2，没有 ⚡", async () => {
+  const hub = await start("hub-steer");
+  try {
+    const { page } = hub.launched;
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("hub-steer"))[0]!.event["text"]));
+    await expect(page.getByTestId("pill-agents")).toHaveAttribute("data-count", "2", { timeout: 60_000 });
+    await expect(page.getByTestId("pill-jobs")).toHaveCount(0);
+  } finally {
+    await hub.cleanup();
   }
 });

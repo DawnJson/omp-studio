@@ -17,6 +17,7 @@ import { appHandlers } from "../ipc/app-handlers.ts";
 import { buildTspLaunch, setTestOmpOverride } from "../omp/launch.ts";
 import { exportSessionHtml } from "../omp/export-session.ts";
 import { parseTestOmpOverride } from "../omp/launch-args.ts";
+import type { OmpConnection } from "../omp/omp-connection.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
 import { closeTaskTerminal } from "../terminal/active.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
@@ -24,6 +25,7 @@ import { log } from "../log/log.ts";
 import { listModelOptions, readDefaultModel } from "../service/default-model.ts";
 import { readNotifyEnabled, readProjectModelDefaults } from "../ipc/omp-handlers.ts";
 import { serviceOmp } from "../service/service-omp.ts";
+import { projectOmp } from "../service/project-omp-instance.ts";
 import { createWorktree, removeWorktree } from "../git/worktree.ts";
 import { SetupConsent } from "../git/setup-consent.ts";
 import { TaskPool, type WorktreeOps } from "./task-pool.ts";
@@ -110,8 +112,11 @@ function createPool(): Promise<TaskPool> {
       const ompDefault = defaults.model !== null ? null : (cache.defaultModel ?? (await readDefaultModel()));
       return { model: defaults.model, thinkingLevel: defaults.thinkingLevel, ompDefault };
     },
-    listSlashCommands: async () =>
-      (await serviceOmp.use((connection) => connection.request("get_available_commands"))).commands,
+    // 任务的命令列表取任务目录里的项目 rpc-ui（项目 skill、自定义命令、扩展命令都在里面）；草稿页（没有目录）用服务进程。
+    listSlashCommands: async (cwd) => {
+      const request = (connection: OmpConnection) => connection.request("get_available_commands");
+      return (await (cwd === null ? serviceOmp.use(request) : projectOmp.use(cwd, request))).commands;
+    },
     exportSession: exportSessionHtml,
     tsp: {
       buildLaunch: (record, project) => {
@@ -149,8 +154,14 @@ function createPool(): Promise<TaskPool> {
         refreshTaskbarProgress(taskPool.listTasks());
       },
       btw: (taskId, event) => emitEvent("btw", { taskId, event }),
+      composerPrefill: (taskId, text) => emitEvent("composerPrefill", { taskId, text }),
     },
   });
+  // 项目 rpc-ui 主动推来的命令列表（握手期间加载完技能 / 扩展、`/reload-plugins` 之后）：推给这个目录里的所有任务。
+  projectOmp.onCommandsUpdate = (dir, commands) => {
+    for (const task of taskPool.listTasks())
+      if (pathKey(task.cwd) === pathKey(dir)) emitEvent("slashCommands", { taskId: task.id, commands });
+  };
   // 深浅主题（设置或系统）和"减少动效"设置变了，给所有运行中的 TSP 会话发 theme / motion 事件（TspSession.setAppearance 只发有变化的）。
   const syncAppearance = () =>
     taskPool.setAppearance({ dark: nativeTheme.shouldUseDarkColors, reduceMotion: getSettings().reduceMotion });

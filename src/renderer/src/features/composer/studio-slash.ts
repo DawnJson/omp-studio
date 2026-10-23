@@ -7,14 +7,17 @@ import type { TaskId } from "../../../../shared/ipc.ts";
 import type { AvailableSlashCommand } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { leadingSlashName } from "./slash-guard.ts";
 
+/** `run` / `draft` 的返回值：`"omp"` = studio 不认识这些参数，原样把这条命令发给 omp（输入框已清空，走和别的消息一样的发送路径）。 */
+export type SlashRunResult = "omp" | undefined;
+
 export interface StudioSlashCommand {
   name: string;
   aliases?: readonly string[];
   /** 斜杠菜单里的说明。 */
   descKey: MessageKey;
   /** `args` 是命令名后面的文字（已去掉首尾空白，可能为空）。处理函数自己负责提示；抛错时草稿放回输入框。 */
-  run(taskId: TaskId, args: string, t: TFunction): Promise<void> | void;
-  /** 草稿页（还没有任务）里也能用：没有任务时调它而不是 `run`。不写 = 草稿页不提供。 */
+  run(taskId: TaskId, args: string, t: TFunction): Promise<SlashRunResult | void> | SlashRunResult | void;
+  /** 草稿页（还没有任务）里也能用：没有任务时调它而不是 `run`。不写 = 草稿页不提供。草稿页没有 omp 可交，不返回 `"omp"`。 */
   draft?(args: string, t: TFunction): Promise<void> | void;
 }
 

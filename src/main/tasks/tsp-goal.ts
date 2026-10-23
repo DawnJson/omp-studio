@@ -5,8 +5,8 @@ import { open } from "node:fs/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { TaskGoal } from "../../shared/ipc.ts";
 import { parseGoalSession, type GoalRecord, type GoalSessionState } from "../../shared/omp-output/goal.ts";
-import type { TspDocument } from "../../shared/tsp/document.ts";
-import { deriveGoalFact, sameGoalFact, taskGoalFromFact, type GoalFact } from "../../shared/tsp/goal.ts";
+import type { ComposerFacts, GoalFact } from "../../shared/tsp/composer-facts.ts";
+import { taskGoalFromFact } from "../../shared/tsp/goal.ts";
 import { log } from "../log/log.ts";
 
 /** 目标记录每 1–2 秒追加一条，尾部这么多字节里一定有最新的（单条 < 2 KB）。 */
@@ -74,11 +74,11 @@ export class TspGoalTracker {
     this.#update(null);
   }
 
-  /** 文档变了：读事实行。输入框卡片不在文档里（选择器 / 弹窗开着）不下结论。 */
-  observe(document: TspDocument): void {
-    const { composer, fact } = deriveGoalFact(document);
-    if (!composer) return;
-    if (sameGoalFact(fact, this.#fact)) return;
+  /** 一帧文档推出的事实变了：读目标事实行。输入框卡片不在文档里（选择器 / 弹窗开着）不下结论。 */
+  observe(facts: ComposerFacts): void {
+    if (!facts.composer) return;
+    const fact = facts.mode?.kind === "goal" ? facts.mode.fact : null;
+    if (JSON.stringify(fact) === JSON.stringify(this.#fact)) return;
     const hadGoal = this.#fact !== null;
     this.#fact = fact;
     if (fact === null) {

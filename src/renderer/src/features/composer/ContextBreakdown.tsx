@@ -1,9 +1,10 @@
 // 点上下文圆环弹出的构成（照 omp 的 /context）：头部已用 / 窗口 · 百分比，一条按类别分段的横条 + 每类的 token 和占窗口的比例。
 // 任务里（TaskContextBreakdown）：打开时请 omp 现算（readTspContext：主进程点 omp 输入框上的上下文 meter、读它弹出的报告），
 // 行和数字和 omp 的 /context 一致；算好之前显示这个任务上次读到的，从没读到过时头部用输入框上的用量，行的位置是一句说明。
+// 构成下面是压缩一栏（ContextCompact：omp 的自动压缩触发点、摘要状态、立即压缩 / 交接）。
 // 新任务草稿（DraftContextBreakdown）：还没有 omp 进程，已用 0，窗口取所选模型的，只有剩余空间和自动压缩预留
 // （窗口 - omp 的压缩触发点，compaction.* 设置，读不到就不画这一段）。
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { compactionTrigger } from "../../../../shared/compaction-trigger.ts";
 import type {
   CompactionSettings,
@@ -17,6 +18,7 @@ import type {
 import { useT } from "../../i18n/use-t.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
 import { beginTspDrive, endTspDrive, isTspDriving, type TspDrive } from "../tsp/tsp-store.ts";
+import { ContextCompact } from "./ContextCompact.tsx";
 import { draftContextRows } from "./context-rows.ts";
 import { formatCount, formatPercent } from "./usage-format.ts";
 
@@ -77,9 +79,11 @@ interface BreakdownProps {
   /** null：还没有行（omp 还在算、读不到），换成 note 这一句。 */
   rows: readonly ContextReportRow[] | null;
   note?: string;
+  /** 构成下面的一栏（任务里是压缩）。 */
+  footer?: ReactNode;
 }
 
-function Breakdown({ used, window, percent, rows, note }: BreakdownProps) {
+function Breakdown({ used, window, percent, rows, note, footer }: BreakdownProps) {
   const t = useT();
   const share = (tokens: number) => (window > 0 ? (tokens / window) * 100 : 0);
   const label = (row: ContextReportRow) => (isKnownPart(row.key) ? t(`composer.context.${row.key}`) : row.label);
@@ -123,6 +127,7 @@ function Breakdown({ used, window, percent, rows, note }: BreakdownProps) {
           </dl>
         </>
       )}
+      {footer}
     </div>
   );
 }
@@ -131,7 +136,16 @@ function Breakdown({ used, window, percent, rows, note }: BreakdownProps) {
 const reports = new Map<TaskId, ContextReport>();
 
 /** 任务的构成；挂载 = 构成打开：请 omp 现算一次（调用期间不画 omp 的 layer，报告不会闪出来）。 */
-export function TaskContextBreakdown({ taskId, context }: { taskId: TaskId; context: ContextUsage }) {
+export function TaskContextBreakdown({
+  taskId,
+  context,
+  task,
+}: {
+  taskId: TaskId;
+  context: ContextUsage;
+  /** 压缩一栏（ContextCompact）要读的任务状态。 */
+  task: TaskState;
+}) {
   const t = useT();
   const [report, setReport] = useState(() => reports.get(taskId) ?? null);
   const [reading, setReading] = useState(true);
@@ -163,6 +177,7 @@ export function TaskContextBreakdown({ taskId, context }: { taskId: TaskId; cont
     };
     // 只跟着任务走：浮层开着时换界面语言（t 变了）不再请 omp 重算一次。
   }, [taskId]);
+  const footer = <ContextCompact task={task} />;
   if (report === null)
     return (
       <Breakdown
@@ -171,6 +186,7 @@ export function TaskContextBreakdown({ taskId, context }: { taskId: TaskId; cont
         percent={context.percent}
         rows={null}
         note={t(reading ? "composer.context.reading" : "composer.context.unavailable")}
+        footer={footer}
       />
     );
   const total = report.window ?? context.contextWindow;
@@ -180,6 +196,7 @@ export function TaskContextBreakdown({ taskId, context }: { taskId: TaskId; cont
       window={total}
       percent={total > 0 ? (report.used / total) * 100 : 0}
       rows={report.rows}
+      footer={footer}
     />
   );
 }

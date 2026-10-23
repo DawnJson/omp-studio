@@ -116,19 +116,19 @@ describe("jobs-chart 录制（一个后台 bash）", () => {
 });
 
 describe("hub-steer 录制（两个后台子代理 Alpha / Beta）", () => {
-  it("运行中：作业 id 是子代理名，类型 task", () => {
+  it("运行中：作业 id 是子代理名，类型 agent（有对应的 agent 节点）", () => {
     const jobs = deriveTspJobs(docAt("hub-steer", 120), 1);
     expect(jobs.map((job) => [job.id, job.type, job.status])).toEqual([
-      ["Alpha", "task", "running"],
-      ["Beta", "task", "running"],
+      ["Alpha", "agent", "running"],
+      ["Beta", "agent", "running"],
     ]);
     expect(findJobsHudSeg(docAt("hub-steer", 120))).not.toBeNull();
   });
   it("结束后 hud 没有作业：子代理按 agent 节点、其余记为完成；子代理自己起的 bash（bg_2）带树形前缀被去掉", () => {
     const { jobs } = replayMerged("hub-steer");
     expect(jobs.map((job) => [job.id, job.type, job.label, job.status])).toEqual([
-      ["Alpha", "task", "Alpha", "completed"],
-      ["Beta", "task", "Beta", "completed"],
+      ["Alpha", "agent", "Alpha", "completed"],
+      ["Beta", "agent", "Beta", "completed"],
       ["bg_2", "bash", "sleep 75", "completed"],
     ]);
   });

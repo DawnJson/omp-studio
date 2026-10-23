@@ -19,11 +19,16 @@ import { sessionInfoSlashCommands } from "../session-info/session-slash.ts";
 import { toggleSlashCommands } from "../session-toggles/toggles-slash.ts";
 import { emitStudioCommand } from "../palette/studio-command.ts";
 import { archiveWithUndo } from "../sidebar/archive-store.ts";
-import { getTask, setPaletteOpen, showView } from "../../store/index.ts";
+import { getTask, setPaletteOpen, setSettingsQuery, showView } from "../../store/index.ts";
+import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import { pickerRequestFor, resolveEffortCommand, resolveModelCommand, resolveTodoCommand } from "./slash-args.ts";
 import type { StudioSlashCommand } from "./studio-slash.ts";
 import { setUsageDialogOpen } from "./usage-store.ts";
 
-const openSettings = () => showView("settings");
+const openSettings = (query: string) => {
+  showView("settings");
+  if (query !== "") setSettingsQuery(query);
+};
 const openShortcuts = () => showView("settings", { section: "shortcuts" });
 const openModelPicker = () => emitStudioCommand("model");
 const openUsage = () => setUsageDialogOpen(true);
@@ -50,7 +55,13 @@ export const studioSlashCommands: readonly StudioSlashCommand[] = [
     run: (taskId) => startDraft(getTask(taskId)?.projectId ?? null),
   },
   { name: "resume", descKey: "slash.resumeDesc", run: openPalette, draft: openPalette },
-  { name: "settings", descKey: "slash.settingsDesc", run: openSettings, draft: openSettings },
+  {
+    name: "settings",
+    descKey: "slash.settingsDesc",
+    // `/settings 关键词`：打开设置并搜索这个词。
+    run: (_taskId, args) => openSettings(args),
+    draft: (args) => openSettings(args),
+  },
   { name: "hotkeys", descKey: "slash.hotkeysDesc", run: openShortcuts, draft: openShortcuts },
   {
     name: "git",
@@ -73,10 +84,27 @@ export const studioSlashCommands: readonly StudioSlashCommand[] = [
     name: "model",
     aliases: ["switch"],
     descKey: "slash.modelDesc",
-    run: openModelPicker,
+    run: async (taskId, args) => {
+      const action = resolveModelCommand(args, await window.studio.listTaskModels(taskId));
+      if (action.kind === "omp") return "omp";
+      if (action.kind === "picker") return emitStudioCommand("model", action.request);
+      await window.studio.setTaskModel(taskId, action.key);
+      if (action.level !== null) await window.studio.setTaskThinkingLevel(taskId, action.level as ThinkingLevel);
+    },
+    // 草稿页没有模型目录可匹配：带的词原样填进选择器的搜索框。
+    draft: (args) => emitStudioCommand("model", pickerRequestFor(args)),
+  },
+  {
+    name: "effort",
+    descKey: "slash.effortDesc",
+    run: async (taskId, args) => {
+      const action = resolveEffortCommand(args, getTask(taskId)?.thinkingLevels ?? []);
+      if (action.kind === "omp") return "omp";
+      if (action.kind === "picker") return openModelPicker();
+      await window.studio.setTaskThinkingLevel(taskId, action.level);
+    },
     draft: openModelPicker,
   },
-  { name: "effort", descKey: "slash.effortDesc", run: openModelPicker, draft: openModelPicker },
   { name: "usage", descKey: "slash.usageDesc", run: openUsage, draft: openUsage },
   {
     name: "context",
@@ -89,7 +117,14 @@ export const studioSlashCommands: readonly StudioSlashCommand[] = [
   {
     name: "todo",
     descKey: "slash.todoDesc",
-    run: (taskId, _args, t) => {
+    run: async (taskId, args, t) => {
+      const todo = resolveTodoCommand(args);
+      if (todo.kind === "omp") return "omp";
+      if (todo.kind === "command") {
+        const { text } = await window.studio.runTaskCommand(taskId, todo.command);
+        if (text !== "") pushToast({ level: "info", message: text });
+        return;
+      }
       const phases = getTask(taskId)?.todoPhases ?? [];
       if (phases.every((phase) => phase.tasks.length === 0))
         pushToast({ level: "info", message: t("slash.todoEmpty") });

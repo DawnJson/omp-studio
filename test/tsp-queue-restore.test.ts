@@ -2,7 +2,8 @@
 // 第一句要一个长回复，3 秒后再发 `queued-b15: …`，2 秒后按 Esc，读到输入框里的文字后发 edit 清空）。逐帧验证 queue-restore.ts。
 import { describe, expect, it } from "vitest";
 import { applyMessage, createDocument } from "../src/shared/tsp/document.ts";
-import { hasQueuedMessages, restoredQueueEditor } from "../src/shared/tsp/queue-restore.ts";
+import { hasQueuedMessages } from "../src/shared/tsp/queue-restore.ts";
+import { foreignEditorText } from "../src/shared/tsp/editor-prefill.ts";
 import { loadTspFixture, tspDocMessages } from "./tsp-fixtures.ts";
 
 const QUEUED = "queued-b15: reply with exactly OK";
@@ -13,7 +14,7 @@ describe("排队消息 Esc 后退回 omp 输入框：queue-esc（omp 18.12.5）"
   const doc = createDocument();
   for (const { message } of tspDocMessages(lines)) {
     applyMessage(doc, message);
-    timeline.push({ queued: hasQueuedMessages(doc), restored: restoredQueueEditor(doc)?.text ?? null });
+    timeline.push({ queued: hasQueuedMessages(doc), restored: foreignEditorText(doc)?.text ?? null });
   }
 
   it("排队区出现过一段时间，这期间输入框是空的（还没被写回）", () => {
@@ -32,7 +33,7 @@ describe("排队消息 Esc 后退回 omp 输入框：queue-esc（omp 18.12.5）"
   it("没有排队、输入框空着时什么都读不到", () => {
     expect(timeline[0]).toEqual({ queued: false, restored: null });
     expect(hasQueuedMessages(createDocument())).toBe(false);
-    expect(restoredQueueEditor(createDocument())).toBeNull();
+    expect(foreignEditorText(createDocument())).toBeNull();
   });
 
   it("录制里 studio 发的 edit 把输入框清成空", () => {

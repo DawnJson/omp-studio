@@ -51,15 +51,17 @@ export function ProviderRow({
   if (signedIn || provider.authenticated || hasStoredKey) {
     badge = { tone: "success", text: t("login.badge.signedIn") };
     meta = signedIn ? accountText : hasStoredKey ? withEnv(t("login.keyInApp")) : withEnv(t("login.badge.env"));
-  } else if (loginKind === "terminal") {
-    badge = { tone: "neutral", text: t("login.terminalLogin") };
-    meta = t("login.terminalOnly");
   } else if (!provider.available) {
     badge = { tone: "neutral", text: t("login.unavailable") };
     meta = "";
   } else {
     badge = { tone: "neutral", text: t("login.notSignedIn") };
-    meta = loginKind === "oauth" ? t("login.kind.oauth") : t("login.kind.apiKey");
+    meta =
+      loginKind === "oauth"
+        ? t("login.kind.oauth")
+        : loginKind === "terminal"
+          ? t("login.kind.interactive")
+          : t("login.kind.apiKey");
   }
 
   const run = async (job: () => Promise<unknown>) => {
@@ -112,6 +114,16 @@ export function ProviderRow({
               disabled={busy || !provider.available}
               onClick={() => onFlow(provider, "login")}
               testId={`provider-login-${provider.id}`}
+            >
+              {t("login.signIn")}
+            </Button>
+          ) : loginKind === "terminal" ? (
+            // 要多步交互的 provider：rpc 的 login 被 omp 拒绝，在应用内起一个临时的 omp 走它自己的登录流程（TerminalLoginBody）。
+            <Button
+              size="sm"
+              disabled={busy || !provider.available}
+              onClick={() => onFlow(provider, "terminal")}
+              testId={`provider-terminal-login-${provider.id}`}
             >
               {t("login.signIn")}
             </Button>

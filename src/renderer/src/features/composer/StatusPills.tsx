@@ -16,6 +16,7 @@ import { toggleAgentsPanel, useAgentsPanel } from "../agents/index.ts";
 import { MeterView } from "../tsp/nodes/motion.tsx";
 import { useTspDerived } from "../tsp/tsp-store.ts";
 import { openTspJobs } from "./tsp-jobs-store.ts";
+import type { Job } from "../../../../shared/ui/jobs.ts";
 
 /** 和 ⓘ 说明（ui/InfoTip.tsx）一样的悬停延迟。 */
 const CARD_DELAY_MS = 250;
@@ -30,8 +31,8 @@ export function StatusPills({
   taskId: TaskId;
   /** 运行中的子代理数。 */
   agents: number;
-  /** 运行中的 bash 作业 id。 */
-  running: readonly string[];
+  /** 运行中的作业（除子代理）。 */
+  running: readonly Job[];
 }) {
   const t = useT();
   const panel = useAgentsPanel();
@@ -66,11 +67,10 @@ export function StatusPills({
   );
 }
 
-function JobsSegment({ taskId, running }: { taskId: TaskId; running: readonly string[] }) {
+function JobsSegment({ taskId, running }: { taskId: TaskId; running: readonly Job[] }) {
   const t = useT();
   const cardId = useId();
-  const all = useTspDerived(taskId, deriveJobTiles, sameJobTiles);
-  const tiles = (all ?? []).filter((tile) => running.includes(tile.id));
+  const tiles = useTspDerived(taskId, deriveJobTiles, sameJobTiles) ?? [];
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -111,26 +111,31 @@ function JobsSegment({ taskId, running }: { taskId: TaskId; running: readonly st
         }}
         onClick={() => {
           hide();
-          openTspJobs(taskId, running[0]!).catch((error: unknown) => reportOmpError(t, error));
+          openTspJobs(taskId, running[0]!.id).catch((error: unknown) => reportOmpError(t, error));
         }}
       >
         <Bolt size={13} />
         <span className="status-pill-count">{running.length}</span>
       </button>
-      {open && <JobsCard id={cardId} label={label} tiles={tiles} anchor={button} />}
+      {open && <JobsCard id={cardId} label={label} jobs={running} tiles={tiles} anchor={button} />}
     </>
   );
 }
 
-/** 右对齐贴在药丸这一段的上方；omp 还没给出悬停卡片（作业刚起）时只有标题那一行。 */
+/**
+ * 右对齐贴在药丸这一段的上方：每个运行中的作业一块（omp 的悬停卡片给了的用它的内容，没给的——作业刚起、或 omp 的 hud 没写这个作业——
+ * 只有名字、id 和类型），类型（bash / eval / task，omp 自己的叫法，不翻译）标在 id 旁。
+ */
 function JobsCard({
   id,
   label,
+  jobs,
   tiles,
   anchor,
 }: {
   id: string;
   label: string;
+  jobs: readonly Job[];
   tiles: readonly JobTile[];
   anchor: RefObject<HTMLElement | null>;
 }) {
@@ -146,25 +151,31 @@ function JobsCard({
   return createPortal(
     <div id={id} role="tooltip" className="ui-popover jobs-card" data-testid="jobs-card" style={place}>
       <p className="ui-pop-title">{label}</p>
-      {tiles.map((tile) => (
-        <div key={tile.id} className="jobs-card-tile" data-testid="jobs-card-tile" data-job-id={tile.id}>
-          <div className="jobs-card-head">
-            <span className="jobs-card-name">{tile.title || tile.id}</span>
-            <span className="jobs-card-id">{tile.id}</span>
-          </div>
-          {tile.meter !== null && (
-            <div className="jobs-card-progress">
-              <MeterView p={{ value: tile.meter }} />
-              {tile.figure !== "" && <span className="jobs-card-figure">{tile.figure}</span>}
+      {jobs.map((job) => {
+        const tile = tiles.find((candidate) => candidate.id === job.id);
+        return (
+          <div key={job.id} className="jobs-card-tile" data-testid="jobs-card-tile" data-job-id={job.id}>
+            <div className="jobs-card-head">
+              <span className="jobs-card-name">{tile?.title || job.label || job.id}</span>
+              <span className="jobs-card-type" data-testid="jobs-card-type" data-type={job.type}>
+                {job.type}
+              </span>
+              <span className="jobs-card-id">{job.id}</span>
             </div>
-          )}
-          {tile.notes.map((note, index) => (
-            <p key={index} className="jobs-card-note">
-              {note}
-            </p>
-          ))}
-        </div>
-      ))}
+            {tile !== undefined && tile.meter !== null && (
+              <div className="jobs-card-progress">
+                <MeterView p={{ value: tile.meter }} />
+                {tile.figure !== "" && <span className="jobs-card-figure">{tile.figure}</span>}
+              </div>
+            )}
+            {tile?.notes.map((note, index) => (
+              <p key={index} className="jobs-card-note">
+                {note}
+              </p>
+            ))}
+          </div>
+        );
+      })}
     </div>,
     document.body,
   );

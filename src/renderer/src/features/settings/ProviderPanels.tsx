@@ -20,7 +20,9 @@ export type Flow =
   | ({ kind: "login" } & LoginProgress)
   | { kind: "failed"; message: string }
   | { kind: "accounts" }
-  | { kind: "key" };
+  | { kind: "key" }
+  /** 应用内终端登录：临时 omp 的登录窗（TerminalLoginBody）。 */
+  | { kind: "terminal" };
 
 export function LoginBody({
   flow,

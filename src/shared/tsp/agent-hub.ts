@@ -282,6 +282,11 @@ export function findFocus(doc: TspDocument): FocusView | null {
   return null;
 }
 
+/** 聚焦的子代理名（输入框占位符 "Message <名字>"）；没聚焦为 null。 */
+export function focusedAgentName(doc: TspDocument): string | null {
+  return findFocus(doc)?.name ?? null;
+}
+
 // ───────── 驱动 Hub 的用户消息回显 ─────────
 
 /** 文档里用户消息 / 排队消息节点的个数：聚焦模式下 `send` 之后 omp 回显它（hub-steer 录制），个数增加 = 消息被接收。 */

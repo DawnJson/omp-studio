@@ -6,6 +6,7 @@ import { parseRunnerModels } from "../../shared/omp-output/models.ts";
 import { apiKeyStore } from "../omp-manager/api-keys.ts";
 import { getApiKeyEnv, readyOmp } from "../omp-manager/index.ts";
 import { answerLoginInput, cancelLogin, startLogin } from "../service/login.ts";
+import { terminalLogin } from "../login/terminal-login-instance.ts";
 import { listModelOptions } from "../service/default-model.ts";
 import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
@@ -29,6 +30,8 @@ export const accountHandlers: HandlerGroup<
   | "startLogin"
   | "answerLoginInput"
   | "cancelLogin"
+  | "startTerminalLogin"
+  | "cancelTerminalLogin"
   | "listAccounts"
   | "logout"
   | "saveApiKey"
@@ -53,6 +56,14 @@ export const accountHandlers: HandlerGroup<
     return Promise.resolve();
   },
   cancelLogin: () => cancelLogin(),
+  // providerId 不可信：TerminalLogin.start 在 omp 的登录 provider 列表里查，不在就 reject、不起进程。
+  startTerminalLogin: async (providerId) => {
+    const outcome = await terminalLogin().start(parseProviderId(providerId));
+    // 凭据是别的进程写进去的：服务进程里 omp 缓存的认证状态是旧的，关掉让下次读到新的（同 applyKeyChange）。
+    if (outcome.ok) await serviceOmp.close();
+    return outcome;
+  },
+  cancelTerminalLogin: () => terminalLogin().cancel(),
   listAccounts: async (providerId) => {
     const id = parseProviderId(providerId);
     const { accounts } = await serviceOmp.use((connection) =>

@@ -7,7 +7,7 @@ import { requestStickToBottom } from "../conversation/scroll-bus.ts";
 import { appendToDraft, clearDraft, getDraft, restoreDraft } from "./draft-store.ts";
 import { buildSubmission } from "./composer-tokens.ts";
 import { stopToasts } from "./stop-outcome.ts";
-import { findStudioSlash, handledCommands } from "./studio-slash.ts";
+import { findStudioSlash, handledCommands, type SlashRunResult } from "./studio-slash.ts";
 import { studioSlashCommands } from "./studio-slash-table.ts";
 
 export type Delivery = "steer" | "followUp";
@@ -23,17 +23,19 @@ export async function sendDraft(taskId: TaskId, whenBusy: Delivery, t: TFunction
   const text = submission.text.trim();
   if (text === "" && submission.images.length === 0 && submission.files.length === 0) return;
   const studio = submission.images.length === 0 ? findStudioSlash(text, handledCommands(studioSlashCommands)) : null;
+  clearDraft(taskId);
   if (studio !== null) {
-    clearDraft(taskId);
+    let outcome: SlashRunResult | void;
     try {
-      await studio.command.run(taskId, studio.args, t);
+      outcome = await studio.command.run(taskId, studio.args, t);
     } catch (error) {
       restoreDraft(taskId, draft);
       reportError(t, error);
+      return;
     }
-    return;
+    // studio 认得这条命令的参数就办完了；不认得（"omp"）时原文照常发给 omp。
+    if (outcome !== "omp") return;
   }
-  clearDraft(taskId);
   requestStickToBottom(taskId);
   try {
     await window.studio.sendPrompt(taskId, {

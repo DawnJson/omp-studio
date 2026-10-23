@@ -104,3 +104,8 @@ export function appendToDraft(taskId: TaskId, texts: readonly string[], images: 
 export function restoreDraft(taskId: TaskId, draft: Draft): void {
   setDraft(taskId, appendDraft(getDraft(taskId), draft));
 }
+
+/** omp 往它自己（studio 不画）的输入框里写了文字（Ctrl+R 选中的历史、⌥↑ 取回的排队消息、`/annotate`、`/plan` 预填）：主进程已清空那边，接进这个任务的草稿。 */
+if (typeof window !== "undefined" && "studio" in window) {
+  window.studio.onComposerPrefill(({ taskId, text }) => appendToDraft(taskId, [text]));
+}

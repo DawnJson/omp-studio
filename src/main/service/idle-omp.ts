@@ -12,6 +12,8 @@ export interface IdleOmpOptions {
   assignJob: (pid: number | undefined) => void;
   /** 没有操作在做之后多久关。 */
   idleCloseMs: number;
+  /** 刚 spawn、握手还没完成时调用（同步）：在这里挂 `onFrame`，不会漏掉握手期间 omp 主动发出的帧（如 `available_commands_update`）。 */
+  onSpawn?: (connection: OmpConnection) => void;
 }
 
 export class IdleOmp {
@@ -44,6 +46,7 @@ export class IdleOmp {
     // 启动准备期间已经 close()（退出、取消登录）：不再起进程。
     if (generation !== this.#generation) throw new Error("the omp process was closed while starting");
     const connection = OmpConnection.spawn(launch);
+    this.#options.onSpawn?.(connection);
     try {
       // 同一个同步段里放进 Job Object：主进程被强杀时由系统回收。
       this.#options.assignJob(connection.pid);

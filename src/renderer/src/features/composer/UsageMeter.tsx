@@ -11,13 +11,16 @@ import { Popover } from "../../ui/Popover.tsx";
 import { onStudioCommand } from "../palette/studio-command.ts";
 import { useSessionExtras } from "../tsp/session-extras-store.ts";
 import { formatTokensPerSecond } from "./speed-limit-format.ts";
+import { useTspDerived } from "../tsp/tsp-store.ts";
+import { deriveComposerFacts, sameComposerFacts } from "../../../../shared/tsp/composer-facts.ts";
 import { formatCount, formatPercent } from "./usage-format.ts";
 
 const ringSize = 20;
 const ringRadius = 8;
 const ringLength = 2 * Math.PI * ringRadius;
 
-function Ring({ percent }: { percent: number }) {
+/** 圆环：描边弧 = 已用；`autoAt`（0–100）是自动压缩触发点，在圆环上横穿一道刻度。 */
+function Ring({ percent, autoAt = null }: { percent: number; autoAt?: number | null }) {
   const filled = (Math.min(100, Math.max(0, percent)) / 100) * ringLength;
   const center = ringSize / 2;
   return (
@@ -37,6 +40,18 @@ function Ring({ percent }: { percent: number }) {
         strokeDasharray={`${filled} ${ringLength}`}
         transform={`rotate(-90 ${center} ${center})`}
       />
+      {autoAt !== null && (
+        <line
+          className="usage-ring-tick"
+          data-testid="context-ring-tick"
+          data-at={autoAt}
+          x1={center}
+          y1={0}
+          x2={center}
+          y2={4}
+          transform={`rotate(${(Math.min(100, Math.max(0, autoAt)) / 100) * 360} ${center} ${center})`}
+        />
+      )}
     </svg>
   );
 }
@@ -70,6 +85,8 @@ function ContextButton({
   };
   const label = t("composer.context", { p: formatPercent(context.percent) });
   const expanded = usageOpen && task !== undefined && hasModelUsage(usage);
+  // omp 的自动压缩触发点（输入框卡片的 meter 里读到的生效值）；圆环上画一道刻度。
+  const autoAt = task?.contextCompaction?.autoAtPercent ?? null;
   return (
     <div className="ui-popover-anchor usage-context-anchor">
       <button
@@ -81,12 +98,12 @@ function ContextButton({
         title={`${label} · ${t("composer.usage.context", {
           used: formatCount(context.tokens),
           total: formatCount(context.contextWindow),
-        })}\n${t("composer.context.tip")}`}
+        })}\n${autoAt === null ? t("composer.context.tip") : t("board.ctxAutoAt", { p: Math.round(autoAt) })}`}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => (open ? close() : setOpen(true))}
       >
-        <Ring percent={context.percent} />
+        <Ring percent={context.percent} autoAt={autoAt} />
       </button>
       <Popover
         open={open}
@@ -141,7 +158,7 @@ export function ContextMeter({ task }: { task: TaskState }) {
   if (context === null) return <ContextPlaceholder />;
   return (
     <ContextButton context={context} task={task}>
-      <TaskContextBreakdown key={task.id} taskId={task.id} context={context} />
+      <TaskContextBreakdown key={task.id} taskId={task.id} context={context} task={task} />
     </ContextButton>
   );
 }
@@ -159,18 +176,29 @@ export function DraftContextMeter({ model, projectId }: { model: ModelOption | n
 }
 
 /**
- * 工具行里模型/审批胶囊右边的速度：TSP 里 omp 没有实时速度，取会话文件里最近一条回复的（`useSessionExtras().tokensPerSecond`，
- * output ÷ (duration − ttft)，一轮结束时刷新）；运行中显示的是上一条回复的，空闲时不显示。
+ * 工具行里模型/审批胶囊右边的速度：有 omp 的实时速度（输入框卡片里的 `omp.composer.rate`，只在 omp 设置 `composer.tokenRate` 开着时有，
+ * shared/tsp/composer-facts.ts）就用它（取整，避免每秒十几次数字乱跳）；没有就取会话文件里最近一条回复的
+ * （`useSessionExtras().tokensPerSecond`，output ÷ (duration − ttft)，一轮结束时刷新）。运行中才显示，空闲时不显示。
  */
 export function UsageMeter({ task }: { task: TaskState }) {
   const t = useT();
   const { tokensPerSecond } = useSessionExtras(task.id);
+  const liveRate = useTspDerived(task.id, deriveComposerFacts, sameComposerFacts)?.rate ?? null;
   const busy = task.status === "running" || task.status === "needs_you";
-  const speedText = busy ? formatTokensPerSecond(tokensPerSecond) : null;
+  const speedText = !busy
+    ? null
+    : liveRate !== null
+      ? String(Math.max(1, Math.round(liveRate)))
+      : formatTokensPerSecond(tokensPerSecond);
   if (speedText === null) return null;
   return (
     <div className="usage" role="group" aria-label={t("composer.usage.aria")} data-testid="usage-meter">
-      <span className="usage-item usage-tps" data-testid="usage-tps" title={t("composer.usage.tpsTip")}>
+      <span
+        className="usage-item usage-tps"
+        data-testid="usage-tps"
+        data-live={liveRate !== null || undefined}
+        title={t(liveRate !== null ? "modes.rate.tip" : "composer.usage.tpsTip")}
+      >
         {t("composer.usage.tps", { n: speedText })}
       </span>
     </div>

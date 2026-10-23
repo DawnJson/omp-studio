@@ -3,12 +3,10 @@ import type { AvailableSlashCommand } from "../src/shared/omp-wire/rpc-wire.gene
 import type { TaskId } from "../src/shared/ipc.ts";
 import { applyFileCompletion, atReference } from "../src/renderer/src/features/composer/file-complete.ts";
 import {
-  MAX_HISTORY,
   cycleHistory,
-  hasHistory,
+  isCycling,
   mergeEntries,
-  pushEntry,
-  recordSent,
+  resetHistoryCursor,
   shouldCycle,
   stepHistory,
 } from "../src/renderer/src/features/composer/input-history.ts";
@@ -33,10 +31,9 @@ describe("斜杠守卫", () => {
     expect(decideSlashSend("/C now", commands)).toEqual({ kind: "send" });
     expect(decideSlashSend("hello", commands)).toEqual({ kind: "send" });
   });
-  it("列表里没有：终端独有的命令标 terminal，其余未知命令只提示", () => {
-    expect(decideSlashSend("/plan", commands)).toEqual({ kind: "warn", name: "plan", terminal: true });
-    expect(decideSlashSend("/Hotkeys x", commands)).toEqual({ kind: "warn", name: "Hotkeys", terminal: true });
-    expect(decideSlashSend("/nope", commands)).toEqual({ kind: "warn", name: "nope", terminal: false });
+  it("列表里没有的命令只提示（名字原样带回）", () => {
+    expect(decideSlashSend("/nope", commands)).toEqual({ kind: "warn", name: "nope" });
+    expect(decideSlashSend("/Hotkeys x", commands)).toEqual({ kind: "warn", name: "Hotkeys" });
   });
   it("命令列表还没载入（空）时不拦", () => {
     expect(decideSlashSend("/plan", [])).toEqual({ kind: "send" });
@@ -54,17 +51,6 @@ describe("斜杠菜单不再截断到 8 条", () => {
 });
 
 describe("输入历史", () => {
-  it("pushEntry：空的、与上一条相同的不记，超限丢最旧", () => {
-    expect(pushEntry([], "  ")).toEqual([]);
-    expect(pushEntry(["a"], "a")).toEqual(["a"]);
-    expect(pushEntry(["a"], " b ")).toEqual(["a", "b"]);
-    const full = Array.from({ length: MAX_HISTORY }, (_, i) => `m${i}`);
-    const next = pushEntry(full, "new");
-    expect(next).toHaveLength(MAX_HISTORY);
-    expect(next[0]).toBe("m1");
-    expect(next.at(-1)).toBe("new");
-  });
-
   it("stepHistory：最新的在前，翻过最新一条放回草稿，到最旧停住", () => {
     const entries = ["one", "two", "three"];
     const s1 = stepHistory(entries, null, "draft", "up");
@@ -94,25 +80,33 @@ describe("输入历史", () => {
     expect(shouldCycle("down", "a\nb", 3, true, true)).toBe(true);
   });
 
-  it("按任务记：发送追加，cycleHistory 走完后恢复草稿", () => {
+  it("按任务记游标：cycleHistory 走完后恢复草稿；游标互不影响", () => {
     const id = "history-task" as TaskId;
-    expect(hasHistory(id, [])).toBe(false);
-    recordSent(id, "second");
-    recordSent(id, "third");
-    expect(hasHistory(id, [])).toBe(true);
-    expect(cycleHistory(id, [], "wip", "up")).toBe("third");
-    expect(cycleHistory(id, [], "third", "up")).toBe("second");
-    expect(cycleHistory(id, [], "second", "down")).toBe("third");
-    expect(cycleHistory(id, [], "third", "down")).toBe("wip");
-    expect(cycleHistory(id, [], "wip", "down")).toBeNull();
-    expect(hasHistory("other-task" as TaskId, [])).toBe(false);
+    const entries = ["first", "second", "third"];
+    expect(isCycling(id)).toBe(false);
+    expect(cycleHistory(id, entries, "wip", "up")).toBe("third");
+    expect(isCycling(id)).toBe(true);
+    expect(cycleHistory(id, entries, "third", "up")).toBe("second");
+    expect(cycleHistory(id, entries, "second", "down")).toBe("third");
+    expect(cycleHistory(id, entries, "third", "down")).toBe("wip");
+    expect(isCycling(id)).toBe(false);
+    expect(cycleHistory(id, entries, "wip", "down")).toBeNull();
+    expect(isCycling("other-task" as TaskId)).toBe(false);
+    cycleHistory(id, entries, "", "up");
+    resetHistoryCursor(id);
+    expect(isCycling(id)).toBe(false);
   });
 
   it("恢复的会话：没在 studio 里发过也能翻到会话里的用户消息", () => {
     const id = "resumed-task" as TaskId;
-    expect(hasHistory(id, ["旧问题一", "旧问题二"])).toBe(true);
-    expect(cycleHistory(id, ["旧问题一", "旧问题二"], "", "up")).toBe("旧问题二");
-    expect(cycleHistory(id, ["旧问题一", "旧问题二"], "旧问题二", "up")).toBe("旧问题一");
+    const entries = mergeEntries(["旧问题一", "旧问题二"], []);
+    expect(cycleHistory(id, entries, "", "up")).toBe("旧问题二");
+    expect(cycleHistory(id, entries, "旧问题二", "up")).toBe("旧问题一");
+  });
+
+  it("项目里别的任务发过的（落盘历史里有、这个会话里没有）排在前面，会话里的顺序不变", () => {
+    expect(mergeEntries(["b", "d"], ["a", "b", "c", "d"])).toEqual(["a", "b", "c", "d"]);
+    expect(mergeEntries(["x"], ["old1", "old2"])).toEqual(["old1", "old2", "x"]);
   });
 
   it("mergeEntries：以会话为准，studio 记下但 omp 还没回显的（斜杠命令、排队中）按发送顺序插进去，相邻重复只留一条", () => {

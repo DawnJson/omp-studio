@@ -1,0 +1,112 @@
+/* 输入框上方状态行里 omp 状态区的几项（ComposerNotes.tsx）：重试倒计时、压缩进度条、取消 / 重试按钮、扩展状态标签、聚焦横幅。 */
+.run-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+.run-ring {
+  flex: none;
+}
+.run-ring-track,
+.run-ring-arc {
+  fill: none;
+  stroke-width: 2;
+}
+.run-ring-track {
+  stroke: var(--border);
+}
+.run-ring-arc {
+  stroke: var(--st-waiting-text);
+  stroke-linecap: round;
+  transition: stroke-dasharray 500ms linear;
+}
+/* 压缩：不定进度条，一小段亮条来回扫。减少动效时静止。 */
+.run-progress {
+  position: relative;
+  flex: 0 1 96px;
+  height: 3px;
+  min-width: 48px;
+  overflow: hidden;
+  background: var(--border);
+  border-radius: var(--radius-pill);
+}
+.run-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 35%;
+  background: var(--accent);
+  border-radius: inherit;
+  animation: run-progress-sweep 1.2s var(--ease-out) infinite;
+}
+@keyframes run-progress-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .run-progress::after {
+    width: 100%;
+    opacity: 0.4;
+    animation: none;
+  }
+}
+:root[data-motion="reduced"] .run-progress::after {
+  width: 100%;
+  opacity: 0.4;
+  animation: none;
+}
+.run-cancel {
+  flex: none;
+}
+.run-interrupted {
+  color: var(--st-waiting-text);
+}
+
+/* 扩展 setStatus 写的状态：状态行右侧的只读小标签。 */
+.run-ext {
+  display: flex;
+  flex: 0 1 auto;
+  gap: var(--space-1-5);
+  min-width: 0;
+  margin-left: auto;
+}
+.run-ext + .run-todo,
+.run-ext + .run-pills {
+  margin-left: 0;
+}
+.run-ext-tag {
+  min-width: 0;
+  max-width: 22ch;
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--bg-hover);
+  border-radius: var(--radius-pill);
+}
+
+/* 聚焦子代理：状态行上方一行横幅。 */
+.run-focus {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text);
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+}
+.run-focus-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

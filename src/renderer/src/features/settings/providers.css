@@ -84,3 +84,39 @@
   overflow-y: auto;
   border-top: 1px solid var(--border);
 }
+
+/* 应用内终端登录：对话框里只画 omp 登录窗（`omp.overlay.login`）的内容。omp 的弹窗是盖在过程区上的浮层（绝对定位、自带标题和阴影），
+   这里摊平成对话框正文的一部分：标题用对话框自己的、不要遮罩和浮起；omp 的 Cancel 按钮和页脚的"取消"是同一件事，只留页脚的。 */
+.pv-terminal {
+  display: block;
+  min-height: 96px;
+}
+
+.pv-terminal .tsp-surface,
+.pv-terminal .tsp-layer {
+  position: static;
+  display: block;
+}
+
+.pv-terminal .tspi-overlay.modal {
+  position: static;
+  padding: 0;
+}
+
+.pv-terminal .tspi-ov-dim,
+.pv-terminal .tspi-ov-head,
+.pv-terminal [data-id$="/actions/cancel"] {
+  display: none;
+}
+
+.pv-terminal .tspi-overlay.modal .tspi-ov-card {
+  width: auto;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+.pv-terminal .tspi-ov-body {
+  padding: 0;
+  overflow: visible;
+}

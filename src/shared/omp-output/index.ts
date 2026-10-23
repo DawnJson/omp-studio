@@ -123,7 +123,27 @@ export type TaskCommand =
   | { kind: "modelPreset"; op: "list" }
   | { kind: "modelPreset"; op: "save" | "switch" | "delete"; name: string }
   | { kind: "browserMode"; mode: (typeof BROWSER_MODES)[number] }
-  | { kind: "prewalk"; op: (typeof PREWALK_OPS)[number] };
+  | { kind: "prewalk"; op: (typeof PREWALK_OPS)[number] }
+  // ── B1Board：待办（`/todo`，omp 18.12.6 实测见 docs/architecture/todo-board.md）和交接 ──
+  /** `/todo start <任务>`：目标按内容模糊匹配（先全等再子串）。 */
+  | { kind: "todo"; op: "start"; target: string }
+  /** `/todo done|drop|rm [<任务|阶段>]`：不带目标 = 全部。`/todo done x`（斜杠命令接管）也走这里。 */
+  | { kind: "todo"; op: "done" | "drop" | "rm"; target?: string }
+  /** `/todo append [<阶段>] <任务>`：阶段模糊匹配已有的，没有就新建；省略阶段 = 追加到最后一个阶段。 */
+  | { kind: "todo"; op: "append"; task: string; phase?: string }
+  /** `/handoff`：把会话总结成交接文档并就地压缩（omp 18.12.6）。 */
+  | { kind: "handoff" }
+  // ── B1Status：模式（`/plan` `/plan-review` `/vibe` `/loop`，omp 18.12.6 实测见 docs/architecture/conversation.md「模式与状态区」）──
+  /** `/plan`：切换计划模式（开 → 退出到 `Plan (paused)` → 关闭）；发之前看模式，结果以 omp 的状态行为准。 */
+  | { kind: "plan" }
+  /** `/plan-review`：重新打开最近一份计划的评审（只有计划模式开着时才有）。 */
+  | { kind: "planReview" }
+  /** `/vibe`：切换 vibe 模式。 */
+  | { kind: "vibe" }
+  /** `/loop [次数|时长] [--while|--until '<命令>'] [提示]`：只在循环关着时开启。 */
+  | { kind: "loopStart"; limit?: string; condition?: { until: boolean; command: string }; prompt?: string }
+  /** `/loop`：循环开着时关闭。 */
+  | { kind: "loopStop" };
 
 // ── 各切片在这里下面追加自己的 TaskCommand 成员（`| { kind: ... }`）并在两个 switch 里加 case ──
 
@@ -157,6 +177,17 @@ export function parseTaskCommand(value: unknown): TaskCommand {
       return { kind: "browserMode", mode: oneOf(input["mode"], BROWSER_MODES, "mode") };
     case "prewalk":
       return { kind: "prewalk", op: oneOf(input["op"], PREWALK_OPS, "op") };
+    case "todo":
+      return parseTodo(input);
+    case "handoff":
+      return { kind: "handoff" };
+    case "plan":
+    case "planReview":
+    case "vibe":
+    case "loopStop":
+      return { kind: input["kind"] };
+    case "loopStart":
+      return parseLoopStart(input);
     default:
       return fail(`unknown task command ${JSON.stringify(input["kind"])}`);
   }
@@ -191,7 +222,121 @@ export function taskCommandText(cmd: TaskCommand): string {
       return `/browser ${cmd.mode}`;
     case "prewalk":
       return cmd.op === "arm" ? "/prewalk" : `/prewalk ${cmd.op}`;
+    case "todo":
+      return todoText(cmd);
+    case "handoff":
+      return "/handoff";
+    case "plan":
+      return "/plan";
+    case "planReview":
+      return "/plan-review";
+    case "vibe":
+      return "/vibe";
+    case "loopStart":
+      return loopStartText(cmd);
+    case "loopStop":
+      return "/loop";
   }
+}
+
+// ── B1Board：待办 / 交接 ──
+
+const TODO_BULK_OPS = ["done", "drop", "rm"] as const;
+
+function parseTodo(input: Record<string, unknown>): TaskCommand {
+  const op = oneOf(input["op"], ["start", "append", ...TODO_BULK_OPS] as const, "op");
+  if (op === "start") return { kind: "todo", op, target: line(input["target"], "target") };
+  if (op === "append") {
+    const task = line(input["task"], "task");
+    return input["phase"] === undefined
+      ? { kind: "todo", op, task }
+      : { kind: "todo", op, task, phase: line(input["phase"], "phase") };
+  }
+  return input["target"] === undefined
+    ? { kind: "todo", op }
+    : { kind: "todo", op, target: line(input["target"], "target") };
+}
+
+/**
+ * `/todo append` 的参数：omp 把它按空白切成词（`"…"` 里的空白不切，`\` 转义下一个字符），只有一个词时它是任务、
+ * 两个以上时第一个词是阶段、其余用空格拼成任务（18.12.6 `todo-command-controller.ts`，实测见 docs/architecture/todo-board.md）。
+ * 所以阶段和任务都整个加引号，免得一个多词的任务被当成"阶段 + 任务"。
+ */
+function quoteTodoWord(value: string): string {
+  return `"${value.replace(/[\\"]/g, "\\$&")}"`;
+}
+
+function todoText(cmd: Extract<TaskCommand, { kind: "todo" }>): string {
+  if (cmd.op === "start") return `/todo start ${line(cmd.target, "target").trim()}`;
+  if (cmd.op === "append") {
+    const task = quoteTodoWord(line(cmd.task, "task").trim());
+    return cmd.phase === undefined
+      ? `/todo append ${task}`
+      : `/todo append ${quoteTodoWord(line(cmd.phase, "phase").trim())} ${task}`;
+  }
+  return cmd.target === undefined ? `/todo ${cmd.op}` : `/todo ${cmd.op} ${line(cmd.target, "target").trim()}`;
+}
+
+// ── B1Status：循环（`/loop`）──
+
+/** 次数（`10`）或紧凑的时长（`90s`、`10m`、`1h30m`）；omp 还认 `5 minutes` 这样的两个词，这里不收。 */
+export const LOOP_LIMIT = /^(?:\d{1,6}|(?:\d{1,6}[smh])+)$/;
+
+function loopCondition(value: unknown): { until: boolean; command: string } {
+  const input = asRecord(value);
+  const command = input["command"];
+  if (typeof command !== "string" || command.trim() === "" || command.length > 500 || CONTROL.test(command))
+    fail("condition.command must be a non-empty single-line string of at most 500 characters");
+  return { until: bool(input["until"], "condition.until"), command: command.trim() };
+}
+
+/**
+ * 提示放在最后。omp 的参数解析（18.12.6 `parseLoopArgs`）把第一个以数字开头的词当次数 / 时长、把 `--` 开头的词当选项：
+ * 没给次数 / 条件时提示不能以数字开头，任何时候都不能以 `-` 开头，免得提示被当成选项。
+ */
+function loopPrompt(value: unknown, hasLimitOrCondition: boolean): string {
+  const prompt = line(value, "prompt").trim();
+  if (prompt.startsWith("-") || (!hasLimitOrCondition && /^[+-]?\d/.test(prompt)))
+    fail("prompt must not start with '-' (or with a digit when no count, duration or condition is given)");
+  return prompt;
+}
+
+function parseLoopStart(input: Record<string, unknown>): TaskCommand {
+  const limit = input["limit"];
+  if (limit !== undefined && (typeof limit !== "string" || !LOOP_LIMIT.test(limit)))
+    fail("limit must be a count (10) or a duration (90s, 10m, 1h30m)");
+  const condition = input["condition"] === undefined ? undefined : loopCondition(input["condition"]);
+  const hasLimitOrCondition = limit !== undefined || condition !== undefined;
+  const prompt = input["prompt"] === undefined ? undefined : loopPrompt(input["prompt"], hasLimitOrCondition);
+  return {
+    kind: "loopStart",
+    ...(limit !== undefined && { limit }),
+    ...(condition !== undefined && { condition }),
+    ...(prompt !== undefined && { prompt }),
+  };
+}
+
+/**
+ * omp 用 shell 的切词规则读 `--while` / `--until` 后面的命令：没有单引号时用单引号包（里面一切照字面），
+ * 有单引号时用双引号包并转义 `\` `"` `$` `` ` ``（切词器只认这四个转义）。
+ */
+function quoteLoopCommand(command: string): string {
+  return command.includes("'") ? `"${command.replace(/[\\"$`]/g, "\\$&")}"` : `'${command}'`;
+}
+
+function loopStartText(cmd: Extract<TaskCommand, { kind: "loopStart" }>): string {
+  const parts = ["/loop"];
+  if (cmd.limit !== undefined) {
+    if (!LOOP_LIMIT.test(cmd.limit)) fail("limit must be a count (10) or a duration (90s, 10m, 1h30m)");
+    parts.push(cmd.limit);
+  }
+  if (cmd.condition !== undefined) {
+    const { until, command } = loopCondition(cmd.condition);
+    parts.push(until ? "--until" : "--while", quoteLoopCommand(command));
+  }
+  if (cmd.prompt !== undefined)
+    parts.push(loopPrompt(cmd.prompt, cmd.limit !== undefined || cmd.condition !== undefined));
+  return parts.join(" ");
 }
 
 // ───────── BuiltinCommand：和会话无关，在服务进程 / 项目 rpc-ui 里执行 ─────────

@@ -44,6 +44,8 @@ import {
   type TspComposerTargets,
 } from "../../shared/tsp/composer-state.ts";
 import { compactionMark, compactionOutcome } from "../../shared/tsp/compaction.ts";
+import { deriveContextCompaction } from "../../shared/tsp/context-compaction.ts";
+import { errorLines, newErrorLine } from "../../shared/tsp/error-lines.ts";
 import { ACTION_CONTEXT_REPORT, findContextReport } from "../../shared/tsp/context-report.ts";
 import {
   applyToggleObservation,
@@ -73,7 +75,9 @@ import {
   findTreePicker,
   hasNavigatedToast,
 } from "../../shared/tsp/session-tree.ts";
-import { hasQueuedMessages, restoredQueueEditor } from "../../shared/tsp/queue-restore.ts";
+import { hasQueuedMessages } from "../../shared/tsp/queue-restore.ts";
+import { clearEditorEvent, foreignEditorText } from "../../shared/tsp/editor-prefill.ts";
+import { followUpText } from "../../shared/tsp/queue-command.ts";
 import {
   TSP_APPROVAL_DIALOG_ID,
   TSP_ASK_DIALOG_ID,
@@ -113,6 +117,14 @@ import { pathKey, type TaskRecord } from "./task-registry.ts";
 import { WorkspaceDirs } from "./workspace-dirs.ts";
 import { TspGoalTracker } from "./tsp-goal.ts";
 import { GOAL_TOASTS, findGoalDropPrompt } from "../../shared/tsp/goal.ts";
+import { TspComposerFactsTracker } from "./tsp-composer-facts.ts";
+import {
+  deriveComposerFacts,
+  modeCommandBlocker,
+  modeCommandDone,
+  type ComposerFacts,
+  type ModeOp,
+} from "../../shared/tsp/composer-facts.ts";
 import { TspBtw } from "./tsp-btw.ts";
 import { fillFileSlots } from "../../shared/composer-files.ts";
 import { resolveComposerFiles } from "../files/composer-files.ts";
@@ -173,13 +185,15 @@ export interface TspRunnerHost {
   onNotice?(notice: TaskNotice): void;
   /** 旁路提问（`/btw`）镜像的变化；没提供（多数测试）时不推。 */
   onBtw?(taskId: TaskId, event: BtwUiEvent): void;
+  /** omp 往它自己的输入框里写了 studio 没发的文字：已清空 omp 那边，放进 studio 的输入框；没提供（多数测试）时不推。 */
+  onComposerPrefill?(taskId: TaskId, text: string): void;
   session: TspSessionDeps;
   /** 上次读到的模型目录里的这一项；没有（或没提供）时胶囊先显示模型 id。 */
   knownModel?(key: ModelKey): ModelOption | null;
   /** 模型目录（服务进程的 get_available_models，和草稿输入框用的同一份）：把 omp 的模型显示名换成模型键、给 listTaskModels。 */
   listModels?(): Promise<ModelOption[]>;
-  /** omp 的命令列表（服务进程）；没提供时 TSP 任务的列表为空。 */
-  listSlashCommands?(): Promise<AvailableSlashCommand[]>;
+  /** omp 的命令列表：任务目录里的项目 rpc-ui（项目 skill、自定义命令、扩展命令）；没提供时 TSP 任务的列表为空。 */
+  listSlashCommands?(cwd: string): Promise<AvailableSlashCommand[]>;
   /** 把会话文件导出成 HTML（`omp --export`，见 omp/export-session.ts）；没提供时 TSP 任务不能导出。 */
   exportSession?(sessionFile: string, outputPath: string, cwd: string): Promise<void>;
   /** 新任务默认值；没提供时输入框出现之前不显示模型。 */
@@ -298,6 +312,10 @@ export class TspRunner {
   #chosenKey: ModelKey | null = null;
   #persistingChoice = false;
   #uiChain: Promise<void> = Promise.resolve();
+  /** 正在自己读 omp 输入框文字的操作数（Esc 取回排队消息、`#exclusive` 里的界面操作）；大于 0 时通用回填不动输入框。 */
+  #editorClaims = 0;
+  /** 通用回填正在取走 omp 输入框里的文字（取走 → 清空确认之间不重复触发）。 */
+  #takingEditor = false;
   /** `/slow` 的状态：omp 没有状态节点，按 toast 记；一开始未知，当关。 */
   #slowEnabled = false;
   /** 上一次发布出去的 TaskState.restartable（#syncRestartable 只在它变了时补发）。 */
@@ -324,6 +342,8 @@ export class TspRunner {
     changed: () => this.#publish(),
     completed: () => this.#host.onNotice?.({ taskId: this.id, kind: "goal_complete" }),
   });
+  /** 模式和扩展状态（TaskState.composerMode / extStatuses）：同样来自输入框卡片的事实行（shared/tsp/composer-facts.ts）。 */
+  readonly #factsTracker = new TspComposerFactsTracker();
   /** 后台驱动旁路提问期间为真：#awaitComposer 等它结束。 */
   #btwDriving = false;
   /** 旁路提问（`/btw`）：omp 画成 modal 弹窗，这里读成话题镜像（tsp-btw.ts、docs/architecture/tsp-btw.md）。 */
@@ -360,6 +380,8 @@ export class TspRunner {
   #prNumber: number | null = null;
   /** 文档里 HUD 待办节点换算出的阶段（todos.ts）；变了才发布。 */
   #todoPhases: TaskState["todoPhases"] = [];
+  /** 输入框卡片上上下文 meter 里 omp 给的自动压缩信息（context-compaction.ts）；变了才发布。 */
+  #contextCompaction: TaskState["contextCompaction"] = null;
   /** 会话文件里的 token 分项和请求数（见 #sessionUsageFor）。 */
   #totals: SessionTotals | null = null;
   /** 用户按了停止、这一轮还没结束：这一轮的结局记为 aborted。 */
@@ -471,6 +493,9 @@ export class TspRunner {
       restartable: this.restartable,
       loaderText: this.#loaderText,
       prNumber: this.#prNumber,
+      contextCompaction: this.#contextCompaction,
+      composerMode: this.#factsTracker.mode,
+      extStatuses: this.#factsTracker.extStatuses,
     };
   }
 
@@ -672,10 +697,11 @@ export class TspRunner {
             this.#syncStatus(document);
             this.#syncComposer(document);
             this.#syncToggles(document);
-            this.#goalTracker.observe(document);
+            this.#observeFacts(document);
             this.#btw.sync(document);
             this.#notifyWaiters(document);
             this.#syncRestartable();
+            this.#syncEditorText(document);
           },
           onSessionFile: (file) => {
             if (gen !== this.#gen) return;
@@ -702,6 +728,7 @@ export class TspRunner {
       // 开关是会话（进程）级的：新进程从配置默认值开始。
       this.#toggles = emptySessionToggles();
       this.#goalTracker.reset();
+      this.#factsTracker.reset();
       this.#btw.reset();
       this.#toastTexts = [];
       this.#noteCount = 0;
@@ -713,7 +740,7 @@ export class TspRunner {
       this.#syncStatus(session.document);
       this.#syncComposer(session.document);
       this.#syncToggles(session.document);
-      this.#goalTracker.observe(session.document);
+      this.#observeFacts(session.document);
       this.#btw.sync(session.document);
       this.#notifyWaiters(session.document);
       void this.#refreshCatalog().then(() => {
@@ -778,6 +805,7 @@ export class TspRunner {
     this.#signal = NO_RUN_SIGNAL;
     this.#loaderText = null;
     this.#goalTracker.reset();
+    this.#factsTracker.reset();
     this.#btw.reset();
     this.#stopRequested = false;
     this.#failDocumentWaiters(new Error("the omp process exited"));
@@ -933,7 +961,9 @@ export class TspRunner {
     this.#lastActiveAt = Date.now();
     const mentions = paths.map((file) => `@"${file}"`).join(" ");
     const text = mentions === "" ? body : body === "" ? mentions : `${body} ${mentions}`;
-    session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text });
+    // 运行中的"等这一轮结束再发"：`send` 在运行中是插话（steer），follow-up 要用 omp 的 `/queue`；空闲时就是普通的一轮。
+    const wire = input.whenBusy === "followUp" && this.#machine.working ? followUpText(text) : text;
+    session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text: wire });
   }
 
   #imagesDir(): string {
@@ -967,19 +997,25 @@ export class TspRunner {
       await this.#btw.yieldToMain();
       const hadQueue = hasQueuedMessages(session.document);
       this.#stopRequested = true;
-      session.sendKeys(ESC_KEY);
-      if (hadQueue) {
-        try {
-          const restored = await this.#awaitDocument(
-            (document) => restoredQueueEditor(document),
-            QUEUE_RESTORE_MS,
-            "omp did not return the queued message to its input box",
-          );
-          steering.push({ text: restored.text });
-          await this.#clearComposerEditor(session);
-        } catch (error) {
-          log.warn(`task ${this.id} taking back the queued message failed`, { message: String(error) });
+      // 有排队消息时 omp 把它们写回自己的输入框：这条路径自己读、自己清（返回给渲染进程），通用回填先让开。
+      if (hadQueue) this.#editorClaims++;
+      try {
+        session.sendKeys(ESC_KEY);
+        if (hadQueue) {
+          try {
+            await this.#awaitDocument(
+              (document) => foreignEditorText(document),
+              QUEUE_RESTORE_MS,
+              "omp did not return the queued message to its input box",
+            );
+            const text = await this.#takeEditorText(session);
+            if (text !== null) steering.push({ text });
+          } catch (error) {
+            log.warn(`task ${this.id} taking back the queued message failed`, { message: String(error) });
+          }
         }
+      } finally {
+        if (hadQueue) this.#releaseEditor();
       }
     }
     return { steering, followUp: [], imagesDropped: false, truncated: false, aborted: true, backgroundWork: false };
@@ -1237,6 +1273,12 @@ export class TspRunner {
       this.#todoPhases = todoPhases;
       this.#publish();
     }
+    // 输入框被提问 / 审批换掉的那几帧（undefined）沿用上一次的值。
+    const compaction = deriveContextCompaction(document);
+    if (compaction !== undefined && JSON.stringify(compaction) !== JSON.stringify(this.#contextCompaction)) {
+      this.#contextCompaction = compaction;
+      this.#publish();
+    }
     const info = deriveComposerInfo(document);
     if (!info) return; // 输入框被提问/审批换掉的那几帧：保留上一次的值
     const previous = this.#composer;
@@ -1304,14 +1346,24 @@ export class TspRunner {
     }
   }
 
-  /** 界面操作（切模型、切思考强度）一次只做一个：它们共用 omp 的一个选择器/一个循环键。 */
+  /**
+   * 界面操作（切模型、切思考强度、回溯……）一次只做一个：它们共用 omp 的一个选择器/一个循环键。
+   * 这期间 studio 自己在驱动 omp，输入框里出现的预填（回溯填回的那条消息等）由操作自己读、自己清，通用回填（`#syncEditorText`）先让开。
+   */
   #exclusive<T>(job: () => Promise<T>): Promise<T> {
-    const run = this.#uiChain.then(job, job);
+    this.#editorClaims++;
+    const run = this.#uiChain.then(job, job).finally(() => this.#releaseEditor());
     this.#uiChain = run.then(
       () => undefined,
       () => undefined,
     );
     return run;
+  }
+
+  /** 一个"自己读输入框"的操作结束：放开通用回填，并检查这期间有没有留下没人取的文字（比如 `/plan` 的预填）。 */
+  #releaseEditor(): void {
+    this.#editorClaims--;
+    if (this.#session !== null) this.#syncEditorText(this.#session.document);
   }
 
   async #composerTargets(): Promise<TspComposerTargets & { session: TspSession }> {
@@ -1455,11 +1507,11 @@ export class TspRunner {
     return this.#btw.history();
   }
 
-  /** omp 的命令列表（服务进程的 get_available_commands，和任务进程无关：内置命令一致，项目目录里的自定义命令/技能看不到）；任务还没起进程（草稿、starting）时照给，没接服务进程时 []。 */
+  /** omp 的命令列表：任务目录（`cwd`，含 `/move`、worktree）里的项目 rpc-ui 取，项目 skill、自定义命令、扩展命令都在；任务还没起进程（草稿、starting）时照给，没接服务进程时 []。 */
   async listSlashCommands(): Promise<AvailableSlashCommand[]> {
     const list = this.#host.listSlashCommands;
     if (!list) return [];
-    return list();
+    return list(this.cwd);
   }
 
   /**
@@ -1550,19 +1602,93 @@ export class TspRunner {
    * 压缩要调模型，等待上限 5 分钟。
    */
   compact(): Promise<void> {
+    return this.#exclusive(() => this.#runCompaction("/compact"));
+  }
+
+  /** `/handoff`：总结会话成交接文档并就地压缩，结局的判定和 `/compact` 相同（omp 18.12.6 实测见 docs/architecture/context-compaction.md）。 */
+  handoff(): Promise<void> {
+    return this.#exclusive(() => this.#runCompaction("/handoff"));
+  }
+
+  async #runCompaction(text: "/compact" | "/handoff"): Promise<void> {
+    await this.start();
+    const target = await this.#awaitComposer();
+    const session = this.#liveSession();
+    const before = compactionMark(session.document);
+    session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text });
+    const outcome = await this.#awaitDocument(
+      (document) => compactionOutcome(document, before),
+      COMPACT_TIMEOUT_MS,
+      `omp did not finish ${text}`,
+      false,
+    );
+    if (!outcome.ok) throw new Error(outcome.error);
+  }
+
+  /**
+   * `/todo <动词>`（omp 18.12.6 实测，docs/architecture/todo-board.md）：成功 = 一条新的状态 toast（`Appended to Alpha: …` /
+   * `Started: …` / `Marked completed: …` / `Removed: …` / `Cleared all todos.`），返回它的原文；失败（没匹配到、缺参数）不是 toast，
+   * 而是对话里新增一行 `Error: …`（shared/tsp/error-lines.ts），以原文 reject。
+   */
+  runTodoCommand(text: string): Promise<string> {
     return this.#exclusive(async () => {
       await this.start();
       const target = await this.#awaitComposer();
       const session = this.#liveSession();
-      const before = compactionMark(session.document);
-      session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text: "/compact" });
-      const outcome = await this.#awaitDocument(
-        (document) => compactionOutcome(document, before),
-        COMPACT_TIMEOUT_MS,
-        "omp did not finish /compact",
+      const toastsBefore = statusToastTexts(session.document);
+      const errorsBefore = errorLines(session.document);
+      session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text });
+      return this.#awaitDocument(
+        (document) => {
+          const error = newErrorLine(document, errorsBefore);
+          if (error !== null) throw new Error(error);
+          return statusToastTexts(document).find((toast) => !toastsBefore.includes(toast)) ?? null;
+        },
+        CONFIRM_TIMEOUT_MS,
+        `omp did not confirm ${text}`,
         false,
       );
-      if (!outcome.ok) throw new Error(outcome.error);
+    });
+  }
+
+  // ───── 模式（/plan /vibe /loop）和输入框卡片上的事实 ─────
+
+  /** 文档变了：模式、扩展状态、目标都跟着 omp 输入框卡片上的事实行走（shared/tsp/composer-facts.ts）；变了才发布。 */
+  #observeFacts(document: TspDocument): void {
+    const facts: ComposerFacts = deriveComposerFacts(document);
+    this.#goalTracker.observe(facts);
+    if (this.#factsTracker.observe(facts)) this.#publish();
+  }
+
+  /**
+   * 模式命令（`/plan` `/plan-review` `/vibe` `/loop`，shared/tsp/composer-facts.ts 的 `ModeOp`）：它们是切换，所以发之前看当前模式
+   * （`modeCommandBlocker`），发出后等模式变成预期的样子或 omp 弹出确认 / 评审弹窗（`modeCommandDone`）。
+   * 没生效而 omp 给了状态 toast（"Exit goal mode first."、"Plan mode is disabled. …"）= 被拒，原文 reject；返回生效时的 toast 原文（可能为空串）。
+   */
+  runModeCommand(op: ModeOp, text: string): Promise<string> {
+    return this.#exclusive(async () => {
+      await this.start();
+      const target = await this.#awaitComposer();
+      const session = this.#liveSession();
+      const before = deriveComposerFacts(session.document).mode;
+      const blocker = modeCommandBlocker(op, before);
+      if (blocker !== null) throw new Error(blocker);
+      const toastsBefore = statusToastTexts(session.document);
+      session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text });
+      return this.#awaitDocument(
+        (document) => {
+          const toast = statusToastTexts(document).find((candidate) => !toastsBefore.includes(candidate));
+          // 输入框卡片被弹窗换掉时模式读不到，当作没变。
+          const facts = deriveComposerFacts(document);
+          const now = facts.composer ? facts.mode : before;
+          if (modeCommandDone(op, before, now, deriveTaskStatus(document).modal !== null)) return toast ?? "";
+          if (toast !== undefined) throw new Error(toast);
+          return null;
+        },
+        CONFIRM_TIMEOUT_MS,
+        `omp did not confirm ${text}`,
+        false,
+      );
     });
   }
 
@@ -1746,7 +1872,7 @@ export class TspRunner {
       this.#assertTurnFinished();
       const composer = await this.#awaitComposer();
       const session = this.#liveSession();
-      await this.#clearComposerEditor(session);
+      await this.#takeEditorText(session);
       session.sendEvent({ ev: "send", sf: composer.sf, id: composer.id, text: "/tree" });
       const picker = await this.#awaitDocument(
         (document) => findTreePicker(document),
@@ -1801,7 +1927,7 @@ export class TspRunner {
       ).catch((error: unknown) => {
         if (this.#session !== session) throw error;
       });
-      await this.#clearComposerEditor(session);
+      await this.#takeEditorText(session);
       this.#leafOverride =
         target.lastEntryId === null ? null : { afterEntryId: target.lastEntryId, leafId: target.parentId };
       return { text: target.text, summarized: summarize };
@@ -1821,7 +1947,7 @@ export class TspRunner {
       this.#assertTurnFinished();
       const composer = await this.#awaitComposer();
       const session = this.#liveSession();
-      await this.#clearComposerEditor(session);
+      await this.#takeEditorText(session);
       session.sendEvent({ ev: "send", sf: composer.sf, id: composer.id, text: "/tree" });
       const picker = await this.#awaitDocument(
         (document) => findTreePicker(document),
@@ -1875,25 +2001,42 @@ export class TspRunner {
     });
   }
 
-  /** 把 omp 输入框里的字清空（edit 事件替换整段文字）；本来就空就什么都不发。 */
-  async #clearComposerEditor(session: TspSession): Promise<void> {
-    const editor = findComposerEditor(session.document);
-    if (editor === null || editor.text === "") return;
-    session.sendEvent({
-      ev: "edit",
-      sf: editor.sf,
-      id: editor.id,
-      from: 0,
-      to: editor.text.length,
-      text: "",
-      cursor: 0,
-      len: editor.text.length,
-    });
+  /**
+   * 取走 omp 输入框里的文字：读出来、发 `edit` 清空 omp 那边（否则文字一直留在那里，也挡住 omp 的下一次预填）、等清空确认；
+   * 本来就空返回 null。studio 的 `send` 从不往那里填字，所以这里出现的文字一定是 omp 自己放的（shared/tsp/editor-prefill.ts）。
+   */
+  async #takeEditorText(session: TspSession): Promise<string | null> {
+    const editor = foreignEditorText(session.document);
+    if (editor === null) return null;
+    session.sendEvent(clearEditorEvent(editor));
     await this.#awaitDocument(
-      (document) => ((findComposerEditor(document)?.text ?? "") === "" ? true : null),
+      (document) => (foreignEditorText(document) === null ? true : null),
       CONFIRM_TIMEOUT_MS,
       "omp's input box did not clear",
     );
+    return editor.text;
+  }
+
+  /**
+   * 通用回填规则：omp 的输入框里出现文字（Ctrl+R 选中的历史、⌥↑ 取回的排队消息、`/annotate`、`/plan` 的预填……），
+   * 而 studio 自己没有在等它（Esc 取回排队消息、回溯这两条路径自己读、自己清，期间 `#editorClaims` > 0），就搬进 studio 的输入框
+   * （`onComposerPrefill`）并清空 omp 那边。
+   */
+  #syncEditorText(document: TspDocument): void {
+    const session = this.#session;
+    if (session === null || this.#editorClaims > 0 || this.#takingEditor || foreignEditorText(document) === null)
+      return;
+    this.#takingEditor = true;
+    void this.#takeEditorText(session)
+      .then((text) => {
+        if (text !== null && this.#session === session) this.#host.onComposerPrefill?.(this.id, text);
+      })
+      .catch((error: unknown) => {
+        log.warn(`task ${this.id} moving omp's input box text failed`, { message: String(error) });
+      })
+      .finally(() => {
+        this.#takingEditor = false;
+      });
   }
 
   // ───── 子代理面板（S1，docs/architecture/subagents.md "TSP 任务里的子代理面板"） ─────

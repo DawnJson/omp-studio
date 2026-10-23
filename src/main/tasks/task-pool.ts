@@ -52,6 +52,8 @@ interface PoolEvents {
   btw?(taskId: TaskId, event: BtwUiEvent): void;
   /** 任务的节点树批次（16ms 合批）；不关心的调用方（多数测试）可以不给。 */
   tspBatch?(batch: TspBatch): void;
+  /** omp 往它自己的输入框里写了 studio 没发的文字（Ctrl+R 选中的历史、`/annotate`、`/plan` 预填）：已清空 omp 那边，文字放进 studio 的输入框；多数测试不给。 */
+  composerPrefill?(taskId: TaskId, text: string): void;
 }
 
 export interface WorktreeOps {
@@ -73,8 +75,8 @@ export interface PoolDeps {
   knownModel?(key: ModelKey): ModelOption | null;
   /** 模型目录（服务进程的 get_available_models）：把 omp 的模型显示名换成模型键、给 listTaskModels；没传时列表为空。 */
   listModels?(): Promise<ModelOption[]>;
-  /** omp 的命令列表（服务进程）：listSlashCommands 用；没传时为空。 */
-  listSlashCommands?(): Promise<AvailableSlashCommand[]>;
+  /** omp 的命令列表：`cwd` 是任务目录（该目录的项目 rpc-ui，含项目 skill、自定义命令、扩展命令），`null` = 草稿页（服务进程）；没传时为空。 */
+  listSlashCommands?(cwd: string | null): Promise<AvailableSlashCommand[]>;
   /** 导出 HTML：对会话文件跑 `omp --export <文件> <输出路径>`（omp/export-session.ts）；没传时不能导出。 */
   exportSession?(sessionFile: string, outputPath: string, cwd: string): Promise<void>;
   /** omp 对这个项目的新任务默认值（和草稿页同源）：输入框出现之前用它显示模型和思考强度；没传时不显示。 */
@@ -116,12 +118,13 @@ export class TaskPool {
       onState: (state) => deps.events.state(state),
       onTspBatch: (batch) => deps.events.tspBatch?.(batch),
       onBtw: (taskId, event) => deps.events.btw?.(taskId, event),
+      onComposerPrefill: (taskId, text) => deps.events.composerPrefill?.(taskId, text),
       onNotice: (notice) => deps.events.notice(notice),
       session: tsp.session,
       knownModel: (key) => deps.knownModel?.(key) ?? null,
       ...(deps.listModels && { listModels: () => deps.listModels!() }),
       ...(deps.newTaskDefaults && { newTaskDefaults: (project: Project) => deps.newTaskDefaults!(project) }),
-      ...(deps.listSlashCommands && { listSlashCommands: () => deps.listSlashCommands!() }),
+      ...(deps.listSlashCommands && { listSlashCommands: (cwd: string) => deps.listSlashCommands!(cwd) }),
       ...(deps.exportSession && {
         exportSession: (sessionFile: string, outputPath: string, cwd: string) =>
           deps.exportSession!(sessionFile, outputPath, cwd),
@@ -367,7 +370,22 @@ export class TaskPool {
       await this.compactTask(id);
       return { text: "" };
     }
+    // 交接和压缩一样没有 toast，看压缩分隔；待办成功是 toast、失败是 `Error:` 行（runTodoCommand）。
+    if (cmd.kind === "handoff") {
+      await this.#runner(id).handoff();
+      return { text: "" };
+    }
     const runner = this.#runner(id);
+    if (cmd.kind === "todo") return { text: await runner.runTodoCommand(taskCommandText(cmd)) };
+    // 模式命令是切换：发之前看当前模式、发出后看模式有没有变（runModeCommand）；`kind` 就是 ModeOp。
+    if (
+      cmd.kind === "plan" ||
+      cmd.kind === "planReview" ||
+      cmd.kind === "vibe" ||
+      cmd.kind === "loopStart" ||
+      cmd.kind === "loopStop"
+    )
+      return { text: await runner.runModeCommand(cmd.kind, taskCommandText(cmd)) };
     const text = taskCommandText(cmd);
     const quiet = cmd.kind === "jobsKill" || cmd.kind === "retry";
     return { text: await (quiet ? runner.runQuietCommand(text) : runner.runSessionCommand(text)) };
@@ -536,9 +554,9 @@ export class TaskPool {
     return this.#runner(id).listSlashCommands();
   }
 
-  /** 草稿页（还没有任务）的命令列表：服务进程的 get_available_commands，和 TSP 任务用的同一份；没接服务进程时 []。 */
+  /** 草稿页（还没有任务，没有任务目录）的命令列表：服务进程的 get_available_commands；没接服务进程时 []。 */
   async listDraftSlashCommands(): Promise<AvailableSlashCommand[]> {
-    return (await this.#deps.listSlashCommands?.()) ?? [];
+    return (await this.#deps.listSlashCommands?.(null)) ?? [];
   }
 
   listTaskModels(id: TaskId): Promise<ModelOption[]> {

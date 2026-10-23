@@ -4,6 +4,8 @@
 // （composer/ComposerStatus.tsx）：用时用主进程记的这一轮开始时间，文字取这里。omp 18.12.5 实测，录制见 fixtures/tsp/*.jsonl
 // （test/tsp-working.test.ts 逐帧核对）。role 是 omp 自己的命名，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
 // 另有一次性的 `omp.loader`（旋转图标 + `text`）出现在同一个位置，没有 label 时用它的文字。
+import { stripIconGlyphs } from "../ui/clean-title.ts";
+import { parseLoaderText } from "./composer-facts.ts";
 import { findNode, nodeRole, plainText, type DocSurface, type TspDocument } from "./document.ts";
 
 const LABEL_ROLE = "omp.working.label";
@@ -22,7 +24,7 @@ function labelIn(surface: DocSurface): string | null {
   const loader = findNode(surface, (node) => nodeRole(node) === LOADER_ROLE, "dock");
   if (!loader) return null;
   const inner = findNode(surface, (node) => node.k === "text" && plainText(node).trim() !== "", loader.id);
-  const loaded = inner ? plainText(inner).trim() : "";
+  const loaded = inner ? parseLoaderText(stripIconGlyphs(plainText(inner))).text : "";
   return loaded === "" ? null : loaded;
 }
 

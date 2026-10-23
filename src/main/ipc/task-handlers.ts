@@ -6,10 +6,11 @@ import path from "node:path";
 import { chatsDir } from "../tasks/chats-dir.ts";
 import { exportFileName } from "../tasks/export-name.ts";
 import { exportedFile, exportTarget, recordExport } from "../tasks/export-record.ts";
-import { limits } from "../../shared/ipc.ts";
+import { limits, TERMINAL_LOGIN_ID } from "../../shared/ipc.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { canOpenDirectly, resolveInsideReal } from "./task-file-path.ts";
 import { parseRootIndex, rootDir } from "../files/task-roots.ts";
+import { terminalLogin } from "../login/terminal-login-instance.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { getMainWindow } from "../window/main-window.ts";
 import {
@@ -182,14 +183,27 @@ export const taskHandlers: HandlerGroup<
   openTask: async (taskId) => (await getTaskPool()).openTask(parseTaskId(taskId)),
 
   // 节点树快照、用户操作 → TSP 事件、按键字节、面板宽度。
-  getTspSnapshot: async (taskId) => (await getTaskPool()).getTspSnapshot(parseTaskId(taskId)),
+  // 应用内终端登录的临时 omp 没有任务记录：用同一条 TSP 通道，主进程按固定 id 路由（任务池不认识它）。
+  getTspSnapshot: async (taskId) => {
+    const id = parseTaskId(taskId);
+    return id === TERMINAL_LOGIN_ID ? terminalLogin().snapshot() : (await getTaskPool()).getTspSnapshot(id);
+  },
   getTspSessionExtras: async (taskId) => (await getTaskPool()).getTspSessionExtras(parseTaskId(taskId)),
   readTspContext: async (taskId) => (await getTaskPool()).readTspContext(parseTaskId(taskId)),
 
-  sendTspEvent: async (taskId, event) => (await getTaskPool()).sendTspEvent(parseTaskId(taskId), parseTspEvent(event)),
+  sendTspEvent: async (taskId, event) => {
+    const id = parseTaskId(taskId);
+    const parsed = parseTspEvent(event);
+    if (id === TERMINAL_LOGIN_ID) terminalLogin().sendEvent(parsed);
+    else (await getTaskPool()).sendTspEvent(id, parsed);
+  },
 
-  sendTspKeys: async (taskId, data) =>
-    (await getTaskPool()).sendTspKeys(parseTaskId(taskId), parseString(data, "data", 1_000_000)),
+  sendTspKeys: async (taskId, data) => {
+    const id = parseTaskId(taskId);
+    const keys = parseString(data, "data", 1_000_000);
+    if (id === TERMINAL_LOGIN_ID) terminalLogin().sendKeys(keys);
+    else (await getTaskPool()).sendTspKeys(id, keys);
+  },
 
   resizeTsp: async (taskId, cols) =>
     (await getTaskPool()).resizeTsp(parseTaskId(taskId), parseInteger(cols, "cols", 20, 1000)),

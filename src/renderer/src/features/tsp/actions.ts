@@ -16,7 +16,6 @@ import { openAgentsPanel } from "../agents/agents-store.ts";
 import { peekTspDocument, peekTspNode } from "./tsp-store.ts";
 import { showTspMenu } from "./menu-store.ts";
 import { isRecord } from "../../../../shared/type-guards.ts";
-import { restoreDequeued } from "./restore-dequeued.ts";
 
 /** 节点自己才知道怎么做的内置动作（折叠、放大）。 */
 export interface OwnActions {
@@ -120,8 +119,6 @@ export function runAction(act: string, node: DocNode, ctx: TspContext, own?: Own
         openAgentsPanel(ctx.taskId);
         return;
       }
-      // 队列条上的 `Edit Alt+↑`：和 ⌥↑ 一样，omp 把文字写回它自己的输入框，studio 要搬进自己的草稿（先订阅再发动作）。
-      if (act === "queue.edit") restoreDequeued(ctx.taskId);
       const mods = modifiers(event);
       ctx.send(
         mods ? { ev: "action", sf: ctx.sf, id: node.id, act, mods } : { ev: "action", sf: ctx.sf, id: node.id, act },

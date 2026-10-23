@@ -16,7 +16,8 @@ import { pushToast } from "../dialogs/index.ts";
 import { blockWorktree, ensureSetupApproved, getWorktreeDraft, setWorktreeOn } from "../git/index.ts";
 import { handOverDraftTerminal, withDraftHandover } from "../terminal/index.ts";
 import { ApprovalChip } from "./ApprovalChip.tsx";
-import { buildSubmission, slotsToNames, viewToText } from "./composer-tokens.ts";
+import { buildSubmission, historyText, slotsToNames, viewToText } from "./composer-tokens.ts";
+import { recordHistory } from "./history-store.ts";
 import { ComposerInput } from "./ComposerInput.tsx";
 import { clearDraft, getDraft, restoreDraft, setDraftText, useDraft } from "./draft-store.ts";
 import { ModelChip } from "./ModelChip.tsx";
@@ -129,6 +130,8 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
         if (recordFirstPrompt) clearFirstPrompt(task.id);
         throw error;
       }
+      // 第一句话也进项目的输入历史（任务里 ↑ / Ctrl+R 能翻到）；图片、文件占位符不记。
+      recordHistory(target, historyText(current));
       clearDraft(key);
       clearDraftModelChoice(key);
       if (projectId !== null) setWorktreeOn(projectId, false);

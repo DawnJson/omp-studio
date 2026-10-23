@@ -58,6 +58,9 @@ function makeTask(
     restartable: false,
     loaderText: null,
     prNumber: null,
+    contextCompaction: null,
+    composerMode: null,
+    extStatuses: [],
     ...patch,
   };
 }

@@ -11,6 +11,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Bolt } from "../../icons.tsx";
 import { onStudioCommand } from "../palette/index.ts";
 import { ModelPicker, type ModelPickerProps } from "./ModelPicker.tsx";
+import type { ModelPickerRequest } from "./slash-args.ts";
 import { nextThinkingLevel, thinkingLabel } from "./thinking-levels.ts";
 import { speedBadges } from "./speed-limit-format.ts";
 
@@ -28,6 +29,8 @@ export function ModelChip(task: ModelChipProps) {
   const report = (error: unknown) => reportError(t, error);
   const { emptyLabel, ...pickerProps } = task;
   const [open, setOpen] = useState(false);
+  // `/model sonnet`、`/model @task` 带来的搜索词和范围；点胶囊打开时没有。
+  const [request, setRequest] = useState<ModelPickerRequest | null>(null);
   const [pendingLevel, setPendingLevel] = useState<ThinkingLevel | null>(null);
   const inflight = useRef(0);
   const giveUp = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -75,8 +78,11 @@ export function ModelChip(task: ModelChipProps) {
 
   // 命令面板 / Alt M / Alt T。
   useEffect(() =>
-    onStudioCommand((command) => {
-      if (command === "model") setOpen(true);
+    onStudioCommand((command, arg) => {
+      if (command === "model") {
+        setRequest(arg ?? null);
+        setOpen(true);
+      }
       if (command === "thinking") cycleThinking();
     }),
   );
@@ -149,9 +155,13 @@ export function ModelChip(task: ModelChipProps) {
       <ModelPicker
         {...pickerProps}
         open={open}
+        request={request}
         thinkingLevel={thinkingLevel}
         setThinking={setThinking}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false);
+          setRequest(null);
+        }}
       />
     </>
   );

@@ -114,3 +114,83 @@ test("上下文构成：数字来自 omp 的 /context，omp 的弹窗不出现�
     await rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
+
+/** 假 omp 收到的 send 事件的文字（`received` 只留 action）。 */
+async function receivedSends(log: string): Promise<string[]> {
+  const text = await readFile(log, "utf8").catch(() => "");
+  return text
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => JSON.parse(line) as { kind: string; body?: Record<string, unknown> })
+    .filter((record) => record.kind === "tsp" && record.body?.["ev"] === "send")
+    .map((record) => String(record.body!["text"]));
+}
+
+/** 起 app、开项目、建任务、等圆环出现（context-report 回放：窗口 200K，omp 给的自动压缩触发点 85%）。 */
+async function openContextTask(label: string) {
+  const work = await mkdtemp(path.join(os.tmpdir(), `omp ${label} e2e-`));
+  const project = path.join(work, "项目 目录");
+  const log = path.join(work, "omp-received.jsonl");
+  await mkdir(project);
+  const launched = await launchApp({ STUDIO_TEST_OMP: testOmp("context-report", { log }) });
+  const cleanup = async () => {
+    await launched.close();
+    await rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  };
+  try {
+    const { page } = launched;
+    await launched.app.evaluate(({ dialog }, dir) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
+    }, project);
+    await page.getByTestId("sidebar-open-folder").click();
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+    await page.evaluate(async () => {
+      const [p] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: p!.id });
+    });
+    await openTaskRow(page);
+    await expect(page.getByTestId("composer-stack").getByTestId("context-meter")).toBeVisible({ timeout: 20_000 });
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
+  return { launched, page: launched.page, log, cleanup };
+}
+
+test("压缩一栏：圆环上有自动压缩刻度，构成里写在 85% 自动压缩；点「立即压缩」omp 收到 /compact；截图", async () => {
+  const { page, log, cleanup } = await openContextTask("压缩");
+  try {
+    const meter = page.getByTestId("composer-stack").getByTestId("context-meter");
+    await expect(meter.getByTestId("context-ring-tick")).toHaveAttribute("data-at", "85");
+    await meter.click();
+    await expect(page.getByTestId("context-auto-at")).toHaveText(/85%/);
+    await expect(page.getByTestId("context-handoff")).toBeEnabled();
+    for (const [locale, scheme] of [
+      ["zh-CN", "light"],
+      ["zh-CN", "dark"],
+      ["en", "light"],
+      ["en", "dark"],
+    ] as const) {
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+      await setLocaleTheme(page, locale, scheme);
+      await expect(page.getByTestId("context-compaction")).toBeVisible();
+      await page.screenshot({ path: path.join(screenshotsDir, `board-context-compact-${locale}-${scheme}.png`) });
+    }
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("context-compact").click();
+    await expect.poll(() => receivedSends(log)).toContain("/compact");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("压缩一栏：点「交接」omp 收到 /handoff", async () => {
+  const { page, log, cleanup } = await openContextTask("交接");
+  try {
+    await page.getByTestId("composer-stack").getByTestId("context-meter").click();
+    await page.getByTestId("context-handoff").click();
+    await expect.poll(() => receivedSends(log)).toContain("/handoff");
+  } finally {
+    await cleanup();
+  }
+});

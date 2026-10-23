@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { useOmpStatus, useSettings, useTask } from "../../store/index.ts";
-import { onComposerText, onStudioCommand, useSlashCommands } from "../palette/index.ts";
+import { onComposerText, onStudioCommand, refreshSlashCommands, useSlashCommands } from "../palette/index.ts";
 import { sendDraft, stopAndRestore, type Delivery } from "./actions.ts";
 import { reportError } from "../../ui/errors.ts";
 import { ApprovalChip } from "./ApprovalChip.tsx";
@@ -16,7 +16,9 @@ import { ComposerTop } from "./ComposerTop.tsx";
 import { ComposerInput } from "./ComposerInput.tsx";
 import { historyText, viewToText } from "./composer-tokens.ts";
 import { decideEnter } from "./send-logic.ts";
-import { cycleHistory, hasHistory, isCycling, recordSent, resetHistoryCursor, shouldCycle } from "./input-history.ts";
+import { cycleHistory, isCycling, mergeEntries, resetHistoryCursor, shouldCycle } from "./input-history.ts";
+import { recordHistory, useProjectHistory } from "./history-store.ts";
+import { HistorySearch } from "./HistorySearch.tsx";
 import { decideSlashSend } from "./slash-guard.ts";
 import { withStudioSlash } from "./studio-slash.ts";
 import { studioSlashCommands } from "./studio-slash-table.ts";
@@ -33,7 +35,10 @@ import { useAttach } from "./use-attach.ts";
 import { useDraftView } from "./use-draft-view.ts";
 import { useReclaimFocus } from "./use-reclaim-focus.ts";
 import { useFirstPrompt } from "../tsp/first-prompt-store.ts";
-import { peekGateButton, peekTspDocument, useTspPanelOpen } from "../tsp/tsp-store.ts";
+import { ShellTag } from "./ShellTag.tsx";
+import { peekGateButton, peekTspDocument, useTspDerived, useTspPanelOpen } from "../tsp/tsp-store.ts";
+import { focusedAgentName } from "../../../../shared/tsp/agent-hub.ts";
+import { ModeChip } from "./ModeChip.tsx";
 import { userMessageTexts } from "../../../../shared/tsp/user-messages.ts";
 import { GATE_ACTION_APPROVE, GATE_ACTION_DETAILS, TSP_APPROVAL_DIALOG_ID } from "../../../../shared/tsp/gate.ts";
 import { PathLabel } from "../empty/ProjectLabel.tsx";
@@ -77,6 +82,11 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   const slashOpen = menusEnabled && query !== null && slashClosedFor !== draft.text && commands.length > 0;
   const slashMatches = slashOpen && query !== null ? matchSlash(commands, query) : [];
   const slashActive = Math.min(slashIndex, Math.max(slashMatches.length - 1, 0));
+  // 用户开始敲 `/`：重新取一次命令表（项目里刚建的 skill / 自定义命令不用重启就出现）。
+  const slashJustTyped = query === "";
+  useEffect(() => {
+    if (slashJustTyped) refreshSlashCommands(taskId);
+  }, [slashJustTyped, taskId]);
 
   const completeSlash = (name: string) => {
     setDraftText(taskId, `/${name} `);
@@ -102,8 +112,8 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   // worktree 被删了：只能查看记录（和 omp 一致），输入框禁用，说明在对话流末尾的错误条里。
   const worktreeGone = task?.error?.kind === "worktree_missing";
 
-  // 斜杠命令守卫（slash-guard.ts）：命令列表里没有的 /命令先提示一次，对同一段文字再发一次（或点按钮）才发出去。
-  const [slashNotice, setSlashNotice] = useState<{ text: string; name: string; terminal: boolean } | null>(null);
+  // 斜杠命令守卫（slash-guard.ts）：命令表（omp 的 + TUI 才有的 + studio 接管的）里没有的 /命令先提示一次，对同一段文字再发一次（或点按钮）才发出去。
+  const [slashNotice, setSlashNotice] = useState<{ text: string; name: string } | null>(null);
   const shownNotice = slashNotice?.text === draft.text.trim() ? slashNotice : null;
   // 提示收起的动画期间内容不能先消失。
   const heldNotice = useHeld(shownNotice);
@@ -111,13 +121,27 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
     const text = getDraft(taskId).text.trim();
     const guard = decideSlashSend(text, commands);
     if (guard.kind === "send" || slashNotice?.text === text) return true;
-    setSlashNotice({ text, name: guard.name, terminal: guard.terminal });
+    setSlashNotice({ text, name: guard.name });
     return false;
   };
   const sendNow = (whenBusy: Delivery) => {
-    recordSent(taskId, historyText(getDraft(taskId)));
+    if (task !== null) recordHistory(task.projectId, historyText(getDraft(taskId)));
+    resetHistoryCursor(taskId);
     setSlashNotice(null);
     void sendDraft(taskId, whenBusy, t);
+  };
+
+  // 输入历史 = 会话里的用户消息 + 这个项目发过的（history-store.ts，studio 自己持久化）；↑ 翻看和 Ctrl+R 搜索用同一份。
+  const projectHistory = useProjectHistory(task?.projectId ?? null);
+  const historyEntries = () => mergeEntries(userMessageTexts(peekTspDocument(taskId)), projectHistory);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const pickHistory = (text: string) => {
+    setHistoryOpen(false);
+    resetHistoryCursor(taskId);
+    setRecalled(text);
+    setDraftText(taskId, text);
+    fieldRef.current?.focus();
+    fileMenu.placeCaret(text.length);
   };
 
   /** 点审批卡上动作名为 `act` 的按钮（和用鼠标点同一个 `action` 事件）；卡上没有这个按钮就什么都不做。 */
@@ -129,19 +153,23 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
       .catch((error: unknown) => reportError(t, error));
   };
 
+  // omp 聚焦到某个子代理时（状态行上方有横幅），输入框发的话都是给它的：占位符写明是谁。
+  const focusedAgent = useTspDerived(taskId, focusedAgentName, Object.is);
   const placeholder = worktreeGone
     ? t("error.worktreeMissing")
     : screenOpen
       ? t("composer.placeholderScreen")
-      : tspAsking
-        ? t("composer.placeholderAsk")
-        : gate
-          ? t("composer.placeholderGate")
-          : running
-            ? t(swapped ? "composer.placeholderRunningSwapped" : "composer.placeholderRunning")
-            : task !== null && task.title !== ""
-              ? t("composer.placeholder")
-              : t("composer.placeholderNew");
+      : focusedAgent !== null
+        ? t("modes.focus.placeholder", { name: focusedAgent })
+        : tspAsking
+          ? t("composer.placeholderAsk")
+          : gate
+            ? t("composer.placeholderGate")
+            : running
+              ? t(swapped ? "composer.placeholderRunningSwapped" : "composer.placeholderRunning")
+              : task !== null && task.title !== ""
+                ? t("composer.placeholder")
+                : t("composer.placeholderNew");
 
   useEffect(() => {
     if (slashNotice !== null && slashNotice.text !== draft.text.trim()) setSlashNotice(null);
@@ -233,7 +261,21 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
       }
     }
     if (fileMenu.onKeyDown(event)) return;
-    // 输入历史：菜单没抢走 ↑↓ 时，空输入框（或光标在最开头）按 ↑ 翻看这个会话里发过的消息。
+    // Ctrl+R：输入历史搜索（studio 自己持久化的历史）。焦点在输入框时 omp 自己的 Ctrl+R 到不了 omp（这里已处理，转发判定看 defaultPrevented）；
+    // 焦点在过程区时照常转发给 omp，它的历史选择器选中的文字由主进程搬回这里（`composerPrefill`）。
+    if (
+      event.key.toLowerCase() === "r" &&
+      event.ctrlKey &&
+      !composing &&
+      !event.shiftKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      event.preventDefault();
+      setHistoryOpen(true);
+      return;
+    }
+    // 输入历史：菜单没抢走 ↑↓ 时，空输入框（或光标在最开头）按 ↑ 翻看这个项目里发过的消息。
     if (
       (event.key === "ArrowUp" || event.key === "ArrowDown") &&
       !composing &&
@@ -245,13 +287,13 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
       const field = event.currentTarget;
       const direction = event.key === "ArrowUp" ? "up" : "down";
       // 带附件 / 大段粘贴的草稿不翻历史：换掉文字会把它们一起丢掉。
-      const session = userMessageTexts(peekTspDocument(taskId));
+      const entries = historyEntries();
       if (
         field.selectionStart === field.selectionEnd &&
         view.spans.length === 0 &&
-        shouldCycle(direction, view.text, field.selectionStart, isCycling(taskId), hasHistory(taskId, session))
+        shouldCycle(direction, view.text, field.selectionStart, isCycling(taskId), entries.length > 0)
       ) {
-        const next = cycleHistory(taskId, session, draft.text, direction);
+        const next = cycleHistory(taskId, entries, draft.text, direction);
         if (next !== null) {
           event.preventDefault();
           setRecalled(next);
@@ -309,7 +351,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
       <Reveal open={shownNotice !== null}>
         {heldNotice && (
           <div className="suggest" role="status" data-testid="slash-guard">
-            <span>{heldNotice.terminal ? t("slash.terminalOnly") : t("slash.unknown", { name: heldNotice.name })}</span>
+            <span>{t("slash.unknown", { name: heldNotice.name })}</span>
             <Button
               size="sm"
               disabled={tooOld === true || worktreeGone}
@@ -332,6 +374,15 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           active={slashActive}
           onHover={setSlashIndex}
           onPick={(command) => completeSlash(command.name)}
+        />
+        <HistorySearch
+          open={historyOpen}
+          entries={historyEntries()}
+          onPick={pickHistory}
+          onClose={() => {
+            setHistoryOpen(false);
+            fieldRef.current?.focus();
+          }}
         />
         <FileMenu
           id="file-menu-list"
@@ -392,6 +443,8 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           {/* 和草稿工具行同一个位置：任务在哪个文件夹里跑（有 worktree 时是 worktree 根），发出第一句话后不消失 */}
           <PathLabel path={task.cwd} testId="composer-folder" />
           <SessionTogglesMenu taskId={taskId} task={task} />
+          <ModeChip taskId={taskId} task={task} />
+          <ShellTag taskId={taskId} />
           <UsageMeter task={task} />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
@@ -405,6 +458,9 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
             disabled={tooOld === true || worktreeGone || tspAsking || screenOpen}
             onSend={() => {
               if (allowSend()) sendNow("steer");
+            }}
+            onSendLater={() => {
+              if (allowSend()) sendNow("followUp");
             }}
             onStop={stop}
           />

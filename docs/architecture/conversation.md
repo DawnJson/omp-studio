@@ -35,13 +35,13 @@
 
 输入框是 studio 自己的 `<textarea>`（omp 的输入框节点 `omp.editor` 不画），发送 / 编辑经 TSP 事件或按键写给 omp（[tsp-migration.md](tsp-migration.md) §8「输入」、§10.4）。
 
-- 按键判定是纯函数 `send-logic.ts decideEnter`（`test/composer-keys.test.ts`）：IME 组合态（`isComposing` 或 `keyCode 229`）Enter 不发送；Enter / Ctrl+Enter 发送；运行中 `sendPrompt` 也直接 `send`，omp 自己排队 / steer，`whenBusy` 被忽略；有审批在等时 Enter = 拒绝并发送，Ctrl+Enter = 批准，Ctrl+O = Details（见 [dialogs.md](dialogs.md)）。提问在等、全屏面板（含 Agent Hub）开着时不能发送，输入框给出提示。
-- Esc：没人消耗（`defaultPrevented`）且任务在运行时 `stopTask`：主进程把 Esc 交给 omp 停下这一轮，返回被撤回的排队消息（`omp.queue` 节点，`shared/tsp/queue-restore.ts`），按原文追加回草稿（图片作附件）。toast 由纯函数 `stop-outcome.ts stopToasts` 决定：只有这一轮确实停下才说"已停止"（有排队消息则带条数），没停下只报 `stopFailed`；用户按过停止的那一轮 `lastTurn` 记为 `aborted`。
+- 按键判定是纯函数 `send-logic.ts decideEnter`（`test/composer-keys.test.ts`）：IME 组合态（`isComposing` 或 `keyCode 229`）Enter 不发送；Enter / Ctrl+Enter 发送；运行中 Enter 默认 `send`（插话，omp 自己排队 / steer），Ctrl+Enter（或发送键旁下拉的"等这一轮结束再发"）= `whenBusy: "followUp"`，主进程发 omp 的 `/queue <文字>`（见 [composer-input.md](composer-input.md) §3）；有审批在等时 Enter = 拒绝并发送，Ctrl+Enter = 批准，Ctrl+O = Details（见 [dialogs.md](dialogs.md)）。提问在等、全屏面板（含 Agent Hub）开着时不能发送，输入框给出提示。
+- Esc：没人消耗（`defaultPrevented`）且任务在运行时 `stopTask`：主进程把 Esc 交给 omp 停下这一轮；排队消息（`omp.queue` 节点，`shared/tsp/queue-restore.ts`）被 omp 写回它自己的输入框，由主进程读出来返回（读法和清空是 omp 输入框回填的通用规则，见 [composer-input.md](composer-input.md) §5），按原文追加回草稿（图片作附件）。toast 由纯函数 `stop-outcome.ts stopToasts` 决定：只有这一轮确实停下才说"已停止"（有排队消息则带条数），没停下只报 `stopFailed`；用户按过停止的那一轮 `lastTurn` 记为 `aborted`。
 - 模型 / 思考胶囊（`ModelChip`）：`listTaskModels` → 分组、搜索、最近 3 个；模型行右侧是紧凑的"上下文窗口 · 输入/输出价格"（`model-groups.ts` 的 `modelContextCell` / `modelPriceCell`，价格全 0 不显示）。切换是给 omp 的节点发事件（[tsp-migration.md](tsp-migration.md) §10.3），不往输入框塞文字。思考档位只有一份列表（`thinking-levels.ts thinkingLevelOptions`），picker 分段条、方向键、Alt T 共用：任务里是模型目录的 `thinkingEfforts` 加 `off`，草稿里没有进程，用 `get_available_models` 里的 `thinking.efforts`（不含 `off`）。omp 会把设置的档位钳到模型支持的档位（实测 omp 18.12.2、`deepseek-v4-flash`、efforts `low/high/max`：minimal→low、medium→low、xhigh→high、auto→high；`off` 保留），草稿胶囊用同一规则（`clampThinkingLevel`：取最近的，一样近取较低）显示 omp 会采用的档位，所以草稿和发送后的任务显示一致。不支持思考的模型没有档位。Alt M / Alt T、命令面板的 `model` / `thinking` 命令。
 - 审批胶囊（`ApprovalChip`）：读写 omp 的 `tools.approvalMode`，没有进程的任务（`stopped` / `error`）可改，其余只读；首次选 yolo 内联确认一次（localStorage 记住）。详见 [omp-settings.md](omp-settings.md)「审批模式」。
 - 工具行右侧的用量：上下文圆环（点开是构成，类别和数字都是 omp `/context` 算的，见下面「上下文构成」）、费用（`SessionCost`）；运行中模型 / 审批胶囊右边是上一条回复的输出速度（`UsageMeter`：会话文件里 assistant 消息的 output ÷ (duration − ttft)，一轮结束时刷新；omp 没有实时速度）。数据来源见 [task-model.md](task-model.md)「输入框上的状态从哪来」。上下文 ≥90% 圆环变琥珀。
 - 贴图、粘贴、拖入文件：见 [composer-attachments.md](composer-attachments.md)。TSP 没有图片通道：`sendPrompt` 把图片写到 `os.tmpdir()/omp-studio-images/<任务 id>/`，在文字后面加 `@"<路径>"`（omp 的文件提及，带空格要引号），omp 读成图片附件（[tsp-migration.md](tsp-migration.md) §10.6）。粘贴的非图片文件不走图片流程：preload 在隔离世界里取路径（`src/preload/index.ts`，spec §4.14）。
-- 输入框三个辅助：①斜杠守卫（`slash-guard.ts`）：`/名称` 不在命令列表（非空时）里就先提示一次，同一文字再发或点"仍作为文字发送"才发；studio 接管的命令（见下）算已知命令。守卫在 `Composer` 的发送入口。②输入历史（`input-history.ts`）：↑↓ 翻本任务发过的消息，内存按任务记。③`@` 文件补全（`file-complete.ts` + `use-file-menu.ts` + `FileMenu.tsx`）：IPC `listProjectFiles(target, query)`，主进程 `files/project-files.ts` 按 cwd 缓存 10 秒的索引（git ls-files，退回有界遍历），≤10000 条、返回 ≤20 条相对路径；`query` 含绝对路径 / `..` 拒绝；发给 omp 后由 omp 展开 `@路径`。
+- 输入框三个辅助：①斜杠守卫（`slash-guard.ts`）：`/名称` 不在命令表（omp 的 `get_available_commands` + TUI 才有的命令 + studio 接管的命令，非空时）里就先提示一次，同一文字再发或点"仍作为文字发送"才发；没有"终端版独有"的特殊提示了。②输入历史：studio 自己按项目持久化，↑ 翻看、Ctrl+R 搜索（`input-history.ts`、`history-store.ts`）。③`@` 文件补全（`file-complete.ts` + `use-file-menu.ts` + `FileMenu.tsx`）：IPC `listProjectFiles(target, query)`，主进程 `files/project-files.ts` 按 cwd 缓存 10 秒的索引（git ls-files，退回有界遍历），≤10000 条、返回 ≤20 条相对路径；`query` 含绝对路径 / `..` 拒绝；发给 omp 后由 omp 展开 `@路径`。命令表、参数接管、发送方式、历史、omp 输入框回填的细节见 [composer-input.md](composer-input.md)。
 - **草稿持久化**：`getDrafts` / `saveDraft`（`draft-handlers.ts` → `userData/drafts.json`，串行写、先写临时文件再改名；限 300 条、每条 20 万字）。渲染进程 400ms 防抖保存，启动读回（读回之前已经打过字的 key 不覆盖）。只存文字，图片不存。`flushDrafts()` 在 `pagehide` / `beforeunload` / 页面隐藏时把防抖中的草稿立刻发给主进程（e2e `composer-draft.e2e.ts`：fill 后立刻 reload，drafts.json 里有内容）。
 - **`!` / `$` 开头的文字**原样发给 omp，由 omp 在对话里画结果：`!echo x` 当 bash 执行（节点 `omp.bash` / `omp.tool.bash.*`），`$ print(1)` 当 eval 执行（`omp.eval`）（omp 18.12.5 实测，[tsp-real-omp-probes.md](tsp-real-omp-probes.md) §3）。`!!` 是否进模型上下文由 omp 决定，没有逐项核对。studio 没有自己的"运行命令"通道。
 - 焦点：选中任务后聚焦输入框只在 `App.tsx` 一处，同步执行；焦点在侧栏内时不抢；侧栏里 Enter 选中任务后进输入框由 Sidebar 在 Enter 处理里聚焦 `[data-composer-input]`。
@@ -77,6 +77,8 @@
 
 命令面板"压缩 context"（`cmd.compact`）→ `window.studio.compactTask(taskId)` → `TaskPool.compactTask` → `TspRunner.compact()`：发 `/compact`，等 omp 画出压缩分隔（成功）或 "Error: Compaction failed: …"（失败，原文作为错误抛出），上限 5 分钟；没有进程时先拉起。omp 18.12.5 实测见 [tsp-migration.md](tsp-migration.md) §10.6「`/compact` 的结局」。输入框里直接输入 `/compact` 是 omp 自己的命令，同样会压缩（没有等待结果的封装）。
 
+2026-10-23 起（B1Board，实测见 [todo-board.md](todo-board.md)）：上下文浮层的"压缩"一栏（`ContextCompact`）有"立即压缩"（`TaskCommand` `compact`）和"交接"（`TaskCommand` `handoff` → `TspRunner.handoff`，`/handoff`，判定同 `/compact`：新增 `omp.compaction` 分隔 = 成功，`Error: Handoff failed` / `Compaction failed` = 失败）。自动压缩触发点、预生成摘要起点和摘要状态读输入框卡片上 `omp.composer.context` 的 `marks` 和标题（`shared/tsp/context-compaction.ts` → `TaskState.contextCompaction`），是 omp 算好的生效值；圆环上画一道刻度。omp 没给的（自动压缩关着、摘要没在生成）不显示。
+
 ## 斜杠菜单和 studio 接管的命令
 
 - 命令列表：`useSlashCommands(taskId)`（`listSlashCommands`，服务进程的 `get_available_commands`，和任务进程无关）；草稿页是 `useDraftSlashCommands()`（`listSlashCommands(null)`，同一份，`composer/use-draft-slash.ts` 管菜单和按键）。加载规则在纯函数 `palette/slash-cache.ts`：每个键同时只有一个请求，**空数组和失败都不记为"已取过"**，任务状态变化（起进程完成）时会再取，拿到非空才停（以前空数组被缓存，新建任务里菜单永远不出现）。草稿是 `/名字`（没有空格）时按名字、别名过滤（前缀优先，最多 8 行）。↑↓ 选，Tab 补全，Enter 补全（草稿已是完整命令名时发送），Esc 关闭。命令面板的 `onComposerText` 把文本放进草稿并聚焦；`DraftComposer` 挂载时取 `takePendingDraftText()`。
@@ -86,6 +88,8 @@
 ## 待办板
 
 数据 `TaskState.todoPhases`（主进程从 dock 里 `omp.hud.todo` 的 checklist 换算，见 [tsp-migration.md](tsp-migration.md) §7「待办」）。没有任何待办项时不渲染。位置：输入框上方状态行的右端（`ComposerTop` → `TodoBoard.tsx`，`todo-model.ts`）；omp 自己的待办药丸不画。按钮照 Tern 里的 omp（2026-10-22 起；omp 18.12.6 在隔离的 Tern 里从列出计划跑到全部完成逐帧截图）：进度环（弧长正好是 完成/总数，0 是 12 点钟一个圆点，进行中的那项不算半格）+ 当前项（第一个进行中，否则第一个未开始；全部完成时写“全部完成”）+ `{done}/{total}`（tabular，比文字淡）；`abandoned` 不计入 total。全部完成后 omp 过 `tasks.todoClearDelay` 秒自己删掉 HUD 节点（omp 源码 `interactive-mode.ts` 的 `#syncTodoHudState`：在会话里记一条 dismissed 再重画 HUD；Tern 里“All done 8/8”停十几秒后消失），`todoPhases` 变空，按钮跟着消失。点击展开，Esc 或点外面收起。列表按阶段分组：`pending` 空圈、`in_progress` 细弧（任务在跑时转动，reduced-motion 下停住）、`completed` 对勾、`blocked` 红色细圈 + 感叹号 + blocker 原因、`abandoned` 删除线。状态词另有 sr-only 文本。
+
+2026-10-23 起（B1Board，细节和 omp 18.12.6 实测见 [todo-board.md](todo-board.md)）：条目下面显示备注（HUD 的 `note`，`TodoItem.notes`；受阻的是 blocker）；每条右边有 ⋯ 菜单（开始 / 完成 / 放弃 / 删除，菜单内嵌在浮层里，浮动 `Menu` 渲染在 body 上会被 `Popover` 当成点外面而关掉板），经 `TaskCommand` `todo` 变成 `/todo start|done|drop|rm <内容>`，成功读 omp 的 toast、失败读新增的 `Error:` 行（`TspRunner.runTodoCommand`）；板底有"添加条目"（`/todo append "<阶段>" "<任务>"`，阶段可选）、"复制为 Markdown"（本地拼，和 omp `/todo` 同文，`todoMarkdown`）、"展开全部"（已做完的阶段默认收起，同 omp HUD，只改界面不发命令）。重名条目只能操作第一个；没有待办时板不出现。
 
 ## 旁路提问（`/btw`，`features/btw/`）
 
@@ -98,6 +102,19 @@
 ## 会话树与分叉
 
 语义、实测和任务模型上的取舍见 [session-tree.md](session-tree.md)。界面一侧：面板 `SessionTreePanel.tsx`（`session-tree-store.ts` 管开关）、动作 `fork-actions.ts`（`forkFromMessage` / `branchToNode`，分叉出的任务被选中、那条消息的文字追加进它的输入框）、omp 用户消息卡片上的回退图标被接管成打开面板。`/tree`、`/fork` 在 `studio-slash-table.ts`，命令面板 `cmd.sessionTree` 打开面板。
+
+## 模式与状态区（`composer/ModeChip.tsx`、`ComposerNotes.tsx`、`session-toggles/ModeSection.tsx`）
+
+实测：omp 18.12.6，2026-10-23，真实 omp + 临时 agent 目录，录制 `fixtures/tsp/composer-{modes,loop,retry,interrupted}.jsonl`；全部读法在纯函数 `shared/tsp/composer-facts.ts`（`test/tsp-composer-facts.test.ts` 逐帧验证）。
+
+- **模式**：输入框卡片里 `omp.composer.fact` 的 `mode` 片段（按节点 id 最后一段认，不按文字，分支叫 "Vibe" 不会误判）。文字 `Plan` / `Plan (paused)` / `Prewalk` / `Goal …` / `Vibe` / `Loop[:] running|paused|next prompt repeats [3/5 | 2m left] [until|while: <命令前 33 字>]`；同一时刻只显示一种，优先级 Plan > Prewalk > Goal > Vibe > Loop。主进程记进 `TaskState.composerMode`（目标之外）和 `goal`，输入框卡片被弹窗换掉时沿用上一次的值。
+- **开关**：`/plan` 是切换（开 → 退出到 `Plan (paused)` → 再发一次关闭；已有计划时 omp 先弹确认），`/loop` 开着时再发是关闭，`/vibe` 同理。TaskCommand `plan` / `planReview` / `vibe` / `loopStart` / `loopStop` → `TspRunner.runModeCommand`：发之前看当前模式（`modeCommandBlocker`），发出后等模式变成预期的样子或弹出确认 / 评审弹窗（`modeCommandDone`）；没变而 omp 给了 toast（"Exit goal mode first."）= 被拒，原文抛出。成功和被拒都有 toast，所以不靠 toast 判断。`/loop` 的条件命令用 shell 引号：无单引号包单引号，否则包双引号并转义 `\ " $ \``（实测 omp 解析出原命令）。Loop 暂停 = Esc（`stopTask`），继续 = 发下一条消息。Loop 开启只在无模式时给（模式显示优先级会盖住它）。
+- **界面**：有模式时工具行出现模式胶囊（点开是当前模式的控件）；无模式时同一组开关在"会话开关"菜单底部。目标开着时 Plan / Vibe / Loop 禁用并说明。
+- **扩展状态**：`hook-<N>` 片段（`ctx.ui.setStatus`，只有文字），`TaskState.extStatuses`，状态行右侧只读标签，悬停看全文。
+- **速度**：`omp.composer.rate`（`p.value` tok/s，约 10 次/秒），只在 omp 设置 `composer.tokenRate` 开着时有（默认关）；有就用它（取整），没有退回会话文件里的值。
+- **状态区**（dock → `omp.hud.status`）：自动重试 = `omp.working` 行，`meter style=ring` 的 value 1 → 0（每 0.5 秒一帧，总等待不在文档里，界面用第一帧和当前帧估秒数 `estimateRetrySeconds`），标签 `Retrying · attempt N of M`，取消 = `omp.working.stop` 的 `interrupt` 动作；压缩 = 同一行多一个无 value 的 `progress`，Stop 同一动作；上一轮停在工具调用中途 = `omp.hint.retry`（"F5 to retry"），界面显示"上一轮被中断 + 重试"（`/retry`）；空闲 loader 能取消的（文字以 `(… to cancel)` 结尾）发 Esc。
+- **聚焦子代理**：`omp.composer.focus`，状态行上方横幅 + "回到主会话"（点 omp 的 `focus:Main` 动作），输入框占位符写明对象。
+- 未实测（推测）：`/plan` 在已有计划时的退出确认弹窗、`/plan-review`、`omp.hint.retry` 在新一轮开始后何时消失。
 
 ## e2e
 
