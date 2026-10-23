@@ -12,8 +12,10 @@
   animation: setup-fade var(--dur-fade) var(--ease-out);
 }
 
-/* 问接管时底下的应用（侧栏、项目）照常画出来，只压一层遮罩，用户看得到自己的任务还在。 */
+/* 问接管时底下的应用（侧栏、项目）照常画出来，只压一层遮罩，用户看得到自己的任务还在。
+   遮罩和其他弹窗一样盖到窗口顶上（含顶栏）：主进程同时把系统三键调暗（useTitleBarDim），只盖顶栏以下会让顶栏亮、三键暗。 */
 .setup[data-state="ask_takeover"] {
+  inset: 0;
   background: var(--bg-scrim);
 }
 

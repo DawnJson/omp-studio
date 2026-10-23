@@ -148,7 +148,7 @@
 | 浅色 | `#EEEDF0` | `#131118` |
 | 深色 | `#0C0B0E` | `#E8E6EC` |
 
-有遮罩（`--bg-scrim`）的弹窗打开期间（模型选择、命令面板、会话树、确认框、关于、git 对话框、接管 omp 询问），系统三键也跟着变暗：渲染进程用 `useTitleBarDim` 计数，第一个打开时调 `setTitleBarDimmed(true)`，最后一个关掉时恢复；颜色是顶栏色上叠一层遮罩后的实色（三键不是网页画的，遮罩盖不到）：
+有遮罩（`--bg-scrim`）的弹窗打开期间（模型选择、命令面板、会话树、确认框、关于、git 对话框、接管 omp 询问、过程区放大看图），系统三键也跟着变暗：渲染进程用 `useTitleBarDim` 计数，第一个打开时调 `setTitleBarDimmed(true)`，最后一个关掉时恢复。**调暗三键的遮罩必须盖到窗口顶上（含顶栏）**，只盖顶栏以下会出现"顶栏亮、三键暗"（2026-10-23 接管询问修过一次）；只盖主区的遮罩（窄窗口侧栏抽屉、omp 的选择器浮层）不调三键。变暗的颜色是顶栏色上叠一层遮罩后的实色（三键不是网页画的，遮罩盖不到）：
 
 | 主题 | 变暗后 `color` | 变暗后 `symbolColor` |
 |---|---|---|
@@ -679,7 +679,7 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 
 ### 4.22 OmpSetupCard（首次启动与 omp 管理）
 
-`features/omp-setup/OmpSetupView.tsx`，样式 `omp-setup.css`。只在需要用户参与或在等待时出现，omp 就绪后自己消失（淡出）。盖住顶栏以下的整个窗口（不透明 `--bg-app`），居中一张卡片：宽 `--dialog-w-md`(520)，`--bg-raised`，`--radius-xl`，`--shadow-2`，内边距 `--space-6`，`role="dialog"`。只有问接管时底下的应用照常画出来、只压一层 `--bg-scrim`（顶栏系统三键一起调暗，`ui/title-bar-dim.ts`）。标题 `--font-display` `--fs-xl`；路径放等宽的 `--bg-sunken` 块。
+`features/omp-setup/OmpSetupView.tsx`，样式 `omp-setup.css`。只在需要用户参与或在等待时出现，omp 就绪后自己消失（淡出）。盖住顶栏以下的整个窗口（不透明 `--bg-app`），居中一张卡片：宽 `--dialog-w-md`(520)，`--bg-raised`，`--radius-xl`，`--shadow-2`，内边距 `--space-6`，`role="dialog"`。只有问接管时底下的应用照常画出来、只压一层 `--bg-scrim`，这一态的遮罩盖到窗口顶上（含顶栏），顶栏系统三键一起调暗（`ui/title-bar-dim.ts`，§2.1）。标题 `--font-display` `--fs-xl`；路径放等宽的 `--bg-sunken` 块。
 
 **按钮**（3.2 起，原来左对齐，`direction-3.2.md` §2.4）：卡片底部一行右对齐（`flex-wrap`，不设固定宽度），**次要在前、主按钮在最后**，一张卡最多一个主按钮。
 

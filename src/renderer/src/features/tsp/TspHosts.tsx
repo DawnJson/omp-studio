@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
+import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
 import { hideTspMenu, useTspMenu } from "./menu-store.ts";
 import { closeZoom, stepZoom, useZoom } from "./zoom-store.ts";
 
@@ -54,6 +55,8 @@ function TspMenuHost() {
 function TspZoomHost() {
   const t = useT();
   const zoom = useZoom();
+  // 放大图的遮罩盖住整个窗口（含顶栏），系统三键也要一起调暗。
+  useTitleBarDim(zoom !== null);
   useEffect(() => {
     if (!zoom) return;
     const onKey = (event: KeyboardEvent): void => {

@@ -133,6 +133,17 @@ test("接管询问：同意/拒绝的按钮把回答发给主进程", async () =
       managerName: null,
     });
     await expect(page.getByTestId("takeover-no")).toBeFocused();
+    // 遮罩盖到窗口顶上：系统三键这时被调暗，顶栏（高 40）也得在遮罩下面，否则顶栏亮、三键暗。
+    const coversTitleBar = await page.evaluate(() => {
+      const g = globalThis as unknown as {
+        innerWidth: number;
+        document: {
+          elementFromPoint(x: number, y: number): { closest(selector: string): unknown } | null;
+        };
+      };
+      return g.document.elementFromPoint(g.innerWidth / 2, 20)?.closest('[data-testid="omp-setup"]') != null;
+    });
+    expect(coversTitleBar).toBe(true);
     // 主进程此刻没有在问（状态是合成的），应答被拒绝：界面不崩，卡片还在，等真实状态推来。
     await page.getByTestId("takeover-no").click();
     await expect(page.getByTestId("omp-setup")).toBeVisible();
