@@ -75,10 +75,13 @@
   }
 }
 
+/* 工具行的胶囊比别处的 .ui-chip 紧凑：左右内边距 6px（--chip-pad，controls.css 的 .ui-chip 读它），胶囊之间 2px，
+   相邻两颗的文字 / 图标之间共 14px。 */
 .composer-tools {
+  --chip-pad: var(--space-1-5);
   display: flex;
   align-items: center;
-  gap: var(--space-1-5);
+  gap: var(--space-0-5);
   min-height: 36px;
   padding: 0;
 }
@@ -92,7 +95,7 @@
 /* 工具行里的文件夹标签（PathLabel，只读）：高度和左右内边距同 .ui-chip，和模型 / 审批 / 会话开关对齐；没有底色，不能点。 */
 .composer-tools > .empty-project {
   height: var(--control-h-sm);
-  padding: 0 var(--space-2-5);
+  padding: 0 var(--chip-pad);
 }
 .composer-note {
   min-width: 0;
@@ -172,16 +175,16 @@ button.usage-context:hover,
 .ui-chip.chip-name {
   flex: 0 1 auto;
   max-width: 100%;
-  min-width: calc-size(max-content, min(size, var(--chip-name-min-w) + 2 * var(--space-2-5)));
+  min-width: calc-size(max-content, min(size, var(--chip-name-min-w) + 2 * var(--chip-pad)));
   overflow: hidden;
 }
-/* 整颗胶囊（名字 + 刻度）的左右内边距同其它 .ui-chip：左边在名字上、右边在刻度上各 10px；两颗中间各留 4px。 */
+/* 整颗胶囊（名字 + 刻度）的左右内边距同其它 .ui-chip（--chip-pad）：左边在名字上、右边在刻度上；两颗中间各留 4px。 */
 .ui-chip.chip-effort {
   position: relative;
-  padding: 0 var(--space-2-5) 0 var(--space-1);
+  padding: 0 var(--chip-pad) 0 var(--space-1);
 }
 .ui-chip.chip-name:has(+ .chip-effort) {
-  min-width: calc-size(max-content, min(size, var(--chip-name-min-w) + var(--space-2-5) + var(--space-1)));
+  min-width: calc-size(max-content, min(size, var(--chip-name-min-w) + var(--chip-pad) + var(--space-1)));
   padding-right: var(--space-1);
 }
 .chip-text {
@@ -1005,7 +1008,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
 /* 工具行里的 Shell / Python 标签（ShellTag）：输入框以 ! / $ 开头时出现；浮层只有一行开关 */
 .ui-chip.shell-tag {
   gap: var(--space-1);
-  padding: 0 var(--space-2);
   color: var(--accent);
 }
 .shell-pop-row {

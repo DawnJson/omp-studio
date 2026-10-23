@@ -1129,14 +1129,14 @@
   flex: none;
 }
 
-/* 输入框工具条的胶囊：一种样式，全部无底色，hover / 打开时才有底 */
+/* 输入框工具条的胶囊：一种样式，全部无底色，hover / 打开时才有底。左右内边距可由外层的 --chip-pad 收紧（输入框工具行用 6px）。 */
 .ui-chip {
   display: inline-flex;
   flex: none;
   gap: var(--space-1-5);
   align-items: center;
   height: var(--control-h-sm);
-  padding: 0 var(--space-2-5);
+  padding: 0 var(--chip-pad, var(--space-2-5));
   font: inherit;
   font-size: var(--fs-sm);
   color: var(--text-2);

@@ -1,9 +1,8 @@
 /* 会话开关菜单（SessionTogglesMenu）和模型选择器里的 Prewalk / 预设两行（PrewalkSection、PresetSection）。只放布局；控件样式在 ui/controls.css。 */
 
-/* 工具行里的会话开关：ui-chip 的图标版（左右内边距收小）。 */
+/* 工具行里的会话开关：ui-chip 的图标版（内边距同工具行的其它胶囊）。 */
 .ui-chip.tg-button {
   position: relative;
-  padding: 0 var(--space-2);
 }
 /* 有开关和配置默认值不同：按钮角上一个强调色小圆点。 */
 .tg-button[data-differs]::after {
