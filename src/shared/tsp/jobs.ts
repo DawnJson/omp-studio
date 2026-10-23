@@ -259,3 +259,80 @@ export function findJobsHudSeg(doc: TspDocument): { sf: string; id: string } | n
   }
   return null;
 }
+
+/**
+ * hud 作业胶囊悬停卡片里的一个作业（omp 的 `omp.job.tile`）。卡片是胶囊的 `hovercard` 属性（一棵不带 id 的节点树），
+ * omp 18.12.5 录制（fixtures/tsp/jobs-chart.jsonl）、18.12.6 实测，每个作业是：头一行 `omp.job.tile.dot` / `.title` / `.id`；
+ * omp 的作业小部件有进度时再有 `.figure`（`done 21`）、`meter`（`.meter`，0-1）、`.stats`、`.stage`，没有时是一行 `.lead`（最近的输出）。
+ */
+export interface JobTile {
+  id: string;
+  title: string;
+  /** 进度 0-1；omp 的作业小部件没给进度条时为 null。 */
+  meter: number | null;
+  /** 进度条旁边的数字（`done 21`），没有为空串。 */
+  figure: string;
+  /** 头和数字之外的文字行，按 omp 的顺序（`passed 21 · failed 0`、当前阶段、最近的输出）。 */
+  notes: string[];
+}
+
+const TILE_ROLE = "omp.job.tile";
+
+function propChildren(node: Record<string, unknown>): Record<string, unknown>[] {
+  return Array.isArray(node["c"]) ? node["c"].filter(isRecord) : [];
+}
+
+function propTile(node: Record<string, unknown>): JobTile | null {
+  const tile: JobTile = { id: "", title: "", meter: null, figure: "", notes: [] };
+  const visit = (child: Record<string, unknown>): void => {
+    const props = isRecord(child["p"]) ? child["p"] : {};
+    if (child["k"] === "meter") {
+      const value = props["value"];
+      if (typeof value === "number" && Number.isFinite(value)) tile.meter = Math.min(1, Math.max(0, value));
+      return;
+    }
+    if (child["k"] === "text") {
+      const text = (typeof props["text"] === "string" ? props["text"] : spansText(props["spans"])).trim();
+      if (props["role"] === `${TILE_ROLE}.title`) tile.title = text;
+      else if (props["role"] === `${TILE_ROLE}.id`) tile.id = text;
+      else if (props["role"] === `${TILE_ROLE}.figure`) tile.figure = text;
+      else if (props["role"] !== `${TILE_ROLE}.dot` && text !== "") tile.notes.push(text);
+      return;
+    }
+    for (const next of propChildren(child)) visit(next);
+  };
+  visit(node);
+  return tile.id === "" ? null : tile;
+}
+
+/** hud 作业胶囊悬停卡片里的作业（只在有作业运行中时有）。 */
+export function deriveJobTiles(doc: TspDocument): JobTile[] {
+  const seg = findJobsHudSeg(doc);
+  const card = seg ? doc.surfaces.get(seg.sf)?.nodes.get(seg.id)?.p["hovercard"] : undefined;
+  const tiles: JobTile[] = [];
+  const visit = (node: Record<string, unknown>): void => {
+    if (isRecord(node["p"]) && node["p"]["role"] === TILE_ROLE) {
+      const tile = propTile(node);
+      if (tile) tiles.push(tile);
+      return;
+    }
+    for (const child of propChildren(node)) visit(child);
+  };
+  if (isRecord(card)) visit(card);
+  return tiles;
+}
+
+/** 两份卡片内容相同（store 用它决定要不要换引用）。 */
+export function sameJobTiles(a: readonly JobTile[], b: readonly JobTile[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((tile, index) => {
+    const other = b[index] as JobTile;
+    return (
+      tile.id === other.id &&
+      tile.title === other.title &&
+      tile.meter === other.meter &&
+      tile.figure === other.figure &&
+      tile.notes.join("\n") === other.notes.join("\n")
+    );
+  });
+}

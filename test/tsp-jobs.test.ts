@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { applyMessage, createDocument, type TspDocument } from "../src/shared/tsp/document.ts";
 import {
+  deriveJobTiles,
   deriveTspJobs,
   findJobsHudSeg,
   findJobsOverlayItem,
@@ -10,6 +11,7 @@ import {
   mergeTspJobs,
   parseJobDuration,
   sameJobs,
+  type JobTile,
 } from "../src/shared/tsp/jobs.ts";
 import type { Job } from "../src/shared/ui/jobs.ts";
 import { loadTspFixture, tspDocMessages } from "./tsp-fixtures.ts";
@@ -85,6 +87,31 @@ describe("jobs-chart 录制（一个后台 bash）", () => {
     expect(jobs).toHaveLength(1);
     expect(jobs[0]).toMatchObject({ id: "bg_1", status: "completed", durationMs: 43_900 });
     expect(jobs[0]?.startedAt).toBeLessThan(1_000_000 + 1000 * 200);
+  });
+
+  it("hud 胶囊的悬停卡片：先是最近一行输出，omp 的作业小部件给了进度后是进度条 + 数字；跑完就没有", () => {
+    const doc = createDocument();
+    const seen: JobTile[] = [];
+    for (const { message } of tspDocMessages(loadTspFixture("jobs-chart"))) {
+      applyMessage(doc, message);
+      seen.push(...deriveJobTiles(doc));
+    }
+    expect(seen[0]).toEqual({ id: "bg_1", title: "npx playwright test", meter: null, figure: "", notes: [] });
+    expect(seen).toContainEqual({
+      id: "bg_1",
+      title: "npx playwright test",
+      meter: null,
+      figure: "",
+      notes: ["Running 36 tests using 1 worker"],
+    });
+    const withMeter = seen.filter((tile) => tile.meter !== null);
+    expect(withMeter.length).toBeGreaterThan(0);
+    const last = withMeter.at(-1)!;
+    expect(last.figure).toMatch(/^done \d+$/);
+    expect(last.meter).toBeGreaterThan(0);
+    expect(last.meter).toBeLessThanOrEqual(1);
+    expect(last.notes[0]).toMatch(/^passed \d+ · failed 0$/);
+    expect(deriveJobTiles(doc)).toEqual([]);
   });
 });
 

@@ -346,12 +346,15 @@
   justify-content: center;
   padding-bottom: var(--space-4);
 }
+/* omp 的模态弹窗（`/jobs` 等）：只挡住过程区的指针，不画灰底——遮罩只能盖到过程区，输入框和侧栏照常，灰的一块像出了错
+   （2026-10-23 仓库所有者）。卡片换成对话框那一档阴影浮起来。 */
 .tspi-ov-dim {
   position: absolute;
   inset: 0;
-  background: var(--bg-scrim);
   pointer-events: auto;
-  animation: tspi-fade var(--dur-base) var(--ease-out);
+}
+.tspi-overlay.modal .tspi-ov-card {
+  box-shadow: var(--shadow-3);
 }
 .tspi-ov-card {
   position: relative;

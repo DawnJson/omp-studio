@@ -32,7 +32,7 @@ interface Started {
   cleanup(): Promise<void>;
 }
 
-async function start(fixture: string, env: Record<string, string> = {}): Promise<Started> {
+async function start(fixture: string, env: Record<string, string> = {}, speed = 20): Promise<Started> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp e2e-"));
   const project = path.join(work, "项目 目录");
   await mkdir(project);
@@ -40,7 +40,7 @@ async function start(fixture: string, env: Record<string, string> = {}): Promise
   const launched = await launchApp({
     STUDIO_TEST_OMP: JSON.stringify({
       command: process.execPath,
-      args: [fakeOmp, fixture, "--speed=20", `--log=${log}`],
+      args: [fakeOmp, fixture, `--speed=${speed}`, `--log=${log}`],
     }),
     ...env,
   });
@@ -901,6 +901,7 @@ test("后台作业弹窗:卡片不超出 tsp-view、作业列表顶对齐;输入
     const masterBox = await role(page, "omp.jobs.master").boundingBox();
     const detailBox = await role(page, "omp.jobs.detail").boundingBox();
     expect(Math.abs(masterBox!.y - detailBox!.y)).toBeLessThanOrEqual(1);
+    await shoot(page, "jobs-overlay");
 
     // Esc:焦点在 studio 输入框里,弹窗把 Esc 写给 omp(弹窗没有关闭动作,关它就是这个键),只写一次。
     const escCount = async () => (await receivedKeys()).join("").split("\x1b").length - 1;
@@ -1014,6 +1015,44 @@ test('输入框上方(照 Tern):药丸 [👥 N | ⚡ N] 每段个数大于 0 才
     await expect(page.getByTestId("topbar-agents")).toHaveAttribute("aria-pressed", "true");
   } finally {
     await hub.cleanup();
+  }
+});
+
+test("悬停药丸的作业那一段:上方出作业卡片代替悬停提示,内容是 omp hud 作业胶囊的悬停卡片,omp 的作业小部件给了进度就有进度条", async () => {
+  test.setTimeout(120_000);
+  // 2 倍速:录制里有进度的那段 22 秒,20 倍速只有一秒多,进度条出来前作业可能就跑完了。
+  const { launched, cleanup } = await start("jobs-chart", {}, 2);
+  try {
+    const { page } = launched;
+    await sendFirst(page, JOBS_PROMPT);
+    const pill = page.getByTestId("pill-jobs");
+    await expect(pill).toBeVisible({ timeout: 60_000 });
+    await pill.hover();
+    const card = page.getByTestId("jobs-card");
+    await expect(card.getByTestId("jobs-card-tile")).toHaveAttribute("data-job-id", "bg_1");
+    await expect(card).toContainText("npx playwright test");
+    await expect(card.locator("[role=meter]")).toBeVisible({ timeout: 60_000 });
+    await expect(card).toContainText(/done \d+/);
+    await expect(card).toContainText(/passed \d+ · failed 0/);
+    await expect(page.getByTestId("tooltip")).toHaveCount(0);
+    await page.mouse.move(5, 5);
+    await expect(card).toHaveCount(0);
+    // 用 shoot 换主题后截出来卡片已经不在了：每种主题换好以后重新悬停再截。
+    for (const [locale, scheme] of [
+      ["zh-CN", "light"],
+      ["zh-CN", "dark"],
+      ["en", "light"],
+      ["en", "dark"],
+    ] as const) {
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+      await setLocaleTheme(page, locale, scheme);
+      await pill.hover();
+      await expect(card.locator("[role=meter]")).toBeVisible();
+      await page.screenshot({ path: path.join(screenshotsDir, `tsp-composer-jobs-card-${locale}-${scheme}.png`) });
+      await page.mouse.move(5, 5);
+    }
+  } finally {
+    await cleanup();
   }
 });
 
