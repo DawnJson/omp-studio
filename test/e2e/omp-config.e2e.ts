@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 async function launchIsolated(
   extraEnv: Record<string, string> = {},
@@ -88,7 +88,6 @@ test("被环境变量覆盖：保存成功但提示实际生效的值来自环�
     const row = page.getByTestId("cfg-hindsight.apiUrl");
     await row.getByRole("textbox").fill("http://localhost:9999");
     await expect(row.getByText(/覆盖/)).toContainText("HINDSIGHT_API_URL", { timeout: 10_000 });
-    await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-overridden-zh-CN-light.png") });
 
     // 对象设置：行上是"编辑…"按钮，点开对话框里写 JSON，校验不过不能保存。
     await search(page, "compaction.modelThresholds");
@@ -97,7 +96,6 @@ test("被环境变量覆盖：保存成功但提示实际生效的值来自环�
     await dialog.getByTestId("cfg-json-text").fill('{"a":');
     await expect(dialog.getByRole("alert")).toContainText("JSON");
     await expect(dialog.getByTestId("cfg-json-save")).toBeDisabled();
-    await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-json-error-zh-CN-light.png") });
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     // 没通过校验的内容不会被保存：值还是默认的空对象。
@@ -175,7 +173,6 @@ test("自定义下拉：键盘 ↑↓ 选择、首字母跳转、Esc 只关弹�
     // 首字母跳转到 replace；Esc 关掉弹层但没有退出设置页。
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("r");
-    await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-dropdown-zh-CN-light.png") });
     await page.keyboard.press("Escape");
     await expect(page.getByRole("listbox")).toHaveCount(0);
     await expect(page.getByTestId("settings")).toBeVisible();
@@ -198,42 +195,35 @@ test("模型角色：结构化编辑，不用手写 JSON", async () => {
     await editor.getByRole("textbox").fill("plan");
     await editor.getByRole("button", { name: "添加" }).click();
     await expect(editor.locator(".se-name", { hasText: "plan" })).toBeVisible({ timeout: 10_000 });
-    await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-roles-zh-CN-light.png") });
     expect(Object.keys((await configValue(page, "modelRoles")) as object)).toContain("plan");
     await page.keyboard.press("Escape");
     await expect(editor).toHaveCount(0);
     await search(page, "fallbackChains");
     await page.getByTestId("cfg-retry.fallbackChains").getByRole("button", { name: "编辑…" }).click();
     await expect(page.getByTestId("chains-editor")).toBeVisible();
-    await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-chains-zh-CN-light.png") });
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
   }
 });
 
-test("截图：omp 设置分组、搜索，中英文 × 浅深主题", async () => {
+test("设置分组、搜索：中英文；窄窗口不溢出", async () => {
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
     await page.getByTestId("settings-nav-agents").click();
     await expect(page.locator(".ui-row").first()).toBeVisible({ timeout: 30_000 });
     for (const locale of ["zh-CN", "en"] as const) {
-      for (const theme of ["light", "dark"] as const) {
-        await setLocaleTheme(page, locale, theme);
-        await search(page, "");
-        for (const tab of ["agents", "models", "tools"] as const) {
-          await page.getByTestId(`settings-nav-${tab}`).click();
-          await expect(page.locator(".ui-row").first()).toBeVisible();
-          await page.screenshot({ path: path.join(screenshotsDir, `omp-e-config-${tab}-${locale}-${theme}.png`) });
-        }
-        await search(page, locale === "zh-CN" ? "压缩" : "compaction");
+      await setLocaleTheme(page, locale, "light");
+      await search(page, "");
+      for (const tab of ["agents", "models", "tools"] as const) {
+        await page.getByTestId(`settings-nav-${tab}`).click();
         await expect(page.locator(".ui-row").first()).toBeVisible();
-        await page.screenshot({ path: path.join(screenshotsDir, `omp-e-config-search-${locale}-${theme}.png`) });
-        await search(page, "zzzz-no-such-setting");
-        await expect(page.getByText(locale === "zh-CN" ? "没有匹配" : "No settings match")).toBeVisible();
-        await page.screenshot({ path: path.join(screenshotsDir, `omp-e-config-empty-${locale}-${theme}.png`) });
       }
+      await search(page, locale === "zh-CN" ? "压缩" : "compaction");
+      await expect(page.locator(".ui-row").first()).toBeVisible();
+      await search(page, "zzzz-no-such-setting");
+      await expect(page.getByText(locale === "zh-CN" ? "没有匹配" : "No settings match")).toBeVisible();
     }
     // 窄窗口：设置导航变成内容顶上的下拉，长文本不溢出。
     await setLocaleTheme(page, "zh-CN", "light");
@@ -246,7 +236,6 @@ test("截图：omp 设置分组、搜索，中英文 × 浅深主题", async () 
       await page.keyboard.press("Control+b");
     await page.waitForTimeout(400);
     await expect(page.getByTestId("settings")).toBeVisible();
-    await page.screenshot({ path: path.join(screenshotsDir, "omp-e-config-narrow-zh-CN-light.png") });
     // 页面本身不横向溢出（长 key、长描述都要换行）。
     const overflow = await page.locator(".settings-scroll").evaluate((element) => {
       const size = element as unknown as { scrollWidth: number; clientWidth: number };
@@ -293,24 +282,12 @@ test("通用页：通知与回顾是 omp 自己的设置、改了写进 omp；�
     await expect(shortcuts.getByTestId("omp-shortcut-app.thinking.cycle").locator("kbd")).toHaveText(["Shift", "Tab"]);
     await expect(shortcuts.getByTestId("omp-shortcut-app.retry")).toHaveCount(0);
     await expect(page.locator("#settings-shortcuts")).toContainText("omp 快捷键");
-    for (const locale of ["zh-CN", "en"] as const) {
-      for (const theme of ["light", "dark"] as const) {
-        await setLocaleTheme(page, locale, theme);
-        await page.locator("#settings-shortcuts").scrollIntoViewIfNeeded();
-        await page.screenshot({ path: path.join(screenshotsDir, `omp-e-shortcuts-${locale}-${theme}.png`) });
-        await notify.scrollIntoViewIfNeeded();
-        await page.screenshot({ path: path.join(screenshotsDir, `omp-e-notify-${locale}-${theme}.png`) });
-      }
-    }
-
     // 模型页：思考块的两个开关（TSP 下实测起作用，docs/architecture/omp-settings.md）。
-    await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("settings-nav-models").click();
     await expect(page.getByTestId("cfg-hideThinkingBlock")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("cfg-expandThinkingBlocks")).toBeVisible();
     await page.getByTestId("cfg-expandThinkingBlocks").getByRole("switch").click();
     await expect.poll(() => configValue(page, "expandThinkingBlocks"), { timeout: 10_000 }).toBe(true);
-    await page.screenshot({ path: path.join(screenshotsDir, "omp-e-thinking-blocks-zh-CN-light.png") });
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

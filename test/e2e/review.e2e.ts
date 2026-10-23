@@ -1,12 +1,12 @@
 // 全屏评审端到端：临时 git 仓库（路径带空格和中文）+ 假 omp（fake-tsp-omp，伪终端里回放 fixtures/tsp/slash-status），
 // 驱动真实的 主进程 → git IPC → 渲染进程：打开评审（顶栏评审按钮）、统一/并排、暂存一个 hunk、两条评论、发给 agent（断言 omp 收到的 send 事件文本）。
-// 中英 × 深浅各截图到 screenshots/review-*.png。
+// 评审提交框在窄窗和宽窗、中英文下不横向溢出。
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, openTaskRow, screenshotsDir, setLocaleTheme, testOmp, type LaunchedApp } from "./launch.ts";
+import { expectNoOverflow, launchApp, openTaskRow, setLocaleTheme, testOmp, type LaunchedApp } from "./launch.ts";
 
 const PATH_EDITED = "src/calc.ts";
 
@@ -97,22 +97,6 @@ async function openTask(page: Page): Promise<void> {
   await expect(page.getByTestId("composer-input")).toBeVisible();
 }
 
-async function shoot(page: Page, state: string): Promise<void> {
-  for (const [locale, scheme] of [
-    ["zh-CN", "light"],
-    ["zh-CN", "dark"],
-    ["en", "light"],
-    ["en", "dark"],
-  ] as const) {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await setLocaleTheme(page, locale, scheme);
-    await page.screenshot({ path: path.join(screenshotsDir, `review-${state}-${locale}-${scheme}.png`) });
-  }
-  // 回到中文浅色：后面的步骤按中文文案找元素。
-  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
-  await setLocaleTheme(page, "zh-CN", "light");
-}
-
 const gutter = (page: Page, line: number, side: "new" | "old" = "new") =>
   page.locator(`[data-testid=line-comment][data-side=${side}][data-line="${line}"]`);
 
@@ -154,7 +138,6 @@ test("评审：文件树、统一/并排、暂存 hunk、两条评论、发给 a
     await expect(page.locator(".rv-lines[data-mode=split]")).toHaveCount(2);
     await expect(page.locator(".rv-half[data-kind=del]").first()).toContainText("value3 = 3;");
     await expect(page.locator(".rv-half[data-kind=add]").first()).toContainText("value3 = 300;");
-    await shoot(page, "split");
 
     // 键盘：v 切回统一；j 切到下一个文件（未跟踪组按路径排序，logo.bin 在前）；k 回来；n 选中第一个 hunk。
     await page.keyboard.press("v");
@@ -187,12 +170,10 @@ test("评审：文件树、统一/并排、暂存 hunk、两条评论、发给 a
     await page.getByTestId("comment-submit").click();
     await expect(page.getByTestId("comment-card")).toHaveCount(2);
     await expect(page.getByTestId("comment-count")).toHaveText("2");
-    await shoot(page, "comments");
 
     // 评论只在 diff 里；工具条"评论 N"打开列表浮层（按行排序）。Esc 先收浮层，再退出评审；再打开队列仍在（跨关闭保留）。
     await page.getByTestId("comment-queue-button").click();
     await expect(page.getByTestId("queued-comment")).toHaveCount(2);
-    await shoot(page, "queue");
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("queued-comment")).toHaveCount(0);
     await expect(review).toBeVisible();
@@ -303,7 +284,6 @@ test("评审：删除行的旧行号一直在；悬停时加评论的 + 在行�
       // 长行折行时行号和 + 都贴着第一行，不是在整块的垂直中间。
       expect(numberBox.y - rowBox.y).toBeLessThan(6);
       expect(plusBox.y - rowBox.y).toBeLessThan(6);
-      if (mode === "unified") await shoot(page, "gutter");
     }
 
     // 新增行只有一列行号（新行号）；上下文行也只有一列。
@@ -402,7 +382,17 @@ test("评审：文件树每行 +a −d、变更行左缘竖条、改动块/整�
     await expect(submit).toBeDisabled();
     await summary.fill("Add readme");
     await page.getByTestId("review-commit-description").fill("评审里提交。");
-    await shoot(page, "commit");
+    // 提交框在窄窗（评审侧栏最窄）和宽窗、中英文下都不横向溢出（"生成"按钮、Amend、提示折行而不撑出去）。
+    const original = page.viewportSize();
+    for (const width of [900, 1200]) {
+      await page.setViewportSize({ width, height: 700 });
+      for (const locale of ["zh-CN", "en"] as const) {
+        await setLocaleTheme(page, locale, "light");
+        await expectNoOverflow(page.getByTestId("review-commit"));
+      }
+    }
+    await setLocaleTheme(page, "zh-CN", "light");
+    if (original) await page.setViewportSize(original);
     await expect(submit).toBeEnabled();
     await submit.click();
     await expect(openFile(page, "README.md", "staged")).toHaveCount(0);
@@ -424,7 +414,6 @@ test("评审：不是 git 仓库的任务目录给出明确提示；快捷键 Ct
     await page.keyboard.press("Control+Shift+D");
     await expect(page.getByTestId("review")).toBeVisible();
     await expect(page.getByTestId("review-not-git")).toBeVisible();
-    await shoot(page, "not-git");
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("review")).toBeHidden();
     await expect(page.getByTestId("composer-input")).toBeFocused();
@@ -471,7 +460,6 @@ test("评审：生成提交信息（假 omp commit）：填进输入框、可取
     await expect(generate).toBeEnabled();
     await generate.click();
     await expect(generate).toHaveAttribute("data-loading", "true");
-    await shoot(page, "generate-loading");
     // 等假 omp 真的起来（启动时记一行调用）再取消，否则取消可能赶在进程启动之前。
     await expect.poll(async () => (await readCalls(work)).length).toBe(1);
     await page.getByTestId("review-commit-generate-cancel").click();
@@ -482,7 +470,6 @@ test("评审：生成提交信息（假 omp commit）：填进输入框、可取
     await generate.click();
     await expect(summary).toHaveValue("feat: 假 omp 生成的标题", { timeout: 30_000 });
     await expect(description).toHaveValue("- 第一条说明\n- 第二条说明");
-    await shoot(page, "generate-done");
     expect(git(repo, "rev-parse", "HEAD")).toBe(headBefore);
     expect(git(repo, "status", "--porcelain")).toBe(indexBefore);
 
@@ -547,7 +534,6 @@ test("评审：修改上一次提交（Amend）：预填上一次的信息；取
     await expect(description).toHaveValue("原来的说明");
     await expect(submit).toHaveText("修改提交");
     await expect(page.getByTestId("review-commit-amend-note")).toBeVisible();
-    await shoot(page, "amend");
     await amend.uncheck();
     await expect(summary).toHaveValue("我正在写的");
     await expect(submit).toHaveText("提交");
@@ -576,11 +562,9 @@ test("评审：修改上一次提交（Amend）：预填上一次的信息；取
     await amend.click();
     await expect(amend).toBeChecked();
     await expect(page.getByTestId("review-commit-amend-note")).toHaveAttribute("data-pushed", "true");
-    await shoot(page, "amend-pushed");
     await summary.fill("改写已推送的提交");
     await submit.click();
     await expect(page.getByTestId("review-amend-dialog")).toBeVisible();
-    await shoot(page, "amend-confirm");
     await page.getByRole("alertdialog").getByRole("button").first().click();
     await expect(page.getByTestId("review-amend-dialog")).toBeHidden();
     expect(git(repo, "rev-parse", "HEAD").trim()).toBe(pushed);
@@ -630,7 +614,6 @@ test("评审：忽略空白：空白改动从 diff 里消失，按块 / 按行�
     await page.locator(".rv-row[data-kind=add]").first().click();
     await expect(page.getByTestId("lines-bar")).toHaveCount(0);
     // 整个文件的暂存仍可用，并且暂存的是完整改动（含被忽略的缩进）。
-    await shoot(page, "ignore-space");
     await page.getByTestId("file-stage").click();
     await expect(openFile(page, PATH_EDITED, "staged")).toBeVisible();
     expect(git(repo, "diff", "--cached", "--numstat", "--", PATH_EDITED)).toMatch(/3\s+3\s+src\/calc\.ts/);
@@ -669,7 +652,6 @@ test("评审：按行暂存 / 取消暂存 / 丢弃：点击、Shift 点击、Sh
     await row("add", "value4 = 400;").click();
     await expect(count).toHaveText("已选 2 行");
     await expect(page.locator(".rv-row[data-picked]")).toHaveCount(2);
-    await shoot(page, "lines");
     await page.getByTestId("lines-stage").click();
     // 暂存是异步的：等 calc.ts 出现在"已暂存"里，再查 git。
     await expect(openFile(page, PATH_EDITED, "staged")).toBeVisible();

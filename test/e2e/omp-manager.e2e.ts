@@ -4,7 +4,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { findOmpOnPath, inspectOmp } from "../../src/main/omp/discover.ts";
 import type { OmpStatus } from "../../src/shared/ipc.ts";
-import { launchApp, screenshotsDir, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { launchApp, type LaunchedApp } from "./launch.ts";
 
 /** 测试用的 agent 目录：服务进程不读真实 ~/.omp（AGENTS.md "开发和测试时隔离用户数据"）。 */
 async function launchIsolated(
@@ -56,7 +56,7 @@ test("PATH 上是 Tern 管理的 omp：问一次要不要接管，选继续用 T
   }
 });
 
-test("设置页和 omp 准备页截图：中英文 × 浅深主题", async () => {
+test("设置页分区能打开；omp 准备页各状态都显示", async () => {
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
@@ -71,19 +71,9 @@ test("设置页和 omp 准备页截图：中英文 × 浅深主题", async () =>
     await page.keyboard.press("Control+,");
     await expect(page.getByTestId("settings")).toBeVisible();
 
-    for (const locale of ["zh-CN", "en"] as const) {
-      for (const theme of ["light", "dark"] as const) {
-        await setLocaleTheme(page, locale, theme);
-        for (const section of ["general", "providers", "about"] as const) {
-          await page.getByTestId(`settings-nav-${section}`).click();
-          if (section === "providers") await expect(page.getByTestId("providers")).toBeVisible();
-          // 提供商与账号要等服务进程读完 provider 列表；读不出来时界面显示原因，同样截下来。
-          if (section === "providers") await page.waitForTimeout(4000);
-          await page.screenshot({
-            path: path.join(screenshotsDir, `omp-e-settings-${section}-${locale}-${theme}.png`),
-          });
-        }
-      }
+    for (const section of ["general", "providers", "about"] as const) {
+      await page.getByTestId(`settings-nav-${section}`).click();
+      if (section === "providers") await expect(page.getByTestId("providers")).toBeVisible();
     }
 
     // 准备页的几个状态：按主进程会推的形状合成。
@@ -114,15 +104,9 @@ test("设置页和 omp 准备页截图：中英文 × 浅深主题", async () =>
       unusable: { state: "unusable", path: "C:\\Users\\me\\AppData\\Roaming\\npm\\omp.cmd", reason: "script_launcher" },
       missing: { state: "missing", version: "18.12.1", sizeBytes: 222_742_016, source: "build.stencil.so" },
     };
-    for (const locale of ["zh-CN", "en"] as const) {
-      for (const theme of ["light", "dark"] as const) {
-        await setLocaleTheme(page, locale, theme);
-        for (const [name, status] of Object.entries(states)) {
-          await pushStatus(launched, status);
-          await expect(page.getByTestId("omp-setup")).toBeVisible();
-          await page.screenshot({ path: path.join(screenshotsDir, `omp-e-setup-${name}-${locale}-${theme}.png`) });
-        }
-      }
+    for (const status of Object.values(states)) {
+      await pushStatus(launched, status);
+      await expect(page.getByTestId("omp-setup")).toBeVisible();
     }
   } finally {
     await launched.close();

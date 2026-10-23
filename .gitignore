@@ -12,8 +12,8 @@ out/
 release/
 *.tsbuildinfo
 
-# 界面核对截图（仓库所有者看完再删）
-screenshots/
+# e2e 失败时 Playwright 写的现场（error-context.md 等）
+test-results/
 
 # omp 的 exe 不进 git
 *.exe

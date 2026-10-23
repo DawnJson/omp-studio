@@ -1,6 +1,5 @@
-import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { launchApp, screenshotsDir } from "./launch.ts";
+import { launchApp } from "./launch.ts";
 
 test("窗口能起来，渲染进程只有 window.studio，拿不到 Node 和 ipcRenderer", async () => {
   const launched = await launchApp();
@@ -15,8 +14,6 @@ test("窗口能起来，渲染进程只有 window.studio，拿不到 Node 和 ip
       leaks: ["require", "process", "ipcRenderer"].filter((name) => name in globalThis),
     }));
     expect(exposed).toEqual({ studioFunctions: true, hasInvoke: true, hasSubscribe: true, leaks: [] });
-
-    await page.screenshot({ path: path.join(screenshotsDir, "foundation.png") });
   } finally {
     await launched.close();
   }

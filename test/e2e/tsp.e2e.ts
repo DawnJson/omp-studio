@@ -1,7 +1,7 @@
 // TSP 引擎的端到端(docs/architecture/tsp-migration.md):启动构建产物,任务引擎设为 tsp,STUDIO_TEST_OMP 指向
 // fake-tsp-omp(在伪终端里回放 fixtures/tsp 的 omp 录制,不调真实模型),驱动真实的 主进程 → 伪终端 → IPC → 渲染进程。
 // 假 omp 只有在收到和录制完全一样的事件(send / action / activate)后才继续回放,所以"界面走到下一步"本身就证明
-// 渲染进程发对了事件;另外用 --log 断言它收到了什么。截图:完成 / 等你确认(审批) / 提问,中英 × 深浅。
+// 渲染进程发对了事件;另外用 --log 断言它收到了什么。
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -11,14 +11,7 @@ import { crc32, deflateSync } from "node:zlib";
 import { expect, test, type Page } from "@playwright/test";
 import { parseSession } from "../../src/main/tsp/session-extras.ts";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
-import {
-  copyFilesToClipboard,
-  launchApp,
-  openTaskRow,
-  screenshotsDir,
-  setLocaleTheme,
-  type LaunchedApp,
-} from "./launch.ts";
+import { copyFilesToClipboard, launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -116,19 +109,6 @@ type PageStyle = {
   };
 };
 
-async function shoot(page: Page, state: string): Promise<void> {
-  for (const [locale, scheme] of [
-    ["zh-CN", "light"],
-    ["zh-CN", "dark"],
-    ["en", "light"],
-    ["en", "dark"],
-  ] as const) {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await setLocaleTheme(page, locale, scheme);
-    await page.screenshot({ path: path.join(screenshotsDir, `tsp-${state}-${locale}-${scheme}.png`) });
-  }
-}
-
 const TASK_PROMPT =
   "先用 todo 工具列出计划。然后用 task 工具并行派两个子代理:一个修 calc/ops.py 里的 bug,一个修 calc/text.py 里的 bug。子代理都完成后运行 python -m pytest -q 确认通过,最后用两句话总结。";
 
@@ -194,7 +174,6 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
       `(() => { const el = document.querySelector(".tsp-scroller"); return el.scrollHeight - el.clientHeight - el.scrollTop; })()`,
     );
     expect(distance).toBeLessThanOrEqual(2);
-    await shoot(page, "done");
     // 切到另一个 TSP 任务：只剩一个过程区，画的是新任务（过程区和输入框同 key 时，React 会把上一个任务的过程区留在页面上）。
     const second = await page.evaluate(async () => {
       const [project] = await globalThis.studio.listProjects();
@@ -227,7 +206,6 @@ test("审批:omp 的审批门出现时任务是等你确认;底栏只剩 Details
     expect(title && details).toBeTruthy();
     expect(Math.abs(title!.y + title!.height / 2 - (details!.y + details!.height / 2))).toBeLessThan(2);
     expect(details!.x).toBeGreaterThan(title!.x + title!.width);
-    await shoot(page, "gate");
     // 输入框写的字 Enter 发出去 = omp 的"拒绝并说明理由":send 事件发到 omp 还在的输入框(假 omp 不会因多出的事件失败)。
     const input = page.getByTestId("composer-input");
     await expect(input).toHaveAttribute("placeholder", /Ctrl\+Enter/);
@@ -269,7 +247,6 @@ test("重开会话:顶栏标题旁的按钮;门开着时置灰,悬停出自绘�
     const tip = page.getByTestId("tooltip");
     await expect(tip).toHaveText(/任务在等你回答|waiting for your answer/i);
     await expect(restart).not.toHaveAttribute("title", /.*/);
-    await shoot(page, "restart-blocked");
     await page.getByTestId("composer-input").hover();
     await expect(tip).toHaveCount(0);
     await expect(restart).toHaveAttribute("title", /任务在等你回答|waiting for your answer/i);
@@ -324,7 +301,7 @@ test("审批门出现时焦点不从输入框被抢走：在输入框里打字�
   }
 });
 
-/** 纯色 PNG（不依赖浏览器的画布）：粘贴图片用例里当截图。 */
+/** 纯色 PNG（不依赖浏览器的画布）：粘贴图片用例里当图片。 */
 function solidPng(width: number, height: number): Buffer {
   const chunk = (type: string, data: Buffer) => {
     const body = Buffer.concat([Buffer.from(type), data]);
@@ -349,7 +326,7 @@ function solidPng(width: number, height: number): Buffer {
   ]);
 }
 
-/** 往输入框派发一个带图片文件的 paste 事件（和粘贴截图同一条路径）。 */
+/** 往输入框派发一个带图片文件的 paste 事件（和粘贴剪贴板里的图片同一条路径）。 */
 async function pasteImage(page: Page, png: Buffer): Promise<void> {
   await page.evaluate((base64) => {
     const page = globalThis as unknown as {
@@ -391,7 +368,6 @@ test("输入框附件：粘贴图片 = 顶部卡片 + 文字里的 #1 芯片，�
     await page.keyboard.press("Control+V");
     await expect(input).toHaveValue(/#2\u00a0\+30\u00a0(行|lines)/);
     await expect(input).not.toHaveValue(/line 30/);
-    await page.screenshot({ path: path.join(screenshotsDir, "composer-attachments.png") });
     // 发送第一句话（创建任务）：占位符里的图片尺寸、展开的原文、临时图片文件的 @"路径" 一起到 omp。
     await input.press("Enter");
     await expect(page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
@@ -476,7 +452,6 @@ test('输入框附件：粘贴资源管理器复制的文件 = 文件卡片（�
     // 渲染进程里没有路径：输入框、卡片、页面文字里都找不到目录名。
     expect(await page.locator("body").innerText()).not.toContain("omp attach e2e-");
     await input.pressSequentially("谢谢");
-    await page.screenshot({ path: path.join(screenshotsDir, "round-0.3.26", "composer-input-file-card.png") });
     await input.press("Enter");
     await expect(page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
     await expect
@@ -509,7 +484,6 @@ test("提问:选项是 omp 的列表,双击一项发 activate;提问期间 studi
     await page.getByTestId("composer-input").fill("先别发");
     await expect(page.getByTestId("send-button")).toBeDisabled();
     await page.getByTestId("composer-input").fill("");
-    await shoot(page, "ask");
     await option.dblclick();
     await expect(option).toHaveCount(0, { timeout: 30_000 });
     await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
@@ -518,7 +492,6 @@ test("提问:选项是 omp 的列表,双击一项发 activate;提问期间 studi
     ]);
     // 提问被撤掉后焦点回到 studio 输入框。
     await expect(page.getByTestId("composer-input")).toBeFocused();
-    await shoot(page, "ask-done");
   } finally {
     await cleanup();
   }
@@ -609,7 +582,6 @@ test("过程卡片:diff 的上下文行和增删行一样是一行(行号在左�
     expect(overflow).toBeLessThanOrEqual(1);
     await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
     await edit.scrollIntoViewIfNeeded();
-    await shoot(page, "cards");
   } finally {
     await cleanup();
   }
@@ -739,7 +711,6 @@ test("恢复会话:omp 不重发的每轮用量脚注补回;回顾只补最新�
     // 4 = 这个用户消息在回顾后面,2 = 在前面。
     expect(relations).toEqual([2, 2, 4]);
     await recap.scrollIntoViewIfNeeded();
-    await shoot(page, "resume");
   } finally {
     await cleanup();
     await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
@@ -783,7 +754,6 @@ test("对话线:每条用户消息一个刻度,点刻度把那条消息滚到对
     const second = (await role(page, "omp.user").nth(1).locator(".md").innerText()).trim().slice(0, 10);
     await expect(ticks.nth(1)).toHaveAttribute("aria-label", new RegExp(second.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     await ticks.nth(1).hover();
-    await shoot(page, "conversation-line");
   } finally {
     await cleanup();
   }
@@ -824,7 +794,6 @@ test("过程卡片(resume 录制):diff 按 lang 有语法色并叠在增删底�
         .evaluate((el) => (globalThis as unknown as PageStyle).getComputedStyle(el).color);
     expect(await icon(0)).not.toBe(await icon(2));
     await waits.first().scrollIntoViewIfNeeded();
-    await shoot(page, "tool-tone-diff");
   } finally {
     await cleanup();
   }
@@ -938,7 +907,6 @@ test("压缩分隔画成整行横线夹文字;切模型后 omp 的状态行留�
     // 2 = 最后一条助手回答在状态行前面。
     expect(order).toBe(2);
     await notes.nth(2).scrollIntoViewIfNeeded();
-    await shoot(page, "compact");
   } finally {
     await cleanup();
   }
@@ -992,7 +960,6 @@ test("后台作业弹窗:卡片不超出 tsp-view、作业列表顶对齐;输入
     const masterBox = await role(page, "omp.jobs.master").boundingBox();
     const detailBox = await role(page, "omp.jobs.detail").boundingBox();
     expect(Math.abs(masterBox!.y - detailBox!.y)).toBeLessThanOrEqual(1);
-    await shoot(page, "jobs-overlay");
 
     // Esc:焦点在 studio 输入框里,弹窗把 Esc 写给 omp(弹窗没有关闭动作,关它就是这个键),只写一次。
     const escCount = async () => (await receivedKeys()).join("").split("\x1b").length - 1;
@@ -1086,7 +1053,6 @@ test('输入框上方(照 Tern):药丸 [👥 N | ⚡ N] 每段个数大于 0 才
     await expect(page.getByTestId("file-preview")).toHaveCount(0);
     await agentsToggle.click();
     await expect(page.getByTestId("agents-panel")).toHaveCount(0);
-    await shoot(page, "composer-pills");
   } finally {
     await jobs.cleanup();
   }
@@ -1128,20 +1094,6 @@ test("悬停药丸的作业那一段:上方出作业卡片代替悬停提示,内
     await expect(page.getByTestId("tooltip")).toHaveCount(0);
     await page.mouse.move(5, 5);
     await expect(card).toHaveCount(0);
-    // 用 shoot 换主题后截出来卡片已经不在了：每种主题换好以后重新悬停再截。
-    for (const [locale, scheme] of [
-      ["zh-CN", "light"],
-      ["zh-CN", "dark"],
-      ["en", "light"],
-      ["en", "dark"],
-    ] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await setLocaleTheme(page, locale, scheme);
-      await pill.hover();
-      await expect(card.locator("[role=meter]")).toBeVisible();
-      await page.screenshot({ path: path.join(screenshotsDir, `tsp-composer-jobs-card-${locale}-${scheme}.png`) });
-      await page.mouse.move(5, 5);
-    }
   } finally {
     await cleanup();
   }
@@ -1293,7 +1245,6 @@ test("目标条(TSP,omp 18.12.5 录制):/goal 由 studio 接管,目标条读输�
     await strip.getByTestId("goal-pause").click();
     await expect(strip).toHaveAttribute("data-status", "paused");
     await expect(strip.getByTestId("goal-resume")).toBeVisible();
-    await shoot(page, "goal");
     await strip.getByTestId("goal-resume").click();
     await expect(strip).toHaveAttribute("data-status", "active");
     // 放弃:omp 先问 "Drop goal?"(Yes / No 选择器),studio 点 Yes(activate item 0),目标条随事实行消失。
@@ -1329,7 +1280,6 @@ test("子代理面板:👥 打开右栏面板(不画 omp 的 Hub),列出 Alpha /
     // 录制里两个后台子代理在跑时用户点了 👥(agents.open):假 omp 在这一步等事件。输入框上方药丸的左半段(👥 2)就是入口,omp 自己的 hud 胶囊不画。
     const pill = page.getByTestId("pill-agents");
     await expect(pill).toBeVisible({ timeout: 60_000 });
-    await shoot(page, "pills");
     await pill.click();
     const panel = page.getByTestId("agents-panel");
     await expect(panel).toBeVisible();
@@ -1353,7 +1303,6 @@ test("子代理面板:👥 打开右栏面板(不画 omp 的 Hub),列出 Alpha /
       .getByTestId("agents-row-details")
       .click();
     await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Beta");
-    await shoot(page, "agents-panel");
 
     // 页面里盯着:插话期间"正在发给 Beta"出现过、omp 的 Hub(.tspi-picker)一次也没画过。
     await page.evaluate(() => {
@@ -1431,7 +1380,6 @@ test("子代理面板:点行进入子代理的对话(面板收起、聚焦提示
     await betaDetails.click();
     await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Beta");
     await expect(panel.getByTestId("agents-focus")).toBeVisible();
-    await shoot(page, "agent-detail-focus");
     expect((await received()).some((event) => event["ev"] === "activate")).toBe(false);
 
     // 盯着页面:驱动期间"正在切到 Beta"出现过,omp 的 Hub 一次也没画。
@@ -1473,7 +1421,6 @@ test("子代理面板:点行进入子代理的对话(面板收起、聚焦提示
     );
     expect(seen.driving).toContain("focus:Beta");
     expect(seen.hub).toBe(false);
-    await shoot(page, "agent-focus");
 
     // 聚焦中输入框发的话走普通的 send(omp 把它 steer 给 Beta):事件和录制里用户在聚焦后发的那条相同。
     await page.getByTestId("composer-input").fill(steerText);
@@ -1557,7 +1504,6 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     await taskHead.click();
     await expect(taskHead).toHaveAttribute("aria-expanded", "false");
     await expect(tiles.first()).toBeVisible();
-    await shoot(page, "agent-progress-tiles");
     await page.getByTestId("pill-agents").click();
     const panel = page.getByTestId("agents-panel");
     const beta = panel.locator('[data-testid="agents-row"][data-name="Beta"]');
@@ -1570,12 +1516,11 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     await expect(panel.getByTestId("agents-record-toggle")).toHaveAttribute("aria-expanded", "true");
     await beta.locator("xpath=..").getByTestId("agents-row-details").click();
     await expect(panel.getByTestId("agents-detail")).toContainText("55%");
-    await shoot(page, "agent-progress-panel");
 
     // Ctx(omp 的 agent.stats.context,录制里 0.0081 起、随回放涨到 8.6K):列表行显示细条 + 百分比,悬停提示带 omp 的 contextLabel("8.xK / 1M")。
     const ctx = panel.getByTestId("agents-row-ctx").first();
     await expect(ctx).toHaveAttribute("data-percent", "1");
-    await expect(ctx).toHaveAttribute("title", /1% \(8\.\dK \/ 1M\)/);
+    await expect(ctx).toHaveAttribute("title", /1% ?[（(]8\.\dK \/ 1M[）)]/);
 
     // Activity 页:读两个子代理的记录文件(假 session 目录里的 Alpha.jsonl / Beta.jsonl),按时间从新到旧;过滤 All / Errors / Responses / Tools。
     await panel.getByTestId("agents-tabs-activity").click();
@@ -1586,7 +1531,6 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     await expect(rows.nth(0)).toHaveAttribute("data-kind", "response");
     await expect(rows.nth(1)).toHaveAttribute("data-kind", "error");
     await expect(rows.nth(1)).toContainText("exit code 1");
-    await shoot(page, "agents-activity");
     await panel.getByTestId("agents-activity-filter-errors").click();
     await expect(rows).toHaveCount(1);
     await panel.getByTestId("agents-activity-filter-responses").click();
@@ -1594,7 +1538,6 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     await expect(rows.first()).toContainText("All good");
     await panel.getByTestId("agents-activity-filter-tools").click();
     await expect(rows).toHaveCount(3);
-    await shoot(page, "agents-activity-tools");
     // 点一行 = 回到 Agents 页并选中那个子代理。
     await panel.getByTestId("agents-activity-filter-all").click();
     await rows.nth(0).click();
@@ -1698,14 +1641,12 @@ test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 �
     await expect(turns).toHaveCount(2, { timeout: 30_000 });
     await expect(turns.nth(1)).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
     await expect(turns.nth(1)).toContainText("gamma");
-    await shoot(page, "btw-panel");
     // 复制答案:头部的按钮把当前话题最新一问的答案写进系统剪贴板(渲染进程剪贴板),出"已复制"toast。
     await launched.app.evaluate(({ clipboard }) => clipboard.writeText("原来的内容"));
     await panel.getByTestId("btw-copy-answer").click();
     await expect
       .poll(() => launched.app.evaluate(({ clipboard }) => clipboard.readText()), { timeout: 10_000 })
       .toContain("gamma");
-    await shoot(page, "btw-copy-answer");
     // 4) 长回答:回答中面板显示"取消提问",点它 → 已取消,保留已收到的部分。
     await panel.getByTestId("btw-new-topic").click();
     await panel.getByTestId("btw-input").fill("Write a 400 word essay about trees.");
@@ -1767,21 +1708,6 @@ test("排队消息按 Esc(omp 18.12.6 录制,Ctrl+Enter = /queue):任务停止,o
   }
 });
 
-/** 板上的截图：中英 × 深浅，名字 board-<名>-<语言>-<主题>.png；每种主题换好以后调 `ready` 重新摆好界面再截（换主题会收起浮层）。 */
-async function shootBoard(page: Page, name: string, ready: () => Promise<void>): Promise<void> {
-  for (const [locale, scheme] of [
-    ["zh-CN", "light"],
-    ["zh-CN", "dark"],
-    ["en", "light"],
-    ["en", "dark"],
-  ] as const) {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await setLocaleTheme(page, locale, scheme);
-    await ready();
-    await page.screenshot({ path: path.join(screenshotsDir, `board-${name}-${locale}-${scheme}.png`) });
-  }
-}
-
 test("待办板(omp 18.12.6 录制 todo-commands):⋯ 菜单发 /todo drop,添加条目发 /todo append(阶段、任务都加引号),复制为 Markdown 和 omp 的 /todo 同文,已做完的阶段默认收起、展开全部", async () => {
   test.setTimeout(120_000);
   const todo = await start("todo-commands");
@@ -1826,12 +1752,7 @@ test("待办板(omp 18.12.6 录制 todo-commands):⋯ 菜单发 /todo drop,添�
     const menu = page.getByTestId("todo-item-menu");
     await expect(menu.getByTestId("todo-op-drop")).toBeVisible();
     await expect(menu.getByTestId("todo-op-done")).toHaveCount(0);
-    await shootBoard(page, "todo-menu", async () => {
-      if ((await page.getByTestId("todo-popover").count()) === 0) await page.getByTestId("todo-board").click();
-      if ((await page.getByTestId("todo-item-menu").count()) === 0)
-        await page.getByTestId("todo-item-more").first().click();
-      await expect(page.getByTestId("todo-item-menu")).toBeVisible();
-    });
+    await expect(page.getByTestId("todo-item-menu")).toBeVisible();
     await menu.getByTestId("todo-op-drop").click();
     await expect
       .poll(async () => (await todo.received()).map((event) => event["text"]))
@@ -1841,11 +1762,7 @@ test("待办板(omp 18.12.6 录制 todo-commands):⋯ 菜单发 /todo drop,添�
     await page.getByTestId("todo-add").click();
     await page.getByTestId("todo-add-text").fill("write the docs");
     await page.getByTestId("todo-add-phase").fill("Alpha");
-    await shootBoard(page, "todo-add", async () => {
-      if ((await page.getByTestId("todo-popover").count()) === 0) await page.getByTestId("todo-board").click();
-      if ((await page.getByTestId("todo-add-form").count()) === 0) await page.getByTestId("todo-add").click();
-      await expect(page.getByTestId("todo-add-form")).toBeVisible();
-    });
+    await expect(page.getByTestId("todo-add-form")).toBeVisible();
     await page.getByTestId("todo-add-submit").click();
     await expect
       .poll(async () => (await todo.received()).map((event) => event["text"]))
@@ -1876,12 +1793,10 @@ test("Shell / Python 标签:输入框以 ! 或 $ 开头时工具行出现标签�
     await expect(toggle).toHaveAttribute("aria-checked", "false");
     await toggle.click();
     await expect(input).toHaveValue("!ls -la");
-    await shootBoard(page, "shell-tag", async () => {
-      await input.fill("$ print(1)");
-      await expect(tag).toHaveText(/Python/);
-      if ((await page.getByTestId("shell-pop").count()) === 0) await tag.click();
-      await expect(page.getByTestId("shell-pop")).toBeVisible();
-    });
+    await input.fill("$ print(1)");
+    await expect(tag).toHaveText(/Python/);
+    if ((await page.getByTestId("shell-pop").count()) === 0) await tag.click();
+    await expect(page.getByTestId("shell-pop")).toBeVisible();
     await page.getByTestId("shell-in-context").click();
     await expect(input).toHaveValue("$$ print(1)");
     // 单 $ 后面像 shell 命令的不是 Python：没有标签。
@@ -1902,10 +1817,8 @@ test("作业卡片标出类型:悬停药丸的作业那一段，每个作业块�
     await expect(pill).toBeVisible({ timeout: 60_000 });
     await expect(pill).toHaveAttribute("data-count", "1");
     const card = page.getByTestId("jobs-card");
-    await shootBoard(page, "jobs-type", async () => {
-      await pill.hover();
-      await expect(card.getByTestId("jobs-card-type")).toHaveText("bash");
-    });
+    await pill.hover();
+    await expect(card.getByTestId("jobs-card-type")).toHaveText("bash");
     await expect(card.getByTestId("jobs-card-type")).toHaveAttribute("data-type", "bash");
   } finally {
     await cleanup();

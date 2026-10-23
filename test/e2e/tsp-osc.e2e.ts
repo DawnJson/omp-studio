@@ -6,7 +6,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { makeRepo } from "../git-helpers.ts";
-import { launchApp, screenshotsDir, setLocaleTheme, testOmp, type LaunchedApp } from "./launch.ts";
+import { launchApp, testOmp, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 
@@ -54,7 +54,7 @@ async function sendFirstMessage(page: Page): Promise<void> {
   await expect(page.getByTestId("tsp-view")).toBeVisible();
 }
 
-test("PR 徽标：标题后缀 ` · #12` 变成分支胶囊旁的 #12 按钮，任务标题里没有后缀；截图", async () => {
+test("PR 徽标：标题后缀 ` · #12` 变成分支胶囊旁的 #12 按钮，任务标题里没有后缀", async () => {
   const session = await start(async () => testOmp("slash-status"), {
     FAKE_TSP_TITLE: "\u{f1821} 修复 登录 bug · #12",
   });
@@ -67,18 +67,6 @@ test("PR 徽标：标题后缀 ` · #12` 变成分支胶囊旁的 #12 按钮，�
     const tasks = await page.evaluate(() => globalThis.studio.listTasks());
     expect(tasks.map((task) => task.title)).toContain("修复 登录 bug");
     expect(tasks.every((task) => !task.title.includes("#12"))).toBe(true);
-
-    // 截图：中英 × 深浅（同其他 spec 的 shoot 写法）；这里之后不再做键盘断言。
-    for (const [locale, scheme] of [
-      ["zh-CN", "light"],
-      ["zh-CN", "dark"],
-      ["en", "light"],
-      ["en", "dark"],
-    ] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await setLocaleTheme(page, locale, scheme);
-      await page.screenshot({ path: path.join(screenshotsDir, `topbar-pr-badge-${locale}-${scheme}.png`) });
-    }
   } finally {
     await session.cleanup();
   }

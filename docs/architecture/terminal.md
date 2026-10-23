@@ -97,7 +97,7 @@ backlog 只留最近 256KB（`Backlog`）：超过上限 2 倍才裁剪，读取
 ## 实测记录（2026-10-18）
 
 - `npm run pack` 后用 Playwright `_electron.launch` 启动 `release\win-unpacked\omp-studio.exe`（`--user-data-dir` 指向临时目录、`PI_CODING_AGENT_DIR` 临时目录）：创建任务、Ctrl+反引号打开面板、输入 `echo packed-ok`，xterm 里出现 `packed-ok` 一行；cwd 是带空格和中文的项目目录。asar.unpacked 里有 `node_modules/node-pty/{lib,prebuilds/win32-x64,build/Release/conpty}`，没有其它平台的预编译件。
-- `test/e2e/terminal.e2e.ts`（开发构建）：cwd = 项目目录（`项目 目录`，临时目录名带空格和中文）；命令输出；隐藏再打开恢复屏幕且是同一个 shell（`$x` 还在）；`exit` 显示提示、任意键重启（新 pid）；重启按钮结束旧进程；归档任务和退出应用后 shell 与子进程都不在；worktree 任务的终端在 worktree 里，丢弃 worktree 时目录能删掉；拖拽条 / 键盘调整高度的 120px 下限、70% 上限和持久化；命令面板切换终端；中英 × 深浅截图。
+- `test/e2e/terminal.e2e.ts`（开发构建）：cwd = 项目目录（`项目 目录`，临时目录名带空格和中文）；命令输出；隐藏再打开恢复屏幕且是同一个 shell（`$x` 还在）；`exit` 显示提示、任意键重启（新 pid）；重启按钮结束旧进程；归档任务和退出应用后 shell 与子进程都不在；worktree 任务的终端在 worktree 里，丢弃 worktree 时目录能删掉；拖拽条 / 键盘调整高度的 120px 下限、70% 上限和持久化；命令面板切换终端。
 
 ## 没做 / 未实测
 

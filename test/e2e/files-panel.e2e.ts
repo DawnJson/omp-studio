@@ -1,11 +1,11 @@
 // 右侧文件面板的端到端（spec §4.27）：顶栏按钮 / Ctrl Shift E 打开，文件树懒加载、展开、键盘操作，点文件在同一面板的预览页里看，
-// 一层 1500 项只画眼前的行，展开状态按任务记住，越界的 listDirectory 被拒绝；工作区目录（/add-dir）：额外根的添加、浏览、预览、移除、越界拒绝。中英 × 深浅各截图到 screenshots/（files-*）。
+// 一层 1500 项只画眼前的行，展开状态按任务记住，越界的 listDirectory 被拒绝；工作区目录（/add-dir）：额外根的添加、浏览、预览、移除、越界拒绝。
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
-import { launchApp, openTaskRow, screenshotsDir, setLocaleTheme, testOmp, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
 
 const bigCount = 1500;
 
@@ -118,23 +118,6 @@ async function start(options: { dirs?: boolean } = {}): Promise<Started> {
 
 const row = (page: Page, rel: string) => page.locator(`[data-testid=file-tree-row][data-path="${rel}"]`);
 
-async function shoot(page: Page, state: string): Promise<void> {
-  for (const [locale, scheme] of [
-    ["zh-CN", "light"],
-    ["zh-CN", "dark"],
-    ["en", "light"],
-    ["en", "dark"],
-  ] as const) {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await setLocaleTheme(page, locale, scheme);
-    await page.screenshot({ path: path.join(screenshotsDir, `files-${state}-${locale}-${scheme}.png`) });
-  }
-  await page.evaluate(async () => {
-    await globalThis.studio.setLocale("zh-CN");
-  });
-  await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", "zh-CN");
-}
-
 test("顶栏按钮打开文件面板：目录在前文件在后、不列 .git，展开、点文件在同一面板预览，展开状态按任务记住", async () => {
   const { launched, cleanup } = await start();
   try {
@@ -173,7 +156,6 @@ test("顶栏按钮打开文件面板：目录在前文件在后、不列 .git，
     await expect(pane).toHaveAttribute("data-page", "preview");
     await expect(page.getByTestId("file-preview-name")).toHaveText("notes.md");
     await expect(page.getByTestId("file-preview-md")).toContainText("第一项");
-    await shoot(page, "preview");
 
     // 回文件页：树还在，src 仍展开。
     await page.getByTestId("file-preview-page-files").click();
@@ -186,7 +168,6 @@ test("顶栏按钮打开文件面板：目录在前文件在后、不列 .git，
     await expect(pane).toHaveCount(0);
     await toggle.click();
     await expect(row(page, "src/alpha.ts")).toBeVisible();
-    await shoot(page, "tree");
     await toggle.click();
     await expect(pane).toHaveCount(0);
   } finally {
@@ -366,7 +347,6 @@ test("工作区目录：添加文件夹（空格和中文）→ 额外根出现�
     await expect(row(page, "big")).toHaveCount(0);
     await row(page, "额外 笔记.md").click();
     await expect(page.getByTestId("file-preview-md")).toContainText("额外目录里的笔记");
-    await shoot(page, "dirs");
 
     // 切回任务目录：原来的树。
     await page.getByTestId("file-preview-page-files").click();

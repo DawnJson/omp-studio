@@ -111,4 +111,4 @@
 
 界面的端到端是 `test/e2e/git-worktree.e2e.ts`（真实临时仓库 + 本地裸仓库 + 假 omp；`FAKE_OMP_CWD_FILE` 让假 omp 记下启动目录，据此断言任务在 worktree 里运行）：胶囊 → 创建 → 提交 → 合并 → 推送 → 丢弃 → 清理；冲突和被拒绝的合并；非 git 项目的胶囊禁用。
 
-评审里的生成 / Amend / 忽略空白 / 按行暂存是 `test/e2e/review.e2e.ts` 的后五个用例（2026-10-23 写的，截图 `screenshots/review-{generate-loading,generate-done,amend,amend-pushed,amend-confirm,ignore-space,lines}-*.png`）。"生成"用假 `omp commit` 顶替：`STUDIO_TEST_COMMIT_OMP`（未打包时才认，JSON `{command, args}`，同 `STUDIO_TEST_OMP`）指向 `test/fake-omp/fake-omp-commit.ts`，输出格式照真实 omp 18.12.6 的录制；`FAKE_COMMIT_MODE`（ok / split / nomodel / fail / hang）、`FAKE_COMMIT_DELAY`（让"生成中"停一会儿）、`FAKE_COMMIT_LOG`（记每次调用的 cwd 和参数）控制行为和断言。
+评审里的生成 / Amend / 忽略空白 / 按行暂存是 `test/e2e/review.e2e.ts` 的后五个用例（2026-10-23 写的）。"生成"用假 `omp commit` 顶替：`STUDIO_TEST_COMMIT_OMP`（未打包时才认，JSON `{command, args}`，同 `STUDIO_TEST_OMP`）指向 `test/fake-omp/fake-omp-commit.ts`，输出格式照真实 omp 18.12.6 的录制；`FAKE_COMMIT_MODE`（ok / split / nomodel / fail / hang）、`FAKE_COMMIT_DELAY`（让"生成中"停一会儿）、`FAKE_COMMIT_LOG`（记每次调用的 cwd 和参数）控制行为和断言。

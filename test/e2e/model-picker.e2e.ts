@@ -6,7 +6,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, setLocaleTheme } from "./launch.ts";
+import { launchApp } from "./launch.ts";
 
 const modelsYml =
   "providers:\n  role-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: role-one\n      - id: role-two\n";
@@ -27,20 +27,6 @@ async function chains(page: Page): Promise<unknown> {
   );
 }
 
-/** 中英文 × 浅深主题各截一张（关掉动效，免得切语言时截到淡入的半透明帧）。 */
-async function shoot(page: Page, name: string): Promise<void> {
-  for (const [locale, scheme] of [
-    ["zh-CN", "light"],
-    ["zh-CN", "dark"],
-    ["en", "light"],
-    ["en", "dark"],
-  ] as const) {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await setLocaleTheme(page, locale, scheme);
-    await page.screenshot({ path: path.join(screenshotsDir, `${name}-${locale}-${scheme}.png`) });
-  }
-}
-
 test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp 配置，default 不动；重新打开有 task 徽标；设置里的角色表和备用模型", async () => {
   test.setTimeout(150_000);
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-roles-"));
@@ -53,6 +39,8 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
         timeout: 30_000,
       })
       .toBe("ready");
+    // 关掉动效：下拉的弹出动画里元素“不稳定”，点分组标题会一直重试。
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width: 1200, height: 900 });
     await openPicker(page);
 
@@ -112,10 +100,10 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await group.click();
     await expect(page.locator('[data-testid="model-option"][aria-selected="true"]')).toContainText("role-two");
     await expect(page.getByTestId("model-use")).toHaveText(/^(应用|Apply)$/);
-    await shoot(page, "model-picker-role");
 
     // 设置 → 模型：每个角色一行，显示的是同一份 modelRoles；改 smol 写全局，task 不动。
     await page.keyboard.press("Escape");
+    await expect(page.getByTestId("model-picker")).toHaveCount(0);
     await page.keyboard.press("Control+,");
     await page.getByTestId("settings-nav-models").click();
     await expect(page.getByTestId("setting-role-task")).toContainText("role-two", { timeout: 30_000 });
@@ -137,7 +125,6 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await page.getByRole("option", { name: "role-two" }).click();
     await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two"] });
     await expect(page.getByTestId("setting-chain-smol")).toContainText("role-two");
-    await shoot(page, "settings-models-roles");
 
     // 网页搜索只列搜索服务，不列对话模型；选 Tavily 写 modelRoles.web。
     await page.getByTestId("setting-role-web").click();
@@ -148,8 +135,6 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await page.getByTestId("setting-role-web-search").fill("tavily");
     await page.getByRole("option", { name: "Tavily", exact: true }).click();
     await expect.poll(async () => (await roles(page))["web"], { timeout: 30_000 }).toBe("web/tavily");
-    await page.getByTestId("setting-role-row-judge").scrollIntoViewIfNeeded();
-    await shoot(page, "settings-models-kinds");
 
     // 标签上的 × 删掉最后一个备用模型：整条去掉，不留空列表。
     await page
@@ -166,7 +151,7 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
 const tableModelsYml =
   "providers:\n  table-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: table-one\n        contextWindow: 1000000\n      - id: table-two\n        reasoning: true\n        contextWindow: 400000\n";
 
-test("模型选择对话框：一张表、表头和数字列对齐；Tab 在框内循环；搜索过滤；@ 列角色；点行只选中、用于此任务才切换；Esc 后焦点回到输入框；截图", async () => {
+test("模型选择对话框：一张表、表头和数字列对齐；Tab 在框内循环；搜索过滤；@ 列角色；点行只选中、用于此任务才切换；Esc 后焦点回到输入框", async () => {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-picker-"));
   await writeFile(path.join(agentDir, "models.yml"), tableModelsYml, "utf8");
   await writeFile(path.join(agentDir, "config.yml"), "modelRoles:\n  default: table-local/table-one\n", "utf8");
@@ -231,7 +216,6 @@ test("模型选择对话框：一张表、表头和数字列对齐；Tab 在框�
     await page.getByTestId("model-search").fill("");
     await expect(page.getByTestId("model-option").first()).toBeVisible();
     await page.getByTestId("model-search").focus();
-    await shoot(page, "main-model-picker");
 
     // 点另一个模型只是选中：参数行和思考强度跟着它（它支持思考，档位可选），胶囊和 omp 配置都不变。
     await page.getByTestId("model-search").fill("table-two");

@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, openTaskRow, screenshotsDir, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -187,7 +187,6 @@ test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来�
       "/browser headless",
     ]);
 
-    await shoot(page, "session-toggles");
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("toggle-skillful")).toHaveCount(0);
 
@@ -204,22 +203,10 @@ test("会话开关：默认值补位；切换发 /命令，omp 的 toast 回来�
       "/browser headless",
       "/prewalk",
     ]);
-    await shoot(page, "model-prewalk");
   } finally {
     await cleanup();
   }
 });
-
-async function shoot(page: Page, name: string): Promise<void> {
-  for (const [locale, scheme] of [
-    ["zh-CN", "light"],
-    ["en", "dark"],
-  ] as const) {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await setLocaleTheme(page, locale, scheme);
-    await page.screenshot({ path: path.join(screenshotsDir, `${name}-${locale}-${scheme}.png`) });
-  }
-}
 
 test("斜杠命令：/skillful 不带参数打开菜单，/computer on 打开确认，/prewalk 打开模型选择器，不直接发给 omp", async () => {
   test.setTimeout(90_000);

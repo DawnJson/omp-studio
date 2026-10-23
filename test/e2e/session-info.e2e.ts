@@ -3,20 +3,12 @@
 // stats.db 是临时库（PI_CONFIG_DIR 绝对路径 → <dir>/stats.db，statsDbPath 的规则），表结构抄自 omp；agent 目录里放置顶文件和历史会话。
 // 打开对话框时主进程会让 omp 同步一次统计（`omp stats --json`），这里的假 omp 不实现它：同步失败只显示一行提示，
 // 已读到的数据不受影响，所以下面的断言不依赖同步完成。分享的 IPC（getShareSettings / shareTask）在主进程里桩掉，**绝不连真实 share 服务器**。
-import fs from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { expect, test, type Page } from "@playwright/test";
-import {
-  expandSidebarFolders,
-  launchApp,
-  openTaskRow,
-  screenshotsDir,
-  setLocaleTheme,
-  type LaunchedApp,
-} from "./launch.ts";
+import { expandSidebarFolders, launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -319,7 +311,7 @@ test("重试：回放的 TSP 错误卡下面有“重试”按钮；点击给 om
   }
 });
 
-test("请求记录页：“在浏览器中打开”给任务的 omp 发 /trace（omp 自己开浏览器），提示 omp 已打开；截图四种语言主题", async () => {
+test("请求记录页：“在浏览器中打开”给任务的 omp 发 /trace（omp 自己开浏览器），提示 omp 已打开", async () => {
   test.setTimeout(120_000);
   // trace-link 录制：slash-status 的握手 + 真实 omp 18.12.6 对 /trace 回的 toast（Trace: http://127.0.0.1:3847/#/traces?s=…）。
   const { launched, received, cleanup } = await start([], { fixture: "trace-link" });
@@ -340,13 +332,6 @@ test("请求记录页：“在浏览器中打开”给任务的 omp 发 /trace�
       timeout: 15_000,
     });
     await expect.poll(async () => (await received()).map((event) => event["text"])).toContain("/trace");
-    fs.mkdirSync(screenshotsDir, { recursive: true });
-    for (const locale of ["zh-CN", "en"] as const) {
-      for (const theme of ["light", "dark"] as const) {
-        await setLocaleTheme(page, locale, theme);
-        await page.screenshot({ path: path.join(screenshotsDir, `trace-open-${locale}-${theme}.png`) });
-      }
-    }
   } finally {
     await cleanup();
   }
@@ -362,13 +347,6 @@ test("侧栏历史：停在工具调用上的会话画虚线圈暂停号，悬�
     const mark = row.locator(".sb-dot-interrupted");
     await expect(mark).toHaveCount(1);
     await expect(mark).toHaveAttribute("title", /停在工具调用|stopped partway/);
-    fs.mkdirSync(screenshotsDir, { recursive: true });
-    for (const locale of ["zh-CN", "en"] as const) {
-      for (const theme of ["light", "dark"] as const) {
-        await setLocaleTheme(page, locale, theme);
-        await row.screenshot({ path: path.join(screenshotsDir, `history-interrupted-${locale}-${theme}.png`) });
-      }
-    }
   } finally {
     await cleanup();
   }

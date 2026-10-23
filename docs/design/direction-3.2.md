@@ -10,11 +10,11 @@
 > - `3.2/settings.html?page=general|advanced|providers|mcp`：设置页新版式（1200×800 窗口）。
 > - `3.2/controls.css`：控件样式本身，落地时整份搬进 `src/renderer/src/ui/controls.css`。
 >
-> 渲染好的图和现状对比在 `screenshots/ui-design/`（gitignore，看完再删）：`components-{light,dark}.png`、`settings-{general,advanced,providers,mcp}-{light,dark}.png`、`compare-settings-*.png`（左现状、右提案）。
+> 当时把样张渲染成图、和现状并排对比过（gitignore），图已删。
 
 ## 1. 审计怎么做的
 
-v0.3.32，用临时 e2e（Playwright + 构建产物，隔离的 userData / agent 目录；设置页连 PATH 上的真实 omp 18.12.5 + 临时 `PI_CODING_AGENT_DIR`，其余用 `fixtures/tsp` 回放和假 omp）把每个页面、弹窗、菜单、下拉、分栏、空状态、错误状态拍成 `zh-light` 和 `en-dark` 两套，共 1182 张，在 `screenshots/ui-audit/<分片>/`：
+v0.3.32，用临时 e2e（Playwright + 构建产物，隔离的 userData / agent 目录；设置页连 PATH 上的真实 omp 18.12.5 + 临时 `PI_CODING_AGENT_DIR`，其余用 `fixtures/tsp` 回放和假 omp）把每个页面、弹窗、菜单、下拉、分栏、空状态、错误状态拍成 `zh-light` 和 `en-dark` 两套，共 1182 张（gitignore，已删）：
 
 | 分片 | 张数 | 内容 |
 |---|---|---|
@@ -133,12 +133,12 @@ v0.3.32，用临时 e2e（Playwright + 构建产物，隔离的 userData / agent
 
 - 不用 `#000`、背景靠 1-3% 明度分层：已经是这样。各层 L\* 浅色 93.9 / 95.3 / 97.7 / 100，深色 3.2 / 4.1 / 5.3 / 8.0 / 10.7；`#000` 只出现在 `tsp.css` 的渐隐遮罩里（只取透明度）。
 - 数字 `tabular-nums`、折叠用 `grid-template-rows: 0fr -> 1fr`：已经在用（约 60 处；`ui/Reveal.tsx` + `motion.css` 的 `.reveal`）。剩下的原生 `<details>` 在本节表里已经换成 Disclosure + `Reveal`。
-- 深色主题字重统一降 40：中文回退的微软雅黑 UI 只有 400 / 700 两档，按 CSS 的字重匹配 360 仍取 400、560 仍取 700，变细的只有 Geist 的拉丁字母，同一行中英文粗细不一；`body` 也没有设 `font-weight: var(--fw-regular)`，只改 token 不生效。要试只在英文界面降 20-30，截图对比后再定。
+- 深色主题字重统一降 40：中文回退的微软雅黑 UI 只有 400 / 700 两档，按 CSS 的字重匹配 360 仍取 400、560 仍取 700，变细的只有 Geist 的拉丁字母，同一行中英文粗细不一；`body` 也没有设 `font-weight: var(--fw-regular)`，只改 token 不生效。要试只在英文界面降 20-30，对比后再定。
 - 流式文字逐字 `blur(6px)` 渐显、字间隔 30ms：在过程区里（不在本次范围）；字间隔 30ms 等于每秒最多约 33 个字，模型吐字比这快，显示会越积越慢；逐字包元素会影响选中复制、Markdown 渲染和 omp 整段替换文本，几百个元素同时做滤镜在滚动时掉帧。
 
 ## 4. 设置页（替换 spec §4.19 的版式部分）
 
-样张 `3.2/settings.html`；对比图 `screenshots/ui-design/compare-settings-*.png`。
+样张 `3.2/settings.html`。
 
 1. **设置导航占侧栏的位置**：进设置时侧栏换成设置导航（顶上 `‹ 返回任务  Esc`、搜索全部设置、10 节），退出时换回会话列表。内容从 x≈465 提到 x≈281，内容列仍然最大 880、左对齐。窗口窄到侧栏变抽屉时，导航变成内容顶上的一个下拉（`通用 ▾`），不再折成两行药丸。
 2. **行**：最小 40 高，控件一律 sm（28），标签列 200，ⓘ 紧贴标签文字（不漂到列尾）；改过的值左侧竖线 + 控件后"恢复默认"图标（悬停提示写默认值）。
@@ -162,7 +162,7 @@ v0.3.32，用临时 e2e（Playwright + 构建产物，隔离的 userData / agent
 
 ## 6. 落地顺序
 
-每一步一个提交，附中英文 × 深浅主题截图。e2e 有 12 个文件按类名找元素（`.cfg-row`、`.st-provider-head`、`.st-dialog`、`.dd-trigger`、`.tool-btn` 等），改哪个组件就把相应用例改成 `data-testid`。
+每一步一个提交。e2e 有 12 个文件按类名找元素（`.cfg-row`、`.st-provider-head`、`.st-dialog`、`.dd-trigger`、`.tool-btn` 等），改哪个组件就把相应用例改成 `data-testid`。
 
 1. **控件库 + 修坏的**：`src/renderer/src/ui/controls.css`（来自 `3.2/controls.css`）+ token；React 组件 `Button`、`IconButton`、`Field` / `NumberField` / `Select`、`Switch`、`Checkbox`、`Radio`、`Segmented`、`Tabs`、`Badge`、`Menu`、`Popover`、`Dialog`（含 `ConfirmDialog`）、`SectionHead`、`Row`、`ListRow`、`Notice`。同一提交修 2.1 的 1–3。
 2. **对话框和菜单**：git 对话框、`ConfirmDialog`、会话信息、分享、关于、模型选择器页脚、会话树、用量；合并任务菜单；删顶栏 ⓘ 和侧栏 🌐 ◐。

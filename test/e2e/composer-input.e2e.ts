@@ -7,34 +7,7 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { findOmpOnPath } from "../../src/main/omp/discover.ts";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
-import {
-  expandSidebarFolders,
-  launchApp,
-  openTaskRow,
-  screenshotsDir,
-  setLocaleTheme,
-  testOmp,
-  type LaunchedApp,
-} from "./launch.ts";
-
-const combos = [
-  ["zh-CN", "light"],
-  ["zh-CN", "dark"],
-  ["en", "light"],
-  ["en", "dark"],
-] as const;
-
-/** 中英 × 深浅各截一张 composer-<名>-<语言>-<主题>.png；换主题会收起浮层，每次先 `ready` 重新摆好再截。 */
-async function shoot(page: Page, name: string, ready: () => Promise<void>): Promise<void> {
-  await mkdir(screenshotsDir, { recursive: true });
-  for (const [locale, theme] of combos) {
-    await setLocaleTheme(page, locale, theme);
-    await ready();
-    await page.getByTestId("composer-stack").screenshot({
-      path: path.join(screenshotsDir, `composer-${name}-${locale}-${theme}.png`),
-    });
-  }
-}
+import { expandSidebarFolders, launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
 
 async function openFolder(launched: LaunchedApp, dir: string): Promise<void> {
   await launched.app.evaluate(({ dialog }, folder) => {
@@ -102,10 +75,8 @@ test("斜杠菜单：任务目录里的项目命令出现；/plan 等终端版�
     await input.fill("/plan");
     await input.press("Enter");
     await expect(page.getByTestId("slash-guard")).toHaveCount(0);
-    await shoot(page, "slash-project", async () => {
-      await input.fill("/dep");
-      await expect(page.getByTestId("slash-menu")).toContainText("deploy-staging");
-    });
+    await input.fill("/dep");
+    await expect(page.getByTestId("slash-menu")).toContainText("deploy-staging");
   } finally {
     await launched.close();
     await rm(work, { recursive: true, force: true, maxRetries: 5 });
@@ -140,10 +111,6 @@ test("发送下拉：运行中选「等这一轮结束再发」，omp 收到 /qu
       if ((await page.getByTestId("send-mode-menu").count()) === 0) await page.getByTestId("send-mode").click();
       await expect(page.getByTestId("send-mode-later")).toBeVisible();
     };
-    await shoot(page, "send-later", async () => {
-      if ((await input.inputValue()) !== queuedText) await input.fill(queuedText);
-      await openSendMode();
-    });
     if ((await input.inputValue()) !== queuedText) await input.fill(queuedText);
     await openSendMode();
     await page.getByTestId("send-mode-later").click();
@@ -173,12 +140,6 @@ test("发送下拉：运行中选「等这一轮结束再发」，omp 收到 /qu
     // 搜索按词（都要出现、不分先后）：第一句里也有 "one per line"，所以用这条独有的词。
     await again.getByTestId("history-query").fill("exactly ALPHA");
     await expect(again.getByTestId("history-row")).toHaveText([/^line one: reply with exactly ALPHA/]);
-    await shoot(again, "history-search", async () => {
-      await field.focus();
-      await field.press("Control+r");
-      await again.getByTestId("history-query").fill("exactly ALPHA");
-      await expect(again.getByTestId("history-row")).toHaveText([/^line one: reply with exactly ALPHA/]);
-    });
     await field.press("Control+r");
     await again.getByTestId("history-query").fill("exactly ALPHA");
     await again.keyboard.press("Enter");
@@ -211,9 +172,6 @@ test("回填：omp 的历史选择器选中的文字（history-select 录制）�
     await expect
       .poll(async () => (await sentEvents(log)).filter((body) => body["ev"] === "edit"))
       .toEqual([expect.objectContaining({ from: 0, to: text.length, text: "" })]);
-    await shoot(page, "prefill", async () => {
-      await expect(input).toHaveValue(text);
-    });
   } finally {
     await launched.close();
     await rm(work, { recursive: true, force: true, maxRetries: 5 });

@@ -6,16 +6,8 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, setLocaleTheme, type LaunchedApp } from "./launch.ts";
-
-/** 页面里 DOM 元素的最小类型（e2e 的类型检查没有 DOM 类型）。 */
-interface DomBox {
-  getBoundingClientRect(): { right: number };
-  getAttribute(name: string): string | null;
-  querySelector(selector: string): DomBox | null;
-  querySelectorAll(selector: string): ArrayLike<DomBox>;
-}
+import { expect, test } from "@playwright/test";
+import { expectNoOverflow, launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 async function launchSettings(
   extraEnv: Record<string, string> = {},
@@ -40,16 +32,6 @@ async function launchSettings(
     throw error;
   }
   return { launched, agentDir };
-}
-
-async function screenshots(page: Page, name: string, prepare?: () => Promise<void>): Promise<void> {
-  for (const locale of ["zh-CN", "en"] as const) {
-    for (const theme of ["light", "dark"] as const) {
-      await setLocaleTheme(page, locale, theme);
-      await prepare?.();
-      await page.screenshot({ path: path.join(screenshotsDir, `settings-f-${name}-${locale}-${theme}.png`) });
-    }
-  }
 }
 
 test("提供商与账号：再次进入时立即显示上次的结果，不再出现“正在读取”", async () => {
@@ -80,10 +62,10 @@ test("提供商与账号：再次进入时立即显示上次的结果，不再�
     await page.getByTestId("provider-search").fill(id);
     await expect(pick.getByTestId(`provider-${id}`)).toBeVisible();
     await pick.getByTestId(`provider-key-${id}`).click();
-    await expect(page.getByTestId(`provider-flow-${id}`)).toBeVisible();
+    const flow = page.getByTestId(`provider-flow-${id}`);
+    await expect(flow).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId(`provider-flow-${id}`)).toHaveCount(0);
-    await page.screenshot({ path: path.join(screenshotsDir, "settings-f-models-cached-zh-CN-light.png") });
+    await expect(flow).toHaveCount(0);
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
@@ -119,7 +101,6 @@ test("关于 → omp：用户自装/他人管理的 omp 也会检查，有新版
       .getByRole("button", { name: /检查更新|Check for updates/ })
       .click();
     await expect(page.getByTestId("omp-available")).toBeVisible();
-    await screenshots(page, "omp-update");
     // 没有下载：版本没变。
     const status = await page.evaluate(() => globalThis.studio.getOmpStatus());
     expect(status).toMatchObject({ state: "ready" });
@@ -160,9 +141,6 @@ test("omp 设置：各节只放常用项，其余在“高级”；终端专用�
     await page.getByTestId("settings-search").fill("");
     await page.getByTestId("settings-nav-tools").click();
     await expect(page.getByTestId("cfg-bash.enabled")).toBeVisible();
-    await screenshots(page, "groups");
-    await page.getByTestId("settings-nav-advanced").click();
-    await screenshots(page, "advanced");
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
@@ -219,7 +197,7 @@ async function seedUsageSession(agentDir: string, index: number, daysAgo: number
   );
 }
 
-test("用量对话框：近一年热力图读 omp 的 stats.db（先同步再读，只读），额度没有账号时说明；中英文 × 浅深主题截图", async () => {
+test("用量对话框：近一年热力图读 omp 的 stats.db（先同步再读，只读），额度没有账号时说明", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "omp-studio-home-"));
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
   // 三天有用量，一天在一年多以前（不应出现在窗口里）。
@@ -254,7 +232,6 @@ test("用量对话框：近一年热力图读 omp 的 stats.db（先同步再读
     await expect(dialog.locator(".usage-grid .usage-cell:not([data-level='0'])")).toHaveCount(3);
     await expect(dialog.locator(".usage-grid .usage-cell[data-level='4']")).toHaveCount(1);
     await expect(dialog.getByTestId("usage-summary")).toBeVisible();
-    await screenshots(page, "usage");
     // ↻ 刷新：先让 omp 清掉额度缓存（omp usage invalidate）再重读；按钮在读完前禁用，读完恢复，额度仍是"没有账号"。
     const refresh = dialog.getByTestId("usage-refresh");
     await refresh.click();
@@ -381,22 +358,15 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
 
     // 同名再加：omp 的原话（错误在 stdout，退出码 1）。
     await page.getByTestId("ssh-add").click();
-    // 长内容下每个输入框的右边界都在对话框正文里（并排的“用户名 / 端口”列不被撑出边框；中英文各一次）。
+    // 窗口 900 宽、长内容：对话框正文里没有东西越界（并排的“用户名 / 端口”列不被撑出边框；中英文各一次）。
+    await page.setViewportSize({ width: 900, height: 700 });
     await page.getByTestId("ssh-host").fill("h".repeat(200));
     await page.getByTestId("ssh-key").fill("C:/Users/x/.ssh/" + "folder-".repeat(30));
     for (const locale of ["zh-CN", "en"] as const) {
       await setLocaleTheme(page, locale, "light");
-      const outside = await page.getByTestId("ssh-form").evaluate((dialog) => {
-        const root = dialog as unknown as DomBox; // e2e 的类型检查没有 DOM 类型，只声明用到的几个成员
-        const body = root.querySelector(".ui-dialog-body");
-        if (body === null) return ["no-body"];
-        const limit = body.getBoundingClientRect().right + 0.5;
-        return Array.from(root.querySelectorAll("input"))
-          .filter((input) => input.getBoundingClientRect().right > limit)
-          .map((input) => input.getAttribute("data-testid") ?? "?");
-      });
-      expect(outside).toEqual([]);
+      await expectNoOverflow(page.getByTestId("ssh-form").locator(".ui-dialog-body"));
     }
+    await page.setViewportSize({ width: 1200, height: 800 });
     await page.getByTestId("ssh-name").fill("box");
     await page.getByTestId("ssh-host").fill("10.0.0.1");
     await page.getByTestId("ssh-save").click();
@@ -408,7 +378,6 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
     await expect(page.getByTestId("ssh-row-box")).toHaveCount(0);
     await expect.poll(async () => Object.keys(await sshHosts(agentDir))).toEqual([]);
-    await page.screenshot({ path: path.join(screenshotsDir, "settings-f-integrations-en-light.png") });
 
     // ── 可用工具：omp 的 /tools，read 一定在 ──
     await page.getByTestId("settings-nav-tools").click();
@@ -433,12 +402,6 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(ompEntry.locator(".md")).toBeVisible({ timeout: 60_000 });
     // 两项各一段正文，不再按版本列出一串。
     await expect(page.locator('[data-testid="changelog"] .md')).toHaveCount(2);
-    await page
-      .getByTestId("changelog")
-      .evaluate((element) =>
-        (element as unknown as { scrollIntoView(options: { block: string }): void }).scrollIntoView({ block: "start" }),
-      );
-    await screenshots(page, "about-changelog");
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
@@ -509,7 +472,6 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
     });
     const listed = await page.evaluate(() => globalThis.studio.listPlugins(null));
     expect(listed.marketplace[0]?.installs[0]?.enabled).toBe(false);
-    await page.screenshot({ path: path.join(screenshotsDir, "settings-f-plugins-en-light.png") });
 
     // 卸载先确认。
     await page.getByTestId("plugin-more-p1@local-mk").click();
@@ -526,7 +488,6 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
     // 中文界面同一页。
     await setLocaleTheme(page, "zh-CN", "dark");
     await expect(page.getByTestId("plugins-installed")).toContainText("已安装");
-    await page.screenshot({ path: path.join(screenshotsDir, "settings-f-plugins-zh-CN-dark.png") });
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
@@ -595,14 +556,12 @@ test("OAuth 登录对话框：进度按顺序保留并按级别着色，omp 撤�
     const input = flow.getByRole("textbox", { name: "Paste the authorization code" });
     await expect(input).toBeVisible();
     await input.fill("half-typed");
-    await screenshots(page, "login-progress");
 
     // omp 超时 / 取消了这个输入：输入框收起，进度历史还在；"提交"按钮也一起消失。
     await push({ type: "input_closed", inputId: "i1" });
     await expect(input).toHaveCount(0);
     await expect(flow.getByRole("button", { name: /提交|Submit/ })).toHaveCount(0);
     await expect(items).toHaveCount(3);
-    await page.screenshot({ path: path.join(screenshotsDir, "settings-f-login-input-closed.png") });
 
     // 又来一个新输入：上一个输入框里没提交的字不带过来。
     await push({ type: "input", inputId: "i2", title: "Paste the authorization code" });
@@ -721,14 +680,12 @@ test("应用内终端登录：对话框里看到企业域名输入、设备码�
     await expect(flow).toHaveCount(0);
     await expectAllEnded(1);
 
-    // 第二次：重新打开是一个新进程，从企业域名那一步重新开始（上一次的画面不残留）；截图后点页脚的取消。
+    // 第二次：重新打开是一个新进程，从企业域名那一步重新开始（上一次的画面不残留）；点页脚的取消。
     await openDialog();
     await expect(terminal).toContainText("GitHub Enterprise URL/domain");
     await expect(code).toHaveCount(0);
-    await screenshots(page, "login-terminal-prompt");
     await ompButton("submit").click();
     await expect(code).toContainText("WDJB-MJHT");
-    await screenshots(page, "login-terminal-code");
     await page.getByTestId("provider-terminal-cancel").click();
     await expect(flow).toHaveCount(0);
     await expectAllEnded(2);

@@ -1,10 +1,10 @@
 // 阶段 2.6 主界面返工的端到端：空状态（最近任务、输入框贴底）、输入框两层布局、模型选择对话框、用量行、侧栏搜索。
-// 用 fixtures/tsp/slash-status 回放（假 omp，不调真实模型）；中英 × 深浅各截图到 screenshots/。
+// 用 fixtures/tsp/slash-status 回放（假 omp，不调真实模型）。
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, screenshotsDir, setLocaleTheme, testOmp, type LaunchedApp } from "./launch.ts";
+import { launchApp, testOmp, type LaunchedApp } from "./launch.ts";
 
 const fixture = "slash-status";
 
@@ -32,19 +32,6 @@ function inPage<T>(page: Page, selector: string, fn: string): Promise<T> {
   return page.evaluate(
     `(() => { const el = document.querySelector(${JSON.stringify(selector)}); return (${fn})(el); })()`,
   ) as Promise<T>;
-}
-
-async function shoot(page: Page, state: string): Promise<void> {
-  for (const [locale, scheme] of [
-    ["zh-CN", "light"],
-    ["zh-CN", "dark"],
-    ["en", "light"],
-    ["en", "dark"],
-  ] as const) {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await setLocaleTheme(page, locale, scheme);
-    await page.screenshot({ path: path.join(screenshotsDir, `main-${state}-${locale}-${scheme}.png`) });
-  }
 }
 
 /** 在草稿输入框里发出第一条消息，等任务的输入框和 omp 的过程区出现（上下文占用来自 omp 输入框卡片上的 meter）。 */
@@ -109,7 +96,7 @@ test("输入框：上面输入区、下面工具行，同一块底上没有分�
   }
 });
 
-test("没有项目时直接发送：在 chats 目录里建项目和任务，侧栏出现这个项目；截图", async () => {
+test("没有项目时直接发送：在 chats 目录里建项目和任务，侧栏出现这个项目", async () => {
   const launched = await launchApp({ STUDIO_TEST_OMP: testOmp(fixture) });
   try {
     const { page, userDataDir } = launched;
@@ -118,7 +105,6 @@ test("没有项目时直接发送：在 chats 目录里建项目和任务，侧�
     // 草稿页 = 新任务：侧栏按钮标为当前。
     await expect(page.getByTestId("sidebar-new-task")).toHaveAttribute("aria-current", "page");
     await page.locator("[data-composer-input]").focus();
-    await shoot(page, "no-project");
 
     await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
     const projects = await page.evaluate(() => globalThis.studio.listProjects());
@@ -138,10 +124,12 @@ test("没有项目时直接发送：在 chats 目录里建项目和任务，侧�
   }
 });
 
-test("空状态、对话里的用量；截图", async () => {
+test("空状态、对话里的用量", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
+    // 关掉动效：浮层的弹出动画里 boundingBox 在缩放，量到的尺寸不是最终尺寸。
+    await page.emulateMedia({ reducedMotion: "reduce" });
     // 新任务草稿：还没有会话，发送键左边是上下文圆环和 $0.00。STUDIO_TEST_OMP 的假 omp 不回答模型目录，
     // 草稿拿不到默认模型的窗口，所以这里是不能点的占位圆环（有数据时的 0% 圆环见 model-chip.e2e.ts）。
     // 项目不是 git 仓库：输入框下面只有项目标签，顶栏没有草稿的分支胶囊。
@@ -181,7 +169,6 @@ test("空状态、对话里的用量；截图", async () => {
     const panel = await page.getByTestId("main-panel").boundingBox();
     const stack = await page.getByTestId("composer-stack").boundingBox();
     expect(panel && stack && panel.y + panel.height - (stack.y + stack.height)).toBeLessThanOrEqual(24);
-    await shoot(page, "conversation");
 
     // 上下文构成：omp 的 /context 怎么读见 context-report.e2e.ts（slash-status 回放里没有报告），这里换掉主进程的读取，
     // 只看浮层排版：每类一行，下面没有说明小字。Esc 关闭后焦点回到圆环。
@@ -208,7 +195,6 @@ test("空状态、对话里的用量；截图", async () => {
     await expect(breakdown.getByTestId("context-row")).toHaveCount(7);
     await expect(breakdown.locator(".ctx-note")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /压缩 context|Compact context/i })).toHaveCount(0);
-    await shoot(page, "context");
 
     // 这个任务的会话文件里还没有回复（假 omp 不写会话文件）：浮层是单栏，没有"会话用量"按钮，也没有空的左栏。
     await expect(page.getByTestId("session-usage-toggle")).toHaveCount(0);
@@ -246,7 +232,6 @@ test("空状态、对话里的用量；截图", async () => {
     await expect(page.getByTestId("model-usage")).toHaveCount(3);
     const after = await breakdown.boundingBox();
     expect(after).toEqual(before);
-    await shoot(page, "model-usage");
     await page.keyboard.press("Escape");
     await expect(breakdown).toHaveCount(0);
     // 点费用：居中的对话框（不是贴着按钮的浮层），标题"用量与额度"，没有页签：订阅额度和每日用量热力图在同一页，
@@ -292,7 +277,6 @@ test("空状态、对话里的用量；截图", async () => {
       return body.scrollWidth > body.clientWidth;
     });
     expect(bodyOverflows).toBe(false);
-    await shoot(page, "quota");
     await page.keyboard.press("Escape");
     await expect(overview).toHaveCount(0);
     await expect(cost).toBeFocused();
@@ -331,7 +315,6 @@ test("空状态、对话里的用量；截图", async () => {
     // 不画成胶囊：没有底色。
     await expect(draftTools.getByTestId("empty-project")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await page.locator("[data-composer-input]").focus();
-    await shoot(page, "empty");
   } finally {
     await cleanup();
   }
@@ -377,7 +360,6 @@ test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史
     await expect(history.getByTestId("sidebar-session").first()).toContainText("整理日志格式并补上单元测试");
     await history.getByTestId("sidebar-history-more").click();
     await expect(history.getByTestId("sidebar-session")).toHaveCount(6);
-    await shoot(page, "sidebar-history-folder");
     // 切到按时间：任务和全部会话平铺一列，新到旧（刚跑完的任务在最上面）。
     await page.getByTestId("sidebar-history-by-time").click();
     await expect(page.getByTestId("sidebar-history-by-time")).toHaveAttribute("aria-checked", "true");
@@ -386,7 +368,6 @@ test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史
     await expect(history.getByTestId("sidebar-session")).toHaveCount(6);
     await expect(history.locator(".sb-row-main").first()).toHaveAttribute("data-nav", /^task:/);
     await expect(history.getByTestId("sidebar-session").first()).toContainText("整理日志格式并补上单元测试");
-    await shoot(page, "sidebar-history-time");
     await search.fill("zzz-no-match");
     await expect(page.getByTestId("task-row")).toHaveCount(0);
     await expect(sidebar).toContainText(/没有匹配|No matching/);
@@ -394,7 +375,6 @@ test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史
     await search.fill("login");
     await expect(page.getByTestId("sidebar-session")).toHaveCount(1);
     await expect(page.getByTestId("sidebar-session").first()).toContainText("Fix the flaky login test on CI");
-    await shoot(page, "sidebar-search");
     // Esc 清空搜索，任务和全部历史会话恢复。
     await page.keyboard.press("Escape");
     await expect(search).toHaveValue("");

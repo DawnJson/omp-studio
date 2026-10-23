@@ -1,7 +1,7 @@
 /*
  * TSP 交互类节点（editor / input / list / item / picker / prefs / tabs / overlay / toast）的样式。
- * 只用 tokens.css 的变量；外观照 screenshots/design-refresh/tern/ 里 Tern 里的 omp（ask、slash-menu、model-picker、
- * settings-resume-hub）。类名前缀 tspi-，不和 TspRenderCore 的 tsp- 混。
+ * 只用 tokens.css 的变量；外观照 Tern 里的 omp（ask、斜杠菜单、模型选择、设置、会话恢复、Hub）。
+ * 类名前缀 tspi-，不和 TspRenderCore 的 tsp- 混。
  */
 
 /* ───────────────────────── 公共：键帽、命中高亮、隐藏的输入 ───────────────────────── */
@@ -320,7 +320,7 @@
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
 }
-/* overlay 卡片里的 list 是弹出菜单的样子（照 slash-menu.png）：选中是中性填充。 */
+/* overlay 卡片里的 list 是弹出菜单的样子（照 Tern 的斜杠菜单）：选中是中性填充。 */
 .tspi-ov-card .tspi-item {
   min-height: calc(var(--lh-sm) + var(--space-2));
 }
@@ -404,7 +404,7 @@
 .tspi-overlay.sz-lg .tspi-ov-card {
   width: 720px;
 }
-/* 光标下的补全菜单比 sm 宽一点才放得下说明（照 slash-menu.png）。 */
+/* 光标下的补全菜单比 sm 宽一点才放得下说明（照 Tern 的斜杠菜单）。 */
 .tspi-overlay.at-caret.sz-sm .tspi-ov-card {
   width: min(480px, calc(100% - var(--space-4)));
 }

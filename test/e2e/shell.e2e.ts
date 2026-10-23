@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { launchApp, screenshotsDir, seedFakeSessions, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { launchApp, seedFakeSessions, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 test("顶栏是任务条：标志+字标、切换侧栏按钮（没有关于按钮）；中段只有标题（不带项目名）；没有后退/前进按钮", async () => {
   const launched = await launchApp();
@@ -280,23 +280,6 @@ test("安全：CSP 生效且无违规，权限请求被拒，缩放快捷键无�
   }
 });
 
-test("截图：中英文 × 浅深主题", async () => {
-  const launched = await launchApp();
-  try {
-    const { page } = launched;
-    for (const locale of ["zh-CN", "en"] as const) {
-      for (const theme of ["light", "dark"] as const) {
-        await setLocaleTheme(page, locale, theme);
-        await page.screenshot({
-          path: path.join(screenshotsDir, `shell-${locale === "zh-CN" ? "zh" : "en"}-${theme}.png`),
-        });
-      }
-    }
-  } finally {
-    await launched.close();
-  }
-});
-
 test("没有项目时主区只有标志和草稿输入框；F6 把焦点送进侧栏", async () => {
   const launched = await launchApp();
   try {
@@ -328,7 +311,7 @@ async function addProjectViaStubbedDialog(launched: LaunchedApp, dir: string): P
   await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
 }
 
-test("有项目的空状态：输入框贴主区底部、没有历史会话列表；拖入事件切换草稿项目；截图", async () => {
+test("有项目的空状态：输入框贴主区底部、没有历史会话列表；拖入事件切换草稿项目", async () => {
   const projectDir = await mkdtemp(path.join(os.tmpdir(), "omp studio 项目 "));
   // 假会话的 cwd 就是这个项目目录：空状态里不能再出现它们（历史只在侧栏）。
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
@@ -388,20 +371,8 @@ test("有项目的空状态：输入框贴主区底部、没有历史会话列�
     await expect(label).toContainText("omp studio 项目");
     await expect(label).toHaveAttribute("title", projectDir);
 
-    await page.locator("[data-composer-input]").focus();
-    for (const locale of ["zh-CN", "en"] as const) {
-      for (const theme of ["light", "dark"] as const) {
-        await setLocaleTheme(page, locale, theme);
-        await page.screenshot({
-          path: path.join(screenshotsDir, `shell-project-${locale === "zh-CN" ? "zh" : "en"}-${theme}.png`),
-        });
-      }
-    }
-
     await launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setSize(820, 640));
     await expect(page.getByTestId("app-root")).toHaveAttribute("data-drawer", "true");
-    await page.waitForTimeout(250);
-    await page.screenshot({ path: path.join(screenshotsDir, "shell-project-narrow.png") });
   } finally {
     await launched.close();
     await rm(projectDir, { recursive: true, force: true });

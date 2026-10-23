@@ -1,13 +1,13 @@
 // 侧栏 + 命令面板的端到端：启动构建产物，在主进程里替换 listProjects/listTasks 等 IPC 通道为夹具数据
 // （任务运行时由别的切片实现，这里只验证界面和键盘），listSessions 走真实的会话索引，读临时目录里造的会话文件
-// （路径含空格和中文）。中文浅色 / 英文深色各截一张图，写到 screenshots/。
+// （路径含空格和中文）。中文浅色 / 英文深色各跑一遍。
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { Locale, ProjectId, TaskId, TaskState } from "../../src/shared/ipc.ts";
 import { emptySessionToggles } from "../../src/shared/omp-output/toggles.ts";
-import { launchApp, screenshotsDir } from "./launch.ts";
+import { launchApp } from "./launch.ts";
 
 const now = Date.now();
 const minute = 60_000;
@@ -278,7 +278,6 @@ for (const [locale, colorScheme] of [
         return offsets;
       });
       expect(headOffsets).toEqual([0, 0, 0]);
-      await sidebar.screenshot({ path: path.join(screenshotsDir, `sidebar-scrolled-${locale}-${colorScheme}.png`) });
       await list.evaluate((el) => {
         const element = el as unknown as PageScrollBox;
         element.scrollTop = 0;
@@ -333,18 +332,14 @@ for (const [locale, colorScheme] of [
         locale === "zh-CN" ? "5 分钟" : "5m",
       );
 
-      await page.screenshot({ path: path.join(screenshotsDir, `sidebar-${locale}-${colorScheme}.png`) });
-
       // 命令面板：Ctrl K 打开；搜历史会话（来自临时目录的真实索引）；Esc 关闭并还原焦点。
       await page.keyboard.press("Control+k");
       const palette = page.getByTestId("command-palette");
       await expect(palette).toBeVisible();
       await expect(palette.getByRole("combobox")).toBeFocused();
-      await page.screenshot({ path: path.join(screenshotsDir, `palette-empty-${locale}-${colorScheme}.png`) });
       await palette.getByRole("combobox").fill(locale === "zh-CN" ? "内存" : "leak");
       if (locale === "zh-CN") {
         await expect(palette.getByRole("group", { name: words.sessions })).toContainText("在终端里排查内存泄漏");
-        await page.screenshot({ path: path.join(screenshotsDir, `palette-search-${locale}-${colorScheme}.png`) });
       }
       await palette.getByRole("combobox").fill("");
       // 斜杠命令用主进程给的真实列表；需要参数的命令也在列表里。

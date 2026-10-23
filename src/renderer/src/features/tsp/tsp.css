@@ -1,6 +1,6 @@
 /*
- * TSP 渲染器样式（docs/architecture/tsp-migration.md §4.2）。外观照 Tern 里的 omp（screenshots/design-refresh/tern/、
- * E:/tern-probe/out/serve/*.layout.json 的计算样式），颜色、字号、间距、圆角、动效时长一律用 tokens.css 的变量。
+ * TSP 渲染器样式（docs/architecture/tsp-migration.md §4.2）。外观照 Tern 里的 omp
+ * （E:/tern-probe/out/serve/*.layout.json 的计算样式），颜色、字号、间距、圆角、动效时长一律用 tokens.css 的变量。
  *
  * ── 颜色映射（深浅主题都靠 tokens.css 自己切换，这里不写色值）────────────────────────────────
  *  语义 token / span 样式名      →  变量

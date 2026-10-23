@@ -1,6 +1,5 @@
 // 内置终端的端到端：真实的 主进程 node-pty → IPC → 渲染进程 xterm，shell 是本机的 pwsh/powershell。
 // 任务用假 omp（回放 bash-tool），项目目录带空格和中文。断言用户看得见的结果（xterm 的 DOM 行）和进程是否残留。
-// 中英 × 深浅各截图到 screenshots/（terminal-*）。
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
@@ -8,11 +7,7 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
 import { findOmp, makeRepo, makeScratch } from "../git-helpers.ts";
-import { launchApp, openTaskRow, screenshotsDir, setLocaleTheme, testOmp, type LaunchedApp } from "./launch.ts";
-
-// 开发机/CI 的 shell 常设 NO_COLOR=1：应用和终端里的 PowerShell 会继承它并去掉输出里的颜色（空串也算设置了），
-// 截图就看不到 ANSI 色板。只在本文件的测试进程里去掉。
-delete process.env["NO_COLOR"];
+import { launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
 
 interface Started {
   launched: LaunchedApp;
@@ -321,32 +316,15 @@ test("命令面板可切换终端", async () => {
   }
 });
 
-test("截图：中英 × 深浅", async () => {
+test("shell 里 exit 之后终端里出现退出提示行", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
     await openPanel(page);
     await waitPrompt(page);
-    await run(
-      page,
-      '(30..37)+(90..97) | % { Write-Host -NoNewline "$([char]27)[$($_)m■ $_ $([char]27)[0m" }; Write-Host ""; echo omp-studio-term',
-    );
-    await expectRow(page, "omp-studio-term");
-    for (const [locale, scheme] of [
-      ["zh-CN", "light"],
-      ["zh-CN", "dark"],
-      ["en", "light"],
-      ["en", "dark"],
-    ] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await setLocaleTheme(page, locale, scheme);
-      await page.screenshot({ path: path.join(screenshotsDir, `terminal-${locale}-${scheme}.png`) });
-    }
-    // 退出后的提示行也截一张（英文深色）。
     await page.getByTestId("terminal-host").click();
     await run(page, "exit");
-    await expectRow(page, /Process exited with code 0/);
-    await page.screenshot({ path: path.join(screenshotsDir, "terminal-exited-en-dark.png") });
+    await expectRow(page, /Process exited with code 0|进程已退出，代码 0/);
   } finally {
     await cleanup();
   }

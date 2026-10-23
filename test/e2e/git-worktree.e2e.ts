@@ -1,6 +1,6 @@
 // 阶段 4 worktree 与 git 操作的端到端：真实临时仓库（路径含空格和中文）+ 假 omp 回放（fake-tsp-omp，伪终端里）。
 // 覆盖：工作树胶囊 → 任务在 worktree 里运行 → 提交对话框 → 合并回基分支 → 推送到本地裸仓库 → 丢弃确认 → 清理无主 worktree；
-// 冲突 / 被拒绝的合并；不是 git 仓库时没有胶囊，空仓库时胶囊禁用。中英 × 深浅截图到 screenshots/。
+// 冲突 / 被拒绝的合并；不是 git 仓库时没有胶囊，空仓库时胶囊禁用。
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -8,14 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { findOmp, makeRepo, put, sh } from "../git-helpers.ts";
-import {
-  expandSidebarFolders,
-  launchApp,
-  screenshotsDir,
-  setLocaleTheme,
-  testOmp,
-  type LaunchedApp,
-} from "./launch.ts";
+import { expandSidebarFolders, launchApp, testOmp, type LaunchedApp } from "./launch.ts";
 
 interface Session {
   launched: LaunchedApp;
@@ -67,22 +60,6 @@ async function start(prepare: (work: string) => Promise<string>): Promise<Sessio
   };
 }
 
-async function shoot(page: Page, state: string): Promise<void> {
-  for (const [locale, scheme] of [
-    ["zh-CN", "light"],
-    ["zh-CN", "dark"],
-    ["en", "light"],
-    ["en", "dark"],
-  ] as const) {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await setLocaleTheme(page, locale, scheme);
-    await page.screenshot({ path: path.join(screenshotsDir, `git-${state}-${locale}-${scheme}.png`) });
-  }
-  // 回到中文浅色：后面的步骤按中文菜单文案找元素。
-  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
-  await setLocaleTheme(page, "zh-CN", "light");
-}
-
 /** worktree 任务的 worktree 目录和分支（从主仓库的 `git worktree list` 读）。 */
 function findStudioWorktree(repo: string): { dir: string; branch: string } | null {
   const blocks = sh(repo, "worktree", "list", "--porcelain").split(/\r?\n\r?\n/);
@@ -130,7 +107,7 @@ async function createTaskFromDraft(
   return taskId as string;
 }
 
-test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 → 丢弃 → 清理无主 worktree；截图", async () => {
+test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 → 丢弃 → 清理无主 worktree", async () => {
   let repo = "";
   let bare = "";
   const session = await start(async (work) => {
@@ -164,7 +141,6 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await expect(chip).toHaveAttribute("data-worktree", "true");
     await chip.click();
     await expect(item).toHaveAttribute("aria-checked", "true");
-    await shoot(page, "draft-chip");
     await expect(item).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(item).toHaveCount(0);
@@ -175,7 +151,6 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     const setupDialog = page.getByTestId("git-setup-dialog");
     await expect(setupDialog).toBeVisible();
     await expect(setupDialog).toContainText(".omp-studio/setup.");
-    await shoot(page, "setup-dialog");
     await setupDialog.getByRole("button", { name: "取消" }).click();
     await expect(setupDialog).toHaveCount(0);
     await expect(page.getByTestId("toasts")).toContainText("没有创建 worktree");
@@ -194,7 +169,6 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await page.getByTestId("git-menu").click();
     await expect(gitMenu).toBeVisible();
     await expect(gitMenu.getByRole("menuitem", { name: /^查看改动/ })).toHaveCount(0);
-    await shoot(page, "menu");
     await page.getByTestId("git-menu").click({ force: true });
     await expect(gitMenu).toHaveCount(0);
     await page.getByTestId("git-menu").click();
@@ -244,7 +218,6 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await openGitMenu(page, /^提交/);
     await expect(page.getByTestId("git-commit-dialog")).toBeVisible();
     await page.getByTestId("git-commit-message").fill("工作树里的提交");
-    await shoot(page, "commit-dialog");
     await page.getByTestId("git-commit-confirm").click();
     await expect(page.getByTestId("toasts")).toContainText("已提交");
     await expect(page.getByTestId("git-commit-dialog")).toHaveCount(0);
@@ -286,7 +259,6 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await page.getByTestId("git-discard-dialog").getByRole("button", { name: "取消" }).click();
     expect(existsSync(dir)).toBe(true);
     await openGitMenu(page, /^丢弃 worktree/);
-    await shoot(page, "discard-dialog");
     await page.getByTestId("git-discard-dialog-confirm").click();
     await expect(page.getByTestId("task-row")).toHaveCount(0);
     await expect.poll(() => existsSync(dir)).toBe(false);
@@ -305,7 +277,6 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await expect(page.getByTestId("git-cleanup-removed")).toContainText("orphan1");
     await expect(page.getByTestId("git-cleanup-kept")).toContainText("orphan2");
     await expect(page.getByTestId("git-cleanup-kept")).toContainText("没合并的提交");
-    await shoot(page, "cleanup-dialog");
     expect(existsSync(path.join(parent, "orphan1"))).toBe(false);
     expect(existsSync(path.join(parent, "orphan2"))).toBe(true);
   } finally {
@@ -338,7 +309,6 @@ test("合并：有冲突时列出文件并撤销；工作树有未提交内容�
     await openGitMenu(page, /^合并回 main/);
     await expect(page.getByTestId("git-conflict-dialog")).toBeVisible();
     await expect(page.getByTestId("git-conflict-files")).toContainText("a.txt");
-    await shoot(page, "conflict-dialog");
     await page.getByTestId("git-conflict-dialog").getByRole("button", { name: "关闭" }).first().click();
     expect(sh(repo, "status", "--porcelain")).toBe("");
     expect(await readFile(path.join(repo, "a.txt"), "utf8")).toContain("主目录的版本");
@@ -437,7 +407,6 @@ test("仓库还没有提交：顶栏胶囊在，创建被拒绝后 worktree 勾�
     await expect(item).toHaveAttribute("aria-disabled", "true");
     await expect(item).toHaveAttribute("aria-checked", "false");
     await expect(item).toContainText(/不能用 worktree：.*还没有任何提交/);
-    await shoot(page, "chip-blocked");
     await expect(item).toBeVisible();
     // Esc 收回菜单，焦点回到胶囊；回输入框再发。
     await page.keyboard.press("Escape");

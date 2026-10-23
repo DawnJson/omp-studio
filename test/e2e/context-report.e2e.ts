@@ -1,10 +1,10 @@
 // 上下文构成读的是 omp 自己的 /context：点圆环 → 主进程点 omp 输入框上的 meter、读完报告再关掉，界面上不出现 omp 的弹窗。
-// 用 fixtures/tsp/context-report 回放（omp 18.12.6 实录：打开、关闭各两次）；中英 × 深浅截图到 screenshots/。
+// 用 fixtures/tsp/context-report 回放（omp 18.12.6 实录：打开、关闭各两次）。
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, openTaskRow, screenshotsDir, setLocaleTheme, testOmp } from "./launch.ts";
+import { launchApp, openTaskRow, testOmp } from "./launch.ts";
 
 async function received(log: string): Promise<Record<string, unknown>[]> {
   const text = await readFile(log, "utf8").catch(() => "");
@@ -32,7 +32,7 @@ async function watchOmpReport(page: Page): Promise<() => Promise<number>> {
   return () => page.evaluate(() => (globalThis as unknown as { __ompReport: number }).__ompReport);
 }
 
-test("上下文构成：数字来自 omp 的 /context，omp 的弹窗不出现、读完就关；再打开先显示上次的再重读；截图", async () => {
+test("上下文构成：数字来自 omp 的 /context，omp 的弹窗不出现、读完就关；再打开先显示上次的再重读", async () => {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp 上下文 e2e-"));
   const project = path.join(work, "项目 目录");
   const log = path.join(work, "omp-received.jsonl");
@@ -80,18 +80,6 @@ test("上下文构成：数字来自 omp 的 /context，omp 的弹窗不出现�
       ]);
     expect(await ompReportSeen()).toBe(0);
     await expect(page.locator('[data-role="omp.overlay.report"]')).toHaveCount(0);
-
-    for (const [locale, scheme] of [
-      ["zh-CN", "light"],
-      ["zh-CN", "dark"],
-      ["en", "light"],
-      ["en", "dark"],
-    ] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await setLocaleTheme(page, locale, scheme);
-      await page.screenshot({ path: path.join(screenshotsDir, `context-report-${locale}-${scheme}.png`) });
-    }
-    await setLocaleTheme(page, "zh-CN", "light");
 
     await page.keyboard.press("Escape");
     await expect(breakdown).toHaveCount(0);
@@ -157,7 +145,7 @@ async function openContextTask(label: string) {
   return { launched, page: launched.page, log, cleanup };
 }
 
-test("压缩一栏：圆环上有自动压缩刻度，构成里写在 85% 自动压缩；点「立即压缩」omp 收到 /compact；截图", async () => {
+test("压缩一栏：圆环上有自动压缩刻度，构成里写在 85% 自动压缩；点「立即压缩」omp 收到 /compact", async () => {
   const { page, log, cleanup } = await openContextTask("压缩");
   try {
     const meter = page.getByTestId("composer-stack").getByTestId("context-meter");
@@ -165,18 +153,7 @@ test("压缩一栏：圆环上有自动压缩刻度，构成里写在 85% 自动
     await meter.click();
     await expect(page.getByTestId("context-auto-at")).toHaveText(/85%/);
     await expect(page.getByTestId("context-handoff")).toBeEnabled();
-    for (const [locale, scheme] of [
-      ["zh-CN", "light"],
-      ["zh-CN", "dark"],
-      ["en", "light"],
-      ["en", "dark"],
-    ] as const) {
-      await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-      await setLocaleTheme(page, locale, scheme);
-      await expect(page.getByTestId("context-compaction")).toBeVisible();
-      await page.screenshot({ path: path.join(screenshotsDir, `board-context-compact-${locale}-${scheme}.png`) });
-    }
-    await setLocaleTheme(page, "zh-CN", "light");
+    await expect(page.getByTestId("context-compaction")).toBeVisible();
     await page.getByTestId("context-compact").click();
     await expect.poll(() => receivedSends(log)).toContain("/compact");
   } finally {

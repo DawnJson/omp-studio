@@ -1,6 +1,6 @@
 # 输入框：斜杠菜单、参数接管、发送方式、输入历史、omp 输入框回填
 
-> 实测 omp **18.12.6**，2026-10-23（`PI_TUI_TSP_RECORD`，临时 `PI_CODING_AGENT_DIR`，`deepseek/deepseek-v4-flash`）。录制：`fixtures/tsp/history-select.jsonl`、`queue-follow-up-esc.jsonl`、`queue-command.jsonl`。
+> 实测 omp **18.12.6**，2026-10-23（`PI_TUI_TSP_RECORD`，临时 `PI_CODING_AGENT_DIR`，`deepseek/deepseek-v4-flash`）。录制：`fixtures/tsp/history-select.jsonl`、`queue-follow-up-esc.jsonl`、`queue-command.jsonl`。`queue-follow-up-esc.jsonl` 里没录下 Esc 键，第 307 行的 `k` 条目是事后补的，放在 omp 中断这一轮、把排队文字写回输入框的那一帧（第 308 行）之前，这样回放时假 omp 收到 Esc 才放这一帧。
 
 ## 1. 斜杠菜单的命令表
 

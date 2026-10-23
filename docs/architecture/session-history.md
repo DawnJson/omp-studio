@@ -58,7 +58,7 @@ omp 没有"列出会话"的 RPC（wire 命令表里只有针对当前会话的 `
 ## 测试
 
 `test/session-index.test.ts`：路径含空格和中文的临时目录；标题槽/旧格式/字符串内容；截断前缀；损坏、空、非会话文件计数；超长首条消息；缓存失效和删除；Windows 路径大小写；`resolveAgentDir`。`test/sidebar-model.test.ts`：分组排序、重名项目标签、等你确认跳转、状态点形状、模糊匹配、面板分组。
-`test/e2e/sidebar.e2e.ts`：侧栏键盘（方向键、F2、Delete、←/→）、归档撤销、命令面板，截图写到 `screenshots/sidebar-*.png`、`palette-*.png`。
+`test/e2e/sidebar.e2e.ts`：侧栏键盘（方向键、F2、Delete、←/→）、归档撤销、命令面板。
 
 ## 会话信息、请求记录、置顶、分享、重试（S3，2026-10-21，omp 18.12.5）
 
@@ -101,7 +101,7 @@ omp 的 TSP 输入框卡片只给费用。token 分项和请求数由 `TspRunner
 
 ### 没做 / 没验证
 
-没有跑 e2e；没有在真实 omp 里验证 TSP `/retry` 经 `runQuietCommand` 的端到端；没有点过界面（无截图）。
+没有跑 e2e；没有在真实 omp 里验证 TSP `/retry` 经 `runQuietCommand` 的端到端；没有点过界面。
 
 ## 2026-10-23 补充（omp 18.12.6）
 

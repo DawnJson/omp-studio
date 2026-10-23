@@ -1,11 +1,11 @@
 // 启动构建产物（先 npm run build）：Playwright 的 _electron.launch。userData 和 omp 的 agent 目录都指到临时目录，
-// 和真实数据隔离：会话索引读的是 PI_CODING_AGENT_DIR，里面只有这里造的假会话，真实 ~/.omp 不会出现在界面或截图里。
+// 和真实数据隔离：会话索引读的是 PI_CODING_AGENT_DIR，里面只有这里造的假会话，真实 ~/.omp 不会出现在界面里。
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { _electron as electron, expect, type ElectronApplication, type Page } from "@playwright/test";
+import { _electron as electron, expect, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { findOmpOnPath } from "../../src/main/omp/discover.ts";
 import { parseTestOmpOverride } from "../../src/main/omp/launch-args.ts";
 
@@ -147,11 +147,63 @@ export function testOmp(fixture: string, options: { log?: string; speed?: number
   });
 }
 
-export const screenshotsDir = path.join(root, "screenshots");
+/**
+ * 断言 `container` 里没有东西越界：容器自己不横向溢出，里面每个看得见的元素左右边都在容器内（容差 1px）。
+ * 自己会裁剪或横向滚动的子容器（`overflow-x` 不是 visible，比如代码块、省略号文字）只查它本身，不查里面；
+ * `position: fixed` 的（挂在别处的浮层）跳过。失败信息列出越界的元素和超出的像素。
+ */
+export async function expectNoOverflow(container: Locator): Promise<void> {
+  const offenders = await container.evaluate((root) => {
+    interface Rect {
+      left: number;
+      right: number;
+      width: number;
+      height: number;
+    }
+    interface El {
+      children: ArrayLike<El>;
+      scrollWidth: number;
+      clientWidth: number;
+      tagName: string;
+      className: unknown;
+      getAttribute(name: string): string | null;
+      getBoundingClientRect(): Rect;
+    }
+    const g = globalThis as unknown as {
+      getComputedStyle(el: El): { overflowX: string; position: string; visibility: string };
+    };
+    const top = root as unknown as El;
+    const bounds = top.getBoundingClientRect();
+    const found: string[] = [];
+    if (top.scrollWidth > top.clientWidth + 1)
+      found.push(`container: scrollWidth ${top.scrollWidth} > clientWidth ${top.clientWidth}`);
+    const visit = (el: El): void => {
+      for (const child of Array.from(el.children)) {
+        const style = g.getComputedStyle(child);
+        if (style.position === "fixed" || style.visibility === "hidden") continue;
+        const rect = child.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) continue;
+        const over = Math.max(bounds.left - rect.left, rect.right - bounds.right);
+        if (over > 1) {
+          const id = child.getAttribute("data-testid");
+          const cls = typeof child.className === "string" ? child.className : "";
+          found.push(
+            `${child.tagName.toLowerCase()}${id ? `[data-testid=${id}]` : ""}${cls ? `.${cls.split(" ").join(".")}` : ""}: ${Math.round(over)}px`,
+          );
+          continue;
+        }
+        if (style.overflowX === "visible") visit(child);
+      }
+    };
+    visit(top);
+    return found;
+  });
+  expect(offenders, "越界的元素").toEqual([]);
+}
 
 /**
  * 切换语言和主题，等界面真的换好再返回。换主题是整窗交叉淡入（App.tsx 的 view transition）：
- * html 上的 data-theme 已经变了，淡入放完之前截图拍到的还是上一个主题。
+ * html 上的 data-theme 已经变了，淡入放完之前量到的还是过渡中的画面。
  */
 export async function setLocaleTheme(page: Page, locale: "zh-CN" | "en", theme: "light" | "dark"): Promise<void> {
   await page.evaluate(

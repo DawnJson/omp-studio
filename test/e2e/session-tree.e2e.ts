@@ -4,8 +4,8 @@
 import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
-import { launchApp, openTaskRow, screenshotsDir, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { expect, test } from "@playwright/test";
+import { launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -179,19 +179,6 @@ test("回溯并摘要：勾选面板底部的开关再选一条消息，omp 收�
   }
 });
 
-async function shoot(page: Page, state: string): Promise<void> {
-  for (const [locale, scheme] of [
-    ["zh-CN", "light"],
-    ["zh-CN", "dark"],
-    ["en", "light"],
-    ["en", "dark"],
-  ] as const) {
-    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
-    await setLocaleTheme(page, locale, scheme);
-    await page.screenshot({ path: path.join(screenshotsDir, `session-tree-${state}-${locale}-${scheme}.png`) });
-  }
-}
-
 test("压缩过的会话：压缩点是分隔节点（带压缩前 token 数、不能回溯）；悬停一条用户消息提示会离开几轮；搜索框按文字过滤，Esc 先清搜索再关面板", async () => {
   test.setTimeout(120_000);
   // omp 18.12.5 录的 compaction.keepRecentTokens=5 + /compact：重新 --resume 后 omp 只画压缩点之后的内容，没有用户消息卡片。
@@ -220,7 +207,6 @@ test("压缩过的会话：压缩点是分隔节点（带压缩前 token 数、�
     await expect(discard).toHaveAttribute("data-count", "2");
     await nodes.nth(1).hover();
     await expect(discard).toHaveAttribute("data-count", "1");
-    await shoot(page, "compaction");
 
     // 搜索：按消息文字过滤（不分大小写）；没有匹配时提示；Esc 先清搜索。
     const search = panel.getByTestId("session-tree-search");
@@ -229,7 +215,6 @@ test("压缩过的会话：压缩点是分隔节点（带压缩前 token 数、�
     await expect(nodes.first()).toContainText(BETA_TEXT);
     await search.fill("zzz");
     await expect(panel.getByTestId("session-tree-nomatch")).toBeVisible();
-    await shoot(page, "search-empty");
     await search.press("Escape");
     await expect(search).toHaveValue("");
     await expect(nodes).toHaveCount(3);
@@ -255,7 +240,6 @@ test("回溯时摘要过的会话：branch_summary 是树里的摘要节点（�
     await expect(summary).toHaveAttribute("data-kind", "branch_summary");
     await expect(summary.getByTestId("session-tree-summary-badge")).toBeVisible();
     await expect(summary).toContainText('The user requested a single, exact response: "BETA".');
-    await shoot(page, "branch-summary");
     await panel.getByTestId("session-tree-search").fill("exact response");
     await expect(nodes).toHaveCount(1);
     await expect(nodes.first()).toHaveAttribute("data-kind", "branch_summary");
@@ -290,7 +274,6 @@ test("打标签（omp 18.12.6 录制）：行上的标签按钮 → 输入框 En
     const input = panel.getByTestId("session-tree-label-input");
     await expect(input).toBeFocused();
     await input.fill("my label");
-    await shoot(page, "label-edit");
     // 假 omp 不会写会话文件：模拟 omp 在 label-save 时追加 label 条目（面板在主进程驱动完之后重读树）。
     await appendFile(sessionFile, `${labelRow}\n`);
     await input.press("Enter");
@@ -303,7 +286,6 @@ test("打标签（omp 18.12.6 录制）：行上的标签按钮 → 输入框 En
       { ev: "edit", sf: "s:1", id: "t", from: 0, to: 0, text: "my label", cursor: 8, len: 0 },
       { ev: "action", sf: "s:1", id: "s.^picker", act: "label-save" },
     ]);
-    await shoot(page, "label");
     await panel.getByTestId("session-tree-search").fill("my lab");
     await expect(nodes).toHaveCount(1);
   } finally {

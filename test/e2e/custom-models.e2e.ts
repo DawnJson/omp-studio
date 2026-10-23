@@ -3,21 +3,11 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { startFakeOpenAi } from "../fake-openai/server.ts";
-import { launchApp, screenshotsDir, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 const SECRET = "sk-fake-e2e-secret";
-
-async function screenshots(page: Page, name: string, target = page.getByTestId("custom-providers")): Promise<void> {
-  for (const locale of ["zh-CN", "en"] as const) {
-    for (const theme of ["light", "dark"] as const) {
-      await setLocaleTheme(page, locale, theme);
-      await target.scrollIntoViewIfNeeded();
-      await page.screenshot({ path: path.join(screenshotsDir, `custom-models-${name}-${locale}-${theme}.png`) });
-    }
-  }
-}
 
 async function launchSettings(): Promise<{ launched: LaunchedApp; agentDir: string }> {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio 代理 agent-"));
@@ -98,9 +88,6 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await page.getByTestId("custom-manual-model").press("Enter");
     await expect(page.getByTestId("custom-model-manual-x")).toBeChecked();
     await expect(page.getByTestId("custom-selected-count")).toContainText("3 / 4");
-    await screenshots(page, "form", form);
-
-    await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("custom-save").click();
     await expect(form).toHaveCount(0);
     const row = page.getByTestId("custom-provider-fake-proxy");
@@ -143,7 +130,6 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     }).toPass({ timeout: 30_000 });
     await page.keyboard.press("Escape");
     await page.getByTestId("settings-nav-providers").click();
-    await screenshots(page, "list");
 
     // 编辑：取消勾选手动添加的那个，key 保持不变。
     await setLocaleTheme(page, "zh-CN", "light");
@@ -215,7 +201,6 @@ test("自定义提供商：自动发现模型——开关写 discovery、不用�
     await page.getByTestId("custom-discovery").click();
     await expect(page.getByTestId("custom-discovery")).toHaveAttribute("aria-checked", "true");
     await expect(page.getByTestId("custom-save")).toBeEnabled();
-    await screenshots(page, "form-discovery", form);
     await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("custom-save").click();
     await expect(form).toHaveCount(0);
@@ -247,7 +232,6 @@ test("自定义提供商：自动发现模型——开关写 discovery、不用�
     // 刷新模型：omp models refresh 跑完、给出提示。
     await page.getByTestId("custom-refresh").click();
     await expect(page.getByText("已刷新模型目录")).toBeVisible({ timeout: 90_000 });
-    await screenshots(page, "list-discovery");
 
     // 编辑：开关是开的；关掉并勾选一个模型再保存 → discovery 去掉，别的内容不动。
     await setLocaleTheme(page, "zh-CN", "light");
@@ -281,7 +265,6 @@ test("自定义提供商：读不懂的 models.yml 显示错误，不覆盖文�
     await expect(page.getByTestId("custom-load-failed")).toBeVisible();
     await expect(page.getByTestId("custom-add")).toBeDisabled();
     expect(await readFile(path.join(agentDir, "models.yml"), "utf8")).toBe("providers: [1, 2");
-    await page.screenshot({ path: path.join(screenshotsDir, "custom-models-unreadable-en-light.png") });
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
