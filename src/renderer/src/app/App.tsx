@@ -300,11 +300,12 @@ export function App() {
             </>
           )}
         </main>
+        {/* 右栏两个面板是兄弟，key 都要带前缀：同一个任务 id 当 key 时，从子代理面板换到文件面板的那一帧两者都在，React 会把文件面板画成两份。 */}
         {view === "conversation" && panel?.key === terminalKey && (
-          <FilePreviewPane key={panel.key} panelKey={panel.key} page={panel.page} path={panel.path} />
+          <FilePreviewPane key={`files:${panel.key}`} panelKey={panel.key} page={panel.page} path={panel.path} />
         )}
         {view === "conversation" && taskId !== null && agentsPanel?.taskId === taskId && (
-          <AgentsPanel key={taskId} taskId={taskId} selected={agentsPanel.selected} />
+          <AgentsPanel key={`agents:${taskId}`} taskId={taskId} selected={agentsPanel.selected} />
         )}
       </div>
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />

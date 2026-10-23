@@ -920,7 +920,7 @@ test("待办浮层:/todo 打开,输入框里按 Esc 关掉并被消耗(不是停
   }
 });
 
-test('输入框上方(照 Tern):药丸 [👥 N | ⚡ N] 每段个数大于 0 才出现、各自点各自的;状态行 = 运行图标 + 翻牌计时 + 活动文字 + 右端待办板;omp 自己的 HUD(▷ N、运行状态行)和旧的"后台任务"按钮都不画', async () => {
+test('输入框上方(照 Tern):药丸 [👥 N | ⚡ N] 每段个数大于 0 才出现、各自点各自的;状态行 = 运行图标 + 翻牌计时 + 活动文字 + 右端待办板;omp 自己的 HUD(▷ N、运行状态行)和旧的"后台任务"按钮都不画;顶栏的子代理按钮一直在', async () => {
   test.setTimeout(120_000);
   const jobs = await start("jobs-chart");
   try {
@@ -943,6 +943,20 @@ test('输入框上方(照 Tern):药丸 [👥 N | ⚡ N] 每段个数大于 0 才
     await expect(page.getByTestId("job-row").first()).toHaveAttribute("data-type", "bash");
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("jobs-board")).toHaveCount(0);
+    // 没有子代理时药丸没有左半段,顶栏的子代理按钮仍在:点开是空状态;和文件面板共用右栏,开一个就关另一个。
+    const agentsToggle = page.getByTestId("topbar-agents");
+    await agentsToggle.click();
+    await expect(page.getByTestId("agents-empty")).toBeVisible();
+    await expect(agentsToggle).toHaveAttribute("aria-pressed", "true");
+    await page.getByTestId("topbar-files").click();
+    await expect(page.getByTestId("file-preview")).toBeVisible();
+    await expect(page.getByTestId("agents-panel")).toHaveCount(0);
+    await expect(agentsToggle).toHaveAttribute("aria-pressed", "false");
+    await agentsToggle.click();
+    await expect(page.getByTestId("agents-panel")).toBeVisible();
+    await expect(page.getByTestId("file-preview")).toHaveCount(0);
+    await agentsToggle.click();
+    await expect(page.getByTestId("agents-panel")).toHaveCount(0);
     // 截图会切语言和主题、焦点跟着跑掉，放在 Esc 断言之后重新打开再截。
     await pill.click();
     await expect(page.getByTestId("jobs-board")).toBeVisible();
@@ -962,6 +976,8 @@ test('输入框上方(照 Tern):药丸 [👥 N | ⚡ N] 每段个数大于 0 才
     await pill.click();
     await expect(page.getByTestId("agents-panel")).toBeVisible();
     expect((await hub.received()).some((event) => event["act"] === "agents.open")).toBe(false);
+    // 从药丸打开的也是同一个面板:顶栏按钮跟着显示为按下。
+    await expect(page.getByTestId("topbar-agents")).toHaveAttribute("aria-pressed", "true");
   } finally {
     await hub.cleanup();
   }
