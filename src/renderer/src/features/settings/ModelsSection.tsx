@@ -9,7 +9,7 @@ import { Close } from "../../icons.tsx";
 import { Notice, type Option } from "../../ui/controls.tsx";
 import { describeError, reportError } from "../../ui/errors.ts";
 import { InfoTip } from "../../ui/InfoTip.tsx";
-import { Select } from "../../ui/Select.tsx";
+import { Select, type SelectOption } from "../../ui/Select.tsx";
 import { chatRoles, kindRoles, roleHintKey, roleKinds, roleLabel } from "../composer/model-groups.ts";
 import { useModelSources } from "./accounts-store.ts";
 import {
@@ -107,7 +107,10 @@ function RoleRow({
     saveOmpConfigOrThrow("retry.fallbackChains", all).catch((error: unknown) => reportError(t, error));
   };
 
-  const modelOptions: Option<string>[] = [{ value: unset, label: unsetLabel }, ...withCurrent(candidates, current)];
+  const modelOptions: SelectOption<string>[] = [
+    { value: unset, label: unsetLabel },
+    ...withCurrent(candidates, current),
+  ];
   const addOptions = fallbackCandidates.filter(
     (candidate) => candidate.value !== current && !chain.includes(candidate.value),
   );
@@ -125,6 +128,7 @@ function RoleRow({
         labelledBy={labelId}
         disabled={disabled || !ready}
         onChange={saveModel}
+        search={t("settings.roles.searchModel")}
         testId={role === "default" ? "setting-default-model" : `setting-role-${role}`}
       />
       <Select
@@ -136,6 +140,7 @@ function RoleRow({
         labelledBy={labelId}
         disabled={disabled || !ready || addOptions.length === 0}
         onChange={(value) => saveChain([...chain, value])}
+        search={t("settings.roles.searchModel")}
         testId={`setting-chain-${role}-add`}
       />
       <span className="st-chain" data-testid={`setting-chain-${role}`}>

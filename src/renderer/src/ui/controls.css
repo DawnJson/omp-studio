@@ -586,6 +586,49 @@
 .ui-select-list::-webkit-scrollbar {
   display: none;
 }
+/* 带搜索框的下拉：搜索框在列表上方，菜单宽度固定在最宽（打字过滤时不跟着变窄） */
+.ui-menu[data-search] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 320px;
+}
+.ui-select-search {
+  flex: none;
+}
+/* 下拉里的组标题（Select 选项的 group，模型下拉按 provider）：点开 / 收起，右边是组里的个数 */
+.ui-select-group {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  min-height: var(--row-menu);
+  padding: var(--space-1) var(--space-2-5) var(--space-1) var(--space-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+.ui-select-group:hover {
+  background: var(--bg-hover);
+}
+.ui-select-group > svg {
+  justify-self: center;
+  color: var(--text-3);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.ui-select-group[aria-expanded="true"] > svg {
+  transform: rotate(90deg);
+}
+.ui-select-empty {
+  padding: var(--space-2) var(--space-2-5);
+}
 .ui-menu-label-text {
   min-width: 0;
   overflow: hidden;

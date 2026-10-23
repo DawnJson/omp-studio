@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState, type ReactNode } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { SectionHead } from "../../ui/controls.tsx";
+import { Reveal } from "../../ui/Reveal.tsx";
 import { groupConfigItems } from "../../../../shared/ui/config-groups.ts";
 import { prefixTitle } from "../../../../shared/ui/config-labels.ts";
 import { fitsCell } from "./ConfigControls.tsx";
@@ -101,8 +102,8 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
                 {groupTitle(locale, group.group)}
                 <span className="ui-count">{group.count}</span>
               </button>
-              {open &&
-                group.prefixes.map(({ prefix, items: bucket }) => (
+              <Reveal open={open}>
+                {group.prefixes.map(({ prefix, items: bucket }) => (
                   <button
                     key={prefix}
                     type="button"
@@ -119,6 +120,7 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
                     <span className="ui-count">{bucket.length}</span>
                   </button>
                 ))}
+              </Reveal>
             </div>
           );
         })}

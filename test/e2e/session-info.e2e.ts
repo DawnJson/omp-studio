@@ -187,12 +187,15 @@ test("请求记录：/trace 打开请求记录页签；每个请求一行（从�
     await expect(rows.nth(0)).not.toHaveAttribute("data-failed", /.*/);
     await expect(rows.nth(1)).toHaveAttribute("data-failed", "true");
     await expect(page.getByTestId("trace-summary")).toContainText("2");
-    // 详情（耗时、首字、速度、工具）是折叠的 <details>。
-    const details = rows.nth(0).locator("details");
-    await expect(details).not.toHaveAttribute("open", /.*/);
-    await details.locator("summary").click();
-    await expect(details).toContainText("web_search");
-    await expect(rows.nth(1).locator("details")).toContainText("401 Authentication Fails");
+    // 详情（耗时、首字、速度、工具）默认折叠，点"详情"带动画展开。
+    const toggle = rows.nth(0).getByTestId("trace-details-toggle");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(rows.nth(0)).not.toContainText("web_search");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(rows.nth(0)).toContainText("web_search");
+    await rows.nth(1).getByTestId("trace-details-toggle").click();
+    await expect(rows.nth(1)).toContainText("401 Authentication Fails");
   } finally {
     await cleanup();
   }

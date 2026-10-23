@@ -11,9 +11,10 @@ import type { ModelInsights, ModelKey, ModelOption, ProjectId, TaskId } from "..
 import { clampThinkingLevel, thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Close, Plus, Search, Check } from "../../icons.tsx";
+import { Close, Plus, Search, Check, ChevronRight } from "../../icons.tsx";
 import { Badge, Button, IconButton, TextField } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
+import { Reveal } from "../../ui/Reveal.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { showView } from "../../store/index.ts";
 import { ModelDetails } from "./ModelDetails.tsx";
@@ -88,6 +89,23 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
   const t = useT();
   const listId = useId();
   const tableRef = useRef<HTMLDivElement>(null);
+  const sideRef = useRef<HTMLElement>(null);
+
+  // 对话框打开以后只长不缩：见过的最大高度写进 min-height（取布局高度，不受弹出动画的缩放影响；同 CSS 的上限取小），
+  // 换到模型少的提供商、打字过滤时不跟着变矮；窗口变矮时上限跟着变小，min-height 不会把对话框撑出窗口。
+  useEffect(() => {
+    const dialog = sideRef.current?.closest<HTMLElement>(".mp-dialog");
+    if (!dialog) return;
+    let tallest = 0;
+    const observer = new ResizeObserver(() => {
+      const height = dialog.offsetHeight;
+      if (height <= tallest) return;
+      tallest = height;
+      dialog.style.minHeight = `min(${height}px, 84vh, var(--content-w))`;
+    });
+    observer.observe(dialog);
+    return () => observer.disconnect();
+  }, []);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const [models, setModels] = useState<ModelOption[] | null>(null);
@@ -167,6 +185,28 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
     () => groupModels(models ?? [], query, pinned ?? [], scopeProvider),
     [models, query, pinned, scopeProvider],
   );
+  // 全部模型（含给角色选）、没有搜索词时按提供商折叠：打开时只展开正在生效的模型（给角色选时是它现在的模型）所在的那个，
+  // 换角色时再展开新模型所在的；收起的提供商里的行不画，方向键也跳过。
+  const collapsible = scope.kind === "all" && !searching && roleMatches === null;
+  const [openProviders, setOpenProviders] = useState<ReadonlySet<string>>(new Set());
+  const activeProvider = activeModel?.key.provider ?? null;
+  useEffect(() => {
+    if (activeProvider !== null) {
+      setOpenProviders((open) => (open.has(activeProvider) ? open : new Set([...open, activeProvider])));
+    }
+  }, [activeProvider]);
+  const toggleProvider = (provider: string) => {
+    const next = new Set(openProviders);
+    if (!next.delete(provider)) next.add(provider);
+    setOpenProviders(next);
+  };
+  const shownRows = useMemo(
+    () =>
+      collapsible
+        ? [...rows.pinned, ...rows.rest.filter((option) => openProviders.has(option.key.provider))]
+        : rows.flat,
+    [collapsible, rows, openProviders],
+  );
   const items = useMemo<Item[]>(
     () =>
       roleMatches !== null
@@ -176,8 +216,8 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
             role,
             option: view.modelOf[role] ?? null,
           }))
-        : rows.flat.map((option) => ({ kind: "model", id: modelItemId(option.key), option })),
-    [roleMatches, rows, view],
+        : shownRows.map((option) => ({ kind: "model", id: modelItemId(option.key), option })),
+    [roleMatches, shownRows, view],
   );
   const currentId =
     roleMatches !== null
@@ -386,16 +426,35 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
     </div>
   );
 
-  // 全部模型、没有搜索词：常用在前，其余按提供商分组（rows.rest 已按提供商排好）。
-  const providerGroups = (list: readonly Item[]) => {
-    const groups: { provider: string; items: Item[] }[] = [];
-    for (const item of list) {
-      const provider = item.option?.key.provider ?? "";
-      const last = groups.at(-1);
-      if (last?.provider === provider) last.items.push(item);
-      else groups.push({ provider, items: [item] });
+  // 没有搜索词：常用在前，其余按提供商分组（rows.rest 已按提供商排好）；全部模型里组标题可以点开 / 收起。
+  const providerGroups = () => {
+    const groups = new Map<string, Item[]>();
+    for (const option of rows.rest) {
+      const item: Item = { kind: "model", id: modelItemId(option.key), option };
+      groups.set(option.key.provider, [...(groups.get(option.key.provider) ?? []), item]);
     }
-    return groups.map((group) => renderGroup(`p:${group.provider}`, group.provider, group.items));
+    return [...groups].map(([provider, list]) => {
+      if (!collapsible) return renderGroup(`p:${provider}`, provider, list);
+      const expanded = openProviders.has(provider);
+      return (
+        <div role="group" aria-label={provider} key={`p:${provider}`}>
+          <button
+            type="button"
+            className="mp-group mp-group-toggle"
+            aria-expanded={expanded}
+            data-testid="model-provider-group"
+            data-provider={provider}
+            // 不抢焦点：焦点留在搜索框里，方向键接着用。
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => toggleProvider(provider)}
+          >
+            <ChevronRight size={12} />
+            {provider} <span className="mp-group-count">{list.length}</span>
+          </button>
+          <Reveal open={expanded}>{list.map(renderItem)}</Reveal>
+        </div>
+      );
+    });
   };
 
   const pinnedCount = atRoles || searching ? 0 : rows.pinned.length;
@@ -405,7 +464,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
       ? [renderGroup("matches", t("model.matches"), items)]
       : [
           ...(pinnedCount > 0 ? [renderGroup("pinned", t("model.pinned"), items.slice(0, pinnedCount))] : []),
-          ...providerGroups(items.slice(pinnedCount)),
+          ...providerGroups(),
         ];
 
   const scopeButton = (entry: Scope, label: string, count: number, testId: string, dot = false) => (
@@ -499,7 +558,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
         </>
       }
     >
-      <nav className="mp-side" aria-label={t("model.scopes")}>
+      <nav ref={sideRef} className="mp-side" aria-label={t("model.scopes")}>
         {scopeButton({ kind: "roles" }, t("model.rolesGroup"), view.tabs.length, "model-scope-roles")}
         {scopeButton({ kind: "all" }, t("model.all"), models?.length ?? 0, "model-scope-all")}
         {providers.length > 0 && (

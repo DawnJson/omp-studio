@@ -92,6 +92,7 @@ export function RolesEditor({ item, labelId, onSave }: ControlProps) {
             width="100%"
             onChange={(next) => onSave({ ...roles, [role]: next })}
             placeholder={t("settings.cfg.pickModel")}
+            search={t("settings.roles.searchModel")}
           />
           <IconButton
             label={t("settings.cfg.remove")}
@@ -151,6 +152,7 @@ export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
                   options={withCurrent(optionsOf(key), entry)}
                   labelledBy={labelId}
                   width="100%"
+                  search={t("settings.roles.searchModel")}
                   onChange={(next) =>
                     set(
                       key,
@@ -207,6 +209,7 @@ export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
                 labelledBy={labelId}
                 width="100%"
                 placeholder={t("settings.cfg.addFallback")}
+                search={t("settings.roles.searchModel")}
                 onChange={(next) => set(key, [...chain, next])}
               />
             </div>

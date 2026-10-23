@@ -1,10 +1,12 @@
 // 请求记录页（/trace）：这个会话每次模型请求一行（时间、模型、输入/输出 token、费用、结果），从新到旧。
 // 来自 omp 的统计库（messages + tool_calls），所以只含已同步的部分。首字耗时、输出速度、缓存、服务等级、工具调用折在每行的"详情"里（遥测克制）。
+import { useId, useState } from "react";
 import type { SessionTrace, TraceRequest } from "../../../../shared/ipc.ts";
 import { isFailedRequest, stopKind, summarizeTrace, tokensPerSecond } from "../../../../shared/ui/session-trace.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { describeError } from "../../ui/errors.ts";
-import { Button, Notice } from "../../ui/controls.tsx";
+import { Button, Disclosure, Notice } from "../../ui/controls.tsx";
+import { Reveal } from "../../ui/Reveal.tsx";
 import { formatCount, formatMoney } from "../composer/usage-format.ts";
 import type { SyncedRead } from "./use-synced-read.ts";
 
@@ -20,6 +22,8 @@ function RequestRow({ request }: { request: TraceRequest }) {
   const failed = isFailedRequest(request);
   const speed = tokensPerSecond(request);
   const time = new Date(request.timestamp).toLocaleTimeString(locale, { hour12: false });
+  const [open, setOpen] = useState(false);
+  const bodyId = useId();
   const hasDetails =
     request.durationMs !== null ||
     request.ttftMs !== null ||
@@ -48,39 +52,52 @@ function RequestRow({ request }: { request: TraceRequest }) {
         </span>
       </div>
       {hasDetails && (
-        <details className="si-details">
-          <summary>{t("sessionInfo.trace.details")}</summary>
-          <div className="si-details-body">
-            <span>
-              {[
-                request.durationMs !== null &&
-                  t("sessionInfo.trace.duration", { value: formatSeconds(request.durationMs) }),
-                request.ttftMs !== null && t("sessionInfo.trace.ttft", { value: formatSeconds(request.ttftMs) }),
-                speed !== null && t("sessionInfo.trace.speed", { value: speed.toFixed(1) }),
-              ]
-                .filter((part) => typeof part === "string")
-                .join(" · ")}
-            </span>
-            {request.cacheRead + request.cacheWrite > 0 && (
-              <span>
-                {t("sessionInfo.trace.cache", {
-                  read: formatCount(request.cacheRead),
-                  write: formatCount(request.cacheWrite),
-                })}
-              </span>
-            )}
-            {request.serviceTier !== null && <span>{t("sessionInfo.trace.tier", { tier: request.serviceTier })}</span>}
-            {request.tools.length > 0 && (
-              <span>
-                {t("sessionInfo.trace.tools")}:{" "}
-                {request.tools
-                  .map((tool) => `${tool.name}${tool.isError === true ? t("sessionInfo.trace.toolError") : ""}`)
-                  .join(", ")}
-              </span>
-            )}
-            {request.errorMessage !== null && <span className="si-details-error">{request.errorMessage}</span>}
+        <div className="si-details">
+          <div className="si-details-head">
+            <Disclosure
+              expanded={open}
+              onToggle={() => setOpen((value) => !value)}
+              controls={bodyId}
+              testId="trace-details-toggle"
+            >
+              {t("sessionInfo.trace.details")}
+            </Disclosure>
           </div>
-        </details>
+          <Reveal open={open} id={bodyId}>
+            <div className="si-details-body">
+              <span>
+                {[
+                  request.durationMs !== null &&
+                    t("sessionInfo.trace.duration", { value: formatSeconds(request.durationMs) }),
+                  request.ttftMs !== null && t("sessionInfo.trace.ttft", { value: formatSeconds(request.ttftMs) }),
+                  speed !== null && t("sessionInfo.trace.speed", { value: speed.toFixed(1) }),
+                ]
+                  .filter((part) => typeof part === "string")
+                  .join(" · ")}
+              </span>
+              {request.cacheRead + request.cacheWrite > 0 && (
+                <span>
+                  {t("sessionInfo.trace.cache", {
+                    read: formatCount(request.cacheRead),
+                    write: formatCount(request.cacheWrite),
+                  })}
+                </span>
+              )}
+              {request.serviceTier !== null && (
+                <span>{t("sessionInfo.trace.tier", { tier: request.serviceTier })}</span>
+              )}
+              {request.tools.length > 0 && (
+                <span>
+                  {t("sessionInfo.trace.tools")}:{" "}
+                  {request.tools
+                    .map((tool) => `${tool.name}${tool.isError === true ? t("sessionInfo.trace.toolError") : ""}`)
+                    .join(", ")}
+                </span>
+              )}
+              {request.errorMessage !== null && <span className="si-details-error">{request.errorMessage}</span>}
+            </div>
+          </Reveal>
+        </div>
       )}
     </li>
   );

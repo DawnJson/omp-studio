@@ -31,6 +31,7 @@ export const settings = {
   "block.defaults": "Chat models",
   "block.kinds": "Specialized models",
   "roles.addFallback": "Add fallback…",
+  "roles.searchModel": "Search models",
   "roles.removeFallback": "Remove {name}",
   "roles.runnersFailed": "Couldn't load search, image and speech models: {message}",
   "block.retry": "Retries",

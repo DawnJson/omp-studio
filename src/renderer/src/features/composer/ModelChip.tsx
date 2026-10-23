@@ -99,6 +99,12 @@ export function ModelChip(task: ModelChipProps) {
   const showEffort = supportsThinking && efforts.length > 0 && levelText !== null;
   const effortText = t("composer.effort", { level: levelText ?? "", n: lit, total: efforts.length });
   const fastText = badges.includes("fast") ? t("composer.badge.fast") : null;
+  // 快速模式的闪电：有刻度时做成刻度左上角的角标（填在矮竖条上方的空角里），没有刻度时跟在模型名后面。
+  const fastBolt = fastText !== null && (
+    <span className="chip-fast" data-testid="speed-badge-fast">
+      <Bolt />
+    </span>
+  );
   // 两颗按钮按下时不抢焦点：鼠标点开对话框，关掉后焦点回到原来的输入框，胶囊上不留焦点框。键盘 Tab 过来的照常有焦点框。
   const keepFocus = (event: MouseEvent) => event.preventDefault();
   return (
@@ -116,11 +122,7 @@ export function ModelChip(task: ModelChipProps) {
           onClick={() => setOpen(true)}
         >
           <span className="chip-text">{name}</span>
-          {fastText !== null && (
-            <span className="chip-fast" data-testid="speed-badge-fast">
-              <Bolt />
-            </span>
-          )}
+          {!showEffort && fastBolt}
           {badges.includes("slow") && (
             <span className="chip-badge" data-testid="speed-badge-slow">
               {t("composer.badge.slow")}
@@ -134,11 +136,12 @@ export function ModelChip(task: ModelChipProps) {
             data-testid="chip-thinking"
             data-level={thinkingLevel}
             data-running={task.running || undefined}
-            aria-label={effortText}
-            title={`${effortText} (Alt T)`}
+            aria-label={fastText === null ? effortText : `${effortText} · ${fastText}`}
+            title={`${fastText === null ? effortText : `${effortText} · ${fastText}`} (Alt T)`}
             onMouseDown={keepFocus}
             onClick={cycleThinking}
           >
+            {fastBolt}
             <EffortBars total={efforts.length} lit={lit} />
           </button>
         )}

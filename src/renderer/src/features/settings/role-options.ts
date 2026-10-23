@@ -10,6 +10,8 @@ export interface Candidate {
   value: string;
   label: string;
   key: ModelKey;
+  /** 下拉里按 provider 分组折叠（ui/Select 的 group）。 */
+  group: string;
 }
 
 /** null = 这一类还没读到。 */
@@ -47,20 +49,28 @@ export function isChainRecord(value: unknown): value is Record<string, string[]>
 export function withCurrent<T extends { value: string; label: string }>(
   options: readonly T[],
   current: string | null,
-): { value: string; label: string }[] {
+): (T | { value: string; label: string })[] {
   return current === null || current === "" || options.some((option) => option.value === current)
     ? [...options]
     : [...options, { value: current, label: current }];
 }
 
+const candidate = (model: { key: ModelKey; name: string }): Candidate => ({
+  value: selectorOf(model.key),
+  label: model.name,
+  key: model.key,
+  group: model.key.provider,
+});
+
+/** 自己的类别在前；下拉按 provider 分组，组按 provider 名排（同模型选择对话框），组内保持类别顺序。 */
 export function candidatesOfKinds(kinds: readonly string[], sources: ModelSources): Candidate[] {
-  return kinds.flatMap((kind) =>
-    kind === "chat"
-      ? (sources.chat ?? []).map((model) => ({ value: selectorOf(model.key), label: model.name, key: model.key }))
-      : (sources.runners ?? [])
-          .filter((model) => model.kind === kind)
-          .map((model) => ({ value: selectorOf(model.key), label: model.name, key: model.key })),
-  );
+  return kinds
+    .flatMap((kind) =>
+      kind === "chat"
+        ? (sources.chat ?? []).map(candidate)
+        : (sources.runners ?? []).filter((model) => model.kind === kind).map(candidate),
+    )
+    .sort((a, b) => a.group.localeCompare(b.group));
 }
 
 /**

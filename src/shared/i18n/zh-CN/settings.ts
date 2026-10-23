@@ -30,6 +30,7 @@ export const settings = {
   "block.defaults": "对话模型",
   "block.kinds": "特定能力的模型",
   "roles.addFallback": "添加备用…",
+  "roles.searchModel": "搜索模型",
   "roles.removeFallback": "移除 {name}",
   "roles.runnersFailed": "读不到搜索、生图、语音等模型：{message}",
   "block.retry": "出错重试",

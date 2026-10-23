@@ -174,8 +174,10 @@ button.usage-context:hover,
   min-width: calc(var(--chip-name-min-w) + 2 * var(--space-2-5));
   overflow: hidden;
 }
+/* 刻度胶囊右边只留 6px：再往右是工具行间距和审批胶囊的内边距，留 10px 时刻度后面空出一大块。 */
 .ui-chip.chip-effort {
-  padding: 0 var(--space-2-5) 0 var(--space-1);
+  position: relative;
+  padding: 0 var(--space-1-5) 0 var(--space-1);
 }
 .ui-chip.chip-name:has(+ .chip-effort) {
   min-width: calc(var(--chip-name-min-w) + var(--space-2-5) + var(--space-1));
@@ -198,7 +200,8 @@ button.usage-context:hover,
   font-size: var(--fs-2xs);
   line-height: var(--lh-2xs);
 }
-/* 快速模式：模型名后面一个实心闪电 */
+/* 快速模式：实心闪电。没有刻度时跟在模型名后面（12px）；有刻度时是刻度左上角的 8px 角标，
+   落在最矮几根竖条上方的空角里，不挡亮条，刻度颜色照旧表示思考强度。 */
 .chip-fast {
   display: inline-flex;
   flex: none;
@@ -208,6 +211,15 @@ button.usage-context:hover,
   width: 12px;
   height: 12px;
   fill: currentColor;
+}
+.chip-effort .chip-fast {
+  position: absolute;
+  top: 4px;
+  left: var(--space-1);
+}
+.ui-chip.chip-effort .chip-fast svg {
+  width: 8px;
+  height: 8px;
 }
 /* 档位刻度（ModelChip 的 EffortBars）：亮的格子按档位变"热"——minimal / low 灰，medium 主色，high 主色加柔光，
    xhigh / max 由主色渐变到琥珀、光晕更强。切换档位时逐格点亮；任务运行中亮格从低到高波动，档位越高越快。 */
@@ -974,8 +986,9 @@ html[data-motion="reduced"] .ctx-usage-chev {
 /* 模型选择对话框（ui/Dialog，className mp-dialog，照 Tern 里 omp 的 /models）：加宽到 --dialog-w-xl。
    顶上是搜索框（Dialog 的 head，没有标题和 ×）；正文两栏：左栏范围（角色 / 全部模型 / 各提供商，样子同设置页左栏），
    右栏一张表（粘性表头）+ 参数行 + 三行控件；页脚左边"添加提供商…"，右边"关闭"+ 主按钮。
-   高度跟右栏内容走（最低 360、最高 84vh，表自己滚；左栏不撑高度，自己滚）。贴着上方 8vh 放，
-   打字过滤时只有下沿动，搜索框不跳。数字列按 px 定宽：表头和行字体不同，按 ch 算出来的列宽对不齐。 */
+   高度取左栏、右栏里较高的那个（正文最低 360、整框最高 84vh，表和左栏各自滚），打开以后只长不缩（ModelPicker 记下见过的
+   最大高度写进 min-height）：换到模型少的提供商、打字过滤时对话框不跟着变矮，左栏不被切掉。贴着上方 8vh 放。
+   数字列按 px 定宽：表头和行字体不同，按 ch 算出来的列宽对不齐。 */
 .mp-dialog {
   --mp-cols: minmax(0, 1fr) 36px 40px 48px 88px var(--space-5);
   align-self: flex-start;
@@ -1025,8 +1038,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   padding: var(--space-3) var(--space-2);
   overflow-y: auto;
   border-right: 1px solid var(--border-subtle);
-  /* 不按自己的内容撑高对话框：提供商再多也只占右栏的高度，多出来的在左栏里滚 */
-  contain: size;
 }
 .mp-scope {
   display: flex;
@@ -1144,6 +1155,37 @@ html[data-motion="reduced"] .ctx-usage-chev {
   margin-left: var(--space-1);
   font-family: var(--font-mono);
   color: var(--text-3);
+}
+/* 全部模型里的提供商组标题：整行可点，点开 / 收起这一组 */
+.mp-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  width: 100%;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+.mp-group-toggle:hover {
+  background: var(--bg-hover);
+}
+.mp-group-toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+.mp-group-toggle > svg {
+  flex: none;
+  color: var(--text-3);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.mp-group-toggle[aria-expanded="true"] > svg {
+  transform: rotate(90deg);
+}
+.mp-group-toggle .mp-group-count {
+  margin-left: 0;
 }
 .mp-empty {
   margin: var(--space-1-5) var(--space-2-5);

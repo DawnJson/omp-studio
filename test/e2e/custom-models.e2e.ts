@@ -122,12 +122,13 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
         { timeout: 30_000 },
       )
       .toEqual(["fake-chat", "fake-mini", "manual-x"]);
-    // 默认模型下拉（"模型"一节）里能选到它。
+    // 默认模型下拉（"模型"一节）里能搜到它（下拉按 provider 折叠，搜索时匹配的组都展开）。
     // 模型列表是保存后异步重读的；重读完成前下拉里还是旧的，所以整段重试。
     await page.getByTestId("settings-nav-models").click();
     await expect(async () => {
       if (await page.getByRole("listbox").isVisible()) await page.keyboard.press("Escape");
       await page.getByTestId("setting-default-model").click();
+      await page.getByTestId("setting-default-model-search").fill("manual");
       await expect(page.getByRole("listbox")).toContainText("manual-x", { timeout: 2_000 });
     }).toPass({ timeout: 30_000 });
     await page.keyboard.press("Escape");

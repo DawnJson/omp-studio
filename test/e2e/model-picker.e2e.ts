@@ -103,6 +103,14 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await taskRole.click();
     await expect(page.getByTestId("model-role-target")).toContainText("Task");
     await expect(page.locator('[data-testid="model-option"][aria-selected="true"]')).toContainText("role-two");
+    // 给角色选时是全部模型、按提供商折叠：它现在的模型所在的提供商展开着；点标题收起，行跟着收起，再点展开。
+    const group = page.locator('[data-testid="model-provider-group"][data-provider="role-local"]');
+    await expect(group).toHaveAttribute("aria-expanded", "true");
+    await group.click();
+    await expect(group).toHaveAttribute("aria-expanded", "false");
+    await expect(group.locator("xpath=..").getByTestId("model-option")).toHaveCount(0);
+    await group.click();
+    await expect(page.locator('[data-testid="model-option"][aria-selected="true"]')).toContainText("role-two");
     await expect(page.getByTestId("model-use")).toHaveText(/^(应用|Apply)$/);
     await shoot(page, "model-picker-role");
 
@@ -111,7 +119,12 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await page.keyboard.press("Control+,");
     await page.getByTestId("settings-nav-models").click();
     await expect(page.getByTestId("setting-role-task")).toContainText("role-two", { timeout: 30_000 });
+    // 下拉按 provider 折叠：smol 没设时组都收着，点开 role-local 再选。
     await page.getByTestId("setting-role-smol").click();
+    const smolGroup = page.locator('[data-testid="setting-role-smol-group"][data-group="role-local"]');
+    await expect(smolGroup).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("option", { name: "role-one" })).toHaveCount(0);
+    await smolGroup.click();
     await page.getByRole("option", { name: "role-one" }).click();
     await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-one");
     expect((await roles(page))["task"]).toBe("role-local/role-two");
@@ -119,6 +132,7 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
 
     // 备用模型：给 smol 加 role-two，写进 retry.fallbackChains.smol；主模型 role-one 不在可加的里面。
     await page.getByTestId("setting-chain-smol-add").click();
+    await page.getByTestId("setting-chain-smol-add-search").fill("role");
     await expect(page.getByRole("option", { name: "role-one" })).toHaveCount(0);
     await page.getByRole("option", { name: "role-two" }).click();
     await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two"] });
@@ -127,8 +141,11 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
 
     // 网页搜索只列搜索服务，不列对话模型；选 Tavily 写 modelRoles.web。
     await page.getByTestId("setting-role-web").click();
+    await page.getByTestId("setting-role-web-search").fill("tavily");
     await expect(page.getByRole("option", { name: "Tavily", exact: true })).toBeVisible({ timeout: 60_000 });
+    await page.getByTestId("setting-role-web-search").fill("role");
     await expect(page.getByRole("option", { name: "role-one" })).toHaveCount(0);
+    await page.getByTestId("setting-role-web-search").fill("tavily");
     await page.getByRole("option", { name: "Tavily", exact: true }).click();
     await expect.poll(async () => (await roles(page))["web"], { timeout: 30_000 }).toBe("web/tavily");
     await page.getByTestId("setting-role-row-judge").scrollIntoViewIfNeeded();

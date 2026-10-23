@@ -49,6 +49,18 @@ describe("角色的候选模型", () => {
     expect(values("dictation")).toEqual([]);
   });
 
+  it("候选按 provider 名排（下拉里的组顺序），同一个 provider 里自己的类别仍在前", () => {
+    const mixed: ModelSources = {
+      chat: [chat("zeta", "z-chat", "Z Chat"), chat("alpha", "a-chat", "A Chat")],
+      runners: [runner("tiny", "zeta", "z-tiny", "Z Tiny")],
+    };
+    expect(candidatesOfKinds(roleKinds("tiny"), mixed).map((candidate) => candidate.value)).toEqual([
+      "alpha/a-chat",
+      "zeta/z-tiny",
+      "zeta/z-chat",
+    ]);
+  });
+
   it("非对话模型还没读到时，用得到它的角色不算齐，只用对话模型的角色不受影响", () => {
     const partial: ModelSources = { chat: sources.chat, runners: null };
     expect(sourcesReady(roleKinds("default"), partial)).toBe(true);

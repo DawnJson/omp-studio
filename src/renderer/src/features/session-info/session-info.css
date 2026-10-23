@@ -150,15 +150,18 @@
   color: var(--text-3);
   pointer-events: none;
 }
-.si-details summary {
+.si-details-head {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   width: max-content;
   min-height: 32px;
   margin-left: auto;
-  cursor: pointer;
   pointer-events: auto;
+}
+.si-details-head .ui-disclosure {
+  font-size: inherit;
+  color: inherit;
 }
 .si-details-body {
   display: flex;

@@ -8,6 +8,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Markdown } from "../../markdown/index.ts";
 import { Button, Disclosure, SectionHead } from "../../ui/controls.tsx";
 import { Popover } from "../../ui/Popover.tsx";
+import { Reveal } from "../../ui/Reveal.tsx";
 import { formatDuration } from "../conversation/format.ts";
 import { buildTurns } from "../conversation/model.ts";
 import { ProcessDetails } from "../conversation/ProcessDetails.tsx";
@@ -90,7 +91,7 @@ function RecordSection({ taskId, state, live }: { taskId: TaskId; state: AgentRe
   const [open, setOpen] = useState(true);
   const { record, loading, error, reload } = state;
   const messages = record?.messages ?? null;
-  const turns = useMemo(() => (open && messages !== null ? buildTurns(messages, live) : []), [open, messages, live]);
+  const turns = useMemo(() => (messages !== null ? buildTurns(messages, live) : []), [messages, live]);
   return (
     <div className="agents-record" data-testid="agents-record">
       <SectionHead
@@ -107,7 +108,7 @@ function RecordSection({ taskId, state, live }: { taskId: TaskId; state: AgentRe
           ) : undefined
         }
       />
-      {open && (
+      <Reveal open={open}>
         <div className="agents-record-body">
           {loading && record === null && <p className="agents-muted">{t("agents.recordLoading")}</p>}
           {error !== null && <p className="agents-muted">{t("agents.recordError", { message: error })}</p>}
@@ -124,7 +125,7 @@ function RecordSection({ taskId, state, live }: { taskId: TaskId; state: AgentRe
             </div>
           ))}
         </div>
-      )}
+      </Reveal>
     </div>
   );
 }
