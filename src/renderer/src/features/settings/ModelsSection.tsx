@@ -1,64 +1,182 @@
-// 设置 → 模型：新任务的默认模型 / 思考强度、各角色的模型，以及 omp "模型与推理"组的常用项（重试与备用模型），按小块排成格子。
-// 默认值就是 omp 自己的 modelRoles.default / defaultThinkingLevel（设计原则 7），和 omp 设置是同一份；角色（smol、slow…）每个一格
-// 下拉，改了就写全局的 modelRoles（和模型选择对话框里给角色"应用"一样）。模型列表来自提供商与账号页同一份读取（accounts-store）。
-import type { MessageKey } from "../../../../shared/i18n/index.ts";
-import { reportError } from "../../ui/errors.ts";
-import { useCallback, useEffect } from "react";
+// 设置 → 模型：默认思考强度、omp 的全部角色（对话模型一组、特定能力一组），以及 omp "模型与推理"组的常用项（重试与备用模型）。
+// 每个角色一行：主模型（下拉）+ 备用模型（出错时依次换用，retry.fallbackChains 里以角色为 key 的那条）。
+// 值就是 omp 自己的 modelRoles / retry.fallbackChains / defaultThinkingLevel（设计原则 7），和 omp 设置是同一份；
+// 改了就写全局（和模型选择对话框里给角色"应用"一样）。候选按角色能用的模型类别筛（role-options.ts）。
+import { useEffect, useId, type ReactNode } from "react";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { Close } from "../../icons.tsx";
+import { Notice, type Option } from "../../ui/controls.tsx";
+import { describeError, reportError } from "../../ui/errors.ts";
+import { InfoTip } from "../../ui/InfoTip.tsx";
+import { Select } from "../../ui/Select.tsx";
+import { chatRoles, kindRoles, roleHintKey, roleKinds, roleLabel } from "../composer/model-groups.ts";
+import { useModelSources } from "./accounts-store.ts";
 import {
-  defaultModelRole,
   ensureOmpConfigLoaded,
+  saveOmpConfigOrThrow,
   saveOmpDefaultThinking,
   saveOmpModelRole,
   useOmpConfigValue,
 } from "./config-store.ts";
-import { loadAccounts, useAccountLoad } from "./accounts-store.ts";
-import { Row, type Option } from "../../ui/controls.tsx";
-import { Select } from "../../ui/Select.tsx";
 import { CommonConfig } from "./ConfigSection.tsx";
 import { useCommonConfigItems } from "./OmpConfigPane.tsx";
-import { builtinRoles } from "../composer/model-groups.ts";
+import {
+  candidatesOfKinds,
+  chainKinds,
+  isChainRecord,
+  isStringRecord,
+  sourcesReady,
+  withCurrent,
+  type ModelSources,
+} from "./role-options.ts";
 
 const thinkingLevels = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
-const inherit = "";
-// 默认思考强度和各角色上面已经有下拉，omp 的同一项不再重复一行（搜索里照旧有）。
-const shownAbove = ["defaultThinkingLevel", "modelRoles"];
+const unset = "";
+// 这几项在角色表里已经有了，omp 的同一项不再重复一行（搜索里照旧有）。
+const shownAbove = ["defaultThinkingLevel", "modelRoles", "retry.fallbackChains"];
 
-const roleLabel = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
+interface RoleTableProps {
+  roles: readonly string[];
+  sources: ModelSources;
+  /** modelRoles；undefined = omp 设置还没读到。 */
+  values: Record<string, string> | undefined;
+  chains: Record<string, string[]>;
+  /** 没设置时 omp 怎么办："未指定"（对话角色）或"由 omp 自动选择"。 */
+  unsetLabel(role: string): string;
+  /** 放在角色前面、和角色共用列宽的行（默认思考强度）。 */
+  lead?: ReactNode;
+}
 
-const modelKey = (model: { provider: string; modelId: string }) => `${model.provider}/${model.modelId}`;
+/** 一组角色：角色 | 主模型 | 备用模型（标签 + "添加备用…"），每个角色一行。 */
+function RoleTable({ roles, sources, values, chains, unsetLabel, lead }: RoleTableProps) {
+  return (
+    <div className="st-roles">
+      {lead}
+      {roles.map((role) => (
+        <RoleRow
+          key={role}
+          role={role}
+          sources={sources}
+          current={values?.[role] ?? null}
+          disabled={values === undefined}
+          chain={chains[role] ?? []}
+          chains={chains}
+          unsetLabel={unsetLabel(role)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function RoleRow({
+  role,
+  sources,
+  current,
+  disabled,
+  chain,
+  chains,
+  unsetLabel,
+}: {
+  role: string;
+  sources: ModelSources;
+  current: string | null;
+  disabled: boolean;
+  chain: readonly string[];
+  chains: Record<string, string[]>;
+  unsetLabel: string;
+}) {
+  const t = useT();
+  const labelId = useId();
+  const kinds = roleKinds(role);
+  const candidates = candidatesOfKinds(kinds, sources);
+  const ready = sourcesReady(kinds, sources);
+  const fallbackCandidates = candidatesOfKinds(chainKinds(role, sources), sources);
+  const nameOf = (selector: string) =>
+    fallbackCandidates.find((candidate) => candidate.value === selector)?.label ?? selector;
+
+  const saveModel = (value: string) => {
+    const picked = candidates.find((candidate) => candidate.value === value);
+    if (value !== unset && picked === undefined) return;
+    saveOmpModelRole(role, picked?.key ?? null).catch((error: unknown) => reportError(t, error));
+  };
+  const saveChain = (next: readonly string[]) => {
+    const all = { ...chains };
+    if (next.length === 0) delete all[role];
+    else all[role] = [...next];
+    saveOmpConfigOrThrow("retry.fallbackChains", all).catch((error: unknown) => reportError(t, error));
+  };
+
+  const modelOptions: Option<string>[] = [{ value: unset, label: unsetLabel }, ...withCurrent(candidates, current)];
+  const addOptions = fallbackCandidates.filter(
+    (candidate) => candidate.value !== current && !chain.includes(candidate.value),
+  );
+  return (
+    <div className="st-roles-row" data-testid={`setting-role-row-${role}`}>
+      <span className="ui-row-label">
+        <span id={labelId}>{roleLabel(role)}</span>
+        <InfoTip>{t("model.roleUse", { hint: t(roleHintKey(role)) })}</InfoTip>
+      </span>
+      <span>
+        <Select
+          size="sm"
+          width="100%"
+          value={current ?? unset}
+          options={modelOptions}
+          labelledBy={labelId}
+          disabled={disabled || !ready}
+          onChange={saveModel}
+          testId={role === "default" ? "setting-default-model" : `setting-role-${role}`}
+        />
+      </span>
+      <span className="st-chain" data-testid={`setting-chain-${role}`}>
+        {chain.map((selector, index) => (
+          <span key={`${index}:${selector}`} className="st-tag" title={selector}>
+            <span className="st-tag-text">{nameOf(selector)}</span>
+            <button
+              type="button"
+              className="st-tag-remove"
+              aria-label={t("settings.roles.removeFallback", { name: nameOf(selector) })}
+              disabled={disabled}
+              onClick={() => saveChain(chain.filter((_, at) => at !== index))}
+            >
+              <Close size={10} />
+            </button>
+          </span>
+        ))}
+        <Select
+          size="sm"
+          width={128}
+          value={unset}
+          options={addOptions}
+          placeholder={t("settings.roles.addFallback")}
+          labelledBy={labelId}
+          disabled={disabled || !ready || addOptions.length === 0}
+          onChange={(value) => saveChain([...chain, value])}
+          testId={`setting-chain-${role}-add`}
+        />
+      </span>
+    </div>
+  );
+}
 
 export function ModelsSection() {
   const t = useT();
-  const roles = useOmpConfigValue("modelRoles");
-  const defaultModel = defaultModelRole(roles);
-  const roleValues: Record<string, unknown> = typeof roles === "object" && roles !== null ? { ...roles } : {};
-  // default 是上面的"新任务的默认模型"；其余是 omp 的内置角色，再加配置里另有的角色。
-  const roleNames = [...builtinRoles, ...Object.keys(roleValues)].filter(
-    (role, index, all) => role !== "default" && all.indexOf(role) === index,
-  );
+  const thinkingLabelId = useId();
+  const rolesValue = useOmpConfigValue("modelRoles");
+  const chainsValue = useOmpConfigValue("retry.fallbackChains");
   const thinking = useOmpConfigValue("defaultThinkingLevel");
-  const load = useAccountLoad();
-  const data = load.kind === "ready" ? load.data : null;
+  const { runnerError, ...sources } = useModelSources();
   const common = useCommonConfigItems("models", shownAbove);
-
-  // 有缓存就直接显示，进入时后台刷新一次。
-  const enter = useCallback(() => void loadAccounts(), []);
-  useEffect(enter, [enter]);
   useEffect(ensureOmpConfigLoaded, []);
-  const listed: Option<string>[] = (data?.models ?? []).map((model) => ({
-    value: modelKey(model.key),
-    label: model.name,
-  }));
-  // 角色的值可能带思考后缀或写成别的形式，也可能已不在列表里：原样保留，别让下拉悄悄显示成别的。
-  const optionsFor = (first: string, current: string | null): Option<string>[] => [
-    { value: inherit, label: first },
-    ...listed,
-    ...(current !== null && !listed.some((option) => option.value === current)
-      ? [{ value: current, label: current }]
-      : []),
-  ];
+
+  // undefined = omp 设置还没读到（下拉先禁用）；读到了但不是"角色 → 字符串"就按空表显示。
+  const values = rolesValue === undefined ? undefined : isStringRecord(rolesValue) ? rolesValue : {};
+  const chains = isChainRecord(chainsValue) ? chainsValue : {};
+  // 配置里另有的角色（自定义的）跟在对话角色后面，它们只能选对话模型。
+  const custom = Object.keys(values ?? {}).filter(
+    (role) => !(chatRoles as readonly string[]).includes(role) && !(kindRoles as readonly string[]).includes(role),
+  );
 
   const thinkingOptions: Option<string>[] = thinkingLevels.map((level) => ({
     value: level,
@@ -68,70 +186,52 @@ export function ModelsSection() {
   if (typeof thinking === "string" && !thinkingOptions.some((option) => option.value === thinking))
     thinkingOptions.push({ value: thinking, label: thinking });
 
-  const save = (role: string, value: string) => {
-    const model = data?.models.find((candidate) => modelKey(candidate.key) === value);
-    if (value !== inherit && !model) return;
-    saveOmpModelRole(role, model ? model.key : null).catch((error: unknown) => reportError(t, error));
-  };
-
-  // 默认模型、思考强度和各角色放在"默认与角色"块的最前面，和 omp 的常用项同一组格子。
-  const lead = (
+  const thinkingRow = (
+    <div className="st-roles-row">
+      <span className="ui-row-label">
+        <span id={thinkingLabelId}>{t("settings.defaultThinking")}</span>
+      </span>
+      <span>
+        <Select
+          size="sm"
+          width="100%"
+          value={typeof thinking === "string" ? thinking : ""}
+          options={thinkingOptions}
+          labelledBy={thinkingLabelId}
+          disabled={thinking === undefined}
+          onChange={(value) =>
+            saveOmpDefaultThinking(value as ThinkingLevel).catch((error: unknown) => reportError(t, error))
+          }
+          testId="setting-default-thinking"
+        />
+      </span>
+    </div>
+  );
+  const chatLead = (
+    <RoleTable
+      roles={[...chatRoles, ...custom]}
+      sources={sources}
+      values={values}
+      chains={chains}
+      unsetLabel={(role) => (role === "default" ? t("settings.ompPicksModel") : t("model.roleUnset"))}
+      lead={thinkingRow}
+    />
+  );
+  const kindLead = (
     <>
-      <Row label={t("settings.defaultModel")}>
-        {(labelId) => (
-          <Select
-            size="sm"
-            width={280}
-            value={defaultModel ?? inherit}
-            options={optionsFor(t("settings.ompPicksModel"), defaultModel)}
-            labelledBy={labelId}
-            disabled={data === null || roles === undefined}
-            onChange={(value) => save("default", value)}
-            testId="setting-default-model"
-          />
-        )}
-      </Row>
-      <Row label={t("settings.defaultThinking")}>
-        {(labelId) => (
-          <Select
-            size="sm"
-            value={typeof thinking === "string" ? thinking : ""}
-            options={thinkingOptions}
-            labelledBy={labelId}
-            disabled={thinking === undefined}
-            onChange={(value) =>
-              saveOmpDefaultThinking(value as ThinkingLevel).catch((error: unknown) => reportError(t, error))
-            }
-            testId="setting-default-thinking"
-          />
-        )}
-      </Row>
-      {roleNames.map((role) => {
-        const value = roleValues[role];
-        const current = typeof value === "string" ? value : null;
-        const hint = (builtinRoles as readonly string[]).includes(role) ? role : "custom";
-        return (
-          <Row
-            key={role}
-            label={roleLabel(role)}
-            info={t("model.roleUse", { hint: t(`model.role.hint.${hint}` as MessageKey) })}
-          >
-            {(labelId) => (
-              <Select
-                size="sm"
-                width={280}
-                value={current ?? inherit}
-                options={optionsFor(t("model.roleUnset"), current)}
-                labelledBy={labelId}
-                disabled={data === null || roles === undefined}
-                onChange={(value) => save(role, value)}
-                testId={`setting-role-${role}`}
-              />
-            )}
-          </Row>
-        );
-      })}
+      {runnerError !== null && (
+        <Notice tone="error" testId="setting-runners-error">
+          {t("settings.roles.runnersFailed", { message: describeError(t, runnerError) })}
+        </Notice>
+      )}
+      <RoleTable
+        roles={kindRoles}
+        sources={sources}
+        values={values}
+        chains={chains}
+        unsetLabel={() => t("settings.ompPicksModel")}
+      />
     </>
   );
-  return <CommonConfig items={common} lead={{ block: "defaults", cells: lead }} />;
+  return <CommonConfig items={common} leads={{ defaults: chatLead, kinds: kindLead }} />;
 }

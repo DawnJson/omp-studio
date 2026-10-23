@@ -12,24 +12,15 @@ import { advancedGroups, commonBlocks, groupTitle, spanKeys, type CommonBlockId 
 
 /**
  * 一组设置的排法（spec §4.19 格子排法）：控件窄的两列排（按顺序逐行填，spanKeys 独占一行），
- * 文本框、标签输入、JSON 整行排在后面。`lead`：页面自己的几格，放在最前面。
+ * 文本框、标签输入、JSON 整行排在后面。
  */
-function ConfigGrid({
-  items,
-  keyPrefix = "",
-  lead,
-}: {
-  items: readonly OmpConfigItem[];
-  keyPrefix?: string;
-  lead?: ReactNode;
-}) {
+function ConfigGrid({ items, keyPrefix = "" }: { items: readonly OmpConfigItem[]; keyPrefix?: string }) {
   const cells = items.filter(fitsCell);
   const rows = items.filter((item) => !fitsCell(item));
   return (
     <>
-      {(lead !== undefined || cells.length > 0) && (
+      {cells.length > 0 && (
         <div className="st-cells" data-cols="2">
-          {lead}
           {cells.map((item) =>
             spanKeys.has(item.key) ? (
               <div key={item.key} className="st-span">
@@ -54,23 +45,21 @@ function ConfigGrid({
 
 /**
  * 一节页面上的常用项：按小块排（config-meta 的 commonBlocks），每块一个小标题 + ConfigGrid。
- * `lead`：页面自己的控件，放进 `block` 那一块的最前面（模型页的默认模型、默认思考强度）；常用项还没读到时也显示。
+ * `leads`：页面自己的内容，整宽放在那一块的最前面（模型页的角色表）；常用项还没读到时也显示。
  */
 export function CommonConfig({
   items,
-  lead,
+  leads = {},
 }: {
   items: readonly OmpConfigItem[];
-  lead?: { block: CommonBlockId; cells: ReactNode };
+  leads?: Partial<Record<CommonBlockId, ReactNode>>;
 }) {
   const t = useT();
-  const blocks = commonBlocks(items);
-  if (lead !== undefined && !blocks.some((block) => block.id === lead.block))
-    blocks.unshift({ id: lead.block, items: [] });
-  return blocks.map((block) => (
+  return commonBlocks(items, Object.keys(leads) as CommonBlockId[]).map((block) => (
     <Fragment key={block.id}>
       {block.id !== "" && <SectionHead title={t(`settings.block.${block.id}`)} />}
-      <ConfigGrid items={block.items} lead={lead?.block === block.id ? lead.cells : undefined} />
+      {block.id !== "" && leads[block.id]}
+      <ConfigGrid items={block.items} />
     </Fragment>
   ));
 }

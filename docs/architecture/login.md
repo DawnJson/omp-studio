@@ -52,9 +52,17 @@
 omp-studio 的做法（`src/main/omp-config/model-defaults.ts`）：
 
 - 读：草稿输入框在**项目目录里**跑 `omp config list --json`（`getModelDefaults(projectId)`），显示这个项目实际会用的默认模型和思考强度；设置页（没有项目）只看全局。
-- 写模型角色（`setModelRole(role, model)`；入口是设置 → 模型的默认模型和各角色下拉、模型选择对话框里点角色后的“应用”）：**一律**经 `omp config set modelRoles` 写全局（先读出全局角色表再改一项，去掉最后一个角色时 `omp config reset modelRoles`）。仓库所有者 2026-10-22 定：给角色指定模型就是全局的事；项目 `.omp/config.yml` 自带 `modelRoles.<role>` 的项目照旧用项目的值（omp 的覆盖规则），omp-studio 不写项目文件。2026-10-18 到 10-22 曾在生效的 `modelRoleStorage` 是 `project` 时改项目文件，已去掉；`modelRoleStorage` 只影响 omp 终端的模型选择器，设置页里它在“高级”。
+- 写模型角色（`setModelRole(role, model)`；入口是设置 → 模型的角色表、模型选择对话框里点角色后的“应用”）：**一律**经 `omp config set modelRoles` 写全局（先读出全局角色表再改一项，去掉最后一个角色时 `omp config reset modelRoles`）。仓库所有者 2026-10-22 定：给角色指定模型就是全局的事；项目 `.omp/config.yml` 自带 `modelRoles.<role>` 的项目照旧用项目的值（omp 的覆盖规则），omp-studio 不写项目文件。2026-10-18 到 10-22 曾在生效的 `modelRoleStorage` 是 `project` 时改项目文件，已去掉；`modelRoleStorage` 只影响 omp 终端的模型选择器，设置页里它在“高级”。
 - 草稿胶囊里改模型 / 思考强度（“用于此任务”、`Alt T`）**不写配置**：选择按草稿键记在渲染进程内存里（`composer/draft-model-choice.ts`），发第一条时随 `createTask({ model, thinkingLevel })` 进任务记录，任务以 `--model` / `--thinking` 起 omp，只对这个会话生效；没改的项不传，跟 omp 的默认值。实测（2026-10-22，omp 18.12.6，`test/e2e/model-picker.e2e.ts`）：配置里 `default: table-local/table-one`，草稿里选 table-two + high 发第一条，任务胶囊是 table-two·high，`config.yml` 没变，新草稿回到 table-one。
 - 写思考强度：`omp config set defaultThinkingLevel`，永远是全局（omp 也只有角色走 `modelRoleStorage`）；入口只有设置 → 模型。
+
+## 角色和备用模型的候选
+
+omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-roles.ts` 的 `MODEL_ROLES`，没逐个实测）分两类：对话角色 default、smol、slow、vision、plan、commit、tiny、memory、task、advisor、widget（选对话模型；tiny、memory 也收 tiny 类的小模型）；特定能力的角色 image、web、speech、dictation、judge（分别选生图、搜索服务、语音合成、语音识别、评判模型，judge 也收 tiny 和对话模型）。`modelRoles` 里别的名字是自定义角色，当对话角色。设置 → 模型按这个分两组列出全部角色，模型选择对话框的角色范围只列对话角色（特定能力的角色不选对话模型）。
+
+- 对话模型照旧来自服务进程的 `get_available_models`（受 `enabledModels` 限制）。别的类别 RPC 里没有，要跑 `omp models --kind all --json`（`listRunnerModels`，`src/main/ipc/account-handlers.ts`，解析在 `src/shared/omp-output/models.ts`，只留 `kind` 不是 `chat` 的）。实测（omp 18.12.6，2026-10-22，临时 agent 目录、没有任何凭据）：stdout 只有一行 `{"models":[{provider,kind,id,selector,name,...}]}`，按 provider、id 排好；`kind` 有 chat、tiny、search、image、tts、stt、judge 等；没登录也列出 `web/*` 的二十多个搜索服务（brave、exa、tavily、duckduckgo...）、`local/*` 的 tiny 和语音模型；`models.yml` 校验失败时的警告写 stderr，不混进 JSON。这条命令会刷新没缓存的 provider 目录（联网），超时 60 秒；渲染进程打开模型页或角色 / 备用链编辑器时读一次、留缓存，读不到时只影响特定能力那组的候选。
+- 候选按角色筛（`src/renderer/src/features/settings/role-options.ts`）：角色 → 能用的类别（`composer/model-groups.ts` 的 `roleKinds`）→ 那些类别的模型。`retry.fallbackChains` 的 key 可以是角色、`provider/model` 或 `provider/*`：角色按角色筛；具体模型按它的类别；`provider/*` 按那个 provider 有的全部类别；认不出的当对话模型。设置页的角色表和搜索里 `modelRoles` / `retry.fallbackChains` 的“编辑…”对话框用同一份候选。
+- 备用模型（`retry.fallbackChains.<角色>`）是请求出错时依次换用的列表，和 `modelRoles` 的值里用逗号分开的多个选择器不是一回事（后者是“第一个能用的”，omp 文档 `docs/models.md`）。omp 的默认值是空对象；移除一个角色的最后一个备用模型时整条 key 去掉，不留空列表。
 
 ## 没有实测的
 

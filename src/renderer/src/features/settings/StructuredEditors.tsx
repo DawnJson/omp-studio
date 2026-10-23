@@ -2,54 +2,18 @@
 //   modelRoles          角色 → 模型选择器（每个角色一行，选模型用下拉）
 //   retry.fallbackChains 角色/模型 → 有序的回退模型列表（可增删、上下移）
 // 选择器是 omp 的 "provider/model-id"，可以带 ":high" 之类的思考后缀、写 "@role" 别名；列表里没有的值照样保留并显示原文。
-import { useEffect, useState } from "react";
+// 候选和设置 → 模型的角色表是同一份：按角色（或备用链的 key）能用的模型类别筛（role-options.ts）。
+import { useState } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { ChevronDown, ChevronRight, Close, Plus } from "../../icons.tsx";
 import { useT } from "../../i18n/use-t.ts";
-import { Button, IconButton, TextField, type Option } from "../../ui/controls.tsx";
+import { Button, IconButton, TextField } from "../../ui/controls.tsx";
 import { Select } from "../../ui/Select.tsx";
+import { roleKinds } from "../composer/model-groups.ts";
+import { useModelSources } from "./accounts-store.ts";
 import type { ControlProps } from "./ConfigControls.tsx";
-
-let selectors: Promise<Option<string>[]> | null = null;
-
-/** 能选的模型（来自服务进程的 get_available_models），整个页面共用一次请求；失败时下次再试。 */
-function loadSelectors(): Promise<Option<string>[]> {
-  selectors ??= window.studio.listModels().then(
-    (models) =>
-      models.map((model) => ({
-        value: `${model.key.provider}/${model.key.modelId}`,
-        label: `${model.key.provider}/${model.key.modelId}`,
-      })),
-    (error: unknown) => {
-      selectors = null;
-      throw error;
-    },
-  );
-  return selectors;
-}
-
-function useSelectors(): Option<string>[] {
-  const [options, setOptions] = useState<Option<string>[]>([]);
-  useEffect(() => {
-    let live = true;
-    loadSelectors().then(
-      (loaded) => live && setOptions(loaded),
-      () => undefined,
-    );
-    return () => {
-      live = false;
-    };
-  }, []);
-  return options;
-}
-
-/** 当前值不在模型列表里（带后缀、别名、已退出登录的 provider）时，把它作为一个选项保留。 */
-function withCurrent(options: readonly Option<string>[], current: string): Option<string>[] {
-  return options.some((option) => option.value === current)
-    ? [...options]
-    : [{ value: current, label: current }, ...options];
-}
+import { candidatesOfKinds, chainKinds, isChainRecord, isStringRecord, withCurrent } from "./role-options.ts";
 
 const suggestedRoles = ["default", "smol", "slow", "plan"];
 
@@ -95,24 +59,6 @@ function AddKey({
   );
 }
 
-function isStringRecord(value: unknown): value is Record<string, string> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.values(value).every((entry) => typeof entry === "string")
-  );
-}
-
-function isChainRecord(value: unknown): value is Record<string, string[]> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.values(value).every((entry) => Array.isArray(entry) && entry.every((item) => typeof item === "string"))
-  );
-}
-
 export function canEditStructured(item: { key: string; value: unknown; hasValue: boolean }): boolean {
   if (item.key === "modelRoles") return !item.hasValue || isStringRecord(item.value);
   if (item.key === "retry.fallbackChains") return !item.hasValue || isChainRecord(item.value);
@@ -128,7 +74,8 @@ export function structuredSummary(item: OmpConfigItem, t: TFunction): string {
 
 export function RolesEditor({ item, labelId, onSave }: ControlProps) {
   const t = useT();
-  const options = useSelectors();
+  const sources = useModelSources();
+  const optionsOf = (role: string) => candidatesOfKinds(roleKinds(role), sources);
   const roles = isStringRecord(item.value) ? item.value : {};
   const names = Object.keys(roles);
   return (
@@ -140,7 +87,7 @@ export function RolesEditor({ item, labelId, onSave }: ControlProps) {
           </span>
           <Select
             value={roles[role] ?? ""}
-            options={withCurrent(options, roles[role] ?? "")}
+            options={withCurrent(optionsOf(role), roles[role] ?? null)}
             labelledBy={labelId}
             width="100%"
             onChange={(next) => onSave({ ...roles, [role]: next })}
@@ -158,7 +105,14 @@ export function RolesEditor({ item, labelId, onSave }: ControlProps) {
         taken={names}
         label={t("settings.cfg.roleName")}
         suggestions={suggestedRoles}
-        onAdd={(role) => onSave({ ...roles, [role]: roles["default"] ?? options[0]?.value ?? "" })}
+        onAdd={(role) =>
+          onSave({
+            ...roles,
+            // 能用对话模型的角色先指到默认模型（和 omp 没设置时一样），只能用特定能力模型的角色指到第一个候选。
+            [role]:
+              (roleKinds(role).includes("chat") ? roles["default"] : undefined) ?? optionsOf(role)[0]?.value ?? "",
+          })
+        }
       />
     </div>
   );
@@ -166,7 +120,8 @@ export function RolesEditor({ item, labelId, onSave }: ControlProps) {
 
 export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
   const t = useT();
-  const options = useSelectors();
+  const sources = useModelSources();
+  const optionsOf = (key: string) => candidatesOfKinds(chainKinds(key, sources), sources);
   const chains = isChainRecord(item.value) ? item.value : {};
   const keys = Object.keys(chains);
   const set = (key: string, chain: string[]) => onSave({ ...chains, [key]: chain });
@@ -193,7 +148,7 @@ export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
                 <span className="se-index">{index + 1}</span>
                 <Select
                   value={entry}
-                  options={withCurrent(options, entry)}
+                  options={withCurrent(optionsOf(key), entry)}
                   labelledBy={labelId}
                   width="100%"
                   onChange={(next) =>
@@ -248,7 +203,7 @@ export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
               <span className="se-index" />
               <Select
                 value=""
-                options={options}
+                options={optionsOf(key)}
                 labelledBy={labelId}
                 width="100%"
                 placeholder={t("settings.cfg.addFallback")}

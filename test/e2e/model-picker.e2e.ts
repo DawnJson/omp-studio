@@ -1,5 +1,6 @@
 // 模型选择对话框：点行只是选中；"用于此任务"只管这一个任务（草稿里是即将建的任务，以 --model / --thinking 起进程，不写配置）；
 // 点一个角色转到给它选模型，"应用"写进全局 omp 配置（modelRoles），重新打开能看到徽标。
+// 设置 → 模型：omp 的每个角色一行（主模型 + 备用模型），特定能力的角色只列那一类模型（`omp models --kind all`）。
 // 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR，里面一个 auth: none 的本地 provider；不连任何真实服务。
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -19,6 +20,13 @@ async function roles(page: Page): Promise<Record<string, string>> {
   return page.evaluate(() => globalThis.studio.getModelRoles(null));
 }
 
+async function chains(page: Page): Promise<unknown> {
+  return page.evaluate(
+    async () =>
+      (await globalThis.studio.getOmpConfig()).items.find((item) => item.key === "retry.fallbackChains")?.value,
+  );
+}
+
 /** 中英文 × 浅深主题各截一张（关掉动效，免得切语言时截到淡入的半透明帧）。 */
 async function shoot(page: Page, name: string): Promise<void> {
   for (const [locale, scheme] of [
@@ -33,7 +41,8 @@ async function shoot(page: Page, name: string): Promise<void> {
   }
 }
 
-test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp 配置，default 不动；重新打开有 task 徽标", async () => {
+test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp 配置，default 不动；重新打开有 task 徽标；设置里的角色表和备用模型", async () => {
+  test.setTimeout(150_000);
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-roles-"));
   await writeFile(path.join(agentDir, "models.yml"), modelsYml, "utf8");
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
@@ -47,10 +56,10 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await page.setViewportSize({ width: 1200, height: 900 });
     await openPicker(page);
 
-    // 左栏"角色"：omp 的 7 个内置角色各一行，默认在给 default 选（顶栏没有角色标记）。
+    // 左栏"角色"：omp 的 11 个对话角色各一行（特定能力的角色不在这里），默认在给 default 选（顶栏没有角色标记）。
     await page.getByTestId("model-scope-roles").click();
     await expect(page.getByTestId("model-scope-roles")).toHaveAttribute("aria-current", "true");
-    await expect(page.getByTestId("model-role-option")).toHaveCount(7);
+    await expect(page.getByTestId("model-role-option")).toHaveCount(11);
     await expect(page.getByTestId("model-role-target")).toHaveCount(0);
 
     // 角色范围里搜索框过滤角色，Enter 切到它：回到全部模型，顶栏写明在给 Task 选，并说明用途。
@@ -97,7 +106,7 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await expect(page.getByTestId("model-use")).toHaveText(/^(应用|Apply)$/);
     await shoot(page, "model-picker-role");
 
-    // 设置 → 模型：角色每个一格下拉，显示的是同一份 modelRoles；改 smol 写全局，task 不动。
+    // 设置 → 模型：每个角色一行，显示的是同一份 modelRoles；改 smol 写全局，task 不动。
     await page.keyboard.press("Escape");
     await page.keyboard.press("Control+,");
     await page.getByTestId("settings-nav-models").click();
@@ -107,7 +116,30 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-one");
     expect((await roles(page))["task"]).toBe("role-local/role-two");
     await expect(page.getByTestId("setting-role-smol")).toContainText("role-one");
+
+    // 备用模型：给 smol 加 role-two，写进 retry.fallbackChains.smol；主模型 role-one 不在可加的里面。
+    await page.getByTestId("setting-chain-smol-add").click();
+    await expect(page.getByRole("option", { name: "role-one" })).toHaveCount(0);
+    await page.getByRole("option", { name: "role-two" }).click();
+    await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two"] });
+    await expect(page.getByTestId("setting-chain-smol")).toContainText("role-two");
     await shoot(page, "settings-models-roles");
+
+    // 网页搜索只列搜索服务，不列对话模型；选 Tavily 写 modelRoles.web。
+    await page.getByTestId("setting-role-web").click();
+    await expect(page.getByRole("option", { name: "Tavily", exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("option", { name: "role-one" })).toHaveCount(0);
+    await page.getByRole("option", { name: "Tavily", exact: true }).click();
+    await expect.poll(async () => (await roles(page))["web"], { timeout: 30_000 }).toBe("web/tavily");
+    await page.getByTestId("setting-role-row-judge").scrollIntoViewIfNeeded();
+    await shoot(page, "settings-models-kinds");
+
+    // 标签上的 × 删掉最后一个备用模型：整条去掉，不留空列表。
+    await page
+      .getByTestId("setting-chain-smol")
+      .getByRole("button", { name: /role-two/ })
+      .click();
+    await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({});
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

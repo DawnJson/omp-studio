@@ -214,6 +214,61 @@
   }
 }
 
+/* 模型页的角色表（ModelsSection）：角色 | 主模型 | 备用模型。每个角色一行，分隔线和格子一样；
+   行用 subgrid 共用三列（第一行是默认思考强度），备用模型多了在格里折行。窄了备用模型挪到模型下面。 */
+.st-roles {
+  display: grid;
+  grid-template-columns: 152px 240px minmax(0, 1fr);
+  column-gap: var(--space-6);
+  border-top: 1px solid var(--border);
+}
+.st-roles + .st-roles,
+.st-cells + .st-roles {
+  border-top: 0;
+}
+.st-roles-row {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: center;
+  min-height: 40px;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.st-chain {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+  min-width: 0;
+}
+/* 备用模型显示的是模型名，不是选择器：用正文字体（悬停看选择器原文） */
+.st-chain .st-tag {
+  height: var(--control-h-sm);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+}
+/* "添加备用…"是动作不是空字段：虚线框、次要文字，悬停才实起来 */
+.st-chain .ui-select:not(:hover, :focus-within) {
+  color: var(--text-3);
+  background: transparent;
+  border-style: dashed;
+}
+.ui-notice + .st-roles {
+  margin-top: var(--space-2);
+}
+@container (max-width: 640px) {
+  .st-roles {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+  .st-roles-row {
+    row-gap: var(--space-1);
+  }
+  .st-chain {
+    grid-column: 2;
+  }
+}
+
 /* 没有人话标签的行显示 key：等宽，不截断（长 key 在标签列里折行） */
 .st-key {
   font-family: var(--font-mono);

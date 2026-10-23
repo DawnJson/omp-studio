@@ -258,6 +258,16 @@ export interface ModelOption {
   catalogTps: number | null;
 }
 
+/**
+ * 不是对话模型的"模型"（omp 的 catalog kind：tiny、search、image、tts、stt、judge…），给搜索、生图、语音等角色选
+ * （`omp models --kind all --json` 里 kind 不是 chat 的那些；omp 18.12.6）。
+ */
+export interface RunnerModel {
+  kind: string;
+  key: ModelKey;
+  name: string;
+}
+
 /** get_session_stats 里界面用得上的部分：本会话累计的 token、费用、请求数。 */
 interface SessionUsage {
   tokens: TokenUsage;
@@ -1068,6 +1078,8 @@ export interface StudioInvokeApi {
 
   // 账号和模型（走服务进程）
   listModels(): Promise<ModelOption[]>;
+  /** 非对话模型（见 RunnerModel）；跑一次 `omp models --kind all --json`，几秒内返回。 */
+  listRunnerModels(): Promise<RunnerModel[]>;
   listLoginProviders(): Promise<LoginProvider[]>;
   /** 登录结束（成功、失败或取消）时 resolve；过程中的 URL、进度、输入请求走 onLogin。 */
   startLogin(providerId: string): Promise<LoginOutcome>;
@@ -1377,6 +1389,7 @@ export const invokeNames = {
   killTspSubagent: true,
   reviveTspSubagent: true,
   listModels: true,
+  listRunnerModels: true,
   listLoginProviders: true,
   startLogin: true,
   answerLoginInput: true,

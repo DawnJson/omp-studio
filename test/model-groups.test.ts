@@ -108,20 +108,36 @@ describe("角色", () => {
     expect(parseRoleSelector("plain")).toBeNull();
   });
 
-  it("标签 = 内置角色 + 指到列表中模型的其它角色；徽标按标签顺序挂到模型上", () => {
+  it("标签 = omp 的对话角色 + 指到列表中模型的自定义角色；特定能力的角色不进标签；徽标按标签顺序挂到模型上", () => {
     const view = roleView(
       {
         task: "openai/gpt-5:low",
         default: "openai/gpt-5",
         writer: "anthropic/claude-sonnet",
         web: "web/tavily",
+        // judge 也收对话模型，但它是特定能力的角色：不进选择器的标签，也不给模型挂徽标
+        judge: "anthropic/claude-haiku",
         smol: "gone/model",
       },
       models,
     );
-    expect(view.tabs).toEqual(["default", "smol", "slow", "plan", "task", "commit", "advisor", "writer"]);
+    expect(view.tabs).toEqual([
+      "default",
+      "smol",
+      "slow",
+      "vision",
+      "plan",
+      "commit",
+      "tiny",
+      "memory",
+      "task",
+      "advisor",
+      "widget",
+      "writer",
+    ]);
     expect(view.badges.get("m:openai/gpt-5")).toEqual(["default", "task"]);
     expect(view.badges.get("m:anthropic/claude-sonnet")).toEqual(["writer"]);
+    expect(view.badges.get("m:anthropic/claude-haiku")).toBeUndefined();
     expect(view.modelOf["smol"]).toBeNull();
     expect(view.modelOf["task"]?.name).toBe("GPT-5");
   });

@@ -6,7 +6,6 @@
 // 换一个点"应用"写进全局 omp 配置（modelRoles），不动正在运行的会话。
 // Tab 循环、Esc 关闭、焦点回到打开前的元素由 Dialog 负责。
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { usePresence } from "../../ui/presence.ts";
 import type { ModelInsights, ModelKey, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { clampThinkingLevel, thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
@@ -21,7 +20,6 @@ import { ModelDetails } from "./ModelDetails.tsx";
 import { RoleIcon } from "./RoleIcon.tsx";
 import { saveOmpModelRole } from "../settings/config-store.ts";
 import {
-  builtinRoles,
   filterRoles,
   groupModels,
   modelContextCell,
@@ -29,7 +27,9 @@ import {
   modelPriceCell,
   pinnedKeys,
   providerCounts,
+  roleHintKey,
   roleItemId,
+  roleLabel,
   roleView,
   sameModel,
 } from "./model-groups.ts";
@@ -75,8 +75,6 @@ export interface ModelPickerProps {
 type Item =
   | { kind: "model"; id: string; option: ModelOption }
   | { kind: "role"; id: string; role: string; option: ModelOption | null };
-
-const roleLabel = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
 
 /** 左栏的范围：角色表、全部模型、某个提供商的模型。 */
 type Scope = { kind: "roles" } | { kind: "all" } | { kind: "provider"; provider: string };
@@ -272,8 +270,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
     }
   };
 
-  const roleHint = (role: string) =>
-    t(`model.role.hint.${(builtinRoles as readonly string[]).includes(role) ? role : "custom"}` as MessageKey);
+  const roleHint = (role: string) => t(roleHintKey(role));
 
   const atRoles = roleMatches !== null;
   const primaryLabel = atRoles ? t("model.pickRole") : roleMode ? t("model.applyRole") : t("model.use");
@@ -338,8 +335,11 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
                 <RoleIcon role={item.role} />
               </span>
               <span className="mp-id-name">@{item.role}</span>
+              {/* 指到列表外的值（别名、带后缀、没登录的 provider）照原文显示，不说成"未指定" */}
               <span className="mp-id-dim">
-                {option === null ? t("model.roleUnset") : `${option.key.provider}/${option.key.modelId}`}
+                {option === null
+                  ? (roles?.[item.role] ?? t("model.roleUnset"))
+                  : `${option.key.provider}/${option.key.modelId}`}
               </span>
             </>
           ) : (

@@ -69,12 +69,14 @@ export function commonItems(items: readonly OmpConfigItem[]): OmpConfigItem[] {
 /**
  * 各节页面上常用项的小块（spec §4.19）：一个小标题（`settings.block.<id>`）+ 一组格子。按 key 前缀归块，最长的前缀算数；
  * 块按这里的顺序排，块里按常用项的顺序（两列逐行填，所以字典里成对的项挨着放）。没归进任何块的放在最后，不带小标题。
+ * `kinds`（特定能力的角色）没有 omp 的常用项，只放模型页自己的内容。
  */
 export type CommonBlockId =
-  "defaults" | "retry" | "fallback" | "approval" | "compaction" | "memory" | "subagents" | "goal";
+  "defaults" | "kinds" | "retry" | "fallback" | "approval" | "compaction" | "memory" | "subagents" | "goal";
 
 const blockSpecs: readonly { id: CommonBlockId; prefixes: readonly string[] }[] = [
   { id: "defaults", prefixes: ["modelRole", "defaultThinkingLevel"] },
+  { id: "kinds", prefixes: [] },
   { id: "retry", prefixes: ["retry."] },
   {
     id: "fallback",
@@ -96,7 +98,8 @@ export interface CommonBlock {
   items: OmpConfigItem[];
 }
 
-export function commonBlocks(items: readonly OmpConfigItem[]): CommonBlock[] {
+/** `withLeads`：页面自己有内容的块，没有常用项也要排进来。 */
+export function commonBlocks(items: readonly OmpConfigItem[], withLeads: readonly CommonBlockId[] = []): CommonBlock[] {
   const byId = new Map<CommonBlockId | "", OmpConfigItem[]>();
   for (const item of items) {
     let id: CommonBlockId | "" = "";
@@ -111,7 +114,7 @@ export function commonBlocks(items: readonly OmpConfigItem[]): CommonBlock[] {
   }
   const order: (CommonBlockId | "")[] = [...blockSpecs.map((spec) => spec.id), ""];
   return order.flatMap((id) => {
-    const inBlock = byId.get(id);
+    const inBlock = byId.get(id) ?? (id !== "" && withLeads.includes(id) ? [] : undefined);
     return inBlock === undefined ? [] : [{ id, items: inBlock }];
   });
 }

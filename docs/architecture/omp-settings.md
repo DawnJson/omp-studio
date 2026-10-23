@@ -31,7 +31,7 @@
 
 - 下拉用 `ui/Select`（portal + fixed 定位、↑↓/Home/End/Enter/空格/Esc、首字母跳转、当前项 ✓、Esc 只关弹层）；旧的 `settings/Dropdown.tsx`、`InfoTip.tsx`、`controls.tsx` 已被 `ui/` 取代。
 - 导航顶上有"返回任务"（Esc 也回去，Ctrl+F 聚焦搜索）；滚动用共用的 `OverlayScrollbar`；页头右侧有一个槽（`PageHeadActions.tsx`），各节用它放范围下拉、"连接提供商…"这类 sm 控件。
-- `modelRoles`、`retry.fallbackChains` 用结构化编辑（`StructuredEditors.tsx`），行上同样是"编辑…"按钮 + 摘要（角色名 / 回退链条数），对话框里：角色一行一个、模型用下拉选（来自服务进程的模型列表，列表里没有的值原样保留）、回退链可增删和上下移，每次改动立即保存；值的形状不符时退回 JSON 对话框。
+- `modelRoles`、`retry.fallbackChains` 用结构化编辑（`StructuredEditors.tsx`），行上同样是"编辑…"按钮 + 摘要（角色名 / 回退链条数），对话框里：角色一行一个、模型用下拉选（候选按角色或备用链 key 能用的模型类别筛，和设置 → 模型的角色表同一份，见 `login.md`「角色和备用模型的候选」；列表里没有的值原样保留）、回退链可增删和上下移，每次改动立即保存；值的形状不符时退回 JSON 对话框。
 - `getDefaultModel()` / `defaultModel` 事件：服务进程 `get_state` 读新任务实际会用的模型和思考强度；改了 modelRoles、defaultThinkingLevel 等之后约 0.7 秒重读并推事件（`src/main/service/default-model.ts`）。
 
 ## rpc-ui 下的逐项核对（2026-10-18，omp 18.12.1，555 项）

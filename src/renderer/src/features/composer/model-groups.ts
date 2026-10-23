@@ -1,6 +1,7 @@
 // 模型选择对话框的列表：按搜索词过滤；没有搜索词时"常用"（当前模型、角色绑定的模型、最近用过的）单独置顶，其余按 provider 排序。
 // 搜索框以 @ 开头时列的是角色而不是模型。纯函数。
 import { formatCount } from "./usage-format.ts";
+import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import type { ModelKey, ModelOption } from "../../../../shared/ipc.ts";
 
 export interface ModelRows {
@@ -93,8 +94,48 @@ export function filterRoles(tabs: readonly string[], query: string): string[] | 
 export const modelItemId = (key: ModelKey) => `m:${key.provider}/${key.modelId}`;
 export const roleItemId = (role: string) => `r:${role}`;
 
-/** omp 内置的、选择器里可单独指定模型的角色（顺序即标签顺序）；modelRoles 里别的角色只在指到列表中的模型时才加进来。 */
-export const builtinRoles = ["default", "smol", "slow", "plan", "task", "commit", "advisor"] as const;
+/** omp 18.12.6 的内置角色（config/model-roles.ts，顺序同 omp 的 MODEL_ROLE_IDS）：选对话模型的角色。也是选择器里角色的标签顺序。 */
+export const chatRoles = [
+  "default",
+  "smol",
+  "slow",
+  "vision",
+  "plan",
+  "commit",
+  "tiny",
+  "memory",
+  "task",
+  "advisor",
+  "widget",
+] as const;
+
+/** 特定能力的角色：选的是生图、网页搜索、语音合成、语音转文字、评判的服务，不在选择器里（选择器列的是对话模型）。 */
+export const kindRoles = ["image", "web", "speech", "dictation", "judge"] as const;
+
+/** 角色能用的模型类别（omp MODEL_ROLES[role].accepts），自己的类别在前；其余角色（含自定义的）只用对话模型。 */
+const roleAccepts: Readonly<Record<string, readonly string[]>> = {
+  tiny: ["tiny", "chat"],
+  memory: ["tiny", "chat"],
+  image: ["image"],
+  // omp 还收带联网搜索的对话模型（Model.webSearch），`omp models --json` 不给这一项，这里分不出来。
+  web: ["search"],
+  speech: ["tts"],
+  dictation: ["stt"],
+  judge: ["judge", "tiny", "chat"],
+};
+
+export function roleKinds(role: string): readonly string[] {
+  return roleAccepts[role] ?? ["chat"];
+}
+
+const isBuiltinRole = (role: string) =>
+  (chatRoles as readonly string[]).includes(role) || (kindRoles as readonly string[]).includes(role);
+
+/** 角色在界面上的名字：omp 的角色 id，首字母大写（smol → Smol）。 */
+export const roleLabel = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
+
+/** 角色用途的一句话（拼进 `model.roleUse`）：omp 的内置角色各有一句，其余都是"自定义角色"。 */
+export const roleHintKey = (role: string) => `model.role.hint.${isBuiltinRole(role) ? role : "custom"}` as MessageKey;
 
 const thinkingSuffix = /:(?:off|minimal|low|medium|high|xhigh|max)$/;
 
@@ -107,7 +148,7 @@ export function parseRoleSelector(selector: string): ModelKey | null {
 }
 
 export interface RoleView {
-  /** 标签：内置角色 + 指到列表中模型的其它角色。 */
+  /** 标签：omp 的对话角色 + 指到列表中模型的自定义角色（特定能力的角色不在这里）。 */
   tabs: string[];
   /** 角色 → 它现在指的模型（没设置或不在列表里为 null）。 */
   modelOf: Record<string, ModelOption | null>;
@@ -121,10 +162,8 @@ export function roleView(roles: Readonly<Record<string, string>>, models: readon
     const key = parseRoleSelector(selector);
     modelOf[role] = (key && models.find((option) => sameModel(option.key, key))) || null;
   }
-  const extra = Object.keys(roles).filter(
-    (role) => modelOf[role] && !(builtinRoles as readonly string[]).includes(role),
-  );
-  const tabs = [...builtinRoles, ...extra];
+  const extra = Object.keys(roles).filter((role) => modelOf[role] && !isBuiltinRole(role));
+  const tabs = [...chatRoles, ...extra];
   const badges = new Map<string, string[]>();
   for (const role of tabs) {
     const option = modelOf[role];

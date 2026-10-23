@@ -38,6 +38,7 @@
     "src/renderer/src/features/goal/goal-model.ts",
     "src/renderer/src/features/review/explain.ts",
     "src/renderer/src/features/composer/model-groups.ts",
+    "src/renderer/src/features/settings/role-options.ts",
     "src/renderer/src/features/composer/file-complete.ts",
     "src/renderer/src/features/composer/input-history.ts",
     "src/renderer/src/features/composer/send-logic.ts",

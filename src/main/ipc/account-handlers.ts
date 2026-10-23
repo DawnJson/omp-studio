@@ -1,13 +1,19 @@
 // 账号和模型的 IPC：模型列表、provider 列表、OAuth 登录、登出、API key。
-// 除 API key 外都走服务进程（src/main/service/）；API key 由 safeStorage 存在 userData，不碰 ~/.omp（决策 D3）。
-// key 只进不出：返回值、事件、日志里都没有 key。
+// 除 API key 和非对话模型外都走服务进程（src/main/service/）；非对话模型跑一次 `omp models --kind all --json`（rpc 没有这个命令）。
+// API key 由 safeStorage 存在 userData，不碰 ~/.omp（决策 D3）。key 只进不出：返回值、事件、日志里都没有 key。
 import type { HandlerGroup } from "../../shared/ipc.ts";
+import { parseRunnerModels } from "../../shared/omp-output/models.ts";
 import { apiKeyStore } from "../omp-manager/api-keys.ts";
+import { getApiKeyEnv, readyOmp } from "../omp-manager/index.ts";
 import { answerLoginInput, cancelLogin, startLogin } from "../service/login.ts";
 import { listModelOptions } from "../service/default-model.ts";
-import { serviceOmp } from "../service/service-omp.ts";
+import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
+import { requireSuccess, runOmpCommand } from "../usage/usage-service.ts";
 import { parseApiKey, parseInteger, parseString } from "./validate.ts";
+
+/** `omp models` 会先刷新没缓存的 provider 目录（联网），给足时间。 */
+const MODELS_TIMEOUT_MS = 60 * 1000;
 
 const parseProviderId = (value: unknown) => parseString(value, "providerId", 200);
 
@@ -18,6 +24,7 @@ async function applyKeyChange(): Promise<void> {
 
 export const accountHandlers: HandlerGroup<
   | "listModels"
+  | "listRunnerModels"
   | "listLoginProviders"
   | "startLogin"
   | "answerLoginInput"
@@ -29,6 +36,12 @@ export const accountHandlers: HandlerGroup<
   | "listApiKeyProviders"
 > = {
   listModels: () => listModelOptions(),
+  listRunnerModels: async () => {
+    const run = runOmpCommand(readyOmp().path, await serviceCwd(), MODELS_TIMEOUT_MS, await getApiKeyEnv());
+    const result = await run(["models", "--kind", "all", "--json"]);
+    requireSuccess("omp models", result);
+    return parseRunnerModels(result.stdout);
+  },
   listLoginProviders: async () =>
     (await serviceOmp.use((connection) => connection.request("get_login_providers"))).providers,
   startLogin: (providerId) => startLogin(parseProviderId(providerId)),

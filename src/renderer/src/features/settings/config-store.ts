@@ -127,12 +127,6 @@ export function ensureOmpConfigLoaded(): void {
   if (store.get().load.kind === "idle") void loadOmpConfig();
 }
 
-/** modelRoles 的 default 项原文（可能带 `:high` 这类思考后缀）；没设置时为 null。 */
-export function defaultModelRole(roles: unknown): string | null {
-  if (typeof roles !== "object" || roles === null || !("default" in roles)) return null;
-  return typeof roles.default === "string" ? roles.default : null;
-}
-
 function throwIfFailed(key: string): void {
   const row = store.get().rows[key];
   if (row?.phase === "error") throw row.error;
