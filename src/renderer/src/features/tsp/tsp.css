@@ -2113,6 +2113,64 @@
   box-shadow: none;
 }
 
+/* 搜索来源（web_search 的 omp.tool.source）：照 Tern 排成等宽卡片网格，每张卡第一行徽章 + 域名，第二行标题；
+ * 标题链接的 ::after 铺满整张卡，点卡片任何地方都打开链接（链接还是那一个，键盘和读屏不变） */
+.tsp-col[data-role="omp.tool.files"]:has(> .tsp-row[data-role="omp.tool.source"]) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-3);
+}
+.tsp-row[data-role="omp.tool.source"] {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "badge domain"
+    "title title";
+  align-items: center;
+  gap: var(--space-1) var(--space-1-5);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1px var(--border-subtle);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.tsp-row[data-role="omp.tool.source"]:has(.tsp-link:hover) {
+  background: var(--bg-hover);
+}
+.tsp-row[data-role="omp.tool.source"]:has(.tsp-link:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.tsp-row[data-role="omp.tool.source"] > .tsp-badge {
+  grid-area: badge;
+  justify-content: center;
+  min-width: calc(var(--space-4) + var(--space-0-5));
+  padding: 0;
+}
+.tsp-row[data-role="omp.tool.source"] > .tsp-text:has(.tsp-link) {
+  grid-area: title;
+}
+.tsp-row[data-role="omp.tool.source"] > .tsp-text:not(:has(.tsp-link)) {
+  grid-area: domain;
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  color: var(--text-3);
+}
+.tsp-row[data-role="omp.tool.source"] .tsp-link {
+  color: var(--text);
+  outline: none;
+}
+.tsp-row[data-role="omp.tool.source"] .tsp-link:hover {
+  text-decoration: none;
+}
+.tsp-row[data-role="omp.tool.source"] .tsp-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
 /* ───────────────────────── agent / checklist ───────────────────────── */
 
 .tsp-agent {

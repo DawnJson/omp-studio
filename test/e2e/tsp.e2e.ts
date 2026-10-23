@@ -781,6 +781,48 @@ test("对话线:每条用户消息一个刻度,点刻度把那条消息滚到对
   }
 });
 
+// 搜索来源(假 omp 回放 resume 里的 web_search 卡片,5 个来源,第一个是 python-31117)。
+test("搜索来源排成等宽卡片网格(照 Tern):一行三张、域名在标题上面;点卡片空白处也打开链接", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("resume");
+  try {
+    const { page, app } = launched;
+    await app.evaluate(({ shell }) => {
+      const opened: string[] = [];
+      (globalThis as unknown as { opened: string[] }).opened = opened;
+      shell.openExternal = async (url: string) => {
+        opened.push(url);
+      };
+    });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.evaluate(async () => {
+      const [project] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: project!.id });
+    });
+    await openTaskRow(page);
+    const sources = page.locator('[data-testid="tsp-view"] [data-role="omp.tool.source"]');
+    await expect(sources).toHaveCount(5, { timeout: 30_000 });
+    await sources.nth(0).scrollIntoViewIfNeeded();
+    const box = async (index: number) => (await sources.nth(index).boundingBox())!;
+    const [first, second, third, fourth] = [await box(0), await box(1), await box(2), await box(3)];
+    expect(second.y).toBe(first.y);
+    expect(third.y).toBe(first.y);
+    expect(Math.abs(second.width - first.width)).toBeLessThanOrEqual(1);
+    expect(fourth.y).toBeGreaterThan(first.y + first.height);
+    expect(fourth.x).toBe(first.x);
+    const domain = await sources.nth(0).getByText("python.org", { exact: true }).boundingBox();
+    const title = await sources.nth(0).locator(".tsp-link").boundingBox();
+    expect(domain!.y + domain!.height).toBeLessThanOrEqual(title!.y);
+    // 点卡片右上角(域名文字右边的空白)
+    await sources.nth(0).click({ position: { x: first.width - 8, y: 8 } });
+    await expect
+      .poll(() => app.evaluate(() => (globalThis as unknown as { opened: string[] }).opened))
+      .toEqual(["https://www.python.org/downloads/release/python-31117"]);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("压缩分隔画成整行横线夹文字;切模型后 omp 的状态行留在对话里(不是一闪而过的弹层);点分隔展开摘要", async () => {
   test.setTimeout(120_000);
   // 假 omp 回放的是 omp 18.12.5 `--resume` 一个压缩过的会话:section omp.compaction(折叠)、启动时的状态行,
