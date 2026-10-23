@@ -19,7 +19,7 @@ export const slash = {
   modelDesc: "选择模型和思考强度",
   effortDesc: "调整思考强度（在模型选择器里）",
   usageDesc: "查看订阅额度和每日用量",
-  jobsDesc: "查看和结束后台任务（/jobs kill <id>|all）",
+  jobsDesc: "打开 omp 的后台任务窗口（/jobs kill <id>|all 结束任务）",
   jobsKillUsage: "用法：/jobs kill <id>|all",
   contextDesc: "查看 context 占用和构成",
   todoDesc: "查看待办板",

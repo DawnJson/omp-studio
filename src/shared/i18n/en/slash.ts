@@ -20,7 +20,7 @@ export const slash = {
   modelDesc: "Choose the model and thinking level",
   effortDesc: "Adjust the thinking level (in the model picker)",
   usageDesc: "View subscription limits and daily usage",
-  jobsDesc: "View and end background jobs (/jobs kill <id>|all)",
+  jobsDesc: "Open omp's background jobs window (/jobs kill <id>|all ends jobs)",
   jobsKillUsage: "Usage: /jobs kill <id>|all",
   contextDesc: "View context usage and breakdown",
   todoDesc: "Show the todo board",

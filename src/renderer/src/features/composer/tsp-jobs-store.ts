@@ -1,7 +1,6 @@
 // TSP 任务的后台作业（S2Jobs，推导见 shared/tsp/jobs.ts）：每个任务一份已知作业，TSP 文档每应用一批消息就并一次快照。
-// 弹层里的动作也在这里：结束作业（`/jobs kill`，主进程拼命令）、查看 bash 输出（omp 只有 `/jobs` 弹窗里有输出，
-// 没有别的通道，所以让 omp 打开它自己的弹窗，由 studio 的 TspView 渲染，再把选中项切到这个作业）。
-// 另有一个"打开作业弹层"的请求计数（`/jobs` 斜杠命令用）。
+// 动作也在这里：结束作业（`/jobs kill`，主进程拼命令）、打开 omp 自己的作业弹窗（作业列表、输出和取消都在那里，
+// omp 没有别的通道；由 studio 的 TspView 渲染，再把选中项切到指定的作业）。
 import { useMemo, useSyncExternalStore } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import {
@@ -64,6 +63,11 @@ export function useTspJobs(taskId: TaskId): readonly Job[] {
   return useSyncExternalStore(sub, () => states.get(taskId) ?? NO_JOBS);
 }
 
+/** 本任务已知的后台作业，不订阅（斜杠命令用；输入框上方的 ComposerTop 一直订阅着，所以是新的）。 */
+export function peekTspJobs(taskId: TaskId): readonly Job[] {
+  return states.get(taskId) ?? NO_JOBS;
+}
+
 /** 结束作业（`id` 或 "all"）：主进程拼 `/jobs kill <id>`；成功后把运行中的记为已取消（omp 成功时没有任何回应，实测 18.12.5）。出错抛 omp 的 toast 原文。 */
 export async function killTspJob(taskId: TaskId, id: string): Promise<void> {
   await window.studio.runTaskCommand(taskId, { kind: "jobsKill", id });
@@ -73,15 +77,15 @@ export async function killTspJob(taskId: TaskId, id: string): Promise<void> {
 const OPEN_TIMEOUT_MS = 4000;
 
 /**
- * 查看 bash 作业的输出：让 omp 打开 `/jobs` 弹窗（hud 上有作业胶囊就点它——动作 `jobs.open`；没有就发 `/jobs`，经 sendPrompt 直达 omp，
- * 不走 studio 的斜杠拦截），弹窗出现后发 `select` 把右边的详情切到这个作业。弹窗里没有这个作业（omp 已经不列了）时停在弹窗上。
+ * 打开 omp 的作业弹窗并选中这个作业：hud 上有作业胶囊就点它（动作 `jobs.open`），没有就发 `/jobs`（经 sendPrompt 直达 omp，
+ * 不走 studio 的斜杠拦截）；弹窗出现后发 `select` 把右边的详情切到这个作业。弹窗里没有这个作业（omp 已经不列了）时停在弹窗上。
  */
-export async function viewTspJobOutput(taskId: TaskId, jobId: string): Promise<void> {
+export async function openTspJobs(taskId: TaskId, jobId: string): Promise<void> {
   const selectIn = (): boolean => {
     const doc = peekTspDocument(taskId);
-    const item = doc ? findJobsOverlayItem(doc, jobId) : null;
-    if (!item) return false;
-    void window.studio.sendTspEvent(taskId, { ev: "select", sf: item.sf, id: item.id, item: item.id });
+    const target = doc ? findJobsOverlayItem(doc, jobId) : null;
+    if (!target) return false;
+    void window.studio.sendTspEvent(taskId, { ev: "select", sf: target.sf, id: target.list, item: target.item });
     return true;
   };
   if (selectIn()) return;
@@ -101,26 +105,4 @@ export async function viewTspJobOutput(taskId: TaskId, jobId: string): Promise<v
   if (seg) await window.studio.sendTspEvent(taskId, { ev: "action", sf: seg.sf, id: seg.id, act: "jobs.open" });
   else await window.studio.sendPrompt(taskId, { text: "/jobs", whenBusy: "steer" });
   await opened;
-}
-
-// ───────── "打开作业弹层"请求（`/jobs`） ─────────
-
-const requests = new Map<TaskId, number>();
-const requestListeners = new Set<() => void>();
-
-export function requestOpenJobs(taskId: TaskId): void {
-  requests.set(taskId, (requests.get(taskId) ?? 0) + 1);
-  for (const listener of requestListeners) listener();
-}
-
-/** 这个任务收到过几次"打开作业弹层"请求；组件挂载时记下当前值，之后变大才是新请求。 */
-export function useJobsOpenRequests(taskId: TaskId): number {
-  const sub = useMemo(
-    () => (listener: () => void) => {
-      requestListeners.add(listener);
-      return () => requestListeners.delete(listener);
-    },
-    [],
-  );
-  return useSyncExternalStore(sub, () => requests.get(taskId) ?? 0);
 }

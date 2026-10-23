@@ -117,18 +117,27 @@ function RoleRow({
         <span id={labelId}>{roleLabel(role)}</span>
         <InfoTip>{t("model.roleUse", { hint: t(roleHintKey(role)) })}</InfoTip>
       </span>
-      <span>
-        <Select
-          size="sm"
-          width="100%"
-          value={current ?? unset}
-          options={modelOptions}
-          labelledBy={labelId}
-          disabled={disabled || !ready}
-          onChange={saveModel}
-          testId={role === "default" ? "setting-default-model" : `setting-role-${role}`}
-        />
-      </span>
+      <Select
+        size="sm"
+        width="100%"
+        value={current ?? unset}
+        options={modelOptions}
+        labelledBy={labelId}
+        disabled={disabled || !ready}
+        onChange={saveModel}
+        testId={role === "default" ? "setting-default-model" : `setting-role-${role}`}
+      />
+      <Select
+        size="sm"
+        width={136}
+        value={unset}
+        options={addOptions}
+        placeholder={t("settings.roles.addFallback")}
+        labelledBy={labelId}
+        disabled={disabled || !ready || addOptions.length === 0}
+        onChange={(value) => saveChain([...chain, value])}
+        testId={`setting-chain-${role}-add`}
+      />
       <span className="st-chain" data-testid={`setting-chain-${role}`}>
         {chain.map((selector, index) => (
           <span key={`${index}:${selector}`} className="st-tag" title={selector}>
@@ -144,17 +153,6 @@ function RoleRow({
             </button>
           </span>
         ))}
-        <Select
-          size="sm"
-          width={128}
-          value={unset}
-          options={addOptions}
-          placeholder={t("settings.roles.addFallback")}
-          labelledBy={labelId}
-          disabled={disabled || !ready || addOptions.length === 0}
-          onChange={(value) => saveChain([...chain, value])}
-          testId={`setting-chain-${role}-add`}
-        />
       </span>
     </div>
   );
@@ -191,7 +189,7 @@ export function ModelsSection() {
       <span className="ui-row-label">
         <span id={thinkingLabelId}>{t("settings.defaultThinking")}</span>
       </span>
-      <span>
+      <span className="st-roles-wide">
         <Select
           size="sm"
           width="100%"

@@ -1,10 +1,10 @@
-// `/jobs`（S2Jobs）：studio 接管——不带参数打开输入框上方的作业弹层；`/jobs kill <id>|all` 结束作业（主进程拼命令，渲染进程不发自由文本）。
-// omp 自己的 `/jobs` 弹窗只在弹层里"查看输出"时才打开（tsp-jobs-store.viewTspJobOutput）。
+// `/jobs`（S2Jobs）：studio 接管——不带参数打开 omp 自己的作业弹窗，选中第一个运行中的作业（没有就选最近的那个）；
+// 这个任务没有 bash 作业时给一条提示，不打开。`/jobs kill <id>|all` 结束作业（主进程拼命令，渲染进程不发自由文本）。
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { reportOmpError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
-import { killTspJob, requestOpenJobs } from "./tsp-jobs-store.ts";
+import { killTspJob, openTspJobs, peekTspJobs } from "./tsp-jobs-store.ts";
 import type { StudioSlashCommand } from "./studio-slash.ts";
 
 const KILL = /^kill(?:\s+(\S+))?$/i;
@@ -12,7 +12,13 @@ const KILL = /^kill(?:\s+(\S+))?$/i;
 async function runJobsSlash(taskId: TaskId, args: string, t: TFunction): Promise<void> {
   const kill = KILL.exec(args);
   if (!kill) {
-    requestOpenJobs(taskId);
+    const bash = peekTspJobs(taskId).filter((job) => job.type === "bash");
+    const target = bash.find((job) => job.status === "running") ?? bash.at(-1);
+    if (target === undefined) {
+      pushToast({ level: "info", message: t("slash.jobsEmpty") });
+      return;
+    }
+    await openTspJobs(taskId, target.id).catch((error: unknown) => reportOmpError(t, error));
     return;
   }
   const id = kill[1];

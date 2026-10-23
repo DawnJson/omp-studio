@@ -225,10 +225,14 @@ export function sameJobs(a: readonly Job[], b: readonly Job[]): boolean {
 }
 
 /**
- * `/jobs` 弹窗里某个作业的列表项（omp 自己的选中动作 `select` 的目标）；弹窗没开或没有这个作业为 null。
- * 渲染进程在"查看输出"里先让 omp 打开弹窗，再发 `select` 把右边的详情（含输出）切到这个作业。
+ * `/jobs` 弹窗里某个作业所在的列表和列表项（omp 自己的选中动作 `select` 的目标：`id` 是列表、`item` 是列表项，
+ * omp 18.12.6 的 `native/backend.ts` 按 `id` 找组件、把以 `<列表>/` 开头的 `item` 换回列表里的 key）；弹窗没开或没有这个作业为 null。
+ * 渲染进程打开 omp 的弹窗后发 `select`，把右边的详情（含输出）切到这个作业。
  */
-export function findJobsOverlayItem(doc: TspDocument, jobId: string): { sf: string; id: string } | null {
+export function findJobsOverlayItem(
+  doc: TspDocument,
+  jobId: string,
+): { sf: string; list: string; item: string } | null {
   for (const surface of liveSurfaces(doc)) {
     const master = findNode(surface, (node) => nodeRole(node) === OVERLAY_MASTER_ROLE);
     if (!master) continue;
@@ -238,7 +242,8 @@ export function findJobsOverlayItem(doc: TspDocument, jobId: string): { sf: stri
       for (const itemId of list.c) {
         const item = surface.nodes.get(itemId);
         const title = typeof item?.p["title"] === "string" ? item.p["title"] : "";
-        if (item && (title.split("\n")[1] ?? "").endsWith(` · ${jobId}`)) return { sf: surface.id, id: item.id };
+        if (item && (title.split("\n")[1] ?? "").endsWith(` · ${jobId}`))
+          return { sf: surface.id, list: list.id, item: item.id };
       }
     }
   }

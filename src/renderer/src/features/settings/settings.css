@@ -214,11 +214,11 @@
   }
 }
 
-/* 模型页的角色表（ModelsSection）：角色 | 主模型 | 备用模型。每个角色一行，分隔线和格子一样；
-   行用 subgrid 共用三列（第一行是默认思考强度），备用模型多了在格里折行。窄了备用模型挪到模型下面。 */
+/* 模型页的角色表（ModelsSection）：一行两个角色格，按阅读顺序从左到右填（第一格是默认思考强度）；分隔线和格子一样。
+   格内：角色名 | 主模型 | "添加备用…"，已加的备用模型在第二行、和主模型左对齐，多了折行。内容区窄了一行一格。 */
 .st-roles {
   display: grid;
-  grid-template-columns: 152px 240px minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: var(--space-6);
   border-top: 1px solid var(--border);
 }
@@ -228,19 +228,28 @@
 }
 .st-roles-row {
   display: grid;
-  grid-template-columns: subgrid;
-  grid-column: 1 / -1;
+  grid-template-columns: 88px minmax(0, 1fr) auto;
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
   align-items: center;
   min-height: 40px;
   padding: var(--space-1) 0;
   border-bottom: 1px solid var(--border-subtle);
 }
+.st-roles-wide {
+  grid-column: 2 / -1;
+  min-width: 0;
+}
 .st-chain {
   display: flex;
+  grid-column: 2 / -1;
   flex-wrap: wrap;
   gap: var(--space-1);
   align-items: center;
   min-width: 0;
+}
+.st-chain:empty {
+  display: none;
 }
 /* 备用模型显示的是模型名，不是选择器：用正文字体（悬停看选择器原文） */
 .st-chain .st-tag {
@@ -248,8 +257,8 @@
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
 }
-/* "添加备用…"是动作不是空字段：虚线框、次要文字，悬停才实起来 */
-.st-chain .ui-select:not(:hover, :focus-within) {
+/* "添加备用…"（格里第二个下拉）是动作不是空字段：虚线框、次要文字，悬停才实起来 */
+.st-roles-row > .ui-select + .ui-select:not(:hover, :focus-within) {
   color: var(--text-3);
   background: transparent;
   border-style: dashed;
@@ -259,13 +268,7 @@
 }
 @container (max-width: 640px) {
   .st-roles {
-    grid-template-columns: 96px minmax(0, 1fr);
-  }
-  .st-roles-row {
-    row-gap: var(--space-1);
-  }
-  .st-chain {
-    grid-column: 2;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

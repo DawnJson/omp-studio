@@ -909,29 +909,26 @@ test("后台作业弹窗:卡片不超出 tsp-view、作业列表顶对齐;输入
     await page.keyboard.press("Escape");
     await expect.poll(escCount).toBe(before + 1);
 
-    // studio 自己的作业弹层(S2Jobs):输入框里的 /jobs 由 studio 接管——不发给 omp,打开输入框上方的弹层。
-    // 作业从 omp 的节点推出来:hud 里运行中的 bg_1,再被 /jobs 弹窗里的 Done 校正;跑完以后 hud 胶囊没了,但弹层里仍有它。
+    // /jobs 由 studio 接管：不再有 studio 自己的弹层，直接打开 omp 的作业弹窗并选中作业。作业从 omp 的节点推出来
+    // （hud 里运行中的 bg_1，再被 /jobs 弹窗里的 Done 校正）；跑完以后药丸没了，/jobs 选最近的那个。
+    // 假 omp 把录制末尾的弹窗留着（真 omp 收到 Esc 就关了）：弹窗已经在，就只发 select，不再发 /jobs。
+    // select 的 id 是作业列表、item 是它下面的列表项（omp 按 id 找组件，见 shared/tsp/jobs.ts 的 findJobsOverlayItem）。
+    const selects = async () =>
+      (await received()).filter(
+        (body) =>
+          body["ev"] === "select" &&
+          String(body["id"]).endsWith(".split/master/jobs") &&
+          body["item"] === `${String(body["id"])}/bg_1`,
+      ).length;
     const jobsSent = async () =>
       (await received()).filter((body) => body["ev"] === "send" && String(body["text"]).startsWith("/jobs")).length;
     const sentBefore = await jobsSent();
-    // 作业已结束:药丸右半段 `⚡ N` 只数运行中的,所以不画;但 /jobs 仍能打开看板看已结束的。
+    const selectsBefore = await selects();
     await expect(page.getByTestId("pill-jobs")).toHaveCount(0);
     const input = page.getByTestId("composer-input");
     await input.fill("/jobs");
     await page.keyboard.press("Enter");
-    const board = page.getByTestId("jobs-board");
-    await expect(board).toBeVisible();
-    const row = board.getByTestId("job-row");
-    await expect(row).toHaveCount(1);
-    await expect(row).toHaveAttribute("data-job-id", "bg_1");
-    await expect(row).toHaveAttribute("data-status", "completed");
-    await expect(row).toContainText("npx playwright test");
-    // 假 omp 把录制末尾的 /jobs overlay 留在 tsp-view 里(真 omp 收到 Esc 就关了),它的卡片盖在弹层上挡住鼠标:用键盘激活这一行。
-    await row.focus();
-    await page.keyboard.press("Enter");
-    // TSP 的弹层:bash 的输出只在 omp 的作业窗口里,给"查看输出"按钮;作业已结束,没有"结束"按钮。
-    await expect(page.getByTestId("tsp-job-view-output")).toBeVisible();
-    await expect(page.getByTestId("tsp-job-kill")).toHaveCount(0);
+    await expect.poll(selects).toBe(selectsBefore + 1);
     expect(await jobsSent()).toBe(sentBefore);
   } finally {
     await cleanup();
@@ -980,12 +977,9 @@ test('输入框上方(照 Tern):药丸 [👥 N | ⚡ N] 每段个数大于 0 才
     await expect(role(page, "omp.hud")).toHaveCount(0);
     await expect(role(page, "omp.hud.seg")).toHaveCount(0);
     await expect(role(page, "omp.working")).toHaveCount(0);
-    // 点右半段 = 打开作业看板(只列 bash 作业)。
+    // 点右半段 = 直接让 omp 打开它的作业弹窗（点 hud 的作业胶囊：动作 jobs.open），studio 不再有中间的列表弹层。
     await pill.click();
-    await expect(page.getByTestId("jobs-board")).toBeVisible();
-    await expect(page.getByTestId("job-row").first()).toHaveAttribute("data-type", "bash");
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("jobs-board")).toHaveCount(0);
+    await expect.poll(async () => (await jobs.received()).some((event) => event["act"] === "jobs.open")).toBe(true);
     // 没有子代理时药丸没有左半段,顶栏的子代理按钮仍在:点开是空状态;和文件面板共用右栏,开一个就关另一个。
     const agentsToggle = page.getByTestId("topbar-agents");
     await agentsToggle.click();
@@ -1000,10 +994,7 @@ test('输入框上方(照 Tern):药丸 [👥 N | ⚡ N] 每段个数大于 0 才
     await expect(page.getByTestId("file-preview")).toHaveCount(0);
     await agentsToggle.click();
     await expect(page.getByTestId("agents-panel")).toHaveCount(0);
-    // 截图会切语言和主题、焦点跟着跑掉，放在 Esc 断言之后重新打开再截。
-    await pill.click();
-    await expect(page.getByTestId("jobs-board")).toBeVisible();
-    await shoot(page, "jobs-board");
+    await shoot(page, "composer-pills");
   } finally {
     await jobs.cleanup();
   }
@@ -1098,7 +1089,6 @@ test("错误回合只留一份:错误文字只在卡片里(没有 dock 里的红
     await page.getByTestId("composer-input").fill("/jobs");
     await page.keyboard.press("Enter");
     await expect(page.locator(".toast")).toContainText(/这个任务还没有后台任务|no background jobs/);
-    await expect(page.getByTestId("jobs-board")).toHaveCount(0);
   } finally {
     await cleanup();
   }

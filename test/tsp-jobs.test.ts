@@ -72,7 +72,11 @@ describe("jobs-chart 录制（一个后台 bash）", () => {
         output: null,
       },
     ]);
-    expect(findJobsOverlayItem(doc, "bg_1")).toEqual({ sf: "s:1", id: "16.split/master/jobs/bg_1" });
+    expect(findJobsOverlayItem(doc, "bg_1")).toEqual({
+      sf: "s:1",
+      list: "16.split/master/jobs",
+      item: "16.split/master/jobs/bg_1",
+    });
     expect(findJobsOverlayItem(doc, "bg_9")).toBeNull();
   });
 

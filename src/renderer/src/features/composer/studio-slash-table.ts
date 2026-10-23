@@ -102,7 +102,7 @@ export const studioSlashCommands: readonly StudioSlashCommand[] = [
   ...pluginsSlashCommands,
   // 会话开关和模型预设（/skillful /extended-context /computer /advisor /browser /prewalk /modelpreset）：输入框上的"会话开关"菜单是它们的界面（S4）。
   ...toggleSlashCommands,
-  // 后台作业（/jobs、/jobs kill <id>|all）：输入框上方的作业弹层是它的界面（S2Jobs）。
+  // 后台作业（/jobs、/jobs kill <id>|all）：不带参数直接打开 omp 自己的作业弹窗（S2Jobs）。
   jobsSlash,
   // MCP / SSH / 工具 / 记忆 / 更新日志（/mcp /ssh /tools /memory /changelog）：设置页里对应的卡片是它们的界面（S5）。
   ...integrationsSlashCommands,

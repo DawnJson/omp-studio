@@ -1331,9 +1331,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   border: 0;
   background: none;
 }
-.jobs-anchor {
-  flex: none;
-}
 .status-pill-seg {
   display: inline-flex;
   align-items: center;
@@ -1367,100 +1364,4 @@ html[data-motion="reduced"] .ctx-usage-chev {
   width: 1px;
   height: 12px;
   background: var(--border);
-}
-
-.jobs-board {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-1-5);
-  color: var(--text);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
-}
-.jobs-title {
-  margin: 0;
-  padding: var(--space-1) var(--space-2);
-  color: var(--text-2);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-}
-.jobs-list {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.job-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  min-height: var(--row-menu);
-  padding: var(--space-1) var(--space-2);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.job-row:hover,
-.job-row[aria-expanded="true"] {
-  background: var(--bg-hover);
-}
-.job-row:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
-}
-.job-caret {
-  flex: none;
-  color: var(--text-3);
-  transition: transform var(--dur-fast) var(--ease-out);
-}
-.job-row[aria-expanded="true"] .job-caret {
-  transform: rotate(90deg);
-}
-.job-label {
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.job-status {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1-5);
-  color: var(--text-2);
-  font-size: var(--fs-xs);
-}
-.job-elapsed {
-  flex: none;
-  min-width: 4ch;
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-.job-note {
-  margin: var(--space-1) var(--space-2) var(--space-2);
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-}
-
-/* TSP 作业弹层的动作（S2Jobs）：展开一行后的"查看输出 / 结束"。 */
-.job-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1-5);
-  margin: var(--space-1) var(--space-2) var(--space-2);
-}
-.job-actions .job-note {
-  flex: 1 0 100%;
-  margin: 0;
 }

@@ -6,23 +6,21 @@
 // 数据全部来自 omp 的 TSP 文档：活动文字 shared/tsp/working.ts，子代理 shared/tsp/agent-hub.ts，作业 shared/tsp/jobs.ts，
 // 待办 shared/tsp/todos.ts（主进程换算进 TaskState.todoPhases）；计时用主进程记的这一轮开始时间（TaskState.runStartedAt）。
 // omp 自己的 HUD（作业胶囊、运行状态行、待办药丸）不画，见 TspChildren.tsx。
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useMemo } from "react";
 import type { TaskState } from "../../../../shared/ipc.ts";
 import { countActiveAgents } from "../../../../shared/tsp/agent-hub.ts";
 import { deriveWorkingLabel } from "../../../../shared/tsp/working.ts";
-import type { Job } from "../../../../shared/ui/jobs.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { FlipText } from "../../ui/FlipText.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { formatElapsed } from "../conversation/format.ts";
 import { summarizeTodos } from "../conversation/todo-model.ts";
 import { useNow } from "../conversation/use-now.ts";
-import { pushToast } from "../dialogs/toast-store.ts";
 import { useTspDerived } from "../tsp/tsp-store.ts";
 import { DotSphereMark } from "./DotSphereMark.tsx";
 import { StatusPills } from "./StatusPills.tsx";
 import { TodoBoard } from "./TodoBoard.tsx";
-import { useJobsOpenRequests, useTspJobs } from "./tsp-jobs-store.ts";
+import { useTspJobs } from "./tsp-jobs-store.ts";
 import { useHeld } from "./use-held.ts";
 
 const BUSY: readonly TaskState["status"][] = ["starting", "running", "needs_you"];
@@ -32,13 +30,13 @@ interface View {
   task: TaskState;
   label: string | null;
   agents: number;
-  running: number;
-  jobsOpen: boolean;
+  /** 运行中的 bash 作业（点 ⚡ 打开 omp 的作业弹窗，选中第一个）。 */
+  running: readonly string[];
 }
 
 function StatusLine({ task, label }: { task: TaskState; label: string | null }) {
   const t = useT();
-  const now = useNow(true);
+  const now = useNow(true, task.runStartedAt ?? 0);
   const waiting = task.status === "needs_you";
   const text = waiting
     ? t("composer.status.needsYou")
@@ -65,30 +63,13 @@ function StatusLine({ task, label }: { task: TaskState; label: string | null }) 
   );
 }
 
-function TopContent({
-  view,
-  jobs,
-  setJobsOpen,
-}: {
-  view: View;
-  jobs: readonly Job[];
-  setJobsOpen: Dispatch<SetStateAction<boolean>>;
-}) {
-  const { task, label, agents, running, jobsOpen } = view;
+function TopContent({ view }: { view: View }) {
+  const { task, label, agents, running } = view;
   const busy = BUSY.includes(task.status);
   const todo = summarizeTodos(task.todoPhases);
   const hasTodo = todo.total > 0;
-  const hasPills = agents > 0 || running > 0 || jobsOpen;
-  const pills = (
-    <StatusPills
-      taskId={task.id}
-      agents={agents}
-      running={running}
-      jobs={jobs}
-      jobsOpen={jobsOpen}
-      setJobsOpen={setJobsOpen}
-    />
-  );
+  const hasPills = agents > 0 || running.length > 0;
+  const pills = <StatusPills taskId={task.id} agents={agents} running={running} />;
   return (
     <div className="composer-top" data-testid="composer-top">
       {hasTodo && hasPills && <div className="top-pills">{pills}</div>}
@@ -109,33 +90,17 @@ function TopContent({
 }
 
 export function ComposerTop({ task }: { task: TaskState }) {
-  const t = useT();
   const taskId = task.id;
   const label = useTspDerived(taskId, deriveWorkingLabel, Object.is);
   const agents = useTspDerived(taskId, countActiveAgents, Object.is) ?? 0;
-  const allJobs = useTspJobs(taskId);
-  const bash = useMemo(() => allJobs.filter((job) => job.type === "bash"), [allJobs]);
-  const running = useMemo(() => bash.filter((job) => job.status === "running").length, [bash]);
-  const [jobsOpen, setJobsOpen] = useState(false);
-
-  // `/jobs`：有 bash 作业（含已结束的）就打开看板，没有就提示。这个组件一直挂着（不在 Reveal 里），请求不会丢。
-  const requests = useJobsOpenRequests(taskId);
-  const handled = useRef(requests);
-  const hasBash = bash.length > 0;
-  useEffect(() => {
-    if (requests === handled.current) return;
-    handled.current = requests;
-    if (hasBash) setJobsOpen(true);
-    else pushToast({ level: "info", message: t("slash.jobsEmpty") });
-  }, [requests, hasBash, t]);
-  // 作业一个不剩（切任务、重开）时看板自己关。
-  useEffect(() => {
-    if (!hasBash) setJobsOpen(false);
-  }, [hasBash]);
-
+  const jobs = useTspJobs(taskId);
+  const running = useMemo(
+    () => jobs.filter((job) => job.type === "bash" && job.status === "running").map((job) => job.id),
+    [jobs],
+  );
   const busy = BUSY.includes(task.status);
   const hasTodo = summarizeTodos(task.todoPhases).total > 0;
-  const visible = busy || hasTodo || agents > 0 || running > 0 || jobsOpen;
-  const held = useHeld<View>(visible ? { task, label, agents, running, jobsOpen } : null);
-  return <Reveal open={visible}>{held && <TopContent view={held} jobs={bash} setJobsOpen={setJobsOpen} />}</Reveal>;
+  const visible = busy || hasTodo || agents > 0 || running.length > 0;
+  const held = useHeld<View>(visible ? { task, label, agents, running } : null);
+  return <Reveal open={visible}>{held && <TopContent view={held} />}</Reveal>;
 }
