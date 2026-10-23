@@ -117,8 +117,6 @@ export const settings = {
   "about.exported": "Diagnostics exported",
   back: "Back to tasks",
   "search.placeholder": "Search all settings",
-  navFoot: "omp-studio {app} · omp {omp}",
-  navFootApp: "omp-studio {app}",
   appearance: "Appearance",
   "motion.system": "Required by system",
   "unit.seconds": "s",

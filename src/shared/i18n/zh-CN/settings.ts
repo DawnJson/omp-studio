@@ -111,8 +111,6 @@ export const settings = {
   "about.exported": "已导出诊断信息",
   back: "返回任务",
   "search.placeholder": "搜索全部设置",
-  navFoot: "omp-studio {app} · omp {omp}",
-  navFootApp: "omp-studio {app}",
   appearance: "外观",
   "motion.system": "系统已要求",
   "unit.seconds": "秒",

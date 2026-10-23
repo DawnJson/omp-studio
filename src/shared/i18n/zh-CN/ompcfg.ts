@@ -114,7 +114,7 @@ export const ompcfg = {
   "retry.fallbackOn.desc": "按备用模型链换模型的时机：任何失败、只在额度用尽时，或额度用尽以外的失败",
   "retry.fallbackChains.label": "备用模型链",
   "retry.fallbackChains.desc":
-    'JSON 对象：角色、模型或 provider/* 对应有序的备用模型，例如 {"default": ["openai/gpt-4o-mini"]}',
+    "请求出错时依次换用的模型。每条链挂在一个角色（如 default、web）、一个具体模型或整个 provider（provider/*）上，只在用它时生效",
   "retry.waitForUsageReset.label": "额度用尽时等到重置",
   "retry.waitForUsageReset.desc": "服务商告知额度重置时间时一直等，而不是马上失败；无人值守时建议关闭",
 

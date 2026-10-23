@@ -122,7 +122,7 @@ export const ompcfg = {
     "When to switch along the fallback chain: on any failure, only when quota runs out, or on failures other than quota",
   "retry.fallbackChains.label": "Fallback chains",
   "retry.fallbackChains.desc":
-    'JSON object: a role, model or provider/* mapped to an ordered list of fallbacks, e.g. {"default": ["openai/gpt-4o-mini"]}',
+    "Models to try in order when a request fails. Each chain belongs to a role (e.g. default, web), a specific model or a whole provider (provider/*) and only applies while that one is in use",
   "retry.waitForUsageReset.label": "Wait for the quota to reset",
   "retry.waitForUsageReset.desc":
     "When the provider says when the quota resets, wait instead of failing right away. Leave off for unattended runs",

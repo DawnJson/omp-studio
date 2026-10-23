@@ -9,7 +9,6 @@ import {
   setSettingsQuery,
   showView,
   useAppInfo,
-  useOmpStatus,
   useSettingsPage,
   useSettingsQuery,
   type SettingsPage,
@@ -95,7 +94,6 @@ export function SettingsNav() {
   const page = useSettingsPage();
   const query = useSettingsQuery();
   const info = useAppInfo();
-  const omp = useOmpStatus();
   const searching = query.trim() !== "";
   return (
     <nav className="snav" aria-label={t("settings.sections")} data-testid="settings-nav" onKeyDown={onSettingsKeyDown}>
@@ -128,10 +126,8 @@ export function SettingsNav() {
         );
       })}
       {info !== null && (
-        <div className="snav-foot">
-          {omp?.state === "ready"
-            ? t("settings.navFoot", { app: info.version, omp: omp.version })
-            : t("settings.navFootApp", { app: info.version })}
+        <div className="snav-foot" data-testid="settings-nav-version">
+          {info.version}
         </div>
       )}
     </nav>

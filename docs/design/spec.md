@@ -547,7 +547,7 @@
 
 **导航**（`SettingsNav.tsx`；2026-10-22 起占侧栏的位置，`direction-3.2.md` §7 第 1 项）
 
-- 进设置时侧栏列里渲染 `SettingsNav` 代替会话列表（`App.tsx`：`view === "settings"` 且不是窄窗），宽度就是侧栏宽度，照样可拖；退出时换回会话列表。自上而下：`返回任务`（`settings.back`；`Button` quiet sm，左 `‹`，右端淡色 `Esc` 提示，`settings-back`）；搜索框（`TextField` sm 通宽，`settings-search`，前面放大镜，占位 `settings.search.placeholder`，有内容时右端一个 × 清除）；10 个节按钮（`settings-nav-<节>`，高 `--row-task`(32)，`--fs-sm` `--text-2`，悬停 `--bg-hover`；当前节 `aria-current="page"`、`--bg-active` 底、`--text`；搜索中没有当前节）；最底下版本行（`--fs-2xs` `--text-3`）：omp 就绪时 `omp-studio {app} · omp {omp}`（`settings.navFoot`），否则只有 `omp-studio {app}`（`settings.navFootApp`）。
+- 进设置时侧栏列里渲染 `SettingsNav` 代替会话列表（`App.tsx`：`view === "settings"` 且不是窄窗），宽度就是侧栏宽度，照样可拖；退出时换回会话列表。自上而下：`返回任务`（`settings.back`；`Button` quiet sm，左 `‹`，右端淡色 `Esc` 提示，`settings-back`）；搜索框（`TextField` sm 通宽，`settings-search`，前面放大镜，占位 `settings.search.placeholder`，有内容时右端一个 × 清除）；10 个节按钮（`settings-nav-<节>`，高 `--row-task`(32)，`--fs-sm` `--text-2`，悬停 `--bg-hover`；当前节 `aria-current="page"`、`--bg-active` 底、`--text`；搜索中没有当前节）；最底下版本行（`--fs-2xs` `--text-3`，`settings-nav-version`）：只写 omp-studio 的版本号，如 `0.4.0`（2026-10-22 仓库所有者定；原来是 `omp-studio 0.4.0 · omp 18.12.6`，omp 的版本在“关于”里）。
 - 窄窗（<1000px，侧栏变抽屉）或侧栏被收起时，导航改成内容顶上一行（`SettingsCompactNav`，`settings-nav-compact`）：节下拉（`Select` sm 200 宽，`settings-nav-select`；搜索中显示占位 `settings.search`）+ 搜索框（220 宽）。窄窗的抽屉里仍是会话列表。
 - 设置页里 `Ctrl F` 聚焦搜索框（导航和内容共用 `onSettingsKeyDown`）。
 
