@@ -295,8 +295,8 @@ function isStructured(item: OmpConfigItem): boolean {
 }
 
 /**
- * 控件窄到能放进格子（.st-cells 的半行）：开关、数字、分段 / 下拉、"编辑…"按钮（结构化编辑和 JSON 都是，摘要在格子里收窄）、
- * 凭据徽标。文本框、标签输入要整行。和下面 ConfigControl 的分派一一对应，改一处要看另一处。
+ * 控件窄到能放进格子（.st-cells 的一格）：开关、数字、分段 / 下拉、"编辑…"按钮（结构化编辑和 JSON 都是，摘要在格子里收窄）、
+ * 凭据徽标。文本框、标签输入要整行（高级页例外：全进格子，标签在上控件在下）。和下面 ConfigControl 的分派一一对应，改一处要看另一处。
  */
 export function fitsCell(item: OmpConfigItem): boolean {
   if (item.redacted) return true;
@@ -312,16 +312,6 @@ export function fitsCell(item: OmpConfigItem): boolean {
     case "array":
       return item.key === goalContinuationKey || isStructured(item) || (item.hasValue && !isStringArray(item.value));
   }
-}
-
-/**
- * 放进格子会把标签挤成一两个字一行的控件：三个以上选项的分段（约 280 宽，格子只有半行）。这样的项独占一行（和 `spanKeys` 一样）。
- * 下拉（选项更多）固定 200 宽，格子里还留得下标签，不在此列。
- */
-export function wideInCell(item: OmpConfigItem): boolean {
-  return (
-    item.type === "enum" && item.options !== null && item.options.length >= 3 && item.options.length <= maxSegments
-  );
 }
 
 /** 按 omp 给的类型选控件；凭据另外处理（ConfigRow）。 */

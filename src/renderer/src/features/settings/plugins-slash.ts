@@ -1,5 +1,5 @@
 // `/plugins`、`/marketplace`、`/reload-plugins`（studio 接管，不弹 omp 的 TSP 选择器）。
-// /plugins、/marketplace 打开设置 → 插件页；带参数时不悄悄丢掉用户写的话（和 /compact 一样报错，草稿放回输入框）。
+// /plugins、/marketplace 打开设置 → 集成与插件页；带参数时不悄悄丢掉用户写的话（和 /compact 一样报错，草稿放回输入框）。
 // /reload-plugins 在当前任务里重新加载（TaskCommand reloadPlugins，经任务自己的 omp 会话跑 `/reload-plugins`）。
 import { pushToast } from "../dialogs/index.ts";
 import { showView } from "../../store/index.ts";
@@ -7,7 +7,7 @@ import type { StudioSlashCommand } from "../composer/studio-slash.ts";
 
 const openPlugins = (args: string, t: Parameters<StudioSlashCommand["run"]>[2]) => {
   if (args !== "") throw new Error(t("slash.pluginsArgs"));
-  showView("settings", { section: "plugins" });
+  showView("settings", { section: "extensions" });
 };
 
 export const pluginsSlashCommands: readonly StudioSlashCommand[] = [

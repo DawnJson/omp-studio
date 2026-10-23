@@ -26,7 +26,7 @@ function fakeOmp(globalValues: Record<string, unknown>, projectValues: Record<st
 describe("给角色指定模型", () => {
   it("写全局，只换目标角色，其它角色原样保留", async () => {
     const omp = fakeOmp({ modelRoles: { smol: "openai/gpt-4.1-mini", task: "c/d:high" } }, {});
-    await writeModelRole(omp.deps, "default", model);
+    await writeModelRole(omp.deps, "default", model, null);
     expect(omp.writes).toEqual([
       { smol: "openai/gpt-4.1-mini", task: "c/d:high", default: "deepseek/deepseek-v4-flash" },
     ]);
@@ -37,14 +37,30 @@ describe("给角色指定模型", () => {
       { modelRoles: { default: "a/b" } },
       { modelRoleStorage: "project", modelRoles: { default: "x/y", plan: "p/q" } },
     );
-    await writeModelRole(omp.deps, "smol", model);
+    await writeModelRole(omp.deps, "smol", model, null);
     expect(omp.writes).toEqual([{ default: "a/b", smol: "deepseek/deepseek-v4-flash" }]);
   });
 
   it("去掉唯一的角色时 reset，而不是写一个空对象", async () => {
     const omp = fakeOmp({ modelRoles: { default: "deepseek/deepseek-v4-pro" } }, {});
-    await writeModelRole(omp.deps, "default", null);
+    await writeModelRole(omp.deps, "default", null, null);
     expect(omp.writes).toEqual([null]);
+  });
+
+  it("带思考强度写成 provider/model:level；换成不带强度的就去掉后缀", async () => {
+    const omp = fakeOmp({ modelRoles: { default: "deepseek/deepseek-v4-flash:high" } }, {});
+    await writeModelRole(omp.deps, "default", model, "xhigh");
+    await writeModelRole(omp.deps, "default", model, null);
+    expect(omp.writes).toEqual([
+      { default: "deepseek/deepseek-v4-flash:xhigh" },
+      { default: "deepseek/deepseek-v4-flash" },
+    ]);
+  });
+
+  it("模型 id 自己带冒号时，强度接在最后", async () => {
+    const omp = fakeOmp({}, {});
+    await writeModelRole(omp.deps, "smol", { provider: "openrouter", modelId: "meta/llama:free" }, "low");
+    expect(omp.writes).toEqual([{ smol: "openrouter/meta/llama:free:low" }]);
   });
 });
 

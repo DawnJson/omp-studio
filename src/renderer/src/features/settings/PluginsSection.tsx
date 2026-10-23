@@ -1,4 +1,4 @@
-// 设置 → 插件（spec §4.19）：已装插件（启停、功能、设置、升级、卸载）、市场（来源、浏览、安装）、诊断。
+// 设置 → 集成与插件的插件部分（spec §4.19）：已装插件（启停、功能、设置、升级、卸载）、市场（来源、浏览、安装）、诊断。
 // 数据和动作都经 `omp plugin …`（docs/architecture/plugins.md）；改动后提示"在运行中的任务里重新加载"。
 import { useEffect, useId, useMemo } from "react";
 import type { ProjectId } from "../../../../shared/ipc.ts";
@@ -10,7 +10,6 @@ import { describeError } from "../../ui/errors.ts";
 import { Select } from "../../ui/Select.tsx";
 import { useProjects } from "../sidebar/projects-store.ts";
 import { MarketplacesCard } from "./MarketplacesCard.tsx";
-import { PageHeadActions } from "./PageHeadActions.tsx";
 import { PluginRow } from "./PluginRow.tsx";
 import {
   dismissReload,
@@ -62,7 +61,7 @@ export function PluginsSection() {
 
   return (
     <>
-      <PageHeadActions>
+      <div className="pl-scope">
         <span id={scopeLabel} className="pl-scope-label">
           {t("plugins.scope")}
         </span>
@@ -75,7 +74,7 @@ export function PluginsSection() {
           onChange={(next) => setPluginProject(next === "user" ? null : (next as ProjectId))}
           testId="plugins-scope"
         />
-      </PageHeadActions>
+      </div>
       <p className="pl-note">{t("plugins.intro")}</p>
 
       {state.reloadPending && (

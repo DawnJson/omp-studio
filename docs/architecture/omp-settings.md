@@ -19,7 +19,7 @@
 
 ## 界面
 
-- 导航只有一列（3.2 起占侧栏的位置：进设置时 App.tsx 在侧栏位置渲染 `SettingsNav`，顶上 `‹ 返回任务 Esc`、搜索全部设置、10 节；窗口窄到侧栏变抽屉、或侧栏被收起时，导航改成内容顶上的一个节下拉 + 搜索框 `SettingsCompactNav`；当前节和搜索词在 `ui-store` 的 `settingsPage` / `settingsQuery`，内容从 x≈281 开始、最宽 880 左对齐），不分"omp-studio 的 / omp 的"（仓库所有者 2026-10-19 定；omp 的设置和终端共用，就是 omp-studio 的设置）：通用、模型、Provider 与订阅、工具与权限、Context 与记忆、Subagent 与规划、集成、插件、高级、关于，10 节固定（`SettingsNav.tsx` 的 `settingsPages`；2026-10-22 仓库所有者定，原来按 omp 分组自动出节，共 13 节）。**各节只放常用项**——有人话标签的键（`ompcfg` 字典里有 `<key>.label` 的，`config-meta.ts` 的 `commonItems`，按字典顺序），和管理卡片同页：模型 = 默认模型 / 思考强度 + "模型与 reasoning"组的常用项（`defaultThinkingLevel` 上面已有控件，不再重复一行，`useCommonConfigItems` 的 `omit`）；通用的"任务运行中"卡 = studio 的 Enter 行为 + "对话行为"组的常用项；工具与权限、Context 与记忆、Subagent 与规划 = 各自组的常用项。**其余全部在"高级"**（`AdvancedConfig`）：每个 omp-studio 分组一个小标题，组内按 key 第一段折叠成小组（`prefixGroups`，只有一项的前缀并进末尾的"其他"），默认收起；常用项不在高级里重复。搜索覆盖全部可见项。主进程自己改了设置（启动时 `goal.continuationModes` 的默认值）会发 `ompConfigChanged`，打开着的设置页静默重读。分组按用户要做的事分，不照搬 omp 的 tab（那是按终端菜单分的）；分组规则在 `src/shared/ui/config-groups.ts`（`test/config-groups.test.ts`）。rpc-ui 下没有作用的项隐藏（见下节），搜索也不找它们；顶部搜索框按 key、omp 英文描述、中英文标签和说明过滤（多个词要全部命中），`Ctrl F` 聚焦，`Esc` 先清搜索。
+- 导航只有一列（3.2 起占侧栏的位置：进设置时 App.tsx 在侧栏位置渲染 `SettingsNav`，顶上 `‹ 返回任务 Esc`、搜索全部设置、9 节；窗口窄到侧栏变抽屉、或侧栏被收起时，导航改成内容顶上的一个节下拉 + 搜索框 `SettingsCompactNav`；当前节和搜索词在 `ui-store` 的 `settingsPage` / `settingsQuery`，内容从 x≈281 开始、最宽 880 左对齐），不分"omp-studio 的 / omp 的"（仓库所有者 2026-10-19 定；omp 的设置和终端共用，就是 omp-studio 的设置）：通用、模型、Provider 与订阅、工具与权限、Context 与记忆、Subagent 与规划、集成与插件（`extensions`，2026-10-23 由原来的集成、插件两节合并，旧节名不留别名）、高级、关于，9 节固定（`SettingsNav.tsx` 的 `settingsPages`；2026-10-22 仓库所有者定，原来按 omp 分组自动出节，共 13 节）。**各节只放常用项**——有人话标签的键（`ompcfg` 字典里有 `<key>.label` 的，`config-meta.ts` 的 `commonItems`，按字典顺序），和管理卡片同页：模型 = 默认模型 / 思考强度 + "模型与 reasoning"组的常用项（`defaultThinkingLevel` 上面已有控件，不再重复一行，`useCommonConfigItems` 的 `omit`）；通用的"任务运行中"卡 = studio 的 Enter 行为 + "对话行为"组的常用项；工具与权限、Context 与记忆、Subagent 与规划 = 各自组的常用项。**其余全部在"高级"**（`AdvancedConfig`）：每个 omp-studio 分组一个小标题，组内按 key 第一段折叠成小组（`prefixGroups`，只有一项的前缀并进末尾的"其他"），默认收起；常用项不在高级里重复。搜索覆盖全部可见项。主进程自己改了设置（启动时 `goal.continuationModes` 的默认值）会发 `ompConfigChanged`，打开着的设置页静默重读。分组按用户要做的事分，不照搬 omp 的 tab（那是按终端菜单分的）；分组规则在 `src/shared/ui/config-groups.ts`（`test/config-groups.test.ts`）。rpc-ui 下没有作用的项隐藏（见下节），搜索也不找它们；顶部搜索框按 key、omp 英文描述、中英文标签和说明过滤（多个词要全部命中），`Ctrl F` 聚焦，`Esc` 先清搜索。
 - 每项是一个 `ui/Row`（最小 40 高，标签列 200，控件一律 sm 28）：标签 + ⓘ（描述、key、"omp 原文"标记都在悬停/聚焦/点击出现的说明里，紧贴标签文字），控件后面是保存反馈、被覆盖的徽标；改过的值（和 omp 默认不同）左侧一道强调色竖线 + 控件后一个"恢复默认"图标（悬停提示写出默认值）。搜索命中的是描述时，才在控件下面显示那一句。保存或校验出错时才多一行。没有人话标签的项显示 key（等宽、不截断）。
 - 控件（`ConfigControls.tsx`，两种语言一致、只看个数不看宽度）：boolean → 开关；enum ≤4 个值 → 分段，更多 → 下拉（有人话标签的常用项显示翻译后的取值，其余原样显示 omp 的取值并用等宽字）；number → 112 宽数字框，单位从 key 末段后缀推（`Ms` → ms、`Seconds` → 秒 / s、`Percent` → %），标签里不再写单位；omp 说明里写了 -1 / 0 含义的四个键（`compaction.thresholdPercent`、`compaction.thresholdTokens`、`task.maxRuntimeMs`、`retry.maxDelayMs`，`config-meta.ts` 的 `numberSpecials`）在框里显示成占位文字（`ompcfg` 的 `<key>.special`），清空输入 = 存回特殊值，没有说明的键照原值；string → 文本框；字符串数组 → 标签输入（`TagInput.tsx`，增删立即存）；对象和其余 JSON → "编辑…"按钮 + 等宽摘要，点开 `ui/Dialog` 里编辑并校验（解析失败、类型不对就地报错、不能保存）。文本和数字停手 700 ms、失焦或 Enter 保存；开关、选择、标签增删立即保存。
 - **`goal.continuationModes` 画成开关「目标自动推进」**（`ConfigControls.tsx`，`ompcfg` 里有标签和说明，所以也在“常用”里）：开 ⇔ 列表里有 `"rpc"`；切换时只增减 `"rpc"`，别的条目保留（`src/shared/ui/goal-continuation.ts`，`test/goal-continuation.test.ts`），写的就是上面那条 `omp config set`，不另存副本、不用 `--config` 覆盖，所以终端里的 omp 看到同一份值，反过来也一样。omp-studio 启动时若发现它没被用户明确设置过，会加上 `"rpc"` 一次（默认允许，细节和“怎么分辨设过”见 `conversation.md` 目标一节）。终端版 omp 只看 `"interactive"`，不受影响。
@@ -33,6 +33,7 @@
 - 导航顶上有"返回任务"（Esc 也回去，Ctrl+F 聚焦搜索）；滚动用共用的 `OverlayScrollbar`；页头右侧有一个槽（`PageHeadActions.tsx`），各节用它放范围下拉、"连接提供商…"这类 sm 控件。
 - `modelRoles`、`retry.fallbackChains` 用结构化编辑（`StructuredEditors.tsx`），行上同样是"编辑…"按钮 + 摘要（角色名 / 回退链条数），对话框里：角色一行一个、模型用下拉选（候选按角色或备用链 key 能用的模型类别筛，和设置 → 模型的角色表同一份，见 `login.md`「角色和备用模型的候选」；列表里没有的值原样保留）、回退链可增删和上下移，每次改动立即保存；值的形状不符时退回 JSON 对话框。
 - `getDefaultModel()` / `defaultModel` 事件：服务进程 `get_state` 读新任务实际会用的模型和思考强度；改了 modelRoles、defaultThinkingLevel 等之后约 0.7 秒重读并推事件（`src/main/service/default-model.ts`）。
+- **角色值的格式与"选了模型前缀消失"（2026-10-23 实测，omp 18.x，临时 `PI_CODING_AGENT_DIR`）**：`omp config set modelRoles '{"default":"anthropic/claude-opus-5-5:xhigh","smol":"anthropic/claude-haiku-4-5"}'` 之后 `omp config get modelRoles` 和 config.yml 原样是 `provider/model-id[:档位]`。原先的现象有两个独立原因：①显示——值能在模型目录里匹配上（`provider/id`）时下拉触发器显示模型显示名（`Claude Opus 5.5`，没有 provider），匹配不上（带 `:xhigh` 后缀，选择器不等于目录项）时退回原文；②**写入真的丢档位**——`writeModelRole` 原来一律写 `provider/modelId`，在设置里给已有 `:xhigh` 的角色换模型会把后缀丢掉（provider 前缀没丢）。现在 `setModelRole(role, model, thinking)` 带档位写（`omp-config/model-defaults.ts`，`test/model-defaults.test.ts`），拆 / 拼在 `shared/ui/role-value.ts`（`test/role-value.test.ts`）；设置 → 模型的角色格里主模型下拉始终显示 `provider/模型 id`，档位是同格里单独一个下拉（见 spec §4.19）。模型选择对话框里给角色"应用"仍只写模型、不带档位。
 
 ## rpc-ui 下的逐项核对（2026-10-18，omp 18.12.1，555 项）
 
@@ -122,7 +123,7 @@
 
 ## 集成卡片：MCP、SSH、可用工具、记忆、更新日志（S5，omp 18.12.5 实测）
 
-斜杠命令 `/mcp /ssh /tools /memory /changelog` 由 studio 接管（`tsp:"studio"`），界面是设置页对应节里的卡片（集成 = MCP + SSH，工具与权限 = 可用工具，Context 与记忆 = 记忆，关于 = 更新日志里 omp 那一项，只取最新一节；spec §4.19「集成卡片」）。代码：`src/renderer/src/features/settings/{McpCard,McpForm,SshCard,SshForm,ToolsCard,MemoryCard,Changelog,ScopePicker}.tsx`；解析器 `src/shared/omp-output/{mcp,ssh,tools,changelog}.ts`；SSH 的主进程 `src/main/integrations/ssh.ts` + `src/main/ipc/integrations-handlers.ts`；MCP / 记忆 / 工具 / 更新日志走 S0 的 `runBuiltin`（用户范围 = 服务进程，项目范围 = 项目目录里的短命 rpc-ui）。文本格式不是 omp 的契约：解析不了的行原样显示，omp 的话原样给用户，不吞。以下都是临时 `PI_CODING_AGENT_DIR` + `--mode rpc-ui --no-session`（或 CLI）实测，2026-10-21。
+斜杠命令 `/mcp /ssh /tools /memory /changelog` 由 studio 接管（`tsp:"studio"`），界面是设置页对应节里的卡片（集成与插件 = MCP + SSH + 插件与市场，工具与权限 = 可用工具，Context 与记忆 = 记忆，关于 = 更新日志里 omp 那一项，只取最新一节；spec §4.19「集成卡片」）。代码：`src/renderer/src/features/settings/{McpCard,McpForm,SshCard,SshForm,ToolsCard,MemoryCard,Changelog,ScopePicker}.tsx`；解析器 `src/shared/omp-output/{mcp,ssh,tools,changelog}.ts`；SSH 的主进程 `src/main/integrations/ssh.ts` + `src/main/ipc/integrations-handlers.ts`；MCP / 记忆 / 工具 / 更新日志走 S0 的 `runBuiltin`（用户范围 = 服务进程，项目范围 = 项目目录里的短命 rpc-ui）。文本格式不是 omp 的契约：解析不了的行原样显示，omp 的话原样给用户，不吞。以下都是临时 `PI_CODING_AGENT_DIR` + `--mode rpc-ui --no-session`（或 CLI）实测，2026-10-21。
 
 ### `/mcp`（rpc-ui 的 `command_output`，全部 `agentInvoked:false`，不调模型）
 
@@ -142,6 +143,14 @@
 ### `/tools`
 
 每行 `* 名` 已启用、`- 名` 可用但当前没启用（如 `ast_edit`、`lsp`、`debug`）、`~ xd://…` xd 设备。把 `bash.enabled` 设成 false 后，**`bash` 从列表里整行消失**（不是变成 `-`）；把 `lsp.enabled` 设成 true 没有改变 `- lsp`（还需别的条件）。运行中改 config.yml，下一次 `/tools` 就反映。所以工具卡片的开关是 `<工具>.enabled` 设置项本身（`ast_edit` → `astEdit.enabled`，`web_search` → `web_search.enabled`，`toolConfigKey` 两种写法都试），关掉后行保留、点刷新才重读。列表是服务进程（无项目）的全局结果。
+
+**为什么有些行没有开关（2026-10-23 实测，omp 18.12.6，rpc-ui 发 `/tools`；仓库所有者本机和"空 `PI_CODING_AGENT_DIR` + 空 HOME"两边对比）**：不是本地配置的问题，也不是 studio 坏了。
+
+- 空目录的输出里同样有 `- ast_edit`、`- debug`、`- lsp`、`- goal`、`- init_experiment`、`- run_experiment`、`- log_experiment`、`- update_notes` 和 `~ xd://ast_edit`、`~ xd://debug`、`~ xd://lsp`；仓库所有者本机多出来的只有 `- mcp__pro_image_*`、`- mcp__tavily_*` 和对应的 `~ xd://mcp__*`，来自他 `mcp.json` 里的两台 MCP 服务器。
+- `- 名` 且同名有 `~ xd://名`（ast_edit、debug、lsp、`mcp__*`）：`tools.xdev` 默认 `true`（settings.md），可发现的工具挂在 `xd://` 设备下按需调用，不在顶层工具列表里，所以 `-`；工具本身是可用的（omp 文档 mcp-runtime-lifecycle.md：MCP 工具连上后立即启用，只是呈现为 `xd://` 设备）。`ast_edit` / `debug` / `lsp` 有 `astEdit.enabled` / `debug.enabled` / `lsp.enabled`，所以有开关；`mcp__*` 没有任何按工具的设置项，omp 只能按服务器启停（`mcp.json` 的 `enabled`、`disabledServers`，即设置页 MCP 卡片的开关）。
+- `- 名` 且没有设备（init_experiment、run_experiment、log_experiment、update_notes 是 autoresearch 的实验工具，session.md 里有 `autoresearch-control` 记录说明它由 `/autoresearch` 模式开关；goal 对应 `/goal`）：当前会话没启用，由模式或命令启用，没有 `<工具>.enabled`（`omp config list` 里没有 experiment 相关键）。`goal.enabled` 有，所以 goal 有开关。
+- `~ xd://名`：同一个工具的设备入口，不是单独的工具；整体收起用 `tools.xdev`（关掉后工具直接放进模型的工具列表）。
+- 结论：omp 本身不支持按单个 MCP 工具 / 实验工具 / 设备开关，所以 studio 不做开关，改成在徽标 tooltip 里写原因和去哪里改（`ToolsCard.tsx`，`toolKind`）。
 
 ### `/memory`
 

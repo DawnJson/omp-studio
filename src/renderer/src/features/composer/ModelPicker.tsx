@@ -19,6 +19,7 @@ import { reportError } from "../../ui/errors.ts";
 import { showView } from "../../store/index.ts";
 import { ModelDetails } from "./ModelDetails.tsx";
 import { RoleIcon } from "./RoleIcon.tsx";
+import { keepRoleLevel } from "../../../../shared/ui/role-value.ts";
 import { saveOmpModelRole } from "../settings/config-store.ts";
 import {
   filterRoles,
@@ -286,7 +287,11 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
       JSON.stringify([option.key, ...readRecent().filter((key) => !sameModel(key, option.key))].slice(0, 3)),
     );
     if (roleTab !== null) {
-      saveOmpModelRole(roleTab, option.key).catch(report);
+      // 档位以写入时的全局值为准（打开时读的角色表可能还没到，项目里的值也可能盖着全局的）。
+      window.studio
+        .getModelRoles(null)
+        .then((global) => saveOmpModelRole(roleTab, option.key, keepRoleLevel(global[roleTab] ?? null, option)))
+        .catch(report);
       return;
     }
     const switching = activeModel === null || !sameModel(option.key, activeModel.key);

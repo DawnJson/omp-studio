@@ -7,30 +7,32 @@ import { SectionHead } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { groupConfigItems } from "../../../../shared/ui/config-groups.ts";
 import { prefixTitle } from "../../../../shared/ui/config-labels.ts";
-import { fitsCell, wideInCell } from "./ConfigControls.tsx";
+import { fitsCell } from "./ConfigControls.tsx";
 import { ConfigRow } from "./ConfigRow.tsx";
-import { advancedGroups, commonBlocks, groupTitle, spanKeys, type CommonBlockId } from "./config-meta.ts";
+import { advancedGroups, commonBlocks, groupTitle, type CommonBlockId } from "./config-meta.ts";
 
 /**
- * 一组设置的排法（spec §4.19 格子排法）：控件窄的两列排（按顺序逐行填，spanKeys 独占一行），
- * 文本框、标签输入、JSON 整行排在后面。
+ * 一组设置的排法（spec §4.19 格子排法）：按顺序逐行填进格子，列数随宽度（settings.css 的 .st-cells）。
+ * 各节页面上：控件窄的进格子，文本框、标签输入、JSON 整行排在后面；`allCells`（高级页）：全部进格子，保持 omp 的顺序。
  */
-function ConfigGrid({ items, keyPrefix = "" }: { items: readonly OmpConfigItem[]; keyPrefix?: string }) {
-  const cells = items.filter(fitsCell);
-  const rows = items.filter((item) => !fitsCell(item));
+function ConfigGrid({
+  items,
+  keyPrefix = "",
+  allCells = false,
+}: {
+  items: readonly OmpConfigItem[];
+  keyPrefix?: string;
+  allCells?: boolean;
+}) {
+  const cells = allCells ? items : items.filter(fitsCell);
+  const rows = allCells ? [] : items.filter((item) => !fitsCell(item));
   return (
     <>
       {cells.length > 0 && (
-        <div className="st-cells" data-cols="2">
-          {cells.map((item) =>
-            spanKeys.has(item.key) || wideInCell(item) ? (
-              <div key={item.key} className="st-span">
-                <ConfigRow item={item} keyPrefix={keyPrefix} />
-              </div>
-            ) : (
-              <ConfigRow key={item.key} item={item} keyPrefix={keyPrefix} />
-            ),
-          )}
+        <div className="st-cells">
+          {cells.map((item) => (
+            <ConfigRow key={item.key} item={item} keyPrefix={keyPrefix} />
+          ))}
         </div>
       )}
       {rows.length > 0 && (
@@ -145,7 +147,7 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
                 (modified > 0 ? ` · ${t("settings.cfg.modifiedCount", { count: modified })}` : "")
               }
             />
-            <ConfigGrid items={bucket} keyPrefix={prefix} />
+            <ConfigGrid items={bucket} keyPrefix={prefix} allCells />
           </section>
         ))}
       </div>

@@ -95,17 +95,6 @@ export function ProvidersSection() {
 
       <CustomProviders />
 
-      {data !== null && groups.others.length > 0 && (
-        <>
-          <SectionHead
-            title={t("login.others")}
-            count={groups.others.length}
-            note={t("login.others.note", { count: groups.others.length })}
-            testId="providers-others"
-          />
-        </>
-      )}
-
       {dialog?.value.kind === "pick" && data !== null && (
         <ProviderPickDialog
           key={dialog.key}

@@ -1,5 +1,5 @@
 // 设置 → 关于 → 版本：omp-studio 一行（由 AboutSection 传进来）、omp 一行，下面是 omp 的路径，
-// 以及对应来源的更新方式（spec §4.19、§4.21）。两行内容宽（版本 + 说明 + 按钮），不排格子。
+// 以及对应来源的更新方式（spec §4.19、§4.21）。omp-studio 和 omp 两格并排（.st-pair：内容宽，标签在上、内容在下），路径等整行排在下面。
 //   自管：检查更新（omp-studio 自己请求构建服务）、加入用户 PATH；
 //   用户自装（拒绝了接管）：升级 = 对它执行 omp update；
 //   别人管理（如 Tern）：只提示去管理者那里更新，没有按钮。
@@ -43,7 +43,7 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
 
   if (status?.state !== "ready")
     return (
-      <div className="ui-rows st-rows">
+      <div className="st-cells st-pair">
         {studio}
         <Row label={t("settings.about.omp")}>{() => <span className="st-muted">{t("omp.finding")}</span>}</Row>
       </div>
@@ -95,7 +95,7 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
       {ready.belowMinimum && (
         <Notice tone="error">{t("omp.outdated", { current: ready.version, min: MIN_OMP_VERSION })}</Notice>
       )}
-      <div className="ui-rows st-rows">
+      <div className="st-cells st-pair">
         {studio}
         <Row
           label={t("settings.about.omp")}
@@ -140,6 +140,8 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
             </>
           )}
         </Row>
+      </div>
+      <div className="ui-rows st-rows">
         <Row label={t("omp.path")}>
           {() => (
             <span className="st-mono st-path" title={ready.path} data-testid="omp-path">

@@ -42,9 +42,6 @@ export const login = {
   "connect.desc": "Search by name, then sign in or enter an API key.",
   connected: "Connected",
   "connected.empty": "No providers connected yet. Use “Connect provider…” to start.",
-  "others.note":
-    "Not connected. Use “Connect provider…” to search by name, then sign in or enter a key. All {count} aren't listed here.",
-  others: "Other providers",
   "badge.signedIn": "Signed in",
   "badge.env": "Env var or config",
   "kind.oauth": "OAuth sign-in",

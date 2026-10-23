@@ -2,6 +2,7 @@
 // 这里只管"形状"：类型、长度、枚举。"id 是否存在"这类状态校验在各 handler 里做。
 import type { IpcMainInvokeEvent } from "electron";
 import {
+  fontScaleSteps,
   limits,
   type LocalePreference,
   type ModelKey,
@@ -98,6 +99,12 @@ export function parseLocalePreference(value: unknown): LocalePreference {
 
 export function parseThemePreference(value: unknown): ThemePreference {
   return parseOneOf(value, "theme", ["system", "light", "dark"]);
+}
+
+export function parseFontScale(value: unknown): number {
+  const step = fontScaleSteps.find((candidate) => candidate === value);
+  if (step === undefined) throw new IpcValidationError(`fontScale 必须是 ${fontScaleSteps.join(" | ")} 之一`);
+  return step;
 }
 
 export function parseThinkingLevel(value: unknown): ThinkingLevel {

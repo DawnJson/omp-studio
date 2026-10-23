@@ -20,8 +20,8 @@ function row(name: string, descKey: MessageKey, section: SettingsSection): Studi
 }
 
 export const integrationsSlashCommands: readonly StudioSlashCommand[] = [
-  row("mcp", "integrations.slash.mcp", "integrations"),
-  row("ssh", "integrations.slash.ssh", "integrations"),
+  row("mcp", "integrations.slash.mcp", "extensions"),
+  row("ssh", "integrations.slash.ssh", "extensions"),
   row("tools", "integrations.slash.tools", "tools"),
   row("memory", "integrations.slash.memory", "context"),
   row("changelog", "integrations.slash.changelog", "about"),

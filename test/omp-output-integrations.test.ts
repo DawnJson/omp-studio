@@ -4,7 +4,7 @@ import { builtinCommandText, parseBuiltinCommand } from "../src/shared/omp-outpu
 import { splitChangelog } from "../src/shared/omp-output/changelog.ts";
 import { isManageableMcpName, mcpOutcome, parseMcpList, parseMcpTest } from "../src/shared/omp-output/mcp.ts";
 import { parseSshList, sshWriteResult } from "../src/shared/omp-output/ssh.ts";
-import { parseTools, toolConfigKey } from "../src/shared/omp-output/tools.ts";
+import { deviceToolNames, parseTools, toolConfigKey, toolKind } from "../src/shared/omp-output/tools.ts";
 
 describe("parseMcpList（/mcp list）", () => {
   it("空列表", () => {
@@ -147,6 +147,22 @@ describe("parseTools（/tools）", () => {
 
   it("认不出的行放进 unparsed", () => {
     expect(parseTools("* read\n?? what").unparsed).toEqual(["?? what"]);
+  });
+
+  it("`-` 行：有同名 xd 设备的是按需调用（MCP 工具单独一类），没有的是被模式启用的未启用工具", () => {
+    const { tools } = parseTools(
+      "* read\n- ast_edit\n- init_experiment\n- mcp__tavily_search\n~ xd://ast_edit\n~ xd://mcp__tavily_search",
+    );
+    const devices = deviceToolNames(tools);
+    const kinds = Object.fromEntries(tools.map((tool) => [tool.name, toolKind(tool, devices)]));
+    expect(kinds).toEqual({
+      read: "enabled",
+      ast_edit: "mounted",
+      init_experiment: "inactive",
+      mcp__tavily_search: "mountedMcp",
+      "xd://ast_edit": "device",
+      "xd://mcp__tavily_search": "device",
+    });
   });
 
   it("工具名 → 设置项：snake 和 camel 两种写法都试，快照里没有就没有开关", () => {

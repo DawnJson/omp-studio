@@ -123,6 +123,8 @@ export interface PreviewFile {
 export type Locale = "zh-CN" | "en";
 export type LocalePreference = Locale | "system";
 export type ThemePreference = "system" | "light" | "dark";
+/** 字号档位（页面缩放百分比）：设置页的分段控件和主进程校验共用。 */
+export const fontScaleSteps = [90, 100, 110, 125, 150] as const;
 /** omp 的 tools.approvalMode（omp 文档 approval-mode.md）。只存在 omp 的配置里，omp-studio 不另存、启动时不传 --approval-mode。 */
 export type ApprovalMode = "always-ask" | "always-ask-cached" | "write" | "yolo";
 
@@ -206,6 +208,8 @@ export interface StudioSettings {
   soundOnDone: boolean;
   /** 在对话等处用鼠标选中文字后自动复制到剪贴板（输入框、终端除外）。默认开。 */
   copyOnSelect: boolean;
+  /** 整个软件的字号 = 页面缩放百分比（fontScaleSteps 之一），默认 100。 */
+  fontScale: number;
   /** 用户确认过"全自动"。 */
   yoloConfirmed: boolean;
 }
@@ -949,6 +953,8 @@ export interface StudioInvokeApi {
   getSettings(): Promise<StudioSettings>;
   setLocale(preference: LocalePreference): Promise<void>;
   setTheme(preference: ThemePreference): Promise<void>;
+  /** 整个软件的字号（缩放百分比，fontScaleSteps 之一）：主进程 webContents.setZoomFactor。 */
+  setFontScale(percent: number): Promise<void>;
   /** 用系统浏览器打开链接；只接受 http/https。 */
   openExternal(url: string): Promise<void>;
   /** 在资源管理器里打开 userData/logs。 */
@@ -1267,8 +1273,11 @@ export interface StudioInvokeApi {
   getModelRoles(projectId: ProjectId | null): Promise<Record<string, string>>;
   /** 项目目录里生效的审批模式和来源；projectId 为 null 时只看全局配置。 */
   getApprovalMode(projectId: ProjectId | null): Promise<ApprovalModeInfo>;
-  /** 给某个角色（default、smol、task…）指定模型（null = 去掉）；default 即新任务的默认模型。一律写全局（`omp config set modelRoles`）。 */
-  setModelRole(role: string, model: ModelKey | null): Promise<void>;
+  /**
+   * 给某个角色（default、smol、task…）指定模型和思考强度（null = 不带强度后缀）；model 为 null = 去掉角色；default 即新任务的默认模型。
+   * 一律写全局（`omp config set modelRoles`，值是 `provider/model[:thinking]`）。
+   */
+  setModelRole(role: string, model: ModelKey | null, thinking: string | null): Promise<void>;
   /** 模型选择对话框右栏的速度、智能分和压缩设置；只读 omp 的 agent.db / models.db / `omp config list`。 */
   getModelInsights(projectId: ProjectId | null, keys: ModelKey[]): Promise<ModelInsights>;
   /** 转发给 omp 的键位：默认键位加 `<agent 目录>/keybindings.yml` 的覆盖（只读），已去掉 studio 占用的键。 */
@@ -1428,6 +1437,7 @@ export const invokeNames = {
   getSettings: true,
   setLocale: true,
   setTheme: true,
+  setFontScale: true,
   openExternal: true,
   openLogsFolder: true,
   exportDiagnostics: true,

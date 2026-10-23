@@ -40,21 +40,35 @@ test("提供商与账号：再次进入时立即显示上次的结果，不再�
     const { page } = launched;
     await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("settings-nav-providers").click();
-    // 没连接的提供商不铺开：页面上只有"其他提供商"一个带计数的小节。
-    const others = page.getByTestId("providers-others");
-    await expect(others).toBeVisible({ timeout: 30_000 });
-    const firstCount = await others.locator(".ui-count").innerText();
-    expect(Number(firstCount)).toBeGreaterThan(0);
+    // 左下角的版本号在导航里水平居中（文字的中线对齐导航的中线）。
+    const versionOffset = await page.getByTestId("settings-nav-version").evaluate((element) => {
+      type R = { left: number; right: number };
+      const doc = (
+        globalThis as unknown as {
+          document: { createRange(): { selectNodeContents(n: unknown): void; getBoundingClientRect(): R } };
+        }
+      ).document;
+      const range = doc.createRange();
+      range.selectNodeContents(element);
+      const text = range.getBoundingClientRect();
+      const box = (element as unknown as { getBoundingClientRect(): R }).getBoundingClientRect();
+      return Math.abs((text.left + text.right) / 2 - (box.left + box.right) / 2);
+    });
+    expect(versionOffset).toBeLessThan(2);
+    // 没连接的提供商不铺开，也没有"其他提供商"小节：入口只有页头的"连接提供商…"。
+    const connect = page.getByTestId("providers-connect");
+    await expect(connect).toBeEnabled({ timeout: 30_000 });
+    await expect(page.getByTestId("providers-others")).toHaveCount(0);
+    await expect(page.getByText("其他 provider")).toHaveCount(0);
 
     await page.getByTestId("settings-nav-general").click();
     await page.getByTestId("settings-nav-providers").click();
     // 点击后同一次渲染里就有内容：不等刷新、没有加载提示。
     await expect(page.getByText("正在读取模型…")).toHaveCount(0);
-    await expect(others).toBeVisible();
-    await expect(others.locator(".ui-count")).toHaveText(firstCount);
+    await expect(connect).toBeEnabled();
     // "连接提供商…"打开可搜索的对话框，能搜到并走到填 key 入口。对话框里只有没连接的提供商；
     // 哪些已连接取决于本机环境变量（如 DEEPSEEK_API_KEY），所以取列表里第一个能填 key 的，不写死名字。
-    await page.getByTestId("providers-connect").click();
+    await connect.click();
     const pick = page.getByTestId("provider-pick");
     const firstKey = pick.locator('[data-testid^="provider-key-"]').first();
     const id = ((await firstKey.getAttribute("data-testid")) ?? "").slice("provider-key-".length);
@@ -271,7 +285,14 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
   try {
     const { page } = launched;
     await setLocaleTheme(page, "en", "light");
-    await page.getByTestId("settings-nav-integrations").click({ timeout: 60_000 });
+    await expect(page.getByTestId("settings-nav-integrations")).toHaveCount(0);
+    await expect(page.getByTestId("settings-nav-plugins")).toHaveCount(0);
+    await page.getByTestId("settings-nav-extensions").click({ timeout: 60_000 });
+    // 集成与插件是一页：MCP、SSH、插件、市场都在这一页里。
+    await expect(page.getByTestId("mcp-empty")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("ssh-add")).toBeVisible();
+    await expect(page.getByTestId("plugins-installed")).toBeVisible();
+    await expect(page.getByTestId("marketplace-add-open")).toBeVisible();
 
     // ── MCP：本地命令（参数里有空格和单引号，靠 omp 的双引号切词存对）──
     await expect(page.getByTestId("mcp-empty")).toBeVisible({ timeout: 60_000 });
@@ -382,6 +403,11 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     // ── 可用工具：omp 的 /tools，read 一定在 ──
     await page.getByTestId("settings-nav-tools").click();
     await expect(page.getByTestId("tool-read")).toBeVisible({ timeout: 60_000 });
+    // 没有开关的行不显得像坏了：徽标的 tooltip 写明原因。init_experiment 由 omp 的模式启用、xd 设备是同一个工具的入口。
+    await expect(page.getByTestId("tool-switch-init_experiment")).toHaveCount(0);
+    await expect(page.getByTestId("tool-badge-init_experiment")).toHaveAttribute("title", /\/autoresearch/);
+    await expect(page.getByTestId("tool-badge-xd://lsp")).toHaveAttribute("title", /tools\.xdev/);
+    await expect(page.getByTestId("tool-switch-lsp")).toBeVisible();
 
     // ── 记忆：卡片在，后端是同一页上面的常用设置项 ──
     await page.getByTestId("settings-nav-context").click();
@@ -429,7 +455,7 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
   try {
     const { page } = launched;
     await setLocaleTheme(page, "en", "light");
-    await page.getByTestId("settings-nav-plugins").click();
+    await page.getByTestId("settings-nav-extensions").click();
     await expect(page.getByTestId("plugins-empty")).toBeVisible({ timeout: 60_000 });
     await page.getByTestId("marketplace-add-open").click();
     await expect(page.getByTestId("marketplace-add")).toBeDisabled();

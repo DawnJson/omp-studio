@@ -153,10 +153,10 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
       },
     },
     // 插件、更新检查、快捷键清单在设置页里，直接定位到对应分节。
-    { id: "plugins", label: t("cmd.plugins"), run: () => showView("settings", { section: "plugins" }) },
+    { id: "plugins", label: t("cmd.plugins"), run: () => showView("settings", { section: "extensions" }) },
     // MCP / SSH / 可用工具 / 记忆 / omp 更新日志所在的设置分节。
-    { id: "mcp", label: t("integrations.cmd.mcp"), run: () => showView("settings", { section: "integrations" }) },
-    { id: "ssh", label: t("integrations.cmd.ssh"), run: () => showView("settings", { section: "integrations" }) },
+    { id: "mcp", label: t("integrations.cmd.mcp"), run: () => showView("settings", { section: "extensions" }) },
+    { id: "ssh", label: t("integrations.cmd.ssh"), run: () => showView("settings", { section: "extensions" }) },
     { id: "tools", label: t("integrations.cmd.tools"), run: () => showView("settings", { section: "tools" }) },
     { id: "memory", label: t("integrations.cmd.memory"), run: () => showView("settings", { section: "context" }) },
     { id: "changelog", label: t("integrations.cmd.changelog"), run: () => showView("settings", { section: "about" }) },

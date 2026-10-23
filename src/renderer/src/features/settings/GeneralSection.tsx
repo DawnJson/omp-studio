@@ -1,7 +1,7 @@
-// 设置 → 通用：外观（两两一行：语言、主题；减少动效、选中即复制）；通知与回顾（omp 的 ask / completion / error 通知、空闲回顾 + studio 的完成提示音）；
+// 设置 → 通用：外观（两两一行：语言、主题、字号；减少动效、选中即复制）；通知与回顾（omp 的 ask / completion / error 通知、空闲回顾 + studio 的完成提示音）；
 // 任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式，两两一行）；快捷键（只读，三列；studio 的键，加转发给 omp 的键）。格子排法见 settings.css 的 .st-cells。
 import { Fragment, useEffect } from "react";
-import type { LocalePreference, ThemePreference } from "../../../../shared/ipc.ts";
+import { fontScaleSteps, type LocalePreference, type ThemePreference } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { chordKeys } from "../../../../shared/tsp/omp-keybindings.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -80,6 +80,7 @@ export function GeneralSection() {
     { value: "light", label: t("settings.theme.light") },
     { value: "dark", label: t("settings.theme.dark") },
   ] as const;
+  const fontScaleOptions = fontScaleSteps.map((percent) => ({ value: `${percent}` as const, label: `${percent}%` }));
   const enterOptions = [
     { value: "steer", label: t("settings.enterBehavior.steer") },
     { value: "followUp", label: t("settings.enterBehavior.later") },
@@ -88,7 +89,7 @@ export function GeneralSection() {
   return (
     <>
       <SectionHead title={t("settings.appearance")} />
-      <div className="st-cells" data-cols="2">
+      <div className="st-cells">
         <Row label={t("settings.language")}>
           {(labelId) => (
             <Segmented<LocalePreference>
@@ -110,6 +111,18 @@ export function GeneralSection() {
               labelledBy={labelId}
               onChange={(next) => void window.studio.setTheme(next)}
               testId="setting-theme"
+            />
+          )}
+        </Row>
+        <Row label={t("settings.fontSize")} info={t("settings.fontSize.desc")}>
+          {(labelId) => (
+            <Segmented<`${number}`>
+              size="sm"
+              value={`${settings?.fontScale ?? 100}`}
+              options={fontScaleOptions}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setFontScale(Number(next))}
+              testId="setting-font-size"
             />
           )}
         </Row>
@@ -139,7 +152,7 @@ export function GeneralSection() {
         </Row>
       </div>
       <SectionHead title={t("settings.notifications")} />
-      <div className="st-cells" data-cols="2" data-testid="notify-settings">
+      <div className="st-cells" data-testid="notify-settings">
         {notifyItems.map((item) => (
           <ConfigRow key={item.key} item={item} />
         ))}
@@ -155,7 +168,7 @@ export function GeneralSection() {
         </Row>
       </div>
       <SectionHead title={t("settings.whileRunning")} />
-      <div className="st-cells" data-cols="2">
+      <div className="st-cells">
         <Row label={t("settings.enterBehavior")} info={t("settings.enterBehavior.desc")}>
           {(labelId) => (
             <Segmented<"steer" | "followUp">

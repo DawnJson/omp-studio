@@ -51,10 +51,13 @@ function PageContent({ page }: { page: SettingsPage }) {
       );
     case "agents":
       return <OmpConfigPane view={{ kind: "common", group: "agents" }} />;
-    case "integrations":
-      return <IntegrationsSection />;
-    case "plugins":
-      return <PluginsSection />;
+    case "extensions":
+      return (
+        <>
+          <IntegrationsSection />
+          <PluginsSection />
+        </>
+      );
     case "advanced":
       return <OmpConfigPane view={{ kind: "advanced" }} />;
     case "about":

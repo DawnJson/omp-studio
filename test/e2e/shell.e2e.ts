@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { launchApp, seedFakeSessions, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { expectNoOverflow, launchApp, seedFakeSessions, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 test("顶栏是任务条：标志+字标、切换侧栏按钮（没有关于按钮）；中段只有标题（不带项目名）；没有后退/前进按钮", async () => {
   const launched = await launchApp();
@@ -250,6 +250,116 @@ test("设置、侧栏折叠和窗口尺寸写入 userData，重启后恢复", as
     }
   } finally {
     await rm(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test("字号：设置里选一档立即整体缩放（含三键区高度），重启保持，快捷键/滚轮/重载都改不动", async () => {
+  const zoomFactor = (launched: LaunchedApp) =>
+    launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getZoomFactor());
+  // 页面里量：缩放后 devicePixelRatio 按比例变大，三键区（titlebar-area）仍恰好是 40 CSS px 高（主进程把三键区高度一起放大）。
+  const measure = (launched: LaunchedApp) =>
+    launched.page.evaluate(() => {
+      const browser = globalThis as unknown as {
+        devicePixelRatio: number;
+        navigator: { windowControlsOverlay?: { getTitlebarAreaRect(): { height: number } } };
+      };
+      return {
+        dpr: browser.devicePixelRatio,
+        titlebarArea: browser.navigator.windowControlsOverlay?.getTitlebarAreaRect().height ?? 0,
+      };
+    });
+  const first = await launchApp();
+  let second: LaunchedApp | undefined;
+  try {
+    await expect(first.page.getByTestId("topbar")).toBeVisible();
+    const base = await measure(first);
+    expect(await zoomFactor(first)).toBe(1);
+    expect(base.titlebarArea).toBe(40);
+
+    await first.page.keyboard.press("Control+,");
+    await expect(first.page.getByTestId("settings")).toBeVisible();
+    await first.page.getByTestId("settings-nav-general").click();
+    const option = first.page.getByTestId("setting-font-size").getByRole("radio", { name: "125%" });
+    await option.click();
+    await expect.poll(() => zoomFactor(first)).toBe(1.25);
+    await expect(option).toBeChecked();
+    const scaled = await measure(first);
+    expect(scaled.dpr / base.dpr).toBeCloseTo(1.25, 2);
+    expect(scaled.titlebarArea).toBe(40);
+
+    // Ctrl +/-、Ctrl+滚轮、重载都不改变档位。
+    await first.page.keyboard.press("Control+=");
+    await first.page.keyboard.press("Control+-");
+    await first.page.keyboard.down("Control");
+    await first.page.mouse.wheel(0, -300);
+    await first.page.keyboard.up("Control");
+    await first.page.reload();
+    await expect(first.page.getByTestId("app-root")).toBeAttached();
+    await expect.poll(() => zoomFactor(first)).toBe(1.25);
+    await first.app.close();
+
+    const stored = JSON.parse(await readFile(path.join(first.userDataDir, "settings.json"), "utf8")) as {
+      fontScale: number;
+    };
+    expect(stored.fontScale).toBe(125);
+
+    // 重启（同一个 userData）：还是 125%，三键区高度也跟着。
+    const next = await launchApp({ STUDIO_USER_DATA: first.userDataDir });
+    second = next;
+    await expect.poll(() => zoomFactor(next)).toBe(1.25);
+    await expect.poll(async () => (await measure(next)).titlebarArea).toBe(40);
+    expect((await measure(next)).dpr / base.dpr).toBeCloseTo(1.25, 2);
+  } finally {
+    await second?.close().catch(() => {});
+    await first.close();
+  }
+});
+
+test("字号最大档（150%）在 900 宽窗口下：主界面和设置页都不越界（中英文）", async () => {
+  const launched = await launchApp();
+  try {
+    const { page } = launched;
+    await page.evaluate(() => globalThis.studio.setFontScale(150));
+    await expect
+      .poll(() =>
+        launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getZoomFactor()),
+      )
+      .toBe(1.5);
+    await page.setViewportSize({ width: 900, height: 700 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(page.getByTestId("app-root"));
+    }
+    await page.keyboard.press("Control+,");
+    const settings = page.getByTestId("settings");
+    await expect(settings).toBeVisible();
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      // 150% 下窗口只剩 600 CSS px：设置导航可能是侧栏按钮，也可能收成下拉；两种都逐节走一遍。
+      const nav = page.getByTestId("settings-nav");
+      if (await nav.isVisible()) {
+        const items = nav.locator('button[data-testid^="settings-nav-"]');
+        const count = await items.count();
+        expect(count).toBeGreaterThan(3);
+        for (let index = 0; index < count; index++) {
+          await items.nth(index).click();
+          await expectNoOverflow(settings);
+        }
+      } else {
+        const select = page.getByTestId("settings-nav-select");
+        const options = page.getByTestId("settings-nav-select-list").getByRole("option");
+        await select.click();
+        const count = await options.count();
+        expect(count).toBeGreaterThan(3);
+        for (let index = 0; index < count; index++) {
+          if (index > 0) await select.click();
+          await options.nth(index).click();
+          await expectNoOverflow(settings);
+        }
+      }
+    }
+  } finally {
+    await launched.close();
   }
 });
 

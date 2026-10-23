@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { expectNoOverflow, launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 async function launchIsolated(
   extraEnv: Record<string, string> = {},
@@ -201,6 +201,94 @@ test("模型角色：结构化编辑，不用手写 JSON", async () => {
     await search(page, "fallbackChains");
     await page.getByTestId("cfg-retry.fallbackChains").getByRole("button", { name: "编辑…" }).click();
     await expect(page.getByTestId("chains-editor")).toBeVisible();
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
+async function rectOf(page: Page, testId: string): Promise<{ x: number; y: number; width: number; height: number }> {
+  const box = await page.getByTestId(testId).boundingBox();
+  if (box === null) throw new Error(`${testId} 没有排版框`);
+  return box;
+}
+
+test("设置页排版：内容随窗口变宽、格子多列（备用模型、记忆后端、高级、关于），窄窗口不越界", async () => {
+  const { launched, agentDir } = await launchIsolated();
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    const contentWidth = async () => (await page.locator(".settings-content").boundingBox())?.width ?? 0;
+    await page.getByTestId("settings-nav-models").click();
+    await expect(page.getByTestId("cfg-retry.fallbackOn")).toBeVisible({ timeout: 30_000 });
+
+    // 1200 宽：备用模型三项排成两行两列（同一行两个、第三个在第一个正下方）。
+    const narrowWidth = await contentWidth();
+    const first = await rectOf(page, "cfg-retry.modelFallback");
+    const second = await rectOf(page, "cfg-retry.fallbackOn");
+    const third = await rectOf(page, "cfg-retry.waitForUsageReset");
+    expect(Math.abs(second.y - first.y)).toBeLessThan(3);
+    expect(second.x).toBeGreaterThan(first.x + 100);
+    expect(third.y).toBeGreaterThan(first.y + 20);
+    expect(Math.abs(third.x - first.x)).toBeLessThan(3);
+
+    // 记忆后端：下拉和两个后端的设置都只占一格（不独占整行），同一行放得下两个。
+    await page.getByTestId("settings-nav-context").click();
+    await expect(page.getByTestId("cfg-memory.backend")).toBeVisible({ timeout: 30_000 });
+    const grid = await page
+      .locator(".st-cells")
+      .filter({ has: page.getByTestId("cfg-memory.backend") })
+      .boundingBox();
+    if (grid === null) throw new Error("记忆后端的格子没有排版框");
+    for (const key of ["memory.backend", "mnemopi.scoping", "hindsight.scoping"])
+      expect((await rectOf(page, `cfg-${key}`)).width).toBeLessThan(grid.width * 0.7);
+    const backend = await rectOf(page, "cfg-memory.backend");
+    const recall = await rectOf(page, "cfg-mnemopi.autoRecall");
+    expect(Math.abs(recall.y - backend.y)).toBeLessThan(3);
+    expect(recall.x).toBeGreaterThan(backend.x + 100);
+
+    // 关于：omp-studio 和 omp 两行版本并排。
+    await page.getByTestId("settings-nav-about").click();
+    await expect(page.getByTestId("omp-info")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("about-info")).toBeVisible();
+    const studio = await rectOf(page, "about-info");
+    const omp = await rectOf(page, "omp-info");
+    expect(Math.abs(omp.y - studio.y)).toBeLessThan(3);
+    expect(omp.x).toBeGreaterThan(studio.x + 100);
+
+    // 高级：右栏的项两列排。
+    await page.getByTestId("settings-nav-advanced").click();
+    await expect(page.locator(".st-adv-sub").first()).toBeVisible({ timeout: 30_000 });
+    await page.setViewportSize({ width: 1500, height: 900 });
+    const advRow = (index: number) => page.locator(".st-adv-sub").first().locator(".ui-row").nth(index).boundingBox();
+    const a = await advRow(0);
+    const b = await advRow(1);
+    if (a === null || b === null) throw new Error("高级页的行没有排版框");
+    expect(Math.abs(b.y - a.y)).toBeLessThan(3);
+    expect(b.x).toBeGreaterThan(a.x + 100);
+
+    // 宽窗口：内容区不再停在 1080，随窗口变宽。
+    await page.setViewportSize({ width: 1800, height: 900 });
+    await expect.poll(contentWidth).toBeGreaterThan(1080);
+    expect(await contentWidth()).toBeGreaterThan(narrowWidth + 400);
+    await page.getByTestId("settings-nav-models").click();
+    await expect(page.getByTestId("cfg-retry.fallbackOn")).toBeVisible();
+    const wideFirst = await rectOf(page, "cfg-retry.modelFallback");
+    const wideThird = await rectOf(page, "cfg-retry.waitForUsageReset");
+    expect(Math.abs(wideThird.y - wideFirst.y)).toBeLessThan(3); // 三列：三项同一行
+
+    // 窄窗口 900：中英文都不越界。
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      for (const section of ["models", "context", "agents", "advanced", "about"] as const) {
+        // 窄窗口里导航变成内容顶上的下拉：先在 1200 宽点进该节，再收窄。
+        await page.setViewportSize({ width: 1200, height: 800 });
+        await page.getByTestId(`settings-nav-${section}`).click();
+        await expect(page.locator(".ui-row").first()).toBeVisible({ timeout: 30_000 });
+        await page.setViewportSize({ width: 900, height: 800 });
+        await expectNoOverflow(page.locator(".settings-content"));
+      }
+    }
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

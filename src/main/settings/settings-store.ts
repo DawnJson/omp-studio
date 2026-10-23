@@ -6,6 +6,7 @@ import type { Locale, StudioSettings } from "../../shared/ipc.ts";
 import { emitEvent } from "../ipc/events.ts";
 import {
   parseBoolean,
+  parseFontScale,
   parseOneOf,
   parseLocalePreference,
   parseMaxLiveProcesses,
@@ -22,6 +23,7 @@ const defaults: StudioSettings = {
   enterWhileRunning: "steer",
   soundOnDone: false,
   copyOnSelect: true,
+  fontScale: 100,
   yoloConfirmed: false,
 };
 
@@ -58,6 +60,7 @@ function sanitize(raw: unknown): StudioSettings {
     ),
     soundOnDone: field((value) => parseBoolean(value, "soundOnDone"), record["soundOnDone"], defaults.soundOnDone),
     copyOnSelect: field((value) => parseBoolean(value, "copyOnSelect"), record["copyOnSelect"], defaults.copyOnSelect),
+    fontScale: field(parseFontScale, record["fontScale"], defaults.fontScale),
     yoloConfirmed: field(
       (value) => parseBoolean(value, "yoloConfirmed"),
       record["yoloConfirmed"],
@@ -81,6 +84,11 @@ const listeners: ((next: StudioSettings) => void)[] = [];
 /** 设置变化（每次 updateSettings 写盘之后）时调用；主进程里要跟着设置动的模块（TSP 会话的 motion 事件等）订阅。 */
 export function onSettingsChanged(listener: (next: StudioSettings) => void): void {
   listeners.push(listener);
+}
+
+export function offSettingsChanged(listener: (next: StudioSettings) => void): void {
+  const index = listeners.indexOf(listener);
+  if (index >= 0) listeners.splice(index, 1);
 }
 
 export function updateSettings(patch: Partial<StudioSettings>): void {

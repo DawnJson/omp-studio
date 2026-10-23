@@ -75,18 +75,18 @@ export const ompcfg = {
 
   "memory.backend.label": "记忆后端",
   "memory.backend.desc": "关闭、本地总结、Mnemopi（SQLite）、Hindsight（远程）或 Sharpshooter",
-  // Mnemopi 和 Hindsight 交替排：格子里左列是 Mnemopi、右列是 Hindsight。
+  // 后端自己的设置按后端挨着排（先 Mnemopi 再 Hindsight）：格子按列数逐行填，标签带后端名，看得出归属。
   "mnemopi.autoRecall.label": "Mnemopi：自动回忆",
   "mnemopi.autoRecall.desc": "每个会话的第一轮把本地记忆带进来",
-  "hindsight.autoRecall.label": "Hindsight：自动回忆",
-  "hindsight.autoRecall.desc": "每个会话的第一轮回忆记忆",
   "mnemopi.autoRetain.label": "Mnemopi：自动记住",
   "mnemopi.autoRetain.desc": "把完成的对话轮次存进本地记忆",
-  "hindsight.autoRetain.label": "Hindsight：自动记住",
-  "hindsight.autoRetain.desc": "每隔几轮和会话边界保存一次对话记录",
   "mnemopi.scoping.label": "Mnemopi：记忆范围",
   "mnemopi.scoping.desc":
     "global：共用一个库；per-project：每个目录一个库；per-project-tagged：写入项目库，回忆时能看到全局的",
+  "hindsight.autoRecall.label": "Hindsight：自动回忆",
+  "hindsight.autoRecall.desc": "每个会话的第一轮回忆记忆",
+  "hindsight.autoRetain.label": "Hindsight：自动记住",
+  "hindsight.autoRetain.desc": "每隔几轮和会话边界保存一次对话记录",
   "hindsight.scoping.label": "Hindsight：记忆范围",
   "hindsight.scoping.desc": "global：共用一个库；per-project：每个目录一个库；per-project-tagged：共用库加项目标签",
 

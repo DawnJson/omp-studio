@@ -39,8 +39,6 @@ export const login = {
   "connect.desc": "按名称搜索，选中后登录或填 API key。",
   connected: "已连接",
   "connected.empty": "还没有连接的 provider。点“连接 provider…”开始。",
-  others: "其他 provider",
-  "others.note": "还没连接。点“连接 provider…”按名称搜索，选中后登录或填 key；不在这里铺开 {count} 行。",
   "badge.signedIn": "已登录",
   "badge.env": "环境变量或配置",
   "kind.oauth": "OAuth 登录",

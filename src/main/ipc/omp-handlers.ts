@@ -231,11 +231,12 @@ export const ompHandlers: HandlerGroup<
     if (info.source === "global") recordApprovalMode(info.mode);
     return info;
   },
-  setModelRole: async (role, model) => {
+  setModelRole: async (role, model, thinking) => {
     await writeModelRole(
       modelDefaultsDeps,
       parseString(role, "role", 64),
       model === null ? null : parseModelKey(model),
+      thinking === null ? null : parseString(thinking, "thinking", 16),
     );
     onOmpConfigChanged("modelRoles");
   },

@@ -55,8 +55,17 @@ export const integrations = {
   "tools.title": "Available tools",
   "tools.enabled": "Enabled",
   "tools.device": "xd device",
+  "tools.device.tip":
+    "An xd:// device is another entry point to the same tool, which the model calls on demand. It is not a separate tool, so it has no switch. To drop every device, turn off the tools.xdev setting (tools are then listed directly to the model).",
+  "tools.mounted": "On demand",
+  "tools.mounted.tip":
+    "This tool is not in the default tool set. It is mounted under an xd:// device and the model calls it when needed; it is not turned off. It has no <tool>.enabled setting, so there is no switch.",
+  "tools.mounted.mcpTip":
+    "A tool provided by an MCP server. omp has no per-tool setting for MCP tools: to disable it, turn the whole MCP server off under Integrations & plugins above. It is mounted under an xd:// device and called on demand; it is not turned off.",
+  "tools.inactive.tip":
+    "This tool is not active in the current session: omp enables it on demand through a mode or command (e.g. the /autoresearch experiment tools, /goal). It has no <tool>.enabled setting, so there is no switch.",
   "tools.note":
-    "This is the global list omp sees without a project: tools from a project's plugins or MCP servers are not included. A tool's switch is the <tool>.enabled setting below; once turned off the tool disappears from omp's list, so the row stays here until you press Refresh.",
+    "This is the global list omp sees without a project: tools from a project's plugins or MCP servers are not included. Tools with a <tool>.enabled setting have a switch (the same setting as below); once turned off the tool disappears from omp's list, so the row stays here until you press Refresh. A row without a switch is not broken: hover its badge for the reason and where to change it.",
 
   "memory.title": "Memory",
   "memory.noProject": "Memory is kept per project. Open a project first to view and consolidate it.",

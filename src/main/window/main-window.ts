@@ -2,6 +2,7 @@
 import { app, BrowserWindow, nativeTheme, shell, systemPreferences } from "electron";
 import path from "node:path";
 import { appOrigin } from "./app-protocol.ts";
+import { getSettings, offSettingsChanged, onSettingsChanged } from "../settings/settings-store.ts";
 import { blockZoom } from "./security.ts";
 import { attachTaskbarWindow } from "./taskbar-progress.ts";
 import { restoredBounds, trackWindowState } from "./window-state.ts";
@@ -36,12 +37,21 @@ function overlayColors(dimmed: boolean): OverlayColors {
   return { color: parseHex(color), symbolColor: parseHex(symbolColor) };
 }
 
+/** 页面缩放后顶栏（--titlebar-h = 40 CSS px）占 40 × 缩放 个窗口像素，系统三键区的高度要一起放大，否则和顶栏对不齐。 */
 function applyOverlay(window: BrowserWindow, colors: OverlayColors): void {
   window.setTitleBarOverlay({
     color: formatHex(colors.color),
     symbolColor: formatHex(colors.symbolColor),
-    height: titleBarHeight,
+    height: Math.round((titleBarHeight * getSettings().fontScale) / 100),
   });
+}
+
+/** 把设置里的字号档位落到页面缩放，并让三键区高度跟上。幂等：每次页面加载完、缩放被改动、设置变化时都调用。 */
+function applyFontScale(window: BrowserWindow): void {
+  if (window.isDestroyed()) return;
+  const factor = getSettings().fontScale / 100;
+  if (window.webContents.getZoomFactor() !== factor) window.webContents.setZoomFactor(factor);
+  applyOverlay(window, shown ?? overlayColors(titleBarDimmed));
 }
 
 /**
@@ -199,6 +209,13 @@ export function createMainWindow(): BrowserWindow {
   window.webContents.on("did-start-navigation", (details) => {
     if (details.isMainFrame && !details.isSameDocument) setTitleBarDimmed(false);
   });
+  applyFontScale(window);
+  // 字号 = 整页缩放：重载/导航后 Chromium 会回到按源记的缩放，滚轮缩放（zoom-changed）也可能改动，统一拉回设置里的档位。
+  window.webContents.on("did-finish-load", () => applyFontScale(window));
+  window.webContents.on("zoom-changed", () => applyFontScale(window));
+  const onSettings = () => applyFontScale(window);
+  onSettingsChanged(onSettings);
+  window.once("closed", () => offSettingsChanged(onSettings));
   blockZoom(window.webContents);
   trackWindowState(window);
   if (restored.maximized) window.maximize();

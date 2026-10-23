@@ -3,7 +3,11 @@
 // 值就是 omp 自己的 modelRoles / retry.fallbackChains / defaultThinkingLevel（设计原则 7），和 omp 设置是同一份；
 // 改了就写全局（和模型选择对话框里给角色"应用"一样）。候选按角色能用的模型类别筛（role-options.ts）。
 import { useEffect, useId, type ReactNode } from "react";
+import type { TFunction } from "../../../../shared/i18n/index.ts";
+import type { ModelKey } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import { splitRoleValue } from "../../../../shared/ui/role-value.ts";
+import { thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
 import { Notice, type Option } from "../../ui/controls.tsx";
@@ -11,6 +15,7 @@ import { describeError, reportError } from "../../ui/errors.ts";
 import { InfoTip } from "../../ui/InfoTip.tsx";
 import { Select, type SelectOption } from "../../ui/Select.tsx";
 import { chatRoles, kindRoles, roleHintKey, roleKinds, roleLabel } from "../composer/model-groups.ts";
+import { thinkingLabel } from "../composer/thinking-levels.ts";
 import { useModelSources } from "./accounts-store.ts";
 import {
   ensureOmpConfigLoaded,
@@ -26,6 +31,7 @@ import {
   chainKinds,
   isChainRecord,
   isStringRecord,
+  selectorOf,
   sourcesReady,
   withCurrent,
   type ModelSources,
@@ -95,10 +101,30 @@ function RoleRow({
   const nameOf = (selector: string) =>
     fallbackCandidates.find((candidate) => candidate.value === selector)?.label ?? selector;
 
-  const saveModel = (value: string) => {
+  // 值是 `provider/model[:档位]`：下拉选的是前半（模型），档位单独一个下拉；两个一起写回。
+  const { selector, level } = current === null ? { selector: null, level: null } : splitRoleValue(current);
+  const keyOf = (value: string): ModelKey | null => {
     const picked = candidates.find((candidate) => candidate.value === value);
-    if (value !== unset && picked === undefined) return;
-    saveOmpModelRole(role, picked?.key ?? null).catch((error: unknown) => reportError(t, error));
+    if (picked !== undefined) return picked.key;
+    const slash = value.indexOf("/");
+    return slash > 0 ? { provider: value.slice(0, slash), modelId: value.slice(slash + 1) } : null;
+  };
+  const levelsOf = (value: string | null): ThinkingLevel[] =>
+    thinkingLevelOptions(sources.chat?.find((model) => selectorOf(model.key) === value) ?? null, []);
+
+  const write = (value: string, next: string | null) => {
+    const key = keyOf(value);
+    if (key === null) return;
+    saveOmpModelRole(role, key, next).catch((error: unknown) => reportError(t, error));
+  };
+  const saveModel = (value: string) => {
+    if (value === unset) {
+      saveOmpModelRole(role, null).catch((error: unknown) => reportError(t, error));
+      return;
+    }
+    if (candidates.find((candidate) => candidate.value === value) === undefined) return;
+    // 只换模型：档位新模型也支持就保留，否则去掉（omp 会自己钳，但不留一个新模型没有的档位）。
+    write(value, level !== null && (levelsOf(value) as string[]).includes(level) ? level : null);
   };
   const saveChain = (next: readonly string[]) => {
     const all = { ...chains };
@@ -109,10 +135,25 @@ function RoleRow({
 
   const modelOptions: SelectOption<string>[] = [
     { value: unset, label: unsetLabel },
-    ...withCurrent(candidates, current),
+    ...withCurrent(
+      candidates.map((candidate) => ({ ...candidate, display: candidate.value })),
+      selector,
+    ),
   ];
+  const levels = levelsOf(selector);
+  const thinkingOptions: SelectOption<string>[] = [
+    {
+      value: unset,
+      label:
+        levels.length === 0 && level === null ? t("settings.roles.thinkingNone") : t("settings.roles.thinkingDefault"),
+    },
+    ...levels.map((entry) => ({ value: entry, label: levelText(t, entry) })),
+  ];
+  // 配置里的档位这个模型不支持（或模型不在目录里）：原样留着显示，别悄悄显示成别的。
+  if (level !== null && !levels.includes(level as ThinkingLevel))
+    thinkingOptions.push({ value: level, label: levelText(t, level) });
   const addOptions = fallbackCandidates.filter(
-    (candidate) => candidate.value !== current && !chain.includes(candidate.value),
+    (candidate) => candidate.value !== selector && !chain.includes(candidate.value),
   );
   return (
     <div className="st-roles-row" data-testid={`setting-role-row-${role}`}>
@@ -123,7 +164,7 @@ function RoleRow({
       <Select
         size="sm"
         width="100%"
-        value={current ?? unset}
+        value={selector ?? unset}
         options={modelOptions}
         labelledBy={labelId}
         disabled={disabled || !ready}
@@ -133,34 +174,52 @@ function RoleRow({
       />
       <Select
         size="sm"
-        width={136}
-        value={unset}
-        options={addOptions}
-        placeholder={t("settings.roles.addFallback")}
-        labelledBy={labelId}
-        disabled={disabled || !ready || addOptions.length === 0}
-        onChange={(value) => saveChain([...chain, value])}
-        search={t("settings.roles.searchModel")}
-        testId={`setting-chain-${role}-add`}
+        width={104}
+        value={level ?? unset}
+        options={thinkingOptions}
+        label={t("settings.roles.thinking", { role: roleLabel(role) })}
+        disabled={disabled || !ready || selector === null || keyOf(selector) === null || thinkingOptions.length === 1}
+        onChange={(value) => selector !== null && write(selector, value === unset ? null : value)}
+        testId={`setting-role-${role}-thinking`}
       />
-      <span className="st-chain" data-testid={`setting-chain-${role}`}>
-        {chain.map((selector, index) => (
-          <span key={`${index}:${selector}`} className="st-tag" title={selector}>
-            <span className="st-tag-text">{nameOf(selector)}</span>
-            <button
-              type="button"
-              className="st-tag-remove"
-              aria-label={t("settings.roles.removeFallback", { name: nameOf(selector) })}
-              disabled={disabled}
-              onClick={() => saveChain(chain.filter((_, at) => at !== index))}
-            >
-              <Close size={10} />
-            </button>
-          </span>
-        ))}
+      <span className="st-roles-wide st-chain-line">
+        <Select
+          size="sm"
+          width={136}
+          value={unset}
+          options={addOptions}
+          placeholder={t("settings.roles.addFallback")}
+          labelledBy={labelId}
+          disabled={disabled || !ready || addOptions.length === 0}
+          onChange={(value) => saveChain([...chain, value])}
+          search={t("settings.roles.searchModel")}
+          testId={`setting-chain-${role}-add`}
+        />
+        <span className="st-chain" data-testid={`setting-chain-${role}`}>
+          {chain.map((entry, index) => (
+            <span key={`${index}:${entry}`} className="st-tag" title={entry}>
+              <span className="st-tag-text">{nameOf(entry)}</span>
+              <button
+                type="button"
+                className="st-tag-remove"
+                aria-label={t("settings.roles.removeFallback", { name: nameOf(entry) })}
+                disabled={disabled}
+                onClick={() => saveChain(chain.filter((_, at) => at !== index))}
+              >
+                <Close size={10} />
+              </button>
+            </span>
+          ))}
+        </span>
       </span>
     </div>
   );
+}
+
+/** 档位的显示文字；omp 支持但这里没有文案的（auto 等）原样显示。 */
+function levelText(t: TFunction, level: string): string {
+  const key = thinkingLabel[level as ThinkingLevel];
+  return key === undefined ? level : t(key);
 }
 
 export function ModelsSection() {
@@ -193,6 +252,7 @@ export function ModelsSection() {
     <div className="st-roles-row">
       <span className="ui-row-label">
         <span id={thinkingLabelId}>{t("settings.defaultThinking")}</span>
+        <InfoTip>{t("settings.defaultThinkingHint")}</InfoTip>
       </span>
       <span className="st-roles-wide">
         <Select

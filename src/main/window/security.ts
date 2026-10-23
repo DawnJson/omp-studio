@@ -1,4 +1,4 @@
-// 会话级安全：权限只放行应用自己页面（主框架）的“写剪贴板”，其余一律拒绝；禁用页面缩放（spec §5.1：v1 禁用 Ctrl +/-/0）。
+// 会话级安全：权限只放行应用自己页面（主框架）的“写剪贴板”，其余一律拒绝；禁用手动页面缩放（spec §5.1：缩放只走设置 → 通用 → 字号）。
 // CSP 在 index.html 的 <meta>（构建时注入，见 electron.vite.config.ts）：file:// 页面没有响应头可改。
 import { session, type WebContents } from "electron";
 
@@ -28,7 +28,7 @@ export function installSessionSecurity(isAppUrl: (url: string) => boolean): void
   defaultSession.setDevicePermissionHandler(() => false);
 }
 
-/** 拦下 Chromium 默认的缩放快捷键。 */
+/** 拦下 Chromium 默认的缩放快捷键和捏合缩放：页面缩放只由设置里的字号决定（window/main-window.ts 的 applyFontScale）。 */
 export function blockZoom(webContents: WebContents): void {
   void webContents.setVisualZoomLevelLimits(1, 1);
   webContents.on("before-input-event", (event, input) => {

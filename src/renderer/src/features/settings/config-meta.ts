@@ -99,9 +99,6 @@ const blockSpecs: readonly { id: CommonBlockId; prefixes: readonly string[] }[] 
   { id: "goal", prefixes: ["goal."] },
 ];
 
-/** 格子里独占一整行的项：它下面那几格是它的子设置（记忆后端下面左列 Mnemopi、右列 Hindsight）。 */
-export const spanKeys: ReadonlySet<string> = new Set(["memory.backend"]);
-
 export interface CommonBlock {
   /** "" = 没归进任何块。 */
   id: CommonBlockId | "";

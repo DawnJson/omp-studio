@@ -9,7 +9,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { launchApp } from "./launch.ts";
 
 const modelsYml =
-  "providers:\n  role-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: role-one\n      - id: role-two\n";
+  "providers:\n  role-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: role-one\n        reasoning: true\n      - id: role-two\n        reasoning: true\n      - id: role-three\n";
 
 async function openPicker(page: Page): Promise<void> {
   await page.getByTestId("model-chip").click();
@@ -142,6 +142,61 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
       .getByRole("button", { name: /role-two/ })
       .click();
     await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({});
+
+    // 角色自己的思考强度：触发器写全 provider/模型 id；没选时跟随默认；选了写成 `provider/model:level`。
+    const smol = page.getByTestId("setting-role-smol");
+    const smolLevel = page.getByTestId("setting-role-smol-thinking");
+    await expect(smol).toHaveText("role-local/role-one");
+    await expect(smolLevel).toBeEnabled();
+    await smolLevel.click();
+    await page.getByRole("option", { name: /^(高|High)$/ }).click();
+    await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-one:high");
+    // 带档位的值照样匹配上目录里的模型：触发器仍是同一种写法（不再退成原文 "…:high"），档位单独显示。
+    await expect(smol).toHaveText("role-local/role-one");
+    await expect(smolLevel).toContainText(/高|High/);
+    // 只换模型：档位在新模型也支持就保留；换成不支持思考的模型就去掉，档位控件禁用。
+    await smol.click();
+    await page.getByRole("option", { name: "role-two" }).click();
+    await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-two:high");
+    await expect(smol).toHaveText("role-local/role-two");
+    await smol.click();
+    await page.getByRole("option", { name: "role-three" }).click();
+    await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-three");
+    await expect(smolLevel).toBeDisabled();
+    // 换回支持思考的模型后档位控件可用；选"跟随默认"去掉后缀。
+    await smol.click();
+    await page.getByRole("option", { name: "role-one" }).click();
+    await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-one");
+    await expect(smol).toHaveText("role-local/role-one");
+    await expect(smolLevel).toBeEnabled();
+    await expect(smolLevel).toContainText(/跟随默认|Default/);
+    await smolLevel.click();
+    await page.getByRole("option", { name: /^(极低|Minimal)$/ }).click();
+    await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-one:minimal");
+    await expect(smolLevel).toContainText(/极低|Minimal/);
+    await smolLevel.click();
+    await page.getByRole("option", { name: /^(跟随默认|Default)$/ }).click();
+    await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-one");
+
+    // 模型选择对话框给角色"应用"：角色原有的档位新模型也支持就保留，不支持（role-three 不支持思考）就去掉。
+    await page.evaluate(() =>
+      globalThis.studio.setModelRole("smol", { provider: "role-local", modelId: "role-one" }, "high"),
+    );
+    await page.keyboard.press("Escape");
+    await openPicker(page);
+    await page.getByTestId("model-search").fill("@smol");
+    await page.getByTestId("model-search").press("Enter");
+    await page.getByTestId("model-search").fill("role-two");
+    await page.getByTestId("model-option").first().click();
+    await page.getByTestId("model-use").click();
+    await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-two:high");
+    await openPicker(page);
+    await page.getByTestId("model-search").fill("@smol");
+    await page.getByTestId("model-search").press("Enter");
+    await page.getByTestId("model-search").fill("role-three");
+    await page.getByTestId("model-option").first().click();
+    await page.getByTestId("model-use").click();
+    await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-three");
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

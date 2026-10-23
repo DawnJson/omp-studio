@@ -13,8 +13,7 @@ export type SettingsSection =
   | "tools"
   | "context"
   | "agents"
-  | "integrations"
-  | "plugins"
+  | "extensions"
   | "advanced"
   | "about"
   | "shortcuts";

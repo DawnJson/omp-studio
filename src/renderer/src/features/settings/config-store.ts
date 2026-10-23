@@ -139,11 +139,15 @@ export async function saveOmpConfigOrThrow(key: string, value: unknown): Promise
 }
 
 /**
- * 给某个角色（default、smol、task…）指定模型（null = 去掉）；default 就是新任务的默认模型（omp 的 modelRoles.default）。
+ * 给某个角色（default、smol、task…）指定模型和思考强度（null = 不带强度；model 为 null = 去掉角色）；default 就是新任务的默认模型（omp 的 modelRoles.default）。
  * 一律写全局（omp-config/model-defaults.ts）；写完重读快照，设置页的 omp 分组跟着更新。
  */
-export async function saveOmpModelRole(role: string, model: ModelKey | null): Promise<void> {
-  await window.studio.setModelRole(role, model);
+export async function saveOmpModelRole(
+  role: string,
+  model: ModelKey | null,
+  thinking: string | null = null,
+): Promise<void> {
+  await window.studio.setModelRole(role, model, thinking);
   await loadOmpConfig();
 }
 

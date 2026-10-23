@@ -13,6 +13,7 @@ import {
   parseExternalUrl,
   parseInteger,
   parseLocalePreference,
+  parseFontScale,
   parseOneOf,
   parseRecord,
   parseThemePreference,
@@ -27,6 +28,7 @@ export const appHandlers: HandlerGroup<
   | "getSettings"
   | "setLocale"
   | "setTheme"
+  | "setFontScale"
   | "openExternal"
   | "openLogsFolder"
   | "exportDiagnostics"
@@ -48,6 +50,7 @@ export const appHandlers: HandlerGroup<
   getSettings: async () => getSettings(),
   setLocale: async (value) => updateSettings({ locale: parseLocalePreference(value) }),
   setTheme: async (value) => updateSettings({ theme: parseThemePreference(value) }),
+  setFontScale: async (value) => updateSettings({ fontScale: parseFontScale(value) }),
   openExternal: async (value) => shell.openExternal(parseExternalUrl(value)),
   openLogsFolder: () => openLogsFolder(),
   exportDiagnostics: () => exportDiagnostics(),

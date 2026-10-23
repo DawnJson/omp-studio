@@ -16,6 +16,8 @@ import { Reveal } from "./Reveal.tsx";
 export interface SelectOption<T extends string> extends Option<T> {
   /** 第二行小字说明。 */
   note?: string | undefined;
+  /** 触发器里显示的文字（默认同 label）：列表里用短名，选中后触发器写全。 */
+  display?: string | undefined;
   /** 所在的组（模型下拉按 provider）。没有组的排在最前、不折叠。 */
   group?: string | undefined;
 }
@@ -292,7 +294,9 @@ export function Select<T extends string>({
         onKeyDown={onKeyDown}
         data-testid={testId}
       >
-        <span className={current === undefined ? "ui-placeholder" : undefined}>{current?.label ?? placeholder}</span>
+        <span className={current === undefined ? "ui-placeholder" : undefined}>
+          {current?.display ?? current?.label ?? placeholder}
+        </span>
         <ChevronDown size={14} />
       </button>
       {presence.mounted &&

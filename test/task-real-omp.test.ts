@@ -49,6 +49,7 @@ describe.skipIf(!enabled)("真实 omp", () => {
         enterWhileRunning: "steer",
         soundOnDone: false,
         copyOnSelect: true,
+        fontScale: 100,
         yoloConfirmed: false,
       }),
       tsp: {

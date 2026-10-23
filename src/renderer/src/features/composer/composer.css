@@ -168,19 +168,20 @@ button.usage-context:hover,
   flex: 0 1 auto;
   max-width: 100%;
 }
+/* 名字的最小宽只在被挤时才起作用：短名字（比 9ch 窄）按自己的宽度，不撑出一块空白；calc-size 取 min(自身宽, 下限)。 */
 .ui-chip.chip-name {
   flex: 0 1 auto;
   max-width: 100%;
-  min-width: calc(var(--chip-name-min-w) + 2 * var(--space-2-5));
+  min-width: calc-size(max-content, min(size, var(--chip-name-min-w) + 2 * var(--space-2-5)));
   overflow: hidden;
 }
-/* 刻度胶囊右边只留 6px：再往右是工具行间距和审批胶囊的内边距，留 10px 时刻度后面空出一大块。 */
+/* 整颗胶囊（名字 + 刻度）的左右内边距同其它 .ui-chip：左边在名字上、右边在刻度上各 10px；两颗中间各留 4px。 */
 .ui-chip.chip-effort {
   position: relative;
-  padding: 0 var(--space-1-5) 0 var(--space-1);
+  padding: 0 var(--space-2-5) 0 var(--space-1);
 }
 .ui-chip.chip-name:has(+ .chip-effort) {
-  min-width: calc(var(--chip-name-min-w) + var(--space-2-5) + var(--space-1));
+  min-width: calc-size(max-content, min(size, var(--chip-name-min-w) + var(--space-2-5) + var(--space-1)));
   padding-right: var(--space-1);
 }
 .chip-text {
@@ -188,8 +189,8 @@ button.usage-context:hover,
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 36ch;
-  /* 模型名比思考强度、路径都重要：再窄也留这么宽，不会缩成 "D…"。 */
-  min-width: var(--chip-name-min-w);
+  /* 模型名比思考强度、路径都重要：被挤时也留这么宽，不会缩成 "D…"；名字本来就更短时不撑宽。 */
+  min-width: calc-size(max-content, min(size, var(--chip-name-min-w)));
 }
 .chip-badge {
   flex: none;
@@ -212,9 +213,10 @@ button.usage-context:hover,
   height: 12px;
   fill: currentColor;
 }
+/* top 随刻度上提的 2px 一起上移（见下面 .chip-effort > svg），角标和竖条之间的间距不变。 */
 .chip-effort .chip-fast {
   position: absolute;
-  top: 4px;
+  top: 2px;
   left: var(--space-1);
 }
 .ui-chip.chip-effort .chip-fast svg {
@@ -227,6 +229,11 @@ button.usage-context:hover,
   width: auto;
   height: 12px;
   overflow: visible;
+}
+/* 刻度是 12px 高的盒子，居中在 28px 的胶囊里，底边比文字基线低 2px（行盒里基线在中心线下方约 1px，字母在基线上方）——
+   看上去刻度整体偏下。上提 2px，让竖条的底边落在模型名的基线上。 */
+.ui-chip.chip-effort > svg {
+  translate: 0 -2px;
 }
 .chip-effort rect {
   fill: var(--border-strong);

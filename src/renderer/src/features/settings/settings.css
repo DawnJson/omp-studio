@@ -71,6 +71,7 @@
 .snav-foot {
   margin-top: auto;
   padding: var(--space-2) var(--space-2-5) 0;
+  text-align: center;
   font-size: var(--fs-2xs);
   color: var(--text-3);
 }
@@ -113,9 +114,9 @@
 }
 
 .settings-content {
-  max-width: 1080px; /* 左对齐；格子和卡片在这个宽度里排到 3 列，再宽才在右侧留白 */
+  /* 不设宽度上限：内容随窗口变宽，格子靠下面的 container query 加列（不靠留白），右侧不再空着。 */
   padding: var(--space-6) var(--space-10) var(--space-12);
-  container-type: inline-size; /* 格子（.st-cells、快捷键）按内容宽度减列 */
+  container-type: inline-size; /* 格子（.st-cells、快捷键）按内容宽度增减列 */
 }
 
 .st-page-head {
@@ -162,19 +163,14 @@
   --row-label-w: 200px;
 }
 
-/* 格子：一行放 2 或 3 个设置（data-cols），每格是一条 ui/Row：标签靠左、控件靠右；
-   "恢复默认"夹在两者之间，出现时控件不动。窄了先减到 2 列，再减到 1 列。 */
+/* 格子：每格是一条 ui/Row：标签靠左、控件靠右；"恢复默认"夹在两者之间，出现时控件不动。
+   列数随容器宽度（设置内容区；高级页是它右栏）：≤640 一列（一格要容得下三段分段，约 300）、到 1100 两列、到 1500 三列、再宽四列。 */
 .st-cells {
+  --cols: 2;
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   column-gap: var(--space-6);
   border-top: 1px solid var(--border);
-}
-.st-cells[data-cols="2"] {
-  --cols: 2;
-}
-.st-cells[data-cols="3"] {
-  --cols: 3;
 }
 .st-cells + .st-cells {
   border-top: 0;
@@ -191,32 +187,64 @@
   grid-column: 3;
   justify-content: flex-end;
 }
+/* 放不下一行的控件（三段以上的分段约 280 宽、文本框 260、标签输入 360）：标签在上、控件在下，整格宽，标签不会被挤成一两个字一行 */
+.st-cells .ui-row:has(.ui-seg > :nth-child(3)),
+.st-cells .ui-row:has(.st-tags),
+.st-cells .ui-row:has(.ui-field) {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.st-cells .ui-row:has(.ui-seg > :nth-child(3)) .ui-row-control,
+.st-cells .ui-row:has(.st-tags) .ui-row-control,
+.st-cells .ui-row:has(.ui-field) .ui-row-control {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  padding-bottom: var(--space-1);
+}
 /* "保存中 / 已保存"放在控件左边，控件不被挤动 */
 .st-cells .cfg-feedback {
   order: -1;
-}
-/* 独占一整行的格子（记忆后端：下面左右两列是它的子设置） */
-.st-span {
-  grid-column: 1 / -1;
 }
 /* 格子下面整行排的项（文本框、标签输入）：和格子共用分隔线，不再加一道上边框 */
 .st-cells + .ui-rows {
   border-top: 0;
 }
-@container (max-width: 700px) {
-  .st-cells[data-cols="3"] {
-    --cols: 2;
-  }
-}
-@container (max-width: 480px) {
-  .st-cells[data-cols] {
+@container (max-width: 640px) {
+  .st-cells {
     --cols: 1;
   }
 }
+@container (min-width: 1100px) {
+  .st-cells {
+    --cols: 3;
+  }
+}
+@container (min-width: 1500px) {
+  .st-cells {
+    --cols: 4;
+  }
+}
+/* 关于页的版本（omp-studio、omp 各一格）：永远最多两列；内容宽（版本 + 徽标 + 说明 + 按钮），所以标签在上、内容在下。 */
+.st-cells.st-pair {
+  --cols: 2;
+}
+@container (max-width: 640px) {
+  .st-cells.st-pair {
+    --cols: 1;
+  }
+}
+.st-pair .ui-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.st-pair .ui-row-control {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+}
 
 /* 模型页的角色表（ModelsSection）：一行两个角色格，按阅读顺序从左到右填（第一格是默认思考强度）；分隔线和格子一样。
-   格内：角色名 88 | 主模型 | "添加备用…"，已加的备用模型在第二行、和主模型左对齐，多了折行。一格至少要约 370（两个下拉各不低于 130），
-   所以内容区窄过 800 就一行一格，不把下拉压成 "Let o…" / "Not s…"。 */
+   格内第一行：角色名 88 | 主模型 | 角色自己的思考强度 104；第二行和主模型左对齐："添加备用…" + 已加的备用模型（多了折行）。
+   一格至少要约 370（主模型不低于 130），所以内容区窄过 800 就一行一格，不把下拉压成 "Let o…" / "Not s…"。 */
 .st-roles {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -241,9 +269,14 @@
   grid-column: 2 / -1;
   min-width: 0;
 }
+.st-chain-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
 .st-chain {
   display: flex;
-  grid-column: 2 / -1;
   flex-wrap: wrap;
   gap: var(--space-1);
   align-items: center;
@@ -258,8 +291,8 @@
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
 }
-/* "添加备用…"（格里第二个下拉）是动作不是空字段：虚线框、次要文字，悬停才实起来 */
-.st-roles-row > .ui-select + .ui-select:not(:hover, :focus-within) {
+/* "添加备用…"是动作不是空字段：虚线框、次要文字，悬停才实起来 */
+.st-chain-line > .ui-select:not(:hover, :focus-within) {
   color: var(--text-3);
   background: transparent;
   border-style: dashed;
@@ -572,19 +605,21 @@
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
-/* 高级的右栏自己算宽度：格子按右栏减列（目录占了一块，按整页宽算会太挤） */
+/* 高级的右栏自己算宽度：格子按右栏增减列（目录占了一块，按整页宽算会太挤）。
+   标签是 omp 的英文 key（等宽、很长）：右栏不到 1000 时格子不够宽，整格标签在上、控件在下，key 不会被挤成一字一行；够宽了再并排。 */
 .st-adv-rows {
   container-type: inline-size;
 }
 
-.st-adv-rows .st-rows {
-  --row-label-w: 236px;
-}
-
-/* 高级的标签是 omp 的英文 key（等宽、很长）：右栏不到 760 时两列会把 key 拆成好几行，改成一列 */
-@container (max-width: 760px) {
-  .st-adv-rows .st-cells[data-cols] {
-    --cols: 1;
+@container (max-width: 1000px) {
+  .st-adv-rows .st-cells .ui-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .st-adv-rows .st-cells .ui-row-control {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    padding-bottom: var(--space-1);
   }
 }
 

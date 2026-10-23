@@ -1,5 +1,5 @@
 // 设置导航（spec §4.19，direction-3.2 §4 第 1 条）：进设置时占侧栏的位置（App.tsx 在侧栏位置渲染 SettingsNav），
-// 顶上 `‹ 返回任务  Esc`、搜索全部设置、10 节；窗口窄到侧栏变抽屉、或侧栏被收起时，导航变成内容顶上的一个下拉 + 搜索框
+// 顶上 `‹ 返回任务  Esc`、搜索全部设置、9 节；窗口窄到侧栏变抽屉、或侧栏被收起时，导航变成内容顶上的一个下拉 + 搜索框
 // （SettingsCompactNav，由 SettingsView 渲染）。当前节和搜索词在 ui-store（SettingsView 读同一份）。
 import type { KeyboardEvent } from "react";
 import { useT } from "../../i18n/use-t.ts";
@@ -24,8 +24,7 @@ export const settingsPages: readonly SettingsPage[] = [
   "tools",
   "context",
   "agents",
-  "integrations",
-  "plugins",
+  "extensions",
   "advanced",
   "about",
 ];

@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { readRecording, startRecording, type Frame } from "./chip-frames.ts";
-import { launchApp } from "./launch.ts";
+import { launchApp, setLocaleTheme } from "./launch.ts";
 
 const modelsYml = [
   "providers:",
@@ -19,7 +19,7 @@ const modelsYml = [
   "        name: Chip Global",
   "        reasoning: true",
   "      - id: chip-a",
-  "        name: Chip Alpha",
+  "        name: Chip A",
   "        reasoning: true",
   "      - id: chip-b",
   "        name: Chip Beta Longer Name",
@@ -29,13 +29,83 @@ const modelsYml = [
 
 const modelLoadingText = "模型…";
 
-/** 模型名 + 档位，和 chip-frames.ts 记录的写法一样（"Chip Alpha·high"）。 */
+/** 模型名 + 档位，和 chip-frames.ts 记录的写法一样（"Chip A·high"）。 */
 const chipText = async (page: Page) => {
   const name = await page.getByTestId("model-chip").innerText();
   const effort = page.getByTestId("chip-thinking");
   const level = (await effort.count()) > 0 ? await effort.getAttribute("data-level") : null;
   return level === null ? name : `${name}·${level}`;
 };
+
+/** 模型胶囊的排版量（像素）：基线、大写字母中心、刻度中心和底边、两端内边距、审批胶囊的内边距、名字按钮里文字右边的多余空白。 */
+const measureChipLayout = (page: Page) =>
+  page.evaluate(() => {
+    interface Box {
+      left: number;
+      right: number;
+      top: number;
+      bottom: number;
+      width: number;
+    }
+    interface El {
+      style: { cssText: string };
+      lastElementChild: El | null;
+      append(child: El): void;
+      remove(): void;
+      querySelector(selector: string): El | null;
+      getBoundingClientRect(): Box;
+    }
+    interface Canvas {
+      getContext(kind: "2d"): { font: string; measureText(s: string): { actualBoundingBoxAscent: number } };
+    }
+    const dom = globalThis as unknown as {
+      document: {
+        querySelector(selector: string): El | null;
+        createElement(tag: "span"): El;
+        createElement(tag: "canvas"): Canvas;
+        createRange(): { selectNodeContents(node: El): void; getBoundingClientRect(): Box };
+      };
+      getComputedStyle(el: El): { fontWeight: string; fontSize: string; fontFamily: string };
+    };
+    const need = (el: El | null): El => {
+      if (!el) throw new Error("缺少元素");
+      return el;
+    };
+    const text = need(dom.document.querySelector("[data-testid='model-chip-group'] .chip-text"));
+    const name = need(dom.document.querySelector("[data-testid='model-chip']"));
+    const effort = need(dom.document.querySelector("[data-testid='chip-thinking']"));
+    const bars = need(effort.querySelector("svg"));
+    const approval = need(dom.document.querySelector("[data-testid='approval-chip']"));
+    // 基线：文字里放一个 0×0 的 inline-block，它的底边就在基线上。
+    const probe = dom.document.createElement("span");
+    probe.style.cssText = "display:inline-block;width:0;height:0";
+    text.append(probe);
+    const baseline = probe.getBoundingClientRect().bottom;
+    probe.remove();
+    const style = dom.getComputedStyle(text);
+    const ctx = dom.document.createElement("canvas").getContext("2d");
+    ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const capHeight = ctx.measureText("H").actualBoundingBoxAscent;
+    const range = dom.document.createRange();
+    range.selectNodeContents(text);
+    const textRect = range.getBoundingClientRect();
+    const approvalIcon = need(approval.querySelector("svg")).getBoundingClientRect();
+    const approvalLast = need(approval.lastElementChild).getBoundingClientRect();
+    const barsRect = bars.getBoundingClientRect();
+    const nameRect = name.getBoundingClientRect();
+    const approvalRect = approval.getBoundingClientRect();
+    return {
+      baseline,
+      capCenter: baseline - capHeight / 2,
+      barsCenter: (barsRect.top + barsRect.bottom) / 2,
+      barsBottom: barsRect.bottom,
+      padLeft: textRect.left - nameRect.left,
+      padRight: effort.getBoundingClientRect().right - barsRect.right,
+      approvalPadLeft: approvalIcon.left - approvalRect.left,
+      approvalPadRight: approvalRect.right - approvalLast.right,
+      nameSlack: nameRect.width - (textRect.left - nameRect.left) - textRect.width - 4,
+    };
+  });
 
 test("切换项目：模型胶囊逐帧无闪变、无空白，档位随项目显示", async () => {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp-studio-chip-"));
@@ -48,7 +118,7 @@ test("切换项目：模型胶囊逐帧无闪变、无空白，档位随项目�
     "utf8",
   );
   const projects: { dir: string; model: string; level: string }[] = [
-    { dir: path.join(work, "项目 甲"), model: "Chip Alpha", level: "high" },
+    { dir: path.join(work, "项目 甲"), model: "Chip A", level: "high" },
     { dir: path.join(work, "项目 乙"), model: "Chip Beta Longer Name", level: "low" },
     { dir: path.join(work, "项目 丙"), model: "Chip Global", level: "medium" },
   ];
@@ -128,6 +198,27 @@ test("切换项目：模型胶囊逐帧无闪变、无空白，档位随项目�
     const expected = order.map((index) => finals[index]!);
     const transitions = expected.filter((text, i) => text !== (i === 0 ? finals[2] : expected[i - 1]));
     expect(texts.slice(1)).toEqual(transitions);
+
+    // 胶囊内部排版（中英文 × 深浅主题）。选第一个项目：模型名 "Chip A" 比名字最小宽（9ch）还短。
+    await pick(0);
+    await expect(page.getByTestId("chip-thinking")).toBeVisible();
+    await expect.poll(() => chipText(page)).toBe("Chip A·high");
+    for (const locale of ["zh-CN", "en"] as const) {
+      for (const theme of ["light", "dark"] as const) {
+        await setLocaleTheme(page, locale, theme);
+        const m = await measureChipLayout(page);
+        const label = `${locale}/${theme} ${JSON.stringify(m)}`;
+        // 刻度和模型名对齐：刻度中心 = 名字大写字母的垂直中心（±1px），刻度底边 = 名字的基线（±1px）。
+        expect(Math.abs(m.barsCenter - m.capCenter), `刻度和文字垂直中心 ${label}`).toBeLessThanOrEqual(1);
+        expect(Math.abs(m.barsBottom - m.baseline), `刻度底边和文字基线 ${label}`).toBeLessThanOrEqual(1);
+        // 胶囊左右内边距相等，且和审批胶囊一致。
+        expect(Math.abs(m.padLeft - m.padRight), `胶囊左右内边距 ${label}`).toBeLessThanOrEqual(0.5);
+        expect(Math.abs(m.padLeft - m.approvalPadLeft), `和审批胶囊左内边距 ${label}`).toBeLessThanOrEqual(0.5);
+        expect(Math.abs(m.padRight - m.approvalPadRight), `和审批胶囊右内边距 ${label}`).toBeLessThanOrEqual(0.5);
+        // 短名字不被撑宽：名字按钮 = 文字 + 左内边距 + 和刻度之间的 4px。
+        expect(m.nameSlack, `短名字右边的多余空白 ${label}`).toBeLessThanOrEqual(1);
+      }
+    }
   } finally {
     await launched.close();
     await rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
