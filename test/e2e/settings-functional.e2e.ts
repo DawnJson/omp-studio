@@ -11,8 +11,11 @@ import { expectNoOverflow, launchApp, setLocaleTheme, type LaunchedApp } from ".
 
 async function launchSettings(
   extraEnv: Record<string, string> = {},
+  seedAgentDir?: (agentDir: string) => Promise<void>,
 ): Promise<{ launched: LaunchedApp; agentDir: string }> {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
+  // omp 启动时才发现 skill：要放进 agent 目录的文件在应用启动前写好。
+  await seedAgentDir?.(agentDir);
   const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir, ...extraEnv });
   try {
     await expect
@@ -428,6 +431,41 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(ompEntry.locator(".md")).toBeVisible({ timeout: 60_000 });
     // 两项各一段正文，不再按版本列出一串。
     await expect(page.locator('[data-testid="changelog"] .md')).toHaveCount(2);
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+// Skills 卡片：数据来自 omp rpc-ui 的 get_available_commands（source = skill），只读。临时 agent 目录里放一个测试 skill，用户目录指到空目录（别家工具的 skill 不混进来）。
+test("集成与插件：Skills 分组列出 omp 能用的 skill（名称、范围、说明），中英文 900/1200 宽不越界", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "omp-studio-home-"));
+  const description = `E2E probe skill. ${"A long description that must be clamped inside the card. ".repeat(8)}`;
+  const { launched, agentDir } = await launchSettings({ USERPROFILE: home, HOME: home }, async (dir) => {
+    const skillDir = path.join(dir, "skills", "e2e-probe-skill");
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(
+      path.join(skillDir, "SKILL.md"),
+      `---\nname: e2e-probe-skill\ndescription: ${description}\n---\nBody\n`,
+    );
+  });
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "en", "light");
+    await page.getByTestId("settings-nav-extensions").click({ timeout: 60_000 });
+    const row = page.getByTestId("skill-row-e2e-probe-skill");
+    await expect(row).toBeVisible({ timeout: 60_000 });
+    await expect(row).toContainText("User (global)");
+    await expect(row).toContainText("E2E probe skill.");
+    await expect(page.getByTestId("skills-empty")).toHaveCount(0);
+    for (const locale of ["en", "zh-CN"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      for (const width of [900, 1200]) {
+        await page.setViewportSize({ width, height: 800 });
+        await expectNoOverflow(page.getByTestId("skills-card"));
+      }
+    }
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

@@ -145,8 +145,13 @@ export function Select<T extends string>({
       if (trigger.current?.contains(event.target) || popup.current?.contains(event.target)) return;
       close();
     };
+    // 只有触发器真的跟着滚走了才关：内容加载时的滚动锚定、已在顶部的 scrollTo 等不挪动触发器的 scroll 事件不算
+    // （刚进设置页就点下拉，列表会被页面自己的 scroll 事件立刻关掉）。
+    const anchor = trigger.current?.getBoundingClientRect();
     const onScroll = (event: Event) => {
       if (event.target instanceof Node && popup.current?.contains(event.target)) return;
+      const now = trigger.current?.getBoundingClientRect();
+      if (anchor !== undefined && now !== undefined && now.top === anchor.top && now.left === anchor.left) return;
       close();
     };
     document.addEventListener("pointerdown", onPointerDown, true);

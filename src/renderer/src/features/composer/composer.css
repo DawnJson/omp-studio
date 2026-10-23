@@ -105,7 +105,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 工具行左组里、会话开关之后：上下文圆环 + 本会话费用（等宽小字）；圆环点开是上下文构成，费用点开是订阅额度和每日用量。 */
+/* 发送键左边：上下文圆环 + 本会话费用（等宽小字）；圆环点开是上下文构成，费用点开是订阅额度和每日用量。 */
 .usage-context-anchor,
 .session-cost-anchor {
   flex: none;

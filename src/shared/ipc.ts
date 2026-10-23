@@ -49,6 +49,7 @@ import type { BuiltinCommand, TaskCommand } from "./omp-output/index.ts";
 import type { DiscoverEntry, DoctorCheck, PluginAction, PluginConfig, PluginsSnapshot } from "./omp-output/plugins.ts";
 import type { SessionToggles } from "./omp-output/toggles.ts";
 import type { SshHost, SshHostInput, SshScope } from "./omp-output/ssh.ts";
+import type { SkillEntry } from "./omp-output/skills.ts";
 import type { AgentMessage } from "./omp-wire/rpc-wire.generated.ts";
 import type { BtwHistoryRecord, BtwUiEvent } from "./btw.ts";
 import type { DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
@@ -123,8 +124,9 @@ export interface PreviewFile {
 export type Locale = "zh-CN" | "en";
 export type LocalePreference = Locale | "system";
 export type ThemePreference = "system" | "light" | "dark";
-/** 字号档位（页面缩放百分比）：设置页的分段控件和主进程校验共用。 */
-export const fontScaleSteps = [90, 100, 110, 125, 150] as const;
+/** 字号档位（正文字号，pt；默认 15 = 设计稿正文 --fs-prose）：设置页的下拉和主进程校验共用。整个界面按 字号 / 15 等比缩放。 */
+export const fontSizeSteps = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22] as const;
+export const defaultFontSize = 15;
 /** omp 的 tools.approvalMode（omp 文档 approval-mode.md）。只存在 omp 的配置里，omp-studio 不另存、启动时不传 --approval-mode。 */
 export type ApprovalMode = "always-ask" | "always-ask-cached" | "write" | "yolo";
 
@@ -208,8 +210,8 @@ export interface StudioSettings {
   soundOnDone: boolean;
   /** 在对话等处用鼠标选中文字后自动复制到剪贴板（输入框、终端除外）。默认开。 */
   copyOnSelect: boolean;
-  /** 整个软件的字号 = 页面缩放百分比（fontScaleSteps 之一），默认 100。 */
-  fontScale: number;
+  /** 整个软件的字号（正文 pt，fontSizeSteps 之一），默认 15；页面缩放 = fontSize / 15。 */
+  fontSize: number;
   /** 用户确认过"全自动"。 */
   yoloConfirmed: boolean;
 }
@@ -953,8 +955,8 @@ export interface StudioInvokeApi {
   getSettings(): Promise<StudioSettings>;
   setLocale(preference: LocalePreference): Promise<void>;
   setTheme(preference: ThemePreference): Promise<void>;
-  /** 整个软件的字号（缩放百分比，fontScaleSteps 之一）：主进程 webContents.setZoomFactor。 */
-  setFontScale(percent: number): Promise<void>;
+  /** 整个软件的字号（正文 pt，fontSizeSteps 之一）：主进程 webContents.setZoomFactor(字号 / 15)。 */
+  setFontSize(size: number): Promise<void>;
   /** 用系统浏览器打开链接；只接受 http/https。 */
   openExternal(url: string): Promise<void>;
   /** 在资源管理器里打开 userData/logs。 */
@@ -1257,6 +1259,8 @@ export interface StudioInvokeApi {
   /** 添加一台主机；scope 为 project 时 projectId 必须非空。返回 omp 的结果句；omp 拒绝时 reject，message 是它的原话。 */
   addSshHost(input: SshHostInput, projectId: ProjectId | null): Promise<{ text: string }>;
   removeSshHost(name: string, scope: SshScope, projectId: ProjectId | null): Promise<{ text: string }>;
+  /** omp 当前能用的 skill（rpc-ui 的 get_available_commands，source = skill）：projectId 为 null 是用户级，非空时再加上该项目目录里的。只读。 */
+  listSkills(projectId: ProjectId | null): Promise<SkillEntry[]>;
   setReduceMotion(on: boolean): Promise<void>;
   setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
   setSoundOnDone(on: boolean): Promise<void>;
@@ -1437,7 +1441,7 @@ export const invokeNames = {
   getSettings: true,
   setLocale: true,
   setTheme: true,
-  setFontScale: true,
+  setFontSize: true,
   openExternal: true,
   openLogsFolder: true,
   exportDiagnostics: true,
@@ -1557,6 +1561,7 @@ export const invokeNames = {
   listSshHosts: true,
   addSshHost: true,
   removeSshHost: true,
+  listSkills: true,
   setReduceMotion: true,
   setEnterWhileRunning: true,
   setSoundOnDone: true,

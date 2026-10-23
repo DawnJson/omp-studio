@@ -253,7 +253,7 @@ test("设置、侧栏折叠和窗口尺寸写入 userData，重启后恢复", as
   }
 });
 
-test("字号：设置里选一档立即整体缩放（含三键区高度），重启保持，快捷键/滚轮/重载都改不动", async () => {
+test("字号：设置里选一档（pt）立即整体缩放（含三键区高度），重启保持，快捷键/滚轮/重载都改不动", async () => {
   const zoomFactor = (launched: LaunchedApp) =>
     launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getZoomFactor());
   // 页面里量：缩放后 devicePixelRatio 按比例变大，三键区（titlebar-area）仍恰好是 40 CSS px 高（主进程把三键区高度一起放大）。
@@ -279,12 +279,15 @@ test("字号：设置里选一档立即整体缩放（含三键区高度），�
     await first.page.keyboard.press("Control+,");
     await expect(first.page.getByTestId("settings")).toBeVisible();
     await first.page.getByTestId("settings-nav-general").click();
-    const option = first.page.getByTestId("setting-font-size").getByRole("radio", { name: "125%" });
-    await option.click();
-    await expect.poll(() => zoomFactor(first)).toBe(1.25);
-    await expect(option).toBeChecked();
+    const select = first.page.getByTestId("setting-font-size");
+    await expect(select).toContainText("15pt");
+    await select.click();
+    await first.page.getByRole("option", { name: "18pt", exact: true }).click();
+    // 18pt / 15pt = 1.2 倍。
+    await expect.poll(() => zoomFactor(first)).toBe(1.2);
+    await expect(select).toContainText("18pt");
     const scaled = await measure(first);
-    expect(scaled.dpr / base.dpr).toBeCloseTo(1.25, 2);
+    expect(scaled.dpr / base.dpr).toBeCloseTo(1.2, 2);
     expect(scaled.titlebarArea).toBe(40);
 
     // Ctrl +/-、Ctrl+滚轮、重载都不改变档位。
@@ -295,36 +298,36 @@ test("字号：设置里选一档立即整体缩放（含三键区高度），�
     await first.page.keyboard.up("Control");
     await first.page.reload();
     await expect(first.page.getByTestId("app-root")).toBeAttached();
-    await expect.poll(() => zoomFactor(first)).toBe(1.25);
+    await expect.poll(() => zoomFactor(first)).toBe(1.2);
     await first.app.close();
 
     const stored = JSON.parse(await readFile(path.join(first.userDataDir, "settings.json"), "utf8")) as {
-      fontScale: number;
+      fontSize: number;
     };
-    expect(stored.fontScale).toBe(125);
+    expect(stored.fontSize).toBe(18);
 
-    // 重启（同一个 userData）：还是 125%，三键区高度也跟着。
+    // 重启（同一个 userData）：还是 18pt，三键区高度也跟着。
     const next = await launchApp({ STUDIO_USER_DATA: first.userDataDir });
     second = next;
-    await expect.poll(() => zoomFactor(next)).toBe(1.25);
+    await expect.poll(() => zoomFactor(next)).toBe(1.2);
     await expect.poll(async () => (await measure(next)).titlebarArea).toBe(40);
-    expect((await measure(next)).dpr / base.dpr).toBeCloseTo(1.25, 2);
+    expect((await measure(next)).dpr / base.dpr).toBeCloseTo(1.2, 2);
   } finally {
     await second?.close().catch(() => {});
     await first.close();
   }
 });
 
-test("字号最大档（150%）在 900 宽窗口下：主界面和设置页都不越界（中英文）", async () => {
+test("字号最大档（22pt）在 900 宽窗口下：主界面和设置页都不越界（中英文）", async () => {
   const launched = await launchApp();
   try {
     const { page } = launched;
-    await page.evaluate(() => globalThis.studio.setFontScale(150));
+    await page.evaluate(() => globalThis.studio.setFontSize(22));
     await expect
       .poll(() =>
         launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.webContents.getZoomFactor()),
       )
-      .toBe(1.5);
+      .toBeCloseTo(22 / 15, 3);
     await page.setViewportSize({ width: 900, height: 700 });
     for (const locale of ["zh-CN", "en"] as const) {
       await setLocaleTheme(page, locale, "light");
@@ -335,7 +338,7 @@ test("字号最大档（150%）在 900 宽窗口下：主界面和设置页都�
     await expect(settings).toBeVisible();
     for (const locale of ["zh-CN", "en"] as const) {
       await setLocaleTheme(page, locale, "light");
-      // 150% 下窗口只剩 600 CSS px：设置导航可能是侧栏按钮，也可能收成下拉；两种都逐节走一遍。
+      // 22pt 下窗口只剩约 614 CSS px：设置导航可能是侧栏按钮，也可能收成下拉；两种都逐节走一遍。
       const nav = page.getByTestId("settings-nav");
       if (await nav.isVisible()) {
         const items = nav.locator('button[data-testid^="settings-nav-"]');

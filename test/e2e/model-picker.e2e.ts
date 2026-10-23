@@ -6,7 +6,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp } from "./launch.ts";
+import { expectNoOverflow, launchApp, setLocaleTheme } from "./launch.ts";
 
 const modelsYml =
   "providers:\n  role-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: role-one\n        reasoning: true\n      - id: role-two\n        reasoning: true\n      - id: role-three\n";
@@ -126,6 +126,33 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two"] });
     await expect(page.getByTestId("setting-chain-smol")).toContainText("role-two");
 
+    // 备用模型也能选思考强度（role-two 支持思考）：默认沿用当前；选"高"写成 `provider/模型:high`，标签仍只写模型名，档位下拉显示高；
+    // 带后缀的也不会再出现在"添加备用…"里。
+    const chainLevel = page.getByTestId("setting-chain-smol-thinking-0");
+    await expect(chainLevel).toContainText(/沿用当前|Keep current/);
+    await chainLevel.click();
+    await page.getByRole("option", { name: /^(高|High)$/ }).click();
+    await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two:high"] });
+    await expect(page.getByTestId("setting-chain-smol")).toContainText("role-two");
+    await expect(page.getByTestId("setting-chain-smol")).not.toContainText(":high");
+    await expect(chainLevel).toContainText(/高|High/);
+    await page.getByTestId("setting-chain-smol-add").click();
+    await page.getByTestId("setting-chain-smol-add-search").fill("role");
+    await expect(page.getByRole("option", { name: "role-two" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    // 窄窗口、中英文下这一行不越界。
+    for (const locale of ["en", "zh-CN"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      for (const width of [900, 1200]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expectNoOverflow(page.getByTestId("setting-role-row-smol"));
+      }
+    }
+    // 去掉后缀：选"沿用当前"。
+    await chainLevel.click();
+    await page.getByRole("option", { name: /^(沿用当前|Keep current)$/ }).click();
+    await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two"] });
+
     // 网页搜索只列搜索服务，不列对话模型；选 Tavily 写 modelRoles.web。
     await page.getByTestId("setting-role-web").click();
     await page.getByTestId("setting-role-web-search").fill("tavily");
@@ -197,6 +224,67 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await page.getByTestId("model-option").first().click();
     await page.getByTestId("model-use").click();
     await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-three");
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
+test("备用模型链的结构化编辑器：带后缀的值显示档位，改档位写回后缀，换成不支持思考的模型去掉后缀，窄窗口不越界", async () => {
+  const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-chains-"));
+  await writeFile(path.join(agentDir, "models.yml"), modelsYml, "utf8");
+  await writeFile(
+    path.join(agentDir, "config.yml"),
+    "retry:\n  fallbackChains:\n    smol:\n      - role-local/role-two:high\n",
+    "utf8",
+  );
+  const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
+  try {
+    const { page } = launched;
+    await expect
+      .poll(() => page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
+        timeout: 30_000,
+      })
+      .toBe("ready");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1200, height: 900 });
+    await expect(page.getByTestId("app-root")).toBeVisible();
+    await page.keyboard.press("Control+,");
+    await page.getByTestId("settings-search").fill("fallbackChains");
+    await page
+      .getByTestId("cfg-retry.fallbackChains")
+      .getByRole("button", { name: /编辑…|Edit…/ })
+      .click({ timeout: 30_000 });
+    const editor = page.getByTestId("chains-editor");
+    await expect(editor).toBeVisible({ timeout: 30_000 });
+    // 模型下拉显示不带后缀的选择器，档位下拉显示高。
+    const level = page.getByTestId("chain-level-smol-0");
+    await expect(level).toContainText(/高|High/, { timeout: 30_000 });
+    await expect(editor.getByRole("combobox").first()).toContainText("role-two");
+    await expect(editor.getByRole("combobox").first()).not.toContainText(":high");
+    // 改档位：只换后缀。
+    await level.click();
+    await page.getByRole("option", { name: /^(极低|Minimal)$/ }).click();
+    await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two:minimal"] });
+    // 换成不支持思考的 role-three：后缀去掉，档位下拉不画（占位空着）。
+    await editor.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: "role-three" }).click();
+    await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-three"] });
+    await expect(page.getByTestId("chain-level-smol-0")).toHaveCount(0);
+    // 换回 role-two：档位又能选；选"中"。
+    await editor.getByRole("combobox").first().click();
+    await page.getByRole("option", { name: "role-two" }).click();
+    await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two"] });
+    await page.getByTestId("chain-level-smol-0").click();
+    await page.getByRole("option", { name: /^(中|Medium)$/ }).click();
+    await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two:medium"] });
+    for (const locale of ["en", "zh-CN"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      for (const width of [900, 1200]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expectNoOverflow(editor);
+      }
+    }
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

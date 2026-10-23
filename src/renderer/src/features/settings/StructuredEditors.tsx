@@ -13,7 +13,16 @@ import { Select } from "../../ui/Select.tsx";
 import { roleKinds } from "../composer/model-groups.ts";
 import { useModelSources } from "./accounts-store.ts";
 import type { ControlProps } from "./ConfigControls.tsx";
-import { candidatesOfKinds, chainKinds, isChainRecord, isStringRecord, withCurrent } from "./role-options.ts";
+import { joinRoleValue, splitRoleValue } from "../../../../shared/ui/role-value.ts";
+import { ChainLevel } from "./ChainLevel.tsx";
+import {
+  candidatesOfKinds,
+  chainKinds,
+  isChainRecord,
+  isStringRecord,
+  levelsOfSelector,
+  withCurrent,
+} from "./role-options.ts";
 
 const suggestedRoles = ["default", "smol", "slow", "plan"];
 
@@ -123,6 +132,11 @@ export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
   const t = useT();
   const sources = useModelSources();
   const optionsOf = (key: string) => candidatesOfKinds(chainKinds(key, sources), sources);
+  // 换模型时原来的档位：新模型是对话模型且也支持就留下，否则 null。
+  const keptLevel = (entry: string, next: string) => {
+    const { level } = splitRoleValue(entry);
+    return level !== null && (levelsOfSelector(next, sources) as string[]).includes(level) ? level : null;
+  };
   const chains = isChainRecord(item.value) ? item.value : {};
   const keys = Object.keys(chains);
   const set = (key: string, chain: string[]) => onSave({ ...chains, [key]: chain });
@@ -148,11 +162,26 @@ export function ChainsEditor({ item, labelId, onSave }: ControlProps) {
               <div key={`${index}:${entry}`} className="se-row se-entry">
                 <span className="se-index">{index + 1}</span>
                 <Select
-                  value={entry}
-                  options={withCurrent(optionsOf(key), entry)}
+                  value={splitRoleValue(entry).selector}
+                  options={withCurrent(optionsOf(key), splitRoleValue(entry).selector)}
                   labelledBy={labelId}
                   width="100%"
                   search={t("settings.roles.searchModel")}
+                  onChange={(next) =>
+                    set(
+                      key,
+                      // 只换模型：后缀的档位新模型也支持就保留，否则去掉（和模型页的角色表一样）。
+                      chain.map((value, at) => (at === index ? joinRoleValue(next, keptLevel(value, next)) : value)),
+                    )
+                  }
+                />
+                <ChainLevel
+                  entry={entry}
+                  sources={sources}
+                  name={splitRoleValue(entry).selector}
+                  disabled={sources.chat === null}
+                  keepSlot
+                  testId={`chain-level-${key}-${index}`}
                   onChange={(next) =>
                     set(
                       key,

@@ -1,10 +1,11 @@
-// 设置 → 集成与插件的集成部分：页头右侧一个"范围"下拉（MCP 和 SSH 共用），下面是两个分组。
+// 设置 → 集成与插件的集成部分：页头右侧一个"范围"下拉（MCP、SSH、Skills 共用），下面是三个分组。
 import { useId } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { McpCard } from "./McpCard.tsx";
 import { PageHeadActions } from "./PageHeadActions.tsx";
 import { setCardScope, useCardScope } from "./integrations-store.ts";
 import { ScopePicker } from "./ScopePicker.tsx";
+import { SkillsCard } from "./SkillsCard.tsx";
 import { SshCard } from "./SshCard.tsx";
 
 export function IntegrationsSection() {
@@ -29,6 +30,7 @@ export function IntegrationsSection() {
       </PageHeadActions>
       <McpCard scope={scope} />
       <SshCard scope={scope} />
+      <SkillsCard scope={scope} />
     </>
   );
 }

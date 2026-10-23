@@ -276,6 +276,18 @@
 .st-chain:empty {
   display: none;
 }
+/* 一个备用模型：名称标签 + 它自己的思考强度（和主模型那行同一种下拉）；放不下时整项折到下一行，标签先省略 */
+.st-chain-item {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+.st-chain-item .st-tag {
+  flex: 0 1 auto;
+  min-width: 0;
+}
 /* 备用模型显示的是模型名，不是选择器：用正文字体（悬停看选择器原文） */
 .st-chain .st-tag {
   height: var(--control-h-sm);

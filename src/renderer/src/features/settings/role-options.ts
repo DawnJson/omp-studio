@@ -1,9 +1,16 @@
 // 角色和备用链的下拉选项：按角色能用的模型类别（composer/model-groups 的 roleKinds，照 omp 的 accepts）从对话模型和
 // 非对话模型里挑，自己的类别在前。对话模型来自 get_available_models，非对话模型来自 `omp models --kind all --json`。纯函数。
+import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import { thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
 import type { ModelKey, ModelOption, RunnerModel } from "../../../../shared/ipc.ts";
 import { roleKinds } from "../composer/model-groups.ts";
 
 export const selectorOf = (key: ModelKey) => `${key.provider}/${key.modelId}`;
+
+/** 一个对话模型（`provider/model-id`）支持的思考档位；不是对话模型、不支持思考或不在目录里是空。 */
+export function levelsOfSelector(selector: string | null, sources: ModelSources): ThinkingLevel[] {
+  return thinkingLevelOptions(sources.chat?.find((model) => selectorOf(model.key) === selector) ?? null, []);
+}
 
 export interface Candidate {
   /** omp 的选择器 `provider/model-id`。 */

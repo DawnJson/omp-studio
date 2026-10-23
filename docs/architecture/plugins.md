@@ -60,3 +60,19 @@ IPC：`listPlugins(projectId | null)`、`discoverPlugins(marketplace)`、`getPlu
 - 不做 npm 包安装（只装市场插件）和 `plugin link`；已有的 npm / link 插件可以启停、改功能和设置、卸载。
 - 安装拉仓库 / 装依赖，超时给了 10 分钟，超时会杀进程并报错。
 - 实测中 `install p1@nope`（不存在的市场）在 Windows 上报了 `EPERM … symlink`，不是 "not found"；原话照样显示。
+
+## Skills（设置 → 集成与插件 → Skills，只读）
+
+实测版本：omp 18.12.6（临时 `PI_CODING_AGENT_DIR` + 临时项目目录，用后已删）。界面规格见 `spec.md` §4.19 集成与插件那一行。
+
+**skill 从哪来**（`omp://skills.md`）：`<根>/skills/<名字>/SKILL.md`，只认一层；根包括用户的 `~/.omp/agent/skills`（`PI_CODING_AGENT_DIR` 下的 `skills/`）、项目的 `.omp/skills`、Claude / Codex / agents 等别家工具的目录（`~/.claude/skills` 等，各有开关）、市场插件和 `omp skill install` 装的包（Skillshare，`skills.lock.json`）、`skills.customDirectories`、MCP 服务器广告的 `skill://`。重名时高优先级的保留原名，其余变成 `<命名空间>/<名字>`。`skills.enabled` 为 false 时一个都没有。
+
+**omp 有没有列出的官方途径**：
+
+- `get_available_commands`（rpc-ui，TSP 任务的 `/` 补全也用它）：`source: "skill"` 的条目，`name` 是 `skill:<名字>`，另有 `description`、`input.hint`。**没有文件路径、来源层级、启用状态**。实测 21 个条目（用户目录 + 项目目录里放的测试 skill 都在，另有本机 `~/.claude/skills` 里的）。需要 `skills.enableSkillCommands`（默认开）；关掉后这条路里没有 skill。
+- `omp skill list`（`--json`）只列 Skillshare 注册表装的包，看不到手写的 skill，所以不用。
+- 没有 `omp skills` 命令，没有启用 / 停用 / 删除某个 skill 的命令或 RPC（只有 `skills.ignoredSkills`、`disabledExtensions` 这类配置，不是 skill 的操作）。所以卡片只读，不做“打开所在文件夹”（条目没给路径，不自己猜目录）。
+
+**实现**：IPC `listSkills(projectId | null)`（`ipc/integrations-handlers.ts`）：用户范围向服务进程（`serviceOmp`，cwd 是 `userData/service`，没有项目层）取；项目范围向该项目目录的短命 rpc-ui（`projectOmp`）取。解析在 `shared/omp-output/skills.ts`（`skillsFromCommands`）。范围徽标是比对出来的：项目目录的列表里，服务进程列表也有的名字算 `用户（全局）`，只在项目里出现的算 `项目`（omp 不给来源）。[推测] 项目 skill 与用户 skill 重名时 omp 会把其中一个改成命名空间名，不会误判；项目范围的 e2e 没有覆盖，只实测过项目目录的 rpc-ui 列表里能看到项目 skill。
+
+**测试**：`test/omp-skills-output.test.ts`；e2e `test/e2e/settings-functional.e2e.ts` 的 “Skills 分组”：agent 目录里放 `skills/e2e-probe-skill/SKILL.md`（应用启动前写好，omp 启动时才发现 skill），用户目录指到空目录，断言行、范围徽标、说明，中英文 × 900/1200 宽 `expectNoOverflow`。

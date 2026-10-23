@@ -31,7 +31,7 @@
 
 - 下拉用 `ui/Select`（portal + fixed 定位、↑↓/Home/End/Enter/空格/Esc、首字母跳转、当前项 ✓、Esc 只关弹层）；旧的 `settings/Dropdown.tsx`、`InfoTip.tsx`、`controls.tsx` 已被 `ui/` 取代。
 - 导航顶上有"返回任务"（Esc 也回去，Ctrl+F 聚焦搜索）；滚动用共用的 `OverlayScrollbar`；页头右侧有一个槽（`PageHeadActions.tsx`），各节用它放范围下拉、"连接提供商…"这类 sm 控件。
-- `modelRoles`、`retry.fallbackChains` 用结构化编辑（`StructuredEditors.tsx`），行上同样是"编辑…"按钮 + 摘要（角色名 / 回退链条数），对话框里：角色一行一个、模型用下拉选（候选按角色或备用链 key 能用的模型类别筛，和设置 → 模型的角色表同一份，见 `login.md`「角色和备用模型的候选」；列表里没有的值原样保留）、回退链可增删和上下移，每次改动立即保存；值的形状不符时退回 JSON 对话框。
+- `modelRoles`、`retry.fallbackChains` 用结构化编辑（`StructuredEditors.tsx`），行上同样是"编辑…"按钮 + 摘要（角色名 / 回退链条数），对话框里：角色一行一个、模型用下拉选（候选按角色或备用链 key 能用的模型类别筛，和设置 → 模型的角色表同一份，见 `login.md`「角色和备用模型的候选」；列表里没有的值原样保留）、回退链可增删和上下移、每项可选思考强度（见 `login.md`「备用模型」），每次改动立即保存；值的形状不符时退回 JSON 对话框。
 - `getDefaultModel()` / `defaultModel` 事件：服务进程 `get_state` 读新任务实际会用的模型和思考强度；改了 modelRoles、defaultThinkingLevel 等之后约 0.7 秒重读并推事件（`src/main/service/default-model.ts`）。
 - **角色值的格式与"选了模型前缀消失"（2026-10-23 实测，omp 18.x，临时 `PI_CODING_AGENT_DIR`）**：`omp config set modelRoles '{"default":"anthropic/claude-opus-5-5:xhigh","smol":"anthropic/claude-haiku-4-5"}'` 之后 `omp config get modelRoles` 和 config.yml 原样是 `provider/model-id[:档位]`。原先的现象有两个独立原因：①显示——值能在模型目录里匹配上（`provider/id`）时下拉触发器显示模型显示名（`Claude Opus 5.5`，没有 provider），匹配不上（带 `:xhigh` 后缀，选择器不等于目录项）时退回原文；②**写入真的丢档位**——`writeModelRole` 原来一律写 `provider/modelId`，在设置里给已有 `:xhigh` 的角色换模型会把后缀丢掉（provider 前缀没丢）。现在 `setModelRole(role, model, thinking)` 带档位写（`omp-config/model-defaults.ts`，`test/model-defaults.test.ts`），拆 / 拼在 `shared/ui/role-value.ts`（`test/role-value.test.ts`）；设置 → 模型的角色格里主模型下拉始终显示 `provider/模型 id`，档位是同格里单独一个下拉（见 spec §4.19）。模型选择对话框里给角色"应用"仍只写模型、不带档位。
 

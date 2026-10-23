@@ -28,6 +28,9 @@ export const mcpResource = createResource(async (key) =>
 
 export const sshResource = createResource((key) => window.studio.listSshHosts(scopeProject(key as ScopeKey)));
 
+/** omp 当前能用的 skill（只读）：用户范围 = 用户级，项目范围 = 用户级 + 该项目目录里的。 */
+export const skillsResource = createResource((key) => window.studio.listSkills(scopeProject(key as ScopeKey)));
+
 /** 全局列表（服务进程）：项目里的插件和 MCP 提供的工具不在里面。 */
 export const toolsResource = createResource(async () => parseTools(await runBuiltinText({ kind: "tools" }, "user")));
 

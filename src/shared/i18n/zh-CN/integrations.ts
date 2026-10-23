@@ -49,6 +49,12 @@ export const integrations = {
   "ssh.compat": "兼容模式",
   "ssh.compat.tip": "omp 的 --compat：给不完全兼容的远端（如某些路由器、精简系统）用。",
 
+  "skills.title": "Skills",
+  "skills.empty":
+    "没有可用的 skill。把带 SKILL.md 的 skill 文件夹放进 ~/.omp/agent/skills（用户级）或项目里的 .omp/skills，或在终端里运行 omp skill install。",
+  "skills.note":
+    "这是 omp 报告的当前可用 skill，只读；选了项目时会加上该项目目录里的 skill。omp 没有在这里启用或停用 skill 的命令。",
+
   "tools.title": "可用工具",
   "tools.enabled": "已启用",
   "tools.device": "xd 设备",

@@ -1,12 +1,13 @@
 // 设置 → 通用：外观（两两一行：语言、主题、字号；减少动效、选中即复制）；通知与回顾（omp 的 ask / completion / error 通知、空闲回顾 + studio 的完成提示音）；
 // 任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式，两两一行）；快捷键（只读，三列；studio 的键，加转发给 omp 的键）。格子排法见 settings.css 的 .st-cells。
 import { Fragment, useEffect } from "react";
-import { fontScaleSteps, type LocalePreference, type ThemePreference } from "../../../../shared/ipc.ts";
+import { defaultFontSize, fontSizeSteps, type LocalePreference, type ThemePreference } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { chordKeys } from "../../../../shared/tsp/omp-keybindings.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { useSettings } from "../../store/index.ts";
 import { Badge, Row, SectionHead, Segmented, Switch } from "../../ui/controls.tsx";
+import { Select } from "../../ui/Select.tsx";
 import { ConfigRow } from "./ConfigRow.tsx";
 import { systemReducesMotion } from "./motion-preference.ts";
 import { refreshOmpKeybindings, useOmpKeybindings } from "./omp-keybindings-store.ts";
@@ -80,7 +81,7 @@ export function GeneralSection() {
     { value: "light", label: t("settings.theme.light") },
     { value: "dark", label: t("settings.theme.dark") },
   ] as const;
-  const fontScaleOptions = fontScaleSteps.map((percent) => ({ value: `${percent}` as const, label: `${percent}%` }));
+  const fontSizeOptions = fontSizeSteps.map((size) => ({ value: `${size}` as const, label: `${size}pt` }));
   const enterOptions = [
     { value: "steer", label: t("settings.enterBehavior.steer") },
     { value: "followUp", label: t("settings.enterBehavior.later") },
@@ -116,12 +117,13 @@ export function GeneralSection() {
         </Row>
         <Row label={t("settings.fontSize")} info={t("settings.fontSize.desc")}>
           {(labelId) => (
-            <Segmented<`${number}`>
+            <Select<`${number}`>
               size="sm"
-              value={`${settings?.fontScale ?? 100}`}
-              options={fontScaleOptions}
+              width={88}
+              value={`${settings?.fontSize ?? defaultFontSize}`}
+              options={fontSizeOptions}
               labelledBy={labelId}
-              onChange={(next) => void window.studio.setFontScale(Number(next))}
+              onChange={(next) => void window.studio.setFontSize(Number(next))}
               testId="setting-font-size"
             />
           )}
@@ -199,11 +201,7 @@ export function GeneralSection() {
             </div>
           ))}
         </div>
-        <SectionHead
-          title={t("settings.shortcuts.omp")}
-          count={ompKeybindings.length}
-          note={t("settings.shortcuts.omp.desc")}
-        />
+        <SectionHead title={t("settings.shortcuts.omp")} count={ompKeybindings.length} />
         <div className="st-kb-grid" data-testid="omp-shortcuts">
           {ompKeybindings.map((binding) => (
             <div key={binding.action} className="st-kb-row" data-testid={`omp-shortcut-${binding.action}`}>

@@ -33,6 +33,8 @@ export const settings = {
   "roles.thinking": "Thinking level for {role}",
   "roles.thinkingDefault": "Default",
   "roles.thinkingNone": "—",
+  "roles.thinkingInherit": "Keep current",
+  "roles.chainThinking": "Thinking level for fallback {name}",
   defaultThinkingHint: "Used by roles that don't set their own thinking level; a level chosen on a role wins.",
   "roles.searchModel": "Search models",
   "roles.removeFallback": "Remove {name}",
@@ -51,8 +53,6 @@ export const settings = {
   notifications: "Notifications and recap",
   "block.thinking": "Thinking blocks",
   "shortcuts.omp": "omp shortcuts",
-  "shortcuts.omp.desc":
-    "With the message box or the conversation focused, these keys go straight to omp in the task (when omp-studio doesn't use the key itself). They come from omp's defaults plus keybindings.yml in omp's agent directory — change them there.",
   soundOnDone: "Sound when a task finishes",
   "soundOnDone.desc":
     "Plays the system alert sound when a task finishes its turn; skipped when a completion notification is already shown (window in the tray)",
@@ -60,7 +60,8 @@ export const settings = {
   "copyOnSelect.desc":
     "Text you select with the mouse in the conversation is copied to the clipboard; the input box and terminal are unaffected",
   fontSize: "Text size",
-  "fontSize.desc": "Scales the text and interface of the whole app together; takes effect immediately",
+  "fontSize.desc":
+    "Body text size; the text and interface of the whole app scale together (15pt is the default). Takes effect immediately",
   search: "Search settings",
   "search.hint": "Search by name, description or key",
   "search.clear": "Clear search",

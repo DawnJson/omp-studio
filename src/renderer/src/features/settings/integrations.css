@@ -13,6 +13,14 @@
   text-wrap: pretty;
 }
 
+/* skill 的说明可能很长：卡片里最多两行，完整文字在 title 里 */
+.ig-clamp {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .ig-error {
   color: var(--st-error);
 }

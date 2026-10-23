@@ -52,6 +52,12 @@ export const integrations = {
   "ssh.compat": "Compat mode",
   "ssh.compat.tip": "omp's --compat: for remotes that are not fully compatible (some routers, minimal systems).",
 
+  "skills.title": "Skills",
+  "skills.empty":
+    "No skills available. Put a skill folder with a SKILL.md in ~/.omp/agent/skills (user) or .omp/skills in a project, or run omp skill install in a terminal.",
+  "skills.note":
+    "Read-only list of the skills omp reports as available. The project scope adds the skills found in that project's folder. omp has no command to turn skills on or off from here.",
+
   "tools.title": "Available tools",
   "tools.enabled": "Enabled",
   "tools.device": "xd device",

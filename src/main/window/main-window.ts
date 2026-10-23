@@ -1,6 +1,7 @@
 // 主窗口：安全配置（AGENTS.md "Electron 安全"）、"当前主窗口"引用、窗口状态记忆和主题同步。
 import { app, BrowserWindow, nativeTheme, shell, systemPreferences } from "electron";
 import path from "node:path";
+import { defaultFontSize } from "../../shared/ipc.ts";
 import { appOrigin } from "./app-protocol.ts";
 import { getSettings, offSettingsChanged, onSettingsChanged } from "../settings/settings-store.ts";
 import { blockZoom } from "./security.ts";
@@ -42,14 +43,14 @@ function applyOverlay(window: BrowserWindow, colors: OverlayColors): void {
   window.setTitleBarOverlay({
     color: formatHex(colors.color),
     symbolColor: formatHex(colors.symbolColor),
-    height: Math.round((titleBarHeight * getSettings().fontScale) / 100),
+    height: Math.round((titleBarHeight * getSettings().fontSize) / defaultFontSize),
   });
 }
 
-/** 把设置里的字号档位落到页面缩放，并让三键区高度跟上。幂等：每次页面加载完、缩放被改动、设置变化时都调用。 */
-function applyFontScale(window: BrowserWindow): void {
+/** 把设置里的字号落到页面缩放（字号 / 15，15 是设计稿正文字号），并让三键区高度跟上。幂等：每次页面加载完、缩放被改动、设置变化时都调用。 */
+function applyFontSize(window: BrowserWindow): void {
   if (window.isDestroyed()) return;
-  const factor = getSettings().fontScale / 100;
+  const factor = getSettings().fontSize / defaultFontSize;
   if (window.webContents.getZoomFactor() !== factor) window.webContents.setZoomFactor(factor);
   applyOverlay(window, shown ?? overlayColors(titleBarDimmed));
 }
@@ -209,11 +210,11 @@ export function createMainWindow(): BrowserWindow {
   window.webContents.on("did-start-navigation", (details) => {
     if (details.isMainFrame && !details.isSameDocument) setTitleBarDimmed(false);
   });
-  applyFontScale(window);
+  applyFontSize(window);
   // 字号 = 整页缩放：重载/导航后 Chromium 会回到按源记的缩放，滚轮缩放（zoom-changed）也可能改动，统一拉回设置里的档位。
-  window.webContents.on("did-finish-load", () => applyFontScale(window));
-  window.webContents.on("zoom-changed", () => applyFontScale(window));
-  const onSettings = () => applyFontScale(window);
+  window.webContents.on("did-finish-load", () => applyFontSize(window));
+  window.webContents.on("zoom-changed", () => applyFontSize(window));
+  const onSettings = () => applyFontSize(window);
   onSettingsChanged(onSettings);
   window.once("closed", () => offSettingsChanged(onSettings));
   blockZoom(window.webContents);

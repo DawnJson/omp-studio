@@ -33,7 +33,7 @@ const settings = (maxLiveProcesses = 6): StudioSettings => ({
   enterWhileRunning: "steer",
   soundOnDone: false,
   copyOnSelect: true,
-  fontScale: 100,
+  fontSize: 15,
   yoloConfirmed: false,
 });
 

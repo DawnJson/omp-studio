@@ -15,7 +15,7 @@ vi.mock("../src/main/window/main-window.ts", () => ({ getMainWindow: () => null,
 
 // vi.mock 提升到导入之前，被测模块必须在 mock 之后才加载：这里只能动态导入。
 const { getSettings, loadSettings } = await import("../src/main/settings/settings-store.ts");
-const { parseFontScale } = await import("../src/main/ipc/validate.ts");
+const { parseFontSize } = await import("../src/main/ipc/validate.ts");
 
 async function loadWith(content: unknown): Promise<StudioSettings> {
   await writeFile(path.join(hoisted.userData, "settings.json"), JSON.stringify(content));
@@ -23,7 +23,7 @@ async function loadWith(content: unknown): Promise<StudioSettings> {
   return getSettings();
 }
 
-describe("settings.json 的 fontScale", () => {
+describe("settings.json 的 fontSize", () => {
   beforeAll(async () => {
     hoisted.userData = await mkdtemp(path.join(os.tmpdir(), "omp-studio-settings-"));
   });
@@ -32,24 +32,23 @@ describe("settings.json 的 fontScale", () => {
   });
 
   it("合法档位原样保留", async () => {
-    for (const percent of [90, 100, 110, 125, 150])
-      expect((await loadWith({ fontScale: percent })).fontScale).toBe(percent);
+    for (const size of [12, 14, 15, 18, 22]) expect((await loadWith({ fontSize: size })).fontSize).toBe(size);
   });
 
-  it("缺失、非档位、类型不对的值回落到 100，其它字段不受影响", async () => {
-    for (const bad of [undefined, 0, 80, 105, 200, -100, 1.25, "125", null, true, {}, [125], Number.NaN]) {
-      const settings = await loadWith({ fontScale: bad, theme: "dark" });
-      expect(settings.fontScale).toBe(100);
+  it("缺失、非档位、类型不对的值回落到 15，其它字段不受影响", async () => {
+    for (const bad of [undefined, 0, 11, 23, 15.5, 100, -15, "15", null, true, {}, [15], Number.NaN]) {
+      const settings = await loadWith({ fontSize: bad, theme: "dark" });
+      expect(settings.fontSize).toBe(15);
       expect(settings.theme).toBe("dark");
     }
   });
 
   it("整个文件不是对象时全部用默认值", async () => {
-    expect((await loadWith([125])).fontScale).toBe(100);
+    expect((await loadWith([18])).fontSize).toBe(15);
   });
 
   it("IPC 入口校验：只收档位", () => {
-    expect(parseFontScale(125)).toBe(125);
-    for (const bad of [0, 99, "125", null, undefined, 125.5]) expect(() => parseFontScale(bad)).toThrow();
+    expect(parseFontSize(18)).toBe(18);
+    for (const bad of [0, 11, 23, "18", null, undefined, 15.5]) expect(() => parseFontSize(bad)).toThrow();
   });
 });

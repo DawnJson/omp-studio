@@ -188,9 +188,9 @@
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-/* 链里每一项：序号 | 模型 | 上移 下移 删除 */
+/* 链里每一项：序号 | 模型 | 思考强度（104，和模型页同宽；没得选时是空占位） | 上移 下移 删除 */
 .se-entry {
-  grid-template-columns: var(--space-4) minmax(0, 1fr) auto auto auto;
+  grid-template-columns: var(--space-4) minmax(0, 1fr) 104px auto auto auto;
 }
 
 .se-entry:last-child {

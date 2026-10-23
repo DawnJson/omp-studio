@@ -2,11 +2,11 @@
 // 并把主题同步给 nativeTheme（渲染进程只靠 prefers-color-scheme 和 <html data-theme>）。
 import { app, nativeTheme } from "electron";
 import path from "node:path";
-import type { Locale, StudioSettings } from "../../shared/ipc.ts";
+import { defaultFontSize, type Locale, type StudioSettings } from "../../shared/ipc.ts";
 import { emitEvent } from "../ipc/events.ts";
 import {
   parseBoolean,
-  parseFontScale,
+  parseFontSize,
   parseOneOf,
   parseLocalePreference,
   parseMaxLiveProcesses,
@@ -23,7 +23,7 @@ const defaults: StudioSettings = {
   enterWhileRunning: "steer",
   soundOnDone: false,
   copyOnSelect: true,
-  fontScale: 100,
+  fontSize: defaultFontSize,
   yoloConfirmed: false,
 };
 
@@ -60,7 +60,7 @@ function sanitize(raw: unknown): StudioSettings {
     ),
     soundOnDone: field((value) => parseBoolean(value, "soundOnDone"), record["soundOnDone"], defaults.soundOnDone),
     copyOnSelect: field((value) => parseBoolean(value, "copyOnSelect"), record["copyOnSelect"], defaults.copyOnSelect),
-    fontScale: field(parseFontScale, record["fontScale"], defaults.fontScale),
+    fontSize: field(parseFontSize, record["fontSize"], defaults.fontSize),
     yoloConfirmed: field(
       (value) => parseBoolean(value, "yoloConfirmed"),
       record["yoloConfirmed"],

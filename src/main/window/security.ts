@@ -28,7 +28,7 @@ export function installSessionSecurity(isAppUrl: (url: string) => boolean): void
   defaultSession.setDevicePermissionHandler(() => false);
 }
 
-/** 拦下 Chromium 默认的缩放快捷键和捏合缩放：页面缩放只由设置里的字号决定（window/main-window.ts 的 applyFontScale）。 */
+/** 拦下 Chromium 默认的缩放快捷键和捏合缩放：页面缩放只由设置里的字号决定（window/main-window.ts 的 applyFontSize）。 */
 export function blockZoom(webContents: WebContents): void {
   void webContents.setVisualZoomLevelLimits(1, 1);
   webContents.on("before-input-event", (event, input) => {

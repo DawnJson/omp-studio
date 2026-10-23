@@ -3,11 +3,9 @@
 // 值就是 omp 自己的 modelRoles / retry.fallbackChains / defaultThinkingLevel（设计原则 7），和 omp 设置是同一份；
 // 改了就写全局（和模型选择对话框里给角色"应用"一样）。候选按角色能用的模型类别筛（role-options.ts）。
 import { useEffect, useId, type ReactNode } from "react";
-import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { ModelKey } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { splitRoleValue } from "../../../../shared/ui/role-value.ts";
-import { thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
 import { Notice, type Option } from "../../ui/controls.tsx";
@@ -15,7 +13,6 @@ import { describeError, reportError } from "../../ui/errors.ts";
 import { InfoTip } from "../../ui/InfoTip.tsx";
 import { Select, type SelectOption } from "../../ui/Select.tsx";
 import { chatRoles, kindRoles, roleHintKey, roleKinds, roleLabel } from "../composer/model-groups.ts";
-import { thinkingLabel } from "../composer/thinking-levels.ts";
 import { useModelSources } from "./accounts-store.ts";
 import {
   ensureOmpConfigLoaded,
@@ -24,6 +21,7 @@ import {
   saveOmpModelRole,
   useOmpConfigValue,
 } from "./config-store.ts";
+import { ChainLevel, levelText } from "./ChainLevel.tsx";
 import { CommonConfig } from "./ConfigSection.tsx";
 import { useCommonConfigItems } from "./OmpConfigPane.tsx";
 import {
@@ -31,7 +29,7 @@ import {
   chainKinds,
   isChainRecord,
   isStringRecord,
-  selectorOf,
+  levelsOfSelector,
   sourcesReady,
   withCurrent,
   type ModelSources,
@@ -109,8 +107,7 @@ function RoleRow({
     const slash = value.indexOf("/");
     return slash > 0 ? { provider: value.slice(0, slash), modelId: value.slice(slash + 1) } : null;
   };
-  const levelsOf = (value: string | null): ThinkingLevel[] =>
-    thinkingLevelOptions(sources.chat?.find((model) => selectorOf(model.key) === value) ?? null, []);
+  const levelsOf = (value: string | null) => levelsOfSelector(value, sources);
 
   const write = (value: string, next: string | null) => {
     const key = keyOf(value);
@@ -152,8 +149,9 @@ function RoleRow({
   // 配置里的档位这个模型不支持（或模型不在目录里）：原样留着显示，别悄悄显示成别的。
   if (level !== null && !levels.includes(level as ThinkingLevel))
     thinkingOptions.push({ value: level, label: levelText(t, level) });
+  const chainSelectors = chain.map((entry) => splitRoleValue(entry).selector);
   const addOptions = fallbackCandidates.filter(
-    (candidate) => candidate.value !== selector && !chain.includes(candidate.value),
+    (candidate) => candidate.value !== selector && !chainSelectors.includes(candidate.value),
   );
   return (
     <div className="st-roles-row" data-testid={`setting-role-row-${role}`}>
@@ -196,30 +194,37 @@ function RoleRow({
           testId={`setting-chain-${role}-add`}
         />
         <span className="st-chain" data-testid={`setting-chain-${role}`}>
-          {chain.map((entry, index) => (
-            <span key={`${index}:${entry}`} className="st-tag" title={entry}>
-              <span className="st-tag-text">{nameOf(entry)}</span>
-              <button
-                type="button"
-                className="st-tag-remove"
-                aria-label={t("settings.roles.removeFallback", { name: nameOf(entry) })}
-                disabled={disabled}
-                onClick={() => saveChain(chain.filter((_, at) => at !== index))}
-              >
-                <Close size={10} />
-              </button>
-            </span>
-          ))}
+          {chain.map((entry, index) => {
+            const name = nameOf(splitRoleValue(entry).selector);
+            return (
+              <span key={`${index}:${entry}`} className="st-chain-item">
+                <span className="st-tag" title={entry}>
+                  <span className="st-tag-text">{name}</span>
+                  <button
+                    type="button"
+                    className="st-tag-remove"
+                    aria-label={t("settings.roles.removeFallback", { name })}
+                    disabled={disabled}
+                    onClick={() => saveChain(chain.filter((_, at) => at !== index))}
+                  >
+                    <Close size={10} />
+                  </button>
+                </span>
+                <ChainLevel
+                  entry={entry}
+                  sources={sources}
+                  name={name}
+                  disabled={disabled || sources.chat === null}
+                  testId={`setting-chain-${role}-thinking-${index}`}
+                  onChange={(next) => saveChain(chain.map((value, at) => (at === index ? next : value)))}
+                />
+              </span>
+            );
+          })}
         </span>
       </span>
     </div>
   );
-}
-
-/** 档位的显示文字；omp 支持但这里没有文案的（auto 等）原样显示。 */
-function levelText(t: TFunction, level: string): string {
-  const key = thinkingLabel[level as ThinkingLevel];
-  return key === undefined ? level : t(key);
 }
 
 export function ModelsSection() {

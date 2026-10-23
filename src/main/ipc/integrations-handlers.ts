@@ -1,10 +1,13 @@
-// 设置 → 集成 → SSH 主机的 IPC：参数校验后转调 src/main/integrations/ssh.ts。
+// 设置 → 集成 → SSH 主机、Skills 的 IPC：SSH 校验参数后转调 src/main/integrations/ssh.ts；Skills 读 omp rpc-ui 的命令列表。
 // MCP / 记忆 / 工具 / 更新日志走 runBuiltin（command-handlers.ts），这里没有。
 import type { HandlerGroup, ProjectId } from "../../shared/ipc.ts";
+import { skillsFromCommands, type SkillEntry } from "../../shared/omp-output/skills.ts";
 import type { SshHostInput } from "../../shared/omp-output/ssh.ts";
 import { checkSshName, listSshHosts, runSshWrite, sshAddArgs, sshRemoveArgs } from "../integrations/ssh.ts";
+import type { OmpConnection } from "../omp/omp-connection.ts";
+import { projectOmp } from "../service/project-omp-instance.ts";
 import { getApiKeyEnv, readyOmp } from "../omp-manager/index.ts";
-import { serviceCwd } from "../service/service-omp.ts";
+import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { runOmpCommand, type RunOmp } from "../usage/usage-service.ts";
 import { IpcValidationError, parseBoolean, parseOneOf, parseProjectId, parseRecord, parseString } from "./validate.ts";
@@ -47,8 +50,20 @@ function parseSshHostInput(value: unknown): SshHostInput {
   };
 }
 
-export const integrationsHandlers: HandlerGroup<"listSshHosts" | "addSshHost" | "removeSshHost"> = {
+export const integrationsHandlers: HandlerGroup<"listSshHosts" | "addSshHost" | "removeSshHost" | "listSkills"> = {
   listSshHosts: async (projectId) => listSshHosts(await ssh(optionalProjectId(projectId))),
+  listSkills: async (projectId) => {
+    const request = (connection: OmpConnection) => connection.request("get_available_commands");
+    const user = skillsFromCommands((await serviceOmp.use(request)).commands, "user");
+    const project = optionalProjectId(projectId);
+    if (project === null) return user;
+    // omp 的条目不带来源：用户进程（中性目录）里也有的算用户级，只在项目目录里出现的算项目级。
+    const userNames = new Set(user.map((skill) => skill.name));
+    const inProject = (await projectOmp.use((await getTaskPool()).projectPath(project), request)).commands;
+    return skillsFromCommands(inProject, "project").map((skill): SkillEntry =>
+      userNames.has(skill.name) ? { ...skill, scope: "user" } : skill,
+    );
+  },
   addSshHost: async (input, projectId) => {
     const parsed = parseSshHostInput(input);
     const project = optionalProjectId(projectId);
