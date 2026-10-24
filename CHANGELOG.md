@@ -10,6 +10,8 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+## [0.4.9] - 2026-10-23
+
 ### 变更
 
 - 设置 -> 自定义 provider：key 选“环境变量”时变量名按 ID 预填（如 `my-proxy` → `MY_PROXY_API_KEY`，内置 provider 用 omp 的变量名）；变量既没填值、也不在 `.env` 或系统环境变量里时不能保存。
