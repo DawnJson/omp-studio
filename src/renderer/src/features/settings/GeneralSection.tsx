@@ -191,7 +191,7 @@ export function GeneralSection() {
         <div className="st-kb-grid">
           {shortcuts.map((shortcut) => (
             <div key={shortcut.label} className="st-kb-row">
-              <span title={t(shortcut.label)}>{t(shortcut.label)}</span>
+              <span>{t(shortcut.label)}</span>
               {shortcut.keys.map((key) => (
                 <kbd key={key} className="kbd">
                   {key}
@@ -204,9 +204,7 @@ export function GeneralSection() {
         <div className="st-kb-grid" data-testid="omp-shortcuts">
           {ompKeybindings.map((binding) => (
             <div key={binding.action} className="st-kb-row" data-testid={`omp-shortcut-${binding.action}`}>
-              <span title={t(ompActionLabels[binding.action] ?? "shortcut.ompThinkingCycle")}>
-                {t(ompActionLabels[binding.action] ?? "shortcut.ompThinkingCycle")}
-              </span>
+              <span>{t(ompActionLabels[binding.action] ?? "shortcut.ompThinkingCycle")}</span>
               {binding.chords.map((chord, index) => (
                 <Fragment key={chord}>
                   {index > 0 && <span className="st-kb-or">/</span>}

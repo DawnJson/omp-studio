@@ -394,21 +394,22 @@
   }
 }
 
+/* 名字放不下时折成两行，不省略（2026-10-24 溢出检查：英文的 omp 快捷键名在 900 宽被截断）；同一行三格等高。 */
 .st-kb-row {
   display: flex;
   gap: var(--space-1);
   align-items: center;
-  height: var(--control-h-md);
+  min-height: var(--control-h-md);
+  padding-block: var(--space-1);
   font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .st-kb-row > span:first-child {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .st-kb-or {

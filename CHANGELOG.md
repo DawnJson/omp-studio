@@ -10,6 +10,10 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+### 修复
+
+- 设置 -> 通用：快捷键表里名字长的动作（如英文的 “Select temporary model for current session”）在窄窗口下折成两行显示全，不再被省略号截掉。
+
 ## [0.4.9] - 2026-10-23
 
 ### 变更

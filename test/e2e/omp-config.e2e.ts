@@ -371,6 +371,20 @@ test("通用页：通知与回顾是 omp 自己的设置、改了写进 omp；�
     await expect(shortcuts.getByTestId("omp-shortcut-app.thinking.cycle").locator("kbd")).toHaveText(["Shift", "Tab"]);
     await expect(shortcuts.getByTestId("omp-shortcut-app.retry")).toHaveCount(0);
     await expect(page.locator("#settings-shortcuts")).toContainText("omp 快捷键");
+    // 英文、900 宽：名字长的快捷键（Select temporary model for current session）折行显示全，不被省略号截掉。
+    await page.setViewportSize({ width: 900, height: 800 });
+    await setLocaleTheme(page, "en", "light");
+    await expect(shortcuts.getByTestId("omp-shortcut-app.model.selectTemporary")).toBeVisible();
+    const cut = await page
+      .locator(".st-kb-row > span:first-child")
+      .evaluateAll((spans) =>
+        (spans as unknown as { scrollWidth: number; clientWidth: number; textContent: string }[])
+          .filter((span) => span.scrollWidth > span.clientWidth + 1)
+          .map((span) => span.textContent),
+      );
+    expect(cut).toEqual([]);
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.setViewportSize({ width: 1200, height: 800 });
     // 模型页：思考块的两个开关（TSP 下实测起作用，docs/architecture/omp-settings.md）。
     await page.getByTestId("settings-nav-models").click();
     await expect(page.getByTestId("cfg-hideThinkingBlock")).toBeVisible({ timeout: 30_000 });
