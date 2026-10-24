@@ -4,7 +4,7 @@ import type { toggles as zhCN } from "../zh-CN/toggles.ts";
 export const toggles = {
   button: "Session switches",
   title: "Session switches",
-  note: "Extended context and Browser window are saved to omp's config and carry over to later tasks; the rest apply to this session only. A dot means it differs from the default.",
+  note: "Extended context and Browser window are saved to omp's config; the rest apply to this session only. A dot marks a non-default value.",
   session: "This session",
   differs: "Differs from the configured default",
   skillful: "Skill listing",
@@ -29,7 +29,7 @@ export const toggles = {
   "prewalk.off": "Disable",
   computerConfirmTitle: "Turn on computer use?",
   computerConfirmBody:
-    "The model will be able to see your screen and operate the keyboard and mouse, which can touch real apps and files. It only applies to this session; close any windows you don't want it to see first.",
+    "The model can see your screen and use the keyboard and mouse, for this session only. Close windows you don't want it to see first.",
   computerConfirmYes: "Turn on",
   slashUsage: "Usage: {usage}",
   presets: "Model presets",

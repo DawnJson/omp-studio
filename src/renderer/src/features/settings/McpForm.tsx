@@ -6,6 +6,7 @@ import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Button, FormField, Notice, Segmented, TextField, Textarea, type Option } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
+import { Reserve } from "../../ui/Reserve.tsx";
 import { runMcpWrite } from "./integrations-data.ts";
 import type { ScopeKey } from "./integrations-store.ts";
 import "./integrations.css";
@@ -14,6 +15,9 @@ type Kind = "stdio" | "http" | "sse";
 type Scope = "user" | "project";
 
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+
+// 占位副本的 onChange：不会被触发（整块 inert），只为满足受控组件的类型。
+const noop = () => undefined;
 
 function addCommand(
   name: string,
@@ -64,6 +68,71 @@ export function McpForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(messa
     { value: "user", label: t("integrations.scope.user") },
     { value: "project", label: t("integrations.scope.project") },
   ];
+
+  // live=false 是占位用的副本：不带 id / testId / 值，免得和真正显示的那份重名
+  const stdioFields = (live: boolean) => (
+    <>
+      <FormField label={t("integrations.mcp.command")} htmlFor={live ? `${uid}-cmd` : undefined}>
+        <TextField
+          id={live ? `${uid}-cmd` : undefined}
+          mono
+          width="100%"
+          autoComplete="off"
+          value={live ? command : ""}
+          placeholder="npx"
+          testId={live ? "mcp-command" : undefined}
+          onChange={live ? setCommand : noop}
+        />
+      </FormField>
+      <FormField
+        label={t("integrations.mcp.args")}
+        htmlFor={live ? `${uid}-args` : undefined}
+        help={t("integrations.mcp.args.tip")}
+      >
+        <Textarea
+          id={live ? `${uid}-args` : undefined}
+          mono
+          rows={3}
+          value={live ? args : ""}
+          placeholder={"-y\n@scope/server"}
+          testId={live ? "mcp-args" : undefined}
+          onChange={live ? setArgs : noop}
+        />
+      </FormField>
+    </>
+  );
+  const remoteFields = (live: boolean) => (
+    <>
+      <FormField label="URL" htmlFor={live ? `${uid}-url` : undefined}>
+        <TextField
+          id={live ? `${uid}-url` : undefined}
+          mono
+          width="100%"
+          autoComplete="off"
+          value={live ? url : ""}
+          placeholder="https://example.com/mcp"
+          testId={live ? "mcp-url" : undefined}
+          onChange={live ? setUrl : noop}
+        />
+      </FormField>
+      <FormField
+        label={t("integrations.mcp.token")}
+        htmlFor={live ? `${uid}-token` : undefined}
+        help={t("integrations.mcp.token.tip")}
+      >
+        <TextField
+          id={live ? `${uid}-token` : undefined}
+          mono
+          width="100%"
+          type="password"
+          autoComplete="off"
+          value={live ? token : ""}
+          testId={live ? "mcp-token" : undefined}
+          onChange={live ? setToken : noop}
+        />
+      </FormField>
+    </>
+  );
 
   const submit = async () => {
     setBusy(true);
@@ -139,64 +208,10 @@ export function McpForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(messa
             testId="mcp-kind"
           />
         </FormField>
-        {kind === "stdio" ? (
-          <>
-            <FormField label={t("integrations.mcp.command")} htmlFor={`${uid}-cmd`}>
-              <TextField
-                id={`${uid}-cmd`}
-                mono
-                width="100%"
-                autoComplete="off"
-                value={command}
-                placeholder="npx"
-                testId="mcp-command"
-                onChange={setCommand}
-              />
-            </FormField>
-            <FormField label={t("integrations.mcp.args")} htmlFor={`${uid}-args`} help={t("integrations.mcp.args.tip")}>
-              <Textarea
-                id={`${uid}-args`}
-                mono
-                rows={3}
-                value={args}
-                placeholder={"-y\n@scope/server"}
-                testId="mcp-args"
-                onChange={setArgs}
-              />
-            </FormField>
-          </>
-        ) : (
-          <>
-            <FormField label="URL" htmlFor={`${uid}-url`}>
-              <TextField
-                id={`${uid}-url`}
-                mono
-                width="100%"
-                autoComplete="off"
-                value={url}
-                placeholder="https://example.com/mcp"
-                testId="mcp-url"
-                onChange={setUrl}
-              />
-            </FormField>
-            <FormField
-              label={t("integrations.mcp.token")}
-              htmlFor={`${uid}-token`}
-              help={t("integrations.mcp.token.tip")}
-            >
-              <TextField
-                id={`${uid}-token`}
-                mono
-                width="100%"
-                type="password"
-                autoComplete="off"
-                value={token}
-                testId="mcp-token"
-                onChange={setToken}
-              />
-            </FormField>
-          </>
-        )}
+        {/* 传输方式不同、字段不同：两组叠在一格里占位，切换时对话框大小不变 */}
+        <Reserve className="ig-reserve" ghosts={[kind === "stdio" ? remoteFields(false) : stdioFields(false)]}>
+          {kind === "stdio" ? stdioFields(true) : remoteFields(true)}
+        </Reserve>
         {error !== null && (
           <Notice tone="error" testId="mcp-form-error">
             <span className="ig-raw">{error}</span>

@@ -358,6 +358,24 @@
   color: var(--text);
 }
 
+/* Reserve.tsx：候选内容叠在同一格，格子按最大的撑开；只显示 .ui-reserve-now，其余只占位。
+   每份内容内部和表单字段一样竖排（间距同 .ui-form-field）。 */
+.ui-reserve {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.ui-reserve > * {
+  grid-area: 1 / 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--space-1-5);
+  min-width: 0;
+}
+.ui-reserve-ghost {
+  visibility: hidden;
+}
+
 /* ───────── Switch / Checkbox / Radio ───────── */
 .ui-switch {
   position: relative;

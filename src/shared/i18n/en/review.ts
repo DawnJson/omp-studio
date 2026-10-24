@@ -68,19 +68,18 @@ export const review = {
   commitStaged: { one: "{count} file staged", other: "{count} files staged" },
   commitGenerate: "Generate",
   commitGenerateTip:
-    "Ask omp to write the commit message from the staged changes (omp commit, using omp's commit role model). Only fills the fields; nothing is committed",
+    "Ask omp to write the commit message from the staged changes. Only fills the fields; nothing is committed",
   commitGenerateNone: "Nothing is staged. Stage the files to commit first",
   commitGenerating: "Generating…",
   commitGenerateCancel: "Cancel",
   commitAmend: "Amend previous commit",
   commitAmendLoading: "Reading the previous commit…",
-  commitAmendPushed:
-    "The previous commit is already pushed. Amending rewrites history and the remote copy won't change; Studio never force-pushes.",
+  commitAmendPushed: "The previous commit is already pushed; amending rewrites history and Studio never force-pushes.",
   commitAmendLocal: "Staged changes are folded into the previous commit, using the message above.",
   commitAmendConfirm: "Amend commit",
   amendPushedTitle: "Amend a pushed commit?",
   amendPushedBody:
-    "The previous commit is already on a remote branch. Amending changes its hash, so a normal push will be rejected and you'd need a force push (Studio doesn't offer one). Rewrite it anyway?",
+    "The previous commit is already on the remote. After amending, a normal push is rejected and you'd need a force push (Studio doesn't offer one).",
   ignoreSpace: "Ignore whitespace",
   ignoreSpaceTip: "Ignore whitespace changes (git diff -w)",
   ignoreSpaceNote:

@@ -184,6 +184,7 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
       title={forking ? t("tree.forking") : summarizing ? t("tree.summarizing") : t("tree.title")}
       testId="session-tree"
       className="tree-dialog"
+      lockHeight
       onExited={onExited}
       footStart={
         nodes !== null && nodes.length > 0 ? (
@@ -346,11 +347,16 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
               })}
             </div>
           )}
-          {discard > 0 && (
-            <p className="tree-hint" role="status" data-testid="session-tree-discard" data-count={discard}>
-              {t("tree.discard", { count: discard })}
-            </p>
-          )}
+          {/* 提示行始终占一行：悬停 / 方向键换节点时它出现、消失，外框高度不变 */}
+          <p
+            className="tree-hint"
+            role={discard > 0 ? "status" : undefined}
+            aria-hidden={discard > 0 ? undefined : true}
+            data-testid={discard > 0 ? "session-tree-discard" : undefined}
+            data-count={discard > 0 ? discard : undefined}
+          >
+            {discard > 0 ? t("tree.discard", { count: discard }) : "\u00a0"}
+          </p>
         </div>
       )}
     </Dialog>

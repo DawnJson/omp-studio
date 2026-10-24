@@ -3,13 +3,13 @@ import type { git as zhCN } from "../zh-CN/git.ts";
 
 export const git = {
   "draft.worktree": "Start in a separate worktree",
-  "draft.title": "Do this task in its own git worktree: a new studio/… branch, your main folder stays untouched",
+  "draft.title": "Do this task in its own worktree (new studio/… branch); your main folder stays untouched",
   "draft.on": "new worktree",
   "draft.setup": "Will run {script} on creation",
   "draft.blocked": "Worktree unavailable: {reason}",
   "setup.title": "Run this project's setup script?",
   "setup.body":
-    "{script} comes from this project's repository. It will run in the new worktree with your permissions. Only run scripts you trust. You will be asked again if the script changes.",
+    "{script} comes from this project's repository and runs in the new worktree with your permissions. Only run scripts you trust.",
   "setup.confirm": "Run and create",
   "setup.declined": "The worktree was not created.",
 
@@ -73,7 +73,7 @@ export const git = {
   "merge.nothing": "No new commits to merge.",
   "merge.conflictTitle": "Merge conflict",
   "merge.conflictBody":
-    "The merge was undone; neither your main folder nor the worktree was changed. Resolve the files below (the agent can do it) and merge again.",
+    "The merge was undone and nothing changed. Resolve the files below (the agent can help) and merge again.",
   "merge.blocked.worktree_dirty": "The worktree has uncommitted changes. Commit or discard them first.",
   "merge.blocked.base_dirty":
     "Your main folder has uncommitted changes the merge could overwrite. Deal with them first.",
@@ -82,7 +82,7 @@ export const git = {
 
   "discard.title": "Discard this worktree?",
   "discard.body":
-    "This deletes branch {branch} and the worktree folder. Uncommitted and unmerged changes in it are lost, and the task is archived. This cannot be undone.",
+    "Deletes branch {branch} and the worktree folder; uncommitted and unmerged changes are lost and the task is archived. This cannot be undone.",
   "discard.confirm": "Discard",
   "discard.done": "Worktree discarded",
 

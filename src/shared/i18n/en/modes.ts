@@ -25,7 +25,7 @@ export const modes = {
   "prewalk.off": "Turn off",
   loop: "Loop mode",
   "loop.hint":
-    "While on, the next message you send is re-sent after every turn. Bound it with a count or duration, or stop it with a command's result.",
+    "While on, your next message is re-sent after every turn; stop it by count, duration or a command's result.",
   "loop.limit": "Count or duration",
   "loop.limitPlaceholder": "10 or 10m",
   "loop.condition": "Condition",

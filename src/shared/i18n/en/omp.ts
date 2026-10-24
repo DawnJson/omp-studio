@@ -16,13 +16,13 @@ export const omp = {
     "omp-studio doesn't bundle omp. It downloads the official build, manages it, and keeps it up to date.",
   "takeover.title": "Found a script-based omp",
   "takeover.body":
-    "omp-studio can't launch script-based installs (such as npm). It can install its own official copy and change your user PATH to put it first (omp in newly opened terminals will point to it). Your existing install stays as is.",
+    "omp-studio can't launch script-based installs (such as npm). It can install an official copy first on your user PATH; your existing one stays.",
   "takeover.exeTitle": "Found an omp you installed yourself",
   "takeover.exeBody":
-    "omp-studio can install its own official copy and change your user PATH to put it first (omp in newly opened terminals will point to it). Your existing install stays as is.",
+    "omp-studio can install an official copy and put it first on your user PATH. Your existing install stays as is.",
   "takeover.otherTitle": "Found an omp managed by {name}",
   "takeover.otherBody":
-    "omp-studio can install its own official copy and change your user PATH to put it first (omp in newly opened terminals will point to it). {name}'s copy stays as is, it just no longer comes first on PATH.",
+    "omp-studio can install an official copy and put it first on your user PATH. {name}'s copy stays, just no longer first.",
   "takeover.keepOther": "Keep using {name}'s",
   "takeover.where": "Location: {path}",
   "takeover.yes": "Let omp-studio manage it",
@@ -61,9 +61,9 @@ export const omp = {
   openSettings: "Open settings",
   "missing.title": "omp is required",
   "missing.body":
-    "omp-studio doesn't bundle omp. It can download an official copy from {source} (about {size}), put it first on your user PATH so the terminal can use it too, and keep it up to date.",
+    "omp-studio doesn't bundle omp. It can download the official build from {source} (about {size}), add it to your user PATH and keep it updated.",
   "missing.bodyNoSize":
-    "omp-studio doesn't bundle omp. It can download an official copy from {source}, put it first on your user PATH so the terminal can use it too, and keep it up to date.",
+    "omp-studio doesn't bundle omp. It can download the official build from {source}, add it to your user PATH and keep it updated.",
   "missing.titleVersion": "omp {version} is required",
   install: "Download and install",
   recheck: "I've installed it, check again",

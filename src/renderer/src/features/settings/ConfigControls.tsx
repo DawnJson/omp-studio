@@ -209,11 +209,15 @@ function JsonControl({ item, title, onSave }: ControlProps) {
           data-autofocus=""
           testId="cfg-json-text"
         />
-        {error !== null && (
-          <p className="ui-help" data-tone="error" role="alert">
-            {error}
-          </p>
-        )}
+        {/* 错误行始终占位（无错误时放不间断空格）：边输入边校验，对话框高度不随错误出现 / 消失而变 */}
+        <p
+          className="ui-help"
+          data-tone={error === null ? undefined : "error"}
+          role={error === null ? undefined : "alert"}
+          aria-hidden={error === null ? true : undefined}
+        >
+          {error ?? "\u00a0"}
+        </p>
       </Dialog>
     </>
   );

@@ -3,7 +3,7 @@ import type { MessageEntry } from "../index.ts";
 export const toggles = {
   button: "会话开关",
   title: "会话开关",
-  note: "扩展 context 和浏览器窗口会写进 omp 的配置，以后的任务也用；其余只对本会话生效。圆点表示和默认值不同。",
+  note: "扩展 context 和浏览器窗口写进 omp 配置，其余只对本会话生效；圆点表示和默认值不同。",
   session: "本会话",
   differs: "和配置默认值不同",
   skillful: "Skill 清单",
@@ -27,8 +27,7 @@ export const toggles = {
   "prewalk.restart": "重来",
   "prewalk.off": "停用",
   computerConfirmTitle: "开启电脑操作？",
-  computerConfirmBody:
-    "模型将能查看你的屏幕，并操作键盘和鼠标，可能动到真实的应用和文件。只对当前会话生效；开启前请关掉不想被看到的窗口。",
+  computerConfirmBody: "模型能看你的屏幕、操作键盘和鼠标，只对本会话生效。开启前请关掉不想被看到的窗口。",
   computerConfirmYes: "开启",
   slashUsage: "用法：{usage}",
   presets: "模型预设",

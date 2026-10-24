@@ -18,11 +18,9 @@ export const ompcfg = {
   "defaultThinkingLevel.desc": "支持思考的模型默认用多深的 reasoning",
 
   "tools.approvalMode.label": "工具审批模式",
-  "tools.approvalMode.desc":
-    "总是询问：只自动放行只读工具；询问并记住：读文件也询问，批准时可记住文件或文件夹；自动写入：读和工作区内写入自动；全自动：全部放行（用户策略仍可能拦截）",
+  "tools.approvalMode.desc": "总是询问：只放行只读工具；询问并记住：读文件也问；自动写入：读写自动；全自动：全部放行",
   "tools.approval.label": "按工具的审批策略",
-  "tools.approval.desc":
-    "JSON 对象：工具名对应 allow（自动放行）、prompt（要确认）或 deny（禁止），在所有审批模式下都生效",
+  "tools.approval.desc": "JSON 对象：工具名对应 allow、prompt 或 deny，任何审批模式下都生效",
   "tools.format.label": "工具调用格式",
   "tools.format.desc": "工具以什么形式交给模型。自动：优先用模型原生的工具调用，模型不支持时退回 GLM 格式",
   "bash.enabled.label": "允许执行命令",
@@ -81,14 +79,13 @@ export const ompcfg = {
   "mnemopi.autoRetain.label": "Mnemopi：自动记住",
   "mnemopi.autoRetain.desc": "把完成的对话轮次存进本地记忆",
   "mnemopi.scoping.label": "Mnemopi：记忆范围",
-  "mnemopi.scoping.desc":
-    "global：共用一个库；per-project：每个目录一个库；per-project-tagged：写入项目库，回忆时能看到全局的",
+  "mnemopi.scoping.desc": "全局共用一个库，或每个项目一个库；带标签时回忆也能看到全局记忆",
   "hindsight.autoRecall.label": "Hindsight：自动回忆",
   "hindsight.autoRecall.desc": "每个会话的第一轮回忆记忆",
   "hindsight.autoRetain.label": "Hindsight：自动记住",
   "hindsight.autoRetain.desc": "每隔几轮和会话边界保存一次对话记录",
   "hindsight.scoping.label": "Hindsight：记忆范围",
-  "hindsight.scoping.desc": "global：共用一个库；per-project：每个目录一个库；per-project-tagged：共用库加项目标签",
+  "hindsight.scoping.desc": "全局共用一个库，或每个项目一个库；带标签时共用一个库、按项目打标签",
 
   "task.maxConcurrency.label": "Subagent 最大并发数",
   "task.maxConcurrency.desc": "同时运行的 subagent 数量上限",
@@ -112,8 +109,7 @@ export const ompcfg = {
   "task.agentModelOverrides.desc": "JSON 对象：为指定的 subagent 换用别的模型",
 
   "goal.continuationModes.label": "目标自动推进",
-  "goal.continuationModes.desc":
-    "开启后，/goal 的目标在 omp-studio 里由 omp 自己一轮接一轮推进；这是 omp 的设置 goal.continuationModes，和终端里的 omp 共用",
+  "goal.continuationModes.desc": "开启后 omp 会一轮接一轮推进 /goal 的目标；和终端里的 omp 共用这个设置",
 
   "retry.enabled.label": "出错自动重试",
   "retry.enabled.desc": "模型接口出错时自动重试",
@@ -122,14 +118,13 @@ export const ompcfg = {
   "retry.baseDelayMs.label": "重试起始间隔",
   "retry.baseDelayMs.desc": "第一次重试前等多久，之后逐次加长",
   "retry.maxDelayMs.label": "重试最长等待",
-  "retry.maxDelayMs.desc": "服务商要求等得更久、又没有可换的凭据或模型时直接失败，不再干等；0 表示不设上限",
+  "retry.maxDelayMs.desc": "服务商要求等太久、又没有备用可换时直接失败；0 表示不设上限",
   "retry.modelFallback.label": "出错时换备用模型",
   "retry.modelFallback.desc": "允许重试时切换到“备用模型链”里的模型",
   "retry.fallbackOn.label": "哪些失败可以换模型",
   "retry.fallbackOn.desc": "按备用模型链换模型的时机：任何失败、只在额度用尽时，或额度用尽以外的失败",
   "retry.fallbackChains.label": "备用模型链",
-  "retry.fallbackChains.desc":
-    "请求出错时依次换用的模型。每条链挂在一个角色（如 default、web）、一个具体模型或整个 provider（provider/*）上，只在用它时生效",
+  "retry.fallbackChains.desc": "请求出错时依次换用的模型；每条链对应一个角色、模型或整个 provider（provider/*）",
   "retry.waitForUsageReset.label": "额度用尽时等到重置",
   "retry.waitForUsageReset.desc": "服务商告知额度重置时间时一直等，而不是马上失败；无人值守时建议关闭",
 

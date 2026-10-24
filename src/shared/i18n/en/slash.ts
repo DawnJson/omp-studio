@@ -31,7 +31,7 @@ export const slash = {
   reloadPluginsDesc: "Reload plugins, skills, commands and MCP servers in this task",
   reloadPluginsDone: "Plugins reloaded",
   pluginsArgs:
-    "/plugins and /marketplace open the plugins page in studio and take no arguments; remove the text after it and send again, then do the action on the page",
+    "/plugins and /marketplace take no arguments and open the plugins page; remove the text after it and send again",
   reloadPluginsArgs: "/reload-plugins takes no arguments; remove the text after it and send again",
   dirsDesc: "Show this task's workspace folders (in the files panel)",
   addDirDesc: "Add a folder to this task's workspace (opens a picker when no path is given)",

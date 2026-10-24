@@ -12,8 +12,7 @@ export const login = {
   pasteCode: "Paste the authorization code",
   submit: "Submit",
   cancel: "Cancel",
-  terminalOnly:
-    "This provider needs a multi-step sign-in. Continue here: omp-studio runs omp's own sign-in in a window inside the app.",
+  terminalOnly: "This provider needs a multi-step sign-in; omp-studio runs omp's own sign-in in a window here.",
   signInHere: "Sign in here",
   chooseAccount: "Choose an account to sign out",
   accountActive: "In use",
@@ -28,7 +27,7 @@ export const login = {
   "apiKey.placeholder": "Paste an API key",
   "apiKey.save": "Save",
   "apiKey.note":
-    "The key goes into omp's own credential store, so the terminal version of omp uses it too. To remove it, use “Clear key” on this provider.",
+    "The key goes into omp's credential store, so omp in the terminal uses it too. “Clear key” removes it.",
   "apiKey.failed": "Couldn't save the API key: {message}",
   search: "Search providers",
   noMatch: "No matching providers",

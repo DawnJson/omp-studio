@@ -2,7 +2,7 @@ import type { MessageEntry } from "../index.ts";
 
 // 设置 → 插件：已装插件、市场、诊断。数据来自 `omp plugin …`（docs/architecture/plugins.md）。
 export const plugins = {
-  intro: "插件给 omp 增加 Skill、命令、工具和 MCP 服务器。这里的改动写进 omp 的全局配置，终端里的 omp 也会用到。",
+  intro: "插件给 omp 增加 Skill、命令、工具和 MCP 服务器，改动对终端里的 omp 也生效。",
   loading: "正在读取…",
   more: "更多操作",
   refresh: "刷新",
@@ -61,8 +61,7 @@ export const plugins = {
   install: "安装",
   installedBadge: "已安装",
   "install.title": "安装 {name}？",
-  "install.body":
-    "{name}（来自 {marketplace}）会把第三方代码装进 omp：它的 Skill、命令、Hook、工具或 MCP 服务器会在你的电脑上以你的权限运行。只安装你信任的来源。",
+  "install.body": "{name}（来自 {marketplace}）是第三方代码，会以你的权限在电脑上运行。只安装你信任的来源。",
   "install.confirm": "安装并信任",
   // 诊断
   doctor: "诊断",

@@ -12,7 +12,7 @@ export const agents = {
   listLabel: "Subagent 列表",
   count: "{count} 个",
   empty: "还没有 subagent。Main agent 派出 subagent 后，它们会出现在这里。",
-  focusedEmpty: "正在 {name} 的对话里，列表暂时看不到。回到主会话（输入框上方）后，所有 subagent 会重新出现。",
+  focusedEmpty: "正在 {name} 的对话里。回到主会话后能看到所有 subagent。",
   background: "后台",
   statusPending: "等待中",
   statusRunning: "运行中",

@@ -3,13 +3,12 @@ import type { MessageEntry } from "../index.ts";
 export const git = {
   // 新任务草稿的顶栏分支胶囊（项目是 git 仓库时）
   "draft.worktree": "在独立 worktree 里开始",
-  "draft.title": "在独立的 git worktree 里做这个任务：新分支 studio/…，不动主目录里的文件",
+  "draft.title": "在独立 worktree（新分支 studio/…）里做这个任务，不动主目录",
   "draft.on": "新 worktree",
   "draft.setup": "创建时会运行 {script}",
   "draft.blocked": "不能用 worktree：{reason}",
   "setup.title": "运行这个项目的 setup 脚本？",
-  "setup.body":
-    "{script} 来自这个项目的仓库，会在新的 worktree 里运行，拥有和你一样的权限。只运行你信任的脚本。脚本内容改变后会再问一次。",
+  "setup.body": "{script} 来自项目仓库，会以你的权限在新 worktree 里运行。只运行你信任的脚本。",
   "setup.confirm": "运行并创建",
   "setup.declined": "没有创建 worktree。",
 
@@ -77,8 +76,7 @@ export const git = {
   "merge.done": "已合并到 {base}",
   "merge.nothing": "没有新的提交可合并。",
   "merge.conflictTitle": "合并有冲突",
-  "merge.conflictBody":
-    "已撤销这次合并，主目录和 worktree 都没有被改动。把下面的文件冲突处理好（可以让 agent 处理）后再合并。",
+  "merge.conflictBody": "合并已撤销，两边都没有改动。解决下面文件的冲突（可交给 agent）后再合并。",
   "merge.blocked.worktree_dirty": "worktree 里有没提交的改动，先提交或丢弃它们。",
   "merge.blocked.base_dirty": "主目录里有没提交的改动，合并可能覆盖它们，先处理掉。",
   "merge.blocked.base_not_checked_out": "主目录当前不在 {base} 分支上（现在是 {current}），先切回去。",
@@ -86,7 +84,7 @@ export const git = {
 
   // 丢弃
   "discard.title": "丢弃这个 worktree？",
-  "discard.body": "会删除分支 {branch} 和 worktree 目录，里面没提交和没合并的改动都会丢失，任务会被归档。不能撤销。",
+  "discard.body": "会删除分支 {branch} 和 worktree 目录，未提交、未合并的改动都会丢失，任务归档。无法撤销。",
   "discard.confirm": "丢弃",
   "discard.done": "已丢弃 worktree",
 

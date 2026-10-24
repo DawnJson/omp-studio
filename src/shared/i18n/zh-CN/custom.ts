@@ -26,8 +26,7 @@ export const custom = {
   "keyEdit.replace": "更换 key",
   "keyEdit.clear": "清除 key",
   "keyEdit.title": "{id} 的 API key",
-  "keyEdit.tip":
-    "写进 models.yml 的 providers.{id}.apiKey，条目里别的设置不动。它比登录的订阅和设置里存的 key 都优先，终端版 omp 也会用；omp 下次启动时生效，已经在跑的任务要重开。",
+  "keyEdit.tip": "写进 models.yml，优先于登录的订阅；omp 下次启动生效。",
   "keyEdit.saved": "key 已保存",
   "keyEdit.cleared": "key 已清除",
   "form.id": "ID",
@@ -49,8 +48,8 @@ export const custom = {
   "form.key.envShadowed": "{name} 在系统环境变量里也有，omp 会用系统的值，.env 里写的不生效。",
   "form.key.show": "显示",
   "form.key.hide": "隐藏",
-  "form.key.tip":
-    "“直接填 key”会以明文写进 models.yml（这是 omp 的做法，终端版 omp 也能用）。选“环境变量”时 models.yml 里只写变量名，key 写进 agent 目录的 .env（omp 启动时读它）；变量已在系统环境变量或 .env 里的，值留空。本地服务不需要 key 时选“无需 key”。",
+  "form.key.literal.tip": "以明文写进 models.yml。",
+  "form.key.env.tip": "models.yml 只写变量名，key 写进 agent 目录的 .env。",
   "form.models": "模型",
   "form.models.fetch": "拉取模型",
   "form.models.fetched": "拉取到 {count} 个模型，其中 {added} 个是新的，勾选后保存。",
@@ -58,12 +57,9 @@ export const custom = {
   "form.models.add.placeholder": "手动添加模型 id",
   "form.models.add": "添加",
   "form.models.all": "全选",
-  "form.models.none": "全不选",
   "form.models.selected": "已选 {selected} / {total}",
   "form.models.empty": "还没有模型：先拉取，或手动添加。",
   "form.models.duplicate": "已经有这个模型",
-  "form.models.tip":
-    "选“自动”、数字留空的项不写进 models.yml：omp 按模型 id 查它的内置目录，查不到用默认（不思考、只收文字、上下文 128K、输出 16K）。数字可以写 272k、1m。这里只改 omp 自己的预算，不改服务端的上限。",
   "form.meta.model": "模型",
   "form.meta.reasoning": "思考",
   "form.meta.images": "图片输入",
@@ -77,8 +73,7 @@ export const custom = {
   "form.title.add": "添加自定义 provider",
   "form.title.edit": "编辑 {id}",
   "form.discovery": "自动发现模型",
-  "form.discovery.tip":
-    "打开后 omp 运行时从这个地址的模型列表接口读取模型（在 models.yml 里写 discovery），新上架的模型不用再手动添加。下面勾选的模型仍会一并写入。只有 OpenAI 兼容和 Anthropic 接口类型支持。",
+  "form.discovery.tip": "打开后 omp 运行时读取这个地址的模型列表，新模型自动出现。",
   "form.discovery.unsupported": "这个接口类型没有通用的发现方式，请手动添加模型。",
   refresh: "刷新模型",
   "refresh.tip": "让 omp 重新拉取各 provider 的模型目录（自动发现的模型也会更新），然后重读模型列表。",

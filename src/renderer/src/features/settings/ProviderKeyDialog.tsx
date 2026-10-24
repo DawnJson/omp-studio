@@ -4,9 +4,9 @@ import { useState } from "react";
 import type { CustomProviderInfo } from "../../../../shared/custom-models.ts";
 import { describeError } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Button, FormField, Notice, Segmented, TextField, type Option } from "../../ui/controls.tsx";
+import { Button, FormField, Notice, Segmented, type Option } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
-import { customErrorText, EnvValueField, warnIfShadowed } from "./CustomProviderForm.tsx";
+import { customErrorText, KeyFields, warnIfShadowed } from "./CustomProviderForm.tsx";
 
 type Mode = "literal" | "env";
 
@@ -24,7 +24,6 @@ export function ProviderKeyDialog({ provider, onSaved, onClose }: ProviderKeyDia
   const [mode, setMode] = useState<Mode>(provider.key.kind === "env" ? "env" : "literal");
   const [text, setText] = useState(envName);
   const [envValue, setEnvValue] = useState("");
-  const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,36 +94,16 @@ export function ProviderKeyDialog({ provider, onSaved, onClose }: ProviderKeyDia
             }}
             testId="custom-key-dialog-mode"
           />
-          <TextField
-            mono
-            width="100%"
-            type={mode === "literal" && !showKey ? "password" : "text"}
-            autoComplete="off"
-            data-autofocus=""
-            value={text}
-            placeholder={
-              mode === "literal" ? t("custom.form.key.literal.placeholder") : t("custom.form.key.env.placeholder")
-            }
-            aria-label={t("custom.form.key")}
+          <KeyFields
+            mode={mode}
+            modes={options.map((option) => option.value)}
+            text={text}
+            onText={setText}
+            envValue={envValue}
+            onEnvValue={setEnvValue}
+            original={provider.key}
             testId="custom-key-dialog-value"
-            onChange={setText}
-            trailing={
-              mode === "literal" ? (
-                <Button size="sm" variant="quiet" onClick={() => setShowKey((shown) => !shown)}>
-                  {showKey ? t("custom.form.key.hide") : t("custom.form.key.show")}
-                </Button>
-              ) : undefined
-            }
           />
-          {mode === "env" && (
-            <EnvValueField
-              name={text}
-              original={provider.key}
-              value={envValue}
-              onChange={setEnvValue}
-              testId="custom-key-dialog-env-value"
-            />
-          )}
         </FormField>
         {error !== null && (
           <Notice tone="error" testId="custom-key-dialog-error">

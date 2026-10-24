@@ -115,7 +115,7 @@ export const settings = {
   "about.troubleshoot": "问题排查",
   "about.omp": "omp",
   "about.logs": "日志",
-  "about.logs.desc": "应用运行时的记录，按天一个文件，保留 14 天。路径里的用户名和 key 已经换掉。",
+  "about.logs.desc": "按天记录，保留 14 天；路径里的用户名和 key 已脱敏。",
   "about.openLogs": "打开日志文件夹",
   "about.diagnostics": "诊断信息",
   "about.diagnostics.desc": "版本、系统、omp 状态和最近 3 天的日志，存成一个文件。反馈问题时附上它。",

@@ -18,14 +18,13 @@ import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
 import { describeError } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Button, FormField, Notice, Segmented, Switch, TextField, type Option } from "../../ui/controls.tsx";
+import { Button, FormField, Notice, Segmented, TextField, type Option } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
 import { Select } from "../../ui/Select.tsx";
+import { Reserve } from "../../ui/Reserve.tsx";
 import { useAccountLoad } from "./accounts-store.ts";
 import { CustomModelList, type FetchNotice, type ModelRow } from "./CustomModelList.tsx";
 import "./custom-providers.css";
-
-type KeyMode = "keep" | "literal" | "env" | "none";
 
 const apiLabels: Record<string, string> = {
   "openai-completions": "OpenAI Chat Completions",
@@ -44,51 +43,101 @@ export function warnIfShadowed(t: TFunction, outcome: CustomModelsOutcome): void
     pushToast({ level: "warning", message: t("custom.form.key.envShadowed", { name: outcome.envShadowed }) });
 }
 
-interface EnvValueFieldProps {
-  /** 输入框里现在的变量名。 */
-  name: string;
-  /** 打开对话框时文件里的 key（判断这个变量现在设在哪）。 */
+export type KeyMode = "keep" | "literal" | "env" | "none";
+
+interface KeyFieldsProps {
+  mode: KeyMode;
+  /** 分段里有的几种写法：按其中最高的那种占位，切换时对话框大小不变。 */
+  modes: readonly KeyMode[];
+  /** 直接填的 key，或环境变量名。 */
+  text: string;
+  onText(value: string): void;
+  /** 环境变量的值：保存时写进 agent 目录的 `.env`；留空 = 不动 `.env`。 */
+  envValue: string;
+  onEnvValue(value: string): void;
+  /** 打开对话框时文件里的 key（判断变量现在设在哪）。 */
   original: CustomKeyState | undefined;
-  value: string;
-  onChange(value: string): void;
+  /** 输入框 `testId`；环境变量的值是 `${testId}-env-value`，显示切换是 `${testId}-toggle`。 */
   testId: string;
 }
 
 /**
- * 环境变量形式的 key 的第二个框：key 本身，保存时写进 agent 目录的 `.env`（`变量名=key`）。留空 = 不动 `.env`。
- * 变量名没改时按它现在设在哪提示：`.env` 里已有 → 留空保持；系统环境变量里有 → omp 用系统的，这里写了也不生效。
+ * key 分段下面的输入框和一行说明：直接填 → 一个遮住的框；环境变量 → 变量名 + 值两个框；保持不变 / 无需 key → 没有。
+ * 变量名没改时按它现在设在哪提示：`.env` 里已有 → 值留空保持；系统环境变量里有 → omp 用系统的。
  */
-export function EnvValueField({ name, original, value, onChange, testId }: EnvValueFieldProps) {
+export function KeyFields({ mode, modes, text, onText, envValue, onEnvValue, original, testId }: KeyFieldsProps) {
   const t = useT();
   const [show, setShow] = useState(false);
-  const source = original?.kind === "env" && original.name === name.trim() ? original.source : null;
-  return (
-    <>
-      <TextField
-        mono
-        width="100%"
-        type={show ? "text" : "password"}
-        autoComplete="off"
-        value={value}
-        placeholder={
-          source === "env-file" ? t("custom.form.key.envValue.keep") : t("custom.form.key.envValue.placeholder")
-        }
-        aria-label={t("custom.form.key.envValue")}
-        testId={testId}
-        onChange={onChange}
-        trailing={
-          <Button size="sm" variant="quiet" onClick={() => setShow((shown) => !shown)}>
-            {show ? t("custom.form.key.hide") : t("custom.form.key.show")}
-          </Button>
-        }
-      />
-      {source === "system" && (
-        <p className="ui-help" data-testid={`${testId}-system`}>
-          {t("custom.form.key.envSystem", { name: name.trim() })}
-        </p>
-      )}
-    </>
+  const source = original?.kind === "env" && original.name === text.trim() ? original.source : null;
+  const noop = () => undefined;
+  const toggle = (live: boolean) => (
+    <Button
+      size="sm"
+      variant="quiet"
+      onClick={() => setShow((shown) => !shown)}
+      testId={live ? `${testId}-toggle` : undefined}
+    >
+      {show ? t("custom.form.key.hide") : t("custom.form.key.show")}
+    </Button>
   );
+  // live = false 时是只占位的那份：没有 testId、不接输入。
+  const panel = (which: KeyMode, live: boolean, systemHint: boolean) => {
+    if (which === "literal")
+      return (
+        <>
+          <TextField
+            mono
+            width="100%"
+            type={show ? "text" : "password"}
+            autoComplete="off"
+            value={live ? text : ""}
+            placeholder={t("custom.form.key.literal.placeholder")}
+            aria-label={t("custom.form.key")}
+            testId={live ? testId : undefined}
+            onChange={live ? onText : noop}
+            trailing={toggle(live)}
+          />
+          <p className="ui-help">{t("custom.form.key.literal.tip")}</p>
+        </>
+      );
+    if (which === "env")
+      return (
+        <>
+          <TextField
+            mono
+            width="100%"
+            autoComplete="off"
+            value={live ? text : ""}
+            placeholder={t("custom.form.key.env.placeholder")}
+            aria-label={t("custom.form.key.env")}
+            testId={live ? testId : undefined}
+            onChange={live ? onText : noop}
+          />
+          <TextField
+            mono
+            width="100%"
+            type={show ? "text" : "password"}
+            autoComplete="off"
+            value={live ? envValue : ""}
+            placeholder={
+              source === "env-file" ? t("custom.form.key.envValue.keep") : t("custom.form.key.envValue.placeholder")
+            }
+            aria-label={t("custom.form.key.envValue")}
+            testId={live ? `${testId}-env-value` : undefined}
+            onChange={live ? onEnvValue : noop}
+            trailing={toggle(live)}
+          />
+          <p className="ui-help" data-testid={live && systemHint ? `${testId}-system` : undefined}>
+            {systemHint ? t("custom.form.key.envSystem", { name: text.trim() }) : t("custom.form.key.env.tip")}
+          </p>
+        </>
+      );
+    return null;
+  };
+  const ghosts = modes.flatMap((which) =>
+    which === "env" ? [panel("env", false, false), panel("env", false, true)] : [panel(which, false, false)],
+  );
+  return <Reserve ghosts={ghosts}>{panel(mode, true, mode === "env" && source === "system")}</Reserve>;
 }
 
 function initialKeyMode(provider: CustomProviderInfo | undefined): KeyMode {
@@ -121,7 +170,6 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   const envName = provider?.key.kind === "env" ? provider.key.name : "";
   const [keyText, setKeyText] = useState(envName);
   const [envValue, setEnvValue] = useState("");
-  const [showKey, setShowKey] = useState(false);
   const [rows, setRows] = useState<ModelRow[]>(
     () =>
       provider?.models.map((model) => ({
@@ -332,7 +380,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
             onChange={setBaseUrl}
           />
         </FormField>
-        <FormField label={t("custom.form.key")} help={t("custom.form.key.tip")}>
+        <FormField label={t("custom.form.key")}>
           <Segmented
             value={keyMode}
             options={keyOptions}
@@ -344,54 +392,18 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
             }}
             testId="custom-key-mode"
           />
-          {(keyMode === "literal" || keyMode === "env") && (
-            <TextField
-              mono
-              width="100%"
-              type={keyMode === "literal" && !showKey ? "password" : "text"}
-              autoComplete="off"
-              value={keyText}
-              placeholder={
-                keyMode === "literal" ? t("custom.form.key.literal.placeholder") : t("custom.form.key.env.placeholder")
-              }
-              aria-label={t("custom.form.key")}
-              testId="custom-key"
-              onChange={setKeyText}
-              trailing={
-                keyMode === "literal" ? (
-                  <Button
-                    size="sm"
-                    variant="quiet"
-                    onClick={() => setShowKey((shown) => !shown)}
-                    testId="custom-key-toggle"
-                  >
-                    {showKey ? t("custom.form.key.hide") : t("custom.form.key.show")}
-                  </Button>
-                ) : undefined
-              }
-            />
-          )}
-          {keyMode === "env" && (
-            <EnvValueField
-              name={keyText}
-              original={provider?.key}
-              value={envValue}
-              onChange={setEnvValue}
-              testId="custom-key-env-value"
-            />
-          )}
-        </FormField>
-        <FormField className="cp-wide" label={t("custom.form.discovery")} help={t("custom.form.discovery.tip")}>
-          <Switch
-            checked={discoveryOn}
-            disabled={!discoverySupported}
-            label={t("custom.form.discovery")}
-            onChange={setDiscovery}
-            testId="custom-discovery"
+          <KeyFields
+            mode={keyMode}
+            modes={keyOptions.map((option) => option.value)}
+            text={keyText}
+            onText={setKeyText}
+            envValue={envValue}
+            onEnvValue={setEnvValue}
+            original={provider?.key}
+            testId="custom-key"
           />
-          {!discoverySupported && <p className="cp-text">{t("custom.form.discovery.unsupported")}</p>}
         </FormField>
-        <FormField className="cp-wide" label={t("custom.form.models")} help={t("custom.form.models.tip")}>
+        <FormField className="cp-wide" label={t("custom.form.models")} help={t("custom.form.discovery.tip")}>
           <CustomModelList
             rows={rows}
             onRows={setRows}
@@ -401,6 +413,9 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
             fetching={fetching}
             fetchDisabled={baseUrl.trim() === "" || !isFetchableApi(api)}
             onFetch={() => void fetchModels()}
+            discovery={discoveryOn}
+            discoverySupported={discoverySupported}
+            onDiscovery={setDiscovery}
           />
         </FormField>
         {saveError !== null && (

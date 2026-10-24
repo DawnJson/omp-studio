@@ -58,12 +58,10 @@ export const sessionInfo = {
   "usage.syncing": "Asking omp to sync stats…",
   "usage.syncFailed": "Stats sync failed: {message}",
   "usage.refresh": "Refresh",
-  "usage.note":
-    "Counted from the session file, the same figures as the composer. After a compaction only the part kept counts; the total including before it is shown beside the cost.",
+  "usage.note": "Counted from the session file, same as the composer; after a compaction only the kept part counts.",
 
   "trace.open": "Open in browser",
-  "trace.openTip":
-    "Runs omp's /trace in this task: omp opens its own request trace page in your browser (not available while the task is running)",
+  "trace.openTip": "Opens omp's request trace in your browser via /trace (not available while the task runs)",
   "trace.opened": "omp opened the request trace in your browser",
   "trace.empty": "The stats database has no requests for this session yet. Press Refresh to let omp sync once.",
   "trace.summary": "{requests} requests · {failed} failed · {tools} tool calls · {cost}",
@@ -89,13 +87,11 @@ export const sessionInfo = {
   "stop.aborted": "Stopped",
 
   "share.title": "Share session link",
-  "share.warn":
-    "This uploads an encrypted snapshot of this session to {server}. Anyone with the full link can read the session (the decryption key is after the # in the link and is never sent to the server).",
+  "share.warn": "Uploads an encrypted snapshot of this session to {server}; anyone with the full link can read it.",
   "share.warnGist":
-    "This uploads an encrypted snapshot of this session to a GitHub secret gist (needs a logged-in gh; if unavailable omp falls back to {server}). Anyone with the full link can read the session.",
-  "share.redactOn": "Redaction is on (share.redactSecrets): omp masks the secrets it recognises before uploading.",
-  "share.redactOff":
-    "Redaction is off (share.redactSecrets = false): secrets and tokens in the session are uploaded as they are.",
+    "Uploads an encrypted snapshot of this session to a GitHub secret gist (falls back to {server} without gh); anyone with the full link can read it.",
+  "share.redactOn": "Redaction is on (share.redactSecrets): recognised secrets are masked before upload.",
+  "share.redactOff": "Redaction is off (share.redactSecrets): secrets and tokens are uploaded as is.",
   "share.gist": "Upload to a secret gist instead",
   "share.settingsFailed": "Could not read the share settings: {message}",
   "share.confirm": "Upload and create link",

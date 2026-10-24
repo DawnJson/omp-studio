@@ -48,7 +48,7 @@ export const composer = {
   "usage.premium": "{n} premium requests",
   "usage.costTip": "This session's cost, estimated at the model's API prices",
   "usage.costTipSub":
-    "This session's cost, estimated at the model's API prices. This model runs on a subscription login (sub), so it counts against your plan instead of being billed",
+    "This session's cost at API prices. This model runs on a subscription, so it counts against your plan instead of being billed",
   "usage.cacheWrite": "Cache write",
   "context.tip": "omp compacts automatically near the limit",
   "context.title": "Context breakdown",

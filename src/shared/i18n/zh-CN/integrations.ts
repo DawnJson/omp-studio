@@ -18,9 +18,8 @@ export const integrations = {
   "mcp.add": "添加服务器…",
   "mcp.test": "测试连接",
   "mcp.connected": "已连接，{count} 个工具",
-  "mcp.unmanageable": "名字里有空格或特殊字符：omp 的 /mcp 命令管不了这种名字，只能在配置文件里改。",
-  "mcp.note":
-    "改动写进 omp 的配置，新任务会用到；已经打开的任务点顶栏标题右边的“重开会话”（Ctrl Shift R）才会重新连接。需要 OAuth 登录或取消授权（/mcp reauth、/mcp unauth）的服务器，omp 只在终端界面里支持，这里做不了。",
+  "mcp.unmanageable": "名字含空格或特殊字符，omp 的 /mcp 命令管不了，只能在配置文件里改。",
+  "mcp.note": "改动对新任务生效，已打开的任务要“重开会话”（Ctrl Shift R）。需要 OAuth 授权的服务器请在终端里处理。",
   "mcp.remove.title": "删除 MCP 服务器“{name}”？",
   "mcp.remove.body": "会从 omp 的{scope}配置里删掉这一项，不会影响别的范围里的同名服务器。",
   "mcp.name": "名称",
@@ -29,9 +28,9 @@ export const integrations = {
   "mcp.kind.stdio": "本地命令",
   "mcp.command": "命令",
   "mcp.args": "参数",
-  "mcp.args.tip": "一行一个参数；参数里有空格也没关系，每行就是一个整体。参数里不能有双引号。",
+  "mcp.args.tip": "一行一个参数，可以含空格，不能含双引号。",
   "mcp.token": "Token",
-  "mcp.token.tip": "可选。omp 会把它存成 Authorization: Bearer 请求头，写在配置文件里。",
+  "mcp.token.tip": "可选，以 Authorization: Bearer 请求头存进配置文件。",
 
   "ssh.title": "SSH 主机",
   "ssh.empty": "还没有配置 SSH 主机。",
@@ -50,25 +49,18 @@ export const integrations = {
   "ssh.compat.tip": "omp 的 --compat：给不完全兼容的远端（如某些路由器、精简系统）用。",
 
   "skills.title": "Skills",
-  "skills.empty":
-    "没有可用的 skill。把带 SKILL.md 的 skill 文件夹放进 ~/.omp/agent/skills（用户级）或项目里的 .omp/skills，或在终端里运行 omp skill install。",
-  "skills.note":
-    "这是 omp 报告的当前可用 skill，只读；选了项目时会加上该项目目录里的 skill。omp 没有在这里启用或停用 skill 的命令。",
+  "skills.empty": "没有可用的 skill。把 skill 文件夹放进 ~/.omp/agent/skills 或项目的 .omp/skills。",
+  "skills.note": "omp 当前可用的 skill（只读），选了项目时含项目里的 skill。",
 
   "tools.title": "可用工具",
   "tools.enabled": "已启用",
   "tools.device": "xd 设备",
-  "tools.device.tip":
-    "xd:// 设备是同一个工具的入口，模型通过它按需调用，不是单独的工具，所以没有开关。要整体收起所有设备，关掉设置项 tools.xdev（关掉后工具直接放进模型的工具列表）。",
+  "tools.device.tip": "同一工具的按需调用入口，不是独立工具，没有开关。关掉 tools.xdev 可收起所有设备。",
   "tools.mounted": "按需调用",
-  "tools.mounted.tip":
-    "这个工具不在默认工具集里，挂在 xd:// 设备下，模型需要时才调用，并不是关着。它没有单独的 <工具>.enabled 设置项，所以没有开关。",
-  "tools.mounted.mcpTip":
-    "MCP 服务器提供的工具，omp 没有按单个工具开关的设置项。要停用就在上面“集成与插件”里整个关掉这台 MCP 服务器；挂在 xd:// 设备下按需调用，并不是关着。",
-  "tools.inactive.tip":
-    "当前会话没有启用这个工具：它由 omp 的某个模式或命令按需启用（如 /autoresearch 的实验工具、/goal），没有单独的 <工具>.enabled 设置项，所以没有开关。",
-  "tools.note":
-    "这是 omp 在不带项目时看到的全局列表：项目里的插件和 MCP 服务器提供的工具不在里面。有 <工具>.enabled 设置项的工具带开关（就是下面设置里的同一项）；关掉后它会从 omp 的列表里消失，这里的行先保留着，点“刷新”才重读。没有开关的行不是坏了：把鼠标放到徽标上看原因和去哪里改。",
+  "tools.mounted.tip": "挂在 xd:// 设备下按需调用，不是关着。没有 <工具>.enabled 设置项，所以没有开关。",
+  "tools.mounted.mcpTip": "MCP 服务器的工具，不能单独开关；要停用就关掉整个 MCP 服务器。",
+  "tools.inactive.tip": "本会话未启用：由 omp 的模式或命令（如 /autoresearch、/goal）按需启用，没有开关。",
+  "tools.note": "omp 不带项目时的全局工具列表。开关就是下面对应的设置项；没有开关的，悬停徽标看原因。",
 
   "memory.title": "记忆",
   "memory.noProject": "记忆是按项目分的，先打开一个项目才能查看和整理。",
@@ -82,11 +74,9 @@ export const integrations = {
   "memory.emptyOutput": "（omp 没有输出）",
   "memory.clear": "清空",
   "memory.clear.title": "清空这个项目的记忆？",
-  "memory.clear.body":
-    "会删除当前记忆后端为这个项目保存的数据，无法撤销。本地记忆会在下一次会话启动时由 omp 根据过去的会话重新生成。Hindsight 后端只清本地的会话状态和缓存，不会删服务器上的库。",
+  "memory.clear.body": "会删除这个项目的记忆数据，无法撤销。Hindsight 只清本地状态，不删服务器上的库。",
   "memory.cleared": "记忆已清空",
-  "memory.note":
-    "本地记忆由 omp 在会话启动时自己生成（读过去的会话、要调模型，可能产生费用），没有手动触发的按钮：/memory sync 和 /memory rebuild 在这个启动流程之外没有可观察的效果，所以这里不提供。",
+  "memory.note": "本地记忆由 omp 在会话启动时自动生成（会调用模型，可能产生费用），不能手动触发。",
 
   "changelog.title": "更新日志",
   "changelog.hint": "来自 omp 自带的 /changelog，只有英文。",
@@ -96,7 +86,7 @@ export const integrations = {
   "slash.tools": "查看可用工具（打开设置 → 工具与权限）",
   "slash.memory": "查看和整理记忆（打开设置 → Context 与记忆）",
   "slash.changelog": "查看 omp 更新日志（打开设置 → 关于）",
-  "slash.args": "这条命令的参数写法没有执行：不带参数输入它会打开设置页，增删改在页面里的卡片上做。",
+  "slash.args": "参数没有执行：不带参数输入会打开设置页，在页面里操作。",
 
   "cmd.mcp": "MCP 服务器",
   "cmd.ssh": "SSH 主机",

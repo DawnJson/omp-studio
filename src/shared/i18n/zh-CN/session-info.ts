@@ -61,11 +61,11 @@ export const sessionInfo = {
   "usage.syncing": "正在让 omp 同步统计…",
   "usage.syncFailed": "同步统计失败：{message}",
   "usage.refresh": "刷新",
-  "usage.note": "数字从会话文件算，和输入框同口径。压缩过的会话只算压缩后保留的部分，压缩前的合计写在费用旁边。",
+  "usage.note": "按会话文件计算，和输入框一致；压缩过的会话只算压缩后保留的部分。",
 
   // 请求记录
   "trace.open": "在浏览器中打开",
-  "trace.openTip": "在这个任务里执行 omp 的 /trace：omp 会在浏览器里打开它自带的请求记录页（任务运行中不可用）",
+  "trace.openTip": "用 omp 的 /trace 在浏览器里打开请求记录（任务运行中不可用）",
   "trace.opened": "omp 已在浏览器中打开请求记录",
   "trace.empty": "统计库里还没有这个会话的请求记录。点“刷新”让 omp 同步一次。",
   "trace.summary": "{requests} 次请求 · {failed} 次失败 · {tools} 次工具调用 · {cost}",
@@ -92,12 +92,11 @@ export const sessionInfo = {
 
   // 分享
   "share.title": "分享会话链接",
-  "share.warn":
-    "这会把本会话的加密快照上传到 {server}。上传后任何拿到完整链接的人都能看到会话内容（解密密钥在链接的 # 之后，不会发给服务器）。",
+  "share.warn": "会把本会话的加密快照上传到 {server}，拿到完整链接的人都能看到内容。",
   "share.warnGist":
-    "这会把本会话的加密快照上传到 GitHub 的 secret gist（需要已登录的 gh；不可用时 omp 会退回上传到 {server}）。拿到完整链接的人都能看到会话内容。",
-  "share.redactOn": "已开启脱敏（share.redactSecrets）：上传前 omp 会把识别出的密钥打码。",
-  "share.redactOff": "脱敏已关闭（share.redactSecrets = false）：会话里的密钥、token 会原样上传。",
+    "会把本会话的加密快照上传到 GitHub secret gist（没有 gh 时改传 {server}），拿到完整链接的人都能看到内容。",
+  "share.redactOn": "已开启脱敏（share.redactSecrets），上传前会给识别出的密钥打码。",
+  "share.redactOff": "脱敏已关闭（share.redactSecrets），密钥和 token 会原样上传。",
   "share.gist": "改为上传到 secret gist",
   "share.settingsFailed": "读取分享设置失败：{message}",
   "share.confirm": "上传并生成链接",

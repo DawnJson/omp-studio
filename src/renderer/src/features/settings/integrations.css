@@ -57,6 +57,11 @@
   gap: var(--space-4);
 }
 
+/* Reserve 里每份内容的字段间距同表单（默认的 .ui-reserve 间距是字段内部的 space-1-5） */
+.ig-form .ig-reserve > * {
+  gap: var(--space-4);
+}
+
 .ig-line {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 112px;

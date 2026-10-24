@@ -43,7 +43,7 @@ export const composer = {
   "usage.cache": "缓存读取",
   "usage.premium": "{n} 次高级请求",
   "usage.costTip": "本会话费用，按模型的 API 价格估算",
-  "usage.costTipSub": "本会话费用，按模型的 API 价格估算。这个模型走订阅登录（sub），实际按订阅额度计，不另收费",
+  "usage.costTipSub": "本会话费用，按 API 价格估算。这个模型走订阅，实际计入订阅额度，不另收费",
   "usage.cacheWrite": "缓存写入",
   "context.tip": "接近上限时 omp 会自动压缩",
   "context.title": "Context 构成",

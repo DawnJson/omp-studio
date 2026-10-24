@@ -119,8 +119,7 @@ export const settings = {
   "about.troubleshoot": "Troubleshooting",
   "about.omp": "omp",
   "about.logs": "Logs",
-  "about.logs.desc":
-    "What the app recorded while running: one file per day, kept for 14 days. User names and keys are removed.",
+  "about.logs.desc": "One file per day, kept for 14 days; user names and keys are removed.",
   "about.openLogs": "Open logs folder",
   "about.diagnostics": "Diagnostics",
   "about.diagnostics.desc":

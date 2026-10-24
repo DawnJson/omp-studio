@@ -18,10 +18,9 @@ export const ompcfg = {
 
   "tools.approvalMode.label": "Tool approval mode",
   "tools.approvalMode.desc":
-    "Always ask: only read-only tools run on their own. Ask and remember: also asks before file reads and can remember a file or folder. Write: reads and workspace edits run on their own. Yolo: everything runs (user policy may still block)",
+    "Always ask: only read-only tools run. Ask and remember: file reads ask too. Write: reads and edits run. Yolo: everything runs",
   "tools.approval.label": "Per-tool approval policy",
-  "tools.approval.desc":
-    "JSON object: a tool name mapped to allow, prompt (ask first) or deny. Applies in every approval mode",
+  "tools.approval.desc": "JSON object: tool name to allow, prompt or deny. Applies in every approval mode",
   "tools.format.label": "Tool call format",
   "tools.format.desc":
     "How tools are exposed to the model. Auto uses the model's native tool calls and falls back to the GLM format when it has none",
@@ -87,15 +86,13 @@ export const ompcfg = {
   "mnemopi.autoRetain.label": "Mnemopi: remember automatically",
   "mnemopi.autoRetain.desc": "Save finished conversation turns into local memory",
   "mnemopi.scoping.label": "Mnemopi: scope",
-  "mnemopi.scoping.desc":
-    "global: one shared bank. per-project: a bank per directory. per-project-tagged: writes to the project bank, recall also sees global",
+  "mnemopi.scoping.desc": "One shared bank, or one per project; tagged also recalls global memories",
   "hindsight.autoRecall.label": "Hindsight: recall automatically",
   "hindsight.autoRecall.desc": "Recall memories on the first turn of every session",
   "hindsight.autoRetain.label": "Hindsight: remember automatically",
   "hindsight.autoRetain.desc": "Save the transcript every few turns and at session boundaries",
   "hindsight.scoping.label": "Hindsight: scope",
-  "hindsight.scoping.desc":
-    "global: one shared bank. per-project: a bank per directory. per-project-tagged: a shared bank with project tags",
+  "hindsight.scoping.desc": "One shared bank, or one per project; tagged uses one shared bank with project tags",
 
   "task.maxConcurrency.label": "Max concurrent subagents",
   "task.maxConcurrency.desc": "The most subagents that can run at the same time",
@@ -121,7 +118,7 @@ export const ompcfg = {
 
   "goal.continuationModes.label": "Let goals keep going",
   "goal.continuationModes.desc":
-    "When on, a goal set with /goal is carried forward by omp turn after turn on its own in omp-studio. This is omp's own setting goal.continuationModes, shared with the omp in your terminal",
+    "When on, omp keeps working on a /goal turn after turn. Shared with omp in your terminal",
 
   "retry.enabled.label": "Retry on errors",
   "retry.enabled.desc": "Retry automatically when the model API fails",
@@ -131,7 +128,7 @@ export const ompcfg = {
   "retry.baseDelayMs.desc": "How long to wait before the first retry; later ones wait longer",
   "retry.maxDelayMs.label": "Longest retry wait",
   "retry.maxDelayMs.desc":
-    "When the provider asks for a longer wait and no credential or model fallback works, fail instead of sleeping; 0 removes the ceiling",
+    "Fail instead of waiting when the provider asks for too long and no fallback works; 0 means no cap",
   "retry.modelFallback.label": "Switch to a fallback model on errors",
   "retry.modelFallback.desc": "Let a retry move to a model from the fallback chains",
   "retry.fallbackOn.label": "Which failures may switch models",
@@ -139,7 +136,7 @@ export const ompcfg = {
     "When to switch along the fallback chain: on any failure, only when quota runs out, or on failures other than quota",
   "retry.fallbackChains.label": "Fallback chains",
   "retry.fallbackChains.desc":
-    "Models to try in order when a request fails. Each chain belongs to a role (e.g. default, web), a specific model or a whole provider (provider/*) and only applies while that one is in use",
+    "Models to try in order when a request fails; each chain belongs to a role, a model or a whole provider (provider/*)",
   "retry.waitForUsageReset.label": "Wait for the quota to reset",
   "retry.waitForUsageReset.desc":
     "When the provider says when the quota resets, wait instead of failing right away. Leave off for unattended runs",

@@ -2,8 +2,7 @@ import type { MessageEntry } from "../index.ts";
 import type { plugins as zhCN } from "../zh-CN/plugins.ts";
 
 export const plugins = {
-  intro:
-    "Plugins add skills, commands, tools and MCP servers to omp. Changes here go into omp's global configuration, so omp in a terminal uses them too.",
+  intro: "Plugins add skills, commands, tools and MCP servers to omp. Changes apply to omp in the terminal too.",
   loading: "Loading…",
   more: "More actions",
   refresh: "Refresh",
@@ -64,7 +63,7 @@ export const plugins = {
   installedBadge: "Installed",
   "install.title": "Install {name}?",
   "install.body":
-    "{name} (from {marketplace}) installs third-party code into omp: its skills, commands, hooks, tools or MCP servers run on your computer with your permissions. Only install sources you trust.",
+    "{name} (from {marketplace}) is third-party code that runs on your computer with your permissions. Only install sources you trust.",
   "install.confirm": "Install and trust",
   doctor: "Diagnostics",
   "doctor.run": "Run diagnostics",

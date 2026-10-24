@@ -11,8 +11,7 @@ export const tree = {
   fork: "Fork from here",
   forkTitle: "New task that continues from just before this message; this task stays as it is",
   summarize: "Summarize the abandoned branch when going back",
-  summarizeHint:
-    "Before going back, omp writes the branch you are leaving as a short summary kept in the session (one model call)",
+  summarizeHint: "Before going back, omp summarizes the branch you leave into the session (one model call)",
   summarizing: "Summarizing…",
   forking: "Forking…",
   forkFailed: "Couldn’t fork: {message}",
@@ -27,9 +26,8 @@ export const tree = {
   branchSummaryTitle: "The summary omp wrote for the branch you left when going back",
   notRewindable: "Only user messages can be rewound to or forked from",
   discard: {
-    one: "Going back to just before this message drops {count} turn from the conversation (it stays in the session file as another branch)",
-    other:
-      "Going back to just before this message drops {count} turns from the conversation (they stay in the session file as another branch)",
+    one: "Going back drops {count} turn from the conversation (it stays in the session file as a branch)",
+    other: "Going back drops {count} turns from the conversation (they stay in the session file as a branch)",
   },
   addLabel: "Add label",
   editLabel: "Edit label",

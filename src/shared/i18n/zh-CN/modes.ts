@@ -23,7 +23,7 @@ export const modes = {
   "prewalk.on": "Prewalk 已启用：第一次改文件时换用 smol 模型。",
   "prewalk.off": "停用",
   loop: "Loop 模式",
-  "loop.hint": "开启后，你发的下一条消息会在每轮结束后自动重发。可以限定次数或时长，或用命令的结果决定何时停。",
+  "loop.hint": "开启后，你的下一条消息会在每轮结束后自动重发，可按次数、时长或命令结果停止。",
   "loop.limit": "次数或时长",
   "loop.limitPlaceholder": "10 或 10m",
   "loop.condition": "条件",

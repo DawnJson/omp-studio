@@ -1,9 +1,9 @@
-// 自定义提供商对话框里的"模型"一栏：一键拉取、勾选、筛选、手动添加；勾选的模型在同一行设思考、图片输入、
-// 上下文窗口、最大输出（models.yml 模型条目的 reasoning / input / contextWindow / maxTokens）。状态（rows、提示）由表单持有。
+// 自定义提供商对话框里的"模型"一栏：工具栏（全选方框、一键拉取、自动发现开关）、勾选、筛选、手动添加；勾选的模型在同一行设思考、
+// 图片输入、上下文窗口、最大输出（models.yml 模型条目的 reasoning / input / contextWindow / maxTokens）。状态（rows、提示）由表单持有。
 import { useMemo, useState } from "react";
 import { parseTokenCount, type CustomModelMeta } from "../../../../shared/custom-models.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Button, Checkbox, Notice, NumberField, TextField } from "../../ui/controls.tsx";
+import { Button, Checkbox, Notice, NumberField, Switch, TextField } from "../../ui/controls.tsx";
 import { Select } from "../../ui/Select.tsx";
 import { formatCount } from "../composer/usage-format.ts";
 
@@ -35,6 +35,10 @@ interface CustomModelListProps {
   fetching: boolean;
   fetchDisabled: boolean;
   onFetch(): void;
+  /** 自动发现模型（models.yml 里写 discovery）；接口类型没有通用发现方式时开关停用。 */
+  discovery: boolean;
+  discoverySupported: boolean;
+  onDiscovery(next: boolean): void;
 }
 
 type Flag = "auto" | "yes" | "no";
@@ -50,6 +54,9 @@ export function CustomModelList({
   fetching,
   fetchDisabled,
   onFetch,
+  discovery,
+  discoverySupported,
+  onDiscovery,
 }: CustomModelListProps) {
   const t = useT();
   const [filter, setFilter] = useState("");
@@ -124,40 +131,44 @@ export function CustomModelList({
   return (
     <div className="cp-models">
       <div className="cp-models-bar">
+        <Checkbox
+          checked={rows.length > 0 && selectedCount === rows.length}
+          indeterminate={selectedCount > 0 && selectedCount < rows.length}
+          disabled={rows.length === 0}
+          onChange={(next) => onRows((cur) => cur.map((row) => ({ ...row, checked: next })))}
+          testId="custom-select-all"
+        >
+          {t("custom.form.models.all")}
+        </Checkbox>
         <Button size="sm" loading={fetching} disabled={fetchDisabled} onClick={onFetch} testId="custom-fetch">
           {t("custom.form.models.fetch")}
         </Button>
+        {/* 停用时原因写在悬停提示里，不另起一段（切接口类型时对话框大小不变）。 */}
+        <label className="ui-choice" title={discoverySupported ? undefined : t("custom.form.discovery.unsupported")}>
+          <Switch
+            checked={discovery}
+            disabled={!discoverySupported}
+            label={t("custom.form.discovery")}
+            onChange={onDiscovery}
+            testId="custom-discovery"
+          />
+          <span>{t("custom.form.discovery")}</span>
+        </label>
+        {rows.length > 12 && (
+          <TextField
+            size="sm"
+            width={200}
+            autoComplete="off"
+            value={filter}
+            placeholder={t("custom.form.models.filter")}
+            aria-label={t("custom.form.models.filter")}
+            onChange={setFilter}
+          />
+        )}
         {rows.length > 0 && (
-          <>
-            <Button
-              size="sm"
-              variant="quiet"
-              onClick={() => onRows((cur) => cur.map((row) => ({ ...row, checked: true })))}
-            >
-              {t("custom.form.models.all")}
-            </Button>
-            <Button
-              size="sm"
-              variant="quiet"
-              onClick={() => onRows((cur) => cur.map((row) => ({ ...row, checked: false })))}
-            >
-              {t("custom.form.models.none")}
-            </Button>
-            {rows.length > 12 && (
-              <TextField
-                size="sm"
-                width={200}
-                autoComplete="off"
-                value={filter}
-                placeholder={t("custom.form.models.filter")}
-                aria-label={t("custom.form.models.filter")}
-                onChange={setFilter}
-              />
-            )}
-            <span className="cp-count" data-testid="custom-selected-count">
-              {t("custom.form.models.selected", { selected: selectedCount, total: rows.length })}
-            </span>
-          </>
+          <span className="cp-count" data-testid="custom-selected-count">
+            {t("custom.form.models.selected", { selected: selectedCount, total: rows.length })}
+          </span>
         )}
       </div>
       {notice !== null && (

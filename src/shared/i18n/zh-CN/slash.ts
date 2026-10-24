@@ -29,8 +29,7 @@ export const slash = {
   marketplaceDesc: "管理插件市场：添加来源、浏览并安装",
   reloadPluginsDesc: "在当前任务里重新加载插件、Skill、命令和 MCP 服务器",
   reloadPluginsDone: "已重新加载插件",
-  pluginsArgs:
-    "/plugins 和 /marketplace 在 studio 里直接打开插件页，不带参数；去掉后面的文字再发送，具体操作在页面里做",
+  pluginsArgs: "/plugins 和 /marketplace 不带参数，直接打开插件页；去掉后面的文字再发送",
   reloadPluginsArgs: "/reload-plugins 不需要参数；去掉后面的文字再发送",
   dirsDesc: "查看这个任务的工作区目录（在文件面板里）",
   addDirDesc: "把文件夹加进这个任务的工作区（不带路径时弹出选择框）",

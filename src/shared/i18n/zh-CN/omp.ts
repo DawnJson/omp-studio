@@ -14,13 +14,11 @@ export const omp = {
   "install.note": "omp-studio 不内置 omp。它会下载官方版本并管理，之后自动更新。",
   "takeover.title": "检测到脚本形式的 omp",
   "takeover.body":
-    "omp-studio 无法启动脚本形式（如 npm 安装）的 omp。可以另装一份官方 omp，并修改你的用户 PATH，把它放到最前面（之后新开的终端里 omp 也会指向它）。原来的那份原样保留。",
+    "omp-studio 启动不了脚本形式（如 npm 安装）的 omp。可以另装一份官方版放到用户 PATH 最前面，原来的不动。",
   "takeover.exeTitle": "检测到你自己安装的 omp",
-  "takeover.exeBody":
-    "omp-studio 可以另装一份官方 omp，并修改你的用户 PATH，把它放到最前面（之后新开的终端里 omp 也会指向它）。你原来的那份原样保留。",
+  "takeover.exeBody": "omp-studio 可以另装一份官方 omp，放到用户 PATH 最前面，你原来的那份不动。",
   "takeover.otherTitle": "检测到由 {name} 管理的 omp",
-  "takeover.otherBody":
-    "omp-studio 可以另装一份官方 omp，并修改你的用户 PATH，把它放到最前面（之后新开的终端里 omp 也会指向它）。{name} 的那份原样保留，只是 PATH 里不再排第一。",
+  "takeover.otherBody": "omp-studio 可以另装一份官方 omp，放到用户 PATH 最前面；{name} 的那份保留，只是不再排第一。",
   "takeover.keepOther": "继续用 {name} 的",
   "takeover.where": "位置：{path}",
   "takeover.yes": "由 omp-studio 管理",
@@ -57,10 +55,8 @@ export const omp = {
   retry: "重试",
   openSettings: "打开设置",
   "missing.title": "需要安装 omp",
-  "missing.body":
-    "omp-studio 不内置 omp。可以由 omp-studio 从 {source} 下载并管理一份官方版本（约 {size}），放到用户 PATH 最前面，让终端也能用，之后自动更新。",
-  "missing.bodyNoSize":
-    "omp-studio 不内置 omp。可以由 omp-studio 从 {source} 下载并管理一份官方版本，放到用户 PATH 最前面，让终端也能用，之后自动更新。",
+  "missing.body": "omp-studio 不内置 omp。可以从 {source} 下载官方版（约 {size}），加入用户 PATH 并自动更新。",
+  "missing.bodyNoSize": "omp-studio 不内置 omp。可以从 {source} 下载官方版，加入用户 PATH 并自动更新。",
   "missing.titleVersion": "需要安装 omp {version}",
   install: "下载并安装",
   recheck: "我已安装，重新检测",

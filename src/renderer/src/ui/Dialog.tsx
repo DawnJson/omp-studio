@@ -49,6 +49,8 @@ export interface DialogProps {
   headAction?: ReactNode | undefined;
   /** 换掉标题行（标题只作读屏名，不显示 ×）：搜索框当顶栏的选择器类对话框用。 */
   head?: ReactNode | undefined;
+  /** 打开后高度只长不缩：列表被过滤变短时外框不跟着变矮。有 `tabs` 时自动开启。 */
+  lockHeight?: boolean | undefined;
 }
 
 export function Dialog({
@@ -67,6 +69,7 @@ export function Dialog({
   className,
   headAction,
   head,
+  lockHeight = false,
 }: DialogProps) {
   const t = useT();
   const presence = usePresence(open);
@@ -126,6 +129,23 @@ export function Dialog({
       openStack.splice(openStack.indexOf(entry), 1);
     };
   }, [open]);
+  // 只长不缩：见过的最大高度写进 min-height（取布局高度，不受弹出动画缩放影响）。带标签页的对话框自动开启，
+  // 切到内容少的页签时外框不变矮；列表类对话框（过滤、搜索会让列表变短）传 lockHeight。
+  // 宽度本来就由 size 定死。上限同 CSS 的 max-height，不会撑出窗口。
+  const lock = lockHeight || tabs !== undefined;
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!mounted || !lock || !dialog) return;
+    let tallest = 0;
+    const observer = new ResizeObserver(() => {
+      const height = dialog.offsetHeight;
+      if (height <= tallest) return;
+      tallest = height;
+      dialog.style.minHeight = `min(${height}px, 100vh - 96px)`;
+    });
+    observer.observe(dialog);
+    return () => observer.disconnect();
+  }, [mounted, lock]);
 
   if (!mounted) return null;
 

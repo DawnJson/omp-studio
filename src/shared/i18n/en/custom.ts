@@ -26,8 +26,7 @@ export const custom = {
   "keyEdit.replace": "Replace key",
   "keyEdit.clear": "Clear key",
   "keyEdit.title": "API key for {id}",
-  "keyEdit.tip":
-    "Written to providers.{id}.apiKey in models.yml; the entry's other settings stay as they are. It wins over a signed-in subscription and over the key saved in Settings, and the terminal omp uses it too. omp picks it up on its next start; restart running tasks.",
+  "keyEdit.tip": "Goes into models.yml and wins over a signed-in subscription. omp picks it up on its next start.",
   "keyEdit.saved": "Key saved",
   "keyEdit.cleared": "Key cleared",
   "form.id": "ID",
@@ -51,8 +50,8 @@ export const custom = {
     "{name} is also a system environment variable; omp uses the system value, not the one in .env.",
   "form.key.show": "Show",
   "form.key.hide": "Hide",
-  "form.key.tip":
-    "“Key” is written to models.yml in plain text (that's how omp does it, and the terminal omp can use it too). With “Env var”, models.yml only gets the variable name and the key goes into the .env in the agent folder, which omp reads at startup; leave the value empty if the variable is already set in the system or in .env. Pick “No key” for local servers that don't need one.",
+  "form.key.literal.tip": "Written to models.yml in plain text.",
+  "form.key.env.tip": "models.yml gets the variable name; the key goes into .env in the agent folder.",
   "form.models": "Models",
   "form.models.fetch": "Fetch models",
   "form.models.fetched": "Fetched {count} models, {added} of them new. Tick the ones you want and save.",
@@ -60,12 +59,9 @@ export const custom = {
   "form.models.add.placeholder": "Add a model id manually",
   "form.models.add": "Add",
   "form.models.all": "Select all",
-  "form.models.none": "Select none",
   "form.models.selected": "{selected} of {total} selected",
   "form.models.empty": "No models yet: fetch them, or add one manually.",
   "form.models.duplicate": "That model is already in the list",
-  "form.models.tip":
-    "Auto (or an empty number) leaves the value out of models.yml: omp looks the model id up in its built-in catalog, and uses its defaults when the id isn't there (no thinking, text only, 128K context, 16K output). Numbers accept 272k or 1m. These only set omp's own budget; the server's limits don't change.",
   "form.meta.model": "Model",
   "form.meta.reasoning": "Thinking",
   "form.meta.images": "Image input",
@@ -79,7 +75,7 @@ export const custom = {
   "form.title.add": "Add a custom provider",
   "form.discovery": "Discover models automatically",
   "form.discovery.tip":
-    "When on, omp reads the model list from this address at runtime (writes discovery in models.yml), so newly released models show up without adding them by hand. Models ticked below are still written too. Only OpenAI-compatible and Anthropic API types support it.",
+    "When on, omp fetches this address's model list at runtime, so new models show up by themselves.",
   "form.discovery.unsupported": "This API type has no general way to discover models; add them by hand.",
   refresh: "Refresh models",
   "refresh.tip":

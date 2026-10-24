@@ -6,6 +6,7 @@ import type { ShareResult, ShareSettings, TaskId } from "../../../../shared/ipc.
 import { useT } from "../../i18n/use-t.ts";
 import { Button, Checkbox, Notice } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
+import { Reserve } from "../../ui/Reserve.tsx";
 import { describeError, reportError } from "../../ui/errors.ts";
 import { copyText } from "./session-info-actions.ts";
 import { closeShareDialog } from "./session-info-store.ts";
@@ -62,9 +63,18 @@ function Body({
   }
   return (
     <>
-      <Notice tone="warning" testId="share-warning">
-        {t(gist ? "sessionInfo.share.warnGist" : "sessionInfo.share.warn", { server: settings.serverUrl })}
-      </Notice>
+      {/* 勾上 / 取消"上传到 gist"会换一段警告文字：两段叠在一格里占位，外框大小不变 */}
+      <Reserve
+        ghosts={[
+          <Notice key="other" tone="warning">
+            {t(gist ? "sessionInfo.share.warn" : "sessionInfo.share.warnGist", { server: settings.serverUrl })}
+          </Notice>,
+        ]}
+      >
+        <Notice tone="warning" testId="share-warning">
+          {t(gist ? "sessionInfo.share.warnGist" : "sessionInfo.share.warn", { server: settings.serverUrl })}
+        </Notice>
+      </Reserve>
       <p className="si-note" data-testid="share-redact" data-redact={settings.redactSecrets}>
         {t(settings.redactSecrets ? "sessionInfo.share.redactOn" : "sessionInfo.share.redactOff")}
       </p>

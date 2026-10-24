@@ -12,8 +12,7 @@ export const agents = {
   listLabel: "Subagent list",
   count: "{count}",
   empty: "No subagents yet. They appear here when the main agent spawns them.",
-  focusedEmpty:
-    "You're in {name}'s conversation, so the list is hidden. Go back to the main session (above the input box) to see all subagents.",
+  focusedEmpty: "You're in {name}'s conversation. Go back to the main session to see all subagents.",
   background: "background",
   statusPending: "Pending",
   statusRunning: "Running",
