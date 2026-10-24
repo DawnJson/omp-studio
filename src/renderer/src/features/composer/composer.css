@@ -36,14 +36,10 @@
   min-height: 42px;
   padding: var(--space-2-5) var(--space-2-5) var(--space-1);
 }
-.composer:hover {
-  border-color: var(--border-strong);
-}
+/* 悬停和聚焦都只把边框加深一档，不用强调色、不加外圈（2026-10-24 质感改版：紫色留给进行中和选中，输入框一直聚焦着，染色就一直在） */
+.composer:hover,
 .composer:focus-within {
-  border-color: var(--accent);
-  box-shadow:
-    var(--shadow-composer),
-    0 0 0 3px var(--accent-soft);
+  border-color: var(--border-strong);
 }
 /* 草稿发出第一句话后换成任务的输入框（新节点，见 App.tsx fromDraft）：边框直接是聚焦色，不从灰色过渡过去（否则闪一下） */
 .composer-stack[data-from-draft] .composer {
@@ -374,14 +370,15 @@ button.usage-context:hover,
 .usage-ring-track,
 .usage-ring-fill {
   fill: none;
-  stroke-width: 2.5;
 }
 .usage-ring-track {
   stroke: var(--border-strong);
+  stroke-width: 1.5;
 }
+/* 已用是中性色的扇形（UsageMeter 的 Ring）；快满了才变成琥珀色（data-high） */
 .usage-ring-fill {
-  stroke: var(--accent);
-  stroke-linecap: round;
+  stroke: var(--text-3);
+  stroke-width: 6;
 }
 /* 自动压缩触发点：横穿圆环的一道短刻度（UsageMeter 的 Ring），用已用弧和底圈之外的中性色 */
 .usage-ring-tick {

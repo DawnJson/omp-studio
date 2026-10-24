@@ -171,10 +171,6 @@
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   column-gap: var(--space-6);
-  border-top: 1px solid var(--border);
-}
-.st-cells + .st-cells {
-  border-top: 0;
 }
 /* 换不换行按"标签不折行的宽 + 控件的宽"放不放得下来定（2026-10-23 仓库所有者：原来三段以上的分段、文本框、标签输入一律另起一行）。
    标签不收缩、占满余下的宽，控件被推到右边；标签比整格还长时自己折行（omp 的长 key 任意处断开），控件换到下一行。 */
@@ -199,10 +195,6 @@
   order: 1;
   flex: 0 1 auto;
   max-width: 100%;
-}
-/* 格子下面整行排的项（文本框、标签输入）：和格子共用分隔线，不再加一道上边框 */
-.st-cells + .ui-rows {
-  border-top: 0;
 }
 @container (max-width: 640px) {
   .st-cells {
@@ -238,11 +230,6 @@
   display: grid;
   grid-template-columns: repeat(2, fit-content(160px) minmax(0, 1fr) auto auto);
   column-gap: var(--space-6);
-  border-top: 1px solid var(--border);
-}
-.st-roles + .st-roles,
-.st-cells + .st-roles {
-  border-top: 0;
 }
 .st-roles-row {
   display: grid;
@@ -391,7 +378,6 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   column-gap: var(--space-6);
-  border-top: 1px solid var(--border);
 }
 @container (max-width: 700px) {
   .st-kb-grid {

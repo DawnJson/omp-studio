@@ -109,7 +109,7 @@ export function PluginsSection({ projectId }: { projectId: ProjectId | null }) {
           </p>
         )}
         {installedCount > 0 && (
-          <div className="ui-rows">
+          <div>
             {snapshot.data?.npm.map((plugin) => (
               <PluginRow key={`npm:${plugin.name}`} plugin={plugin} working={state.working} />
             ))}

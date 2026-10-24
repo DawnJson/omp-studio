@@ -130,16 +130,13 @@ button {
   flex: none;
 }
 
+/* 顶栏标题：500（2026-10-24 质感改版：原来中文 700 在 Windows 上又重又糊，标题又是整屏最显眼的字；雅黑 UI 没有 500，中文落到常规字重） */
 .crumb-title {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: var(--fw-strong);
+  font-weight: var(--fw-medium);
   color: var(--text);
-}
-
-:root:lang(zh) .crumb-title {
-  font-weight: 700;
 }
 
 /* 任务工具（分支、评审、终端）贴任务条右端；竖线把它们和系统三键隔开 */
@@ -290,16 +287,13 @@ button {
   animation-fill-mode: forwards;
 }
 
-/* ───────── 键帽 ───────── */
-/* 设置页的快捷键清单在用；命令面板用 ui/controls.css 的 .ui-kbd */
+/* ───────── 快捷键 ───────── */
+/* 设置页的快捷键清单：几十个键帽各带底色太吵（2026-10-24 质感改版），这里的键只是小号次要色文字；命令面板用 ui/controls.css 的 .ui-kbd */
 .kbd {
-  padding: 0 var(--space-1-5);
   font-family: inherit;
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-2xs);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
   color: var(--text-3);
-  background: var(--bg-sunken);
-  border-radius: var(--radius-xs);
 }
 
 /* ───────── 关于 ───────── */

@@ -17,11 +17,13 @@ import { formatCount, formatPercent } from "./usage-format.ts";
 
 const ringSize = 20;
 const ringRadius = 8;
-const ringLength = 2 * Math.PI * ringRadius;
+/** 已用画成圆环里的扇形（半径 3、描边 6 的圆：描边正好铺满半径 6 的饼）：占用很少时是一道细楔子，不会像转圈的加载弧。 */
+const pieRadius = 3;
+const pieLength = 2 * Math.PI * pieRadius;
 
-/** 圆环：描边弧 = 已用；`autoAt`（0–100）是自动压缩触发点，在圆环上横穿一道刻度。 */
+/** 圆环：外圈是底，里面的扇形 = 已用；`autoAt`（0–100）是自动压缩触发点，在外圈上横穿一道刻度。 */
 function Ring({ percent, autoAt = null }: { percent: number; autoAt?: number | null }) {
-  const filled = (Math.min(100, Math.max(0, percent)) / 100) * ringLength;
+  const filled = (Math.min(100, Math.max(0, percent)) / 100) * pieLength;
   const center = ringSize / 2;
   return (
     <svg
@@ -36,8 +38,8 @@ function Ring({ percent, autoAt = null }: { percent: number; autoAt?: number | n
         className="usage-ring-fill"
         cx={center}
         cy={center}
-        r={ringRadius}
-        strokeDasharray={`${filled} ${ringLength}`}
+        r={pieRadius}
+        strokeDasharray={`${filled} ${pieLength}`}
         transform={`rotate(-90 ${center} ${center})`}
       />
       {autoAt !== null && (

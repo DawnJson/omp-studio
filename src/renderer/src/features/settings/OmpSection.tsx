@@ -141,7 +141,7 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
           )}
         </Row>
       </div>
-      <div className="ui-rows st-rows">
+      <div className="st-rows">
         <Row label={t("omp.path")}>
           {() => (
             <span className="st-mono st-path" title={ready.path} data-testid="omp-path">
