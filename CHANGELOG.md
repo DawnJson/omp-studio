@@ -10,6 +10,8 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+## [0.4.7] - 2026-10-23
+
 ### 新增
 
 - 设置 → 自定义 provider：只覆盖 omp 内置 provider 的条目（比如 `anthropic` 下只改了上下文窗口）标成"覆盖内置 provider"，卡片上可以直接设置、更换、清除写在 `models.yml` 里的 key，条目里别的设置不动；之前点"编辑"保存会被要求填 Base URL 和模型。
