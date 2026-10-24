@@ -5,6 +5,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
 import { Button, IconButton } from "../../ui/controls.tsx";
 import { usePresence } from "../../ui/presence.ts";
+import { useFlip } from "../../ui/flip.ts";
 import { setToastHost } from "./toast-host.ts";
 import { dismissToast, useToasts, type Toast } from "./toast-store.ts";
 import "./dialogs.css";
@@ -22,6 +23,7 @@ function ToastCard({ toast, open, onGone }: { toast: Toast; open: boolean; onGon
     <div
       className="toast"
       data-level={toast.level}
+      data-flip-key={toast.id}
       role={toast.level === "error" ? "alert" : "status"}
       {...presence.exitProps}
     >
@@ -73,6 +75,8 @@ function usePanelBounds(): CSSProperties {
 export function Toasts() {
   const t = useT();
   const style = usePanelBounds();
+  const list = useRef<HTMLElement>(null);
+  useFlip(list);
   const live = useToasts();
   const [ghosts, setGhosts] = useState<readonly Toast[]>([]);
   // store 里刚消失的 toast 转成幽灵：渲染期间直接派生状态，React 会在提交前重渲，卡片不会被卸载重挂。
@@ -88,7 +92,7 @@ export function Toasts() {
     (a, b) => a.id - b.id,
   );
   return (
-    <section className="toasts" aria-label={t("dialogs.toastRegion")} data-testid="toasts" style={style}>
+    <section className="toasts" aria-label={t("dialogs.toastRegion")} data-testid="toasts" style={style} ref={list}>
       {shown.map((toast) => (
         <ToastCard key={toast.id} toast={toast} open={live.some((item) => item.id === toast.id)} onGone={forget} />
       ))}

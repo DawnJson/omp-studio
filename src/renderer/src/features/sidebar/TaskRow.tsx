@@ -52,7 +52,7 @@ function RenameInput({
     onDone(value);
   };
   return (
-    <div className="sb-row" data-selected={false} data-testid="task-row">
+    <div className="sb-row" data-flip-key={task.id} data-selected={false} data-testid="task-row">
       <span className="sb-row-main sb-row-editing">
         <StatusDot task={task} t={t} />
         <input
@@ -90,6 +90,7 @@ export function TaskRow(props: TaskRowProps) {
   return (
     <div
       className="sb-row"
+      data-flip-key={task.id}
       data-menu=""
       data-selected={selected}
       data-status={task.status}

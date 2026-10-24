@@ -9,6 +9,7 @@ import { RetryButton } from "../../session-info/RetryButton.tsx";
 import { Clamp } from "../Clamp.tsx";
 import { FoldCtx } from "../fold-context.ts";
 import { resolveIconName, toolIconName } from "../icon-names.ts";
+import { useEntrance } from "../entrance.ts";
 import { TspIcon } from "../icons.tsx";
 import { labels } from "../labels.ts";
 import { nodeDomProps } from "../node-dom.ts";
@@ -32,7 +33,24 @@ function stackClasses(p: Readonly<Record<string, unknown>>): string {
   return classes.join(" ");
 }
 
+/** wait / Task 卡里的作业磁贴（shared/tsp/jobs.ts 的 omp.job.tile）：同一批出现的错开入场。 */
+function TileCol(props: NodeProps) {
+  const entrance = useEntrance(props.ctx.taskId, props.ctx.sf, props.node.id);
+  return (
+    <div
+      {...nodeDomProps(props, "tsp-col", {
+        className: [stackClasses(props.node.p), entrance?.className].filter(Boolean).join(" "),
+        style: entrance?.style,
+      })}
+      data-enter={entrance?.["data-enter"]}
+    >
+      <TspChildren {...props} />
+    </div>
+  );
+}
+
 export function Col(props: NodeProps) {
+  if (props.node.p.role === "omp.job.tile") return <TileCol {...props} />;
   if (props.node.p.role === "omp.assistant") return <AssistantCol {...props} />;
   if (props.node.p.role === ASK_GATE_ROLE) {
     return <AskGateCol {...props} dom={nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p) })} />;

@@ -34,7 +34,8 @@
   transition:
     background-color var(--dur-instant) var(--ease-out),
     border-color var(--dur-instant) var(--ease-out),
-    color var(--dur-instant) var(--ease-out);
+    color var(--dur-instant) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
 }
 .ui-btn svg {
   flex: none;
@@ -163,7 +164,8 @@
   border-radius: var(--radius-md);
   transition:
     background-color var(--dur-instant) var(--ease-out),
-    color var(--dur-instant) var(--ease-out);
+    color var(--dur-instant) var(--ease-out),
+    transform var(--dur-instant) var(--ease-out);
 }
 .ui-icon-btn[data-size="md"] {
   --btn-h: var(--control-h-md);
@@ -1221,4 +1223,131 @@
 }
 .ui-disclosure[aria-expanded="true"] svg {
   transform: rotate(90deg);
+}
+
+/* ───────── 按钮按下：鼠标按住时缩到 0.97（spec §2.6）───────── */
+/* 键盘触发（空格 / 回车时按钮带 :focus-visible）不缩；禁用的不缩；触屏 / 无悬停设备不缩。按钮本身没有别的 transform。 */
+@media (hover: hover) and (pointer: fine) {
+  .ui-btn:active:not(:focus-visible, :disabled, [aria-disabled="true"]),
+  .ui-icon-btn:active:not(:focus-visible, :disabled, [aria-disabled="true"]) {
+    transform: scale(0.97);
+  }
+}
+
+/* ───────── 滚动边缘渐隐（spec §2.6）───────── */
+/* 有限高度、内容常超出的滚动列表加 .ui-scroll-fade：上面还有内容时顶边渐隐，下面还有内容时底边渐隐，滚到头就不隐。
+ * 不用 JS：scroll(self) 时间线按滚动位置驱动两个长度变量，mask 读它们。不可滚动时时间线不生效，变量停在初始值 0。
+ * --fade-inset：顶部贴着不该被隐掉的粘性表头时，写表头高度（渐隐从它下面开始）。 */
+@property --ui-fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --ui-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.ui-scroll-fade {
+  --fade-size: var(--space-6);
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 var(--fade-inset, 0px),
+    transparent var(--fade-inset, 0px),
+    #000 calc(var(--fade-inset, 0px) + var(--ui-fade-top)),
+    #000 calc(100% - var(--ui-fade-bottom)),
+    transparent 100%
+  );
+  animation:
+    ui-fade-top linear both,
+    ui-fade-bottom linear both;
+  animation-timeline: scroll(self), scroll(self);
+  animation-range:
+    0px var(--space-8),
+    calc(100% - var(--space-8)) 100%;
+}
+@keyframes ui-fade-top {
+  from {
+    --ui-fade-top: 0px;
+  }
+  to {
+    --ui-fade-top: var(--fade-size);
+  }
+}
+@keyframes ui-fade-bottom {
+  from {
+    --ui-fade-bottom: var(--fade-size);
+  }
+  to {
+    --ui-fade-bottom: 0px;
+  }
+}
+
+/* ───────── 骨架占位（ui/Skeleton.tsx，spec §2.6）───────── */
+/* 等 omp 返回的列表：与最终行同高的灰条，扫光用 transform（--play-state 控制，减少动效时停在光带在框外的 0% 帧）。 */
+.ui-skeleton-list {
+  display: flex;
+  flex-direction: column;
+}
+.ui-skeleton-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  height: var(--skeleton-h, 48px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.ui-skeleton-card {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  height: var(--skeleton-h, 96px);
+  padding: var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.ui-skeleton-lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.ui-skeleton {
+  position: relative;
+  flex: none;
+  height: var(--space-2-5);
+  overflow: hidden;
+  background: var(--bg-active);
+  border-radius: var(--radius-sm);
+}
+.ui-skeleton[data-shape="icon"] {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+}
+.ui-skeleton[data-width="long"] {
+  width: 60%;
+}
+.ui-skeleton[data-width="short"] {
+  width: 35%;
+}
+.ui-skeleton::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bg-overlay) 60%, transparent), transparent);
+  transform: translateX(-100%);
+  animation: ui-skeleton-sweep var(--dur-sweep) linear infinite;
+  animation-play-state: var(--play-state);
+}
+@keyframes ui-skeleton-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+/* 数据到了：真实内容淡入（容器在数据到达时才挂载） */
+.ui-data-in {
+  animation: fade-in var(--dur-fast) var(--ease-out);
 }

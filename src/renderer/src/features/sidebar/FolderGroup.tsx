@@ -1,10 +1,12 @@
 // 文件夹分组（spec §4.3）：头部 + 任务和历史会话混排的行。头部右侧常驻 +（在这个文件夹新建任务，纯历史文件夹会先把它加成项目）；
 // + 左边同一个位置：折叠时是行数（组内有等待任务再加一个琥珀菱形），展开时换成 ⋯ 项目菜单（只有 studio 项目才有），两者交叉淡入淡出。
+import { useRef } from "react";
 import type { Project, TaskId } from "../../../../shared/ipc.ts";
 import type { SidebarFolder } from "../../../../shared/ui/sidebar-model.ts";
 import { Dots, Plus } from "../../icons.tsx";
 import { IconButton } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
+import { useFlip } from "../../ui/flip.ts";
 import { ChevronIcon } from "./icons.tsx";
 import { ItemRow } from "./ItemRow.tsx";
 import { folderNavId, moreNavId, showMoreStep, visibleItems } from "./list-view.ts";
@@ -33,6 +35,8 @@ export function FolderGroup(props: FolderGroupProps) {
   const hasWaiting = folder.items.some((item) => item.kind === "task" && item.task.status === "needs_you");
   const { shown, remaining } = visibleItems(folder.items, props.limit, props.selectedTaskId);
   const moreId = moreNavId(folder.key);
+  const body = useRef<HTMLDivElement>(null);
+  useFlip(body);
 
   return (
     <section className="sb-folder" aria-label={folder.label} data-testid="sidebar-folder">
@@ -106,7 +110,7 @@ export function FolderGroup(props: FolderGroupProps) {
         )}
       </div>
       <Reveal open={open}>
-        <div className="sb-group-body">
+        <div className="sb-group-body" ref={body}>
           {folder.items.length === 0 && <p className="sb-group-empty">{t("sidebar.empty")}</p>}
           {shown.map((item) => (
             <ItemRow

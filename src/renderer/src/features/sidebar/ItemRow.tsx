@@ -18,7 +18,7 @@ function SessionRow({ session, tabStop, rows }: SessionRowProps) {
   const label = sessionTitle(session) ?? t("history.untitled");
   const navId = `session:${session.id}`;
   return (
-    <div className="sb-row" data-testid="sidebar-session">
+    <div className="sb-row" data-flip-key={session.id} data-testid="sidebar-session">
       <button
         type="button"
         className="sb-row-main"

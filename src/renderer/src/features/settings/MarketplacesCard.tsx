@@ -10,6 +10,7 @@ import {
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { Plus, Search } from "../../icons.tsx";
 import { Badge, Button, FormField, ListRow, SectionHead, Segmented, TextField } from "../../ui/controls.tsx";
+import { Skeleton } from "../../ui/Skeleton.tsx";
 import { ConfirmDialog, Dialog } from "../../ui/Dialog.tsx";
 import { describeError } from "../../ui/errors.ts";
 import { useDialogSlot } from "../../ui/presence.ts";
@@ -42,7 +43,9 @@ function Browse({
   );
   return (
     <div className="pl-browse" data-testid={`marketplace-browse-${marketplace}`}>
-      {slot?.busy === true && <p className="pl-muted">{t("plugins.loading")}</p>}
+      {slot?.busy === true && slot.data == null && (
+        <Skeleton variant="card" label={t("plugins.loading")} testId="marketplace-skeleton" />
+      )}
       {slot?.error != null && (
         <p className="pl-error" role="alert">
           {t("plugins.failed", { message: describeError(t, slot.error) })}
@@ -64,7 +67,7 @@ function Browse({
       {slot?.data != null && slot.data.length > 0 && entries.length === 0 && (
         <p className="pl-muted">{t("plugins.marketplaces.noMatch")}</p>
       )}
-      <div className="ui-cards">
+      <div className="ui-cards ui-data-in">
         {entries.map((entry) => {
           const id = `${entry.name}@${marketplace}`;
           const has = installed.has(id);

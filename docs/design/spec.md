@@ -227,7 +227,8 @@
 | 事件 | 动画 | 时长/曲线 |
 |---|---|---|
 | 菜单、popover、tooltip 出现 | opacity 0→1 + `translateY(var(--travel-sm))→0` + `scale(var(--scale-pop))→1` | `--dur-base` `--ease-out`；消失 `--dur-fast-exit` `--ease-in` |
-| 命令面板、对话框出现 | 同上，位移 `--travel-md` | `--dur-slow` `--ease-spring` |
+| 对话框出现 | 同上，位移 `--travel-md` | `--dur-slow` `--ease-spring` |
+| 命令面板出现 / 消失（`palette.css`、`CommandPalette.tsx`；键盘高频，2026-10-24 起不弹簧） | 遮罩连面板只淡入 / 淡出，不位移不缩放 | `--dur-fast` `--ease-out` / `--dur-fast-exit` `--ease-in` |
 | 过程行展开/折叠 | `grid-template-rows: 0fr↔1fr` + 内容 opacity | `--dur-base` `--ease-out` |
 | 输入框首次发送 | 不做 FLIP：草稿发出第一句话后输入框留在原位，换成任务的输入框时不放换页入场（`motion.css`） | - |
 | 发送 ↔ 停止 | `border-radius` + 图标交叉淡入 | `--dur-fast` `--ease-spring` |
@@ -242,6 +243,15 @@
 | 折叠区域展开/收起（侧栏文件夹、设置分组、高级页目录的小组列表、目标条、旁路提问面板、模型表和下拉的提供商组、请求记录的详情、子代理的对话记录等；凡是可折叠的都用它，2026-10-23 起） | `grid-template-rows: 0fr↔1fr` + opacity；首次渲染就展开的不放 | 展开 `--dur-base` `--ease-out`，收起 `--dur-base-exit` `--ease-in`（`ui/Reveal.tsx`） |
 | 主区换页（新任务页 / 对话 / 设置，含从设置返回任务时的过程区）、切任务、设置换节、侧栏位置在会话列表和设置导航之间切换 | `view-in`：opacity + `translateY(var(--travel-sm))→0`；例外：草稿发出第一句话变成任务时，输入框不播（`.composer-stack[data-from-draft]`，它在原位接着用，播了就是“闪一下”） | `--dur-base` `--ease-out` |
 | 可交互元素的 hover / 选中 / 聚焦 | 背景、边框、文字颜色、阴影、透明度渐变 | `--dur-fast` `--ease-out`（`motion.css` 里 `:where(button, …)` 零优先级的默认值，组件自己写的优先） |
+| 按钮鼠标按下（`ui/controls.css` `.ui-btn` / `.ui-icon-btn`） | `scale(0.97)`；只在 `(hover: hover) and (pointer: fine)`、`:active:not(:focus-visible)`、非禁用时，键盘触发不缩 | `--dur-instant` `--ease-out` |
+| 侧栏任务行重排、新增删除补位（`ui/flip.ts` `useFlip`，`FolderGroup.tsx`） | FLIP：留下的行从旧位置 `translateY` 回 0；只在同一分组的 key 顺序变化时放，首次渲染、展开折叠、拖宽、跨分组不放；减少动效不放 | `--dur-base` `--ease-out` |
+| toast 消失后其余补位（`Toasts.tsx`，同 `useFlip`） | 同上；消失那条的退场不变 | `--dur-base` `--ease-out` |
+| 对话线跳转落点（`ConversationLine.tsx` `flashLanding`） | 目标消息 `--accent-soft` 底 + 2px `--accent` 环淡掉；只动颜色，减少动效时也放 | 900ms `--ease-out` |
+| 工具卡 / 子代理行从运行中变完成（`tsp/nodes/work.tsx` `useJustFinished`，`tsp.css` `.tsp-draw-check`） | ✓ 用 `stroke-dashoffset` 描边画出，运行中的淡紫底 `background-color` 过渡褪掉；工具卡的 ✓ 停 1.2s 后淡出并卸掉（omp 的完成卡本来没有 ✓），子代理行的 ✓ 常驻；只在已挂载的卡片状态变化时放，历史、切任务、重挂载不放 | 画出 `--dur-base` `--ease-out`；淡出 `max(--dur-base, --dur-fade)`；减少动效时直接显示 |
+| 一批子代理行 / 作业磁贴同时出现（`tsp/entrance.ts`，`tsp.css` `.tsp-enter`） | opacity + `translateY(--travel-sm)`，同一批每格错开 40ms（第 6 格起不再加），后来单个出现的不延迟；按节点 id 只算出生一次，切任务、重开不放 | `max(--dur-base, --dur-fade)` `--ease-out`；减少动效时纯淡入、不错开 |
+| 对话图片点开放大 / 关闭（`tsp/zoom-store.ts`，`tsp.css`） | View Transition：缩略图与大图共用 `view-transition-name: tsp-zoom`，从缩略图位置放大、关时缩回；遮罩随 root 淡入淡出；←/→ 切图只换图；缩略图已卸载或出视口时只淡出；规则带 `:root[data-tsp-zoom-vt]` 前缀，不影响切主题的整窗过渡；减少动效时只淡入淡出 | `--dur-base` `--ease-out`（减少动效 `--dur-fade`） |
+| 有限高度的滚动列表上下渐隐（`ui/controls.css` `.ui-scroll-fade`：下拉列表、命令面板结果、模型选择表） | `animation-timeline: scroll(self)` 驱动 mask 的 `@property` 长度变量：上 / 下还有内容的一边渐隐，滚到头不隐，`--fade-inset` 避开粘性表头 | 随滚动 |
+| 等 omp 返回的列表（`ui/Skeleton.tsx`：Provider、Skills、MCP、SSH、插件、市场浏览、模型选择） | 与最终行同高的灰条骨架，`::after` 光带 `translateX` 扫过；数据到了容器 `.ui-data-in` 淡入 | 扫光 `--dur-sweep` linear 循环、`--play-state`（减少动效停住）；淡入 `--dur-fast` `--ease-out` |
 
 性能规则：只动 `transform` 与 `opacity`（外加折叠用的 `grid-template-rows`）；不动画 `height` / `width` / `top`。reduced-motion 下：所有位移、缩放、弹簧归零；循环动画暂停在 0% 帧（呼吸环=实心点带一圈淡环，光标常亮，加载环用静态 `…`，由 `useReducedMotion()` 切换字形）；只保留 `--dur-fade`（100ms）的透明度渐变；`scrollTo` 一律 `behavior: "auto"`；输入框“落下”瞬时。JS 里读取动效开关只走一个 `useReducedMotion()`（`matchMedia` + `data-motion`），组件不各自读。
 

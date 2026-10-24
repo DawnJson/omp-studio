@@ -354,18 +354,47 @@ for (const [locale, colorScheme] of [
 
       // 归档：Delete 立刻从侧栏消失，撤销后回来，没撤销的 8 秒后才真正调用 archiveTask。
       const rowByTitle = (page: Page, title: string) => page.getByTestId("task-row").filter({ hasText: title });
+      await page.evaluate(() => {
+        const g = globalThis as unknown as {
+          __flipCalls: number;
+          Element: { prototype: { animate(keyframes: unknown, options?: unknown): unknown } };
+        };
+        g.__flipCalls = 0;
+        const original = g.Element.prototype.animate;
+        g.Element.prototype.animate = function (this: unknown, keyframes, options) {
+          if (Array.isArray(keyframes) && (keyframes[0] as { transform?: string } | undefined)?.transform !== undefined)
+            g.__flipCalls += 1;
+          return original.call(this, keyframes, options);
+        };
+      });
+      const flipCalls = (target: Page) =>
+        target.evaluate(() => (globalThis as unknown as { __flipCalls: number }).__flipCalls);
       await rowByTitle(page, "整理日志格式").locator(".sb-row-main").focus();
       await page.keyboard.press("Delete");
       await expect(rowByTitle(page, "整理日志格式")).toHaveCount(0);
       await page.getByRole("button", { name: words.undo }).click();
       await expect(rowByTitle(page, "整理日志格式")).toHaveCount(1);
+      // 重排补位（FLIP）：减少动效下归档 / 撤销不播位移；开动效后归档，下面的行从旧位置平移回来（Element.animate 带 transform 关键帧）。
+      expect(await flipCalls(page)).toBe(0);
+      await page.emulateMedia({ colorScheme, reducedMotion: "no-preference" });
       await rowByTitle(page, "升级依赖").locator(".sb-row-main").focus();
       await page.keyboard.press("Delete");
+      await expect.poll(() => flipCalls(page)).toBeGreaterThan(0);
       await expect(rowByTitle(page, "升级依赖")).toHaveCount(0);
       expect(await mainCalls(app, "archiveTask")).toEqual([]);
+      // toast 补位（FLIP）：再归档一个，叠两条 toast；关掉上面那条，下面那条平移补位。
+      await rowByTitle(page, "写发布说明").locator(".sb-row-main").focus();
+      await page.keyboard.press("Delete");
+      await expect(rowByTitle(page, "写发布说明")).toHaveCount(0);
+      const toasts = page.getByTestId("toasts").locator(".toast");
+      await expect(toasts).toHaveCount(2);
+      const beforeToastFlip = await flipCalls(page);
+      await toasts.first().locator("button").last().click();
+      await expect(toasts).toHaveCount(1);
+      expect(await flipCalls(page)).toBeGreaterThan(beforeToastFlip);
       await expect
         .poll(async () => (await mainCalls(app, "archiveTask")).map((args) => args[0]), { timeout: 15_000 })
-        .toEqual(["t4"]);
+        .toEqual(["t4", "t5"]);
     } finally {
       await launched.close();
       await rm(agentDir, { recursive: true, force: true });

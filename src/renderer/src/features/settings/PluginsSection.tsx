@@ -6,6 +6,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Restart } from "../../icons.tsx";
 import { useOmpStatus, useTasks } from "../../store/index.ts";
 import { Badge, Button, IconButton, ListRow, Notice, SectionHead, type Tone } from "../../ui/controls.tsx";
+import { Skeleton } from "../../ui/Skeleton.tsx";
 import { describeError } from "../../ui/errors.ts";
 import { MarketplacesCard } from "./MarketplacesCard.tsx";
 import { PluginRow } from "./PluginRow.tsx";
@@ -102,14 +103,16 @@ export function PluginsSection({ projectId }: { projectId: ProjectId | null }) {
             {t("plugins.failed", { message: describeError(t, snapshot.error) })}
           </Notice>
         )}
-        {snapshot.data === null && snapshot.busy && <p className="pl-muted">{t("plugins.loading")}</p>}
+        {snapshot.data === null && snapshot.busy && (
+          <Skeleton variant="row" label={t("plugins.loading")} testId="plugins-skeleton" />
+        )}
         {snapshot.data !== null && installedCount === 0 && (
           <p className="pl-muted" data-testid="plugins-empty">
             {t("plugins.installed.empty")}
           </p>
         )}
         {installedCount > 0 && (
-          <div>
+          <div className="ui-data-in">
             {snapshot.data?.npm.map((plugin) => (
               <PluginRow key={`npm:${plugin.name}`} plugin={plugin} working={state.working} />
             ))}

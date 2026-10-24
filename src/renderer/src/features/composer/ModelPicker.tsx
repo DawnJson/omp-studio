@@ -5,7 +5,17 @@
 // 才切模型、设思考强度并关闭，只管这一个任务（草稿里是即将建的任务）；点一个角色则转到给它选模型：表里定位到它现在的模型，
 // 换一个点"应用"写进全局 omp 配置（modelRoles），不动正在运行的会话。
 // Tab 循环、Esc 关闭、焦点回到打开前的元素由 Dialog 负责。
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { usePresence } from "../../ui/presence.ts";
 import type { ModelInsights, ModelKey, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { clampThinkingLevel, thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
@@ -14,6 +24,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Close, Plus, Search, Check, ChevronRight } from "../../icons.tsx";
 import { Badge, Button, IconButton, TextField } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
+import { Skeleton } from "../../ui/Skeleton.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { showView } from "../../store/index.ts";
@@ -589,7 +600,11 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
         )}
       </nav>
       <div className="mp-main">
-        <div ref={tableRef} className="mp-table">
+        <div
+          ref={tableRef}
+          className="mp-table ui-scroll-fade"
+          style={{ "--fade-inset": "var(--control-h-md)" } as CSSProperties}
+        >
           <div className="mp-cols" aria-hidden="true">
             <span />
             <span className="mp-num">{t("model.colIntelligence")}</span>
@@ -598,7 +613,21 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
             <span className="mp-num">{t("model.colPrice")}</span>
             <span className="mp-tick" />
           </div>
-          <div id={listId} className="mp-list" role="listbox" aria-label={t("model.list")}>
+          <div
+            id={listId}
+            className={models === null ? "mp-list" : "mp-list ui-data-in"}
+            role="listbox"
+            aria-label={t("model.list")}
+          >
+            {models === null && (
+              <Skeleton
+                variant="row"
+                count={6}
+                height="var(--control-h-md)"
+                label={t("model.list")}
+                testId="model-skeleton"
+              />
+            )}
             {models !== null && items.length === 0 && (
               <p className="mp-empty">{atRoles ? t("model.noRoles") : t("model.empty")}</p>
             )}

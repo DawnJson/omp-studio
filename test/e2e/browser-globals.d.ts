@@ -5,3 +5,14 @@ declare var DataTransfer: new () => { items: { add(file: unknown): void } };
 declare var DragEvent: new (type: string, init?: { dataTransfer?: unknown; bubbles?: boolean }) => unknown;
 declare function dispatchEvent(event: unknown): boolean;
 declare function fetch(url: string): Promise<{ status: number }>;
+declare function getComputedStyle(element: unknown): { getPropertyValue(name: string): string; transform: string };
+declare var document: {
+  getElementById(id: string): { remove(): void } | null;
+  createElement(tag: string): {
+    id: string;
+    innerHTML: string;
+    getAnimations(options: { subtree: boolean }): { animationName?: string; playState: string }[];
+    remove(): void;
+  };
+  body: { append(node: unknown): void };
+};

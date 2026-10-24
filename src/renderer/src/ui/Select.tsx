@@ -351,7 +351,7 @@ export function Select<T extends string>({
               role="listbox"
               aria-label={label}
               aria-labelledby={labelledBy}
-              className="ui-select-list"
+              className="ui-select-list ui-scroll-fade"
               style={{ maxHeight: maxListHeight }}
               data-testid={testId === undefined ? undefined : `${testId}-list`}
             >

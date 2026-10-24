@@ -1,4 +1,4 @@
-/* 命令面板样式（spec §4.18）：保持自己的外壳；键帽用 ui/controls.css 的 .ui-kbd。 */
+/* 命令面板样式（spec §4.18）：保持自己的外壳；出现只淡入（键盘高频，不弹簧、不位移、不缩放；动画在遮罩 .pl-root 上，面板跟着透明）；键帽用 ui/controls.css 的 .ui-kbd。 */
 .pl-root .icon {
   flex: none;
 }
@@ -16,7 +16,7 @@
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
   color: var(--text);
-  animation: pl-fade var(--dur-fade) linear;
+  animation: pl-fade var(--dur-fast) var(--ease-out);
 }
 .pl-panel {
   display: flex;
@@ -27,17 +27,10 @@
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-3);
   overflow: hidden;
-  animation: pl-in var(--dur-slow) var(--ease-spring);
 }
 @keyframes pl-fade {
   from {
     opacity: 0;
-  }
-}
-@keyframes pl-in {
-  from {
-    opacity: 0;
-    transform: translateY(calc(var(--travel-md) * -1)) scale(var(--scale-pop));
   }
 }
 .pl-input-row {

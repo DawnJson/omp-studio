@@ -19,6 +19,7 @@ import { recapBefore } from "../../../../shared/tsp/recap-slot.ts";
 import { trailingErrorCardId } from "../../../../shared/tsp/error-turn.ts";
 import { findGateButton, hasBlockingPanel } from "../../../../shared/tsp/gate.ts";
 import type { StatusNote } from "../../../../shared/tsp/status-notes.ts";
+import { forgetBirths, markKnown, recordBirths, type BirthCounter } from "./entrance.ts";
 import { planTspBatch } from "./tsp-sync.ts";
 
 interface Mirror {
@@ -116,7 +117,13 @@ function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDoc
   let structural = false;
   /** 改了 main 树结构或某个节点 role 的 surface：纯文字（text / splice）和光标这类操作不影响 roleIndex。 */
   const roleDirty = new Set<string>();
+  const births: BirthCounter = new Map();
   for (const message of messages) {
+    if (message.verb === "f") {
+      for (const op of message.body.ops) {
+        if (op[0] === "add") recordBirths(taskId, message.body.sf, op[2], op[4], births);
+      }
+    }
     const result = applyMessage(mirror.doc, message);
     for (const error of result.errors) {
       const text = `${message.verb}: ${error.msg}`;
@@ -188,6 +195,7 @@ function fetchSnapshot(taskId: TaskId): void {
       const pending = fetching.get(taskId) ?? [];
       fetching.delete(taskId);
       const mirror: Mirror = { seq: snapshot.seq, doc: restoreDocument(snapshot.document) };
+      for (const surface of mirror.doc.surfaces.values()) markKnown(taskId, surface.id, surface.nodes.values());
       mirrors.set(taskId, mirror);
       cachedSurfaces.delete(taskId);
       for (const key of cachedViews.keys()) if (key.startsWith(`${taskId}${SEP}`)) cachedViews.delete(key);
@@ -231,6 +239,7 @@ export function ensureTspDocument(taskId: TaskId): void {
 
 /** 丢掉一份镜像（任务被移除；应用内登录的临时会话每次登录都是一个新进程，对话框打开 / 重试时先丢掉上一次的）。之后再 ensure 会重新拉快照。 */
 export function dropTspDocument(taskId: TaskId): void {
+  forgetBirths(taskId);
   mirrors.delete(taskId);
   fetching.delete(taskId);
   cachedSurfaces.delete(taskId);

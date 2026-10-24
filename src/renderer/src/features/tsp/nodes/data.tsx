@@ -16,6 +16,7 @@ import { asArray, asString } from "../props-util.ts";
 import { plainText, TspSpans } from "../spans.tsx";
 import { TspChildren } from "../TspChildren.tsx";
 import { peekTspBlob, peekTspNode, useTspBlob } from "../tsp-store.ts";
+import { useReducedMotion } from "../use-clock.ts";
 import { openZoom } from "../zoom-store.ts";
 import { MeterView } from "./motion.tsx";
 
@@ -299,6 +300,7 @@ export function Image(props: NodeProps) {
   const h = typeof p.h === "number" && p.h > 0 ? p.h : undefined;
   const maxH = extentToCss(isRecord(p.max) ? p.max.h : undefined, "h");
   const src = useMemo(() => (blob ? dataUrl(blob.mime, blob.data) : null), [blob]);
+  const reduced = useReducedMotion();
   const missing = p.builtin !== "omp" && (src === null || !(blob?.mime ?? "").startsWith("image/"));
 
   // zoom：同一个父节点下的 blob 图一起翻。
@@ -314,7 +316,7 @@ export function Image(props: NodeProps) {
       }
     }
     const index = items.findIndex((item) => item.id === node.id);
-    openZoom(index >= 0 ? items : [{ src, alt }], Math.max(index, 0));
+    openZoom(index >= 0 ? items : [{ src, alt, id: node.id }], Math.max(index, 0), reduced);
   };
 
   const dom = nodeDomProps(props, "tsp-image", {
@@ -355,6 +357,7 @@ export function Image(props: NodeProps) {
     picture = (
       <img
         className="tsp-img-frame"
+        data-testid="tsp-img-frame"
         src={src ?? undefined}
         alt={alt}
         width={w}

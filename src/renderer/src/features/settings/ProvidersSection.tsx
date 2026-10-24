@@ -7,6 +7,7 @@ import { splitProviders } from "../../../../shared/ui/provider-list.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
 import { Button, Notice, SectionHead } from "../../ui/controls.tsx";
+import { Skeleton } from "../../ui/Skeleton.tsx";
 import { describeError } from "../../ui/errors.ts";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { loadAccounts, useAccountLoad } from "./accounts-store.ts";
@@ -78,14 +79,16 @@ export function ProvidersSection() {
             {t("login.refreshFailed", { message: describeError(t, load.refreshError) })}
           </Notice>
         )}
-        {error === null && data === null && <p className="pv-text pv-muted">{t("settings.modelsLoading")}</p>}
+        {error === null && data === null && (
+          <Skeleton variant="card" label={t("settings.modelsLoading")} testId="providers-skeleton" />
+        )}
         {data?.providers.length === 0 && <p className="pv-text pv-muted">{t("login.empty")}</p>}
         {data !== null && data.providers.length > 0 && groups.configured.length === 0 && (
           <p className="pv-text pv-muted" data-testid="providers-none-connected">
             {t("login.connected.empty")}
           </p>
         )}
-        {groups.configured.length > 0 && <div className="ui-cards">{groups.configured.map(row)}</div>}
+        {groups.configured.length > 0 && <div className="ui-cards ui-data-in">{groups.configured.map(row)}</div>}
       </div>
 
       <CustomProviders />

@@ -1224,6 +1224,26 @@
   box-shadow: var(--shadow-3);
   cursor: default;
 }
+/* 开合放大图的 View Transition（zoom-store.ts）：只在 <html data-tsp-zoom-vt> 存在的这一次动画里生效，
+   切主题的整窗淡入（app.css 的 root 规则）不受影响。root 快照里是遮罩，淡入淡出；tsp-zoom 组是缩略图 ⇄ 大图的位移缩放。
+   减少动效时 --dur-base 为 0：root 退到 --dur-fade，且 JS 不给元素起名，所以没有位移组。 */
+:root[data-tsp-zoom-vt]::view-transition-group(root),
+:root[data-tsp-zoom-vt]::view-transition-old(root),
+:root[data-tsp-zoom-vt]::view-transition-new(root) {
+  animation-duration: max(var(--dur-base), var(--dur-fade));
+  animation-timing-function: var(--ease-out);
+}
+:root[data-tsp-zoom-vt]::view-transition-group(tsp-zoom) {
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease-out);
+}
+:root[data-tsp-zoom-vt]::view-transition-old(tsp-zoom),
+:root[data-tsp-zoom-vt]::view-transition-new(tsp-zoom) {
+  height: 100%;
+  object-fit: cover;
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease-out);
+}
 .tsp-zoom-close {
   position: absolute;
   top: var(--space-4);
@@ -1324,6 +1344,45 @@
   to {
     opacity: 1;
   }
+}
+/* ✓ 描边画出：跑完的那一次（Tool / Agent 的 useJustFinished）才带 .tsp-draw-check；16 ≥ check 路径长度（≈13.5） */
+@keyframes tsp-draw {
+  from {
+    stroke-dashoffset: 16;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.tsp-draw-check {
+  display: inline-flex;
+}
+.tsp-draw-check path {
+  stroke-dasharray: 16;
+  animation: tsp-draw var(--dur-base) var(--ease-out) backwards;
+}
+/* 工具卡的 ✓ 画出后停 1.2s 再淡出，结束时 Tool 把它卸掉（omp 的完成卡本来没有 ✓）；减少动效时 --dur-fade 只淡出 */
+@keyframes tsp-check-out {
+  to {
+    opacity: 0;
+  }
+}
+.tsp-tool-st > .tsp-draw-check {
+  animation: tsp-check-out max(var(--dur-base), var(--dur-fade)) var(--ease-out) 1200ms forwards;
+}
+/* 一批子代理行 / 作业磁贴同时出现：每格 --enter-delay（40ms 的整数倍，见 entrance.ts）错开入场；减少动效时位移量为 0，只留 --dur-fade 的淡入 */
+@keyframes tsp-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--travel-sm));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.tsp-enter {
+  animation: tsp-enter max(var(--dur-base), var(--dur-fade)) var(--ease-out) var(--enter-delay, 0ms) backwards;
 }
 
 .tsp-spinner {
@@ -1774,6 +1833,8 @@
 .tsp-tool.card {
   border-radius: var(--radius-lg);
   background: var(--bg-tool);
+  /* 跑完时运行中的淡紫底褪掉（只在已挂载的卡片状态变化时发生，打开历史任务不放） */
+  transition: background-color var(--dur-base) var(--ease-out);
 }
 .tsp-tool.card.st-running {
   background: color-mix(in srgb, var(--accent) 5%, var(--bg-tool));

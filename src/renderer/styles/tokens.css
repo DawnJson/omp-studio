@@ -182,6 +182,7 @@
   --dur-spin: 1100ms; /* 加载环 */
   --dur-write: 2600ms; /* 状态行"正在思考"的 π 写出 + 停住 + 褪掉一整轮（减少动效时靠 --play-state 停在完整的 π） */
   --dur-caret: 1200ms; /* 流式光标 */
+  --dur-sweep: 1400ms; /* 骨架占位的扫光（减少动效时靠 --play-state 停在 0% 帧：光带在框外） */
   /* 退出比进入快：时长的 60% */
   --dur-fast-exit: calc(var(--dur-fast) * 0.6);
   --dur-base-exit: calc(var(--dur-base) * 0.6);

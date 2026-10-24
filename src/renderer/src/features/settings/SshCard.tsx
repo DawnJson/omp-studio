@@ -7,6 +7,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Plus, Restart } from "../../icons.tsx";
 import { useOmpStatus } from "../../store/index.ts";
 import { Badge, Button, IconButton, ListRow, Notice, SectionHead } from "../../ui/controls.tsx";
+import { Skeleton } from "../../ui/Skeleton.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
@@ -89,14 +90,16 @@ export function SshCard({ scope }: { scope: ScopeKey }) {
         </Notice>
       )}
       {!ready && <p className="ig-note">{t("settings.cfg.notReady")}</p>}
-      {ready && hosts === null && load.kind !== "error" && <p className="ig-note">{t("integrations.loading")}</p>}
+      {ready && hosts === null && load.kind !== "error" && (
+        <Skeleton variant="card" label={t("integrations.loading")} testId="ssh-skeleton" />
+      )}
       {hosts?.length === 0 && (
         <p className="ig-note" data-testid="ssh-empty">
           {t("integrations.ssh.empty")}
         </p>
       )}
       {hosts !== null && hosts.length > 0 && (
-        <div className="ui-cards">
+        <div className="ui-cards ui-data-in">
           {hosts.map((host) => (
             <ListRow
               key={`${host.scope}:${host.name}`}

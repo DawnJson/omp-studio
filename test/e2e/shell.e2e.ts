@@ -555,3 +555,73 @@ test("页面来自 app://studio；路径穿越和越界地址拿不到文件", a
     await launched.close();
   }
 });
+
+test("动效补充：命令面板只淡入（遮罩 pl-fade、面板无动画无位移）；按钮鼠标按下缩到 0.97、键盘触发不缩；骨架灰条扫光且减少动效下暂停；滚动列表渐隐类生效", async () => {
+  const launched = await launchApp();
+  try {
+    const { page } = launched;
+    // 等应用画完（setLocaleTheme 先等 app-root）再按 Ctrl+K，否则按键落在还没挂上快捷键的页面上。
+    await setLocaleTheme(page, "zh-CN", "light");
+    const style = (selector: string, prop: string) =>
+      page
+        .locator(selector)
+        .first()
+        .evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), prop);
+
+    // 命令面板：遮罩淡入 --dur-fast（140ms），面板自己没有动画、没有位移 / 缩放。
+    await page.keyboard.press("Control+k");
+    const palette = page.getByTestId("command-palette");
+    await expect(palette).toBeVisible();
+    expect(await style('[data-testid="command-palette"]', "animation-name")).toBe("pl-fade");
+    expect(await style('[data-testid="command-palette"]', "animation-duration")).toBe("0.14s");
+    expect(await style(".pl-panel", "animation-name")).toBe("none");
+    expect(await style(".pl-panel", "transform")).toBe("none");
+    // 结果列表挂了渐隐类，mask 由 scroll(self) 时间线驱动。
+    expect(await style(".pl-list", "animation-timeline")).toContain("scroll(self)");
+    expect(await style(".pl-list", "mask-image")).toContain("linear-gradient");
+    await page.keyboard.press("Escape");
+    await expect(palette).toHaveCount(0);
+
+    // 按钮按下：鼠标按住缩到 0.97，移开松手（不触发点击）后复原。
+    const button = page.getByTestId("topbar-sidebar");
+    const box = await button.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move((box?.x ?? 0) + (box?.width ?? 0) / 2, (box?.y ?? 0) + (box?.height ?? 0) / 2);
+    await page.mouse.down();
+    await expect
+      .poll(() => button.evaluate((el) => getComputedStyle(el).transform))
+      .toBe("matrix(0.97, 0, 0, 0.97, 0, 0)");
+    await page.mouse.move(400, 400);
+    await page.mouse.up();
+    await expect.poll(() => button.evaluate((el) => getComputedStyle(el).transform)).toBe("none");
+    // 键盘触发（带 :focus-visible）不缩。
+    await page.keyboard.press("Tab");
+    await button.focus();
+    await page.keyboard.down("Space");
+    expect(await button.evaluate((el) => getComputedStyle(el).transform)).toBe("none");
+    await page.keyboard.up("Space");
+
+    // 骨架：灰条扫光在跑；减少动效下暂停（停在 0% 帧）。
+    const sweep = () =>
+      page.evaluate(() => {
+        document.getElementById("e2e-skeleton")?.remove();
+        const host = document.createElement("div");
+        host.id = "e2e-skeleton";
+        host.innerHTML = '<div class="ui-skeleton-row"><span class="ui-skeleton" data-shape="icon"></span></div>';
+        document.body.append(host);
+        const animation = host.getAnimations({ subtree: true }).find((a) => a.animationName === "ui-skeleton-sweep");
+        const state = animation?.playState ?? null;
+        host.remove();
+        return state;
+      });
+    expect(await sweep()).toBe("running");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    expect(await sweep()).toBe("paused");
+    // 减少动效下命令面板也没有位移动画。
+    await page.keyboard.press("Control+k");
+    expect(await style(".pl-panel", "animation-name")).toBe("none");
+    await page.keyboard.press("Escape");
+  } finally {
+    await launched.close();
+  }
+});

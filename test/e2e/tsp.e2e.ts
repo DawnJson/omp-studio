@@ -2,6 +2,7 @@
 // fake-tsp-omp(在伪终端里回放 fixtures/tsp 的 omp 录制,不调真实模型),驱动真实的 主进程 → 伪终端 → IPC → 渲染进程。
 // 假 omp 只有在收到和录制完全一样的事件(send / action / activate)后才继续回放,所以"界面走到下一步"本身就证明
 // 渲染进程发对了事件;另外用 --log 断言它收到了什么。
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -117,6 +118,26 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
   const { launched, received, cleanup } = await start("task");
   try {
     const { page } = launched;
+    // 工具卡跑完的 ✓ 只亮一下（画出、停 1.2s、淡出后卸掉），断言时早已不在：从发送前开始记下出现过的 ✓ 和它的动画。
+    await page.evaluate(() => {
+      const g = globalThis as unknown as {
+        document: { body: unknown };
+        MutationObserver: new (cb: () => void) => { observe(target: unknown, options: unknown): void };
+        getComputedStyle(node: unknown): { animationName: string };
+        drawnChecks: string[];
+      };
+      g.drawnChecks = [];
+      const doc = g.document as unknown as {
+        querySelectorAll(selector: string): Iterable<{ dataset: { seen?: string } }>;
+      };
+      new g.MutationObserver(() => {
+        for (const path of doc.querySelectorAll(".tsp-tool-st > .tsp-draw-check path")) {
+          if (path.dataset.seen !== undefined) continue;
+          path.dataset.seen = "";
+          g.drawnChecks.push(g.getComputedStyle(path).animationName);
+        }
+      }).observe(g.document.body, { childList: true, subtree: true });
+    });
     await sendFirst(page, TASK_PROMPT);
     const row = page.getByTestId("task-row").first();
     await expect(row).toHaveAttribute("data-status", "running", { timeout: 20_000 });
@@ -174,6 +195,15 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
       `(() => { const el = document.querySelector(".tsp-scroller"); return el.scrollHeight - el.clientHeight - el.scrollTop; })()`,
     );
     expect(distance).toBeLessThanOrEqual(2);
+    // 工具卡跑完：✓ 用描边画出来（tsp-draw），停一下淡出后卸掉，最后和打开历史任务时一样没有 ✓；淡紫的运行底用 background-color 过渡褪掉。
+    expect(await page.evaluate(() => (globalThis as unknown as { drawnChecks: string[] }).drawnChecks)).toContain(
+      "tsp-draw",
+    );
+    await expect(page.getByTestId("tsp-view").getByTestId("tsp-tool-check")).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.locator('[data-testid="tsp-view"] .tsp-tool.card.st-done').first()).toHaveCSS(
+      "transition-property",
+      "background-color",
+    );
     // 切到另一个 TSP 任务：只剩一个过程区，画的是新任务（过程区和输入框同 key 时，React 会把上一个任务的过程区留在页面上）。
     const second = await page.evaluate(async () => {
       const [project] = await globalThis.studio.listProjects();
@@ -749,6 +779,30 @@ test("对话线:每条用户消息一个刻度,点刻度把那条消息滚到对
       await expect(ticks.nth(index)).toHaveAttribute("aria-current", "location");
       await expect(page.locator('[data-testid="conversation-line-tick"][aria-current]')).toHaveCount(1);
     }
+    // 落点高亮：跳过去后目标消息上播一次颜色动画（accent-soft 底 + accent 环）；减少动效下照样有，但不含任何位移。
+    const flash = (reduced: boolean) =>
+      page.evaluate(
+        (nth) => {
+          type Anim = { effect: { getKeyframes(): Record<string, unknown>[] } };
+          type El = { getAnimations(): Anim[] };
+          const d = (globalThis as unknown as { document: { querySelectorAll(s: string): El[] } }).document;
+          const card = d.querySelectorAll('[data-testid="tsp-view"] [data-role="omp.user"]')[nth]!;
+          const frames = card.getAnimations().flatMap((animation) => animation.effect.getKeyframes());
+          return {
+            count: frames.length,
+            colored: frames.some((frame) => frame.boxShadow !== undefined && frame.backgroundColor !== undefined),
+            moves: frames.some((frame) => frame.transform !== undefined || frame.translate !== undefined),
+          };
+        },
+        reduced ? 2 : 0,
+      );
+    await ticks.nth(0).click();
+    await expect.poll(async () => (await flash(false)).colored).toBe(true);
+    expect((await flash(false)).moves).toBe(false);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await ticks.nth(2).click();
+    await expect.poll(async () => (await flash(true)).colored).toBe(true);
+    expect((await flash(true)).moves).toBe(false);
     // 刻度的说明(悬停提示 / 读屏)是那条消息的开头。
     const second = (await role(page, "omp.user").nth(1).locator(".md").innerText()).trim().slice(0, 10);
     await expect(ticks.nth(1)).toHaveAttribute("aria-label", new RegExp(second.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -1493,6 +1547,11 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     const tiles = role(page, "omp.job.tiles").locator('[data-role="omp.job.tile"]');
     await expect(tiles).toHaveCount(2, { timeout: 30_000 });
     await expect(tiles.first()).toBeVisible();
+    // 两格作业磁贴同一批出现:带入场动画(opacity + translateY),按批内序号错开 40ms(0 / 40),data-enter 是延迟毫秒数。
+    for (const index of [0, 1]) {
+      await expect(tiles.nth(index)).toHaveAttribute("data-enter", /^(0|40)$/);
+      await expect(tiles.nth(index)).toHaveCSS("animation-name", "tsp-enter");
+    }
     // 录制里探针点开过 Task 卡片(toggle collapsed:false),omp 收到才往下发:点一下回放才走得下去,看完再收起来。
     await taskHead.click();
     await expect(taskHead).toHaveAttribute("aria-expanded", "true");
@@ -1545,6 +1604,32 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
   } finally {
     await cleanup();
     await rm(scratch, { recursive: true, force: true });
+  }
+});
+
+// 减少动效:磁贴不错开(data-enter 恒为 0)、入场不位移(--travel-sm 为 0,keyframes 的 translateY 是 0),只留 --dur-fade 的淡入。
+test("作业磁贴入场(TSP,减少动效):不错开、不位移", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("agent-progress");
+  try {
+    const { page } = launched;
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("agent-progress"))[0]!.event["text"]));
+    const tiles = role(page, "omp.job.tiles").locator('[data-role="omp.job.tile"]');
+    await expect(tiles).toHaveCount(2, { timeout: 30_000 });
+    for (const index of [0, 1]) {
+      await expect(tiles.nth(index)).toHaveAttribute("data-enter", "0");
+      await expect(tiles.nth(index)).toHaveCSS("animation-delay", "0s");
+    }
+    const travel = await tiles.first().evaluate((el) => {
+      const win = globalThis as unknown as {
+        getComputedStyle(node: unknown): { getPropertyValue(name: string): string };
+      };
+      return win.getComputedStyle(el).getPropertyValue("--travel-sm");
+    });
+    expect(travel.trim()).toBe("0px");
+  } finally {
+    await cleanup();
   }
 });
 
@@ -1835,3 +1920,161 @@ test("作业药丸不数子代理(hub-steer):两个后台子代理在跑时只�
     await hub.cleanup();
   }
 });
+
+/** 在 cards 录制发出 send 之后,追加两个 blob 和一行两张 image 节点(同一个父节点,可以左右翻)。 */
+async function writeImagesFixture(dir: string): Promise<string> {
+  const lines = loadTspFixture("cards");
+  const sendAt = lines.findIndex(
+    (line) =>
+      line.dir === "in" &&
+      typeof line.body === "object" &&
+      line.body !== null &&
+      "ev" in line.body &&
+      line.body.ev === "send",
+  );
+  const t = lines[sendAt]!.t;
+  // blob 的 id 必须是内容的 sha256（tsp-session.ts 校验，对不上就拒收）。
+  const wide = solidPng(160, 100);
+  const tall = solidPng(100, 160);
+  const sha = (png: Buffer) => createHash("sha256").update(png).digest("hex");
+  const blob = (png: Buffer, n: number) => ({
+    t: t + n,
+    dir: "out",
+    verb: "b",
+    params: { id: sha(png), mime: "image/png" },
+    body: png.toString("base64"),
+  });
+  const image = (id: string, png: Buffer, alt: string) => ({
+    id,
+    k: "image",
+    p: { blob: sha(png), alt, w: 160 },
+  });
+  const rows = [
+    ...lines.slice(0, sendAt + 1),
+    blob(wide, 1),
+    blob(tall, 2),
+    {
+      t: t + 3,
+      dir: "out",
+      verb: "f",
+      body: {
+        sf: "s:1",
+        s: 8,
+        ops: [
+          [
+            "add",
+            "e2e-imgs",
+            "main",
+            null,
+            {
+              id: "e2e-imgs",
+              k: "row",
+              p: { gap: "md" },
+              c: [image("e2e-i1", wide, "first"), image("e2e-i2", tall, "second")],
+            },
+          ],
+        ],
+      },
+    },
+    { t: t + 4, dir: "in", verb: "e", params: {}, body: { ev: "ack", sf: "s:1", s: 8 } },
+  ];
+  const file = path.join(dir, "images.jsonl");
+  await writeFile(file, rows.map((row) => JSON.stringify(row)).join("\n") + "\n");
+  return file;
+}
+
+/** 页面里记下每次 document.startViewTransition 动起来后的伪元素动画（名字 + 时长），断言开合放大图的 View Transition。 */
+interface RecordedTransition {
+  animations: { pseudo: string; duration: number }[];
+}
+async function recordViewTransitions(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const w = globalThis as unknown as {
+      document: {
+        startViewTransition(update: () => void): { ready: Promise<void> };
+        getAnimations(): { effect: { pseudoElement: string | null; getComputedTiming(): { duration: number } } }[];
+      };
+      __vt: RecordedTransition[];
+    };
+    w.__vt = [];
+    const original = w.document.startViewTransition.bind(w.document);
+    w.document.startViewTransition = (update) => {
+      const transition = original(update);
+      const record: RecordedTransition = { animations: [] };
+      w.__vt.push(record);
+      void transition.ready
+        .then(() => {
+          record.animations = w.document
+            .getAnimations()
+            .filter((a) => a.effect.pseudoElement?.startsWith("::view-transition"))
+            .map((a) => ({ pseudo: a.effect.pseudoElement!, duration: Number(a.effect.getComputedTiming().duration) }));
+        })
+        .catch(() => {});
+      return transition;
+    };
+  });
+}
+const recorded = (page: Page) =>
+  page.evaluate(() => (globalThis as unknown as { __vt: RecordedTransition[] }).__vt.map((r) => r.animations));
+
+for (const reduced of [false, true]) {
+  test(`对话里图片点开放大(${reduced ? "减少动效" : "默认"}):${reduced ? "只有淡入淡出,没有位移缩放" : "缩略图和大图共用 view-transition-name,时长 --dur-base;←/→ 切图不再变形;关时缩回缩略图"}`, async () => {
+    test.setTimeout(120_000);
+    const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp zoom-"));
+    const fixture = await writeImagesFixture(work);
+    const { launched, cleanup } = await start(fixture);
+    try {
+      const { page } = launched;
+      if (reduced) await page.emulateMedia({ reducedMotion: "reduce" });
+      await sendFirst(page, String(recordedUserEvents(loadTspFixture("cards"))[0]!.event["text"]));
+      const thumbs = page.getByTestId("tsp-img-frame");
+      await expect(thumbs).toHaveCount(2, { timeout: 30_000 });
+      await recordViewTransitions(page);
+
+      // 打开:点第一张缩略图。
+      await thumbs.first().click();
+      const zoom = page.getByTestId("tsp-zoom");
+      await expect(zoom).toBeVisible();
+      await expect.poll(async () => (await recorded(page))[0]?.length ?? 0).toBeGreaterThan(0);
+      const opened = (await recorded(page))[0]!;
+      const groups = opened.filter((a) => a.pseudo.includes("(tsp-zoom)"));
+      const roots = opened.filter((a) => a.pseudo.includes("(root)"));
+      expect(roots.length).toBeGreaterThan(0);
+      if (reduced) {
+        // 只有遮罩的淡入淡出(--dur-fade 100ms),没有缩略图 ⇄ 大图的位移缩放组。
+        expect(groups).toEqual([]);
+        for (const a of roots) expect(a.duration).toBe(100);
+      } else {
+        expect(groups.some((a) => a.pseudo === "::view-transition-group(tsp-zoom)" && a.duration === 200)).toBe(true);
+        for (const a of roots) expect(a.duration).toBe(200);
+      }
+      // 动画结束后名字和根上的标记都清掉,不影响之后切主题的整窗淡入。
+      await expect(page.locator("html")).not.toHaveAttribute("data-tsp-zoom-vt", /.*/);
+      await expect(thumbs.first()).toHaveCSS("view-transition-name", "none");
+      await expect(page.getByTestId("tsp-zoom-image")).toHaveCSS("view-transition-name", "none");
+
+      // ←/→ 切图:只换图,不再起 view transition。
+      const before = await page.getByTestId("tsp-zoom-image").getAttribute("src");
+      await page.keyboard.press("ArrowRight");
+      await expect.poll(() => page.getByTestId("tsp-zoom-image").getAttribute("src")).not.toBe(before);
+      expect(await recorded(page)).toHaveLength(1);
+
+      // 关闭:缩回当前这张(第二张)的缩略图;减少动效下只淡出。
+      await page.keyboard.press("Escape");
+      await expect(zoom).toHaveCount(0);
+      await expect.poll(async () => (await recorded(page))[1]?.length ?? 0).toBeGreaterThan(0);
+      const closed = (await recorded(page))[1]!;
+      const closeGroups = closed.filter((a) => a.pseudo.includes("(tsp-zoom)"));
+      if (reduced) expect(closeGroups).toEqual([]);
+      else
+        expect(closeGroups.some((a) => a.pseudo === "::view-transition-group(tsp-zoom)" && a.duration === 200)).toBe(
+          true,
+        );
+      await expect(page.locator("html")).not.toHaveAttribute("data-tsp-zoom-vt", /.*/);
+      await expect(thumbs.nth(1)).toHaveCSS("view-transition-name", "none");
+    } finally {
+      await cleanup();
+      await rm(work, { recursive: true, force: true });
+    }
+  });
+}

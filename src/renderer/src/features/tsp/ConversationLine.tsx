@@ -11,6 +11,8 @@ const NONE: readonly UserMessage[] = [];
 const PREVIEW_CHARS = 80;
 /** 跳过去后消息顶边离视口顶部的距离（--space-4）。 */
 const LANDING_GAP = 16;
+/** 落点高亮淡掉的时长：提示动画，不走 --dur-* 档（那些在减少动效下归零）。 */
+const LANDING_FLASH_MS = 900;
 
 function preview(text: string): string {
   const line = text.replace(/\s+/g, " ").trim();
@@ -19,6 +21,16 @@ function preview(text: string): string {
 
 function card(scroller: HTMLElement, id: string): HTMLElement | null {
   return scroller.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`);
+}
+
+/** 落点提示：accent-soft 底 + 2px accent 环，从有到无淡掉。只动颜色，不属于位移，减少动效下也保留。再跳一次会重播。 */
+function flashLanding(target: HTMLElement): void {
+  const easing = getComputedStyle(document.documentElement).getPropertyValue("--ease-out").trim();
+  // 只给起点帧：终点是元素自己原本的底色和阴影。
+  target.animate([{ backgroundColor: "var(--accent-soft)", boxShadow: "0 0 0 2px var(--accent)" }], {
+    duration: LANDING_FLASH_MS,
+    easing,
+  });
 }
 
 /** 正在读的消息：顶边在视口上 1/3 以上的最后一条；都在下面时是第一条；滚到底就是最后一条。 */
@@ -68,6 +80,7 @@ export function ConversationLine({ taskId, scroller }: { taskId: TaskId; scrolle
     const target = el === null ? null : card(el, id);
     if (el === null || target === null) return;
     el.scrollTop += target.getBoundingClientRect().top - el.getBoundingClientRect().top - LANDING_GAP;
+    flashLanding(target);
   };
 
   return (

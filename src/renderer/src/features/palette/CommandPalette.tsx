@@ -202,7 +202,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
           </kbd>
         </div>
         <div className="pl-list-host">
-          <div className="pl-list" ref={listRef} id={listId} role="listbox">
+          <div className="pl-list ui-scroll-fade" ref={listRef} id={listId} role="listbox">
             {sections.map((section) => (
               <div key={section.id} role="group" aria-label={t(`palette.${section.id}`)}>
                 <div className="pl-group">{t(`palette.${section.id}`)}</div>
@@ -270,7 +270,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
 export function CommandPalette() {
   // 每次打开都重新挂载：查询、高亮行、历史会话列表都从头来；关闭时留着放完退出动画。
   const open = usePaletteOpen();
-  const presence = usePresence(open);
+  const presence = usePresence(open, "fade");
   return presence.mounted ? (
     <PaletteDialog open={open} closing={presence.closing} exitProps={presence.exitProps} />
   ) : null;

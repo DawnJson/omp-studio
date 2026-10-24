@@ -8,6 +8,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Plus, Restart } from "../../icons.tsx";
 import { useOmpStatus } from "../../store/index.ts";
 import { Badge, Button, IconButton, ListRow, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
+import { Skeleton } from "../../ui/Skeleton.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
@@ -167,14 +168,16 @@ export function SkillsCard({ scope }: { scope: ScopeKey }) {
         </Notice>
       )}
       {!ready && <p className="ig-note">{t("settings.cfg.notReady")}</p>}
-      {ready && skills === null && load.kind !== "error" && <p className="ig-note">{t("integrations.loading")}</p>}
+      {ready && skills === null && load.kind !== "error" && (
+        <Skeleton variant="card" label={t("integrations.loading")} testId="skills-skeleton" />
+      )}
       {skills?.length === 0 && (
         <p className="ig-note" title={t("integrations.skills.empty.tip")} data-testid="skills-empty">
           {t("integrations.skills.empty")}
         </p>
       )}
       {skills !== null && skills.length > 0 && (
-        <div className="ui-cards">
+        <div className="ui-cards ui-data-in">
           {skills.map((skill) => (
             <SkillRow
               key={`${skill.scope}:${skill.name}`}

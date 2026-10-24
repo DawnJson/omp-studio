@@ -30,6 +30,7 @@ import { plainText, semanticOf, TspSpans } from "../spans.tsx";
 import { TspNode } from "../TspChildren.tsx";
 import { peekTspNode } from "../tsp-store.ts";
 import { useFold } from "../use-fold.ts";
+import { useEntrance } from "../entrance.ts";
 import { useAge } from "../use-clock.ts";
 
 // ───────── tool ─────────
@@ -135,10 +136,37 @@ function Target({ p }: { p: Readonly<Record<string, unknown>> }) {
   );
 }
 
-function ToolStatusGlyph({ status }: { status: ToolStatus }) {
+/**
+ * 这次渲染里从运行中变成完成：true 到 `settle()` 为止（卡片重挂载也清零）。
+ * 工具卡的 ✓ 只在这段时间里画出、停一下再淡出（omp 的完成卡本来没有 ✓，淡出后和重新打开时看到的一样）；子代理行的 ✓ 常驻，只是这次画出来。
+ */
+function useJustFinished(running: boolean): [boolean, () => void] {
+  const [finished, setFinished] = useState(false);
+  const wasRunning = useRef(running);
+  useEffect(() => {
+    if (wasRunning.current && !running) setFinished(true);
+    else if (running) setFinished(false);
+    wasRunning.current = running;
+  }, [running]);
+  return [finished, () => setFinished(false)];
+}
+
+function ToolStatusGlyph({ status, fresh, settle }: { status: ToolStatus; fresh: boolean; settle(): void }) {
   if (status === "running") return <i className="tsp-tool-spin" />;
   if (status === "error") return <TspIcon name="x-circle" />;
   if (status === "cancelled") return <TspIcon name="slash-circle" />;
+  if (status === "done" && fresh)
+    return (
+      <span
+        className="tsp-draw-check"
+        data-testid="tsp-tool-check"
+        onAnimationEnd={(event) => {
+          if (event.animationName === "tsp-check-out") settle();
+        }}
+      >
+        <TspIcon name="check" />
+      </span>
+    );
   return null;
 }
 
@@ -172,6 +200,7 @@ export function Tool(props: NodeProps) {
   const { node, ctx } = props;
   const p = node.p;
   const status = toolStatus(p.status);
+  const [justFinished, settleFinished] = useJustFinished(status === "running");
   const collapsible = p.collapsible === true;
   const [collapsed, toggle] = useFold(props, collapsible && p.collapsed === true);
   const preview = toolPreview(p.preview);
@@ -292,7 +321,7 @@ export function Tool(props: NodeProps) {
         </span>
         <ToolTime status={status} age={asNumber(p.age)} took={asNumber(p.took)} />
         <span className="tsp-tool-st">
-          <ToolStatusGlyph status={status} />
+          <ToolStatusGlyph status={status} fresh={justFinished} settle={settleFinished} />
         </span>
         {collapsible && (
           <span className="tsp-chev" data-collapsed={collapsed || undefined}>
@@ -337,9 +366,14 @@ export function Tool(props: NodeProps) {
 
 const AGENT_STATUS = ["pending", "running", "done", "failed", "aborted", "idle", "parked"] as const;
 
-function AgentGlyph({ status }: { status: string }) {
+function AgentGlyph({ status, fresh }: { status: string; fresh: boolean }) {
   if (status === "running") return <i className="live" />;
-  if (status === "done") return <TspIcon name="check" size={12} />;
+  if (status === "done")
+    return (
+      <span className={fresh ? "tsp-draw-check" : undefined}>
+        <TspIcon name="check" size={12} />
+      </span>
+    );
   if (status === "failed") return <TspIcon name="x" size={12} />;
   if (status === "aborted") return <TspIcon name="slash-circle" size={12} />;
   return <i className="hollow" />;
@@ -380,6 +414,8 @@ export function Agent(props: NodeProps) {
   const badges = asArray(p.badges).filter(isRecord);
   const depth = Math.min(6, Math.max(0, Math.floor(asNumber(p.depth) ?? 0)));
   const running = status === "running" || status === "pending";
+  const [justFinished] = useJustFinished(status === "running");
+  const entrance = useEntrance(ctx.taskId, ctx.sf, node.id);
   const doneFraction = asNumber(stats.done);
   const context = asNumber(stats.context);
   const contextFraction = context === undefined ? undefined : context > 1 ? clamp01(context / 100) : clamp01(context);
@@ -397,12 +433,13 @@ export function Agent(props: NodeProps) {
   return (
     <div
       {...nodeDomProps(props, "tsp-agent", {
-        className: [`st-${status}`, collapsible && "collapsible", collapsed && "collapsed"]
+        className: [`st-${status}`, collapsible && "collapsible", collapsed && "collapsed", entrance?.className]
           .filter((c): c is string => typeof c === "string")
           .join(" "),
         own,
-        style: { "--tsp-depth": depth } as CSSProperties,
+        style: { "--tsp-depth": depth, ...entrance?.style } as CSSProperties,
       })}
+      data-enter={entrance?.["data-enter"]}
     >
       <div
         className="tsp-agent-row"
@@ -422,7 +459,7 @@ export function Agent(props: NodeProps) {
         }
       >
         <span className="tsp-agent-g">
-          <AgentGlyph status={status} />
+          <AgentGlyph status={status} fresh={justFinished} />
         </span>
         <span className="tsp-agent-name">{asString(p.name) ?? ""}</span>
         {asString(p.agent) !== undefined && <span className="tsp-badge">{asString(p.agent)}</span>}
