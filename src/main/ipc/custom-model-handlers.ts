@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   limits,
   type CustomKeyInput,
+  type CustomKeyValue,
   type CustomProviderInput,
   type FetchModelsOutcome,
 } from "../../shared/custom-models.ts";
@@ -18,6 +19,7 @@ import {
   readModelsFile,
   readProviderKey,
   saveCustomProvider,
+  setCustomProviderKey,
 } from "../omp-config/models-file.ts";
 import { readyOmp } from "../omp-manager/index.ts";
 import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
@@ -37,6 +39,13 @@ function parseKey(value: unknown): CustomKeyInput {
 
 function nullable<T>(value: unknown, name: string, parse: (value: unknown, name: string) => T): T | null {
   return value === null ? null : parse(value, name);
+}
+
+function parseKeyValue(value: unknown): CustomKeyValue | null {
+  if (value === null) return null;
+  const key = parseKey(value);
+  if (key.kind === "literal" || key.kind === "env") return key;
+  throw new IpcValidationError(`key.kind must be literal or env`);
 }
 
 function parseTokens(value: unknown, name: string): number {
@@ -98,6 +107,7 @@ export const customModelHandlers: HandlerGroup<
   | "listCustomProviders"
   | "saveCustomProvider"
   | "deleteCustomProvider"
+  | "setCustomProviderKey"
   | "fetchProviderModels"
   | "refreshModels"
   | "openModelsFile"
@@ -118,6 +128,16 @@ export const customModelHandlers: HandlerGroup<
   deleteCustomProvider: async (providerId) => {
     const outcome = await deleteCustomProvider(resolveAgentDir(), parseString(providerId, "providerId", 200));
     log.info(`custom provider delete: ${outcome.ok ? "deleted" : outcome.code}`);
+    if (outcome.ok) await serviceOmp.close();
+    return outcome;
+  },
+  setCustomProviderKey: async (providerId, key) => {
+    const outcome = await setCustomProviderKey(
+      resolveAgentDir(),
+      parseString(providerId, "providerId", 200),
+      parseKeyValue(key),
+    );
+    log.info(`custom provider key ${key === null ? "clear" : "set"}: ${outcome.ok ? "saved" : outcome.code}`);
     if (outcome.ok) await serviceOmp.close();
     return outcome;
   },

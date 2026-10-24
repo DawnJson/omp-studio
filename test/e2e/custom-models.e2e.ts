@@ -1,5 +1,6 @@
 // 设置 → 模型与账号 → 自定义提供商（阶段 2.6）：添加（含一键拉取、勾选、手动添加）→ 编辑 → 删除，直接改 models.yml。
 // 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR + 本地假的 OpenAI 兼容服务；不连任何真实服务。
+import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -171,6 +172,65 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await launched.close();
     await fake.close();
     await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
+test("只覆盖内置 provider 的条目（anthropic 下只有 modelOverrides）：卡片上能设置 / 清除 key，覆盖项原样，omp 真的用这个 key", async () => {
+  const { launched, agentDir } = await launchSettings();
+  const file = path.join(agentDir, "models.yml");
+  // 真实 omp 认的 anthropic 凭据：models.yml 的 apiKey 优先于订阅和凭据库（docs/architecture/custom-models.md）。
+  const ompToken = () => {
+    const env: NodeJS.ProcessEnv = { ...process.env, PI_CODING_AGENT_DIR: agentDir };
+    delete env["ANTHROPIC_API_KEY"];
+    delete env["ANTHROPIC_OAUTH_TOKEN"];
+    try {
+      return execFileSync("omp", ["token", "anthropic"], { env, encoding: "utf8", windowsHide: true }).trim();
+    } catch {
+      return null;
+    }
+  };
+  try {
+    const { page } = launched;
+    await writeFile(
+      file,
+      "providers:\n  anthropic:\n    # 上下文窗口\n    modelOverrides:\n      claude-opus-5:\n        contextWindow: 1000000\n",
+      "utf8",
+    );
+    await page.getByTestId("settings-nav-general").click();
+    await page.getByTestId("settings-nav-providers").click();
+    await setLocaleTheme(page, "zh-CN", "light");
+
+    const row = page.getByTestId("custom-provider-anthropic");
+    await expect(row).toContainText("覆盖内置 provider · 未设置 key");
+    // 编辑表单存不了这种条目（要 Base URL 和模型）：不给"编辑"。
+    await expect(row.getByTestId("custom-edit-anthropic")).toHaveCount(0);
+
+    await row.getByTestId("custom-key-anthropic").click();
+    const dialog = page.getByTestId("custom-key-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(page.getByTestId("custom-key-save")).toBeDisabled();
+    await dialog.getByTestId("custom-key-dialog-value").fill("sk-ant-e2e-key");
+    await page.getByTestId("custom-key-save").click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByTestId("toasts").getByText("key 已保存")).toBeVisible();
+    await expect(row).toContainText("已设置 key");
+    await expect(row.getByTestId("custom-key-anthropic")).toHaveText("更换 key");
+    const saved = await readFile(file, "utf8");
+    expect(saved).toContain("apiKey: sk-ant-e2e-key");
+    expect(saved).toContain("# 上下文窗口");
+    expect(saved).toContain("contextWindow: 1000000");
+    expect(ompToken()).toBe("sk-ant-e2e-key");
+
+    await page.getByTestId("custom-more-anthropic").click();
+    await page.getByTestId("custom-clear-key-anthropic").click();
+    await expect(row).toContainText("未设置 key");
+    const cleared = await readFile(file, "utf8");
+    expect(cleared).not.toContain("apiKey");
+    expect(cleared).toContain("contextWindow: 1000000");
+    expect(ompToken()).not.toBe("sk-ant-e2e-key");
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 

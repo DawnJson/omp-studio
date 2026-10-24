@@ -2,8 +2,10 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 import { parseTokenCount, type CustomModelMeta, type CustomProviderInput } from "../src/shared/custom-models.ts";
 import {
+  applyKey,
   applyProvider,
   deleteCustomProvider,
   parseProviders,
@@ -351,6 +353,69 @@ describe("models.yml 编辑（纯文本）", () => {
     expect(JSON.stringify(parsed)).not.toContain("sk-live-xyz");
     expect(providerKeyValue("providers:\n  a: {apiKey: sk-live-xyz}\n", "a")).toBe("sk-live-xyz");
     expect(providerKeyValue("providers:\n  a: {}\n", "a")).toBeNull();
+  });
+});
+
+describe("只改 key（覆盖内置 provider 的条目）", () => {
+  const overrides = `providers:
+  anthropic:
+    # 上下文窗口
+    modelOverrides:
+      claude-opus-5:
+        contextWindow: 1000000
+  other:
+    baseUrl: http://localhost:1234/v1
+    auth: none
+    api: openai-completions
+    models:
+      - id: keep-me
+`;
+  type Doc = { providers: Record<string, Record<string, unknown>> };
+  // 测试里自己写的、刚由 applyKey 输出的 YAML，形状已知。
+  const js = (text: string): Doc => parseYaml(text) as Doc;
+  const keyed = (text: string | null, id: string, key: Parameters<typeof applyKey>[2]): string => {
+    const result = applyKey(text, id, key);
+    if (!result.ok) throw new Error(`unexpected ${result.code}`);
+    return result.text;
+  };
+
+  it("设置 key：只加 apiKey，modelOverrides、注释和别的 provider 原样", () => {
+    const text = keyed(overrides, "anthropic", { kind: "literal", value: "sk-ant-1" });
+    expect(js(text)).toEqual({
+      providers: {
+        anthropic: { modelOverrides: { "claude-opus-5": { contextWindow: 1000000 } }, apiKey: "sk-ant-1" },
+        other: js(overrides).providers.other,
+      },
+    });
+    expect(text).toContain("# 上下文窗口");
+  });
+
+  it("环境变量名照写；有 auth: none 时去掉它（否则 omp 不用 key）", () => {
+    const other = js(keyed(overrides, "other", { kind: "env", name: "MY_KEY" })).providers.other;
+    expect(other?.["apiKey"]).toBe("MY_KEY");
+    expect(other).not.toHaveProperty("auth");
+  });
+
+  it("清除 key：去掉 apiKey，覆盖项留着；条目只剩 key 时整个删掉", () => {
+    const withKey = keyed(overrides, "anthropic", { kind: "literal", value: "sk-ant-1" });
+    expect(js(keyed(withKey, "anthropic", null)).providers.anthropic).toEqual({
+      modelOverrides: { "claude-opus-5": { contextWindow: 1000000 } },
+    });
+    const keyOnly = "providers:\n  anthropic:\n    apiKey: sk-ant-1\n  other:\n    auth: none\n";
+    expect(js(keyed(keyOnly, "anthropic", null))).toEqual({ providers: { other: { auth: "none" } } });
+  });
+
+  it("拒绝：没有这个条目、key 带换行、环境变量名不合法", () => {
+    expect(applyKey(overrides, "nope", { kind: "literal", value: "k" })).toEqual({ ok: false, code: "not-found" });
+    expect(applyKey(null, "anthropic", null)).toEqual({ ok: false, code: "not-found" });
+    expect(applyKey(overrides, "anthropic", { kind: "literal", value: "a\nb" })).toEqual({
+      ok: false,
+      code: "invalid-key",
+    });
+    expect(applyKey(overrides, "anthropic", { kind: "env", name: "not a name" })).toEqual({
+      ok: false,
+      code: "invalid-key",
+    });
   });
 });
 

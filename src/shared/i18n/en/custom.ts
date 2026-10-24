@@ -16,6 +16,16 @@ export const custom = {
   "key.literal": "Key set",
   "key.env": "Env var {name}",
   "key.command": "Key from command",
+  override: "Overrides a built-in provider",
+  "key.unset": "No key",
+  "keyEdit.set": "Set key",
+  "keyEdit.replace": "Replace key",
+  "keyEdit.clear": "Clear key",
+  "keyEdit.title": "API key for {id}",
+  "keyEdit.tip":
+    "Written to providers.{id}.apiKey in models.yml; the entry's other settings stay as they are. It wins over a signed-in subscription and over the key saved in Settings, and the terminal omp uses it too. omp picks it up on its next start; restart running tasks.",
+  "keyEdit.saved": "Key saved",
+  "keyEdit.cleared": "Key cleared",
   "form.id": "ID",
   "form.id.tip":
     "Letters, digits, dots, underscores and hyphens, starting with a letter or digit. Models show up in the picker as “ID/model id”. Can't be changed after saving.",

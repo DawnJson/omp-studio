@@ -84,6 +84,15 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 - **“自动”后面显示 omp 现在用的值**（`hintOf`，`CustomProviderForm.tsx`）：来自模型列表（`listModels`，即服务进程的 `get_available_models`），只对“已保存、文件里没写这一项、omp 已经加载过”的模型显示（如“自动 · 128K”“自动 · 支持”）；新拉取、还没保存的模型只显示“自动”，因为 omp 还没算过它。
 - **输入**：`CustomProviderInput.models[]` 每项 `{ id, name?, reasoning, images, contextWindow, maxTokens }`，四项都可以是 null（自动）。
 
+## 只覆盖内置 provider 的条目：只改 key（2026-10-24，omp 18.12.6）
+
+`providers.<id>` 下没有 `models` 也没有 `discovery` 的条目，omp 叫"Override-only provider"（`omp://models.md` Validation rules）：它不新建 provider，只覆盖内置同名 provider 的某些设置（`modelOverrides`、`baseUrl`、`apiKey`、`headers`……），至少要有一项。典型是 `anthropic` 下只有 `modelOverrides`（改上下文窗口）。
+
+- 编辑表单存不了这种条目（要 Base URL、接口类型和模型，保存还会把它们写进去、改掉内置 provider 的连接），所以界面不给"编辑"，只给"设置 / 更换 key"和"清除 key"。
+- `applyKey`（`models-file.ts`，IPC `setCustomProviderKey`）：只 `set` / `delete` 这个条目的 `apiKey`，别的键和注释原样；设置时顺手去掉 `auth: none`（否则 omp 不用 key）；清除后条目空了就整个删掉（空条目 omp 判为非法，整份文件退回内置）。key 只进不出、日志只记 provider id 和结果，和别的写入一样。
+- 实测（omp 18.12.6，临时 `PI_CODING_AGENT_DIR`，`omp token anthropic` 看 omp 实际用的凭据）：凭据库里有订阅（OAuth）时，`models.yml` 的 `apiKey` 仍然胜出；只有凭据库里的 API key 和订阅时，订阅胜出。所以这里写的 key 比"设置 API key"存进凭据库的那个和订阅都优先。
+- 和保存提供商一样，成功后关掉服务进程；在跑的任务要重开才用上。
+
 ## 保存之后：omp 怎么重新加载
 
 实测（omp 18.12.1，2026-10-18，临时 `PI_CODING_AGENT_DIR`，`test/custom-models-real-omp.test.ts`）：
@@ -98,7 +107,7 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 - `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、自动发现开关（默认类型按 api、已有 `discovery` 原样保留、关掉只去 `discovery`、没有默认类型的 api 被拒）、能力参数（写入、改一项不动别的写法、换回自动删掉、非法值被拒、`parseTokenCount`）、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢。
 - `test/custom-models-fetch.test.ts`：对本地假服务拉取成功、key 错、404、不通、超时、非 JSON、形状不对、Anthropic 路径和头、重定向不跟随。
 - `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt 并拿到回复；自动发现：只写 `discovery`、不列模型，`omp models refresh` 跑通，`omp models <provider>` 和 `get_available_models` 都列出假服务的模型（openai 兼容和 anthropic 两种 `discovery.type`）；能力参数：写进去的四项被 omp 采用，留空的由 omp 按 id 补。
-- `test/e2e/custom-models.e2e.ts`：设置页完整流程；"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）；"能力参数"一条（模型行里设四项、非法上下文不能保存、写进文件、omp 采用、自动的格子显示 omp 补的值、换回自动后从文件里去掉、对话框不越界）。
+- `test/e2e/custom-models.e2e.ts`：设置页完整流程；"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）；"能力参数"一条（模型行里设四项、非法上下文不能保存、写进文件、omp 采用、自动的格子显示 omp 补的值、换回自动后从文件里去掉、对话框不越界）；"只覆盖内置 provider"一条（卡片元信息、没有编辑按钮、设置 key 后文件里覆盖项和注释原样、`omp token anthropic` 返回这个 key、清除后不再返回）。`test/custom-models-file.test.ts` 的 `applyKey` 一组覆盖设置、环境变量去掉 `auth: none`、清除后空条目删掉、拒绝的输入。
 - 假服务：`test/fake-openai/server.ts`（`GET /v1/models`、`POST /v1/chat/completions` 流式和非流式）。
 
 ## 没做的

@@ -21,6 +21,7 @@ import {
   limits,
   normalizeBaseUrl,
   type CustomKeyState,
+  type CustomKeyValue,
   type CustomModelEntry,
   type CustomModelMeta,
   type CustomModelsErrorCode,
@@ -305,6 +306,34 @@ export function removeProvider(text: string | null, id: string): Edit {
   return { ok: true, text: render(doc, source) };
 }
 
+/**
+ * 只改一个已有 provider 的 `apiKey`，条目里别的键（`modelOverrides`、`baseUrl`……）原样。用于只覆盖 omp 内置 provider 的条目
+ * （没有 `models`、`discovery`），这种条目没法走 applyProvider（它要求 baseUrl 和模型）。
+ * null = 去掉 `apiKey`；去掉后条目空了就整个删掉（omp 认为没有任何覆盖项的条目不合法，omp://models.md "Override-only provider"）。
+ */
+export function applyKey(text: string | null, id: string, key: CustomKeyValue | null): Edit {
+  if (!isValidProviderId(id)) return fail("invalid-id");
+  if (key?.kind === "literal" && !isValidLiteralKey(key.value)) return fail("invalid-key");
+  if (key?.kind === "env" && !isValidEnvName(key.name)) return fail("invalid-key");
+  const source = stripBom(text ?? "");
+  const doc = parseDocument(source);
+  if (doc.errors.length > 0) return fail("unreadable-file");
+  if (!isMap(doc.contents)) return fail(doc.contents === null ? "not-found" : "unreadable-file");
+  const providers = doc.contents.get("providers", true);
+  if (!isMap(providers)) return fail("not-found");
+  const provider = providers.get(id, true);
+  if (provider === undefined) return fail("not-found");
+  if (!isMap(provider)) return fail("unreadable-file");
+  if (key === null) {
+    provider.delete("apiKey");
+    if (provider.items.length === 0) providers.delete(id);
+  } else {
+    provider.set("apiKey", key.kind === "literal" ? key.value : key.name);
+    if (provider.get("auth") === "none") provider.delete("auth");
+  }
+  return { ok: true, text: render(doc, source) };
+}
+
 // ——— 文件读写 ———
 
 /** 同一进程内的 models.yml 写入串行：读-改-写之间不能被另一次写入插进来。 */
@@ -343,6 +372,14 @@ export function saveCustomProvider(
 
 export function deleteCustomProvider(agentDir: string, id: string): Promise<CustomModelsOutcome> {
   return mutate(agentDir, (text) => removeProvider(text, id));
+}
+
+export function setCustomProviderKey(
+  agentDir: string,
+  id: string,
+  key: CustomKeyValue | null,
+): Promise<CustomModelsOutcome> {
+  return mutate(agentDir, (text) => applyKey(text, id, key));
 }
 
 /** 文件里某个 provider 的 key 值；只给主进程内部用。 */

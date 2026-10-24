@@ -39,6 +39,7 @@ import type {
   WorktreeSetupInfo,
 } from "./git.ts";
 import type {
+  CustomKeyValue,
   CustomModelsFileInfo,
   CustomModelsOutcome,
   CustomProviderInput,
@@ -1197,6 +1198,11 @@ export interface StudioInvokeApi {
   /** 新增（add）或修改（edit）一个 provider；校验不过返回 {ok:false, code}。成功后主进程关掉服务进程，下次读模型列表时 omp 重新加载。 */
   saveCustomProvider(mode: "add" | "edit", input: CustomProviderInput): Promise<CustomModelsOutcome>;
   deleteCustomProvider(providerId: string): Promise<CustomModelsOutcome>;
+  /**
+   * 只改一个已有 provider 的 `apiKey`（只覆盖 omp 内置 provider 的条目用它，比如 `anthropic` 下只有 `modelOverrides`）；
+   * 条目里别的键不动。null = 去掉 key，条目因此空了就删掉条目。key 只进不出。
+   */
+  setCustomProviderKey(providerId: string, key: CustomKeyValue | null): Promise<CustomModelsOutcome>;
   /** 一键拉取：主进程 GET <baseUrl>/models。key 为 keep 时用文件里这个 provider 已有的 key。 */
   fetchProviderModels(request: FetchModelsRequest): Promise<FetchModelsOutcome>;
   /** 用系统默认程序打开 models.yml（还不存在时打开它所在的目录）。 */
@@ -1533,6 +1539,7 @@ export const invokeNames = {
   listCustomProviders: true,
   saveCustomProvider: true,
   deleteCustomProvider: true,
+  setCustomProviderKey: true,
   fetchProviderModels: true,
   openModelsFile: true,
   refreshModels: true,

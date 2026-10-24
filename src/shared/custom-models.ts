@@ -94,6 +94,9 @@ export interface CustomModelsFileInfo {
 export type CustomKeyInput =
   { kind: "keep" } | { kind: "none" } | { kind: "literal"; value: string } | { kind: "env"; name: string };
 
+/** 只改 key 时（`setCustomProviderKey`）写入的值；null = 去掉 `apiKey`。 */
+export type CustomKeyValue = { kind: "literal"; value: string } | { kind: "env"; name: string };
+
 export interface CustomProviderInput {
   id: string;
   baseUrl: string;

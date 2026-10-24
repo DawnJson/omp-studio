@@ -1,5 +1,7 @@
 // 设置 → 提供商与账号 → 自定义提供商：models.yml 里 providers.* 的列表，添加 / 编辑在对话框里，删除在 ⋯ 里（先确认）。
 // 编辑的是 omp 自己的配置文件（src/main/omp-config/models-file.ts），终端版 omp 同样用它。
+// 没有模型也没有 discovery 的条目只是覆盖 omp 内置的同名 provider（比如 `anthropic` 下只有 `modelOverrides`）：
+// 编辑表单存不了它（要 baseUrl 和模型），卡片上只给"设置 / 更换 key"和"清除 key"，只改 `apiKey`（ProviderKeyDialog）。
 import { useEffect, useState } from "react";
 import type { CustomProviderInfo } from "../../../../shared/custom-models.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
@@ -11,11 +13,14 @@ import { Button, ListRow, Notice, SectionHead } from "../../ui/controls.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { customErrorText, CustomProviderForm } from "./CustomProviderForm.tsx";
+import { ProviderKeyDialog } from "./ProviderKeyDialog.tsx";
 import { loadCustomProviders, reloadAfterChange, useCustomProviderLoad } from "./custom-models-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
 import "./custom-providers.css";
 
-type Editing = { kind: "add" } | { kind: "edit"; id: string };
+type Editing = { kind: "add" } | { kind: "edit"; id: string } | { kind: "key"; id: string };
+
+const overridesBuiltin = (provider: CustomProviderInfo): boolean => provider.models.length === 0 && !provider.discovery;
 
 export function CustomProviders() {
   const t = useT();
@@ -34,7 +39,7 @@ export function CustomProviders() {
   const keyText = (provider: CustomProviderInfo): string => {
     switch (provider.key.kind) {
       case "none":
-        return t("custom.key.none");
+        return overridesBuiltin(provider) ? t("custom.key.unset") : t("custom.key.none");
       case "literal":
         return t("custom.key.literal");
       case "env":
@@ -47,9 +52,11 @@ export function CustomProviders() {
   const metaText = (provider: CustomProviderInfo): string =>
     [
       provider.api,
-      provider.models.length > 0 || !provider.discovery
-        ? t("custom.models", { count: provider.models.length })
-        : t("custom.discovery"),
+      overridesBuiltin(provider)
+        ? t("custom.override")
+        : provider.models.length > 0 || !provider.discovery
+          ? t("custom.models", { count: provider.models.length })
+          : t("custom.discovery"),
       keyText(provider),
     ]
       .filter((part) => part !== null && part !== "")
@@ -94,9 +101,29 @@ export function CustomProviders() {
     }
   };
 
+  const clearKey = async (provider: CustomProviderInfo) => {
+    setBusy(true);
+    try {
+      const outcome = await window.studio.setCustomProviderKey(provider.id, null);
+      if (outcome.ok) {
+        reloadAfterChange();
+        pushToast({ message: t("custom.keyEdit.cleared") });
+      } else {
+        pushToast({ level: "error", message: customErrorText(t, `err.${outcome.code}`) });
+        void loadCustomProviders(true);
+      }
+    } catch (error) {
+      reportError(t, error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const target = editing?.value ?? null;
   const editingProvider =
-    target?.kind === "edit" ? (data?.providers.find((provider) => provider.id === target.id) ?? null) : null;
+    target !== null && target.kind !== "add"
+      ? (data?.providers.find((provider) => provider.id === target.id) ?? null)
+      : null;
 
   return (
     <div className="st-section" data-testid="custom-providers">
@@ -149,52 +176,90 @@ export function CustomProviders() {
       )}
       {data !== null && data.providers.length > 0 && (
         <div className="ui-cards">
-          {data.providers.map((provider) => (
-            <ListRow
-              key={provider.id}
-              testId={`custom-provider-${provider.id}`}
-              icon={<ProviderLogo id={provider.id} name={provider.id} />}
-              title={provider.id}
-              meta={metaText(provider)}
-              actions={
-                <>
-                  <Button
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => openEditing({ kind: "edit", id: provider.id })}
-                    testId={`custom-edit-${provider.id}`}
-                  >
-                    {t("custom.edit")}
-                  </Button>
-                  <RowMenu
-                    label={t("custom.more")}
-                    disabled={busy}
-                    testId={`custom-more-${provider.id}`}
-                    items={[
-                      {
-                        id: "delete",
-                        label: t("custom.delete"),
-                        tone: "danger",
-                        testId: `custom-delete-${provider.id}`,
-                        onSelect: () => setDeleting(provider),
-                      },
-                    ]}
-                  />
-                </>
-              }
-            />
-          ))}
+          {data.providers.map((provider) => {
+            const override = overridesBuiltin(provider);
+            const hasKey = provider.key.kind !== "none";
+            return (
+              <ListRow
+                key={provider.id}
+                testId={`custom-provider-${provider.id}`}
+                icon={<ProviderLogo id={provider.id} name={provider.id} />}
+                title={provider.id}
+                meta={metaText(provider)}
+                actions={
+                  <>
+                    {override ? (
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => openEditing({ kind: "key", id: provider.id })}
+                        testId={`custom-key-${provider.id}`}
+                      >
+                        {hasKey ? t("custom.keyEdit.replace") : t("custom.keyEdit.set")}
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => openEditing({ kind: "edit", id: provider.id })}
+                        testId={`custom-edit-${provider.id}`}
+                      >
+                        {t("custom.edit")}
+                      </Button>
+                    )}
+                    <RowMenu
+                      label={t("custom.more")}
+                      disabled={busy}
+                      testId={`custom-more-${provider.id}`}
+                      items={[
+                        ...(override && hasKey
+                          ? [
+                              {
+                                id: "clear-key",
+                                label: t("custom.keyEdit.clear"),
+                                tone: "danger" as const,
+                                testId: `custom-clear-key-${provider.id}`,
+                                onSelect: () => void clearKey(provider),
+                              },
+                            ]
+                          : []),
+                        {
+                          id: "delete",
+                          label: t("custom.delete"),
+                          tone: "danger",
+                          testId: `custom-delete-${provider.id}`,
+                          onSelect: () => setDeleting(provider),
+                        },
+                      ]}
+                    />
+                  </>
+                }
+              />
+            );
+          })}
         </div>
       )}
       {editing?.value.kind === "add" && (
         <CustomProviderForm key={editing.key} mode="add" onSaved={saved} onClose={() => editingClosed(editing.key)} />
       )}
-      {editing !== null && editingProvider !== null && (
+      {editing !== null && editingProvider !== null && editing.value.kind === "edit" && (
         <CustomProviderForm
           key={editing.key}
           mode="edit"
           provider={editingProvider}
           onSaved={saved}
+          onClose={() => editingClosed(editing.key)}
+        />
+      )}
+      {editing !== null && editingProvider !== null && editing.value.kind === "key" && (
+        <ProviderKeyDialog
+          key={editing.key}
+          provider={editingProvider}
+          onSaved={() => {
+            resetEditing();
+            reloadAfterChange();
+            pushToast({ message: t("custom.keyEdit.saved") });
+          }}
           onClose={() => editingClosed(editing.key)}
         />
       )}
