@@ -23,6 +23,8 @@ export const login = {
   "apiKey.remove": "清除 key",
   "apiKey.save": "保存",
   "apiKey.note": "存进 omp 的凭据库，终端版共用",
+  "apiKey.noteEnvFile": "替换 agent 目录 .env 里的 {name}，omp 优先用它",
+  "apiKey.noteSystem": "系统环境变量 {name} 里已有 key，omp 优先用它，这里存的不生效",
   "apiKey.failed": "没能保存 API key：{message}",
   search: "搜索 provider",
   noMatch: "没有匹配的 provider",

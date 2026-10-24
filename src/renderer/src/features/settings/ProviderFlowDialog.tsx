@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { LoginEvent } from "../../../../shared/ipc.ts";
 import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import { apiKeyEnvName } from "../../../../shared/provider-keys.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Button } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
@@ -203,7 +204,14 @@ export function ProviderFlowDialog({
     body = <AccountsBody accounts={accounts} busy={busy} onPick={(id) => void signOut(id)} />;
     footer = <Button onClick={close}>{t("common.cancel")}</Button>;
   } else if (flow.kind === "key") {
-    body = <KeyBody value={apiKey} onChange={setApiKey} onSubmit={() => void saveKey()} />;
+    body = (
+      <KeyBody
+        envName={apiKeyEnvName(provider.id)}
+        value={apiKey}
+        onChange={setApiKey}
+        onSubmit={() => void saveKey()}
+      />
+    );
     footer = (
       <>
         <Button onClick={close}>{t("common.cancel")}</Button>

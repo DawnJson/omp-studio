@@ -503,3 +503,26 @@ export function saveProviderOverride(
 export async function readProviderKey(agentDir: string, providerId: string): Promise<string | null> {
   return providerKeyValue((await locate(agentDir)).text, providerId);
 }
+
+/**
+ * 内置 provider 的 key 已经写在 agent 目录 `.env` 里（`name` 是它的变量，比如 TAVILY_API_KEY）：改那一行，返回 true。
+ * omp 18.12.6 实测 `.env` 的变量比 `omp auth import` 存的 key 优先，这时存进凭据库 omp 也不用，所以改 `.env`
+ * （仓库所有者 2026-10-24 批准，AGENTS.md「omp 的边界」）。变量不在 `.env` 里（没设、或系统环境变量里有）不写，返回 false。
+ * 和 models.yml / 自定义 provider 的 `.env` 写入同一个队列；`.env` 的写法规则见 env-file.ts。
+ */
+export function setEnvKey(agentDir: string, name: string, value: string): Promise<boolean> {
+  const run = async (): Promise<boolean> => {
+    const text = await readEnvText(agentDir);
+    if (envSourceOf(text)(name) !== "env-file") return false;
+    const written = setEnvLine(text, name, value);
+    if (!written.ok) throw new Error(`the ${name} line in .env can't be rewritten safely; edit .env by hand`);
+    const file = envFilePath(agentDir);
+    await copyFile(file, `${file}.bak`);
+    await writeFileAtomic(file, written.text, `omp-studio-${process.pid}`);
+    log.info(`provider key: .env set ${name}`);
+    return true;
+  };
+  const next = writeQueue.then(run, run);
+  writeQueue = next.catch(() => undefined);
+  return next;
+}

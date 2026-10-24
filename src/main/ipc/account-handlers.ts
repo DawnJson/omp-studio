@@ -1,9 +1,13 @@
 // 账号和模型的 IPC：模型列表、provider 列表、OAuth 登录、登出、API key。
 // 除 API key 和非对话模型外都走服务进程（src/main/service/）；非对话模型跑一次 `omp models --kind all --json`（rpc 没有这个命令）。
-// API key 经 `omp auth import` 存进 omp 的凭据库（login/api-key.ts），清除就是 logout 那条 api_key 凭据。key 只进不出：返回值、事件、日志里都没有 key。
+// API key 经 `omp auth import` 存进 omp 的凭据库（login/api-key.ts）；key 的变量已写在 agent 目录 `.env` 里时改那一行（omp 优先用 `.env`）。
+// 清除就是 logout 那条 api_key 凭据。key 只进不出：返回值、事件、日志里都没有 key。
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { parseRunnerModels } from "../../shared/omp-output/models.ts";
-import { importApiKey } from "../login/api-key.ts";
+import { acceptsApiKey, apiKeyEnvName } from "../../shared/provider-keys.ts";
+import { resolveAgentDir } from "../history/session-index.ts";
+import { cleanApiKey, importApiKey } from "../login/api-key.ts";
+import { setEnvKey } from "../omp-config/models-file.ts";
 import { readyOmp } from "../omp-manager/index.ts";
 import { answerLoginInput, cancelLogin, startLogin } from "../service/login.ts";
 import { terminalLogin } from "../login/terminal-login-instance.ts";
@@ -78,8 +82,13 @@ export const accountHandlers: HandlerGroup<
     const credential = parseInteger(credentialId, "credentialId", 0, Number.MAX_SAFE_INTEGER);
     await serviceOmp.use((connection) => connection.request("logout", { providerId: id, credentialId: credential }));
   },
+  // key 的变量写在 agent 目录 `.env` 里时改那一行（omp 优先用它，存凭据库不生效，setEnvKey）；否则存凭据库。
   saveApiKey: async (providerId, key) => {
-    await importApiKey(readyOmp().path, await serviceCwd(), parseProviderId(providerId), parseApiKey(key));
+    const id = parseProviderId(providerId);
+    const raw = parseApiKey(key);
+    const envName = acceptsApiKey(id) ? apiKeyEnvName(id) : null;
+    const inEnvFile = envName !== null && (await setEnvKey(resolveAgentDir(), envName, cleanApiKey(raw)));
+    if (!inEnvFile) await importApiKey(readyOmp().path, await serviceCwd(), id, raw);
     await applyKeyChange();
   },
 };

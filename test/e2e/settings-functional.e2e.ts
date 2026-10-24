@@ -128,10 +128,60 @@ test("填 API key：存进 omp 的凭据库（终端版也用），卡片写“�
     await expect(envCard).toContainText("环境变量 · TAVILY_API_KEY");
     await expect(envCard.getByTestId("provider-signout-tavily")).toHaveCount(0);
     expect(storedKeys()).toEqual(["kagi-e2e-key"]);
+    // key 在系统环境变量里：设置 API key 的对话框说清楚这里存的不生效。
+    await envCard.getByTestId("provider-key-tavily").click();
+    await expect(page.getByTestId("provider-key-note")).toHaveText(
+      "系统环境变量 TAVILY_API_KEY 里已有 key，omp 优先用它，这里存的不生效",
+    );
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("provider-flow-tavily")).toHaveCount(0);
 
     await card.getByTestId("provider-signout-kagi").click();
     await expect(card).toHaveCount(0, { timeout: 30_000 });
     expect(storedKeys()).toEqual([]);
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
+test("设置 API key：key 的变量写在 agent 目录 .env 里时改那一行（omp 优先用 .env），不存凭据库", async () => {
+  // 跑测试的 shell 可能真有 TAVILY_API_KEY：传空值，omp 和 studio 都当没设置。
+  const { launched, agentDir } = await launchSettings({ TAVILY_API_KEY: "" }, (dir) =>
+    writeFile(path.join(dir, ".env"), "# 搜索\nTAVILY_API_KEY=tvly-old\nOTHER=1\n", "utf8"),
+  );
+  const env = { ...process.env, PI_CODING_AGENT_DIR: agentDir, TAVILY_API_KEY: "" };
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("settings-nav-providers").click();
+    const card = page.getByTestId("providers").getByTestId("provider-tavily");
+    await expect(card).toContainText("环境变量 · TAVILY_API_KEY", { timeout: 30_000 });
+    await card.getByTestId("provider-key-tavily").click();
+    const flow = page.getByTestId("provider-flow-tavily");
+    await expect(flow.getByTestId("provider-key-note")).toHaveText(
+      "替换 agent 目录 .env 里的 TAVILY_API_KEY，omp 优先用它",
+    );
+    // 900 宽窗口、中英文下说明都不越界。
+    await page.setViewportSize({ width: 900, height: 800 });
+    await expectNoOverflow(flow);
+    await setLocaleTheme(page, "en", "dark");
+    await expect(flow.getByTestId("provider-key-note")).toHaveText(
+      "Replaces TAVILY_API_KEY in the agent folder's .env, which omp uses first",
+    );
+    await expectNoOverflow(flow);
+    await flow.getByRole("textbox").fill("  tvly-new  ");
+    await page.getByTestId("provider-key-save").click();
+    await expect(flow).toHaveCount(0);
+
+    expect(await readFile(path.join(agentDir, ".env"), "utf8")).toBe("# 搜索\nTAVILY_API_KEY=tvly-new\nOTHER=1\n");
+    expect(await readFile(path.join(agentDir, ".env.bak"), "utf8")).toContain("tvly-old");
+    expect(execFileSync("omp", ["token", "tavily"], { env, encoding: "utf8" }).trim()).toBe("tvly-new");
+    const exported = JSON.parse(execFileSync("omp", ["auth", "export"], { env, encoding: "utf8" })) as {
+      credentials: { provider: string }[];
+    };
+    expect(exported.credentials.filter((entry) => entry.provider === "tavily")).toEqual([]);
+    await expect(card).toContainText("Env var · TAVILY_API_KEY");
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });

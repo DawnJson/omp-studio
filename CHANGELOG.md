@@ -10,6 +10,10 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+### 修复
+
+- 设置 -> Provider 与订阅：key 写在 agent 目录 `.env` 里的 provider（如 Tavily 的 `TAVILY_API_KEY`），“设置 API key”改写 `.env` 里那一行，换完马上生效；之前存进凭据库，omp 仍用 `.env` 里的旧 key。key 在系统环境变量里时，对话框说明这里存的不生效。
+
 ## [0.4.15] - 2026-10-24
 
 ### 新增

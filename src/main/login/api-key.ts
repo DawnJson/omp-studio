@@ -5,6 +5,16 @@ import { acceptsApiKey } from "../../shared/provider-keys.ts";
 
 const IMPORT_TIMEOUT_MS = 30_000;
 
+/** 用户贴进来的 key：去掉首尾空白；空的、带控制字符（换行、NUL）的拒绝。存凭据库和写 `.env` 共用。 */
+export function cleanApiKey(key: string): string {
+  const value = key.trim();
+  if (value === "") throw new Error("the API key is empty");
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(value))
+    throw new Error("the API key contains control characters (such as a line break or NUL); paste it again");
+  return value;
+}
+
 /**
  * 存一个 provider 的 API key。omp 18.12.6 实测：同一 provider 已有的 API key 被替换，OAuth 凭据保留；
  * 不认识的 provider id 也照收，所以先按 acceptsApiKey 拒绝。
@@ -17,11 +27,7 @@ export async function importApiKey(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<void> {
   if (!acceptsApiKey(providerId)) throw new Error(`provider ${providerId} does not take an API key`);
-  const value = key.trim();
-  if (value === "") throw new Error("the API key is empty");
-  // eslint-disable-next-line no-control-regex
-  if (/[\u0000-\u001f\u007f]/.test(value))
-    throw new Error("the API key contains control characters (such as a line break or NUL); paste it again");
+  const value = cleanApiKey(key);
   const input = JSON.stringify({
     version: 1,
     credentials: [{ provider: providerId, credential: { type: "api_key", key: value } }],

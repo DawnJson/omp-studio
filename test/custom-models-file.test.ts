@@ -21,6 +21,7 @@ import {
   readModelsFile,
   removeProvider,
   saveCustomProvider,
+  setEnvKey,
 } from "../src/main/omp-config/models-file.ts";
 
 /** 输入里的一个模型：能力参数默认全是"自动"（null）。 */
@@ -680,6 +681,27 @@ describe("环境变量形式的 key 同步 agent 目录的 .env", () => {
         models: [],
       }),
     ).toEqual({ ok: false, code: "invalid-key" });
+  });
+
+  it("内置 provider 的 key（设置 API key）：变量在 .env 里就改那一行；没在 .env 里、或系统环境变量里有，不写", async () => {
+    // 变量名用测试专用的：开发机的 shell 里可能真有 TAVILY_API_KEY，那样会被当成系统环境变量。
+    // 没有 .env：交给凭据库，不新建文件。
+    expect(await setEnvKey(agentDir, "STUDIO_TEST_ENV_KEY", "tvly-new")).toBe(false);
+    await expect(readFile(envFile(), "utf8")).rejects.toThrow();
+
+    await writeFile(envFile(), "# 搜索\r\nexport STUDIO_TEST_ENV_KEY=tvly-old\r\nOTHER=1\r\n", "utf8");
+    expect(await setEnvKey(agentDir, "STUDIO_TEST_ENV_KEY", "tvly-new")).toBe(true);
+    expect(await readFile(envFile(), "utf8")).toBe("# 搜索\r\nexport STUDIO_TEST_ENV_KEY=tvly-new\r\nOTHER=1\r\n");
+    expect(await readFile(`${envFile()}.bak`, "utf8")).toContain("tvly-old");
+    // .env 里没有这个变量：不追加。
+    expect(await setEnvKey(agentDir, "STUDIO_TEST_ENV_MISSING", "exa")).toBe(false);
+    expect(await readFile(envFile(), "utf8")).not.toContain("STUDIO_TEST_ENV_MISSING");
+
+    // 系统环境变量里也有：omp 用系统的，.env 不改。
+    process.env["STUDIO_TEST_SHADOW_KEY"] = "from-system";
+    await writeFile(envFile(), "STUDIO_TEST_SHADOW_KEY=old\n", "utf8");
+    expect(await setEnvKey(agentDir, "STUDIO_TEST_SHADOW_KEY", "new")).toBe(false);
+    expect(await readFile(envFile(), "utf8")).toBe("STUDIO_TEST_SHADOW_KEY=old\n");
   });
 });
 

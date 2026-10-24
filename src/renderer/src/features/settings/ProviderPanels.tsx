@@ -3,6 +3,7 @@ import type { LoginEvent } from "../../../../shared/ipc.ts";
 import type { LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Badge, Button, FormField, TextField } from "../../ui/controls.tsx";
+import { useEnvSource } from "./CustomProviderForm.tsx";
 
 /** omp 发来的进度提示，按到达顺序保留（登录失败时能看出走到了哪一步）。 */
 export type ProgressEntry = Extract<LoginEvent, { type: "progress" }>;
@@ -136,19 +137,32 @@ export function AccountsBody({
   );
 }
 
+/**
+ * 填 API key。`envName` 是 omp 认的 key 变量（provider-keys.ts）：它写在 agent 目录 `.env` 里时 key 改写那一行
+ * （omp 优先用 `.env`，主进程 saveApiKey），设在系统环境变量里时提示这里存的不生效；都没有时存进凭据库。
+ */
 export function KeyBody({
+  envName,
   value,
   onChange,
   onSubmit,
 }: {
+  envName: string | null;
   value: string;
   onChange(next: string): void;
   onSubmit(): void;
 }) {
   const t = useT();
+  const source = useEnvSource(envName ?? "", envName !== null);
+  const note =
+    envName !== null && source === "env-file"
+      ? t("login.apiKey.noteEnvFile", { name: envName })
+      : envName !== null && source === "system"
+        ? t("login.apiKey.noteSystem", { name: envName })
+        : t("login.apiKey.note");
   return (
     <div className="pv-flow">
-      <FormField label={t("login.apiKey")} help={t("login.apiKey.note")}>
+      <FormField label={t("login.apiKey")} help={<span data-testid="provider-key-note">{note}</span>}>
         <TextField
           mono
           width="100%"
