@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo } from "react";
 import type { LoginProvider } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { loginKind } from "../../../../shared/provider-login.ts";
-import { apiKeyEnvName } from "../../../../shared/provider-keys.ts";
 import { splitProviders } from "../../../../shared/ui/provider-list.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
@@ -26,10 +25,7 @@ export function ProvidersSection() {
   const data = load.kind === "ready" ? load.data : null;
   const error = load.kind === "error" ? load.error : null;
   const { slot: dialog, open: openDialog, closed: dialogClosed } = useDialogSlot<DialogTarget>();
-  const groups = useMemo(
-    () => (data ? splitProviders(data.providers, data.keyProviders, "") : { configured: [], others: [] }),
-    [data],
-  );
+  const groups = useMemo(() => (data ? splitProviders(data.providers, "") : { configured: [], others: [] }), [data]);
 
   // 有缓存就直接显示，进入时后台刷新一次。
   const enter = useCallback(() => void loadAccounts(), []);
@@ -48,8 +44,6 @@ export function ProvidersSection() {
       key={provider.id}
       provider={provider}
       accounts={data?.accounts[provider.id] ?? []}
-      hasStoredKey={data?.keyProviders.includes(provider.id) ?? false}
-      canSetKey={apiKeyEnvName(provider.id) !== null}
       loginKind={loginKind(provider.id)}
       shortName
       onFlow={(target, action) => openFlow(target, action, false)}
@@ -100,7 +94,6 @@ export function ProvidersSection() {
           key={dialog.key}
           providers={groups.others}
           accounts={data.accounts}
-          keyProviders={data.keyProviders}
           onFlow={(provider, action) => openFlow(provider, action, true)}
           onClose={() => dialogClosed(dialog.key)}
         />
@@ -110,7 +103,6 @@ export function ProvidersSection() {
           key={dialog.key}
           provider={flowProvider}
           accounts={data.accounts[flowProvider.id] ?? []}
-          loginKind={loginKind(flowProvider.id)}
           action={target.action}
           onBack={target.fromPick ? () => openDialog({ kind: "pick" }) : undefined}
           onClose={() => dialogClosed(dialog.key)}

@@ -225,19 +225,14 @@ class OmpCommandError extends Error {
 }
 
 /**
- * `omp <args>` 取全部 stdout；用参数数组，不走 shell。env 带上 omp-studio 存的 API key（额度查询要用）。
+ * `omp <args>` 取全部 stdout；用参数数组，不走 shell。
  * 超时（runCommand 杀进程后抛错）和输出过大照原样抛出，不吞。
  */
-export function runOmpCommand(
-  exePath: string,
-  cwd: string,
-  timeoutMs: number,
-  extraEnv: Record<string, string> = {},
-): RunOmp {
+export function runOmpCommand(exePath: string, cwd: string, timeoutMs: number): RunOmp {
   return async (args) => {
     const result = await runCommand(exePath, args, {
       cwd,
-      env: { ...process.env, ...extraEnv, NO_COLOR: "1", FORCE_COLOR: "0" },
+      env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" },
       timeoutMs,
     });
     return { code: result.code, stdout: result.stdout.toString("utf8"), stderr: result.stderr };

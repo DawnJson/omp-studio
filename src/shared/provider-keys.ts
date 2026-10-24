@@ -1,6 +1,8 @@
-// 设置页能输入 API key 的 provider：omp provider id → 注入给 omp 的环境变量名。
-// 变量名出自 omp 文档 environment-variables.md §1（omp 18.12.0 随附）；provider id 取自该表"Using `<id>` provider"
-// 一列，没有写 id 的行按 omp 的 provider 命名推断 [推测]。表里没有的 provider 不能用 API key 路线（用 OAuth 或终端登录）。
+// 设置页能填 API key 的 provider（key 经 `omp auth import` 存进 omp 自己的凭据库，docs/architecture/login.md）。
+// 这张表是 omp provider id -> omp 认的环境变量名：出自 omp 文档 environment-variables.md §1（omp 18.12.0 随附）；provider id 取自该表
+// "Using `<id>` provider"一列，没有写 id 的行按 omp 的 provider 命名推断 [推测]。变量名只用来提示"key 也可以来自这个环境变量"。
+import { loginKind } from "./provider-login.ts";
+
 const providerKeyEnv: Readonly<Record<string, string>> = {
   anthropic: "ANTHROPIC_API_KEY",
   openai: "OPENAI_API_KEY",
@@ -49,4 +51,9 @@ const providerKeyEnv: Readonly<Record<string, string>> = {
 /** provider 对应的环境变量名；这个 provider 不支持 API key 路线时为 null。 */
 export function apiKeyEnvName(providerId: string): string | null {
   return Object.hasOwn(providerKeyEnv, providerId) ? (providerKeyEnv[providerId] ?? null) : null;
+}
+
+/** 设置页能填 API key：omp 认它的 key 环境变量，或者它在 omp 里的登录就是粘贴 API key（provider-login.ts）。 */
+export function acceptsApiKey(providerId: string): boolean {
+  return apiKeyEnvName(providerId) !== null || loginKind(providerId) === "api-key";
 }

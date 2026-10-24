@@ -11,7 +11,6 @@ import type { ModelSources } from "./role-options.ts";
 interface AccountData {
   providers: LoginProvider[];
   accounts: Record<string, LogoutAccount[]>;
-  keyProviders: string[];
   models: ModelOption[];
 }
 
@@ -19,13 +18,9 @@ type AccountLoad = CachedLoad<AccountData>;
 
 const store = createStore<AccountLoad>({ kind: "idle" });
 
-/** 一次读全：provider、每个已登录 provider 的账号、已存的 key、模型。provider 或模型读不出来整体失败。 */
+/** 一次读全：provider、每个已认证 provider 的账号（OAuth 和设置页存的 API key 都在里面）、模型。provider 或模型读不出来整体失败。 */
 async function fetchAccountData(): Promise<AccountData> {
-  const [providers, keyProviders, models] = await Promise.all([
-    window.studio.listLoginProviders(),
-    window.studio.listApiKeyProviders(),
-    window.studio.listModels(),
-  ]);
+  const [providers, models] = await Promise.all([window.studio.listLoginProviders(), window.studio.listModels()]);
   const accounts: Record<string, LogoutAccount[]> = {};
   await Promise.all(
     providers
@@ -34,7 +29,7 @@ async function fetchAccountData(): Promise<AccountData> {
         accounts[provider.id] = await window.studio.listAccounts(provider.id);
       }),
   );
-  return { providers, accounts, keyProviders, models };
+  return { providers, accounts, models };
 }
 
 const loader = createCachedLoader<AccountData>(

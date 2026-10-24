@@ -1,16 +1,16 @@
 # 登录、API key 和模型列表
 
-实现：`src/main/service/`（服务进程、OAuth 登录）、`src/main/omp-manager/api-key-store.ts`、`src/main/ipc/account-handlers.ts`；界面是设置 → Provider 与订阅（`features/settings/ProviderRow.tsx`）。协议出处：omp 文档 `rpc.md`（`get_login_providers`、`login`、`get_logout_accounts`、`logout`，以及 `extension_ui_request` 的 `open_url`/`input`/`notify`）；`environment-variables.md` §1（API key 的变量名）。
+实现：`src/main/service/`（服务进程、OAuth 登录）、`src/main/login/api-key.ts`（API key）、`src/main/ipc/account-handlers.ts`；界面是设置 → Provider 与订阅（`features/settings/ProviderRow.tsx`）。协议出处：omp 文档 `rpc.md`（`get_login_providers`、`login`、`get_logout_accounts`、`logout`，以及 `extension_ui_request` 的 `open_url`/`input`/`notify`）；`environment-variables.md` §1（API key 的变量名）；`omp auth --help`（`omp auth import`，omp 18.10.0 起有）。
 
 ## 路线（决策 D3）
 
 - **OAuth**：走 RPC `login {providerId}`，在"服务进程"上发（`omp --mode rpc-ui --no-session`，cwd 是 `userData/service/`，按需启动，空闲 5 分钟关掉，放进应用 Job Object）。`login` 在登录结束时才应答。
-- **API key**：omp 对 `secret:true` 的提示一律以失败的 `login` 应答拒绝（`rpc.md` 登录一节），所以 key 不走 RPC。设置页输入的 key 用 Electron `safeStorage`（Windows 是 DPAPI）加密存在 `userData/api-keys.json`（`{version, keys:{<provider id>: base64 密文}}`），之后每次启动 omp 子进程，`getApiKeyEnv()` 把它们解密成环境变量放进 `env`。不用 `--api-key`（命令行在进程列表里看得到），不写 `~/.omp`，终端版看不到这些 key。
-  - provider id → 变量名的表在 `src/shared/provider-keys.ts`（出自 `environment-variables.md`；没有写 id 的行按命名推断，标了 [推测]）。表里没有的 provider 不能用这条路线，界面不显示"设置 API key"，主进程也拒绝。
-  - 系统没有可用的加密存储时 `saveApiKey` 失败，**不退回明文**。
-  - 解不开的条目（换了 Windows 账户、文件被拷走）在注入时跳过，不阻止 omp 启动。
-  - key 只进不出：`saveApiKey` 之外没有任何接口、事件、日志带 key；`listApiKeyProviders` 只返回 provider id。
-  - omp 只在启动时读环境变量，所以保存/清除 key 后会关掉服务进程；已经在跑的任务进程要等下次启动才带上新 key。
+- **API key**：omp 对 `secret:true` 的提示一律以失败的 `login` 应答拒绝（`rpc.md` 登录一节），所以 key 不走 RPC，走 omp 自己的命令 `omp auth import -`：主进程把 `{"version":1,"credentials":[{"provider":<id>,"credential":{"type":"api_key","key":<key>}}]}` 写进 stdin（不进命令行），key 存进 omp 的凭据库（`agent.db`），和终端版共用。2026-10-24 起（仓库所有者批准）；之前是 studio 用 safeStorage 加密存在 `userData/api-keys.json`、启动 omp 时注入环境变量，已整段删除，旧文件不迁移、不读。
+  - 实测 omp 18.12.6（临时 `PI_CODING_AGENT_DIR`）：同一 provider 再导入一次，旧的 API key 被替换，OAuth 凭据保留；导入后是 `get_logout_accounts` 里一条 `type: "api_key"`、标签 `API key #<n>` 的账号，`logout` 它只删这条；同一个 rpc-ui 进程的 `get_login_providers` 不会马上把它算成 `authenticated`（`get_logout_accounts` 能看到），所以保存后关掉服务进程；不认识的 provider id 它也照收，所以主进程先按 `acceptsApiKey` 拒绝。
+  - 能填 key 的 provider（`acceptsApiKey`，`src/shared/provider-keys.ts`）：omp 认它的 key 环境变量（表出自 `environment-variables.md`；没有写 id 的行按命名推断，标了 [推测]），或者它在 omp 里的登录就是粘贴 key（`provider-login.ts` 的 `api-key`）。环境变量名只用在卡片元信息里提示"key 也可能来自这个变量"。
+  - 空 key、带控制字符的 key 在起 omp 之前拒绝；`omp auth import` 失败时报错里的 key 原文换成 `***`。
+  - key 只进不出：`saveApiKey` 之外没有任何接口、事件、日志带 key。
+  - 已经在跑的任务进程什么时候用上新 key 没有实测 [推测：omp 每次请求从凭据库取，可能马上生效]。
 
 ## OAuth 登录流程
 
@@ -27,15 +27,15 @@
 
 ## 登出和状态显示
 
-- 状态：`authenticated` 且有账号 → `login.signedIn · <label>`（多个账号显示 `+N`）；`authenticated` 但没有账号 → 通过环境变量或配置使用（`login.viaEnv`；这是 `get_logout_accounts` 为空推出来的，**契约里 `logout` 不返回 `remainingSource`**）；有自存 key 显示"已设置 API key"。
+- 状态：`authenticated` 且有账号 → `login.signedIn · <label>`（多个账号显示 `+N`；设置页存的 key 就是标签 `API key #<n>` 的账号）；`authenticated` 但没有账号 → 通过环境变量或配置使用（`login.badge.env`；这是 `get_logout_accounts` 为空推出来的，**契约里 `logout` 不返回 `remainingSource`**）。
 - `logout`：1 个账号直接退出，多个先让用户选（`login.chooseAccount`）。选择列表里 `LogoutAccount.active` 为 true 的账号（omp 报告它正被使用）带"正在使用"徽标（`login.accountActive`，`account-active-<credentialId>`），让用户知道退出的是正在用的凭据；只有 1 个账号时不弹选择，看不到徽标。
-- 退出只影响 omp 自己存的凭据；自存的 API key 用"清除 API key"（`clearApiKey`）。
+- 清除 API key 就是退出那条 `api_key` 账号，没有单独的"清除 key"。
 
 ## 提供商列表：搜索、排序、登录方式
 
-- 列表（`features/settings/ModelsSection.tsx`，纯函数在 `src/shared/ui/provider-list.ts`）：顶部搜索框按名称和 id 过滤（多个词都要命中）；已配置的（omp 报 `authenticated`，或 studio 存了 key）排前面，组内保持 omp 的顺序。
+- 列表（`features/settings/ProvidersSection.tsx`，纯函数在 `src/shared/ui/provider-list.ts`）：顶部搜索框按名称和 id 过滤（多个词都要命中）；已配置的（omp 报 `authenticated`）排前面，组内保持 omp 的顺序。
 - 登录方式（`src/shared/provider-login.ts`）：`get_login_providers` 只有 `{id, name, available, authenticated}`，**没有登录方式的字段**（实测 omp 18.12.2，84 个 provider 的 `available` 全是 true），所以按实测分类。方法：隔离 agent 目录、`omp --mode rpc-ui --no-session`、对每个 provider 发 `login`，看 open_url 之后 omp 要什么：授权码/等浏览器或设备授权 = `oauth`（17 个）；"Paste your … API key" 输入框 = `api-key`（Tavily、Exa、Kagi、Parallel、DeepSeek 等 60 个）；直接以"requires interactive prompts which are not supported in RPC mode"失败 = `terminal`（github-copilot、alibaba-coding-plan、alibaba-token-plan、perplexity、snowflake、lm-studio）。没在表里的新 provider 按 `oauth` 处理（保留登录按钮，失败有原因）；omp 升级后要重测更新表。
-- 界面：`oauth` 显示"登录"；`api-key` 不显示"登录"——有环境变量名（`provider-keys.ts`）的走"设置 API key"（studio 自存），没有的显示"添加 API key"，走 omp 的 `login`（key 存进 omp 的凭据库，输入框不明文显示）；`terminal` 显示"登录"，走"应用内登录"（下面一节），元信息写"多步登录"。
+- 界面：能填 key 的（`acceptsApiKey`）都有"设置 API key"（已有 `api_key` 账号时是"更换 key"），走 `omp auth import`；`oauth` 另有"登录"；`terminal` 显示"登录"，走"应用内登录"（下面一节），元信息写"多步登录"。`api-key` 类不再走 omp 的 `login`（2026-10-24 起和"设置 API key"合并）。
 
 ## 模型列表
 
@@ -82,7 +82,7 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 ### 主进程
 
 - 入口 `startTerminalLogin(providerId)` / `cancelTerminalLogin()`（`StudioInvokeApi`，`account-handlers.ts`）。`providerId` 不可信：`TerminalLogin.start` 先在 omp 的登录 provider 列表（服务进程的 `get_login_providers`）里查，不在就 reject `unknown login provider`，**不起进程**（`test/terminal-login.test.ts` 用 `nope`、`github-copilot --model x`、`../../x`、大小写不同、带换行的 id 验证；`settings-functional.e2e.ts` 的用例对真实 IPC 断言同样的拒绝）。
-- 临时 omp：`buildTspLaunch({ cwd, noSession: true })`——同一个 omp 可执行文件、同一套 PATH 和 studio 自存 key 的环境变量，参数多一个 `--no-session`（不在用户的会话目录留会话文件；探针跑完 `~/.omp/agent/sessions` 里没有当天新建的目录）。cwd 是 `userData/login-cwd`（studio 自己的空目录，不是任何项目，omp 不会读到项目配置）。**`PI_CODING_AGENT_DIR` 不动**：登录就是要把凭据写进用户真实的 agent 目录，由 omp 自己写（AGENTS.md "omp 的边界"：只经 omp 修改 `~/.omp`，studio 不碰凭据）。首次运行引导（`startup.setupWizard`）照任务的做法等启动默认写完再起。
+- 临时 omp：`buildTspLaunch({ cwd, noSession: true })`——同一个 omp 可执行文件、同一套 PATH，参数多一个 `--no-session`（不在用户的会话目录留会话文件；探针跑完 `~/.omp/agent/sessions` 里没有当天新建的目录）。cwd 是 `userData/login-cwd`（studio 自己的空目录，不是任何项目，omp 不会读到项目配置）。**`PI_CODING_AGENT_DIR` 不动**：登录就是要把凭据写进用户真实的 agent 目录，由 omp 自己写（AGENTS.md "omp 的边界"：只经 omp 修改 `~/.omp`，studio 不碰凭据）。首次运行引导（`startup.setupWizard`）照任务的做法等启动默认写完再起。
 - 进程管理全部复用 `TspSession`：node-pty 自带 ConPTY（`useConptyDll`）、`assignToOwnJob`（主进程被强杀时系统回收）、关闭时 `taskkill /T /F` 等退出事件再 `pty.kill()`、spawn / kill 都在 `withPtyLock` 里。退出入口：对话框取消（`cancelTerminalLogin`）、被新的登录顶掉、应用退出（`registerShutdownHook`，经 `window/shutdown.ts`，托盘退出 / 菜单退出 / 安装更新 / 注销都会走）。结果（`start` 的 Promise）在进程关掉**之后**才 resolve。
 - 同一时间一个登录：`start` 遇到还没结束的旧登录先结束它（渲染进程重载后旧对话框没了，不能被挡住）。
 - 启动：等握手（30 秒超时，`TspHandshakeError`）→ 等输入框就绪（`findMessageTarget` 是 `ready`，30 秒超时）→ 发 `send` 事件 `/login <providerId>`（和任务发话同一条路径）→ 每次文档变化用 `deriveLoginFlow` 判断。omp 在握手前退出：失败，原因是 omp 终端上最后几行文字或退出码。
@@ -116,9 +116,9 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 - 成功帧（见上）、`perplexity` / `snowflake` / `lm-studio` / `alibaba-*` 第一步之后的步骤（只实测了每个的第一屏）；omp 在设备码页是否自己也去开系统浏览器（源码里登录窗的第四个构造参数 `hm` 会在 `showAuth` 时被调用 [推测：就是开浏览器]）——开了的话用户点 `Open sign-in page` 会多开一次，无害。
 - 渲染进程重载时旧登录进程的清理（见上，没有自动结束）。
 
-## 已知风险：API key 会被 agent 执行的命令继承
+## API key 不进进程环境
 
-自存的 key 以环境变量传给 omp 进程，omp 起的 bash 等子进程默认继承环境，所以 agent 执行的命令能读到它们。已查 `omp://providers.md`、`omp://secrets.md`、`omp://environment-variables.md`：没有"只给 provider 用、不下传给工具"的注入方式（`secrets.md` 的脱敏只处理发给模型的文本，不限制进程环境；`omp config set` 写进 `agent.db` 是另一条路，要碰 `~/.omp`，违反决策 D3）。所以保持现状，不改实现。用户要避免时：用 OAuth 登录，或不要在 omp-studio 里存 key，改在 omp 自己的配置里设置。保存时已拒绝含控制字符的 key。
+设置页存的 key 在 omp 的凭据库里，studio 不再把 key 放进 omp 子进程的环境变量（2026-10-24 之前是这样做的，omp 起的 bash 等子进程会继承到）。用户自己在系统里设的 `*_API_KEY` 环境变量照旧会被继承，那不归 studio 管。
 
 ## 服务进程的关闭
 
@@ -135,4 +135,4 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 
 ## 界面（3.2）
 
-设置 → Provider 与订阅只列"已连接"（`ProviderRow` 卡片：provider 的单色 logo（`ProviderLogo.tsx`，图形拷自 LobeHub Icons，没有的写首字母）+ 徽标 + sm 按钮，清除 key 在 ⋯ 里）和自定义提供商；没连接的不铺开，页头"连接提供商…"打开 `ProviderPickDialog`（可搜索），选中后进 `ProviderFlowDialog`——OAuth 进度、授权码 / API key 输入、选账号退出、失败重试都在这一个对话框里走。IPC 和登录行为不变。
+设置 → Provider 与订阅只列"已连接"（`ProviderRow` 卡片：provider 的单色 logo（`ProviderLogo.tsx`，图形拷自 LobeHub Icons，没有的写首字母）+ 徽标 + sm 按钮；清除 key 就是"退出登录"）和自定义提供商；没连接的不铺开，页头"连接提供商…"打开 `ProviderPickDialog`（可搜索），选中后进 `ProviderFlowDialog`——OAuth 进度、授权码 / API key 输入、选账号退出、失败重试都在这一个对话框里走。

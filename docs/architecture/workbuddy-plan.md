@@ -42,7 +42,7 @@ flowchart LR
 2. 用系统浏览器打开 `authUrl`（只放行 https，和 `login.md` 的 `open_url` 同一套校验）。界面显示"等待浏览器登录"、"重新打开浏览器"、"取消"。
 3. 每秒请求一次 `GET /v2/plugin/auth/token?state=…`，返回码 11217 表示"还没好"，最多等 5 分钟。拿到 `{accessToken, refreshToken, expiresIn|expiresAt, refreshExpiresIn|refreshExpiresAt, domain, tokenType}`。
 4. 每秒请求一次 `GET /v2/plugin/login/account?state=…`（12151 表示"还没好"），取 `uid` 和昵称；企业账号再查 `GET /v2/plugin/accounts`，取 `enterpriseId`。
-5. 存进 `userData/workbuddy-auth.json`：`{version, accounts:[{site, uid, name, enterpriseId?, cipher}]}`，`cipher` 是用 `safeStorage` 加密的 token JSON。系统没有可用的加密存储时登录直接失败，不退回明文（和 `api-key-store.ts` 一样）。
+5. 存进 `userData/workbuddy-auth.json`：`{version, accounts:[{site, uid, name, enterpriseId?, cipher}]}`，`cipher` 是用 `safeStorage` 加密的 token JSON。系统没有可用的加密存储时登录直接失败，不退回明文。
 6. 刷新：token 离过期不到 60 秒时，先 `POST /v2/plugin/auth/token/refresh`（请求头 `X-Refresh-Token`、`X-Auth-Refresh-Source: plugin`、`X-Domain`）再发请求。同一个 refresh token 只用一次（按 token 合并同时发起的刷新）。刷新失败时，只要旧 token 还没过期就继续用。refresh token 也过期了，就报"需要重新登录"。
 
 取消：停止轮询并清掉 `state`，不留半成品。同一时间只允许一个登录。退出登录：删掉这条记录，删掉 `providers.workbuddy`，关掉网关（没有别的账号时）。
@@ -55,7 +55,7 @@ flowchart LR
 
 监听：`127.0.0.1`，端口第一次随机选一个空闲的，记进 studio 设置，以后一直用这个端口（`models.yml` 里的 `baseUrl` 不用跟着变）。端口被占用时换一个新端口，同时改写 `baseUrl`。应用就绪且已登录时启动，`window/shutdown.ts` 的退出路径里关闭。网关不是子进程，没有孤儿进程的问题。
 
-认证：每台机器生成一个随机 32 字节密钥，用 `safeStorage` 加密存放，经 `getApiKeyEnv()` 以 `OMP_STUDIO_GATEWAY_KEY` 注入每个 omp 子进程（TSP 任务、服务进程、`runOmpCommand` 已经全部走这个函数）。`models.yml` 里只写 `apiKey: OMP_STUDIO_GATEWAY_KEY`（变量名，不写明文）。以下请求直接拒绝：
+认证：每台机器生成一个随机 32 字节密钥，用 `safeStorage` 加密存放，以 `OMP_STUDIO_GATEWAY_KEY` 环境变量注入每个 omp 子进程（TSP 任务、服务进程、`runOmpCommand`）。原先统一注入环境变量的 `getApiKeyEnv()` 已在 2026-10-24 随 API key 改存 omp 凭据库一起删除，做这个功能时要在 `main/omp/launch.ts` 和 `runOmpCommand` 重新加一处。`models.yml` 里只写 `apiKey: OMP_STUDIO_GATEWAY_KEY`（变量名，不写明文）。以下请求直接拒绝：
 
 - 没带 bearer 或 bearer 不对 → 401；
 - 带 `Origin` 头或 `Sec-Fetch-*` 头（浏览器发来的）→ 403；

@@ -28,7 +28,6 @@ export function LoginBody({
   flow,
   code,
   copied,
-  maskInput,
   onCode,
   onCopy,
   onSubmitCode,
@@ -36,8 +35,6 @@ export function LoginBody({
   flow: { kind: "login" } & LoginProgress;
   code: string;
   copied: boolean;
-  /** 输入的是 API key（登录方式是粘贴 key），不明文显示。 */
-  maskInput: boolean;
   onCode(value: string): void;
   onCopy(text: string): void;
   onSubmitCode(inputId: string): void;
@@ -80,7 +77,6 @@ export function LoginBody({
         <FormField label={flow.input.title}>
           <TextField
             width="100%"
-            type={maskInput ? "password" : "text"}
             autoComplete="off"
             data-autofocus=""
             value={code}

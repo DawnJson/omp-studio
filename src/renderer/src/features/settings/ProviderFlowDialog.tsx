@@ -2,7 +2,6 @@
 // OAuth 登录的过程事件由主进程经 onLogin 推来；行为和 IPC 同改版前，只是展示从"提供商行里展开的卡"改成对话框。
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { LoginEvent } from "../../../../shared/ipc.ts";
-import type { LoginKind } from "../../../../shared/provider-login.ts";
 import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Button } from "../../ui/controls.tsx";
@@ -13,7 +12,7 @@ import { TerminalLoginBody } from "./TerminalLoginBody.tsx";
 import "./providers.css";
 
 /**
- * 从提供商行 / 选择对话框发起的四种动作：登录（OAuth 或经 omp 粘贴 key）、填 API key、在多个账号里选一个退出、
+ * 从提供商行 / 选择对话框发起的四种动作：OAuth 登录、填 API key（存进 omp 的凭据库）、在多个账号里选一个退出、
  * 应用内终端登录（只能在 omp 的终端界面里走完的 provider，`loginKind` = terminal）。
  */
 export type FlowAction = "login" | "key" | "accounts" | "terminal";
@@ -31,7 +30,6 @@ function initialFlow(action: FlowAction): Flow {
 export function ProviderFlowDialog({
   provider,
   accounts,
-  loginKind,
   action,
   onBack,
   onClose,
@@ -39,7 +37,6 @@ export function ProviderFlowDialog({
 }: {
   provider: LoginProvider;
   accounts: LogoutAccount[];
-  loginKind: LoginKind;
   action: FlowAction;
   /** 从"连接提供商"选择对话框进来时可以回去重选。 */
   onBack?: (() => void) | undefined;
@@ -181,15 +178,7 @@ export function ProviderFlowDialog({
   if (flow.kind === "login") {
     const input = flow.input;
     body = (
-      <LoginBody
-        flow={flow}
-        code={code}
-        copied={copied}
-        maskInput={loginKind === "api-key"}
-        onCode={setCode}
-        onCopy={copy}
-        onSubmitCode={submitCode}
-      />
+      <LoginBody flow={flow} code={code} copied={copied} onCode={setCode} onCopy={copy} onSubmitCode={submitCode} />
     );
     footer = (
       <>

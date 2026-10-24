@@ -1,6 +1,5 @@
 // 组 omp 的启动参数和环境：给任务进程和服务进程共用。
-// 启动参数见 omp 文档 cli-reference.md；API key 来自 omp-manager/api-keys.ts（safeStorage 加密存在 userData，决策 D3）。
-import { getApiKeyEnv } from "../omp-manager/api-keys.ts";
+// 启动参数见 omp 文档 cli-reference.md；凭据（OAuth、设置页存的 API key）都在 omp 自己的凭据库里，这里不注入。
 import { awaitStartupDefaults } from "../omp-config/startup-defaults.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
 import {
@@ -23,44 +22,40 @@ export function setTestOmpOverride(override: TestOmpOverride | null): void {
 }
 
 export async function buildOmpLaunch(spec: LaunchSpec): Promise<OmpLaunch> {
-  const apiKeys = await getApiKeyEnv();
   if (testOverride) {
     return {
       command: testOverride.command,
       args: testOverride.args,
       cwd: spec.cwd,
-      env: { ...process.env, ...apiKeys },
+      env: { ...process.env },
     };
   }
   const executable = await getOmpExecutable();
-  const env = { ...process.env, ...apiKeys };
   return {
     command: executable.path,
     args: buildOmpArgs(spec),
     cwd: spec.cwd,
-    env: prependToPath(env, executable.managedBin),
+    env: prependToPath({ ...process.env }, executable.managedBin),
   };
 }
 
-/** TSP 任务（伪终端里的交互式 omp）的启动：可执行文件、API key 环境变量和测试替换与 rpc-ui 后台进程一致，参数不带 `--mode rpc-ui`。 */
+/** TSP 任务（伪终端里的交互式 omp）的启动：可执行文件和测试替换与 rpc-ui 后台进程一致，参数不带 `--mode rpc-ui`。 */
 export async function buildTspLaunch(spec: TspLaunchSpec): Promise<OmpLaunch> {
-  const apiKeys = await getApiKeyEnv();
   if (testOverride) {
     return {
       command: testOverride.command,
       args: testOverride.args,
       cwd: spec.cwd,
-      env: { ...process.env, ...apiKeys },
+      env: { ...process.env },
     };
   }
   // 真 omp 的首次运行引导由启动默认关掉；第一个任务的进程要等它写完，否则还会看到引导。超时/失败都照常启动。
   await awaitStartupDefaults(STARTUP_DEFAULTS_WAIT_MS);
   const executable = await getOmpExecutable();
-  const env = { ...process.env, ...apiKeys };
   return {
     command: executable.path,
     args: buildTspArgs(spec),
     cwd: spec.cwd,
-    env: prependToPath(env, executable.managedBin),
+    env: prependToPath({ ...process.env }, executable.managedBin),
   };
 }

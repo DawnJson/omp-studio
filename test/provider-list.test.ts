@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { acceptsApiKey } from "../src/shared/provider-keys.ts";
 import { loginKind } from "../src/shared/provider-login.ts";
 import { matchesProvider, splitProviders } from "../src/shared/ui/provider-list.ts";
 
@@ -6,7 +7,7 @@ const providers = [
   { id: "anthropic", name: "Anthropic (Claude Pro/Max)", authenticated: false },
   { id: "openrouter", name: "OpenRouter", authenticated: true },
   { id: "tavily", name: "Tavily", authenticated: false },
-  { id: "deepseek", name: "DeepSeek", authenticated: false },
+  { id: "deepseek", name: "DeepSeek", authenticated: true },
   { id: "xai-oauth", name: "xAI Grok OAuth (SuperGrok or X Premium+)", authenticated: false },
 ];
 
@@ -20,30 +21,30 @@ describe("提供商搜索", () => {
   });
 
   it("没有命中两组都是空的", () => {
-    expect(splitProviders(providers, [], "zzz")).toEqual({ configured: [], others: [] });
+    expect(splitProviders(providers, "zzz")).toEqual({ configured: [], others: [] });
   });
 });
 
 describe("提供商分组", () => {
   const ids = (list: readonly { id: string }[]) => list.map((provider) => provider.id);
 
-  it("已认证和 studio 存了 key 的分到已配置，组内保持 omp 的顺序", () => {
-    const { configured, others } = splitProviders(providers, ["deepseek"], "");
+  it("omp 报已认证的分到已配置，组内保持 omp 的顺序", () => {
+    const { configured, others } = splitProviders(providers, "");
     expect(ids(configured)).toEqual(["openrouter", "deepseek"]);
     expect(ids(others)).toEqual(["anthropic", "tavily", "xai-oauth"]);
   });
 
   it("先过滤再分组", () => {
-    const filtered = splitProviders(providers, ["deepseek"], "e");
+    const filtered = splitProviders(providers, "e");
     expect(ids(filtered.configured)).toEqual(["openrouter", "deepseek"]);
     expect(ids(filtered.others)).toEqual(["anthropic", "xai-oauth"]);
-    const deep = splitProviders(providers, ["deepseek"], "deep");
+    const deep = splitProviders(providers, "deep");
     expect([...ids(deep.configured), ...ids(deep.others)]).toEqual(["deepseek"]);
   });
 
   it("不改动传入的数组", () => {
     const copy = providers.map((provider) => provider.id);
-    splitProviders(providers, ["deepseek"], "");
+    splitProviders(providers, "");
     expect(providers.map((provider) => provider.id)).toEqual(copy);
   });
 });
@@ -67,5 +68,13 @@ describe("登录方式", () => {
     expect(loginKind("brand-new-provider")).toBe("oauth");
     expect(loginKind("constructor")).toBe("oauth");
     expect(loginKind("__proto__")).toBe("oauth");
+  });
+});
+
+describe("能填 API key 的 provider", () => {
+  it("有 key 环境变量的、登录就是粘贴 key 的都能填；纯 OAuth 和原型属性名不能", () => {
+    for (const id of ["anthropic", "openai", "deepseek", "tavily", "exa"]) expect(acceptsApiKey(id), id).toBe(true);
+    for (const id of ["xai-oauth", "github-copilot", "constructor", "__proto__"])
+      expect(acceptsApiKey(id), id).toBe(false);
   });
 });

@@ -39,7 +39,6 @@ import {
 } from "../git/worktree.ts";
 import { log } from "../log/log.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
-import { getApiKeyEnv } from "../omp-manager/api-keys.ts";
 import { parseTestOmpOverride, prependToPath } from "../omp/launch-args.ts";
 import { resolveLocale } from "../settings/settings-store.ts";
 import { getSetupConsent, getTaskPool } from "../tasks/runtime.ts";
@@ -101,21 +100,20 @@ function parseLinesRef(value: unknown): GitLinesRef {
 const generating = new Map<TaskId, AbortController>();
 
 /**
- * `omp commit` 用的 omp：和任务进程同一个可执行文件、同一份 API key；e2e 里任务进程是假 omp，
+ * `omp commit` 用的 omp：和任务进程同一个可执行文件；e2e 里任务进程是假 omp，
  * 未打包时 `STUDIO_TEST_COMMIT_OMP`（JSON `{command, args}`，同 STUDIO_TEST_OMP）指向另一个假 omp 来扮演 `omp commit`。
  */
 async function commitOmp(): Promise<OmpCommand> {
-  const apiKeys = await getApiKeyEnv();
   const override = app.isPackaged ? undefined : process.env["STUDIO_TEST_COMMIT_OMP"];
   if (override) {
     const parsed = parseTestOmpOverride(override);
-    return { command: parsed.command, args: parsed.args, env: { ...process.env, ...apiKeys } };
+    return { command: parsed.command, args: parsed.args, env: { ...process.env } };
   }
   const executable = await getOmpExecutable();
   return {
     command: executable.path,
     args: [],
-    env: prependToPath({ ...process.env, ...apiKeys }, executable.managedBin),
+    env: prependToPath({ ...process.env }, executable.managedBin),
   };
 }
 

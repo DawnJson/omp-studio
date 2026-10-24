@@ -1,5 +1,6 @@
 // 设置页的功能项（阶段 2.6）：提供商与账号缓存、omp 版本检查、omp 设置分节（常用项 / 高级，隐藏终端专用项）、用量对话框。
 // 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR；用量用例还把 USERPROFILE 指到临时目录，omp 的 stats.db 不会碰真实 ~/.omp。
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
@@ -86,6 +87,45 @@ test("提供商与账号：再次进入时立即显示上次的结果，不再�
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
+test("填 API key：存进 omp 的凭据库（终端版也用），卡片显示这条 key 账号；退出登录清掉它", async () => {
+  const { launched, agentDir } = await launchSettings({ KAGI_API_KEY: "" });
+  const storedKeys = () => {
+    const out = execFileSync("omp", ["auth", "export"], {
+      env: { ...process.env, PI_CODING_AGENT_DIR: agentDir },
+      encoding: "utf8",
+    });
+    const { credentials } = JSON.parse(out) as { credentials: { provider: string; credential: { key?: string } }[] };
+    return credentials.filter((entry) => entry.provider === "kagi").map((entry) => entry.credential.key);
+  };
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("settings-nav-providers").click();
+    await expect(page.getByTestId("providers-connect")).toBeEnabled({ timeout: 30_000 });
+    await page.getByTestId("providers-connect").click();
+    await page.getByTestId("provider-search").fill("kagi");
+    await page.getByTestId("provider-pick").getByTestId("provider-key-kagi").click();
+    const flow = page.getByTestId("provider-flow-kagi");
+    await flow.getByRole("textbox").fill("  kagi-e2e-key  ");
+    await page.getByTestId("provider-key-save").click();
+    await expect(flow).toHaveCount(0);
+
+    // 回到"已连接"：卡片的元信息是 omp 给这条凭据起的名字，按钮变成"更换 key"。
+    const card = page.getByTestId("providers").getByTestId("provider-kagi");
+    await expect(card).toContainText("已登录", { timeout: 30_000 });
+    await expect(card).toContainText("API key #");
+    await expect(card.getByTestId("provider-key-kagi")).toHaveText("更换 key");
+    expect(storedKeys()).toEqual(["kagi-e2e-key"]);
+
+    await card.getByTestId("provider-signout-kagi").click();
+    await expect(card).toHaveCount(0, { timeout: 30_000 });
+    expect(storedKeys()).toEqual([]);
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 

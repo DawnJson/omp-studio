@@ -48,7 +48,7 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 
 三种都用真实 omp 18.12.1 实测过（`test/custom-models-real-omp.test.ts`：字面量、环境变量、`auth: none` 各一个 provider，列模型、发 prompt 都通）。
 
-**key 只进不出**：`listCustomProviders` 返回的只有状态（`none` / `literal` / `env`+变量名 / `command`），没有 key 的内容；编辑时 key 留空 = "保持不变"（`keep`），主进程在内部读文件里的值。日志只记 provider id 和结果码（`custom provider add: saved`），不记 key，也不记 URL。这和 `login.md` 里 omp-studio 自己用 `safeStorage` 存的 API key 是两回事：那个不写 omp 的配置，也不会出现在 `models.yml` 里。
+**key 只进不出**：`listCustomProviders` 返回的只有状态（`none` / `literal` / `env`+变量名 / `command`），没有 key 的内容；编辑时 key 留空 = "保持不变"（`keep`），主进程在内部读文件里的值。日志只记 provider id 和结果码（`custom provider add: saved`），不记 key，也不记 URL。这和 `login.md` 里设置页填的 API key 是两回事：那个经 `omp auth import` 存进 omp 的凭据库，不会出现在 `models.yml` 里。
 
 ## 一键拉取
 
@@ -58,7 +58,7 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 - Anthropic（`anthropic-messages`）：`<baseUrl 去掉末尾 /v1>/v1/models`，`x-api-key` + `anthropic-version: 2023-06-01`（`omp://models.md`：Anthropic SDK 会去掉 `baseUrl` 末尾的 `/v1` 再拼 `/v1/messages`）。
 - 其它 api（Google、Bedrock……）：不支持，按钮禁用，手动添加。
 
-响应取 `data[].id`（或顶层 `models[]`），`display_name` 当名字；去重、最多 2000 个。超时 15 秒；`redirect: "error"`（key 不会被带到别的主机）；响应体上限 8 MB。key 的解析按 omp 的规则：环境变量名先查 `process.env` 和 omp-studio 自存的 key（`getApiKeyEnv`），没设就把字面量当 token；`!命令` 不执行，返回 `command-key`。编辑已有提供商、key 选"保持不变"时用文件里的 key。
+响应取 `data[].id`（或顶层 `models[]`），`display_name` 当名字；去重、最多 2000 个。超时 15 秒；`redirect: "error"`（key 不会被带到别的主机）；响应体上限 8 MB。key 的解析按 omp 的规则：环境变量名先查 `process.env`，没设就把字面量当 token；`!命令` 不执行，返回 `command-key`。编辑已有提供商、key 选"保持不变"时用文件里的 key。
 
 错误都有一句人话：连不上（`network`）、超时、key 被拒（401/403）、没有这个接口（404）、别的 HTTP 状态、返回的不是模型列表。拉到的模型默认**不勾选**，用户勾选后保存才写进 `models[]`。
 

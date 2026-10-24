@@ -655,14 +655,14 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 | omp 报不可用 | `当前不可用` | — |
 | 其余 | `未登录` | `OAuth 登录` / `多步登录`（`loginKind` = `terminal`：github-copilot、alibaba-*、perplexity、snowflake、lm-studio）/ `API key` |
 
-- **按钮**（都是 sm 次要按钮）：有已知环境变量名的（`provider-keys.ts` 的 `apiKeyEnvName`）给 `设置 API key`（存过 key 时写 `更换 key`），打开 key 对话框；已登录的给 `退出登录`——只有一个账号时直接 `logout`，多个时打开对话框选账号；没登录的 OAuth 类给 `登录`；多步登录的（`loginKind` = `terminal`，omp 的 rpc `login` 直接拒绝）也给 `登录`（`provider-terminal-login-<id>`），打开流程对话框的"应用内登录"（下表）；登录方式就是粘贴 API key、又没有已知环境变量名的给 `添加 API key`（走 omp 自己的 `login`，key 存进 omp 的凭据库）。登录方式按实测分类（omp 的 `get_login_providers` 没有这个字段；`src/shared/provider-login.ts`，`docs/architecture/login.md`），表里没有的按 OAuth 处理。studio 存了 key 的行尾多一个 ⋯（`RowMenu`）：`清除 API key`（红字，直接执行）。
+- **按钮**（都是 sm 次要按钮）：能填 key 的（`provider-keys.ts` 的 `acceptsApiKey`：有已知环境变量名，或登录方式就是粘贴 key）给 `设置 API key`（已有 `api_key` 账号时写 `更换 key`），打开 key 对话框；已登录的给 `退出登录`——只有一个账号时直接 `logout`，多个时打开对话框选账号（清除 key 也是这样：key 是一条 `API key #<n>` 账号，2026-10-24 起没有单独的"清除 API key"和 ⋯）；没登录的 OAuth 类给 `登录`；多步登录的（`loginKind` = `terminal`，omp 的 rpc `login` 直接拒绝）也给 `登录`（`provider-terminal-login-<id>`），打开流程对话框的"应用内登录"（下表）。登录方式按实测分类（omp 的 `get_login_providers` 没有这个字段；`src/shared/provider-login.ts`，`docs/architecture/login.md`），表里没有的按 OAuth 处理。
 - **连接提供商…**（`ProviderPickDialog.tsx`，`ui/Dialog` md，`provider-pick`）：标题 `login.connect.title`，说明 `login.connect.desc`；顶上搜索框（`login.search`，打开时焦点在它上，`provider-search`），按名称和 id 过滤，每个词都要命中；下面是未连接提供商的行（同上面的行，最高 360 后滚动），没有匹配时 `login.noMatch`；页脚只有 `关闭`。点行里的按钮，选择对话框换成流程对话框（同一时间只有一个对话框）。
 - **流程对话框**（`ProviderFlowDialog.tsx`，`ui/Dialog` md，标题是提供商名，`provider-flow-<id>`）：从选择对话框进来、且不在登录进行中时，页脚左侧有 quiet `返回`，回到选择对话框。五种内容：
 
 | 内容 | 正文 | 页脚 |
 |---|---|---|
 | 登录（OAuth，或经 omp 粘贴 key） | 一打开就发 `login`。先是 `login.opening`；收到 `open_url` 时主进程已经用系统浏览器打开它（只放行 http/https），对话框里显示 `login.fallback` + 只读等宽的 `launchUrl ?? url` + `复制` + `login.reopen`；有 `instructions` 时作为淡色文字；omp 的进度提示按到达顺序一行一条全部保留（`login-progress`），`info` 淡色、`warning` 警告色、`error` 红色；omp 要输入（授权码等）时出现输入框（标题和占位用 omp 给的，没有占位时 `login.pasteCode`；登录方式是粘贴 key 的遮住），Enter 提交；omp 撤销这个输入（超时 / 取消）时输入框和 `提交` 一起收起，进度保留；不显示输入超时倒计时 | `取消`（同时取消 omp 的登录）；有输入框时加主按钮 `提交` |
-| 填 API key | `API key` 字段（等宽、遮住，占位 `粘贴 API key`），说明 `login.apiKey.note`：key 由主进程用 `safeStorage` 加密存在 userData，启动 omp 时以环境变量传入，不写 `~/.omp`，终端版看不到 | `取消` + 主按钮 `保存` |
+| 填 API key | `API key` 字段（等宽、遮住，占位 `粘贴 API key`），说明 `login.apiKey.note`：key 经 `omp auth import` 存进 omp 自己的凭据库，终端版 omp 也用它，清除就退出登录这个 provider（2026-10-24 起；之前是 studio 加密另存、以环境变量传入） | `取消` + 主按钮 `保存` |
 | 选账号退出 | `login.chooseAccount` + 每个账号一行按钮（账号名 + 徽标 `login.accountActive`（`LogoutAccount.active` 为 true 时） + 淡色详情），点了就 `logout` 那个账号 | `取消` |
 | 应用内登录（`loginKind` = `terminal`） | 一打开就让主进程起一个临时的 omp 跑 `/login <provider>`（`startTerminalLogin`，docs/architecture/login.md "应用内登录"）。正文（`TerminalLoginBody.tsx`，`terminal-login`）只画那个 omp 的登录窗（过程区的 TSP 渲染器，只画 layer 里的 `omp.overlay.login`，摊平成对话框正文：没有遮罩、阴影和 omp 自带的标题）：企业域名 / 区域 / 授权码等输入框、设备码（`omp.login.code`，点一下复制）、授权链接、`Open sign-in page` / `Copy` / `Continue` 按钮都是 omp 发来的节点，英文是 omp 的原文，不汉化（过程区规则）；链接走系统浏览器（`openExternal`，只放行 http / https）；omp 起来之前是淡色 `login.terminal.starting`。omp 自己的 Cancel 按钮不画（`display: none`），页脚的 `取消` 是同一件事 | `取消`（`provider-terminal-cancel`，关临时 omp）；Esc、× 同样 |
 | 失败 | 红字 `login.failed` + 一句原因（omp 的原话，应用内登录失败时是 `Error: Login failed:` 后面那句）；rpc 登录的原话里有 secret / terminal（omp 升级后新增、`provider-login.ts` 表里还没有的多步登录 provider）时换成 `login.terminalOnly` | `关闭` + 主按钮：上面那种情形是 `在应用内登录`（`provider-terminal-here`，改走应用内登录），其余是 `重试`（重新走同一个动作，跑过应用内登录的重试它） |
@@ -1568,7 +1568,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | 1 | 审批模式默认值 | **已定（2026-10-18）：完全跟随 omp 的配置**（`tools.approvalMode`，omp 默认 `yolo`），启动时从不传 `--approval-mode`；胶囊改的就是 omp 配置（§5.8）。原方案"Studio 默认 `write`"和"Studio 自己存一份默认值"都作废 |
 | 2 | 审批模式切换语义 | omp 在进程启动时读配置；胶囊改配置后，之后启动的任务生效，运行中的任务要重启（见 §5.8）。备选"重启进程并恢复会话"需先实测 `open_session` 无损恢复 |
 | 3 | 测试结果显示 | 不显示（设计原则“结果优先”提到）；若要做，需先决定识别规则（omp 不给结构化的测试结果） |
-| 4 | API key 类提供商登录 | **已定**：设置页输入，Electron `safeStorage` 加密存在 `userData/api-keys.json`，启动 omp 时以环境变量传入，不写 `~/.omp`（`docs/architecture/login.md`） |
+| 4 | API key 类提供商登录 | **已定（2026-10-24 改）**：设置页输入，主进程经 `omp auth import` 存进 omp 自己的凭据库，和终端版共用（`docs/architecture/login.md`）；原先 safeStorage 另存 + 环境变量注入的做法已删除 |
 | 5 | 新增运行时依赖 / 未定技术选型 | **已定**：语法高亮 `shiki`、Markdown `markdown-it`、公式 `katex`；i18n 和覆盖式滚动条自己写（`src/shared/i18n/`、`ui/OverlayScrollbar.tsx`） |
 | 6 | 字体是否打包 | **已定（0.3.29）**：打包 Geist / Geist Mono，中文仍用微软雅黑 UI；只改 `--font-*` |
 | 7 | 阅读列宽 / 正文 15px 是否偏大 | 已定 840（2026-10-19）；正文仍可凭肉眼调，只改 `--fs-prose` |

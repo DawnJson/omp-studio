@@ -1,7 +1,6 @@
 // "连接提供商…"：没连接的提供商不在页面上铺开（84 行），点页头按钮在这个对话框里按名称搜索，选中后走登录 / 填 key 的对话框。
 import { useState } from "react";
 import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
-import { apiKeyEnvName } from "../../../../shared/provider-keys.ts";
 import { loginKind } from "../../../../shared/provider-login.ts";
 import { matchesProvider } from "../../../../shared/ui/provider-list.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -15,14 +14,12 @@ import "./providers.css";
 export function ProviderPickDialog({
   providers,
   accounts,
-  keyProviders,
   onFlow,
   onClose,
 }: {
   /** 还没连接的提供商。 */
   providers: readonly LoginProvider[];
   accounts: Readonly<Record<string, LogoutAccount[]>>;
-  keyProviders: readonly string[];
   onFlow(provider: LoginProvider, action: FlowAction): void;
   /** 对话框退出动画放完、卸载时调用。 */
   onClose(): void;
@@ -64,8 +61,6 @@ export function ProviderPickDialog({
               key={provider.id}
               provider={provider}
               accounts={accounts[provider.id] ?? []}
-              hasStoredKey={keyProviders.includes(provider.id)}
-              canSetKey={apiKeyEnvName(provider.id) !== null}
               loginKind={loginKind(provider.id)}
               onFlow={onFlow}
               onChanged={() => undefined}

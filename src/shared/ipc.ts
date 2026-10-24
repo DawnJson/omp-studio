@@ -1185,14 +1185,11 @@ export interface StudioInvokeApi {
   listAccounts(providerId: string): Promise<LogoutAccount[]>;
   logout(providerId: string, credentialId: number): Promise<void>;
   /**
-   * 设置某个 provider 的 API key（D3）：主进程用 safeStorage 加密存在 userData，启动 omp 时作为环境变量传入；不写 ~/.omp。
-   * key 只能从渲染进程发往主进程，主进程永远不回传。providerId 必须是 listLoginProviders 里的 id。
+   * 设置某个 provider 的 API key：主进程经 `omp auth import` 存进 omp 自己的凭据库（和终端版共用），替换这个 provider 已有的 key，
+   * OAuth 凭据不动。之后它是一条 `type: "api_key"` 的账号（listAccounts），清除走 logout。
+   * key 只能从渲染进程发往主进程，主进程永远不回传。providerId 必须是能填 key 的 provider（shared/provider-keys.ts 的 acceptsApiKey）。
    */
   saveApiKey(providerId: string, key: string): Promise<void>;
-  /** 清除 studio 自己存的某个 provider 的 key；没有时静默成功。不影响 omp 里用 OAuth 或终端登录的凭据（那些走 logout）。 */
-  clearApiKey(providerId: string): Promise<void>;
-  /** 已设置 studio 自存 API key 的 provider id 列表；只有 id，没有 key 的任何内容。 */
-  listApiKeyProviders(): Promise<string[]>;
 
   // 自定义模型：直接读写 omp 的 models.yml（src/main/omp-config/models-file.ts；规则见 AGENTS.md）
   /** 读 models.yml 里的 providers。key 只有状态，没有内容。文件读不懂时 reject。 */
@@ -1533,8 +1530,6 @@ export const invokeNames = {
   listAccounts: true,
   logout: true,
   saveApiKey: true,
-  clearApiKey: true,
-  listApiKeyProviders: true,
   listCustomProviders: true,
   saveCustomProvider: true,
   deleteCustomProvider: true,

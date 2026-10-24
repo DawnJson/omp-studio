@@ -3,7 +3,7 @@
 import type { HandlerGroup, SessionHeaderInfo } from "../../shared/ipc.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
 import { readSessionUsage } from "../history/session-usage.ts";
-import { getApiKeyEnv, readyOmp } from "../omp-manager/index.ts";
+import { readyOmp } from "../omp-manager/index.ts";
 import { listJson, runOmpConfig } from "../omp-config/config-service.ts";
 import { readSessionHeader } from "../session-info/session-header.ts";
 import { readSessionPins } from "../session-info/session-pins.ts";
@@ -66,10 +66,6 @@ export const sessionInfoHandlers: HandlerGroup<
     const sessionFile = (await getTaskPool()).sessionFileOf(id);
     if (sessionFile === null) throw new Error("这个任务还没有会话文件，没有可分享的内容");
     const { cwd } = (await getTaskPool()).taskGitContext(id);
-    return shareSession(
-      runOmpCommand(readyOmp().path, cwd, SHARE_TIMEOUT_MS, await getApiKeyEnv()),
-      sessionFile,
-      useGist,
-    );
+    return shareSession(runOmpCommand(readyOmp().path, cwd, SHARE_TIMEOUT_MS), sessionFile, useGist);
   },
 };

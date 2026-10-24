@@ -1,23 +1,20 @@
 // 设置 → Provider 与订阅 里的一个 provider（ui/ListRow：页面上排成卡片，选择对话框里是一行；图标是 provider 的 logo）。连上了的徽标一律"已登录"
-// （卡片右上角），怎么连上的（账号、环境变量、studio 存的 key）写在元信息里；动作是 sm 按钮，清除 key 收进 ⋯（spec §4.20）。
-// 登录 / 填 key / 选账号都交给 ProviderFlowDialog；这里只直接做"只有一个账号时退出"和"清除 key"两个不需要输入的动作。
+// （卡片右上角），怎么连上的（账号、环境变量）写在元信息里；动作是 sm 按钮（spec §4.20）。
+// 设置页填的 API key 存在 omp 的凭据库里，是一条 `type: "api_key"` 的账号：和 OAuth 账号一样显示、一样"退出"（清掉它）。
+// 登录 / 填 key / 选账号都交给 ProviderFlowDialog；这里只直接做"只有一个账号时退出"这个不需要输入的动作。
 import { useState } from "react";
 import type { LoginKind } from "../../../../shared/provider-login.ts";
 import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
-import { apiKeyEnvName } from "../../../../shared/provider-keys.ts";
+import { acceptsApiKey, apiKeyEnvName } from "../../../../shared/provider-keys.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Badge, Button, ListRow } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import type { FlowAction } from "./ProviderFlowDialog.tsx";
 import { ProviderLogo } from "./ProviderLogo.tsx";
-import { RowMenu } from "./RowMenu.tsx";
 
 interface ProviderRowProps {
   provider: LoginProvider;
   accounts: LogoutAccount[];
-  hasStoredKey: boolean;
-  /** 这个 provider 有已知的环境变量名，可以由 omp-studio 存 API key。 */
-  canSetKey: boolean;
   /** 这个 provider 登录是什么形式（OAuth 授权 / 粘贴 API key / 只能在终端），见 shared/provider-login.ts。 */
   loginKind: LoginKind;
   /** 卡片上只写主名称：去掉括号里的补充（"Anthropic (Claude Pro/Max)" → "Anthropic"）；选择对话框里要区分同名的几项，写全名。 */
@@ -26,21 +23,13 @@ interface ProviderRowProps {
   onChanged(): void;
 }
 
-export function ProviderRow({
-  provider,
-  accounts,
-  hasStoredKey,
-  canSetKey,
-  loginKind,
-  shortName = false,
-  onFlow,
-  onChanged,
-}: ProviderRowProps) {
+export function ProviderRow({ provider, accounts, loginKind, shortName = false, onFlow, onChanged }: ProviderRowProps) {
   const t = useT();
   const [busy, setBusy] = useState(false);
 
   const signedIn = provider.authenticated && accounts.length > 0;
   const envName = apiKeyEnvName(provider.id);
+  const hasKey = accounts.some((account) => account.type === "api_key");
   const accountText =
     accounts.length > 1 ? `${accounts[0]?.label ?? ""} +${accounts.length - 1}` : (accounts[0]?.label ?? "");
   const name = (shortName && provider.name.replace(/\s*[(（][^)）]*[)）]/g, "").trim()) || provider.name;
@@ -48,9 +37,9 @@ export function ProviderRow({
 
   let badge: { tone: "success" | "neutral"; text: string };
   let meta: string;
-  if (signedIn || provider.authenticated || hasStoredKey) {
+  if (provider.authenticated) {
     badge = { tone: "success", text: t("login.badge.signedIn") };
-    meta = signedIn ? accountText : hasStoredKey ? withEnv(t("login.keyInApp")) : withEnv(t("login.badge.env"));
+    meta = signedIn ? accountText : withEnv(t("login.badge.env"));
   } else if (!provider.available) {
     badge = { tone: "neutral", text: t("login.unavailable") };
     meta = "";
@@ -85,14 +74,14 @@ export function ProviderRow({
       meta={meta === "" ? undefined : meta}
       actions={
         <>
-          {canSetKey && (
+          {acceptsApiKey(provider.id) && (
             <Button
               size="sm"
               disabled={busy}
               onClick={() => onFlow(provider, "key")}
               testId={`provider-key-${provider.id}`}
             >
-              {hasStoredKey ? t("login.apiKey.replace") : t("login.apiKey.set")}
+              {hasKey ? t("login.apiKey.replace") : t("login.apiKey.set")}
             </Button>
           )}
           {signedIn ? (
@@ -127,33 +116,7 @@ export function ProviderRow({
             >
               {t("login.signIn")}
             </Button>
-          ) : loginKind === "api-key" && !canSetKey ? (
-            // 这个 provider 的登录就是粘贴 API key，studio 又没有它的环境变量名：走 omp 自己的 login，key 存进 omp 的凭据库。
-            <Button
-              size="sm"
-              disabled={busy || !provider.available}
-              onClick={() => onFlow(provider, "login")}
-              testId={`provider-login-${provider.id}`}
-            >
-              {t("login.apiKey.add")}
-            </Button>
           ) : null}
-          {hasStoredKey && (
-            <RowMenu
-              label={t("login.more")}
-              disabled={busy}
-              testId={`provider-more-${provider.id}`}
-              items={[
-                {
-                  id: "clear-key",
-                  label: t("login.apiKey.clear"),
-                  tone: "danger",
-                  testId: `provider-clear-key-${provider.id}`,
-                  onSelect: () => void run(() => window.studio.clearApiKey(provider.id)),
-                },
-              ]}
-            />
-          )}
         </>
       }
     />

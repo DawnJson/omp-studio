@@ -9,8 +9,6 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { OmpManager, runOmpUpdate, type ManagerDeps, type UserPathAccess } from "./manager.ts";
 import { MIN_OMP_VERSION } from "../../shared/omp-version.ts";
 
-export { getApiKeyEnv } from "./api-keys.ts";
-
 /** 自管目录：`%LOCALAPPDATA%\omp-studio\omp`。未打包时 `STUDIO_OMP_HOME`（或测试的 STUDIO_USER_DATA）可以改，测试不碰真实用户目录。 */
 function managedRoot(): string {
   if (!app.isPackaged) {

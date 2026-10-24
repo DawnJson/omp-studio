@@ -6,7 +6,7 @@ import type { SshHostInput } from "../../shared/omp-output/ssh.ts";
 import { checkSshName, listSshHosts, runSshWrite, sshAddArgs, sshRemoveArgs } from "../integrations/ssh.ts";
 import type { OmpConnection } from "../omp/omp-connection.ts";
 import { projectOmp } from "../service/project-omp-instance.ts";
-import { getApiKeyEnv, readyOmp } from "../omp-manager/index.ts";
+import { readyOmp } from "../omp-manager/index.ts";
 import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { runOmpCommand, type RunOmp } from "../usage/usage-service.ts";
@@ -18,7 +18,7 @@ const SSH_TIMEOUT_MS = 30_000;
 async function ssh(projectId: ProjectId | null): Promise<RunOmp> {
   const status = readyOmp();
   const cwd = projectId === null ? await serviceCwd() : (await getTaskPool()).projectPath(projectId);
-  return runOmpCommand(status.path, cwd, SSH_TIMEOUT_MS, await getApiKeyEnv());
+  return runOmpCommand(status.path, cwd, SSH_TIMEOUT_MS);
 }
 
 function optionalProjectId(value: unknown): ProjectId | null {

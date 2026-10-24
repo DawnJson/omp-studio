@@ -19,7 +19,7 @@ import {
   readProviderKey,
   saveCustomProvider,
 } from "../omp-config/models-file.ts";
-import { getApiKeyEnv, readyOmp } from "../omp-manager/index.ts";
+import { readyOmp } from "../omp-manager/index.ts";
 import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
 import { requireSuccess, runOmpCommand } from "../usage/usage-service.ts";
 import { IpcValidationError, parseBoolean, parseInteger, parseOneOf, parseRecord, parseString } from "./validate.ts";
@@ -84,8 +84,7 @@ async function fetchProviderModels(value: unknown): Promise<FetchModelsOutcome> 
 
   let token: string | null = null;
   if (raw !== null) {
-    const env = { ...process.env, ...(await getApiKeyEnv()) };
-    token = resolveKeyToken(raw, env);
+    token = resolveKeyToken(raw, process.env);
     if (token === null) return { ok: false, code: "command-key" };
   }
   const outcome = await fetchModelList((url, init) => net.fetch(url, init), { baseUrl, api, token });
@@ -124,7 +123,7 @@ export const customModelHandlers: HandlerGroup<
   },
   fetchProviderModels,
   refreshModels: async () => {
-    const run = runOmpCommand(readyOmp().path, await serviceCwd(), REFRESH_TIMEOUT_MS, await getApiKeyEnv());
+    const run = runOmpCommand(readyOmp().path, await serviceCwd(), REFRESH_TIMEOUT_MS);
     requireSuccess("omp models refresh", await run(["models", "refresh"]));
     log.info("omp models refresh: done");
     // 服务进程的模型注册表是启动时建的：关掉它，下次读模型列表时重新起、读到刷新后的目录。

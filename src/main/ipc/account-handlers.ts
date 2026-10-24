@@ -1,10 +1,10 @@
 // 账号和模型的 IPC：模型列表、provider 列表、OAuth 登录、登出、API key。
 // 除 API key 和非对话模型外都走服务进程（src/main/service/）；非对话模型跑一次 `omp models --kind all --json`（rpc 没有这个命令）。
-// API key 由 safeStorage 存在 userData，不碰 ~/.omp（决策 D3）。key 只进不出：返回值、事件、日志里都没有 key。
+// API key 经 `omp auth import` 存进 omp 的凭据库（login/api-key.ts），清除就是 logout 那条 api_key 凭据。key 只进不出：返回值、事件、日志里都没有 key。
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { parseRunnerModels } from "../../shared/omp-output/models.ts";
-import { apiKeyStore } from "../omp-manager/api-keys.ts";
-import { getApiKeyEnv, readyOmp } from "../omp-manager/index.ts";
+import { importApiKey } from "../login/api-key.ts";
+import { readyOmp } from "../omp-manager/index.ts";
 import { answerLoginInput, cancelLogin, startLogin } from "../service/login.ts";
 import { terminalLogin } from "../login/terminal-login-instance.ts";
 import { listModelOptions } from "../service/default-model.ts";
@@ -18,7 +18,7 @@ const MODELS_TIMEOUT_MS = 60 * 1000;
 
 const parseProviderId = (value: unknown) => parseString(value, "providerId", 200);
 
-/** omp 只在启动时读环境变量：key 变了就关掉服务进程，下次用时带新的 key 重启（任务进程下次启动时同样带上）。 */
+/** 凭据是另一个进程写进 omp 凭据库的：服务进程里 omp 缓存的认证状态（get_login_providers 的 authenticated）是旧的，关掉让下次读到新的。 */
 async function applyKeyChange(): Promise<void> {
   await serviceOmp.close();
 }
@@ -35,12 +35,10 @@ export const accountHandlers: HandlerGroup<
   | "listAccounts"
   | "logout"
   | "saveApiKey"
-  | "clearApiKey"
-  | "listApiKeyProviders"
 > = {
   listModels: () => listModelOptions(),
   listRunnerModels: async () => {
-    const run = runOmpCommand(readyOmp().path, await serviceCwd(), MODELS_TIMEOUT_MS, await getApiKeyEnv());
+    const run = runOmpCommand(readyOmp().path, await serviceCwd(), MODELS_TIMEOUT_MS);
     const result = await run(["models", "--kind", "all", "--json"]);
     requireSuccess("omp models", result);
     return parseRunnerModels(result.stdout);
@@ -59,8 +57,7 @@ export const accountHandlers: HandlerGroup<
   // providerId 不可信：TerminalLogin.start 在 omp 的登录 provider 列表里查，不在就 reject、不起进程。
   startTerminalLogin: async (providerId) => {
     const outcome = await terminalLogin().start(parseProviderId(providerId));
-    // 凭据是别的进程写进去的：服务进程里 omp 缓存的认证状态是旧的，关掉让下次读到新的（同 applyKeyChange）。
-    if (outcome.ok) await serviceOmp.close();
+    if (outcome.ok) await applyKeyChange();
     return outcome;
   },
   cancelTerminalLogin: () => terminalLogin().cancel(),
@@ -82,12 +79,7 @@ export const accountHandlers: HandlerGroup<
     await serviceOmp.use((connection) => connection.request("logout", { providerId: id, credentialId: credential }));
   },
   saveApiKey: async (providerId, key) => {
-    await apiKeyStore().save(parseProviderId(providerId), parseApiKey(key));
+    await importApiKey(readyOmp().path, await serviceCwd(), parseProviderId(providerId), parseApiKey(key));
     await applyKeyChange();
   },
-  clearApiKey: async (providerId) => {
-    await apiKeyStore().clear(parseProviderId(providerId));
-    await applyKeyChange();
-  },
-  listApiKeyProviders: () => apiKeyStore().list(),
 };

@@ -12,7 +12,8 @@ import { buildOmpArgs, buildTspArgs } from "../src/main/omp/launch-args.ts";
 import { OmpConnection } from "../src/main/omp/omp-connection.ts";
 import { saveCustomProvider } from "../src/main/omp-config/models-file.ts";
 import { TaskPool } from "../src/main/tasks/task-pool.ts";
-import { requireSuccess, runOmpCommand } from "../src/main/usage/usage-service.ts";
+import { requireSuccess, type RunOmp } from "../src/main/usage/usage-service.ts";
+import { runCommand } from "../src/main/git/exec.ts";
 import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
 import { startFakeOpenAi, type FakeOpenAi } from "./fake-openai/server.ts";
 
@@ -58,6 +59,14 @@ async function listModelIds(omp: string, provider: string): Promise<string[]> {
   } finally {
     await connection.close(3_000);
   }
+}
+
+/** `omp <args>`，用临时 agent 目录。 */
+function ompCli(omp: string): RunOmp {
+  return async (args) => {
+    const result = await runCommand(omp, args, { cwd: scratch, env: ompEnv(), timeoutMs: 90_000 });
+    return { code: result.code, stdout: result.stdout.toString("utf8"), stderr: result.stderr };
+  };
 }
 
 /** 能力参数全部交给 omp 的模型。 */
@@ -208,7 +217,7 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
     );
     expect(outcome).toEqual({ ok: true });
 
-    const run = runOmpCommand(omp, scratch, 90_000, { PI_CODING_AGENT_DIR: agentDir });
+    const run = ompCli(omp);
     requireSuccess("omp models refresh", await run(["models", "refresh"]));
     const listed = await run(["models", "fake-disco"]);
     requireSuccess("omp models", listed);
@@ -252,7 +261,7 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
       "add",
     );
     expect(outcome).toEqual({ ok: true });
-    const run = runOmpCommand(omp, scratch, 90_000, { PI_CODING_AGENT_DIR: agentDir });
+    const run = ompCli(omp);
     const listed = await run(["models", "fake-meta", "--json"]);
     requireSuccess("omp models --json", listed);
     const parsed = JSON.parse(listed.stdout) as {
