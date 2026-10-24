@@ -79,6 +79,9 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await expect(page.getByTestId("custom-key")).toHaveAttribute("type", "text");
     await page.getByTestId("custom-fetch").click();
     await expect(page.getByTestId("custom-model-fake-chat")).toBeVisible();
+    // 拉取结果只用气泡说一句总数，对话框里不留一段文字。
+    await expect(page.getByTestId("toasts").getByText("拉取到 3 个模型")).toBeVisible();
+    await expect(page.getByTestId("custom-fetch-notice")).toHaveCount(0);
     await expect(page.getByTestId("custom-model-fake-chat")).not.toBeChecked();
     await expect(page.getByTestId("custom-selected-count")).toContainText("0 / 3");
     await expect(page.getByTestId("custom-save")).toBeDisabled(); // 一个都没勾

@@ -54,7 +54,7 @@ export const custom = {
   "form.key.env.tip": "models.yml gets the variable name; the key goes into .env in the agent folder.",
   "form.models": "Models",
   "form.models.fetch": "Fetch models",
-  "form.models.fetched": "Fetched {count} models, {added} of them new. Tick the ones you want and save.",
+  "form.models.fetched": { one: "Fetched {count} model", other: "Fetched {count} models" },
   "form.models.filter": "Filter",
   "form.models.add.placeholder": "Add a model id manually",
   "form.models.add": "Add",

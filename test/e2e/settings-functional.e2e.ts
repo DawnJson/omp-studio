@@ -303,6 +303,9 @@ test("用量对话框：近一年热力图读 omp 的 stats.db（先同步再读
     await refresh.click();
     await expect(refresh).toBeEnabled({ timeout: 180_000 });
     await expect(dialog.getByTestId("usage-quota-empty")).toBeVisible();
+    // 更新时间在标题行（↻ 左边），不在额度区里。
+    await expect(dialog.locator(".ui-dialog-head").getByTestId("usage-checked")).toHaveText("刚刚更新");
+    await expect(dialog.getByTestId("quota-section").getByTestId("usage-checked")).toHaveCount(0);
     // 读库是只读的：不存在我们写的东西，窗口之外的一天没出现。
     const heatmap = await page.evaluate(() => globalThis.studio.getUsageHeatmap(false));
     expect(heatmap.days).toHaveLength(3);

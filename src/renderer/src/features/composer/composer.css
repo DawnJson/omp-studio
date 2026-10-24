@@ -602,6 +602,17 @@ html[data-motion="reduced"] .ctx-usage-chev {
 .ui-dialog.usage-dialog[data-size] {
   --dialog-w: var(--dialog-w-xl);
 }
+/* 标题行右边、↻ 左边的"2 分钟前更新"（2026-10-24 起从额度区挪上来）：和 ↻ 一样高，竖直居中；离 ↻ 近一点，读成一组。 */
+.usage-dialog .usage-updated {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: var(--control-h-sm);
+  margin-right: calc(-1 * var(--space-2));
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
 .usage-dialog .qm {
   gap: var(--space-5);
 }

@@ -312,10 +312,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
           maxTokens: "",
         })),
       ]);
-      setNotice({
-        tone: "ok",
-        text: t("custom.form.models.fetched", { count: outcome.models.length, added: added.length }),
-      });
+      pushToast({ level: "info", message: t("custom.form.models.fetched", { count: outcome.models.length }) });
     } catch (error) {
       setNotice({ tone: "error", text: describeError(t, error) });
     } finally {
@@ -454,7 +451,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
             />
           </FormField>
         </div>
-        <FormField className="cp-models-field" label={t("custom.form.models")} help={t("custom.form.discovery.tip")}>
+        <FormField className="cp-models-field" label={t("custom.form.models")}>
           <CustomModelList
             rows={rows}
             onRows={setRows}

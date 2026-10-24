@@ -154,6 +154,7 @@ export function CustomModelList({
           />
           <span>{t("custom.form.discovery")}</span>
         </label>
+        <span className="cp-models-hint">{t("custom.form.discovery.tip")}</span>
         {rows.length > 12 && (
           <TextField
             size="sm"

@@ -64,11 +64,9 @@ function DailyUsage() {
 function Quota({ provider }: { provider: string | null }) {
   const t = useT();
   const quota = useUsageQuota();
-  const now = useNow(true);
   const accounts = [...(quota.data?.accounts ?? [])].sort(
     (a, b) => Number(b.provider === provider) - Number(a.provider === provider),
   );
-  const fetchedAt = quotaFetchedAt(accounts) ?? quota.at;
   return (
     <>
       {quota.error !== null && (
@@ -80,11 +78,6 @@ function Quota({ provider }: { provider: string | null }) {
       {quota.data !== null && accounts.length === 0 && (
         <p className="ctx-note" data-testid="usage-quota-empty">
           {t("usage.quota.empty")}
-        </p>
-      )}
-      {quota.data !== null && fetchedAt !== null && accounts.length > 0 && (
-        <p className="uq-muted" data-testid="usage-checked">
-          {updatedText(t, fetchedAt, now)}
         </p>
       )}
       {accounts
@@ -123,18 +116,25 @@ function UsageDialogBody({ provider, open, onClose }: { provider: string | null;
       testId="usage-dialog"
       title={t("composer.usage.overview")}
       headAction={
-        <IconButton
-          label={t("usage.refresh")}
-          tip={updated === "" ? t("usage.refresh") : `${t("usage.refresh")} · ${updated}`}
-          disabled={quota.busy || heatmap.busy}
-          testId="usage-refresh"
-          onClick={() => {
-            void loadQuota(true);
-            void loadHeatmap();
-          }}
-        >
-          <Restart size={14} />
-        </IconButton>
+        <>
+          {updated !== "" && (
+            <span className="usage-updated" data-testid="usage-checked">
+              {updated}
+            </span>
+          )}
+          <IconButton
+            label={t("usage.refresh")}
+            tip={t("usage.refresh")}
+            disabled={quota.busy || heatmap.busy}
+            testId="usage-refresh"
+            onClick={() => {
+              void loadQuota(true);
+              void loadHeatmap();
+            }}
+          >
+            <Restart size={14} />
+          </IconButton>
+        </>
       }
     >
       <div className="qm">

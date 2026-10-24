@@ -60,6 +60,14 @@
   align-items: center;
 }
 
+/* 自动发现开关右边的一句说明：剩下的宽度都给它，放不下就在自己这格里折行，不把"已选 n / m"挤到下一行。 */
+.cp-models-hint {
+  flex: 1 1 14em;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-3);
+}
 .cp-count {
   margin-left: auto;
   font-size: var(--fs-xs);

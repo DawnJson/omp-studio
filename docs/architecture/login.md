@@ -57,6 +57,7 @@ omp-studio 的做法（`src/main/omp-config/model-defaults.ts`）：
 - 写模型角色（`setModelRole(role, model)`；入口是设置 → 模型的角色表、模型选择对话框里点角色后的“应用”）：**一律**经 `omp config set modelRoles` 写全局（先读出全局角色表再改一项，去掉最后一个角色时 `omp config reset modelRoles`）。仓库所有者 2026-10-22 定：给角色指定模型就是全局的事；项目 `.omp/config.yml` 自带 `modelRoles.<role>` 的项目照旧用项目的值（omp 的覆盖规则），omp-studio 不写项目文件。2026-10-18 到 10-22 曾在生效的 `modelRoleStorage` 是 `project` 时改项目文件，已去掉；`modelRoleStorage` 只影响 omp 终端的模型选择器，设置页里它在“高级”。
 - 草稿胶囊里改模型 / 思考强度（“用于此任务”、`Alt T`）**不写配置**：选择按草稿键记在渲染进程内存里（`composer/draft-model-choice.ts`），发第一条时随 `createTask({ model, thinkingLevel })` 进任务记录，任务以 `--model` / `--thinking` 起 omp，只对这个会话生效；没改的项不传，跟 omp 的默认值。实测（2026-10-22，omp 18.12.6，`test/e2e/model-picker.e2e.ts`）：配置里 `default: table-local/table-one`，草稿里选 table-two + high 发第一条，任务胶囊是 table-two·high，`config.yml` 没变，新草稿回到 table-one。
 - 写思考强度：`omp config set defaultThinkingLevel`，永远是全局（omp 也只有角色走 `modelRoleStorage`）；入口只有设置 → 模型。
+- `defaultThinkingLevel` 是角色没写强度时的兜底，不是多余的一项。实测（2026-10-24，omp 18.12.6，临时 agent 目录 + rpc-ui `get_state`）：`defaultThinkingLevel: high`、`modelRoles.default: fake/m1` → `high`；角色写成 `fake/m1:low` → `low`（角色自己的优先）；改成 `minimal` → `minimal`。所以设置 → 模型里角色强度选“跟随默认”时，用的就是这一项。
 
 ## 角色和备用模型的候选
 

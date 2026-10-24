@@ -52,7 +52,7 @@ export const custom = {
   "form.key.env.tip": "models.yml 只写变量名，key 写进 agent 目录的 .env。",
   "form.models": "模型",
   "form.models.fetch": "拉取模型",
-  "form.models.fetched": "拉取到 {count} 个模型，其中 {added} 个是新的，勾选后保存。",
+  "form.models.fetched": "拉取到 {count} 个模型",
   "form.models.filter": "筛选",
   "form.models.add.placeholder": "手动添加模型 id",
   "form.models.add": "添加",
