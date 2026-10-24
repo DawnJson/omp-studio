@@ -51,7 +51,8 @@ import type { BuiltinCommand, TaskCommand } from "./omp-output/index.ts";
 import type { DiscoverEntry, DoctorCheck, PluginAction, PluginConfig, PluginsSnapshot } from "./omp-output/plugins.ts";
 import type { SessionToggles } from "./omp-output/toggles.ts";
 import type { SshHost, SshHostInput, SshScope } from "./omp-output/ssh.ts";
-import type { SkillEntry } from "./omp-output/skills.ts";
+import type { SkillCandidate, SkillEntry, SkillScope, SkillTarget } from "./omp-output/skills.ts";
+import type { McpEditInput, McpEditOutcome, McpEditScope, McpServerFile } from "./mcp-edit.ts";
 import type { AgentMessage } from "./omp-wire/rpc-wire.generated.ts";
 import type { BtwHistoryRecord, BtwUiEvent } from "./btw.ts";
 import type { DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
@@ -1267,8 +1268,34 @@ export interface StudioInvokeApi {
   /** 添加一台主机；scope 为 project 时 projectId 必须非空。返回 omp 的结果句；omp 拒绝时 reject，message 是它的原话。 */
   addSshHost(input: SshHostInput, projectId: ProjectId | null): Promise<{ text: string }>;
   removeSshHost(name: string, scope: SshScope, projectId: ProjectId | null): Promise<{ text: string }>;
-  /** omp 当前能用的 skill（rpc-ui 的 get_available_commands，source = skill）：projectId 为 null 是用户级，非空时再加上该项目目录里的。只读。 */
+  /**
+   * `omp skill list --json` 的结果（src/main/integrations/skills.ts）：projectId 为 null 是用户级，非空时再加上该项目目录里的；
+   * 被 `disabledExtensions` 停用的 skill 补成"已停用"行。
+   */
   listSkills(projectId: ProjectId | null): Promise<SkillEntry[]>;
+  /** 停用 / 启用：经 `omp config get|set disabledExtensions` 只加减 `skill:<name>`（用户配置，对新任务生效）。 */
+  setSkillEnabled(name: string, enabled: boolean): Promise<void>;
+  /** 把 skill 文件夹移进回收站：主进程按名字和范围重新取 `baseDir` 并校验（插件带的 skill 会 reject）；scope 为 project 时 projectId 必须非空。 */
+  removeSkill(name: string, scope: SkillScope, projectId: ProjectId | null): Promise<void>;
+  /** 弹出选文件夹对话框并校验 SKILL.md；取消返回 null，不合法 reject（message 是原因）。路径留在主进程。 */
+  pickSkillFolder(): Promise<SkillCandidate | null>;
+  /** 把 `pickSkillFolder` 选中的文件夹复制到目标；scope 为 project 时 projectId 必须非空。同名文件夹已存在会 reject。返回 skill 名字。 */
+  addSkill(
+    token: string,
+    target: SkillTarget,
+    scope: SkillScope,
+    projectId: ProjectId | null,
+  ): Promise<{ name: string }>;
+  // 设置 → 集成 → MCP 编辑：主进程直接读写 omp 自己的 mcp.json（用户级 agent 目录、项目 `.omp/`）里的 `mcpServers.<name>`（src/main/integrations/mcp-file.ts）。
+  // 文件路径由主进程按范围算；scope 为 project 时 projectId 必须非空。token 的值不返回，只给"有没有"。
+  /** 编辑表单的初值。 */
+  getMcpServerFile(
+    name: string,
+    scope: McpEditScope,
+    projectId: ProjectId | null,
+  ): Promise<McpEditOutcome<McpServerFile>>;
+  /** 只改表单管的字段；解析不了的文件、找不到的服务器不写，返回错误码。 */
+  saveMcpServerFile(input: McpEditInput, projectId: ProjectId | null): Promise<McpEditOutcome<null>>;
   setReduceMotion(on: boolean): Promise<void>;
   setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
   setSoundOnDone(on: boolean): Promise<void>;
@@ -1571,6 +1598,12 @@ export const invokeNames = {
   addSshHost: true,
   removeSshHost: true,
   listSkills: true,
+  setSkillEnabled: true,
+  removeSkill: true,
+  pickSkillFolder: true,
+  addSkill: true,
+  getMcpServerFile: true,
+  saveMcpServerFile: true,
   setReduceMotion: true,
   setEnterWhileRunning: true,
   setSoundOnDone: true,

@@ -1,25 +1,29 @@
-// 设置 → 集成 → SSH 主机、Skills 的 IPC：SSH 校验参数后转调 src/main/integrations/ssh.ts；Skills 读 omp rpc-ui 的命令列表。
+// 设置 → 集成 → SSH 主机、Skills 的 IPC：参数校验后转调 src/main/integrations/ssh.ts、skills.ts（都经 omp 自己的命令，skill 文件夹的复制 / 回收站是 AGENTS.md 批准的例外）。
 // MCP / 记忆 / 工具 / 更新日志走 runBuiltin（command-handlers.ts），这里没有。
+import os from "node:os";
+import { dialog, shell } from "electron";
 import type { HandlerGroup, ProjectId } from "../../shared/ipc.ts";
-import { skillsFromCommands, type SkillEntry } from "../../shared/omp-output/skills.ts";
 import type { SshHostInput } from "../../shared/omp-output/ssh.ts";
+import { resolveAgentDir } from "../history/session-index.ts";
+import { listSkillEntries, removeSkill, setSkillEnabled, SkillPicker } from "../integrations/skills.ts";
 import { checkSshName, listSshHosts, runSshWrite, sshAddArgs, sshRemoveArgs } from "../integrations/ssh.ts";
-import type { OmpConnection } from "../omp/omp-connection.ts";
-import { projectOmp } from "../service/project-omp-instance.ts";
 import { readyOmp } from "../omp-manager/index.ts";
-import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
+import { serviceCwd } from "../service/service-omp.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { runOmpCommand, type RunOmp } from "../usage/usage-service.ts";
+import { getMainWindow } from "../window/main-window.ts";
 import { IpcValidationError, parseBoolean, parseOneOf, parseProjectId, parseRecord, parseString } from "./validate.ts";
 
 const SSH_TIMEOUT_MS = 30_000;
 
 /** projectId 为 null：中性目录 userData/service（不混进任何项目层配置）；否则主进程记录里的项目目录，不用渲染进程传的路径。 */
-async function ssh(projectId: ProjectId | null): Promise<RunOmp> {
+async function ompIn(projectId: ProjectId | null): Promise<RunOmp> {
   const status = readyOmp();
   const cwd = projectId === null ? await serviceCwd() : (await getTaskPool()).projectPath(projectId);
   return runOmpCommand(status.path, cwd, SSH_TIMEOUT_MS);
 }
+
+const skillPicker = new SkillPicker();
 
 function optionalProjectId(value: unknown): ProjectId | null {
   return value === null ? null : parseProjectId(value);
@@ -50,33 +54,74 @@ function parseSshHostInput(value: unknown): SshHostInput {
   };
 }
 
-export const integrationsHandlers: HandlerGroup<"listSshHosts" | "addSshHost" | "removeSshHost" | "listSkills"> = {
-  listSshHosts: async (projectId) => listSshHosts(await ssh(optionalProjectId(projectId))),
+export const integrationsHandlers: HandlerGroup<
+  | "listSshHosts"
+  | "addSshHost"
+  | "removeSshHost"
+  | "listSkills"
+  | "setSkillEnabled"
+  | "removeSkill"
+  | "pickSkillFolder"
+  | "addSkill"
+> = {
+  listSshHosts: async (projectId) => listSshHosts(await ompIn(optionalProjectId(projectId))),
   listSkills: async (projectId) => {
-    const request = (connection: OmpConnection) => connection.request("get_available_commands");
-    const user = skillsFromCommands((await serviceOmp.use(request)).commands, "user");
     const project = optionalProjectId(projectId);
-    if (project === null) return user;
-    // omp 的条目不带来源：用户进程（中性目录）里也有的算用户级，只在项目目录里出现的算项目级。
-    const userNames = new Set(user.map((skill) => skill.name));
-    const inProject = (await projectOmp.use((await getTaskPool()).projectPath(project), request)).commands;
-    return skillsFromCommands(inProject, "project").map((skill): SkillEntry =>
-      userNames.has(skill.name) ? { ...skill, scope: "user" } : skill,
+    // 用户级在中性目录里列；选了项目时在项目目录里列（用户级 + 项目级），停用补行始终读用户配置。
+    const projectPath = project === null ? null : (await getTaskPool()).projectPath(project);
+    return listSkillEntries(await ompIn(project), await ompIn(null), os.homedir(), projectPath);
+  },
+  setSkillEnabled: async (name, enabled) =>
+    setSkillEnabled(await ompIn(null), parseString(name, "name", 200), parseBoolean(enabled, "enabled")),
+  removeSkill: async (name, scope, projectId) => {
+    const parsedScope = parseOneOf(scope, "scope", ["user", "project"] as const);
+    const project = optionalProjectId(projectId);
+    if (parsedScope === "project" && project === null) throw new IpcValidationError("项目范围的 skill 需要 projectId");
+    const target = parsedScope === "project" ? project : null;
+    await removeSkill(
+      await ompIn(target),
+      parseString(name, "name", 200),
+      parsedScope,
+      target === null ? null : (await getTaskPool()).projectPath(target),
+      (folder) => shell.trashItem(folder),
     );
+  },
+  pickSkillFolder: async () => {
+    const window = getMainWindow();
+    const options = { properties: ["openDirectory" as const] };
+    const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options);
+    const dir = result.filePaths[0];
+    if (result.canceled || dir === undefined) return null;
+    return skillPicker.pick(dir);
+  },
+  addSkill: async (token, target, scope, projectId) => {
+    const parsedScope = parseOneOf(scope, "scope", ["user", "project"] as const);
+    const project = optionalProjectId(projectId);
+    if (parsedScope === "project" && project === null) throw new IpcValidationError("项目范围的 skill 需要 projectId");
+    const { name } = await skillPicker.add(
+      parseString(token, "token", 100),
+      parseOneOf(target, "target", ["shared", "omp"] as const),
+      {
+        home: os.homedir(),
+        agentDir: resolveAgentDir(),
+        project: parsedScope === "project" && project !== null ? (await getTaskPool()).projectPath(project) : null,
+      },
+    );
+    return { name };
   },
   addSshHost: async (input, projectId) => {
     const parsed = parseSshHostInput(input);
     const project = optionalProjectId(projectId);
     if (parsed.scope === "project" && project === null) throw new IpcValidationError("项目范围的主机需要 projectId");
     // 用户范围一律在中性目录里跑，不让项目目录里的配置影响写到哪里。
-    const run = await ssh(parsed.scope === "project" ? project : null);
+    const run = await ompIn(parsed.scope === "project" ? project : null);
     return { text: await runSshWrite(run, sshAddArgs(parsed)) };
   },
   removeSshHost: async (name, scope, projectId) => {
     const parsedScope = parseOneOf(scope, "scope", ["user", "project"] as const);
     const project = optionalProjectId(projectId);
     if (parsedScope === "project" && project === null) throw new IpcValidationError("项目范围的主机需要 projectId");
-    const run = await ssh(parsedScope === "project" ? project : null);
+    const run = await ompIn(parsedScope === "project" ? project : null);
     return { text: await runSshWrite(run, sshRemoveArgs(checkSshName(parseString(name, "name", 64)), parsedScope)) };
   },
 };

@@ -75,6 +75,38 @@ export interface MarketplaceSource {
   source: string;
 }
 
+/**
+ * 预设市场（Anthropic 官方文档 https://code.claude.com/docs/en/plugins/anthropic-marketplaces ）。
+ * `source` 是传给 `marketplace add` 的 `owner/repo`；`name` 是 omp 18.12.6 加完后 `marketplace list` 里的市场名（实测，
+ * `list` 的来源列原样是加的时候写的 `owner/repo`）。`anthropics/claude-code` 是演示市场，插件与官方重复，不预设。
+ */
+export const PRESET_MARKETPLACES: readonly {
+  source: string;
+  name: string;
+  label: { "zh-CN": string; en: string };
+}[] = [
+  {
+    source: "anthropics/claude-plugins-official",
+    name: "claude-plugins-official",
+    label: { "zh-CN": "官方", en: "Official" },
+  },
+  {
+    source: "anthropics/claude-plugins-community",
+    name: "claude-community",
+    label: { "zh-CN": "社区", en: "Community" },
+  },
+  {
+    source: "anthropics/knowledge-work-plugins",
+    name: "knowledge-work-plugins",
+    label: { "zh-CN": "知识工作", en: "Knowledge work" },
+  },
+  {
+    source: "anthropics/skills",
+    name: "anthropic-agent-skills",
+    label: { "zh-CN": "Agent Skills", en: "Agent Skills" },
+  },
+];
+
 /** `listPlugins` 的结果：已装的插件 + 配置的市场。 */
 export interface PluginsSnapshot extends PluginList {
   marketplaces: readonly MarketplaceSource[];

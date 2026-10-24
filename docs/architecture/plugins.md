@@ -54,6 +54,19 @@ IPC：`listPlugins(projectId | null)`、`discoverPlugins(marketplace)`、`getPlu
 
 单测：`test/omp-plugins-output.test.ts`（样本解析、动作校验与参数）、`test/plugin-cli.test.ts`（假的 `RunOmp` 回放样本：串行、错误原话、空状态）。
 
+## 预设市场
+
+`PRESET_MARKETPLACES`（`src/shared/omp-output/plugins.ts`）列四个 Anthropic 市场，来源文档 https://code.claude.com/docs/en/plugins/anthropic-marketplaces 。omp 18.12.6 实测（临时 HOME + `PI_CODING_AGENT_DIR`）：`marketplace add <owner/repo>` 后 `marketplace list` 的来源列原样回显 `owner/repo`，市场名取自仓库 `.claude-plugin/marketplace.json` 的 `name`。
+
+| 来源（`marketplace add` 的参数） | omp 里的市场名 | 界面标签 | 插件数（2026-10-24） |
+| --- | --- | --- | --- |
+| `anthropics/claude-plugins-official` | `claude-plugins-official` | 官方 | 315 |
+| `anthropics/claude-plugins-community` | `claude-community` | 社区 | 2283 |
+| `anthropics/knowledge-work-plugins` | `knowledge-work-plugins` | 知识工作 | 123 |
+| `anthropics/skills` | `anthropic-agent-skills` | Agent Skills | 5 |
+
+不预设 `anthropics/claude-code`（演示市场，插件与官方重复）。"已添加"判断：市场名等于预设名，或来源（忽略大小写）等于预设来源。
+
 ## 已知限制
 
 - 项目范围见上节；npm / link 插件的 features / config 只在用户范围（omp 对它们读写用户 lockfile）。
@@ -61,18 +74,24 @@ IPC：`listPlugins(projectId | null)`、`discoverPlugins(marketplace)`、`getPlu
 - 安装拉仓库 / 装依赖，超时给了 10 分钟，超时会杀进程并报错。
 - 实测中 `install p1@nope`（不存在的市场）在 Windows 上报了 `EPERM … symlink`，不是 "not found"；原话照样显示。
 
-## Skills（设置 → 集成与插件 → Skills，只读）
+## Skills（设置 → 集成与插件 → Skills：列出、停用 / 启用、删除、添加）
 
-实测版本：omp 18.12.6（临时 `PI_CODING_AGENT_DIR` + 临时项目目录，用后已删）。界面规格见 `spec.md` §4.19 集成与插件那一行。
+实测版本：omp 18.12.6（2026-10-24；临时 `PI_CODING_AGENT_DIR` + 临时 `USERPROFILE` / `HOME` + 临时项目目录，用后已删）。界面规格见 `spec.md` §4.19 的 Skills 条。2026-10-24 前这里是只读的（数据来自 rpc-ui 的 `get_available_commands`，当时误以为 `omp skill list` 只列注册表装的包）；改成现在的做法后 `skillsFromCommands` 和"用户进程里也有就算用户级"的比对已删。
 
-**skill 从哪来**（`omp://skills.md`）：`<根>/skills/<名字>/SKILL.md`，只认一层；根包括用户的 `~/.omp/agent/skills`（`PI_CODING_AGENT_DIR` 下的 `skills/`）、项目的 `.omp/skills`、Claude / Codex / agents 等别家工具的目录（`~/.claude/skills` 等，各有开关）、市场插件和 `omp skill install` 装的包（Skillshare，`skills.lock.json`）、`skills.customDirectories`、MCP 服务器广告的 `skill://`。重名时高优先级的保留原名，其余变成 `<命名空间>/<名字>`。`skills.enabled` 为 false 时一个都没有。
+**skill 从哪来**（`omp://skills.md`）：`<根>/skills/<名字>/SKILL.md`，只认一层；根包括用户的 `~/.omp/agent/skills`（`PI_CODING_AGENT_DIR` 下的 `skills/`）、`~/.agents/skills`、项目的 `.omp/skills` 和 `.agents/skills`、Claude / Codex 等别家工具的目录（各有开关）、市场插件和 `omp skill install` 装的包（Skillshare，`skills.lock.json`）、`skills.customDirectories`、MCP 服务器广告的 `skill://`。重名时高优先级的保留原名，其余变成 `<命名空间>/<名字>`。provider 有 `native` / `agents` / `claude` / `codex` / `opencode` / `github`（都是用户放进 `skills/` 的文件夹），以及插件类的 `omp-plugins` / `agent-plugins` / `claude-plugins` / `skillshare` / `omp-managed`（自动学习，在 `managed-skills/`）。
 
-**omp 有没有列出的官方途径**：
+**读：`omp skill list --json`**（实测）：输出 `{ skills: [{ name, description, filePath, baseDir, source, hide }], warnings: [] }`，列出**所有**发现到的 skill，不只是 Skillshare 注册表装的（`skills.omp.sh` 注册表基本是空的，不做注册表安装）。`source` 是 `<provider>:<level>`，如 `native:user`（agent 目录 `skills/`）、`agents:user`（`~/.agents/skills`）、`agents:project`、`native:project`。本机真实数据：22 个，19 个 `agents:user`、3 个 `native:user`。
 
-- `get_available_commands`（rpc-ui，TSP 任务的 `/` 补全也用它）：`source: "skill"` 的条目，`name` 是 `skill:<名字>`，另有 `description`、`input.hint`。**没有文件路径、来源层级、启用状态**。实测 21 个条目（用户目录 + 项目目录里放的测试 skill 都在，另有本机 `~/.claude/skills` 里的）。需要 `skills.enableSkillCommands`（默认开）；关掉后这条路里没有 skill。
-- `omp skill list`（`--json`）只列 Skillshare 注册表装的包，看不到手写的 skill，所以不用。
-- 没有 `omp skills` 命令，没有启用 / 停用 / 删除某个 skill 的命令或 RPC（只有 `skills.ignoredSkills`、`disabledExtensions` 这类配置，不是 skill 的操作）。所以卡片只读，不做“打开所在文件夹”（条目没给路径，不自己猜目录）。
+**cwd 怎么选**（项目级发现会沿 cwd 往祖先目录找，所以 cwd 决定来源标注）：实测 cwd 在家目录**下面**（`%TEMP%`、`%APPDATA%\omp-studio\service`、`C:\`）时，`~/.agents/skills` 都标 `agents:user`，没有被标成 project；临时 `HOME` 下的 `<home>/ud/service` 同样是 `agents:user` + `native:user`，项目目录 `<home>/proj` 里再多出 `agents:project` / `native:project`。cwd **就是**家目录时，`~/.codex/skills` 等 16 个被标成 `codex:project`。所以用户范围在中性目录（`serviceCwd()` = `userData/service`）里跑，项目范围在项目目录里跑（用户级 + 项目级都在，靠 `source` 的后缀区分）；`level` 只按 `:project` 后缀判断，其余算用户级。
 
-**实现**：IPC `listSkills(projectId | null)`（`ipc/integrations-handlers.ts`）：用户范围向服务进程（`serviceOmp`，cwd 是 `userData/service`，没有项目层）取；项目范围向该项目目录的短命 rpc-ui（`projectOmp`）取。解析在 `shared/omp-output/skills.ts`（`skillsFromCommands`）。范围徽标是比对出来的：项目目录的列表里，服务进程列表也有的名字算 `用户（全局）`，只在项目里出现的算 `项目`（omp 不给来源）。[推测] 项目 skill 与用户 skill 重名时 omp 会把其中一个改成命名空间名，不会误判；项目范围的 e2e 没有覆盖，只实测过项目目录的 rpc-ui 列表里能看到项目 skill。
+**停用 / 启用**：`disabledExtensions` 数组里放 `skill:<name>`（omp 自己的 `/extensions` 面板也改这个键；对原名和最终名都生效）。**被停用的 skill 不再出现在 `omp skill list --json` 里**（实测：配置 `["skill:aa","context-file:user:X.md"]` 后，列表里没有 `aa`，其余照旧），所以主进程把配置里的 `skill:<name>` 补成"已停用"行（只有名字）。写：`omp config get --json disabledExtensions` 读出整个数组（这个键还装 `context-file:…`、`extension-module:…`），只加减 `skill:<name>`，别的条目按原顺序原样 `omp config set --json disabledExtensions -- '<JSON 数组>'` 写回；没变化不写。读写都在中性目录里跑。**项目层写不了**：`omp config set` 只写用户配置（`config.yml`，没有 `--scope`、没有项目层；项目的 `.omp/config.yml` 能覆盖这个数组——数组设置被更高优先级的层整个替换、不合并，`omp://context-files.md`），studio 不自己改项目文件（AGENTS.md），所以项目层 skill 的开关禁用、悬停说明；用户层（含停用补行）的开关写用户配置。已知限制：用户配置里停用的名字，在项目里同名的项目层 skill 也会被停用（按名字匹配）；项目的 `.omp/config.yml` 自己设了 `disabledExtensions` 时会盖过用户的，界面不知道。
 
-**测试**：`test/omp-skills-output.test.ts`；e2e `test/e2e/settings-functional.e2e.ts` 的 “Skills 分组”：agent 目录里放 `skills/e2e-probe-skill/SKILL.md`（应用启动前写好，omp 启动时才发现 skill），用户目录指到空目录，断言行、范围徽标、说明，中英文 × 900/1200 宽 `expectNoOverflow`。
+**删除**：渲染进程只传 `name` + `scope`（+ projectId）。主进程重新跑 `omp skill list --json`（用户级在中性目录、项目级在项目目录），按名字和层级找到条目，校验：provider 不是插件类；`baseDir` 是绝对路径且上一级目录叫 `skills`（`…/skills/<目录>`）；`baseDir/SKILL.md` 是文件。通过后 `shell.trashItem(baseDir)`（整个文件夹进回收站，不直接删）。列表给每行带 `removable`（同一套校验）、`folder`（脱敏路径，家目录写成 `~`，只用于确认框显示）、`shared`（provider 是 `agents`，确认框多一句其他 agent 工具也会失去它）。
+
+**添加**：`pickSkillFolder`（主进程 `dialog.showOpenDialog`，路径留在主进程，只记最近一次的选择并给 token）：读文件夹里的 `SKILL.md`，frontmatter（YAML，兼容 BOM / CRLF，用 `yaml` 解析）必须有非空的 `name` 和 `description`；`name` 会成为目标文件夹名，所以不允许 `/` `\`（omp 保留给命名空间，`omp://skills.md`：原名含这两个字符会被 omp 拒绝）、Windows 不允许的字符 `<>:"|?*`、控制字符、`.` `..`、以点或空格结尾、超过 100 字符。`addSkill(token, target, scope, projectId)`：目标 `shared` = `~/.agents/skills`（项目：`<项目>/.agents/skills`），`omp` = agent 目录 `skills/`（项目：`<项目>/.omp/skills`）；复制前重读一次 `SKILL.md`（名字变了就拒绝），目标 `<root>/<name>` 已存在（`lstat`）就拒绝，目标在被添加的文件夹里面也拒绝；`mkdir -p` 根目录后 `fs.cp(src, dest, { recursive: true, errorOnExist: true, force: false })`。这是 AGENTS.md "omp 的边界"里 2026-10-24 批准的例外（写进 skill 文件夹，别的不写）。
+
+**让运行中的任务看到**：skill 在 omp 会话启动时发现，没有文件监视；`omp://marketplace.md` 说 `/reload-plugins` 会刷新 skills、斜杠命令、子代理和 MCP。添加 / 停用 / 启用 / 删除后 studio 显示插件区同一条 `plugins.reload.*` 提示（`plugins-store.ts` 的 `requestReload`），点了对空闲任务发 `/reload-plugins`；[推测] 它也会重读 `disabledExtensions` 和新增 / 删掉的 skill 文件夹，没有逐项实测；不点的话新任务（新的 omp 进程）一定读到最新状态。
+
+**实现**：IPC `listSkills(projectId | null)` / `setSkillEnabled(name, enabled)` / `removeSkill(name, scope, projectId)` / `pickSkillFolder()` / `addSkill(token, target, scope, projectId)`（`ipc/integrations-handlers.ts`，参数校验后转调 `src/main/integrations/skills.ts`——不 import electron，回收站函数和 omp 执行器注入，单测直接用；依赖 electron 的只有 handler 里的 `dialog` 和 `shell.trashItem`）。解析在 `shared/omp-output/skills.ts`（`parseSkillList`、`parseSource`、`parseDisabledExtensions`、`withSkillEnabled`）。
+
+**测试**：`test/omp-skills-output.test.ts`（解析、`disabledExtensions` 的加减）、`test/integrations-skills.test.ts`（真实临时目录，路径带空格和中文：列表和补行、停用 / 启用的写回内容、删除校验、frontmatter 校验、复制、同名拒绝、token）；e2e `test/e2e/settings-functional.e2e.ts` 的 “Skills 分组”（agent 目录里放 `skills/e2e-probe-skill/SKILL.md`，断言行、说明，中英文 × 900/1200 宽 `expectNoOverflow`）和 “Skills 添加（共用 / 只有 omp）、停用与启用、删除进回收站”（`USERPROFILE` / `HOME` / `PI_CODING_AGENT_DIR` 全在临时目录，选文件夹对话框用 `app.evaluate` 打桩；删除是真的进系统回收站，里面只有这个临时 skill）。项目范围的添加 / 删除 e2e 没有覆盖，只有单测覆盖了项目目录的路径计算和 `skill list` 的层级判断。

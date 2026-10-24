@@ -63,3 +63,20 @@
   grid-template-columns: minmax(0, 1fr) 112px;
   gap: var(--space-3);
 }
+
+/* 添加 skill：选文件夹按钮 + 选中后的文件夹名、skill 名、说明（都可能很长） */
+.ig-pick {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  gap: var(--space-2);
+}
+
+.ig-picked {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  max-width: 100%;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}

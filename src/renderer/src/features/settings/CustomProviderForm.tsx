@@ -98,13 +98,27 @@ interface KeyFieldsProps {
   source: EnvSource | null;
   /** 输入框 `testId`；环境变量的值是 `${testId}-env-value`，显示切换是 `${testId}-toggle`。 */
   testId: string;
+  /** 直接填写那一格的读屏名和说明；默认是自定义 provider 的 key（MCP 的 token 另给）。 */
+  literalLabel?: string | undefined;
+  literalTip?: string | undefined;
 }
 
 /**
  * key 分段下面的输入框和一行说明：直接填 → 一个遮住的框；环境变量 → 变量名 + 值两个框；保持不变 / 无需 key → 没有。
  * 变量已经设好时提示：`.env` 里已有 → 值留空保持；系统环境变量里有 → omp 用系统的。
  */
-export function KeyFields({ mode, modes, text, onText, envValue, onEnvValue, source, testId }: KeyFieldsProps) {
+export function KeyFields({
+  mode,
+  modes,
+  text,
+  onText,
+  envValue,
+  onEnvValue,
+  source,
+  testId,
+  literalLabel,
+  literalTip,
+}: KeyFieldsProps) {
   const t = useT();
   const [show, setShow] = useState(false);
   const noop = () => undefined;
@@ -129,12 +143,12 @@ export function KeyFields({ mode, modes, text, onText, envValue, onEnvValue, sou
             type={show ? "text" : "password"}
             autoComplete="off"
             value={live ? text : ""}
-            aria-label={t("custom.form.key")}
+            aria-label={literalLabel ?? t("custom.form.key")}
             testId={live ? testId : undefined}
             onChange={live ? onText : noop}
             trailing={toggle(live)}
           />
-          <p className="ui-help">{t("custom.form.key.literal.tip")}</p>
+          <p className="ui-help">{literalTip ?? t("custom.form.key.literal.tip")}</p>
         </>
       );
     if (which === "env")

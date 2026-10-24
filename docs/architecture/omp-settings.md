@@ -134,6 +134,27 @@
 - **`test <name>`**：成功 `Server "real" connected (1 tools).\n  - ping`；失败 `Connection to "a" failed: MCP subprocess closed stdout before responding`。
 - **`reauth` / `unauth` / `reconnect`**：rpc-ui 只回 `/mcp reauth requires OAuth or browser flows only available in the TUI client.`（终端版 TUI 的帮助里才有 `reauth`、`unauth`、`--token`）。所以卡片没有这三个按钮，底部说明去终端做；`MCP_SIMPLE_OPS` 也不收它们。`/mcp reload` → `MCP runtime reload requested.`：改完配置，已打开的任务要在它自己的会话里 reload（omp 的 mcp-config.md）。
 
+### 编辑 MCP 服务器（直接改 `mcp.json`，omp 18.12.6 实测 2026-10-24）
+
+omp 只有 `/mcp add|remove|enable|disable|test|list|reload…`，没有修改命令（`omp mcp …` 这个 CLI 也没有：`omp mcp add` 被当成 `launch` 的消息，`--url` 等报 unknown flags）。仓库所有者 2026-10-24 批准的例外（AGENTS.md「omp 的边界」第三项）：主进程直接改 omp 自己的 MCP 文件里的 `mcpServers.<name>`。代码：`src/main/integrations/mcp-file.ts`（读 / 改 / 写，纯 Node，不 import electron）、`src/main/ipc/mcp-handlers.ts`（校验参数、按范围算路径）、`src/shared/mcp-edit.ts`（类型）、界面 `McpForm.tsx` 的 `edit` 模式。
+
+- **`/mcp add` 写出的文件形状**（rpc-ui，临时 `PI_CODING_AGENT_DIR`，`/mcp add r1 --scope user --url http://127.0.0.1:9/mcp --transport http --token SECRET`、`/mcp add s1 --scope user -- npx -y @scope/server`）：2 空格缩进、LF、**没有末尾换行**，第一个键是 `$schema`（`https://raw.githubusercontent.com/can1357/oh-my-pi/main/packages/coding-agent/src/config/mcp-schema.json`）：
+  ```json
+  {
+    "$schema": "https://raw.githubusercontent.com/can1357/oh-my-pi/main/packages/coding-agent/src/config/mcp-schema.json",
+    "mcpServers": {
+      "r1": { "type": "http", "url": "http://127.0.0.1:9/mcp", "headers": { "Authorization": "Bearer SECRET" } },
+      "s1": { "type": "stdio", "command": "npx", "args": ["-y", "@scope/server"] }
+    }
+  }
+  ```
+  （上面为了短写成了一行，文件里是逐层缩进的。）所以 `--token` 写的是 **`headers.Authorization = "Bearer <token>"`**，没有别的字段；编辑时保持同一写法。
+- **文件在哪**：用户级 `<agent 目录>/mcp.json`（`PI_CODING_AGENT_DIR`，没设时 `~/.omp/agent`，`resolveAgentDir`），项目级 `<项目>/.omp/mcp.json`。路径由主进程按范围算，渲染进程只传名字、范围、字段（项目范围再传 projectId，目录取自主进程的项目记录）。别的工具的配置（`.claude/`、`.cursor/`…）只读：`/mcp list` 的范围词不是 `user` / `project` 的行编辑入口禁用。
+- **读**（`getMcpServerFile`）：只返回表单要的字段（stdio 的命令 + 参数；远程的 URL、http / sse；`headers.Authorization` 在不在，值不返回）。没写 `type` 的按 omp 发现时的推断（有 `url` = http，否则 stdio）。
+- **写**（`saveMcpServerFile`）：`JSON.parse` 失败（或顶层不是对象）不写；只改这一项里的 `command` / `args`（stdio，原来没有 `args` 又没填参数就不加）或 `url` / `type`（选 http 且原来没写 `type` 时不凭空加）/ `headers.Authorization`（键名按大小写不敏感匹配，保持原位；去掉时只删它，headers 被这次删空才删 `headers`）；token `keep` 不动。去掉 BOM 解析、记住换行风格（含 `\r\n` 就算 CRLF）和缩进（第一个缩进行的前导空白；单行文件不缩进），`JSON.stringify` 之后恢复 BOM、CRLF、末尾换行；改完和原文一样不写。写前 `copyFile` 成 `mcp.json.bak`，`writeFileAtomic` 原子写，同进程内串行。JSON 解析会把数字样的键（`"7"`）提到对象最前面，文件里（任意一层）有这种键且所在对象不止一个键就不写（`key-order`）。日志只记名字、范围、传输和 token 动作（`set` / `none`），不记值。
+- **没跑 `/mcp reload`**：现有代码没有 `/mcp reload` 的调用路径（`BuiltinCommand` 不收 `reload`），写完只重读 `/mcp list`；已开的任务照旧要在自己的会话里 `/mcp reload`（卡片说明「对新任务生效」）。
+- 测试：`test/mcp-file.test.ts`（只改目标项、别的字段 / 服务器 / 键序、2 / 4 空格和制表符缩进、CRLF + BOM + 末尾换行、坏 JSON 不写、`.bak`、数字键、路径带空格和中文）；e2e `settings-functional.e2e.ts`「集成」用例的编辑一段（真实 omp 写出 remote1 之后补上 timeout / oauth / 别的 header，再编辑 URL、换 token、改 stdio 参数，断言文件；900 宽中英文不越界）。
+
 ### `omp ssh … --json`（CLI，数组参数）
 
 - `list --json` → `{"project":{…},"user":{…}}`（两层都在，project 取决于 cwd：中性目录里是空的）；字段 `host / username / port / keyPath / description / compat`。`add` / `remove` 即使带 `--json` 也只输出一句话（`Added SSH host "box" to user config`）。**错误写在 stdout** 且退出码 1（`Error: Host "box" already exists in <path>`、`Error: --host is required`、`Error: Host name can only contain letters, numbers, dash, underscore, and dot`、`Error: Port must be an integer between 1 and 65535`），命令行解析错误才写 stderr（`Option '--desc' argument is ambiguous`）。`sshWriteResult` 取 stdout 的原话去掉 `Error: ` 前缀。

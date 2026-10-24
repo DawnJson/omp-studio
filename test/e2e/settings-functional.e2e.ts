@@ -2,7 +2,7 @@
 // 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR；用量用例还把 USERPROFILE 指到临时目录，omp 的 stats.db 不会碰真实 ~/.omp。
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
@@ -405,11 +405,90 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(page.getByTestId("mcp-test-result-remote1")).toHaveCount(0);
     await expectNoOverflow(page.getByTestId("mcp-card"));
 
+    // 编辑：直接改 omp 的 mcp.json 里这一项，别的字段原样。先在文件里补上表单不管的字段（timeout、oauth、别的 header、env），再改。
+    const mcpFile = path.join(agentDir, "mcp.json");
+    const seeded = JSON.parse(await readFile(mcpFile, "utf8")) as { mcpServers: Entries };
+    const seededRemote = seeded.mcpServers["remote1"];
+    const seededDemo = seeded.mcpServers["demo"];
+    if (seededRemote === undefined || seededDemo === undefined) throw new Error("mcp.json 里少了 remote1 / demo");
+    seededRemote["timeout"] = 5000;
+    seededRemote["oauth"] = { clientId: "abc" };
+    seededRemote["headers"] = { "X-Trace": "on", ...(seededRemote["headers"] as Record<string, string>) };
+    seededDemo["env"] = { A: "1" };
+    await writeFile(mcpFile, JSON.stringify(seeded, null, 2), "utf8");
+    const keysBefore = Object.keys(seededRemote);
+    await page.getByTestId("mcp-more-remote1").click();
+    await page.getByTestId("mcp-edit-remote1").click();
+    await expect(page.getByTestId("mcp-form")).toContainText("Edit remote1");
+    await expect(page.getByTestId("mcp-name")).toBeDisabled();
+    await expect(page.getByTestId("mcp-url")).toHaveValue("http://127.0.0.1:9/mcp");
+    // token 的现有值不回传：默认"保持不变"，没有输入框；选"改成…"才出现。
+    await expect(page.getByTestId("mcp-token-mode-keep")).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByTestId("mcp-token")).toHaveCount(0);
+    await expect(page.getByTestId("mcp-form")).not.toContainText("tok123");
+    await page.getByTestId("mcp-url").fill("http://127.0.0.1:9/changed");
+    await page.getByTestId("mcp-save").click();
+    await expect(page.getByTestId("mcp-form")).toHaveCount(0);
+    await expect
+      .poll(async () => (await mcpServers(agentDir))["remote1"])
+      .toEqual({
+        type: "http",
+        url: "http://127.0.0.1:9/changed",
+        headers: { "X-Trace": "on", Authorization: "Bearer tok123" },
+        enabled: false,
+        timeout: 5000,
+        oauth: { clientId: "abc" },
+      });
+    expect(Object.keys((await mcpServers(agentDir))["remote1"] ?? {})).toEqual(keysBefore);
+    expect(await readFile(`${mcpFile}.bak`, "utf8")).toContain("127.0.0.1:9/mcp");
+    await expect(page.getByTestId("mcp-row-remote1")).toContainText("http://127.0.0.1:9/changed");
+    // 换 token、本地命令的参数。
+    await page.getByTestId("mcp-more-remote1").click();
+    await page.getByTestId("mcp-edit-remote1").click();
+    await page.getByTestId("mcp-token-mode-literal").click();
+    await expect(page.getByTestId("mcp-save")).toBeDisabled();
+    await page.getByTestId("mcp-token").fill("tok456");
+    await page.getByTestId("mcp-save").click();
+    await expect(page.getByTestId("mcp-form")).toHaveCount(0);
+    await expect
+      .poll(async () => (await mcpServers(agentDir))["remote1"]?.["headers"])
+      .toEqual({ "X-Trace": "on", Authorization: "Bearer tok456" });
+    await page.getByTestId("mcp-more-demo").click();
+    await page.getByTestId("mcp-edit-demo").click();
+    await expect(page.getByTestId("mcp-command")).toHaveValue("node");
+    await expect(page.getByTestId("mcp-kind")).toHaveCount(0);
+    await page.getByTestId("mcp-args").fill("-v\nserver.js");
+    await page.getByTestId("mcp-save").click();
+    await expect(page.getByTestId("mcp-form")).toHaveCount(0);
+    await expect
+      .poll(async () => (await mcpServers(agentDir))["demo"])
+      .toEqual({ type: "stdio", command: "node", args: ["-v", "server.js"], env: { A: "1" } });
+    // 窗口 900 宽、长内容：编辑表单和卡片里没有东西越界（中英文各一次）。
+    await page.setViewportSize({ width: 900, height: 700 });
+    await page.getByTestId("mcp-more-remote1").click();
+    await page.getByTestId("mcp-edit-remote1").click();
+    await page.getByTestId("mcp-url").fill(`http://127.0.0.1:9/${"long-path-".repeat(30)}`);
+    await page.getByTestId("mcp-token-mode-literal").click();
+    await page.getByTestId("mcp-token").fill("t".repeat(200));
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(page.getByTestId("mcp-form").locator(".ui-dialog-body"));
+    }
+    await page.getByTestId("mcp-cancel").click();
+    await expect(page.getByTestId("mcp-form")).toHaveCount(0);
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(page.getByTestId("mcp-card"));
+    }
+    await page.setViewportSize({ width: 1200, height: 800 });
+
     // 删除先确认。
+    await page.getByTestId("mcp-more-demo").click();
     await page.getByTestId("mcp-remove-demo").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
     await expect(page.getByTestId("mcp-row-demo")).toHaveCount(0);
     await expect.poll(async () => Object.keys(await mcpServers(agentDir))).toEqual(["remote1"]);
+    await page.getByTestId("mcp-more-remote1").click();
     await page.getByTestId("mcp-remove-remote1").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
     await expect(page.getByTestId("mcp-empty")).toBeVisible();
@@ -491,7 +570,7 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
   }
 });
 
-// Skills 卡片：数据来自 omp rpc-ui 的 get_available_commands（source = skill），只读。临时 agent 目录里放一个测试 skill，用户目录指到空目录（别家工具的 skill 不混进来）。
+// Skills 卡片：数据来自 `omp skill list --json`。临时 agent 目录里放一个测试 skill，用户目录指到空目录（别家工具的 skill 不混进来）。
 test("集成与插件：Skills 分组列出 omp 能用的 skill（名称、范围、说明），中英文 900/1200 宽不越界", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "omp-studio-home-"));
   const description = `E2E probe skill. ${"A long description that must be clamped inside the card. ".repeat(8)}`;
@@ -523,6 +602,154 @@ test("集成与插件：Skills 分组列出 omp 能用的 skill（名称、范�
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });
     await rm(home, { recursive: true, force: true });
+  }
+});
+
+// Skills 管理：添加（两个目的地各一次）、停用 / 启用（经 omp config disabledExtensions，别的条目保留）、删除（移进回收站）。
+// USERPROFILE / HOME / PI_CODING_AGENT_DIR 都指到临时目录：`~/.agents` 就是临时目录里的，真实目录不会被碰。
+// 选文件夹的系统对话框在主进程里打桩；源文件夹名、skill 名都带空格或中文。回收站是真的系统回收站，但里面只有这个临时 skill。
+test("集成与插件：Skills 添加（共用 / 只有 omp）、停用与启用、删除进回收站，路径带空格和中文", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "omp-studio-home-"));
+  const sources = await mkdtemp(path.join(os.tmpdir(), "omp-studio-skill-src-"));
+  const env = (agentDir: string) => ({ ...process.env, PI_CODING_AGENT_DIR: agentDir, USERPROFILE: home, HOME: home });
+  const sharedName = "e2e-shared-skill";
+  const ownName = "e2e-own-skill";
+  const longDescription = `Shared skill. ${"A long description that must be clamped inside the dialog. ".repeat(8)}`;
+  const sharedSource = path.join(sources, "源 skill 一");
+  const ownSource = path.join(sources, "own skill source");
+  await mkdir(path.join(sharedSource, "scripts"), { recursive: true });
+  await writeFile(
+    path.join(sharedSource, "SKILL.md"),
+    `---\nname: ${sharedName}\ndescription: ${longDescription}\n---\nBody\n`,
+  );
+  await writeFile(path.join(sharedSource, "scripts", "run.txt"), "你好\n");
+  await mkdir(ownSource, { recursive: true });
+  await writeFile(path.join(ownSource, "SKILL.md"), `---\nname: ${ownName}\ndescription: Own skill\n---\nBody\n`);
+  // 配置里原有一条别的停用项：停用 / 启用 skill 不能动它。
+  const otherEntry = "context-file:user:E2E-OTHER.md";
+  const { launched, agentDir } = await launchSettings({ USERPROFILE: home, HOME: home }, async (dir) => {
+    execFileSync("omp", ["config", "set", "--json", "disabledExtensions", "--", JSON.stringify([otherEntry])], {
+      env: env(dir),
+      encoding: "utf8",
+    });
+  });
+  const disabledEntries = () =>
+    (
+      JSON.parse(
+        execFileSync("omp", ["config", "get", "--json", "disabledExtensions"], {
+          env: env(agentDir),
+          encoding: "utf8",
+        }),
+      ) as { value: string[] }
+    ).value;
+  const exists = (target: string) =>
+    access(target).then(
+      () => true,
+      () => false,
+    );
+  try {
+    const { page, app } = launched;
+    await setLocaleTheme(page, "en", "light");
+    // 900 宽时设置导航收成下拉：先切到集成页再收窄。
+    await page.getByTestId("settings-nav-extensions").click({ timeout: 60_000 });
+    await page.setViewportSize({ width: 900, height: 800 });
+    await expect(page.getByTestId("skills-card")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("skills-add")).toBeEnabled({ timeout: 60_000 });
+
+    const pickFolder = async (folder: string) => {
+      await app.evaluate(({ dialog }, dir) => {
+        dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
+      }, folder);
+      await page.getByTestId("skills-add").click();
+      await page.getByTestId("skill-pick").click();
+    };
+
+    // 添加 1：默认目的地 = 各家 agent 共用（~/.agents/skills）。界面只看到文件夹名和解析出的名字 / 说明，没有路径。
+    await pickFolder(sharedSource);
+    await expect(page.getByTestId("skill-picked-folder")).toHaveText("源 skill 一");
+    await expect(page.getByTestId("skill-picked-name")).toHaveText(sharedName);
+    await expect(page.getByTestId("skill-picked-description")).toContainText("Shared skill.");
+    await expect(page.getByTestId("skill-form")).not.toContainText(sources);
+    await expectNoOverflow(page.getByTestId("skill-form"));
+    await expect(page.getByTestId("skill-target-shared")).toHaveAttribute("aria-checked", "true");
+    await page.getByTestId("skill-save").click();
+    await expect(page.getByTestId("skill-form")).toHaveCount(0);
+    await expect(page.getByTestId(`skill-row-${sharedName}`)).toBeVisible({ timeout: 30_000 });
+    const sharedDir = path.join(home, ".agents", "skills", sharedName);
+    expect(await readFile(path.join(sharedDir, "scripts", "run.txt"), "utf8")).toBe("你好\n");
+    // 添加后提示运行中的任务需要重新加载（同插件区的那条）。
+    await expect(page.getByTestId("plugins-reload")).toBeVisible();
+
+    // 添加 2：只有 omp（agent 目录的 skills/）。
+    await pickFolder(ownSource);
+    await expect(page.getByTestId("skill-picked-name")).toHaveText(ownName);
+    await page.getByTestId("skill-target-omp").click();
+    await expect(page.getByTestId("skill-target-omp")).toHaveAttribute("aria-checked", "true");
+    await page.getByTestId("skill-save").click();
+    await expect(page.getByTestId("skill-form")).toHaveCount(0);
+    await expect(page.getByTestId(`skill-row-${ownName}`)).toBeVisible({ timeout: 30_000 });
+    const ownDir = path.join(agentDir, "skills", ownName);
+    expect(await exists(path.join(ownDir, "SKILL.md"))).toBe(true);
+
+    // 同名再添加：拒绝，对话框里给出原因，已有的文件夹不变。
+    await pickFolder(ownSource);
+    await page.getByTestId("skill-target-omp").click();
+    await page.getByTestId("skill-save").click();
+    await expect(page.getByTestId("skill-form-error")).toContainText("already exists");
+    await page.getByTestId("skill-cancel").click();
+    await expect(page.getByTestId("skill-form")).toHaveCount(0);
+
+    // 停用：行显示"已停用"，omp 配置里多一条 skill:<name>，原有的条目还在。
+    const row = page.getByTestId(`skill-row-${sharedName}`);
+    const toggle = page.getByTestId(`skill-enabled-${sharedName}`);
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+    await toggle.click();
+    await expect(page.getByTestId(`skill-disabled-${sharedName}`)).toBeVisible({ timeout: 30_000 });
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(disabledEntries()).toEqual([otherEntry, `skill:${sharedName}`]);
+    // 被停用的行只剩名字：不能删除。
+    await expect(page.getByTestId(`skill-remove-${sharedName}`)).toBeDisabled();
+    await expect(row).toBeVisible();
+
+    // 启用：徽标没了，配置里只剩原来那条。
+    await toggle.click();
+    await expect(page.getByTestId(`skill-disabled-${sharedName}`)).toHaveCount(0, { timeout: 30_000 });
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(disabledEntries()).toEqual([otherEntry]);
+    await expect(row).toContainText("Shared skill.");
+
+    // 删除（在 ~/.agents 里的）：确认框写出文件夹（~ 开头）和"其他 agent 工具也会失去它"；先取消，文件夹还在。
+    await page.getByTestId(`skill-remove-${sharedName}`).click();
+    await expect(page.getByTestId("skill-remove-folder")).toHaveText(`~/.agents/skills/${sharedName}`);
+    await expect(page.getByTestId("skill-remove-shared")).toBeVisible();
+    await page.getByTestId("skill-remove-confirm-dialog-cancel").click();
+    await expect(page.getByTestId("skill-remove-confirm-dialog")).toHaveCount(0);
+    expect(await exists(sharedDir)).toBe(true);
+    await page.getByTestId(`skill-remove-${sharedName}`).click();
+    await page.getByTestId("skill-remove-confirm-dialog-confirm").click();
+    await expect(page.getByTestId(`skill-row-${sharedName}`)).toHaveCount(0, { timeout: 30_000 });
+    expect(await exists(sharedDir)).toBe(false);
+
+    // 删除（只有 omp 的）：没有"其他 agent 工具"那句。
+    await page.getByTestId(`skill-remove-${ownName}`).click();
+    await expect(page.getByTestId("skill-remove-folder")).toContainText(ownName);
+    await expect(page.getByTestId("skill-remove-shared")).toHaveCount(0);
+    await page.getByTestId("skill-remove-confirm-dialog-confirm").click();
+    await expect(page.getByTestId(`skill-row-${ownName}`)).toHaveCount(0, { timeout: 30_000 });
+    expect(await exists(ownDir)).toBe(false);
+
+    // 中文下对话框也不越界。
+    await setLocaleTheme(page, "zh-CN", "light");
+    await pickFolder(sharedSource);
+    await expect(page.getByTestId("skill-picked-name")).toHaveText(sharedName);
+    await expectNoOverflow(page.getByTestId("skill-form"));
+    await page.getByTestId("skill-cancel").click();
+    await expect(page.getByTestId("skill-form")).toHaveCount(0);
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await rm(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    await rm(sources, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 
@@ -603,6 +830,55 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
     // 中文界面同一页。
     await setLocaleTheme(page, "zh-CN", "dark");
     await expect(page.getByTestId("plugins-installed")).toContainText("已安装");
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true });
+    await rm(market, { recursive: true, force: true });
+  }
+});
+
+// 预设市场：不联网，所以不点预设的“添加”（会去 GitHub 拉仓库）。用一个本地目录市场，清单里 name 取预设的市场名，
+// omp 回报的市场名与预设一致 → 该预设行隐藏，其余三个仍在；900 宽中英文不越界。
+test("插件：预设市场行显示，已添加的预设隐藏，900 宽中英文不越界", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "omp-studio-home-"));
+  const market = await mkdtemp(path.join(os.tmpdir(), "omp-studio-market-"));
+  await mkdir(path.join(market, ".omp-plugin"), { recursive: true });
+  await mkdir(path.join(market, "p1"), { recursive: true });
+  await writeFile(
+    path.join(market, ".omp-plugin", "marketplace.json"),
+    JSON.stringify({
+      name: "anthropic-agent-skills",
+      owner: { name: "Test" },
+      plugins: [{ name: "p1", source: "./p1", description: "First local plugin" }],
+    }),
+  );
+  await writeFile(path.join(market, "p1", "package.json"), JSON.stringify({ name: "p1", version: "1.0.0" }));
+  const { launched, agentDir } = await launchSettings({ USERPROFILE: home, HOME: home });
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "en", "light");
+    await page.getByTestId("settings-nav-extensions").click({ timeout: 60_000 });
+    await expect(page.getByTestId("plugins-empty")).toBeVisible({ timeout: 60_000 });
+    const names = ["claude-plugins-official", "claude-community", "knowledge-work-plugins", "anthropic-agent-skills"];
+    for (const name of names) await expect(page.getByTestId(`marketplace-preset-${name}`)).toBeVisible();
+    await expect(page.getByTestId("marketplace-preset-claude-plugins-official")).toContainText(
+      "anthropics/claude-plugins-official",
+    );
+    await expect(page.getByTestId("marketplace-preset-add-claude-community")).toBeEnabled();
+    for (const locale of ["en", "zh-CN"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await page.setViewportSize({ width: 900, height: 800 });
+      await expectNoOverflow(page.getByTestId("plugins-marketplaces"));
+    }
+
+    await page.getByTestId("marketplace-add-open").click();
+    await page.getByTestId("marketplace-add-input").fill(market);
+    await page.getByTestId("marketplace-add").click();
+    await expect(page.getByTestId("marketplace-anthropic-agent-skills")).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("marketplace-preset-anthropic-agent-skills")).toHaveCount(0);
+    for (const name of names.slice(0, 3)) await expect(page.getByTestId(`marketplace-preset-${name}`)).toBeVisible();
+    await expectNoOverflow(page.getByTestId("plugins-marketplaces"));
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

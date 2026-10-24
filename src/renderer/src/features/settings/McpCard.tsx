@@ -1,9 +1,10 @@
-// 设置 → 集成 → MCP 服务器（spec §4.19）：`/mcp list|add|remove|enable|disable|test` 的界面。
+// 设置 → 集成 → MCP 服务器（spec §4.19）：`/mcp list|add|remove|enable|disable|test` 的界面，加上直接改 omp 的 mcp.json 的编辑（McpForm）。
 // 数据来自 omp 的 command_output 原文（解析器 src/shared/omp-output/mcp.ts，解析不了的行原样显示）；用户范围在服务进程里跑，
 // 项目范围在项目目录里的短命 rpc-ui 里跑（列表合并了用户和项目两层，每行标出范围）。范围由集成页页头的下拉选（IntegrationsSection）。
 // 做不了的：`reauth` / `unauth` / `reconnect` 在 rpc-ui 里只回"only available in the TUI client"（实测 18.12.5），所以给出终端命令。
 import { useEffect, useState } from "react";
 import { isManageableMcpName, type McpServerRow, type McpTestResult } from "../../../../shared/omp-output/mcp.ts";
+import type { McpEditErrorCode, McpServerFile } from "../../../../shared/mcp-edit.ts";
 import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus, Restart } from "../../icons.tsx";
@@ -13,7 +14,7 @@ import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
 import { mcpResource, runMcpTest, runMcpWrite } from "./integrations-data.ts";
-import type { ScopeKey } from "./integrations-store.ts";
+import { scopeProject, type ScopeKey } from "./integrations-store.ts";
 import { McpForm } from "./McpForm.tsx";
 import { RowMenu } from "./RowMenu.tsx";
 import "./integrations.css";
@@ -27,6 +28,7 @@ function McpRow({
   test,
   onTest,
   onToggle,
+  onEdit,
   onRemove,
 }: {
   row: McpServerRow;
@@ -36,10 +38,12 @@ function McpRow({
   test: TestState | undefined;
   onTest(): void;
   onToggle(next: boolean): void;
+  onEdit(): void;
   onRemove(): void;
 }) {
   const t = useT();
   const manageable = isManageableMcpName(row.name);
+  // 只有 omp 自己的文件（用户级 mcp.json、项目 .omp/mcp.json）里的、名字能被 omp 命令管理的服务器能编辑和删除；别的工具的配置只读。
   const removable = manageable && (row.scope === "user" || row.scope === "project");
   const scopeText =
     row.scope === "user"
@@ -95,10 +99,22 @@ function McpRow({
             testId={`mcp-enabled-${row.name}`}
           />
           <RowMenu
-            label={t("integrations.more")}
+            label={
+              removable
+                ? t("integrations.more")
+                : manageable
+                  ? t("integrations.mcp.edit.external")
+                  : t("integrations.mcp.unmanageable")
+            }
             disabled={busy || !removable}
             testId={`mcp-more-${row.name}`}
             items={[
+              {
+                id: "edit",
+                label: t("integrations.mcp.edit"),
+                testId: `mcp-edit-${row.name}`,
+                onSelect: onEdit,
+              },
               {
                 id: "remove",
                 label: t("integrations.remove"),
@@ -122,17 +138,24 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
   const [busy, setBusy] = useState(false);
   // 确认框用 slot：上一个还在放退出动画时再点移除也能立刻开新的（旧的迟到的关闭通知按 key 对不上）。
   const { slot: removing, open: openRemoving, closed: removingClosed } = useDialogSlot<McpServerRow>();
+  const {
+    slot: editing,
+    open: openEditing,
+    closed: editingClosed,
+    reset: resetEditing,
+  } = useDialogSlot<McpServerFile>();
   const [tests, setTests] = useState<Record<string, TestState>>({});
   const [failure, setFailure] = useState<string | null>(null);
 
   useEffect(() => {
     if (ready) void mcpResource.load(scope);
   }, [ready, scope]);
-  // 换范围：关掉添加对话框、清掉上一个范围的失败提示。
+  // 换范围：关掉添加 / 编辑对话框、清掉上一个范围的失败提示。
   useEffect(() => {
     resetAdding();
+    resetEditing();
     setFailure(null);
-  }, [scope, resetAdding]);
+  }, [scope, resetAdding, resetEditing]);
 
   const data = load.kind === "ready" ? load.data : "previous" in load ? load.previous : null;
 
@@ -143,6 +166,22 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
       const outcome = await job();
       if (outcome.ok) pushToast({ message: outcome.message });
       else setFailure(outcome.message);
+    } catch (error) {
+      setFailure(errorDetail(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 编辑：初值从 omp 的 mcp.json 里读（token 只给"有没有"）；读不了就把原因写在卡片下面，不开表单。 */
+  const startEdit = async (row: McpServerRow) => {
+    if (row.scope !== "user" && row.scope !== "project") return;
+    setBusy(true);
+    setFailure(null);
+    try {
+      const outcome = await window.studio.getMcpServerFile(row.name, row.scope, scopeProject(scope));
+      if (outcome.ok) openEditing(outcome.value);
+      else setFailure(t(`integrations.mcp.err.${outcome.code}` satisfies `integrations.mcp.err.${McpEditErrorCode}`));
     } catch (error) {
       setFailure(errorDetail(error));
     } finally {
@@ -213,6 +252,7 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
               onToggle={(next) =>
                 void write(() => runMcpWrite({ kind: "mcp", op: next ? "enable" : "disable", name: row.name }, scope))
               }
+              onEdit={() => void startEdit(row)}
               onRemove={() => openRemoving(row)}
             />
           ))}
@@ -234,6 +274,17 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
           scopeKey={scope}
           onDone={(message) => {
             addingClosed(adding.key);
+            if (message !== null) pushToast({ message });
+          }}
+        />
+      )}
+      {editing !== null && (
+        <McpForm
+          key={editing.key}
+          scopeKey={scope}
+          edit={editing.value}
+          onDone={(message) => {
+            editingClosed(editing.key);
             if (message !== null) pushToast({ message });
           }}
         />

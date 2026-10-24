@@ -119,6 +119,11 @@ export function setPluginProject(projectId: ProjectId | null): void {
   if (store.get().projectId !== projectId) patch({ projectId });
 }
 
+/** 别处（Skills 卡的添加 / 停用 / 启用 / 删除）改了运行中任务看得到的东西：显示同一条"重新加载"提示。 */
+export function requestReload(): void {
+  patch({ reloadPending: true });
+}
+
 export function dismissReload(): void {
   patch({ reloadPending: false });
 }

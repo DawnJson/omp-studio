@@ -1,8 +1,13 @@
 // "市场"：已添加的来源（浏览、更新目录、移除）、添加对话框、逐个市场浏览可装插件并安装（安装前确认：会运行第三方代码）。
 import { useState } from "react";
 import type { ProjectId } from "../../../../shared/ipc.ts";
-import type { DiscoverEntry, PluginScope, PluginsSnapshot } from "../../../../shared/omp-output/plugins.ts";
-import { useT } from "../../i18n/use-t.ts";
+import {
+  type DiscoverEntry,
+  PRESET_MARKETPLACES,
+  type PluginScope,
+  type PluginsSnapshot,
+} from "../../../../shared/omp-output/plugins.ts";
+import { useLocale, useT } from "../../i18n/use-t.ts";
 import { Plus, Search } from "../../icons.tsx";
 import { Badge, Button, FormField, ListRow, SectionHead, Segmented, TextField } from "../../ui/controls.tsx";
 import { ConfirmDialog, Dialog } from "../../ui/Dialog.tsx";
@@ -160,6 +165,7 @@ export function MarketplacesCard({
   projectId: ProjectId | null;
 }) {
   const t = useT();
+  const locale = useLocale();
   const { slot: adding, open: openAdding, closed: addingClosed } = useDialogSlot();
   const [browsing, setBrowsing] = useState<string | null>(null);
   // 确认框用 slot：上一个还在放退出动画时再点安装也能立刻开新的。
@@ -178,6 +184,23 @@ export function MarketplacesCard({
     if (browsing === name) return setBrowsing(null);
     setBrowsing(name);
     void loadDiscover(name);
+  };
+
+  // 已添加的判断：omp 的市场名或来源（`marketplace list` 原样回显添加时写的 owner/repo）与预设一致。
+  const presets =
+    snapshot === null
+      ? []
+      : PRESET_MARKETPLACES.filter(
+          (preset) =>
+            !snapshot.marketplaces.some(
+              (market) => market.name === preset.name || market.source.toLowerCase() === preset.source,
+            ),
+        );
+  // 加完直接展开"浏览"，用户马上看到可装的插件。
+  const addPreset = async (preset: (typeof PRESET_MARKETPLACES)[number]) => {
+    if (!(await runAction(t, { kind: "marketplaceAdd", source: preset.source }, `marketplace:add:${preset.source}`)))
+      return;
+    toggleBrowse(preset.name);
   };
 
   return (
@@ -212,9 +235,6 @@ export function MarketplacesCard({
             testId="plugins-install-scope"
           />
         </div>
-      )}
-      {snapshot !== null && snapshot.marketplaces.length === 0 && (
-        <p className="pl-muted">{t("plugins.marketplaces.empty")}</p>
       )}
       {(snapshot?.marketplaces.length ?? 0) > 0 && (
         <div className="ui-rows">
@@ -282,6 +302,34 @@ export function MarketplacesCard({
               )}
             </div>
           ))}
+        </div>
+      )}
+      {presets.length > 0 && (
+        <div data-testid="marketplace-presets">
+          <p className="pl-muted">{t("plugins.marketplaces.presets")}</p>
+          <div className="ui-rows">
+            {presets.map((preset) => (
+              <ListRow
+                key={preset.source}
+                icon={preset.name.slice(0, 2)}
+                title={preset.label[locale]}
+                meta={preset.source}
+                testId={`marketplace-preset-${preset.name}`}
+                actions={
+                  <Button
+                    size="sm"
+                    icon={<Plus size={14} />}
+                    disabled={busy}
+                    loading={working === `marketplace:add:${preset.source}`}
+                    onClick={() => void addPreset(preset)}
+                    testId={`marketplace-preset-add-${preset.name}`}
+                  >
+                    {t("plugins.marketplaces.add")}
+                  </Button>
+                }
+              />
+            ))}
+          </div>
         </div>
       )}
       {adding !== null && (

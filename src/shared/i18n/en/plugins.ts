@@ -40,7 +40,7 @@ export const plugins = {
   "settings.default": "Default: {value}",
   "settings.dash": "The value cannot start with - (omp would read it as an option)",
   marketplaces: "Marketplaces",
-  "marketplaces.empty": "No marketplaces added yet.",
+  "marketplaces.presets": "Suggested marketplaces",
   "marketplaces.add.title": "Add a marketplace",
   "marketplaces.add.open": "Add marketplace…",
   "marketplaces.add": "Add",

@@ -19,6 +19,7 @@ import { pluginHandlers } from "./plugin-handlers.ts";
 import { workspaceDirsHandlers } from "./workspace-dirs-handlers.ts";
 import { commandHandlers } from "./command-handlers.ts";
 import { integrationsHandlers } from "./integrations-handlers.ts";
+import { mcpHandlers } from "./mcp-handlers.ts";
 import { sessionInfoHandlers } from "./session-info-handlers.ts";
 import { agentsHandlers } from "./agents-handlers.ts";
 import { registerDropFolder } from "./drop-folder.ts";
@@ -46,6 +47,7 @@ const handlers: InvokeHandlers = {
   ...workspaceDirsHandlers,
   ...commandHandlers,
   ...integrationsHandlers,
+  ...mcpHandlers,
   ...sessionInfoHandlers,
   ...agentsHandlers,
 };
