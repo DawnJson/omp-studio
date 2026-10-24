@@ -18,6 +18,7 @@ export const integrations = {
   "mcp.add": "添加服务器…",
   "mcp.test": "测试连接",
   "mcp.connected": "已连接，{count} 个工具",
+  "mcp.testFailed": "连接失败",
   "mcp.unmanageable": "名字含特殊字符，只能在配置文件里改",
   "mcp.note": "对新任务生效；OAuth 授权在终端处理",
   "mcp.remove.title": "删除 MCP 服务器“{name}”？",

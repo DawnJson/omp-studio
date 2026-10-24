@@ -397,9 +397,13 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect.poll(async () => (await mcpServers(agentDir))["remote1"]?.["enabled"]).toBe(false);
     await expect(page.getByTestId("mcp-enabled-remote1")).toHaveAttribute("aria-checked", "false");
 
-    // 测试连接：连不上时显示 omp 的原话。
+    // 测试连接：连不上时卡片右上角一个"连接失败"徽标，omp 的原话在悬停里，元信息下面不再写。
     await page.getByTestId("mcp-test-remote1").click();
-    await expect(page.getByTestId("mcp-test-result-remote1")).toBeVisible({ timeout: 60_000 });
+    const mcpFailed = page.getByTestId("mcp-row-remote1").getByTestId("mcp-test-failed-remote1");
+    await expect(mcpFailed).toHaveText("Connection failed", { timeout: 60_000 });
+    await expect(mcpFailed).not.toHaveAttribute("title", "");
+    await expect(page.getByTestId("mcp-test-result-remote1")).toHaveCount(0);
+    await expectNoOverflow(page.getByTestId("mcp-card"));
 
     // 删除先确认。
     await page.getByTestId("mcp-remove-demo").click();

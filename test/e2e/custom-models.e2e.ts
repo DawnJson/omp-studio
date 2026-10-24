@@ -536,3 +536,89 @@ test("自定义提供商：读不懂的 models.yml 显示错误，不覆盖文�
     await rm(agentDir, { recursive: true, force: true });
   }
 });
+
+test("自定义提供商：编辑里用文件里的连接拉取失败 → 卡片右上角标出 key 无效 / 地址不通；换了能用的 key 拉取成功或改了地址后去掉", async () => {
+  const fake = await startFakeOpenAi({ apiKey: SECRET, models: ["fake-chat"] });
+  const { launched, agentDir } = await launchSettings();
+  try {
+    const { page } = launched;
+    await writeFile(
+      path.join(agentDir, "models.yml"),
+      [
+        "providers:",
+        "  bad-key:",
+        `    baseUrl: ${fake.baseUrl}`,
+        "    apiKey: wrong-key",
+        "    api: openai-completions",
+        "    models:",
+        "      - id: fake-chat",
+        "  bad-url:",
+        "    baseUrl: http://127.0.0.1:1/v1",
+        "    auth: none",
+        "    api: openai-completions",
+        "    models:",
+        "      - id: fake-chat",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    await page.getByTestId("settings-nav-general").click();
+    await page.getByTestId("settings-nav-providers").click();
+    await setLocaleTheme(page, "zh-CN", "light");
+    const badKey = page.getByTestId("custom-provider-bad-key");
+    const badUrl = page.getByTestId("custom-provider-bad-url");
+    await expect(badKey).toBeVisible();
+    await expect(page.getByTestId("custom-fetch-failed-bad-key")).toHaveCount(0);
+
+    // key 被拒：不改连接直接拉取，取消后卡片上标出来，悬停是完整原因。
+    const form = page.getByTestId("custom-provider-form");
+    await badKey.getByTestId("custom-edit-bad-key").click();
+    await page.getByTestId("custom-fetch").click();
+    await expect(page.getByTestId("custom-fetch-notice")).toBeVisible();
+    await page.getByTestId("custom-cancel").click();
+    await expect(form).toHaveCount(0);
+    const keyBadge = badKey.getByTestId("custom-fetch-failed-bad-key");
+    await expect(keyBadge).toHaveText("key 无效");
+    await expect(keyBadge).toHaveAttribute("title", /拒绝了这个 key（401）/);
+
+    // 地址不通。
+    await badUrl.getByTestId("custom-edit-bad-url").click();
+    await page.getByTestId("custom-fetch").click();
+    await expect(page.getByTestId("custom-fetch-notice")).toBeVisible();
+    await page.getByTestId("custom-cancel").click();
+    await expect(form).toHaveCount(0);
+    await expect(badUrl.getByTestId("custom-fetch-failed-bad-url")).toHaveText("地址不通");
+    await expectNoOverflow(page.getByTestId("custom-providers"));
+
+    // 拉取用的是改过、没保存的连接：取消后卡片不变。
+    await badKey.getByTestId("custom-edit-bad-key").click();
+    await page.getByTestId("custom-key-mode-literal").click();
+    await page.getByTestId("custom-key").fill(SECRET);
+    await page.getByTestId("custom-fetch").click();
+    await expect(page.getByTestId("toasts").getByText("拉取到 1 个模型")).toBeVisible();
+    await page.getByTestId("custom-cancel").click();
+    await expect(form).toHaveCount(0);
+    await expect(keyBadge).toHaveText("key 无效");
+
+    // 换上能用的 key、拉取成功再保存：去掉。
+    await badKey.getByTestId("custom-edit-bad-key").click();
+    await page.getByTestId("custom-key-mode-literal").click();
+    await page.getByTestId("custom-key").fill(SECRET);
+    await page.getByTestId("custom-fetch").click();
+    await expect(page.getByTestId("custom-fetch-notice")).toHaveCount(0);
+    await page.getByTestId("custom-save").click();
+    await expect(form).toHaveCount(0);
+    await expect(keyBadge).toHaveCount(0);
+
+    // 改了地址、没再拉取就保存：原来的结果不再适用，也去掉。
+    await badUrl.getByTestId("custom-edit-bad-url").click();
+    await page.getByTestId("custom-base-url").fill(fake.baseUrl);
+    await page.getByTestId("custom-save").click();
+    await expect(form).toHaveCount(0);
+    await expect(badUrl.getByTestId("custom-fetch-failed-bad-url")).toHaveCount(0);
+  } finally {
+    await launched.close();
+    await fake.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});

@@ -9,12 +9,19 @@ import { describeError, reportError } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
 import { ProviderLogo } from "./ProviderLogo.tsx";
-import { Button, ListRow, Notice, SectionHead } from "../../ui/controls.tsx";
+import { Badge, Button, ListRow, Notice, SectionHead } from "../../ui/controls.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { customErrorText, CustomProviderForm } from "./CustomProviderForm.tsx";
 import { ProviderOverrideDialog } from "./ProviderOverrideDialog.tsx";
-import { loadCustomProviders, reloadAfterChange, useCustomProviderLoad } from "./custom-models-store.ts";
+import {
+  loadCustomProviders,
+  reloadAfterChange,
+  setFetchFailure,
+  useCustomProviderLoad,
+  useFetchFailures,
+  type FetchFailure,
+} from "./custom-models-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
 import "./custom-providers.css";
 
@@ -22,9 +29,21 @@ type Editing = { kind: "add" } | { kind: "edit"; id: string } | { kind: "overrid
 
 const overridesBuiltin = (provider: CustomProviderInfo): boolean => provider.models.length === 0 && !provider.discovery;
 
+/** 卡片右上角的拉取失败徽标：key 被拒、地址不通，其余笼统写拉取失败；完整原因在悬停里。 */
+const fetchBadgeKey = (failure: FetchFailure) =>
+  failure.code === "unauthorized" || failure.code === "invalid-key"
+    ? "custom.fetchBadge.key"
+    : failure.code === "network" ||
+        failure.code === "timeout" ||
+        failure.code === "not-found" ||
+        failure.code === "invalid-url"
+      ? "custom.fetchBadge.url"
+      : "custom.fetchBadge.other";
+
 export function CustomProviders() {
   const t = useT();
   const load = useCustomProviderLoad();
+  const fetchFailures = useFetchFailures();
   const { slot: editing, open: openEditing, closed: editingClosed, reset: resetEditing } = useDialogSlot<Editing>();
   // 确认框用 slot：上一个还在放退出动画时再点删除也能立刻开新的（旧的迟到的关闭通知按 key 对不上）。
   const { slot: deleting, open: openDeleting, closed: deletingClosed } = useDialogSlot<CustomProviderInfo>();
@@ -94,6 +113,7 @@ export function CustomProviders() {
     try {
       const outcome = await window.studio.deleteCustomProvider(provider.id);
       if (outcome.ok) {
+        setFetchFailure(provider.id, null);
         reloadAfterChange();
       } else {
         pushToast({ level: "error", message: customErrorText(t, `err.${outcome.code}`) });
@@ -169,12 +189,24 @@ export function CustomProviders() {
         <div className="ui-cards">
           {data.providers.map((provider) => {
             const override = overridesBuiltin(provider);
+            const failure = fetchFailures.get(provider.id);
             return (
               <ListRow
                 key={provider.id}
                 testId={`custom-provider-${provider.id}`}
                 icon={<ProviderLogo id={provider.id} name={provider.id} />}
                 title={provider.id}
+                badges={
+                  failure !== undefined && (
+                    <Badge
+                      tone="error"
+                      title={customErrorText(t, `fetchErr.${failure.code}`, failure.status)}
+                      testId={`custom-fetch-failed-${provider.id}`}
+                    >
+                      {t(fetchBadgeKey(failure))}
+                    </Badge>
+                  )
+                }
                 meta={metaText(provider)}
                 actions={
                   <>

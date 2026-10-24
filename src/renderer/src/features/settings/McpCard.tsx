@@ -47,27 +47,31 @@ function McpRow({
       : row.scope === "project"
         ? t("integrations.scope.project")
         : row.scope;
-  // 卡片（.ui-cards）：说明和"测试连接"的结果写在元信息下面，同一张卡里。
+  // 卡片（.ui-cards）：说明和"测试连接"成功的结果写在元信息下面；连不上时右上角一个红色徽标，omp 的原话在悬停里。
+  const failed = test !== undefined && test !== "running" && !test.connected ? test.message : null;
   return (
     <ListRow
       testId={`mcp-row-${row.name}`}
       icon={row.name.slice(0, 2)}
       title={row.name}
-      badges={showScope && scopeText !== "" ? <Badge>{scopeText}</Badge> : undefined}
+      badges={
+        <>
+          {showScope && scopeText !== "" && <Badge>{scopeText}</Badge>}
+          {failed !== null && (
+            <Badge tone="error" title={failed} testId={`mcp-test-failed-${row.name}`}>
+              {t("integrations.mcp.testFailed")}
+            </Badge>
+          )}
+        </>
+      }
       meta={
         <>
           {[row.transport, row.target].filter((part) => part !== "").join(" · ")}
           {!manageable && <span className="ig-card-note">{t("integrations.mcp.unmanageable")}</span>}
-          {test !== undefined && test !== "running" && (
-            <span
-              className={test.connected ? "ig-card-note" : "ig-card-note ig-raw ig-error"}
-              role={test.connected ? "status" : "alert"}
-              data-testid={`mcp-test-result-${row.name}`}
-            >
-              {test.connected
-                ? t("integrations.mcp.connected", { count: test.toolCount }) +
-                  (test.tools.length > 0 ? `：${test.tools.join(", ")}` : "")
-                : test.message}
+          {test !== undefined && test !== "running" && test.connected && (
+            <span className="ig-card-note" role="status" data-testid={`mcp-test-result-${row.name}`}>
+              {t("integrations.mcp.connected", { count: test.toolCount }) +
+                (test.tools.length > 0 ? `：${test.tools.join(", ")}` : "")}
             </span>
           )}
         </>

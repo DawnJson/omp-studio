@@ -21,10 +21,6 @@
   -webkit-line-clamp: 2;
 }
 
-.ig-error {
-  color: var(--st-error);
-}
-
 /* MCP 卡片里元信息下面的说明和"测试连接"结果 */
 .ig-card-note {
   display: block;

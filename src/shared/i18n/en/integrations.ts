@@ -18,6 +18,7 @@ export const integrations = {
   "mcp.add": "Add server…",
   "mcp.test": "Test connection",
   "mcp.connected": "Connected, {count} tools",
+  "mcp.testFailed": "Connection failed",
   "mcp.unmanageable": "The name has special characters; edit the config file instead",
   "mcp.note": "Applies to new tasks; authorize OAuth in the terminal",
   "mcp.remove.title": "Remove MCP server “{name}”?",

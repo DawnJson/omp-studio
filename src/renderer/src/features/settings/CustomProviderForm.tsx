@@ -26,6 +26,7 @@ import { Select } from "../../ui/Select.tsx";
 import { Reserve } from "../../ui/Reserve.tsx";
 import { useAccountLoad } from "./accounts-store.ts";
 import { CustomModelList, type FetchNotice, type ModelRow } from "./CustomModelList.tsx";
+import { setFetchFailure, type FetchFailure } from "./custom-models-store.ts";
 import "./custom-providers.css";
 
 const apiLabels: Record<string, string> = {
@@ -227,6 +228,10 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   const [discovery, setDiscovery] = useState(provider?.discovery ?? false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // 连接（Base URL、接口类型、key）的指纹：最近一次拉取用的连接和最后保存的一致时，结果才记到卡片上（custom-models-store）。
+  const conn = JSON.stringify([baseUrl, api, keyMode, keyText, envValue]);
+  const [initialConn] = useState(conn);
+  const [lastFetch, setLastFetch] = useState<{ conn: string; failure: FetchFailure | null } | null>(null);
 
   // "自动"后面显示 omp 现在用的值：只对已保存、文件里没写这一项的模型（写了的话 omp 的值就是文件里的值，换回自动后不再适用）。
   const accounts = useAccountLoad();
@@ -286,6 +291,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   const fetchModels = async () => {
     setFetching(true);
     setNotice(null);
+    const fetchedConn = conn;
     try {
       const outcome = await window.studio.fetchProviderModels({
         baseUrl,
@@ -295,8 +301,15 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
       });
       if (!outcome.ok) {
         setNotice({ tone: "error", text: customErrorText(t, `fetchErr.${outcome.code}`, outcome.status) });
+        // 接口类型不支持拉取、key 是命令：说明不了 key 和地址能不能用，不记。
+        if (outcome.code !== "unsupported" && outcome.code !== "command-key")
+          setLastFetch({
+            conn: fetchedConn,
+            failure: { code: outcome.code, ...(outcome.status !== undefined && { status: outcome.status }) },
+          });
         return;
       }
+      setLastFetch({ conn: fetchedConn, failure: null });
       const known = new Set(rows.map((row) => row.id));
       const added = outcome.models.filter((model) => !known.has(model.id));
       setRows((current) => [
@@ -341,6 +354,8 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
       const outcome = await window.studio.saveCustomProvider(mode, input);
       if (outcome.ok) {
         warnIfShadowed(t, outcome);
+        if (lastFetch?.conn === conn) setFetchFailure(input.id, lastFetch.failure);
+        else if (conn !== initialConn) setFetchFailure(input.id, null); // 连接改了、没再拉取：原来的结果不再适用
         onSaved();
       } else setSaveError(customErrorText(t, `err.${outcome.code}`));
     } catch (error) {
@@ -350,17 +365,23 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
     }
   };
 
+  // 不保存就关：只有拉取用的是文件里原样的连接时，结果才说明得了卡片上的这个 provider。
+  const close = () => {
+    if (provider !== undefined && lastFetch?.conn === initialConn) setFetchFailure(provider.id, lastFetch.failure);
+    setOpen(false);
+  };
+
   return (
     <Dialog
       open={open}
-      onClose={() => setOpen(false)}
+      onClose={close}
       onExited={onClose}
       title={mode === "add" ? t("custom.form.title.add") : t("custom.form.title.edit", { id: provider?.id ?? "" })}
       testId="custom-provider-form"
       className="cp-dialog"
       footer={
         <>
-          <Button onClick={() => setOpen(false)} testId="custom-cancel">
+          <Button onClick={close} testId="custom-cancel">
             {t("common.cancel")}
           </Button>
           <Button

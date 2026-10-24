@@ -97,6 +97,10 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 - **“自动”后面显示 omp 现在用的值**（`hintOf`，`CustomProviderForm.tsx`）：来自模型列表（`listModels`，即服务进程的 `get_available_models`），只对“已保存、文件里没写这一项、omp 已经加载过”的模型显示（如“自动 · 128K”“自动 · 支持”）；新拉取、还没保存的模型只显示“自动”，因为 omp 还没算过它。
 - **输入**：`CustomProviderInput.models[]` 每项 `{ id, name?, reasoning, images, contextWindow, maxTokens }`，四项都可以是 null（自动）。
 
+## 拉取失败标在卡片上（2026-10-24）
+
+`CustomProviderForm` 记下最近一次拉取用的连接指纹（Base URL、接口类型、key 分段和输入）和结果。保存成功时：指纹和保存的一致，就把结果写进 `custom-models-store.ts` 的 `setFetchFailure`（失败记 code 和状态码，成功清掉）；不一致但连接改过，清掉（原来的结果不再适用）。不保存就关时，只有拉取用的是打开时原样的连接才记。`unsupported`、`command-key` 说明不了 key 和地址能不能用，不记。只在渲染进程内存里，不落盘、不进日志，key 不经过这里。
+
 ## 只覆盖内置 provider 的条目：只改 key（2026-10-24，omp 18.12.6）
 
 `providers.<id>` 下没有 `models` 也没有 `discovery` 的条目，omp 叫"Override-only provider"（`omp://models.md` Validation rules）：它不新建 provider，只覆盖内置同名 provider 的某些设置（`modelOverrides`、`baseUrl`、`apiKey`、`headers`……），至少要有一项。典型是 `anthropic` 下只有 `modelOverrides`（改上下文窗口）。
