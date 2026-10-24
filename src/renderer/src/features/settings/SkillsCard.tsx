@@ -42,6 +42,12 @@ function SkillRow({
       badges={
         <>
           {skill.disabled && <Badge testId={`skill-disabled-${skill.name}`}>{t("integrations.skills.disabled")}</Badge>}
+          {/* 装在哪：`.agents/skills`（各家 agent 共用）还是 omp 自己的 skills/；悬停看文件夹。 */}
+          {!skill.plugin && (skill.shared || skill.provider === "native") && (
+            <Badge title={skill.folder ?? sourceTip} testId={`skill-source-${skill.name}`}>
+              {t(skill.shared ? "integrations.skills.source.shared" : "integrations.skills.source.omp")}
+            </Badge>
+          )}
           {skill.plugin && (
             <Badge title={sourceTip} testId={`skill-plugin-${skill.name}`}>
               {t("integrations.skills.plugin")}

@@ -959,11 +959,10 @@
 .ui-info-btn[aria-expanded="true"] {
   color: var(--text);
 }
+/* 挂在 body 上，top / left 由 InfoTip.tsx 按 ⓘ 的位置算（对话框里也不被裁），盖在对话框之上。 */
 .ui-info-pop {
-  position: absolute;
-  top: calc(100% + var(--space-1-5));
-  left: calc(var(--space-2) * -1);
-  z-index: var(--z-popover);
+  position: fixed;
+  z-index: var(--z-tooltip);
   display: block;
   width: max-content;
   max-width: min(360px, 70vw);
@@ -978,11 +977,6 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-2);
   animation: fade-in var(--dur-fade) var(--ease-out);
-}
-/* 右边放不下时往左展开（InfoTip.tsx 量过后给 data-align） */
-.ui-info-pop[data-align="end"] {
-  right: calc(var(--space-2) * -1);
-  left: auto;
 }
 .ui-info-key {
   display: block;

@@ -70,6 +70,8 @@ export const integrations = {
   "skills.add": "添加 skill…",
   "skills.disabled": "已停用",
   "skills.plugin": "插件",
+  "skills.source.shared": "共用",
+  "skills.source.omp": "omp",
   "skills.toggle.project": "项目里的 skill 只能在项目的 .omp/config.yml 里停用",
   "skills.added": "已添加 skill “{name}”",
   "skills.removed": "“{name}”已移进回收站",

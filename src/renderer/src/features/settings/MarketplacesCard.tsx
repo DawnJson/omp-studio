@@ -15,6 +15,7 @@ import { describeError } from "../../ui/errors.ts";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { loadDiscover, runAction, usePluginsState } from "./plugins-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
+import "./integrations.css";
 
 interface Pending {
   marketplace: string;
@@ -74,7 +75,14 @@ function Browse({
               icon={entry.name.slice(0, 2)}
               title={entry.name}
               badges={entry.version !== null ? <Badge>{entry.version}</Badge> : undefined}
-              meta={entry.description}
+              meta={
+                // 和 Skills 卡片一样只显示两行，完整描述在悬停提示里。
+                entry.description !== "" && (
+                  <span className="ig-clamp" title={entry.description}>
+                    {entry.description}
+                  </span>
+                )
+              }
               actions={
                 has ? (
                   <Badge tone="success">{t("plugins.installedBadge")}</Badge>

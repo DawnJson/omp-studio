@@ -71,6 +71,8 @@ export const integrations = {
   "skills.add": "Add skill…",
   "skills.disabled": "Disabled",
   "skills.plugin": "Plugin",
+  "skills.source.shared": "Shared",
+  "skills.source.omp": "omp",
   "skills.toggle.project": "A project's skills can only be disabled in the project's .omp/config.yml",
   "skills.added": "Added skill “{name}”",
   "skills.removed": "“{name}” moved to the Recycle Bin",

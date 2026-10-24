@@ -664,6 +664,33 @@ test("集成与插件：Skills 添加（共用 / 只有 omp）、停用与启用
       await page.getByTestId("skill-pick").click();
     };
 
+    // 对话框里的 ⓘ 说明整块可见：弹层不被对话框正文（overflow: auto）裁掉，四条边的中点上看到的都是弹层自己
+    // （不取角：圆角外的点本来就不算弹层）。
+    await page.getByTestId("skills-add").click();
+    await page.getByTestId("skill-form").locator(".ui-info-btn").hover();
+    const tip = page.getByRole("tooltip").filter({ hasText: "~/.agents/skills" });
+    await expect(tip).toBeVisible();
+    const hidden = await tip.evaluate((element) => {
+      type Box = { left: number; right: number; top: number; bottom: number };
+      const doc = globalThis as unknown as {
+        document: { elementFromPoint(x: number, y: number): unknown };
+      };
+      const node = element as unknown as { getBoundingClientRect(): Box; contains(other: unknown): boolean };
+      const box = node.getBoundingClientRect();
+      const midX = (box.left + box.right) / 2;
+      const midY = (box.top + box.bottom) / 2;
+      const points: [string, number, number][] = [
+        ["top", midX, box.top + 2],
+        ["bottom", midX, box.bottom - 2],
+        ["left", box.left + 2, midY],
+        ["right", box.right - 2, midY],
+      ];
+      return points.filter(([, x, y]) => !node.contains(doc.document.elementFromPoint(x, y))).map(([edge]) => edge);
+    });
+    expect(hidden).toEqual([]);
+    await page.getByTestId("skill-cancel").click();
+    await expect(page.getByTestId("skill-form")).toHaveCount(0);
+
     // 添加 1：默认目的地 = 各家 agent 共用（~/.agents/skills）。界面只看到文件夹名和解析出的名字 / 说明，没有路径。
     await pickFolder(sharedSource);
     await expect(page.getByTestId("skill-picked-folder")).toHaveText("源 skill 一");
@@ -675,6 +702,8 @@ test("集成与插件：Skills 添加（共用 / 只有 omp）、停用与启用
     await page.getByTestId("skill-save").click();
     await expect(page.getByTestId("skill-form")).toHaveCount(0);
     await expect(page.getByTestId(`skill-row-${sharedName}`)).toBeVisible({ timeout: 30_000 });
+    // 卡片右上角标出装在哪。
+    await expect(page.getByTestId(`skill-source-${sharedName}`)).toHaveText("Shared");
     const sharedDir = path.join(home, ".agents", "skills", sharedName);
     expect(await readFile(path.join(sharedDir, "scripts", "run.txt"), "utf8")).toBe("你好\n");
     // 添加后提示运行中的任务需要重新加载（同插件区的那条）。
@@ -688,6 +717,7 @@ test("集成与插件：Skills 添加（共用 / 只有 omp）、停用与启用
     await page.getByTestId("skill-save").click();
     await expect(page.getByTestId("skill-form")).toHaveCount(0);
     await expect(page.getByTestId(`skill-row-${ownName}`)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId(`skill-source-${ownName}`)).toHaveText("omp");
     const ownDir = path.join(agentDir, "skills", ownName);
     expect(await exists(path.join(ownDir, "SKILL.md"))).toBe(true);
 
@@ -765,7 +795,14 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
     JSON.stringify({
       name: "local-mk",
       owner: { name: "Test" },
-      plugins: [{ name: "p1", source: "./p1", description: "First local plugin", version: "1.0.0" }],
+      plugins: [
+        {
+          name: "p1",
+          source: "./p1",
+          description: `First local plugin. ${"A long description that must stay within two lines. ".repeat(10)}`,
+          version: "1.0.0",
+        },
+      ],
     }),
   );
   await writeFile(path.join(market, "p1", "package.json"), JSON.stringify({ name: "p1", version: "1.0.0" }));
@@ -789,6 +826,18 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
     // 浏览并安装：先弹确认，取消不装。
     await page.getByTestId("marketplace-browse-btn-local-mk").click();
     await expect(page.getByTestId("discover-p1@local-mk")).toContainText("First local plugin", { timeout: 60_000 });
+    // 描述只显示两行（完整的在悬停提示里）。
+    const lines = await page
+      .getByTestId("discover-p1@local-mk")
+      .locator(".ui-list-meta")
+      .evaluate((element) => {
+        const el = element as unknown as { getBoundingClientRect(): { height: number } };
+        const style = (
+          globalThis as unknown as { getComputedStyle(node: unknown): { lineHeight: string } }
+        ).getComputedStyle(element);
+        return el.getBoundingClientRect().height / Number.parseFloat(style.lineHeight);
+      });
+    expect(Math.round(lines)).toBe(2);
     await page.getByTestId("discover-install-p1@local-mk").click();
     const dialog = page.getByTestId("plugin-install-confirm");
     await expect(dialog).toContainText("third-party code");
