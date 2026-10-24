@@ -23,7 +23,6 @@ export const plugins = {
   version: "Version {version}",
   "scope.user": "User",
   "scope.project": "Project",
-  scope: "Scope",
   "install.scope": "Install to",
   "install.projectNote":
     "This install only applies to the selected project; its files go in the project's .omp folder.",

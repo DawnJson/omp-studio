@@ -14,6 +14,7 @@ import { useOmpStatus } from "../../store/index.ts";
 import { Badge, IconButton, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
 import { ensureOmpConfigLoaded, saveOmpConfig, useConfigLoad, useOmpConfigValue, useRowState } from "./config-store.ts";
 import { toolsResource } from "./integrations-data.ts";
+import { pushToast } from "../dialogs/toast-store.ts";
 
 function ToolCell({ tool, configKey, devices }: { tool: ToolEntry; configKey: string | null; devices: Set<string> }) {
   const t = useT();
@@ -65,7 +66,11 @@ function ToolCell({ tool, configKey, devices }: { tool: ToolEntry; configKey: st
             checked={value}
             disabled={row.phase === "saving"}
             label={tool.name}
-            onChange={(next) => void saveOmpConfig(configKey, next)}
+            onChange={(next) =>
+              void saveOmpConfig(configKey, next).then(
+                (saved) => saved && pushToast({ message: t("settings.cfg.saved"), durationMs: 1500 }),
+              )
+            }
             testId={`tool-switch-${tool.name}`}
           />
         )}

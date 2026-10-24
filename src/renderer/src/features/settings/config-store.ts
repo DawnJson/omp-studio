@@ -6,6 +6,7 @@ import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generat
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 
 interface RowState {
+  /** saved 只用于"写进去了但被别处覆盖"（提示要一直留着）；普通的保存成功回到 idle，由调用方弹"已保存"气泡。 */
   phase: "idle" | "saving" | "saved" | "error";
   /** 字符串 = 本地校验的提示；其他 = 请求失败的原始错误，显示时走 describeError。 */
   error?: unknown;
@@ -26,7 +27,6 @@ interface ConfigState {
 }
 
 const store = createStore<ConfigState>({ load: { kind: "idle" }, rows: {} });
-const savedTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const emptyRow: RowState = { phase: "idle" };
 let loading: Promise<void> | null = null;
 
@@ -53,45 +53,41 @@ function setRow(key: string, row: RowState): void {
   store.set({ ...state, rows: { ...state.rows, [key]: row } });
 }
 
-function applyResult(result: OmpConfigWriteResult): void {
+/** 返回 true = 写进去了且就是生效值（没有被别处覆盖）。 */
+function applyResult(result: OmpConfigWriteResult): boolean {
   const state = store.get();
-  if (state.load.kind !== "ready") return;
+  if (state.load.kind !== "ready") return false;
   const snapshot = state.load.snapshot;
   const items = snapshot.items.map((item): OmpConfigItem =>
     item.key === result.key ? { ...item, value: result.value, hasValue: result.hasValue } : item,
   );
-  const row: RowState = {
-    phase: "saved",
-    ...(result.overriddenBy && { overriddenBy: result.overriddenBy }),
-    ...(result.fallbackEnv && { fallbackEnv: result.fallbackEnv }),
-  };
+  const overridden = Boolean(result.overriddenBy || result.fallbackEnv);
+  const row: RowState = overridden
+    ? {
+        phase: "saved",
+        ...(result.overriddenBy && { overriddenBy: result.overriddenBy }),
+        ...(result.fallbackEnv && { fallbackEnv: result.fallbackEnv }),
+      }
+    : emptyRow;
   store.set({ load: { kind: "ready", snapshot: { ...snapshot, items } }, rows: { ...state.rows, [result.key]: row } });
-  clearTimeout(savedTimers.get(result.key));
-  // "已保存"只亮一会儿；被覆盖的提示要一直留着，所以只有普通的保存成功才淡出。
-  if (!row.overriddenBy && !row.fallbackEnv) {
-    savedTimers.set(
-      result.key,
-      setTimeout(() => {
-        if (store.get().rows[result.key]?.phase === "saved") setRow(result.key, emptyRow);
-      }, 1600),
-    );
-  }
+  return !overridden;
 }
 
-async function write(key: string, job: () => Promise<OmpConfigWriteResult>): Promise<void> {
+async function write(key: string, job: () => Promise<OmpConfigWriteResult>): Promise<boolean> {
   setRow(key, { phase: "saving" });
   try {
-    applyResult(await job());
+    return applyResult(await job());
   } catch (error) {
     setRow(key, { phase: "error", error });
+    return false;
   }
 }
 
-export function saveOmpConfig(key: string, value: unknown): Promise<void> {
+export function saveOmpConfig(key: string, value: unknown): Promise<boolean> {
   return write(key, () => window.studio.setOmpConfig(key, JSON.stringify(value)));
 }
 
-export function resetOmpConfig(key: string): Promise<void> {
+export function resetOmpConfig(key: string): Promise<boolean> {
   return write(key, () => window.studio.resetOmpConfig(key));
 }
 

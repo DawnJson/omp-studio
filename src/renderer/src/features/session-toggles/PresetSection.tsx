@@ -101,7 +101,6 @@ export function PresetSection({ taskId, onApplied }: { taskId: TaskId; onApplied
               ) : (
                 <Select<string>
                   size="sm"
-                  width={240}
                   value=""
                   label={t("toggles.presets")}
                   placeholder={t("toggles.presets.choose")}

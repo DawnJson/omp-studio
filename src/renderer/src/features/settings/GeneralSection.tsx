@@ -119,7 +119,6 @@ export function GeneralSection() {
           {(labelId) => (
             <Select<`${number}`>
               size="sm"
-              width={88}
               value={`${settings?.fontSize ?? defaultFontSize}`}
               options={fontSizeOptions}
               labelledBy={labelId}

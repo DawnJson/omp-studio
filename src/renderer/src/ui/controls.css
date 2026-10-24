@@ -268,7 +268,8 @@
   font-size: var(--fs-code-sm);
 }
 
-/* 下拉触发器：就是一个 Field，右侧 chevron */
+/* 下拉触发器：就是一个 Field，右侧 chevron。给了 width 就按它（默认 200）；没给（data-fit）按最长的选项定宽：
+   当前值和影子（.ui-select-sizer，每个选项的文字叠在同一格）在第一列重叠，列宽 = 最宽的那个；窄过它时当前值照常省略。 */
 .ui-select {
   --field-w: 200px;
   justify-content: space-between;
@@ -280,6 +281,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.ui-select[data-fit] {
+  display: inline-grid;
+  grid-template-columns: minmax(0, auto) auto;
+  width: auto;
+}
+.ui-select[data-fit] > span {
+  grid-area: 1 / 1;
+}
+.ui-select-sizer {
+  display: grid;
+  visibility: hidden;
+}
+.ui-select-sizer > span {
+  grid-area: 1 / 1;
+}
+.ui-select-sizer > span::before {
+  content: attr(data-text);
 }
 
 .ui-textarea {
@@ -881,7 +900,9 @@
   font-size: var(--fs-sm);
   color: var(--text);
 }
-/* ⓘ（InfoTip.tsx）：跟在文字后面，和文字同一行基线下移 0.125em */
+/* ⓘ（InfoTip.tsx）：跟在文字后面，和文字同一行基线下移 0.125em。
+   ⓘ 是 inline-block，它前面总有折行机会（词连接符也拦不住）。所以前面的文字末尾留出 ⓘ 的位置（padding），
+   ⓘ 再用负边距退回这块位置里：排版时 ⓘ 不占宽度，文字放不下时是最后一个字带着位置一起折行，ⓘ 不会单独掉到下一行。 */
 .ui-info {
   position: relative;
   display: inline-block;
@@ -889,6 +910,12 @@
   height: 14px;
   margin-left: var(--space-1);
   vertical-align: -0.125em;
+}
+:has(+ .ui-info) {
+  padding-inline-end: calc(14px + var(--space-1));
+}
+* + .ui-info {
+  margin-left: -14px;
 }
 .ui-info-btn {
   display: grid;

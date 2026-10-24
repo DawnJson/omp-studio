@@ -201,6 +201,38 @@ export async function expectNoOverflow(container: Locator): Promise<void> {
   expect(offenders, "越界的元素").toEqual([]);
 }
 
+/** 断言：容器里每个 ⓘ（InfoTip）都和它前面那段标签文字的最后一行在同一行，不会单独掉到下一行。 */
+export async function expectInfoTipsOnLabelLine(container: Locator): Promise<void> {
+  const offenders = await container.evaluate((root) => {
+    interface Rect {
+      top: number;
+      bottom: number;
+    }
+    interface El {
+      previousElementSibling: El | null;
+      textContent: string | null;
+      getClientRects(): ArrayLike<Rect>;
+      getBoundingClientRect(): Rect & { width: number };
+    }
+    const tips = Array.from(
+      (root as unknown as { querySelectorAll(s: string): ArrayLike<El> }).querySelectorAll(".ui-info"),
+    );
+    const found: string[] = [];
+    for (const tip of tips) {
+      const text = tip.previousElementSibling;
+      const box = tip.getBoundingClientRect();
+      if (text === null || box.width === 0) continue;
+      const lines = Array.from(text.getClientRects());
+      const last = lines.at(-1);
+      if (last === undefined) continue;
+      const middle = (box.top + box.bottom) / 2;
+      if (middle < last.top || middle > last.bottom) found.push(text.textContent ?? "");
+    }
+    return found;
+  });
+  expect(offenders, "ⓘ 单独掉到下一行的标签").toEqual([]);
+}
+
 /**
  * 切换语言和主题，等界面真的换好再返回。换主题是整窗交叉淡入（App.tsx 的 view transition）：
  * html 上的 data-theme 已经变了，淡入放完之前量到的还是过渡中的画面。

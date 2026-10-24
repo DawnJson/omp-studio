@@ -1,22 +1,7 @@
-/* omp 全部设置的界面：行里的保存反馈和提示、标签输入、加载 / 出错 / 空状态、结构化编辑器（对话框里）。
+/* omp 全部设置的界面：行里的提示、标签输入、加载 / 出错 / 空状态、结构化编辑器（对话框里）。
    行本身（标签、控件、改过的竖线、恢复默认）是 ui/Row，控件在 ui/controls.css。只用 tokens.css 里的变量。 */
 
 /* ───────── 行里的控件旁 ───────── */
-
-.cfg-feedback {
-  flex: none;
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-}
-
-.cfg-feedback:empty {
-  display: none;
-}
-
-.cfg-saved {
-  color: var(--st-done);
-  animation: cfg-fade var(--dur-fade) var(--ease-out);
-}
 
 /* 控件下面单独一行的小字（搜索命中的描述、保存 / 校验错误）：宽度不撑大控件列 */
 .cfg-note {
@@ -142,12 +127,6 @@
 .cfg-empty-title {
   margin: 0 0 var(--space-1);
   font-size: var(--fs-base);
-}
-
-@keyframes cfg-fade {
-  from {
-    opacity: 0;
-  }
 }
 
 /* ───────── 结构化编辑（模型角色、回退链；在"编辑…"对话框里） ───────── */

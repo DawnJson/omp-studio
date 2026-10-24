@@ -6,7 +6,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { expectNoOverflow, launchApp, setLocaleTheme } from "./launch.ts";
+import { expectInfoTipsOnLabelLine, expectNoOverflow, launchApp, setLocaleTheme } from "./launch.ts";
 
 const modelsYml =
   "providers:\n  role-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: role-one\n        reasoning: true\n      - id: role-two\n        reasoning: true\n      - id: role-three\n";
@@ -124,28 +124,48 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await expect(page.getByRole("option", { name: "role-one" })).toHaveCount(0);
     await page.getByRole("option", { name: "role-two" }).click();
     await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two"] });
-    await expect(page.getByTestId("setting-chain-smol")).toContainText("role-two");
+    const fallback = page.getByTestId("setting-chain-smol-0");
+    await expect(fallback).toHaveText("role-local/role-two");
 
-    // 备用模型也能选思考强度（role-two 支持思考）：默认沿用当前；选"高"写成 `provider/模型:high`，标签仍只写模型名，档位下拉显示高；
+    // 备用模型也能选思考强度（role-two 支持思考）：默认沿用当前；选"高"写成 `provider/模型:high`，模型下拉仍只写模型，档位下拉显示高；
     // 带后缀的也不会再出现在"添加备用…"里。
     const chainLevel = page.getByTestId("setting-chain-smol-thinking-0");
     await expect(chainLevel).toContainText(/沿用当前|Keep current/);
     await chainLevel.click();
     await page.getByRole("option", { name: /^(高|High)$/ }).click();
     await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two:high"] });
-    await expect(page.getByTestId("setting-chain-smol")).toContainText("role-two");
-    await expect(page.getByTestId("setting-chain-smol")).not.toContainText(":high");
+    await expect(fallback).toHaveText("role-local/role-two");
     await expect(chainLevel).toContainText(/高|High/);
     await page.getByTestId("setting-chain-smol-add").click();
     await page.getByTestId("setting-chain-smol-add-search").fill("role");
     await expect(page.getByRole("option", { name: "role-two" })).toHaveCount(0);
     await page.keyboard.press("Escape");
-    // 窄窗口、中英文下这一行不越界。
+    // 每个备用模型单独一行，模型和思考强度与主模型那一行同列同宽；"添加备用…"在最下面一行、模型那一列。窄窗口、中英文下都不越界。
     for (const locale of ["en", "zh-CN"] as const) {
       await setLocaleTheme(page, locale, "light");
       for (const width of [900, 1200]) {
         await page.setViewportSize({ width, height: 900 });
         await expectNoOverflow(page.getByTestId("setting-role-row-smol"));
+        await expectInfoTipsOnLabelLine(page.getByTestId("settings"));
+        const box = async (testId: string) => {
+          const found = await page.getByTestId(testId).boundingBox();
+          if (found === null) throw new Error(`${testId} 不可见`);
+          return found;
+        };
+        const main = await box("setting-role-smol");
+        const mainLevel = await box("setting-role-smol-thinking");
+        const chained = await box("setting-chain-smol-0");
+        const chainedLevel = await box("setting-chain-smol-thinking-0");
+        const add = await box("setting-chain-smol-add");
+        expect(chained.y).toBeGreaterThanOrEqual(main.y + main.height);
+        expect(add.y).toBeGreaterThanOrEqual(chained.y + chained.height);
+        for (const other of [chained, add]) {
+          expect(Math.abs(other.x - main.x)).toBeLessThanOrEqual(0.5);
+          expect(Math.abs(other.width - main.width)).toBeLessThanOrEqual(0.5);
+        }
+        expect(Math.abs(chainedLevel.x - mainLevel.x)).toBeLessThanOrEqual(0.5);
+        expect(Math.abs(chainedLevel.width - mainLevel.width)).toBeLessThanOrEqual(0.5);
+        expect(Math.abs(chainedLevel.y - chained.y)).toBeLessThanOrEqual(1);
       }
     }
     // 去掉后缀：选"沿用当前"。
@@ -163,11 +183,8 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await page.getByRole("option", { name: "Tavily", exact: true }).click();
     await expect.poll(async () => (await roles(page))["web"], { timeout: 30_000 }).toBe("web/tavily");
 
-    // 标签上的 × 删掉最后一个备用模型：整条去掉，不留空列表。
-    await page
-      .getByTestId("setting-chain-smol")
-      .getByRole("button", { name: /role-two/ })
-      .click();
+    // 备用那一行的 × 删掉最后一个备用模型：整条去掉，不留空列表。
+    await page.getByTestId("setting-chain-smol-remove-0").click();
     await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({});
 
     // 角色自己的思考强度：触发器写全 provider/模型 id；没选时跟随默认；选了写成 `provider/model:level`。

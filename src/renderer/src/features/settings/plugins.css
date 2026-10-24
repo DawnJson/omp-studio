@@ -15,11 +15,6 @@
   color: var(--st-error);
 }
 
-.pl-scope-label {
-  font-size: var(--fs-sm);
-  color: var(--text-3);
-}
-
 .pl-scope {
   display: flex;
   gap: var(--space-2);

@@ -41,7 +41,7 @@ async function configValue(page: Page, key: string): Promise<unknown> {
   );
 }
 
-test("改一项：改过的标记 + 已保存，值真的写进了 omp；恢复默认后回到默认值", async () => {
+test("改一项：改过的标记 + 已保存气泡（行里不出字），值真的写进了 omp；恢复默认后回到默认值", async () => {
   const { launched, agentDir } = await launchIsolated();
   try {
     const { page } = launched;
@@ -51,7 +51,8 @@ test("改一项：改过的标记 + 已保存，值真的写进了 omp；恢复�
     const reset = page.getByTestId("cfg-compaction.keepRecentTokens-reset");
     await expect(reset).toHaveCount(0);
     await row.getByRole("textbox").fill("12345");
-    await expect(row.getByText("已保存")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("toasts").getByText("已保存")).toBeVisible({ timeout: 10_000 });
+    await expect(row.getByText("已保存")).toHaveCount(0);
     await expect(reset).toBeVisible();
     expect(await configValue(page, "compaction.keepRecentTokens")).toBe(12345);
 

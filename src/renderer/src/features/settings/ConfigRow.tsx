@@ -1,7 +1,7 @@
 // omp 的一项设置：一个 ui/Row = 标签（+ ⓘ 说明）| 控件（后面是保存反馈、被覆盖的徽标）| 改过才有的"恢复默认"图标。
 // 描述放进 ⓘ（悬停/聚焦/点击）；搜索命中的是描述而不是标签时，才在控件下面就地显示那一句。
 // 常用项显示人话标签；其余显示 key（等宽，高级页里去掉小标题已经写出的前缀），描述是 omp 原文（中文界面里在 ⓘ 里标"omp 原文"）。
-// 只有真有话要说时才多出一行：保存或校验错误。
+// 只有真有话要说时才多出一行：保存或校验错误。保存成功弹"已保存"气泡（toast），不在行里占位。
 import { memo } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
@@ -10,6 +10,7 @@ import { Badge, Row } from "../../ui/controls.tsx";
 import { describeError } from "../../ui/errors.ts";
 import { ConfigControl } from "./ConfigControls.tsx";
 import { configText, isModified, shortValue } from "./config-meta.ts";
+import { pushToast } from "../dialogs/toast-store.ts";
 import { resetOmpConfig, saveOmpConfig, setLocalError, useRowState } from "./config-store.ts";
 
 export const ConfigRow = memo(function ConfigRow({
@@ -50,6 +51,7 @@ export const ConfigRow = memo(function ConfigRow({
     : t("settings.cfg.unset");
   const hasTip = text.label !== null || text.description !== "" || item.redacted;
   const overridden = row.overriddenBy || row.fallbackEnv;
+  const toastSaved = (saved: boolean) => saved && pushToast({ message: t("settings.cfg.saved"), durationMs: 1500 });
 
   return (
     <Row
@@ -72,7 +74,7 @@ export const ConfigRow = memo(function ConfigRow({
       modified={modified}
       reset={{
         tip: item.redacted ? t("settings.cfg.reset") : t("settings.cfg.default", { value: defaultText }),
-        onReset: () => void resetOmpConfig(item.key),
+        onReset: () => void resetOmpConfig(item.key).then(toastSaved),
       }}
       testId={`cfg-${item.key}`}
     >
@@ -87,7 +89,7 @@ export const ConfigRow = memo(function ConfigRow({
               item={item}
               labelId={labelId}
               title={name}
-              onSave={(value) => void saveOmpConfig(item.key, value)}
+              onSave={(value) => void saveOmpConfig(item.key, value).then(toastSaved)}
               onInvalid={(message) => setLocalError(item.key, message)}
             />
           )}
@@ -107,10 +109,6 @@ export const ConfigRow = memo(function ConfigRow({
               })}
             </Badge>
           )}
-          <span className="cfg-feedback" role="status" aria-live="polite">
-            {row.phase === "saving" && t("settings.cfg.saving")}
-            {row.phase === "saved" && <span className="cfg-saved">{t("settings.cfg.saved")}</span>}
-          </span>
           {snippet && <span className="cfg-note">{snippet}</span>}
           {row.phase === "error" && row.error !== undefined && (
             <span className="cfg-note cfg-error" role="alert">

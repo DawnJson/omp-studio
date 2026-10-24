@@ -2,7 +2,14 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { expectNoOverflow, launchApp, seedFakeSessions, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import {
+  expectInfoTipsOnLabelLine,
+  expectNoOverflow,
+  launchApp,
+  seedFakeSessions,
+  setLocaleTheme,
+  type LaunchedApp,
+} from "./launch.ts";
 
 test("顶栏是任务条：标志+字标、切换侧栏按钮（没有关于按钮）；中段只有标题（不带项目名）；没有后退/前进按钮", async () => {
   const launched = await launchApp();
@@ -347,6 +354,7 @@ test("字号最大档（22pt）在 900 宽窗口下：主界面和设置页都�
         for (let index = 0; index < count; index++) {
           await items.nth(index).click();
           await expectNoOverflow(settings);
+          await expectInfoTipsOnLabelLine(settings);
         }
       } else {
         const select = page.getByTestId("settings-nav-select");
@@ -358,6 +366,7 @@ test("字号最大档（22pt）在 900 宽窗口下：主界面和设置页都�
           if (index > 0) await select.click();
           await options.nth(index).click();
           await expectNoOverflow(settings);
+          await expectInfoTipsOnLabelLine(settings);
         }
       }
     }

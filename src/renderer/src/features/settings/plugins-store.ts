@@ -114,11 +114,9 @@ export async function runAction(t: TFunction, action: PluginAction, key: string)
   }
 }
 
-/** 页面当前看的范围：null = 只看用户范围；项目 id = 同时看到该项目范围的安装，并可装到该项目。切换后重读。 */
+/** 页面当前看的范围：null = 只看用户范围；项目 id = 同时看到该项目范围的安装，并可装到该项目。调用方随后重读。 */
 export function setPluginProject(projectId: ProjectId | null): void {
-  if (store.get().projectId === projectId) return;
-  patch({ projectId });
-  void loadPlugins();
+  if (store.get().projectId !== projectId) patch({ projectId });
 }
 
 export function dismissReload(): void {

@@ -143,7 +143,6 @@ export function SettingsCompactNav() {
     <div className="snav-compact" data-testid="settings-nav-compact" onKeyDown={onSettingsKeyDown}>
       <Select<SettingsPage>
         size="sm"
-        width={200}
         value={searching ? ("" as SettingsPage) : page}
         placeholder={t("settings.search")}
         options={settingsPages.map((item) => ({ value: item, label: t(`settings.${item}`) }))}

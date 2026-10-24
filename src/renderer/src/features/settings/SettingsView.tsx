@@ -19,7 +19,6 @@ import { MemoryCard } from "./MemoryCard.tsx";
 import { ModelsSection } from "./ModelsSection.tsx";
 import { OmpConfigPane, useOmpConfigLoader } from "./OmpConfigPane.tsx";
 import { PageHeadSlot } from "./PageHeadActions.tsx";
-import { PluginsSection } from "./PluginsSection.tsx";
 import { ProvidersSection } from "./ProvidersSection.tsx";
 import { onSettingsKeyDown, SettingsCompactNav } from "./SettingsNav.tsx";
 import { ToolsCard } from "./ToolsCard.tsx";
@@ -52,12 +51,7 @@ function PageContent({ page }: { page: SettingsPage }) {
     case "agents":
       return <OmpConfigPane view={{ kind: "common", group: "agents" }} />;
     case "extensions":
-      return (
-        <>
-          <IntegrationsSection />
-          <PluginsSection />
-        </>
-      );
+      return <IntegrationsSection />;
     case "advanced":
       return <OmpConfigPane view={{ kind: "advanced" }} />;
     case "about":

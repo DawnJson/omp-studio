@@ -73,7 +73,7 @@ export function Select<T extends string>({
   options: readonly SelectOption<T>[];
   onChange(next: T): void;
   size?: ControlSize | undefined;
-  /** CSS 宽度（默认 200px）。 */
+  /** CSS 宽度；不给就按最长的选项（和占位文字）定宽，短选项的下拉不再是一个大框。 */
   width?: number | string | undefined;
   mono?: boolean | undefined;
   disabled?: boolean | undefined;
@@ -283,6 +283,7 @@ export function Select<T extends string>({
         role="combobox"
         className={mono ? "ui-field ui-select ui-mono" : "ui-field ui-select"}
         data-size={size === "sm" ? "sm" : undefined}
+        data-fit={width === undefined ? "" : undefined}
         style={
           width === undefined
             ? undefined
@@ -302,6 +303,14 @@ export function Select<T extends string>({
         <span className={current === undefined ? "ui-placeholder" : undefined}>
           {current?.display ?? current?.label ?? placeholder}
         </span>
+        {/* 定宽用的影子：所有选项的文字叠在同一格里撑出最宽的那个，看不见、读屏不读（文字放在属性里，不进 textContent） */}
+        {width === undefined && (
+          <span className="ui-select-sizer" aria-hidden="true">
+            {[placeholder, ...options.map((option) => option.display ?? option.label)].map((text, index) => (
+              <span key={index} data-text={text} />
+            ))}
+          </span>
+        )}
         <ChevronDown size={14} />
       </button>
       {presence.mounted &&

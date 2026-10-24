@@ -1,9 +1,11 @@
-// 设置 → 集成与插件的集成部分：页头右侧一个"范围"下拉（MCP、SSH、Skills 共用），下面是三个分组。
-import { useId } from "react";
+// 设置 → 集成与插件：页头右侧一个"范围"下拉（MCP、SSH、Skills、插件共用），下面是各分组。
+import { useEffect, useId } from "react";
 import { useT } from "../../i18n/use-t.ts";
+import { useProjects } from "../sidebar/projects-store.ts";
 import { McpCard } from "./McpCard.tsx";
 import { PageHeadActions } from "./PageHeadActions.tsx";
-import { setCardScope, useCardScope } from "./integrations-store.ts";
+import { PluginsSection } from "./PluginsSection.tsx";
+import { scopeProject, setCardScope, useCardScope } from "./integrations-store.ts";
 import { ScopePicker } from "./ScopePicker.tsx";
 import { SkillsCard } from "./SkillsCard.tsx";
 import { SshCard } from "./SshCard.tsx";
@@ -12,6 +14,12 @@ export function IntegrationsSection() {
   const t = useT();
   const scope = useCardScope("integrations");
   const labelId = useId();
+  // 选中的项目被移除了：回到用户范围，不假装还看着它。
+  const projects = useProjects();
+  const known = scope === "user" || projects.some((project) => project.id === scope);
+  useEffect(() => {
+    if (!known) setCardScope("integrations", "user");
+  }, [known]);
   return (
     <>
       <PageHeadActions>
@@ -22,7 +30,6 @@ export function IntegrationsSection() {
           value={scope}
           includeUser
           size="sm"
-          width={168}
           labelledBy={labelId}
           onChange={(next) => setCardScope("integrations", next)}
           testId="integrations-scope-picker"
@@ -31,6 +38,7 @@ export function IntegrationsSection() {
       <McpCard scope={scope} />
       <SshCard scope={scope} />
       <SkillsCard scope={scope} />
+      <PluginsSection projectId={scopeProject(scope)} />
     </>
   );
 }

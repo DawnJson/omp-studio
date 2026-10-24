@@ -1,14 +1,12 @@
 // 设置 → 集成与插件的插件部分（spec §4.19）：已装插件（启停、功能、设置、升级、卸载）、市场（来源、浏览、安装）、诊断。
 // 数据和动作都经 `omp plugin …`（docs/architecture/plugins.md）；改动后提示"在运行中的任务里重新加载"。
-import { useEffect, useId, useMemo } from "react";
+import { useEffect } from "react";
 import type { ProjectId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Restart } from "../../icons.tsx";
 import { useOmpStatus, useTasks } from "../../store/index.ts";
 import { Badge, Button, IconButton, ListRow, Notice, SectionHead, type Tone } from "../../ui/controls.tsx";
 import { describeError } from "../../ui/errors.ts";
-import { Select } from "../../ui/Select.tsx";
-import { useProjects } from "../sidebar/projects-store.ts";
 import { MarketplacesCard } from "./MarketplacesCard.tsx";
 import { PluginRow } from "./PluginRow.tsx";
 import {
@@ -29,7 +27,8 @@ const STATUS_KEYS = {
 
 const STATUS_TONES: Record<keyof typeof STATUS_KEYS, Tone> = { ok: "success", warning: "warning", error: "error" };
 
-export function PluginsSection() {
+/** 范围由集成页页头的"范围"下拉决定（和 MCP、SSH、Skills 同一个），这里不另放一个。 */
+export function PluginsSection({ projectId }: { projectId: ProjectId | null }) {
   const t = useT();
   const ready = useOmpStatus()?.state === "ready";
   const tasks = useTasks();
@@ -38,43 +37,15 @@ export function PluginsSection() {
   const busy = state.working !== null;
 
   useEffect(() => {
+    setPluginProject(projectId);
     if (ready) void loadPlugins();
-  }, [ready]);
-
-  // 选中的项目被移除了：回到用户范围，不假装还看着它。
-  const projects = useProjects();
-  const projectKnown = state.projectId === null || projects.some((project) => project.id === state.projectId);
-  useEffect(() => {
-    if (!projectKnown) setPluginProject(null);
-  }, [projectKnown]);
-  const scopeLabel = useId();
-  const scopeOptions = useMemo(
-    () => [
-      { value: "user", label: t("plugins.scope.user") },
-      ...projects.map((project) => ({ value: project.id as string, label: project.name })),
-    ],
-    [projects, t],
-  );
+  }, [ready, projectId]);
 
   const installedCount = (snapshot.data?.npm.length ?? 0) + (snapshot.data?.marketplace.length ?? 0);
   const hasMarketplacePlugins = (snapshot.data?.marketplace.length ?? 0) > 0;
 
   return (
     <>
-      <div className="pl-scope">
-        <span id={scopeLabel} className="pl-scope-label">
-          {t("plugins.scope")}
-        </span>
-        <Select
-          size="sm"
-          width={168}
-          value={state.projectId ?? "user"}
-          options={scopeOptions}
-          labelledBy={scopeLabel}
-          onChange={(next) => setPluginProject(next === "user" ? null : (next as ProjectId))}
-          testId="plugins-scope"
-        />
-      </div>
       <p className="pl-note">{t("plugins.intro")}</p>
 
       {state.reloadPending && (

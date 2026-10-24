@@ -50,7 +50,6 @@ export function ChainLevel({
   return (
     <Select
       size="sm"
-      width={104}
       value={level ?? ""}
       options={options}
       label={t("settings.roles.chainThinking", { name })}
