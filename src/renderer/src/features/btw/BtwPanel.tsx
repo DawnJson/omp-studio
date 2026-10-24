@@ -26,7 +26,6 @@ function TurnView({ turn }: { turn: BtwHistoryTurn }) {
     <div className="btw-turn" data-testid="btw-turn" data-status={turn.status}>
       <p className="btw-q">{turn.question}</p>
       {turn.answer !== "" && <Markdown source={turn.answer} streaming={running} />}
-      {running && turn.answer === "" && <p className="btw-note">{t("btw.status.running")}</p>}
       {note !== null && (
         <p className="btw-note" data-status={turn.status} title={turn.error}>
           {note}
@@ -99,7 +98,9 @@ function BtwPanelBody({ taskId, open }: { taskId: TaskId; open: boolean }) {
   return (
     <section className="btw" aria-label={t("btw.title")} data-testid="btw-panel" onKeyDown={onKeyDown}>
       <header className="btw-head">
-        <span className="btw-title">{t("btw.title")}</span>
+        <span className="btw-title" title={t("btw.slashDesc")}>
+          {t("btw.title")}
+        </span>
         {running && (
           <Badge tone="accent" dot testId="btw-running">
             {t("btw.status.running")}

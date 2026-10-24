@@ -257,7 +257,6 @@ export function Sidebar() {
           data-testid="sidebar-new-task"
           // 草稿页（没选任务的对话区）就是"新任务"：和任务行的选中一样用 aria-current 标出来。
           aria-current={view === "conversation" && selectedTaskId === null ? "page" : undefined}
-          title={`${t("sidebar.newTask")} (Ctrl N)`}
           onClick={() => startDraft(null)}
         >
           <PlusIcon />
@@ -271,7 +270,6 @@ export function Sidebar() {
           type="button"
           className="sb-new"
           data-testid="sidebar-open-folder"
-          title={`${t("sidebar.openFolder")} (Ctrl Shift O)`}
           onClick={() => void addProjectAsDraft(t)}
         >
           <FolderPlusIcon />
@@ -300,11 +298,6 @@ export function Sidebar() {
 
       <div className="sb-list-host">
         <div className="sb-list" ref={listRef} onKeyDown={onListKeyDown}>
-          {!tasksState.loaded && tasksState.error === null && (
-            <p className="sb-note" role="status">
-              {t("sidebar.loading")}
-            </p>
-          )}
           {tasksState.error !== null && (
             <p className="sb-note sb-note-error">{t("sidebar.loadFailed", { message: tasksState.error })}</p>
           )}

@@ -259,8 +259,7 @@ test("重开会话:顶栏标题旁的按钮;门开着时置灰,悬停出自绘�
     const before = (await pids()).length;
 
     await restart.click();
-    await expect(page.getByText(/已重开会话|Session restarted/)).toBeVisible({ timeout: 30_000 });
-    expect(await pids()).toHaveLength(before + 1);
+    await expect.poll(pids, { timeout: 30_000 }).toHaveLength(before + 1);
     await expect(row).toHaveAttribute("data-status", "idle");
     await expect(restart).toBeEnabled();
 

@@ -34,10 +34,9 @@ function Body({
     const { result } = phase;
     return (
       <>
-        <p className="si-note">{t("sessionInfo.share.done")}</p>
         {result.url !== null ? (
           <>
-            <span className="si-note">{t("sessionInfo.share.url")}</span>
+            {result.gistUrl !== null && <span className="si-note">{t("sessionInfo.share.url")}</span>}
             <code className="si-url" data-testid="share-url">
               {result.url}
             </code>
@@ -75,9 +74,11 @@ function Body({
           {t(gist ? "sessionInfo.share.warnGist" : "sessionInfo.share.warn", { server: settings.serverUrl })}
         </Notice>
       </Reserve>
-      <p className="si-note" data-testid="share-redact" data-redact={settings.redactSecrets}>
-        {t(settings.redactSecrets ? "sessionInfo.share.redactOn" : "sessionInfo.share.redactOff")}
-      </p>
+      {!settings.redactSecrets && (
+        <p className="si-note" data-testid="share-redact" data-redact={settings.redactSecrets}>
+          {t("sessionInfo.share.redactOff")}
+        </p>
+      )}
       <Checkbox checked={gist} onChange={onGist} disabled={phase.kind === "uploading"} testId="share-gist">
         {t("sessionInfo.share.gist")}
       </Checkbox>

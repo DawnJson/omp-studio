@@ -6,5 +6,5 @@ export const status = {
   done: "完成",
   error: "出错",
   interrupted: "已中断",
-  interruptedTip: "这个会话在中途停下了（停在工具调用上或长度上限）。打开它可以接着做。",
+  interruptedTip: "中途停下，打开可继续",
 } satisfies Record<string, MessageEntry>;

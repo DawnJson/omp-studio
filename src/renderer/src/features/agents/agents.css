@@ -33,12 +33,6 @@
   font-weight: var(--fw-strong);
   color: var(--text);
 }
-.agents-count {
-  flex: none;
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-}
 
 /* 后台驱动 omp 的 Agent Hub 时：面板顶部一条"正在发给 X"，点不到任何操作（按钮自己 disabled） */
 .agents-driving {
@@ -65,10 +59,6 @@
 .agents-driving-text {
   font-weight: var(--fw-strong);
   color: var(--text);
-}
-.agents-driving-hint {
-  flex-basis: 100%;
-  color: var(--text-3);
 }
 
 .agents-body {

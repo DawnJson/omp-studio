@@ -89,6 +89,8 @@ export interface CustomProviderInfo {
   models: (CustomModelEntry & CustomModelMeta)[];
   /** 配了 `discovery`：模型由 omp 运行时发现，列表可以为空。 */
   discovery: boolean;
+  /** `modelOverrides` 里写了能力参数的模型（只有 `name`、`compat` 这类别的键的不算）。 */
+  overrides: ({ id: string } & CustomModelMeta)[];
 }
 
 export interface CustomModelsFileInfo {
@@ -108,8 +110,16 @@ export type CustomKeyInput =
   | { kind: "literal"; value: string }
   | { kind: "env"; name: string; value?: string };
 
-/** 只改 key 时（`setCustomProviderKey`）写入的值；null = 去掉 `apiKey`。 */
+/** 写进 `apiKey` 的值。 */
 export type CustomKeyValue = { kind: "literal"; value: string } | { kind: "env"; name: string; value?: string };
+
+/** 只覆盖 omp 内置 provider 的条目（如 `anthropic` 下只有 `modelOverrides`）保存时的内容（`saveProviderOverride`）。 */
+export interface ProviderOverrideInput {
+  /** keep = 不动 `apiKey`；null = 去掉（omp 用登录的凭据）。 */
+  key: CustomKeyValue | { kind: "keep" } | null;
+  /** `modelOverrides` 里各模型的能力参数；不在列表里的模型去掉这几项，条目里别的键（`name`、`compat`……）原样。 */
+  models: ({ id: string } & CustomModelMeta)[];
+}
 
 export interface CustomProviderInput {
   id: string;

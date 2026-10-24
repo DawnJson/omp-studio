@@ -370,7 +370,7 @@ test("侧栏：竖排 搜索 / [新任务] / [打开文件夹]；任务和历史
     await expect(history.getByTestId("sidebar-session").first()).toContainText("整理日志格式并补上单元测试");
     await search.fill("zzz-no-match");
     await expect(page.getByTestId("task-row")).toHaveCount(0);
-    await expect(sidebar).toContainText(/没有匹配|No matching/);
+    await expect(sidebar).toContainText(/无匹配|No matches/);
     // 历史会话：launchApp 造的假会话里有 "Fix the flaky login test on CI"。
     await search.fill("login");
     await expect(page.getByTestId("sidebar-session")).toHaveCount(1);

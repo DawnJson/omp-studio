@@ -8,7 +8,7 @@ export const palette = {
   sessions: "会话",
   commands: "命令",
   slash: "斜杠命令",
-  noResults: "没有匹配“{q}”",
+  noResults: "无匹配",
   askNew: "在新任务中提问",
   hint: "↑↓ 选择　↵ 执行　Esc 关闭",
 } satisfies Record<string, MessageEntry>;

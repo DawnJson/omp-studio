@@ -1,5 +1,6 @@
 // 自定义提供商对话框里的"模型"一栏：工具栏（全选方框、一键拉取、自动发现开关）、勾选、筛选、手动添加；勾选的模型在同一行设思考、
-// 图片输入、上下文窗口、最大输出（models.yml 模型条目的 reasoning / input / contextWindow / maxTokens）。状态（rows、提示）由表单持有。
+// 图片输入、上下文窗口、最大输出（models.yml 模型条目或 `modelOverrides` 覆盖项的 reasoning / input / contextWindow / maxTokens）。
+// 状态（rows、提示）由对话框持有。覆盖内置 provider 的对话框不传 fetch / discovery，工具栏里就没有这两项。
 import { useMemo, useState } from "react";
 import { parseTokenCount, type CustomModelMeta } from "../../../../shared/custom-models.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -32,32 +33,17 @@ interface CustomModelListProps {
   hintOf(id: string): CustomModelMeta;
   notice: FetchNotice | null;
   onNotice(notice: FetchNotice | null): void;
-  fetching: boolean;
-  fetchDisabled: boolean;
-  onFetch(): void;
+  /** 一键拉取。 */
+  fetch?: { busy: boolean; disabled: boolean; run(): void };
   /** 自动发现模型（models.yml 里写 discovery）；接口类型没有通用发现方式时开关停用。 */
-  discovery: boolean;
-  discoverySupported: boolean;
-  onDiscovery(next: boolean): void;
+  discovery?: { on: boolean; supported: boolean; onChange(next: boolean): void };
 }
 
 type Flag = "auto" | "yes" | "no";
 
 const flagOf = (value: boolean | null): Flag => (value === null ? "auto" : value ? "yes" : "no");
 
-export function CustomModelList({
-  rows,
-  onRows,
-  hintOf,
-  notice,
-  onNotice,
-  fetching,
-  fetchDisabled,
-  onFetch,
-  discovery,
-  discoverySupported,
-  onDiscovery,
-}: CustomModelListProps) {
+export function CustomModelList({ rows, onRows, hintOf, notice, onNotice, fetch, discovery }: CustomModelListProps) {
   const t = useT();
   const [filter, setFilter] = useState("");
   const [manual, setManual] = useState("");
@@ -140,36 +126,43 @@ export function CustomModelList({
         >
           {t("custom.form.models.all")}
         </Checkbox>
-        <Button size="sm" loading={fetching} disabled={fetchDisabled} onClick={onFetch} testId="custom-fetch">
-          {t("custom.form.models.fetch")}
-        </Button>
-        {/* 停用时原因写在悬停提示里，不另起一段（切接口类型时对话框大小不变）。 */}
-        <label className="ui-choice" title={discoverySupported ? undefined : t("custom.form.discovery.unsupported")}>
-          <Switch
-            checked={discovery}
-            disabled={!discoverySupported}
-            label={t("custom.form.discovery")}
-            onChange={onDiscovery}
-            testId="custom-discovery"
-          />
-          <span>{t("custom.form.discovery")}</span>
-        </label>
-        <span className="cp-models-hint">{t("custom.form.discovery.tip")}</span>
-        {rows.length > 12 && (
-          <TextField
-            size="sm"
-            width={200}
-            autoComplete="off"
-            value={filter}
-            placeholder={t("custom.form.models.filter")}
-            aria-label={t("custom.form.models.filter")}
-            onChange={setFilter}
-          />
+        {fetch !== undefined && (
+          <Button size="sm" loading={fetch.busy} disabled={fetch.disabled} onClick={fetch.run} testId="custom-fetch">
+            {t("custom.form.models.fetch")}
+          </Button>
         )}
-        {rows.length > 0 && (
-          <span className="cp-count" data-testid="custom-selected-count">
-            {t("custom.form.models.selected", { selected: selectedCount, total: rows.length })}
-          </span>
+        {/* 说明（停用时是原因）在悬停提示里，不另起一段（切接口类型时对话框大小不变）。 */}
+        {discovery !== undefined && (
+          <label
+            className="ui-choice"
+            title={discovery.supported ? t("custom.form.discovery.tip") : t("custom.form.discovery.unsupported")}
+          >
+            <Switch
+              checked={discovery.on}
+              disabled={!discovery.supported}
+              label={t("custom.form.discovery")}
+              onChange={discovery.onChange}
+              testId="custom-discovery"
+            />
+            <span>{t("custom.form.discovery")}</span>
+          </label>
+        )}
+        {/* 行多到要筛选时才显示计数：少的时候勾了几个一眼看得到。 */}
+        {rows.length > 12 && (
+          <>
+            <TextField
+              size="sm"
+              width={200}
+              autoComplete="off"
+              value={filter}
+              placeholder={t("custom.form.models.filter")}
+              aria-label={t("custom.form.models.filter")}
+              onChange={setFilter}
+            />
+            <span className="cp-count" data-testid="custom-selected-count">
+              {t("custom.form.models.selected", { selected: selectedCount, total: rows.length })}
+            </span>
+          </>
         )}
       </div>
       {notice !== null && (
@@ -183,7 +176,7 @@ export function CustomModelList({
         <div className="cp-model-table" data-testid="custom-model-list">
           {/* 列名只给看的人；每个控件自己的 aria-label 带着列名和模型 id。 */}
           <div className="cp-model-head" aria-hidden="true">
-            <span>{t("custom.form.meta.model")}</span>
+            <span />
             <span>{columns.reasoning}</span>
             <span>{columns.images}</span>
             <span>{columns.contextWindow}</span>

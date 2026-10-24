@@ -105,9 +105,11 @@ export function SshCard({ scope }: { scope: ScopeKey }) {
               title={host.name}
               badges={
                 <>
-                  <Badge>
-                    {host.scope === "user" ? t("integrations.scope.user") : t("integrations.scope.project")}
-                  </Badge>
+                  {scope !== "user" && (
+                    <Badge>
+                      {host.scope === "user" ? t("integrations.scope.user") : t("integrations.scope.project")}
+                    </Badge>
+                  )}
                   {host.compat && <Badge>{t("integrations.ssh.compat")}</Badge>}
                 </>
               }

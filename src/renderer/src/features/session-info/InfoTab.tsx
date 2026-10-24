@@ -25,7 +25,7 @@ function UsageSection({ usage }: { usage: SessionModelUsage }) {
   const sum = (pick: (row: ModelUsage) => number) => usage.models.reduce((total, row) => total + pick(row), 0);
   return (
     <section className="si-section" data-testid="si-usage">
-      <SectionHead title={t("sessionInfo.usage.title")} />
+      <SectionHead title={<span title={t("sessionInfo.usage.note")}>{t("sessionInfo.usage.title")}</span>} />
       {usage.models.length === 0 ? (
         <p className="si-note" data-testid="si-no-usage">
           {t("sessionInfo.usage.none")}
@@ -68,7 +68,6 @@ function UsageSection({ usage }: { usage: SessionModelUsage }) {
           </Row>
         </dl>
       )}
-      <p className="si-note">{t("sessionInfo.usage.note")}</p>
     </section>
   );
 }
@@ -172,9 +171,8 @@ export function InfoTab({ task, read }: { task: TaskState; read: Read<TaskSessio
       ) : (
         <>
           <div className="si-pin-row">
-            <span id={pinId}>
+            <span id={pinId} title={t("sessionInfo.pin.hint")}>
               {t("sessionInfo.pin.label")}
-              <span className="si-pin-hint">{t("sessionInfo.pin.hint")}</span>
             </span>
             <Switch
               checked={info.pinned}

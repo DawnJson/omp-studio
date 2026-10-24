@@ -13,8 +13,6 @@ import { takeFocusRequest } from "./terminal-store.ts";
 export interface TerminalSession {
   shell: string | null;
   cwd: string | null;
-  /** 已经开了终端但 shell 还没输出任何字节（比如 pwsh 在加载 profile）。 */
-  starting: boolean;
   /** 结束当前 shell（如果还活着）并在同一目录新起一个。 */
   restart(): void;
 }
@@ -36,7 +34,6 @@ export function useTerminalSession(
   latestT.current = t;
   const [info, setInfo] = useState<{ shell: string; cwd: string } | null>(null);
   const restartRef = useRef<() => void>(() => undefined);
-  const [starting, setStarting] = useState(true);
 
   useEffect(() => {
     const el = host.current;
@@ -79,14 +76,11 @@ export function useTerminalSession(
     refit();
 
     const output = (data: string) => {
-      // 第一个输出字节到了：shell 已经开始画东西（pwsh 加载 profile 要几秒），撤掉"正在启动"提示。
-      if (data.length > 0) setStarting(false);
       if (buffered) buffered.push(data);
       else term.write(data);
     };
     const markDead = (message: string) => {
       phase = "dead";
-      setStarting(false);
       // 灰色（ANSI 亮黑 = --text-3）的一行提示，按任意键重新启动。
       output(`\r\n\x1b[90m${message}\x1b[0m\r\n`);
     };
@@ -94,7 +88,6 @@ export function useTerminalSession(
     const connect = async () => {
       phase = "opening";
       buffered = [];
-      setStarting(true);
       const requested = { cols: term.cols, rows: term.rows };
       try {
         const result = await window.studio.openTerminal(terminalKey, requested.cols, requested.rows);
@@ -105,7 +98,6 @@ export function useTerminalSession(
           // backlog 已经包含 open 之前到达的输出，缓冲的那些丢掉，否则会重复。
           term.reset();
           term.write(result.backlog);
-          if (result.backlog.length > 0) setStarting(false);
         } else {
           for (const data of pending) term.write(data);
         }
@@ -231,5 +223,5 @@ export function useTerminalSession(
   }, [terminalKey, host, platform]);
 
   const restart = useCallback(() => restartRef.current(), []);
-  return { shell: info?.shell ?? null, cwd: info?.cwd ?? null, starting, restart };
+  return { shell: info?.shell ?? null, cwd: info?.cwd ?? null, restart };
 }

@@ -9,7 +9,7 @@ export function updateStatusText(state: UpdateState, t: TFunction): string {
         ? t("settings.about.disabled.notPackaged")
         : t("settings.about.disabled.noFeed");
     case "idle":
-      return t("settings.about.idle");
+      return "";
     case "checking":
       return t("settings.about.checking");
     case "up-to-date":

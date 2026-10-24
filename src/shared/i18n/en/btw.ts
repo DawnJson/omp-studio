@@ -4,8 +4,8 @@ import type { btw as zhCN } from "../zh-CN/btw.ts";
 export const btw = {
   title: "Side question",
   slashDesc: "Ask a side question; the answer stays out of the conversation",
-  placeholder: "Ask something on the side; it won't enter the main conversation",
-  placeholderFollowUp: "Follow up on this topic",
+  placeholder: "Ask",
+  placeholderFollowUp: "Follow up",
   send: "Ask",
   cancel: "Cancel question",
   close: "Close side question",

@@ -166,7 +166,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           : gate
             ? t("composer.placeholderGate")
             : running
-              ? t(swapped ? "composer.placeholderRunningSwapped" : "composer.placeholderRunning")
+              ? t("composer.placeholderRunning")
               : task !== null && task.title !== ""
                 ? t("composer.placeholder")
                 : t("composer.placeholderNew");
@@ -448,13 +448,13 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           <UsageMeter task={task} />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
-          {screenOpen && <span className="composer-note">{t("composer.screenOpenNote")}</span>}
           <ContextMeter task={task} />
           <SessionCost usage={task.sessionUsage} provider={task.model?.key.provider ?? null} />
           <SendStop
             running={running}
             stopping={stopping}
             hasContent={hasContent}
+            swapped={swapped}
             disabled={tooOld === true || worktreeGone || tspAsking || screenOpen}
             onSend={() => {
               if (allowSend()) sendNow("steer");

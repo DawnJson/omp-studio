@@ -72,7 +72,6 @@ export function TagInput({
         className="st-tags-input"
         value={text}
         spellCheck={false}
-        placeholder={values.length === 0 ? t("settings.cfg.tagPlaceholder") : ""}
         aria-labelledby={labelledBy}
         onChange={(event) => setText(event.currentTarget.value)}
         onKeyDown={onKeyDown}

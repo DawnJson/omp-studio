@@ -92,7 +92,7 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void 
           <PiMark />
         </svg>
         <p className="about-meta" data-testid="about-version">
-          {t("window.aboutVersion", { version })}
+          {version}
           <span aria-hidden="true"> · </span>
           {ompVersion === null ? t("window.aboutOmpMissing") : t("window.aboutOmp", { version: ompVersion })}
         </p>

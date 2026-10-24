@@ -9,5 +9,4 @@ export const terminal = {
   resize: "Resize terminal",
   exited: "[Process exited with code {code}] Press any key to restart",
   restartHint: "Press any key to retry",
-  starting: "Starting shell…",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

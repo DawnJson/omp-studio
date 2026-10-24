@@ -170,9 +170,9 @@ export function CommitBox({
         onChange={setDescription}
         onKeyDown={onKeyDown}
       />
-      {amend && last !== null && (
-        <p className="rv-commit-warn" data-testid="review-commit-amend-note" data-pushed={last.pushed || undefined}>
-          {t(last.pushed ? "review.commitAmendPushed" : "review.commitAmendLocal")}
+      {amend && last?.pushed && (
+        <p className="rv-commit-warn" data-testid="review-commit-amend-note" data-pushed="true">
+          {t("review.commitAmendPushed")}
         </p>
       )}
       <div className="rv-commit-foot">

@@ -96,12 +96,7 @@ function OmpEntry() {
         </Notice>
       )}
       {sections === null && load.kind !== "error" && <p className="st-muted">{t("integrations.loading")}</p>}
-      {latest !== undefined && (
-        <>
-          <p className="st-muted">{t("integrations.changelog.hint")}</p>
-          <Markdown source={latest.body} />
-        </>
-      )}
+      {latest !== undefined && <Markdown source={latest.body} />}
     </Entry>
   );
 }

@@ -7,8 +7,9 @@ import {
   isValidEnvName,
   limits,
   type CustomKeyInput,
-  type CustomKeyValue,
+  type CustomModelMeta,
   type CustomProviderInput,
+  type ProviderOverrideInput,
   type FetchModelsOutcome,
 } from "../../shared/custom-models.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
@@ -21,7 +22,7 @@ import {
   readModelsFile,
   readProviderKey,
   saveCustomProvider,
-  setCustomProviderKey,
+  saveProviderOverride,
 } from "../omp-config/models-file.ts";
 import { readyOmp } from "../omp-manager/index.ts";
 import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
@@ -48,11 +49,25 @@ function nullable<T>(value: unknown, name: string, parse: (value: unknown, name:
   return value === null ? null : parse(value, name);
 }
 
-function parseKeyValue(value: unknown): CustomKeyValue | null {
+function parseOverrideKey(value: unknown): ProviderOverrideInput["key"] {
   if (value === null) return null;
   const key = parseKey(value);
-  if (key.kind === "literal" || key.kind === "env") return key;
-  throw new IpcValidationError(`key.kind must be literal or env`);
+  if (key.kind !== "none") return key;
+  throw new IpcValidationError(`key.kind must be keep, literal or env`);
+}
+
+function parseModels(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value) || value.length > 1000) throw new IpcValidationError("models 必须是数组");
+  return (value as unknown[]).map((item) => parseRecord(item, "model"));
+}
+
+function parseMeta(model: Record<string, unknown>): CustomModelMeta {
+  return {
+    reasoning: nullable(model["reasoning"], "model.reasoning", parseBoolean),
+    images: nullable(model["images"], "model.images", parseBoolean),
+    contextWindow: nullable(model["contextWindow"], "model.contextWindow", parseTokens),
+    maxTokens: nullable(model["maxTokens"], "model.maxTokens", parseTokens),
+  };
 }
 
 function parseTokens(value: unknown, name: string): number {
@@ -62,26 +77,31 @@ function parseTokens(value: unknown, name: string): number {
 /** 只校验形状（类型、长度）；内容规则（id 字符集、URL 协议……）在 models-file.ts，不合格返回 {ok:false, code}。 */
 function parseInput(value: unknown): CustomProviderInput {
   const record = parseRecord(value, "input");
-  const models = record["models"];
-  if (!Array.isArray(models) || models.length > 1000) throw new IpcValidationError("models 必须是数组");
   return {
     id: parseString(record["id"], "id", 200, { allowEmpty: true }),
     baseUrl: parseString(record["baseUrl"], "baseUrl", 4096, { allowEmpty: true }),
     api: parseString(record["api"], "api", 100, { allowEmpty: true }),
     key: parseKey(record["key"]),
-    models: (models as unknown[]).map((item) => {
-      const model = parseRecord(item, "model");
+    models: parseModels(record["models"]).map((model) => {
       const name = model["name"];
       return {
         id: parseString(model["id"], "model.id", 1000, { allowEmpty: true }),
         ...(name !== undefined && { name: parseString(name, "model.name", 1000, { allowEmpty: true }) }),
-        reasoning: nullable(model["reasoning"], "model.reasoning", parseBoolean),
-        images: nullable(model["images"], "model.images", parseBoolean),
-        contextWindow: nullable(model["contextWindow"], "model.contextWindow", parseTokens),
-        maxTokens: nullable(model["maxTokens"], "model.maxTokens", parseTokens),
+        ...parseMeta(model),
       };
     }),
     ...(record["discovery"] !== undefined && { discovery: parseBoolean(record["discovery"], "discovery") }),
+  };
+}
+
+function parseOverrideInput(value: unknown): ProviderOverrideInput {
+  const record = parseRecord(value, "input");
+  return {
+    key: parseOverrideKey(record["key"]),
+    models: parseModels(record["models"]).map((model) => ({
+      id: parseString(model["id"], "model.id", 1000, { allowEmpty: true }),
+      ...parseMeta(model),
+    })),
   };
 }
 
@@ -119,7 +139,7 @@ export const customModelHandlers: HandlerGroup<
   | "listCustomProviders"
   | "saveCustomProvider"
   | "deleteCustomProvider"
-  | "setCustomProviderKey"
+  | "saveProviderOverride"
   | "fetchProviderModels"
   | "refreshModels"
   | "openModelsFile"
@@ -145,13 +165,12 @@ export const customModelHandlers: HandlerGroup<
     if (outcome.ok) await serviceOmp.close();
     return outcome;
   },
-  setCustomProviderKey: async (providerId, key) => {
-    const outcome = await setCustomProviderKey(
-      resolveAgentDir(),
-      parseString(providerId, "providerId", 200),
-      parseKeyValue(key),
+  saveProviderOverride: async (providerId, input) => {
+    const parsed = parseOverrideInput(input);
+    const outcome = await saveProviderOverride(resolveAgentDir(), parseString(providerId, "providerId", 200), parsed);
+    log.info(
+      `custom provider override: key ${parsed.key?.kind ?? "clear"}, ${parsed.models.length} model(s): ${outcome.ok ? "saved" : outcome.code}`,
     );
-    log.info(`custom provider key ${key === null ? "clear" : "set"}: ${outcome.ok ? "saved" : outcome.code}`);
     if (outcome.ok) await serviceOmp.close();
     return outcome;
   },

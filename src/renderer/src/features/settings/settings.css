@@ -601,11 +601,3 @@
 .st-adv-sub .ui-section-head .ui-count {
   margin-left: auto;
 }
-
-.st-prefix-key {
-  margin-left: var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--fs-code-sm);
-  font-weight: var(--fw-regular);
-  color: var(--text-3);
-}

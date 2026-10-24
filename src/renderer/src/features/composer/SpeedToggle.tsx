@@ -59,15 +59,13 @@ export function SpeedToggle({ speed }: { speed: SpeedControls }) {
         enabled={fast.enabled}
         onChange={(enabled) => speed.setFast(enabled).catch(report)}
       />
-      {slow.supported ? (
+      {slow.supported && (
         <OnOff
           label="model.slow"
           hint={slow.scope === null ? null : slowScopeKey[slow.scope]}
           enabled={slow.enabled}
           onChange={(enabled) => speed.setSlow(enabled).catch(report)}
         />
-      ) : (
-        <span className="mp-hint">{t("model.slow.unsupported")}</span>
       )}
     </div>
   );

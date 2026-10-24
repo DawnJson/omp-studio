@@ -115,7 +115,6 @@ export function SettingsNav() {
             key={item}
             type="button"
             className="snav-item"
-            title={label}
             aria-current={!searching && page === item ? "page" : undefined}
             onClick={() => setSettingsPage(item)}
             data-testid={`settings-nav-${item}`}

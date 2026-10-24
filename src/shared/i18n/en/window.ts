@@ -3,7 +3,6 @@ import type { window as zhCN } from "../zh-CN/window.ts";
 
 export const window = {
   about: "About & feedback",
-  aboutVersion: "Version {version}",
   aboutOmp: "omp {version}",
   aboutOmpMissing: "omp not found",
   aboutCopyInfo: "Copy version info",

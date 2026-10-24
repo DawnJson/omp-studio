@@ -131,7 +131,7 @@ function AddMarketplaceDialog({ working, onClose }: { working: string | null; on
           void add();
         }}
       >
-        <FormField label={t("plugins.marketplaces.add.label")} help={t("plugins.marketplaces.add.placeholder")}>
+        <FormField label={t("plugins.marketplaces.add.label")} help={t("plugins.marketplaces.add.hint")}>
           <TextField
             width="100%"
             mono
@@ -185,7 +185,6 @@ export function MarketplacesCard({
       <SectionHead
         title={t("plugins.marketplaces")}
         count={snapshot?.marketplaces.length}
-        note={t("plugins.marketplaces.remove.hint")}
         actions={
           <Button
             size="sm"
@@ -258,6 +257,7 @@ export function MarketplacesCard({
                         {
                           id: "remove",
                           label: t("plugins.marketplaces.remove"),
+                          note: t("plugins.marketplaces.remove.hint"),
                           tone: "danger",
                           testId: `marketplace-remove-${marketplace.name}`,
                           onSelect: () =>

@@ -8,7 +8,7 @@ export const sidebar = {
   historyOrder: "Arrange sessions",
   historyByFolder: "Folder",
   historyByTime: "Time",
-  searchNone: "No matching tasks or sessions",
+  searchNone: "No matches",
   clearSearch: "Clear search",
   waitingOne: "1 task waiting for you · {project}",
   waitingMany: "{n} tasks waiting for you",
@@ -22,6 +22,5 @@ export const sidebar = {
   toggleProject: "Expand or collapse {project}",
   waitingHere: "A task is waiting for you",
   loadFailed: "Could not load tasks: {message}",
-  loading: "Loading…",
   projectsFailed: "Could not load projects: {message}",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

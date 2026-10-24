@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
+import { expectNoOverflow, launchApp, openTaskRow, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -98,6 +98,12 @@ test("模式胶囊(composer-loop):无模式时开关在会话开关菜单,Loop �
       await expect(page.getByTestId("mode-loop-form")).toBeVisible();
     };
     await openMenu();
+    // 窄窗口、中英文下 Loop 表单都不越界（英文的条件分段最长）。
+    await page.setViewportSize({ width: 900, height: 800 });
+    for (const locale of ["en", "zh-CN"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(page.getByTestId("mode-section"));
+    }
     await expect(page.getByTestId("toggle-plan")).toBeVisible();
     await expect(page.getByTestId("toggle-vibe")).toBeVisible();
     await page.getByTestId("mode-loop-limit").fill("3");

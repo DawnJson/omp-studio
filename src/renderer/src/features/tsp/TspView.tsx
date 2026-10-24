@@ -23,7 +23,6 @@ import {
   ensureTspDocument,
   useTspHasUserMessage,
   useTspNode,
-  useTspReady,
   useTspSurface,
   useTspSurfaces,
   useTspDrive,
@@ -282,8 +281,6 @@ function ScreenSurface({ taskId, sf }: { taskId: TaskId; sf: string }) {
 }
 
 export function TspView({ taskId }: { taskId: TaskId }) {
-  const t = useT();
-  const ready = useTspReady(taskId);
   const surfaces = useTspSurfaces(taskId);
   const firstPrompt = useFirstPrompt(taskId);
   const task = useTask(taskId);
@@ -316,9 +313,7 @@ export function TspView({ taskId }: { taskId: TaskId }) {
           pendingText={firstPrompt?.text}
         />
       ) : (
-        <div className="tsp-empty" role="status">
-          {ready ? "" : t("tsp.loading")}
-        </div>
+        <div className="tsp-empty" role="status" />
       )}
       {screen && <ScreenSurface key={`${taskId}:${screen.id}`} taskId={taskId} sf={screen.id} />}
       <TspHosts />

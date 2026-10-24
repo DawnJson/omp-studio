@@ -56,7 +56,6 @@ export function ProvidersSection() {
         {/* "连接 provider..."放在"已连接"这一行的右侧（和下面"自定义提供商"的按钮同一种位置）。 */}
         <SectionHead
           title={t("login.connected")}
-          count={data === null ? undefined : groups.configured.length}
           actions={
             <Button
               size="sm"

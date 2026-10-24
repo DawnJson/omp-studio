@@ -125,7 +125,7 @@ test("填 API key：存进 omp 的凭据库（终端版也用），卡片写“�
     // 只有环境变量里的 key（omp 认可、凭据库里没有账号）：不是登录，写"已配置"，没有退出按钮。
     const envCard = page.getByTestId("providers").getByTestId("provider-tavily");
     await expect(envCard).toContainText("已配置");
-    await expect(envCard).toContainText("环境变量或配置文件");
+    await expect(envCard).toContainText("环境变量");
     await expect(envCard.getByTestId("provider-signout-tavily")).toHaveCount(0);
     expect(storedKeys()).toEqual(["kagi-e2e-key"]);
 
@@ -457,8 +457,8 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(page.getByTestId("tool-read")).toBeVisible({ timeout: 60_000 });
     // 没有开关的行不显得像坏了：徽标的 tooltip 写明原因。init_experiment 由 omp 的模式启用、xd 设备是同一个工具的入口。
     await expect(page.getByTestId("tool-switch-init_experiment")).toHaveCount(0);
-    await expect(page.getByTestId("tool-badge-init_experiment")).toHaveAttribute("title", /\/autoresearch/);
-    await expect(page.getByTestId("tool-badge-xd://lsp")).toHaveAttribute("title", /tools\.xdev/);
+    await expect(page.getByTestId("tool-badge-init_experiment")).toHaveAttribute("title", /mode|模式/);
+    await expect(page.getByTestId("tool-badge-xd://lsp")).toHaveAttribute("title", /entry|入口/);
     await expect(page.getByTestId("tool-switch-lsp")).toBeVisible();
 
     // ── 记忆：卡片在，后端是同一页上面的常用设置项 ──
@@ -505,7 +505,7 @@ test("集成与插件：Skills 分组列出 omp 能用的 skill（名称、范�
     await page.getByTestId("settings-nav-extensions").click({ timeout: 60_000 });
     const row = page.getByTestId("skill-row-e2e-probe-skill");
     await expect(row).toBeVisible({ timeout: 60_000 });
-    await expect(row).toContainText("User (global)");
+    await expect(row).not.toContainText("User (global)");
     await expect(row).toContainText("E2E probe skill.");
     await expect(page.getByTestId("skills-empty")).toHaveCount(0);
     for (const locale of ["en", "zh-CN"] as const) {

@@ -37,7 +37,7 @@ export function ProviderRow({ provider, accounts, loginKind, shortName = false, 
   const name = (shortName && provider.name.replace(/\s*[(（][^)）]*[)）]/g, "").trim()) || provider.name;
   const withEnv = (source: string) => (envName === null ? source : `${source} · ${envName}`);
 
-  let badge: { tone: "success" | "neutral"; text: string };
+  let badge: { tone: "success" | "neutral"; text: string } | null;
   let meta: string;
   if (provider.authenticated) {
     badge = {
@@ -49,13 +49,9 @@ export function ProviderRow({ provider, accounts, loginKind, shortName = false, 
     badge = { tone: "neutral", text: t("login.unavailable") };
     meta = "";
   } else {
-    badge = { tone: "neutral", text: t("login.notSignedIn") };
-    meta =
-      loginKind === "oauth"
-        ? t("login.kind.oauth")
-        : loginKind === "terminal"
-          ? t("login.kind.interactive")
-          : t("login.kind.apiKey");
+    // 选择对话框里的行都是没连接的，"未登录"徽标没有信息；只有多步登录这一点从按钮看不出。
+    badge = null;
+    meta = loginKind === "terminal" ? t("login.kind.interactive") : "";
   }
 
   const run = async (job: () => Promise<unknown>) => {
@@ -75,7 +71,7 @@ export function ProviderRow({ provider, accounts, loginKind, shortName = false, 
       testId={`provider-${provider.id}`}
       icon={<ProviderLogo id={provider.id} name={provider.name} />}
       title={name}
-      badges={<Badge tone={badge.tone}>{badge.text}</Badge>}
+      badges={badge === null ? undefined : <Badge tone={badge.tone}>{badge.text}</Badge>}
       meta={meta === "" ? undefined : meta}
       actions={
         <>

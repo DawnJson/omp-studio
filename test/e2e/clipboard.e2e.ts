@@ -104,7 +104,6 @@ test("选中即复制：对话里鼠标选中就进剪贴板并提示；输入�
     expect(expected).not.toBe("");
     await answer.click({ clickCount: 3 });
     await expect.poll(async () => (await clipboardText(launched)).trim()).toBe(expected);
-    await expect(page.getByTestId("toasts").filter({ hasText: "已复制" })).toBeVisible();
 
     // 输入框里选中：剪贴板不变。
     await launched.app.evaluate(({ clipboard }) => clipboard.writeText("原来的内容"));

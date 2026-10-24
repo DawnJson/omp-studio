@@ -1446,9 +1446,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
-.mp-params-empty {
-  color: var(--text-3);
-}
 .mp-param-label {
   color: var(--text-3);
 }
@@ -1460,15 +1457,6 @@ html[data-motion="reduced"] .ctx-usage-chev {
   font-family: var(--font-sans);
   font-size: var(--fs-2xs);
   line-height: var(--lh-xs);
-}
-.mp-pill[data-kind="current"] {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-.mp-pill[data-kind="role"] {
-  display: inline-flex;
-  gap: var(--space-1);
-  align-items: center;
 }
 /* 一行控件：标签列 88 + 内容；三行（思考强度 / Prewalk / 预设）左缘对齐。 */
 .mp-ctl {

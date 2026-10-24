@@ -98,7 +98,7 @@ function ContextButton({
         title={`${label} · ${t("composer.usage.context", {
           used: formatCount(context.tokens),
           total: formatCount(context.contextWindow),
-        })}\n${autoAt === null ? t("composer.context.tip") : t("board.ctxAutoAt", { p: Math.round(autoAt) })}`}
+        })}${autoAt === null ? "" : `\n${t("board.ctxAutoAt", { p: Math.round(autoAt) })}`}`}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => (open ? close() : setOpen(true))}

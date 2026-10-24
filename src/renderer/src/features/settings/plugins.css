@@ -1,6 +1,5 @@
 /* 设置 → 插件（spec §4.19）。只有布局；控件样式在 ui/controls.css。 */
 
-.pl-note,
 .pl-muted {
   margin: 0 0 var(--space-2);
   font-size: var(--fs-sm);

@@ -152,7 +152,7 @@ export function TraceTab({ taskId, read }: { taskId: TaskId; read: SyncedRead<Se
       )}
       {trace.requests.length === 0 && !read.syncing && (
         <p className="si-note" data-testid="trace-empty">
-          {trace.hasDatabase ? t("sessionInfo.trace.empty") : t("sessionInfo.usage.noDatabase")}
+          {t("sessionInfo.trace.empty")}
         </p>
       )}
       {trace.requests.length > 0 && (

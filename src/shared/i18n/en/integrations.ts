@@ -18,63 +18,53 @@ export const integrations = {
   "mcp.add": "Add server…",
   "mcp.test": "Test connection",
   "mcp.connected": "Connected, {count} tools",
-  "mcp.unmanageable":
-    "The name has spaces or special characters, so omp's /mcp commands can't manage it. Edit the config file instead.",
-  "mcp.note":
-    "Changes apply to new tasks; open tasks need “Restart session” (Ctrl Shift R). Servers that need OAuth must be authorized in the terminal.",
+  "mcp.unmanageable": "The name has special characters; edit the config file instead",
+  "mcp.note": "Applies to new tasks; authorize OAuth in the terminal",
   "mcp.remove.title": "Remove MCP server “{name}”?",
   "mcp.remove.body":
     "This removes the entry from omp's {scope} config. A server with the same name in the other scope is not affected.",
   "mcp.name": "Name",
-  "mcp.name.tip": "Letters, digits, dot, underscore and dash, up to 100 characters, no spaces.",
+  "mcp.name.tip": "Letters, digits, . _ -",
   "mcp.kind": "Type",
   "mcp.kind.stdio": "Local command",
   "mcp.command": "Command",
   "mcp.args": "Arguments",
-  "mcp.args.tip": "One argument per line. Spaces are fine; double quotes are not.",
+  "mcp.args.tip": "One per line; no double quotes",
   "mcp.token": "Token",
-  "mcp.token.tip": "Optional. Stored in the config file as an Authorization: Bearer header.",
+  "mcp.token.tip": "Stored in the config file as an Authorization: Bearer header",
 
   "ssh.title": "SSH hosts",
   "ssh.empty": "No SSH hosts configured.",
   "ssh.form.title": "Add SSH host",
   "ssh.add": "Add host…",
   "ssh.remove.title": "Remove SSH host “{name}”?",
-  "ssh.remove.body": "This only removes the entry from omp's config; it does not connect to that machine.",
+  "ssh.remove.body": "Removes this entry from omp's config",
   "ssh.name": "Name",
   "ssh.host": "Host address",
   "ssh.user": "User",
   "ssh.port": "Port",
   "ssh.key": "Key path",
-  "ssh.key.tip": "Path to the private key file. Optional.",
   "ssh.desc": "Description",
   "ssh.compat": "Compat mode",
   "ssh.compat.tip": "omp's --compat: for remotes that are not fully compatible (some routers, minimal systems).",
 
   "skills.title": "Skills",
-  "skills.empty": "No skills available. Put skill folders in ~/.omp/agent/skills or a project's .omp/skills.",
-  "skills.note": "Skills omp currently has (read-only); a selected project adds its own.",
+  "skills.empty": "No skills",
+  "skills.empty.tip": "Put skill folders in ~/.omp/agent/skills or a project's .omp/skills",
 
   "tools.title": "Available tools",
   "tools.enabled": "Enabled",
   "tools.device": "xd device",
-  "tools.device.tip":
-    "An on-demand entry point to the same tool, not a separate tool, so it has no switch. Turn off tools.xdev to drop all devices.",
+  "tools.device.tip": "Another entry to the same tool",
   "tools.mounted": "On demand",
-  "tools.mounted.tip":
-    "Mounted under an xd:// device and called on demand; it is not off. It has no <tool>.enabled setting, so there is no switch.",
-  "tools.mounted.mcpTip":
-    "Comes from an MCP server and has no switch of its own; turn off the whole server to disable it.",
-  "tools.inactive.tip":
-    "Not active in this session: omp enables it on demand through a mode or command (e.g. /autoresearch, /goal), so there is no switch.",
-  "tools.note":
-    "omp's global tool list, without project tools. Switches are the same settings as below; hover a badge to see why a row has none.",
+  "tools.mounted.tip": "Mounted under xd://",
+  "tools.mounted.mcpTip": "Follows its MCP server",
+  "tools.inactive.tip": "Enabled by an omp mode",
+  "tools.note": "The global list, without project plugins and MCP tools",
 
   "memory.title": "Memory",
-  "memory.noProject": "Memory is kept per project. Open a project first to view and consolidate it.",
+  "memory.noProject": "Open a project first",
   "memory.project": "Project",
-  "memory.project.desc":
-    "Memory is stored per project directory; everything here runs in the selected project's directory.",
   "memory.view": "View",
   "memory.op.stats": "Stats",
   "memory.op.diagnose": "Diagnose",
@@ -86,11 +76,9 @@ export const integrations = {
   "memory.clear.body":
     "Deletes this project's memory data; this cannot be undone. With Hindsight only local state is cleared, not the server bank.",
   "memory.cleared": "Memory cleared",
-  "memory.note":
-    "omp builds local memory when a session starts (it calls a model and may cost money); it cannot be triggered by hand.",
+  "memory.note": "Built by omp when a session starts; it calls a model and may cost money",
 
   "changelog.title": "Changelog",
-  "changelog.hint": "From omp's own /changelog, English only.",
 
   "slash.mcp": "Manage MCP servers (opens Settings → Integrations)",
   "slash.ssh": "Manage SSH hosts (opens Settings → Integrations)",

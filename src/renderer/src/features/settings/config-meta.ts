@@ -2,7 +2,7 @@
 // 常用项的标签和中文说明在 i18n 的 ompcfg 命名空间（`<键>.label` / `<键>.desc`）；没有的显示 key 加 omp 原始英文描述。
 import { dictionaries } from "../../../../shared/i18n/index.ts";
 import type { Locale, OmpConfigItem } from "../../../../shared/ipc.ts";
-import { groupConfigItems, type ConfigGroup } from "../../../../shared/ui/config-groups.ts";
+import { groupConfigItems, groupOf, type ConfigGroup } from "../../../../shared/ui/config-groups.ts";
 
 function entry(locale: Locale, name: string): string | undefined {
   const value = dictionaries[locale]["ompcfg"]?.[name];
@@ -37,10 +37,14 @@ export function groupTitle(locale: Locale, group: string): string {
   return entry(locale, `group.${group}`) ?? group;
 }
 
-/** 按 key、omp 原描述、两种语言的标签和说明搜索（不区分大小写）；多个词要全部命中。 */
+/**
+ * 按 key、omp 原描述、两种语言的标签和说明搜索（不区分大小写）；多个词要全部命中。
+ * 常用项的标签不再带页面名前缀（"最大并发数"，原来是"Subagent 最大并发数"），所以把所在分组的名字也算进去，搜"subagent"仍找得到。
+ */
 export function matchesQuery(item: OmpConfigItem, query: string): boolean {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (words.length === 0) return true;
+  const group = groupOf(item.key);
   const haystack = [
     item.key,
     item.description,
@@ -48,6 +52,7 @@ export function matchesQuery(item: OmpConfigItem, query: string): boolean {
     entry("zh-CN", `${item.key}.desc`),
     entry("en", `${item.key}.label`),
     entry("en", `${item.key}.desc`),
+    ...(group !== null && isCommon(item.key) ? [groupTitle("zh-CN", group), groupTitle("en", group)] : []),
   ]
     .filter((part): part is string => !!part)
     .join("\n")

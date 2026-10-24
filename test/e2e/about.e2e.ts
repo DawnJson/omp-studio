@@ -40,7 +40,7 @@ test("导出诊断信息：一个文件里有版本、omp 状态和日志，不�
       shell.showItemInFolder = () => {};
     }, file);
     await page.getByTestId("export-diagnostics").click();
-    await expect(page.getByText("已导出诊断信息")).toBeVisible();
+    await expect.poll(async () => (await readFile(file, "utf8").catch(() => "")).length).toBeGreaterThan(0);
 
     const text = await readFile(file, "utf8");
     expect(text).toContain(`app: ${version}`);

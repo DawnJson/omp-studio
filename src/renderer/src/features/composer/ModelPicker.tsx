@@ -322,8 +322,6 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
 
   const atRoles = roleMatches !== null;
   const primaryLabel = atRoles ? t("model.pickRole") : roleMode ? t("model.applyRole") : t("model.use");
-  // 底部说明写的是哪个角色：角色列表里是选中的那行，给角色选模型时是那个角色。
-  const hintRole = atRoles ? (selectedItem?.kind === "role" ? selectedItem.role : null) : roleTab;
 
   const total = atRoles
     ? view.tabs.length
@@ -467,7 +465,11 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
 
   const pinnedCount = atRoles || searching ? 0 : rows.pinned.length;
   const groups = atRoles
-    ? [renderGroup("roles", t("model.rolesGroup"), items)]
+    ? [
+        <div role="group" aria-label={t("model.rolesGroup")} key="roles">
+          {items.map(renderItem)}
+        </div>,
+      ]
     : searching
       ? [renderGroup("matches", t("model.matches"), items)]
       : [
@@ -522,7 +524,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
             onKeyDown={onSearchKey}
           />
           {roleTab !== null && (
-            <span className="mp-target" data-testid="model-role-target">
+            <span className="mp-target" data-testid="model-role-target" title={roleHint(roleTab)}>
               <Badge tone="accent">
                 <RoleIcon role={roleTab} size={12} />
                 {t("model.roleTarget", { role: roleLabel(roleTab) })}
@@ -532,9 +534,11 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
               </IconButton>
             </span>
           )}
-          <span className="mp-count" data-testid="model-count">
-            {searching ? `${matched} / ${total}` : total}
-          </span>
+          {searching && (
+            <span className="mp-count" data-testid="model-count">
+              {`${matched} / ${total}`}
+            </span>
+          )}
         </div>
       }
       footStart={
@@ -602,29 +606,16 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
           </div>
         </div>
         <div className="mp-foot">
-          {shown === null ? (
-            <p className="mp-params mp-params-empty">{t("model.noSelection")}</p>
-          ) : (
-            <ModelDetails
-              option={shown}
-              isCurrent={shownIsCurrent}
-              roles={view.badges.get(modelItemId(shown.key)) ?? []}
-              insights={insights}
-            />
-          )}
+          {shown !== null && <ModelDetails option={shown} insights={insights} />}
           {roleMode || atRoles ? (
-            <div className="mp-hints">
-              {hintRole !== null && (
-                <p className="mp-hint" data-testid="model-role-use">
-                  {t("model.roleUse", { hint: roleHint(hintRole) })}
-                </p>
-              )}
-              {roleMode && !atRoles && (
+            roleMode &&
+            !atRoles && (
+              <div className="mp-hints">
                 <p className="mp-hint" data-testid="model-role-saved">
                   {t("model.roleSaved")}
                 </p>
-              )}
-            </div>
+              </div>
+            )
           ) : (
             <>
               {shown !== null && (

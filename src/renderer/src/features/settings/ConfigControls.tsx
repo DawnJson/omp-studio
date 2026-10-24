@@ -180,7 +180,6 @@ function JsonControl({ item, title, onSave }: ControlProps) {
         open={open}
         onClose={() => setOpen(false)}
         title={title}
-        desc={<span className="st-mono">{item.key}</span>}
         footer={
           <>
             <Button onClick={() => setOpen(false)}>{t("common.cancel")}</Button>
@@ -240,7 +239,6 @@ function StructuredControl(props: ControlProps) {
         open={open}
         onClose={() => setOpen(false)}
         title={title}
-        desc={<span className="st-mono">{item.key}</span>}
         footer={
           <Button variant="primary" onClick={() => setOpen(false)} data-autofocus="">
             {t("settings.cfg.done")}

@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { reportError } from "../../ui/errors.ts";
-import { pushToast } from "../dialogs/index.ts";
 import { Button, Row } from "../../ui/controls.tsx";
 
 export function TroubleshootCard() {
@@ -12,7 +11,7 @@ export function TroubleshootCard() {
   const exportDiagnostics = async () => {
     setExporting(true);
     try {
-      if (await window.studio.exportDiagnostics()) pushToast({ message: t("settings.about.exported") });
+      await window.studio.exportDiagnostics();
     } catch (error) {
       reportError(t, error);
     } finally {
@@ -22,8 +21,8 @@ export function TroubleshootCard() {
 
   return (
     <div className="st-cells" data-testid="about-troubleshoot">
-      <Row label={t("settings.about.logs")} info={t("settings.about.logs.desc")}>
-        {() => (
+      <Row
+        label={
           <Button
             size="sm"
             onClick={() => void window.studio.openLogsFolder().catch((error: unknown) => reportError(t, error))}
@@ -31,14 +30,20 @@ export function TroubleshootCard() {
           >
             {t("settings.about.openLogs")}
           </Button>
-        )}
+        }
+        info={t("settings.about.logs.desc")}
+      >
+        {() => null}
       </Row>
-      <Row label={t("settings.about.diagnostics")} info={t("settings.about.diagnostics.desc")}>
-        {() => (
+      <Row
+        label={
           <Button size="sm" loading={exporting} onClick={() => void exportDiagnostics()} testId="export-diagnostics">
             {t("settings.about.exportDiagnostics")}
           </Button>
-        )}
+        }
+        info={t("settings.about.diagnostics.desc")}
+      >
+        {() => null}
       </Row>
     </div>
   );

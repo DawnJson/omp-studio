@@ -81,7 +81,7 @@ test("侧栏底部只有设置（没有语言、主题菜单）；命令面板�
     await expect(about).toBeVisible();
     // 关于：ui/Dialog sm，标题 omp-studio、版本（带 omp 版本）；页脚两个按钮右对齐，Tab 在框内循环。
     await expect(about.getByRole("heading", { level: 2 })).toHaveText("omp-studio");
-    await expect(about.getByTestId("about-version")).toContainText("版本 ");
+    await expect(about.getByTestId("about-version")).toContainText(/\d+\.\d+/);
     await expect(about.locator(".ui-dialog-foot").getByRole("button")).toHaveText(["复制版本信息", "报告问题"]);
     const [dialogBox, reportBox] = await Promise.all([
       about.boundingBox(),

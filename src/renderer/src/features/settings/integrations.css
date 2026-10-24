@@ -67,9 +67,3 @@
   grid-template-columns: minmax(0, 1fr) 112px;
   gap: var(--space-3);
 }
-
-.ig-note-inline {
-  margin-left: var(--space-1);
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-}

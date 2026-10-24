@@ -130,16 +130,26 @@
 .md-loop-form .tg-actions {
   justify-content: flex-end;
 }
+/* Loop 表单：标签一列（宽度取最长的标签），控件占剩下的；每个 .md-field 用 display: contents 把标签和控件直接放进表单网格，各行的标签自然对齐。 */
 .md-loop-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2) var(--space-2-5);
 }
 .md-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
+  display: contents;
+}
+.md-loop-form .ui-seg {
+  justify-self: start;
+}
+/* 命令输入没有标签：跟在条件那一行下面，对齐控件列；校验提示和按钮占满整行。 */
+.md-field-cmd {
+  grid-column: 2;
+}
+.md-loop-form > .md-invalid,
+.md-loop-form > .tg-actions {
+  grid-column: 1 / -1;
 }
 .md-invalid {
   margin: 0;

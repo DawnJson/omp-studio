@@ -13,7 +13,7 @@ import {
 } from "../src/shared/custom-models.ts";
 import { envValues, removeEnvLine, setEnvLine } from "../src/main/omp-config/env-file.ts";
 import {
-  applyKey,
+  applyOverride,
   applyProvider,
   deleteCustomProvider,
   parseProviders,
@@ -89,6 +89,7 @@ describe("models.yml 编辑（纯文本）", () => {
           { id: "gpt-y", name: "GPT Y", ...auto },
         ],
         discovery: false,
+        overrides: [],
       },
     ]);
   });
@@ -377,13 +378,18 @@ describe("models.yml 编辑（纯文本）", () => {
   });
 });
 
-describe("只改 key（覆盖内置 provider 的条目）", () => {
+describe("覆盖内置 provider 的条目（key + modelOverrides）", () => {
   const overrides = `providers:
   anthropic:
     # 上下文窗口
     modelOverrides:
       claude-opus-5:
         contextWindow: 1000000
+      claude-sonnet-5:
+        name: Sonnet (corp)
+        maxTokens: 64000
+      claude-named:
+        name: Only a name
   other:
     baseUrl: http://localhost:1234/v1
     auth: none
@@ -392,51 +398,95 @@ describe("只改 key（覆盖内置 provider 的条目）", () => {
       - id: keep-me
 `;
   type Doc = { providers: Record<string, Record<string, unknown>> };
-  // 测试里自己写的、刚由 applyKey 输出的 YAML，形状已知。
+  // 测试里自己写的、刚由 applyOverride 输出的 YAML，形状已知。
   const js = (text: string): Doc => parseYaml(text) as Doc;
-  const keyed = (text: string | null, id: string, key: Parameters<typeof applyKey>[2]): string => {
-    const result = applyKey(text, id, key);
+  const meta = (patch: Partial<CustomModelMeta> = {}): CustomModelMeta => ({ ...auto, ...patch });
+  // 界面打开对话框时勾着的就是文件里现有的覆盖项；不改模型时原样传回。
+  const current = [
+    { id: "claude-opus-5", ...meta({ contextWindow: 1000000 }) },
+    { id: "claude-sonnet-5", ...meta({ maxTokens: 64000 }) },
+  ];
+  const saved = (text: string | null, id: string, input: Parameters<typeof applyOverride>[2]): string => {
+    const result = applyOverride(text, id, input);
     if (!result.ok) throw new Error(`unexpected ${result.code}`);
     return result.text;
   };
 
-  it("设置 key：只加 apiKey，modelOverrides、注释和别的 provider 原样", () => {
-    const text = keyed(overrides, "anthropic", { kind: "literal", value: "sk-ant-1" });
-    expect(js(text)).toEqual({
-      providers: {
-        anthropic: { modelOverrides: { "claude-opus-5": { contextWindow: 1000000 } }, apiKey: "sk-ant-1" },
-        other: js(overrides).providers.other,
-      },
+  it("读出写了能力参数的覆盖项；只写了 name 的不算", () => {
+    const parsed = parseProviders(overrides, noEnv);
+    expect(parsed.ok && parsed.providers.find((p) => p.id === "anthropic")?.overrides).toEqual(current);
+  });
+
+  it("设置 key、模型不变：只加 apiKey，覆盖项、注释和别的 provider 原样", () => {
+    const text = saved(overrides, "anthropic", { key: { kind: "literal", value: "sk-ant-1" }, models: current });
+    expect(js(text).providers).toEqual({
+      anthropic: { ...js(overrides).providers.anthropic, apiKey: "sk-ant-1" },
+      other: js(overrides).providers.other,
     });
     expect(text).toContain("# 上下文窗口");
   });
 
+  it("改上下文、加一个模型、取消一个：取消的只去掉能力参数，name 留着", () => {
+    const text = saved(overrides, "anthropic", {
+      key: { kind: "keep" },
+      models: [
+        { id: "claude-opus-5", ...meta({ contextWindow: 350000 }) },
+        { id: "claude-fable-5", ...meta({ contextWindow: 350000, images: true }) },
+      ],
+    });
+    expect(js(text).providers.anthropic).toEqual({
+      modelOverrides: {
+        "claude-opus-5": { contextWindow: 350000 },
+        "claude-sonnet-5": { name: "Sonnet (corp)" },
+        "claude-named": { name: "Only a name" },
+        "claude-fable-5": { input: ["text", "image"], contextWindow: 350000 },
+      },
+    });
+  });
+
+  it("全部取消且没有 key：覆盖项、modelOverrides、条目依次删空", () => {
+    const only =
+      "providers:\n  anthropic:\n    modelOverrides:\n      claude-opus-5:\n        contextWindow: 1000000\n";
+    expect(js(saved(only, "anthropic", { key: null, models: [] }))).toEqual({ providers: {} });
+  });
+
   it("环境变量名照写；有 auth: none 时去掉它（否则 omp 不用 key）", () => {
-    const other = js(keyed(overrides, "other", { kind: "env", name: "MY_KEY" })).providers.other;
+    const other = js(saved(overrides, "other", { key: { kind: "env", name: "MY_KEY" }, models: [] })).providers.other;
     expect(other?.["apiKey"]).toBe("MY_KEY");
     expect(other).not.toHaveProperty("auth");
   });
 
-  it("清除 key：去掉 apiKey，覆盖项留着；条目只剩 key 时整个删掉", () => {
-    const withKey = keyed(overrides, "anthropic", { kind: "literal", value: "sk-ant-1" });
-    expect(js(keyed(withKey, "anthropic", null)).providers.anthropic).toEqual({
-      modelOverrides: { "claude-opus-5": { contextWindow: 1000000 } },
-    });
+  it("不设置 key：去掉 apiKey，覆盖项留着；条目只剩 key 时整个删掉", () => {
+    const withKey = saved(overrides, "anthropic", { key: { kind: "literal", value: "sk-ant-1" }, models: current });
+    expect(js(saved(withKey, "anthropic", { key: null, models: current })).providers.anthropic).toEqual(
+      js(overrides).providers.anthropic,
+    );
     const keyOnly = "providers:\n  anthropic:\n    apiKey: sk-ant-1\n  other:\n    auth: none\n";
-    expect(js(keyed(keyOnly, "anthropic", null))).toEqual({ providers: { other: { auth: "none" } } });
+    expect(js(saved(keyOnly, "anthropic", { key: null, models: [] }))).toEqual({
+      providers: { other: { auth: "none" } },
+    });
   });
 
-  it("拒绝：没有这个条目、key 带换行、环境变量名不合法", () => {
-    expect(applyKey(overrides, "nope", { kind: "literal", value: "k" })).toEqual({ ok: false, code: "not-found" });
-    expect(applyKey(null, "anthropic", null)).toEqual({ ok: false, code: "not-found" });
-    expect(applyKey(overrides, "anthropic", { kind: "literal", value: "a\nb" })).toEqual({
+  it("拒绝：没有这个条目、key 带换行、环境变量名不合法、模型重复或参数越界", () => {
+    const keep = { kind: "keep" } as const;
+    expect(applyOverride(overrides, "nope", { key: keep, models: [] })).toEqual({ ok: false, code: "not-found" });
+    expect(applyOverride(null, "anthropic", { key: null, models: [] })).toEqual({ ok: false, code: "not-found" });
+    expect(applyOverride(overrides, "anthropic", { key: { kind: "literal", value: "a\nb" }, models: [] })).toEqual({
       ok: false,
       code: "invalid-key",
     });
-    expect(applyKey(overrides, "anthropic", { kind: "env", name: "not a name" })).toEqual({
+    expect(applyOverride(overrides, "anthropic", { key: { kind: "env", name: "not a name" }, models: [] })).toEqual({
       ok: false,
       code: "invalid-key",
     });
+    const dup = { id: "m", ...meta() };
+    expect(applyOverride(overrides, "anthropic", { key: keep, models: [dup, dup] })).toEqual({
+      ok: false,
+      code: "invalid-models",
+    });
+    expect(
+      applyOverride(overrides, "anthropic", { key: keep, models: [{ id: "m", ...meta({ contextWindow: 0 }) }] }),
+    ).toEqual({ ok: false, code: "invalid-models" });
   });
 });
 
@@ -624,12 +674,12 @@ describe("环境变量形式的 key 同步 agent 目录的 .env", () => {
       ok: false,
       code: "invalid-key",
     });
-    expect(applyKey("providers:\n  a: {modelOverrides: {}}\n", "a", { kind: "env", name: "X", value: "!cmd" })).toEqual(
-      {
-        ok: false,
-        code: "invalid-key",
-      },
-    );
+    expect(
+      applyOverride("providers:\n  a: {modelOverrides: {}}\n", "a", {
+        key: { kind: "env", name: "X", value: "!cmd" },
+        models: [],
+      }),
+    ).toEqual({ ok: false, code: "invalid-key" });
   });
 });
 

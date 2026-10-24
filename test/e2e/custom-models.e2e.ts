@@ -5,6 +5,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
+import { parse as parseYaml } from "yaml";
 import { startFakeOpenAi } from "../fake-openai/server.ts";
 import { expectNoOverflow, launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
@@ -83,7 +84,9 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await expect(page.getByTestId("toasts").getByText("拉取到 3 个模型")).toBeVisible();
     await expect(page.getByTestId("custom-fetch-notice")).toHaveCount(0);
     await expect(page.getByTestId("custom-model-fake-chat")).not.toBeChecked();
-    await expect(page.getByTestId("custom-selected-count")).toContainText("0 / 3");
+    await expect(page.getByTestId("custom-model-fake-mini")).not.toBeChecked();
+    // 行不多（没有筛选框）时不显示"已选 n / m"。
+    await expect(page.getByTestId("custom-selected-count")).toHaveCount(0);
     await expect(page.getByTestId("custom-save")).toBeDisabled(); // 一个都没勾
 
     await page.getByTestId("custom-model-fake-chat").check();
@@ -91,7 +94,7 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await page.getByTestId("custom-manual-model").fill("manual-x");
     await page.getByTestId("custom-manual-model").press("Enter");
     await expect(page.getByTestId("custom-model-manual-x")).toBeChecked();
-    await expect(page.getByTestId("custom-selected-count")).toContainText("3 / 4");
+    await expect(page.getByTestId("custom-select-all")).toBeChecked({ indeterminate: true }); // 4 个里勾了 3 个
     await page.getByTestId("custom-save").click();
     await expect(form).toHaveCount(0);
     const row = page.getByTestId("custom-provider-fake-proxy");
@@ -176,7 +179,7 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
   }
 });
 
-test("只覆盖内置 provider 的条目（anthropic 下只有 modelOverrides）：卡片上能设置 / 清除 key，覆盖项原样，omp 真的用这个 key", async () => {
+test("只覆盖内置 provider 的条目（anthropic 下只有 modelOverrides）：编辑里改 key 和各模型的上下文，别的覆盖项原样，omp 真的用上", async () => {
   const { launched, agentDir } = await launchSettings();
   const file = path.join(agentDir, "models.yml");
   // 真实 omp 认的 anthropic 凭据：models.yml 的 apiKey 优先于订阅和凭据库（docs/architecture/custom-models.md）。
@@ -194,7 +197,7 @@ test("只覆盖内置 provider 的条目（anthropic 下只有 modelOverrides）
     const { page } = launched;
     await writeFile(
       file,
-      "providers:\n  anthropic:\n    # 上下文窗口\n    modelOverrides:\n      claude-opus-5:\n        contextWindow: 1000000\n",
+      "providers:\n  anthropic:\n    # 上下文窗口\n    modelOverrides:\n      claude-opus-5:\n        contextWindow: 1000000\n      claude-named:\n        name: Corp\n",
       "utf8",
     );
     await page.getByTestId("settings-nav-general").click();
@@ -202,32 +205,72 @@ test("只覆盖内置 provider 的条目（anthropic 下只有 modelOverrides）
     await setLocaleTheme(page, "zh-CN", "light");
 
     const row = page.getByTestId("custom-provider-anthropic");
-    await expect(row).toContainText("覆盖内置 provider · 未设置 key");
-    // 编辑表单存不了这种条目（要 Base URL 和模型）：不给"编辑"。
-    await expect(row.getByTestId("custom-edit-anthropic")).toHaveCount(0);
+    await expect(row).toContainText("覆盖内置 provider · 1 个模型 · 未设置 key");
 
-    await row.getByTestId("custom-key-anthropic").click();
-    const dialog = page.getByTestId("custom-key-dialog");
+    // 编辑：文件里写了上下文的模型勾着、带着原值；key 是"不设置"。
+    await row.getByTestId("custom-edit-anthropic").click();
+    const dialog = page.getByTestId("custom-override-dialog");
     await expect(dialog).toBeVisible();
-    await expect(page.getByTestId("custom-key-save")).toBeDisabled();
-    await dialog.getByTestId("custom-key-dialog-value").fill("sk-ant-e2e-key");
-    await page.getByTestId("custom-key-save").click();
+    await expect(dialog.getByTestId("custom-model-claude-opus-5")).toBeChecked();
+    await expect(dialog.getByTestId("custom-model-contextWindow-claude-opus-5")).toHaveValue("1000000");
+    await expect(dialog.getByTestId("custom-override-key-mode-none")).toHaveAttribute("aria-checked", "true");
+
+    // 设 key、改上下文、手动加一个模型并设上下文。
+    await dialog.getByTestId("custom-override-key-mode-literal").click();
+    await expect(page.getByTestId("custom-override-save")).toBeDisabled();
+    await dialog.getByTestId("custom-override-key").fill("sk-ant-e2e-key");
+    await dialog.getByTestId("custom-model-contextWindow-claude-opus-5").fill("350k");
+    await dialog.getByTestId("custom-manual-model").fill("claude-sonnet-5");
+    await dialog.getByTestId("custom-manual-model").press("Enter");
+    await dialog.getByTestId("custom-model-contextWindow-claude-sonnet-5").fill("400000");
+    await expectNoOverflow(dialog);
+    await page.getByTestId("custom-override-save").click();
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByTestId("toasts").getByText("key 已保存")).toBeVisible();
-    await expect(row).toContainText("已设置 key");
-    await expect(row.getByTestId("custom-key-anthropic")).toHaveText("更换 key");
+    await expect(row).toContainText("覆盖内置 provider · 2 个模型 · 已设置 key");
     const saved = await readFile(file, "utf8");
     expect(saved).toContain("apiKey: sk-ant-e2e-key");
     expect(saved).toContain("# 上下文窗口");
-    expect(saved).toContain("contextWindow: 1000000");
+    expect(parseYaml(saved)).toMatchObject({
+      providers: {
+        anthropic: {
+          modelOverrides: {
+            "claude-opus-5": { contextWindow: 350000 },
+            "claude-named": { name: "Corp" },
+            "claude-sonnet-5": { contextWindow: 400000 },
+          },
+        },
+      },
+    });
     expect(ompToken()).toBe("sk-ant-e2e-key");
+    // omp 采用了写进去的上下文窗口。
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() =>
+            globalThis.studio
+              .listModels()
+              .then((models) =>
+                models
+                  .filter((model) => model.key.provider === "anthropic" && model.key.modelId === "claude-opus-5")
+                  .map((model) => model.contextWindow),
+              ),
+          ),
+        { timeout: 30_000 },
+      )
+      .toEqual([350000]);
 
-    await page.getByTestId("custom-more-anthropic").click();
-    await page.getByTestId("custom-clear-key-anthropic").click();
-    await expect(row).toContainText("未设置 key");
+    // 再编辑：key 改回不设置、取消 claude-sonnet-5 → apiKey 和它的覆盖项去掉，别的原样。
+    await row.getByTestId("custom-edit-anthropic").click();
+    await dialog.getByTestId("custom-override-key-mode-none").click();
+    await dialog.getByTestId("custom-model-claude-sonnet-5").uncheck();
+    await page.getByTestId("custom-override-save").click();
+    await expect(dialog).toHaveCount(0);
+    await expect(row).toContainText("覆盖内置 provider · 1 个模型 · 未设置 key");
     const cleared = await readFile(file, "utf8");
     expect(cleared).not.toContain("apiKey");
-    expect(cleared).toContain("contextWindow: 1000000");
+    expect(cleared).not.toContain("claude-sonnet-5");
+    expect(cleared).toContain("contextWindow: 350000");
+    expect(cleared).toContain("name: Corp");
     expect(ompToken()).not.toBe("sk-ant-e2e-key");
   } finally {
     await launched.close();
@@ -384,9 +427,11 @@ test("自定义提供商：自动发现模型——开关写 discovery、不用�
       )
       .toEqual(["disc-a", "disc-b"]);
 
-    // 刷新模型：omp models refresh 跑完、给出提示。
+    // 刷新模型：omp models refresh 跑完，按钮回到可点（成功不弹气泡）。
     await page.getByTestId("custom-refresh").click();
-    await expect(page.getByText("已刷新模型目录")).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByTestId("custom-refresh")).toHaveAttribute("aria-busy", "true");
+    await expect(page.getByTestId("custom-refresh")).toBeEnabled({ timeout: 90_000 });
+    await expect(page.getByTestId("custom-load-failed")).toHaveCount(0);
 
     // 编辑：开关是开的；关掉并勾选一个模型再保存 → discovery 去掉，别的内容不动。
     await setLocaleTheme(page, "zh-CN", "light");

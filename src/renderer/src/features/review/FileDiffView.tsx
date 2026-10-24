@@ -325,11 +325,6 @@ export function FileDiffView({
           <span className="rv-dir">{dir}</span>
           <span className="rv-name">{name}</span>
         </span>
-        {diff?.kind === "text" && (
-          <span className="rv-counts">
-            <span className="rv-add">+{diff.added}</span> <span className="rv-del">−{diff.removed}</span>
-          </span>
-        )}
         <span className="rv-file-actions">
           {area === "staged" ? (
             <Button size="sm" testId="file-unstage" onClick={unstageFile}>
@@ -345,11 +340,6 @@ export function FileDiffView({
           </Button>
         </span>
       </header>
-      {ignoreSpace && diff?.kind === "text" && area !== "untracked" && (
-        <div className="rv-ignore-note" data-testid="ignore-space-note">
-          {t("review.ignoreSpaceNote")}
-        </div>
-      )}
       <div className="rv-scroll" ref={scroller} data-testid="diff-scroll" tabIndex={0}>
         {body}
       </div>

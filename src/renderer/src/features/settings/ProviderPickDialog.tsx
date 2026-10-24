@@ -35,7 +35,6 @@ export function ProviderPickDialog({
       onClose={() => setOpen(false)}
       onExited={onClose}
       title={t("login.connect.title")}
-      desc={t("login.connect.desc")}
       testId="provider-pick"
       lockHeight
       footer={<Button onClick={() => setOpen(false)}>{t("common.close")}</Button>}

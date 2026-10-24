@@ -10,13 +10,24 @@ interface SendStopProps {
   stopping: boolean;
   hasContent: boolean;
   disabled: boolean;
+  /** Enter 和 Ctrl+Enter 的含义对调了（设置里的"运行中按 Enter"），只影响发送键的悬停提示。 */
+  swapped?: boolean;
   onSend(): void;
   /** 运行中"等这一轮结束再发"；不给就没有发送方式下拉（草稿页永远不在运行中）。 */
   onSendLater?: () => void;
   onStop(): void;
 }
 
-export function SendStop({ running, stopping, hasContent, disabled, onSend, onSendLater, onStop }: SendStopProps) {
+export function SendStop({
+  running,
+  stopping,
+  hasContent,
+  disabled,
+  swapped = false,
+  onSend,
+  onSendLater,
+  onStop,
+}: SendStopProps) {
   const t = useT();
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
   const stop = (
@@ -41,7 +52,11 @@ export function SendStop({ running, stopping, hasContent, disabled, onSend, onSe
       data-kind="send"
       disabled={disabled || !hasContent}
       aria-label={t("composer.send")}
-      title={t("composer.send")}
+      title={
+        running
+          ? `${t("composer.send")} · ${t(swapped ? "composer.sendKeysSwapped" : "composer.sendKeys")}`
+          : t("composer.send")
+      }
       data-testid="send-button"
       onClick={onSend}
     >
@@ -86,7 +101,6 @@ export function SendStop({ running, stopping, hasContent, disabled, onSend, onSe
             {
               id: "later",
               label: t("composer.sendLater"),
-              note: t("composer.sendLaterNote"),
               testId: "send-mode-later",
               onSelect: onSendLater,
             },

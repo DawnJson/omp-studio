@@ -244,7 +244,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
             ))}
             {noResults && (
               <div className="pl-empty">
-                <p>{t("palette.noResults", { q: trimmed })}</p>
+                <p>{t("palette.noResults")}</p>
                 <div
                   className="pl-row"
                   role="option"

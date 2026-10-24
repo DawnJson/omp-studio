@@ -7,5 +7,5 @@ export const status = {
   done: "Done",
   error: "Error",
   interrupted: "Interrupted",
-  interruptedTip: "This session stopped partway (on a tool call or at the length limit). Open it to continue.",
+  interruptedTip: "Stopped partway; open it to continue",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

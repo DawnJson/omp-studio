@@ -103,9 +103,6 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
       />
       <header className="file-preview-head">
         <span className="agents-title">{t("agents.title")}</span>
-        <span className="agents-count" data-testid="agents-count">
-          {t("agents.count", { count: agents.length })}
-        </span>
         <span className="file-preview-spacer" />
         <IconButton label={t("agents.close")} testId="agents-close" onClick={() => closeAgentsPanel()}>
           <Close size={14} />
@@ -122,7 +119,6 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
         >
           <span className="agents-driving-dot" aria-hidden="true" />
           <span className="agents-driving-text">{t(DRIVING_KEY[drive.op], { name: drive.name })}</span>
-          {drive.op !== "focus" && <span className="agents-driving-hint">{t("agents.drivingHint")}</span>}
         </div>
       )}
 

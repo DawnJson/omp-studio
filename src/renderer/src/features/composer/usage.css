@@ -29,8 +29,7 @@
 .uq-stat + .uq-stat {
   border-left: 1px solid var(--border-subtle);
 }
-.uq-stat-label,
-.uq-stat-sub {
+.uq-stat-label {
   overflow: hidden;
   color: var(--text-3);
   font-size: var(--fs-xs);

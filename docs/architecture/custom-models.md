@@ -56,7 +56,7 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 
 - 读：`env-file.ts` 用 `util.parseEnv`（和 omp 同一种 dotenv 语法）解析，只给主进程内部用；渲染进程只拿到每个变量名设在哪（`CustomKeyState.env.source`：`env-file` / `system` / `missing`），卡片显示"环境变量 X（.env / 系统 / 未设置）"。
 - 变量名识别：全大写的 `apiKey` 一律当变量名；大小写混合的（`Pro_KIMI_KEY`）只有在 `.env` 或系统环境变量里确实设了才当变量名，否则当字面量 key，免得把真 key 显示到界面上。
-- 写：带值保存（添加、编辑、"设置 key"）时只改这个变量的那一行（有就就地改、保留 `export`；没有就追加），注释、空行、别的变量、CRLF、BOM 原样；改完再 `parseEnv` 一遍核对别的变量一个没变、这个变量就是要写的值，对不上（原来是跨行的引号值）就整次保存都不写，返回 `unsafe-env`。先写 `.env` 再写 `models.yml`，写前各留 `.bak`，和 `models.yml` 同一个写队列。
+- 写：带值保存（添加、编辑、覆盖内置 provider 的编辑）时只改这个变量的那一行（有就就地改、保留 `export`；没有就追加），注释、空行、别的变量、CRLF、BOM 原样；改完再 `parseEnv` 一遍核对别的变量一个没变、这个变量就是要写的值，对不上（原来是跨行的引号值）就整次保存都不写，返回 `unsafe-env`。先写 `.env` 再写 `models.yml`，写前各留 `.bak`，和 `models.yml` 同一个写队列。
 - 删：provider 删掉、换了变量名或换成别的 key 写法后，原来的变量没有别的 provider 引用、也不是内置 provider 认的变量名（`provider-keys.ts`，比如 `ANTHROPIC_API_KEY`）时，删掉 `.env` 里那一行（`unusedEnvName`）。
 - 写进 `.env` 的变量在系统环境变量里也有时，omp 用系统的值：保存成功后提示一句（`envShadowed`）。
 - 拉取模型时 key 按 omp 的顺序解析：刚填、还没保存的值优先，其次进程环境变量，再次 agent 目录 `.env`。
@@ -101,8 +101,8 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 
 `providers.<id>` 下没有 `models` 也没有 `discovery` 的条目，omp 叫"Override-only provider"（`omp://models.md` Validation rules）：它不新建 provider，只覆盖内置同名 provider 的某些设置（`modelOverrides`、`baseUrl`、`apiKey`、`headers`……），至少要有一项。典型是 `anthropic` 下只有 `modelOverrides`（改上下文窗口）。
 
-- 编辑表单存不了这种条目（要 Base URL、接口类型和模型，保存还会把它们写进去、改掉内置 provider 的连接），所以界面不给"编辑"，只给"设置 / 更换 key"和"清除 key"。
-- `applyKey`（`models-file.ts`，IPC `setCustomProviderKey`）：只 `set` / `delete` 这个条目的 `apiKey`，别的键和注释原样；设置时顺手去掉 `auth: none`（否则 omp 不用 key）；清除后条目空了就整个删掉（空条目 omp 判为非法，整份文件退回内置）。key 只进不出、日志只记 provider id 和结果，和别的写入一样。
+- 编辑表单存不了这种条目（要 Base URL、接口类型和模型，保存还会把它们写进去、改掉内置 provider 的连接），所以"编辑"打开另一个对话框（`ProviderOverrideDialog.tsx`）：只改 key 和 `modelOverrides` 里各模型的能力参数，模型行是 omp 现在列出的这个 provider 的模型（`listModels`），没写的格子显示 omp 的值。
+- `applyOverride`（`models-file.ts`，IPC `saveProviderOverride`）：key 只 `set` / `delete` 这个条目的 `apiKey`（环境变量形式和别的写入一样先写 `.env`），设置时顺手去掉 `auth: none`（否则 omp 不用 key）；`modelOverrides` 里只动勾选模型的 `reasoning` / `input` / `contextWindow` / `maxTokens`，没勾选的模型去掉这四项，覆盖项里别的键（`name`、`compat`……）和注释原样；覆盖项空了删覆盖项，`modelOverrides` 空了删它，条目空了整个删掉（空条目 omp 判为非法，整份文件退回内置）。key 只进不出、日志只记 provider id、模型数和结果。
 - 实测（omp 18.12.6，临时 `PI_CODING_AGENT_DIR`，`omp token anthropic` 看 omp 实际用的凭据）：凭据库里有订阅（OAuth）时，`models.yml` 的 `apiKey` 仍然胜出；只有凭据库里的 API key 和订阅时，订阅胜出。所以这里写的 key 比"设置 API key"存进凭据库的那个和订阅都优先。
 - 和保存提供商一样，成功后关掉服务进程；在跑的任务要重开才用上。
 
@@ -120,7 +120,7 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 - `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、自动发现开关（默认类型按 api、已有 `discovery` 原样保留、关掉只去 `discovery`、没有默认类型的 api 被拒）、能力参数（写入、改一项不动别的写法、换回自动删掉、非法值被拒、`parseTokenCount`）、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、大小写混合的变量名按 `.env` / 系统环境变量识别、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢；`.env` 只改一行（保留 `export`、CRLF、BOM、注释、别的变量，跨行引号值拒绝）、保存 / 换名 / 删除时同步 `.env`（没人用才删、内置变量名不删、系统同名变量提示、`unsafe-env` 时两个文件都不动）。
 - `test/custom-models-fetch.test.ts`：对本地假服务拉取成功、key 错、404、不通、超时、非 JSON、形状不对、Anthropic 路径和头、重定向不跟随。
 - `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt 并拿到回复；自动发现：只写 `discovery`、不列模型，`omp models refresh` 跑通，`omp models <provider>` 和 `get_available_models` 都列出假服务的模型（openai 兼容和 anthropic 两种 `discovery.type`）；环境变量形式的 key：大小写混合的变量名、值写进 agent 目录 `.env`，omp 读到并带着它拉到模型；能力参数：写进去的四项被 omp 采用，留空的由 omp 按 id 补。
-- `test/e2e/custom-models.e2e.ts`：设置页完整流程；"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）；"能力参数"一条（模型行里设四项、非法上下文不能保存、写进文件、omp 采用、自动的格子显示 omp 补的值、换回自动后从文件里去掉、对话框不越界）；"只覆盖内置 provider"一条（卡片元信息、没有编辑按钮、设置 key 后文件里覆盖项和注释原样、`omp token anthropic` 返回这个 key、清除后不再返回）；"环境变量形式的 key"一条（变量名 + 值，拉取用刚填的值，`models.yml` 只有变量名、`.env` 追加一行且原有行和 CRLF 不变，卡片写 `（.env）`，编辑时值框提示已在 `.env` 里，删除后那一行去掉）。`test/custom-models-file.test.ts` 的 `applyKey` 一组覆盖设置、环境变量去掉 `auth: none`、清除后空条目删掉、拒绝的输入。
+- `test/e2e/custom-models.e2e.ts`：设置页完整流程；"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）；"能力参数"一条（模型行里设四项、非法上下文不能保存、写进文件、omp 采用、自动的格子显示 omp 补的值、换回自动后从文件里去掉、对话框不越界）；"只覆盖内置 provider"一条（卡片元信息、编辑里覆盖项勾着带原值、设 key 和上下文并手动加模型后文件里别的覆盖项和注释原样、`omp token anthropic` 返回这个 key、omp 采用写进去的上下文窗口、再编辑改回不设置并取消一个模型后 apiKey 和它的覆盖项去掉）；"环境变量形式的 key"一条（变量名 + 值，拉取用刚填的值，`models.yml` 只有变量名、`.env` 追加一行且原有行和 CRLF 不变，卡片写 `（.env）`，编辑时值框提示已在 `.env` 里，删除后那一行去掉）。`test/custom-models-file.test.ts` 的 `applyKey` 一组覆盖设置、环境变量去掉 `auth: none`、清除后空条目删掉、拒绝的输入。
 - 假服务：`test/fake-openai/server.ts`（`GET /v1/models`、`POST /v1/chat/completions` 流式和非流式）。
 
 ## 没做的
@@ -131,4 +131,4 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 
 ## 界面（3.2）
 
-自定义提供商是列表行（编辑按钮 + `删除` 按钮，删除先 `ConfirmDialog`；覆盖内置 provider 且有 key 时 `删除` 和 `清除 key` 收进 ⋯）；添加 / 编辑是 `xl` 对话框（`CustomProviderForm`），高度固定、不随模型多少变：连接信息两列（ID、接口类型、Base URL、key），窄到放不下两个 320 时变一列；自动发现、模型表、错误各占满一行。模型表是一个网格（`.cp-model-table`，表头吸顶，占满对话框剩下的高度、在表里滚动）：勾选 + id、思考、图片输入、上下文窗口、最大输出；没勾选的行只有勾选和 id。写 `models.yml` 的规则不变。
+自定义提供商是列表行（`编辑` + ⋯（删除，先 `ConfirmDialog`）；覆盖内置 provider 的条目编辑打开 `ProviderOverrideDialog`（key + 模型能力参数））；添加 / 编辑是 `xl` 对话框（`CustomProviderForm`），高度固定、不随模型多少变：连接信息两列（ID、接口类型、Base URL、key），窄到放不下两个 320 时变一列；自动发现、模型表、错误各占满一行。模型表是一个网格（`.cp-model-table`，表头吸顶，占满对话框剩下的高度、在表里滚动）：勾选 + id、思考、图片输入、上下文窗口、最大输出；没勾选的行只有勾选和 id。写 `models.yml` 的规则不变。

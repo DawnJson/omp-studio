@@ -1,11 +1,6 @@
-// 插件详情：npm / link 插件的"功能"开关和"设置"编辑；市场插件没有这两项（omp 的 features / config 子命令对它们报 not found）。
+// 插件详情：npm / link 插件的"功能"开关和"设置"编辑；市场插件没有这两项（omp 的 features / config 子命令对它们报 not found），不显示详情。
 import { useEffect, useState } from "react";
-import type {
-  MarketplacePlugin,
-  NpmPlugin,
-  PluginFeatureInfo,
-  PluginSettingSchema,
-} from "../../../../shared/omp-output/plugins.ts";
+import type { NpmPlugin, PluginFeatureInfo, PluginSettingSchema } from "../../../../shared/omp-output/plugins.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Badge, Button, Row, SectionHead, Switch, TextField } from "../../ui/controls.tsx";
 import { describeError } from "../../ui/errors.ts";
@@ -147,15 +142,13 @@ function NpmDetails({ plugin, busy }: { plugin: NpmPlugin; busy: boolean }) {
   }, [plugin.name]);
   return (
     <>
-      <SectionHead title={t("plugins.features")} />
-      {plugin.features.length === 0 && <p className="pl-muted">{t("plugins.features.none")}</p>}
+      {plugin.features.length > 0 && <SectionHead title={t("plugins.features")} />}
       <div className="ui-rows">
         {plugin.features.map((feature) => (
           <FeatureRow key={feature.name} plugin={plugin} feature={feature} busy={busy} />
         ))}
       </div>
-      <SectionHead title={t("plugins.settings")} />
-      {keys.length === 0 && <p className="pl-muted">{t("plugins.settings.none")}</p>}
+      {keys.length > 0 && <SectionHead title={t("plugins.settings")} />}
       {config?.error != null && (
         <p className="pl-error" role="alert">
           {t("plugins.failed", { message: describeError(t, config.error) })}
@@ -178,15 +171,10 @@ function NpmDetails({ plugin, busy }: { plugin: NpmPlugin; busy: boolean }) {
   );
 }
 
-export function PluginDetails({ plugin, busy }: { plugin: NpmPlugin | MarketplacePlugin; busy: boolean }) {
-  const t = useT();
+export function PluginDetails({ plugin, busy }: { plugin: NpmPlugin; busy: boolean }) {
   return (
-    <div className="pl-details" data-testid={`plugin-details-${plugin.kind === "npm" ? plugin.name : plugin.id}`}>
-      {plugin.kind === "npm" ? (
-        <NpmDetails plugin={plugin} busy={busy} />
-      ) : (
-        <p className="pl-muted">{t("plugins.settings.marketplaceOnly")}</p>
-      )}
+    <div className="pl-details" data-testid={`plugin-details-${plugin.name}`}>
+      <NpmDetails plugin={plugin} busy={busy} />
     </div>
   );
 }

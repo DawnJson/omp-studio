@@ -354,6 +354,7 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
             aria-hidden={discard > 0 ? undefined : true}
             data-testid={discard > 0 ? "session-tree-discard" : undefined}
             data-count={discard > 0 ? discard : undefined}
+            title={discard > 0 ? t("tree.discardHint") : undefined}
           >
             {discard > 0 ? t("tree.discard", { count: discard }) : "\u00a0"}
           </p>

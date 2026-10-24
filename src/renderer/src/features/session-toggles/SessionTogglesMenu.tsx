@@ -126,7 +126,6 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
           </div>
         ) : (
           <div ref={menuRef} className="tg-menu" role="group" aria-label={t("toggles.title")} aria-busy={busy !== null}>
-            <p className="tg-note">{t("toggles.note")}</p>
             {sessionRows.map((name) => {
               const view = toggleView(toggles[name], defaults[name]);
               return (
@@ -134,7 +133,7 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
                   key={name}
                   id={name}
                   label={t(`toggles.${name}`)}
-                  hint={t(`toggles.${name}.hint`)}
+                  tip={name === "extendedContext" || name === "computer" ? t(`toggles.${name}.hint`) : undefined}
                   checked={view.value ?? false}
                   session={view.session && !SAVED_TO_CONFIG.has(name)}
                   differs={view.differs}
@@ -157,7 +156,6 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
                     />
                   )}
                 </span>
-                <span className="tg-hint">{t("toggles.browser.hint")}</span>
               </div>
               <Segmented<BrowserMode>
                 size="sm"

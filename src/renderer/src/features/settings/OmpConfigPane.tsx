@@ -82,7 +82,6 @@ export function OmpConfigPane({ view }: { view: ConfigView }) {
         return (
           <div className="cfg-state" role="status">
             <p className="cfg-empty-title">{t("settings.search.empty", { query })}</p>
-            <p className="st-muted">{t("settings.search.emptyHint")}</p>
           </div>
         );
       }

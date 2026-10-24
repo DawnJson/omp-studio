@@ -29,7 +29,7 @@ export function CommentQueue({
         size="sm"
         icon={<Comment size={14} />}
         disabled={empty}
-        title={empty ? t("review.queueEmpty") : t("review.queue")}
+        title={t("review.queue")}
         aria-haspopup="menu"
         aria-expanded={menu !== null}
         data-testid="comment-queue-button"

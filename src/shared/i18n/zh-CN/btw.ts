@@ -3,8 +3,8 @@ import type { MessageEntry } from "../index.ts";
 export const btw = {
   title: "旁路提问",
   slashDesc: "问一个旁路问题，回答不进对话流",
-  placeholder: "问点别的，回答不会进入主对话",
-  placeholderFollowUp: "追问这个话题",
+  placeholder: "提问",
+  placeholderFollowUp: "追问",
   send: "提问",
   cancel: "取消提问",
   close: "关闭旁路提问",

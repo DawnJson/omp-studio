@@ -27,7 +27,7 @@ export function RowMenu({
         size="sm"
         variant={only.tone === "danger" ? "danger" : "secondary"}
         disabled={disabled || only.disabledReason !== undefined}
-        title={only.disabledReason}
+        title={only.disabledReason ?? only.note}
         onClick={only.onSelect}
         testId={only.testId}
       >

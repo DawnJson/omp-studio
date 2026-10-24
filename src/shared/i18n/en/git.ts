@@ -72,8 +72,7 @@ export const git = {
   "merge.done": "Merged into {base}",
   "merge.nothing": "No new commits to merge.",
   "merge.conflictTitle": "Merge conflict",
-  "merge.conflictBody":
-    "The merge was undone and nothing changed. Resolve the files below (the agent can help) and merge again.",
+  "merge.conflictBody": "The merge was undone and nothing changed.",
   "merge.blocked.worktree_dirty": "The worktree has uncommitted changes. Commit or discard them first.",
   "merge.blocked.base_dirty":
     "Your main folder has uncommitted changes the merge could overwrite. Deal with them first.",

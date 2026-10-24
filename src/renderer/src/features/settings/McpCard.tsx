@@ -23,6 +23,7 @@ type TestState = "running" | McpTestResult;
 function McpRow({
   row,
   busy,
+  showScope,
   test,
   onTest,
   onToggle,
@@ -30,6 +31,8 @@ function McpRow({
 }: {
   row: McpServerRow;
   busy: boolean;
+  /** 只在选了某个项目（两层合并显示）时写每行的范围；用户范围下每行都一样，没有信息。 */
+  showScope: boolean;
   test: TestState | undefined;
   onTest(): void;
   onToggle(next: boolean): void;
@@ -50,7 +53,7 @@ function McpRow({
       testId={`mcp-row-${row.name}`}
       icon={row.name.slice(0, 2)}
       title={row.name}
-      badges={scopeText !== "" ? <Badge>{scopeText}</Badge> : undefined}
+      badges={showScope && scopeText !== "" ? <Badge>{scopeText}</Badge> : undefined}
       meta={
         <>
           {[row.transport, row.target].filter((part) => part !== "").join(" · ")}
@@ -200,6 +203,7 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
               key={`${row.scope}:${row.name}`}
               row={row}
               busy={busy}
+              showScope={scope !== "user"}
               test={tests[row.name]}
               onTest={() => void runTest(row.name)}
               onToggle={(next) =>

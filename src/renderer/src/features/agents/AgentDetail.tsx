@@ -120,8 +120,9 @@ function RecordSection({ taskId, state, live }: { taskId: TaskId; state: AgentRe
         <div className="agents-record-body">
           {loading && record === null && <p className="agents-muted">{t("agents.recordLoading")}</p>}
           {error !== null && <p className="agents-muted">{t("agents.recordError", { message: error })}</p>}
-          {record?.unavailable === "no_session" && <p className="agents-muted">{t("agents.recordNoSession")}</p>}
-          {record?.unavailable === "no_file" && <p className="agents-muted">{t("agents.recordNoFile")}</p>}
+          {(record?.unavailable === "no_session" || record?.unavailable === "no_file") && (
+            <p className="agents-muted">{t("agents.recordNoFile")}</p>
+          )}
           {record?.unavailable === "error" && (
             <p className="agents-muted">{t("agents.recordError", { message: record.error ?? "" })}</p>
           )}
@@ -203,18 +204,14 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
 
       {agent.task !== "" && <TaskBlock text={agent.assignment ?? cleanTask(agent.task)} />}
 
-      <div className="agents-block" data-testid="agents-output">
-        <SectionHead title={t("agents.output")} />
-        {output !== "" ? (
+      {output !== "" && (
+        <div className="agents-block" data-testid="agents-output">
+          <SectionHead title={t("agents.output")} />
           <div className="agents-output">
             <Markdown source={output} streaming={false} />
           </div>
-        ) : (
-          <p className="agents-muted">
-            {isAgentActive(agent.status) ? t("agents.outputRunning") : t("agents.outputNone")}
-          </p>
-        )}
-      </div>
+        </div>
+      )}
 
       <RecordSection taskId={taskId} state={recordState} live={isAgentActive(agent.status)} />
     </section>

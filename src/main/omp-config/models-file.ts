@@ -24,7 +24,7 @@ import {
   normalizeBaseUrl,
   unusedEnvName,
   type CustomKeyState,
-  type CustomKeyValue,
+  type ProviderOverrideInput,
   type CustomModelEntry,
   type CustomModelMeta,
   type CustomModelsErrorCode,
@@ -121,6 +121,21 @@ function modelEntries(value: unknown): (CustomModelEntry & CustomModelMeta)[] {
   return out;
 }
 
+const hasMeta = (meta: CustomModelMeta): boolean =>
+  meta.reasoning !== null || meta.images !== null || meta.contextWindow !== null || meta.maxTokens !== null;
+
+/** `modelOverrides`（模型 id → 覆盖项）里写了能力参数的模型。 */
+function overrideEntries(value: unknown): ({ id: string } & CustomModelMeta)[] {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return [];
+  const out: ({ id: string } & CustomModelMeta)[] = [];
+  for (const [id, raw] of Object.entries(value)) {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) continue;
+    const meta = metaOf(raw as Record<string, unknown>);
+    if (hasMeta(meta)) out.push({ id, ...meta });
+  }
+  return out;
+}
+
 export type ParseResult = { ok: true; providers: CustomProviderInfo[] } | { ok: false; code: CustomModelsErrorCode };
 
 /** 从 models.yml 文本里读出 providers。文本为 null/空 = 没有任何 provider。`sourceOf` 判断 `apiKey` 里的变量名设在哪。 */
@@ -145,6 +160,7 @@ export function parseProviders(text: string | null, sourceOf: SourceOf): ParseRe
       key: keyStateOf(entry, sourceOf),
       models: modelEntries(entry["models"]),
       discovery: typeof entry["discovery"] === "object" && entry["discovery"] !== null,
+      overrides: overrideEntries(entry["modelOverrides"]),
     });
   }
   return { ok: true, providers: out };
@@ -324,14 +340,22 @@ export function removeProvider(text: string | null, id: string): Edit {
 }
 
 /**
- * 只改一个已有 provider 的 `apiKey`，条目里别的键（`modelOverrides`、`baseUrl`……）原样。用于只覆盖 omp 内置 provider 的条目
- * （没有 `models`、`discovery`），这种条目没法走 applyProvider（它要求 baseUrl 和模型）。
- * null = 去掉 `apiKey`；去掉后条目空了就整个删掉（omp 认为没有任何覆盖项的条目不合法，omp://models.md "Override-only provider"）。
+ * 改一个只覆盖 omp 内置 provider 的条目（没有 `models`、`discovery`，比如 `anthropic` 下只有 `modelOverrides`）：
+ * 这种条目没法走 applyProvider（它要求 baseUrl 和模型）。只动 `apiKey`（和 `auth: none`）以及 `modelOverrides` 里各模型的
+ * 能力参数，别的键（`baseUrl`、覆盖项里的 `name`、`compat`……）原样。覆盖项空了删覆盖项，`modelOverrides` 空了删它，
+ * 条目空了删条目（omp 认为没有任何覆盖项的条目不合法，omp://models.md "Override-only provider"）。
  */
-export function applyKey(text: string | null, id: string, key: CustomKeyValue | null): Edit {
+export function applyOverride(text: string | null, id: string, input: ProviderOverrideInput): Edit {
   if (!isValidProviderId(id)) return fail("invalid-id");
+  const key = input.key;
   if (key?.kind === "literal" && !isValidLiteralKey(key.value)) return fail("invalid-key");
   if (key?.kind === "env" && !isValidEnvKey(key)) return fail("invalid-key");
+  if (input.models.length > limits.models) return fail("invalid-models");
+  const wanted = new Map<string, CustomModelMeta>();
+  for (const model of input.models) {
+    if (!isValidModelId(model.id) || wanted.has(model.id) || !isMetaValid(model)) return fail("invalid-models");
+    wanted.set(model.id, model);
+  }
   const source = stripBom(text ?? "");
   const doc = parseDocument(source);
   if (doc.errors.length > 0) return fail("unreadable-file");
@@ -341,13 +365,37 @@ export function applyKey(text: string | null, id: string, key: CustomKeyValue | 
   const provider = providers.get(id, true);
   if (provider === undefined) return fail("not-found");
   if (!isMap(provider)) return fail("unreadable-file");
-  if (key === null) {
-    provider.delete("apiKey");
-    if (provider.items.length === 0) providers.delete(id);
-  } else {
+
+  if (key === null) provider.delete("apiKey");
+  else if (key.kind !== "keep") {
     provider.set("apiKey", key.kind === "literal" ? key.value : key.name);
     if (provider.get("auth") === "none") provider.delete("auth");
   }
+
+  const existing = provider.get("modelOverrides", true);
+  if (existing !== undefined && existing !== null && !isMap(existing)) return fail("unreadable-file");
+  const overrides = (existing as YAMLMap | undefined) ?? new YAMLMap();
+  const none: CustomModelMeta = { reasoning: null, images: null, contextWindow: null, maxTokens: null };
+  const emptied: unknown[] = [];
+  for (const pair of overrides.items) {
+    const modelId = isScalar(pair.key) ? pair.key.value : pair.key;
+    if (typeof modelId !== "string" || wanted.has(modelId) || !isMap(pair.value)) continue;
+    applyMeta(doc, pair.value as YAMLMap, none);
+    if ((pair.value as YAMLMap).items.length === 0) emptied.push(pair.key);
+  }
+  for (const modelKey of emptied) overrides.delete(modelKey);
+  for (const [modelId, meta] of wanted) {
+    const current = overrides.get(modelId, true);
+    if (current !== undefined && current !== null && !isMap(current)) return fail("unreadable-file");
+    const node = (current as YAMLMap | undefined) ?? new YAMLMap();
+    applyMeta(doc, node, meta);
+    if (node.items.length === 0) overrides.delete(modelId);
+    else if (current === undefined || current === null) overrides.set(modelId, node);
+  }
+  if (overrides.items.length === 0) provider.delete("modelOverrides");
+  else if (existing === undefined || existing === null) provider.set("modelOverrides", overrides);
+
+  if (provider.items.length === 0) providers.delete(id);
   return { ok: true, text: render(doc, source) };
 }
 
@@ -359,7 +407,7 @@ let writeQueue: Promise<unknown> = Promise.resolve();
 /** 要写进 `.env` 的 key（环境变量形式、带了值）。 */
 type EnvWrite = { name: string; value: string } | null;
 
-function envWriteOf(key: CustomProviderInput["key"] | CustomKeyValue | null): EnvWrite {
+function envWriteOf(key: CustomProviderInput["key"] | ProviderOverrideInput["key"]): EnvWrite {
   return key?.kind === "env" && key.value !== undefined && key.value !== ""
     ? { name: key.name, value: key.value }
     : null;
@@ -443,12 +491,12 @@ export function deleteCustomProvider(agentDir: string, id: string): Promise<Cust
   return mutate(agentDir, id, (text) => removeProvider(text, id), null);
 }
 
-export function setCustomProviderKey(
+export function saveProviderOverride(
   agentDir: string,
   id: string,
-  key: CustomKeyValue | null,
+  input: ProviderOverrideInput,
 ): Promise<CustomModelsOutcome> {
-  return mutate(agentDir, id, (text) => applyKey(text, id, key), envWriteOf(key));
+  return mutate(agentDir, id, (text) => applyOverride(text, id, input), envWriteOf(input.key));
 }
 
 /** 文件里某个 provider 的 key 值；只给主进程内部用。 */

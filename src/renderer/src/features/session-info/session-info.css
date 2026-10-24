@@ -53,11 +53,6 @@
   gap: var(--space-3);
   font-size: var(--fs-sm);
 }
-.si-pin-hint {
-  display: block;
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-}
 
 /* 请求记录 */
 .si-trace-summary {

@@ -1,18 +1,14 @@
-// 模型选择对话框底部的参数行，照 Tern：上下文 · 输出 · 价格 · 推理 + 胶囊（当前 / 绑定的角色）。
+// 模型选择对话框底部的参数行，照 Tern：上下文 · 输出 · 价格 + 推理 / 视觉胶囊（当前模型和绑定的角色列表行里已有标记）。
 // 压缩于、速度、智能分、输入类型放在悬停提示里；实测速度、压缩设置来自 getModelInsights（还在读时显示"…"），智能分和目录速度是模型自带的。
 import type { ModelInsights, ModelOption } from "../../../../shared/ipc.ts";
 import { compactionTrigger, type CompactionTrigger } from "../../../../shared/compaction-trigger.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { modelPriceLine } from "./model-groups.ts";
-import { RoleIcon } from "./RoleIcon.tsx";
 import { formatCount } from "./usage-format.ts";
 
 interface ModelDetailsProps {
   option: ModelOption;
-  isCurrent: boolean;
-  /** 指到这个模型的角色。 */
-  roles: readonly string[];
   /** null = 还在读。 */
   insights: ModelInsights | null;
 }
@@ -35,7 +31,7 @@ function compactionText(t: TFunction, trigger: CompactionTrigger, count: (value:
   return [count(trigger.tokens), how, t(`model.compact.source.${trigger.source}`)].join(" · ");
 }
 
-export function ModelDetails({ option, isCurrent, roles, insights }: ModelDetailsProps) {
+export function ModelDetails({ option, insights }: ModelDetailsProps) {
   const t = useT();
   const locale = useLocale();
   const numberFormat = new Intl.NumberFormat(locale);
@@ -104,22 +100,8 @@ export function ModelDetails({ option, isCurrent, roles, insights }: ModelDetail
       <span className="mp-param">
         <span className="mp-param-label">{t("model.price")}</span> {price}
       </span>
-      <span className="mp-param">
-        <span className="mp-param-label">{t("model.reasoning")}</span>{" "}
-        {t(option.reasoning ? "model.supported" : "model.unsupported")}
-      </span>
+      {option.reasoning && <span className="mp-pill">{t("model.reasoning")}</span>}
       {option.acceptsImages && <span className="mp-pill">{t("model.tag.vision")}</span>}
-      {isCurrent && (
-        <span className="mp-pill" data-kind="current">
-          {t("model.current")}
-        </span>
-      )}
-      {roles.map((role) => (
-        <span key={role} className="mp-pill" data-kind="role">
-          <RoleIcon role={role} size={12} />
-          {role}
-        </span>
-      ))}
     </p>
   );
 }

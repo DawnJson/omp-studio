@@ -54,8 +54,7 @@ function StudioUpdate() {
     }
   };
 
-  if (info === null || state === null)
-    return <Row label="omp-studio">{() => <span className="st-muted">{t("settings.about.idle")}</span>}</Row>;
+  if (info === null || state === null) return <Row label="omp-studio">{() => null}</Row>;
 
   const canCheck =
     state.phase !== "downloaded" &&

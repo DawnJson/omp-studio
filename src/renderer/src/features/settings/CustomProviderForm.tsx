@@ -128,7 +128,6 @@ export function KeyFields({ mode, modes, text, onText, envValue, onEnvValue, sou
             type={show ? "text" : "password"}
             autoComplete="off"
             value={live ? text : ""}
-            placeholder={t("custom.form.key.literal.placeholder")}
             aria-label={t("custom.form.key")}
             testId={live ? testId : undefined}
             onChange={live ? onText : noop}
@@ -185,10 +184,10 @@ function initialKeyMode(provider: CustomProviderInfo | undefined): KeyMode {
   return provider.key.kind === "env" ? "env" : "keep";
 }
 
-const tokenText = (value: number | null) => (value === null ? "" : String(value));
+export const tokenText = (value: number | null) => (value === null ? "" : String(value));
 
 /** omp 不知道这一项（新模型、还没加载、文件里写了值）时的提示：全 null。 */
-const noHint: CustomModelMeta = { reasoning: null, images: null, contextWindow: null, maxTokens: null };
+export const noHint: CustomModelMeta = { reasoning: null, images: null, contextWindow: null, maxTokens: null };
 
 interface CustomProviderFormProps {
   mode: "add" | "edit";
@@ -458,12 +457,12 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
             hintOf={hintOf}
             notice={notice}
             onNotice={setNotice}
-            fetching={fetching}
-            fetchDisabled={baseUrl.trim() === "" || !isFetchableApi(api)}
-            onFetch={() => void fetchModels()}
-            discovery={discoveryOn}
-            discoverySupported={discoverySupported}
-            onDiscovery={setDiscovery}
+            fetch={{
+              busy: fetching,
+              disabled: baseUrl.trim() === "" || !isFetchableApi(api),
+              run: () => void fetchModels(),
+            }}
+            discovery={{ on: discoveryOn, supported: discoverySupported, onChange: setDiscovery }}
           />
         </FormField>
         {saveError !== null && (

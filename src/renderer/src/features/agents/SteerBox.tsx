@@ -31,7 +31,7 @@ export function SteerBox({ taskId, name, busy }: { taskId: TaskId; name: string;
         rows={2}
         value={text}
         maxLength={subagentLimits.steerChars}
-        placeholder={t("agents.steerPlaceholder", { name })}
+        placeholder={t("agents.steerPlaceholder")}
         aria-label={t("agents.steerLabel", { name })}
         disabled={busy}
         onChange={setText}
@@ -42,7 +42,6 @@ export function SteerBox({ taskId, name, busy }: { taskId: TaskId; name: string;
         size="sm"
         icon={<ArrowUp size={14} />}
         testId="agents-steer-send"
-        title={t("agents.steerSend")}
         disabled={busy || message === ""}
         onClick={send}
       >

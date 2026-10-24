@@ -17,11 +17,10 @@ export const task = {
   runningFor: "{n} 分钟",
   noSession: "这个任务还没有会话文件。",
   restart: "重开会话",
-  restartTip: "重开会话：重新加载 skill、MCP、插件和 omp 配置",
+  restartTip: "重新加载 skill、MCP、插件和配置",
   restartBusyRunning: "任务正在运行，结束后才能重开",
   restartBusyWaiting: "任务在等你回答，答完才能重开",
   restartBusyStarting: "任务正在启动",
   restartBusyBackground: "还有后台作业、subagent 或旁路提问在运行，结束后才能重开",
-  restarted: "已重开会话",
   exportHtml: "导出为 HTML…",
 } satisfies Record<string, MessageEntry>;

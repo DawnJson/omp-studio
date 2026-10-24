@@ -34,13 +34,14 @@ export function GoalStrip({ taskId, goal: liveGoal }: { taskId: TaskId; goal: Ta
           role="group"
           aria-label={t("goal.title")}
         >
-          <span className="goal-label">{t("goal.title")}</span>
           <span className="goal-objective" title={goal.objective}>
             {goal.objective}
           </span>
-          <Badge tone={STATUS_TONE[goal.status]} testId="goal-status">
-            {t(`goal.status.${goal.status}`)}
-          </Badge>
+          {goal.status !== "active" && (
+            <Badge tone={STATUS_TONE[goal.status]} testId="goal-status">
+              {t(`goal.status.${goal.status}`)}
+            </Badge>
+          )}
           {(goal.tokensUsed > 0 || goal.tokenBudget !== null) && (
             <span
               className="goal-usage"

@@ -13,7 +13,6 @@ type Scope = "user" | "project";
 function Field({
   id,
   label,
-  help,
   value,
   onChange,
   placeholder,
@@ -22,7 +21,6 @@ function Field({
 }: {
   id: string;
   label: string;
-  help?: string | undefined;
   value: string;
   onChange(next: string): void;
   placeholder?: string | undefined;
@@ -30,7 +28,7 @@ function Field({
   autoFocus?: boolean;
 }) {
   return (
-    <FormField label={label} htmlFor={id} help={help}>
+    <FormField label={label} htmlFor={id}>
       <TextField
         id={id}
         mono
@@ -155,7 +153,6 @@ export function SshForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(messa
         <Field
           id={`${uid}-key`}
           label={t("integrations.ssh.key")}
-          help={t("integrations.ssh.key.tip")}
           value={keyPath}
           onChange={setKeyPath}
           testId="ssh-key"
@@ -179,9 +176,7 @@ export function SshForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(messa
           </FormField>
         )}
         <Checkbox checked={compat} onChange={setCompat} testId="ssh-compat">
-          <span>
-            {t("integrations.ssh.compat")} <span className="ig-note-inline">{t("integrations.ssh.compat.tip")}</span>
-          </span>
+          <span title={t("integrations.ssh.compat.tip")}>{t("integrations.ssh.compat")}</span>
         </Checkbox>
         {error !== null && (
           <Notice tone="error" testId="ssh-form-error">

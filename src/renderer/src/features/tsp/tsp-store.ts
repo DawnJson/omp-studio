@@ -39,7 +39,6 @@ const nodeKey = (taskId: TaskId, sf: string, id: string): string => `n${SEP}${ta
 const surfaceKey = (taskId: TaskId, sf: string): string => `s${SEP}${taskId}${SEP}${sf}`;
 const surfacesKey = (taskId: TaskId): string => `l${SEP}${taskId}`;
 const blobKey = (taskId: TaskId, id: string): string => `b${SEP}${taskId}${SEP}${id}`;
-const readyKey = (taskId: TaskId): string => `r${SEP}${taskId}`;
 const panelKey = (taskId: TaskId): string => `p${SEP}${taskId}`;
 const roleKey = (taskId: TaskId, sf: string): string => `u${SEP}${taskId}${SEP}${sf}`;
 
@@ -259,12 +258,6 @@ export function useTspPanelOpen(taskId: TaskId): boolean {
     const doc = mirrors.get(taskId)?.doc;
     return doc ? hasBlockingPanel(doc) : false;
   });
-}
-
-export function useTspReady(taskId: TaskId): boolean {
-  const sub = useMemo(() => (l: () => void) => subscribe(readyKey(taskId), l), [taskId]);
-  // 镜像出现的那一刻 notifyTask 会通知 readyKey（key 的第二段是 taskId）。
-  return useSyncExternalStore(sub, () => mirrors.has(taskId));
 }
 
 /** 按 id 订阅一个节点：只有这个节点的记录换了才重画；节点不存在返回 null。 */

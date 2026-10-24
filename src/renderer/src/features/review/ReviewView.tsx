@@ -208,9 +208,9 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
       {...exit}
     >
       <header className="rv-head">
-        <Button variant="quiet" size="sm" icon={<Close size={14} />} testId="review-close" onClick={closeReview}>
-          {t("review.close")}
-        </Button>
+        <IconButton label={t("review.close")} testId="review-close" onClick={closeReview}>
+          <Close size={14} />
+        </IconButton>
         <h2 className="rv-title">{t("review.title")}</h2>
         {status?.kind === "ok" && status.branch.head !== null && (
           <span className="rv-branch" data-testid="review-branch">

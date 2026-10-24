@@ -35,6 +35,9 @@ export function PluginRow({
   const version = plugin.kind === "npm" ? plugin.version : (install?.version ?? "");
   const description = plugin.kind === "npm" ? plugin.description : null;
   const scoped = scope === undefined ? {} : { scope };
+  // 市场安装的插件没有功能和设置项；npm 插件两样都没有时也没有可展开的内容：都不显示详情。
+  const npmDetails =
+    plugin.kind === "npm" && (plugin.features.length > 0 || Object.keys(plugin.settings).length > 0) ? plugin : null;
   const meta = [version !== "" ? t("plugins.version", { version }) : "", description ?? ""]
     .filter((part) => part !== "")
     .join(" · ");
@@ -48,14 +51,16 @@ export function PluginRow({
         meta={meta === "" ? undefined : meta}
         actions={
           <>
-            <Disclosure
-              expanded={open}
-              controls={detailsId}
-              onToggle={() => setOpen(!open)}
-              testId={`plugin-expand-${rowKey}`}
-            >
-              {open ? t("plugins.details.hide") : t("plugins.details")}
-            </Disclosure>
+            {npmDetails !== null && (
+              <Disclosure
+                expanded={open}
+                controls={detailsId}
+                onToggle={() => setOpen(!open)}
+                testId={`plugin-expand-${rowKey}`}
+              >
+                {open ? t("plugins.details.hide") : t("plugins.details")}
+              </Disclosure>
+            )}
             {/* 链接的本地插件没有可升级的来源（omp 会拒绝），所以只有市场插件显示"升级"。 */}
             {plugin.kind === "marketplace" && (
               <Button
@@ -94,9 +99,11 @@ export function PluginRow({
           </>
         }
       />
-      <Reveal open={open} id={detailsId}>
-        <PluginDetails plugin={plugin} busy={busy} />
-      </Reveal>
+      {npmDetails !== null && (
+        <Reveal open={open} id={detailsId}>
+          <PluginDetails plugin={npmDetails} busy={busy} />
+        </Reveal>
+      )}
       {confirming !== null && (
         <ConfirmDialog
           key={confirming.key}

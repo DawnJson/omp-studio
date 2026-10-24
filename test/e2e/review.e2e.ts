@@ -533,7 +533,7 @@ test("评审：修改上一次提交（Amend）：预填上一次的信息；取
     await expect(summary).toHaveValue("init 标题");
     await expect(description).toHaveValue("原来的说明");
     await expect(submit).toHaveText("修改提交");
-    await expect(page.getByTestId("review-commit-amend-note")).toBeVisible();
+    await expect(page.getByTestId("review-commit-amend-note")).toHaveCount(0);
     await amend.uncheck();
     await expect(summary).toHaveValue("我正在写的");
     await expect(submit).toHaveText("提交");
@@ -599,15 +599,14 @@ test("评审：忽略空白：空白改动从 diff 里消失，按块 / 按行�
     const toggle = page.getByTestId("ignore-space-toggle");
     await expect(indented).toHaveCount(1);
     await expect(toggle).toHaveAttribute("aria-pressed", "false");
-    await expect(page.getByTestId("ignore-space-note")).toHaveCount(0);
     await expect(page.locator(".rv-row[data-pickable]").first()).toBeVisible();
 
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await expect(indented).toHaveCount(0);
     await expect(page.locator(".rv-row[data-kind=add]", { hasText: "value3 = 300" })).toHaveCount(1);
-    // 按块 / 按行：灰掉并说明，点行不选。
-    await expect(page.getByTestId("ignore-space-note")).toBeVisible();
+    // 按块 / 按行：灰掉（悬停说明原因），点行不选。
+    await expect(page.getByTestId("hunk-stage").first()).toHaveAttribute("title", /.+/);
     await expect(page.getByTestId("hunk-stage").first()).toBeDisabled();
     await expect(page.getByTestId("hunk-discard").first()).toBeDisabled();
     await expect(page.locator(".rv-row[data-pickable]")).toHaveCount(0);

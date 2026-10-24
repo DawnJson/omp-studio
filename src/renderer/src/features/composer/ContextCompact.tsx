@@ -44,7 +44,7 @@ export function ContextCompact({ task }: { task: TaskState }) {
         <Button
           size="sm"
           testId="context-compact"
-          title={idle ? t("board.compactNowTip") : t("board.compactNeedIdle")}
+          title={idle ? undefined : t("board.compactNeedIdle")}
           loading={busy === "compact"}
           disabled={!idle || busy !== null}
           onClick={() => run("compact")}

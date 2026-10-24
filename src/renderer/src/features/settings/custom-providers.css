@@ -36,6 +36,10 @@
   gap: var(--space-4) var(--space-6);
   align-items: start;
 }
+/* key 分段按内容宽，不随字段拉满一行。 */
+.cp-conn .ui-seg {
+  justify-self: start;
+}
 
 .cp-models-field {
   display: flex;
@@ -52,7 +56,7 @@
   min-width: 0;
 }
 
-/* 工具栏：全选方框 · 拉取模型 · 自动发现开关 · 筛选 · 已选计数（靠右）。 */
+/* 工具栏：全选方框 · 拉取模型 · 自动发现开关 · 筛选 · 已选计数（靠右，只在有筛选框时）。 */
 .cp-models-bar {
   display: flex;
   flex-wrap: wrap;
@@ -60,14 +64,6 @@
   align-items: center;
 }
 
-/* 自动发现开关右边的一句说明：剩下的宽度都给它，放不下就在自己这格里折行，不把"已选 n / m"挤到下一行。 */
-.cp-models-hint {
-  flex: 1 1 14em;
-  min-width: 0;
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  color: var(--text-3);
-}
 .cp-count {
   margin-left: auto;
   font-size: var(--fs-xs);

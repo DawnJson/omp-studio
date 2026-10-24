@@ -15,7 +15,7 @@ import { MenuList, type MenuEntry } from "../../ui/Menu.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import { useApprovalMode } from "./use-approval-mode.ts";
 
-const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey; icon: typeof Shield }[] = [
+const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey | null; icon: typeof Shield }[] = [
   { mode: "always-ask", label: "approval.alwaysAsk", desc: "approval.desc.alwaysAsk", icon: Shield },
   {
     mode: "always-ask-cached",
@@ -24,7 +24,7 @@ const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey;
     icon: ShieldCheck,
   },
   { mode: "write", label: "approval.write", desc: "approval.desc.write", icon: Pencil },
-  { mode: "yolo", label: "approval.yolo", desc: "approval.desc.yolo", icon: ShieldOff },
+  { mode: "yolo", label: "approval.yolo", desc: null, icon: ShieldOff },
 ];
 
 /**
@@ -92,14 +92,17 @@ export function ApprovalChip({
   };
 
   const items: MenuEntry[] = [
+    // 项目配置锁定：说明只在菜单顶上写一次；四项照常显示自己的第二行，只是灰显不可选。
+    ...(locked ? [{ kind: "label" as const, id: "locked", label: t("approval.projectLocked") }] : []),
     ...modes.map((entry) => {
-      const desc = entry.mode === "yolo" ? `${t(entry.desc)} ${t("approval.subagents")}` : t(entry.desc);
+      // 全自动的名字已经说明"不询问"，只补 subagent 这条用户推断不出的后果。
+      const desc = entry.desc === null ? t("approval.subagents") : t(entry.desc);
       return {
         id: entry.mode,
         label: t(entry.label),
-        note: desc,
+        // disabledReason 同时是"灰显"开关和第二行的文字；锁定时第二行还是描述本身。
+        ...(locked ? { disabledReason: desc } : { note: desc }),
         checked: entry.mode === current,
-        ...(locked ? { disabledReason: t("approval.projectLocked") } : {}),
         testId: `approval-mode-${entry.mode}`,
         onSelect: () => choose(entry.mode),
       };

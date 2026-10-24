@@ -1,9 +1,8 @@
-// 选中即复制（设置项 copyOnSelect，默认开）：鼠标松开时，页面上有选中的文字就写进剪贴板，并短暂提示“已复制”。
+// 选中即复制（设置项 copyOnSelect，默认开）：鼠标松开时，页面上有选中的文字就写进剪贴板（不弹提示：用户刚做的就是复制）。
 // 只认鼠标选中（拖选、双击选词、三击选段），和终端一样；键盘选中（Shift+方向键、Ctrl+A）不自动复制，照常 Ctrl+C。
 // 输入框、可编辑区和内置终端除外：在输入框里选中多半是要改写或粘贴覆盖，不能顺手把剪贴板换掉；终端有自己的复制。
 import { useEffect } from "react";
 import type { TFunction } from "../../../shared/i18n/index.ts";
-import { pushToast } from "../features/dialogs/toast-store.ts";
 import { reportError } from "../ui/errors.ts";
 
 const excluded = "input, textarea, select, [contenteditable]:not([contenteditable='false']), [data-terminal-host]";
@@ -33,10 +32,7 @@ export function useCopyOnSelect(enabled: boolean, t: TFunction): void {
         const text = selection.toString();
         if (text.trim() === "" || text === last) return;
         last = text;
-        navigator.clipboard.writeText(text).then(
-          () => pushToast({ message: t("common.copied"), durationMs: 1200 }),
-          (cause: unknown) => reportError(t, cause),
-        );
+        navigator.clipboard.writeText(text).catch((cause: unknown) => reportError(t, cause));
       }, 0);
     };
     document.addEventListener("mouseup", onMouseUp);

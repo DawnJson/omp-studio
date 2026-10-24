@@ -99,7 +99,7 @@ export function PreviewPage({ target, path, hidden }: { target: ProjectFilesTarg
             <IconButton label={t("preview.zoomOut")} onClick={() => stepZoom(1 / zoomStep)}>
               −
             </IconButton>
-            <Button variant="quiet" size="sm" title={t("preview.zoomFit")} onClick={() => setZoom("fit")}>
+            <Button variant="quiet" size="sm" onClick={() => setZoom("fit")}>
               {zoom === "fit" ? t("preview.zoomFit") : `${Math.round(zoom * 100)}%`}
             </Button>
             <IconButton label={t("preview.zoomIn")} onClick={() => stepZoom(zoomStep)}>

@@ -76,7 +76,7 @@ export const git = {
   "merge.done": "已合并到 {base}",
   "merge.nothing": "没有新的提交可合并。",
   "merge.conflictTitle": "合并有冲突",
-  "merge.conflictBody": "合并已撤销，两边都没有改动。解决下面文件的冲突（可交给 agent）后再合并。",
+  "merge.conflictBody": "合并已撤销，两边都没有改动。",
   "merge.blocked.worktree_dirty": "worktree 里有没提交的改动，先提交或丢弃它们。",
   "merge.blocked.base_dirty": "主目录里有没提交的改动，合并可能覆盖它们，先处理掉。",
   "merge.blocked.base_not_checked_out": "主目录当前不在 {base} 分支上（现在是 {current}），先切回去。",

@@ -276,7 +276,7 @@ test("分享：确认框说明服务器和脱敏；取消什么都不发；确�
     await page.keyboard.press("Enter");
     const dialog = page.getByTestId("share-dialog");
     await expect(dialog.getByTestId("share-warning")).toContainText("share.example.test");
-    await expect(dialog.getByTestId("share-redact")).toHaveAttribute("data-redact", "true");
+    await expect(dialog.getByTestId("share-redact")).toHaveCount(0);
     // 取消：框关了，没有任何上传调用。
     await page.getByRole("button", { name: /取消|Cancel/ }).click();
     await expect(dialog).toHaveCount(0);
@@ -346,7 +346,7 @@ test("侧栏历史：停在工具调用上的会话画虚线圈暂停号，悬�
     const row = page.getByTestId("sidebar-session").filter({ hasText: "history-interrupted" });
     const mark = row.locator(".sb-dot-interrupted");
     await expect(mark).toHaveCount(1);
-    await expect(mark).toHaveAttribute("title", /停在工具调用|stopped partway/);
+    await expect(mark).toHaveAttribute("title", /中途停下|Stopped partway/);
   } finally {
     await cleanup();
   }

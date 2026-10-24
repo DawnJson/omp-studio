@@ -1,4 +1,4 @@
-// 会话开关菜单里的一行：名称 + 一句说明 + "本会话"标记 + 和配置默认值不同时的小圆点 + 开关。
+// 会话开关菜单里的一行：名称 + "本会话"标记 + 和配置默认值不同时的小圆点 + 开关；有后果要交代的行把说明放进悬停（tip）。
 import { useId } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { Badge, Switch } from "../../ui/controls.tsx";
@@ -6,7 +6,8 @@ import { Badge, Switch } from "../../ui/controls.tsx";
 export interface ToggleRowProps {
   id: string;
   label: string;
-  hint: string;
+  /** 悬停说明；没有后果要交代的行不给。 */
+  tip?: string | undefined;
   /** 生效值；读不到（配置还没载入、omp 没报过）时按关显示。 */
   checked: boolean;
   /** 值来自本会话的命令（不是配置默认值）。 */
@@ -17,7 +18,7 @@ export interface ToggleRowProps {
   onChange(next: boolean): void;
 }
 
-export function ToggleRow({ id, label, hint, checked, session, differs, busy, onChange }: ToggleRowProps) {
+export function ToggleRow({ id, label, tip, checked, session, differs, busy, onChange }: ToggleRowProps) {
   const t = useT();
   const labelId = useId();
   return (
@@ -27,7 +28,7 @@ export function ToggleRow({ id, label, hint, checked, session, differs, busy, on
       data-session={session || undefined}
       data-differs={differs || undefined}
     >
-      <div className="tg-text">
+      <div className="tg-text" title={tip}>
         <span id={labelId} className="tg-label">
           {label}
           {differs && (
@@ -40,7 +41,6 @@ export function ToggleRow({ id, label, hint, checked, session, differs, busy, on
             />
           )}
         </span>
-        <span className="tg-hint">{hint}</span>
       </div>
       {session && (
         <Badge tone="accent" testId={`toggle-${id}-session`}>

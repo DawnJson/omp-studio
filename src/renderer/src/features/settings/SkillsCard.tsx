@@ -45,7 +45,7 @@ export function SkillsCard({ scope }: { scope: ScopeKey }) {
       {!ready && <p className="ig-note">{t("settings.cfg.notReady")}</p>}
       {ready && skills === null && load.kind !== "error" && <p className="ig-note">{t("integrations.loading")}</p>}
       {skills?.length === 0 && (
-        <p className="ig-note" data-testid="skills-empty">
+        <p className="ig-note" title={t("integrations.skills.empty.tip")} data-testid="skills-empty">
           {t("integrations.skills.empty")}
         </p>
       )}
@@ -58,7 +58,11 @@ export function SkillsCard({ scope }: { scope: ScopeKey }) {
               icon={skill.name.slice(0, 2)}
               title={skill.name}
               badges={
-                <Badge>{skill.scope === "user" ? t("integrations.scope.user") : t("integrations.scope.project")}</Badge>
+                scope === "user" ? undefined : (
+                  <Badge>
+                    {skill.scope === "user" ? t("integrations.scope.user") : t("integrations.scope.project")}
+                  </Badge>
+                )
               }
               meta={
                 skill.description !== undefined && (
@@ -71,7 +75,6 @@ export function SkillsCard({ scope }: { scope: ScopeKey }) {
           ))}
         </div>
       )}
-      <p className="ig-note">{t("integrations.skills.note")}</p>
     </div>
   );
 }

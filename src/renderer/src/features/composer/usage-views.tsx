@@ -204,7 +204,7 @@ export function UntouchedRow({ accounts }: { accounts: readonly QuotaAccount[] }
   );
 }
 
-function Stat({ label, value, sub, extra }: { label: string; value: string; sub: string; extra?: ReactNode }) {
+function Stat({ label, value, extra }: { label: string; value: string; extra?: ReactNode }) {
   return (
     <div className="uq-stat">
       <span className="uq-stat-label" title={label}>
@@ -216,9 +216,6 @@ function Stat({ label, value, sub, extra }: { label: string; value: string; sub:
         </span>
         {extra}
       </div>
-      <span className="uq-stat-sub" title={sub}>
-        {sub}
-      </span>
     </div>
   );
 }
@@ -229,37 +226,18 @@ export function SummaryStrip({ quota, heatmap }: { quota: QuotaSnapshot | null; 
   const locale = useLocale();
   const tightest = useMemo(() => (quota ? tightestQuota(quota.accounts) : null), [quota]);
   const summary = useMemo(() => (heatmap?.hasDatabase ? summarizeUsage(heatmap) : null), [heatmap]);
-  const requests = (count: number) => t("usage.summary.requests", { count, value: compact(locale, count) });
   const sparkMax = Math.max(0, ...(summary?.spark ?? []));
-  const busiestDate = summary?.busiest
-    ? new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" }).format(
-        parseDate(summary.busiest.date),
-      )
-    : null;
   return (
     <div className="uq-summary" data-testid="usage-summary" role="group" aria-label={t("usage.summary")}>
       <div className="uq-strip">
         <Stat
           label={t("usage.summary.tightest")}
           value={tightest ? t("usage.quota.left", { percent: leftPercent(tightest.limit) ?? 0 }) : "—"}
-          sub={
-            tightest
-              ? t("usage.summary.tightest.sub", {
-                  limit: limitName(tightest.limit),
-                  provider: tightest.account.provider,
-                })
-              : t("usage.summary.noQuota")
-          }
         />
-        <Stat
-          label={t("usage.summary.pastYear")}
-          value={summary ? money(locale, summary.pastYear.costUsd) : "—"}
-          sub={summary ? requests(summary.pastYear.requests) : ""}
-        />
+        <Stat label={t("usage.summary.pastYear")} value={summary ? money(locale, summary.pastYear.costUsd) : "—"} />
         <Stat
           label={t("usage.summary.last30")}
           value={summary ? money(locale, summary.last30.costUsd) : "—"}
-          sub={summary ? requests(summary.last30.requests) : ""}
           extra={
             summary && (
               <span className="uq-spark" aria-hidden="true">
@@ -279,7 +257,6 @@ export function SummaryStrip({ quota, heatmap }: { quota: QuotaSnapshot | null; 
         <Stat
           label={t("usage.summary.busiest")}
           value={summary?.busiest ? money(locale, summary.busiest.costUsd) : "—"}
-          sub={summary?.busiest && busiestDate ? `${busiestDate} · ${requests(summary.busiest.requests)}` : ""}
         />
       </div>
     </div>

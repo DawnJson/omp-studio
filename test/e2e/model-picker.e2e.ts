@@ -56,7 +56,7 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await page.getByTestId("model-search").press("Enter");
     await expect(page.getByTestId("model-role-target")).toContainText("Task");
     await expect(page.getByTestId("model-scope-all")).toHaveAttribute("aria-current", "true");
-    await expect(page.getByTestId("model-role-use")).toBeVisible();
+    await expect(page.getByTestId("model-role-target")).toHaveAttribute("title", /.+/);
 
     // 顶栏的 × 改回给 default 选；@ 开头搜角色、Enter 再切回 task。
     await page.getByTestId("model-role-clear").click();

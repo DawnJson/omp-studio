@@ -22,7 +22,6 @@ export async function restartSession(t: TFunction, task: TaskState): Promise<voi
   }
   try {
     await window.studio.restartTask(task.id);
-    pushToast({ level: "info", message: t("task.restarted") });
   } catch (error) {
     reportError(t, error);
   }

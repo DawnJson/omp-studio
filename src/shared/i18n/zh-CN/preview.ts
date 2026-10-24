@@ -34,7 +34,7 @@ export const preview = {
   rootCwd: "任务目录",
   rootCwdTitle: "任务的工作目录：{path}",
   addDir: "添加文件夹…",
-  addDirTitle: "把一个文件夹加进这个任务的工作区（omp 的 /add-dir），agent 就能读写它",
+  addDirTitle: "加入工作区，agent 可读写",
   removeDir: "移除 {name}",
   removeDirTitle: "从工作区移除（不会删除文件夹）：{path}",
   dirsNote: "额外目录只在这次运行里有效；任务重启后需要重新添加。",

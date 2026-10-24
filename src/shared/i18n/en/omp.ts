@@ -31,7 +31,7 @@ export const omp = {
   "takeover.declined": "This kind of install can't be used right now.",
   "unusable.title": "Can't start this omp",
   reconsider: "Choose again",
-  addPath: "Add to your user PATH so the terminal can use it",
+  addPath: "Terminal",
   "addPath.note":
     "Only your user PATH changes. Your existing omp is untouched. Terminals that are already open need a restart.",
   "addPath.yes": "Add to PATH",

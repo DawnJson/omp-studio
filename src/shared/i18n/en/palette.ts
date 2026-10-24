@@ -9,7 +9,7 @@ export const palette = {
   sessions: "Sessions",
   commands: "Commands",
   slash: "Slash commands",
-  noResults: "No matches for “{q}”",
+  noResults: "No matches",
   askNew: "Ask in a new task",
   hint: "↑↓ Select　↵ Run　Esc Close",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

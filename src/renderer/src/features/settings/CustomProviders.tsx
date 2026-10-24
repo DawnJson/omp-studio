@@ -1,7 +1,7 @@
 // 设置 → 提供商与账号 → 自定义提供商：models.yml 里 providers.* 的列表，添加 / 编辑在对话框里，删除在 ⋯ 里（先确认）。
 // 编辑的是 omp 自己的配置文件（src/main/omp-config/models-file.ts），终端版 omp 同样用它。
 // 没有模型也没有 discovery 的条目只是覆盖 omp 内置的同名 provider（比如 `anthropic` 下只有 `modelOverrides`）：
-// 编辑表单存不了它（要 baseUrl 和模型），卡片上只给"设置 / 更换 key"和"清除 key"，只改 `apiKey`（ProviderKeyDialog）。
+// 编辑表单存不了它（要 baseUrl 和模型），"编辑"打开 ProviderOverrideDialog，只改 `apiKey` 和各模型的覆盖项。
 import { useEffect, useState } from "react";
 import type { CustomProviderInfo } from "../../../../shared/custom-models.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
@@ -13,12 +13,12 @@ import { Button, ListRow, Notice, SectionHead } from "../../ui/controls.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { customErrorText, CustomProviderForm } from "./CustomProviderForm.tsx";
-import { ProviderKeyDialog } from "./ProviderKeyDialog.tsx";
+import { ProviderOverrideDialog } from "./ProviderOverrideDialog.tsx";
 import { loadCustomProviders, reloadAfterChange, useCustomProviderLoad } from "./custom-models-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
 import "./custom-providers.css";
 
-type Editing = { kind: "add" } | { kind: "edit"; id: string } | { kind: "key"; id: string };
+type Editing = { kind: "add" } | { kind: "edit"; id: string } | { kind: "override"; id: string };
 
 const overridesBuiltin = (provider: CustomProviderInfo): boolean => provider.models.length === 0 && !provider.discovery;
 
@@ -55,7 +55,12 @@ export function CustomProviders() {
     [
       provider.api,
       overridesBuiltin(provider)
-        ? t("custom.override")
+        ? [
+            t("custom.override"),
+            provider.overrides.length > 0 ? t("custom.models", { count: provider.overrides.length }) : "",
+          ]
+            .filter((part) => part !== "")
+            .join(" · ")
         : provider.models.length > 0 || !provider.discovery
           ? t("custom.models", { count: provider.models.length })
           : t("custom.discovery"),
@@ -76,7 +81,6 @@ export function CustomProviders() {
     try {
       await window.studio.refreshModels();
       reloadAfterChange();
-      pushToast({ message: t("custom.refreshed") });
     } catch (error) {
       pushToast({ level: "error", message: t("custom.refreshFailed", { message: describeError(t, error) }) });
     } finally {
@@ -91,25 +95,6 @@ export function CustomProviders() {
       const outcome = await window.studio.deleteCustomProvider(provider.id);
       if (outcome.ok) {
         reloadAfterChange();
-        pushToast({ message: t("custom.deleted") });
-      } else {
-        pushToast({ level: "error", message: customErrorText(t, `err.${outcome.code}`) });
-        void loadCustomProviders(true);
-      }
-    } catch (error) {
-      reportError(t, error);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const clearKey = async (provider: CustomProviderInfo) => {
-    setBusy(true);
-    try {
-      const outcome = await window.studio.setCustomProviderKey(provider.id, null);
-      if (outcome.ok) {
-        reloadAfterChange();
-        pushToast({ message: t("custom.keyEdit.cleared") });
       } else {
         pushToast({ level: "error", message: customErrorText(t, `err.${outcome.code}`) });
         void loadCustomProviders(true);
@@ -180,16 +165,10 @@ export function CustomProviders() {
         </Notice>
       )}
       {(load.kind === "idle" || load.kind === "loading") && <p className="cp-text">{t("custom.loading")}</p>}
-      {data?.providers.length === 0 && (
-        <p className="cp-text" data-testid="custom-empty">
-          {t("custom.empty")}
-        </p>
-      )}
       {data !== null && data.providers.length > 0 && (
         <div className="ui-cards">
           {data.providers.map((provider) => {
             const override = overridesBuiltin(provider);
-            const hasKey = provider.key.kind !== "none";
             return (
               <ListRow
                 key={provider.id}
@@ -199,41 +178,19 @@ export function CustomProviders() {
                 meta={metaText(provider)}
                 actions={
                   <>
-                    {override ? (
-                      <Button
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => openEditing({ kind: "key", id: provider.id })}
-                        testId={`custom-key-${provider.id}`}
-                      >
-                        {hasKey ? t("custom.keyEdit.replace") : t("custom.keyEdit.set")}
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => openEditing({ kind: "edit", id: provider.id })}
-                        testId={`custom-edit-${provider.id}`}
-                      >
-                        {t("custom.edit")}
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => openEditing({ kind: override ? "override" : "edit", id: provider.id })}
+                      testId={`custom-edit-${provider.id}`}
+                    >
+                      {t("custom.edit")}
+                    </Button>
                     <RowMenu
                       label={t("custom.more")}
                       disabled={busy}
                       testId={`custom-more-${provider.id}`}
                       items={[
-                        ...(override && hasKey
-                          ? [
-                              {
-                                id: "clear-key",
-                                label: t("custom.keyEdit.clear"),
-                                tone: "danger" as const,
-                                testId: `custom-clear-key-${provider.id}`,
-                                onSelect: () => void clearKey(provider),
-                              },
-                            ]
-                          : []),
                         {
                           id: "delete",
                           label: t("custom.delete"),
@@ -262,15 +219,11 @@ export function CustomProviders() {
           onClose={() => editingClosed(editing.key)}
         />
       )}
-      {editing !== null && editingProvider !== null && editing.value.kind === "key" && (
-        <ProviderKeyDialog
+      {editing !== null && editingProvider !== null && editing.value.kind === "override" && (
+        <ProviderOverrideDialog
           key={editing.key}
           provider={editingProvider}
-          onSaved={() => {
-            resetEditing();
-            reloadAfterChange();
-            pushToast({ message: t("custom.keyEdit.saved") });
-          }}
+          onSaved={saved}
           onClose={() => editingClosed(editing.key)}
         />
       )}

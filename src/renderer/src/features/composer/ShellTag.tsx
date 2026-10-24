@@ -43,7 +43,7 @@ export function ShellTag({ taskId }: { taskId: TaskId }) {
       <Popover open={open} onClose={() => setOpen(false)} label={t("board.shellOptions")} width={320}>
         <div className="shell-pop" data-testid="shell-pop">
           <div className="shell-pop-row">
-            <div className="shell-pop-text">
+            <div className="shell-pop-text" title={t("board.shellInContextTip")}>
               <span id={labelId} className="shell-pop-label">
                 {t("board.shellInContext")}
               </span>

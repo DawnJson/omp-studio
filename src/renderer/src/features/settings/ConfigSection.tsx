@@ -1,5 +1,5 @@
 // omp 设置的展示：各节页面上的常用项（小标题 + 格子）、"高级"（页内目录 + 选中分组的全部项平铺）、搜索结果（一列行）。
-// 高级：左侧目录 = omp-studio 的 8 个分组 + 当前分组下的前缀小组（带个数）；右侧是选中分组的项，没有折叠，前缀做小标题。
+// 高级：左侧目录 = omp-studio 的 8 个分组（带个数）+ 当前分组下的前缀小组；右侧是选中分组的项，没有折叠，前缀做小标题。
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
@@ -46,6 +46,11 @@ function ConfigGrid({
   );
 }
 
+/** 页面标题已经说明的小块不再写小标题（Subagent 页只有这一块，目标块只有一行）。 */
+function hasBlockTitle(id: CommonBlockId): id is Exclude<CommonBlockId, "subagents" | "goal"> {
+  return id !== "subagents" && id !== "goal";
+}
+
 /**
  * 一节页面上的常用项：按小块排（config-meta 的 commonBlocks），每块一个小标题 + ConfigGrid。
  * `leads`：页面自己的内容，整宽放在那一块的最前面（模型页的角色表）；常用项还没读到时也显示。
@@ -60,7 +65,7 @@ export function CommonConfig({
   const t = useT();
   return commonBlocks(items, Object.keys(leads) as CommonBlockId[]).map((block) => (
     <Fragment key={block.id}>
-      {block.id !== "" && <SectionHead title={t(`settings.block.${block.id}`)} />}
+      {block.id !== "" && hasBlockTitle(block.id) && <SectionHead title={t(`settings.block.${block.id}`)} />}
       {block.id !== "" && leads[block.id]}
       <ConfigGrid items={block.items} />
     </Fragment>
@@ -105,7 +110,7 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
                 <span className="ui-count">{group.count}</span>
               </button>
               <Reveal open={open}>
-                {group.prefixes.map(({ prefix, items: bucket }) => (
+                {group.prefixes.map(({ prefix }) => (
                   <button
                     key={prefix}
                     type="button"
@@ -119,7 +124,6 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
                     data-testid={`advanced-toc-${group.group}-${prefix || "other"}`}
                   >
                     {prefix === "" ? t("settings.cfg.other") : prefixTitle(locale, prefix)}
-                    <span className="ui-count">{bucket.length}</span>
                   </button>
                 ))}
               </Reveal>
@@ -137,15 +141,13 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
           >
             <SectionHead
               title={
-                <>
-                  {prefix === "" ? t("settings.cfg.other") : prefixTitle(locale, prefix)}
-                  {prefix !== "" && <span className="st-prefix-key">{prefix}.*</span>}
-                </>
+                prefix === "" ? (
+                  t("settings.cfg.other")
+                ) : (
+                  <span title={`${prefix}.*`}>{prefixTitle(locale, prefix)}</span>
+                )
               }
-              count={
-                t("settings.cfg.itemCount", { count: bucket.length }) +
-                (modified > 0 ? ` · ${t("settings.cfg.modifiedCount", { count: modified })}` : "")
-              }
+              count={modified > 0 ? t("settings.cfg.modifiedCount", { count: modified }) : undefined}
             />
             <ConfigGrid items={bucket} keyPrefix={prefix} allCells />
           </section>

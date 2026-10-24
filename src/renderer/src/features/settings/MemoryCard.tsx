@@ -102,7 +102,7 @@ export function MemoryCard() {
       ) : (
         <>
           <div className="ui-rows st-rows">
-            <Row label={t("integrations.memory.project")} info={t("integrations.memory.project.desc")}>
+            <Row label={t("integrations.memory.project")}>
               {(labelId) =>
                 scope !== null && (
                   <ScopePicker

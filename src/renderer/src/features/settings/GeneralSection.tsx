@@ -127,7 +127,7 @@ export function GeneralSection() {
             />
           )}
         </Row>
-        <Row label={t("settings.motion")} info={t("settings.motion.desc")}>
+        <Row label={t("settings.motion")}>
           {(labelId) => (
             <>
               <Switch
@@ -170,7 +170,7 @@ export function GeneralSection() {
       </div>
       <SectionHead title={t("settings.whileRunning")} />
       <div className="st-cells">
-        <Row label={t("settings.enterBehavior")} info={t("settings.enterBehavior.desc")}>
+        <Row label={t("settings.enterBehavior")}>
           {(labelId) => (
             <Segmented<"steer" | "followUp">
               size="sm"
@@ -187,7 +187,7 @@ export function GeneralSection() {
         ))}
       </div>
       <section id="settings-shortcuts" tabIndex={-1} className="st-section">
-        <SectionHead title={t("settings.shortcuts")} count={shortcuts.length} />
+        <SectionHead title={t("settings.shortcuts")} />
         <div className="st-kb-grid">
           {shortcuts.map((shortcut) => (
             <div key={shortcut.label} className="st-kb-row">
@@ -200,7 +200,7 @@ export function GeneralSection() {
             </div>
           ))}
         </div>
-        <SectionHead title={t("settings.shortcuts.omp")} count={ompKeybindings.length} />
+        <SectionHead title={t("settings.shortcuts.omp")} />
         <div className="st-kb-grid" data-testid="omp-shortcuts">
           {ompKeybindings.map((binding) => (
             <div key={binding.action} className="st-kb-row" data-testid={`omp-shortcut-${binding.action}`}>

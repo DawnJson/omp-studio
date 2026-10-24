@@ -34,7 +34,7 @@ export const preview = {
   rootCwd: "Task folder",
   rootCwdTitle: "The task's working directory: {path}",
   addDir: "Add folder…",
-  addDirTitle: "Add a folder to this task's workspace (omp /add-dir) so the agent can read and edit it",
+  addDirTitle: "Add to the workspace; the agent can read and edit it",
   removeDir: "Remove {name}",
   removeDirTitle: "Remove from the workspace (the folder is not deleted): {path}",
   dirsNote: "Extra folders last only for this run; add them again after the task restarts.",

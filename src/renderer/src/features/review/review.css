@@ -306,11 +306,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.rv-counts {
-  flex: none;
-  font-variant-numeric: tabular-nums;
-}
-
 .rv-add {
   color: var(--diff-add-fg);
 }
@@ -633,16 +628,6 @@
   line-height: var(--lh-xs);
   background: var(--bg-hover);
   border-radius: var(--radius-sm);
-}
-
-/* 忽略空白时的说明条。 */
-.rv-ignore-note {
-  flex: none;
-  padding: var(--space-1-5) var(--space-4);
-  color: var(--text-2);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  border-bottom: 1px solid var(--border-subtle);
 }
 
 /* 按行选择：改动行可点，选中的行高亮；头部出现"已选 N 行"和对应操作。 */

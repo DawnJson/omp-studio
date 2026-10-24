@@ -96,9 +96,7 @@ export function PresetSection({ taskId, onApplied }: { taskId: TaskId; onApplied
             </>
           ) : (
             <>
-              {presets.length === 0 ? (
-                <span className="mp-hint">{t("toggles.presets.empty")}</span>
-              ) : (
+              {presets.length > 0 && (
                 <Select<string>
                   size="sm"
                   value=""

@@ -5,10 +5,10 @@ export const empty = {
   fromTerminal: "来自终端",
   loadFailed: "项目列表加载失败：{message}",
   whatsNew: "最近更新",
-  whatsNewUpdated: { one: "已更新到 v{version} · {count} 项改动", other: "已更新到 v{version} · {count} 项改动" },
+  whatsNewUpdated: { one: "v{version} · {count} 项改动", other: "v{version} · {count} 项改动" },
   whatsNewUpdatedMany: {
-    one: "已更新到 v{version} · {releases} 个版本共 {count} 项改动",
-    other: "已更新到 v{version} · {releases} 个版本共 {count} 项改动",
+    one: "v{version} · {releases} 个版本共 {count} 项改动",
+    other: "v{version} · {releases} 个版本共 {count} 项改动",
   },
   whatsNewAdded: "{n} 新增",
   whatsNewChanged: "{n} 变更",

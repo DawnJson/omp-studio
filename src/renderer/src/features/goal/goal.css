@@ -17,11 +17,6 @@
   color: var(--text-2);
   font-size: var(--fs-xs);
 }
-.goal-label {
-  flex: none;
-  color: var(--text);
-  font-weight: 500;
-}
 .goal-objective {
   flex: 1 1 auto;
   min-width: 0;

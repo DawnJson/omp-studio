@@ -27,7 +27,7 @@ export const omp = {
   "takeover.declined": "这种安装方式暂时用不了。",
   "unusable.title": "没法启动这个 omp",
   reconsider: "重新选择",
-  addPath: "加入用户 PATH，让终端也能用",
+  addPath: "终端",
   "addPath.note": "只修改当前用户的 PATH，原来的 omp 不动。已经打开的终端要重开才生效。",
   "addPath.yes": "加入 PATH",
   "addPath.failed": "没能修改用户 PATH：{message}",

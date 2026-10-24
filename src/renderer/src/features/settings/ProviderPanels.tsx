@@ -156,7 +156,6 @@ export function KeyBody({
           autoComplete="off"
           data-autofocus=""
           value={value}
-          placeholder={t("login.apiKey.placeholder")}
           aria-label={t("login.apiKey")}
           onChange={onChange}
           onKeyDown={(event) => {
@@ -174,8 +173,9 @@ export function FailedBody({ message, terminalOnly }: { message: string; termina
   const t = useT();
   return (
     <div className="pv-flow" role="alert">
-      <p className="pv-text pv-error">{t("login.failed")}</p>
-      <p className="pv-text pv-muted">{terminalOnly ? t("login.terminalOnly") : message}</p>
+      <p className={terminalOnly ? "pv-text pv-muted" : "pv-text pv-error"}>
+        {terminalOnly ? t("login.terminalOnly") : message}
+      </p>
     </div>
   );
 }

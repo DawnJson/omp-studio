@@ -7,7 +7,7 @@ export const sidebar = {
   historyOrder: "会话排列",
   historyByFolder: "文件夹",
   historyByTime: "时间",
-  searchNone: "没有匹配的任务或会话",
+  searchNone: "无匹配",
   clearSearch: "清除搜索",
   waitingOne: "1 个任务在等你 · {project}",
   waitingMany: "{n} 个任务在等你",
@@ -21,6 +21,5 @@ export const sidebar = {
   toggleProject: "展开或收起 {project}",
   waitingHere: "有任务在等你",
   loadFailed: "任务列表加载失败：{message}",
-  loading: "正在载入…",
   projectsFailed: "项目列表加载失败：{message}",
 } satisfies Record<string, MessageEntry>;

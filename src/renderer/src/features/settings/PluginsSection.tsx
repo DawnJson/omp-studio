@@ -46,8 +46,6 @@ export function PluginsSection({ projectId }: { projectId: ProjectId | null }) {
 
   return (
     <>
-      <p className="pl-note">{t("plugins.intro")}</p>
-
       {state.reloadPending && (
         <Notice
           testId="plugins-reload"

@@ -73,15 +73,17 @@ function LoopForm({ busy, onStart }: { busy: boolean; onStart(command: TaskComma
           onChange={setCondition}
         />
         {condition !== "none" && (
-          <TextField
-            size="sm"
-            width="100%"
-            mono
-            value={command}
-            placeholder={t("modes.loop.command")}
-            onChange={setCommand}
-            testId="mode-loop-command"
-          />
+          <div className="md-field-cmd">
+            <TextField
+              size="sm"
+              width="100%"
+              mono
+              value={command}
+              placeholder={t("modes.loop.command")}
+              onChange={setCommand}
+              testId="mode-loop-command"
+            />
+          </div>
         )}
       </div>
       <label className="md-field">
@@ -137,7 +139,7 @@ export function ModeSection({ taskId, task }: { taskId: TaskId; task: TaskState 
     <ToggleRow
       id="plan"
       label={t("modes.plan")}
-      hint={t("modes.plan.hint")}
+      tip={t("modes.plan.hint")}
       checked={on}
       session={false}
       differs={false}
@@ -149,7 +151,7 @@ export function ModeSection({ taskId, task }: { taskId: TaskId; task: TaskState 
     <ToggleRow
       id="vibe"
       label={t("modes.vibe")}
-      hint={t("modes.vibe.hint")}
+      tip={t("modes.vibe.hint")}
       checked={on}
       session={false}
       differs={false}
@@ -171,9 +173,8 @@ export function ModeSection({ taskId, task }: { taskId: TaskId; task: TaskState 
           {planRow(false)}
           {vibeRow(false)}
           <div className="md-loop">
-            <div className="tg-text">
+            <div className="tg-text" title={t("modes.loop.hint")}>
               <span className="tg-label">{t("modes.loop")}</span>
-              <span className="tg-hint">{t("modes.loop.hint")}</span>
             </div>
             <LoopForm busy={disabled} onStart={(command) => runCommand("loop", command)} />
           </div>
@@ -183,9 +184,6 @@ export function ModeSection({ taskId, task }: { taskId: TaskId; task: TaskState 
     case "plan":
       body = mode.paused ? (
         <div className="md-block">
-          <p className="tg-note" data-testid="mode-plan-paused">
-            {t("modes.plan.paused")}
-          </p>
           <div className="tg-actions">
             <Button
               size="sm"
