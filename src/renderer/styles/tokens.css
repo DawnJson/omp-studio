@@ -218,7 +218,7 @@
 :root[data-theme="light"] {
   color-scheme: light;
 
-  /* 表面（由低到高）。3.0：带一点紫的灰（色相和标志 π 的鸢尾紫一致）；侧栏/顶栏比主区略深，层级靠明度不靠颜色 */
+  /* 表面（由低到高）。略暖的中性灰（2026-10-24 仓库所有者：原来带紫的灰换成中性灰，紫色只留给强调）；侧栏/顶栏比主区略深，层级靠明度不靠颜色 */
   --bg-sidebar: #efefed;
   --bg-app: #fafaf9;
   --bg-raised: #ffffff; /* 输入框、卡片、代码块头 */
@@ -228,14 +228,14 @@
   --bg-hover: rgba(20, 20, 18, 0.05);
   --bg-active: rgba(20, 20, 18, 0.085);
   --bg-scrim: rgba(20, 20, 18, 0.32);
-  --bg-bubble: #ece8f8; /* 你的消息气泡（--text 在上 15.6:1） */
+  --bg-bubble: #ece8f8; /* 你的消息气泡（--text 在上 15.1:1） */
 
   /* 线 */
   --border-subtle: rgba(20, 20, 18, 0.08);
   --border: rgba(20, 20, 18, 0.14);
   --border-strong: rgba(20, 20, 18, 0.26);
 
-  /* 文本（在 --bg-app 上 17.7 / 8.0 / 5.9）。--text-3 只用于次要元信息，禁止用于可操作文字 */
+  /* 文本（在 --bg-app 上 17.3 / 7.7 / 5.7）。--text-3 只用于次要元信息，禁止用于可操作文字 */
   --text: #161614;
   --text-2: #51504c;
   --text-3: #65645f;
@@ -245,7 +245,7 @@
   /* 分段控件的选中块 */
   --control-on: #ffffff;
 
-  /* 强调（鸢尾紫，3.0）：只给进行中状态、主输入焦点环、链接、上下文圆环、开关、选中 */
+  /* 强调（鸢尾紫，3.0）：只给进行中状态、链接、开关、选中；输入框聚焦和上下文圆环都是中性色（2026-10-24） */
   --accent: #6b46d9;
   --accent-soft: rgba(107, 70, 217, 0.1);
   --selection-bg: rgba(107, 70, 217, 0.2);
@@ -323,7 +323,7 @@
 
     --text: #e9e9e6;
     --text-2: #a8a7a2;
-    --text-3: #8a8984;
+    --text-3: #8e8d88;
     --text-disabled: #6c6b67;
     --text-on-accent: #0e0e0d;
     /* 深色的 --st-error 是浅红，白字对比度不够 */
@@ -399,7 +399,7 @@
 
   --text: #e9e9e6;
   --text-2: #a8a7a2;
-  --text-3: #8a8984;
+  --text-3: #8e8d88;
   --text-disabled: #6c6b67;
   --text-on-accent: #0e0e0d;
   --text-on-danger: #0e0e0d;
