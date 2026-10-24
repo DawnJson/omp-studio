@@ -218,33 +218,34 @@
 :root[data-theme="light"] {
   color-scheme: light;
 
-  /* 表面（由低到高）。3.0：带一点紫的灰（色相和标志 π 的鸢尾紫一致）；侧栏/顶栏比主区略深，层级靠明度不靠颜色 */
-  --bg-sidebar: #eeedf0;
-  --bg-app: #f9f8fa;
+  /* 表面（由低到高）。略暖的中性灰（2026-10-24 仓库所有者：原来带紫的灰换成中性灰，紫色只留给强调）；侧栏/顶栏比主区略深，层级靠明度不靠颜色 */
+  --bg-sidebar: #efefed;
+  --bg-app: #fafaf9;
   --bg-raised: #ffffff; /* 输入框、卡片、代码块头 */
   --bg-overlay: #ffffff; /* 菜单、popover、对话框、命令面板（靠阴影区分） */
-  --bg-sunken: #f2f1f4; /* 代码块正文、过程展开区、键帽 */
-  --bg-hover: rgba(19, 17, 24, 0.05);
-  --bg-active: rgba(19, 17, 24, 0.085);
-  --bg-scrim: rgba(19, 17, 24, 0.32);
-  --bg-bubble: #ece8f8; /* 你的消息气泡（--text 在上 15.6:1） */
+  --bg-sunken: #f3f3f1; /* 代码块正文、过程展开区、键帽 */
+  --bg-tool: #f4f4f2; /* 过程卡片、中性卡片的底：比主区深一点，不描边（2026-10-24 质感改版） */
+  --bg-hover: rgba(20, 20, 18, 0.05);
+  --bg-active: rgba(20, 20, 18, 0.085);
+  --bg-scrim: rgba(20, 20, 18, 0.32);
+  --bg-bubble: #ece8f8; /* 你的消息气泡（--text 在上 15.1:1） */
 
   /* 线 */
-  --border-subtle: rgba(19, 17, 24, 0.08);
-  --border: rgba(19, 17, 24, 0.14);
-  --border-strong: rgba(19, 17, 24, 0.26);
+  --border-subtle: rgba(20, 20, 18, 0.08);
+  --border: rgba(20, 20, 18, 0.14);
+  --border-strong: rgba(20, 20, 18, 0.26);
 
-  /* 文本（在 --bg-app 上 17.7 / 8.0 / 5.9）。--text-3 只用于次要元信息，禁止用于可操作文字 */
-  --text: #131118;
-  --text-2: #4e4b56;
-  --text-3: #625f6a;
-  --text-disabled: #8f8c96; /* 白底 3.3:1：禁用的按钮字也认得出 */
+  /* 文本（在 --bg-app 上 17.3 / 7.7 / 5.7）。--text-3 只用于次要元信息，禁止用于可操作文字 */
+  --text: #161614;
+  --text-2: #51504c;
+  --text-3: #65645f;
+  --text-disabled: #908e89; /* 白底 3.3:1：禁用的按钮字也认得出 */
   --text-on-accent: #ffffff;
   --text-on-danger: #ffffff;
   /* 分段控件的选中块 */
   --control-on: #ffffff;
 
-  /* 强调（鸢尾紫，3.0）：只给进行中状态、主输入焦点环、链接、上下文圆环、开关、选中 */
+  /* 强调（鸢尾紫，3.0）：只给进行中状态、链接、开关、选中；输入框聚焦和上下文圆环都是中性色（2026-10-24） */
   --accent: #6b46d9;
   --accent-soft: rgba(107, 70, 217, 0.1);
   --selection-bg: rgba(107, 70, 217, 0.2);
@@ -252,8 +253,8 @@
   --link: #6b46d9;
 
   /* 主按钮：近黑底（深色主题近白底），不用强调色 */
-  --primary: #131118;
-  --primary-hover: #2e2b36;
+  --primary: #161614;
+  --primary-hover: #31312e;
   --text-on-primary: #ffffff;
 
   /* 状态：进行中 / 等你确认 / 完成 / 出错。完成是绿（和 diff 新增同一族），和紫、琥珀、红都分得开 */
@@ -283,20 +284,20 @@
   --syn-keyword: #6d3fd0;
   --syn-string: #2f7d3e;
   --syn-number: #a5500c;
-  --syn-comment: #696670;
+  --syn-comment: #6b6a65;
   --syn-func: #2557c7;
   --syn-type: #0f7c80;
-  --syn-punct: #595660;
+  --syn-punct: #5b5a56;
 
   /* 阴影 */
-  --shadow-1: 0 1px 2px rgba(19, 17, 24, 0.06);
-  --shadow-2: 0 8px 24px rgba(19, 17, 24, 0.1), 0 0 0 1px var(--border-subtle);
-  --shadow-3: 0 24px 64px rgba(19, 17, 24, 0.18), 0 0 0 1px var(--border);
+  --shadow-1: 0 1px 2px rgba(20, 20, 18, 0.06);
+  --shadow-2: 0 8px 24px rgba(20, 20, 18, 0.1), 0 0 0 1px var(--border-subtle);
+  --shadow-3: 0 24px 64px rgba(20, 20, 18, 0.18), 0 0 0 1px var(--border);
   --shadow-composer:
-    0 1px 2px rgba(19, 17, 24, 0.04), 0 2px 6px rgba(19, 17, 24, 0.03); /* 贴着底色，靠边框分开，不做浮起 */
+    0 1px 2px rgba(20, 20, 18, 0.04), 0 2px 6px rgba(20, 20, 18, 0.03); /* 贴着底色，靠边框分开，不做浮起 */
 
-  --scrollbar-thumb: rgba(19, 17, 24, 0.28);
-  --scrollbar-thumb-hover: rgba(19, 17, 24, 0.46);
+  --scrollbar-thumb: rgba(20, 20, 18, 0.28);
+  --scrollbar-thumb-hover: rgba(20, 20, 18, 0.46);
 }
 
 /* ───────────────────────── 深色：跟随系统（未显式选择浅色时） ───────────────────────── */
@@ -305,28 +306,29 @@
   :root:not([data-theme="light"]) {
     color-scheme: dark;
 
-    --bg-sidebar: #0c0b0e;
-    --bg-app: #121115;
-    --bg-raised: #18171c;
-    --bg-overlay: #1e1c22;
-    --bg-sunken: #0f0e12;
-    --bg-hover: rgba(232, 230, 236, 0.05);
-    --bg-active: rgba(232, 230, 236, 0.085);
-    --bg-scrim: rgba(5, 4, 6, 0.56);
+    --bg-sidebar: #0f0f0e;
+    --bg-app: #151514;
+    --bg-raised: #1e1e1c;
+    --bg-overlay: #252523;
+    --bg-sunken: #111110;
+    --bg-tool: #1c1c1a;
+    --bg-hover: rgba(232, 232, 228, 0.05);
+    --bg-active: rgba(232, 232, 228, 0.085);
+    --bg-scrim: rgba(5, 5, 4, 0.56);
     --bg-bubble: #251f38;
 
-    --border-subtle: rgba(232, 230, 236, 0.06);
-    --border: rgba(232, 230, 236, 0.11);
-    --border-strong: rgba(232, 230, 236, 0.2);
+    --border-subtle: rgba(232, 232, 228, 0.06);
+    --border: rgba(232, 232, 228, 0.11);
+    --border-strong: rgba(232, 232, 228, 0.2);
 
-    --text: #e8e6ec;
-    --text-2: #a6a3af;
-    --text-3: #87848f;
-    --text-disabled: #6a6772;
-    --text-on-accent: #0c0b0e;
+    --text: #e9e9e6;
+    --text-2: #a8a7a2;
+    --text-3: #8e8d88;
+    --text-disabled: #6c6b67;
+    --text-on-accent: #0e0e0d;
     /* 深色的 --st-error 是浅红，白字对比度不够 */
-    --text-on-danger: #0c0b0e;
-    --control-on: #2b2931;
+    --text-on-danger: #0e0e0d;
+    --control-on: #2c2c2a;
 
     --accent: #a48bff;
     --accent-soft: rgba(164, 139, 255, 0.14);
@@ -334,9 +336,9 @@
     --focus-ring: #a48bff;
     --link: #bcaaff;
 
-    --primary: #e8e6ec;
-    --primary-hover: #f7f6fa;
-    --text-on-primary: #0c0b0e;
+    --primary: #e9e9e6;
+    --primary-hover: #f7f7f5;
+    --text-on-primary: #0e0e0d;
 
     --st-running: #a48bff;
     --st-waiting: #f0b545;
@@ -361,18 +363,18 @@
     --syn-keyword: #c4a7ff;
     --syn-string: #9bd39b;
     --syn-number: #f2b07a;
-    --syn-comment: #87848f;
+    --syn-comment: #8a8984;
     --syn-func: #8fb8ff;
     --syn-type: #7fd1d1;
-    --syn-punct: #9b98a4;
+    --syn-punct: #9d9c97;
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
     --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border);
     --shadow-composer: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 3px rgba(0, 0, 0, 0.3);
 
-    --scrollbar-thumb: rgba(232, 230, 236, 0.26);
-    --scrollbar-thumb-hover: rgba(232, 230, 236, 0.44);
+    --scrollbar-thumb: rgba(232, 232, 228, 0.26);
+    --scrollbar-thumb-hover: rgba(232, 232, 228, 0.44);
   }
 }
 
@@ -380,27 +382,28 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --bg-sidebar: #0c0b0e;
-  --bg-app: #121115;
-  --bg-raised: #18171c;
-  --bg-overlay: #1e1c22;
-  --bg-sunken: #0f0e12;
-  --bg-hover: rgba(232, 230, 236, 0.05);
-  --bg-active: rgba(232, 230, 236, 0.085);
-  --bg-scrim: rgba(5, 4, 6, 0.56);
+  --bg-sidebar: #0f0f0e;
+  --bg-app: #151514;
+  --bg-raised: #1e1e1c;
+  --bg-overlay: #252523;
+  --bg-sunken: #111110;
+  --bg-tool: #1c1c1a;
+  --bg-hover: rgba(232, 232, 228, 0.05);
+  --bg-active: rgba(232, 232, 228, 0.085);
+  --bg-scrim: rgba(5, 5, 4, 0.56);
   --bg-bubble: #251f38;
 
-  --border-subtle: rgba(232, 230, 236, 0.06);
-  --border: rgba(232, 230, 236, 0.11);
-  --border-strong: rgba(232, 230, 236, 0.2);
+  --border-subtle: rgba(232, 232, 228, 0.06);
+  --border: rgba(232, 232, 228, 0.11);
+  --border-strong: rgba(232, 232, 228, 0.2);
 
-  --text: #e8e6ec;
-  --text-2: #a6a3af;
-  --text-3: #87848f;
-  --text-disabled: #6a6772;
-  --text-on-accent: #0c0b0e;
-  --text-on-danger: #0c0b0e;
-  --control-on: #2b2931;
+  --text: #e9e9e6;
+  --text-2: #a8a7a2;
+  --text-3: #8e8d88;
+  --text-disabled: #6c6b67;
+  --text-on-accent: #0e0e0d;
+  --text-on-danger: #0e0e0d;
+  --control-on: #2c2c2a;
 
   --accent: #a48bff;
   --accent-soft: rgba(164, 139, 255, 0.14);
@@ -408,9 +411,9 @@
   --focus-ring: #a48bff;
   --link: #bcaaff;
 
-  --primary: #e8e6ec;
-  --primary-hover: #f7f6fa;
-  --text-on-primary: #0c0b0e;
+  --primary: #e9e9e6;
+  --primary-hover: #f7f7f5;
+  --text-on-primary: #0e0e0d;
 
   --st-running: #a48bff;
   --st-waiting: #f0b545;
@@ -435,18 +438,18 @@
   --syn-keyword: #c4a7ff;
   --syn-string: #9bd39b;
   --syn-number: #f2b07a;
-  --syn-comment: #87848f;
+  --syn-comment: #8a8984;
   --syn-func: #8fb8ff;
   --syn-type: #7fd1d1;
-  --syn-punct: #9b98a4;
+  --syn-punct: #9d9c97;
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
   --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border);
   --shadow-composer: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 3px rgba(0, 0, 0, 0.3);
 
-  --scrollbar-thumb: rgba(232, 230, 236, 0.26);
-  --scrollbar-thumb-hover: rgba(232, 230, 236, 0.44);
+  --scrollbar-thumb: rgba(232, 232, 228, 0.26);
+  --scrollbar-thumb-hover: rgba(232, 232, 228, 0.44);
 }
 
 /* ───────────────────────── 减少动效 ───────────────────────── */

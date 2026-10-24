@@ -905,10 +905,6 @@
   color: var(--text-3);
   text-wrap: pretty;
 }
-.ui-rows {
-  border-top: 1px solid var(--border);
-}
-
 .ui-row {
   position: relative;
   display: grid;

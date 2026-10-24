@@ -245,7 +245,7 @@ export function MarketplacesCard({
         </div>
       )}
       {(snapshot?.marketplaces.length ?? 0) > 0 && (
-        <div className="ui-rows">
+        <div>
           {snapshot?.marketplaces.map((marketplace) => (
             <div key={marketplace.name} data-testid={`marketplace-${marketplace.name}`}>
               <ListRow
@@ -315,7 +315,7 @@ export function MarketplacesCard({
       {presets.length > 0 && (
         <div data-testid="marketplace-presets">
           <p className="pl-muted">{t("plugins.marketplaces.presets")}</p>
-          <div className="ui-rows">
+          <div>
             {presets.map((preset) => (
               <ListRow
                 key={preset.source}

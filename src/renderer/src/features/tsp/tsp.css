@@ -387,8 +387,10 @@
   background: var(--bg-raised);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--tsp-tc) 16%, transparent);
 }
+/* 中性卡片和过程卡片一样：浅底，不描边（2026-10-24 质感改版：层级靠底色，不靠一圈圈的线） */
 .tsp-card[data-tone="neutral"] {
-  box-shadow: 0 0 0 1px var(--border);
+  background: var(--bg-tool);
+  box-shadow: none;
 }
 .tsp-card.selected {
   box-shadow:
@@ -955,7 +957,6 @@
   border: 0;
   border-radius: var(--radius-pill);
   background: var(--bg-sunken);
-  box-shadow: 0 0 0 1px var(--border-subtle);
   color: var(--text-2);
   font: inherit;
   font-family: var(--font-mono);
@@ -1769,18 +1770,16 @@
 .tsp-tool.st-error {
   --tsp-tool-c: var(--st-error);
 }
+/* 过程卡片：浅底，不描边；运行中 / 出错只染底色，左侧竖条标状态（2026-10-24 质感改版） */
 .tsp-tool.card {
   border-radius: var(--radius-lg);
-  background: var(--bg-raised);
-  box-shadow: 0 0 0 1px var(--border-subtle);
+  background: var(--bg-tool);
 }
 .tsp-tool.card.st-running {
-  background: color-mix(in srgb, var(--accent) 4%, var(--bg-raised));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg-tool));
 }
 .tsp-tool.card.st-error {
   background: var(--st-error-soft);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--st-error) 24%, transparent);
 }
 .tsp-tool-bar {
   display: none;
@@ -1809,13 +1808,6 @@
 .tsp-tool.st-pending[data-tone="info"] .tsp-tool-ic,
 .tsp-tool.st-pending[data-tone="warning"] .tsp-tool-ic {
   color: var(--tsp-tool-c);
-}
-.tsp-tool.card.st-done[data-tone="info"],
-.tsp-tool.card.st-done[data-tone="warning"],
-.tsp-tool.card.st-done[data-tone="error"],
-.tsp-tool.card.st-cancelled[data-tone="info"],
-.tsp-tool.card.st-cancelled[data-tone="warning"] {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tsp-tc) 24%, transparent);
 }
 .tsp-tool.card.st-done[data-tone="info"] > .tsp-tool-bar,
 .tsp-tool.card.st-done[data-tone="warning"] > .tsp-tool-bar,
@@ -2152,7 +2144,6 @@
   padding: var(--space-0-5) var(--space-2-5);
   border-radius: var(--radius-pill);
   background: var(--bg-sunken);
-  box-shadow: 0 0 0 1px var(--border-subtle);
   color: var(--text-2);
 }
 .tsp-row[data-role="omp.tool.file"] .tsp-text {
@@ -2735,12 +2726,17 @@
   align-items: stretch;
   width: 100%;
 }
+/* 磁贴不再各自一块灰底加一圈框（2026-10-24 质感改版）：和卡片头之间一道细线，并排的磁贴之间一道竖线 */
 .tsp-col[data-role="omp.job.tile"] {
   flex: 1 1 calc(50% - var(--space-1-5));
   min-width: 0;
   padding: var(--space-1-5) var(--space-3);
-  background: var(--bg-sunken);
-  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+.tsp-col[data-role="omp.job.tile"] + .tsp-col[data-role="omp.job.tile"] {
+  box-shadow:
+    inset 0 1px 0 var(--border-subtle),
+    inset 1px 0 0 var(--border-subtle);
 }
 .tsp-row[data-role="omp.job.tile.head"] {
   gap: var(--space-1-5);

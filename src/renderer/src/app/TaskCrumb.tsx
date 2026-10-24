@@ -18,14 +18,14 @@ export function TaskCrumb() {
   if (view === "settings")
     return (
       <div className="crumb" data-testid="topbar-crumb">
-        <b className="crumb-title">{t("menu.settings")}</b>
+        <span className="crumb-title">{t("menu.settings")}</span>
       </div>
     );
 
   if (taskId === null || task === null)
     return (
       <div className="crumb" data-testid="topbar-crumb">
-        <b className="crumb-title">{t("menu.newTask")}</b>
+        <span className="crumb-title">{t("menu.newTask")}</span>
       </div>
     );
 
@@ -37,9 +37,9 @@ export function TaskCrumb() {
   };
   return (
     <div className="crumb" data-testid="topbar-crumb">
-      <b className="crumb-title" title={title}>
+      <span className="crumb-title" title={title}>
         {title}
-      </b>
+      </span>
       <IconButton
         className="crumb-restart"
         label={t("task.restart")}

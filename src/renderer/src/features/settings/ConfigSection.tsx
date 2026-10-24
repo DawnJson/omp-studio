@@ -36,7 +36,7 @@ function ConfigGrid({
         </div>
       )}
       {rows.length > 0 && (
-        <div className="ui-rows st-rows">
+        <div className="st-rows">
           {rows.map((item) => (
             <ConfigRow key={item.key} item={item} keyPrefix={keyPrefix} />
           ))}
@@ -165,7 +165,7 @@ export function ConfigResults({ items, query }: { items: readonly OmpConfigItem[
       {[...groupConfigItems(items)].map(([group, inGroup]) => (
         <section key={group} className="st-section" data-testid={`cfg-result-${group}`}>
           <SectionHead title={groupTitle(locale, group)} count={inGroup.length} />
-          <div className="ui-rows st-rows">
+          <div className="st-rows">
             {inGroup.map((item) => (
               <ConfigRow key={item.key} item={item} query={query} />
             ))}

@@ -143,7 +143,7 @@ function NpmDetails({ plugin, busy }: { plugin: NpmPlugin; busy: boolean }) {
   return (
     <>
       {plugin.features.length > 0 && <SectionHead title={t("plugins.features")} />}
-      <div className="ui-rows">
+      <div>
         {plugin.features.map((feature) => (
           <FeatureRow key={feature.name} plugin={plugin} feature={feature} busy={busy} />
         ))}
@@ -154,7 +154,7 @@ function NpmDetails({ plugin, busy }: { plugin: NpmPlugin; busy: boolean }) {
           {t("plugins.failed", { message: describeError(t, config.error) })}
         </p>
       )}
-      <div className="ui-rows">
+      <div>
         {config?.data != null &&
           Object.entries(config.data.schema).map(([key, schema]) => (
             <SettingRow
