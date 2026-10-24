@@ -872,6 +872,14 @@
   align-items: center;
   margin-left: auto;
 }
+/* quiet 按钮没有边框，内边距看不见：相邻两个 quiet 去掉间隙，quiet 后面接有边框的按钮多留一点，
+   让文字到文字、文字到边框的空白一样（都是 20px）。 */
+.ui-section-actions > .ui-btn[data-variant="quiet"] + .ui-btn[data-variant="quiet"] {
+  margin-left: calc(-1 * var(--space-1));
+}
+.ui-section-actions > .ui-btn[data-variant="quiet"] + .ui-btn:not([data-variant="quiet"]) {
+  margin-left: var(--space-1-5);
+}
 .ui-section-note {
   margin: 0 0 var(--space-2);
   font-size: var(--fs-xs);

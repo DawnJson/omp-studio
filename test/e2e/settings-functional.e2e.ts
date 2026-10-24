@@ -90,8 +90,8 @@ test("提供商与账号：再次进入时立即显示上次的结果，不再�
   }
 });
 
-test("填 API key：存进 omp 的凭据库（终端版也用），卡片显示这条 key 账号；退出登录清掉它", async () => {
-  const { launched, agentDir } = await launchSettings({ KAGI_API_KEY: "" });
+test("填 API key：存进 omp 的凭据库（终端版也用），卡片写“已设置 key”；清除 key 删掉它。只有环境变量的写“已配置”", async () => {
+  const { launched, agentDir } = await launchSettings({ TAVILY_API_KEY: "tvly-e2e-env" });
   const storedKeys = () => {
     const out = execFileSync("omp", ["auth", "export"], {
       env: { ...process.env, PI_CODING_AGENT_DIR: agentDir },
@@ -113,11 +113,20 @@ test("填 API key：存进 omp 的凭据库（终端版也用），卡片显示�
     await page.getByTestId("provider-key-save").click();
     await expect(flow).toHaveCount(0);
 
-    // 回到"已连接"：卡片的元信息是 omp 给这条凭据起的名字，按钮变成"更换 key"。
+    // 回到"已连接"：徽标按凭据来源写，元信息是 omp 给这条凭据起的名字，按钮变成"更换 key"、"清除 key"。
     const card = page.getByTestId("providers").getByTestId("provider-kagi");
-    await expect(card).toContainText("已登录", { timeout: 30_000 });
+    await expect(card).toContainText("已设置 key", { timeout: 30_000 });
+    await expect(card).not.toContainText("已登录");
     await expect(card).toContainText("API key #");
     await expect(card.getByTestId("provider-key-kagi")).toHaveText("更换 key");
+    await expect(card.getByTestId("provider-signout-kagi")).toHaveText("清除 key");
+    expect(storedKeys()).toEqual(["kagi-e2e-key"]);
+
+    // 只有环境变量里的 key（omp 认可、凭据库里没有账号）：不是登录，写"已配置"，没有退出按钮。
+    const envCard = page.getByTestId("providers").getByTestId("provider-tavily");
+    await expect(envCard).toContainText("已配置");
+    await expect(envCard).toContainText("环境变量或配置文件");
+    await expect(envCard.getByTestId("provider-signout-tavily")).toHaveCount(0);
     expect(storedKeys()).toEqual(["kagi-e2e-key"]);
 
     await card.getByTestId("provider-signout-kagi").click();

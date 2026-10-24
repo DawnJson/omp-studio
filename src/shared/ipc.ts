@@ -1207,6 +1207,8 @@ export interface StudioInvokeApi {
   fetchProviderModels(request: FetchModelsRequest): Promise<FetchModelsOutcome>;
   /** 用系统默认程序打开 models.yml（还不存在时打开它所在的目录）。 */
   openModelsFile(): Promise<void>;
+  /** 用系统默认程序打开 omp agent 目录的 `.env`（omp 启动时读它，环境变量形式的 key 常写在这里；还不存在时打开目录）。 */
+  openEnvFile(): Promise<void>;
   /** 跑 `omp models refresh`（强制重新拉各 provider 的模型目录，自动发现的模型也在内），完成后关掉服务进程，下次读模型列表时重新加载。omp 报错时抛出它的原话。 */
   refreshModels(): Promise<void>;
 
@@ -1542,6 +1544,7 @@ export const invokeNames = {
   setCustomProviderKey: true,
   fetchProviderModels: true,
   openModelsFile: true,
+  openEnvFile: true,
   refreshModels: true,
   getOmpStatus: true,
   answerTakeover: true,

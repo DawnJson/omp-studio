@@ -13,6 +13,15 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 ### 新增
 
 - 设置 → 自定义 provider：只覆盖 omp 内置 provider 的条目（比如 `anthropic` 下只改了上下文窗口）标成"覆盖内置 provider"，卡片上可以直接设置、更换、清除写在 `models.yml` 里的 key，条目里别的设置不动；之前点"编辑"保存会被要求填 Base URL 和模型。
+- 设置 -> 自定义 provider 标题旁加了“打开 .env”，打开 omp 启动时读的 `.env`（环境变量形式的 key 常写在这里）。
+
+### 变更
+
+- 设置 -> Provider 与订阅：卡片徽标按凭据来源区分：OAuth 登录是“已登录”，存了 API key 是“已设置 key”（按钮写“清除 key”），只靠环境变量或 `.env` / `models.yml` 里的 key 是“已配置”；之前一律写“已登录”。
+
+### 修复
+
+- 设置 -> 自定义 provider 标题旁“刷新模型”和“打开 models.yml”之间的间距和右边按钮不一致。
 
 ## [0.4.6] - 2026-10-23
 

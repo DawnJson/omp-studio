@@ -10,6 +10,8 @@ export const custom = {
   edit: "Edit",
   delete: "Delete",
   open: "Open models.yml",
+  openEnv: "Open .env",
+  "openEnv.tip": "The .env omp reads at startup (agent folder); keys set as environment variables often live here",
   models: { one: "{count} model", other: "{count} models" },
   discovery: "Models discovered at runtime",
   "key.none": "No key needed",

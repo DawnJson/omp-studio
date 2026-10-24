@@ -10,6 +10,8 @@ export const custom = {
   edit: "编辑",
   delete: "删除",
   open: "打开 models.yml",
+  openEnv: "打开 .env",
+  "openEnv.tip": "omp 启动时读的 .env（agent 目录），环境变量形式的 key 常写在这里",
   models: "{count} 个模型",
   discovery: "运行时发现模型",
   "key.none": "无需 key",

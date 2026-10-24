@@ -1,6 +1,7 @@
-// 设置 → Provider 与订阅 里的一个 provider（ui/ListRow：页面上排成卡片，选择对话框里是一行；图标是 provider 的 logo）。连上了的徽标一律"已登录"
-// （卡片右上角），怎么连上的（账号、环境变量）写在元信息里；动作是 sm 按钮（spec §4.20）。
-// 设置页填的 API key 存在 omp 的凭据库里，是一条 `type: "api_key"` 的账号：和 OAuth 账号一样显示、一样"退出"（清掉它）。
+// 设置 → Provider 与订阅 里的一个 provider（ui/ListRow：页面上排成卡片，选择对话框里是一行；图标是 provider 的 logo）。
+// 徽标按凭据来源分（2026-10-24 仓库所有者要的）：OAuth 账号"已登录"，凭据库里的 API key"已设置 key"，
+// omp 认为可用但凭据库里没有账号的（环境变量、`.env`、models.yml 的 apiKey）"已配置"；动作是 sm 按钮（spec §4.20）。
+// 设置页填的 API key 存在 omp 的凭据库里，是一条 `type: "api_key"` 的账号：只有 key 账号时"退出"写成"清除 key"。
 // 登录 / 填 key / 选账号都交给 ProviderFlowDialog；这里只直接做"只有一个账号时退出"这个不需要输入的动作。
 import { useState } from "react";
 import type { LoginKind } from "../../../../shared/provider-login.ts";
@@ -30,6 +31,7 @@ export function ProviderRow({ provider, accounts, loginKind, shortName = false, 
   const signedIn = provider.authenticated && accounts.length > 0;
   const envName = apiKeyEnvName(provider.id);
   const hasKey = accounts.some((account) => account.type === "api_key");
+  const hasOauth = accounts.some((account) => account.type === "oauth");
   const accountText =
     accounts.length > 1 ? `${accounts[0]?.label ?? ""} +${accounts.length - 1}` : (accounts[0]?.label ?? "");
   const name = (shortName && provider.name.replace(/\s*[(（][^)）]*[)）]/g, "").trim()) || provider.name;
@@ -38,7 +40,10 @@ export function ProviderRow({ provider, accounts, loginKind, shortName = false, 
   let badge: { tone: "success" | "neutral"; text: string };
   let meta: string;
   if (provider.authenticated) {
-    badge = { tone: "success", text: t("login.badge.signedIn") };
+    badge = {
+      tone: "success",
+      text: hasOauth ? t("login.badge.signedIn") : hasKey ? t("login.badge.key") : t("login.badge.configured"),
+    };
     meta = signedIn ? accountText : withEnv(t("login.badge.env"));
   } else if (!provider.available) {
     badge = { tone: "neutral", text: t("login.unavailable") };
@@ -95,7 +100,7 @@ export function ProviderRow({ provider, accounts, loginKind, shortName = false, 
               }
               testId={`provider-signout-${provider.id}`}
             >
-              {t("login.signOut")}
+              {hasOauth ? t("login.signOut") : t("login.apiKey.remove")}
             </Button>
           ) : loginKind === "oauth" ? (
             <Button

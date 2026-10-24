@@ -111,6 +111,7 @@ export const customModelHandlers: HandlerGroup<
   | "fetchProviderModels"
   | "refreshModels"
   | "openModelsFile"
+  | "openEnvFile"
 > = {
   listCustomProviders: () => readModelsFile(resolveAgentDir()),
   saveCustomProvider: async (mode, input) => {
@@ -151,10 +152,18 @@ export const customModelHandlers: HandlerGroup<
   },
   openModelsFile: async () => {
     const info = await readModelsFile(resolveAgentDir());
-    const target = info.exists ? info.path : path.dirname(info.path);
-    if (!existsSync(target)) throw new Error("the omp agent directory does not exist yet");
-    // openPath 失败不抛，返回错误文字（比如没有程序关联 .yml）。
-    const failure = await shell.openPath(target);
-    if (failure !== "") throw new Error(failure);
+    await openInShell(info.exists ? info.path : path.dirname(info.path));
+  },
+  // omp 启动时读 agent 目录的 `.env`（omp://providers.md「.env discovery」）；没有时打开目录。
+  openEnvFile: async () => {
+    const file = path.join(resolveAgentDir(), ".env");
+    await openInShell(existsSync(file) ? file : path.dirname(file));
   },
 };
+
+async function openInShell(target: string): Promise<void> {
+  if (!existsSync(target)) throw new Error("the omp agent directory does not exist yet");
+  // openPath 失败不抛，返回错误文字；没有程序关联的扩展名（如 .env）Windows 弹"打开方式"，返回空串。
+  const failure = await shell.openPath(target);
+  if (failure !== "") throw new Error(failure);
+}

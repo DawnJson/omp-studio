@@ -27,9 +27,9 @@
 
 ## 登出和状态显示
 
-- 状态：`authenticated` 且有账号 → `login.signedIn · <label>`（多个账号显示 `+N`；设置页存的 key 就是标签 `API key #<n>` 的账号）；`authenticated` 但没有账号 → 通过环境变量或配置使用（`login.badge.env`；这是 `get_logout_accounts` 为空推出来的，**契约里 `logout` 不返回 `remainingSource`**）。
+- 状态（2026-10-24 起徽标按凭据来源分）：有 `type: "oauth"` 账号 → `已登录`（`login.badge.signedIn`），元信息是账号名（多个账号显示 `+N`）；只有 `type: "api_key"` 账号（设置页或终端 `/login` 粘贴的 key，标签 `API key #<n>`）→ `已设置 key`（`login.badge.key`）；`authenticated` 但凭据库里没有账号 → `已配置`（`login.badge.configured`，元信息 `login.badge.env` + 变量名）：key 来自环境变量、agent 目录的 `.env` 或 `models.yml` 的 `apiKey`。这一条是 `get_logout_accounts` 为空推出来的，**契约里 `logout` 不返回 `remainingSource`**。实例：开发机 `~/.omp/agent/.env` 里写了 `HF_TOKEN`、`TAVILY_API_KEY`、`EXA_API_KEY`，这三张卡片就是"已配置"，不是登录过。
 - `logout`：1 个账号直接退出，多个先让用户选（`login.chooseAccount`）。选择列表里 `LogoutAccount.active` 为 true 的账号（omp 报告它正被使用）带"正在使用"徽标（`login.accountActive`，`account-active-<credentialId>`），让用户知道退出的是正在用的凭据；只有 1 个账号时不弹选择，看不到徽标。
-- 清除 API key 就是退出那条 `api_key` 账号，没有单独的"清除 key"。
+- 清除 API key 就是退出那条 `api_key` 账号：只有 key 账号时按钮写 `清除 key`（`login.apiKey.remove`），有 OAuth 账号时写 `退出登录`。只有环境变量 / 配置文件的没有退出按钮。
 
 ## 提供商列表：搜索、排序、登录方式
 

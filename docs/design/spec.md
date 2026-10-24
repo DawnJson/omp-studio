@@ -647,15 +647,15 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 - **页面自上而下**：页头右侧 `连接 provider…`（`login.connect`，sm 次要按钮带 `+`，`providers-connect`；还在读取或没有未连接的提供商时禁用）。分组 `已连接`（`login.connected`，带个数）：每个一行；一个都没有时一句 `login.connected.empty`。分组 `自定义提供商`（见下）。没有"其他提供商"分组（2026-10-23 仓库所有者去掉：它只有一行说明、不列行；没连接的提供商的入口只有页头 `连接 provider…` 的选择对话框）。
 - **卡片**（2026-10-22 起，仓库所有者嫌一行一个太占地方；`ProviderRow.tsx`，`ui/ListRow` 放进 `.ui-cards`，`provider-<id>`）：已连接和自定义提供商都排成卡片网格（每格最小 260，内容列 1080 时一行 3 张，窄了减列），同一行卡片等高。卡片内：左上 28 方图标块（provider 的单色 logo，16px、`currentColor` 跟主题：`ProviderLogo.tsx`，图形拷自 LobeHub Icons，MIT，许可证随安装包放进 `resources/licenses/`；没有 logo 的写名称首字母），右边名称 + 状态 `Badge`（名称放不下时徽标换到下一行，名称先占满一行再省略）、元信息（可换行）；底部靠右是 sm 按钮和 ⋯。选择对话框里同一个 `ProviderRow` 仍是一行。
 
-| 状态（按顺序取第一条命中的） | 徽标 | 元信息 |
+| 状态（按顺序取第一条命中的；2026-10-24 起徽标按凭据来源分，仓库所有者嫌环境变量和 key 也写"已登录"） | 徽标 | 元信息 |
 |---|---|---|
-| 已认证且有账号 | `已登录`（success） | 账号名；多个时 `第一个 +N` |
-| studio 存了 key | `已设置 API key`（success） | 环境变量名 |
-| omp 已认证、没有账号（环境变量或配置里的 key） | `环境变量或配置`（neutral） | 环境变量名（已知时） |
+| 有 OAuth 账号（`type: "oauth"`） | `已登录`（success） | 账号名；多个时 `第一个 +N` |
+| 只有 API key 账号（`type: "api_key"`，设置页或终端 `/login` 粘贴的） | `已设置 key`（success） | 账号名 `API key #<n>` |
+| omp 已认证、凭据库里没有账号（环境变量、agent 目录的 `.env`、`models.yml` 的 `apiKey`） | `已配置`（success） | `环境变量或配置文件 · <变量名>`（已知时） |
 | omp 报不可用 | `当前不可用` | — |
 | 其余 | `未登录` | `OAuth 登录` / `多步登录`（`loginKind` = `terminal`：github-copilot、alibaba-*、perplexity、snowflake、lm-studio）/ `API key` |
 
-- **按钮**（都是 sm 次要按钮）：能填 key 的（`provider-keys.ts` 的 `acceptsApiKey`：有已知环境变量名，或登录方式就是粘贴 key）给 `设置 API key`（已有 `api_key` 账号时写 `更换 key`），打开 key 对话框；已登录的给 `退出登录`——只有一个账号时直接 `logout`，多个时打开对话框选账号（清除 key 也是这样：key 是一条 `API key #<n>` 账号，2026-10-24 起没有单独的"清除 API key"和 ⋯）；没登录的 OAuth 类给 `登录`；多步登录的（`loginKind` = `terminal`，omp 的 rpc `login` 直接拒绝）也给 `登录`（`provider-terminal-login-<id>`），打开流程对话框的"应用内登录"（下表）。登录方式按实测分类（omp 的 `get_login_providers` 没有这个字段；`src/shared/provider-login.ts`，`docs/architecture/login.md`），表里没有的按 OAuth 处理。
+- **按钮**（都是 sm 次要按钮）：能填 key 的（`provider-keys.ts` 的 `acceptsApiKey`：有已知环境变量名，或登录方式就是粘贴 key）给 `设置 API key`（已有 `api_key` 账号时写 `更换 key`），打开 key 对话框；有账号的给退出按钮（有 OAuth 账号时写 `退出登录`，只有 key 账号时写 `清除 key`）——只有一个账号时直接 `logout`，多个时打开对话框选账号（key 是一条 `API key #<n>` 账号，没有单独的 ⋯）；只有环境变量 / 配置文件的没有退出按钮（要去掉就改 `.env` 或 `models.yml`，自定义提供商分组标题旁有 `打开 .env`）；没登录的 OAuth 类给 `登录`；多步登录的（`loginKind` = `terminal`，omp 的 rpc `login` 直接拒绝）也给 `登录`（`provider-terminal-login-<id>`），打开流程对话框的"应用内登录"（下表）。登录方式按实测分类（omp 的 `get_login_providers` 没有这个字段；`src/shared/provider-login.ts`，`docs/architecture/login.md`），表里没有的按 OAuth 处理。
 - **连接提供商…**（`ProviderPickDialog.tsx`，`ui/Dialog` md，`provider-pick`）：标题 `login.connect.title`，说明 `login.connect.desc`；顶上搜索框（`login.search`，打开时焦点在它上，`provider-search`），按名称和 id 过滤，每个词都要命中；下面是未连接提供商的行（同上面的行，最高 360 后滚动），没有匹配时 `login.noMatch`；页脚只有 `关闭`。点行里的按钮，选择对话框换成流程对话框（同一时间只有一个对话框）。
 - **流程对话框**（`ProviderFlowDialog.tsx`，`ui/Dialog` md，标题是提供商名，`provider-flow-<id>`）：从选择对话框进来、且不在登录进行中时，页脚左侧有 quiet `返回`，回到选择对话框。五种内容：
 
@@ -669,7 +669,7 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 
 流程对话框成功（登录完成、key 已保存、已退出）后关闭并重读列表；登录结果是 `cancelled`（含应用内登录里点 omp 自己的取消）时直接关闭，不报错。应用内登录的临时 omp 在结果出来、对话框换内容之前已经关掉；对话框关闭（取消、Esc、×）即结束进程。
 
-- **自定义提供商**（`CustomProviders.tsx`，`custom-providers`）：omp 的 `models.yml` 里 `providers.*` 的列表，直接读写 omp 的文件（`docs/architecture/custom-models.md`）。分组标题 `自定义提供商`（带个数），右侧 `显示 models.yml`（quiet sm）+ `添加 provider…`（sm，读取中或读取失败时禁用）。一行 = 首字母图标块 + ID，元信息 `接口类型 · Base URL · N 个模型（或 运行时发现模型） · key 状态（无需 key / 已设置 key / 环境变量 X / 命令取 key）`，动作 `编辑`（sm）+ ⋯ `删除`（先 `ConfirmDialog` danger，正文写明只去掉这个提供商、留一份 `models.yml.bak`）。读取失败是 error `Notice`；没有时一句 `还没有自定义提供商`。
+- **自定义提供商**（`CustomProviders.tsx`，`custom-providers`）：omp 的 `models.yml` 里 `providers.*` 的列表，直接读写 omp 的文件（`docs/architecture/custom-models.md`）。分组标题 `自定义提供商`（带个数），右侧 `刷新模型` · `打开 .env`（2026-10-24 起；omp agent 目录的 `.env`，环境变量形式的 key 常写在这里；没有这个文件时打开目录）· `打开 models.yml`（三个 quiet sm）+ `添加 provider...`(sm,读取中或读取失败时禁用)。分组标题右侧的按钮间距（`.ui-section-actions`，2026-10-24）：相邻 quiet 按钮之间不留 gap，quiet 后接有边框的按钮多留 6px，文字到文字、文字到边框都是 20px。一行 = 首字母图标块 + ID，元信息 `接口类型 · Base URL · N 个模型(或 运行时发现模型) · key 状态(无需 key / 已设置 key / 环境变量 X / 命令取 key)`，动作 `编辑`(sm)+ ... `删除`(先 `ConfirmDialog` danger,正文写明只去掉这个提供商、留一份 `models.yml.bak`)。读取失败是 error `Notice`;没有时一句 `还没有自定义提供商`。
 - **只覆盖内置 provider 的条目**（2026-10-24 仓库所有者要的）：没有模型也没有 `discovery` 的条目（如 `anthropic` 下只有 `modelOverrides`）不是自定义提供商，是对 omp 内置同名 provider 的覆盖。元信息写 `覆盖内置 provider · key 状态`（没写 key 时是 `未设置 key`，不是"无需 key"）；不给 `编辑`（表单要 Base URL 和模型，存不了这种条目），给 `设置 key` / `更换 key`（`custom-key-<id>`），打开 key 对话框（`ProviderKeyDialog.tsx`，`ui/Dialog` md，`custom-key-dialog`，标题 `<id> 的 API key`）：`直接填 key` / `环境变量` 分段 + 等宽输入框（直接填时遮住，带 `显示`），说明写明写进 `providers.<id>.apiKey`、比订阅和设置里存的 key 优先、终端版也用、omp 下次启动生效；`取消` + 主按钮 `保存`，成功 toast `key 已保存`。⋯ 里有 key 时多一项 `清除 key`（红字，直接执行，toast `key 已清除`），`删除` 照旧。
 - **添加 / 编辑对话框**（`CustomProviderForm.tsx`，`ui/Dialog` xl（2026-10-24 起，原 md），标题 `添加自定义提供商` / `编辑 {id}`）：连接信息两列（`repeat(auto-fit, minmax(320px, 1fr))`，窄了变一列）——ID（编辑时禁用）、接口类型（`Select`：OpenAI Chat Completions / OpenAI Responses / Anthropic Messages）、Base URL、API key（分段：直接填 key / 环境变量 / 无需 key，编辑原来是直接填或命令取 key 的提供商时前面多一个 `保持不变`；直接填的 key 默认遮住，框尾 quiet `显示 / 隐藏`）；自动发现、模型各占满一行。模型（`拉取模型` sm；有模型后 `全选` / `全不选` quiet + `已选 n / m`；超过 12 个时出现筛选框；拉取的结果或失败原因用 `Notice` 写一句）是一张表（`.cp-model-table`，1px `--border` 圆角框，表头 `--fs-xs` `--text-3` 吸顶，最高 360 后滚动）：`模型`（`Checkbox` + mono id，过长省略）、`思考`、`图片输入`（`Select` sm：`自动` / `支持` / `不支持`）、`上下文窗口`、`最大输出`（`TextField` sm 右对齐，接受 `272k` / `1m`，写不成正整数时标红、不能保存）；**“自动”就是不写进 models.yml、由 omp 按 id 补**，已保存且 omp 已加载的模型在“自动”后面显示 omp 现在用的值（`自动 · 128K`、`自动 · 支持`）；没勾选的行只有勾选框和 id；表下面一句 `--fs-xs` `--text-3` 说明（2026-10-24 仓库所有者要求能设 reasoning / input / contextWindow / maxTokens）。底部手动添加框 + `添加`。页脚 `取消` + 主按钮 `保存`；保存后 toast `custom.saved`，新模型出现在模型选择器。
 - **没有可用模型时没有引导卡片**：输入框的模型胶囊显示 `composer.noModel`；模型选择器底部的 `添加 provider…` 关掉选择器、打开设置页的这一节。首次启动不另走一套登录流程，登录都在这一节。

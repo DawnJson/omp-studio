@@ -146,6 +146,15 @@ export function CustomProviders() {
             <Button
               size="sm"
               variant="quiet"
+              title={t("custom.openEnv.tip")}
+              onClick={() => void window.studio.openEnvFile().catch((e: unknown) => reportError(t, e))}
+              testId="custom-open-env"
+            >
+              {t("custom.openEnv")}
+            </Button>
+            <Button
+              size="sm"
+              variant="quiet"
               onClick={() => void window.studio.openModelsFile().catch((e: unknown) => reportError(t, e))}
               testId="custom-open"
             >
