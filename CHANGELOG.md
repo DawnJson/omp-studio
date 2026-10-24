@@ -10,6 +10,8 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+## [0.4.12] - 2026-10-24
+
 ### 新增
 
 - 设置 -> 自定义 provider：只覆盖内置 provider 的条目（如 `anthropic` 下只有 `modelOverrides`）也能“编辑”：改 key，并给 omp 列出的各模型设思考、图片输入、上下文窗口、最大输出，覆盖项里别的设置原样保留。
