@@ -6,7 +6,7 @@ import { describeError } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Button, FormField, Notice, Segmented, TextField, type Option } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
-import { customErrorText } from "./CustomProviderForm.tsx";
+import { customErrorText, EnvValueField, warnIfShadowed } from "./CustomProviderForm.tsx";
 
 type Mode = "literal" | "env";
 
@@ -23,6 +23,7 @@ export function ProviderKeyDialog({ provider, onSaved, onClose }: ProviderKeyDia
   const envName = provider.key.kind === "env" ? provider.key.name : "";
   const [mode, setMode] = useState<Mode>(provider.key.kind === "env" ? "env" : "literal");
   const [text, setText] = useState(envName);
+  const [envValue, setEnvValue] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,10 +40,14 @@ export function ProviderKeyDialog({ provider, onSaved, onClose }: ProviderKeyDia
     try {
       const outcome = await window.studio.setCustomProviderKey(
         provider.id,
-        mode === "literal" ? { kind: "literal", value: text } : { kind: "env", name: text.trim() },
+        mode === "literal"
+          ? { kind: "literal", value: text }
+          : { kind: "env", name: text.trim(), value: envValue.trim() },
       );
-      if (outcome.ok) onSaved();
-      else setError(customErrorText(t, `err.${outcome.code}`));
+      if (outcome.ok) {
+        warnIfShadowed(t, outcome);
+        onSaved();
+      } else setError(customErrorText(t, `err.${outcome.code}`));
     } catch (caught) {
       setError(t("custom.saveFailed", { message: describeError(t, caught) }));
     } finally {
@@ -86,6 +91,7 @@ export function ProviderKeyDialog({ provider, onSaved, onClose }: ProviderKeyDia
             onChange={(next) => {
               setMode(next);
               setText(next === "env" ? envName : "");
+              setEnvValue("");
             }}
             testId="custom-key-dialog-mode"
           />
@@ -110,6 +116,15 @@ export function ProviderKeyDialog({ provider, onSaved, onClose }: ProviderKeyDia
               ) : undefined
             }
           />
+          {mode === "env" && (
+            <EnvValueField
+              name={text}
+              original={provider.key}
+              value={envValue}
+              onChange={setEnvValue}
+              testId="custom-key-dialog-env-value"
+            />
+          )}
         </FormField>
         {error !== null && (
           <Notice tone="error" testId="custom-key-dialog-error">

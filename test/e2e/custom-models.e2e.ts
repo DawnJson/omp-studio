@@ -408,6 +408,65 @@ test("自定义提供商：自动发现模型——开关写 discovery、不用�
   }
 });
 
+test("自定义提供商：环境变量形式的 key——models.yml 只写变量名，key 写进 agent 目录的 .env；删除后没人用的那一行也删掉，别的行原样", async () => {
+  const fake = await startFakeOpenAi({ apiKey: SECRET, models: ["fake-chat"] });
+  const { launched, agentDir } = await launchSettings();
+  const file = path.join(agentDir, "models.yml");
+  const envFile = path.join(agentDir, ".env");
+  try {
+    const { page } = launched;
+    await writeFile(envFile, "# 我的 key\r\nHF_TOKEN=hf-keep\r\n", "utf8");
+    await page.getByTestId("settings-nav-general").click();
+    await page.getByTestId("settings-nav-providers").click();
+    await setLocaleTheme(page, "zh-CN", "light");
+
+    await page.getByTestId("custom-add").click();
+    const form = page.getByTestId("custom-provider-form");
+    await page.getByTestId("custom-id").fill("env-proxy");
+    await page.getByTestId("custom-base-url").fill(fake.baseUrl);
+    await page.getByTestId("custom-key-mode-env").click();
+    await page.getByTestId("custom-key").fill("Pro_E2E_KEY");
+    const value = page.getByTestId("custom-key-env-value");
+    await expect(value).toHaveAttribute("type", "password");
+    await value.fill(SECRET);
+    // 拉取用刚填的值（还没写进 .env）。
+    await page.getByTestId("custom-fetch").click();
+    await page.getByTestId("custom-model-fake-chat").check();
+    await page.getByTestId("custom-save").click();
+    await expect(form).toHaveCount(0);
+
+    const row = page.getByTestId("custom-provider-env-proxy");
+    await expect(row).toContainText("环境变量 Pro_E2E_KEY（.env）");
+    expect(await page.locator("body").innerText()).not.toContain(SECRET);
+    const yml = await readFile(file, "utf8");
+    expect(yml).toContain("apiKey: Pro_E2E_KEY");
+    expect(yml).not.toContain(SECRET);
+    expect(await readFile(envFile, "utf8")).toBe(`# 我的 key\r\nHF_TOKEN=hf-keep\r\nPro_E2E_KEY=${SECRET}\r\n`);
+
+    // 编辑：变量名没改时值框提示“已写在 .env 里”，留空保存不动 .env。
+    await page.getByTestId("custom-edit-env-proxy").click();
+    await expect(page.getByTestId("custom-key")).toHaveValue("Pro_E2E_KEY");
+    await expect(page.getByTestId("custom-key-env-value")).toHaveAttribute(
+      "placeholder",
+      "已写在 .env 里，留空保持不变",
+    );
+    await page.getByTestId("custom-save").click();
+    await expect(form).toHaveCount(0);
+    expect(await readFile(envFile, "utf8")).toContain(`Pro_E2E_KEY=${SECRET}`);
+
+    await page.getByTestId("custom-more-env-proxy").click();
+    await page.getByTestId("custom-delete-env-proxy").click();
+    await expect(page.getByRole("alertdialog")).toContainText(".env");
+    await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();
+    await expect(row).toHaveCount(0);
+    expect(await readFile(envFile, "utf8")).toBe("# 我的 key\r\nHF_TOKEN=hf-keep\r\n");
+  } finally {
+    await launched.close();
+    await fake.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
 test("自定义提供商：读不懂的 models.yml 显示错误，不覆盖文件", async () => {
   const { launched, agentDir } = await launchSettings();
   try {

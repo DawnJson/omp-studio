@@ -53,6 +53,13 @@ export function apiKeyEnvName(providerId: string): string | null {
   return Object.hasOwn(providerKeyEnv, providerId) ? (providerKeyEnv[providerId] ?? null) : null;
 }
 
+const providerKeyEnvNames: ReadonlySet<string> = new Set(Object.values(providerKeyEnv));
+
+/** 这个变量名是 omp 某个内置 provider 认的 key 环境变量（自定义 provider 不再引用它时，`.env` 里也不能删：内置 provider 还在用）。 */
+export function isProviderKeyEnv(name: string): boolean {
+  return providerKeyEnvNames.has(name);
+}
+
 /** 设置页能填 API key：omp 认它的 key 环境变量，或者它在 omp 里的登录就是粘贴 API key（provider-login.ts）。 */
 export function acceptsApiKey(providerId: string): boolean {
   return apiKeyEnvName(providerId) !== null || loginKind(providerId) === "api-key";

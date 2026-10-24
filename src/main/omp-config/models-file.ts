@@ -5,7 +5,9 @@
 // - 文件在 agent 目录里：models.yml 优先于 models.yaml（omp://models.md），都没有就新建 models.yml；
 // - 只有 models.json（omp 启动时才迁移成 yml）时不写，免得新建的 yml 盖住 omp 的迁移；
 // - 原子写（src/main/tasks/atomic-write.ts），写前把旧内容留一份 `models.yml.bak`；同进程内的写入串行；
-// - key 只进不出：读出的信息里没有 key 的内容，日志里也不出现 key。
+// - key 只进不出：读出的信息里没有 key 的内容，日志里也不出现 key；
+// - 环境变量形式的 key 顺带写 agent 目录的 `.env`（仓库所有者 2026-10-24 同意的第二处例外，规则见 env-file.ts）：
+//   带值保存时写那一行；改完或删掉后没人再引用、也不是内置 provider 认的变量（unusedEnvName）就删掉那一行。
 import { copyFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import { isMap, isScalar, isSeq, parseDocument, YAMLMap, YAMLSeq, type Document } from "yaml";
@@ -20,6 +22,7 @@ import {
   isValidProviderId,
   limits,
   normalizeBaseUrl,
+  unusedEnvName,
   type CustomKeyState,
   type CustomKeyValue,
   type CustomModelEntry,
@@ -29,10 +32,16 @@ import {
   type CustomModelsOutcome,
   type CustomProviderInfo,
   type CustomProviderInput,
+  type EnvSource,
 } from "../../shared/custom-models.ts";
+import { log } from "../log/log.ts";
 import { writeFileAtomic } from "../tasks/atomic-write.ts";
+import { envFilePath, envSourceOf, readEnvText, removeEnvLine, setEnvLine } from "./env-file.ts";
 
+/** 全大写的值一律当环境变量名；大小写混合的（`Pro_KIMI_API_KEY`）只有确实设置了才算，免得把真 key 当成变量名显示出来。 */
 const envLikeKey = /^[A-Z][A-Z0-9_]*$/;
+
+type SourceOf = (name: string) => EnvSource;
 
 function isNotFound(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
@@ -76,11 +85,14 @@ function str(value: unknown): string | null {
   return typeof value === "string" && value !== "" ? value : null;
 }
 
-function keyStateOf(entry: Record<string, unknown>): CustomKeyState {
+function keyStateOf(entry: Record<string, unknown>, sourceOf: SourceOf): CustomKeyState {
   const key = entry["apiKey"];
   if (typeof key !== "string" || key === "") return { kind: "none" };
   if (key.startsWith("!")) return { kind: "command" };
-  return envLikeKey.test(key) ? { kind: "env", name: key } : { kind: "literal" };
+  if (!isValidEnvName(key)) return { kind: "literal" };
+  // omp 的规则：值正好是一个已设置的环境变量名就用变量的值，否则把值本身当 key（omp://providers.md）。
+  const source = sourceOf(key);
+  return envLikeKey.test(key) || source !== "missing" ? { kind: "env", name: key, source } : { kind: "literal" };
 }
 
 /** 模型条目上的能力参数；没写或写的不是 omp 认的形状时为 null（界面显示"自动"，保存时这种值原样不动）。 */
@@ -111,8 +123,8 @@ function modelEntries(value: unknown): (CustomModelEntry & CustomModelMeta)[] {
 
 export type ParseResult = { ok: true; providers: CustomProviderInfo[] } | { ok: false; code: CustomModelsErrorCode };
 
-/** 从 models.yml 文本里读出 providers。文本为 null/空 = 没有任何 provider。 */
-export function parseProviders(text: string | null): ParseResult {
+/** 从 models.yml 文本里读出 providers。文本为 null/空 = 没有任何 provider。`sourceOf` 判断 `apiKey` 里的变量名设在哪。 */
+export function parseProviders(text: string | null, sourceOf: SourceOf): ParseResult {
   if (text === null || text.trim() === "") return { ok: true, providers: [] };
   const doc = parseDocument(stripBom(text));
   if (doc.errors.length > 0) return { ok: false, code: "unreadable-file" };
@@ -130,7 +142,7 @@ export function parseProviders(text: string | null): ParseResult {
       id,
       baseUrl: str(entry["baseUrl"]),
       api: str(entry["api"]),
-      key: keyStateOf(entry),
+      key: keyStateOf(entry, sourceOf),
       models: modelEntries(entry["models"]),
       discovery: typeof entry["discovery"] === "object" && entry["discovery"] !== null,
     });
@@ -152,13 +164,18 @@ export function providerKeyValue(text: string | null, providerId: string): strin
 type Edit = { ok: true; text: string } | { ok: false; code: CustomModelsErrorCode };
 const fail = (code: CustomModelsErrorCode): { ok: false; code: CustomModelsErrorCode } => ({ ok: false, code });
 
+/** 环境变量形式的 key：变量名合法；带值时值和直接填的 key 一样校验（非空、无控制字符、不以 `!` 开头）。 */
+function isValidEnvKey(key: { name: string; value?: string }): boolean {
+  return isValidEnvName(key.name) && (key.value === undefined || key.value === "" || isValidLiteralKey(key.value));
+}
+
 function validateInput(input: CustomProviderInput, mode: "add" | "edit"): CustomModelsErrorCode | null {
   if (!isValidProviderId(input.id)) return "invalid-id";
   if (normalizeBaseUrl(input.baseUrl) === null) return "invalid-url";
   if (!isKnownApi(input.api)) return "invalid-api";
   const key = input.key;
   if (key.kind === "literal" && !isValidLiteralKey(key.value)) return "invalid-key";
-  if (key.kind === "env" && !isValidEnvName(key.name)) return "invalid-key";
+  if (key.kind === "env" && !isValidEnvKey(key)) return "invalid-key";
   if (key.kind === "keep" && mode === "add") return "invalid-key";
   if (input.models.length > limits.models) return "invalid-models";
   const seen = new Set<string>();
@@ -314,7 +331,7 @@ export function removeProvider(text: string | null, id: string): Edit {
 export function applyKey(text: string | null, id: string, key: CustomKeyValue | null): Edit {
   if (!isValidProviderId(id)) return fail("invalid-id");
   if (key?.kind === "literal" && !isValidLiteralKey(key.value)) return fail("invalid-key");
-  if (key?.kind === "env" && !isValidEnvName(key.name)) return fail("invalid-key");
+  if (key?.kind === "env" && !isValidEnvKey(key)) return fail("invalid-key");
   const source = stripBom(text ?? "");
   const doc = parseDocument(source);
   if (doc.errors.length > 0) return fail("unreadable-file");
@@ -336,18 +353,70 @@ export function applyKey(text: string | null, id: string, key: CustomKeyValue | 
 
 // ——— 文件读写 ———
 
-/** 同一进程内的 models.yml 写入串行：读-改-写之间不能被另一次写入插进来。 */
+/** 同一进程内 models.yml 和 `.env` 的写入串行：读-改-写之间不能被另一次写入插进来。 */
 let writeQueue: Promise<unknown> = Promise.resolve();
 
-async function mutate(agentDir: string, edit: (text: string | null) => Edit): Promise<CustomModelsOutcome> {
+/** 要写进 `.env` 的 key（环境变量形式、带了值）。 */
+type EnvWrite = { name: string; value: string } | null;
+
+function envWriteOf(key: CustomProviderInput["key"] | CustomKeyValue | null): EnvWrite {
+  return key?.kind === "env" && key.value !== undefined && key.value !== ""
+    ? { name: key.name, value: key.value }
+    : null;
+}
+
+/**
+ * 改 models.yml 里的 provider `id`，并同步 agent 目录的 `.env`：带值的环境变量 key 写进去；
+ * 改完后这个 provider 原来引用、现在没人引用的变量（unusedEnvName）删掉。先写 `.env` 再写 models.yml：
+ * models.yml 写失败时 `.env` 里只是多一行没人用的变量，不会出现 models.yml 引用了一个不存在的变量。
+ */
+async function mutate(
+  agentDir: string,
+  id: string,
+  edit: (text: string | null) => Edit,
+  envWrite: EnvWrite,
+): Promise<CustomModelsOutcome> {
   const run = async (): Promise<CustomModelsOutcome> => {
     const located = await locate(agentDir);
     if (located.legacyJson) return fail("legacy-json");
     const result = edit(located.text);
     if (!result.ok) return result;
+
+    const envText = await readEnvText(agentDir);
+    let nextEnv = envText;
+    if (envWrite !== null) {
+      const written = setEnvLine(nextEnv, envWrite.name, envWrite.value);
+      if (!written.ok) return fail("unsafe-env");
+      nextEnv = written.text;
+    }
+    const before = parseProviders(located.text, envSourceOf(envText));
+    const after = parseProviders(result.text, envSourceOf(nextEnv));
+    const unused =
+      before.ok && after.ok
+        ? unusedEnvName(
+            before.providers.find((provider) => provider.id === id),
+            after.providers,
+          )
+        : null;
+    if (unused !== null && nextEnv !== null) {
+      const removed = removeEnvLine(nextEnv, unused);
+      // 删不干净（跨行的引号值之类）就留着这一行：没人引用的变量不影响 omp。
+      if (removed.ok) nextEnv = removed.text;
+      else log.info(`custom provider ${id}: left unused ${unused} in .env (not a single-line entry)`);
+    }
+
+    if (nextEnv !== envText && nextEnv !== null) {
+      const file = envFilePath(agentDir);
+      if (envText !== null) await copyFile(file, `${file}.bak`);
+      await writeFileAtomic(file, nextEnv, `omp-studio-${process.pid}`);
+      log.info(
+        `custom provider ${id}: .env ${envWrite !== null ? `set ${envWrite.name}` : ""}${unused !== null ? ` removed ${unused}` : ""}`,
+      );
+    }
     if (located.text !== null) await copyFile(located.file, `${located.file}.bak`);
     await writeFileAtomic(located.file, result.text, `omp-studio-${process.pid}`);
-    return { ok: true };
+    const shadowed = envWrite !== null && envSourceOf(nextEnv)(envWrite.name) === "system";
+    return shadowed ? { ok: true, envShadowed: envWrite.name } : { ok: true };
   };
   const next = writeQueue.then(run, run);
   writeQueue = next.catch(() => undefined);
@@ -356,7 +425,7 @@ async function mutate(agentDir: string, edit: (text: string | null) => Edit): Pr
 
 export async function readModelsFile(agentDir: string): Promise<CustomModelsFileInfo> {
   const located = await locate(agentDir);
-  const parsed = parseProviders(located.text);
+  const parsed = parseProviders(located.text, envSourceOf(await readEnvText(agentDir)));
   // 读不懂的文件不假装是空的：抛出，界面显示"读取失败"，免得用户以为 provider 丢了。
   if (!parsed.ok) throw new Error(`models file is not readable YAML: ${path.basename(located.file)}`);
   return { path: located.file, exists: located.text !== null, providers: parsed.providers };
@@ -367,11 +436,11 @@ export function saveCustomProvider(
   input: CustomProviderInput,
   mode: "add" | "edit",
 ): Promise<CustomModelsOutcome> {
-  return mutate(agentDir, (text) => applyProvider(text, input, mode));
+  return mutate(agentDir, input.id, (text) => applyProvider(text, input, mode), envWriteOf(input.key));
 }
 
 export function deleteCustomProvider(agentDir: string, id: string): Promise<CustomModelsOutcome> {
-  return mutate(agentDir, (text) => removeProvider(text, id));
+  return mutate(agentDir, id, (text) => removeProvider(text, id), null);
 }
 
 export function setCustomProviderKey(
@@ -379,7 +448,7 @@ export function setCustomProviderKey(
   id: string,
   key: CustomKeyValue | null,
 ): Promise<CustomModelsOutcome> {
-  return mutate(agentDir, (text) => applyKey(text, id, key));
+  return mutate(agentDir, id, (text) => applyKey(text, id, key), envWriteOf(key));
 }
 
 /** 文件里某个 provider 的 key 值；只给主进程内部用。 */

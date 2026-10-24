@@ -3,7 +3,13 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
-import { parseTokenCount, type CustomModelMeta, type CustomProviderInput } from "../src/shared/custom-models.ts";
+import {
+  parseTokenCount,
+  type CustomModelMeta,
+  type CustomProviderInput,
+  type EnvSource,
+} from "../src/shared/custom-models.ts";
+import { envValues, removeEnvLine, setEnvLine } from "../src/main/omp-config/env-file.ts";
 import {
   applyKey,
   applyProvider,
@@ -63,10 +69,13 @@ function applied(text: string | null, value: CustomProviderInput, mode: "add" | 
   return result.text;
 }
 
+/** 测试里没有任何环境变量设置。 */
+const noEnv = (): EnvSource => "missing";
+
 describe("models.yml 编辑（纯文本）", () => {
   it("新文件：创建 providers.<id>，规范化 URL 末尾斜杠", () => {
     const text = applied(null, input());
-    const parsed = parseProviders(text);
+    const parsed = parseProviders(text, noEnv);
     expect(parsed.ok && parsed.providers).toEqual([
       {
         id: "my-proxy",
@@ -121,10 +130,11 @@ describe("models.yml 编辑（纯文本）", () => {
       input({ id: "other", key: { kind: "env", name: "MY_PROXY_KEY" }, models: [keepMe] }),
       "edit",
     );
-    const other = parseProviders(withEnv);
+    const other = parseProviders(withEnv, noEnv);
     expect(other.ok && other.providers.find((p) => p.id === "other")?.key).toEqual({
       kind: "env",
       name: "MY_PROXY_KEY",
+      source: "missing",
     });
     expect(withEnv).not.toContain("auth: none");
 
@@ -148,7 +158,7 @@ describe("models.yml 编辑（纯文本）", () => {
 
   it("自动发现：true 按接口类型写默认 discovery.type，只改这一个条目，注释和别的内容原样保留，可以不选模型", () => {
     const completions = applied(existing, input({ id: "fresh", models: [], discovery: true }));
-    const entry = parseProviders(completions);
+    const entry = parseProviders(completions, noEnv);
     expect(entry.ok && entry.providers.find((p) => p.id === "fresh")).toMatchObject({ discovery: true, models: [] });
     expect(completions).toMatch(/fresh:[\s\S]*discovery:\s+type: openai-models-list/);
     // 原有内容整段保留（新条目只是追加）。
@@ -208,7 +218,7 @@ describe("models.yml 编辑（纯文本）", () => {
     );
     expect(text).toContain("input: [ text, image ]");
     expect(text).toContain("input: [ text ]");
-    const parsed = parseProviders(text);
+    const parsed = parseProviders(text, noEnv);
     expect(parsed.ok && parsed.providers[0]?.models).toEqual([
       { id: "relay-gpt", name: null, reasoning: true, images: true, contextWindow: 272000, maxTokens: 32000 },
       { id: "plain", name: null, reasoning: false, images: false, contextWindow: null, maxTokens: null },
@@ -253,7 +263,7 @@ describe("models.yml 编辑（纯文本）", () => {
 
   it("能力参数：文件里写的不是 omp 认的形状时读成自动，保存时不动它", () => {
     const odd = existing.replace("contextWindow: 32000 # custom window", "contextWindow: big # 手写的");
-    const parsed = parseProviders(odd);
+    const parsed = parseProviders(odd, noEnv);
     expect(parsed.ok && parsed.providers.find((p) => p.id === "other")?.models[0]).toMatchObject({
       contextWindow: null,
     });
@@ -291,7 +301,7 @@ describe("models.yml 编辑（纯文本）", () => {
   it("`providers:` 为空值（只有注释）时也能新增", () => {
     const text = applied("# top\nproviders: # none yet\n", input());
     expect(text).toContain("# top");
-    const parsed = parseProviders(text);
+    const parsed = parseProviders(text, noEnv);
     expect(parsed.ok && parsed.providers.map((p) => p.id)).toEqual(["my-proxy"]);
   });
 
@@ -340,16 +350,25 @@ describe("models.yml 编辑（纯文本）", () => {
     expect(applyProvider(null, input(over), "add")).toEqual({ ok: false, code });
   });
 
-  it("读：key 状态只有种类，没有内容", () => {
+  it("读：key 状态只有种类，没有内容；大小写混合的变量名只有设置了才算环境变量", () => {
+    const sourceOf = (name: string): EnvSource =>
+      name === "Pro_KIMI_KEY" ? "env-file" : name === "SYS_KEY" ? "system" : "missing";
     const parsed = parseProviders(
-      "providers:\n  a: {apiKey: sk-live-xyz, baseUrl: http://a}\n  b: {apiKey: MY_KEY}\n  c: {apiKey: '!op read x'}\n  d: {auth: none}\n",
+      "providers:\n  a: {apiKey: sk-live-xyz, baseUrl: http://a}\n  b: {apiKey: MY_KEY}\n  c: {apiKey: '!op read x'}\n  d: {auth: none}\n" +
+        "  e: {apiKey: Pro_KIMI_KEY}\n  f: {apiKey: abcDEF123}\n  g: {apiKey: SYS_KEY}\n",
+      sourceOf,
     );
     expect(parsed.ok && parsed.providers.map((p) => p.key)).toEqual([
       { kind: "literal" },
-      { kind: "env", name: "MY_KEY" },
+      { kind: "env", name: "MY_KEY", source: "missing" },
       { kind: "command" },
       { kind: "none" },
+      { kind: "env", name: "Pro_KIMI_KEY", source: "env-file" },
+      // 只由字母数字组成的真 key：没有这个变量，omp 把它当 key 用，界面也不能把它当变量名显示出来。
+      { kind: "literal" },
+      { kind: "env", name: "SYS_KEY", source: "system" },
     ]);
+    expect(JSON.stringify(parsed)).not.toContain("abcDEF123");
     expect(JSON.stringify(parsed)).not.toContain("sk-live-xyz");
     expect(providerKeyValue("providers:\n  a: {apiKey: sk-live-xyz}\n", "a")).toBe("sk-live-xyz");
     expect(providerKeyValue("providers:\n  a: {}\n", "a")).toBeNull();
@@ -481,5 +500,133 @@ describe("models.yml 文件读写", () => {
     );
     expect(results.every((r) => r.ok)).toBe(true);
     expect((await readModelsFile(agentDir)).providers.map((p) => p.id).sort()).toEqual(["p1", "p2", "p3", "p4"]);
+  });
+});
+
+describe(".env 只改一行", () => {
+  const original = '# 我的 key\r\nexport Pro_KIMI_KEY=old # 旧的\r\nOTHER="a#b"\r\n\r\nHF_TOKEN=hf\r\n';
+
+  it("改已有的行：保留 export、CRLF、注释和别的变量", () => {
+    const result = setEnvLine(original, "Pro_KIMI_KEY", "sk-new");
+    expect(result).toEqual({
+      ok: true,
+      text: '# 我的 key\r\nexport Pro_KIMI_KEY=sk-new\r\nOTHER="a#b"\r\n\r\nHF_TOKEN=hf\r\n',
+    });
+  });
+
+  it("新变量追加到末尾；值里有 # 或空格时加引号，读回来正好是这个值", () => {
+    const result = setEnvLine(original, "NEW_KEY", "a b#c");
+    if (!result.ok) throw new Error("unexpected");
+    expect(result.text.startsWith(original)).toBe(true);
+    expect(envValues(result.text)).toEqual({ Pro_KIMI_KEY: "old", OTHER: "a#b", HF_TOKEN: "hf", NEW_KEY: "a b#c" });
+    expect(setEnvLine(null, "A", "x")).toEqual({ ok: true, text: "A=x\n" });
+    expect(setEnvLine("A=1", "B", "2")).toEqual({ ok: true, text: "A=1\nB=2\n" });
+  });
+
+  it("同名多行只留第一行；删除删掉所有行，别的不动", () => {
+    const dup = "A=1\nB=2\nA=3\n";
+    expect(setEnvLine(dup, "A", "9")).toEqual({ ok: true, text: "A=9\nB=2\n" });
+    expect(removeEnvLine(dup, "A")).toEqual({ ok: true, text: "B=2\n" });
+    expect(removeEnvLine(original, "Pro_KIMI_KEY")).toEqual({
+      ok: true,
+      text: '# 我的 key\r\nOTHER="a#b"\r\n\r\nHF_TOKEN=hf\r\n',
+    });
+  });
+
+  it("文件开头的 BOM（记事本另存的 UTF-8）保留，第一行的变量照样认得", () => {
+    const bom = "\uFEFFA=1\nB=2\n";
+    expect(setEnvLine(bom, "A", "9")).toEqual({ ok: true, text: "\uFEFFA=9\nB=2\n" });
+    expect(removeEnvLine(bom, "A")).toEqual({ ok: true, text: "\uFEFFB=2\n" });
+  });
+
+  it("跨行的引号值没法只改一行：不改（别的变量会被带坏）", () => {
+    const multi = 'A="line1\nline2"\nB=2\n';
+    expect(setEnvLine(multi, "A", "x")).toEqual({ ok: false });
+    expect(removeEnvLine(multi, "A")).toEqual({ ok: false });
+  });
+});
+
+describe("环境变量形式的 key 同步 agent 目录的 .env", () => {
+  let agentDir: string;
+  const envFile = () => path.join(agentDir, ".env");
+  beforeEach(async () => {
+    agentDir = await mkdtemp(path.join(os.tmpdir(), "omp 环境 变量-"));
+  });
+  afterEach(async () => {
+    delete process.env["STUDIO_TEST_SHADOW_KEY"];
+    await rm(agentDir, { recursive: true, force: true });
+  });
+  const envInput = (id: string, name: string, value?: string) =>
+    input({ id, key: { kind: "env", name, ...(value !== undefined && { value }) } });
+
+  it("带值保存：.env 写这一行、models.yml 写变量名；卡片读出来是 .env 里的变量；值不经读接口返回", async () => {
+    await mkdir(agentDir, { recursive: true });
+    await writeFile(envFile(), "# 手写的\nOTHER=1\n", "utf8");
+    expect(await saveCustomProvider(agentDir, envInput("kimi", "Pro_KIMI_KEY", "sk-kimi-1"), "add")).toEqual({
+      ok: true,
+    });
+    expect(await readFile(envFile(), "utf8")).toBe("# 手写的\nOTHER=1\nPro_KIMI_KEY=sk-kimi-1\n");
+    expect(await readFile(path.join(agentDir, "models.yml"), "utf8")).toContain("apiKey: Pro_KIMI_KEY");
+    const info = await readModelsFile(agentDir);
+    expect(info.providers[0]?.key).toEqual({ kind: "env", name: "Pro_KIMI_KEY", source: "env-file" });
+    expect(JSON.stringify(info)).not.toContain("sk-kimi-1");
+
+    // 更换：只改这一行；旧内容留 .env.bak。不带值 = 不动 .env。
+    expect(await saveCustomProvider(agentDir, envInput("kimi", "Pro_KIMI_KEY", "sk-kimi-2"), "edit")).toEqual({
+      ok: true,
+    });
+    expect(await readFile(envFile(), "utf8")).toBe("# 手写的\nOTHER=1\nPro_KIMI_KEY=sk-kimi-2\n");
+    expect(await readFile(`${envFile()}.bak`, "utf8")).toContain("sk-kimi-1");
+    expect(await saveCustomProvider(agentDir, envInput("kimi", "Pro_KIMI_KEY"), "edit")).toEqual({ ok: true });
+    expect(await readFile(envFile(), "utf8")).toContain("Pro_KIMI_KEY=sk-kimi-2");
+  });
+
+  it("删除 provider、改成别的 key：没人再引用的变量从 .env 删掉；别的 provider 还在用、或内置 provider 认的变量留着", async () => {
+    await saveCustomProvider(agentDir, envInput("a", "SHARED_KEY", "s"), "add");
+    await saveCustomProvider(agentDir, envInput("b", "SHARED_KEY"), "add");
+    await saveCustomProvider(agentDir, envInput("c", "OPENAI_API_KEY", "o"), "add");
+    await saveCustomProvider(agentDir, envInput("d", "ONLY_D", "d"), "add");
+
+    await deleteCustomProvider(agentDir, "a");
+    expect(await readFile(envFile(), "utf8")).toContain("SHARED_KEY=s"); // b 还在用
+    await deleteCustomProvider(agentDir, "b");
+    expect(await readFile(envFile(), "utf8")).not.toContain("SHARED_KEY");
+    await deleteCustomProvider(agentDir, "c");
+    expect(await readFile(envFile(), "utf8")).toContain("OPENAI_API_KEY=o"); // 内置 openai 也读它
+    await saveCustomProvider(agentDir, input({ id: "d", key: { kind: "literal", value: "sk-lit" } }), "edit");
+    expect(await readFile(envFile(), "utf8")).not.toContain("ONLY_D");
+  });
+
+  it("系统环境变量里也有同名的：照写 .env，但告诉界面 omp 用的是系统那个", async () => {
+    process.env["STUDIO_TEST_SHADOW_KEY"] = "from-system";
+    expect(await saveCustomProvider(agentDir, envInput("s", "STUDIO_TEST_SHADOW_KEY", "x"), "add")).toEqual({
+      ok: true,
+      envShadowed: "STUDIO_TEST_SHADOW_KEY",
+    });
+    expect((await readModelsFile(agentDir)).providers[0]?.key).toMatchObject({ source: "system" });
+  });
+
+  it(".env 里这个变量是跨行的值：models.yml 和 .env 都不改", async () => {
+    await mkdir(agentDir, { recursive: true });
+    await writeFile(envFile(), 'M="a\nb"\n', "utf8");
+    expect(await saveCustomProvider(agentDir, envInput("m", "M", "x"), "add")).toEqual({
+      ok: false,
+      code: "unsafe-env",
+    });
+    expect(await readFile(envFile(), "utf8")).toBe('M="a\nb"\n');
+    await expect(readFile(path.join(agentDir, "models.yml"), "utf8")).rejects.toThrow();
+  });
+
+  it("拒绝：带的值有换行或以 ! 开头", async () => {
+    expect(await saveCustomProvider(agentDir, envInput("x", "X_KEY", "a\nb"), "add")).toEqual({
+      ok: false,
+      code: "invalid-key",
+    });
+    expect(applyKey("providers:\n  a: {modelOverrides: {}}\n", "a", { kind: "env", name: "X", value: "!cmd" })).toEqual(
+      {
+        ok: false,
+        code: "invalid-key",
+      },
+    );
   });
 });

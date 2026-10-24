@@ -1,5 +1,6 @@
 // 自定义提供商的添加 / 编辑对话框：ID、Base URL、接口类型、key、模型（CustomModelList）。
-// 写 models.yml 在主进程（src/main/omp-config/models-file.ts）；这里只收集输入、把主进程返回的错误码翻成文案。
+// 写 models.yml（和环境变量形式的 key 写进的 agent 目录 `.env`）在主进程（src/main/omp-config/models-file.ts）；
+// 这里只收集输入、把主进程返回的错误码翻成文案。
 import { useId, useState } from "react";
 import {
   defaultDiscoveryType,
@@ -7,11 +8,14 @@ import {
   isFetchableApi,
   parseTokenCount,
   type CustomKeyInput,
+  type CustomKeyState,
   type CustomModelMeta,
+  type CustomModelsOutcome,
   type CustomProviderInfo,
   type CustomProviderInput,
 } from "../../../../shared/custom-models.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
+import { pushToast } from "../dialogs/toast-store.ts";
 import { describeError } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Button, FormField, Notice, Segmented, Switch, TextField, type Option } from "../../ui/controls.tsx";
@@ -32,6 +36,59 @@ const apiLabels: Record<string, string> = {
 /** 主进程返回的错误码（`err.*` / `fetchErr.*`）→ 当前语言的一句话。 */
 export function customErrorText(t: TFunction, code: string, status?: number): string {
   return t(`custom.${code}` as Parameters<TFunction>[0], { status: status ?? "" });
+}
+
+/** 写进 `.env` 的变量在系统环境变量里也有：omp 用系统的那个，提醒一句。 */
+export function warnIfShadowed(t: TFunction, outcome: CustomModelsOutcome): void {
+  if (outcome.ok && outcome.envShadowed !== undefined)
+    pushToast({ level: "warning", message: t("custom.form.key.envShadowed", { name: outcome.envShadowed }) });
+}
+
+interface EnvValueFieldProps {
+  /** 输入框里现在的变量名。 */
+  name: string;
+  /** 打开对话框时文件里的 key（判断这个变量现在设在哪）。 */
+  original: CustomKeyState | undefined;
+  value: string;
+  onChange(value: string): void;
+  testId: string;
+}
+
+/**
+ * 环境变量形式的 key 的第二个框：key 本身，保存时写进 agent 目录的 `.env`（`变量名=key`）。留空 = 不动 `.env`。
+ * 变量名没改时按它现在设在哪提示：`.env` 里已有 → 留空保持；系统环境变量里有 → omp 用系统的，这里写了也不生效。
+ */
+export function EnvValueField({ name, original, value, onChange, testId }: EnvValueFieldProps) {
+  const t = useT();
+  const [show, setShow] = useState(false);
+  const source = original?.kind === "env" && original.name === name.trim() ? original.source : null;
+  return (
+    <>
+      <TextField
+        mono
+        width="100%"
+        type={show ? "text" : "password"}
+        autoComplete="off"
+        value={value}
+        placeholder={
+          source === "env-file" ? t("custom.form.key.envValue.keep") : t("custom.form.key.envValue.placeholder")
+        }
+        aria-label={t("custom.form.key.envValue")}
+        testId={testId}
+        onChange={onChange}
+        trailing={
+          <Button size="sm" variant="quiet" onClick={() => setShow((shown) => !shown)}>
+            {show ? t("custom.form.key.hide") : t("custom.form.key.show")}
+          </Button>
+        }
+      />
+      {source === "system" && (
+        <p className="ui-help" data-testid={`${testId}-system`}>
+          {t("custom.form.key.envSystem", { name: name.trim() })}
+        </p>
+      )}
+    </>
+  );
 }
 
 function initialKeyMode(provider: CustomProviderInfo | undefined): KeyMode {
@@ -63,6 +120,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   const [keyMode, setKeyMode] = useState<KeyMode>(initialKeyMode(provider));
   const envName = provider?.key.kind === "env" ? provider.key.name : "";
   const [keyText, setKeyText] = useState(envName);
+  const [envValue, setEnvValue] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [rows, setRows] = useState<ModelRow[]>(
     () =>
@@ -104,7 +162,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
 
   const keyInput = (): CustomKeyInput => {
     if (keyMode === "literal") return { kind: "literal", value: keyText };
-    if (keyMode === "env") return { kind: "env", name: keyText.trim() };
+    if (keyMode === "env") return { kind: "env", name: keyText.trim(), value: envValue.trim() };
     return { kind: keyMode };
   };
 
@@ -195,8 +253,10 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
     };
     try {
       const outcome = await window.studio.saveCustomProvider(mode, input);
-      if (outcome.ok) onSaved();
-      else setSaveError(customErrorText(t, `err.${outcome.code}`));
+      if (outcome.ok) {
+        warnIfShadowed(t, outcome);
+        onSaved();
+      } else setSaveError(customErrorText(t, `err.${outcome.code}`));
     } catch (error) {
       setSaveError(t("custom.saveFailed", { message: describeError(t, error) }));
     } finally {
@@ -280,6 +340,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
             onChange={(next) => {
               setKeyMode(next);
               setKeyText(next === "env" ? envName : "");
+              setEnvValue("");
             }}
             testId="custom-key-mode"
           />
@@ -308,6 +369,15 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
                   </Button>
                 ) : undefined
               }
+            />
+          )}
+          {keyMode === "env" && (
+            <EnvValueField
+              name={keyText}
+              original={provider?.key}
+              value={envValue}
+              onChange={setEnvValue}
+              testId="custom-key-env-value"
             />
           )}
         </FormField>

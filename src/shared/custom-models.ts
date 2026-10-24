@@ -1,5 +1,6 @@
 // 自定义模型（设置 → 提供商与账号 → 自定义 provider）：界面和主进程共用的类型和校验。
 // 对应 omp 的 `models.yml` 里的 `providers.<id>`（omp://models.md）。纯逻辑，不引 React、DOM 或 Node。
+import { isProviderKeyEnv } from "./provider-keys.ts";
 
 /** omp 的聊天传输 `api`（omp://models.md "Allowed provider/model api values" 去掉判定类和 runner 类）。 */
 const knownApis = [
@@ -47,10 +48,17 @@ export const limits = {
   tokens: 100_000_000,
 } as const;
 
+/**
+ * 环境变量的值从哪来（omp 启动时进程里已有的变量优先，其次才是 `.env` 文件，omp://providers.md「.env discovery」）：
+ * system = studio 的进程环境里有（系统 / 用户环境变量，omp 继承它，`.env` 里同名的不生效）；
+ * env-file = agent 目录的 `.env` 里有；missing = 两处都没有（可能在项目或别的 `.env` 里，studio 不管那些）。
+ */
+export type EnvSource = "system" | "env-file" | "missing";
+
 export type CustomKeyState =
   | { kind: "none" }
   | { kind: "literal" }
-  | { kind: "env"; name: string }
+  | { kind: "env"; name: string; source: EnvSource }
   /** `!命令` 取密钥（omp://models.md "Command-resolved secrets"）：界面只显示状态，保存时原样保留。 */
   | { kind: "command" };
 
@@ -90,12 +98,18 @@ export interface CustomModelsFileInfo {
   providers: CustomProviderInfo[];
 }
 
-/** 保存时对 key 的指示：keep = 不动现有的；none = 无需 key（`auth: none`）；literal = 写入密钥；env = 写入环境变量名。 */
+/**
+ * 保存时对 key 的指示：keep = 不动现有的；none = 无需 key（`auth: none`）；literal = 写入密钥；
+ * env = `apiKey` 写环境变量名，`value` 非空时把 key 写进 agent 目录的 `.env`（`NAME=value`，只改这一行），空 = 不动 `.env`。
+ */
 export type CustomKeyInput =
-  { kind: "keep" } | { kind: "none" } | { kind: "literal"; value: string } | { kind: "env"; name: string };
+  | { kind: "keep" }
+  | { kind: "none" }
+  | { kind: "literal"; value: string }
+  | { kind: "env"; name: string; value?: string };
 
 /** 只改 key 时（`setCustomProviderKey`）写入的值；null = 去掉 `apiKey`。 */
-export type CustomKeyValue = { kind: "literal"; value: string } | { kind: "env"; name: string };
+export type CustomKeyValue = { kind: "literal"; value: string } | { kind: "env"; name: string; value?: string };
 
 export interface CustomProviderInput {
   id: string;
@@ -121,9 +135,12 @@ export type CustomModelsErrorCode =
   | "exists"
   | "not-found"
   | "unreadable-file"
-  | "legacy-json";
+  | "legacy-json"
+  /** `.env` 里这个变量的写法（如跨行的引号值）没法只改一行而不碰别的变量：不写，让用户自己改。 */
+  | "unsafe-env";
 
-export type CustomModelsOutcome = { ok: true } | { ok: false; code: CustomModelsErrorCode };
+/** 保存成功时 `envShadowed` = 写进 `.env` 的变量在系统环境变量里也有：omp 用系统的那个，`.env` 里的值不生效。 */
+export type CustomModelsOutcome = { ok: true; envShadowed?: string } | { ok: false; code: CustomModelsErrorCode };
 
 export interface FetchModelsRequest {
   baseUrl: string;
@@ -217,4 +234,19 @@ export function parseTokenCount(text: string): number | null | undefined {
   // 带 k/m 时取整（1.1k 浮点乘出来是 1100.0000000000002）；不带单位的小数不是合法 token 数。
   const value = unit === undefined ? number : Math.round(number * (unit === "m" ? 1_000_000 : 1_000));
   return isValidTokenCount(value) ? value : undefined;
+}
+
+/**
+ * 改完或删掉一个 provider 后，它原来引用的 `.env` 变量还留不留（主进程按它删行，删除确认框按它写明）：
+ * 原来是环境变量 key、值在 agent 目录的 `.env` 里、改完后没有 provider 再引用这个名字、也不是 omp 内置 provider 认的变量名
+ * → 返回这个名字（删掉 `.env` 里那一行）；否则 null（留着）。
+ */
+export function unusedEnvName(
+  before: CustomProviderInfo | undefined,
+  after: readonly CustomProviderInfo[],
+): string | null {
+  if (before?.key.kind !== "env" || before.key.source !== "env-file") return null;
+  const name = before.key.name;
+  if (isProviderKeyEnv(name)) return null;
+  return after.some((provider) => provider.key.kind === "env" && provider.key.name === name) ? null : name;
 }

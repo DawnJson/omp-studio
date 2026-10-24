@@ -2,7 +2,7 @@
 // 验证：1) 新进程的 get_available_models 里有这些模型；2) 同一个进程里改文件不会重新加载（所以保存后要重启服务进程）；
 // 3) 任务（伪终端里的交互式 omp）能把 prompt 发到假服务并拿到它的回复。三种 key 写法都跑：字面量、环境变量名、auth: none。
 // 不调真实模型、不需要 key，但需要 PATH 上有 omp；默认跳过：`STUDIO_REAL_OMP=1 npx vitest run test/custom-models-real-omp.test.ts`。
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -10,7 +10,7 @@ import type { TaskState } from "../src/shared/ipc.ts";
 import { findOmpOnPath } from "../src/main/omp/discover.ts";
 import { buildOmpArgs, buildTspArgs } from "../src/main/omp/launch-args.ts";
 import { OmpConnection } from "../src/main/omp/omp-connection.ts";
-import { saveCustomProvider } from "../src/main/omp-config/models-file.ts";
+import { readModelsFile, saveCustomProvider } from "../src/main/omp-config/models-file.ts";
 import { TaskPool } from "../src/main/tasks/task-pool.ts";
 import { requireSuccess, type RunOmp } from "../src/main/usage/usage-service.ts";
 import { runCommand } from "../src/main/git/exec.ts";
@@ -239,6 +239,33 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
     );
     expect(anthropic).toEqual({ ok: true });
     expect(await listModelIds(omp, "fake-disco-anthropic")).toEqual(["local-one"]);
+  }, 120_000);
+
+  it("环境变量形式的 key：变量名大小写混合、值写进 agent 目录的 .env，omp 启动时读到它，带着它去 /models 拉到模型", async () => {
+    const omp = await findOmpOnPath();
+    if (!omp) throw new Error("omp is not on PATH");
+    await mkdir(scratch, { recursive: true });
+    const outcome = await saveCustomProvider(
+      agentDir,
+      {
+        id: "fake-disco-env",
+        baseUrl: keyed.baseUrl,
+        api: "openai-completions",
+        key: { kind: "env", name: "Pro_FAKE_KEY", value: SECRET },
+        models: [],
+        discovery: true,
+      },
+      "add",
+    );
+    expect(outcome).toEqual({ ok: true });
+    expect(await readFile(path.join(agentDir, ".env"), "utf8")).toContain(`Pro_FAKE_KEY=${SECRET}`);
+    expect((await readModelsFile(agentDir)).providers.find((p) => p.id === "fake-disco-env")?.key).toEqual({
+      kind: "env",
+      name: "Pro_FAKE_KEY",
+      source: "env-file",
+    });
+    // 假服务要求 `Bearer sk-fake-secret`：omp 没读 .env 时会把变量名本身当 key 发出去，拿到 401，列不出模型。
+    expect((await listModelIds(omp, "fake-disco-env")).sort()).toEqual(["fake-chat", "fake-mini"]);
   }, 120_000);
 
   it("能力参数：写进 models.yml 的 reasoning / input / contextWindow / maxTokens 被 omp 采用；留空的由 omp 按 id 补", async () => {

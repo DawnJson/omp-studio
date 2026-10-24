@@ -43,7 +43,8 @@ export function CustomProviders() {
       case "literal":
         return t("custom.key.literal");
       case "env":
-        return t("custom.key.env", { name: provider.key.name });
+        // 变量设在哪：agent 目录的 `.env` / 系统环境变量 / 都没有（omp 会把变量名本身当 key 发出去）。
+        return t(`custom.key.env.${provider.key.source}`, { name: provider.key.name });
       case "command":
         return t("custom.key.command");
     }

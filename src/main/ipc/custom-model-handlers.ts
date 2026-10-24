@@ -11,6 +11,7 @@ import {
   type FetchModelsOutcome,
 } from "../../shared/custom-models.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
+import { envFilePath, envValues, readEnvText } from "../omp-config/env-file.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
 import { log } from "../log/log.ts";
 import { fetchModelList, resolveKeyToken } from "../omp-config/fetch-models.ts";
@@ -33,7 +34,12 @@ function parseKey(value: unknown): CustomKeyInput {
   const record = parseRecord(value, "key");
   const kind = parseOneOf(record["kind"], "key.kind", ["keep", "none", "literal", "env"] as const);
   if (kind === "literal") return { kind, value: parseString(record["value"], "key.value", 4096, { allowEmpty: true }) };
-  if (kind === "env") return { kind, name: parseString(record["name"], "key.name", 128, { allowEmpty: true }) };
+  if (kind === "env") {
+    const name = parseString(record["name"], "key.name", 128, { allowEmpty: true });
+    const keyValue = record["value"];
+    if (keyValue === undefined) return { kind, name };
+    return { kind, name, value: parseString(keyValue, "key.value", 4096, { allowEmpty: true }) };
+  }
   return { kind };
 }
 
@@ -87,13 +93,18 @@ async function fetchProviderModels(value: unknown): Promise<FetchModelsOutcome> 
 
   let raw: string | null = null;
   if (key.kind === "literal") raw = key.value.trim() === "" || /\p{Cc}/u.test(key.value) ? null : key.value;
+  else if (key.kind === "env" && key.value !== undefined && key.value !== "")
+    raw = /\p{Cc}/u.test(key.value) ? null : key.value; // 刚填、还没写进 .env 的 key 直接用
   else if (key.kind === "env") raw = key.name;
   else if (key.kind === "keep" && providerId !== null) raw = await readProviderKey(resolveAgentDir(), providerId);
   if ((key.kind === "literal" || key.kind === "env") && raw === null) return { ok: false, code: "invalid-key" };
 
   let token: string | null = null;
   if (raw !== null) {
-    token = resolveKeyToken(raw, process.env);
+    // 和 omp 一样：进程里非空的环境变量优先，其次 agent 目录的 .env（studio 自己的进程没加载它）。
+    const fromProcess = Object.entries(process.env).filter(([, v]) => v !== undefined && v !== "");
+    const env = { ...envValues(await readEnvText(resolveAgentDir())), ...Object.fromEntries(fromProcess) };
+    token = resolveKeyToken(raw, env);
     if (token === null) return { ok: false, code: "command-key" };
   }
   const outcome = await fetchModelList((url, init) => net.fetch(url, init), { baseUrl, api, token });
@@ -156,7 +167,7 @@ export const customModelHandlers: HandlerGroup<
   },
   // omp 启动时读 agent 目录的 `.env`（omp://providers.md「.env discovery」）；没有时打开目录。
   openEnvFile: async () => {
-    const file = path.join(resolveAgentDir(), ".env");
+    const file = envFilePath(resolveAgentDir());
     await openInShell(existsSync(file) ? file : path.dirname(file));
   },
 };

@@ -33,7 +33,7 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 | ID | `^[A-Za-z0-9][A-Za-z0-9._-]*$`，最长 64（`__proto__` 这类以下划线开头的天然被拒） | `invalid-id` |
 | Base URL | 能解析、`http:`/`https:`、无用户名密码、无空白和控制字符、最长 2048；保存时去掉末尾 `/` | `invalid-url` |
 | 接口类型 | `omp://models.md` 的聊天 `api` 之一（界面下拉给 OpenAI Chat Completions / Responses / Anthropic Messages，现有条目是别的 api 时原样保留） | `invalid-api` |
-| key | 字面量：非空、无控制字符、**不以 `!` 开头**；环境变量名：`^[A-Za-z_][A-Za-z0-9_]*$`；新增不能 `keep` | `invalid-key` |
+| key | 字面量：非空、无控制字符、**不以 `!` 开头**；环境变量名：`^[A-Za-z_][A-Za-z0-9_]*$`，带的值和字面量同样规则；新增不能 `keep`；`.env` 里这个变量是改一行就会带坏别的变量的写法（跨行的引号值）时不写 | `invalid-key` / `unsafe-env` |
 | 模型 | id 非空、无首尾空白和控制字符、最长 200、不重复、最多 500；name 同样规则；`contextWindow`/`maxTokens` 是 1 到 1 亿的整数或 null；`reasoning`/`images` 是布尔或 null | `invalid-models` |
 
 `!` 开头的 `apiKey` 会被 omp 当命令执行（`omp://models.md`「Command-resolved secrets」）。界面不允许写入这种值，免得渲染进程被注入后借 `models.yml` 在用户电脑上执行任意命令；文件里已有的 `!命令` 照原样保留（显示"命令取 key"，编辑时可选"保持不变"）。
@@ -43,12 +43,25 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 `omp://models.md`：`apiKey` 先当环境变量名，变量没设或为空才把字面量当 token。所以表单给三种：
 
 - **密钥**：写成 `apiKey: <key>`，明文在 `models.yml` 里。这是 omp 自己的做法，终端版 omp 也能用同一个 key；缺点是明文落盘。界面里密钥输入框默认遮住，有"显示/隐藏"。
-- **环境变量**：写 `apiKey: <变量名>`，不落明文；omp 启动时读这个变量。变量要在启动 omp 的环境里（用户环境变量，或终端里设的）。
+- **环境变量**：`models.yml` 里写 `apiKey: <变量名>`，不落明文。表单里第二个框填 key 本身（选填），保存时写进 agent 目录的 `.env`（`变量名=key`，见下一节）；变量已在系统环境变量或 `.env` 里时留空。
 - **无需 key**：删掉 `apiKey`，写 `auth: none`（本地服务）。
 
 三种都用真实 omp 18.12.1 实测过（`test/custom-models-real-omp.test.ts`：字面量、环境变量、`auth: none` 各一个 provider，列模型、发 prompt 都通）。
 
 **key 只进不出**：`listCustomProviders` 返回的只有状态（`none` / `literal` / `env`+变量名 / `command`），没有 key 的内容；编辑时 key 留空 = "保持不变"（`keep`），主进程在内部读文件里的值。日志只记 provider id 和结果码（`custom provider add: saved`），不记 key，也不记 URL。这和 `login.md` 里设置页填的 API key 是两回事：那个经 `omp auth import` 存进 omp 的凭据库，不会出现在 `models.yml` 里。
+
+## 环境变量形式的 key 和 agent 目录的 `.env`（2026-10-24，omp 18.12.6）
+
+omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项目>/.env`、agent 目录的 `.env`、`~/.omp/.env`、`~/.env`，同一个变量第一个非空的赢（`omp://providers.md`「.env discovery」）。仓库所有者 2026-10-24 批准 studio 写 agent 目录的 `.env`（`AGENTS.md`「omp 的边界」第二处例外）：
+
+- 读：`env-file.ts` 用 `util.parseEnv`（和 omp 同一种 dotenv 语法）解析，只给主进程内部用；渲染进程只拿到每个变量名设在哪（`CustomKeyState.env.source`：`env-file` / `system` / `missing`），卡片显示"环境变量 X（.env / 系统 / 未设置）"。
+- 变量名识别：全大写的 `apiKey` 一律当变量名；大小写混合的（`Pro_KIMI_KEY`）只有在 `.env` 或系统环境变量里确实设了才当变量名，否则当字面量 key，免得把真 key 显示到界面上。
+- 写：带值保存（添加、编辑、"设置 key"）时只改这个变量的那一行（有就就地改、保留 `export`；没有就追加），注释、空行、别的变量、CRLF、BOM 原样；改完再 `parseEnv` 一遍核对别的变量一个没变、这个变量就是要写的值，对不上（原来是跨行的引号值）就整次保存都不写，返回 `unsafe-env`。先写 `.env` 再写 `models.yml`，写前各留 `.bak`，和 `models.yml` 同一个写队列。
+- 删：provider 删掉、换了变量名或换成别的 key 写法后，原来的变量没有别的 provider 引用、也不是内置 provider 认的变量名（`provider-keys.ts`，比如 `ANTHROPIC_API_KEY`）时，删掉 `.env` 里那一行（`unusedEnvName`）。
+- 写进 `.env` 的变量在系统环境变量里也有时，omp 用系统的值：保存成功后提示一句（`envShadowed`）。
+- 拉取模型时 key 按 omp 的顺序解析：刚填、还没保存的值优先，其次进程环境变量，再次 agent 目录 `.env`。
+
+实测（omp 18.12.6，`test/custom-models-real-omp.test.ts`"环境变量形式的 key"）：`apiKey: Pro_FAKE_KEY`、agent 目录 `.env` 里 `Pro_FAKE_KEY=<key>`，假服务要求这个 key，`get_available_models` 经自动发现拉到了它的模型（omp 没读到 `.env` 的话会把变量名本身当 key 发出去，拿到 401）。
 
 ## 一键拉取
 
@@ -104,10 +117,10 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 
 ## 测试
 
-- `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、自动发现开关（默认类型按 api、已有 `discovery` 原样保留、关掉只去 `discovery`、没有默认类型的 api 被拒）、能力参数（写入、改一项不动别的写法、换回自动删掉、非法值被拒、`parseTokenCount`）、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢。
+- `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、自动发现开关（默认类型按 api、已有 `discovery` 原样保留、关掉只去 `discovery`、没有默认类型的 api 被拒）、能力参数（写入、改一项不动别的写法、换回自动删掉、非法值被拒、`parseTokenCount`）、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、大小写混合的变量名按 `.env` / 系统环境变量识别、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢；`.env` 只改一行（保留 `export`、CRLF、BOM、注释、别的变量，跨行引号值拒绝）、保存 / 换名 / 删除时同步 `.env`（没人用才删、内置变量名不删、系统同名变量提示、`unsafe-env` 时两个文件都不动）。
 - `test/custom-models-fetch.test.ts`：对本地假服务拉取成功、key 错、404、不通、超时、非 JSON、形状不对、Anthropic 路径和头、重定向不跟随。
-- `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt 并拿到回复；自动发现：只写 `discovery`、不列模型，`omp models refresh` 跑通，`omp models <provider>` 和 `get_available_models` 都列出假服务的模型（openai 兼容和 anthropic 两种 `discovery.type`）；能力参数：写进去的四项被 omp 采用，留空的由 omp 按 id 补。
-- `test/e2e/custom-models.e2e.ts`：设置页完整流程；"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）；"能力参数"一条（模型行里设四项、非法上下文不能保存、写进文件、omp 采用、自动的格子显示 omp 补的值、换回自动后从文件里去掉、对话框不越界）；"只覆盖内置 provider"一条（卡片元信息、没有编辑按钮、设置 key 后文件里覆盖项和注释原样、`omp token anthropic` 返回这个 key、清除后不再返回）。`test/custom-models-file.test.ts` 的 `applyKey` 一组覆盖设置、环境变量去掉 `auth: none`、清除后空条目删掉、拒绝的输入。
+- `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt 并拿到回复；自动发现：只写 `discovery`、不列模型，`omp models refresh` 跑通，`omp models <provider>` 和 `get_available_models` 都列出假服务的模型（openai 兼容和 anthropic 两种 `discovery.type`）；环境变量形式的 key：大小写混合的变量名、值写进 agent 目录 `.env`，omp 读到并带着它拉到模型；能力参数：写进去的四项被 omp 采用，留空的由 omp 按 id 补。
+- `test/e2e/custom-models.e2e.ts`：设置页完整流程；"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）；"能力参数"一条（模型行里设四项、非法上下文不能保存、写进文件、omp 采用、自动的格子显示 omp 补的值、换回自动后从文件里去掉、对话框不越界）；"只覆盖内置 provider"一条（卡片元信息、没有编辑按钮、设置 key 后文件里覆盖项和注释原样、`omp token anthropic` 返回这个 key、清除后不再返回）；"环境变量形式的 key"一条（变量名 + 值，拉取用刚填的值，`models.yml` 只有变量名、`.env` 追加一行且原有行和 CRLF 不变，卡片写 `（.env）`，编辑时值框提示已在 `.env` 里，删除后那一行去掉）。`test/custom-models-file.test.ts` 的 `applyKey` 一组覆盖设置、环境变量去掉 `auth: none`、清除后空条目删掉、拒绝的输入。
 - 假服务：`test/fake-openai/server.ts`（`GET /v1/models`、`POST /v1/chat/completions` 流式和非流式）。
 
 ## 没做的

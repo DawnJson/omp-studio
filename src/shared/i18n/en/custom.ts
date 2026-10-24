@@ -16,7 +16,9 @@ export const custom = {
   discovery: "Models discovered at runtime",
   "key.none": "No key needed",
   "key.literal": "Key set",
-  "key.env": "Env var {name}",
+  "key.env.env-file": "Env var {name} (.env)",
+  "key.env.system": "Env var {name} (system)",
+  "key.env.missing": "Env var {name} (not set)",
   "key.command": "Key from command",
   override: "Overrides a built-in provider",
   "key.unset": "No key",
@@ -41,10 +43,16 @@ export const custom = {
   "form.key.none": "No key",
   "form.key.literal.placeholder": "Paste the API key",
   "form.key.env.placeholder": "Variable name, e.g. MY_API_KEY",
+  "form.key.envValue": "Variable value",
+  "form.key.envValue.placeholder": "Paste the API key; it goes into .env",
+  "form.key.envValue.keep": "Already in .env; leave empty to keep it",
+  "form.key.envSystem": "{name} is set as a system environment variable, and omp uses that value; leave this empty.",
+  "form.key.envShadowed":
+    "{name} is also a system environment variable; omp uses the system value, not the one in .env.",
   "form.key.show": "Show",
   "form.key.hide": "Hide",
   "form.key.tip":
-    "“Key” is written to models.yml in plain text (that's how omp does it, and the terminal omp can use it too). To keep it out of the file pick “Env var”; omp reads it at startup. Pick “No key” for local servers that don't need one.",
+    "“Key” is written to models.yml in plain text (that's how omp does it, and the terminal omp can use it too). With “Env var”, models.yml only gets the variable name and the key goes into the .env in the agent folder, which omp reads at startup; leave the value empty if the variable is already set in the system or in .env. Pick “No key” for local servers that don't need one.",
   "form.models": "Models",
   "form.models.fetch": "Fetch models",
   "form.models.fetched": "Fetched {count} models, {added} of them new. Tick the ones you want and save.",
@@ -87,7 +95,7 @@ export const custom = {
   saveFailed: "Couldn't save: {message}",
   "delete.title": "Delete provider “{id}”?",
   "delete.body":
-    "This only removes the provider from models.yml; everything else stays. The file as it was before is kept as models.yml.bak.",
+    "This only removes the provider from models.yml; everything else stays. The file as it was before is kept as models.yml.bak. If its key is in .env and no other provider uses it, that line is removed too (the old file is kept as .env.bak).",
   "delete.confirm": "Delete",
   "err.invalid-id":
     "The ID may only use letters, digits, dots, underscores and hyphens, must start with a letter or digit, and is at most 64 characters.",
@@ -103,6 +111,8 @@ export const custom = {
   "err.unreadable-file": "models.yml isn't valid YAML or has the wrong structure. Fix the file before saving.",
   "err.legacy-json":
     "There's an old models.json that hasn't been migrated: run omp once in a terminal, then come back.",
+  "err.unsafe-env":
+    "This variable is written in .env in a way that can't be changed one line at a time (for example a quoted value spanning lines). Edit it in .env yourself, then save again.",
   "fetchErr.invalid-url": "The Base URL isn't valid.",
   "fetchErr.invalid-key": "The key isn't valid.",
   "fetchErr.unsupported": "This API type doesn't support fetching; add the models manually.",
