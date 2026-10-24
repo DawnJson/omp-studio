@@ -508,6 +508,7 @@ export function FormField({
   error,
   children,
   testId,
+  className,
 }: {
   label: ReactNode;
   htmlFor?: string | undefined;
@@ -515,9 +516,11 @@ export function FormField({
   error?: string | null | undefined;
   children: ReactNode;
   testId?: string | undefined;
+  /** 追加的类名（只放布局，如在两栏表单里占满一行）。 */
+  className?: string | undefined;
 }) {
   return (
-    <div className="ui-form-field" data-testid={testId}>
+    <div className={className ? `ui-form-field ${className}` : "ui-form-field"} data-testid={testId}>
       <label htmlFor={htmlFor}>{label}</label>
       {children}
       {error ? (

@@ -16,11 +16,13 @@ import {
   isValidLiteralKey,
   isValidModelId,
   isValidModelName,
+  isValidTokenCount,
   isValidProviderId,
   limits,
   normalizeBaseUrl,
   type CustomKeyState,
   type CustomModelEntry,
+  type CustomModelMeta,
   type CustomModelsErrorCode,
   type CustomModelsFileInfo,
   type CustomModelsOutcome,
@@ -80,13 +82,28 @@ function keyStateOf(entry: Record<string, unknown>): CustomKeyState {
   return envLikeKey.test(key) ? { kind: "env", name: key } : { kind: "literal" };
 }
 
-function modelEntries(value: unknown): CustomModelEntry[] {
+/** 模型条目上的能力参数；没写或写的不是 omp 认的形状时为 null（界面显示"自动"，保存时这种值原样不动）。 */
+function metaOf(entry: Record<string, unknown>): CustomModelMeta {
+  const reasoning = entry["reasoning"];
+  const input = entry["input"];
+  const contextWindow = entry["contextWindow"];
+  const maxTokens = entry["maxTokens"];
+  return {
+    reasoning: typeof reasoning === "boolean" ? reasoning : null,
+    images: Array.isArray(input) ? input.includes("image") : null,
+    contextWindow: isValidTokenCount(contextWindow) ? contextWindow : null,
+    maxTokens: isValidTokenCount(maxTokens) ? maxTokens : null,
+  };
+}
+
+function modelEntries(value: unknown): (CustomModelEntry & CustomModelMeta)[] {
   if (!Array.isArray(value)) return [];
-  const out: CustomModelEntry[] = [];
+  const out: (CustomModelEntry & CustomModelMeta)[] = [];
   for (const item of value as unknown[]) {
     if (typeof item !== "object" || item === null) continue;
-    const id = str((item as Record<string, unknown>)["id"]);
-    if (id !== null) out.push({ id, name: str((item as Record<string, unknown>)["name"]) });
+    const entry = item as Record<string, unknown>;
+    const id = str(entry["id"]);
+    if (id !== null) out.push({ id, name: str(entry["name"]), ...metaOf(entry) });
   }
   return out;
 }
@@ -147,9 +164,16 @@ function validateInput(input: CustomProviderInput, mode: "add" | "edit"): Custom
   for (const model of input.models) {
     if (!isValidModelId(model.id) || seen.has(model.id)) return "invalid-models";
     if (model.name !== undefined && !isValidModelName(model.name)) return "invalid-models";
+    if (!isMetaValid(model)) return "invalid-models";
     seen.add(model.id);
   }
   return null;
+}
+
+function isMetaValid(meta: CustomModelMeta): boolean {
+  const flag = (value: unknown) => value === null || typeof value === "boolean";
+  const count = (value: unknown) => value === null || isValidTokenCount(value);
+  return flag(meta.reasoning) && flag(meta.images) && count(meta.contextWindow) && count(meta.maxTokens);
 }
 
 function eolOf(text: string): "\r\n" | "\n" {
@@ -188,6 +212,7 @@ function applyModels(doc: Document, provider: YAMLMap, input: CustomProviderInpu
   const next = input.models.map((model) => {
     const node = byId.get(model.id) ?? (doc.createNode({ id: model.id }) as YAMLMap);
     if (model.name !== undefined) node.set("name", model.name);
+    applyMeta(doc, node, model);
     return node;
   });
   if (next.length === 0) {
@@ -202,6 +227,23 @@ function applyModels(doc: Document, provider: YAMLMap, input: CustomProviderInpu
     seq.items = next;
     provider.set("models", seq);
   }
+}
+
+/** 只改和文件里现有值不同的项（`input: [ text, image ]` 这类原来的写法不被重排）；null = 去掉这一项。 */
+function applyMeta(doc: Document, node: YAMLMap, meta: CustomModelMeta): void {
+  const current = metaOf(node.toJSON() as Record<string, unknown>);
+  const put = (key: string, value: unknown) => {
+    if (value === null) node.delete(key);
+    else node.set(key, value);
+  };
+  if (meta.reasoning !== current.reasoning) put("reasoning", meta.reasoning);
+  if (meta.images !== current.images)
+    put(
+      "input",
+      meta.images === null ? null : doc.createNode(meta.images ? ["text", "image"] : ["text"], { flow: true }),
+    );
+  if (meta.contextWindow !== current.contextWindow) put("contextWindow", meta.contextWindow);
+  if (meta.maxTokens !== current.maxTokens) put("maxTokens", meta.maxTokens);
 }
 
 /** 新增（mode add）或修改（edit）一个 provider。只动 baseUrl / apiKey / auth / api / models / discovery 这几个键。 */

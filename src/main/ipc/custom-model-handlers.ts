@@ -3,7 +3,12 @@
 import { existsSync } from "node:fs";
 import { net, shell } from "electron";
 import path from "node:path";
-import type { CustomKeyInput, CustomProviderInput, FetchModelsOutcome } from "../../shared/custom-models.ts";
+import {
+  limits,
+  type CustomKeyInput,
+  type CustomProviderInput,
+  type FetchModelsOutcome,
+} from "../../shared/custom-models.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
 import { log } from "../log/log.ts";
@@ -17,7 +22,7 @@ import {
 import { getApiKeyEnv, readyOmp } from "../omp-manager/index.ts";
 import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
 import { requireSuccess, runOmpCommand } from "../usage/usage-service.ts";
-import { IpcValidationError, parseBoolean, parseOneOf, parseRecord, parseString } from "./validate.ts";
+import { IpcValidationError, parseBoolean, parseInteger, parseOneOf, parseRecord, parseString } from "./validate.ts";
 
 /** `omp models refresh` 要联网拉各 provider 的目录，慢的会要几十秒。 */
 const REFRESH_TIMEOUT_MS = 120_000;
@@ -28,6 +33,14 @@ function parseKey(value: unknown): CustomKeyInput {
   if (kind === "literal") return { kind, value: parseString(record["value"], "key.value", 4096, { allowEmpty: true }) };
   if (kind === "env") return { kind, name: parseString(record["name"], "key.name", 128, { allowEmpty: true }) };
   return { kind };
+}
+
+function nullable<T>(value: unknown, name: string, parse: (value: unknown, name: string) => T): T | null {
+  return value === null ? null : parse(value, name);
+}
+
+function parseTokens(value: unknown, name: string): number {
+  return parseInteger(value, name, 1, limits.tokens);
 }
 
 /** 只校验形状（类型、长度）；内容规则（id 字符集、URL 协议……）在 models-file.ts，不合格返回 {ok:false, code}。 */
@@ -46,6 +59,10 @@ function parseInput(value: unknown): CustomProviderInput {
       return {
         id: parseString(model["id"], "model.id", 1000, { allowEmpty: true }),
         ...(name !== undefined && { name: parseString(name, "model.name", 1000, { allowEmpty: true }) }),
+        reasoning: nullable(model["reasoning"], "model.reasoning", parseBoolean),
+        images: nullable(model["images"], "model.images", parseBoolean),
+        contextWindow: nullable(model["contextWindow"], "model.contextWindow", parseTokens),
+        maxTokens: nullable(model["maxTokens"], "model.maxTokens", parseTokens),
       };
     }),
     ...(record["discovery"] !== undefined && { discovery: parseBoolean(record["discovery"], "discovery") }),

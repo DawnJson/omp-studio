@@ -43,6 +43,8 @@ export const limits = {
   models: 500,
   key: 4096,
   envName: 128,
+  /** contextWindow / maxTokens 的上限（token）。omp 没有上限，这里只挡明显输错的数。 */
+  tokens: 100_000_000,
 } as const;
 
 export type CustomKeyState =
@@ -57,13 +59,26 @@ export interface CustomModelEntry {
   name: string | null;
 }
 
+/**
+ * 模型条目上的能力参数（models.yml 的 `reasoning`、`input`、`contextWindow`、`maxTokens`，omp://models.md）。
+ * null = 文件里没写：omp 按模型 id 从它的内置目录补，目录里没有就用默认（不思考、只收文字、上下文 128000、输出 16384；
+ * omp 18.12.6 实测）。
+ */
+export interface CustomModelMeta {
+  reasoning: boolean | null;
+  /** `input` 里有没有 `image`。 */
+  images: boolean | null;
+  contextWindow: number | null;
+  maxTokens: number | null;
+}
+
 /** 从 `models.yml` 读出来的一个 provider。**不含 key 的内容**。 */
 export interface CustomProviderInfo {
   id: string;
   baseUrl: string | null;
   api: string | null;
   key: CustomKeyState;
-  models: CustomModelEntry[];
+  models: (CustomModelEntry & CustomModelMeta)[];
   /** 配了 `discovery`：模型由 omp 运行时发现，列表可以为空。 */
   discovery: boolean;
 }
@@ -84,8 +99,8 @@ export interface CustomProviderInput {
   baseUrl: string;
   api: string;
   key: CustomKeyInput;
-  /** name 缺省 = 不动现有的名字。 */
-  models: { id: string; name?: string }[];
+  /** name 缺省 = 不动现有的名字；能力参数和文件里现有的值一样时不动（保留原来的写法），null = 去掉这一项。 */
+  models: ({ id: string; name?: string } & CustomModelMeta)[];
   /**
    * 自动发现模型（`providers.<id>.discovery`）：true = 没有就按 api 写默认的 `{type}`，已有的（含类型、timeoutMs 等）原样保留；
    * false = 去掉 `discovery`；缺省 = 不动。
@@ -179,4 +194,24 @@ export function isValidModelId(id: string): boolean {
 
 export function isValidModelName(name: string): boolean {
   return name.trim() === name && name.length > 0 && name.length <= limits.modelName && !controlPattern.test(name);
+}
+
+export function isValidTokenCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 && value <= limits.tokens;
+}
+
+/**
+ * 界面里输入的 token 数：`272000`、`272,000`、`272k`、`1.05m`（不分大小写）。
+ * 空 = null（交给 omp）；写不成合法 token 数的返回 undefined。
+ */
+export function parseTokenCount(text: string): number | null | undefined {
+  const compact = text.replace(/[\s,_]/g, "");
+  if (compact === "") return null;
+  const match = /^(\d+(?:\.\d+)?)([km])?$/i.exec(compact);
+  if (match === null) return undefined;
+  const unit = match[2]?.toLowerCase();
+  const number = Number(match[1]);
+  // 带 k/m 时取整（1.1k 浮点乘出来是 1100.0000000000002）；不带单位的小数不是合法 token 数。
+  const value = unit === undefined ? number : Math.round(number * (unit === "m" ? 1_000_000 : 1_000));
+  return isValidTokenCount(value) ? value : undefined;
 }

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { CustomProviderInput } from "../src/shared/custom-models.ts";
+import { parseTokenCount, type CustomModelMeta, type CustomProviderInput } from "../src/shared/custom-models.ts";
 import {
   applyProvider,
   deleteCustomProvider,
@@ -13,12 +13,25 @@ import {
   saveCustomProvider,
 } from "../src/main/omp-config/models-file.ts";
 
+/** 输入里的一个模型：能力参数默认全是"自动"（null）。 */
+const model = (id: string, over: Partial<CustomModelMeta> & { name?: string } = {}) => ({
+  id,
+  reasoning: null,
+  images: null,
+  contextWindow: null,
+  maxTokens: null,
+  ...over,
+});
+const auto = { reasoning: null, images: null, contextWindow: null, maxTokens: null };
+/** existing 里的 keep-me：界面编辑时带着文件里的 contextWindow 回来。 */
+const keepMe = model("keep-me", { contextWindow: 32000 });
+
 const input = (over: Partial<CustomProviderInput> = {}): CustomProviderInput => ({
   id: "my-proxy",
   baseUrl: "https://api.example.com/v1/",
   api: "openai-completions",
   key: { kind: "literal", value: "sk-secret-123" },
-  models: [{ id: "gpt-x" }, { id: "gpt-y", name: "GPT Y" }],
+  models: [model("gpt-x"), model("gpt-y", { name: "GPT Y" })],
   ...over,
 });
 
@@ -59,8 +72,8 @@ describe("models.yml 编辑（纯文本）", () => {
         api: "openai-completions",
         key: { kind: "literal" },
         models: [
-          { id: "gpt-x", name: null },
-          { id: "gpt-y", name: "GPT Y" },
+          { id: "gpt-x", name: null, ...auto },
+          { id: "gpt-y", name: "GPT Y", ...auto },
         ],
         discovery: false,
       },
@@ -86,7 +99,7 @@ describe("models.yml 编辑（纯文本）", () => {
         id: "other",
         baseUrl: "http://localhost:9999/v1",
         key: { kind: "keep" },
-        models: [{ id: "new-one" }, { id: "keep-me" }],
+        models: [model("new-one"), keepMe],
       }),
       "edit",
     );
@@ -103,7 +116,7 @@ describe("models.yml 编辑（纯文本）", () => {
   it("key：env 写变量名并去掉 auth: none；none 删 apiKey 并写 auth: none；keep 不动", () => {
     const withEnv = applied(
       existing,
-      input({ id: "other", key: { kind: "env", name: "MY_PROXY_KEY" }, models: [{ id: "keep-me" }] }),
+      input({ id: "other", key: { kind: "env", name: "MY_PROXY_KEY" }, models: [keepMe] }),
       "edit",
     );
     const other = parseProviders(withEnv);
@@ -113,11 +126,11 @@ describe("models.yml 编辑（纯文本）", () => {
     });
     expect(withEnv).not.toContain("auth: none");
 
-    const none = applied(withEnv, input({ id: "other", key: { kind: "none" }, models: [{ id: "keep-me" }] }), "edit");
+    const none = applied(withEnv, input({ id: "other", key: { kind: "none" }, models: [keepMe] }), "edit");
     expect(none).toContain("auth: none");
     expect(none).not.toContain("MY_PROXY_KEY");
 
-    const kept = applied(existing, input({ id: "openai", key: { kind: "keep" }, models: [{ id: "m" }] }), "edit");
+    const kept = applied(existing, input({ id: "openai", key: { kind: "keep" }, models: [model("m")] }), "edit");
     expect(kept).toContain("apiKey: OPENAI_API_KEY");
   });
 
@@ -154,7 +167,7 @@ describe("models.yml 编辑（纯文本）", () => {
     );
     const kept = applied(
       custom,
-      input({ id: "other", key: { kind: "keep" }, models: [{ id: "keep-me" }], discovery: true }),
+      input({ id: "other", key: { kind: "keep" }, models: [keepMe], discovery: true }),
       "edit",
     );
     expect(kept).toContain("type: lm-studio # 本地");
@@ -162,7 +175,7 @@ describe("models.yml 编辑（纯文本）", () => {
 
     const off = applied(
       custom,
-      input({ id: "other", key: { kind: "keep" }, models: [{ id: "keep-me" }], discovery: false }),
+      input({ id: "other", key: { kind: "keep" }, models: [keepMe], discovery: false }),
       "edit",
     );
     expect(off).not.toContain("discovery:");
@@ -177,8 +190,90 @@ describe("models.yml 编辑（纯文本）", () => {
 
   it("自动发现：没有通用发现方式的接口类型不能新写（invalid-api）", () => {
     expect(
-      applyProvider(null, input({ api: "google-generative-ai", models: [{ id: "g" }], discovery: true }), "add"),
+      applyProvider(null, input({ api: "google-generative-ai", models: [model("g")], discovery: true }), "add"),
     ).toEqual({ ok: false, code: "invalid-api" });
+  });
+
+  it("能力参数：写 reasoning / input / contextWindow / maxTokens，读回来一样；omp 认的 input 写成行内列表", () => {
+    const text = applied(
+      null,
+      input({
+        models: [
+          model("relay-gpt", { reasoning: true, images: true, contextWindow: 272000, maxTokens: 32000 }),
+          model("plain", { reasoning: false, images: false }),
+        ],
+      }),
+    );
+    expect(text).toContain("input: [ text, image ]");
+    expect(text).toContain("input: [ text ]");
+    const parsed = parseProviders(text);
+    expect(parsed.ok && parsed.providers[0]?.models).toEqual([
+      { id: "relay-gpt", name: null, reasoning: true, images: true, contextWindow: 272000, maxTokens: 32000 },
+      { id: "plain", name: null, reasoning: false, images: false, contextWindow: null, maxTokens: null },
+    ]);
+  });
+
+  it("能力参数：和文件里一样的项原样不动（写法、注释），改了的才改，null 去掉这一项", () => {
+    const file = existing.replace(
+      "        contextWindow: 32000 # custom window",
+      "        contextWindow: 32000 # custom window\n        reasoning: true\n        input:\n          - text\n          - image # 看图",
+    );
+    const same = applied(
+      file,
+      input({
+        id: "other",
+        key: { kind: "keep" },
+        models: [model("keep-me", { reasoning: true, images: true, contextWindow: 32000 })],
+      }),
+      "edit",
+    );
+    expect(same).toContain("- image # 看图");
+    expect(same).toContain("contextWindow: 32000 # custom window");
+
+    const changed = applied(
+      file,
+      input({
+        id: "other",
+        key: { kind: "keep" },
+        models: [model("keep-me", { reasoning: null, images: true, contextWindow: 64000 })],
+      }),
+      "edit",
+    );
+    expect(changed).toContain("- image # 看图");
+    expect(changed).toContain("contextWindow: 64000");
+    expect(changed).not.toContain("reasoning:");
+
+    const removed = applied(file, input({ id: "other", key: { kind: "keep" }, models: [model("keep-me")] }), "edit");
+    expect(removed).not.toContain("contextWindow");
+    expect(removed).not.toContain("input:");
+    expect(removed).toContain("name: Old Name");
+  });
+
+  it("能力参数：文件里写的不是 omp 认的形状时读成自动，保存时不动它", () => {
+    const odd = existing.replace("contextWindow: 32000 # custom window", "contextWindow: big # 手写的");
+    const parsed = parseProviders(odd);
+    expect(parsed.ok && parsed.providers.find((p) => p.id === "other")?.models[0]).toMatchObject({
+      contextWindow: null,
+    });
+    const text = applied(odd, input({ id: "other", key: { kind: "keep" }, models: [model("keep-me")] }), "edit");
+    expect(text).toContain("contextWindow: big # 手写的");
+  });
+
+  it.each([
+    ["272000", 272000],
+    ["272,000", 272000],
+    ["272k", 272000],
+    ["1.05M", 1050000],
+    ["1.1k", 1100],
+    ["  ", null],
+    ["", null],
+    ["0", undefined],
+    ["272.5", undefined],
+    ["-5", undefined],
+    ["abc", undefined],
+    ["200m", undefined],
+  ] as const)("token 数输入 %j → %j", (text, expected) => {
+    expect(parseTokenCount(text)).toBe(expected);
   });
 
   it("删除只去掉这个条目", () => {
@@ -232,9 +327,12 @@ describe("models.yml 编辑（纯文本）", () => {
     ["key 含换行", { key: { kind: "literal", value: "a\nb" } }, "invalid-key"],
     ["env 名非法", { key: { kind: "env", name: "1BAD" } }, "invalid-key"],
     ["新增时 keep", { key: { kind: "keep" } }, "invalid-key"],
-    ["模型 id 为空", { models: [{ id: "" }] }, "invalid-models"],
-    ["模型 id 重复", { models: [{ id: "a" }, { id: "a" }] }, "invalid-models"],
-    ["模型名带控制字符", { models: [{ id: "a", name: "x\ty" }] }, "invalid-models"],
+    ["模型 id 为空", { models: [model("")] }, "invalid-models"],
+    ["模型 id 重复", { models: [model("a"), model("a")] }, "invalid-models"],
+    ["模型名带控制字符", { models: [model("a", { name: "x\ty" })] }, "invalid-models"],
+    ["上下文为 0", { models: [model("a", { contextWindow: 0 })] }, "invalid-models"],
+    ["上下文是小数", { models: [model("a", { contextWindow: 1.5 })] }, "invalid-models"],
+    ["最大输出超上限", { models: [model("a", { maxTokens: 100_000_001 })] }, "invalid-models"],
     ["没有模型", { models: [] }, "needs-model"],
   ] as [string, Partial<CustomProviderInput>, string][])("拒绝：%s", (_name, over, code) => {
     expect(applyProvider(null, input(over), "add")).toEqual({ ok: false, code });
@@ -275,10 +373,10 @@ describe("models.yml 文件读写", () => {
     const first = await readFile(file, "utf8");
 
     expect(
-      await saveCustomProvider(agentDir, input({ key: { kind: "keep" }, models: [{ id: "only" }] }), "edit"),
+      await saveCustomProvider(agentDir, input({ key: { kind: "keep" }, models: [model("only")] }), "edit"),
     ).toEqual({ ok: true });
     expect(await readFile(`${file}.bak`, "utf8")).toBe(first);
-    expect((await readModelsFile(agentDir)).providers[0]?.models).toEqual([{ id: "only", name: null }]);
+    expect((await readModelsFile(agentDir)).providers[0]?.models).toEqual([{ id: "only", name: null, ...auto }]);
 
     expect(await deleteCustomProvider(agentDir, "my-proxy")).toEqual({ ok: true });
     expect((await readModelsFile(agentDir)).providers).toEqual([]);

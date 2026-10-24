@@ -5,7 +5,9 @@ import {
   defaultDiscoveryType,
   formApis,
   isFetchableApi,
+  parseTokenCount,
   type CustomKeyInput,
+  type CustomModelMeta,
   type CustomProviderInfo,
   type CustomProviderInput,
 } from "../../../../shared/custom-models.ts";
@@ -15,6 +17,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Button, FormField, Notice, Segmented, Switch, TextField, type Option } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
 import { Select } from "../../ui/Select.tsx";
+import { useAccountLoad } from "./accounts-store.ts";
 import { CustomModelList, type FetchNotice, type ModelRow } from "./CustomModelList.tsx";
 import "./custom-providers.css";
 
@@ -37,6 +40,11 @@ function initialKeyMode(provider: CustomProviderInfo | undefined): KeyMode {
   return provider.key.kind === "env" ? "env" : "keep";
 }
 
+const tokenText = (value: number | null) => (value === null ? "" : String(value));
+
+/** omp 不知道这一项（新模型、还没加载、文件里写了值）时的提示：全 null。 */
+const noHint: CustomModelMeta = { reasoning: null, images: null, contextWindow: null, maxTokens: null };
+
 interface CustomProviderFormProps {
   mode: "add" | "edit";
   provider?: CustomProviderInfo;
@@ -57,13 +65,42 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   const [keyText, setKeyText] = useState(envName);
   const [showKey, setShowKey] = useState(false);
   const [rows, setRows] = useState<ModelRow[]>(
-    () => provider?.models.map((model) => ({ id: model.id, checked: true })) ?? [],
+    () =>
+      provider?.models.map((model) => ({
+        id: model.id,
+        checked: true,
+        reasoning: model.reasoning,
+        images: model.images,
+        contextWindow: tokenText(model.contextWindow),
+        maxTokens: tokenText(model.maxTokens),
+      })) ?? [],
   );
   const [notice, setNotice] = useState<FetchNotice | null>(null);
   const [fetching, setFetching] = useState(false);
   const [discovery, setDiscovery] = useState(provider?.discovery ?? false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // "自动"后面显示 omp 现在用的值：只对已保存、文件里没写这一项的模型（写了的话 omp 的值就是文件里的值，换回自动后不再适用）。
+  const accounts = useAccountLoad();
+  const loaded = new Map(
+    accounts.kind === "ready" && provider !== undefined
+      ? accounts.data.models
+          .filter((model) => model.key.provider === provider.id)
+          .map((model) => [model.key.modelId, model] as const)
+      : [],
+  );
+  const hintOf = (modelId: string): CustomModelMeta => {
+    const live = loaded.get(modelId);
+    const file = provider?.models.find((model) => model.id === modelId);
+    if (live === undefined || file === undefined) return noHint;
+    return {
+      reasoning: file.reasoning === null ? live.reasoning : null,
+      images: file.images === null ? live.acceptsImages : null,
+      contextWindow: file.contextWindow === null ? live.contextWindow : null,
+      maxTokens: file.maxTokens === null ? live.maxTokens : null,
+    };
+  };
 
   const keyInput = (): CustomKeyInput => {
     if (keyMode === "literal") return { kind: "literal", value: keyText };
@@ -83,13 +120,21 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   const apiOptions: Option<string>[] = formApis.map((value) => ({ value, label: apiLabels[value] ?? value }));
   if (!apiOptions.some((option) => option.value === api)) apiOptions.push({ value: api, label: api });
 
-  const selectedCount = rows.filter((row) => row.checked).length;
+  const checkedRows = rows.filter((row) => row.checked);
+  const selectedCount = checkedRows.length;
+  const countsValid = checkedRows.every(
+    (row) => parseTokenCount(row.contextWindow) !== undefined && parseTokenCount(row.maxTokens) !== undefined,
+  );
   const keyReady = (keyMode !== "literal" && keyMode !== "env") || keyText.trim() !== "";
   // 接口类型改成没有通用发现方式的：开关停用，开着也不写；条目里本来就有 discovery 的照旧能保存（原样保留）。
   const discoverySupported = defaultDiscoveryType(api) !== null || provider?.discovery === true;
   const discoveryOn = discovery && discoverySupported;
   const canSave =
-    (mode === "edit" || id.trim() !== "") && baseUrl.trim() !== "" && keyReady && (selectedCount > 0 || discoveryOn);
+    (mode === "edit" || id.trim() !== "") &&
+    baseUrl.trim() !== "" &&
+    keyReady &&
+    countsValid &&
+    (selectedCount > 0 || discoveryOn);
 
   const fetchModels = async () => {
     setFetching(true);
@@ -109,7 +154,15 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
       const added = outcome.models.filter((model) => !known.has(model.id));
       setRows((current) => [
         ...current,
-        ...added.map((model) => ({ id: model.id, ...(model.name !== null && { name: model.name }), checked: false })),
+        ...added.map((model) => ({
+          id: model.id,
+          ...(model.name !== null && { name: model.name }),
+          checked: false,
+          reasoning: null,
+          images: null,
+          contextWindow: "",
+          maxTokens: "",
+        })),
       ]);
       setNotice({
         tone: "ok",
@@ -130,9 +183,14 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
       baseUrl,
       api,
       key: keyInput(),
-      models: rows
-        .filter((row) => row.checked)
-        .map((row) => ({ id: row.id, ...(row.name !== undefined && { name: row.name }) })),
+      models: checkedRows.map((row) => ({
+        id: row.id,
+        ...(row.name !== undefined && { name: row.name }),
+        reasoning: row.reasoning,
+        images: row.images,
+        contextWindow: parseTokenCount(row.contextWindow) ?? null,
+        maxTokens: parseTokenCount(row.maxTokens) ?? null,
+      })),
       discovery: discoveryOn,
     };
     try {
@@ -153,6 +211,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
       onExited={onClose}
       title={mode === "add" ? t("custom.form.title.add") : t("custom.form.title.edit", { id: provider?.id ?? "" })}
       testId="custom-provider-form"
+      className="cp-dialog"
       footer={
         <>
           <Button onClick={() => setOpen(false)} testId="custom-cancel">
@@ -191,6 +250,16 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
             onChange={setId}
           />
         </FormField>
+        <FormField label={t("custom.form.api")}>
+          <Select
+            value={api}
+            options={apiOptions}
+            label={t("custom.form.api")}
+            width="100%"
+            onChange={setApi}
+            testId="custom-api"
+          />
+        </FormField>
         <FormField label={t("custom.form.baseUrl")} htmlFor={`${uid}-url`}>
           <TextField
             id={`${uid}-url`}
@@ -201,16 +270,6 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
             placeholder={t("custom.form.baseUrl.placeholder")}
             testId="custom-base-url"
             onChange={setBaseUrl}
-          />
-        </FormField>
-        <FormField label={t("custom.form.api")}>
-          <Select
-            value={api}
-            options={apiOptions}
-            label={t("custom.form.api")}
-            width="100%"
-            onChange={setApi}
-            testId="custom-api"
           />
         </FormField>
         <FormField label={t("custom.form.key")} help={t("custom.form.key.tip")}>
@@ -252,7 +311,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
             />
           )}
         </FormField>
-        <FormField label={t("custom.form.discovery")} help={t("custom.form.discovery.tip")}>
+        <FormField className="cp-wide" label={t("custom.form.discovery")} help={t("custom.form.discovery.tip")}>
           <Switch
             checked={discoveryOn}
             disabled={!discoverySupported}
@@ -262,10 +321,11 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
           />
           {!discoverySupported && <p className="cp-text">{t("custom.form.discovery.unsupported")}</p>}
         </FormField>
-        <FormField label={t("custom.form.models")}>
+        <FormField className="cp-wide" label={t("custom.form.models")} help={t("custom.form.models.tip")}>
           <CustomModelList
             rows={rows}
             onRows={setRows}
+            hintOf={hintOf}
             notice={notice}
             onNotice={setNotice}
             fetching={fetching}

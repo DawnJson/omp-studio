@@ -7,10 +7,22 @@
   color: var(--text-3);
 }
 
+/* 对话框用 xl 宽：模型表要放下 id + 四列能力参数。 */
+.cp-dialog {
+  --dialog-w: var(--dialog-w-xl);
+}
+
+/* 连接信息两栏（ID | 接口类型、Base URL | key），窄到放不下两栏 320 时变一栏；开关、模型、错误占满一行。 */
 .cp-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-4) var(--space-6);
+  align-items: start;
+}
+
+.cp-wide,
+.cp-form > .ui-notice {
+  grid-column: 1 / -1;
 }
 
 .cp-models {
@@ -31,21 +43,58 @@
   color: var(--text-3);
 }
 
-.cp-model-list {
+/*
+ * 模型表：模型 id | 思考 | 图片输入 | 上下文窗口 | 最大输出。每行是 subgrid，四列控件上下对齐；
+ * 没勾选的模型只有勾选框和 id（拉取来的几百个模型不用每行都放控件）。
+ */
+.cp-model-table {
   display: grid;
-  max-height: 220px;
+  grid-template-columns: minmax(0, 1fr) repeat(2, 128px) repeat(2, 120px);
+  column-gap: var(--space-2);
+  align-content: start;
+  max-height: 360px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
 
-.cp-model-list .ui-choice {
-  min-width: 0;
-  padding: var(--space-1) var(--space-2);
+.cp-model-head,
+.cp-model-row {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-items: center;
+  padding: 0 var(--space-2);
 }
 
-.cp-model-list .ui-choice:hover {
+.cp-model-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: 28px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  background: var(--bg-overlay);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.cp-model-head > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cp-model-row {
+  min-height: 36px;
+}
+
+.cp-model-row:hover {
   background: var(--bg-hover);
+}
+
+.cp-model-row .ui-choice {
+  min-width: 0;
+  padding: var(--space-1) 0;
 }
 
 .cp-model-id {

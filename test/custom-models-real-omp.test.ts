@@ -60,6 +60,9 @@ async function listModelIds(omp: string, provider: string): Promise<string[]> {
   }
 }
 
+/** 能力参数全部交给 omp 的模型。 */
+const auto = (id: string) => ({ id, reasoning: null, images: null, contextWindow: null, maxTokens: null });
+
 describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
   it("写入 models.yml 后新进程能列出模型；任务能发 prompt 并拿到假服务的回复", async () => {
     const omp = await findOmpOnPath();
@@ -68,9 +71,9 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
 
     expect(await listModelIds(omp, "fake-literal")).toEqual([]);
     for (const [id, base, key, models] of [
-      ["fake-literal", keyed.baseUrl, { kind: "literal", value: SECRET }, [{ id: "fake-chat" }, { id: "fake-mini" }]],
-      ["fake-env", keyed.baseUrl, { kind: "env", name: "FAKE_PROXY_KEY" }, [{ id: "fake-chat" }]],
-      ["fake-none", keyless.baseUrl, { kind: "none" }, [{ id: "local-one" }]],
+      ["fake-literal", keyed.baseUrl, { kind: "literal", value: SECRET }, [auto("fake-chat"), auto("fake-mini")]],
+      ["fake-env", keyed.baseUrl, { kind: "env", name: "FAKE_PROXY_KEY" }, [auto("fake-chat")]],
+      ["fake-none", keyless.baseUrl, { kind: "none" }, [auto("local-one")]],
     ] as const) {
       const outcome = await saveCustomProvider(
         agentDir,
@@ -100,7 +103,7 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
           baseUrl: keyless.baseUrl,
           api: "openai-completions",
           key: { kind: "none" },
-          models: [{ id: "late" }],
+          models: [auto("late")],
         },
         "add",
       );
@@ -227,5 +230,49 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
     );
     expect(anthropic).toEqual({ ok: true });
     expect(await listModelIds(omp, "fake-disco-anthropic")).toEqual(["local-one"]);
+  }, 120_000);
+
+  it("能力参数：写进 models.yml 的 reasoning / input / contextWindow / maxTokens 被 omp 采用；留空的由 omp 按 id 补", async () => {
+    const omp = await findOmpOnPath();
+    if (!omp) throw new Error("omp is not on PATH");
+    await mkdir(scratch, { recursive: true });
+    const outcome = await saveCustomProvider(
+      agentDir,
+      {
+        id: "fake-meta",
+        baseUrl: keyless.baseUrl,
+        api: "openai-completions",
+        key: { kind: "none" },
+        models: [
+          { id: "house-model", reasoning: true, images: true, contextWindow: 272000, maxTokens: 32000 },
+          auto("house-plain"),
+          auto("gpt-5.5"),
+        ],
+      },
+      "add",
+    );
+    expect(outcome).toEqual({ ok: true });
+    const run = runOmpCommand(omp, scratch, 90_000, { PI_CODING_AGENT_DIR: agentDir });
+    const listed = await run(["models", "fake-meta", "--json"]);
+    requireSuccess("omp models --json", listed);
+    const parsed = JSON.parse(listed.stdout) as {
+      models: { id: string; reasoning: boolean; input: string[]; contextWindow: number; maxTokens: number }[];
+    };
+    const rows = parsed.models.map(({ id, reasoning, input, contextWindow, maxTokens }) => ({
+      id,
+      reasoning,
+      input,
+      contextWindow,
+      maxTokens,
+    }));
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { id: "house-model", reasoning: true, input: ["text", "image"], contextWindow: 272000, maxTokens: 32000 },
+        // omp 目录里没有的 id：omp 的默认（18.12.6 实测）。
+        { id: "house-plain", reasoning: false, input: ["text"], contextWindow: 128000, maxTokens: 16384 },
+        // 目录里有的 id：按目录补，界面"自动"后面显示的就是这个值。
+        expect.objectContaining({ id: "gpt-5.5", reasoning: true, input: ["text", "image"] }),
+      ]),
+    );
   }, 120_000);
 });

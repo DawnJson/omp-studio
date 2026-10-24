@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { startFakeOpenAi } from "../fake-openai/server.ts";
-import { launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { expectNoOverflow, launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 const SECRET = "sk-fake-e2e-secret";
 
@@ -171,6 +171,100 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await launched.close();
     await fake.close();
     await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
+test("自定义提供商：模型行里设思考、图片输入、上下文窗口、最大输出 → 写进 models.yml、omp 采用；自动的格子显示 omp 补的值", async () => {
+  const fake = await startFakeOpenAi({ models: ["house-model", "house-plain"] });
+  const { launched, agentDir } = await launchSettings();
+  const file = path.join(agentDir, "models.yml");
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("custom-add").click();
+    await page.getByTestId("custom-id").fill("meta-proxy");
+    await page.getByTestId("custom-base-url").fill(fake.baseUrl);
+    await page.getByTestId("custom-key-mode-none").click();
+    await page.getByTestId("custom-fetch").click();
+    // 没勾选的模型行里没有参数控件；勾上才出现。
+    await expect(page.getByTestId("custom-model-house-model")).toBeVisible();
+    await expect(page.getByTestId("custom-model-contextWindow-house-model")).toHaveCount(0);
+    await page.getByTestId("custom-model-house-model").check();
+    await page.getByTestId("custom-model-house-plain").check();
+
+    for (const column of ["reasoning", "images"]) {
+      await page.getByTestId(`custom-model-${column}-house-model`).click();
+      await page
+        .getByTestId(`custom-model-${column}-house-model-list`)
+        .getByRole("option", { name: "支持", exact: true })
+        .click();
+    }
+    const context = page.getByTestId("custom-model-contextWindow-house-model");
+    // 写不成 token 数的不能保存。
+    await context.fill("很大");
+    await expect(context).toHaveAttribute("aria-invalid", "true");
+    await expect(page.getByTestId("custom-save")).toBeDisabled();
+    await context.fill("272k");
+    await page.getByTestId("custom-model-maxTokens-house-model").fill("32,000");
+    await page.getByTestId("custom-save").click();
+    await expect(page.getByTestId("custom-provider-form")).toHaveCount(0);
+
+    const written = await readFile(file, "utf8");
+    expect(written).toContain("reasoning: true");
+    expect(written).toContain("input: [ text, image ]");
+    expect(written).toContain("contextWindow: 272000");
+    expect(written).toContain("maxTokens: 32000");
+    // 全是"自动"的模型只写 id。
+    expect(written).toMatch(/- id: house-plain\s*$/);
+
+    // omp 采用了写进去的值；house-plain 用 omp 的默认。
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() =>
+            globalThis.studio
+              .listModels()
+              .then((models) =>
+                models
+                  .filter((model) => model.key.provider === "meta-proxy")
+                  .map((model) => [
+                    model.key.modelId,
+                    model.reasoning,
+                    model.acceptsImages,
+                    model.contextWindow,
+                    model.maxTokens,
+                  ]),
+              ),
+          ),
+        { timeout: 30_000 },
+      )
+      .toEqual([
+        ["house-model", true, true, 272000, 32000],
+        ["house-plain", false, false, 128000, 16384],
+      ]);
+
+    // 再打开：写过的显示原值；自动的格子后面是 omp 现在用的值。
+    await page.getByTestId("custom-edit-meta-proxy").click();
+    await expect(page.getByTestId("custom-model-contextWindow-house-model")).toHaveValue("272000");
+    await expect(page.getByTestId("custom-model-reasoning-house-model")).toContainText("支持");
+    await expect(page.getByTestId("custom-model-contextWindow-house-plain")).toHaveAttribute(
+      "placeholder",
+      "自动 · 128K",
+    );
+    await expect(page.getByTestId("custom-model-reasoning-house-plain")).toContainText("自动 · 不支持");
+    await expectNoOverflow(page.getByTestId("custom-provider-form"));
+
+    // 换回自动 → 这一项从文件里去掉。
+    await page.getByTestId("custom-model-contextWindow-house-model").fill("");
+    await page.getByTestId("custom-save").click();
+    await expect(page.getByTestId("custom-provider-form")).toHaveCount(0);
+    const cleared = await readFile(file, "utf8");
+    expect(cleared).not.toContain("contextWindow");
+    expect(cleared).toContain("maxTokens: 32000");
+  } finally {
+    await launched.close();
+    await fake.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 

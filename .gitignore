@@ -15,6 +15,9 @@ release/
 # e2e 失败时 Playwright 写的现场（error-context.md 等）
 test-results/
 
+# 界面截图（给仓库所有者核对，看完再删）
+screenshots/
+
 # omp 的 exe 不进 git
 *.exe
 *.exe.old-*

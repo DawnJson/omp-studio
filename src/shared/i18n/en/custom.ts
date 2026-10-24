@@ -44,6 +44,18 @@ export const custom = {
   "form.models.selected": "{selected} of {total} selected",
   "form.models.empty": "No models yet: fetch them, or add one manually.",
   "form.models.duplicate": "That model is already in the list",
+  "form.models.tip":
+    "Auto (or an empty number) leaves the value out of models.yml: omp looks the model id up in its built-in catalog, and uses its defaults when the id isn't there (no thinking, text only, 128K context, 16K output). Numbers accept 272k or 1m. These only set omp's own budget; the server's limits don't change.",
+  "form.meta.model": "Model",
+  "form.meta.reasoning": "Thinking",
+  "form.meta.images": "Image input",
+  "form.meta.contextWindow": "Context window",
+  "form.meta.maxTokens": "Max output",
+  "form.meta.auto": "Auto",
+  "form.meta.autoIs": "Auto · {value}",
+  "form.meta.yes": "Yes",
+  "form.meta.no": "No",
+  "form.meta.cell": "{column}: {model}",
   "form.title.add": "Add a custom provider",
   "form.discovery": "Discover models automatically",
   "form.discovery.tip":
@@ -71,7 +83,8 @@ export const custom = {
   "err.invalid-api": "Unknown API type.",
   "err.invalid-key":
     "The key isn't valid: it can't be empty, can't contain line breaks, and can't start with ! (omp's “key from command” syntax).",
-  "err.invalid-models": "Model ids can't be empty, duplicated, or have leading/trailing spaces or control characters.",
+  "err.invalid-models":
+    "Model ids can't be empty, duplicated, or have leading/trailing spaces or control characters; context window and max output must be whole numbers above 0.",
   "err.needs-model": "Add at least one model, or turn on “Discover models automatically”.",
   "err.exists": "A provider with this ID already exists.",
   "err.not-found": "models.yml no longer has this provider; it may have been changed in the terminal.",

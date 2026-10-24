@@ -18,10 +18,10 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 
 ## 怎么改
 
-用 `yaml` 的 Document API，只动 `providers.<id>` 里的 `baseUrl`、`apiKey`/`auth`、`api`、`models`、`discovery`（整体增删，见「自动发现模型」）：
+用 `yaml` 的 Document API，只动 `providers.<id>` 里的 `baseUrl`、`apiKey`/`auth`、`api`、`models`、`discovery`（整体增删，见「自动发现模型」），以及每个模型的 `reasoning`、`input`、`contextWindow`、`maxTokens`（见「模型的能力参数」）：
 
-- 注释、别的 provider、别的根键、条目里不认识的字段（`headers`、`compat`、`discovery`、模型的 `contextWindow`/`cost`……）原样保留。
-- 模型按 `id` 复用原来的节点（所以模型上的 `contextWindow` 和行内注释不丢），按界面顺序重排，取消勾选的从列表里去掉。新增的模型只写 `id`（拉取到 `display_name` 时再写 `name`）；`contextWindow`/`maxTokens` 不写，由 omp 按默认值或内置参考行补（`omp://models.md`）。
+- 注释、别的 provider、别的根键、条目里不认识的字段（`headers`、`compat`、模型的 `cost`、`thinking`……）原样保留。
+- 模型按 `id` 复用原来的节点（所以模型上的其它字段和行内注释不丢），按界面顺序重排，取消勾选的从列表里去掉。新增的模型写 `id`（拉取到 `display_name` 时再写 `name`），再加上界面里不是“自动”的能力参数。
 - CRLF 文件保持 CRLF；UTF-8 BOM 读入时去掉。
 - 原子写（`writeFileAtomic`）；每次写之前把旧内容复制成 `models.yml.bak`（只留最近一份）；同一进程里的写入串行（读-改-写不被另一次插入）。终端里的 omp 同时写同一个文件时仍可能互相覆盖，没有跨进程锁（omp 文档没有给 `models.yml` 的并发保护）。
 - 新增时 ID 不能已存在（`exists`），编辑时必须已存在（`not-found`：终端里被改过）；新增要至少一个模型，或者带 `discovery`（自动发现，见下）；编辑已有 `discovery` 的条目可以清空模型。
@@ -34,7 +34,7 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 | Base URL | 能解析、`http:`/`https:`、无用户名密码、无空白和控制字符、最长 2048；保存时去掉末尾 `/` | `invalid-url` |
 | 接口类型 | `omp://models.md` 的聊天 `api` 之一（界面下拉给 OpenAI Chat Completions / Responses / Anthropic Messages，现有条目是别的 api 时原样保留） | `invalid-api` |
 | key | 字面量：非空、无控制字符、**不以 `!` 开头**；环境变量名：`^[A-Za-z_][A-Za-z0-9_]*$`；新增不能 `keep` | `invalid-key` |
-| 模型 | id 非空、无首尾空白和控制字符、最长 200、不重复、最多 500；name 同样规则 | `invalid-models` |
+| 模型 | id 非空、无首尾空白和控制字符、最长 200、不重复、最多 500；name 同样规则；`contextWindow`/`maxTokens` 是 1 到 1 亿的整数或 null；`reasoning`/`images` 是布尔或 null | `invalid-models` |
 
 `!` 开头的 `apiKey` 会被 omp 当命令执行（`omp://models.md`「Command-resolved secrets」）。界面不允许写入这种值，免得渲染进程被注入后借 `models.yml` 在用户电脑上执行任意命令；文件里已有的 `!命令` 照原样保留（显示"命令取 key"，编辑时可选"保持不变"）。
 
@@ -73,6 +73,17 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 - **输入**：`CustomProviderInput.discovery?: boolean`：`true` 确保有，`false` 去掉，缺省不动。
 - **刷新模型按钮**（设置 → Provider 与订阅 → 自定义提供商，标题行）：IPC `refreshModels`（`custom-model-handlers.ts`）在中性目录里跑 `omp models refresh`（`runOmpCommand` + `requireSuccess`，参数数组，超时 120 秒，env 带 omp-studio 存的 API key），完成后 `serviceOmp.close()`（服务进程的模型注册表是启动时建的），渲染进程 `reloadAfterChange()` 重读 models.yml 和模型列表；失败时 toast 显示 omp 的 stderr 末尾。
 - **实测**（真实 omp 18.12.6，临时 `PI_CODING_AGENT_DIR`，本地假 OpenAI 服务 `test/fake-openai/server.ts`）：models.yml 只有 `baseUrl` / `auth: none` / `api` / `discovery: {type: openai-models-list}`、没有 `models` 时，`get_available_models` 列出假服务 `/v1/models` 里的模型，`omp models refresh` 退出码 0，`omp models fake-disco` 输出含该模型；同一个假服务换成 `api: anthropic-messages` + `discovery: {type: proxy}` 也读到同一个模型。`omp models refresh` 对 `models.db` 里的目录做强制重新拉取（omp 的帮助：“Force a fresh catalog fetch”）。
+
+## 模型的能力参数（2026-10-24，omp 18.12.6）
+
+对话框的模型表每个勾选的模型一行：思考（`reasoning`）、图片输入（`input: [text, image]` / `[text]`）、上下文窗口（`contextWindow`）、最大输出（`maxTokens`）。
+
+- **“自动” = 不写这一项**，由 omp 补：按模型 `id` 查它的内置目录（例如 `gpt-5.5` → 1,050,000 上下文、支持思考和图片），查不到用默认值 **不思考、只收文字、上下文 128,000、输出 16,384**（实测：临时 agent 目录里写只有 `id` 的模型，`omp models <provider> --json` 列出的值；源码 `config/model-registry.ts` 的自定义模型合并逻辑一致）。所以中转站把官方模型名原样转发时可以全留自动；改了名或本地模型才需要手填。
+- **上下文窗口只改 omp 自己的预算**（什么时候自动压缩、上下文圆环的分母），不改服务端的上限；典型用法是中转站只收 272K 的 `gpt-5.5`。输入框接受 `272000`、`272k`、`1m`（`parseTokenCount`，`src/shared/custom-models.ts`，k/m 按十进制、四舍五入到整数）；写不成正整数的标红，不能保存。
+- **只改和文件里不同的项**（`applyMeta`，`models-file.ts`）：值没变就不碰节点，`input: [ text, image ]` 这类原来的写法和行内注释不被重排；换回“自动”就删掉这一项。文件里的值是 omp 不认的形状时读成“自动”，保存时也不动它。
+- **“自动”后面显示 omp 现在用的值**（`hintOf`，`CustomProviderForm.tsx`）：来自模型列表（`listModels`，即服务进程的 `get_available_models`），只对“已保存、文件里没写这一项、omp 已经加载过”的模型显示（如“自动 · 128K”“自动 · 支持”）；新拉取、还没保存的模型只显示“自动”，因为 omp 还没算过它。
+- **输入**：`CustomProviderInput.models[]` 每项 `{ id, name?, reasoning, images, contextWindow, maxTokens }`，四项都可以是 null（自动）。
+
 ## 保存之后：omp 怎么重新加载
 
 实测（omp 18.12.1，2026-10-18，临时 `PI_CODING_AGENT_DIR`，`test/custom-models-real-omp.test.ts`）：
@@ -84,18 +95,18 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 
 ## 测试
 
-- `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、自动发现开关（默认类型按 api、已有 `discovery` 原样保留、关掉只去 `discovery`、没有默认类型的 api 被拒）、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢。
+- `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、自动发现开关（默认类型按 api、已有 `discovery` 原样保留、关掉只去 `discovery`、没有默认类型的 api 被拒）、能力参数（写入、改一项不动别的写法、换回自动删掉、非法值被拒、`parseTokenCount`）、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢。
 - `test/custom-models-fetch.test.ts`：对本地假服务拉取成功、key 错、404、不通、超时、非 JSON、形状不对、Anthropic 路径和头、重定向不跟随。
-- `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt 并拿到回复；自动发现：只写 `discovery`、不列模型，`omp models refresh` 跑通，`omp models <provider>` 和 `get_available_models` 都列出假服务的模型（openai 兼容和 anthropic 两种 `discovery.type`）。
-- `test/e2e/custom-models.e2e.ts`：设置页完整流程；另有"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）。
+- `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt 并拿到回复；自动发现：只写 `discovery`、不列模型，`omp models refresh` 跑通，`omp models <provider>` 和 `get_available_models` 都列出假服务的模型（openai 兼容和 anthropic 两种 `discovery.type`）；能力参数：写进去的四项被 omp 采用，留空的由 omp 按 id 补。
+- `test/e2e/custom-models.e2e.ts`：设置页完整流程；"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）；"能力参数"一条（模型行里设四项、非法上下文不能保存、写进文件、omp 采用、自动的格子显示 omp 补的值、换回自动后从文件里去掉、对话框不越界）。
 - 假服务：`test/fake-openai/server.ts`（`GET /v1/models`、`POST /v1/chat/completions` 流式和非流式）。
 
 ## 没做的
 
 - 命名 profile（`OMP_PROFILE`）下的 agent 目录；
-- `models.yml` 里的其它字段（`headers`、`compat`、`cost`、`contextWindow` 等）的界面编辑：条目里有就保留，界面不改；
+- `models.yml` 里模型的其它字段（`cost`、`thinking` 档位表、`headers`、`compat` 等）的界面编辑：条目里有就保留，界面不改；
 - 跨进程的写锁。
 
 ## 界面（3.2）
 
-自定义提供商是列表行（编辑按钮 + ⋯ 里的删除，删除先 `ConfirmDialog`）；添加 / 编辑是对话框（`CustomProviderForm`，竖排字段），页面上的"添加"在对话框打开时不再被禁用。写 `models.yml` 的规则不变。
+自定义提供商是列表行（编辑按钮 + ⋯ 里的删除，删除先 `ConfirmDialog`）；添加 / 编辑是 `xl` 对话框（`CustomProviderForm`）：连接信息两列（ID、接口类型、Base URL、key），窄到放不下两个 320 时变一列；自动发现、模型表、错误各占满一行。模型表是一个网格（`.cp-model-table`，表头吸顶，最高 360 后滚动）：勾选 + id、思考、图片输入、上下文窗口、最大输出；没勾选的行只有勾选和 id。写 `models.yml` 的规则不变。
