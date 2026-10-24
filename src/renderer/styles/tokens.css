@@ -180,6 +180,7 @@
   --dur-fade: 140ms; /* 必须保留的纯透明度渐变；reduced-motion 下为 100ms */
   --dur-breathe: 2400ms; /* 进行中状态点呼吸 */
   --dur-spin: 1100ms; /* 加载环 */
+  --dur-write: 2600ms; /* 状态行"正在思考"的 π 写出 + 停住 + 褪掉一整轮（减少动效时靠 --play-state 停在完整的 π） */
   --dur-caret: 1200ms; /* 流式光标 */
   /* 退出比进入快：时长的 60% */
   --dur-fast-exit: calc(var(--dur-fast) * 0.6);

@@ -784,12 +784,31 @@ html[data-motion="reduced"] .ctx-usage-chev {
   max-width: none;
   margin-left: 0;
 }
-/* 运行中：立体点阵球（DotSphereMark，每帧由脚本改点的位置、大小、深浅）；等你确认：静止的琥珀色点。 */
+/* 运行中：像素 π 一笔笔写出再褪掉（PiWriteMark）；等你确认：静止的琥珀色点。 */
 .run-mark {
   flex: none;
   width: var(--icon-lg);
   height: var(--icon-lg);
-  fill: var(--accent);
+}
+/* 每格同一段 keyframes，起点按笔画序号（--pi-step，0–1）错开整轮的 36%：前 36% 依次写出，全亮停一会儿，
+ * 第 56% 起依次褪成淡影，最后 4% 再亮回来。0% 帧是亮着的，减少动效时停在这里就是完整的 π。 */
+.pi-write g {
+  animation: pi-write var(--dur-write) linear infinite backwards;
+  animation-delay: calc(var(--pi-step) * var(--dur-write) * 0.36);
+  animation-play-state: var(--play-state);
+}
+@keyframes pi-write {
+  0%,
+  56% {
+    opacity: 1;
+  }
+  60%,
+  96% {
+    opacity: 0.12;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 .run-mark-waiting {
   background: radial-gradient(circle, var(--st-waiting) 0 3px, transparent 3.5px);

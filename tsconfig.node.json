@@ -56,7 +56,6 @@
     "src/renderer/src/features/composer/usage-format.ts",
     "src/renderer/src/features/composer/speed-limit-format.ts",
     "src/renderer/src/features/composer/context-rows.ts",
-    "src/renderer/src/features/composer/dot-sphere.ts",
     "src/renderer/src/features/dialogs/approval-labels.ts",
     "src/renderer/src/features/dialogs/ask-draft-store.ts",
     "src/renderer/src/features/tsp/props-util.ts",

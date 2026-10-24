@@ -33,7 +33,7 @@ import {
   InterruptedNote,
   RetryActivity,
 } from "./ComposerNotes.tsx";
-import { DotSphereMark } from "./DotSphereMark.tsx";
+import { PiWriteMark } from "./PiWriteMark.tsx";
 import { StatusPills } from "./StatusPills.tsx";
 import { TodoBoard } from "./TodoBoard.tsx";
 import { useTspJobs } from "./tsp-jobs-store.ts";
@@ -73,7 +73,7 @@ function StatusLine({ task, label, facts }: { task: TaskState; label: string | n
       {waiting ? (
         <span className="run-mark run-mark-waiting" aria-hidden="true" />
       ) : (
-        <DotSphereMark className="run-mark" />
+        <PiWriteMark className="run-mark" />
       )}
       {task.runStartedAt !== null && (
         <>
