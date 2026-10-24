@@ -128,8 +128,11 @@ export function roleKinds(role: string): readonly string[] {
   return roleAccepts[role] ?? ["chat"];
 }
 
-const isBuiltinRole = (role: string) =>
+export const isBuiltinRole = (role: string) =>
   (chatRoles as readonly string[]).includes(role) || (kindRoles as readonly string[]).includes(role);
+
+/** 自定义角色名：字母开头，字母、数字、`-`、`_`，不和 omp 的内置角色重名（不分大小写，免得 `Default` 和 `default` 两个都在）。 */
+export const customRoleNamePattern = /^[A-Za-z][A-Za-z0-9_-]{0,39}$/;
 
 /** 角色在界面上的名字：omp 的角色 id，首字母大写（smol → Smol）。 */
 export const roleLabel = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);

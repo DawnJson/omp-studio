@@ -279,6 +279,16 @@
   background: transparent;
   border-style: dashed;
 }
+/* 添加自定义角色的对话框：名字、模型两个字段之间的距离同其他表单对话框 */
+.st-role-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+/* 对话角色表下面的"添加角色…"：和角色名那一列左对齐 */
+.st-roles-foot {
+  padding: var(--space-2) 0;
+}
 .ui-notice + .st-roles {
   margin-top: var(--space-2);
 }

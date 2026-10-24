@@ -1,18 +1,28 @@
-// 设置 → 模型：默认思考强度、omp 的全部角色（对话模型一组、特定能力一组），以及 omp "模型与推理"组的常用项（重试与备用模型）。
+// 设置 → 模型角色：默认思考强度、omp 的全部角色（对话模型一组、特定能力一组），以及 omp "模型与推理"组的常用项（重试与备用模型）。
 // 每个角色一格：主模型 + 思考强度一行，下面每个备用模型（出错时依次换用，retry.fallbackChains 里以角色为 key 的那条）各一行，最后"添加备用…"。
 // 值就是 omp 自己的 modelRoles / retry.fallbackChains / defaultThinkingLevel（设计原则 7），和 omp 设置是同一份；
 // 改了就写全局（和模型选择对话框里给角色"应用"一样）。候选按角色能用的模型类别筛（role-options.ts）。
-import { Fragment, useEffect, useId, type ReactNode } from "react";
+// 自定义角色（omp：modelRoles 里内置角色以外的名字，只用对话模型）可以添加、删除；omp 只认有模型的角色，所以添加时名字和模型一起填。
+import { Fragment, useEffect, useId, useState, type ReactNode } from "react";
 import type { ModelKey } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { joinRoleValue, splitRoleValue } from "../../../../shared/ui/role-value.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Close } from "../../icons.tsx";
-import { IconButton, Notice, type Option } from "../../ui/controls.tsx";
+import { Close, Plus } from "../../icons.tsx";
+import { Button, FormField, IconButton, Notice, TextField, type Option } from "../../ui/controls.tsx";
+import { Dialog } from "../../ui/Dialog.tsx";
 import { describeError, reportError } from "../../ui/errors.ts";
 import { InfoTip } from "../../ui/InfoTip.tsx";
 import { Select, type SelectOption } from "../../ui/Select.tsx";
-import { chatRoles, kindRoles, roleHintKey, roleKinds, roleLabel } from "../composer/model-groups.ts";
+import {
+  chatRoles,
+  customRoleNamePattern,
+  isBuiltinRole,
+  kindRoles,
+  roleHintKey,
+  roleKinds,
+  roleLabel,
+} from "../composer/model-groups.ts";
 import { useModelSources } from "./accounts-store.ts";
 import {
   ensureOmpConfigLoaded,
@@ -129,6 +139,19 @@ function RoleRow({
     else all[role] = [...next];
     saveOmpConfigOrThrow("retry.fallbackChains", all).catch((error: unknown) => reportError(t, error));
   };
+  // 删自定义角色：modelRoles 里这一项和它的备用链一起删（角色没了，留着备用链 omp 也用不上）。
+  const removeRole = async () => {
+    try {
+      await saveOmpModelRole(role, null);
+      if (role in chains) {
+        const all = { ...chains };
+        delete all[role];
+        await saveOmpConfigOrThrow("retry.fallbackChains", all);
+      }
+    } catch (error) {
+      reportError(t, error);
+    }
+  };
 
   const modelOptions: SelectOption<string>[] = [
     { value: unset, label: unsetLabel },
@@ -200,6 +223,18 @@ function RoleRow({
           testId={`setting-role-${role}-thinking`}
         />
       </span>
+      {!isBuiltinRole(role) && (
+        <span className="st-role-act">
+          <IconButton
+            label={t("settings.roles.remove", { role: roleLabel(role) })}
+            disabled={disabled}
+            onClick={() => void removeRole()}
+            testId={`setting-role-${role}-remove`}
+          >
+            <Close size={12} />
+          </IconButton>
+        </span>
+      )}
       {chain.map((entry, index) => {
         const own = splitRoleValue(entry).selector;
         const name = nameOf(own);
@@ -259,6 +294,106 @@ function RoleRow({
   );
 }
 
+/** 添加自定义角色：名字 + 对话模型，保存即写进 omp 的 modelRoles（omp 只认有模型的角色）。 */
+function AddRoleDialog({
+  taken,
+  sources,
+  onClose,
+}: {
+  /** 已有的角色名（内置的和配置里的）。 */
+  taken: readonly string[];
+  sources: ModelSources;
+  onClose(): void;
+}) {
+  const t = useT();
+  const [open, setOpen] = useState(true);
+  const [name, setName] = useState("");
+  const [model, setModel] = useState(unset);
+  const [saving, setSaving] = useState(false);
+  const candidates = candidatesOfKinds(["chat"], sources);
+  const trimmed = name.trim();
+  const nameError =
+    trimmed === ""
+      ? null
+      : !customRoleNamePattern.test(trimmed)
+        ? t("settings.roles.nameInvalid")
+        : taken.some((role) => role.toLowerCase() === trimmed.toLowerCase())
+          ? t("settings.roles.nameTaken")
+          : null;
+  const picked = candidates.find((candidate) => candidate.value === model);
+  const canSave = trimmed !== "" && nameError === null && picked !== undefined && !saving;
+  const save = async () => {
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      await saveOmpModelRole(trimmed, picked.key);
+      setOpen(false);
+    } catch (error) {
+      reportError(t, error);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Dialog
+      open={open}
+      onClose={() => setOpen(false)}
+      onExited={onClose}
+      title={t("settings.roles.addTitle")}
+      testId="setting-role-add-dialog"
+      footer={
+        <>
+          <Button onClick={() => setOpen(false)}>{t("common.cancel")}</Button>
+          <Button
+            variant="primary"
+            disabled={!canSave}
+            loading={saving}
+            onClick={() => void save()}
+            testId="setting-role-add-save"
+          >
+            {t("settings.roles.addSave")}
+          </Button>
+        </>
+      }
+    >
+      <form
+        className="st-role-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
+        <FormField label={t("settings.roles.name")} error={nameError ?? undefined}>
+          <TextField
+            width="100%"
+            mono
+            data-autofocus=""
+            value={name}
+            disabled={saving}
+            aria-label={t("settings.roles.name")}
+            onChange={setName}
+            testId="setting-role-add-name"
+          />
+        </FormField>
+        <FormField label={t("settings.roles.model")}>
+          <Select
+            width="100%"
+            value={model}
+            options={candidates.map((candidate) => ({ ...candidate, display: candidate.value }))}
+            placeholder={t("settings.roles.pickModel")}
+            label={t("settings.roles.model")}
+            disabled={saving || sources.chat === null}
+            onChange={setModel}
+            search={t("settings.roles.searchModel")}
+            testId="setting-role-add-model"
+          />
+        </FormField>
+        <button type="submit" hidden />
+      </form>
+    </Dialog>
+  );
+}
+
 export function ModelsSection() {
   const t = useT();
   const thinkingLabelId = useId();
@@ -268,14 +403,13 @@ export function ModelsSection() {
   const { runnerError, ...sources } = useModelSources();
   const common = useCommonConfigItems("models", shownAbove);
   useEffect(ensureOmpConfigLoaded, []);
+  const [adding, setAdding] = useState(false);
 
   // undefined = omp 设置还没读到（下拉先禁用）；读到了但不是"角色 → 字符串"就按空表显示。
   const values = rolesValue === undefined ? undefined : isStringRecord(rolesValue) ? rolesValue : {};
   const chains = isChainRecord(chainsValue) ? chainsValue : {};
   // 配置里另有的角色（自定义的）跟在对话角色后面，它们只能选对话模型。
-  const custom = Object.keys(values ?? {}).filter(
-    (role) => !(chatRoles as readonly string[]).includes(role) && !(kindRoles as readonly string[]).includes(role),
-  );
+  const custom = Object.keys(values ?? {}).filter((role) => !isBuiltinRole(role));
 
   const thinkingOptions: Option<string>[] = thinkingLevels.map((level) => ({
     value: level,
@@ -307,14 +441,35 @@ export function ModelsSection() {
     </div>
   );
   const chatLead = (
-    <RoleTable
-      roles={[...chatRoles, ...custom]}
-      sources={sources}
-      values={values}
-      chains={chains}
-      unsetLabel={(role) => (role === "default" ? t("settings.ompPicksModel") : t("model.roleUnset"))}
-      lead={thinkingRow}
-    />
+    <>
+      <RoleTable
+        roles={[...chatRoles, ...custom]}
+        sources={sources}
+        values={values}
+        chains={chains}
+        unsetLabel={(role) => (role === "default" ? t("settings.ompPicksModel") : t("model.roleUnset"))}
+        lead={thinkingRow}
+      />
+      <div className="st-roles-foot">
+        <Button
+          size="sm"
+          variant="quiet"
+          icon={<Plus size={14} />}
+          disabled={values === undefined}
+          onClick={() => setAdding(true)}
+          testId="setting-role-add"
+        >
+          {t("settings.roles.add")}
+        </Button>
+      </div>
+      {adding && (
+        <AddRoleDialog
+          taken={[...chatRoles, ...kindRoles, ...custom]}
+          sources={sources}
+          onClose={() => setAdding(false)}
+        />
+      )}
+    </>
   );
   const kindLead = (
     <>

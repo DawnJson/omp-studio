@@ -247,6 +247,82 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
   }
 });
 
+test("设置 → 模型角色：添加自定义角色（名字 + 模型，重名或不合法时不能加），删除自定义角色连同它的备用链；集成与插件排在 Provider 与订阅后面", async () => {
+  test.setTimeout(120_000);
+  const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-custom-roles-"));
+  await writeFile(path.join(agentDir, "models.yml"), modelsYml, "utf8");
+  await writeFile(
+    path.join(agentDir, "config.yml"),
+    "modelRoles:\n  WRITER: role-local/role-one\nretry:\n  fallbackChains:\n    WRITER:\n      - role-local/role-two\n",
+    "utf8",
+  );
+  const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
+  try {
+    const { page } = launched;
+    await expect
+      .poll(() => page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
+        timeout: 30_000,
+      })
+      .toBe("ready");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.keyboard.press("Control+,");
+
+    // 导航：这一节叫"模型角色"；集成与插件紧跟 Provider 与订阅，在工具与权限前面。
+    const nav = page.getByTestId("settings-nav-models");
+    await expect(nav).toHaveText("模型角色");
+    const navY = async (item: string) => (await page.getByTestId(`settings-nav-${item}`).boundingBox())?.y ?? NaN;
+    const [providersY, extensionsY, toolsY] = [await navY("providers"), await navY("extensions"), await navY("tools")];
+    expect(providersY).toBeLessThan(extensionsY);
+    expect(extensionsY).toBeLessThan(toolsY);
+
+    await nav.click();
+    // 之后在窄窗口里查：对话框不越界。
+    await page.setViewportSize({ width: 900, height: 800 });
+    // 配置里的自定义角色有删除按钮，内置角色没有。
+    await expect(page.getByTestId("setting-role-WRITER")).toContainText("role-one", { timeout: 30_000 });
+    await expect(page.getByTestId("setting-role-WRITER-remove")).toBeVisible();
+    await expect(page.getByTestId("setting-role-smol-remove")).toHaveCount(0);
+
+    // 添加：和内置或已有角色重名（不分大小写）、不是字母开头都不能加；名字和模型都填了才能加。
+    await page.getByTestId("setting-role-add").click();
+    const dialog = page.getByTestId("setting-role-add-dialog");
+    const name = page.getByTestId("setting-role-add-name");
+    const save = page.getByTestId("setting-role-add-save");
+    for (const [text, error] of [
+      ["Smol", "已经有这个角色"],
+      ["writer", "已经有这个角色"],
+      ["9x", "字母开头"],
+    ] as const) {
+      await name.fill(text);
+      await expect(dialog).toContainText(error);
+      await expect(save).toBeDisabled();
+    }
+    await name.fill("reviewer");
+    await expect(dialog).not.toContainText("已经有这个角色");
+    await expect(save).toBeDisabled();
+    await page.getByTestId("setting-role-add-model").click();
+    await page.getByTestId("setting-role-add-model-search").fill("role-two");
+    await page.getByRole("option", { name: "role-two" }).click();
+    await expectNoOverflow(dialog);
+    await save.click();
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(async () => (await roles(page))["reviewer"], { timeout: 30_000 }).toBe("role-local/role-two");
+    await expect(page.getByTestId("setting-role-reviewer")).toContainText("role-two");
+
+    // 删除：modelRoles 里的这一项和它的备用链一起去掉，行跟着消失；别的角色不动。
+    await page.getByTestId("setting-role-WRITER-remove").click();
+    await expect.poll(async () => (await roles(page))["WRITER"], { timeout: 30_000 }).toBeUndefined();
+    await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({});
+    await expect(page.getByTestId("setting-role-row-WRITER")).toHaveCount(0);
+    expect((await roles(page))["reviewer"]).toBe("role-local/role-two");
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
 test("备用模型链的结构化编辑器：带后缀的值显示档位，改档位写回后缀，换成不支持思考的模型去掉后缀，窄窗口不越界", async () => {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-chains-"));
   await writeFile(path.join(agentDir, "models.yml"), modelsYml, "utf8");

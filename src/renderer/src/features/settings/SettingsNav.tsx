@@ -21,10 +21,10 @@ export const settingsPages: readonly SettingsPage[] = [
   "general",
   "models",
   "providers",
+  "extensions",
   "tools",
   "context",
   "agents",
-  "extensions",
   "advanced",
   "about",
 ];
