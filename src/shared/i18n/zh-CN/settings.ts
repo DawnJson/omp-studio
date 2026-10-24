@@ -105,6 +105,7 @@ export const settings = {
   "cfg.noFallbacks": "不回退",
   "cfg.overriddenBadge": "被 {name} 覆盖",
   "about.versions": "版本",
+  "about.repo": "在 GitHub 上查看项目",
   "about.check": "检查更新",
   "about.checking": "正在检查…",
   "about.upToDate": "已是最新版本",

@@ -36,6 +36,12 @@ function useCommandsFor(key: string | null, refetchOn: unknown): readonly Availa
     window.studio.onSlashCommands(({ taskId, commands }) => {
       if (commands.length > 0) publish(taskId, commands);
     });
+    // 任务删除：丢掉它的列表和"已载入"记录（"draft" 键按项目共用，不随任务走）。
+    window.studio.onTaskRemoved((taskId) => {
+      loader.forget(taskId);
+      const { [taskId]: _removed, ...rest } = byKey.get();
+      byKey.set(rest);
+    });
   }, []);
   useEffect(() => {
     if (key === null) return;

@@ -15,6 +15,13 @@ export interface BtwUi {
 const closed: BtwUi = { open: false, selection: null, focusNonce: 0 };
 const uiStore = createStore<Readonly<Record<string, BtwUi>>>({});
 
+if (typeof window !== "undefined" && "studio" in window) {
+  window.studio.onTaskRemoved((taskId) => {
+    const { [taskId]: _removed, ...rest } = uiStore.get();
+    uiStore.set(rest);
+  });
+}
+
 function update(taskId: TaskId, patch: Partial<BtwUi>): void {
   const state = uiStore.get();
   uiStore.set({ ...state, [taskId]: { ...(state[taskId] ?? closed), ...patch } });

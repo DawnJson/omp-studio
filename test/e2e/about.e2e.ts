@@ -4,13 +4,13 @@ import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
-import { launchApp } from "./launch.ts";
+import { expectNoOverflow, launchApp, setLocaleTheme } from "./launch.ts";
 
-test("关于页显示当前版本；开发版说明不检查更新", async () => {
+test("关于页显示当前版本；开发版说明不检查更新；omp-studio 右边的 GitHub 图标用系统浏览器打开项目仓库", async () => {
   const { version } = JSON.parse(await readFile(path.resolve(import.meta.dirname, "..", "..", "package.json"), "utf8"));
   const launched = await launchApp();
   try {
-    const { page } = launched;
+    const { app, page } = launched;
     await page.waitForSelector("[data-testid=app-root]");
     await page.keyboard.press("Control+Comma");
     await page.getByTestId("settings-nav-about").click();
@@ -18,6 +18,27 @@ test("关于页显示当前版本；开发版说明不检查更新", async () =>
     await expect(page.getByTestId("app-version")).toHaveText(version);
     await expect(page.getByTestId("update-status")).toContainText("不检查更新");
     await expect(page.getByTestId("update-check")).toBeDisabled();
+
+    await app.evaluate(({ shell }) => {
+      const opened: string[] = [];
+      (globalThis as unknown as { openedUrls: string[] }).openedUrls = opened;
+      shell.openExternal = async (url: string) => {
+        opened.push(url);
+      };
+    });
+    const repo = page.getByTestId("about-info").getByTestId("about-repo");
+    await expect(repo).toHaveAccessibleName("在 GitHub 上查看项目");
+    await repo.click();
+    await expect
+      .poll(() => app.evaluate(() => (globalThis as unknown as { openedUrls: string[] }).openedUrls))
+      .toEqual(["https://github.com/DawnJson/omp-studio"]);
+
+    // 900 宽、中英文下这一行都不越界（名字 + 图标 + 版本 + 更新状态 + 检查按钮）。
+    await page.setViewportSize({ width: 900, height: 800 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(page.getByTestId("about-info"));
+    }
   } finally {
     await launched.close();
   }

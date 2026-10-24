@@ -13,6 +13,7 @@ import { GateNotifier, retainNotification } from "./gate-notifier.ts";
 import { t } from "../../shared/i18n/index.ts";
 import { forgetExport } from "./export-record.ts";
 import { emitEvent } from "../ipc/events.ts";
+import { forgetDraft } from "../ipc/draft-handlers.ts";
 import { appHandlers } from "../ipc/app-handlers.ts";
 import { buildTspLaunch, setTestOmpOverride } from "../omp/launch.ts";
 import { exportSessionHtml } from "../omp/export-session.ts";
@@ -153,6 +154,10 @@ function createPool(): Promise<TaskPool> {
       notice: (notice) => emitEvent("taskNotice", notice),
       taskRemoved: (id) => {
         forgetExport(id);
+        notifier.forget(id);
+        void forgetDraft(id).catch((error: unknown) => {
+          log.warn(`forget draft of ${id} failed`, { error: error instanceof Error ? error.message : String(error) });
+        });
         emitEvent("taskRemoved", id);
         refreshTray(taskPool.listTasks());
         refreshTaskbarProgress(taskPool.listTasks());

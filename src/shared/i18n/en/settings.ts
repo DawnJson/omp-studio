@@ -106,6 +106,7 @@ export const settings = {
   "cfg.noFallbacks": "No fallbacks",
   "cfg.overriddenBadge": "Overridden by {name}",
   "about.versions": "Versions",
+  "about.repo": "View the project on GitHub",
   "about.check": "Check for updates",
   "about.checking": "Checking…",
   "about.upToDate": "You're up to date",

@@ -42,3 +42,12 @@ export function clearPendingRoot(key: TerminalKey): void {
   const next = new Map(pending.get());
   if (next.delete(key)) pending.set(next);
 }
+
+if (typeof window !== "undefined" && "studio" in window) {
+  window.studio.onTaskRemoved((taskId) => {
+    for (const target of [store, pending]) {
+      const next = new Map(target.get());
+      if (next.delete(taskId as string as TerminalKey)) target.set(next);
+    }
+  });
+}

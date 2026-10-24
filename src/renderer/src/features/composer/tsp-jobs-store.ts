@@ -29,6 +29,9 @@ function set(taskId: TaskId, next: Job[]): void {
   notify(taskId);
 }
 
+// 任务被移除：丢掉它的作业快照。
+window.studio.onTaskRemoved((taskId) => states.delete(taskId));
+
 function refresh(taskId: TaskId): void {
   const doc = peekTspDocument(taskId);
   if (!doc) return;

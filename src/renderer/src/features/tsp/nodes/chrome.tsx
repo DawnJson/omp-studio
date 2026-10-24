@@ -80,12 +80,18 @@ export function Status(props: NodeProps) {
     resize.observe(el);
     // seg 里的文字变了不会重画 status，盯着内容变化重新量。
     const mutation = new MutationObserver(run);
-    mutation.observe(el, { childList: true, subtree: true, characterData: true });
+    mutation.observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["data-priority"],
+    });
     return () => {
       resize.disconnect();
       mutation.disconnect();
     };
-  });
+  }, []);
   return (
     <div
       {...nodeDomProps(props, "tsp-status", {

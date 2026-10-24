@@ -14,6 +14,15 @@ const worktrees = createStore<Readonly<Record<string, TaskWorktreeInfo | null>>>
 /** 每次操作（提交、合并…）后递增，git 条据此重读状态。 */
 const versions = createStore<Readonly<Record<string, number>>>({});
 
+if (typeof window !== "undefined" && "studio" in window) {
+  window.studio.onTaskRemoved((taskId) => {
+    const { [taskId]: _info, ...restWorktrees } = worktrees.get();
+    worktrees.set(restWorktrees);
+    const { [taskId]: _version, ...restVersions } = versions.get();
+    versions.set(restVersions);
+  });
+}
+
 export function useGitVersion(taskId: TaskId): number {
   return useStoreValue(versions, (state) => state[taskId] ?? 0);
 }

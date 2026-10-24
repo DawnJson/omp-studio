@@ -115,7 +115,11 @@ export class TaskPool {
       persist: (id, patch) => deps.registry.updateTask(id, patch),
       isForeground: (id) => this.#foreground === id,
       acquireSlot: (id) => this.#acquireSlot(id),
-      onState: (state) => deps.events.state(state),
+      onState: (state) => {
+        deps.events.state(state);
+        // 进程自己退出或被停止时，退出任务的最后一份快照也要受 SNAPSHOT_LRU_SIZE 约束。
+        if (state.status === "stopped" || state.status === "error") this.#trimSnapshots();
+      },
       onTspBatch: (batch) => deps.events.tspBatch?.(batch),
       onBtw: (taskId, event) => deps.events.btw?.(taskId, event),
       onComposerPrefill: (taskId, text) => deps.events.composerPrefill?.(taskId, text),

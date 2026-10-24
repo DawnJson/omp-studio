@@ -4,7 +4,7 @@
 //
 // 文档（Map）原地改，节点记录不可变：订阅按 (任务, surface, 节点 id) 登记，应用一批消息后只通知 `changed` 里出现的节点，
 // 组件用 useTspNode 拿到的记录引用没变就不会重画。
-import { useMemo, useRef, useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type { TaskId, TspBatch } from "../../../../shared/ipc.ts";
 import {
   applyMessage,
@@ -97,11 +97,25 @@ function notifyTask(taskId: TaskId): void {
 
 const warned = new Set<string>();
 
+/** 只改文字、光标、滚动这类不碰树结构和 role 的操作；roleIndex 只读结构（c）和 role。 */
+const NON_STRUCTURAL_OPS: ReadonlySet<string> = new Set([
+  "text",
+  "splice",
+  "settle",
+  "focus",
+  "reveal",
+  "scroll",
+  "suspend",
+  "resume",
+]);
+
 function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDocMessage[]): void {
   const changed = new Map<string, Set<string>>();
   const touchedSurfaces = new Set<string>();
   const touchedBlobs = new Set<string>();
   let structural = false;
+  /** 改了 main 树结构或某个节点 role 的 surface：纯文字（text / splice）和光标这类操作不影响 roleIndex。 */
+  const roleDirty = new Set<string>();
   for (const message of messages) {
     const result = applyMessage(mirror.doc, message);
     for (const error of result.errors) {
@@ -116,6 +130,11 @@ function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDoc
       if (!set) changed.set(sf, (set = new Set()));
       for (const id of ids) set.add(id);
     }
+    if (
+      message.verb === "f" &&
+      !message.body.ops.every((op) => typeof op[0] === "string" && NON_STRUCTURAL_OPS.has(op[0]))
+    )
+      roleDirty.add(message.body.sf);
     switch (message.verb) {
       case "o":
       case "x":
@@ -134,7 +153,7 @@ function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDoc
   mirror.seq += messages.length;
   for (const [sf, ids] of changed) {
     touchedSurfaces.add(sf);
-    roleIndexes.delete(`${taskId}${SEP}${sf}`);
+    if (roleDirty.has(sf)) roleIndexes.delete(`${taskId}${SEP}${sf}`);
     const nodes = mirror.doc.surfaces.get(sf)?.nodes;
     let roleChanged = false;
     for (const id of ids) {
@@ -215,8 +234,14 @@ export function dropTspDocument(taskId: TaskId): void {
   mirrors.delete(taskId);
   fetching.delete(taskId);
   cachedSurfaces.delete(taskId);
+  derivedCache.delete(taskId);
+  drives.delete(taskId);
+  for (const cache of [roleIndexes, cachedViews]) {
+    for (const key of cache.keys()) if (key.startsWith(`${taskId}${SEP}`)) cache.delete(key);
+  }
   notifyTask(taskId);
   releaseSeqWaiters(taskId);
+  seqWaiters.delete(taskId);
 }
 
 // ───────── 读取 ─────────
@@ -549,9 +574,12 @@ export function useTspDrive(taskId: TaskId): TspDrive | null {
   return useSyncExternalStore(sub, () => drives.get(taskId) ?? null);
 }
 
+/** useTspDerived 的共享结果：(任务, derive 函数) → 在镜像的哪一版上算的、结果。多个组件用同一个 derive 时每个文档版本只算一次。 */
+const derivedCache = new Map<TaskId, Map<unknown, { mirror: Mirror; seq: number; value: unknown }>>();
+
 /**
- * 从文档推导一个值（每批消息后重算，结果和上次相等就沿用上次的对象，不重画）。`derive` / `same` 必须是稳定引用（模块级函数）。
- * 没有镜像时为 null。
+ * 从文档推导一个值（每批消息后重算，结果和上次相等就沿用上次的对象，不重画）。`derive` / `same` 必须是稳定引用（模块级函数），
+ * 同一个 `derive` 配的 `same` 也必须是同一个：缓存按 (任务, derive) 共享。没有镜像时为 null。
  */
 export function useTspDerived<T>(
   taskId: TaskId,
@@ -559,14 +587,16 @@ export function useTspDerived<T>(
   same: (a: T, b: T) => boolean,
 ): T | null {
   const sub = useMemo(() => (l: () => void) => subscribe(panelKey(taskId), l), [taskId]);
-  const cache = useRef<{ taskId: TaskId; value: T } | null>(null);
   return useSyncExternalStore(sub, () => {
-    const doc = mirrors.get(taskId)?.doc;
-    if (!doc) return null;
-    const next = derive(doc);
-    const previous = cache.current;
-    if (previous !== null && previous.taskId === taskId && same(previous.value, next)) return previous.value;
-    cache.current = { taskId, value: next };
-    return next;
+    const mirror = mirrors.get(taskId);
+    if (!mirror) return null;
+    let byDerive = derivedCache.get(taskId);
+    if (!byDerive) derivedCache.set(taskId, (byDerive = new Map()));
+    const entry = byDerive.get(derive);
+    if (entry && entry.mirror === mirror && entry.seq === mirror.seq) return entry.value as T;
+    const next = derive(mirror.doc);
+    const value = entry && same(entry.value as T, next) ? (entry.value as T) : next;
+    byDerive.set(derive, { mirror, seq: mirror.seq, value });
+    return value;
   });
 }

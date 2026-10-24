@@ -9,6 +9,15 @@ export interface TreeMemory {
 
 const memory = new Map<TerminalKey, TreeMemory>();
 
+// 任务删除：丢掉它的树和它各个额外根的树（键 = 任务 id，或 rootMemoryKey 拼的 `${id}\0root${n}`）。草稿页的键按项目，不随任务走。
+if (typeof window !== "undefined" && "studio" in window) {
+  window.studio.onTaskRemoved((taskId) => {
+    for (const key of Array.from(memory.keys())) {
+      if (key === taskId || key.startsWith(`${taskId}\u0000root`)) memory.delete(key);
+    }
+  });
+}
+
 export function treeMemory(key: TerminalKey): TreeMemory {
   let entry = memory.get(key);
   if (entry === undefined) {

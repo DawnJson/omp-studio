@@ -1,7 +1,7 @@
 // "导出诊断信息"：把版本、系统、omp 状态、设置和最近几天的日志写成一个文本文件，用户附在 issue 里。
 // 整份内容再过一遍脱敏（omp 路径、设置里可能有家目录）；日志本身写入时已经脱敏过。
 import { app, BrowserWindow, dialog, shell } from "electron";
-import { readFile, writeFile } from "node:fs/promises";
+import { open, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { ompManager } from "../omp-manager/index.ts";
@@ -14,8 +14,19 @@ const LOG_DAYS = 3;
 const LOG_TAIL_BYTES = 1024 * 1024;
 
 async function tail(file: string): Promise<string> {
-  const text = await readFile(file, "utf8");
-  return text.length > LOG_TAIL_BYTES ? `…（前面省略）\n${text.slice(-LOG_TAIL_BYTES)}` : text;
+  const handle = await open(file, "r");
+  try {
+    const { size } = await handle.stat();
+    const length = Math.min(size, LOG_TAIL_BYTES);
+    const buffer = Buffer.alloc(length);
+    const { bytesRead } = await handle.read(buffer, 0, length, size - length);
+    const text = buffer.toString("utf8", 0, bytesRead);
+    if (size <= LOG_TAIL_BYTES) return text;
+    // 截断处可能切在一行或一个多字节字符中间：丢掉第一行残行。
+    return `…（前面省略）\n${text.slice(text.indexOf("\n") + 1)}`;
+  } finally {
+    await handle.close();
+  }
 }
 
 async function diagnosticsText(): Promise<string> {

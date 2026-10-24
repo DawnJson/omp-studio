@@ -10,6 +10,8 @@ export interface SlashLoader {
   request(key: string): Promise<void>;
   /** 已经载入过也再取一次（同一个键有请求在飞时不重复发）。 */
   refresh(key: string): Promise<void>;
+  /** 任务删除后丢掉这个键的记录。 */
+  forget(key: string): void;
 }
 
 export function createSlashLoader(
@@ -37,5 +39,9 @@ export function createSlashLoader(
   return {
     request: (key) => (done.has(key) || inFlight.has(key) ? Promise.resolve() : load(key)),
     refresh: (key) => (inFlight.has(key) ? Promise.resolve() : load(key)),
+    forget: (key) => {
+      done.delete(key);
+      inFlight.delete(key);
+    },
   };
 }

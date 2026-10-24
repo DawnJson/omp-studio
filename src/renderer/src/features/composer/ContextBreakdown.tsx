@@ -134,6 +134,7 @@ function Breakdown({ used, window, percent, rows, note, footer }: BreakdownProps
 
 /** 每个任务最近一次读到的报告：再打开构成时先显示它，omp 现算的到了再换。 */
 const reports = new Map<TaskId, ContextReport>();
+window.studio.onTaskRemoved((taskId) => reports.delete(taskId));
 
 /** 任务的构成；挂载 = 构成打开：请 omp 现算一次（调用期间不画 omp 的 layer，报告不会闪出来）。 */
 export function TaskContextBreakdown({

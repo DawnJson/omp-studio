@@ -2,13 +2,17 @@
 // 更新日志（omp-studio、omp 各自最新一版），问题排查。两个"检查更新"各管各的。更新源和只有安装版才生效的规则见 src/main/update/instance.ts。
 import { useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
+import { GithubMark } from "../../icons.tsx";
 import { useAppInfo, useUpdateState } from "../../store/index.ts";
-import { describeError } from "../../ui/errors.ts";
-import { Button, Row, SectionHead } from "../../ui/controls.tsx";
+import { describeError, reportError } from "../../ui/errors.ts";
+import { Button, IconButton, Row, SectionHead } from "../../ui/controls.tsx";
 import { Changelog } from "./Changelog.tsx";
 import { OmpSection } from "./OmpSection.tsx";
 import { TroubleshootCard } from "./TroubleshootCard.tsx";
 import { updateStatusText } from "./update-status.ts";
+
+/** 项目主页（GitHub 仓库）：标签右边的图标按钮用系统浏览器打开。 */
+const repoUrl = "https://github.com/DawnJson/omp-studio";
 
 export function AboutSection() {
   const t = useT();
@@ -54,7 +58,20 @@ function StudioUpdate() {
     }
   };
 
-  if (info === null || state === null) return <Row label="omp-studio">{() => null}</Row>;
+  const label = (
+    <span className="st-about-name">
+      omp-studio
+      <IconButton
+        label={t("settings.about.repo")}
+        testId="about-repo"
+        onClick={() => void window.studio.openExternal(repoUrl).catch((error: unknown) => reportError(t, error))}
+      >
+        <GithubMark />
+      </IconButton>
+    </span>
+  );
+
+  if (info === null || state === null) return <Row label={label}>{() => null}</Row>;
 
   const canCheck =
     state.phase !== "downloaded" &&
@@ -64,7 +81,7 @@ function StudioUpdate() {
   const downloading = state.phase === "downloading";
 
   return (
-    <Row label="omp-studio" testId="about-info">
+    <Row label={label} testId="about-info">
       {() => (
         <>
           <span className="st-mono" data-testid="app-version">

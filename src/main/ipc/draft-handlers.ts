@@ -40,6 +40,12 @@ function persist(drafts: Map<string, string>): Promise<void> {
   return run;
 }
 
+/** 任务删除/归档后去掉它的草稿；不然条目一直占着 maxDrafts，攒满后新任务存不了草稿。 */
+export async function forgetDraft(taskId: string): Promise<void> {
+  const drafts = await load();
+  if (drafts.delete(taskId)) await persist(drafts);
+}
+
 export const draftHandlers: HandlerGroup<"getDrafts" | "saveDraft"> = {
   async getDrafts() {
     return Object.fromEntries(await load());

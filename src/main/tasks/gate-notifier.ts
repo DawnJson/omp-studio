@@ -51,6 +51,13 @@ export class GateNotifier {
     this.#deps = deps;
   }
 
+  /** 任务删除/归档后清掉它在三张表里的记录。 */
+  forget(id: TaskId): void {
+    this.#waiting.delete(id);
+    this.#lastStatus.delete(id);
+    this.#turnAtBusy.delete(id);
+  }
+
   async onState(state: TaskState): Promise<void> {
     const previous = this.#lastStatus.get(state.id);
     this.#lastStatus.set(state.id, state.status);

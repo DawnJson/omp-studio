@@ -179,6 +179,12 @@
   flex-wrap: wrap;
   row-gap: var(--space-1);
 }
+/* 关于 → 版本：omp-studio 名字右边紧跟 GitHub 图标按钮（打开项目仓库） */
+.st-about-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
 .st-cells .ui-row-label {
   flex: 1 0 auto;
   max-width: 100%;

@@ -286,6 +286,9 @@ export class TspRunner {
   readonly #model: ModelOption | null;
   /** 进程退出后保留最后一份文档，界面还能看到发生了什么。 */
   #finalSnapshot: { seq: number; document: DocumentSnapshot } | null = null;
+  /** `#refreshTotals` 的合并状态：正在读、读的时候是否又来了请求。 */
+  #totalsReading = false;
+  #totalsDirty = false;
   /**
    * 批次序号的偏移。每个进程的消息序号从 1 开始，但渲染进程按"上一个序号 + 1"接收批次：新进程的序号要接在上一个进程之后
    * 并留一个空位（最后序号 + 2 起），渲染进程发现不连续就重新取快照，不会把新进程的消息接在旧文档上。
@@ -1256,8 +1259,27 @@ export class TspRunner {
     };
   }
 
-  /** 读会话文件里的 token 和请求数；读失败只记日志（费用照常显示，token 保持上一次的值）。 */
+  /**
+   * 读会话文件里的 token 和请求数；读失败只记日志（费用照常显示，token 保持上一次的值）。
+   * 同一任务同时只读一次：读的时候又来的请求合并成这次读完后再读一次（文件在读的过程中可能又被 omp 追加或重写）。
+   */
   async #refreshTotals(): Promise<void> {
+    if (this.#totalsReading) {
+      this.#totalsDirty = true;
+      return;
+    }
+    this.#totalsReading = true;
+    try {
+      do {
+        this.#totalsDirty = false;
+        await this.#readTotals();
+      } while (this.#totalsDirty && !this.#disposed);
+    } finally {
+      this.#totalsReading = false;
+    }
+  }
+
+  async #readTotals(): Promise<void> {
     const file = this.#currentSessionFile();
     if (file === null) return;
     try {

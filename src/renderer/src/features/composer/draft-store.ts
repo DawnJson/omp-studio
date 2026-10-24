@@ -28,6 +28,7 @@ export function getDraft(taskId: TaskId): Draft {
 
 export function setDraft(taskId: TaskId, draft: Draft): void {
   drafts.set({ ...drafts.get(), [taskId]: draft });
+  scheduleSave(taskId, persistedText(draft, maxPersistedChars));
 }
 
 /** 换掉文字；文字里不再引用的附件（图片、大段粘贴）跟着删。 */
@@ -79,9 +80,18 @@ if (typeof window !== "undefined") {
   document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && flushDrafts());
 }
 
-drafts.subscribe(() => {
-  for (const [key, draft] of Object.entries(drafts.get())) scheduleSave(key, persistedText(draft, maxPersistedChars));
-});
+// 任务删除：内存里的草稿、待存的定时器和记录一并丢（主进程那边的 drafts.json 条目由主进程删）。草稿页的键是按项目的，不会等于任务 id。
+if (typeof window !== "undefined" && "studio" in window) {
+  window.studio.onTaskRemoved((taskId) => {
+    clearTimeout(saveTimers.get(taskId));
+    saveTimers.delete(taskId);
+    pendingText.delete(taskId);
+    touched.delete(taskId);
+    lastSaved.delete(taskId);
+    const { [taskId]: _removed, ...rest } = drafts.get();
+    drafts.set(rest);
+  });
+}
 
 /** 启动时把已存的草稿读回来；用户在读回来之前已经打过字的 key 不覆盖。 */
 if (typeof window !== "undefined" && "studio" in window) {

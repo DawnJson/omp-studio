@@ -1,6 +1,6 @@
 // 真实 omp 冒烟：任务池 → 伪终端里的真实 omp（临时 PI_CODING_AGENT_DIR）→ 真实模型，一轮 prompt 跑完。
 // 会调真实模型，默认跳过；`STUDIO_REAL_OMP=1 npx vitest run test/task-real-omp.test.ts` 才跑。需要仓库根 .env（STUDIO_TEST_MODEL 和 key）。
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { parseEnv } from "node:util";
@@ -35,6 +35,9 @@ describe.skipIf(!enabled)("真实 omp", () => {
     if (!omp) throw new Error("omp is not on PATH");
     const projectDir = path.join(scratch, "项目 目录");
     await mkdir(projectDir);
+    // 新的 agent 目录里 omp 会先弹首次运行引导（screen 面板），挡住发送；应用启动时经 `omp config set` 关掉它（setup-wizard-default.ts），这里直接写进临时目录的配置。
+    await mkdir(path.join(scratch, "agent"));
+    await writeFile(path.join(scratch, "agent", "config.yml"), "startup:\n  setupWizard: false\n", "utf8");
 
     const states: TaskState[] = [];
     const waiters: { predicate: (s: TaskState) => boolean; resolve: (s: TaskState) => void }[] = [];

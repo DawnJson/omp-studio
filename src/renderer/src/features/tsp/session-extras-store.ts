@@ -22,6 +22,12 @@ export function refreshSessionExtras(taskId: TaskId): void {
   );
 }
 
+// 任务被移除：丢掉它的缓存；还在路上的请求回来时 requests 里已没有它，会被忽略。
+window.studio.onTaskRemoved((taskId) => {
+  extras.delete(taskId);
+  requests.delete(taskId);
+});
+
 export function useSessionExtras(taskId: TaskId): TspSessionExtras {
   const subscribe = useMemo(
     () => (listener: () => void) => {

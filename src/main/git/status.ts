@@ -69,6 +69,7 @@ async function canPushFrom(root: string, branch: GitBranchInfo): Promise<boolean
   const key = `${root}\0${branch.head}`;
   const hit = canPushCache.get(key);
   if (hit && Date.now() - hit.at < CAN_PUSH_TTL_MS) return hit.value;
+  canPushCache.delete(key);
   const value = (await pushRemote(root, branch.head)).remote !== null;
   canPushCache.set(key, { at: Date.now(), value });
   return value;
