@@ -10,6 +10,10 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+### 修复
+
+- 设置 -> Provider 与订阅：Tavily、Exa、Kagi、Parallel 的 key 来自环境变量时，卡片写出是哪个变量（如“环境变量 · TAVILY_API_KEY”），不再只写“环境变量”。
+
 ## [0.4.14] - 2026-10-24
 
 ### 新增

@@ -122,10 +122,10 @@ test("填 API key：存进 omp 的凭据库（终端版也用），卡片写“�
     await expect(card.getByTestId("provider-signout-kagi")).toHaveText("清除 key");
     expect(storedKeys()).toEqual(["kagi-e2e-key"]);
 
-    // 只有环境变量里的 key（omp 认可、凭据库里没有账号）：不是登录，写"已配置"，没有退出按钮。
+    // 只有环境变量里的 key（omp 认可、凭据库里没有账号）：不是登录，写"已配置"，没有退出按钮；元信息写出是哪个变量。
     const envCard = page.getByTestId("providers").getByTestId("provider-tavily");
     await expect(envCard).toContainText("已配置");
-    await expect(envCard).toContainText("环境变量");
+    await expect(envCard).toContainText("环境变量 · TAVILY_API_KEY");
     await expect(envCard.getByTestId("provider-signout-tavily")).toHaveCount(0);
     expect(storedKeys()).toEqual(["kagi-e2e-key"]);
 

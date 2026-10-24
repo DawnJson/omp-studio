@@ -1,6 +1,7 @@
 // 设置页能填 API key 的 provider（key 经 `omp auth import` 存进 omp 自己的凭据库，docs/architecture/login.md）。
 // 这张表是 omp provider id -> omp 认的环境变量名：出自 omp 文档 environment-variables.md §1（omp 18.12.0 随附）；provider id 取自该表
 // "Using `<id>` provider"一列，没有写 id 的行按 omp 的 provider 命名推断 [推测]。变量名只用来提示"key 也可以来自这个环境变量"。
+// 搜索服务（表尾四个）出自同一文档 §3 "Search provider credentials"；omp 18.12.6 的 `get_login_providers` 里有这四个 id。
 import { loginKind } from "./provider-login.ts";
 
 const providerKeyEnv: Readonly<Record<string, string>> = {
@@ -46,6 +47,10 @@ const providerKeyEnv: Readonly<Record<string, string>> = {
   sambanova: "SAMBANOVA_API_KEY",
   "alibaba-coding-plan": "ALIBABA_CODING_PLAN_API_KEY",
   "alibaba-token-plan": "ALIBABA_TOKEN_PLAN_API_KEY",
+  tavily: "TAVILY_API_KEY",
+  exa: "EXA_API_KEY",
+  kagi: "KAGI_API_KEY",
+  parallel: "PARALLEL_API_KEY",
 };
 
 /** provider 对应的环境变量名；这个 provider 不支持 API key 路线时为 null。 */
