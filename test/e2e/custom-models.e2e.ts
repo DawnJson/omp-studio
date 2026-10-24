@@ -155,12 +155,10 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await expect(form).toHaveCount(0);
     await expect(page.getByTestId("settings")).toBeVisible(); // Esc 只关了表单
 
-    // 删除：先取消，再确认。
-    await page.getByTestId("custom-more-fake-proxy").click();
+    // 删除：先取消，再确认；取消后马上再点（上一个确认框还在放退出动画）也要能打开新的。
     await page.getByTestId("custom-delete-fake-proxy").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "取消" }).click();
     await expect(row).toBeVisible();
-    await page.getByTestId("custom-more-fake-proxy").click();
     await page.getByTestId("custom-delete-fake-proxy").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();
     await expect(row).toHaveCount(0);
@@ -425,6 +423,8 @@ test("自定义提供商：环境变量形式的 key——models.yml 只写变�
     await page.getByTestId("custom-id").fill("env-proxy");
     await page.getByTestId("custom-base-url").fill(fake.baseUrl);
     await page.getByTestId("custom-key-mode-env").click();
+    // 变量名按 ID 预填。
+    await expect(page.getByTestId("custom-key")).toHaveValue("ENV_PROXY_API_KEY");
     await page.getByTestId("custom-key").fill("Pro_E2E_KEY");
     const value = page.getByTestId("custom-key-env-value");
     await expect(value).toHaveAttribute("type", "password");
@@ -432,7 +432,13 @@ test("自定义提供商：环境变量形式的 key——models.yml 只写变�
     // 拉取用刚填的值（还没写进 .env）。
     await page.getByTestId("custom-fetch").click();
     await page.getByTestId("custom-model-fake-chat").check();
-    await page.getByTestId("custom-save").click();
+    // 这个变量哪里都没有值：值清空就不能保存。
+    const save = page.getByTestId("custom-save");
+    await expect(save).toBeEnabled();
+    await value.fill("");
+    await expect(save).toBeDisabled();
+    await value.fill(SECRET);
+    await save.click();
     await expect(form).toHaveCount(0);
 
     const row = page.getByTestId("custom-provider-env-proxy");
@@ -454,7 +460,6 @@ test("自定义提供商：环境变量形式的 key——models.yml 只写变�
     await expect(form).toHaveCount(0);
     expect(await readFile(envFile, "utf8")).toContain(`Pro_E2E_KEY=${SECRET}`);
 
-    await page.getByTestId("custom-more-env-proxy").click();
     await page.getByTestId("custom-delete-env-proxy").click();
     await expect(page.getByRole("alertdialog")).toContainText(".env");
     await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();

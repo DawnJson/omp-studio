@@ -4,6 +4,8 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import {
+  defaultEnvName,
+  isValidEnvName,
   parseTokenCount,
   type CustomModelMeta,
   type CustomProviderInput,
@@ -628,5 +630,20 @@ describe("环境变量形式的 key 同步 agent 目录的 .env", () => {
         code: "invalid-key",
       },
     );
+  });
+});
+
+describe("按 ID 预填的环境变量名", () => {
+  it("内置 provider 用 omp 自己的变量名，其余由 ID 推出且总是合法的变量名", () => {
+    expect(defaultEnvName("anthropic")).toBe("ANTHROPIC_API_KEY");
+    expect(defaultEnvName("my-proxy")).toBe("MY_PROXY_API_KEY");
+    expect(defaultEnvName("Pro.kimi--2")).toBe("PRO_KIMI_2_API_KEY");
+    expect(defaultEnvName("302ai")).toBe("_302AI_API_KEY");
+    for (const id of ["302ai", "a".repeat(200), "-x-"]) expect(isValidEnvName(defaultEnvName(id))).toBe(true);
+  });
+
+  it("ID 还空着或只有符号时不预填", () => {
+    expect(defaultEnvName("")).toBe("");
+    expect(defaultEnvName("--")).toBe("");
   });
 });

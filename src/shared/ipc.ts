@@ -43,6 +43,7 @@ import type {
   CustomModelsFileInfo,
   CustomModelsOutcome,
   CustomProviderInput,
+  EnvSource,
   FetchModelsOutcome,
   FetchModelsRequest,
 } from "./custom-models.ts";
@@ -1209,6 +1210,8 @@ export interface StudioInvokeApi {
   openModelsFile(): Promise<void>;
   /** 用系统默认程序打开 omp agent 目录的 `.env`（omp 启动时读它，环境变量形式的 key 常写在这里；还不存在时打开目录）。 */
   openEnvFile(): Promise<void>;
+  /** 环境变量形式的 key：这个变量名现在设在哪（系统 / agent 目录的 `.env` / 都没有）。只回位置，不回值。 */
+  envKeySource(name: string): Promise<EnvSource>;
   /** 跑 `omp models refresh`（强制重新拉各 provider 的模型目录，自动发现的模型也在内），完成后关掉服务进程，下次读模型列表时重新加载。omp 报错时抛出它的原话。 */
   refreshModels(): Promise<void>;
 
@@ -1545,6 +1548,7 @@ export const invokeNames = {
   fetchProviderModels: true,
   openModelsFile: true,
   openEnvFile: true,
+  envKeySource: true,
   refreshModels: true,
   getOmpStatus: true,
   answerTakeover: true,

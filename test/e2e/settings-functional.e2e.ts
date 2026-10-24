@@ -399,12 +399,10 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(page.getByTestId("mcp-test-result-remote1")).toBeVisible({ timeout: 60_000 });
 
     // 删除先确认。
-    await page.getByTestId("mcp-more-demo").click();
     await page.getByTestId("mcp-remove-demo").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
     await expect(page.getByTestId("mcp-row-demo")).toHaveCount(0);
     await expect.poll(async () => Object.keys(await mcpServers(agentDir))).toEqual(["remote1"]);
-    await page.getByTestId("mcp-more-remote1").click();
     await page.getByTestId("mcp-remove-remote1").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
     await expect(page.getByTestId("mcp-empty")).toBeVisible();
@@ -446,7 +444,6 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(page.getByTestId("ssh-form-error")).toContainText("already exists");
     await page.getByTestId("ssh-cancel").click();
 
-    await page.getByTestId("ssh-more-box").click();
     await page.getByTestId("ssh-remove-box").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
     await expect(page.getByTestId("ssh-row-box")).toHaveCount(0);
@@ -587,14 +584,12 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
     expect(listed.marketplace[0]?.installs[0]?.enabled).toBe(false);
 
     // 卸载先确认。
-    await page.getByTestId("plugin-more-p1@local-mk").click();
     await page.getByTestId("plugin-uninstall-p1@local-mk").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Uninstall" }).click();
     await expect(page.getByTestId("plugin-row-p1@local-mk")).toHaveCount(0, { timeout: 60_000 });
     await expect(page.getByTestId("plugins-empty")).toBeVisible();
 
     // 移除市场。
-    await page.getByTestId("marketplace-more-local-mk").click();
     await page.getByTestId("marketplace-remove-local-mk").click();
     await expect(page.getByTestId("marketplace-local-mk")).toHaveCount(0, { timeout: 60_000 });
 

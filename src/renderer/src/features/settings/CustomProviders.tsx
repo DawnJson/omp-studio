@@ -26,7 +26,8 @@ export function CustomProviders() {
   const t = useT();
   const load = useCustomProviderLoad();
   const { slot: editing, open: openEditing, closed: editingClosed, reset: resetEditing } = useDialogSlot<Editing>();
-  const [deleting, setDeleting] = useState<CustomProviderInfo | null>(null);
+  // 确认框用 slot：上一个还在放退出动画时再点删除也能立刻开新的（旧的迟到的关闭通知按 key 对不上）。
+  const { slot: deleting, open: openDeleting, closed: deletingClosed } = useDialogSlot<CustomProviderInfo>();
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -83,8 +84,8 @@ export function CustomProviders() {
     }
   };
 
-  const confirmDelete = async (provider: CustomProviderInfo) => {
-    setDeleting(null);
+  const confirmDelete = async (key: number, provider: CustomProviderInfo) => {
+    deletingClosed(key);
     setBusy(true);
     try {
       const outcome = await window.studio.deleteCustomProvider(provider.id);
@@ -238,7 +239,7 @@ export function CustomProviders() {
                           label: t("custom.delete"),
                           tone: "danger",
                           testId: `custom-delete-${provider.id}`,
-                          onSelect: () => setDeleting(provider),
+                          onSelect: () => openDeleting(provider),
                         },
                       ]}
                     />
@@ -275,13 +276,14 @@ export function CustomProviders() {
       )}
       {deleting !== null && (
         <ConfirmDialog
+          key={deleting.key}
           danger
-          title={t("custom.delete.title", { id: deleting.id })}
+          title={t("custom.delete.title", { id: deleting.value.id })}
           body={t("custom.delete.body")}
           confirmLabel={t("custom.delete.confirm")}
           cancelLabel={t("common.cancel")}
-          onConfirm={() => void confirmDelete(deleting)}
-          onCancel={() => setDeleting(null)}
+          onConfirm={() => void confirmDelete(deleting.key, deleting.value)}
+          onCancel={() => deletingClosed(deleting.key)}
         />
       )}
     </div>

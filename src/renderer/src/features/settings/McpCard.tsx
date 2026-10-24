@@ -113,7 +113,8 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
   const load = mcpResource.useLoad(scope);
   const { slot: adding, open: openAdding, closed: addingClosed, reset: resetAdding } = useDialogSlot();
   const [busy, setBusy] = useState(false);
-  const [removing, setRemoving] = useState<McpServerRow | null>(null);
+  // 确认框用 slot：上一个还在放退出动画时再点移除也能立刻开新的（旧的迟到的关闭通知按 key 对不上）。
+  const { slot: removing, open: openRemoving, closed: removingClosed } = useDialogSlot<McpServerRow>();
   const [tests, setTests] = useState<Record<string, TestState>>({});
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -204,7 +205,7 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
               onToggle={(next) =>
                 void write(() => runMcpWrite({ kind: "mcp", op: next ? "enable" : "disable", name: row.name }, scope))
               }
-              onRemove={() => setRemoving(row)}
+              onRemove={() => openRemoving(row)}
             />
           ))}
         </div>
@@ -231,21 +232,22 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
       )}
       {removing !== null && (
         <ConfirmDialog
+          key={removing.key}
           danger
-          title={t("integrations.mcp.remove.title", { name: removing.name })}
+          title={t("integrations.mcp.remove.title", { name: removing.value.name })}
           body={t("integrations.mcp.remove.body", {
-            scope: removing.scope === "project" ? t("integrations.scope.project") : t("integrations.scope.user"),
+            scope: removing.value.scope === "project" ? t("integrations.scope.project") : t("integrations.scope.user"),
           })}
           confirmLabel={t("integrations.remove")}
           cancelLabel={t("common.cancel")}
           onConfirm={() => {
-            const row = removing;
-            setRemoving(null);
+            const row = removing.value;
+            removingClosed(removing.key);
             const target = row.scope;
             if (target === "user" || target === "project")
               void write(() => runMcpWrite({ kind: "mcp", op: "remove", name: row.name, scope: target }, scope));
           }}
-          onCancel={() => setRemoving(null)}
+          onCancel={() => removingClosed(removing.key)}
         />
       )}
     </div>

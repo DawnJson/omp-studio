@@ -1,22 +1,24 @@
 // 自定义提供商的添加 / 编辑对话框：ID、Base URL、接口类型、key、模型（CustomModelList）。
 // 写 models.yml（和环境变量形式的 key 写进的 agent 目录 `.env`）在主进程（src/main/omp-config/models-file.ts）；
 // 这里只收集输入、把主进程返回的错误码翻成文案。
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   defaultDiscoveryType,
+  defaultEnvName,
   formApis,
   isFetchableApi,
+  isValidEnvName,
   parseTokenCount,
   type CustomKeyInput,
-  type CustomKeyState,
   type CustomModelMeta,
   type CustomModelsOutcome,
   type CustomProviderInfo,
   type CustomProviderInput,
+  type EnvSource,
 } from "../../../../shared/custom-models.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
-import { describeError } from "../../ui/errors.ts";
+import { describeError, reportErrorNow } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Button, FormField, Notice, Segmented, TextField, type Option } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
@@ -45,6 +47,42 @@ export function warnIfShadowed(t: TFunction, outcome: CustomModelsOutcome): void
 
 export type KeyMode = "keep" | "literal" | "env" | "none";
 
+/**
+ * 环境变量形式的 key：变量名现在设在哪（主进程查，只回位置）。名字改动后 200ms 再查；查到之前是 null。
+ * `active` 为 false（不是环境变量写法）时不查，返回 null。
+ */
+export function useEnvSource(name: string, active: boolean): EnvSource | null {
+  const [found, setFound] = useState<{ name: string; source: EnvSource } | null>(null);
+  const trimmed = name.trim();
+  useEffect(() => {
+    if (!active || !isValidEnvName(trimmed)) return;
+    let live = true;
+    const timer = setTimeout(() => {
+      void window.studio.envKeySource(trimmed).then((source) => {
+        if (live) setFound({ name: trimmed, source });
+      }, reportErrorNow);
+    }, 200);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [trimmed, active]);
+  if (!active) return null;
+  if (!isValidEnvName(trimmed)) return "missing";
+  return found?.name === trimmed ? found.source : null;
+}
+
+/**
+ * 这种写法下 key 填够了没有：直接填要有 key；环境变量要有合法变量名，并且这里填了值、或者变量已经设好（系统 / `.env`）
+ * ——否则存进去的是一个哪儿都没设的变量名，omp 拿不到 key；保持不变 / 无需 key 不用填。
+ */
+export function keyComplete(mode: KeyMode, text: string, envValue: string, source: EnvSource | null): boolean {
+  if (mode === "literal") return text.trim() !== "";
+  if (mode === "env")
+    return isValidEnvName(text.trim()) && (envValue.trim() !== "" || source === "system" || source === "env-file");
+  return true;
+}
+
 interface KeyFieldsProps {
   mode: KeyMode;
   /** 分段里有的几种写法：按其中最高的那种占位，切换时对话框大小不变。 */
@@ -52,23 +90,22 @@ interface KeyFieldsProps {
   /** 直接填的 key，或环境变量名。 */
   text: string;
   onText(value: string): void;
-  /** 环境变量的值：保存时写进 agent 目录的 `.env`；留空 = 不动 `.env`。 */
+  /** 环境变量的值：保存时写进 agent 目录的 `.env`；留空 = 不动 `.env`（变量已经设好时）。 */
   envValue: string;
   onEnvValue(value: string): void;
-  /** 打开对话框时文件里的 key（判断变量现在设在哪）。 */
-  original: CustomKeyState | undefined;
+  /** 变量名现在设在哪（`useEnvSource`）。 */
+  source: EnvSource | null;
   /** 输入框 `testId`；环境变量的值是 `${testId}-env-value`，显示切换是 `${testId}-toggle`。 */
   testId: string;
 }
 
 /**
  * key 分段下面的输入框和一行说明：直接填 → 一个遮住的框；环境变量 → 变量名 + 值两个框；保持不变 / 无需 key → 没有。
- * 变量名没改时按它现在设在哪提示：`.env` 里已有 → 值留空保持；系统环境变量里有 → omp 用系统的。
+ * 变量已经设好时提示：`.env` 里已有 → 值留空保持；系统环境变量里有 → omp 用系统的。
  */
-export function KeyFields({ mode, modes, text, onText, envValue, onEnvValue, original, testId }: KeyFieldsProps) {
+export function KeyFields({ mode, modes, text, onText, envValue, onEnvValue, source, testId }: KeyFieldsProps) {
   const t = useT();
   const [show, setShow] = useState(false);
-  const source = original?.kind === "env" && original.name === text.trim() ? original.source : null;
   const noop = () => undefined;
   const toggle = (live: boolean) => (
     <Button
@@ -120,7 +157,9 @@ export function KeyFields({ mode, modes, text, onText, envValue, onEnvValue, ori
             autoComplete="off"
             value={live ? envValue : ""}
             placeholder={
-              source === "env-file" ? t("custom.form.key.envValue.keep") : t("custom.form.key.envValue.placeholder")
+              live && source === "env-file"
+                ? t("custom.form.key.envValue.keep")
+                : t("custom.form.key.envValue.placeholder")
             }
             aria-label={t("custom.form.key.envValue")}
             testId={live ? `${testId}-env-value` : undefined}
@@ -170,6 +209,9 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   const envName = provider?.key.kind === "env" ? provider.key.name : "";
   const [keyText, setKeyText] = useState(envName);
   const [envValue, setEnvValue] = useState("");
+  // 变量名是按 ID 自动补的、用户还没改过：改 ID 时跟着改。
+  const [nameTouched, setNameTouched] = useState(envName !== "");
+  const envSource = useEnvSource(keyText, keyMode === "env");
   const [rows, setRows] = useState<ModelRow[]>(
     () =>
       provider?.models.map((model) => ({
@@ -231,7 +273,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   const countsValid = checkedRows.every(
     (row) => parseTokenCount(row.contextWindow) !== undefined && parseTokenCount(row.maxTokens) !== undefined,
   );
-  const keyReady = (keyMode !== "literal" && keyMode !== "env") || keyText.trim() !== "";
+  const keyReady = keyComplete(keyMode, keyText, envValue, envSource);
   // 接口类型改成没有通用发现方式的：开关停用，开着也不写；条目里本来就有 discovery 的照旧能保存（原样保留）。
   const discoverySupported = defaultDiscoveryType(api) !== null || provider?.discovery === true;
   const discoveryOn = discovery && discoverySupported;
@@ -344,66 +386,75 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
           if (canSave && !saving) void save();
         }}
       >
-        <FormField label={t("custom.form.id")} htmlFor={`${uid}-id`} help={t("custom.form.id.tip")}>
-          <TextField
-            id={`${uid}-id`}
-            mono
-            width="100%"
-            autoComplete="off"
-            value={id}
-            disabled={mode === "edit"}
-            data-autofocus={mode === "add" ? "" : undefined}
-            placeholder="my-proxy"
-            testId="custom-id"
-            onChange={setId}
-          />
-        </FormField>
-        <FormField label={t("custom.form.api")}>
-          <Select
-            value={api}
-            options={apiOptions}
-            label={t("custom.form.api")}
-            width="100%"
-            onChange={setApi}
-            testId="custom-api"
-          />
-        </FormField>
-        <FormField label={t("custom.form.baseUrl")} htmlFor={`${uid}-url`}>
-          <TextField
-            id={`${uid}-url`}
-            mono
-            width="100%"
-            autoComplete="off"
-            value={baseUrl}
-            placeholder={t("custom.form.baseUrl.placeholder")}
-            testId="custom-base-url"
-            onChange={setBaseUrl}
-          />
-        </FormField>
-        <FormField label={t("custom.form.key")}>
-          <Segmented
-            value={keyMode}
-            options={keyOptions}
-            label={t("custom.form.key")}
-            onChange={(next) => {
-              setKeyMode(next);
-              setKeyText(next === "env" ? envName : "");
-              setEnvValue("");
-            }}
-            testId="custom-key-mode"
-          />
-          <KeyFields
-            mode={keyMode}
-            modes={keyOptions.map((option) => option.value)}
-            text={keyText}
-            onText={setKeyText}
-            envValue={envValue}
-            onEnvValue={setEnvValue}
-            original={provider?.key}
-            testId="custom-key"
-          />
-        </FormField>
-        <FormField className="cp-wide" label={t("custom.form.models")} help={t("custom.form.discovery.tip")}>
+        <div className="cp-conn">
+          <FormField label={t("custom.form.id")} htmlFor={`${uid}-id`} help={t("custom.form.id.tip")}>
+            <TextField
+              id={`${uid}-id`}
+              mono
+              width="100%"
+              autoComplete="off"
+              value={id}
+              disabled={mode === "edit"}
+              data-autofocus={mode === "add" ? "" : undefined}
+              placeholder="my-proxy"
+              testId="custom-id"
+              onChange={(next) => {
+                setId(next);
+                if (keyMode === "env" && !nameTouched) setKeyText(defaultEnvName(next));
+              }}
+            />
+          </FormField>
+          <FormField label={t("custom.form.api")}>
+            <Select
+              value={api}
+              options={apiOptions}
+              label={t("custom.form.api")}
+              width="100%"
+              onChange={setApi}
+              testId="custom-api"
+            />
+          </FormField>
+          <FormField label={t("custom.form.baseUrl")} htmlFor={`${uid}-url`}>
+            <TextField
+              id={`${uid}-url`}
+              mono
+              width="100%"
+              autoComplete="off"
+              value={baseUrl}
+              placeholder={t("custom.form.baseUrl.placeholder")}
+              testId="custom-base-url"
+              onChange={setBaseUrl}
+            />
+          </FormField>
+          <FormField label={t("custom.form.key")}>
+            <Segmented
+              value={keyMode}
+              options={keyOptions}
+              label={t("custom.form.key")}
+              onChange={(next) => {
+                setKeyMode(next);
+                setKeyText(next === "env" ? (envName !== "" ? envName : defaultEnvName(id)) : "");
+                setNameTouched(next === "env" && envName !== "");
+                setEnvValue("");
+              }}
+              testId="custom-key-mode"
+            />
+            <KeyFields
+              mode={keyMode}
+              modes={keyOptions.map((option) => option.value)}
+              text={keyText}
+              onText={(next) => {
+                setKeyText(next);
+                if (keyMode === "env") setNameTouched(true);
+              }}
+              envValue={envValue}
+              onEnvValue={setEnvValue}
+              source={envSource}
+              testId="custom-key"
+            />
+          </FormField>
+        </div>
+        <FormField className="cp-models-field" label={t("custom.form.models")} help={t("custom.form.discovery.tip")}>
           <CustomModelList
             rows={rows}
             onRows={setRows}

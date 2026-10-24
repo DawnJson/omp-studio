@@ -1,10 +1,11 @@
-// 一个已装插件的一行：名称、版本、详情（npm / link 插件的功能和设置）、升级、启用开关、卸载（⋯ 里，带确认）。
+// 一个已装插件的一行：名称、版本、详情（npm / link 插件的功能和设置）、升级、启用开关、卸载（带确认）。
 // 市场插件按"安装"一行一个：同一个插件在用户和项目范围都装了就是两行，每行的动作带自己的 --scope。
 import { useId, useState } from "react";
 import type { MarketplaceInstall, MarketplacePlugin, NpmPlugin } from "../../../../shared/omp-output/plugins.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Badge, Button, Disclosure, ListRow, Switch } from "../../ui/controls.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
+import { useDialogSlot } from "../../ui/presence.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { PluginDetails } from "./PluginDetails.tsx";
 import { runAction } from "./plugins-store.ts";
@@ -22,7 +23,8 @@ export function PluginRow({
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  // 确认框用 slot：上一个还在放退出动画时再点卸载也能立刻开新的。
+  const { slot: confirming, open: openConfirming, closed: confirmingClosed } = useDialogSlot();
   const detailsId = useId();
   const busy = working !== null;
   const id = plugin.kind === "npm" ? plugin.name : plugin.id;
@@ -85,7 +87,7 @@ export function PluginRow({
                   label: t("plugins.uninstall"),
                   tone: "danger",
                   testId: `plugin-uninstall-${rowKey}`,
-                  onSelect: () => setConfirming(true),
+                  onSelect: () => openConfirming(true),
                 },
               ]}
             />
@@ -95,16 +97,17 @@ export function PluginRow({
       <Reveal open={open} id={detailsId}>
         <PluginDetails plugin={plugin} busy={busy} />
       </Reveal>
-      {confirming && (
+      {confirming !== null && (
         <ConfirmDialog
+          key={confirming.key}
           danger
           title={t("plugins.uninstall.title", { name: id })}
           body={t("plugins.uninstall.body")}
           confirmLabel={t("plugins.uninstall.confirm")}
           cancelLabel={t("common.cancel")}
-          onCancel={() => setConfirming(false)}
+          onCancel={() => confirmingClosed(confirming.key)}
           onConfirm={() => {
-            setConfirming(false);
+            confirmingClosed(confirming.key);
             void runAction(t, { kind: "uninstall", id, ...scoped }, `uninstall:${rowKey}`);
           }}
         />

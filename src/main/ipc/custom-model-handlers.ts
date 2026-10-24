@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { net, shell } from "electron";
 import path from "node:path";
 import {
+  isValidEnvName,
   limits,
   type CustomKeyInput,
   type CustomKeyValue,
@@ -11,7 +12,7 @@ import {
   type FetchModelsOutcome,
 } from "../../shared/custom-models.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
-import { envFilePath, envValues, readEnvText } from "../omp-config/env-file.ts";
+import { envFilePath, envSourceOf, envValues, readEnvText } from "../omp-config/env-file.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
 import { log } from "../log/log.ts";
 import { fetchModelList, resolveKeyToken } from "../omp-config/fetch-models.ts";
@@ -123,6 +124,7 @@ export const customModelHandlers: HandlerGroup<
   | "refreshModels"
   | "openModelsFile"
   | "openEnvFile"
+  | "envKeySource"
 > = {
   listCustomProviders: () => readModelsFile(resolveAgentDir()),
   saveCustomProvider: async (mode, input) => {
@@ -169,6 +171,12 @@ export const customModelHandlers: HandlerGroup<
   openEnvFile: async () => {
     const file = envFilePath(resolveAgentDir());
     await openInShell(existsSync(file) ? file : path.dirname(file));
+  },
+  // 只回答"这个变量设在哪"，不回值；不合法的名字当没设置。
+  envKeySource: async (name) => {
+    const parsed = parseString(name, "name", limits.envName, { allowEmpty: true });
+    if (!isValidEnvName(parsed)) return "missing";
+    return envSourceOf(await readEnvText(resolveAgentDir()))(parsed);
   },
 };
 

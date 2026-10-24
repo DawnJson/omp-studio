@@ -162,7 +162,8 @@ export function MarketplacesCard({
   const t = useT();
   const { slot: adding, open: openAdding, closed: addingClosed } = useDialogSlot();
   const [browsing, setBrowsing] = useState<string | null>(null);
-  const [pending, setPending] = useState<Pending | null>(null);
+  // 确认框用 slot：上一个还在放退出动画时再点安装也能立刻开新的。
+  const { slot: pending, open: openPending, closed: pendingClosed } = useDialogSlot<Pending>();
   const [installScope, setInstallScope] = useState<PluginScope>("user");
   const busy = working !== null;
   // "已安装"按要装进的范围判断：用户范围装过的，在项目范围里仍然可以装。
@@ -272,7 +273,12 @@ export function MarketplacesCard({
                 }
               />
               {browsing === marketplace.name && (
-                <Browse marketplace={marketplace.name} installed={installed} working={working} onInstall={setPending} />
+                <Browse
+                  marketplace={marketplace.name}
+                  installed={installed}
+                  working={working}
+                  onInstall={openPending}
+                />
               )}
             </div>
           ))}
@@ -283,18 +289,19 @@ export function MarketplacesCard({
       )}
       {pending !== null && (
         <ConfirmDialog
+          key={pending.key}
           testId="plugin-install-confirm"
-          title={t("plugins.install.title", { name: pending.entry.name })}
+          title={t("plugins.install.title", { name: pending.value.entry.name })}
           body={
-            t("plugins.install.body", { name: pending.entry.name, marketplace: pending.marketplace }) +
+            t("plugins.install.body", { name: pending.value.entry.name, marketplace: pending.value.marketplace }) +
             (projectId !== null && installScope === "project" ? ` ${t("plugins.install.projectNote")}` : "")
           }
           confirmLabel={t("plugins.install.confirm")}
           cancelLabel={t("common.cancel")}
-          onCancel={() => setPending(null)}
+          onCancel={() => pendingClosed(pending.key)}
           onConfirm={() => {
-            const id = `${pending.entry.name}@${pending.marketplace}`;
-            setPending(null);
+            const id = `${pending.value.entry.name}@${pending.value.marketplace}`;
+            pendingClosed(pending.key);
             void runAction(
               t,
               { kind: "install", id, ...(projectId === null ? {} : { scope: installScope }) },

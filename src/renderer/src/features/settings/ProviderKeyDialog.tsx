@@ -1,12 +1,12 @@
 // 设置 → 自定义 provider：只改一个条目的 `apiKey`（只覆盖 omp 内置 provider 的条目，比如 `anthropic` 下只有 `modelOverrides`）。
 // 这种条目没有 baseUrl 和模型，编辑表单存不了；这里只写 key，条目里别的键由主进程原样保留（models-file.ts 的 applyKey）。
 import { useState } from "react";
-import type { CustomProviderInfo } from "../../../../shared/custom-models.ts";
+import { defaultEnvName, type CustomProviderInfo } from "../../../../shared/custom-models.ts";
 import { describeError } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Button, FormField, Notice, Segmented, type Option } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
-import { customErrorText, KeyFields, warnIfShadowed } from "./CustomProviderForm.tsx";
+import { customErrorText, KeyFields, keyComplete, useEnvSource, warnIfShadowed } from "./CustomProviderForm.tsx";
 
 type Mode = "literal" | "env";
 
@@ -24,6 +24,7 @@ export function ProviderKeyDialog({ provider, onSaved, onClose }: ProviderKeyDia
   const [mode, setMode] = useState<Mode>(provider.key.kind === "env" ? "env" : "literal");
   const [text, setText] = useState(envName);
   const [envValue, setEnvValue] = useState("");
+  const source = useEnvSource(text, mode === "env");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +32,7 @@ export function ProviderKeyDialog({ provider, onSaved, onClose }: ProviderKeyDia
     { value: "literal", label: t("custom.form.key.literal") },
     { value: "env", label: t("custom.form.key.env") },
   ];
-  const canSave = text.trim() !== "" && !saving;
+  const canSave = keyComplete(mode, text, envValue, source) && !saving;
 
   const save = async () => {
     setSaving(true);
@@ -89,7 +90,7 @@ export function ProviderKeyDialog({ provider, onSaved, onClose }: ProviderKeyDia
             label={t("custom.form.key")}
             onChange={(next) => {
               setMode(next);
-              setText(next === "env" ? envName : "");
+              setText(next === "env" ? (envName !== "" ? envName : defaultEnvName(provider.id)) : "");
               setEnvValue("");
             }}
             testId="custom-key-dialog-mode"
@@ -101,7 +102,7 @@ export function ProviderKeyDialog({ provider, onSaved, onClose }: ProviderKeyDia
             onText={setText}
             envValue={envValue}
             onEnvValue={setEnvValue}
-            original={provider.key}
+            source={source}
             testId="custom-key-dialog-value"
           />
         </FormField>

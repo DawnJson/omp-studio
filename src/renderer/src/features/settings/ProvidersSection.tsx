@@ -1,5 +1,5 @@
 // 设置 → 提供商与账号：已连接的提供商 + 自定义提供商（models.yml）。omp 列出 80 多个提供商，没连接的不在页面上铺开：
-// 页头"连接提供商…"打开可搜索的选择对话框，选中后走登录 / 填 key 对话框。
+// "已连接"标题行右侧的"连接提供商…"打开可搜索的选择对话框，选中后走登录 / 填 key 对话框。
 import { useCallback, useEffect, useMemo } from "react";
 import type { LoginProvider } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { loginKind } from "../../../../shared/provider-login.ts";
@@ -11,7 +11,6 @@ import { describeError } from "../../ui/errors.ts";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { loadAccounts, useAccountLoad } from "./accounts-store.ts";
 import { CustomProviders } from "./CustomProviders.tsx";
-import { PageHeadActions } from "./PageHeadActions.tsx";
 import { ProviderFlowDialog, type FlowAction } from "./ProviderFlowDialog.tsx";
 import { ProviderPickDialog } from "./ProviderPickDialog.tsx";
 import { ProviderRow } from "./ProviderRow.tsx";
@@ -53,20 +52,23 @@ export function ProvidersSection() {
 
   return (
     <>
-      <PageHeadActions>
-        <Button
-          size="sm"
-          icon={<Plus size={14} />}
-          disabled={data === null || groups.others.length === 0}
-          onClick={() => openDialog({ kind: "pick" })}
-          testId="providers-connect"
-        >
-          {t("login.connect")}
-        </Button>
-      </PageHeadActions>
-
       <div data-testid="providers">
-        <SectionHead title={t("login.connected")} count={data === null ? undefined : groups.configured.length} />
+        {/* "连接 provider..."放在"已连接"这一行的右侧（和下面"自定义提供商"的按钮同一种位置）。 */}
+        <SectionHead
+          title={t("login.connected")}
+          count={data === null ? undefined : groups.configured.length}
+          actions={
+            <Button
+              size="sm"
+              icon={<Plus size={14} />}
+              disabled={data === null || groups.others.length === 0}
+              onClick={() => openDialog({ kind: "pick" })}
+              testId="providers-connect"
+            >
+              {t("login.connect")}
+            </Button>
+          }
+        />
         {error !== null && (
           <Notice tone="error" testId="providers-load-failed">
             {t("login.loadFailed", { message: describeError(t, error) })}

@@ -7,28 +7,49 @@
   color: var(--text-3);
 }
 
-/* 对话框用 xl 宽：模型表要放下 id + 四列能力参数。 */
+/*
+ * 对话框 xl 宽、高度固定（2026-10-24 仓库所有者：编辑哪个 provider 打开的对话框都一样大，不随模型多少、提示出没变）：
+ * 连接信息在上，模型一栏占满剩下的高度，模型表在里面滚动；窗口矮到放不下时整个正文滚动。
+ */
 .cp-dialog {
   --dialog-w: var(--dialog-w-xl);
+  height: min(760px, calc(100vh - 96px));
+}
+.cp-dialog .ui-dialog-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-/* 连接信息两栏（ID | 接口类型、Base URL | key），窄到放不下两栏 320 时变一栏；开关、模型、错误占满一行。 */
 .cp-form {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* 连接信息两栏（ID | 接口类型、Base URL | key），窄到放不下两栏 320 时变一栏。 */
+.cp-conn {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: var(--space-4) var(--space-6);
   align-items: start;
 }
 
-.cp-wide,
-.cp-form > .ui-notice {
-  grid-column: 1 / -1;
+.cp-models-field {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  gap: var(--space-1-5);
 }
 
 .cp-models {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 /* 工具栏：全选方框 · 拉取模型 · 自动发现开关 · 筛选 · 已选计数（靠右）。 */
@@ -54,7 +75,9 @@
   grid-template-columns: minmax(0, 1fr) repeat(2, 128px) repeat(2, 120px);
   column-gap: var(--space-2);
   align-content: start;
-  max-height: 360px;
+  /* 占满模型一栏剩下的高度（不按行数长），最少放得下表头和三四行。 */
+  flex: 1 1 0;
+  min-height: 160px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

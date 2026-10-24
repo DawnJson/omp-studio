@@ -27,7 +27,8 @@ export function SshCard({ scope }: { scope: ScopeKey }) {
   const load = sshResource.useLoad(scope);
   const { slot: adding, open: openAdding, closed: addingClosed, reset: resetAdding } = useDialogSlot();
   const [busy, setBusy] = useState(false);
-  const [removing, setRemoving] = useState<SshHost | null>(null);
+  // 确认框用 slot：上一个还在放退出动画时再点删除也能立刻开新的。
+  const { slot: removing, open: openRemoving, closed: removingClosed } = useDialogSlot<SshHost>();
   const [failure, setFailure] = useState<string | null>(null);
 
   useEffect(() => {
@@ -122,7 +123,7 @@ export function SshCard({ scope }: { scope: ScopeKey }) {
                       label: t("integrations.remove"),
                       tone: "danger",
                       testId: `ssh-remove-${host.name}`,
-                      onSelect: () => setRemoving(host),
+                      onSelect: () => openRemoving(host),
                     },
                   ]}
                 />
@@ -151,17 +152,18 @@ export function SshCard({ scope }: { scope: ScopeKey }) {
       )}
       {removing !== null && (
         <ConfirmDialog
+          key={removing.key}
           danger
-          title={t("integrations.ssh.remove.title", { name: removing.name })}
+          title={t("integrations.ssh.remove.title", { name: removing.value.name })}
           body={t("integrations.ssh.remove.body")}
           confirmLabel={t("integrations.remove")}
           cancelLabel={t("common.cancel")}
           onConfirm={() => {
-            const host = removing;
-            setRemoving(null);
+            const host = removing.value;
+            removingClosed(removing.key);
             void remove(host);
           }}
-          onCancel={() => setRemoving(null)}
+          onCancel={() => removingClosed(removing.key)}
         />
       )}
     </div>

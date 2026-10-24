@@ -1,6 +1,6 @@
 // 自定义模型（设置 → 提供商与账号 → 自定义 provider）：界面和主进程共用的类型和校验。
 // 对应 omp 的 `models.yml` 里的 `providers.<id>`（omp://models.md）。纯逻辑，不引 React、DOM 或 Node。
-import { isProviderKeyEnv } from "./provider-keys.ts";
+import { apiKeyEnvName, isProviderKeyEnv } from "./provider-keys.ts";
 
 /** omp 的聊天传输 `api`（omp://models.md "Allowed provider/model api values" 去掉判定类和 runner 类）。 */
 const knownApis = [
@@ -198,6 +198,22 @@ export function isFetchableApi(api: string): boolean {
 
 export function isValidEnvName(name: string): boolean {
   return name.length > 0 && name.length <= limits.envName && envNamePattern.test(name);
+}
+
+/**
+ * 选"环境变量"时预填的变量名：omp 认识的内置 provider 用它自己的变量名（`anthropic` → `ANTHROPIC_API_KEY`），
+ * 其余由 ID 推出来：大写、非字母数字换成 `_`、加 `_API_KEY`（`my-proxy` → `MY_PROXY_API_KEY`）。ID 还空着时是空串。
+ */
+export function defaultEnvName(providerId: string): string {
+  const known = apiKeyEnvName(providerId);
+  if (known !== null) return known;
+  const stem = providerId
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (stem === "") return "";
+  const name = `${/^[0-9]/.test(stem) ? "_" : ""}${stem}_API_KEY`;
+  return name.slice(0, limits.envName);
 }
 
 /**
