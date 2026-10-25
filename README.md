@@ -48,7 +48,7 @@
 - **Windows**：双击安装包，按向导点下一步（欢迎、许可协议、安装位置，默认装到当前用户目录，不需要管理员权限）。安装包未签名，第一次运行时在 SmartScreen 里点"更多信息 → 仍要运行"。
 - **macOS**：把 `omp-studio.app` 拖进"应用程序"。包是 ad-hoc 签名，第一次打开前在终端执行 `xattr -cr /Applications/omp-studio.app`，或者在 系统设置 → 隐私与安全性 里点"仍要打开"。
 
-omp-studio 处于内测阶段（`0.x`），仓库私有，Releases 和 Issues 对协作者开放。
+omp-studio 处于早期阶段（`0.x`），界面和行为还会变。欢迎在 [Issues](https://github.com/DawnJson/omp-studio/issues) 反馈问题。
 
 ## 功能
 

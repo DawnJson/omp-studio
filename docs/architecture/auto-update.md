@@ -17,7 +17,7 @@ omp-studio 自己的版本更新，和 omp 的更新是两套（omp 的见 `omp-
 2. 打包时写入的 `resources/app-update.yml`（`electron-builder.yml` 的 `publish` 生成）：**本仓库的 GitHub Releases**（`provider: github`，`DawnJson/omp-studio`，只看正式版 Release；仓库所有者 2026-10-25 定）。electron-updater 找到最新的 Release，读里面的 `latest.yml`，再下载同一个 Release 里的安装包。
 3. 都没有，或 `STUDIO_UPDATE_URL` 指的本机目录不存在：`disabled`，设置页显示"这个版本没有配置更新源"。
 
-- **仓库必须公开**：私有仓库的 Releases 要 token 才能读，token 不能写进应用。仓库私有期间检查更新会失败（设置页显示"检查更新失败"）。
+- **仓库必须公开**：私有仓库的 Releases 要 token 才能读，token 不能写进应用。仓库 2026-10-25 起公开；私有期间检查更新会失败（设置页显示"检查更新失败"）。
 - `STUDIO_UPDATE_URL` 写成 `userData/app-update.yml`（`provider: generic` + 地址 + `updaterCacheDirName`）交给 electron-updater；本机目录由 `src/main/update/local-feed.ts` 在 `127.0.0.1` 的随机端口上只读提供（只给目录第一层的文件，`..`、子目录一律 404），用本机目录时关掉差分下载（这个小服务不支持 Range）。
 - 没有覆盖时 electron-updater 直接读 `resources/app-update.yml`，里面有 electron-builder 写好的 `updaterCacheDirName`。
 - 0.4.16 及以前的版本更新源是仓库所有者本机的一个固定目录，那些版本不会自动更新到用 GitHub 的版本，要手动装一次。

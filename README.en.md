@@ -48,7 +48,7 @@
 - **Windows**: Double-click the installer and step through the wizard (welcome, license, install location). By default it installs into your user directory and does not need administrator rights. The installer is unsigned, so on first run click "More info → Run anyway" in SmartScreen.
 - **macOS**: Drag `omp-studio.app` into Applications. The app is ad-hoc signed. Before opening it the first time, run `xattr -cr /Applications/omp-studio.app` in Terminal, or click "Open Anyway" in System Settings → Privacy & Security.
 
-omp-studio is in private beta (`0.x`). The repository is private; Releases and Issues are open to collaborators.
+omp-studio is at an early stage (`0.x`); its UI and behavior will still change. Please report problems in [Issues](https://github.com/DawnJson/omp-studio/issues).
 
 ## Features
 

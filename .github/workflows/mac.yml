@@ -1,7 +1,7 @@
 # mac 版（Apple 芯片）：在 GitHub 的 macOS 机器上跑单测、一条真正发 prompt 的 e2e，打 ad-hoc 签名的 dmg / zip 作为构建产物。
 # 推版本 tag 时还把 dmg / zip 传到这个版本的 GitHub Release（scripts/publish-release.ts）。
 # 没有 Apple Developer 账号：不公证、不写更新源（docs/architecture/mac.md）。
-# 只在手动触发或推送版本 tag 时跑：私有仓库的 macOS 分钟按 10 倍计。
+# 只在手动触发或推送版本 tag 时跑：mac 产物只在发版时用得上，一次要一分半以上。
 name: mac
 
 on:
