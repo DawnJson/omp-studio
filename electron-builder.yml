@@ -5,9 +5,12 @@ directories:
 files:
   - out/**
   - package.json
-  # node-pty 只需要 lib 和当前平台的预编译件：源码、依赖库、调试符号不打进包；
-  # 其它平台的预编译件在 win.files / mac.files 里按平台排除。
+  # node-pty 只需要 lib 和当前平台的预编译件：源码、依赖库、其它平台的预编译件和调试符号不打进包。
+  # 其它平台按宏排除（${platform}-${arch} 在 Windows 包里是 win32-x64，mac 包里是 darwin-arm64）。
+  # 不要在 win: / mac: 下面再写 files：平台级的 files 会整个顶替这一份（不是合并），只剩排除规则时 electron-builder
+  # 退回 **/*，把整个仓库目录（含 .env、日志、截图）打进 asar（0.4.16 出过一次，2026-10-25 实测）。
   - "!node_modules/node-pty/{src,deps,third_party,scripts}/**"
+  - "!node_modules/node-pty/prebuilds/!(${platform}-${arch})/**"
   - "!node_modules/node-pty/**/*.test.js*"
   - "!node_modules/node-pty/**/*.pdb"
 # node-pty 的原生 .node、conpty 辅助文件、spawn-helper 和 worker 脚本都要在真实文件系统里（不能留在 asar 里）。
@@ -17,7 +20,7 @@ asarUnpack:
 # 默认的 @electron/rebuild 会尝试从源码编译，没有 VS 工具链的机器上会失败。
 npmRebuild: false
 # 平台无关的额外资源。托盘图标和窗口图标按平台放在 win.extraResources / mac.extraResources。
-# 顶层和平台级的 files / extraResources 是合并的（app-builder-lib fileMatcher.js：先加 config 的，再加平台级的）。
+# 顶层和平台级的 extraResources 是合并的（打包产物里 licenses/ 和 tray.png 都在）；files 不是，见上。
 # 图标文件都由 scripts/make-icons.ts 从 src/shared/ui/pixel-pi.ts 生成。
 extraResources:
   # Geist / Geist Mono 字体（打进 out/ 的渲染进程资源）是 SIL OFL 1.1：再分发时许可证要随软件一起带上。
@@ -37,8 +40,6 @@ win:
       to: tray.png
     - from: resources/icon.ico
       to: icon.ico
-  files:
-    - "!node_modules/node-pty/prebuilds/{darwin-arm64,darwin-x64,win32-arm64}/**"
   target:
     - target: dir
       arch: x64
@@ -61,9 +62,6 @@ mac:
       to: trayTemplate.png
     - from: resources/trayTemplate@2x.png
       to: trayTemplate@2x.png
-  # 保留 darwin-arm64 的 pty.node 和 spawn-helper，去掉 Windows 和 Intel 的预编译件。
-  files:
-    - "!node_modules/node-pty/prebuilds/{win32-x64,win32-arm64,darwin-x64}/**"
   # 不公证，也没有开发者证书，显式 ad-hoc 签名。出处：app-builder-lib 26 的 options/macOptions.d.ts 里 identity 的说明：
   # 不设时找不到证书就跳过签名、没有自动 ad-hoc 回退；"-" 是显式启用 ad-hoc 签名。
   # 在非 mac 机器上 isSignAllowed() 为 false，签名被跳过（见 docs/architecture/mac.md）。

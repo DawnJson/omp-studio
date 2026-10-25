@@ -14,9 +14,9 @@ npm run dist:mac    # electron-vite build && electron-builder --mac --arm64 --pu
 `electron-builder.yml` 的 `mac:` 段：
 
 - 目标 `dmg` + `zip`，只有 arm64；类别 `public.app-category.developer-tools`；图标 `resources/icon.icns`。
-- `files` / `extraResources`：顶层和平台级是合并的（app-builder-lib `fileMatcher.js` 先加 config 的，再加平台级的）。
-  - node-pty 的预编译件按平台排除：Windows 包只留 `win32-x64`（Windows 部分的产物已用 `electron-builder --win dir` 核对：`app.asar.unpacked/node_modules/node-pty/prebuilds` 里只有 `win32-x64`）；
-    mac 包排除 `win32-*` 和 `darwin-x64`，只留 `darwin-arm64`（`pty.node` 和 `spawn-helper`）。
+- `files` 只写在顶层，平台下不写：平台级的 `files` 会整个顶替顶层那份（不是合并），只剩排除规则时 electron-builder 退回 `**/*`，把整个仓库目录打进 `app.asar`。0.4.16 因此把 `.env`、本机日志、截图、源码和测试都打进了安装包（2026-10-25 用 `electron-builder --win dir` 对照实测：去掉 `win.files` 后 asar 顶层只剩 `out`、`package.json`）。`extraResources` 是合并的（产物里 `licenses/` 和平台托盘图都在）。
+  - node-pty 的预编译件用宏排除别的平台：`!node_modules/node-pty/prebuilds/!(${platform}-${arch})/**`，Windows 包只留 `win32-x64`，mac 包只留 `darwin-arm64`（`pty.node` 和 `spawn-helper`）。
+  - `scripts/check-package.ts` 在 `npm run dist` / `dist:mac` 和 mac CI 的"检查产物"里读 `app.asar` 的文件头：顶层只许 `out`、`package.json`、`node_modules`，node-pty 预编译件只许本平台的，不对就失败。
   - 托盘图：Windows 带 `icon.ico`、`tray.png`；mac 带 `trayTemplate.png`、`trayTemplate@2x.png`。
 - 签名：`identity: "-"`（显式 ad-hoc）。依据 `app-builder-lib/out/options/macOptions.d.ts`：不设 identity 时找不到证书就跳过签名，**没有**自动 ad-hoc 回退；`"-"` 是显式启用。arm64 的可执行文件必须带签名（至少 ad-hoc）才能启动。
 - `hardenedRuntime: false`：同一文件说明默认的 hardened runtime 配 ad-hoc 签名会强制库校验，node-pty 的 `pty.node` 等会加载失败。不公证也用不上。

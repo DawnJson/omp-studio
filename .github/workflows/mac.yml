@@ -42,10 +42,12 @@ jobs:
       - name: 打包（ad-hoc 签名）
         run: npx electron-builder --mac --arm64 --publish never
 
-      # 包里该有的东西：node-pty 的 darwin-arm64 预编译件、spawn-helper 带执行位、签名有效。
+      # 包里该有的东西：app.asar 只有 out/、package.json、node_modules/（scripts/check-package.ts），
+      # node-pty 的 darwin-arm64 预编译件、spawn-helper 带执行位、签名有效。
       - name: 检查产物
         run: |
           app="release/mac-arm64/omp-studio.app"
+          node scripts/check-package.ts "$app/Contents/Resources/app.asar" darwin-arm64
           prebuilds="$app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds"
           ls -l "$prebuilds"
           test -f "$prebuilds/darwin-arm64/pty.node"

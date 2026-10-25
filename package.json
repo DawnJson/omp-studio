@@ -23,8 +23,8 @@
     "test:e2e": "playwright test",
     "rpc:update-wire": "node scripts/update-rpc-wire.ts",
     "icons": "node scripts/make-icons.ts",
-    "dist": "electron-vite build && electron-builder --win nsis --publish never",
-    "dist:mac": "electron-vite build && electron-builder --mac --arm64 --publish never",
+    "dist": "electron-vite build && electron-builder --win nsis --publish never && node scripts/check-package.ts release/win-unpacked/resources/app.asar win32-x64",
+    "dist:mac": "electron-vite build && electron-builder --mac --arm64 --publish never && node scripts/check-package.ts release/mac-arm64/omp-studio.app/Contents/Resources/app.asar darwin-arm64",
     "feed": "node scripts/make-feed.ts ../omp-studio-updates",
     "release": "node scripts/release.ts",
     "postinstall": "node scripts/fix-node-pty.ts"
