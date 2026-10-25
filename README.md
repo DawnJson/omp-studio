@@ -123,4 +123,4 @@ npm run dist:mac   # macOS arm64 的 dmg 和 zip，输出到 release/
 
 ## 许可
 
-[MIT](LICENSE)。omp-studio 是暂定名，由第三方独立开发。
+[MIT](LICENSE)。omp-studio 由第三方独立开发。

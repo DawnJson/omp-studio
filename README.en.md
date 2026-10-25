@@ -123,4 +123,4 @@ Architecture docs are in [`docs/architecture/`](docs/architecture/), the UI spec
 
 ## License
 
-[MIT](LICENSE). omp-studio is a working name. It is developed independently by a third party.
+[MIT](LICENSE). omp-studio is developed independently by a third party.
