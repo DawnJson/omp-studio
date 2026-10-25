@@ -12,7 +12,7 @@ import { crc32, deflateSync } from "node:zlib";
 import { expect, test, type Page } from "@playwright/test";
 import { parseSession } from "../../src/main/tsp/session-extras.ts";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
-import { copyFilesToClipboard, launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
+import { copyFilesToClipboard, launchApp, openTaskRow, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -157,6 +157,8 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     await expect(role(page, "omp.turn.usage")).toBeVisible({ timeout: 60_000 });
     await expect(row).toHaveAttribute("data-status", "idle", { timeout: 20_000 });
     // 录制最后待办 5/5 全部完成:待办板照 Tern 里的 omp,进度环整圈,当前项那里写"全部完成"(omp 过 todoClearDelay 才删节点,录制没录到)。
+    // 界面语言默认跟系统;CI 的 macOS 机器是英文系统,显式切到中文再断言中文文案。
+    await setLocaleTheme(page, "zh-CN", "light");
     await expect(board).toContainText("全部完成");
     await expect(board).toContainText("5/5");
     await expect(board.locator('[data-state="progress"] .todo-mark-arc')).toHaveAttribute("stroke-dasharray", "100 0");
