@@ -9,6 +9,8 @@ export interface LaunchSpec {
   cwd: string;
   /** 不落会话文件。 */
   noSession?: boolean;
+  /** studio 自带的账号型 provider 扩展入口（绝对路径）；`null` 时不加载。 */
+  extension?: string | null;
 }
 
 /** 只在 `!app.isPackaged` 时由运行时设置，指向 `node test/fake-omp/fake-tsp-omp.ts <录制>`（STUDIO_TEST_OMP）。 */
@@ -38,6 +40,7 @@ export function buildOmpArgs(spec: LaunchSpec): string[] {
   // 不传 --approval-mode：审批模式只看 omp 自己的 tools.approvalMode（输入框改的也是它）。
   const args = ["--mode", "rpc-ui"];
   if (spec.noSession) args.push("--no-session");
+  if (spec.extension) args.push("-e", spec.extension);
   return args;
 }
 
@@ -52,6 +55,8 @@ export interface TspLaunchSpec {
   forkSessionFile?: string | null;
   /** 不落会话文件（omp 的 `--no-session`）：应用内登录的临时 omp 不该在用户的会话目录里留东西。 */
   noSession?: boolean;
+  /** studio 自带的账号型 provider 扩展入口（绝对路径）；`null` 时不加载。 */
+  extension?: string | null;
 }
 
 /** TSP 任务：交互式 omp（没有 `--mode`），恢复会话用 `--resume=<路径>`。 */
@@ -63,6 +68,7 @@ export function buildTspArgs(spec: TspLaunchSpec): string[] {
   if (spec.noSession) args.push("--no-session");
   if (spec.thinkingLevel && spec.thinkingLevel !== "inherit") args.push("--thinking", spec.thinkingLevel);
   if (spec.allowHome) args.push("--allow-home");
+  if (spec.extension) args.push("-e", spec.extension);
   return args;
 }
 

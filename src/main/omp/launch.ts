@@ -1,6 +1,7 @@
 // 组 omp 的启动参数和环境：给任务进程和服务进程共用。
 // 启动参数见 omp 文档 cli-reference.md；凭据（OAuth、设置页存的 API key）都在 omp 自己的凭据库里，这里不注入。
 import { awaitStartupDefaults } from "../omp-config/startup-defaults.ts";
+import { accountExtensionPath } from "../client-accounts/extension-path.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
 import {
   buildOmpArgs,
@@ -33,7 +34,7 @@ export async function buildOmpLaunch(spec: LaunchSpec): Promise<OmpLaunch> {
   const executable = await getOmpExecutable();
   return {
     command: executable.path,
-    args: buildOmpArgs(spec),
+    args: buildOmpArgs({ ...spec, extension: accountExtensionPath() }),
     cwd: spec.cwd,
     env: prependToPath({ ...process.env }, executable.managedBin),
   };
@@ -54,7 +55,7 @@ export async function buildTspLaunch(spec: TspLaunchSpec): Promise<OmpLaunch> {
   const executable = await getOmpExecutable();
   return {
     command: executable.path,
-    args: buildTspArgs(spec),
+    args: buildTspArgs({ ...spec, extension: accountExtensionPath() }),
     cwd: spec.cwd,
     env: prependToPath({ ...process.env }, executable.managedBin),
   };

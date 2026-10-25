@@ -3,6 +3,8 @@ package-lock.json
 # 从 omp 官方仓库原样拷贝，保持和上游一致，方便比对（AGENTS.md）。
 src/shared/omp-wire/rpc-wire.generated.ts
 src/shared/tsp/tsp.generated.ts
+# 第三方 vendor（magpie 社区插件，MIT）：原样保留，方便和上游 diff（见同目录 NOTICE.md）。
+src/main/client-accounts/extension/vendor/
 # RPC 回放是录下来的原始帧。
 fixtures/
 # 文档里的中文表格按现在的紧凑写法维护，不让 Prettier 补齐空格。

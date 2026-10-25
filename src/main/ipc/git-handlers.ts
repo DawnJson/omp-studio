@@ -39,6 +39,7 @@ import {
 } from "../git/worktree.ts";
 import { log } from "../log/log.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
+import { accountExtensionArgs } from "../client-accounts/extension-path.ts";
 import { parseTestOmpOverride, prependToPath } from "../omp/launch-args.ts";
 import { resolveLocale } from "../settings/settings-store.ts";
 import { getSetupConsent, getTaskPool } from "../tasks/runtime.ts";
@@ -112,7 +113,8 @@ async function commitOmp(): Promise<OmpCommand> {
   const executable = await getOmpExecutable();
   return {
     command: executable.path,
-    args: [],
+    // 提交信息用的模型角色可能是账号型 provider 的模型（qoder/...），所以要带扩展。
+    args: accountExtensionArgs(),
     env: prependToPath({ ...process.env }, executable.managedBin),
   };
 }

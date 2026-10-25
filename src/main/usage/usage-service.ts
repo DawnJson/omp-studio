@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { runCommand } from "../git/exec.ts";
+import { accountExtensionArgs } from "../client-accounts/extension-path.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 import { requireStatsSchema } from "./stats-schema.ts";
 import type {
@@ -230,7 +231,7 @@ class OmpCommandError extends Error {
  */
 export function runOmpCommand(exePath: string, cwd: string, timeoutMs: number): RunOmp {
   return async (args) => {
-    const result = await runCommand(exePath, args, {
+    const result = await runCommand(exePath, [...args, ...accountExtensionArgs()], {
       cwd,
       env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" },
       timeoutMs,
