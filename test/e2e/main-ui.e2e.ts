@@ -194,17 +194,17 @@ test("空状态、对话里的用量", async () => {
     await expect(breakdown).toBeVisible();
     await expect(breakdown.getByTestId("context-row")).toHaveCount(7);
     await expect(breakdown.locator(".ctx-note")).toHaveCount(0);
+    const single = await breakdown.boundingBox();
     await expect(page.getByRole("button", { name: /压缩 context|Compact context/i })).toHaveCount(0);
 
-    // 这个任务的会话文件里还没有回复（假 omp 不写会话文件）：浮层是单栏，没有"会话用量"按钮，也没有空的左栏。
-    await expect(page.getByTestId("session-usage-toggle")).toHaveCount(0);
+    // 这个任务的会话文件里还没有回复（假 omp 不写会话文件）：浮层是单栏，没有空的左栏。
     await expect(page.getByTestId("session-usage")).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(breakdown).toHaveCount(0);
     await expect(page.getByTestId("context-meter")).toBeFocused();
 
-    // 有回复时（换掉主进程读会话用量的处理，给三个模型，用量栏比构成高）：点"会话用量"浮层向左加宽，
-    // 右边的构成原地不动，宽度也不变（文字不重新折行）。
+    // 有回复时（换掉主进程读会话用量的处理，给三个模型，用量栏比构成高）：一打开左边就是会话用量，不用再点按钮；
+    // 右边的构成和单栏时在同一位置、同样宽（文字不重新折行）。
     await launched.app.evaluate(({ ipcMain }) => {
       const row = (modelId: string, total: number) => ({
         provider: "deepseek",
@@ -225,13 +225,9 @@ test("空状态、对话里的用量", async () => {
       }));
     });
     await page.getByTestId("context-meter").click();
-    const toggle = page.getByTestId("session-usage-toggle");
-    await expect(toggle).toBeVisible();
-    const before = await breakdown.boundingBox();
-    await toggle.click();
+    await expect(page.getByTestId("session-usage")).toBeVisible();
     await expect(page.getByTestId("model-usage")).toHaveCount(3);
-    const after = await breakdown.boundingBox();
-    expect(after).toEqual(before);
+    expect(await breakdown.boundingBox()).toEqual(single);
     await page.keyboard.press("Escape");
     await expect(breakdown).toHaveCount(0);
     // 点费用：居中的对话框（不是贴着按钮的浮层），标题"用量与额度"，没有页签：订阅额度和每日用量热力图在同一页，

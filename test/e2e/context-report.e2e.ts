@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, openTaskRow, testOmp } from "./launch.ts";
+import { expectNoOverflow, launchApp, openTaskRow, setLocaleTheme, testOmp } from "./launch.ts";
 
 async function received(log: string): Promise<Record<string, unknown>[]> {
   const text = await readFile(log, "utf8").catch(() => "");
@@ -154,6 +154,23 @@ test("压缩一栏：圆环上有自动压缩刻度，构成里写在 85% 自动
     await expect(page.getByTestId("context-auto-at")).toHaveText(/85%/);
     await expect(page.getByTestId("context-handoff")).toBeEnabled();
     await expect(page.getByTestId("context-compaction")).toBeVisible();
+    // "在 X% 自动压缩"和两个按钮在同一行：按钮在文字右边、竖向和文字重叠，"交接"贴着这一栏的右边。
+    const [autoAt, compactBtn, handoffBtn, section] = await Promise.all(
+      ["context-auto-at", "context-compact", "context-handoff", "context-compaction"].map((id) =>
+        page.getByTestId(id).boundingBox(),
+      ),
+    );
+    expect(compactBtn!.x).toBeGreaterThan(autoAt!.x + autoAt!.width);
+    expect(compactBtn!.y).toBeLessThan(autoAt!.y + autoAt!.height);
+    expect(compactBtn!.y + compactBtn!.height).toBeGreaterThan(autoAt!.y);
+    expect(Math.abs(handoffBtn!.x + handoffBtn!.width - (section!.x + section!.width))).toBeLessThanOrEqual(1);
+    // 窄窗口、中英文下这一栏都不越界（英文放不下时按钮换到下一行）。
+    await page.setViewportSize({ width: 900, height: 900 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(page.getByTestId("context-compaction"));
+    }
+    await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("context-compact").click();
     await expect.poll(() => receivedSends(log)).toContain("/compact");
   } finally {

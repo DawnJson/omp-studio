@@ -340,7 +340,7 @@ button.usage-context:hover,
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
 }
-/* 上下文浮层展开"会话用量"时：左边用量明细、右边上下文构成，中间一条竖线。
+/* 上下文浮层有会话用量时：左边用量明细、右边上下文构成，中间一条竖线。
  * 构成那一栏不动：浮层加宽的 300px（UsageMeter.tsx 的 usageWidth）正好是用量栏连同外边距占的宽度，构成栏宽度和单栏时相同；
  * 浮层从圆环往上长：用量栏更高时构成栏贴底（浮层到了 60vh 开始滚动时也粘在可见区域底部），留在原来的位置。 */
 .ctx-pop {
@@ -363,9 +363,6 @@ button.usage-context:hover,
   padding-right: var(--space-3);
   margin-right: var(--space-3);
   border-right: 1px solid var(--border-subtle);
-}
-.ctx-usage-row {
-  padding: var(--space-1) var(--space-1-5);
 }
 .usage-ring-track,
 .usage-ring-fill {
@@ -432,38 +429,6 @@ button.usage-context:hover,
 .ctx-seg,
 .ctx-swatch {
   background: color-mix(in srgb, var(--accent) 55%, var(--border-subtle));
-}
-.ctx-usage-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  align-self: flex-start;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-2);
-  font: inherit;
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-.ctx-usage-toggle:hover {
-  color: var(--text);
-}
-.ctx-usage-toggle:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-  border-radius: var(--radius-xs);
-}
-/* 收起时 < 指向左（面板往左展开），展开后翻成 > */
-.ctx-usage-chev {
-  transform: rotate(180deg);
-  transition: transform var(--dur-fast) var(--ease-out);
-}
-.ctx-usage-toggle[aria-expanded="true"] .ctx-usage-chev {
-  transform: none;
-}
-html[data-motion="reduced"] .ctx-usage-chev {
-  transition: none;
 }
 .ctx-seg[data-part="systemPrompt"],
 .ctx-swatch[data-part="systemPrompt"] {
@@ -534,13 +499,19 @@ html[data-motion="reduced"] .ctx-usage-chev {
   line-height: var(--lh-xs);
   color: var(--text-3);
 }
-/* 构成下面的压缩一栏（ContextCompact）：触发点、摘要状态各一行小字，两个按钮并排 */
+/* 构成下面的压缩一栏（ContextCompact）：触发点小字和两个按钮在同一行（按钮靠右，放不下时换到下一行仍靠右），摘要状态在下面一行 */
 .ctx-compact {
   display: flex;
   flex-direction: column;
   gap: var(--space-1-5);
   padding-top: var(--space-2);
   border-top: 1px solid var(--border-subtle);
+}
+.ctx-compact-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5) var(--space-2);
 }
 .ctx-compact-line {
   margin: 0;
@@ -553,7 +524,9 @@ html[data-motion="reduced"] .ctx-usage-chev {
 }
 .ctx-compact-actions {
   display: flex;
+  flex: none;
   gap: var(--space-2);
+  margin-left: auto;
 }
 
 /* 按模型的用量明细 */

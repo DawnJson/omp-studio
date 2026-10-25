@@ -59,7 +59,6 @@ export const composer = {
   "context.buffer": "Auto-compact buffer",
   "context.reading": "Asking omp to count…",
   "context.unavailable": "Can't read it right now",
-  "breakdown.toggle": "Session usage",
   "breakdown.title": "Session usage by model",
   "breakdown.failed": "Couldn't read the session file: {message}",
   "breakdown.whole": {

@@ -54,7 +54,6 @@ export const composer = {
   "context.buffer": "自动压缩预留",
   "context.reading": "正在请 omp 计算…",
   "context.unavailable": "现在读不到",
-  "breakdown.toggle": "会话用量",
   "breakdown.title": "本会话用量（按模型）",
   "breakdown.failed": "读不到会话文件：{message}",
   "breakdown.whole": { other: "压缩过 {count} 次，整个会话（含压缩前）共 {tokens} token · {cost}" },

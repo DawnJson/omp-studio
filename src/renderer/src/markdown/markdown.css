@@ -184,21 +184,20 @@
   animation-play-state: var(--play-state);
 }
 
-/* 代码块 */
+/* 代码块：和过程区的工具卡片同一套外观（浅底 `--bg-tool`、不描边、`--radius-lg`、头高 28），头和正文同底，不再分白头灰身（2026-10-25） */
 .md-codeblock {
   position: relative;
   margin: var(--space-3) 0;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
+  background: var(--bg-tool);
   overflow: hidden;
 }
 .md-codehead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: var(--control-h-md);
-  padding: 0 var(--space-3);
-  background: var(--bg-raised);
+  height: var(--row-tool);
+  padding: 0 var(--space-1) 0 var(--space-3);
 }
 .md-codelang {
   font-size: var(--fs-xs);
@@ -243,7 +242,7 @@
 }
 /* 助手画的 svg 图：不铺底色（omp 约定画布就是读者的主题），1 个单位 ≈ 1px，宽了按比例缩到列宽 */
 .md-figure {
-  padding: var(--space-3) var(--space-3-5);
+  padding: var(--space-1) var(--space-3) var(--space-3);
 }
 .md-figure img {
   display: block;
@@ -252,8 +251,7 @@
 }
 .md-figure-note {
   margin: 0;
-  padding: var(--space-2) var(--space-3-5) 0;
-  background: var(--bg-sunken);
+  padding: var(--space-1) var(--space-3) 0;
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
   color: var(--text-3);
@@ -268,8 +266,7 @@
 
 .md-codebody {
   margin: 0;
-  padding: var(--space-3) var(--space-3-5);
-  background: var(--bg-sunken);
+  padding: var(--space-0-5) var(--space-3) var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--fs-code);
   line-height: var(--lh-code);

@@ -1,9 +1,8 @@
 // 输入框工具行里的用量仪表（输入框下方不再有单独一行）：
 // 模型、审批胶囊右边是速度（UsageMeter，只在运行中）；发送键左边依次是上下文圆环（ContextMeter）和费用（SessionCost）。
-// 点圆环弹出上下文构成；任务里构成下面有"会话用量"按钮，点了在构成左边展开按模型的本会话用量（ModelBreakdown）。
+// 点圆环弹出上下文构成；任务里有回复后，构成左边一直带着按模型的本会话用量（ModelBreakdown）。
 import { useEffect, useState, type ReactNode } from "react";
 import type { ModelOption, ProjectId, TaskState } from "../../../../shared/ipc.ts";
-import { ChevronRight } from "../../icons.tsx";
 import { useT } from "../../i18n/use-t.ts";
 import { DraftContextBreakdown, prefetchCompaction, TaskContextBreakdown } from "./ContextBreakdown.tsx";
 import { hasModelUsage, ModelBreakdown, useModelUsage } from "./ModelBreakdown.tsx";
@@ -63,8 +62,7 @@ const usageWidth = 300;
 
 /**
  * 上下文占用：只有圆环（百分比和已用/总量在悬停提示和构成里），点开是上下文构成（children，浮层开着时才挂载）。
- * 给了 task（任务里）且会话里已有回复时，构成下面有"会话用量"按钮，点了浮层向左加宽，左边是它（右边的构成不动）；关掉浮层就收回。
- * 还没有回复时没有这个按钮，浮层是单栏。
+ * 给了 task（任务里）且会话里已有回复时，浮层左边一直带着按模型的本会话用量（右边的构成不动）；还没有回复时浮层是单栏。
  */
 function ContextButton({
   context,
@@ -77,16 +75,12 @@ function ContextButton({
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const [usageOpen, setUsageOpen] = useState(false);
   const usage = useModelUsage(task, open);
   // 斜杠命令 /context：打开上下文构成。
   useEffect(() => onStudioCommand((command) => command === "context" && setOpen(true)), []);
-  const close = () => {
-    setOpen(false);
-    setUsageOpen(false);
-  };
+  const close = () => setOpen(false);
   const label = t("composer.context", { p: formatPercent(context.percent) });
-  const expanded = usageOpen && task !== undefined && hasModelUsage(usage);
+  const expanded = task !== undefined && hasModelUsage(usage);
   // omp 的自动压缩触发点（输入框卡片的 meter 里读到的生效值）；圆环上画一道刻度。
   const autoAt = task?.contextCompaction?.autoAtPercent ?? null;
   return (
@@ -120,23 +114,7 @@ function ContextButton({
               <ModelBreakdown task={task} load={usage} />
             </div>
           )}
-          <div className="ctx-pop-main">
-            {children}
-            {task !== undefined && hasModelUsage(usage) && (
-              <div className="ctx-usage-row">
-                <button
-                  type="button"
-                  className="ctx-usage-toggle"
-                  data-testid="session-usage-toggle"
-                  aria-expanded={expanded}
-                  onClick={() => setUsageOpen(!usageOpen)}
-                >
-                  <ChevronRight className="ctx-usage-chev" aria-hidden="true" />
-                  {t("composer.breakdown.toggle")}
-                </button>
-              </div>
-            )}
-          </div>
+          <div className="ctx-pop-main">{children}</div>
         </div>
       </Popover>
     </div>
