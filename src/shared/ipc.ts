@@ -57,6 +57,7 @@ import type { AgentMessage } from "./omp-wire/rpc-wire.generated.ts";
 import type { BtwHistoryRecord, BtwUiEvent } from "./btw.ts";
 import type { DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
 import type { OmpKeybinding } from "./tsp/omp-keybindings.ts";
+import type { ProviderKeyEnv } from "./provider-keys.ts";
 import type { TspEvent } from "./tsp/tsp.generated.ts";
 
 // ───────── 标识 ─────────
@@ -1193,6 +1194,11 @@ export interface StudioInvokeApi {
    * key 只能从渲染进程发往主进程，主进程永远不回传。providerId 必须是能填 key 的 provider（shared/provider-keys.ts 的 acceptsApiKey）。
    */
   saveApiKey(providerId: string, key: string): Promise<void>;
+  /**
+   * 能填 key 的内置 provider 各自的 key 实际取自哪个环境变量、设在哪（系统 / agent 目录的 `.env` / 都没有），一次读全。
+   * 只回变量名和位置，不回值。设置页卡片的元信息和"设置 API key"对话框的说明用它。
+   */
+  apiKeyEnvSources(): Promise<Record<string, ProviderKeyEnv>>;
 
   // 自定义模型：直接读写 omp 的 models.yml（src/main/omp-config/models-file.ts；规则见 AGENTS.md）
   /** 读 models.yml 里的 providers。key 只有状态，没有内容。文件读不懂时 reject。 */
@@ -1568,6 +1574,7 @@ export const invokeNames = {
   listAccounts: true,
   logout: true,
   saveApiKey: true,
+  apiKeyEnvSources: true,
   listCustomProviders: true,
   saveCustomProvider: true,
   deleteCustomProvider: true,

@@ -120,6 +120,14 @@ test("填 API key：存进 omp 的凭据库（终端版也用），卡片写“�
     await expect(card).toContainText("API key #");
     await expect(card.getByTestId("provider-key-kagi")).toHaveText("更换 key");
     await expect(card.getByTestId("provider-signout-kagi")).toHaveText("清除 key");
+    // 已经存过 key：更换时输入框写明留空保持不变。
+    await card.getByTestId("provider-key-kagi").click();
+    await expect(page.getByTestId("provider-flow-kagi").getByRole("textbox")).toHaveAttribute(
+      "placeholder",
+      "已存进 omp 的凭据库，留空保持不变",
+    );
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("provider-flow-kagi")).toHaveCount(0);
     expect(storedKeys()).toEqual(["kagi-e2e-key"]);
 
     // 只有环境变量里的 key（omp 认可、凭据库里没有账号）：不是登录，写"已配置"，没有退出按钮；元信息写出是哪个变量。
@@ -182,6 +190,52 @@ test("设置 API key：key 的变量写在 agent 目录 .env 里时改那一行�
     };
     expect(exported.credentials.filter((entry) => entry.provider === "tavily")).toEqual([]);
     await expect(card).toContainText("Env var · TAVILY_API_KEY");
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
+test("Hugging Face 的 key 写在 .env 的 HF_TOKEN（omp 的 fallback 变量）：卡片写出它，对话框一打开就是 .env 的说明，保存改 HF_TOKEN 那一行", async () => {
+  // 跑测试的 shell 可能真有这两个变量：传空值，omp 和 studio 都当没设置。
+  const unset = { HUGGINGFACE_HUB_TOKEN: "", HF_TOKEN: "" };
+  const { launched, agentDir } = await launchSettings(unset, (dir) =>
+    writeFile(path.join(dir, ".env"), "HF_TOKEN=hf-old\n", "utf8"),
+  );
+  const env = { ...process.env, PI_CODING_AGENT_DIR: agentDir, ...unset };
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("settings-nav-providers").click();
+    const card = page.getByTestId("providers").getByTestId("provider-huggingface");
+    await expect(card).toContainText("环境变量 · HF_TOKEN", { timeout: 30_000 });
+    // 记下说明出现过的每一种文字：打开时不能先显示"存进凭据库"再跳成 .env 的说明。
+    await page.evaluate(() => {
+      const g = globalThis as unknown as {
+        __notes: string[];
+        document: { body: unknown; querySelector(selector: string): { textContent: string | null } | null };
+        MutationObserver: new (cb: () => void) => { observe(target: unknown, options: unknown): void };
+      };
+      g.__notes = [];
+      new g.MutationObserver(() => {
+        const text = g.document.querySelector('[data-testid="provider-key-note"]')?.textContent;
+        if (text != null && g.__notes.at(-1) !== text) g.__notes.push(text);
+      }).observe(g.document.body, { childList: true, subtree: true, characterData: true });
+    });
+    await card.getByTestId("provider-key-huggingface").click();
+    const flow = page.getByTestId("provider-flow-huggingface");
+    await expect(flow.getByTestId("provider-key-note")).toHaveText("替换 agent 目录 .env 里的 HF_TOKEN，omp 优先用它");
+    await expect(flow.getByRole("textbox")).toHaveAttribute("placeholder", "已写在 .env 里，留空保持不变");
+    // 说明已经是最终的文字：之前出现过的都在记录里（闪一下的话是"先默认、后 .env"两条）。
+    expect(await page.evaluate(() => (globalThis as unknown as { __notes: string[] }).__notes)).toEqual([
+      "替换 agent 目录 .env 里的 HF_TOKEN，omp 优先用它",
+    ]);
+    await flow.getByRole("textbox").fill("hf-new");
+    await page.getByTestId("provider-key-save").click();
+    await expect(flow).toHaveCount(0);
+
+    expect(await readFile(path.join(agentDir, ".env"), "utf8")).toBe("HF_TOKEN=hf-new\n");
+    expect(execFileSync("omp", ["token", "huggingface"], { env, encoding: "utf8" }).trim()).toBe("hf-new");
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });

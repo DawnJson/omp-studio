@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { LoginEvent } from "../../../../shared/ipc.ts";
 import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
-import { apiKeyEnvName } from "../../../../shared/provider-keys.ts";
+import type { ProviderKeyEnv } from "../../../../shared/provider-keys.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Button } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
@@ -31,6 +31,7 @@ function initialFlow(action: FlowAction): Flow {
 export function ProviderFlowDialog({
   provider,
   accounts,
+  keyEnv,
   action,
   onBack,
   onClose,
@@ -38,6 +39,8 @@ export function ProviderFlowDialog({
 }: {
   provider: LoginProvider;
   accounts: LogoutAccount[];
+  /** key 实际取自哪个变量、设在哪（accounts-store 的 keyEnv）；这个 provider 没有 key 变量时 null。 */
+  keyEnv: ProviderKeyEnv | null;
   action: FlowAction;
   /** 从"连接提供商"选择对话框进来时可以回去重选。 */
   onBack?: (() => void) | undefined;
@@ -206,7 +209,8 @@ export function ProviderFlowDialog({
   } else if (flow.kind === "key") {
     body = (
       <KeyBody
-        envName={apiKeyEnvName(provider.id)}
+        keyEnv={keyEnv}
+        storedKey={accounts.some((account) => account.type === "api_key")}
         value={apiKey}
         onChange={setApiKey}
         onSubmit={() => void saveKey()}

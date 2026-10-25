@@ -1,9 +1,9 @@
 // 提供商登录对话框里的几种内容：OAuth 进度、选账号、输入 API key、失败。状态和动作都由 ProviderFlowDialog 持有，这里只画正文；按钮在对话框页脚。
 import type { LoginEvent } from "../../../../shared/ipc.ts";
 import type { LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import type { ProviderKeyEnv } from "../../../../shared/provider-keys.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Badge, Button, FormField, TextField } from "../../ui/controls.tsx";
-import { useEnvSource } from "./CustomProviderForm.tsx";
 
 /** omp 发来的进度提示，按到达顺序保留（登录失败时能看出走到了哪一步）。 */
 export type ProgressEntry = Extract<LoginEvent, { type: "progress" }>;
@@ -138,28 +138,37 @@ export function AccountsBody({
 }
 
 /**
- * 填 API key。`envName` 是 omp 认的 key 变量（provider-keys.ts）：它写在 agent 目录 `.env` 里时 key 改写那一行
- * （omp 优先用 `.env`，主进程 saveApiKey），设在系统环境变量里时提示这里存的不生效；都没有时存进凭据库。
+ * 填 API key。`keyEnv` 是 omp 实际取 key 的那个变量（provider-keys.ts 的 providerKeyEnv，和列表一起读好，打开时说明就是对的）：
+ * 写在 agent 目录 `.env` 里时 key 改写那一行（omp 优先用 `.env`，主进程 saveApiKey），设在系统环境变量里时提示这里存的不生效；
+ * 都没有时存进凭据库。已经有 key（`.env` 里或凭据库里）时输入框写"留空保持不变"。
  */
 export function KeyBody({
-  envName,
+  keyEnv,
+  storedKey,
   value,
   onChange,
   onSubmit,
 }: {
-  envName: string | null;
+  keyEnv: ProviderKeyEnv | null;
+  /** omp 凭据库里已有这个 provider 的 API key（listAccounts 里有 `api_key` 账号）。 */
+  storedKey: boolean;
   value: string;
   onChange(next: string): void;
   onSubmit(): void;
 }) {
   const t = useT();
-  const source = useEnvSource(envName ?? "", envName !== null);
   const note =
-    envName !== null && source === "env-file"
-      ? t("login.apiKey.noteEnvFile", { name: envName })
-      : envName !== null && source === "system"
-        ? t("login.apiKey.noteSystem", { name: envName })
+    keyEnv?.source === "env-file"
+      ? t("login.apiKey.noteEnvFile", { name: keyEnv.name })
+      : keyEnv?.source === "system"
+        ? t("login.apiKey.noteSystem", { name: keyEnv.name })
         : t("login.apiKey.note");
+  const placeholder =
+    keyEnv?.source === "env-file"
+      ? t("custom.form.key.envValue.keep")
+      : keyEnv?.source !== "system" && storedKey
+        ? t("login.apiKey.keepStored")
+        : undefined;
   return (
     <div className="pv-flow">
       <FormField label={t("login.apiKey")} help={<span data-testid="provider-key-note">{note}</span>}>
@@ -170,6 +179,7 @@ export function KeyBody({
           autoComplete="off"
           data-autofocus=""
           value={value}
+          placeholder={placeholder}
           aria-label={t("login.apiKey")}
           onChange={onChange}
           onKeyDown={(event) => {

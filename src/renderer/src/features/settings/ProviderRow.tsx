@@ -6,7 +6,7 @@
 import { useState } from "react";
 import type { LoginKind } from "../../../../shared/provider-login.ts";
 import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
-import { acceptsApiKey, apiKeyEnvName } from "../../../../shared/provider-keys.ts";
+import { acceptsApiKey, type ProviderKeyEnv } from "../../../../shared/provider-keys.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Badge, Button, ListRow } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
@@ -18,24 +18,33 @@ interface ProviderRowProps {
   accounts: LogoutAccount[];
   /** 这个 provider 登录是什么形式（OAuth 授权 / 粘贴 API key / 只能在终端），见 shared/provider-login.ts。 */
   loginKind: LoginKind;
+  /** key 实际取自哪个变量（accounts-store 的 keyEnv）；"已配置"的元信息写它。选择对话框里的行都没连接，不传。 */
+  keyEnv?: ProviderKeyEnv | undefined;
   /** 卡片上只写主名称：去掉括号里的补充（"Anthropic (Claude Pro/Max)" → "Anthropic"）；选择对话框里要区分同名的几项，写全名。 */
   shortName?: boolean;
   onFlow(provider: LoginProvider, action: FlowAction): void;
   onChanged(): void;
 }
 
-export function ProviderRow({ provider, accounts, loginKind, shortName = false, onFlow, onChanged }: ProviderRowProps) {
+export function ProviderRow({
+  provider,
+  accounts,
+  loginKind,
+  keyEnv,
+  shortName = false,
+  onFlow,
+  onChanged,
+}: ProviderRowProps) {
   const t = useT();
   const [busy, setBusy] = useState(false);
 
   const signedIn = provider.authenticated && accounts.length > 0;
-  const envName = apiKeyEnvName(provider.id);
   const hasKey = accounts.some((account) => account.type === "api_key");
   const hasOauth = accounts.some((account) => account.type === "oauth");
   const accountText =
     accounts.length > 1 ? `${accounts[0]?.label ?? ""} +${accounts.length - 1}` : (accounts[0]?.label ?? "");
   const name = (shortName && provider.name.replace(/\s*[(（][^)）]*[)）]/g, "").trim()) || provider.name;
-  const withEnv = (source: string) => (envName === null ? source : `${source} · ${envName}`);
+  const withEnv = (source: string) => (keyEnv === undefined ? source : `${source} · ${keyEnv.name}`);
 
   let badge: { tone: "success" | "neutral"; text: string } | null;
   let meta: string;

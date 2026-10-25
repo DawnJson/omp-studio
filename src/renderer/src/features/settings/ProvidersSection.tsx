@@ -45,6 +45,7 @@ export function ProvidersSection() {
       provider={provider}
       accounts={data?.accounts[provider.id] ?? []}
       loginKind={loginKind(provider.id)}
+      keyEnv={data?.keyEnv[provider.id]}
       shortName
       onFlow={(target, action) => openFlow(target, action, false)}
       onChanged={reload}
@@ -107,6 +108,7 @@ export function ProvidersSection() {
           key={dialog.key}
           provider={flowProvider}
           accounts={data.accounts[flowProvider.id] ?? []}
+          keyEnv={data.keyEnv[flowProvider.id] ?? null}
           action={target.action}
           onBack={target.fromPick ? () => openDialog({ kind: "pick" }) : undefined}
           onClose={() => dialogClosed(dialog.key)}

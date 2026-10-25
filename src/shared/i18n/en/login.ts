@@ -24,6 +24,7 @@ export const login = {
   "apiKey.remove": "Clear key",
   "apiKey.save": "Save",
   "apiKey.note": "Stored in omp's credential store, shared with omp in the terminal",
+  "apiKey.keepStored": "Already in omp's credential store; leave empty to keep it",
   "apiKey.noteEnvFile": "Replaces {name} in the agent folder's .env, which omp uses first",
   "apiKey.noteSystem":
     "{name} is set as a system environment variable; omp uses that, so a key saved here has no effect",
