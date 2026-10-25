@@ -10,6 +10,8 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+## [0.4.16] - 2026-10-24
+
 ### 新增
 
 - macOS（Apple 芯片）版的代码：快捷键用 ⌘、红黄绿三键和应用菜单、菜单栏图标、从 Finder 启动也能找到 Homebrew 等装的 omp / git、自管 omp 下载 mac 构建、关任务和退出时结束 omp 的整棵进程树。不签名、不自动更新。安装包由 GitHub Actions 的 macOS 机器打（手动触发或推版本 tag），同时跑单测和一轮 e2e；还没有在真 Mac 上装过。
