@@ -120,6 +120,7 @@ npm run dist:mac   # macOS arm64 的 dmg 和 zip，输出到 release/
 - [markdown-it](https://github.com/markdown-it/markdown-it)、[KaTeX](https://katex.org/)、[Shiki](https://shiki.style/)：Markdown、公式和代码高亮
 - [Geist](https://vercel.com/font)：界面字体（SIL OFL 1.1）
 - [LobeHub Icons](https://github.com/lobehub/lobe-icons)：模型提供商的 logo
+- [magpie](https://github.com/yetone/magpie) 和 [magpie 社区插件](https://github.com/magpie-community/plugins)：内置的第三方客户端账号登录用的是社区插件原样代码（MIT，Qoder 那份又移植自 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)，见 [`NOTICE.md`](src/main/client-accounts/extension/NOTICE.md)）
 
 ## 许可
 
