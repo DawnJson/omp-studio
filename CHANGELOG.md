@@ -10,6 +10,8 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+## [0.4.19] - 2026-10-24
+
 ### 新增
 
 - 自定义提供商的接口类型加上 Google Gemini、Azure OpenAI、Amazon Bedrock；每种类型下面写着常见的服务（DeepSeek、Kimi、通义千问、智谱等大多数服务选 OpenAI Chat Completions），Base URL 的示例跟着类型变。Gemini 也能一键拉取模型列表。
