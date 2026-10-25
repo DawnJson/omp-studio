@@ -19,7 +19,8 @@ afterAll(() => rm(root, { recursive: true, force: true }));
 describe("路径必须落在任务目录内", () => {
   it("相对路径（含空格和中文的 cwd）解析到 cwd 之内", () => {
     expect(resolveInside(cwd, "src/a.ts")).toBe(path.join(cwd, "src", "a.ts"));
-    expect(resolveInside(cwd, "src\\a.ts")).toBe(path.join(cwd, "src", "a.ts"));
+    // 反斜杠只在 Windows 上是分隔符;POSIX 上它是文件名里的普通字符。
+    if (process.platform === "win32") expect(resolveInside(cwd, "src\\a.ts")).toBe(path.join(cwd, "src", "a.ts"));
   });
   it("绝对路径、盘符、.. 越界、空串都被拒", () => {
     for (const bad of [

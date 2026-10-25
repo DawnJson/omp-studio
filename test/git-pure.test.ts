@@ -80,7 +80,7 @@ describe("parseStatusV2", () => {
 describe("runCommand keepTailBytes", () => {
   it("输出远超上限也不失败，只保留 stdout 和 stderr 的结尾", async () => {
     const code =
-      "process.stdout.write('a'.repeat(8e6)+'END-OUT');process.stderr.write('b'.repeat(2e5)+'END-ERR');process.exit(3)";
+      "process.stdout.write('a'.repeat(8e6)+'END-OUT');process.stderr.write('b'.repeat(2e5)+'END-ERR');process.exitCode=3";
     const result = await runCommand(process.execPath, ["-e", code], { cwd: process.cwd(), keepTailBytes: 1000 });
     expect(result.code).toBe(3);
     expect(result.stdout.toString()).toMatch(/END-OUT$/);

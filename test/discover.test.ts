@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -30,7 +30,8 @@ describe("findOmpOnPath", () => {
       PATH: [empty, first, second].join(path.delimiter),
       PATHEXT: ".COM;.EXE;.BAT;.CMD",
     });
-    expect(found).toBe(path.join(first, isWindows ? "omp.exe" : "omp"));
+    // findOmpOnPath 返回 realpath:macOS 的临时目录 /var 是 /private/var 的符号链接。
+    expect(found).toBe(path.join(await realpath(first), isWindows ? "omp.exe" : "omp"));
   });
 
   it("returns null when no directory has omp", async () => {

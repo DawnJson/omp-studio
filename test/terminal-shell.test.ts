@@ -44,9 +44,10 @@ describe("resolveShell", () => {
 
 describe("buildTerminalEnv", () => {
   it("去掉 undefined、设 TERM，自管 omp 的 bin 放在 PATH 最前", () => {
-    const sep = process.platform === "win32" ? ";" : ":";
-    const env = buildTerminalEnv({ Path: `a${sep}b`, KEEP: "1", GONE: undefined }, "managed-bin");
-    expect(env["Path"]).toBe(`managed-bin${sep}a${sep}b`);
+    // Windows 的环境变量名是 Path(大小写不敏感),POSIX 只认 PATH。
+    const [key, sep] = process.platform === "win32" ? ["Path", ";"] : ["PATH", ":"];
+    const env = buildTerminalEnv({ [key]: `a${sep}b`, KEEP: "1", GONE: undefined }, "managed-bin");
+    expect(env[key]).toBe(`managed-bin${sep}a${sep}b`);
     expect(env["KEEP"]).toBe("1");
     expect("GONE" in env).toBe(false);
     expect(env["TERM"]).toBe("xterm-256color");

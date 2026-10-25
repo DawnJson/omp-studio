@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { OmpStatus } from "../src/shared/ipc.ts";
 import { UnsupportedOmpLauncherError, type OmpInstall } from "../src/main/omp/discover.ts";
 import { OmpManager, type ManagerDeps } from "../src/main/omp-manager/manager.ts";
+import { takeoverKey } from "../src/main/omp-manager/takeover-state.ts";
 
 const bytes = randomBytes(100_000);
 let server: http.Server;
@@ -165,7 +166,7 @@ describe("OmpManager", () => {
     expect(h.manager.status).toMatchObject({ state: "ready", source: { kind: "studio_managed", onUserPath: true } });
     expect(h.userPathAdds).toEqual([h.manager.layout.binDir]);
     expect(JSON.parse(await readFile(h.stateFile, "utf8")).takeover).toEqual({
-      [userExe.path.toLowerCase()]: "accepted",
+      [takeoverKey(userExe.path)]: "accepted",
     });
   });
 
