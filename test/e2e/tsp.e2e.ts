@@ -220,6 +220,43 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
   }
 });
 
+test("流式吸底:对话长过视口后,omp 每次长出新内容,画出来的那一帧就已经在底部(不先在底边下面画一帧再跳上来)", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("task");
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 900, height: 560 });
+    await sendFirst(page, TASK_PROMPT);
+    // 在过程区的 ResizeObserver 之后再挂一个:同一帧里它在吸底处理之后、绘制之前运行,读到的就是这一帧画出来的位置。
+    await page.evaluate(() => {
+      type El = { scrollHeight: number; scrollTop: number; clientHeight: number; closest(selector: string): El | null };
+      const g = globalThis as unknown as {
+        document: { querySelector(selector: string): El };
+        ResizeObserver: new (cb: () => void) => { observe(target: El): void };
+        stickProbe: { overflowing: number; below: number[] };
+      };
+      const column = g.document.querySelector('[data-testid="tsp-view"] .tsp-column.tsp-main');
+      const scroller = column.closest(".tsp-scroller") as El;
+      const probe = { overflowing: 0, below: [] as number[] };
+      g.stickProbe = probe;
+      new g.ResizeObserver(() => {
+        if (scroller.scrollHeight <= scroller.clientHeight) return;
+        probe.overflowing += 1;
+        const gap = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+        if (gap > 1) probe.below.push(Math.round(gap));
+      }).observe(column);
+    });
+    await expect(role(page, "omp.turn.usage")).toBeVisible({ timeout: 60_000 });
+    const probe = await page.evaluate(
+      () => (globalThis as unknown as { stickProbe: { overflowing: number; below: number[] } }).stickProbe,
+    );
+    expect(probe.overflowing).toBeGreaterThan(5);
+    expect(probe.below).toEqual([]);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("审批:omp 的审批门出现时任务是等你确认;底栏只剩 Details 且在标题那一行,Deny / Approve 不画;Ctrl+Enter 发出门上的批准 action,命令接着跑完", async () => {
   test.setTimeout(90_000);
   const { launched, received, cleanup } = await start("approval");

@@ -1,5 +1,6 @@
 // 滚动管理（spec 5.4）：吸底、"回到最新"、缩放保位置、切任务记位置、展开/折叠以被点击元素为锚。
-// 唯一的滚动容器是 scroller；content 是它里面的列。吸底时布局变化后在 rAF 里把 scrollTop 设到底（瞬时，每帧至多一次）。
+// 唯一的滚动容器是 scroller；content 是它里面的列。吸底时布局变化后在 ResizeObserver 回调里直接把 scrollTop 设到底：
+// 回调在排版之后、绘制之前，这一帧画出来就已经在底部。留到下一个 rAF 设，长出来的内容会先在底边下面画一帧再跳上来（闪一下）。
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { onStickToBottomRequest } from "./scroll-bus.ts";
@@ -32,7 +33,6 @@ export function useStickToBottom(
   const stuck = useRef(true);
   const lastProgrammaticTop = useRef(-1);
   const lastTop = useRef(0);
-  const frame = useRef(0);
   const anchor = useRef<Anchor | null>(null);
   const pendingToggle = useRef<{ element: Element; top: number } | null>(null);
   const [showJump, setShowJump] = useState(false);
@@ -40,14 +40,10 @@ export function useStickToBottom(
   const pinToBottom = useCallback(() => {
     const el = scroller.current;
     if (!el) return;
-    if (frame.current !== 0) return;
-    frame.current = requestAnimationFrame(() => {
-      frame.current = 0;
-      const target = el.scrollHeight - el.clientHeight;
-      lastProgrammaticTop.current = target;
-      el.scrollTop = target;
-      lastTop.current = el.scrollTop;
-    });
+    const target = el.scrollHeight - el.clientHeight;
+    lastProgrammaticTop.current = target;
+    el.scrollTop = target;
+    lastTop.current = el.scrollTop;
   }, [scroller]);
 
   const scrollToBottom = useCallback(() => {
@@ -194,8 +190,6 @@ export function useStickToBottom(
       window.removeEventListener("pointerup", onPointerUp, true);
       window.removeEventListener("pointercancel", onPointerUp, true);
       stopBus();
-      if (frame.current !== 0) cancelAnimationFrame(frame.current);
-      frame.current = 0;
     };
   }, [taskId, scroller, content, pinToBottom, recordAnchor, scrollToBottom]);
 

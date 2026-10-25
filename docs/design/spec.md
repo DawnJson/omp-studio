@@ -968,7 +968,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 ### 5.4 滚动与流式不跳动
 
 **滚动**（单一 `.scroller`）：
-1. 吸底判定：距底 ≤48px（`IntersectionObserver` 观察底部哨兵）。吸底时每次布局变化后在 `requestAnimationFrame` 里 `scrollTop = scrollHeight`（瞬时，不用 smooth），每帧至多一次。
+1. 吸底判定：距底 ≤48px（`IntersectionObserver` 观察底部哨兵）。吸底时每次布局变化后在 `ResizeObserver` 回调里（排版之后、绘制之前）直接 `scrollTop = scrollHeight`（瞬时，不用 smooth）：长出来的内容画出来的那一帧就在底部，不先在底边下面画一帧再跳上来。
 2. 用户主动向上滚动（滚轮、拖动滚动条、PageUp/Home/↑、触摸）立即脱离吸底；此后追加内容不改变 `scrollTop`；程序性滚动不算。滚回距底 ≤48px 自动重新吸底。
 3. 脱离吸底且仍有新内容 → 显示 JumpToLatest（§4.15）。
 4. 用户发送消息 → 强制吸底。

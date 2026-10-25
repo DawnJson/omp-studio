@@ -11,7 +11,7 @@
 
 ### 滚动（`conversation/use-stick-to-bottom.ts`）
 
-- 距底 ≤48px 视为吸底；吸底时内容增长在 rAF 里 `scrollTop = 底`，每帧至多一次。
+- 距底 ≤48px 视为吸底；吸底时内容增长在 `ResizeObserver` 回调里直接 `scrollTop = 底`：回调在排版之后、绘制之前，这一帧画出来就在底部。2026-10-25 之前留到下一个 rAF 设，回放 `task.jsonl` 时 36 次长高里 24 次先在底边下面画一帧（最多 80px）再跳上来，看着是新消息"闪一下"（`tsp.e2e.ts`"流式吸底"）。
 - 用户主动上滚（wheel 向上、PageUp/Home/↑、scrollTop 减小且不是程序设置的）立即脱离；脱离后有新内容显示"回到最新"。End 回底。"scrollTop 减小"只在可滚范围（`scrollHeight - clientHeight`）和上次滚动事件时一样、或按着鼠标 / 触摸时才算：scroll 事件晚一帧派发，omp 先收起上方的块（浏览器把 `scrollTop` 夹小）、同一帧又长出新内容时，读到的也是"scrollTop 变小、离底很远"，那是布局变化（2026-10-25：mac CI 上"完整一轮"e2e 连续两次停在半截；用 CDP `Emulation.setCPUThrottlingRate` 降速 3 倍复现，修前 12 次里 9 次停在半截，修后 0 次）。
 - 输入框发送 → `scroll-bus.requestStickToBottom` 强制吸底。
 - 切任务记各自的 scrollTop 和吸底状态（内存）。
