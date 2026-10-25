@@ -11,29 +11,30 @@ function replay(name: string) {
 }
 
 describe("状态行（omp.toast.status）：节点下一帧就没了，所以出现那一帧记在文档里", () => {
-  it("切模型：Session-only model 记成一条，停在它出现时前面那个节点后面", () => {
+  it("连着出的状态行只留最后一条（omp 原地换同一个 toast 节点的文字，终端里也只剩最后一条），停在它出现时前面那个节点后面", () => {
     const doc = replay("compact");
     const notes = doc.surfaces.get("s:1")?.statusNotes ?? [];
-    expect(notes.map((note) => note.text)).toEqual([
-      "Session compacted 1 time",
-      expect.stringMatching(/^xdev: /),
-      "Session-only model: deepseek/deepseek-v4-pro. Use Alt+M or /model for roles.",
+    // 录制里节点 s 先后是 "Session compacted 1 time"、"xdev: …"、"Session-only model: …"。
+    expect(notes).toEqual([
+      { text: "Session-only model: deepseek/deepseek-v4-pro. Use Alt+M or /model for roles.", id: "s", anchor: "r" },
     ]);
-    // 锚点是 main 里最后一个对话节点（助手回答 r）；toast 节点本身还在（最后一条），之前几条已经被换成隐藏的占位。
-    expect(notes.every((note) => note.anchor === "r")).toBe(true);
+    // 锚点是 main 里最后一个对话节点（助手回答 r）。
     expect(doc.surfaces.get("s:1")?.nodes.get("main")?.c).toContain("r");
   });
 
   it("跟着快照走：任务界面晚于 omp 启动才打开，启动时的状态行也在", () => {
     const restored = restoreDocument(snapshotDocument(replay("compact")));
-    expect(restored.surfaces.get("s:1")?.statusNotes.map((note) => note.text)).toHaveLength(3);
+    expect(restored.surfaces.get("s:1")?.statusNotes.map((note) => note.text)).toEqual([
+      "Session-only model: deepseek/deepseek-v4-pro. Use Alt+M or /model for roles.",
+    ]);
   });
 
-  it("picker 录制：同一个 toast id 反复 del/add，每次文字不同都各记一条", () => {
-    const notes = replay("picker").surfaces.get("s:1")?.statusNotes ?? [];
+  it("中间有别的内容时各是各的节点，都留着", () => {
+    const notes = replay("todo-commands").surfaces.get("s:1")?.statusNotes ?? [];
     expect(notes.map((note) => note.text)).toEqual([
-      expect.stringMatching(/^xdev: /),
-      "Session-only model: deepseek/deepseek-v4-flash. Use Alt+M or /model for roles.",
+      "No todos. Use /todo append <task> to start one.",
+      "Appended to New Phase: With quotes task",
+      "Removed phase: Beta",
     ]);
   });
 
@@ -49,7 +50,9 @@ describe("状态行（omp.toast.status）：节点下一帧就没了，所以出
     apply(frame([toast("b", { text: "  ", role: "omp.toast.status" })]));
     expect(doc.surfaces.get("s:1")?.statusNotes).toEqual([]);
     apply(frame([toast("c", { text: "ok", role: "omp.toast.status" })]));
-    expect(doc.surfaces.get("s:1")?.statusNotes).toEqual([{ text: "ok", anchor: "b" }]);
+    expect(doc.surfaces.get("s:1")?.statusNotes).toEqual([{ text: "ok", id: "c", anchor: "b" }]);
+    apply(frame([["del", "c"], toast("c", { text: "again", role: "omp.toast.status" })]));
+    expect(doc.surfaces.get("s:1")?.statusNotes).toEqual([{ text: "again", id: "c", anchor: "b" }]);
     apply(open);
     expect(doc.surfaces.get("s:1")?.statusNotes).toEqual([]);
   });

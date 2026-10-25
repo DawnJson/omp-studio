@@ -1,5 +1,5 @@
 // 布局类节点：col、row、card、section、rule、spacer（规范 Layout）。
-import type { KeyboardEvent, ReactNode } from "react";
+import { useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ASK_BUTTON_ROLE, ASK_GATE_ROLE } from "../../../../../shared/tsp/ask-gate.ts";
 import type { TspSpace, TspText } from "../../../../../shared/tsp/tsp.generated.ts";
 import { ChevronDown } from "../../../icons.tsx";
@@ -18,7 +18,7 @@ import { TspSpans } from "../spans.tsx";
 import { previewToLines } from "../props-util.ts";
 import { TspChildren, TspNode } from "../TspChildren.tsx";
 import { useFold } from "../use-fold.ts";
-import { useBareTurnIndex, useIsLatestRecap } from "../tsp-store.ts";
+import { peekTspNode, useBareTurnIndex, useIsLatestRecap, useTspNoVisibleChild } from "../tsp-store.ts";
 import { useSessionExtras } from "../session-extras-store.ts";
 import { formatTurnFooter } from "../turn-footer.ts";
 
@@ -33,14 +33,31 @@ function stackClasses(p: Readonly<Record<string, unknown>>): string {
   return classes.join(" ");
 }
 
+/** col / row 没有可显示的子节点（不占位也不产生间距，data-blank）；有 `grow` 的撑开空间，不收起；`extra` = 还有 children 之外的元素。 */
+function useBlank({ node, ctx }: NodeProps, extra = false): boolean {
+  const grows = typeof node.p.grow === "number" && node.p.grow > 0;
+  return useTspNoVisibleChild(ctx.taskId, ctx.sf, node.c, grows || extra ? "off" : "container");
+}
+
+/** 搜索来源（omp.tool.files 里是 omp.tool.source 行）：整列排成卡片网格，见 tsp.css。 */
+function hasSourceRows({ node, ctx }: NodeProps): boolean {
+  if (node.p.role !== "omp.tool.files") return false;
+  return node.c.some((id) => {
+    const child = peekTspNode(ctx.taskId, ctx.sf, id);
+    return child?.k === "row" && child.p.role === "omp.tool.source";
+  });
+}
+
 /** wait / Task 卡里的作业磁贴（shared/tsp/jobs.ts 的 omp.job.tile）：同一批出现的错开入场。 */
 function TileCol(props: NodeProps) {
   const entrance = useEntrance(props.ctx.taskId, props.ctx.sf, props.node.id);
+  const blank = useBlank(props);
   return (
     <div
       {...nodeDomProps(props, "tsp-col", {
         className: [stackClasses(props.node.p), entrance?.className].filter(Boolean).join(" "),
         style: entrance?.style,
+        blank,
       })}
       data-enter={entrance?.["data-enter"]}
     >
@@ -52,11 +69,24 @@ function TileCol(props: NodeProps) {
 export function Col(props: NodeProps) {
   if (props.node.p.role === "omp.job.tile") return <TileCol {...props} />;
   if (props.node.p.role === "omp.assistant") return <AssistantCol {...props} />;
-  if (props.node.p.role === ASK_GATE_ROLE) {
-    return <AskGateCol {...props} dom={nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p) })} />;
-  }
+  if (props.node.p.role === ASK_GATE_ROLE) return <GateCol {...props} />;
+  return <PlainCol {...props} />;
+}
+
+function GateCol(props: NodeProps) {
+  const blank = useBlank(props);
   return (
-    <div {...nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p) })}>
+    <AskGateCol {...props} dom={nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p), blank })} />
+  );
+}
+
+function PlainCol(props: NodeProps) {
+  const blank = useBlank(props);
+  return (
+    <div
+      {...nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p), blank })}
+      data-cards={hasSourceRows(props) ? "" : undefined}
+    >
       <TspChildren {...props} />
     </div>
   );
@@ -72,8 +102,10 @@ function AssistantCol(props: NodeProps) {
   const index = useBareTurnIndex(taskId, sf, props.node.id, turns.length);
   const footer = index >= 0 ? (turns[index] ?? null) : null;
   const text = footer === null ? null : formatTurnFooter(footer);
+  // 补的用量行是 children 之外的元素，有它就不算空。
+  const blank = useBlank(props, text !== null);
   return (
-    <div {...nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p) })}>
+    <div {...nodeDomProps(props, "tsp-col", { className: stackClasses(props.node.p), blank })}>
       <TspChildren {...props} />
       {text !== null && (
         <div className="tsp-row" data-role="omp.turn.usage" data-restored="" title={text.title}>
@@ -95,8 +127,9 @@ function AssistantCol(props: NodeProps) {
 function RecapRow(props: NodeProps) {
   const { taskId, sf } = props.ctx;
   const latest = useIsLatestRecap(taskId, sf, props.node.id);
+  const blank = useBlank(props);
   if (!latest) return null;
-  const dom = nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) });
+  const dom = nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p), blank });
   return (
     <div {...dom} title={labels.recapTitle}>
       <TspChildren {...props} />
@@ -109,8 +142,13 @@ export function Row(props: NodeProps) {
   if (props.node.p.role === ASK_BUTTON_ROLE) {
     return <AskButtonRow {...props} dom={nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) })} />;
   }
+  return <PlainRow {...props} />;
+}
+
+function PlainRow(props: NodeProps) {
+  const blank = useBlank(props);
   return (
-    <div {...nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p) })}>
+    <div {...nodeDomProps(props, "tsp-row", { className: stackClasses(props.node.p), blank })}>
       <TspChildren {...props} />
     </div>
   );
@@ -161,11 +199,33 @@ function chipIcon(status: string): string {
   return status === "done" ? "check" : status === "error" ? "x" : status === "cancelled" ? "stop" : "clock";
 }
 
+/**
+ * 用户气泡（omp.user）里有元素被键盘聚焦（:focus-visible；鼠标点出来的焦点不算）时给卡片加 data-kbd-focus，
+ * tsp.css 据此显示平时只在悬停时出现的工具行。focus / blur 事件里判断，不靠 CSS 的 :has(:focus-visible)。
+ */
+function useKeyboardFocus(enabled: boolean): {
+  "data-kbd-focus"?: "" | undefined;
+  onFocus?: (event: FocusEvent<HTMLElement>) => void;
+  onBlur?: (event: FocusEvent<HTMLElement>) => void;
+} {
+  const [focused, setFocused] = useState(false);
+  if (!enabled) return {};
+  return {
+    "data-kbd-focus": focused ? "" : undefined,
+    onFocus: (event) => setFocused(event.target.matches(":focus-visible")),
+    onBlur: (event) => {
+      if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget))
+        setFocused(false);
+    },
+  };
+}
+
 export function Card(props: NodeProps) {
   const { node } = props;
   const p = node.p;
   const collapsible = p.collapsible === true;
   const [collapsed, toggle] = useFold(props, collapsible && p.collapsed === true);
+  const keyFocus = useKeyboardFocus(p.role === "omp.user");
   const headId = headChildId(node);
   const hasHead =
     headId !== null || (p.head !== undefined && p.head !== "") || typeof p.status === "string" || collapsible;
@@ -196,6 +256,7 @@ export function Card(props: NodeProps) {
         className: classes.join(" "),
         own: { toggle: collapsible ? toggle : undefined },
       })}
+      {...keyFocus}
     >
       {hasHead && (
         <div

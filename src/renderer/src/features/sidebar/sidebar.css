@@ -460,12 +460,16 @@
   stroke-width: 2;
   opacity: 0.22;
 }
-/* 弧占一周的 30%，绕圆心转；0% 帧就是静止的弧（减少动效 / --play-state 暂停时停在这里） */
+/* 弧占一周的 30%，整个图标绕中心转（底下的轨道是整圆，转不转看不出来）；0% 帧就是静止的弧（减少动效 / --play-state 暂停时停在这里）。
+ * 转的是包着 <svg> 的 HTML 盒子（StatusDot 的 .sb-dot-turn）：SVG 里的元素、连 <svg> 自己的 transform 动画都不能交给合成器，
+ * 每帧要主线程重算样式 / 重新排版（2026-10-25 实测），HTML 盒子的由合成器转。 */
 .sb-dot-arc {
   stroke: currentColor;
   stroke-width: 2;
   stroke-dasharray: 30 70;
-  transform-origin: 8px 8px;
+}
+.sb-dot-turn {
+  display: flex;
   animation: sb-spin var(--dur-spin) linear infinite;
   animation-play-state: var(--play-state);
 }

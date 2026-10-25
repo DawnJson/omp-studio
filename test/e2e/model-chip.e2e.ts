@@ -74,7 +74,7 @@ const measureChipLayout = (page: Page) =>
     const text = need(dom.document.querySelector("[data-testid='model-chip-group'] .chip-text"));
     const name = need(dom.document.querySelector("[data-testid='model-chip']"));
     const effort = need(dom.document.querySelector("[data-testid='chip-thinking']"));
-    const bars = need(effort.querySelector("svg"));
+    const bars = need(effort.querySelector(".effort-bars"));
     const approval = need(dom.document.querySelector("[data-testid='approval-chip']"));
     // 基线：文字里放一个 0×0 的 inline-block，它的底边就在基线上。
     const probe = dom.document.createElement("span");
@@ -171,7 +171,7 @@ test("切换项目：模型胶囊逐帧无闪变、无空白，档位随项目�
       const text = await chipText(page);
       expect(text, `项目 ${index}`).toContain(projects[index]!.model);
       expect(text, `项目 ${index} 的思考强度`).toContain(`·${projects[index]!.level}`);
-      litBars[index] = await page.getByTestId("chip-thinking").locator("rect[data-lit]").count();
+      litBars[index] = await page.getByTestId("chip-thinking").locator(".effort-bar[data-lit]").count();
     }
     const revisits = await readRecording(page);
     // 档位刻度亮的格数随档位升：low < medium < high。

@@ -31,6 +31,7 @@ import {
   type DocumentSnapshot,
   type TspDocument,
 } from "../../shared/tsp/document.ts";
+import type { StatusNote } from "../../shared/tsp/status-notes.ts";
 import {
   ACTION_CYCLE_THINKING,
   ACTION_PICK_MODEL,
@@ -379,8 +380,8 @@ export class TspRunner {
   #toggles: SessionToggles = emptySessionToggles();
   /** 上一次文档里的状态 toast 文字：只读新出现的那些（freshToasts）。 */
   #toastTexts: string[] = [];
-  /** 已读过的状态行记录条数（`DocSurface.statusNotes` 只增不减；toast 节点下一帧就没了，所以两条路都读）。 */
-  #noteCount = 0;
+  /** 已读过的状态行（`DocSurface.statusNotes` 里的对象；omp 原地换文字时那一条换成新对象，也算新的；toast 节点下一帧就没了，所以两条路都读）。 */
+  #seenNotes = new WeakSet<StatusNote>();
   /** OSC 7501 的累积结果（本进程；shared/tsp/run-status.ts）。 */
   #signal: RunSignal = NO_RUN_SIGNAL;
   /** dock 里 `omp.loader` 的文字（交接、建 worktree、分支摘要等；TaskState.loaderText）。 */
@@ -747,7 +748,7 @@ export class TspRunner {
       this.#factsTracker.reset();
       this.#btw.reset();
       this.#toastTexts = [];
-      this.#noteCount = 0;
+      this.#seenNotes = new WeakSet();
       this.#session = session;
       await session.ready;
       this.#assertNotClosing();
@@ -1273,13 +1274,11 @@ export class TspRunner {
    */
   #syncToggles(document: TspDocument): void {
     const texts = statusToastTexts(document);
-    const notes = [...document.live].flatMap(
-      (sf) => document.surfaces.get(sf)?.statusNotes.map((note) => note.text) ?? [],
-    );
-    if (notes.length < this.#noteCount) this.#noteCount = 0; // surface 关了又开：新的一批从头读
-    const fresh = [...notes.slice(this.#noteCount), ...freshToasts(this.#toastTexts, texts)];
+    const notes = [...document.live].flatMap((sf) => document.surfaces.get(sf)?.statusNotes ?? []);
+    const freshNotes = notes.filter((note) => !this.#seenNotes.has(note));
+    for (const note of freshNotes) this.#seenNotes.add(note);
+    const fresh = [...freshNotes.map((note) => note.text), ...freshToasts(this.#toastTexts, texts)];
     this.#toastTexts = texts;
-    this.#noteCount = notes.length;
     let next = this.#toggles;
     let changed = false;
     for (const text of fresh) {

@@ -23,6 +23,7 @@ import {
   ensureTspDocument,
   useTspHasUserMessage,
   useTspNode,
+  useTspNoVisibleChild,
   useTspSurface,
   useTspSurfaces,
   useTspDrive,
@@ -140,11 +141,25 @@ interface SurfaceParts {
   mode: "inline" | "screen";
 }
 
-function Region({ taskId, sf, id, ctx }: { taskId: TaskId; sf: string; id: "dock" | "layer"; ctx: TspContext }) {
-  const node = useTspNode(taskId, sf, id);
+const NO_IDS: readonly string[] = [];
+
+/** layer：盖在整块上的浮层容器；子代理面板驱动期间不画。 */
+function Layer({ taskId, sf, ctx }: { taskId: TaskId; sf: string; ctx: TspContext }) {
+  const node = useTspNode(taskId, sf, "layer");
   const driving = useTspDrive(taskId) !== null;
-  if (node === null || (id === "layer" && driving)) return null;
+  if (node === null || driving) return null;
   return <TspChildren node={node} ctx={ctx} />;
+}
+
+/** dock：没有可显示的子节点（全是 hidden 或空 col）时整块收起（data-blank），免得留一条空的间距。 */
+function Dock({ taskId, sf, ctx }: { taskId: TaskId; sf: string; ctx: TspContext }) {
+  const node = useTspNode(taskId, sf, "dock");
+  const blank = useTspNoVisibleChild(taskId, sf, node?.c ?? NO_IDS, "dock") || node === null;
+  return (
+    <div className="tsp-dock" data-blank={blank ? "" : undefined}>
+      <div className="tsp-dock-in">{node !== null && <TspChildren node={node} ctx={ctx} />}</div>
+    </div>
+  );
 }
 
 function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, line, header, tail, mode }: SurfaceParts) {
@@ -173,13 +188,9 @@ function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, line, h
           </div>
         </div>
         <OverlayScrollbar target={scroller} />
-        <div className="tsp-dock">
-          <div className="tsp-dock-in">
-            <Region taskId={taskId} sf={sf} id="dock" ctx={ctx} />
-          </div>
-        </div>
+        <Dock taskId={taskId} sf={sf} ctx={ctx} />
         <div className="tsp-layer">
-          <Region taskId={taskId} sf={sf} id="layer" ctx={ctx} />
+          <Layer taskId={taskId} sf={sf} ctx={ctx} />
         </div>
         {line}
         {jump}

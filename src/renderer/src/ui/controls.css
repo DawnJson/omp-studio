@@ -775,9 +775,6 @@
   right: 0;
   left: auto;
 }
-.ui-popover:has(> .ui-menu[data-inline]) {
-  padding: var(--space-1);
-}
 /* 行内确认（全自动、会话开关、结束子代理）：宽 300，最小 280，不会被挤成一字一行 */
 .ui-popover[data-kind="confirm"] {
   width: 300px;
@@ -924,7 +921,7 @@
   font-size: var(--fs-sm);
   color: var(--text);
 }
-/* ⓘ（InfoTip.tsx）：跟在文字后面，和文字同一行基线下移 0.125em。
+/* ⓘ（InfoTip.tsx）：跟在文字后面，和文字同一行基线下移 0.125em。紧挨着 ⓘ 的文字元素由调用处加 .ui-info-lead（Row、ModelsSection 的角色行）。
    ⓘ 是 inline-block，它前面总有折行机会（词连接符也拦不住）。所以前面的文字末尾留出 ⓘ 的位置（padding），
    ⓘ 再用负边距退回这块位置里：排版时 ⓘ 不占宽度，文字放不下时是最后一个字带着位置一起折行，ⓘ 不会单独掉到下一行。 */
 .ui-info {
@@ -935,7 +932,7 @@
   margin-left: var(--space-1);
   vertical-align: -0.125em;
 }
-:has(+ .ui-info) {
+.ui-info-lead {
   padding-inline-end: calc(14px + var(--space-1));
 }
 * + .ui-info {
@@ -1098,7 +1095,7 @@
   overflow-wrap: anywhere;
   white-space: normal;
 }
-.ui-cards > .ui-list-row:has(> .ui-list-actions:empty) {
+.ui-cards > .ui-list-row[data-no-actions] {
   grid-template-rows: auto;
 }
 .ui-cards > .ui-list-row > .ui-list-actions:empty {

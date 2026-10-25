@@ -19,6 +19,7 @@ import { trailingErrorCardId } from "../../../../shared/tsp/error-turn.ts";
 import { findGateButton, hasBlockingPanel } from "../../../../shared/tsp/gate.ts";
 import type { StatusNote } from "../../../../shared/tsp/status-notes.ts";
 import { forgetBirths, markKnown, recordBirths, type BirthCounter } from "./entrance.ts";
+import { dependsOnRoles, hasNoVisibleChild, RECAP_ROLE, type DrawEnv } from "./node-blank.ts";
 import { planTspBatch } from "./tsp-sync.ts";
 
 interface Mirror {
@@ -47,8 +48,6 @@ const USAGE_ROLE = "omp.turn.usage";
 const USER_ROLE = "omp.user";
 /** omp 每条助手消息的容器；每轮最后一个是用量行的父节点。 */
 const ASSISTANT_ROLE = "omp.assistant";
-/** omp 的空闲回顾行。 */
-const RECAP_ROLE = "omp.recap";
 const TRACKED_ROLES: readonly string[] = [USAGE_ROLE, USER_ROLE, ASSISTANT_ROLE, RECAP_ROLE];
 const NO_IDS: readonly string[] = [];
 interface RoleIndex {
@@ -295,6 +294,53 @@ export function useTspPanelOpen(taskId: TaskId): boolean {
 export function useTspNode(taskId: TaskId, sf: string, id: string): DocNode | null {
   const sub = useMemo(() => (l: () => void) => subscribe(nodeKey(taskId, sf, id), l), [taskId, sf, id]);
   return useSyncExternalStore(sub, () => peekTspNode(taskId, sf, id));
+}
+
+/**
+ * 这些子节点里有没有能显示的内容（node-blank.ts 的 hasNoVisibleChild）：没有则返回 true（容器据此收起，data-blank）。
+ * 只订阅这几个子节点的记录（它们 hidden / role / 子节点列表变了才重算），结果是布尔值，没变不重画容器；
+ * 子节点或孙节点是错误横幅 / 回顾行时（画不画取决于对话整体）才多订阅 role 索引。`off` = 不判断（始终 false，不订阅）。
+ */
+export function useTspNoVisibleChild(
+  taskId: TaskId,
+  sf: string,
+  ids: readonly string[],
+  mode: "off" | "container" | "dock",
+): boolean {
+  let watchRoles = false;
+  if (mode !== "off") {
+    for (const id of ids) {
+      const child = peekTspNode(taskId, sf, id);
+      if (dependsOnRoles(child) || child?.c.some((grand) => dependsOnRoles(peekTspNode(taskId, sf, grand)))) {
+        watchRoles = true;
+        break;
+      }
+    }
+  }
+  const sub = useMemo(
+    () => (l: () => void) => {
+      if (mode === "off") return () => undefined;
+      const offs = ids.map((id) => subscribe(nodeKey(taskId, sf, id), l));
+      if (watchRoles) offs.push(subscribe(roleKey(taskId, sf), l));
+      return () => {
+        for (const off of offs) off();
+      };
+    },
+    [taskId, sf, ids, mode, watchRoles],
+  );
+  return useSyncExternalStore(sub, () => {
+    if (mode === "off") return false;
+    const env: DrawEnv = {
+      peek: (id) => peekTspNode(taskId, sf, id),
+      get hasErrorCard() {
+        return roleIndex(taskId, sf)?.trailingError != null;
+      },
+      get latestRecap() {
+        return roleIds(taskId, sf, RECAP_ROLE).at(-1);
+      },
+    };
+    return hasNoVisibleChild(ids, env, mode === "container");
+  });
 }
 
 export function useTspBlob(taskId: TaskId, id: string | undefined): DocBlob | null {

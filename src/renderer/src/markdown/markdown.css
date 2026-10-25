@@ -172,7 +172,7 @@
   }
 }
 .md[data-streaming] .md-block:last-child > :is(p, h1, h2, h3, h4, h5, h6):last-child::after,
-.md[data-streaming] .md-block:last-child li:last-child:not(:has(> ul, > ol))::after {
+.md[data-streaming] .md-block:last-child li[data-caret]::after {
   content: "";
   display: inline-block;
   width: 2px;

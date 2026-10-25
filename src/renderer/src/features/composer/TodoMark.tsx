@@ -46,14 +46,8 @@ export function TodoMark({
   }
   if (state === "active") {
     const arc = Math.round(Math.min(Math.max(progress ?? 0.28, 0.08), 0.96) * 100);
-    return (
-      <svg
-        className={cls}
-        data-state="active"
-        data-spinning={spinning || undefined}
-        viewBox="0 0 16 16"
-        aria-hidden="true"
-      >
+    const mark = (
+      <svg className={cls} data-state="active" viewBox="0 0 16 16" aria-hidden="true">
         <circle className="todo-mark-track" cx="8" cy="8" r="6" />
         <circle
           className="todo-mark-arc"
@@ -65,6 +59,8 @@ export function TodoMark({
         />
       </svg>
     );
+    // 转的是外面这层 HTML 盒子（composer.css 的 .todo-mark-turn）：<svg> 的 transform 动画不能交给合成器，每帧占主线程。
+    return spinning ? <span className="todo-mark-turn">{mark}</span> : mark;
   }
   if (state === "blocked") {
     return (

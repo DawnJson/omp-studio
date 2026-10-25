@@ -142,9 +142,19 @@ function renderMath(token: Token, key: number, display: boolean): ReactNode {
   }
 }
 
-function renderBlockNode(node: TreeNode, key: number, ctx: RenderContext, closedFence: boolean): ReactNode {
+function renderBlockNode(
+  node: TreeNode,
+  key: number,
+  ctx: RenderContext,
+  closedFence: boolean,
+  lastItem = false,
+): ReactNode {
   const { token } = node;
   const kids = (): ReactNode[] => node.children.map((child, index) => renderBlockNode(child, index, ctx, closedFence));
+  const listItems = (list: TreeNode): ReactNode[] =>
+    list.children.map((child, index) =>
+      renderBlockNode(child, index, ctx, closedFence, index === list.children.length - 1),
+    );
   switch (token.type) {
     case "inline":
       return renderInlineToken(token, ctx);
@@ -155,14 +165,19 @@ function renderBlockNode(node: TreeNode, key: number, ctx: RenderContext, closed
     case "blockquote_open":
       return h("blockquote", { key }, kids());
     case "bullet_list_open":
-      return h("ul", { key }, kids());
+      return h("ul", { key }, listItems(node));
     case "ordered_list_open": {
       const start = Number(token.attrGet("start") ?? 1);
-      return h("ol", { key, start: start === 1 ? undefined : start }, kids());
+      return h("ol", { key, start: start === 1 ? undefined : start }, listItems(node));
     }
     case "list_item_open": {
       const task = attr(token, "data-task");
-      if (task === null) return h("li", { key }, kids());
+      // 流式光标挂在"自己是列表最后一项、且直接子节点里没有嵌套列表"的 li 上（markdown.css 的 data-caret），不用 :has()。
+      const nested = node.children.some(
+        (child) => child.token.type === "bullet_list_open" || child.token.type === "ordered_list_open",
+      );
+      const caret = lastItem && !nested ? "" : undefined;
+      if (task === null) return h("li", { key, "data-caret": caret }, kids());
       // 任务列表：只读复选框。
       const checkbox = h("input", {
         type: "checkbox",
@@ -171,7 +186,7 @@ function renderBlockNode(node: TreeNode, key: number, ctx: RenderContext, closed
         tabIndex: -1,
         "aria-hidden": true,
       });
-      return h("li", { key, className: "md-task" }, checkbox, kids());
+      return h("li", { key, className: "md-task", "data-caret": caret }, checkbox, kids());
     }
     case "hr":
       return h("hr", { key });

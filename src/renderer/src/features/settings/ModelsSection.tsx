@@ -196,7 +196,9 @@ function RoleRow({
   return (
     <div className="st-roles-row" data-testid={`setting-role-row-${role}`}>
       <span className="ui-row-label st-role-label">
-        <span id={labelId}>{roleLabel(role)}</span>
+        <span id={labelId} className="ui-info-lead">
+          {roleLabel(role)}
+        </span>
         <InfoTip>{t("model.roleUse", { hint: t(roleHintKey(role)) })}</InfoTip>
       </span>
       <span className="st-role-model">
@@ -422,7 +424,9 @@ export function ModelsSection() {
   const thinkingRow = (
     <div className="st-roles-row">
       <span className="ui-row-label st-role-label">
-        <span id={thinkingLabelId}>{t("settings.defaultThinking")}</span>
+        <span id={thinkingLabelId} className="ui-info-lead">
+          {t("settings.defaultThinking")}
+        </span>
         <InfoTip>{t("settings.defaultThinkingHint")}</InfoTip>
       </span>
       <span className="st-role-model">

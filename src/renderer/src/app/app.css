@@ -214,7 +214,7 @@ html[data-platform="darwin"] .topbar-left {
 #app[data-drawer="false"] .sidebar-column > * {
   min-width: var(--sidebar-current, var(--sidebar-w));
 }
-#app:has(.sidebar-resizer:active) .sidebar-column {
+#app[data-drawer="false"] .sidebar-column[data-resizing] {
   transition: none;
 }
 

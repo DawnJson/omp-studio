@@ -50,11 +50,15 @@ function Glyph({ kind }: { kind: Kind }) {
 /** 按形状画一个状态图标；none 只留槽位。任务和历史会话共用。`title` = 悬停说明（图标本身只有形状和颜色）。 */
 function StatusMark({ kind, label, title }: { kind: DotKind; label: string; title?: string }) {
   if (kind === "none") return <span key="none" className="sb-dot" aria-hidden="true" />;
+  const mark = (
+    <svg className="sb-dot-mark" viewBox="0 0 16 16" aria-hidden="true">
+      <Glyph kind={kind} />
+    </svg>
+  );
   return (
     <span key={kind} className={`sb-dot sb-dot-${kind}`} role="img" aria-label={label} title={title}>
-      <svg className="sb-dot-mark" viewBox="0 0 16 16" aria-hidden="true">
-        <Glyph kind={kind} />
-      </svg>
+      {/* 运行中的弧转动：转外面这层 HTML 盒子（sidebar.css 的 .sb-dot-turn），SVG 的 transform 动画不能交给合成器 */}
+      {kind === "running" ? <span className="sb-dot-turn">{mark}</span> : mark}
     </span>
   );
 }

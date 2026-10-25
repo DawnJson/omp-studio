@@ -588,7 +588,9 @@ export function Row({
   return (
     <div className="ui-row" data-modified={modified || undefined} data-testid={testId}>
       <span className="ui-row-label">
-        <span id={labelId}>{label}</span>
+        <span id={labelId} className={info === undefined ? undefined : "ui-info-lead"}>
+          {label}
+        </span>
         {info !== undefined && <InfoTip>{info}</InfoTip>}
       </span>
       <span className="ui-row-control">{children(labelId)}</span>
@@ -620,7 +622,11 @@ export function ListRow({
   testId?: string | undefined;
 }) {
   return (
-    <div className="ui-list-row" data-testid={testId}>
+    <div
+      className="ui-list-row"
+      data-no-actions={actions === undefined || actions === null || actions === false || undefined}
+      data-testid={testId}
+    >
       <span className="ui-list-icon" aria-hidden="true">
         {icon}
       </span>

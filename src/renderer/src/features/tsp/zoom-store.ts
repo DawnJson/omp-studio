@@ -25,20 +25,24 @@ const namedAttr = "data-tsp-zoom-named";
 const largeSelector = ".tsp-zoom img";
 let generation = 0;
 
-/** 这一项在对话里的缩略图；卸载了或已滚出视口就是 null。 */
+/** 这一项在对话里的缩略图；卸载了或已滚出视口就是 null。藏着的别的任务的对话区（App.tsx 的 Activity）里可能有同 id 的节点，取看得见的那个。 */
 function thumbnailOf(item: ZoomItem | undefined): HTMLElement | null {
   if (item?.id === undefined) return null;
-  const el = document.querySelector<HTMLElement>(`.tsp-image[data-id="${CSS.escape(item.id)}"] .tsp-img-frame`);
-  if (!el) return null;
-  const box = el.getBoundingClientRect();
-  const visible =
-    box.width > 0 &&
-    box.height > 0 &&
-    box.bottom > 0 &&
-    box.right > 0 &&
-    box.top < window.innerHeight &&
-    box.left < window.innerWidth;
-  return visible ? el : null;
+  const candidates = document.querySelectorAll<HTMLElement>(
+    `.tsp-image[data-id="${CSS.escape(item.id)}"] .tsp-img-frame`,
+  );
+  for (const el of candidates) {
+    const box = el.getBoundingClientRect();
+    const visible =
+      box.width > 0 &&
+      box.height > 0 &&
+      box.bottom > 0 &&
+      box.right > 0 &&
+      box.top < window.innerHeight &&
+      box.left < window.innerWidth;
+    if (visible) return el;
+  }
+  return null;
 }
 
 function nameIt(el: HTMLElement | null): void {

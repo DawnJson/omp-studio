@@ -119,7 +119,7 @@ export function ModelChip(task: ModelChipProps) {
       <div className="chip-model" data-testid="model-chip-group">
         <button
           type="button"
-          className="ui-chip chip-name"
+          className={showEffort ? "ui-chip chip-name has-effort" : "ui-chip chip-name"}
           data-testid="model-chip"
           aria-haspopup="dialog"
           aria-expanded={open}
@@ -169,28 +169,16 @@ export function ModelChip(task: ModelChipProps) {
 }
 
 /** 档位刻度：每档一根 2px 宽的竖条、间隔 2px，从低到高 4 → 12px（取整，落在整像素上不发虚）；前 `lit` 根亮着。
- *  `--i` 给逐根点亮和波动错开用，`--t`（0-1）给 xhigh / max 的渐变取色。 */
+ *  `--i` 给逐根点亮和波动错开用，`--t`（0-1）给 xhigh / max 的渐变取色。
+ *  竖条是 HTML 元素不是 SVG <rect>：运行中的波动是 opacity 动画，HTML 元素的交给合成器，SVG 内部元素的每帧都要主线程重算样式。 */
 function EffortBars({ total, lit }: { total: number; lit: number }) {
-  const step = 4;
-  const width = total * step - 2;
   return (
-    <svg viewBox={`0 0 ${width} 12`} width={width} height={12} aria-hidden="true" focusable="false">
+    <span className="effort-bars" aria-hidden="true">
       {Array.from({ length: total }, (_, i) => {
         const height = total === 1 ? 12 : Math.round(4 + (8 * i) / (total - 1));
-        const style = { "--i": i, "--t": total === 1 ? 1 : i / (total - 1) } as CSSProperties;
-        return (
-          <rect
-            key={i}
-            x={i * step}
-            y={12 - height}
-            width={2}
-            height={height}
-            rx={1}
-            data-lit={i < lit || undefined}
-            style={style}
-          />
-        );
+        const style = { "--i": i, "--t": total === 1 ? 1 : i / (total - 1), height } as CSSProperties;
+        return <span key={i} className="effort-bar" data-lit={i < lit || undefined} style={style} />;
       })}
-    </svg>
+    </span>
   );
 }

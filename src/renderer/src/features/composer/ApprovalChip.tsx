@@ -118,7 +118,7 @@ export function ApprovalChip({
   ];
 
   return (
-    <div className="ui-popover-anchor">
+    <div className="ui-popover-anchor approval-anchor">
       <button
         type="button"
         className="ui-chip"

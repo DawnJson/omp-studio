@@ -15,7 +15,8 @@ export function useReclaimFocus(field: RefObject<HTMLTextAreaElement | null>): v
     const observer = new MutationObserver(() => {
       if (held === null || held.isConnected) return;
       held = null;
-      if (document.querySelector(askGateSelector) !== null) return;
+      // 最近看过的任务的对话区藏着也在 DOM 里（App.tsx 的 Activity），只认显示着的那个提问框。
+      if ([...document.querySelectorAll(askGateSelector)].some((gate) => gate.getClientRects().length > 0)) return;
       const active = document.activeElement;
       if ((active === null || active === document.body) && document.hasFocus()) {
         field.current?.focus({ preventScroll: true });

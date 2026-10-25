@@ -351,14 +351,16 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
     // 切回普通目录的任务：逐帧看，分支按钮和评审按钮一帧都不出现（不能先挂着上一个任务的分支，等状态回来再收掉）。
     await page.evaluate((plainId) => {
       const g = globalThis as unknown as {
-        document: { querySelector(selector: string): unknown };
+        document: { querySelector(selector: string): { getClientRects(): { length: number } } | null };
         requestAnimationFrame(callback: () => void): number;
         __gitFrames?: { seen: number; stop: boolean };
       };
       const state = { seen: 0, stop: false };
       g.__gitFrames = state;
       const tick = () => {
-        const onPlain = g.document.querySelector(`[data-testid="tsp-view"][data-task-id="${plainId}"]`) !== null;
+        // 看过的任务的过程区藏着留在 DOM 里（App.tsx 的 KEPT_VIEWS）：显示着才算切到了普通任务。
+        const plain = g.document.querySelector(`[data-testid="tsp-view"][data-task-id="${plainId}"]`);
+        const onPlain = plain !== null && plain.getClientRects().length > 0;
         if (onPlain && g.document.querySelector('[data-testid="git-menu"], [data-testid="topbar-review"]') !== null)
           state.seen++;
         if (!state.stop) g.requestAnimationFrame(tick);
@@ -372,7 +374,11 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
       .filter({ hasText: "普通目录里的任务" })
       .locator(".sb-row-main")
       .click();
-    await expect(page.getByTestId("tsp-view")).toHaveAttribute("data-task-id", plainTaskId as string);
+    // 看过的任务的过程区藏着留在 DOM 里（App.tsx 的 KEPT_VIEWS），只看显示着的那个。
+    await expect(page.locator('[data-testid="tsp-view"]:visible')).toHaveAttribute(
+      "data-task-id",
+      plainTaskId as string,
+    );
     await page.waitForTimeout(800);
     const seen = await page.evaluate(() => {
       const g = globalThis as unknown as { __gitFrames: { seen: number; stop: boolean } };

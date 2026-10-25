@@ -15,6 +15,10 @@ export interface NodeDomProps extends HTMLAttributes<HTMLElement> {
   "data-mark"?: string;
   "data-href"?: string;
   "data-grow"?: "";
+  /** col / row 没有可显示的子节点（node-blank.ts）：CSS 里收起。 */
+  "data-blank"?: "";
+  /** text 在来源卡（omp.tool.source）里且含链接：tsp.css 把它排到标题格（Text 节点设置）。 */
+  "data-linked"?: "";
   "data-anchor"?: "";
 }
 
@@ -27,6 +31,8 @@ interface Options {
    *  容器上的 `actions`（如 `{click:"select"}`）只是告诉终端各项的默认行为，挂到根上会发出没有 item 的事件。 */
   pointer?: boolean | undefined;
   className?: string | undefined;
+  /** col / row：没有可显示的子节点（useTspNoVisibleChild）。 */
+  blank?: boolean | undefined;
   style?: CSSProperties | undefined;
 }
 
@@ -78,6 +84,7 @@ export function nodeDomProps({ node, ctx }: NodeProps, base: string, options: Op
   if (typeof p.href === "string") props["data-href"] = p.href;
   if (typeof p.aria === "string") props["aria-label"] = p.aria;
   if (typeof p.grow === "number" && p.grow > 0) props["data-grow"] = "";
+  if (options.blank === true) props["data-blank"] = "";
   if (node.parent === "main") props["data-anchor"] = "";
   return props;
 }

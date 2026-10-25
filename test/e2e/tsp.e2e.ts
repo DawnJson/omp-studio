@@ -205,14 +205,16 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
       "transition-property",
       "background-color",
     );
-    // 切到另一个 TSP 任务：只剩一个过程区，画的是新任务（过程区和输入框同 key 时，React 会把上一个任务的过程区留在页面上）。
+    // 切到另一个 TSP 任务：显示着的只有一个过程区，画的是新任务（过程区和输入框同 key 时，React 会把上一个任务的过程区留在页面上）。
+    // 上一个任务的过程区藏着留在 DOM 里（App.tsx 的 KEPT_VIEWS），所以只数显示着的。
     const second = await page.evaluate(async () => {
       const [project] = await globalThis.studio.listProjects();
       return (await globalThis.studio.createTask({ projectId: project!.id })).id;
     });
     await page.locator(`[data-nav="task:${second}"]`).click();
-    await expect(page.getByTestId("tsp-view")).toHaveCount(1);
-    await expect(page.getByTestId("tsp-view")).toHaveAttribute("data-task-id", second);
+    const visible = page.locator('[data-testid="tsp-view"]:visible');
+    await expect(visible).toHaveCount(1);
+    await expect(visible).toHaveAttribute("data-task-id", second);
   } finally {
     await cleanup();
   }
@@ -1001,16 +1003,12 @@ test("压缩分隔画成整行横线夹文字;切模型后 omp 的状态行留�
     await expect(divider.locator(".tsp-section-body")).toContainText("The user asked two questions");
     await head.click();
     await expect(divider.locator(".tsp-section-body")).toHaveCount(0);
-    // 状态行:启动时的两条 + 切模型那条,都留在对话里,没有弹层。
+    // 状态行:启动时的两条和切模型那条是 omp 原地换文字的同一行(终端里也只剩最后一条),留在对话里,没有弹层。
     const notes = page.getByTestId("tsp-status-note");
-    await expect(notes).toHaveCount(3);
-    await expect(notes.nth(0)).toHaveText("Session compacted 1 time");
-    await expect(notes.nth(2)).toHaveText(
-      "Session-only model: deepseek/deepseek-v4-pro. Use Alt+M or /model for roles.",
-    );
+    await expect(notes).toHaveText(["Session-only model: deepseek/deepseek-v4-pro. Use Alt+M or /model for roles."]);
     await expect(page.locator(".toast")).toHaveCount(0);
     // 它们在最后一条助手回答的后面。
-    const order = await notes.nth(2).evaluate((el) => {
+    const order = await notes.nth(0).evaluate((el) => {
       type Node = { compareDocumentPosition(other: unknown): number };
       const assistants = [
         ...(
@@ -1022,7 +1020,7 @@ test("压缩分隔画成整行横线夹文字;切模型后 omp 的状态行留�
     });
     // 2 = 最后一条助手回答在状态行前面。
     expect(order).toBe(2);
-    await notes.nth(2).scrollIntoViewIfNeeded();
+    await notes.nth(0).scrollIntoViewIfNeeded();
   } finally {
     await cleanup();
   }

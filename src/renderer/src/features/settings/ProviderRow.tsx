@@ -75,6 +75,8 @@ export function ProviderRow({
     }
   };
 
+  // 没有任何动作时（比如只有环境变量里的 key）不给 actions，ListRow 据此标 data-no-actions，卡片里不留动作那一行。
+  const hasActions = acceptsApiKey(provider.id) || signedIn || loginKind === "oauth" || loginKind === "terminal";
   return (
     <ListRow
       testId={`provider-${provider.id}`}
@@ -83,51 +85,53 @@ export function ProviderRow({
       badges={badge === null ? undefined : <Badge tone={badge.tone}>{badge.text}</Badge>}
       meta={meta === "" ? undefined : meta}
       actions={
-        <>
-          {acceptsApiKey(provider.id) && (
-            <Button
-              size="sm"
-              disabled={busy}
-              onClick={() => onFlow(provider, "key")}
-              testId={`provider-key-${provider.id}`}
-            >
-              {hasKey ? t("login.apiKey.replace") : t("login.apiKey.set")}
-            </Button>
-          )}
-          {signedIn ? (
-            <Button
-              size="sm"
-              disabled={busy}
-              onClick={() =>
-                accounts.length === 1 && accounts[0]
-                  ? void run(() => window.studio.logout(provider.id, accounts[0]?.credentialId ?? 0))
-                  : onFlow(provider, "accounts")
-              }
-              testId={`provider-signout-${provider.id}`}
-            >
-              {hasOauth ? t("login.signOut") : t("login.apiKey.remove")}
-            </Button>
-          ) : loginKind === "oauth" ? (
-            <Button
-              size="sm"
-              disabled={busy || !provider.available}
-              onClick={() => onFlow(provider, "login")}
-              testId={`provider-login-${provider.id}`}
-            >
-              {t("login.signIn")}
-            </Button>
-          ) : loginKind === "terminal" ? (
-            // 要多步交互的 provider：rpc 的 login 被 omp 拒绝，在应用内起一个临时的 omp 走它自己的登录流程（TerminalLoginBody）。
-            <Button
-              size="sm"
-              disabled={busy || !provider.available}
-              onClick={() => onFlow(provider, "terminal")}
-              testId={`provider-terminal-login-${provider.id}`}
-            >
-              {t("login.signIn")}
-            </Button>
-          ) : null}
-        </>
+        hasActions ? (
+          <>
+            {acceptsApiKey(provider.id) && (
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => onFlow(provider, "key")}
+                testId={`provider-key-${provider.id}`}
+              >
+                {hasKey ? t("login.apiKey.replace") : t("login.apiKey.set")}
+              </Button>
+            )}
+            {signedIn ? (
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() =>
+                  accounts.length === 1 && accounts[0]
+                    ? void run(() => window.studio.logout(provider.id, accounts[0]?.credentialId ?? 0))
+                    : onFlow(provider, "accounts")
+                }
+                testId={`provider-signout-${provider.id}`}
+              >
+                {hasOauth ? t("login.signOut") : t("login.apiKey.remove")}
+              </Button>
+            ) : loginKind === "oauth" ? (
+              <Button
+                size="sm"
+                disabled={busy || !provider.available}
+                onClick={() => onFlow(provider, "login")}
+                testId={`provider-login-${provider.id}`}
+              >
+                {t("login.signIn")}
+              </Button>
+            ) : loginKind === "terminal" ? (
+              // 要多步交互的 provider：rpc 的 login 被 omp 拒绝，在应用内起一个临时的 omp 走它自己的登录流程（TerminalLoginBody）。
+              <Button
+                size="sm"
+                disabled={busy || !provider.available}
+                onClick={() => onFlow(provider, "terminal")}
+                testId={`provider-terminal-login-${provider.id}`}
+              >
+                {t("login.signIn")}
+              </Button>
+            ) : null}
+          </>
+        ) : undefined
       }
     />
   );

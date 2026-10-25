@@ -5,7 +5,7 @@
 // 节点记录不可变：任何改动都换一个新对象（父节点的 children 变了也换父节点），渲染进程按对象身份判断要不要重画。
 // 表（Map）本身原地改。
 import { isRecord } from "../type-guards.ts";
-import { statusNotesIn, type StatusNote } from "./status-notes.ts";
+import { mergeStatusNotes, statusNotesIn, type StatusNote } from "./status-notes.ts";
 import type { TspClose, TspFrame, TspNode, TspOpen, TspOp, TspPalette } from "./tsp.generated.ts";
 
 export interface DocNode {
@@ -33,7 +33,7 @@ export interface DocSurface {
   suspended: boolean;
   /** 最后应用的帧号（程序发来的 s）。 */
   lastFrame: number;
-  /** omp 的状态行（toast `omp.toast.status`）：节点下一帧就没了，出现那一帧记下来，只增不减（见 status-notes.ts）。每次新增换一个新数组。 */
+  /** omp 的状态行（toast `omp.toast.status`）：节点下一帧就没了，出现那一帧记下来；同一个节点 id 换文字时替换那一条（见 status-notes.ts）。每次变化换一个新数组。 */
   statusNotes: readonly StatusNote[];
 }
 
@@ -179,7 +179,7 @@ function applyFrame(doc: TspDocument, frame: TspFrame, result: ApplyResult): voi
     if (error !== null) result.errors.push({ op: index, msg: error });
   });
   const notes = statusNotesIn(surface, frame.ops);
-  if (notes.length > 0) surface.statusNotes = [...surface.statusNotes, ...notes];
+  if (notes.length > 0) surface.statusNotes = mergeStatusNotes(surface.statusNotes, notes);
 }
 
 function applyOp(doc: TspDocument, surface: DocSurface, op: TspOp, changed: Set<string>): string | null {

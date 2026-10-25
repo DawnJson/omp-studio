@@ -23,15 +23,22 @@ import { useFoldState } from "../fold-context.ts";
 import { TspIcon } from "../icons.tsx";
 import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
-import { plainText, cleanGlyphs, spanClass, TspSpans } from "../spans.tsx";
+import { plainText, cleanGlyphs, spanClass, spansHaveLink, TspSpans } from "../spans.tsx";
 import { asArray, previewToLines } from "../props-util.ts";
 import { isRecord } from "../../../../../shared/type-guards.ts";
+import { peekTspNode } from "../tsp-store.ts";
 
 // ───────── text ─────────
 
 function textSpans(p: Readonly<Record<string, unknown>>): readonly TspSpan[] | string {
   if (Array.isArray(p.spans)) return p.spans as TspSpan[];
   return typeof p.text === "string" ? p.text : "";
+}
+
+/** 父节点是搜索来源行（omp.tool.source）。 */
+function inSourceRow({ node, ctx }: NodeProps): boolean {
+  if (node.parent === null) return false;
+  return peekTspNode(ctx.taskId, ctx.sf, node.parent)?.p.role === "omp.tool.source";
 }
 
 export function Text(props: NodeProps) {
@@ -54,6 +61,8 @@ export function Text(props: NodeProps) {
       : undefined,
   });
   if ((truncate !== null || lines !== null) && dom.title === undefined) dom.title = plainText(content);
+  // 来源卡里含链接的文字是标题格，不含的是域名格（tsp.css 靠 data-linked 区分）。
+  if (inSourceRow(props) && spansHaveLink(content)) dom["data-linked"] = "";
   if (oneLine && truncate === "middle") {
     const parts: TspSpan[] = typeof content === "string" ? [{ t: content }] : [...content];
     let head: readonly TspSpan[];

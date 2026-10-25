@@ -1,7 +1,15 @@
 // 应用布局（spec §3.1–3.3）：40px 通栏任务条 + 侧栏 + 四角圆的主区“纸面”；窄窗口侧栏变抽屉。
 // 各功能入口的导出名和 props 是约定（props 只有 id，数据从 store hook 取）。
 import { reportError } from "../ui/errors.ts";
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import {
+  Activity,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
 import type { TaskId } from "../../../shared/ipc.ts";
 import { useVisibleTaskIds } from "../features/sidebar/visible-order-store.ts";
 import { Composer } from "../features/composer/index.ts";
@@ -55,6 +63,8 @@ import { EditMenu } from "./EditMenu.tsx";
 
 /** spec §3.3：窄于 1000px 侧栏改成覆盖式抽屉。 */
 const narrowQuery = "(max-width: 999px)";
+/** 留着不卸载的对话区个数（同时跑四五个任务来回切的常见情形）。 */
+const KEPT_VIEWS = 5;
 
 function useNarrow(): boolean {
   return useSyncExternalStore(
@@ -69,12 +79,21 @@ function useNarrow(): boolean {
 
 const composerSelector = "[data-composer-input]";
 
+/** 当前任务的对话滚动区：最近看过的任务的对话区藏着也在 DOM 里，取显示着的那个。 */
+function visibleLog(): HTMLElement | null {
+  return (
+    [...document.querySelectorAll<HTMLElement>('[role="log"]')].find(
+      (element) => element.getClientRects().length > 0,
+    ) ?? null
+  );
+}
+
 function focusComposer(scrollToEnd: boolean): void {
   const field = document.querySelector<HTMLTextAreaElement>(composerSelector);
   field?.focus({ preventScroll: true });
   // 光标放在草稿末尾。
   field?.setSelectionRange(field.value.length, field.value.length);
-  const log = document.querySelector<HTMLElement>('[role="log"]');
+  const log = visibleLog();
   if (scrollToEnd && log) log.scrollTop = log.scrollHeight;
 }
 
@@ -82,7 +101,7 @@ function focusComposer(scrollToEnd: boolean): void {
 function focusRegion(delta: 1 | -1): void {
   const regions = [
     document.querySelector<HTMLElement>('nav.sb [tabindex="0"], nav.sb button'),
-    document.querySelector<HTMLElement>('[role="log"]'),
+    visibleLog(),
     document.querySelector<HTMLElement>(composerSelector),
   ].filter((element): element is HTMLElement => element !== null && element.getClientRects().length > 0);
   if (regions.length === 0) return;
@@ -153,6 +172,12 @@ export function App() {
     previousTaskId.current = taskId;
   }
   const fromDraft = taskId !== null && fromDraftTaskId.current === taskId;
+  // 最近看过的几个任务的对话区不卸载，切走时用 React 的 Activity 藏起来（effect 和订阅撤掉，状态和 DOM 留着）：
+  // 切回来不用把整段对话重新画一遍（30 轮的对话约 250ms → 110ms）。最近用过的在前；画的时候按 id 排，切任务不挪 DOM。
+  const recent = useRef<TaskId[]>([]);
+  if (taskId !== null && recent.current[0] !== taskId)
+    recent.current = [taskId, ...recent.current.filter((id) => id !== taskId)].slice(0, KEPT_VIEWS);
+  const kept = recent.current.filter((id) => tasks.some((task) => task.id === id)).sort();
   // Ctrl 1…9 和任务循环切换跟着侧栏眼前画出来的任务顺序（合并列表里展开着的行）。
   const order = useVisibleTaskIds();
   const openTask = (id: TaskId | undefined) => {
@@ -279,6 +304,7 @@ export function App() {
         <div
           className="sidebar-column"
           data-testid="sidebar-column"
+          data-resizing={shell.sidebarResizing || undefined}
           inert={!sidebarShown}
           style={{ "--sidebar-current": `${shell.sidebarWidth}px` } as CSSProperties}
         >
@@ -287,6 +313,13 @@ export function App() {
         </div>
         <main className="panel" data-testid="main-panel">
           {!narrow && sidebarShown && <SidebarResizer width={shell.sidebarWidth} />}
+          {/* 过程区是 omp 的节点（TspView），输入框是 studio 的 Composer。最近看过的任务的 TspView 都在这里，只有当前任务的显示；
+              进设置、回空状态时也留着。key 带前缀，和下面同一任务 id 的兄弟区分开。 */}
+          {kept.map((id) => (
+            <Activity key={`tsp:${id}`} mode={view === "conversation" && id === taskId ? "visible" : "hidden"}>
+              <TspView taskId={id} />
+            </Activity>
+          ))}
           {view === "settings" ? (
             <SettingsView compactNav={narrow || !sidebarShown} />
           ) : taskId === null ? (
@@ -296,8 +329,6 @@ export function App() {
             </>
           ) : (
             <>
-              {/* 过程区是 omp 的节点（TspView），输入框是 studio 的 Composer。两个兄弟的 key 必须不同：同一个 key 会让 React 切任务时留下上一个任务的 TspView。 */}
-              <TspView key={`tsp:${taskId}`} taskId={taskId} />
               <SessionTreePanel key={`tree:${taskId}`} taskId={taskId} />
               <BtwPanel key={`btw:${taskId}`} taskId={taskId} />
               <Composer key={`composer:${taskId}`} taskId={taskId} fromDraft={fromDraft} />

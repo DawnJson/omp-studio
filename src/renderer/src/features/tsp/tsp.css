@@ -152,7 +152,7 @@
   flex-direction: column;
   gap: var(--space-2);
 }
-.tsp-dock:not(:has(.tsp-dock-in > :not(.tsp-hidden, .tsp-col:empty))) {
+.tsp-dock[data-blank] {
   display: none;
 }
 
@@ -273,8 +273,8 @@
 .tsp-act {
   cursor: pointer;
 }
-/* 没有可显示的子节点、也不撑开的 col / row 不占位也不产生间距 */
-:is(.tsp-col, .tsp-row):not([data-grow]):not(:has(> :not(.tsp-hidden, .tsp-col:empty, .tsp-row:empty))) {
+/* 没有可显示的子节点、也不撑开的 col / row 不占位也不产生间距（渲染时判断，见 node-blank.ts；有 flex-grow 的不标 data-blank） */
+:is(.tsp-col, .tsp-row)[data-blank]:not([data-grow]) {
   display: none;
 }
 [data-mark="drop"] {
@@ -1329,12 +1329,13 @@
     opacity: 1;
   }
 }
+/* 不定进度条的 30% 宽滑块从轨道左外滑到右外：用 transform（合成器动画），不用 left（每帧重新排版）。百分比相对滑块自己的宽度。 */
 @keyframes tsp-slide {
   0% {
-    left: -30%;
+    transform: translateX(-100%);
   }
   100% {
-    left: 100%;
+    transform: translateX(calc(100% / 0.3));
   }
 }
 @keyframes tsp-pop {
@@ -1507,6 +1508,7 @@
 }
 .tsp-progress.indeterminate .tsp-progress-fill {
   position: absolute;
+  left: 0;
   width: 30%;
   animation: tsp-slide var(--dur-spin) linear infinite;
   animation-play-state: var(--play-state);
@@ -2231,7 +2233,7 @@
 
 /* 搜索来源（web_search 的 omp.tool.source）：照 Tern 排成等宽卡片网格，每张卡第一行徽章 + 域名，第二行标题；
  * 标题链接的 ::after 铺满整张卡，点卡片任何地方都打开链接（链接还是那一个，键盘和读屏不变） */
-.tsp-col[data-role="omp.tool.files"]:has(> .tsp-row[data-role="omp.tool.source"]) {
+.tsp-col[data-cards] {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: var(--space-2);
@@ -2251,10 +2253,11 @@
   box-shadow: 0 0 0 1px var(--border-subtle);
   transition: background-color var(--dur-fast) var(--ease-out);
 }
-.tsp-row[data-role="omp.tool.source"]:has(.tsp-link:hover) {
+/* 整张卡就是链接的点击区（::after 铺满），悬停整卡变色、键盘聚焦在整卡上描边（::after 自己画描边，不靠 :has） */
+.tsp-row[data-role="omp.tool.source"]:hover {
   background: var(--bg-hover);
 }
-.tsp-row[data-role="omp.tool.source"]:has(.tsp-link:focus-visible) {
+.tsp-row[data-role="omp.tool.source"] .tsp-link:focus-visible::after {
   outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
@@ -2264,10 +2267,10 @@
   min-width: calc(var(--space-4) + var(--space-0-5));
   padding: 0;
 }
-.tsp-row[data-role="omp.tool.source"] > .tsp-text:has(.tsp-link) {
+.tsp-row[data-role="omp.tool.source"] > .tsp-text[data-linked] {
   grid-area: title;
 }
-.tsp-row[data-role="omp.tool.source"] > .tsp-text:not(:has(.tsp-link)) {
+.tsp-row[data-role="omp.tool.source"] > .tsp-text:not([data-linked]) {
   grid-area: domain;
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
@@ -2284,7 +2287,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
+  border-radius: var(--radius-md);
 }
 
 /* ───────────────────────── agent / checklist ───────────────────────── */
@@ -2666,7 +2669,7 @@
 }
 /* 键盘聚焦（:focus-visible）也显示；鼠标点过按钮留下的焦点不算，否则点完复制鼠标移走按钮还挂着 */
 .tsp-card[data-role="omp.user"]:hover .tsp-row[data-role="omp.user.tools"],
-.tsp-card[data-role="omp.user"]:has(:focus-visible) .tsp-row[data-role="omp.user.tools"] {
+.tsp-card[data-role="omp.user"][data-kbd-focus] .tsp-row[data-role="omp.user.tools"] {
   opacity: 1;
   pointer-events: auto;
 }

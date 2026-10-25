@@ -124,6 +124,21 @@ export function TspSpans({ text }: { text: TspText | undefined }) {
   );
 }
 
+/** TspSpans 会不会画出 `.tsp-link`（带 href 的片段，或纯文字里的网址）；判断和 SpanView / Linkified 一致。 */
+export function spansHaveLink(text: TspText | undefined): boolean {
+  if (text === undefined) return false;
+  const hasUrl = (value: string): boolean =>
+    splitUrls(cleanGlyphs(value))?.some((piece) => piece.url !== undefined) === true;
+  if (typeof text === "string") return hasUrl(text);
+  return text.some((span) => {
+    if (typeof span === "string") return hasUrl(span);
+    const tokens = spanTokens(span.s);
+    if (tokens.includes("hide") || cleanGlyphs(span.t) === "") return false;
+    if (span.href !== undefined) return true;
+    return !tokens.includes("path") && !tokens.includes("key") && hasUrl(span.t);
+  });
+}
+
 /** TspText 的纯文字（tooltip、aria 用）。 */
 export function plainText(text: TspText | undefined): string {
   if (text === undefined) return "";

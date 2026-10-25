@@ -85,7 +85,7 @@
   flex: 1;
 }
 /* 审批胶囊保持原宽，空间不够时由模型胶囊收窄（它的名字会省略）。 */
-.composer-tools > .ui-popover-anchor:has(> [data-testid="approval-chip"]) {
+.composer-tools > .ui-popover-anchor.approval-anchor {
   flex: none;
 }
 /* 工具行里的文件夹标签（PathLabel，只读）：高度和左右内边距同 .ui-chip，和模型 / 审批 / 会话开关对齐；没有底色，不能点。 */
@@ -179,7 +179,7 @@ button.usage-context:hover,
   position: relative;
   padding: 0 var(--chip-pad) 0 var(--space-1);
 }
-.ui-chip.chip-name:has(+ .chip-effort) {
+.ui-chip.chip-name.has-effort {
   min-width: calc-size(max-content, min(size, var(--chip-name-min-w) + var(--chip-pad) + var(--space-1)));
   padding-right: var(--space-1);
 }
@@ -212,7 +212,7 @@ button.usage-context:hover,
   height: 12px;
   fill: currentColor;
 }
-/* top 随刻度上提的 2px 一起上移（见下面 .chip-effort > svg），角标和竖条之间的间距不变。 */
+/* top 随刻度上提的 2px 一起上移（见下面 .effort-bars），角标和竖条之间的间距不变。 */
 .chip-effort .chip-fast {
   position: absolute;
   top: 2px;
@@ -224,37 +224,40 @@ button.usage-context:hover,
 }
 /* 档位刻度（ModelChip 的 EffortBars）：亮的格子按档位变"热"——minimal / low 灰，medium 主色，high 主色加柔光，
    xhigh / max 由主色渐变到琥珀、光晕更强。切换档位时逐格点亮；任务运行中亮格从低到高波动，档位越高越快。 */
-.ui-chip.chip-effort svg {
-  width: auto;
+.effort-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
   height: 12px;
-  overflow: visible;
 }
 /* 刻度是 12px 高的盒子，居中在 28px 的胶囊里，底边比文字基线低 2px（行盒里基线在中心线下方约 1px，字母在基线上方）——
    看上去刻度整体偏下。上提 2px，让竖条的底边落在模型名的基线上。 */
-.ui-chip.chip-effort > svg {
+.ui-chip.chip-effort > .effort-bars {
   translate: 0 -2px;
 }
-.chip-effort rect {
-  fill: var(--border-strong);
-  transition: fill var(--dur-fast) var(--ease-out);
+.effort-bar {
+  width: 2px;
+  border-radius: 1px;
+  background: var(--border-strong);
+  transition: background-color var(--dur-fast) var(--ease-out);
   transition-delay: calc(var(--i) * 30ms);
 }
-.chip-effort rect[data-lit] {
-  fill: var(--text-2);
+.effort-bar[data-lit] {
+  background: var(--text-2);
 }
-.chip-effort:is([data-level="medium"], [data-level="high"]) rect[data-lit] {
-  fill: var(--accent);
+.chip-effort:is([data-level="medium"], [data-level="high"]) .effort-bar[data-lit] {
+  background: var(--accent);
 }
-.chip-effort:is([data-level="xhigh"], [data-level="max"]) rect[data-lit] {
-  fill: color-mix(in oklch, var(--accent), var(--st-waiting) calc(var(--t) * 100%));
+.chip-effort:is([data-level="xhigh"], [data-level="max"]) .effort-bar[data-lit] {
+  background: color-mix(in oklch, var(--accent), var(--st-waiting) calc(var(--t) * 100%));
 }
-.chip-effort[data-level="high"] svg {
+.chip-effort[data-level="high"] :is(.effort-bars, svg) {
   filter: drop-shadow(0 0 1.5px color-mix(in srgb, var(--accent) 50%, transparent));
 }
-.chip-effort[data-level="xhigh"] svg {
+.chip-effort[data-level="xhigh"] :is(.effort-bars, svg) {
   filter: drop-shadow(0 0 2px color-mix(in srgb, var(--st-waiting) 50%, transparent));
 }
-.chip-effort[data-level="max"] svg {
+.chip-effort[data-level="max"] :is(.effort-bars, svg) {
   filter: drop-shadow(0 0 2.5px color-mix(in srgb, var(--st-waiting) 75%, transparent));
 }
 .chip-effort {
@@ -272,7 +275,7 @@ button.usage-context:hover,
 .chip-effort[data-level="max"] {
   --wave: 700ms;
 }
-.chip-effort[data-running] rect[data-lit] {
+.chip-effort[data-running] .effort-bar[data-lit] {
   animation: effort-wave var(--wave) var(--ease-in-out) infinite;
   animation-delay: calc(var(--i) * var(--wave) / 8);
   animation-play-state: var(--play-state);
@@ -763,9 +766,27 @@ button.usage-context:hover,
   width: var(--icon-lg);
   height: var(--icon-lg);
 }
+/* 13×16 的画布居中放在方框里（同原来 SVG 的 viewBox + meet），每格按百分比绝对定位 */
+.pi-write {
+  display: flex;
+  justify-content: center;
+}
+.pi-write-box {
+  position: relative;
+  height: 100%;
+  aspect-ratio: 13 / 16;
+}
+.pi-cell,
+.pi-dot {
+  position: absolute;
+}
+.pi-dot {
+  width: 50%;
+  height: 25%;
+}
 /* 每格同一段 keyframes，起点按笔画序号（--pi-step，0–1）错开整轮的 36%：前 36% 依次写出，全亮停一会儿，
  * 第 56% 起依次褪成淡影，最后 4% 再亮回来。0% 帧是亮着的，减少动效时停在这里就是完整的 π。 */
-.pi-write g {
+.pi-cell {
   animation: pi-write var(--dur-write) linear infinite backwards;
   animation-delay: calc(var(--pi-step) * var(--dur-write) * 0.36);
   animation-play-state: var(--play-state);
@@ -855,13 +876,15 @@ button.usage-context:hover,
 .todo-mark-track {
   stroke: var(--border);
 }
-/* 弧从 12 点钟开始；转动的是整张图（底圈是对称的），--play-state 为 paused（减少动效）时弧停在原位。 */
+/* 弧从 12 点钟开始；转动的是包着整张图的 HTML 盒子（底圈是对称的），--play-state 为 paused（减少动效）时弧停在原位。 */
 .todo-mark-arc {
   stroke: var(--accent);
   transform: rotate(-90deg);
   transform-origin: 8px 8px;
 }
-.todo-mark-ico[data-spinning] {
+.todo-mark-turn {
+  display: flex;
+  flex: none;
   animation: run-spin calc(var(--dur-spin) * 2) linear infinite;
   animation-play-state: var(--play-state);
 }
@@ -1564,18 +1587,15 @@ button.usage-context:hover,
 }
 
 /* 悬停后台作业那一段时的作业卡片（StatusPills 的 JobsCard，代替悬停提示）：挂在 body 上，位置由 JobsCard 写（right / bottom），
-   层级同悬停提示，盖得住开着的 omp 弹窗；只是看，不接指针；每个作业一块，块之间一条细线。只有标题时和文字一样宽 */
+   层级同悬停提示，盖得住开着的 omp 弹窗；只是看，不接指针；每个作业一块（JobsCard 只在有运行中作业时渲染），块之间一条细线。 */
 .ui-popover.jobs-card {
   position: fixed;
   left: auto;
   z-index: var(--z-tooltip);
-  width: max-content;
+  width: 320px;
   gap: var(--space-2);
   padding: var(--space-2-5) var(--space-3);
   pointer-events: none;
-}
-.jobs-card:has(.jobs-card-tile) {
-  width: 320px;
 }
 .jobs-card-tile {
   display: flex;
