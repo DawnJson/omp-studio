@@ -57,6 +57,18 @@ describe("危险链接协议被拒", () => {
     const inline = html("![dot](data:image/png;base64,iVBORw0KGgo=)");
     expect(inline).toContain('<img src="data:image/png;base64,iVBORw0KGgo="');
   });
+
+  it("文字里写全的 http(s) 网址可点，不吞句末的中文句号；不带协议的域名、邮箱、行内代码里的网址不变成链接", () => {
+    const out = html(
+      "或者直接打开 https://doi.org/10.1007/978-3-031-94223-5_25 。见https://a.com/x。\n\nexample.com a@b.com `https://in.code`",
+    );
+    expect(out).toContain('<a href="https://doi.org/10.1007/978-3-031-94223-5_25"');
+    expect(out).toContain('<a href="https://a.com/x"');
+    expect(out).toContain("</a>。");
+    expect(out).not.toContain('href="http://example.com');
+    expect(out).not.toContain('href="mailto:');
+    expect(out).not.toContain('href="https://in.code"');
+  });
 });
 
 describe("流式渲染", () => {

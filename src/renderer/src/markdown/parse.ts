@@ -5,8 +5,17 @@ import MarkdownIt from "markdown-it";
 
 export type Token = ReturnType<InstanceType<typeof MarkdownIt>["parse"]>[number];
 
-/** html:false 让 <script>、<img onerror> 这类原始 HTML 变成普通文本；linkify 关闭，只认显式链接。 */
-const md = new MarkdownIt({ html: false, linkify: false, typographer: false, breaks: false });
+/**
+ * html:false 让 <script>、<img onerror> 这类原始 HTML 变成普通文本。
+ * linkify 只认写全的 http(s) 网址（模型常直接输出裸网址，2026-10-25 起可点）：不猜 `example.com`、邮箱、IP，
+ * 去掉 ftp: / mailto: / 协议相对的 `//`，和 render.ts 只放行 http/https 一致。
+ */
+const md = new MarkdownIt({ html: false, linkify: true, typographer: false, breaks: false });
+md.linkify
+  .set({ fuzzyLink: false, fuzzyEmail: false, fuzzyIP: false })
+  .add("ftp:", null)
+  .add("//", null)
+  .add("mailto:", null);
 md.use(mathPlugin);
 
 export interface MarkdownBlock {

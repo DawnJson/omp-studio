@@ -27,7 +27,7 @@ import { useAgentRecord, type AgentRecordState } from "./use-agent-record.ts";
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="agents-stat">
+    <div className="agents-stat" data-testid="agents-stat">
       <dt>{label}</dt>
       <dd title={value}>{value}</dd>
     </div>

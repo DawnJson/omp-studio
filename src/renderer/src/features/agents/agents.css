@@ -249,10 +249,11 @@
   white-space: nowrap;
 }
 
-/* 统计：数字在上（较大、等宽数字），标签在下；dl 里 dt 在前，所以用 column-reverse */
+/* 统计：数字在上（较大、等宽数字），标签在下；dl 里 dt 在前，所以用 column-reverse。
+ * 固定一行三格（2026-10-25 仓库所有者：原来按 72px 自动排，宽面板一行四格、上下文被挤到折行） */
 .agents-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-3) var(--space-3);
   margin: 0;
   padding: var(--space-3);
@@ -273,7 +274,7 @@
   line-height: var(--lh-2xs);
   color: var(--text-3);
 }
-/* 值（“1% · 14K / 1M”这类长值）折行显示完整，不用省略号：格子宽 72 起，折在 “·” 和空格处 */
+/* 值单行（“23% · 81K / 350K”这类长值也不折行，2026-10-25 仓库所有者）；面板很窄放不下时省略号，悬停 title 是全文 */
 .agents-stat dd {
   margin: 0;
   font-size: var(--fs-sm);
@@ -281,7 +282,9 @@
   font-weight: var(--fw-medium);
   color: var(--text);
   font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .agents-block {

@@ -24,7 +24,7 @@
 
 `md` 节点的 `p.text` 是 markdown 原文，由这里渲染（`features/tsp/nodes/text.tsx`），子代理面板、旁路提问、文件预览、omp 更新日志也用它。
 
-- `parse.ts`：markdown-it（`html:false`，linkify 关）整篇解析后切成顶层块；任务列表标记在这里摘掉。`stabilizeStreaming` 在流式时先藏起行首为 `| # > - * 1.` 或围栏的未完成行，表头要等分隔行到了才放出（spec 5.4 第 2 条）。未闭合的行内标记 markdown-it 本来就当纯文本。
+- `parse.ts`：markdown-it（`html:false`）整篇解析后切成顶层块；任务列表标记在这里摘掉。linkify 只认写全的 `http(s)://` 网址（2026-10-25 起，模型常输出裸网址；之前关着、只认 `[文字](网址)`）：不猜 `example.com`、邮箱、IP，去掉 `ftp:` / `mailto:` / `//`；句末的中文句号等标点不算网址。`stabilizeStreaming` 在流式时先藏起行首为 `| # > - * 1.` 或围栏的未完成行，表头要等分隔行到了才放出（spec 5.4 第 2 条）。未闭合的行内标记 markdown-it 本来就当纯文本。
 - `render.ts`：token → `createElement`，无 JSX、无 DOM，可在 Node 里测试；**不用 dangerouslySetInnerHTML**。原始 HTML 作为文本转义；链接只放行 `http/https`（与主进程 openExternal 一致，mailto 只显示文字）（markdown-it 的 `validateLink` 先挡掉 `javascript:`/`vbscript:`/`file:`/`data:`，实体编码也在它之前解码），其余相对路径只显示文字；图片只放行 `data:image/*`，远程图片显示成链接。点击经 `window.studio.openExternal`。
 - `Markdown.tsx`：每个顶层块 `React.memo`，按块原文比较——已闭合块不重建 DOM，只有最后一块在变。
 - `highlight.ts`：Shiki `shiki/core` + JS 正则引擎 + CSS 变量主题，31 种语言按需 `import()`；`tokens.css` 的 `:root` 把 `--shiki-*` 映射到 `--syn-*`（全应用一份：对话、评审、文件预览的源码视图都用它），深浅主题不重新高亮；Markdown 源码先加载围栏代码块用到的语言，块里的代码才着色。围栏闭合后才高亮；`diff` 整行用 `--diff-add-fg/del-fg`。代码块全文显示，不折叠（spec §4.10）。

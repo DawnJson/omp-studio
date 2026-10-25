@@ -1776,6 +1776,33 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     const ctx = panel.getByTestId("agents-row-ctx").first();
     await expect(ctx).toHaveAttribute("data-percent", "1");
     await expect(ctx).toHaveAttribute("title", /1% ?[（(]8\.\dK \/ 1M[）)]/);
+    // 详情统计格一行三格;上下文("1% · 8.xK / 1M")单行,和费用一样高、没被截断。
+    const stats = panel.getByTestId("agents-stat");
+    const statBoxes = await stats.evaluateAll((elements) =>
+      elements.map((node) => {
+        type Box = { getBoundingClientRect(): { y: number; height: number } };
+        const element = node as unknown as Box & { querySelector(selector: string): unknown };
+        const value = element.querySelector("dd") as Box & {
+          textContent: string;
+          scrollWidth: number;
+          clientWidth: number;
+        };
+        const rect = element.getBoundingClientRect();
+        return {
+          y: rect.y,
+          text: value.textContent,
+          height: value.getBoundingClientRect().height,
+          clipped: value.scrollWidth > value.clientWidth,
+        };
+      }),
+    );
+    expect(statBoxes.length).toBeGreaterThan(3);
+    expect(statBoxes[1]!.y).toBe(statBoxes[0]!.y);
+    expect(statBoxes[2]!.y).toBe(statBoxes[0]!.y);
+    expect(statBoxes[3]!.y).toBeGreaterThan(statBoxes[0]!.y);
+    const contextStat = statBoxes.find((stat) => stat.text.includes(" / "))!;
+    expect(contextStat.height).toBe(statBoxes[0]!.height);
+    expect(contextStat.clipped).toBe(false);
 
     // Activity 页:读两个子代理的记录文件(假 session 目录里的 Alpha.jsonl / Beta.jsonl),按时间从新到旧;过滤 All / Errors / Responses / Tools。
     await panel.getByTestId("agents-tabs-activity").click();
@@ -1798,6 +1825,12 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     await rows.nth(0).click();
     await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Beta");
     await expect(panel.getByTestId("agents-list")).toBeVisible();
+    // 窄窗口、中英文下统计格不越界(放不下的值省略号,不撑出格子)。
+    await page.setViewportSize({ width: 900, height: 700 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(panel.getByTestId("agents-detail"));
+    }
   } finally {
     await cleanup();
     await rm(scratch, { recursive: true, force: true });
@@ -2279,6 +2312,36 @@ test("行号列:两位、四位行号不被折成一位一行;用户消息里的
         await expectNoOverflow(page.locator(`[data-id="${id}"]`));
       }
     }
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
+test("回答里的裸网址可点:用系统浏览器打开,句末的中文句号不算网址", async () => {
+  test.setTimeout(90_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp link-"));
+  const url = "https://doi.org/10.1007/978-3-031-94223-5_25";
+  const fixture = await writeCardsFixture(
+    work,
+    [],
+    [{ id: "e2e-bare-url", k: "md", p: { text: `- 或者直接打开 ${url} 。` } }],
+  );
+  const { launched, cleanup } = await start(fixture);
+  try {
+    const { page, app } = launched;
+    await app.evaluate(({ shell }) => {
+      const opened: string[] = [];
+      (globalThis as unknown as { opened: string[] }).opened = opened;
+      shell.openExternal = async (target: string) => {
+        opened.push(target);
+      };
+    });
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("cards"))[0]!.event["text"]));
+    const link = page.locator('[data-id="e2e-bare-url"] a');
+    await expect(link).toHaveText(url, { timeout: 30_000 });
+    await link.click();
+    await expect.poll(() => app.evaluate(() => (globalThis as unknown as { opened: string[] }).opened)).toEqual([url]);
   } finally {
     await cleanup();
     await rm(work, { recursive: true, force: true, maxRetries: 5 });

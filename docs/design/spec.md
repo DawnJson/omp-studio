@@ -837,7 +837,7 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 
 ### 4.28 子代理面板（右栏，TSP 任务，S1Agents；2026-10-21）
 
-统计格（`.agents-stats`）里的值不用省略号：`1% · 14K / 1M` 这类长值在格内折行，完整显示；列表行的名称、说明单行省略，悬停 `title` 是全文（2026-10-23）。
+统计格（`.agents-stats`）固定一行三格；值单行不折行（`23% · 81K / 350K` 这类长值也是一行，面板窄到放不下时省略号，悬停 `title` 是全文；2026-10-25 起，之前是按 72px 自动排列、长值折行）；列表行的名称、说明单行省略，悬停 `title` 是全文（2026-10-23）。
 
 代码 `features/agents/`（`AgentsPanel` 外壳 + `AgentRow` + `AgentDetail` + `SteerBox`，`agents-store.ts` / `agents-actions.ts` / `agents-slash.ts`，样式 `agents.css`），文案 `agents.*`。**不弹 omp 的 Agent Hub**：`👥` 胶囊、`/hub`、命令面板都打开这个面板。数据来源和后台驱动 Hub 的步骤见 `docs/architecture/subagents.md`。
 
