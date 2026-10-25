@@ -89,18 +89,32 @@ export function useStickToBottom(
     const root = content.current;
     if (!el || !root) return;
 
+    // 上次滚动事件时的可滚范围。scroll 事件晚一帧才派发：omp 先收起上方的块（内容变矮，浏览器把 scrollTop 夹小），
+    // 同一帧里又长出新内容，到这里读到的就是"scrollTop 变小、离底很远"，看着像用户上滚，其实是布局变化。
+    let lastRange = el.scrollHeight - el.clientHeight;
+    // 按着鼠标 / 触摸时（拖滚动条、拖选文字）的上滚，可滚范围在变也算用户的。
+    let pressed = false;
     const onScroll = () => {
       const programmatic = Math.abs(el.scrollTop - lastProgrammaticTop.current) < 1;
-      const distance = el.scrollHeight - el.clientHeight - el.scrollTop;
+      const range = el.scrollHeight - el.clientHeight;
+      const distance = range - el.scrollTop;
+      const layoutDriven = range !== lastRange && !pressed;
+      lastRange = range;
       if (distance <= STICK_THRESHOLD) {
         stuck.current = true;
         setShowJump(false);
-      } else if (!programmatic && el.scrollTop < lastTop.current - 0.5) {
-        // 用户主动向上：立即脱离吸底。
+      } else if (!programmatic && !layoutDriven && el.scrollTop < lastTop.current - 0.5) {
+        // 用户主动向上（或"对话线"跳到前面的消息）：立即脱离吸底。
         stuck.current = false;
       }
       lastTop.current = el.scrollTop;
       if (!stuck.current) recordAnchor();
+    };
+    const onPointerDown = () => {
+      pressed = true;
+    };
+    const onPointerUp = () => {
+      pressed = false;
     };
     const onWheel = (event: WheelEvent) => {
       if (event.deltaY < 0) stuck.current = false;
@@ -162,6 +176,10 @@ export function useStickToBottom(
     el.addEventListener("wheel", onWheel, { passive: true });
     el.addEventListener("keydown", onKey);
     el.addEventListener("click", onClickCapture, true);
+    // 滚动条（OverlayScrollbar）在滚动区外面，按下 / 松开都在 window 上听。
+    window.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("pointerup", onPointerUp, true);
+    window.addEventListener("pointercancel", onPointerUp, true);
     const stopBus = onStickToBottomRequest((id) => {
       if (id === taskId) scrollToBottom();
     });
@@ -172,6 +190,9 @@ export function useStickToBottom(
       el.removeEventListener("wheel", onWheel);
       el.removeEventListener("keydown", onKey);
       el.removeEventListener("click", onClickCapture, true);
+      window.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("pointerup", onPointerUp, true);
+      window.removeEventListener("pointercancel", onPointerUp, true);
       stopBus();
       if (frame.current !== 0) cancelAnimationFrame(frame.current);
       frame.current = 0;
