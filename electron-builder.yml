@@ -35,6 +35,9 @@ extraResources:
   # provider 的 logo（features/settings/ProviderLogo.tsx）拷自 LobeHub Icons，MIT：许可证随软件一起带上。
   - from: src/renderer/src/features/settings/provider-logos-LICENSE.txt
     to: licenses/lobe-icons-MIT.txt
+  # omp 的协议类型（src/shared/omp-wire/rpc-wire.generated.ts、src/shared/tsp/tsp.generated.ts）拷自 oh-my-pi，MIT：许可证随软件一起带上。
+  - from: src/shared/oh-my-pi-LICENSE.txt
+    to: licenses/oh-my-pi-MIT.txt
 # koffi 的原生 .node 在 @koromix/koffi-<平台> 包里，electron-builder 会自动把 .node 解出 asar；
 # 已在打包产物里实测 koffi 能加载并调用 kernel32。
 win:

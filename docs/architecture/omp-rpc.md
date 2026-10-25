@@ -89,6 +89,8 @@ rpc-ui 现在只用于服务进程（`src/main/service/service-omp.ts`）和项�
 
 npm 包 `@oh-my-pi/pi-coding-agent` 里有 `rpc-wire.generated.ts`，可以 `import type`，但装整个包约 1.06 GB（144 个包）。GitHub tag `v<版本>` 下 `packages/coding-agent/src/modes/rpc/wire/` 的同名文件与 npm 包逐字节相同（实测 18.12.0）。**已定：从 tag 拷贝这个文件进仓库**，不装 npm 包（`npm run rpc:update-wire -- <版本>`）。
 
+omp 是 MIT：拷进来的文件（这个和 `src/shared/tsp/tsp.generated.ts`）文件头带 omp 的版权行，许可全文在 `src/shared/oh-my-pi-LICENSE.txt`，打包时放进 `resources/licenses/oh-my-pi-MIT.txt`（`electron-builder.yml` 的 `extraResources`）。`rpc:update-wire` 生成的文件头里自带这两行；omp 的 LICENSE 版权行变了要同步改这三处。
+
 - 只引 `modes/rpc/wire/rpc-wire.generated`，不要引 `modes/rpc/rpc-types`（会拉进 1493 个文件）。
 - `RpcResponse.data` 是 `unknown`，按命令对应结果类型要用 `RpcWireCommands[K]["result"]`。
 - `rpc_chunk` 的帧类型不在 generated 文件里。

@@ -112,7 +112,7 @@ Architecture docs are in [`docs/architecture/`](docs/architecture/), the UI spec
 
 ## Acknowledgements
 
-- [oh-my-pi](https://github.com/can1357/oh-my-pi): omp itself
+- [oh-my-pi](https://github.com/can1357/oh-my-pi): omp itself; the RPC and TSP wire types are copied from its repository (MIT, see [`src/shared/oh-my-pi-LICENSE.txt`](src/shared/oh-my-pi-LICENSE.txt))
 - [Tern](https://docs.stencil.so/tern/protocol/): the TSP protocol spec
 - [Electron](https://www.electronjs.org/)
 - [node-pty](https://github.com/microsoft/node-pty): pseudo-terminal

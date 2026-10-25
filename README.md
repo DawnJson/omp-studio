@@ -112,7 +112,7 @@ npm run dist:mac   # macOS arm64 的 dmg 和 zip，输出到 release/
 
 ## 致谢
 
-- [oh-my-pi](https://github.com/can1357/oh-my-pi)：omp 本身
+- [oh-my-pi](https://github.com/can1357/oh-my-pi)：omp 本身；RPC 和 TSP 的协议类型拷自它的仓库（MIT，见 [`src/shared/oh-my-pi-LICENSE.txt`](src/shared/oh-my-pi-LICENSE.txt)）
 - [Tern](https://docs.stencil.so/tern/protocol/)：TSP 协议规范
 - [Electron](https://www.electronjs.org/)
 - [node-pty](https://github.com/microsoft/node-pty)：伪终端

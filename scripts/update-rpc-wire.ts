@@ -20,6 +20,8 @@ const header = [
   `// omp-studio：此文件从 omp v${version} 原样拷贝，不要手改。`,
   `// 来源：${source}`,
   `// 更新：npm run rpc:update-wire -- <omp 版本>`,
+  "// Copyright (c) 2025 Mario Zechner; Copyright (c) 2025-2026 Can Bölük; Copyright (c) 2026 Stencil Labs, Inc.",
+  "// MIT License，全文见 src/shared/oh-my-pi-LICENSE.txt（随安装包分发到 resources/licenses/oh-my-pi-MIT.txt）。",
   "",
 ].join("\n");
 

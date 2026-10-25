@@ -1,5 +1,7 @@
-// omp-studio：此文件从 omp v18.12.3 原样拷贝，不要手改（Tern Surface Protocol v1 的类型，MIT）。
+// omp-studio：此文件从 omp v18.12.3 原样拷贝，不要手改（Tern Surface Protocol v1 的类型）。
 // 来源：https://raw.githubusercontent.com/can1357/oh-my-pi/v18.12.3/packages/wire/src/tsp.ts
+// Copyright (c) 2025 Mario Zechner; Copyright (c) 2025-2026 Can Bölük; Copyright (c) 2026 Stencil Labs, Inc.
+// MIT License，全文见 src/shared/oh-my-pi-LICENSE.txt（随安装包分发到 resources/licenses/oh-my-pi-MIT.txt）。
 /**
  * Tern Surface Protocol (TSP) wire shapes.
  *
