@@ -259,6 +259,8 @@ describe("OmpConnection failure paths", () => {
     const pids = [connection.pid!, await grandchild.promise];
     const exit = await connection.close(300);
     expect(exit.killed).toBe(true);
-    expect(pids.filter(isAlive)).toEqual([]);
+    // POSIX:被 SIGKILL 的孙进程由 launchd / init 收养后异步回收,回收前是僵尸,kill(pid, 0) 仍然成功;
+    // 真没杀掉的进程 2 秒后也还活着,这条照样失败。
+    await expect.poll(() => pids.filter(isAlive), { timeout: 2_000 }).toEqual([]);
   });
 });
