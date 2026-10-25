@@ -22,12 +22,12 @@
 
 ## 2. studio 怎么做
 
-studio 通过 TSP 的 `send` 事件把整条消息当文字交给 omp（`tsp-runner.ts` 的 `sendPrompt`），图片没有通道：主进程把图片写成临时文件，在文字后面加 `@"<路径>"` 提及，omp 读成图片附件（`docs/architecture/tsp-migration.md`）。所以占位符展开必须在 studio 这一侧做，语义照抄 omp：
+studio 通过 TSP 的 `send` 事件把整条消息当文字交给 omp（`tsp-runner.ts` 的 `sendPrompt`）；带图片的消息改走 omp 自己的图片附件（见下面「发图片」）。所以占位符展开必须在 studio 这一侧做，语义照抄 omp：
 
 - **草稿文字**（`draft.text`）里放 omp 的占位符：图片 `[Image #N, WxH]`，大段粘贴 `[Paste #N, +X lines]` / `[Paste #N, M chars]`。草稿另存 `images`（带像素尺寸）、`pastes`（编号 → 原文）、`pasteCounter`（只增不减）。
 - **折叠**：粘贴（`Ctrl+V`）文字按 omp 的整理方式处理后，超过 10 行或 1000 字符的折叠成占位符，原文记进草稿；不大的交给文本框按原样粘贴。`Ctrl+Shift+V`（`Alt+Shift+V`、`Cmd+Shift+V`）永远原样粘贴：keydown 里记一个标记，紧接着的 paste 事件跳过折叠。
 - **图片**：粘贴 / 拖入的图片在**粘贴那一刻的光标处**插入占位符（转换是异步的，光标位置在转换前记下；落在别的占位符里面就挪到它后面；输入框没有焦点的拖入插在末尾；前后补空格，和 omp 的 `insertAtom` 一样），图片长边缩到 1568 px 转 WebP（`image-resize.ts`），占位符里的尺寸就是缩放后的。当前模型不收图片时 toast 并拒绝。
-- **发送**（`buildSubmission`，`actions.ts` 的 `sendDraft` 和草稿页的 `send` 都用它）：粘贴占位符换回原文；图片按文字里引用的编号排序、重新编号 1..k（占位符同步改写），没被引用的图片不发。发出去的文字是 `…[Image #1, 1568x165]…`，主进程在末尾追加 `@"路径"`（推测：omp 把它读成图片附件后，模型看到占位符和图片是一一对应的；没有在真机上对比过模型的反应，`@"路径"` 读成图片附件本身是 18.12.x 实测过的，见 tsp-migration.md）。
+- **发送**（`buildSubmission`，`actions.ts` 的 `sendDraft` 和草稿页的 `send` 都用它）：粘贴占位符换回原文；图片按文字里引用的编号排序、重新编号 1..k（占位符同步改写），没被引用的图片不发。发出去的文字是 `…[Image #1, 1568x165]…`；主进程按占位符在 omp 的输入框里重建这条消息（下面「发图片」），占位符本身不进 omp。
 - **删除联动**：文字里的占位符没了（Backspace、剪切、选中删除、`setDraftText` 换文字），对应的图片 / 粘贴原文跟着删（`reconcileDraft`），后面的图片往前补号；点附件卡片的 ✕ = 去掉文字里的占位符。
 - **输入历史**：存"粘贴换回原文、图片占位符去掉"的文字（`historyText`），studio 自己按项目持久化（`userData/input-history.json`，只存文字、不存附件二进制；见 [composer-input.md](composer-input.md) §4）；草稿里有附件时 ↑ 不翻历史（换掉文字会把附件一起丢掉）。草稿落盘（`saveDraft`，主进程存盘的只有文字）同样存展开后的文字，超过 200000 字符时退回占位符。
 - **发送失败 / 撤回排队消息**（`restoreDraft` / `appendToDraft`）：把整份草稿接回现在的草稿后面，后面那份的占位符编号顺延（`appendDraft`，omp 的 `g5`）。
@@ -41,6 +41,31 @@ omp 没有文件附件占位符；它读文件靠 `@path` 提及（`@` 补全插
 - **路径不进渲染进程**（AGENTS：渲染进程传来的路径不可信）：拖到输入框（`[data-composer-drop]`）或粘贴的文件，由 preload 在隔离世界里用 `webUtils.getPathForFile` 取路径，经内部通道 `composerFilesChannel` 交给主进程（2026-10-22 起没有附件按钮和系统文件对话框，附件只来自拖入和粘贴）。主进程（`src/main/files/composer-files.ts`）校验：绝对路径、不含 `"`、确实是普通文件，一次最多 20 个，登记表最多 500 条；登记成不透明 id，推送 `composerFilesAdded`（id + 名字 + 大小）。目录不登记：拖放仍按"拖入文件夹 = 选项目"，粘贴的目录仍是把路径当文字插进输入框。
 - 发送：`buildSubmission` 把文件占位符换成 `\uE000file:N\uE001`，`PromptInput.fileIds[N-1]` 带 id；`tsp-runner.ts` 的 `sendPrompt` 在主进程用 id 换回路径（登记表里没有或文件已不在就 reject，草稿放回去），把占位符换成 `@"路径"`（反斜杠换成正斜杠）。第一句话的气泡里显示 `@名字`，不显示路径。
 - e2e 用 PowerShell 的 `Set-Clipboard -LiteralPath` 放真实的文件列表（CF_HDROP，同资源管理器里 Ctrl+C）再 Ctrl+V，覆盖粘贴文件 → 卡片 → 芯片 → 发送出去的 `@"路径"`（`test/e2e/tsp.e2e.ts`、`clipboard.e2e.ts`）；拖入造不出带磁盘路径的 File，没有 e2e；登记表的校验和占位符替换有单测（`test/composer-files.test.ts`）。
+
+
+### 发图片（omp 自己的图片附件，2026-10-25 起）
+
+以前主进程在文字后面加 `@"<临时文件路径>"` 提及：omp 用 read 工具读图，对话里多出 "Read <路径> (image)" 行、用户气泡里是那串路径。现在和 Tern 一样用 omp 的"粘贴图片路径"附件（`tsp-runner.ts` 的 `#sendWithImages`，`shared/tsp/image-paste.ts`）：
+
+1. 图片写成 `os.tmpdir()/omp-studio-images/<任务 id>/` 下的临时文件（任务移除时删目录）。
+2. 按 `[Image #N, …]` 占位符把消息拆成文字段和图片（`imagePasteParts`；图片后面那段开头的一个空格去掉，omp 的占位自带尾随空格；没被引用的图片接在最后）。期间 `#editorClaims` 让通用回填（`#syncEditorText`）让开；omp 输入框里先有的文字先清掉。
+3. 依次：文字段用 `edit` 追加到 omp 输入框末尾（等文字变了）；图片往 pty 写一次括号粘贴 `ESC[200~"<路径>"ESC[201~`（路径用正斜杠），等输入框上方多一个带 `image` 的 `omp.composer.chip`。omp 弹出新的状态 toast（"Image not found at …"）就以它的原文报错。
+4. `action submit`（`act: "submit"`），等 omp 清空输入框再放开通用回填（否则刚发出的文字会被当成 omp 的预填搬回 studio 的输入框）。
+
+实测（omp 18.12.6，deepseek-v4-flash，2026-10-25，录制 `fixtures/tsp/image-attach.jsonl`；单测 `test/tsp-image-paste.test.ts`、`test/task-tsp.test.ts`，e2e `tsp.e2e.ts`"发图片用 omp 自己的附件"）：
+
+| 项目 | 结果 |
+|---|---|
+| 括号粘贴带引号的绝对路径 | 源码 `xO`：空格分隔、可加引号、`.png/.jpg/.jpeg/.gif/.webp`；omp 读文件（转成 webp、长边缩到 200 显示），12-25 ms 内输入框上方出现 `omp.composer.chip`（`image` 子节点，blob 当场用 `b` 发来），光标处插入占位（nerd 图标 + ` #1 `，5 个字符） |
+| 路径写法 | 反斜杠、正斜杠都行；但 omp 把反斜杠当转义，目录名以 `(` 开头时 `\(` 丢掉反斜杠、找不到文件，所以一律用正斜杠 |
+| `send` 事件 | 源码 `clearDraftForRecall` → `clearDraft` 清掉待发送图片再提交：**图片丢掉**（实测用户消息里只有文字） |
+| `action submit` | 提交输入框里现有的草稿：用户消息是 `omp.user` 里一行 `omp.user.images`（`image` 节点，`alt`/`title` `#1`，blob 同粘贴时那个）+ `md`（文字 + 占位）；同一帧清空输入框、删掉 chip；没有 "Read … (image)" 行 |
+| 只有图片、没有文字 | 照样提交 |
+| 运行中 | `action submit` 是插话（steer），图片跟着走；`/queue <文字>` + 图片排到这一轮结束后，图片跟着走 |
+| 文件不存在 | 只有状态 toast `Image not found at …`（路径被截断），不挂图、不插字 |
+| 模型是否看到图片内容 | 没测：测试模型不收图片，它用 python 读了文件 |
+
+录制改动：`k` 行（括号粘贴的原始字节）是按 `queue-esc` 的做法手工补的，键只取结尾 `"ESC[201~`（studio 的临时文件名和录制时不同）；`edit` 的文字末尾补了一个空格（studio 的输入框在图片占位前补空格），omp 回的帧没改；删掉了终端回 `blobs` 查询的 `in r` 行（假 omp 只收 `e`）。
 
 ## 3. 输入框里的芯片是怎么画出来的
 

@@ -1,4 +1,4 @@
-// omp 往它自己（studio 不画）的输入框里写的文字：studio 的 `send` 事件直接提交、从不往那里填字，所以输入框里出现的任何文字都不是 studio 发的，
+// omp 往它自己（studio 不画）的输入框里写的文字：studio 的 `send` 事件直接提交、从不往那里填字（只有带图片的消息会填，期间 `#editorClaims` 让开，见 image-paste.ts），所以其余时候输入框里出现的任何文字都不是 studio 发的，
 // 是 omp 自己放进去的——要么是用户在 omp 里的操作（Ctrl+R 历史搜索选中的条目、⌥↑ 取回最后一条排队消息）、要么是命令的预填
 // （`/annotate` 的批注、`/plan` 的预填、回溯到某条用户消息时填回它的文字）、要么是 Esc 中断时退回的排队消息。
 // 通用规则（tsp-runner 的 `#syncEditorText`）：看到非空文字，就读出来交给 studio 的输入框，再发 `edit` 清空 omp 那边（否则下一次

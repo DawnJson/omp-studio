@@ -428,29 +428,53 @@ describe("任务池：TSP 任务", () => {
     expect(h.events.statuses(created.id).slice(-3)).toEqual(["stopped", "starting", "idle"]);
   }, 60_000);
 
-  it("带图片的 prompt 走 @ 提及；没有会话文件的任务不能分叉", async () => {
+  it("没有会话文件的任务不能分叉；模型目录来自服务进程", async () => {
     const h = await harness();
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (state) => state.status === "idle");
     // 分叉会话文件（docs/architecture/session-tree.md）：这个任务还没有会话文件，所以被拒绝。
     await expect(h.pool.forkTask(created.id, null)).rejects.toThrow(/no session file yet/);
-    // 模型目录来自服务进程。
     await expect(h.pool.listTaskModels(created.id)).resolves.toEqual(catalog);
-    // 图片没有 TSP 通道：落成临时文件，用 omp 的 `@"路径"` 提及发出去。
+  }, 60_000);
+
+  it("带图片的 prompt 用 omp 自己的图片附件：文字 edit 进 omp 输入框、粘贴临时文件路径、omp 挂上图片后 action submit，不用 send", async () => {
+    const h = await harness();
+    // omp 18.12.6 实录：edit 填字 → 括号粘贴图片路径 → 输入框上方出现图片 chip → action submit → 用户消息带 omp.user.images。
+    h.next.fixture = "image-attach";
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    // 输入框发来的文字：图片占位符在句末（studio 在它前面补了空格，录制里 edit 的文字也补了这个空格）。
     await h.pool.sendPrompt(created.id, {
-      text: "看图",
+      text: "Describe the color of this image in one short sentence. [Image #1, 64x64] ",
       images: [{ mimeType: "image/png", data: "AA==" }],
       whenBusy: "steer",
     });
-    let sent = "";
-    await waitForLog(h.log, (records) => {
-      const record = records.find((r) => r.verb === "e" && r.body?.["ev"] === "send");
-      sent = String(record?.body?.["text"] ?? "");
-      return record !== undefined;
-    });
-    const staged = /^看图 @"(.+\.png)"$/.exec(sent)?.[1];
-    expect(staged).toBeTruthy();
-    expect(readFileSync(staged!)).toEqual(Buffer.from([0]));
+    // sendPrompt 等到 omp 挂上图片才提交：回放到录制里的 submit 之后，这一轮跑完回到 idle。
+    await h.events.until(created.id, (state) => state.status === "idle" && state.lastTurn !== null);
+    const records = readFileSync(h.log, "utf8")
+      .split("\n")
+      .filter((line) => line !== "")
+      .map((line) => JSON.parse(line) as LogRecord)
+      .filter(
+        (record) =>
+          (record.kind === "tsp" &&
+            record.verb === "e" &&
+            record.body?.["ev"] !== "ack" &&
+            record.body?.["ev"] !== "resize") ||
+          record.kind === "keys",
+      );
+    expect(records.map((record) => (record.kind === "keys" ? "keys" : record.body?.["ev"]))).toEqual([
+      "edit",
+      "keys",
+      "action",
+    ]);
+    expect(records[2]!.body).toMatchObject({ act: "submit" });
+    // 粘贴的是带引号的正斜杠路径（omp 把反斜杠当转义），文件就是那张图。
+    const data = String(records[1]!.data);
+    expect(data.startsWith('\x1b[200~"') && data.endsWith('"\x1b[201~'), data).toBe(true);
+    const staged = data.slice('\x1b[200~"'.length, -'"\x1b[201~'.length);
+    expect(staged).toMatch(/^[^"\\]+\.png$/);
+    expect(readFileSync(staged)).toEqual(Buffer.from([0]));
   }, 60_000);
 
   it("omp 还没起来时 resizeTsp 不报错，列数记下来，进程起来就用它", async () => {

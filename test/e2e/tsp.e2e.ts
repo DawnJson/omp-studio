@@ -375,42 +375,69 @@ async function pasteImage(page: Page, png: Buffer): Promise<void> {
   }, png.toString("base64"));
 }
 
-test("输入框附件：粘贴图片 = 顶部卡片 + 文字里的 #1 芯片，大段粘贴折叠成芯片；发送后 omp 收到占位符、@路径和展开的原文", async () => {
+test("输入框附件：大段粘贴折叠成芯片，原文不在输入框里；发送后 omp 收到展开的原文", async () => {
   test.setTimeout(90_000);
   const { launched, received, cleanup } = await start("approval");
+  try {
+    const { page } = launched;
+    const input = page.getByTestId("composer-input");
+    await input.click();
+    await input.pressSequentially("对比 ");
+    // 大段粘贴（30 行）折叠成 `#1 +30 行` 芯片，原文不在输入框里。
+    const big = Array.from({ length: 30 }, (_, index) => `line ${index + 1}`).join("\n");
+    await launched.app.evaluate(({ clipboard }, text) => clipboard.writeText(text), big);
+    await page.keyboard.press("Control+V");
+    await expect(input).toHaveValue(/#1\u00a0\+30\u00a0(行|lines)/);
+    await expect(input).not.toHaveValue(/line 30/);
+    // 发送第一句话（创建任务）：展开的原文到 omp。
+    await input.press("Enter");
+    await expect(page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
+    await expect
+      .poll(async () => (await received()).filter((event) => String(event["text"]).includes("line 30")))
+      .toHaveLength(1);
+    const sent = String((await received()).find((event) => String(event["text"]).includes("line 30"))!["text"]);
+    expect(sent.trimEnd()).toBe(`对比 ${big}`);
+    await expect(page.getByTestId("composer-input")).toHaveValue("");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("发图片用 omp 自己的附件：输入框顶部卡片 + #1 芯片；发出去是 edit 文字、粘贴图片路径、action submit（没有 send），用户消息里是 omp 发来的图片", async () => {
+  test.setTimeout(90_000);
+  // omp 18.12.6 实录：edit → 括号粘贴路径 → 图片 chip → action submit → omp.user.images。
+  const { launched, received, receivedKeys, cleanup } = await start("image-attach");
   try {
     const { page } = launched;
     // 草稿页的输入框（任务的输入框在模型不收图片时拒绝图片；假 omp 的模型目录里没有它，按不收图片算）。
     const input = page.getByTestId("composer-input");
     await input.click();
-    await input.pressSequentially("对比 ");
+    await input.pressSequentially("Describe the color of this image in one short sentence.");
     await pasteImage(page, solidPng(40, 30));
-    // 附件卡片在输入框顶部：缩略图 + #1 + 尺寸；文字里是 #1 芯片，不是 omp 的占位符原文。
+    // 附件卡片在输入框顶部：缩略图 + #1 + 尺寸；文字里是 #1 芯片，不是占位符原文。
     const card = page.getByTestId("attachment");
     await expect(card).toHaveCount(1);
     await expect(card).toContainText("#1");
     await expect(card).toContainText("40×30");
     await expect(input).not.toHaveValue(/\[Image/);
     await expect(input).toHaveValue(/#1/);
-    // 大段粘贴（30 行）折叠成 `#2 +30 行` 芯片（界面上所有附件共用一个编号：图片 #1，粘贴 #2），原文不在输入框里。
-    const big = Array.from({ length: 30 }, (_, index) => `line ${index + 1}`).join("\n");
-    await launched.app.evaluate(({ clipboard }, text) => clipboard.writeText(text), big);
-    await page.keyboard.press("Control+V");
-    await expect(input).toHaveValue(/#2\u00a0\+30\u00a0(行|lines)/);
-    await expect(input).not.toHaveValue(/line 30/);
-    // 发送第一句话（创建任务）：占位符里的图片尺寸、展开的原文、临时图片文件的 @"路径" 一起到 omp。
     await input.press("Enter");
-    await expect(page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
-    await expect
-      .poll(async () => (await received()).filter((event) => String(event["text"]).includes("[Image #1, 40x30]")))
-      .toHaveLength(1);
-    const sent = String((await received()).find((event) => String(event["text"]).includes("[Image #1"))!["text"]);
-    const match = /^对比 \[Image #1, 40x30\] ([\s\S]*) @"([^"]*omp-studio-images[^"]*\.webp)"$/.exec(sent);
-    expect(match, sent).not.toBeNull();
-    expect(match![1]).toBe(big);
-    expect(existsSync(match![2]!)).toBe(true);
-    // 发出去之后任务的输入框是空的，没有附件卡片。
-    await expect(page.getByTestId("composer-input")).toHaveValue("");
+    // 用户消息里是 omp 自己画的图片（blob 在粘贴时就发来了），不是 "Read <路径> (image)" 工具行。
+    await expect(role(page, "omp.user.images").getByTestId("tsp-img-frame")).toHaveCount(1, { timeout: 20_000 });
+    const events = (await received(["edit"])).filter((event) =>
+      ["send", "edit", "action"].includes(String(event["ev"])),
+    );
+    expect(events.map((event) => event["ev"])).toEqual(["edit", "action"]);
+    expect(events[0]).toMatchObject({ text: "Describe the color of this image in one short sentence. " });
+    expect(events[1]).toMatchObject({ act: "submit" });
+    // 图片是一次括号粘贴：带引号的临时文件路径（正斜杠），文件在。
+    const paste = (await receivedKeys()).find((data) => data.startsWith('\x1b[200~"')) ?? "";
+    expect(paste.endsWith('"\x1b[201~'), paste).toBe(true);
+    const file = paste.slice('\x1b[200~"'.length, -'"\x1b[201~'.length);
+    expect(file).toMatch(/^[^"\\]+omp-studio-images[^"\\]+\.webp$/);
+    expect(existsSync(file)).toBe(true);
+    // 发出去之后输入框是空的，没有附件卡片。
+    await expect(input).toHaveValue("");
     await expect(card).toHaveCount(0);
   } finally {
     await cleanup();

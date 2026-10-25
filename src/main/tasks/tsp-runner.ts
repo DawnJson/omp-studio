@@ -78,6 +78,7 @@ import {
 import { hasQueuedMessages } from "../../shared/tsp/queue-restore.ts";
 import { clearEditorEvent, foreignEditorText } from "../../shared/tsp/editor-prefill.ts";
 import { followUpText } from "../../shared/tsp/queue-command.ts";
+import { appendEditorEvent, imagePasteKeys, imagePasteParts, pendingImageCount } from "../../shared/tsp/image-paste.ts";
 import {
   TSP_APPROVAL_DIALOG_ID,
   TSP_ASK_DIALOG_ID,
@@ -955,8 +956,8 @@ export class TspRunner {
 
   /**
    * 发一句话：等输入框就绪后用 `send` 事件提交（和在输入框里回车同一条路径）；运行中也直接 `send`，omp 自己排队/steer。
-   * 图片：TSP 没有传图片的通道，把图片写成临时文件、在文字后面加 omp 的 `@"<路径>"` 提及（实测 omp 读成图片附件，
-   * 工具行显示 "Read <路径> (image)"；带空格的路径要用引号）。
+   * 带图片时走 omp 自己的图片附件（shared/tsp/image-paste.ts）：`send` 会丢掉粘贴的图片，所以文字用 `edit` 填进 omp 的输入框、
+   * 括号粘贴图片的临时文件路径、等 omp 挂上图片，再 `action submit`。
    */
   async sendPrompt(input: PromptInput): Promise<void> {
     // 文件附件：id → 路径，文字里的占位符换成 omp 的 `@"路径"` 提及（omp 自己读文件）。
@@ -974,18 +975,68 @@ export class TspRunner {
     this.#touch(Date.now());
     this.#publish();
     this.#lastActiveAt = Date.now();
-    const mentions = paths.map((file) => `@"${file}"`).join(" ");
-    const text = mentions === "" ? body : body === "" ? mentions : `${body} ${mentions}`;
     // 运行中的"等这一轮结束再发"：`send` 在运行中是插话（steer），follow-up 要用 omp 的 `/queue`；空闲时就是普通的一轮。
-    const wire = input.whenBusy === "followUp" && this.#machine.working ? followUpText(text) : text;
-    session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text: wire });
+    const wire = input.whenBusy === "followUp" && this.#machine.working ? followUpText(body) : body;
+    if (paths.length === 0) {
+      session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text: wire });
+      return;
+    }
+    await this.#sendWithImages(session, target, wire, paths);
+  }
+
+  /** 文字 + 图片：在 omp 的输入框里按顺序重建草稿再提交。期间 studio 自己往那里填字，通用回填（`#syncEditorText`）先让开。 */
+  async #sendWithImages(
+    session: TspSession,
+    target: { sf: string; id: string },
+    text: string,
+    files: readonly string[],
+  ): Promise<void> {
+    this.#editorClaims++;
+    try {
+      // 通用回填已经把 omp 自己放进去的文字搬走了；剩下的（还没来得及搬）不能混进这条消息。
+      await this.#takeEditorText(session);
+      for (const part of imagePasteParts(text, files.length)) {
+        if (part.kind === "text") {
+          const editor = findComposerEditor(session.document) ?? { ...target, text: "" };
+          session.sendEvent(appendEditorEvent(editor, part.text));
+          await this.#awaitDocument(
+            (document) => (findComposerEditor(document)?.text !== editor.text ? true : null),
+            CONFIRM_TIMEOUT_MS,
+            "omp's input box did not take the text",
+          );
+          continue;
+        }
+        const imagesBefore = pendingImageCount(session.document);
+        const toastsBefore = statusToastTexts(session.document);
+        session.sendKeys(imagePasteKeys(files[part.index]!));
+        await this.#awaitDocument(
+          (document) => {
+            // omp 读不了文件时只弹一条状态 toast（"Image not found at …"），不会挂上图片：以它的原文报错。
+            const toast = statusToastTexts(document).find((candidate) => !toastsBefore.includes(candidate));
+            if (toast !== undefined) throw new Error(toast);
+            return pendingImageCount(document) > imagesBefore ? true : null;
+          },
+          CONFIRM_TIMEOUT_MS,
+          "omp did not attach the image",
+        );
+      }
+      session.sendEvent({ ev: "action", sf: target.sf, id: target.id, act: "submit" });
+      // 提交后 omp 清空输入框（实测同一帧）；清空之前放开的话，通用回填会把刚发出的文字当成 omp 的预填搬回 studio 的输入框。
+      await this.#awaitDocument(
+        (document) => ((findComposerEditor(document)?.text ?? "") === "" ? true : null),
+        CONFIRM_TIMEOUT_MS,
+        "omp did not submit the message",
+      );
+    } finally {
+      this.#releaseEditor();
+    }
   }
 
   #imagesDir(): string {
     return path.join(os.tmpdir(), "omp-studio-images", this.id);
   }
 
-  /** 图片落成临时文件（omp 发出时读进会话，之后不再需要；任务移除时整个目录删掉）。路径用正斜杠，omp 的 `@` 提及两种都认。 */
+  /** 图片落成临时文件（粘贴时 omp 读进会话，之后不再需要；任务移除时整个目录删掉）。 */
   async #stageImages(images: readonly PromptImage[]): Promise<string[]> {
     const dir = this.#imagesDir();
     await mkdir(dir, { recursive: true });
@@ -994,7 +1045,7 @@ export class TspRunner {
       images.map(async (image, index) => {
         const file = path.join(dir, `${stamp}-${index}.${IMAGE_EXTENSIONS[image.mimeType]}`);
         await writeFile(file, Buffer.from(image.data, "base64"));
-        return file.replaceAll("\\", "/");
+        return file;
       }),
     );
   }
@@ -2039,7 +2090,7 @@ export class TspRunner {
 
   /**
    * 取走 omp 输入框里的文字：读出来、发 `edit` 清空 omp 那边（否则文字一直留在那里，也挡住 omp 的下一次预填）、等清空确认；
-   * 本来就空返回 null。studio 的 `send` 从不往那里填字，所以这里出现的文字一定是 omp 自己放的（shared/tsp/editor-prefill.ts）。
+   * 本来就空返回 null。studio 只在发带图片的消息时往那里填字（`#sendWithImages`，期间不走这里的通用回填），所以这里出现的文字是 omp 自己放的（shared/tsp/editor-prefill.ts）。
    */
   async #takeEditorText(session: TspSession): Promise<string | null> {
     const editor = foreignEditorText(session.document);
