@@ -29,6 +29,10 @@ npm run dist:mac    # electron-vite build && electron-builder --mac --arm64 --pu
 - `resources/icon.icns`：`icns` 头 + `ic11 ic12 ic07 ic13 ic08 ic14 ic09 ic10` 八个 PNG 条目（32–1024 px）。已校验头部总长等于文件长度、每个条目长度与 PNG 的 IHDR 尺寸吻合。和 `icon.ico` 一样是透明底，没有 macOS 常见的圆角方块底板，Dock 里看起来会偏小偏素（未在 Dock 里实际看过）。
 - `resources/trayTemplate.png`（18×18）、`trayTemplate@2x.png`（36×36）：菜单栏模板图，只有黑色 + alpha、不画淡影，文件名带 `Template`，Electron 的 `nativeImage` 会按模板图处理，系统按菜单栏明暗自动反色。
 
+## spawn-helper 的执行位
+
+node-pty 1.1.0 的 npm 包里 `prebuilds/darwin-*/spawn-helper` 是 `0644`（`tar -tvzf node-pty-1.1.0.tgz` 实测），它自己的 postinstall 不 chmod。没有执行位时 mac 上 `posix_spawnp` 失败，原生层抛 `Napi::Error` 直接 `abort`（不是 JS 异常，整个进程 SIGABRT）：2026-10-25 GitHub macOS runner 上 7 个起 pty 的单测文件 worker 全部这样崩掉。所以 `package.json` 的 `postinstall` 跑 `scripts/fix-node-pty.ts` 补执行位，electron-builder 从 `node_modules` 复制，安装包里的也带上；mac workflow 的"检查产物"一步用 `test -x` 核对。
+
 ## 用户怎么打开未公证的包
 
 下载来的 dmg/zip 带隔离属性，Gatekeeper 会拦：
@@ -41,7 +45,7 @@ xattr -cr /Applications/omp-studio.app
 
 ## 没实测的清单
 
-- `zip` / `dmg` 的实际产物：Info.plist 的名字（`omp-studio`）和版本（来自 package.json）、`.app` 里 `Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-arm64/` 是否有 `pty.node` 和 `spawn-helper`、`spawn-helper` 是否保留执行位（node-pty 的 postinstall 会 chmod；asarUnpack 复制时是否保留，要在 Mac 上 `ls -l` 看）。
+- `zip` / `dmg` 的实际产物：Info.plist 的名字（`omp-studio`）和版本（来自 package.json）、`.app` 里 `Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-arm64/` 是否有 `pty.node` 和 `spawn-helper`。
 - ad-hoc 签名后 `pty.node` 能否被加载（`hardenedRuntime: false` 是依据文档推的）。
 - arm64 版 Electron 44 加载 node-pty 1.1.0 的 `darwin-arm64` 预编译件。
 - 菜单栏图标在深色 / 浅色菜单栏下的观感。

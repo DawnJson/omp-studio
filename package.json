@@ -26,7 +26,8 @@
     "dist": "electron-vite build && electron-builder --win nsis --publish never",
     "dist:mac": "electron-vite build && electron-builder --mac --arm64 --publish never",
     "feed": "node scripts/make-feed.ts ../omp-studio-updates",
-    "release": "node scripts/release.ts"
+    "release": "node scripts/release.ts",
+    "postinstall": "node scripts/fix-node-pty.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
