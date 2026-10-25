@@ -1,6 +1,6 @@
 # 更新日志
 
-omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https://semver.org/lang/zh-CN/)：现在是 `0.x`，修 bug 升第三位，加功能升第二位；`1.0.0` 等功能稳定后再定，和仓库是否公开无关（仓库 2026-10-25 起公开）。
+omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https://semver.org/lang/zh-CN/)：修 bug 升第三位，加功能升第二位。
 
 写法：
 
