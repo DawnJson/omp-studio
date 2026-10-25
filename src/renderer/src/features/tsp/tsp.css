@@ -2784,25 +2784,139 @@
   color: var(--text);
 }
 
-/* /jobs 弹窗（omp.overlay.jobs）：左边作业列表、右边详情。row 默认垂直居中，列表会漂到详情中间，改成顶对齐拉伸；
-   列表按内容收窄（最宽三分之一）：只有一两个作业时不再留一条 230px 的空列；长命令截断而不是出横向滚动条。 */
-.tsp-row[data-role="omp.jobs.split"] {
-  align-items: stretch;
-  gap: var(--space-3);
+/* /jobs 弹窗（omp.overlay.jobs）照 studio 自己的对话框排（2026-10-25）：标题栏、左边作业列表（侧栏底色、整列高）、
+   右边详情自己滚动、底栏（摘要 + Close）钉在最下面；卡片高度固定，切作业时不跳。详情里命令 / 事实 / 进度 / 输出
+   各成一段，段间 --space-4；进度小部件放在浅底块里，输出放在下沉底的终端块里。 */
+.tspi-overlay[data-role="omp.overlay.jobs"] .tspi-ov-card {
+  width: min(880px, 100%);
+  height: min(640px, 100%);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
 }
+.tspi-overlay[data-role="omp.overlay.jobs"] .tspi-ov-head {
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--fs-base);
+}
+.tspi-overlay[data-role="omp.overlay.jobs"] .tspi-ov-body {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.tspi-overlay[data-role="omp.overlay.jobs"] .tspi-ov-body > .tsp-col {
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+}
+.tsp-row[data-role="omp.jobs.split"] {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+  gap: 0;
+}
+/* 列表按内容收窄（最宽三分之一）：只有一两个作业时不留一条空列；长命令截断而不是出横向滚动条。 */
 .tsp-col[data-role="omp.jobs.master"] {
   flex: 0 1 auto;
   width: fit-content;
-  min-width: 120px;
+  min-width: 200px;
   max-width: 33%;
-  overflow: hidden;
+  padding: var(--space-2);
+  overflow: hidden auto;
+  background: var(--bg-sidebar);
+  box-shadow: inset -1px 0 0 var(--border-subtle);
 }
 .tsp-col[data-role="omp.jobs.master"] .tspi-list-scroll {
   overflow-x: hidden;
 }
+.tsp-col[data-role="omp.jobs.master"] .tspi-item {
+  gap: var(--space-2);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-md);
+}
+.tsp-col[data-role="omp.jobs.master"] .tspi-item-value {
+  color: var(--text-3);
+}
 .tsp-col[data-role="omp.jobs.detail"] {
   flex: 1 1 0;
   min-width: 0;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  overflow-y: auto;
+}
+/* 详情自己滚动：子块不许被压扁（overflow:hidden 的代码块会被压成 0 高） */
+.tsp-col[data-role="omp.jobs.detail"] > * {
+  flex-shrink: 0;
+}
+.tsp-text[data-role="omp.jobs.state"][data-tone="pending"] {
+  color: var(--accent);
+}
+.tsp-row[data-role="omp.jobs.status"] {
+  gap: var(--space-2);
+  min-height: var(--control-h-sm);
+  font-size: var(--fs-sm);
+}
+.tsp-text[data-role="omp.jobs.state"] {
+  font-weight: var(--fw-strong);
+}
+.tsp-text[data-role="omp.jobs.id"] {
+  color: var(--text-3);
+}
+.tsp-kv[data-role="omp.jobs.facts"] {
+  row-gap: var(--space-1);
+  font-size: var(--fs-sm);
+}
+.tsp-col[data-role="omp.job.widget"] {
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-3-5);
+  border-radius: var(--radius-md);
+  background: var(--bg-tool);
+  font-size: var(--fs-sm);
+}
+/* 标题 + 计数一行，当前阶段（正在跑的测试名）另起一行：窄的时候三段不再互相挤成省略号。 */
+.tsp-row[data-role="omp.job.widget.head"] {
+  flex-wrap: wrap;
+  row-gap: var(--space-0-5);
+}
+.tsp-text[data-role="omp.job.widget.headline"] {
+  margin-left: auto;
+}
+.tsp-text[data-role="omp.job.widget.stage"] {
+  order: 1;
+  flex: 1 1 100%;
+}
+/* 柱状图右边已经写了同一句汇总（omp.job.widget.side），图下的 summary 只留给读屏（aria-label）。 */
+.tsp-row[data-role="omp.job.widget.spark"] .tsp-chart-sum {
+  display: none;
+}
+.tsp-row[data-role="omp.job.widget.spark"] {
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+.tsp-col[data-role="omp.jobs.out"] {
+  gap: var(--space-2);
+}
+.tsp-text[data-role="omp.jobs.label"] {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-strong);
+}
+.tsp-ansi[data-role="omp.jobs.output"] {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  font-size: var(--fs-code-sm);
+}
+.tsp-text[data-role="omp.jobs.nooutput"] {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.tspi-overlay[data-role="omp.overlay.jobs"] .tsp-row[data-role="omp.actions"] {
+  flex: none;
+  gap: var(--space-2);
+  padding: var(--space-2-5) var(--space-5);
+  box-shadow: inset 0 1px 0 var(--border-subtle);
+}
+.tsp-text[data-role="omp.jobs.summary"] {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
 }
 
 /* 子代理 / 后台作业的磁贴（Task、wait 的 body） */

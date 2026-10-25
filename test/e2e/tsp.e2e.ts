@@ -1111,9 +1111,12 @@ test("后台作业弹窗:卡片不超出 tsp-view、作业列表顶对齐;输入
     expect(cardBox).not.toBeNull();
     expect(cardBox!.y).toBeGreaterThanOrEqual(viewBox!.y - 1);
     expect(cardBox!.y + cardBox!.height).toBeLessThanOrEqual(viewBox!.y + viewBox!.height + 1);
-    // 内容比卡片高时卡片体自己滚动:滚到底,Close 那一行就在视口里(不是被卡片切掉够不着)。
-    await role(page, "omp.actions").scrollIntoViewIfNeeded();
+    // 底栏（摘要 + Close）钉在卡片底部，不随详情滚走：不滚动就整行可见。
     await expect(role(page, "omp.actions")).toBeInViewport({ ratio: 1 });
+    // 详情比卡片高时自己滚动，里面的块不被压扁（overflow:hidden 的命令块曾被压成 0 高）。
+    const command = await role(page, "omp.jobs.command").boundingBox();
+    expect(command!.height).toBeGreaterThan(20);
+    await expectNoOverflow(card);
     // 列表和详情顶对齐(row 默认垂直居中会让列表漂到详情中间)。
     const masterBox = await role(page, "omp.jobs.master").boundingBox();
     const detailBox = await role(page, "omp.jobs.detail").boundingBox();
