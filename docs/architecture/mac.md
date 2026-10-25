@@ -1,6 +1,6 @@
 # macOS 版：打包与分发
 
-只出 Apple 芯片（arm64）、不公证、不自动更新。**本仓库没有 Mac 真机，下面标"未实测"的都是依据 electron-builder 26 的源码和类型文档推出来的。**
+只出 Apple 芯片（arm64）、不公证、不自动更新。**本仓库没有 Mac 真机**：能在 mac 上验证的只有 GitHub Actions 的 macOS 机器（下面"CI"一节），其余标"未实测"的是依据 electron-builder 26 的源码和类型文档推出来的。
 
 ## 打包
 
@@ -43,14 +43,25 @@ xattr -cr /Applications/omp-studio.app
 
 或在 系统设置 → 隐私与安全性 里点"仍要打开"。
 
+## CI（`.github/workflows/mac.yml`）
+
+手动触发（`gh workflow run mac.yml`）或推 `v*` tag 时，在 `macos-15`（arm64）上依次跑：类型检查、全量单测、构建、一条 e2e 冒烟（`tsp.e2e.ts` 的"完整一轮"：Electron 里经 node-pty 起假 omp、回放录制、发一句 prompt 跑完一整轮）、`electron-builder --mac --arm64` 打 ad-hoc 签名的 dmg + zip、检查产物，dmg / zip 作为构建产物保留 14 天。私有仓库的 macOS 分钟按 10 倍计，所以不在每次推送时跑。
+
+2026-10-25 第一次跑通（run 40148794986，约 1 分 35 秒，产物 271 MiB）。由此确认：
+
+- arm64 的 Electron 44 和 Node 24 都能加载 node-pty 1.1.0 的 `darwin-arm64` 预编译件（补了 spawn-helper 执行位之后，见上一节）。
+- 包里 `app.asar.unpacked/node_modules/node-pty/prebuilds/` 只有 `darwin-arm64`，`pty.node` 在、`spawn-helper` 带执行位；没有 `win32-x64`。
+- `codesign --verify --deep --strict` 通过，`Signature=adhoc`、`Identifier=dev.omp-studio.app`；Info.plist 的 `CFBundleName` 是 `omp-studio`，版本取 package.json。
+- 结束 rpc-ui 进程树（`omp-connection.test.ts` 的强杀用例：omp 和它 detached 的孙进程都被 SIGKILL）。被杀的孙进程由 launchd 收养后异步回收，回收前 `kill(pid, 0)` 仍然成功，断言要等一会儿。
+
+第一次跑时修掉的几处都是测试默认了 Windows：`realpath` 把 `/var` 解析成 `/private/var`、环境变量名 `PATH` 不是 `Path`、反斜杠在 POSIX 上是普通文件名字符、接管记录的 key 只在 Windows 上转小写、POSIX 上 `process.exit()` 会丢掉没写完的管道输出；以及 runner 是英文系统，断言中文文案的 e2e 要先显式切中文。
+
 ## 没实测的清单
 
-- `zip` / `dmg` 的实际产物：Info.plist 的名字（`omp-studio`）和版本（来自 package.json）、`.app` 里 `Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds/darwin-arm64/` 是否有 `pty.node` 和 `spawn-helper`。
-- ad-hoc 签名后 `pty.node` 能否被加载（`hardenedRuntime: false` 是依据文档推的）。
-- arm64 版 Electron 44 加载 node-pty 1.1.0 的 `darwin-arm64` 预编译件。
+- 装好的包（`/Applications` 里、ad-hoc 签名后）能否加载 `pty.node`：CI 的 e2e 跑的是构建目录里的应用，不是打出来的包（`hardenedRuntime: false` 是依据文档推的）。
 - 菜单栏图标在深色 / 浅色菜单栏下的观感。
 
-## 代码里的 mac 分支（都没有在 mac 上跑过）
+## 代码里的 mac 分支（除 CI 覆盖到的单测外，没有在 mac 上跑过）
 
 | 方面 | 做法 | 详细记录 |
 |---|---|---|
