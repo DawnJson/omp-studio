@@ -1989,6 +1989,42 @@ test("排队消息按 Esc(omp 18.12.6 录制,Ctrl+Enter = /queue):任务停止,o
   }
 });
 
+// 排队区一行：排队的文字（grow + 一行省略号）+ 右边的 ⌥↑ Edit。拿 queue-follow-up-esc 的实录把排队文字换成一长句再回放。
+test("排队区：排队的文字很长时只截断它自己，右边的 ⌥↑ Edit 保持一行、不出界（窄窗口，中英文）", async () => {
+  test.setTimeout(90_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-queue-"));
+  const fixture = path.join(work, "queue-long.jsonl");
+  const short = "queued-b2: reply with exactly OK";
+  const long = `${short} ${"and keep every river fact short ".repeat(8).trim()}`;
+  const text = await readFile(path.join(root, "fixtures", "tsp", "queue-follow-up-esc.jsonl"), "utf8");
+  await writeFile(fixture, text.replaceAll(short, long));
+  const [first] = recordedUserEvents(loadTspFixture("queue-follow-up-esc")).filter(
+    (entry) => entry.event["ev"] === "send",
+  );
+  const { launched, cleanup } = await start(fixture);
+  try {
+    const { page } = launched;
+    await sendFirst(page, String(first!.event["text"]));
+    const input = page.getByTestId("composer-input");
+    await expect(page.getByTestId("stop-button")).toBeVisible({ timeout: 30_000 });
+    await input.fill(long);
+    await input.press("Control+Enter");
+    await expect(role(page, "omp.queue.item")).toHaveCount(1, { timeout: 15_000 });
+    await page.setViewportSize({ width: 900, height: 700 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      const edit = role(page, "omp.queue.edit");
+      const label = edit.getByText("Edit", { exact: true });
+      // "Edit" 一行：高度不超过一行字，没有被挤成一个字母一行。
+      expect((await label.boundingBox())!.height).toBeLessThan(24);
+      await expectNoOverflow(role(page, "omp.queue.item"));
+    }
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
 test("待办板(omp 18.12.6 录制 todo-commands):⋯ 菜单发 /todo drop,添加条目发 /todo append(阶段、任务都加引号),复制为 Markdown 和 omp 的 /todo 同文,已做完的阶段默认收起、展开全部", async () => {
   test.setTimeout(120_000);
   const todo = await start("todo-commands");

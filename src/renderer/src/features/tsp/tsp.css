@@ -162,6 +162,11 @@
 .tsp-dock[data-blank] {
   display: none;
 }
+/* 排队区一行（omp.queue.item）：排队的文字 grow + 一行省略号，右边的 ⌥↑ Edit 不跟着压缩。
+   .tsp-row > * 的 min-width: 0 会让它和长文字按比例一起缩，"Edit" 被挤成一个字母一行、键帽出界（2026-10-25）。 */
+.tsp-row[data-role="omp.queue.edit"] {
+  flex: none;
+}
 
 /* layer：浮层容器（picker / overlay / toast 由 interactive/ 画）。铺满整个 surface，自己不接指针 */
 .tsp-layer {
