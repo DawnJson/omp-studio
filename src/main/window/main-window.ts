@@ -21,6 +21,9 @@ function titleBarColors(dark: boolean, dimmed = false): { color: string; symbolC
 
 let titleBarDimmed = false;
 
+/** mac 没有 setTitleBarOverlay（Electron 类型声明标 @platform win32,linux），三键颜色相关逻辑全部跳过。 */
+const isMac = process.platform === "darwin";
+
 type Rgb = readonly [number, number, number];
 type OverlayColors = { color: Rgb; symbolColor: Rgb };
 
@@ -52,7 +55,7 @@ function applyFontSize(window: BrowserWindow): void {
   if (window.isDestroyed()) return;
   const factor = getSettings().fontSize / defaultFontSize;
   if (window.webContents.getZoomFactor() !== factor) window.webContents.setZoomFactor(factor);
-  applyOverlay(window, shown ?? overlayColors(titleBarDimmed));
+  if (!isMac) applyOverlay(window, shown ?? overlayColors(titleBarDimmed));
 }
 
 /**
@@ -100,6 +103,7 @@ function mix(from: Rgb, to: Rgb, progress: number): Rgb {
  * animate=false（主题切换）立即换色。
  */
 function fadeTitleBar(window: BrowserWindow, animate: boolean): void {
+  if (isMac) return;
   clearInterval(fadeTimer);
   const target = overlayColors(titleBarDimmed);
   const reduced = systemPreferences.getAnimationSettings().prefersReducedMotion;
@@ -128,8 +132,9 @@ function fadeTitleBar(window: BrowserWindow, animate: boolean): void {
   }, frameMs);
 }
 
-/** 渲染进程报告有没有遮罩弹窗开着；系统三键跟着遮罩一起渐变变暗/恢复。 */
+/** 渲染进程报告有没有遮罩弹窗开着；Windows 的系统三键跟着遮罩一起渐变变暗/恢复（mac 无此三键，空操作）。 */
 export function setTitleBarDimmed(dimmed: boolean): void {
+  if (isMac) return;
   if (titleBarDimmed === dimmed) return;
   titleBarDimmed = dimmed;
   const window = getMainWindow();
@@ -157,12 +162,22 @@ export function isAppUrl(url: string): boolean {
   return target.origin === entry.origin;
 }
 
-/** 窗口和任务栏图标（scripts/make-icons.ts 生成）：打包后在 resources 目录（extraResources），开发和 e2e 时在仓库的 resources/。 */
+/**
+ * 窗口和任务栏图标（scripts/make-icons.ts 生成）：打包后在 resources 目录（extraResources），开发和 e2e 时在仓库的 resources/。
+ * 只有 Windows 用：mac 的 BrowserWindow.icon 被忽略，Dock 图标来自 app bundle；Linux 不在支持范围。
+ */
 function windowIconPath(): string {
   return app.isPackaged
     ? path.join(process.resourcesPath, "icon.ico")
     : path.join(app.getAppPath(), "resources", "icon.ico");
 }
+
+/**
+ * mac 红黄绿三键位置（titleBarStyle "hidden" 时三键画在窗口左上角，位置由此指定）。未在 mac 上实测，数值是推算：
+ * 三键直径约 12px，要在 40px 高的顶栏里垂直居中 → y = (40 - 12) / 2 = 14，实际取 13（系统按 y 为三键组的上边缘，
+ * 圆点有 1px 阴影，略往上更像系统自带的视觉重心）；x = 14 与左侧内边距对齐。需要真机看一眼后微调。
+ */
+const trafficLightPosition = { x: 14, y: 13 } as const;
 
 export function createMainWindow(): BrowserWindow {
   const restored = restoredBounds();
@@ -173,10 +188,13 @@ export function createMainWindow(): BrowserWindow {
     minWidth: 800,
     minHeight: 560,
     show: false,
-    icon: windowIconPath(),
-    // 照 Claude 桌面版：自绘通栏顶栏，系统三键由 titleBarOverlay 绘制（spec §3.1）。
+    ...(process.platform === "win32" ? { icon: windowIconPath() } : {}),
+    // 照 Claude 桌面版：自绘通栏顶栏（spec §3.1）。Windows 的系统三键由 titleBarOverlay 绘制；
+    // mac 没有 titleBarOverlay（Electron 只在 win32/linux 提供），三键是系统的红黄绿，用 trafficLightPosition 摆位。
     titleBarStyle: "hidden",
-    titleBarOverlay: { ...titleBarColors(nativeTheme.shouldUseDarkColors), height: titleBarHeight },
+    ...(isMac
+      ? { trafficLightPosition }
+      : { titleBarOverlay: { ...titleBarColors(nativeTheme.shouldUseDarkColors), height: titleBarHeight } }),
     backgroundColor: titleBarColors(nativeTheme.shouldUseDarkColors).color,
     webPreferences: {
       preload: path.join(import.meta.dirname, "..", "preload", "index.cjs"),

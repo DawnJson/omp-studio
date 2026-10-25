@@ -1,5 +1,7 @@
 // 应用级 Job Object：主进程无论怎么死（包括被强杀），系统关闭句柄时整棵 omp 进程树一起结束。
 // 原理、嵌套 job 和剩余的竞争窗口见 docs/architecture/task-model.md "进程树兜底"。
+// macOS 没有 Job Object：同样的入口在 darwin 上起 sh 看门狗（posix/watchdog.ts），调用方不分平台。
+import { startWatchdog } from "../posix/watchdog.ts";
 import { loadWin32, win32Constants } from "./ffi.ts";
 
 let job: number | null = null;
@@ -50,9 +52,14 @@ function appJob(): number {
 
 /**
  * 把刚 spawn 的进程放进应用 Job。要在 spawn 返回后的同一个同步代码段里调用，缩小孙进程先于 assign 出生的窗口。
- * 非 Windows 是空操作，返回 false。失败（进程已退出等）抛错，由调用方决定是否继续——不静默吞掉，否则兜底悄悄失效。
+ * macOS 起看门狗并返回 true，其他非 Windows 是空操作返回 false。失败（进程已退出等）抛错，由调用方决定是否继续——不静默吞掉，否则兜底悄悄失效。
  */
 export function assignToAppJob(pid: number | undefined): boolean {
+  if (process.platform === "darwin") {
+    // macOS：看门狗盯着 pid 的进程组（omp-connection 在 darwin 上用 detached 起，pid 即组 id）；组空了它自己退出，所以不需要释放函数。
+    startWatchdog(pid);
+    return true;
+  }
   if (process.platform !== "win32") return false;
   if (pid === undefined) throw new Error("cannot assign a process without a pid to the job object");
   assignHandle(appJob(), pid);
@@ -64,9 +71,10 @@ export function assignToAppJob(pid: number | undefined): boolean {
  * 为什么不用应用 Job：Windows 的嵌套 Job 要求进程所在的 Job 链和目标 Job 的父链兼容。
  * 商店版 pwsh.exe（WindowsApps 别名）由系统在自己的 Job 里拉起，已经有了父 Job 的应用 Job 再收它会 ACCESS_DENIED(5)；
  * 全新的空 Job 则随这个进程挂到它现有的 Job 下面，总能成功。主进程被强杀时句柄随进程关闭，效果和应用 Job 一样。
- * 非 Windows 是空操作。
+ * macOS：起看门狗（见 posix/watchdog.ts），pid 必须是自己进程组的组长（pty 的子进程是）；释放函数结束看门狗。其他非 Windows 平台是空操作。
  */
 export function assignToOwnJob(pid: number | undefined): () => void {
+  if (process.platform === "darwin") return startWatchdog(pid);
   if (process.platform !== "win32") return () => undefined;
   if (pid === undefined) throw new Error("cannot assign a process without a pid to the job object");
   const { kernel32 } = loadWin32();

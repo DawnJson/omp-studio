@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { GitStatus } from "../../../../shared/git.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { withShortcut } from "../../app/platform-keys.ts";
 import { ArrowUp, Branch, Check, ChevronDown, Diff, External, Trash } from "../../icons.tsx";
 import { useTask } from "../../store/index.ts";
 import { openReview } from "../../store/review-store.ts";
@@ -153,7 +154,7 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
       )}
       <IconButton
         label={t("review.open")}
-        tip={`${t("review.open")} (Ctrl Shift D)`}
+        tip={withShortcut(t("review.open"), "Ctrl Shift D")}
         testId="topbar-review"
         onClick={() => openReview(taskId)}
       >

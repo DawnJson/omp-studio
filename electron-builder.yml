@@ -5,24 +5,21 @@ directories:
 files:
   - out/**
   - package.json
-  # node-pty 只需要 lib 和当前平台的预编译件：源码、依赖库、其它平台的预编译件和调试符号不打进包。
+  # node-pty 只需要 lib 和当前平台的预编译件：源码、依赖库、调试符号不打进包；
+  # 其它平台的预编译件在 win.files / mac.files 里按平台排除。
   - "!node_modules/node-pty/{src,deps,third_party,scripts}/**"
-  - "!node_modules/node-pty/prebuilds/{darwin-arm64,darwin-x64,win32-arm64}/**"
   - "!node_modules/node-pty/**/*.test.js*"
   - "!node_modules/node-pty/**/*.pdb"
-# node-pty 的原生 .node、conpty 辅助文件和 worker 脚本都要在真实文件系统里（不能留在 asar 里）。
+# node-pty 的原生 .node、conpty 辅助文件、spawn-helper 和 worker 脚本都要在真实文件系统里（不能留在 asar 里）。
 asarUnpack:
   - node_modules/node-pty/**
-# node-pty 用自带的预编译件（prebuilds/win32-x64，N-API，Electron 44 实测可直接加载）；
+# node-pty 用自带的预编译件（prebuilds/<平台>-<架构>，N-API，Windows 上 Electron 44 实测可直接加载）；
 # 默认的 @electron/rebuild 会尝试从源码编译，没有 VS 工具链的机器上会失败。
 npmRebuild: false
-# 托盘图标（src/main/window/tray.ts 从 process.resourcesPath 读）和窗口图标（main-window.ts 同样从 resources 读）。
-# 两个文件都由 scripts/make-icons.ts 从 src/shared/ui/pixel-pi.ts 生成。
+# 平台无关的额外资源。托盘图标和窗口图标按平台放在 win.extraResources / mac.extraResources。
+# 顶层和平台级的 files / extraResources 是合并的（app-builder-lib fileMatcher.js：先加 config 的，再加平台级的）。
+# 图标文件都由 scripts/make-icons.ts 从 src/shared/ui/pixel-pi.ts 生成。
 extraResources:
-  - from: resources/tray.png
-    to: tray.png
-  - from: resources/icon.ico
-    to: icon.ico
   # Geist / Geist Mono 字体（打进 out/ 的渲染进程资源）是 SIL OFL 1.1：再分发时许可证要随软件一起带上。
   - from: src/renderer/styles/fonts/OFL.txt
     to: licenses/Geist-OFL.txt
@@ -34,6 +31,14 @@ extraResources:
 win:
   # exe、安装包和快捷方式的图标。
   icon: resources/icon.ico
+  # 托盘图标（src/main/window/tray.ts 从 process.resourcesPath 读）和窗口图标（main-window.ts 同样从 resources 读）。
+  extraResources:
+    - from: resources/tray.png
+      to: tray.png
+    - from: resources/icon.ico
+      to: icon.ico
+  files:
+    - "!node_modules/node-pty/prebuilds/{darwin-arm64,darwin-x64,win32-arm64}/**"
   target:
     - target: dir
       arch: x64
@@ -41,7 +46,31 @@ win:
       arch: x64
   # 不签名，但要改 exe 资源：图标和版本信息才会写进 exe（signAndEditExecutable: false 会连图标一起跳过）。
   signExecutable: false
-# 自动更新只认安装版（NSIS）。装到用户目录，不需要管理员权限。
+# macOS：只出 Apple 芯片（arm64），不公证，不自动更新（见 docs/architecture/mac.md）。
+mac:
+  icon: resources/icon.icns
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: arm64
+    - target: zip
+      arch: arm64
+  # 菜单栏模板图（文件名带 Template：macOS 按菜单栏明暗自动反色）。
+  extraResources:
+    - from: resources/trayTemplate.png
+      to: trayTemplate.png
+    - from: resources/trayTemplate@2x.png
+      to: trayTemplate@2x.png
+  # 保留 darwin-arm64 的 pty.node 和 spawn-helper，去掉 Windows 和 Intel 的预编译件。
+  files:
+    - "!node_modules/node-pty/prebuilds/{win32-x64,win32-arm64,darwin-x64}/**"
+  # 不公证，也没有开发者证书，显式 ad-hoc 签名。出处：app-builder-lib 26 的 options/macOptions.d.ts 里 identity 的说明：
+  # 不设时找不到证书就跳过签名、没有自动 ad-hoc 回退；"-" 是显式启用 ad-hoc 签名。
+  # 在非 mac 机器上 isSignAllowed() 为 false，签名被跳过（见 docs/architecture/mac.md）。
+  identity: "-"
+  # macOptions.d.ts：hardenedRuntime 默认 true，与 ad-hoc 签名一起会强制库校验，加载未同证书签名的 pty.node 会失败；不公证也用不上它。
+  hardenedRuntime: false
+# 自动更新只认 Windows 安装版（NSIS）。装到用户目录，不需要管理员权限。
 nsis:
   oneClick: true
   perMachine: false
@@ -49,6 +78,8 @@ nsis:
 # 更新源：仓库所有者本机的固定目录（内测期间，2026-10-19 定）。打包时写进 resources/app-update.yml；
 # 应用把本机目录在 127.0.0.1 上提供给 electron-updater（src/main/update/local-feed.ts），目录不存在的机器上不检查更新。
 # 要和 package.json 的 feed 脚本指向同一个目录。
+# 顶层 publish 对 mac 也生效（mac 包里也会有 app-update.yml），但 mac 构建一律 --publish never，
+# 主进程在 mac 上不检查更新（见 docs/architecture/mac.md），所以这份配置在 mac 上不起作用。
 publish:
   provider: generic
   url: file:///E:/work/code/omp-studio-updates/

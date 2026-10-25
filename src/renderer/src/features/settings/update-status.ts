@@ -7,7 +7,9 @@ export function updateStatusText(state: UpdateState, t: TFunction): string {
     case "disabled":
       return state.disabledReason === "not-packaged"
         ? t("settings.about.disabled.notPackaged")
-        : t("settings.about.disabled.noFeed");
+        : state.disabledReason === "manual-only"
+          ? t("settings.about.disabled.manualOnly")
+          : t("settings.about.disabled.noFeed");
     case "idle":
       return "";
     case "checking":

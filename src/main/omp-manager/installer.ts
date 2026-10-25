@@ -5,7 +5,7 @@
 // 不碰 ~/.omp/natives/<版本>：终端可能还在用（omp-install.md）。
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { copyFile, mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { downloadVerified, VerifyError, type BuildInfo, type BuildPatch, type FetchFn } from "./build-service.ts";
@@ -14,6 +14,11 @@ import { log } from "../log/log.ts";
 import { compareVersions } from "../../shared/omp-version.ts";
 
 const KEEP_VERSIONS = 3;
+
+/** POSIX：给文件加执行位（0o755）；Windows 没有执行位，不动。 */
+async function makeExecutable(file: string): Promise<void> {
+  if (process.platform !== "win32") await chmod(file, 0o755);
+}
 
 export interface ManagedLayout {
   root: string;
@@ -74,6 +79,8 @@ export async function installBuild(layout: ManagedLayout, options: InstallOption
       });
     }
   }
+  // 下载得到的文件默认 0644，POSIX 上要有执行位才能 spawn（已装好的旧版本也补上）。
+  await makeExecutable(target);
   await writeFile(layout.managerJson, JSON.stringify({ manager: "omp-studio", name: "omp-studio" }) + "\n", "utf8");
   await activateVersion(layout, build.version);
   await pruneVersions(layout, build.version);
@@ -128,18 +135,20 @@ async function hashFile(file: string): Promise<{ size: number; sha256: string }>
 }
 
 /**
- * 把 versions/<版本>.exe 换成 bin/omp.exe。Windows 不能覆盖运行中的 exe，但可以改名：
- * 先复制到 bin 里的临时名，再把旧的改成 `.omp.exe.old-<时间戳>`，最后把新的改名到位。
- * 正在跑的 omp 进程继续用旧文件，新进程用新版本。
+ * 把 versions/<版本> 换成 bin/<omp>。Windows 不能覆盖运行中的 exe，但可以改名：
+ * 先复制到 bin 里的临时名，再把旧的改成 `.<文件名>.old-<时间戳>`，最后把新的改名到位（临时名跟随 binExe 的文件名，Windows 上是 `.omp.exe.*`）。
+ * 正在跑的 omp 进程继续用旧文件，新进程用新版本。POSIX 上同样适用（rename 覆盖/改名运行中的文件都安全）。
  */
 async function activateVersion(layout: ManagedLayout, version: string): Promise<void> {
-  const staging = path.join(layout.binDir, `.omp.exe.new-${process.pid}`);
+  const exeName = path.basename(layout.binExe);
+  const staging = path.join(layout.binDir, `.${exeName}.new-${process.pid}`);
   await copyFile(versionExe(layout, version), staging);
+  await makeExecutable(staging);
   const hadOld = await stat(layout.binExe).then(
     () => true,
     () => false,
   );
-  const old = path.join(layout.binDir, `.omp.exe.old-${Date.now()}`);
+  const old = path.join(layout.binDir, `.${exeName}.old-${Date.now()}`);
   try {
     if (hadOld) await rename(layout.binExe, old);
     await rename(staging, layout.binExe);
@@ -160,15 +169,19 @@ export async function sweepOldBinaries(layout: ManagedLayout): Promise<void> {
     // bin 还不存在：没装过，没有东西可清。
     return;
   }
+  const prefixes = [`.${path.basename(layout.binExe)}.old-`, `.${path.basename(layout.binExe)}.new-`];
   await Promise.all(
     names
-      .filter((name) => name.startsWith(".omp.exe.old-") || name.startsWith(".omp.exe.new-"))
+      .filter((name) => prefixes.some((prefix) => name.startsWith(prefix)))
       .map((name) => rm(path.join(layout.binDir, name), { force: true }).catch(() => {})),
   );
 }
 
+/** versions/ 里的版本文件名：`18.12.6`、`18.12.6-canary.1`（加上布局的扩展名）。临时的 .partial / .patch 不符合，无扩展名布局下也不会被当成版本。 */
+const VERSION_NAME = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+
 /** versions/ 里只留最近 KEEP_VERSIONS 个（按版本号），当前版本一定保留；遗留的 .partial 和补丁一并删掉。 */
-async function pruneVersions(layout: ManagedLayout, currentVersion: string): Promise<void> {
+export async function pruneVersions(layout: ManagedLayout, currentVersion: string): Promise<void> {
   const ext = path.extname(layout.binExe);
   const names = await readdir(layout.versionsDir);
   await Promise.all(
@@ -176,7 +189,10 @@ async function pruneVersions(layout: ManagedLayout, currentVersion: string): Pro
       .filter((name) => name.endsWith(".partial") || name.endsWith(".patch"))
       .map((name) => rm(path.join(layout.versionsDir, name), { force: true })),
   );
-  const versions = names.filter((name) => name.endsWith(ext)).map((name) => name.slice(0, name.length - ext.length));
+  const versions = names
+    .filter((name) => name.endsWith(ext))
+    .map((name) => name.slice(0, name.length - ext.length))
+    .filter((version) => VERSION_NAME.test(version));
   // 当前版本一定留，占一个名额；其余按版本号从新到旧补满。
   const kept = [
     currentVersion,

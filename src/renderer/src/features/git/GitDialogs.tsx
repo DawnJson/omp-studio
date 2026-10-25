@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { WorktreeCleanupResult, WorktreeSetupInfo } from "../../../../shared/git.ts";
 import type { ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { primaryMod } from "../../app/platform-keys.ts";
 import { useSelectedTaskId } from "../../store/index.ts";
 import { openReview } from "../../store/review-store.ts";
 import { Button, Checkbox, FormField, Textarea, TextField } from "../../ui/controls.tsx";
@@ -80,7 +81,7 @@ function CommitDialog({ taskId, open }: { taskId: TaskId; open: boolean }) {
           value={message}
           onChange={setMessage}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && event.ctrlKey && !event.nativeEvent.isComposing) {
+            if (event.key === "Enter" && primaryMod(event) && !event.nativeEvent.isComposing) {
               event.preventDefault();
               void submit();
             }

@@ -13,7 +13,13 @@ import {
   VerifyError,
   type BuildInfo,
 } from "../src/main/omp-manager/build-service.ts";
-import { installBuild, managedLayout, type ManagedLayout } from "../src/main/omp-manager/installer.ts";
+import {
+  installBuild,
+  managedLayout,
+  pruneVersions,
+  sweepOldBinaries,
+  type ManagedLayout,
+} from "../src/main/omp-manager/installer.ts";
 import { encodeSingleStreamPatch } from "./hpatch-encoder.ts";
 
 let server: http.Server;
@@ -170,7 +176,7 @@ describe("installBuild", () => {
     });
     const binNames = await readdir(layout.binDir);
     // 旧 exe 改了名留在 bin 里（可能还有进程在用），不是被覆盖。
-    expect(binNames.some((name) => name.startsWith(".omp.exe.old-"))).toBe(true);
+    expect(binNames.some((name) => name.startsWith(`.${path.basename(layout.binExe)}.old-`))).toBe(true);
     expect(await readdir(layout.versionsDir)).toEqual([`18.12.1${path.extname(layout.binExe)}`]);
   });
 
@@ -185,6 +191,50 @@ describe("installBuild", () => {
     await installBuild(layout, { ...fetchOptions(), build: await fetchBuild(fetchOptions()) });
     const ext = path.extname(layout.binExe);
     expect((await readdir(layout.versionsDir)).sort()).toEqual([`18.12.3${ext}`, `18.12.4${ext}`, `18.12.5${ext}`]);
+  });
+
+  // 无扩展名的布局（mac / Linux 的 bin/omp）：用手搭的 layout 在任何平台上都能真跑 pruneVersions 的筛选逻辑。
+  it("without a file extension, prunes only old versions and never treats .partial/.patch leftovers as versions", async () => {
+    const root = path.join(scratch, "无扩展名", "omp");
+    const layout: ManagedLayout = {
+      root,
+      versionsDir: path.join(root, "versions"),
+      binDir: path.join(root, "bin"),
+      binExe: path.join(root, "bin", "omp"),
+      managerJson: path.join(root, "manager.json"),
+    };
+    await mkdir(layout.versionsDir, { recursive: true });
+    for (const name of ["18.12.1", "18.12.2", "18.12.3", "18.12.4", "18.12.5", "18.12.9.partial", "18.12.9.patch"])
+      await writeFile(path.join(layout.versionsDir, name), "x");
+    await pruneVersions(layout, "18.12.5");
+    expect((await readdir(layout.versionsDir)).sort()).toEqual(["18.12.3", "18.12.4", "18.12.5"]);
+  });
+
+  it("names the swap temp files after the binary's own file name", async () => {
+    const root = path.join(scratch, "临时名", "omp");
+    const layout: ManagedLayout = {
+      root,
+      versionsDir: path.join(root, "versions"),
+      binDir: path.join(root, "bin"),
+      binExe: path.join(root, "bin", "omp"),
+      managerJson: path.join(root, "manager.json"),
+    };
+    await mkdir(layout.binDir, { recursive: true });
+    await writeFile(layout.binExe, "old-version-bytes");
+    published.version = "18.12.1";
+    await installBuild(layout, { ...fetchOptions(), build: await fetchBuild(fetchOptions()) });
+    expect((await readdir(layout.binDir)).some((name) => name.startsWith(".omp.old-"))).toBe(true);
+    await sweepOldBinaries(layout);
+    expect((await readdir(layout.binDir)).sort()).toEqual(["omp"]);
+  });
+
+  // Windows 没有执行位（stat 的 mode 恒为 0666），这条只能在 mac / Linux 上验证真正的 chmod。
+  it.skipIf(process.platform === "win32")("leaves both bin/omp and versions/<v> executable on POSIX", async () => {
+    const layout = managedLayout(path.join(scratch, "可执行", "omp"));
+    published.version = "18.12.1";
+    await installBuild(layout, { ...fetchOptions(), build: await fetchBuild(fetchOptions()) });
+    expect((await stat(layout.binExe)).mode & 0o111).toBe(0o111);
+    expect((await stat(path.join(layout.versionsDir, "18.12.1"))).mode & 0o111).toBe(0o111);
   });
 });
 

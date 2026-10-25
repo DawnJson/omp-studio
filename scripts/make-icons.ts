@@ -2,6 +2,8 @@
 //   resources/icon.ico：应用图标（exe、安装包、窗口、任务栏）。透明底，只有像素 π 和它的淡影，和界面里的标志一样
 //                       画在什么底上就透出什么底；16–256 共 11 个尺寸，每个尺寸单独画（见 markIcon），不靠缩放。
 //   resources/tray.png：托盘图标，64×64 透明底，π 每像素 4×4；系统缩到 16 / 32 时正好整数倍。
+//   resources/icon.icns：macOS 应用图标（ic07–ic14 的 PNG 条目，32–1024），画法同 icon.ico。
+//   resources/trayTemplate.png / trayTemplate@2x.png：macOS 菜单栏模板图（18 / 36px），只有黑色 + alpha，不画淡影。
 // 用法：node scripts/make-icons.ts（改了 pixel-pi.ts 之后重跑）。
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -44,12 +46,17 @@ class Canvas {
         if (cover > 0) this.blend(x, y, color, cover);
       }
   }
-  /** 画标志：先淡影后 π；unit = 每个标志像素占几个设备像素，(ox, oy) 是左上角。 */
-  mark(unit: number, ox: number, oy: number): void {
-    for (const [dx, dy, alpha] of [
-      [shadow.dx, shadow.dy, shadow.opacity],
-      [0, 0, 1],
-    ] as const)
+  /**
+   * 画标志：先淡影后 π；unit = 每个标志像素占几个设备像素，(ox, oy) 是左上角。
+   * template = macOS 菜单栏模板图：只有黑色 + alpha（系统按菜单栏明暗反色），不画淡影（淡影的半透明在反色后会糊成一片）。
+   */
+  mark(unit: number, ox: number, oy: number, template = false): void {
+    for (const [dx, dy, alpha] of template
+      ? ([[0, 0, 1]] as const)
+      : ([
+          [shadow.dx, shadow.dy, shadow.opacity],
+          [0, 0, 1],
+        ] as const))
       for (const cell of piCells)
         for (const [x, y, w, h] of cellRects(cell))
           this.rect(
@@ -57,7 +64,7 @@ class Canvas {
             oy + (y + dy) * unit,
             ox + (x + dx + w) * unit,
             oy + (y + dy + h) * unit,
-            hex(cell.color, alpha),
+            template ? ([0, 0, 0, alpha] as Rgba) : hex(cell.color, alpha),
           );
   }
   png(): Buffer {
@@ -105,12 +112,13 @@ function chunk(type: string, body: Buffer): Buffer {
 /**
  * 一个尺寸的图标：透明底，π 居中、尽量铺满宽度。每个标志像素占整数个设备像素最清楚（16px 时 1×1，32px 时 2×2）；
  * 整数倍铺不到四分之三宽时（20、24、36px）改按半像素放大，边上带一点过渡，换来不显小（任务栏在 100% 缩放下用 24px 那张）。
+ * template = true 时画成菜单栏模板图（纯黑 + alpha，无淡影）。
  */
-function markIcon(size: number): Buffer {
+function markIcon(size: number, template = false): Buffer {
   const canvas = new Canvas(size);
   const whole = Math.max(1, Math.floor(size / markWidth));
   const unit = whole * markWidth >= size * 0.75 ? whole : Math.floor((size / markWidth) * 2) / 2;
-  canvas.mark(unit, Math.round((size - markWidth * unit) / 2), Math.round((size - markHeight * unit) / 2));
+  canvas.mark(unit, Math.round((size - markWidth * unit) / 2), Math.round((size - markHeight * unit) / 2), template);
   return canvas.png();
 }
 
@@ -135,7 +143,42 @@ function ico(images: { size: number; png: Buffer }[]): Buffer {
   return Buffer.concat([header, ...entries, ...images.map(({ png }) => png)]);
 }
 
+/**
+ * ICNS：'icns' 头（魔数 + 总长，大端）后接若干条目，每条 = 4 字节类型 + 4 字节条目总长（含这 8 字节）+ PNG。
+ * ic07/ic08/ic09/ic10 是 128/256/512/1024，ic11–ic14 是 16/32/128/256 的 @2x（像素 32/64/256/512）。
+ */
+function icns(entries: { type: string; size: number }[]): Buffer {
+  const body = entries.map(({ type, size }) => {
+    const png = markIcon(size);
+    const head = Buffer.alloc(8);
+    head.write(type, 0, "ascii");
+    head.writeUInt32BE(8 + png.length, 4);
+    return Buffer.concat([head, png]);
+  });
+  const total = 8 + body.reduce((sum, b) => sum + b.length, 0);
+  const head = Buffer.alloc(8);
+  head.write("icns", 0, "ascii");
+  head.writeUInt32BE(total, 4);
+  return Buffer.concat([head, ...body]);
+}
+
 const sizes = [16, 20, 24, 30, 32, 36, 40, 48, 64, 128, 256];
+const icnsEntries = [
+  { type: "ic11", size: 32 },
+  { type: "ic12", size: 64 },
+  { type: "ic07", size: 128 },
+  { type: "ic13", size: 256 },
+  { type: "ic08", size: 256 },
+  { type: "ic14", size: 512 },
+  { type: "ic09", size: 512 },
+  { type: "ic10", size: 1024 },
+];
 await writeFile(path.join(root, "resources", "icon.ico"), ico(sizes.map((size) => ({ size, png: markIcon(size) }))));
 await writeFile(path.join(root, "resources", "tray.png"), markIcon(64));
-console.log(`resources/icon.ico（${sizes.join("、")}）和 resources/tray.png（64）已生成`);
+await writeFile(path.join(root, "resources", "icon.icns"), icns(icnsEntries));
+await writeFile(path.join(root, "resources", "trayTemplate.png"), markIcon(18, true));
+await writeFile(path.join(root, "resources", "trayTemplate@2x.png"), markIcon(36, true));
+console.log(
+  `resources/icon.ico（${sizes.join("、")}）、tray.png（64）、icon.icns（${icnsEntries.map((e) => e.type).join("、")}）、` +
+    "trayTemplate.png（18）和 trayTemplate@2x.png（36）已生成",
+);

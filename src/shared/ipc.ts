@@ -190,8 +190,8 @@ export interface UpdateState {
   lastCheckedAt: number | null;
   /** phase = "error" 时的原始信息（界面用 error.generic 翻译后展示）。 */
   error: string | null;
-  /** phase = "disabled" 的原因。 */
-  disabledReason: "not-packaged" | "no-feed" | null;
+  /** phase = "disabled" 的原因；manual-only = mac 版（不签名装不了更新），请手动下载新版本。 */
+  disabledReason: "not-packaged" | "no-feed" | "manual-only" | null;
 }
 
 /** 模型的稳定键，对应 set_model 的 provider + modelId。 */

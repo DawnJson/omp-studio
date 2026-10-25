@@ -27,10 +27,15 @@ describe("resolveShell", () => {
     expect(shell.file).toBe("D:\\Win\\System32\\WindowsPowerShell\\v1.0\\powershell.exe");
   });
 
-  it("其他平台：$SHELL，没有就 /bin/bash", () => {
+  it("其他平台：$SHELL 带 -l 作登录 shell，没有就 /bin/bash", () => {
     expect(resolveShell({ platform: "linux", env: { SHELL: "/usr/bin/zsh" }, which: () => null })).toEqual({
       file: "/usr/bin/zsh",
-      args: [],
+      args: ["-l"],
+      name: "zsh",
+    });
+    expect(resolveShell({ platform: "darwin", env: { SHELL: "/bin/zsh" }, which: () => null })).toEqual({
+      file: "/bin/zsh",
+      args: ["-l"],
       name: "zsh",
     });
     expect(resolveShell({ platform: "darwin", env: {}, which: () => null }).file).toBe("/bin/bash");

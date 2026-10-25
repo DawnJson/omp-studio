@@ -6,6 +6,7 @@ import { DraftGitTools, GitTools } from "../features/git/index.ts";
 import { SessionMenu } from "../features/session-info/index.ts";
 import { TerminalToggle, useDraftTerminalKey } from "../features/terminal/index.ts";
 import { useT } from "../i18n/use-t.ts";
+import { withShortcut } from "./platform-keys.ts";
 import { SidebarIcon } from "./icons.tsx";
 import { useDraftProject } from "../features/empty/use-draft-project.ts";
 import { useMainView, useSelectedTaskId, useTask } from "../store/index.ts";
@@ -49,7 +50,7 @@ export function TopBar(props: TopBarProps) {
         </span>
         <IconButton
           label={t("menu.toggleSidebar")}
-          tip={`${t("menu.toggleSidebar")} (Ctrl B)`}
+          tip={withShortcut(t("menu.toggleSidebar"), "Ctrl B")}
           testId="topbar-sidebar"
           expanded={props.sidebarShown}
           onClick={props.onToggleSidebar}

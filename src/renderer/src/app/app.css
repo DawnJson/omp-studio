@@ -104,6 +104,18 @@ button {
   width: auto;
 }
 
+/* mac（<html data-platform="darwin">，App.tsx 设）：红黄绿三键在窗口左上角，不在右边。
+   左侧让出 78px：主进程 trafficLightPosition.x = 14（main-window.ts），三键各 12px、间距 8px，共 52px，右缘约 66px，再留 12px 空隙。
+   这个数是推算的，没有在 mac 上实测（推测）。全屏时系统隐藏三键，这里不处理（左边会多出一段空白，无害）。
+   右侧不留空白：mac 上 env(titlebar-area-*) 的取值不可信（没有 titleBarOverlay），所以不用上面那条 padding-right。 */
+html[data-platform="darwin"] .topbar {
+  padding-right: 0;
+}
+
+html[data-platform="darwin"] .topbar-left {
+  padding-left: 78px;
+}
+
 .topbar-brand {
   display: inline-flex;
   align-items: center;

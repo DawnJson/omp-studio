@@ -22,8 +22,8 @@ export const FIGURE_TOKENS: Readonly<Record<string, string>> = {
   c6: "--chart-6",
 };
 
-/** 图里没写字体时用的字体：<img> 里的 SVG 用不到页面的 Geist，用系统字体（中文落到微软雅黑）。 */
-const FIGURE_FONT = "'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', sans-serif";
+/** 图里没写字体时用的字体：<img> 里的 SVG 用不到页面的 Geist，用系统字体（Windows 落到 Segoe UI / 微软雅黑，mac 落到 San Francisco / 苹方；不存在的字体名自然跳过）。 */
+const FIGURE_FONT = "-apple-system, 'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', sans-serif";
 
 /** `var(--name)` / `var(--name, 后备值)`；后备值里可以有一层括号（`rgb(…)`）。 */
 const VAR = /var\(\s*--([\w-]+)\s*(?:,\s*((?:[^()]|\([^()]*\))*?))?\s*\)/g;

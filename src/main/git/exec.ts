@@ -2,6 +2,7 @@
 // 不 import electron，单元测试直接用真实的临时仓库。
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
+import { killPosixProcessTree } from "../platform/posix/process-tree.ts";
 
 export interface RunOptions {
   cwd: string;
@@ -83,6 +84,10 @@ function killTree(child: ChildProcess): void {
     // 绝对路径：不带路径时 Windows 会先在当前目录里找 taskkill。进程已退出时 taskkill 失败，忽略。
     const taskkill = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "taskkill.exe");
     execFile(taskkill, ["/T", "/F", "/PID", String(pid)], { windowsHide: true }, () => {});
+  } else if (pid !== undefined) {
+    // 先列进程表再杀：这里不能先 child.kill()，根进程一死孙进程就被收养，按父子关系找不到了。
+    void killPosixProcessTree(pid);
+    return;
   }
   child.kill();
 }

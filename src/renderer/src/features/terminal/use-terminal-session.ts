@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { limits, type TerminalKey } from "../../../../shared/ipc.ts";
 import { buildTerminalPalette, chunkInput, type PaletteToken } from "../../../../shared/ui/terminal-model.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { primaryMod } from "../../app/platform-keys.ts";
 import { describeError } from "../../ui/errors.ts";
 import { onThemeChange } from "../../ui/theme-change.ts";
 import { takeFocusRequest } from "./terminal-store.ts";
@@ -167,10 +168,12 @@ export function useTerminalSession(
     });
 
     term.attachCustomKeyEventHandler((event) => {
-      if (event.type !== "keydown" || event.altKey || event.metaKey) return true;
+      if (event.type !== "keydown" || event.altKey) return true;
+      // 应用的"回到输入框"快捷键（Windows Ctrl+`，mac Cmd+`）：交给全局快捷键，xterm 不处理也不吞掉。
+      if (primaryMod(event, platform) && event.key === "`") return false;
+      // 其余带 Cmd 的键照旧交给 xterm（mac 的复制粘贴走应用菜单的 role，没有在 mac 上实测）；下面的 Ctrl 键是终端里的真 Ctrl，不改。
+      if (event.metaKey) return true;
       const key = event.key.toLowerCase();
-      // Ctrl+`：交给全局快捷键（回到输入框），xterm 不处理也不吞掉。
-      if (event.ctrlKey && event.key === "`") return false;
       // 复制：Ctrl+Shift+C，或有选区时的 Ctrl+C（没有选区的 Ctrl+C 仍是 ^C 中断）。
       if (event.ctrlKey && key === "c" && (event.shiftKey || term.hasSelection())) {
         // 吞掉：对话流也监听 Ctrl+Shift+C（复制最后一条回答），终端里不该触发它。

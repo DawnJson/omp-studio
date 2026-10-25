@@ -13,8 +13,11 @@ export function taskbarProgressMode(tasks: readonly Pick<TaskState, "status">[])
   return tasks.some((task) => task.status === "running") ? "indeterminate" : "none";
 }
 
+// mac 不显示：Dock 图标的进度条没有"不定进度"形态（setProgressBar 的 mode 只在 Windows 有效，>1 的值在 mac 上怎么画没有依据，未实测），
+// 用固定值会让用户以为是真实进度，所以 mac 上干脆不设。
 function apply(): void {
   if (window === null || window.isDestroyed()) return;
+  if (process.platform === "darwin") return;
   if (busy) window.setProgressBar(2, { mode: "indeterminate" });
   else window.setProgressBar(-1);
 }

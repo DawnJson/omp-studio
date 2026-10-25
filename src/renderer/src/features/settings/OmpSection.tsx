@@ -9,7 +9,7 @@ import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { OmpSource, OmpStatus, OmpUpgradeResult } from "../../../../shared/ipc.ts";
 import { MIN_OMP_VERSION } from "../../../../shared/omp-version.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { useOmpStatus } from "../../store/index.ts";
+import { useAppInfo, useOmpStatus } from "../../store/index.ts";
 import { Badge, Button, Notice, Row } from "../../ui/controls.tsx";
 
 type Ready = Extract<OmpStatus, { state: "ready" }>;
@@ -37,6 +37,7 @@ function tail(output: string): string {
 export function OmpSection({ studio }: { studio: ReactNode }) {
   const t = useT();
   const status = useOmpStatus();
+  const platform = useAppInfo()?.platform;
   const [note, setNote] = useState<{ text: string; error: boolean } | null>(null);
   const [busy, setBusy] = useState<"check" | "upgrade" | "path" | null>(null);
   const [upgrade, setUpgrade] = useState<OmpUpgradeResult | null>(null);
@@ -149,7 +150,8 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
             </span>
           )}
         </Row>
-        {source.kind === "studio_managed" && !source.onUserPath && (
+        {/* mac 没有"用户 PATH"可改（主进程 userPath 为 null），按钮点了只会报错，所以不显示。 */}
+        {source.kind === "studio_managed" && !source.onUserPath && platform !== "darwin" && (
           <Row label={t("omp.addPath")} info={t("omp.addPath.note")}>
             {() => (
               <Button

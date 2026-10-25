@@ -47,3 +47,8 @@ export function useSettings(): StudioSettings | null {
 export function useAppInfo(): AppInfo | null {
   return useStoreValue(settingsStore, (state) => state.appInfo);
 }
+
+/** 当前平台（非 React 代码用；还没载入时按 win32，与 TerminalPanel 一致）。 */
+export function currentPlatform(): AppInfo["platform"] {
+  return settingsStore.get().appInfo?.platform ?? "win32";
+}

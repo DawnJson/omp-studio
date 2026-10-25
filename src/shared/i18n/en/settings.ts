@@ -117,6 +117,7 @@ export const settings = {
   "about.installFailed": "Couldn't install the update: {message}",
   "about.disabled.notPackaged": "Updates are off in development and portable builds",
   "about.disabled.noFeed": "This build has no update source configured",
+  "about.disabled.manualOnly": "Automatic updates aren't available on macOS yet. Download new versions manually",
   "about.troubleshoot": "Troubleshooting",
   "about.omp": "omp",
   "about.logs.desc": "One file per day, kept for 14 days; user names and keys are removed.",

@@ -55,6 +55,13 @@ const systemVariables = new Set([
   "USERNAME",
   "OS",
   "PROCESSOR_ARCHITECTURE",
+  // POSIX（macOS）：shell、用户名、语言环境。
+  "SHELL",
+  "USER",
+  "LOGNAME",
+  "LANG",
+  "LC_ALL",
+  "__CF_USER_TEXT_ENCODING",
 ]);
 
 function cleanEnv(agentDir: string): NodeJS.ProcessEnv {

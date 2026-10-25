@@ -16,6 +16,7 @@ import { ComposerTop } from "./ComposerTop.tsx";
 import { ComposerInput } from "./ComposerInput.tsx";
 import { historyText, viewToText } from "./composer-tokens.ts";
 import { decideEnter } from "./send-logic.ts";
+import { localizeKeys, primaryMod } from "../../app/platform-keys.ts";
 import { cycleHistory, isCycling, mergeEntries, resetHistoryCursor, shouldCycle } from "./input-history.ts";
 import { recordHistory, useProjectHistory } from "./history-store.ts";
 import { HistorySearch } from "./HistorySearch.tsx";
@@ -164,7 +165,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
         : tspAsking
           ? t("composer.placeholderAsk")
           : gate
-            ? t("composer.placeholderGate")
+            ? localizeKeys(t("composer.placeholderGate"))
             : running
               ? t("composer.placeholderRunning")
               : task !== null && task.title !== ""
@@ -253,7 +254,11 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
       if (
         picked &&
         (event.key === "Tab" ||
-          (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && prefixHit && draft.text !== `/${picked.name}`))
+          (event.key === "Enter" &&
+            !event.shiftKey &&
+            !primaryMod(event) &&
+            prefixHit &&
+            draft.text !== `/${picked.name}`))
       ) {
         event.preventDefault();
         completeSlash(picked.name);
@@ -263,14 +268,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
     if (fileMenu.onKeyDown(event)) return;
     // Ctrl+R：输入历史搜索（studio 自己持久化的历史）。焦点在输入框时 omp 自己的 Ctrl+R 到不了 omp（这里已处理，转发判定看 defaultPrevented）；
     // 焦点在过程区时照常转发给 omp，它的历史选择器选中的文字由主进程搬回这里（`composerPrefill`）。
-    if (
-      event.key.toLowerCase() === "r" &&
-      event.ctrlKey &&
-      !composing &&
-      !event.shiftKey &&
-      !event.metaKey &&
-      !event.altKey
-    ) {
+    if (event.key.toLowerCase() === "r" && primaryMod(event) && !composing && !event.shiftKey && !event.altKey) {
       event.preventDefault();
       setHistoryOpen(true);
       return;
@@ -307,7 +305,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
     if (
       approval &&
       !composing &&
-      event.ctrlKey &&
+      primaryMod(event) &&
       !event.shiftKey &&
       !event.altKey &&
       event.key.toLowerCase() === "o"

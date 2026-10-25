@@ -18,9 +18,10 @@ function announceTray(): void {
   markTrayNoticeShown();
   if (!Notification.isSupported()) return;
   const locale = resolveLocale();
+  const mac = process.platform === "darwin";
   const notification = new Notification({
-    title: t(locale, "notify.tray.stillRunning.title"),
-    body: t(locale, "notify.tray.stillRunning.body"),
+    title: t(locale, mac ? "notify.tray.stillRunning.titleMac" : "notify.tray.stillRunning.title"),
+    body: t(locale, mac ? "notify.tray.stillRunning.bodyMac" : "notify.tray.stillRunning.body"),
   });
   retainNotification(heldNotices, notification);
   notification.on("click", () => showMainWindow());

@@ -7,6 +7,7 @@ import { splitCommitMessage, type GitLastCommit } from "../../../../shared/git.t
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { composeCommitMessage } from "../../../../shared/ui/review-model.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { primaryMod } from "../../app/platform-keys.ts";
 import { Sparkle } from "../../icons.tsx";
 import { Button, Checkbox, Textarea, TextField } from "../../ui/controls.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
@@ -119,7 +120,7 @@ export function CommitBox({
     else void doCommit();
   };
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Enter" && event.ctrlKey && !event.nativeEvent.isComposing) {
+    if (event.key === "Enter" && primaryMod(event) && !event.nativeEvent.isComposing) {
       event.preventDefault();
       submit();
     }

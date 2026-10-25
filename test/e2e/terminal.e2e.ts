@@ -1,4 +1,4 @@
-// 内置终端的端到端：真实的 主进程 node-pty → IPC → 渲染进程 xterm，shell 是本机的 pwsh/powershell。
+// 内置终端的端到端：真实的 主进程 node-pty → IPC → 渲染进程 xterm，shell 是本机的 pwsh/powershell（mac 是 zsh，没有在 mac 上跑过）。
 // 任务用假 omp（回放 bash-tool），项目目录带空格和中文。断言用户看得见的结果（xterm 的 DOM 行）和进程是否残留。
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -86,7 +86,7 @@ async function run(page: Page, command: string): Promise<void> {
 }
 
 async function waitPrompt(page: Page): Promise<void> {
-  await expectRow(page, /PS .*项目 目录>/);
+  await expectRow(page, promptPattern);
 }
 
 const alive = (pid: number) => {
@@ -98,12 +98,30 @@ const alive = (pid: number) => {
   }
 };
 
+// 平台分支：Windows 是 PowerShell（pwsh / powershell），mac 是登录 shell zsh。mac 分支没有在 mac 上跑过（推测），这台开发机是 Windows。
+const mac = process.platform === "darwin";
+/** 应用快捷键的主修饰键（和 src/renderer/src/app/platform-keys.ts 的 primaryMod 对应）。 */
+const mod = mac ? "Meta" : "Control";
+const shellName = mac ? /^zsh$/ : /^(pwsh|powershell)\.exe$/;
+/** 提示符：PowerShell 是 `PS …\项目 目录>`；zsh 默认提示符是 `用户@主机 项目 目录 %`。 */
+const promptPattern = mac ? /项目 目录 [%$#]/ : /PS .*项目 目录>/;
+const pidCommand = mac ? 'echo "pid=$$"' : '"pid=$PID"';
+const leafCommand = mac ? 'basename "$PWD"' : "Split-Path -Leaf (Get-Location)";
+const setVar = mac ? "x=42" : "$x = 42";
+const readVar = mac ? 'echo "x=$x"' : '"x=$x"';
+const setDraftVar = mac ? "x=7; echo draft-marker" : "$x = 7; echo draft-marker";
+const againCommand = mac ? 'echo "again pid=$$ x=$x"' : '"again pid=$PID x=$x"';
+/** 起一个后台子进程并打印它的 pid（`child=<pid>`）。 */
+const childCommand = mac
+  ? 'sleep 300 & echo "child=$!"'
+  : "$p = Start-Process ping.exe -ArgumentList '-t','127.0.0.1' -WindowStyle Hidden -PassThru; \"child=$($p.Id)\"";
+
 async function expectGone(pids: number[]): Promise<void> {
   await expect.poll(() => pids.filter(alive), { timeout: 15_000 }).toEqual([]);
 }
 
 async function openPanel(page: Page): Promise<void> {
-  await page.keyboard.press("Control+`");
+  await page.keyboard.press(`${mod}+\``);
   await expect(page.getByTestId("terminal-panel")).toBeVisible();
 }
 
@@ -113,16 +131,16 @@ test("Ctrl+` 打开终端：cwd 是项目目录、命令有输出；隐藏再打
     const { page } = launched;
     await page.getByTestId("composer-input").focus();
     await openPanel(page);
-    await expect(page.getByTestId("terminal-shell")).toHaveText(/^(pwsh|powershell)\.exe$/);
+    await expect(page.getByTestId("terminal-shell")).toHaveText(shellName);
     await expect(page.getByTestId("terminal-cwd")).toHaveText("项目 目录");
     await expect(page.getByTestId("terminal-cwd")).toHaveAttribute("title", project);
     await waitPrompt(page);
 
     await run(page, "echo omp-studio-term");
     await expectRow(page, "omp-studio-term");
-    await run(page, "Split-Path -Leaf (Get-Location)");
+    await run(page, leafCommand);
     await expectRow(page, "项目 目录");
-    await run(page, "$x = 42");
+    await run(page, setVar);
 
     // Esc 属于终端：不会冒泡到全局（输入框的 Esc 停止任务就监听 window）。
     await page.evaluate(
@@ -137,15 +155,15 @@ test("Ctrl+` 打开终端：cwd 是项目目录、命令有输出；隐藏再打
     await page.getByTestId("topbar-terminal").click();
     await expect(page.getByTestId("terminal-panel")).toBeVisible();
     await expectRow(page, "omp-studio-term");
-    await run(page, '"x=$x"');
+    await run(page, readVar);
     await expectRow(page, "x=42");
 
     // Ctrl+` 从终端出来：面板收起，焦点回输入框。
-    await page.keyboard.press("Control+`");
+    await page.keyboard.press(`${mod}+\``);
     await expect(page.getByTestId("terminal-panel")).toHaveCount(0);
     await expect(page.getByTestId("composer-input")).toBeFocused();
     // 再按一次：打开并聚焦终端。
-    await page.keyboard.press("Control+`");
+    await page.keyboard.press(`${mod}+\``);
     await expect(page.getByTestId("terminal-panel")).toBeVisible();
     await expect(page.locator("[data-terminal-host] textarea")).toBeFocused();
   } finally {
@@ -159,7 +177,7 @@ test("新任务草稿也有终端：发出第一条消息后，同一个 shell �
     const { page } = launched;
     await page.getByTestId("composer-input").focus();
     // Ctrl Shift N：在当前任务的项目里开新任务（Ctrl N 是默认文件夹）。
-    await page.keyboard.press("Control+Shift+N");
+    await page.keyboard.press(`${mod}+Shift+N`);
     await expect(page.getByTestId("empty-draft")).toBeVisible();
     await expect(page.getByTestId("topbar-terminal")).toBeVisible();
 
@@ -168,9 +186,9 @@ test("新任务草稿也有终端：发出第一条消息后，同一个 shell �
     await expect(page.getByTestId("terminal-panel")).toBeVisible();
     await expect(page.getByTestId("terminal-cwd")).toHaveAttribute("title", project);
     await waitPrompt(page);
-    await run(page, '"pid=$PID"');
+    await run(page, pidCommand);
     const shellPid = Number((await expectRow(page, /^pid=(\d+)$/))?.[1]);
-    await run(page, "$x = 7; echo draft-marker");
+    await run(page, setDraftVar);
     await expectRow(page, "draft-marker");
 
     // 发第一条消息：任务建出来，面板保持打开，还是同一个 shell（pid、$x、屏幕都在）。
@@ -180,7 +198,7 @@ test("新任务草稿也有终端：发出第一条消息后，同一个 shell �
     await expect(page.getByTestId("terminal-panel")).toBeVisible();
     await expectRow(page, "draft-marker");
     await page.getByTestId("terminal-host").click();
-    await run(page, '"again pid=$PID x=$x"');
+    await run(page, againCommand);
     expect(Number((await expectRow(page, /^again pid=(\d+) x=7$/))?.[1])).toBe(shellPid);
     expect(alive(shellPid)).toBe(true);
 
@@ -201,7 +219,7 @@ test("shell 退出显示提示，按任意键在同一目录重新启动；重�
     const { page } = launched;
     await openPanel(page);
     await waitPrompt(page);
-    await run(page, '"pid=$PID"');
+    await run(page, pidCommand);
     const first = Number((await expectRow(page, /^pid=(\d+)$/))?.[1]);
     expect(first).toBeGreaterThan(0);
 
@@ -211,7 +229,7 @@ test("shell 退出显示提示，按任意键在同一目录重新启动；重�
     await page.keyboard.press("a");
     await waitPrompt(page);
     await expect.poll(async () => (await termRows(page)).some((row) => row.includes("进程已退出"))).toBe(false);
-    await run(page, '"pid=$PID"');
+    await run(page, pidCommand);
     await expect.poll(async () => (await termRows(page)).filter((row) => /^pid=\d+$/.test(row)).length).toBe(1);
     const second = Number((await expectRow(page, /^pid=(\d+)$/))?.[1]);
     expect(second).not.toBe(first);
@@ -221,7 +239,7 @@ test("shell 退出显示提示，按任意键在同一目录重新启动；重�
     // 重启先 reset 屏幕再接新 shell：旧屏幕（旧提示符和 pid 行）还在时，输入会被丢在还没接上的终端外。
     await expect.poll(async () => (await termRows(page)).some((row) => /^pid=\d+$/.test(row))).toBe(false);
     await waitPrompt(page);
-    await run(page, '"pid=$PID"');
+    await run(page, pidCommand);
     const third = Number((await expectRow(page, /^pid=(\d+)$/))?.[1]);
     expect(third).not.toBe(second);
   } finally {
@@ -235,13 +253,10 @@ test("归档任务和退出应用都会结束终端及其子进程，不留残�
     const { page } = launched;
     await openPanel(page);
     await waitPrompt(page);
-    await run(page, '"pid=$PID"');
+    await run(page, pidCommand);
     const shellPid = Number((await expectRow(page, /^pid=(\d+)$/))?.[1]);
-    // 子进程（Start-Process 出来的 ping 继承应用 Job）：整棵树都要没。
-    await run(
-      page,
-      "$p = Start-Process ping.exe -ArgumentList '-t','127.0.0.1' -WindowStyle Hidden -PassThru; \"child=$($p.Id)\"",
-    );
+    // 子进程（Windows：Start-Process 出来的 ping 继承应用 Job；mac：shell 后台起的 sleep）：整棵树都要没。
+    await run(page, childCommand);
     const childPid = Number((await expectRow(page, /^child=(\d+)$/))?.[1]);
     expect(alive(shellPid) && alive(childPid)).toBe(true);
 
@@ -257,7 +272,7 @@ test("退出应用时 shell 一起结束", async () => {
   const { page } = launched;
   await openPanel(page);
   await waitPrompt(page);
-  await run(page, '"pid=$PID"');
+  await run(page, pidCommand);
   const shellPid = Number((await expectRow(page, /^pid=(\d+)$/))?.[1]);
   expect(alive(shellPid)).toBe(true);
   await cleanup();
@@ -307,7 +322,7 @@ test("命令面板可切换终端", async () => {
   const { launched, cleanup } = await start();
   try {
     const { page } = launched;
-    await page.keyboard.press("Control+k");
+    await page.keyboard.press(`${mod}+k`);
     await page.getByTestId("command-palette").getByRole("combobox").fill("切换终端");
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("terminal-panel")).toBeVisible();
@@ -363,9 +378,9 @@ test("worktree 任务的终端在 worktree 目录里；丢弃 worktree 时先结
     await openPanel(page);
     // 终端头里的目录是 worktree 的最后一段，shell 里的当前目录也是它。
     await expect(page.getByTestId("terminal-cwd")).toHaveText(path.basename(worktreeDir));
-    await run(page, '"pid=$PID"');
+    await run(page, pidCommand);
     const shellPid = Number((await expectRow(page, /^pid=(\d+)$/))?.[1]);
-    await run(page, "Split-Path -Leaf (Get-Location)");
+    await run(page, leafCommand);
     await expectRow(page, path.basename(worktreeDir));
 
     const taskId = await page.evaluate(async () => (await globalThis.studio.listTasks())[0]?.id);

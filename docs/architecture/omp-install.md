@@ -104,3 +104,15 @@ Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次�
 - **手动：** 设置 → 关于 → omp 的"检查更新"按钮（所有来源都有）走同一个 `checkOmpUpdate`，返回 `{ installedVersion, availableVersion }`：装上了新版本 / 有新版本但没装 / 都是 null（已最新）；失败时界面显示错误。
 - "有新版本"的判断只用 `compareVersions(build.version, 当前版本) > 0`；用户升级（`upgradePathOmp`）之后，如果当前版本追上了就清掉 `availableVersion`。
 - 测试：`test/omp-manager-flow.test.ts`（拒绝接管的 Tern 副本：启动后自动出现 `availableVersion`，手动检查返回同样结果，没有进入 `installing`）；`test/e2e/settings-functional.e2e.ts`（假构建服务返回 99.0.0，设置页出现"有新版本 99.0.0"，版本没变）。
+
+## macOS（只写代码，没有在 mac 上实测）
+
+以下都是读代码和 Electron 文档的推测，没有 Mac 真机验证；能抽成纯函数的部分有单测（`test/omp-manager-install.test.ts`）。
+
+- **构建服务**：`buildTarget()` 在 mac 上返回 `macos-arm64`（只出 Apple 芯片）。调查时请求 `latest/macos-arm64?channel=stable` 返回 200，资产名 `omp-darwin-arm64`，是没有扩展名的裸二进制（推测，没下载验证）。
+- **自管目录**：`~/Library/Application Support/omp-studio/omp/`（`app.getPath("appData")` 下，`index.ts` 的 `managedRoot()`）。布局无扩展名：`versions/<版本>`、`bin/omp`。
+- **执行位**：下载或打补丁得到的文件是 0644，`installBuild` 在 POSIX 上对 `versions/<版本>` 和换进 `bin/omp` 的临时文件都 `chmod 0o755`，没有这一步 spawn 会 `EACCES`。Windows 不动。
+- **换二进制**：沿用"先复制到临时名、旧的改名成 `.omp.old-<时间戳>`、新的改名到位"。POSIX 上改名运行中的文件同样安全。临时名跟随 `bin` 里文件名（Windows 是 `.omp.exe.old-` / `.omp.exe.new-`，mac 是 `.omp.old-` / `.omp.new-`）。
+- **清理旧版本**：`pruneVersions` 只认版本号格式（`18.12.6`、`18.12.6-canary.1`）的文件名；无扩展名时 `.partial` / `.patch` 不会被当成版本参与"保留最近 3 个"的排序。
+- **没有"加入 PATH"**：`userPath` 为 null（没有等价于 Windows 用户 PATH 注册表的东西），设置 → 关于 → omp 在 mac 上不显示"加入 PATH"按钮。从 Finder 启动的应用 PATH 很短，omp 的发现靠别的切片在启动时补 PATH。
+- **补丁产物能否直接运行**：上游 omp 曾有 mac arm64 二进制被 SIGKILL（exit 137）的报告（issue #754）。补丁生成的文件没有被 Apple 重新签名，需在真机上跑一次 `omp --version` 确认。

@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { lastAnswerText } from "../../../../shared/tsp/last-answer.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { primaryMod } from "../../app/platform-keys.ts";
 import { reportError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { onStudioCommand } from "../palette/studio-command.ts";
@@ -39,7 +40,7 @@ export function useTaskCommands(taskId: TaskId): void {
       else if (command === "toggleProcess") toggleProcess();
     });
     const onKey = (event: KeyboardEvent): void => {
-      if (event.defaultPrevented || event.altKey || event.metaKey || !event.ctrlKey) return;
+      if (event.defaultPrevented || event.altKey || !primaryMod(event)) return;
       if (event.target instanceof Element && event.target.closest('[data-testid="terminal-panel"]') !== null) return;
       const key = event.key.toLowerCase();
       if (key === "c" && event.shiftKey) copyLast();

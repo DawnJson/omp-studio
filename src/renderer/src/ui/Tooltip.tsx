@@ -3,7 +3,7 @@
 // （下方放不下画在上方）；刚收起一个提示时移到下一个元素立即出。键盘聚焦（:focus-visible）时立即出，title 留在元素上
 // （原生提示不跟键盘出，读屏照常读到它）。离开、按下、按键、滚动、窗口失焦时收起，title 放回原处。
 // 悬停期间 React 改了 title（如"上次刷新于…"）：读出新文字、再拿掉。
-// 文字末尾的快捷键（"打开评审 (Ctrl Shift D)"）拆出来画成 Kbd。
+// 文字末尾的快捷键（"打开评审 (Ctrl Shift D)"；mac 上是 "(⌘⇧D)"，调用方用 platform-keys 的 withShortcut 生成）拆出来画成 Kbd。
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 
@@ -14,7 +14,7 @@ const GAP_PX = 6;
 const EDGE_PX = 8;
 /** iframe 的 title 是给读屏的框架名，不是提示。 */
 const TITLED = "[title]:not(iframe)";
-const SHORTCUT = /^([\s\S]*?)\s*[(（]((?:Ctrl|Alt|Shift|Esc|Enter|Tab|F\d+)\b[^()（）]*)[)）]$/;
+const SHORTCUT = /^([\s\S]*?)\s*[(（]((?:(?:Ctrl|Alt|Shift|Esc|Enter|Tab|F\d+)\b|[⌘⇧⌥⌃])[^()（）]*)[)）]$/;
 
 interface Tip {
   text: string;

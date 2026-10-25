@@ -20,8 +20,17 @@ export interface LaunchedApp {
   close(): Promise<void>;
 }
 
-/** 像在资源管理器里选中这些文件按 Ctrl+C：PowerShell 的 Set-Clipboard -LiteralPath 放真实的文件列表（CF_HDROP）。会改系统剪贴板。 */
+/**
+ * 像在文件管理器里选中这些文件按 Cmd/Ctrl+C，往系统剪贴板放真实的文件列表。会改系统剪贴板。
+ * Windows：PowerShell 的 Set-Clipboard -LiteralPath（CF_HDROP）。
+ * macOS：osascript 的 `set the clipboard to {POSIX file …}`（文件 URL 列表）。mac 分支没有在 mac 上跑过（推测），这台开发机是 Windows。
+ */
 export async function copyFilesToClipboard(files: readonly string[]): Promise<void> {
+  if (process.platform === "darwin") {
+    const list = files.map((file) => `POSIX file "${file.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`).join(", ");
+    await promisify(execFile)("osascript", ["-e", `set the clipboard to {${list}}`]);
+    return;
+  }
   const list = files.map((file) => `'${file.replaceAll("'", "''")}'`).join(",");
   await promisify(execFile)("powershell", ["-NoProfile", "-Command", `Set-Clipboard -LiteralPath ${list}`]);
 }
@@ -287,4 +296,37 @@ async function taskRow(page: Page, nth = 0) {
 /** 点开第 nth 个任务（选中它）。 */
 export async function openTaskRow(page: Page, nth = 0): Promise<void> {
   await (await taskRow(page, nth)).locator(".sb-row-main").click();
+}
+
+/**
+ * 让渲染进程以为自己跑在 `platform` 上（只换 getAppInfo 的返回值里的 platform，主进程行为不变），然后重载页面。
+ * 渲染进程的主修饰键、快捷键文字、`<html data-platform>` 都只看 AppInfo.platform，所以能在 Windows 上走 mac 分支。
+ * getAppInfo 的 locale 取自 `setStubLocale` 设的值（先取真实值），用例里改语言要走 `setStubLocale`，否则收到 settings 事件重取 AppInfo 时会被换回去。
+ */
+export async function stubPlatform(
+  app: ElectronApplication,
+  page: Page,
+  platform: "win32" | "darwin" | "linux",
+): Promise<void> {
+  const real = await page.evaluate(() => globalThis.studio.getAppInfo());
+  await app.evaluate(
+    ({ ipcMain }, info) => {
+      Reflect.set(globalThis, "__stubAppInfo", info);
+      ipcMain.removeHandler("studio:getAppInfo");
+      ipcMain.handle("studio:getAppInfo", () => Reflect.get(globalThis, "__stubAppInfo"));
+    },
+    { ...real, platform },
+  );
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-platform", platform);
+}
+
+/** `stubPlatform` 之后改语言：先改假 AppInfo 的 locale，再让主进程切到同一语言（触发渲染进程重取 AppInfo）。 */
+export async function setStubLocale(app: ElectronApplication, page: Page, locale: "zh-CN" | "en"): Promise<void> {
+  await app.evaluate((_electron, next) => {
+    const info = Reflect.get(globalThis, "__stubAppInfo") as Record<string, unknown>;
+    info["locale"] = next;
+  }, locale);
+  await page.evaluate((next) => globalThis.studio.setLocale(next), locale);
+  await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
 }

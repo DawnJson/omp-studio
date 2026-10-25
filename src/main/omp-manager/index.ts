@@ -9,13 +9,17 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { OmpManager, runOmpUpdate, type ManagerDeps, type UserPathAccess } from "./manager.ts";
 import { MIN_OMP_VERSION } from "../../shared/omp-version.ts";
 
-/** 自管目录：`%LOCALAPPDATA%\omp-studio\omp`。未打包时 `STUDIO_OMP_HOME`（或测试的 STUDIO_USER_DATA）可以改，测试不碰真实用户目录。 */
+/**
+ * 自管目录：Windows `%LOCALAPPDATA%\omp-studio\omp`，mac `~/Library/Application Support/omp-studio/omp`（app.getPath("appData") 下，未在 mac 上实测）。
+ * 未打包时 `STUDIO_OMP_HOME`（或测试的 STUDIO_USER_DATA）可以改，测试不碰真实用户目录。
+ */
 function managedRoot(): string {
   if (!app.isPackaged) {
     const override = process.env["STUDIO_OMP_HOME"];
     if (override) return override;
     if (process.env["STUDIO_USER_DATA"]) return path.join(app.getPath("userData"), "omp");
   }
+  if (process.platform === "darwin") return path.join(app.getPath("appData"), "omp-studio", "omp");
   const base = process.env["LOCALAPPDATA"] ?? path.join(app.getPath("home"), ".local", "share");
   return path.join(base, "omp-studio", "omp");
 }

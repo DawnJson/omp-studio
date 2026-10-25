@@ -4,6 +4,7 @@ import { useMemo, useState, type KeyboardEvent, type RefObject } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { AvailableSlashCommand } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useDraftSlashCommands } from "../palette/slash-commands.ts";
+import { primaryMod } from "../../app/platform-keys.ts";
 import { matchSlash, slashQuery } from "./slash-match.ts";
 import { findStudioSlash, handledCommands, withStudioSlash } from "./studio-slash.ts";
 import { studioSlashCommands } from "./studio-slash-table.ts";
@@ -73,7 +74,7 @@ export function useDraftSlashMenu(
     if (
       picked &&
       (event.key === "Tab" ||
-        (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && prefixHit && text !== `/${picked.name}`))
+        (event.key === "Enter" && !event.shiftKey && !primaryMod(event) && prefixHit && text !== `/${picked.name}`))
     ) {
       event.preventDefault();
       pick(picked);

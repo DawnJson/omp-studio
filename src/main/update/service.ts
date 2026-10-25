@@ -23,7 +23,7 @@ export interface UpdateServiceOptions {
   /** 是否启用更新；开发版和没配置更新源时为 false。 */
   enabled: boolean;
   /** enabled 为 false 时给界面的原因。 */
-  disabledReason: "not-packaged" | "no-feed";
+  disabledReason: "not-packaged" | "no-feed" | "manual-only";
   updater: Updater;
   /** 把状态推给界面。 */
   emit: (state: UpdateState) => void;

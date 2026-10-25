@@ -6,6 +6,7 @@ import type { TerminalKey } from "../../../../shared/ipc.ts";
 import { clampTerminalHeight, cwdLabel, defaultTerminalHeight } from "../../../../shared/ui/terminal-model.ts";
 import { commitTerminalHeight, previewTerminalHeight, useShellUi } from "../../app/shell-store.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { withShortcut } from "../../app/platform-keys.ts";
 import { Close, Restart, Terminal } from "../../icons.tsx";
 import { useAppInfo } from "../../store/index.ts";
 import { IconButton } from "../../ui/controls.tsx";
@@ -112,7 +113,7 @@ function TerminalPanelBody({ terminalKey, exitProps }: { terminalKey: TerminalKe
         </IconButton>
         <IconButton
           label={t("terminal.hide")}
-          tip={`${t("terminal.hide")} (Ctrl \`)`}
+          tip={withShortcut(t("terminal.hide"), "Ctrl `")}
           testId="terminal-hide"
           onClick={() => setTerminalOpen(terminalKey, false)}
         >

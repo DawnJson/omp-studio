@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { isLetterKey, withShortcut } from "../../app/platform-keys.ts";
 import { Bolt } from "../../icons.tsx";
 import { onStudioCommand } from "../palette/index.ts";
 import { ModelPicker, type ModelPickerProps } from "./ModelPicker.tsx";
@@ -89,11 +90,11 @@ export function ModelChip(task: ModelChipProps) {
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (!event.altKey || event.ctrlKey || event.metaKey) return;
-      if (event.key.toLowerCase() === "m") {
+      if (isLetterKey(event, "m")) {
         event.preventDefault();
         setOpen((value) => !value);
       }
-      if (event.key.toLowerCase() === "t") {
+      if (isLetterKey(event, "t")) {
         event.preventDefault();
         cycleThinking();
       }
@@ -143,7 +144,7 @@ export function ModelChip(task: ModelChipProps) {
             data-level={thinkingLevel}
             data-running={task.running || undefined}
             aria-label={fastText === null ? effortText : `${effortText} · ${fastText}`}
-            title={`${fastText === null ? effortText : `${effortText} · ${fastText}`} (Alt T)`}
+            title={withShortcut(fastText === null ? effortText : `${effortText} · ${fastText}`, "Alt T")}
             onMouseDown={keepFocus}
             onClick={cycleThinking}
           >

@@ -116,6 +116,7 @@ export const settings = {
   "about.installFailed": "安装更新失败：{message}",
   "about.disabled.notPackaged": "开发版和免安装版不检查更新",
   "about.disabled.noFeed": "这个版本没有配置更新源",
+  "about.disabled.manualOnly": "mac 版暂不支持自动更新，请手动下载新版本",
   "about.troubleshoot": "问题排查",
   "about.omp": "omp",
   "about.logs.desc": "按天记录，保留 14 天；路径里的用户名和 key 已脱敏。",

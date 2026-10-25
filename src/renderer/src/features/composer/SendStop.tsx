@@ -2,6 +2,7 @@
 // "插话"（steer，发送键本身的动作）/ "等这一轮结束再发"（follow-up = omp 的 `/queue`）。
 import { useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
+import { localizeKeys } from "../../app/platform-keys.ts";
 import { ArrowUp, ChevronDown } from "../../icons.tsx";
 import { anchorBelow, Menu, type MenuAnchor } from "../../ui/Menu.tsx";
 
@@ -54,7 +55,7 @@ export function SendStop({
       aria-label={t("composer.send")}
       title={
         running
-          ? `${t("composer.send")} · ${t(swapped ? "composer.sendKeysSwapped" : "composer.sendKeys")}`
+          ? `${t("composer.send")} · ${localizeKeys(t(swapped ? "composer.sendKeysSwapped" : "composer.sendKeys"))}`
           : t("composer.send")
       }
       data-testid="send-button"

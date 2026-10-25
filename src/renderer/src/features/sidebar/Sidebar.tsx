@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectId, TaskId, TaskState } from "../../../../shared/ipc.ts";
 import { useShellUi } from "../../app/shell-store.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
+import { shortcutLabel } from "../../app/platform-keys.ts";
 import { selectTask, showView, useAppInfo, useMainView, useSelectedTaskId, useTasksState } from "../../store/index.ts";
 import { Close } from "../../icons.tsx";
 import { Button, IconButton, TextField } from "../../ui/controls.tsx";
@@ -229,7 +230,7 @@ export function Sidebar() {
               </IconButton>
             ) : (
               <span className="ui-affix" aria-hidden="true">
-                Ctrl F
+                {shortcutLabel("Ctrl F")}
               </span>
             )
           }
@@ -262,7 +263,7 @@ export function Sidebar() {
           <PlusIcon />
           <span className="sb-new-label">{t("sidebar.newTask")}</span>
           <span className="sb-new-hint" aria-hidden="true">
-            Ctrl N
+            {shortcutLabel("Ctrl N")}
           </span>
         </button>
 
@@ -275,7 +276,7 @@ export function Sidebar() {
           <FolderPlusIcon />
           <span className="sb-new-label">{t("sidebar.openFolder")}</span>
           <span className="sb-new-hint" aria-hidden="true">
-            Ctrl Shift O
+            {shortcutLabel("Ctrl Shift O")}
           </span>
         </button>
       </div>

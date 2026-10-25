@@ -131,6 +131,11 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
+  // CSS 按平台分支用（顶栏给系统三键让位的位置不同，见 app.css）。AppInfo 载入前按 win32，和 TerminalPanel、platform-keys 一致。
+  const platform = appInfo?.platform ?? "win32";
+  useEffect(() => {
+    document.documentElement.dataset["platform"] = platform;
+  }, [platform]);
 
   const sidebarShown = narrow ? shell.drawerOpen : !shell.sidebarCollapsed;
   const drawerScrim = usePresence(narrow && shell.drawerOpen, "fade");

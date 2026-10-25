@@ -29,6 +29,7 @@ import { cwdFromFileUri } from "../../shared/tsp/osc7.ts";
 import type { RunStatusMessage } from "../../shared/tsp/run-status.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 import { log } from "../log/log.ts";
+import { killPosixProcessTree } from "../platform/posix/process-tree.ts";
 import { assignToOwnJob } from "../platform/win32/job-object.ts";
 import { withPtyLock } from "../platform/pty-lock.ts";
 import { TspStreamParser, type TspStreamEvent } from "./stream.ts";
@@ -94,9 +95,9 @@ async function spawnNodePty(launch: TspPtyLaunch, size: { cols: number; rows: nu
   });
 }
 
-/** Windows：结束进程和它的所有后代（node-pty 的 kill 只关 omp 本身）。用绝对路径：不带路径时 Windows 会先在当前目录里找。 */
+/** 结束进程和它的所有后代（node-pty 的 kill 只关 omp 本身）。Windows 用 taskkill（绝对路径：不带路径时 Windows 会先在当前目录里找），其他平台见 posix/process-tree.ts。 */
 export function killProcessTree(pid: number): Promise<void> {
-  if (process.platform !== "win32") return Promise.resolve();
+  if (process.platform !== "win32") return killPosixProcessTree(pid);
   const killer = path.join(process.env["SystemRoot"] ?? "C:\\Windows", "System32", "taskkill.exe");
   const done = Promise.withResolvers<void>();
   // 进程已经自己退出时命令会失败，忽略即可。
@@ -329,8 +330,8 @@ export class TspSession {
       const pid = this.#pty.pid;
       await this.#killTree(pid);
       const deadline = Date.now() + timeoutMs;
-      // 非 Windows 的 killTree 什么也不做，进程只会被下面的 pty.kill() 结束，不用等。
-      const grace = process.platform === "win32" ? Math.min(KILL_GRACE_MS, timeoutMs) : 0;
+      // 所有平台都在 killTree 之后等退出事件，再决定要不要 pty.kill()。
+      const grace = Math.min(KILL_GRACE_MS, timeoutMs);
       if (await this.#exitedWithin(grace)) return;
       try {
         this.#pty.kill();

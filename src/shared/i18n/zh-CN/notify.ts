@@ -14,4 +14,6 @@ export const notify = {
   "tray.task.waiting": "等你确认 · {title}",
   "tray.stillRunning.title": "omp-studio 仍在托盘运行",
   "tray.stillRunning.body": "关闭窗口不会中止任务。要退出，请右键托盘图标，选择“退出”。",
+  "tray.stillRunning.titleMac": "omp-studio 仍在菜单栏运行",
+  "tray.stillRunning.bodyMac": "关闭窗口不会中止任务。要退出，请按 ⌘Q，或点菜单栏图标选择“退出”。",
 } satisfies Record<string, MessageEntry>;

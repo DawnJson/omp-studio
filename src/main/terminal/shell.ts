@@ -19,7 +19,7 @@ export interface ShellProbe {
 
 /**
  * Windows：PATH 上有 pwsh.exe 用它（PowerShell 7），否则 powershell.exe（系统自带 5.1，不在 PATH 时用 System32 里的）。
- * 其他平台：$SHELL，没有就 /bin/bash。
+ * 其他平台：$SHELL（没有就 /bin/bash），带 `-l` 作登录 shell。
  */
 export function resolveShell(probe: ShellProbe): ShellChoice {
   if (probe.platform === "win32") {
@@ -35,7 +35,8 @@ export function resolveShell(probe: ShellProbe): ShellChoice {
     return { file: probe.which("powershell.exe") ?? system, args: ["-NoLogo"], name: "powershell.exe" };
   }
   const file = probe.env["SHELL"] || "/bin/bash";
-  return { file, args: [], name: path.posix.basename(file) };
+  // -l：登录 shell，读 ~/.zprofile / ~/.bash_profile，brew、bun、~/.local/bin 才在 PATH 里（和 Terminal.app 开的终端一致）。
+  return { file, args: ["-l"], name: path.posix.basename(file) };
 }
 
 /**

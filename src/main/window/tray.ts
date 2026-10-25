@@ -14,11 +14,13 @@ let tray: Tray | null = null;
 let tasks: readonly TaskState[] = [];
 let lastSignature = "";
 
-/** 图标：打包后在 resources 目录（extraResources），开发和 e2e 时在仓库的 resources/。 */
+/**
+ * 图标：打包后在 resources 目录（extraResources），开发和 e2e 时在仓库的 resources/。
+ * mac 用菜单栏模板图 trayTemplate.png（Electron 自动配同目录的 trayTemplate@2x.png；图片由打包切片生成）。
+ */
 function iconPath(): string {
-  return app.isPackaged
-    ? path.join(process.resourcesPath, "tray.png")
-    : path.join(app.getAppPath(), "resources", "tray.png");
+  const name = process.platform === "darwin" ? "trayTemplate.png" : "tray.png";
+  return app.isPackaged ? path.join(process.resourcesPath, name) : path.join(app.getAppPath(), "resources", name);
 }
 
 const actions: TrayActions = {
@@ -53,8 +55,13 @@ export function refreshTray(next: readonly TaskState[]): void {
 /** 创建托盘图标（app ready 之后调用一次）。 */
 export function createTray(): void {
   if (tray) return;
-  tray = new Tray(nativeImage.createFromPath(iconPath()));
+  const image = nativeImage.createFromPath(iconPath());
+  // mac 菜单栏图标是模板图：只看 alpha，系统按浅/深菜单栏自动着色；文件名以 Template 结尾时 Electron 也会自动认，这里显式设一次。
+  if (process.platform === "darwin") image.setTemplateImage(true);
+  tray = new Tray(image);
   tray.setToolTip(t(resolveLocale(), "notify.tray.name"));
+  // mac：设了 setContextMenu 后左键也弹菜单、不再触发 click（推测，未实测），所以菜单第一项"打开 omp-studio"是 mac 上找回窗口的入口；
+  // Windows 左键仍直接打开窗口。
   tray.on("click", actions.open);
   // 右键菜单在显示前重新生成不可行（setContextMenu 才生效），鼠标移上图标时先刷新，覆盖语言切换。
   tray.on("mouse-move", render);

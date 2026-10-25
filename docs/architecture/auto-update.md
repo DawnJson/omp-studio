@@ -75,3 +75,11 @@ idle → checking → up-to-date
 
 - 正式（对外）的更新源地址（单独的公开 releases 仓库 / 对象存储 / 开源后用本仓库；源码仓库私有时 Releases 需要 token，不能写进应用）；定了以后把 `electron-builder.yml` 的 `publish.url` 换成 http(s) 地址。
 - 代码签名、stable/beta 渠道。
+
+## macOS：不自动更新（没有在 mac 上实测）
+
+仓库所有者 2026-10-25 决定：mac 版只出 ad-hoc 签名的包。Squirrel.Mac 要求应用签名，更新包的签名要和已装版本的 designated requirement 匹配；ad-hoc 签名的 DR 是 cdhash，每次构建都变，所以自动更新装不上（据 electron-updater 文档，没有在 mac 上实测）。
+
+- `update/instance.ts` 在 mac 上不解析更新源、不写 `app-update.yml`、不给 `autoUpdater` 任何地址，`UpdateService` 以 `disabled` 状态启动，`disabledReason` 是 `manual-only`，不会联网检查。
+- 设置 → 关于显示 `settings.about.disabled.manualOnly`："mac 版暂不支持自动更新，请手动下载新版本"。关于对话框因为 `phase === "disabled"` 不显示更新行。
+- 要改成自动更新需要 Developer ID 证书和公证、`latest-mac.yml` + zip 的更新源，这些在"待定"里，改签名策略前要先问仓库所有者。

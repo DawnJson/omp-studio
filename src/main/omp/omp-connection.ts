@@ -3,6 +3,7 @@
 // 常驻默认应答：没人认领 extension UI（claimExtensionUi）时，要答复的请求回 cancelled，呈现类写日志。
 import { spawn, execFile, type ChildProcessWithoutNullStreams } from "node:child_process";
 import path from "node:path";
+import { killPosixProcessTree } from "../platform/posix/process-tree.ts";
 import { FrameDecoder, type RawFrame } from "./frame-decoder.ts";
 import { cancelledReply, logPresentationRequest } from "./extension-ui.ts";
 import type {
@@ -133,6 +134,8 @@ export class OmpConnection {
       env: launch.env,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
+      // macOS：自成进程组（pid 即组 id），看门狗和杀进程树才能按组处理孙进程。没有在 mac 上实测（推测）。
+      ...(process.platform === "darwin" && { detached: true }),
     });
 
     const exited = Promise.withResolvers<OmpExit>();
@@ -377,7 +380,7 @@ export class OmpConnection {
         execFile(taskkill, ["/T", "/F", "/PID", String(pid)], { windowsHide: true }, () => done.resolve());
         await done.promise;
       } else {
-        this.#child.kill("SIGKILL");
+        await killPosixProcessTree(pid);
       }
     }
     const timedOut = Promise.withResolvers<"timeout">();

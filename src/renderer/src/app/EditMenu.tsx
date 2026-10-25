@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { EditCommand } from "../../../shared/ipc.ts";
 import { useT } from "../i18n/use-t.ts";
+import { shortcutLabel } from "./platform-keys.ts";
 import { reportError } from "../ui/errors.ts";
 import { Menu, type MenuAnchor, type MenuEntry } from "../ui/Menu.tsx";
 
@@ -47,11 +48,13 @@ export function EditMenu() {
         onSelect: run(command),
       });
       const items: MenuEntry[] = [
-        ...(writable ? [item("undo", t("menu.undo"), "Ctrl Z"), { kind: "separator" as const, id: "s1" }] : []),
-        ...(writable && selected && !secret ? [item("cut", t("menu.cut"), "Ctrl X")] : []),
-        ...(selected && !secret ? [item("copy", t("menu.copy"), "Ctrl C")] : []),
-        ...(writable ? [item("paste", t("menu.paste"), "Ctrl V")] : []),
-        item("selectAll", t("menu.selectAll"), "Ctrl A"),
+        ...(writable
+          ? [item("undo", t("menu.undo"), shortcutLabel("Ctrl Z")), { kind: "separator" as const, id: "s1" }]
+          : []),
+        ...(writable && selected && !secret ? [item("cut", t("menu.cut"), shortcutLabel("Ctrl X"))] : []),
+        ...(selected && !secret ? [item("copy", t("menu.copy"), shortcutLabel("Ctrl C"))] : []),
+        ...(writable ? [item("paste", t("menu.paste"), shortcutLabel("Ctrl V"))] : []),
+        item("selectAll", t("menu.selectAll"), shortcutLabel("Ctrl A")),
       ];
       setMenu({ anchor: { x: event.clientX, y: event.clientY, returnFocus: field }, items });
     };

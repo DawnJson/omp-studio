@@ -1,6 +1,9 @@
-// 全局快捷键（spec §5.1）：Ctrl N / Ctrl Shift N / Ctrl Shift O / Ctrl Shift D / Ctrl Shift E / Ctrl Shift R / K / F / , / B / J / L / 1…9、Ctrl Shift [ ]、F6、Alt+←/→。
-// 窗口内的 keydown 监听，不注册系统级快捷键。输入框里只有带 Ctrl/Alt 修饰的键会走到这里；单独按下/松开修饰键（Alt、Ctrl、Shift）不触发任何动作。
+// 全局快捷键（spec §5.1）：主修饰键 + N / Shift N / Shift O / Shift D / Shift E / Shift R / K / F / , / B / J / L / 1…9、Shift [ ]、F6、后退/前进。
+// 主修饰键 Windows / Linux 是 Ctrl，mac 是 Cmd（platform-keys.ts）；下面注释里的 "Ctrl" 都指它。后退/前进 Windows 是 Alt+←/→，mac 是 Cmd+[ / ]。
+// 窗口内的 keydown 监听，不注册系统级快捷键。输入框里只有带主修饰键/Alt 的键会走到这里；单独按下/松开修饰键（Alt、Ctrl、Shift）不触发任何动作。
 import { useEffect, useRef } from "react";
+import { currentPlatform } from "../store/index.ts";
+import { primaryMod } from "./platform-keys.ts";
 
 export interface ShortcutActions {
   newTask(): void;
@@ -43,11 +46,21 @@ export function useShortcuts(actions: ShortcutActions): void {
       const act = latest.current;
       if (event.defaultPrevented) return;
 
-      if (event.ctrlKey && !event.altKey && !event.metaKey) {
+      if (primaryMod(event) && !event.altKey) {
         // 上/下一个任务按物理键位认：Shift 会把 [ ] 变成 { }，别的布局上字符也不同。
         if (event.shiftKey && (event.code === "BracketLeft" || event.code === "BracketRight")) {
           event.preventDefault();
           act.cycleTask(event.code === "BracketRight" ? 1 : -1);
+          return;
+        }
+        if (
+          !event.shiftKey &&
+          currentPlatform() === "darwin" &&
+          (event.code === "BracketLeft" || event.code === "BracketRight")
+        ) {
+          event.preventDefault();
+          if (event.code === "BracketRight") act.goForward();
+          else act.goBack();
           return;
         }
         const handlers: Record<string, () => void> = event.shiftKey
@@ -81,7 +94,8 @@ export function useShortcuts(actions: ShortcutActions): void {
         act.cycleRegion(event.shiftKey ? -1 : 1);
         return;
       }
-      if (event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+      // 后退/前进：Windows / Linux 是 Alt+←/→（mac 上 Option+←/→ 是按词移动光标，那边改用 Cmd+[ / ]，见上）。
+      if (currentPlatform() !== "darwin" && event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
         if (event.key === "ArrowLeft") {
           event.preventDefault();
           act.goBack();

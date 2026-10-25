@@ -874,8 +874,16 @@ test("搜索来源排成等宽卡片网格(照 Tern):一行三张、域名在标
     const sources = page.locator('[data-testid="tsp-view"] [data-role="omp.tool.source"]');
     await expect(sources).toHaveCount(5, { timeout: 30_000 });
     await sources.nth(0).scrollIntoViewIfNeeded();
-    const box = async (index: number) => (await sources.nth(index).boundingBox())!;
-    const [first, second, third, fourth] = [await box(0), await box(1), await box(2), await box(3)];
+    // 四张卡片在同一帧里量：分开量时 omp 还在追加节点，过程区贴底滚动，前后几次读到的 y 不在同一个滚动位置。
+    type Box = { x: number; y: number; width: number; height: number };
+    const [first, second, third, fourth] = (await sources.evaluateAll((elements) =>
+      elements.slice(0, 4).map((element) => {
+        const rect = (
+          element as unknown as { getBoundingClientRect(): { x: number; y: number; width: number; height: number } }
+        ).getBoundingClientRect();
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+      }),
+    )) as [Box, Box, Box, Box];
     expect(second.y).toBe(first.y);
     expect(third.y).toBe(first.y);
     expect(Math.abs(second.width - first.width)).toBeLessThanOrEqual(1);

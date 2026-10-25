@@ -2,6 +2,7 @@
 // 任务标题右边一个"重开会话"按钮（restart-session.ts）：任务忙时置灰，悬停写明原因。
 import { useState } from "react";
 import { useT } from "../i18n/use-t.ts";
+import { withShortcut } from "./platform-keys.ts";
 import { Restart } from "../icons.tsx";
 import { useMainView, useSelectedTaskId, useTask } from "../store/index.ts";
 import { IconButton } from "../ui/controls.tsx";
@@ -43,7 +44,7 @@ export function TaskCrumb() {
       <IconButton
         className="crumb-restart"
         label={t("task.restart")}
-        tip={blocked === null ? `${t("task.restartTip")} (Ctrl Shift R)` : t(blocked)}
+        tip={blocked === null ? withShortcut(t("task.restartTip"), "Ctrl Shift R") : t(blocked)}
         disabled={blocked !== null || restarting}
         testId="topbar-restart"
         onClick={restart}

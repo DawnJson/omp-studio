@@ -1,11 +1,14 @@
 // 剪贴板的端到端：在输入框里粘贴资源管理器复制的文件 → 插入路径（preload 取路径）；对话里鼠标选中文字 → 自动复制（设置项可关），
-// 输入框里选中不动剪贴板。用 PowerShell 的 Set-Clipboard -LiteralPath 放真实的文件列表（CF_HDROP），和在资源管理器里按 Ctrl+C 一样。
+// 输入框里选中不动剪贴板。Windows 用 PowerShell 的 Set-Clipboard -LiteralPath 放真实的文件列表（CF_HDROP），mac 用 osascript（见 launch.ts 的 copyFilesToClipboard）。
 // 测试会改系统剪贴板，结束时恢复原来的文字内容（文件列表等其它格式恢复不了）。
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { copyFilesToClipboard as copyFiles, launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
+
+// 输入框里的粘贴 / 撤销是系统编辑键：mac 是 Cmd，其他是 Ctrl。mac 分支没有在 mac 上跑过（推测）。
+const mod = process.platform === "darwin" ? "Meta" : "Control";
 
 interface Started {
   launched: LaunchedApp;
@@ -64,7 +67,7 @@ test("粘贴文件：普通文件变成附件卡片和 #N 芯片，文件夹插�
     await copyFiles([spaced, plain]);
     await input.focus();
     await page.keyboard.press("End");
-    await page.keyboard.press("Control+V");
+    await page.keyboard.press(`${mod}+V`);
     // 普通文件是附件：顶部两张文件卡片，文字里是 #1 #2 芯片，路径不进输入框。
     const cards = page.getByTestId("attachment");
     await expect(cards).toHaveCount(2);
@@ -81,10 +84,10 @@ test("粘贴文件：普通文件变成附件卡片和 #N 芯片，文件夹插�
     await copyFiles([work]);
     await input.focus();
     await page.keyboard.press("End");
-    await page.keyboard.press("Control+V");
+    await page.keyboard.press(`${mod}+V`);
     await expect(input).toHaveValue(`看看 "${work}"`);
     await expect(cards).toHaveCount(0);
-    await page.keyboard.press("Control+Z");
+    await page.keyboard.press(`${mod}+Z`);
     await expect(input).toHaveValue("看看 ");
   } finally {
     await cleanup();

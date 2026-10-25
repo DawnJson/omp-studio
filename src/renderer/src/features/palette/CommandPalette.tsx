@@ -1,10 +1,11 @@
-// 命令面板（Ctrl K，spec §4.18）：居中浮层，键盘完整可用。开关在 ui-store（Ctrl K 由外壳监听）。
+// 命令面板（Ctrl K / mac ⌘K，spec §4.18）：居中浮层，键盘完整可用。开关在 ui-store（快捷键由外壳监听）。
 // 焦点：打开时记住 activeElement，关闭后还原；Tab 不动作（焦点只在输入框里）。
 import { reportError } from "../../ui/errors.ts";
 import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import type { SessionSummary } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
+import { primaryMod, shortcutLabel } from "../../app/platform-keys.ts";
 import {
   selectTask,
   setPaletteOpen,
@@ -161,7 +162,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
       if (rows.length > 0) setActive((active + (event.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length);
     } else if (event.key === "Enter") {
       event.preventDefault();
-      if ((event.ctrlKey && trimmed !== "") || noResults) askInNewTask();
+      if ((primaryMod(event) && trimmed !== "") || noResults) askInNewTask();
       else if (rows[active]) run(rows[active]);
     } else if (event.key === "Escape") {
       event.preventDefault();
@@ -235,7 +236,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
                       {(row.kind === "task" || row.kind === "session" || row.kind === "slash") &&
                         row.subtitle !== "" && <span className="pl-row-meta">{row.subtitle}</span>}
                       {row.kind === "command" && row.command.shortcut !== undefined && (
-                        <kbd className="ui-kbd">{row.command.shortcut}</kbd>
+                        <kbd className="ui-kbd">{shortcutLabel(row.command.shortcut)}</kbd>
                       )}
                     </div>
                   );

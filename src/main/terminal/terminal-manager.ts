@@ -36,7 +36,7 @@ export interface TerminalDeps {
   resolveShell(): ShellChoice;
   buildEnv(): Record<string, string>;
   spawn(shell: ShellChoice, options: SpawnOptions): Promise<PtyLike>;
-  /** 结束 pid 和它的所有后代（Windows 的 taskkill /T；其他平台靠 pty.kill 的 SIGHUP，什么也不做）。 */
+  /** 结束 pid 和它的所有后代（Windows 的 taskkill /T；其他平台见 platform/posix/process-tree.ts）。 */
   killTree(pid: number): Promise<void>;
   /**
    * 把 shell 放进它自己的 KILL_ON_JOB_CLOSE Job Object（主进程被强杀时由系统回收整棵树），返回释放函数（关句柄）。
@@ -221,8 +221,8 @@ export class TerminalManager {
       } catch (error) {
         this.#deps.onError("terminal: killing the process tree failed", error);
       }
-      // 非 Windows 的 killTree 什么也不做，不用等。
-      if (process.platform === "win32" && !hasExited) {
+      // 所有平台都等退出事件：killTree 之后再 pty.kill()，没退出的（树没杀掉）由 pty.kill() 结束。
+      if (!hasExited) {
         const timer = setTimeout(() => exited.resolve(), KILL_GRACE_MS);
         await exited.promise;
         clearTimeout(timer);

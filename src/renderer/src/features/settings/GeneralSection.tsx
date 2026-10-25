@@ -5,6 +5,7 @@ import { defaultFontSize, fontSizeSteps, type LocalePreference, type ThemePrefer
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { chordKeys } from "../../../../shared/tsp/omp-keybindings.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { shortcutKeys } from "../../app/platform-keys.ts";
 import { useSettings } from "../../store/index.ts";
 import { Badge, Row, SectionHead, Segmented, Switch } from "../../ui/controls.tsx";
 import { Select } from "../../ui/Select.tsx";
@@ -35,7 +36,7 @@ const ompActionLabels: Readonly<Record<string, MessageKey>> = {
   "app.message.dequeue": "shortcut.ompDequeue",
 };
 
-/** 只读的快捷键表（spec §5.1 的主要几条）；键名本身不翻译。 */
+/** 只读的快捷键表（spec §5.1 的主要几条）；键名本身不翻译，"Ctrl" 写的是应用主修饰键，mac 上显示成 ⌘（shortcutKeys）。 */
 const shortcuts: { label: MessageKey; keys: string[] }[] = [
   { label: "shortcut.palette", keys: ["Ctrl", "K"] },
   { label: "shortcut.newTask", keys: ["Ctrl", "N"] },
@@ -192,7 +193,7 @@ export function GeneralSection() {
           {shortcuts.map((shortcut) => (
             <div key={shortcut.label} className="st-kb-row">
               <span>{t(shortcut.label)}</span>
-              {shortcut.keys.map((key) => (
+              {shortcutKeys(shortcut.keys.join(" ")).map((key) => (
                 <kbd key={key} className="kbd">
                   {key}
                 </kbd>

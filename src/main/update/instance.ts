@@ -50,7 +50,7 @@ function configuredSource(): string | null {
 }
 
 export async function startUpdates(): Promise<void> {
-  const source = configuredSource();
+  const source = process.platform === "darwin" ? null : configuredSource();
   let feedUrl = source;
   const dir = source === null ? null : localFeedDir(source);
   if (dir !== null) {
@@ -76,14 +76,16 @@ export async function startUpdates(): Promise<void> {
     autoUpdater.updateConfigPath = written;
   }
 
-  const enabled = feedUrl !== null;
+  // mac：不签名（ad-hoc）的应用 Squirrel.Mac 装不了更新，所以不给 autoUpdater 任何更新源，服务处于 disabled（未在 mac 上实测）。
+  const macManual = process.platform === "darwin";
+  const enabled = feedUrl !== null && !macManual;
 
   // electron-updater 的 AppUpdater 是 EventEmitter 子类；Updater 只描述服务用到的部分，测试用假实现。
   const updater = autoUpdater as unknown as Updater;
   service = new UpdateService({
     currentVersion: app.getVersion(),
     enabled,
-    disabledReason: app.isPackaged ? "no-feed" : "not-packaged",
+    disabledReason: macManual ? "manual-only" : app.isPackaged ? "no-feed" : "not-packaged",
     updater,
     emit: (state) => {
       latest = state;
