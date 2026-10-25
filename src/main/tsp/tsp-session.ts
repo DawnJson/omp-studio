@@ -1,6 +1,6 @@
 // TSP 会话：伪终端里的一个交互式 omp，我们扮演 Tern 终端（docs/architecture/tsp-migration.md）。
 // 职责：起 pty、回 hello 和 DA1、把 o/f/t/x/b 应用到自己的文档（权威副本）、按规范回 ack 和 error 事件、
-// 把应用过的消息按 16ms 合批推给渲染进程、解析 OSC（会话文件、标题、当前目录 OSC 7、程序状态 OSC 7501），以及关进程树。
+// 把应用过的消息合批推给渲染进程（时机见 platform/batch-timer.ts）、解析 OSC（会话文件、标题、当前目录 OSC 7、程序状态 OSC 7501），以及关进程树。
 // node-pty、Job Object、taskkill 都从 options 注入（默认是真实实现），单元测试可以换成假的。
 // 协议细节见 E:/tern-probe/spec/protocol-*.md（Tern SDK 文档 protocol/*）。
 import { createHash } from "node:crypto";
@@ -31,6 +31,7 @@ import { isRecord } from "../../shared/type-guards.ts";
 import { log } from "../log/log.ts";
 import { killPosixProcessTree } from "../platform/posix/process-tree.ts";
 import { assignToOwnJob } from "../platform/win32/job-object.ts";
+import { BatchTimer } from "../platform/batch-timer.ts";
 import { withPtyLock } from "../platform/pty-lock.ts";
 import { TspStreamParser, type TspStreamEvent } from "./stream.ts";
 
@@ -170,7 +171,7 @@ export interface TspSessionOptions {
   appVersion: string;
   /** hello 回复里的外观；之后的变化用 `setAppearance` 发 `theme` / `motion` 事件。 */
   appearance: { dark: boolean; reduceMotion: boolean };
-  /** 一批文档消息（16ms 合批）。 */
+  /** 一批文档消息（合批时机见 platform/batch-timer.ts）。 */
   onBatch(batch: TspSessionBatch): void;
   onExit(exit: TspSessionExit): void;
   /** 文档每次因 o/f/t/x/b 改变之后同步调用；任务状态据此推导。 */
@@ -203,7 +204,7 @@ export class TspSession {
   /** 每条进文档的消息加一；批次和快照用它对齐。 */
   #seq = 0;
   #pending: TspDocMessage[] = [];
-  #flushTimer: NodeJS.Timeout | undefined;
+  readonly #batchTimer = new BatchTimer(BATCH_INTERVAL_MS, () => this.#flush());
   #helloTimer: NodeJS.Timeout | undefined;
   #helloSeen = false;
   #closing = false;
@@ -544,7 +545,7 @@ export class TspSession {
     const result = applyMessage(this.#doc, message);
     this.#seq += 1;
     this.#pending.push(message);
-    this.#scheduleFlush();
+    this.#batchTimer.schedule();
     if (message.verb === "f") {
       const { sf, s } = message.body;
       if (typeof sf === "string" && typeof s === "number") this.#acks.set(sf, Math.max(this.#acks.get(sf) ?? 0, s));
@@ -566,16 +567,12 @@ export class TspSession {
 
   // ───── 批次 ─────
 
-  #scheduleFlush(): void {
-    this.#flushTimer ??= setTimeout(() => this.#flush(), BATCH_INTERVAL_MS);
-  }
-
   #flush(): void {
-    clearTimeout(this.#flushTimer);
-    this.#flushTimer = undefined;
+    this.#batchTimer.cancel();
     if (this.#pending.length === 0) return;
     const messages = this.#pending;
     this.#pending = [];
+    this.#batchTimer.sent();
     this.#options.onBatch({ firstSeq: this.#seq - messages.length + 1, messages });
   }
 

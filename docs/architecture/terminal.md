@@ -13,7 +13,7 @@ shell 起来后到第一个输出字节之间（pwsh 加载 profile 要 3–5 �
 | 位置 | 做什么 |
 |---|---|
 | `src/main/terminal/terminal-manager.ts` | 按终端键（TaskId 或草稿键 `new:<projectId\|chats>`）管 pty：打开/复用、写、改尺寸、交接（rekey）、结束。不 import electron 和 node-pty，外部能力从 deps 进来（单测用假 pty） |
-| `src/main/terminal/output-batcher.ts` | 输出合并：攒 16ms 或 64KB 发一次 |
+| `src/main/terminal/output-batcher.ts` | 输出合并：空闲后第一批下一轮事件循环就发，之后按 16ms 限速，攒够 64KB 立刻发（时机见 `src/main/platform/batch-timer.ts`） |
 | `src/main/terminal/backlog.ts` | 最近 256KB 的回放缓冲 |
 | `src/main/terminal/shell.ts` | 选 shell、拼环境变量（纯函数） |
 | `src/main/terminal/input.ts` | IPC 参数校验（纯函数） |
@@ -87,11 +87,11 @@ IPC（`src/shared/ipc.ts`）：
 
 ## 数据通路
 
-pty `data` → 写进 backlog（立即）+ 进 `OutputBatcher`（16ms 或攒够 64KB 发一次 `terminalData`）→ 渲染进程 `term.write`。输入反向：`term.onData` → `writeTerminal`（IPC 先进先出，主进程按到达顺序写 pty）。尺寸：`FitAddon` 在面板 `ResizeObserver` 触发时 `fit()`，`term.onResize` 防抖 40ms 后发 `resizeTerminal`（ConPTY 每次 resize 都重排，拖动时合并成最后一次）。
+pty `data` → 写进 backlog（立即）+ 进 `OutputBatcher`（空闲后第一批下一轮事件循环就发，连续输出时距上一批满 16ms 再发，攒够 64KB 立刻发 `terminalData`）→ 渲染进程 `term.write`。输入反向：`term.onData` → `writeTerminal`（IPC 先进先出，主进程按到达顺序写 pty）。尺寸：`FitAddon` 在面板 `ResizeObserver` 触发时 `fit()`，`term.onResize` 防抖 40ms 后发 `resizeTerminal`（ConPTY 每次 resize 都重排，拖动时合并成最后一次）。
 
 backlog 只留最近 256KB（`Backlog`）：超过上限 2 倍才裁剪，读取时收紧到上限，裁剪点后移到下一个换行开头（避免把转义序列从中间切开后在屏幕上留下乱码），没有换行时不切开代理对。代价：回放从行首开始，被裁掉部分里设置的颜色等状态不会带到回放里。
 
-没有背压：输出特别大时（`cat` 大文件）主进程仍按 16ms 批次推送，渲染进程的 xterm 自己排队。**推测**：极端情况下内存会涨；v1 不处理。
+没有背压：输出特别大时（`cat` 大文件）主进程仍按 16ms 一批推送，渲染进程的 xterm 自己排队。**推测**：极端情况下内存会涨；v1 不处理。
 
 ## 渲染进程
 

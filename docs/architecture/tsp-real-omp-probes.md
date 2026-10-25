@@ -130,7 +130,7 @@
 
 ## 19. 工具结果哪些是流式的（实测 omp 18.12.6，2026-10-23，`deepseek/deepseek-v4-flash`，Tern 0.9.5 和 studio v0.4.2 各跑一遍，`PI_TUI_TSP_RECORD` 录制）
 
-omp 给 Tern 和 studio 发的帧一样（bash 输出两边都是 23 次 `text append`）；studio 的 DOM 在每帧后 13–77 ms 内跟上（50 ms 采样），没有找到延后或攒批的地方（主进程只攒 16 ms，`tsp-session.ts` 的 `BATCH_INTERVAL_MS`）。
+omp 给 Tern 和 studio 发的帧一样（bash 输出两边都是 23 次 `text append`）；studio 的 DOM 在每帧后 13–77 ms 内跟上（50 ms 采样），没有找到延后或攒批的地方（当时主进程按 `setTimeout(16)` 攒批，实际约 31ms；2026-10-25 起空闲后的第一批不再等，见 `tsp-migration.md` §7"批次"）。
 
 - 流式：模型调用的 bash（`omp.tool.bash.output` 逐行 `text append`）、eval（每次输出一条 append）、write（`code` 节点约 250 字一次 append，头上 `meta` 的行数跟着变）、edit（`hunks` 整块 `set`，小改动 0.6 秒内）、思考和回答正文（md `text append`，结束时 `stream:null`）、task 的参数。
 - 一次给全：web_search（pending 之后一帧带上回答和来源）、read 的结果、用户在输入框打的 `!命令`（`omp.bash`，结束时一帧带全部输出）、子代理运行期间（task / wait 卡片只有计时在走）。这些在 Tern 里也是一下子出来。

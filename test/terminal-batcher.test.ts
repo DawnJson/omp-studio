@@ -1,62 +1,98 @@
 import { describe, expect, it } from "vitest";
-import { OutputBatcher, type BatcherTimers } from "../src/main/terminal/output-batcher.ts";
+import { OutputBatcher } from "../src/main/terminal/output-batcher.ts";
+import type { BatchClock } from "../src/main/platform/batch-timer.ts";
 import { Backlog } from "../src/main/terminal/backlog.ts";
 
-function fakeTimers() {
-  const pending = new Map<number, () => void>();
+function fakeClock() {
   let next = 1;
-  const timers: BatcherTimers = {
-    setTimeout(callback) {
-      pending.set(next, callback);
+  const state = { now: 1000 };
+  const immediates = new Map<number, () => void>();
+  const timeouts = new Map<number, { callback: () => void; ms: number }>();
+  const clock: BatchClock = {
+    now: () => state.now,
+    setImmediate(callback) {
+      immediates.set(next, callback);
+      return next++;
+    },
+    clearImmediate(handle) {
+      immediates.delete(handle as number);
+    },
+    setTimeout(callback, ms) {
+      timeouts.set(next, { callback, ms });
       return next++;
     },
     clearTimeout(handle) {
-      pending.delete(handle as number);
+      timeouts.delete(handle as number);
     },
   };
+  const run = <T>(map: Map<number, T>, call: (entry: T) => void) => {
+    for (const [id, entry] of map) {
+      map.delete(id);
+      call(entry);
+    }
+  };
   return {
-    timers,
-    pending,
-    fire() {
-      for (const [id, callback] of pending) {
-        pending.delete(id);
-        callback();
-      }
-    },
+    clock,
+    state,
+    immediates,
+    timeouts,
+    runImmediates: () => run(immediates, (callback) => callback()),
+    runTimeouts: () => run(timeouts, ({ callback }) => callback()),
   };
 }
 
 describe("OutputBatcher", () => {
-  it("到点把攒的内容合成一次发出", () => {
-    const { timers, fire, pending } = fakeTimers();
+  it("空闲后的第一批下一轮事件循环就发，不等间隔；同一轮推进来的合成一次", () => {
+    const fake = fakeClock();
     const out: string[] = [];
-    const batcher = new OutputBatcher((data) => out.push(data), { intervalMs: 16, maxChars: 100 }, timers);
+    const batcher = new OutputBatcher((data) => out.push(data), { intervalMs: 16, maxChars: 100 }, fake.clock);
     batcher.push("a");
     batcher.push("b");
     batcher.push("c");
     expect(out).toEqual([]);
-    expect(pending.size).toBe(1);
-    fire();
+    expect(fake.timeouts.size).toBe(0);
+    fake.runImmediates();
     expect(out).toEqual(["abc"]);
-    expect(pending.size).toBe(0);
+    expect(fake.immediates.size).toBe(0);
   });
 
-  it("攒够 maxChars 立刻发，并取消定时器", () => {
-    const { timers, pending } = fakeTimers();
+  it("刚发过一批：再来的内容等到上次发出后满间隔才发；间隔过了又是下一轮就发", () => {
+    const fake = fakeClock();
     const out: string[] = [];
-    const batcher = new OutputBatcher((data) => out.push(data), { intervalMs: 16, maxChars: 5 }, timers);
+    const batcher = new OutputBatcher((data) => out.push(data), { intervalMs: 16, maxChars: 100 }, fake.clock);
+    batcher.push("a");
+    fake.runImmediates();
+    fake.state.now += 5;
+    batcher.push("b");
+    batcher.push("c");
+    expect(fake.immediates.size).toBe(0);
+    expect([...fake.timeouts.values()].map((entry) => entry.ms)).toEqual([11]);
+    fake.state.now += 11;
+    fake.runTimeouts();
+    expect(out).toEqual(["a", "bc"]);
+    fake.state.now += 40;
+    batcher.push("d");
+    expect(fake.timeouts.size).toBe(0);
+    fake.runImmediates();
+    expect(out).toEqual(["a", "bc", "d"]);
+  });
+
+  it("攒够 maxChars 立刻发，并取消已安排的一次", () => {
+    const fake = fakeClock();
+    const out: string[] = [];
+    const batcher = new OutputBatcher((data) => out.push(data), { intervalMs: 16, maxChars: 5 }, fake.clock);
     batcher.push("ab");
     batcher.push("cde");
     expect(out).toEqual(["abcde"]);
-    expect(pending.size).toBe(0);
+    expect(fake.immediates.size + fake.timeouts.size).toBe(0);
     batcher.push("f");
-    expect(pending.size).toBe(1);
+    expect(fake.timeouts.size).toBe(1);
   });
 
   it("flush 立即发出，没有内容时什么也不发；discard 丢掉未发的", () => {
-    const { timers, fire } = fakeTimers();
+    const fake = fakeClock();
     const out: string[] = [];
-    const batcher = new OutputBatcher((data) => out.push(data), { intervalMs: 16, maxChars: 100 }, timers);
+    const batcher = new OutputBatcher((data) => out.push(data), { intervalMs: 16, maxChars: 100 }, fake.clock);
     batcher.flush();
     expect(out).toEqual([]);
     batcher.push("x");
@@ -64,15 +100,16 @@ describe("OutputBatcher", () => {
     expect(out).toEqual(["x"]);
     batcher.push("y");
     batcher.discard();
-    fire();
+    fake.runImmediates();
+    fake.runTimeouts();
     expect(out).toEqual(["x"]);
   });
 
   it("忽略空串", () => {
-    const { timers, pending } = fakeTimers();
-    const batcher = new OutputBatcher(() => undefined, { intervalMs: 16, maxChars: 100 }, timers);
+    const fake = fakeClock();
+    const batcher = new OutputBatcher(() => undefined, { intervalMs: 16, maxChars: 100 }, fake.clock);
     batcher.push("");
-    expect(pending.size).toBe(0);
+    expect(fake.immediates.size + fake.timeouts.size).toBe(0);
   });
 });
 
