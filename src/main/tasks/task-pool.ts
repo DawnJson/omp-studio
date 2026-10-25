@@ -640,11 +640,12 @@ export class TaskPool {
     }
   }
 
-  /** 关所有子进程：并行 close，超时按进程树结束。before-quit 调用。 */
+  /** 关所有子进程：并行 close，超时按进程树结束；最后等任务记录写完盘（`/move` 之类改动是不等写盘就发出的）。before-quit 调用。 */
   async shutdown(): Promise<void> {
     this.#shuttingDown = true;
     clearInterval(this.#sweepTimer);
     await Promise.all([...this.#runners.values()].map((runner) => runner.close(SHUTDOWN_CLOSE_TIMEOUT_MS)));
     for (const runner of this.#runners.values()) await runner.dispose();
+    await this.#deps.registry.flushed();
   }
 }

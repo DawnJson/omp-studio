@@ -91,6 +91,11 @@ export class TaskRegistry {
     return run;
   }
 
+  /** 已经发起的写入全部写完（成败都算）后 resolve；退出前等它，免得最后一次改动没落盘。 */
+  flushed(): Promise<void> {
+    return this.#writing;
+  }
+
   listProjects(): Project[] {
     return this.#data.projects;
   }
