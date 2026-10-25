@@ -45,7 +45,7 @@ xattr -cr /Applications/omp-studio.app
 
 ## CI（`.github/workflows/mac.yml`）
 
-手动触发（`gh workflow run mac.yml`）或推 `v*` tag 时，在 `macos-15`（arm64）上依次跑：类型检查、全量单测、构建、一条 e2e 冒烟（`tsp.e2e.ts` 的"完整一轮"：Electron 里经 node-pty 起假 omp、回放录制、发一句 prompt 跑完一整轮）、`electron-builder --mac --arm64` 打 ad-hoc 签名的 dmg + zip、检查产物，dmg / zip 作为构建产物保留 14 天。私有仓库的 macOS 分钟按 10 倍计，所以不在每次推送时跑。
+手动触发（`gh workflow run mac.yml`）或推 `v*` tag 时，在 `macos-15`（arm64）上依次跑：类型检查、全量单测、构建、一条 e2e 冒烟（`tsp.e2e.ts` 的"完整一轮"：Electron 里经 node-pty 起假 omp、回放录制、发一句 prompt 跑完一整轮）、`electron-builder --mac --arm64` 打 ad-hoc 签名的 dmg + zip、检查产物，dmg / zip 作为构建产物保留 14 天。推 tag 时还用 `scripts/publish-release.ts` 把 dmg / zip 传到这个版本的 GitHub Release（Windows 安装包由本机推 tag 后用同一个脚本传，见 `AGENTS.md` 收尾第 4 步）。私有仓库的 macOS 分钟按 10 倍计，所以不在每次推送时跑。
 
 2026-10-25 第一次跑通（run 40148794986，约 1 分 35 秒，产物 271 MiB）。由此确认：
 

@@ -73,7 +73,7 @@ idle → checking → up-to-date
 
 ## 待定
 
-- 正式（对外）的更新源地址（单独的公开 releases 仓库 / 对象存储 / 开源后用本仓库；源码仓库私有时 Releases 需要 token，不能写进应用）；定了以后把 `electron-builder.yml` 的 `publish.url` 换成 http(s) 地址。
+- 正式（对外）的更新源地址（单独的公开 releases 仓库 / 对象存储 / 开源后用本仓库；源码仓库私有时 Releases 需要 token，不能写进应用）；定了以后把 `electron-builder.yml` 的 `publish.url` 换成 http(s) 地址。现在每个版本的安装包也传到本仓库的 GitHub Releases（2026-10-25 起，`scripts/publish-release.ts`），只供协作者手动下载，应用不从那里检查更新。
 - 代码签名、stable/beta 渠道。
 
 ## macOS：不自动更新（没有在 mac 上实测）
