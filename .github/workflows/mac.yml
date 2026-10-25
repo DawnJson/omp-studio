@@ -1,0 +1,70 @@
+# mac 版（Apple 芯片）：在 GitHub 的 macOS 机器上跑单测、一条真正发 prompt 的 e2e，打 ad-hoc 签名的 dmg / zip 作为构建产物。
+# 没有 Apple Developer 账号：不公证、不发布、不写更新源（docs/architecture/mac.md）。
+# 只在手动触发或推送版本 tag 时跑：私有仓库的 macOS 分钟按 10 倍计。
+name: mac
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 单测
+        run: npx vitest run
+
+      - name: 构建
+        run: npm run build
+
+      # 真实的 node-pty + TSP 路径：假 omp 回放录制，发一句 prompt 跑完一整轮（不需要真模型）。
+      - name: e2e 冒烟
+        run: npx playwright test test/e2e/tsp.e2e.ts -g "完整一轮"
+
+      - name: 打包（ad-hoc 签名）
+        run: npx electron-builder --mac --arm64 --publish never
+
+      # 包里该有的东西：node-pty 的 darwin-arm64 预编译件、spawn-helper 带执行位、签名有效。
+      - name: 检查产物
+        run: |
+          app="release/mac-arm64/omp-studio.app"
+          prebuilds="$app/Contents/Resources/app.asar.unpacked/node_modules/node-pty/prebuilds"
+          ls -l "$prebuilds"
+          test -f "$prebuilds/darwin-arm64/pty.node"
+          test -x "$prebuilds/darwin-arm64/spawn-helper"
+          test ! -e "$prebuilds/win32-x64"
+          codesign --verify --deep --strict "$app"
+          codesign -dv "$app" 2>&1 | grep -E "Signature|Identifier"
+          plutil -p "$app/Contents/Info.plist" | grep -E "CFBundleName|CFBundleShortVersionString"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omp-studio-mac-arm64
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            release/*.dmg
+            release/*.zip
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/
