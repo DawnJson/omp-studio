@@ -10,6 +10,8 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+## [0.4.24] - 2026-10-25
+
 ### 新增
 
 - 内置 magpie 插件：设置 → Provider 与订阅里可以登录自己的 Qoder / Qoder CN / WorkBuddy / WorkBuddy AI 账号（浏览器里授权一次），套餐里的模型随后出现在模型选择器里，任务直接用。登录和退出都在同一个对话框里，凭据存在 omp 自己的凭据库里。账号风控风险由账号本身承担；这些 provider 只在 omp-studio 里生效。
