@@ -127,15 +127,15 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     const fallback = page.getByTestId("setting-chain-smol-0");
     await expect(fallback).toHaveText("role-local/role-two");
 
-    // 备用模型也能选思考强度（role-two 支持思考）：默认沿用当前；选"高"写成 `provider/模型:high`，模型下拉仍只写模型，档位下拉显示高；
+    // 备用模型也能选思考强度（role-two 支持思考）：默认沿用当前；选 High 写成 `provider/模型:high`，模型下拉仍只写模型，档位下拉显示 High（中文界面也写英文）；
     // 带后缀的也不会再出现在"添加备用…"里。
     const chainLevel = page.getByTestId("setting-chain-smol-thinking-0");
     await expect(chainLevel).toContainText(/沿用当前|Keep current/);
     await chainLevel.click();
-    await page.getByRole("option", { name: /^(高|High)$/ }).click();
+    await page.getByRole("option", { name: /^High$/ }).click();
     await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two:high"] });
     await expect(fallback).toHaveText("role-local/role-two");
-    await expect(chainLevel).toContainText(/高|High/);
+    await expect(chainLevel).toContainText("High");
     await page.getByTestId("setting-chain-smol-add").click();
     await page.getByTestId("setting-chain-smol-add-search").fill("role");
     await expect(page.getByRole("option", { name: "role-two" })).toHaveCount(0);
@@ -193,11 +193,11 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await expect(smol).toHaveText("role-local/role-one");
     await expect(smolLevel).toBeEnabled();
     await smolLevel.click();
-    await page.getByRole("option", { name: /^(高|High)$/ }).click();
+    await page.getByRole("option", { name: /^High$/ }).click();
     await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-one:high");
     // 带档位的值照样匹配上目录里的模型：触发器仍是同一种写法（不再退成原文 "…:high"），档位单独显示。
     await expect(smol).toHaveText("role-local/role-one");
-    await expect(smolLevel).toContainText(/高|High/);
+    await expect(smolLevel).toContainText("High");
     // 只换模型：档位在新模型也支持就保留；换成不支持思考的模型就去掉，档位控件禁用。
     await smol.click();
     await page.getByRole("option", { name: "role-two" }).click();
@@ -215,9 +215,9 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await expect(smolLevel).toBeEnabled();
     await expect(smolLevel).toContainText(/跟随默认|Default/);
     await smolLevel.click();
-    await page.getByRole("option", { name: /^(极低|Minimal)$/ }).click();
+    await page.getByRole("option", { name: /^Minimal$/ }).click();
     await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-one:minimal");
-    await expect(smolLevel).toContainText(/极低|Minimal/);
+    await expect(smolLevel).toContainText("Minimal");
     await smolLevel.click();
     await page.getByRole("option", { name: /^(跟随默认|Default)$/ }).click();
     await expect.poll(async () => (await roles(page))["smol"], { timeout: 30_000 }).toBe("role-local/role-one");
@@ -350,26 +350,26 @@ test("备用模型链的结构化编辑器：带后缀的值显示档位，改�
       .click({ timeout: 30_000 });
     const editor = page.getByTestId("chains-editor");
     await expect(editor).toBeVisible({ timeout: 30_000 });
-    // 模型下拉显示不带后缀的选择器，档位下拉显示高。
+    // 模型下拉显示不带后缀的选择器，档位下拉显示 High。
     const level = page.getByTestId("chain-level-smol-0");
-    await expect(level).toContainText(/高|High/, { timeout: 30_000 });
+    await expect(level).toContainText("High", { timeout: 30_000 });
     await expect(editor.getByRole("combobox").first()).toContainText("role-two");
     await expect(editor.getByRole("combobox").first()).not.toContainText(":high");
     // 改档位：只换后缀。
     await level.click();
-    await page.getByRole("option", { name: /^(极低|Minimal)$/ }).click();
+    await page.getByRole("option", { name: /^Minimal$/ }).click();
     await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two:minimal"] });
     // 换成不支持思考的 role-three：后缀去掉，档位下拉不画（占位空着）。
     await editor.getByRole("combobox").first().click();
     await page.getByRole("option", { name: "role-three" }).click();
     await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-three"] });
     await expect(page.getByTestId("chain-level-smol-0")).toHaveCount(0);
-    // 换回 role-two：档位又能选；选"中"。
+    // 换回 role-two：档位又能选；选 Medium。
     await editor.getByRole("combobox").first().click();
     await page.getByRole("option", { name: "role-two" }).click();
     await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two"] });
     await page.getByTestId("chain-level-smol-0").click();
-    await page.getByRole("option", { name: /^(中|Medium)$/ }).click();
+    await page.getByRole("option", { name: /^Medium$/ }).click();
     await expect.poll(() => chains(page), { timeout: 30_000 }).toEqual({ smol: ["role-local/role-two:medium"] });
     for (const locale of ["en", "zh-CN"] as const) {
       await setLocaleTheme(page, locale, "light");

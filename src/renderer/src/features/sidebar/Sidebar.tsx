@@ -138,6 +138,19 @@ export function Sidebar() {
   // 搜索时忽略折叠，匹配的行都要看得见；否则用户点过的优先，没点过的看有没有选中/在跑/等你确认的任务。
   const isOpen = (folder: SidebarFolder) =>
     searching || (openOverride[folder.key] ?? defaultOpen(folder, selectedTaskId));
+  // 因为选中 / 在跑 / 等你确认而展开的文件夹记成"展开"：任务跑完、换了选中项都不再自己收起，只有用户点了才折叠。
+  const autoOpened = folders
+    .filter((folder) => openOverride[folder.key] === undefined && defaultOpen(folder, selectedTaskId))
+    .map((folder) => folder.key)
+    .join("\n");
+  useEffect(() => {
+    if (autoOpened === "") return;
+    setOpenOverride((current) => {
+      const next = { ...current };
+      for (const key of autoOpened.split("\n")) next[key] ??= true;
+      return next;
+    });
+  }, [autoOpened]);
 
   const { menu, openTaskMenu, openProjectMenu } = useSidebarMenus({
     t,

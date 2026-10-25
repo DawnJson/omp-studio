@@ -12,9 +12,9 @@ describe("omp 枚举设置的可选值文案", () => {
     }
   });
 
-  it("思考强度档位和 thinking 命名空间同源", () => {
-    expect(enumLabel("zh-CN", "defaultThinkingLevel", "high")).toBe("高");
-    expect(enumLabel("zh-CN", "task.maxEffort", "xhigh")).toBe("超高");
+  it("思考强度档位和 thinking 命名空间同源，中文界面也写英文", () => {
+    expect(enumLabel("zh-CN", "defaultThinkingLevel", "high")).toBe("High");
+    expect(enumLabel("zh-CN", "task.maxEffort", "xhigh")).toBe("X-High");
     expect(enumLabel("zh-CN", "defaultThinkingLevel", "auto")).toBe("自动");
   });
 

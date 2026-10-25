@@ -1,5 +1,5 @@
 // 工具行里发送键左边的本会话费用（omp 状态栏的 cost 段）：get_session_stats 的 cost，按模型目录价格估算，
-// 订阅登录的模型也照样累计（等价 API 价格），并像 omp 一样在后面标 "(sub)"。子代理的花费照 omp 写在括号里 "(+0.12)"
+// 订阅登录的模型也照样累计（等价 API 价格），并像 omp 一样在后面标 "(sub)"。子代理的花费写在括号里 "(0.12)"
 // （omp 的第一个数不含子代理）。一直显示：新任务草稿、还没有统计时是 $0.00；
 // 悬停给 token 明细，点开是居中的用量对话框（汇总 + 订阅额度 + 每日用量，UsageDialog）；`/usage`、命令面板"用量"打开的也是它（usage-store）。
 import type { TaskState } from "../../../../shared/ipc.ts";
@@ -47,7 +47,7 @@ export function SessionCost({ usage, provider }: { usage: TaskState["sessionUsag
         {subagents > 0 && (
           <span className="session-cost-sub" data-testid="usage-subagents">
             {" "}
-            (+{subagents.toFixed(2)})
+            ({subagents.toFixed(2)})
           </span>
         )}
         {subscription && (

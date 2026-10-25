@@ -867,7 +867,7 @@ test("空闲回顾:omp 发来的回顾用 ※ 斜体画在对话里;第二条来
 
 // omp 的费用段在有子代理花费时写成 "$0.01 (+0.42)"（omp 18.12.6 源码 status-line 的 cost 段；第一个数不含子代理）。
 // 录制里没有花了钱的子代理，所以拿 resume 的实录把费用文字换成这个写法再回放。
-test("费用：omp 费用段括号里的子代理花费照样显示，悬停说明它不算在前面的数里", async () => {
+test("费用：omp 费用段括号里的子代理花费照样显示（不带 +），悬停说明它不算在前面的数里", async () => {
   test.setTimeout(90_000);
   const work = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-cost-"));
   const fixture = path.join(work, "resume-subagents.jsonl");
@@ -882,7 +882,7 @@ test("费用：omp 费用段括号里的子代理花费照样显示，悬停说�
     });
     await openTaskRow(page);
     const cost = page.getByTestId("usage-cost");
-    await expect(cost).toHaveText("$0.01 (+0.42)", { timeout: 20_000 });
+    await expect(cost).toHaveText("$0.01 (0.42)", { timeout: 20_000 });
     await expect(cost).toHaveAttribute("title", /\$0\.42/);
   } finally {
     await cleanup();

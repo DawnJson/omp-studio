@@ -401,3 +401,38 @@ for (const [locale, colorScheme] of [
     }
   });
 }
+
+test("文件夹里等你确认 / 在跑的任务结束后，自动展开的文件夹不自己收起；用户点了才折叠", async () => {
+  const agentDir = await makeAgentDir();
+  const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
+  const { app, page } = launched;
+  try {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await stubMain(app, "zh-CN");
+    await page.reload();
+    // 没有选中任务；api server 因为 Deploy pipeline 在等你确认而默认展开。
+    const apiServer = page.getByTestId("sidebar").getByRole("region", { name: "api server" });
+    const toggle = apiServer.locator(".sb-group-toggle");
+    const deploy = apiServer.getByTestId("task-row").filter({ hasText: "Deploy pipeline" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(deploy.locator(".sb-dot-waiting")).toBeVisible();
+    // 主进程推来：这个任务这一轮结束了（不再等你、也不在跑）。文件夹照旧展开，看得到它变成完成。
+    const finished = {
+      ...tasks.find((task) => task.id === "t8")!,
+      status: "idle",
+      lastTurn: { status: "completed", endedAt: now },
+    };
+    await app.evaluate(({ BrowserWindow }, state) => {
+      BrowserWindow.getAllWindows()[0]?.webContents.send("studio:event:taskState", state);
+    }, finished);
+    await expect(deploy.locator(".sb-dot-done")).toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    // 用户自己点了才折叠。
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(deploy).toHaveCount(0);
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});
