@@ -12,7 +12,7 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ### 新增
 
-- 每个版本的 Windows 安装包和 macOS 的 dmg / zip 都发到 GitHub Releases，协作者可以直接下载。README 改版：图标、截图、下载表、常见问题。
+- 每个版本的 Windows 安装包和 macOS 的 dmg / zip 都发到 GitHub Releases，协作者可以直接下载。README 改版（中英双语）：图标、截图、下载表、常见问题。
 
 ## [0.4.16] - 2026-10-24
 

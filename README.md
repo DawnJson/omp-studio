@@ -2,6 +2,7 @@
   <img src="docs/images/icon.png" width="128" height="128" alt="omp-studio 图标">
   <h1>omp-studio</h1>
   <p><a href="https://github.com/can1357/oh-my-pi">oh-my-pi</a>（omp）的桌面端，运行官方原版 omp，与终端版共用登录、设置和会话。</p>
+  <p><b>简体中文</b> · <a href="README.en.md">English</a></p>
   <p>
     <a href="#下载">下载</a> ·
     <a href="docs/architecture/">文档</a> ·
@@ -91,7 +92,7 @@ omp-studio 启动时在 PATH 上找 omp。由它管理的 omp 每小时检查一
 | 问题 | 解决 |
 | --- | --- |
 | 启动时提示"检测到脚本形式的 omp" | PATH 上第一个 omp 是 npm 等方式生成的 `omp.cmd`，omp-studio 只启动 `.exe`。点"由 omp-studio 管理"，另装的官方版会排到 PATH 最前面，原来那份保留。 |
-| 怎么更新 omp-studio | Windows：设置 → 关于 → 检查更新，下载完点"重启并安装"；显示"这个版本没有配置更新源"时，从 [Releases](https://github.com/DawnJson/omp-studio/releases/latest) 下载新版安装包运行。macOS：从 Releases 下载新版本替换。 |
+| 怎么更新 omp-studio | Windows：启动 10 秒后自动检查一次，之后每小时一次，也可以点 设置 → 关于 → 检查更新；下载完点"重启并安装"；显示"这个版本没有配置更新源"时，从 [Releases](https://github.com/DawnJson/omp-studio/releases/latest) 下载新版安装包运行。macOS：从 Releases 下载新版本替换。 |
 | 怎么报告问题 | 先在 设置 → 关于 → 问题排查 里点"导出诊断信息…"，文件含版本、系统、omp 状态和最近 3 天的日志，用户名、家目录和 key 已去掉。再按 `Ctrl+K` → 关于与反馈 → 报告问题，按模板填写，把文件拖进"诊断信息"框。截图里的模型提供商账户信息先打码。 |
 | 数据存在哪里 | 登录、模型、设置和会话都在 `~/.omp`，与终端版 omp 共用。 |
 
@@ -107,7 +108,7 @@ npm run dist       # Windows NSIS 安装包，输出到 release/
 npm run dist:mac   # macOS arm64 的 dmg 和 zip，输出到 release/
 ```
 
-仓库规则见 [`AGENTS.md`](AGENTS.md)，架构文档在 [`docs/architecture/`](docs/architecture/)，界面规范在 [`docs/design/spec.md`](docs/design/spec.md)，版本变化在 [`CHANGELOG.md`](CHANGELOG.md)。
+架构文档在 [`docs/architecture/`](docs/architecture/)，界面规范在 [`docs/design/spec.md`](docs/design/spec.md)，版本变化在 [`CHANGELOG.md`](CHANGELOG.md)。
 
 ## 致谢
 
