@@ -233,7 +233,8 @@
 | 输入框首次发送 | 不做 FLIP：草稿发出第一句话后输入框留在原位，换成任务的输入框时不放换页入场（`motion.css`） | - |
 | 发送 ↔ 停止 | `border-radius` + 图标交叉淡入 | `--dur-fast` `--ease-spring` |
 | 用户消息出现 | `translateY(var(--travel-md))→0` + opacity | `--dur-base` `--ease-out` |
-| 侧栏折叠/抽屉 | `translateX`；主区宽度**立即变一次**，不逐帧 | `--dur-slow` `--ease-out` |
+| 侧栏折叠/抽屉（`app.css` `.sidebar-column`） | `translateX`；主区宽度**立即变一次**，不逐帧（收起和抽屉时侧栏 `position: absolute` 盖在主区上滑出；2026-10-25 起不再过渡列宽：长对话每帧重排，1100 宽的窗口一次开合排版 60ms 以上） | `--dur-slow` `--ease-out` |
+| 右栏打开（文件面板、子代理面板，`file-preview.css` 的 `panel-in`） | 整块从窗口右边 `translateX` 滑进；主区宽度立即变一次。关闭不放动画 | `--dur-slow` `--ease-out` |
 | 状态点切换 | 旧点缩小淡出 + 新点放大淡入 | `--dur-fast` |
 | 进行中转圈（状态点） | 一段弧旋转，循环 | `--dur-spin` linear，`animation-play-state: var(--play-state)`；减少动效时静止 |
 | 加载环 | 旋转 | `--dur-spin` linear |
@@ -974,7 +975,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 3. 脱离吸底且仍有新内容 → 显示 JumpToLatest（§4.15）。
 4. 用户发送消息 → 强制吸底。
 5. 展开/折叠任意块（过程行、代码块、长用户消息）以被点击元素为锚：它在视口里的位置不变，必要时补偿 `scrollTop`。
-6. 切换任务：各自记住滚动位置和吸底状态。最近看过的 5 个任务的过程区（`TspView`）不卸载，切走时用 React 的 `Activity` 藏起来（effect 和订阅撤掉，DOM 和状态留着；藏着时的更新按低优先级渲染），切回来不用把整段对话重画一遍（`App.tsx` 的 `KEPT_VIEWS`，2026-10-25 起；30 轮的对话约 250ms → 110ms）。因此 DOM 里可能同时有几个 `tsp-view`，按全局选择器找过程区里的元素时要取看得见的那个。
+6. 切换任务：各自记住滚动位置和吸底状态。最近看过的 5 个任务的过程区（`TspView`）不卸载，切走时用 React 的 `Activity` 藏起来（effect 和订阅撤掉，DOM 和状态留着；藏着时的更新按低优先级渲染），切回来不用把整段对话重画一遍（`App.tsx` 的 `KEPT_VIEWS`，2026-10-25 起；30 轮的对话约 250ms → 110ms）。因此 DOM 里可能同时有几个 `tsp-view`，按全局选择器找过程区里的元素时要取看得见的那个。进设置时当前任务的过程区不进 `Activity`，而是“停着”（`TspView` 的 `parked`，`data-parked`：`position: absolute` + `visibility: hidden` + `content-visibility: hidden`）：节点、effect、排版和滚动位置都留着，返回时不用把上万个节点重算样式、重挂 effect（2026-10-25 实测 120 轮、约 2 万个节点的对话，返回那一帧 139ms → 约 50ms）；停着时 omp 的快捷键不转发、⌃O / ⌃⇧C 不生效、omp 弹层不截 Esc、omp 的通知不弹（`TspParkedCtx`）。
 7. 门出现不改变滚动位置。
 8. 性能：离屏的已结束 turn 用 `content-visibility: auto; contain-intrinsic-size: auto 400px`（最近 20 轮不用）；不上虚拟列表。
 

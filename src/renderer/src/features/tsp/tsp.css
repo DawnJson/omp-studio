@@ -75,6 +75,13 @@
   line-height: var(--lh-sm);
   color: var(--text);
 }
+/* 设置页盖着当前任务（TspView 的 parked）：不占位、不画、不可交互，布局和滚动位置留着，返回时不用把整段对话重排 */
+.tsp-view[data-parked] {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  content-visibility: hidden;
+}
 
 .tsp-empty {
   flex: 1 1 auto;

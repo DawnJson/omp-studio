@@ -304,7 +304,6 @@ export function App() {
         <div
           className="sidebar-column"
           data-testid="sidebar-column"
-          data-resizing={shell.sidebarResizing || undefined}
           inert={!sidebarShown}
           style={{ "--sidebar-current": `${shell.sidebarWidth}px` } as CSSProperties}
         >
@@ -314,10 +313,12 @@ export function App() {
         <main className="panel" data-testid="main-panel">
           {!narrow && sidebarShown && <SidebarResizer width={shell.sidebarWidth} />}
           {/* 过程区是 omp 的节点（TspView），输入框是 studio 的 Composer。最近看过的任务的 TspView 都在这里，只有当前任务的显示；
-              进设置、回空状态时也留着。key 带前缀，和下面同一任务 id 的兄弟区分开。 */}
+              进设置、回空状态时也留着。key 带前缀，和下面同一任务 id 的兄弟区分开。
+              进设置时当前任务的过程区不藏进 Activity（parked）：长对话从 display:none 回来要把上万个节点重算样式、重挂所有 effect，
+              返回那一帧卡 100ms 以上。 */}
           {kept.map((id) => (
-            <Activity key={`tsp:${id}`} mode={view === "conversation" && id === taskId ? "visible" : "hidden"}>
-              <TspView taskId={id} />
+            <Activity key={`tsp:${id}`} mode={id === taskId ? "visible" : "hidden"}>
+              <TspView taskId={id} parked={view !== "conversation"} />
             </Activity>
           ))}
           {view === "settings" ? (

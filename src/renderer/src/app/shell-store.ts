@@ -1,4 +1,4 @@
-// 外壳界面状态：侧栏宽度、折叠、终端面板高度、历史会话排列（主进程持久化）和窄窗抽屉是否打开、侧栏是否正在被拖宽（只在内存）。
+// 外壳界面状态：侧栏宽度、折叠、终端面板高度、历史会话排列（主进程持久化）和窄窗抽屉是否打开（只在内存）。
 import { limits, type HistoryOrder, type ShellState } from "../../../shared/ipc.ts";
 import { defaultTerminalHeight } from "../../../shared/ui/terminal-model.ts";
 import { createStore, useStoreValue } from "../store/create-store.ts";
@@ -8,7 +8,6 @@ export const sidebarWidthRange = [200, 360] as const;
 
 interface ShellUiState extends ShellState {
   drawerOpen: boolean;
-  sidebarResizing: boolean;
 }
 
 const shellStore = createStore<ShellUiState>({
@@ -17,7 +16,6 @@ const shellStore = createStore<ShellUiState>({
   terminalHeight: defaultTerminalHeight,
   historyOrder: "folder",
   drawerOpen: false,
-  sidebarResizing: false,
 });
 
 export function startShellStore(): void {
@@ -69,11 +67,6 @@ export function setHistoryOrder(historyOrder: HistoryOrder): void {
 
 export function setDrawerOpen(drawerOpen: boolean): void {
   shellStore.set({ ...shellStore.get(), drawerOpen });
-}
-
-/** 侧栏拖拽条正被按住（只在内存）：侧栏列据此关掉宽度过渡。 */
-export function setSidebarResizing(sidebarResizing: boolean): void {
-  shellStore.set({ ...shellStore.get(), sidebarResizing });
 }
 
 export function useShellUi(): ShellUiState {

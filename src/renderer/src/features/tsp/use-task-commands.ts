@@ -1,4 +1,4 @@
-// 命令面板和快捷键里作用在"当前任务的对话"上的两个命令（TspView 挂载时订阅，同一时刻只有当前任务的 TspView）：
+// 命令面板和快捷键里作用在"当前任务的对话"上的两个命令（当前任务的 TspView 显示着时订阅；设置页盖着它（parked）时不订阅）：
 //   · copyLast（Ctrl Shift C）：复制最后一条回答的 markdown 原文（shared/tsp/last-answer.ts 从节点树取）；
 //   · toggleProcess（Ctrl O）：展开或收起所有工具卡片 = 把 Ctrl+O（`\x0f`）写给 omp。omp 18.12.5 实测：对话里有 bash 工具卡时，
 //     一次 Ctrl+O 把卡片的 `collapsed` 从 true 变成 false，再按一次变回 true；思考块（`omp.thinking`）不受影响。
@@ -17,9 +17,10 @@ import { peekTspDocument } from "./tsp-store.ts";
 /** omp 的 `app.tools.expand`。 */
 const CTRL_O = "\x0f";
 
-export function useTaskCommands(taskId: TaskId): void {
+export function useTaskCommands(taskId: TaskId, parked: boolean): void {
   const t = useT();
   useEffect(() => {
+    if (parked) return undefined;
     const copyLast = (): void => {
       const doc = peekTspDocument(taskId);
       const answer = doc === null ? null : lastAnswerText(doc);
@@ -53,5 +54,5 @@ export function useTaskCommands(taskId: TaskId): void {
       stop();
       window.removeEventListener("keydown", onKey);
     };
-  }, [taskId, t]);
+  }, [taskId, t, parked]);
 }

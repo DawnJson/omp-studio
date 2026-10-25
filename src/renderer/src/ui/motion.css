@@ -98,9 +98,20 @@
   }
 }
 
+/* 右栏（文件面板、子代理面板）打开：整块从窗口右边滑进来；主区宽度立即变一次，不逐帧重排（同侧栏，spec §2.6） */
+@keyframes panel-in {
+  from {
+    transform: translateX(calc(100% + var(--space-2)));
+  }
+}
+
 /* 换页：新挂载的页面根节点淡入上移（从设置返回任务、切任务时的过程区也是）；输入框同属主区一起动，不单独蹦出来 */
 .panel > :is(.empty, .settings, .tsp-view, .composer-stack, .composer) {
   animation: view-in var(--dur-base) var(--ease-out);
+}
+/* 停在设置页底下的过程区不放动画；回到任务时这条不再命中，换页淡入重新播一次 */
+.panel > .tsp-view[data-parked] {
+  animation: none;
 }
 /* 进出设置时侧栏位置换成设置导航 / 换回会话列表：同样淡入 */
 .sidebar-column > :is(.sb, .snav) {

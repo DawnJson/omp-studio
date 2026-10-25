@@ -22,8 +22,10 @@ function targetOf(target: EventTarget | null, view: Element): EscTarget {
   return "other";
 }
 
-export function useForwardOmpKeys(taskId: TaskId): void {
+/** parked（设置页盖着过程区）时不转发：焦点在设置页或 body 上的键不是给 omp 的。 */
+export function useForwardOmpKeys(taskId: TaskId, parked: boolean): void {
   useEffect(() => {
+    if (parked) return undefined;
     // 键位文件可能在终端里改过：挂载时读一次，窗口回到前台时再读。
     void refreshOmpKeybindings();
     const onFocus = (): void => void refreshOmpKeybindings();
@@ -54,5 +56,5 @@ export function useForwardOmpKeys(taskId: TaskId): void {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("focus", onFocus);
     };
-  }, [taskId]);
+  }, [taskId, parked]);
 }

@@ -18,7 +18,7 @@ import { MainFlow } from "./MainFlow.tsx";
 import { StudioHeader } from "../empty/StudioHeader.tsx";
 import { useTask } from "../../store/index.ts";
 import { GoalStrip } from "../goal/GoalStrip.tsx";
-import { TspCtx } from "./tsp-context.ts";
+import { TspCtx, TspParkedCtx } from "./tsp-context.ts";
 import {
   ensureTspDocument,
   useTspHasUserMessage,
@@ -291,15 +291,16 @@ function ScreenSurface({ taskId, sf }: { taskId: TaskId; sf: string }) {
   );
 }
 
-export function TspView({ taskId }: { taskId: TaskId }) {
+/** parked：设置页盖着当前任务（spec §4.19）：节点和 effect 都留着、只停画（content-visibility），键盘和 omp 的弹层、通知不再作用。 */
+export function TspView({ taskId, parked }: { taskId: TaskId; parked: boolean }) {
   const surfaces = useTspSurfaces(taskId);
   const firstPrompt = useFirstPrompt(taskId);
   const task = useTask(taskId);
   const status = task?.status;
   const goal = task?.goal ?? null;
   useEffect(() => ensureTspDocument(taskId), [taskId]);
-  useForwardOmpKeys(taskId);
-  useTaskCommands(taskId);
+  useForwardOmpKeys(taskId, parked);
+  useTaskCommands(taskId, parked);
   // 任务出错 / 退出：首发的文字不再等 omp 回显。
   useEffect(() => {
     if (status === "error" || status === "stopped") clearFirstPrompt(taskId);
@@ -313,21 +314,29 @@ export function TspView({ taskId }: { taskId: TaskId }) {
   const showInline = inline !== undefined || firstPrompt !== undefined;
   const inlineKey = inline === undefined || inline.id === firstInline?.id ? "first" : inline.id;
   return (
-    <div className="tsp-view" data-testid="tsp-view" data-task-id={taskId} data-covered={screen ? "" : undefined}>
-      {/* 目标条（`/goal`）：数据是主进程从输入框卡片上的"Goal …"行和会话文件得到的 TaskState.goal；omp 自己的输入框卡片（含那一行）不画。 */}
-      <GoalStrip key={`goal:${taskId}`} taskId={taskId} goal={goal} />
-      {showInline ? (
-        <InlineSurface
-          key={`${taskId}:${inlineKey}`}
-          taskId={taskId}
-          sf={inline?.id ?? null}
-          pendingText={firstPrompt?.text}
-        />
-      ) : (
-        <div className="tsp-empty" role="status" />
-      )}
-      {screen && <ScreenSurface key={`${taskId}:${screen.id}`} taskId={taskId} sf={screen.id} />}
-      <TspHosts />
+    <div
+      className="tsp-view"
+      data-testid="tsp-view"
+      data-task-id={taskId}
+      data-covered={screen ? "" : undefined}
+      data-parked={parked ? "" : undefined}
+    >
+      <TspParkedCtx.Provider value={parked}>
+        {/* 目标条（`/goal`）：数据是主进程从输入框卡片上的"Goal …"行和会话文件得到的 TaskState.goal；omp 自己的输入框卡片（含那一行）不画。 */}
+        <GoalStrip key={`goal:${taskId}`} taskId={taskId} goal={goal} />
+        {showInline ? (
+          <InlineSurface
+            key={`${taskId}:${inlineKey}`}
+            taskId={taskId}
+            sf={inline?.id ?? null}
+            pendingText={firstPrompt?.text}
+          />
+        ) : (
+          <div className="tsp-empty" role="status" />
+        )}
+        {screen && <ScreenSurface key={`${taskId}:${screen.id}`} taskId={taskId} sf={screen.id} />}
+        <TspHosts />
+      </TspParkedCtx.Provider>
     </div>
   );
 }

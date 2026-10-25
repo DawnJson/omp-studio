@@ -1,12 +1,6 @@
 // 侧栏拖拽条（命中区 4px，贴在主区面板左缘）：拖动改宽度，松手持久化；双击恢复默认；←/→ 微调。
 import { useRef, type KeyboardEvent, type PointerEvent } from "react";
-import {
-  commitSidebarWidth,
-  defaultSidebarWidth,
-  previewSidebarWidth,
-  setSidebarResizing,
-  sidebarWidthRange,
-} from "./shell-store.ts";
+import { commitSidebarWidth, defaultSidebarWidth, previewSidebarWidth, sidebarWidthRange } from "./shell-store.ts";
 
 const keyboardStep = 16;
 
@@ -16,7 +10,6 @@ export function SidebarResizer({ width }: { width: number }) {
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     event.currentTarget.setPointerCapture(event.pointerId);
     drag.current = { startX: event.clientX, startWidth: width };
-    setSidebarResizing(true);
   };
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (drag.current) previewSidebarWidth(drag.current.startWidth + event.clientX - drag.current.startX);
@@ -45,7 +38,6 @@ export function SidebarResizer({ width }: { width: number }) {
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onLostPointerCapture={() => setSidebarResizing(false)}
       onDoubleClick={() => commitSidebarWidth(defaultSidebarWidth)}
       onKeyDown={onKeyDown}
     />

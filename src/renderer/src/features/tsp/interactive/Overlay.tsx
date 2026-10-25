@@ -9,6 +9,7 @@ import type { NodeProps } from "../node-props.ts";
 import { TspSpans } from "../spans.tsx";
 import { TspChildren } from "../TspChildren.tsx";
 import { caretRect, registerCaretOverlay, useCaretVersion } from "./caret-registry.ts";
+import { useTspParked } from "../tsp-context.ts";
 import { shouldSendOverlayEsc, type EscTarget } from "../../../../../shared/tsp/overlay-esc.ts";
 import { plainText } from "./text-model.ts";
 
@@ -48,6 +49,7 @@ export function Overlay(props: NodeProps) {
   const nodeId = typeof anchor === "object" && anchor !== null && "node" in anchor ? anchor.node : null;
   const side = typeof anchor === "object" && anchor !== null && "node" in anchor ? anchor.side : "below";
   const caretVersion = useCaretVersion();
+  const parked = useTspParked();
 
   useEffect(() => (caretId === null ? undefined : registerCaretOverlay(ctx.sf, caretId)), [ctx.sf, caretId]);
 
@@ -96,9 +98,10 @@ export function Overlay(props: NodeProps) {
 
   // Esc 关弹窗：弹窗没有关闭动作，关它就是把 Esc 键交给 omp。键盘焦点多半在 studio 的输入框（不在 tsp-view 里），所以在 window 的捕获阶段截；
   // 先于输入框的 Esc 处理，也先于 Composer 的"Esc 停止任务"（那个看 defaultPrevented）。锚在光标 / 节点上的补全菜单不算弹窗，输入框自己处理。
+  // 设置页盖着过程区（parked）时不截：那时的 Esc 归设置页。
   const dismissable = caretId === null && nodeId === null;
   useEffect(() => {
-    if (!dismissable) return undefined;
+    if (!dismissable || parked) return undefined;
     const onKey = (event: KeyboardEvent): void => {
       const self = root.current;
       const view = self?.closest('[data-testid="tsp-view"]');
@@ -132,7 +135,7 @@ export function Overlay(props: NodeProps) {
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [ctx, dismissable]);
+  }, [ctx, dismissable, parked]);
 
   const roleName =
     typeof p.role === "string" && p.role.startsWith("omp.overlay.") ? p.role.slice("omp.overlay.".length) : null;

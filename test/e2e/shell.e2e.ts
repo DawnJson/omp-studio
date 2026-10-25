@@ -163,7 +163,7 @@ test("侧栏默认 240 宽；磁盘上存着旧默认 264 的按新默认处理�
         await expect(page.getByTestId("app-root")).toHaveAttribute("data-sidebar", "shown");
         const resizer = page.getByTestId("sidebar-resizer");
         await expect(resizer).toBeVisible();
-        // 侧栏列有宽度过渡：等 aria-valuenow 稳定再量。
+        // 侧栏宽度是启动后从主进程异步读进来的：等列宽和 aria-valuenow 一致再比。
         const value = Number(await resizer.getAttribute("aria-valuenow"));
         await expect
           .poll(async () => page.evaluate(`document.querySelector(".sidebar-column").getBoundingClientRect().width`))

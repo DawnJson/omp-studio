@@ -1378,6 +1378,54 @@ test("omp 的快捷键(B18):输入框有焦点时 F5 / ⇧Tab / ⌃P / ⌃⇧P /
   }
 });
 
+test("设置页盖着过程区:omp 的键(F5、⌃O)不写给 omp;返回后过程区原样、滚动位置不变,键照常转发", async () => {
+  test.setTimeout(90_000);
+  const { launched, receivedKeys, cleanup } = await start("cards");
+  try {
+    const { page } = launched;
+    // 宽窗口：设置导航（含左上角返回）在侧栏位置；矮一点，让对话能滚。
+    await page.setViewportSize({ width: 1200, height: 560 });
+    await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
+    await expect(role(page, "omp.editor.ask.approval")).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("composer-input").press("Control+Enter");
+    await expect(role(page, "omp.tool.eval")).toBeVisible({ timeout: 30_000 });
+    const scroller = page.locator('[data-testid="tsp-view"] .tsp-scroller');
+    const scrollTop = () => scroller.evaluate((el) => (el as unknown as { scrollTop: number }).scrollTop);
+    // 用滚轮离开底部（程序设 scrollTop 会被吸底拉回）：返回时不能被拉回最新。
+    await scroller.hover();
+    await page.mouse.wheel(0, -300);
+    await expect.poll(scrollTop).toBeLessThan(
+      await scroller.evaluate((el) => {
+        const box = el as unknown as { scrollHeight: number; clientHeight: number };
+        return box.scrollHeight - box.clientHeight - 100;
+      }),
+    );
+    const top = await scrollTop();
+    const before = (await receivedKeys()).join("");
+
+    await page.keyboard.press("Control+Comma");
+    await expect(page.getByTestId("settings-back")).toBeVisible();
+    await expect(page.getByTestId("tsp-view")).toBeHidden();
+    // 焦点不在任何控件上（body）时，omp 的键原本会转发给当前任务；⌃O 是 studio 的"展开/收起工具卡片"，原本也会写 ⌃O。
+    await page.evaluate(() =>
+      (globalThis as unknown as { document: { activeElement: { blur(): void } } }).document.activeElement.blur(),
+    );
+    await page.keyboard.press("F5");
+    await page.keyboard.press("Control+o");
+
+    await page.getByTestId("settings-back").click();
+    await expect(role(page, "omp.tool.eval")).toBeVisible();
+    expect(await scrollTop()).toBe(top);
+    await page.getByTestId("composer-input").focus();
+    await page.keyboard.press("F5");
+    await expect
+      .poll(async () => JSON.stringify((await receivedKeys()).join("").slice(before.length)))
+      .toBe(JSON.stringify("\x1b[15~"));
+  } finally {
+    await cleanup();
+  }
+});
+
 const GOAL_TEXT = "Run the shell command sleep 20 with the bash tool, then say done and mark the goal complete.";
 
 test("目标条(TSP,omp 18.12.5 录制):/goal 由 studio 接管,目标条读输入框卡片上的 Goal 行;暂停 / 继续 / 放弃发 omp 的 /goal 命令,放弃点掉 omp 的确认选择器", async () => {

@@ -201,32 +201,30 @@ html[data-platform="darwin"] .topbar-left {
   overflow: hidden;
   background: var(--bg-sidebar);
   user-select: none;
+  transition: transform var(--dur-slow) var(--ease-out);
 }
 
+/* 宽窗口收起和窄窗口的抽屉：侧栏移出版面、盖在主区上，只动 transform 滑进滑出；主区宽度立即变一次，不逐帧重排（spec §2.6）。
+ * 以前收起是列宽过渡，主区每帧变宽，长对话每帧重排整段（1100 宽的窗口一次开合排版 60ms+，好几帧超过 24ms）。
+ * 子元素一律写成 .sb / .snav，不写 `> *`：#app 上 data-sidebar 一变，带 `*` 的规则会让整页（含整段对话）重算样式，
+ * 长对话里开合侧栏第一帧卡 40ms 以上 */
+#app[data-sidebar="hidden"] .sidebar-column,
+#app[data-drawer="true"] .sidebar-column {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--z-popover);
+}
 #app[data-sidebar="hidden"] .sidebar-column {
-  width: 0;
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition:
+    transform var(--dur-slow) var(--ease-out),
+    visibility 0s linear var(--dur-slow);
 }
 
-/* 宽窗口收起/展开：列宽短暂过渡；内容保持展开时的宽度被裁切，不跟着挤压重排。拖拽调宽时不过渡，免得跟手有延迟。 */
-#app[data-drawer="false"] .sidebar-column {
-  transition: width var(--dur-base) var(--ease-out);
-}
-#app[data-drawer="false"] .sidebar-column > * {
-  min-width: var(--sidebar-current, var(--sidebar-w));
-}
-#app[data-drawer="false"] .sidebar-column[data-resizing] {
-  transition: none;
-}
-
-/* 侧栏内容在收起时淡出、展开时淡入，和列宽过渡同步 */
-.sidebar-column > * {
-  transition: opacity var(--dur-base) var(--ease-out);
-}
-#app[data-drawer="false"][data-sidebar="hidden"] .sidebar-column > * {
-  opacity: 0;
-}
-
-.sidebar-column > * {
+.sidebar-column > :is(.sb, .snav) {
   width: 100%;
   height: 100%;
 }
@@ -260,28 +258,12 @@ html[data-platform="darwin"] .topbar-left {
   background: var(--border);
 }
 
-/* 窄窗口：侧栏覆盖在主区上，主区宽度不变 */
+/* 窄窗口：抽屉盖在主区上，主区宽度不变。位置和滑动见上面 .sidebar-column 的规则；
+   展开后是 transform: none 而不是 translateX(0)：有 transform 的祖先会成为 fixed 元素的定位框，
+   侧栏里的任务菜单、语言/主题菜单会被错位并被抽屉的 overflow 裁掉。none 照样能从 -100% 过渡过来。 */
 #app[data-drawer="true"] .sidebar-column {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  z-index: var(--z-popover);
   width: var(--sidebar-w);
   box-shadow: var(--shadow-2);
-  transform: translateX(-100%);
-  visibility: hidden;
-  transition:
-    transform var(--dur-slow) var(--ease-out),
-    visibility 0s linear var(--dur-slow);
-}
-
-/* 展开后是 transform: none 而不是 translateX(0)：有 transform 的祖先会成为 fixed 元素的定位框，
-   侧栏里的任务菜单、语言/主题菜单会被错位并被抽屉的 overflow 裁掉。none 照样能从 -100% 过渡过来。 */
-#app[data-drawer="true"][data-sidebar="shown"] .sidebar-column {
-  transform: none;
-  visibility: visible;
-  transition: transform var(--dur-slow) var(--ease-out);
 }
 
 .drawer-scrim {
