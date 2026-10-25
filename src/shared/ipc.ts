@@ -594,12 +594,10 @@ export interface TspTurnFooter {
   cost: number;
 }
 
-/** 从 omp 会话文件和 history.db 补出来的、omp 恢复会话时不重发的内容。 */
+/** 从 omp 会话文件补出来的、omp 恢复会话时不重发的内容。 */
 export interface TspSessionExtras {
   /** 每个用户消息一项，从旧到新；那一轮没结束或没有用量时为 null。 */
   turns: (TspTurnFooter | null)[];
-  /** 这个会话最新的一条空闲回顾（空白折叠、最长 280 字）和它的位置：`afterTurn` = 回顾之前开始的轮数（放在第 afterTurn 轮之后）；没有回顾时为 null。 */
-  recap: { text: string; afterTurn: number } | null;
   /** 最近一条回复的输出速度（token/秒，会话文件里 assistant 消息的 output ÷ (duration − ttft)）；还没有回复时为 null。 */
   tokensPerSecond: number | null;
 }
@@ -996,7 +994,7 @@ export interface StudioInvokeApi {
    * 渲染进程等自己的镜像追上它：IPC 回复可能比之前发出的批次先到，不等就会把 omp 已经关掉的弹窗再画一帧。
    */
   getTspSeq(taskId: TaskId): Promise<number>;
-  /** 用量脚注和空闲回顾（omp 恢复会话时不重发这两样，从会话文件和 history.db 补）；读不到时 `{ turns: [], recap: null }`，不抛错。 */
+  /** 用量脚注（omp 恢复会话时不重发，从会话文件补）和最近一条回复的速度；读不到时 `{ turns: [], tokensPerSecond: null }`，不抛错。 */
   getTspSessionExtras(taskId: TaskId): Promise<TspSessionExtras>;
   /**
    * omp 现算的上下文构成：主进程点 omp 输入框上的上下文 meter，读它弹出的报告再关掉（运行中也能读）。

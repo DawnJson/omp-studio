@@ -4,7 +4,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 import type { TaskId, TspSessionExtras } from "../../../../shared/ipc.ts";
 
-const EMPTY: TspSessionExtras = { turns: [], recap: null, tokensPerSecond: null };
+const EMPTY: TspSessionExtras = { turns: [], tokensPerSecond: null };
 const extras = new Map<TaskId, TspSessionExtras>();
 const requests = new Map<TaskId, number>();
 const listeners = new Map<TaskId, Set<() => void>>();

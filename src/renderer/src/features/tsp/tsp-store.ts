@@ -15,7 +15,6 @@ import {
   type TspDocMessage,
   type TspDocument,
 } from "../../../../shared/tsp/document.ts";
-import { recapBefore } from "../../../../shared/tsp/recap-slot.ts";
 import { trailingErrorCardId } from "../../../../shared/tsp/error-turn.ts";
 import { findGateButton, hasBlockingPanel } from "../../../../shared/tsp/gate.ts";
 import type { StatusNote } from "../../../../shared/tsp/status-notes.ts";
@@ -59,8 +58,6 @@ interface RoleIndex {
   turnCount: number;
   /** 没有用量行的轮的最后一个助手节点 id → 这一轮是第几轮（从 0 数）。 */
   lastAssistantOfBareTurn: Map<string, number>;
-  /** main 的直接子节点里 omp.user 的 id（文档顺序）。 */
-  mainUsers: string[];
   /** 对话末尾的错误卡（见 trailingErrorCardId）；没有为 null。 */
   trailingError: string | null;
 }
@@ -446,7 +443,6 @@ function roleIndex(taskId: TaskId, sf: string): RoleIndex | null {
       byRole,
       turnCount: turns.length,
       lastAssistantOfBareTurn,
-      mainUsers: (nodes?.get("main")?.c ?? NO_IDS).filter((id) => nodes?.get(id)?.p["role"] === USER_ROLE),
       trailingError: nodes === undefined ? null : trailingErrorCardId(nodes),
     };
     roleIndexes.set(cacheKey, cached);
@@ -482,18 +478,6 @@ export function useTspTurnCount(taskId: TaskId, sf: string): number {
 export function useIsLatestRecap(taskId: TaskId, sf: string, id: string): boolean {
   const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
   return useSyncExternalStore(sub, () => roleIds(taskId, sf, RECAP_ROLE).at(-1) === id);
-}
-
-/** main 区里有没有 omp 自己发的空闲回顾（omp.recap）。 */
-export function useTspHasRecap(taskId: TaskId, sf: string): boolean {
-  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
-  return useSyncExternalStore(sub, () => roleIds(taskId, sf, RECAP_ROLE).length > 0);
-}
-
-/** 恢复回顾放在哪个节点之前（`recapBefore`）；还没有该 surface 的文档时 null。 */
-export function useRecapBefore(taskId: TaskId, sf: string, afterTurn: number, fileTurns: number): string | null {
-  const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
-  return useSyncExternalStore(sub, () => recapBefore(roleIndex(taskId, sf)?.mainUsers ?? NO_IDS, afterTurn, fileTurns));
 }
 
 /** main 区里有没有 omp 的用户消息（omp.user）。 */

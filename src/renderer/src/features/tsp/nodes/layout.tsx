@@ -89,7 +89,8 @@ function AssistantCol(props: NodeProps) {
 
 /**
  * 空闲回顾（omp.recap）：omp 终端里是 "※ recap: …"，节点里的图标 `history` 只是 TSP 的占位，tsp.css 里隐藏它、改画 ※。
- * 对话里只显示最新的一条：之后又来了新的回顾，这一条就收起（实时每条回顾 omp 都留在对话里，恢复时一条也不重放）。
+ * 对话里只显示最新的一条：之后又来了新的回顾，这一条就收起（omp 每条都留着）。和 omp 一样只画 omp 发来的：恢复会话时 omp 不重放回顾，
+ * studio 也不补；压缩、恢复这类整段重建对话时 omp 删掉它，这里跟着消失。
  */
 function RecapRow(props: NodeProps) {
   const { taskId, sf } = props.ctx;

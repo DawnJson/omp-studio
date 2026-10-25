@@ -1,8 +1,7 @@
-// 三件 omp 终端里有、TSP 文档里留不住的东西（fixtures/tsp/compact.jsonl、picker.jsonl，omp 18.12.5 实录）：
-// 压缩分隔（section omp.compaction）、状态行（toast omp.toast.status：切模型等）、恢复回顾的位置。
+// 两件 omp 终端里有、TSP 文档里留不住的东西（fixtures/tsp/compact.jsonl、picker.jsonl，omp 18.12.5 实录）：
+// 压缩分隔（section omp.compaction）、状态行（toast omp.toast.status：切模型等）。
 import { describe, expect, it } from "vitest";
 import { applyMessage, createDocument, restoreDocument, snapshotDocument } from "../src/shared/tsp/document.ts";
-import { RECAP_AT_END, recapBefore } from "../src/shared/tsp/recap-slot.ts";
 import { loadTspFixture, tspDocMessages } from "./tsp-fixtures.ts";
 
 function replay(name: string) {
@@ -72,28 +71,5 @@ describe("压缩分隔（omp.compaction）", () => {
     const at = roles?.indexOf("omp.compaction") ?? -1;
     expect(roles?.[at - 1]).toBe("omp.assistant");
     expect(roles?.[at + 1]).toBe("omp.user");
-  });
-});
-
-describe("恢复回顾放在哪个用户消息之前（recapBefore）", () => {
-  const users = ["u1", "u2", "u3"];
-
-  it("文档轮数 = 文件轮数：第 afterTurn 轮之后、下一轮之前；最后一轮之后在末尾", () => {
-    expect(recapBefore(users, 0, 3)).toBe("u1");
-    expect(recapBefore(users, 2, 3)).toBe("u3");
-    expect(recapBefore(users, 3, 3)).toBe(RECAP_AT_END);
-  });
-
-  it("文件落后于刚发的新消息（文档更多）：从头数，新一轮在回顾之后", () => {
-    expect(recapBefore(["u1", "u2", "u3", "u4"], 3, 3)).toBe("u4");
-  });
-
-  it("压缩过（文档只有最后几轮）：从末尾对齐；落在没重发的旧轮里的不画", () => {
-    // 文件 5 轮、文档最后 3 轮（u1=第 3 轮）。回顾在第 4 轮之后 = 文档第 2 轮之后。
-    expect(recapBefore(users, 4, 5)).toBe("u3");
-    expect(recapBefore(users, 5, 5)).toBe(RECAP_AT_END);
-    expect(recapBefore(users, 1, 5)).toBeNull();
-    expect(recapBefore([], 1, 5)).toBeNull();
-    expect(recapBefore(users, 0, 0)).toBeNull();
   });
 });

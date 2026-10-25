@@ -1481,7 +1481,7 @@ export class TspRunner {
 
   // ───── 斜杠命令、快速/慢速模式 ─────
 
-  /** 用量脚注和空闲回顾：omp 恢复会话时不重发，从会话文件和 history.db 补（见 tsp/session-extras.ts）。 */
+  /** 用量脚注：omp 恢复会话时不重发，从会话文件补（见 tsp/session-extras.ts）。 */
   sessionExtras(): Promise<TspSessionExtras> {
     return readSessionExtras(this.#currentSessionFile());
   }

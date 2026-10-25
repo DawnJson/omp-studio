@@ -277,7 +277,7 @@ export class TaskPool {
     return this.#runner(id).tspSeq();
   }
 
-  /** 用量脚注和空闲回顾（omp 恢复会话时不重发）；读不到时为空。 */
+  /** 用量脚注（omp 恢复会话时不重发）和最近一条回复的速度；读不到时为空。 */
   getTspSessionExtras(id: TaskId): Promise<TspSessionExtras> {
     return this.#runner(id).sessionExtras();
   }

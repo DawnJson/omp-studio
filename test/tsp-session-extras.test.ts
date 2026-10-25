@@ -1,19 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  parseSession,
-  readLatestRecap,
-  readSessionExtras,
-  recapDisplayText,
-  turnsBeforeRecap,
-} from "../src/main/tsp/session-extras.ts";
+import { describe, expect, it } from "vitest";
+import { parseSession, readSessionExtras } from "../src/main/tsp/session-extras.ts";
 import { formatDuration, formatTokens, formatTurnFooter } from "../src/renderer/src/features/tsp/turn-footer.ts";
 import { loadTspFixture, tspFixtureDir } from "./tsp-fixtures.ts";
 
-const SESSION_ID = "01a156e2-5573-752f-ae26-c89b4b0fd495";
 const header = JSON.stringify({ type: "session", id: "sess-1", cwd: "E:/x" });
 const user = (timestamp: number, attribution = "user") =>
   JSON.stringify({ type: "message", message: { role: "user", attribution, timestamp, content: "hi" } });
@@ -76,18 +68,15 @@ describe("parseSession（会话文件 → 每轮用量脚注）", () => {
     expect(turns[2]).toEqual({ elapsedMs: 47, input: 7, output: 3, cost: 0.4 });
   });
 
-  it("坏行（含写到一半的最后一行）跳过；读出会话 id 和每一轮开始的时间", () => {
+  it("坏行（含写到一半的最后一行）跳过", () => {
     const text = [header, user(5), assistant("stop", tokens(1, 1, 0), 9, 8), user(20), '{"type":"mess'].join("\n");
     const parsed = parseSession(text);
-    expect(parsed.id).toBe("sess-1");
-    expect(parsed.turnStarts).toEqual([5, 20]);
     expect(parsed.turns).toHaveLength(2);
   });
 
   it("真实录制的会话（fixtures/tsp/resume-session.jsonl，3 个用户消息）", async () => {
     const text = await readFile(path.join(tspFixtureDir, "resume-session.jsonl"), "utf8");
     const parsed = parseSession(text);
-    expect(parsed.id).toBe(SESSION_ID);
     expect(parsed.turns).toEqual([
       { elapsedMs: 11215, input: 1973, output: 886, cost: 0.001909308 },
       { elapsedMs: 47454, input: 1659, output: 1115, cost: 0.002302644 },
@@ -128,8 +117,10 @@ describe("最近一条回复的速度（会话文件 assistant 消息，omp 18.1
     expect(parseSession([user(1), assistant("stop", tokens(1, 5, 0), 10)].join("\n")).tokensPerSecond).toBeNull();
   });
 
-  it("readSessionExtras 没有会话文件时全空", async () => {
-    expect(await readSessionExtras(null)).toEqual({ turns: [], recap: null, tokensPerSecond: null });
+  it("readSessionExtras 没有会话文件、文件读不到时全空", async () => {
+    const none = { turns: [], tokensPerSecond: null };
+    expect(await readSessionExtras(null)).toEqual(none);
+    expect(await readSessionExtras(path.join(os.tmpdir(), "omp-studio 不存在", "missing.jsonl"))).toEqual(none);
   });
 });
 
@@ -223,93 +214,6 @@ describe("每轮用量只有 parseSession 一份：被打断、steer、压缩后
     const text = [user(1000), assistant("stop", tokens(100, 20, 0.0031), 3000)].join("\n");
     const [turn] = parseSession(text).turns;
     expect(formatTurnFooter(turn!).text).toBe("2.0s · 120 tok · <$0.01 this turn");
-  });
-});
-
-describe("空闲回顾（history.db 的 session_recaps）", () => {
-  let dir: string;
-  beforeEach(async () => {
-    dir = await mkdtemp(path.join(os.tmpdir(), "omp recap 测试-"));
-  });
-  afterEach(async () => {
-    await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-  });
-
-  /** 和 omp 18.12.4 的表结构一致（从 omp 二进制里的建表语句抄的）。 */
-  function seed(
-    rows: { sessionId: string; recap: string; createdAt: number }[],
-    file = path.join(dir, "history.db"),
-  ): string {
-    const db = new DatabaseSync(file);
-    db.exec(
-      "CREATE TABLE session_recaps (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, cwd TEXT NOT NULL, recap TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER)))",
-    );
-    const insert = db.prepare(
-      "INSERT INTO session_recaps (session_id, cwd, recap, created_at) VALUES (?, 'E:/x', ?, ?)",
-    );
-    for (const row of rows) insert.run(row.sessionId, row.recap, row.createdAt);
-    db.close();
-    return file;
-  }
-
-  it("取这个会话最新的一条；折叠空白、最多 280 字；时间是 created_at 秒 × 1000", () => {
-    const file = seed([
-      { sessionId: "a", recap: "old", createdAt: 100 },
-      { sessionId: "a", recap: "  新的\n回顾  ", createdAt: 200 },
-      { sessionId: "b", recap: "别的会话", createdAt: 300 },
-    ]);
-    expect(readLatestRecap(file, "a")).toEqual({ text: "新的 回顾", createdAtMs: 200_000 });
-    expect(readLatestRecap(file, "c")).toBeNull();
-    expect(recapDisplayText("x".repeat(400))).toHaveLength(280);
-    expect(recapDisplayText("x".repeat(400)).endsWith("…")).toBe(true);
-  });
-
-  it("回顾放在它之前开始的轮之后（同一秒内开始的轮算在前面）；回顾之后又有新消息不影响", () => {
-    expect(turnsBeforeRecap([1000, 50_000, 300_000], 100_000)).toBe(2);
-    expect(turnsBeforeRecap([1000, 100_999], 100_000)).toBe(2);
-    expect(turnsBeforeRecap([1000, 101_000], 100_000)).toBe(1);
-    expect(turnsBeforeRecap([1000, 2000], 0)).toBe(0);
-    expect(turnsBeforeRecap([1000, 2000], 9_000_000)).toBe(2);
-  });
-
-  it("库不存在、没有 session_recaps 表：null，不抛错", () => {
-    expect(readLatestRecap(path.join(dir, "none.db"), "a")).toBeNull();
-    const file = path.join(dir, "other.db");
-    const db = new DatabaseSync(file);
-    db.exec("CREATE TABLE t (x)");
-    db.close();
-    expect(readLatestRecap(file, "a")).toBeNull();
-  });
-
-  it("readSessionExtras：会话文件 + agent 目录的 history.db（路径带空格和中文）；只取最新一条，位置按轮次", async () => {
-    const agentDir = path.join(dir, "agent 目录");
-    await mkdir(agentDir);
-    const text = await readFile(path.join(tspFixtureDir, "resume-session.jsonl"), "utf8");
-    const starts = parseSession(text).turnStarts;
-    expect(starts).toHaveLength(3);
-    // 旧回顾在第 1 轮之后，最新一条在第 2 轮之后、第 3 轮开始之前：之后还有第 3 轮的消息，照样要补回，且只补这一条。
-    const between = Math.floor(((starts[1] ?? 0) + (starts[2] ?? 0)) / 2 / 1000);
-    const older = Math.floor(((starts[0] ?? 0) + (starts[1] ?? 0)) / 2 / 1000);
-    seed(
-      [
-        { sessionId: SESSION_ID, recap: "更早的回顾", createdAt: older },
-        { sessionId: SESSION_ID, recap: "回顾 text", createdAt: between },
-      ],
-      path.join(agentDir, "history.db"),
-    );
-    const file = path.join(tspFixtureDir, "resume-session.jsonl");
-    const extras = await readSessionExtras(file, agentDir);
-    expect(extras.turns).toHaveLength(3);
-    expect(extras.recap).toEqual({ text: "回顾 text", afterTurn: 2 });
-    // 没有会话文件 / 文件读不到：空
-    const none = { turns: [], recap: null, tokensPerSecond: null };
-    expect(await readSessionExtras(null, agentDir)).toEqual(none);
-    expect(await readSessionExtras(path.join(dir, "missing.jsonl"), agentDir)).toEqual(none);
-    // history.db 损坏：只丢回顾，用量脚注还在
-    await writeFile(path.join(agentDir, "history.db"), "not a database");
-    const broken = await readSessionExtras(file, agentDir);
-    expect(broken.turns).toHaveLength(3);
-    expect(broken.recap).toBeNull();
   });
 });
 

@@ -10,7 +10,6 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { crc32, deflateSync } from "node:zlib";
 import { expect, test, type Page } from "@playwright/test";
-import { parseSession } from "../../src/main/tsp/session-extras.ts";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
 import { copyFilesToClipboard, launchApp, openTaskRow, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
@@ -668,34 +667,20 @@ test("用户消息悬停:从气泡分步移向复制按钮的整条路上按钮�
   }
 });
 
-test("恢复会话:omp 不重发的每轮用量脚注补回;回顾只补最新一条、放回它的位置(之后还有新一轮也照样补),用 ※ 不用时钟图标", async () => {
+test("恢复会话:omp 不重发的每轮用量脚注补回;history.db 里有回顾也不补(omp 恢复时不重放)", async () => {
   test.setTimeout(120_000);
   // 假 omp 回放的是 omp 18.12.4 `--resume` 一个 3 轮会话的实录:旧对话重发了,但没有 omp.turn.usage / omp.recap。
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp tsp resume agent "));
   const sessionFile = path.join(agentDir, "sessions", "--e2e--", "2026-10-20T01-17-16-019Z_resume.jsonl");
   await mkdir(path.dirname(sessionFile), { recursive: true });
   await copyFile(path.join(root, "fixtures", "tsp", "resume-session.jsonl"), sessionFile);
-  // omp 的空闲回顾只进 agent 目录的 history.db(session_recaps);会话 id 是会话文件头里的 id。
-  // 两条:更早的一条在第 1 轮之后,最新一条在第 2 轮之后、第 3 轮开始之前——之后还有第 3 轮的消息,不能因此不显示。
-  const starts = parseSession(await readFile(sessionFile, "utf8")).turnStarts;
-  const secondsBetween = (a: number | undefined, b: number | undefined) => Math.floor(((a ?? 0) + (b ?? 0)) / 2 / 1000);
+  // omp 的空闲回顾只进 agent 目录的 history.db(session_recaps;会话 id 是会话文件头里的 id),恢复时不重放;studio 也不补。
   const db = new DatabaseSync(path.join(agentDir, "history.db"));
   db.exec(
     "CREATE TABLE session_recaps (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, cwd TEXT NOT NULL, recap TEXT NOT NULL, created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER)))",
   );
   const insert = db.prepare("INSERT INTO session_recaps (session_id, cwd, recap, created_at) VALUES (?, ?, ?, ?)");
-  insert.run(
-    "01a156e2-5573-752f-ae26-c89b4b0fd495",
-    "E:/x",
-    "更早的回顾:刚读完 calc.py。",
-    secondsBetween(starts[0], starts[1]),
-  );
-  insert.run(
-    "01a156e2-5573-752f-ae26-c89b4b0fd495",
-    "E:/x",
-    "目标是验证 calc.py。已读完三个文件,下一步等你的指示。",
-    secondsBetween(starts[1], starts[2]),
-  );
+  insert.run("01a156e2-5573-752f-ae26-c89b4b0fd495", "E:/x", "目标是验证 calc.py。", 1_792_000_000);
   db.close();
   const { launched, cleanup } = await start("resume", {
     PI_CODING_AGENT_DIR: agentDir,
@@ -719,32 +704,48 @@ test("恢复会话:omp 不重发的每轮用量脚注补回;回顾只补最新�
     await expect(usage.nth(2)).toHaveAttribute("title", /^This turn: 4\.7s · 1,097 tokens \(838 in · 259 out\)/);
     // 补的行在每轮最后一个助手消息里面(和 omp 实时的位置一样),不是游离在外。
     await expect(page.locator('[data-role="omp.assistant"] > [data-role="omp.turn.usage"]')).toHaveCount(3);
-    // 回顾:整个对话里只有最新的一条,图标是 ※(不是时钟/回退图标),斜体淡色,悬停提示是 omp 原样的英文。
+    // 回顾:history.db 里有,omp 没发,对话里就没有。
+    await expect(role(page, "omp.recap")).toHaveCount(0);
+  } finally {
+    await cleanup();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
+// fixtures/tsp/recap.jsonl:omp 18.12.6 实录(recap.idleSeconds 1),两轮各在结束后空闲出一条回顾,omp 两条都留在 main 里。
+test("空闲回顾:omp 发来的回顾用 ※ 斜体画在对话里;第二条来了第一条收起,只显示最新一条", async () => {
+  test.setTimeout(90_000);
+  const { launched, cleanup } = await start("recap");
+  try {
+    const { page } = launched;
+    await sendFirst(page, "说一句话就好");
     const recap = role(page, "omp.recap");
-    await expect(recap).toHaveCount(1);
-    await expect(recap).toContainText("目标是验证 calc.py");
-    await expect(recap.locator(".tsp-icon")).toHaveCount(0);
+    await expect(recap).toHaveCount(1, { timeout: 30_000 });
+    await expect(recap).toContainText("No goal was set");
+    // 图标是 ※(omp 节点里的 history 时钟图标不画),斜体,悬停提示是 omp 原样的英文。
+    await expect(recap.locator(".tsp-icon")).toBeHidden();
     expect(
       await recap.evaluate((el) => (globalThis as unknown as PageStyle).getComputedStyle(el, "::before").content),
     ).toBe('"※"');
     await expect(recap).toHaveCSS("font-style", "italic");
     await expect(recap).toHaveAttribute("title", "Recap while you were away");
-    // 位置:第 2 轮之后、第 3 轮之前(前两个用户消息在它前面,第三个在它后面)。
-    const relations = await recap.evaluate((el) => {
+    // 发第二句不删已显示的回顾(omp 也不删);第二条回顾到了,第一条收起。
+    await page.getByTestId("composer-input").fill("再说一句话就好");
+    await page.keyboard.press("Enter");
+    await expect(recap).toContainText("没有实际任务在跑", { timeout: 30_000 });
+    await expect(recap).toHaveCount(1);
+    // 它在第二条用户消息后面。
+    const after = await recap.evaluate((el) => {
       type Node = { compareDocumentPosition(other: unknown): number };
-      const users = [
-        ...(
-          globalThis as unknown as { document: { querySelectorAll(selector: string): Node[] } }
-        ).document.querySelectorAll('[data-testid="tsp-view"] [data-role="omp.user"]'),
-      ];
-      return users.map((user) => (el as unknown as Node).compareDocumentPosition(user) & 6);
+      const users = (
+        globalThis as unknown as { document: { querySelectorAll(selector: string): Node[] } }
+      ).document.querySelectorAll('[data-testid="tsp-view"] [data-role="omp.user"]');
+      return [...users].map((user) => (el as unknown as Node).compareDocumentPosition(user) & 6);
     });
-    // 4 = 这个用户消息在回顾后面,2 = 在前面。
-    expect(relations).toEqual([2, 2, 4]);
-    await recap.scrollIntoViewIfNeeded();
+    // 2 = 这个用户消息在回顾前面。
+    expect(after).toEqual([2, 2]);
   } finally {
     await cleanup();
-    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 

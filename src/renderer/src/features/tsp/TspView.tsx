@@ -167,7 +167,7 @@ function SurfaceBody({ taskId, sf, ctx, scroller, column, surface, jump, line, h
         <div ref={scroller} className="tsp-scroller" role="log" aria-label={t("tsp.layoutRegion")} tabIndex={0}>
           <div ref={column} className="tsp-column tsp-main" data-role={role}>
             {header}
-            <MainFlow taskId={taskId} sf={sf} ctx={ctx} restoreRecap={mode === "inline"} />
+            <MainFlow taskId={taskId} sf={sf} ctx={ctx} />
             {tail}
             <div className="tsp-column-end" />
           </div>
