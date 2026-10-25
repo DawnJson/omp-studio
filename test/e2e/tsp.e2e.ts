@@ -144,6 +144,8 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
         }
       }).observe(g.document.body, { childList: true, subtree: true });
     });
+    // 界面语言默认跟系统;CI 的 macOS 机器是英文系统,发之前就切到中文(下面"全部完成"只在一个短窗口里断言)。
+    await setLocaleTheme(page, "zh-CN", "light");
     await sendFirst(page, TASK_PROMPT);
     const row = page.getByTestId("task-row").first();
     await expect(row).toHaveAttribute("data-status", "running", { timeout: 20_000 });
@@ -159,15 +161,15 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     await expect(page.getByTestId("todo-popover")).toContainText("Inspect");
     await expect(page.getByTestId("todo-popover")).not.toContainText("I. Inspect");
     await page.keyboard.press("Escape");
-    // 回放跑完:本轮用量出现,omp 的工作状态行消失,侧栏变回空闲。
-    await expect(role(page, "omp.turn.usage")).toBeVisible({ timeout: 60_000 });
-    await expect(row).toHaveAttribute("data-status", "idle", { timeout: 20_000 });
-    // 录制最后待办 5/5 全部完成:待办板照 Tern 里的 omp,进度环整圈,当前项那里写"全部完成"(omp 过 todoClearDelay 才删节点,录制没录到)。
-    // 界面语言默认跟系统;CI 的 macOS 机器是英文系统,显式切到中文再断言中文文案。
-    await setLocaleTheme(page, "zh-CN", "light");
-    await expect(board).toContainText("全部完成");
+    // 录制最后待办 5/5 全部完成:待办板照 Tern 里的 omp,进度环整圈,当前项那里写"全部完成"。
+    // omp 过 todoClearDelay 才删待办节点(录制里约 58 秒后,--speed=20 回放约 3 秒):只在这段时间里有,所以紧接着断言。
+    await expect(board).toContainText("全部完成", { timeout: 60_000 });
     await expect(board).toContainText("5/5");
     await expect(board.locator('[data-state="progress"] .todo-mark-arc')).toHaveAttribute("stroke-dasharray", "100 0");
+    // 回放跑完:本轮用量出现,omp 的工作状态行消失,侧栏变回空闲;omp 删掉待办节点后待办板跟着消失。
+    await expect(role(page, "omp.turn.usage")).toBeVisible({ timeout: 60_000 });
+    await expect(row).toHaveAttribute("data-status", "idle", { timeout: 20_000 });
+    await expect(page.getByTestId("tsp-todo-bar")).toHaveCount(0, { timeout: 20_000 });
     await expect(role(page, "omp.user").first()).toContainText("calc/ops.py");
     await expect(role(page, "omp.tool.todo").first()).toBeVisible();
     await expect(role(page, "omp.tool.bash").first()).toContainText("pytest");
