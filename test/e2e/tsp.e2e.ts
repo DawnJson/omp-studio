@@ -2214,14 +2214,15 @@ async function writeImagesFixture(dir: string): Promise<string> {
   );
 }
 
-test("行号列:两位、四位行号不被折成一位一行;用户消息里窄长的图装进 200×200 的框,比例不变", async () => {
+test("行号列:两位、四位行号不被折成一位一行;用户消息里的图装进 100×100 的框,比例不变", async () => {
   test.setTimeout(90_000);
   const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp gutter-"));
   // omp 18.12.6 把 44×220 的截图放大成宽 200 的显示图(200×1000),w/h 照这个尺寸给,没有 max。
   const narrow = solidPng(200, 1000);
+  const wide = solidPng(200, 100);
   const fixture = await writeCardsFixture(
     work,
-    [narrow],
+    [narrow, wide],
     [
       { id: "e2e-code", k: "code", p: { text: "a\nb\nc", numbers: true, start: 9, wrap: true } },
       {
@@ -2238,7 +2239,10 @@ test("行号列:两位、四位行号不被折成一位一行;用户消息里窄
         id: "e2e-user-images",
         k: "row",
         p: { role: "omp.user.images" },
-        c: [{ id: "e2e-narrow", k: "image", p: { blob: sha(narrow), alt: "#1", w: 200, h: 1000 } }],
+        c: [
+          { id: "e2e-narrow", k: "image", p: { blob: sha(narrow), alt: "#1", w: 200, h: 1000 } },
+          { id: "e2e-wide", k: "image", p: { blob: sha(wide), alt: "#2", w: 200, h: 100 } },
+        ],
       },
     ],
   );
@@ -2259,10 +2263,14 @@ test("行号列:两位、四位行号不被折成一位一行;用户消息里窄
     // diff 的行号到 1000:四位的和一位的一样高(原来列宽 4ch 含 padding,三位起就折行)。
     const dg = '[data-id="e2e-diff"] .tsp-dg';
     expect(await height(dg, "1000")).toBe(await height(dg, "1"));
-    // 用户消息的图:高不超过 200,宽按 1:5 的比例跟着缩(不是 200 宽被压扁)。
-    const box = (await role(page, "omp.user.images").getByTestId("tsp-img-frame").boundingBox())!;
-    expect(box.height).toBeLessThanOrEqual(200);
-    expect(box.width).toBeCloseTo(box.height / 5, 0);
+    // 用户消息的图(2026-10-25 起 100×100 的框):窄图高 100、宽按 1:5 缩;宽图宽 100、高按 2:1 缩(都不被压扁)。
+    const frames = role(page, "omp.user.images").getByTestId("tsp-img-frame");
+    const tallBox = (await frames.nth(0).boundingBox())!;
+    expect(tallBox.height).toBeCloseTo(100, 0);
+    expect(tallBox.width).toBeCloseTo(20, 0);
+    const wideBox = (await frames.nth(1).boundingBox())!;
+    expect(wideBox.width).toBeCloseTo(100, 0);
+    expect(wideBox.height).toBeCloseTo(50, 0);
     // 窄窗口、中英文下这三块都不越界。
     await page.setViewportSize({ width: 900, height: 700 });
     for (const locale of ["zh-CN", "en"] as const) {

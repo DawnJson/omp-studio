@@ -2674,11 +2674,13 @@
   gap: var(--space-1);
 }
 /* 用户消息里的图片：omp 发来的是缩成宽 200 的显示图，w/h 就是它的尺寸，没给 max；窄长的截图会被放大
- * （实测 omp 18.12.6：44×220 的截图成了 200×1000）。宽高都交给图片自己的比例，装进 200×200 的框，点开看大图 */
+ * （实测 omp 18.12.6：44×220 的截图成了 200×1000）。宽高都交给图片自己的比例，装进 100×100 的框
+ * （2026-10-25 仓库所有者：200 还是太大），点开看大图 */
 .tsp-row[data-role="omp.user.images"] .tsp-img-frame {
   width: auto;
   height: auto;
-  max-height: 200px;
+  max-width: 100px;
+  max-height: 100px;
 }
 .tsp-row[data-role="omp.user.tools"] {
   position: absolute;
