@@ -129,7 +129,7 @@ Tern 0.9.4（`%LOCALAPPDATA%\Tern\updates\state.json` 的 `installed.release.ver
 - `src/main/window/shutdown.ts`：`before-quit` 拦一次，跑完所有 hook 再放行；`runtime.ts` 注册 `pool.shutdown()`，并行 `close(5000)`（每个任务 `taskkill /T /F` 进程树再关伪终端），见 `task-model.md`"进程上限和回收"。
 - `src/main/tsp/tsp-session.ts`：`close()` 先结束进程树、等退出事件，超时才 `pty.kill()`；spawn 和结束在 `platform/pty-lock.ts` 里排队（node-pty 原生层没有锁）。
 - `src/main/platform/win32/job-object.ts`：任务的 omp 在伪终端里，每个进程放进自己的 `KILL_ON_JOB_CLOSE` Job（`assignToOwnJob`）；后台服务进程用应用级 Job。主进程被强杀时由系统收掉整棵树。
-- 自动更新：`UpdateService.install` 先 `prepareInstall()`（= `finishShutdown()`）再 `quitAndInstall(false, true)`（`auto-update.md`）。`autoDownload = true`。
+- 自动更新：`UpdateService.install` 先 `prepareInstall()`（= `finishShutdown()`）再 `quitAndInstall(true, true)`（`auto-update.md`）。`autoDownload = true`。
 - 通知：`gate-notifier.ts` 只在任务进入 `needs_you`、窗口没焦点、设置打开时发；`runtime.ts` 里 `windowFocused: () => getMainWindow()?.isFocused() ?? false`，**没有窗口时也成立**，主进程不需要窗口就能发通知。`onClick` 在没窗口时直接 `return`（`runtime.ts:40`），需要改成"重新创建窗口"。
 - 已有的"进程回收"（`task-pool.ts` 的 `sweep`）只回收 idle、无未答的门、已安静、非前台的任务（`task-model.md`），不会误收正在跑的任务。后台模式下"前台"概念要重新定义（见下文方案 1 的待验证项）。
 

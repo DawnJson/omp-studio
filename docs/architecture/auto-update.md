@@ -54,7 +54,7 @@ idle → checking → up-to-date
 - **退出时自动安装**：electron-updater 默认 `autoInstallOnAppQuit`，应用正常退出（托盘 / 菜单退出，都经 `window/shutdown.ts`）后静默运行安装器（`--updated /S`），不自动重启。窗口 × 只隐藏，不算退出。
 - **重启并安装**：侧栏的新版本标签、设置 → 关于、关于对话框三个入口共用 `features/settings/use-install-update.tsx`：有任务在 `running` / `needs_you` 时先弹确认框，否则直接 `installUpdate`：
   1. `prepareInstall()` 调 `finishShutdown()`：跑一遍退出 hook，关掉所有 omp 子进程（`window/shutdown.ts`）。
-  2. 再调 `autoUpdater.quitAndInstall(false, true)` 安装并重启。
+  2. 再调 `autoUpdater.quitAndInstall(true, true)`：静默安装（`/S`）并在装完后重启（`--force-run`）。安装器是向导式的（`electron-builder.yml` 的 `nsis.oneClick: false`），不静默会弹出欢迎页、进度页、完成页等用户点；静默时向导安装器只有带 `--force-run` 才会重启应用（`app-builder-lib/templates/nsis/installSection.nsh`）。
 
 顺序不能反：`quitAndInstall` 自己会触发 `before-quit`，而 Job Object 是 `KILL_ON_JOB_CLOSE`，omp 还没关干净就安装的话，安装过程和子进程会被一起收掉。
 

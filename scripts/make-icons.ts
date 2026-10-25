@@ -5,6 +5,7 @@
 //   resources/icon.icns：macOS 应用图标（ic07–ic14 的 PNG 条目，32–1024），画法同 icon.ico。
 //   resources/trayTemplate.png / trayTemplate@2x.png：macOS 菜单栏模板图（18 / 36px），只有黑色 + alpha，不画淡影。
 //   docs/images/icon.png：README 顶部的图标，256×256，画法同 icon.ico。
+//   resources/installerSidebar.bmp / installerHeader.bmp：Windows 安装向导的侧边大图和标题横幅（见 wizardImage）。
 // 用法：node scripts/make-icons.ts（改了 pixel-pi.ts 之后重跑）。
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -22,17 +23,19 @@ const hex = (value: string, alpha = 1): Rgba => [
 ];
 
 class Canvas {
-  readonly size: number;
+  readonly width: number;
+  readonly height: number;
   readonly data: Float64Array;
-  constructor(size: number) {
-    this.size = size;
-    this.data = new Float64Array(size * size * 4);
+  constructor(width: number, height = width) {
+    this.width = width;
+    this.height = height;
+    this.data = new Float64Array(width * height * 4);
   }
   /** 非预乘 RGBA，src-over 混合；coverage 是这一像素被覆盖的面积比例。 */
   blend(x: number, y: number, [r, g, b, a]: Rgba, coverage: number): void {
     const alpha = a * coverage;
     if (alpha <= 0) return;
-    const i = (y * this.size + x) * 4;
+    const i = (y * this.width + x) * 4;
     const d = this.data;
     const outA = alpha + d[3 + i]! * (1 - alpha);
     if (outA === 0) return;
@@ -69,18 +72,18 @@ class Canvas {
           );
   }
   png(): Buffer {
-    const n = this.size;
-    const raw = Buffer.alloc((n * 4 + 1) * n);
-    for (let y = 0; y < n; y++) {
-      raw[y * (n * 4 + 1)] = 0;
-      for (let x = 0; x < n * 4; x++) {
-        const v = this.data[y * n * 4 + x]!;
-        raw[y * (n * 4 + 1) + 1 + x] = Math.round(x % 4 === 3 ? v * 255 : v);
+    const { width, height } = this;
+    const raw = Buffer.alloc((width * 4 + 1) * height);
+    for (let y = 0; y < height; y++) {
+      raw[y * (width * 4 + 1)] = 0;
+      for (let x = 0; x < width * 4; x++) {
+        const v = this.data[y * width * 4 + x]!;
+        raw[y * (width * 4 + 1) + 1 + x] = Math.round(x % 4 === 3 ? v * 255 : v);
       }
     }
     const header = Buffer.alloc(13);
-    header.writeUInt32BE(n, 0);
-    header.writeUInt32BE(n, 4);
+    header.writeUInt32BE(width, 0);
+    header.writeUInt32BE(height, 4);
     header.set([8, 6, 0, 0, 0], 8); // 8 位 RGBA，非隔行
     return Buffer.concat([
       Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -88,6 +91,28 @@ class Canvas {
       chunk("IDAT", deflateSync(raw, { level: 9 })),
       chunk("IEND", Buffer.alloc(0)),
     ]);
+  }
+  /** 24 位 BMP（NSIS 的向导图片只认这种，没有透明）：自下而上逐行 BGR，每行补齐到 4 字节；先填满再画，所以不会有透明像素。 */
+  bmp(): Buffer {
+    const { width, height } = this;
+    const stride = Math.ceil((width * 3) / 4) * 4;
+    const file = Buffer.alloc(54 + stride * height);
+    file.write("BM", 0, "ascii");
+    file.writeUInt32LE(file.length, 2);
+    file.writeUInt32LE(54, 10);
+    file.writeUInt32LE(40, 14);
+    file.writeInt32LE(width, 18);
+    file.writeInt32LE(height, 22);
+    file.writeUInt16LE(1, 26);
+    file.writeUInt16LE(24, 28);
+    file.writeUInt32LE(stride * height, 34);
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        const o = 54 + (height - 1 - y) * stride + x * 3;
+        for (const [k, c] of [2, 1, 0].entries()) file[o + k] = Math.round(this.data[i + c]!);
+      }
+    return file;
   }
 }
 
@@ -122,6 +147,26 @@ function markIcon(size: number, template = false): Buffer {
   canvas.mark(unit, Math.round((size - markWidth * unit) / 2), Math.round((size - markHeight * unit) / 2), template);
   return canvas.png();
 }
+
+/**
+ * 安装向导的图片（electron-builder.yml 的 nsis.installerSidebar / installerHeader），24 位 BMP、不透明：
+ *   侧边大图 164×314（欢迎页、完成页左边一栏，卸载向导同用）：应用侧栏的底色 --bg-sidebar，π 每像素 6×6、水平居中、放在上三分之一，
+ *     右边一像素 --border 色的分隔线，和应用里侧栏与正文的分界一样。
+ *   标题横幅 150×57（其余每页标题栏的右侧，标题栏是白底）：白底，π 每像素 3×3，靠右、垂直居中。
+ */
+function wizardImage(width: number, height: number, background: string, unit: number, x: number, divider: boolean) {
+  const canvas = new Canvas(width, height);
+  canvas.rect(0, 0, width, height, hex(background));
+  if (divider) canvas.rect(width - 1, 0, width, height, hex("#141412", 0.14));
+  canvas.mark(
+    unit,
+    x,
+    Math.round(height > 100 ? height / 3 - (markHeight * unit) / 2 : (height - markHeight * unit) / 2),
+  );
+  return canvas.bmp();
+}
+const sidebar = wizardImage(164, 314, "#efefed", 6, Math.round((164 - markWidth * 6) / 2), true);
+const header = wizardImage(150, 57, "#ffffff", 3, 150 - markWidth * 3 - 14, false);
 
 /** ICO：目录里每项直接放 PNG（Windows Vista 起支持）。 */
 function ico(images: { size: number; png: Buffer }[]): Buffer {
@@ -180,7 +225,10 @@ await writeFile(path.join(root, "resources", "icon.icns"), icns(icnsEntries));
 await writeFile(path.join(root, "resources", "trayTemplate.png"), markIcon(18, true));
 await writeFile(path.join(root, "resources", "trayTemplate@2x.png"), markIcon(36, true));
 await writeFile(path.join(root, "docs", "images", "icon.png"), markIcon(256));
+await writeFile(path.join(root, "resources", "installerSidebar.bmp"), sidebar);
+await writeFile(path.join(root, "resources", "installerHeader.bmp"), header);
 console.log(
   `resources/icon.ico（${sizes.join("、")}）、tray.png（64）、icon.icns（${icnsEntries.map((e) => e.type).join("、")}）、` +
-    "trayTemplate.png（18）、trayTemplate@2x.png（36）和 docs/images/icon.png（256）已生成",
+    "trayTemplate.png（18）、trayTemplate@2x.png（36）、docs/images/icon.png（256）、" +
+    "installerSidebar.bmp（164×314）和 installerHeader.bmp（150×57）已生成",
 );

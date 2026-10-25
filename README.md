@@ -45,7 +45,7 @@
 | 系统 | Windows 10 / 11 | macOS 13 Ventura 起 |
 | 芯片 | x64 | Apple 芯片（arm64） |
 
-- **Windows**：双击安装包，装到当前用户目录，不需要管理员权限。安装包未签名，第一次运行时在 SmartScreen 里点"更多信息 → 仍要运行"。
+- **Windows**：双击安装包，按向导点下一步（欢迎、许可协议、安装位置，默认装到当前用户目录，不需要管理员权限）。安装包未签名，第一次运行时在 SmartScreen 里点"更多信息 → 仍要运行"。
 - **macOS**：把 `omp-studio.app` 拖进"应用程序"。包是 ad-hoc 签名，第一次打开前在终端执行 `xattr -cr /Applications/omp-studio.app`，或者在 系统设置 → 隐私与安全性 里点"仍要打开"。
 
 omp-studio 处于内测阶段（`0.x`），仓库私有，Releases 和 Issues 对协作者开放。

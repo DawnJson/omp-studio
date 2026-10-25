@@ -136,7 +136,8 @@ export class UpdateService {
     this.#installing = true;
     this.dispose();
     await this.#options.prepareInstall();
-    this.#updater.quitAndInstall(false, true);
+    // 静默（/S）+ 装完重启（--force-run）：安装器是向导式的，不静默会把欢迎页、进度页、完成页都弹出来等用户点。
+    this.#updater.quitAndInstall(true, true);
   }
 
   dispose(): void {

@@ -114,7 +114,7 @@ describe("UpdateService", () => {
 
     expect(calls).toEqual(["prepareInstall"]);
     expect(order).toEqual(["shutdown-done", "quitAndInstall"]);
-    expect(quit).toHaveBeenCalledWith(false, true);
+    expect(quit).toHaveBeenCalledWith(true, true);
   });
 
   it("没有已下载的更新时安装直接失败，不跑退出流程", async () => {

@@ -74,10 +74,18 @@ mac:
   identity: "-"
   # macOptions.d.ts：hardenedRuntime 默认 true，与 ad-hoc 签名一起会强制库校验，加载未同证书签名的 pty.node 会失败；不公证也用不上它。
   hardenedRuntime: false
-# 自动更新只认 Windows 安装版（NSIS）。装到用户目录，不需要管理员权限。
+# 自动更新只认 Windows 安装版（NSIS）。向导式安装（仓库所有者 2026-10-25 定）：欢迎 → 许可协议 → 安装目录 → 安装 → 完成，
+# 补充的页面和"只装给当前用户"在 resources/installer.nsh；装到用户目录，不需要管理员权限。自动更新时静默运行，不显示页面。
+# 向导图片由 scripts/make-icons.ts 生成；安装器界面语言跟系统走（中文系统中文，其余英文）。
 nsis:
-  oneClick: true
+  oneClick: false
   perMachine: false
+  allowToChangeInstallationDirectory: true
+  license: LICENSE
+  include: resources/installer.nsh
+  installerSidebar: resources/installerSidebar.bmp
+  installerHeader: resources/installerHeader.bmp
+  installerLanguages: [zh_CN, en_US]
   artifactName: ${name}-${version}-setup.${ext}
 # 更新源：本仓库的 GitHub Releases（仓库所有者 2026-10-25 定）。打包时写进 resources/app-update.yml，
 # 应用从最新的正式 Release 里读 latest.yml，再下载同一个 Release 里的安装包（有上一版的 .blockmap 时只下变了的块）。
