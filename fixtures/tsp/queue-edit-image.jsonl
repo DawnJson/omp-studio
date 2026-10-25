@@ -1,0 +1,446 @@
+{"t":1792958710208,"dir":"out","verb":"o","body":{"id":"s:1","mode":"inline","title":"omp","role":"omp.session"}}
+{"t":1792958710209,"dir":"out","verb":"t","body":{"sf":"s:1","name":{"dark":"titanium","light":"light"},"dark":{"accent":"#00b4ff","border":"#2a3038","borderAccent":"#00b4ff","borderMuted":"#1f252d","success":"#00ff88","error":"#ff4757","warning":"#ffb347","muted":"#9ca3b0","dim":"#6b7280","thinkingText":"#9ca3b0","selectedBg":"#0082b3","userMessageBg":"#0f1216","customMessageBg":"#2a3038","customMessageLabel":"#d4c090","toolPendingBg":"#0f1216","toolSuccessBg":"#0f1216","toolErrorBg":"#1a0f10","toolOutput":"#9ca3b0","mdHeading":"#00b4ff","mdLink":"#00b4ff","mdLinkUrl":"#0082b3","mdCode":"#00ff88","mdCodeBlock":"#9ca3b0","mdCodeBlockBorder":"#2a3038","mdQuote":"#9ca3b0","mdQuoteBorder":"#2a3038","mdHr":"#2a3038","mdListBullet":"#00b4ff","toolDiffAdded":"#00ff88","toolDiffRemoved":"#ff4757","toolDiffContext":"#9ca3b0","syntaxComment":"#6b7280","syntaxKeyword":"#00b4ff","syntaxFunction":"#00ff88","syntaxVariable":"#e8ecf4","syntaxString":"#d4c090","syntaxNumber":"#ffb347","syntaxType":"#00b4ff","syntaxOperator":"#00b4ff","syntaxPunctuation":"#9ca3b0","thinkingOff":"#4a5058","thinkingMinimal":"#5a6068","thinkingLow":"#6a7078","thinkingMedium":"#9ca3b0","thinkingHigh":"#00b4ff","thinkingXhigh":"#d4c090","bashMode":"#00ff88","statusLineBg":"#0f1216","statusLineSep":"#2a3038","statusLineModel":"#00b4ff","statusLinePath":"#e8ecf4","statusLineGitClean":"#00ff88","statusLineGitDirty":"#ffb347","statusLineContext":"#9ca3b0","statusLineSpend":"#d4c090","statusLineStaged":"#00ff88","statusLineDirty":"#ffb347","statusLineUntracked":"#9ca3b0","statusLineOutput":"#0082b3","statusLineCost":"#d4c090","statusLineSubagents":"#00b4ff","pythonMode":"#f0c040","pageBg":"#151820","cardBg":"#0f1216","infoBg":"#2a3038"},"light":{"accent":"#5a8080","border":"#547da7","borderAccent":"#5a8080","borderMuted":"#b0b0b0","success":"#588458","error":"#aa5555","warning":"#9a7326","muted":"#6c6c6c","dim":"#767676","thinkingText":"#6c6c6c","selectedBg":"#d0d0e0","userMessageBg":"#e8e8e8","customMessageBg":"#ede7f6","customMessageLabel":"#7e57c2","toolPendingBg":"#e8e8f0","toolSuccessBg":"#e8f0e8","toolErrorBg":"#f0e8e8","toolOutput":"#6c6c6c","mdHeading":"#9a7326","mdLink":"#547da7","mdLinkUrl":"#767676","mdCode":"#5a8080","mdCodeBlock":"#588458","mdCodeBlockBorder":"#6c6c6c","mdQuote":"#6c6c6c","mdQuoteBorder":"#6c6c6c","mdHr":"#6c6c6c","mdListBullet":"#588458","toolDiffAdded":"#588458","toolDiffRemoved":"#aa5555","toolDiffContext":"#6c6c6c","syntaxComment":"#008000","syntaxKeyword":"#0000FF","syntaxFunction":"#795E26","syntaxVariable":"#001080","syntaxString":"#A31515","syntaxNumber":"#098658","syntaxType":"#267F99","syntaxOperator":"#000000","syntaxPunctuation":"#000000","thinkingOff":"#b0b0b0","thinkingMinimal":"#767676","thinkingLow":"#547da7","thinkingMedium":"#5a8080","thinkingHigh":"#875f87","thinkingXhigh":"#8b008b","bashMode":"#588458","statusLineBg":"#e0e0e0","statusLineSep":"#808080","statusLineModel":"#875f87","statusLinePath":"#005f87","statusLineGitClean":"#005f00","statusLineGitDirty":"#af5f00","statusLineContext":"#5f5f87","statusLineSpend":"#005f5f","statusLineStaged":"#008700","statusLineDirty":"#af8700","statusLineUntracked":"#0087af","statusLineOutput":"#af5faf","statusLineCost":"#af5faf","statusLineSubagents":"#5a8080","pythonMode":"#9a7326","pageBg":"#f8f8f8","cardBg":"#ffffff","infoBg":"#fffae6"}}}
+{"t":1792958710217,"dir":"out","verb":"f","body":{"sf":"s:1","s":1,"ops":[["add","main","s:1",null,{"id":"main","k":"col"}],["add","dock","s:1",null,{"id":"dock","k":"col"}],["add","layer","s:1",null,{"id":"layer","k":"col"}],["add","0","main",null,{"id":"0","k":"spacer","p":{"size":"sm"}}],["add","1","main",null,{"id":"1","k":"card","p":{"role":"omp.welcome"},"c":[{"id":"1.lockup","k":"row","p":{"align":"center","gap":"md","role":"omp.welcome.lockup"},"c":[{"id":"1.lockup/logo","k":"image","p":{"builtin":"omp","alt":"omp","w":128,"role":"omp.welcome.logo"}},{"id":"1.lockup/mark","k":"col","p":{"role":"omp.welcome.mark"},"c":[{"id":"1.lockup/mark/omp.welcome.wordmark","k":"text","p":{"wrap":"none","role":"omp.welcome.wordmark","spans":[{"t":"omp","s":"strong"}]}},{"id":"1.lockup/mark/omp.welcome.version","k":"text","p":{"wrap":"none","role":"omp.welcome.version","spans":[{"t":"v18.12.6","s":"dim mono"}]}}]}]},{"id":"1.tip","k":"row","p":{"gap":"sm","align":"start","role":"omp.welcome.tip"},"c":[{"id":"1.tip/0","k":"icon","p":{"name":"lightbulb","role":"omp.welcome.tip-icon"}},{"id":"1.tip/1","k":"text","p":{"wrap":"word","role":"omp.welcome.tip-text","text":"You can /btw to ask a side question"}}]}]}],["add","2","main",null,{"id":"2","k":"spacer","p":{"size":"sm"}}],["add","3","dock",null,{"id":"3","k":"row","p":{"role":"omp.hud","justify":"end","hidden":true}}],["add","4","dock",null,{"id":"4","k":"col"}],["add","5","dock",null,{"id":"5","k":"col"}],["add","6","dock",null,{"id":"6","k":"col"}],["add","7","dock",null,{"id":"7","k":"col"}],["add","8","dock",null,{"id":"8","k":"col"}],["add","9","dock",null,{"id":"9","k":"col"}],["add","a","dock",null,{"id":"a","k":"col","c":[{"id":"g","k":"col","p":{"role":"omp.hud.judge"}},{"id":"h","k":"col","p":{"role":"omp.hud.downloads"}}]}],["add","b","dock",null,{"id":"b","k":"col"}],["add","c","dock",null,{"id":"c","k":"col"}],["add","d","dock",null,{"id":"d","k":"col","c":[{"id":"i","k":"col"}]}],["add","e","dock",null,{"id":"e","k":"col","c":[{"id":"j","k":"col","p":{"role":"omp.editor"},"c":[{"id":"j.context","k":"meter","p":{"role":"omp.composer.context","value":0.007971,"style":"bar","thresholds":{"warn":0.15,"bad":0.5},"marks":[{"at":0.818,"icon":"context.speculation","title":"Compaction summary starts at 82%"},{"at":0.85,"icon":"context.compaction","title":"Auto-compact at 85%"}],"label":"1%","total":"1M","title":"Context 1% used\n8K of 1M tokens\nAuto-compact at 85%","actions":{"click":"status.context"}}},{"id":"k","k":"row","p":{"gap":"sm","wrap":true,"role":"omp.composer.chips","hidden":true}},{"id":"j.line","k":"row","p":{"role":"omp.composer.line","align":"start","gap":"sm"},"c":[{"id":"j.line/input","k":"editor","p":{"text":"","cursor":0,"sendable":false,"placeholder":"What are we cooking?","maxLines":18}}]},{"id":"j.bar","k":"row","p":{"role":"omp.composer.bar","gap":"sm","align":"center"},"c":[{"id":"j.bar/model","k":"row","p":{"role":"omp.composer.model","gap":"xs","align":"center","title":"Switch model  Alt+P","actions":{"click":"status.model"}},"c":[{"id":"j.bar/model/effort","k":"effort","p":{"level":"high","role":"omp.composer.model.effort","title":"Thinking effort: high  ⇧⇥","actions":{"click":"thinking.cycle"}}},{"id":"j.bar/model/name","k":"text","p":{"spans":[{"t":"DeepSeek V4 Flash","s":"statusLineModel"}],"wrap":"none"}},{"id":"j.bar/model/chev","k":"icon","p":{"name":"chev"}}]},{"id":"j.bar/extras","k":"status","p":{"role":"omp.composer.extras","transparent":true,"grow":1}},{"id":"j.bar/usage","k":"text","p":{"role":"omp.composer.usage","text":"$0.00 ↓","wrap":"none","title":"Session cost $0.00 ↓","actions":{"click":"status.cost"}}},{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}]}]}]}],["add","f","dock",null,{"id":"f","k":"col"}],["focus","j.line/input"]]}}
+{"t":1792958710229,"dir":"out","verb":"f","body":{"sf":"s:1","s":2,"ops":[["add","l","d",null,{"id":"l","k":"col"}],["del","i"]]}}
+{"t":1792958710249,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":1}}
+{"t":1792958710250,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":2}}
+{"t":1792958710282,"dir":"out","verb":"f","body":{"sf":"s:1","s":3,"ops":[["add","m","main","1",{"id":"m","k":"spacer","p":{"size":"sm"}}],["add","n","main",null,{"id":"n","k":"spacer","p":{"size":"sm"}}],["set","j.line/input",{"sendable":true}],["del","0"],["del","2"]]}}
+{"t":1792958710293,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":3}}
+{"t":1792958710293,"dir":"in","verb":"e","params":{},"body":{"ev":"send","sf":"s:1","id":"j.line/input","text":"Write a detailed 1200-word essay about the history of rivers. Do not use any tools."}}
+{"t":1792958710296,"dir":"out","verb":"f","body":{"sf":"s:1","s":4,"ops":[["add","o","main",null,{"id":"o","k":"card","p":{"role":"omp.user","tone":"user"},"c":[{"id":"o.tools","k":"row","p":{"gap":"xs","align":"center","role":"omp.user.tools"},"c":[{"id":"o.tools/copy","k":"icon","p":{"name":"copy","role":"omp.user.tool","title":"Copy message","aria":"Copy message","actions":{"click":"copy-message"}}},{"id":"o.tools/rewind","k":"icon","p":{"name":"rewind","role":"omp.user.tool","title":"Rewind the conversation to an earlier message","aria":"Rewind","actions":{"click":"rewind"}}},{"id":"o.tools/dot","k":"text","p":{"text":"·"}},{"id":"o.tools/3","k":"text","p":{"role":"omp.user.time","title":"2026/10/25 20:05:10","spans":[{"t":"20:05","s":"dim mono"}]}}]},{"id":"o.1","k":"md","p":{"text":"Write a detailed 1200-word essay about the history of rivers. Do not use any tools."}}]}],["del","b"],["add","b","dock","c",{"id":"b","k":"row","p":{"role":"omp.hud.activity","align":"center","gap":"sm"},"c":[{"id":"b.status","k":"col","p":{"role":"omp.hud.status"},"c":[{"id":"p","k":"row","p":{"role":"omp.working","align":"center","gap":"sm"},"c":[{"id":"p.spinner","k":"spinner","p":{"style":"starburst","tone":"accent"}},{"id":"p.elapsed","k":"elapsed","p":{"age":0,"format":"short"}},{"id":"p.sep","k":"text","p":{"text":"·","role":"omp.working.sep"}},{"id":"p.label","k":"shimmer","p":{"spans":[{"t":"Working…","s":"muted"}],"mode":"classic","palette":{"low":"dim","mid":"muted","high":"accent"},"role":"omp.working.label"}},{"id":"p.fill","k":"row","p":{"grow":1}},{"id":"p.stop","k":"row","p":{"role":"omp.working.stop","gap":"xs","align":"center","title":"Stop  esc","actions":{"click":"interrupt"}},"c":[{"id":"p.stop/0","k":"kbd","p":{"keys":["escape"]}},{"id":"p.stop/1","k":"text","p":{"text":"Stop"}}]}]}]}]}],["set","j",{"tone":"pending"}],["add","j.bar/stop","j.bar",null,{"id":"j.bar/stop","k":"text","p":{"role":"omp.composer.stop","text":"Stop","tone":"error","title":"Stop  esc","actions":{"click":"interrupt"}}}],["del","j.bar/send"],["settle","o"]]}}
+{"t":1792958710301,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":4}}
+{"t":1792958710314,"dir":"out","verb":"f","body":{"sf":"s:1","s":5,"ops":[["set","j.context",{"value":0.007992}]]}}
+{"t":1792958710316,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":5}}
+{"t":1792958711089,"dir":"out","verb":"f","body":{"sf":"s:1","s":6,"ops":[["add","q","main",null,{"id":"q","k":"col","p":{"role":"omp.assistant"}}]]}}
+{"t":1792958711091,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":6}}
+{"t":1792958711121,"dir":"out","verb":"f","body":{"sf":"s:1","s":7,"ops":[["add","q.k0","q",null,{"id":"q.k0","k":"section","p":{"role":"omp.thinking.live","collapsible":true,"collapsed":false,"head":"q.k0/head"},"c":[{"id":"q.k0/head","k":"row","p":{"gap":"sm"},"c":[{"id":"q.k0/head/0","k":"spinner","p":{"style":"starburst","role":"omp.thinking.spin"}},{"id":"q.k0/head/1","k":"text","p":{"spans":[{"t":"Thinking…","s":"muted"}]}},{"id":"q.k0/head/2","k":"elapsed","p":{"age":0,"format":"short"}}]},{"id":"q.k0/body","k":"md","p":{"text":"The","stream":true}}]}]]}}
+{"t":1792958711123,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":7}}
+{"t":1792958711156,"dir":"out","verb":"f","body":{"sf":"s:1","s":8,"ops":[["set","q.k0/head/2",{"age":34}],["text","q.k0/body","append"," us"]]}}
+{"t":1792958711157,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":8}}
+{"t":1792958711190,"dir":"out","verb":"f","body":{"sf":"s:1","s":9,"ops":[["set","q.k0/head/2",{"age":69}],["text","q.k0/body","append","er"]]}}
+{"t":1792958711192,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":9}}
+{"t":1792958711224,"dir":"out","verb":"f","body":{"sf":"s:1","s":10,"ops":[["set","q.k0/head/2",{"age":103}],["text","q.k0/body","append"," wants a 12"]]}}
+{"t":1792958711227,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":10}}
+{"t":1792958711259,"dir":"out","verb":"f","body":{"sf":"s:1","s":11,"ops":[["set","q.k0/head/2",{"age":138}],["text","q.k0/body","append","00-word essay"]]}}
+{"t":1792958711262,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":11}}
+{"t":1792958711388,"dir":"out","verb":"f","body":{"sf":"s:1","s":12,"ops":[["set","q.k0/head/2",{"age":267}],["text","q.k0/body","append"," about the"]]}}
+{"t":1792958711390,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":12}}
+{"t":1792958711423,"dir":"out","verb":"f","body":{"sf":"s:1","s":13,"ops":[["set","q.k0/head/2",{"age":302}],["text","q.k0/body","append"," history of ri"]]}}
+{"t":1792958711425,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":13}}
+{"t":1792958711457,"dir":"out","verb":"f","body":{"sf":"s:1","s":14,"ops":[["set","q.k0/head/2",{"age":335}],["text","q.k0/body","append","vers. No tools. Just wri"]]}}
+{"t":1792958711459,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":14}}
+{"t":1792958711490,"dir":"out","verb":"f","body":{"sf":"s:1","s":15,"ops":[["set","q.k0/head/2",{"age":369}],["text","q.k0/body","append","te it. Must be detailed"]]}}
+{"t":1792958711491,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":15}}
+{"t":1792958711524,"dir":"out","verb":"f","body":{"sf":"s:1","s":16,"ops":[["set","q.k0/head/2",{"age":403}],["text","q.k0/body","append",", ~1200 words. No tools ne"]]}}
+{"t":1792958711526,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":16}}
+{"t":1792958711557,"dir":"out","verb":"f","body":{"sf":"s:1","s":17,"ops":[["set","q.k0/head/2",{"age":436}],["text","q.k0/body","append","eded. Let me write a so"]]}}
+{"t":1792958711559,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":17}}
+{"t":1792958711592,"dir":"out","verb":"f","body":{"sf":"s:1","s":18,"ops":[["set","q.k0/head/2",{"age":470}],["text","q.k0/body","append","lid essay — geologic"]]}}
+{"t":1792958711594,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":18}}
+{"t":1792958711626,"dir":"out","verb":"f","body":{"sf":"s:1","s":19,"ops":[["set","q.k0/head/2",{"age":505}],["text","q.k0/body","append","al history of rive"]]}}
+{"t":1792958711628,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":19}}
+{"t":1792958711660,"dir":"out","verb":"f","body":{"sf":"s:1","s":20,"ops":[["set","q.k0/head/2",{"age":538}],["text","q.k0/body","append","rs, from planetary form"]]}}
+{"t":1792958711662,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":20}}
+{"t":1792958711692,"dir":"out","verb":"f","body":{"sf":"s:1","s":21,"ops":[["set","q.k0/head/2",{"age":571}],["text","q.k0/body","append","ation to Anthropocen"]]}}
+{"t":1792958711695,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":21}}
+{"t":1792958711726,"dir":"out","verb":"f","body":{"sf":"s:1","s":22,"ops":[["set","q.k0/head/2",{"age":605}],["text","q.k0/body","append","e. Terse-engineer p"]]}}
+{"t":1792958711728,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":22}}
+{"t":1792958711759,"dir":"out","verb":"f","body":{"sf":"s:1","s":23,"ops":[["set","q.k0/head/2",{"age":638}],["text","q.k0/body","append","ersonality but thi"]]}}
+{"t":1792958711762,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":23}}
+{"t":1792958711794,"dir":"out","verb":"f","body":{"sf":"s:1","s":24,"ops":[["set","q.k0/head/2",{"age":673}],["text","q.k0/body","append","s is a writing t"]]}}
+{"t":1792958711796,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":24}}
+{"t":1792958711828,"dir":"out","verb":"f","body":{"sf":"s:1","s":25,"ops":[["set","q.k0/head/2",{"age":707}],["text","q.k0/body","append","ask; be substantiv"]]}}
+{"t":1792958711830,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":25}}
+{"t":1792958711862,"dir":"out","verb":"f","body":{"sf":"s:1","s":26,"ops":[["set","q.k0/head/2",{"age":741}],["text","q.k0/body","append","e and accurate."]]}}
+{"t":1792958711864,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":26}}
+{"t":1792958711907,"dir":"out","verb":"f","body":{"sf":"s:1","s":27,"ops":[["set","q.k0/head/2",{"age":786}],["text","q.k0/body","append","\n\nLet me draft w"]]}}
+{"t":1792958711909,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":27}}
+{"t":1792958711940,"dir":"out","verb":"f","body":{"sf":"s:1","s":28,"ops":[["set","q.k0/head/2",{"age":818}],["text","q.k0/body","append","ith real content"]]}}
+{"t":1792958711942,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":28}}
+{"t":1792958711974,"dir":"out","verb":"f","body":{"sf":"s:1","s":29,"ops":[["set","q.k0/head/2",{"age":853}],["text","q.k0/body","append",": origin of wa"]]}}
+{"t":1792958711976,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":29}}
+{"t":1792958712009,"dir":"out","verb":"f","body":{"sf":"s:1","s":30,"ops":[["set","q.k0/head/2",{"age":887}],["text","q.k0/body","append","ter, Hadean, Ar"]]}}
+{"t":1792958712011,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":30}}
+{"t":1792958712042,"dir":"out","verb":"f","body":{"sf":"s:1","s":31,"ops":[["set","q.k0/head/2",{"age":921}],["text","q.k0/body","append","chean rivers o"]]}}
+{"t":1792958712045,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":31}}
+{"t":1792958712076,"dir":"out","verb":"f","body":{"sf":"s:1","s":32,"ops":[["set","q.k0/head/2",{"age":955}],["text","q.k0/body","append","n Mars maybe, ea"]]}}
+{"t":1792958712078,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":32}}
+{"t":1792958712111,"dir":"out","verb":"f","body":{"sf":"s:1","s":33,"ops":[["set","q.k0/head/2",{"age":989}],["text","q.k0/body","append","rly Earth rive"]]}}
+{"t":1792958712113,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":33}}
+{"t":1792958712145,"dir":"out","verb":"f","body":{"sf":"s:1","s":34,"ops":[["set","q.k0/head/2",{"age":1024}],["text","q.k0/body","append","rs ~4 Ga, Great"]]}}
+{"t":1792958712147,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":34}}
+{"t":1792958712177,"dir":"out","verb":"f","body":{"sf":"s:1","s":35,"ops":[["set","q.k0/head/2",{"age":1056}],["text","q.k0/body","append"," Oxidation Even"]]}}
+{"t":1792958712179,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":35}}
+{"t":1792958712212,"dir":"out","verb":"f","body":{"sf":"s:1","s":36,"ops":[["set","q.k0/head/2",{"age":1091}],["text","q.k0/body","append","t and river c"]]}}
+{"t":1792958712214,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":36}}
+{"t":1792958712246,"dir":"out","verb":"f","body":{"sf":"s:1","s":37,"ops":[["set","q.k0/head/2",{"age":1125}],["text","q.k0/body","append","hemistry, Silur"]]}}
+{"t":1792958712248,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":37}}
+{"t":1792958712280,"dir":"out","verb":"f","body":{"sf":"s:1","s":38,"ops":[["set","q.k0/head/2",{"age":1159}],["text","q.k0/body","append","ian-Devonian pl"]]}}
+{"t":1792958712282,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":38}}
+{"t":1792958712314,"dir":"out","verb":"f","body":{"sf":"s:1","s":39,"ops":[["set","q.k0/head/2",{"age":1193}],["text","q.k0/body","append","ant colonization"]]}}
+{"t":1792958712316,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":39}}
+{"t":1792958712348,"dir":"out","verb":"f","body":{"sf":"s:1","s":40,"ops":[["set","q.k0/head/2",{"age":1227}],["text","q.k0/body","append"," and meandering,"]]}}
+{"t":1792958712350,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":40}}
+{"t":1792958712382,"dir":"out","verb":"f","body":{"sf":"s:1","s":41,"ops":[["set","q.k0/head/2",{"age":1261}],["text","q.k0/body","append"," Carboniferous, ri"]]}}
+{"t":1792958712384,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":41}}
+{"t":1792958712415,"dir":"out","verb":"f","body":{"sf":"s:1","s":42,"ops":[["set","q.k0/head/2",{"age":1294}],["text","q.k0/body","append","ver capture, Him"]]}}
+{"t":1792958712417,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":42}}
+{"t":1792958712449,"dir":"out","verb":"f","body":{"sf":"s:1","s":43,"ops":[["set","q.k0/head/2",{"age":1328}],["text","q.k0/body","append","alayan/tectonic r"]]}}
+{"t":1792958712451,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":43}}
+{"t":1792958712482,"dir":"out","verb":"f","body":{"sf":"s:1","s":44,"ops":[["set","q.k0/head/2",{"age":1361}],["text","q.k0/body","append","ivers, Quaternary"]]}}
+{"t":1792958712484,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":44}}
+{"t":1792958712518,"dir":"out","verb":"f","body":{"sf":"s:1","s":45,"ops":[["set","q.k0/head/2",{"age":1397}],["text","q.k0/body","append"," glacial rivers"]]}}
+{"t":1792958712520,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":45}}
+{"t":1792958712552,"dir":"out","verb":"f","body":{"sf":"s:1","s":46,"ops":[["set","q.k0/head/2",{"age":1431}],["text","q.k0/body","append",", human civiliza"]]}}
+{"t":1792958712554,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":46}}
+{"t":1792958712586,"dir":"out","verb":"f","body":{"sf":"s:1","s":47,"ops":[["set","q.k0/head/2",{"age":1465}],["text","q.k0/body","append","tion on rivers (Ti"]]}}
+{"t":1792958712588,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":47}}
+{"t":1792958712619,"dir":"out","verb":"f","body":{"sf":"s:1","s":48,"ops":[["set","q.k0/head/2",{"age":1498}],["text","q.k0/body","append","gris, Nile, Indus, Y"]]}}
+{"t":1792958712621,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":48}}
+{"t":1792958712653,"dir":"out","verb":"f","body":{"sf":"s:1","s":49,"ops":[["set","q.k0/head/2",{"age":1532}],["text","q.k0/body","append","ellow), canalizati"]]}}
+{"t":1792958712655,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":49}}
+{"t":1792958712686,"dir":"out","verb":"f","body":{"sf":"s:1","s":50,"ops":[["set","q.k0/head/2",{"age":1565}],["text","q.k0/body","append","on, dams, Anthro"]]}}
+{"t":1792958712687,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":50}}
+{"t":1792958712720,"dir":"out","verb":"f","body":{"sf":"s:1","s":51,"ops":[["set","q.k0/head/2",{"age":1599}],["text","q.k0/body","append","pocene sediment,"]]}}
+{"t":1792958712722,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":51}}
+{"t":1792958712755,"dir":"out","verb":"f","body":{"sf":"s:1","s":52,"ops":[["set","q.k0/head/2",{"age":1634}],["text","q.k0/body","append"," modern restora"]]}}
+{"t":1792958712757,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":52}}
+{"t":1792958712789,"dir":"out","verb":"f","body":{"sf":"s:1","s":53,"ops":[["set","q.k0/head/2",{"age":1668}],["text","q.k0/body","append","tion.\n\nAim ~1200 wo"]]}}
+{"t":1792958712791,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":53}}
+{"t":1792958712823,"dir":"out","verb":"f","body":{"sf":"s:1","s":54,"ops":[["set","q.k0/head/2",{"age":1702}],["text","q.k0/body","append","rds. Let me write"]]}}
+{"t":1792958712824,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":54}}
+{"t":1792958712856,"dir":"out","verb":"f","body":{"sf":"s:1","s":55,"ops":[["set","q.k0/head/2",{"age":1735}],["text","q.k0/body","append"," ~1150-1250 word"]]}}
+{"t":1792958712857,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":55}}
+{"t":1792958712889,"dir":"out","verb":"f","body":{"sf":"s:1","s":56,"ops":[["set","q.k0/head/2",{"age":1768}],["text","q.k0/body","append","s.\n\nI'll count rou"]]}}
+{"t":1792958712891,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":56}}
+{"t":1792958712923,"dir":"out","verb":"f","body":{"sf":"s:1","s":57,"ops":[["set","q.k0/head/2",{"age":1802}],["text","q.k0/body","append","ghly: paragraphs"]]}}
+{"t":1792958712925,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":57}}
+{"t":1792958712956,"dir":"out","verb":"f","body":{"sf":"s:1","s":58,"ops":[["set","q.k0/head/2",{"age":1835}],["text","q.k0/body","append"," of ~120 words × 10."]]}}
+{"t":1792958712958,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":58}}
+{"t":1792958712993,"dir":"out","verb":"f","body":{"sf":"s:1","s":59,"ops":[["set","q.k0",{"role":"omp.thinking","collapsed":true,"took":1872}],["del","q.k0/head"],["add","q.k0/head","q.k0","q.k0/body",{"id":"q.k0/head","k":"text","p":{"spans":[{"t":"Thought for 2s","s":"muted"}]}}],["text","q.k0/body","append","\n\nWrite it."],["set","q.k0/body",{"stream":null}],["add","q.t1","q",null,{"id":"q.t1","k":"md","p":{"text":"# The Hi","stream":true}}]]}}
+{"t":1792958712996,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":59}}
+{"t":1792958713023,"dir":"out","verb":"f","body":{"sf":"s:1","s":60,"ops":[["text","q.t1","append","story of Rivers"]]}}
+{"t":1792958713025,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":60}}
+{"t":1792958713057,"dir":"out","verb":"f","body":{"sf":"s:1","s":61,"ops":[["text","q.t1","append","\n\nRivers are older"]]}}
+{"t":1792958713059,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":61}}
+{"t":1792958713091,"dir":"out","verb":"f","body":{"sf":"s:1","s":62,"ops":[["text","q.t1","append"," than life, older"]]}}
+{"t":1792958713093,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":62}}
+{"t":1792958713124,"dir":"out","verb":"f","body":{"sf":"s:1","s":63,"ops":[["text","q.t1","append"," than continents in"]]}}
+{"t":1792958713125,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":63}}
+{"t":1792958713158,"dir":"out","verb":"f","body":{"sf":"s:1","s":64,"ops":[["text","q.t1","append"," their modern form, a"]]}}
+{"t":1792958713160,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":64}}
+{"t":1792958713192,"dir":"out","verb":"f","body":{"sf":"s:1","s":65,"ops":[["text","q.t1","append","nd almost as old as"]]}}
+{"t":1792958713223,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":65}}
+{"t":1792958713225,"dir":"out","verb":"f","body":{"sf":"s:1","s":66,"ops":[["text","q.t1","append"," the planet. To wri"]]}}
+{"t":1792958713227,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":66}}
+{"t":1792958713259,"dir":"out","verb":"f","body":{"sf":"s:1","s":67,"ops":[["text","q.t1","append","te their history"]]}}
+{"t":1792958713261,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":67}}
+{"t":1792958713293,"dir":"out","verb":"f","body":{"sf":"s:1","s":68,"ops":[["text","q.t1","append"," is to write a histor"]]}}
+{"t":1792958713294,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":68}}
+{"t":1792958713326,"dir":"out","verb":"f","body":{"sf":"s:1","s":69,"ops":[["text","q.t1","append","y of water arriving"]]}}
+{"t":1792958713327,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":69}}
+{"t":1792958713361,"dir":"out","verb":"f","body":{"sf":"s:1","s":70,"ops":[["text","q.t1","append"," on a rocky world"]]}}
+{"t":1792958713363,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":70}}
+{"t":1792958713395,"dir":"out","verb":"f","body":{"sf":"s:1","s":71,"ops":[["text","q.t1","append",", of that water le"]]}}
+{"t":1792958713397,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":71}}
+{"t":1792958713409,"dir":"in","verb":"k","body":"\"\u001b[201~"}
+{"t":1792958713409,"dir":"out","verb":"q","body":{"q":"blobs","ids":["18f1e91adb2189f2e4625a9e76535554e65adefdff69fdb9fe7dc5ab49820b67"]}}
+{"t":1792958713410,"dir":"out","verb":"f","body":{"sf":"s:1","s":72,"ops":[["set","k",{"hidden":false}],["add","k.image:1","k",null,{"id":"k.image:1","k":"card","p":{"role":"omp.composer.chip","tone":"accent","head":[{"t":"","s":"strong icon","href":"C:/Users/someone/AppData/Local/Temp/omp-studio-images/85e90c03-75b9-4a3a-a457-65472041acbe/1792958713393-0.png"},{"t":"#1","s":"strong","href":"C:/Users/someone/AppData/Local/Temp/omp-studio-images/85e90c03-75b9-4a3a-a457-65472041acbe/1792958713393-0.png"}]},"c":[{"id":"k.image:1/0","k":"image","p":{"blob":"18f1e91adb2189f2e4625a9e76535554e65adefdff69fdb9fe7dc5ab49820b67","alt":" #1","w":267,"h":200,"max":{"w":"12ch","h":"4lines"}}},{"id":"k.image:1/1","k":"text","p":{"spans":[{"t":"267x200","s":"dim"}],"wrap":"none"}}]}],["text","j.line/input","append"," #1 "],["set","j.line/input",{"cursor":5,"decor":[{"from":0,"to":4,"s":"accent strong"}],"placeholder":null}]]}}
+{"t":1792958713411,"dir":"out","verb":"b","params":{"id":"18f1e91adb2189f2e4625a9e76535554e65adefdff69fdb9fe7dc5ab49820b67","mime":"image/webp"},"body":"UklGRpgAAABXRUJQVlA4IIwAAAAQDwCdASoLAcgAPm02m0mkIyKhICgAgA2JaW7hdrEbQAwwi5OQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych77ZOQ99snIe+2TkPfbJyHvtk5D32ych76wAA/hQAAAAAAAAAAA=="}
+{"t":1792958713415,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":72}}
+{"t":1792958713415,"dir":"in","verb":"e","params":{},"body":{"ev":"edit","sf":"s:1","id":"j.line/input","from":5,"to":5,"text":"what color is this image?","cursor":30,"len":5}}
+{"t":1792958713418,"dir":"out","verb":"f","body":{"sf":"s:1","s":73,"ops":[["text","j.line/input","append","what color is this image?"],["set","j.line/input",{"cursor":30}]]}}
+{"t":1792958713420,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":73}}
+{"t":1792958713422,"dir":"in","verb":"e","params":{},"body":{"ev":"action","sf":"s:1","id":"j.line/input","act":"submit"}}
+{"t":1792958713430,"dir":"out","verb":"f","body":{"sf":"s:1","s":74,"ops":[["text","q.t1","append","arning to move dow"],["set","k",{"hidden":true}],["splice","j.line/input",0,30,""],["set","j.line/input",{"cursor":0,"placeholder":"What are we cooking?","decor":null}],["del","k.image:1"]]}}
+{"t":1792958713432,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":74}}
+{"t":1792958713463,"dir":"out","verb":"f","body":{"sf":"s:1","s":75,"ops":[["text","q.t1","append","nhill, and of sedime"]]}}
+{"t":1792958713465,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":75}}
+{"t":1792958713497,"dir":"out","verb":"f","body":{"sf":"s:1","s":76,"ops":[["text","q.t1","append","nt, chemistry, an"]]}}
+{"t":1792958713498,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":76}}
+{"t":1792958713530,"dir":"out","verb":"f","body":{"sf":"s:1","s":77,"ops":[["text","q.t1","append","d eventually or"]]}}
+{"t":1792958713532,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":77}}
+{"t":1792958713564,"dir":"out","verb":"f","body":{"sf":"s:1","s":78,"ops":[["text","q.t1","append","ganisms learning to"]]}}
+{"t":1792958713565,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":78}}
+{"t":1792958713598,"dir":"out","verb":"f","body":{"sf":"s:1","s":79,"ops":[["text","q.t1","append"," travel with it."]]}}
+{"t":1792958713600,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":79}}
+{"t":1792958713631,"dir":"out","verb":"f","body":{"sf":"s:1","s":80,"ops":[["text","q.t1","append"," The story runs"]]}}
+{"t":1792958713634,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":80}}
+{"t":1792958713665,"dir":"out","verb":"f","body":{"sf":"s:1","s":81,"ops":[["text","q.t1","append"," from the Hadean t"]]}}
+{"t":1792958713667,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":81}}
+{"t":1792958713700,"dir":"out","verb":"f","body":{"sf":"s:1","s":82,"ops":[["text","q.t1","append","o the Anthropocene"]]}}
+{"t":1792958713702,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":82}}
+{"t":1792958713734,"dir":"out","verb":"f","body":{"sf":"s:1","s":83,"ops":[["text","q.t1","append",", and it is still be"]]}}
+{"t":1792958713736,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":83}}
+{"t":1792958713767,"dir":"out","verb":"f","body":{"sf":"s:1","s":84,"ops":[["text","q.t1","append","ing written in the"]]}}
+{"t":1792958713769,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":84}}
+{"t":1792958713801,"dir":"out","verb":"f","body":{"sf":"s:1","s":85,"ops":[["text","q.t1","append"," sediment of ever"]]}}
+{"t":1792958713803,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":85}}
+{"t":1792958713835,"dir":"out","verb":"f","body":{"sf":"s:1","s":86,"ops":[["text","q.t1","append","y delta now sinking be"]]}}
+{"t":1792958713837,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":86}}
+{"t":1792958713869,"dir":"out","verb":"f","body":{"sf":"s:1","s":87,"ops":[["text","q.t1","append","neath the sea.\n\nThe"]]}}
+{"t":1792958713871,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":87}}
+{"t":1792958713902,"dir":"out","verb":"f","body":{"sf":"s:1","s":88,"ops":[["text","q.t1","append"," physical origin of r"]]}}
+{"t":1792958713903,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":88}}
+{"t":1792958713936,"dir":"out","verb":"f","body":{"sf":"s:1","s":89,"ops":[["text","q.t1","append","iver water is inte"]]}}
+{"t":1792958713938,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":89}}
+{"t":1792958713971,"dir":"out","verb":"f","body":{"sf":"s:1","s":90,"ops":[["text","q.t1","append","rstellar. Hydroge"]]}}
+{"t":1792958713972,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":90}}
+{"t":1792958714004,"dir":"out","verb":"f","body":{"sf":"s:1","s":91,"ops":[["text","q.t1","append","n and oxygen are am"]]}}
+{"t":1792958714006,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":91}}
+{"t":1792958714037,"dir":"out","verb":"f","body":{"sf":"s:1","s":92,"ops":[["text","q.t1","append","ong the most abun"]]}}
+{"t":1792958714040,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":92}}
+{"t":1792958714072,"dir":"out","verb":"f","body":{"sf":"s:1","s":93,"ops":[["text","q.t1","append","dant elements in the"]]}}
+{"t":1792958714073,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":93}}
+{"t":1792958714105,"dir":"out","verb":"f","body":{"sf":"s:1","s":94,"ops":[["text","q.t1","append"," cosmos, and water"]]}}
+{"t":1792958714107,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":94}}
+{"t":1792958714139,"dir":"out","verb":"f","body":{"sf":"s:1","s":95,"ops":[["text","q.t1","append"," ice formed in th"]]}}
+{"t":1792958714141,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":95}}
+{"t":1792958714173,"dir":"out","verb":"f","body":{"sf":"s:1","s":96,"ops":[["text","q.t1","append","e cold outer regio"]]}}
+{"t":1792958714175,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":96}}
+{"t":1792958714207,"dir":"out","verb":"f","body":{"sf":"s:1","s":97,"ops":[["text","q.t1","append","ns of the solar"]]}}
+{"t":1792958714208,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":97}}
+{"t":1792958714241,"dir":"out","verb":"f","body":{"sf":"s:1","s":98,"ops":[["text","q.t1","append"," nebula. Earth accret"]]}}
+{"t":1792958714243,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":98}}
+{"t":1792958714275,"dir":"out","verb":"f","body":{"sf":"s:1","s":99,"ops":[["text","q.t1","append","ed largely dry, fro"]]}}
+{"t":1792958714277,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":99}}
+{"t":1792958714309,"dir":"out","verb":"f","body":{"sf":"s:1","s":100,"ops":[["text","q.t1","append","m material inside"]]}}
+{"t":1792958714311,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":100}}
+{"t":1792958714344,"dir":"out","verb":"f","body":{"sf":"s:1","s":101,"ops":[["text","q.t1","append"," the \"snow line,"]]}}
+{"t":1792958714346,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":101}}
+{"t":1792958714379,"dir":"out","verb":"f","body":{"sf":"s:1","s":102,"ops":[["text","q.t1","append","\" so its ocean"]]}}
+{"t":1792958714381,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":102}}
+{"t":1792958714412,"dir":"out","verb":"f","body":{"sf":"s:1","s":103,"ops":[["text","q.t1","append","s and rivers wer"]]}}
+{"t":1792958714414,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":103}}
+{"t":1792958714446,"dir":"out","verb":"f","body":{"sf":"s:1","s":104,"ops":[["text","q.t1","append","e probably deli"]]}}
+{"t":1792958714447,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":104}}
+{"t":1792958714479,"dir":"out","verb":"f","body":{"sf":"s:1","s":105,"ops":[["text","q.t1","append","vered later by icy p"]]}}
+{"t":1792958714481,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":105}}
+{"t":1792958714513,"dir":"out","verb":"f","body":{"sf":"s:1","s":106,"ops":[["text","q.t1","append","lanetesimals and"]]}}
+{"t":1792958714514,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":106}}
+{"t":1792958714547,"dir":"out","verb":"f","body":{"sf":"s:1","s":107,"ops":[["text","q.t1","append"," comets, or outg"]]}}
+{"t":1792958714549,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":107}}
+{"t":1792958714582,"dir":"out","verb":"f","body":{"sf":"s:1","s":108,"ops":[["text","q.t1","append","assed from a mag"]]}}
+{"t":1792958714584,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":108}}
+{"t":1792958714614,"dir":"out","verb":"f","body":{"sf":"s:1","s":109,"ops":[["text","q.t1","append","ma ocean as the pla"]]}}
+{"t":1792958714616,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":109}}
+{"t":1792958714647,"dir":"out","verb":"f","body":{"sf":"s:1","s":110,"ops":[["text","q.t1","append","net cooled. By rough"]]}}
+{"t":1792958714648,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":110}}
+{"t":1792958714681,"dir":"out","verb":"f","body":{"sf":"s:1","s":111,"ops":[["text","q.t1","append","ly 4.4 billion ye"]]}}
+{"t":1792958714683,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":111}}
+{"t":1792958714715,"dir":"out","verb":"f","body":{"sf":"s:1","s":112,"ops":[["text","q.t1","append","ars ago, zircon cry"]]}}
+{"t":1792958714718,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":112}}
+{"t":1792958714750,"dir":"out","verb":"f","body":{"sf":"s:1","s":113,"ops":[["text","q.t1","append","stals from the Ja"]]}}
+{"t":1792958714753,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":113}}
+{"t":1792958714783,"dir":"out","verb":"f","body":{"sf":"s:1","s":114,"ops":[["text","q.t1","append","ck Hills in We"]]}}
+{"t":1792958714785,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":114}}
+{"t":1792958714817,"dir":"out","verb":"f","body":{"sf":"s:1","s":115,"ops":[["text","q.t1","append","stern Australia preserv"]]}}
+{"t":1792958714819,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":115}}
+{"t":1792958714851,"dir":"out","verb":"f","body":{"sf":"s:1","s":116,"ops":[["text","q.t1","append","e oxygen isotope signa"]]}}
+{"t":1792958714853,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":116}}
+{"t":1792958714888,"dir":"out","verb":"f","body":{"sf":"s:1","s":117,"ops":[["text","q.t1","append","tures indicating liquid wat"]]}}
+{"t":1792958714890,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":117}}
+{"t":1792958714918,"dir":"out","verb":"f","body":{"sf":"s:1","s":118,"ops":[["text","q.t1","append","er at the surface. Rive"]]}}
+{"t":1792958714920,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":118}}
+{"t":1792958714953,"dir":"out","verb":"f","body":{"sf":"s:1","s":119,"ops":[["text","q.t1","append","rs, in the sense of c"]]}}
+{"t":1792958714955,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":119}}
+{"t":1792958714986,"dir":"out","verb":"f","body":{"sf":"s:1","s":120,"ops":[["text","q.t1","append","hannels carrying wate"]]}}
+{"t":1792958714988,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":120}}
+{"t":1792958715021,"dir":"out","verb":"f","body":{"sf":"s:1","s":121,"ops":[["text","q.t1","append","r downhill, therefo"]]}}
+{"t":1792958715022,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":121}}
+{"t":1792958715055,"dir":"out","verb":"f","body":{"sf":"s:1","s":122,"ops":[["text","q.t1","append","re likely existed wi"]]}}
+{"t":1792958715057,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":122}}
+{"t":1792958715090,"dir":"out","verb":"f","body":{"sf":"s:1","s":123,"ops":[["text","q.t1","append","thin the first few"]]}}
+{"t":1792958715093,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":123}}
+{"t":1792958715093,"dir":"out","verb":"f","body":{"sf":"s:1","s":124,"ops":[["add","r","c",null,{"id":"r","k":"col","p":{"role":"omp.queue","gap":"xs"},"c":[{"id":"r.Steering%2F0","k":"row","p":{"role":"omp.queue.item","align":"center","gap":"sm","title":"Steering"},"c":[{"id":"r.Steering%2F0/icon","k":"icon","p":{"name":"corner-down-right"}},{"id":"r.Steering%2F0/text","k":"text","p":{"text":"[Image #1, 267x200] what color is this image?","wrap":"none","truncate":"end","grow":1}},{"id":"r.Steering%2F0/edit","k":"row","p":{"role":"omp.queue.edit","gap":"xs","align":"center","title":"Edit  Alt+↑","actions":{"click":"queue.edit"}},"c":[{"id":"r.Steering%2F0/edit/0","k":"kbd","p":{"keys":["alt","up"]}},{"id":"r.Steering%2F0/edit/1","k":"text","p":{"text":"Edit"}}]}]}]}]]}}
+{"t":1792958715095,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":124}}
+{"t":1792958715121,"dir":"out","verb":"f","body":{"sf":"s:1","s":125,"ops":[["text","q.t1","append"," hundred million yea"]]}}
+{"t":1792958715123,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":125}}
+{"t":1792958715155,"dir":"out","verb":"f","body":{"sf":"s:1","s":126,"ops":[["text","q.t1","append","rs of Earth history"]]}}
+{"t":1792958715157,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":126}}
+{"t":1792958715158,"dir":"in","verb":"e","params":{},"body":{"ev":"action","sf":"s:1","id":"r.Steering%2F0/edit","act":"queue.edit"}}
+{"t":1792958715161,"dir":"out","verb":"f","body":{"sf":"s:1","s":127,"ops":[["add","s","main",null,{"id":"s","k":"toast","p":{"text":"Restored last queued message to editor","ttl":2400,"role":"omp.toast.status"}}],["set","k",{"hidden":false}],["add","k.image:1","k",null,{"id":"k.image:1","k":"card","p":{"role":"omp.composer.chip","tone":"accent","head":[{"t":"","s":"strong icon"},{"t":"#1","s":"strong"}]},"c":[{"id":"k.image:1/0","k":"image","p":{"blob":"18f1e91adb2189f2e4625a9e76535554e65adefdff69fdb9fe7dc5ab49820b67","alt":" #1","w":267,"h":200,"max":{"w":"12ch","h":"4lines"}}},{"id":"k.image:1/1","k":"text","p":{"spans":[{"t":"267x200","s":"dim"}],"wrap":"none"}}]}],["text","j.line/input","append"," #1 what color is this image?"],["set","j.line/input",{"cursor":30,"decor":[{"from":0,"to":4,"s":"accent strong"}],"placeholder":null}],["del","r"],["settle","s"]]}}
+{"t":1792958715165,"dir":"in","verb":"e","params":{},"body":{"ev":"edit","sf":"s:1","id":"j.line/input","from":0,"to":30,"text":"","cursor":0,"len":30}}
+{"t":1792958715166,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":127}}
+{"t":1792958715167,"dir":"out","verb":"f","body":{"sf":"s:1","s":128,"ops":[["set","k",{"hidden":true}],["splice","j.line/input",0,30,""],["set","j.line/input",{"cursor":0,"placeholder":"What are we cooking?","decor":null}],["del","k.image:1"]]}}
+{"t":1792958715187,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":128}}
+{"t":1792958715189,"dir":"out","verb":"f","body":{"sf":"s:1","s":129,"ops":[["text","q.t1","append"," — though the surfac"],["set","p.elapsed",{"age":4893}],["set","p.label",{"spans":[{"t":"Working…","s":"accent"}],"palette":{"low":"dim","mid":"accent","high":"accent"}}],["set","j.line/input",{"placeholder":[{"t":"“󰞍 RIVER: Write river history essay”","s":"em"}]}],["set","j.bar/model/name",{"spans":[{"t":"DeepSeek V4 Flash","s":"accent"}]}]]}}
+{"t":1792958715190,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":129}}
+{"t":1792958715224,"dir":"out","verb":"f","body":{"sf":"s:1","s":130,"ops":[["text","q.t1","append","e was a volcanic,"]]}}
+{"t":1792958715252,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":130}}
+{"t":1792958715256,"dir":"out","verb":"f","body":{"sf":"s:1","s":131,"ops":[["text","q.t1","append"," impact-churned lan"]]}}
+{"t":1792958715258,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":131}}
+{"t":1792958715292,"dir":"out","verb":"f","body":{"sf":"s:1","s":132,"ops":[["text","q.t1","append","dscape with no vegetat"]]}}
+{"t":1792958715294,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":132}}
+{"t":1792958715326,"dir":"out","verb":"f","body":{"sf":"s:1","s":133,"ops":[["text","q.t1","append","ion, no soil, and n"]]}}
+{"t":1792958715328,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":133}}
+{"t":1792958715360,"dir":"out","verb":"f","body":{"sf":"s:1","s":134,"ops":[["text","q.t1","append","o continents arrang"]]}}
+{"t":1792958715361,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":134}}
+{"t":1792958715393,"dir":"out","verb":"f","body":{"sf":"s:1","s":135,"ops":[["text","q.t1","append","ed as they are today"]]}}
+{"t":1792958715395,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":135}}
+{"t":1792958715427,"dir":"out","verb":"f","body":{"sf":"s:1","s":136,"ops":[["text","q.t1","append",".\n\nThose earliest"]]}}
+{"t":1792958715430,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":136}}
+{"t":1792958715460,"dir":"out","verb":"f","body":{"sf":"s:1","s":137,"ops":[["text","q.t1","append"," channels were p"]]}}
+{"t":1792958715462,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":137}}
+{"t":1792958715494,"dir":"out","verb":"f","body":{"sf":"s:1","s":138,"ops":[["text","q.t1","append","rofoundly differen"]]}}
+{"t":1792958715496,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":138}}
+{"t":1792958715528,"dir":"out","verb":"f","body":{"sf":"s:1","s":139,"ops":[["text","q.t1","append","t from modern riv"]]}}
+{"t":1792958715530,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":139}}
+{"t":1792958715561,"dir":"out","verb":"f","body":{"sf":"s:1","s":140,"ops":[["text","q.t1","append","ers. With no land"]]}}
+{"t":1792958715563,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":140}}
+{"t":1792958715596,"dir":"out","verb":"f","body":{"sf":"s:1","s":141,"ops":[["text","q.t1","append"," plants to bind se"]]}}
+{"t":1792958715597,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":141}}
+{"t":1792958715630,"dir":"out","verb":"f","body":{"sf":"s:1","s":142,"ops":[["text","q.t1","append","diment, rainfall r"]]}}
+{"t":1792958715632,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":142}}
+{"t":1792958715665,"dir":"out","verb":"f","body":{"sf":"s:1","s":143,"ops":[["text","q.t1","append","an off as sheet fl"]]}}
+{"t":1792958715667,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":143}}
+{"t":1792958715698,"dir":"out","verb":"f","body":{"sf":"s:1","s":144,"ops":[["text","q.t1","append","ow and braided"]]}}
+{"t":1792958715700,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":144}}
+{"t":1792958715735,"dir":"out","verb":"f","body":{"sf":"s:1","s":145,"ops":[["text","q.t1","append"," across broad alluvia"]]}}
+{"t":1792958715736,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":145}}
+{"t":1792958715766,"dir":"out","verb":"f","body":{"sf":"s:1","s":146,"ops":[["text","q.t1","append","l plains, carrying"]]}}
+{"t":1792958715767,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":146}}
+{"t":1792958715799,"dir":"out","verb":"f","body":{"sf":"s:1","s":147,"ops":[["text","q.t1","append"," coarse gravel far d"]]}}
+{"t":1792958715800,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":147}}
+{"t":1792958715832,"dir":"out","verb":"f","body":{"sf":"s:1","s":148,"ops":[["text","q.t1","append","ownstream. River d"]]}}
+{"t":1792958715834,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":148}}
+{"t":1792958715867,"dir":"out","verb":"f","body":{"sf":"s:1","s":149,"ops":[["text","q.t1","append","eposits from the"]]}}
+{"t":1792958715869,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":149}}
+{"t":1792958715902,"dir":"out","verb":"f","body":{"sf":"s:1","s":150,"ops":[["text","q.t1","append"," Archean and early"]]}}
+{"t":1792958715904,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":150}}
+{"t":1792958715935,"dir":"out","verb":"f","body":{"sf":"s:1","s":151,"ops":[["text","q.t1","append"," Proterozoic are"]]}}
+{"t":1792958715944,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":151}}
+{"t":1792958715968,"dir":"out","verb":"f","body":{"sf":"s:1","s":152,"ops":[["text","q.t1","append"," dominated by braided"]]}}
+{"t":1792958715970,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":152}}
+{"t":1792958716002,"dir":"out","verb":"f","body":{"sf":"s:1","s":153,"ops":[["text","q.t1","append","-stream and alluvi"]]}}
+{"t":1792958716004,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":153}}
+{"t":1792958716036,"dir":"out","verb":"f","body":{"sf":"s:1","s":154,"ops":[["text","q.t1","append","al-fan architectures; t"]]}}
+{"t":1792958716038,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":154}}
+{"t":1792958716070,"dir":"out","verb":"f","body":{"sf":"s:1","s":155,"ops":[["text","q.t1","append","rue meandering river"]]}}
+{"t":1792958716072,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":155}}
+{"t":1792958716104,"dir":"out","verb":"f","body":{"sf":"s:1","s":156,"ops":[["text","q.t1","append","s with stable, mud"]]}}
+{"t":1792958716106,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":156}}
+{"t":1792958716137,"dir":"out","verb":"f","body":{"sf":"s:1","s":157,"ops":[["text","q.t1","append","dy banks are rare."]]}}
+{"t":1792958716139,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":157}}
+{"t":1792958716171,"dir":"out","verb":"f","body":{"sf":"s:1","s":158,"ops":[["text","q.t1","append"," The great oxygenat"]]}}
+{"t":1792958716173,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":158}}
+{"t":1792958716205,"dir":"out","verb":"f","body":{"sf":"s:1","s":159,"ops":[["text","q.t1","append","ion event, around 2."]]}}
+{"t":1792958716207,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":159}}
+{"t":1792958716239,"dir":"out","verb":"f","body":{"sf":"s:1","s":160,"ops":[["text","q.t1","append","4 billion years ag"]]}}
+{"t":1792958716240,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":160}}
+{"t":1792958716272,"dir":"out","verb":"f","body":{"sf":"s:1","s":161,"ops":[["text","q.t1","append","o, changed river ch"]]}}
+{"t":1792958716274,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":161}}
+{"t":1792958716306,"dir":"out","verb":"f","body":{"sf":"s:1","s":162,"ops":[["text","q.t1","append","emistry: dissolve"]]}}
+{"t":1792958716308,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":162}}
+{"t":1792958716340,"dir":"out","verb":"f","body":{"sf":"s:1","s":163,"ops":[["text","q.t1","append","d iron that had mov"]]}}
+{"t":1792958716342,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":163}}
+{"t":1792958716374,"dir":"out","verb":"f","body":{"sf":"s:1","s":164,"ops":[["text","q.t1","append","ed freely in an anox"]]}}
+{"t":1792958716377,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":164}}
+{"t":1792958716409,"dir":"out","verb":"f","body":{"sf":"s:1","s":165,"ops":[["text","q.t1","append","ic world began to"]]}}
+{"t":1792958716411,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":165}}
+{"t":1792958716442,"dir":"out","verb":"f","body":{"sf":"s:1","s":166,"ops":[["text","q.t1","append"," precipitate, an"]]}}
+{"t":1792958716444,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":166}}
+{"t":1792958716476,"dir":"out","verb":"f","body":{"sf":"s:1","s":167,"ops":[["text","q.t1","append","d oxidative we"]]}}
+{"t":1792958716478,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":167}}
+{"t":1792958716511,"dir":"out","verb":"f","body":{"sf":"s:1","s":168,"ops":[["text","q.t1","append","athering on land altered"]]}}
+{"t":1792958716512,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":168}}
+{"t":1792958716544,"dir":"out","verb":"f","body":{"sf":"s:1","s":169,"ops":[["text","q.t1","append"," what rivers carried to"]]}}
+{"t":1792958716546,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":169}}
+{"t":1792958716581,"dir":"out","verb":"f","body":{"sf":"s:1","s":170,"ops":[["text","q.t1","append"," the sea. Banded iron"]]}}
+{"t":1792958716583,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":170}}
+{"t":1792958716615,"dir":"out","verb":"f","body":{"sf":"s:1","s":171,"ops":[["text","q.t1","append"," formations and redbeds"]]}}
+{"t":1792958716617,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":171}}
+{"t":1792958716649,"dir":"out","verb":"f","body":{"sf":"s:1","s":172,"ops":[["text","q.t1","append"," record this shift in"]]}}
+{"t":1792958716650,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":172}}
+{"t":1792958716684,"dir":"out","verb":"f","body":{"sf":"s:1","s":173,"ops":[["text","q.t1","append"," what the water transpor"]]}}
+{"t":1792958716685,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":173}}
+{"t":1792958716717,"dir":"out","verb":"f","body":{"sf":"s:1","s":174,"ops":[["text","q.t1","append","ted.\n\nThe single most"]]}}
+{"t":1792958716719,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":174}}
+{"t":1792958716751,"dir":"out","verb":"f","body":{"sf":"s:1","s":175,"ops":[["text","q.t1","append"," transformative event i"]]}}
+{"t":1792958716753,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":175}}
+{"t":1792958716785,"dir":"out","verb":"f","body":{"sf":"s:1","s":176,"ops":[["text","q.t1","append","n river history was"]]}}
+{"t":1792958716787,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":176}}
+{"t":1792958716817,"dir":"out","verb":"f","body":{"sf":"s:1","s":177,"ops":[["text","q.t1","append"," the colonization o"]]}}
+{"t":1792958716819,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":177}}
+{"t":1792958716851,"dir":"out","verb":"f","body":{"sf":"s:1","s":178,"ops":[["text","q.t1","append","f land by plants. From"]]}}
+{"t":1792958716853,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":178}}
+{"t":1792958716885,"dir":"out","verb":"f","body":{"sf":"s:1","s":179,"ops":[["text","q.t1","append"," the Ordovician into"]]}}
+{"t":1792958716887,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":179}}
+{"t":1792958716919,"dir":"out","verb":"f","body":{"sf":"s:1","s":180,"ops":[["text","q.t1","append"," the Devonian, bryop"]]}}
+{"t":1792958716921,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":180}}
+{"t":1792958716953,"dir":"out","verb":"f","body":{"sf":"s:1","s":181,"ops":[["text","q.t1","append","hyte-like and then"]]}}
+{"t":1792958716954,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":181}}
+{"t":1792958716987,"dir":"out","verb":"f","body":{"sf":"s:1","s":182,"ops":[["text","q.t1","append"," vascular plants spread"]]}}
+{"t":1792958716989,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":182}}
+{"t":1792958717021,"dir":"out","verb":"f","body":{"sf":"s:1","s":183,"ops":[["text","q.t1","append"," across continents."]]}}
+{"t":1792958717023,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":183}}
+{"t":1792958717055,"dir":"out","verb":"f","body":{"sf":"s:1","s":184,"ops":[["text","q.t1","append"," Roots penetrated subs"]]}}
+{"t":1792958717057,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":184}}
+{"t":1792958717090,"dir":"out","verb":"f","body":{"sf":"s:1","s":185,"ops":[["text","q.t1","append","trates, stabilizin"]]}}
+{"t":1792958717092,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":185}}
+{"t":1792958717123,"dir":"out","verb":"f","body":{"sf":"s:1","s":186,"ops":[["text","q.t1","append","g banks; root sy"]]}}
+{"t":1792958717125,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":186}}
+{"t":1792958717157,"dir":"out","verb":"f","body":{"sf":"s:1","s":187,"ops":[["text","q.t1","append","stems and organic lit"]]}}
+{"t":1792958717159,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":187}}
+{"t":1792958717191,"dir":"out","verb":"f","body":{"sf":"s:1","s":188,"ops":[["text","q.t1","append","ter built soils; veg"]]}}
+{"t":1792958717192,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":188}}
+{"t":1792958717225,"dir":"out","verb":"f","body":{"sf":"s:1","s":189,"ops":[["text","q.t1","append","etation slowed runoff,"]]}}
+{"t":1792958717226,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":189}}
+{"t":1792958717258,"dir":"out","verb":"f","body":{"sf":"s:1","s":190,"ops":[["text","q.t1","append"," deepened weatherin"]]}}
+{"t":1792958717260,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":190}}
+{"t":1792958717293,"dir":"out","verb":"f","body":{"sf":"s:1","s":191,"ops":[["text","q.t1","append","g, and delivered"]]}}
+{"t":1792958717305,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":191}}
+{"t":1792958717327,"dir":"out","verb":"f","body":{"sf":"s:1","s":192,"ops":[["text","q.t1","append"," fine mud to cha"]]}}
+{"t":1792958717329,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":192}}
+{"t":1792958717361,"dir":"out","verb":"f","body":{"sf":"s:1","s":193,"ops":[["text","q.t1","append","nnels. The se"]]}}
+{"t":1792958717363,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":193}}
+{"t":1792958717395,"dir":"out","verb":"f","body":{"sf":"s:1","s":194,"ops":[["text","q.t1","append","dimentary record shows"]]}}
+{"t":1792958717397,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":194}}
+{"t":1792958717428,"dir":"out","verb":"f","body":{"sf":"s:1","s":195,"ops":[["text","q.t1","append"," a clear signal: mean"]]}}
+{"t":1792958717429,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":195}}
+{"t":1792958717462,"dir":"out","verb":"f","body":{"sf":"s:1","s":196,"ops":[["text","q.t1","append","dering, single-thread"]]}}
+{"t":1792958717464,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":196}}
+{"t":1792958717495,"dir":"out","verb":"f","body":{"sf":"s:1","s":197,"ops":[["text","q.t1","append"," channels with cohesiv"]]}}
+{"t":1792958717498,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":197}}
+{"t":1792958717531,"dir":"out","verb":"f","body":{"sf":"s:1","s":198,"ops":[["text","q.t1","append","e banks and floodpl"]]}}
+{"t":1792958717533,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":198}}
+{"t":1792958717564,"dir":"out","verb":"f","body":{"sf":"s:1","s":199,"ops":[["text","q.t1","append","ain soils become co"]]}}
+{"t":1792958717566,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":199}}
+{"t":1792958717598,"dir":"out","verb":"f","body":{"sf":"s:1","s":200,"ops":[["text","q.t1","append","mmon from the De"]]}}
+{"t":1792958717600,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":200}}
+{"t":1792958717632,"dir":"out","verb":"f","body":{"sf":"s:1","s":201,"ops":[["text","q.t1","append","vonian onward, and"]]}}
+{"t":1792958717634,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":201}}
+{"t":1792958717666,"dir":"out","verb":"f","body":{"sf":"s:1","s":202,"ops":[["text","q.t1","append"," by the Carbonif"]]}}
+{"t":1792958717668,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":202}}
+{"t":1792958717699,"dir":"out","verb":"f","body":{"sf":"s:1","s":203,"ops":[["text","q.t1","append","erous large rivers"]]}}
+{"t":1792958717701,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":203}}
+{"t":1792958717733,"dir":"out","verb":"f","body":{"sf":"s:1","s":204,"ops":[["text","q.t1","append"," were building the"]]}}
+{"t":1792958717734,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":204}}
+{"t":1792958717766,"dir":"out","verb":"f","body":{"sf":"s:1","s":205,"ops":[["text","q.t1","append"," extensive coal-beari"]]}}
+{"t":1792958717768,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":205}}
+{"t":1792958717800,"dir":"out","verb":"f","body":{"sf":"s:1","s":206,"ops":[["text","q.t1","append","ng floodplains of"]]}}
+{"t":1792958717802,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":206}}
+{"t":1792958717833,"dir":"out","verb":"f","body":{"sf":"s:1","s":207,"ops":[["text","q.t1","append"," Euramerica. Plants"]]}}
+{"t":1792958717836,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":207}}
+{"t":1792958717867,"dir":"out","verb":"f","body":{"sf":"s:1","s":208,"ops":[["text","q.t1","append"," also changed the c"]]}}
+{"t":1792958717869,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":208}}
+{"t":1792958717901,"dir":"out","verb":"f","body":{"sf":"s:1","s":209,"ops":[["text","q.t1","append","hemistry of river"]]}}
+{"t":1792958717903,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":209}}
+{"t":1792958717935,"dir":"out","verb":"f","body":{"sf":"s:1","s":210,"ops":[["text","q.t1","append","s, raising organic"]]}}
+{"t":1792958717936,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":210}}
+{"t":1792958717968,"dir":"out","verb":"f","body":{"sf":"s:1","s":211,"ops":[["text","q.t1","append"," carbon loads and"]]}}
+{"t":1792958717969,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":211}}
+{"t":1792958718001,"dir":"out","verb":"f","body":{"sf":"s:1","s":212,"ops":[["text","q.t1","append"," lowering dissolved n"]]}}
+{"t":1792958718003,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":212}}
+{"t":1792958718037,"dir":"out","verb":"f","body":{"sf":"s:1","s":213,"ops":[["text","q.t1","append","utrient export in"]]}}
+{"t":1792958718039,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":213}}
+{"t":1792958718070,"dir":"out","verb":"f","body":{"sf":"s:1","s":214,"ops":[["text","q.t1","append"," ways that reshap"]]}}
+{"t":1792958718072,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":214}}
+{"t":1792958718104,"dir":"out","verb":"f","body":{"sf":"s:1","s":215,"ops":[["text","q.t1","append","ed coastal ecosystem"]]}}
+{"t":1792958718106,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":215}}
+{"t":1792958718139,"dir":"out","verb":"f","body":{"sf":"s:1","s":216,"ops":[["text","q.t1","append","s.\n\nTectonics drove"]]}}
+{"t":1792958718141,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":216}}
+{"t":1792958718171,"dir":"out","verb":"f","body":{"sf":"s:1","s":217,"ops":[["text","q.t1","append"," river history at con"]]}}
+{"t":1792958718175,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":217}}
+{"t":1792958718233,"dir":"out","verb":"f","body":{"sf":"s:1","s":218,"ops":[["text","q.t1","append","tinental scale. As Pangaea assembled and later broke apart, drainage divides reorganized repeatedly. River capture — the piracy of one drainage by another — is a"],["set","q.t1",{"stream":null}],["del","b"],["add","b","dock","c",{"id":"b","k":"col"}],["add","t","d",null,{"id":"t","k":"col"}],["set","j",{"tone":null}],["set","j.context",{"value":0.00897,"title":"Context 1% used\n9K of 1M tokens\nAuto-compact at 85%"}],["add","j.bar/send","j.bar",null,{"id":"j.bar/send","k":"kbd","p":{"role":"omp.composer.send","keys":["enter"],"title":"Send  ⏎","actions":{"click":"submit"}}}],["del","l"],["del","j.bar/stop"],["settle","q"]]}}
+{"t":1792958718235,"dir":"in","verb":"e","params":{},"body":{"ev":"ack","sf":"s:1","s":218}}

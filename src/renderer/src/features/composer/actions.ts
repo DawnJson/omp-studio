@@ -1,6 +1,6 @@
 // 输入框的几个动作：发送、停止并取回排队消息。Composer 和命令面板的事件都走这里。
 import { reportError } from "../../ui/errors.ts";
-import type { PromptImage, TaskId } from "../../../../shared/ipc.ts";
+import type { TaskId } from "../../../../shared/ipc.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { requestStickToBottom } from "../conversation/scroll-bus.ts";
@@ -55,13 +55,7 @@ export async function stopAndRestore(taskId: TaskId, t: TFunction): Promise<void
   try {
     const restored = await window.studio.stopTask(taskId);
     const queued = [...restored.steering, ...restored.followUp];
-    const images: PromptImage[] = queued.flatMap((item) => item.images ?? []);
-    if (queued.length > 0)
-      appendToDraft(
-        taskId,
-        queued.map((item) => item.text),
-        images,
-      );
+    if (queued.length > 0) appendToDraft(taskId, queued);
     for (const toast of stopToasts(restored)) {
       const message = toast.count === undefined ? t(toast.key) : t(toast.key, { count: toast.count });
       pushToast(toast.level ? { level: toast.level, message } : { message });

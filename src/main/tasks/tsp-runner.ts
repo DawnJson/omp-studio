@@ -79,7 +79,13 @@ import {
 import { hasQueuedMessages } from "../../shared/tsp/queue-restore.ts";
 import { clearEditorEvent, foreignEditorText } from "../../shared/tsp/editor-prefill.ts";
 import { followUpText } from "../../shared/tsp/queue-command.ts";
-import { appendEditorEvent, imagePasteKeys, imagePasteParts, pendingImageCount } from "../../shared/tsp/image-paste.ts";
+import {
+  appendEditorEvent,
+  editorDraft,
+  imagePasteKeys,
+  imagePasteParts,
+  pendingImageCount,
+} from "../../shared/tsp/image-paste.ts";
 import {
   TSP_APPROVAL_DIALOG_ID,
   TSP_ASK_DIALOG_ID,
@@ -187,8 +193,8 @@ export interface TspRunnerHost {
   onNotice?(notice: TaskNotice): void;
   /** 旁路提问（`/btw`）镜像的变化；没提供（多数测试）时不推。 */
   onBtw?(taskId: TaskId, event: BtwUiEvent): void;
-  /** omp 往它自己的输入框里写了 studio 没发的文字：已清空 omp 那边，放进 studio 的输入框；没提供（多数测试）时不推。 */
-  onComposerPrefill?(taskId: TaskId, text: string): void;
+  /** omp 往它自己的输入框里写了 studio 没发的草稿（文字和挂着的图片）：已清空 omp 那边，放进 studio 的输入框；没提供（多数测试）时不推。 */
+  onComposerPrefill?(taskId: TaskId, draft: RestoredDraft): void;
   session: TspSessionDeps;
   /** 上次读到的模型目录里的这一项；没有（或没提供）时胶囊先显示模型 id。 */
   knownModel?(key: ModelKey): ModelOption | null;
@@ -1075,8 +1081,8 @@ export class TspRunner {
               QUEUE_RESTORE_MS,
               "omp did not return the queued message to its input box",
             );
-            const text = await this.#takeEditorText(session);
-            if (text !== null) steering.push({ text });
+            const draft = await this.#takeEditorText(session);
+            if (draft !== null) steering.push(draft);
           } catch (error) {
             log.warn(`task ${this.id} taking back the queued message failed`, { message: String(error) });
           }
@@ -2088,19 +2094,21 @@ export class TspRunner {
   }
 
   /**
-   * 取走 omp 输入框里的文字：读出来、发 `edit` 清空 omp 那边（否则文字一直留在那里，也挡住 omp 的下一次预填）、等清空确认；
-   * 本来就空返回 null。studio 只在发带图片的消息时往那里填字（`#sendWithImages`，期间不走这里的通用回填），所以这里出现的文字是 omp 自己放的（shared/tsp/editor-prefill.ts）。
+   * 取走 omp 输入框里的草稿：读出文字和挂着的图片（`editorDraft`）、发 `edit` 清空 omp 那边（否则文字一直留在那里，也挡住 omp 的下一次预填）、
+   * 等清空确认；本来就空返回 null。studio 只在发带图片的消息时往那里填字（`#sendWithImages`，期间不走这里的通用回填），所以这里出现的文字是 omp 自己放的（shared/tsp/editor-prefill.ts）。
    */
-  async #takeEditorText(session: TspSession): Promise<string | null> {
+  async #takeEditorText(session: TspSession): Promise<RestoredDraft | null> {
     const editor = foreignEditorText(session.document);
     if (editor === null) return null;
+    // 清空会连同图片一起删掉：先读。
+    const draft = editorDraft(session.document, editor.text);
     session.sendEvent(clearEditorEvent(editor));
     await this.#awaitDocument(
       (document) => (foreignEditorText(document) === null ? true : null),
       CONFIRM_TIMEOUT_MS,
       "omp's input box did not clear",
     );
-    return editor.text;
+    return draft;
   }
 
   /**
@@ -2114,8 +2122,8 @@ export class TspRunner {
       return;
     this.#takingEditor = true;
     void this.#takeEditorText(session)
-      .then((text) => {
-        if (text !== null && this.#session === session) this.#host.onComposerPrefill?.(this.id, text);
+      .then((draft) => {
+        if (draft !== null && this.#session === session) this.#host.onComposerPrefill?.(this.id, draft);
       })
       .catch((error: unknown) => {
         log.warn(`task ${this.id} moving omp's input box text failed`, { message: String(error) });

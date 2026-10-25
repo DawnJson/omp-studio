@@ -10,12 +10,12 @@ import { appendToDraft } from "../composer/draft-store.ts";
  */
 export async function forkFromMessage(taskId: TaskId, entryId: string | null): Promise<void> {
   const { task, text } = await window.studio.forkTask(taskId, entryId);
-  appendToDraft(task.id, [text]);
+  appendToDraft(task.id, [{ text }]);
   await selectTask(task.id);
 }
 
 /** 就地回到树里的一个节点：对话流由主进程重推，这里只把那条消息的文字放回输入框。 */
 export async function branchToNode(taskId: TaskId, entryId: string, summarize = false): Promise<void> {
   const { text } = await window.studio.branchTask(taskId, entryId, summarize);
-  appendToDraft(taskId, [text]);
+  appendToDraft(taskId, [{ text }]);
 }

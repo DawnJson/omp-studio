@@ -9,6 +9,7 @@ import type {
   Project,
   ProjectId,
   PromptInput,
+  RestoredDraft,
   RestoredQueue,
   SessionTreeView,
   BranchTaskResult,
@@ -52,8 +53,8 @@ interface PoolEvents {
   btw?(taskId: TaskId, event: BtwUiEvent): void;
   /** 任务的节点树批次（16ms 合批）；不关心的调用方（多数测试）可以不给。 */
   tspBatch?(batch: TspBatch): void;
-  /** omp 往它自己的输入框里写了 studio 没发的文字（Ctrl+R 选中的历史、`/annotate`、`/plan` 预填）：已清空 omp 那边，文字放进 studio 的输入框；多数测试不给。 */
-  composerPrefill?(taskId: TaskId, text: string): void;
+  /** omp 往它自己的输入框里写了 studio 没发的草稿（Ctrl+R 选中的历史、`/annotate`、`/plan` 预填、排队消息的 Edit，带图片）：已清空 omp 那边，放进 studio 的输入框；多数测试不给。 */
+  composerPrefill?(taskId: TaskId, draft: RestoredDraft): void;
 }
 
 export interface WorktreeOps {
@@ -122,7 +123,7 @@ export class TaskPool {
       },
       onTspBatch: (batch) => deps.events.tspBatch?.(batch),
       onBtw: (taskId, event) => deps.events.btw?.(taskId, event),
-      onComposerPrefill: (taskId, text) => deps.events.composerPrefill?.(taskId, text),
+      onComposerPrefill: (taskId, draft) => deps.events.composerPrefill?.(taskId, draft),
       onNotice: (notice) => deps.events.notice(notice),
       session: tsp.session,
       knownModel: (key) => deps.knownModel?.(key) ?? null,

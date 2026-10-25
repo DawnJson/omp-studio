@@ -5,7 +5,15 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import type { ModelOption, ProjectId, StudioSettings, TaskId, TaskState, TspBatch } from "../src/shared/ipc.ts";
+import type {
+  ModelOption,
+  ProjectId,
+  RestoredDraft,
+  StudioSettings,
+  TaskId,
+  TaskState,
+  TspBatch,
+} from "../src/shared/ipc.ts";
 import type { TspEvent } from "../src/shared/tsp/tsp.generated.ts";
 import { applyMessage, createDocument, restoreDocument, snapshotDocument } from "../src/shared/tsp/document.ts";
 import { titleFromPrompt } from "../src/main/tasks/convert.ts";
@@ -69,6 +77,7 @@ const catalog: ModelOption[] = [
 class Events {
   states: TaskState[] = [];
   tspBatches: TspBatch[] = [];
+  prefills: RestoredDraft[] = [];
   #waiters: { predicate: (state: TaskState) => boolean; resolve: (state: TaskState) => void }[] = [];
 
   readonly sink = {
@@ -81,6 +90,7 @@ class Events {
     notice: () => {},
     taskRemoved: () => {},
     tspBatch: (batch: TspBatch) => this.tspBatches.push(batch),
+    composerPrefill: (_taskId: TaskId, draft: RestoredDraft) => this.prefills.push(draft),
   };
 
   statuses(id: TaskId): string[] {
@@ -270,6 +280,34 @@ describe("任务池：TSP 任务", () => {
 
     const restored = await h.pool.stopTask(created.id);
     expect(restored).toMatchObject({ steering: [{ text: queued.event["text"] }], followUp: [], aborted: true });
+    await waitForLog(h.log, (records) =>
+      records.some((record) => record.kind === "tsp" && record.body?.["ev"] === "edit" && record.body["text"] === ""),
+    );
+  }, 60_000);
+
+  it("排队的带图片插话点 Edit：omp 放回输入框的文字和图片一起搬进 studio 的输入框，图片占位换成 [Image #1]", async () => {
+    // omp 18.12.6 实录：运行中发带图片的插话 → 排队区那条点 Edit（action queue.edit）→ omp 把文字放回输入框、图片重新挂成 chip。
+    const [first] = recordedUserEvents(loadTspFixture("queue-edit-image")).filter(
+      (entry) => entry.event["ev"] === "send",
+    );
+    if (!first) throw new Error("unexpected queue-edit-image fixture");
+    const h = await harness();
+    h.next.fixture = "queue-edit-image";
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await h.pool.sendPrompt(created.id, { text: String(first.event["text"]), whenBusy: "steer" });
+    await h.events.until(created.id, (state) => state.status === "running");
+    await h.pool.sendPrompt(created.id, {
+      text: "[Image #1, 40x30] what color is this image?",
+      images: [{ mimeType: "image/png", data: "AA==" }],
+      whenBusy: "steer",
+    });
+    h.pool.sendTspEvent(created.id, { ev: "action", sf: "s:1", id: "r.Steering%2F0/edit", act: "queue.edit" });
+    await vi.waitFor(() => expect(h.events.prefills).toHaveLength(1), { timeout: 20_000 });
+    const [draft] = h.events.prefills;
+    expect(draft!.text).toBe("[Image #1] what color is this image?");
+    // 图片是 omp 挂 chip 时发来的那份 blob（webp），不是 studio 粘贴的原图。
+    expect(draft!.images?.map((image) => image.mimeType)).toEqual(["image/webp"]);
     await waitForLog(h.log, (records) =>
       records.some((record) => record.kind === "tsp" && record.body?.["ev"] === "edit" && record.body["text"] === ""),
     );

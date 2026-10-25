@@ -142,7 +142,7 @@ test("空状态、对话里的用量", async () => {
     await expect(page.getByTestId("draft-git-menu")).toHaveCount(0);
     await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
 
-    // 工具行里不再有本会话 token 图标：模型胶囊之后，发送键左边依次是上下文圆环
+    // 工具行里不再有本会话 token 图标：模型胶囊之后，发送 / 停止键左边依次是上下文圆环
     // （fixture 上下文不到 1%，没有文字）和费用 $0.00，每日用量和额度在费用的对话框里。
     const tools = page.locator(".composer-tools");
     await expect(page.getByTestId("usage-tokens")).toHaveCount(0);
@@ -154,7 +154,7 @@ test("空状态、对话里的用量", async () => {
     await expect(cost).toContainText("$0.00");
     // 四个框一起量：发送后输入框还在从草稿换成任务的布局，分开量会量到不同时刻的位置。
     const [chipBox, contextBox, costBox, sendBox] = await Promise.all(
-      [page.getByTestId("model-chip"), contextMeter, cost, page.getByTestId("send-button")].map((locator) =>
+      [page.getByTestId("model-chip"), contextMeter, cost, tools.locator(".send")].map((locator) =>
         locator.boundingBox(),
       ),
     );

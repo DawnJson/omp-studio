@@ -454,6 +454,7 @@ export interface PromptInput {
   whenBusy: "steer" | "followUp";
 }
 
+/** 放回输入框的一条消息：`text` 里用 `[Image #k]` 标出 `images[k-1]` 的位置。 */
 export interface RestoredDraft {
   text: string;
   images?: PromptImage[];
@@ -1417,8 +1418,8 @@ export interface StudioEventPayloads {
   btw: { taskId: TaskId; event: BtwUiEvent };
   /** 任务目录的项目 rpc-ui 主动推来的命令列表（`available_commands_update`：技能 / 扩展加载完、重新加载插件之后）。只含 omp 的列表，TUI 才有的命令由渲染进程合并。 */
   slashCommands: { taskId: TaskId; commands: AvailableSlashCommand[] };
-  /** omp 往它自己的输入框里写了 studio 没发的文字（Ctrl+R 选中的历史、`/annotate`、`/plan` 预填）：主进程已清空 omp 那边，渲染进程把文字放进这个任务的草稿。 */
-  composerPrefill: { taskId: TaskId; text: string };
+  /** omp 往它自己的输入框里写了 studio 没发的草稿（Ctrl+R 选中的历史、`/annotate`、`/plan` 预填、排队消息的 Edit，可带图片）：主进程已清空 omp 那边，渲染进程把它接进这个任务的草稿。 */
+  composerPrefill: { taskId: TaskId; draft: RestoredDraft };
   /** 终端输出（主进程已按 ~16ms 合并）。 */
   terminalData: { key: TerminalKey; data: string };
   /** 终端里的 shell 自己退出了（主动 closeTerminal 不发这个事件）。 */

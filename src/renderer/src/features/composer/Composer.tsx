@@ -457,9 +457,6 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
             onSend={() => {
               if (allowSend()) sendNow("steer");
             }}
-            onSendLater={() => {
-              if (allowSend()) sendNow("followUp");
-            }}
             onStop={stop}
           />
         </div>

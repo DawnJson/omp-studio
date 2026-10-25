@@ -439,7 +439,7 @@
 - **附件卡片与 `#N` 芯片**（2026-10-21 起，`features/composer/ComposerInput.tsx`、`Attachments.tsx`，机制和 omp 实测见 `docs/architecture/composer-attachments.md`）：附件卡片在输入框**顶部**（文本区上方），每张 `attachment`：32×32 缩略图 + `#N`（`--fs-xs` 500）+ 像素尺寸（`--font-mono` `--fs-2xs` `--text-3`，`1568×165`）；右上 ✕（`attachment-remove`，悬停 / 聚焦才显示，`composer.attachment.remove`）。来源是粘贴图片（截图、资源管理器里复制的图片文件）和拖入图片（2026-10-22 起没有附件按钮，见上）。**非图片文件**（拖到输入框、粘贴）同样是卡片（文件图标 + `#N 名字` + 大小）和 `[File #N, 名字]` 芯片，发送时内联换成 omp 的 `@"路径"` 提及；路径只在 preload / 主进程里，渲染进程只有不透明的 id（`docs/architecture/composer-attachments.md` §2.1）。当前模型不收图片时 toast `composer.attach.unsupported`。文字里引用附件的是 omp 的占位符 `[Image #N, WxH]`，在输入框里显示成 `#N` 芯片（`.composer-chip`，`--accent-soft` 底、`--radius-sm`）；芯片是原子的（光标 / 选区不能落进去，Backspace / Delete / ← / → 一步越过，删掉芯片 = 删掉附件，删卡片 = 删掉芯片）。**大段粘贴**（超过 10 行或 1000 字符，omp 的阈值）折叠成 `[Paste #N, +X lines]`，显示成 `#N +X 行` / `#N M 字符` 芯片（`--bg-sunken` 底、`1px --border-subtle`），发送时换回原文；`Ctrl+Shift+V` 原样粘贴不折叠（omp 的 `pasteTextRaw`）。发送时图片按文字里引用的编号重排、没引用的不发。
 - **粘贴文件**（2026-10-20 起，照终端；2026-10-21 起普通文件改成文件附件，见上）：资源管理器里复制的文件夹粘贴进输入框时，插入它们的绝对路径，含空白的加双引号，多个用空格隔开；图片文件仍作附件。路径由 preload 在隔离世界里用 `webUtils.getPathForFile` 取，`document.execCommand("insertText")` 插进输入框（走输入框自己的 input 事件，`Ctrl Z` 能撤回），渲染进程拿不到路径，也没有传路径的函数（同拖入文件夹，`src/preload/index.ts`）。
 - 草稿按任务保留，由主进程持久化。
-- 占位符：新任务 `composer.placeholderNew`；有对话 `composer.placeholder`；运行中 `composer.placeholderRunning`（“告诉 omp 要改什么…”，2026-10-24 起不写键位、没有 `…Swapped`；键位写在发送键悬停 `composer.sendKeys` / `composer.sendKeysSwapped`）；有门时 `composer.placeholderGate`。
+- 占位符：新任务 `composer.placeholderNew`；有对话 `composer.placeholder`；运行中 `composer.placeholderRunning`（“告诉 omp 要改什么…”，2026-10-24 起不写键位、没有 `…Swapped`；键位写在停止键悬停 `composer.sendKeys` / `composer.sendKeysSwapped`，2026-10-25 起，原来在发送键上）；有门时 `composer.placeholderGate`。
 - **输入法**：`isComposing` 或 `keyCode === 229` 时 `Enter` 一律不发送；组合结束后才发送。（测试必写。）
 
 **输入框与过程区的分工**：输入框上方的整个过程区——对话、工具卡片、待办、子代理、后台任务、HUD 状态行、omp 的排队（`omp.queue`）、提问 / 审批（`omp.editor.ask`、`omp.editor.ask.approval`）、选择器等浮层——是 omp 发来的 TSP 节点（`features/tsp/TspView`，见 `docs/architecture/tsp-migration.md`）；输入框和它下面的一切（本节的 Composer：模型胶囊、思考强度、审批胶囊、上下文圆环、费用、发送 / 停止）是 studio 的 `Composer`。所有任务都是 TSP，所以同一段对话在 studio 和 Tern 里显示一样。
@@ -479,8 +479,7 @@
 | 空闲 + 空 | `--bg-active` 底、`--text-disabled` 箭头，不可点 | — |
 | 空闲 + 有内容 | `--primary` 底、`--text-on-primary` ↑ 16px；hover `--primary-hover`（和主按钮一致，强调色只留给进行中和焦点） | 发送 |
 | 发送中 | 14px 细旋转环（reduced：`…`），不可点 | — |
-| 运行中 + 空 | `--text` 底、`--bg-app` 色 12px 实心方块 | 停止（`abort_and_restore_queue`） |
-| 运行中 + 有文本 | 左：停止（32 描边按钮）；右：发送 | 见上表 |
+| 运行中（不论输入框空不空） | `--text` 底、`--bg-app` 色 12px 实心方块；悬停提示 `停止 · ` + `composer.sendKeys`（对调时 `…Swapped`） | 停止（`abort_and_restore_queue`）；插话 / 稍后发只用 Enter / Ctrl+Enter（2026-10-25 仓库所有者：运行中不再并排发送键和 `⌄` 发送方式下拉） |
 | 停止中 | `composer.stopping`，不可点，直到 `agent_end`/`prompt_result` | — |
 | 发送失败 | 按钮上出现 `--st-error` 小红点；错误见 UserMessage | — |
 
@@ -524,8 +523,6 @@
 BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`（`btw-copy-answer`，`btw.copyAnswer`，`CopyIcon`；当前话题最新一问有答案时才出现，渲染进程剪贴板，成功 toast `common.copied`）。没有“丢弃话题”：omp 的 `/btw` 弹窗里的 `discard` 动作只是丢掉追问输入框里的草稿，没有删除话题的动作（实测 omp 18.12.5 录制 + 18.12.6 源码，`docs/architecture/tsp-btw.md` §4）。
 
 **输入历史**：输入框为空（或光标在最开头）时 `↑` 翻看发过的消息（最近的在前），`↓` 往回走，翻过最新一条恢复翻看前的草稿；翻看中 `↑` 要光标在第一行、`↓` 要光标在最后一行才接管，否则照常移光标。斜杠菜单/`@` 菜单打开时 `↑↓` 归菜单；刚翻出来的那段文本不开菜单，免得抢走后面的 `↑↓`。能翻的条目（像终端里的命令历史）= 会话里的用户消息（omp 文档里的 `omp.user`，含恢复的旧会话；`shared/tsp/user-messages.ts`）+ studio 自己持久化的项目历史（2026-10-23 起：`userData/input-history.json`，按项目、每项目 200 条、单条 ≤ 20000 字、只存文字，含斜杠命令、排队中、草稿页发出的第一句；`history-store.ts`、主进程 `input-history-store.ts`；不读 omp 的 history.db），按发送顺序合并、相邻重复只留一条（`input-history.ts` 的 `mergeEntries`）。新任务草稿也能翻项目历史。**Ctrl+R 浮层**（`HistorySearch.tsx`，`data-testid="history-search"`，外观同斜杠菜单：浮在输入框上方，顶上一个 `TextField` sm 搜索框 `history-query`，下面是匹配行 `history-row`，最新的在前，最多同时显示 8 行，多行消息只显示第一行加 ↵）：输入框里按 `Ctrl R` 打开，焦点进搜索框；多个词都要出现（不分大小写）；`↑↓` 选，`Enter` 或点一行把整条消息填进输入框（替换草稿文字）并关闭，`Esc` 或点到浮层外关闭，Esc 不触发"停止任务"。焦点在过程区时 `Ctrl R` 仍转发给 omp（它自己的 History 选择器）；omp 把选中的历史写进它隐藏的输入框时，studio 把那段文字挪进自己的输入框（通用回填，`docs/architecture/composer-input.md`）。
-
-**发送方式下拉**（运行中且输入框有内容时，发送键右边一个 12px 的 `⌄` 按钮 `send-mode`，`ui/Menu`）：`插话`（`composer.sendSteer`，等于发送键）/ `等这一轮结束再发`（`composer.sendLater`，`/queue <文字>`，omp 的 follow-up 队列；Ctrl+Enter 同）。`插话` 带第二行说明（`composer.sendSteerNote`），`等这一轮结束再发` 不带（2026-10-24 起）。
 
 **斜杠命令表和守卫（2026-10-23 更新）**：命令表 = 任务目录里项目 rpc-ui 的 `get_available_commands`（含项目 skill、自定义命令、扩展命令；敲 `/` 时重取一次，omp 推 `available_commands_update` 时整份替换）+ TUI 才有的命令（`shared/omp-tui-commands.ts`，omp 18.12.6）+ studio 接管的命令。守卫只对"这张表里都没有"的命令提示 `slash.unknown`，`slash.terminalOnly` 已删。会结束或重启 omp 进程的 `/exit` `/quit` `/q` `/restart` 不在菜单里，手敲照常发出。接管的命令按参数分派：`/model 词`（唯一匹配直接切换，多个打开选择器并填好搜索词，`@角色` 进角色范围）、`/effort 档位`、`/todo start|done|drop|rm|append …`、`/settings 关键词`；不认识的参数原样交给 omp。
 
@@ -1158,12 +1155,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `composer.send` | 发送 | Send |
 | `composer.stop` | 停止 | Stop |
 | `composer.stopping` | 正在停止… | Stopping… |
-| `composer.sendMode` | 发送方式 | Send mode |
-| `composer.sendSteer` | 插话 | Steer |
-| `composer.sendSteerNote` | omp 在下一步读到 | omp reads it at its next step |
 | `composer.sendKeys` | Enter 插话，Ctrl+Enter 稍后 | Enter to steer, Ctrl+Enter for later |
 | `composer.sendKeysSwapped` | Enter 稍后，Ctrl+Enter 插话 | Enter for later, Ctrl+Enter to steer |
-| `composer.sendLater` | 等这一轮结束再发 | Send when this turn ends |
 | `composer.history.label` | 输入历史 | Input history |
 | `composer.history.placeholder` | 搜索发过的消息… | Search sent messages… |
 | `composer.history.empty` | 没有匹配的消息 | No matching messages |

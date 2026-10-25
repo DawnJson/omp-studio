@@ -6,7 +6,7 @@
 // 控制字符都是零宽的，所以文本框里的字符和后面画芯片底色的那一层逐字对应。
 // 显示编号（displayNumber）是所有附件共用的一个计数（图片、文件、粘贴依次 #1..#N），卡片和芯片一致；
 // 草稿文字和发给 omp 的仍是各类自己的编号（omp 的图片 / 粘贴各有一套），发送时的转换不变。
-import type { ComposerFile, PromptImage } from "../../../../shared/ipc.ts";
+import type { ComposerFile, PromptImage, RestoredDraft } from "../../../../shared/ipc.ts";
 import { fileSlot } from "../../../../shared/composer-files.ts";
 
 export interface DraftImage extends PromptImage {
@@ -225,11 +225,12 @@ export function appendDraft(current: Draft, added: Draft): Draft {
   };
 }
 
-/** 排队撤回的消息（纯文字 + 图片）变成草稿：图片占位符放在文字后面。 */
-export function draftFromRestored(texts: readonly string[], images: readonly DraftImage[]): Draft {
-  const body = texts.filter((text) => text !== "").join("\n\n");
-  const markers = images.map((image, index) => imageMarker(index + 1, image)).join(" ");
-  return { ...EMPTY_DRAFT, text: [body, markers].filter((part) => part !== "").join(" "), images };
+/** 撤回 / 预填的消息变成草稿：文字里已用 `[Image #k]` 标好图片位置（`RestoredDraft`），逐条空行分隔接起来，编号由 appendDraft 顺延。 */
+export function draftFromRestored(restored: readonly RestoredDraft[]): Draft {
+  return restored.reduce<Draft>(
+    (draft, item) => appendDraft(draft, { ...EMPTY_DRAFT, text: item.text, images: item.images ?? [] }),
+    EMPTY_DRAFT,
+  );
 }
 
 export interface Submission {

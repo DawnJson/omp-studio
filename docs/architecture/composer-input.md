@@ -23,7 +23,7 @@
 
 ## 3. 运行中的发送方式
 
-发送键右边的下拉（`SendStop.tsx`）："插话"（`send`，运行中 omp 把它放进队列，条目标题 `Steering`）/"等这一轮结束再发" = `/queue <文字>`（`shared/tsp/queue-command.ts`，只在运行中且文字不是 `/` `!` `$` 开头时由 `TspRunner.sendPrompt` 套上）。实测：
+运行中只有停止键（`SendStop.tsx`，2026-10-25 起；原来发送键右边有个"插话 / 等这一轮结束再发"的下拉），发送方式只看键：Enter = 插话（`send`，运行中 omp 把它放进队列，条目标题 `Steering`），Ctrl+Enter = 等这一轮结束再发 = `/queue <文字>`（设置里可对调；`shared/tsp/queue-command.ts`，只在运行中且文字不是 `/` `!` `$` 开头时由 `TspRunner.sendPrompt` 套上）。实测：
 
 - omp 弹 toast `Queued message for when the agent yields`，队列条目标题 `After yield`；这一轮结束后作为一条用户消息发出，多行文字保留（单条）。
 - 文字像编号清单（`1. a` / `2. b`）时 omp 拆成多条；空 `/queue` 报 `Usage: /queue <message> (or start a prompt with -> / =>)`。

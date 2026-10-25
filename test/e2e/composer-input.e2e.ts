@@ -83,7 +83,7 @@ test("斜杠菜单：任务目录里的项目命令出现；/plan 等终端版�
   }
 });
 
-test("发送下拉：运行中选「等这一轮结束再发」，omp 收到 /queue <文字>；Ctrl+R 搜到发过的消息，重启后还在", async () => {
+test("运行中输入框右下角只有停止键；Ctrl+Enter 等这一轮结束再发，omp 收到 /queue <文字>；Ctrl+R 搜到发过的消息，重启后还在", async () => {
   test.setTimeout(150_000);
   const events = recordedUserEvents(loadTspFixture("queue-command")).filter((entry) => entry.event["ev"] === "send");
   const first = String(events[0]!.event["text"]);
@@ -104,16 +104,10 @@ test("发送下拉：运行中选「等这一轮结束再发」，omp 收到 /qu
     const input = page.getByTestId("composer-input");
     await expect(page.getByTestId("stop-button")).toBeVisible({ timeout: 30_000 });
     await input.fill(queuedText);
-    await page.getByTestId("send-mode").click();
-    await expect(page.getByTestId("send-mode-menu")).toContainText(/插话|Steer/);
-    // 菜单开着时它盖在发送键上方（含 ⌄ 按钮），再点 ⌄ 点不到：没开才点。
-    const openSendMode = async () => {
-      if ((await page.getByTestId("send-mode-menu").count()) === 0) await page.getByTestId("send-mode").click();
-      await expect(page.getByTestId("send-mode-later")).toBeVisible();
-    };
-    if ((await input.inputValue()) !== queuedText) await input.fill(queuedText);
-    await openSendMode();
-    await page.getByTestId("send-mode-later").click();
+    // 有内容也只有停止键：没有发送键和发送方式下拉（插话 / 稍后发走 Enter / Ctrl+Enter）。
+    await expect(page.getByTestId("stop-button")).toBeVisible();
+    await expect(page.getByTestId("send-button")).toHaveCount(0);
+    await input.press("Control+Enter");
     await expect
       .poll(
         async () =>

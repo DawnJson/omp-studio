@@ -30,7 +30,7 @@ studio 通过 TSP 的 `send` 事件把整条消息当文字交给 omp（`tsp-run
 - **发送**（`buildSubmission`，`actions.ts` 的 `sendDraft` 和草稿页的 `send` 都用它）：粘贴占位符换回原文；图片按文字里引用的编号排序、重新编号 1..k（占位符同步改写），没被引用的图片不发。发出去的文字是 `…[Image #1, 1568x165]…`；主进程按占位符在 omp 的输入框里重建这条消息（下面「发图片」），占位符本身不进 omp。
 - **删除联动**：文字里的占位符没了（Backspace、剪切、选中删除、`setDraftText` 换文字），对应的图片 / 粘贴原文跟着删（`reconcileDraft`），后面的图片往前补号；点附件卡片的 ✕ = 去掉文字里的占位符。
 - **输入历史**：存"粘贴换回原文、图片占位符去掉"的文字（`historyText`），studio 自己按项目持久化（`userData/input-history.json`，只存文字、不存附件二进制；见 [composer-input.md](composer-input.md) §4）；草稿里有附件时 ↑ 不翻历史（换掉文字会把附件一起丢掉）。草稿落盘（`saveDraft`，主进程存盘的只有文字）同样存展开后的文字，超过 200000 字符时退回占位符。
-- **发送失败 / 撤回排队消息**（`restoreDraft` / `appendToDraft`）：把整份草稿接回现在的草稿后面，后面那份的占位符编号顺延（`appendDraft`，omp 的 `g5`）。
+- **发送失败 / 撤回排队消息**（`restoreDraft` / `appendToDraft`）：把整份草稿接回现在的草稿后面，后面那份的占位符编号顺延（`appendDraft`，omp 的 `g5`）。主进程交回的每条消息是 `RestoredDraft`：文字里已用 `[Image #k]` 标好 `images[k-1]` 的位置，渲染进程逐条接起来（`draftFromRestored`）。
 - **显示编号 ≠ 草稿 / 发送编号**（v0.3.26）：omp 的图片 `[Image #N]` 和粘贴 `[Paste #N]` 各有一套编号，但在 studio 界面里图片 `#1`、文件 `#1`、粘贴 `#1` 并排出现会让人分不清是哪个。所以**界面上**（顶部卡片、文字里的芯片）所有附件共用一个计数 `#1..#N`：图片在前（按图片编号），然后文件，然后粘贴（按粘贴编号排）。换算在 `composer-tokens.ts` 的 `displayNumber`（草稿类别编号 → 显示编号）和 `viewToText` 里的反向换算。草稿文字（`draft.text`）里的占位符、`reconcileDraft` 的补号、`buildSubmission` 发给 omp 的文字（`[Image #k]` 重新编号 1..k、粘贴换回原文、文件换成 `@"路径"`）完全不变，仍是 omp 自己的写法和编号。例：2 张图片 + 1 个文件 + 1 段粘贴，界面显示 `#1 #2`（图片）、`#3`（文件）、`#4`（粘贴），发给 omp 的是 `[Image #1…] [Image #2…]`、`@"路径"` 和粘贴原文。删掉前面的附件时后面的显示编号跟着往前补。
 
 ### 2.1 文件附件（非图片）
@@ -51,6 +51,7 @@ omp 没有文件附件占位符；它读文件靠 `@path` 提及（`@` 补全插
 2. 按 `[Image #N, …]` 占位符把消息拆成文字段和图片（`imagePasteParts`；图片后面那段开头的一个空格去掉，omp 的占位自带尾随空格；没被引用的图片接在最后）。期间 `#editorClaims` 让通用回填（`#syncEditorText`）让开；omp 输入框里先有的文字先清掉。
 3. 依次：文字段用 `edit` 追加到 omp 输入框末尾（等文字变了）；图片往 pty 写一次括号粘贴 `ESC[200~"<路径>"ESC[201~`（路径用正斜杠），等输入框上方多一个带 `image` 的 `omp.composer.chip`。omp 弹出新的状态 toast（"Image not found at …"）就以它的原文报错。
 4. `action submit`（`act: "submit"`），等 omp 清空输入框再放开通用回填（否则刚发出的文字会被当成 omp 的预填搬回 studio 的输入框）。
+5. **排队后点 Edit / Esc 撤回带图片的插话**（Edit 是 omp 18.12.6 实测，2026-10-25，`fixtures/tsp/queue-edit-image.jsonl`；Esc 走同一个取回函数，带图片的没有单独录制）：omp 把文字放回它的输入框（图片位置还是图标 + ` #N` 占位），图片重新挂成 `omp.composer.chip`，blob 是发的时候就收到过的那份 webp（不重发）。主进程清空 omp 输入框之前先读出图片（`editorDraft`，`shared/tsp/image-paste.ts`）：按 chip 里 `image` 节点的 `alt`（图标 + ` #N`）把文字里的占位换成 `[Image #k]`，blob 解码成 `PromptImage`；经 `composerPrefill` 事件（Edit、Ctrl+R 等 omp 自己往输入框写的）或停止时的 `steering`（Esc）回到 studio 的输入框，成为附件卡片 + `#1` 芯片。之前只搬文字，图片丢掉、文字里留着 omp 的图标占位。
 
 实测（omp 18.12.6，deepseek-v4-flash，2026-10-25，录制 `fixtures/tsp/image-attach.jsonl`；单测 `test/tsp-image-paste.test.ts`、`test/task-tsp.test.ts`，e2e `tsp.e2e.ts`"发图片用 omp 自己的附件"）：
 

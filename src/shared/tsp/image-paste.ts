@@ -6,6 +6,7 @@
 // - `send` 事件会先清空草稿（含待发送图片）再提交，图片丢掉；`action submit` 提交输入框里现有的草稿，图片保留。
 //   所以草稿在 omp 的输入框里按顺序重建：文字段用 `edit` 追加到末尾，图片在它在文字里的位置粘贴，最后 `action submit`；
 //   运行中同样是插话，`/queue <文字>` 同样排队、图片跟着走；只有图片没有文字也能提交。
+import type { PromptImage, RestoredDraft } from "../ipc.ts";
 import type { TspDocument } from "./document.ts";
 import { findNode, nodeRole } from "./document.ts";
 import type { TspComposerEditor } from "./session-tree.ts";
@@ -68,4 +69,48 @@ export function pendingImageCount(doc: TspDocument): number {
     }
   }
   return count;
+}
+
+const PROMPT_IMAGE_MIMES: ReadonlySet<string> = new Set<PromptImage["mimeType"]>([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+]);
+
+/**
+ * omp 输入框里的文字连同挂着的图片（omp 18.12.6 实测：点排队消息的 Edit / Esc 退回排队消息时，omp 把文字放回输入框、
+ * 图片重新挂成 `omp.composer.chip`，blob 是发的时候就收到过的那份；文字里图片的位置是 image 的 `alt`，即图标 + ` #N`）。
+ * 按 omp 的编号收齐，文字里 omp 的占位换成 `RestoredDraft` 约定的 `[Image #k]`（找不到占位的图片接在末尾）；blob 不在文档里的取不回，占位原样留着。
+ */
+export function editorDraft(doc: TspDocument, text: string): RestoredDraft {
+  const chips: { n: number; alt: string; image: PromptImage }[] = [];
+  for (const sf of doc.live) {
+    const surface = doc.surfaces.get(sf);
+    if (!surface?.nodes.has("dock")) continue;
+    for (const node of surface.nodes.values()) {
+      if (nodeRole(node) !== CHIP_ROLE) continue;
+      const image = findNode(surface, (child) => child.k === "image", node.id);
+      const alt = image?.p["alt"];
+      const sha = image?.p["blob"];
+      const blob = typeof sha === "string" ? doc.blobs.get(sha) : undefined;
+      const n = typeof alt === "string" ? /#(\d+)$/.exec(alt)?.[1] : undefined;
+      if (blob?.mime == null || !PROMPT_IMAGE_MIMES.has(blob.mime) || n === undefined) continue;
+      chips.push({
+        n: Number(n),
+        alt: alt as string,
+        image: { mimeType: blob.mime as PromptImage["mimeType"], data: blob.data },
+      });
+    }
+  }
+  if (chips.length === 0) return { text };
+  chips.sort((a, b) => a.n - b.n);
+  let out = text;
+  chips.forEach((chip, index) => {
+    const marker = `[Image #${index + 1}]`;
+    // `#1` 不能吃掉 `#12` 的前半截。
+    const pattern = new RegExp(`${chip.alt.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?!\\d)`, "g");
+    out = pattern.test(out) ? out.replace(pattern, marker) : `${out.trimEnd()} ${marker}`.trimStart();
+  });
+  return { text: out, images: chips.map((chip) => chip.image) };
 }

@@ -163,7 +163,7 @@ function createPool(): Promise<TaskPool> {
         refreshTaskbarProgress(taskPool.listTasks());
       },
       btw: (taskId, event) => emitEvent("btw", { taskId, event }),
-      composerPrefill: (taskId, text) => emitEvent("composerPrefill", { taskId, text }),
+      composerPrefill: (taskId, draft) => emitEvent("composerPrefill", { taskId, draft }),
     },
   });
   // 项目 rpc-ui 主动推来的命令列表（握手期间加载完技能 / 扩展、`/reload-plugins` 之后）：推给这个目录里的所有任务。

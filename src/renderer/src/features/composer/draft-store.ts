@@ -1,6 +1,6 @@
 // 输入框草稿（按任务）：内存里一份，文字经主进程防抖存盘（下面的持久化段），图片和大段粘贴原文不存。
 import { reportErrorNow } from "../../ui/errors.ts";
-import type { PromptImage, TaskId } from "../../../../shared/ipc.ts";
+import type { RestoredDraft, TaskId } from "../../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 import {
   appendDraft,
@@ -105,9 +105,9 @@ if (typeof window !== "undefined" && "studio" in window) {
   }, reportErrorNow);
 }
 
-/** 把撤回的排队消息放回草稿末尾（空行分隔，图片作为附件）。 */
-export function appendToDraft(taskId: TaskId, texts: readonly string[], images: readonly PromptImage[] = []): void {
-  setDraft(taskId, appendDraft(getDraft(taskId), draftFromRestored(texts, images)));
+/** 把撤回 / 预填的消息放回草稿末尾（空行分隔，图片作为附件）。 */
+export function appendToDraft(taskId: TaskId, restored: readonly RestoredDraft[]): void {
+  setDraft(taskId, appendDraft(getDraft(taskId), draftFromRestored(restored)));
 }
 
 /** 发送失败：把整份草稿（文字、图片、大段粘贴）接回现在的草稿后面。 */
@@ -115,7 +115,7 @@ export function restoreDraft(taskId: TaskId, draft: Draft): void {
   setDraft(taskId, appendDraft(getDraft(taskId), draft));
 }
 
-/** omp 往它自己（studio 不画）的输入框里写了文字（Ctrl+R 选中的历史、⌥↑ 取回的排队消息、`/annotate`、`/plan` 预填）：主进程已清空那边，接进这个任务的草稿。 */
+/** omp 往它自己（studio 不画）的输入框里写了草稿（Ctrl+R 选中的历史、排队消息的 Edit、`/annotate`、`/plan` 预填，可带图片）：主进程已清空那边，接进这个任务的草稿。 */
 if (typeof window !== "undefined" && "studio" in window) {
-  window.studio.onComposerPrefill(({ taskId, text }) => appendToDraft(taskId, [text]));
+  window.studio.onComposerPrefill(({ taskId, draft }) => appendToDraft(taskId, [draft]));
 }

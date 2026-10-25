@@ -490,6 +490,44 @@ test("发图片用 omp 自己的附件：输入框顶部卡片 + #1 芯片；发
   }
 });
 
+test("排队的带图片插话点 Edit：文字和图片一起回到 studio 的输入框（#1 芯片 + 附件卡片），omp 的输入框被清空", async () => {
+  test.setTimeout(90_000);
+  // omp 18.12.6 实录：运行中发带图片的插话 → 排队区那条点 Edit → omp 把文字放回它的输入框、图片重新挂成 chip。
+  const { launched, received, cleanup } = await start("queue-edit-image");
+  try {
+    const { page } = launched;
+    const [first] = recordedUserEvents(loadTspFixture("queue-edit-image")).filter(
+      (entry) => entry.event["ev"] === "send",
+    );
+    await sendFirst(page, String(first!.event["text"]));
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "running", { timeout: 20_000 });
+    // 任务的输入框在模型不收图片时拒绝粘贴图片（假 omp 的模型目录里没有它）：直接走 preload 的发送，和输入框发出的是同一个调用。
+    const taskId = await page.getByTestId("tsp-view").getAttribute("data-task-id");
+    await page.evaluate(
+      ([id, data]) =>
+        (
+          globalThis as unknown as {
+            studio: { sendPrompt(taskId: string, input: unknown): Promise<void> };
+          }
+        ).studio.sendPrompt(id!, {
+          text: "[Image #1, 40x30] what color is this image?",
+          images: [{ mimeType: "image/png", data }],
+          whenBusy: "steer",
+        }),
+      [taskId, solidPng(40, 30).toString("base64")] as const,
+    );
+    await role(page, "omp.queue.edit").first().click({ timeout: 20_000 });
+    const input = page.getByTestId("composer-input");
+    await expect(page.getByTestId("attachment")).toHaveCount(1, { timeout: 20_000 });
+    await expect(input).toHaveValue(/#1/);
+    await expect(input).toHaveValue(/what color is this image\?$/);
+    await expect(input).not.toHaveValue(/\[Image/);
+    await expect.poll(async () => (await received(["edit"])).some((event) => event["text"] === "")).toBe(true);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("输入框附件：删掉文字里的 #1 芯片就删掉对应的图片；Ctrl+Shift+V 原样粘贴不折叠；拖拽条调高度、双击还原", async () => {
   test.setTimeout(60_000);
   const { launched, cleanup } = await start("task");
@@ -585,7 +623,10 @@ test("提问:选项是 omp 的列表,双击一项发 activate;提问期间 studi
     await expect(role(page, "omp.editor.ask")).toBeVisible();
     await expect(role(page, "omp.editor")).toHaveCount(0);
     await page.getByTestId("composer-input").fill("先别发");
-    await expect(page.getByTestId("send-button")).toBeDisabled();
+    // 运行中右下角只有停止键；按 Enter 也不发（字留在输入框里）。
+    await expect(page.getByTestId("send-button")).toHaveCount(0);
+    await page.getByTestId("composer-input").press("Enter");
+    await expect(page.getByTestId("composer-input")).toHaveValue("先别发");
     await page.getByTestId("composer-input").fill("");
     await option.dblclick();
     await expect(option).toHaveCount(0, { timeout: 30_000 });

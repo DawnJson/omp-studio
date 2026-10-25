@@ -672,11 +672,6 @@ button.usage-context:hover,
   background: var(--text);
   color: var(--bg-app);
 }
-.send[data-kind="stop"][data-outline] {
-  background: transparent;
-  border-color: var(--border-strong);
-  color: var(--text);
-}
 .send[data-kind="stop"]:disabled {
   background: var(--bg-active);
   color: var(--text-disabled);
@@ -687,34 +682,6 @@ button.usage-context:hover,
   height: 12px;
   border-radius: var(--radius-xs);
   background: currentColor;
-}
-/* 发送键右边的投递方式下拉：窄的透明按钮，紧贴发送键。 */
-.send-more {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 20px;
-  height: var(--control-h-md);
-  margin-left: calc(-1 * var(--space-1));
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-2);
-  cursor: pointer;
-}
-.send-more:hover:not(:disabled),
-.send-more[aria-expanded="true"] {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-.send-more:disabled {
-  color: var(--text-disabled);
-  cursor: default;
-}
-.send-more:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 1px;
 }
 
 /* 输入框上方（ComposerTop.tsx）：药丸行（有待办板时单独一行、右对齐）+ 状态行（左 = 运行图标 + 翻牌计时 + 分隔线 + 当前活动，

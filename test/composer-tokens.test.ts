@@ -173,10 +173,17 @@ describe("拼接草稿（发送失败放回、撤回排队消息）", () => {
     expect(Object.keys(merged.pastes)).toEqual(["1", "2"]);
     expect(merged.pasteCounter).toBe(2);
   });
-  it("排队撤回的纯文字 + 图片：图片占位符放在文字后面", () => {
-    const draft = draftFromRestored(["第一条", "第二条"], [image(), image(3, 3)]);
-    expect(draft.text).toBe("第一条\n\n第二条 [Image #1] [Image #2, 3x3]");
-    expect(draft.images).toHaveLength(2);
+  it("撤回的几条消息：各自的图片占位留在原位，编号接着前一条顺延", () => {
+    const draft = draftFromRestored([
+      { text: "第一条" },
+      {
+        text: "第二条 [Image #1] 和 [Image #2]",
+        images: [image(undefined, undefined, "a"), image(undefined, undefined, "b")],
+      },
+      { text: "第三条 [Image #1]", images: [image(undefined, undefined, "c")] },
+    ]);
+    expect(draft.text).toBe("第一条\n\n第二条 [Image #1] 和 [Image #2]\n\n第三条 [Image #3]");
+    expect(draft.images.map((entry) => entry.data)).toEqual(["a", "b", "c"]);
   });
 });
 
