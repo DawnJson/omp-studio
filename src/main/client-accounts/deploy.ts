@@ -8,7 +8,8 @@ import path from "node:path";
 import notice from "./extension/NOTICE.md?raw";
 import adapter from "./extension/adapter.mjs?raw";
 import modelsCache from "./extension/models-cache.mjs?raw";
-import license from "./extension/vendor/qoder/LICENSE-CLIProxyAPI?raw";
+import cliProxyLicense from "./extension/vendor/qoder/LICENSE-CLIProxyAPI?raw";
+import license from "./extension/vendor/LICENSE?raw";
 import qoderPlugin from "./extension/vendor/qoder/index.mjs?raw";
 import shim from "./extension/shim.mjs?raw";
 import entry from "./extension/studio-accounts.mjs?raw";
@@ -22,7 +23,8 @@ export const ACCOUNT_EXTENSION_FILES: Readonly<Record<string, string>> = {
   "models-cache.mjs": modelsCache,
   "NOTICE.md": notice,
   "vendor/qoder/index.mjs": qoderPlugin,
-  "vendor/qoder/LICENSE-CLIProxyAPI": license,
+  "vendor/LICENSE": license,
+  "vendor/qoder/LICENSE-CLIProxyAPI": cliProxyLicense,
   "vendor/workbuddy/index.mjs": workbuddyPlugin,
 };
 

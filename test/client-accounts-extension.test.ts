@@ -29,6 +29,7 @@ describe("扩展文件表", () => {
       "models-cache.mjs",
       "shim.mjs",
       "studio-accounts.mjs",
+      "vendor/LICENSE",
       "vendor/qoder/LICENSE-CLIProxyAPI",
       "vendor/qoder/index.mjs",
       "vendor/workbuddy/index.mjs",
