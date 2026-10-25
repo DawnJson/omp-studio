@@ -6,6 +6,7 @@ import {
   findPicker,
   parseContextMeter,
   parseCost,
+  parseSubagentCost,
   parseTokenCount,
   statusToastTexts,
 } from "../src/shared/tsp/composer-state.ts";
@@ -95,7 +96,7 @@ describe("解析函数", () => {
     expect(parseContextMeter({ title: "x" })).toBeNull();
   });
 
-  it("parseCost：取本会话花费，括号里的子代理增量不计；订阅登录时没有 $ 也能读", () => {
+  it("parseCost：取主会话自己的花费（第一个数），括号里的子代理花费另算；订阅登录时没有 $ 也能读", () => {
     expect(parseCost("$0.00 (+0.02) ↓")).toBe(0);
     expect(parseCost("Session cost $1,234.50 (+0.02) ↓")).toBe(1234.5);
     expect(parseCost("S0.44 (+0.10)")).toBe(0.44);
@@ -103,6 +104,13 @@ describe("解析函数", () => {
     expect(parseCost("(sub) (+0.12)")).toBe(0);
     expect(parseCost("(sub)")).toBe(0);
     expect(parseCost("no cost")).toBeNull();
+  });
+
+  it("parseSubagentCost：括号里的子代理花费（含千分位），没有括号是 0；★ 高级请求数不算", () => {
+    expect(parseSubagentCost("$0.00 (+0.02) ↓")).toBe(0.02);
+    expect(parseSubagentCost("S629.85 (+1,234.50) ★ 3")).toBe(1234.5);
+    expect(parseSubagentCost("$0.01 ↑ ★ 3")).toBe(0);
+    expect(parseSubagentCost("(sub)")).toBe(0);
   });
 });
 

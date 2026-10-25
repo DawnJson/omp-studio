@@ -289,8 +289,10 @@ export interface RunnerModel {
 /** get_session_stats 里界面用得上的部分：本会话累计的 token、费用、请求数。 */
 interface SessionUsage {
   tokens: TokenUsage;
-  /** 美元。 */
+  /** 美元：主会话自己的花费（omp 费用段的第一个数）。 */
   cost: number;
+  /** 美元：子代理的花费（omp 费用段括号里的 "(+0.02)"）；没有子代理花费时是 0。 */
+  subagentCost?: number;
   premiumRequests: number;
   /** 模型请求数（assistant 消息数）：从会话文件数出来。 */
   requests?: number;

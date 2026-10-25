@@ -296,7 +296,14 @@ export class TspRunner {
   #seqBase = 0;
   #documentWaiters = new Set<DocumentWaiter>();
   /** 输入框卡片上最后一次读到的值（输入框被提问/审批换掉的那几帧沿用）。 */
-  #composer: TspComposerInfo = { modelName: null, effort: null, context: null, cost: null, fast: false };
+  #composer: TspComposerInfo = {
+    modelName: null,
+    effort: null,
+    context: null,
+    cost: null,
+    subagentCost: null,
+    fast: false,
+  };
   #derived: DerivedComposerState = {
     model: null,
     thinkingLevel: null,
@@ -1248,12 +1255,13 @@ export class TspRunner {
    * 读到之前 token 是 0。不用 stats.db 的 session_rollup：它只在 `omp stats` 运行时才同步，
    * 对正在进行的会话是旧的；会话信息对话框里才用它（session-info/session-stats.ts）。
    */
-  #sessionUsageFor(cost: number | null): TaskState["sessionUsage"] {
+  #sessionUsageFor({ cost, subagentCost }: TspComposerInfo): TaskState["sessionUsage"] {
     if (cost === null) return null;
     const totals = this.#totals;
     return {
       tokens: totals?.tokens ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
       cost,
+      subagentCost: subagentCost ?? 0,
       premiumRequests: 0,
       ...(totals && { requests: totals.requests }),
     };
@@ -1286,7 +1294,7 @@ export class TspRunner {
       const totals = totalUsage((await readSessionUsage(file)).models);
       if (this.#disposed || JSON.stringify(totals) === JSON.stringify(this.#totals)) return;
       this.#totals = totals;
-      this.#derived = { ...this.#derived, sessionUsage: this.#sessionUsageFor(this.#composer.cost) };
+      this.#derived = { ...this.#derived, sessionUsage: this.#sessionUsageFor(this.#composer) };
       this.#publish();
     } catch (error) {
       log.warn("reading the session file for token totals failed", { taskId: this.id, message: String(error) });
@@ -1314,6 +1322,7 @@ export class TspRunner {
       effort: info.effort ?? previous.effort,
       context: info.context ?? previous.context,
       cost: info.cost ?? previous.cost,
+      subagentCost: info.subagentCost ?? previous.subagentCost,
       fast: info.fast,
     };
     this.#composer = composer;
@@ -1332,7 +1341,7 @@ export class TspRunner {
     // 不能只看费用：费用读不出来（omp 改了写法）或一直是 0 时，token 分项会永远停在 0。
     if (composer.cost !== previous.cost || composer.context?.tokens !== previous.context?.tokens)
       void this.#refreshTotals();
-    const sessionUsage = this.#sessionUsageFor(composer.cost);
+    const sessionUsage = this.#sessionUsageFor(composer);
     const thinkingLevels = thinkingLevelsOf(model);
     const next: DerivedComposerState = {
       model,

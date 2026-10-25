@@ -749,6 +749,31 @@ test("空闲回顾:omp 发来的回顾用 ※ 斜体画在对话里;第二条来
   }
 });
 
+// omp 的费用段在有子代理花费时写成 "$0.01 (+0.42)"（omp 18.12.6 源码 status-line 的 cost 段；第一个数不含子代理）。
+// 录制里没有花了钱的子代理，所以拿 resume 的实录把费用文字换成这个写法再回放。
+test("费用：omp 费用段括号里的子代理花费照样显示，悬停说明它不算在前面的数里", async () => {
+  test.setTimeout(90_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-cost-"));
+  const fixture = path.join(work, "resume-subagents.jsonl");
+  const text = await readFile(path.join(root, "fixtures", "tsp", "resume.jsonl"), "utf8");
+  await writeFile(fixture, text.replaceAll("$0.01", "$0.01 (+0.42)"));
+  const { launched, cleanup } = await start(fixture);
+  try {
+    const { page } = launched;
+    await page.evaluate(async () => {
+      const [project] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: project!.id });
+    });
+    await openTaskRow(page);
+    const cost = page.getByTestId("usage-cost");
+    await expect(cost).toHaveText("$0.01 (+0.42)", { timeout: 20_000 });
+    await expect(cost).toHaveAttribute("title", /\$0\.42/);
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
 // 对话线(假 omp 回放 resume:3 条用户消息)。窗口压矮,让三轮对话需要滚动。
 test("对话线:每条用户消息一个刻度,点刻度把那条消息滚到对话区顶部、刻度标为当前;吸底时当前是最后一条", async () => {
   test.setTimeout(120_000);

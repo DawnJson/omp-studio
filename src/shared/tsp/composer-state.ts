@@ -8,6 +8,8 @@
 //   `omp.composer.model.effort`（`p.level`，点击 action `thinking.cycle`，等于 ⇧⇥）。
 // - `omp.composer.usage`（text）：`p.text` 如 "$0.00 (+0.02) ↓"，`p.title` 如 "Session cost $0.00 (+0.02) ↓"。订阅登录的模型
 //   omp 不写 `$`：花费前面是订阅记号（"S0.44"，nerd 字形时是一个图标加空格），还没花费时只有 "(sub)"（omp 18.12.6 `formatBillingSummary`）。
+//   第一个数是主会话自己的花费（omp 用会话总花费减去子代理的），括号里的 `(+0.02)` 是子代理（整棵子代理树）的花费
+//   （omp 18.12.6 源码 status-line 的 cost 段：`cost - subagentCost`、`max(subagentTreeCost, subagentCost)`）。
 // - 模型选择器：layer 里 `k: "picker"`，`p.items[].id` 是 `provider/model`，`p.current` 是当前模型的 id 列表。
 // role 是 omp 自己的命名，不在 TSP 规范里：omp 改名这条规则就失效，所以判断集中在这里。
 import { findNode, nodeRole, plainText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
@@ -44,8 +46,10 @@ export interface TspComposerInfo {
   /** omp 的思考强度原文：off / minimal / … / max，还有 TaskState 没有的 auto。 */
   effort: string | null;
   context: TspContextInfo | null;
-  /** 美元；"$0.00 (+0.02) ↓" 取第一个数（括号里的增量不计）。 */
+  /** 美元；"$0.00 (+0.02) ↓" 取第一个数（主会话自己的花费）。 */
   cost: number | null;
+  /** 子代理的花费：括号里的 "(+0.02)"；没有括号是 0，没有费用节点为 null。 */
+  subagentCost: number | null;
   /** 模型名后面有闪电图标 = `/fast` 开着。 */
   fast: boolean;
 }
@@ -129,6 +133,13 @@ export function parseCost(text: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+/** 子代理花费：omp 费用段括号里的 "(+0.02)"；omp 只在有子代理花费时写它，没有就是 0。 */
+export function parseSubagentCost(text: string): number {
+  const match = /\(\+([\d,]*\d(?:\.\d+)?)\)/.exec(text);
+  const value = match ? Number.parseFloat(match[1]!.replaceAll(",", "")) : 0;
+  return Number.isFinite(value) ? value : 0;
+}
+
 /** 文档里的 omp 输入框卡片：dock 里 role `omp.editor` 的节点。composer 被提问/审批替换时没有。 */
 export function findComposerCard(doc: TspDocument): { surface: DocSurface; card: DocNode } | null {
   for (const sf of doc.live) {
@@ -154,12 +165,14 @@ export function deriveComposerInfo(doc: TspDocument): TspComposerInfo | null {
   const usageNode = findNode(surface, (node) => nodeRole(node) === USAGE_ROLE, card.id);
   const name = nameNode ? modelNameParts(nameNode) : { name: "", fast: false };
   const level = effortNode?.p.level;
+  const usageText = usageNode ? plainText(usageNode) || String(usageNode.p.title ?? "") : null;
   return {
     modelName: name.name === "" ? null : name.name,
     fast: name.fast,
     effort: typeof level === "string" ? level : null,
     context: contextNode ? parseContextMeter(contextNode.p) : null,
-    cost: usageNode ? parseCost(plainText(usageNode) || String(usageNode.p.title ?? "")) : null,
+    cost: usageText === null ? null : parseCost(usageText),
+    subagentCost: usageText === null ? null : parseSubagentCost(usageText),
   };
 }
 

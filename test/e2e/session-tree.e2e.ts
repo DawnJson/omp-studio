@@ -226,6 +226,27 @@ test("压缩过的会话：压缩点是分隔节点（带压缩前 token 数、�
   }
 });
 
+// 同一份录制里 omp 回溯（activate ALPHA）后整段重画对话：旧节点全删，"Session compacted 1 time" 跟着没了，
+// 新的状态行 "Navigated to selected point" 停在重画后的位置。原来锚点没了的状态行被挪到对话最底下、一直挂着。
+test("回溯重画对话后，之前的 omp 状态行随旧节点消失，不挂到对话最底下", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("session-tree-compacted", "compacted", { cards: 0 });
+  try {
+    const { page } = launched;
+    const notes = page.getByTestId("tsp-status-note");
+    await expect(notes).toHaveText(["Session compacted 1 time"]);
+    const input = page.getByTestId("composer-input");
+    await input.fill("/tree");
+    await page.keyboard.press("Enter");
+    const panel = page.getByTestId("session-tree");
+    await panel.getByTestId("session-tree-node").nth(0).click();
+    await expect(panel).toHaveCount(0, { timeout: 30_000 });
+    await expect(notes).toHaveText(["Navigated to selected point"]);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("回溯时摘要过的会话：branch_summary 是树里的摘要节点（徽标 + 摘要第一句），不能回溯；搜索也搜得到它", async () => {
   test.setTimeout(120_000);
   const { launched, cleanup } = await start("session-tree-summarize", "summarized");

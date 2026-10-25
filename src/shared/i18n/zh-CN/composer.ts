@@ -43,6 +43,7 @@ export const composer = {
   "usage.premium": "{n} 次高级请求",
   "usage.costTip": "本会话费用，按模型的 API 价格估算",
   "usage.costTipSub": "本会话费用，按 API 价格估算。这个模型走订阅，实际计入订阅额度，不另收费",
+  "usage.subagents": "括号里是子代理的费用 {cost}，不算在前面的数里",
   "usage.cacheWrite": "缓存写入",
   "context.title": "Context 构成",
   "context.systemPrompt": "System prompt",
