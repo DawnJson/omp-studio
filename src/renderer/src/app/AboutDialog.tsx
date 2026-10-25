@@ -13,7 +13,7 @@ import { Dialog } from "../ui/Dialog.tsx";
 import { reportError } from "../ui/errors.ts";
 import { PiMark } from "../ui/PiMark.tsx";
 
-/** 报告问题的落点：本仓库的 Issues（选模板页）。内测期间仓库私有，内测用户需要先被加为协作者才能打开。 */
+/** 报告问题的落点：本仓库的 Issues（选模板页）。 */
 const issuesUrl = "https://github.com/DawnJson/omp-studio/issues/new/choose";
 
 /** 标志每像素占几个 CSS 像素。 */
