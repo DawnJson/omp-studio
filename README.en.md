@@ -120,7 +120,7 @@ Architecture docs are in [`docs/architecture/`](docs/architecture/), the UI spec
 - [markdown-it](https://github.com/markdown-it/markdown-it), [KaTeX](https://katex.org/), [Shiki](https://shiki.style/): Markdown, math and code highlighting
 - [Geist](https://vercel.com/font): UI font (SIL OFL 1.1)
 - [LobeHub Icons](https://github.com/lobehub/lobe-icons): model provider logos
-- [magpie](https://github.com/yetone/magpie) and the [magpie community plugins](https://github.com/magpie-community/plugins): the built-in third-party client account sign-ins use the community plugins' code unchanged (MIT; the Qoder one is in turn ported from [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI), see [`NOTICE.md`](src/main/client-accounts/extension/NOTICE.md))
+- [magpie](https://github.com/yetone/magpie) and the [magpie community plugins](https://github.com/magpie-community/plugins): the built-in third-party client account sign-ins use the community plugins' code unchanged (MIT, see [`NOTICE.md`](src/main/client-accounts/extension/NOTICE.md))
 
 ## License
 
