@@ -65,7 +65,35 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await expect(form).toBeVisible();
     await expect(api).toContainText("Responses");
     await api.click();
-    await page.getByTestId("custom-api-list").getByRole("option").first().click();
+    // 常用服务的几种接口都在，每种带一行常见服务的说明；选 Gemini 后 Base URL 的示例换成 Gemini 的地址。
+    const apiList = page.getByTestId("custom-api-list");
+    await expect(apiList.getByRole("option")).toHaveText([
+      /OpenAI Chat Completions.*DeepSeek/,
+      /OpenAI Responses/,
+      /Anthropic Messages/,
+      /Google Gemini/,
+      /Azure OpenAI/,
+      /Amazon Bedrock/,
+    ]);
+    await expectNoOverflow(apiList);
+    await apiList.getByRole("option", { name: /Google Gemini/ }).click();
+    await expect(page.getByTestId("custom-base-url")).toHaveAttribute(
+      "placeholder",
+      "https://generativelanguage.googleapis.com/v1beta",
+    );
+    await api.click();
+    await apiList.getByRole("option").first().click();
+    await expect(page.getByTestId("custom-base-url")).toHaveAttribute("placeholder", "https://api.example.com/v1");
+    // 窄窗口（900 宽）下中英文的说明都不越界。
+    await page.setViewportSize({ width: 900, height: 900 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await api.click();
+      await expectNoOverflow(apiList);
+      await apiList.getByRole("option").first().click();
+    }
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.setViewportSize({ width: 1200, height: 900 });
     await expect(api).not.toContainText("Responses");
     await page.getByTestId("custom-id").fill("fake-proxy");
     await page.getByTestId("custom-base-url").fill(fake.baseUrl);

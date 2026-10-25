@@ -1,5 +1,6 @@
 // 一键拉取：GET 第三方地址的模型列表。OpenAI 兼容：`<baseUrl>/models`，`Authorization: Bearer`；
-// Anthropic：`<baseUrl 去掉末尾 /v1>/v1/models`，`x-api-key` + `anthropic-version`。
+// Anthropic：`<baseUrl 去掉末尾 /v1>/v1/models`，`x-api-key` + `anthropic-version`；
+// Gemini（`google-generative-ai`）：`<baseUrl>/models?pageSize=1000`，`x-goog-api-key`，只留能 `generateContent` 的（嵌入模型不要）。
 // 只在主进程里发（渲染进程的 CSP 不允许连外网，key 也不应该出现在渲染进程的网络层）。key 不进日志、不进错误。
 import {
   isFetchableApi,
@@ -17,6 +18,8 @@ export type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
 
 export function modelsUrl(baseUrl: string, api: string): string {
   if (api === "anthropic-messages") return `${baseUrl.replace(/\/v1$/, "")}/v1/models`;
+  // Gemini 一页最多 1000 个，一次拿完，不跟 nextPageToken。
+  if (api === "google-generative-ai") return `${baseUrl}/models?pageSize=1000`;
   return `${baseUrl}/models`;
 }
 
@@ -30,7 +33,15 @@ export function resolveKeyToken(raw: string, env: Record<string, string | undefi
   return raw;
 }
 
-function parseModels(body: unknown): CustomModelEntry[] | null {
+/** Gemini 的条目：`name` 是 `models/<id>`，`displayName` 是显示名；`supportedGenerationMethods` 里没有 `generateContent` 的不是对话模型。 */
+function geminiEntry(entry: Record<string, unknown>): { id: unknown; display: unknown } | null {
+  const methods = entry["supportedGenerationMethods"];
+  if (Array.isArray(methods) && !methods.includes("generateContent")) return null;
+  const name = entry["name"];
+  return { id: typeof name === "string" ? name.replace(/^models\//, "") : name, display: entry["displayName"] };
+}
+
+function parseModels(body: unknown, api: string): CustomModelEntry[] | null {
   if (typeof body !== "object" || body === null) return null;
   const record = body as Record<string, unknown>;
   const list: unknown = Array.isArray(record["data"]) ? record["data"] : record["models"];
@@ -40,10 +51,12 @@ function parseModels(body: unknown): CustomModelEntry[] | null {
   for (const item of list as unknown[]) {
     if (typeof item !== "object" || item === null) continue;
     const entry = item as Record<string, unknown>;
-    const id = entry["id"];
+    const fields =
+      api === "google-generative-ai" ? geminiEntry(entry) : { id: entry["id"], display: entry["display_name"] };
+    if (fields === null) continue;
+    const { id, display } = fields;
     if (typeof id !== "string" || id === "" || id.length > 200 || seen.has(id)) continue;
     seen.add(id);
-    const display = entry["display_name"];
     out.push({ id, name: typeof display === "string" && display !== "" ? display : null });
     if (out.length >= MAX_MODELS) break;
   }
@@ -63,6 +76,8 @@ export async function fetchModelList(
     if (request.api === "anthropic-messages") {
       headers["x-api-key"] = request.token;
       headers["anthropic-version"] = "2023-06-01";
+    } else if (request.api === "google-generative-ai") {
+      headers["x-goog-api-key"] = request.token;
     } else {
       headers["authorization"] = `Bearer ${request.token}`;
     }
@@ -80,7 +95,12 @@ export async function fetchModelList(
     const name = error instanceof Error ? error.name : "";
     return { ok: false, code: name === "TimeoutError" || name === "AbortError" ? "timeout" : "network" };
   }
-  if (response.status === 401 || response.status === 403)
+  // Gemini 对无效 key 回 400（INVALID_ARGUMENT "API key not valid"），不是 401。
+  if (
+    response.status === 401 ||
+    response.status === 403 ||
+    (response.status === 400 && request.api === "google-generative-ai")
+  )
     return { ok: false, code: "unauthorized", status: response.status };
   if (response.status === 404) return { ok: false, code: "not-found", status: 404 };
   if (!response.ok) return { ok: false, code: "http", status: response.status };
@@ -93,6 +113,6 @@ export async function fetchModelList(
     const name = error instanceof Error ? error.name : "";
     return { ok: false, code: name === "TimeoutError" || name === "AbortError" ? "timeout" : "format" };
   }
-  const models = parseModels(body);
+  const models = parseModels(body, request.api);
   return models === null ? { ok: false, code: "format" } : { ok: true, models };
 }

@@ -30,6 +30,13 @@ export const custom = {
   "form.baseUrl": "Base URL",
   "form.baseUrl.placeholder": "https://api.example.com/v1",
   "form.api": "API type",
+  "api.openai-completions":
+    "Most services: DeepSeek, Kimi, Qwen, GLM, Doubao, MiniMax, SiliconFlow, OpenRouter, Ollama…",
+  "api.openai-responses": "OpenAI itself and relays that support Responses",
+  "api.anthropic-messages": "Claude, Claude relays, and the Anthropic-compatible endpoints of Kimi, GLM and DeepSeek",
+  "api.google-generative-ai": "Gemini (Google AI Studio keys) and Gemini relays",
+  "api.azure-openai-responses": "OpenAI models deployed on Azure; the model id is the deployment name",
+  "api.bedrock-converse-stream": "Models on AWS Bedrock; use a Bedrock API key",
   "form.key": "API key",
   "form.key.keep": "Keep",
   "form.key.literal": "Key",

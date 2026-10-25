@@ -78,7 +78,7 @@ describe("一键拉取模型列表", () => {
       code: "http",
       status: 502,
     });
-    expect(await fetchModelList(fetch, { ...base, api: "google-generative-ai" })).toEqual({
+    expect(await fetchModelList(fetch, { ...base, api: "bedrock-converse-stream" })).toEqual({
       ok: false,
       code: "unsupported",
     });
@@ -105,6 +105,56 @@ describe("一键拉取模型列表", () => {
       expect(seen[0]?.headers.get("x-api-key")).toBe("ak");
       expect(seen[0]?.headers.get("anthropic-version")).toBe("2023-06-01");
       expect(seen[0]?.headers.get("authorization")).toBeNull();
+    } finally {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  it("Gemini：/models?pageSize=1000 + x-goog-api-key，去掉 models/ 前缀，只留对话模型；无效 key 的 400 算 key 被拒", async () => {
+    const seen: { url: string; headers: Headers }[] = [];
+    const server = http.createServer((request, response) => {
+      const headers = new Headers(request.headers as Record<string, string>);
+      seen.push({ url: request.url ?? "", headers });
+      if (headers.get("x-goog-api-key") !== "AIza-good") {
+        response.writeHead(400, { "content-type": "application/json" });
+        response.end(
+          JSON.stringify({ error: { code: 400, message: "API key not valid.", status: "INVALID_ARGUMENT" } }),
+        );
+        return;
+      }
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          models: [
+            {
+              name: "models/gemini-2.5-flash",
+              displayName: "Gemini 2.5 Flash",
+              supportedGenerationMethods: ["generateContent", "countTokens"],
+            },
+            {
+              name: "models/text-embedding-004",
+              displayName: "Embedding",
+              supportedGenerationMethods: ["embedContent"],
+            },
+          ],
+        }),
+      );
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1beta`;
+    try {
+      expect(await fetchModelList(fetch, { baseUrl, api: "google-generative-ai", token: "AIza-good" })).toEqual({
+        ok: true,
+        models: [{ id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" }],
+      });
+      expect(seen[0]?.url).toBe("/v1beta/models?pageSize=1000");
+      expect(seen[0]?.headers.get("authorization")).toBeNull();
+      expect(await fetchModelList(fetch, { baseUrl, api: "google-generative-ai", token: "AIza-bad" })).toEqual({
+        ok: false,
+        code: "unauthorized",
+        status: 400,
+      });
     } finally {
       server.closeAllConnections();
       await new Promise((resolve) => server.close(resolve));

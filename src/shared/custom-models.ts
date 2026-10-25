@@ -14,10 +14,21 @@ const knownApis = [
   "google-gemini-cli",
   "google-vertex",
 ] as const;
-/** 表单下拉里直接提供的几种；现有条目是别的 api 时界面会把它原样加进选项里。 */
-export const formApis = ["openai-completions", "openai-responses", "anthropic-messages"] as const;
-/** 一键拉取能处理的 api：OpenAI 兼容的 `/models` 和 Anthropic 的 `/v1/models`。 */
-const fetchableApis = ["openai-completions", "openai-responses", "anthropic-messages"] as const;
+/**
+ * 表单下拉里提供的几种（按常用排）；现有条目是别的 api 时界面会把它原样加进选项里。
+ * 不放 `openai-codex-responses`、`google-gemini-cli`（订阅登录专用的传输，用的是 omp 自己的 OAuth 凭据，填 key 用不了）
+ * 和 `google-vertex`（要 GCP 项目和区域，不是一个地址 + key 能配好的）。
+ */
+export const formApis = [
+  "openai-completions",
+  "openai-responses",
+  "anthropic-messages",
+  "google-generative-ai",
+  "azure-openai-responses",
+  "bedrock-converse-stream",
+] as const;
+/** 一键拉取能处理的 api：OpenAI 兼容的 `/models`、Anthropic 的 `/v1/models`、Gemini 的 `/models`。 */
+const fetchableApis = ["openai-completions", "openai-responses", "anthropic-messages", "google-generative-ai"] as const;
 
 /**
  * 自动发现模型时 `discovery.type` 的默认值，按接口类型选（omp://models.md「Allowed auth/discovery values」、`config/model-registry.ts`）：

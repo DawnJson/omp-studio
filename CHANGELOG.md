@@ -10,6 +10,10 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+### 新增
+
+- 自定义提供商的接口类型加上 Google Gemini、Azure OpenAI、Amazon Bedrock；每种类型下面写着常见的服务（DeepSeek、Kimi、通义千问、智谱等大多数服务选 OpenAI Chat Completions），Base URL 的示例跟着类型变。Gemini 也能一键拉取模型列表。
+
 ### 修复
 
 - 设置 → 提供商：key 写在 agent 目录 `.env` 的备用变量里（如 Hugging Face 的 `HF_TOKEN`）时，卡片写出这个变量，"设置 API key"改写它那一行；之前写的是主变量名，保存的 key 存进凭据库、被 `.env` 盖住不生效。对话框打开时说明就是最终文字，不再先闪一下"存进凭据库"；已经有 key 时输入框写明"留空保持不变"。

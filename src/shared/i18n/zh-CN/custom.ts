@@ -30,6 +30,13 @@ export const custom = {
   "form.baseUrl": "Base URL",
   "form.baseUrl.placeholder": "https://api.example.com/v1",
   "form.api": "接口类型",
+  "api.openai-completions":
+    "DeepSeek、Kimi、通义千问、智谱 GLM、豆包、MiniMax、硅基流动、OpenRouter、Ollama 等大多数服务",
+  "api.openai-responses": "OpenAI 官方和支持 Responses 的转发站",
+  "api.anthropic-messages": "Claude 官方、Claude 转发站，以及 Kimi、智谱、DeepSeek 的 Anthropic 兼容地址",
+  "api.google-generative-ai": "Gemini 官方（Google AI Studio 的 key）和 Gemini 转发站",
+  "api.azure-openai-responses": "Azure 上部署的 OpenAI 模型，模型 id 填部署名",
+  "api.bedrock-converse-stream": "AWS Bedrock 上的模型，key 填 Bedrock API key",
   "form.key": "API key",
   "form.key.keep": "保持不变",
   "form.key.literal": "直接填",

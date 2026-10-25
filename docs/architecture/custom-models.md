@@ -32,7 +32,7 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 |---|---|---|
 | ID | `^[A-Za-z0-9][A-Za-z0-9._-]*$`，最长 64（`__proto__` 这类以下划线开头的天然被拒） | `invalid-id` |
 | Base URL | 能解析、`http:`/`https:`、无用户名密码、无空白和控制字符、最长 2048；保存时去掉末尾 `/` | `invalid-url` |
-| 接口类型 | `omp://models.md` 的聊天 `api` 之一（界面下拉给 OpenAI Chat Completions / Responses / Anthropic Messages，现有条目是别的 api 时原样保留） | `invalid-api` |
+| 接口类型 | `omp://models.md` 的聊天 `api` 之一（界面下拉给 OpenAI Chat Completions / Responses / Anthropic Messages / Google Gemini（`google-generative-ai`）/ Azure OpenAI（`azure-openai-responses`）/ Amazon Bedrock（`bedrock-converse-stream`），每项第二行小字写常见的服务（DeepSeek、Kimi、通义千问等国内服务大多是 OpenAI 兼容）；选了 Gemini、Azure、Bedrock 时 Base URL 的占位换成它们的地址格式。不放 `openai-codex-responses`、`google-gemini-cli`（订阅登录专用，用 omp 自己的 OAuth 凭据）和 `google-vertex`（要 GCP 项目和区域）。现有条目是别的 api 时原样保留。2026-10-25 起；实测 omp 18.12.6：这三种 api 的自定义条目 `omp models --json` 都列出，Azure 的地址是 `https://<资源名>.openai.azure.com/openai/v1`、模型 id 是部署名（omp.exe 内嵌源码） | `invalid-api` |
 | key | 字面量：非空、无控制字符、**不以 `!` 开头**；环境变量名：`^[A-Za-z_][A-Za-z0-9_]*$`，带的值和字面量同样规则；新增不能 `keep`；`.env` 里这个变量是改一行就会带坏别的变量的写法（跨行的引号值）时不写 | `invalid-key` / `unsafe-env` |
 | 模型 | id 非空、无首尾空白和控制字符、最长 200、不重复、最多 500；name 同样规则；`contextWindow`/`maxTokens` 是 1 到 1 亿的整数或 null；`reasoning`/`images` 是布尔或 null | `invalid-models` |
 
@@ -69,7 +69,8 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 
 - OpenAI 兼容（`openai-completions`、`openai-responses`）：`<baseUrl>/models`，`Authorization: Bearer <key>`。`baseUrl` 要带 `/v1`（omp 发聊天请求也是 `<baseUrl>/chat/completions`），不带时多半 404，界面提示"检查 Base URL 是否带 /v1"。
 - Anthropic（`anthropic-messages`）：`<baseUrl 去掉末尾 /v1>/v1/models`，`x-api-key` + `anthropic-version: 2023-06-01`（`omp://models.md`：Anthropic SDK 会去掉 `baseUrl` 末尾的 `/v1` 再拼 `/v1/messages`）。
-- 其它 api（Google、Bedrock……）：不支持，按钮禁用，手动添加。
+- Gemini（`google-generative-ai`，2026-10-25 起）：`<baseUrl>/models?pageSize=1000`（一页最多 1000 个，不翻页），`x-goog-api-key`；条目是 `name: "models/<id>"` + `displayName`，去掉 `models/` 前缀，`supportedGenerationMethods` 里没有 `generateContent` 的（嵌入模型）不要。Gemini 对无效 key 回 400（2026-10-25 实测官方地址），按 key 被拒处理。
+- 其它 api（Azure、Bedrock……）：不支持，按钮禁用，手动添加。
 
 响应取 `data[].id`（或顶层 `models[]`），`display_name` 当名字；去重、最多 2000 个。超时 15 秒；`redirect: "error"`（key 不会被带到别的主机）；响应体上限 8 MB。key 的解析按 omp 的规则：环境变量名先查 `process.env`，没设就把字面量当 token；`!命令` 不执行，返回 `command-key`。编辑已有提供商、key 选"保持不变"时用文件里的 key。
 

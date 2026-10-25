@@ -22,17 +22,26 @@ import { describeError, reportErrorNow } from "../../ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Button, FormField, Notice, Segmented, TextField, type Option } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
-import { Select } from "../../ui/Select.tsx";
+import { Select, type SelectOption } from "../../ui/Select.tsx";
 import { Reserve } from "../../ui/Reserve.tsx";
 import { useAccountLoad } from "./accounts-store.ts";
 import { CustomModelList, type FetchNotice, type ModelRow } from "./CustomModelList.tsx";
 import { setFetchFailure, type FetchFailure } from "./custom-models-store.ts";
 import "./custom-providers.css";
 
+/** 接口类型的名字（协议名，不翻译）和这种接口常见的服务（`custom.api.<api>` 第二行小字），以及 Base URL 的示例。 */
 const apiLabels: Record<string, string> = {
   "openai-completions": "OpenAI Chat Completions",
   "openai-responses": "OpenAI Responses",
   "anthropic-messages": "Anthropic Messages",
+  "google-generative-ai": "Google Gemini",
+  "azure-openai-responses": "Azure OpenAI",
+  "bedrock-converse-stream": "Amazon Bedrock",
+};
+const baseUrlExamples: Record<string, string> = {
+  "google-generative-ai": "https://generativelanguage.googleapis.com/v1beta",
+  "azure-openai-responses": "https://<resource>.openai.azure.com/openai/v1",
+  "bedrock-converse-stream": "https://bedrock-runtime.us-east-1.amazonaws.com",
 };
 
 /** 主进程返回的错误码（`err.*` / `fetchErr.*`）→ 当前语言的一句话。 */
@@ -283,7 +292,11 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
     { value: "none", label: t("custom.form.key.none") },
   );
 
-  const apiOptions: Option<string>[] = formApis.map((value) => ({ value, label: apiLabels[value] ?? value }));
+  const apiOptions: SelectOption<string>[] = formApis.map((value) => ({
+    value,
+    label: apiLabels[value] ?? value,
+    note: t(`custom.api.${value}`),
+  }));
   if (!apiOptions.some((option) => option.value === api)) apiOptions.push({ value: api, label: api });
 
   const checkedRows = rows.filter((row) => row.checked);
@@ -452,7 +465,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
               width="100%"
               autoComplete="off"
               value={baseUrl}
-              placeholder={t("custom.form.baseUrl.placeholder")}
+              placeholder={baseUrlExamples[api] ?? t("custom.form.baseUrl.placeholder")}
               testId="custom-base-url"
               onChange={setBaseUrl}
             />
