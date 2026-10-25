@@ -5,6 +5,7 @@ import { useState } from "react";
 import { markHeight, markWidth } from "../../../shared/ui/pixel-pi.ts";
 import { pushToast } from "../features/dialogs/index.ts";
 import { updateStatusText } from "../features/settings/update-status.ts";
+import { useInstallUpdate } from "../features/settings/use-install-update.tsx";
 import { useT } from "../i18n/use-t.ts";
 import { useAppInfo, useOmpStatus, useUpdateState } from "../store/index.ts";
 import { Button } from "../ui/controls.tsx";
@@ -24,6 +25,7 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void 
   const ompStatus = useOmpStatus();
   const update = useUpdateState();
   const [busy, setBusy] = useState(false);
+  const installing = useInstallUpdate();
 
   const ompVersion = ompStatus?.state === "ready" ? ompStatus.version : null;
   const version = appInfo?.version ?? "—";
@@ -60,70 +62,75 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void 
   const canCheck = update?.phase === "idle" || update?.phase === "up-to-date" || update?.phase === "error";
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      size="sm"
-      title={t("shell.appName")}
-      testId="about-dialog"
-      footer={
-        <>
-          <Button onClick={copyInfo} testId="about-copy-info">
-            {t("window.aboutCopyInfo")}
-          </Button>
-          <Button
-            onClick={() => void window.studio.openExternal(issuesUrl).catch((error: unknown) => reportError(t, error))}
-            testId="about-report"
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        size="sm"
+        title={t("shell.appName")}
+        testId="about-dialog"
+        footer={
+          <>
+            <Button onClick={copyInfo} testId="about-copy-info">
+              {t("window.aboutCopyInfo")}
+            </Button>
+            <Button
+              onClick={() =>
+                void window.studio.openExternal(issuesUrl).catch((error: unknown) => reportError(t, error))
+              }
+              testId="about-report"
+            >
+              {t("window.aboutReportIssue")}
+            </Button>
+          </>
+        }
+      >
+        <div className="about-body">
+          <svg
+            className="about-mark"
+            viewBox={`0 0 ${markWidth} ${markHeight}`}
+            width={markWidth * MARK_SCALE}
+            height={markHeight * MARK_SCALE}
+            shapeRendering="crispEdges"
+            aria-hidden="true"
           >
-            {t("window.aboutReportIssue")}
-          </Button>
-        </>
-      }
-    >
-      <div className="about-body">
-        <svg
-          className="about-mark"
-          viewBox={`0 0 ${markWidth} ${markHeight}`}
-          width={markWidth * MARK_SCALE}
-          height={markHeight * MARK_SCALE}
-          shapeRendering="crispEdges"
-          aria-hidden="true"
-        >
-          <PiMark />
-        </svg>
-        <p className="about-meta" data-testid="about-version">
-          {version}
-          <span aria-hidden="true"> · </span>
-          {ompVersion === null ? t("window.aboutOmpMissing") : t("window.aboutOmp", { version: ompVersion })}
-        </p>
-        {showUpdate && (
-          <div className="about-update" data-testid="about-update">
-            <span>{updateStatusText(update, t)}</span>
-            {update.phase === "downloaded" ? (
-              <Button
-                variant="primary"
-                size="sm"
-                loading={busy}
-                onClick={() => void run(() => window.studio.installUpdate())}
-                testId="about-update-install"
-              >
-                {t("settings.about.install")}
-              </Button>
-            ) : (
-              canCheck && (
+            <PiMark />
+          </svg>
+          <p className="about-meta" data-testid="about-version">
+            {version}
+            <span aria-hidden="true"> · </span>
+            {ompVersion === null ? t("window.aboutOmpMissing") : t("window.aboutOmp", { version: ompVersion })}
+          </p>
+          {showUpdate && (
+            <div className="about-update" data-testid="about-update">
+              <span>{updateStatusText(update, t)}</span>
+              {update.phase === "downloaded" ? (
                 <Button
+                  variant="primary"
                   size="sm"
-                  loading={busy}
-                  onClick={() => void run(() => window.studio.checkForUpdate())}
-                  testId="about-update-check"
+                  loading={installing.busy}
+                  onClick={installing.requestInstall}
+                  testId="about-update-install"
                 >
-                  {t("settings.about.check")}
+                  {t("settings.about.install")}
                 </Button>
-              )
-            )}
-          </div>
-        )}
-      </div>
-    </Dialog>
+              ) : (
+                canCheck && (
+                  <Button
+                    size="sm"
+                    loading={busy}
+                    onClick={() => void run(() => window.studio.checkForUpdate())}
+                    testId="about-update-check"
+                  >
+                    {t("settings.about.check")}
+                  </Button>
+                )
+              )}
+            </div>
+          )}
+        </div>
+      </Dialog>
+      {installing.dialog}
+    </>
   );
 }

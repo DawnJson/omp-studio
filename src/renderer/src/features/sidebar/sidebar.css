@@ -521,3 +521,39 @@
   background: var(--bg-active);
   color: var(--text);
 }
+/* 更新已下载时才出现的新版本标签：占内容宽度（最多 65%，放不下时版本文字省略），设置按钮让出剩下的；淡入用 --dur-fade（减少动效下仍是纯透明度渐变）。 */
+.sb-settings > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-update {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-1-5);
+  max-width: 65%;
+  height: var(--control-h-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  animation: fade-in var(--dur-fade) var(--ease-out);
+}
+.sb-update:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.sb-update-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+.sb-update-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

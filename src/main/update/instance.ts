@@ -1,13 +1,12 @@
 // 更新服务的 Electron 接线：electron-updater 的 autoUpdater、更新源解析、把状态推给界面、安装前跑退出流程。
-// 更新源优先级：STUDIO_UPDATE_URL（本地测试/临时切换）> 打包时写入的 app-update.yml 的 url > 未配置（设置页显示原因）。
-// 更新源可以是 http(s) 地址，也可以是本机目录（file:// 或绝对路径，local-feed.ts 在 127.0.0.1 上提供）；本机目录不存在时按未配置处理。
-// 只有安装版才检查：免安装目录（win-unpacked）没有安装器，开发版没有 app-update.yml。
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+// 更新源：STUDIO_UPDATE_URL（本地测试 / 临时切换，http(s) 地址或本机目录）优先，否则用打包时写入的
+// resources/app-update.yml（electron-builder.yml 的 publish：本仓库的 GitHub Releases），两个都没有就不检查。
+// 本机目录由 local-feed.ts 在 127.0.0.1 上提供，目录不存在时按未配置处理。开发版（没打包）一律不检查。
+import { existsSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { app } from "electron";
 import type { AppUpdater } from "electron-updater";
-import { parse } from "yaml";
 import type { UpdateState } from "../../shared/ipc.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { log } from "../log/log.ts";
@@ -36,49 +35,42 @@ export function getUpdateState(): UpdateState {
   return latest;
 }
 
-/** 配置的更新源原文：环境变量优先，其次是打包时写入的 app-update.yml；开发版一律没有。 */
-function configuredSource(): string | null {
-  if (!app.isPackaged) return null;
+/**
+ * 准备更新源，返回是否可以检查更新。
+ * STUDIO_UPDATE_URL 写成 userData/app-update.yml（generic）再指过去：本机目录要换成回环地址；
+ * electron-updater 还要从配置里读 updaterCacheDirName（下载缓存目录），只给地址时检查能过、开始下载时 ENOENT。
+ * 没有覆盖时 electron-updater 自己读 resources/app-update.yml（electron-builder 写的，带 updaterCacheDirName）。
+ */
+async function configureFeed(): Promise<boolean> {
   const override = process.env["STUDIO_UPDATE_URL"];
-  if (override !== undefined && override !== "") return override;
-  const builtIn = path.join(process.resourcesPath, "app-update.yml");
-  if (!existsSync(builtIn)) return null;
-  const config: unknown = parse(readFileSync(builtIn, "utf8"));
-  return typeof config === "object" && config !== null && "url" in config && typeof config.url === "string"
-    ? config.url
-    : null;
+  if (override === undefined || override === "") {
+    return existsSync(path.join(process.resourcesPath, "app-update.yml"));
+  }
+  let feedUrl = override;
+  const dir = localFeedDir(override);
+  if (dir !== null) {
+    if (!existsSync(dir)) {
+      log.info(`update feed: local directory ${dir} does not exist; updates off`);
+      return false;
+    }
+    feedUrl = (await serveFeedDir(dir)).url;
+    autoUpdater.disableDifferentialDownload = true;
+    log.info(`update feed: local directory ${dir} served at ${feedUrl}`);
+  }
+  const written = path.join(app.getPath("userData"), "app-update.yml");
+  writeFileSync(
+    written,
+    `provider: generic\nurl: ${JSON.stringify(feedUrl)}\nupdaterCacheDirName: omp-studio-updater\n`,
+    "utf8",
+  );
+  autoUpdater.updateConfigPath = written;
+  return true;
 }
 
 export async function startUpdates(): Promise<void> {
-  const source = process.platform === "darwin" ? null : configuredSource();
-  let feedUrl = source;
-  const dir = source === null ? null : localFeedDir(source);
-  if (dir !== null) {
-    if (existsSync(dir)) {
-      feedUrl = (await serveFeedDir(dir)).url;
-      autoUpdater.disableDifferentialDownload = true;
-      log.info(`update feed: local directory ${dir} served at ${feedUrl}`);
-    } else {
-      feedUrl = null;
-      log.info(`update feed: local directory ${dir} does not exist; updates off`);
-    }
-  }
-
-  if (feedUrl !== null) {
-    // 一律写到 userData 再指过去：本机目录要换成上面的回环地址；electron-updater 还要从配置里读
-    // updaterCacheDirName（下载缓存目录），只给地址时检查能过、开始下载时 ENOENT。
-    const written = path.join(app.getPath("userData"), "app-update.yml");
-    writeFileSync(
-      written,
-      `provider: generic\nurl: ${JSON.stringify(feedUrl)}\nupdaterCacheDirName: omp-studio-updater\n`,
-      "utf8",
-    );
-    autoUpdater.updateConfigPath = written;
-  }
-
   // mac：不签名（ad-hoc）的应用 Squirrel.Mac 装不了更新，所以不给 autoUpdater 任何更新源，服务处于 disabled（未在 mac 上实测）。
   const macManual = process.platform === "darwin";
-  const enabled = feedUrl !== null && !macManual;
+  const enabled = app.isPackaged && !macManual && (await configureFeed());
 
   // electron-updater 的 AppUpdater 是 EventEmitter 子类；Updater 只描述服务用到的部分，测试用假实现。
   const updater = autoUpdater as unknown as Updater;

@@ -1,4 +1,4 @@
-// 侧栏（spec §3.2、第 4 章）：竖排三行（搜索 / 新任务 / 打开文件夹）、"等你确认"条、按项目分组的任务、底部只有设置。
+// 侧栏（spec §3.2、第 4 章）：竖排三行（搜索 / 新任务 / 打开文件夹）、"等你确认"条、按项目分组的任务、底部是设置和（更新下载好后才有的）新版本标签。
 // 从顶栏下面开始，不画标题栏；底色 --bg-sidebar 与顶栏连成一片。宽度由外层容器给。
 import { reportError } from "../../ui/errors.ts";
 import { publishVisibleTaskIds } from "./visible-order-store.ts";
@@ -8,10 +8,19 @@ import type { ProjectId, TaskId, TaskState } from "../../../../shared/ipc.ts";
 import { useShellUi } from "../../app/shell-store.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { shortcutLabel } from "../../app/platform-keys.ts";
-import { selectTask, showView, useAppInfo, useMainView, useSelectedTaskId, useTasksState } from "../../store/index.ts";
+import {
+  selectTask,
+  showView,
+  useAppInfo,
+  useMainView,
+  useSelectedTaskId,
+  useTasksState,
+  useUpdateState,
+} from "../../store/index.ts";
 import { Close } from "../../icons.tsx";
 import { Button, IconButton, TextField } from "../../ui/controls.tsx";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
+import { useInstallUpdate } from "../settings/use-install-update.tsx";
 import { archiveWithUndo, useHiddenTasks } from "./archive-store.ts";
 import { FolderPlusIcon, GearIcon, PlusIcon, SearchIcon } from "./icons.tsx";
 import { HistorySection } from "./HistorySection.tsx";
@@ -51,6 +60,8 @@ export function Sidebar() {
   const view = useMainView();
   const selectedTaskId = useSelectedTaskId();
   const tasksState = useTasksState();
+  const update = useUpdateState();
+  const installing = useInstallUpdate();
   const projectsState = useProjectsState();
   const hidden = useHiddenTasks();
   const chatsDir = useAppInfo()?.chatsDir ?? null;
@@ -351,7 +362,21 @@ export function Sidebar() {
           <GearIcon />
           <span>{t("sidebar.settings")}</span>
         </button>
+        {update?.phase === "downloaded" && (
+          <button
+            type="button"
+            className="sb-update"
+            title={t("sidebar.updateTip")}
+            disabled={installing.busy}
+            onClick={installing.requestInstall}
+            data-testid="sidebar-update"
+          >
+            <span className="sb-update-dot" aria-hidden="true" />
+            <span className="sb-update-text">{t("sidebar.update", { version: update.latestVersion ?? "?" })}</span>
+          </button>
+        )}
       </div>
+      {installing.dialog}
       {menu}
     </nav>
   );

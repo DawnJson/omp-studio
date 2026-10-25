@@ -220,9 +220,7 @@ describe("OSC 7 → 工作目录", () => {
         "win32",
       ),
     ).toBe("C:\\Users\\someone\\AppData\\Local\\Temp\\omp work a1 UdOn6r\\目录 two");
-    expect(cwdFromFileUri("file://H/E:/work/code/omp-studio", "win32")).toBe(
-      "E:\\work\\code\\omp-studio",
-    );
+    expect(cwdFromFileUri("file://H/E:/work/code/omp-studio", "win32")).toBe("E:\\work\\code\\omp-studio");
     expect(cwdFromFileUri("file://H/C:/", "win32")).toBe("C:\\");
   });
 

@@ -1,6 +1,7 @@
 // 把安装包传到 GitHub Releases 的 v<版本>：没有这个 Release 就先建（说明取 CHANGELOG.md 里这个版本的一节），再上传文件（同名覆盖）。
 // 用法：node scripts/publish-release.ts <版本> <文件...>
-// Windows 安装包在本机推送 tag 后传；macOS 的 dmg / zip 由 .github/workflows/mac.yml 在推 tag 时传。两边谁先到谁建 Release。
+// Windows 在本机推送 tag 后传 latest.yml、安装包和 .blockmap（应用的自动更新读这个 Release 里的 latest.yml，见 electron-builder.yml 的 publish）；
+// macOS 的 dmg / zip 由 .github/workflows/mac.yml 在推 tag 时传。两边谁先到谁建 Release。
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -42,5 +43,9 @@ if (!exists()) {
     if (!exists()) throw error;
   }
 }
-gh("release", "upload", tag, ...files, "--clobber");
+// latest.yml 最后传：先传它的话，安装包还在上传的这几分钟里，检查更新的应用会读到它、去下一个还不存在的安装包。
+const feeds = files.filter((file) => /^latest.*\.yml$/.test(path.basename(file)));
+const rest = files.filter((file) => !feeds.includes(file));
+if (rest.length > 0) gh("release", "upload", tag, ...rest, "--clobber");
+if (feeds.length > 0) gh("release", "upload", tag, ...feeds, "--clobber");
 console.log(`已上传到 ${tag}：${files.map((file) => path.basename(file)).join("、")}`);

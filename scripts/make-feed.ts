@@ -1,58 +1,21 @@
-// 生成自动更新的静态目录：把当前版本的安装包、.blockmap 和 latest.yml 放进指定目录，再删掉目录里旧版本的安装包。
+// 本地验证自动更新用：把 npm run dist 生成的 latest.yml、安装包和 .blockmap 拷进一个目录，
+// 装着的旧版本用 STUDIO_UPDATE_URL=<目录> 从这里更新（docs/architecture/auto-update.md "本地验证"）。
+// latest.yml 由 electron-builder 按 electron-builder.yml 的 publish 生成；正式发版不用这个脚本，三个文件传到 GitHub Release。
 // 用法：node scripts/make-feed.ts <目录>（先 npm run dist）。
-// 旧版本的 .blockmap 留着：差量更新要从这里取"已装版本"的 blockmap（electron-updater 的 Provider.getBlockMapFiles）。
-// latest.yml 是 electron-updater 的 generic 源格式；默认构建没有配置 publish，所以自己写。
-// releaseNotes 取 CHANGELOG.md 里这个版本的一节（electron-updater 把它放进 UpdateInfo.releaseNotes）。
-import { createHash } from "node:crypto";
-import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { releaseNotes } from "../src/shared/changelog.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
-const out = path.resolve(process.argv[2] ?? path.join(root, "release", "feed"));
+const target = process.argv[2];
+if (target === undefined) throw new Error("用法：node scripts/make-feed.ts <目录>");
+const out = path.resolve(target);
 const pkg: unknown = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
 if (typeof pkg !== "object" || pkg === null || !("version" in pkg) || typeof pkg.version !== "string")
   throw new Error("package.json 里没有 version");
-const version = pkg.version;
-const name = `omp-studio-${version}-setup.exe`;
-const installer = path.join(root, "release", name);
-
-const size = await stat(installer).then(
-  (s) => s.size,
-  () => {
-    throw new Error(`找不到 ${installer}，先跑 npm run dist`);
-  },
-);
-const sha512 = createHash("sha512")
-  .update(await readFile(installer))
-  .digest("base64");
-const notes = releaseNotes(await readFile(path.join(root, "CHANGELOG.md"), "utf8"), version);
-if (notes === null) console.warn(`CHANGELOG.md 里没有 ${version} 一节，latest.yml 不带 releaseNotes`);
-const notesYaml =
-  notes === null
-    ? ""
-    : `releaseNotes: |\n${notes
-        .split("\n")
-        .map((line) => (line === "" ? "" : `  ${line}`))
-        .join("\n")}\n`;
+const installer = `omp-studio-${pkg.version}-setup.exe`;
 
 await mkdir(out, { recursive: true });
-await copyFile(installer, path.join(out, name));
-await copyFile(`${installer}.blockmap`, path.join(out, `${name}.blockmap`));
-await writeFile(
-  path.join(out, "latest.yml"),
-  `version: ${version}
-files:
-  - url: ${name}
-    sha512: ${sha512}
-    size: ${size}
-path: ${name}
-sha512: ${sha512}
-releaseDate: '${new Date().toISOString()}'
-${notesYaml}`,
-  "utf8",
-);
-const stale = (await readdir(out)).filter((file) => /^omp-studio-.+-setup\.exe$/.test(file) && file !== name);
-await Promise.all(stale.map((file) => rm(path.join(out, file), { force: true })));
-if (stale.length > 0) console.log(`删掉旧安装包：${stale.join("、")}`);
-console.log(`${out}: ${version}（${size} 字节）`);
+for (const file of ["latest.yml", installer, `${installer}.blockmap`]) {
+  await copyFile(path.join(root, "release", file), path.join(out, file));
+}
+console.log(`${out}: ${pkg.version}`);

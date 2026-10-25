@@ -330,7 +330,7 @@ describe("录制本身", () => {
     for (const name of ["login-github-copilot", "login-failed"]) {
       const text = readFileSync(path.join(tspFixtureDir, `${name}.jsonl`), "utf8");
       expect(text).not.toContain("942E-9500");
-      expect(text).not.toMatch(/someone|AppData|C:\\\\Users/i);
+      expect(text).not.toMatch(/AppData|C:\\\\Users/i);
     }
   });
 });

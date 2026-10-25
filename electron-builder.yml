@@ -2,6 +2,12 @@ appId: dev.omp-studio.app
 productName: omp-studio
 directories:
   output: release
+# Chromium 的界面语言包（locales/*.pak）只留界面会用到的：settings-store.ts 按 app.getLocale() 选中文 / 英文，
+# getLocale 只会返回有语言包的语言；留 zh-TW 是为了繁体中文系统照旧显示中文。其余 50 多个包约 45 MB。
+electronLanguages:
+  - en-US
+  - zh-CN
+  - zh-TW
 files:
   - out/**
   - package.json
@@ -73,11 +79,13 @@ nsis:
   oneClick: true
   perMachine: false
   artifactName: ${name}-${version}-setup.${ext}
-# 更新源：仓库所有者本机的固定目录（内测期间，2026-10-19 定）。打包时写进 resources/app-update.yml；
-# 应用把本机目录在 127.0.0.1 上提供给 electron-updater（src/main/update/local-feed.ts），目录不存在的机器上不检查更新。
-# 要和 package.json 的 feed 脚本指向同一个目录。
-# 顶层 publish 对 mac 也生效（mac 包里也会有 app-update.yml），但 mac 构建一律 --publish never，
-# 主进程在 mac 上不检查更新（见 docs/architecture/mac.md），所以这份配置在 mac 上不起作用。
+# 更新源：本仓库的 GitHub Releases（仓库所有者 2026-10-25 定）。打包时写进 resources/app-update.yml，
+# 应用从最新的正式 Release 里读 latest.yml，再下载同一个 Release 里的安装包（有上一版的 .blockmap 时只下变了的块）。
+# 只在仓库公开时能用：私有仓库的 Releases 要 token，不能写进应用。发版上传哪些文件见 scripts/publish-release.ts。
+# 打包一律 --publish never，不让 electron-builder 自己上传。
+# 顶层 publish 对 mac 也生效（mac 包里也会有 app-update.yml），但主进程在 mac 上不检查更新（见 docs/architecture/mac.md）。
 publish:
-  provider: generic
-  url: file:///E:/work/code/omp-studio-updates/
+  provider: github
+  owner: DawnJson
+  repo: omp-studio
+  releaseType: release

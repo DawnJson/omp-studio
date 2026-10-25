@@ -111,10 +111,17 @@ export const settings = {
   "about.checking": "Checking…",
   "about.upToDate": "You're up to date",
   "about.downloading": "Downloading {version} ({percent}%)",
-  "about.downloaded": "Version {version} is ready to install",
+  "about.downloaded": "Version {version} is downloaded and installs automatically when you quit",
   "about.install": "Restart and install",
   "about.failed": "Couldn't check for updates",
   "about.installFailed": "Couldn't install the update: {message}",
+  "about.installConfirmTitle": {
+    one: "Restarting will interrupt {count} running task",
+    other: "Restarting will interrupt {count} running tasks",
+  },
+  "about.installConfirmBody":
+    "Nothing is lost. After the restart, pick them up again from the session history in the sidebar.",
+  "about.installLater": "Later",
   "about.disabled.notPackaged": "Updates are off in development and portable builds",
   "about.disabled.noFeed": "This build has no update source configured",
   "about.disabled.manualOnly": "Automatic updates aren't available on macOS yet. Download new versions manually",

@@ -10,6 +10,7 @@ import { Changelog } from "./Changelog.tsx";
 import { OmpSection } from "./OmpSection.tsx";
 import { TroubleshootCard } from "./TroubleshootCard.tsx";
 import { updateStatusText } from "./update-status.ts";
+import { useInstallUpdate } from "./use-install-update.tsx";
 
 /** 项目主页（GitHub 仓库）：标签右边的图标按钮用系统浏览器打开。 */
 const repoUrl = "https://github.com/DawnJson/omp-studio";
@@ -34,6 +35,7 @@ function StudioUpdate() {
   const state = useUpdateState();
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const installing = useInstallUpdate();
 
   const check = async () => {
     setBusy(true);
@@ -43,17 +45,6 @@ function StudioUpdate() {
     } catch (error) {
       setNote(describeError(t, error));
     } finally {
-      setBusy(false);
-    }
-  };
-
-  const install = async () => {
-    setBusy(true);
-    setNote(null);
-    try {
-      await window.studio.installUpdate();
-    } catch (error) {
-      setNote(t("settings.about.installFailed", { message: describeError(t, error) }));
       setBusy(false);
     }
   };
@@ -91,7 +82,13 @@ function StudioUpdate() {
             {updateStatusText(state, t)}
           </span>
           {state.phase === "downloaded" ? (
-            <Button variant="primary" size="sm" loading={busy} onClick={() => void install()} testId="update-install">
+            <Button
+              variant="primary"
+              size="sm"
+              loading={installing.busy}
+              onClick={installing.requestInstall}
+              testId="update-install"
+            >
               {t("settings.about.install")}
             </Button>
           ) : (
@@ -122,6 +119,7 @@ function StudioUpdate() {
               {note}
             </span>
           )}
+          {installing.dialog}
         </>
       )}
     </Row>
