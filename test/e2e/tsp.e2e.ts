@@ -2019,8 +2019,15 @@ test("作业药丸不数子代理(hub-steer):两个后台子代理在跑时只�
   }
 });
 
-/** 在 cards 录制发出 send 之后,追加两个 blob 和一行两张 image 节点(同一个父节点,可以左右翻)。 */
-async function writeImagesFixture(dir: string): Promise<string> {
+/** blob 的 id 必须是内容的 sha256（tsp-session.ts 校验，对不上就拒收）。 */
+const sha = (png: Buffer) => createHash("sha256").update(png).digest("hex");
+
+/** 在 cards 录制发出 send 之后,追加 blob 和一帧挂在 main 下的节点,写成 dir 下的临时录制。 */
+async function writeCardsFixture(
+  dir: string,
+  pngs: readonly Buffer[],
+  nodes: readonly { id: string; k: string; p: Record<string, unknown>; c?: unknown[] }[],
+): Promise<string> {
   const lines = loadTspFixture("cards");
   const sendAt = lines.findIndex(
     (line) =>
@@ -2031,55 +2038,101 @@ async function writeImagesFixture(dir: string): Promise<string> {
       line.body.ev === "send",
   );
   const t = lines[sendAt]!.t;
-  // blob 的 id 必须是内容的 sha256（tsp-session.ts 校验，对不上就拒收）。
-  const wide = solidPng(160, 100);
-  const tall = solidPng(100, 160);
-  const sha = (png: Buffer) => createHash("sha256").update(png).digest("hex");
-  const blob = (png: Buffer, n: number) => ({
-    t: t + n,
-    dir: "out",
-    verb: "b",
-    params: { id: sha(png), mime: "image/png" },
-    body: png.toString("base64"),
-  });
-  const image = (id: string, png: Buffer, alt: string) => ({
-    id,
-    k: "image",
-    p: { blob: sha(png), alt, w: 160 },
-  });
   const rows = [
     ...lines.slice(0, sendAt + 1),
-    blob(wide, 1),
-    blob(tall, 2),
+    ...pngs.map((png, n) => ({
+      t: t + 1 + n,
+      dir: "out",
+      verb: "b",
+      params: { id: sha(png), mime: "image/png" },
+      body: png.toString("base64"),
+    })),
     {
-      t: t + 3,
+      t: t + 1 + pngs.length,
       dir: "out",
       verb: "f",
-      body: {
-        sf: "s:1",
-        s: 8,
-        ops: [
-          [
-            "add",
-            "e2e-imgs",
-            "main",
-            null,
-            {
-              id: "e2e-imgs",
-              k: "row",
-              p: { gap: "md" },
-              c: [image("e2e-i1", wide, "first"), image("e2e-i2", tall, "second")],
-            },
-          ],
-        ],
-      },
+      body: { sf: "s:1", s: 8, ops: nodes.map((node) => ["add", node.id, "main", null, node]) },
     },
-    { t: t + 4, dir: "in", verb: "e", params: {}, body: { ev: "ack", sf: "s:1", s: 8 } },
+    { t: t + 2 + pngs.length, dir: "in", verb: "e", params: {}, body: { ev: "ack", sf: "s:1", s: 8 } },
   ];
-  const file = path.join(dir, "images.jsonl");
+  const file = path.join(dir, "cards-extra.jsonl");
   await writeFile(file, rows.map((row) => JSON.stringify(row)).join("\n") + "\n");
   return file;
 }
+
+/** 一行两张 image 节点(同一个父节点,可以左右翻)。 */
+async function writeImagesFixture(dir: string): Promise<string> {
+  const wide = solidPng(160, 100);
+  const tall = solidPng(100, 160);
+  const image = (id: string, png: Buffer, alt: string) => ({ id, k: "image", p: { blob: sha(png), alt, w: 160 } });
+  return writeCardsFixture(
+    dir,
+    [wide, tall],
+    [
+      {
+        id: "e2e-imgs",
+        k: "row",
+        p: { gap: "md" },
+        c: [image("e2e-i1", wide, "first"), image("e2e-i2", tall, "second")],
+      },
+    ],
+  );
+}
+
+test("行号列:两位、四位行号不被折成一位一行;用户消息里窄长的图装进 200×200 的框,比例不变", async () => {
+  test.setTimeout(90_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp gutter-"));
+  // omp 18.12.6 把 44×220 的截图放大成宽 200 的显示图(200×1000),w/h 照这个尺寸给,没有 max。
+  const narrow = solidPng(200, 1000);
+  const fixture = await writeCardsFixture(
+    work,
+    [narrow],
+    [
+      { id: "e2e-code", k: "code", p: { text: "a\nb\nc", numbers: true, start: 9, wrap: true } },
+      {
+        id: "e2e-diff",
+        k: "diff",
+        p: {
+          hunks: [
+            { oldStart: 1, newStart: 1, lines: [" x"] },
+            { oldStart: 998, newStart: 998, lines: [" a", " b", "-c", "+d"] },
+          ],
+        },
+      },
+      {
+        id: "e2e-user-images",
+        k: "row",
+        p: { role: "omp.user.images" },
+        c: [{ id: "e2e-narrow", k: "image", p: { blob: sha(narrow), alt: "#1", w: 200, h: 1000 } }],
+      },
+    ],
+  );
+  const { launched, cleanup } = await start(fixture);
+  try {
+    const { page } = launched;
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("cards"))[0]!.event["text"]));
+    const height = async (selector: string, text: string) =>
+      (await page
+        .locator(selector)
+        .filter({ hasText: new RegExp(`^${text}$`) })
+        .first()
+        .boundingBox())!.height;
+    // 折行的代码块里,行号 10 和 9 一样高(没被拆成 "1" "0" 两行)。
+    const gut = '[data-id="e2e-code"] .tsp-gut';
+    await expect(page.locator(gut)).toHaveCount(3, { timeout: 30_000 });
+    expect(await height(gut, "10")).toBe(await height(gut, "9"));
+    // diff 的行号到 1000:四位的和一位的一样高(原来列宽 4ch 含 padding,三位起就折行)。
+    const dg = '[data-id="e2e-diff"] .tsp-dg';
+    expect(await height(dg, "1000")).toBe(await height(dg, "1"));
+    // 用户消息的图:高不超过 200,宽按 1:5 的比例跟着缩(不是 200 宽被压扁)。
+    const box = (await role(page, "omp.user.images").getByTestId("tsp-img-frame").boundingBox())!;
+    expect(box.height).toBeLessThanOrEqual(200);
+    expect(box.width).toBeCloseTo(box.height / 5, 0);
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
 
 /** 页面里记下每次 document.startViewTransition 动起来后的伪元素动画（名字 + 时长），断言开合放大图的 View Transition。 */
 interface RecordedTransition {

@@ -56,7 +56,7 @@ omp 没有文件附件占位符；它读文件靠 `@path` 提及（`@` 补全插
 
 | 项目 | 结果 |
 |---|---|
-| 括号粘贴带引号的绝对路径 | 源码 `xO`：空格分隔、可加引号、`.png/.jpg/.jpeg/.gif/.webp`；omp 读文件（转成 webp、长边缩到 200 显示），12-25 ms 内输入框上方出现 `omp.composer.chip`（`image` 子节点，blob 当场用 `b` 发来），光标处插入占位（nerd 图标 + ` #1 `，5 个字符） |
+| 括号粘贴带引号的绝对路径 | 源码 `xO`：空格分隔、可加引号、`.png/.jpg/.jpeg/.gif/.webp`；omp 读文件（转成 webp、缩放成宽 200 的显示图，窄图会被放大：omp 18.12.6、2026-10-25 实测 44×220 的截图成了 200×1000；宽图是不是也定宽 200 没测。`omp.user.images` 里的 `image` 节点 `w`/`h` 就是显示图的尺寸、不带 `max`，studio 把它装进 200×200 的框，见 `tsp.css`），12-25 ms 内输入框上方出现 `omp.composer.chip`（`image` 子节点，blob 当场用 `b` 发来），光标处插入占位（nerd 图标 + ` #1 `，5 个字符） |
 | 路径写法 | 反斜杠、正斜杠都行；但 omp 把反斜杠当转义，目录名以 `(` 开头时 `\(` 丢掉反斜杠、找不到文件，所以一律用正斜杠 |
 | `send` 事件 | 源码 `clearDraftForRecall` → `clearDraft` 清掉待发送图片再提交：**图片丢掉**（实测用户消息里只有文字） |
 | `action submit` | 提交输入框里现有的草稿：用户消息是 `omp.user` 里一行 `omp.user.images`（`image` 节点，`alt`/`title` `#1`，blob 同粘贴时那个）+ `md`（文字 + 占位）；同一帧清空输入框、删掉 chip；没有 "Read … (image)" 行 |

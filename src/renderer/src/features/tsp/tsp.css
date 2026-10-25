@@ -799,11 +799,15 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* 列宽 --tsp-gw 是最大行号的位数（text.tsx）；content-box 让 padding 加在外面，不吃掉数字的宽度；
+ * nowrap：卡片里的代码折行（pre-wrap + anywhere）会被继承，否则两位行号被拆成一位一行 */
 .tsp-gut {
   flex: none;
+  box-sizing: content-box;
   width: var(--tsp-gw, 3ch);
   padding-right: var(--space-3);
   text-align: right;
+  white-space: nowrap;
   color: var(--text-3);
   user-select: none;
 }
@@ -856,11 +860,14 @@
 .tsp-dl[data-kind="del"] {
   background: var(--diff-del-bg);
 }
+/* 列宽 --tsp-dgw 同 .tsp-gut（最少 3 位，text.tsx 的 Diff 按最大行号算） */
 .tsp-dg {
   flex: none;
-  width: 4ch;
+  box-sizing: content-box;
+  width: var(--tsp-dgw, 3ch);
   padding-right: var(--space-2);
   text-align: right;
+  white-space: nowrap;
   color: var(--text-3);
   user-select: none;
 }
@@ -2653,6 +2660,13 @@
 .tsp-card[data-role="omp.user"] .tsp-card-body {
   padding: var(--space-2-5) var(--space-3-5);
   gap: var(--space-1);
+}
+/* 用户消息里的图片：omp 发来的是缩成宽 200 的显示图，w/h 就是它的尺寸，没给 max；窄长的截图会被放大
+ * （实测 omp 18.12.6：44×220 的截图成了 200×1000）。宽高都交给图片自己的比例，装进 200×200 的框，点开看大图 */
+.tsp-row[data-role="omp.user.images"] .tsp-img-frame {
+  width: auto;
+  height: auto;
+  max-height: 200px;
 }
 .tsp-row[data-role="omp.user.tools"] {
   position: absolute;

@@ -353,8 +353,17 @@ export function Diff(props: NodeProps) {
   const split = p.mode === "split";
   const empty = hunks.length === 0;
   const lang = codeLanguage(p);
+  const last = hunks.reduce(
+    (max, hunk) => Math.max(max, hunk.oldStart + hunk.oldCount - 1, hunk.newStart + hunk.newCount - 1),
+    0,
+  );
   return (
-    <div {...nodeDomProps(props, "tsp-diff", { className: split ? "split" : undefined })}>
+    <div
+      {...nodeDomProps(props, "tsp-diff", {
+        className: split ? "split" : undefined,
+        style: { "--tsp-dgw": `${Math.max(3, String(last).length)}ch` } as CSSProperties,
+      })}
+    >
       {empty ? (
         <div className="tsp-diff-empty">{labels.noChanges}</div>
       ) : (
