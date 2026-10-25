@@ -268,6 +268,7 @@ export function ComposerInput(props: ComposerInputProps) {
           data-testid="composer-input"
           data-sized={userHeight !== null || undefined}
           rows={1}
+          spellCheck={false}
           value={view.text}
           placeholder={props.placeholder}
           aria-label={props.placeholder}

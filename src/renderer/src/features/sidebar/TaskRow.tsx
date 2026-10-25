@@ -60,6 +60,7 @@ function RenameInput({
           aria-label={t("task.renameLabel")}
           defaultValue={title}
           maxLength={limits.titleMaxChars}
+          spellCheck={false}
           autoFocus
           onFocus={(event) => event.currentTarget.select()}
           onKeyDown={(event) => {
