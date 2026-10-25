@@ -11,7 +11,14 @@ import { DatabaseSync } from "node:sqlite";
 import { crc32, deflateSync } from "node:zlib";
 import { expect, test, type Page } from "@playwright/test";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
-import { copyFilesToClipboard, launchApp, openTaskRow, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import {
+  copyFilesToClipboard,
+  expectNoOverflow,
+  launchApp,
+  openTaskRow,
+  setLocaleTheme,
+  type LaunchedApp,
+} from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -2128,6 +2135,14 @@ test("行号列:两位、四位行号不被折成一位一行;用户消息里窄
     const box = (await role(page, "omp.user.images").getByTestId("tsp-img-frame").boundingBox())!;
     expect(box.height).toBeLessThanOrEqual(200);
     expect(box.width).toBeCloseTo(box.height / 5, 0);
+    // 窄窗口、中英文下这三块都不越界。
+    await page.setViewportSize({ width: 900, height: 700 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      for (const id of ["e2e-code", "e2e-diff", "e2e-user-images"]) {
+        await expectNoOverflow(page.locator(`[data-id="${id}"]`));
+      }
+    }
   } finally {
     await cleanup();
     await rm(work, { recursive: true, force: true, maxRetries: 5 });
