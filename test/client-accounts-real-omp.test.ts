@@ -1,5 +1,5 @@
-// 内置 magpie 插件的扩展 × 真实 omp：`omp -e <部署出来的入口>` 能不能真的注册出全部能登录的 provider，
-// 并出现在 `get_login_providers` 里（登录流程和模型要走真实账号，这里不碰网络、不登录）。
+// 内置 magpie 插件的扩展 × 真实 omp：部署到 `<agent 目录>/extensions/studio-accounts/` 后，不带任何参数的 omp
+// 能不能自己加载它、注册出全部能登录的 provider，并出现在 `get_login_providers` 里（登录流程和模型要走真实账号，这里不碰网络、不登录）。
 // 默认跳过：`STUDIO_REAL_OMP=1 npx vitest run test/client-accounts-real-omp.test.ts`，需要 PATH 上有 omp。
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
@@ -29,10 +29,10 @@ interface Frame {
 }
 
 /** 起一个 rpc-ui 的 omp，发几帧就关：够验证扩展加载和 provider 注册，不碰模型。 */
-async function askOmp(omp: string, entry: string, frames: object[]): Promise<Frame[]> {
-  const child = spawn(omp, ["--mode", "rpc-ui", "--no-session", "-e", entry], {
+async function askOmp(omp: string, agentDir: string, frames: object[]): Promise<Frame[]> {
+  const child = spawn(omp, ["--mode", "rpc-ui", "--no-session"], {
     cwd: scratch,
-    env: { ...process.env, PI_CODING_AGENT_DIR: path.join(scratch, "agent"), NO_COLOR: "1", FORCE_COLOR: "0" },
+    env: { ...process.env, PI_CODING_AGENT_DIR: agentDir, NO_COLOR: "1", FORCE_COLOR: "0" },
     stdio: ["pipe", "pipe", "pipe"],
   });
   const out: Frame[] = [];
@@ -100,12 +100,13 @@ async function askOmp(omp: string, entry: string, frames: object[]): Promise<Fra
 }
 
 describe.skipIf(!enabled)("扩展 × 真实 omp", () => {
-  it("加载部署出来的扩展后，登录列表里有每个插件能登录的 provider；要打字登录的不出现，omp 已有的 id 换名注册", async () => {
+  it("扩展目录里的扩展被 omp 自动加载：登录列表里有每个插件能登录的 provider；要打字登录的不出现，omp 已有的 id 换名注册", async () => {
     const omp = await findOmpOnPath();
     if (!omp) throw new Error("omp is not on PATH");
-    const entry = await deployAccountExtension(path.join(scratch, "userData"));
+    const agentDir = path.join(scratch, "agent");
+    await deployAccountExtension(agentDir);
 
-    const frames = await askOmp(omp, entry, [{ type: "get_login_providers" }]);
+    const frames = await askOmp(omp, agentDir, [{ type: "get_login_providers" }]);
     const response = frames.find((frame) => frame.type === "response" && frame.id === "t1");
     expect(response?.error).toBeUndefined();
     const data = response?.data as { providers?: { id: string; name: string; authenticated: boolean }[] } | undefined;
@@ -138,8 +139,8 @@ describe.skipIf(!enabled)("扩展 × 真实 omp", () => {
     expect(names).not.toHaveProperty("qwenwork-enterprise");
   }, 120_000);
 
-  // 任务进程和它走同一条启动路径（buildTspArgs 加 `-e`）：扩展在真请求里也要能安静地待着，
-  // 不能因为它起不来。会调真实模型，没有 STUDIO_TEST_MODEL 时跳过。
+  // 任务进程也自动加载这个扩展：扩展在真请求里要能安静地待着，不能让别的 provider 起不来。
+  // 会调真实模型，没有 STUDIO_TEST_MODEL 时跳过。
   it("带扩展起 omp 跑一轮 prompt，回答正常返回（扩展不影响别的 provider）", async () => {
     const omp = await findOmpOnPath();
     if (!omp) throw new Error("omp is not on PATH");
@@ -149,11 +150,12 @@ describe.skipIf(!enabled)("扩展 × 真实 omp", () => {
       console.log("no STUDIO_TEST_MODEL, skipped");
       return;
     }
-    const entry = await deployAccountExtension(path.join(scratch, "userData"));
+    const agentDir = path.join(scratch, "agent-prompt");
+    await deployAccountExtension(agentDir);
 
-    const result = await runCommand(omp, ["--no-session", "-e", entry, "--model", model, "-p", "Reply with: OK"], {
+    const result = await runCommand(omp, ["--no-session", "--model", model, "-p", "Reply with: OK"], {
       cwd: path.join(import.meta.dirname, ".."),
-      env: { ...process.env, ...dotenv, PI_CODING_AGENT_DIR: path.join(scratch, "agent-prompt") },
+      env: { ...process.env, ...dotenv, PI_CODING_AGENT_DIR: agentDir },
       timeoutMs: 180_000,
     });
     expect(result.code).toBe(0);

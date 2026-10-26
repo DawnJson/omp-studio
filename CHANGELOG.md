@@ -14,6 +14,11 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 - 新装、还没登录任何账号也没有 API key 时，设置里的"Provider 与订阅"不再显示"没能读取账号信息：操作没有完成"，可以直接登录或填 key。
 - 设置里的 SSH、插件、Skills、用量统计，以及分享会话、生成提交信息，不再因为 omp 报"Unknown option '-e'"而失败（0.4.24 起的问题）。
+- 生成提交信息现在也能用 Qoder、WorkBuddy 这类账号的模型。
+
+### 变更
+
+- 内置的账号插件改为装进 omp 自己的扩展目录（`~/.omp/agent/extensions/studio-accounts`），终端里的 omp 也能用这些账号的模型；卸载 omp-studio 时一并删除。
 
 ## [0.4.27] - 2026-10-25
 

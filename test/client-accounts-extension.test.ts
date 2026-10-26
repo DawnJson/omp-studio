@@ -1,16 +1,10 @@
-// 账号型 provider 扩展的部署（src/main/client-accounts/deploy.ts）和三个 omp 入口的 `-e` 参数。
-// 真实 omp 是否真能加载这个扩展见 test/client-accounts-real-omp.test.ts。
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+// 账号型 provider 扩展的部署（src/main/client-accounts/deploy.ts）：写进 `<agent 目录>/extensions/studio-accounts/`。
+// 真实 omp 是否真能从这个目录加载它见 test/client-accounts-real-omp.test.ts。
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  ACCOUNT_EXTENSION_ENTRY,
-  ACCOUNT_EXTENSION_FILES,
-  deployAccountExtension,
-  extensionContentHash,
-} from "../src/main/client-accounts/deploy.ts";
-import { buildOmpArgs, buildTspArgs } from "../src/main/omp/launch-args.ts";
+import { ACCOUNT_EXTENSION_FILES, deployAccountExtension } from "../src/main/client-accounts/deploy.ts";
 
 let scratch: string;
 
@@ -24,7 +18,7 @@ afterAll(async () => {
 describe("扩展文件表", () => {
   it("部署出去的每个相对 import 都能在表里找到（少一个文件 omp 就整个扩展加载失败），MIT 许可证随扩展部署", () => {
     const names = Object.keys(ACCOUNT_EXTENSION_FILES);
-    expect(names).toContain(ACCOUNT_EXTENSION_ENTRY);
+    expect(names).toContain("studio-accounts.mjs");
     for (const [name, content] of Object.entries(ACCOUNT_EXTENSION_FILES)) {
       if (!name.endsWith(".mjs")) continue;
       for (const match of content.matchAll(/(?:from|import)\s*\(?\s*["'](\.{1,2}\/[^"']+)["']/g)) {
@@ -34,70 +28,46 @@ describe("扩展文件表", () => {
     }
     expect(names).toContain("vendor/LICENSE");
   });
-
-  it("哈希只看内容：改一个字就变，键顺序不影响", () => {
-    const base = extensionContentHash({ "a.mjs": "x", "b.mjs": "y" });
-    expect(extensionContentHash({ "b.mjs": "y", "a.mjs": "x" })).toBe(base);
-    expect(extensionContentHash({ "a.mjs": "x", "b.mjs": "z" })).not.toBe(base);
-  });
 });
 
 describe("部署", () => {
-  it("写到 userData 下带哈希的目录，路径带空格和中文也照写，返回入口绝对路径", async () => {
-    const base = path.join(scratch, "一个 用户 数据");
-    const entry = await deployAccountExtension(base);
-
-    expect(path.isAbsolute(entry)).toBe(true);
-    expect(path.basename(entry)).toBe(ACCOUNT_EXTENSION_ENTRY);
-    expect(path.dirname(path.dirname(entry))).toBe(path.join(base, "omp-extensions"));
-    expect(path.basename(path.dirname(entry))).toBe(`accounts-${extensionContentHash()}`);
-
-    for (const [name, content] of Object.entries(ACCOUNT_EXTENSION_FILES)) {
-      expect(await readFile(path.join(path.dirname(entry), name), "utf8"), name).toBe(content);
-    }
+  it("写到 <agent 目录>/extensions/studio-accounts/，带转到入口的 index.js；路径带空格和中文也照写", async () => {
+    const agentDir = path.join(scratch, "用户 一", "agent");
+    const dir = await deployAccountExtension(agentDir, {
+      "studio-accounts.mjs": "export default 1;",
+      "vendor/a.mjs": "a",
+    });
+    expect(dir).toBe(path.join(agentDir, "extensions", "studio-accounts"));
+    expect(await readFile(path.join(dir, "studio-accounts.mjs"), "utf8")).toBe("export default 1;");
+    expect(await readFile(path.join(dir, "vendor", "a.mjs"), "utf8")).toBe("a");
+    expect(await readFile(path.join(dir, "index.js"), "utf8")).toContain('from "./studio-accounts.mjs"');
   });
 
-  it("第二次部署不再写文件，升级后旧目录被清掉，别的前缀不动", async () => {
-    const base = path.join(scratch, "重复");
-    const entry = await deployAccountExtension(base);
-    const root = path.join(base, "omp-extensions");
+  it("内容没变的文件不重写，插件自己写的缓存不动；变了的照写，新版本没有的文件删掉", async () => {
+    const agentDir = path.join(scratch, "两次");
+    const dir = await deployAccountExtension(agentDir, { "studio-accounts.mjs": "v1", "old.mjs": "old" });
+    await writeFile(path.join(dir, "models-cache-v3.json"), "{}", "utf8");
+    const before = (await stat(path.join(dir, "studio-accounts.mjs"))).mtimeMs;
+    await new Promise((resolve) => setTimeout(resolve, 30));
 
-    const stale = path.join(root, "accounts-0000000000000000");
-    await mkdir(stale, { recursive: true });
-    await writeFile(path.join(stale, "old.mjs"), "old", "utf8");
-    const other = path.join(root, "something-else");
-    await mkdir(other, { recursive: true });
+    await deployAccountExtension(agentDir, { "studio-accounts.mjs": "v1", "old.mjs": "old" });
+    expect((await stat(path.join(dir, "studio-accounts.mjs"))).mtimeMs).toBe(before);
 
-    expect(await deployAccountExtension(base)).toBe(entry);
-    const left = (await readdir(root)).sort();
-    expect(left).toEqual([path.basename(path.dirname(entry)), "something-else"]);
-    expect((await readdir(other)).length).toBe(0);
+    await deployAccountExtension(agentDir, { "studio-accounts.mjs": "v2" });
+    expect(await readFile(path.join(dir, "studio-accounts.mjs"), "utf8")).toBe("v2");
+    await expect(stat(path.join(dir, "old.mjs"))).rejects.toThrow();
+    expect(await readFile(path.join(dir, "models-cache-v3.json"), "utf8")).toBe("{}");
   });
 
-  it("内容变了换目录，新目录里是新的内容", async () => {
-    const base = path.join(scratch, "升级");
-    const first = await deployAccountExtension(base, { "studio-accounts.mjs": "v1" });
-    const second = await deployAccountExtension(base, { "studio-accounts.mjs": "v2" });
+  it("文件清单被改成指向目录外面时，不删目录外的文件", async () => {
+    const agentDir = path.join(scratch, "清单");
+    const outside = path.join(agentDir, "config.yml");
+    await mkdir(agentDir, { recursive: true });
+    await writeFile(outside, "keep", "utf8");
+    const dir = await deployAccountExtension(agentDir, { "studio-accounts.mjs": "v1" });
+    await writeFile(path.join(dir, ".studio-files.json"), JSON.stringify(["../../config.yml", outside]), "utf8");
 
-    expect(second).not.toBe(first);
-    expect(await readFile(second, "utf8")).toBe("v2");
-    expect((await readdir(path.join(base, "omp-extensions"))).length).toBe(1);
-  });
-});
-
-describe("omp 启动参数", () => {
-  it("服务进程和任务进程都带 -e <绝对路径>；没有扩展时不带", () => {
-    const entry = "C:\\Users\\someone\\AppData\\Roaming\\omp-studio\\omp-extensions\\accounts-abc\\studio-accounts.mjs";
-    expect(buildOmpArgs({ cwd: "C:/p", extension: entry })).toEqual(["--mode", "rpc-ui", "-e", entry]);
-    expect(buildOmpArgs({ cwd: "C:/p", noSession: true, extension: entry })).toEqual([
-      "--mode",
-      "rpc-ui",
-      "--no-session",
-      "-e",
-      entry,
-    ]);
-    expect(buildTspArgs({ cwd: "C:/p", extension: entry })).toEqual(["-e", entry]);
-    expect(buildOmpArgs({ cwd: "C:/p" })).toEqual(["--mode", "rpc-ui"]);
-    expect(buildTspArgs({ cwd: "C:/p", extension: null })).toEqual([]);
+    await deployAccountExtension(agentDir, { "studio-accounts.mjs": "v1" });
+    expect(await readFile(outside, "utf8")).toBe("keep");
   });
 });

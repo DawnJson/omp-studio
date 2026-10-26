@@ -73,7 +73,7 @@ function messageOf(error) {
   return error?.message ?? String(error);
 }
 
-/** 扩展自己在磁盘上的目录：模型列表的缓存写在这里（userData 下，不是 ~/.omp）。 */
+/** 扩展自己在磁盘上的目录（`<agent 目录>/extensions/studio-accounts/`）：模型列表的缓存也写在这里。 */
 const extensionDir =
   typeof import.meta.dirname === "string"
     ? import.meta.dirname

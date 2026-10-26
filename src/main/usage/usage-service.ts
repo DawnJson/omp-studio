@@ -7,7 +7,6 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { runCommand } from "../git/exec.ts";
-import { accountExtensionArgs } from "../client-accounts/extension-path.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 import { requireStatsSchema } from "./stats-schema.ts";
 import type {
@@ -228,7 +227,6 @@ class OmpCommandError extends Error {
 /**
  * `omp <args>` 取全部 stdout；用参数数组，不走 shell。
  * 超时（runCommand 杀进程后抛错）和输出过大照原样抛出，不吞。
- * 账号型 provider 扩展（`-e`）由调用方按需加：omp 18.12.6 只有 `models`、`usage` 认 `-e`，别的子命令（stats、ssh、plugin、skill、config、share、commit、auth）报 `Unknown option '-e'` 退出 1。
  */
 export function runOmpCommand(exePath: string, cwd: string, timeoutMs: number): RunOmp {
   return async (args) => {
@@ -257,8 +255,8 @@ export function requireSuccess(what: string, result: { code: number; stderr: str
  * `refresh` = 先 `omp usage invalidate`（清全部 provider 的缓存，`usage-cli.ts` 的 invalidate 分支）再取，拿到的是此刻各 provider 的数据。
  */
 export async function fetchQuota(run: RunOmp, refresh = false): Promise<QuotaSnapshot> {
-  if (refresh) requireSuccess("omp usage invalidate", await run(["usage", "invalidate", ...accountExtensionArgs()]));
-  const result = await run(["usage", "--json", ...accountExtensionArgs()]);
+  if (refresh) requireSuccess("omp usage invalidate", await run(["usage", "invalidate"]));
+  const result = await run(["usage", "--json"]);
   requireSuccess("omp usage", result);
   return parseQuota(JSON.parse(result.stdout.slice(result.stdout.indexOf("{"))));
 }

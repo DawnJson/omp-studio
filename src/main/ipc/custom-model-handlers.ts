@@ -12,7 +12,6 @@ import {
   type ProviderOverrideInput,
   type FetchModelsOutcome,
 } from "../../shared/custom-models.ts";
-import { accountExtensionArgs } from "../client-accounts/extension-path.ts";
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { envFilePath, envSourceOf, envValues, readEnvText } from "../omp-config/env-file.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
@@ -178,7 +177,7 @@ export const customModelHandlers: HandlerGroup<
   fetchProviderModels,
   refreshModels: async () => {
     const run = runOmpCommand(readyOmp().path, await serviceCwd(), REFRESH_TIMEOUT_MS);
-    requireSuccess("omp models refresh", await run(["models", "refresh", ...accountExtensionArgs()]));
+    requireSuccess("omp models refresh", await run(["models", "refresh"]));
     log.info("omp models refresh: done");
     // 服务进程的模型注册表是启动时建的：关掉它，下次读模型列表时重新起、读到刷新后的目录。
     await serviceOmp.close();

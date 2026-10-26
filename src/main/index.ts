@@ -1,6 +1,6 @@
 // 主进程入口：单实例、userData 测试覆盖、设置、会话安全、注册 IPC、打开主窗口、托盘常驻、退出流程。
 import { app, Menu } from "electron";
-import { prepareAccountExtension } from "./client-accounts/extension-path.ts";
+import { prepareAccountExtension } from "./client-accounts/prepare.ts";
 import { registerIpcHandlers } from "./ipc/register.ts";
 import { applyOmpStartupDefaults } from "./ipc/omp-handlers.ts";
 import { initLog } from "./log/instance.ts";
@@ -59,7 +59,7 @@ if (!app.requestSingleInstanceLock()) {
     installAppProtocol();
     installSessionSecurity(isAppUrl);
     loadSettings();
-    // 账号型 provider 的扩展要先落到磁盘：之后每个 omp 进程都带 `-e <入口>`。
+    // 账号型 provider 的扩展写进 omp 的扩展目录：要在起任何 omp 之前，之后的 omp 进程自动加载它。
     await prepareAccountExtension();
     // mac 从 Finder 启动时 PATH 只有系统目录：先补上登录 shell 的 PATH，之后起的 omp / git / gh 才找得到。只在 darwin 执行，最多等 3 秒。
     await fixLoginPath();

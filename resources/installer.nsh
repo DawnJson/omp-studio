@@ -13,3 +13,24 @@
 !macro customInstallMode
   StrCpy $isForceCurrentInstall "1"
 !macroend
+
+; 卸载时删掉 studio 写进 omp 扩展目录的账号插件（src/main/client-accounts/deploy.ts），不然终端版 omp 还会一直加载这份旧代码。
+; 目录和 studio 的 resolveAgentDir 一致：PI_CODING_AGENT_DIR，否则 <家目录>\<PI_CONFIG_DIR 或 .omp>\agent。
+; 只在目录里有 studio 的文件清单时删（确认是 studio 写的）；更新（--updated）时旧版本的卸载也会跑，这时不删。
+!macro customUnInstall
+  ${ifNot} ${isUpdated}
+    Push $0
+    ReadEnvStr $0 PI_CODING_AGENT_DIR
+    ${if} $0 == ""
+      ReadEnvStr $0 PI_CONFIG_DIR
+      ${if} $0 == ""
+        StrCpy $0 ".omp"
+      ${endif}
+      StrCpy $0 "$PROFILE\$0\agent"
+    ${endif}
+    ${if} ${FileExists} "$0\extensions\studio-accounts\.studio-files.json"
+      RMDir /r "$0\extensions\studio-accounts"
+    ${endif}
+    Pop $0
+  ${endif}
+!macroend

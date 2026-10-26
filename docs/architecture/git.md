@@ -63,7 +63,7 @@
 实测结论（决定了实现）：
 
 - `omp commit --dry-run --no-changelog` 的 stdout 是进度行（`● Resolving model...`、工具调用、带 ANSI 色的 `Proposed commit:` 预览），最后一段是 `\nGenerated commit message:\n<标题>\n\n- 说明…\n`。**可以解析**：取最后一个 `Generated commit message:` 之后的内容，`splitCommitMessage` 拆成标题和正文（omp 的正文是 `- ` 开头的要点）。智能体建议拆成多个提交时是 `Split commit plan (dry run):` + `Commit N:` / `Changes: …` 块，取第一个提交的信息并把个数告诉界面（toast 提示，不会真去拆）。解析在 `parseOmpCommitOutput`，单测里有一份真实输出样本。
-- **模型**：不传 `-m`。omp 自己按 `commit` 角色选，没有就退到 `smol`（源码 `commit/model-selection.ts`：`jA(["commit", "smol", ...])`）；没有可用模型 / key 时 stderr `error: No model available for commit generation`、退出码 1 → 界面提示去设置里给 commit 角色选模型。
+- **模型**：不传 `-m`。omp 自己按 `commit` 角色选，没有就退到 `smol`（源码 `commit/model-selection.ts`：`jA(["commit", "smol", ...])`）；没有可用模型 / key 时 stderr `error: No model available for commit generation`、退出码 1 → 界面提示去设置里给 commit 角色选模型。内置账号插件的模型（`qoder-cn/…`、`workbuddy/…`）也能用：插件在 omp 的扩展目录里，`omp commit` 自己会加载（`client-accounts.md`，0.4.28 起；之前靠 `-e`，`omp commit` 不认）。
 - **只看已暂存的改动，不提交、不改文件**：`--dry-run` 只打印。`--no-changelog` 让它不去找 / 写 CHANGELOG。验证：运行前后 `git status --porcelain`、HEAD 一致。
 - **坑 1：一个都没暂存时它会自己 `git add` 全部（含未跟踪文件），dry-run 也一样**（实测：`M a.txt` + `?? "b c.txt"` → 运行后变成 `M  a.txt` + `A  "b c.txt"`，输出第一行 `No staged changes detected, staging all changes...`）。所以主进程在没有已暂存内容时**根本不运行它**（`nothing_staged`），界面上按钮也在 `stagedCount === 0` 时灰掉。
 - **坑 2：它会在 omp 的会话目录里留一个会话文件**（实测 18.12.6：`<agentDir>/sessions/<cwd 编码>/<时间戳>_<id>.jsonl`，第一条消息以 `Propose conventional commit for staged changes.` 开头，头里的 `cwd` 是仓库；源码 `sdk.ts` 没传 sessionManager 时就持久化创建会话，终端里跑 `omp commit` 也一样）。**studio 不删它**：`~/.omp` 和终端版共用，修改只经 omp 自己的命令，删 omp 的会话文件属于修改（AGENTS.md）。所以每次"生成"会在该任务 cwd 的会话目录里多一个会话，历史里可能看到它，和终端版一致。

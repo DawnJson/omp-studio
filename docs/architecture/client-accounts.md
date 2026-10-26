@@ -6,15 +6,15 @@
 
 ## 0. 结论
 
-**用一个 studio 自带、随每个 omp 进程加载的 omp 扩展（`-e <绝对路径>`）实现，不用本地 HTTP 网关、不写 `models.yml`、不自己存 token。**
+**用一个 studio 自带的 omp 扩展实现：studio 把它写进 omp 的扩展目录 `<agent 目录>/extensions/studio-accounts/`，omp 每个进程启动时自动加载。不用本地 HTTP 网关、不写 `models.yml`、不自己存 token。**
 
 | 路线 | 做法 | 判断 |
 |---|---|---|
 | A 依赖 magpie | studio 把 `http://127.0.0.1:3425/v1` 当普通 OpenAI 兼容提供商加进 `models.yml` | 否：要求用户装 magpie 并一直开着；登录、模型列表、账号都在 magpie 那边，studio 只是个壳；magpie 不在跑时模型不可用；和"studio 自带这个功能"相反 |
 | B studio 主进程网关 | 主进程起 `127.0.0.1:<port>` 网关 + 自己加密存 token + 写 `providers.<id>` | 能实现，但四样新东西（本地端口、网关密钥、safeStorage 凭据库、`models.yml` 的自动写）都要单独批准和维护；omp 侧全靠 `openai-completions` 反推 |
-| **C omp 扩展** | 扩展里 `pi.registerProvider(id, {api, oauth, fetchDynamicModels, streamSimple, models, usage})`；studio 只负责把扩展文件放好并给每个 omp 进程传 `-e` | **推荐**：端口、网关密钥、凭据库、`models.yml` 全不需要；登录走 omp 自己的 OAuth（凭据进 agent.db，和终端版共用、由 omp 加密和刷新）；模型进 omp 的模型列表；请求整形全部在扩展里 |
+| **C omp 扩展** | 扩展里 `pi.registerProvider(id, {api, oauth, fetchDynamicModels, streamSimple, models, usage})`；studio 只负责把扩展文件放进 omp 的扩展目录 | **推荐**：端口、网关密钥、凭据库、`models.yml` 全不需要；登录走 omp 自己的 OAuth（凭据进 agent.db，和终端版共用、由 omp 加密和刷新）；模型进 omp 的模型列表；请求整形全部在扩展里 |
 
-C 的代价：多一份随应用发布的第三方 JS（MIT），并且这几个 provider **只在 studio 起的 omp 里有**（任务进程、服务进程、studio 跑的命令），终端版 omp 看不到，除非用户在 omp 的 `extensions:` 里自己加。这正好是"studio 自带"的意思。
+C 的代价：多一份随应用发布的第三方 JS（MIT），并且 studio 要往 `~/.omp` 里写一个目录（AGENTS.md「omp 的边界」的例外，仓库所有者 2026-10-26 批准）。0.4.24–0.4.27 是写在 userData、每个 omp 进程传 `-e`，这些 provider 只在 studio 起的 omp 里有；结果 `omp commit` 不认 `-e`（生成提交信息用不了账号模型），终端版 omp 也看不到，studio 把默认模型设成账号模型后，终端版会悄悄换成别的模型（实测 omp 18.12.6：不报错，stderr 也没有提示）。放进扩展目录后两边看到的 provider 一样，每个 omp 进程启动多约 0.1 秒（实测：rpc-ui 到 `ready` 中位数 437 → 547 ms，和 `-e` 一样）。
 
 ## 1. 依据（npm 上的 `@oh-my-pi/pi-coding-agent` / `pi-ai` 18.12.6 源码；还没跑）
 
@@ -23,16 +23,16 @@ C 的代价：多一份随应用发布的第三方 JS（MIT），并且这几个
 - RPC `get_login_providers` 就是 `getOAuthProviders()`（`modes/rpc/rpc-mode.ts`）→ 扩展注册的 provider 会出现在 studio 现有的"连接提供商"列表里，登录方式按未知 provider 当 `oauth` 处理（`src/shared/provider-login.ts` 的默认分支），界面不用改。
 - RPC `login`：`onAuth` → `extension_ui_request` 的 `open_url`；`onPrompt`（在 `onAuth` 之后）→ `input`；`onProgress` → `notify`；登录成功后 omp 自己跑 `refreshProvider(provider, "online")` 重新发现模型。**`onPrompt` 带 `secret: true` 在 RPC 模式被直接拒绝**（"Use the terminal UI to log in"），`onAuth` 之前调 `onPrompt` 也被拒。
 - `streamOpenAICompletions(model, context, options)` 用 `options.fetch ?? fetch`（`providers/openai-completions.ts`），可以从 `@oh-my-pi/pi-ai/providers/register-builtins` 导入（包的 `./providers/*` 子路径导出）。所以扩展的 `streamSimple` 只要把插件那个"接管 fetch"的 loader 塞进 `options.fetch`，SSE、工具调用、思考块、流式错误全交给 omp。
-- `--extension <path>` / `-e`（`cli-reference.md`、`extension-loading.md`）：参数是绝对路径；`--no-extensions` 下 `-e` 仍然加载；加载失败会让 omp 启动失败（所以要先确认文件在位）。
+- 扩展目录（`extension-loading.md`；omp 18.12.6 源码 `extensibility/extensions/loader.ts`）：`<agent 目录>/extensions/` 下的 `*.ts` / `*.js` 文件和带 `index.ts` / `index.js` 的子目录，每个 omp 进程（交互、rpc-ui、`omp commit`、`omp models` 等子命令）启动时都加载；加载失败会让 omp 启动失败（所以要先确认文件在位）。`--extension <path>` / `-e` 也能加载，但只有部分子命令认（见 3.1）。
 
 ## 2. 架构
 
 ```mermaid
 flowchart LR
-  UI[设置 → Provider 与订阅<br/>插件注册的 provider] -->|RPC login / logout| SVC[服务进程<br/>omp --mode rpc-ui -e studio-accounts.mjs]
-  SVC -->|agent.db 里的 OAuth 凭据<br/>omp 自己刷新| EXT[studio-accounts 扩展<br/>每个 omp 进程都加载]
-  TASK[任务进程<br/>omp TSP -e ...] --> EXT
-  CLI[omp models / usage 命令<br/>-e ...] --> EXT
+  UI[设置 → Provider 与订阅<br/>插件注册的 provider] -->|RPC login / logout| SVC[服务进程<br/>omp --mode rpc-ui]
+  SVC -->|agent.db 里的 OAuth 凭据<br/>omp 自己刷新| EXT[agent 目录/extensions/studio-accounts<br/>每个 omp 进程自动加载]
+  TASK[任务进程<br/>omp TSP] --> EXT
+  CLI[omp models / usage / commit<br/>终端版 omp] --> EXT
   EXT -->|streamSimple → omp 自带的 chat / Messages / Responses 流<br/>fetch = 插件 loader.fetch| V[各厂商的服务]
 ```
 
@@ -45,10 +45,11 @@ flowchart LR
 ### 3.1 文件、部署、加载
 
 - 源文件（相对 studio 仓库）：`src/main/client-accounts/extension/` —— `studio-accounts.mjs`（入口，列出要加载的插件模块）+ `shim.mjs`（通用宿主：插件 → `pi.registerProvider`）+ `adapter.mjs`（纯映射，能被单测直接 import）+ `adapter.d.mts`（它的类型声明，只给仓库里的 TS 用，不部署）+ `models-cache.mjs` + `vendor/<插件>/`（MIT，原样 vendor）+ `vendor/LICENSE`（magpie 社区仓库的 MIT 全文）+ `NOTICE.md`（每个插件的包名、版本、更新步骤）。
-- 打包：`deploy.ts` 用 `import.meta.glob(..., { query: "?raw", eager: true })` 把 `extension/` 下全部文件（`.d.mts` 除外）的原文并进主进程 bundle，写到 `userData/omp-extensions/accounts-<内容哈希>/`，内容没变就不重写、旧哈希目录删掉。加插件只要把文件放进 `vendor/`、在入口里 import，不用改部署表。**不放进 asar**：omp 是另一个进程，读不了 asar。这样 `electron-builder.yml` 的 `files` 不用改（AGENTS.md「安装包里只有应用本身」）。
-- 加载：`buildOmpArgs`、`buildTspArgs` 带 `-e <入口>`（路径由 `extension-path.ts` 的单例给出，启动时 `prepareAccountExtension()` 部署一次；部署失败只记日志，不拦任何功能）；`omp` 子命令只有 `models`、`usage` 的调用处加 `accountExtensionArgs()`。实测 omp 18.12.6（2026-10-26）：`stats`、`ssh`、`plugin`、`skill`、`config`、`share`、`commit`、`auth` 不认 `-e`，报 `Unknown option '-e'` 退出 1（0.4.24–0.4.27 曾经在 `runOmpCommand` 里给所有子命令都加、`omp commit` 也加：设置页的 SSH、插件、Skills 列表和停用、用量统计、分享会话、"生成提交信息"全都失败）。所以 `omp commit` 看不到这些 provider，commit 角色选了它们的模型时生成不了提交信息。用户自己的 `extensions:` 不受影响（不加 `--no-extensions`）。
+- 打包：`deploy.ts` 用 `import.meta.glob(..., { query: "?raw", eager: true })` 把 `extension/` 下全部文件（`.d.mts` 除外）的原文并进主进程 bundle，启动时写到 `<agent 目录>/extensions/studio-accounts/`（agent 目录同 `resolveAgentDir`：`PI_CODING_AGENT_DIR`，否则 `<家目录>/<PI_CONFIG_DIR 或 .omp>/agent`），另加一个 `index.js`（`export { default } from "./studio-accounts.mjs"`：omp 只认目录里的 `index.ts` / `index.js`）。加插件只要把文件放进 `vendor/`、在入口里 import，不用改部署表。**不放进 asar**：omp 是另一个进程，读不了 asar。这样 `electron-builder.yml` 的 `files` 不用改（AGENTS.md「安装包里只有应用本身」）。
+- 写入规则：只写这一个目录。内容一样的文件不碰，变了的先写临时文件再换名（终端里的 omp 可能正在读）；写过的文件清单记在 `.studio-files.json`，下次启动按清单删掉新版本没有的文件，清单里指向目录外的路径一律忽略；插件自己写的模型缓存（`models-cache-v3.json`）不在清单里，不动。启动时 `prepareAccountExtension()`（`prepare.ts`，在起任何 omp 之前 await）部署一次；部署失败只记日志，不拦任何功能。顺带删掉 0.4.24–0.4.27 写在 `userData/omp-extensions/` 的旧部署。
+- 加载：所有 omp 进程和子命令都不带参数，由 omp 自己从扩展目录加载。实测 omp 18.12.6（2026-10-26）：`-e` 只有 `models`、`usage` 认，`stats`、`ssh`、`plugin`、`skill`、`config`、`share`、`commit`、`auth` 报 `Unknown option '-e'` 退出 1（0.4.24–0.4.27 曾在 `runOmpCommand` 里给所有子命令都加，设置页的 SSH、插件、Skills、用量统计、分享会话、"生成提交信息"全都失败）；扩展目录对这些子命令都有效。
+- 卸载：Windows 安装器的 `customUnInstall`（`resources/installer.nsh`）在目录里有 `.studio-files.json` 时删掉整个 `studio-accounts/`；更新（`--updated`）时旧版本的卸载程序也会跑，这时不删。agent 目录按卸载程序的环境变量算（`PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR`），和 studio 运行时看到的不一致时删不到 [推测：只有自己改过这两个变量的用户会遇到]。mac 没有卸载程序，拖进废纸篓后目录留着。
 - `vendor/` 原样保留：加进 `.prettierignore` 和 `.oxlintrc.json` 的 `ignorePatterns`，不格式化也不 lint，方便和上游 diff。
-- 写入的目录在 userData（studio 自己的），不是 `~/.omp`。
 
 ### 3.2 每个 provider 注册成什么
 
@@ -102,13 +103,13 @@ pi.registerProvider(id, {
 
 ## 4. studio 侧接线
 
-- `src/main/client-accounts/deploy.ts`：`import.meta.glob` 进来的文件表 → `userData/omp-extensions/accounts-<哈希>/`（原子写不必：内容不变不写，旧哈希目录删）。
-- `src/main/client-accounts/extension-path.ts`：单例。`prepareAccountExtension()` 在 `app.whenReady` 里 await 一次；`buildOmpLaunch` / `buildTspLaunch` 通过 `accountExtensionPath()` 传进 `buildOmpArgs` / `buildTspArgs`；`omp models`（`listRunnerModels`、`refreshModels`）和 `omp usage`（`fetchQuota`）在参数里追加 `accountExtensionArgs()`，`runOmpCommand` 本身不加（见上面"加载"）。
+- `src/main/client-accounts/deploy.ts`：`import.meta.glob` 进来的文件表 → `<agent 目录>/extensions/studio-accounts/`（见 3.1 的写入规则）。
+- `src/main/client-accounts/prepare.ts`：`prepareAccountExtension()` 在 `app.whenReady` 里、起任何 omp 之前 await 一次。启动参数（`buildOmpArgs` / `buildTspArgs`）和 `runOmpCommand` 都不加任何扩展参数。
 - 界面：**不改**。provider 出现在 `get_login_providers` 里，`ProviderPickDialog` → `ProviderFlowDialog` 走现有的 OAuth 进度 / 输入 / 取消；登录后 omp 自己 `refreshProvider`，studio 照旧 `serviceOmp.close()` 重读模型列表（`account-handlers.ts` 的 `applyKeyChange`）。
 - 退出登录：现有 `logout` UI，凭据从 agent.db 删掉；模型随进程重启消失。
 - `src/shared/provider-login.ts`：插件的 id 都没写，走"表里没有 → 按 `oauth` 处理"的默认分支（保留登录按钮）。没有 `acceptsApiKey`（`shared/provider-keys.ts` 不列），所以没有"设置 API key"。
 - i18n：provider 名字由扩展的 `oauth.name` 给，studio 不翻；登录对话框里 omp 给的提示是英文（和现有 OAuth provider 一样）。
-- 关掉扩展的开关（D6）：**还没做**，目前每次都传 `-e`。加的时候做成"不传 `-e`"，别的功能不受影响。
+- 关掉扩展的开关（D6）：**还没做**。加的时候做成"删掉扩展目录"，别的功能不受影响。
 
 ## 5. 注册出来的 provider
 
@@ -156,7 +157,7 @@ pi.registerProvider(id, {
 | 阶段 | 内容 | 验证 |
 |---|---|---|
 | P0 实测 | 最小假 provider 扩展：`-e` 加载、`get_login_providers`、RPC 登录的 open_url/input、模型出现、一条 prompt 走通自定义 fetch | **已完成**，结论见第 11 节 |
-| P1 骨架 | 扩展部署（raw → userData）、`-e` 三个入口、shim + adapter、单测、真实 omp 冒烟 | **已完成**（`test/client-accounts-extension.test.ts`、`test/client-accounts-adapter.test.ts`、`test/client-accounts-real-omp.test.ts`） |
+| P1 骨架 | 扩展部署（raw → omp 扩展目录）、shim + adapter、单测、真实 omp 冒烟 | **已完成**（`test/client-accounts-extension.test.ts`、`test/client-accounts-adapter.test.ts`、`test/client-accounts-real-omp.test.ts`） |
 | P2 Qoder | vendor qoder 插件 + shim + 会话 id | 接线完成；真实账号的登录已验证，模型列表见 D7 的实测 |
 | P3 冒烟 | 真实账号：登录、模型出现、一轮对话 | Qoder CN、WorkBuddy 已通过；带工具多轮、到期/401 后自动刷新、退出登录后模型消失还没实测 |
 | P4 收尾 | 本文改成正式文档、CHANGELOG | 已完成 |
@@ -164,8 +165,8 @@ pi.registerProvider(id, {
 ## 8. 测试
 
 - `test/client-accounts-adapter.test.ts`：插件导出的识别；`pickSignInMethod`（跳过要打字的、选浏览器、select 取第一个、无输入的 api 方式）；凭据（摘 `type`、api 凭据的往返、刷新结果叠加）；交给插件的凭据（`type: oauth`、推后到期时间只对 omp 刷新的插件）；模型行（上下文/图片/思考/输出上限、按 npm 选传输、每个模型的 `baseUrl`）；Messages 的地址改写。
-- `test/client-accounts-extension.test.ts`：部署出去的每个相对 import 都在文件表里（少一个文件 omp 就整个扩展加载失败）；哈希只随内容变；部署到带空格和中文的 userData、内容逐字节一致、幂等、升级后旧哈希目录被清；`buildOmpArgs` / `buildTspArgs` 带 `-e`、不传就不带。
-- `test/client-accounts-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp）：真实 omp 加载部署出来的扩展后，`get_login_providers` 里是第 5 节那 21 个 provider、要打字登录的不出现、和 omp 重名的换名；再带扩展 `-p` 跑一轮真实模型，确认扩展不影响别的 provider（用 `.env` 的 `STUDIO_TEST_MODEL`）。
+- `test/client-accounts-extension.test.ts`：部署出去的每个相对 import 都在文件表里（少一个文件 omp 就整个扩展加载失败）；写到带空格和中文的 `<agent 目录>/extensions/studio-accounts/`、带 `index.js`；内容没变不重写、插件的缓存不动、新版本没有的文件被删；清单指向目录外时不删目录外的文件。
+- `test/client-accounts-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp）：部署到临时 agent 目录后，不带参数的 omp 的 `get_login_providers` 里是第 5 节那 21 个 provider、要打字登录的不出现、和 omp 重名的换名；再跑一轮真实模型 `-p`，确认扩展不影响别的 provider（用 `.env` 的 `STUDIO_TEST_MODEL`）。
 - 还没写的：本地假厂商服务（登录轮询、模型列表、SSE chat、401 → 刷新 → 重试）；e2e（设置里出现 provider → 登录 → 模型 → 发 prompt → 退出后消失）。
 
 ## 9. 风险
@@ -193,7 +194,7 @@ pi.registerProvider(id, {
 
 | 验证点 | 结果 |
 |---|---|
-| `omp -e <userData 里的绝对路径>` 加载扩展 | 通过；也能从仓库外的临时目录加载 |
+| `omp -e <绝对路径>` 加载扩展 | 通过；也能从仓库外的临时目录加载。2026-10-26 起改成扩展目录：不带参数的 `omp models`、rpc-ui、`omp commit` 都能看到这些 provider（真实账号：`omp models` 列出 qoder-cn 10、workbuddy 19、trae-cn 88、opencode-zen-free 8 个模型） |
 | 扩展里 `import { streamOpenAICompletions } from "@oh-my-pi/pi-ai/providers/register-builtins"` | 能解析（`pi-ai` 的 `./providers/*` 子路径导出） |
 | `get_login_providers` 里出现扩展注册的 provider | 通过（第 5 节的 21 条，`name` 来自 `oauth.name`，`authenticated: false`；没有账号时加载不报错、不打日志） |
 | RPC `login`：`onAuth` → `open_url`，`onProgress` → `notify`，`onPrompt` → `input` | 通过；不登录时 `available: true` |
@@ -204,7 +205,7 @@ pi.registerProvider(id, {
 | `streamSimple` 里把插件的 fetch 塞进 `streamOpenAICompletions` 的 `options.fetch` | 通过：omp 正常解析 SSE，`prompt_result: completed` |
 | 扩展坏掉会不会连累别的 provider | 不会：带扩展 `-p` 跑真实模型（`.env` 的 `STUDIO_TEST_MODEL`）回答正常，stderr 没有扩展的日志 |
 | 凭据里的额外字段能否原样往返 | 源码层面确认（`serializeCredential` 只摘 `type`），没单独跑 |
-| 部署：内容哈希目录、幂等、旧目录清理、带空格和中文的 userData | 通过（单测） |
+| 部署：只写变了的文件、按清单删旧文件、插件缓存不动、带空格和中文的 agent 目录 | 通过（单测） |
 | 不声明静态 `models` 时，登录后只列出账号发现的模型 | 通过（假 provider：登录前 0 个，登录后是发现到的两个） |
 | `oauth.modifyModels` 能不能在 `getAvailable()` 里补模型行 | **不能**：钩子一次都没被调用（`getAvailable` 只走静态行 + 发现结果） |
 | 扩展里用 `discoverAuthStorage().credentials.getOAuth(id)` 读已登录账号 | 能（拿到 access/uid/machineId/refresh，只读） |

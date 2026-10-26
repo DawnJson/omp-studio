@@ -112,7 +112,6 @@ async function commitOmp(): Promise<OmpCommand> {
   const executable = await getOmpExecutable();
   return {
     command: executable.path,
-    // 不带账号型 provider 扩展：omp 18.12.6 的 `omp commit` 不认 `-e`（报 Unknown option 退出 1），commit 角色用账号型 provider 的模型时生成不了。
     args: [],
     env: prependToPath({ ...process.env }, executable.managedBin),
   };

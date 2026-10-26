@@ -1,6 +1,7 @@
 // studio 内置的 magpie 插件：登录自己的客户端账号，直接用套餐里的模型。
 //
-// 这个文件是 omp 的扩展（`omp -e <这个文件>`），由 omp-studio 部署到 userData 并在每次启动 omp 时传入。
+// 这个文件是 omp 的扩展，由 omp-studio 写进 `<agent 目录>/extensions/studio-accounts/`（同目录的 index.js 转到这里），
+// omp 的每个进程启动时自动加载。
 // 设计、实测和风险见 docs/architecture/client-accounts.md；第三方来源见 NOTICE.md。
 //
 // 每个插件模块里的 `*Plugin` 导出都试一遍：provider id、名字、模型、传输都从插件自己的声明里读；
