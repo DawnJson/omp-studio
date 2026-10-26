@@ -1,8 +1,7 @@
 import { readFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseSession, readSessionExtras } from "../src/main/tsp/session-extras.ts";
+import { parseSession } from "../src/main/tsp/session-extras.ts";
 import { formatDuration, formatTokens, formatTurnFooter } from "../src/renderer/src/features/tsp/turn-footer.ts";
 import { loadTspFixture, tspFixtureDir } from "./tsp-fixtures.ts";
 
@@ -115,12 +114,6 @@ describe("最近一条回复的速度（会话文件 assistant 消息，omp 18.1
 
   it("老版本 omp 的消息没有 duration：速度是 null，不抛错", () => {
     expect(parseSession([user(1), assistant("stop", tokens(1, 5, 0), 10)].join("\n")).tokensPerSecond).toBeNull();
-  });
-
-  it("readSessionExtras 没有会话文件、文件读不到时全空", async () => {
-    const none = { turns: [], tokensPerSecond: null };
-    expect(await readSessionExtras(null)).toEqual(none);
-    expect(await readSessionExtras(path.join(os.tmpdir(), "omp-studio 不存在", "missing.jsonl"))).toEqual(none);
   });
 });
 

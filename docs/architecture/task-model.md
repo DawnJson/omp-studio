@@ -17,7 +17,9 @@
 
 ## 启动
 
-`TspRunner.start()`：状态机 `start` → worktree 目录还在吗（不在：`worktree_missing`）→ `acquireSlot`（进程上限，见下）→ `buildLaunch`（`--resume=<会话文件>` 或 `--fork=<forkFrom>`、`--model`、`--thinking`、`--allow-home`，cwd = 任务目录，env = 进程环境 + `TERM_PROGRAM=tern` 等）→ `TspSession.start`（node-pty 起进程、回 `hello`、按信用值回 `ack`，细节见 [tsp-migration.md](tsp-migration.md) §7）→ 等握手 → 状态机 `ready`，随后立刻对当前文档同步一次状态（omp 可能在回复 hello 之前就已经发了第一批帧）。
+`TspRunner.start()`：状态机 `start` → worktree 目录还在吗（不在：`worktree_missing`）→ 开始读新任务默认模型（`#loadNewTaskDefaults`，不等它）→ `acquireSlot`（进程上限，见下）→ `buildLaunch`（`--resume=<会话文件>` 或 `--fork=<forkFrom>`、`--model`、`--thinking`、`--allow-home`，cwd = 任务目录，env = 进程环境 + `TERM_PROGRAM=tern` 等）→ `TspSession.start`（node-pty 起进程、回 `hello`、按信用值回 `ack`，细节见 [tsp-migration.md](tsp-migration.md) §7）→ 等握手 → 等默认模型读完 → 状态机 `ready`，随后立刻对当前文档同步一次状态（omp 可能在回复 hello 之前就已经发了第一批帧）。
+
+默认模型和 omp 启动同时进行（2026-10-26 起；之前在 `buildLaunch` 之后先等它）：没有启动缓存、服务进程要冷启动拉模型目录时，它要约 0.6 秒，omp 自己到握手约 0.7 秒，两段不再相加。实测（omp 18.12.6，真实 omp + 临时 agent 目录，模型目录每次新起 rpc-ui 拉）：新任务从 `openTask` 到 `idle` 1361–1406 ms → 756–819 ms，到输入框可发送 1639–1694 ms → 1045–1096 ms（各 3 次）。默认模型只在新任务（记录里没有模型）时读，`--model` 不依赖它。
 
 启动失败的 `TaskError.kind`：`omp_unavailable`（找不到 omp）、`spawn_failed`、`worktree_missing`；进程意外退出 `exited`。失败时状态是 `error`，promise 也 reject。`STUDIO_TEST_OMP`（JSON `{command,args}`，仅未打包）替换整条命令，e2e 和单测用它跑 `fake-tsp-omp`。
 

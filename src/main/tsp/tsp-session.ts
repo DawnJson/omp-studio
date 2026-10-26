@@ -300,19 +300,23 @@ export class TspSession {
     this.#write(data);
   }
 
-  /** 面板宽度变了：改 pty 大小（omp 回退 ANSI 时用）并发 `resize` 事件（规范：Tern 用它更新 hello 里的 cols）。 */
+  /**
+   * 面板宽度变了：改 pty 大小（omp 回退 ANSI 时用）并发 `resize` 事件（规范：Tern 用它更新 hello 里的 cols）。
+   * hello 回复之前不发事件，新宽度由 hello 回复带过去：omp 刚起来时写进 pty 的 APC 会被吞掉大半（假 omp 实测只收到
+   * 末尾的 `ESC \`，被当成按键），真实 omp 会把它当成输入框里的按键（推测）。
+   */
   resize(cols: number): void {
     if (this.#hasExited || cols === this.#cols) return;
     this.#cols = cols;
     this.#pty.resize(cols, this.#options.rows ?? DEFAULT_ROWS);
-    this.sendEvent({ ev: "resize", cols });
+    if (this.#helloSeen) this.sendEvent({ ev: "resize", cols });
   }
 
-  /** 深浅主题或减少动效变了：给 omp 发 `theme` / `motion` 事件（规范 tsp.generated.ts 的 TspEvent）；没变的不发，之后的 hello 回复也用新值。 */
+  /** 深浅主题或减少动效变了：给 omp 发 `theme` / `motion` 事件（规范 tsp.generated.ts 的 TspEvent）；没变的不发，之后的 hello 回复也用新值（hello 回复之前不发，同 resize）。 */
   setAppearance(next: { dark: boolean; reduceMotion: boolean }): void {
     const previous = this.#appearance;
     this.#appearance = { ...next };
-    if (this.#hasExited) return;
+    if (this.#hasExited || !this.#helloSeen) return;
     if (next.dark !== previous.dark) this.#safeEvent({ ev: "theme", dark: next.dark });
     if (next.reduceMotion !== previous.reduceMotion) this.#safeEvent({ ev: "motion", reduce: next.reduceMotion });
   }

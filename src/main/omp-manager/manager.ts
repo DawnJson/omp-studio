@@ -123,9 +123,12 @@ export class OmpManager {
     this.#set({ state: "discovering" });
     try {
       await sweepOldBinaries(this.#layout);
-      const scan = await this.#scan();
-      const managed = await this.#inspectManaged();
-      const state = await readState(this.#deps.stateFile);
+      // PATH 上的和自管的各跑一次 `omp --version`（互不依赖，一起跑；启动时 omp 就绪要等它们）。
+      const [scan, managed, state] = await Promise.all([
+        this.#scan(),
+        this.#inspectManaged(),
+        readState(this.#deps.stateFile),
+      ]);
       await this.#apply(resolveOmp({ scan, managed, state }), managed, state);
     } catch (error) {
       this.#fail("discover", error);

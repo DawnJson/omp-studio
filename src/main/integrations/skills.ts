@@ -106,12 +106,18 @@ export async function listSkillEntries(
   home: string,
   project: string | null,
 ): Promise<SkillEntry[]> {
-  const listed = await runList(["skill", "list", "--json"]);
-  requireSuccess("omp skill list", listed);
-  const raws = parseSkillList(listed.stdout).filter((raw) => belongsToScope(raw, project));
+  // 两次 omp 启动互不依赖：一起跑。两个都失败时报列表的错（和先后跑时一样）。
+  const [listing, disabling] = await Promise.allSettled([
+    runList(["skill", "list", "--json"]),
+    readDisabledExtensions(runConfig),
+  ]);
+  if (listing.status === "rejected") throw listing.reason;
+  requireSuccess("omp skill list", listing.value);
+  if (disabling.status === "rejected") throw disabling.reason;
+  const raws = parseSkillList(listing.value.stdout).filter((raw) => belongsToScope(raw, project));
   const entries = await Promise.all(raws.map((raw) => toEntry(raw, home)));
   const present = new Set(entries.map((entry) => entry.name));
-  for (const name of disabledSkillNames(await readDisabledExtensions(runConfig))) {
+  for (const name of disabledSkillNames(disabling.value)) {
     if (present.has(name)) continue;
     present.add(name);
     entries.push({

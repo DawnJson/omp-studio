@@ -2,104 +2,138 @@
 // 范围和 get_session_stats 一致（18.12.2 实测逐项相等）：沿 parentId 从最后一条走到根得到当前分支，
 // 只算最近一次压缩的 firstKeptEntryId 起的部分；压缩过时另给当前分支全部的合计（压缩前花掉的也是钱）。
 // 当前分支取文件最后一条：omp 只在叶子上追加；在会话树里跳到别处但还没发消息时会偏，这时只是数字差一些。
-import { readFile, stat } from "node:fs/promises";
+// 规则只有 SessionUsageAccumulator 一份：整段文本（summarizeSessionUsage）和增量读文件（tsp/session-file-reader.ts）都喂给它。
 import type { ModelUsage, SessionModelUsage } from "../../shared/ipc.ts";
 import type { TokenUsage } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { isRecord } from "../../shared/type-guards.ts";
-import { MAX_SESSION_FILE_BYTES } from "../tsp/session-tree-file.ts";
+import {
+  feedSessionText,
+  readSessionFile,
+  type SessionEntryConsumer,
+  type SessionFileEntry,
+} from "../tsp/session-file-reader.ts";
 
 const num = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 const str = (value: unknown): string | null => (typeof value === "string" ? value : null);
 
-type Entry = Record<string, unknown>;
+/** 一条 assistant 消息的用量（requests 记 1）。 */
+type UsageRow = Omit<ModelUsage, "requests">;
 
-function parseEntries(text: string): Entry[] {
-  const entries: Entry[] = [];
-  for (const line of text.split("\n")) {
-    if (line.trim() === "") continue;
-    try {
-      const value: unknown = JSON.parse(line);
-      if (isRecord(value)) entries.push(value);
-    } catch {
-      // 写到一半的最后一行（omp 正在追加）或损坏的行：跳过。
-    }
-  }
-  return entries;
+/** 一条有 id 的记录里算用量要用的部分（不留整条记录）。 */
+interface UsageEntry {
+  id: string;
+  parentId: string | null;
+  compaction: boolean;
+  firstKeptEntryId: string | null;
+  usage: UsageRow | null;
 }
 
-/** 从最后一条有 id 的记录沿 parentId 走到根，按从根到叶的顺序返回。 */
-function activeBranch(entries: readonly Entry[]): Entry[] {
-  const byId = new Map<string, Entry>();
-  let leaf: Entry | null = null;
-  for (const entry of entries) {
-    const id = str(entry["id"]);
-    if (id === null) continue;
-    byId.set(id, entry);
-    leaf = entry;
-  }
-  const branch: Entry[] = [];
-  const seen = new Set<string>();
-  for (let entry = leaf; entry !== null;) {
-    const id = str(entry["id"]);
-    if (id === null || seen.has(id)) break;
-    seen.add(id);
-    branch.push(entry);
-    const parent = str(entry["parentId"]);
-    entry = parent === null ? null : (byId.get(parent) ?? null);
-  }
-  return branch.reverse();
-}
-
-function addUsage(models: Map<string, ModelUsage>, entry: Entry): void {
-  if (entry["type"] !== "message" || !isRecord(entry["message"])) return;
+function usageOf(entry: SessionFileEntry): UsageRow | null {
+  if (entry["type"] !== "message" || !isRecord(entry["message"])) return null;
   const message = entry["message"];
-  if (message["role"] !== "assistant" || !isRecord(message["usage"])) return;
+  if (message["role"] !== "assistant" || !isRecord(message["usage"])) return null;
   const usage = message["usage"];
-  const provider = str(message["provider"]) ?? "";
-  const modelId = str(message["model"]) ?? "";
-  const key = `${provider}/${modelId}`;
-  let row = models.get(key);
-  if (row === undefined) {
-    row = { provider, modelId, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, cost: 0, requests: 0 };
-    models.set(key, row);
-  }
-  row.input += num(usage["input"]);
-  row.output += num(usage["output"]);
-  row.cacheRead += num(usage["cacheRead"]);
-  row.cacheWrite += num(usage["cacheWrite"]);
-  row.total += num(usage["totalTokens"]);
-  row.cost += isRecord(usage["cost"]) ? num(usage["cost"]["total"]) : 0;
-  row.requests++;
+  return {
+    provider: str(message["provider"]) ?? "",
+    modelId: str(message["model"]) ?? "",
+    input: num(usage["input"]),
+    output: num(usage["output"]),
+    cacheRead: num(usage["cacheRead"]),
+    cacheWrite: num(usage["cacheWrite"]),
+    total: num(usage["totalTokens"]),
+    cost: isRecord(usage["cost"]) ? num(usage["cost"]["total"]) : 0,
+  };
 }
 
-function sumModels(entries: readonly Entry[]): ModelUsage[] {
+function sumModels(entries: readonly UsageEntry[]): ModelUsage[] {
   const models = new Map<string, ModelUsage>();
-  for (const entry of entries) addUsage(models, entry);
+  for (const { usage } of entries) {
+    if (usage === null) continue;
+    const key = `${usage.provider}/${usage.modelId}`;
+    let row = models.get(key);
+    if (row === undefined) {
+      row = { ...usage, input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0, cost: 0, requests: 0 };
+      models.set(key, row);
+    }
+    row.input += usage.input;
+    row.output += usage.output;
+    row.cacheRead += usage.cacheRead;
+    row.cacheWrite += usage.cacheWrite;
+    row.total += usage.total;
+    row.cost += usage.cost;
+    row.requests++;
+  }
   return [...models.values()].sort((a, b) => b.total - a.total);
 }
 
+/** 按文件顺序接收记录，summary() 随时给出到目前为止的按模型用量。 */
+export class SessionUsageAccumulator implements SessionEntryConsumer {
+  readonly #byId = new Map<string, UsageEntry>();
+  /** 最后一条有 id 的记录：当前分支的叶子。 */
+  #leaf: UsageEntry | null = null;
+
+  entry(entry: SessionFileEntry): void {
+    const id = str(entry["id"]);
+    if (id === null) return;
+    const compaction = entry["type"] === "compaction";
+    const kept: UsageEntry = {
+      id,
+      parentId: str(entry["parentId"]),
+      compaction,
+      firstKeptEntryId: compaction ? str(entry["firstKeptEntryId"]) : null,
+      usage: usageOf(entry),
+    };
+    this.#byId.set(id, kept);
+    this.#leaf = kept;
+  }
+
+  reset(): void {
+    this.#byId.clear();
+    this.#leaf = null;
+  }
+
+  /** 从叶子沿 parentId 走到根，按从根到叶的顺序返回。 */
+  #activeBranch(): UsageEntry[] {
+    const branch: UsageEntry[] = [];
+    const seen = new Set<string>();
+    for (let entry = this.#leaf; entry !== null;) {
+      if (seen.has(entry.id)) break;
+      seen.add(entry.id);
+      branch.push(entry);
+      entry = entry.parentId === null ? null : (this.#byId.get(entry.parentId) ?? null);
+    }
+    return branch.reverse();
+  }
+
+  summary(): SessionModelUsage {
+    const branch = this.#activeBranch();
+    let compactions = 0;
+    let start = 0;
+    branch.forEach((entry, index) => {
+      if (!entry.compaction) return;
+      compactions++;
+      const kept = entry.firstKeptEntryId;
+      const keptIndex = kept === null ? -1 : branch.findIndex((candidate) => candidate.id === kept);
+      start = keptIndex >= 0 ? keptIndex : index + 1;
+    });
+    const models = sumModels(branch.slice(start));
+    if (compactions === 0) return { models, compactions, whole: null };
+    const all = sumModels(branch);
+    return {
+      models,
+      compactions,
+      whole: {
+        total: all.reduce((sum, row) => sum + row.total, 0),
+        cost: all.reduce((sum, row) => sum + row.cost, 0),
+      },
+    };
+  }
+}
+
 export function summarizeSessionUsage(text: string): SessionModelUsage {
-  const branch = activeBranch(parseEntries(text));
-  let compactions = 0;
-  let start = 0;
-  branch.forEach((entry, index) => {
-    if (entry["type"] !== "compaction") return;
-    compactions++;
-    const kept = str(entry["firstKeptEntryId"]);
-    const keptIndex = kept === null ? -1 : branch.findIndex((candidate) => candidate["id"] === kept);
-    start = keptIndex >= 0 ? keptIndex : index + 1;
-  });
-  const models = sumModels(branch.slice(start));
-  if (compactions === 0) return { models, compactions, whole: null };
-  const all = sumModels(branch);
-  return {
-    models,
-    compactions,
-    whole: {
-      total: all.reduce((sum, row) => sum + row.total, 0),
-      cost: all.reduce((sum, row) => sum + row.cost, 0),
-    },
-  };
+  const usage = new SessionUsageAccumulator();
+  feedSessionText(text, [usage]);
+  return usage.summary();
 }
 
 /** 各模型合计的 token 分项和请求数：TSP 任务的 `sessionUsage`（omp 的 TSP 输入框卡片只给费用，token 和请求数从会话文件补）。 */
@@ -122,18 +156,9 @@ export function totalUsage(models: readonly ModelUsage[]): SessionTotals {
   return { tokens, requests };
 }
 
-/** 超过 MAX_SESSION_FILE_BYTES 的会话文件抛错、不读（和 readSessionEntries 同一个上限；每次费用变化都会整份重读）。 */
+/** 超过 MAX_SESSION_FILE_BYTES 的会话文件抛错、不读（和 readSessionEntries 同一个上限）。新会话的文件在第一条回复之后才落盘：没有文件是空表。 */
 export async function readSessionUsage(file: string | null): Promise<SessionModelUsage> {
-  if (file === null) return { models: [], compactions: 0, whole: null };
-  // 新会话的文件在第一条回复之后才落盘。
-  const size = await stat(file).then(
-    (info) => info.size,
-    (error: unknown) => {
-      if (isRecord(error) && error["code"] === "ENOENT") return null;
-      throw error;
-    },
-  );
-  if (size === null) return { models: [], compactions: 0, whole: null };
-  if (size > MAX_SESSION_FILE_BYTES) throw new Error(`session file is too large to read (${size} bytes)`);
-  return summarizeSessionUsage(await readFile(file, "utf8"));
+  const usage = new SessionUsageAccumulator();
+  if (file !== null) await readSessionFile(file, [usage]);
+  return usage.summary();
 }

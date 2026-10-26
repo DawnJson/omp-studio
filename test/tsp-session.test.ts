@@ -259,6 +259,26 @@ describe("TspSession + 假 omp：整份录制回放", () => {
     ]);
     await session.close();
   }, 60_000);
+
+  it("hello 回复之前的 resize / 外观变化不发事件，由 hello 回复带过去（omp 刚起来时写进 pty 的 APC 会被拆成按键）", async () => {
+    const idle = path.join(scratch, "before-hello.jsonl");
+    await writeFile(idle, JSON.stringify({ t: 0, dir: "out", verb: "o", body: { id: "s:1", mode: "inline" } }) + "\n");
+    const { session, log } = await run(idle);
+    session.resize(130);
+    session.setAppearance({ dark: false, reduceMotion: true });
+    await session.ready;
+    session.resize(140);
+    const records = await waitForLog(log, (found) => found.some((record) => record.body?.["ev"] === "resize"));
+    expect(records.find((record) => record.body?.["r"] === "hello")?.body).toMatchObject({
+      cols: 130,
+      dark: false,
+      reduceMotion: true,
+    });
+    const events = records.filter((record) => ["resize", "theme", "motion"].includes(String(record.body?.["ev"])));
+    expect(events.map((record) => record.body)).toEqual([{ ev: "resize", cols: 140 }]);
+    expect(records.filter((record) => record.kind === "keys")).toEqual([]);
+    await session.close();
+  }, 60_000);
 });
 
 describe("TspSession：操作和关闭", () => {

@@ -93,7 +93,9 @@ TSP 实测：`/pin` 的 toast 是 `Session pinned to the top of the resume list.
 
 ### TSP 任务的 `sessionUsage`
 
-omp 的 TSP 输入框卡片只给费用。token 分项和请求数由 `TspRunner.#refreshTotals` 在费用变化时从**会话文件**读（`readSessionUsage` + `totalUsage`，范围同 get_session_stats），而不是 `session_rollup`：rollup 只在 `omp stats` 运行时更新，对进行中的会话是旧的。`ModelUsage.requests`、`SessionUsage.requests?` 是新增字段。
+omp 的 TSP 输入框卡片只给费用。token 分项和请求数由 `TspRunner.#refreshTotals` 在费用变化时从**会话文件**读（`totalUsage`，范围同 get_session_stats），而不是 `session_rollup`：rollup 只在 `omp stats` 运行时更新，对进行中的会话是旧的。`ModelUsage.requests`、`SessionUsage.requests?` 是新增字段。
+
+**增量读**（2026-10-26 起，`src/main/tsp/session-file-reader.ts`）：每个任务一个 `SessionFileReader`，只读上次读到的位置之后追加的字节，按 `\n` 切行、每行 `JSON.parse` 一次，同时喂给用量累加器（`SessionUsageAccumulator`，token 合计）和每轮脚注累加器（`SessionExtrasAccumulator`）。写到一半的最后一行留到下次；文件变短、或上次位置之前的最后 64 字节变了（被重写）就清空累加器从头读；会话文件换了（分叉、新会话、`/move`）换一个读取器。之前每次费用变化和每轮结束都整份 `readFile` + `split` + `JSON.parse`：真实会话文件常见 30–150 MB，55 MB 的一份一次约 200 ms 主线程阻塞、上百 MB 临时内存。实测（Node 24，本机会话文件的副本）：55 MB 首次 229 ms（分 1 MiB 块读，事件循环最长被占 5 ms）、之后没有新内容 4.8 ms、追加一行 8 ms；38 MB 首次 160 ms、追加一行 12 ms。会话信息概览（`readSessionUsage`）是一次性读，也走同一个分块解析，不再整份读成字符串。
 
 ### 测试
 

@@ -41,6 +41,11 @@ export class IdleOmp {
     return this.#pending !== null || this.#busy > 0;
   }
 
+  /** 有操作在做（这时不能关）。 */
+  get busy(): boolean {
+    return this.#busy > 0;
+  }
+
   async #start(): Promise<OmpConnection> {
     const generation = this.#generation;
     const cwd = await this.#options.cwd();

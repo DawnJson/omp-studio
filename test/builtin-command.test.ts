@@ -170,6 +170,30 @@ describe("ProjectOmpPool", () => {
     expect(pool.size).toBe(1);
     await pool.close();
   });
+
+  it("同时最多留两个项目进程：新目录起来时先关最久没用的空闲进程，正在做事的不关", async () => {
+    const pool = poolFor(await fixture([]), 60_000);
+    const dirs = ["甲 目录", "乙 目录", "丙 目录", "丁 目录"].map((name) => path.join(scratch, "cap", name));
+    for (const dir of dirs) await mkdir(dir, { recursive: true });
+    const pid = (dir: string) => pool.use(dir, async (connection) => connection.pid!);
+    const a = await pid(dirs[0]!);
+    const b = await pid(dirs[1]!);
+    // 再用一次甲：乙变成最久没用的。
+    await pid(dirs[0]!);
+    const c = await pid(dirs[2]!);
+    await until(() => !alive(b));
+    expect([alive(a), alive(c)]).toEqual([true, true]);
+    expect(pool.size).toBe(2);
+    // 甲手上有活（操作没做完）时，丁起来只能关丙。
+    const { promise: hold, resolve: release } = Promise.withResolvers<void>();
+    const busy = pool.use(dirs[0]!, () => hold);
+    const d = await pid(dirs[3]!);
+    await until(() => !alive(c));
+    expect([alive(a), alive(d)]).toEqual([true, true]);
+    release();
+    await busy;
+    await pool.close();
+  });
 });
 
 describe("IdleOmp", () => {

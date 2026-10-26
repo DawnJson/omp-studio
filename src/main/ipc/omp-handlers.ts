@@ -28,6 +28,7 @@ import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
 import { updateSettings } from "../settings/settings-store.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
+import { pathKey } from "../tasks/task-registry.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
 import {
   IpcValidationError,
@@ -103,10 +104,24 @@ export function applyOmpStartupDefaults(): Promise<void> {
 
 let config: OmpConfigService | null = null;
 
+/**
+ * 同一目录同时来的 `omp config list --json` 共用一次：打开草稿页、模型选择对话框时会同时来 2–4 个，每个都是一次完整的 omp 启动
+ * （约 150 ms、几百 MB 内存）。只合并正在跑的，不缓存结果；经 configService 写配置的前后清空，写之后的读另起一次。
+ */
+const listsInFlight = new Map<string, Promise<unknown>>();
+
 /** omp config 子命令的执行者：用当前就绪的 omp，cwd 是中性目录。 */
 function configService(): OmpConfigService {
   config ??= new OmpConfigService({
-    run: async (args, env) => runOmpConfig(readyOmp().path, await serviceCwd())(args, env),
+    run: async (args, env) => {
+      const writes = args[0] === "set" || args[0] === "reset";
+      if (writes) listsInFlight.clear();
+      try {
+        return await runOmpConfig(readyOmp().path, await serviceCwd())(args, env);
+      } finally {
+        if (writes) listsInFlight.clear();
+      }
+    },
     version: async () => readyOmp().version,
     cacheFile: path.join(app.getPath("userData"), "omp-config-schema.json"),
   });
@@ -114,7 +129,17 @@ function configService(): OmpConfigService {
 }
 
 const modelDefaultsDeps: ModelDefaultsDeps = {
-  list: async (cwd) => listJson(runOmpConfig(readyOmp().path, cwd ?? (await serviceCwd()))),
+  list: async (cwd) => {
+    const dir = cwd ?? (await serviceCwd());
+    const key = pathKey(dir);
+    const running = listsInFlight.get(key);
+    if (running) return running;
+    const listing: Promise<unknown> = listJson(runOmpConfig(readyOmp().path, dir)).finally(() => {
+      if (listsInFlight.get(key) === listing) listsInFlight.delete(key);
+    });
+    listsInFlight.set(key, listing);
+    return listing;
+  },
   async setGlobalRoles(roles) {
     if (roles === null) await configService().reset("modelRoles");
     else await configService().set("modelRoles", JSON.stringify(roles));

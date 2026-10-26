@@ -107,10 +107,11 @@ import {
 import { resolveNewTaskDefault } from "../../shared/ui/new-task-default.ts";
 import { titleFromPrompt } from "./convert.ts";
 import { stripIconGlyphs } from "../../shared/ui/clean-title.ts";
-import { readSessionExtras } from "../tsp/session-extras.ts";
+import { SessionExtrasAccumulator } from "../tsp/session-extras.ts";
+import { SessionFileReader } from "../tsp/session-file-reader.ts";
 import { readSubagentRecord } from "../tsp/subagent-file.ts";
 import { HubDriver } from "./tsp-hub-driver.ts";
-import { readSessionUsage, totalUsage, type SessionTotals } from "../history/session-usage.ts";
+import { SessionUsageAccumulator, totalUsage, type SessionTotals } from "../history/session-usage.ts";
 import {
   buildTreeFromEntries,
   findUserEntry,
@@ -402,6 +403,12 @@ export class TspRunner {
   #contextCompaction: TaskState["contextCompaction"] = null;
   /** 会话文件里的 token 分项和请求数（见 #sessionUsageFor）。 */
   #totals: SessionTotals | null = null;
+  /** 当前会话文件的增量读取（token 合计和用量脚注共用，见 #readSessionFile）；会话文件换了就换一个。 */
+  #sessionReader: {
+    reader: SessionFileReader;
+    usage: SessionUsageAccumulator;
+    extras: SessionExtrasAccumulator;
+  } | null = null;
   /** 用户按了停止、这一轮还没结束：这一轮的结局记为 aborted。 */
   #stopRequested = false;
   /** omp 报告的会话文件；文件在第一条回复之后才落盘，落盘之前不能存（恢复会失败）。undefined = 还没报过（用任务记录里的），null = omp 清空了它。 */
@@ -684,9 +691,6 @@ export class TspRunner {
       this.#assertNotClosing();
       const launch = await this.#buildLaunch();
       this.#assertNotClosing();
-      // 输入框出现之前 TaskState 就要有模型：默认值读完（缓存优先，通常已就绪）再起进程，这样第一帧状态里就有它。
-      await defaultsLoaded;
-      this.#assertNotClosing();
       // 新进程的 7501 从头累积；握手前就可能到（omp 一启动就发 `state=idle`），所以在起进程之前清。
       this.#signal = NO_RUN_SIGNAL;
       this.#loaderText = null;
@@ -757,6 +761,9 @@ export class TspRunner {
       this.#seenNotes = new WeakSet();
       this.#session = session;
       await session.ready;
+      // 输入框出现之前 TaskState 就要有模型：默认值（缓存优先；服务进程冷启动时要等它拉模型目录，约 1.5 秒）
+      // 和 omp 启动同时进行，握手之后、进 ready 之前等它读完，这样 ready 的状态里就有它。
+      await defaultsLoaded;
       this.#assertNotClosing();
       this.#apply({ type: "ready" });
       // omp 在回复 hello 之前就可能已经发了第一批帧（它按假定的能力先开 surface）：握手前的变化没有进状态机。
@@ -876,6 +883,7 @@ export class TspRunner {
     this.#disposed = true;
     await this.close();
     this.#failDocumentWaiters(new Error("task was removed"));
+    this.#sessionReader = null;
     await rm(this.#imagesDir(), { recursive: true, force: true });
   }
 
@@ -1344,10 +1352,10 @@ export class TspRunner {
   }
 
   async #readTotals(): Promise<void> {
-    const file = this.#currentSessionFile();
-    if (file === null) return;
     try {
-      const totals = totalUsage((await readSessionUsage(file)).models);
+      const session = await this.#readSessionFile();
+      if (session === null) return;
+      const totals = totalUsage(session.usage.summary().models);
       if (this.#disposed || JSON.stringify(totals) === JSON.stringify(this.#totals)) return;
       this.#totals = totals;
       this.#derived = { ...this.#derived, sessionUsage: this.#sessionUsageFor(this.#composer) };
@@ -1546,9 +1554,33 @@ export class TspRunner {
 
   // ───── 斜杠命令、快速/慢速模式 ─────
 
-  /** 用量脚注：omp 恢复会话时不重发，从会话文件补（见 tsp/session-extras.ts）。 */
-  sessionExtras(): Promise<TspSessionExtras> {
-    return readSessionExtras(this.#currentSessionFile());
+  /** 用量脚注：omp 恢复会话时不重发，从会话文件补（见 tsp/session-extras.ts）；没有文件、读失败时为空。 */
+  async sessionExtras(): Promise<TspSessionExtras> {
+    try {
+      const session = await this.#readSessionFile();
+      return session?.extras.result() ?? { turns: [], tokensPerSecond: null };
+    } catch (error) {
+      log.warn("reading the session file for turn footers failed", { taskId: this.id, message: String(error) });
+      return { turns: [], tokensPerSecond: null };
+    }
+  }
+
+  /**
+   * 把当前会话文件新追加的部分读进累加器：只读上次之后的字节（会话文件动辄上百 MB，整份重读会卡主进程）。
+   * 会话文件换了（分叉、新会话、/move）换一个读取器从头读；还没有会话文件时为 null。
+   */
+  async #readSessionFile(): Promise<{ usage: SessionUsageAccumulator; extras: SessionExtrasAccumulator } | null> {
+    const file = this.#currentSessionFile();
+    if (file === null) return null;
+    let session = this.#sessionReader;
+    if (session?.reader.file !== file) {
+      const usage = new SessionUsageAccumulator();
+      const extras = new SessionExtrasAccumulator();
+      session = { reader: new SessionFileReader(file, [usage, extras]), usage, extras };
+      this.#sessionReader = session;
+    }
+    await session.reader.update();
+    return session;
   }
 
   /**
