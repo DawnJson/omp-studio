@@ -47,6 +47,8 @@ export default defineConfig({
   renderer: {
     root: path.join(root, "src", "renderer"),
     plugins: [react(), injectCsp],
+    // 高亮 worker 按需加载语言包（动态 import），iife 不支持拆包，只能用 ES 模块 worker。
+    worker: { format: "es" },
     build: {
       outDir: path.join(root, "out", "renderer"),
       emptyOutDir: true,

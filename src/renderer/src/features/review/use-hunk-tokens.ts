@@ -2,7 +2,8 @@
 // 复用 markdown/highlight.ts 的 Shiki（异步，语言包按需加载）：没加载完时先显示纯文本，加载完只改颜色。
 import { useEffect, useMemo, useState } from "react";
 import type { GitDiffHunk } from "../../../../shared/git.ts";
-import { cachedHighlight, highlight, resolveLanguage, type HighlightToken } from "../../markdown/highlight.ts";
+import { cachedHighlight, highlight, type HighlightToken } from "../../markdown/highlight.ts";
+import { resolveLanguage } from "../../markdown/highlight-languages.ts";
 
 export type LineTokens = (HighlightToken[] | null)[];
 

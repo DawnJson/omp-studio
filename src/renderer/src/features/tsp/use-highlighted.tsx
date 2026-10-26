@@ -1,7 +1,8 @@
 // 过程区的语法高亮：语言怎么定（lang 优先，没有就看 path 扩展名）、异步高亮的 hook、token → span。code / diff / tool 命令共用，
 // 底下是 markdown/highlight.ts 的同一个高亮器。
 import { useEffect, useState } from "react";
-import { cachedHighlight, highlight, resolveLanguage, type HighlightToken } from "../../markdown/highlight.ts";
+import { cachedHighlight, highlight, type HighlightToken } from "../../markdown/highlight.ts";
+import { resolveLanguage } from "../../markdown/highlight-languages.ts";
 
 const EXTENSION_LANG = /\.([A-Za-z0-9+]+)$/;
 

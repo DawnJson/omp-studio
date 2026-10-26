@@ -4,7 +4,8 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { useT } from "../i18n/use-t.ts";
 import { Check, Code, CopyIcon } from "../icons.tsx";
 import { onThemeChange } from "../ui/theme-change.ts";
-import { cachedHighlight, highlight, resolveLanguage, type HighlightToken } from "./highlight.ts";
+import { cachedHighlight, highlight, type HighlightToken } from "./highlight.ts";
+import { resolveLanguage } from "./highlight-languages.ts";
 import { FIGURE_TOKENS, prepareSvg, svgDataUrl } from "./svg-figure.ts";
 
 function useHighlighted(code: string, lang: string, enabled: boolean): HighlightToken[][] | null {

@@ -24,7 +24,7 @@ import { nodeDomProps } from "../node-dom.ts";
 import type { NodeProps } from "../node-props.ts";
 import { asArray, asNumber, asString } from "../props-util.ts";
 import { tokenizeCommand } from "../shell-tokens.ts";
-import { resolveLanguage } from "../../../markdown/highlight.ts";
+import { resolveLanguage } from "../../../markdown/highlight-languages.ts";
 import { Tokens, useHighlighted } from "../use-highlighted.tsx";
 import { plainText, semanticOf, TspSpans } from "../spans.tsx";
 import { TspNode } from "../TspChildren.tsx";
