@@ -10,6 +10,8 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ## [未发布]
 
+## [0.4.30] - 2026-10-26
+
 ### 新增
 
 - Linux 版（x64 AppImage）：下载后 `chmod +x` 直接运行，不需要装 libfuse2，之后自动更新。关窗口不会停任务，按 Ctrl+Q 或用托盘菜单退出；从桌面启动也能找到写在 `~/.bashrc` 里的 omp。
