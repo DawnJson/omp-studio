@@ -217,6 +217,17 @@ describe("额度（插件 auth.usage → omp 的 UsageReport）", () => {
     expect(limit?.window).toBeUndefined();
   });
 
+  it("按量付费只有余额（MiniMax、AutoClaw）：不算取不到用量，余额进报告的说明；aside 窗口用完不标成用完", () => {
+    expect(usageReport("minimax", { balance: "12.5 credits" }, now)).toMatchObject({
+      limits: [],
+      notes: ["Balance: 12.5 credits"],
+    });
+    expect(usageReport("minimax", { balance: 3 }, now)?.notes).toEqual(["Balance: 3"]);
+    const [limit] =
+      usageReport("autoclaw", { windows: [{ name: "Gift", amount: 10, limit: 10, aside: true }] }, now)?.limits ?? [];
+    expect(limit?.status).toBe("warning");
+  });
+
   it("插件报错就抛出（omp 把账号列成取不到用量）；什么都没有返回 null；同名窗口 id 不重复；不是邮箱的用户名不当邮箱", () => {
     expect(() => usageReport("qoder", { error: "not signed in", signIn: "kept" }, now)).toThrow("not signed in");
     expect(usageReport("qoder", { windows: [] }, now)).toBeNull();

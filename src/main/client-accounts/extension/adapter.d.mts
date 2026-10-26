@@ -66,6 +66,7 @@ export interface AccountUsageReport {
   provider: string;
   fetchedAt: number;
   limits: AccountUsageLimit[];
+  notes?: string[];
   metadata: { planType?: string; email?: string; user?: string };
 }
 
