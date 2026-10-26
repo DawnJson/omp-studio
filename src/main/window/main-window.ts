@@ -70,7 +70,11 @@ const dimReducedMs = 100;
 const restoreMs = 84;
 const easeOut = [0.22, 1, 0.36, 1] as const;
 const easeIn = [0.64, 0, 0.78, 0] as const;
-const frameMs = 16;
+/**
+ * 逐帧定时器的间隔。Windows 的系统时钟约 15.6ms 一跳：间隔写 16 实际每 31ms 才跑一次（libuv 醒在第一跳时还差不到 1ms，
+ * 要再等一跳），淡入淡出只有五六帧。写 10 就每跳都跑，约 64 帧/秒（2026-10-26 实测）。
+ */
+const frameMs = 10;
 
 /** CSS cubic-bezier(x1, y1, x2, y2)：给定时间进度 x 求曲线值（牛顿迭代，退化时二分）。 */
 function cubicBezier([x1, y1, x2, y2]: readonly [number, number, number, number], x: number): number {
@@ -145,12 +149,17 @@ export function setTitleBarDimmed(dimmed: boolean): void {
 /**
  * 整个窗口的淡入淡出（spec §2.6「窗口出现 / 消失」）：启动、从托盘带回时淡入，× 隐藏、退出时淡出。
  * 用 setOpacity 逐帧改窗口的不透明度；系统自己的开关窗动画（DWM）作用在透明的窗口上看不见，不会叠两层。
- * 时长同 tokens.css：出现 --dur-base（200ms）+ --ease-out，消失 --dur-base-exit（120ms）+ --ease-in；
+ * 整个窗口的透明度比网页里的弹层显眼得多，用自己的时长和曲线，不套 tokens.css：
+ * 出现 320ms + ease-out-cubic，消失 240ms + ease-in-out（一开始就开始变淡，不先停在不透明再一下切掉）。
+ * 以前用 --dur-base（200ms）+ --ease-out 和 --dur-base-exit（120ms）+ --ease-in：淡入 80ms 就到 0.92，
+ * 淡出前 70ms 几乎不动、最后 50ms 消失，看上去就是直接出现 / 消失（2026-10-26 实测时间线）。
  * 减少动效（系统或设置里的开关，和渲染进程的 data-motion 同一判断）时两者都是 --dur-fade 的 100ms，只剩透明度、不闪现。
  */
-const windowEnterMs = 200;
-const windowExitMs = 120;
+const windowEnterMs = 320;
+const windowExitMs = 240;
 const windowReducedMs = 100;
+const windowEnterCurve = [0.33, 1, 0.68, 1] as const;
+const windowExitCurve = [0.33, 0, 0.67, 1] as const;
 let opacityTimer: NodeJS.Timeout | undefined;
 /** 正在进行的淡入淡出被新的一次打断时，让等它的一方知道（false = 没走完，别再接着 hide）。 */
 let settleOpacity: ((completed: boolean) => void) | undefined;
@@ -161,7 +170,7 @@ function fadeWindow(window: BrowserWindow, to: 0 | 1): Promise<boolean> {
   const reduced = systemPreferences.getAnimationSettings().prefersReducedMotion || getSettings().reduceMotion;
   const duration = reduced ? windowReducedMs : to === 1 ? windowEnterMs : windowExitMs;
   const from = window.getOpacity();
-  const curve = to === 1 ? easeOut : easeIn;
+  const curve = to === 1 ? windowEnterCurve : windowExitCurve;
   const start = Date.now();
   return new Promise((resolve) => {
     settleOpacity = resolve;
