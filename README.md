@@ -1,13 +1,13 @@
 <div align="center">
-  <img src="docs/images/icon.png" width="128" height="128" alt="omp-studio 图标">
+  <img src="docs/images/icon.png" width="128" height="128" alt="omp-studio icon">
   <h1>omp-studio</h1>
-  <p><a href="https://github.com/can1357/oh-my-pi">oh-my-pi</a>（omp）的桌面端，运行官方原版 omp，与终端版共用登录、设置和会话。</p>
-  <p><b>简体中文</b> · <a href="README.en.md">English</a></p>
+  <p>A desktop app for <a href="https://github.com/can1357/oh-my-pi">oh-my-pi</a> (omp). It runs the official, unmodified omp and shares logins, settings and sessions with the terminal version.</p>
+  <p><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
   <p>
-    <a href="#下载">下载</a> ·
-    <a href="docs/architecture/">文档</a> ·
-    <a href="CHANGELOG.md">更新日志</a> ·
-    <a href="https://github.com/DawnJson/omp-studio/issues">反馈</a>
+    <a href="#download">Download</a> ·
+    <a href="docs/architecture/">Docs</a> ·
+    <a href="CHANGELOG.md">Changelog</a> ·
+    <a href="https://github.com/DawnJson/omp-studio/issues">Feedback</a>
   </p>
   <p>
     <img src="https://img.shields.io/badge/Windows-x64-0078D4?logo=windows&logoColor=white" alt="Windows x64">
@@ -17,111 +17,123 @@
   </p>
 </div>
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/images/conversation-light.png" alt="omp-studio 浅色主题：一个完成的任务，含待办板、两个子代理、pytest 输出和回答"></td>
-    <td width="50%"><img src="docs/images/conversation-dark.png" alt="深色主题下的同一个任务"></td>
-  </tr>
-</table>
+![omp-studio demo: omp fixes failing tests with two parallel subagents, then the diff is reviewed, staged and committed with a generated message](docs/images/demo.webp)
 
-**`Ctrl+K` 命令面板**
+## Why omp-studio
 
-![Ctrl+K 命令面板](docs/images/command-palette.png)
+- **It is the real omp.** Each task runs interactive omp in a pseudo-terminal, and the window draws what omp sends over the TSP protocol (the protocol Tern uses). Subagents, the todo board, approvals, questions, `/btw` and slash commands behave as they do in the terminal, not as a reimplementation on top of RPC.
+- **Nothing to migrate.** Logins, settings and sessions stay in `~/.omp`. Sessions you started in a terminal show up in the sidebar, and settings you change in the app apply to the terminal omp too.
+- **Desktop workflow around the agent.** Tasks grouped by project, a review panel with per-line staging and generated commit messages, a branch menu, worktrees, a built-in terminal, a file panel, tray mode and notifications.
+- **Built for Windows first.** No WSL needed. omp child processes run in a Windows Job Object, so they don't outlive the app, even if it crashes. macOS (Apple silicon) is supported too.
 
-**设置 → 通用：外观、通知、快捷键**
+Prefer to stay in a terminal? [Tern](https://stencil.so/tern), Stencil's own terminal, also renders omp natively. omp-studio is for people who want a desktop app around omp.
 
-![设置 → 通用：外观、通知、快捷键](docs/images/settings.png)
+## Download
 
-## 下载
-
-| Windows（x64） | macOS（Apple 芯片） |
+| Windows (x64) | macOS (Apple silicon) |
 | --- | --- |
-| [`omp-studio-<版本>-setup.exe`](https://github.com/DawnJson/omp-studio/releases/latest) | [`omp-studio-<版本>-arm64.dmg`](https://github.com/DawnJson/omp-studio/releases/latest)<br>[`omp-studio-<版本>-arm64-mac.zip`](https://github.com/DawnJson/omp-studio/releases/latest) |
+| [`omp-studio-<version>-setup.exe`](https://github.com/DawnJson/omp-studio/releases/latest) | [`omp-studio-<version>-arm64.dmg`](https://github.com/DawnJson/omp-studio/releases/latest)<br>[`omp-studio-<version>-arm64-mac.zip`](https://github.com/DawnJson/omp-studio/releases/latest) |
 
-### 系统要求
+### System requirements
 
 | | Windows | macOS |
 | --- | --- | --- |
-| 系统 | Windows 10 / 11 | macOS 13 Ventura 起 |
-| 芯片 | x64 | Apple 芯片（arm64） |
+| OS | Windows 10 / 11 | macOS 13 Ventura or later |
+| Chip | x64 | Apple silicon (arm64) |
 
-- **Windows**：双击安装包，按向导点下一步（欢迎、许可协议、安装位置，默认装到当前用户目录，不需要管理员权限）。安装包未签名，第一次运行时在 SmartScreen 里点"更多信息 → 仍要运行"。
-- **macOS**：把 `omp-studio.app` 拖进"应用程序"。包是 ad-hoc 签名，第一次打开前在终端执行 `xattr -cr /Applications/omp-studio.app`，或者在 系统设置 → 隐私与安全性 里点"仍要打开"。
+- **Windows**: Double-click the installer and step through the wizard (welcome, license, install location). By default it installs into your user directory and does not need administrator rights. The installer is unsigned, so on first run click "More info → Run anyway" in SmartScreen.
+- **macOS**: Drag `omp-studio.app` into Applications. The app is ad-hoc signed. Before opening it the first time, run `xattr -cr /Applications/omp-studio.app` in Terminal, or click "Open Anyway" in System Settings → Privacy & Security.
 
-遇到问题或有建议，欢迎在 [Issues](https://github.com/DawnJson/omp-studio/issues) 反馈。
+Linux and Intel Macs are not supported yet. Problems and suggestions are welcome in [Issues](https://github.com/DawnJson/omp-studio/issues).
 
-## 功能
+## Screenshots
 
-### 任务与对话
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/conversation-light.png" alt="A finished task in the light theme: the test run, the completed todo board and the result"></td>
+    <td width="50%"><img src="docs/images/conversation-dark.png" alt="The same task in the dark theme"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/review.png" alt="Review panel: a unified diff with Stage and Discard per file and per hunk, and the commit form"></td>
+    <td width="50%"><img src="docs/images/command-palette.png" alt="Ctrl+K command palette with recent tasks and commands"></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/images/settings.png" alt="Settings → General: appearance, notifications and keyboard shortcuts"></td>
+  </tr>
+</table>
 
-- 每个任务在伪终端里运行交互式 omp，界面按 omp 经 TSP 协议发来的节点绘制，工具卡片和思考块的展开折叠与终端版一致。
-- 侧栏按项目列出任务，终端里开过的 omp 会话也在其中，点开接着聊。
-- 审批和提问出现在输入框上方；有任务在等你时侧栏顶部出现提示条，`Ctrl+J` 跳过去。
-- 窗口不在前台时任务栏闪烁，并按 omp 的通知设置发系统通知；关掉窗口后应用留在托盘，任务继续运行。
+## Features
 
-### 子代理与后台作业
+### Tasks and conversations
 
-- 输入框上方是待办板、子代理和后台作业。
-- 子代理面板里查看每个子代理的输出，可以给它插话、结束或恢复它。
-- `/btw` 在侧边面板里旁路提问，主对话不受打扰。
+- Each task runs interactive omp in a pseudo-terminal. The UI renders the nodes omp sends over the TSP protocol, and tool cards and thinking blocks expand and collapse the same way as in the terminal version.
+- The sidebar lists tasks by project, including omp sessions you started in a terminal. Open one to continue the conversation.
+- Approvals and questions appear above the input box. When a task is waiting for you, a banner appears at the top of the sidebar; `Ctrl+J` jumps to it.
+- When the window is in the background, the taskbar flashes and system notifications follow omp's notification settings. Closing the window leaves the app in the tray, and tasks keep running.
 
-### 评审、git 与终端
+### Subagents and background jobs
 
-- 评审（`Ctrl+Shift+D`）按文件或按行暂存、丢弃，提交信息可以由 omp 生成。
-- 分支菜单里提交、推送、创建 PR、合并；git 仓库里的新任务可以开在独立 worktree 中。
-- 内置终端（``Ctrl+` ``）打开在任务的工作目录；文件面板（`Ctrl+Shift+E`）显示文件树和预览。
+- The todo board, subagents and background jobs sit above the input box.
+- The subagents panel shows each subagent's output. You can send it a message, stop it, or resume it.
+- `/btw` asks a side question in a side panel without interrupting the main conversation.
 
-### 设置与集成
+### Review, git and terminal
 
-- 设置覆盖 Provider 登录和 API key、自定义 provider、模型角色、MCP、Skills、插件市场，以及 omp 的全部设置项。
-- 设置改动写进 omp 自己的配置，终端版同步生效。
-- `Ctrl+K` 命令面板搜索任务、历史会话、命令和斜杠命令。
-- 浅色、深色主题，中文、英文界面；对话过程区的文字与 omp 一样用英文。
+- Review (`Ctrl+Shift+D`) stages or discards changes by file or by line, and omp can write the commit message.
+- The branch menu commits, pushes, creates PRs and merges. New tasks in a git repository can run in a separate worktree.
+- The built-in terminal (``Ctrl+` ``) opens in the task's working directory. The file panel (`Ctrl+Shift+E`) shows the file tree and previews.
 
-macOS 上快捷键的 `Ctrl` 换成 `⌘`。
+### Settings and integrations
 
-## 第一次启动
+- Settings cover provider logins and API keys, custom providers, model roles, MCP, Skills, plugin marketplaces, and every omp setting.
+- Changes are written to omp's own config, so the terminal version picks them up too.
+- The `Ctrl+K` command palette searches tasks, past sessions, commands and slash commands.
+- Light and dark themes; English and Chinese UI. Text in the conversation's process area stays in English, as in omp.
 
-omp-studio 启动时在 PATH 上找 omp。由它管理的 omp 每小时检查一次新版本，在后台下载替换，有差量补丁时只下载补丁；运行中的任务继续用旧版本，新任务用新版本。设置 → 关于 → omp 里可以手动检查更新。
+On macOS, shortcuts use `⌘` instead of `Ctrl`.
 
-- **PATH 上没有 omp**：准备页列出下载来源 `build.stencil.so` 和文件大小，点"下载并安装"后下载官方构建并校验 sha256。Windows 上装到 `%LOCALAPPDATA%\omp-studio\omp\` 并放到用户 PATH 最前面，终端里敲 `omp` 用的是同一份；macOS 上装到 `~/Library/Application Support/omp-studio/omp/`。
-- **PATH 上已有 omp**（自己装的，或由 Tern 等工具管理的）：omp-studio 只问一次。选"由 omp-studio 管理"会另装一份官方版放到用户 PATH 最前面，原来那份留在原处；选"继续用我的"，更新仍走它原来的安装方式。
+## First launch
 
-## 常见问题
+omp-studio looks for omp on PATH at startup. An omp that omp-studio manages checks for new versions every hour and downloads and replaces itself in the background, fetching only a delta patch when one is available. Running tasks keep the old version; new tasks use the new one. To check manually, go to Settings → About → omp.
 
-| 问题 | 解决 |
+- **No omp on PATH**: The setup page shows the download source `build.stencil.so` and the file size. Click "Download and install" to download the official build and verify its sha256. On Windows it installs to `%LOCALAPPDATA%\omp-studio\omp\` and goes first on the user PATH, so `omp` in a terminal runs the same copy. On macOS it installs to `~/Library/Application Support/omp-studio/omp/`.
+- **omp already on PATH** (installed by you, or managed by a tool such as Tern): omp-studio asks once. "Let omp-studio manage it" installs a separate official copy first on the user PATH and leaves the original where it is. With "Keep using mine", updates keep going through the original install method.
+
+## FAQ
+
+| Question | Answer |
 | --- | --- |
-| 启动时提示"检测到脚本形式的 omp" | PATH 上第一个 omp 是 npm 等方式生成的 `omp.cmd`，omp-studio 只启动 `.exe`。点"由 omp-studio 管理"，另装的官方版会排到 PATH 最前面，原来那份保留。 |
-| 怎么更新 omp-studio | Windows：启动 10 秒后自动检查一次，之后每小时一次，也可以点 设置 → 关于 → 检查更新；新版本在后台下载（只下载变了的部分），下好后侧栏 `设置` 旁边出现"新版本"标签，点它重启并安装，或者不管它，下次退出软件时自动安装。显示"这个版本没有配置更新源"时（0.4.16 及以前的版本），从 [Releases](https://github.com/DawnJson/omp-studio/releases/latest) 下载新版安装包运行一次。macOS：从 Releases 下载新版本替换。 |
-| 怎么报告问题 | 先在 设置 → 关于 → 问题排查 里点"导出诊断信息…"，文件含版本、系统、omp 状态和最近 3 天的日志，用户名、家目录和 key 已去掉。再按 `Ctrl+K` → 关于与反馈 → 报告问题，按模板填写，把文件拖进"诊断信息"框。截图里的模型提供商账户信息先打码。 |
-| 数据存在哪里 | 登录、模型、设置和会话都在 `~/.omp`，与终端版 omp 共用。 |
+| omp-studio shows "Found a script-based omp" at startup | The first omp on PATH is an `omp.cmd` created by npm or a similar installer, and omp-studio only launches `.exe`. Click "Let omp-studio manage it": the official copy it installs goes first on PATH, and the original stays. |
+| How do I update omp-studio? | Windows: the app checks 10 seconds after launch and then every hour, or click Settings → About → Check for updates. New versions download in the background, and only the changed parts are fetched. When the download finishes, an "Update" label appears next to Settings in the sidebar: click it to restart and install, or leave it and the update installs the next time you quit. If it shows "This build has no update source configured" (0.4.16 and earlier), download the new installer from [Releases](https://github.com/DawnJson/omp-studio/releases/latest) and run it once. macOS: download the new version from Releases and replace the old one. |
+| How do I report a problem? | First go to Settings → About → Troubleshooting and click "Export diagnostics…". The file contains the version, system, omp status and the last 3 days of logs, with user names, home paths and keys removed. Then press `Ctrl+K` → About & feedback → Report an issue, fill in the template, and drag the file into the "Diagnostics" box. Blur model provider account details in screenshots first. |
+| Where is my data stored? | Logins, models, settings and sessions live in `~/.omp`, shared with the terminal omp. |
 
-## 开发
+## Development
 
-需要 Node.js 24 以上；`npm run dist:mac` 在 macOS 上运行。
+Requires Node.js 24 or later. Run `npm run dist:mac` on macOS.
 
 ```powershell
 npm ci
-npm run dev        # 开发，热更新
-npm test           # 单元测试（Vitest）
-npm run dist       # Windows NSIS 安装包，输出到 release/
-npm run dist:mac   # macOS arm64 的 dmg 和 zip，输出到 release/
+npm run dev        # development with hot reload
+npm test           # unit tests (Vitest)
+npm run dist       # Windows NSIS installer, written to release/
+npm run dist:mac   # macOS arm64 dmg and zip, written to release/
 ```
 
-架构文档在 [`docs/architecture/`](docs/architecture/)，界面规范在 [`docs/design/spec.md`](docs/design/spec.md)，版本变化在 [`CHANGELOG.md`](CHANGELOG.md)。
+Architecture docs are in [`docs/architecture/`](docs/architecture/), the UI spec in [`docs/design/spec.md`](docs/design/spec.md), and version history in [`CHANGELOG.md`](CHANGELOG.md).
 
-## 致谢
+## Acknowledgements
 
-- [oh-my-pi](https://github.com/can1357/oh-my-pi)：omp 本身；RPC 和 TSP 的协议类型拷自它的仓库（MIT，见 [`src/shared/oh-my-pi-LICENSE.txt`](src/shared/oh-my-pi-LICENSE.txt)）
-- [Tern](https://docs.stencil.so/tern/protocol/)：TSP 协议规范
+- [oh-my-pi](https://github.com/can1357/oh-my-pi): omp itself; the RPC and TSP wire types are copied from its repository (MIT, see [`src/shared/oh-my-pi-LICENSE.txt`](src/shared/oh-my-pi-LICENSE.txt))
+- [Tern](https://docs.stencil.so/tern/protocol/): the TSP protocol spec
 - [Electron](https://www.electronjs.org/)
-- [node-pty](https://github.com/microsoft/node-pty)：伪终端
-- [xterm.js](https://xtermjs.org/)：内置终端
-- [markdown-it](https://github.com/markdown-it/markdown-it)、[KaTeX](https://katex.org/)、[Shiki](https://shiki.style/)：Markdown、公式和代码高亮
-- [Geist](https://vercel.com/font)：界面字体（SIL OFL 1.1）
-- [LobeHub Icons](https://github.com/lobehub/lobe-icons)：模型提供商的 logo
-- [magpie](https://github.com/yetone/magpie) 和 [magpie 社区插件](https://github.com/magpie-community/plugins)：内置的客户端账号登录用的是社区插件的代码（MIT）
+- [node-pty](https://github.com/microsoft/node-pty): pseudo-terminal
+- [xterm.js](https://xtermjs.org/): built-in terminal
+- [markdown-it](https://github.com/markdown-it/markdown-it), [KaTeX](https://katex.org/), [Shiki](https://shiki.style/): Markdown, math and code highlighting
+- [Geist](https://vercel.com/font): UI font (SIL OFL 1.1)
+- [LobeHub Icons](https://github.com/lobehub/lobe-icons): model provider logos
+- [magpie](https://github.com/yetone/magpie) and the [magpie community plugins](https://github.com/magpie-community/plugins): the built-in client account sign-ins use the community plugins' code (MIT)
 
-## 许可
+## License
 
-[MIT](LICENSE)。omp-studio 由第三方独立开发。
+[MIT](LICENSE). omp-studio is developed independently by a third party.
