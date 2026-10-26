@@ -47,6 +47,7 @@ import {
   usePaletteOpen,
   useSelectedTaskId,
   useSettings,
+  useSettingsSettled,
   useTasks,
 } from "../store/index.ts";
 import { AboutDialog } from "./AboutDialog.tsx";
@@ -147,6 +148,21 @@ export function App() {
     if (previous === null || previous === theme) apply();
     else document.startViewTransition(apply);
   }, [theme]);
+  // 设置读到（或读失败）、主题套上，并且页面第一次有内容的一帧已经真的显示出来（first-contentful-paint，按上屏时间记），
+  // 才告诉主进程淡入窗口。只等 React 提交不够：窗口刚显示时绘制面还没准备好，提交后要再过约 250ms 内容才上屏，
+  // 先淡入的会是一块空底色（2026-10-26 截屏实测；FCP 的时刻和截屏里内容出现的时刻一致）。
+  // 设置在 FCP 之后才到时，主题变化要再画一帧：两次 rAF，第二次时那一帧已经画出。主进程只认第一次，开发时 StrictMode 多调一次无妨。
+  const settingsSettled = useSettingsSettled();
+  useEffect(() => {
+    if (!settingsSettled) return;
+    const observer = new PerformanceObserver((list) => {
+      if (list.getEntriesByName("first-contentful-paint").length === 0) return;
+      observer.disconnect();
+      requestAnimationFrame(() => requestAnimationFrame(() => void window.studio.windowReady()));
+    });
+    observer.observe({ type: "paint", buffered: true });
+    return () => observer.disconnect();
+  }, [settingsSettled]);
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);

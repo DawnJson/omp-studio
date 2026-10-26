@@ -973,6 +973,8 @@ export interface StudioInvokeApi {
   setShellState(patch: Partial<ShellState>): Promise<void>;
   /** 有遮罩的弹窗（模型选择、命令面板、确认框等）打开/全部关闭时调用：系统三键（titleBarOverlay）的颜色跟着遮罩一起变暗/恢复。 */
   setTitleBarDimmed(dimmed: boolean): Promise<void>;
+  /** 渲染进程第一帧（设置已读到、主题已套上）画完了：主进程这时才把启动时的窗口淡入显示。只有第一次有效，重载页面不再显示窗口。 */
+  windowReady(): Promise<void>;
   /** 输入框右键菜单：对当前获得焦点的输入框执行编辑命令（主进程调 webContents 的同名方法；粘贴不经过渲染进程读剪贴板）。 */
   editField(command: EditCommand): Promise<void>;
 
@@ -1490,6 +1492,7 @@ export const invokeNames = {
   getShellState: true,
   setShellState: true,
   setTitleBarDimmed: true,
+  windowReady: true,
   editField: true,
   listProjects: true,
   addProject: true,

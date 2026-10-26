@@ -19,7 +19,7 @@ export function startStores(): void {
 }
 
 export { useOmpStatus } from "./omp-store.ts";
-export { currentPlatform, useAppInfo, useSettings } from "./settings-store.ts";
+export { currentPlatform, useAppInfo, useSettings, useSettingsSettled } from "./settings-store.ts";
 export { useUpdateState } from "./update-store.ts";
 export { getTask, useTask, useTasks, useTasksState } from "./tasks-store.ts";
 export { useBtwRecords } from "./btw-store.ts";

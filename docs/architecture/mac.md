@@ -70,6 +70,7 @@ xattr -cr /Applications/omp-studio.app
 | 自管 omp | 下载 `macos-arm64` 构建，`chmod 755`；放 `~/Library/Application Support/omp-studio/omp`；没有"加入 PATH" | `omp-install.md` 末节 |
 | 自动更新 | 关掉，关于页提示手动下载 | `auto-update.md` 末节 |
 | 窗口、菜单、菜单栏图标 | 红黄绿三键 `trafficLightPosition`；应用菜单只放 app / file / edit / window 四个 role 菜单（不放 view，免得抢 ⌘R） | `spec.md` §3.1 |
+| 窗口淡入淡出 | 同 Windows：`setOpacity` 逐帧渐变；启动时窗口先以不透明度 0 显示等第一帧。没验证 mac 上透明窗口在这几百毫秒里会不会接住点击 | `spec.md` §2.6“窗口出现 / 消失” |
 | 快捷键 | 主修饰键 ⌘，后退 / 前进 ⌘[ / ⌘]；发给 omp 的 Ctrl 键不变 | `spec.md` §5.1 |
 
 第一次在 Mac 上跑时先看这几样：应用能起来、任务能发一句 prompt 并跑完（node-pty + TSP）、关任务和 `kill -9` 主进程后 `ps` 里没有残留的 omp 和 `sh` 看门狗、Finder 启动后能找到 Homebrew 装的 `git`、⌘C / ⌘V / ⌘W / ⌘Q。

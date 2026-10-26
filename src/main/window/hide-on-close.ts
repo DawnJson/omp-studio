@@ -6,6 +6,7 @@ import { app, Notification } from "electron";
 import { resolveLocale } from "../settings/settings-store.ts";
 import { t } from "../../shared/i18n/index.ts";
 import { retainNotification } from "../tasks/gate-notifier.ts";
+import { concealWindow } from "./main-window.ts";
 import { showMainWindow } from "./show-window.ts";
 import { finishShutdown, isQuitting } from "./shutdown.ts";
 import { markTrayNoticeShown, trayNoticeShown } from "./window-state.ts";
@@ -33,7 +34,7 @@ export function installHideOnClose(): void {
     window.on("close", (event) => {
       if (isQuitting()) return;
       event.preventDefault();
-      window.hide();
+      void concealWindow(window);
       announceTray();
     });
     // 注销/关机：之后无法阻止，也等不到异步收尾，尽力跑退出 hook，兜底是 Job Object。

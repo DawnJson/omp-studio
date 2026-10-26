@@ -5,6 +5,7 @@ import { defaultFontSize } from "../../shared/ipc.ts";
 import { appOrigin } from "./app-protocol.ts";
 import { getSettings, offSettingsChanged, onSettingsChanged } from "../settings/settings-store.ts";
 import { blockZoom } from "./security.ts";
+import { registerShutdownHook } from "./shutdown.ts";
 import { attachTaskbarWindow } from "./taskbar-progress.ts";
 import { restoredBounds, trackWindowState } from "./window-state.ts";
 
@@ -141,6 +142,80 @@ export function setTitleBarDimmed(dimmed: boolean): void {
   if (window) fadeTitleBar(window, true);
 }
 
+/**
+ * 整个窗口的淡入淡出（spec §2.6「窗口出现 / 消失」）：启动、从托盘带回时淡入，× 隐藏、退出时淡出。
+ * 用 setOpacity 逐帧改窗口的不透明度；系统自己的开关窗动画（DWM）作用在透明的窗口上看不见，不会叠两层。
+ * 时长同 tokens.css：出现 --dur-base（200ms）+ --ease-out，消失 --dur-base-exit（120ms）+ --ease-in；
+ * 减少动效（系统或设置里的开关，和渲染进程的 data-motion 同一判断）时两者都是 --dur-fade 的 100ms，只剩透明度、不闪现。
+ */
+const windowEnterMs = 200;
+const windowExitMs = 120;
+const windowReducedMs = 100;
+let opacityTimer: NodeJS.Timeout | undefined;
+/** 正在进行的淡入淡出被新的一次打断时，让等它的一方知道（false = 没走完，别再接着 hide）。 */
+let settleOpacity: ((completed: boolean) => void) | undefined;
+
+function fadeWindow(window: BrowserWindow, to: 0 | 1): Promise<boolean> {
+  clearInterval(opacityTimer);
+  settleOpacity?.(false);
+  const reduced = systemPreferences.getAnimationSettings().prefersReducedMotion || getSettings().reduceMotion;
+  const duration = reduced ? windowReducedMs : to === 1 ? windowEnterMs : windowExitMs;
+  const from = window.getOpacity();
+  const curve = to === 1 ? easeOut : easeIn;
+  const start = Date.now();
+  return new Promise((resolve) => {
+    settleOpacity = resolve;
+    opacityTimer = setInterval(() => {
+      if (window.isDestroyed()) {
+        clearInterval(opacityTimer);
+        settleOpacity = undefined;
+        resolve(false);
+        return;
+      }
+      const progress = Math.min(1, (Date.now() - start) / duration);
+      window.setOpacity(progress === 1 ? to : from + (to - from) * cubicBezier(curve, progress));
+      if (progress < 1) return;
+      clearInterval(opacityTimer);
+      settleOpacity = undefined;
+      resolve(true);
+    }, frameMs);
+  });
+}
+
+/** 启动的窗口：ready-to-show 时已经透明着显示，等渲染进程第一帧画完再淡入；淡入过就清掉，之后重载页面不再触发。 */
+let awaitingFirstFrame: BrowserWindow | null = null;
+
+/** 显示隐藏着的窗口并淡入（透明着显示的、淡出到一半的也淡入）；已经完全显示的不动。最小化的由调用方 restore，那是系统动画。 */
+export function revealWindow(window: BrowserWindow): void {
+  if (awaitingFirstFrame === window) awaitingFirstFrame = null;
+  if (!window.isVisible()) {
+    window.setOpacity(0);
+    window.show();
+  }
+  if (window.getOpacity() < 1) void fadeWindow(window, 1);
+}
+
+/** 淡出后隐藏；隐藏后把不透明度还原，别的地方直接 show() 也不会是透明的。淡出途中被重新显示打断就不隐藏。 */
+export async function concealWindow(window: BrowserWindow): Promise<void> {
+  if (!window.isVisible()) return;
+  if (!(await fadeWindow(window, 0))) return;
+  window.hide();
+  window.setOpacity(1);
+}
+
+/** 渲染进程第一帧（设置已读到、主题已套上）画完了（windowReady）：启动的窗口这时淡入。之前已被带到前台（第二个实例等）的不再动。 */
+export function revealOnFirstFrame(): void {
+  const window = awaitingFirstFrame;
+  if (window === null || window.isDestroyed()) return;
+  revealWindow(window);
+}
+
+// 退出时先淡出隐藏窗口，和关 omp 进程等其余收尾并行；没有可见窗口时立即完成。
+registerShutdownHook(async () => {
+  const window = getMainWindow();
+  if (window) await concealWindow(window);
+});
+
 let mainWindow: BrowserWindow | null = null;
 
 export function getMainWindow(): BrowserWindow | null {
@@ -219,7 +294,16 @@ export function createMainWindow(): BrowserWindow {
     return { action: "deny" };
   });
 
-  window.once("ready-to-show", () => window.show());
+  // 启动：页面第一次绘制（ready-to-show）时先透明着显示，系统趁 React 还在等字体、设置时把窗口的绘制面准备好；
+  // 渲染进程报告第一帧画完（windowReady -> revealOnFirstFrame）再淡入。等到那时才 show() 的话，显示后还要约 300ms 才有画面，
+  // 淡入的是一块空底色（2026-10-26 实测）。最大化也留到这时：maximize() 会立刻显示窗口。
+  awaitingFirstFrame = window;
+  window.once("ready-to-show", () => {
+    if (awaitingFirstFrame !== window) return;
+    window.setOpacity(0);
+    if (restored.maximized) window.maximize();
+    window.show();
+  });
   // 主题切换（设置或系统）时，系统三键的底色和符号色跟着顶栏走。
   const onThemeUpdated = () => fadeTitleBar(window, false);
   nativeTheme.on("updated", onThemeUpdated);
@@ -237,7 +321,6 @@ export function createMainWindow(): BrowserWindow {
   window.once("closed", () => offSettingsChanged(onSettings));
   blockZoom(window.webContents);
   trackWindowState(window);
-  if (restored.maximized) window.maximize();
   window.on("closed", () => {
     if (mainWindow === window) mainWindow = null;
   });

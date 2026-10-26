@@ -44,6 +44,11 @@ export function useSettings(): StudioSettings | null {
   return useStoreValue(settingsStore, (state) => state.settings);
 }
 
+/** 设置读到了，或者读失败了（失败时界面要显示出错，不能一直等）。 */
+export function useSettingsSettled(): boolean {
+  return useStoreValue(settingsStore, (state) => state.settings !== null || state.error !== null);
+}
+
 export function useAppInfo(): AppInfo | null {
   return useStoreValue(settingsStore, (state) => state.appInfo);
 }

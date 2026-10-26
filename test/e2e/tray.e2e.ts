@@ -64,6 +64,13 @@ async function sendPrompt(launched: LaunchedApp): Promise<void> {
 const windowVisible = (launched: LaunchedApp) =>
   launched.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some((window) => window.isVisible()));
 
+/** 窗口看得见的程度：隐藏为 0，显示着就是它的不透明度（启动和从托盘带回时从 0 淡入到 1，main-window.ts 的 revealWindow）。 */
+const windowOpacity = (launched: LaunchedApp) =>
+  launched.app.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0];
+    return window?.isVisible() ? window.getOpacity() : 0;
+  });
+
 /** 点窗口 ×（BrowserWindow.close()，和系统关闭按钮同一条 close 事件路径）。 */
 const closeWindow = (launched: LaunchedApp) =>
   launched.app.evaluate(({ BrowserWindow }) => {
@@ -79,6 +86,8 @@ test("关窗口只隐藏：主进程和 omp 还活着，任务还在；再次启
   const { launched, pidFile, cleanup } = await start();
   try {
     const { page } = launched;
+    // 启动时窗口先透明着显示，渲染进程第一帧上屏后淡入到完全不透明。
+    await expect.poll(() => windowOpacity(launched)).toBe(1);
     await sendPrompt(launched);
     await expect(page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
     const [ompPid] = await readPids(pidFile);
@@ -110,7 +119,7 @@ test("关窗口只隐藏：主进程和 omp 还活着，任务还在；再次启
         (error) => (error ? reject(error) : resolve()),
       );
     });
-    await expect.poll(() => windowVisible(launched)).toBe(true);
+    await expect.poll(() => windowOpacity(launched)).toBe(1);
 
     // 对话停在隐藏前的那个任务上，审批还在等。
     await expect(page.getByTestId("tsp-view")).toBeVisible();
