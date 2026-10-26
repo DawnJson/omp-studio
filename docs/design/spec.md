@@ -710,8 +710,8 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 | 状态（`OmpStatus.state`） | 条件 | 内容 | 按钮（左 → 右；★ = 打开时的焦点） |
 |---|---|---|---|
 | `discovering` | 启动检测 | 一句 `omp.finding`（超过 300ms 才出现，免得一闪而过） | — |
-| `ask_takeover` | PATH 上的 omp 首次发现 | 三种标题和正文：别人管理的（`omp.takeover.otherTitle/otherBody`）、能启动的自装版（`omp.takeover.exeTitle/exeBody`）、`.cmd` 这类脚本（`omp.takeover.title/body`）；Windows 上正文都写明会另装一份并改用户 PATH，原来的不动。macOS / Linux 接管不改 PATH，前两种正文换成 `omp.takeover.otherBodyStudioOnly` / `exeBodyStudioOnly`（另装一份只给 omp-studio 用，终端里用的不变；2026-10-26）。有版本时一句 `omp.found`；路径块 `omp.takeover.where` | ★ 保守的一项（`继续用 {name} 的` / `继续用我的` / `取消`）、主按钮 `由 omp-studio 管理` |
-| `missing` | PATH 上没有 omp | `omp.missing.title`（知道版本时 `omp.missing.titleVersion`）+ `omp.missing.body`（含大小；不知道时 `omp.missing.bodyNoSize`） | `我已安装，重新检测`、★ 主按钮 `下载并安装` |
+| `ask_takeover` | PATH 上的 omp 首次发现 | 三种标题和正文：别人管理的（`omp.takeover.otherTitle/otherBody`）、能启动的自装版（`omp.takeover.exeTitle/exeBody`）、`.cmd` 这类脚本（`omp.takeover.title/body`）；Windows 上正文都写明会另装一份并改用户 PATH，原来的不动。macOS / Linux 不改 PATH，三种正文换成 `omp.takeover.otherBodyStudioOnly` / `exeBodyStudioOnly` / `bodyStudioOnly`（另装一份只给 omp-studio 用，终端里用的不变；2026-10-26）。有版本时一句 `omp.found`；路径块 `omp.takeover.where` | ★ 保守的一项（`继续用 {name} 的` / `继续用我的` / `取消`）、主按钮 `由 omp-studio 管理` |
+| `missing` | PATH 上没有 omp | `omp.missing.title`（知道版本时 `omp.missing.titleVersion`）+ `omp.missing.body`（含大小；不知道时 `omp.missing.bodyNoSize`）；macOS / Linux 换成 `omp.missing.bodyStudioOnly` / `bodyNoSizeStudioOnly`（不说加入 PATH；2026-10-26 在 WSLg 里看到 Linux 上写着"加入用户 PATH"后改） | `我已安装，重新检测`、★ 主按钮 `下载并安装` |
 | `installing` | 下载中 | `omp.downloading`（版本未知时 `omp.downloading.latest`）+ `omp.install.note` + 进度条（高 4，`--accent`，`--radius-pill`）+ `omp.progress`；下载完进入 `omp.verifying` | `取消下载`（校验中不显示） |
 | `unusable` | 拒绝接管，而 PATH 上的是脚本 | `omp.unusable.title` + `omp.takeover.declined` + 路径块 | ★ 主按钮 `重新选择` |
 | `error` | 检测、下载、校验、安装、改 PATH 失败 | `omp.error.title` + 红字一句人话原因（`omp.error.<stage>`；校验失败是 `omp.verifyFailed` + `omp.error.verify`）+ `显示详情`（`ui/Disclosure`，默认收起，展开是等宽的原始报错，最高 320 后滚动） | `打开设置`（隐藏卡片直到状态再变化，进设置页）、★ 主按钮 `重试` |
@@ -1455,6 +1455,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `omp.source.user` | 你自己安装的 | installed by you |
 | `omp.missing.title` | 需要安装 omp | omp is required |
 | `omp.missing.body` | omp-studio 不内置 omp。可以从 {source} 下载官方版（约 {size}），加入用户 PATH 并自动更新。 | omp-studio doesn't bundle omp. It can download the official build from {source} (about {size}), add it to your user PATH and keep it updated. |
+| `omp.missing.bodyStudioOnly` | omp-studio 不内置 omp。可以从 {source} 下载官方版（约 {size}）自己用，并自动更新。 | omp-studio doesn't bundle omp. It can download the official build from {source} (about {size}) for its own use and keep it updated. |
 | `omp.install` | 下载并安装 | Download and install |
 | `omp.recheck` | 我已安装，重新检测 | I've installed it, check again |
 | `omp.addPath` | 终端 | Terminal |
@@ -1465,6 +1466,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `omp.verifyFailed` | 文件校验失败，已丢弃。 | The file failed verification and was discarded. |
 | `omp.takeover.title` | 检测到脚本形式的 omp | Found a script-based omp |
 | `omp.takeover.body` | omp-studio 启动不了脚本形式（如 npm 安装）的 omp。可以另装一份官方版放到用户 PATH 最前面，原来的不动。 | omp-studio can't launch script-based installs (such as npm). It can install an official copy first on your user PATH; your existing one stays. |
+| `omp.takeover.bodyStudioOnly` | omp-studio 启动不了脚本形式（如 npm 安装）的 omp。可以另装一份官方版自己用，原来的不动。 | omp-studio can't launch script-based installs (such as npm). It can install an official copy for its own use; your existing one stays. |
 | `omp.takeover.exeBodyStudioOnly` | omp-studio 可以另装一份官方 omp 自己用；你原来的那份、终端里用的 omp 都不变。 | omp-studio can install an official copy for its own use. Your existing install, and the omp your terminal runs, stay as they are. |
 | `omp.takeover.otherBodyStudioOnly` | omp-studio 可以另装一份官方 omp 自己用；{name} 的那份、终端里用的 omp 都不变。 | omp-studio can install an official copy for its own use. {name}'s copy, and the omp your terminal runs, stay as they are. |
 | `omp.takeover.yes` | 由 omp-studio 管理 | Let omp-studio manage it |

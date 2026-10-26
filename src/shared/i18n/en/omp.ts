@@ -23,7 +23,9 @@ export const omp = {
   "takeover.otherTitle": "Found an omp managed by {name}",
   "takeover.otherBody":
     "omp-studio can install an official copy and put it first on your user PATH. {name}'s copy stays, just no longer first.",
-  // macOS / Linux：接管不改 PATH（没有用户 PATH 可写），新装的那份只给 omp-studio 自己用。
+  // macOS / Linux：不改 PATH（没有用户 PATH 可写），omp-studio 装的那份只给它自己用。
+  "takeover.bodyStudioOnly":
+    "omp-studio can't launch script-based installs (such as npm). It can install an official copy for its own use; your existing one stays.",
   "takeover.exeBodyStudioOnly":
     "omp-studio can install an official copy for its own use. Your existing install, and the omp your terminal runs, stay as they are.",
   "takeover.otherBodyStudioOnly":
@@ -69,6 +71,10 @@ export const omp = {
     "omp-studio doesn't bundle omp. It can download the official build from {source} (about {size}), add it to your user PATH and keep it updated.",
   "missing.bodyNoSize":
     "omp-studio doesn't bundle omp. It can download the official build from {source}, add it to your user PATH and keep it updated.",
+  "missing.bodyStudioOnly":
+    "omp-studio doesn't bundle omp. It can download the official build from {source} (about {size}) for its own use and keep it updated.",
+  "missing.bodyNoSizeStudioOnly":
+    "omp-studio doesn't bundle omp. It can download the official build from {source} for its own use and keep it updated.",
   "missing.titleVersion": "omp {version} is required",
   install: "Download and install",
   recheck: "I've installed it, check again",

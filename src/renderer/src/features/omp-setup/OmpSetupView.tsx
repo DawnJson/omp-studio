@@ -102,6 +102,8 @@ export function OmpSetupView() {
     </h2>
   );
   const answer = (job: Promise<void>) => void job.catch((error: unknown) => reportError(t, error));
+  // 只有 Windows 会把 omp-studio 装的 omp 放进用户 PATH；macOS / Linux 不改 PATH，文案不能说会放进 PATH。
+  const studioOnly = platform !== "win32";
 
   let body;
   switch (status.state) {
@@ -110,8 +112,6 @@ export function OmpSetupView() {
       break;
     case "ask_takeover": {
       const other = status.managerName;
-      // 只有 Windows 接管时把新装的 omp 放到用户 PATH 最前面；macOS / Linux 不改 PATH，文案不能说会放进 PATH。
-      const studioOnly = platform !== "win32";
       body = (
         <>
           {title(
@@ -134,7 +134,7 @@ export function OmpSetupView() {
               ? t(studioOnly ? "omp.takeover.otherBodyStudioOnly" : "omp.takeover.otherBody", { name: other })
               : status.launchable
                 ? t(studioOnly ? "omp.takeover.exeBodyStudioOnly" : "omp.takeover.exeBody")
-                : t("omp.takeover.body")}
+                : t(studioOnly ? "omp.takeover.bodyStudioOnly" : "omp.takeover.body")}
           </p>
           <p className="setup-path">{t("omp.takeover.where", { path: status.path })}</p>
           <div className="setup-actions">
@@ -159,8 +159,13 @@ export function OmpSetupView() {
           {title(status.version ? t("omp.missing.titleVersion", { version: status.version }) : t("omp.missing.title"))}
           <p className="setup-text">
             {status.sizeBytes !== null
-              ? t("omp.missing.body", { source: status.source, size: bytes(status.sizeBytes) })
-              : t("omp.missing.bodyNoSize", { source: status.source })}
+              ? t(studioOnly ? "omp.missing.bodyStudioOnly" : "omp.missing.body", {
+                  source: status.source,
+                  size: bytes(status.sizeBytes),
+                })
+              : t(studioOnly ? "omp.missing.bodyNoSizeStudioOnly" : "omp.missing.bodyNoSize", {
+                  source: status.source,
+                })}
           </p>
           <div className="setup-actions">
             <Button onClick={() => answer(window.studio.retryOmpSetup())} testId="recheck-omp">

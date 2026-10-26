@@ -16,7 +16,8 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ### 修复
 
-- macOS 上发现自己装的 omp 时，接管提示不再说"放到用户 PATH 最前面"：mac 上接管不改 PATH，另装的那份只给 omp-studio 用。
+- macOS 上发现自己装的 omp、或 PATH 上没有 omp 时，准备页不再说"放到 / 加入用户 PATH"：mac 上不改 PATH，omp-studio 下载的那份只给它自己用。
+- macOS 上 omp-studio 被强制结束时，omp 用 bash 工具起的命令（比如还在跑的测试、开发服务器）也一起结束，不再留在后台。
 
 ## [0.4.29] - 2026-10-26
 

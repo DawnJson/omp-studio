@@ -125,6 +125,40 @@ describe.skipIf(process.platform === "win32")("看门狗脚本", () => {
     }
   });
 
+  it("主进程没了：组里进程的后代自己开了进程组（omp 的 bash 工具就这样起命令）也一起杀掉", async () => {
+    const main = spawn("sleep", ["30"], { stdio: "ignore" });
+    // 组长起一个 detached（自己的会话和进程组）的孙进程，把它的 pid 打出来。
+    const group = spawn(
+      process.execPath,
+      [
+        "-e",
+        "const c = require('node:child_process').spawn('sleep', ['30'], { detached: true, stdio: 'ignore' }); console.log(c.pid); setInterval(() => {}, 1e6);",
+      ],
+      { stdio: ["ignore", "pipe", "ignore"], detached: true },
+    );
+    const grandchild = await new Promise<number>((resolve) =>
+      group.stdout!.once("data", (data) => resolve(Number(String(data).trim()))),
+    );
+    const alive = (pid: number) => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const { file, args } = watchdogCommand(main.pid!, group.pid!);
+    const dog = spawn(file, args, { stdio: "ignore", detached: true });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      main.kill("SIGKILL");
+      await expect.poll(() => alive(grandchild), { timeout: 5000 }).toBe(false);
+    } finally {
+      for (const child of [main, group, dog]) child.kill("SIGKILL");
+      if (alive(grandchild)) process.kill(grandchild, "SIGKILL");
+    }
+  });
+
   it("进程组自己结束了：看门狗也退出，不碰主进程", async () => {
     const main = spawn("sleep", ["30"], { stdio: "ignore" });
     const group = spawn("sleep", ["1"], { stdio: "ignore", detached: true });

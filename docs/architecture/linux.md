@@ -1,6 +1,6 @@
 # Linux 版：打包与分发
 
-只出 x64 AppImage（仓库所有者 2026-10-26 定），从 GitHub Release 自动更新。**本仓库没有 Linux 真机**：下面标"实测"的都是在 GitHub Actions 的 `ubuntu-24.04` 机器上（Xvfb，没有桌面环境、窗口管理器和 D-Bus 会话）跑出来的，桌面环境相关的（托盘、通知、Wayland）都没测。
+只出 x64 AppImage（仓库所有者 2026-10-26 定），从 GitHub Release 自动更新。**本仓库没有 Linux 真机**：下面标"实测"的，没特别说明的都是在 GitHub Actions 的 `ubuntu-24.04` 机器上（Xvfb，没有桌面环境、窗口管理器和 D-Bus 会话）跑出来的；标"WSLg"的是在开发机的 WSL2 Ubuntu 24.04 上跑的（见下面"WSL2 + WSLg 实测"）。GNOME / KDE 桌面上的托盘、通知、Wayland 都没测。
 
 ## 打包
 
@@ -48,6 +48,8 @@ Ubuntu 23.10 起 AppArmor 默认不许非特权进程建 user namespace（`kerne
 
 - 没有 Job Object，和 mac 共用 `sh` 看门狗（`platform/posix/watchdog.ts`）和按进程树 SIGKILL（`platform/posix/process-tree.ts`），见 `terminal.md`"POSIX（macOS / Linux）的进程结束和看门狗"。看门狗脚本写成 `kill -s 0`：Ubuntu 的 `/bin/sh` 是 dash，它的 `kill` 不认 `-0 --`。
 - 实测（打包版）：服务进程 omp（`--mode rpc-ui`）启动时旁边有一个 `/bin/sh -c seen=0; …` 看门狗；`kill -9` 主进程 4 秒后，omp、看门狗、Electron 的子进程都没了。
+- WSLg 实测：omp 的 bash 工具让命令自己开进程组（`python3 -c "import time; time.sleep(600)"` 的 pgid 是它自己的 pid）。看门狗原来只杀 omp 的进程组，`kill -9` 主进程后这个 python3 被 init 收养、一直留着；改成先 SIGSTOP 组、按父子关系收齐组里各进程的后代再一起 SIGKILL 后，8 秒内什么都不剩。
+- WSLg 实测：只给主进程发 SIGTERM（注销、关机、`kill` 的默认信号）时，主进程 1 秒内退出，omp 子进程没有残留（没区分是走了 `shutdown.ts` 还是看门狗收的尾）。
 
 ## 从桌面启动时的 PATH
 
@@ -62,13 +64,26 @@ Ubuntu 23.10 起 AppArmor 默认不许非特权进程建 user namespace（`kerne
 仓库所有者 2026-10-26 定：和 Windows 一样，× 只隐藏窗口，任务继续跑。
 
 - GNOME 默认没有托盘（要装 AppIndicator 扩展），窗口隐藏后可能找不到托盘图标，所以 Linux 加了 `Ctrl+Q` 退出（`window/hide-on-close.ts`，主进程 `before-input-event`，不带 Shift / Alt / Super 才算；经 `app.quit()`，和托盘"退出"一样走 `shutdown.ts`）。第一次 × 时的系统通知写明按 Ctrl+Q 退出、再次打开应用找回窗口（`notify.tray.stillRunning.*Linux`）。
-- 实测：AppImage 启动后用 xdotool 发 Ctrl+Q（XTEST 输入），主进程退出，没有残留进程（那次 omp 没起来，没覆盖"有 omp 子进程时退出"）。Playwright 的 `page.keyboard` 和 `xdotool key --window`（XSendEvent）发的 Ctrl+Q 都没让应用退出，原因没查，不能用来测。
-- 没测：真实桌面上的托盘图标、系统通知、再次打开应用时把隐藏的窗口带回来（`second-instance`）。
+- 实测：AppImage 启动后用 xdotool 发 Ctrl+Q（XTEST 输入），主进程退出，没有残留进程（那次 omp 没起来）。Playwright 的 `page.keyboard` 和 `xdotool key --window`（XSendEvent）发的 Ctrl+Q 都没让应用退出，原因没查，不能用来测。
+- WSLg 实测：服务进程 omp 和一个跑完的任务 omp 都在时，`webContents.sendInputEvent` 发 Ctrl+Q（走 `before-input-event`），主进程退出码 0，3 秒后 omp、看门狗、AppImage 的挂载进程都没有了。× 之后窗口 `isVisible()` 为 false、主进程还在。
+- 没测：真实桌面上的托盘图标、系统通知、再次打开应用时把隐藏的窗口带回来（`second-instance`）。WSLg 的 D-Bus 会话上没有 `StatusNotifierWatcher`，托盘图标不会出现，和 GNOME 不装扩展时一样；`Notification.isSupported()` 为 true，但没有核对通知是否真的弹出来。
 
 ## 窗口
 
 - 窗口图标用 `icon.png`（`main-window.ts` 的 `windowIconPath`）。
-- 顶栏和 Windows 一样用 `titleBarOverlay`，Electron 在 Linux 上自己画最小化 / 最大化 / 关闭三个按钮。实测（Xvfb，没有窗口管理器）三个按钮在右上角正常显示。
+- 顶栏和 Windows 一样用 `titleBarOverlay`，Electron 在 Linux 上自己画最小化 / 最大化 / 关闭三个按钮。实测（Xvfb，没有窗口管理器）三个按钮在右上角正常显示；WSLg 里截 Windows 桌面，三个圆形按钮画在顶栏右端、和顶栏同底色，WSLg 不另加系统标题栏。
+
+## WSL2 + WSLg 实测（2026-10-26）
+
+开发机（Windows 11）上 `wsl --install` 装 Ubuntu 24.04（WSL 内核 6.18、WSLg 1.0.79），在 WSL 自己的文件系统里克隆仓库、`npm ci`（node-pty 由 node-gyp 编译）、`npm run dist:linux`。AppImage 的窗口经 WSLg 显示在 Windows 桌面上。和 CI 不同的地方：有显示服务和 D-Bus 会话；WSL 内核没有 `apparmor_restrict_unprivileged_userns`，`unshare -Ur true` 成功，所以**直接启动 AppImage 时不带 `--no-sandbox`，Chromium 沙箱开着**（Playwright 启动 Electron 时自己会加 `--no-sandbox`，看沙箱要不经 Playwright 启动）。Electron 选的是 X11（`--ozone-platform=x11`，走 XWayland），没测 Wayland 原生。
+
+在新建的 WSL 用户下，用 Playwright 驱动 AppImage 走了一遍（omp 的 agent 目录指向临时目录）：
+
+- 启动 4 秒内窗口淡入（这次有 FCP，约 2.5 秒）。
+- PATH 上没有 omp：准备页 `missing`，点"下载并安装"，12 秒后自管 omp 18.12.6 装进 `~/.local/share/omp-studio/omp/bin/omp`，状态 `studio_managed`、不在 PATH 上。后来再启动时自管 omp 已经是 18.13.0（自管更新在 Linux 上走通了，没盯更新过程）。准备页正文原来写着"加入用户 PATH"，Linux / mac 上不会改 PATH，改用 `omp.missing.bodyStudioOnly`（spec §4.22）。
+- 打开中文带空格的项目目录，用 `.env` 的 `STUDIO_TEST_MODEL` 发 `Reply with exactly: ok`，约 2 秒跑完，回答 `ok`，任务回到空闲。
+- 内置终端（Ctrl+\`）打开 bash，提示符的 cwd 是项目目录（中文带空格的路径显示正常）。
+- 关窗口、Ctrl+Q、SIGTERM、`kill -9` 见上面"进程"和"关窗口和退出"。
 
 ## 自动更新、自管 omp
 
@@ -78,6 +93,6 @@ Ubuntu 23.10 起 AppArmor 默认不许非特权进程建 user namespace（`kerne
 ## 没测
 
 - 真实桌面环境（GNOME、KDE）、Wayland、托盘、系统通知、`.desktop` 集成（AppImage 不自动注册）。
-- 打包版里真正发一句 prompt 跑完一轮：CI 的 e2e 用未打包的 out/ 和假 omp 跑；打包版只测到服务进程 omp 起来、窗口显示。
+- 真实桌面上打包版跑一轮 prompt：CI 只测到服务进程 omp 起来、窗口显示；WSLg 里跑过（见上），但 WSLg 不是真实桌面环境。
 - 内置终端的 e2e（`terminal.e2e.ts` 的命令按 PowerShell / zsh 写）。
 - 自动更新的下载、替换、重启整条路径。
