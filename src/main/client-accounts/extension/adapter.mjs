@@ -1,67 +1,64 @@
-// 纯映射函数（不碰 omp、不碰网络）：插件给的形状 → omp 的 provider/模型行。
+// 纯映射函数（不碰 omp、不碰网络）：插件给的形状 → omp 的 provider/模型行和凭据。
 // 单独成文件是为了能被 vitest 直接 import（`shim.mjs` 要 import omp 自己的包，测试环境里没有）。
 
-/** 会话 id 的请求头：插件在它的 fetch 里读，不会发给厂商。 */
-export const SESSION_HEADER = "x-magpie-qoder-session";
+/** 插件 export 的是 `makePlugin(site)` 的产物（函数），或 OpenCode v1 的 `{ id, server }`。 */
+export function pluginFactory(value) {
+  if (typeof value === "function") return value;
+  if (value && typeof value === "object" && typeof value.server === "function") return value.server;
+  return null;
+}
 
-/**
- * 插件返回 / 保存的凭据带自己的 `type`（"success"），omp 的 `oauth.login` 会写 `{type:"oauth", ...结果}`，
- * 不摘掉就会盖成 `type:"success"` 存进凭据库。
- */
-export function stripType(credential) {
-  if (!credential || typeof credential !== "object") return null;
-  const { type: _type, ...rest } = credential;
-  return rest;
+function usableSignIn(method) {
+  const prompts = method?.prompts ?? [];
+  // select 提示取第一个选项就能走；文字提示（手机号、域名、PAT）omp 的 RPC 登录收不到，不接。
+  if (!prompts.every((prompt) => prompt?.type === "select" && prompt.options?.length)) return false;
+  if (method?.type === "oauth") return typeof method.authorize === "function";
+  // 不需要输入的 api 方式（如 OpenCode Zen 的公共 key）：authorize 直接给结果。
+  return method?.type === "api" && typeof method.authorize === "function";
 }
 
 /**
- * 只挑无提示的浏览器登录：带 prompts 的（PAT）在 RPC 模式走不通（omp 拒绝 secret 提示）；
- * 同一站点有几个无提示方式时认 label 里写 browser 的那个（WorkBuddy 还有"读桌面版登录"的方式，
- * 那是读别的应用的文件，不接）。
+ * 选登录方式：只要浏览器 / 设备流这类"打开一个网址等它完成"的；同一插件有几个时认 label 里写
+ * browser / 浏览器 的那个（别的往往是"读桌面版登录"，那是读别的应用的文件，不接）。
  */
 export function pickSignInMethod(methods) {
-  const quiet = (methods ?? []).filter((method) => method?.type === "oauth" && !(method.prompts?.length ?? 0));
-  return quiet.find((method) => /browser/i.test(String(method?.label ?? ""))) ?? quiet[0] ?? null;
+  const usable = (methods ?? []).filter(usableSignIn);
+  return usable.find((method) => /browser|浏览器/i.test(String(method?.label ?? ""))) ?? usable[0] ?? null;
 }
 
-const FALLBACK_CONTEXT = 128_000;
-
-function clampContext(value) {
-  const context = Number(value ?? 0);
-  return Number.isFinite(context) && context > 0 ? Math.trunc(context) : FALLBACK_CONTEXT;
+/** select 提示的默认输入：每个取第一个选项。 */
+export function defaultInputs(method) {
+  return Object.fromEntries((method?.prompts ?? []).map((prompt) => [prompt.key, prompt.options[0]?.value]));
 }
 
-/** 插件里"走 OpenAI 兼容 chat"的 npm；别的（如 WorkBuddy 的 Claude 模型走 Messages）我们这套不服务。 */
-export const OPENAI_COMPATIBLE_NPM = "@ai-sdk/openai-compatible";
+/** 插件没给到期时间（key 不过期）时存的到期时间：omp 就不会去刷新它。 */
+export const NO_EXPIRY = Date.UTC(2100, 0, 1);
 
 /**
- * 这一行能不能由我们的 `streamSimple`（openai-completions）发出去。
- * WorkBuddy 的 `claude-*` 走 Anthropic Messages，插件按模型自己的 api.url 决定，这里先不收。
+ * 插件给的凭据 → 存进 omp 凭据库的形状。
+ * - 摘掉插件自己的 `type`（"success"）：omp 写的是 `{type:"oauth", ...结果}`，不摘会被盖掉。
+ * - 只给 key 的（OpenCode 的 api 凭据）记成 `access = key`，并标上 `studioCredential: "api"`，交还插件时还原。
+ * - 没有到期时间的记成 `NO_EXPIRY`。
  */
-export function supportsChatTransport(model) {
-  const npm = model?.api?.npm;
-  return !npm || npm === OPENAI_COMPATIBLE_NPM;
-}
-
-/** 插件 `provider.models()` 的一行（magpie/OpenCode 形状）→ omp 的模型行。 */
-export function modelRowFromRuntime(model, fallbackContext = FALLBACK_CONTEXT) {
-  const contextWindow = clampContext(model?.limit?.context ?? fallbackContext);
-  const images = Boolean(model?.capabilities?.input?.image ?? model?.capabilities?.attachment);
-  const apiUrl = typeof model?.api?.url === "string" && model.api.url !== "" ? model.api.url : null;
+export function normalizeCredential(credential) {
+  if (!credential || typeof credential !== "object") return null;
+  const { type: _type, ...rest } = credential;
+  const api = rest.studioCredential === "api" || (!rest.access && typeof rest.key === "string" && rest.key !== "");
+  const out = api ? { ...rest, access: rest.access || rest.key, studioCredential: "api" } : rest;
+  const expires = Number(out.expires ?? 0);
   return {
-    id: String(model?.id ?? ""),
-    name: String(model?.name ?? model?.id ?? ""),
-    reasoning: Boolean(model?.capabilities?.reasoning),
-    input: images ? ["text", "image"] : ["text"],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow,
-    maxTokens: Math.min(contextWindow, 32768),
-    // 每个模型自己的服务地址：WorkBuddy 的 chat 在 <endpoint>/v2，不带它 omp 会打到 <endpoint>/chat/completions（200 但没有可用回答）。
-    ...(apiUrl ? { baseUrl: apiUrl } : {}),
+    ...out,
+    refresh: typeof out.refresh === "string" ? out.refresh : "",
+    expires: expires > 0 ? expires : NO_EXPIRY,
   };
 }
 
-/** 喂给插件时把到期时间往后推：插件就不自己刷 token（Qoder 的 refresh token 只用一次，只能有一个发起人）。 */
+/** 刷新结果多半只有变了的字段（access、expires…），要叠在旧凭据上，不然账号 id、设备信息就丢了。 */
+export function mergeCredential(current, next) {
+  return normalizeCredential({ ...current, ...next });
+}
+
+/** 喂给插件时把到期时间往后推：插件就不自己刷 token（refresh token 多是一次性的，只能由 omp 一处发起）。 */
 export const STRETCHED_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 export function stretchExpiry(credential, now = Date.now()) {
@@ -71,12 +68,72 @@ export function stretchExpiry(credential, now = Date.now()) {
 }
 
 /**
- * 交给插件的凭据：必须带 `type: "oauth"`（OpenCode 的形状）。
- * 插件的 `auth.loader(getAuth)` 里第一句就是 `if (auth?.type !== "oauth") return {}`，
- * 少了这个 type 就变成"没有 fetch"，任务里报 `the bundled plugin returned no fetch`。
- * 和 `stripType` 是一对：存进 omp 的凭据库时不带 type，交给插件时补上。
+ * 交给插件的凭据：OpenCode 的形状。oauth 凭据带 `type: "oauth"`（插件的 loader 第一句就查它，
+ * 少了就没有 fetch）；api 凭据还原成 `{type: "api", key, ...}`。
+ * `stretch`：插件有 `auth.refresh`（刷新由 omp 发起）时才推后到期时间；没有的让插件自己按到期时间续。
  */
-export function toPluginAuth(credential, now = Date.now()) {
-  const stretched = stretchExpiry(credential, now);
-  return stretched && typeof stretched === "object" ? { ...stretched, type: "oauth" } : stretched;
+export function toPluginAuth(credential, { stretch = false, now = Date.now() } = {}) {
+  if (!credential || typeof credential !== "object") return credential;
+  const { studioCredential, ...rest } = credential;
+  if (studioCredential === "api") {
+    const { access, refresh: _refresh, expires: _expires, ...api } = rest;
+    return { ...api, type: "api", key: rest.key ?? access };
+  }
+  return { ...(stretch ? stretchExpiry(rest, now) : rest), type: "oauth" };
+}
+
+/** 插件里每个模型的 npm → omp 的传输。表里没有的（如 `@ai-sdk/google`）不收。 */
+export const TRANSPORTS = {
+  "@ai-sdk/openai-compatible": "chat",
+  "@ai-sdk/anthropic": "messages",
+  "@ai-sdk/openai": "responses",
+};
+
+const FALLBACK_CONTEXT = 128_000;
+const FALLBACK_OUTPUT = 32_768;
+
+function positive(value, fallback) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) && number > 0 ? Math.trunc(number) : fallback;
+}
+
+/**
+ * 插件的一个模型（运行时行或 config 里的表行）→ omp 的模型行，带上 `transport`；传输不支持时返回 null。
+ * @param {string} key 模型表里的键（config 表行没有 id）
+ * @param {object} model
+ * @param {{ npm?: string, baseUrl?: string }} provider 插件 config 里的 provider 默认值
+ */
+export function modelRow(key, model, provider = {}) {
+  const transport = TRANSPORTS[model?.api?.npm ?? model?.provider?.npm ?? provider.npm ?? "@ai-sdk/openai-compatible"];
+  if (!transport) return null;
+  const id = String(model?.id ?? key ?? "");
+  if (id === "") return null;
+  const contextWindow = positive(model?.limit?.context, FALLBACK_CONTEXT);
+  const caps = model?.capabilities ?? {};
+  const images = Boolean(
+    caps.input?.image ?? caps.attachment ?? model?.modalities?.input?.includes?.("image") ?? model?.attachment,
+  );
+  const baseUrl = model?.api?.url || provider.baseUrl;
+  return {
+    id,
+    name: String(model?.name ?? id),
+    reasoning: Boolean(caps.reasoning ?? model?.reasoning),
+    input: images ? ["text", "image"] : ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow,
+    maxTokens: Math.min(contextWindow, positive(model?.limit?.output, FALLBACK_OUTPUT)),
+    // 每个模型自己的服务地址：请求 URL 由它拼（WorkBuddy 的 chat 在 <endpoint>/v2，猜站点根会 200 但没有回答）。
+    ...(baseUrl ? { baseUrl } : {}),
+    transport,
+  };
+}
+
+/**
+ * omp 的 anthropic 传输请求 `<站点>/v1/messages`（baseUrl 末尾的 `/v1` 它自己会去掉），插件（照 `@ai-sdk/anthropic`）
+ * 认的是 `<api.url>/messages`。messages 一律改成后者，保留查询串；别的传输两边拼法一样，原样返回。
+ */
+export function pluginUrl(url, transport, baseUrl) {
+  if (transport !== "messages" || !baseUrl) return url;
+  const query = url.indexOf("?");
+  return `${baseUrl.replace(/\/+$/, "")}/messages${query >= 0 ? url.slice(query) : ""}`;
 }

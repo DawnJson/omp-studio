@@ -33,11 +33,11 @@
 - `logout`：1 个账号直接退出，多个先让用户选（`login.chooseAccount`）。选择列表里 `LogoutAccount.active` 为 true 的账号（omp 报告它正被使用）带"正在使用"徽标（`login.accountActive`，`account-active-<credentialId>`），让用户知道退出的是正在用的凭据；只有 1 个账号时不弹选择，看不到徽标。
 - 清除 API key 就是退出那条 `api_key` 账号：只有 key 账号时按钮写 `清除 key`（`login.apiKey.remove`），有 OAuth 账号时写 `退出登录`。只有环境变量 / 配置文件的没有退出按钮。
 
-## 内置 magpie 插件：第三方客户端账号（qoder / qoder-cn / workbuddy / workbuddy-ai）
+## 内置 magpie 插件：第三方客户端账号
 
-`src/main/client-accounts/`（设计和实测见 `client-accounts.md`）：studio 内置 magpie 社区的账号插件，包在一个 omp 扩展里，启动时写到 `userData/omp-extensions/accounts-<哈希>/`，每个 omp 进程都带 `-e <入口>`。扩展在 omp 里注册 `qoder`、`qoder-cn`、`workbuddy`、`workbuddy-ai` 四个带 `oauth` 的 provider，所以它们和别的 provider 一样出现在上面的列表里，登录走同一条 RPC `login`（`onAuth` → `open_url`、`onProgress` → `notify`），凭据进 omp 自己的 agent.db；登录后 omp 自己 `refreshProvider` 重新发现模型。
+`src/main/client-accounts/`（设计、注册出来的 provider 列表和实测见 `client-accounts.md`）：studio 内置 magpie 社区的账号插件，包在一个 omp 扩展里，启动时写到 `userData/omp-extensions/accounts-<哈希>/`，每个 omp 进程都带 `-e <入口>`。扩展按每个插件自己的声明在 omp 里注册带 `oauth` 的 provider（`qoder-cn`、`workbuddy`、`trae-cn`、`kiro`……），所以它们和别的 provider 一样出现在上面的列表里，登录走同一条 RPC `login`（`onAuth` → `open_url`、`onProgress` → `notify`），凭据进 omp 自己的 agent.db；登录后 omp 自己 `refreshProvider` 重新发现模型。
 
-和本文其余部分不同的三点：这些 provider 只在 studio 起的 omp 里存在（终端版没有，除非用户自己在 omp 的 `extensions:` 里加）；它们的请求不走 HTTP provider，而是扩展注册的自定义 `api`（内部转成 OpenAI Chat Completions 的流）；只暴露浏览器登录（Qoder 的 PAT 用 secret 提示、WorkBuddy 的"读桌面版登录"会读别的应用的文件，都没接）。
+和本文其余部分不同的三点：这些 provider 只在 studio 起的 omp 里存在（终端版没有，除非用户自己在 omp 的 `extensions:` 里加）；它们的请求不走 HTTP provider，而是扩展注册的自定义 `api`（内部按模型转成 omp 自带的 OpenAI Chat、Anthropic Messages 或 OpenAI Responses 流）；只暴露不用打字的登录（浏览器、设备码、免账号；PAT、手机号、企业域名在 RPC 登录里收不到，"读桌面版登录"会读别的应用的文件，都没接）。
 
 ## 提供商列表：搜索、排序、登录方式
 

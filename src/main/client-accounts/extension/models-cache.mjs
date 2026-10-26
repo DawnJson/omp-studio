@@ -4,8 +4,8 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-// v2：行里多了每个模型自己的 baseUrl（WorkBuddy 的 chat 在 <endpoint>/v2）；旧缓存直接不用。
-const FILE_NAME = "models-cache-v2.json";
+// v3：行里多了每个模型的 `transport`（chat / messages / responses）；旧缓存直接不用。
+const FILE_NAME = "models-cache-v3.json";
 
 /** 刷新间隔：每次会话都拉一遍模型列表太吵，一天里拉一次就够。 */
 export const CATALOG_TTL_MS = 6 * 60 * 60 * 1000;

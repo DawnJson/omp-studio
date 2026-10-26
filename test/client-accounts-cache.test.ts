@@ -29,6 +29,7 @@ const row = (id: string): AccountModelRow => ({
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   contextWindow: 200_000,
   maxTokens: 32_768,
+  transport: "chat",
 });
 
 describe("模型列表缓存", () => {
@@ -50,11 +51,11 @@ describe("模型列表缓存", () => {
     expect(readCachedAt(dir, "qoder-cn")).toBe(0);
 
     await mkdir(dir, { recursive: true });
-    await writeFile(path.join(dir, "models-cache-v2.json"), "{not json", "utf8");
+    await writeFile(path.join(dir, "models-cache-v3.json"), "{not json", "utf8");
     expect(readCachedModels(dir, "qoder-cn")).toEqual([]);
     expect(readCachedAt(dir, "qoder-cn")).toBe(0);
 
-    await writeFile(path.join(dir, "models-cache-v2.json"), '{"qoder-cn":{"at":"x","rows":"nope"}}', "utf8");
+    await writeFile(path.join(dir, "models-cache-v3.json"), '{"qoder-cn":{"at":"x","rows":"nope"}}', "utf8");
     expect(readCachedModels(dir, "qoder-cn")).toEqual([]);
     expect(readCachedAt(dir, "qoder-cn")).toBe(0);
   });
@@ -62,7 +63,7 @@ describe("模型列表缓存", () => {
   it("不写 token：缓存里只有模型元数据", async () => {
     const dir = path.join(scratch, "不含凭据");
     writeCachedModels(dir, "qoder-cn", [row("fast")]);
-    const text = await readFile(path.join(dir, "models-cache-v2.json"), "utf8");
+    const text = await readFile(path.join(dir, "models-cache-v3.json"), "utf8");
     expect(text).not.toMatch(/"(access|refresh|machineId|deviceToken|pat|uid)"/);
   });
 

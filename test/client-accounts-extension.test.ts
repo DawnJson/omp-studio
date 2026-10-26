@@ -22,22 +22,17 @@ afterAll(async () => {
 });
 
 describe("扩展文件表", () => {
-  it("入口、接线、vendor 和声明都在，内容非空", () => {
-    expect(Object.keys(ACCOUNT_EXTENSION_FILES).sort()).toEqual([
-      "NOTICE.md",
-      "adapter.mjs",
-      "models-cache.mjs",
-      "shim.mjs",
-      "studio-accounts.mjs",
-      "vendor/LICENSE",
-      "vendor/qoder/LICENSE-CLIProxyAPI",
-      "vendor/qoder/index.mjs",
-      "vendor/workbuddy/index.mjs",
-    ]);
+  it("部署出去的每个相对 import 都能在表里找到（少一个文件 omp 就整个扩展加载失败），MIT 许可证随扩展部署", () => {
+    const names = Object.keys(ACCOUNT_EXTENSION_FILES);
+    expect(names).toContain(ACCOUNT_EXTENSION_ENTRY);
     for (const [name, content] of Object.entries(ACCOUNT_EXTENSION_FILES)) {
-      expect(content.length, name).toBeGreaterThan(100);
+      if (!name.endsWith(".mjs")) continue;
+      for (const match of content.matchAll(/(?:from|import)\s*\(?\s*["'](\.{1,2}\/[^"']+)["']/g)) {
+        const target = path.posix.normalize(path.posix.join(path.posix.dirname(name), match[1] ?? ""));
+        expect(names, `${name} -> ${match[1]}`).toContain(target);
+      }
     }
-    expect(ACCOUNT_EXTENSION_FILES[ACCOUNT_EXTENSION_ENTRY]).toContain("registerAccountProvider");
+    expect(names).toContain("vendor/LICENSE");
   });
 
   it("哈希只看内容：改一个字就变，键顺序不影响", () => {

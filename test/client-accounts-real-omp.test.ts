@@ -1,4 +1,4 @@
-// 账号型 provider 的扩展 × 真实 omp：`omp -e <部署出来的入口>` 能不能真的注册出 qoder / qoder-cn，
+// 内置 magpie 插件的扩展 × 真实 omp：`omp -e <部署出来的入口>` 能不能真的注册出全部能登录的 provider，
 // 并出现在 `get_login_providers` 里（登录流程和模型要走真实账号，这里不碰网络、不登录）。
 // 默认跳过：`STUDIO_REAL_OMP=1 npx vitest run test/client-accounts-real-omp.test.ts`，需要 PATH 上有 omp。
 import { spawn } from "node:child_process";
@@ -100,7 +100,7 @@ async function askOmp(omp: string, entry: string, frames: object[]): Promise<Fra
 }
 
 describe.skipIf(!enabled)("扩展 × 真实 omp", () => {
-  it("加载部署出来的扩展后，登录列表里有 qoder / qoder-cn / workbuddy / workbuddy-ai，且未登录", async () => {
+  it("加载部署出来的扩展后，登录列表里有每个插件能登录的 provider；要打字登录的不出现，omp 已有的 id 换名注册", async () => {
     const omp = await findOmpOnPath();
     if (!omp) throw new Error("omp is not on PATH");
     const entry = await deployAccountExtension(path.join(scratch, "userData"));
@@ -109,12 +109,33 @@ describe.skipIf(!enabled)("扩展 × 真实 omp", () => {
     const response = frames.find((frame) => frame.type === "response" && frame.id === "t1");
     expect(response?.error).toBeUndefined();
     const data = response?.data as { providers?: { id: string; name: string; authenticated: boolean }[] } | undefined;
-    const providers = data?.providers ?? [];
-    const byId = new Map(providers.map((provider) => [provider.id, provider]));
-    expect(byId.get("qoder")).toMatchObject({ name: "Qoder", authenticated: false });
-    expect(byId.get("qoder-cn")).toMatchObject({ name: "Qoder CN", authenticated: false });
-    expect(byId.get("workbuddy")).toMatchObject({ name: "WorkBuddy", authenticated: false });
-    expect(byId.get("workbuddy-ai")).toMatchObject({ name: "WorkBuddy AI", authenticated: false });
+    const names = Object.fromEntries((data?.providers ?? []).map((provider) => [provider.id, provider.name]));
+    expect(names).toMatchObject({
+      qoder: "Qoder",
+      "qoder-cn": "Qoder CN",
+      qwenwork: "QwenWork",
+      workbuddy: "WorkBuddy",
+      "workbuddy-ai": "WorkBuddy AI",
+      "trae-cn": "Trae CN",
+      "trae-global": "Trae Global",
+      kiro: "Kiro",
+      zed: "Zed",
+      "commandcode-plan": "Command Code Plan",
+      "minimax-code-account": "MiniMax Code",
+      "minimax-code-global": "MiniMax Code (Global)",
+      "mimo-app": "Xiaomi MiMo",
+      zcode: "ZCode",
+      codearts: "CodeArts",
+      opendesign: "Open Design",
+      joycode: "JoyCode",
+      raccoon: "商汤小浣熊",
+      "nous-portal": "Nous Portal (OAuth)",
+      autoclaw: "AutoClaw (Zhipu)",
+      "opencode-zen-free": "OpenCode Zen Free",
+    });
+    // 只能输手机号 / 企业域名登录的不接。
+    expect(names).not.toHaveProperty("autoclaw-cn");
+    expect(names).not.toHaveProperty("qwenwork-enterprise");
   }, 120_000);
 
   // 任务进程和它走同一条启动路径（buildTspArgs 加 `-e`）：扩展在真请求里也要能安静地待着，

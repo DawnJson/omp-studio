@@ -1,8 +1,8 @@
 # 内置 magpie 插件：第三方客户端账号
 
-目标：把 magpie 那套"本地代理 + 账号"的能力搬进 studio —— 在设置里登录自己的 Qoder / WorkBuddy 等客户端账号，它套餐里的模型出现在模型选择器里，任务直接用。不装 magpie、不依赖 magpie 在跑、不自带它的 exe。
+目标：把 magpie 那套"本地代理 + 账号"的能力搬进 studio —— 在设置里登录自己的客户端账号（Qoder、WorkBuddy、Trae、Kiro、Zed……），它套餐里的模型出现在模型选择器里，任务直接用。不装 magpie、不依赖 magpie 在跑、不自带它的 exe。
 
-状态：仓库所有者 2026-10-25 提出并选了 omp 扩展路线 + 内置 magpie 社区的 MIT 插件（原样 vendor，不做用户自装插件的安装系统）。**已实现**：Qoder、Qoder CN、WorkBuddy、WorkBuddy AI 四个 provider；Qoder CN 和 WorkBuddy 用仓库所有者的真实账号走通了登录 → 模型列表 → 一轮对话（第 11 节）。
+状态：仓库所有者 2026-10-25 提出并选了 omp 扩展路线 + 内置 magpie 社区的 MIT 插件（原样 vendor，不做用户自装插件的安装系统）。**已实现**：通用宿主（`shim.mjs`）按插件自己的声明注册 provider，内置 16 个插件包、注册出 21 个 provider（第 5 节）；Qoder CN 和 WorkBuddy 用仓库所有者的真实账号走通了登录 → 模型列表 → 一轮对话，OpenCode Zen 免费档（不用账号）走通了登录 → 模型 → 对话（第 11 节）。
 
 ## 0. 结论
 
@@ -29,11 +29,11 @@ C 的代价：多一份随应用发布的第三方 JS（MIT），并且这几个
 
 ```mermaid
 flowchart LR
-  UI[设置 → Provider 与订阅<br/>qoder / qoder-cn / workbuddy] -->|RPC login / logout| SVC[服务进程<br/>omp --mode rpc-ui -e studio-accounts.mjs]
+  UI[设置 → Provider 与订阅<br/>插件注册的 provider] -->|RPC login / logout| SVC[服务进程<br/>omp --mode rpc-ui -e studio-accounts.mjs]
   SVC -->|agent.db 里的 OAuth 凭据<br/>omp 自己刷新| EXT[studio-accounts 扩展<br/>每个 omp 进程都加载]
   TASK[任务进程<br/>omp TSP -e ...] --> EXT
   CLI[omp models / usage 命令<br/>-e ...] --> EXT
-  EXT -->|streamSimple → streamOpenAICompletions<br/>fetch = 插件 loader.fetch| V[api3.qoder.sh / copilot.tencent.com …]
+  EXT -->|streamSimple → omp 自带的 chat / Messages / Responses 流<br/>fetch = 插件 loader.fetch| V[各厂商的服务]
 ```
 
 - studio 不碰 token：登录、刷新、存取都在 omp 里（AGENTS.md「omp 的边界」不用加例外）。
@@ -44,76 +44,98 @@ flowchart LR
 
 ### 3.1 文件、部署、加载
 
-- 源文件（相对 studio 仓库）：`src/main/client-accounts/extension/` —— `studio-accounts.mjs`（入口，注册哪几个 provider）+ `shim.mjs`（插件 → `pi.registerProvider` 的接线）+ `adapter.mjs`（纯映射，能被单测直接 import）+ `adapter.d.mts`（它的类型声明，只给仓库里的 TS 用）+ `vendor/qoder/index.mjs`、`vendor/qoder/LICENSE-CLIProxyAPI`（MIT，原样 vendor）+ `NOTICE.md`（上游仓库、版本、哈希、更新步骤）。
-- 打包：用 `?raw` 把这几份文件的原文并进主进程 bundle（`src/main/vite-raw.d.ts` 已有先例），由 `deploy.ts` 写到 `userData/omp-extensions/accounts-<内容哈希>/`，内容没变就不重写、旧哈希目录删掉。**不放进 asar**：omp 是另一个进程，读不了 asar。这样 `electron-builder.yml` 的 `files` 不用改（AGENTS.md「安装包里只有应用本身」）。
+- 源文件（相对 studio 仓库）：`src/main/client-accounts/extension/` —— `studio-accounts.mjs`（入口，列出要加载的插件模块）+ `shim.mjs`（通用宿主：插件 → `pi.registerProvider`）+ `adapter.mjs`（纯映射，能被单测直接 import）+ `adapter.d.mts`（它的类型声明，只给仓库里的 TS 用，不部署）+ `models-cache.mjs` + `vendor/<插件>/`（MIT，原样 vendor）+ `vendor/LICENSE`（magpie 社区仓库的 MIT 全文）+ `NOTICE.md`（每个插件的包名、版本、更新步骤）。
+- 打包：`deploy.ts` 用 `import.meta.glob(..., { query: "?raw", eager: true })` 把 `extension/` 下全部文件（`.d.mts` 除外）的原文并进主进程 bundle，写到 `userData/omp-extensions/accounts-<内容哈希>/`，内容没变就不重写、旧哈希目录删掉。加插件只要把文件放进 `vendor/`、在入口里 import，不用改部署表。**不放进 asar**：omp 是另一个进程，读不了 asar。这样 `electron-builder.yml` 的 `files` 不用改（AGENTS.md「安装包里只有应用本身」）。
 - 加载：`buildOmpArgs`、`buildTspArgs` 和 `runOmpCommand` 统一带 `-e <入口>`（路径由 `extension-path.ts` 的单例给出，启动时 `prepareAccountExtension()` 部署一次；部署失败只记日志，不拦任何功能）。用户自己的 `extensions:` 不受影响（不加 `--no-extensions`）。
 - `vendor/` 原样保留：加进 `.prettierignore` 和 `.oxlintrc.json` 的 `ignorePatterns`，不格式化也不 lint，方便和上游 diff。
 - 写入的目录在 userData（studio 自己的），不是 `~/.omp`。
 
 ### 3.2 每个 provider 注册成什么
 
-实际代码（`shim.mjs` 的 `registerAccountProvider`，`studio-accounts.mjs` 里调两次）：
+实际代码（`shim.mjs` 的 `registerPluginProviders`）：入口把每个插件模块交进来，模块里每个 `*Plugin` 导出（`makePlugin(site)` 的产物，或 OpenCode v1 的 `{ id, server }`）跑一次 `make({ client })`，从返回的钩子里读：
+
+- `auth.provider` → provider id；omp 自己已有这个 id 时（`getProviderDefinition(id)`，如 `minimax-code` 是 omp 的 MiniMax Coding Plan key）注册成 `<id>-account`，不覆盖 omp 的；交给插件的地方（`config`、`chat.headers`）仍用插件自己的 id。
+- `config(cfg)` 写的 `cfg.provider[id]` → 名字、默认 npm、默认地址、静态模型表。
+- `auth.methods` → 登录方式（`pickSignInMethod`）：浏览器 / 设备流 / 不需要输入的 api 方式（如 OpenCode Zen 的公共 key）；只有 select 提示的取第一个选项。要打字输入的（PAT、手机号、企业域名）RPC 登录收不到，这样的 provider 不注册。
+- 每个模型的 `api.npm` → 传输：`@ai-sdk/openai-compatible` → omp 的 `openai-completions`，`@ai-sdk/anthropic` → `anthropic-messages`，`@ai-sdk/openai` → `openai-responses`；别的（如 `@ai-sdk/google`）不收。`api.url` → 模型行的 `baseUrl`。
 
 ```js
-pi.registerProvider("qoder", {
-  api: "studio-qoder",                  // 扩展自有 api（内置名保留），streamSimple 由我们实现
-  baseUrl: "https://api3.qoder.sh",     // 必填；请求由插件的 loader.fetch 决定，不用它
-  oauth: {
-    name: "Qoder",
-    async login(callbacks) { /* 插件 auth.methods[无 prompts 的那个].authorize → onAuth(url) → callback() 轮询 */ },
-    async refreshToken(credentials) { /* 插件 auth.refresh；omp 在到期前 60 秒或 401 时调 */ },
-    getApiKey(credentials) { /* 同步模块缓存（每次请求都会调），返回 credentials.access */ },
-  },
-  async fetchDynamicModels() { /* 插件 provider.models({auth}) → 映射成 omp 的模型行 */ },
+pi.registerProvider(id, {
+  api: `studio-${id}`,                  // 扩展自有 api（内置名保留），streamSimple 由我们实现
+  baseUrl: providerUrl,                 // 插件 config 里的地址；每个模型行另带自己的 baseUrl
+  models: cachedRows,                   // 上一次的账号模型列表（冷启动用）
+  oauth: { name, login, refreshToken, getApiKey },
+  async fetchDynamicModels() { /* 插件 provider.models({auth}) → modelRow → omp 的模型行 */ },
   streamSimple(model, context, options) {
-    return streamOpenAICompletions({ ...model, api: "openai-completions" }, context, {
+    const transport = transports.get(model.id);        // chat / messages / responses
+    return STREAMS[transport].stream(wireModel(model, transport), context, {
       ...options,
-      fetch: pluginFetch(plugin, options?.sessionId, () => credentials),
+      fetch: fetchVia(model, transport, options?.sessionId),  // 插件 loader.fetch；没有 fetch 的插件自己带 Bearer 发
     });
   },
 });
 ```
 
-- 凭据原样存：omp 的凭据库把 OAuth 凭据当 JSON 整段存（`serializeCredential` 只摘 `type`），所以插件凭据里的 `uid`、`machineId`、`deviceToken`、`pat`、`deviceChat`、`vpc` 都能原样往返，不需要拆进 `accountId`。**两个方向各管一头**：存进 omp 时摘掉插件自己的 `type:"success"`（`stripType`，omp 写的是 `{type:"oauth", ...结果}`，`type` 在后、不改就会被覆盖成非法值）；交给插件时再补回 `type:"oauth"`（`toPluginAuth`，插件的 `auth.loader(getAuth)` 第一句就是 `if (auth?.type !== "oauth") return {}`，少了它任务里会报 `the bundled plugin returned no fetch`）。2026-10-25 实测踩过：登录、模型列表都正常，第一条消息就报这个错。
-- refresh 只有一个发起人：Qoder 的 refresh token 一次性，插件自己会在到期前 5 分钟刷。喂给插件的凭据用 `stretchExpiry` 把 `expires` 推到至少一天后（插件就不自己刷），真正刷新由 omp 调 `refreshToken`。插件万一还是刷了，`client.auth.set` 的 shim 只更新内存（omp 存的旧凭据下次启动会失败一次），所以 `set()` 是排查点。
+- `wireModel`：omp 交给 `streamSimple` 的模型是按自定义 api 建的，`compat`（各传输按模型查的兼容开关）是空的，直接交给 Messages / Responses 流会报 `undefined is not an object (evaluating 'e.compat....')`。所以按真正的传输用 `@oh-my-pi/pi-catalog/build` 的 `buildModel` 重建一次（omp 的 factory-droid 也这样做），每个模型对象缓存一份。
+- Messages 的地址：omp 的 anthropic 流请求 `<站点>/v1/messages`（它会去掉 baseUrl 末尾的 `/v1` 再拼），插件照 `@ai-sdk/anthropic` 认的是 `<api.url>/messages`，`pluginUrl` 改写成后者（保留查询串）。chat / Responses 两边拼法一样，原样转。
+- 只给 key 不给 fetch 的插件（loader 返回 `{ apiKey, headers }`）：宿主自己带 `authorization: Bearer` 和插件的头发请求。
+- 只给 key 的 api 凭据（OpenCode 的 `{type:"api", key}`）存进 omp 时记成 `access = key`、`studioCredential: "api"`、不过期（omp 就不会去刷它），交还插件时还原。
+- 凭据原样存：omp 的凭据库把 OAuth 凭据当 JSON 整段存（`serializeCredential` 只摘 `type`），所以插件凭据里的 `uid`、`machineId`、`deviceToken`、`pat`、`deviceChat`、`vpc` 都能原样往返，不需要拆进 `accountId`。**两个方向各管一头**：存进 omp 时摘掉插件自己的 `type:"success"`（`normalizeCredential`，omp 写的是 `{type:"oauth", ...结果}`，`type` 在后、不改就会被覆盖成非法值）；交给插件时再补回 `type:"oauth"`（`toPluginAuth`，插件的 `auth.loader(getAuth)` 第一句就是 `if (auth?.type !== "oauth") return {}`，少了它任务里会报 `the bundled plugin returned no fetch`）。2026-10-25 实测踩过：登录、模型列表都正常，第一条消息就报这个错。
+- refresh 只有一个发起人：Qoder 的 refresh token 一次性，插件自己会在到期前 5 分钟刷。有 `auth.refresh` 的插件，喂给它的凭据用 `stretchExpiry` 把 `expires` 推到至少一天后（插件就不自己刷），真正刷新由 omp 调 `refreshToken`；没有 `auth.refresh` 的插件按原到期时间自己续。插件自己续了凭据时调 `client.auth.set`，宿主把它叠到当前凭据上（`mergeCredential`，刷新结果多半只有变了的字段）并 `upsertOAuth` 存回 omp 的凭据库。
 - 模型行的来源只有两处：注册时的静态 `models`，和 `fetchDynamicModels` 的发现结果。**`getAvailable()` 不走 `oauth.modifyModels`**（实测：钩子里的日志一次都没出现），所以"只靠投影时补行"是看不见的。
 - 冷启动没有发现：omp 的发现是 `online-if-uncached` + 24 小时 SQLite 缓存，新进程不会替我们拉；之前一次失败还会把"空列表"当权威结果缓存 24 小时。所以扩展自己做三件事（`shim.mjs`）：
-  1. 注册时用 `models-cache.json`（扩展自己目录里、只存模型元数据）的上一次结果当静态 `models`——冷启动就有列表；
+  1. 注册时用 `models-cache-v3.json`（扩展自己目录里、只存模型元数据，行里带 `transport`）的上一次结果当静态 `models`——冷启动就有列表；
   2. `session_start` 时用 `discoverAuthStorage().credentials.getOAuth(id)` 读 omp 凭据库里的账号（实测能拿到 `access`/`uid`/`machineId`/`refresh`），拉一次账号列表，成功才写缓存并 `pi.registerProvider` 重新注册（6 小时一次，避免每个任务进程都拉）；
   3. `fetchDynamicModels` 拿不到凭据或拿到空列表时**抛错**，不让"空"进 24 小时缓存。
-- WorkBuddy 的 chat 在 `<endpoint>/v2`：provider 的 `baseUrl` 直接写 `<endpoint>/v2`（模型行也各自带 `api.url` 作为 `baseUrl`），否则 omp 会打到 `<endpoint>/chat/completions`——**回 200 但没有可用回答**，omp 连发 12 次重试后空回复（2026-10-25 实测）。WorkBuddy 的 `claude-*` 走 Anthropic Messages，不是我们这套 openai-completions 能发的，列表里先跳过（`supportsChatTransport`），实测该账号的 19 个 chat 模型里没有 `claude-*`。
+- WorkBuddy 的 chat 在 `<endpoint>/v2`：插件给每个模型的 `api.url` 就是它，模型行带上作为 `baseUrl`，否则 omp 会打到 `<endpoint>/chat/completions`——**回 200 但没有可用回答**，omp 连发 12 次重试后空回复（2026-10-25 实测）。
 - 账号列表一次实测（Qoder CN）：10 个（fast、qwen3.8-max、deepseek-v4-pro、glm-5.3、kimi-k3、minimax-m3…），和插件静态表里的 id 完全不同——这就是不能用静态表的原因。
 - `getApiKey` 是每次请求解析凭据时被 omp 调用（`pi-ai` 的 `auth/select.ts` 用 `customProvider.getApiKey(credentials)`，实测每次请求前都会调），所以它同时是"把 omp 手里最新的凭据同步进扩展"的钩子。
-- 会话 id（Qoder 的 prompt cache）：`options.sessionId` → 请求头 `x-magpie-qoder-session`，插件读它算 Qoder 的 `session_id`，这个头不会发给厂商。omp 有没有填 `sessionId` 还要在真实会话里确认；没填时插件按首条用户消息自己哈希，功能不受影响。
+- 会话 id：`options.sessionId` 经插件的 `chat.headers` 钩子变成它要的头（Qoder 的 `x-magpie-qoder-session`，插件读它算 `session_id`，这个头不会发给厂商）。没填时插件按首条用户消息自己哈希，功能不受影响。
 
 ### 3.3 与插件的接缝
 
-| 插件 | 用途 | vendor 大小 |
-|---|---|---|
-| `@magpie-community/opencode-qoder-auth`（MIT） | qoder / qoder-cn / qwenwork 的登录、刷新、COSY 签名、请求整形、SSE→OpenAI、usage、签到 | `index.mjs` 2834 行 |
-| `@magpie-community/opencode-workbuddy-auth`（MIT） | WorkBuddy 登录、请求头整形、工具名映射、错误映射 | 约 2300 行 |
+16 个插件包，包名和版本见 `NOTICE.md`。每个包导出一个或几个 `*Plugin`（一个站点一个），宿主不认具体厂商。
 
-插件是 magpie/OpenCode 形状：`makePlugin(site)({client})` 返回 `auth.methods / auth.refresh / auth.loader / provider.models / chat.headers / usage / checkin`。扩展要做的是**host shim**：给 `client.auth.set` 一个实现（写模块缓存）、给 `auth.loader(getAuth).fetch` 接进 `streamSimple`。**不重写协议**：那些 COSY envelope、body codec、工具名往返是踩过坑的地方，重写等于把上游的修复工作再做一遍。
+插件是 magpie/OpenCode 形状：`makePlugin(site)({client})` 返回 `auth.methods / auth.refresh / auth.loader / provider.models / chat.headers / usage / checkin`。扩展要做的是**host shim**：给 `client.auth.set` 一个实现（叠到当前凭据上并存回 omp 的凭据库）、给 `auth.loader(getAuth).fetch` 接进 `streamSimple`。**不重写协议**：那些签名信封、body codec、工具名往返是踩过坑的地方，重写等于把上游的修复工作再做一遍。`usage`、`checkin` 没接。
 
 版本策略：vendor 时记下包版本 + commit，`NOTICE.md` 写更新步骤；升级上游只换 vendor 文件并跑对应测试。不引 npm 依赖（插件是零依赖 ESM，只用 node 内置）。
 
 ## 4. studio 侧接线
 
-- `src/main/client-accounts/deploy.ts`：`?raw` 进来的文件表 → `userData/omp-extensions/accounts-<哈希>/`（原子写不必：内容不变不写，旧哈希目录删）。
+- `src/main/client-accounts/deploy.ts`：`import.meta.glob` 进来的文件表 → `userData/omp-extensions/accounts-<哈希>/`（原子写不必：内容不变不写，旧哈希目录删）。
 - `src/main/client-accounts/extension-path.ts`：单例。`prepareAccountExtension()` 在 `app.whenReady` 里 await 一次；`buildOmpLaunch` / `buildTspLaunch` 通过 `accountExtensionPath()` 传进 `buildOmpArgs` / `buildTspArgs`；`runOmpCommand`（`omp models`、`omp usage`、`omp auth import`）用 `accountExtensionArgs()` 追加（`omp models`、`omp usage` 也要看到这些 provider）。
 - 界面：**不改**。provider 出现在 `get_login_providers` 里，`ProviderPickDialog` → `ProviderFlowDialog` 走现有的 OAuth 进度 / 输入 / 取消；登录后 omp 自己 `refreshProvider`，studio 照旧 `serviceOmp.close()` 重读模型列表（`account-handlers.ts` 的 `applyKeyChange`）。
 - 退出登录：现有 `logout` UI，凭据从 agent.db 删掉；模型随进程重启消失。
-- `src/shared/provider-login.ts`：这两个 id 没写，走"表里没有 → 按 `oauth` 处理"的默认分支（保留登录按钮）。没有 `acceptsApiKey`（`shared/provider-keys.ts` 不列），所以没有"设置 API key"。
+- `src/shared/provider-login.ts`：插件的 id 都没写，走"表里没有 → 按 `oauth` 处理"的默认分支（保留登录按钮）。没有 `acceptsApiKey`（`shared/provider-keys.ts` 不列），所以没有"设置 API key"。
 - i18n：provider 名字由扩展的 `oauth.name` 给，studio 不翻；登录对话框里 omp 给的提示是英文（和现有 OAuth provider 一样）。
 - 关掉扩展的开关（D6）：**还没做**，目前每次都传 `-e`。加的时候做成"不传 `-e`"，别的功能不受影响。
 
-## 5. 每个 provider 要单独确认的事
+## 5. 注册出来的 provider
 
-| provider | 已知 | 要额外做的 |
-|---|---|---|
-| qoder / qoder-cn | PKCE device flow + PAT；chat 在 `algo/api/v2/service/pro/sse/agent_chat_generation`，COSY 信封（RSA 包 AES key）+ body codec；refresh token 一次性；模型列表 `algo/api/v2/model/list` | PAT 登录用 `secret: true` 提示，RPC 拒绝 → 要么只做 device flow，要么引导走"应用内登录"（`login.md` 的 TSP 临时 omp，人工贴 PAT）。**D2** |
-| workbuddy / workbuddy-ai | `state` → 浏览器 → 每秒轮询 token/account；请求头和请求体整形；11128/11140 等错误码；另有"读桌面版登录"的方式（不接） | 已接线（浏览器登录）。渠道整形和 system prompt 挪位都在插件里，原样照搬；被 11128（渠道不认）或 11140（账号受限）拒绝时原样报错 |
-| 其它（magpie 支持 60+ 客户端） | 每个都有自己的插件/site 配置 | 结构上按 site 参数化：一个 provider 注册 = 一份 site 配置 + 一个 `-e` 里的注册调用，加新站点不改 shell |
+`STUDIO_REAL_OMP=1` 的真实 omp 测试核对的列表（id、名字、登录方式都来自插件自己的声明；每个模型走哪种传输看插件给的 `api.npm`，登录前不知道）：
+
+| 插件 | provider |
+|---|---|
+| qoder | `qoder`、`qoder-cn`、`qwenwork`（PAT 登录不接） |
+| workbuddy | `workbuddy`、`workbuddy-ai`（"读桌面版登录"不接） |
+| trae | `trae-cn`、`trae-global` |
+| kiro | `kiro` |
+| zed | `zed` |
+| commandcode | `commandcode-plan` |
+| minimax | `minimax-code-account`（omp 已有 `minimax-code`，换名）、`minimax-code-global` |
+| mimo | `mimo-app` |
+| zcode | `zcode` |
+| codearts | `codearts` |
+| opendesign | `opendesign` |
+| joycode | `joycode` |
+| raccoon | `raccoon` |
+| nous | `nous-portal` |
+| autoclaw | `autoclaw`（登录时的 Google / z.ai 选择取第一个） |
+| zen-free | `opencode-zen-free`（不用账号，公共 key） |
+
+不接的：`qwenwork-enterprise`（要输企业域名）、`autoclaw-cn`（要手机号）；没 vendor 的：cloudflare-workers-ai（要输 API token）、gcp-ai（读 gcloud 的登录）、cursor / devin / factory / cline / grok（omp 已原生支持）、kimi-work / kimi-desktop（读桌面版的登录）、agent / 中间件类插件（和 provider 无关）。
+
+各 provider 的协议细节（签名、整形、错误码）都在插件里，宿主不认具体厂商。被厂商拒绝（如 WorkBuddy 的 11128 渠道不认、11140 账号受限）时原样报错。
 
 明确不做：读 Qoder / WorkBuddy 桌面版已登录的凭据（越界，而且 5.6 之后 WorkBuddy 那个文件加密）；多账号轮换、路由组、failover（magpie 的能力，omp 这边是"选一个凭据"，多账号只是 agent.db 里的多条记录）；隐私 masking、转发站导入、配额看板（超出本次范围）。
 
@@ -122,12 +144,12 @@ pi.registerProvider("qoder", {
 | # | 决定 | 选项 | 结论 |
 |---|---|---|---|
 | D1 | 路线 | A 依赖 magpie / B 主进程网关 / C omp 扩展 | **C**（仓库所有者 2026-10-25） |
-| D2 | 登录方式范围 | a. 只做浏览器设备流；b. 再加 PAT（RPC 拒绝 secret 输入，必须经"应用内登录"） | 先 a：`pickSignInMethod` 只挑无 prompts 的登录方式，PAT 的实现留在插件里但不暴露 |
+| D2 | 登录方式范围 | a. 只做浏览器设备流；b. 再加 PAT（RPC 拒绝 secret 输入，必须经"应用内登录"） | 先 a：`pickSignInMethod` 只挑不需要打字的登录方式，PAT、手机号、域名的实现留在插件里但不暴露 |
 | D3 | vendor 第三方 MIT 代码进仓库并随应用发布 | a. 批准；b. 自己重写协议 | **a**（仓库所有者 2026-10-25），来源和哈希记在 `NOTICE.md`，vendor 不 lint/format |
 | D4 | 渠道风险告知 | 登录前说明"非官方客户端，可能被厂商限制/封号" | 未做：现在没有自己的登录对话框，文案得放进 ProviderFlowDialog 或登录前的确认步骤 |
-| D5 | 覆盖范围 | a. 先 qoder（含 qoder-cn）；b. 加 workbuddy | **a + b**：四个 provider 都已注册（`qoder`、`qoder-cn`、`workbuddy`、`workbuddy-ai`），真实登录都还没测 |
+| D5 | 覆盖范围 | a. 先 qoder（含 qoder-cn）；b. 加 workbuddy；c. magpie 社区全部能登录的账号插件 | **c**（仓库所有者 2026-10-25："都加上吧"），见第 5 节 |
 | D6 | 关闭开关 | a. 加（设置 → 高级）；b. 不加 | 未做 |
-| D7 | 冒烟账号 | 仓库所有者提供 Qoder（或 WorkBuddy）账号 | **待提供**，否则 P3 做不了 |
+| D7 | 冒烟账号 | 仓库所有者提供账号 | Qoder CN、WorkBuddy 已提供；Trae CN 见第 11 节；其余没有账号 |
 
 ## 7. 分阶段
 
@@ -141,27 +163,27 @@ pi.registerProvider("qoder", {
 
 ## 8. 测试
 
-- `test/client-accounts-adapter.test.ts`：`stripType`（凭据的 `type` 必须摘掉）、`pickSignInMethod`（跳过 PAT）、模型行映射（上下文/图片/思考/输出上限、缺上下文兜底）、`stretchExpiry`、会话头名字。
-- `test/client-accounts-extension.test.ts`：文件表齐全且非空；哈希只随内容变；部署到带空格和中文的 userData、内容逐字节一致、幂等、升级后旧哈希目录被清；`buildOmpArgs` / `buildTspArgs` 带 `-e`、不传就不带。
-- `test/client-accounts-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp）：真实 omp 加载部署出来的扩展后，`get_login_providers` 里有 `qoder` / `qoder-cn`；再带扩展 `-p` 跑一轮真实模型，确认扩展不影响别的 provider（用 `.env` 的 `STUDIO_TEST_MODEL`）。
-- 还没写的：本地假 Qoder 服务（登录轮询、模型列表、SSE chat、401 → 刷新 → 重试）；e2e（设置里出现 provider → 登录 → 模型 → 发 prompt → 退出后消失）。这两块等真实账号能验证之后再补，免得按猜的协议写假服务。
+- `test/client-accounts-adapter.test.ts`：插件导出的识别；`pickSignInMethod`（跳过要打字的、选浏览器、select 取第一个、无输入的 api 方式）；凭据（摘 `type`、api 凭据的往返、刷新结果叠加）；交给插件的凭据（`type: oauth`、推后到期时间只对 omp 刷新的插件）；模型行（上下文/图片/思考/输出上限、按 npm 选传输、每个模型的 `baseUrl`）；Messages 的地址改写。
+- `test/client-accounts-extension.test.ts`：部署出去的每个相对 import 都在文件表里（少一个文件 omp 就整个扩展加载失败）；哈希只随内容变；部署到带空格和中文的 userData、内容逐字节一致、幂等、升级后旧哈希目录被清；`buildOmpArgs` / `buildTspArgs` 带 `-e`、不传就不带。
+- `test/client-accounts-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp）：真实 omp 加载部署出来的扩展后，`get_login_providers` 里是第 5 节那 21 个 provider、要打字登录的不出现、和 omp 重名的换名；再带扩展 `-p` 跑一轮真实模型，确认扩展不影响别的 provider（用 `.env` 的 `STUDIO_TEST_MODEL`）。
+- 还没写的：本地假厂商服务（登录轮询、模型列表、SSE chat、401 → 刷新 → 重试）；e2e（设置里出现 provider → 登录 → 模型 → 发 prompt → 退出后消失）。
 
 ## 9. 风险
 
 - **账号风险**：请求为了通过厂商校验，带的是客户端自己的请求头和签名（Qoder 的 COSY、WorkBuddy 的 `X-IDE-*`），本质是冒充官方客户端；WorkBuddy 已经出现过 11140 限制（[magpie#1849](https://github.com/yetone/magpie/issues/1849)）。D4 的告知不是形式。
 - **扩展 API 不在 wire schema 里**：`registerProvider` 的 `oauth`/`streamSimple` 是 omp 的扩展 API，omp 升级可能改（本文依据 18.12.6 源码）。改动会以启动失败或登录失败暴露；锁定已知版本、P0 做冒烟，并记进本文章的"实测版本"。
-- **vendor 代码漂移**：上游修 bug 我们拿不到，除非手动升。缓解：NOTICE 写清版本和升级步骤；shim 只依赖 `auth.loader(...).fetch`、`auth.methods[].authorize`、`auth.refresh` 这几个入口，改动会立刻在单测里炸。
-- **vendor 代码的副作用**：`child_process`（读 Qoder 客户端装的机器 id）、`fs` 读它自己的目录，上线前要逐处审一遍，不接受的用 site 参数关掉。
+- **vendor 代码漂移**：上游修 bug 我们拿不到，除非手动升。缓解：NOTICE 写清版本和升级步骤；shim 只依赖文件头列的那几个钩子，改动会在单测和真实 omp 测试里炸。
+- **vendor 代码的副作用**：`child_process`（读客户端装的机器 id）、`fs` 读它自己的目录、Trae / AutoClaw 登录时在 `127.0.0.1` 临时起回调端口（登录完就关）。
 - **一次性 refresh token 的两个发起人**（见 3.2），处理错了要重新登录。
 - **agent.db 里的凭据和终端版共用**：用户在终端里 `logout` 也会让 studio 这边掉线（同步的，不算问题，文档要写）。
 - **扩展加载失败 = omp 起不来**：文件写坏/被杀软拦/版本不匹配。P1 的"文件缺失报错"和 D6 的开关是退路。
 
 ## 10. 还没验证的
 
-- **真实账号的登录、模型列表、聊天**（D7）：Qoder / Qoder CN / WorkBuddy / WorkBuddy AI 四个都一样——设备流能不能在 studio 的对话框里走完、模型列表返回什么、一次带工具的对话能不能跑完，都还没测。
-- PAT 登录（`onPrompt` 带 secret 被 RPC 拒）没有入口。
+- **真实账号**：Qoder CN、WorkBuddy 走通了登录 → 模型 → 对话；Trae CN 见第 11 节；其余 provider 没有账号，只验证了注册、登录列表，以及宿主的三种传输（假插件）。带工具的多轮对话、到期 / 401 后自动刷新、退出登录后模型消失都还没实测。
+- PAT、手机号、企业域名登录（`onPrompt` 带 secret 或文字输入在 RPC 里收不到）没有入口。
 - 登录取消：`raceAbort` 让 login 立刻失败，但插件自己的轮询会继续到它的 15 分钟上限（进程还在时），只有关掉服务进程才会真的停。
-- Qoder 的用量/签到（插件的 `usage`、`checkin`）没接。
+- 插件的用量 / 签到（`usage`、`checkin`）没接。
 - 应用内的界面没有实际启动看过（provider 列表走的是现有 `get_login_providers` 通道，RPC 层已实测）。
 - omp 会不会在任务里传 `options.sessionId`（决定 Qoder 的 prompt cache 命中）没测。
 
@@ -173,7 +195,7 @@ pi.registerProvider("qoder", {
 |---|---|
 | `omp -e <userData 里的绝对路径>` 加载扩展 | 通过；也能从仓库外的临时目录加载 |
 | 扩展里 `import { streamOpenAICompletions } from "@oh-my-pi/pi-ai/providers/register-builtins"` | 能解析（`pi-ai` 的 `./providers/*` 子路径导出） |
-| `get_login_providers` 里出现扩展注册的 provider | 通过（`qoder`、`qoder-cn`、`workbuddy`、`workbuddy-ai` 四条，`name` 来自 `oauth.name`，`authenticated: false`） |
+| `get_login_providers` 里出现扩展注册的 provider | 通过（第 5 节的 21 条，`name` 来自 `oauth.name`，`authenticated: false`；没有账号时加载不报错、不打日志） |
 | RPC `login`：`onAuth` → `open_url`，`onProgress` → `notify`，`onPrompt` → `input` | 通过；不登录时 `available: true` |
 | 登录后凭据进 agent.db，`get_logout_accounts` 看到一条 `type: oauth` | 通过（标签取 `accountId`） |
 | 登录后 omp 自己 `refreshProvider(provider,"online")` → `fetchDynamicModels(apiKey)` 被调 | 通过，参数是 `getApiKey` 的返回值 |
@@ -190,6 +212,9 @@ pi.registerProvider("qoder", {
 | 真实账号发一轮 `omp -p --model qoder-cn/fast` | 通过：回答 `OK` |
 | 真实账号发一轮 `omp -p --model workbuddy/deepseek-v4-pro` | 通过（改 `baseUrl` 为 `<endpoint>/v2` 之后；之前是 12 次 200 + 空回复） |
 | WorkBuddy 账号的 chat 模型数 | 19 个（auto、deepseek-v4-pro、deepseek-v4.1-flash、glm-5.1/5.2/5.3/5.3-flash/5v-turbo、hy3、hy3-x、hy4-preview、kimi-k2.8-preview、kimi-k3-1、kimi-k3.1-pro、mimo-v2.6-pro、minimax-m3、minimax-m3.1-flash、space-bunny、step-5-preview） |
-| 冷启动用 `models-cache.json` 注册静态行 | 通过（第二次启动立刻有 10 个模型，随后会话里刷新） |
+| 冷启动用模型列表缓存注册静态行 | 通过（第二次启动立刻有 10 个模型，随后会话里刷新） |
 | 空列表被当权威缓存 24 小时 | 踩过：一次失败的发现把 provider 固定成 0 个模型，重启也不恢复；现在空结果改为抛错，不进缓存 |
 | Qoder CN 账号登录（仓库所有者本机，2026-10-25） | 通过：浏览器授权完成、凭据进 agent.db；模型列表当时走的是兜底表（见下） |
+| 通用宿主下再跑 `qoder-cn/fast`、`workbuddy/deepseek-v4-pro` | 通过：都回答 `OK` |
+| OpenCode Zen 免费档：RPC `login`（api 方式，不开浏览器）→ 模型列表 → 一轮对话 | 通过：8 个模型（都走 chat），`opencode-zen-free/glm-5.3-flash-free` 回答 `OK` |
+| Messages / Responses 两种传输（假插件，`fetch` 本地返回 SSE） | 通过：Messages 回 `MSG-OK`、Responses 回 `RESP-OK`。踩过两处：不按真实传输重建模型时 `compat` 为空直接报错（`wireModel`）；omp 请求 `<站点>/messages` 而不是插件的 `<api.url>/messages`（`pluginUrl`） |

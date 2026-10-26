@@ -1,4 +1,6 @@
 // `adapter.mjs` 的类型声明：扩展文件是纯 JS（直接部署给 omp 用），这里只给仓库里的 TS 测试看形状。
+export type Transport = "chat" | "messages" | "responses";
+
 export interface AccountModelRow {
   id: string;
   name: string;
@@ -7,22 +9,45 @@ export interface AccountModelRow {
   cost: { input: number; output: number; cacheRead: number; cacheWrite: number };
   contextWindow: number;
   maxTokens: number;
+  baseUrl?: string;
+  transport: Transport;
 }
 
-export declare const SESSION_HEADER: string;
+export interface StoredCredential {
+  access: string;
+  refresh: string;
+  expires: number;
+  studioCredential?: "api";
+  [key: string]: unknown;
+}
 
-export declare const OPENAI_COMPATIBLE_NPM: string;
-
-export declare function supportsChatTransport(model: unknown): boolean;
-
-export declare function stripType(credential: unknown): Record<string, unknown> | null;
+export declare function pluginFactory(value: unknown): ((...args: unknown[]) => unknown) | null;
 
 export declare function pickSignInMethod(methods: unknown): unknown | null;
 
-export declare function modelRowFromRuntime(model: unknown, fallbackContext?: number): AccountModelRow;
+export declare function defaultInputs(method: unknown): Record<string, unknown>;
+
+export declare const NO_EXPIRY: number;
+
+export declare function normalizeCredential(credential: unknown): StoredCredential | null;
+
+export declare function mergeCredential(current: unknown, next: unknown): StoredCredential | null;
 
 export declare const STRETCHED_EXPIRY_MS: number;
 
 export declare function stretchExpiry<T>(credential: T, now?: number): T;
 
-export declare function toPluginAuth<T>(credential: T, now?: number): T;
+export declare function toPluginAuth(
+  credential: unknown,
+  options?: { stretch?: boolean; now?: number },
+): Record<string, unknown> | null | undefined;
+
+export declare const TRANSPORTS: Readonly<Record<string, Transport>>;
+
+export declare function modelRow(
+  key: string,
+  model: unknown,
+  provider?: { npm?: string; baseUrl?: string },
+): AccountModelRow | null;
+
+export declare function pluginUrl(url: string, transport: Transport, baseUrl?: string): string;

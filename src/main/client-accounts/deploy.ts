@@ -1,32 +1,21 @@
-// 账号型 provider 的 omp 扩展：随应用一起打包（`?raw` 进主进程 bundle），启动时写到 userData，
+// 内置 magpie 插件的 omp 扩展：随应用一起打包（`import.meta.glob` 的 `?raw` 进主进程 bundle），启动时写到 userData，
 // 每次起 omp 用 `-e <入口>` 加载。为什么是扩展、为什么不能放 asar，见 docs/architecture/client-accounts.md。
 //
 // 目录带内容哈希：内容变了换目录，旧目录删掉；omp 进程读的是磁盘文件，所以不能留在 asar 里。
 import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import notice from "./extension/NOTICE.md?raw";
-import adapter from "./extension/adapter.mjs?raw";
-import modelsCache from "./extension/models-cache.mjs?raw";
-import cliProxyLicense from "./extension/vendor/qoder/LICENSE-CLIProxyAPI?raw";
-import license from "./extension/vendor/LICENSE?raw";
-import qoderPlugin from "./extension/vendor/qoder/index.mjs?raw";
-import shim from "./extension/shim.mjs?raw";
-import entry from "./extension/studio-accounts.mjs?raw";
-import workbuddyPlugin from "./extension/vendor/workbuddy/index.mjs?raw";
 
-/** 相对目录 → 文件内容。测试按这张表核对写出来的东西。 */
-export const ACCOUNT_EXTENSION_FILES: Readonly<Record<string, string>> = {
-  "studio-accounts.mjs": entry,
-  "shim.mjs": shim,
-  "adapter.mjs": adapter,
-  "models-cache.mjs": modelsCache,
-  "NOTICE.md": notice,
-  "vendor/qoder/index.mjs": qoderPlugin,
-  "vendor/LICENSE": license,
-  "vendor/qoder/LICENSE-CLIProxyAPI": cliProxyLicense,
-  "vendor/workbuddy/index.mjs": workbuddyPlugin,
-};
+const SOURCES = import.meta.glob<string>(["./extension/**/*", "!./extension/**/*.d.mts"], {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+
+/** 相对目录 → 文件内容：`extension/` 下的全部文件（类型声明除外）。测试按这张表核对写出来的东西。 */
+export const ACCOUNT_EXTENSION_FILES: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(SOURCES).map(([file, content]) => [file.slice("./extension/".length), content]),
+);
 
 /** 入口文件（相对扩展目录）；`-e` 传它的绝对路径。 */
 export const ACCOUNT_EXTENSION_ENTRY = "studio-accounts.mjs";
