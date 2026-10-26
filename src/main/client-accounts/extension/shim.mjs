@@ -12,12 +12,15 @@
 //   hooks.auth.loader(getAuth, provider) → { baseURL, apiKey, headers, fetch(url, init) }；没有 fetch 时自己带 Bearer 发
 //   hooks.provider.models(provider, { auth }) → { [key]: runtimeModel }（api.npm 决定传输，api.url 决定地址）
 //   hooks["chat.headers"](input, { headers }) → 每次请求要带的头（会话 id 之类）
+//   hooks.auth.usage(getAuth, provider) → { plan?, user?, error?, windows[] }（magpie 的契约，见 adapter 的 usageReport）
 //   client.auth.set({ body })           → 插件自己续了凭据，要我们存
 //
 // omp 侧（18.12.6 源码 + 实测）：
 //   - `oauth.login` 的 `onAuth` → RPC `open_url`，`onPrompt` → `input`（secret 提示在 RPC 被拒），`onProgress` → `notify`
 //   - `getApiKey(credentials)` 在每次请求解析凭据时调用
 //   - `streamSimple(model, context, options)` 里 `options.fetch` 是流的唯一出口
+//   - `usage.fetchUsage(params)` 的 `params.credential` 只有标准字段（`buildUsageCredential`），插件自己的字段
+//     （设备 id、套餐等）要按 access token 回凭据库找整条
 //   - 扩展 provider 的模型行只来自静态 `models` 或 `fetchDynamicModels` 的发现结果（2026-10-25 实测）
 //   - 扩展的工厂函数可以是 async，omp 会等它（`extensions/loader.ts` 的 `await factory(api)`）
 import { getProviderDefinition } from "@oh-my-pi/pi-ai/registry";
@@ -37,6 +40,7 @@ import {
   pluginFactory,
   pluginUrl,
   toPluginAuth,
+  usageReport,
 } from "./adapter.mjs";
 import { CATALOG_TTL_MS, readCachedAt, readCachedModels, writeCachedModels } from "./models-cache.mjs";
 
@@ -156,6 +160,42 @@ async function registerPlugin(pi, make, { seen, staticModels }) {
     return credentials;
   };
 
+  /** omp 查用量时交来的凭据只有标准字段：按 access token 回凭据库找这个账号的整条（插件要它自己的字段）。 */
+  const usageAccount = async (credential) => {
+    const storage = await discoverAuthStorage();
+    const rows = storage.credentials
+      .list(id)
+      .map((row) => row.credential)
+      .filter((stored) => stored?.type === "oauth");
+    const match = rows.find((stored) => stored.access === credential.accessToken);
+    if (match) return normalizeCredential(match);
+    // 刚被 omp 刷新过、库里还是旧 token 的唯一账号：把新 token 叠上去。
+    if (rows.length === 1 && credential.accessToken) {
+      return mergeCredential(rows[0], {
+        access: credential.accessToken,
+        ...(credential.refreshToken ? { refresh: credential.refreshToken } : {}),
+        ...(credential.expiresAt ? { expires: credential.expiresAt } : {}),
+      });
+    }
+    return null;
+  };
+
+  /** 插件自己会查额度（`auth.usage`）时交给 omp：`omp usage`、studio 的用量对话框都从这里来。 */
+  const usage =
+    typeof hooks.auth.usage === "function"
+      ? {
+          id,
+          async fetchUsage({ credential }) {
+            if (credential?.type !== "oauth") return null;
+            const account = await usageAccount(credential);
+            if (!account?.access) return null;
+            // 插件查的时候自己续了 token 会经 client.auth.set 存回：让它落到这个账号上。
+            credentials = account;
+            return usageReport(id, await hooks.auth.usage(async () => pluginAuth(), provider));
+          },
+        }
+      : undefined;
+
   /** 账号自己的模型列表（插件失败时返回它的兜底表或空表，空的一律当失败）。 */
   const listRows = async () => {
     const auth = pluginAuth();
@@ -213,6 +253,7 @@ async function registerPlugin(pi, make, { seen, staticModels }) {
       api: `studio-${id}`,
       baseUrl: providerUrl,
       models: ompRows(rows),
+      ...(usage ? { usage } : {}),
       oauth: {
         name,
         async login(callbacks) {

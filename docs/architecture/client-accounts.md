@@ -92,12 +92,13 @@ pi.registerProvider(id, {
 - 账号列表一次实测（Qoder CN）：10 个（fast、qwen3.8-max、deepseek-v4-pro、glm-5.3、kimi-k3、minimax-m3…），和插件静态表里的 id 完全不同——这就是不能用静态表的原因。
 - `getApiKey` 是每次请求解析凭据时被 omp 调用（`pi-ai` 的 `auth/select.ts` 用 `customProvider.getApiKey(credentials)`，实测每次请求前都会调），所以它同时是"把 omp 手里最新的凭据同步进扩展"的钩子。
 - 会话 id：`options.sessionId` 经插件的 `chat.headers` 钩子变成它要的头（Qoder 的 `x-magpie-qoder-session`，插件读它算 `session_id`，这个头不会发给厂商）。没填时插件按首条用户消息自己哈希，功能不受影响。
+- 额度（2026-10-26）：插件有 `auth.usage` 时注册带 `usage: { id, fetchUsage }`，`omp usage`（studio 的用量对话框读它）就会替这个账号查额度。omp 交给 `fetchUsage` 的 `params.credential` 是 `buildUsageCredential` 摘出来的标准字段（access / refresh / 到期 / accountId…），插件要的设备 id、套餐之类没有，所以按 access token 在 `discoverAuthStorage().credentials.list(id)` 里找回整条（库里只有一个账号、token 刚被 omp 刷新时把新 token 叠上去）。插件的结果按 magpie 的契约（`internal/plugin/host.js` 的 `usageOf`）经 `adapter.mjs` 的 `usageReport` 换成 omp 的 `UsageReport`：每个 `windows[]` 一条 limit；有 `amount` / `limit` 时按次数算（单位 credits 等保留），只有 `used` 时按百分比，都没有时比例空着、`display` 放进说明；`resetsAt`（ISO 或时间戳）/ `resetSecs` → 重置时间，`span` → 窗口长度；`plan` → `metadata.planType`（对话框里的套餐徽标），`user` 是邮箱才放 `metadata.email`。插件返回 `error` 就抛出，omp 记成这个账号取不到用量；既没套餐也没窗口时返回 null。16 个插件里只有 nous 没有 `auth.usage`（zen-free 的只报套餐，`windows` 为空）。
 
 ### 3.3 与插件的接缝
 
 16 个插件包，包名和版本见 `NOTICE.md`。每个包导出一个或几个 `*Plugin`（一个站点一个），宿主不认具体厂商。
 
-插件是 magpie/OpenCode 形状：`makePlugin(site)({client})` 返回 `auth.methods / auth.refresh / auth.loader / provider.models / chat.headers / usage / checkin`。扩展要做的是**host shim**：给 `client.auth.set` 一个实现（叠到当前凭据上并存回 omp 的凭据库）、给 `auth.loader(getAuth).fetch` 接进 `streamSimple`。**不重写协议**：那些签名信封、body codec、工具名往返是踩过坑的地方，重写等于把上游的修复工作再做一遍。`usage`、`checkin` 没接。
+插件是 magpie/OpenCode 形状：`makePlugin(site)({client})` 返回 `auth.methods / auth.refresh / auth.loader / provider.models / chat.headers / usage / checkin`。扩展要做的是**host shim**：给 `client.auth.set` 一个实现（叠到当前凭据上并存回 omp 的凭据库）、给 `auth.loader(getAuth).fetch` 接进 `streamSimple`。**不重写协议**：那些签名信封、body codec、工具名往返是踩过坑的地方，重写等于把上游的修复工作再做一遍。`usage` 接进 omp 的用量（3.2 节"额度"），`checkin` 没接。
 
 版本策略：vendor 时记下包版本 + commit，`NOTICE.md` 写更新步骤；升级上游只换 vendor 文件并跑对应测试。不引 npm 依赖（插件是零依赖 ESM，只用 node 内置）。
 
@@ -184,7 +185,7 @@ pi.registerProvider(id, {
 - **真实账号**：Qoder CN、WorkBuddy 走通了登录 → 模型 → 对话；Trae CN 见第 11 节；其余 provider 没有账号，只验证了注册、登录列表，以及宿主的三种传输（假插件）。带工具的多轮对话、到期 / 401 后自动刷新、退出登录后模型消失都还没实测。
 - PAT、手机号、企业域名登录（`onPrompt` 带 secret 或文字输入在 RPC 里收不到）没有入口。
 - 登录取消：`raceAbort` 让 login 立刻失败，但插件自己的轮询会继续到它的 15 分钟上限（进程还在时），只有关掉服务进程才会真的停。
-- 插件的用量 / 签到（`usage`、`checkin`）没接。
+- 插件的签到（`checkin`）没接。
 - 应用内的界面没有实际启动看过（provider 列表走的是现有 `get_login_providers` 通道，RPC 层已实测）。
 - omp 会不会在任务里传 `options.sessionId`（决定 Qoder 的 prompt cache 命中）没测。
 
@@ -219,3 +220,4 @@ pi.registerProvider(id, {
 | 通用宿主下再跑 `qoder-cn/fast`、`workbuddy/deepseek-v4-pro` | 通过：都回答 `OK` |
 | OpenCode Zen 免费档：RPC `login`（api 方式，不开浏览器）→ 模型列表 → 一轮对话 | 通过：8 个模型（都走 chat），`opencode-zen-free/glm-5.3-flash-free` 回答 `OK` |
 | Messages / Responses 两种传输（假插件，`fetch` 本地返回 SSE） | 通过：Messages 回 `MSG-OK`、Responses 回 `RESP-OK`。踩过两处：不按真实传输重建模型时 `compat` 为空直接报错（`wireModel`）；omp 请求 `<站点>/messages` 而不是插件的 `<api.url>/messages`（`pluginUrl`） |
+| 账号额度（2026-10-26，`omp usage invalidate` 后 `omp usage --json`） | 通过：qoder-cn（套餐 `personal_professional_trial`，Credits 只给百分比）、workbuddy（`Free plan`，Credits 按积分：已用 / 总量）、trae-cn（Credits 按积分，带重置时间）都出现在 `reports` 里；opencode-zen-free 只有套餐、没有额度窗口。studio 的 `parseQuota` 解析出各自的剩余百分比和重置时间 |

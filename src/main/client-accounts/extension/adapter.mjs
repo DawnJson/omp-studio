@@ -137,3 +137,86 @@ export function pluginUrl(url, transport, baseUrl) {
   const query = url.indexOf("?");
   return `${baseUrl.replace(/\/+$/, "")}/messages${query >= 0 ? url.slice(query) : ""}`;
 }
+
+/** omp 认的额度单位（`@oh-my-pi/pi-ai` 的 `UsageUnit`）；插件给的别的单位记成 unknown。 */
+const USAGE_UNITS = new Set(["percent", "tokens", "requests", "credits", "usd", "minutes", "bytes"]);
+
+const finite = (value) => typeof value === "number" && Number.isFinite(value);
+const text = (value) => (typeof value === "string" ? value.trim() : "");
+
+/** 插件的时间：ISO 串或时间戳（照 magpie 的 host.js，小于 1e11 的数是秒）→ 毫秒；读不出来是 undefined。 */
+function usageTime(value) {
+  if (value === undefined || value === null || value === "") return undefined;
+  const ms = finite(value) ? (value < 1e11 ? value * 1000 : value) : Date.parse(String(value));
+  return Number.isFinite(ms) ? ms : undefined;
+}
+
+/**
+ * 插件 `auth.usage(getAuth, provider)` 的结果 → omp 的 `UsageReport`（`@oh-my-pi/pi-ai` 的 `usage.ts`）。
+ * 插件的契约是 magpie 的（`internal/plugin/host.js` 的 `usageOf`）：`{ plan?, user?, error?, windows: [{ name,
+ * used?（已用百分比 0-100，缺了是"没说"不是 0）, resetsAt?, resetSecs?, span?（秒）, display?, amount?, limit?, unit? }] }`。
+ * 插件报错时抛出（omp 把这个账号列进"取不到用量"）；既没有套餐也没有窗口时返回 null。
+ */
+export function usageReport(provider, result, now = Date.now()) {
+  if (!result || typeof result !== "object") throw new Error(`${provider}: the plugin returned no usage`);
+  if (text(result.error)) throw new Error(text(result.error));
+  const limits = [];
+  const ids = new Set();
+  const windows = Array.isArray(result.windows) ? result.windows : [];
+  windows.forEach((window, index) => {
+    if (!window || typeof window !== "object") return;
+    const label = text(window.name) || text(window.display) || `#${index + 1}`;
+    const id = ids.has(label) ? `${label}#${index + 1}` : label;
+    ids.add(id);
+    const percent = finite(window.used) ? Math.max(0, window.used) : null;
+    const limit = finite(window.limit) && window.limit > 0 ? window.limit : null;
+    const used = finite(window.amount) ? Math.max(0, window.amount) : null;
+    let amount;
+    if (limit !== null && used !== null) {
+      amount = {
+        used,
+        limit,
+        remaining: Math.max(0, limit - used),
+        usedFraction: percent !== null ? percent / 100 : used / limit,
+        unit: USAGE_UNITS.has(window.unit) ? window.unit : "unknown",
+      };
+    } else if (percent !== null) {
+      amount = { used: percent, limit: 100, usedFraction: percent / 100, unit: "percent" };
+    } else {
+      amount = { unit: "unknown" };
+    }
+    const resetsAt =
+      usageTime(window.resetsAt) ??
+      (finite(window.resetSecs) && window.resetSecs > 0 ? now + window.resetSecs * 1000 : undefined);
+    const durationMs = finite(window.span) && window.span > 0 ? window.span * 1000 : undefined;
+    const fraction = amount.usedFraction;
+    limits.push({
+      id,
+      label,
+      scope: { provider },
+      ...(resetsAt !== undefined || durationMs !== undefined
+        ? {
+            window: {
+              id,
+              label,
+              ...(durationMs !== undefined ? { durationMs } : {}),
+              ...(resetsAt !== undefined ? { resetsAt } : {}),
+            },
+          }
+        : {}),
+      amount,
+      status: fraction === undefined ? "unknown" : fraction >= 1 ? "exhausted" : fraction >= 0.9 ? "warning" : "ok",
+      // 只有一段文字、没有数的窗口（有的插件只给 display）：文字放进说明，不然什么都看不到。
+      ...(fraction === undefined && text(window.display) ? { notes: [text(window.display)] } : {}),
+    });
+  });
+  const plan = text(result.plan);
+  if (limits.length === 0 && !plan) return null;
+  const user = text(result.user);
+  const metadata = {
+    ...(plan ? { planType: plan } : {}),
+    // omp 和 studio 都拿 email 认账号；插件给的不是邮箱（多是昵称）时另放，不冒充邮箱。
+    ...(user ? (user.includes("@") ? { email: user } : { user }) : {}),
+  };
+  return { provider, fetchedAt: now, limits, metadata };
+}

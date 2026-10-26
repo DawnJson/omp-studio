@@ -12,6 +12,7 @@ import {
   pluginFactory,
   pluginUrl,
   toPluginAuth,
+  usageReport,
 } from "../src/main/client-accounts/extension/adapter.mjs";
 
 describe("插件导出", () => {
@@ -161,5 +162,80 @@ describe("请求地址", () => {
     expect(pluginUrl("https://a.example/v1/responses", "responses", "https://a.example/v1")).toBe(
       "https://a.example/v1/responses",
     );
+  });
+});
+
+describe("额度（插件 auth.usage → omp 的 UsageReport）", () => {
+  const now = Date.UTC(2026, 9, 26);
+
+  it("按次数算的窗口（WorkBuddy 积分）：已用 / 总量换成比例，单位保留；重置时间认 ISO、秒级时间戳和 resetSecs", () => {
+    const report = usageReport(
+      "workbuddy",
+      {
+        plan: "Free plan",
+        windows: [
+          {
+            name: "Credits",
+            used: 0.4,
+            display: "2 / 500",
+            amount: 2,
+            limit: 500,
+            unit: "credits",
+            resetsAt: "2026-11-01T00:00:00Z",
+          },
+          { name: "Daily", amount: 450, limit: 500, unit: "credits", resetsAt: now / 1000 + 60 },
+          { name: "Burst", used: 100, resetSecs: 30 },
+        ],
+      },
+      now,
+    );
+    expect(report?.metadata).toEqual({ planType: "Free plan" });
+    const [credits, daily, burst] = report?.limits ?? [];
+    expect(credits).toMatchObject({
+      label: "Credits",
+      amount: { used: 2, limit: 500, remaining: 498, usedFraction: 0.004, unit: "credits" },
+      window: { resetsAt: Date.UTC(2026, 10, 1) },
+      status: "ok",
+    });
+    expect(daily).toMatchObject({
+      amount: { usedFraction: 0.9 },
+      window: { resetsAt: now + 60_000 },
+      status: "warning",
+    });
+    expect(burst).toMatchObject({
+      amount: { used: 100, limit: 100, usedFraction: 1, unit: "percent" },
+      window: { resetsAt: now + 30_000 },
+      status: "exhausted",
+    });
+  });
+
+  it("插件没说用了多少（缺 used，不是 0%）：比例空着，状态 unknown，它的文字放进说明", () => {
+    const [limit] = usageReport("loomy", { windows: [{ name: "Plan", display: "unlimited" }] }, now)?.limits ?? [];
+    expect(limit?.amount).toEqual({ unit: "unknown" });
+    expect(limit?.status).toBe("unknown");
+    expect(limit?.notes).toEqual(["unlimited"]);
+    expect(limit?.window).toBeUndefined();
+  });
+
+  it("插件报错就抛出（omp 把账号列成取不到用量）；什么都没有返回 null；同名窗口 id 不重复；不是邮箱的用户名不当邮箱", () => {
+    expect(() => usageReport("qoder", { error: "not signed in", signIn: "kept" }, now)).toThrow("not signed in");
+    expect(usageReport("qoder", { windows: [] }, now)).toBeNull();
+    const report = usageReport(
+      "trae-cn",
+      {
+        user: "用户1",
+        windows: [
+          { name: "Credits", used: 1 },
+          { name: "Credits", used: 2 },
+        ],
+      },
+      now,
+    );
+    expect(report?.limits.map((limit) => limit.id)).toEqual(["Credits", "Credits#2"]);
+    expect(report?.metadata).toEqual({ user: "用户1" });
+    expect(usageReport("x", { plan: "Pro", user: "a@b.c" }, now)?.metadata).toEqual({
+      planType: "Pro",
+      email: "a@b.c",
+    });
   });
 });

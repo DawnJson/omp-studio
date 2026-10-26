@@ -51,3 +51,22 @@ export declare function modelRow(
 ): AccountModelRow | null;
 
 export declare function pluginUrl(url: string, transport: Transport, baseUrl?: string): string;
+
+export interface AccountUsageLimit {
+  id: string;
+  label: string;
+  scope: { provider: string };
+  window?: { id: string; label: string; durationMs?: number; resetsAt?: number };
+  amount: { used?: number; limit?: number; remaining?: number; usedFraction?: number; unit: string };
+  status: "ok" | "warning" | "exhausted" | "unknown";
+  notes?: string[];
+}
+
+export interface AccountUsageReport {
+  provider: string;
+  fetchedAt: number;
+  limits: AccountUsageLimit[];
+  metadata: { planType?: string; email?: string; user?: string };
+}
+
+export declare function usageReport(provider: string, result: unknown, now?: number): AccountUsageReport | null;

@@ -22,7 +22,7 @@
 
 ## 没做 / 没验证
 
-- 额度条（有账号的情况）**没有用真实订阅账号验证**：开发环境没有订阅账号，`omp usage --json` 在临时 agent 目录里只会返回空列表。`parseQuota` 按 omp 源码里的 `UsageReport` 类型写，有单元测试（构造的报告），真实输出的字段（比如账号邮箱放在 `metadata.email` 还是 `scope.accountId`）是推测，等有账号时对一次。
+- 额度条（有账号的情况）：2026-10-26 用仓库所有者本机的真实输出（omp 18.12.6）对过一次：google-antigravity、anthropic 的报告账号在 `metadata.email`，`amount` 是 `percent` 单位带 `usedFraction`；内置账号插件的 qoder-cn、workbuddy、trae-cn 也在 `reports` 里（经扩展的 `usage` 接进来，见 `client-accounts.md` 3.2"额度"），WorkBuddy、Trae 是 `credits` 单位的已用 / 总量。界面只显示剩余百分比和重置时间，不显示积分数。`resetCredits`、`planType` 以外的 openai-codex 字段仍没有账号实测。
 - `--profile` 命令行参数没单独验证；环境变量 `OMP_PROFILE`/`PI_PROFILE` 已实测（见下）。XDG data root 初始化后的位置（`user-facing-packages.md` 提到会变）没验证，`statsDbPath` 不处理。
 - **踩过的坑**：`PI_CODING_AGENT_DIR` 不会重定向 `stats.db`。早期只设它跑 `omp stats --json` 碰过真实 `~\.omp\stats.db`（同步 0 条）；只设它的隔离启动打开用量页也会读到真实数据。现在 `statsDbPath` 按下面的规则解析（含 profile）。要隔离用量数据，得把 `USERPROFILE`/`HOME` 指到临时目录（用量 e2e 就这样做）；但**不能**给所有 e2e 都这样做：Electron 的 `app.getPath("desktop")` 等已知文件夹在改过的 `USERPROFILE` 下会抛错（实测 2026-10-19，导出诊断信息因此失败）。以后任何涉及 stats 的 omp 命令/实验都要把 home 指到临时目录。
 
