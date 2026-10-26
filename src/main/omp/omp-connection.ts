@@ -134,8 +134,8 @@ export class OmpConnection {
       env: launch.env,
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
-      // macOS：自成进程组（pid 即组 id），看门狗和杀进程树才能按组处理孙进程。没有在 mac 上实测（推测）。
-      ...(process.platform === "darwin" && { detached: true }),
+      // macOS / Linux：自成进程组（pid 即组 id），看门狗和杀进程树才能按组处理孙进程。
+      ...((process.platform === "darwin" || process.platform === "linux") && { detached: true }),
     });
 
     const exited = Promise.withResolvers<OmpExit>();

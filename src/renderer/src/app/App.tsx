@@ -66,6 +66,8 @@ import { EditMenu } from "./EditMenu.tsx";
 const narrowQuery = "(max-width: 999px)";
 /** 留着不卸载的对话区个数（同时跑四五个任务来回切的常见情形）。 */
 const KEPT_VIEWS = 5;
+/** 启动时等 first-contentful-paint 的上限：Windows 上 FCP 在导航后约 500ms 内就到，Linux 打包版有时一直不来。 */
+const firstFrameFallbackMs = 1000;
 
 function useNarrow(): boolean {
   return useSyncExternalStore(
@@ -151,17 +153,27 @@ export function App() {
   // 设置读到（或读失败）、主题套上，并且页面第一次有内容的一帧已经真的显示出来（first-contentful-paint，按上屏时间记），
   // 才告诉主进程淡入窗口。只等 React 提交不够：窗口刚显示时绘制面还没准备好，提交后要再过约 250ms 内容才上屏，
   // 先淡入的会是一块空底色（2026-10-26 截屏实测；FCP 的时刻和截屏里内容出现的时刻一致）。
+  // Chromium 有时一直不记 FCP：Linux 打包版实测只有 first-paint，窗口永远透明（2026-10-26，docs/architecture/linux.md）。
+  // 所以设置读到后最多等 firstFrameFallbackMs，FCP 还没来也照样淡入。
   // 设置在 FCP 之后才到时，主题变化要再画一帧：两次 rAF，第二次时那一帧已经画出。主进程只认第一次，开发时 StrictMode 多调一次无妨。
   const settingsSettled = useSettingsSettled();
   useEffect(() => {
     if (!settingsSettled) return;
-    const observer = new PerformanceObserver((list) => {
-      if (list.getEntriesByName("first-contentful-paint").length === 0) return;
-      observer.disconnect();
+    let reported = false;
+    const report = () => {
+      if (reported) return;
+      reported = true;
       requestAnimationFrame(() => requestAnimationFrame(() => void window.studio.windowReady()));
+    };
+    const observer = new PerformanceObserver((list) => {
+      if (list.getEntriesByName("first-contentful-paint").length > 0) report();
     });
     observer.observe({ type: "paint", buffered: true });
-    return () => observer.disconnect();
+    const fallback = setTimeout(report, firstFrameFallbackMs);
+    return () => {
+      observer.disconnect();
+      clearTimeout(fallback);
+    };
   }, [settingsSettled]);
   useEffect(() => {
     document.documentElement.lang = locale;

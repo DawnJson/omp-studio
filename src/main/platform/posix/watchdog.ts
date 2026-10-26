@@ -1,7 +1,7 @@
 // 主进程被强杀（kill -9、崩溃）时结束 omp 的进程组，对应 Windows 的 Job Object KILL_ON_JOB_CLOSE。
-// macOS 没有 Job Object，也没有 PR_SET_PDEATHSIG：给每个 omp 子进程起一个独立进程组里的 `sh` 看门狗，
-// 每秒 `kill -0 <主进程 pid>`，主进程不在了就 `kill -KILL -<pgid>`。
-// 没有在 mac 上实测（推测）。见 docs/architecture/terminal.md "macOS 的进程结束和看门狗"。
+// macOS 没有 Job Object，也没有 PR_SET_PDEATHSIG；Linux 的 PDEATHSIG 只能在子进程里设（node 的 spawn 和 node-pty 都不给入口）。
+// 两边一样：给每个 omp 子进程起一个独立进程组里的 `sh` 看门狗，每秒 `kill -0 <主进程 pid>`，主进程不在了就杀整个进程组。
+// 见 docs/architecture/terminal.md "POSIX 的进程结束和看门狗"。
 import { spawn } from "node:child_process";
 import { log } from "../../log/log.ts";
 
@@ -10,10 +10,12 @@ import { log } from "../../log/log.ts";
  * - 主进程没了：SIGKILL 整个组。
  * - 组已经空了就自己退出（子进程正常结束时不用单独通知看门狗，也不会去杀可能被复用的 pid）。
  * - 刚 spawn 时组可能还没建好（pty 的子进程要先 setsid）：一次都没见过组时容忍 5 秒。
+ * - 信号一律写 `kill -s <信号> --`：Debian / Ubuntu 的 /bin/sh 是 dash，它的 `kill -0 -- -<组>` 把 `--` 当成 pid
+ *   报 "Illegal number" 并让整个脚本退出（dash 源码 jobs.c 的 killcmd：只有 `-s` 走选项解析、认 `--`），bash 两种写法都认。
  */
 const WATCHDOG_SCRIPT = `seen=0; miss=0
-while kill -0 "$1" 2>/dev/null; do
-  if kill -0 -- "-$2" 2>/dev/null; then
+while kill -s 0 "$1" 2>/dev/null; do
+  if kill -s 0 -- "-$2" 2>/dev/null; then
     seen=1
   else
     [ "$seen" = 1 ] && exit 0
@@ -22,7 +24,7 @@ while kill -0 "$1" 2>/dev/null; do
   fi
   sleep 1
 done
-kill -KILL -- "-$2" 2>/dev/null
+kill -s KILL -- "-$2" 2>/dev/null
 exit 0
 `;
 

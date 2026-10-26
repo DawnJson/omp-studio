@@ -48,10 +48,9 @@ describe("fixLoginPath", () => {
     process.env["PATH"] = original;
   });
 
-  it("非 darwin 什么也不做（不起 shell，PATH 不变）", async () => {
+  it("Windows 上什么也不做（不起 shell，PATH 不变）", async () => {
     process.env["PATH"] = "/only/this";
     await fixLoginPath("win32");
-    await fixLoginPath("linux");
     expect(process.env["PATH"]).toBe("/only/this");
   });
 });

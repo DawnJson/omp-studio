@@ -239,12 +239,13 @@ export function isAppUrl(url: string): boolean {
 
 /**
  * 窗口和任务栏图标（scripts/make-icons.ts 生成）：打包后在 resources 目录（extraResources），开发和 e2e 时在仓库的 resources/。
- * 只有 Windows 用：mac 的 BrowserWindow.icon 被忽略，Dock 图标来自 app bundle；Linux 不在支持范围。
+ * Windows 用 icon.ico，Linux 用 icon.png（X11 的窗口图标；Wayland 下桌面环境按 .desktop 文件取图标，没装进菜单的 AppImage
+ * 可能显示通用图标，推测，未实测）。
+ * mac 不用：BrowserWindow.icon 被忽略，Dock 图标来自 app bundle。
  */
 function windowIconPath(): string {
-  return app.isPackaged
-    ? path.join(process.resourcesPath, "icon.ico")
-    : path.join(app.getAppPath(), "resources", "icon.ico");
+  const name = process.platform === "win32" ? "icon.ico" : "icon.png";
+  return app.isPackaged ? path.join(process.resourcesPath, name) : path.join(app.getAppPath(), "resources", name);
 }
 
 /**
@@ -263,7 +264,7 @@ export function createMainWindow(): BrowserWindow {
     minWidth: 800,
     minHeight: 560,
     show: false,
-    ...(process.platform === "win32" ? { icon: windowIconPath() } : {}),
+    ...(isMac ? {} : { icon: windowIconPath() }),
     // 照 Claude 桌面版：自绘通栏顶栏（spec §3.1）。Windows 的系统三键由 titleBarOverlay 绘制；
     // mac 没有 titleBarOverlay（Electron 只在 win32/linux 提供），三键是系统的红黄绿，用 trafficLightPosition 摆位。
     titleBarStyle: "hidden",

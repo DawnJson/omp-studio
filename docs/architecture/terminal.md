@@ -73,16 +73,17 @@ IPC（`src/shared/ipc.ts`）：
 - **行为后果**：shell 退出（用户输入 `exit`）或关闭终端时句柄随之关闭，从该终端启动的程序（`code .`、`start …` 等）也会被一并结束，不再活到应用退出。
 - 退出：`registerShutdownHook` 里 `closeAll()`（等所有 `taskkill` 完成，单个超时 5 秒）。**实测**：开着终端退出应用后 shell 的 pid 不再存活。
 
-### macOS 的进程结束和看门狗（**没有在 mac 上实测（推测）**，只有纯函数部分有单测）
+### POSIX（macOS / Linux）的进程结束和看门狗（mac 没有实测（推测）；Linux 见 `linux.md` 的 CI 实测）
 
-- **结束进程树**（对应 `taskkill /T /F`）：`platform/posix/process-tree.ts`。`ps -A -o pid=,ppid=,pgid=` 取进程表，`collectTreePids` 算出 root 的全部后代，再加上 root 开的进程组（`pgid === root`）里的成员（父进程先死后被 launchd 收养的孙进程还留在组里），逐个 `process.kill(pid, "SIGKILL")`；`ESRCH` 忽略，别的错误记日志。root 不是组长时不碰它的组（那可能是 Electron 自己的组）；pid ≤ 1 和主进程自己永远不杀。`ps` 失败时记日志，退化成只杀 root。顺序同 Windows：先列表、杀树，再等退出事件，最后才 `pty.kill()`（先杀 root 会让孙进程被收养、按父子关系找不到）。调用方：`tsp-session.ts` 的 `killProcessTree`（TSP 和内置终端共用）、`omp-connection.ts`、`git/exec.ts`。
-- **主进程被强杀时的兜底**（对应 Job Object 的 `KILL_ON_JOB_CLOSE`）：mac 没有 Job Object，改用看门狗（`platform/posix/watchdog.ts`，入口仍是 `job-object.ts` 的 `assignToAppJob` / `assignToOwnJob`，调用方不分平台）。每个 omp 子进程起一个 `/bin/sh -c <脚本> … <主进程 pid> <pgid>`（`detached: true`、`stdio: "ignore"`、`unref`，自己在独立进程组里，主进程死后不受影响）：每秒 `kill -0 <主进程>`，主进程不在了就 `kill -KILL -- -<pgid>`。组已经空了（子进程正常结束）它自己退出；`assignToOwnJob` 的释放函数也会直接结束看门狗。刚 spawn 时组可能还没建好，一次都没见过组时容忍 5 秒。
-- **进程组**：pty 的子进程是 session leader（node-pty 的 forkpty 会 `setsid`），pgid = pid；rpc-ui 的 omp 用 `spawn` 起，darwin 上加 `detached: true` 让它自成进程组（Windows 不加）。`detached` 之后 stdin 关闭、管道的行为不变；终端里的 Ctrl+C 不会再到达它（本来也是我们经 rpc 控制它）。
-- **需要在 mac 上验证**：`ps` 输出格式；`kill -0 -- -<pgid>` 在 `/bin/sh`（bash 的 POSIX 模式）里的行为；强杀主进程后 omp 及其孙进程在约 1 秒内消失；正常关闭任务后没有残留的 `sh` 看门狗；node-pty 起的 pty 子进程确实 pgid = pid。
+- **结束进程树**（对应 `taskkill /T /F`）：`platform/posix/process-tree.ts`。`ps -A -o pid=,ppid=,pgid=` 取进程表，`collectTreePids` 算出 root 的全部后代，再加上 root 开的进程组（`pgid === root`）里的成员（父进程先死后被 launchd / init 收养的孙进程还留在组里），逐个 `process.kill(pid, "SIGKILL")`；`ESRCH` 忽略，别的错误记日志。root 不是组长时不碰它的组（那可能是 Electron 自己的组）；pid ≤ 1 和主进程自己永远不杀。`ps` 失败时记日志，退化成只杀 root。顺序同 Windows：先列表、杀树，再等退出事件，最后才 `pty.kill()`（先杀 root 会让孙进程被收养、按父子关系找不到）。调用方：`tsp-session.ts` 的 `killProcessTree`（TSP 和内置终端共用）、`omp-connection.ts`、`git/exec.ts`。
+- **主进程被强杀时的兜底**（对应 Job Object 的 `KILL_ON_JOB_CLOSE`）：mac 没有 Job Object，Linux 的 `PR_SET_PDEATHSIG` 要在子进程里设（node 的 `spawn` 和 node-pty 都没有入口），两边都用看门狗（`platform/posix/watchdog.ts`，入口仍是 `job-object.ts` 的 `assignToAppJob` / `assignToOwnJob`，调用方不分平台）。每个 omp 子进程起一个 `/bin/sh -c <脚本> … <主进程 pid> <pgid>`（`detached: true`、`stdio: "ignore"`、`unref`，自己在独立进程组里，主进程死后不受影响）：每秒 `kill -s 0 <主进程>`，主进程不在了就 `kill -s KILL -- -<pgid>`。组已经空了（子进程正常结束）它自己退出；`assignToOwnJob` 的释放函数也会直接结束看门狗。刚 spawn 时组可能还没建好，一次都没见过组时容忍 5 秒。
+- **`kill` 的写法**：Debian / Ubuntu 的 `/bin/sh` 是 dash。dash 的 `kill -0 -- -<pgid>` 把 `--` 当成 pid，报 `Illegal number` 并让整个脚本退出（dash `src/jobs.c` 的 `killcmd`：`-<信号>` 这种写法之后不再解析选项），看门狗一启动就没了；`kill -s <信号> -- …` 走选项解析、认 `--`。bash（mac 的 `/bin/sh`）两种都认。`test/posix-process-tree.test.ts` 的"看门狗脚本"真的跑一遍脚本，Linux CI（dash）上通过（2026-10-26）。
+- **进程组**：pty 的子进程是 session leader（node-pty 的 forkpty 会 `setsid`），pgid = pid；rpc-ui 的 omp 用 `spawn` 起，darwin / linux 上加 `detached: true` 让它自成进程组（Windows 不加）。`detached` 之后 stdin 关闭、管道的行为不变；终端里的 Ctrl+C 不会再到达它（本来也是我们经 rpc 控制它）。
+- **需要在 mac 上验证**：`ps` 输出格式；强杀主进程后 omp 及其孙进程在约 1 秒内消失；正常关闭任务后没有残留的 `sh` 看门狗；node-pty 起的 pty 子进程确实 pgid = pid。
 
-### macOS 的 PATH
+### macOS / Linux 的 PATH
 
-- 从 Finder 启动时 PATH 只有 `/usr/bin:/bin:/usr/sbin:/sbin`。`platform/darwin/login-path.ts`：`app.whenReady` 之后、`registerIpcHandlers` 之前 `await fixLoginPath()`：`$SHELL`（没有就 `/bin/zsh`）`-ilc` 打印带前后标记的 `$PATH`，标记之间的内容合并进 `process.env.PATH`（登录 shell 的条目在前，去重）。最多等 3 秒，超时或失败记日志后继续用原 PATH。只在 darwin 执行。**没有在 mac 上实测（推测）**。
+- 从 Finder 启动时 PATH 只有 `/usr/bin:/bin:/usr/sbin:/sbin`；Linux 从桌面启动时 PATH 来自桌面会话，通常没读过 `~/.bashrc` / `~/.zshrc`，bun 这类写进 rc 文件的目录不在里面。`platform/darwin/login-path.ts`：`app.whenReady` 之后、`registerIpcHandlers` 之前 `await fixLoginPath()`：`$SHELL`（没有就 mac 的 `/bin/zsh`、Linux 的 `/bin/bash`）`-ilc` 打印带前后标记的 `$PATH`，标记之间的内容合并进 `process.env.PATH`（登录 shell 的条目在前，去重）。最多等 3 秒，超时或失败记日志后继续用原 PATH。Windows 不执行。mac **没有实测（推测）**；Linux 见 `linux.md`。
 - 内置终端的 shell 在 POSIX 上带 `-l`（登录 shell），读 `~/.zprofile` 等。
 
 ## 数据通路
@@ -113,7 +114,7 @@ backlog 只留最近 256KB（`Backlog`）：超过上限 2 倍才裁剪，读取
 
 ## 没做 / 未实测
 
-- macOS / Linux：`shell.ts` 有分支，单测覆盖了选择逻辑，没有在这两个平台上跑过 node-pty（只带了 darwin 预编译件，`electron-builder.yml` 把它们从 Windows 包里排除了；做 macOS 版时要去掉这条排除）。
+- macOS：`shell.ts` 有分支，单测覆盖了选择逻辑；mac CI 跑过起 pty 的单测，没有在真机上开过内置终端。Linux：CI 上跑过起 pty 的单测（node-pty 从源码编译，见 `linux.md`），内置终端的 e2e（`terminal.e2e.ts`）里的命令按 PowerShell / zsh 写，没在 Linux 上跑。
 - 非 ASCII 输入法（IME）在 xterm 里的组合输入没专门测。
 - 多终端标签（一个任务多个终端）、终端里的链接可点击（`@xterm/addon-web-links`）、搜索：不做，v1 每个任务一个终端。
 - 终端输出的大流量背压（见上）。

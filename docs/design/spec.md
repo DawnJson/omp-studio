@@ -251,7 +251,7 @@
 | 工具卡 / 子代理行从运行中变完成（`tsp/nodes/work.tsx` `useJustFinished`，`tsp.css` `.tsp-draw-check`） | ✓ 用 `stroke-dashoffset` 描边画出，运行中的淡紫底 `background-color` 过渡褪掉；工具卡的 ✓ 停 1.2s 后淡出并卸掉（omp 的完成卡本来没有 ✓），子代理行的 ✓ 常驻；只在已挂载的卡片状态变化时放，历史、切任务、重挂载不放 | 画出 `--dur-base` `--ease-out`；淡出 `max(--dur-base, --dur-fade)`；减少动效时直接显示 |
 | 一批子代理行 / 作业磁贴同时出现（`tsp/entrance.ts`，`tsp.css` `.tsp-enter`） | opacity + `translateY(--travel-sm)`，同一批每格错开 40ms（第 6 格起不再加），后来单个出现的不延迟；按节点 id 只算出生一次，切任务、重开不放 | `max(--dur-base, --dur-fade)` `--ease-out`；减少动效时纯淡入、不错开 |
 | 对话图片点开放大 / 关闭（`tsp/zoom-store.ts`，`tsp.css`） | View Transition：缩略图与大图共用 `view-transition-name: tsp-zoom`，从缩略图位置放大、关时缩回；遮罩随 root 淡入淡出；←/→ 切图只换图；缩略图已卸载或出视口时只淡出；规则带 `:root[data-tsp-zoom-vt]` 前缀，不影响切主题的整窗过渡；减少动效时只淡入淡出 | `--dur-base` `--ease-out`（减少动效 `--dur-fade`） |
-| 窗口出现 / 消失（2026-10-26，`main-window.ts` 的 `revealWindow` / `concealWindow`，整窗 `BrowserWindow.setOpacity` 逐帧渐变） | 启动、从托盘 / 第二个实例 / 通知 / Dock 带回时整窗淡入；点 × 隐藏、退出（托盘“退出”、⌘Q、安装更新、注销）时整窗淡出再隐藏。**启动不露空窗**：页面第一次绘制（`ready-to-show`）时窗口先以不透明度 0 显示，等渲染进程设置读到、第一次有内容的一帧真正上屏（`first-contentful-paint`）再淡入（`App.tsx` → `windowReady`）；直接等到那时才 `show()`，显示后还要约 300ms 才有画面，淡入的是一块空底色（实测）。最小化 / 还原仍是系统动画；系统自己的开关窗动画落在透明窗口上看不见，不叠两层 | 出现 `--dur-base` `--ease-out`，消失 `--dur-base-exit` `--ease-in`；减少动效（系统或设置）两者都是 `--dur-fade`（100ms） |
+| 窗口出现 / 消失（2026-10-26，`main-window.ts` 的 `revealWindow` / `concealWindow`，整窗 `BrowserWindow.setOpacity` 逐帧渐变） | 启动、从托盘 / 第二个实例 / 通知 / Dock 带回时整窗淡入；点 × 隐藏、退出（托盘“退出”、⌘Q、安装更新、注销）时整窗淡出再隐藏。**启动不露空窗**：页面第一次绘制（`ready-to-show`）时窗口先以不透明度 0 显示，等渲染进程设置读到、第一次有内容的一帧真正上屏（`first-contentful-paint`）再淡入（`App.tsx` → `windowReady`）；直接等到那时才 `show()`，显示后还要约 300ms 才有画面，淡入的是一块空底色（实测）。设置读到后 1 秒（`firstFrameFallbackMs`）还没有 FCP 也淡入：Linux 打包版里透明窗口一直不记 FCP，窗口永远透明（实测，见 `docs/architecture/linux.md`）；Windows 上 FCP 约 500ms 就到（本机实测），一般用不上这条。最小化 / 还原仍是系统动画；系统自己的开关窗动画落在透明窗口上看不见，不叠两层 | 出现 `--dur-base` `--ease-out`，消失 `--dur-base-exit` `--ease-in`；减少动效（系统或设置）两者都是 `--dur-fade`（100ms） |
 | 有限高度的滚动列表上下渐隐（`ui/controls.css` `.ui-scroll-fade`：下拉列表、命令面板结果、模型选择表） | `animation-timeline: scroll(self)` 驱动 mask 的 `@property` 长度变量：上 / 下还有内容的一边渐隐，滚到头不隐，`--fade-inset` 避开粘性表头 | 随滚动 |
 | 等 omp 返回的列表（`ui/Skeleton.tsx`：Provider、Skills、MCP、SSH、插件、市场浏览、模型选择） | 与最终行同高的灰条骨架，`::after` 光带 `translateX` 扫过；数据到了容器 `.ui-data-in` 淡入 | 扫光 `--dur-sweep` linear 循环、`--play-state`（减少动效停住）；淡入 `--dur-fast` `--ease-out` |
 
@@ -710,7 +710,7 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 | 状态（`OmpStatus.state`） | 条件 | 内容 | 按钮（左 → 右；★ = 打开时的焦点） |
 |---|---|---|---|
 | `discovering` | 启动检测 | 一句 `omp.finding`（超过 300ms 才出现，免得一闪而过） | — |
-| `ask_takeover` | PATH 上的 omp 首次发现 | 三种标题和正文：别人管理的（`omp.takeover.otherTitle/otherBody`）、能启动的自装版（`omp.takeover.exeTitle/exeBody`）、`.cmd` 这类脚本（`omp.takeover.title/body`）；正文都写明会另装一份并改用户 PATH，原来的不动。有版本时一句 `omp.found`；路径块 `omp.takeover.where` | ★ 保守的一项（`继续用 {name} 的` / `继续用我的` / `取消`）、主按钮 `由 omp-studio 管理` |
+| `ask_takeover` | PATH 上的 omp 首次发现 | 三种标题和正文：别人管理的（`omp.takeover.otherTitle/otherBody`）、能启动的自装版（`omp.takeover.exeTitle/exeBody`）、`.cmd` 这类脚本（`omp.takeover.title/body`）；Windows 上正文都写明会另装一份并改用户 PATH，原来的不动。macOS / Linux 接管不改 PATH，前两种正文换成 `omp.takeover.otherBodyStudioOnly` / `exeBodyStudioOnly`（另装一份只给 omp-studio 用，终端里用的不变；2026-10-26）。有版本时一句 `omp.found`；路径块 `omp.takeover.where` | ★ 保守的一项（`继续用 {name} 的` / `继续用我的` / `取消`）、主按钮 `由 omp-studio 管理` |
 | `missing` | PATH 上没有 omp | `omp.missing.title`（知道版本时 `omp.missing.titleVersion`）+ `omp.missing.body`（含大小；不知道时 `omp.missing.bodyNoSize`） | `我已安装，重新检测`、★ 主按钮 `下载并安装` |
 | `installing` | 下载中 | `omp.downloading`（版本未知时 `omp.downloading.latest`）+ `omp.install.note` + 进度条（高 4，`--accent`，`--radius-pill`）+ `omp.progress`；下载完进入 `omp.verifying` | `取消下载`（校验中不显示） |
 | `unusable` | 拒绝接管，而 PATH 上的是脚本 | `omp.unusable.title` + `omp.takeover.declined` + 路径块 | ★ 主按钮 `重新选择` |
@@ -934,6 +934,8 @@ Windows / Linux 用 `Ctrl`，macOS 用 `⌘`（下文表里的 `Ctrl` 都指“�
   - `⌘R`（输入历史搜索）：Electron 默认视图菜单的“重新加载”是 `⌘R`；mac 菜单**不要**带 `viewMenu` / `reload` role。`⌘⇧R`（重开会话）同理，别绑 `forceReload`。
   - `⌘N`、`⌘⇧N`（常见的“新窗口”键，studio 只有一个窗口，语义改成新任务）、`⌘O`、`⌘F`、`⌘B`、`⌘J`、`⌘K`、`⌘L`、`⌘1…9`、`⌘⇧[` / `⌘⇧]`（mac 标签页切换惯例，这里是切任务，与之呼应）：没有系统级占用；菜单里没有对应项即可。`⌘⇧D` / `⌘⇧E` / `⌘⇧C` / `⌘⇧O`：系统无占用；`⌘⇧C` 在 Chromium DevTools 里是“选择元素”，只影响开发版。
   - `⌘C` / `⌘V` / `⌘X` / `⌘A` / `⌘Z`：来自 mac 应用菜单的 `editMenu` role，studio 不自己处理（输入框的撤销 / 粘贴也走它）。内置终端里 `⌘C` / `⌘V` 靠同一组 role 和 xterm 自己的 copy / paste 事件，没有在 mac 上实测。
+
+**Linux**（2026-10-26）：快捷键和显示同 Windows（`Ctrl`）。多一个 `Ctrl Q` 退出应用（`window/hide-on-close.ts`，主进程 `before-input-event` 拦下，渲染进程和 omp 收不到；不带 Shift / Alt / Super 才算）：原版 GNOME 这类没有托盘宿主的桌面上看不到托盘图标，点 × 隐藏窗口后没有别的"退出"可点。退出走 `app.quit()`，和托盘"退出"一样不弹确认。第一次点 × 时的系统通知按平台换文案（`notify.tray.stillRunning.*Linux`：按 Ctrl+Q 退出，再次打开应用找回窗口）。
 
 `Alt ↑`（omp 取回排队消息）：omp 把最后一条排队消息写进它自己的输入框（studio 不画），渲染进程在键写出前先订阅文档，读到那段文字后追加进 studio 输入框的草稿并清空 omp 的输入框（同 Esc 取回，`queue-restore.ts`），3 秒内没有就放弃；队列里没有消息时只是把键交给 omp。转发后 omp 里改了思考强度 / 模型（`Shift Tab`、`Alt P` 选择器），输入框的模型 / 思考胶囊跟着变（读 omp 输入框卡片，实测 high → max → off、`DeepSeek V4 Flash` → `Fable 5.1`）。
 
@@ -1463,6 +1465,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `omp.verifyFailed` | 文件校验失败，已丢弃。 | The file failed verification and was discarded. |
 | `omp.takeover.title` | 检测到脚本形式的 omp | Found a script-based omp |
 | `omp.takeover.body` | omp-studio 启动不了脚本形式（如 npm 安装）的 omp。可以另装一份官方版放到用户 PATH 最前面，原来的不动。 | omp-studio can't launch script-based installs (such as npm). It can install an official copy first on your user PATH; your existing one stays. |
+| `omp.takeover.exeBodyStudioOnly` | omp-studio 可以另装一份官方 omp 自己用；你原来的那份、终端里用的 omp 都不变。 | omp-studio can install an official copy for its own use. Your existing install, and the omp your terminal runs, stay as they are. |
+| `omp.takeover.otherBodyStudioOnly` | omp-studio 可以另装一份官方 omp 自己用；{name} 的那份、终端里用的 omp 都不变。 | omp-studio can install an official copy for its own use. {name}'s copy, and the omp your terminal runs, stay as they are. |
 | `omp.takeover.yes` | 由 omp-studio 管理 | Let omp-studio manage it |
 | `omp.takeover.no` | 取消 | Cancel |
 | `omp.takeover.declined` | 这种安装方式暂时用不了。 | This kind of install can't be used right now. |

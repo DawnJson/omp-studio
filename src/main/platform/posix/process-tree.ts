@@ -1,6 +1,6 @@
-// POSIX（目前是 macOS）上结束一个进程和它的所有后代，对应 Windows 的 `taskkill /T /F`。
-// 没有在 mac 上实测（推测）：`ps -A -o pid=,ppid=,pgid=` 的输出格式按 BSD ps 的文档写，解析和后代计算是纯函数，有单测。
-// 见 docs/architecture/terminal.md "macOS 的进程结束和看门狗"。
+// POSIX（macOS / Linux）上结束一个进程和它的所有后代，对应 Windows 的 `taskkill /T /F`。
+// `ps -A -o pid=,ppid=,pgid=` 的输出格式按 BSD ps 的文档写，procps（Linux）同样支持；解析和后代计算是纯函数，有单测。
+// 见 docs/architecture/terminal.md "POSIX（macOS / Linux）的进程结束和看门狗"。
 import { execFile } from "node:child_process";
 import { log } from "../../log/log.ts";
 

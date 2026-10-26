@@ -1,3 +1,4 @@
+import { spawn, type ChildProcess } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { collectTreePids, parsePsTable } from "../src/main/platform/posix/process-tree.ts";
 import { watchdogCommand } from "../src/main/platform/posix/watchdog.ts";
@@ -98,5 +99,44 @@ describe("watchdogCommand", () => {
     expect(() => watchdogCommand(4242, 0)).toThrow();
     expect(() => watchdogCommand(4242, Number.NaN)).toThrow();
     expect(() => watchdogCommand(1, 5151)).toThrow();
+  });
+});
+
+/** 等子进程结束，返回结束它的信号（正常退出时是 null）。 */
+function exitSignal(child: ChildProcess): Promise<NodeJS.Signals | null> {
+  return new Promise((resolve) => child.once("exit", (_code, signal) => resolve(signal)));
+}
+
+// 真的跑一遍看门狗脚本（Linux 上是 dash，mac 上是 bash）：脚本里一条命令不被这个 sh 接受，看门狗就会直接退出、兜底失效。
+describe.skipIf(process.platform === "win32")("看门狗脚本", () => {
+  it("主进程没了：杀掉整个进程组", async () => {
+    const main = spawn("sleep", ["30"], { stdio: "ignore" });
+    const group = spawn("sleep", ["30"], { stdio: "ignore", detached: true });
+    const groupExit = exitSignal(group);
+    const { file, args } = watchdogCommand(main.pid!, group.pid!);
+    const dog = spawn(file, args, { stdio: "ignore", detached: true });
+    try {
+      // 看门狗每秒查一次；先让它见到这个组，再结束"主进程"。
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      main.kill("SIGKILL");
+      expect(await groupExit).toBe("SIGKILL");
+    } finally {
+      for (const child of [main, group, dog]) child.kill("SIGKILL");
+    }
+  });
+
+  it("进程组自己结束了：看门狗也退出，不碰主进程", async () => {
+    const main = spawn("sleep", ["30"], { stdio: "ignore" });
+    const group = spawn("sleep", ["1"], { stdio: "ignore", detached: true });
+    const { file, args } = watchdogCommand(main.pid!, group.pid!);
+    const dog = spawn(file, args, { stdio: "ignore", detached: true });
+    const dogExit = new Promise<number | null>((resolve) => dog.once("exit", (code) => resolve(code)));
+    try {
+      expect(await dogExit).toBe(0);
+      expect(main.exitCode).toBeNull();
+      expect(main.signalCode).toBeNull();
+    } finally {
+      for (const child of [main, group, dog]) child.kill("SIGKILL");
+    }
   });
 });

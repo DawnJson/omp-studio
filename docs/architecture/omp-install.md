@@ -116,3 +116,12 @@ Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次�
 - **清理旧版本**：`pruneVersions` 只认版本号格式（`18.12.6`、`18.12.6-canary.1`）的文件名；无扩展名时 `.partial` / `.patch` 不会被当成版本参与"保留最近 3 个"的排序。
 - **没有"加入 PATH"**：`userPath` 为 null（没有等价于 Windows 用户 PATH 注册表的东西），设置 → 关于 → omp 在 mac 上不显示"加入 PATH"按钮。从 Finder 启动的应用 PATH 很短，omp 的发现靠别的切片在启动时补 PATH。
 - **补丁产物能否直接运行**：上游 omp 曾有 mac arm64 二进制被 SIGKILL（exit 137）的报告（issue #754）。补丁生成的文件没有被 Apple 重新签名，需在真机上跑一次 `omp --version` 确认。
+
+## Linux（x64）
+
+和 mac 共用 POSIX 的那几条（执行位、换二进制、清理旧版本、没有"加入 PATH"），区别只有：
+
+- **构建服务**：`buildTarget()` 在 Linux x64 上返回 `linux-x86_64`。2026-10-26 请求 `latest/linux-x86_64?channel=stable` 返回 200：版本 18.12.6，资产 `omp-linux-x64`，256,702,432 字节。`linux-arm64` 也是 200（omp-studio 不出 arm64 包），`linux-x64` 是 404。
+- **自管目录**：`~/.local/share/omp-studio/omp/`（`index.ts` 的 `managedRoot()`；不读 `XDG_DATA_HOME`）。
+- **"加入 PATH"按钮只在 Windows 显示**（`OmpSection.tsx` 按 `platform === "win32"`）。之前按"不是 mac"判断，Linux 上会显示一个点了必报错的按钮。
+- 从桌面启动时 PATH 的补齐见 `terminal.md` "macOS / Linux 的 PATH"。

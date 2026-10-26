@@ -25,7 +25,7 @@ omp-studio 自己的版本更新，和 omp 的更新是两套（omp 的见 `omp-
 ## 发一个新版本（装好的应用会自己更新）
 
 1. 在"未发布"里记好改动，`npm run release -- <新版本>`（先 `--dry-run`）：改版本号、CHANGELOG、提交、打 tag、`npm run dist`（electron-builder 同时生成 `release\latest.yml`、安装包和 `.blockmap`）。
-2. 推送 `main` 和 tag，再按脚本最后打印的命令运行 `node scripts/publish-release.ts <版本> release\latest.yml release\omp-studio-<版本>-setup.exe release\omp-studio-<版本>-setup.exe.blockmap`。这个 Release 没有就新建（说明取 CHANGELOG 里这一版）。推 tag 也会触发 mac 构建，它把 dmg / zip 传到同一个 Release，两边谁先到谁建。
+2. 推送 `main` 和 tag，再按脚本最后打印的命令运行 `node scripts/publish-release.ts <版本> release\latest.yml release\omp-studio-<版本>-setup.exe release\omp-studio-<版本>-setup.exe.blockmap`。这个 Release 没有就新建（说明取 CHANGELOG 里这一版）。推 tag 也会触发 mac 和 Linux 构建（`.github/workflows/mac.yml`、`linux.yml`），它们把 dmg / zip、AppImage / `latest-linux.yml` 传到同一个 Release，谁先到谁建。
 3. 装着旧版本的应用启动 10 秒后检查，之后每小时一次，也可以在 设置 → 关于 点"检查更新"；有新版本就在后台下载。
 4. **版本号必须比装着的高**：同一个版本重新打包，已装的应用不会当成更新。
 5. `publish-release.ts` 最后才传 `latest.yml`，免得应用读到它时安装包还没传完。mac 构建先建好 Release、Windows 的文件还没传上去的那几分钟里，检查更新会因为找不到 `latest.yml` 报错，下一次检查就好了。
@@ -96,3 +96,12 @@ idle → checking → up-to-date
 - `update/instance.ts` 在 mac 上不解析更新源、不写 `app-update.yml`、不给 `autoUpdater` 任何地址，`UpdateService` 以 `disabled` 状态启动，`disabledReason` 是 `manual-only`，不会联网检查。
 - 设置 → 关于显示 `settings.about.disabled.manualOnly`："mac 版暂不支持自动更新，请手动下载新版本"。关于对话框因为 `phase === "disabled"` 不显示更新行。
 - 要改成自动更新需要 Developer ID 证书和公证、`latest-mac.yml` + zip 的更新源，这些在"待定"里，改签名策略前要先问仓库所有者。
+
+## Linux：AppImage 自动更新（没有实测）
+
+- 只有 AppImage 一种包（仓库所有者 2026-10-26 定）。electron-updater 的 `AppImageUpdater` 读同一个 GitHub Release 里的 `latest-linux.yml`（electron-builder 打 AppImage 时生成，`linux.yml` 在推 tag 时和 AppImage 一起传上去；2026-10-26 CI 产物里有 `url`、`sha512`、`size`、`blockMapSize`），下载新的 AppImage 后替换掉正在运行的那个文件（`APPIMAGE` 环境变量指的路径）。
+- 差分：AppImage 的 blockmap 嵌在文件末尾（electron-builder 日志 `building embedded block map`），没有单独的 `.blockmap` 文件要传。
+- 不是从 AppImage 运行（`APPIMAGE` 没设，例如解包后直接跑 `linux-unpacked/omp-studio`）时，electron-updater 判定更新器不活跃，`checkForUpdates` 不带事件就结束，状态回到 `idle`（见上面"状态机"）。
+- `update/instance.ts` 在 Linux 上和 Windows 走同一条路（`resources/app-update.yml` 存在就启用），没有 Linux 分支。
+- 实测（2026-10-26，ubuntu-24.04 CI 上的 AppImage）：启动 10 秒后去最新的 Release 找 `latest-linux.yml`，当时最新的 v0.4.29 没有 Linux 包，得到 404，日志 `update: error`。第一个带 Linux 包的版本发出后才会正常。
+- 没有实测：下载、替换文件、"重启并安装"后重新拉起的整条路径，都还没在 Linux 上跑过。

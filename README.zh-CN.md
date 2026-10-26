@@ -24,7 +24,7 @@
 - **跑的就是 omp 本身。** 每个任务在伪终端里运行交互式 omp，界面按 omp 经 TSP 协议（Tern 用的同一套协议）发来的内容绘制。子代理、待办板、审批、提问、`/btw` 和斜杠命令的行为与终端版一致，不是在 RPC 上另做一套。
 - **不用迁移。** 登录、设置和会话都在 `~/.omp`。终端里开过的会话出现在侧栏里，在应用里改的设置终端版同样生效。
 - **围绕 agent 的桌面工作流。** 按项目分组的任务、按行暂存并能生成提交信息的评审面板、分支菜单、worktree、内置终端、文件面板、托盘常驻和系统通知。
-- **优先为 Windows 打造。** 不需要 WSL。omp 子进程放在 Windows 的 Job Object 里，应用崩溃也不会留下 omp 进程。也支持 macOS（Apple 芯片）。
+- **优先为 Windows 打造。** 不需要 WSL。omp 子进程放在 Windows 的 Job Object 里，应用崩溃也不会留下 omp 进程。也支持 macOS（Apple 芯片）和 Linux（x64 AppImage）。
 
 更喜欢待在终端里？Stencil 官方的终端 [Tern](https://stencil.so/tern) 也能原生显示 omp。omp-studio 面向想要一个桌面应用来用 omp 的人。
 
@@ -45,21 +45,22 @@
 
 ## 下载
 
-| Windows（x64） | macOS（Apple 芯片） |
-| --- | --- |
-| [`omp-studio-<版本>-setup.exe`](https://github.com/DawnJson/omp-studio/releases/latest) | [`omp-studio-<版本>-arm64.dmg`](https://github.com/DawnJson/omp-studio/releases/latest)<br>[`omp-studio-<版本>-arm64-mac.zip`](https://github.com/DawnJson/omp-studio/releases/latest) |
+| Windows（x64） | macOS（Apple 芯片） | Linux（x64） |
+| --- | --- | --- |
+| [`omp-studio-<版本>-setup.exe`](https://github.com/DawnJson/omp-studio/releases/latest) | [`omp-studio-<版本>-arm64.dmg`](https://github.com/DawnJson/omp-studio/releases/latest)<br>[`omp-studio-<版本>-arm64-mac.zip`](https://github.com/DawnJson/omp-studio/releases/latest) | [`omp-studio-<版本>-x86_64.AppImage`](https://github.com/DawnJson/omp-studio/releases/latest) |
 
 ### 系统要求
 
-| | Windows | macOS |
-| --- | --- | --- |
-| 系统 | Windows 10 / 11 | macOS 13 Ventura 起 |
-| 芯片 | x64 | Apple 芯片（arm64） |
+| | Windows | macOS | Linux |
+| --- | --- | --- | --- |
+| 系统 | Windows 10 / 11 | macOS 13 Ventura 起 | 在 Ubuntu 24.04 上构建和测试（CI） |
+| 芯片 | x64 | Apple 芯片（arm64） | x64 |
 
 - **Windows**：双击安装包，按向导点下一步（欢迎、许可协议、安装位置，默认装到当前用户目录，不需要管理员权限）。安装包未签名，第一次运行时在 SmartScreen 里点"更多信息 → 仍要运行"。
 - **macOS**：把 `omp-studio.app` 拖进"应用程序"。包是 ad-hoc 签名，第一次打开前在终端执行 `xattr -cr /Applications/omp-studio.app`，或者在 系统设置 → 隐私与安全性 里点"仍要打开"。
+- **Linux**：`chmod +x omp-studio-<版本>-x86_64.AppImage` 后直接运行，不需要装 libfuse2，之后自动更新。关窗口不会停任务，退出按 Ctrl+Q 或用托盘菜单。Ubuntu 24.04 的 AppArmor 不许 Chromium 沙箱建 user namespace，应用会关着沙箱启动；想开着沙箱，[`docs/architecture/linux.md`](docs/architecture/linux.md) 里有对应的 AppArmor 配置。
 
-暂不支持 Linux 和 Intel 芯片的 Mac。遇到问题或有建议，欢迎在 [Issues](https://github.com/DawnJson/omp-studio/issues) 反馈。
+暂不支持 Intel 芯片的 Mac。遇到问题或有建议，欢迎在 [Issues](https://github.com/DawnJson/omp-studio/issues) 反馈。
 
 ## 功能
 
@@ -109,7 +110,7 @@ omp-studio 启动时在 PATH 上找 omp。由它管理的 omp 每小时检查一
 
 ## 开发
 
-需要 Node.js 24 以上；`npm run dist:mac` 在 macOS 上运行。
+需要 Node.js 24 以上；`npm run dist:mac` 在 macOS 上运行，`npm run dist:linux` 在 Linux 上运行。
 
 ```powershell
 npm ci
@@ -117,6 +118,7 @@ npm run dev        # 开发，热更新
 npm test           # 单元测试（Vitest）
 npm run dist       # Windows NSIS 安装包，输出到 release/
 npm run dist:mac   # macOS arm64 的 dmg 和 zip，输出到 release/
+npm run dist:linux # Linux x64 的 AppImage，输出到 release/
 ```
 
 架构文档在 [`docs/architecture/`](docs/architecture/)，界面规范在 [`docs/design/spec.md`](docs/design/spec.md)，版本变化在 [`CHANGELOG.md`](CHANGELOG.md)。

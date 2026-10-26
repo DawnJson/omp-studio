@@ -19,6 +19,8 @@ export const omp = {
   "takeover.exeBody": "omp-studio 可以另装一份官方 omp，放到用户 PATH 最前面，你原来的那份不动。",
   "takeover.otherTitle": "检测到由 {name} 管理的 omp",
   "takeover.otherBody": "omp-studio 可以另装一份官方 omp，放到用户 PATH 最前面；{name} 的那份保留，只是不再排第一。",
+  "takeover.exeBodyStudioOnly": "omp-studio 可以另装一份官方 omp 自己用；你原来的那份、终端里用的 omp 都不变。",
+  "takeover.otherBodyStudioOnly": "omp-studio 可以另装一份官方 omp 自己用；{name} 的那份、终端里用的 omp 都不变。",
   "takeover.keepOther": "继续用 {name} 的",
   "takeover.where": "位置：{path}",
   "takeover.yes": "由 omp-studio 管理",

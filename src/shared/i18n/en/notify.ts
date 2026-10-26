@@ -19,4 +19,7 @@ export const notify = {
   "tray.stillRunning.titleMac": "omp-studio is still running in the menu bar",
   "tray.stillRunning.bodyMac":
     "Closing the window does not stop your tasks. To quit, press ⌘Q or use the menu bar icon and choose “Quit”.",
+  "tray.stillRunning.titleLinux": "omp-studio is still running in the background",
+  "tray.stillRunning.bodyLinux":
+    "Closing the window does not stop your tasks. To quit, press Ctrl+Q or choose “Quit” from the tray icon. Open omp-studio again to bring the window back.",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

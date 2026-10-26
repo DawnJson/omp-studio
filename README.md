@@ -24,27 +24,28 @@
 - **It is the real omp.** Each task runs interactive omp in a pseudo-terminal, and the window draws what omp sends over the TSP protocol (the protocol Tern uses). Subagents, the todo board, approvals, questions, `/btw` and slash commands behave as they do in the terminal, not as a reimplementation on top of RPC.
 - **Nothing to migrate.** Logins, settings and sessions stay in `~/.omp`. Sessions you started in a terminal show up in the sidebar, and settings you change in the app apply to the terminal omp too.
 - **Desktop workflow around the agent.** Tasks grouped by project, a review panel with per-line staging and generated commit messages, a branch menu, worktrees, a built-in terminal, a file panel, tray mode and notifications.
-- **Built for Windows first.** No WSL needed. omp child processes run in a Windows Job Object, so they don't outlive the app, even if it crashes. macOS (Apple silicon) is supported too.
+- **Built for Windows first.** No WSL needed. omp child processes run in a Windows Job Object, so they don't outlive the app, even if it crashes. macOS (Apple silicon) and Linux (x64 AppImage) are supported too.
 
 Prefer to stay in a terminal? [Tern](https://stencil.so/tern), Stencil's own terminal, also renders omp natively. omp-studio is for people who want a desktop app around omp.
 
 ## Download
 
-| Windows (x64) | macOS (Apple silicon) |
-| --- | --- |
-| [`omp-studio-<version>-setup.exe`](https://github.com/DawnJson/omp-studio/releases/latest) | [`omp-studio-<version>-arm64.dmg`](https://github.com/DawnJson/omp-studio/releases/latest)<br>[`omp-studio-<version>-arm64-mac.zip`](https://github.com/DawnJson/omp-studio/releases/latest) |
+| Windows (x64) | macOS (Apple silicon) | Linux (x64) |
+| --- | --- | --- |
+| [`omp-studio-<version>-setup.exe`](https://github.com/DawnJson/omp-studio/releases/latest) | [`omp-studio-<version>-arm64.dmg`](https://github.com/DawnJson/omp-studio/releases/latest)<br>[`omp-studio-<version>-arm64-mac.zip`](https://github.com/DawnJson/omp-studio/releases/latest) | [`omp-studio-<version>-x86_64.AppImage`](https://github.com/DawnJson/omp-studio/releases/latest) |
 
 ### System requirements
 
-| | Windows | macOS |
-| --- | --- | --- |
-| OS | Windows 10 / 11 | macOS 13 Ventura or later |
-| Chip | x64 | Apple silicon (arm64) |
+| | Windows | macOS | Linux |
+| --- | --- | --- | --- |
+| OS | Windows 10 / 11 | macOS 13 Ventura or later | Built and tested on Ubuntu 24.04 (CI) |
+| Chip | x64 | Apple silicon (arm64) | x64 |
 
 - **Windows**: Double-click the installer and step through the wizard (welcome, license, install location). By default it installs into your user directory and does not need administrator rights. The installer is unsigned, so on first run click "More info → Run anyway" in SmartScreen.
 - **macOS**: Drag `omp-studio.app` into Applications. The app is ad-hoc signed. Before opening it the first time, run `xattr -cr /Applications/omp-studio.app` in Terminal, or click "Open Anyway" in System Settings → Privacy & Security.
+- **Linux**: `chmod +x omp-studio-<version>-x86_64.AppImage`, then run it. libfuse2 is not needed. The AppImage updates itself. Closing the window keeps tasks running; press Ctrl+Q or use the tray menu to quit. On Ubuntu 24.04, AppArmor blocks the user namespaces Chromium's sandbox needs, so the app starts with the sandbox off; [`docs/architecture/linux.md`](docs/architecture/linux.md) has an AppArmor profile that keeps it on.
 
-Linux and Intel Macs are not supported yet. Problems and suggestions are welcome in [Issues](https://github.com/DawnJson/omp-studio/issues).
+Intel Macs are not supported yet. Problems and suggestions are welcome in [Issues](https://github.com/DawnJson/omp-studio/issues).
 
 ## Screenshots
 
@@ -110,7 +111,7 @@ omp-studio looks for omp on PATH at startup. An omp that omp-studio manages chec
 
 ## Development
 
-Requires Node.js 24 or later. Run `npm run dist:mac` on macOS.
+Requires Node.js 24 or later. Run `npm run dist:mac` on macOS and `npm run dist:linux` on Linux.
 
 ```powershell
 npm ci
@@ -118,6 +119,7 @@ npm run dev        # development with hot reload
 npm test           # unit tests (Vitest)
 npm run dist       # Windows NSIS installer, written to release/
 npm run dist:mac   # macOS arm64 dmg and zip, written to release/
+npm run dist:linux # Linux x64 AppImage, written to release/
 ```
 
 Architecture docs are in [`docs/architecture/`](docs/architecture/), the UI spec in [`docs/design/spec.md`](docs/design/spec.md), and version history in [`CHANGELOG.md`](CHANGELOG.md).

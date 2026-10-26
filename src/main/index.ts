@@ -61,7 +61,8 @@ if (!app.requestSingleInstanceLock()) {
     loadSettings();
     // 账号型 provider 的扩展写进 omp 的扩展目录：要在起任何 omp 之前，之后的 omp 进程自动加载它。
     await prepareAccountExtension();
-    // mac 从 Finder 启动时 PATH 只有系统目录：先补上登录 shell 的 PATH，之后起的 omp / git / gh 才找得到。只在 darwin 执行，最多等 3 秒。
+    // mac / Linux 从桌面启动时 PATH 缺用户 shell 配置里加的目录：先补上登录 shell 的 PATH，之后起的 omp / git / gh 才找得到。
+    // Windows 不执行，最多等 3 秒。
     await fixLoginPath();
     registerIpcHandlers();
     createMainWindow();

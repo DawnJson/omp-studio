@@ -1,4 +1,4 @@
-// 打包后检查 app.asar 里装了什么：顶层只能是 out/、package.json、node_modules/，node-pty 只带本平台的预编译件。
+// 打包后检查 app.asar 里装了什么：顶层只能是 out/、package.json、node_modules/，node-pty 只带本平台的原生模块。
 // 0.4.16 的安装包把整个仓库目录（含 .env、日志、截图）打了进去（electron-builder.yml 里 files 的注释），这里挡住再犯。
 // 用法：node scripts/check-package.ts <app.asar 路径> <平台-架构，如 win32-x64>
 import { open } from "node:fs/promises";
@@ -25,8 +25,20 @@ const allowed = new Set(["out", "package.json", "node_modules"]);
 const extra = Object.keys(root.files ?? {}).filter((name) => !allowed.has(name));
 if (extra.length > 0) throw new Error(`app.asar 里有不该打包的东西：${extra.join("、")}`);
 
-const prebuilds = Object.keys(root.files?.["node_modules"]?.files?.["node-pty"]?.files?.["prebuilds"]?.files ?? {});
-if (prebuilds.length !== 1 || prebuilds[0] !== target) {
-  throw new Error(`node-pty 的预编译件应该只有 ${target}，实际是：${prebuilds.join("、") || "（没有）"}`);
+const pty = root.files?.["node_modules"]?.files?.["node-pty"]?.files ?? {};
+const prebuilds = Object.keys(pty["prebuilds"]?.files ?? {});
+const build = pty["build"]?.files ?? {};
+// Linux 没有预编译件（node-pty 1.1.0 只带 win32 / darwin）：npm ci 时 node-gyp 编出 build/Release/pty.node，
+// 包里 build/ 只该有这一个文件，prebuilds/ 一个都不该有。别的平台用 prebuilds/<target>，不该有 build/。
+const native = target.startsWith("linux-")
+  ? prebuilds.length === 0 &&
+    Object.keys(build).join() === "Release" &&
+    Object.keys(build["Release"]?.files ?? {}).join() === "pty.node"
+  : prebuilds.length === 1 && prebuilds[0] === target && Object.keys(build).length === 0;
+if (!native) {
+  throw new Error(
+    `node-pty 的原生模块不对（${target}）：prebuilds/ 有 ${prebuilds.join("、") || "（没有）"}，` +
+      `build/ 有 ${Object.keys(build).join("、") || "（没有）"}`,
+  );
 }
-console.log(`app.asar 检查通过：顶层 ${Object.keys(root.files ?? {}).join("、")}，node-pty 预编译件 ${target}`);
+console.log(`app.asar 检查通过：顶层 ${Object.keys(root.files ?? {}).join("、")}，node-pty 原生模块 ${target}`);

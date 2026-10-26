@@ -8,6 +8,7 @@ import { usePresence } from "../../ui/presence.ts";
 import type { OmpStatus } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { showView, useOmpStatus } from "../../store/index.ts";
+import { usePlatform } from "../../app/platform-keys.ts";
 import { Button, Disclosure } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import "./omp-setup.css";
@@ -68,6 +69,7 @@ export function OmpSetupView() {
   const titleId = useId();
   const bytes = useBytes();
   const status = useOmpStatus();
+  const platform = usePlatform();
   // "打开设置"之后隐藏准备页，直到状态再变化。
   const [dismissed, setDismissed] = useState<OmpStatus | null>(null);
   const showFinding = useDelayedFlag(status?.state === "discovering", FINDING_DELAY_MS);
@@ -108,6 +110,8 @@ export function OmpSetupView() {
       break;
     case "ask_takeover": {
       const other = status.managerName;
+      // 只有 Windows 接管时把新装的 omp 放到用户 PATH 最前面；macOS / Linux 不改 PATH，文案不能说会放进 PATH。
+      const studioOnly = platform !== "win32";
       body = (
         <>
           {title(
@@ -127,9 +131,9 @@ export function OmpSetupView() {
           )}
           <p className="setup-text">
             {other !== null
-              ? t("omp.takeover.otherBody", { name: other })
+              ? t(studioOnly ? "omp.takeover.otherBodyStudioOnly" : "omp.takeover.otherBody", { name: other })
               : status.launchable
-                ? t("omp.takeover.exeBody")
+                ? t(studioOnly ? "omp.takeover.exeBodyStudioOnly" : "omp.takeover.exeBody")
                 : t("omp.takeover.body")}
           </p>
           <p className="setup-path">{t("omp.takeover.where", { path: status.path })}</p>

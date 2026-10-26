@@ -1,6 +1,7 @@
 // 从 Finder / Dock 启动的 mac 应用，PATH 只有 /usr/bin:/bin:/usr/sbin:/sbin，找不到 Homebrew、bun、~/.local/bin 里的 omp / git / gh。
-// 启动时问一次用户的登录 shell，把它的 PATH 合并进 process.env.PATH。
-// 没有在 mac 上实测（推测）。见 docs/architecture/terminal.md "macOS 的 PATH"。
+// Linux 从桌面（应用菜单、文件管理器）启动时 PATH 来自桌面会话，通常只读过 ~/.profile、没读 ~/.bashrc / ~/.zshrc：
+// bun 这类安装脚本写进 rc 文件的目录同样缺。启动时问一次用户的登录 shell，把它的 PATH 合并进 process.env.PATH。
+// mac 没有实测（推测）。见 docs/architecture/terminal.md "macOS / Linux 的 PATH"。
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { log } from "../../log/log.ts";
@@ -50,12 +51,12 @@ function runLoginShell(shell: string): Promise<string> {
 }
 
 /**
- * 只在 darwin 执行：用 $SHELL（没有就 /bin/zsh）取登录 shell 的 PATH 并合并进 process.env.PATH。
+ * 只在 darwin / linux 执行：用 $SHELL（没有就 mac 的 /bin/zsh、Linux 的 /bin/bash）取登录 shell 的 PATH 并合并进 process.env.PATH。
  * 最多等 3 秒；超时或失败记日志，继续用原 PATH。
  */
 export async function fixLoginPath(platform: NodeJS.Platform = process.platform): Promise<void> {
-  if (platform !== "darwin") return;
-  const shell = process.env["SHELL"] || "/bin/zsh";
+  if (platform !== "darwin" && platform !== "linux") return;
+  const shell = process.env["SHELL"] || (platform === "darwin" ? "/bin/zsh" : "/bin/bash");
   try {
     const loginPath = parseLoginPath(await runLoginShell(shell));
     if (loginPath === null) {

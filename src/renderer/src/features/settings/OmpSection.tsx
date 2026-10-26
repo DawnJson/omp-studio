@@ -150,8 +150,8 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
             </span>
           )}
         </Row>
-        {/* mac 没有"用户 PATH"可改（主进程 userPath 为 null），按钮点了只会报错，所以不显示。 */}
-        {source.kind === "studio_managed" && !source.onUserPath && platform !== "darwin" && (
+        {/* 只有 Windows 有"用户 PATH"可改（主进程 userPath 在 mac / Linux 上为 null），别处按钮点了只会报错，所以不显示。 */}
+        {source.kind === "studio_managed" && !source.onUserPath && platform === "win32" && (
           <Row label={t("omp.addPath")} info={t("omp.addPath.note")}>
             {() => (
               <Button

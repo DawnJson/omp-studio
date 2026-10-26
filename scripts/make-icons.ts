@@ -4,6 +4,7 @@
 //   resources/tray.png：托盘图标，64×64 透明底，π 每像素 4×4；系统缩到 16 / 32 时正好整数倍。
 //   resources/icon.icns：macOS 应用图标（ic07–ic14 的 PNG 条目，32–1024），画法同 icon.ico。
 //   resources/trayTemplate.png / trayTemplate@2x.png：macOS 菜单栏模板图（18 / 36px），只有黑色 + alpha，不画淡影。
+//   resources/icon.png：Linux 的应用图标（512×512，AppImage 和窗口图标），画法同 icon.ico。
 //   docs/images/icon.png：README 顶部的图标，256×256，画法同 icon.ico。
 //   resources/installerSidebar.bmp / installerHeader.bmp：Windows 安装向导的侧边大图和标题横幅（见 wizardImage）。
 // 用法：node scripts/make-icons.ts（改了 pixel-pi.ts 之后重跑）。
@@ -222,6 +223,7 @@ const icnsEntries = [
 await writeFile(path.join(root, "resources", "icon.ico"), ico(sizes.map((size) => ({ size, png: markIcon(size) }))));
 await writeFile(path.join(root, "resources", "tray.png"), markIcon(64));
 await writeFile(path.join(root, "resources", "icon.icns"), icns(icnsEntries));
+await writeFile(path.join(root, "resources", "icon.png"), markIcon(512));
 await writeFile(path.join(root, "resources", "trayTemplate.png"), markIcon(18, true));
 await writeFile(path.join(root, "resources", "trayTemplate@2x.png"), markIcon(36, true));
 await writeFile(path.join(root, "docs", "images", "icon.png"), markIcon(256));
@@ -229,6 +231,6 @@ await writeFile(path.join(root, "resources", "installerSidebar.bmp"), sidebar);
 await writeFile(path.join(root, "resources", "installerHeader.bmp"), header);
 console.log(
   `resources/icon.ico（${sizes.join("、")}）、tray.png（64）、icon.icns（${icnsEntries.map((e) => e.type).join("、")}）、` +
-    "trayTemplate.png（18）、trayTemplate@2x.png（36）、docs/images/icon.png（256）、" +
+    "icon.png（512）、trayTemplate.png（18）、trayTemplate@2x.png（36）、docs/images/icon.png（256）、" +
     "installerSidebar.bmp（164×314）和 installerHeader.bmp（150×57）已生成",
 );

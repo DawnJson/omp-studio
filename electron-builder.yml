@@ -11,12 +11,18 @@ electronLanguages:
 files:
   - out/**
   - package.json
-  # node-pty 只需要 lib 和当前平台的预编译件：源码、依赖库、其它平台的预编译件和调试符号不打进包。
+  # node-pty 只需要 lib 和当前平台的原生模块：源码、依赖库、其它平台的预编译件和调试符号不打进包。
   # 其它平台按宏排除（${platform}-${arch} 在 Windows 包里是 win32-x64，mac 包里是 darwin-arm64）。
-  # 不要在 win: / mac: 下面再写 files：平台级的 files 会整个顶替这一份（不是合并），只剩排除规则时 electron-builder
+  # Linux 没有预编译件（node-pty 1.1.0 只带 win32 / darwin），npm ci 时 node-gyp 编出 build/Release/pty.node：
+  # build/ 里只留它，编译中间文件不打包（Windows / mac 没有 build/，这几条不起作用）。
+  # 不要在 win: / mac: / linux: 下面再写 files：平台级的 files 会整个顶替这一份（不是合并），只剩排除规则时 electron-builder
   # 退回 **/*，把整个仓库目录（含 .env、日志、截图）打进 asar（0.4.16 出过一次，2026-10-25 实测）。
   - "!node_modules/node-pty/{src,deps,third_party,scripts}/**"
   - "!node_modules/node-pty/prebuilds/!(${platform}-${arch})/**"
+  - "!node_modules/node-pty/build/!(Release)"
+  - "!node_modules/node-pty/build/!(Release)/**"
+  - "!node_modules/node-pty/build/Release/!(pty.node)"
+  - "!node_modules/node-pty/build/Release/!(pty.node)/**"
   - "!node_modules/node-pty/**/*.test.js*"
   - "!node_modules/node-pty/**/*.pdb"
 # node-pty 的原生 .node、conpty 辅助文件、spawn-helper 和 worker 脚本都要在真实文件系统里（不能留在 asar 里）。
@@ -25,7 +31,7 @@ asarUnpack:
 # node-pty 用自带的预编译件（prebuilds/<平台>-<架构>，N-API，Windows 上 Electron 44 实测可直接加载）；
 # 默认的 @electron/rebuild 会尝试从源码编译，没有 VS 工具链的机器上会失败。
 npmRebuild: false
-# 平台无关的额外资源。托盘图标和窗口图标按平台放在 win.extraResources / mac.extraResources。
+# 平台无关的额外资源。托盘图标和窗口图标按平台放在 win / mac / linux 的 extraResources。
 # 顶层和平台级的 extraResources 是合并的（打包产物里 licenses/ 和 tray.png 都在）；files 不是，见上。
 # 图标文件都由 scripts/make-icons.ts 从 src/shared/ui/pixel-pi.ts 生成。
 extraResources:
@@ -77,7 +83,29 @@ mac:
   identity: "-"
   # macOptions.d.ts：hardenedRuntime 默认 true，与 ad-hoc 签名一起会强制库校验，加载未同证书签名的 pty.node 会失败；不公证也用不上它。
   hardenedRuntime: false
-# 自动更新只认 Windows 安装版（NSIS）。向导式安装（仓库所有者 2026-10-25 定）：欢迎 → 许可协议 → 安装目录 → 安装 → 完成，
+# Linux：只出 x64 AppImage（仓库所有者 2026-10-26 定），自动更新读 Release 里的 latest-linux.yml（见 docs/architecture/linux.md）。
+# 必须在 Linux 上打（node-pty 要在本机编译），由 .github/workflows/linux.yml 在 ubuntu 机器上打。
+linux:
+  icon: resources/icon.png
+  category: Development
+  executableName: omp-studio
+  synopsis: Desktop app for oh-my-pi (omp)
+  target:
+    - target: AppImage
+      arch: x64
+  # 托盘图标和窗口图标（Linux 的窗口图标要 png，main-window.ts 从 resources 读）。
+  extraResources:
+    - from: resources/tray.png
+      to: tray.png
+    - from: resources/icon.png
+      to: icon.png
+appImage:
+  artifactName: ${name}-${version}-x86_64.${ext}
+# AppImage 的运行时用静态版（toolsets.appimage 1.0.3，内置 FUSE），不依赖系统的 libfuse2：
+# Ubuntu 22.04 起默认不装 libfuse2，旧版运行时在那里直接报 "AppImages require FUSE to run"（2026-10-26 在 ubuntu-24.04 上实测，见 docs/architecture/linux.md）。
+toolsets:
+  appimage: "1.0.3"
+# Windows 的 NSIS 安装器：向导式安装（仓库所有者 2026-10-25 定）：欢迎 → 许可协议 → 安装目录 → 安装 → 完成，
 # 补充的页面和"只装给当前用户"在 resources/installer.nsh；装到用户目录，不需要管理员权限。自动更新时静默运行，不显示页面。
 # 向导图片由 scripts/make-icons.ts 生成；安装器界面语言跟系统走（中文系统中文，其余英文）。
 nsis:
@@ -94,7 +122,8 @@ nsis:
 # 应用从最新的正式 Release 里读 latest.yml，再下载同一个 Release 里的安装包（有上一版的 .blockmap 时只下变了的块）。
 # 只在仓库公开时能用：私有仓库的 Releases 要 token，不能写进应用。发版上传哪些文件见 scripts/publish-release.ts。
 # 打包一律 --publish never，不让 electron-builder 自己上传。
-# 顶层 publish 对 mac 也生效（mac 包里也会有 app-update.yml），但主进程在 mac 上不检查更新（见 docs/architecture/mac.md）。
+# 顶层 publish 对 mac / linux 也生效（包里也会有 app-update.yml）。主进程在 mac 上不检查更新（见 docs/architecture/mac.md）；
+# Linux 的 AppImage 照常检查，读 latest-linux.yml。
 publish:
   provider: github
   owner: DawnJson

@@ -62,6 +62,10 @@ jobs:
           codesign -dv "$app" 2>&1 | grep -E "Signature|Identifier"
           plutil -p "$app/Contents/Info.plist" | grep -E "CFBundleName|CFBundleShortVersionString"
 
+      # 打包版才有的问题（如启动时窗口一直透明，见 scripts/smoke-packaged.ts）上面的 e2e 测不到：启动打包好的应用，等窗口淡入。
+      - name: 打包版冒烟
+        run: node scripts/smoke-packaged.ts release/mac-arm64/omp-studio.app/Contents/MacOS/omp-studio
+
       - name: 传到 GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:

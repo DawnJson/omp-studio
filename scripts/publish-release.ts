@@ -1,7 +1,7 @@
 // 把安装包传到 GitHub Releases 的 v<版本>：没有这个 Release 就先建（说明取 CHANGELOG.md 里这个版本的一节），再上传文件（同名覆盖）。
 // 用法：node scripts/publish-release.ts <版本> <文件...>
 // Windows 在本机推送 tag 后传 latest.yml、安装包和 .blockmap（应用的自动更新读这个 Release 里的 latest.yml，见 electron-builder.yml 的 publish）；
-// macOS 的 dmg / zip 由 .github/workflows/mac.yml 在推 tag 时传。两边谁先到谁建 Release。
+// macOS 的 dmg / zip 由 .github/workflows/mac.yml、Linux 的 AppImage 和 latest-linux.yml 由 .github/workflows/linux.yml 在推 tag 时传。谁先到谁建 Release。
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";

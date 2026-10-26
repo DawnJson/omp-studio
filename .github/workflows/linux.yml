@@ -1,0 +1,93 @@
+# Linux 版（x64 AppImage）：在 GitHub 的 ubuntu 机器上跑单测、一条真正发 prompt 的 e2e，打 AppImage 作为构建产物。
+# 推版本 tag 时还把 AppImage 和 latest-linux.yml 传到这个版本的 GitHub Release（scripts/publish-release.ts），
+# 装着的 AppImage 从那里自动更新（docs/architecture/linux.md）。
+# 推到 main、推版本 tag 或手动触发时跑；同一分支连推时只留最新一次。
+name: linux
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # node-pty 没有 Linux 预编译件，npm ci 时用 node-gyp 编译（runner 自带 python3、make、g++）。
+      - run: npm ci
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 单测
+        run: npx vitest run
+
+      - name: 构建
+        run: npm run build
+
+      # Ubuntu 24.04 默认不许非特权进程建 user namespace，Electron（Chromium 沙箱）起不来；只在这台 CI 机器上放开。
+      # 用户机器上的情况和处理见 docs/architecture/linux.md "Chromium 沙箱"。
+      - name: 允许 Chromium 沙箱
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      # 真实的 node-pty + TSP 路径：假 omp 回放录制，发一句 prompt 跑完一整轮（不需要真模型）。没有显示器，用 xvfb。
+      - name: e2e 冒烟
+        run: xvfb-run -a npx playwright test test/e2e/tsp.e2e.ts -g "完整一轮"
+
+      - name: 打包
+        run: npx electron-builder --linux AppImage --x64 --publish never
+
+      # 包里该有的东西：app.asar 只有 out/、package.json、node_modules/，node-pty 只有编出来的 build/Release/pty.node
+      # （scripts/check-package.ts）；AppImage 和自动更新要读的 latest-linux.yml 都在。
+      - name: 检查产物
+        run: |
+          node scripts/check-package.ts release/linux-unpacked/resources/app.asar linux-x64
+          pty="release/linux-unpacked/resources/app.asar.unpacked/node_modules/node-pty"
+          ls -lR "$pty/build"
+          test -f "$pty/build/Release/pty.node"
+          test ! -e "$pty/prebuilds/win32-x64"
+          ls -l release/*.AppImage
+          test -x release/*.AppImage
+          cat release/latest-linux.yml
+
+      # 打包版才有的问题（如启动时窗口一直透明，见 scripts/smoke-packaged.ts）上面的 e2e 测不到：启动打包好的应用，等窗口淡入。
+      - name: 打包版冒烟
+        run: xvfb-run -a node scripts/smoke-packaged.ts release/linux-unpacked/omp-studio
+
+      - name: 传到 GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publish-release.ts "${GITHUB_REF_NAME#v}" release/*.AppImage release/latest-linux.yml
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: omp-studio-linux-x64
+          if-no-files-found: ignore
+          retention-days: 14
+          path: release/*.AppImage
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/

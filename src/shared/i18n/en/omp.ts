@@ -23,6 +23,11 @@ export const omp = {
   "takeover.otherTitle": "Found an omp managed by {name}",
   "takeover.otherBody":
     "omp-studio can install an official copy and put it first on your user PATH. {name}'s copy stays, just no longer first.",
+  // macOS / Linux：接管不改 PATH（没有用户 PATH 可写），新装的那份只给 omp-studio 自己用。
+  "takeover.exeBodyStudioOnly":
+    "omp-studio can install an official copy for its own use. Your existing install, and the omp your terminal runs, stay as they are.",
+  "takeover.otherBodyStudioOnly":
+    "omp-studio can install an official copy for its own use. {name}'s copy, and the omp your terminal runs, stay as they are.",
   "takeover.keepOther": "Keep using {name}'s",
   "takeover.where": "Location: {path}",
   "takeover.yes": "Let omp-studio manage it",

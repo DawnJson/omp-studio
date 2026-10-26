@@ -16,4 +16,7 @@ export const notify = {
   "tray.stillRunning.body": "关闭窗口不会中止任务。要退出，请右键托盘图标，选择“退出”。",
   "tray.stillRunning.titleMac": "omp-studio 仍在菜单栏运行",
   "tray.stillRunning.bodyMac": "关闭窗口不会中止任务。要退出，请按 ⌘Q，或点菜单栏图标选择“退出”。",
+  "tray.stillRunning.titleLinux": "omp-studio 仍在后台运行",
+  "tray.stillRunning.bodyLinux":
+    "关闭窗口不会中止任务。要退出，请按 Ctrl+Q，或在托盘图标的菜单里选择“退出”。再次打开 omp-studio 即可找回窗口。",
 } satisfies Record<string, MessageEntry>;
