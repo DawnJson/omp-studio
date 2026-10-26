@@ -11,6 +11,7 @@ import { setEnvKey } from "../omp-config/models-file.ts";
 import { envSourceOf, readEnvText } from "../omp-config/env-file.ts";
 import { readyOmp } from "../omp-manager/index.ts";
 import { answerLoginInput, cancelLogin, startLogin } from "../service/login.ts";
+import { accountExtensionArgs } from "../client-accounts/extension-path.ts";
 import { terminalLogin } from "../login/terminal-login-instance.ts";
 import { listModelOptions } from "../service/default-model.ts";
 import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
@@ -45,7 +46,7 @@ export const accountHandlers: HandlerGroup<
   listModels: () => listModelOptions(),
   listRunnerModels: async () => {
     const run = runOmpCommand(readyOmp().path, await serviceCwd(), MODELS_TIMEOUT_MS);
-    const result = await run(["models", "--kind", "all", "--json"]);
+    const result = await run(["models", "--kind", "all", "--json", ...accountExtensionArgs()]);
     requireSuccess("omp models", result);
     return parseRunnerModels(result.stdout);
   },

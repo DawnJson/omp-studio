@@ -1,7 +1,7 @@
 // 一个按需启动、空闲后关闭的 `omp --mode rpc-ui --no-session` 进程：服务进程（service-omp.ts）和项目目录里的短命进程
 // （project-omp.ts）共用。进程放进应用的 Job Object（Runtime 的约定），所有退出路径都经 close()。
 // 不依赖 electron：cwd、启动参数、Job 都由调用方注入，单元测试可以直接用 fake omp。
-import { OmpConnection, type OmpLaunch } from "../omp/omp-connection.ts";
+import { OmpConnection, OmpExitedError, type OmpExit, type OmpLaunch } from "../omp/omp-connection.ts";
 
 export interface IdleOmpOptions {
   /** 启动前取 cwd（可以做 mkdir 之类的准备）。 */
@@ -14,6 +14,8 @@ export interface IdleOmpOptions {
   idleCloseMs: number;
   /** 刚 spawn、握手还没完成时调用（同步）：在这里挂 `onFrame`，不会漏掉握手期间 omp 主动发出的帧（如 `available_commands_update`）。 */
   onSpawn?: (connection: OmpConnection) => void;
+  /** omp 握手前就退出时调用：返回另一组启动参数就照它再起一次（只一次），返回 null 照原样报错。 */
+  relaunch?: (cwd: string, exit: OmpExit) => Promise<OmpLaunch | null>;
 }
 
 export class IdleOmp {
@@ -42,7 +44,17 @@ export class IdleOmp {
   async #start(): Promise<OmpConnection> {
     const generation = this.#generation;
     const cwd = await this.#options.cwd();
-    const launch = await this.#options.launch(cwd);
+    try {
+      return await this.#spawn(await this.#options.launch(cwd), generation);
+    } catch (error) {
+      if (!(error instanceof OmpExitedError) || !this.#options.relaunch) throw error;
+      const retry = await this.#options.relaunch(cwd, error.exit);
+      if (!retry) throw error;
+      return await this.#spawn(retry, generation);
+    }
+  }
+
+  async #spawn(launch: OmpLaunch, generation: number): Promise<OmpConnection> {
     // 启动准备期间已经 close()（退出、取消登录）：不再起进程。
     if (generation !== this.#generation) throw new Error("the omp process was closed while starting");
     const connection = OmpConnection.spawn(launch);

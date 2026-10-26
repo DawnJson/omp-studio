@@ -46,7 +46,7 @@ flowchart LR
 
 - 源文件（相对 studio 仓库）：`src/main/client-accounts/extension/` —— `studio-accounts.mjs`（入口，列出要加载的插件模块）+ `shim.mjs`（通用宿主：插件 → `pi.registerProvider`）+ `adapter.mjs`（纯映射，能被单测直接 import）+ `adapter.d.mts`（它的类型声明，只给仓库里的 TS 用，不部署）+ `models-cache.mjs` + `vendor/<插件>/`（MIT，原样 vendor）+ `vendor/LICENSE`（magpie 社区仓库的 MIT 全文）+ `NOTICE.md`（每个插件的包名、版本、更新步骤）。
 - 打包：`deploy.ts` 用 `import.meta.glob(..., { query: "?raw", eager: true })` 把 `extension/` 下全部文件（`.d.mts` 除外）的原文并进主进程 bundle，写到 `userData/omp-extensions/accounts-<内容哈希>/`，内容没变就不重写、旧哈希目录删掉。加插件只要把文件放进 `vendor/`、在入口里 import，不用改部署表。**不放进 asar**：omp 是另一个进程，读不了 asar。这样 `electron-builder.yml` 的 `files` 不用改（AGENTS.md「安装包里只有应用本身」）。
-- 加载：`buildOmpArgs`、`buildTspArgs` 和 `runOmpCommand` 统一带 `-e <入口>`（路径由 `extension-path.ts` 的单例给出，启动时 `prepareAccountExtension()` 部署一次；部署失败只记日志，不拦任何功能）。用户自己的 `extensions:` 不受影响（不加 `--no-extensions`）。
+- 加载：`buildOmpArgs`、`buildTspArgs` 带 `-e <入口>`（路径由 `extension-path.ts` 的单例给出，启动时 `prepareAccountExtension()` 部署一次；部署失败只记日志，不拦任何功能）；`omp` 子命令只有 `models`、`usage` 的调用处加 `accountExtensionArgs()`。实测 omp 18.12.6（2026-10-26）：`stats`、`ssh`、`plugin`、`skill`、`config`、`share`、`commit`、`auth` 不认 `-e`，报 `Unknown option '-e'` 退出 1（0.4.24–0.4.27 曾经在 `runOmpCommand` 里给所有子命令都加、`omp commit` 也加：设置页的 SSH、插件、Skills 列表和停用、用量统计、分享会话、"生成提交信息"全都失败）。所以 `omp commit` 看不到这些 provider，commit 角色选了它们的模型时生成不了提交信息。用户自己的 `extensions:` 不受影响（不加 `--no-extensions`）。
 - `vendor/` 原样保留：加进 `.prettierignore` 和 `.oxlintrc.json` 的 `ignorePatterns`，不格式化也不 lint，方便和上游 diff。
 - 写入的目录在 userData（studio 自己的），不是 `~/.omp`。
 
@@ -103,7 +103,7 @@ pi.registerProvider(id, {
 ## 4. studio 侧接线
 
 - `src/main/client-accounts/deploy.ts`：`import.meta.glob` 进来的文件表 → `userData/omp-extensions/accounts-<哈希>/`（原子写不必：内容不变不写，旧哈希目录删）。
-- `src/main/client-accounts/extension-path.ts`：单例。`prepareAccountExtension()` 在 `app.whenReady` 里 await 一次；`buildOmpLaunch` / `buildTspLaunch` 通过 `accountExtensionPath()` 传进 `buildOmpArgs` / `buildTspArgs`；`runOmpCommand`（`omp models`、`omp usage`、`omp auth import`）用 `accountExtensionArgs()` 追加（`omp models`、`omp usage` 也要看到这些 provider）。
+- `src/main/client-accounts/extension-path.ts`：单例。`prepareAccountExtension()` 在 `app.whenReady` 里 await 一次；`buildOmpLaunch` / `buildTspLaunch` 通过 `accountExtensionPath()` 传进 `buildOmpArgs` / `buildTspArgs`；`omp models`（`listRunnerModels`、`refreshModels`）和 `omp usage`（`fetchQuota`）在参数里追加 `accountExtensionArgs()`，`runOmpCommand` 本身不加（见上面"加载"）。
 - 界面：**不改**。provider 出现在 `get_login_providers` 里，`ProviderPickDialog` → `ProviderFlowDialog` 走现有的 OAuth 进度 / 输入 / 取消；登录后 omp 自己 `refreshProvider`，studio 照旧 `serviceOmp.close()` 重读模型列表（`account-handlers.ts` 的 `applyKeyChange`）。
 - 退出登录：现有 `logout` UI，凭据从 agent.db 删掉；模型随进程重启消失。
 - `src/shared/provider-login.ts`：插件的 id 都没写，走"表里没有 → 按 `oauth` 处理"的默认分支（保留登录按钮）。没有 `acceptsApiKey`（`shared/provider-keys.ts` 不列），所以没有"设置 API key"。

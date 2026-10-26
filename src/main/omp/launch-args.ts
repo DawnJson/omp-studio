@@ -11,6 +11,8 @@ export interface LaunchSpec {
   noSession?: boolean;
   /** studio 自带的账号型 provider 扩展入口（绝对路径）；`null` 时不加载。 */
   extension?: string | null;
+  /** `provider/id`：omp 没有任何可用模型时 rpc-ui 会退出，服务进程用它占位（service-omp.ts）。 */
+  model?: string;
 }
 
 /** 只在 `!app.isPackaged` 时由运行时设置，指向 `node test/fake-omp/fake-tsp-omp.ts <录制>`（STUDIO_TEST_OMP）。 */
@@ -41,6 +43,7 @@ export function buildOmpArgs(spec: LaunchSpec): string[] {
   const args = ["--mode", "rpc-ui"];
   if (spec.noSession) args.push("--no-session");
   if (spec.extension) args.push("-e", spec.extension);
+  if (spec.model) args.push("--model", spec.model);
   return args;
 }
 

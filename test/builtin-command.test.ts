@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { OmpConnection } from "../src/main/omp/omp-connection.ts";
+import { OmpConnection, OmpExitedError } from "../src/main/omp/omp-connection.ts";
 import { runBuiltinOn, runCommandText } from "../src/main/service/builtin-command.ts";
 import { IdleOmp } from "../src/main/service/idle-omp.ts";
 import { ProjectOmpPool } from "../src/main/service/project-omp.ts";
@@ -184,6 +184,50 @@ describe("IdleOmp", () => {
       idleCloseMs: 60_000,
     });
     await expect(idle.use(async () => 1)).rejects.toThrow("job failed");
+    await idle.close();
+  });
+
+  // 新装、没有任何可用模型时真 omp 握手前就退出（omp 18.12.6："No default model selected"），服务进程据此换参数再起。
+  const exitsBeforeReady = (cwd: string) => ({
+    command: process.execPath,
+    args: ["-e", "process.stderr.write('No default model selected.'); process.exit(1)"],
+    cwd,
+    env: process.env,
+  });
+
+  it("握手前退出：按 relaunch 给的参数再起一次，操作照常完成", async () => {
+    const file = await fixture([]);
+    const seen: string[] = [];
+    const idle = new IdleOmp({
+      cwd: async () => scratch,
+      launch: async (cwd) => exitsBeforeReady(cwd),
+      relaunch: async (cwd, exit) => {
+        seen.push(exit.stderrTail);
+        return launch(file, cwd);
+      },
+      assignJob: () => {},
+      idleCloseMs: 60_000,
+    });
+    await expect(idle.use(async () => "ok")).resolves.toBe("ok");
+    expect(seen).toEqual(["No default model selected."]);
+    await idle.close();
+  });
+
+  it("relaunch 返回 null：照原样报退出错误，下次 use 重新起", async () => {
+    let launches = 0;
+    const idle = new IdleOmp({
+      cwd: async () => scratch,
+      launch: async (cwd) => {
+        launches++;
+        return exitsBeforeReady(cwd);
+      },
+      relaunch: async () => null,
+      assignJob: () => {},
+      idleCloseMs: 60_000,
+    });
+    await expect(idle.use(async () => 1)).rejects.toBeInstanceOf(OmpExitedError);
+    await expect(idle.use(async () => 1)).rejects.toBeInstanceOf(OmpExitedError);
+    expect(launches).toBe(2);
     await idle.close();
   });
 });

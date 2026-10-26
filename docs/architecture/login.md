@@ -133,6 +133,8 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 
 `serviceOmp.close()`（`IdleOmp.close()`）会递增代号：启动到一半（准备参数、等 ready）时被关掉的进程在 ready 后自己关闭并报错；放进 Job Object 失败的进程立刻关闭，不留下没有兜底的进程。
 
+**没有任何可用模型时**（新装、没登录、环境和 `.env` 里也没有 key）：omp 18.12.6 的 `--mode rpc-ui` 握手前就以 1 退出，stderr `No default model selected. Use /login, set an API key environment variable, ...`（源码 `main.ts`：非交互模式 `!session.model` 就 `process.exit(1)`，没有开关）。服务进程起不来，设置页连 `get_login_providers` 都拿不到，界面只显示"没能读取账号信息：操作没有完成"，也就没法登录（2026-10-26 用户反馈；自定义一个提供商后 omp 有了模型，就好了）。处理：`IdleOmpOptions.relaunch` 在握手前退出时拿到退出信息，`service-omp.ts` 认出这两句（`No default model selected` / `No models available`）就带 `--model anthropic/claude-sonnet-4-5` 再起一次（只一次）。实测（omp 18.12.6，空 agent 目录，key 变量全部去掉）：带内置目录里有的模型能起来，`get_login_providers` 85 个、`get_state.model` 是这个占位、`get_available_models` 0 个，agent 目录里不多写任何配置；目录里没有的模型（`anthropic/does-not-exist`）照样退出。占位起的进程 `serviceHasNoModel()` 为真，`readDefaultModel` 返回 null（界面按"没有默认模型"）。登录、存 key、改自定义提供商后都会关掉服务进程，下次按正常参数起。项目目录的 rpc-ui 池（`project-omp.ts`）没加：没有模型时任务本来也跑不了。e2e：`settings-functional.e2e.ts`「没有任何凭据」把所有 `*_API_KEY` / `*_TOKEN` / `*_KEY` 变量置空。
+
 ## 自定义模型（第三方 API 提供商）：omp 没有写 `models.yml` 的接口
 
 实测/查证（omp 18.12.1，2026-10-18）：

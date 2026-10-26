@@ -90,6 +90,31 @@ test("提供商与账号：再次进入时立即显示上次的结果，不再�
   }
 });
 
+// 新装、一个凭据都没有：omp 18.12.6 的 rpc-ui 没有可用模型时握手前就退出，服务进程要用占位模型再起，
+// 否则设置页拿不到 provider 列表、没法登录（2026-10-26 用户反馈"没能读取账号信息：操作没有完成"）。
+// 开发机环境里有各家 key：全部置空，omp 才是"没有任何可用模型"。
+test("没有任何凭据：设置页照样列出 provider，可以去连接", async () => {
+  const noKeys = Object.fromEntries(
+    Object.keys(process.env)
+      .filter((name) => /_(API_KEY|TOKEN|KEY)$/i.test(name))
+      .map((name) => [name, ""]),
+  );
+  const { launched, agentDir } = await launchSettings(noKeys);
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("settings-nav-providers").click();
+    await expect(page.getByTestId("providers-connect")).toBeEnabled({ timeout: 60_000 });
+    await expect(page.getByTestId("providers")).not.toContainText("没能读取");
+    await page.getByTestId("providers-connect").click();
+    await page.getByTestId("provider-search").fill("kagi");
+    await expect(page.getByTestId("provider-pick").getByTestId("provider-key-kagi")).toBeVisible();
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
 test("填 API key：存进 omp 的凭据库（终端版也用），卡片写“已设置 key”；清除 key 删掉它。只有环境变量的写“已配置”", async () => {
   const { launched, agentDir } = await launchSettings({ TAVILY_API_KEY: "tvly-e2e-env" });
   const storedKeys = () => {

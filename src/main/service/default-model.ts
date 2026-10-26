@@ -6,7 +6,7 @@ import type { DefaultModelInfo, ModelOption } from "../../shared/ipc.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { log } from "../log/log.ts";
 import { toModelOption } from "../tasks/convert.ts";
-import { serviceOmp } from "./service-omp.ts";
+import { serviceHasNoModel, serviceOmp } from "./service-omp.ts";
 import { startupCache } from "./startup-cache-instance.ts";
 
 /** 这些设置变了，默认模型/思考强度可能跟着变。 */
@@ -26,13 +26,15 @@ const reloadDelayMs = 700;
 export async function readDefaultModel(): Promise<DefaultModelInfo | null> {
   try {
     const state = await serviceOmp.use((connection) => connection.request("get_state"));
-    const model: DefaultModelInfo | null = state.model
-      ? {
-          key: { provider: state.model.provider, modelId: state.model.id },
-          name: state.model.name,
-          thinkingLevel: state.thinkingLevel ?? null,
-        }
-      : null;
+    // 占位模型起的服务进程（没有任何可用模型，service-omp.ts）：get_state 的模型不是默认模型。
+    const model: DefaultModelInfo | null =
+      state.model && !serviceHasNoModel()
+        ? {
+            key: { provider: state.model.provider, modelId: state.model.id },
+            name: state.model.name,
+            thinkingLevel: state.thinkingLevel ?? null,
+          }
+        : null;
     startupCache().setDefaultModel(model);
     return model;
   } catch (error) {
