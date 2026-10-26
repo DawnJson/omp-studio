@@ -54,7 +54,7 @@ describe("子代理面板的操作规则", () => {
     expect(canRevive("done")).toBe(false);
   });
 
-  it("点行进入对话：运行 / 空闲 / 挂起 / 被结束（omp 聚焦即复活）；等待中（Hub 里还没有）/ 已完成 / 失败的点行进详情", () => {
+  it("能进入对话（详情头部有“进入对话”）：运行 / 空闲 / 挂起 / 被结束（omp 聚焦即复活）；等待中（Hub 里还没有）/ 已完成 / 失败的没有", () => {
     for (const status of ["running", "idle", "parked", "aborted"] as const) expect(canFocus(status)).toBe(true);
     for (const status of ["pending", "done", "failed"] as const) expect(canFocus(status)).toBe(false);
   });

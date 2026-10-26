@@ -92,7 +92,6 @@
 .agents-item {
   display: flex;
   align-items: center;
-  padding-right: var(--space-1-5);
   border-radius: var(--radius-md);
 }
 .agents-item:hover {
@@ -100,9 +99,6 @@
 }
 .agents-item[data-current="true"] {
   background: var(--accent-soft);
-}
-.agents-row-details {
-  flex: none;
 }
 .agents-row {
   display: flex;

@@ -1,4 +1,4 @@
-// 右栏的子代理面板（spec §4.28，TSP 任务；和文件面板同一栏，同时只开一个）：列表 → 详情（列表下方）→ 插话框（钉在面板底边）。
+// 右栏的子代理面板（spec §4.28，TSP 任务；和文件面板同一栏，同时只开一个）：列表（点行 = 选中）→ 详情（列表下方，"进入对话"在它头部）→ 插话框（钉在面板底边）。
 // 列表直接从 TSP 文档推导（listAgents），所以随 omp 的帧实时更新；插话 / 结束 / 恢复由主进程在后台驱动 omp 的 Agent Hub，
 // 期间面板顶部显示"正在发给 <名字>"，omp 的 Hub 不画出来。
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
@@ -13,7 +13,6 @@ import { AgentDetail } from "./AgentDetail.tsx";
 import { AgentsActivity } from "./AgentsActivity.tsx";
 import { AgentRow } from "./AgentRow.tsx";
 import { canSteer, sameAgents, sortAgents } from "./agent-model.ts";
-import { focusAgent } from "./agents-actions.ts";
 import { closeAgentsPanel, selectAgent } from "./agents-store.ts";
 import { SteerBox } from "./SteerBox.tsx";
 import "../file-preview/file-preview.css";
@@ -157,9 +156,7 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
                 key={agent.name}
                 agent={agent}
                 selected={agent === current}
-                busy={drive !== null}
                 onSelect={() => selectAgent(agent.name)}
-                onFocus={() => void focusAgent(t, taskId, agent.name)}
               />
             ))}
           </ul>

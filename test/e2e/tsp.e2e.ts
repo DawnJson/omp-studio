@@ -1548,12 +1548,8 @@ test("子代理面板:👥 打开右栏面板(不画 omp 的 Hub),列出 Alpha /
     );
     // 同一栏只开一个面板:文件面板没有同时出现。
     await expect(page.getByTestId("file-preview")).toHaveCount(0);
-    // 点行 = 进入对话(见下一条用例);行右端的"详情"按钮才进详情。
-    await panel
-      .locator('[data-testid="agents-row"][data-name="Beta"]')
-      .locator("xpath=..")
-      .getByTestId("agents-row-details")
-      .click();
+    // 点行 = 选中、显示详情(进入对话在详情头部,见下一条用例)。
+    await panel.locator('[data-testid="agents-row"][data-name="Beta"]').click();
     await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Beta");
 
     // 页面里盯着:插话期间"正在发给 Beta"出现过、omp 的 Hub(.tspi-picker)一次也没画过。
@@ -1610,10 +1606,10 @@ test("子代理面板:👥 打开右栏面板(不画 omp 的 Hub),列出 Alpha /
   }
 });
 
-// 点子代理行 = 聚焦它的对话(同 omp Agent Hub 的 Enter;omp 18.12.6):主进程在后台 agents.open → activate(Beta),omp 的 Hub 一帧不画,
-// 聚焦行出现后不恢复;面板收起、焦点回输入框,输入框上方出现"正在给 Beta 发消息";输入框发的话走 sendPrompt(omp 把它 steer 给 Beta),
-// "回到主会话"发 focus:Main。详情从行右端的按钮进,详情头部也有"进入对话"。
-test("子代理面板:点行进入子代理的对话(面板收起、聚焦提示出现、Hub 一帧没画),输入框发的话给 Beta,回到主会话;详情仍可从行上的按钮进", async () => {
+// 点子代理行只选中它、显示详情,不切过去;点详情头部的"进入对话"= 聚焦它的对话(同 omp Agent Hub 的 Enter;omp 18.12.6):
+// 主进程在后台 agents.open → activate(Beta),omp 的 Hub 一帧不画,聚焦行出现后不恢复;面板收起、焦点回输入框,
+// 输入框上方出现"正在给 Beta 发消息";输入框发的话走 sendPrompt(omp 把它 steer 给 Beta),"回到主会话"发 focus:Main。
+test("子代理面板:点行只显示详情、不进入对话;点进入对话才聚焦(面板收起、聚焦提示出现、Hub 一帧没画),输入框发的话给 Beta,回到主会话", async () => {
   test.setTimeout(120_000);
   const steerText = "Also say PINEAPPLE in your final reply.";
   const firstPrompt = String(recordedUserEvents(loadTspFixture("hub-steer"))[0]!.event["text"]);
@@ -1625,14 +1621,16 @@ test("子代理面板:点行进入子代理的对话(面板收起、聚焦提示
     await page.getByTestId("pill-agents").click();
     const panel = page.getByTestId("agents-panel");
     await expect(panel.getByTestId("agents-row")).toHaveCount(2);
-    // 行上有次要入口"详情",点它进详情,面板不收;详情头部有"进入对话"。
+    // 点行:选中 Beta、显示详情,面板不收、什么也不发给 omp。
     const beta = panel.locator('[data-testid="agents-row"][data-name="Beta"]');
-    const betaDetails = beta.locator("xpath=..").getByTestId("agents-row-details");
-    await expect(betaDetails).toHaveAttribute("title", /详情|Details/);
-    await betaDetails.click();
+    await beta.click();
     await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Beta");
+    await expect(beta).toHaveAttribute("aria-current", "true");
     await expect(panel.getByTestId("agents-focus")).toBeVisible();
-    expect((await received()).some((event) => event["ev"] === "activate")).toBe(false);
+    await expect(page.getByTestId("run-focus")).toHaveCount(0);
+    expect((await received()).some((event) => event["act"] === "agents.open" || event["ev"] === "activate")).toBe(
+      false,
+    );
 
     // 盯着页面:驱动期间"正在切到 Beta"出现过,omp 的 Hub 一次也没画。
     await page.evaluate(() => {
@@ -1654,7 +1652,7 @@ test("子代理面板:点行进入子代理的对话(面板收起、聚焦提示
         if (g.document.querySelector('[data-testid="tsp-view"] .tspi-picker')) g.__focus.hub = true;
       }).observe(g.document.documentElement, { subtree: true, childList: true, attributes: true });
     });
-    await beta.click();
+    await panel.getByTestId("agents-focus").click();
     // 假 omp 按录制放帧:收到 agents.open → activate(Beta) 才放出聚焦行;studio 不发 focus:Main(留在聚焦模式)。
     const banner = page.getByTestId("run-focus");
     await expect(banner).toBeVisible({ timeout: 30_000 });
@@ -1771,7 +1769,7 @@ test("子代理完成度(TSP):wait 磁贴画进度环和百分比,子代理面�
     // 同 omp 的 Agent Hub:一打开就有选中项(列表第一个)和它的详情,对话记录默认展开。
     await expect(panel.getByTestId("agents-detail")).toHaveAttribute("data-name", "Alpha");
     await expect(panel.getByTestId("agents-record-toggle")).toHaveAttribute("aria-expanded", "true");
-    await beta.locator("xpath=..").getByTestId("agents-row-details").click();
+    await beta.click();
     await expect(panel.getByTestId("agents-detail")).toContainText("55%");
 
     // Ctx(omp 的 agent.stats.context,录制里 0.0081 起、随回放涨到 8.6K):列表行显示细条 + 百分比,悬停提示带 omp 的 contextLabel("8.xK / 1M")。

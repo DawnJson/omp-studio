@@ -46,8 +46,6 @@ export const agents = {
   focusing: "正在切到 {name}…",
   focus: "进入对话",
   focusTitle: "进入 {name} 的对话",
-  details: "详情",
-  detailsOf: "{name} 的详情",
   steered: "已发给 {name}",
   kill: "结束",
   killConfirm: "结束 {name}？它正在做的事会被中止（之后可以恢复）。",

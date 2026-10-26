@@ -46,8 +46,6 @@ export const agents = {
   focusing: "Switching to {name}…",
   focus: "Open conversation",
   focusTitle: "Open {name}'s conversation",
-  details: "Details",
-  detailsOf: "Details of {name}",
   steered: "Sent to {name}",
   kill: "Kill",
   killConfirm: "Kill {name}? What it is doing will be stopped (you can revive it later).",

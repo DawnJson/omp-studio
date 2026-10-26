@@ -226,11 +226,7 @@ test("聚焦子代理(hub-steer):状态行上方横幅写正在给 Beta 发消�
     await expect(pill).toBeVisible({ timeout: 90_000 });
     await pill.click();
     const panel = page.getByTestId("agents-panel");
-    await panel
-      .locator('[data-testid="agents-row"][data-name="Beta"]')
-      .locator("xpath=..")
-      .getByTestId("agents-row-details")
-      .click();
+    await panel.locator('[data-testid="agents-row"][data-name="Beta"]').click();
     await panel.getByTestId("agents-steer-input").fill("Also say PINEAPPLE in your final reply.");
     await panel.getByTestId("agents-steer-input").press("Enter");
     // 插话期间主进程在后台聚焦 Beta：横幅和占位符跟着出现。
