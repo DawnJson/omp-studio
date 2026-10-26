@@ -9,7 +9,7 @@
 - 持久化：`userData/tasks.json`（`TaskRegistry`，先写临时文件再改名，写盘串行）。`tasks.json` 损坏时 `load` 抛错，不当成空表覆盖。重命名和归档存这里。
 - 记录字段：`id, projectId, sessionFile|null, title, createdAt, updatedAt, archived, model, thinkingLevel, worktreePath, worktreeBranch, worktreeBase`，分叉出的任务另有 `forkFrom`。`updatedAt` 只由用户发消息和一轮结束写入（侧栏按它排序，改名、存会话文件、归档等记账写入不碰它）。
 - 读老记录：`load` 丢掉记录里已经没有意义的 `engine` 字段，其余原样保留；下次保存时落盘。设置文件里残留的 `taskEngine` 在下次写设置时丢掉（`sanitize` 只认已知字段）。
-- `sessionFile`：omp 在启动时就用 `OSC 1337 SetUserVar=omp_session_file=<base64 路径>` 报出路径，但新会话的文件要到第一条回复之后才落盘，所以只在文件存在时才记进任务，并在回合结束、进程退出、关闭时重试。
+- `sessionFile`：omp 在启动时就用 `OSC 1337 SetUserVar=omp_session_file=<base64 路径>` 报出路径，但新会话的文件要到第一条回复之后才落盘，所以只在文件存在时才记进任务；之后每次文档变化（每批帧）、回合结束、进程退出、关闭时重试，记上之后只比一次字符串。2026-10-26 之前只在回合结束、退出、关闭时重试：第一轮跑上几个小时时记录里一直是 null，会话列表（`SessionSummary.taskId` 按记录里的会话文件匹配）就把同一个会话当成另一条列出来；点开它 `TaskPool.resume` 找不到任务，新建一条再 `--resume` 同一个文件，omp 发现文件被别的 omp 进程开着就分叉出新文件（见 [session-history.md](session-history.md) 「终端正在使用同一个会话时恢复」），侧栏出现两条同名任务（`test/task-tsp.test.ts`「一轮进行中」；真实 omp 18.12.6 + `sleep 12` 的一轮实测：还在 running 时就记上了）。
 - 标题：新任务标题是 `""`；第一次 `sendPrompt` 取首条消息第一行（60 字符）；omp 的 OSC 0/2 标题去掉私有区图标后只在"记录里标题为空、是草稿第一句话临时取的、或是上一次采用的 omp 标题"时才覆盖，用户改过名就不再动。**改名只改本地记录**：交互模式没有从外部改会话名的入口，往输入框塞 `/rename` 会混进用户的草稿。不手写 `~/.omp` 里的会话文件。
 - 审批模式不在任务里存：启动时从不传 `--approval-mode`，omp 读自己配置里的 `tools.approvalMode`（项目 `.omp/config.yml` 盖过全局，见 [omp-settings.md](omp-settings.md)「审批模式」）。
 - 归档：关进程，记录保留 `archived:true`；`TaskPool.resume()` 找到同一会话文件的任务会把它恢复成未归档（同一 id）。

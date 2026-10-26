@@ -729,6 +729,9 @@ export class TspRunner {
             this.#notifyWaiters(document);
             this.#syncRestartable();
             this.#syncEditorText(document);
+            // 新会话的文件在第一条回复之后才落盘，第一轮可能跑上几个小时：文件一出现就记进任务，不等这一轮结束。
+            // 否则会话列表把它当成另一条会话列出来，点开就对同一个文件再起一个 omp（omp 会分叉出新文件），侧栏出现两条。
+            void this.#persistSessionFile();
           },
           onSessionFile: (file) => {
             if (gen !== this.#gen) return;

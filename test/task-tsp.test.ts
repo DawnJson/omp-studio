@@ -356,6 +356,25 @@ describe("任务池：TSP 任务", () => {
     expect(again.launches).toEqual([{ sessionFile }]);
   }, 60_000);
 
+  it("会话文件在一轮进行中落盘就记进任务，不等这一轮结束（长的第一轮里会话列表不会把它当成另一条会话）", async () => {
+    const events = approvalEvents();
+    const sessionFile = path.join(scratch, "sessions 二", "first-turn.jsonl");
+    await mkdir(path.dirname(sessionFile), { recursive: true });
+    const h = await harness();
+    h.next.fixture = "approval";
+    // 标题 OSC 紧跟在会话文件 OSC 后面发：标题到了，说明 omp 报路径的那一下（文件还没有）已经处理完。
+    h.next.env = { FAKE_TSP_SESSION_FILE: sessionFile, FAKE_TSP_TITLE: "第一轮 很长" };
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle" && state.title === "第一轮 很长");
+    expect(h.registry.findTask(created.id)?.sessionFile).toBeNull();
+
+    // 第一条消息之后 omp 写出文件；这一轮停在审批门上（不批准就不会结束）。
+    await writeFile(sessionFile, "{}\n");
+    await h.pool.sendPrompt(created.id, { text: events.text, whenBusy: "steer" });
+    const saved = await h.events.until(created.id, () => h.registry.findTask(created.id)?.sessionFile === sessionFile);
+    expect(saved.lastTurn).toBeNull();
+  }, 60_000);
+
   it("runTaskCommand：TSP 任务把命令文本当 send 发给 omp，返回 omp 的状态 toast（omp 18.12.5 录制 slash-status）", async () => {
     const h = await harness();
     h.next.fixture = "slash-status";
