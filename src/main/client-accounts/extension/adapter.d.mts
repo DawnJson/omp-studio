@@ -66,8 +66,13 @@ export interface AccountUsageReport {
   provider: string;
   fetchedAt: number;
   limits: AccountUsageLimit[];
+  resetCredits?: {
+    availableCount: number;
+    redeemableCount: number;
+    credits?: { title?: string; remainingCount: number; usable: boolean; expiresAt?: string }[];
+  };
   notes?: string[];
-  metadata: { planType?: string; email?: string; user?: string };
+  metadata: { planType?: string; planEndsAt?: number; autoRenew?: boolean; email?: string; user?: string };
 }
 
 export declare function usageReport(provider: string, result: unknown, now?: number): AccountUsageReport | null;

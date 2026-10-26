@@ -104,7 +104,8 @@ export function parseResetCredits(raw: unknown, now: number): QuotaResetCredits 
 /**
  * `omp usage --json` → 按（provider, 账号）分组的额度。结构不认识的条目跳过，不抛错。
  * 字段来源：packages/ai/src/usage.ts 的 UsageReport 类型和 `omp usage --json` 的源码（packages/coding-agent/src/cli/usage-cli.ts）；
- * `planType` 只有 openai-codex 的 report 在 metadata 里带（`metadata.planType`），别的 provider 为 null；
+ * `planType`：openai-codex 和内置账号插件（`client-accounts/extension/adapter.mjs` 的 `usageReport`）在 metadata 里带，别的 provider 为 null；
+ * `planEndsAt`（套餐到期 / 续费时间，毫秒）、`autoRenew` 只有内置账号插件带，是 studio 自己约定的字段，omp 不认也不显示。
  * `daybreak` = `metadata.daybreak === true`。resetCredits / planType / daybreak 没有订阅账号实测过 [推测：按源码类型写]。
  */
 export function parseQuota(json: unknown, now: number = Date.now()): QuotaSnapshot {
@@ -125,6 +126,8 @@ export function parseQuota(json: unknown, now: number = Date.now()): QuotaSnapsh
       notes: list(report["notes"]).filter((note): note is string => typeof note === "string"),
       fetchedAt: num(report["fetchedAt"]),
       planType: str(metadata["planType"]),
+      planEndsAt: num(metadata["planEndsAt"]),
+      autoRenew: typeof metadata["autoRenew"] === "boolean" ? metadata["autoRenew"] : null,
       daybreak: metadata["daybreak"] === true,
       resetCredits: parseResetCredits(report["resetCredits"], now),
     });

@@ -152,11 +152,39 @@ function usageTime(value) {
 }
 
 /**
+ * 插件的 `resets`（`{ count, until?, each?: [{ until?, window? }] }`，攒下的、随时能用的额度重置）→ omp 的 `resetCredits`。
+ * 一次重置一条明细，带到期时间和窗口名；没有逐条明细时用 `until`（最近到期）记一条。没有可用的重置时返回 undefined。
+ */
+function resetCreditsOf(resets) {
+  if (!resets || typeof resets !== "object") return undefined;
+  const count = finite(resets.count) ? Math.max(0, Math.trunc(resets.count)) : 0;
+  if (count === 0) return undefined;
+  const expiry = (value) => {
+    const at = usageTime(value);
+    return at !== undefined ? { expiresAt: new Date(at).toISOString() } : {};
+  };
+  const each = Array.isArray(resets.each) ? resets.each.filter((reset) => reset && typeof reset === "object") : [];
+  const credits =
+    each.length > 0
+      ? each.map((reset) => ({
+          ...(text(reset.window) ? { title: text(reset.window) } : {}),
+          remainingCount: 1,
+          usable: true,
+          ...expiry(reset.until),
+        }))
+      : usageTime(resets.until) !== undefined
+        ? [{ remainingCount: count, usable: true, ...expiry(resets.until) }]
+        : [];
+  return { availableCount: count, redeemableCount: count, ...(credits.length > 0 ? { credits } : {}) };
+}
+
+/**
  * 插件 `auth.usage(getAuth, provider)` 的结果 → omp 的 `UsageReport`（`@oh-my-pi/pi-ai` 的 `usage.ts`）。
- * 插件的契约是 magpie 的（`internal/plugin/host.js` 的 `usageOf`）：`{ plan?, user?, balance?（余额，一段文字）, error?,
- * windows: [{ name, used?（已用百分比 0-100，缺了是"没说"不是 0）, resetsAt?, resetSecs?, span?（秒）, display?,
- * amount?, limit?, unit?, aside?（用完也不挡账号） }] }`。
- * 插件报错时抛出（omp 把这个账号列进"取不到用量"）；套餐、窗口、余额都没有时返回 null。
+ * 插件的契约是 magpie 的（`internal/plugin/host.js` 的 `usageOf`）：`{ plan?, user?, until?（套餐到期）, renew?（"auto" | "off"）,
+ * balance?（余额，一段文字）, resets?（见 resetCreditsOf）, error?, windows: [{ name, used?（已用百分比 0-100，缺了是"没说"不是 0）,
+ * resetsAt?, resetSecs?, span?（秒）, display?, amount?, limit?, unit?, aside?（用完也不挡账号） }] }`。
+ * 套餐到期、自动续费 omp 没有对应字段，放进 `metadata.planEndsAt`（毫秒）/ `metadata.autoRenew`，studio 的用量对话框读它们。
+ * 插件报错时抛出（omp 把这个账号列进"取不到用量"）；套餐、窗口、余额、重置都没有时返回 null。
  */
 export function usageReport(provider, result, now = Date.now()) {
   if (!result || typeof result !== "object") throw new Error(`${provider}: the plugin returned no usage`);
@@ -222,12 +250,22 @@ export function usageReport(provider, result, now = Date.now()) {
   const plan = text(result.plan);
   // 按量付费的账号（MiniMax、AutoClaw、Raccoon…）只有余额没有窗口：余额放进报告的说明，对话框里账号下面一行字。
   const balance = finite(result.balance) ? String(result.balance) : text(result.balance);
-  if (limits.length === 0 && !plan && !balance) return null;
+  const resetCredits = resetCreditsOf(result.resets);
+  if (limits.length === 0 && !plan && !balance && !resetCredits) return null;
   const user = text(result.user);
   const metadata = {
     ...(plan ? { planType: plan } : {}),
+    ...(usageTime(result.until) !== undefined ? { planEndsAt: usageTime(result.until) } : {}),
+    ...(result.renew === "auto" || result.renew === "off" ? { autoRenew: result.renew === "auto" } : {}),
     // omp 和 studio 都拿 email 认账号；插件给的不是邮箱（多是昵称）时另放，不冒充邮箱。
     ...(user ? (user.includes("@") ? { email: user } : { user }) : {}),
   };
-  return { provider, fetchedAt: now, limits, ...(balance ? { notes: [`Balance: ${balance}`] } : {}), metadata };
+  return {
+    provider,
+    fetchedAt: now,
+    limits,
+    ...(resetCredits ? { resetCredits } : {}),
+    ...(balance ? { notes: [`Balance: ${balance}`] } : {}),
+    metadata,
+  };
 }

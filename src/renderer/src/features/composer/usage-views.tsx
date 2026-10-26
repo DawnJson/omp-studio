@@ -134,9 +134,25 @@ function ResetCreditsBadge({ credits }: { credits: QuotaResetCredits }) {
   );
 }
 
-/** 一个账号一块：左边状态点 + provider（套餐 / Daybreak）+ 账号 + 备注 + 重置券，右边是各窗口的行。 */
+/** 套餐到期 / 续费：自动续费的写"某日续费"，不续费的写"某日到期 · 不自动续费"，过了的写"已于某日到期"；只知道续不续费时只写这一句。 */
+function planTermText(account: QuotaAccount, now: number, t: ReturnType<typeof useT>): string | null {
+  const { planEndsAt, autoRenew } = account;
+  if (planEndsAt === null) {
+    if (autoRenew === null) return null;
+    return t(autoRenew ? "usage.quota.plan.autoRenew" : "usage.quota.plan.noRenew");
+  }
+  const date = dateText(new Date(planEndsAt));
+  if (planEndsAt <= now) return t("usage.quota.plan.ended", { date });
+  if (autoRenew === true) return t("usage.quota.plan.renews", { date });
+  const ends = t("usage.quota.plan.ends", { date });
+  return autoRenew === false ? `${ends} · ${t("usage.quota.plan.noRenew")}` : ends;
+}
+
+/** 一个账号一块：左边状态点 + provider（套餐 / Daybreak）+ 账号 + 套餐到期 / 续费 + 备注 + 重置券，右边是各窗口的行。 */
 export function QuotaBlock({ account }: { account: QuotaAccount }) {
   const t = useT();
+  const now = useNow();
+  const term = planTermText(account, now, t);
   return (
     <section className="uq-block" data-testid="usage-account">
       <div className="uq-block-grid">
@@ -158,6 +174,11 @@ export function QuotaBlock({ account }: { account: QuotaAccount }) {
           {account.account && (
             <span className="uq-muted" title={account.account}>
               {account.account}
+            </span>
+          )}
+          {term !== null && (
+            <span className="uq-muted" title={term} data-testid="usage-plan-term">
+              {term}
             </span>
           )}
           {account.notes.map((note) => (

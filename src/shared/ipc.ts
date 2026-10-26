@@ -782,8 +782,12 @@ export interface QuotaAccount {
   notes: string[];
   /** omp 取到这份用量的时间（毫秒时间戳）；omp 有约 5 分钟缓存，所以可能比"刚读"早。 */
   fetchedAt: number | null;
-  /** 套餐（`metadata.planType`，目前只有 openai-codex 带）。 */
+  /** 套餐（`metadata.planType`；openai-codex 和内置账号插件带）。 */
   planType: string | null;
+  /** 套餐到期 / 下次续费的时间（毫秒时间戳，`metadata.planEndsAt`，内置账号插件带）；不知道时 null。 */
+  planEndsAt: number | null;
+  /** 会不会自动续费（`metadata.autoRenew`）；插件没说时 null。 */
+  autoRenew: boolean | null;
   /** omp 标成 Daybreak 账号（`metadata.daybreak`）。 */
   daybreak: boolean;
   resetCredits: QuotaResetCredits | null;

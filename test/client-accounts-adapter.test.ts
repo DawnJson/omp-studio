@@ -14,6 +14,7 @@ import {
   toPluginAuth,
   usageReport,
 } from "../src/main/client-accounts/extension/adapter.mjs";
+import { parseQuota } from "../src/main/usage/usage-service.ts";
 
 describe("插件导出", () => {
   it("认 makePlugin 的函数和 OpenCode v1 的 { server }，别的导出（常量、_internal）不当插件", () => {
@@ -226,6 +227,40 @@ describe("额度（插件 auth.usage → omp 的 UsageReport）", () => {
     const [limit] =
       usageReport("autoclaw", { windows: [{ name: "Gift", amount: 10, limit: 10, aside: true }] }, now)?.limits ?? [];
     expect(limit?.status).toBe("warning");
+  });
+
+  it("套餐到期、自动续费、攒下的重置经 omp 的报告到 studio 的用量对话框：秒级时间戳认成秒，没说续不续费是 null，0 次重置不显示", () => {
+    const end = Date.UTC(2026, 10, 30);
+    const accounts = (result: unknown) => parseQuota({ reports: [usageReport("zcode", result, now)] }, now).accounts;
+    const [account] = accounts({
+      plan: "Pro",
+      until: end / 1000,
+      renew: "off",
+      resets: {
+        count: 2,
+        until: "2026-11-02T00:00:00Z",
+        each: [
+          { until: "2026-11-02T00:00:00Z", window: "fiveHour" },
+          { until: "2026-11-09T00:00:00Z", window: "weekly" },
+        ],
+      },
+    });
+    expect(account).toMatchObject({ planType: "Pro", planEndsAt: end, autoRenew: false });
+    expect(account?.resetCredits).toMatchObject({
+      bankedCount: 2,
+      redeemableCount: 2,
+      soonestExpiryAt: Date.parse("2026-11-02T00:00:00Z"),
+    });
+    expect(accounts({ plan: "Pro", renew: "auto" })[0]).toMatchObject({ planEndsAt: null, autoRenew: true });
+    expect(accounts({ plan: "Pro", renew: "maybe", resets: { count: 0 } })[0]).toMatchObject({
+      autoRenew: null,
+      resetCredits: null,
+    });
+    // 只有攒下的重置、别的都没有：也算取到了
+    expect(accounts({ resets: { count: 1, until: end } })[0]?.resetCredits).toMatchObject({
+      bankedCount: 1,
+      soonestExpiryAt: end,
+    });
   });
 
   it("插件报错就抛出（omp 把账号列成取不到用量）；什么都没有返回 null；同名窗口 id 不重复；不是邮箱的用户名不当邮箱", () => {

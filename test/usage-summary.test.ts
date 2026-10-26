@@ -86,6 +86,8 @@ const account = (provider: string, limits: QuotaLimit[]): QuotaAccount => ({
   notes: [],
   fetchedAt: 0,
   planType: null,
+  planEndsAt: null,
+  autoRenew: null,
   daybreak: false,
   resetCredits: null,
 });
