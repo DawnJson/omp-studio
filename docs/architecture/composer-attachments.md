@@ -49,7 +49,7 @@ omp 没有文件附件占位符；它读文件靠 `@path` 提及（`@` 补全插
 
 1. 图片写成 `os.tmpdir()/omp-studio-images/<任务 id>/` 下的临时文件（任务移除时删目录）。
 2. 按 `[Image #N, …]` 占位符把消息拆成文字段和图片（`imagePasteParts`；图片后面那段开头的一个空格去掉，omp 的占位自带尾随空格；没被引用的图片接在最后）。期间 `#editorClaims` 让通用回填（`#syncEditorText`）让开；omp 输入框里先有的文字先清掉。
-3. 依次：文字段用 `edit` 追加到 omp 输入框末尾（等文字变了）；图片往 pty 写一次括号粘贴 `ESC[200~"<路径>"ESC[201~`（路径用正斜杠），等输入框上方多一个带 `image` 的 `omp.composer.chip`。omp 弹出新的状态 toast（"Image not found at …"）就以它的原文报错。
+3. 依次：文字段用 `edit` 追加到 omp 输入框末尾（等文字变了）；图片往 pty 写一次括号粘贴 `ESC[200~"<路径>"ESC[201~`（路径用正斜杠），等输入框上方多一个带 `image` 的 `omp.composer.chip`。**只以 chip 出现为成功**；5 秒内没挂上图片时，期间有新的状态 toast 就以最后一条的原文报错（omp 18.13.1 源码里粘贴失败的几种：`Image not found at …`、`Pasted path is not a supported image`、`Failed to read pasted image path` 等），没有就报 `omp did not attach the image`。不能见到新 toast 就报错：新任务的 omp 起来约一秒后会弹 MCP 挂载通知 `xdev: xd://: mounted …`（omp 18.13.1，2026-10-27 实际出过：新任务第一句带图，这条通知正好落在粘贴和挂图之间，消息没发出去），后台作业结束也弹 toast。
 4. `action submit`（`act: "submit"`），等 omp 清空输入框再放开通用回填（否则刚发出的文字会被当成 omp 的预填搬回 studio 的输入框）。
 5. **排队后点 Edit / Esc 撤回带图片的插话**（Edit 是 omp 18.12.6 实测，2026-10-25，`fixtures/tsp/queue-edit-image.jsonl`；Esc 走同一个取回函数，带图片的没有单独录制）：omp 把文字放回它的输入框（图片位置还是图标 + ` #N` 占位），图片重新挂成 `omp.composer.chip`，blob 是发的时候就收到过的那份 webp（不重发）。主进程清空 omp 输入框之前先读出图片（`editorDraft`，`shared/tsp/image-paste.ts`）：按 chip 里 `image` 节点的 `alt`（图标 + ` #N`）把文字里的占位换成 `[Image #k]`，blob 解码成 `PromptImage`；经 `composerPrefill` 事件（Edit、Ctrl+R 等 omp 自己往输入框写的）或停止时的 `steering`（Esc）回到 studio 的输入框，成为附件卡片 + `#1` 芯片。之前只搬文字，图片丢掉、文字里留着 omp 的图标占位。
 

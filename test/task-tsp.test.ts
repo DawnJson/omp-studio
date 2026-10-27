@@ -544,6 +544,62 @@ describe("任务池：TSP 任务", () => {
     expect(readFileSync(staged)).toEqual(Buffer.from([0]));
   }, 60_000);
 
+  /** image-attach 录制改一处：挂图片的那一帧（`omp.composer.chip`）前面插一条状态 toast；`keepChip` 为假时把挂图片的操作删掉。 */
+  async function imageAttachWithToast(dir: string, toast: string, keepChip: boolean): Promise<string> {
+    const lines = readFileSync(path.join(import.meta.dirname, "..", "fixtures", "tsp", "image-attach.jsonl"), "utf8")
+      .split("\n")
+      .filter((line) => line !== "")
+      .map((line) => {
+        if (!line.includes('"omp.composer.chip"')) return line;
+        const entry = JSON.parse(line) as { body: { ops: unknown[][] } };
+        const add = [
+          "add",
+          "zz",
+          "main",
+          null,
+          { id: "zz", k: "toast", p: { text: toast, ttl: 2400, role: "omp.toast.status" } },
+        ];
+        entry.body.ops = [add, ...(keepChip ? entry.body.ops : [])];
+        return JSON.stringify(entry);
+      });
+    const file = path.join(dir, `image-attach-toast-${keepChip ? "chip" : "none"}.jsonl`);
+    await writeFile(file, `${lines.join("\n")}\n`);
+    return file;
+  }
+
+  it("粘贴图片期间 omp 弹出别的 toast（刚起时的 MCP 挂载通知）：照样等图片挂上再提交", async () => {
+    const h = await harness();
+    // 实际出过：新任务第一句带图，omp 起来约一秒后弹 "xdev: xd://: mounted …"，正好落在粘贴和挂图之间，被当成粘贴失败，消息没发出去。
+    h.next.fixture = await imageAttachWithToast(path.dirname(h.log), "xdev: xd://: mounted mcp__demo_search", true);
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await h.pool.sendPrompt(created.id, {
+      text: "Describe the color of this image in one short sentence. [Image #1, 64x64] ",
+      images: [{ mimeType: "image/png", data: "AA==" }],
+      whenBusy: "steer",
+    });
+    await h.events.until(created.id, (state) => state.status === "idle" && state.lastTurn !== null);
+  }, 60_000);
+
+  it("omp 挂不上图片、只弹 toast（Image not found …）：以 toast 原文报错，不提交", async () => {
+    const h = await harness();
+    h.next.fixture = await imageAttachWithToast(path.dirname(h.log), "Image not found at C:/missing.png", false);
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await expect(
+      h.pool.sendPrompt(created.id, {
+        text: "Describe the color of this image in one short sentence. [Image #1, 64x64] ",
+        images: [{ mimeType: "image/png", data: "AA==" }],
+        whenBusy: "steer",
+      }),
+    ).rejects.toThrow("Image not found at C:/missing.png");
+    const submitted = readFileSync(h.log, "utf8")
+      .split("\n")
+      .filter((line) => line !== "")
+      .some((line) => (JSON.parse(line) as LogRecord).body?.["act"] === "submit");
+    expect(submitted).toBe(false);
+  }, 60_000);
+
   it("omp 还没起来时 resizeTsp 不报错，列数记下来，进程起来就用它", async () => {
     const h = await harness();
     const created = await h.pool.createTask({ projectId: h.projectId });

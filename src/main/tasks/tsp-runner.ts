@@ -973,16 +973,18 @@ export class TspRunner {
         }
         const imagesBefore = pendingImageCount(session.document);
         const toastsBefore = statusToastTexts(session.document);
+        let failure: string | undefined;
         session.sendKeys(imagePasteKeys(files[part.index]!));
         await this.#awaitDocument(
           (document) => {
-            // omp 读不了文件时只弹一条状态 toast（"Image not found at …"），不会挂上图片：以它的原文报错。
-            const toast = statusToastTexts(document).find((candidate) => !toastsBefore.includes(candidate));
-            if (toast !== undefined) throw new Error(toast);
+            // omp 读不了文件时只弹一条状态 toast（"Image not found at …" 等），不会挂上图片。但新 toast 不一定是这次粘贴的：
+            // 刚起的 omp 一秒后才弹 MCP 挂载通知（"xdev: xd://: mounted …"），后台作业结束也弹。所以只以挂上图片为准，
+            // 等不到时再以最后一条新 toast 的原文报错。
+            failure = statusToastTexts(document).findLast((candidate) => !toastsBefore.includes(candidate)) ?? failure;
             return pendingImageCount(document) > imagesBefore ? true : null;
           },
           CONFIRM_TIMEOUT_MS,
-          "omp did not attach the image",
+          () => failure ?? "omp did not attach the image",
         );
       }
       session.sendEvent({ ev: "action", sf: target.sf, id: target.id, act: "submit" });
@@ -1081,13 +1083,13 @@ export class TspRunner {
   // ───── 等文档 ─────
 
   /**
-   * 等文档满足 `check`（返回非 null）：现在就满足立刻返回，否则每次文档变化时再查，到时间 reject。
+   * 等文档满足 `check`（返回非 null）：现在就满足立刻返回，否则每次文档变化时再查，到时间 reject（`timeoutMessage` 是函数时到时间才取）。
    * `check` 抛错 = 等不到了（reject）。进程退出、任务移除时所有等待者被 reject。
    */
   #awaitDocument<T>(
     check: (document: TspDocument) => T | null,
     timeoutMs: number,
-    timeoutMessage: string,
+    timeoutMessage: string | (() => string),
     checkNow = true,
   ): Promise<T> {
     const session = this.#session;
@@ -1107,7 +1109,7 @@ export class TspRunner {
       reject,
       timer: setTimeout(() => {
         this.#documentWaiters.delete(waiter);
-        reject(new Error(timeoutMessage));
+        reject(new Error(typeof timeoutMessage === "function" ? timeoutMessage() : timeoutMessage));
       }, timeoutMs),
     };
     this.#documentWaiters.add(waiter);
