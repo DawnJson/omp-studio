@@ -1,102 +1,71 @@
-// Tavily 备用 key：扩展里包的 fetch（src/main/client-accounts/extension/tavily-keys.mjs）额度用完时换 key 重发，
-// 以及主进程写的备用 key 文件（deploy.ts）。真 omp 里换 key 生效的实测见 docs/architecture/client-accounts.md。
-import { mkdtemp, rm } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  ACCOUNT_EXTENSION_FILES,
-  countTavilyBackupKeys,
-  deployAccountExtension,
-  writeTavilyBackupKeys,
-} from "../src/main/client-accounts/deploy.ts";
-import { readBackupKeys, withBackupKeys } from "../src/main/client-accounts/extension/tavily-keys.mjs";
+// Tavily 备用 key 的判断（src/main/tavily/key-credits.ts）：`GET /usage` 的回复怎么算用完，当前 key 用完时换哪一个。
+import { describe, expect, it } from "vitest";
+import { creditsFromUsage, fetchCredits, pickReplacement, type Credits } from "../src/main/tavily/key-credits.ts";
 
-const SEARCH = "https://api.tavily.com/search";
+describe("额度算没算用完", () => {
+  it("套餐用满：用完；还有按量付费额度：没用完", () => {
+    expect(
+      creditsFromUsage({ key: { usage: 1000, limit: null }, account: { plan_usage: 1000, plan_limit: 1000 } }),
+    ).toBe(false);
+    expect(
+      creditsFromUsage({ key: { usage: 1003, limit: null }, account: { plan_usage: 1003, plan_limit: 1000 } }),
+    ).toBe(false);
+    expect(
+      creditsFromUsage({
+        key: { usage: 1000, limit: null },
+        account: { plan_usage: 1000, plan_limit: 1000, paygo_usage: 5, paygo_limit: 100 },
+      }),
+    ).toBe(true);
+    expect(creditsFromUsage({ key: { usage: 396, limit: null }, account: { plan_usage: 396, plan_limit: 1000 } })).toBe(
+      true,
+    );
+  });
 
-/** 假 Tavily：`exhausted` 里的 key 回 432，别的回 200；记下每次请求用的 key。 */
-function fakeTavily(exhausted: readonly string[]) {
-  const used: string[] = [];
-  const fetchImpl = async (input: unknown, init?: RequestInit) => {
-    const key = new Headers(init?.headers).get("authorization")?.replace(/^Bearer /, "") ?? "";
-    used.push(`${String(input)} ${key}`);
-    return new Response(JSON.stringify({ input, body: init?.body }), { status: exhausted.includes(key) ? 432 : 200 });
+  it("key 自己设了上限并用满：用完，哪怕账号套餐还有", () => {
+    expect(creditsFromUsage({ key: { usage: 50, limit: 50 }, account: { plan_usage: 50, plan_limit: 1000 } })).toBe(
+      false,
+    );
+  });
+
+  it("无效 key（401）算用完；断网、限流查不出来算不知道", async () => {
+    const reply = (status: number) => async () => new Response("{}", { status });
+    expect(await fetchCredits("k", reply(401) as typeof fetch)).toBe(false);
+    expect(await fetchCredits("k", reply(429) as typeof fetch)).toBeNull();
+    const offline = (async () => {
+      throw new TypeError("fetch failed");
+    }) as typeof fetch;
+    expect(await fetchCredits("k", offline)).toBeNull();
+  });
+});
+
+describe("换哪个 key", () => {
+  const credits = (table: Record<string, Credits>) => {
+    const asked: string[] = [];
+    const lookup = async (key: string) => {
+      asked.push(key);
+      return table[key] ?? null;
+    };
+    return { lookup, asked };
   };
-  return { fetchImpl, used };
-}
 
-const post = (key: string) => ({
-  method: "POST",
-  headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-  body: '{"query":"q"}',
-});
-
-describe("额度用完换 key", () => {
-  it("当前 key 回 432：同一个请求按顺序换第一个没用完的备用 key 重发，请求体不变", async () => {
-    const tavily = fakeTavily(["k0", "b1"]);
-    const fetch = withBackupKeys(tavily.fetchImpl, () => ["b1", "b2", "b3"]);
-
-    const response = await fetch(SEARCH, post("k0"));
-
-    expect(response.status).toBe(200);
-    expect(((await response.json()) as { body: string }).body).toBe('{"query":"q"}');
-    expect(tavily.used).toEqual([`${SEARCH} k0`, `${SEARCH} b1`, `${SEARCH} b2`]);
+  it("当前 key 还有额度：不换，也不去查备用 key", async () => {
+    const c = credits({ cur: true, b1: true });
+    expect(await pickReplacement("cur", ["b1"], c.lookup)).toBeNull();
+    expect(c.asked).toEqual(["cur"]);
   });
 
-  it("换过之后 omp 还拿用完的 key 来：直接用换上的那个，不再先撞一次 432", async () => {
-    const tavily = fakeTavily(["k0"]);
-    const fetch = withBackupKeys(tavily.fetchImpl, () => ["b1"]);
-    await fetch(SEARCH, post("k0"));
-    tavily.used.length = 0;
-
-    await fetch(SEARCH, post("k0"));
-
-    expect(tavily.used).toEqual([`${SEARCH} b1`]);
+  it("当前 key 用完：按顺序跳过用完的、查不出来的和当前这个，换第一个确定有额度的", async () => {
+    const c = credits({ cur: false, b1: false, b2: null, b3: true, b4: true });
+    expect(await pickReplacement("cur", ["cur", "b1", "b2", "b3", "b4"], c.lookup)).toBe("b3");
+    expect(c.asked).toEqual(["cur", "b1", "b2", "b3"]);
   });
 
-  it("全都用完：每个 key 只试一次，把最后的 432 原样交给 omp 报错", async () => {
-    const tavily = fakeTavily(["k0", "b1", "b2"]);
-    const fetch = withBackupKeys(tavily.fetchImpl, () => ["b1", "b2", "k0"]);
-
-    const response = await fetch(SEARCH, post("k0"));
-
-    expect(response.status).toBe(432);
-    expect(tavily.used).toEqual([`${SEARCH} k0`, `${SEARCH} b1`, `${SEARCH} b2`]);
+  it("当前 key 查不出来（可能只是断网）：不换", async () => {
+    expect(await pickReplacement("cur", ["b1"], credits({ cur: null, b1: true }).lookup)).toBeNull();
   });
 
-  it("没用完、或者不是发给 Tavily 的请求：原样转发，不读备用 key", async () => {
-    const tavily = fakeTavily(["k0"]);
-    const fetch = withBackupKeys(tavily.fetchImpl, () => {
-      throw new Error("should not read the backup keys");
-    });
-
-    expect((await fetch(SEARCH, post("k1"))).status).toBe(200);
-    expect((await fetch("https://example.com/search", post("k0"))).status).toBe(432);
-  });
-});
-
-describe("备用 key 文件", () => {
-  let scratch: string;
-  beforeAll(async () => {
-    scratch = await mkdtemp(path.join(os.tmpdir(), "omp studio 备用-"));
-  });
-  afterAll(async () => {
-    await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-  });
-
-  it("主进程写、扩展读同一个文件；重新部署不删它；清空就删掉文件（路径带空格和中文）", async () => {
-    const agentDir = path.join(scratch, "用户 一", "agent");
-    const dir = await deployAccountExtension(agentDir, ACCOUNT_EXTENSION_FILES);
-    const file = path.join(dir, "tavily-keys.json");
-    expect(readBackupKeys(file)).toEqual([]);
-
-    await writeTavilyBackupKeys(agentDir, ["b1", "b2"]);
-    await deployAccountExtension(agentDir, ACCOUNT_EXTENSION_FILES);
-    expect(readBackupKeys(file)).toEqual(["b1", "b2"]);
-    expect(await countTavilyBackupKeys(agentDir)).toBe(2);
-
-    await writeTavilyBackupKeys(agentDir, []);
-    expect(readBackupKeys(file)).toEqual([]);
-    expect(await countTavilyBackupKeys(agentDir)).toBe(0);
+  it("还没有 key：换上第一个有额度的；备用 key 全用完：不换", async () => {
+    expect(await pickReplacement(null, ["b1", "b2"], credits({ b1: false, b2: true }).lookup)).toBe("b2");
+    expect(await pickReplacement("cur", ["b1"], credits({ cur: false, b1: false }).lookup)).toBeNull();
   });
 });

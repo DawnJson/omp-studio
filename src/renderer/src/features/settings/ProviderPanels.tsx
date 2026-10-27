@@ -141,7 +141,7 @@ export function AccountsBody({
  * 填 API key。`keyEnv` 是 omp 实际取 key 的那个变量（provider-keys.ts 的 providerKeyEnv，和列表一起读好，打开时说明就是对的）：
  * 写在 agent 目录 `.env` 里时 key 改写那一行（omp 优先用 `.env`，主进程 saveApiKey），设在系统环境变量里时提示这里存的不生效；
  * 都没有时存进凭据库。已经有 key（`.env` 里或凭据库里）时输入框写"留空保持不变"。
- * `backup`：Tavily 另有"备用 key"（每行一个，额度用完时依次换用）；只进不出，已存的只说个数。
+ * `backup`：Tavily 另有"备用 key"（每行一个，当前 key 额度用完时主进程换上）；只进不出，已存的只说个数。
  */
 export function KeyBody({
   keyEnv,

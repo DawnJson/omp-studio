@@ -30,7 +30,7 @@ export const login = {
   "apiKey.backup": "备用 key",
   "apiKey.backup.placeholder": "每行一个",
   "apiKey.backup.keep": "已存 {count} 个，留空保持不变，填了就整体替换",
-  "apiKey.backup.note": "当前 key 额度用完时依次换用，正在跑的任务也会换",
+  "apiKey.backup.note": "studio 每 30 分钟查一次当前 key 的额度，用完就换成下一个还有额度的；之后新开的任务用新 key",
   "apiKey.backup.clear": "清除备用 key",
   "apiKey.backup.failed": "没能保存备用 key：{message}",
   search: "搜索 provider",

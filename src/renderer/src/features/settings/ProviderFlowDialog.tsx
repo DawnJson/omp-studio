@@ -56,7 +56,7 @@ export function ProviderFlowDialog({
   const [open, setOpen] = useState(true);
   const [flow, setFlow] = useState<Flow>(() => initialFlow(action));
   const [apiKey, setApiKey] = useState("");
-  /** Tavily 的备用 key（每行一个）：额度用完时 studio 内置扩展依次换用（client-accounts/extension/tavily-keys.mjs）。 */
+  /** Tavily 的备用 key（每行一个）：当前 key 额度用完时主进程换上（src/main/tavily/backup-keys.ts）。 */
   const [backupKeys, setBackupKeys] = useState("");
   const takesBackupKeys = provider.id === "tavily";
   const [code, setCode] = useState("");

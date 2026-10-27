@@ -129,6 +129,17 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 
 设置页存的 key 在 omp 的凭据库里，studio 不再把 key 放进 omp 子进程的环境变量（2026-10-24 之前是这样做的，omp 起的 bash 等子进程会继承到）。用户自己在系统里设的 `*_API_KEY` 环境变量照旧会被继承，那不归 studio 管。
 
+## Tavily 备用 key（2026-10-27）
+
+仓库所有者要的：Tavily 有好几个 key，当前 key 额度用完时自动换下一个，做在 studio 自己里面，不用插件（同日先做过一版 omp 扩展里包 `fetch` 的，仓库所有者否掉了）。
+
+- **为什么要 studio 来换**（omp 18.13.1 实测）：Tavily 搜索每次请求按 omp 的顺序取一个 key（`models.yml` 覆盖 → OAuth → `/login` 存的 → `TAVILY_API_KEY`（`Bun.env`，含 agent 目录 `.env`）→ 其余凭据库条目），额度用完 Tavily 回 `432`（`{"detail":{"error":"This request exceeds your plan's set usage limit..."}}`），omp 报 `Tavily API error (432)`。432 不在 omp 会轮换凭据的错误里，同一 provider 的凭据库也只留一个 API key（再 `omp auth import` 就替换），所以 omp 自己不会换。
+- **做法**（`src/main/tavily/`）：备用 key 存在 studio 的 userData 里的 `tavily-keys.json`（JSON 字符串数组，不进 omp 目录），由设置页"设置 API key"对话框（只有 Tavily 有 `备用 key` 字段）经 `setTavilyBackupKeys` 写，清空就删文件。主进程在窗口淡入后、存完备用 key 时、之后每 30 分钟查一次（`backup-keys.ts`）：`omp token tavily` 拿 omp 当前用的 key，用 Tavily 的 `GET /usage` 看它还有没有额度；用完了（或 401 / 403 无效）就按顺序找第一个确定还有额度的备用 key，经和"设置 API key"同一条路（`login/save-api-key.ts`：`.env` 里有 `TAVILY_API_KEY` 就改那一行，否则 `omp auth import`）换上。查不出来（断网、限流）算"不知道"，不换。`TAVILY_API_KEY` 设在系统环境变量里时 omp 优先用它，换了也没用，只记一条日志。
+- **额度怎么算**（`key-credits.ts`，Tavily 文档 `GET /usage`）：key 自己设了 `limit` 且 `usage` ≥ `limit` 算用完；账号套餐 `plan_usage` ≥ `plan_limit` 且没有剩余的按量付费额度（`paygo_usage` < `paygo_limit`）算用完。
+- **局限**：换的是之后起的 omp 进程用的 key，正在跑的任务里的 omp 进程还用旧的（omp 只在起进程时读 `.env`）。Tavily 的用量统计有延迟（几次成功搜索后 `key.usage` 仍是 0），刚用完的 key 可能要等下一次检查才换。
+- **实测**（omp 18.13.1，2026-10-27，真实 Tavily key：临时 agent 目录 `.env` 里放一个已用完的 key，备用 key 存 [已用完, 有额度]）：存完几秒内 `.env` 的 `TAVILY_API_KEY` 换成第二个备用 key，日志 `tavily: the current key is out of credits; switched to backup key 2/2`。
+- **omp 的相关行为**（同上实测）：`web` 角色没设（`modelRoles` 为空）时 `web_search` 自动选的第一个搜索源是 Parallel（不要 key），不是 Tavily，所以备用 key 只在搜索源设成 Tavily、或者排在前面的源失败时才用得上；会话里的 `web_search` 在 Tavily 报错后会退到 Parallel 并在结果里写明，`omp search --model tavily` 不退。
+
 ## 服务进程的关闭
 
 `serviceOmp.close()`（`IdleOmp.close()`）会递增代号：启动到一半（准备参数、等 ready）时被关掉的进程在 ready 后自己关闭并报错；放进 Job Object 失败的进程立刻关闭，不留下没有兜底的进程。

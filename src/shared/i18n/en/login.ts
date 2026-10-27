@@ -32,7 +32,8 @@ export const login = {
   "apiKey.backup": "Backup keys",
   "apiKey.backup.placeholder": "One per line",
   "apiKey.backup.keep": "{count} saved; leave empty to keep them, or paste keys to replace them all",
-  "apiKey.backup.note": "Used in order when the current key runs out of credits, including in running tasks",
+  "apiKey.backup.note":
+    "Every 30 minutes studio checks the current key's credits and switches to the next key with credits left once it runs out; tasks started after that use the new key",
   "apiKey.backup.clear": "Clear backup keys",
   "apiKey.backup.failed": "Couldn't save the backup keys: {message}",
   search: "Search providers",

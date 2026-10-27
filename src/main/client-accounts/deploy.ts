@@ -59,28 +59,6 @@ export async function deployAccountExtension(
   return dir;
 }
 
-/** Tavily 备用 key 的文件名（扩展的 tavily-keys.mjs 按同一个名字读）。不在部署清单里，部署不会删它。 */
-const TAVILY_KEYS_FILE = "tavily-keys.json";
-
-function tavilyKeysPath(agentDir: string): string {
-  return path.join(agentDir, "extensions", ACCOUNT_EXTENSION_DIR, TAVILY_KEYS_FILE);
-}
-
-/** 换掉全部 Tavily 备用 key（已校验、去重）；空数组删掉文件。正在跑的 omp 下次要换 key 时就读到。 */
-export async function writeTavilyBackupKeys(agentDir: string, keys: readonly string[]): Promise<void> {
-  const file = tavilyKeysPath(agentDir);
-  if (keys.length === 0) await rm(file, { force: true, maxRetries: 3 });
-  else await writeFileAtomic(file, JSON.stringify(keys), String(process.pid));
-}
-
-/** 存了几个 Tavily 备用 key（key 只进不出，界面只显示个数）。 */
-export async function countTavilyBackupKeys(agentDir: string): Promise<number> {
-  const text = await readText(tavilyKeysPath(agentDir));
-  if (text === null) return 0;
-  const value: unknown = JSON.parse(text);
-  return Array.isArray(value) ? value.length : 0;
-}
-
 async function readText(file: string): Promise<string | null> {
   try {
     return await readFile(file, "utf8");
