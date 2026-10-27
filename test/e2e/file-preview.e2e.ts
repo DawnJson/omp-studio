@@ -222,6 +222,51 @@ test("svg 围栏画成图：颜色换成主题色，切主题重画；<> 看源�
   }
 });
 
+test("mermaid 围栏在 worker 里画成图，颜色跟主题；不支持的图种退回源码", async () => {
+  const { launched, project, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await page.evaluate(() => globalThis.studio.setTheme("light"));
+    await writeFile(
+      path.join(project, "flow.md"),
+      [
+        "```mermaid",
+        "flowchart LR",
+        "  A[读取配置] -->|成功| B{有缓存?}",
+        "  B -->|是| C[直接返回]",
+        "  B -.->|否| D[(数据库)]",
+        "```",
+        "",
+        "```mermaid",
+        "pie title 饼图",
+        '  "甲": 1',
+        "```",
+        "",
+      ].join("\n"),
+    );
+    await page.getByTestId("topbar-files").click();
+    await page.locator('[data-testid="file-tree-row"][data-path="flow.md"]').click();
+    const [good, bad] = [0, 1].map((nth) => page.getByTestId("file-preview-body").getByTestId("codeblock").nth(nth));
+    const figure = good!.getByTestId("codeblock-figure");
+    await expect(figure).toBeVisible();
+    await expect
+      .poll(() => figure.evaluate((img) => (img as unknown as { naturalWidth: number }).naturalWidth))
+      .toBeGreaterThan(0);
+    const source = () => figure.evaluate((img) => decodeURIComponent((img as unknown as { src: string }).src));
+    const light = await source();
+    expect(light).toContain("读取配置");
+    expect(light).not.toContain("@import");
+    await page.evaluate(() => globalThis.studio.setTheme("dark"));
+    await expect.poll(source).not.toBe(light);
+
+    await expect(bad!.getByTestId("codeblock-figure")).toHaveCount(0);
+    await expect(bad!).toContainText(/这张图画不出来|couldn't be drawn/);
+    await expect(bad!.locator("pre")).toContainText("pie title");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("预览大图：适应窗口时缩小会更小、放大会更大；放大后按住拖动平移，图片本身不能被拖走", async () => {
   const { launched, cleanup } = await start();
   try {

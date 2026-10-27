@@ -64,6 +64,21 @@ export function prepareSvg(svg: string, palette: Readonly<Record<string, string>
   return `${resolved.slice(0, at)} ${extra.join(" ")}${resolved.slice(at)}`;
 }
 
+/** beautiful-mermaid 在 `<style>` 里写的 Google Fonts `@import`（<img> 里本来就加载不了，去掉免得白发请求）。 */
+const FONT_IMPORT = /^[ \t]*@import url\([^)]*\);[ \t]*\n?/gm;
+/** beautiful-mermaid 的根标签带 `style="--bg:…;--fg:…;background:…"`：图里其余颜色都按这两个混出来。 */
+const ROOT_STYLE = /(<svg\b[^>]*?)\sstyle="[^"]*"/;
+
+/**
+ * beautiful-mermaid 画出的 SVG 换成当前主题：根标签的 `--bg` / `--fg` 换成 `colors`（`bg` 是图下面的底色，
+ * 线条、节点底色都按它和 `fg` 混色），不铺背景（画布就是代码块的底），去掉外链字体（文字落到系统字体）。
+ */
+export function prepareMermaidSvg(svg: string, colors: { bg: string; fg: string }): string {
+  return svg
+    .replace(FONT_IMPORT, "")
+    .replace(ROOT_STYLE, (_, open: string) => `${open} style="--bg:${colors.bg};--fg:${colors.fg}"`);
+}
+
 /** 给 <img src> 用的 data URL。 */
 export function svgDataUrl(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;

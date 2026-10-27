@@ -1,12 +1,13 @@
 // 代码块（spec 4.10）：头部语言名 + 复制；围栏闭合后才高亮（只改颜色）；全文显示（omp 的 md 节点不限行数）。
-// ```svg 围栏闭合后画成图，头部多一个切回源码的按钮。
-import { memo, useEffect, useMemo, useState } from "react";
+// ```svg 和 ```mermaid 围栏闭合后画成图，头部多一个切回源码的按钮。
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useT } from "../i18n/use-t.ts";
 import { Check, Code, CopyIcon } from "../icons.tsx";
 import { onThemeChange } from "../ui/theme-change.ts";
 import { useHighlighted } from "./highlight.ts";
 import { resolveLanguage } from "./highlight-languages.ts";
-import { FIGURE_TOKENS, prepareSvg, svgDataUrl } from "./svg-figure.ts";
+import { useMermaid } from "./mermaid.ts";
+import { FIGURE_TOKENS, prepareMermaidSvg, prepareSvg, svgDataUrl } from "./svg-figure.ts";
 
 function lineClass(line: string, isDiff: boolean): string {
   if (!isDiff) return "md-line";
@@ -24,11 +25,24 @@ interface CodeBlockProps {
 export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlockProps) {
   const t = useT();
   const [copied, setCopied] = useState(false);
-  // ```svg 围栏闭合后画成图（svg-figure.ts）；头部的 <> 切回源码，画不出来时也退回源码。
-  const figure = closed && lang.toLowerCase() === "svg";
+  // ```svg 围栏闭合后画成图（svg-figure.ts）；```mermaid 先在 worker 里画成 SVG（mermaid.ts），画好之前照常显示源码。
+  // 头部的 <> 切回源码，画不出来时也退回源码。
+  const kind = closed ? lang.toLowerCase() : "";
+  const figure = kind === "svg" || kind === "mermaid";
+  const mermaid = useMermaid(kind === "mermaid" ? code : null);
   const [showSource, setShowSource] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const drawing = figure && !showSource && !failed;
+  const [imageFailed, setImageFailed] = useState(false);
+  const failed = imageFailed || (mermaid !== null && "error" in mermaid);
+  const mermaidSvg = mermaid !== null && "svg" in mermaid ? mermaid.svg : null;
+  const prepare = useCallback(
+    (style: CSSStyleDeclaration) =>
+      mermaidSvg === null
+        ? prepareSvg(code, readPalette(style))
+        : prepareMermaidSvg(mermaidSvg, { bg: token(style, "--bg-inset"), fg: token(style, "--text") }),
+    [code, mermaidSvg],
+  );
+  const ready = figure && !failed && (kind === "svg" || mermaidSvg !== null);
+  const drawing = ready && !showSource;
   const tokens = useHighlighted(code, closed && !drawing ? lang : null);
   const lines = code.split("\n");
   const isDiff = resolveLanguage(lang) === "diff";
@@ -51,7 +65,7 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlo
       <div className="md-codehead">
         <span className="md-codelang">{lang === "" ? "text" : lang}</span>
         <span className="md-codeactions">
-          {figure && !failed && (
+          {ready && (
             <button
               type="button"
               className="md-codebtn"
@@ -79,7 +93,7 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlo
         </span>
       </div>
       {drawing ? (
-        <SvgImage code={code} alt={t("code.figure")} onFail={() => setFailed(true)} />
+        <FigureImage prepare={prepare} alt={t("code.figure")} onFail={() => setImageFailed(true)} />
       ) : (
         <>
           {failed && <p className="md-figure-note">{t("code.figureFailed")}</p>}
@@ -112,20 +126,29 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlo
   );
 });
 
+function token(style: CSSStyleDeclaration, name: string): string {
+  return style.getPropertyValue(name).trim();
+}
+
 /** 当前主题下每个图色名的实际颜色（tokens.css）。 */
-function readPalette(): Record<string, string> {
-  const style = getComputedStyle(document.documentElement);
-  return Object.fromEntries(
-    Object.entries(FIGURE_TOKENS).map(([name, token]) => [name, style.getPropertyValue(token).trim()]),
-  );
+function readPalette(style: CSSStyleDeclaration): Record<string, string> {
+  return Object.fromEntries(Object.entries(FIGURE_TOKENS).map(([name, value]) => [name, token(style, value)]));
 }
 
 /** 图本身：<img> 显示（不执行脚本、不加载外部资源）；切换主题时按新颜色重画。 */
-function SvgImage({ code, alt, onFail }: { code: string; alt: string; onFail: () => void }) {
+function FigureImage({
+  prepare,
+  alt,
+  onFail,
+}: {
+  prepare: (style: CSSStyleDeclaration) => string;
+  alt: string;
+  onFail: () => void;
+}) {
   const [theme, setTheme] = useState(0);
   useEffect(() => onThemeChange(() => setTheme((value) => value + 1)), []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const src = useMemo(() => svgDataUrl(prepareSvg(code, readPalette())), [code, theme]);
+  const src = useMemo(() => svgDataUrl(prepare(getComputedStyle(document.documentElement))), [prepare, theme]);
   return (
     <div className="md-figure">
       <img src={src} alt={alt} data-testid="codeblock-figure" onError={onFail} />
