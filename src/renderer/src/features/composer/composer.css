@@ -71,10 +71,10 @@
   }
 }
 
-/* 工具行的胶囊比别处的 .ui-chip 紧凑：左右内边距 6px（--chip-pad，controls.css 的 .ui-chip 读它），胶囊之间 2px，
-   相邻两颗的文字 / 图标之间共 14px。 */
+/* 工具行的胶囊比别处的 .ui-chip 紧凑：左右内边距 4px（--chip-pad，controls.css 的 .ui-chip 读它），胶囊之间 2px，
+   相邻两颗的文字 / 图标之间共 10px（2026-10-27 仓库所有者：间隔再缩小，原来 6px / 14px）。 */
 .composer-tools {
-  --chip-pad: var(--space-1-5);
+  --chip-pad: var(--space-1);
   display: flex;
   align-items: center;
   gap: var(--space-0-5);
