@@ -33,7 +33,6 @@
 .md h1 {
   font-size: var(--fs-lg);
   line-height: var(--lh-lg);
-  letter-spacing: var(--ls-tight);
 }
 .md .md-block:first-child > h1:first-child,
 .md .md-block:first-child > h2:first-child,
@@ -89,7 +88,7 @@
 .md blockquote {
   margin: 0;
   padding-left: var(--space-3-5);
-  border-left: 2px solid var(--border);
+  border-left: 2px solid var(--border-strong);
   color: var(--text-2);
 }
 
@@ -108,12 +107,11 @@
   text-decoration: underline;
 }
 
-/* 行内代码：下沉一档的底、不描边，等宽字比正文小一号（15px 正文里约 13px，跟着所在文字缩放） */
 .md-code-inline {
   font-family: var(--font-mono);
-  font-size: 0.875em;
+  font-size: 0.92em;
   padding: 1px 5px;
-  background: var(--bg-sunken);
+  background: var(--bg-active);
   border-radius: var(--radius-xs);
 }
 
@@ -171,7 +169,7 @@
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
   color: var(--text-2);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
 }
 
 /* 流式光标：末尾 2px 强调色竖条。0% 帧即静态终态（reduced-motion 下常亮）。 */
@@ -199,13 +197,12 @@
   animation-play-state: var(--play-state);
 }
 
-/* 代码块：纸面里凹下去的一块（--bg-inset、--radius-md、不描边），和过程卡片里的输出同一种交代（2026-10-27 质感改版）；
-   头高 28，语言名 12px --text-3，头和正文同底 */
+/* 代码块：和过程区的工具卡片同一套外观（浅底 `--bg-tool`、不描边、`--radius-lg`、头高 28），头和正文同底，不再分白头灰身（2026-10-25） */
 .md-codeblock {
   position: relative;
   margin: var(--space-3) 0;
-  border-radius: var(--radius-md);
-  background: var(--bg-inset);
+  border-radius: var(--radius-lg);
+  background: var(--bg-tool);
   overflow: hidden;
 }
 .md-codehead {

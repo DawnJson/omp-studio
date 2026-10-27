@@ -1,6 +1,6 @@
 /* toast（spec 4.17）。只用 tokens.css 里的变量。 */
 
-/* toast：和 popover 同一种浮层（--bg-overlay、上沿受光边 + --shadow-2、--radius-lg），悬浮在主区面板上沿正中，向下叠放，不占布局。
+/* toast：气泡，悬浮在主区面板上沿正中，向下叠放，不占布局。
    left / width 由 Toasts.tsx 按主区面板（侧栏之外的区域）量出来写进 --toasts-left / --toasts-width。
    studio 的 toast 和 omp 的 `omp.toast*` 节点（features/tsp/interactive/Toast.tsx portal 进 .toasts-host）共用这一套。 */
 .toasts {
@@ -27,10 +27,12 @@
   box-sizing: border-box;
   max-width: min(100%, calc(var(--toast-w) * 2));
   padding: var(--space-1-5) var(--space-2) var(--space-1-5) var(--space-3-5);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-pill);
   background: var(--bg-overlay);
   color: var(--text);
-  box-shadow: var(--edge-highlight), var(--shadow-2);
+  box-shadow:
+    var(--shadow-2),
+    0 0 0 1px var(--border-subtle);
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
   pointer-events: auto;
@@ -56,13 +58,11 @@
 }
 .toast[data-level="warning"] {
   box-shadow:
-    var(--edge-highlight),
     var(--shadow-2),
     0 0 0 1px var(--st-waiting);
 }
 .toast[data-level="error"] {
   box-shadow:
-    var(--edge-highlight),
     var(--shadow-2),
     0 0 0 1px var(--st-error);
 }

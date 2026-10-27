@@ -21,7 +21,7 @@
   height: var(--row-menu);
   padding: 0 var(--space-2) 0 calc(var(--space-3) + var(--indent, 0) * var(--space-4));
   border-radius: var(--radius-md);
-  color: var(--text-2);
+  color: var(--text-3);
   font-weight: var(--fw-regular);
   cursor: pointer;
   user-select: none;
@@ -31,9 +31,6 @@
 }
 .tree-row[data-branch="true"] {
   color: var(--text);
-}
-.tree-row:where(:not([data-kind="compaction"], [data-kind="branch_summary"])):hover {
-  background: var(--bg-hover);
 }
 .tree-row[data-active="true"] {
   background: var(--bg-active);

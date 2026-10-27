@@ -1,4 +1,4 @@
-/* 空状态：输入框贴主区底部（和对话时同一位置），上方是从顶部排下来的概览：标志 + 标题、本周用量、最近会话（spec §4.7）。 */
+/* 空状态：输入框贴主区底部（和对话时同一位置），上方是从顶部排下来的概览：标志 + 标题、本周用量（spec §4.7）。 */
 .empty {
   display: flex;
   flex: 1;
@@ -31,52 +31,13 @@
   padding: var(--space-8) 0 var(--space-6);
 }
 
-/* 过程区顶部的标题块（StudioHeader）：和新任务页的标题同一个排法——π | 项目文件夹名，完整路径在名字下面一行（和名字左对齐）。
-   比新任务页小一号（π 28px、名字 --fs-lg），它跟着对话滚走，只是告诉你这是哪个项目 */
-.studio-head {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+/* 标志（omp 式像素 π + 字）居中，下面是"最近更新"（TSP 过程区顶部的 StudioHeader） */
+.empty-hero {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  column-gap: var(--space-3);
+  gap: var(--space-4);
   min-width: 0;
-  margin-bottom: var(--space-2);
-}
-
-.studio-head > .empty-mark {
-  grid-row: 1;
-  width: auto;
-  height: calc(var(--space-6) + var(--space-1));
-}
-
-.studio-head-name {
-  grid-row: 1;
-  grid-column: 2;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-display);
-  font-size: var(--fs-lg);
-  line-height: var(--lh-lg);
-  font-weight: var(--fw-strong);
-  letter-spacing: var(--ls-tight);
-  color: var(--text);
-}
-
-/* 完整路径：复用 PathLabel（开头省略、末尾文件夹名总看得见），这里只换成元信息的字号和颜色；文件夹名已经在上一行，不再画文件夹图标 */
-.studio-head > .empty-project {
-  grid-column: 2;
-  padding: 0;
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  color: var(--text-3);
-}
-.studio-head > .empty-project > svg {
-  display: none;
-}
-.studio-head > .empty-project > .empty-project-name {
-  max-width: 100%;
-  font-size: inherit;
 }
 
 .pixel-logo {
@@ -106,28 +67,19 @@
   font-family: var(--font-display);
   font-size: var(--fs-xl);
   line-height: var(--lh-xl);
-  font-weight: var(--fw-strong);
-  letter-spacing: var(--ls-tight);
+  font-weight: 600;
   color: var(--text);
   overflow-wrap: anywhere;
 }
 
-/* ───────── 概览卡片（本周用量、最近会话）：卡片层——近白底 --bg-tool + 1px 发丝线，不加阴影 ───────── */
-.empty-section-title {
-  margin: 0 0 var(--space-2);
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
-  font-weight: var(--fw-medium);
-  color: var(--text-2);
-}
-
+/* ───────── 本周用量卡片：白底 + 1px 淡描边，不加阴影 ───────── */
 .eu {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
   padding: var(--space-5);
-  background: var(--bg-tool);
+  background: var(--bg-raised);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
 }
@@ -148,7 +100,7 @@
   margin: 0;
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
-  font-weight: var(--fw-medium);
+  font-weight: 400;
   color: var(--text-2);
 }
 
@@ -160,13 +112,10 @@
   min-height: 36px;
 }
 
-/* 大数字：页面里唯一的大字，600 + 收紧字距，数位等宽（每周刷新时不跳） */
 .eu-total {
-  font-family: var(--font-display);
   font-size: 28px;
   line-height: 36px;
-  font-weight: var(--fw-strong);
-  letter-spacing: var(--ls-tight);
+  font-weight: 600;
   color: var(--text);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -175,7 +124,7 @@
 .eu-cost {
   font-size: var(--fs-base);
   line-height: var(--lh-base);
-  color: var(--text-3);
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -236,74 +185,6 @@
   fill: var(--accent);
 }
 
-/* 最近会话：两列，内容区窄于 ~560px 时一列 */
-.er-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(max(274px, calc((100% - var(--space-3)) / 2)), 1fr));
-  gap: var(--space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.er-grid > li {
-  min-width: 0;
-}
-
-.er-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-0-5);
-  width: 100%;
-  min-width: 0;
-  padding: var(--space-3-5) var(--space-4);
-  text-align: left;
-  color: inherit;
-  font: inherit;
-  background: var(--bg-tool);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition:
-    background-color var(--dur-instant) var(--ease-out),
-    border-color var(--dur-instant) var(--ease-out);
-}
-
-.er-item:hover {
-  background: var(--bg-hover);
-  border-color: var(--border);
-}
-
-.er-item:active {
-  background: var(--bg-active);
-}
-
-.er-item:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-.er-title,
-.er-meta {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.er-title {
-  font-size: var(--fs-base);
-  line-height: var(--lh-base);
-  font-weight: var(--fw-medium);
-  color: var(--text);
-}
-
-.er-meta {
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
-}
-
 /* 最近更新（照 omp 的 What's New）：标志下面一行；窄了截断（title 里有全文） */
 .whats-new {
   max-width: 100%;
@@ -331,9 +212,9 @@
   width: min(100%, var(--dialog-w-md));
   padding: var(--space-8) var(--space-6);
   text-align: center;
-  background: var(--bg-tool);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-xl);
 }
 
 /* 工具行里审批胶囊右边的项目标签：纯文字（文件夹图标 + 文件夹路径），不画成胶囊，不能点 */
@@ -361,7 +242,8 @@
   white-space: nowrap;
   direction: rtl;
   text-align: left;
-  font-size: var(--fs-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
 }
 
 .empty-error {
@@ -392,11 +274,10 @@
   padding: var(--space-3) var(--space-5);
   font-size: var(--fs-lg);
   line-height: var(--lh-lg);
-  font-weight: var(--fw-medium);
   color: var(--text);
   background: var(--bg-overlay);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-2), var(--edge-highlight);
+  box-shadow: var(--shadow-2);
 }
 
 /* 输入框自带 gutter 内缩的列宽；把外层撑开 gutter，让它和标题、继续列表左右对齐。

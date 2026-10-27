@@ -162,6 +162,7 @@ export function Picker(props: NodeProps) {
     hasCurrent ? "has-cur" : "",
     state === "loading" ? "st-loading" : "",
     state === "error" ? "st-error" : "",
+    p.title === undefined ? "no-title" : "",
     query === null ? "no-query" : "",
   ]
     .filter(Boolean)

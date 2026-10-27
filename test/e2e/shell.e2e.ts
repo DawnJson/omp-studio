@@ -410,8 +410,7 @@ test("没有项目时主区是标题、用量和草稿输入框；F6 把焦点�
     await expect(empty).toBeVisible();
     await expect(empty).toHaveAttribute("data-kind", "no-project");
     await expect(empty.getByTestId("empty-mark")).toBeVisible();
-    // 新装没有任务：没有"最近会话"，输入框上面没有任何按钮；项目标签在输入框工具行里，写默认文件夹的路径。
-    await expect(empty.getByTestId("empty-recent")).toHaveCount(0);
+    // 输入框上面没有任何按钮；项目标签在输入框工具行里，写默认文件夹的路径。
     await expect(empty.locator(".empty-main").getByRole("button")).toHaveCount(0);
     await expect(page.getByTestId("draft-composer").locator(".composer-tools").getByTestId("empty-project")).toHaveText(
       /[\\/]chats$/,

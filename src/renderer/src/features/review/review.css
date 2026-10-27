@@ -33,12 +33,11 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
-/* 标题条：和其他面板头同一套（--fs-sm、500），不比页面里的内容更响 */
 .rv-title {
   margin: 0;
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
-  font-weight: var(--fw-medium);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  font-weight: var(--fw-strong);
 }
 
 .rv-branch {
@@ -131,7 +130,7 @@
   margin: 0;
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
 }
 
 .rv-commit-staged {
@@ -297,13 +296,13 @@
   white-space: nowrap;
 }
 
-/* +N / −N：界面字体、数位等宽 */
 .rv-file-counts {
   display: flex;
   flex: none;
   gap: var(--space-1-5);
   color: var(--text-3);
-  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
   font-variant-numeric: tabular-nums;
 }
 
@@ -344,7 +343,7 @@
   margin: 0 var(--space-4) var(--space-3);
   overflow: hidden;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   transition: border-color var(--dur-fast) var(--ease-out);
 }
 
@@ -360,8 +359,7 @@
   padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
   color: var(--text-3);
   font-size: var(--fs-xs);
-  background: var(--bg-tool);
-  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-sunken);
 }
 
 .rv-hunk-range {
@@ -552,7 +550,7 @@
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
-  background: var(--bg-inset);
+  background: var(--bg-sunken);
   border-block: 1px solid var(--border-subtle);
 }
 

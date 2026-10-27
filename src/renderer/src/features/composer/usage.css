@@ -17,7 +17,7 @@
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  background: var(--bg-tool);
+  background: var(--bg-sunken);
 }
 .uq-stat {
   display: flex;
@@ -49,8 +49,7 @@
   color: var(--text);
   font-size: var(--fs-xl);
   line-height: var(--lh-xl);
-  font-weight: var(--fw-medium);
-  letter-spacing: var(--ls-tight);
+  font-weight: var(--fw-strong);
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -119,7 +118,7 @@
   min-width: 0;
   overflow: hidden;
   font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -181,7 +180,6 @@
 }
 .uq-limit-left {
   grid-area: left;
-  color: var(--text);
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
   font-variant-numeric: tabular-nums;

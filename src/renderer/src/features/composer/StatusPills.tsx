@@ -57,7 +57,7 @@ export function StatusPills({
           title={agentsLabel}
           onClick={() => toggleAgentsPanel(taskId)}
         >
-          <Users size={14} />
+          <Users size={13} />
           <span className="status-pill-count">{agents}</span>
         </button>
       )}
@@ -114,7 +114,7 @@ function JobsSegment({ taskId, running }: { taskId: TaskId; running: readonly Jo
           openTspJobs(taskId, running[0]!.id).catch((error: unknown) => reportOmpError(t, error));
         }}
       >
-        <Bolt size={14} />
+        <Bolt size={13} />
         <span className="status-pill-count">{running.length}</span>
       </button>
       {open && <JobsCard id={cardId} label={label} jobs={running} tiles={tiles} anchor={button} />}

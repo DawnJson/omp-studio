@@ -16,24 +16,15 @@
   overflow-wrap: anywhere;
 }
 
-/* 概览：两列的键值表。标签列定宽，"基本信息"和"用量"两张表的标签对齐。
- * 每行之间一道发丝线：dt / dd 各画下边线、列间距改成 dt 的右内边距，线就是连着的一整条；最后一行不画。 */
+/* 概览：两列的键值表。标签列定宽，"基本信息"和"用量"两张表的标签对齐。 */
 .si-grid {
   display: grid;
-  grid-template-columns: calc(112px + var(--space-4)) minmax(0, 1fr);
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
   margin: 0;
   font-size: var(--fs-sm);
 }
-.si-grid > dt,
-.si-grid > dd {
-  padding-block: var(--space-2);
-  border-bottom: 1px solid var(--border-subtle);
-}
-.si-grid > :nth-last-child(-n + 2) {
-  border-bottom: 0;
-}
 .si-grid dt {
-  padding-right: var(--space-4);
   color: var(--text-3);
 }
 .si-grid dd {
@@ -42,8 +33,6 @@
   gap: var(--space-2);
   min-width: 0;
   margin: 0;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 .si-mono {
@@ -132,7 +121,6 @@
   background: var(--bg-overlay);
   border-bottom: 1px solid var(--border-subtle);
   font-size: var(--fs-xs);
-  font-weight: var(--fw-medium);
   color: var(--text-3);
 }
 .si-trace-head > * {
@@ -195,7 +183,7 @@
   margin: 0;
   padding: var(--space-2) var(--space-2-5);
   border-radius: var(--radius-md);
-  background: var(--bg-inset);
+  background: var(--bg-raised);
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
   white-space: pre-wrap;

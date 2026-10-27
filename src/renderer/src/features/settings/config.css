@@ -31,23 +31,20 @@
   padding: 2px var(--space-1-5);
   font-size: var(--fs-xs);
   background: var(--bg-raised);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   transition:
     border-color var(--dur-instant) var(--ease-out),
     box-shadow var(--dur-instant) var(--ease-out);
 }
 
-/* 和 ui/Field 同一套：静止 --border，悬停 --border-strong，聚焦一圈 --focus-ring */
-.st-tags:hover:not(:focus-within) {
-  border-color: var(--border-strong);
-}
-
 .st-tags:focus-within {
-  border-color: var(--focus-ring);
+  border-color: transparent;
   outline: 2px solid transparent;
   outline-offset: 2px;
-  box-shadow: 0 0 0 1px var(--focus-ring);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 0 4px var(--accent-soft);
 }
 
 .st-tag {
@@ -130,7 +127,6 @@
 .cfg-empty-title {
   margin: 0 0 var(--space-1);
   font-size: var(--fs-base);
-  font-weight: var(--fw-medium);
 }
 
 /* ───────── 结构化编辑（模型角色、回退链；在"编辑…"对话框里） ───────── */
@@ -162,7 +158,7 @@
   flex-direction: column;
   gap: var(--space-1-5);
   padding: var(--space-2) var(--space-3);
-  background: var(--bg-inset);
+  background: var(--bg-sunken);
   border-radius: var(--radius-md);
 }
 

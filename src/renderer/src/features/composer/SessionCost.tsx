@@ -44,8 +44,18 @@ export function SessionCost({ usage, provider }: { usage: TaskState["sessionUsag
         onClick={() => setUsageDialogOpen(!open)}
       >
         {formatMoney(usage?.cost ?? 0)}
-        {subagents > 0 && <span data-testid="usage-subagents"> ({subagents.toFixed(2)})</span>}
-        {subscription && <span data-testid="usage-sub"> (sub)</span>}
+        {subagents > 0 && (
+          <span className="session-cost-sub" data-testid="usage-subagents">
+            {" "}
+            ({subagents.toFixed(2)})
+          </span>
+        )}
+        {subscription && (
+          <span className="session-cost-sub" data-testid="usage-sub">
+            {" "}
+            (sub)
+          </span>
+        )}
       </button>
       <UsageDialog provider={provider} open={open} onClose={() => setUsageDialogOpen(false)} />
     </div>

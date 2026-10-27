@@ -19,5 +19,4 @@ export const empty = {
   usageNoDatabase: "omp 跑过之后，这里会显示用量。",
   usageChart: "近 {weeks} 周每天的 token 用量：本周 {week}，今天 {today}",
   usageLoading: "正在读取用量",
-  recentTitle: "最近会话",
 } satisfies Record<string, MessageEntry>;

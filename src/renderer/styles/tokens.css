@@ -35,20 +35,19 @@
 
 /* ───────────────────────── 非颜色 token（深浅共用） ───────────────────────── */
 :root {
-  /* 字体（2026-10-27 仓库所有者：中文字体打进安装包）：正文 Geist，代码 Geist Mono，中文 Noto Sans SC（fonts/noto-sans-sc.css）。
-     Latin 在前、CJK 在后，逐字符回退：Geist 没有的汉字落到 Noto Sans SC，中英文都是同一套可变字重；
-     其余系统字体（雅黑 UI / 苹方）只在字体文件没读到时兜底。代码里 CJK 排在等宽字体后面：注释里的中文用 Noto，制表符仍由等宽字体画 */
+  /* 字体（仓库所有者 2026-10-21 定，照 Tern）：正文 Geist，代码 Geist Mono，中文微软雅黑 UI。
+     Latin 在前、CJK 在后，逐字符回退：Geist 没有的汉字落到微软雅黑 UI / 苹方；其余系统字体只在字体文件没读到时兜底 */
   --font-sans:
-    "Geist", "Noto Sans SC", "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system,
-    "SF Pro Text", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Segoe UI Emoji", "Apple Color Emoji",
-    "Noto Color Emoji", sans-serif;
+    "Geist", "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "SF Pro Text",
+    "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC", "Segoe UI Emoji",
+    "Apple Color Emoji", "Noto Color Emoji", sans-serif;
   --font-display:
-    "Geist", "Noto Sans SC", "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system,
-    "SF Pro Display", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Segoe UI Emoji", "Apple Color Emoji",
+    "Geist", "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "SF Pro Display",
+    "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Segoe UI Emoji", "Apple Color Emoji",
     "Noto Color Emoji", sans-serif;
   --font-mono:
-    "Geist Mono", "Cascadia Code", "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, "Noto Sans SC",
-    "Microsoft YaHei UI", "PingFang SC", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", monospace;
+    "Geist Mono", "Cascadia Code", "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, "Microsoft YaHei UI",
+    "PingFang SC", "Noto Sans Mono CJK SC", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", monospace;
 
   /* 字号 / 行高（px，行高用像素值，避免嵌套漂移） */
   --fs-2xs: 11px;
@@ -70,7 +69,7 @@
   --fs-code-sm: 12px;
   --lh-code-sm: 18px;
 
-  /* 字重：中英文都是可变字体，三档各有用途——400 正文，500 标签 / 标题 / 强调的界面文字，600 只给页面标题和正文里的加粗 */
+  /* 字重：雅黑 UI 只有 400 / 700 两档，状态不得靠字重表达；500 仅用于 Latin 文字标签 */
   --fw-regular: 400;
   --fw-medium: 500;
   --fw-strong: 600;
@@ -99,8 +98,8 @@
   --radius-xs: 3px; /* 键帽、行内代码、勾选框 */
   --radius-sm: 4px; /* 过程行 hover、小按钮、输入控件 */
   --radius-md: 6px; /* 任务行、按钮、菜单项、代码块 */
-  --radius-lg: 12px; /* 卡片、popover、门（3.3 demo：8 → 12，软一档） */
-  --radius-xl: 14px; /* 对话框、命令面板、主区面板 */
+  --radius-lg: 8px; /* 卡片、popover、门 */
+  --radius-xl: 10px; /* 对话框、命令面板 */
   --radius-bubble: 14px; /* 你的消息气泡（右下角用 --radius-sm 当"尾巴"，3.0） */
   --radius-composer: 22px; /* 输入框外框（3.0） */
   --radius-pill: 999px;
@@ -221,30 +220,27 @@
 :root[data-theme="light"] {
   color-scheme: light;
 
-  /* 表面（质感改版 2026-10-27）。只分四层，每层一种交代方式：
-     窗口底（侧栏 / 顶栏）→ 主区纸面（白，一圈发丝线 + 很淡的阴影）→ 卡片（近白的底 + 发丝线，不靠阴影）→ 浮层（白 + 发丝线 + 投影）。
-     凹进去的输出区、代码块用 --bg-inset / --bg-sunken（比卡片深一档），不再用灰托盘套白卡。略暖的中性灰，紫色只留给强调 */
-  --bg-sidebar: #f1f0ed;
-  --bg-app: #ffffff;
-  --bg-raised: #ffffff; /* 输入框、选中的行 */
-  --bg-overlay: #ffffff; /* 菜单、popover、对话框、命令面板（靠发丝线 + 投影区分） */
-  --bg-sunken: #f4f4f1; /* 键帽、行内代码 */
-  --bg-tool: #fafaf8; /* 过程卡片、中性卡片：近白，靠 --border-subtle 发丝线成形 */
-  --bg-inset: #f4f4f1; /* 卡片里凹下去的输出区、Markdown 代码块 */
-  --bg-hover: rgba(20, 20, 18, 0.045);
-  --bg-active: rgba(20, 20, 18, 0.08);
+  /* 表面（由低到高）。略暖的中性灰（2026-10-24 仓库所有者：原来带紫的灰换成中性灰，紫色只留给强调）；侧栏/顶栏比主区略深，层级靠明度不靠颜色 */
+  --bg-sidebar: #efefed;
+  --bg-app: #fafaf9;
+  --bg-raised: #ffffff; /* 输入框、卡片 */
+  --bg-overlay: #ffffff; /* 菜单、popover、对话框、命令面板（靠阴影区分） */
+  --bg-sunken: #f3f3f1; /* 过程展开区、键帽 */
+  --bg-tool: #f4f4f2; /* 过程卡片、中性卡片、Markdown 代码块的底：比主区深一点，不描边（2026-10-24 质感改版） */
+  --bg-hover: rgba(20, 20, 18, 0.05);
+  --bg-active: rgba(20, 20, 18, 0.085);
   --bg-scrim: rgba(20, 20, 18, 0.32);
-  --bg-bubble: #eeebf8; /* 你的消息气泡（--text 在上 15.5:1） */
+  --bg-bubble: #ece8f8; /* 你的消息气泡（--text 在上 15.1:1） */
 
   /* 线 */
   --border-subtle: rgba(20, 20, 18, 0.08);
   --border: rgba(20, 20, 18, 0.14);
   --border-strong: rgba(20, 20, 18, 0.26);
 
-  /* 文本（在 --bg-app 上 18.1 / 7.6 / 4.6）：三档拉开，一眼分得出主次。--text-3 只用于次要元信息，禁止用于可操作文字 */
+  /* 文本（在 --bg-app 上 17.3 / 7.7 / 5.7）。--text-3 只用于次要元信息，禁止用于可操作文字 */
   --text: #161614;
-  --text-2: #55544f;
-  --text-3: #767571;
+  --text-2: #51504c;
+  --text-3: #65645f;
   --text-disabled: #908e89; /* 白底 3.3:1：禁用的按钮字也认得出 */
   --text-on-accent: #ffffff;
   --text-on-danger: #ffffff;
@@ -295,16 +291,12 @@
   --syn-type: #0f7c80;
   --syn-punct: #5b5a56;
 
-  /* 阴影：每一级都带一圈发丝线（0 0 0 1px），边缘比单靠模糊阴影干净 */
-  --shadow-1: 0 1px 2px rgba(20, 20, 18, 0.05);
-  --shadow-panel:
-    0 0 0 1px rgba(20, 20, 18, 0.05), 0 1px 2px rgba(20, 20, 18, 0.04), 0 6px 24px -6px rgba(20, 20, 18, 0.07);
-  --shadow-2:
-    0 0 0 1px rgba(20, 20, 18, 0.08), 0 4px 8px -2px rgba(20, 20, 18, 0.06), 0 14px 32px -6px rgba(20, 20, 18, 0.12);
-  --shadow-3: 0 0 0 1px rgba(20, 20, 18, 0.08), 0 28px 72px -12px rgba(20, 20, 18, 0.26);
+  /* 阴影 */
+  --shadow-1: 0 1px 2px rgba(20, 20, 18, 0.06);
+  --shadow-2: 0 8px 24px rgba(20, 20, 18, 0.1), 0 0 0 1px var(--border-subtle);
+  --shadow-3: 0 24px 64px rgba(20, 20, 18, 0.18), 0 0 0 1px var(--border);
   --shadow-composer:
-    0 1px 2px rgba(20, 20, 18, 0.04), 0 10px 28px -10px rgba(20, 20, 18, 0.14); /* 输入框：整个界面唯一浮起来的常驻元素 */
-  --edge-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.7); /* 浮起元素上沿的一道受光边；浅色几乎看不出，深色靠它显出体积 */
+    0 1px 2px rgba(20, 20, 18, 0.04), 0 2px 6px rgba(20, 20, 18, 0.03); /* 贴着底色，靠边框分开，不做浮起 */
 
   --scrollbar-thumb: rgba(20, 20, 18, 0.28);
   --scrollbar-thumb-hover: rgba(20, 20, 18, 0.46);
@@ -316,25 +308,24 @@
   :root:not([data-theme="light"]) {
     color-scheme: dark;
 
-    --bg-sidebar: #0e0e0d;
-    --bg-app: #171716;
-    --bg-raised: #1f1f1d;
-    --bg-overlay: #242422;
-    --bg-sunken: #121211;
-    --bg-inset: #121211;
-    --bg-tool: #1b1b1a;
+    --bg-sidebar: #0f0f0e;
+    --bg-app: #151514;
+    --bg-raised: #1e1e1c;
+    --bg-overlay: #252523;
+    --bg-sunken: #111110;
+    --bg-tool: #1c1c1a;
     --bg-hover: rgba(232, 232, 228, 0.05);
     --bg-active: rgba(232, 232, 228, 0.085);
     --bg-scrim: rgba(5, 5, 4, 0.56);
-    --bg-bubble: #262039;
+    --bg-bubble: #251f38;
 
     --border-subtle: rgba(232, 232, 228, 0.06);
     --border: rgba(232, 232, 228, 0.11);
     --border-strong: rgba(232, 232, 228, 0.2);
 
-    --text: #ecece9;
-    --text-2: #a5a49f;
-    --text-3: #82817c;
+    --text: #e9e9e6;
+    --text-2: #a8a7a2;
+    --text-3: #8e8d88;
     --text-disabled: #6c6b67;
     --text-on-accent: #0e0e0d;
     /* 深色的 --st-error 是浅红，白字对比度不够 */
@@ -380,11 +371,9 @@
     --syn-punct: #9d9c97;
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-panel: 0 0 0 1px rgba(232, 232, 228, 0.06);
-    --shadow-2: 0 0 0 1px rgba(232, 232, 228, 0.08), 0 14px 32px -6px rgba(0, 0, 0, 0.5);
-    --shadow-3: 0 0 0 1px rgba(232, 232, 228, 0.1), 0 28px 72px -12px rgba(0, 0, 0, 0.65);
-    --shadow-composer: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -10px rgba(0, 0, 0, 0.6);
-    --edge-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
+    --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border);
+    --shadow-composer: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 3px rgba(0, 0, 0, 0.3);
 
     --scrollbar-thumb: rgba(232, 232, 228, 0.26);
     --scrollbar-thumb-hover: rgba(232, 232, 228, 0.44);
@@ -395,25 +384,24 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --bg-sidebar: #0e0e0d;
-  --bg-app: #171716;
-  --bg-raised: #1f1f1d;
-  --bg-overlay: #242422;
-  --bg-sunken: #121211;
-  --bg-inset: #121211;
-  --bg-tool: #1b1b1a;
+  --bg-sidebar: #0f0f0e;
+  --bg-app: #151514;
+  --bg-raised: #1e1e1c;
+  --bg-overlay: #252523;
+  --bg-sunken: #111110;
+  --bg-tool: #1c1c1a;
   --bg-hover: rgba(232, 232, 228, 0.05);
   --bg-active: rgba(232, 232, 228, 0.085);
   --bg-scrim: rgba(5, 5, 4, 0.56);
-  --bg-bubble: #262039;
+  --bg-bubble: #251f38;
 
   --border-subtle: rgba(232, 232, 228, 0.06);
   --border: rgba(232, 232, 228, 0.11);
   --border-strong: rgba(232, 232, 228, 0.2);
 
-  --text: #ecece9;
-  --text-2: #a5a49f;
-  --text-3: #82817c;
+  --text: #e9e9e6;
+  --text-2: #a8a7a2;
+  --text-3: #8e8d88;
   --text-disabled: #6c6b67;
   --text-on-accent: #0e0e0d;
   --text-on-danger: #0e0e0d;
@@ -458,11 +446,9 @@
   --syn-punct: #9d9c97;
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-panel: 0 0 0 1px rgba(232, 232, 228, 0.06);
-  --shadow-2: 0 0 0 1px rgba(232, 232, 228, 0.08), 0 14px 32px -6px rgba(0, 0, 0, 0.5);
-  --shadow-3: 0 0 0 1px rgba(232, 232, 228, 0.1), 0 28px 72px -12px rgba(0, 0, 0, 0.65);
-  --shadow-composer: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -10px rgba(0, 0, 0, 0.6);
-  --edge-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
+  --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border);
+  --shadow-composer: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 3px rgba(0, 0, 0, 0.3);
 
   --scrollbar-thumb: rgba(232, 232, 228, 0.26);
   --scrollbar-thumb-hover: rgba(232, 232, 228, 0.44);

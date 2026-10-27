@@ -108,16 +108,13 @@
 .git-group {
   margin: 0 0 var(--space-1);
   font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
   color: var(--text-2);
 }
-/* 文件清单：凹下去的一块（--bg-inset），不描边 */
 .git-files {
   margin: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: 0;
   list-style: none;
-  background: var(--bg-inset);
-  border-radius: var(--radius-md);
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
   line-height: var(--lh-code-sm);

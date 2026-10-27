@@ -10,14 +10,14 @@ import { attachTaskbarWindow } from "./taskbar-progress.ts";
 import { restoredBounds, trackWindowState } from "./window-state.ts";
 
 /**
- * 顶栏（通栏，高 40）的底色和系统三键符号色 = tokens.css 的 --bg-sidebar / --text；主题切换时用 win.setTitleBarOverlay 同步。
+ * 顶栏（通栏，高 40）的底色和系统三键符号色，取自 docs/design/spec.md §2.1；主题切换时用 win.setTitleBarOverlay 同步。
  * dimmed：有遮罩弹窗时，系统三键要和网页里盖了 --bg-scrim 的顶栏同色。三键不是网页画的，遮罩盖不到，
- * 所以这里给出"顶栏色上叠一层 --bg-scrim"混合后的实色（浅色 rgba(20,20,18,.32)，深色 rgba(5,5,4,.56)）。
+ * 所以这里给出"顶栏色上叠一层 --bg-scrim"混合后的实色（浅色 rgba(17,24,22,.32)，深色 rgba(4,6,5,.56)）。
  */
 const titleBarHeight = 40;
 function titleBarColors(dark: boolean, dimmed = false): { color: string; symbolColor: string } {
-  if (dimmed) return dark ? { color: "#090908", symbolColor: "#6B6B69" } : { color: "#AAAAA7", symbolColor: "#151513" };
-  return dark ? { color: "#0E0E0D", symbolColor: "#ECECE9" } : { color: "#F1F0ED", symbolColor: "#161614" };
+  if (dimmed) return dark ? { color: "#08070A", symbolColor: "#69676B" } : { color: "#A8A7AB", symbolColor: "#131118" };
+  return dark ? { color: "#0C0B0E", symbolColor: "#E8E6EC" } : { color: "#EEEDF0", symbolColor: "#131118" };
 }
 
 let titleBarDimmed = false;

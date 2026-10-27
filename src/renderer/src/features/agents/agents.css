@@ -27,11 +27,10 @@
   border-style: dashed;
 }
 
-/* 面板头标题：和卡片头一样，13px 500 正文色 */
 .agents-title {
   flex: none;
   font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
   color: var(--text);
 }
 
@@ -58,7 +57,7 @@
   animation-play-state: var(--play-state);
 }
 .agents-driving-text {
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
   color: var(--text);
 }
 
@@ -80,7 +79,7 @@
   padding: var(--space-3) var(--space-2);
 }
 
-/* 列表：行与行之间一道发丝线，线从文字左边开始（和行内文字同一条左边界）；悬停 / 当前行是圆角底色，相邻的线让开 */
+/* 列表 */
 .agents-list {
   display: flex;
   flex: none;
@@ -91,27 +90,9 @@
   list-style: none;
 }
 .agents-item {
-  position: relative;
   display: flex;
   align-items: center;
   border-radius: var(--radius-md);
-  transition: background var(--dur-instant);
-}
-.agents-item + .agents-item::before {
-  position: absolute;
-  top: -1px;
-  right: var(--space-2-5);
-  left: var(--space-2-5);
-  height: 1px;
-  content: "";
-  background: var(--border-subtle);
-  pointer-events: none;
-}
-.agents-item:hover::before,
-.agents-item:hover + .agents-item::before,
-.agents-item[data-current="true"]::before,
-.agents-item[data-current="true"] + .agents-item::before {
-  visibility: hidden;
 }
 .agents-item:hover {
   background: var(--bg-hover);
@@ -191,7 +172,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
   font-variant-numeric: tabular-nums;
 }
 .agents-progress svg {
@@ -249,7 +230,7 @@
   overflow: hidden;
   font-size: var(--fs-base);
   line-height: var(--lh-base);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
   color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -272,7 +253,7 @@
   gap: var(--space-3) var(--space-3);
   margin: 0;
   padding: var(--space-3);
-  background: var(--bg-inset);
+  background: var(--bg-sunken);
   border-radius: var(--radius-md);
 }
 .agents-stats:empty {
@@ -285,8 +266,8 @@
   min-width: 0;
 }
 .agents-stat dt {
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-2xs);
   color: var(--text-3);
 }
 /* 值单行（“23% · 81K / 350K”这类长值也不折行，2026-10-25 仓库所有者）；面板很窄放不下时省略号，悬停 title 是全文 */
@@ -449,7 +430,7 @@
 }
 .agents-act-agent {
   overflow: hidden;
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
   color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;

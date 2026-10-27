@@ -2,7 +2,7 @@
 
 只读。实现：`src/main/usage/usage-service.ts`、`src/main/ipc/usage-handlers.ts`（`getUsageQuota`、`getUsageHeatmap`）、渲染端的用量对话框：点输入框工具行的费用（或 `/usage`、命令面板"用量"）弹出的居中对话框 `features/composer/UsageDialog.tsx` + `usage-views.tsx` + `usage-store.ts`（模块里缓存上次结果，打开先显示再后台刷新；汇总条、额度、热力图在同一页，没有页签）。设置页原来的"用量"一节 2026-10-22 删掉（和对话框重复，仓库所有者定）。汇总（过去一年 / 最近 30 天 / 最忙的一天 / 活跃天数 / 最长连续 / 最紧的额度 / 未使用账号）是纯函数，在 `src/shared/ui/usage-summary.ts`，不需要新的 IPC：全部从 `QuotaSnapshot` 和 `UsageHeatmap` 推出来。界面描述见 `docs/design/spec.md` §4.14 的 UsageDialog。测试：`test/usage-service.test.ts`、`test/usage-summary.test.ts`、`test/e2e/settings-functional.e2e.ts`。实测 omp 18.12.1，2026-10-18。
 
-新任务页（3.3 起，`features/empty/UsageCard.tsx`）也读同一份热力图：用 `usage-store.ts` 的同一个缓存（还没读过时挂载时调一次 `loadHeatmap`，先 `false` 再 `true`），在 `features/empty/usage-overview.ts` 里算出近 7 天 token / 费用、今天的 token 和 12 周点阵，显示成"本周用量"卡片；卡片下面的"最近会话"读的是任务表，不走这里的 IPC（`docs/design/spec.md` §4.7，测试 `test/usage-overview.test.ts`）。
+新任务页（3.3 起，`features/empty/UsageCard.tsx`）也读同一份热力图：用 `usage-store.ts` 的同一个缓存（还没读过时挂载时调一次 `loadHeatmap`，先 `false` 再 `true`），在 `features/empty/usage-overview.ts` 里算出近 7 天 token / 费用、今天的 token 和 12 周点阵，显示成"本周用量"卡片（`docs/design/spec.md` §4.7，测试 `test/usage-overview.test.ts`）。
 
 ## 数据来源（查过 omp 文档和源码）
 

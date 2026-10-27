@@ -49,7 +49,6 @@
   overflow: hidden;
   font: inherit;
   font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
   color: var(--text-2);
   text-align: left;
   text-overflow: ellipsis;
@@ -58,28 +57,15 @@
   background: transparent;
   border: 0;
   border-radius: var(--radius-md);
-  transition: background-color var(--dur-instant) var(--ease-out);
 }
 
 .snav-item:hover {
-  color: var(--text);
   background: var(--bg-hover);
 }
 
-.snav-item:active {
-  background: var(--bg-active);
-}
-
-.snav-item:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: -2px;
-}
-
-/* 选中的节：像一颗抬起来的胶囊（纸面白 + 一档阴影），和窗口底色分开，不用强调色 */
 .snav-item[aria-current="page"] {
   color: var(--text);
-  background: var(--bg-raised);
-  box-shadow: var(--shadow-1);
+  background: var(--bg-active);
 }
 
 .snav-foot {
@@ -175,35 +161,6 @@
 /* 行：标签列 200，控件紧跟（ui/Row） */
 .st-rows {
   --row-label-w: 200px;
-}
-
-/* 设置的一组行（格子、整行、快捷键表、角色表）是一张卡片：近白底 + 发丝线，不加阴影；行之间是行自带的 1px 淡分隔线。
-   最后一行（多列时最后一排）的分隔线和卡片下边重叠，用 ::after 一条卡片底色的线盖住，免得底边看起来是双线。 */
-.st-rows,
-.st-cells,
-.st-kb-grid,
-.st-roles {
-  position: relative;
-  padding: 0 var(--space-4);
-  background: var(--bg-tool);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-}
-.st-rows::after,
-.st-cells::after,
-.st-kb-grid::after,
-.st-roles::after {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 1px;
-  content: "";
-  background: var(--bg-tool);
-}
-/* 同一节里格子卡片后面紧跟整行卡片（ConfigGrid）：两张卡片之间留一道缝 */
-:is(.st-rows, .st-cells) + :is(.st-rows, .st-cells) {
-  margin-top: var(--space-3);
 }
 
 /* 格子：大框架是 --cols 列；每格是一条 ui/Row，标签和控件放得下一行就并排（标签靠左、控件靠右），放不下控件才换到标签下面（靠左）。
@@ -321,9 +278,9 @@
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
-/* 对话角色表下面的"添加角色…"：和角色名那一列左对齐（角色表是卡片，内边距同卡片） */
+/* 对话角色表下面的"添加角色…"：和角色名那一列左对齐 */
 .st-roles-foot {
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-2) 0;
 }
 .ui-notice + .st-roles {
   margin-top: var(--space-2);
@@ -386,15 +343,12 @@
   overflow-wrap: anywhere;
 }
 
-/* 等宽的原文输出（记忆的 stats / diagnose、解析不了的行）：不当 HTML 渲染；凹下去的一块（--bg-inset），不描边 */
+/* 等宽的原文输出（记忆的 stats / diagnose、解析不了的行）：不当 HTML 渲染 */
 .st-pre {
   max-height: 320px;
   margin: var(--space-2) 0 0;
-  padding: var(--space-2) var(--space-3);
   overflow: auto;
   color: var(--text-2);
-  background: var(--bg-inset);
-  border-radius: var(--radius-md);
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
   line-height: var(--lh-code-sm);
@@ -479,7 +433,6 @@
   min-width: 0;
   min-height: 40px;
   padding: 0 var(--space-3);
-  background: var(--bg-tool);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
 }
@@ -521,26 +474,9 @@
   transition: transform var(--dur-fast) var(--ease-out);
 }
 
-/* 更新日志：每项一行（箭头 + 名字 + 版本 + 日期，整行可点），点开后正文缩进到名字下面。
-   几项连起来是一张卡片：第一项（紧跟分组标题）带上边和上圆角，最后一项带下圆角，项之间是 1px 淡分隔线。 */
+/* 更新日志：每项一行（箭头 + 名字 + 版本 + 日期，整行可点），点开后正文缩进到名字下面。 */
 .st-changelog {
-  padding: 0 var(--space-4);
-  background: var(--bg-tool);
-  border: 1px solid var(--border-subtle);
-  border-top: 0;
-}
-
-.ui-section-head + .st-changelog {
-  border-top: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-}
-
-.st-changelog:last-child {
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-}
-
-.ui-section-head + .st-changelog:last-child {
-  border-radius: var(--radius-lg);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .st-changelog .ui-disclosure {
@@ -556,7 +492,6 @@
 }
 
 .st-changelog-name {
-  font-weight: var(--fw-medium);
   color: var(--text);
 }
 
@@ -630,7 +565,7 @@
 }
 
 .st-toc-group[aria-current="true"] {
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
   color: var(--text);
 }
 

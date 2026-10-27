@@ -410,10 +410,10 @@
   background: var(--bg-raised);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--tsp-tc) 16%, transparent);
 }
-/* 中性卡片和过程卡片一样：卡片层——近白底 --bg-tool + 一圈 --border-subtle 发丝线，不加阴影（2026-10-27 质感改版） */
+/* 中性卡片和过程卡片一样：浅底，不描边（2026-10-24 质感改版：层级靠底色，不靠一圈圈的线） */
 .tsp-card[data-tone="neutral"] {
   background: var(--bg-tool);
-  box-shadow: 0 0 0 1px var(--border-subtle);
+  box-shadow: none;
 }
 .tsp-card.selected {
   box-shadow:
@@ -503,17 +503,10 @@
   display: inline-flex;
   flex: none;
   color: var(--text-3);
-  transition:
-    transform var(--dur-fast) var(--ease-out),
-    color var(--dur-instant) var(--ease-out);
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .tsp-chev[data-collapsed] {
   transform: rotate(-90deg);
-}
-/* 卡片头悬停：头整行 --bg-hover，折叠箭头从 --text-3 提到 --text-2 */
-.tsp-tool-head[role="button"]:hover > .tsp-chev,
-.tsp-card-head[role="button"]:hover > .tsp-chev {
-  color: var(--text-2);
 }
 
 /* 夹紧（card / tool 的 collapsed + preview、ansi / code 的 preview）：渐隐收口 + "还有 N 行" */
@@ -655,6 +648,7 @@
   padding: 0 var(--space-1);
   border-radius: var(--radius-xs);
   background: var(--bg-sunken);
+  box-shadow: 0 0 0 1px var(--border-subtle);
   color: var(--tsp-c-code);
   font-family: var(--font-mono);
   font-size: 0.92em;
@@ -1505,10 +1499,10 @@
   }
 }
 
-/* 用时 / 速率：界面字体 + 等宽数字（数字跳动时不晃），不用等宽字体 */
 .tsp-elapsed,
 .tsp-rate {
   color: var(--text-3);
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1867,13 +1861,10 @@
 .tsp-tool.st-error {
   --tsp-tool-c: var(--st-error);
 }
-/* 过程卡片 = 卡片层：近白底 --bg-tool + 一圈 --border-subtle 发丝线，不加阴影（2026-10-27 质感改版）。
- * 运行中 / 出错，以及 omp 明确给了 info / warning / error 的完成卡：左边一段 2px 状态色压在发丝线上（只占中段，不是整条粗边）；
- * 运行中 / 出错的底色再淡淡染一层 */
+/* 过程卡片：浅底，不描边；运行中 / 出错只染底色，左侧竖条标状态（2026-10-24 质感改版） */
 .tsp-tool.card {
   border-radius: var(--radius-lg);
   background: var(--bg-tool);
-  box-shadow: 0 0 0 1px var(--border-subtle);
   /* 跑完时运行中的淡紫底褪掉（只在已挂载的卡片状态变化时发生，打开历史任务不放） */
   transition: background-color var(--dur-base) var(--ease-out);
 }
@@ -1887,24 +1878,18 @@
   display: none;
 }
 .tsp-tool.card.st-running > .tsp-tool-bar,
-.tsp-tool.card.st-error > .tsp-tool-bar,
-.tsp-tool.card.st-done[data-tone="info"] > .tsp-tool-bar,
-.tsp-tool.card.st-done[data-tone="warning"] > .tsp-tool-bar,
-.tsp-tool.card.st-done[data-tone="error"] > .tsp-tool-bar,
-.tsp-tool.card.st-cancelled[data-tone="info"] > .tsp-tool-bar,
-.tsp-tool.card.st-cancelled[data-tone="warning"] > .tsp-tool-bar {
+.tsp-tool.card.st-error > .tsp-tool-bar {
   display: block;
   position: absolute;
-  left: -1px;
-  top: var(--space-3);
-  bottom: var(--space-3);
+  left: 0;
+  top: var(--space-2);
+  bottom: var(--space-2);
   width: 2px;
   border-radius: var(--radius-pill);
   background: var(--tsp-tool-c);
 }
 /* omp 明确给了 info / warning / error 才染色（规范 §2：完成态中性，success / accent 的完成卡不染）：
- * done 的卡片也要和成功卡区分开（没匹配 = warning、被取消 / 被重定向 = info），竖条和卡片头的图标染 tone 色。
- * running / error 状态自带颜色，不被 tone 盖掉。 */
+ * done 的卡片也要和成功卡区分开（没匹配 = warning、被取消 / 被重定向 = info）。running / error 状态自带颜色，不被 tone 盖掉。 */
 .tsp-tool[data-tone="info"]:not(.st-running, .st-error),
 .tsp-tool[data-tone="warning"]:not(.st-running, .st-error),
 .tsp-tool[data-tone="error"]:not(.st-running, .st-error) {
@@ -1916,6 +1901,20 @@
 .tsp-tool.st-pending[data-tone="info"] .tsp-tool-ic,
 .tsp-tool.st-pending[data-tone="warning"] .tsp-tool-ic {
   color: var(--tsp-tool-c);
+}
+.tsp-tool.card.st-done[data-tone="info"] > .tsp-tool-bar,
+.tsp-tool.card.st-done[data-tone="warning"] > .tsp-tool-bar,
+.tsp-tool.card.st-done[data-tone="error"] > .tsp-tool-bar,
+.tsp-tool.card.st-cancelled[data-tone="info"] > .tsp-tool-bar,
+.tsp-tool.card.st-cancelled[data-tone="warning"] > .tsp-tool-bar {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: var(--space-2);
+  bottom: var(--space-2);
+  width: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--tsp-tool-c);
 }
 /* ansi / text 上的 tone（eval 报错输出变红、ask 取消提示）：只在 omp 明确给了才染色 */
 .tsp-ansi[data-tone="error"],
@@ -1945,17 +1944,10 @@
   padding: 0 var(--space-3);
   border-radius: var(--radius-lg);
   color: var(--text);
-  transition: background-color var(--dur-instant) var(--ease-out);
 }
-/* 卡片展开着（头后面有内容）：头和内容之间一道通宽的发丝线，头的悬停底色只圆上面两个角 */
-.tsp-tool.card > .tsp-tool-head:not(:last-child) {
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  box-shadow: inset 0 -1px 0 var(--border-subtle);
-}
-/* 轻量工具行（Read / Glob 等 inline）：行高 24，落在 4px 栅格上 */
 .tsp-tool.inline > .tsp-tool-head {
   padding: 0;
-  min-height: var(--space-6);
+  min-height: var(--lh-sm);
 }
 .tsp-tool-head[role="button"] {
   cursor: pointer;
@@ -1972,10 +1964,9 @@
   flex: none;
   color: var(--tsp-tool-c);
 }
-/* 完成 / 等待中的工具图标：--text-2（14px，和标题同一行居中） */
 .tsp-tool.st-done .tsp-tool-ic,
 .tsp-tool.st-pending .tsp-tool-ic {
-  color: var(--text-2);
+  color: var(--text-3);
 }
 .tsp-tool-line {
   display: flex;
@@ -1985,18 +1976,9 @@
   min-width: 0;
   overflow: hidden;
 }
-/* 卡片标题：--fs-sm 500 --text（omp 把标题标成 strong，这里统一压回 500）；标题里的计数（"1 done"）是次要信息 */
 .tsp-tool-title {
   flex: none;
   font-weight: var(--fw-medium);
-}
-.tsp-tool-title .tsp-t-strong {
-  font-weight: var(--fw-medium);
-}
-.tsp-tool-title .tsp-t-success {
-  color: var(--text-3);
-  font-weight: var(--fw-regular);
-  font-variant-numeric: tabular-nums;
 }
 .tsp-tool-target {
   flex: 0 1 auto;
@@ -2008,12 +1990,9 @@
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
 }
-/* 文字型目标（"2 files"、"2 agents"、"5/5"）是计数，属于次要元信息 */
 .tsp-tool-target.text {
-  color: var(--text-3);
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
-  font-variant-numeric: tabular-nums;
 }
 .tsp-tool:not(.collapsed) .tsp-tool-target.command {
   white-space: pre-wrap;
@@ -2048,8 +2027,8 @@
 .tsp-tool-meta {
   flex: none;
   color: var(--text-3);
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .tsp-tool-meta .add {
@@ -2072,6 +2051,7 @@
 .tsp-tool-time {
   flex: none;
   color: var(--text-3);
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
@@ -2158,8 +2138,8 @@
 .tsp-tool.card > .tsp-tool-body > .tsp-col > :last-child:not(.tsp-code, .tsp-diff) {
   padding-bottom: var(--space-2);
 }
-/* 过程卡片(bash / eval 的 body 是一层 col)：命令直接在卡片底上（等宽 --fs-code），输出是凹下去的一块 --bg-inset，
- * 下面是安静的底栏。code 在卡片里一律折行，不出横向滚动条。 */
+/* 过程卡片(bash / eval 的 body 是一层 col)：命令和输出共用卡片底色，不再是一块灰底加一块白底；
+ * 输入和输出之间一条细分隔线，输出下面是安静的底栏。code 在卡片里一律折行，不出横向滚动条。 */
 .tsp-tool-body .tsp-col > .tsp-code {
   background: none;
   border-radius: 0;
@@ -2174,47 +2154,40 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-/* 输出：凹下去的一块（--bg-inset、--radius-md、不描边），左缘和命令文字对齐，里面再留 --space-2 / --space-3 */
 .tsp-tool-body .tsp-col > .tsp-code + .tsp-ansi {
-  margin: 0 var(--space-3) var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--bg-inset);
+  margin-top: var(--space-1);
+  padding-top: var(--space-2);
+  box-shadow: inset 0 1px 0 var(--border-subtle);
 }
 /* "还有 N 行"和代码左缘对齐 */
 .tsp-tool-body .tsp-more {
   padding-left: 0;
 }
-/* 底栏（Done 0.5s）：元信息，数字等宽 */
 .tsp-row[data-role="omp.run.foot"] {
   color: var(--text-3);
   font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  font-variant-numeric: tabular-nums;
 }
 .tsp-text[data-role="omp.run.state"][data-tone="success"],
 .tsp-text[data-role="omp.run.state"][data-tone="pending"] {
   color: var(--text-3);
 }
-/* 卡片头上的语言 / 标签徽章（"background"）：无底色、常规字重，比标题安静 */
+/* 卡片头上的语言 / 标签徽章：无底色，比标题安静 */
 .tsp-tool-head .tsp-badge:not([data-tone]),
 .tsp-tool-head .tsp-badge[data-tone="neutral"] {
   background: none;
   color: var(--text-3);
-  font-weight: var(--fw-regular);
 }
 .tsp-tool-hr {
   height: 1px;
-  background: var(--border-subtle);
+  background: var(--border);
   margin: 0;
 }
 .tsp-tool-body > .tsp-checklist {
   padding: var(--space-1-5) var(--space-3) var(--space-2);
 }
-/* body 里嵌套的 card / tool 不画框：边框、底和头下的分隔线都去掉 */
+/* body 里嵌套的 card / tool 不画框：边框和底都去掉 */
 .tsp-tool-body .tsp-card,
-.tsp-tool-body .tsp-tool.card,
-.tsp-tool-body .tsp-tool.card > .tsp-tool-head {
+.tsp-tool-body .tsp-tool.card {
   background: none;
   box-shadow: none;
   border-radius: 0;
@@ -2246,8 +2219,7 @@
   padding-right: 0;
 }
 
-/* 文件胶囊：Read / Glob 的结果（omp.tool.file）。透明底 + 发丝线，圆角 --radius-md，高 26；
- * 目录 --text-3、文件名 --text-2 500，等宽 --fs-code-sm；悬停 --bg-hover，线加深到 --border */
+/* 文件胶囊：Read / Glob 的结果（omp.tool.file） */
 .tsp-col[data-role="omp.tool.files"],
 .tsp-tool[data-name="read"] > .tsp-tool-body {
   flex-direction: row;
@@ -2262,33 +2234,21 @@
   flex: 0 1 auto;
   gap: var(--space-1-5);
   max-width: 100%;
-  height: calc(var(--space-6) + var(--space-0-5));
-  padding: 0 var(--space-2-5) 0 var(--space-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: transparent;
+  padding: var(--space-0-5) var(--space-2-5);
+  border-radius: var(--radius-pill);
+  background: var(--bg-sunken);
   color: var(--text-2);
-  transition:
-    background-color var(--dur-instant) var(--ease-out),
-    border-color var(--dur-instant) var(--ease-out);
-}
-.tsp-row[data-role="omp.tool.file"]:hover {
-  background: var(--bg-hover);
-  border-color: var(--border);
 }
 .tsp-row[data-role="omp.tool.file"] .tsp-text {
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
-  line-height: var(--lh-code-sm);
 }
 .tsp-row[data-role="omp.tool.file"] .tsp-icon {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
   color: var(--text-3);
 }
-.tsp-row[data-role="omp.tool.file"] :is(.tsp-link, .tsp-t-strong) {
-  color: var(--text-2);
-  font-weight: var(--fw-medium);
+.tsp-row[data-role="omp.tool.file"] .tsp-link {
+  color: var(--text);
+  font-weight: var(--fw-strong);
 }
 .tsp-row[data-role="omp.tool.file"] .tsp-link:hover {
   text-decoration: none;
@@ -2368,7 +2328,7 @@
   min-width: 0;
   margin-left: calc(var(--tsp-depth, 0) * (var(--space-5) + var(--space-0-5)));
   border-radius: var(--radius-lg);
-  background: var(--bg-tool);
+  background: var(--bg-raised);
   box-shadow: 0 0 0 1px var(--border-subtle);
 }
 .tsp-agent-row {
@@ -2440,6 +2400,7 @@
   align-items: center;
   gap: var(--space-2-5);
   color: var(--text-3);
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
@@ -2558,6 +2519,7 @@
 .tsp-ck-pill .n,
 .tsp-ck-rh .n {
   color: var(--text-3);
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
@@ -2718,13 +2680,9 @@
   box-shadow: none;
   border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-sm) var(--radius-bubble);
 }
-/* 气泡里的文字和回答正文同一档：--fs-prose / --lh-prose，主文字色 */
 .tsp-card[data-role="omp.user"] .tsp-card-body {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2-5) var(--space-3-5);
   gap: var(--space-1);
-  color: var(--text);
-  font-size: var(--fs-prose);
-  line-height: var(--lh-prose);
 }
 /* 用户消息里的图片：omp 发来的是缩成宽 200 的显示图，w/h 就是它的尺寸，没给 max；窄长的截图会被放大
  * （实测 omp 18.12.6：44×220 的截图成了 200×1000）。宽高都交给图片自己的比例，装进 100×100 的框
@@ -2742,7 +2700,7 @@
   bottom: 100%;
   padding-bottom: var(--space-0-5);
   gap: var(--space-1);
-  color: var(--text-2);
+  color: var(--text-3);
   font-size: var(--fs-2xs);
   opacity: 0;
   pointer-events: none;
@@ -2785,8 +2743,7 @@
   font-size: var(--fs-base);
 }
 .tsp-text[data-role="omp.user.time"] {
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
 }
 
 /* 助手回答：无框，思考折叠 + 正文 */
@@ -2808,13 +2765,11 @@
 .tsp-section[data-role^="omp.thinking"] > .tsp-section-head > .tsp-chev {
   order: 1;
 }
-/* 每轮末尾的用量行（23.0s · 7.5K tok · <$0.01 this turn）：元信息，数字等宽 */
 .tsp-row[data-role="omp.turn.usage"] {
   gap: var(--space-1-5);
   color: var(--text-3);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-2xs);
+  opacity: 0.8;
 }
 /* 空闲回顾（omp.recap）：omp 终端里是 "※ recap: …" 淡色斜体；节点里的 `history` 图标（时钟）只是 TSP 的占位。
    隐藏它，改用 ※ 记号；悬停提示是 omp 原样的英文（labels.ts，过程区不汉化）。 */
@@ -2833,24 +2788,18 @@
   font-style: normal;
   flex: none;
 }
-/* omp 状态行（切模型的 "Session-only model: …"、"xdev: xd:// mounted …" 等）：终端里是对话里一行暗色文字，留在原地（MainFlow.tsx）。 */
+/* omp 状态行（切模型的 "Session-only model: …" 等）：终端里是对话里一行暗色文字，留在原地（MainFlow.tsx）。 */
 .tsp-status-note {
   color: var(--text-3);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
+  font-size: var(--fs-sm);
   overflow-wrap: anywhere;
 }
-/* 用量行的复制按钮：14px 图标，平时 --text-3 跟着这一行一起安静，悬停 --text-2 */
 .tsp-icon[data-role="omp.turn.copy"] {
   border-radius: var(--radius-sm);
-  color: var(--text-3);
-  transition:
-    background-color var(--dur-instant) var(--ease-out),
-    color var(--dur-instant) var(--ease-out);
 }
 .tsp-icon[data-role="omp.turn.copy"]:hover {
-  background: var(--bg-hover);
-  color: var(--text-2);
+  background: var(--bg-active);
+  color: var(--text);
 }
 
 /* /jobs 弹窗（omp.overlay.jobs）照 studio 自己的对话框排（2026-10-25）：标题栏、左边作业列表（侧栏底色、整列高）、
@@ -2994,27 +2943,17 @@
   align-items: stretch;
   width: 100%;
 }
-/* 磁贴不再各自一块灰底加一圈框（2026-10-24 质感改版）：和卡片头之间的线由卡片头画；两列并排，列之间一道竖的发丝线，
- * 折到第二排以后每排上面一道横的发丝线 */
+/* 磁贴不再各自一块灰底加一圈框（2026-10-24 质感改版）：和卡片头之间一道细线，并排的磁贴之间一道竖线 */
 .tsp-col[data-role="omp.job.tile"] {
   flex: 1 1 calc(50% - var(--space-1-5));
   min-width: 0;
   padding: var(--space-1-5) var(--space-3);
-}
-.tsp-col[data-role="omp.job.tile"]:nth-child(even) {
-  box-shadow: inset 1px 0 0 var(--border-subtle);
-}
-.tsp-col[data-role="omp.job.tile"]:nth-child(n + 3) {
   box-shadow: inset 0 1px 0 var(--border-subtle);
 }
-.tsp-col[data-role="omp.job.tile"]:nth-child(even):nth-child(n + 3) {
+.tsp-col[data-role="omp.job.tile"] + .tsp-col[data-role="omp.job.tile"] {
   box-shadow:
     inset 0 1px 0 var(--border-subtle),
     inset 1px 0 0 var(--border-subtle);
-}
-/* 完成的勾：--st-done */
-.tsp-row[data-role="omp.job.tile.head"] .tsp-t-success {
-  color: var(--st-done);
 }
 .tsp-row[data-role="omp.job.tile.head"] {
   gap: var(--space-1-5);
@@ -3058,7 +2997,6 @@
   flex-wrap: wrap;
 }
 .tsp-tool[data-name="ask"] .tsp-tool-target.text {
-  color: var(--text-2);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

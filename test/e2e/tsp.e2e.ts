@@ -182,10 +182,10 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     await expect(page.getByTestId("send-button")).toBeVisible();
     await expect(role(page, "omp.editor")).toHaveCount(0);
     await expect(page.locator('[data-testid="tsp-view"] .tspi-editor')).toHaveCount(0);
-    // omp 自己的欢迎块(logo、"omp"、版本、小提示)不画;过程区顶部是 studio 的标题块(π 标记 + 任务所在文件夹),随对话滚动。
+    // omp 自己的欢迎块(logo、"omp"、版本、小提示)不画;过程区顶部是 studio 的标题块(像素标志 + 任务所在文件夹),随对话滚动。
     await expect(role(page, "omp.welcome")).toHaveCount(0);
     await expect(
-      page.locator('[data-testid="tsp-view"] [data-testid="studio-header"] [data-testid="empty-mark"]'),
+      page.locator('[data-testid="tsp-view"] [data-testid="studio-header"] [data-testid="pixel-logo"]'),
     ).toBeVisible();
     await expect(page.locator('[data-testid="tsp-view"] [data-testid="studio-header-folder"]')).toContainText(
       "项目 目录",
@@ -1031,9 +1031,19 @@ test("搜索来源排成等宽卡片网格(照 Tern):一行三张、域名在标
     expect(Math.abs(second.width - first.width)).toBeLessThanOrEqual(1);
     expect(fourth.y).toBeGreaterThan(first.y + first.height);
     expect(fourth.x).toBe(first.x);
-    const domain = await sources.nth(0).getByText("python.org", { exact: true }).boundingBox();
-    const title = await sources.nth(0).locator(".tsp-link").boundingBox();
-    expect(domain!.y + domain!.height).toBeLessThanOrEqual(title!.y);
+    // 域名和标题也在同一帧里量（理由同上）。
+    const [domainBottom, titleTop] = await sources.nth(0).evaluate((element) => {
+      const card = element as unknown as {
+        querySelector(selector: string): { getBoundingClientRect(): { top: number; bottom: number } } | null;
+        querySelectorAll(selector: string): ArrayLike<{
+          textContent: string | null;
+          getBoundingClientRect(): { top: number; bottom: number };
+        }>;
+      };
+      const domain = Array.from(card.querySelectorAll(".tsp-text")).find((node) => node.textContent === "python.org");
+      return [domain!.getBoundingClientRect().bottom, card.querySelector(".tsp-link")!.getBoundingClientRect().top];
+    });
+    expect(domainBottom).toBeLessThanOrEqual(titleTop);
     // 点卡片右上角(域名文字右边的空白)
     await sources.nth(0).click({ position: { x: first.width - 8, y: 8 } });
     await expect

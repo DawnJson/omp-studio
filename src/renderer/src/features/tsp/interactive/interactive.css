@@ -320,28 +320,21 @@
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
 }
-/* overlay 卡片里的 list 是弹出菜单的样子（照 Tern 的斜杠菜单）：行高 --row-menu，名字 500 次要色，选中是中性填充 + 正文色。 */
+/* overlay 卡片里的 list 是弹出菜单的样子（照 Tern 的斜杠菜单）：选中是中性填充。 */
 .tspi-ov-card .tspi-item {
-  min-height: var(--row-menu);
-}
-.tspi-ov-card .tspi-item:not(.off) {
-  color: var(--text-2);
+  min-height: calc(var(--lh-sm) + var(--space-2));
 }
 .tspi-ov-card .tspi-item.sel {
   background: var(--bg-active);
   box-shadow: none;
-  color: var(--text);
 }
 .tspi-ov-card .tspi-item-label {
-  font-weight: var(--fw-medium);
-}
-/* 光标下的补全菜单列的是命令和路径：名字用等宽 */
-.tspi-overlay.at-caret .tspi-item-label {
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
 }
 .tspi-ov-card .tspi-item-value {
-  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
 }
 
 /* ───────────────────────── toast ───────────────────────── */
@@ -380,8 +373,7 @@
   pointer-events: auto;
 }
 .tspi-overlay.modal .tspi-ov-card {
-  border-radius: var(--radius-xl);
-  box-shadow: var(--edge-highlight), var(--shadow-3);
+  box-shadow: var(--shadow-3);
 }
 .tspi-ov-card {
   position: relative;
@@ -392,7 +384,7 @@
   min-height: 0;
   border-radius: var(--radius-lg);
   background: var(--bg-overlay);
-  box-shadow: var(--edge-highlight), var(--shadow-2);
+  box-shadow: var(--shadow-2);
   pointer-events: auto;
   animation: tspi-pop var(--dur-base) var(--ease-out);
 }
@@ -428,13 +420,12 @@
   gap: var(--space-2);
   padding: var(--space-2-5) var(--space-3);
   box-shadow: inset 0 -1px 0 var(--border-subtle);
-  color: var(--text);
   font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
 }
 .tspi-ov-ic {
   display: inline-flex;
-  color: var(--text-2);
+  color: var(--text-3);
 }
 .tspi-ov-body {
   display: flex;
@@ -487,7 +478,7 @@
   margin: var(--space-8) auto auto;
   border-radius: var(--radius-xl);
   background: var(--bg-overlay);
-  box-shadow: var(--edge-highlight), var(--shadow-3);
+  box-shadow: var(--shadow-3);
   color: var(--text);
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
@@ -534,39 +525,29 @@
 }
 .tspi-pk-title .t {
   font-size: var(--fs-base);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
 }
 .tspi-pk-title .sub {
   color: var(--text-3);
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
 }
-/* 搜索框：照 ui 的输入框——白底、--border 线、--radius-md；键盘在框里（画着光标）时边线加深一档。 */
 .tspi-pk-search {
   position: relative;
   display: flex;
   flex: 1;
   align-items: center;
   min-width: 0;
-  height: var(--control-h-md);
-  padding: 0 var(--space-2-5);
-  border-radius: var(--radius-md);
-  background: var(--bg-raised);
-  box-shadow: inset 0 0 0 1px var(--border);
+  padding-left: var(--space-3);
+  box-shadow: inset 1px 0 0 var(--border-subtle);
   font-size: var(--fs-base);
   line-height: var(--lh-base);
   white-space: pre;
-  overflow: hidden;
-  transition: box-shadow var(--dur-instant);
 }
-.tspi-pk-search:has(.caret) {
-  box-shadow: inset 0 0 0 1px var(--border-strong);
-}
+.tspi-picker.no-title .tspi-pk-search,
 .tspi-pk-search.tspi-pk-nosearch {
-  height: auto;
-  padding: 0;
-  background: transparent;
   box-shadow: none;
+  padding-left: 0;
 }
 .tspi-pk-search .ph {
   color: var(--text-3);
@@ -624,13 +605,12 @@
   overflow-y: auto;
   box-shadow: inset -1px 0 0 var(--border-subtle);
 }
-/* 小节标题：12px 500 三级灰（中文不用大写和字距） */
 .tspi-pk-sgh {
   padding: var(--space-2) var(--space-2) var(--space-1);
   color: var(--text-3);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-medium);
-  line-height: var(--lh-xs);
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
 }
 .tspi-pk-ssep {
   height: 1px;
@@ -641,13 +621,10 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--row-menu);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-md);
   color: var(--text-2);
-  font-weight: var(--fw-medium);
   cursor: pointer;
-  transition: background var(--dur-instant);
 }
 .tspi-pk-scope:hover {
   background: var(--bg-hover);
@@ -683,7 +660,6 @@
   padding: var(--space-2) var(--space-5) 0 calc(var(--space-3) + var(--space-8));
   color: var(--text-3);
   font-size: var(--fs-xs);
-  font-weight: var(--fw-medium);
 }
 .tspi-pk-colhead .grow {
   flex: 1;
@@ -713,8 +689,7 @@
   align-items: center;
   gap: var(--space-2-5);
   padding: 0 var(--space-2);
-  border-radius: var(--radius-md);
-  color: var(--text-2);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition: background var(--dur-instant);
 }
@@ -723,15 +698,12 @@
 }
 .tspi-pk-row.sel {
   background: var(--bg-active);
-  color: var(--text);
 }
 .tspi-pk-row.off {
   color: var(--text-disabled);
 }
-/* 分组行就是小节标题：12px 500 三级灰 */
 .tspi-pk-row.grp {
-  color: var(--text-3);
-  font-size: var(--fs-xs);
+  color: var(--text-2);
   font-weight: var(--fw-medium);
   cursor: default;
 }
@@ -771,7 +743,7 @@
   background: hsl(var(--tspi-hue) 55% 52%);
   color: var(--bg-raised);
   font-size: var(--fs-2xs);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
   line-height: 1;
 }
 .tspi-pk-dot {
@@ -829,7 +801,6 @@
 .tspi-pk-label {
   min-width: 0;
   overflow: hidden;
-  font-weight: var(--fw-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -867,16 +838,18 @@
   flex: none;
   align-items: center;
 }
-/* 数据列（价格、上下文、时间）：界面字体、等宽数字；表头只换成三级灰 */
 .tspi-pk-fact {
   flex: none;
   text-align: right;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
-  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
 }
 .tspi-pk-colhead .tspi-pk-fact {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
   color: var(--text-3);
 }
 .tspi-pk-fact.f-text {
@@ -959,7 +932,7 @@
 }
 .tspi-pk-sk {
   height: 28px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--bg-sunken);
   animation: tspi-breathe var(--dur-breathe) ease-in-out infinite;
   animation-play-state: var(--play-state);
@@ -1077,7 +1050,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
 }
 .tspi-pf-mark {
   width: 16px;
@@ -1092,7 +1065,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 设置的搜索框：输入框的 --border 线，键盘在框里（画着光标）时加深一档 */
 .tspi-pf-search {
   position: relative;
   display: flex;
@@ -1101,12 +1073,8 @@
   padding: var(--space-1-5) var(--space-2-5);
   border-radius: var(--radius-md);
   background: var(--bg-raised);
-  box-shadow: inset 0 0 0 1px var(--border);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
   white-space: pre;
-  transition: box-shadow var(--dur-instant);
-}
-.tspi-pf-search:has(.tspi-pf-caret) {
-  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 .tspi-pf-search-ic {
   display: inline-flex;
@@ -1134,13 +1102,12 @@
   flex-direction: column;
   gap: var(--space-2);
 }
-/* 分组标题：12px 500 三级灰（中文不用大写和字距） */
 .tspi-pf-nav-head {
   padding: var(--space-1) var(--space-2);
   color: var(--text-3);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-medium);
-  line-height: var(--lh-xs);
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
 }
 .tspi-pf-nav-row {
   display: flex;
@@ -1153,10 +1120,8 @@
   background: transparent;
   color: var(--text-2);
   font: inherit;
-  font-weight: var(--fw-medium);
   text-align: left;
   cursor: pointer;
-  transition: background var(--dur-instant);
 }
 .tspi-pf-nav-row:hover {
   background: var(--bg-hover);
@@ -1200,8 +1165,8 @@
 }
 .tspi-pf-eyebrow {
   color: var(--text-3);
+  font-family: var(--font-mono);
   font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
 }
 .tspi-pf-title {
   margin: var(--space-1) 0;
@@ -1209,7 +1174,6 @@
   font-size: var(--fs-xl);
   line-height: var(--lh-xl);
   font-weight: var(--fw-strong);
-  letter-spacing: var(--ls-tight);
 }
 .tspi-pf-lead {
   margin: 0;
@@ -1223,7 +1187,7 @@
 .tspi-pf-part-h {
   margin: var(--space-5) 0 var(--space-1);
   font-size: var(--fs-base);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-strong);
 }
 .tspi-pf-part-h.off {
   color: var(--text-disabled);
@@ -1233,7 +1197,7 @@
 }
 .tspi-pf-sec-t {
   margin: 0 0 var(--space-1-5);
-  color: var(--text-3);
+  color: var(--text-2);
   font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
 }
@@ -1241,7 +1205,7 @@
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg);
-  background: var(--bg-tool);
+  background: var(--bg-raised);
   box-shadow: inset 0 0 0 1px var(--border-subtle);
   overflow: hidden;
 }
@@ -1421,9 +1385,9 @@
   position: absolute;
   inset: var(--space-8) var(--space-8) auto auto;
   width: min(480px, calc(100% - var(--space-8)));
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background: var(--bg-overlay);
-  box-shadow: var(--edge-highlight), var(--shadow-3);
+  box-shadow: var(--shadow-3);
 }
 .tspi-pf-editor:not(:empty) {
   display: block;
@@ -1433,27 +1397,13 @@
 }
 
 /* ───────────────────────── 提问 / 审批门（omp.editor.ask、omp.editor.ask.approval） ───────────────────────── */
-/* 门有外框（和输入框同宽同轴：dock 已经和输入框同宽），不再像对话正文。它在等你：比过程卡片高一档——白底、--border 线、一层浅投影。 */
+/* 门有外框（和输入框同宽同轴：dock 已经和输入框同宽），不再像对话正文。 */
 .tsp-col[data-role="omp.editor.ask"],
 .tsp-col[data-role="omp.editor.ask.approval"] {
   padding: var(--space-3) var(--space-4);
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
-}
-/* 标题（审批的 text、提问的 md）：正文色 500、主界面字号；审批标题自带 accent 色调，这里压回正文色 */
-.tsp-col[data-role="omp.editor.ask.approval"] > [data-role="omp.approval.title"],
-.tsp-col[data-role="omp.editor.ask"] .tsp-md[data-role="omp.ask.question"] .md {
-  color: var(--text);
-  font-size: var(--fs-base);
-  line-height: var(--lh-base);
-  font-weight: var(--fw-medium);
-}
-/* 选项整行可点、主界面字号；悬停 --bg-hover，选中 --accent-soft + 左侧 2px 强调条（.tspi-item.sel） */
-.tsp-col[data-role^="omp.editor.ask"] .tspi-item {
-  font-size: var(--fs-base);
-  line-height: var(--lh-base);
 }
 /* 根节点自己接键盘（Review 页没有 list），不画聚焦环。 */
 .tspi-ask-gate {
@@ -1463,12 +1413,6 @@
 .tsp-col[data-role="omp.editor.ask"] [data-role="omp.actions"],
 .tsp-col[data-role="omp.editor.ask.approval"] [data-role="omp.actions"] {
   gap: var(--space-2);
-}
-/* 门里的快捷键提示：12px（颜色沿用 ui 的三级灰；主按钮上的提示另有反色） */
-.tsp-col[data-role^="omp.editor.ask"] .ui-btn .ui-hint,
-.tsp-col[data-role^="omp.editor.ask"] .tspi-kbd {
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
 }
 
 /* 审批卡的顺序是 标题 / 命令 / 选项 / 底栏（Details、Deny、Approve）。Deny / Approve 和选项重复，不画（gate.ts

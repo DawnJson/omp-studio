@@ -1,4 +1,4 @@
-/* 右侧文件预览面板：和主区"纸面"并排的另一张纸（同一种交代：--bg-app + --shadow-panel），默认占主区约 36%，左边缘可拖。只用 tokens.css 里的变量。 */
+/* 右侧文件预览面板：和主区"纸面"并排的另一张纸，默认占主区约 36%，左边缘可拖。只用 tokens.css 里的变量。 */
 
 .file-preview {
   position: relative;
@@ -11,8 +11,8 @@
   margin-left: var(--space-2);
   overflow: hidden;
   background: var(--bg-app);
+  border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-panel);
   animation: panel-in var(--dur-slow) var(--ease-out);
 }
 .file-preview:focus {
@@ -43,8 +43,7 @@
   gap: var(--space-2);
   height: var(--panel-head-h);
   padding: 0 var(--space-2) 0 var(--space-3);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
+  font-size: var(--fs-xs);
   color: var(--text-2);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -54,7 +53,6 @@
   max-width: 40%;
   overflow: hidden;
   font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
   color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -152,10 +150,6 @@
 }
 .file-tree-row svg {
   flex: none;
-  color: var(--text-2);
-}
-/* 被忽略的文件整行退到 --text-3，图标一起退 */
-.file-tree-row[data-ignored] svg {
   color: var(--text-3);
 }
 .file-tree-chevron {
@@ -207,13 +201,9 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background-color var(--dur-instant) var(--ease-out);
 }
 .file-preview-external:hover {
   background: var(--bg-hover);
-}
-.file-preview-external:active {
-  background: var(--bg-active);
 }
 .file-preview-external:focus-visible {
   outline: 2px solid var(--focus-ring);
@@ -224,10 +214,9 @@
   padding: var(--space-4) var(--space-5);
 }
 
-/* 源码：代码块贴满面板宽度，底色就是纸面（--bg-app），不再是一块浅灰卡片 */
+/* 源码：代码块贴满面板宽度 */
 .file-preview-body > .md-codeblock {
   margin: 0;
-  background: var(--bg-app);
   border: 0;
   border-radius: 0;
 }
@@ -239,7 +228,7 @@
   min-height: 0;
   padding: var(--space-3);
   overflow: auto;
-  background: var(--bg-inset);
+  background: var(--bg-sunken);
   user-select: none;
 }
 .file-preview-image img {
