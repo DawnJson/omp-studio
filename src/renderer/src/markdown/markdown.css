@@ -52,6 +52,19 @@
 .md li::marker {
   color: var(--text-3);
 }
+/* 有序列表的序号是 li 里的真文字（render.ts 的 .md-ol-n），复制选中文字时带得上；位置照原生 ::marker：右对齐贴在内容左边。 */
+.md ol > li {
+  position: relative;
+  list-style: none;
+}
+.md-ol-n {
+  position: absolute;
+  right: 100%;
+  white-space: pre;
+  padding-right: var(--space-1);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
 .md li > ul,
 .md li > ol {
   margin-top: var(--space-1);

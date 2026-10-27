@@ -148,6 +148,14 @@ describe("流式渲染", () => {
     expect(out).not.toContain("[x]");
     expect(out).toContain("待做");
   });
+
+  // Chromium 复制选中文字时不带 ::marker：序号必须是文字，复制出来才有"3. 4."（2026-10-27 用户报的）。
+  it("有序列表的序号是文字，从 start 起数；任务项不加序号", () => {
+    const text = (source: string) => html(source).replace(/<[^>]+>/g, "");
+    expect(text("3. 甲\n4. 乙\n   1. 子项")).toBe("3. 甲4. 乙1. 子项");
+    expect(text("- 点")).toBe("点");
+    expect(text("1. [x] 做完")).toBe("做完");
+  });
 });
 
 describe("增量解析（parseStreaming）与整篇解析一致", () => {

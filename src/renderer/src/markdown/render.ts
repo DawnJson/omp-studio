@@ -152,12 +152,20 @@ function renderBlockNode(
   ctx: RenderContext,
   closedFence: boolean,
   lastItem = false,
+  ordinal: number | null = null,
 ): ReactNode {
   const { token } = node;
   const kids = (): ReactNode[] => node.children.map((child, index) => renderBlockNode(child, index, ctx, closedFence));
-  const listItems = (list: TreeNode): ReactNode[] =>
+  const listItems = (list: TreeNode, start: number | null = null): ReactNode[] =>
     list.children.map((child, index) =>
-      renderBlockNode(child, index, ctx, closedFence, index === list.children.length - 1),
+      renderBlockNode(
+        child,
+        index,
+        ctx,
+        closedFence,
+        index === list.children.length - 1,
+        start === null ? null : start + index,
+      ),
     );
   switch (token.type) {
     case "inline":
@@ -172,7 +180,7 @@ function renderBlockNode(
       return h("ul", { key }, listItems(node));
     case "ordered_list_open": {
       const start = Number(token.attrGet("start") ?? 1);
-      return h("ol", { key, start: start === 1 ? undefined : start }, listItems(node));
+      return h("ol", { key, start: start === 1 ? undefined : start }, listItems(node, start));
     }
     case "list_item_open": {
       const task = attr(token, "data-task");
@@ -181,7 +189,11 @@ function renderBlockNode(
         (child) => child.token.type === "bullet_list_open" || child.token.type === "ordered_list_open",
       );
       const caret = lastItem && !nested ? "" : undefined;
-      if (task === null) return h("li", { key, "data-caret": caret }, kids());
+      if (task === null) {
+        // 有序列表的序号写成真文字（不用 ::marker）：Chromium 复制选中文字时不带 ::marker，"1. 2. " 会丢（2026-10-27 实测）。
+        const number = ordinal === null ? null : h("span", { className: "md-ol-n" }, `${ordinal}. `);
+        return h("li", { key, "data-caret": caret }, number, kids());
+      }
       // 任务列表：只读复选框。
       const checkbox = h("input", {
         type: "checkbox",
