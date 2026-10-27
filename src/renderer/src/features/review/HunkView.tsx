@@ -14,7 +14,7 @@ import {
 } from "../../../../shared/ui/review-model.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
-import type { HighlightToken } from "../../markdown/highlight.ts";
+import type { HighlightToken } from "../../markdown/highlight-tokens.ts";
 import { Button } from "../../ui/controls.tsx";
 import { CommentBox, CommentCard } from "./CommentBox.tsx";
 import { displayText, useHunkTokens, type LineTokens } from "./use-hunk-tokens.ts";

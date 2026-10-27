@@ -2,7 +2,7 @@
 // 高亮器和语言包都在这里按需加载；主线程（highlight.ts）只发代码、收 token。
 import { createCssVariablesTheme, createHighlighterCore, type HighlighterCore } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
-import type { HighlightToken } from "./highlight.ts";
+import type { HighlightToken } from "./highlight-tokens.ts";
 import { resolveLanguage, type Language } from "./highlight-languages.ts";
 import { loadLanguage } from "./highlight-loaders.ts";
 

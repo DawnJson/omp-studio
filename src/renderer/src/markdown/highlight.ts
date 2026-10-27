@@ -1,17 +1,11 @@
 // Shiki(JS 正则引擎，不用 WASM)+ CSS 变量主题：深浅主题不重新高亮，颜色直接取设计 token(markdown.css 里把 --shiki-* 映射到 --syn-*)。
 // 分词在 worker 里（highlight-worker.ts）：同步分词一个几百行的文件要 100ms 以上，放在主线程会卡住界面。
-// 没高亮完时调用方先显示纯文本，结果到了只改颜色。
+// 没高亮完时调用方先显示纯文本，结果到了只改颜色；代码变了、新结果没到时接着用上一次的颜色（highlight-tokens.ts 的 carryHighlight）。
 // 排队在主线程：worker 里同时只放 MAX_RUNNING 个请求，其余在这里等；等的时候所有调用方都卸载了（滚过去、折叠、换会话）就直接丢掉，worker 不白算。
 import { useEffect, useMemo, useState } from "react";
 import type { HighlightReply, HighlightRequest } from "./highlight-worker.ts";
 import { resolveLanguage, type Language } from "./highlight-languages.ts";
-
-export interface HighlightToken {
-  text: string;
-  color?: string;
-  italic: boolean;
-  bold: boolean;
-}
+import { carryHighlight, type HighlightToken } from "./highlight-tokens.ts";
 
 interface Waiter {
   resolve(lines: HighlightToken[][]): void;
@@ -137,7 +131,8 @@ function highlight(code: string, language: Language, signal: AbortSignal): Promi
 
 /**
  * 一段代码的高亮 token，按行。lang 是 ```lang / 扩展名之类的写法；传 null（不需要高亮，例如围栏还没闭合）
- * 或认不出的语言时是 null。没高亮完也是 null：调用方先画纯文本，结果到了只改颜色；code 变了不会拿旧结果对新代码。
+ * 或认不出的语言时是 null。第一次没高亮完也是 null：调用方先画纯文本，结果到了只改颜色；
+ * 之后代码变了、新结果没到时是 carryHighlight 拼出来的过渡结果（不会拿旧 token 盖住新文字）。
  */
 export function useHighlighted(code: string, lang: string | null): HighlightToken[][] | null {
   const language = lang === null ? null : resolveLanguage(lang);
@@ -156,6 +151,14 @@ export function useHighlighted(code: string, lang: string | null): HighlightToke
     );
     return () => controller.abort();
   }, [code, language, cached]);
+  const carried = useMemo(
+    () =>
+      cached === null && done !== null && done.language === language && done.code !== code
+        ? carryHighlight(done.lines, code)
+        : null,
+    [cached, done, language, code],
+  );
   if (cached !== null) return cached;
-  return done !== null && done.code === code && done.language === language ? done.lines : null;
+  if (done === null || done.language !== language) return null;
+  return done.code === code ? done.lines : carried;
 }

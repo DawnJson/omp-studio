@@ -2,7 +2,8 @@
 // 用 markdown/highlight.ts 的 useHighlighted（异步，语言包按需加载）：两边都高亮完才着色，之前先显示纯文本。
 import { useMemo } from "react";
 import type { GitDiffHunk } from "../../../../shared/git.ts";
-import { useHighlighted, type HighlightToken } from "../../markdown/highlight.ts";
+import { useHighlighted } from "../../markdown/highlight.ts";
+import type { HighlightToken } from "../../markdown/highlight-tokens.ts";
 import { resolveLanguage } from "../../markdown/highlight-languages.ts";
 
 export type LineTokens = (HighlightToken[] | null)[];

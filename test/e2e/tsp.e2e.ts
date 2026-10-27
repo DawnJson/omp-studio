@@ -2359,6 +2359,65 @@ test("回答里的裸网址可点:用系统浏览器打开,句末的中文句号
   }
 });
 
+// omp 边生成边往 eval / 写文件卡片的代码节点里追加文字(`text append`):每追加一次重新高亮,新结果到之前
+// 已经着色的字要保持着色,不能先退回无色再变绿(2026-10-27 仓库所有者:绿色的字符串一直闪)。
+test("流式追加的代码节点:已着色的字在追加时不退回无色(不闪)", async () => {
+  test.setTimeout(90_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp stream code-"));
+  const fixture = await writeCardsFixture(
+    work,
+    [],
+    [{ id: "e2e-stream-code", k: "code", p: { lang: "python", text: 'x = "桦木单板"\n' } }],
+  );
+  const rows = (await readFile(fixture, "utf8"))
+    .trimEnd()
+    .split("\n")
+    .map((line) => JSON.parse(line) as { t: number });
+  const last = rows.at(-1)!.t;
+  // 30 次追加,录制里隔 1 秒(--speed=20 回放 50ms 一次),和 omp 流式写代码的节奏差不多。
+  for (let n = 0; n < 30; n += 1) {
+    rows.push({
+      t: last + 1000 * (n + 1),
+      dir: "out",
+      verb: "f",
+      body: { sf: "s:1", s: 9 + n, ops: [["text", "e2e-stream-code", "append", `y${n} = "松木${n}"\n`]] },
+    } as { t: number });
+  }
+  await writeFile(fixture, rows.map((row) => JSON.stringify(row)).join("\n") + "\n");
+  const { launched, cleanup } = await start(fixture);
+  try {
+    const { page } = launched;
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("cards"))[0]!.event["text"]));
+    const node = page.locator('[data-id="e2e-stream-code"]');
+    const first = node.locator(".tsp-ln").first().locator("span[style]", { hasText: "桦木单板" });
+    await expect(first).toHaveCount(1, { timeout: 30_000 });
+    // 每次 DOM 变化后(画出来之前)看第一行的字符串还有没有颜色。
+    await node.evaluate((element) => {
+      type Span = { textContent: string; getAttribute(name: string): string | null };
+      const root = element as unknown as {
+        querySelector(selector: string): { querySelectorAll(selector: string): ArrayLike<Span> } | null;
+      };
+      const g = globalThis as unknown as {
+        MutationObserver: new (cb: () => void) => { observe(target: unknown, o: object): void };
+        uncolored: number;
+      };
+      g.uncolored = 0;
+      new g.MutationObserver(() => {
+        const spans = Array.from(root.querySelector(".tsp-ln")?.querySelectorAll("span[style]") ?? []);
+        if (
+          !spans.some((span) => span.textContent.includes("桦木单板") && span.getAttribute("style")?.includes("color"))
+        )
+          g.uncolored += 1;
+      }).observe(element, { subtree: true, childList: true, characterData: true, attributes: true });
+    });
+    await expect(node).toContainText('y29 = "松木29"', { timeout: 30_000 });
+    expect(await page.evaluate(() => (globalThis as unknown as { uncolored: number }).uncolored)).toBe(0);
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
 /** 页面里记下每次 document.startViewTransition 动起来后的伪元素动画（名字 + 时长），断言开合放大图的 View Transition。 */
 interface RecordedTransition {
   animations: { pseudo: string; duration: number }[];

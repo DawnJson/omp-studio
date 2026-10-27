@@ -61,6 +61,7 @@
     "src/renderer/src/features/tsp/diff-highlight.ts",
     "src/renderer/src/features/tsp/interactive/list-virtual.ts",
     "src/renderer/src/markdown/marks.ts",
+    "src/renderer/src/markdown/highlight-tokens.ts",
     "src/renderer/src/features/tsp/fmt.ts",
     "src/renderer/src/features/tsp/shell-tokens.ts",
     "src/renderer/src/features/tsp/icon-names.ts",

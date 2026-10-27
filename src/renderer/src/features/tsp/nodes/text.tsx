@@ -4,7 +4,8 @@ import type { TspDiffHunk, TspSpan } from "../../../../../shared/tsp/tsp.generat
 import { labels } from "../labels.ts";
 import { Markdown } from "../../../markdown/index.ts";
 import type { TextMark } from "../../../markdown/marks.ts";
-import { useHighlighted, type HighlightToken } from "../../../markdown/highlight.ts";
+import { useHighlighted } from "../../../markdown/highlight.ts";
+import type { HighlightToken } from "../../../markdown/highlight-tokens.ts";
 import { codeLanguage, Tokens, tokenStyle } from "../use-highlighted.tsx";
 import { openHref } from "../actions.ts";
 import { parseAnsi, parseAnsiStream, type AnsiParse, type AnsiRun } from "../ansi.ts";
