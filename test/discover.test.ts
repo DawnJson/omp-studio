@@ -7,8 +7,10 @@ import { findOmpOnPath, UnsupportedOmpLauncherError } from "../src/main/omp/disc
 const isWindows = process.platform === "win32";
 let scratch: string;
 
+// findOmpOnPath 返回 realpath:macOS 的临时目录 /var 是 /private/var 的符号链接,GitHub 的 Windows 机器上
+// TEMP 是 8.3 短名(C:\Users\RUNNER~1\…)。临时目录先取 realpath,期望值和返回值才是同一种写法。
 beforeAll(async () => {
-  scratch = await mkdtemp(path.join(os.tmpdir(), "omp-studio 发现-"));
+  scratch = await realpath(await mkdtemp(path.join(os.tmpdir(), "omp-studio 发现-")));
 });
 afterAll(async () => {
   await rm(scratch, { recursive: true, force: true });
@@ -30,8 +32,7 @@ describe("findOmpOnPath", () => {
       PATH: [empty, first, second].join(path.delimiter),
       PATHEXT: ".COM;.EXE;.BAT;.CMD",
     });
-    // findOmpOnPath 返回 realpath:macOS 的临时目录 /var 是 /private/var 的符号链接。
-    expect(found).toBe(path.join(await realpath(first), isWindows ? "omp.exe" : "omp"));
+    expect(found).toBe(path.join(first, isWindows ? "omp.exe" : "omp"));
   });
 
   it("returns null when no directory has omp", async () => {
