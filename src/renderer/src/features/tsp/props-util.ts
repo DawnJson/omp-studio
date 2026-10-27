@@ -1,12 +1,12 @@
 // 节点 props 是 `Record<string, unknown>`（来自程序，不可信）：读嵌套字段前先收窄，不靠断言。
-import { isRecord } from "../../../../shared/type-guards.ts";
+import { finiteNumber, isRecord } from "../../../../shared/type-guards.ts";
 
 export function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
 export function asNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return finiteNumber(value) ?? undefined;
 }
 
 export function asArray(value: unknown): readonly unknown[] {

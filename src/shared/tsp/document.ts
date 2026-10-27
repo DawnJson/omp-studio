@@ -421,7 +421,8 @@ export interface DocumentSnapshot {
     live: boolean;
   }[];
   palettes: TspPalette[];
-  blobs: { id: string; mime: string | null; data: string }[];
+  /** 文档里 blob 的 id，不带字节（图片一张常有上百 KB，每次拉快照都整份复制太贵）：渲染进程用到哪张再按 id 取（`getTspBlob`）。 */
+  blobIds: string[];
   revealSeq: number;
 }
 
@@ -441,7 +442,7 @@ export function snapshotDocument(doc: TspDocument): DocumentSnapshot {
       live: doc.live.has(surface.id),
     })),
     palettes: [...doc.palettes.values()],
-    blobs: [...doc.blobs.entries()].map(([id, blob]) => ({ id, mime: blob.mime, data: blob.data })),
+    blobIds: [...doc.blobs.keys()],
     revealSeq: doc.revealSeq,
   };
 }
@@ -464,7 +465,7 @@ export function restoreDocument(snapshot: DocumentSnapshot): TspDocument {
     if (surface.live) doc.live.add(surface.id);
   }
   for (const palette of snapshot.palettes) doc.palettes.set(palette.sf, palette);
-  for (const blob of snapshot.blobs) doc.blobs.set(blob.id, { mime: blob.mime, data: blob.data });
+  // blob 的字节不在快照里（见 DocumentSnapshot.blobIds），还原出的文档 blobs 为空。
   doc.revealSeq = snapshot.revealSeq;
   return doc;
 }

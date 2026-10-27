@@ -20,15 +20,22 @@ export function cancelledReply(frame: ExtensionUiRequest): CancelUiResponse | nu
 const LOG_TEXT_MAX = 200;
 const clip = (text: string) => (text.length > LOG_TEXT_MAX ? `${text.slice(0, LOG_TEXT_MAX)}…` : text);
 
+/** 每个 statusKey 上一次写进日志的文字：扩展常常反复设同一个状态，一样的不再记。 */
+const loggedStatus = new Map<string, string>();
+
 /** 只写日志的呈现类请求（日志写入时会再脱敏）。 */
 export function logPresentationRequest(frame: ExtensionUiRequest): void {
   switch (frame.method) {
     case "notify":
       log.info(`omp extension notify (${frame.notifyType ?? "info"}): ${clip(frame.message)}`);
       break;
-    case "setStatus":
-      log.info(`omp extension setStatus ${frame.statusKey}: ${clip(frame.statusText ?? "")}`);
+    case "setStatus": {
+      const text = clip(frame.statusText ?? "");
+      if (loggedStatus.get(frame.statusKey) === text) break;
+      loggedStatus.set(frame.statusKey, text);
+      log.info(`omp extension setStatus ${frame.statusKey}: ${text}`);
       break;
+    }
     case "setWidget":
       log.info(`omp extension setWidget ${frame.widgetKey}: ${clip((frame.widgetLines ?? []).join(" | "))}`);
       break;

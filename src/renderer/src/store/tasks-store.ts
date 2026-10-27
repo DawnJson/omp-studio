@@ -1,4 +1,5 @@
 // 任务表：主进程是权威，这里只是 taskState / taskRemoved 事件的投影。
+import { useMemo } from "react";
 import type { TaskId, TaskState } from "../../../shared/ipc.ts";
 import { createStore, useStoreValue } from "./create-store.ts";
 
@@ -48,6 +49,12 @@ export function useTasks(): readonly TaskState[] {
 
 export function useTask(taskId: TaskId | null): TaskState | null {
   return useStoreValue(tasksStore, (state) => (taskId === null ? null : (state.byId[taskId] ?? null)));
+}
+
+/** ids 里还存在的任务，顺序不变；只在这个结果变了时重渲染（任务状态事件很密）。 */
+export function useExistingTaskIds(ids: readonly TaskId[]): readonly TaskId[] {
+  const key = useStoreValue(tasksStore, (state) => ids.filter((id) => state.byId[id] !== undefined).join("\n"));
+  return useMemo(() => (key === "" ? [] : (key.split("\n") as TaskId[])), [key]);
 }
 
 /** 当前的任务状态（给斜杠命令这类不在渲染里的动作用）；任务不存在时 null。 */

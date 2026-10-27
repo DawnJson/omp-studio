@@ -8,7 +8,7 @@
 // omp 自己的 HUD（作业胶囊、运行状态行、待办药丸）不画，见 TspChildren.tsx。
 import { useMemo } from "react";
 import type { TaskState } from "../../../../shared/ipc.ts";
-import { countActiveAgents } from "../../../../shared/tsp/agent-hub.ts";
+import { AGENT_NODES, countActiveAgents } from "../../../../shared/tsp/agent-hub.ts";
 import {
   deriveComposerFacts,
   parseLoaderText,
@@ -21,10 +21,10 @@ import { deriveWorkingLabel } from "../../../../shared/tsp/working.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { FlipText } from "../../ui/FlipText.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
-import { formatElapsed } from "../conversation/format.ts";
 import { summarizeTodos } from "../conversation/todo-model.ts";
 import { useNow } from "../conversation/use-now.ts";
 import { useTspDerived } from "../tsp/tsp-store.ts";
+import { formatElapsed } from "../tsp/fmt.ts";
 import {
   CancelButton,
   ExtStatusTags,
@@ -40,7 +40,7 @@ import { useTspJobs } from "./tsp-jobs-store.ts";
 import type { Job } from "../../../../shared/ui/jobs.ts";
 import { useHeld } from "./use-held.ts";
 
-const BUSY: readonly TaskState["status"][] = ["starting", "running", "needs_you"];
+const BUSY: ReadonlySet<TaskState["status"]> = new Set(["starting", "running", "needs_you"]);
 
 /** 渲染用的快照：收起动画期间保留最后一次有内容时的样子。 */
 interface View {
@@ -55,7 +55,7 @@ interface View {
 
 function StatusLine({ task, label, facts }: { task: TaskState; label: string | null; facts: ComposerFacts | null }) {
   const t = useT();
-  const now = useNow(true, task.runStartedAt ?? 0);
+  const now = useNow(task.runStartedAt !== null, task.runStartedAt ?? 0);
   const waiting = task.status === "needs_you";
   const retry = waiting ? null : (facts?.retry ?? null);
   const compaction = waiting ? null : (facts?.compaction ?? null);
@@ -77,7 +77,11 @@ function StatusLine({ task, label, facts }: { task: TaskState; label: string | n
       )}
       {task.runStartedAt !== null && (
         <>
-          <FlipText className="run-elapsed" testId="run-elapsed" value={formatElapsed(now - task.runStartedAt)} />
+          <FlipText
+            className="run-elapsed"
+            testId="run-elapsed"
+            value={formatElapsed(now - task.runStartedAt, "seconds")}
+          />
           <span className="run-sep" aria-hidden="true" />
         </>
       )}
@@ -96,7 +100,7 @@ function StatusLine({ task, label, facts }: { task: TaskState; label: string | n
 
 function TopContent({ view }: { view: View }) {
   const { task, label, agents, running, facts } = view;
-  const busy = BUSY.includes(task.status);
+  const busy = BUSY.has(task.status);
   const todo = summarizeTodos(task.todoPhases);
   const hasTodo = todo.total > 0;
   const hasPills = agents > 0 || running.length > 0;
@@ -128,12 +132,12 @@ function TopContent({ view }: { view: View }) {
 export function ComposerTop({ task }: { task: TaskState }) {
   const taskId = task.id;
   const label = useTspDerived(taskId, deriveWorkingLabel, Object.is);
-  const agents = useTspDerived(taskId, countActiveAgents, Object.is) ?? 0;
+  const agents = useTspDerived(taskId, countActiveAgents, Object.is, AGENT_NODES) ?? 0;
   const facts = useTspDerived(taskId, deriveComposerFacts, sameComposerFacts);
   const jobs = useTspJobs(taskId);
   // 药丸右半段 = 除子代理外所有运行中的作业（bash、eval、后台 task；shared/tsp/jobs.ts 的 runningJobs）。
   const running = useMemo(() => runningJobs(jobs), [jobs]);
-  const busy = BUSY.includes(task.status);
+  const busy = BUSY.has(task.status);
   const hasTodo = summarizeTodos(task.todoPhases).total > 0;
   const visible =
     busy ||

@@ -114,6 +114,7 @@ function makeTask(status: TaskState["status"]): TaskState {
     dialogs: [],
     todoPhases: [],
     cwd: "",
+    worktreeBranch: null,
     runStartedAt: null,
     fastMode: { enabled: false, active: false },
     slowMode: { supported: false, enabled: false, scope: null },

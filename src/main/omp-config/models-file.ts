@@ -34,6 +34,7 @@ import {
   type CustomProviderInput,
   type EnvSource,
 } from "../../shared/custom-models.ts";
+import { nonEmptyString as str } from "../../shared/type-guards.ts";
 import { log } from "../log/log.ts";
 import { writeFileAtomic } from "../tasks/atomic-write.ts";
 import { envFilePath, envSourceOf, readEnvText, removeEnvLine, setEnvLine } from "./env-file.ts";
@@ -80,10 +81,6 @@ function stripBom(text: string): string {
 }
 
 // ——— 读 ———
-
-function str(value: unknown): string | null {
-  return typeof value === "string" && value !== "" ? value : null;
-}
 
 function keyStateOf(entry: Record<string, unknown>, sourceOf: SourceOf): CustomKeyState {
   const key = entry["apiKey"];

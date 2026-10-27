@@ -8,6 +8,7 @@ import { Button, FormField, Notice, Segmented, type Option } from "../../ui/cont
 import { Dialog } from "../../ui/Dialog.tsx";
 import { InfoTip } from "../../ui/InfoTip.tsx";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
+import { useAsyncAction } from "./use-async-action.ts";
 import "./integrations.css";
 
 export function SkillForm({
@@ -23,8 +24,8 @@ export function SkillForm({
   const [picked, setPicked] = useState<SkillCandidate | null>(null);
   const [scope, setScope] = useState<SkillScope>("user");
   const [target, setTarget] = useState<SkillTarget>("shared");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { busy, run } = useAsyncAction((caught) => setError(errorDetail(caught)));
 
   const targets: Option<SkillTarget>[] = [
     { value: "shared", label: t("integrations.skills.target.shared") },
@@ -37,32 +38,25 @@ export function SkillForm({
   // 用户范围的视图里没有项目目录：只能装到用户范围。
   const effectiveScope: SkillScope = scopeKey === "user" ? "user" : scope;
 
-  const pick = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const candidate = await window.studio.pickSkillFolder();
-      if (candidate !== null) setPicked(candidate);
-    } catch (caught) {
-      setPicked(null);
-      setError(errorDetail(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const pick = () =>
+    run(async () => {
+      setError(null);
+      try {
+        const candidate = await window.studio.pickSkillFolder();
+        if (candidate !== null) setPicked(candidate);
+      } catch (caught) {
+        setPicked(null);
+        throw caught;
+      }
+    });
 
-  const submit = async () => {
+  const submit = () => {
     if (picked === null) return;
-    setBusy(true);
-    setError(null);
-    try {
+    return run(async () => {
+      setError(null);
       const added = await window.studio.addSkill(picked.token, target, effectiveScope, scopeProject(scopeKey));
       onDone(added.name);
-    } catch (caught) {
-      setError(errorDetail(caught));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   return (

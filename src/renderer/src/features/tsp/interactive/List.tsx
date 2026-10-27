@@ -2,7 +2,7 @@
 // 再点已选中的行也算 activate（和 picker 的规则一致），审批门的选项一下就能点；双击不会重复激活。
 // 多选提问的选项（`omp.ask.check`）例外：单击永远是 `select`（omp 把它当勾选切换），双击不 activate（规则在 shared/tsp/ask-gate.ts）。
 // 方向键、Enter 这些归 omp：list 自己可聚焦，按键用 keys.ts 编码写进伪终端。
-import { createContext, useContext, useEffect, useLayoutEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { askItemClick, askItemDoubleActivates, askItemMarker } from "../../../../../shared/tsp/ask-gate.ts";
 import { Badge } from "../../../ui/controls.tsx";
 import type { TspItemProps, TspListProps } from "../../../../../shared/tsp/tsp.generated.ts";
@@ -86,7 +86,8 @@ export function List(props: NodeProps) {
     ctx.keys(data);
   };
 
-  const state: ListState = { listId: node.id, selected, filter: p.filter ?? "" };
+  const filter = p.filter ?? "";
+  const state = useMemo<ListState>(() => ({ listId: node.id, selected, filter }), [node.id, selected, filter]);
   const style = cap === undefined ? undefined : ({ "--tspi-list-max": cap } as React.CSSProperties);
   const empty = node.c.length === 0;
 

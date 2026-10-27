@@ -1,9 +1,9 @@
 // 一个 `omp --mode rpc-ui` 子进程的连接：启动、握手（协商协议 v2）、按 id 对应命令应答、转发其余帧、关闭。
 // 协议见 omp 文档 rpc.md；实测行为见 docs/architecture/omp-rpc.md。
 // 常驻默认应答：没人认领 extension UI（claimExtensionUi）时，要答复的请求回 cancelled，呈现类写日志。
-import { spawn, execFile, type ChildProcessWithoutNullStreams } from "node:child_process";
-import path from "node:path";
-import { killPosixProcessTree } from "../platform/posix/process-tree.ts";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { killProcessTree } from "../platform/process-tree.ts";
+import { waitWithTimeout } from "../platform/wait-with-timeout.ts";
 import { FrameDecoder, type RawFrame } from "./frame-decoder.ts";
 import { cancelledReply, logPresentationRequest } from "./extension-ui.ts";
 import type {
@@ -273,11 +273,7 @@ export class OmpConnection {
   async close(timeoutMs = 5_000): Promise<OmpExit> {
     if (this.#exit) return this.#exit;
     this.#child.stdin.end();
-    const timedOut = Promise.withResolvers<"timeout">();
-    const timer = setTimeout(() => timedOut.resolve("timeout"), timeoutMs);
-    const outcome = await Promise.race([this.exited, timedOut.promise]);
-    clearTimeout(timer);
-    if (outcome === "timeout") await this.#killTree();
+    if (!(await waitWithTimeout(this.exited, timeoutMs))) await this.#killTree();
     return this.exited;
   }
 
@@ -372,22 +368,8 @@ export class OmpConnection {
     const pid = this.#child.pid;
     if (this.#exit) return;
     this.#killed = true;
-    if (pid !== undefined && !this.#processExited) {
-      if (process.platform === "win32") {
-        // 用绝对路径：不带路径时 Windows 会先在当前目录里找 taskkill。进程刚好自己退出时 taskkill 会失败，忽略即可。
-        const taskkill = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "taskkill.exe");
-        const done = Promise.withResolvers<void>();
-        execFile(taskkill, ["/T", "/F", "/PID", String(pid)], { windowsHide: true }, () => done.resolve());
-        await done.promise;
-      } else {
-        await killPosixProcessTree(pid);
-      }
-    }
-    const timedOut = Promise.withResolvers<"timeout">();
-    const timer = setTimeout(() => timedOut.resolve("timeout"), KILL_GRACE_MS);
-    const outcome = await Promise.race([this.exited, timedOut.promise]);
-    clearTimeout(timer);
-    if (outcome === "timeout") {
+    if (pid !== undefined && !this.#processExited) await killProcessTree(pid);
+    if (!(await waitWithTimeout(this.exited, KILL_GRACE_MS))) {
       this.#child.stdin.destroy();
       this.#child.stdout.destroy();
       this.#child.stderr.destroy();

@@ -1,7 +1,9 @@
 // FLIP 补位（spec §2.6）：容器里带 data-flip-key 的直接子元素，key 集合或顺序变了之后，留下来的元素从旧位置平移回新位置。
 // 只动 transform（WAAPI）；时长、曲线读 tokens.css 的 --dur-base / --ease-out；减少动效时不播（只更新记录）。
-// 每次渲染后量一次位置存起来；只有 key 序列和上次不同才播，所以折叠展开、拖宽、首次渲染、新出现的元素都不会触发位移。
-import { useLayoutEffect, useRef, type RefObject } from "react";
+// 只有 key 序列和上次不同才量位置、才播，所以折叠展开、拖宽、首次渲染、新出现的元素都不会触发位移。
+// key 序列没变时不量（父组件每次重渲染都会跑这个 effect）；行的位置在那期间变了（行变高、换行）容器尺寸也会变，
+// 由 ResizeObserver 在排版之后重量一次，记录一直是最新的。
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import { useReducedMotion } from "../features/tsp/use-clock.ts";
 
 interface Snapshot {
@@ -25,29 +27,50 @@ function residual(el: HTMLElement): number {
   return new DOMMatrixReadOnly(getComputedStyle(el).transform).m42;
 }
 
+/** 量一次各元素的布局位置；shifts 收集每个元素当前动画带来的位移（播新动画时要接上）。 */
+function measure(root: HTMLElement, targets: HTMLElement[], shifts?: Map<HTMLElement, number>): Map<string, number> {
+  const rootTop = root.getBoundingClientRect().top;
+  const tops = new Map<string, number>();
+  for (const el of targets) {
+    const shift = residual(el);
+    shifts?.set(el, shift);
+    tops.set(el.dataset.flipKey as string, el.getBoundingClientRect().top - shift - rootTop);
+  }
+  return tops;
+}
+
 export function useFlip(container: RefObject<HTMLElement | null>): void {
   const reduced = useReducedMotion();
   const last = useRef<Snapshot | null>(null);
-  // 没有依赖：每次渲染后都量（量的是布局位置，便宜），key 序列没变就只更新记录。
+  const watched = useRef<{ root: HTMLElement; observer: ResizeObserver } | null>(null);
+  useEffect(() => () => watched.current?.observer.disconnect(), []);
+  // 没有依赖：每次渲染后比一次 key 序列（只读 DOM 树，不量位置）。
   useLayoutEffect(() => {
     const root = container.current;
+    if (watched.current !== null && watched.current.root !== root) {
+      watched.current.observer.disconnect();
+      watched.current = null;
+    }
     if (root === null) {
       last.current = null; // 容器卸载（折叠区收起）后重新挂上算首次渲染，不播
       return;
     }
-    const targets = flipTargets(root);
-    const rootTop = root.getBoundingClientRect().top;
-    const shifts = new Map<HTMLElement, number>();
-    const tops = new Map<string, number>();
-    for (const el of targets) {
-      const shift = residual(el);
-      shifts.set(el, shift);
-      tops.set(el.dataset.flipKey as string, el.getBoundingClientRect().top - shift - rootTop);
+    if (watched.current === null) {
+      const observer = new ResizeObserver(() => {
+        const snapshot = last.current;
+        if (snapshot !== null) last.current = { signature: snapshot.signature, tops: measure(root, flipTargets(root)) };
+      });
+      observer.observe(root);
+      watched.current = { root, observer };
     }
+    const targets = flipTargets(root);
     const signature = targets.map((el) => el.dataset.flipKey).join("\n");
     const before = last.current;
+    if (before !== null && before.signature === signature) return;
+    const shifts = new Map<HTMLElement, number>();
+    const tops = measure(root, targets, shifts);
     last.current = { signature, tops };
-    if (before === null || before.signature === signature || reduced) return;
+    if (before === null || reduced) return;
     const style = getComputedStyle(document.documentElement);
     const duration = Number.parseFloat(style.getPropertyValue("--dur-base"));
     const easing = style.getPropertyValue("--ease-out").trim();

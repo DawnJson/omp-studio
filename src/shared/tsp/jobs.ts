@@ -13,6 +13,7 @@
 import type { Job } from "../ui/jobs.ts";
 import { isRecord } from "../type-guards.ts";
 import { findNode, nodeRole, spansText, type DocNode, type DocSurface, type TspDocument } from "./document.ts";
+import type { NodeDeps } from "./node-watch.ts";
 
 type JobStatus = Job["status"];
 
@@ -268,6 +269,9 @@ export function findJobsOverlayItem(
   }
   return null;
 }
+
+/** findJobsHudSeg / deriveJobTiles 读的节点（NodeWatch）：hud 胶囊（悬停卡片是它的属性）。 */
+export const JOB_HUD_NODES: NodeDeps = { roles: [HUD_JOBS_ROLE] };
 
 /** hud 上的作业胶囊（点它 = omp 打开 `/jobs` 弹窗，动作 `jobs.open`）；没有运行中作业时为 null。 */
 export function findJobsHudSeg(doc: TspDocument): { sf: string; id: string } | null {

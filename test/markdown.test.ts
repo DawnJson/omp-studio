@@ -1,10 +1,16 @@
 // 防的是：模型输出里的原始 HTML、危险链接把渲染进程变成脚本执行入口；以及流式渲染时已闭合的块被反复重建（界面跳动、选区丢失）。
+import katex from "katex";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { renderMarkdown } from "../src/renderer/src/markdown/markdown-static.ts";
-import { parseBlocks, stabilizeStreaming } from "../src/renderer/src/markdown/parse.ts";
+import {
+  parseBlocks,
+  parseStreaming,
+  stabilizeStreaming,
+  type BlockParse,
+} from "../src/renderer/src/markdown/parse.ts";
 
-const html = (source: string) => renderToStaticMarkup(renderMarkdown(source, { openLink: () => {} }));
+const html = (source: string) => renderToStaticMarkup(renderMarkdown(source, { openLink: () => {}, katex }));
 
 describe("原始 HTML 转义成文本", () => {
   it("<script> 和 <img onerror> 不会变成元素", () => {
@@ -144,6 +150,120 @@ describe("流式渲染", () => {
   });
 });
 
+describe("增量解析（parseStreaming）与整篇解析一致", () => {
+  const tricky: Record<string, string> = {
+    列表跨空行: [
+      "- a",
+      "",
+      "  续写的段落",
+      "",
+      "- b",
+      "  - 嵌套",
+      "",
+      "    深层段落",
+      "1. 有序",
+      "2. 第二",
+      "",
+      "3) 另一种分隔符",
+      "",
+      "收尾",
+      "",
+      "- 新列表",
+    ].join("\n"),
+    缩进代码跨空行: "段落\n\n    code 1\n\n    code 2\n之后\n\n    code 3\n\n\n    code 4\n\n尾",
+    围栏: "文字\n\n```js\na\n\nb\n```\n\n~~~\n未闭合\n\n更多\n\n````\n内层 ```\n````\n尾",
+    公式块: "$$\na\n\nb\n$$\n\n$$\nx^2\n$$\n\n\\[\ny\n\\]\n行内 $z$ 结束\n\n$$ 单行 $$\n\n后",
+    setext与惰性续行: "标题\n=====\n\n段落\n续行\n---\n\n> 引用\n惰性行\n\n> 第二段\n\n***\n\n文字\n\n  ===\n",
+    表格: "| a | b |\n| - | - |\n| 1 | 2 |\n\n之后\n| c |\n| - |\n\n| x |\n|---|\n| y\n",
+    引用定义: '看 [foo] 和 [bar][]\n\n段落\n\n[foo]: https://a.test\n[bar]: https://b.test "t"\n\n再引用 [foo]',
+    CRLF: "a\r\n\r\nb\r\n- c\r\n\r\nd\r",
+    制表符与空白行: "a\n \t\n\tcode\n\nb\n  \n\t- 列表\n\n c",
+    任务列表与HTML: "- [ ] x\n- [x] y\n\n<div>\n\n</div>\n\n文字 <b>粗</b>\n",
+    链接与数字列表: "见 https://a.test。\n\n2. 从二开始\n\n10. 十\n\n# 标题\n\n段落 1. 不是列表",
+  };
+
+  for (const [name, doc] of Object.entries(tricky)) {
+    it(`${name}：每个前缀都和整篇解析相同`, () => {
+      let raw: BlockParse | null = null;
+      let stable: BlockParse | null = null;
+      for (let end = 0; end <= doc.length; end += 1) {
+        const prefix = doc.slice(0, end);
+        raw = parseStreaming(raw, prefix);
+        expect(raw.blocks).toEqual(parseBlocks(prefix));
+        const shown = stabilizeStreaming(prefix);
+        stable = parseStreaming(stable, shown);
+        expect(stable.blocks).toEqual(parseBlocks(shown));
+      }
+    });
+  }
+
+  it("随机拼出的文档（行取自易错构造）：每个前缀都和整篇解析相同", () => {
+    const pool = [
+      "",
+      "",
+      "段落文字",
+      "- 项",
+      "  续行",
+      "    缩进四格",
+      "1. 有序",
+      "> 引用",
+      "```",
+      "~~~py",
+      "$$",
+      "x^2 $$",
+      "\\[",
+      "\\]",
+      "| a | b |",
+      "| - | - |",
+      "===",
+      "---",
+      "# 标题",
+      "\t制表",
+      "  - 嵌套",
+      "* 星号",
+      "行内 $y$ 和 `c`",
+    ];
+    let seed = 7;
+    const next = (n: number): number => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed % n;
+    };
+    for (let round = 0; round < 60; round += 1) {
+      const doc = Array.from({ length: 6 + next(14) }, () => pool[next(pool.length)]).join("\n");
+      let state: BlockParse | null = null;
+      for (let end = 0; end <= doc.length; end += 1) {
+        const prefix = doc.slice(0, end);
+        state = parseStreaming(state, prefix);
+        expect(state.blocks, doc).toEqual(parseBlocks(prefix));
+      }
+    }
+  });
+
+  it("原文不是上次的延长（改写、变短、换成另一篇）时也和整篇解析相同", () => {
+    const docs = Object.values(tricky);
+    let state: BlockParse | null = null;
+    for (const doc of docs) {
+      for (const cut of [doc.length, Math.floor(doc.length / 2), doc.length - 3, 0, doc.length]) {
+        const source = doc.slice(0, Math.max(0, cut));
+        state = parseStreaming(state, source);
+        expect(state.blocks).toEqual(parseBlocks(source));
+      }
+    }
+  });
+
+  it("前面已定型的块复用同一个对象（最后一块之前的都不再重解析）", () => {
+    const doc = "# 标题\n\n第一段。\n\n- 项\n\n第二段写得很长很长。";
+    let state = parseStreaming(null, "# 标题\n\n第一段。\n\n- 项");
+    const heading = state.blocks[0];
+    const paragraph = state.blocks[1];
+    for (let end = state.source.length + 1; end <= doc.length; end += 1)
+      state = parseStreaming(state, doc.slice(0, end));
+    expect(state.blocks[0]).toBe(heading);
+    expect(state.blocks[1]).toBe(paragraph);
+    expect(state.blocks).toEqual(parseBlocks(doc));
+  });
+});
+
 describe("公式（KaTeX）", () => {
   it("价格不是公式：$5 and $10", () => {
     const out = html("这个 $5 and $10 都不是公式");
@@ -192,5 +312,13 @@ describe("公式（KaTeX）", () => {
 
   it("KaTeX 不放行 \\href 等 trust 能力", () => {
     expect(html("$\\href{https://evil.example}{x}$")).not.toContain("href=");
+  });
+
+  it("KaTeX 还没加载时公式按原文显示在 code 里，块上标记 math", () => {
+    const out = renderToStaticMarkup(renderMarkdown("设 $x^2$\n\n$$\ny\n$$", { openLink: () => {} }));
+    expect(out).not.toContain("katex");
+    expect(out).toContain('<span class="md-math"><code>$x^2$</code></span>');
+    expect(out).toContain('<div class="md-math-block"><code>$$\ny\n$$</code></div>');
+    expect(parseBlocks("设 $x^2$\n\n文字").map((block) => block.math)).toEqual([true, false]);
   });
 });

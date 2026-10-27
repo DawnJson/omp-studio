@@ -3,13 +3,15 @@
 // （实测 omp 18.12.5：/tree 里 `current` 就是文件的最后一个条目）。
 // 例外：`/tree` 在进程内移动叶子，移动本身不写文件，下一个新条目出现之前文件看不出来；`LeafOverride` 就是给这段空档用的
 // （studio 自己发起的回溯会记下来，见 TspRunner.rewindTo）。
-import { readFile, stat } from "node:fs/promises";
 import type { SessionTreeNode } from "../../shared/ipc.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 import { buildSessionTree, userEntryText } from "../tasks/session-tree.ts";
-
-/** 会话文件超过这个大小就不读了（树面板打开时整份读进内存；每次费用变化重读的 readSessionUsage 同一个上限）。 */
-export const MAX_SESSION_FILE_BYTES = 256 * 1024 * 1024;
+import {
+  feedSessionText,
+  SessionReaderCache,
+  type SessionEntryConsumer,
+  type SessionFileEntry,
+} from "./session-file-reader.ts";
 
 export interface SessionEntry {
   id: string;
@@ -24,31 +26,54 @@ export interface LeafOverride {
 }
 
 /**
- * 会话文件内容 → 条目（按文件顺序）。第一行 `title`、第二行 `session` 是文件头，没有 parentId、不是树的一部分，跳过。
- * 写到一半的最后一行跳过；中间的坏行说明文件坏了，抛错（不悄悄丢掉）。
+ * 按文件顺序接收记录、给出树的条目。第一行 `title`、第二行 `session` 是文件头，没有 parentId、不是树的一部分，跳过。
+ * 坏行后面还有内容说明文件坏了（`entries()` 抛错，不悄悄丢掉）；写到一半的最后一行跳过。
+ * 树、回溯、标签只读用户消息、压缩点、分支摘要、标签条目的内容：其余条目（助手消息、工具结果，会话文件的大头）
+ * 只留 type / id / parentId，缓存住的条目不占几十 MB。
  */
-export function parseSessionEntries(text: string): SessionEntry[] {
-  const lines = text.split("\n");
-  const entries: SessionEntry[] = [];
-  for (const [index, line] of lines.entries()) {
-    if (line.trim() === "") continue;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(line);
-    } catch (error) {
-      const isLast = lines.slice(index + 1).every((rest) => rest.trim() === "");
-      if (isLast) continue;
-      throw new Error(`session file line ${index + 1} is not valid JSON: ${String(error)}`, { cause: error });
-    }
-    if (!isRecord(parsed)) continue;
-    const type = parsed["type"];
-    if (type === "session" || type === "title") continue;
-    const id = parsed["id"];
-    if (typeof id !== "string") continue;
-    const parentId = parsed["parentId"];
-    entries.push({ id, parentId: typeof parentId === "string" ? parentId : null, raw: parsed });
+class SessionEntriesAccumulator implements SessionEntryConsumer {
+  #entries: SessionEntry[] = [];
+  /** 刚读到一行坏行：后面再有内容就是文件坏了。 */
+  #pendingInvalid = false;
+  #corrupt = false;
+
+  entry(raw: SessionFileEntry): void {
+    if (this.#pendingInvalid) this.#corrupt = true;
+    const type = raw["type"];
+    if (type === "session" || type === "title") return;
+    const id = raw["id"];
+    if (typeof id !== "string") return;
+    const parentId = typeof raw["parentId"] === "string" ? raw["parentId"] : null;
+    const kept =
+      type === "compaction" || type === "branch_summary" || type === "label" || userEntryText(raw) !== null
+        ? raw
+        : { type, id, parentId };
+    this.#entries.push({ id, parentId, raw: kept });
   }
-  return entries;
+
+  invalid(): void {
+    if (this.#pendingInvalid) this.#corrupt = true;
+    this.#pendingInvalid = true;
+  }
+
+  reset(): void {
+    this.#entries = [];
+    this.#pendingInvalid = false;
+    this.#corrupt = false;
+  }
+
+  /** 到目前为止的条目（一份拷贝，之后的追加不影响它）。 */
+  entries(): SessionEntry[] {
+    if (this.#corrupt) throw new Error("session file has a line that is not valid JSON before its end");
+    return this.#entries.slice();
+  }
+}
+
+/** 会话文件内容 → 条目（按文件顺序），规则见 SessionEntriesAccumulator。 */
+export function parseSessionEntries(text: string): SessionEntry[] {
+  const accumulator = new SessionEntriesAccumulator();
+  feedSessionText(text, [accumulator]);
+  return accumulator.entries();
 }
 
 interface LinkedNode {
@@ -90,11 +115,12 @@ export function buildTreeFromSessionText(text: string, override?: LeafOverride |
   return buildTreeFromEntries(parseSessionEntries(text), override);
 }
 
-/** 读会话文件的条目（只读）。文件不存在抛 ENOENT 原样的错（会话文件在第一条回复之后才落盘，调用方自己决定怎么当）。 */
+/** 树面板、回溯、标签反复读同一个会话文件：缓存增量读取器，只读新追加的完整行，分块读不长时间占住主进程。 */
+const entryReaders = new SessionReaderCache(() => new SessionEntriesAccumulator());
+
+/** 读会话文件的条目（只读）。文件还不存在（第一条回复之后才落盘）时为空。 */
 export async function readSessionEntries(file: string): Promise<SessionEntry[]> {
-  const { size } = await stat(file);
-  if (size > MAX_SESSION_FILE_BYTES) throw new Error(`session file is too large to read (${size} bytes)`);
-  return parseSessionEntries(await readFile(file, "utf8"));
+  return (await entryReaders.read(file)).entries();
 }
 
 /** 回溯目标：一条用户消息（完整文字、父条目）和回溯时文件最后一个条目（LeafOverride 的 afterEntryId）。 */

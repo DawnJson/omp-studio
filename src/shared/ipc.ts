@@ -55,7 +55,7 @@ import type { SkillCandidate, SkillEntry, SkillScope, SkillTarget } from "./omp-
 import type { McpEditInput, McpEditOutcome, McpEditScope, McpServerFile } from "./mcp-edit.ts";
 import type { AgentMessage } from "./omp-wire/rpc-wire.generated.ts";
 import type { BtwHistoryRecord, BtwUiEvent } from "./btw.ts";
-import type { DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
+import type { DocBlob, DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
 import type { OmpKeybinding } from "./tsp/omp-keybindings.ts";
 import type { ProviderKeyEnv } from "./provider-keys.ts";
 import type { TspEvent } from "./tsp/tsp.generated.ts";
@@ -350,6 +350,8 @@ export interface TaskState {
   todoPhases: TodoPhase[];
   /** 任务实际的工作目录（有 worktree 时是 worktree 根，否则是项目目录）；界面把工具参数里的绝对路径换成相对它的路径。 */
   cwd: string;
+  /** 任务 worktree 的分支（studio/<slug>）；没有 worktree 为 null。侧栏任务行据此画分支标记，不用逐行再请求 getTaskWorktree。 */
+  worktreeBranch: string | null;
   /** 这一次 running 开始的时间戳（ms，主进程接收时间）；非 running/needs_you 时为 null。侧栏显示"已运行 N 分钟"。 */
   runStartedAt: number | null;
   /** 本会话的 `/fast`（模型名后面的闪电图标，实测不落配置，换到不支持的模型就关）。 */
@@ -999,6 +1001,11 @@ export interface StudioInvokeApi {
   /** 任务的节点树快照（不拉起进程）；用于丢帧或渲染进程重载后的重同步。 */
   getTspSnapshot(taskId: TaskId): Promise<TspSnapshot>;
   /**
+   * 快照里只有 blob 的 id（DocumentSnapshot.blobIds），字节按需用这个取：任务当前 omp 的文档里的，没有进程时是上一个进程退出时留下的。
+   * 没有这个 blob（进程换了、快照被释放）为 null。`blobId` 是 sha256 十六进制。
+   */
+  getTspBlob(taskId: TaskId, blobId: string): Promise<DocBlob | null>;
+  /**
    * 主进程已发出的最后一条 TSP 消息的序号（先把攒着的批次发出去）。结束一次"驱动"（聚焦子代理、读上下文报告）前，
    * 渲染进程等自己的镜像追上它：IPC 回复可能比之前发出的批次先到，不等就会把 omp 已经关掉的弹窗再画一帧。
    */
@@ -1506,6 +1513,7 @@ export const invokeNames = {
   createTask: true,
   openTask: true,
   getTspSnapshot: true,
+  getTspBlob: true,
   getTspSeq: true,
   getTspSessionExtras: true,
   readTspContext: true,

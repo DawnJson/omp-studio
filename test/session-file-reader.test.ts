@@ -147,8 +147,10 @@ describe("SessionFileReader（增量读会话文件）", () => {
     expect(result.extras.turns).toHaveLength(3);
   });
 
-  it("一次性读（IPC 用）：没有换行结尾的最后一行也算，和整份文本一样", async () => {
-    await writeFile(file, lines.join("\n"), "utf8");
+  it("readSessionUsage（IPC 用）缓存读取器：追加后再查只读新的完整行，结果和整份文本一样；写到一半的行等它的换行", async () => {
+    await writeFile(file, `${lines.slice(0, 4).join("\n")}\n`, "utf8");
+    expect(await readSessionUsage(file)).toEqual(summarizeSessionUsage(lines.slice(0, 4).join("\n")));
+    await appendFile(file, `${lines.slice(4).join("\n")}\n${lines[7]!.slice(0, 20)}`, "utf8");
     expect(await readSessionUsage(file)).toEqual(summarizeSessionUsage(lines.join("\n")));
   });
 });

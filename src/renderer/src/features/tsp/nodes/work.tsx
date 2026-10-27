@@ -3,6 +3,7 @@ import { finished, phaseMarkKind, readPhases, type Item, type ItemStatus, type P
 import {
   Fragment,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -16,7 +17,7 @@ import { labels } from "../labels.ts";
 import { Check, ChevronDown, CopyIcon } from "../../../icons.tsx";
 import { copyText, openHref, runAction } from "../actions.ts";
 import { Clamp } from "../Clamp.tsx";
-import { FoldCtx, type FoldState } from "../fold-context.ts";
+import { FoldCtx, NO_FOLD, OPEN_FOLD, type FoldState } from "../fold-context.ts";
 import { clamp01, formatCost, formatCount, formatElapsed } from "../fmt.ts";
 import { toolIconName } from "../icon-names.ts";
 import { TspIcon } from "../icons.tsx";
@@ -25,7 +26,8 @@ import type { NodeProps } from "../node-props.ts";
 import { asArray, asNumber, asString } from "../props-util.ts";
 import { tokenizeCommand } from "../shell-tokens.ts";
 import { resolveLanguage } from "../../../markdown/highlight-languages.ts";
-import { Tokens, useHighlighted } from "../use-highlighted.tsx";
+import { useHighlighted } from "../../../markdown/highlight.ts";
+import { Tokens } from "../use-highlighted.tsx";
 import { plainText, semanticOf, TspSpans } from "../spans.tsx";
 import { TspNode } from "../TspChildren.tsx";
 import { peekTspNode } from "../tsp-store.ts";
@@ -214,6 +216,7 @@ export function Tool(props: NodeProps) {
   const note = p.note as TspText | undefined;
   const href = asString(p.href);
   const own = { toggle: collapsible ? toggle : undefined };
+  const previewFold = useMemo<FoldState>(() => ({ collapsed: true, expand: toggle }), [toggle]);
 
   // body：折叠时按 preview 处理；展开或不可折叠时完整显示。
   // ask 完成后 body 第一块 md 是卡片头 target 里那句问题的原样重复：头上已经完整显示（允许折行），body 里不再画第二遍。
@@ -234,16 +237,16 @@ export function Tool(props: NodeProps) {
   ));
   const body = <div className="tsp-tool-body">{bodyNodes}</div>;
   let content: ReactNode = null;
-  let fold: FoldState = { collapsed: collapsible ? false : null };
+  let fold = collapsible ? OPEN_FOLD : NO_FOLD;
   const hasBody = childIds.length > 0;
   if (!hasBody) content = null;
   else if (!collapsed) content = body;
   else if (preview.mode === "children") {
-    fold = { collapsed: true, expand: toggle };
+    fold = previewFold;
     content = body;
   } else if (preview.mode === "none") content = null;
   else {
-    fold = { collapsed: false };
+    fold = OPEN_FOLD;
     content = (
       <Clamp lines={preview.n} tail={preview.mode === "tail"} onExpand={toggle}>
         {body}
@@ -557,7 +560,7 @@ export function Agent(props: NodeProps) {
         )
       )}
       {hasKids && !collapsed && (
-        <FoldCtx.Provider value={{ collapsed: false }}>
+        <FoldCtx.Provider value={OPEN_FOLD}>
           <div className="tsp-agent-kids">
             {node.c.map((id) => (
               <TspNode key={id} id={id} ctx={ctx} />

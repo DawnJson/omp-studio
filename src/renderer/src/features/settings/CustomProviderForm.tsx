@@ -27,6 +27,7 @@ import { Reserve } from "../../ui/Reserve.tsx";
 import { useAccountLoad } from "./accounts-store.ts";
 import { CustomModelList, type FetchNotice, type ModelRow } from "./CustomModelList.tsx";
 import { setFetchFailure, type FetchFailure } from "./custom-models-store.ts";
+import { useAsyncAction } from "./use-async-action.ts";
 import "./custom-providers.css";
 
 /** 接口类型的名字（协议名，不翻译）和这种接口常见的服务（`custom.api.<api>` 第二行小字），以及 Base URL 的示例。 */
@@ -247,10 +248,14 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
       })) ?? [],
   );
   const [notice, setNotice] = useState<FetchNotice | null>(null);
-  const [fetching, setFetching] = useState(false);
+  const { busy: fetching, run: runFetch } = useAsyncAction((error) =>
+    setNotice({ tone: "error", text: describeError(t, error) }),
+  );
   const [discovery, setDiscovery] = useState(provider?.discovery ?? false);
-  const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const { busy: saving, run } = useAsyncAction((error) =>
+    setSaveError(t("custom.saveFailed", { message: describeError(t, error) })),
+  );
   // 连接（Base URL、接口类型、key）的指纹：最近一次拉取用的连接和最后保存的一致时，结果才记到卡片上（custom-models-store）。
   const conn = JSON.stringify([baseUrl, api, keyMode, keyText, envValue]);
   const [initialConn] = useState(conn);
@@ -315,11 +320,10 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
     countsValid &&
     (selectedCount > 0 || discoveryOn);
 
-  const fetchModels = async () => {
-    setFetching(true);
-    setNotice(null);
-    const fetchedConn = conn;
-    try {
+  const fetchModels = () =>
+    runFetch(async () => {
+      setNotice(null);
+      const fetchedConn = conn;
       const outcome = await window.studio.fetchProviderModels({
         baseUrl,
         api,
@@ -352,32 +356,26 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
         })),
       ]);
       pushToast({ level: "info", message: t("custom.form.models.fetched", { count: outcome.models.length }) });
-    } catch (error) {
-      setNotice({ tone: "error", text: describeError(t, error) });
-    } finally {
-      setFetching(false);
-    }
-  };
+    });
 
-  const save = async () => {
-    setSaving(true);
-    setSaveError(null);
-    const input: CustomProviderInput = {
-      id: (provider?.id ?? id).trim(),
-      baseUrl,
-      api,
-      key: keyInput(),
-      models: checkedRows.map((row) => ({
-        id: row.id,
-        ...(row.name !== undefined && { name: row.name }),
-        reasoning: row.reasoning,
-        images: row.images,
-        contextWindow: parseTokenCount(row.contextWindow) ?? null,
-        maxTokens: parseTokenCount(row.maxTokens) ?? null,
-      })),
-      discovery: discoveryOn,
-    };
-    try {
+  const save = () =>
+    run(async () => {
+      setSaveError(null);
+      const input: CustomProviderInput = {
+        id: (provider?.id ?? id).trim(),
+        baseUrl,
+        api,
+        key: keyInput(),
+        models: checkedRows.map((row) => ({
+          id: row.id,
+          ...(row.name !== undefined && { name: row.name }),
+          reasoning: row.reasoning,
+          images: row.images,
+          contextWindow: parseTokenCount(row.contextWindow) ?? null,
+          maxTokens: parseTokenCount(row.maxTokens) ?? null,
+        })),
+        discovery: discoveryOn,
+      };
       const outcome = await window.studio.saveCustomProvider(mode, input);
       if (outcome.ok) {
         warnIfShadowed(t, outcome);
@@ -385,12 +383,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
         else if (conn !== initialConn) setFetchFailure(input.id, null); // 连接改了、没再拉取：原来的结果不再适用
         onSaved();
       } else setSaveError(customErrorText(t, `err.${outcome.code}`));
-    } catch (error) {
-      setSaveError(t("custom.saveFailed", { message: describeError(t, error) }));
-    } finally {
-      setSaving(false);
-    }
-  };
+    });
 
   // 不保存就关：只有拉取用的是文件里原样的连接时，结果才说明得了卡片上的这个 provider。
   const close = () => {

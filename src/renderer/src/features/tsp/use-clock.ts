@@ -1,6 +1,8 @@
 // 本地计时(elapsed、tool/agent 的 age、倒计时、spinner 帧):整个渲染进程共用一个 100ms 的定时器,有订阅者才跑。
-// "现在"由定时器写进 store,组件渲染时从 store 读,不在渲染里调 Date.now()。
+// "现在"由定时器写进 store,组件渲染时从 store 读,不在渲染里调 Date.now()。每个组件只取它显示要用的那一份
+// (spinner 的帧号、按显示精度取整的时长),那一份没变就不重画:整秒显示的计时每秒只画一次。
 import { useLayoutEffect, useState, useSyncExternalStore } from "react";
+import { elapsedStep, type ElapsedFormat } from "./fmt.ts";
 
 const TICK_MS = 100;
 const subscribers = new Set<() => void>();
@@ -27,26 +29,32 @@ function subscribe(listener: () => void): () => void {
 }
 
 const noSubscribe = (): (() => void) => () => undefined;
-const readNow = (): number => now;
 
-/** active 为 true 时每 100ms 重画一次,返回当前时刻(ms)。active 为 false 时值不更新,不能拿来算时长。 */
-export function useClock(active: boolean): number {
-  return useSyncExternalStore(active ? subscribe : noSubscribe, readNow);
+/** active 为 true 时跟着共用时钟(100ms)走,返回 select(当前时刻 ms);结果没变(Object.is)就不重画。
+ *  active 为 false 时时刻不更新,不能拿来算时长。select 只能依赖时刻和渲染时就定下的值。 */
+export function useClock<T>(active: boolean, select: (now: number) => T): T {
+  return useSyncExternalStore(active ? subscribe : noSubscribe, () => select(now));
 }
 
 /**
  * 以到达时刻为锚的年龄(规范 elapsed:"A positive age shows age plus the time since that age value arrived"):
  * age 的值变了就重新锚定,其它属性变了不影响计时。running 为 false 时不走字,返回 age 本身。
+ * 走字时按 formatElapsed(format) 的显示精度向 0 取整(elapsedStep),显示的文字和不取整时一样,只是文字不变时不重画。
  */
-export function useAge(age: number | undefined, running: boolean): number {
+export function useAge(age: number | undefined, running: boolean, format: ElapsedFormat = "short"): number {
   const [anchor, setAnchor] = useState(() => ({ age, at: Date.now() }));
   // 布局阶段重新锚定:旧锚点算出的那一帧不会被画出来。
   useLayoutEffect(() => {
     setAnchor((current) => (current.age === age ? current : { age, at: Date.now() }));
   }, [age]);
-  const current = useClock(running);
-  // 时钟最多比锚点旧一个 tick:夹到 0,不倒走。
-  return (age ?? 0) + (running ? Math.max(0, current - anchor.at) : 0);
+  const base = age ?? 0;
+  return useClock(running, (current) => {
+    if (!running) return base;
+    // 时钟最多比锚点旧一个 tick:夹到 0,不倒走。
+    const value = base + Math.max(0, current - anchor.at);
+    const step = elapsedStep(value, format);
+    return Math.trunc(value / step) * step;
+  });
 }
 
 function readReducedMotion(): boolean {
@@ -56,19 +64,45 @@ function readReducedMotion(): boolean {
   );
 }
 
+// 所有 useReducedMotion 共用一份媒体查询监听和 <html> 上的 MutationObserver,有订阅者才挂。
+const motionListeners = new Set<() => void>();
+let reducedMotion = false;
+let stopMotionWatch: (() => void) | null = null;
+
+function onMotionChange(): void {
+  const next = readReducedMotion();
+  if (next === reducedMotion) return;
+  reducedMotion = next;
+  for (const listener of motionListeners) listener();
+}
+
 function subscribeReducedMotion(listener: () => void): () => void {
-  const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-  query.addEventListener("change", listener);
-  // 应用内的"减少动效"开关写在 <html data-motion="reduced"> 上（tokens.css）。
-  const observer = new MutationObserver(listener);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-motion"] });
+  motionListeners.add(listener);
+  if (stopMotionWatch === null) {
+    reducedMotion = readReducedMotion();
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    query.addEventListener("change", onMotionChange);
+    // 应用内的"减少动效"开关写在 <html data-motion="reduced"> 上（tokens.css）。
+    const observer = new MutationObserver(onMotionChange);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-motion"] });
+    stopMotionWatch = () => {
+      query.removeEventListener("change", onMotionChange);
+      observer.disconnect();
+    };
+  }
   return () => {
-    query.removeEventListener("change", listener);
-    observer.disconnect();
+    motionListeners.delete(listener);
+    if (motionListeners.size === 0 && stopMotionWatch !== null) {
+      stopMotionWatch();
+      stopMotionWatch = null;
+    }
   };
 }
 
+/** 有订阅时读缓存的值(监听保持它最新);没有订阅时(首次渲染、订阅前)直接读。 */
+const readReducedMotionSnapshot = (): boolean => (stopMotionWatch === null ? readReducedMotion() : reducedMotion);
+
 /** 系统或应用要求减少动效：循环动画（spinner 帧、shimmer）停在静止的第一帧。 */
 export function useReducedMotion(): boolean {
-  return useSyncExternalStore(subscribeReducedMotion, readReducedMotion);
+  return useSyncExternalStore(subscribeReducedMotion, readReducedMotionSnapshot);
 }

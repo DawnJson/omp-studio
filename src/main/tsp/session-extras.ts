@@ -8,10 +8,8 @@
 // turn 里直接带 cost，文字由 turn-footer.ts 按 omp 的 `tLo` 写（`<$0.01`）。
 import type { TspTurnFooter } from "../../shared/ipc.ts";
 import { tokensPerSecond } from "../../shared/ui/session-trace.ts";
-import { isRecord } from "../../shared/type-guards.ts";
+import { finiteOrZero as finite, isRecord } from "../../shared/type-guards.ts";
 import { feedSessionText, type SessionEntryConsumer, type SessionFileEntry } from "./session-file-reader.ts";
-
-const finite = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 
 interface ParsedSession {
   turns: (TspTurnFooter | null)[];

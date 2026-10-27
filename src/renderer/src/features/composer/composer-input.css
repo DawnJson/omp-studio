@@ -98,7 +98,7 @@
 .composer-field-wrap {
   position: relative;
 }
-/* 和 .composer-field 逐项一致（字体、行高、换行规则），文字透明，只有芯片画底色；宽度由脚本设成文本框的 clientWidth。 */
+/* 和 .composer-field 逐项一致（字体、行高、换行规则），文字透明，只有芯片画底色；宽度由脚本（ResizeObserver）设成文本框的 clientWidth。 */
 .composer-backdrop {
   position: absolute;
   top: 0;
@@ -118,9 +118,13 @@
   position: relative;
   /* 底层看得到：文本框本身不画底 */
   background: transparent;
+  /* 没拖过时按内容自动增高，上下限是 .composer-field 的 min-height / max-height（不用每次按键量 scrollHeight） */
+  field-sizing: content;
 }
+/* 拖过：定高（行内 style 的 height，已夹到 [一行, 主区 60%]） */
 .composer-field[data-sized] {
   max-height: none;
+  field-sizing: fixed;
 }
 .composer-chip {
   border-radius: var(--radius-sm);

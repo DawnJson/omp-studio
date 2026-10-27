@@ -14,7 +14,7 @@
 
 ## 重要：`stats.db` 不会自己更新
 
-实测：跑完一轮对话后 `stats.db` 的 `messages` 表还是 0 行；运行 `omp stats --json` 之后才变成 1 行（它先"Syncing session files…"，把会话 JSONL 读进库）。所以**刷新 = 让 omp 自己跑一次 `omp stats --json`**（读会话文件、跨进程加锁、写库都是 omp 的事，omp-studio 不碰），再用 node:sqlite 只读地查。`getUsageHeatmap(false)` 直接读现有库（马上有东西看），`true` 先同步再读；界面先 false 再 true。首次同步要读完全部历史会话，历史很多时可能要几分钟（超时 15 分钟，超时杀掉，下次接着同步）。库不存在（从没同步过）时 `hasDatabase: false`，界面说明还没有数据。
+实测：跑完一轮对话后 `stats.db` 的 `messages` 表还是 0 行；运行 `omp stats --json` 之后才变成 1 行（它先"Syncing session files…"，把会话 JSONL 读进库）。所以**刷新 = 让 omp 自己跑一次 `omp stats --json`**（读会话文件、跨进程加锁、写库都是 omp 的事，omp-studio 不碰），再用 node:sqlite 只读地查。查询在 SQLite worker 线程里跑（`usage/db-worker.ts`，主进程一侧 `db-worker-client.ts`；请求记录、模型实测速度也在这里），打开库、等 WAL 写方都不占主进程。`getUsageHeatmap(false)` 直接读现有库（马上有东西看），结果缓存 3 分钟；`true` 先同步再读，同步完（不论成败）作废缓存；界面先 false 再 true。首次同步要读完全部历史会话，历史很多时可能要几分钟（超时 15 分钟，超时杀掉，下次接着同步）。库不存在（从没同步过）时 `hasDatabase: false`，界面说明还没有数据。
 
 ## 本地时区
 

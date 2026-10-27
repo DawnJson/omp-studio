@@ -3,6 +3,8 @@
 // 生命周期和 cwd 规则见 docs/architecture/terminal.md。
 import type { DraftKey, TaskId, TerminalKey, TerminalOpenResult } from "../../shared/ipc.ts";
 import { withPtyLock } from "../platform/pty-lock.ts";
+import { spawnsReady } from "../platform/spawn-gate.ts";
+import { waitWithTimeout } from "../platform/wait-with-timeout.ts";
 import { Backlog } from "./backlog.ts";
 import { OutputBatcher } from "./output-batcher.ts";
 import type { ShellChoice } from "./shell.ts";
@@ -36,7 +38,7 @@ export interface TerminalDeps {
   resolveShell(): ShellChoice;
   buildEnv(): Record<string, string>;
   spawn(shell: ShellChoice, options: SpawnOptions): Promise<PtyLike>;
-  /** 结束 pid 和它的所有后代（Windows 的 taskkill /T；其他平台见 platform/posix/process-tree.ts）。 */
+  /** 结束 pid 和它的所有后代（platform/process-tree.ts）。 */
   killTree(pid: number): Promise<void>;
   /**
    * 把 shell 放进它自己的 KILL_ON_JOB_CLOSE Job Object（主进程被强杀时由系统回收整棵树），返回释放函数（关句柄）。
@@ -101,6 +103,8 @@ export class TerminalManager {
     }
     const cwd = await this.#deps.terminalCwd(key);
     if (!(await this.#deps.directoryExists(cwd))) throw new TerminalCwdMissingError();
+    // mac / Linux 启动时补登录 shell 的 PATH 可能还没做完：等它，shell 的环境才有完整的 PATH。
+    await spawnsReady();
     const shell = this.#deps.resolveShell();
     const pty = await this.#deps.spawn(shell, { cwd, env: this.#deps.buildEnv(), cols, rows });
     // 同一个同步段里放进 Job 并挂监听：不漏掉 shell 启动时的输出。
@@ -222,11 +226,7 @@ export class TerminalManager {
         this.#deps.onError("terminal: killing the process tree failed", error);
       }
       // 所有平台都等退出事件：killTree 之后再 pty.kill()，没退出的（树没杀掉）由 pty.kill() 结束。
-      if (!hasExited) {
-        const timer = setTimeout(() => exited.resolve(), KILL_GRACE_MS);
-        await exited.promise;
-        clearTimeout(timer);
-      }
+      if (!hasExited) await waitWithTimeout(exited.promise, KILL_GRACE_MS);
       // 退出之后再 kill：原生层的句柄已经被退出线程清掉，这一下只是关 node-pty 这一侧的管道；没退出的（taskkill 没结束它）由它结束。
       try {
         entry.pty.kill();

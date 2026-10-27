@@ -15,6 +15,7 @@ import { sshResource } from "./integrations-data.ts";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
 import { SshForm } from "./SshForm.tsx";
+import { useAsyncAction } from "./use-async-action.ts";
 import "./integrations.css";
 
 function hostLine(host: SshHost): string {
@@ -27,10 +28,10 @@ export function SshCard({ scope }: { scope: ScopeKey }) {
   const ready = useOmpStatus()?.state === "ready";
   const load = sshResource.useLoad(scope);
   const { slot: adding, open: openAdding, closed: addingClosed, reset: resetAdding } = useDialogSlot();
-  const [busy, setBusy] = useState(false);
   // 确认框用 slot：上一个还在放退出动画时再点删除也能立刻开新的。
   const { slot: removing, open: openRemoving, closed: removingClosed } = useDialogSlot<SshHost>();
   const [failure, setFailure] = useState<string | null>(null);
+  const { busy, run } = useAsyncAction((error) => setFailure(errorDetail(error)));
 
   useEffect(() => {
     if (ready) void sshResource.load(scope);
@@ -43,19 +44,13 @@ export function SshCard({ scope }: { scope: ScopeKey }) {
 
   const hosts = load.kind === "ready" ? load.data : "previous" in load ? load.previous : null;
 
-  const remove = async (host: SshHost) => {
-    setBusy(true);
-    setFailure(null);
-    try {
+  const remove = (host: SshHost) =>
+    run(async () => {
+      setFailure(null);
       const result = await window.studio.removeSshHost(host.name, host.scope, scopeProject(scope));
       pushToast({ message: result.text });
       await sshResource.load(scope);
-    } catch (error) {
-      setFailure(errorDetail(error));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   return (
     <div className="st-section" data-testid="ssh-card">

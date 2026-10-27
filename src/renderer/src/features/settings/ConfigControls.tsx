@@ -7,6 +7,7 @@ import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { enumLabel } from "../../../../shared/ui/config-labels.ts";
+import { isStringArray } from "../../../../shared/type-guards.ts";
 import {
   goalContinuationKey,
   goalContinuationOn,
@@ -286,10 +287,6 @@ function EnumControl({ item, labelId, onSave }: ControlProps) {
       onChange={(next) => next !== "" && onSave(next)}
     />
   );
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
 function isStructured(item: OmpConfigItem): boolean {

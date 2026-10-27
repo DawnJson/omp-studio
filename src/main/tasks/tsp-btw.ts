@@ -101,9 +101,8 @@ export class TspBtw {
     for (const event of events) this.#host.emit(event);
   }
 
-  /** 文档每次变化时调用：把弹窗里的问答并进镜像；没有人在驱动、一问已经收尾就把弹窗关掉。 */
-  sync(document: TspDocument): void {
-    const view = findBtwView(document);
+  /** 文档每次变化时调用（传入 findBtwView 的结果）：把弹窗里的问答并进镜像；没有人在驱动、一问已经收尾就把弹窗关掉。 */
+  sync(view: BtwView | null): void {
     if (view === null) {
       this.#closedOverlay = null;
       return;
@@ -180,8 +179,7 @@ export class TspBtw {
       } finally {
         this.#driving = false;
         this.#host.setDriving(false);
-        const document = this.#host.document();
-        if (document) this.sync(document);
+        this.sync(this.#view());
       }
     });
   }
@@ -212,8 +210,7 @@ export class TspBtw {
       BTW_OPEN_TIMEOUT_MS,
       "omp did not open the side question (is a /btw question already running?)",
     );
-    const document = this.#host.document();
-    if (document) this.sync(document);
+    this.sync(this.#view());
     return this.#realId(wanted);
   }
 

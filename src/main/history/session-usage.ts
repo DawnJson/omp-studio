@@ -5,15 +5,14 @@
 // 规则只有 SessionUsageAccumulator 一份：整段文本（summarizeSessionUsage）和增量读文件（tsp/session-file-reader.ts）都喂给它。
 import type { ModelUsage, SessionModelUsage } from "../../shared/ipc.ts";
 import type { TokenUsage } from "../../shared/omp-wire/rpc-wire.generated.ts";
-import { isRecord } from "../../shared/type-guards.ts";
+import { finiteOrZero as num, isRecord } from "../../shared/type-guards.ts";
 import {
   feedSessionText,
-  readSessionFile,
+  SessionReaderCache,
   type SessionEntryConsumer,
   type SessionFileEntry,
 } from "../tsp/session-file-reader.ts";
 
-const num = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
 const str = (value: unknown): string | null => (typeof value === "string" ? value : null);
 
 /** 一条 assistant 消息的用量（requests 记 1）。 */
@@ -102,7 +101,7 @@ export class SessionUsageAccumulator implements SessionEntryConsumer {
       branch.push(entry);
       entry = entry.parentId === null ? null : (this.#byId.get(entry.parentId) ?? null);
     }
-    return branch.reverse();
+    return branch.toReversed();
   }
 
   summary(): SessionModelUsage {
@@ -156,9 +155,11 @@ export function totalUsage(models: readonly ModelUsage[]): SessionTotals {
   return { tokens, requests };
 }
 
-/** 超过 MAX_SESSION_FILE_BYTES 的会话文件抛错、不读（和 readSessionEntries 同一个上限）。新会话的文件在第一条回复之后才落盘：没有文件是空表。 */
+/** 按模型的用量浮层、会话信息反复读同一个会话文件：缓存增量读取器，只读新追加的完整行。 */
+const usageReaders = new SessionReaderCache(() => new SessionUsageAccumulator());
+
+/** 超过 MAX_SESSION_FILE_BYTES 的会话文件抛错、不读。新会话的文件在第一条回复之后才落盘：没有文件是空表。 */
 export async function readSessionUsage(file: string | null): Promise<SessionModelUsage> {
-  const usage = new SessionUsageAccumulator();
-  if (file !== null) await readSessionFile(file, [usage]);
-  return usage.summary();
+  if (file === null) return new SessionUsageAccumulator().summary();
+  return (await usageReaders.read(file)).summary();
 }

@@ -1,9 +1,15 @@
-// TSP 节点里的数字格式（纯函数）：elapsed 的 short / clock、rate、agent 统计里的紧凑计数和费用。
+// 数字格式（纯函数）：elapsed 的 short / seconds / clock、rate、紧凑计数和费用。过程区、输入框状态行、子代理面板共用。
 
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 
-/** elapsed 的显示（规范 Motion/elapsed）：负数按 0；short 小于 1 分钟带十分位（向下取整，不会跑到真实时间前面）。 */
-export function formatElapsed(ms: number, format: "short" | "clock" = "short"): string {
+export type ElapsedFormat = "short" | "seconds" | "clock";
+
+/**
+ * 已用时间（规范 Motion/elapsed）：负数按 0，都向下取整（不会跑到真实时间前面）。
+ * short：不到 1 分钟带十分位 12.3s，之后 4m 05s、1h 02m；seconds：同 short，但不到 1 分钟只到整秒 12s（按秒刷新的地方）；
+ * clock：0:12、4:05、1:02:03。
+ */
+export function formatElapsed(ms: number, format: ElapsedFormat = "short"): string {
   const total = Math.max(0, ms);
   const hours = Math.floor(total / 3_600_000);
   const minutes = Math.floor((total % 3_600_000) / 60_000);
@@ -14,7 +20,16 @@ export function formatElapsed(ms: number, format: "short" | "clock" = "short"): 
   }
   if (hours > 0) return `${hours}h ${pad2(minutes)}m`;
   if (minutes > 0) return `${minutes}m ${pad2(seconds)}s`;
+  if (format === "seconds") return `${seconds}s`;
   return `${(Math.floor(total / 100) / 10).toFixed(1)}s`;
+}
+
+/** formatElapsed 的文字最少隔多久变一次（ms）：计时按它取整，文字没变就不重画。按绝对值算（倒计时显示 -ms）。 */
+export function elapsedStep(ms: number, format: ElapsedFormat = "short"): number {
+  const total = Math.abs(ms);
+  if (format !== "clock" && total >= 3_600_000) return 60_000;
+  if (format === "short" && total < 60_000) return 100;
+  return 1000;
 }
 
 /** rate：一位小数，100 以上取整；有单位时空一格接在后面。 */
@@ -34,8 +49,9 @@ function trim(value: number): string {
   return value >= 10 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
 }
 
-/** 费用：$0.42，不到一美分写 <$0.01。 */
+/** 费用：$0.42，不到一美分写 <$0.01，正好 0 写 $0。 */
 export function formatCost(usd: number): string {
+  if (usd === 0) return "$0";
   return usd < 0.01 ? "<$0.01" : `$${usd.toFixed(2)}`;
 }
 

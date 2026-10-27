@@ -2,6 +2,7 @@
 // 启动参数见 omp 文档 cli-reference.md；凭据（OAuth、设置页存的 API key）都在 omp 自己的凭据库里，这里不注入。
 import { awaitStartupDefaults } from "../omp-config/startup-defaults.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
+import { spawnsReady } from "../platform/spawn-gate.ts";
 import {
   buildOmpArgs,
   buildTspArgs,
@@ -21,7 +22,9 @@ export function setTestOmpOverride(override: TestOmpOverride | null): void {
   testOverride = override;
 }
 
+/** 起 omp 之前等启动准备（platform/spawn-gate.ts）：真 omp 经 getOmpExecutable 已经等过，测试替换的假 omp 也一样等。 */
 export async function buildOmpLaunch(spec: LaunchSpec): Promise<OmpLaunch> {
+  await spawnsReady();
   if (testOverride) {
     return {
       command: testOverride.command,
@@ -41,6 +44,7 @@ export async function buildOmpLaunch(spec: LaunchSpec): Promise<OmpLaunch> {
 
 /** TSP 任务（伪终端里的交互式 omp）的启动：可执行文件和测试替换与 rpc-ui 后台进程一致，参数不带 `--mode rpc-ui`。 */
 export async function buildTspLaunch(spec: TspLaunchSpec): Promise<OmpLaunch> {
+  await spawnsReady();
   if (testOverride) {
     return {
       command: testOverride.command,

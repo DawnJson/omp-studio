@@ -26,7 +26,7 @@ describe("parseNumstat", () => {
   });
 
   it("skips binary entries and takes the new path of a rename", () => {
-    const text = "-\t-\tbin.dat\0" + "2\t0\t\0旧 名.txt\0新 名.txt\0" + "1\t1\tb.txt\0";
+    const text = ["-\t-\tbin.dat\0", "2\t0\t\0旧 名.txt\0新 名.txt\0", "1\t1\tb.txt\0"].join("");
     expect(parseNumstat(text, "staged")).toEqual([
       { area: "staged", path: "新 名.txt", added: 2, removed: 0 },
       { area: "staged", path: "b.txt", added: 1, removed: 1 },

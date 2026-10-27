@@ -12,6 +12,7 @@
 // role、action、dot 名都是 omp 自己的、不在 TSP 规范里：omp 改名这里就失效，所以判断全部集中在这个文件（gate.ts 同理）。
 import { isRecord } from "../type-guards.ts";
 import { findNode, nodeRole, spansText, type DocNode, type TspDocument } from "./document.ts";
+import type { NodeDeps } from "./node-watch.ts";
 
 /** hud 里 `👥` 胶囊（`omp.hud.seg`）的点击动作：打开 Agent Hub。studio 拦截它改开自己的子代理面板。 */
 export const HUB_OPEN_ACTION = "agents.open";
@@ -133,6 +134,9 @@ const LIVENESS: Record<AgentStatus, number> = {
   failed: 1,
   aborted: 1,
 };
+
+/** listAgents / countActiveAgents 读的节点（NodeWatch）：`agent` 节点、它下面的任务说明、它所在的 task 卡片。 */
+export const AGENT_NODES: NodeDeps = { kinds: ["agent"], children: true, parent: true };
 
 /** 文档里所有子代理（活着的 surface 里的 `agent` 节点，按名字去重），按首次出现的顺序。 */
 export function listAgents(doc: TspDocument): HubAgent[] {

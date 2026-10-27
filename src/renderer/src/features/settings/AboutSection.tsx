@@ -10,6 +10,7 @@ import { Changelog } from "./Changelog.tsx";
 import { OmpSection } from "./OmpSection.tsx";
 import { TroubleshootCard } from "./TroubleshootCard.tsx";
 import { updateStatusText } from "./update-status.ts";
+import { useAsyncAction } from "./use-async-action.ts";
 import { useInstallUpdate } from "./use-install-update.tsx";
 
 /** 项目主页（GitHub 仓库）：标签右边的图标按钮用系统浏览器打开。 */
@@ -34,20 +35,14 @@ function StudioUpdate() {
   const info = useAppInfo();
   const state = useUpdateState();
   const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useAsyncAction((error) => setNote(describeError(t, error)));
   const installing = useInstallUpdate();
 
-  const check = async () => {
-    setBusy(true);
-    setNote(null);
-    try {
+  const check = () =>
+    run(async () => {
+      setNote(null);
       await window.studio.checkForUpdate();
-    } catch (error) {
-      setNote(describeError(t, error));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   const label = (
     <span className="st-about-name">

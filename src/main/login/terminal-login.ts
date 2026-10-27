@@ -5,7 +5,7 @@
 // 凭据由 omp 自己写进它的 agent 目录（用户真实的那份，登录本来就是要写凭据），这里不碰。
 // 不 import electron：运行环境（启动参数、外观、provider 列表、事件出口）由调用方注入，单元测试用假 omp。
 import { TERMINAL_LOGIN_ID, type LoginOutcome, type TspBatch, type TspSnapshot } from "../../shared/ipc.ts";
-import { createDocument, snapshotDocument, type TspDocument } from "../../shared/tsp/document.ts";
+import { createDocument, snapshotDocument, type DocBlob, type TspDocument } from "../../shared/tsp/document.ts";
 import { findMessageTarget } from "../../shared/tsp/gate.ts";
 import { deriveLoginFlow } from "../../shared/tsp/login-flow.ts";
 import type { TspEvent } from "../../shared/tsp/tsp.generated.ts";
@@ -255,6 +255,12 @@ export class TerminalLogin {
       return { taskId: TERMINAL_LOGIN_ID, seq: this.#seqBase + current.seq, document: current.document };
     }
     return { taskId: TERMINAL_LOGIN_ID, seq: this.#seqBase, document: snapshotDocument(createDocument()) };
+  }
+
+  /** 登录窗快照里列出的 blob 的字节（getTspBlob）；没有进程或没有这个 blob 为 null。 */
+  blob(id: string): DocBlob | null {
+    const session = this.#active?.session;
+    return session && !this.#active?.finished ? (session.document.blobs.get(id) ?? null) : null;
   }
 
   /**

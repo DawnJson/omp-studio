@@ -2,7 +2,7 @@
 // 编辑的是 omp 自己的配置文件（src/main/omp-config/models-file.ts），终端版 omp 同样用它。
 // 没有模型也没有 discovery 的条目只是覆盖 omp 内置的同名 provider（比如 `anthropic` 下只有 `modelOverrides`）：
 // 编辑表单存不了它（要 baseUrl 和模型），"编辑"打开 ProviderOverrideDialog，只改 `apiKey` 和各模型的覆盖项。
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import type { CustomProviderInfo } from "../../../../shared/custom-models.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
 import { describeError, reportError } from "../../ui/errors.ts";
@@ -23,6 +23,7 @@ import {
   type FetchFailure,
 } from "./custom-models-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
+import { useAsyncAction } from "./use-async-action.ts";
 import "./custom-providers.css";
 
 type Editing = { kind: "add" } | { kind: "edit"; id: string } | { kind: "override"; id: string };
@@ -47,8 +48,10 @@ export function CustomProviders() {
   const { slot: editing, open: openEditing, closed: editingClosed, reset: resetEditing } = useDialogSlot<Editing>();
   // 确认框用 slot：上一个还在放退出动画时再点删除也能立刻开新的（旧的迟到的关闭通知按 key 对不上）。
   const { slot: deleting, open: openDeleting, closed: deletingClosed } = useDialogSlot<CustomProviderInfo>();
-  const [busy, setBusy] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const { busy, run } = useAsyncAction((error) => reportError(t, error));
+  const { busy: refreshing, run: runRefresh } = useAsyncAction((error) =>
+    pushToast({ level: "error", message: t("custom.refreshFailed", { message: describeError(t, error) }) }),
+  );
 
   useEffect(() => void loadCustomProviders(), []);
 
@@ -95,22 +98,15 @@ export function CustomProviders() {
   };
 
   /** `omp models refresh`：重新拉各 provider 的目录（自动发现的模型也在内），主进程关掉服务进程后，这里重读模型列表。 */
-  const refreshModels = async () => {
-    setRefreshing(true);
-    try {
+  const refreshModels = () =>
+    runRefresh(async () => {
       await window.studio.refreshModels();
       reloadAfterChange();
-    } catch (error) {
-      pushToast({ level: "error", message: t("custom.refreshFailed", { message: describeError(t, error) }) });
-    } finally {
-      setRefreshing(false);
-    }
-  };
+    });
 
-  const confirmDelete = async (key: number, provider: CustomProviderInfo) => {
+  const confirmDelete = (key: number, provider: CustomProviderInfo) => {
     deletingClosed(key);
-    setBusy(true);
-    try {
+    return run(async () => {
       const outcome = await window.studio.deleteCustomProvider(provider.id);
       if (outcome.ok) {
         setFetchFailure(provider.id, null);
@@ -119,11 +115,7 @@ export function CustomProviders() {
         pushToast({ level: "error", message: customErrorText(t, `err.${outcome.code}`) });
         void loadCustomProviders(true);
       }
-    } catch (error) {
-      reportError(t, error);
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const target = editing?.value ?? null;

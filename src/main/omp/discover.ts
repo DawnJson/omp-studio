@@ -1,6 +1,6 @@
 // 找 PATH 上的 omp，读出版本和管理者。规则见 docs/architecture/omp-install.md "发现 PATH 上的 omp"。
 import { execFile } from "node:child_process";
-import { access, readFile, realpath } from "node:fs/promises";
+import { access, readFile, realpath, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 
@@ -62,8 +62,35 @@ export async function findOmpOnPath(env: NodeJS.ProcessEnv = process.env): Promi
   return null;
 }
 
-/** 执行 `omp --version` 并读 `manager.json`。 */
-export async function inspectOmp(exePath: string): Promise<OmpInstall> {
+/** 一个 omp 可执行文件此刻的身份：路径、大小、修改时间都没变，就当它的 `omp --version` 也没变。 */
+export interface OmpBinary {
+  path: string;
+  size: number;
+  mtimeMs: number;
+}
+
+/** `omp --version` 结果的缓存（应用里是启动缓存 service/startup-cache.ts）。 */
+export interface OmpVersionCache {
+  ompVersion(binary: OmpBinary): string | null;
+  setOmpVersion(binary: OmpBinary, version: string): void;
+}
+
+/**
+ * 读版本（`omp --version`）和 `manager.json`。给了 cache 时，可执行文件的路径、大小、修改时间和上次一样就直接用上次的版本，
+ * 不起进程（升级、换文件都会改大小或修改时间）。
+ */
+export async function inspectOmp(exePath: string, cache?: OmpVersionCache): Promise<OmpInstall> {
+  const info = await stat(exePath);
+  const binary: OmpBinary = { path: exePath, size: info.size, mtimeMs: info.mtimeMs };
+  let version = cache?.ompVersion(binary) ?? null;
+  if (version === null) {
+    version = await runVersion(exePath);
+    cache?.setOmpVersion(binary, version);
+  }
+  return { path: exePath, version, manager: await readManager(exePath) };
+}
+
+async function runVersion(exePath: string): Promise<string> {
   const { promise, resolve, reject } = Promise.withResolvers<string>();
   execFile(exePath, ["--version"], { timeout: 15_000, windowsHide: true }, (error, stdout) =>
     error ? reject(error) : resolve(stdout),
@@ -71,7 +98,7 @@ export async function inspectOmp(exePath: string): Promise<OmpInstall> {
   const output = await promise;
   const version = /^omp\/(\S+)/m.exec(output)?.[1];
   if (!version) throw new Error(`unexpected \`omp --version\` output: ${output.slice(0, 200)}`);
-  return { path: exePath, version, manager: await readManager(exePath) };
+  return version;
 }
 
 /** 与 omp 自己的判断一致：`manager` 是字符串就算受管，显示名取 `name`，没有就用 `manager`。 */

@@ -1,23 +1,20 @@
 // 任务行（spec §4.2）：[状态点][标题][尾部]。选中用 --bg-raised 底 + 细描边，不改字重。
-import { useRef } from "react";
+// memo：props 是任务对象（没变的任务在 store 里是同一个对象）、几个布尔值和稳定的 rows；尾部的相对时间各行自己从时钟里取，
+// 时钟一跳只有文字变了的行重画。
+import { memo, useRef } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { limits, type Locale, type TaskState } from "../../../../shared/ipc.ts";
 import { Branch, Dots } from "../../icons.tsx";
-import { useTaskWorktree } from "../git/git-store.ts";
 import { IconButton } from "../../ui/controls.tsx";
 import { StatusDot } from "./StatusDot.tsx";
 import { taskTail } from "../../../../shared/ui/task-time.ts";
 import { taskTitle } from "../../../../shared/ui/sidebar-model.ts";
+import { useCoarseClock } from "./task-time.ts";
 
-export interface TaskRowProps {
-  task: TaskState;
-  selected: boolean;
-  /** roving tabindex：整个列表只有一个停靠点。 */
-  tabStop: boolean;
-  renaming: boolean;
+/** 任务行和会话行共用的回调与格式化上下文；整个侧栏一份，只在语言变了时换新（行的 memo 靠它稳定）。 */
+export interface RowHandlers {
   t: TFunction;
   locale: Locale;
-  now: number;
   onSelect(task: TaskState, viaKeyboard: boolean): void;
   onFocusItem(navId: string): void;
   onOpenMenu(task: TaskState, x: number, y: number, trigger: HTMLElement): void;
@@ -26,13 +23,16 @@ export interface TaskRowProps {
   onArchive(task: TaskState): void;
 }
 
-const taskNavId = (task: TaskState) => `task:${task.id}`;
+interface TaskRowProps {
+  task: TaskState;
+  selected: boolean;
+  /** roving tabindex：整个列表只有一个停靠点。 */
+  tabStop: boolean;
+  renaming: boolean;
+  rows: RowHandlers;
+}
 
-/** 任务行和会话行共用的回调与格式化上下文。 */
-export type RowHandlers = Pick<
-  TaskRowProps,
-  "t" | "locale" | "now" | "onSelect" | "onFocusItem" | "onOpenMenu" | "onStartRename" | "onCommitRename" | "onArchive"
->;
+const taskNavId = (task: TaskState) => `task:${task.id}`;
 
 function RenameInput({
   task,
@@ -77,16 +77,14 @@ function RenameInput({
   );
 }
 
-export function TaskRow(props: TaskRowProps) {
-  const { task, selected, renaming, t } = props;
-  const worktree = useTaskWorktree(task.id, task.updatedAt);
+export const TaskRow = memo(function TaskRow({ task, selected, tabStop, renaming, rows }: TaskRowProps) {
+  const { t } = rows;
   const cleanTitle = taskTitle(task);
   const title = cleanTitle === "" ? t("task.untitled") : cleanTitle;
+  const tail = useCoarseClock((now) => taskTail(t, rows.locale, task, now));
 
   if (renaming)
-    return <RenameInput task={task} title={title} t={t} onDone={(value) => props.onCommitRename(task, value)} />;
-
-  const tail = taskTail(t, props.locale, task, props.now);
+    return <RenameInput task={task} title={title} t={t} onDone={(value) => rows.onCommitRename(task, value)} />;
 
   return (
     <div
@@ -98,7 +96,7 @@ export function TaskRow(props: TaskRowProps) {
       data-testid="task-row"
       onContextMenu={(event) => {
         event.preventDefault();
-        props.onOpenMenu(
+        rows.onOpenMenu(
           task,
           event.clientX,
           event.clientY,
@@ -110,17 +108,17 @@ export function TaskRow(props: TaskRowProps) {
         type="button"
         className="sb-row-main"
         data-nav={taskNavId(task)}
-        tabIndex={props.tabStop ? 0 : -1}
+        tabIndex={tabStop ? 0 : -1}
         aria-current={selected ? "true" : undefined}
-        onFocus={() => props.onFocusItem(taskNavId(task))}
-        onClick={(event) => props.onSelect(task, event.detail === 0)}
+        onFocus={() => rows.onFocusItem(taskNavId(task))}
+        onClick={(event) => rows.onSelect(task, event.detail === 0)}
         onKeyDown={(event) => {
           if (event.key === "F2") {
             event.preventDefault();
-            props.onStartRename(task);
+            rows.onStartRename(task);
           } else if (event.key === "Delete") {
             event.preventDefault();
-            props.onArchive(task);
+            rows.onArchive(task);
           }
         }}
       >
@@ -128,12 +126,12 @@ export function TaskRow(props: TaskRowProps) {
         <span className="sb-row-title" title={title}>
           {title}
         </span>
-        {worktree && (
+        {task.worktreeBranch !== null && (
           <span
             className="sb-row-branch"
             data-testid="task-row-worktree"
-            title={t("git.row.worktree", { branch: worktree.branch })}
-            aria-label={t("git.row.worktree", { branch: worktree.branch })}
+            title={t("git.row.worktree", { branch: task.worktreeBranch })}
+            aria-label={t("git.row.worktree", { branch: task.worktreeBranch })}
           >
             <Branch size={12} />
           </span>
@@ -148,11 +146,11 @@ export function TaskRow(props: TaskRowProps) {
         aria-haspopup="menu"
         onClick={(event) => {
           const box = event.currentTarget.getBoundingClientRect();
-          props.onOpenMenu(task, box.left, box.bottom + 4, event.currentTarget);
+          rows.onOpenMenu(task, box.left, box.bottom + 4, event.currentTarget);
         }}
       >
         <Dots />
       </IconButton>
     </div>
   );
-}
+});

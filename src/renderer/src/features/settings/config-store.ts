@@ -3,6 +3,7 @@
 // 写入走 omp config（主进程）：成功后才更新这里的值；失败时值不变，错误显示在那一项上，用户的草稿留在输入框里。
 import type { ModelKey, OmpConfigItem, OmpConfigSnapshot, OmpConfigWriteResult } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
+import { createCachedLoader, type CachedLoad } from "../../../../shared/ui/cached-loader.ts";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 
 interface RowState {
@@ -15,11 +16,7 @@ interface RowState {
   fallbackEnv?: string;
 }
 
-type ConfigLoad =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "ready"; snapshot: OmpConfigSnapshot }
-  | { kind: "error"; error: unknown };
+type ConfigLoad = CachedLoad<OmpConfigSnapshot>;
 
 interface ConfigState {
   load: ConfigLoad;
@@ -28,24 +25,16 @@ interface ConfigState {
 
 const store = createStore<ConfigState>({ load: { kind: "idle" }, rows: {} });
 const emptyRow: RowState = { phase: "idle" };
-let loading: Promise<void> | null = null;
+// 已经有快照时静默刷新：不把界面换成加载态，刷新失败也不盖掉已有的内容（refreshError 界面不显示）。
+const loader = createCachedLoader<OmpConfigSnapshot>(
+  () => window.studio.getOmpConfig(),
+  () => store.get().load,
+  (load) => store.set({ ...store.get(), load }),
+);
 
-/** 读（或重读）快照。已经有快照时静默刷新，不把界面换成加载态。 */
-export function loadOmpConfig(): Promise<void> {
-  loading ??= (async () => {
-    const hadSnapshot = store.get().load.kind === "ready";
-    if (!hadSnapshot) store.set({ ...store.get(), load: { kind: "loading" } });
-    try {
-      const snapshot = await window.studio.getOmpConfig();
-      store.set({ ...store.get(), load: { kind: "ready", snapshot } });
-    } catch (error) {
-      // 静默刷新失败不盖掉已有的内容。
-      if (!hadSnapshot) store.set({ ...store.get(), load: { kind: "error", error } });
-    } finally {
-      loading = null;
-    }
-  })();
-  return loading;
+/** 读（或重读）快照，合并进进行中的读取。force：配置刚被改过，不复用改动之前发出的读取。 */
+export function loadOmpConfig(force = false): Promise<void> {
+  return loader.load(force);
 }
 
 function setRow(key: string, row: RowState): void {
@@ -57,7 +46,7 @@ function setRow(key: string, row: RowState): void {
 function applyResult(result: OmpConfigWriteResult): boolean {
   const state = store.get();
   if (state.load.kind !== "ready") return false;
-  const snapshot = state.load.snapshot;
+  const snapshot = state.load.data;
   const items = snapshot.items.map((item): OmpConfigItem =>
     item.key === result.key ? { ...item, value: result.value, hasValue: result.hasValue } : item,
   );
@@ -69,7 +58,7 @@ function applyResult(result: OmpConfigWriteResult): boolean {
         ...(result.fallbackEnv && { fallbackEnv: result.fallbackEnv }),
       }
     : emptyRow;
-  store.set({ load: { kind: "ready", snapshot: { ...snapshot, items } }, rows: { ...state.rows, [result.key]: row } });
+  store.set({ load: { ...state.load, data: { ...snapshot, items } }, rows: { ...state.rows, [result.key]: row } });
   return !overridden;
 }
 
@@ -113,7 +102,7 @@ export function useRowState(key: string): RowState {
 export function useOmpConfigValue(key: string): unknown {
   return useStoreValue(store, (state) => {
     if (state.load.kind !== "ready") return undefined;
-    const item = state.load.snapshot.items.find((entry) => entry.key === key);
+    const item = state.load.data.items.find((entry) => entry.key === key);
     return item?.hasValue ? item.value : item?.defaultValue;
   });
 }
@@ -144,7 +133,7 @@ export async function saveOmpModelRole(
   thinking: string | null = null,
 ): Promise<void> {
   await window.studio.setModelRole(role, model, thinking);
-  await loadOmpConfig();
+  await loadOmpConfig(true);
 }
 
 /** omp 的 defaultThinkingLevel；null = 删掉这一项，回到 omp 的默认值。omp 不接受 off/inherit。 */

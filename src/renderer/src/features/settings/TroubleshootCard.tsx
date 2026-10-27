@@ -1,24 +1,12 @@
 // 设置 → 关于 → 问题排查：打开日志文件夹、导出诊断信息（内容和脱敏规则见 src/main/log/）。
-import { useState } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { reportError } from "../../ui/errors.ts";
 import { Button, Row } from "../../ui/controls.tsx";
+import { useAsyncAction } from "./use-async-action.ts";
 
 export function TroubleshootCard() {
   const t = useT();
-  const [exporting, setExporting] = useState(false);
-
-  const exportDiagnostics = async () => {
-    setExporting(true);
-    try {
-      await window.studio.exportDiagnostics();
-    } catch (error) {
-      reportError(t, error);
-    } finally {
-      setExporting(false);
-    }
-  };
-
+  const { busy: exporting, run } = useAsyncAction((error) => reportError(t, error));
   return (
     <div className="st-cells" data-testid="about-troubleshoot">
       <Row
@@ -37,7 +25,12 @@ export function TroubleshootCard() {
       </Row>
       <Row
         label={
-          <Button size="sm" loading={exporting} onClick={() => void exportDiagnostics()} testId="export-diagnostics">
+          <Button
+            size="sm"
+            loading={exporting}
+            onClick={() => void run(() => window.studio.exportDiagnostics())}
+            testId="export-diagnostics"
+          >
             {t("settings.about.exportDiagnostics")}
           </Button>
         }

@@ -180,7 +180,7 @@ const rules: readonly (readonly [ConfigGroup, readonly Matcher[]])[] = [
 ];
 
 /** 前缀命中了"终端专用"，但差分实测在 rpc-ui 里确实改变了 get_state 的项：单独放出来。 */
-const measuredEffective: readonly Matcher[] = ["tui.reactions"];
+const measuredEffective: ReadonlySet<Matcher> = new Set(["tui.reactions"]);
 
 function matches(key: string, matcher: Matcher): boolean {
   return key === matcher || key.startsWith(`${matcher}.`);
@@ -188,7 +188,7 @@ function matches(key: string, matcher: Matcher): boolean {
 
 /** 这一项放进哪一组；终端专用的返回 null（不显示）。认不出来的落进 "other"。 */
 export function groupOf(key: string): ConfigGroup | null {
-  if (measuredEffective.includes(key)) return "behavior";
+  if (measuredEffective.has(key)) return "behavior";
   if (terminalOnly.some((matcher) => matches(key, matcher))) return null;
   for (const [group, matchers] of rules) if (matchers.some((matcher) => matches(key, matcher))) return group;
   return "other";

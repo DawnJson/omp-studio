@@ -21,8 +21,7 @@ export function nextNumber(control: NumberControl, direction: -1 | 1): number | 
       .map(Number)
       .filter((n) => Number.isFinite(n))
       .sort((a, b) => a - b);
-    const next =
-      direction > 0 ? keys.find((k) => k > control.value) : [...keys].reverse().find((k) => k < control.value);
+    const next = direction > 0 ? keys.find((k) => k > control.value) : keys.findLast((k) => k < control.value);
     return next ?? null;
   }
   const step = control.step ?? 1;

@@ -5,7 +5,7 @@
 // 窗口 × 不走这里：它只隐藏窗口（hide-on-close.ts），真正的退出入口只有托盘"退出"、应用菜单退出、
 // 安装更新和系统注销/关机，它们都会让 isQuitting() 变成 true，之后窗口才允许真的关掉。
 import { app } from "electron";
-import { log } from "../log/log.ts";
+import { flushLog, log } from "../log/log.ts";
 
 type ShutdownHook = () => Promise<void>;
 
@@ -23,11 +23,12 @@ export function isQuitting(): boolean {
   return quitting;
 }
 
-/** 跑一遍退出 hook（只跑一次）；完成后 finished 为 true，之后的 app.quit() 不会再被拦。 */
+/** 跑一遍退出 hook（只跑一次），最后等日志写盘；完成后 finished 为 true，之后的 app.quit() 不会再被拦。 */
 export function finishShutdown(): Promise<void> {
   quitting = true;
-  shutdown ??= Promise.allSettled(hooks.map((hook) => hook())).then((results) => {
+  shutdown ??= Promise.allSettled(hooks.map((hook) => hook())).then(async (results) => {
     for (const result of results) if (result.status === "rejected") log.error("退出 hook 失败", result.reason);
+    await flushLog();
     finished = true;
   });
   return shutdown;

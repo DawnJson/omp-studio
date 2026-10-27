@@ -2,13 +2,11 @@
 // 格式依据 omp 18.12.x 的 session.md "File Format"；只读文件前缀。不是会话文件（头缺 id 或 cwd）时返回 null，界面就只显示任务自己的信息。
 import { stat } from "node:fs/promises";
 import type { SessionHeaderInfo } from "../../shared/ipc.ts";
-import { isRecord } from "../../shared/type-guards.ts";
+import { isRecord, nonEmptyString as str } from "../../shared/type-guards.ts";
 import { readPrefix } from "../history/session-index.ts";
 
 /** 标题槽 256 字节 + 头；头里带 additionalDirectories 也远不到这个长度。 */
 const PREFIX_BYTES = 32 * 1024;
-
-const str = (value: unknown): string | null => (typeof value === "string" && value !== "" ? value : null);
 
 /** 文件前缀文本 → 头信息；找不到合法的 `session` 行返回 null。 */
 export function parseSessionHeader(text: string): (SessionHeaderInfo & { id: string }) | null {

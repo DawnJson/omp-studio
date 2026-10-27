@@ -6,11 +6,11 @@ import { useCallback, useLayoutEffect, useRef } from "react";
 import type { TaskId } from "../../../shared/ipc.ts";
 import {
   clearSelection,
+  getTask,
   selectTask,
   showView,
   useMainView,
   useSelectedTaskId,
-  useTasks,
   type MainView,
 } from "../store/index.ts";
 
@@ -40,7 +40,6 @@ export function useNavigation(): Navigation {
   const t = useT();
   const taskId = useSelectedTaskId();
   const view = useMainView();
-  const tasks = useTasks();
   // 栈放在 ref 里、在布局阶段同步入栈：视图一提交，后退/前进就能看到这一项。放在 state 里要等
   // effect 之后的下一次渲染，刚切到设置页就按 Alt+← 会读到旧栈、什么也不做。
   const history = useRef<History>({ entries: [{ view, taskId }], index: 0 });
@@ -64,11 +63,13 @@ export function useNavigation(): Navigation {
     (delta: 1 | -1) => {
       const { entries, index: at } = history.current;
       // 沿方向跳过已经不存在的任务。
-      const alive = new Set(tasks.map((task) => task.id));
       let index = at + delta;
       while (index >= 0 && index < entries.length) {
         const candidate = entries[index];
-        if (candidate && (candidate.view === "settings" || candidate.taskId === null || alive.has(candidate.taskId)))
+        if (
+          candidate &&
+          (candidate.view === "settings" || candidate.taskId === null || getTask(candidate.taskId) !== null)
+        )
           break;
         index += delta;
       }
@@ -83,7 +84,7 @@ export function useNavigation(): Navigation {
         showView("conversation");
       }
     },
-    [tasks, t],
+    [t],
   );
 
   return {

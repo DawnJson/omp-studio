@@ -1,10 +1,18 @@
-/* 子代理记录里的过程：工具块、Bash 卡片、Clamp、文件胶囊、Todo、Ask（ProcessDetails 及其子组件）。只用 tokens.css 里的变量。 */
+/* 子代理记录里的过程：工具块、Bash 卡片、文件胶囊、Todo、Ask（ProcessDetails 及其子组件）。只用 tokens.css 里的变量。 */
 
+/* 截断块用过程区的 Clamp（features/tsp/Clamp.tsx）：它按 --tsp-lh 数行，这里的代码都是 --lh-code-sm。 */
 .details {
+  --tsp-lh: var(--lh-code-sm);
   margin-top: var(--space-1);
   padding: var(--space-2);
   background: var(--bg-sunken);
   border-radius: var(--radius-lg);
+}
+.details .tsp-more {
+  font-family: var(--font-sans);
+}
+.step-output .tsp-more {
+  margin-left: var(--space-2);
 }
 .details-earlier {
   margin: 0 0 var(--space-1);
@@ -298,46 +306,7 @@ html[data-motion="reduced"] .step-actions {
   padding: 0 var(--space-2);
 }
 
-/* 通用截断块 Clamp：最多 N 行，底部 mask 渐隐，下面一行"还有 N 行 · 全部显示"。mask 只看透明度，颜色随便取一个不透明的。 */
-.clamp-body:not([data-expanded]) {
-  max-height: calc(var(--clamp-lines) * var(--clamp-lh));
-  overflow: hidden;
-}
-.clamp-body[data-fading] {
-  -webkit-mask-image: linear-gradient(to bottom, var(--text) calc(100% - var(--clamp-lh) * 2), transparent);
-  mask-image: linear-gradient(to bottom, var(--text) calc(100% - var(--clamp-lh) * 2), transparent);
-}
-.clamp-body[data-expanded] {
-  max-height: calc(var(--clamp-max) * var(--clamp-lh));
-  overflow-y: auto;
-}
-.clamp-more {
-  padding-top: var(--space-1);
-  color: var(--text-3);
-  font-family: var(--font-sans);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-}
-.step-output .clamp-more {
-  padding: var(--space-1) var(--space-3) 0;
-}
-.clamp-toggle {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-2);
-  font: inherit;
-  cursor: pointer;
-}
-.clamp-toggle:hover {
-  color: var(--text);
-}
-.clamp-toggle:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-/* 文件胶囊（Read / Glob / Grep 文件头）：图标 + 淡色目录 + 正常色文件名，等宽。行高 = --row-tool（Clamp 按它数行）。 */
+/* 文件胶囊（Read / Glob / Grep 文件头）：图标 + 淡色目录 + 正常色文件名，等宽。行高 = --row-tool。 */
 .file-chips {
   display: flex;
   flex-wrap: wrap;

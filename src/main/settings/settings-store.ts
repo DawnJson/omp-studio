@@ -1,5 +1,5 @@
-// 设置存储：userData/settings.json。启动时读一次，之后以内存为准，每次修改立即原子写盘、推送 settings 事件，
-// 并把主题同步给 nativeTheme（渲染进程只靠 prefers-color-scheme 和 <html data-theme>）。
+// 设置存储：userData/settings.json。启动时读一次，之后以内存为准：每次修改立即生效、推送 settings 事件，
+// 并把主题同步给 nativeTheme（渲染进程只靠 prefers-color-scheme 和 <html data-theme>）；写盘在后台串行做（原子写），退出前等它写完。
 import { app, nativeTheme } from "electron";
 import path from "node:path";
 import { defaultFontSize, type Locale, type StudioSettings } from "../../shared/ipc.ts";
@@ -13,7 +13,10 @@ import {
   parseRecord,
   parseThemePreference,
 } from "../ipc/validate.ts";
-import { readJsonFile, writeJsonFileAtomic } from "./json-file.ts";
+import { log } from "../log/log.ts";
+import { writeFileAtomic } from "../tasks/atomic-write.ts";
+import { registerShutdownHook } from "../window/shutdown.ts";
+import { readJsonFile } from "./json-file.ts";
 
 const defaults: StudioSettings = {
   locale: "system",
@@ -28,6 +31,9 @@ const defaults: StudioSettings = {
 };
 
 let settings: StudioSettings = defaults;
+/** 串行的写盘链：一次只写一个，写的是轮到时的最新设置；排着队的那次没开始写之前再改，不再多排一次。 */
+let saving: Promise<void> = Promise.resolve();
+let saveQueued = false;
 
 function settingsFile(): string {
   return path.join(app.getPath("userData"), "settings.json");
@@ -81,7 +87,7 @@ export function getSettings(): StudioSettings {
 
 const listeners: ((next: StudioSettings) => void)[] = [];
 
-/** 设置变化（每次 updateSettings 写盘之后）时调用；主进程里要跟着设置动的模块（TSP 会话的 motion 事件等）订阅。 */
+/** 设置变化（每次 updateSettings，内存里的值已经更新）时调用；主进程里要跟着设置动的模块（TSP 会话的 motion 事件等）订阅。 */
 export function onSettingsChanged(listener: (next: StudioSettings) => void): void {
   listeners.push(listener);
 }
@@ -93,11 +99,22 @@ export function offSettingsChanged(listener: (next: StudioSettings) => void): vo
 
 export function updateSettings(patch: Partial<StudioSettings>): void {
   settings = { ...settings, ...patch };
-  writeJsonFileAtomic(settingsFile(), settings);
+  if (!saveQueued) {
+    saveQueued = true;
+    saving = saving
+      .then(() => {
+        saveQueued = false;
+        return writeFileAtomic(settingsFile(), JSON.stringify(settings, null, 2), String(process.pid));
+      })
+      .catch((error: unknown) => log.error("saving settings.json failed", error));
+  }
   nativeTheme.themeSource = settings.theme;
   emitEvent("settings", settings);
   for (const listener of listeners) listener(settings);
 }
+
+// 退出前等设置写完。
+registerShutdownHook(() => saving);
 
 export function resolveLocale(): Locale {
   if (settings.locale !== "system") return settings.locale;

@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readSessionUsage, summarizeSessionUsage, totalUsage } from "../src/main/history/session-usage.ts";
-import { MAX_SESSION_FILE_BYTES } from "../src/main/tsp/session-tree-file.ts";
+import { MAX_SESSION_FILE_BYTES } from "../src/main/tsp/session-file-reader.ts";
 
 let seq = 0;
 const reply = (id: string, parentId: string | null, model: string, total: number, cost: number) =>

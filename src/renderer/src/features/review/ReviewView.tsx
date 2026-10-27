@@ -38,7 +38,7 @@ import "./review.css";
 import { ViewControls } from "./ViewControls.tsx";
 import type { ExitProps } from "../../ui/presence.ts";
 
-const BUSY: readonly TaskState["status"][] = ["starting", "running", "needs_you"];
+const BUSY: ReadonlySet<TaskState["status"]> = new Set(["starting", "running", "needs_you"]);
 
 export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boolean; exit: ExitProps }) {
   const t = useT();
@@ -124,7 +124,7 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
     setReveal(comment.id);
   };
 
-  const running = task !== null && BUSY.includes(task.status);
+  const running = task !== null && BUSY.has(task.status);
   const whenBusy = settings?.enterWhileRunning ?? "steer";
   const send = async () => {
     const payload = toReviewComments(comments);

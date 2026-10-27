@@ -6,6 +6,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Button, Checkbox, FormField, Notice, Segmented, TextField, type Option } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
+import { useAsyncAction } from "./use-async-action.ts";
 import "./integrations.css";
 
 type Scope = "user" | "project";
@@ -56,8 +57,8 @@ export function SshForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(messa
   const [description, setDescription] = useState("");
   const [compat, setCompat] = useState(false);
   const [scope, setScope] = useState<Scope>("user");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { busy, run } = useAsyncAction((caught) => setError(errorDetail(caught)));
 
   const portNumber = port.trim() === "" ? undefined : Number(port);
   const portOk = portNumber === undefined || (Number.isInteger(portNumber) && portNumber >= 1 && portNumber <= 65535);
@@ -67,29 +68,23 @@ export function SshForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(messa
     { value: "project", label: t("integrations.scope.project") },
   ];
 
-  const submit = async () => {
-    setBusy(true);
-    setError(null);
-    const target: Scope = scopeKey === "user" ? "user" : scope;
-    const input: SshHostInput = {
-      name: name.trim(),
-      host: host.trim(),
-      ...(username.trim() !== "" && { username: username.trim() }),
-      ...(portNumber !== undefined && { port: portNumber }),
-      ...(keyPath.trim() !== "" && { keyPath: keyPath.trim() }),
-      ...(description.trim() !== "" && { description: description.trim() }),
-      compat,
-      scope: target,
-    };
-    try {
+  const submit = () =>
+    run(async () => {
+      setError(null);
+      const target: Scope = scopeKey === "user" ? "user" : scope;
+      const input: SshHostInput = {
+        name: name.trim(),
+        host: host.trim(),
+        ...(username.trim() !== "" && { username: username.trim() }),
+        ...(portNumber !== undefined && { port: portNumber }),
+        ...(keyPath.trim() !== "" && { keyPath: keyPath.trim() }),
+        ...(description.trim() !== "" && { description: description.trim() }),
+        compat,
+        scope: target,
+      };
       const result = await window.studio.addSshHost(input, scopeProject(scopeKey));
       onDone(result.text);
-    } catch (caught) {
-      setError(errorDetail(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   return (
     <Dialog

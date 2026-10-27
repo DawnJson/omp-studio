@@ -1,5 +1,5 @@
 // 会话信息对话框、请求记录、分享的 IPC。数据来源和取舍见 docs/architecture/session-history.md "会话信息"：
-// 会话文件头 + 置顶文件 + 会话文件算的用量（和输入框同口径）都只读；请求记录读 stats.db（只读）；分享经 `omp share`（会上传，界面先确认）。参数一律是 unknown，先校验再用，路径由主进程按任务 id 查表。
+// 会话文件头 + 置顶文件 + 会话文件算的用量（和输入框同口径）都只读；请求记录读 stats.db（只读，在 SQLite worker 里）；分享经 `omp share`（会上传，界面先确认）。参数一律是 unknown，先校验再用，路径由主进程按任务 id 查表。
 import type { HandlerGroup, SessionHeaderInfo } from "../../shared/ipc.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
 import { readSessionUsage } from "../history/session-usage.ts";
@@ -8,8 +8,8 @@ import { listJson, runOmpConfig } from "../omp-config/config-service.ts";
 import { readSessionHeader } from "../session-info/session-header.ts";
 import { readSessionPins } from "../session-info/session-pins.ts";
 import { readShareSettings, shareSession } from "../session-info/share.ts";
-import { readSessionTrace } from "../session-info/session-stats.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
+import { readInDbWorker } from "../usage/db-worker-client.ts";
 import { runOmpCommand, statsDbPath } from "../usage/usage-service.ts";
 import { syncStatsDb } from "./usage-handlers.ts";
 import { parseBoolean, parseTaskId } from "./validate.ts";
@@ -50,7 +50,7 @@ export const sessionInfoHandlers: HandlerGroup<
     const sessionFile = (await getTaskPool()).sessionFileOf(id);
     await maybeSync(doRefresh);
     if (sessionFile === null) return { hasDatabase: true, requests: [], truncated: false };
-    return readSessionTrace(statsDbPath(), sessionFile);
+    return readInDbWorker("sessionTrace", statsDbPath(), sessionFile);
   },
 
   async getShareSettings(taskId) {

@@ -1,8 +1,11 @@
 // 主进程日志：写 <userData>/logs/main-<本地日期>.log，按天换文件，保留最近 RETAIN_DAYS 天。
 // 每一行写之前过一遍脱敏（家目录、用户名、key/token、带签名的 URL 参数），规则见 AGENTS.md "日志和路径脱敏"。
+// 写盘是异步的：行先进队列，同一时间只有一个 appendFile 在途，在途期间来的行攒成一批、下一次一起写，顺序不变。
+// 退出前（window/shutdown.ts）等 flush()；进程直接退出时（app.exit 等）instance.ts 在 exit 事件里 flushSync() 写掉还没开始写的行。
 // 这个文件不 import electron：单元测试和被测模块（installer.ts 等）可以直接用 `log`；
 // 应用启动时 instance.ts 用 setLogger() 接上真正的文件，之前（和测试里）只打到控制台。
 import { appendFileSync, mkdirSync, readdirSync, unlinkSync } from "node:fs";
+import { appendFile } from "node:fs/promises";
 import path from "node:path";
 import { formatWithOptions } from "node:util";
 
@@ -65,12 +68,20 @@ export interface LoggerOptions {
   mirror?: boolean;
 }
 
+interface PendingBatch {
+  day: string;
+  text: string;
+}
+
 export class Logger {
   readonly dir: string;
   #redact: (text: string) => string;
   #now: () => Date;
   #mirror: boolean;
   #day = "";
+  /** 还没开始写的行，按日期分批（跨零点时最后一批换文件）。 */
+  #queue: PendingBatch[] = [];
+  #draining: Promise<void> | null = null;
 
   constructor(options: LoggerOptions) {
     this.dir = options.dir;
@@ -87,18 +98,55 @@ export class Logger {
     );
     const line = `${now.toISOString()} ${level.toUpperCase().padEnd(5)} ${text}\n`;
     if (this.#mirror) console[level](line.trimEnd());
-    try {
-      if (day !== this.#day) {
-        mkdirSync(this.dir, { recursive: true });
-        // 先记下日期：清理旧文件失败（被占用）时这一天不再反复重试，日志照写。
-        this.#day = day;
-        this.#prune(now);
+    const last = this.#queue.at(-1);
+    if (last?.day === day) last.text += line;
+    else this.#queue.push({ day, text: line });
+    this.#draining ??= this.#drain();
+  }
+
+  /** 等队列里的行全部写完（退出前调用）。 */
+  async flush(): Promise<void> {
+    while (this.#draining) await this.#draining;
+  }
+
+  /** 进程马上要退出、等不了异步写时：同步写掉还没开始写的行（在途的那一批由它自己写完或丢失）。 */
+  flushSync(): void {
+    for (let batch = this.#queue.shift(); batch; batch = this.#queue.shift()) {
+      try {
+        this.#openDay(batch.day);
+        appendFileSync(this.#file(batch.day), batch.text, "utf8");
+      } catch (error) {
+        console.error("failed to write log", error);
       }
-      appendFileSync(path.join(this.dir, `main-${day}.log`), line, "utf8");
-    } catch (error) {
-      // 写日志失败不能让应用跟着失败；打到控制台，开发时能看见。
-      console.error("failed to write log", error);
     }
+  }
+
+  async #drain(): Promise<void> {
+    // 先让出一次：同一段同步代码里接连写的行并成一批；也保证 #draining 在这里置空之前已经赋值。
+    await Promise.resolve();
+    for (let batch = this.#queue.shift(); batch; batch = this.#queue.shift()) {
+      try {
+        this.#openDay(batch.day);
+        await appendFile(this.#file(batch.day), batch.text, "utf8");
+      } catch (error) {
+        // 写日志失败不能让应用跟着失败；打到控制台，开发时能看见。
+        console.error("failed to write log", error);
+      }
+    }
+    this.#draining = null;
+  }
+
+  #file(day: string): string {
+    return path.join(this.dir, `main-${day}.log`);
+  }
+
+  /** 一天第一次写：建目录、删过期文件（每天一次，同步做）。 */
+  #openDay(day: string): void {
+    if (day === this.#day) return;
+    mkdirSync(this.dir, { recursive: true });
+    // 先记下日期：清理旧文件失败（被占用）时这一天不再反复重试，日志照写。
+    this.#day = day;
+    this.#prune(day);
   }
 
   /** 当前和之前的日志文件，按日期从新到旧。 */
@@ -111,14 +159,13 @@ export class Logger {
     }
     return names
       .filter((name) => FILE_PATTERN.test(name))
-      .sort()
-      .reverse()
+      .sort((a, b) => (a < b ? 1 : a > b ? -1 : 0))
       .map((name) => path.join(this.dir, name));
   }
 
-  #prune(now: Date): void {
-    const cutoff = new Date(now);
-    cutoff.setDate(cutoff.getDate() - (RETAIN_DAYS - 1));
+  #prune(today: string): void {
+    const [year, month, date] = today.split("-").map(Number);
+    const cutoff = new Date(year!, month! - 1, date! - (RETAIN_DAYS - 1));
     const oldest = localDay(cutoff);
     for (const file of this.files()) {
       const day = FILE_PATTERN.exec(path.basename(file))?.[1];
@@ -132,6 +179,11 @@ let current: Logger | null = null;
 
 export function setLogger(logger: Logger | null): void {
   current = logger;
+}
+
+/** 等日志全部写盘（退出流程的最后一步）。 */
+export function flushLog(): Promise<void> {
+  return current?.flush() ?? Promise.resolve();
 }
 
 function write(level: LogLevel, message: string, details: unknown[]): void {

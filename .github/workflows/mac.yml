@@ -1,7 +1,7 @@
 # mac 版（Apple 芯片）：在 GitHub 的 macOS 机器上跑单测、一条真正发 prompt 的 e2e，打 ad-hoc 签名的 dmg / zip 作为构建产物。
 # 推版本 tag 时还把 dmg / zip 传到这个版本的 GitHub Release（scripts/publish-release.ts）。
 # 没有 Apple Developer 账号：不公证、不写更新源（docs/architecture/mac.md）。
-# 推到 main、推版本 tag 或手动触发时跑（公开仓库用 GitHub 的 macOS 机器不计费）；同一分支连推时只留最新一次。
+# 推到 main（只改文档的推送不跑）、推版本 tag 或手动触发时跑（公开仓库用 GitHub 的 macOS 机器不计费）；同一分支连推时只留最新一次。
 name: mac
 
 on:
@@ -9,6 +9,9 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+    # 只对分支推送生效：GitHub 推 tag 时不看路径过滤，发版构建照跑。*.md 不进构建也不过 Prettier（.prettierignore），
+    # 但 CHANGELOG.md 会打进主进程（whats-new.ts），不能列进来。
+    paths-ignore: ["docs/**", "README.md", "README.zh-CN.md", "AGENTS.md", "LESSONS.md"]
 
 concurrency:
   group: mac-${{ github.ref }}
@@ -29,7 +32,22 @@ jobs:
           node-version: 24
           cache: npm
 
+      # Electron（npm ci 时下载）和 electron-builder 工具的下载缓存，版本跟着 package-lock.json 走。
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-electron-
+
       - run: npm ci
+
+      - name: 代码检查
+        run: npm run lint
+
+      - name: 格式检查
+        run: npm run format:check
 
       - name: 类型检查
         run: npm run typecheck

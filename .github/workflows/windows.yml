@@ -1,0 +1,88 @@
+# Windows 版（x64，主要平台）：在 GitHub 的 Windows 机器上跑类型检查、单测、一条真正发 prompt 的 e2e，打免安装目录（npm run pack 的产物）
+# 并启动它做冒烟。只做检查：Windows 安装包和更新源由本机发版脚本（npm run release）打、传。
+# 代码检查和格式检查与平台无关，只在 linux / mac 上跑。
+# 推到 main（只改文档的推送不跑）、推版本 tag 或手动触发时跑；同一分支连推时只留最新一次。
+name: windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    # 只对分支推送生效：GitHub 推 tag 时不看路径过滤，发版构建照跑。*.md 不进构建也不过 Prettier（.prettierignore），
+    # 但 CHANGELOG.md 会打进主进程（whats-new.ts），不能列进来。
+    paths-ignore: ["docs/**", "README.md", "README.zh-CN.md", "AGENTS.md", "LESSONS.md"]
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # Electron（npm ci 时下载）和 electron-builder 的工具（改 exe 图标和版本信息用的 rcedit 等）的下载缓存，版本跟着 package-lock.json 走。
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-electron-
+
+      # node-pty 用自带的 win32-x64 预编译件，不编译。
+      - run: npm ci
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 单测
+        run: npx vitest run
+
+      - name: 构建
+        run: npm run build
+
+      # 真实的 node-pty（ConPTY）+ TSP 路径：假 omp 回放录制，发一句 prompt 跑完一整轮（不需要真模型）。
+      - name: e2e 冒烟
+        run: npx playwright test test/e2e/tsp.e2e.ts -g "完整一轮"
+
+      # 和 npm run pack 一样打免安装目录，上面已经构建过，不再跑 electron-vite build。
+      - name: 打包
+        run: npx electron-builder --win dir --x64 --publish never
+
+      # 包里该有的东西：app.asar 只有 out/、package.json、node_modules/，node-pty 只有 win32-x64 预编译件（scripts/check-package.ts）。
+      - name: 检查产物
+        run: |
+          node scripts/check-package.ts release/win-unpacked/resources/app.asar win32-x64
+          prebuilds="release/win-unpacked/resources/app.asar.unpacked/node_modules/node-pty/prebuilds"
+          ls -l "$prebuilds"
+          test -f "$prebuilds/win32-x64/pty.node"
+          test ! -e "$prebuilds/darwin-arm64"
+
+      # 打包版才有的问题（如启动时窗口一直透明，见 scripts/smoke-packaged.ts）上面的 e2e 测不到：启动打包好的应用，等窗口淡入。
+      # 打包版在 Windows 上把用户数据放在 %APPDATA%\omp-studio（不看 HOME）；CI 机器每次都是干净的，不用另外隔开。
+      - name: 打包版冒烟
+        run: node scripts/smoke-packaged.ts release/win-unpacked/omp-studio.exe
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-results
+          if-no-files-found: ignore
+          retention-days: 7
+          path: test-results/

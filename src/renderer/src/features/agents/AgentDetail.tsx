@@ -12,7 +12,8 @@ import { Reveal } from "../../ui/Reveal.tsx";
 import { formatDuration } from "../conversation/format.ts";
 import { buildTurns } from "../conversation/model.ts";
 import { ProcessDetails } from "../conversation/ProcessDetails.tsx";
-import { formatCost, formatTokens, shortModel } from "./format.ts";
+import { formatCost } from "../tsp/fmt.ts";
+import { formatTokens, shortModel } from "./format.ts";
 import {
   agentContextPercent,
   agentElapsed,

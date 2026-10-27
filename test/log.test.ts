@@ -66,6 +66,7 @@ describe("Logger", () => {
       redact: createRedactor({ home: "C:\\Users\\Zhang San", user: "Zhang San" }),
     });
     logger.write("info", "first", []);
+    await logger.flush();
     const stale = path.join(dir, "main-2026-09-01.log");
     const kept = path.join(dir, `main-2026-10-${String(19 - RETAIN_DAYS + 1).padStart(2, "0")}.log`);
     await writeFile(stale, "old");
@@ -75,6 +76,7 @@ describe("Logger", () => {
     now = new Date(2026, 9, 19, 0, 1);
     logger.write("error", "failed at %s", ["C:\\Users\\Zhang San\\proj"]);
     logger.write("warn", "boom", [new Error("bad sk-abcdefghijkl")]);
+    await logger.flush();
 
     expect((await readdir(dir)).sort()).toEqual(
       [path.basename(kept), "main-2026-10-18.log", "main-2026-10-19.log", "notes.txt"].sort(),
@@ -88,5 +90,24 @@ describe("Logger", () => {
       "main-2026-10-18.log",
       path.basename(kept),
     ]);
+  });
+
+  it("keeps lines in order when they arrive while a write is in flight, and flushSync writes what is still queued", async () => {
+    root = await mkdtemp(path.join(os.tmpdir(), "omp-studio 日志 "));
+    const dir = path.join(root, "logs");
+    const now = new Date(2026, 9, 18, 12, 0);
+    const logger = new Logger({ dir, now: () => now, redact: (text) => text });
+    for (let i = 0; i < 50; i++) logger.write("info", `line ${i}`, []);
+    await Promise.resolve();
+    for (let i = 50; i < 100; i++) logger.write("info", `line ${i}`, []);
+    await logger.flush();
+    logger.write("info", "last", []);
+    logger.flushSync();
+    const lines = (await readFile(path.join(dir, "main-2026-10-18.log"), "utf8")).trimEnd().split("\n");
+    expect(lines.map((line) => line.slice(line.indexOf("INFO") + 6))).toEqual([
+      ...Array.from({ length: 100 }, (_, i) => `line ${i}`),
+      "last",
+    ]);
+    await logger.flush();
   });
 });

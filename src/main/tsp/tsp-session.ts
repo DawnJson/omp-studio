@@ -4,12 +4,11 @@
 // node-pty、Job Object、taskkill 都从 options 注入（默认是真实实现），单元测试可以换成假的。
 // 协议细节见 E:/tern-probe/spec/protocol-*.md（Tern SDK 文档 protocol/*）。
 import { createHash } from "node:crypto";
-import { execFile } from "node:child_process";
-import path from "node:path";
 import {
   applyMessage,
   createDocument,
   snapshotDocument,
+  type ApplyResult,
   type DocumentSnapshot,
   type TspDocMessage,
   type TspDocument,
@@ -29,7 +28,8 @@ import { cwdFromFileUri } from "../../shared/tsp/osc7.ts";
 import type { RunStatusMessage } from "../../shared/tsp/run-status.ts";
 import { isRecord } from "../../shared/type-guards.ts";
 import { log } from "../log/log.ts";
-import { killPosixProcessTree } from "../platform/posix/process-tree.ts";
+import { killProcessTree } from "../platform/process-tree.ts";
+import { waitWithTimeout } from "../platform/wait-with-timeout.ts";
 import { assignToOwnJob } from "../platform/win32/job-object.ts";
 import { BatchTimer } from "../platform/batch-timer.ts";
 import { withPtyLock } from "../platform/pty-lock.ts";
@@ -94,16 +94,6 @@ async function spawnNodePty(launch: TspPtyLaunch, size: { cols: number; rows: nu
     // 字节流：TSP 分块可能切在 UTF-8 字符中间，要在解析器里按字节拼接后再解码。
     encoding: null,
   });
-}
-
-/** 结束进程和它的所有后代（node-pty 的 kill 只关 omp 本身）。Windows 用 taskkill（绝对路径：不带路径时 Windows 会先在当前目录里找），其他平台见 posix/process-tree.ts。 */
-export function killProcessTree(pid: number): Promise<void> {
-  if (process.platform !== "win32") return killPosixProcessTree(pid);
-  const killer = path.join(process.env["SystemRoot"] ?? "C:\\Windows", "System32", "taskkill.exe");
-  const done = Promise.withResolvers<void>();
-  // 进程已经自己退出时命令会失败，忽略即可。
-  execFile(killer, ["/T", "/F", "/PID", String(pid)], { windowsHide: true, timeout: 5000 }, () => done.resolve());
-  return done.promise;
 }
 
 /** TSP 任务进程的环境：扮演 Tern（omp 看 `TERM_PROGRAM=tern` 才发 hello）。 */
@@ -174,8 +164,8 @@ export interface TspSessionOptions {
   /** 一批文档消息（合批时机见 platform/batch-timer.ts）。 */
   onBatch(batch: TspSessionBatch): void;
   onExit(exit: TspSessionExit): void;
-  /** 文档每次因 o/f/t/x/b 改变之后同步调用；任务状态据此推导。 */
-  onChange?(document: TspDocument): void;
+  /** 文档每次因 o/f/t/x/b 改变之后同步调用，带着这条消息和它的应用结果（`changed`）；任务状态据此推导。 */
+  onChange?(document: TspDocument, message: TspDocMessage, result: ApplyResult): void;
   /** `OSC 1337 SetUserVar=omp_session_file=<base64>`：当前会话文件（此时文件可能还没落盘）；null = 清空（不带 `=` 的形式）。 */
   onSessionFile?(file: string | null): void;
   /** OSC 0 / 2。 */
@@ -353,13 +343,7 @@ export class TspSession {
 
   /** 进程在 `ms` 毫秒内退出（`onExit` 已处理）返回 true。 */
   async #exitedWithin(ms: number): Promise<boolean> {
-    if (this.#hasExited) return true;
-    const timedOut = Symbol("timeout");
-    const timeout = Promise.withResolvers<typeof timedOut>();
-    const timer = setTimeout(() => timeout.resolve(timedOut), ms);
-    const outcome = await Promise.race([this.#exited.promise, timeout.promise]);
-    clearTimeout(timer);
-    return outcome !== timedOut;
+    return this.#hasExited || (await waitWithTimeout(this.#exited.promise, ms));
   }
 
   // ───── pty 数据 ─────
@@ -566,7 +550,7 @@ export class TspSession {
     } else {
       for (const error of result.errors) this.#safeEvent({ ev: "error", msg: error.msg });
     }
-    this.#options.onChange?.(this.#doc);
+    this.#options.onChange?.(this.#doc, message, result);
   }
 
   // ───── 批次 ─────

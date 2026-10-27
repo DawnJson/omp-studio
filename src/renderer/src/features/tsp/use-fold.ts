@@ -4,6 +4,7 @@
 import { useCallback } from "react";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 import type { NodeProps } from "./node-props.ts";
+import { onTspDocumentDropped } from "./tsp-store.ts";
 
 interface Fold {
   /** 用户翻的时候程序给的 collapsed 值（用来识别"程序发了不同的值"）。 */
@@ -17,6 +18,14 @@ function foldKey({ node, ctx }: NodeProps): string {
   const key = typeof node.p.key === "string" ? node.p.key : node.id;
   return `${ctx.taskId}\u0000${ctx.sf}\u0000${node.parent ?? ""}\u0000${key}`;
 }
+
+// 任务的镜像丢掉了（任务被移除、登录会话换新进程）：它的折叠状态一起清掉，store 不跟着关过的任务越攒越大。
+onTspDocumentDropped((taskId) => {
+  const prefix = `${taskId}\u0000`;
+  const current = folds.get();
+  const kept = Object.entries(current).filter(([key]) => !key.startsWith(prefix));
+  if (kept.length !== Object.keys(current).length) folds.set(Object.fromEntries(kept));
+});
 
 /** 当前折叠状态和翻转函数；翻转时发 `toggle` 事件。`initial` 是程序给的 collapsed。 */
 export function useFold(props: NodeProps, initial: boolean): [collapsed: boolean, toggle: () => void] {

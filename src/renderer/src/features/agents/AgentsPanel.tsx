@@ -3,7 +3,7 @@
 // 期间面板顶部显示"正在发给 <名字>"，omp 的 Hub 不画出来。
 import { useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
-import { focusedAgentName, listAgents, type HubAgent } from "../../../../shared/tsp/agent-hub.ts";
+import { AGENT_NODES, focusedAgentName, listAgents, type HubAgent } from "../../../../shared/tsp/agent-hub.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
 import { IconButton, Tabs, tabPanelProps } from "../../ui/controls.tsx";
@@ -35,7 +35,7 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
   const root = useRef<HTMLElement>(null);
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
   const width = usePreviewWidth();
-  const derived = useTspDerived(taskId, listAgents, sameAgents) ?? NO_AGENTS;
+  const derived = useTspDerived(taskId, listAgents, sameAgents, AGENT_NODES) ?? NO_AGENTS;
   // omp 聚焦在某个子代理上时，主界面画的是它的会话，文档里没有 agent 节点，列表是空的（实测 hub-steer 录制）。
   const focusedAgent = useTspDerived(taskId, focusedAgentName, Object.is);
   const agents = useMemo(() => sortAgents(derived), [derived]);

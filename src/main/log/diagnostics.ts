@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { ompManager } from "../omp-manager/index.ts";
 import { getSettings } from "../settings/settings-store.ts";
-import { localDay } from "./log.ts";
+import { flushLog, localDay } from "./log.ts";
 import { redactForLog, recentLogFiles } from "./instance.ts";
 
 const LOG_DAYS = 3;
@@ -43,6 +43,8 @@ async function diagnosticsText(): Promise<string> {
     "## settings",
     JSON.stringify(getSettings(), null, 2),
   ];
+  // 日志是异步写的：先等队列里的行落盘，诊断里才有刚才的记录。
+  await flushLog();
   for (const file of recentLogFiles().slice(0, LOG_DAYS)) {
     sections.push("", `## ${path.basename(file)}`, await tail(file));
   }

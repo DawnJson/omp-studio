@@ -6,6 +6,7 @@ import {
   MAX_INDEXED_FILES,
   MAX_RESULTS,
   ProjectFileIndex,
+  indexFiles,
   matchProjectFiles,
   parseFileQuery,
   walkFiles,
@@ -30,13 +31,13 @@ describe("parseFileQuery：查询词形状校验", () => {
 });
 
 describe("matchProjectFiles：匹配和排序", () => {
-  const files = [
+  const files = indexFiles([
     "src/main/index.ts",
     "src/renderer/App.tsx",
     "README.md",
     "docs/design/spec.md",
     "src/a/b/readme-notes.md",
-  ];
+  ]);
   it("文件名前缀排在路径包含之前，不区分大小写", () => {
     expect(matchProjectFiles(files, "readme")).toEqual(["README.md", "src/a/b/readme-notes.md"]);
     expect(matchProjectFiles(files, "SPEC")).toEqual(["docs/design/spec.md"]);
@@ -49,9 +50,16 @@ describe("matchProjectFiles：匹配和排序", () => {
   });
   it("空查询按层级浅的在前，条数不超过上限", () => {
     expect(matchProjectFiles(files, "")[0]).toBe("README.md");
-    const many = Array.from({ length: 100 }, (_, i) => `f${i}.ts`);
+    const many = indexFiles(Array.from({ length: 100 }, (_, i) => `f${i}.ts`));
     expect(matchProjectFiles(many, "f")).toHaveLength(MAX_RESULTS);
     expect(matchProjectFiles(many, "f", 5)).toHaveLength(5);
+  });
+  it("只留前 limit 条时的顺序和全部排好后截取的一致", () => {
+    const mixed = indexFiles(
+      Array.from({ length: 300 }, (_, i) => `${"d/".repeat((i * 7) % 4)}${i % 3 ? "x" : "file"}${(i * 37) % 300}.ts`),
+    );
+    const all = matchProjectFiles(mixed, "f", mixed.length);
+    for (const limit of [1, 5, 20, 299]) expect(matchProjectFiles(mixed, "f", limit)).toEqual(all.slice(0, limit));
   });
 });
 
@@ -79,7 +87,7 @@ describe("ProjectFileIndex：缓存和上限", () => {
     );
     await expect(index.list("/p")).rejects.toThrow("boom");
     fail = false;
-    expect(await index.list("/p")).toEqual(["a.ts"]);
+    expect((await index.list("/p")).map((file) => file.path)).toEqual(["a.ts"]);
     await index.list("/p");
     expect(loads).toBe(2);
     now = 60_000;

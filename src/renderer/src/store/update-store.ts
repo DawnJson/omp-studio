@@ -19,3 +19,8 @@ export function startUpdateStore(): void {
 export function useUpdateState(): UpdateState | null {
   return useStoreValue(updateStore, (state) => state);
 }
+
+/** 新版本已下载好时是它的版本号（没写版本号时 "?"），否则 null；只在这个值变了时重渲染（下载进度事件很密）。 */
+export function useDownloadedVersion(): string | null {
+  return useStoreValue(updateStore, (state) => (state?.phase === "downloaded" ? (state.latestVersion ?? "?") : null));
+}

@@ -3,6 +3,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";
+import { waitWithTimeout } from "../platform/wait-with-timeout.ts";
 
 let pending: Promise<void> | null = null;
 
@@ -13,15 +14,7 @@ export function registerStartupDefaults(promise: Promise<void>): void {
 
 /** 等启动默认做完，最多 `timeoutMs`；超时或没登记都直接返回，不阻塞任务启动。 */
 export async function awaitStartupDefaults(timeoutMs: number): Promise<void> {
-  const current = pending;
-  if (!current) return;
-  const { promise: timeout, resolve } = Promise.withResolvers<void>();
-  const timer = setTimeout(resolve, timeoutMs);
-  try {
-    await Promise.race([current.catch(() => undefined), timeout]);
-  } finally {
-    clearTimeout(timer);
-  }
+  if (pending) await waitWithTimeout(pending, timeoutMs);
 }
 
 /**

@@ -16,14 +16,24 @@ import { useNow } from "../conversation/use-now.ts";
 import { loadHeatmap, loadQuota, useUsageHeatmap, useUsageQuota } from "./usage-store.ts";
 import { HeatmapView, QuotaBlock, SummaryStrip, UnavailableRow, UntouchedRow } from "./usage-views.tsx";
 
-/** "7 秒前更新"：额度最近一次读成功距今多久；还没读到时为空。 */
-function updatedText(t: TFunction, at: number | null, now: number): string {
-  if (at === null) return "";
+/** "7 秒前更新"：额度最近一次读成功距今多久。 */
+function updatedText(t: TFunction, at: number, now: number): string {
   const seconds = Math.max(0, Math.floor((now - at) / 1000));
   if (seconds < 5) return t("usage.updated.now");
   if (seconds < 60) return t("usage.updated.seconds", { n: seconds });
   if (seconds < 3600) return t("usage.updated.minutes", { n: Math.floor(seconds / 60) });
   return t("usage.updated.hours", { n: Math.floor(seconds / 3600) });
+}
+
+/** 每秒刷新的只有这一小段文字（叶子组件），对话框其余部分不跟着重渲染。 */
+function UpdatedText({ at }: { at: number }) {
+  const t = useT();
+  const now = useNow(true);
+  return (
+    <span className="usage-updated" data-testid="usage-checked">
+      {updatedText(t, at, now)}
+    </span>
+  );
 }
 
 function Summary() {
@@ -98,7 +108,6 @@ function UsageDialogBody({ provider, open, onClose }: { provider: string | null;
   const t = useT();
   const heatmap = useUsageHeatmap();
   const quota = useUsageQuota();
-  const now = useNow(quota.at !== null);
   useEffect(() => {
     void loadQuota();
     if (heatmap.data === null && !heatmap.busy) void loadHeatmap();
@@ -106,7 +115,6 @@ function UsageDialogBody({ provider, open, onClose }: { provider: string | null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const fetchedAt = quotaFetchedAt(quota.data?.accounts ?? []) ?? quota.at;
-  const updated = updatedText(t, fetchedAt, now);
   return (
     <Dialog
       open={open}
@@ -117,11 +125,7 @@ function UsageDialogBody({ provider, open, onClose }: { provider: string | null;
       title={t("composer.usage.overview")}
       headAction={
         <>
-          {updated !== "" && (
-            <span className="usage-updated" data-testid="usage-checked">
-              {updated}
-            </span>
-          )}
+          {fetchedAt !== null && <UpdatedText at={fetchedAt} />}
           <IconButton
             label={t("usage.refresh")}
             tip={t("usage.refresh")}

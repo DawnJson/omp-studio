@@ -10,6 +10,7 @@ import { Dialog } from "../../ui/Dialog.tsx";
 import { describeError } from "../../ui/errors.ts";
 import { AccountsBody, FailedBody, KeyBody, LoginBody, type Flow } from "./ProviderPanels.tsx";
 import { TerminalLoginBody } from "./TerminalLoginBody.tsx";
+import { useAsyncAction } from "./use-async-action.ts";
 import "./providers.css";
 
 /**
@@ -51,7 +52,6 @@ export function ProviderFlowDialog({
   const t = useT();
   const [open, setOpen] = useState(true);
   const [flow, setFlow] = useState<Flow>(() => initialFlow(action));
-  const [busy, setBusy] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [code, setCode] = useState("");
   const [copied, setCopied] = useState(false);
@@ -64,6 +64,7 @@ export function ProviderFlowDialog({
     onChanged();
     setOpen(false);
   };
+  const { busy, run } = useAsyncAction(fail);
 
   const startLogin = async () => {
     setFlow({ kind: "login" });
@@ -134,30 +135,23 @@ export function ProviderFlowDialog({
   const inputId = flow.kind === "login" ? flow.input?.inputId : undefined;
   useEffect(() => setCode(""), [inputId]);
 
-  const signOut = async (credentialId: number) => {
-    setBusy(true);
-    try {
+  const signOut = (credentialId: number) =>
+    run(async () => {
       await window.studio.logout(provider.id, credentialId);
       finish();
-    } catch (error) {
-      fail(error);
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
-  const saveKey = async () => {
-    setBusy(true);
-    try {
-      await window.studio.saveApiKey(provider.id, apiKey);
+  const saveKey = () =>
+    run(async () => {
+      try {
+        await window.studio.saveApiKey(provider.id, apiKey);
+      } catch (error) {
+        setFlow({ kind: "failed", message: t("login.apiKey.failed", { message: describeError(t, error) }) });
+        return;
+      }
       setApiKey("");
       finish();
-    } catch (error) {
-      setFlow({ kind: "failed", message: t("login.apiKey.failed", { message: describeError(t, error) }) });
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   const copy = (text: string) => {
     void navigator.clipboard.writeText(text).then(() => {

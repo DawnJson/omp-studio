@@ -2,7 +2,7 @@
 // 更新源：STUDIO_UPDATE_URL（本地测试 / 临时切换，http(s) 地址或本机目录）优先，否则用打包时写入的
 // resources/app-update.yml（electron-builder.yml 的 publish：本仓库的 GitHub Releases），两个都没有就不检查。
 // 本机目录由 local-feed.ts 在 127.0.0.1 上提供，目录不存在时按未配置处理。开发版（没打包）一律不检查。
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { app } from "electron";
@@ -10,6 +10,7 @@ import type { AppUpdater } from "electron-updater";
 import type { UpdateState } from "../../shared/ipc.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { log } from "../log/log.ts";
+import { writeFileAtomic } from "../tasks/atomic-write.ts";
 import { finishShutdown } from "../window/shutdown.ts";
 import { localFeedDir, serveFeedDir } from "./local-feed.ts";
 import { UpdateService, type Updater } from "./service.ts";
@@ -58,10 +59,10 @@ async function configureFeed(): Promise<boolean> {
     log.info(`update feed: local directory ${dir} served at ${feedUrl}`);
   }
   const written = path.join(app.getPath("userData"), "app-update.yml");
-  writeFileSync(
+  await writeFileAtomic(
     written,
     `provider: generic\nurl: ${JSON.stringify(feedUrl)}\nupdaterCacheDirName: omp-studio-updater\n`,
-    "utf8",
+    String(process.pid),
   );
   autoUpdater.updateConfigPath = written;
   return true;

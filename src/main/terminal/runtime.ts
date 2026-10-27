@@ -12,7 +12,7 @@ import { assignToOwnJob } from "../platform/win32/job-object.ts";
 import { chatsDir } from "../tasks/chats-dir.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import type { TaskPool } from "../tasks/task-pool.ts";
-import { killProcessTree } from "../tsp/tsp-session.ts";
+import { killProcessTree } from "../platform/process-tree.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
 import { setActiveTerminalManager } from "./active.ts";
 import { buildTerminalEnv, resolveShell } from "./shell.ts";

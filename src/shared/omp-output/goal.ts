@@ -6,7 +6,7 @@
 //   agent 完成 → status:"complete"，随后 {mode:"none"}；`/goal drop` → 直接 {mode:"none"}（没有 dropped 记录）
 // TSP 的输入框卡片只有"Goal 1.2K"这样的用量标签，目标文字只能从这里读（shared/tsp/goal.ts 合并两者）。文件格式不是 omp 的契约：
 // 读不出来返回 null，界面少显示目标文字，不报错。纯函数。
-import { isRecord } from "../type-guards.ts";
+import { finiteOrZero as finite, isRecord } from "../type-guards.ts";
 
 export interface GoalRecord {
   id: string;
@@ -26,10 +26,6 @@ export interface GoalSessionState {
 }
 
 const STATUSES: ReadonlySet<string> = new Set(["active", "paused", "budget-limited", "complete", "dropped"]);
-
-function finite(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
 
 function toRecord(value: unknown): GoalRecord | null {
   if (!isRecord(value)) return null;

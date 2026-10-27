@@ -3,13 +3,14 @@
 import { createCssVariablesTheme, createHighlighterCore, type HighlighterCore } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 import type { HighlightToken } from "./highlight.ts";
-import { loadLanguage, resolveLanguage } from "./highlight-languages.ts";
+import { resolveLanguage, type Language } from "./highlight-languages.ts";
+import { loadLanguage } from "./highlight-loaders.ts";
 
 export interface HighlightRequest {
   id: number;
   code: string;
   /** resolveLanguage 归一过的语言名。 */
-  language: string;
+  language: Language;
 }
 
 export type HighlightReply = { id: number; lines: HighlightToken[][] } | { id: number; error: string };
@@ -23,9 +24,9 @@ const highlighter = createHighlighterCore({
   engine: createJavaScriptRegexEngine(),
 });
 /** 每个语言只加载一次；同一语言的并发请求等同一个加载。 */
-const loading = new Map<string, Promise<void>>();
+const loading = new Map<Language, Promise<void>>();
 
-function ensureLoaded(core: HighlighterCore, language: string): Promise<void> {
+function ensureLoaded(core: HighlighterCore, language: Language): Promise<void> {
   let pending = loading.get(language);
   if (pending === undefined) {
     pending = loadLanguage(language).then((module) => core.loadLanguage(module.default));
@@ -35,8 +36,8 @@ function ensureLoaded(core: HighlighterCore, language: string): Promise<void> {
 }
 
 /** Markdown 源码里围栏代码块用到的语言：先加载，markdown 语法才会把块里的代码交给它着色。 */
-function fencedLanguages(code: string): string[] {
-  const names = new Set<string>();
+function fencedLanguages(code: string): Language[] {
+  const names = new Set<Language>();
   for (const match of code.matchAll(/^[ \t]{0,3}(?:`{3,}|~{3,})[ \t]*([\w+#.-]+)/gm)) {
     const language = resolveLanguage(match[1]!);
     if (language) names.add(language);
@@ -44,9 +45,9 @@ function fencedLanguages(code: string): string[] {
   return [...names];
 }
 
-async function tokenize(code: string, language: string): Promise<HighlightToken[][]> {
+async function tokenize(code: string, language: Language): Promise<HighlightToken[][]> {
   const core = await highlighter;
-  const needed = language === "markdown" ? [...fencedLanguages(code), language] : [language];
+  const needed: Language[] = language === "markdown" ? [...fencedLanguages(code), language] : [language];
   for (const name of needed) await ensureLoaded(core, name);
   return core.codeToTokensBase(code, { lang: language, theme: themeName }).map((line) =>
     line.map((token) => ({
@@ -60,13 +61,13 @@ async function tokenize(code: string, language: string): Promise<HighlightToken[
 
 // 渲染进程的类型库是 DOM，没有 DedicatedWorkerGlobalScope：只声明这里用到的两个成员。
 const scope = globalThis as unknown as {
-  onmessage: ((event: MessageEvent<HighlightRequest>) => void) | null;
+  addEventListener(type: "message", listener: (event: MessageEvent<HighlightRequest>) => void): void;
   postMessage(message: HighlightReply): void;
 };
 
-scope.onmessage = ({ data: { id, code, language } }) => {
+scope.addEventListener("message", ({ data: { id, code, language } }) => {
   tokenize(code, language).then(
     (lines) => scope.postMessage({ id, lines }),
     (error: unknown) => scope.postMessage({ id, error: error instanceof Error ? error.message : String(error) }),
   );
-};
+});

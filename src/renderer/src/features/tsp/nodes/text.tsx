@@ -4,10 +4,10 @@ import type { TspDiffHunk, TspSpan } from "../../../../../shared/tsp/tsp.generat
 import { labels } from "../labels.ts";
 import { Markdown } from "../../../markdown/index.ts";
 import type { TextMark } from "../../../markdown/marks.ts";
-import type { HighlightToken } from "../../../markdown/highlight.ts";
-import { codeLanguage, Tokens, tokenStyle, useHighlighted } from "../use-highlighted.tsx";
+import { useHighlighted, type HighlightToken } from "../../../markdown/highlight.ts";
+import { codeLanguage, Tokens, tokenStyle } from "../use-highlighted.tsx";
 import { openHref } from "../actions.ts";
-import { parseAnsi, type AnsiRun } from "../ansi.ts";
+import { parseAnsi, parseAnsiStream, type AnsiParse, type AnsiRun } from "../ansi.ts";
 import { Clamp } from "../Clamp.tsx";
 import {
   changedRange,
@@ -149,20 +149,24 @@ function usePreviewLines(preview: unknown): number | null {
   return previewToLines(preview);
 }
 
-export function Code(props: NodeProps) {
-  const p = props.node.p;
-  const fold = useFoldState();
-  const code = typeof p.text === "string" ? p.text : "";
-  const lang = codeLanguage(p);
+/** 代码行；折叠预览时只拿到头几行（code 也只是这几行），高亮也只做这几行。 */
+function CodeLines({
+  code,
+  lines,
+  lang,
+  start,
+  numbers,
+  marks,
+}: {
+  code: string;
+  lines: readonly string[];
+  lang: string | null;
+  start: number;
+  numbers: boolean;
+  marks: readonly Record<string, unknown>[];
+}) {
   const tokens = useHighlighted(code, lang);
-  const lines = useMemo(() => code.split("\n"), [code]);
-  const start = typeof p.start === "number" ? p.start : 1;
-  const numbers = p.numbers === true;
-  const marks = asArray(p.marks).filter(isRecord);
-  const preview = usePreviewLines(p.preview);
-  const path = typeof p.path === "string" ? p.path : null;
-  const gutter = String(start + lines.length - 1).length;
-  const body = (
+  return (
     <div className="tsp-code-lines">
       {lines.map((line, index) => {
         const mark = marks.find((m) => m.line === start + index);
@@ -179,6 +183,33 @@ export function Code(props: NodeProps) {
       })}
     </div>
   );
+}
+
+export function Code(props: NodeProps) {
+  const p = props.node.p;
+  const fold = useFoldState();
+  const code = typeof p.text === "string" ? p.text : "";
+  const lang = codeLanguage(p);
+  const lines = useMemo(() => code.split("\n"), [code]);
+  const start = typeof p.start === "number" ? p.start : 1;
+  const numbers = p.numbers === true;
+  const marks = asArray(p.marks).filter(isRecord);
+  const preview = usePreviewLines(p.preview);
+  const path = typeof p.path === "string" ? p.path : null;
+  const gutter = String(start + lines.length - 1).length;
+  const body = (shown: number | null) => {
+    const visible = shown === null ? lines : lines.slice(0, shown);
+    return (
+      <CodeLines
+        code={shown === null ? code : visible.join("\n")}
+        lines={visible}
+        lang={lang}
+        start={start}
+        numbers={numbers}
+        marks={marks}
+      />
+    );
+  };
   const dir = path ? path.slice(0, path.lastIndexOf("/") + 1) : "";
   return (
     <div
@@ -199,7 +230,7 @@ export function Code(props: NodeProps) {
         </div>
       )}
       <div className="tsp-code-body">
-        <Clamp lines={preview} onExpand={fold.collapsed === true ? fold.expand : undefined}>
+        <Clamp lines={preview} lineCount={lines.length} onExpand={fold.collapsed === true ? fold.expand : undefined}>
           {body}
         </Clamp>
       </div>
@@ -453,35 +484,60 @@ const AnsiLine = memo(function AnsiLine({
   );
 });
 
-function AnsiBody({ lines, taskId }: { lines: readonly AnsiRun[][]; taskId: NodeProps["ctx"]["taskId"] }) {
-  return (
-    <div className="tsp-ansi-lines">
-      {lines.map((runs, index) => (
-        <AnsiLine key={index} runs={runs} taskId={taskId} />
-      ))}
-    </div>
-  );
+/** shown：只画头（或 tail 时尾）这么多行，null = 全画。key 用行号，追加输出时已有行的 AnsiLine 原样命中 memo。 */
+function AnsiBody({
+  lines,
+  taskId,
+  shown = null,
+  tail = false,
+}: {
+  lines: readonly AnsiRun[][];
+  taskId: NodeProps["ctx"]["taskId"];
+  shown?: number | null;
+  tail?: boolean;
+}) {
+  const from = shown !== null && tail ? Math.max(0, lines.length - shown) : 0;
+  const to = shown !== null && !tail ? Math.min(lines.length, shown) : lines.length;
+  const rows: ReactNode[] = [];
+  for (let index = from; index < to; index += 1) {
+    rows.push(<AnsiLine key={index} runs={lines[index]!} taskId={taskId} />);
+  }
+  return <div className="tsp-ansi-lines">{rows}</div>;
 }
 
 export function Ansi(props: NodeProps) {
   const p = props.node.p;
   const fold = useFoldState();
   const text = typeof p.text === "string" ? p.text : "";
-  const lines = useMemo(() => parseAnsi(text), [text]);
+  // 输出是追加的：接着上次的解析往后解析，已结束的行复用同一个片段数组。
+  const parsed = useRef<AnsiParse | null>(null);
+  const lines = useMemo(() => {
+    parsed.current = parseAnsiStream(parsed.current, text);
+    return parsed.current.lines;
+  }, [text]);
   const follow = p.follow === true;
   const preview = usePreviewLines(p.preview);
   const maxH = isRecord(p.max) ? p.max.h : undefined;
+  const scrollable = maxH !== undefined;
   const scroller = useRef<HTMLDivElement>(null);
   const stuck = useRef(true);
 
   // 有高度上限的 ansi 自己滚动；follow 时贴着底，用户往上滚就不跟了，滚回底再跟。
+  // 和 use-stick-to-bottom 一样在 ResizeObserver 回调里设 scrollTop：回调在排版之后、绘制之前，不额外强制排版。
   useLayoutEffect(() => {
     const el = scroller.current;
-    if (el && follow && stuck.current) el.scrollTop = el.scrollHeight;
-  }, [text, follow]);
+    // 观察滚动区里的内容（Clamp 的根）：内容长高时滚动区本身不变高。
+    const content = el?.firstElementChild;
+    if (!el || !content || !follow || !scrollable) return;
+    const observer = new ResizeObserver(() => {
+      if (stuck.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [follow, scrollable]);
 
   return (
-    <div {...nodeDomProps(props, "tsp-ansi", { className: maxH !== undefined ? "scroll" : undefined })}>
+    <div {...nodeDomProps(props, "tsp-ansi", { className: scrollable ? "scroll" : undefined })}>
       <div
         ref={scroller}
         className="tsp-ansi-scroll"
@@ -490,8 +546,13 @@ export function Ansi(props: NodeProps) {
           stuck.current = el.scrollHeight - el.clientHeight - el.scrollTop < 4;
         }}
       >
-        <Clamp lines={preview} tail={follow} onExpand={fold.collapsed === true ? fold.expand : undefined}>
-          <AnsiBody lines={lines} taskId={props.ctx.taskId} />
+        <Clamp
+          lines={preview}
+          tail={follow}
+          lineCount={lines.length}
+          onExpand={fold.collapsed === true ? fold.expand : undefined}
+        >
+          {(shown) => <AnsiBody lines={lines} taskId={props.ctx.taskId} shown={shown} tail={follow} />}
         </Clamp>
       </div>
     </div>

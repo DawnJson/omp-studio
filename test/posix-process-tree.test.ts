@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import { collectTreePids, parsePsTable } from "../src/main/platform/posix/process-tree.ts";
 import { watchdogCommand } from "../src/main/platform/posix/watchdog.ts";
@@ -107,6 +107,19 @@ function exitSignal(child: ChildProcess): Promise<NodeJS.Signals | null> {
   return new Promise((resolve) => child.once("exit", (_code, signal) => resolve(signal)));
 }
 
+/**
+ * 看门狗至少跑完了一轮检查：它的 `sleep 1` 子进程起来了，说明前面的 `kill -s 0 -- -<组>` 已经执行过（组在就记下 seen）。
+ * 脚本里有 sh 不认的命令时它在这之前就退出，这里永远等不到。
+ */
+function dogChecked(dog: ChildProcess): boolean {
+  return execFileSync("ps", ["-A", "-o", "ppid=,comm="], { encoding: "utf8" })
+    .split("\n")
+    .some((line) => {
+      const [ppid, command] = line.trim().split(/\s+/);
+      return Number(ppid) === dog.pid && command !== undefined && command.endsWith("sleep");
+    });
+}
+
 // 真的跑一遍看门狗脚本（Linux 上是 dash，mac 上是 bash）：脚本里一条命令不被这个 sh 接受，看门狗就会直接退出、兜底失效。
 describe.skipIf(process.platform === "win32")("看门狗脚本", () => {
   it("主进程没了：杀掉整个进程组", async () => {
@@ -116,8 +129,8 @@ describe.skipIf(process.platform === "win32")("看门狗脚本", () => {
     const { file, args } = watchdogCommand(main.pid!, group.pid!);
     const dog = spawn(file, args, { stdio: "ignore", detached: true });
     try {
-      // 看门狗每秒查一次；先让它见到这个组，再结束"主进程"。
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // 先让它见到这个组（跑完一轮检查），再结束"主进程"。
+      await expect.poll(() => dogChecked(dog), { timeout: 5000 }).toBe(true);
       main.kill("SIGKILL");
       expect(await groupExit).toBe("SIGKILL");
     } finally {
@@ -150,7 +163,7 @@ describe.skipIf(process.platform === "win32")("看门狗脚本", () => {
     const { file, args } = watchdogCommand(main.pid!, group.pid!);
     const dog = spawn(file, args, { stdio: "ignore", detached: true });
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await expect.poll(() => dogChecked(dog), { timeout: 5000 }).toBe(true);
       main.kill("SIGKILL");
       await expect.poll(() => alive(grandchild), { timeout: 5000 }).toBe(false);
     } finally {

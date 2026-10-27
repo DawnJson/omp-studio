@@ -8,7 +8,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { TaskId } from "../../../../shared/ipc.ts";
-import { deriveJobTiles, sameJobTiles, type JobTile } from "../../../../shared/tsp/jobs.ts";
+import { deriveJobTiles, JOB_HUD_NODES, sameJobTiles, type JobTile } from "../../../../shared/tsp/jobs.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Bolt, Users } from "../../icons.tsx";
 import { reportOmpError } from "../../ui/errors.ts";
@@ -70,7 +70,7 @@ export function StatusPills({
 function JobsSegment({ taskId, running }: { taskId: TaskId; running: readonly Job[] }) {
   const t = useT();
   const cardId = useId();
-  const tiles = useTspDerived(taskId, deriveJobTiles, sameJobTiles) ?? [];
+  const tiles = useTspDerived(taskId, deriveJobTiles, sameJobTiles, JOB_HUD_NODES) ?? [];
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);

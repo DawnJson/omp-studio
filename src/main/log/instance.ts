@@ -15,8 +15,11 @@ function logsDir(): string {
 }
 
 export function initLog(): void {
-  logger = new Logger({ dir: logsDir(), redact: redactForLog, mirror: !app.isPackaged });
-  setLogger(logger);
+  const current = new Logger({ dir: logsDir(), redact: redactForLog, mirror: !app.isPackaged });
+  logger = current;
+  setLogger(current);
+  // 日志是异步写的：正常退出时 shutdown.ts 等它写完；app.exit() 之类直接结束进程时，在 exit 事件里同步写掉剩下的行。
+  process.on("exit", () => current.flushSync());
   log.info(`omp-studio ${app.getVersion()} starting`, {
     electron: process.versions.electron,
     os: `${process.platform} ${os.release()} ${process.arch}`,

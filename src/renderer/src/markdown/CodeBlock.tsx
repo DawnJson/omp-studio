@@ -4,27 +4,9 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { useT } from "../i18n/use-t.ts";
 import { Check, Code, CopyIcon } from "../icons.tsx";
 import { onThemeChange } from "../ui/theme-change.ts";
-import { cachedHighlight, highlight, type HighlightToken } from "./highlight.ts";
+import { useHighlighted } from "./highlight.ts";
 import { resolveLanguage } from "./highlight-languages.ts";
 import { FIGURE_TOKENS, prepareSvg, svgDataUrl } from "./svg-figure.ts";
-
-function useHighlighted(code: string, lang: string, enabled: boolean): HighlightToken[][] | null {
-  const [tokens, setTokens] = useState<HighlightToken[][] | null>(() => (enabled ? cachedHighlight(code, lang) : null));
-  useEffect(() => {
-    if (!enabled || !resolveLanguage(lang)) return;
-    let cancelled = false;
-    highlight(code, lang).then(
-      (result) => {
-        if (!cancelled) setTokens(result);
-      },
-      (error: unknown) => console.error("代码高亮失败", error),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [code, lang, enabled]);
-  return enabled ? tokens : null;
-}
 
 function lineClass(line: string, isDiff: boolean): string {
   if (!isDiff) return "md-line";
@@ -47,7 +29,7 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlo
   const [showSource, setShowSource] = useState(false);
   const [failed, setFailed] = useState(false);
   const drawing = figure && !showSource && !failed;
-  const tokens = useHighlighted(code, lang, closed && !drawing);
+  const tokens = useHighlighted(code, closed && !drawing ? lang : null);
   const lines = code.split("\n");
   const isDiff = resolveLanguage(lang) === "diff";
 

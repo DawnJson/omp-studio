@@ -23,14 +23,13 @@ export function Spinner(props: NodeProps) {
   const p = props.node.p;
   const reduced = useReducedMotion();
   const kind = p.style === "dots" || p.style === "orbit" || p.style === "starburst" ? p.style : "braille";
-  const framed = kind === "braille" || kind === "starburst";
-  const now = useClock(framed && !reduced);
+  const frames = kind === "braille" || kind === "starburst" ? FRAMES[kind] : null;
+  // 只取帧号：帧没换（starburst 120ms 一帧）就不重画。
+  const frame = useClock(frames !== null && !reduced, (now) => (frames === null ? 0 : Math.floor(now / frames.ms)));
   let indicator;
-  if (framed) {
-    const { glyphs, ms } = FRAMES[kind];
-    indicator = (
-      <span className="tsp-spin-glyph">{reduced ? glyphs[0] : glyphs[Math.floor(now / ms) % glyphs.length]}</span>
-    );
+  if (frames !== null) {
+    const { glyphs } = frames;
+    indicator = <span className="tsp-spin-glyph">{reduced ? glyphs[0] : glyphs[frame % glyphs.length]}</span>;
   } else if (kind === "dots") {
     indicator = (
       <span className="tsp-spin-dots" aria-hidden="true">
@@ -94,7 +93,7 @@ export function Elapsed(props: NodeProps) {
   const stopped = asNumber(p.stopped);
   const format = p.format === "clock" ? "clock" : "short";
   const countdown = age < 0;
-  const value = useAge(age, stopped === undefined);
+  const value = useAge(age, stopped === undefined, format);
   const shown = stopped !== undefined ? stopped : countdown ? Math.max(0, -value) : value;
   return (
     <span {...nodeDomProps(props, "tsp-elapsed")} role="timer">

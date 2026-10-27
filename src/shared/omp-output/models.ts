@@ -3,8 +3,7 @@
 // 只留不是 chat 的（tiny、search、image、tts、stt、judge…）：对话模型照旧来自服务进程的 get_available_models（受 enabledModels 限制），
 // 和 omp 的角色候选一样（scopedRolePool：限制只作用于对话模型，其余类别全部并进来）。
 import type { RunnerModel } from "../ipc.ts";
-
-const isText = (value: unknown): value is string => typeof value === "string" && value !== "";
+import { isNonEmptyString as isText } from "../type-guards.ts";
 
 export function parseRunnerModels(stdout: string): RunnerModel[] {
   const parsed: unknown = JSON.parse(stdout);

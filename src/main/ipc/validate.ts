@@ -85,6 +85,14 @@ export function parseTaskId(value: unknown): TaskId {
   return parseString(value, "taskId", 200) as TaskId;
 }
 
+/** TSP blob 的 id：sha256 十六进制（tsp-session.ts 收 `b` 消息时同样校验），统一成小写（文档里按小写存）。 */
+export function parseBlobId(value: unknown): string {
+  if (typeof value !== "string" || !/^[0-9a-fA-F]{64}$/.test(value)) {
+    throw new IpcValidationError("blobId 必须是 64 位十六进制");
+  }
+  return value.toLowerCase();
+}
+
 export function parseProjectId(value: unknown): ProjectId {
   return parseString(value, "projectId", 200) as ProjectId;
 }

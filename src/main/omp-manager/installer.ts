@@ -194,10 +194,12 @@ export async function pruneVersions(layout: ManagedLayout, currentVersion: strin
     .map((name) => name.slice(0, name.length - ext.length))
     .filter((version) => VERSION_NAME.test(version));
   // 当前版本一定留，占一个名额；其余按版本号从新到旧补满。
-  const kept = [
-    currentVersion,
-    ...versions.filter((version) => version !== currentVersion).sort((a, b) => compareVersions(b, a)),
-  ].slice(0, KEEP_VERSIONS);
-  const removable = versions.filter((version) => !kept.includes(version));
+  const kept = new Set(
+    [
+      currentVersion,
+      ...versions.filter((version) => version !== currentVersion).sort((a, b) => compareVersions(b, a)),
+    ].slice(0, KEEP_VERSIONS),
+  );
+  const removable = versions.filter((version) => !kept.has(version));
   await Promise.all(removable.map((version) => rm(path.join(layout.versionsDir, `${version}${ext}`), { force: true })));
 }

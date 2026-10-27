@@ -1,5 +1,5 @@
 // worktree 和 git 的界面状态：主进程是权威，这里只缓存读到的值，并在操作之后让它们重读。
-// - 任务的 worktree 信息（侧栏任务行和主区 git 条共用）；
+// - 任务的 worktree 信息（主区 git 条用；侧栏任务行只要"有没有 worktree、分支名"，直接读 TaskState.worktreeBranch，不逐行请求）；
 // - 草稿输入框的"工作树"胶囊：按项目记开关，以及创建被拒绝后的原因（本次运行内有效）。
 import { useEffect } from "react";
 import type { TaskWorktreeInfo } from "../../../../shared/git.ts";

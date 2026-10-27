@@ -5,6 +5,7 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compactionSettings, readModelInsights } from "../src/main/omp-config/model-insights.ts";
+import { readModelPerf } from "../src/main/omp-config/model-perf.ts";
 
 let dir: string;
 
@@ -30,7 +31,11 @@ const listed = (values: Record<string, unknown>) =>
 describe("readModelInsights", () => {
   it("实测速度只返回请求的、有采样的模型", async () => {
     const insights = await readModelInsights(
-      { agentDir: dir, list: () => Promise.resolve(listed({ "compaction.thresholdPercent": 90 })), warn: () => {} },
+      {
+        readPerf: async (keys) => readModelPerf(dir, keys),
+        list: () => Promise.resolve(listed({ "compaction.thresholdPercent": 90 })),
+        warn: () => {},
+      },
       null,
       [
         { provider: "anthropic", modelId: "opus" },
@@ -48,7 +53,7 @@ describe("readModelInsights", () => {
     const warnings: string[] = [];
     const insights = await readModelInsights(
       {
-        agentDir: path.join(dir, "missing"),
+        readPerf: async (keys) => readModelPerf(path.join(dir, "missing"), keys),
         list: () => Promise.reject(new Error("omp is not ready")),
         warn: (message) => warnings.push(message),
       },

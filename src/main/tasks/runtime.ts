@@ -147,8 +147,9 @@ function createPool(): Promise<TaskPool> {
       state: (state) => {
         emitEvent("taskState", state);
         void notifier.onState(state);
-        refreshTray(taskPool.listTasks());
-        refreshTaskbarProgress(taskPool.listTasks());
+        const tasks = taskPool.listTasks();
+        refreshTray(tasks);
+        refreshTaskbarProgress(tasks);
       },
       tspBatch: (batch) => emitEvent("tspBatch", batch),
       notice: (notice) => emitEvent("taskNotice", notice),
@@ -159,8 +160,9 @@ function createPool(): Promise<TaskPool> {
           log.warn(`forget draft of ${id} failed`, { error: error instanceof Error ? error.message : String(error) });
         });
         emitEvent("taskRemoved", id);
-        refreshTray(taskPool.listTasks());
-        refreshTaskbarProgress(taskPool.listTasks());
+        const tasks = taskPool.listTasks();
+        refreshTray(tasks);
+        refreshTaskbarProgress(tasks);
       },
       btw: (taskId, event) => emitEvent("btw", { taskId, event }),
       composerPrefill: (taskId, draft) => emitEvent("composerPrefill", { taskId, draft }),

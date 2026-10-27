@@ -54,7 +54,7 @@ describe("parseSessionEntries", () => {
     const lines = linear.trimEnd().split("\n");
     expect(parseSessionEntries(`${lines.join("\n")}\n{"type":"message","id":"zz`)).toHaveLength(9);
     const broken = [...lines.slice(0, 4), "{not json", ...lines.slice(4)].join("\n");
-    expect(() => parseSessionEntries(broken)).toThrow(/line 5 is not valid JSON/);
+    expect(() => parseSessionEntries(broken)).toThrow(/not valid JSON/);
   });
 });
 

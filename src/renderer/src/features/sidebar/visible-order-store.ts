@@ -1,6 +1,6 @@
-// 侧栏当前画出来的任务（从上到下）：Ctrl 1…9 和任务循环切换要和眼前看到的顺序一致。由 Sidebar 发布，App 订阅。
+// 侧栏当前画出来的任务（从上到下）：Ctrl 1…9 和任务循环切换要和眼前看到的顺序一致。由 Sidebar 发布，App 在按键时读。
 import type { TaskId } from "../../../../shared/ipc.ts";
-import { createStore, useStoreValue } from "../../store/create-store.ts";
+import { createStore } from "../../store/create-store.ts";
 
 const store = createStore<readonly TaskId[]>([]);
 
@@ -11,6 +11,6 @@ export function publishVisibleTaskIds(ids: readonly TaskId[]): void {
   store.set(ids);
 }
 
-export function useVisibleTaskIds(): readonly TaskId[] {
-  return useStoreValue(store, (state) => state);
+export function getVisibleTaskIds(): readonly TaskId[] {
+  return store.get();
 }

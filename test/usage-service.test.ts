@@ -3,13 +3,8 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  fetchQuota,
-  parseQuota,
-  parseResetCredits,
-  readHeatmap,
-  statsDbPath,
-} from "../src/main/usage/usage-service.ts";
+import { readHeatmap } from "../src/main/usage/heatmap.ts";
+import { fetchQuota, parseQuota, parseResetCredits, statsDbPath } from "../src/main/usage/usage-service.ts";
 import { creditExpiry, isUntouched, quotaFetchedAt } from "../src/shared/ui/usage-summary.ts";
 
 let dir: string;

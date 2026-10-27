@@ -4,8 +4,9 @@
 //
 // 只写这一个目录（AGENTS.md「omp 的边界」的例外）：内容没变的文件不碰，变了的原子替换；
 // 上一版写过、这一版没有的文件按清单删掉。插件自己写的模型缓存不在清单里，不受影响。
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
+import { writeFileAtomic } from "../tasks/atomic-write.ts";
 
 const SOURCES = import.meta.glob<string>(["./extension/**/*", "!./extension/**/*.d.mts"], {
   query: "?raw",
@@ -30,7 +31,7 @@ const MANIFEST_FILE = ".studio-files.json";
 
 /**
  * 把扩展写到 `<agentDir>/extensions/studio-accounts/`，返回这个目录。
- * 每次启动都核对一遍：内容一样的文件不重写（启动只多读一遍约 1 MB 的文件）。
+ * 每次启动都核对一遍：所有文件一起读，内容一样的不重写，变了的原子替换（Windows 上改名遇到短暂占用会重试）；清单没变不重写。
  */
 export async function deployAccountExtension(
   agentDir: string,
@@ -38,21 +39,23 @@ export async function deployAccountExtension(
 ): Promise<string> {
   const dir = path.join(agentDir, "extensions", ACCOUNT_EXTENSION_DIR);
   const wanted: Record<string, string> = { ...files, [INDEX_FILE]: INDEX_SOURCE };
-  for (const [name, content] of Object.entries(wanted)) {
-    const target = path.join(dir, name);
-    if ((await readText(target)) === content) continue;
-    await mkdir(path.dirname(target), { recursive: true });
-    // 终端里的 omp 可能正在读：先写临时文件再换名，不让它读到写了一半的模块。
-    const temp = `${target}.${process.pid}.tmp`;
-    await writeFile(temp, content, "utf8");
-    await rename(temp, target);
-  }
-  const previous = parseManifest(await readText(path.join(dir, MANIFEST_FILE)));
-  for (const name of previous) {
-    if (name in wanted) continue;
-    await rm(path.join(dir, name), { force: true, maxRetries: 3 });
-  }
-  await writeFile(path.join(dir, MANIFEST_FILE), JSON.stringify(Object.keys(wanted).sort()), "utf8");
+  const manifestFile = path.join(dir, MANIFEST_FILE);
+  const [previousManifest] = await Promise.all([
+    readText(manifestFile),
+    ...Object.entries(wanted).map(async ([name, content]) => {
+      const target = path.join(dir, name);
+      if ((await readText(target)) === content) return;
+      // 终端里的 omp 可能正在读：先写临时文件再换名，不让它读到写了一半的模块。
+      await writeFileAtomic(target, content, String(process.pid));
+    }),
+  ]);
+  await Promise.all(
+    parseManifest(previousManifest)
+      .filter((name) => !(name in wanted))
+      .map((name) => rm(path.join(dir, name), { force: true, maxRetries: 3 })),
+  );
+  const manifest = JSON.stringify(Object.keys(wanted).sort());
+  if (previousManifest !== manifest) await writeFileAtomic(manifestFile, manifest, String(process.pid));
   return dir;
 }
 

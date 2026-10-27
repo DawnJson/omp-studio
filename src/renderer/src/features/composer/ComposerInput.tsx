@@ -97,20 +97,25 @@ export function ComposerInput(props: ComposerInputProps) {
     return () => observer.disconnect();
   }, [fieldRef]);
 
-  // 自动增高（没拖过）或定高（拖过），然后让底下那一层和文本框同宽同滚动位置。
+  // 高度：没拖过时 CSS 按内容自动增高（field-sizing: content，上下限是 .composer-field 的 min/max-height），按键时不用脚本量 scrollHeight；
+  // 拖过之后是定高（data-sized），夹到 [一行, 主区 60%]。
+  const sizedHeight = userHeight === null ? null : clampFieldHeight(userHeight, bounds.min, bounds.max);
+  // 文本框排版后的实际高度（拖拽条的起点和 aria-valuenow）、底层的宽度（要扣掉滚动条）和滚动位置都在尺寸变化时从 ResizeObserver 取：
+  // 回调在排版之后，读尺寸不会再强制排一次版；内容区宽度变了（滚动条出现、窗口变窄）也会触发。
   useLayoutEffect(() => {
     const field = fieldRef.current;
     if (!field) return;
-    field.style.height = "auto";
-    const height = userHeight === null ? field.scrollHeight : clampFieldHeight(userHeight, bounds.min, bounds.max);
-    field.style.height = `${height}px`;
-    setShownHeight(height);
-    const backdrop = backdropRef.current;
-    if (backdrop) {
-      backdrop.style.width = `${field.clientWidth}px`;
-      backdrop.scrollTop = field.scrollTop;
-    }
-  }, [view.text, userHeight, bounds, fieldRef]);
+    const observer = new ResizeObserver(() => {
+      setShownHeight(field.offsetHeight);
+      const backdrop = backdropRef.current;
+      if (backdrop) {
+        backdrop.style.width = `${field.clientWidth}px`;
+        backdrop.scrollTop = field.scrollTop;
+      }
+    });
+    observer.observe(field);
+    return () => observer.disconnect();
+  }, [fieldRef]);
 
   // 程序改了文字之后的光标落点。
   useLayoutEffect(() => {
@@ -266,7 +271,8 @@ export function ComposerInput(props: ComposerInputProps) {
           className="composer-field"
           data-composer-input
           data-testid="composer-input"
-          data-sized={userHeight !== null || undefined}
+          data-sized={sizedHeight !== null || undefined}
+          style={sizedHeight === null ? undefined : { height: sizedHeight }}
           rows={1}
           spellCheck={false}
           value={view.text}

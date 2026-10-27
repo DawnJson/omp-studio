@@ -498,9 +498,7 @@ test("排队的带图片插话点 Edit：文字和图片一起回到 studio 的�
   const { launched, received, cleanup } = await start("queue-edit-image");
   try {
     const { page } = launched;
-    const [first] = recordedUserEvents(loadTspFixture("queue-edit-image")).filter(
-      (entry) => entry.event["ev"] === "send",
-    );
+    const first = recordedUserEvents(loadTspFixture("queue-edit-image")).find((entry) => entry.event["ev"] === "send");
     await sendFirst(page, String(first!.event["text"]));
     await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "running", { timeout: 20_000 });
     // 任务的输入框在模型不收图片时拒绝粘贴图片（假 omp 的模型目录里没有它）：直接走 preload 的发送，和输入框发出的是同一个调用。
@@ -2031,9 +2029,7 @@ test("排队区：排队的文字很长时只截断它自己，右边的 ⌥↑ 
   const long = `${short} ${"and keep every river fact short ".repeat(8).trim()}`;
   const text = await readFile(path.join(root, "fixtures", "tsp", "queue-follow-up-esc.jsonl"), "utf8");
   await writeFile(fixture, text.replaceAll(short, long));
-  const [first] = recordedUserEvents(loadTspFixture("queue-follow-up-esc")).filter(
-    (entry) => entry.event["ev"] === "send",
-  );
+  const first = recordedUserEvents(loadTspFixture("queue-follow-up-esc")).find((entry) => entry.event["ev"] === "send");
   const { launched, cleanup } = await start(fixture);
   try {
     const { page } = launched;

@@ -26,6 +26,7 @@ import {
   warnIfShadowed,
   type KeyMode,
 } from "./CustomProviderForm.tsx";
+import { useAsyncAction } from "./use-async-action.ts";
 import "./custom-providers.css";
 
 interface ProviderOverrideDialogProps {
@@ -66,8 +67,10 @@ export function ProviderOverrideDialog({ provider, onSaved, onClose }: ProviderO
     })),
   );
   const [notice, setNotice] = useState<FetchNotice | null>(null);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { busy: saving, run } = useAsyncAction((caught) =>
+    setError(t("custom.saveFailed", { message: describeError(t, caught) })),
+  );
 
   const accounts = useAccountLoad();
   const loaded =
@@ -116,10 +119,9 @@ export function ProviderOverrideDialog({ provider, onSaved, onClose }: ProviderO
     return mode === "keep" ? { kind: "keep" } : null;
   };
 
-  const save = async () => {
-    setSaving(true);
-    setError(null);
-    try {
+  const save = () =>
+    run(async () => {
+      setError(null);
       const outcome = await window.studio.saveProviderOverride(provider.id, {
         key: keyInput(),
         models: checkedRows.map((row) => ({
@@ -134,12 +136,7 @@ export function ProviderOverrideDialog({ provider, onSaved, onClose }: ProviderO
         warnIfShadowed(t, outcome);
         onSaved();
       } else setError(customErrorText(t, `err.${outcome.code}`));
-    } catch (caught) {
-      setError(t("custom.saveFailed", { message: describeError(t, caught) }));
-    } finally {
-      setSaving(false);
-    }
-  };
+    });
 
   return (
     <Dialog

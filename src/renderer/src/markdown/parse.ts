@@ -24,6 +24,8 @@ export interface MarkdownBlock {
   tokens: Token[];
   /** fence 块的围栏是否已闭合（流式中未闭合不高亮）；其它块恒为 true。 */
   closed: boolean;
+  /** 块里有公式 token（KaTeX 按需加载，加载完只重画这些块）。 */
+  math: boolean;
 }
 
 const fenceClose = /^ {0,3}(`{3,}|~{3,})\s*$/;
@@ -52,12 +54,42 @@ function extractTaskMarkers(tokens: Token[]): void {
   });
 }
 
-/** 把整篇 Markdown 切成顶层块。每块带自己的 token 子序列，渲染时只看块。 */
-export function parseBlocks(source: string): MarkdownBlock[] {
-  const tokens = md.parse(source, {});
+function hasMath(tokens: readonly Token[]): boolean {
+  return tokens.some(
+    (token) =>
+      token.type === "math_block" ||
+      (token.type === "inline" && (token.children ?? []).some((child) => child.type === "math_inline")),
+  );
+}
+
+interface BlockStart {
+  /** 块首行的行号和字符偏移。 */
+  line: number;
+  offset: number;
+  /** 前一行是空行：只有这样的块首才能当增量解析的切点。 */
+  blankBefore: boolean;
+}
+
+/** 一次解析的结果；流式时下一次解析拿它复用前面不会再变的块（parseStreaming）。 */
+export interface BlockParse {
+  source: string;
+  blocks: MarkdownBlock[];
+  starts: BlockStart[];
+}
+
+const blankLine = /^[ \t]*$/;
+
+/** 从第 line 行（字符偏移 offset，前一行是空行）解析到末尾；token.map 和块首行号都换算成整篇的行号。 */
+function parseFrom(source: string, line: number, offset: number): { blocks: MarkdownBlock[]; starts: BlockStart[] } {
+  const text = offset === 0 ? source : source.slice(offset);
+  const tokens = md.parse(text, {});
   extractTaskMarkers(tokens);
-  const lines = source.split("\n");
+  const lines = text.split("\n");
   const blocks: MarkdownBlock[] = [];
+  const starts: BlockStart[] = [];
+  // 按行前进的游标：块首行号递增，顺带算出块首的字符偏移。
+  let cursorLine = 0;
+  let cursorOffset = offset;
   let start = 0;
   while (start < tokens.length) {
     const first = tokens[start];
@@ -72,14 +104,72 @@ export function parseBlocks(source: string): MarkdownBlock[] {
     }
     const map = first.map;
     const src = map ? lines.slice(map[0], map[1]).join("\n") : "";
+    const blockTokens = tokens.slice(start, end);
     blocks.push({
       src,
-      tokens: tokens.slice(start, end),
+      tokens: blockTokens,
       closed: first.type === "fence" ? fenceClosed(src, first.markup) : true,
+      math: hasMath(blockTokens),
     });
+    if (map) {
+      while (cursorLine < map[0]) {
+        cursorOffset += (lines[cursorLine]?.length ?? 0) + 1;
+        cursorLine += 1;
+      }
+      const blankBefore = map[0] === 0 ? line > 0 : blankLine.test(lines[map[0] - 1] ?? "");
+      starts.push({ line: map[0] + line, offset: cursorOffset, blankBefore });
+    } else {
+      starts.push({ line: -1, offset: -1, blankBefore: false });
+    }
     start = end;
   }
-  return blocks;
+  if (line > 0) {
+    for (const token of tokens) {
+      if (token.map) token.map = [token.map[0] + line, token.map[1] + line];
+    }
+  }
+  return { blocks, starts };
+}
+
+/** 把整篇 Markdown 切成顶层块。每块带自己的 token 子序列，渲染时只看块。 */
+export function parseBlocks(source: string): MarkdownBlock[] {
+  return parseFrom(source, 0, 0).blocks;
+}
+
+/**
+ * 流式增量解析：结果与 parseBlocks(source) 相同，但复用 prev 里不会再变的块（同一个对象），只重解析尾巴。
+ *
+ * 切点取 prev 里最后一个"前一行是空行"的顶层块首行 s，且新旧原文到第 s 行行尾为止完全相同。
+ * 理由：markdown-it 判断第 s 行之前的块在哪结束，只看到第 s 行为止的内容（段落、表格、引用、公式块遇空行即止；
+ * 围栏、缩进代码、列表跨空行时第 s 行就不会是新的顶层块）；从第 s 行起的解析状态是"空行后的顶层"，与单独解析尾巴一样。
+ * 唯一跨块的全局状态是链接引用定义（`[x]: url`，可以在后面定义、前面使用），原文里有 `]:` 就整篇重解析；
+ * 含 `\r` 时 markdown-it 的行号和按 `\n` 切的行对不上，也整篇重解析。
+ */
+export function parseStreaming(prev: BlockParse | null, source: string): BlockParse {
+  if (prev !== null && !source.includes("\r") && !source.includes("]:")) {
+    const old = prev.source;
+    let common = old.length;
+    if (!source.startsWith(old)) {
+      common = 0;
+      const limit = Math.min(old.length, source.length);
+      while (common < limit && old.charCodeAt(common) === source.charCodeAt(common)) common += 1;
+    }
+    for (let k = prev.starts.length - 1; k >= 1; k -= 1) {
+      const start = prev.starts[k]!;
+      if (!start.blankBefore) continue;
+      const newline = old.indexOf("\n", start.offset);
+      const lineEnd = newline < 0 ? old.length : newline;
+      // 第 s 行在新原文里必须一字不差（同一处换行结束，或同样是最后一行）。
+      if (lineEnd > common || (lineEnd < source.length && source.charCodeAt(lineEnd) !== 0x0a)) continue;
+      const tail = parseFrom(source, start.line, start.offset);
+      return {
+        source,
+        blocks: prev.blocks.slice(0, k).concat(tail.blocks),
+        starts: prev.starts.slice(0, k).concat(tail.starts),
+      };
+    }
+  }
+  return { source, ...parseFrom(source, 0, 0) };
 }
 
 const tableDelimiter = /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$/;

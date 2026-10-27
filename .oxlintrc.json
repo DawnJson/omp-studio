@@ -2,7 +2,9 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["eslint", "typescript", "unicorn", "oxc", "react"],
   "categories": {
-    "correctness": "error"
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
   },
   "rules": {
     "react/rules-of-hooks": "error",
@@ -10,7 +12,27 @@
     "react/preserve-manual-memoization": "off",
     "react/set-state-in-effect": "off",
     "react/refs": "off",
-    "react/immutability": "off"
+    "react/immutability": "off",
+    // Automatic JSX runtime (react-jsx): React never needs to be in scope.
+    "react/react-in-jsx-scope": "off",
+    // Effect deps here deliberately include re-run triggers (refreshKey, tick, nonce, scope); missing deps stay covered by react/exhaustive-deps.
+    "react/exhaustive-effect-dependencies": "off",
+    // Keys are positions in render-only lists (tokens, lines, badges) that have no identity of their own and are never reordered in place.
+    "react/no-array-index-key": "off",
+    // Awaits in loops are intentionally sequential IO (streamed patching, retry backoff, ordered writes, polling).
+    "eslint/no-await-in-loop": "off",
+    // Nested names like page/dir/entry in callbacks are deliberate; TypeScript catches the type confusion this rule guards against.
+    "eslint/no-shadow": "off",
+    // `__name` globals in e2e page scripts and `process_`-style names that avoid shadowing globals.
+    "eslint/no-underscore-dangle": "off",
+    // Helpers stay next to their only caller; hoisting them is a style choice, not a fix.
+    "unicorn/consistent-function-scoping": "off",
+    // Sorted arrays are freshly built (spread, map, filter, readdir); toSorted() would only add a copy.
+    "unicorn/no-array-sort": "off",
+    // Spread in map is the immutable-update pattern for stores and React state; mutating instead would break change detection.
+    "oxc/no-map-spread": "off",
+    // Only Worker/MessagePort postMessage is used, which has no targetOrigin parameter.
+    "unicorn/require-post-message-target-origin": "off"
   },
   "ignorePatterns": [
     "src/shared/omp-wire/rpc-wire.generated.ts",

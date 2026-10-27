@@ -80,7 +80,7 @@ class ReplayHost implements BtwHost {
           void this.onAccepted(event!);
         } else {
           applyMessage(this.doc, entry.message);
-          this.btw.sync(this.doc);
+          this.btw.sync(findBtwView(this.doc));
         }
         this.#pos += 1;
       }

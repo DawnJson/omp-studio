@@ -74,7 +74,7 @@ function buildTurn(group: readonly Entry[], index: number, live: boolean): Turn 
   const withText = assistants.filter((item) => textOf(item.message) !== "");
   // 还在跑的那一轮没有结论：叙述留在过程里，不拿最后一句叙述充当结论。
   const conclusion =
-    withText.filter((item) => !item.message.content.some((block) => block.type === "toolCall")).at(-1) ??
+    withText.findLast((item) => !item.message.content.some((block) => block.type === "toolCall")) ??
     (live ? null : withText.at(-1)) ??
     null;
 

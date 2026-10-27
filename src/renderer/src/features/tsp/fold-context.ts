@@ -9,7 +9,12 @@ export interface FoldState {
   expand?: (() => void) | undefined;
 }
 
-export const FoldCtx = createContext<FoldState>({ collapsed: null });
+/** 没有可折叠祖先；也是 Provider 外的默认值。 */
+export const NO_FOLD: FoldState = { collapsed: null };
+/** 展开着的可折叠祖先。 */
+export const OPEN_FOLD: FoldState = { collapsed: false };
+
+export const FoldCtx = createContext<FoldState>(NO_FOLD);
 
 export function useFoldState(): FoldState {
   return useContext(FoldCtx);

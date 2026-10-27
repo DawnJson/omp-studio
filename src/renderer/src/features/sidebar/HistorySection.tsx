@@ -5,7 +5,7 @@
 // 搜索时只列匹配的行，按文件夹时有匹配的文件夹全部展开。点会话行 = 恢复成任务。
 import type { Project, TaskId } from "../../../../shared/ipc.ts";
 import type { SidebarFolder, SidebarItem } from "../../../../shared/ui/sidebar-model.ts";
-import { setHistoryOrder, useShellUi } from "../../app/shell-store.ts";
+import { setHistoryOrder, useShellValue } from "../../app/shell-store.ts";
 import { Segmented } from "../../ui/controls.tsx";
 import { FolderGroup } from "./FolderGroup.tsx";
 import { ItemRow } from "./ItemRow.tsx";
@@ -32,7 +32,7 @@ interface HistorySectionProps {
 export function HistorySection(props: HistorySectionProps) {
   const { rows, searching } = props;
   const { t } = rows;
-  const order = useShellUi().historyOrder;
+  const order = useShellValue("historyOrder");
   const empty = order === "time" ? props.timeline.length === 0 : props.folders.length === 0;
   if (empty) return null;
 

@@ -1,4 +1,4 @@
-# 每月一次依赖升级 PR。开发依赖和运行时依赖分两组，免得一个月几十个 PR。
+# 每月一次依赖升级 PR。开发依赖和运行时依赖分两组，免得一个月几十个 PR；workflow 里的 actions 版本合成一个 PR。
 # Electron 单独一组：每 8 周一个大版本，安全更新要跟上，大版本升级要单独看 release notes 和 e2e。
 version: 2
 updates:
@@ -15,3 +15,10 @@ updates:
         exclude-patterns: [electron]
       runtime:
         dependency-type: production
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

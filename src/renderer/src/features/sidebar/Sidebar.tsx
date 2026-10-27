@@ -3,19 +3,19 @@
 import { reportError } from "../../ui/errors.ts";
 import { publishVisibleTaskIds } from "./visible-order-store.ts";
 import { onStudioCommand } from "../palette/studio-command.ts";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectId, TaskId, TaskState } from "../../../../shared/ipc.ts";
-import { useShellUi } from "../../app/shell-store.ts";
+import { useShellValue } from "../../app/shell-store.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { shortcutLabel } from "../../app/platform-keys.ts";
 import {
   selectTask,
   showView,
   useAppInfo,
+  useDownloadedVersion,
   useMainView,
   useSelectedTaskId,
   useTasksState,
-  useUpdateState,
 } from "../../store/index.ts";
 import { Close } from "../../icons.tsx";
 import { Button, IconButton, TextField } from "../../ui/controls.tsx";
@@ -47,7 +47,6 @@ import {
   type SidebarFolder,
 } from "../../../../shared/ui/sidebar-model.ts";
 import type { RowHandlers } from "./TaskRow.tsx";
-import { useNow } from "./task-time.ts";
 import { useHistorySessions } from "./use-history-sessions.ts";
 import { useSidebarMenus } from "./use-sidebar-menus.tsx";
 import "./sidebar.css";
@@ -56,18 +55,16 @@ export function Sidebar() {
   const t = useT();
   const locale = useLocale();
   const listRef = useRef<HTMLDivElement>(null);
-  const now = useNow();
   const view = useMainView();
   const selectedTaskId = useSelectedTaskId();
   const tasksState = useTasksState();
-  const update = useUpdateState();
+  const downloadedVersion = useDownloadedVersion();
   const installing = useInstallUpdate();
   const projectsState = useProjectsState();
   const hidden = useHiddenTasks();
   const chatsDir = useAppInfo()?.chatsDir ?? null;
   const defaultLabel = t("empty.defaultFolder");
 
-  const shellUi = useShellUi();
   const [openOverride, setOpenOverride] = useState<Record<string, boolean>>({});
   const [limits, setLimits] = useState<Record<string, number>>({});
   const [tabStop, setTabStop] = useState("");
@@ -104,7 +101,7 @@ export function Sidebar() {
     if (unknownProject) void refreshProjects();
   }, [unknownProject]);
 
-  const order = shellUi.historyOrder;
+  const order = useShellValue("historyOrder");
   const sessions = useHistorySessions(searching, historyKey);
   // 任务和会话合成一个列表（搜索同时过滤两者）；默认文件夹（chats 目录）叫"默认文件夹"，不露出目录名。
   const folders = useMemo(
@@ -136,13 +133,19 @@ export function Sidebar() {
   };
 
   // 搜索时忽略折叠，匹配的行都要看得见；否则用户点过的优先，没点过的看有没有选中/在跑/等你确认的任务。
-  const isOpen = (folder: SidebarFolder) =>
-    searching || (openOverride[folder.key] ?? defaultOpen(folder, selectedTaskId));
+  const isOpen = useCallback(
+    (folder: SidebarFolder) => searching || (openOverride[folder.key] ?? defaultOpen(folder, selectedTaskId)),
+    [searching, openOverride, selectedTaskId],
+  );
   // 因为选中 / 在跑 / 等你确认而展开的文件夹记成"展开"：任务跑完、换了选中项都不再自己收起，只有用户点了才折叠。
-  const autoOpened = folders
-    .filter((folder) => openOverride[folder.key] === undefined && defaultOpen(folder, selectedTaskId))
-    .map((folder) => folder.key)
-    .join("\n");
+  const autoOpened = useMemo(
+    () =>
+      folders
+        .filter((folder) => openOverride[folder.key] === undefined && defaultOpen(folder, selectedTaskId))
+        .map((folder) => folder.key)
+        .join("\n"),
+    [folders, openOverride, selectedTaskId],
+  );
   useEffect(() => {
     if (autoOpened === "") return;
     setOpenOverride((current) => {
@@ -160,59 +163,64 @@ export function Sidebar() {
     onRename: (task) => setRenamingId(task.id),
   });
 
-  const rows: RowHandlers = {
-    t,
-    locale,
-    now,
-    onSelect: (task, viaKeyboard) =>
-      void selectTask(task.id)
-        .then(() => {
-          // 键盘 Enter 选中才进输入框；方向键浏览时焦点留在侧栏。
-          if (viaKeyboard) document.querySelector<HTMLElement>("[data-composer-input]")?.focus();
-        })
-        .catch((error: unknown) => reportError(t, error)),
-    onFocusItem: setTabStop,
-    onOpenMenu: openTaskMenu,
-    onStartRename: (task) => setRenamingId(task.id),
-    onCommitRename: (task, title) => {
-      setRenamingId(null);
-      const next = title?.trim() ?? "";
-      if (next !== "" && next !== task.title)
-        void window.studio.renameTask(task.id, next).catch((error: unknown) => reportError(t, error));
-    },
-    onArchive: (task) => archiveWithUndo(task.id, selectedTaskId, t),
-  };
+  // 行的回调：一份稳定的对象（只在语言变了时换新），回调里读最新的选中任务和菜单，任务行的 memo 才有用。
+  const latest = useRef({ selectedTaskId, openTaskMenu });
+  latest.current = { selectedTaskId, openTaskMenu };
+  const rows = useMemo<RowHandlers>(
+    () => ({
+      t,
+      locale,
+      onSelect: (task, viaKeyboard) =>
+        void selectTask(task.id)
+          .then(() => {
+            // 键盘 Enter 选中才进输入框；方向键浏览时焦点留在侧栏。
+            if (viaKeyboard) document.querySelector<HTMLElement>("[data-composer-input]")?.focus();
+          })
+          .catch((error: unknown) => reportError(t, error)),
+      onFocusItem: setTabStop,
+      onOpenMenu: (task, x, y, trigger) => latest.current.openTaskMenu(task, x, y, trigger),
+      onStartRename: (task) => setRenamingId(task.id),
+      onCommitRename: (task, title) => {
+        setRenamingId(null);
+        const next = title?.trim() ?? "";
+        if (next !== "" && next !== task.title)
+          void window.studio.renameTask(task.id, next).catch((error: unknown) => reportError(t, error));
+      },
+      onArchive: (task) => archiveWithUndo(task.id, latest.current.selectedTaskId, t),
+    }),
+    [t, locale],
+  );
 
   // roving tabindex：整个列表一个停靠点，记住的那个已不存在时回到选中的任务，再不行是第一项。
-  const navIds =
-    order === "time"
-      ? (() => {
-          const { shown, remaining } = visibleItems(
-            timeline,
-            searching ? Infinity : (limits[timeLimitKey] ?? initialByTime),
-            selectedTaskId,
-          );
-          return [...shown.map((item) => item.key), ...(remaining > 0 ? [moreNavId(timeLimitKey)] : [])];
-        })()
-      : folders.flatMap((folder) => {
-          if (!isOpen(folder)) return [folderNavId(folder)];
-          const { shown, remaining } = visibleItems(
-            folder.items,
-            searching ? Infinity : (limits[folder.key] ?? initialPerFolder),
-            selectedTaskId,
-          );
-          return [
-            folderNavId(folder),
-            ...shown.map((item) => item.key),
-            ...(remaining > 0 ? [moreNavId(folder.key)] : []),
-          ];
-        });
+  const navIds = useMemo(() => {
+    if (order === "time") {
+      const { shown, remaining } = visibleItems(
+        timeline,
+        searching ? Infinity : (limits[timeLimitKey] ?? initialByTime),
+        selectedTaskId,
+      );
+      return [...shown.map((item) => item.key), ...(remaining > 0 ? [moreNavId(timeLimitKey)] : [])];
+    }
+    return folders.flatMap((folder) => {
+      if (!isOpen(folder)) return [folderNavId(folder)];
+      const { shown, remaining } = visibleItems(
+        folder.items,
+        searching ? Infinity : (limits[folder.key] ?? initialPerFolder),
+        selectedTaskId,
+      );
+      return [folderNavId(folder), ...shown.map((item) => item.key), ...(remaining > 0 ? [moreNavId(folder.key)] : [])];
+    });
+  }, [order, timeline, folders, searching, limits, isOpen, selectedTaskId]);
   const selectedNav = selectedTaskId === null ? "" : `task:${selectedTaskId}`;
   const tabStopId = navIds.includes(tabStop) ? tabStop : navIds.includes(selectedNav) ? selectedNav : (navIds[0] ?? "");
-  const visibleTaskKey = navIds
-    .filter((id) => id.startsWith("task:"))
-    .map((id) => id.slice("task:".length))
-    .join("\n");
+  const visibleTaskKey = useMemo(
+    () =>
+      navIds
+        .filter((id) => id.startsWith("task:"))
+        .map((id) => id.slice("task:".length))
+        .join("\n"),
+    [navIds],
+  );
   useEffect(() => {
     publishVisibleTaskIds(visibleTaskKey === "" ? [] : (visibleTaskKey.split("\n") as TaskId[]));
   }, [visibleTaskKey]);
@@ -375,7 +383,7 @@ export function Sidebar() {
           <GearIcon />
           <span>{t("sidebar.settings")}</span>
         </button>
-        {update?.phase === "downloaded" && (
+        {downloadedVersion !== null && (
           <button
             type="button"
             className="sb-update"
@@ -385,7 +393,7 @@ export function Sidebar() {
             data-testid="sidebar-update"
           >
             <span className="sb-update-dot" aria-hidden="true" />
-            <span className="sb-update-text">{t("sidebar.update", { version: update.latestVersion ?? "?" })}</span>
+            <span className="sb-update-text">{t("sidebar.update", { version: downloadedVersion })}</span>
           </button>
         )}
       </div>

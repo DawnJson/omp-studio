@@ -141,6 +141,17 @@
   height: 1px;
   margin-top: calc(-1 * var(--space-4));
 }
+/* 对话里的顶层块（main 的子节点，node-dom.ts 给它们 data-anchor）：离屏时不排版、不绘制，长会话的样式 / 排版 / 绘制只算视口附近。
+ * 没画过的块按估计高度占位，画过一次后记住实际尺寸（auto）；估计值和实际的差由 useStickToBottom 按阅读锚点补偿、
+ * 对话线跳转后按落点补偿（浏览器的滚动锚定关着，见上面 .tsp-scroller）。只给 inline 对话区：screen 页面短，不值得。
+ * 注意 content-visibility: auto 自带 contain: layout paint style：块的后代画到块外会被裁掉，点击也落不到（块自己的描边、阴影不受影响），
+ * fixed 定位以块为参照，所以弹层（菜单、放大图）都放在 TspHosts / layer 里，不要放进节点。用户消息不加：气泡上方的悬停按钮行
+ * 和悬停桥（omp.user.tools、::before，bottom: 100%）在块外；加 overflow-clip-margin 后 e2e 里照样点不到（2026-10-27 实测）。 */
+.tsp-surface[data-mode="inline"] .tsp-column > [data-anchor]:not([data-role="omp.user"]) {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 160px;
+  contain-intrinsic-inline-size: auto none;
+}
 .tsp-surface[data-mode="screen"] .tsp-column {
   --content-w: 960px;
 }

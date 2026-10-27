@@ -3,7 +3,6 @@
 // omp 认为可用但凭据库里没有账号的（环境变量、`.env`、models.yml 的 apiKey）"已配置"；动作是 sm 按钮（spec §4.20）。
 // 设置页填的 API key 存在 omp 的凭据库里，是一条 `type: "api_key"` 的账号：只有 key 账号时"退出"写成"清除 key"。
 // 登录 / 填 key / 选账号都交给 ProviderFlowDialog；这里只直接做"只有一个账号时退出"这个不需要输入的动作。
-import { useState } from "react";
 import type { LoginKind } from "../../../../shared/provider-login.ts";
 import type { LoginProvider, LogoutAccount } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { acceptsApiKey, type ProviderKeyEnv } from "../../../../shared/provider-keys.ts";
@@ -12,6 +11,7 @@ import { Badge, Button, ListRow } from "../../ui/controls.tsx";
 import { reportError } from "../../ui/errors.ts";
 import type { FlowAction } from "./ProviderFlowDialog.tsx";
 import { ProviderLogo } from "./ProviderLogo.tsx";
+import { useAsyncAction } from "./use-async-action.ts";
 
 interface ProviderRowProps {
   provider: LoginProvider;
@@ -36,7 +36,7 @@ export function ProviderRow({
   onChanged,
 }: ProviderRowProps) {
   const t = useT();
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useAsyncAction((error) => reportError(t, error));
 
   const signedIn = provider.authenticated && accounts.length > 0;
   const hasKey = accounts.some((account) => account.type === "api_key");
@@ -62,18 +62,6 @@ export function ProviderRow({
     badge = null;
     meta = loginKind === "terminal" ? t("login.kind.interactive") : "";
   }
-
-  const run = async (job: () => Promise<unknown>) => {
-    setBusy(true);
-    try {
-      await job();
-      onChanged();
-    } catch (error) {
-      reportError(t, error);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   // 没有任何动作时（比如只有环境变量里的 key）不给 actions，ListRow 据此标 data-no-actions，卡片里不留动作那一行。
   const hasActions = acceptsApiKey(provider.id) || signedIn || loginKind === "oauth" || loginKind === "terminal";
@@ -103,7 +91,10 @@ export function ProviderRow({
                 disabled={busy}
                 onClick={() =>
                   accounts.length === 1 && accounts[0]
-                    ? void run(() => window.studio.logout(provider.id, accounts[0]?.credentialId ?? 0))
+                    ? void run(async () => {
+                        await window.studio.logout(provider.id, accounts[0]?.credentialId ?? 0);
+                        onChanged();
+                      })
                     : onFlow(provider, "accounts")
                 }
                 testId={`provider-signout-${provider.id}`}

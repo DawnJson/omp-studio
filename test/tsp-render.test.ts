@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAnsi } from "../src/renderer/src/features/tsp/ansi.ts";
+import { parseAnsi, parseAnsiStream, type AnsiParse } from "../src/renderer/src/features/tsp/ansi.ts";
 import { changedRange, parseDiff, splitRows } from "../src/renderer/src/features/tsp/diff-parse.ts";
 import {
   extentToCss,
@@ -49,6 +49,12 @@ describe("elapsed 的显示", () => {
     expect(formatElapsed(3_723_000, "clock")).toBe("1:02:03");
     expect(formatElapsed(-5000)).toBe("0.0s");
   });
+
+  it("seconds：不到一分钟只到整秒，再大同 short", () => {
+    expect(formatElapsed(4_999, "seconds")).toBe("4s");
+    expect(formatElapsed(65_000, "seconds")).toBe("1m 05s");
+    expect(formatElapsed(-5000, "seconds")).toBe("0s");
+  });
 });
 
 describe("数字格式", () => {
@@ -58,6 +64,7 @@ describe("数字格式", () => {
     expect(formatCount(999)).toBe("999");
     expect(formatCount(12_345)).toBe("12K");
     expect(formatCount(1_234_567)).toBe("1.2M");
+    expect(formatCost(0)).toBe("$0");
     expect(formatCost(0.004)).toBe("<$0.01");
     expect(formatCost(0.42)).toBe("$0.42");
   });
@@ -132,6 +139,31 @@ describe("parseAnsi", () => {
 
   it("其它控制序列丢弃，不留乱码", () => {
     expect(parseAnsi("\u001b[2Jx\u001b[?25l")[0]).toEqual([{ text: "x" }]);
+  });
+
+  it("parseAnsiStream：逐字追加的每个前缀都和整段解析相同，已结束的行复用同一个数组", () => {
+    const log = [
+      "\u001b[1;32mok\u001b[0m line 1\n",
+      "plain\twith tab\n",
+      "10%\r20%\r\u001b[33m30%\u001b[0m\n",
+      "erase\u001b[2K new\n",
+      "\u001b]8;;https://x.test/a\u001b\\li\nnk\u001b]8;;\u001b\\ after\n",
+      "\u001b]8;;https://y.test\u0007bel link\u001b]8;;\u0007\n",
+      "open osc \u001b]8;;https://z.test/\nspans\nlines\u0007 closed\n",
+      "\u001b[38;5;196mred\u001b[38;2;1;2;3m rgb\n\n",
+      "\u001b(Bdropped\u001bMx\bY 中文😀\n",
+    ].join("");
+    let state: AnsiParse | null = null;
+    for (let end = 0; end <= log.length; end += 1) {
+      const prefix = log.slice(0, end);
+      state = parseAnsiStream(state, prefix);
+      expect(state.lines).toEqual(parseAnsi(prefix));
+    }
+    const first = state!.lines[0];
+    state = parseAnsiStream(state, `${log}more\n`);
+    expect(state.lines[0]).toBe(first);
+    // 不是延长：整段重解析。
+    expect(parseAnsiStream(state, "x\ny").lines).toEqual(parseAnsi("x\ny"));
   });
 });
 

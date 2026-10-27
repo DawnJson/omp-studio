@@ -29,13 +29,30 @@ export function parseFileQuery(value: unknown): string {
   return query;
 }
 
+/** 缓存里的一条路径：小写形式、文件名起点和层级在建索引时算一次，查询时不再重复算。 */
+export interface IndexedFile {
+  path: string;
+  lower: string;
+  baseStart: number;
+  depth: number;
+}
+
+export function indexFiles(files: readonly string[]): IndexedFile[] {
+  return files.map((file) => {
+    const lower = file.toLowerCase();
+    let depth = 1;
+    for (let i = file.indexOf("/"); i !== -1; i = file.indexOf("/", i + 1)) depth += 1;
+    return { path: file, lower, baseStart: lower.lastIndexOf("/") + 1, depth };
+  });
+}
+
 /** 越靠前越好；null = 不匹配。 */
-function score(file: string, query: string): number | null {
-  const lower = file.toLowerCase();
+function score(file: IndexedFile, query: string): number | null {
+  const { lower } = file;
   if (lower.startsWith(query)) return 0;
-  const base = lower.slice(lower.lastIndexOf("/") + 1);
-  if (base.startsWith(query)) return 1;
-  if (base.includes(query)) return 2;
+  const baseAt = lower.indexOf(query, file.baseStart);
+  if (baseAt === file.baseStart) return 1;
+  if (baseAt !== -1) return 2;
   if (lower.includes(query)) return 3;
   // 子序列（fuzzy）：query 的字符按顺序出现在路径里。
   let at = 0;
@@ -47,23 +64,42 @@ function score(file: string, query: string): number | null {
   return 4;
 }
 
+interface Scored {
+  file: IndexedFile;
+  rank: number;
+}
+
+function compareScored(a: Scored, b: Scored): number {
+  return (
+    a.rank - b.rank ||
+    a.file.depth - b.file.depth ||
+    a.file.path.length - b.file.path.length ||
+    (a.file.path < b.file.path ? -1 : a.file.path > b.file.path ? 1 : 0)
+  );
+}
+
 /** 在已索引的相对路径里匹配：前缀 > 文件名前缀 > 文件名包含 > 路径包含 > 子序列；同档里短的、浅的在前。 */
-export function matchProjectFiles(files: readonly string[], query: string, limit = MAX_RESULTS): string[] {
+export function matchProjectFiles(files: readonly IndexedFile[], query: string, limit = MAX_RESULTS): string[] {
   const q = query.toLowerCase();
-  const scored: { file: string; rank: number; depth: number }[] = [];
+  // 只保留最好的 limit 条（有序），不对全部匹配项排序。
+  if (limit <= 0) return [];
+  const top: Scored[] = [];
   for (const file of files) {
     const rank = q === "" ? 0 : score(file, q);
     if (rank === null) continue;
-    scored.push({ file, rank, depth: file.split("/").length });
+    const entry = { file, rank };
+    if (top.length === limit && compareScored(entry, top[limit - 1]!) >= 0) continue;
+    let lo = 0;
+    let hi = top.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (compareScored(top[mid]!, entry) <= 0) lo = mid + 1;
+      else hi = mid;
+    }
+    top.splice(lo, 0, entry);
+    if (top.length > limit) top.pop();
   }
-  scored.sort(
-    (a, b) =>
-      a.rank - b.rank ||
-      a.depth - b.depth ||
-      a.file.length - b.file.length ||
-      (a.file < b.file ? -1 : a.file > b.file ? 1 : 0),
-  );
-  return scored.slice(0, limit).map((entry) => entry.file);
+  return top.map((entry) => entry.file.path);
 }
 
 /** 路径里有空白的不收：`@a b.ts` 会在空格处断开，补全出来的引用是错的。 */
@@ -116,7 +152,7 @@ export async function walkFiles(root: string, cap = MAX_INDEXED_FILES): Promise<
 
 /** 按目录缓存索引几秒钟：连续敲 `@` 后面的字符不会反复跑 git。 */
 export class ProjectFileIndex {
-  readonly #cache = new Map<string, { at: number; files: Promise<string[]> }>();
+  readonly #cache = new Map<string, { at: number; files: Promise<IndexedFile[]> }>();
   readonly #now: () => number;
   readonly #load: (cwd: string, cap: number) => Promise<string[]>;
 
@@ -129,10 +165,10 @@ export class ProjectFileIndex {
     this.#now = now;
   }
 
-  list(cwd: string): Promise<string[]> {
+  list(cwd: string): Promise<IndexedFile[]> {
     const hit = this.#cache.get(cwd);
     if (hit && this.#now() - hit.at < CACHE_TTL_MS) return hit.files;
-    const files = this.#load(cwd, MAX_INDEXED_FILES).then((all) => all.slice(0, MAX_INDEXED_FILES));
+    const files = this.#load(cwd, MAX_INDEXED_FILES).then((all) => indexFiles(all.slice(0, MAX_INDEXED_FILES)));
     this.#cache.delete(cwd);
     this.#cache.set(cwd, { at: this.#now(), files });
     files.catch(() => {

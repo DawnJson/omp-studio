@@ -162,7 +162,7 @@ export function DraftContextMeter({ model, projectId }: { model: ModelOption | n
  */
 export function UsageMeter({ task }: { task: TaskState }) {
   const t = useT();
-  const { tokensPerSecond } = useSessionExtras(task.id);
+  const tokensPerSecond = useSessionExtras(task.id, (extras) => extras.tokensPerSecond);
   const liveRate = useTspDerived(task.id, deriveComposerFacts, sameComposerFacts)?.rate ?? null;
   const busy = task.status === "running" || task.status === "needs_you";
   const speedText = !busy

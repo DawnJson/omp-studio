@@ -463,8 +463,9 @@
 .tspi-pk-dim {
   position: absolute;
   inset: 0;
-  background: var(--bg-scrim);
-  backdrop-filter: blur(6px);
+  /* 不用 backdrop-filter 模糊：选择器开着时下面的对话还在流式更新，每次变化都要整片重新模糊。
+   * 改成遮罩下面再垫一层半透明的应用底色，把对话的对比度压下去，看起来接近原来的毛玻璃。 */
+  background: linear-gradient(var(--bg-scrim), var(--bg-scrim)), color-mix(in srgb, var(--bg-app) 40%, transparent);
   pointer-events: auto;
   animation: tspi-fade var(--dur-base) var(--ease-out);
 }

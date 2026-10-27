@@ -24,6 +24,7 @@ import type {
   TspSubagentRecord,
   TspSnapshot,
 } from "../../shared/ipc.ts";
+import type { DocBlob } from "../../shared/tsp/document.ts";
 import type { AvailableSlashCommand, GoalOp, ThinkingLevel } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import type { OmpLaunch } from "../omp/omp-connection.ts";
 import type { BtwHistoryRecord, BtwUiEvent } from "../../shared/btw.ts";
@@ -271,6 +272,11 @@ export class TaskPool {
   /** 任务当前的节点树和序号（不拉起进程）。 */
   getTspSnapshot(id: TaskId): TspSnapshot {
     return this.#runner(id).tspSnapshot();
+  }
+
+  /** 快照里列出的 blob 的字节（见 TspRunner.tspBlob）；没有为 null。 */
+  getTspBlob(id: TaskId, blobId: string): DocBlob | null {
+    return this.#runner(id).tspBlob(blobId);
   }
 
   /** 任务已发出的最后一条 TSP 消息的序号（见 TspRunner.tspSeq）。 */

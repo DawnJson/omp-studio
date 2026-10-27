@@ -18,6 +18,7 @@ import { mcpResource, runMcpTest, runMcpWrite } from "./integrations-data.ts";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
 import { McpForm } from "./McpForm.tsx";
 import { RowMenu } from "./RowMenu.tsx";
+import { useAsyncAction } from "./use-async-action.ts";
 import "./integrations.css";
 
 type TestState = "running" | McpTestResult;
@@ -136,7 +137,6 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
   const ready = useOmpStatus()?.state === "ready";
   const load = mcpResource.useLoad(scope);
   const { slot: adding, open: openAdding, closed: addingClosed, reset: resetAdding } = useDialogSlot();
-  const [busy, setBusy] = useState(false);
   // 确认框用 slot：上一个还在放退出动画时再点移除也能立刻开新的（旧的迟到的关闭通知按 key 对不上）。
   const { slot: removing, open: openRemoving, closed: removingClosed } = useDialogSlot<McpServerRow>();
   const {
@@ -147,6 +147,7 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
   } = useDialogSlot<McpServerFile>();
   const [tests, setTests] = useState<Record<string, TestState>>({});
   const [failure, setFailure] = useState<string | null>(null);
+  const { busy, run } = useAsyncAction((error) => setFailure(errorDetail(error)));
 
   useEffect(() => {
     if (ready) void mcpResource.load(scope);
@@ -160,34 +161,24 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
 
   const data = load.kind === "ready" ? load.data : "previous" in load ? load.previous : null;
 
-  const write = async (job: () => Promise<{ ok: boolean; message: string }>) => {
-    setBusy(true);
-    setFailure(null);
-    try {
+  const write = (job: () => Promise<{ ok: boolean; message: string }>) =>
+    run(async () => {
+      setFailure(null);
       const outcome = await job();
       if (outcome.ok) pushToast({ message: outcome.message });
       else setFailure(outcome.message);
-    } catch (error) {
-      setFailure(errorDetail(error));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   /** 编辑：初值从 omp 的 mcp.json 里读（token 只给"有没有"）；读不了就把原因写在卡片下面，不开表单。 */
-  const startEdit = async (row: McpServerRow) => {
+  const startEdit = (row: McpServerRow) => {
     if (row.scope !== "user" && row.scope !== "project") return;
-    setBusy(true);
-    setFailure(null);
-    try {
-      const outcome = await window.studio.getMcpServerFile(row.name, row.scope, scopeProject(scope));
+    const fileScope = row.scope;
+    return run(async () => {
+      setFailure(null);
+      const outcome = await window.studio.getMcpServerFile(row.name, fileScope, scopeProject(scope));
       if (outcome.ok) openEditing(outcome.value);
       else setFailure(t(`integrations.mcp.err.${outcome.code}` satisfies `integrations.mcp.err.${McpEditErrorCode}`));
-    } catch (error) {
-      setFailure(errorDetail(error));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const runTest = async (name: string) => {

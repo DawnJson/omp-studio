@@ -1,8 +1,8 @@
 // 运行 git / gh：不经 shell，参数一律用数组；输出按 Buffer 收（文件内容可能不是 UTF-8）。
 // 不 import electron，单元测试直接用真实的临时仓库。
-import { execFile, spawn, type ChildProcess } from "node:child_process";
-import path from "node:path";
-import { killPosixProcessTree } from "../platform/posix/process-tree.ts";
+import { spawn, type ChildProcess } from "node:child_process";
+import { killProcessTree } from "../platform/process-tree.ts";
+import { spawnsReady } from "../platform/spawn-gate.ts";
 
 export interface RunOptions {
   cwd: string;
@@ -77,22 +77,22 @@ class TailBuffer {
   }
 }
 
-/** 结束子进程；Windows 上 child.kill() 只杀外壳（cmd/powershell），要按进程树结束。 */
+/**
+ * 结束子进程和它的后代；Windows 上 child.kill() 只杀外壳（cmd/powershell），要按进程树结束。
+ * 不先 child.kill()：根进程一死，后代在 POSIX 上被收养、在 Windows 上 taskkill /T 找不到，按父子关系就找不到它们了。
+ */
 function killTree(child: ChildProcess): void {
-  const pid = child.pid;
-  if (process.platform === "win32" && pid !== undefined) {
-    // 绝对路径：不带路径时 Windows 会先在当前目录里找 taskkill。进程已退出时 taskkill 失败，忽略。
-    const taskkill = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "taskkill.exe");
-    execFile(taskkill, ["/T", "/F", "/PID", String(pid)], { windowsHide: true }, () => {});
-  } else if (pid !== undefined) {
-    // 先列进程表再杀：这里不能先 child.kill()，根进程一死孙进程就被收养，按父子关系找不到了。
-    void killPosixProcessTree(pid);
-    return;
-  }
-  child.kill();
+  if (child.pid === undefined) child.kill();
+  else void killProcessTree(child.pid);
 }
 
-export function runCommand(command: string, args: readonly string[], options: RunOptions): Promise<RunResult> {
+/** 起子进程之前等启动准备（mac / Linux 补登录 shell 的 PATH，platform/spawn-gate.ts）；不传 env 时用等完之后的 process.env。 */
+export async function runCommand(command: string, args: readonly string[], options: RunOptions): Promise<RunResult> {
+  await spawnsReady();
+  return spawnCommand(command, args, options);
+}
+
+function spawnCommand(command: string, args: readonly string[], options: RunOptions): Promise<RunResult> {
   const { promise, resolve, reject } = Promise.withResolvers<RunResult>();
   const child = spawn(command, args, {
     cwd: options.cwd,
@@ -174,9 +174,14 @@ function gitEnv(): NodeJS.ProcessEnv {
   };
 }
 
-/** 运行 git，不检查退出码。 */
-export function gitRaw(cwd: string, args: readonly string[], options: Partial<RunOptions> = {}): Promise<RunResult> {
-  return runCommand("git", [...GIT_PREFIX, ...args], { cwd, env: gitEnv(), ...options });
+/** 运行 git，不检查退出码。环境在等完启动准备之后再取（那时 PATH 才完整）。 */
+export async function gitRaw(
+  cwd: string,
+  args: readonly string[],
+  options: Partial<RunOptions> = {},
+): Promise<RunResult> {
+  await spawnsReady();
+  return spawnCommand("git", [...GIT_PREFIX, ...args], { cwd, env: gitEnv(), ...options });
 }
 
 export function failureMessage(result: RunResult): string {

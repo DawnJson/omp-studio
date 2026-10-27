@@ -11,7 +11,7 @@ import { FileLink } from "../file-preview/index.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { Markdown } from "../../markdown/index.ts";
 import { BashCard, type BashState } from "./BashCard.tsx";
-import { Clamp } from "./Clamp.tsx";
+import { Clamp } from "../tsp/Clamp.tsx";
 import { FileChip } from "./FileChip.tsx";
 import type { Step, ToolStep } from "./model.ts";
 import { summarizeTodos } from "./todo-model.ts";
@@ -345,12 +345,12 @@ const ToolRow = memo(function ToolRow({ step, taskId }: { step: ToolStep; taskId
         {chipPaths.length > 0 && <FileChips taskId={taskId} paths={chipPaths} />}
         {showBody &&
           (body.kind === "grep" ? (
-            <Clamp lines={GREP_LINES} lineHeight="var(--lh-code-sm)" className="step-grep">
+            <Clamp lines={GREP_LINES} className="step-grep">
               <GrepFiles files={body.files} taskId={taskId} />
             </Clamp>
           ) : (
             <div className="step-output">
-              <Clamp lines={PREVIEW_LINES} lineHeight="var(--lh-code-sm)">
+              <Clamp lines={PREVIEW_LINES}>
                 <BodyView body={body} t={t} />
               </Clamp>
             </div>

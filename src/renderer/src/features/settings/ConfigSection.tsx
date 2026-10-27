@@ -1,10 +1,11 @@
 // omp 设置的展示：各节页面上的常用项（小标题 + 格子）、"高级"（页内目录 + 选中分组的全部项平铺）、搜索结果（一列行）。
 // 高级：左侧目录 = omp-studio 的 8 个分组（带个数）+ 当前分组下的前缀小组；右侧是选中分组的项，没有折叠，前缀做小标题。
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useMemo, type ReactNode } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { SectionHead } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
+import { createStore, useStoreValue } from "../../store/create-store.ts";
 import { groupConfigItems } from "../../../../shared/ui/config-groups.ts";
 import { prefixTitle } from "../../../../shared/ui/config-labels.ts";
 import { fitsCell } from "./ConfigControls.tsx";
@@ -51,13 +52,15 @@ function hasBlockTitle(id: CommonBlockId): id is Exclude<CommonBlockId, "subagen
   return id !== "subagents" && id !== "goal";
 }
 
+const noLeads: Partial<Record<CommonBlockId, ReactNode>> = {};
+
 /**
  * 一节页面上的常用项：按小块排（config-meta 的 commonBlocks），每块一个小标题 + ConfigGrid。
  * `leads`：页面自己的内容，整宽放在那一块的最前面（模型页的角色表）；常用项还没读到时也显示。
  */
 export function CommonConfig({
   items,
-  leads = {},
+  leads = noLeads,
 }: {
   items: readonly OmpConfigItem[];
   leads?: Partial<Record<CommonBlockId, ReactNode>>;
@@ -72,8 +75,8 @@ export function CommonConfig({
   ));
 }
 
-// 目录选中的分组和小组记在模块里：换节再回来保持原样。
-const picked: { group: string | null; prefix: string | null } = { group: null, prefix: null };
+// 目录选中的分组和小组记在模块里（不随 AdvancedConfig 卸载）：换节再回来保持原样。
+const pickedStore = createStore<{ group: string | null; prefix: string | null }>({ group: null, prefix: null });
 
 const anchorId = (group: string, prefix: string) => `cfg-sub-${group}-${prefix === "" ? "other" : prefix}`;
 
@@ -82,7 +85,7 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
   const t = useT();
   const locale = useLocale();
   const groups = useMemo(() => advancedGroups(items), [items]);
-  const [, rerender] = useState(0);
+  const picked = useStoreValue(pickedStore, (state) => state);
   const current = groups.find((group) => group.group === picked.group) ?? groups[0];
   if (current === undefined) return null;
   const activePrefix = picked.prefix ?? current.prefixes[0]?.prefix ?? "";
@@ -99,9 +102,7 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
                 className="st-toc-group"
                 aria-current={open ? "true" : undefined}
                 onClick={(event) => {
-                  picked.group = group.group;
-                  picked.prefix = null;
-                  rerender((n) => n + 1);
+                  pickedStore.set({ group: group.group, prefix: null });
                   event.currentTarget.closest(".settings-scroll")?.scrollTo({ top: 0 });
                 }}
                 data-testid={`advanced-toc-${group.group}`}
@@ -117,8 +118,7 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
                     className="st-toc-item"
                     aria-current={prefix === activePrefix ? "true" : undefined}
                     onClick={() => {
-                      picked.prefix = prefix;
-                      rerender((n) => n + 1);
+                      pickedStore.set({ group: picked.group, prefix });
                       document.getElementById(anchorId(group.group, prefix))?.scrollIntoView({ block: "start" });
                     }}
                     data-testid={`advanced-toc-${group.group}-${prefix || "other"}`}

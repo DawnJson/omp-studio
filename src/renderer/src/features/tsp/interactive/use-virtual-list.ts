@@ -32,6 +32,7 @@ export interface VirtualList {
  */
 export function useVirtualList(body: RefObject<HTMLElement | null>, count: number, enabled: boolean): VirtualList {
   const [rowHeight, setRowHeight] = useState(VIRTUAL_ROW_ESTIMATE);
+  /** 视口顶在 body 里的位置，按行高向下取整：同一行内滚动值不变，不重画。 */
   const [offset, setOffset] = useState(0);
   const [viewport, setViewport] = useState(600);
 
@@ -42,7 +43,8 @@ export function useVirtualList(body: RefObject<HTMLElement | null>, count: numbe
     const target: HTMLElement | Window = parent ?? window;
     const measure = (): void => {
       const view = viewRect(parent);
-      setOffset(Math.max(0, view.top - el.getBoundingClientRect().top));
+      const raw = Math.max(0, view.top - el.getBoundingClientRect().top);
+      setOffset(Math.floor(raw / rowHeight) * rowHeight);
       setViewport(Math.max(1, view.bottom - view.top));
     };
     measure();
@@ -53,10 +55,9 @@ export function useVirtualList(body: RefObject<HTMLElement | null>, count: numbe
       target.removeEventListener("scroll", measure);
       observer.disconnect();
     };
-  }, [body, enabled]);
+  }, [body, enabled, rowHeight]);
 
-  const quantized = Math.floor(offset / rowHeight) * rowHeight;
-  const range: [number, number] = enabled ? listWindow(count, rowHeight, quantized, viewport) : [0, count];
+  const range: [number, number] = enabled ? listWindow(count, rowHeight, offset, viewport) : [0, count];
   const [from, to] = range;
 
   // 画出来的行变了就量真实行高（含行距）：偏差超过 1px 才更新，避免来回抖。

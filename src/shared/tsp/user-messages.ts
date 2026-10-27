@@ -5,8 +5,12 @@
 // 恢复的会话、草稿页发出的第一句、别处（终端版）发的消息都在里面；omp 只画压缩点之后的消息，更早的翻不到。
 // role 是 omp 自己的命名，不在 TSP 规范里：omp 改名后这里取不到（只剩 studio 内存里记的），所以判断集中在这里。
 import type { DocSurface, TspDocument } from "./document.ts";
+import type { NodeDeps } from "./node-watch.ts";
 
 const USER_ROLE = "omp.user";
+
+/** userMessages 读的节点（NodeWatch）：用户消息卡片和它下面的正文。 */
+export const USER_MESSAGE_NODES: NodeDeps = { roles: [USER_ROLE], children: true };
 
 export interface UserMessage {
   /** omp.user 卡片的节点 id（页面里是 `[data-id]`）。 */

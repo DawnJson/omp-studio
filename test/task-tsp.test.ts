@@ -287,9 +287,7 @@ describe("任务池：TSP 任务", () => {
 
   it("排队的带图片插话点 Edit：omp 放回输入框的文字和图片一起搬进 studio 的输入框，图片占位换成 [Image #1]", async () => {
     // omp 18.12.6 实录：运行中发带图片的插话 → 排队区那条点 Edit（action queue.edit）→ omp 把文字放回输入框、图片重新挂成 chip。
-    const [first] = recordedUserEvents(loadTspFixture("queue-edit-image")).filter(
-      (entry) => entry.event["ev"] === "send",
-    );
+    const first = recordedUserEvents(loadTspFixture("queue-edit-image")).find((entry) => entry.event["ev"] === "send");
     if (!first) throw new Error("unexpected queue-edit-image fixture");
     const h = await harness();
     h.next.fixture = "queue-edit-image";
@@ -311,6 +309,18 @@ describe("任务池：TSP 任务", () => {
     await waitForLog(h.log, (records) =>
       records.some((record) => record.kind === "tsp" && record.body?.["ev"] === "edit" && record.body["text"] === ""),
     );
+
+    // 快照只列 blob 的 id，不带字节；字节按 id 取，进程退出后从留下的最后一份文档里仍取得到。
+    const { blobIds } = h.pool.getTspSnapshot(created.id).document;
+    expect(blobIds.length).toBeGreaterThan(0);
+    expect(JSON.stringify(h.pool.getTspSnapshot(created.id).document)).not.toContain(draft!.images![0]!.data);
+    const live = blobIds.map((id) => h.pool.getTspBlob(created.id, id));
+    expect(live.map((blob) => blob?.mime)).toContain("image/webp");
+    await h.pool.shutdown();
+    expect(h.pool.listTasks()[0]?.status).toBe("stopped");
+    expect(h.pool.getTspSnapshot(created.id).document.blobIds).toEqual(blobIds);
+    expect(blobIds.map((id) => h.pool.getTspBlob(created.id, id))).toEqual(live);
+    expect(h.pool.getTspBlob(created.id, "0".repeat(64))).toBeNull();
   }, 60_000);
 
   it("没有排队消息时停止立刻返回，不等 omp 的输入框", async () => {

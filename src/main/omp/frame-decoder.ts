@@ -22,7 +22,9 @@ interface PendingChunk {
 }
 
 export class FrameDecoder {
-  #buffer: Buffer = Buffer.alloc(0);
+  /** 还没等到换行的半行，按到达顺序存放；凑齐一行时才拼接一次。 */
+  #partial: Buffer[] = [];
+  #partialBytes = 0;
   #chunk: PendingChunk | null = null;
   #maxReassembledBytes: number;
 
@@ -30,31 +32,50 @@ export class FrameDecoder {
     this.#maxReassembledBytes = maxReassembledBytes;
   }
 
-  /** 协商出的重组上限（`ready.maxReassembledFrameBytes`）。 */
+  /** 协商出的重组上限（`ready.maxReassembledFrameBytes`），同时也是单行原始字节的上限。 */
   setMaxReassembledBytes(bytes: number): void {
     this.#maxReassembledBytes = bytes;
   }
 
   /** 喂入一段 stdout 字节，返回其中凑齐的逻辑帧。出错时抛 `RpcProtocolError`。 */
   push(data: Buffer): RawFrame[] {
-    this.#buffer = this.#buffer.length === 0 ? data : Buffer.concat([this.#buffer, data]);
     const frames: RawFrame[] = [];
     let start = 0;
     let newline: number;
-    while ((newline = this.#buffer.indexOf(NEWLINE, start)) !== -1) {
-      const line = this.#buffer.subarray(start, newline);
+    // 只扫描新到的字节：半行已经确认不含换行，不再重扫。
+    while ((newline = data.indexOf(NEWLINE, start)) !== -1) {
+      let line = data.subarray(start, newline);
+      if (this.#partialBytes > 0) {
+        this.#partial.push(line);
+        line = Buffer.concat(this.#partial, this.#partialBytes + line.length);
+        this.#partial = [];
+        this.#partialBytes = 0;
+      }
       start = newline + 1;
+      this.#checkLineBytes(line.length);
       const frame = this.#decodeLine(line);
       if (frame) frames.push(frame);
     }
-    this.#buffer = start === this.#buffer.length ? Buffer.alloc(0) : this.#buffer.subarray(start);
+    if (start < data.length) {
+      const rest = data.subarray(start);
+      this.#checkLineBytes(this.#partialBytes + rest.length);
+      this.#partial.push(rest);
+      this.#partialBytes += rest.length;
+    }
     return frames;
   }
 
   /** stdout 结束时调用：残留半行或未完成的分块序列都是协议错误。 */
   end(): void {
-    if (this.#buffer.toString("utf8").trim() !== "") throw new RpcProtocolError("stdout ended inside a frame");
+    if (Buffer.concat(this.#partial, this.#partialBytes).toString("utf8").trim() !== "")
+      throw new RpcProtocolError("stdout ended inside a frame");
     if (this.#chunk) throw new RpcProtocolError(`stdout ended inside rpc_chunk sequence ${this.#chunk.chunkId}`);
+  }
+
+  /** 单行不会比最大的逻辑帧还大；超过就是协议错误，不再无限缓冲。 */
+  #checkLineBytes(bytes: number): void {
+    if (bytes > this.#maxReassembledBytes)
+      throw new RpcProtocolError(`frame line exceeds the ${this.#maxReassembledBytes} byte limit`);
   }
 
   #decodeLine(line: Buffer): RawFrame | null {

@@ -1250,9 +1250,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `tool.info.matches` | {count, plural, one {# match} other {# matches}} | {count, plural, one {# match} other {# matches}} |
 | `tool.info.files` / `tool.info.readFiles` | {count, plural, one {# file} other {# files}} | {count, plural, one {# file} other {# files}} |
 | `tool.info.agents` / `tool.info.background` | {count, plural, one {# agent} other {# agents}} / background | {count, plural, one {# agent} other {# agents}} / background |
-| `tool.output.more` | {count, plural, one {# more line} other {# more lines}} | {count, plural, one {# more line} other {# more lines}} |
 | `tool.output.unchanged` | {count, plural, one {# unchanged line} other {# unchanged lines}} | {count, plural, one {# unchanged line} other {# unchanged lines}} |
-| `tool.output.showAll` / `tool.output.collapse` | Show all / Collapse | Show all / Collapse |
 | `tool.output.empty` | No output | No output |
 | `tool.bash.done` / `tool.bash.exit` | Done / Exit code {code} | Done / Exit code {code} |
 | `tool.bash.earlier` | {count, plural, one {# earlier line} other {# earlier lines}} | {count, plural, one {# earlier line} other {# earlier lines}} |

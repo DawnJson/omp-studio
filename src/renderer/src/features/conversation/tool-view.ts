@@ -45,15 +45,6 @@ export function headerTarget(toolName: string, args: unknown): string | null {
   return target;
 }
 
-/** 运行时长：1 分钟内 52.1s，之后 1m 05s，超过 1 小时 1h 10m。 */
-export function formatElapsed(ms: number): string {
-  const safe = Math.max(0, ms);
-  if (safe < 60_000) return `${(Math.floor(safe / 100) / 10).toFixed(1)}s`;
-  const total = Math.floor(safe / 1000);
-  if (total >= 3600) return `${Math.floor(total / 3600)}h ${Math.floor((total % 3600) / 60)}m`;
-  return `${Math.floor(total / 60)}m ${String(total % 60).padStart(2, "0")}s`;
-}
-
 // —— diff ——
 
 export type DiffRow =

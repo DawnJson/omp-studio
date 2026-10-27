@@ -319,11 +319,11 @@ test("设置分组、搜索：中英文；窄窗口不溢出", async () => {
     await search(page, "");
     await page.getByTestId("settings-nav-tools").click();
     await page.setViewportSize({ width: 820, height: 800 });
-    // 窄窗口侧栏是抽屉：如果开着，用顶栏按钮收起，免得挡住设置页。
-    await page.waitForTimeout(400);
-    if ((await page.getByTestId("app-root").getAttribute("data-sidebar")) === "shown")
-      await page.keyboard.press("Control+b");
-    await page.waitForTimeout(400);
+    // 窄窗口侧栏是抽屉（变窄时自动收起）：等界面换成抽屉布局；如果开着，用顶栏按钮收起，免得挡住设置页。
+    const appRoot = page.getByTestId("app-root");
+    await expect(appRoot).toHaveAttribute("data-drawer", "true");
+    if ((await appRoot.getAttribute("data-sidebar")) === "shown") await page.keyboard.press("Control+b");
+    await expect(appRoot).toHaveAttribute("data-sidebar", "hidden");
     await expect(page.getByTestId("settings")).toBeVisible();
     // 页面本身不横向溢出（长 key、长描述都要换行）。
     const overflow = await page.locator(".settings-scroll").evaluate((element) => {

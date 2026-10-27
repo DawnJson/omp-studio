@@ -1,9 +1,9 @@
-// TSP 文档的渲染进程镜像：每个任务一份 { seq, doc }。
+// TSP 文档的渲染进程镜像：每个任务一份 { seq, doc }，外加推导用的节点追踪（shared/tsp/node-watch.ts）。
 // 同步协议（ipc.ts TspBatch）：批次的 firstSeq 必须不超过本地 seq + 1，超过说明丢了帧，调 getTspSnapshot 重新拉；
 // 拉快照期间到达的批次先攒着，快照落地后接着应用，所以快照和事件批次的重叠、乱序都是安全的（规则见 tsp-sync.ts）。
 //
 // 文档（Map）原地改，节点记录不可变：订阅按 (任务, surface, 节点 id) 登记，应用一批消息后只通知 `changed` 里出现的节点，
-// 组件用 useTspNode 拿到的记录引用没变就不会重画。
+// 组件用 useTspNode 拿到的记录引用没变就不会重画。role 索引和声明了 NodeDeps 的 useTspDerived 只在它们读的节点变了时重算。
 import { useMemo, useSyncExternalStore } from "react";
 import type { TaskId, TspBatch } from "../../../../shared/ipc.ts";
 import {
@@ -15,16 +15,23 @@ import {
   type TspDocMessage,
   type TspDocument,
 } from "../../../../shared/tsp/document.ts";
-import { trailingErrorCardId } from "../../../../shared/tsp/error-turn.ts";
+import { NodeWatch, type NodeDeps } from "../../../../shared/tsp/node-watch.ts";
 import { findGateButton, hasBlockingPanel } from "../../../../shared/tsp/gate.ts";
 import type { StatusNote } from "../../../../shared/tsp/status-notes.ts";
 import { forgetBirths, markKnown, recordBirths, type BirthCounter } from "./entrance.ts";
 import { dependsOnRoles, hasNoVisibleChild, RECAP_ROLE, type DrawEnv } from "./node-blank.ts";
+import { buildRoleIndex, ROLE_INDEX_NODES, USER_ROLE, type RoleIndex } from "./role-index.ts";
 import { planTspBatch } from "./tsp-sync.ts";
 
 interface Mirror {
   seq: number;
   doc: TspDocument;
+  /** role 索引读的节点（ROLE_INDEX_NODES）。 */
+  roles: NodeWatch;
+  /** useTspDerived 的推导读的节点：NodeDeps → 追踪，第一次用到时建。 */
+  watches: Map<NodeDeps, NodeWatch>;
+  /** 快照里列出、字节还没取到的 blob id（快照不带字节，见 DocumentSnapshot.blobIds）：有组件订阅时才 `getTspBlob` 取。 */
+  remoteBlobs: Set<string>;
 }
 
 const SEP = "\u0000";
@@ -34,6 +41,8 @@ const fetching = new Map<TaskId, TspBatch[]>();
 /** 等镜像追上某个序号的（endTspDrive）：镜像每次前进、被丢掉或拉快照失败时检查。 */
 const seqWaiters = new Map<TaskId, { seq: number; resolve: () => void }[]>();
 const listeners = new Map<string, Set<() => void>>();
+/** 正在取字节的 blob（blobKey）。 */
+const blobRequests = new Set<string>();
 let started = false;
 
 const nodeKey = (taskId: TaskId, sf: string, id: string): string => `n${SEP}${taskId}${SEP}${sf}${SEP}${id}`;
@@ -43,25 +52,9 @@ const blobKey = (taskId: TaskId, id: string): string => `b${SEP}${taskId}${SEP}$
 const panelKey = (taskId: TaskId): string => `p${SEP}${taskId}`;
 const roleKey = (taskId: TaskId, sf: string): string => `u${SEP}${taskId}${SEP}${sf}`;
 
-/** omp 每轮末尾的用量行。 */
-const USAGE_ROLE = "omp.turn.usage";
-const USER_ROLE = "omp.user";
-/** omp 每条助手消息的容器；每轮最后一个是用量行的父节点。 */
-const ASSISTANT_ROLE = "omp.assistant";
-const TRACKED_ROLES: readonly string[] = [USAGE_ROLE, USER_ROLE, ASSISTANT_ROLE, RECAP_ROLE];
 const NO_IDS: readonly string[] = [];
-interface RoleIndex {
-  mirror: Mirror;
-  byRole: Map<string, string[]>;
-  /** 轮数（轮 = 一个 omp.user 到下一个）。 */
-  turnCount: number;
-  /** 没有用量行的轮的最后一个助手节点 id → 这一轮是第几轮（从 0 数）。 */
-  lastAssistantOfBareTurn: Map<string, number>;
-  /** 对话末尾的错误卡（见 trailingErrorCardId）；没有为 null。 */
-  trailingError: string | null;
-}
-/** main 区里 TRACKED_ROLES 节点的 id（文档顺序），按 (任务, surface) 缓存；镜像换了（快照）或有节点变了就作废。 */
-const roleIndexes = new Map<string, RoleIndex>();
+/** main 区的 role 索引（role-index.ts），按 (任务, surface) 缓存；镜像换了（快照）或 ROLE_INDEX_NODES 里的节点变了就作废。 */
+const roleIndexes = new Map<string, { mirror: Mirror; index: RoleIndex }>();
 
 function subscribe(key: string, listener: () => void): () => void {
   let set = listeners.get(key);
@@ -94,30 +87,19 @@ function notifyTask(taskId: TaskId): void {
 
 const warned = new Set<string>();
 
-/** 只改文字、光标、滚动这类不碰树结构和 role 的操作；roleIndex 只读结构（c）和 role。 */
-const NON_STRUCTURAL_OPS: ReadonlySet<string> = new Set([
-  "text",
-  "splice",
-  "settle",
-  "focus",
-  "reveal",
-  "scroll",
-  "suspend",
-  "resume",
-]);
-
 function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDocMessage[]): void {
   const changed = new Map<string, Set<string>>();
   const touchedSurfaces = new Set<string>();
   const touchedBlobs = new Set<string>();
   let structural = false;
-  /** 改了 main 树结构或某个节点 role 的 surface：纯文字（text / splice）和光标这类操作不影响 roleIndex。 */
-  const roleDirty = new Set<string>();
+  /** 祖先换位置会改变子树的文档顺序，changed 里看不出来：这批的 NodeWatch 整份重扫（见 node-watch.ts）。 */
+  let moved = false;
   const births: BirthCounter = new Map();
   for (const message of messages) {
     if (message.verb === "f") {
       for (const op of message.body.ops) {
         if (op[0] === "add") recordBirths(taskId, message.body.sf, op[2], op[4], births);
+        else if (op[0] === "move") moved = true;
       }
     }
     const result = applyMessage(mirror.doc, message);
@@ -133,11 +115,6 @@ function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDoc
       if (!set) changed.set(sf, (set = new Set()));
       for (const id of ids) set.add(id);
     }
-    if (
-      message.verb === "f" &&
-      !message.body.ops.every((op) => typeof op[0] === "string" && NON_STRUCTURAL_OPS.has(op[0]))
-    )
-      roleDirty.add(message.body.sf);
     switch (message.verb) {
       case "o":
       case "x":
@@ -154,18 +131,16 @@ function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDoc
     }
   }
   mirror.seq += messages.length;
+  // o / x 换掉或删掉整份节点表，changed 里只有根：同样重扫。
+  const reset = structural || moved;
+  for (const sf of mirror.roles.update(mirror.doc, changed, reset)) {
+    roleIndexes.delete(`${taskId}${SEP}${sf}`);
+    notify(roleKey(taskId, sf));
+  }
+  for (const watch of mirror.watches.values()) watch.update(mirror.doc, changed, reset);
   for (const [sf, ids] of changed) {
     touchedSurfaces.add(sf);
-    if (roleDirty.has(sf)) roleIndexes.delete(`${taskId}${SEP}${sf}`);
-    const nodes = mirror.doc.surfaces.get(sf)?.nodes;
-    let roleChanged = false;
-    for (const id of ids) {
-      notify(nodeKey(taskId, sf, id));
-      const node = nodes?.get(id);
-      const nodeRole = node?.p["role"];
-      if (!node || (typeof nodeRole === "string" && TRACKED_ROLES.includes(nodeRole))) roleChanged = true;
-    }
-    if (roleChanged) notify(roleKey(taskId, sf));
+    for (const id of ids) notify(nodeKey(taskId, sf, id));
   }
   for (const sf of touchedSurfaces) notify(surfaceKey(taskId, sf));
   for (const id of touchedBlobs) notify(blobKey(taskId, id));
@@ -190,13 +165,30 @@ function fetchSnapshot(taskId: TaskId): void {
     (snapshot) => {
       const pending = fetching.get(taskId) ?? [];
       fetching.delete(taskId);
-      const mirror: Mirror = { seq: snapshot.seq, doc: restoreDocument(snapshot.document) };
+      const doc = restoreDocument(snapshot.document);
+      // blob 按内容寻址：旧镜像里已有字节的直接沿用（丢帧重拉不重新取），其余等有组件要时再取。
+      const previous = mirrors.get(taskId)?.doc.blobs;
+      const remoteBlobs = new Set<string>();
+      for (const id of snapshot.document.blobIds) {
+        const kept = previous?.get(id);
+        if (kept) doc.blobs.set(id, kept);
+        else remoteBlobs.add(id);
+      }
+      const mirror: Mirror = {
+        seq: snapshot.seq,
+        doc,
+        roles: new NodeWatch(doc, ROLE_INDEX_NODES),
+        watches: new Map(),
+        remoteBlobs,
+      };
       for (const surface of mirror.doc.surfaces.values()) markKnown(taskId, surface.id, surface.nodes.values());
       mirrors.set(taskId, mirror);
       cachedSurfaces.delete(taskId);
       for (const key of cachedViews.keys()) if (key.startsWith(`${taskId}${SEP}`)) cachedViews.delete(key);
       notifyTask(taskId);
       if (!replay(taskId, mirror, pending)) fetchSnapshot(taskId);
+      // 已经挂着的图片（镜像换了、组件没重新订阅）：现在就取（攒着的批次里刚送到的不用取）。
+      for (const id of remoteBlobs) if (listeners.has(blobKey(taskId, id))) requestBlob(taskId, id);
       releaseSeqWaiters(taskId);
     },
     (error: unknown) => {
@@ -204,6 +196,28 @@ function fetchSnapshot(taskId: TaskId): void {
       console.error("getTspSnapshot 失败", error);
       // 追不上了：不让等它的驱动一直挂着。
       releaseSeqWaiters(taskId, true);
+    },
+  );
+}
+
+/** 取一个快照里列出、本地还没有字节的 blob；取到后通知订阅它的组件。取不到（进程换了）就当它不在了。 */
+function requestBlob(taskId: TaskId, id: string): void {
+  const mirror = mirrors.get(taskId);
+  const key = blobKey(taskId, id);
+  if (!mirror?.remoteBlobs.has(id) || mirror.doc.blobs.has(id) || blobRequests.has(key)) return;
+  blobRequests.add(key);
+  window.studio.getTspBlob(taskId, id).then(
+    (blob) => {
+      blobRequests.delete(key);
+      // 期间镜像可能换了（重拉快照）或被丢掉：只填进仍然列着它的那份。
+      const current = mirrors.get(taskId);
+      if (!current?.remoteBlobs.delete(id) || blob === null || current.doc.blobs.has(id)) return;
+      current.doc.blobs.set(id, blob);
+      notify(key);
+    },
+    (error: unknown) => {
+      blobRequests.delete(key);
+      console.error("getTspBlob 失败", error);
     },
   );
 }
@@ -233,6 +247,14 @@ export function ensureTspDocument(taskId: TaskId): void {
   if (!mirrors.has(taskId)) fetchSnapshot(taskId);
 }
 
+const dropListeners = new Set<(taskId: TaskId) => void>();
+
+/** 一份镜像被丢掉时回调（各自按任务记的界面缓存跟着清，例如折叠状态）；返回取消函数。 */
+export function onTspDocumentDropped(listener: (taskId: TaskId) => void): () => void {
+  dropListeners.add(listener);
+  return () => dropListeners.delete(listener);
+}
+
 /** 丢掉一份镜像（任务被移除；应用内登录的临时会话每次登录都是一个新进程，对话框打开 / 重试时先丢掉上一次的）。之后再 ensure 会重新拉快照。 */
 export function dropTspDocument(taskId: TaskId): void {
   forgetBirths(taskId);
@@ -247,6 +269,7 @@ export function dropTspDocument(taskId: TaskId): void {
   notifyTask(taskId);
   releaseSeqWaiters(taskId);
   seqWaiters.delete(taskId);
+  for (const listener of dropListeners) listener(taskId);
 }
 
 // ───────── 读取 ─────────
@@ -346,7 +369,12 @@ export function useTspNoVisibleChild(
 export function useTspBlob(taskId: TaskId, id: string | undefined): DocBlob | null {
   const key = id?.toLowerCase();
   const sub = useMemo(
-    () => (l: () => void) => (key === undefined ? () => undefined : subscribe(blobKey(taskId, key), l)),
+    () => (l: () => void) => {
+      if (key === undefined) return () => undefined;
+      const unsubscribe = subscribe(blobKey(taskId, key), l);
+      requestBlob(taskId, key);
+      return unsubscribe;
+    },
     [taskId, key],
   );
   return useSyncExternalStore(sub, () =>
@@ -459,41 +487,11 @@ function roleIndex(taskId: TaskId, sf: string): RoleIndex | null {
   const mirror = mirrors.get(taskId);
   if (!mirror) return null;
   const cacheKey = `${taskId}${SEP}${sf}`;
-  let cached = roleIndexes.get(cacheKey);
-  if (!cached || cached.mirror !== mirror) {
-    const nodes = mirror.doc.surfaces.get(sf)?.nodes;
-    const byRole = new Map<string, string[]>(TRACKED_ROLES.map((r) => [r, []]));
-    /** 按文档顺序切轮：第一个 omp.user 之前的内容不算轮。 */
-    const turns: { lastAssistant: string | null; hasUsage: boolean }[] = [];
-    const walk = (id: string): void => {
-      const node = nodes?.get(id);
-      if (!node) return;
-      const nodeRole = node.p["role"];
-      if (typeof nodeRole === "string") {
-        byRole.get(nodeRole)?.push(id);
-        const turn = turns[turns.length - 1];
-        if (nodeRole === USER_ROLE) turns.push({ lastAssistant: null, hasUsage: false });
-        else if (turn && nodeRole === ASSISTANT_ROLE) turn.lastAssistant = id;
-        else if (turn && nodeRole === USAGE_ROLE) turn.hasUsage = true;
-      }
-      for (const child of node.c) walk(child);
-    };
-    walk("main");
-    const lastAssistantOfBareTurn = new Map<string, number>();
-    turns.forEach((turn, index) => {
-      if (turn.lastAssistant === null || turn.hasUsage) return;
-      lastAssistantOfBareTurn.set(turn.lastAssistant, index);
-    });
-    cached = {
-      mirror,
-      byRole,
-      turnCount: turns.length,
-      lastAssistantOfBareTurn,
-      trailingError: nodes === undefined ? null : trailingErrorCardId(nodes),
-    };
-    roleIndexes.set(cacheKey, cached);
-  }
-  return cached;
+  const cached = roleIndexes.get(cacheKey);
+  if (cached?.mirror === mirror) return cached.index;
+  const index = buildRoleIndex(mirror.doc.surfaces.get(sf)?.nodes);
+  roleIndexes.set(cacheKey, { mirror, index });
+  return index;
 }
 
 function roleIds(taskId: TaskId, sf: string, role: string): readonly string[] {
@@ -613,29 +611,40 @@ export function useTspDrive(taskId: TaskId): TspDrive | null {
   return useSyncExternalStore(sub, () => drives.get(taskId) ?? null);
 }
 
-/** useTspDerived 的共享结果：(任务, derive 函数) → 在镜像的哪一版上算的、结果。多个组件用同一个 derive 时每个文档版本只算一次。 */
-const derivedCache = new Map<TaskId, Map<unknown, { mirror: Mirror; seq: number; value: unknown }>>();
+/**
+ * useTspDerived 的共享结果：(任务, derive 函数) → 在镜像的哪一版上算的、结果。多个组件用同一个 derive 时每个版本只算一次。
+ * 版本：声明了 `nodes` 的是那份 NodeWatch 的 version（相关节点变了才变），没声明的是镜像的 seq（每批都变）。
+ */
+const derivedCache = new Map<TaskId, Map<unknown, { mirror: Mirror; version: number; value: unknown }>>();
 
 /**
- * 从文档推导一个值（每批消息后重算，结果和上次相等就沿用上次的对象，不重画）。`derive` / `same` 必须是稳定引用（模块级函数），
- * 同一个 `derive` 配的 `same` 也必须是同一个：缓存按 (任务, derive) 共享。没有镜像时为 null。
+ * 从文档推导一个值（结果和上次相等就沿用上次的对象，不重画）。`derive` / `same` / `nodes` 必须是稳定引用（模块级），
+ * 同一个 `derive` 配的 `same`、`nodes` 也必须是同一个：缓存按 (任务, derive) 共享。没有镜像时为 null。
+ * `nodes`：derive 只读这些节点（见 shared/tsp/node-watch.ts 的前提），它们没变就不重算；不给则每批消息后重算。
  */
 export function useTspDerived<T>(
   taskId: TaskId,
   derive: (doc: TspDocument) => T,
   same: (a: T, b: T) => boolean,
+  nodes?: NodeDeps,
 ): T | null {
   const sub = useMemo(() => (l: () => void) => subscribe(panelKey(taskId), l), [taskId]);
   return useSyncExternalStore(sub, () => {
     const mirror = mirrors.get(taskId);
     if (!mirror) return null;
+    let version = mirror.seq;
+    if (nodes) {
+      let watch = mirror.watches.get(nodes);
+      if (!watch) mirror.watches.set(nodes, (watch = new NodeWatch(mirror.doc, nodes)));
+      version = watch.version;
+    }
     let byDerive = derivedCache.get(taskId);
     if (!byDerive) derivedCache.set(taskId, (byDerive = new Map()));
     const entry = byDerive.get(derive);
-    if (entry && entry.mirror === mirror && entry.seq === mirror.seq) return entry.value as T;
+    if (entry && entry.mirror === mirror && entry.version === version) return entry.value as T;
     const next = derive(mirror.doc);
     const value = entry && same(entry.value as T, next) ? (entry.value as T) : next;
-    byDerive.set(derive, { mirror, seq: mirror.seq, value });
+    byDerive.set(derive, { mirror, version, value });
     return value;
   });
 }

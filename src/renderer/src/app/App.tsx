@@ -1,30 +1,17 @@
 // 应用布局（spec §3.1–3.3）：40px 通栏任务条 + 侧栏 + 四角圆的主区“纸面”；窄窗口侧栏变抽屉。
 // 各功能入口的导出名和 props 是约定（props 只有 id，数据从 store hook 取）。
 import { reportError } from "../ui/errors.ts";
-import {
-  Activity,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type CSSProperties,
-} from "react";
+import { Activity, useEffect, useLayoutEffect, useRef, useSyncExternalStore, type CSSProperties } from "react";
 import type { TaskId } from "../../../shared/ipc.ts";
-import { useVisibleTaskIds } from "../features/sidebar/visible-order-store.ts";
+import { getVisibleTaskIds } from "../features/sidebar/visible-order-store.ts";
 import { Composer } from "../features/composer/index.ts";
 import { BtwPanel } from "../features/btw/index.ts";
 import { SessionTreePanel } from "../features/conversation/index.ts";
 import { TspView } from "../features/tsp/index.ts";
-import { GitDialogHost } from "../features/git/index.ts";
-import { SessionInfoHost } from "../features/session-info/index.ts";
 import { NoticeLayer } from "../features/dialogs/index.ts";
 import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts";
-import { OmpSetupView } from "../features/omp-setup/index.ts";
-import { ReviewHost } from "../features/review/index.ts";
-import { FilePreviewPane, toggleFilesPanel, usePreviewPanel } from "../features/file-preview/index.ts";
-import { AgentsPanel, closeAgentsPanel, useAgentsPanel } from "../features/agents/index.ts";
-import { CommandPalette } from "../features/palette/index.ts";
+import { toggleFilesPanel, usePreviewPanel } from "../features/file-preview/index.ts";
+import { closeAgentsPanel, useAgentsPanel } from "../features/agents/index.ts";
 import {
   TerminalPanel,
   toggleTerminalFocus,
@@ -32,30 +19,42 @@ import {
   useDraftTerminalKey,
   useTerminalOpen,
 } from "../features/terminal/index.ts";
-import { SettingsNav, SettingsView } from "../features/settings/index.ts";
+import {
+  AgentsPanel,
+  CommandPalette,
+  FilePreviewPane,
+  GitDialogHost,
+  OmpSetupView,
+  preloadFrequentViews,
+  ReviewHost,
+  SessionInfoHost,
+  SettingsNav,
+  SettingsView,
+} from "./lazy-views.tsx";
 import { onStudioCommand } from "../features/palette/studio-command.ts";
 import { jumpToWaitingTask, Sidebar } from "../features/sidebar/index.ts";
 import { addProjectAsDraft } from "../features/sidebar/sidebar-actions.ts";
 import { useLocale, useT } from "../i18n/use-t.ts";
 import { openReview } from "../store/review-store.ts";
 import {
+  getTask,
   selectTask,
   setPaletteOpen,
   showView,
   useAppInfo,
+  useExistingTaskIds,
   useMainView,
   usePaletteOpen,
   useSelectedTaskId,
   useSettings,
   useSettingsSettled,
-  useTasks,
 } from "../store/index.ts";
 import { AboutDialog } from "./AboutDialog.tsx";
-import { setDrawerOpen, setSidebarCollapsed, useShellUi } from "./shell-store.ts";
+import { setDrawerOpen, setSidebarCollapsed, useShellValue } from "./shell-store.ts";
 import { SidebarResizer } from "./SidebarResizer.tsx";
 import { TopBar } from "./TopBar.tsx";
 import { useNavigation } from "./use-navigation.ts";
-import { usePresence } from "../ui/presence.ts";
+import { useDialogSlot, usePresence } from "../ui/presence.ts";
 import { useShortcuts } from "./use-shortcuts.ts";
 import { useCopyOnSelect } from "./use-copy-on-select.ts";
 import { restartSession } from "./restart-session.ts";
@@ -130,10 +129,15 @@ export function App() {
     if (panel !== null) closeAgentsPanel(false);
   }, [panel]);
   useDraftTerminalCleanup(draftKey);
-  const shell = useShellUi();
+  const sidebarWidth = useShellValue("sidebarWidth");
+  const sidebarCollapsed = useShellValue("sidebarCollapsed");
+  const drawerOpen = useShellValue("drawerOpen");
+  const sidebarColumn = useRef<HTMLDivElement>(null);
   const narrow = useNarrow();
   const navigation = useNavigation();
-  const [aboutOpen, setAboutOpen] = useState(false);
+  const about = useDialogSlot();
+  const openAbout = about.open;
+  const aboutKey = about.slot?.key ?? null;
 
   const theme = settings?.theme ?? null;
   const shownTheme = useRef<typeof theme>(null);
@@ -163,7 +167,13 @@ export function App() {
     const report = () => {
       if (reported) return;
       reported = true;
-      requestAnimationFrame(() => requestAnimationFrame(() => void window.studio.windowReady()));
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          void window.studio.windowReady();
+          // 窗口淡入之后空闲时载入命令面板、设置、终端（lazy-views.tsx）；其余按需加载的视图第一次打开时才载入。
+          requestIdleCallback(() => void preloadFrequentViews());
+        }),
+      );
     };
     const observer = new PerformanceObserver((list) => {
       if (list.getEntriesByName("first-contentful-paint").length > 0) report();
@@ -184,13 +194,12 @@ export function App() {
     document.documentElement.dataset["platform"] = platform;
   }, [platform]);
 
-  const sidebarShown = narrow ? shell.drawerOpen : !shell.sidebarCollapsed;
-  const drawerScrim = usePresence(narrow && shell.drawerOpen, "fade");
+  const sidebarShown = narrow ? drawerOpen : !sidebarCollapsed;
+  const drawerScrim = usePresence(narrow && drawerOpen, "fade");
 
   // 选了任务或变宽之后，抽屉自动收起。
   useEffect(() => setDrawerOpen(false), [taskId, narrow]);
 
-  const tasks = useTasks();
   // 草稿发出第一条消息后建出任务：输入框在原位接着用，不重放换页的淡入（否则从透明闪一下）。
   // 记的是"从草稿来的那个任务"，之后同一任务的重渲染保持不变，换到别的任务才清掉。
   const previousTaskId = useRef(taskId);
@@ -205,9 +214,8 @@ export function App() {
   const recent = useRef<TaskId[]>([]);
   if (taskId !== null && recent.current[0] !== taskId)
     recent.current = [taskId, ...recent.current.filter((id) => id !== taskId)].slice(0, KEPT_VIEWS);
-  const kept = recent.current.filter((id) => tasks.some((task) => task.id === id)).sort();
-  // Ctrl 1…9 和任务循环切换跟着侧栏眼前画出来的任务顺序（合并列表里展开着的行）。
-  const order = useVisibleTaskIds();
+  // 只订阅"这几个 id 里哪些还在"（不订阅整张任务表：任务状态事件很密，App 一重渲染整个外壳都跟着渲染）。
+  const kept = useExistingTaskIds([...recent.current].sort());
   const openTask = (id: TaskId | undefined) => {
     if (id !== undefined) selectTask(id).catch((error: unknown) => reportError(t, error));
   };
@@ -234,8 +242,8 @@ export function App() {
   // 新任务 = 草稿（空状态里的输入框）；发出第一条消息时才创建任务。
   const newTask = () => startDraft();
   const toggleSidebar = () => {
-    if (narrow) setDrawerOpen(!shell.drawerOpen);
-    else setSidebarCollapsed(!shell.sidebarCollapsed);
+    if (narrow) setDrawerOpen(!drawerOpen);
+    else setSidebarCollapsed(!sidebarCollapsed);
   };
 
   // 命令面板的"切换侧栏"以事件发来；用 ref 取最新的 toggleSidebar。/rename 要在侧栏里就地改名，收起时先展开。
@@ -248,9 +256,9 @@ export function App() {
       onStudioCommand((command) => {
         if (command === "toggleSidebar" || (command === "rename" && !sidebarShownRef.current))
           toggleSidebarRef.current();
-        else if (command === "about") setAboutOpen(true);
+        else if (command === "about") openAbout(true);
       }),
-    [],
+    [openAbout],
   );
   const reportErrorRef = useRef((error: unknown) => reportError(t, error));
   reportErrorRef.current = (error: unknown) => reportError(t, error);
@@ -264,11 +272,13 @@ export function App() {
 
   useShortcuts({
     newTask,
-    newTaskInCurrentProject: () => startDraft(tasks.find((task) => task.id === taskId)?.projectId ?? null),
+    newTaskInCurrentProject: () => startDraft((taskId === null ? null : getTask(taskId))?.projectId ?? null),
     jumpToWaiting: () => void jumpToWaitingTask(taskId, t),
     focusComposer: () => focusComposer(true),
-    nthTask: (n) => openTask(order[n - 1]),
+    // Ctrl 1…9 和任务循环切换跟着侧栏眼前画出来的任务顺序（合并列表里展开着的行），按键时才读。
+    nthTask: (n) => openTask(getVisibleTaskIds()[n - 1]),
     cycleTask: (delta) => {
+      const order = getVisibleTaskIds();
       if (order.length === 0) return;
       const at = order.findIndex((id) => id === taskId);
       openTask(order[at === -1 ? (delta === 1 ? 0 : order.length - 1) : (at + delta + order.length) % order.length]);
@@ -301,11 +311,11 @@ export function App() {
       if (view === "conversation") toggleFilesPanel(terminalKey);
     },
     restartSession: () => {
-      const current = tasks.find((task) => task.id === taskId);
-      if (current !== undefined && view === "conversation") void restartSession(t, current);
+      const current = taskId === null ? null : getTask(taskId);
+      if (current !== null && view === "conversation") void restartSession(t, current);
     },
     closeDrawer: () => {
-      if (!narrow || !shell.drawerOpen) return false;
+      if (!narrow || !drawerOpen) return false;
       setDrawerOpen(false);
       return true;
     },
@@ -330,16 +340,17 @@ export function App() {
           />
         )}
         <div
+          ref={sidebarColumn}
           className="sidebar-column"
           data-testid="sidebar-column"
           inert={!sidebarShown}
-          style={{ "--sidebar-current": `${shell.sidebarWidth}px` } as CSSProperties}
+          style={{ "--sidebar-current": `${sidebarWidth}px` } as CSSProperties}
         >
           {/* 进设置时侧栏位置换成设置导航；窄窗口的抽屉里仍是会话列表，设置导航改成内容顶上的下拉 */}
           {view === "settings" && !narrow ? <SettingsNav /> : <Sidebar />}
         </div>
         <main className="panel" data-testid="main-panel">
-          {!narrow && sidebarShown && <SidebarResizer width={shell.sidebarWidth} />}
+          {!narrow && sidebarShown && <SidebarResizer width={sidebarWidth} column={sidebarColumn} />}
           {/* 过程区是 omp 的节点（TspView），输入框是 studio 的 Composer。最近看过的任务的 TspView 都在这里，只有当前任务的显示；
               进设置、回空状态时也留着。key 带前缀，和下面同一任务 id 的兄弟区分开。
               进设置时当前任务的过程区不藏进 Activity（parked）：长对话从 display:none 回来要把上万个节点重算样式、重挂所有 effect，
@@ -373,7 +384,7 @@ export function App() {
           <AgentsPanel key={`agents:${taskId}`} taskId={taskId} selected={agentsPanel.selected} />
         )}
       </div>
-      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+      {aboutKey !== null && <AboutDialog key={aboutKey} onExited={() => about.closed(aboutKey)} />}
       <DropOverlay />
       <EditMenu />
       <ReviewHost />

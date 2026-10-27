@@ -150,11 +150,12 @@ export function extractJson(stdout: string, what: string): unknown {
  * 跳过；只有 JSON 时返回空串（界面不弹 toast，开关本身已经变了）。
  */
 export function actionMessage(stdout: string): string {
-  const lines = stdout
-    .split(/\r?\n/)
-    .map((line) => line.replace(/^\s*[✔✘]\s*/u, "").trim())
-    .filter((line) => line !== "" && !/^[[{]/.test(line));
-  return lines[0] ?? "";
+  return (
+    stdout
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^\s*[✔✘]\s*/u, "").trim())
+      .find((line) => line !== "" && !/^[[{]/.test(line)) ?? ""
+  );
 }
 
 function str(value: unknown): string | null {

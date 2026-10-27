@@ -46,13 +46,15 @@ interface Harness {
   stateFile: string;
 }
 
-/** onPath: PATH 上 omp 的情况；installs 记录每个 exe 的版本和管理者。 */
+/** onPath: PATH 上 omp 的情况；installs 记录每个 exe 的版本和管理者。spawnsReady：启动准备（默认已做完）。 */
 function harness(
   onPath: { kind: "none" } | { kind: "script"; path: string } | { kind: "exe"; install: OmpInstall },
   reuseDir?: string,
-): Harness {
+  spawnsReady: Promise<void> = Promise.resolve(),
+): Harness & { lookups: string[] } {
   const dir = reuseDir ?? path.join(scratch, `用例 ${++counter}`);
   const statuses: OmpStatus[] = [];
+  const lookups: string[] = [];
   const userPathAdds: string[] = [];
   const userPathEntries: string[] = [];
   const deps: ManagerDeps = {
@@ -61,6 +63,7 @@ function harness(
     fetch: (url, init) => fetch(url, init as RequestInit),
     baseUrl,
     findOnPath: () => {
+      lookups.push("PATH");
       if (onPath.kind === "script") throw new UnsupportedOmpLauncherError(onPath.path);
       return Promise.resolve(onPath.kind === "exe" ? onPath.install.path : null);
     },
@@ -77,8 +80,12 @@ function harness(
     },
     emit: (status) => statuses.push(status),
     runUpdate: () => Promise.resolve({ exitCode: 0, output: "" }),
+    spawnsReady: () => {
+      lookups.push("gate");
+      return spawnsReady;
+    },
   };
-  return { manager: new OmpManager(deps), statuses, userPathAdds, stateFile: deps.stateFile };
+  return { manager: new OmpManager(deps), statuses, userPathAdds, stateFile: deps.stateFile, lookups };
 }
 
 const userExe: OmpInstall = { path: "C:\\Users\\某 人\\omp\\omp.exe", version: "18.8.7", manager: null };
@@ -89,6 +96,19 @@ const ternExe: OmpInstall = {
 };
 
 describe("OmpManager", () => {
+  it("does not look for omp or run it before the startup preparation (spawn gate) is done", async () => {
+    const gate = Promise.withResolvers<void>();
+    const h = harness({ kind: "exe", install: ternExe }, undefined, gate.promise);
+    const running = h.manager.start();
+    await expect.poll(() => h.lookups).toEqual(["gate"]);
+    expect(h.manager.status.state).toBe("discovering");
+    gate.resolve();
+    await expect.poll(() => h.manager.status.state).toBe("ask_takeover");
+    expect(h.lookups).toEqual(["gate", "PATH"]);
+    await h.manager.answerTakeover(false);
+    await running;
+  });
+
   it("asks about a Tern-managed omp; on yes installs its own copy first on the user PATH and leaves Tern's files alone", async () => {
     const h = harness({ kind: "exe", install: ternExe });
     const running = h.manager.start();

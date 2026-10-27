@@ -44,6 +44,7 @@ import {
   withCurrent,
   type ModelSources,
 } from "./role-options.ts";
+import { useAsyncAction } from "./use-async-action.ts";
 
 const thinkingLevels = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
 const unset = "";
@@ -172,14 +173,14 @@ function RoleRow({
   // 配置里的档位这个模型不支持（或模型不在目录里）：原样留着显示，别悄悄显示成别的。
   if (level !== null && !levels.includes(level as ThinkingLevel))
     thinkingOptions.push({ value: level, label: levelText(t, level) });
-  const chainSelectors = chain.map((entry) => splitRoleValue(entry).selector);
+  const chainSelectors = new Set(chain.map((entry) => splitRoleValue(entry).selector));
   // 可加 / 可换成的备用：不含主模型和已经在链里的（换模型时自己的当前值照样列出）。
   const fallbackOptions = (own: string | null): SelectOption<string>[] =>
     withCurrent(
       fallbackCandidates
         .filter(
           (candidate) =>
-            candidate.value === own || (candidate.value !== selector && !chainSelectors.includes(candidate.value)),
+            candidate.value === own || (candidate.value !== selector && !chainSelectors.has(candidate.value)),
         )
         .map((candidate) => ({ ...candidate, display: candidate.value })),
       own,
@@ -311,7 +312,7 @@ function AddRoleDialog({
   const [open, setOpen] = useState(true);
   const [name, setName] = useState("");
   const [model, setModel] = useState(unset);
-  const [saving, setSaving] = useState(false);
+  const { busy: saving, run } = useAsyncAction((error) => reportError(t, error));
   const candidates = candidatesOfKinds(["chat"], sources);
   const trimmed = name.trim();
   const nameError =
@@ -324,17 +325,12 @@ function AddRoleDialog({
           : null;
   const picked = candidates.find((candidate) => candidate.value === model);
   const canSave = trimmed !== "" && nameError === null && picked !== undefined && !saving;
-  const save = async () => {
+  const save = () => {
     if (!canSave) return;
-    setSaving(true);
-    try {
+    return run(async () => {
       await saveOmpModelRole(trimmed, picked.key);
       setOpen(false);
-    } catch (error) {
-      reportError(t, error);
-    } finally {
-      setSaving(false);
-    }
+    });
   };
   return (
     <Dialog

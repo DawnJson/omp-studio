@@ -193,15 +193,27 @@ function fadeWindow(window: BrowserWindow, to: 0 | 1): Promise<boolean> {
 
 /** 启动的窗口：ready-to-show 时已经透明着显示，等渲染进程第一帧画完再淡入；淡入过就清掉，之后重载页面不再触发。 */
 let awaitingFirstFrame: BrowserWindow | null = null;
+/** 启动的窗口第一次淡入完成后跑一次（index.ts 的预读）。 */
+let onFirstReveal: (() => void) | null = null;
+
+/** 启动的窗口第一次淡入完成后调用 callback 一次（不管是渲染进程第一帧触发的，还是先被第二个实例等带到前台的）。 */
+export function afterFirstReveal(callback: () => void): void {
+  onFirstReveal = callback;
+}
 
 /** 显示隐藏着的窗口并淡入（透明着显示的、淡出到一半的也淡入）；已经完全显示的不动。最小化的由调用方 restore，那是系统动画。 */
 export function revealWindow(window: BrowserWindow): void {
-  if (awaitingFirstFrame === window) awaitingFirstFrame = null;
+  const first = awaitingFirstFrame === window;
+  if (first) awaitingFirstFrame = null;
   if (!window.isVisible()) {
     window.setOpacity(0);
     window.show();
   }
-  if (window.getOpacity() < 1) void fadeWindow(window, 1);
+  const faded = window.getOpacity() < 1 ? fadeWindow(window, 1) : Promise.resolve(true);
+  if (!first) return;
+  const callback = onFirstReveal;
+  onFirstReveal = null;
+  if (callback) void faded.then(callback);
 }
 
 /** 淡出后隐藏；隐藏后把不透明度还原，别的地方直接 show() 也不会是透明的。淡出途中被重新显示打断就不隐藏。 */

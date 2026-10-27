@@ -20,7 +20,7 @@ import {
 } from "../../../../shared/ui/usage-summary.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { Badge } from "../../ui/controls.tsx";
-import { useNow } from "../sidebar/task-time.ts";
+import { useCoarseNow } from "../sidebar/task-time.ts";
 import "./usage.css";
 
 function parseDate(text: string): Date {
@@ -56,7 +56,7 @@ function limitName(limit: QuotaLimit): string {
 function QuotaLimitRow({ limit }: { limit: QuotaLimit }) {
   const t = useT();
   const locale = useLocale();
-  const now = useNow();
+  const now = useCoarseNow();
   const left = leftPercent(limit);
   const name = limitName(limit);
   const status =
@@ -103,7 +103,7 @@ function accountStatus(account: QuotaAccount): "ok" | "warning" | "exhausted" {
 function ResetCreditsBadge({ credits }: { credits: QuotaResetCredits }) {
   const t = useT();
   const locale = useLocale();
-  const now = useNow();
+  const now = useCoarseNow();
   const parts: string[] = [];
   if (credits.redeemableCount !== credits.bankedCount)
     parts.push(t("usage.quota.credits.usable", { count: credits.redeemableCount }));
@@ -151,7 +151,7 @@ function planTermText(account: QuotaAccount, now: number, t: ReturnType<typeof u
 /** 一个账号一块：左边状态点 + provider（套餐 / Daybreak）+ 账号 + 套餐到期 / 续费 + 备注 + 重置券，右边是各窗口的行。 */
 export function QuotaBlock({ account }: { account: QuotaAccount }) {
   const t = useT();
-  const now = useNow();
+  const now = useCoarseNow();
   const term = planTermText(account, now, t);
   return (
     <section className="uq-block" data-testid="usage-account">
@@ -299,6 +299,8 @@ function layoutDays(heatmap: UsageHeatmap): Cell[][] {
   const end = parseDate(heatmap.to);
   const weeks: Cell[][] = [];
   const cursor = new Date(start);
+  // cursor 是 Date，循环体里用 setDate 原地往后推。
+  // eslint-disable-next-line no-unmodified-loop-condition
   while (cursor <= end) {
     const week: Cell[] = [];
     for (let i = 0; i < 7; i++) {
@@ -326,7 +328,7 @@ function monthLabels(weeks: readonly Cell[][], locale: Locale): (string | null)[
 }
 
 // 周一、周三、周五标在对应行；2024-01-01 是周一。
-const weekdayRows = [0, 2, 4];
+const weekdayRows = new Set([0, 2, 4]);
 
 /**
  * 热力图本体（不带外框）：左边星期、上面月份、中间格子（按花费着色）、下面"N 天有记录 · 最长连续 N 天"和图例。
@@ -358,7 +360,7 @@ export function HeatmapView({ heatmap }: { heatmap: UsageHeatmap }) {
   const weekdays = useMemo(() => {
     const format = new Intl.DateTimeFormat(locale, { weekday: "short" });
     return Array.from({ length: 7 }, (_, row) =>
-      weekdayRows.includes(row) ? format.format(new Date(2024, 0, 1 + row)) : null,
+      weekdayRows.has(row) ? format.format(new Date(2024, 0, 1 + row)) : null,
     );
   }, [locale]);
   const max = Math.max(0, ...heatmap.days.map((day) => day.costUsd));

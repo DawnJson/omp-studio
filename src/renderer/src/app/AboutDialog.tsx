@@ -1,6 +1,7 @@
 // "关于与反馈"对话框（命令面板"关于与反馈"打开；设置 → 关于是完整页）。ui/Dialog sm：标志、版本（带上 omp 的版本）、更新状态，
 // 页脚右对齐两个动作——复制版本信息（报问题时贴，运行时版本只在这里面）、报告问题。日志和诊断信息在设置 → 关于。
 // Esc、右上角 ×、点遮罩关闭，Tab 在框内循环，关闭后焦点回到打开前的元素。
+// 只在打开时挂载（父级用 useDialogSlot 记这一次）：关着时不订阅更新进度、任务表这些很密的事件。
 import { useState } from "react";
 import { markHeight, markWidth } from "../../../shared/ui/pixel-pi.ts";
 import { pushToast } from "../features/dialogs/index.ts";
@@ -19,7 +20,8 @@ const issuesUrl = "https://github.com/DawnJson/omp-studio/issues/new/choose";
 /** 标志每像素占几个 CSS 像素。 */
 const MARK_SCALE = 4;
 
-export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void }) {
+export function AboutDialog({ onExited }: { onExited(): void }) {
+  const [open, setOpen] = useState(true);
   const t = useT();
   const appInfo = useAppInfo();
   const ompStatus = useOmpStatus();
@@ -65,7 +67,8 @@ export function AboutDialog({ open, onClose }: { open: boolean; onClose(): void 
     <>
       <Dialog
         open={open}
-        onClose={onClose}
+        onClose={() => setOpen(false)}
+        onExited={onExited}
         size="sm"
         title={t("shell.appName")}
         testId="about-dialog"

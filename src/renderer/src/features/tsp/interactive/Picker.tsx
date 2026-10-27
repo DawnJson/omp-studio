@@ -73,6 +73,7 @@ export function Picker(props: NodeProps) {
 
   // 滚动窗口
   const scroller = useRef<HTMLDivElement>(null);
+  /** 视口顶上那一条的 top（不是原始 scrollTop）：同一条里滚动值不变，不重画。 */
   const [scrollTop, setScrollTop] = useState(0);
   const [viewport, setViewport] = useState(360);
   const [mainWidth, setMainWidth] = useState(640);
@@ -266,7 +267,10 @@ export function Picker(props: NodeProps) {
                   <div
                     className="tspi-pk-scroll"
                     ref={scroller}
-                    onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+                    onScroll={(e) => {
+                      const first = visibleRange(entries, e.currentTarget.scrollTop, 0, 0)[0];
+                      setScrollTop(entries[first]?.top ?? 0);
+                    }}
                   >
                     <div className="tspi-pk-spacer" role="listbox" style={{ height: contentHeight }}>
                       {entries.slice(from, to).map((entry) =>

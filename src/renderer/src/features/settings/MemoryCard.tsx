@@ -15,6 +15,7 @@ import { Button, IconButton, Row, SectionHead, Tabs, tabPanelProps, type Tab } f
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { runBuiltinText } from "./integrations-data.ts";
 import { setCardScope, useCardScope, type ScopeKey } from "./integrations-store.ts";
+import { useAsyncAction } from "./use-async-action.ts";
 import { ScopePicker } from "./ScopePicker.tsx";
 
 // 只用 MEMORY_OPS 里的子集，编译期确认它们都在里面。
@@ -30,8 +31,8 @@ export function MemoryCard() {
   const tabsId = useId();
   const [readOp, setReadOp] = useState<ReadOp>("stats");
   const [text, setText] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { busy, run: runAction } = useAsyncAction((caught) => setError(errorDetail(caught)));
   const [confirmClear, setConfirmClear] = useState(false);
 
   // 默认选当前任务所在的项目，其次第一个项目；选中的项目被移除了就换掉。
@@ -44,18 +45,11 @@ export function MemoryCard() {
 
   const run = async (op: ReadOp | "clear"): Promise<boolean> => {
     if (scope === null) return false;
-    setBusy(true);
-    setError(null);
-    try {
+    return runAction(async () => {
+      setError(null);
       const output = await runBuiltinText({ kind: "memory", op }, scope);
       setText(output.trim());
-      return true;
-    } catch (caught) {
-      setError(errorDetail(caught));
-      return false;
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   // 换项目或换查看项时重读（动作的结果留在原处，直到换了查看项）。

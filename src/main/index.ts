@@ -7,11 +7,12 @@ import { initLog } from "./log/instance.ts";
 import { prewarmToolbarData } from "./service/default-model.ts";
 import { log } from "./log/log.ts";
 import { fixLoginPath } from "./platform/darwin/login-path.ts";
+import { holdSpawnsUntil } from "./platform/spawn-gate.ts";
 import { loadSettings } from "./settings/settings-store.ts";
 import { startUpdates } from "./update/instance.ts";
 import { installAppProtocol, registerAppScheme } from "./window/app-protocol.ts";
 import { installHideOnClose } from "./window/hide-on-close.ts";
-import { createMainWindow, isAppUrl } from "./window/main-window.ts";
+import { afterFirstReveal, createMainWindow, isAppUrl } from "./window/main-window.ts";
 import { installSessionSecurity } from "./window/security.ts";
 import { showMainWindow } from "./window/show-window.ts";
 import { installShutdown } from "./window/shutdown.ts";
@@ -40,7 +41,7 @@ if (!app.requestSingleInstanceLock()) {
   if (testUserData) quitWhenParentExits();
   installHideOnClose();
 
-  void app.whenReady().then(async () => {
+  void app.whenReady().then(() => {
     // Windows 无系统菜单栏：顶栏的 ≡ 按钮弹出应用菜单（spec §3.1）。
     // mac 的 Cmd+C/V/X/A/Z、Cmd+Q/H/M/W 都靠应用菜单里的 role 提供，菜单为空这些键全失效，所以放一个只含系统 role 的最小菜单。
     // Cmd+Q = appMenu 的 quit role → app.quit() → before-quit，被 window/shutdown.ts 接住先跑退出 hook；
@@ -59,18 +60,19 @@ if (!app.requestSingleInstanceLock()) {
     installAppProtocol();
     installSessionSecurity(isAppUrl);
     loadSettings();
-    // 账号型 provider 的扩展写进 omp 的扩展目录：要在起任何 omp 之前，之后的 omp 进程自动加载它。
-    await prepareAccountExtension();
-    // mac / Linux 从桌面启动时 PATH 缺用户 shell 配置里加的目录：先补上登录 shell 的 PATH，之后起的 omp / git / gh 才找得到。
+    // 下面两件事和窗口同时做，不挡首帧；起子进程（omp、git、终端）的地方先等它们做完（platform/spawn-gate.ts）。
+    // 账号型 provider 的扩展写进 omp 的扩展目录：之后起的 omp 进程自动加载它。
+    holdSpawnsUntil(prepareAccountExtension());
+    // mac / Linux 从桌面启动时 PATH 缺用户 shell 配置里加的目录：补上登录 shell 的 PATH，之后起的 omp / git / gh 才找得到。
     // Windows 不执行，最多等 3 秒。
-    await fixLoginPath();
+    holdSpawnsUntil(fixLoginPath());
     registerIpcHandlers();
     createMainWindow();
     createTray();
     startUpdates().catch((error: unknown) => log.error("update service failed to start", error));
     void applyOmpStartupDefaults();
-    // 输入框工具行要的默认模型、模型目录：和窗口同时开始读，不等渲染进程来要。
-    prewarmToolbarData();
+    // 输入框工具行要的默认模型、模型目录：窗口淡入后再拉起服务进程去读，不和首帧抢 CPU（之前先用启动缓存里的值）。
+    afterFirstReveal(prewarmToolbarData);
     app.on("activate", () => {
       showMainWindow();
     });

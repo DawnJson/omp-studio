@@ -4,7 +4,7 @@
 //   layer 是盖在整块上的浮层容器（选择器等）；
 //   screen（如 /settings）：盖住整个过程区（连 dock，不含 Composer），自己的 main 自己滚。
 // 对话列宽度按等宽字符数算成列数，变化时通知 omp（resize）。
-import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
@@ -292,7 +292,8 @@ function ScreenSurface({ taskId, sf }: { taskId: TaskId; sf: string }) {
 }
 
 /** parked：设置页盖着当前任务（spec §4.19）：节点和 effect 都留着、只停画（content-visibility），键盘和 omp 的弹层、通知不再作用。 */
-export function TspView({ taskId, parked }: { taskId: TaskId; parked: boolean }) {
+// memo：App 每次重渲染（切任务、开关面板）时，留着的几个对话区 props 没变就不重渲染（props 只有 id 和布尔值）。
+export const TspView = memo(function TspView({ taskId, parked }: { taskId: TaskId; parked: boolean }) {
   const surfaces = useTspSurfaces(taskId);
   const firstPrompt = useFirstPrompt(taskId);
   const task = useTask(taskId);
@@ -307,9 +308,9 @@ export function TspView({ taskId, parked }: { taskId: TaskId; parked: boolean })
   }, [taskId, status]);
 
   // 会话本体是最后一个 inline surface（关掉以后留着的也画，对话还要能读）；screen 只画活的，盖在上面。
-  const inline = [...surfaces].reverse().find((s) => s.mode === "inline");
+  const inline = surfaces.findLast((s) => s.mode === "inline");
   const firstInline = surfaces.find((s) => s.mode === "inline");
-  const screen = [...surfaces].reverse().find((s) => s.mode === "screen" && s.live);
+  const screen = surfaces.findLast((s) => s.mode === "screen" && s.live);
   // 还没有 inline surface 但有刚发出的话：画和最终一样的版式（标题块 + 气泡），surface 出现时同一个组件原地接上，不重挂载。
   const showInline = inline !== undefined || firstPrompt !== undefined;
   const inlineKey = inline === undefined || inline.id === firstInline?.id ? "first" : inline.id;
@@ -339,4 +340,4 @@ export function TspView({ taskId, parked }: { taskId: TaskId; parked: boolean })
       </TspParkedCtx.Provider>
     </div>
   );
-}
+});

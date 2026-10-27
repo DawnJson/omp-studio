@@ -13,6 +13,7 @@ import { Reserve } from "../../ui/Reserve.tsx";
 import { KeyFields } from "./CustomProviderForm.tsx";
 import { mcpResource, runMcpWrite } from "./integrations-data.ts";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
+import { useAsyncAction } from "./use-async-action.ts";
 import "./integrations.css";
 
 type Kind = "stdio" | "http" | "sse";
@@ -76,8 +77,8 @@ export function McpForm({
   const [url, setUrl] = useState(edit?.url ?? "");
   const [token, setToken] = useState("");
   const [tokenMode, setTokenMode] = useState<TokenMode>(edit?.token === "set" ? "keep" : "none");
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { busy, run } = useAsyncAction((caught) => setError(errorDetail(caught)));
 
   const nameOk = edit !== undefined || NAME.test(name);
   const specOk = kind === "stdio" ? command.trim() !== "" : url.trim() !== "";
@@ -195,10 +196,9 @@ export function McpForm({
     </>
   );
 
-  const submit = async () => {
-    setBusy(true);
-    setError(null);
-    try {
+  const submit = () =>
+    run(async () => {
+      setError(null);
       if (edit !== undefined) {
         const input: McpEditInput = {
           name: edit.name,
@@ -221,12 +221,7 @@ export function McpForm({
       const outcome = await runMcpWrite(addCommand(name, target, kind, command, args, url, token), scopeKey);
       if (outcome.ok) onDone(outcome.message);
       else setError(outcome.message);
-    } catch (caught) {
-      setError(errorDetail(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   return (
     <Dialog

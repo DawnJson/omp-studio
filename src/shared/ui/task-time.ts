@@ -5,6 +5,18 @@ import type { Locale, TaskState } from "../ipc.ts";
 const minute = 60_000;
 const hour = 60 * minute;
 
+/** "10月3日" / "Oct 3" 的格式器按语言缓存：每行每次渲染都要用，构造一个 Intl.DateTimeFormat 比格式化本身贵得多。 */
+const dayFormats = new Map<Locale, Intl.DateTimeFormat>();
+
+function dayFormat(locale: Locale): Intl.DateTimeFormat {
+  let format = dayFormats.get(locale);
+  if (format === undefined) {
+    format = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" });
+    dayFormats.set(locale, format);
+  }
+  return format;
+}
+
 /**
  * 任务最后一次活动的时间：主进程持久化的 updatedAt，只在用户发消息和一轮结束时变
  * （选中、恢复、改名、归档都不动它；历史会话建的任务取会话文件的修改时间）。
@@ -20,7 +32,7 @@ export function formatTaskTime(t: TFunction, locale: Locale, timestamp: number, 
   if (elapsed < 24 * hour) return t("time.hours", { n: Math.floor(elapsed / hour) });
   const today = new Date(now).setHours(0, 0, 0, 0);
   if (timestamp >= today - 24 * hour && timestamp < today) return t("time.yesterday");
-  return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(timestamp);
+  return dayFormat(locale).format(timestamp);
 }
 
 /** 侧栏任务行的尾部文字；不显示尾部时是 null。运行中不满一分钟也不显示（状态点已经在转）。 */

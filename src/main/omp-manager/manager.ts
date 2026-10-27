@@ -33,6 +33,8 @@ export interface ManagerDeps {
   emit(status: OmpStatus): void;
   /** 对 PATH 上的 omp 执行 `omp update`。 */
   runUpdate(exePath: string): Promise<OmpUpgradeResult>;
+  /** 发现流程（查 PATH、跑 `omp --version`）开始前要等的启动准备（platform/spawn-gate.ts）：ready 之前起不了任何 omp。 */
+  spawnsReady(): Promise<void>;
 }
 
 /** 后台更新的检查间隔。 */
@@ -122,8 +124,9 @@ export class OmpManager {
   async #run(): Promise<void> {
     this.#set({ state: "discovering" });
     try {
+      await this.#deps.spawnsReady();
       await sweepOldBinaries(this.#layout);
-      // PATH 上的和自管的各跑一次 `omp --version`（互不依赖，一起跑；启动时 omp 就绪要等它们）。
+      // PATH 上的和自管的各读一次版本（互不依赖，一起跑；文件没变时用启动缓存里的结果，不跑 `omp --version`）。
       const [scan, managed, state] = await Promise.all([
         this.#scan(),
         this.#inspectManaged(),
@@ -441,7 +444,8 @@ export class OmpManager {
       const owner = Number.parseInt(await readFile(lock, "utf8").catch(() => ""), 10);
       const age = Date.now() - (await stat(lock)).mtimeMs;
       const alive = Number.isInteger(owner) && owner > 0 && isProcessAlive(owner);
-      if (alive && age < LOCK_STALE_MS) throw new Error("another omp-studio is updating omp right now");
+      if (alive && age < LOCK_STALE_MS)
+        throw new Error("another omp-studio is updating omp right now", { cause: error });
       await rm(lock, { force: true });
       handle = await acquire();
     }

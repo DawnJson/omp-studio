@@ -3,7 +3,6 @@
 import { reportError } from "../../ui/errors.ts";
 import { useTitleBarDim } from "../../ui/title-bar-dim.ts";
 import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import type { SessionSummary } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { primaryMod, shortcutLabel } from "../../app/platform-keys.ts";
 import {
@@ -17,6 +16,7 @@ import {
 } from "../../store/index.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { useHiddenTasks } from "../sidebar/archive-store.ts";
+import { useLoadedHistorySessions } from "../sidebar/use-history-sessions.ts";
 import { CommandIcon, SearchIcon, SessionIcon, SlashIcon, TaskIcon } from "../sidebar/icons.tsx";
 import { useProjects } from "../sidebar/projects-store.ts";
 import { startDraft } from "../empty/index.ts";
@@ -56,12 +56,13 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
   const draftTerminalKey = useDraftTerminalKey();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const restoreRef = useRef<HTMLElement | null>(document.activeElement as HTMLElement | null);
   const activeRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const visibleTasks = useMemo(() => tasks.filter((task) => !hidden.has(task.id)), [tasks, hidden]);
+  // 和侧栏共用一份历史会话列表（主进程每次取都要扫会话目录）。
+  const sessions = useLoadedHistorySessions();
   const current = visibleTasks.find((task) => task.id === selectedTaskId) ?? null;
   // 终端命令：当前任务，或对话页上的新任务草稿。
   const terminalKey = current?.id ?? (selectedTaskId === null && view === "conversation" ? draftTerminalKey : null);
@@ -72,19 +73,6 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
     () => (ompCommands.length === 0 ? ompCommands : withStudioSlash(ompCommands, studioSlashCommands, t)),
     [ompCommands, t],
   );
-
-  useEffect(() => {
-    let cancelled = false;
-    window.studio.listSessions(null).then(
-      (list) => {
-        if (!cancelled) setSessions(list.filter((session) => session.taskId === null));
-      },
-      (error: unknown) => reportError(t, error),
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [t]);
 
   const sections = useMemo(
     () =>
@@ -269,7 +257,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
 }
 
 export function CommandPalette() {
-  // 每次打开都重新挂载：查询、高亮行、历史会话列表都从头来；关闭时留着放完退出动画。
+  // 每次打开都重新挂载：查询、高亮行都从头来；关闭时留着放完退出动画。
   const open = usePaletteOpen();
   const presence = usePresence(open, "fade");
   return presence.mounted ? (

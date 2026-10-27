@@ -17,7 +17,7 @@ export function useOmpConfigLoader(): void {
     if (ready) void loadOmpConfig();
   }, [ready]);
   // 主进程启动时可能晚于设置页读快照才写入默认值：收到就静默重读，开关不停在旧值上。
-  useEffect(() => window.studio.onOmpConfigChanged(() => void loadOmpConfig()), []);
+  useEffect(() => window.studio.onOmpConfigChanged(() => void loadOmpConfig(true)), []);
 }
 
 const noOmit: readonly string[] = [];
@@ -28,12 +28,13 @@ const noOmit: readonly string[] = [];
  */
 export function useCommonConfigItems(group: ConfigGroup, omit: readonly string[] = noOmit): OmpConfigItem[] {
   const load = useConfigLoad();
+  const items = load.kind === "ready" ? load.data.items : null;
   return useMemo(
     () =>
-      load.kind === "ready"
-        ? commonItems(groupConfigItems(load.snapshot.items).get(group) ?? []).filter((item) => !omit.includes(item.key))
-        : [],
-    [load, group, omit],
+      items === null
+        ? []
+        : commonItems(groupConfigItems(items).get(group) ?? []).filter((item) => !omit.includes(item.key)),
+    [items, group, omit],
   );
 }
 
@@ -44,7 +45,7 @@ export function OmpConfigPane({ view }: { view: ConfigView }) {
   const status = useOmpStatus();
   const load = useConfigLoad();
   const query = view.kind === "search" ? view.query.trim() : "";
-  const snapshot = load.kind === "ready" ? load.snapshot : null;
+  const snapshot = load.kind === "ready" ? load.data : null;
   const results = useMemo(
     // 搜索只在会显示的项里找：终端专用的项（隐藏的）不出现。
     () =>

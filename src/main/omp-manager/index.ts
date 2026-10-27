@@ -5,6 +5,8 @@ import path from "node:path";
 import { emitEvent } from "../ipc/events.ts";
 import { findOmpOnPath, inspectOmp, type OmpInstall } from "../omp/discover.ts";
 import { addToUserPath, pathContains, readUserPath } from "../platform/win32/user-path.ts";
+import { spawnsReady } from "../platform/spawn-gate.ts";
+import { startupCache } from "../service/startup-cache-instance.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { OmpManager, runOmpUpdate, type ManagerDeps, type UserPathAccess } from "./manager.ts";
 import { MIN_OMP_VERSION } from "../../shared/omp-version.ts";
@@ -64,10 +66,11 @@ export function ompManager(): OmpManager {
       net.fetch(url, { ...(init?.headers && { headers: init.headers }), ...(init?.signal && { signal: init.signal }) }),
     baseUrl: process.env["PI_BUILD_URL"],
     findOnPath: () => findOmpOnPath(),
-    inspect: inspectOmp,
+    inspect: (exePath) => inspectOmp(exePath, startupCache()),
     userPath: process.platform === "win32" ? windowsUserPath() : null,
     emit: (status) => emitEvent("ompStatus", status),
     runUpdate: runOmpUpdate,
+    spawnsReady,
     ...testOverride(),
   });
   return manager;

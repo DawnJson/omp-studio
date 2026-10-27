@@ -1,33 +1,16 @@
 // 用量数据（只读）：订阅账号额度 + 近一年每日消耗。数据来源和取舍见 docs/architecture/omp-usage.md。
 //   额度：`omp usage --json`（omp 自己去各 provider 查，带缓存；没有登录账号时 reports 为空）。
 //   每日消耗：omp 的 `stats.db`（`message_rollup`，小时桶）。这个库**只有 `omp stats` 运行时才会同步新会话**，
-//   所以"刷新"= 先让 omp 自己跑一次 `omp stats --json`（它负责读会话文件、加锁、写库），再用 node:sqlite 只读地查。
-import { existsSync } from "node:fs";
+//   所以"刷新"= 先让 omp 自己跑一次 `omp stats --json`（它负责读会话文件、加锁、写库），再用 node:sqlite 只读地查（heatmap.ts，在 worker 里跑）。
 import os from "node:os";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { runCommand } from "../git/exec.ts";
-import { isRecord } from "../../shared/type-guards.ts";
-import { requireStatsSchema } from "./stats-schema.ts";
-import type {
-  QuotaAccount,
-  QuotaLimit,
-  QuotaResetCredits,
-  QuotaSnapshot,
-  QuotaUnavailable,
-  UsageDay,
-  UsageHeatmap,
-} from "../../shared/ipc.ts";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-const heatmapDays = 365;
+import { finiteNumber as num, isRecord, nonEmptyString as str } from "../../shared/type-guards.ts";
+import type { QuotaAccount, QuotaLimit, QuotaResetCredits, QuotaSnapshot, QuotaUnavailable } from "../../shared/ipc.ts";
 
 function list(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
-
-const str = (value: unknown): string | null => (typeof value === "string" && value !== "" ? value : null);
-const num = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
 
 /** 和 omp 的 resolveUsedFraction 同一个优先级：显式比例 > used/limit > percent 单位 > 1 - 剩余比例。 */
 function usedFraction(amount: Record<string, unknown>): number | null {
@@ -152,12 +135,6 @@ export function parseQuota(json: unknown, now: number = Date.now()): QuotaSnapsh
   return { generatedAt: num(root["generatedAt"]) ?? now, accounts, unavailable };
 }
 
-function localDate(ms: number): string {
-  const date = new Date(ms);
-  const two = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
-}
-
 /**
  * omp 的 stats.db 位置（实测，见 omp-usage.md）：`<home>/<PI_CONFIG_DIR 或 .omp>/[profiles/<profile>/]stats.db`。
  * `PI_CODING_AGENT_DIR` 不影响它。home / env 取启动 omp 子进程时用的同一份（子进程继承 process.env），
@@ -176,48 +153,6 @@ export function statsDbPath(env: NodeJS.ProcessEnv = process.env, home: string =
   return profile === "" || profile === "default"
     ? path.join(root, "stats.db")
     : path.join(root, "profiles", profile, "stats.db");
-}
-
-interface RollupRow {
-  bucket: number;
-  requests: number;
-  tokens: number;
-  cost: number;
-}
-
-/** 近 365 天（含今天，本地时区）每天的请求数、token、花费；没有数据的日子不出现。库不存在时 hasDatabase 为 false。 */
-export function readHeatmap(dbPath: string, now: number = Date.now()): UsageHeatmap {
-  const first = new Date(now);
-  first.setDate(first.getDate() - (heatmapDays - 1));
-  first.setHours(0, 0, 0, 0);
-  const from = localDate(first.getTime());
-  const to = localDate(now);
-  if (!existsSync(dbPath)) return { from, to, days: [], hasDatabase: false };
-  // stats.db 是 WAL；omp 同步写入时读方短暂等待而不是直接 BUSY。
-  const db = new DatabaseSync(dbPath, { readOnly: true, timeout: 5000 });
-  try {
-    requireStatsSchema(db, ["message_rollup"]);
-    // 小时桶按 UTC 对齐；多取一天，让本地时区的第一天不缺头。
-    const rows = db
-      .prepare(
-        "SELECT bucket, SUM(requests) AS requests, SUM(total_tokens) AS tokens, TOTAL(cost_total) AS cost FROM message_rollup WHERE bucket >= ? GROUP BY bucket",
-      )
-      .all(first.getTime() - DAY_MS);
-    const byDay = new Map<string, UsageDay>();
-    // node:sqlite 的 .all() 返回行对象，列名和上面的别名一一对应。
-    for (const row of rows as unknown as RollupRow[]) {
-      const date = localDate(row.bucket);
-      if (date < from) continue;
-      const day = byDay.get(date) ?? { date, requests: 0, tokens: 0, costUsd: 0 };
-      day.requests += row.requests;
-      day.tokens += row.tokens;
-      day.costUsd += row.cost;
-      byDay.set(date, day);
-    }
-    return { from, to, days: [...byDay.values()].sort((a, b) => a.date.localeCompare(b.date)), hasDatabase: true };
-  } finally {
-    db.close();
-  }
 }
 
 export type RunOmp = (args: string[]) => Promise<{ code: number; stdout: string; stderr: string }>;

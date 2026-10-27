@@ -16,6 +16,7 @@ import type {
   McpServerFile,
   McpTokenState,
 } from "../../shared/mcp-edit.ts";
+import { isRecord as isObject, isStringArray } from "../../shared/type-guards.ts";
 import { log } from "../log/log.ts";
 import { writeFileAtomic } from "../tasks/atomic-write.ts";
 
@@ -31,9 +32,6 @@ export function mcpFilePath(scope: McpEditScope, agentDir: string, projectDir: s
 function isNotFound(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
-
-const isObject = (value: unknown): value is Json =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const fail = (code: McpEditErrorCode): { ok: false; code: McpEditErrorCode } => ({ ok: false, code });
 
@@ -89,9 +87,6 @@ async function readIfExists(file: string): Promise<string | null> {
     throw error;
   }
 }
-
-const isStringArray = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every((item) => typeof item === "string");
 
 /** `headers` 里 Authorization 的键名（大小写不敏感）。 */
 function authorizationKey(headers: Json): string | undefined {

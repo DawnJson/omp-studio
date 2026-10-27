@@ -8,7 +8,6 @@ import {
   buildInfo,
   diffStats,
   filePaths,
-  formatElapsed,
   globPaths,
   headerTarget,
   parseDiff,
@@ -128,12 +127,6 @@ describe("头部与正文汇总", () => {
     expect(headerTarget("read", { path: "a.ts", offset: 60, limit: 101 })).toBe("a.ts:60-160");
     expect(headerTarget("read", { path: "a.ts:5-9", offset: 1 })).toBe("a.ts:5-9");
     expect(headerTarget("grep", { pattern: "x", offset: 3 })).toBe("x");
-  });
-
-  it("计时格式", () => {
-    expect(formatElapsed(52_130)).toBe("52.1s");
-    expect(formatElapsed(65_000)).toBe("1m 05s");
-    expect(formatElapsed(4_200_000)).toBe("1h 10m");
   });
 
   it("edit 有 diff：头部显示 +a −d；正文行数按行算（空输出为 0）", () => {

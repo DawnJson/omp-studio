@@ -46,7 +46,7 @@ flowchart LR
 
 - 源文件（相对 studio 仓库）：`src/main/client-accounts/extension/` —— `studio-accounts.mjs`（入口，列出要加载的插件模块）+ `shim.mjs`（通用宿主：插件 → `pi.registerProvider`）+ `adapter.mjs`（纯映射，能被单测直接 import）+ `adapter.d.mts`（它的类型声明，只给仓库里的 TS 用，不部署）+ `models-cache.mjs` + `vendor/<插件>/`（MIT，原样 vendor）+ `vendor/LICENSE`（magpie 社区仓库的 MIT 全文）+ `NOTICE.md`（每个插件的包名、版本、更新步骤）。
 - 打包：`deploy.ts` 用 `import.meta.glob(..., { query: "?raw", eager: true })` 把 `extension/` 下全部文件（`.d.mts` 除外）的原文并进主进程 bundle，启动时写到 `<agent 目录>/extensions/studio-accounts/`（agent 目录同 `resolveAgentDir`：`PI_CODING_AGENT_DIR`，否则 `<家目录>/<PI_CONFIG_DIR 或 .omp>/agent`），另加一个 `index.js`（`export { default } from "./studio-accounts.mjs"`：omp 只认目录里的 `index.ts` / `index.js`）。加插件只要把文件放进 `vendor/`、在入口里 import，不用改部署表。**不放进 asar**：omp 是另一个进程，读不了 asar。这样 `electron-builder.yml` 的 `files` 不用改（AGENTS.md「安装包里只有应用本身」）。
-- 写入规则：只写这一个目录。内容一样的文件不碰，变了的先写临时文件再换名（终端里的 omp 可能正在读）；写过的文件清单记在 `.studio-files.json`，下次启动按清单删掉新版本没有的文件，清单里指向目录外的路径一律忽略；插件自己写的模型缓存（`models-cache-v3.json`）不在清单里，不动。启动时 `prepareAccountExtension()`（`prepare.ts`，在起任何 omp 之前 await）部署一次；部署失败只记日志，不拦任何功能。顺带删掉 0.4.24–0.4.27 写在 `userData/omp-extensions/` 的旧部署。
+- 写入规则：只写这一个目录。全部文件并行读出来比较，内容一样的文件不碰，变了的先写临时文件再换名（`tasks/atomic-write.ts` 的 `writeFileAtomic`，Windows 上换名遇到短暂占用会重试；终端里的 omp 可能正在读）；写过的文件清单记在 `.studio-files.json`（清单没变就不重写），下次启动按清单删掉新版本没有的文件，清单里指向目录外的路径一律忽略；插件自己写的模型缓存（`models-cache-v3.json`）不在清单里，不动。启动时 `prepareAccountExtension()`（`prepare.ts`）部署一次：窗口不等它，和窗口同时开始；起任何子进程之前都要等它做完（`platform/spawn-gate.ts` 的 `spawnsReady()`：omp 发现流程、`buildOmpLaunch` / `buildTspLaunch`、`runCommand`、内置终端）。部署失败只记日志，不拦任何功能。顺带删掉 0.4.24–0.4.27 写在 `userData/omp-extensions/` 的旧部署。
 - 加载：所有 omp 进程和子命令都不带参数，由 omp 自己从扩展目录加载。实测 omp 18.12.6（2026-10-26）：`-e` 只有 `models`、`usage` 认，`stats`、`ssh`、`plugin`、`skill`、`config`、`share`、`commit`、`auth` 报 `Unknown option '-e'` 退出 1（0.4.24–0.4.27 曾在 `runOmpCommand` 里给所有子命令都加，设置页的 SSH、插件、Skills、用量统计、分享会话、"生成提交信息"全都失败）；扩展目录对这些子命令都有效。
 - 卸载：Windows 安装器的 `customUnInstall`（`resources/installer.nsh`）在目录里有 `.studio-files.json` 时删掉整个 `studio-accounts/`；更新（`--updated`）时旧版本的卸载程序也会跑，这时不删。agent 目录按卸载程序的环境变量算（`PI_CODING_AGENT_DIR` / `PI_CONFIG_DIR`），和 studio 运行时看到的不一致时删不到 [推测：只有自己改过这两个变量的用户会遇到]。mac 没有卸载程序，拖进废纸篓后目录留着。
 - `vendor/` 原样保留：加进 `.prettierignore` 和 `.oxlintrc.json` 的 `ignorePatterns`，不格式化也不 lint，方便和上游 diff。
@@ -105,7 +105,7 @@ pi.registerProvider(id, {
 ## 4. studio 侧接线
 
 - `src/main/client-accounts/deploy.ts`：`import.meta.glob` 进来的文件表 → `<agent 目录>/extensions/studio-accounts/`（见 3.1 的写入规则）。
-- `src/main/client-accounts/prepare.ts`：`prepareAccountExtension()` 在 `app.whenReady` 里、起任何 omp 之前 await 一次。启动参数（`buildOmpArgs` / `buildTspArgs`）和 `runOmpCommand` 都不加任何扩展参数。
+- `src/main/client-accounts/prepare.ts`：`prepareAccountExtension()` 在 `app.whenReady` 里开始，交给 `holdSpawnsUntil`，起任何子进程之前都等它（见上面的写入规则）。启动参数（`buildOmpArgs` / `buildTspArgs`）和 `runOmpCommand` 都不加任何扩展参数。
 - 界面：**不改**。provider 出现在 `get_login_providers` 里，`ProviderPickDialog` → `ProviderFlowDialog` 走现有的 OAuth 进度 / 输入 / 取消；登录后 omp 自己 `refreshProvider`，studio 照旧 `serviceOmp.close()` 重读模型列表（`account-handlers.ts` 的 `applyKeyChange`）。
 - 退出登录：现有 `logout` UI，凭据从 agent.db 删掉；模型随进程重启消失。
 - `src/shared/provider-login.ts`：插件的 id 都没写，走"表里没有 → 按 `oauth` 处理"的默认分支（保留登录按钮）。没有 `acceptsApiKey`（`shared/provider-keys.ts` 不列），所以没有"设置 API key"。

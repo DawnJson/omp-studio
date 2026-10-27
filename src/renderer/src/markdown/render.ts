@@ -1,6 +1,6 @@
 // markdown-it 的 token → React 元素。用户文本不进 dangerouslySetInnerHTML：所有文本都经 React 转义（唯一例外是 KaTeX 的输出，见 renderMath），
 // 链接只放行 http/https，图片只放行 markdown-it 已校验的 data:image。无 JSX，方便在 Node 里测试。
-import katex from "katex";
+import type Katex from "katex";
 import { createElement as h, Fragment, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import type { MarkdownBlock, Token } from "./parse.ts";
 
@@ -11,6 +11,8 @@ export interface RenderContext {
   renderCode?(props: { code: string; lang: string; closed: boolean }): ReactNode;
   /** 文字片段的渲染（TSP md.marks 在这里把字面标记包成 span）；缺省是原文。 */
   renderText?: ((text: string) => ReactNode) | undefined;
+  /** KaTeX 按需加载（Markdown.tsx 的 useKatex）；还没加载完时公式先按原文显示在 code 里。 */
+  katex?: typeof Katex | null | undefined;
 }
 
 interface TreeNode {
@@ -73,7 +75,7 @@ function renderInline(node: TreeNode, key: number, ctx: RenderContext): ReactNod
     case "code_inline":
       return h("code", { key, className: "md-code-inline" }, token.content);
     case "math_inline":
-      return renderMath(token, key, false);
+      return renderMath(token, key, false, ctx);
     case "em_open":
       return h("em", { key }, children);
     case "strong_open":
@@ -125,20 +127,22 @@ const mathClose: Record<string, string> = { $: "$", "\\(": "\\)", $$: "$$", "\\[
  * KaTeX 自己转义公式里的文字；用户文本不会直接进入 innerHTML。
  * 用 throwOnError:true 再自己 catch，是为了坏公式按原文（--st-error 色）显示，而不是 KaTeX 的红色报错样式。
  */
-function renderMath(token: Token, key: number, display: boolean): ReactNode {
+function renderMath(token: Token, key: number, display: boolean, ctx: RenderContext): ReactNode {
   const className = display ? "md-math-block" : "md-math";
+  const raw = `${token.markup}${display ? "\n" : ""}${token.content}${display ? "\n" : ""}${mathClose[token.markup] ?? ""}`;
+  const tag = display ? "div" : "span";
+  if (!ctx.katex) return h(tag, { key, className }, h("code", null, raw));
   try {
-    const html = katex.renderToString(token.content, {
+    const html = ctx.katex.renderToString(token.content, {
       displayMode: display,
       throwOnError: true,
       trust: false,
       strict: "ignore",
       output: "htmlAndMathml",
     });
-    return h(display ? "div" : "span", { key, className, dangerouslySetInnerHTML: { __html: html } });
+    return h(tag, { key, className, dangerouslySetInnerHTML: { __html: html } });
   } catch {
-    const raw = `${token.markup}${display ? "\n" : ""}${token.content}${display ? "\n" : ""}${mathClose[token.markup] ?? ""}`;
-    return h(display ? "div" : "span", { key, className: `${className} md-math-error` }, raw);
+    return h(tag, { key, className: `${className} md-math-error` }, raw);
   }
 }
 
@@ -191,7 +195,7 @@ function renderBlockNode(
     case "hr":
       return h("hr", { key });
     case "math_block":
-      return renderMath(token, key, true);
+      return renderMath(token, key, true, ctx);
     case "fence":
     case "code_block": {
       const lang = token.type === "fence" ? (token.info.trim().split(/\s+/)[0] ?? "") : "";

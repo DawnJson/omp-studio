@@ -1,5 +1,5 @@
 // 布局类节点：col、row、card、section、rule、spacer（规范 Layout）。
-import { useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useMemo, useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ASK_BUTTON_ROLE, ASK_GATE_ROLE } from "../../../../../shared/tsp/ask-gate.ts";
 import type { TspSpace, TspText } from "../../../../../shared/tsp/tsp.generated.ts";
 import { ChevronDown } from "../../../icons.tsx";
@@ -7,7 +7,7 @@ import { AskButtonRow, AskGateCol } from "../interactive/AskGate.tsx";
 import { ERROR_CARD_ROLE } from "../../../../../shared/tsp/error-turn.ts";
 import { RetryButton } from "../../session-info/RetryButton.tsx";
 import { Clamp } from "../Clamp.tsx";
-import { FoldCtx } from "../fold-context.ts";
+import { FoldCtx, NO_FOLD, OPEN_FOLD } from "../fold-context.ts";
 import { resolveIconName, toolIconName } from "../icon-names.ts";
 import { useEntrance } from "../entrance.ts";
 import { TspIcon } from "../icons.tsx";
@@ -22,11 +22,11 @@ import { peekTspNode, useBareTurnIndex, useIsLatestRecap, useTspNoVisibleChild }
 import { useSessionExtras } from "../session-extras-store.ts";
 import { formatTurnFooter } from "../turn-footer.ts";
 
-const GAPS: readonly TspSpace[] = ["none", "xs", "sm", "md", "lg"];
+const GAPS: ReadonlySet<TspSpace> = new Set(["none", "xs", "sm", "md", "lg"]);
 
 function stackClasses(p: Readonly<Record<string, unknown>>): string {
   const classes: string[] = [];
-  if (typeof p.gap === "string" && GAPS.includes(p.gap as TspSpace)) classes.push(`tsp-gap-${p.gap}`);
+  if (typeof p.gap === "string" && GAPS.has(p.gap as TspSpace)) classes.push(`tsp-gap-${p.gap}`);
   if (typeof p.align === "string") classes.push(`tsp-al-${p.align}`);
   if (p.justify === "between" || p.justify === "end") classes.push(`tsp-js-${p.justify}`);
   if (p.wrap === true) classes.push("tsp-wrap");
@@ -98,10 +98,11 @@ function PlainCol(props: NodeProps) {
  */
 function AssistantCol(props: NodeProps) {
   const { taskId, sf } = props.ctx;
-  const { turns } = useSessionExtras(taskId);
-  const index = useBareTurnIndex(taskId, sf, props.node.id, turns.length);
-  const footer = index >= 0 ? (turns[index] ?? null) : null;
-  const text = footer === null ? null : formatTurnFooter(footer);
+  // 只取轮数和自己那一轮的脚注：别的轮的用量刷新了不重画这一列。
+  const turnCount = useSessionExtras(taskId, (extras) => extras.turns.length);
+  const index = useBareTurnIndex(taskId, sf, props.node.id, turnCount);
+  const footer = useSessionExtras(taskId, (extras) => (index >= 0 ? (extras.turns[index] ?? null) : null));
+  const text = useMemo(() => (footer === null ? null : formatTurnFooter(footer)), [footer]);
   // 补的用量行是 children 之外的元素，有它就不算空。
   const blank = useBlank(props, text !== null);
   return (
@@ -226,6 +227,7 @@ export function Card(props: NodeProps) {
   const collapsible = p.collapsible === true;
   const [collapsed, toggle] = useFold(props, collapsible && p.collapsed === true);
   const keyFocus = useKeyboardFocus(p.role === "omp.user");
+  const fold = useMemo(() => (collapsible ? { collapsed, expand: toggle } : NO_FOLD), [collapsible, collapsed, toggle]);
   const headId = headChildId(node);
   const hasHead =
     headId !== null || (p.head !== undefined && p.head !== "") || typeof p.status === "string" || collapsible;
@@ -283,7 +285,7 @@ export function Card(props: NodeProps) {
           )}
         </div>
       )}
-      <FoldCtx.Provider value={{ collapsed: collapsible ? collapsed : null, expand: collapsible ? toggle : undefined }}>
+      <FoldCtx.Provider value={fold}>
         {collapsed && lines === null && collapsible ? null : lines !== null ? (
           <Clamp lines={lines} onExpand={toggle}>
             {body}
@@ -328,7 +330,7 @@ export function Section(props: NodeProps) {
         </div>
       </div>
       {!collapsed && (
-        <FoldCtx.Provider value={{ collapsed: collapsible ? false : null }}>
+        <FoldCtx.Provider value={collapsible ? OPEN_FOLD : NO_FOLD}>
           <div className="tsp-section-body">
             {node.c
               .filter((id) => id !== headId)

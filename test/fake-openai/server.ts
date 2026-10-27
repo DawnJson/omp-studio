@@ -22,7 +22,7 @@ export interface FakeOpenAi {
 
 function lastUserText(body: unknown): string {
   if (typeof body !== "object" || body === null || !("messages" in body) || !Array.isArray(body.messages)) return "";
-  for (const message of [...body.messages].reverse()) {
+  for (const message of body.messages.toReversed()) {
     if (typeof message !== "object" || message === null || !("role" in message) || message.role !== "user") continue;
     const content = "content" in message ? message.content : "";
     if (typeof content === "string") return content;

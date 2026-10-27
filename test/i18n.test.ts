@@ -12,7 +12,7 @@ describe("t() 的复数", () => {
       expect(t("process.toolCalls", { count: 1 })).toBe("1 tool call");
       expect(t("process.toolCalls", { count: 2 })).toBe("2 tool calls");
       expect(t("tool.bash.earlier", { count: 1 })).toBe("1 earlier line");
-      expect(t("tool.output.more", { count: 0 })).toBe("0 more lines");
+      expect(t("tool.output.unchanged", { count: 0 })).toBe("0 unchanged lines");
     }
   });
 

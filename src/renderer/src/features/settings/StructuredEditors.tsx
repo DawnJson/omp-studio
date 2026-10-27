@@ -25,12 +25,13 @@ import {
 } from "./role-options.ts";
 
 const suggestedRoles = ["default", "smol", "slow", "plan"];
+const noSuggestions: readonly string[] = [];
 
 function AddKey({
   taken,
   label,
   onAdd,
-  suggestions = [],
+  suggestions = noSuggestions,
 }: {
   taken: readonly string[];
   label: string;

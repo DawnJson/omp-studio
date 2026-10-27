@@ -1,8 +1,8 @@
 // 一个 hunk 的语法高亮：旧版本（上下文 + 删除）和新版本（上下文 + 新增）各高亮一次，再按行对回 hunk.lines。
-// 复用 markdown/highlight.ts 的 Shiki（异步，语言包按需加载）：没加载完时先显示纯文本，加载完只改颜色。
-import { useEffect, useMemo, useState } from "react";
+// 用 markdown/highlight.ts 的 useHighlighted（异步，语言包按需加载）：两边都高亮完才着色，之前先显示纯文本。
+import { useMemo } from "react";
 import type { GitDiffHunk } from "../../../../shared/git.ts";
-import { cachedHighlight, highlight, type HighlightToken } from "../../markdown/highlight.ts";
+import { useHighlighted, type HighlightToken } from "../../markdown/highlight.ts";
 import { resolveLanguage } from "../../markdown/highlight-languages.ts";
 
 export type LineTokens = (HighlightToken[] | null)[];
@@ -31,38 +31,18 @@ export function useHunkTokens(hunk: GitDiffHunk, lang: string | null): LineToken
     }),
     [hunk],
   );
-  const [done, setDone] = useState<{
-    old: HighlightToken[][];
-    next: HighlightToken[][];
-    oldCode: string;
-    newCode: string;
-  } | null>(() => {
-    const old = lang === null ? null : cachedHighlight(oldCode, lang);
-    const next = lang === null ? null : cachedHighlight(newCode, lang);
-    return old && next ? { old, next, oldCode, newCode } : null;
-  });
-
-  useEffect(() => {
-    if (lang === null) return;
-    let current = true;
-    Promise.all([highlight(oldCode, lang), highlight(newCode, lang)]).then(
-      ([old, next]) => current && old && next && setDone({ old, next, oldCode, newCode }),
-      () => undefined, // 高亮失败只是没有颜色
-    );
-    return () => {
-      current = false;
-    };
-  }, [oldCode, newCode, lang]);
+  const old = useHighlighted(oldCode, lang);
+  const next = useHighlighted(newCode, lang);
 
   return useMemo(() => {
-    if (done === null || done.oldCode !== oldCode || done.newCode !== newCode) return null;
+    if (old === null || next === null) return null;
     let oldAt = 0;
     let newAt = 0;
     return hunk.lines.map((line) => {
-      if (line.kind === "del") return done.old[oldAt++] ?? null;
-      if (line.kind === "add") return done.next[newAt++] ?? null;
+      if (line.kind === "del") return old[oldAt++] ?? null;
+      if (line.kind === "add") return next[newAt++] ?? null;
       oldAt += 1;
-      return done.next[newAt++] ?? null;
+      return next[newAt++] ?? null;
     });
-  }, [done, hunk, oldCode, newCode]);
+  }, [old, next, hunk]);
 }

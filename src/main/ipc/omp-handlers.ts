@@ -29,6 +29,7 @@ import { startupCache } from "../service/startup-cache-instance.ts";
 import { updateSettings } from "../settings/settings-store.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { pathKey } from "../tasks/task-registry.ts";
+import { readInDbWorker } from "../usage/db-worker-client.ts";
 import { registerShutdownHook } from "../window/shutdown.ts";
 import {
   IpcValidationError,
@@ -270,7 +271,7 @@ export const ompHandlers: HandlerGroup<
       throw new IpcValidationError(`keys 必须是不超过 ${maxInsightKeys} 项的数组`);
     return readModelInsights(
       {
-        agentDir: resolveAgentDir(),
+        readPerf: (keys) => readInDbWorker("modelPerf", resolveAgentDir(), keys),
         list: modelDefaultsDeps.list,
         warn: (message, error) => log.warn(message, error),
       },

@@ -8,6 +8,11 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import type { SessionTrace, TraceRequest, TraceToolCall } from "../../shared/ipc.ts";
+import {
+  finiteNumber as numOrNull,
+  finiteOrZero as num,
+  nonEmptyString as textOrNull,
+} from "../../shared/type-guards.ts";
 import { requireStatsSchema } from "../usage/stats-schema.ts";
 
 /** 请求记录最多返回多少条（最近的）；再早的 truncated = true。 */
@@ -15,11 +20,7 @@ export const TRACE_LIMIT = 500;
 
 type Row = Record<string, unknown>;
 
-const num = (value: unknown): number => (typeof value === "number" && Number.isFinite(value) ? value : 0);
-const numOrNull = (value: unknown): number | null =>
-  typeof value === "number" && Number.isFinite(value) ? value : null;
 const text = (value: unknown): string => (typeof value === "string" ? value : "");
-const textOrNull = (value: unknown): string | null => (typeof value === "string" && value !== "" ? value : null);
 
 function open(dbPath: string): DatabaseSync {
   // stats.db 是 WAL；omp 同步写入时读方短暂等待而不是直接 BUSY。
@@ -54,11 +55,12 @@ export function readSessionTrace(dbPath: string, sessionFile: string): SessionTr
       .all(...params) as Row[];
     const truncated = rows.length > TRACE_LIMIT;
     const kept = truncated ? rows.slice(0, TRACE_LIMIT) : rows;
+    // 只取留下的请求发起的工具调用：长会话的 tool_calls 比 TRACE_LIMIT 条请求多得多。
     const toolRows = db
       .prepare(
-        "SELECT entry_id, tool_name, is_error, args_chars, result_chars FROM tool_calls WHERE session_file = ? ORDER BY id",
+        "SELECT entry_id, tool_name, is_error, args_chars, result_chars FROM tool_calls WHERE session_file = ? AND entry_id IN (SELECT value FROM json_each(?)) ORDER BY id",
       )
-      .all(key) as Row[];
+      .all(key, JSON.stringify(kept.map((row) => text(row["entry_id"])))) as Row[];
     const toolsByEntry = new Map<string, TraceToolCall[]>();
     for (const row of toolRows) {
       const entry = text(row["entry_id"]);

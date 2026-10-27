@@ -85,6 +85,7 @@ export function ToolsCard() {
   const ready = useOmpStatus()?.state === "ready";
   const load = toolsResource.useLoad("global");
   const config = useConfigLoad();
+  const configItems = config.kind === "ready" ? config.data.items : null;
 
   useEffect(() => {
     if (!ready) return;
@@ -92,10 +93,7 @@ export function ToolsCard() {
     void toolsResource.load("global");
   }, [ready]);
 
-  const keys = useMemo(
-    () => new Set(config.kind === "ready" ? config.snapshot.items.map((item) => item.key) : []),
-    [config],
-  );
+  const keys = useMemo(() => new Set(configItems?.map((item) => item.key)), [configItems]);
   const data = load.kind === "ready" ? load.data : "previous" in load ? load.previous : null;
   const devices = useMemo(() => deviceToolNames(data?.tools ?? []), [data]);
 

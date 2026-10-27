@@ -53,9 +53,15 @@ describe("FrameDecoder", () => {
 
   it("rejects a sequence that declares more bytes than the negotiated limit", () => {
     const decoder = new FrameDecoder(1024 * 1024);
-    decoder.setMaxReassembledBytes(50);
-    const chunks = chunked({ type: "response", data: "x".repeat(100) }, "rpc-1", 10);
-    expect(() => decoder.push(line(chunks[0]!))).toThrow(/byte limit/);
+    decoder.setMaxReassembledBytes(200);
+    const chunks = chunked({ type: "response", data: "x".repeat(300) }, "rpc-1", 10);
+    expect(() => decoder.push(line(chunks[0]!))).toThrow(/declares \d+ bytes, above the 200 byte limit/);
+  });
+
+  it("rejects a raw line longer than the limit before its newline arrives", () => {
+    const decoder = new FrameDecoder(64);
+    decoder.push(Buffer.from('{"type":"x","data":"' + "a".repeat(30)));
+    expect(() => decoder.push(Buffer.from("a".repeat(30)))).toThrow(/byte limit/);
   });
 
   it("rejects a sequence whose parts add up to a different byteLength", () => {

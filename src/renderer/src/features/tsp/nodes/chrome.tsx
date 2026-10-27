@@ -47,19 +47,41 @@ export function Seg(props: NodeProps) {
   );
 }
 
-/** 条放不下时先藏 priority 最低的 seg（同级先藏靠里的），最后一个留着并截断。 */
-function fit(row: HTMLElement): void {
+/** 条的排版指纹：条宽，左右两组里每一项的 priority 和宽度（藏着的取文字）。只读，不改 DOM。指纹没变，藏哪些也不用变。 */
+function layoutKey(row: HTMLElement): string {
+  let key = String(row.clientWidth);
+  for (const item of row.querySelectorAll<HTMLElement>(":scope > * > *")) {
+    const size = item.classList.contains("tsp-drop") ? `-${item.textContent}` : String(item.offsetWidth);
+    key += `|${item.dataset["priority"] ?? ""}:${size}`;
+  }
+  return key;
+}
+
+/** 条放不下时先藏 priority 最低的 seg（同级先藏靠里的），最后一个留着并截断。返回藏好以后的排版指纹。
+ *  和上次量完的指纹一样（计时走字、文字变了宽度没变）就只读一次排版、什么都不改。
+ *  要重新算时按要藏几个二分（藏得越多越放得下）：每次试探只写一次 class、读一次宽度，从当前藏的个数开始试；
+ *  class 没变的 toggle 不触发重算样式。 */
+function fit(row: HTMLElement, lastKey: string): string {
+  const before = layoutKey(row);
+  if (before === lastKey) return before;
   const segs = [...row.querySelectorAll<HTMLElement>(":scope .tsp-seg[data-priority]")];
-  for (const seg of segs) seg.classList.remove("tsp-drop");
   const order = segs
     .map((seg, index) => ({ seg, index, priority: Number(seg.dataset["priority"] ?? 0) }))
     .sort((a, b) => a.priority - b.priority || b.index - a.index);
-  let kept = segs.length;
-  for (const { seg } of order) {
-    if (row.scrollWidth <= row.clientWidth + 0.5 || kept <= 1) break;
-    seg.classList.add("tsp-drop");
-    kept -= 1;
+  const dropFirst = (count: number): void => {
+    order.forEach(({ seg }, rank) => seg.classList.toggle("tsp-drop", rank < count));
+  };
+  let lo = 0;
+  let hi = Math.max(0, segs.length - 1);
+  let probe = Math.min(hi, segs.filter((seg) => seg.classList.contains("tsp-drop")).length);
+  while (lo < hi) {
+    dropFirst(probe);
+    if (row.scrollWidth > row.clientWidth + 0.5) lo = probe + 1;
+    else hi = probe;
+    probe = (lo + hi) >> 1;
   }
+  dropFirst(lo);
+  return layoutKey(row);
 }
 
 export function Status(props: NodeProps) {
@@ -74,11 +96,14 @@ export function Status(props: NodeProps) {
   useLayoutEffect(() => {
     const el = row.current;
     if (!el) return;
-    const run = (): void => fit(el);
+    let key = "";
+    const run = (): void => {
+      key = fit(el, key);
+    };
     run();
     const resize = new ResizeObserver(run);
     resize.observe(el);
-    // seg 里的文字变了不会重画 status，盯着内容变化重新量。
+    // seg 里的文字变了不会重画 status，盯着内容变化重新量（指纹没变就只读一次排版）。
     const mutation = new MutationObserver(run);
     mutation.observe(el, {
       childList: true,

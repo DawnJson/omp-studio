@@ -19,6 +19,40 @@ interface Anchor {
   offset: number;
 }
 
+/** 最外层的 `[data-anchor]` 块，按文档顺序。内层块的底边不超过外层块，"底边在视口顶部以下的第一个块"总是最外层的；
+ *  最外层块依次排开、底边递增，可以二分。 */
+function outermostAnchors(root: Element): Element[] {
+  const out: Element[] = [];
+  for (const node of root.querySelectorAll("[data-anchor]")) {
+    const last = out.at(-1);
+    if (last === undefined || !last.contains(node)) out.push(node);
+  }
+  return out;
+}
+
+/** 底边在 `top` 以下的第一个块；不画的块（display: none，矩形全 0）跳过。列表里有已经摘掉的元素时返回 undefined（要重建）。 */
+function firstBelow(list: readonly Element[], top: number): Element | null | undefined {
+  let lo = 0;
+  let hi = list.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    let probe = mid;
+    let rect: DOMRect | null = null;
+    for (; probe >= lo; probe -= 1) {
+      const node = list[probe]!;
+      if (!node.isConnected) return undefined;
+      const box = node.getBoundingClientRect();
+      if (box.width !== 0 || box.height !== 0) {
+        rect = box;
+        break;
+      }
+    }
+    if (rect !== null && rect.bottom > top + 1) hi = probe;
+    else lo = mid + 1;
+  }
+  return list[lo] ?? null;
+}
+
 export interface StickToBottom {
   /** 脱离吸底且有新内容时为 true：显示"回到最新"。 */
   showJump: boolean;
@@ -34,6 +68,8 @@ export function useStickToBottom(
   const lastProgrammaticTop = useRef(-1);
   const lastTop = useRef(0);
   const anchor = useRef<Anchor | null>(null);
+  /** outermostAnchors 的缓存：对话列的直接子元素增删时作废。 */
+  const anchors = useRef<Element[] | null>(null);
   const pendingToggle = useRef<{ element: Element; top: number } | null>(null);
   const [showJump, setShowJump] = useState(false);
 
@@ -58,9 +94,12 @@ export function useStickToBottom(
     const root = content.current;
     if (!el || !root || stuck.current) return;
     const top = el.getBoundingClientRect().top;
-    const candidate = [...root.querySelectorAll("[data-anchor]")].find(
-      (node) => node.getBoundingClientRect().bottom > top + 1,
-    );
+    anchors.current ??= outermostAnchors(root);
+    let candidate = firstBelow(anchors.current, top);
+    if (candidate === undefined) {
+      anchors.current = outermostAnchors(root);
+      candidate = firstBelow(anchors.current, top);
+    }
     anchor.current = candidate ? { element: candidate, offset: candidate.getBoundingClientRect().top - top } : null;
   }, [scroller, content]);
 
@@ -84,6 +123,7 @@ export function useStickToBottom(
     const el = scroller.current;
     const root = content.current;
     if (!el || !root) return;
+    anchors.current = null;
 
     // 上次滚动事件时的可滚范围。scroll 事件晚一帧才派发：omp 先收起上方的块（内容变矮，浏览器把 scrollTop 夹小），
     // 同一帧里又长出新内容，到这里读到的就是"scrollTop 变小、离底很远"，看着像用户上滚，其实是布局变化。
@@ -120,30 +160,37 @@ export function useStickToBottom(
       if (event.key === "End") scrollToBottom();
     };
 
-    // 内容增长（流式追加、展开）：吸底就跟到底，否则只提示"回到最新"。
+    // 内容尺寸变化（流式追加、展开、窗口缩放重排）：吸底就跟到底；否则让锚点块回到原来的视口偏移（浏览器的滚动锚定关着，
+    // 见 tsp.css .tsp-scroller；离屏的消息块是 content-visibility: auto，滚到附近才从估计高度换成实际高度），
+    // 底下长出新内容时提示"回到最新"。
     let lastHeight = root.offsetHeight;
     let lastWidth = root.offsetWidth;
     const contentObserver = new ResizeObserver(() => {
       const widthChanged = root.offsetWidth !== lastWidth;
-      const grew = root.offsetHeight > lastHeight;
+      const grownBy = root.offsetHeight - lastHeight;
       lastHeight = root.offsetHeight;
       lastWidth = root.offsetWidth;
       if (stuck.current) {
         pinToBottom();
         return;
       }
-      if (widthChanged && anchor.current?.element.isConnected) {
-        // 窗口缩放重排：让锚点块回到原来的视口偏移。
-        const delta =
+      let shift = 0;
+      if (anchor.current?.element.isConnected) {
+        shift =
           anchor.current.element.getBoundingClientRect().top - el.getBoundingClientRect().top - anchor.current.offset;
-        if (Math.abs(delta) > 0.5) el.scrollTop += delta;
-        lastProgrammaticTop.current = el.scrollTop;
-      } else if (grew) {
-        setShowJump(true);
+        if (Math.abs(shift) > 0.5) {
+          el.scrollTop += shift;
+          lastProgrammaticTop.current = el.scrollTop;
+        }
       }
+      if (!widthChanged && grownBy > Math.max(shift, 0) + 0.5) setShowJump(true);
       lastTop.current = el.scrollTop;
     });
     contentObserver.observe(root);
+    const anchorsObserver = new MutationObserver(() => {
+      anchors.current = null;
+    });
+    anchorsObserver.observe(root, { childList: true });
     // 滚动区本身变高/变矮（门出现、输入框增高）：吸底时保持吸底；不改变阅读位置。
     const scrollerObserver = new ResizeObserver(() => {
       if (stuck.current) pinToBottom();
@@ -164,6 +211,8 @@ export function useStickToBottom(
           el.scrollTop += delta;
           lastProgrammaticTop.current = el.scrollTop;
           lastTop.current = el.scrollTop;
+          // 阅读锚点跟着改：同一帧里内容的 ResizeObserver 还会按锚点补偿一次，用旧偏移会把这次补偿抵消掉。
+          recordAnchor();
         }
       });
     };
@@ -181,6 +230,7 @@ export function useStickToBottom(
     });
     return () => {
       contentObserver.disconnect();
+      anchorsObserver.disconnect();
       scrollerObserver.disconnect();
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("wheel", onWheel);

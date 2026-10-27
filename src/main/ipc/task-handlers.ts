@@ -15,6 +15,7 @@ import { getTaskPool } from "../tasks/runtime.ts";
 import { getMainWindow } from "../window/main-window.ts";
 import {
   IpcValidationError,
+  parseBlobId,
   parseBoolean,
   parseModelKey,
   parseOneOf,
@@ -69,6 +70,7 @@ export const taskHandlers: HandlerGroup<
   | "revealTaskFile"
   | "openTaskFolder"
   | "getTspSnapshot"
+  | "getTspBlob"
   | "getTspSeq"
   | "getTspSessionExtras"
   | "readTspContext"
@@ -188,6 +190,11 @@ export const taskHandlers: HandlerGroup<
   getTspSnapshot: async (taskId) => {
     const id = parseTaskId(taskId);
     return id === TERMINAL_LOGIN_ID ? terminalLogin().snapshot() : (await getTaskPool()).getTspSnapshot(id);
+  },
+  getTspBlob: async (taskId, blobId) => {
+    const id = parseTaskId(taskId);
+    const blob = parseBlobId(blobId);
+    return id === TERMINAL_LOGIN_ID ? terminalLogin().blob(blob) : (await getTaskPool()).getTspBlob(id, blob);
   },
   getTspSeq: async (taskId) => (await getTaskPool()).getTspSeq(parseTaskId(taskId)),
   getTspSessionExtras: async (taskId) => (await getTaskPool()).getTspSessionExtras(parseTaskId(taskId)),

@@ -17,6 +17,7 @@ import { scopeProject, type ScopeKey } from "./integrations-store.ts";
 import { requestReload } from "./plugins-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
 import { SkillForm } from "./SkillForm.tsx";
+import { useAsyncAction } from "./use-async-action.ts";
 import "./integrations.css";
 
 function SkillRow({
@@ -105,8 +106,8 @@ export function SkillsCard({ scope }: { scope: ScopeKey }) {
   const load = skillsResource.useLoad(scope);
   const { slot: adding, open: openAdding, closed: addingClosed, reset: resetAdding } = useDialogSlot();
   const { slot: removing, open: openRemoving, closed: removingClosed } = useDialogSlot<SkillEntry>();
-  const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const { busy, run } = useAsyncAction((error) => setFailure(errorDetail(error)));
 
   useEffect(() => {
     if (ready) void skillsResource.load(scope);
@@ -120,20 +121,14 @@ export function SkillsCard({ scope }: { scope: ScopeKey }) {
   const skills = load.kind === "ready" ? load.data : "previous" in load ? load.previous : null;
 
   /** 一次写操作：成功就刷新列表、提示运行中的任务需要重新加载；失败把原因显示在卡片里。 */
-  const write = async (job: () => Promise<void>, message?: string) => {
-    setBusy(true);
-    setFailure(null);
-    try {
+  const write = (job: () => Promise<void>, message?: string) =>
+    run(async () => {
+      setFailure(null);
       await job();
       requestReload();
       if (message !== undefined) pushToast({ message });
       await skillsResource.load(scope);
-    } catch (error) {
-      setFailure(errorDetail(error));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   return (
     <div className="st-section" data-testid="skills-card">
