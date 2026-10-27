@@ -25,15 +25,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
 
       # Electron（npm ci 时下载）和 electron-builder 的工具（AppImage 运行时等）的下载缓存，版本跟着 package-lock.json 走。
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cache/electron
@@ -94,7 +94,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/publish-release.ts "${GITHUB_REF_NAME#v}" release/*.AppImage release/latest-linux.yml
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: omp-studio-linux-x64
@@ -102,7 +102,7 @@ jobs:
           retention-days: 14
           path: release/*.AppImage
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: test-results
