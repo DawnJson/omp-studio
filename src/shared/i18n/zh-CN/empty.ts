@@ -13,4 +13,11 @@ export const empty = {
   whatsNewAdded: "{n} 新增",
   whatsNewChanged: "{n} 变更",
   whatsNewFixed: "{n} 修复",
+  title: "开始一个任务",
+  usageTitle: "本周用量",
+  usageToday: "今天 {value}",
+  usageNoDatabase: "omp 跑过之后，这里会显示用量。",
+  usageChart: "近 {weeks} 周每天的 token 用量：本周 {week}，今天 {today}",
+  usageLoading: "正在读取用量",
+  recentTitle: "最近会话",
 } satisfies Record<string, MessageEntry>;

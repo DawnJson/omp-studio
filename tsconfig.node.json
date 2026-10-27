@@ -75,6 +75,7 @@
     "src/renderer/src/features/tsp/interactive/text-model.ts",
     "src/renderer/src/features/tsp/interactive/picker-model.ts",
     "src/renderer/src/features/tsp/interactive/prefs-model.ts",
+    "src/renderer/src/features/empty/usage-overview.ts",
     "src/renderer/src/store/create-store.ts",
     "scripts",
     "test",

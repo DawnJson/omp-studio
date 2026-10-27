@@ -98,8 +98,8 @@
   --radius-xs: 3px; /* 键帽、行内代码、勾选框 */
   --radius-sm: 4px; /* 过程行 hover、小按钮、输入控件 */
   --radius-md: 6px; /* 任务行、按钮、菜单项、代码块 */
-  --radius-lg: 8px; /* 卡片、popover、门 */
-  --radius-xl: 10px; /* 对话框、命令面板 */
+  --radius-lg: 12px; /* 卡片、popover、门（3.3 demo：8 → 12，软一档） */
+  --radius-xl: 14px; /* 对话框、命令面板、主区面板 */
   --radius-bubble: 14px; /* 你的消息气泡（右下角用 --radius-sm 当"尾巴"，3.0） */
   --radius-composer: 22px; /* 输入框外框（3.0） */
   --radius-pill: 999px;
@@ -222,11 +222,12 @@
 
   /* 表面（由低到高）。略暖的中性灰（2026-10-24 仓库所有者：原来带紫的灰换成中性灰，紫色只留给强调）；侧栏/顶栏比主区略深，层级靠明度不靠颜色 */
   --bg-sidebar: #efefed;
-  --bg-app: #fafaf9;
+  --bg-app: #ffffff; /* 3.3 demo：主区纯白，靠侧栏的灰底和淡阴影浮起来 */
   --bg-raised: #ffffff; /* 输入框、卡片 */
   --bg-overlay: #ffffff; /* 菜单、popover、对话框、命令面板（靠阴影区分） */
   --bg-sunken: #f3f3f1; /* 过程展开区、键帽 */
   --bg-tool: #f4f4f2; /* 过程卡片、中性卡片、Markdown 代码块的底：比主区深一点，不描边（2026-10-24 质感改版） */
+  --bg-inset: #ffffff; /* 3.3 demo：过程卡片里的输出区（灰托盘里的白卡） */
   --bg-hover: rgba(20, 20, 18, 0.05);
   --bg-active: rgba(20, 20, 18, 0.085);
   --bg-scrim: rgba(20, 20, 18, 0.32);
@@ -293,6 +294,7 @@
 
   /* 阴影 */
   --shadow-1: 0 1px 2px rgba(20, 20, 18, 0.06);
+  --shadow-panel: 0 1px 2px rgba(20, 20, 18, 0.05), 0 6px 20px rgba(20, 20, 18, 0.05);
   --shadow-2: 0 8px 24px rgba(20, 20, 18, 0.1), 0 0 0 1px var(--border-subtle);
   --shadow-3: 0 24px 64px rgba(20, 20, 18, 0.18), 0 0 0 1px var(--border);
   --shadow-composer:
@@ -313,6 +315,7 @@
     --bg-raised: #1e1e1c;
     --bg-overlay: #252523;
     --bg-sunken: #111110;
+    --bg-inset: #111110;
     --bg-tool: #1c1c1a;
     --bg-hover: rgba(232, 232, 228, 0.05);
     --bg-active: rgba(232, 232, 228, 0.085);
@@ -371,6 +374,7 @@
     --syn-punct: #9d9c97;
 
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-panel: none;
     --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
     --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border);
     --shadow-composer: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -389,6 +393,7 @@
   --bg-raised: #1e1e1c;
   --bg-overlay: #252523;
   --bg-sunken: #111110;
+  --bg-inset: #111110;
   --bg-tool: #1c1c1a;
   --bg-hover: rgba(232, 232, 228, 0.05);
   --bg-active: rgba(232, 232, 228, 0.085);
@@ -446,6 +451,7 @@
   --syn-punct: #9d9c97;
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-panel: none;
   --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
   --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border);
   --shadow-composer: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 3px rgba(0, 0, 0, 0.3);

@@ -14,4 +14,11 @@ export const empty = {
   whatsNewAdded: "{n} added",
   whatsNewChanged: "{n} changed",
   whatsNewFixed: "{n} fixed",
+  title: "Start a task",
+  usageTitle: "This week",
+  usageToday: "Today {value}",
+  usageNoDatabase: "Usage shows up here after omp has run.",
+  usageChart: "Daily tokens over the last {weeks} weeks: {week} this week, {today} today",
+  usageLoading: "Loading usage",
+  recentTitle: "Recent",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

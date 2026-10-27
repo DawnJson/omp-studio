@@ -1,4 +1,4 @@
-/* 空状态：输入框贴主区底部（和对话时同一位置），上方居中只有标志（spec §4.7）。 */
+/* 空状态：输入框贴主区底部（和对话时同一位置），上方是从顶部排下来的概览：标志 + 标题、本周用量、最近会话（spec §4.7）。 */
 .empty {
   display: flex;
   flex: 1;
@@ -21,16 +21,17 @@
   flex: none;
 }
 
+/* 概览在输入框上方的空间里竖直居中；比窗口高时整个 .empty 滚动（不缩，safe 保证不从顶上被切掉），输入框 sticky 贴底 */
 .empty-main {
   display: flex;
-  flex: 1 1 0 !important;
+  flex: 1 0 auto !important;
   flex-direction: column;
   justify-content: safe center;
-  gap: var(--space-5);
-  min-height: 0;
+  gap: var(--space-6);
+  padding: var(--space-8) 0 var(--space-6);
 }
 
-/* 标志（omp 式像素 π + 字）居中，下面是"最近更新" */
+/* 标志（omp 式像素 π + 字）居中，下面是"最近更新"（TSP 过程区顶部的 StudioHeader） */
 .empty-hero {
   display: flex;
   flex-direction: column;
@@ -43,6 +44,208 @@
   display: block;
   max-width: 100%;
   height: auto;
+}
+
+/* 新任务页顶部一行：π | 标题；"最近更新"在第二行，和标题左对齐（不在 π 下面） */
+.empty-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-3);
+}
+
+.empty-mark {
+  display: block;
+}
+
+.empty-head > .whats-new {
+  grid-column: 2;
+}
+
+.empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  line-height: var(--lh-xl);
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+/* ───────── 概览卡片（本周用量、最近会话）：白底 + 1px 淡描边，不加阴影 ───────── */
+.empty-section-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.eu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-5);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.eu-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.eu-head > div {
+  min-width: 0;
+}
+
+.eu-label {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+.eu-figures {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-2);
+  min-height: 36px;
+}
+
+.eu-total {
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.eu-cost {
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 加载中：数字的位置放一条同高的灰条，不闪 */
+.eu-placeholder {
+  align-self: center;
+  width: 160px;
+  max-width: 100%;
+  height: 28px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+}
+
+.eu-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+}
+
+.eu-note {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+
+/* 点阵：每天一列，从下往上亮，铺满卡片宽（SVG 按 viewBox 等比缩放，点保持圆）。没用量的格子是很淡的点，
+   较早的日子是淡灰，最近 7 天是淡一档的强调色，只有今天是满强调色 */
+.eu-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.eu-dot {
+  fill: var(--border-subtle);
+}
+
+.eu-dot[data-on] {
+  fill: color-mix(in srgb, var(--text-3) 55%, transparent);
+}
+
+.eu-dot[data-on][data-recent] {
+  fill: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.eu-dot[data-on][data-today] {
+  fill: var(--accent);
+}
+
+/* 最近会话：两列，内容区窄于 ~560px 时一列 */
+.er-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(274px, calc((100% - var(--space-3)) / 2)), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.er-grid > li {
+  min-width: 0;
+}
+
+.er-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-3-5) var(--space-4);
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: background-color var(--dur-instant) var(--ease-out);
+}
+
+.er-item:hover {
+  background: var(--bg-hover);
+}
+
+.er-title,
+.er-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.er-title {
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.er-meta {
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text-3);
 }
 
 /* 最近更新（照 omp 的 What's New）：标志下面一行；窄了截断（title 里有全文） */
@@ -102,8 +305,7 @@
   white-space: nowrap;
   direction: rtl;
   text-align: left;
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 
 .empty-error {
@@ -140,8 +342,13 @@
   box-shadow: var(--shadow-2);
 }
 
-/* 输入框自带 gutter 内缩的列宽；把外层撑开 gutter，让它和标题、继续列表左右对齐 */
+/* 输入框自带 gutter 内缩的列宽；把外层撑开 gutter，让它和标题、继续列表左右对齐。
+   概览比窗口高时 .empty 滚动，输入框 sticky 贴底（输入框自己的 ::before 让内容从它后面淡出）；
+   sticky 会建层叠上下文，层级照输入框（composer.css .composer-stack）给，弹出菜单不被盖住 */
 .empty-draft {
+  position: sticky;
+  bottom: 0;
+  z-index: calc(var(--z-sticky) + 1);
   display: flex;
   flex-direction: column;
   align-items: stretch;

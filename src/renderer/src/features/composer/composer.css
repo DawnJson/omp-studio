@@ -133,7 +133,6 @@ button.usage-context:hover,
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-2);
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
   font-variant-numeric: tabular-nums;
@@ -312,8 +311,7 @@ button.usage-context:hover,
   gap: var(--space-3);
   padding: 0 var(--space-1);
   color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
   line-height: var(--lh-2xs);
   font-variant-numeric: tabular-nums;
 }

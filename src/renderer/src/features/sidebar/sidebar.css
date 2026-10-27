@@ -218,8 +218,10 @@
 .sb-group-toggle:hover {
   background: var(--bg-hover);
 }
+/* 箭头跟在名称后面（2026-10-27 仓库所有者）：展开朝下，折叠朝右；名称太长被省略时箭头不被挤掉 */
 .sb-chevron {
   display: inline-flex;
+  flex: none;
   transition: transform var(--dur-fast) var(--ease-out);
   transform: rotate(90deg);
 }

@@ -239,8 +239,9 @@ html[data-platform="darwin"] .topbar-left {
   min-height: 0;
   overflow: hidden;
   background: var(--bg-app);
-  border: 1px solid var(--border);
+  /* 3.3 demo：不描边，浅色靠淡阴影、深色靠明度差从侧栏底上浮起来 */
   border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-panel);
 }
 
 .sidebar-resizer {

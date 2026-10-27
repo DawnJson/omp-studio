@@ -1,5 +1,5 @@
-// studio 自己的标题块：像素标志 + 版本号，可选地带上文件夹路径。空状态（EmptyState，整幅标志）和 TSP 过程区
-// 顶部（TspView，compact 小一号，跟着对话一起滚走）共用；TSP 里 omp 自己的欢迎块（omp.welcome）不画，由它顶替。
+// studio 自己的标题块：像素标志 + 版本号，可选地带上文件夹路径。TSP 过程区顶部（TspView，compact 小一号，跟着对话一起滚走）用；
+// TSP 里 omp 自己的欢迎块（omp.welcome）不画，由它顶替。新任务页不用它（只画 π，见 EmptyMark）。
 import type { ReactNode } from "react";
 import { useAppInfo } from "../../store/index.ts";
 import { PixelLogo } from "../../ui/PixelLogo.tsx";

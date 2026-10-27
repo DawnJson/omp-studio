@@ -1,4 +1,4 @@
-// 文件夹分组（spec §4.3）：头部 + 任务和历史会话混排的行。头部右侧常驻 +（在这个文件夹新建任务，纯历史文件夹会先把它加成项目）；
+// 文件夹分组（spec §4.3）：头部 [名称][箭头] + 任务和历史会话混排的行。头部右侧常驻 +（在这个文件夹新建任务，纯历史文件夹会先把它加成项目）；
 // + 左边同一个位置：折叠时是行数（组内有等待任务再加一个琥珀菱形），展开时换成 ⋯ 项目菜单（只有 studio 项目才有），两者交叉淡入淡出。
 import { useRef } from "react";
 import type { Project, TaskId } from "../../../../shared/ipc.ts";
@@ -74,10 +74,10 @@ export function FolderGroup(props: FolderGroupProps) {
             }
           }}
         >
+          <span className="sb-group-name">{folder.label}</span>
           <span className="sb-chevron">
             <ChevronIcon />
           </span>
-          <span className="sb-group-name">{folder.label}</span>
           <span className="sb-group-count" data-shown={!open || undefined}>
             {hasWaiting && <span className="sb-waiting-diamond" role="img" aria-label={t("sidebar.waitingHere")} />}
             {folder.items.length}
