@@ -33,12 +33,15 @@
   overflow-wrap: anywhere;
 }
 
-/* 等宽的原文输出（解析不了的行）：不当 HTML 渲染 */
+/* 等宽的原文输出（解析不了的行）：不当 HTML 渲染；凹下去的一块（--bg-inset），不描边 */
 .ig-pre {
   max-height: 320px;
   margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
   overflow: auto;
   color: var(--text-2);
+  background: var(--bg-inset);
+  border-radius: var(--radius-md);
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
   line-height: var(--lh-code-sm);

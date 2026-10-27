@@ -1,11 +1,13 @@
 /* 子代理记录里的过程：工具块、Bash 卡片、文件胶囊、Todo、Ask（ProcessDetails 及其子组件）。只用 tokens.css 里的变量。 */
 
-/* 截断块用过程区的 Clamp（features/tsp/Clamp.tsx）：它按 --tsp-lh 数行，这里的代码都是 --lh-code-sm。 */
+/* 截断块用过程区的 Clamp（features/tsp/Clamp.tsx）：它按 --tsp-lh 数行，这里的代码都是 --lh-code-sm。
+   外框是卡片层（--bg-tool + 发丝线），里面的输出 / 代码是凹下去的 --bg-inset */
 .details {
   --tsp-lh: var(--lh-code-sm);
   margin-top: var(--space-1);
   padding: var(--space-2);
-  background: var(--bg-sunken);
+  background: var(--bg-tool);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
 }
 .details .tsp-more {
@@ -72,7 +74,7 @@
   flex: none;
   color: var(--text);
   font-size: var(--fs-sm);
-  font-weight: var(--fw-strong);
+  font-weight: var(--fw-medium);
 }
 .step-info {
   flex: none;
@@ -156,7 +158,7 @@
 .step-range {
   color: var(--text-3);
 }
-/* 右侧数字：等宽、--text-3（匹配数、文件数、行数）。 */
+/* 右侧数字：--text-3、等宽数字（匹配数、文件数、行数） */
 .step-meta {
   display: inline-flex;
   flex: none;
@@ -164,7 +166,6 @@
   gap: var(--space-2);
   margin-left: auto;
   color: var(--text-3);
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
@@ -224,19 +225,18 @@ html[data-motion="reduced"] .step-actions {
   transition: none;
 }
 
-/* diff / 行号输出 / 纯文本：一个浅底框，超过 12 行底部渐隐（Clamp）。 */
+/* diff / 行号输出 / 纯文本：凹下去的一块 --bg-inset（不描边），超过 12 行底部渐隐（Clamp）。 */
 .step-output {
   padding: var(--space-2) 0;
-  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  background: var(--bg-sunken);
+  background: var(--bg-inset);
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
   line-height: var(--lh-code-sm);
 }
 .step-tool[data-status="error"] .step-output {
-  border-color: var(--st-error);
   background: var(--st-error-soft);
+  box-shadow: inset 0 0 0 1px var(--st-error);
 }
 .step-ln {
   display: flex;
@@ -306,29 +306,37 @@ html[data-motion="reduced"] .step-actions {
   padding: 0 var(--space-2);
 }
 
-/* 文件胶囊（Read / Glob / Grep 文件头）：图标 + 淡色目录 + 正常色文件名，等宽。行高 = --row-tool。 */
+/* 文件胶囊（Read / Glob / Grep 文件头）：透明底 + 发丝线，圆角 --radius-md，高 26；图标 14px --text-3，
+   目录 --text-3、文件名 --text-2 500，等宽 --fs-code-sm；悬停 --bg-hover，线加深到 --border。 */
 .file-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
+  gap: var(--space-1-5);
 }
 .file-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1-5);
   max-width: 100%;
-  height: calc(var(--row-tool) - var(--space-1));
-  padding: 0 var(--space-2-5);
+  height: calc(var(--space-6) + var(--space-0-5));
+  padding: 0 var(--space-2-5) 0 var(--space-2);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-pill);
-  background: var(--bg-raised);
+  border-radius: var(--radius-md);
+  background: transparent;
   color: var(--text-2);
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-code-sm);
   cursor: pointer;
+  transition:
+    background-color var(--dur-instant) var(--ease-out),
+    border-color var(--dur-instant) var(--ease-out);
 }
 .file-chip:hover {
   background: var(--bg-hover);
+  border-color: var(--border);
+}
+.file-chip:active {
+  background: var(--bg-active);
 }
 .file-chip:focus-visible {
   outline: 2px solid var(--focus-ring);
@@ -336,6 +344,8 @@ html[data-motion="reduced"] .step-actions {
 }
 .file-chip svg {
   flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
   color: var(--text-3);
 }
 .file-chip-path {
@@ -348,7 +358,8 @@ html[data-motion="reduced"] .step-actions {
   color: var(--text-3);
 }
 .file-chip-name {
-  color: var(--text);
+  color: var(--text-2);
+  font-weight: var(--fw-medium);
 }
 .file-chip-count {
   flex: none;
@@ -359,12 +370,12 @@ html[data-motion="reduced"] .step-actions {
   font-variant-numeric: tabular-nums;
 }
 
-/* Bash 卡片：命令 / 输出（最后 10 行，最上一行渐隐）/ 状态脚。 */
+/* Bash 卡片：命令（卡片底上）/ 输出（最后 10 行，最上一行渐隐；凹下去的 --bg-inset，左缘和命令文字对齐）/ 状态脚。 */
 .bash-card {
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  background: var(--bg-raised);
+  background: var(--bg-tool);
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
   line-height: var(--lh-code-sm);
@@ -379,8 +390,10 @@ html[data-motion="reduced"] .step-actions {
   overflow-wrap: anywhere;
 }
 .bash-out {
+  margin: 0 var(--space-3);
   padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-inset);
 }
 .bash-earlier {
   display: inline-flex;
@@ -434,18 +447,18 @@ html[data-motion="reduced"] .step-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1-5) var(--space-3);
-  border-top: 1px solid var(--border-subtle);
-  color: var(--text-2);
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-3);
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  font-variant-numeric: tabular-nums;
 }
 .bash-foot[data-status="failed"] {
   color: var(--st-error);
 }
 .bash-time {
   color: var(--text-3);
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 .bash-foot[data-status="failed"] .bash-time {
@@ -480,7 +493,6 @@ html[data-motion="reduced"] .step-actions {
 .todo-phase-count {
   flex: none;
   color: var(--text-3);
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }

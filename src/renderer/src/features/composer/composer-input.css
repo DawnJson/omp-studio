@@ -107,8 +107,8 @@
   overflow: hidden;
   padding: 0;
   font: inherit;
-  font-size: var(--fs-prose);
-  line-height: var(--lh-prose);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
   color: transparent;
   white-space: pre-wrap;
   overflow-wrap: break-word;
@@ -141,9 +141,10 @@
 }
 
 /* ───── 顶边拖拽条：盖在输入框上边线上，悬停 / 聚焦时露出一根短横线 ───── */
+/* 往上越过外框的内边距和 1px 边框，再上提半个条高，条的中线落在边框上 */
 .composer-grip {
   position: absolute;
-  top: calc((var(--space-1-5) + 1px + var(--space-1)) * -1);
+  top: calc((var(--space-2) + 1px + var(--space-1)) * -1);
   right: var(--space-6);
   left: var(--space-6);
   z-index: var(--z-sticky);

@@ -38,6 +38,9 @@ extraResources:
   # Geist / Geist Mono 字体（打进 out/ 的渲染进程资源）是 SIL OFL 1.1：再分发时许可证要随软件一起带上。
   - from: src/renderer/styles/fonts/OFL.txt
     to: licenses/Geist-OFL.txt
+  # Noto Sans SC（中文字体，src/renderer/styles/fonts/noto-sans-sc.css）同样是 SIL OFL 1.1。
+  - from: src/renderer/styles/fonts/noto-sans-sc/OFL.txt
+    to: licenses/NotoSansSC-OFL.txt
   # provider 的 logo（features/settings/ProviderLogo.tsx）拷自 LobeHub Icons，MIT：许可证随软件一起带上。
   - from: src/renderer/src/features/settings/provider-logos-LICENSE.txt
     to: licenses/lobe-icons-MIT.txt

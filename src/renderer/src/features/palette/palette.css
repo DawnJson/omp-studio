@@ -25,7 +25,7 @@
   max-height: 70vh;
   background: var(--bg-overlay);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-3);
+  box-shadow: var(--edge-highlight), var(--shadow-3);
   overflow: hidden;
 }
 @keyframes pl-fade {
@@ -67,7 +67,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1);
   scrollbar-width: none;
 }
 .pl-list::-webkit-scrollbar {
@@ -115,7 +115,7 @@
   opacity: 1;
 }
 .pl-row .icon {
-  color: var(--text-3);
+  color: var(--text-2);
 }
 .pl-row-title {
   flex: 1;
@@ -136,6 +136,7 @@
   white-space: nowrap;
   font-size: var(--fs-xs);
   color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 .pl-empty p {
   margin: 0;

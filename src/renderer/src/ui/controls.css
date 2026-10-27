@@ -5,16 +5,25 @@
  * - 控件只有两档高度：md 32（表单、对话框、设置页）、sm 28（工具条、面板标题、列表行、浮层）。
  * - 一个视图最多一个主要按钮；链接只出现在句子里，不当独立按钮。
  * - 互斥取值用 Segmented（≤4 个短选项）或 Select（更多）；切换视图用 Tabs。由选项个数决定，不由语言或宽度决定。
- * - 输入框聚焦不画外描边，边框隐去、换成双环阴影（1px 强调色环 + 3px 淡色光环）；同时留一条透明 outline，Windows
- *   高对比度模式会把它画成系统色（forced-colors 下 box-shadow 被清掉，border / outline 颜色被强制成系统色）。
- *   按钮等键盘焦点仍是 :focus-visible 的外描边。
+ * - 输入框静止是 --border 细框，hover 换 --border-strong；聚焦不画外描边，边框换成 --focus-ring 并再叠 1px 同色阴影，
+ *   合成贴边的 2px 环（不发光）；同时留一条透明 outline，Windows 高对比度模式会把它画成系统色
+ *   （forced-colors 下 box-shadow 被清掉，border / outline 颜色被强制成系统色）。按钮等键盘焦点仍是 :focus-visible 的外描边。
  * - 夹在文字里的图标 vertical-align: -0.125em；放在 flex 容器里的图标靠 align-items: center，不加偏移。
  * - 多行的说明文字 text-wrap: pretty，短标题 text-wrap: balance。
  */
 
 /* ───────── Button ───────── */
+/* 三档：主要（--primary 实底 + 上沿受光边）、次要（默认：--bg-raised 底 + --border 框 + --shadow-1）、quiet（透明）。
+   hover / 按下不换底色，而是在底色上叠一层 --bg-hover / --bg-active（--btn-tint）：深色主题里次要按钮的底比面板亮，
+   直接换成半透明的 --bg-hover 会“陷下去”。 */
+@property --btn-tint {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
 .ui-btn {
   --btn-h: var(--control-h-md);
+  --btn-bg: var(--bg-raised);
   display: inline-flex;
   flex: none;
   gap: var(--space-1-5);
@@ -24,14 +33,17 @@
   padding: 0 var(--space-3);
   font: inherit;
   font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   line-height: 1;
   color: var(--text);
   white-space: nowrap;
   cursor: pointer;
-  background: transparent;
-  border: 1px solid var(--border-strong);
+  background: linear-gradient(var(--btn-tint), var(--btn-tint)) var(--btn-bg);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  box-shadow: var(--shadow-1);
   transition:
+    --btn-tint var(--dur-instant) var(--ease-out),
     background-color var(--dur-instant) var(--ease-out),
     border-color var(--dur-instant) var(--ease-out),
     color var(--dur-instant) var(--ease-out),
@@ -48,10 +60,10 @@
   font-size: var(--fs-sm);
 }
 .ui-btn:hover {
-  background: var(--bg-hover);
+  --btn-tint: var(--bg-hover);
 }
 .ui-btn:active {
-  background: var(--bg-active);
+  --btn-tint: var(--bg-active);
 }
 .ui-btn:focus-visible {
   outline: 2px solid var(--focus-ring);
@@ -59,18 +71,22 @@
 }
 
 .ui-btn[data-variant="primary"] {
+  --btn-bg: var(--primary);
   color: var(--text-on-primary);
-  background: var(--primary);
   border-color: var(--primary);
+  box-shadow: var(--edge-highlight), var(--shadow-1);
 }
 .ui-btn[data-variant="primary"]:hover {
-  background: var(--primary-hover);
+  --btn-bg: var(--primary-hover);
+  --btn-tint: transparent;
   border-color: var(--primary-hover);
 }
 
 .ui-btn[data-variant="quiet"] {
+  --btn-bg: transparent;
   color: var(--text-2);
   border-color: transparent;
+  box-shadow: none;
 }
 .ui-btn[data-variant="quiet"]:hover {
   color: var(--text);
@@ -81,29 +97,32 @@
   border-color: color-mix(in srgb, var(--st-error) 45%, transparent);
 }
 .ui-btn[data-variant="danger"]:hover {
-  background: var(--st-error-soft);
+  --btn-tint: var(--st-error-soft);
 }
 
 /* 只用在破坏性确认对话框的确认按钮 */
 .ui-btn[data-variant="danger-solid"] {
+  --btn-bg: var(--st-error);
   color: var(--text-on-danger);
-  background: var(--st-error);
   border-color: var(--st-error);
+  box-shadow: var(--edge-highlight), var(--shadow-1);
 }
 .ui-btn[data-variant="danger-solid"]:hover {
-  background: color-mix(in srgb, var(--st-error) 88%, var(--text));
+  --btn-bg: color-mix(in srgb, var(--st-error) 88%, var(--text));
+  --btn-tint: transparent;
 }
 
 .ui-btn:disabled,
 .ui-btn[aria-disabled="true"] {
+  --btn-tint: transparent;
   color: var(--text-disabled);
   cursor: default;
-  background: transparent;
   border-color: var(--border);
+  box-shadow: none;
 }
 .ui-btn[data-variant="primary"]:disabled,
 .ui-btn[data-variant="danger-solid"]:disabled {
-  background: var(--bg-active);
+  --btn-bg: var(--bg-active);
   border-color: transparent;
 }
 .ui-btn[data-variant="quiet"]:disabled {
@@ -178,6 +197,9 @@
   color: var(--text);
   background: var(--bg-hover);
 }
+.ui-icon-btn:active {
+  background: var(--bg-active);
+}
 .ui-icon-btn[aria-pressed="true"],
 .ui-icon-btn[aria-expanded="true"] {
   color: var(--text);
@@ -200,7 +222,7 @@
   font-size: var(--fs-sm);
   color: var(--text);
   background: var(--bg-raised);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   transition:
     border-color var(--dur-instant) var(--ease-out),
@@ -210,22 +232,21 @@
   height: var(--control-h-sm);
   font-size: var(--fs-sm);
 }
+.ui-field:hover:not(:focus-within, [aria-disabled="true"], [data-invalid]) {
+  border-color: var(--border-strong);
+}
 .ui-field:focus-within {
-  border-color: transparent;
+  border-color: var(--focus-ring);
   outline: 2px solid transparent;
   outline-offset: 2px;
-  box-shadow:
-    0 0 0 1px var(--accent),
-    0 0 0 4px var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--focus-ring);
 }
 .ui-field[data-invalid] {
   border-color: var(--st-error);
 }
 .ui-field[data-invalid]:focus-within {
-  border-color: transparent;
-  box-shadow:
-    0 0 0 1px var(--st-error),
-    0 0 0 4px var(--st-error-soft);
+  border-color: var(--st-error);
+  box-shadow: 0 0 0 1px var(--st-error);
 }
 .ui-field[aria-disabled="true"] {
   color: var(--text-disabled);
@@ -314,16 +335,23 @@
   color: var(--text);
   resize: vertical;
   background: var(--bg-raised);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  transition:
+    border-color var(--dur-instant) var(--ease-out),
+    box-shadow var(--dur-instant) var(--ease-out);
+}
+.ui-textarea::placeholder {
+  color: var(--text-3);
+}
+.ui-textarea:hover:not(:focus, :disabled, [data-invalid]) {
+  border-color: var(--border-strong);
 }
 .ui-textarea:focus {
-  border-color: transparent;
+  border-color: var(--focus-ring);
   outline: 2px solid transparent;
   outline-offset: 2px;
-  box-shadow:
-    0 0 0 1px var(--accent),
-    0 0 0 4px var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--focus-ring);
 }
 .ui-textarea.ui-mono {
   font-family: var(--font-mono);
@@ -331,6 +359,9 @@
 }
 .ui-textarea[data-invalid] {
   border-color: var(--st-error);
+}
+.ui-textarea[data-invalid]:focus {
+  box-shadow: 0 0 0 1px var(--st-error);
 }
 .ui-textarea:disabled {
   color: var(--text-disabled);
@@ -357,6 +388,7 @@
 }
 .ui-form-field > label {
   font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   color: var(--text);
 }
 
@@ -489,6 +521,7 @@
   padding: 0 var(--space-2-5);
   font: inherit;
   font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   color: var(--text-2);
   white-space: nowrap;
   cursor: pointer;
@@ -517,7 +550,7 @@
 .ui-seg > button[aria-checked="true"] {
   color: var(--text);
   background: var(--control-on);
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--edge-highlight), var(--shadow-1);
 }
 
 .ui-tabs {
@@ -534,6 +567,7 @@
   padding: 0;
   font: inherit;
   font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   color: var(--text-2);
   cursor: pointer;
   background: transparent;
@@ -610,7 +644,7 @@
   padding: var(--space-1);
   background: var(--bg-overlay);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--edge-highlight), var(--shadow-2);
 }
 /* 浮动的菜单 / 下拉列表（Menu.tsx、Select.tsx）：fixed 定位，挂在 body 上 */
 .ui-menu[data-floating] {
@@ -653,7 +687,7 @@
   cursor: pointer;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .ui-select-group:hover {
   background: var(--bg-hover);
@@ -699,7 +733,8 @@
   cursor: pointer;
   background: transparent;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
+  transition: background-color var(--dur-instant) var(--ease-out);
 }
 .ui-menu-item > svg {
   width: var(--icon-md);
@@ -729,14 +764,16 @@
   min-width: 0;
 }
 .ui-menu-note {
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-2xs);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
   color: var(--text-3);
   text-wrap: pretty;
 }
+/* 菜单行尾的快捷键 / 数值：小号次要色，数字等宽对齐 */
 .ui-menu-hint {
   font-size: var(--fs-xs);
   color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 .ui-menu-sep {
   height: 1px;
@@ -745,7 +782,8 @@
 }
 .ui-menu-label {
   padding: var(--space-1-5) var(--space-2-5) var(--space-1) calc(var(--space-2) + 16px + var(--space-2));
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
   color: var(--text-3);
 }
 
@@ -764,11 +802,11 @@
   flex-direction: column;
   max-width: calc(100vw - var(--space-8));
   max-height: 60vh;
-  padding: var(--space-1-5);
+  padding: var(--space-1);
   overflow: hidden auto;
   background: var(--bg-overlay);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--edge-highlight), var(--shadow-2);
   animation: pop-in var(--dur-base) var(--ease-out);
 }
 .ui-popover[data-align="end"] {
@@ -784,7 +822,7 @@
 .ui-pop-title {
   margin: 0;
   font-size: var(--fs-sm);
-  font-weight: var(--fw-strong);
+  font-weight: var(--fw-medium);
   color: var(--text);
   text-wrap: balance;
 }
@@ -811,7 +849,7 @@
   max-height: calc(100vh - 96px);
   background: var(--bg-overlay);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-3);
+  box-shadow: var(--edge-highlight), var(--shadow-3);
   animation: pop-in var(--dur-slow) var(--ease-spring);
 }
 .ui-dialog[data-size="sm"] {
@@ -836,13 +874,18 @@
   font-size: var(--fs-lg);
   font-weight: var(--fw-strong);
   line-height: var(--lh-lg);
+  letter-spacing: var(--ls-tight);
   color: var(--text);
   text-wrap: balance;
 }
+/* --ls-tight 只给 Latin 标题；中文界面不收字距 */
+.ui-dialog-title:lang(zh) {
+  letter-spacing: 0;
+}
 .ui-dialog-desc {
-  margin: var(--space-0-5) 0 0;
-  font-size: var(--fs-sm);
-  line-height: var(--lh-sm);
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
   color: var(--text-2);
   text-wrap: pretty;
 }
@@ -880,7 +923,7 @@
 .ui-section-title {
   margin: 0;
   font-size: var(--fs-sm);
-  font-weight: var(--fw-strong);
+  font-weight: var(--fw-medium);
   color: var(--text);
 }
 .ui-section-actions {
@@ -919,6 +962,7 @@
 .ui-row-label {
   min-width: 0;
   font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   color: var(--text);
 }
 /* ⓘ（InfoTip.tsx）：跟在文字后面，和文字同一行基线下移 0.125em。紧挨着 ⓘ 的文字元素由调用处加 .ui-info-lead（Row、ModelsSection 的角色行）。
@@ -970,7 +1014,7 @@
   overflow-wrap: anywhere;
   background: var(--bg-overlay);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--edge-highlight), var(--shadow-2);
   animation: fade-in var(--dur-fade) var(--ease-out);
 }
 .ui-info-key {
@@ -1018,7 +1062,7 @@
   width: 28px;
   height: 28px;
   font-size: var(--fs-xs);
-  font-weight: var(--fw-strong);
+  font-weight: var(--fw-medium);
   color: var(--text-2);
   background: var(--bg-active);
   border-radius: var(--radius-md);
@@ -1040,6 +1084,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: var(--fw-medium);
 }
 .ui-list-meta {
   overflow: hidden;
@@ -1067,8 +1112,8 @@
   height: 100%;
   min-height: 0;
   padding: var(--space-3);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
+  background: var(--bg-tool);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
 }
 .ui-cards > .ui-list-row > .ui-list-actions {
@@ -1130,16 +1175,18 @@
   text-wrap: pretty;
 }
 
+/* 键帽：凹底 + 发丝线，底边深一档，像一颗有厚度的键 */
 .ui-kbd {
   display: inline-flex;
   align-items: center;
   height: 18px;
-  padding: 0 5px;
+  padding: 0 var(--space-1);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   color: var(--text-2);
   background: var(--bg-sunken);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-subtle);
+  border-bottom-color: var(--border);
   border-radius: var(--radius-xs);
 }
 
@@ -1157,9 +1204,8 @@
   color: var(--text);
   pointer-events: none;
   background: var(--bg-overlay);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--edge-highlight), var(--shadow-2);
   animation: fade-in var(--dur-fast) var(--ease-out);
 }
 .ui-tooltip-text {
@@ -1300,8 +1346,8 @@
   align-items: flex-start;
   height: var(--skeleton-h, 96px);
   padding: var(--space-3);
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
+  background: var(--bg-tool);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
 }
 .ui-skeleton-lines {

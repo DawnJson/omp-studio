@@ -74,17 +74,32 @@
   background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  transition: background-color var(--dur-instant) var(--ease-out);
 }
 
 .pv-account:hover:not(:disabled) {
   background: var(--bg-hover);
 }
 
+.pv-account:active:not(:disabled) {
+  background: var(--bg-active);
+}
+
+.pv-account:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.pv-account:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+
 .pv-pick-list {
   max-height: 360px;
   margin-top: var(--space-3);
   overflow-y: auto;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-subtle);
 }
 
 /* 应用内终端登录：对话框里只画 omp 登录窗（`omp.overlay.login`）的内容。omp 的弹窗是盖在过程区上的浮层（绝对定位、自带标题和阴影），

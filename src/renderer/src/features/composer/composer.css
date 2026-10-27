@@ -22,22 +22,26 @@
   background: linear-gradient(transparent, var(--bg-app));
   pointer-events: none;
 }
+/* 输入框是整个界面唯一常驻浮起的元素：--bg-raised + 一圈 --border-subtle 发丝线 + 受光上沿 + --shadow-composer。
+   外框内边距 8，输入区和工具行胶囊再各缩 8：文字左缘和模型名左缘都在 8 + 8 处；发送键离右下边缘 8，和 22 的圆角同心。 */
 .composer {
+  position: relative;
   container-type: inline-size;
-  padding: var(--space-1-5) var(--space-1-5) var(--space-1-5) var(--space-2);
+  padding: var(--space-2);
   background: var(--bg-raised);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-composer);
-  box-shadow: var(--shadow-composer);
+  box-shadow: var(--edge-highlight), var(--shadow-composer);
   transition: border-color var(--dur-instant);
 }
-/* 上面输入区，下面工具行，同一块底上、没有分隔线；外框的内边距（6/6/6/8）已经给了控件和边缘的留白。 */
+/* 上面输入区，下面工具行，同一块底上、没有分隔线。左右内边距同工具行胶囊的 --chip-pad，文字和胶囊里的字左缘对齐。 */
 .composer-body {
-  min-height: 42px;
-  padding: var(--space-2-5) var(--space-2-5) var(--space-1);
+  padding: var(--space-3) var(--space-2) var(--space-1);
 }
-/* 悬停和聚焦都只把边框加深一档，不用强调色、不加外圈（2026-10-24 质感改版：紫色留给进行中和选中，输入框一直聚焦着，染色就一直在） */
-.composer:hover,
+/* 悬停加深一档（--border），聚焦再深一档（--border-strong）；不用强调色、不加外圈，投影不变（2026-10-24 仓库所有者：聚焦是中性色） */
+.composer:hover {
+  border-color: var(--border);
+}
 .composer:focus-within {
   border-color: var(--border-strong);
 }
@@ -49,8 +53,8 @@
 .composer-field {
   display: block;
   width: 100%;
-  min-height: var(--lh-prose);
-  max-height: min(40vh, calc(var(--lh-prose) * 12));
+  min-height: var(--lh-base);
+  max-height: min(40vh, calc(var(--lh-base) * 12));
   padding: 0;
   border: 0;
   outline: 0;
@@ -58,8 +62,8 @@
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: var(--fs-prose);
-  line-height: var(--lh-prose);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
   overflow-y: auto;
 }
 .composer-field::placeholder {
@@ -71,16 +75,33 @@
   }
 }
 
-/* 工具行的胶囊比别处的 .ui-chip 紧凑：左右内边距 6px（--chip-pad，controls.css 的 .ui-chip 读它），胶囊之间 2px，
-   相邻两颗的文字 / 图标之间共 14px。 */
+/* 工具行：胶囊 28 高、--radius-md、左右内边距 8（--chip-pad，controls.css 的 .ui-chip 读它），胶囊之间 4；
+   字 --fs-sm、--text-2，图标 16（--icon-md）。行高 32 = 发送键，发送键贴着外框内边距；
+   上面再留 2px，胶囊和输入区之间至少 4px（e2e main-ui 量这个距离）。 */
 .composer-tools {
-  --chip-pad: var(--space-1-5);
+  --chip-pad: var(--space-2);
   display: flex;
   align-items: center;
-  gap: var(--space-0-5);
-  min-height: 36px;
-  padding: 0;
+  gap: var(--space-1);
+  min-height: calc(var(--control-h-md) + var(--space-0-5));
+  padding: var(--space-0-5) 0 0;
 }
+.composer-tools .ui-chip {
+  border-radius: var(--radius-md);
+  transition:
+    background-color var(--dur-instant),
+    color var(--dur-instant);
+}
+.composer-tools .ui-chip > svg,
+.composer-tools > .empty-project > svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+.composer-tools .ui-chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .composer-spacer {
   flex: 1;
 }
@@ -88,10 +109,15 @@
 .composer-tools > .ui-popover-anchor.approval-anchor {
   flex: none;
 }
-/* 工具行里的文件夹标签（PathLabel，只读）：高度和左右内边距同 .ui-chip，和模型 / 审批 / 会话开关对齐；没有底色，不能点。 */
+/* 工具行里的文件夹标签（PathLabel，只读）：高度和左右内边距同 .ui-chip，和模型 / 审批 / 会话开关对齐；没有底色，不能点。
+   路径是元信息，字用 --text-3，文件夹图标同其它图标 --text-2。 */
 .composer-tools > .empty-project {
   height: var(--control-h-sm);
   padding: 0 var(--chip-pad);
+  color: var(--text-2);
+}
+.composer-tools > .empty-project > .empty-project-name {
+  color: var(--text-3);
 }
 .composer-note {
   min-width: 0;
@@ -101,11 +127,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 发送键左边：上下文圆环 + 本会话费用（等宽小字）；圆环点开是上下文构成，费用点开是订阅额度和每日用量。 */
+/* 发送键左边：上下文圆环 + 本会话费用（等宽数字、--text-3）；圆环点开是上下文构成，费用点开是订阅额度和每日用量。 */
 .usage-context-anchor,
 .session-cost-anchor {
   flex: none;
 }
+/* 圆环按钮和胶囊一样 28 高、--radius-md；圆环本身 16（--icon-md），和胶囊图标同一条中线。 */
 .usage-context {
   display: grid;
   place-items: center;
@@ -113,9 +140,14 @@
   height: var(--control-h-sm);
   padding: 0;
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: transparent;
   cursor: pointer;
+  transition: background-color var(--dur-instant);
+}
+.usage-context > .usage-ring {
+  width: var(--icon-md);
+  height: var(--icon-md);
 }
 /* 悬停 / 打开时只给底色（同其它工具按钮），圆环本身的颜色不变。 */
 button.usage-context:hover,
@@ -128,23 +160,24 @@ button.usage-context:hover,
 }
 .session-cost {
   height: var(--control-h-sm);
-  padding: 0 var(--space-1);
+  padding: 0 var(--chip-pad);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: transparent;
-  color: var(--text-2);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   cursor: pointer;
+  transition:
+    background-color var(--dur-instant),
+    color var(--dur-instant);
 }
 .session-cost:hover,
 .session-cost[aria-expanded="true"] {
+  background: var(--bg-hover);
   color: var(--text);
-}
-.session-cost-sub {
-  color: var(--text-3);
 }
 
 .usage-item,
@@ -167,11 +200,13 @@ button.usage-context:hover,
   max-width: 100%;
 }
 /* 名字的最小宽只在被挤时才起作用：短名字（比 9ch 窄）按自己的宽度，不撑出一块空白；calc-size 取 min(自身宽, 下限)。 */
+/* 模型名是工具行里唯一的"名字"：500；其余胶囊 400。 */
 .ui-chip.chip-name {
   flex: 0 1 auto;
   max-width: 100%;
   min-width: calc-size(max-content, min(size, var(--chip-name-min-w) + 2 * var(--chip-pad)));
   overflow: hidden;
+  font-weight: var(--fw-medium);
 }
 /* 整颗胶囊（名字 + 刻度）的左右内边距同其它 .ui-chip（--chip-pad）：左边在名字上、右边在刻度上；两颗中间各留 4px。 */
 .ui-chip.chip-effort {
@@ -407,7 +442,6 @@ button.usage-context:hover,
   gap: var(--space-3);
 }
 .ctx-num {
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   color: var(--text-2);
@@ -483,6 +517,7 @@ button.usage-context:hover,
 .ctx-row dd {
   margin: 0;
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 .ctx-share {
   min-width: 5ch;
@@ -565,6 +600,8 @@ button.usage-context:hover,
 }
 .mb-grid dd {
   margin: 0;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 /* 费用点开的用量对话框（ui/Dialog lg 再加宽到 --dialog-w-xl，className usage-dialog）：高度跟内容走，没有额度账号时不留空；窗口矮了由 Dialog 正文滚动。
@@ -594,10 +631,10 @@ button.usage-context:hover,
   gap: var(--space-3);
   min-width: 0;
 }
-/* 账号卡：头一行 状态点 + provider + 账号（+ 备注），下面是窗口 */
+/* 账号卡：头一行 状态点 + provider + 账号（+ 备注），下面是窗口。卡片层：--bg-tool + --border-subtle 发丝线，没有投影 */
 .usage-dialog .uq-block {
   flex: none;
-  background: var(--bg-raised);
+  background: var(--bg-tool);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
 }
@@ -629,9 +666,6 @@ button.usage-context:hover,
 .usage-dialog .uq-limit-name {
   color: var(--text-2);
 }
-.usage-dialog .uq-limit-left {
-  color: var(--text);
-}
 .usage-dialog .uq-limit-reset {
   text-align: right;
 }
@@ -639,6 +673,7 @@ button.usage-context:hover,
   padding: var(--space-1) var(--space-1) 0;
 }
 
+/* 发送 / 停止：32 的圆。可用时 --primary 底 + 受光上沿；不可用时 --bg-active 底、--text-disabled 字，没有边框和上沿。 */
 .send {
   display: grid;
   place-items: center;
@@ -646,33 +681,23 @@ button.usage-context:hover,
   width: var(--control-h-md);
   height: var(--control-h-md);
   padding: 0;
-  border: 1px solid transparent;
+  border: 0;
   border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--text-on-primary);
+  box-shadow: var(--edge-highlight);
   cursor: pointer;
   transition:
     background var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
 }
-.send[data-kind="send"] {
-  background: var(--primary);
-  color: var(--text-on-primary);
-}
-.send[data-kind="send"]:hover:not(:disabled) {
+.send:hover:not(:disabled) {
   background: var(--primary-hover);
 }
-.send[data-kind="send"]:disabled {
+.send:disabled {
   background: var(--bg-active);
   color: var(--text-disabled);
-  cursor: default;
-}
-.send[data-kind="stop"] {
-  background: var(--text);
-  color: var(--bg-app);
-}
-.send[data-kind="stop"]:disabled {
-  background: var(--bg-active);
-  color: var(--text-disabled);
+  box-shadow: none;
   cursor: default;
 }
 .send-square {
@@ -683,12 +708,15 @@ button.usage-context:hover,
 }
 
 /* 输入框上方（ComposerTop.tsx）：药丸行（有待办板时单独一行、右对齐）+ 状态行（左 = 运行图标 + 翻牌计时 + 分隔线 + 当前活动，
-   右 = 待办板；没有待办板时药丸并到右端）。下边距放在这里：Reveal 收起时整块连同间距一起缩没。 */
+   右 = 待办板；没有待办板时药丸并到右端）。下边距放在这里：Reveal 收起时整块连同间距一起缩没。
+   左右和输入框对齐：左边的运行图标对齐输入框里文字的左缘（边框 1 + 内边距 8 + 8），右边的胶囊外缘对齐输入框的内边距（1 + 8），
+   胶囊里的字再缩 8，和工具行同一套 --chip-pad。 */
 .composer-top {
+  --chip-pad: var(--space-2);
   display: flex;
   flex-direction: column;
   gap: var(--space-1-5);
-  padding: 0 var(--space-1) var(--space-2);
+  padding: 0 calc(var(--space-2) + 1px) var(--space-2) calc(var(--space-4) + 1px);
 }
 .top-pills {
   display: flex;
@@ -700,8 +728,12 @@ button.usage-context:hover,
   gap: var(--space-3);
   min-height: var(--control-h-sm);
   color: var(--text-2);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  font-variant-numeric: tabular-nums;
+}
+.run-status .ui-chip {
+  border-radius: var(--radius-md);
 }
 .run-main {
   display: flex;
@@ -725,11 +757,12 @@ button.usage-context:hover,
   max-width: none;
   margin-left: 0;
 }
-/* 运行中：像素 π 一笔笔写出再褪掉（PiWriteMark）；等你确认：静止的琥珀色点。 */
+/* 运行中：像素 π 一笔笔写出再褪掉（PiWriteMark）；等你确认：静止的琥珀色点。
+   16 高（--icon-md）：13×16 的像素画正好一格 1px，边缘清楚；再小（14）格子就糊了。 */
 .run-mark {
   flex: none;
-  width: var(--icon-lg);
-  height: var(--icon-lg);
+  width: var(--icon-md);
+  height: var(--icon-md);
 }
 /* 13×16 的画布居中放在方框里（同原来 SVG 的 viewBox + meet），每格按百分比绝对定位 */
 .pi-write {
@@ -1046,10 +1079,8 @@ button.usage-context:hover,
     opacity: 0.35;
   }
 }
-/* 斜杠菜单 / @ 文件菜单：listbox，焦点一直留在输入框，所以不能用 ui/MenuList；外观同 .ui-menu（--bg-overlay + --shadow-2 + --radius-lg，行高 --row-menu，悬停 / 键盘选中 --bg-hover）。 */
-.composer {
-  position: relative;
-}
+/* 斜杠菜单 / @ 文件菜单：listbox，焦点一直留在输入框，所以不能用 ui/MenuList；外观同 .ui-menu（--bg-overlay + 受光上沿 + --shadow-2 + --radius-lg，
+   行高 --row-menu、--radius-md，悬停 / 键盘选中 --bg-hover）。 */
 .slash {
   position: absolute;
   left: 0;
@@ -1065,7 +1096,7 @@ button.usage-context:hover,
   overscroll-behavior: contain;
   background: var(--bg-overlay);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--edge-highlight), var(--shadow-2);
   animation: pop-in var(--dur-base) var(--ease-out);
 }
 .slash-row {
@@ -1076,7 +1107,7 @@ button.usage-context:hover,
   min-height: var(--row-menu);
   padding: var(--space-1) var(--space-2-5) var(--space-1) var(--space-2);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -1527,7 +1558,7 @@ button.usage-context:hover,
   background: transparent;
   color: var(--text-2);
   font: inherit;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out);

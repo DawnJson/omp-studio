@@ -1,26 +1,36 @@
-// studio 自己的标题块：像素标志 + 版本号，可选地带上文件夹路径。TSP 过程区顶部（TspView，compact 小一号，跟着对话一起滚走）用；
-// TSP 里 omp 自己的欢迎块（omp.welcome）不画，由它顶替。新任务页不用它（只画 π，见 EmptyMark）。
+// 过程区顶部的标题块（TspView，跟着对话一起滚走）：和新任务页的标题同一个排法——π | 项目文件夹名，完整路径在名字下面一行。
+// TSP 里 omp 自己的欢迎块（omp.welcome）不画，由它顶替。
 import type { ReactNode } from "react";
-import { useAppInfo } from "../../store/index.ts";
-import { PixelLogo } from "../../ui/PixelLogo.tsx";
+import { EmptyMark } from "./EmptyMark.tsx";
 import { PathLabel } from "./ProjectLabel.tsx";
 import "./empty.css";
 
 interface StudioHeaderProps {
-  /** 给了就在标志下面显示这个文件夹路径（任务的工作目录）。 */
+  /** 任务的工作目录：标题写它的文件夹名，下面一行写完整路径。 */
   path?: string;
-  compact?: boolean;
   children?: ReactNode;
 }
 
-const COMPACT_UNIT = 4;
+/** 路径最后一段（Windows 和 POSIX 分隔符都认，忽略末尾的分隔符）。 */
+function folderName(path: string): string {
+  const trimmed = path.replace(/[\\/]+$/, "");
+  const at = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  return at >= 0 ? trimmed.slice(at + 1) : trimmed;
+}
 
-export function StudioHeader({ path, compact = false, children }: StudioHeaderProps) {
-  const version = useAppInfo()?.version ?? null;
+export function StudioHeader({ path, children }: StudioHeaderProps) {
+  const hasPath = path !== undefined && path !== "";
   return (
-    <div className="empty-hero" data-testid="studio-header" data-compact={compact ? "" : undefined}>
-      <PixelLogo version={version} {...(compact ? { unit: COMPACT_UNIT } : {})} />
-      {path !== undefined && path !== "" && <PathLabel path={path} testId="studio-header-folder" />}
+    <div className="studio-head" data-testid="studio-header">
+      <EmptyMark />
+      {hasPath && (
+        <>
+          <div className="studio-head-name" title={path}>
+            {folderName(path) || path}
+          </div>
+          <PathLabel path={path} testId="studio-header-folder" />
+        </>
+      )}
       {children}
     </div>
   );

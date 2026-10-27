@@ -258,7 +258,7 @@ function InlineSurface({
       column={column}
       surface={surface}
       mode="inline"
-      header={<StudioHeader compact path={cwd} />}
+      header={<StudioHeader path={cwd} />}
       tail={pendingText !== undefined && !hasUser ? <PendingUser text={pendingText} /> : null}
       line={<ConversationLine taskId={taskId} scroller={scroller} />}
       jump={

@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import "../styles/fonts/noto-sans-sc.css";
 import "../styles/tokens.css";
 import "./app/app.css";
 import "./ui/controls.css";

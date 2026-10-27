@@ -7,7 +7,7 @@
   flex-direction: column;
   min-height: 0;
   background: var(--bg-sunken);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-subtle);
   /* 只淡入加轻微上移；高度一步到位，不逐帧动画 */
   animation: view-in var(--dur-base) var(--ease-out);
 }

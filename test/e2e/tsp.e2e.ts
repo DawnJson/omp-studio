@@ -182,10 +182,10 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     await expect(page.getByTestId("send-button")).toBeVisible();
     await expect(role(page, "omp.editor")).toHaveCount(0);
     await expect(page.locator('[data-testid="tsp-view"] .tspi-editor')).toHaveCount(0);
-    // omp 自己的欢迎块(logo、"omp"、版本、小提示)不画;过程区顶部是 studio 的标题块(像素标志 + 任务所在文件夹),随对话滚动。
+    // omp 自己的欢迎块(logo、"omp"、版本、小提示)不画;过程区顶部是 studio 的标题块(π 标记 + 任务所在文件夹),随对话滚动。
     await expect(role(page, "omp.welcome")).toHaveCount(0);
     await expect(
-      page.locator('[data-testid="tsp-view"] [data-testid="studio-header"] [data-testid="pixel-logo"]'),
+      page.locator('[data-testid="tsp-view"] [data-testid="studio-header"] [data-testid="empty-mark"]'),
     ).toBeVisible();
     await expect(page.locator('[data-testid="tsp-view"] [data-testid="studio-header-folder"]')).toContainText(
       "项目 目录",

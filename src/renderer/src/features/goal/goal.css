@@ -1,4 +1,5 @@
-/* 目标条：和待办条同宽同位置（对话流顶部），一行；目标文字过长时省略，完整文字在悬停提示里。 */
+/* 目标条：和待办条同宽同位置（对话流顶部），一行；目标文字过长时省略，完整文字在悬停提示里。
+   卡片层：--bg-tool + --border-subtle 发丝线，没有投影。 */
 .goal-reveal {
   flex: none;
 }
@@ -11,11 +12,12 @@
   width: min(100% - 2 * var(--gutter), var(--content-w));
   min-height: var(--control-h-sm);
   margin: var(--space-2) auto 0;
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  background: var(--bg-hover);
+  background: var(--bg-tool);
   color: var(--text-2);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
 }
 .goal-objective {
   flex: 1 1 auto;
@@ -27,5 +29,6 @@
 }
 .goal-usage {
   flex: none;
+  color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }

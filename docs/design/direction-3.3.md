@@ -44,3 +44,12 @@
 - 字体：`features/composer/composer.css`（`.session-cost`、`.usage`）、`features/empty/empty.css`（`.empty-project-name`）。
 - 侧栏：`features/sidebar/FolderGroup.tsx`、`sidebar.css`（`.sb-chevron`）。
 - 新任务页：`features/empty/EmptyState.tsx`、`EmptyMark.tsx`、`UsageCard.tsx`、`usage-overview.ts`（`test/usage-overview.test.ts`）、`RecentTasks.tsx`、`empty.css`；文案 `src/shared/i18n/*/empty.ts`（`spec.md` 附录 A.3）。
+
+## 5. 之后被质感改版改掉的（2026-10-27）
+
+同一天的质感改版（中文字体打包、四层表面、发丝线和受光边，现行取值见 `spec.md` §1.2、§2.2、§2.5）改了上面几行，以 `spec.md` 为准：
+
+- 主区面板：`--shadow-panel` 自带一圈发丝线（浅色 5% + `0 1px 2px` 4% + `0 6px 24px -6px` 7%）；深色不再是 `none`，是一圈 `rgba(232, 232, 228, 0.06)` 发丝线。主区深色 `#171716`、侧栏 `#0E0E0D`，浅色侧栏 `#F1F0ED`。
+- bash / eval 输出：不再是“灰托盘里的白卡”，而是卡片里凹下去的一块：`--bg-inset` 改成 `#F4F4F1` / `#121211`，外边距 `0 --space-3 --space-2`、内边距 `--space-2 --space-3`。卡片本身是近白的 `--bg-tool`（`#FAFAF8`）+ 1px `--border-subtle` 发丝线。
+- 新任务页的卡片：`--bg-tool` + 1px `--border-subtle`（原来 `--bg-raised`）；用量合计改用 `--font-display` + `--ls-tight`，费用 `--text-3`。
+- 过程区顶部的 `StudioHeader` 也改成 π + 文件夹名 + 路径的排法（`spec.md` §4.14），不再画整幅像素标志和版本号。

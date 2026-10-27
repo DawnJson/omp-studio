@@ -135,6 +135,7 @@ html[data-platform="darwin"] .topbar-left {
   min-width: 0;
   padding: 0 var(--space-3);
   font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
   white-space: nowrap;
 }
 
@@ -151,12 +152,12 @@ html[data-platform="darwin"] .topbar-left {
   color: var(--text);
 }
 
-/* 任务工具（分支、评审、终端）贴任务条右端；竖线把它们和系统三键隔开 */
+/* 任务工具（分支、评审、终端）贴任务条右端；图标按钮 28 见方、间距一致；竖线把它们和系统三键隔开 */
 .topbar-tools {
   display: flex;
   flex: none;
   align-items: center;
-  gap: var(--space-0-5);
+  gap: var(--space-1);
   margin-left: auto;
   padding: 0 var(--space-2) 0 var(--space-4);
 }
@@ -174,7 +175,7 @@ html[data-platform="darwin"] .topbar-left {
 .topbar-divider {
   width: 1px;
   height: var(--space-4);
-  margin-left: var(--space-1-5);
+  margin-left: var(--space-1);
   background: var(--border);
 }
 
@@ -239,7 +240,7 @@ html[data-platform="darwin"] .topbar-left {
   min-height: 0;
   overflow: hidden;
   background: var(--bg-app);
-  /* 3.3 demo：不描边，浅色靠淡阴影、深色靠明度差从侧栏底上浮起来 */
+  /* 质感改版 2026-10-27：--shadow-panel 自带一圈发丝线 + 很淡的投影；右、下两边离窗口边同为 --space-2（见 .body） */
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-panel);
 }
