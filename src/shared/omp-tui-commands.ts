@@ -5,9 +5,6 @@
 // studio 自己接管的命令（`studio-slash-table.ts`）在合并时由 `withStudioSlash` 去重，不用在这里排除。
 import type { AvailableSlashCommand } from "./omp-wire/rpc-wire.generated.ts";
 
-/** 这张表对应的 omp 版本。 */
-export const OMP_TUI_COMMANDS_VERSION = "18.12.6";
-
 const tui = (name: string, description: string, hint?: string, aliases?: string[]): AvailableSlashCommand => ({
   name,
   source: "builtin",

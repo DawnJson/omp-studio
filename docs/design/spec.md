@@ -725,7 +725,7 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 
 ### 4.23 通用控件（3.2 起，`direction-3.2.md` §3）
 
-全部在 `src/renderer/src/ui/`：React 组件 `controls.tsx`（Button、IconButton、Switch、Checkbox、Radio、Segmented、Tabs、Badge、Notice、TextField、NumberField、Textarea、FormField、SectionHead、Row、ListRow、Disclosure）、`Select.tsx`、`Menu.tsx`（`Menu` / `MenuList`）、`Popover.tsx`、`Dialog.tsx`（`Dialog` / `ConfirmDialog`）、`InfoTip.tsx`；样式只在 `controls.css`，类名前缀 `ui-`，只用 token。各功能目录**不再自己写**按钮、开关、分段、下拉、菜单、对话框外壳的样式。样张 `docs/design/3.2/components.html`（浏览器直接打开，`?theme=dark` 看深色）。
+全部在 `src/renderer/src/ui/`：React 组件 `controls.tsx`（Button、IconButton、Switch、Checkbox、Segmented、Tabs、Badge、Notice、TextField、NumberField、Textarea、FormField、SectionHead、Row、ListRow、Disclosure）、`Select.tsx`、`Menu.tsx`（`Menu` / `MenuList`）、`Popover.tsx`、`Dialog.tsx`（`Dialog` / `ConfirmDialog`）、`InfoTip.tsx`；样式只在 `controls.css`，类名前缀 `ui-`，只用 token；ask 门的单选圈直接用 `.ui-radio` 类。各功能目录**不再自己写**按钮、开关、分段、下拉、菜单、对话框外壳的样式。样张 `docs/design/3.2/components.html`（浏览器直接打开，`?theme=dark` 看深色）。
 
 **尺寸只有两档**：md `--control-h-md`(32，表单、对话框、设置页)、sm `--control-h-sm`(28，工具条、面板和分组标题、列表行、浮层)。圆角：按钮、输入框、分段外框 `--radius-md`；分段内块、勾选框 `--radius-sm`；胶囊形只给输入框工具条的 Chip 和 Toast。**一个视图最多一个主按钮**；链接只出现在句子里，不当独立按钮。**互斥取值**：≤4 个短选项用 Segmented，更多用 Select，由选项个数决定，不由语言或宽度决定（例外：模型选择器的思考强度是有序的档位，仍是一排分段，`direction-3.2.md` §5）；**切视图**用 Tabs。
 

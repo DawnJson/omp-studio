@@ -25,7 +25,6 @@ export const composer = {
   "chip.lines": "lines",
   "chip.chars": "chars",
   resize: "Resize the input (double-click to reset)",
-  "queue.promote": "Steer now",
   queueRestored: {
     one: "Stopped · {count} queued message put back in the box",
     other: "Stopped · {count} queued messages put back in the box",

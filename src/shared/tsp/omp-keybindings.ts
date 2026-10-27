@@ -36,9 +36,6 @@ const ACTIONS: readonly ActionDef[] = [
   { action: "app.message.dequeue", legacy: "dequeue", defaults: ["alt+up", "shift+up"] },
 ];
 
-/** 转发的动作 ID（设置页的快捷键表按它找文字）。 */
-export const OMP_FORWARDED_ACTIONS: readonly string[] = ACTIONS.map((def) => def.action);
-
 /** 键只有这些才值得转发：带 Ctrl / Alt 的、功能键、Shift+Tab；单个字符、Shift+方向键这类输入框要用。 */
 function isForwardable(chord: string): boolean {
   const parts = chord.split("+");

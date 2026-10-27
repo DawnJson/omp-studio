@@ -24,7 +24,6 @@ export const composer = {
   "chip.lines": "行",
   "chip.chars": "字符",
   resize: "调整输入框高度（双击还原）",
-  "queue.promote": "现在插话",
   queueRestored: "已停止 · {count} 条排队消息已放回输入框",
   imagesDropped: "图片太大，没能放回",
   stopFailed: "没能停下这一轮，任务仍在运行",

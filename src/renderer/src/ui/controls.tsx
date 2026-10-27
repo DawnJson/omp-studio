@@ -150,17 +150,15 @@ interface ChoiceProps {
   testId?: string | undefined;
 }
 
-function Choice({
-  type,
+export function Checkbox({
   checked,
   indeterminate = false,
   onChange,
   disabled,
   children,
   label,
-  name,
   testId,
-}: ChoiceProps & { type: "checkbox" | "radio"; indeterminate?: boolean; name?: string }) {
+}: ChoiceProps & { indeterminate?: boolean }) {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (ref.current) ref.current.indeterminate = indeterminate;
@@ -168,10 +166,9 @@ function Choice({
   const input = (
     <input
       ref={ref}
-      type={type}
-      className={type === "checkbox" ? "ui-check" : "ui-radio"}
+      type="checkbox"
+      className="ui-check"
       checked={checked}
-      name={name}
       disabled={disabled}
       aria-label={label}
       onChange={(event) => onChange(event.currentTarget.checked)}
@@ -185,14 +182,6 @@ function Choice({
       {children}
     </label>
   );
-}
-
-export function Checkbox(props: ChoiceProps & { indeterminate?: boolean }) {
-  return <Choice type="checkbox" {...props} />;
-}
-
-export function Radio(props: ChoiceProps & { name: string }) {
-  return <Choice type="radio" {...props} />;
 }
 
 export interface Option<T extends string> {

@@ -3,7 +3,6 @@
 import type { MessageEntry } from "../index.ts";
 
 export const process = {
-  toolCalls: { one: "{count} tool call", other: "{count} tool calls" },
   thoughtShort: "Thinking",
   earlier: "{n} earlier",
 } satisfies Record<string, MessageEntry>;

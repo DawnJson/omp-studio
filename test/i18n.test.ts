@@ -9,15 +9,13 @@ describe("t() 的复数", () => {
 
   it("运行过程在中文界面也是英文，单复数照英文选", () => {
     for (const t of [zh, en]) {
-      expect(t("process.toolCalls", { count: 1 })).toBe("1 tool call");
-      expect(t("process.toolCalls", { count: 2 })).toBe("2 tool calls");
       expect(t("tool.bash.earlier", { count: 1 })).toBe("1 earlier line");
       expect(t("tool.output.unchanged", { count: 0 })).toBe("0 unchanged lines");
     }
   });
 
   it("其余界面照常按各自语言", () => {
-    expect(zh("composer.queue.promote")).toBe("现在插话");
-    expect(en("composer.queue.promote")).toBe("Steer now");
+    expect(zh("composer.queueRestored", { count: 1 })).toBe("已停止 · 1 条排队消息已放回输入框");
+    expect(en("composer.queueRestored", { count: 1 })).toBe("Stopped · 1 queued message put back in the box");
   });
 });
