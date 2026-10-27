@@ -14,6 +14,8 @@ interface AccountData {
   accounts: Record<string, LogoutAccount[]>;
   /** 能填 key 的 provider 的 key 实际取自哪个变量、设在哪；和列表一起读好，卡片和填 key 的对话框打开时就是对的，不先显示默认说明再跳。 */
   keyEnv: Record<string, ProviderKeyEnv>;
+  /** 存了几个 Tavily 备用 key（填 key 对话框的说明用；key 本身不回传）。 */
+  tavilyBackupKeys: number;
   models: ModelOption[];
 }
 
@@ -23,9 +25,10 @@ const store = createStore<AccountLoad>({ kind: "idle" });
 
 /** 一次读全：provider、每个已认证 provider 的账号（OAuth 和设置页存的 API key 都在里面）、key 变量、模型。provider、key 变量或模型读不出来整体失败。 */
 async function fetchAccountData(): Promise<AccountData> {
-  const [providers, keyEnv, models] = await Promise.all([
+  const [providers, keyEnv, tavilyBackupKeys, models] = await Promise.all([
     window.studio.listLoginProviders(),
     window.studio.apiKeyEnvSources(),
+    window.studio.tavilyBackupKeyCount(),
     window.studio.listModels(),
   ]);
   const accounts: Record<string, LogoutAccount[]> = {};
@@ -36,7 +39,7 @@ async function fetchAccountData(): Promise<AccountData> {
         accounts[provider.id] = await window.studio.listAccounts(provider.id);
       }),
   );
-  return { providers, accounts, keyEnv, models };
+  return { providers, accounts, keyEnv, tavilyBackupKeys, models };
 }
 
 const loader = createCachedLoader<AccountData>(

@@ -33,6 +33,7 @@ export function ProviderFlowDialog({
   provider,
   accounts,
   keyEnv,
+  tavilyBackupKeys,
   action,
   onBack,
   onClose,
@@ -42,6 +43,8 @@ export function ProviderFlowDialog({
   accounts: LogoutAccount[];
   /** key 实际取自哪个变量、设在哪（accounts-store 的 keyEnv）；这个 provider 没有 key 变量时 null。 */
   keyEnv: ProviderKeyEnv | null;
+  /** 存了几个 Tavily 备用 key（accounts-store）；只有 Tavily 的填 key 对话框用。 */
+  tavilyBackupKeys: number;
   action: FlowAction;
   /** 从"连接提供商"选择对话框进来时可以回去重选。 */
   onBack?: (() => void) | undefined;
@@ -53,6 +56,9 @@ export function ProviderFlowDialog({
   const [open, setOpen] = useState(true);
   const [flow, setFlow] = useState<Flow>(() => initialFlow(action));
   const [apiKey, setApiKey] = useState("");
+  /** Tavily 的备用 key（每行一个）：额度用完时 studio 内置扩展依次换用（client-accounts/extension/tavily-keys.mjs）。 */
+  const [backupKeys, setBackupKeys] = useState("");
+  const takesBackupKeys = provider.id === "tavily";
   const [code, setCode] = useState("");
   const [copied, setCopied] = useState(false);
   const started = useRef(false);
@@ -144,12 +150,30 @@ export function ProviderFlowDialog({
   const saveKey = () =>
     run(async () => {
       try {
-        await window.studio.saveApiKey(provider.id, apiKey);
+        if (apiKey.trim() !== "") await window.studio.saveApiKey(provider.id, apiKey);
       } catch (error) {
         setFlow({ kind: "failed", message: t("login.apiKey.failed", { message: describeError(t, error) }) });
         return;
       }
+      try {
+        if (backupKeys.trim() !== "") await window.studio.setTavilyBackupKeys(backupKeys);
+      } catch (error) {
+        setFlow({ kind: "failed", message: t("login.apiKey.backup.failed", { message: describeError(t, error) }) });
+        return;
+      }
       setApiKey("");
+      setBackupKeys("");
+      finish();
+    });
+
+  const clearBackupKeys = () =>
+    run(async () => {
+      try {
+        await window.studio.setTavilyBackupKeys("");
+      } catch (error) {
+        setFlow({ kind: "failed", message: t("login.apiKey.backup.failed", { message: describeError(t, error) }) });
+        return;
+      }
       finish();
     });
 
@@ -208,6 +232,7 @@ export function ProviderFlowDialog({
         value={apiKey}
         onChange={setApiKey}
         onSubmit={() => void saveKey()}
+        backup={takesBackupKeys ? { count: tavilyBackupKeys, value: backupKeys, onChange: setBackupKeys } : null}
       />
     );
     footer = (
@@ -215,7 +240,7 @@ export function ProviderFlowDialog({
         <Button onClick={close}>{t("common.cancel")}</Button>
         <Button
           variant="primary"
-          disabled={apiKey.trim() === ""}
+          disabled={apiKey.trim() === "" && backupKeys.trim() === ""}
           loading={busy}
           onClick={() => void saveKey()}
           testId="provider-key-save"
@@ -248,6 +273,9 @@ export function ProviderFlowDialog({
     );
   }
 
+  const showBack = onBack !== undefined && flow.kind !== "login" && flow.kind !== "terminal";
+  const showClear = flow.kind === "key" && takesBackupKeys && tavilyBackupKeys > 0;
+
   return (
     <Dialog
       open={open}
@@ -256,10 +284,24 @@ export function ProviderFlowDialog({
       title={provider.name}
       testId={`provider-flow-${provider.id}`}
       footStart={
-        onBack !== undefined && flow.kind !== "login" && flow.kind !== "terminal" ? (
-          <Button variant="quiet" onClick={onBack}>
-            {t("login.back")}
-          </Button>
+        showBack || showClear ? (
+          <>
+            {showBack && (
+              <Button variant="quiet" onClick={onBack}>
+                {t("login.back")}
+              </Button>
+            )}
+            {showClear && (
+              <Button
+                variant="quiet"
+                disabled={busy}
+                onClick={() => void clearBackupKeys()}
+                testId="provider-backup-clear"
+              >
+                {t("login.apiKey.backup.clear")}
+              </Button>
+            )}
+          </>
         ) : undefined
       }
       footer={footer}

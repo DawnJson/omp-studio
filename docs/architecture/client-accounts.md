@@ -221,3 +221,13 @@ pi.registerProvider(id, {
 | OpenCode Zen 免费档：RPC `login`（api 方式，不开浏览器）→ 模型列表 → 一轮对话 | 通过：8 个模型（都走 chat），`opencode-zen-free/glm-5.3-flash-free` 回答 `OK` |
 | Messages / Responses 两种传输（假插件，`fetch` 本地返回 SSE） | 通过：Messages 回 `MSG-OK`、Responses 回 `RESP-OK`。踩过两处：不按真实传输重建模型时 `compat` 为空直接报错（`wireModel`）；omp 请求 `<站点>/messages` 而不是插件的 `<api.url>/messages`（`pluginUrl`） |
 | 账号额度（2026-10-26，`omp usage invalidate` 后 `omp usage --json`） | 通过：qoder-cn（套餐 `personal_professional_trial`，Credits 只给百分比）、workbuddy（`Free plan`，Credits 按积分：已用 / 总量）、trae-cn（Credits 按积分，带重置时间）都出现在 `reports` 里；opencode-zen-free 只有套餐、没有额度窗口。studio 的 `parseQuota` 解析出各自的剩余百分比和重置时间 |
+
+## 12. Tavily 备用 key（2026-10-27）
+
+仓库所有者要的：Tavily 有好几个 key，当前 key 额度用完时自动换下一个，用最简单的做法。
+
+- **为什么要自己做**（omp 18.13.1 实测）：Tavily 搜索每次请求按 omp 的顺序取一个 key（`models.yml` 覆盖 → OAuth → `/login` 存的 → `TAVILY_API_KEY`（`Bun.env`，含 agent 目录 `.env`）→ 其余凭据库条目），额度用完 Tavily 回 `432`（`{"detail":{"error":"This request exceeds your plan's set usage limit..."}}`），omp 报 `Tavily API error (432)`。432 不在 omp 会轮换凭据的错误里，同一 provider 的凭据库也只留一个 API key（再 `omp auth import` 就替换），所以 omp 自己不会换。
+- **做法**：本文的 `studio-accounts` 扩展在 omp 进程里包一层全局 `fetch`（`extension/tavily-keys.mjs`；omp 的 Tavily 请求每次都调全局 `fetch(url 字符串, init)`，body 是 JSON 字符串，能重发）：发往 `https://api.tavily.com/` 的请求回 432 / 433（433 是按量付费上限，Tavily 文档）时，同一个请求换下一个没用完的备用 key 重发；之后 omp 还拿用完的 key 来时直接换成最近换上的。全都用完就把最后的 432 交还 omp 报错。用完的 key 记在进程里（额度按月重置，进程活不了那么久）。同一进程多次加载扩展时只装一次；保留 `fetch.preconnect`（omp 自己包 `fetch` 时也保留，别处会读它）。
+- **备用 key 存在哪**：扩展目录里的 `tavily-keys.json`（JSON 字符串数组），由设置页"设置 API key"对话框（只有 Tavily 有 `备用 key` 字段）经 `setTavilyBackupKeys` 写（`deploy.ts` 的 `writeTavilyBackupKeys`，原子写；清空就删文件）。它不在部署清单里，重新部署不删。扩展每次要换 key 时重读这个文件，改了不用重启 omp；但包 `fetch` 的代码只在装了这一版扩展之后新起的 omp 进程里有。key 只进不出：界面只拿到个数（`tavilyBackupKeyCount`）。当前 key 不动（还是 `.env` 的 `TAVILY_API_KEY` 或凭据库里那个）。
+- **实测**（omp 18.13.1，2026-10-27，临时 `PI_CODING_AGENT_DIR` + 仓库的扩展目录原样拷过去，`modelRoles = {"web":"tavily"}`，`omp -p` 让模型调一次 `web_search`）：`TAVILY_API_KEY` 和第一个备用 key 都已用完（`GET /usage` 显示 1000 / 1000）、第二个有额度时，搜索由 Tavily 正常返回、没有报错；只给用完的备用 key 时报 432。几次成功搜索后 `GET /usage` 的 `key.usage` 仍是 0：Tavily 的用量统计有延迟，不能拿它判断刚用过哪个 key。
+- **omp 的相关行为**（同上实测）：`web` 角色没设（`modelRoles` 为空）时 `web_search` 自动选的第一个搜索源是 Parallel（不要 key），不是 Tavily，所以备用 key 只在搜索源设成 Tavily、或者排在前面的源失败时才用得上；会话里的 `web_search` 在 Tavily 报错后会退到 Parallel 并在结果里写明，`omp search --model tavily` 不退。`omp search` 不加载扩展，验证扩展要起真正的会话。

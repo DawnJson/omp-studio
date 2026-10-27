@@ -1213,6 +1213,14 @@ export interface StudioInvokeApi {
    * 只回变量名和位置，不回值。设置页卡片的元信息和"设置 API key"对话框的说明用它。
    */
   apiKeyEnvSources(): Promise<Record<string, ProviderKeyEnv>>;
+  /**
+   * Tavily 备用 key：`keys` 是界面里粘贴的文字，按空白和换行拆成一个个 key，整体换掉已存的；空串清空。
+   * 存进 omp 扩展目录里 studio 内置扩展旁边的 `tavily-keys.json`，扩展在当前 key 额度用完（Tavily 回 432 / 433）时依次换用，
+   * 正在跑的 omp 也不用重启。key 只进不出：返回存了几个。
+   */
+  setTavilyBackupKeys(keys: string): Promise<number>;
+  /** 存了几个 Tavily 备用 key。 */
+  tavilyBackupKeyCount(): Promise<number>;
 
   // 自定义模型：直接读写 omp 的 models.yml（src/main/omp-config/models-file.ts；规则见 AGENTS.md）
   /** 读 models.yml 里的 providers。key 只有状态，没有内容。文件读不懂时 reject。 */
@@ -1591,6 +1599,8 @@ export const invokeNames = {
   logout: true,
   saveApiKey: true,
   apiKeyEnvSources: true,
+  setTavilyBackupKeys: true,
+  tavilyBackupKeyCount: true,
   listCustomProviders: true,
   saveCustomProvider: true,
   deleteCustomProvider: true,

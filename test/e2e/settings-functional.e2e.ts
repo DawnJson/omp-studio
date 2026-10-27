@@ -203,9 +203,13 @@ test("设置 API key：key 的变量写在 agent 目录 .env 里时改那一行�
       "Replaces TAVILY_API_KEY in the agent folder's .env, which omp uses first",
     );
     await expectNoOverflow(flow);
-    await flow.getByRole("textbox").fill("  tvly-new  ");
+    await flow.getByRole("textbox", { name: "API key", exact: true }).fill("  tvly-new  ");
+    // 备用 key：每行一个（重复的只存一次），和 key 一起保存；不进 .env 也不进凭据库，写在 studio 内置扩展旁边。
+    await flow.getByTestId("provider-backup-keys").fill("tvly-b1\ntvly-b2  tvly-b1\n");
     await page.getByTestId("provider-key-save").click();
     await expect(flow).toHaveCount(0);
+    const backupFile = path.join(agentDir, "extensions", "studio-accounts", "tavily-keys.json");
+    expect(JSON.parse(await readFile(backupFile, "utf8"))).toEqual(["tvly-b1", "tvly-b2"]);
 
     expect(await readFile(path.join(agentDir, ".env"), "utf8")).toBe("# 搜索\nTAVILY_API_KEY=tvly-new\nOTHER=1\n");
     expect(await readFile(path.join(agentDir, ".env.bak"), "utf8")).toContain("tvly-old");
@@ -215,6 +219,13 @@ test("设置 API key：key 的变量写在 agent 目录 .env 里时改那一行�
     };
     expect(exported.credentials.filter((entry) => entry.provider === "tavily")).toEqual([]);
     await expect(card).toContainText("Env var · TAVILY_API_KEY");
+
+    // 再打开：已存的备用 key 只说个数；清除后文件删掉。
+    await card.getByTestId("provider-key-tavily").click();
+    await expect(flow.getByTestId("provider-backup-keys")).toHaveAttribute("placeholder", /^2 saved/);
+    await flow.getByTestId("provider-backup-clear").click();
+    await expect(flow).toHaveCount(0);
+    await expect(access(backupFile)).rejects.toThrow();
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });

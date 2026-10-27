@@ -2,9 +2,11 @@
 // 除 API key 和非对话模型外都走服务进程（src/main/service/）；非对话模型跑一次 `omp models --kind all --json`（rpc 没有这个命令）。
 // API key 经 `omp auth import` 存进 omp 的凭据库（login/api-key.ts）；omp 实际取 key 的那个变量已写在 agent 目录 `.env` 里时改那一行（omp 优先用 `.env`）。
 // 清除就是 logout 那条 api_key 凭据。key 只进不出：返回值、事件、日志里都没有 key。
-import type { HandlerGroup } from "../../shared/ipc.ts";
+// Tavily 的备用 key（额度用完时换用）另存在 studio 内置扩展旁边，不进 omp 的凭据库。
+import { limits, type HandlerGroup } from "../../shared/ipc.ts";
 import { parseRunnerModels } from "../../shared/omp-output/models.ts";
 import { acceptsApiKey, keyEnvProviderIds, providerKeyEnv, type ProviderKeyEnv } from "../../shared/provider-keys.ts";
+import { countTavilyBackupKeys, writeTavilyBackupKeys } from "../client-accounts/deploy.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
 import { cleanApiKey, importApiKey } from "../login/api-key.ts";
 import { setEnvKey } from "../omp-config/models-file.ts";
@@ -41,6 +43,8 @@ export const accountHandlers: HandlerGroup<
   | "logout"
   | "saveApiKey"
   | "apiKeyEnvSources"
+  | "setTavilyBackupKeys"
+  | "tavilyBackupKeyCount"
 > = {
   listModels: () => listModelOptions(),
   listRunnerModels: async () => {
@@ -103,4 +107,12 @@ export const accountHandlers: HandlerGroup<
     }
     return result;
   },
+  // 备用 key 不经 omp：写进 studio 内置扩展旁边的文件，扩展在额度用完时换用（client-accounts/extension/tavily-keys.mjs）。
+  setTavilyBackupKeys: async (keys) => {
+    const text = parseString(keys, "keys", limits.apiKeyMaxChars, { allowEmpty: true });
+    const unique = [...new Set(text.split(/\s+/).filter((key) => key !== ""))];
+    await writeTavilyBackupKeys(resolveAgentDir(), unique);
+    return unique.length;
+  },
+  tavilyBackupKeyCount: () => countTavilyBackupKeys(resolveAgentDir()),
 };

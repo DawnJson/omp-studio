@@ -109,6 +109,7 @@ export function ProvidersSection() {
           provider={flowProvider}
           accounts={data.accounts[flowProvider.id] ?? []}
           keyEnv={data.keyEnv[flowProvider.id] ?? null}
+          tavilyBackupKeys={data.tavilyBackupKeys}
           action={target.action}
           onBack={target.fromPick ? () => openDialog({ kind: "pick" }) : undefined}
           onClose={() => dialogClosed(dialog.key)}
