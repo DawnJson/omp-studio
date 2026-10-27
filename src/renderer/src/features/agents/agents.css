@@ -337,18 +337,17 @@
   bottom: auto;
 }
 
-/* 插话框：钉在面板底边，输入框 + 发送键 */
+/* 插话框：钉在面板底边，外观同主输入框（.composer，composer.css）；文本区按内容自动增高，面板矮，上限比主输入框低 */
 .agents-steer {
-  display: flex;
   flex: none;
-  align-items: flex-end;
-  gap: var(--space-2);
   padding: var(--space-2) var(--space-3) var(--space-3);
 }
-.agents-steer .ui-textarea {
-  flex: 1;
-  min-width: 0;
-  resize: none;
+.agents-steer-field {
+  max-height: calc(var(--lh-prose) * 6);
+  field-sizing: content;
+}
+.agents-steer-tools {
+  justify-content: flex-end;
 }
 
 /* Ctx：列表行里的上下文占用（omp Hub 的 Ctx 列）：细条 + 百分比 */

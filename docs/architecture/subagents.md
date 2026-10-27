@@ -58,7 +58,7 @@ studio 把 omp 的编辑器藏了、用自己的输入框，所以 Hub 开着时
 
 ### 实测：运行中的记录（omp 18.12.6，`deepseek/deepseek-v4-flash`，真实 omp、临时 agent 目录，2026-10-22 一次性探针，未存为 fixture）
 
-- omp 的 Hub 详情里有 "Recent activity"（时间、工具名、意图，点开跳记录）；studio 的对应物是面板详情里的"对话记录"（读 `<名字>.jsonl`，同 omp 默认展开）。打开 Hub 时 omp 总有一个选中项（`selected`，录制里是列表第一个），面板没选过时也显示第一个的详情。
+- omp 的 Hub 详情里有 "Recent activity"（时间、工具名、意图，点开跳记录）；studio 的对应物是面板详情里的"对话记录"（读 `<名字>.jsonl`；omp 默认展开，studio 2026-10-27 起默认收起，仓库所有者不要默认摆出工具调用的细节）。打开 Hub 时 omp 总有一个选中项（`selected`，录制里是列表第一个），面板没选过时也显示第一个的详情。
 - 子代理在跑时 omp **边跑边写** `<名字>.jsonl`：一次工具调用开始时 assistant 消息（带 `toolCall`）已经落盘，`toolResult` 要等调用结束才写。所以记录里"有调用、没结果"= 正在执行（子代理已结束时 = 被中断）。
 - 面板按 `agent` 节点的 `status` + `stats.tools` 重读记录：每多一次工具调用读一次，结束时再读一次（拿 `.md` 里的最终输出）。实测 `sleep 20` 跑着时记录里那次调用显示转圈 + `Running`，结束后变成 `Done 20.0s`，不用点"重新读取"。
 - 正在跑的那一轮没有结论：之前"整轮没有不带工具调用的消息就拿最后一句叙述当结论"的规则会把 `I'll execute the steps in order.` 画到最下面当回答，运行中的最后一轮不再这样做。

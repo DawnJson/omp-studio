@@ -1,5 +1,6 @@
 // 子代理详情（列表下方，不再套一层卡片）：头行 = 名字 + 模型 + 结束 / 恢复；一排统计（数字在上、标签在下）；
-// 任务说明（Markdown 全文）；最终输出；对话记录（默认展开，同 omp Hub 详情里的 Recent activity）。状态在选中的那一行上，这里不重复。
+// 任务说明（Markdown 全文）；最终输出；对话记录（omp Hub 详情里的 Recent activity；默认收起，工具调用的细节点开才看，仓库所有者 2026-10-27）。
+// 状态在选中的那一行上，这里不重复。
 // 统计来自文档里的 `agent` 节点；最终输出（`.md`）和记录（会话文件）经 IPC 只读 omp 的存档。插话框在面板底部（AgentsPanel）。
 import { useMemo, useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
@@ -97,7 +98,7 @@ function TaskBlock({ text }: { text: string }) {
 
 function RecordSection({ taskId, state, live }: { taskId: TaskId; state: AgentRecordState; live: boolean }) {
   const t = useT();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const { record, loading, error, reload } = state;
   const messages = record?.messages ?? null;
   const turns = useMemo(() => (messages !== null ? buildTurns(messages, live) : []), [messages, live]);
