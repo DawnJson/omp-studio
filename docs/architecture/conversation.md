@@ -76,6 +76,10 @@
   - 每行的 `title` 是 `<名称> · <token 数，千分位> tokens`，是精确值（行里画的是 `3K` 这样的缩写）。各类之和 + 剩余 + 预留 = 窗口（200K 窗口：2,958 + 4,543 + 115 + 549 + 0 + 161,835 + 30,000）。
   - **运行中也能读**：一轮 bash 工具调用进行中点 meter，omp 当场弹出报告，Close 关掉后这一轮照常跑完（回复正确，没有 "Stopped"）。空闲时 omp 在收到点击后 5-11 ms 画出报告（录制里两次）；运行中没有计时。
   - omp 没在运行、输入框被提问 / 审批换掉时读不到（`TSP_COMPOSER_UNAVAILABLE`），界面显示 `composer.context.unavailable`。
+- 实测 omp 18.13.2（2026-10-28，真实 omp 探针，临时 `PI_CODING_AGENT_DIR`，`deepseek/deepseek-v4-flash`；录制 `fixtures/tsp/context-report-18.13.jsonl`）：报告换了写法，没有 `omp.context.cats` 了，按旧规则一直找不到报告，界面停在"计算中"8 秒、omp 的报告也没人关。现在两种都认：
+  - 正文 `omp.context` 下一个 id 以 `/categories` 结尾的 `list`，每类一个 `item`：id 末段是连字符写法（`system-prompt` / `skills` / `built-in-tools` / `custom-tools` / `user-messages` / `assistant-messages` / `assistant-thinking` / `tool-calls` / `tool-output`，最后 `buffer`、`free`），studio 换成驼峰当 key（`builtInTools`），界面按 key 起名、上色。
+  - item 的 `label` 是 `[色块 "■ ", 名称]`，`value` 是 `3.1K · 0.3%` 这样的缩写，没有精确数（omp 自己也只显示缩写；`bar` meter 的 `parts` 带比例但没有窗口的精确值）。已用取 role `omp.context.used` 的第一段（`8.2K`），窗口 = 已用 + 预留 + 剩余。
+  - Close 照旧是报告里 role `omp.btn` 的按钮（`actions.click` = `close`）。
 - 新任务草稿没有 omp 进程：已用 0，只画剩余空间和按压缩设置算的自动压缩预留（`composer/context-rows.ts`）。
 
 ## 压缩上下文

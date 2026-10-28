@@ -544,7 +544,7 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 
 仅当用户脱离吸底且有新内容时出现；对话区底部居中、距底部栈顶 `--space-3`，高 32，`--radius-pill`，`--bg-overlay`，`--shadow-2`，文案 `scroll.latest`；点击或 `End`/`Ctrl+End` 回到底部并重新吸底。
 
-**对话线**（`ConversationLine.tsx`，2026-10-22 仓库所有者）：会话里有 2 条以上用户消息时，对话区右缘（覆盖式滚动条左边、距顶 `--space-6`）一列横刻度，每条用户消息一个，按发送顺序从上往下（消息取自 TSP 文档里的 `omp.user` 卡片，`shared/tsp/user-messages.ts`）。刻度 8×2 `--border-strong`，悬停 12 宽 `--text-2`，正在读的那一条（顶边在视口上 1/3 以上的最后一条；吸底时是最后一条）12 宽 `--text`、`aria-current="location"`。点刻度把那条消息滚到对话区顶部（留 `--space-4`）。悬停提示 / 读屏 `scroll.lineItem`（第几条 + 消息开头 80 字）。刻度间距 12，消息多时压缩到最小 3，整列最多占对话区一半高，再多就在列里滚动（不显示滚动条）。宽 12，落在对话列最小留白 `--gutter` 里，不压正文。
+**对话线**（`ConversationLine.tsx`，2026-10-22 仓库所有者）：会话里有 2 条以上用户消息时，对话区右缘（覆盖式滚动条左边、上下各留 `--space-6`）一列横刻度，每条用户消息一个，按发送顺序从上往下（消息取自 TSP 文档里的 `omp.user` 卡片，`shared/tsp/user-messages.ts`）。刻度 8×2 `--border-strong`（12 宽按 `scaleX` 缩成 8，长短变化走 transform，不动 `width`：滚动时当前那一条一直在换，过渡 `width` 每帧都要重新排版），悬停 12 宽 `--text-2`，正在读的那一条（顶边在视口上 1/3 以上的最后一条；吸底时是最后一条）12 宽 `--text`、`aria-current="location"`。点刻度把那条消息滚到对话区顶部（留 `--space-4`）。悬停提示 / 读屏 `scroll.lineItem`（第几条 + 消息开头 80 字）。刻度间距 12，整列在对话区的高度里竖直居中；消息多时压缩到最小 3，可用整个对话区的高度（2026-10-28 起；原来贴顶、最多占一半高，消息一多就全挤在上半截），再多就在列里滚动（不显示滚动条），溢出时从第一条排起。刻度之间的空白不接点击。宽 12，落在对话列最小留白 `--gutter` 里，不压正文。
 
 ### 4.16 DropOverlay
 
@@ -994,7 +994,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 3. 脱离吸底且仍有新内容 → 显示 JumpToLatest（§4.15）。
 4. 用户发送消息 → 强制吸底。
 5. 展开/折叠任意块（过程行、代码块、长用户消息）以被点击元素为锚：它在视口里的位置不变，必要时补偿 `scrollTop`。
-6. 切换任务：各自记住滚动位置和吸底状态。最近看过的 5 个任务的过程区（`TspView`）不卸载，切走时用 React 的 `Activity` 藏起来（effect 和订阅撤掉，DOM 和状态留着；藏着时的更新按低优先级渲染），切回来不用把整段对话重画一遍（`App.tsx` 的 `KEPT_VIEWS`，2026-10-25 起；30 轮的对话约 250ms → 110ms）。因此 DOM 里可能同时有几个 `tsp-view`，按全局选择器找过程区里的元素时要取看得见的那个。进设置时当前任务的过程区不进 `Activity`，而是“停着”（`TspView` 的 `parked`，`data-parked`：`position: absolute` + `visibility: hidden` + `content-visibility: hidden`）：节点、effect、排版和滚动位置都留着，返回时不用把上万个节点重算样式、重挂 effect（2026-10-25 实测 120 轮、约 2 万个节点的对话，返回那一帧 139ms → 约 50ms）；停着时 omp 的快捷键不转发、⌃O / ⌃⇧C 不生效、omp 弹层不截 Esc、omp 的通知不弹（`TspParkedCtx`）。
+6. 切换任务：各自记住滚动位置和吸底状态。最近看过的 5 个任务的过程区（`TspView`）不卸载，切走时用 React 的 `Activity` 藏起来（effect 和订阅撤掉，DOM 和状态留着；藏着时的更新按低优先级渲染），切回来不用把整段对话重画一遍（`App.tsx` 的 `KEPT_VIEWS`，2026-10-25 起；30 轮的对话约 250ms → 110ms）。因此 DOM 里可能同时有几个 `tsp-view`，按全局选择器找过程区里的元素时要取看得见的那个。进设置时当前任务的过程区不进 `Activity`，而是“停着”（`TspView` 的 `parked`，`data-parked`：`position: absolute` + `visibility: hidden`）：节点、effect、排版和滚动位置都留着，返回时不用把上万个节点重算样式、重挂 effect（2026-10-25 实测 120 轮、约 2 万个节点的对话，返回那一帧 139ms → 约 50ms）。不加 `content-visibility: hidden`：它里面的动画交不给合成器，停着的对话里有一个转圈的工具卡，主线程就每帧都要跑（2026-10-28 实测设置页上每秒 400 多个主线程帧；去掉后 152 条消息的会话返回时没有超过 50ms 的帧）；停着时 omp 的快捷键不转发、⌃O / ⌃⇧C 不生效、omp 弹层不截 Esc、omp 的通知不弹（`TspParkedCtx`）。
 7. 门出现不改变滚动位置。
 8. 性能：离屏的已结束 turn 用 `content-visibility: auto; contain-intrinsic-size: auto 400px`（最近 20 轮不用）；不上虚拟列表。
 

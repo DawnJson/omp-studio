@@ -67,8 +67,23 @@ function useCompaction(projectId: ProjectId | null): CompactionSettings | null {
   return settings;
 }
 
-/** omp 的类别 id（加上剩余空间、预留）：有自己的名称和颜色；别的（omp 新加的类别）显示 omp 的英文名。 */
-const KNOWN_PARTS = ["systemPrompt", "systemTools", "systemContext", "skills", "messages", "free", "buffer"] as const;
+/** omp 的类别 id（18.12 和 18.13 两套，加上剩余空间、预留）：有自己的名称和颜色；别的（omp 新加的类别）显示 omp 的英文名。 */
+const KNOWN_PARTS = [
+  "systemPrompt",
+  "systemTools",
+  "systemContext",
+  "skills",
+  "messages",
+  "builtInTools",
+  "customTools",
+  "userMessages",
+  "assistantMessages",
+  "assistantThinking",
+  "toolCalls",
+  "toolOutput",
+  "free",
+  "buffer",
+] as const;
 type KnownPart = (typeof KNOWN_PARTS)[number];
 const isKnownPart = (key: string): key is KnownPart => (KNOWN_PARTS as readonly string[]).includes(key);
 

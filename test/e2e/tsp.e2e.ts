@@ -909,6 +909,18 @@ test("对话线:每条用户消息一个刻度,点刻度把那条消息滚到对
     const ticks = page.getByTestId("conversation-line-tick");
     await expect(ticks).toHaveCount(3);
     await expect(ticks.nth(2)).toHaveAttribute("aria-current", "location");
+    // 刻度不挤在对话区顶上：整组刻度在对话线所在的对话区（它的定位容器）里竖直居中。
+    const middles = await page.getByTestId("conversation-line").evaluate((node) => {
+      type Rect = { top: number; bottom: number; height: number };
+      type El = { getBoundingClientRect(): Rect; offsetParent: El; querySelectorAll(s: string): El[] };
+      const line = node as unknown as El;
+      const ticks = line.querySelectorAll("button");
+      const area = line.offsetParent.getBoundingClientRect();
+      const first = ticks[0]!.getBoundingClientRect();
+      const last = ticks[ticks.length - 1]!.getBoundingClientRect();
+      return { area: area.top + area.height / 2, ticks: (first.top + last.bottom) / 2 };
+    });
+    expect(Math.abs(middles.ticks - middles.area)).toBeLessThan(2);
     // 消息顶边到对话区顶边的距离:跳过去后是 16(--space-4)。
     const landing = (index: number) =>
       page.evaluate((nth) => {

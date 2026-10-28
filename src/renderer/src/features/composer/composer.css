@@ -428,7 +428,7 @@ button.usage-context:hover,
   flex: 0 1 0;
   min-width: 2px;
 }
-/* omp 的类别：同一个强调色由浅到深（照 omp /context 的行序），消息最深；omp 新加、界面还不认识的类别用中间色 */
+/* omp 的类别：同一个强调色由浅到深（系统一侧浅、消息一侧深），消息最深；omp 新加、界面还不认识的类别用中间色 */
 .ctx-seg,
 .ctx-swatch {
   background: color-mix(in srgb, var(--accent) 55%, var(--border-subtle));
@@ -438,7 +438,9 @@ button.usage-context:hover,
   background: color-mix(in srgb, var(--accent) 25%, var(--border-subtle));
 }
 .ctx-seg[data-part="systemTools"],
-.ctx-swatch[data-part="systemTools"] {
+.ctx-swatch[data-part="systemTools"],
+.ctx-seg[data-part="builtInTools"],
+.ctx-swatch[data-part="builtInTools"] {
   background: color-mix(in srgb, var(--accent) 45%, var(--border-subtle));
 }
 .ctx-seg[data-part="systemContext"],
@@ -450,8 +452,26 @@ button.usage-context:hover,
   background: color-mix(in srgb, var(--accent) 82%, var(--border-subtle));
 }
 .ctx-seg[data-part="messages"],
-.ctx-swatch[data-part="messages"] {
+.ctx-swatch[data-part="messages"],
+.ctx-seg[data-part="assistantMessages"],
+.ctx-swatch[data-part="assistantMessages"] {
   background: var(--accent);
+}
+.ctx-seg[data-part="userMessages"],
+.ctx-swatch[data-part="userMessages"] {
+  background: color-mix(in srgb, var(--accent) 70%, var(--border-subtle));
+}
+.ctx-seg[data-part="assistantThinking"],
+.ctx-swatch[data-part="assistantThinking"] {
+  background: color-mix(in srgb, var(--accent) 78%, var(--bg-app));
+}
+.ctx-seg[data-part="toolCalls"],
+.ctx-swatch[data-part="toolCalls"] {
+  background: color-mix(in srgb, var(--accent) 88%, var(--text));
+}
+.ctx-seg[data-part="toolOutput"],
+.ctx-swatch[data-part="toolOutput"] {
+  background: color-mix(in srgb, var(--accent) 72%, var(--text));
 }
 .ctx-seg[data-part="free"],
 .ctx-swatch[data-part="free"] {

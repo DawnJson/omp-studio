@@ -75,12 +75,12 @@
   line-height: var(--lh-sm);
   color: var(--text);
 }
-/* 设置页盖着当前任务（TspView 的 parked）：不占位、不画、不可交互，布局和滚动位置留着，返回时不用把整段对话重排 */
+/* 设置页盖着当前任务（TspView 的 parked）：不占位、不画、不可交互，布局和滚动位置留着，返回时不用把整段对话重排。
+ * 不用 content-visibility: hidden：它里面的动画交不给合成器，有一个转圈的工具卡主线程就每帧都要跑（2026-10-28 实测设置页上每秒 400 多个主线程帧，去掉后约 40 个）。 */
 .tsp-view[data-parked] {
   position: absolute;
   inset: 0;
   visibility: hidden;
-  content-visibility: hidden;
 }
 /* 任务的 omp 进程不在了（TspView 的 ended）：留着的文档里循环动画（shimmer、spinner 的点和环、脉动）停住，不再像还在跑 */
 .tsp-view[data-ended] {
@@ -216,21 +216,24 @@
   outline-offset: 2px;
 }
 
-/* 对话线：贴对话区右缘（覆盖式滚动条左边），每条用户消息一个横刻度，从上往下排；消息多时刻度间距压缩（最小 3px），
- * 最多占对话区一半高，再多就在线里滚动（不显示滚动条）。刻度平时 --border-strong 短线，悬停 --text-2，正在读的那一条 --text 且更长。
- * 宽 12 落在对话列的最小留白（--gutter 24）里，不压正文。 */
+/* 对话线：贴对话区右缘（覆盖式滚动条左边），每条用户消息一个横刻度，从上往下排，整列在对话区上下各留 --space-6 的高度里竖直居中；
+ * 消息多时刻度间距压缩（最小 3px），压到最小还放不下就在线里滚动（不显示滚动条；safe center 让溢出时从第一条排起）。
+ * 刻度平时 --border-strong 短线，悬停 --text-2，正在读的那一条 --text 且更长。宽 12 落在对话列的最小留白（--gutter 24）里，不压正文；
+ * 刻度之外的空白不接点击，点得到下面的对话。 */
 .tsp-convline {
   position: absolute;
   top: var(--space-6);
+  bottom: var(--space-6);
   right: calc(var(--scrollbar-hit) + 2px);
   z-index: var(--z-sticky);
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  justify-content: safe center;
   width: 12px;
-  max-height: 50%;
   overflow-y: auto;
   scrollbar-width: none;
+  pointer-events: none;
 }
 .tsp-convline-tick {
   flex: 0 1 12px;
@@ -243,23 +246,27 @@
   align-items: center;
   justify-content: flex-end;
   cursor: pointer;
+  pointer-events: auto;
 }
+/* 长短用 transform 缩放，不动 width：滚动时当前那一条一直在换，过渡 width 会让每一帧都重新排版、整个视口重画（2026-10-28 实测滚动卡顿的原因）。 */
 .tsp-convline-tick::after {
   content: "";
-  width: 8px;
+  width: 12px;
   height: 2px;
   border-radius: 1px;
   background: var(--border-strong);
+  transform: scaleX(calc(8 / 12));
+  transform-origin: right center;
   transition:
-    width var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
     background-color var(--dur-fast) var(--ease-out);
 }
 .tsp-convline-tick:hover::after {
-  width: 12px;
+  transform: none;
   background: var(--text-2);
 }
 .tsp-convline-tick[aria-current]::after {
-  width: 12px;
+  transform: none;
   background: var(--text);
 }
 .tsp-convline-tick:focus-visible {
