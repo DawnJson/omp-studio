@@ -56,6 +56,16 @@ describe("危险链接协议被拒", () => {
     expect(out).toContain("文件");
   });
 
+  it("给了 openFile 时 file: 和不带协议的路径是链接；锚点、别的协议、javascript: 仍不可点", () => {
+    const withFile = (source: string) =>
+      renderToStaticMarkup(renderMarkdown(source, { openLink: () => {}, openFile: () => {}, katex }));
+    const out = withFile("[Word](file:///C:/a/%E6%8A%A5.docx) [文件](src/a.ts) [盘符](C:/x/y.pdf)");
+    expect(out).toContain('href="file:///C:/a/%E6%8A%A5.docx"');
+    expect(out).toContain('href="src/a.ts"');
+    expect(out).toContain('href="C:/x/y.pdf"');
+    expect(withFile("[顶](#top) [内](omp://x) [信](mailto:a@b.c) [x](javascript:alert(1))")).not.toMatch(/href=/i);
+  });
+
   it("远程图片不加载，显示为链接；data:image 保留", () => {
     const remote = html("![logo](https://example.com/logo.png)");
     expect(remote).not.toMatch(/<img/i);

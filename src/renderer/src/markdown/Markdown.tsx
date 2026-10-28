@@ -51,7 +51,12 @@ function useKatex(needed: boolean, t: TFunction): KatexApi | null {
 
 // ───────── 渲染 ─────────
 
-function createContext(t: TFunction, marks: readonly TextMark[] | undefined, katex: KatexApi | null): RenderContext {
+function createContext(
+  t: TFunction,
+  marks: readonly TextMark[] | undefined,
+  katex: KatexApi | null,
+  openFile: ((href: string) => void) | undefined,
+): RenderContext {
   return {
     openLink: (href) => {
       window.studio.openExternal(href).catch((error: unknown) => reportError(t, error));
@@ -71,6 +76,7 @@ function createContext(t: TFunction, marks: readonly TextMark[] | undefined, kat
               ),
             ),
     katex,
+    openFile,
   };
 }
 
@@ -80,13 +86,15 @@ const Block = memo(
     t,
     marks,
     katex,
+    openFile,
   }: {
     block: MarkdownBlock;
     t: TFunction;
     marks: readonly TextMark[] | undefined;
     katex: KatexApi | null;
+    openFile: ((href: string) => void) | undefined;
   }) {
-    const context = useMemo(() => createContext(t, marks, katex), [t, marks, katex]);
+    const context = useMemo(() => createContext(t, marks, katex, openFile), [t, marks, katex, openFile]);
     return (
       <div className="md-block" data-anchor>
         {renderBlock(block, context)}
@@ -97,20 +105,26 @@ const Block = memo(
   (prev, next) =>
     prev.t === next.t &&
     prev.marks === next.marks &&
+    prev.openFile === next.openFile &&
     prev.block.src === next.block.src &&
     prev.block.closed === next.block.closed &&
     (prev.katex === next.katex || !next.block.math),
 );
 
-/** `marks`：文字里的字面标记（要传稳定引用，变了所有块重画）。 */
+/**
+ * `marks`：文字里的字面标记（要传稳定引用，变了所有块重画）。
+ * `openFile`：本地文件链接（`file:` 或相对路径）点了交给它（同样要稳定引用）；不给时这类链接按纯文字显示。
+ */
 export function Markdown({
   source,
   streaming = false,
   marks,
+  openFile,
 }: {
   source: string;
   streaming?: boolean;
   marks?: readonly TextMark[] | undefined;
+  openFile?: ((href: string) => void) | undefined;
 }) {
   const t = useT();
   // 上一次流式解析的结果，给下一次增量解析复用；不在流式时清掉。
@@ -130,7 +144,7 @@ export function Markdown({
   return (
     <div className="md" data-streaming={streaming || undefined}>
       {blocks.map((block, index) => (
-        <Block key={index} block={block} t={t} marks={marks} katex={katex} />
+        <Block key={index} block={block} t={t} marks={marks} katex={katex} openFile={openFile} />
       ))}
     </div>
   );

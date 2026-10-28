@@ -17,6 +17,10 @@ md.linkify
   .add("//", null)
   .add("mailto:", null);
 md.use(mathPlugin);
+// file: 链接也放行（模型常给 `[报告](file:///C:/…)`，默认规则把它当原文）；只有调用方给了 openFile 时 render.ts 才画成链接。
+// javascript: / vbscript: / 非图片的 data: 仍由默认规则挡掉。
+const defaultValidateLink = md.validateLink;
+md.validateLink = (url) => /^file:/i.test(url) || defaultValidateLink(url);
 
 export interface MarkdownBlock {
   /** 块的原文；memo 的比较依据，已闭合的块原文不再变化。 */

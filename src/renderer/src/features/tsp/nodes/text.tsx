@@ -1,5 +1,14 @@
 // 文字类节点：text、md、code、diff、ansi、rows、math、media（规范 Text and Code）。
-import { Fragment, memo, useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from "react";
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import type { TspDiffHunk, TspSpan } from "../../../../../shared/tsp/tsp.generated.ts";
 import { labels } from "../labels.ts";
 import { Markdown } from "../../../markdown/index.ts";
@@ -110,9 +119,12 @@ export function Md(props: NodeProps) {
   const p = props.node.p;
   const text = typeof p.text === "string" ? cleanGlyphs(p.text) : "";
   const marks = useMemo(() => textMarks(p.marks), [p.marks]);
+  const { taskId } = props.ctx;
+  // 文件链接（`file://`、相对路径）和工具卡上的路径一样在右侧预览打开；终端版 omp 也只把这两种画成可点的链接。
+  const openFile = useCallback((href: string) => openHref(href, { taskId }), [taskId]);
   return (
     <div {...nodeDomProps(props, "tsp-md")}>
-      <Markdown source={text} streaming={p.stream === true} marks={marks} />
+      <Markdown source={text} streaming={p.stream === true} marks={marks} openFile={openFile} />
     </div>
   );
 }

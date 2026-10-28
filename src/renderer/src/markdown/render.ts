@@ -1,5 +1,5 @@
 // markdown-it 的 token → React 元素。用户文本不进 dangerouslySetInnerHTML：所有文本都经 React 转义（唯一例外是 KaTeX 的输出，见 renderMath），
-// 链接只放行 http/https，图片只放行 markdown-it 已校验的 data:image。无 JSX，方便在 Node 里测试。
+// 链接只放行 http/https（调用方给了 openFile 时再加本地文件链接），图片只放行 markdown-it 已校验的 data:image。无 JSX，方便在 Node 里测试。
 import type Katex from "katex";
 import { createElement as h, Fragment, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import type { MarkdownBlock, Token } from "./parse.ts";
@@ -7,6 +7,8 @@ import type { MarkdownBlock, Token } from "./parse.ts";
 export interface RenderContext {
   /** 用户点了一个已放行的链接。 */
   openLink(href: string): void;
+  /** 本地文件链接（`file:` 或不带协议的路径）交给它；没给时这类链接按纯文字显示。 */
+  openFile?: ((href: string) => void) | undefined;
   /** 代码块的渲染由调用方决定（高亮、复制按钮）；缺省是纯文本 <pre>。 */
   renderCode?(props: { code: string; lang: string; closed: boolean }): ReactNode;
   /** 文字片段的渲染（TSP md.marks 在这里把字面标记包成 span）；缺省是原文。 */
@@ -46,9 +48,18 @@ function attr(token: Token, name: string): string | null {
 const openableLink = /^https?:/i;
 const dataImage = /^data:image\/(gif|png|jpe?g|webp);/i;
 
-/** 只有这些协议的链接才交给系统去打开；markdown-it 的 validateLink 已经挡掉了 javascript:/vbscript:/file:/data:。 */
+/** 只有这些协议的链接才交给系统去打开；markdown-it 的 validateLink 已经挡掉了 javascript:/vbscript:/data:。 */
 function isOpenableHref(href: string): boolean {
   return openableLink.test(href);
+}
+
+/** 两个字母以上才算协议，`C:/…` 是盘符路径。 */
+const otherScheme = /^[a-z][a-z0-9+.-]+:/i;
+
+/** 本地文件链接：`file:`，或不带协议的路径；`#`、`?`、`//` 开头的不算（和 omp 终端版 hyperlink-targets 一致）。 */
+function isFileHref(href: string): boolean {
+  if (/^file:/i.test(href)) return true;
+  return href !== "" && !/^(?:#|\?|\/\/)/.test(href) && !otherScheme.test(href);
 }
 
 function alignStyle(token: Token): CSSProperties | undefined {
@@ -84,10 +95,11 @@ function renderInline(node: TreeNode, key: number, ctx: RenderContext): ReactNod
       return h("s", { key }, children);
     case "link_open": {
       const href = attr(token, "href") ?? "";
-      if (!isOpenableHref(href)) return h("span", { key, title: href }, children);
+      const open = isOpenableHref(href) ? ctx.openLink : isFileHref(href) ? ctx.openFile : undefined;
+      if (open === undefined) return h("span", { key, title: href }, children);
       const onClick = (event: MouseEvent) => {
         event.preventDefault();
-        ctx.openLink(href);
+        open(href);
       };
       return h("a", { key, href, title: href, className: "md-link", onClick, rel: "noreferrer noopener" }, children);
     }

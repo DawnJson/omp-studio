@@ -136,6 +136,43 @@ test("工具卡片上的文件链接在右侧打开预览，Esc 关闭、焦点�
   }
 });
 
+test("回答里的文件链接（file:// 和相对路径）在右侧预览打开，二进制文件给出用默认应用打开", async () => {
+  // 录制 task.jsonl（omp 18.12.5）最后的回答以“两个并”开头；在它前面插两个 Markdown 链接：
+  // 一个 file:// 指向任务目录里带空格和中文的 pdf（二进制），一个相对路径指向 notes.md。
+  const recordedPath = path.join(import.meta.dirname, "..", "..", "fixtures", "tsp", "task.jsonl");
+  const recordedLines = (await readFile(recordedPath, "utf8")).split("\n").filter((line) => line.trim() !== "");
+  const prompt = recordedLines
+    .map((line) => JSON.parse(line) as { dir: string; body: { ev?: string; text?: string } })
+    .find((entry) => entry.dir === "in" && entry.body.ev === "send")?.body.text;
+  if (prompt === undefined) throw new Error("task.jsonl 里没有 send 事件");
+  const { launched, cleanup } = await start(async (work, project) => {
+    const pdf = path.join(project, "报告 v1.pdf");
+    await writeFile(pdf, Buffer.from([0x25, 0x50, 0x44, 0x46, 0, 1, 2]));
+    const fixture = path.join(work, "task-md-links.jsonl");
+    const answer = `[下载 PDF 版](${pathToFileURL(pdf).href}) [笔记](notes.md) 两个并`;
+    await writeFile(fixture, `${recordedLines.join("\n").replace('"text":"两个并"', `"text":"${answer}"`)}\n`);
+    return testOmp(fixture);
+  });
+  try {
+    const { page } = launched;
+    await page.getByTestId("composer-input").fill(prompt);
+    await page.getByTestId("composer-input").press("Enter");
+    const view = page.getByTestId("tsp-view");
+    const pdfLink = view.locator("a.md-link", { hasText: "下载 PDF 版" });
+    await expect(pdfLink).toBeVisible({ timeout: 30_000 });
+    await pdfLink.click();
+    await expect(page.getByTestId("file-preview-name")).toHaveText("报告 v1.pdf");
+    await expect(page.getByTestId("file-preview-body")).toContainText("这是二进制文件");
+    await expect(page.getByTestId("file-preview-body").getByRole("button", { name: "用默认应用打开" })).toBeVisible();
+
+    await view.locator("a.md-link", { hasText: "笔记" }).click();
+    await expect(page.getByTestId("file-preview-name")).toHaveText("notes.md");
+    await expect(page.getByTestId("file-preview-body")).toContainText("预览标题");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("源码视图有语法颜色：md 源码里围栏代码块的语言也着色，html 源码同样", async () => {
   const { launched, project, cleanup } = await start();
   try {
