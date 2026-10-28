@@ -4,7 +4,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { findOmpOnPath } from "../../src/main/omp/discover.ts";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
 import { expandSidebarFolders, launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
@@ -166,6 +166,46 @@ test("回填：omp 的历史选择器选中的文字（history-select 录制）�
     await expect
       .poll(async () => (await sentEvents(log)).filter((body) => body["ev"] === "edit"))
       .toEqual([expect.objectContaining({ from: 0, to: text.length, text: "" })]);
+  } finally {
+    await launched.close();
+    await rm(work, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
+test("点输入框外框里的空白（工具行空着的地方、文字区四周的留白）光标回到输入框，接着能打字；草稿和任务的输入框都是", async () => {
+  test.setTimeout(90_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp composer e2e-"));
+  const project = path.join(work, "项目 目录");
+  await mkdir(project);
+  const launched = await launchApp({ STUDIO_TEST_OMP: testOmp("history-select") });
+  try {
+    const { page } = launched;
+    await openFolder(launched, project);
+    await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
+    const check = async (box: Locator) => {
+      const input = box.getByTestId("composer-input");
+      await input.fill("");
+      // 工具行中间撑开的空白（.composer-spacer 没有高度，按坐标点它所在的那一段）。
+      const spacer = (await box.locator(".composer-spacer").boundingBox())!;
+      const tools = (await box.locator(".composer-tools").boundingBox())!;
+      expect(spacer.width).toBeGreaterThan(40);
+      await page.mouse.click(spacer.x + spacer.width / 2, tools.y + tools.height / 2);
+      await expect(input).toBeFocused();
+      await page.keyboard.type("ab");
+      // 文字区左上角的留白（不在文本框上）：点了不丢焦点、光标还在，接着打。
+      await box.getByTestId("composer-body").click({ position: { x: 2, y: 2 } });
+      await expect(input).toBeFocused();
+      await page.keyboard.type("c");
+      await expect(input).toHaveValue("abc");
+    };
+    await check(page.getByTestId("draft-composer"));
+    await page.evaluate(async () => {
+      const [first] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: first!.id });
+    });
+    await openTaskRow(page);
+    await expect(page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
+    await check(page.getByTestId("composer-stack"));
   } finally {
     await launched.close();
     await rm(work, { recursive: true, force: true, maxRetries: 5 });

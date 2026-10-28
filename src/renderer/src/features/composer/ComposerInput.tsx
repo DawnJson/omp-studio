@@ -8,6 +8,7 @@ import {
   useState,
   type ClipboardEvent,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent,
   type ReactNode,
   type RefObject,
@@ -69,6 +70,18 @@ function renderBackdrop(view: DraftView): ReactNode[] {
   }
   nodes.push(view.text.slice(cursor));
   return nodes;
+}
+
+/** 点输入框外框里的空白（工具行空着的地方、文字区四周的留白）：焦点留在 / 回到文本框，不掉到 <body>（掉了就没有光标、打不了字）。
+ *  外框里的控件照常；从弹层 portal 冒泡上来的事件（DOM 上不在外框里）不管。 */
+export function keepFieldFocus(event: ReactMouseEvent<HTMLElement>, field: HTMLTextAreaElement | null): void {
+  const box = event.currentTarget;
+  const target = event.target;
+  if (event.button !== 0 || field === null || !(target instanceof Element) || !box.contains(target)) return;
+  const control = target.closest("button, a, input, textarea, select, label, [role], [tabindex]");
+  if (control !== null && box.contains(control)) return;
+  event.preventDefault();
+  field.focus();
 }
 
 export function ComposerInput(props: ComposerInputProps) {

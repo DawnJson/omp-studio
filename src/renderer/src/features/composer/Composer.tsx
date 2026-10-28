@@ -13,7 +13,7 @@ import { ModelChip } from "./ModelChip.tsx";
 import { matchSlash, slashQuery } from "./slash-match.ts";
 import { SlashMenu } from "./SlashMenu.tsx";
 import { ComposerTop } from "./ComposerTop.tsx";
-import { ComposerInput } from "./ComposerInput.tsx";
+import { ComposerInput, keepFieldFocus } from "./ComposerInput.tsx";
 import { historyText, viewToText } from "./composer-tokens.ts";
 import { decideEnter } from "./send-logic.ts";
 import { localizeKeys, primaryMod } from "../../app/platform-keys.ts";
@@ -364,7 +364,13 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
         )}
       </Reveal>
       <ComposerTop task={task} />
-      <div className="composer" data-composer-drop onDragOver={attach.onDragOver} onDrop={attach.onDrop}>
+      <div
+        className="composer"
+        data-composer-drop
+        onDragOver={attach.onDragOver}
+        onDrop={attach.onDrop}
+        onMouseDown={(event) => keepFieldFocus(event, fieldRef.current)}
+      >
         <SlashMenu
           id="slash-menu"
           open={slashOpen}

@@ -18,7 +18,7 @@ import { handOverDraftTerminal, withDraftHandover } from "../terminal/index.ts";
 import { ApprovalChip } from "./ApprovalChip.tsx";
 import { buildSubmission, historyText, slotsToNames, viewToText } from "./composer-tokens.ts";
 import { recordHistory } from "./history-store.ts";
-import { ComposerInput } from "./ComposerInput.tsx";
+import { ComposerInput, keepFieldFocus } from "./ComposerInput.tsx";
 import { clearDraft, getDraft, restoreDraft, setDraftText, useDraft } from "./draft-store.ts";
 import { ModelChip } from "./ModelChip.tsx";
 import { decideEnter } from "./send-logic.ts";
@@ -169,7 +169,13 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
 
   return (
     <div className="composer-stack" data-testid="draft-composer" data-draft>
-      <div className="composer" data-composer-drop onDragOver={attach.onDragOver} onDrop={attach.onDrop}>
+      <div
+        className="composer"
+        data-composer-drop
+        onDragOver={attach.onDragOver}
+        onDrop={attach.onDrop}
+        onMouseDown={(event) => keepFieldFocus(event, fieldRef.current)}
+      >
         <SlashMenu
           id="slash-menu"
           open={slashMenu.open}
