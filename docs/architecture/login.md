@@ -131,17 +131,17 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 
 ## Tavily 备用 key（2026-10-27）
 
-仓库所有者要的：Tavily 有好几个 key，当前 key 额度用完时自动换下一个，而且要无损：正在跑的任务里搜索不能报错、不能退到别的搜索源。同日先后做过只在扩展里换、只由 studio 主进程换两版，最后两层一起用。
+仓库所有者要的：Tavily 有好几个 key，当前 key 额度用完时自动换下一个，而且要无损：正在跑的任务里搜索不能报错、不能退到别的搜索源。2026-10-27 至 10-28 先后做过"扩展里换"、"studio 主进程每 30 分钟换"、"两层一起"，最后定为：只用扩展，换上的 key 由扩展自己写进 `.env`（仓库所有者 2026-10-28 批准扩展改 `.env` 这一行，不再要主进程那层）；设置页能看每个 key 的用量。
 
 - **为什么 omp 自己不换**（omp 18.13.1 实测）：Tavily 搜索每次请求按 omp 的顺序取一个 key（`models.yml` 覆盖 → OAuth → `/login` 存的 → `TAVILY_API_KEY`（`Bun.env`，含 agent 目录 `.env`）→ 其余凭据库条目），额度用完 Tavily 回 `432`（`{"detail":{"error":"This request exceeds your plan's set usage limit..."}}`），omp 报 `Tavily API error (432)`。432 不在 omp 会轮换凭据的错误里，同一 provider 的凭据库也只留一个 API key（再 `omp auth import` 就替换）。会话里的 `web_search` 这时退到 Parallel，结果里写 `answered by Parallel after Tavily failed` 和 432 原文。
-- **备用 key 存在哪**：内置扩展目录 `<agent 目录>/extensions/studio-accounts/tavily-keys.json`（JSON 字符串数组；不在部署清单里，重新部署不删），设置页"设置 API key"对话框（只有 Tavily 有 `备用 key` 字段）经 `setTavilyBackupKeys` 原子写，清空就删文件。两层读同一个文件。
-- **第一层：请求当场换 key 重发**（`client-accounts/extension/tavily-keys.mjs`）：扩展在 omp 进程里包一层全局 `fetch`（omp 的 Tavily 请求每次都调全局 `fetch(url 字符串, init)`，body 是 JSON 字符串，能重发）。发往 `https://api.tavily.com/` 的请求回 401（无效）/ 432（套餐用完）/ 433（按量付费上限，Tavily 文档）时，这个 key 在本进程里记为不能用，同一个请求换下一个能用的备用 key 重发；回 429（这个 key 被限流）时只这次换别的 key。之后 omp 还拿用完的 key 来时直接换成最近成功的那个。全都不行就把最后一个回复交还 omp。URL 对象、`Request` 形式的请求也处理；请求体是流（只能读一次）时不碰。每次要换 key 时重读文件，改了不用重启 omp；同一进程多次加载扩展时只装一次；保留 `fetch.preconnect`。
-- **第二层：主进程把存的 key 换成有额度的**（`src/main/tavily/`）：窗口淡入后、存完备用 key 时、之后每 30 分钟，`omp token tavily` 拿 omp 存的 key，用 Tavily 的 `GET /usage` 看额度（`key-credits.ts`：key 自己设了 `limit` 且 `usage` ≥ `limit`，或账号 `plan_usage` ≥ `plan_limit` 且没有剩余的按量付费额度，算用完；401 / 403 算无效；断网、限流算不知道，不换）。用完了就按顺序换上第一个确定有额度的备用 key，走"设置 API key"同一条路（`login/save-api-key.ts`：`.env` 里有 `TAVILY_API_KEY` 就改那一行，否则 `omp auth import`）。作用：新进程一开始就用好 key，不必每个进程先撞一次 432；omp 哪天不再经全局 `fetch` 发 Tavily 请求、第一层失效时，最多损失两次检查之间的搜索。`TAVILY_API_KEY` 设在系统环境变量里时 omp 优先用它，这一层不换，只记日志（第一层照样生效）。
-- **还剩的损失**：第一层失效（omp 改了发请求的写法）时退回"用完就退到 Parallel"，直到第二层下次检查；`omp search` 命令不加载扩展，只有第二层管它。
-- **实测**（omp 18.13.1，2026-10-27，真实 Tavily key）：
-  - 第一层：临时 `PI_CODING_AGENT_DIR` + 仓库的扩展目录原样拷过去，`modelRoles = {"web":"tavily"}`，`.env` 的 `TAVILY_API_KEY` 和第一个备用 key 都已用完（`GET /usage` 1000 / 1000、1003 / 1000）、第二个有额度，`omp -p` 让模型调一次 `web_search`：结果没有错误、没有退到 Parallel。对照（只给用完的备用 key）：`answered by Parallel after Tavily failed` + 432 原文。
-  - 第二层：e2e 里临时 agent 目录 `.env` 放一个已用完的 key，备用 key 存 [已用完, 有额度]：存完几秒内 `.env` 换成第二个备用 key，日志 `tavily: the current key is out of credits; switched to backup key 2/2`。
-  - Tavily 的用量统计有延迟（几次成功搜索后 `key.usage` 仍是 0），所以第二层可能晚一次检查才换；第一层不靠用量统计。
+- **备用 key 存在哪**：内置扩展目录 `<agent 目录>/extensions/studio-accounts/tavily-keys.json`（JSON 字符串数组；不在部署清单里，重新部署不删；卸载 studio 时随整个目录删掉），设置页"设置 API key"对话框（只有 Tavily 有 `备用 key` 字段）经 `setTavilyBackupKeys` 原子写，清空就删文件。omp 不读也不管这个文件，只有扩展读。
+- **当场换 key 重发**（`client-accounts/extension/tavily-keys.mjs`）：扩展在 omp 进程里包一层全局 `fetch`（omp 的 Tavily 请求每次都调全局 `fetch(url 字符串, init)`，body 是 JSON 字符串，能重发）。发往 `https://api.tavily.com/` 的请求回 401（无效）/ 432（套餐用完）/ 433（按量付费上限，Tavily 文档）时，这个 key 在本进程里记为不能用，同一个请求换下一个能用的备用 key 重发；回 429（这个 key 被限流）时只这次换别的 key。之后 omp 还拿用完的 key 来时直接换成最近成功的那个。全都不行就把最后一个回复交还 omp。URL 对象、`Request` 形式的请求也处理；请求体是流（只能读一次）时不碰。每次要换 key 时重读文件，改了不用重启 omp；同一进程多次加载扩展时只装一次；保留 `fetch.preconnect`。
+- **换上的 key 写进 `.env`**（同一文件的 `rotateStoredKey`）：omp 带来的 key 用完、换上的 key 请求成功时（每个用完的 key 一个进程里只做一次），`<agent 目录>/.env` 里 `TAVILY_API_KEY` 只有一行、值正是那个用完的 key 时，把这一行的值换成新 key（前缀、`export`、引号、CRLF、BOM、别的行原样；写前留 `.env.bak`；先写临时文件再换名），再从备用列表去掉新 key、末尾补上旧 key（额度每月重置，以后还能轮回来）。值已经不是那个 key（别的 omp 进程刚换过）、没有这一行、有好几行时都不动，`.env` 和列表一起不动，免得对不上。写失败记进 omp 的日志（`pi.logger.warn`），这个进程照样用换上的 key。作用：之后新起的 omp 进程一开始就用好 key，不用先撞一次 432。key 不在 `.env` 里（存在 omp 凭据库）或 `TAVILY_API_KEY` 设在系统环境变量里时不写，每个新进程第一次搜索先撞一次 432 再换（多一次请求，结果照样无损）。
+- **每个 key 的用量**（`src/main/tavily/`，IPC `tavilyKeyUsage`）：打开 Tavily 的填 key 对话框时查一次。`omp token tavily` 拿 omp 现在用的 key（按 omp 自己取 key 的顺序），连同备用 key 各发一次 Tavily 的 `GET /usage`（`key-usage.ts`：key 自己设了 `limit` 就按 key 算，否则按账号套餐 `plan_usage` / `plan_limit` 算；套餐用满且没有剩余按量付费额度是用尽；401 / 403 是无效；断网、限流、Tavily 出错是未知）。只回角色（当前 / 备用第几个）、状态、已用和上限，不回 key。Tavily 的用量统计有延迟（几次成功搜索后 `key.usage` 仍是 0），刚用过的 key 显示的用量会偏少。
+- **还剩的损失**：omp 哪天不再经全局 `fetch` 发 Tavily 请求，扩展就不起作用，退回"用完就退到 Parallel"，而且没有提示；`omp search` 命令不加载扩展，不换 key。
+- **实测**（omp 18.13.1，真实 Tavily key，临时 `PI_CODING_AGENT_DIR` + 仓库的扩展目录原样拷过去，`modelRoles = {"web":"tavily"}`，`omp -p` 让模型调一次 `web_search`）：
+  - 2026-10-27：`.env` 的 `TAVILY_API_KEY` 和第一个备用 key 都已用完（`GET /usage` 1000 / 1000、1003 / 1000）、第二个有额度：结果没有错误、没有退到 Parallel。对照（只给用完的备用 key）：`answered by Parallel after Tavily failed` + 432 原文。
+  - 2026-10-28（写 `.env`）：同样的三个 key，`.env` 写成 CRLF、带注释和别的变量：第一轮搜索没有错误，结束后 `.env` 的 `TAVILY_API_KEY` 换成有额度的那个、换行和别的行不变，备用列表变成 [第一个备用 key, 原来的 key]；第二轮搜索同样没有错误。
 - **omp 的相关行为**（同上实测）：`web` 角色没设（`modelRoles` 为空）时 `web_search` 自动选的第一个搜索源是 Parallel（不要 key），不是 Tavily，所以备用 key 只在搜索源设成 Tavily、或者排在前面的源失败时才用得上；`omp search --model tavily` 不退到别的源。
 
 ## 服务进程的关闭

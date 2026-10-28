@@ -33,6 +33,12 @@
   color: var(--st-error);
 }
 
+/* Tavily 每个 key 的用量：一个 key 一行（.uq-limit，样式在 composer/usage.css） */
+.pv-key-usage {
+  display: grid;
+  gap: var(--space-2);
+}
+
 /* 登录进度历史：按到达顺序一行一条，warning / error 着色，info 用次要色。 */
 .pv-progress {
   display: grid;

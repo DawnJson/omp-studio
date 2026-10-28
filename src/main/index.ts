@@ -16,7 +16,6 @@ import { afterFirstReveal, createMainWindow, isAppUrl } from "./window/main-wind
 import { installSessionSecurity } from "./window/security.ts";
 import { showMainWindow } from "./window/show-window.ts";
 import { installShutdown } from "./window/shutdown.ts";
-import { startTavilyKeyWatch } from "./tavily/backup-keys.ts";
 import { quitWhenParentExits } from "./window/orphan-guard.ts";
 import { createTray } from "./window/tray.ts";
 
@@ -73,11 +72,7 @@ if (!app.requestSingleInstanceLock()) {
     startUpdates().catch((error: unknown) => log.error("update service failed to start", error));
     void applyOmpStartupDefaults();
     // 输入框工具行要的默认模型、模型目录：窗口淡入后再拉起服务进程去读，不和首帧抢 CPU（之前先用启动缓存里的值）。
-    // Tavily 备用 key 的额度检查同样放到淡入之后（没存备用 key 时只读一下文件）。
-    afterFirstReveal(() => {
-      prewarmToolbarData();
-      startTavilyKeyWatch();
-    });
+    afterFirstReveal(prewarmToolbarData);
     app.on("activate", () => {
       showMainWindow();
     });

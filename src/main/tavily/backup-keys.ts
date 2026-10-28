@@ -1,23 +1,17 @@
-// Tavily 备用 key，第二层：设置页存的几个 key 放在 studio 内置扩展的目录里（tavily-keys.json，不在部署清单里，重新部署不删），
-// 第一层是扩展在 omp 进程里请求失败时当场换 key 重发（client-accounts/extension/tavily-keys.mjs，读同一个文件）。
-// 这一层在 studio 启动时、存了备用 key 后、之后每 30 分钟查一次 omp 存的 Tavily key 还有没有额度（key-credits.ts），
-// 用完了就换成第一个还有额度的备用 key，走和设置页"设置 API key"同一条路（save-api-key.ts）：新起的 omp 进程一开始就用好 key，不必先撞一次。
-// 见 docs/architecture/login.md「Tavily 备用 key」。key 只进不出：界面只拿到个数，日志只写第几个。
+// Tavily 备用 key：设置页存的几个 key 放在 studio 内置扩展的目录里（tavily-keys.json，不在部署清单里，重新部署不删），
+// 扩展在 omp 进程里遇到 key 用完时当场换 key 重发，并把 agent 目录 `.env` 里的 key 换掉（client-accounts/extension/tavily-keys.mjs）。
+// 这里只管存和列用量。见 docs/architecture/login.md「Tavily 备用 key」。key 只进不出：界面只拿到个数和每个 key 的用量。
 import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
+import type { TavilyKeyUsage } from "../../shared/ipc.ts";
 import { ACCOUNT_EXTENSION_DIR } from "../client-accounts/deploy.ts";
-import { providerKeyEnv } from "../../shared/provider-keys.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
-import { log } from "../log/log.ts";
-import { saveProviderApiKey } from "../login/save-api-key.ts";
-import { envSourceOf, readEnvText } from "../omp-config/env-file.ts";
 import { ompManager, readyOmp } from "../omp-manager/index.ts";
 import { serviceCwd } from "../service/service-omp.ts";
 import { writeFileAtomic } from "../tasks/atomic-write.ts";
 import { runOmpCommand } from "../usage/usage-service.ts";
-import { fetchCredits, pickReplacement } from "./key-credits.ts";
+import { fetchKeyUsage } from "./key-usage.ts";
 
-const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const TOKEN_TIMEOUT_MS = 30_000;
 
 const keysFile = () => path.join(resolveAgentDir(), "extensions", ACCOUNT_EXTENSION_DIR, "tavily-keys.json");
@@ -34,47 +28,23 @@ export async function readBackupKeys(): Promise<string[]> {
   return Array.isArray(value) ? value.filter((key): key is string => typeof key === "string" && key !== "") : [];
 }
 
-/** 整体换掉备用 key（已去重）；空数组删掉文件。 */
+/** 整体换掉备用 key（已去重）；空数组删掉文件。正在跑的 omp 下次要换 key 时就读到。 */
 export async function writeBackupKeys(keys: readonly string[]): Promise<void> {
   if (keys.length === 0) await rm(keysFile(), { force: true, maxRetries: 3 });
   else await writeFileAtomic(keysFile(), JSON.stringify(keys), String(process.pid));
 }
 
-let checking: Promise<void> | null = null;
-
-/** 查一次，必要时换 key；同时来的共用一次。失败只记日志（后台任务，没人等它）。 */
-export function checkTavilyKey(): Promise<void> {
-  checking ??= switchIfExhausted()
-    .catch((error: unknown) =>
-      log.warn("tavily: checking the key failed", error instanceof Error ? error.message : error),
-    )
-    .finally(() => {
-      checking = null;
-    });
-  return checking;
-}
-
-/** 启动时查一次，之后每 30 分钟查一次（没存备用 key 时只读一下文件就结束）。 */
-export function startTavilyKeyWatch(): void {
-  void checkTavilyKey();
-  setInterval(() => void checkTavilyKey(), CHECK_INTERVAL_MS).unref();
-}
-
-async function switchIfExhausted(): Promise<void> {
-  const backups = await readBackupKeys();
-  if (backups.length === 0) return;
-  // key 设在系统环境变量里时 omp 优先用它，换 `.env` / 凭据库里的不生效。
-  if (providerKeyEnv("tavily", envSourceOf(await readEnvText(resolveAgentDir())))?.source === "system") {
-    log.warn("tavily: TAVILY_API_KEY is a system environment variable; backup keys are not applied");
-    return;
-  }
+/** omp 现在用的 Tavily key（`omp token tavily`，按 omp 自己取 key 的顺序）和备用 key，各自的用量；同一个 key 只列一次。 */
+export async function listTavilyKeyUsage(): Promise<TavilyKeyUsage[]> {
   await ompManager().ensureReady();
-  const token = await runOmpCommand(readyOmp().path, await serviceCwd(), TOKEN_TIMEOUT_MS)(["token", "tavily"]);
-  const current = token.code === 0 && token.stdout.trim() !== "" ? token.stdout.trim() : null;
-  const next = await pickReplacement(current, backups, (key) => fetchCredits(key));
-  if (next === null) return;
-  await saveProviderApiKey("tavily", next);
-  log.info(
-    `tavily: the current key is out of credits; switched to backup key ${backups.indexOf(next) + 1}/${backups.length}`,
-  );
+  const [token, backups] = await Promise.all([
+    runOmpCommand(readyOmp().path, await serviceCwd(), TOKEN_TIMEOUT_MS)(["token", "tavily"]),
+    readBackupKeys(),
+  ]);
+  const current = token.code === 0 ? token.stdout.trim() : "";
+  const keys = [
+    ...(current === "" ? [] : [{ role: "current" as const, key: current }]),
+    ...backups.filter((key) => key !== current).map((key) => ({ role: "backup" as const, key })),
+  ];
+  return Promise.all(keys.map(async ({ role, key }) => ({ role, ...(await fetchKeyUsage(key)) })));
 }

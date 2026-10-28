@@ -809,6 +809,18 @@ export interface QuotaSnapshot {
   unavailable: QuotaUnavailable[];
 }
 
+/** 一个 Tavily key 的状态（Tavily `GET /usage`）：unknown 是查不出来（断网、限流、Tavily 出错）。 */
+export type TavilyKeyState = "ok" | "exhausted" | "invalid" | "unknown";
+
+/** 设置页 Tavily 的填 key 对话框里的一行：omp 现在用的 key（current）或备用列表里的一个（按列表顺序）。key 本身不回传。 */
+export interface TavilyKeyUsage {
+  role: "current" | "backup";
+  state: TavilyKeyState;
+  /** 已用 / 上限（credits）：key 自己设了上限时是 key 的，否则是账号套餐的；回复里没有时 null。 */
+  used: number | null;
+  limit: number | null;
+}
+
 /** 本地时区的一天；没有用量的日子不出现在 days 里。 */
 export interface UsageDay {
   /** YYYY-MM-DD */
@@ -1215,12 +1227,14 @@ export interface StudioInvokeApi {
   apiKeyEnvSources(): Promise<Record<string, ProviderKeyEnv>>;
   /**
    * Tavily 备用 key：`keys` 是界面里粘贴的文字，按空白和换行拆成一个个 key，整体换掉已存的；空串清空。
-   * 存在 studio 内置扩展的目录里（`tavily-keys.json`）：扩展在 omp 的 Tavily 请求遇到 key 用完时当场换下一个重发（正在跑的任务也一样）；
-   * 主进程另外在启动时、存完时、之后每 30 分钟把 omp 存的 key 换成有额度的（和 saveApiKey 同一条路）。key 只进不出：返回存了几个。
+   * 存在 studio 内置扩展的目录里（`tavily-keys.json`）：扩展在 omp 的 Tavily 请求遇到 key 用完时当场换下一个重发（正在跑的任务也一样），
+   * 并把 agent 目录 `.env` 里的 `TAVILY_API_KEY` 换成它、旧 key 挪到备用列表末尾。key 只进不出：返回存了几个。
    */
   setTavilyBackupKeys(keys: string): Promise<number>;
   /** 存了几个 Tavily 备用 key。 */
   tavilyBackupKeyCount(): Promise<number>;
+  /** omp 现在用的 Tavily key 和每个备用 key 的用量（联网查 Tavily，几秒）。 */
+  tavilyKeyUsage(): Promise<TavilyKeyUsage[]>;
 
   // 自定义模型：直接读写 omp 的 models.yml（src/main/omp-config/models-file.ts；规则见 AGENTS.md）
   /** 读 models.yml 里的 providers。key 只有状态，没有内容。文件读不懂时 reject。 */
@@ -1601,6 +1615,7 @@ export const invokeNames = {
   apiKeyEnvSources: true,
   setTavilyBackupKeys: true,
   tavilyBackupKeyCount: true,
+  tavilyKeyUsage: true,
   listCustomProviders: true,
   saveCustomProvider: true,
   deleteCustomProvider: true,
