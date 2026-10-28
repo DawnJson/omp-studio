@@ -7,7 +7,7 @@ import { AskButtonRow, AskGateCol } from "../interactive/AskGate.tsx";
 import { ERROR_CARD_ROLE } from "../../../../../shared/tsp/error-turn.ts";
 import { RetryButton } from "../../session-info/RetryButton.tsx";
 import { Clamp } from "../Clamp.tsx";
-import { FoldCtx, NO_FOLD, OPEN_FOLD } from "../fold-context.ts";
+import { FoldCtx, NO_FOLD, OPEN_FOLD, useFoldState } from "../fold-context.ts";
 import { resolveIconName, toolIconName } from "../icon-names.ts";
 import { useEntrance } from "../entrance.ts";
 import { TspIcon } from "../icons.tsx";
@@ -19,6 +19,7 @@ import { previewToLines } from "../props-util.ts";
 import { TspChildren, TspNode } from "../TspChildren.tsx";
 import { useFold } from "../use-fold.ts";
 import { peekTspNode, useBareTurnIndex, useIsLatestRecap, useTspNoVisibleChild } from "../tsp-store.ts";
+import { runOutputSpan } from "../../../../../shared/tsp/run-output.ts";
 import { useSessionExtras } from "../session-extras-store.ts";
 import { formatTurnFooter } from "../turn-footer.ts";
 
@@ -70,7 +71,30 @@ export function Col(props: NodeProps) {
   if (props.node.p.role === "omp.job.tile") return <TileCol {...props} />;
   if (props.node.p.role === "omp.assistant") return <AssistantCol {...props} />;
   if (props.node.p.role === ASK_GATE_ROLE) return <GateCol {...props} />;
+  if (props.node.p.role === "omp.run") return <RunCol {...props} />;
   return <PlainCol {...props} />;
+}
+
+/**
+ * eval 的一个 cell：输出被 JSON 视图切成几段时（shared/tsp/run-output.ts），折叠中把这几段合成一段，
+ * 一起只露末尾几行（和单段输出一样），里面各段不再各自夹紧。展开、只有一段时照常。
+ */
+function RunCol(props: NodeProps) {
+  const { node, ctx } = props;
+  const fold = useFoldState();
+  const blank = useBlank(props);
+  const span = fold.collapsed === true ? runOutputSpan(node.c.map((id) => peekTspNode(ctx.taskId, ctx.sf, id))) : null;
+  if (span === null) return <PlainCol {...props} />;
+  const child = (id: string) => <TspNode key={id} id={id} ctx={ctx} />;
+  return (
+    <div {...nodeDomProps(props, "tsp-col", { className: stackClasses(node.p), blank })}>
+      {node.c.slice(0, span.start).map(child)}
+      <Clamp lines={span.lines} tail onExpand={fold.expand} className="tsp-run-outputs">
+        <FoldCtx.Provider value={OPEN_FOLD}>{node.c.slice(span.start, span.end).map(child)}</FoldCtx.Provider>
+      </Clamp>
+      {node.c.slice(span.end).map(child)}
+    </div>
+  );
 }
 
 function GateCol(props: NodeProps) {

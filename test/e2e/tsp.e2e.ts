@@ -2418,6 +2418,36 @@ test("流式追加的代码节点:已着色的字在追加时不退回无色(不
   }
 });
 
+// omp 18.13.1 把 eval 输出里的长 tuple / dict 画成 JSON 视图，前后文字切成几段，每段各自只露 10 行、卡片没有总上限，
+// 折叠的卡片照样上千像素高（2026-10-28 仓库所有者：命令输出过长时为什么不自动折叠）。折叠时几段合成一段，一共露末尾 10 行。
+test("eval 输出被 JSON 视图切成几段：折叠时合成一段只露末尾 10 行，点开显示全部", async () => {
+  const { launched, cleanup } = await start("eval-split-output");
+  try {
+    const { page } = launched;
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("eval-split-output"))[0]!.event["text"]));
+    const card = role(page, "omp.tool.eval");
+    await expect(card.locator(".tsp-tool-head")).toHaveAttribute("aria-expanded", "false", { timeout: 30_000 });
+    await expect(card.locator('[data-role="omp.run.foot"]')).toContainText("Done", { timeout: 30_000 });
+    // 输出只有一个"N earlier lines"（原来三段各一个），藏起来的是前面的文字和 JSON 视图。
+    const earlier = card.getByRole("button", { name: /earlier line/ });
+    await expect(earlier).toHaveCount(1);
+    expect(Number(/^(\d+)/.exec(await earlier.innerText())?.[1])).toBeGreaterThanOrEqual(30);
+    const outputs = card.locator(".tsp-run-outputs > .tsp-clamp");
+    const lh = await outputs.evaluate((element) => {
+      const g = globalThis as unknown as { getComputedStyle(el: unknown): { getPropertyValue(name: string): string } };
+      return Number.parseFloat(g.getComputedStyle(element).getPropertyValue("--tsp-lh"));
+    });
+    expect((await outputs.boundingBox())!.height).toBeLessThanOrEqual(10 * lh + 1);
+    await expect(outputs).toContainText("c 11");
+    await earlier.click();
+    await expect(card.locator(".tsp-tool-head")).toHaveAttribute("aria-expanded", "true");
+    await expect(card.getByRole("button", { name: /earlier line/ })).toHaveCount(0);
+    await expect(card.getByText("a 0", { exact: true })).toBeVisible();
+  } finally {
+    await cleanup();
+  }
+});
+
 /** 页面里记下每次 document.startViewTransition 动起来后的伪元素动画（名字 + 时长），断言开合放大图的 View Transition。 */
 interface RecordedTransition {
   animations: { pseudo: string; duration: number }[];

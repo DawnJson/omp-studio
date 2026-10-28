@@ -6,6 +6,7 @@
 
 - `TspView`：inline surface 的 `main` 在可滚动的对话区，`dock`（运行状态、提问 / 审批、排队）贴在下面、Composer 正上方，`layer` 是盖在整块上的浮层容器（选择器、弹窗）；screen surface（如 `/settings`）盖住整个过程区。
 - 用户消息、助手消息（`omp.assistant`，正文是 `md` 节点）、工具卡片、子代理卡片、待办、压缩分隔、用量脚注都是 omp 的节点，折叠 / 展开状态跟着节点的 `collapsed`（用户翻过之后以本地状态为准，见 `use-fold.ts`）。过程怎么展开 / 折叠由 omp 的节点决定，studio 不另外折叠，也不自己把对话流切成"轮"（2026-10-22 仓库所有者：没有"过程默认折叠"这条规则）。
+- **例外：eval 输出切成几段时合起来夹紧**（2026-10-28 仓库所有者问"输出过长时为什么不自动折叠"）。实测 omp 18.13.1（`fixtures/tsp/eval-split-output.jsonl`）：eval 卡片是 `preview:"children"`，一个 cell 是 col `omp.run` = 代码（`preview:{lines:6}`）+ 输出 + 底栏；打印较长的对象时（实测 4 个元素、约 100 字的 Python tuple；omp 源码里 JS 一侧的门槛是 repr 超过 80 字或跨行，Python 一侧推测相同）omp 把它画成 JSON 视图（`tree`，没有 preview），前后的文字切成几段 ansi（`omp.tool.eval.output`，各自 `preview:{lines:10}`、`follow`），没有总上限，折叠的卡片照样上千像素高。studio 在折叠时把代码和底栏之间这几段包进一个 `Clamp`（尾部 10 行，`tsp-run-outputs`），里面各段不再各自夹紧；只有一段（bash、普通 eval）、展开时照常。范围判断在 `shared/tsp/run-output.ts`（录制测 `test/tsp-run-output.test.ts`），渲染在 `nodes/layout.tsx` 的 `RunCol`，e2e `tsp.e2e.ts`"eval 输出被 JSON 视图切成几段"。
 - 过程区里 studio 自己加的文字不汉化（所有者 2026-10-21，集中在 `features/tsp/labels.ts`）。
 - 文件链接（工具卡片上的路径、`file://` 的 `href`）点开在右侧预览（`openHref` → `openFilePreview`），Esc 关闭、焦点回到链接；e2e `test/e2e/file-preview.e2e.ts`。
 
