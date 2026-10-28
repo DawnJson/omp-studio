@@ -1,23 +1,28 @@
-// TSP 任务的后台作业（S2Jobs，推导见 shared/tsp/jobs.ts）：每个任务一份已知作业，TSP 文档每应用一批消息就并一次快照。
+// TSP 任务的后台作业（S2Jobs，推导见 shared/tsp/jobs.ts）：每个任务一份已知作业，TSP 文档每应用一批消息、且作业相关的节点（JOBS_NODES）变了，就并一次快照。
 // 动作也在这里：结束作业（`/jobs kill`，主进程拼命令）、打开 omp 自己的作业弹窗（作业列表、输出和取消都在那里，
 // omp 没有别的通道；由 studio 的 TspView 渲染，再把选中项切到指定的作业）。
 import { useMemo, useSyncExternalStore } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import {
+  agentStatuses,
   deriveTspJobs,
   findJobsHudSeg,
   findJobsOverlayItem,
+  JOBS_NODES,
   markJobsCancelled,
   mergeTspJobs,
   sameJobs,
 } from "../../../../shared/tsp/jobs.ts";
+import type { TspDocument } from "../../../../shared/tsp/document.ts";
 import type { Job } from "../../../../shared/ui/jobs.ts";
-import { peekTspDocument, subscribeTspBatches } from "../tsp/tsp-store.ts";
+import { peekTspDocument, peekTspWatched, subscribeTspBatches } from "../tsp/tsp-store.ts";
 
 const NO_JOBS: readonly Job[] = [];
 const states = new Map<TaskId, Job[]>();
 const listeners = new Map<TaskId, Set<() => void>>();
 const detach = new Map<TaskId, () => void>();
+/** 上次并快照时的文档和 JOBS_NODES 的 version：都没变就跳过（纯文字流式输出的批次不再整篇扫描）。 */
+const merged = new Map<TaskId, { doc: TspDocument; version: number }>();
 
 function notify(taskId: TaskId): void {
   for (const listener of listeners.get(taskId) ?? []) listener();
@@ -30,13 +35,21 @@ function set(taskId: TaskId, next: Job[]): void {
 }
 
 // 任务被移除：丢掉它的作业快照。
-window.studio.onTaskRemoved((taskId) => states.delete(taskId));
+window.studio.onTaskRemoved((taskId) => {
+  states.delete(taskId);
+  merged.delete(taskId);
+});
 
 function refresh(taskId: TaskId): void {
-  const doc = peekTspDocument(taskId);
-  if (!doc) return;
+  const watched = peekTspWatched(taskId, JOBS_NODES);
+  if (!watched) return;
+  const last = merged.get(taskId);
+  if (last?.doc === watched.doc && last.version === watched.version) return;
+  merged.set(taskId, watched);
+  const { doc } = watched;
   const now = Date.now();
-  set(taskId, mergeTspJobs(states.get(taskId) ?? NO_JOBS, deriveTspJobs(doc, now), doc, now));
+  const agents = agentStatuses(doc);
+  set(taskId, mergeTspJobs(states.get(taskId) ?? NO_JOBS, deriveTspJobs(doc, agents, now), agents, now));
 }
 
 function subscribe(taskId: TaskId, listener: () => void): () => void {

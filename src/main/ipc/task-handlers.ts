@@ -12,6 +12,7 @@ import { canOpenDirectly, resolveInsideReal } from "./task-file-path.ts";
 import { parseRootIndex, rootDir } from "../files/task-roots.ts";
 import { terminalLogin } from "../login/terminal-login-instance.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
+import { tspFeed } from "../tasks/tsp-feed-instance.ts";
 import { getMainWindow } from "../window/main-window.ts";
 import {
   IpcValidationError,
@@ -71,6 +72,7 @@ export const taskHandlers: HandlerGroup<
   | "revealTaskFile"
   | "openTaskFolder"
   | "getTspSnapshot"
+  | "releaseTspDocument"
   | "getTspBlob"
   | "getTspSeq"
   | "getTspSessionExtras"
@@ -188,16 +190,31 @@ export const taskHandlers: HandlerGroup<
 
   // 节点树快照、用户操作 → TSP 事件、按键字节、面板宽度。
   // 应用内终端登录的临时 omp 没有任务记录：用同一条 TSP 通道，主进程按固定 id 路由（任务池不认识它）。
+  // 取快照和登记在同一轮里做（任务不存在时取快照就抛错，不登记）：中间插不进批次，快照之后的批次都推给渲染进程，它在快照落地前先攒着（tsp-store.ts）。
   getTspSnapshot: async (taskId) => {
     const id = parseTaskId(taskId);
-    return id === TERMINAL_LOGIN_ID ? terminalLogin().snapshot() : (await getTaskPool()).getTspSnapshot(id);
+    const snapshot = id === TERMINAL_LOGIN_ID ? terminalLogin().snapshot() : (await getTaskPool()).getTspSnapshot(id);
+    tspFeed().mirror(id);
+    return snapshot;
   },
+  // 被移除的任务由主进程自己注销（runtime.ts 的 taskRemoved），渲染进程不再为它调这个。
+  releaseTspDocument: async (taskId) => {
+    const id = parseTaskId(taskId);
+    if (id !== TERMINAL_LOGIN_ID && !(await getTaskPool()).listTasks().some((task) => task.id === id))
+      throw new IpcValidationError(`unknown task ${id}`);
+    tspFeed().release(id);
+  },
+  // 字节原样送（不是 base64）；拷一份：小的 Buffer 是共享池的切片，整块池子不能跟着过去。
   getTspBlob: async (taskId, blobId) => {
     const id = parseTaskId(taskId);
-    const blob = parseBlobId(blobId);
-    return id === TERMINAL_LOGIN_ID ? terminalLogin().blob(blob) : (await getTaskPool()).getTspBlob(id, blob);
+    const parsed = parseBlobId(blobId);
+    const blob = id === TERMINAL_LOGIN_ID ? terminalLogin().blob(parsed) : (await getTaskPool()).getTspBlob(id, parsed);
+    return blob === null ? null : { mime: blob.mime, bytes: new Uint8Array(Buffer.from(blob.data, "base64")) };
   },
-  getTspSeq: async (taskId) => (await getTaskPool()).getTspSeq(parseTaskId(taskId)),
+  getTspSeq: async (taskId) => {
+    const id = parseTaskId(taskId);
+    return tspFeed().delivered(id, (await getTaskPool()).getTspSeq(id));
+  },
   getTspSessionExtras: async (taskId) => (await getTaskPool()).getTspSessionExtras(parseTaskId(taskId)),
   readTspContext: async (taskId) => (await getTaskPool()).readTspContext(parseTaskId(taskId)),
 

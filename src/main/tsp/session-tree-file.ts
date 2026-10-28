@@ -115,12 +115,15 @@ export function buildTreeFromSessionText(text: string, override?: LeafOverride |
   return buildTreeFromEntries(parseSessionEntries(text), override);
 }
 
-/** 树面板、回溯、标签反复读同一个会话文件：缓存增量读取器，只读新追加的完整行，分块读不长时间占住主进程。 */
-const entryReaders = new SessionReaderCache(() => new SessionEntriesAccumulator());
+/**
+ * 树面板、回溯、标签反复读同一个会话文件：缓存增量读取器，只读新追加的完整行，分块读不长时间占住主进程。
+ * 和任务 runner 的用量读取器（session-files.ts）分开、不被占住：条目留着用户消息的整条内容，只留最近查过的几个文件。
+ */
+const entryReaders = new SessionReaderCache(() => ({ entries: new SessionEntriesAccumulator() }));
 
 /** 读会话文件的条目（只读）。文件还不存在（第一条回复之后才落盘）时为空。 */
 export async function readSessionEntries(file: string): Promise<SessionEntry[]> {
-  return (await entryReaders.read(file)).entries();
+  return (await entryReaders.read(file)).entries.entries();
 }
 
 /** 回溯目标：一条用户消息（完整文字、父条目）和回溯时文件最后一个条目（LeafOverride 的 afterEntryId）。 */

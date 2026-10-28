@@ -1,7 +1,7 @@
 // Markdown 解析：markdown-it（html:false，原始 HTML 当文本）→ 顶层块列表。
 // 纯 TS，不碰 DOM：渲染进程和 vitest（test/markdown.test.ts）共用。
 import { mathPlugin } from "./math.ts";
-import MarkdownIt from "markdown-it";
+import MarkdownIt, { type Env } from "markdown-it";
 
 export type Token = ReturnType<InstanceType<typeof MarkdownIt>["parse"]>[number];
 
@@ -25,11 +25,17 @@ md.validateLink = (url) => /^file:/i.test(url) || defaultValidateLink(url);
 export interface MarkdownBlock {
   /** 块的原文；memo 的比较依据，已闭合的块原文不再变化。 */
   src: string;
-  tokens: Token[];
+  /**
+   * 解析出的 token，约是原文的 5–10 倍大。画完后 Markdown.tsx 把它放掉（null），已画的块长期留在对话里只剩原文；
+   * 少数要重画的时候（切语言、KaTeX 加载完）由 blockTokens 按原文重解析。
+   */
+  tokens: Token[] | null;
   /** fence 块的围栏是否已闭合（流式中未闭合不高亮）；其它块恒为 true。 */
   closed: boolean;
   /** 块里有公式 token（KaTeX 按需加载，加载完只重画这些块）。 */
   math: boolean;
+  /** 整篇里的链接引用定义（`[x]: url`，可以定义在别的块里）：单独重解析这一块时要带上。没有定义时是 undefined。 */
+  references: Env["references"];
 }
 
 const fenceClose = /^ {0,3}(`{3,}|~{3,})\s*$/;
@@ -86,7 +92,8 @@ const blankLine = /^[ \t]*$/;
 /** 从第 line 行（字符偏移 offset，前一行是空行）解析到末尾；token.map 和块首行号都换算成整篇的行号。 */
 function parseFrom(source: string, line: number, offset: number): { blocks: MarkdownBlock[]; starts: BlockStart[] } {
   const text = offset === 0 ? source : source.slice(offset);
-  const tokens = md.parse(text, {});
+  const env: Env = {};
+  const tokens = md.parse(text, env);
   extractTaskMarkers(tokens);
   const lines = text.split("\n");
   const blocks: MarkdownBlock[] = [];
@@ -108,12 +115,13 @@ function parseFrom(source: string, line: number, offset: number): { blocks: Mark
     }
     const map = first.map;
     const src = map ? lines.slice(map[0], map[1]).join("\n") : "";
-    const blockTokens = tokens.slice(start, end);
+    const own = tokens.slice(start, end);
     blocks.push({
       src,
-      tokens: blockTokens,
+      tokens: own,
       closed: first.type === "fence" ? fenceClosed(src, first.markup) : true,
-      math: hasMath(blockTokens),
+      math: hasMath(own),
+      references: env.references,
     });
     if (map) {
       while (cursorLine < map[0]) {
@@ -138,6 +146,14 @@ function parseFrom(source: string, line: number, offset: number): { blocks: Mark
 /** 把整篇 Markdown 切成顶层块。每块带自己的 token 子序列，渲染时只看块。 */
 export function parseBlocks(source: string): MarkdownBlock[] {
   return parseFrom(source, 0, 0).blocks;
+}
+
+/** 一块的 token：还没放掉就直接用，放掉了按原文（带整篇的链接引用定义）重解析。 */
+export function blockTokens(block: MarkdownBlock): Token[] {
+  if (block.tokens !== null) return block.tokens;
+  const tokens = md.parse(block.src, block.references === undefined ? {} : { references: block.references });
+  extractTaskMarkers(tokens);
+  return tokens;
 }
 
 /**

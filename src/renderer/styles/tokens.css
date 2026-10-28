@@ -216,6 +216,54 @@
   --shiki-token-link: var(--link);
 }
 
+/* 高亮 token 的类名（markdown/highlight-tokens.ts 的 tokenProps）：一种颜色一条规则，代替每个 token 一个内联 style。
+   token-inserted / deleted / changed 没定义变量，和原来的内联写法一样继承所在行的颜色（diff 行的增删色）。 */
+.hl-foreground {
+  color: var(--shiki-foreground);
+}
+.hl-token-constant {
+  color: var(--shiki-token-constant);
+}
+.hl-token-string {
+  color: var(--shiki-token-string);
+}
+.hl-token-comment {
+  color: var(--shiki-token-comment);
+}
+.hl-token-keyword {
+  color: var(--shiki-token-keyword);
+}
+.hl-token-parameter {
+  color: var(--shiki-token-parameter);
+}
+.hl-token-function {
+  color: var(--shiki-token-function);
+}
+.hl-token-string-expression {
+  color: var(--shiki-token-string-expression);
+}
+.hl-token-punctuation {
+  color: var(--shiki-token-punctuation);
+}
+.hl-token-link {
+  color: var(--shiki-token-link);
+}
+.hl-token-inserted {
+  color: var(--shiki-token-inserted);
+}
+.hl-token-deleted {
+  color: var(--shiki-token-deleted);
+}
+.hl-token-changed {
+  color: var(--shiki-token-changed);
+}
+.hl-i {
+  font-style: italic;
+}
+.hl-b {
+  font-weight: var(--fw-strong);
+}
+
 /* 中文行高：正文 1.8 */
 :root:lang(zh) {
   --lh-prose: 27px;

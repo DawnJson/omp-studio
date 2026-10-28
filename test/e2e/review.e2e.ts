@@ -131,7 +131,7 @@ test("评审：文件树、统一/并排、暂存 hunk、两条评论、发给 a
     await expect(page.getByTestId("hunk")).toHaveCount(2);
     await expect(page.locator(".rv-lines[data-mode=unified]")).toHaveCount(2);
     // 语法高亮（Shiki 异步加载语言包）：出现带颜色的片段。
-    await expect(page.locator(".rv-code span[style*='color']").first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(".rv-code span[class*='hl-token']").first()).toBeVisible({ timeout: 15_000 });
 
     // 并排：切换后每个 hunk 都是并排行，删除行在左、新增行在右。
     await page.getByTestId("mode-split").click();

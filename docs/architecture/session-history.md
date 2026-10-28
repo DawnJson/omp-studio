@@ -97,9 +97,11 @@ omp 的 TSP 输入框卡片只给费用。token 分项和请求数由 `TspRunner
 
 **增量读**（2026-10-26 起，`src/main/tsp/session-file-reader.ts`）：每个任务一个 `SessionFileReader`，只读上次读到的位置之后追加的字节，按 `\n` 切行、每行 `JSON.parse` 一次，同时喂给用量累加器（`SessionUsageAccumulator`，token 合计）和每轮脚注累加器（`SessionExtrasAccumulator`）。写到一半的最后一行留到下次；文件变短、或上次位置之前的最后 64 字节变了（被重写）就清空累加器从头读；会话文件换了（分叉、新会话、`/move`）换一个读取器。之前每次费用变化和每轮结束都整份 `readFile` + `split` + `JSON.parse`：真实会话文件常见 30–150 MB，55 MB 的一份一次约 200 ms 主线程阻塞、上百 MB 临时内存。实测（Node 24，本机会话文件的副本）：55 MB 首次 229 ms（分 1 MiB 块读，事件循环最长被占 5 ms）、之后没有新内容 4.8 ms、追加一行 8 ms；38 MB 首次 160 ms、追加一行 12 ms。IPC 查询（2026-10-27 起）也走增量读：按模型的用量 / 会话信息概览（`readSessionUsage`）和会话树、回溯、标签、分叉（`readSessionEntries`）各有一个 `SessionReaderCache`，按文件留最近 4 个读取器，同一个文件再查只读新追加的完整行（之前会话树每次 `readFile` + 整份 `JSON.parse`，同步占住主线程）。会话树的累加器只留用户消息、压缩点、分支摘要、标签条目的内容，其余条目只留 type / id / parentId。没有 `\n` 结尾的最后一行这两处也留到下次（omp 每个条目都带换行写入）。
 
+**用量一个文件一个读取器**（2026-10-28 起，`src/main/tsp/session-files.ts`）：之前任务自己的读取器和 `readSessionUsage` 的缓存各读各的，任务的当前会话文件整份读两遍、`JSON.parse` 两遍（55 MB 的文件首次各约 229 ms，见上）。现在两处共用一个 `SessionReaderCache`：每个文件一个读取器，一遍读取同时喂用量和脚注两个累加器。任务用 `holdSessionFile` 占住当前会话文件的读取器（会话文件换了换着占，任务 dispose 时释放，dispose 之后进来的读取不再占），占住的不算进"最近 4 个"，不会被别的文件挤掉后从头再读；没被占住的（历史会话、已归档任务）仍按文件留最近 4 个。会话树（`readSessionEntries`）仍是 `session-tree-file.ts` 里自己的、不被占住的 4 个读取器：树的累加器留着用户消息的整条内容（含图片的 base64），放进任务一直占着的读取器里，内存会随碰过的会话一直涨；代价是打开会话树时这个文件再读一遍。不做"不解析就跳过某些行"：用量要每一条带 id 的记录（沿 parentId 走分支），没有可以跳过的行。
+
 ### 测试
 
-`test/session-stats.test.ts`（临时 `stats.db` 夹具，表结构抄自 omp）、`session-info-files.test.ts`（置顶、会话头）、`session-share.test.ts`（分享输出、假 omp）、`session-trace.test.ts`、`tsp-error-turn.test.ts`（逐帧回放）、`session-usage.test.ts`、`session-index.test.ts`（pinned）、`sidebar-model.test.ts`（置顶排序）。
+`test/session-stats.test.ts`（临时 `stats.db` 夹具，表结构抄自 omp）、`session-info-files.test.ts`（置顶、会话头）、`session-share.test.ts`（分享输出、假 omp）、`session-trace.test.ts`、`tsp-error-turn.test.ts`（逐帧回放）、`session-usage.test.ts`、`session-files.test.ts`（任务和用量共用一个读取器：每行只解析一次、结果同整份文本；任务占住的读取器不被挤掉）、`session-index.test.ts`（pinned）、`sidebar-model.test.ts`（置顶排序）。
 
 ### 没做 / 没验证
 

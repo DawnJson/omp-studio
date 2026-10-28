@@ -85,7 +85,7 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 - **只改这一层、只整体增删**：`discovery` 已存在时（用户在终端里写过 `ollama`、`timeoutMs`、`injectV1` 等）开着就原样保留，不覆盖类型；关掉就整个去掉。这个键仍受 AGENTS.md 里 models.yml 例外的全部规则约束：`yaml` Document API、注释和别的内容原样、原子写、写前 `.bak`。
 - 有 `discovery` 时可以一个模型都不选（`needs-model` 的判断看写完之后条目里有没有 `discovery`）；表单里“没有勾选模型、也没开自动发现”不能保存。
 - **输入**：`CustomProviderInput.discovery?: boolean`：`true` 确保有，`false` 去掉，缺省不动。
-- **刷新模型按钮**（设置 → Provider 与订阅 → 自定义提供商，标题行）：IPC `refreshModels`（`custom-model-handlers.ts`）在中性目录里跑 `omp models refresh`（`runOmpCommand` + `requireSuccess`，参数数组，超时 120 秒，env 带 omp-studio 存的 API key），完成后 `serviceOmp.close()`（服务进程的模型注册表是启动时建的），渲染进程 `reloadAfterChange()` 重读 models.yml 和模型列表；失败时 toast 显示 omp 的 stderr 末尾。
+- **刷新模型按钮**（设置 → Provider 与订阅 → 自定义提供商，标题行）：IPC `refreshModels`（`custom-model-handlers.ts`）在中性目录里跑 `omp models refresh`（`runOmpCommand` + `requireSuccess`，参数数组，超时 120 秒，env 带 omp-studio 存的 API key），完成后 `reloadServiceModels()`（关掉服务进程：它的模型注册表是启动时建的；并作废缓存的模型目录，见 login.md「模型目录和默认模型缓存优先」），渲染进程 `reloadAfterChange()` 重读 models.yml 和模型列表；失败时 toast 显示 omp 的 stderr 末尾。
 - **实测**（真实 omp 18.12.6，临时 `PI_CODING_AGENT_DIR`，本地假 OpenAI 服务 `test/fake-openai/server.ts`）：models.yml 只有 `baseUrl` / `auth: none` / `api` / `discovery: {type: openai-models-list}`、没有 `models` 时，`get_available_models` 列出假服务 `/v1/models` 里的模型，`omp models refresh` 退出码 0，`omp models fake-disco` 输出含该模型；同一个假服务换成 `api: anthropic-messages` + `discovery: {type: proxy}` 也读到同一个模型。`omp models refresh` 对 `models.db` 里的目录做强制重新拉取（omp 的帮助：“Force a fresh catalog fetch”）。
 
 ## 模型的能力参数（2026-10-24，omp 18.12.6）
@@ -118,7 +118,7 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 实测（omp 18.12.1，2026-10-18，临时 `PI_CODING_AGENT_DIR`，`test/custom-models-real-omp.test.ts`）：
 
 - **omp 只在启动时读 `models.yml`。** 同一个 `omp --mode rpc-ui` 进程里改了文件，再发 `get_available_models` 看不到新 provider；重新启动进程后看得到。
-- 所以保存/删除成功后主进程 `serviceOmp.close()`（和保存 API key 一样），界面随即重读模型列表，服务进程按需重启、读到新文件；设置里的默认模型下拉和输入框的模型选择器用的就是这份列表。
+- 所以保存/删除成功后主进程 `reloadServiceModels()`（关掉服务进程并作废缓存的模型目录，和保存 API key 一样），界面随即重读模型列表，服务进程按需重启、读到新文件；设置里的默认模型下拉和输入框的模型选择器用的就是这份列表。
 - **已经在跑的任务进程不会重新加载**，要等它们下次启动（新建任务、重启任务）才看得到。保存后的 toast 说明了这一点。没有强行重启任务进程：那会打断正在进行的对话。
 - 新启动的任务用 `fake-proxy/fake-chat` 这样的 `provider/modelId`，发 prompt 能到达自定义地址并拿到回复（冒烟用本地假服务实测）。
 

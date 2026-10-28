@@ -470,6 +470,31 @@ export function restoreDocument(snapshot: DocumentSnapshot): TspDocument {
   return doc;
 }
 
+/**
+ * 刚还原的 `next` 里内容和 `previous` 相同的节点记录（和状态行数组）换回 `previous` 里的那个对象：同一份文档重拉快照
+ * （渲染进程丢帧、窗口还原后）时，按记录身份订阅的界面只有变了的节点重画。属性按 JSON 比（两边由同样的消息按同样的顺序建出，键序相同；
+ * 不同就当变了，只是多画一次）。
+ */
+export function reuseUnchangedNodes(next: TspDocument, previous: TspDocument): void {
+  for (const surface of next.surfaces.values()) {
+    const old = previous.surfaces.get(surface.id);
+    if (!old) continue;
+    for (const [id, node] of surface.nodes) {
+      const kept = old.nodes.get(id);
+      if (
+        kept !== undefined &&
+        kept.k === node.k &&
+        kept.parent === node.parent &&
+        kept.c.length === node.c.length &&
+        kept.c.every((child, i) => child === node.c[i]) &&
+        JSON.stringify(kept.p) === JSON.stringify(node.p)
+      )
+        surface.nodes.set(id, kept);
+    }
+    if (JSON.stringify(old.statusNotes) === JSON.stringify(surface.statusNotes)) surface.statusNotes = old.statusNotes;
+  }
+}
+
 // ───────── 查询 ─────────
 
 /** 从根往下深度优先找第一个满足条件的节点。 */

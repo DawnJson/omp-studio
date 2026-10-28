@@ -17,7 +17,7 @@ function parseDraftTerminalKey(value: unknown): DraftKey {
 }
 
 export const terminalHandlers: HandlerGroup<
-  "openTerminal" | "writeTerminal" | "resizeTerminal" | "closeTerminal" | "rekeyTerminal"
+  "openTerminal" | "writeTerminal" | "resizeTerminal" | "unsubscribeTerminal" | "closeTerminal" | "rekeyTerminal"
 > = {
   async openTerminal(key, cols, rows) {
     const id = parseTerminalKey(key);
@@ -31,6 +31,9 @@ export const terminalHandlers: HandlerGroup<
   async resizeTerminal(key, cols, rows) {
     const size = parseTerminalSize(cols, rows);
     (await getTerminalManager()).resize(parseTerminalKey(key), size.cols, size.rows);
+  },
+  async unsubscribeTerminal(key) {
+    (await getTerminalManager()).unsubscribe(parseTerminalKey(key));
   },
   async closeTerminal(key) {
     await (await getTerminalManager()).close(parseTerminalKey(key));

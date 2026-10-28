@@ -54,7 +54,7 @@ omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的�
 - 保持运行（`TaskRecord.keepAlive`，任务菜单里开关，`setTaskKeepAlive`；记进 `tasks.json`，重启后还在）：定时回收和软上限回收都跳过它；硬上限照算，进程退出、用户停止照常。用途：Python eval 里的变量、`/add-dir` 加的目录、后台作业这些只在进程里的东西不丢。
 - 回收后的任务保留最后一份节点树快照，已停止的任务最多留 10 份（LRU），更久的释放，再打开时 `--resume` 由 omp 重发整段对话。意外退出（error）同样留着最后一份。进程不在时（stopped / error）快照里可能还有 `running` 的工具卡、子代理（退出时正在跑、转到后台的作业）和计时节点：渲染进程不改文档，只按 `TspEndedAtCtx` 把它们画成已取消 / 已中止、计时停在看到进程结束的那一刻（`use-clock.ts`），见 spec「omp 进程意外退出」。Windows 上 pty 的 Job 在进程退出时关掉，后台作业随之结束，所以这样画是真实状态。
 - `shutdown()`：并行 `close(5000)`（先 `taskkill /T /F` 进程树，再 `pty.kill()`）。退出路径只有 Shell 的 `before-quit`：`runtime.ts` 用 `registerShutdownHook(() => pool.shutdown())` 接入。
-- 窗口 × 不退出：窗口只隐藏（`hide-on-close.ts`），任务池、状态机和 omp 子进程都不受影响，应用常驻托盘（决策见 [background-run.md](background-run.md)）。`sweep` 照旧只回收 idle 且已安静的任务；窗口隐藏期间的状态变化照常经 `taskState` 事件推给（隐藏的）渲染进程，并刷新托盘的提示和菜单。真正的退出入口（托盘"退出"、应用菜单退出、安装更新、系统注销）才会走上面的 `shutdown()`。
+- 窗口 × 不退出：窗口只隐藏（`hide-on-close.ts`），任务池、状态机和 omp 子进程都不受影响，应用常驻托盘（决策见 [background-run.md](background-run.md)）。`sweep` 照旧只回收 idle 且已安静的任务；窗口隐藏期间的状态变化照常经 `taskState` 事件推给（隐藏的）渲染进程，并刷新托盘的提示和菜单。节点树批次（`tspBatch`）则在窗口隐藏或最小化期间压下不发，窗口出来时渲染进程重拉快照（`main/tasks/tsp-feed.ts`，见 [tsp-migration.md](tsp-migration.md) §8）。真正的退出入口（托盘"退出"、应用菜单退出、安装更新、系统注销）才会走上面的 `shutdown()`。
 
 ## 进程树兜底（Job Object）
 

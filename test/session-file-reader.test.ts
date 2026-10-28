@@ -4,7 +4,8 @@ import { appendFile, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readSessionUsage, SessionUsageAccumulator, summarizeSessionUsage } from "../src/main/history/session-usage.ts";
+import { SessionUsageAccumulator, summarizeSessionUsage } from "../src/main/history/session-usage.ts";
+import { readSessionUsage } from "../src/main/tsp/session-files.ts";
 import { parseSession, SessionExtrasAccumulator } from "../src/main/tsp/session-extras.ts";
 import { SessionFileReader } from "../src/main/tsp/session-file-reader.ts";
 

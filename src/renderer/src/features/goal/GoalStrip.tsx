@@ -1,7 +1,8 @@
 // 目标条（omp 目标模式）：对话流顶部、待办条下面的一行：目标文字、状态、用量，和暂停 / 继续 / 放弃。
 // 数据是主进程的 TaskState.goal（get_state、goal_updated）；这里只显示，操作经 IPC taskGoal 发给 omp。
 import { useState } from "react";
-import type { TaskGoal, TaskId } from "../../../../shared/ipc.ts";
+import type { TaskId } from "../../../../shared/ipc.ts";
+import { useTaskValue } from "../../store/index.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { runGoalOp } from "./goal-actions.ts";
 import { goalButtons, goalUsage, type GoalButton } from "./goal-model.ts";
@@ -12,7 +13,9 @@ import "./goal.css";
 
 const STATUS_TONE = { active: "accent", paused: "warning", "budget-limited": "error" } as const;
 
-export function GoalStrip({ taskId, goal: liveGoal }: { taskId: TaskId; goal: TaskGoal | null }) {
+// 自己订阅目标：对话区（TspView）不因目标用量变化重渲染。
+export function GoalStrip({ taskId }: { taskId: TaskId }) {
+  const liveGoal = useTaskValue(taskId, (task) => task?.goal ?? null);
   const t = useT();
   const [pending, setPending] = useState<GoalButton | null>(null);
   // 目标清掉后收起动画期间沿用上一份内容。

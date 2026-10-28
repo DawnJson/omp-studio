@@ -26,7 +26,8 @@ import {
   saveProviderOverride,
 } from "../omp-config/models-file.ts";
 import { readyOmp } from "../omp-manager/index.ts";
-import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
+import { reloadServiceModels } from "../service/default-model.ts";
+import { serviceCwd } from "../service/service-omp.ts";
 import { requireSuccess, runOmpCommand } from "../usage/usage-service.ts";
 import { IpcValidationError, parseBoolean, parseInteger, parseOneOf, parseRecord, parseString } from "./validate.ts";
 
@@ -156,15 +157,15 @@ export const customModelHandlers: HandlerGroup<
       parseOneOf(mode, "mode", ["add", "edit"] as const),
     );
     log.info(`custom provider ${mode}: ${outcome.ok ? "saved" : outcome.code}`);
-    // omp 只在启动时读 models.yml（实测 18.12.1：同一进程里改了文件不会重新加载），所以关掉服务进程，
+    // omp 只在启动时读 models.yml（实测 18.12.1：同一进程里改了文件不会重新加载），所以关掉服务进程并作废模型缓存，
     // 下次读模型列表时重新起；已经在跑的任务进程要等下次启动才看得到。
-    if (outcome.ok) await serviceOmp.close();
+    if (outcome.ok) await reloadServiceModels();
     return outcome;
   },
   deleteCustomProvider: async (providerId) => {
     const outcome = await deleteCustomProvider(resolveAgentDir(), parseString(providerId, "providerId", 200));
     log.info(`custom provider delete: ${outcome.ok ? "deleted" : outcome.code}`);
-    if (outcome.ok) await serviceOmp.close();
+    if (outcome.ok) await reloadServiceModels();
     return outcome;
   },
   saveProviderOverride: async (providerId, input) => {
@@ -173,7 +174,7 @@ export const customModelHandlers: HandlerGroup<
     log.info(
       `custom provider override: key ${parsed.key?.kind ?? "clear"}, ${parsed.models.length} model(s): ${outcome.ok ? "saved" : outcome.code}`,
     );
-    if (outcome.ok) await serviceOmp.close();
+    if (outcome.ok) await reloadServiceModels();
     return outcome;
   },
   fetchProviderModels,
@@ -187,8 +188,8 @@ export const customModelHandlers: HandlerGroup<
     const run = runOmpCommand(readyOmp().path, await serviceCwd(), REFRESH_TIMEOUT_MS);
     requireSuccess("omp models refresh", await run(["models", "refresh"]));
     log.info("omp models refresh: done");
-    // 服务进程的模型注册表是启动时建的：关掉它，下次读模型列表时重新起、读到刷新后的目录。
-    await serviceOmp.close();
+    // 服务进程的模型注册表是启动时建的：关掉它（并作废模型缓存），下次读模型列表时重新起、读到刷新后的目录。
+    await reloadServiceModels();
   },
   openModelsFile: async () => {
     const info = await readModelsFile(resolveAgentDir());

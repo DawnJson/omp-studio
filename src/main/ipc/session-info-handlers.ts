@@ -2,9 +2,9 @@
 // 会话文件头 + 置顶文件 + 会话文件算的用量（和输入框同口径）都只读；请求记录读 stats.db（只读，在 SQLite worker 里）；分享经 `omp share`（会上传，界面先确认）。参数一律是 unknown，先校验再用，路径由主进程按任务 id 查表。
 import type { HandlerGroup, SessionHeaderInfo } from "../../shared/ipc.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
-import { readSessionUsage } from "../history/session-usage.ts";
+import { readSessionUsage } from "../tsp/session-files.ts";
 import { readyOmp } from "../omp-manager/index.ts";
-import { listJson, runOmpConfig } from "../omp-config/config-service.ts";
+import { listOmpConfig } from "./omp-handlers.ts";
 import { readSessionHeader } from "../session-info/session-header.ts";
 import { readSessionPins } from "../session-info/session-pins.ts";
 import { readShareSettings, shareSession } from "../session-info/share.ts";
@@ -57,7 +57,7 @@ export const sessionInfoHandlers: HandlerGroup<
     const id = parseTaskId(taskId);
     const { cwd } = (await getTaskPool()).taskGitContext(id);
     // 在任务目录下读：项目层配置可以改 share.*。
-    return readShareSettings(await listJson(runOmpConfig(readyOmp().path, cwd)));
+    return readShareSettings(await listOmpConfig(cwd));
   },
 
   async shareTask(taskId, gist) {

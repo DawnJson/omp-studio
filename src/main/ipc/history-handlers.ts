@@ -4,7 +4,7 @@ import { shell } from "electron";
 import type { HandlerGroup } from "../../shared/ipc.ts";
 import { readSessionHead, resolveAgentDir, SessionIndex } from "../history/session-index.ts";
 import { buildSessionSummaries } from "../history/session-summaries.ts";
-import { readSessionUsage } from "../history/session-usage.ts";
+import { readSessionUsage } from "../tsp/session-files.ts";
 import { readSessionPins } from "../session-info/session-pins.ts";
 import { getTaskPool } from "../tasks/runtime.ts";
 import { parseProjectId, parseString, parseTaskId } from "./validate.ts";

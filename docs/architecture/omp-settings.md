@@ -8,7 +8,7 @@
 - 分组和枚举可选值：`omp config list`（文本）。`[tab]` 行分组（appearance、context、files、interaction、internal、memory、model、providers、shell、tasks、tools），枚举行 `  key = <值> (a|b|c)`，括号里不是类型名就是可选值。值部分可能自带括号（`(not set)`、数组），取**最后**一个括号组。`FORCE_COLOR` 会让 omp 在管道里也输出颜色转义码：解析前先去掉，spawn 时也设 `NO_COLOR=1 FORCE_COLOR=0`（测试时 Playwright 就设了 FORCE_COLOR，第一次跑 e2e 因此读不到分组）。
 - schema（tab、类型、描述、可选值、**omp 自己的默认值**）在一个**空的临时 agent 目录 + 干净环境**（只带 PATH、临时目录、用户目录等系统变量）里读，按 omp 版本缓存（内存 + `userData/omp-config-schema.json`）。默认值用来判断"已修改"：当前值和默认值不同就是已修改。要干净环境，是因为带着环境变量读出来的"默认值"会被覆盖（实测 `HINDSIGHT_API_URL` 会让 `hindsight.apiUrl` 的默认值变成它）。残留风险：`~/.omp/.env` 里的覆盖仍会被读到。
 - 每次打开设置页静默刷新一次（终端里可能改过）；`ompStatus` 变成 ready 时才读。
-- 同一目录同时来的 `omp config list --json`（审批模式、模型默认值、模型信息、通知开关共用这条通道，`ipc/omp-handlers.ts` 的 `modelDefaultsDeps.list`）只跑一次（`listsInFlight`，2026-10-26 起）：打开草稿页、模型选择对话框时会同时来 2–4 个，每个都是一次完整的 omp 启动（实测 omp 18.12.6 约 140–200 ms）。只合并正在跑的，不缓存结果；经 `configService` 的 `set` / `reset` 前后清空，写之后的读另起一次。拿到同一份结果的调用方不能改它（`writeModelRole` 先拷一份再改）。
+- `omp config list --json` 按目录缓存（2026-10-28 起，`omp-config/config-list-cache.ts`，入口 `ipc/omp-handlers.ts` 的 `listOmpConfig`；审批模式、模型默认值和角色、模型信息、通知开关、分享确认框、启动时的 goal 默认值共用）：每次都是一次完整的 omp 启动（实测 omp 18.12.6 约 140–200 ms；内存约 600 MB，omp 18.13.3），审批胶囊在每次输入框挂载、切项目时读，通知开关在每次轮次结束时读。结果只取决于指纹（omp 版本 + omp 读的设置文件的修改时间，`configListInputs`，按 `omp://settings.md`（omp 18.13.3）：agent 目录 `config.yml` / `config.yaml` / 迁移用的 `settings.json`，`<目录>/.omp/settings.json` 和 `.omp/config.yml`；`service/input-stamp.ts`），指纹没变就用上次的，同一目录同时来的共用一次，失败的不留；经 `configService` 的 `set` / `reset` 前后清空，写之后的读另起一次。只在内存里（一个目录的输出约 100 KB，omp 18.13.3），最多 8 个目录，超出丢最久没用的；重启后第一次读照常跑。拿到同一份结果的调用方不能改它（`writeModelRole` 先拷一份再改）。测试：`test/config-list-cache.test.ts`。设置页自己的快照（`getOmpConfig`）不走这个缓存，每次打开设置页照常现读。
 
 ## 写
 

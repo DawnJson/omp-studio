@@ -13,9 +13,12 @@ import { t } from "../../shared/i18n/index.ts";
 let tray: Tray | null = null;
 let tasks: readonly TaskState[] = [];
 let lastSignature = "";
-/** 上次生成菜单时的输入；菜单只取决于语言和任务列表，两者都没换就不用重新生成（mouse-move 很频繁）。 */
+/**
+ * 上次生成菜单时的输入；菜单只取决于语言和任务的 id、状态、标题（tray-model.ts），这些都没变就不用重新生成
+ * （mouse-move 很频繁；state 事件每次都给新数组，用量、模型等别的字段变了也会来）。
+ */
 let renderedLocale: string | null = null;
-let renderedTasks: readonly TaskState[] | null = null;
+let renderedTasks: readonly TaskState[] = [];
 
 /**
  * 图标：打包后在 resources 目录（extraResources），开发和 e2e 时在仓库的 resources/。
@@ -40,7 +43,13 @@ const actions: TrayActions = {
 function render(): void {
   if (!tray) return;
   const locale = resolveLocale();
-  if (locale === renderedLocale && tasks === renderedTasks) return;
+  const sameTasks =
+    tasks.length === renderedTasks.length &&
+    tasks.every((task, index) => {
+      const rendered = renderedTasks[index]!;
+      return task.id === rendered.id && task.status === rendered.status && task.title === rendered.title;
+    });
+  if (locale === renderedLocale && sameTasks) return;
   renderedLocale = locale;
   renderedTasks = tasks;
   const tooltip = trayTooltip(locale, trayCounts(tasks));

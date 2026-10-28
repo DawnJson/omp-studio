@@ -14,7 +14,7 @@ flowchart LR
   M -- browserState / browserConnected --> R
 ```
 
-- `src/main/browser/browser-manager.ts`：每个任务一个 `TaskBrowser`（`WebContentsView` + CDP 口）。页面在第一次显示、第一次输入地址或 omp 第一次连上时建，任务归档 / 删除（`taskRemoved`）、应用退出（`registerShutdownHook`）时销毁。所有任务共用分区 `persist:studio-browser`：登录状态记住，和应用自己的页面隔开；一切权限请求拒绝。
+- `src/main/browser/browser-manager.ts`：每个任务一个 `TaskBrowser`（`WebContentsView` + CDP 口）。页面在面板显示、输入地址或 omp 连上时建；没人用时关掉（见下面「没人用时」）；任务归档 / 删除（`taskRemoved`）、应用退出（`registerShutdownHook`）时连 CDP 口一起关。所有任务共用分区 `persist:studio-browser`：登录状态记住，和应用自己的页面隔开；一切权限请求拒绝。
 - `cdp-bridge.ts`：对 omp 装成只有一个标签页的 Chrome。不 import electron，单测 `test/browser-cdp.test.ts` 用假页面。
 - `cdp-server.ts` + `websocket.ts`：每个任务一个 HTTP + WebSocket 口（只听 `127.0.0.1`，不用 `ws` 依赖，自己实现最小的 RFC 6455 服务端）。
 - `address.ts`：地址栏的文字 -> 地址。只放行 http/https；带空格或不像主机名的当搜索词（Bing）；`localhost`、`127.x`、`[::1]` 补 `http://`，别的补 `https://`。
@@ -41,7 +41,7 @@ puppeteer 25 用 Chrome 的 tab 目标模型：每个页面有一个 `tab` 目�
 要点：
 
 - **地址为空的目标 puppeteer 当作没初始化**，`browser.targets()` 里没有它，omp 报 `No page targets available on the attached browser`。所以新页面一建好就载入 `about:blank`，载完发 `Target.targetInfoChanged`（地址栏不显示 `about:blank`）。e2e `test/e2e/browser.e2e.ts` 的"面板没打开过时 omp 连上来"一条守着它。
-- **视图要挂在窗口上**：不挂在窗口上的 `WebContentsView` 截图（`Page.captureScreenshot`）会一直等；挂着但 `setVisible(false)` 的照样能截图、跑脚本（Electron 44 实测）。所以面板关着时视图仍挂在主窗口上、只是隐藏，`setBackgroundThrottling(false)` 让它照常渲染。
+- **视图要挂在窗口上**：不挂在窗口上的 `WebContentsView` 截图（`Page.captureScreenshot`）会一直等；挂着但 `setVisible(false)` 的照样能截图、跑脚本（Electron 44 实测）。所以面板关着时视图仍挂在主窗口上、只是隐藏；有 CDP 客户端连着时 `setBackgroundThrottling(false)` 让它照常渲染（没有客户端时开节流，见「没人用时」）。
 - **只有一个页面**：`Target.createTarget` 在这个页面里打开地址、返回它的 id；页面里的 `window.open` / `target=_blank` 也在原页面打开。
 - **omp 关不掉用户的页面**：`Browser.close`、`Page.close`、`Target.closeTarget` 等不管从哪一级发来都回错误，不执行。
 - 最后一个 page 会话断开时摘掉 debugger：omp 设的仿真（视口、UA）随之失效，面板恢复成用户看到的样子。
@@ -54,8 +54,24 @@ puppeteer 25 用 Chrome 的 tab 目标模型：每个页面有一个 `tab` 目�
 ## 和界面的配合
 
 - 页面是原生视图，叠在应用页面上面。渲染进程把占位区（`browser-view`）的位置告诉主进程（`placeBrowser`，CSS 像素，主进程乘页面缩放）：`ResizeObserver` + 窗口 resize + 面板滑入动画结束（`animationend`，滑入用 transform，`ResizeObserver` 看不到位置变化）。
-- 遮罩弹窗开着（`ui/title-bar-dim.ts` 的计数）、或 body 下的浮层（菜单、下拉、toast）压到占位区时，把视图藏起来（`placeBrowser(null)`），否则浮层会被它挡住。原生 `title` 提示不在页面里，不用管。
-- 面板关掉时视图隐藏，页面和 CDP 连接都留着：omp 在后台继续用，再打开还是原来那页。
+- 遮罩弹窗开着（`ui/title-bar-dim.ts` 的计数）、或 body 下的浮层（菜单、下拉、toast）压到占位区时，把视图藏起来（`placeBrowser("covered")`），否则浮层会被它挡住。原生 `title` 提示不在页面里，不用管。面板关掉或换到别的任务（`BrowserPanel` 卸载）发 `placeBrowser(null)`：主进程据此区分“面板开着、暂时挡住”和“面板关了”，只有后者会关页面。
+- 面板关掉时视图隐藏，omp 还在时页面和 CDP 连接都留着：omp 在后台继续用，再打开还是原来那页。
+
+## 没人用时（2026-10-28）
+
+- **后台节流**：没有 CDP 客户端连着时页面开 `setBackgroundThrottling(true)`，客户端连上（`CdpBridgeHost.connected`）时关掉、最后一个断开（`disconnected`）时再开。面板显示着时节流不影响页面（推断：Chromium 只节流隐藏的页面，没有实测显示 + 节流开的组合）。
+- **关页面**：omp 进程不在（任务状态 stopped / error，`tasks/runtime.ts` 的 `state` 事件 → `setTaskBrowserOmpRunning`）、面板关着、没有 CDP 客户端，三样同时成立时关掉页面（省一个渲染进程），记下地址（只记 http/https）。这三样任一变化时（任务状态、`placeBrowser(null)`、最后一个客户端断开）检查一次。CDP 口不关：它的地址在 omp 的环境变量里，任务重开时还用同一个。
+- **再载入**：下次建页面（面板再打开、omp 再连上、地址栏输入）时照旧先载入 `about:blank`，载完仍是 `about:blank` 的话载入记下的地址；`about:blank` 被别的跳转（omp 的 `Target.createTarget`、地址栏）打断就不载入。记下的地址用过或被打断就清掉，之后停在 `about:blank` 时再关不会翻出旧地址。会话分区是持久的，登录状态还在；滚动位置、表单内容、前进后退历史不保留。
+- omp 在不在：`browser/runtime.ts` 按任务状态事件记一份在跑的任务，新建的 `TaskBrowser` 从它取初值（不等下一次状态事件），所以 omp 在跑但还没连上时开关面板不会误关页面。
+- 实测（2026-10-28，Windows 11 build 26300，Electron 44.9，临时 Electron 脚本：挂在窗口上的 `WebContentsView`，页面每帧在 1024×768 画布上画 40 个色块，另有 10ms 定时器每次忙 1ms）：
+
+  | 视图 | 节流 | `requestAnimationFrame` | 10ms 定时器 | `visibilityState` | 页面进程 CPU（单核） |
+  |---|---|---|---|---|---|
+  | 显示 | 关 | 144 帧/秒 | 100 次/秒 | visible | 25.7% |
+  | `setVisible(false)` | 关（以前的做法） | 1 帧/秒 | 100 次/秒 | visible | 10.2% |
+  | `setVisible(false)` | 开 | 0 | 1.2 次/秒 | hidden | 0.1% |
+
+  隐藏 + 节流开着时 `Page.captureScreenshot` 照样完成（约 2.0 s，节流关时约 2.5 s）。关掉这个页面后应用所有进程的工作集合计少 81 MB（这个测试页；真实网站多半更多，推断）。
 
 ## 测试
 

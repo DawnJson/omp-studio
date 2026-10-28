@@ -1,5 +1,5 @@
 // 一个终端面板的会话：创建 xterm、接主进程的 terminalData/terminalExit、把键盘输入和尺寸变化发回去。
-// 面板卸载只释放 xterm，不结束主进程的 shell（隐藏面板 ≠ 杀进程）；下次挂载 openTerminal 返回 backlog 还原屏幕。
+// 面板卸载只释放 xterm 并退订输出，不结束主进程的 shell（隐藏面板 ≠ 杀进程）；下次挂载 openTerminal 重新订阅并返回 backlog 还原屏幕。
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
@@ -216,6 +216,8 @@ export function useTerminalSession(
       if (frame !== 0) cancelAnimationFrame(frame);
       offData();
       offExit();
+      // 面板不在了：主进程之后的输出只进 backlog，不再发过来。
+      void window.studio.unsubscribeTerminal(terminalKey).catch(() => undefined);
       keys.dispose();
       sizes.dispose();
       observer.disconnect();

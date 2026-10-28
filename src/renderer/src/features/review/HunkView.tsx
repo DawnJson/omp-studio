@@ -14,7 +14,7 @@ import {
 } from "../../../../shared/ui/review-model.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Plus } from "../../icons.tsx";
-import type { HighlightToken } from "../../markdown/highlight-tokens.ts";
+import { tokenProps, type HighlightToken } from "../../markdown/highlight-tokens.ts";
 import { Button } from "../../ui/controls.tsx";
 import { CommentBox, CommentCard } from "./CommentBox.tsx";
 import { displayText, useHunkTokens, type LineTokens } from "./use-hunk-tokens.ts";
@@ -86,14 +86,7 @@ const SIGN: Record<GitDiffLine["kind"], string> = { context: "", add: "+", del: 
 function Code({ text, tokens }: { text: string; tokens: HighlightToken[] | null }): ReactNode {
   if (tokens === null) return displayText(text);
   return tokens.map((token, index) => (
-    <span
-      key={index}
-      style={{
-        color: token.color,
-        fontStyle: token.italic ? "italic" : undefined,
-        fontWeight: token.bold ? "var(--fw-strong)" : undefined,
-      }}
-    >
+    <span key={index} {...tokenProps(token)}>
       {token.text}
     </span>
   ));

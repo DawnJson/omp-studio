@@ -56,7 +56,7 @@ import type { SkillCandidate, SkillEntry, SkillScope, SkillTarget } from "./omp-
 import type { McpEditInput, McpEditOutcome, McpEditScope, McpServerFile } from "./mcp-edit.ts";
 import type { AgentMessage } from "./omp-wire/rpc-wire.generated.ts";
 import type { BtwHistoryRecord, BtwUiEvent } from "./btw.ts";
-import type { DocBlob, DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
+import type { DocumentSnapshot, TspDocMessage } from "./tsp/document.ts";
 import type { OmpKeybinding } from "./tsp/omp-keybindings.ts";
 import type { ProviderKeyEnv } from "./provider-keys.ts";
 import type { TspEvent } from "./tsp/tsp.generated.ts";
@@ -560,6 +560,25 @@ export interface TspBatch {
   messages: TspDocMessage[];
 }
 
+/** 推给渲染进程的消息：blob 只带 id，字节按需 `getTspBlob` 取（同快照的 blobIds）。 */
+export type TspFeedMessage = Exclude<TspDocMessage, { verb: "b" }> | { verb: "b"; id: string };
+
+/**
+ * `tspBatch` 事件：只推渲染进程有镜像的任务（拉快照时登记、`releaseTspDocument` 注销），窗口藏着（托盘、最小化）时不推；
+ * 窗口出来时，压下过批次的任务收到一个越过空档的空批次（`messages` 为空），渲染进程按丢帧重拉快照（main/tasks/tsp-feed.ts）。
+ */
+export interface TspFeedBatch {
+  taskId: TaskId;
+  firstSeq: number;
+  messages: TspFeedMessage[];
+}
+
+/** `getTspBlob` 的结果：blob 的原始字节（不是 base64）。 */
+export interface TspBlobBytes {
+  mime: string | null;
+  bytes: Uint8Array<ArrayBuffer>;
+}
+
 /** TSP 任务里一个子代理的记录（`getTspSubagentRecord`）。 */
 export interface TspSubagentRecord {
   /** 会话文件里的消息（最近的 subagentLimits.detailMessages 条）；读不到为 null。 */
@@ -1038,16 +1057,18 @@ export interface StudioInvokeApi {
   createTask(input: CreateTaskInput): Promise<TaskState>;
   /** 切到这个任务：需要时拉起 omp 并恢复会话，并清除 unread。启动失败不 reject，状态里有 error。 */
   openTask(taskId: TaskId): Promise<void>;
-  /** 任务的节点树快照（不拉起进程）；用于丢帧或渲染进程重载后的重同步。 */
+  /** 任务的节点树快照（不拉起进程）；用于丢帧或渲染进程重载后的重同步。从这时起这个任务的批次推给渲染进程（`tspBatch`）。 */
   getTspSnapshot(taskId: TaskId): Promise<TspSnapshot>;
+  /** 渲染进程丢掉了这个任务的镜像：主进程不再推它的批次，下次 `getTspSnapshot` 再登记。 */
+  releaseTspDocument(taskId: TaskId): Promise<void>;
   /**
-   * 快照里只有 blob 的 id（DocumentSnapshot.blobIds），字节按需用这个取：任务当前 omp 的文档里的，没有进程时是上一个进程退出时留下的。
+   * 快照和批次里只有 blob 的 id，字节按需用这个取：任务当前 omp 的文档里的，没有进程时是上一个进程退出时留下的。
    * 没有这个 blob（进程换了、快照被释放）为 null。`blobId` 是 sha256 十六进制。
    */
-  getTspBlob(taskId: TaskId, blobId: string): Promise<DocBlob | null>;
+  getTspBlob(taskId: TaskId, blobId: string): Promise<TspBlobBytes | null>;
   /**
-   * 主进程已发出的最后一条 TSP 消息的序号（先把攒着的批次发出去）。结束一次"驱动"（聚焦子代理、读上下文报告）前，
-   * 渲染进程等自己的镜像追上它：IPC 回复可能比之前发出的批次先到，不等就会把 omp 已经关掉的弹窗再画一帧。
+   * 主进程已发给渲染进程的最后一条 TSP 消息的序号（先把攒着的批次发出去；窗口藏着压下了批次时是压下之前的那条）。结束一次"驱动"
+   * （聚焦子代理、读上下文报告）前，渲染进程等自己的镜像追上它：IPC 回复可能比之前发出的批次先到，不等就会把 omp 已经关掉的弹窗再画一帧。
    */
   getTspSeq(taskId: TaskId): Promise<number>;
   /** 用量脚注（omp 恢复会话时不重发，从会话文件补）和最近一条回复的速度；读不到时 `{ turns: [], tokensPerSecond: null }`，不抛错。 */
@@ -1086,14 +1107,19 @@ export interface StudioInvokeApi {
   /** 把键盘输入写给终端；没有终端时静默忽略。 */
   writeTerminal(key: TerminalKey, data: string): Promise<void>;
   resizeTerminal(key: TerminalKey, cols: number, rows: number): Promise<void>;
+  /** 面板卸载：shell 照跑，输出只进 backlog、不再发 terminalData，直到下一次 openTerminal。没有终端时静默忽略。 */
+  unsubscribeTerminal(key: TerminalKey): Promise<void>;
   /** 结束终端（整棵进程树）；没有终端时静默成功。 */
   closeTerminal(key: TerminalKey): Promise<void>;
   /** 草稿建出任务后把草稿的终端交给任务（同一个 shell、同一份 backlog）；草稿没有终端时返回 false。任务已有终端时不动草稿的。 */
   rekeyTerminal(from: DraftKey, to: TaskId): Promise<boolean>;
 
   // 浏览器面板（右栏，docs/architecture/browser.md）：每个任务一个页面，也是给 omp 的 `browser` 工具用的 CDP 浏览器。
-  /** 面板占的位置（CSS 像素，相对窗口内容区左上角）；null = 不显示（面板关了、被弹窗或菜单挡住）。第一次显示时建页面。任务不存在时 reject。 */
-  placeBrowser(taskId: TaskId, bounds: BrowserBounds | null): Promise<BrowserState>;
+  /**
+   * 面板占的位置（CSS 像素，相对窗口内容区左上角）；"covered" = 面板开着但页面先藏起来（被弹窗、菜单挡住），null = 面板关了。
+   * 面板显示时没有页面就建。任务不存在时 reject。
+   */
+  placeBrowser(taskId: TaskId, bounds: BrowserBounds | "covered" | null): Promise<BrowserState>;
   /** 在任务的页面里打开地址栏里的文字：网址（没写协议补 https://，本机地址补 http://），带空格的当搜索词。只放行 http/https。 */
   navigateBrowser(taskId: TaskId, text: string): Promise<void>;
   browserAction(taskId: TaskId, action: BrowserAction): Promise<void>;
@@ -1232,7 +1258,8 @@ export interface StudioInvokeApi {
   getBtw(taskId: TaskId): Promise<BtwHistoryRecord[]>;
 
   // 账号和模型（走服务进程）
-  listModels(): Promise<ModelOption[]>;
+  /** 服务进程的 get_available_models。`refresh` 为 false 时缓存优先（启动缓存里的目录对得上 omp 的输入就不起服务进程）；打开模型选择器、设置页传 true，一定现读。 */
+  listModels(refresh: boolean): Promise<ModelOption[]>;
   /** 非对话模型（见 RunnerModel）；跑一次 `omp models --kind all --json`，几秒内返回。 */
   listRunnerModels(): Promise<RunnerModel[]>;
   listLoginProviders(): Promise<LoginProvider[]>;
@@ -1384,7 +1411,7 @@ export interface StudioInvokeApi {
   setCopyOnSelect(on: boolean): Promise<void>;
   /** 记下用户已经确认过"全自动"，之后选它不再弹确认。 */
   setYoloConfirmed(): Promise<void>;
-  /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值；读不到（没登录、没有可用模型）时为 null。 */
+  /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值（缓存优先，同 listModels(false)）；读不到（没登录、没有可用模型）时为 null。 */
   getDefaultModel(): Promise<DefaultModelInfo | null>;
   /** 工具行上次读到的数据（见 StartupSnapshot），只读文件，不问 omp。 */
   getStartupSnapshot(): Promise<StartupSnapshot>;
@@ -1476,7 +1503,7 @@ export interface StudioEventPayloads {
   taskRemoved: TaskId;
   /** 点了"等你确认"系统通知：主进程已聚焦窗口，渲染进程切到这个任务（selectTask）。 */
   focusTask: TaskId;
-  tspBatch: TspBatch;
+  tspBatch: TspFeedBatch;
   taskNotice: TaskNotice;
   login: LoginEvent;
   ompStatus: OmpStatus;
@@ -1579,6 +1606,7 @@ export const invokeNames = {
   createTask: true,
   openTask: true,
   getTspSnapshot: true,
+  releaseTspDocument: true,
   getTspBlob: true,
   getTspSeq: true,
   getTspSessionExtras: true,
@@ -1636,6 +1664,7 @@ export const invokeNames = {
   openTerminal: true,
   writeTerminal: true,
   resizeTerminal: true,
+  unsubscribeTerminal: true,
   closeTerminal: true,
   rekeyTerminal: true,
   placeBrowser: true,

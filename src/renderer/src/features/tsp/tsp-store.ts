@@ -1,18 +1,19 @@
-// TSP 文档的渲染进程镜像：每个任务一份 { seq, doc }，外加推导用的节点追踪（shared/tsp/node-watch.ts）。
-// 同步协议（ipc.ts TspBatch）：批次的 firstSeq 必须不超过本地 seq + 1，超过说明丢了帧，调 getTspSnapshot 重新拉；
+// TSP 文档的渲染进程镜像：每个任务一份 { seq, doc }，外加推导用的节点追踪（shared/tsp/node-watch.ts）。只给留着的对话区建
+// （App.tsx 的 KEPT_VIEWS），对话区卸载就 releaseTspDocument：主进程只给有镜像的任务推批次（main/tasks/tsp-feed.ts）。
+// 同步协议（ipc.ts TspFeedBatch）：批次的 firstSeq 必须不超过本地 seq + 1，超过说明丢了帧，调 getTspSnapshot 重新拉；
 // 拉快照期间到达的批次先攒着，快照落地后接着应用，所以快照和事件批次的重叠、乱序都是安全的（规则见 tsp-sync.ts）。
+// 窗口藏着时主进程不推批次，窗口出来时补一个越过空档的空批次，走的就是这条重拉快照的路。
 //
 // 文档（Map）原地改，节点记录不可变：订阅按 (任务, surface, 节点 id) 登记，应用一批消息后只通知 `changed` 里出现的节点，
 // 组件用 useTspNode 拿到的记录引用没变就不会重画。role 索引和声明了 NodeDeps 的 useTspDerived 只在它们读的节点变了时重算。
 import { useMemo, useSyncExternalStore } from "react";
-import type { TaskId, TspBatch } from "../../../../shared/ipc.ts";
+import type { TaskId, TspFeedBatch, TspFeedMessage } from "../../../../shared/ipc.ts";
 import {
   applyMessage,
   restoreDocument,
-  type DocBlob,
+  reuseUnchangedNodes,
   type DocNode,
   type DocSurface,
-  type TspDocMessage,
   type TspDocument,
 } from "../../../../shared/tsp/document.ts";
 import { NodeWatch, type NodeDeps } from "../../../../shared/tsp/node-watch.ts";
@@ -30,14 +31,22 @@ interface Mirror {
   roles: NodeWatch;
   /** useTspDerived 的推导读的节点：NodeDeps → 追踪，第一次用到时建。 */
   watches: Map<NodeDeps, NodeWatch>;
-  /** 快照里列出、字节还没取到的 blob id（快照不带字节，见 DocumentSnapshot.blobIds）：有组件订阅时才 `getTspBlob` 取。 */
+  /** 文档里有、字节还没取到的 blob id（快照和批次都不带字节）：有组件订阅时才 `getTspBlob` 取。 */
   remoteBlobs: Set<string>;
+  /** 取到的图片：blob id → object URL（每个 id 一个）；镜像丢掉、重拉的快照里不再有它时 revoke。和 remoteBlobs 不相交。 */
+  images: Map<string, TspImage>;
+}
+
+/** 一张取到字节的图片（`<img src>` 用 url）。 */
+export interface TspImage {
+  readonly mime: string | null;
+  readonly url: string;
 }
 
 const SEP = "\u0000";
 const mirrors = new Map<TaskId, Mirror>();
 /** 正在拉快照的任务：期间到达的批次先攒在这里。 */
-const fetching = new Map<TaskId, TspBatch[]>();
+const fetching = new Map<TaskId, TspFeedBatch[]>();
 /** 等镜像追上某个序号的（endTspDrive）：镜像每次前进、被丢掉或拉快照失败时检查。 */
 const seqWaiters = new Map<TaskId, { seq: number; resolve: () => void }[]>();
 const listeners = new Map<string, Set<() => void>>();
@@ -87,15 +96,23 @@ function notifyTask(taskId: TaskId): void {
 
 const warned = new Set<string>();
 
-function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDocMessage[]): void {
+function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspFeedMessage[]): void {
   const changed = new Map<string, Set<string>>();
   const touchedSurfaces = new Set<string>();
-  const touchedBlobs = new Set<string>();
+  const arrivedBlobs: string[] = [];
   let structural = false;
   /** 祖先换位置会改变子树的文档顺序，changed 里看不出来：这批的 NodeWatch 整份重扫（见 node-watch.ts）。 */
   let moved = false;
   const births: BirthCounter = new Map();
   for (const message of messages) {
+    // blob 只带 id（字节按需取）；id 是内容的 sha256，已经取到的不用再取。
+    if (message.verb === "b") {
+      if (!mirror.images.has(message.id)) {
+        mirror.remoteBlobs.add(message.id);
+        arrivedBlobs.push(message.id);
+      }
+      continue;
+    }
     if (message.verb === "f") {
       for (const op of message.body.ops) {
         if (op[0] === "add") recordBirths(taskId, message.body.sf, op[2], op[4], births);
@@ -125,9 +142,6 @@ function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDoc
       case "t":
         touchedSurfaces.add(message.body.sf);
         break;
-      case "b":
-        touchedBlobs.add(message.id.toLowerCase());
-        break;
     }
   }
   mirror.seq += messages.length;
@@ -143,13 +157,14 @@ function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspDoc
     for (const id of ids) notify(nodeKey(taskId, sf, id));
   }
   for (const sf of touchedSurfaces) notify(surfaceKey(taskId, sf));
-  for (const id of touchedBlobs) notify(blobKey(taskId, id));
+  // 先挂出来、后收到 blob 的图片：现在取。
+  for (const id of arrivedBlobs) if (listeners.has(blobKey(taskId, id))) requestBlob(taskId, id);
   notify(panelKey(taskId));
   if (structural) notify(surfacesKey(taskId));
   releaseSeqWaiters(taskId);
 }
 
-function replay(taskId: TaskId, mirror: Mirror, batches: readonly TspBatch[]): boolean {
+function replay(taskId: TaskId, mirror: Mirror, batches: readonly TspFeedBatch[]): boolean {
   for (const batch of batches) {
     const plan = planTspBatch(mirror.seq, batch);
     if (plan.kind === "resync") return false;
@@ -160,38 +175,46 @@ function replay(taskId: TaskId, mirror: Mirror, batches: readonly TspBatch[]): b
 
 function fetchSnapshot(taskId: TaskId): void {
   if (fetching.has(taskId)) return;
-  fetching.set(taskId, []);
+  const pending: TspFeedBatch[] = [];
+  fetching.set(taskId, pending);
   window.studio.getTspSnapshot(taskId).then(
     (snapshot) => {
-      const pending = fetching.get(taskId) ?? [];
+      // 期间镜像被释放（之后可能又 ensure 了一次）：这份快照作废，主进程那边的登记也已注销。
+      if (fetching.get(taskId) !== pending) return;
       fetching.delete(taskId);
       const doc = restoreDocument(snapshot.document);
-      // blob 按内容寻址：旧镜像里已有字节的直接沿用（丢帧重拉不重新取），其余等有组件要时再取。
-      const previous = mirrors.get(taskId)?.doc.blobs;
+      const old = mirrors.get(taskId);
+      // 换进来的文档里内容没变的节点沿用旧记录：按记录身份订阅的组件不重画，窗口还原、丢帧重拉时只有变了的节点重画。
+      if (old) reuseUnchangedNodes(doc, old.doc);
+      // blob 按内容寻址：旧镜像里已取到的图片直接沿用（丢帧重拉不重新取），其余等有组件要时再取；新快照里没有的放掉。
+      const previous = old?.images;
+      const images = new Map<string, TspImage>();
       const remoteBlobs = new Set<string>();
       for (const id of snapshot.document.blobIds) {
         const kept = previous?.get(id);
-        if (kept) doc.blobs.set(id, kept);
+        if (kept) images.set(id, kept);
         else remoteBlobs.add(id);
       }
+      if (previous) for (const [id, image] of previous) if (!images.has(id)) URL.revokeObjectURL(image.url);
       const mirror: Mirror = {
         seq: snapshot.seq,
         doc,
         roles: new NodeWatch(doc, ROLE_INDEX_NODES),
         watches: new Map(),
         remoteBlobs,
+        images,
       };
       for (const surface of mirror.doc.surfaces.values()) markKnown(taskId, surface.id, surface.nodes.values());
       mirrors.set(taskId, mirror);
-      cachedSurfaces.delete(taskId);
       for (const key of cachedViews.keys()) if (key.startsWith(`${taskId}${SEP}`)) cachedViews.delete(key);
       notifyTask(taskId);
       if (!replay(taskId, mirror, pending)) fetchSnapshot(taskId);
-      // 已经挂着的图片（镜像换了、组件没重新订阅）：现在就取（攒着的批次里刚送到的不用取）。
+      // 已经挂着的图片（镜像换了、组件没重新订阅）：现在就取（攒着的批次里刚送到的已经在 replay 里取了）。
       for (const id of remoteBlobs) if (listeners.has(blobKey(taskId, id))) requestBlob(taskId, id);
       releaseSeqWaiters(taskId);
     },
     (error: unknown) => {
+      if (fetching.get(taskId) !== pending) return;
       fetching.delete(taskId);
       console.error("getTspSnapshot 失败", error);
       // 追不上了：不让等它的驱动一直挂着。
@@ -200,19 +223,19 @@ function fetchSnapshot(taskId: TaskId): void {
   );
 }
 
-/** 取一个快照里列出、本地还没有字节的 blob；取到后通知订阅它的组件。取不到（进程换了）就当它不在了。 */
+/** 取一个文档里有、本地还没有字节的 blob，做成 object URL；取到后通知订阅它的组件。取不到（进程换了）就当它不在了。 */
 function requestBlob(taskId: TaskId, id: string): void {
-  const mirror = mirrors.get(taskId);
   const key = blobKey(taskId, id);
-  if (!mirror?.remoteBlobs.has(id) || mirror.doc.blobs.has(id) || blobRequests.has(key)) return;
+  if (!mirrors.get(taskId)?.remoteBlobs.has(id) || blobRequests.has(key)) return;
   blobRequests.add(key);
   window.studio.getTspBlob(taskId, id).then(
     (blob) => {
       blobRequests.delete(key);
-      // 期间镜像可能换了（重拉快照）或被丢掉：只填进仍然列着它的那份。
+      // 期间镜像可能换了（重拉快照）或被释放：只填进仍然列着它的那份。
       const current = mirrors.get(taskId);
-      if (!current?.remoteBlobs.delete(id) || blob === null || current.doc.blobs.has(id)) return;
-      current.doc.blobs.set(id, blob);
+      if (!current?.remoteBlobs.delete(id) || blob === null) return;
+      const url = URL.createObjectURL(new Blob([blob.bytes], { type: blob.mime ?? "" }));
+      current.images.set(id, { mime: blob.mime, url });
       notify(key);
     },
     (error: unknown) => {
@@ -222,7 +245,7 @@ function requestBlob(taskId: TaskId, id: string): void {
   );
 }
 
-function onBatch(batch: TspBatch): void {
+function onBatch(batch: TspFeedBatch): void {
   const pending = fetching.get(batch.taskId);
   if (pending) {
     pending.push(batch);
@@ -238,7 +261,11 @@ function start(): void {
   if (started) return;
   started = true;
   window.studio.onTspBatch(onBatch);
-  window.studio.onTaskRemoved(dropTspDocument);
+  // 主进程已经注销了这个任务的推送（runtime.ts 的 taskRemoved）。
+  window.studio.onTaskRemoved((taskId) => {
+    forgetMirror(taskId);
+    for (const listener of dropListeners) listener(taskId);
+  });
 }
 
 /** 打开一个 TSP 任务的画面时调用：订阅事件，没有镜像就拉快照。可重复调用。 */
@@ -249,14 +276,15 @@ export function ensureTspDocument(taskId: TaskId): void {
 
 const dropListeners = new Set<(taskId: TaskId) => void>();
 
-/** 一份镜像被丢掉时回调（各自按任务记的界面缓存跟着清，例如折叠状态）；返回取消函数。 */
+/** dropTspDocument 时回调（各自按任务记的界面缓存跟着清，例如折叠状态；releaseTspDocument 不回调）；返回取消函数。 */
 export function onTspDocumentDropped(listener: (taskId: TaskId) => void): () => void {
   dropListeners.add(listener);
   return () => dropListeners.delete(listener);
 }
 
-/** 丢掉一份镜像（任务被移除；应用内登录的临时会话每次登录都是一个新进程，对话框打开 / 重试时先丢掉上一次的）。之后再 ensure 会重新拉快照。 */
-export function dropTspDocument(taskId: TaskId): void {
+/** 丢掉镜像和它的图片、推导缓存；按任务记的界面状态（折叠等）不动。之后再 ensure 会重新拉快照。 */
+function forgetMirror(taskId: TaskId): void {
+  for (const image of mirrors.get(taskId)?.images.values() ?? []) URL.revokeObjectURL(image.url);
   forgetBirths(taskId);
   mirrors.delete(taskId);
   fetching.delete(taskId);
@@ -269,6 +297,17 @@ export function dropTspDocument(taskId: TaskId): void {
   notifyTask(taskId);
   releaseSeqWaiters(taskId);
   seqWaiters.delete(taskId);
+}
+
+/** 对话区卸载了（App.tsx：离开最近看过的几个、或藏得太久）：放掉镜像并让主进程别再推它的批次，折叠等界面状态留着，切回来重新拉快照。 */
+export function releaseTspDocument(taskId: TaskId): void {
+  forgetMirror(taskId);
+  window.studio.releaseTspDocument(taskId).catch((error: unknown) => console.error("releaseTspDocument 失败", error));
+}
+
+/** 丢掉一份镜像和这个任务的界面状态（应用内登录的临时会话每次登录都是一个新进程，对话框打开 / 重试时先丢掉上一次的）。 */
+export function dropTspDocument(taskId: TaskId): void {
+  releaseTspDocument(taskId);
   for (const listener of dropListeners) listener(taskId);
 }
 
@@ -279,14 +318,27 @@ export function peekTspNode(taskId: TaskId, sf: string, id: string): DocNode | n
   return mirrors.get(taskId)?.doc.surfaces.get(sf)?.nodes.get(id) ?? null;
 }
 
-export function peekTspBlob(taskId: TaskId, id: string | undefined): DocBlob | null {
-  return id === undefined ? null : (mirrors.get(taskId)?.doc.blobs.get(id.toLowerCase()) ?? null);
+export function peekTspBlob(taskId: TaskId, id: string | undefined): TspImage | null {
+  return id === undefined ? null : (mirrors.get(taskId)?.images.get(id.toLowerCase()) ?? null);
 }
 
 // 作业（S2Jobs）：每批消息应用后通知一次（和 panelKey 同一个时机），文档用普通引用读。
 /** 非 hook 读取：这个任务的 TSP 文档镜像（只读）；还没有为 null。 */
 export function peekTspDocument(taskId: TaskId): TspDocument | null {
   return mirrors.get(taskId)?.doc ?? null;
+}
+
+/** `nodes` 那份 NodeWatch（useTspDerived / peekTspWatched 共用）：第一次用到时建。 */
+function watchFor(mirror: Mirror, nodes: NodeDeps): NodeWatch {
+  let watch = mirror.watches.get(nodes);
+  if (!watch) mirror.watches.set(nodes, (watch = new NodeWatch(mirror.doc, nodes)));
+  return watch;
+}
+
+/** 非 hook 读取：文档镜像和 `nodes` 那份 NodeWatch 的 version（相关节点变了才变；镜像换了文档也换）；没有镜像为 null。 */
+export function peekTspWatched(taskId: TaskId, nodes: NodeDeps): { doc: TspDocument; version: number } | null {
+  const mirror = mirrors.get(taskId);
+  return mirror ? { doc: mirror.doc, version: watchFor(mirror, nodes).version } : null;
 }
 
 /** 订阅"这个任务的文档又应用了一批消息"（快照整体替换也会通知）；返回取消函数。 */
@@ -366,7 +418,7 @@ export function useTspNoVisibleChild(
   });
 }
 
-export function useTspBlob(taskId: TaskId, id: string | undefined): DocBlob | null {
+export function useTspBlob(taskId: TaskId, id: string | undefined): TspImage | null {
   const key = id?.toLowerCase();
   const sub = useMemo(
     () => (l: () => void) => {
@@ -377,9 +429,7 @@ export function useTspBlob(taskId: TaskId, id: string | undefined): DocBlob | nu
     },
     [taskId, key],
   );
-  return useSyncExternalStore(sub, () =>
-    key === undefined ? null : (mirrors.get(taskId)?.doc.blobs.get(key) ?? null),
-  );
+  return useSyncExternalStore(sub, () => peekTspBlob(taskId, key));
 }
 
 export interface TspSurfaceInfo {
@@ -633,11 +683,7 @@ export function useTspDerived<T>(
     const mirror = mirrors.get(taskId);
     if (!mirror) return null;
     let version = mirror.seq;
-    if (nodes) {
-      let watch = mirror.watches.get(nodes);
-      if (!watch) mirror.watches.set(nodes, (watch = new NodeWatch(mirror.doc, nodes)));
-      version = watch.version;
-    }
+    if (nodes) version = watchFor(mirror, nodes).version;
     let byDerive = derivedCache.get(taskId);
     if (!byDerive) derivedCache.set(taskId, (byDerive = new Map()));
     const entry = byDerive.get(derive);

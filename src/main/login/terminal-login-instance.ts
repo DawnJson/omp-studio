@@ -3,7 +3,7 @@
 import { app, nativeTheme } from "electron";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { emitEvent } from "../ipc/events.ts";
+import { tspFeed } from "../tasks/tsp-feed-instance.ts";
 import { buildTspLaunch } from "../omp/launch.ts";
 import { parseTestOmpOverride } from "../omp/launch-args.ts";
 import { serviceOmp } from "../service/service-omp.ts";
@@ -44,7 +44,7 @@ export function terminalLogin(): TerminalLogin {
     },
     appVersion: app.getVersion(),
     appearance: () => ({ dark: nativeTheme.shouldUseDarkColors, reduceMotion: getSettings().reduceMotion }),
-    onBatch: (batch) => emitEvent("tspBatch", batch),
+    onBatch: (batch) => tspFeed().push(batch),
   });
   const login = instance;
   registerShutdownHook(() => login.shutdown());

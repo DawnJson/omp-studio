@@ -83,8 +83,11 @@ export interface PoolDeps {
   forkTitle?(title: string): string;
   /** 上次读到的模型目录（启动缓存）：任务进程起来之前和服务进程的目录读到之前，胶囊先按它显示名字、上下文窗口和思考档位。 */
   knownModels?(): ModelOption[];
-  /** 模型目录（服务进程的 get_available_models）：把 omp 的模型显示名换成模型键、给 listTaskModels；没传时列表为空。 */
-  listModels?(): Promise<ModelOption[]>;
+  /**
+   * 模型目录（服务进程的 get_available_models）：把 omp 的模型显示名换成模型键、给 listTaskModels；没传时列表为空。
+   * `refresh` 为 false 时可以给缓存（输入没变就不起服务进程），true（打开模型选择器）一定现读。
+   */
+  listModels?(refresh: boolean): Promise<ModelOption[]>;
   /** omp 的命令列表：`cwd` 是任务目录（该目录的项目 rpc-ui，含项目 skill、自定义命令、扩展命令），`null` = 草稿页（服务进程）；没传时为空。 */
   listSlashCommands?(cwd: string | null): Promise<AvailableSlashCommand[]>;
   /** 导出 HTML：对会话文件跑 `omp --export <文件> <输出路径>`（omp/export-session.ts）；没传时不能导出。 */
@@ -136,7 +139,7 @@ export class TaskPool {
       onNotice: (notice) => deps.events.notice(notice),
       session: tsp.session,
       knownModels: () => deps.knownModels?.() ?? [],
-      ...(deps.listModels && { listModels: () => deps.listModels!() }),
+      ...(deps.listModels && { listModels: (refresh: boolean) => deps.listModels!(refresh) }),
       ...(deps.newTaskDefaults && { newTaskDefaults: (project: Project) => deps.newTaskDefaults!(project) }),
       ...(deps.listSlashCommands && { listSlashCommands: (cwd: string) => deps.listSlashCommands!(cwd) }),
       ...(deps.exportSession && {

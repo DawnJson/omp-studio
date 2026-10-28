@@ -1,5 +1,6 @@
 // 项目目录里的短命 rpc-ui（owner 决定 2）：项目范围的内置命令（`/mcp ... --scope project`、按项目的记忆）要在项目目录里跑，
-// 服务进程的 cwd 是 userData/service，不行；斜杠菜单的命令列表（`get_available_commands`，含项目的 skill、自定义命令、扩展命令）也按任务目录取。
+// 服务进程的 cwd 是 userData/service，不行；斜杠菜单的命令列表（`get_available_commands`，含项目的 skill、自定义命令、扩展命令）也按任务目录取
+// （先看按目录的缓存，输入没变时不来这里，slash-commands.ts）。
 // 每个项目目录最多一个 `omp --mode rpc-ui --no-session`，空闲后关；同时最多留 MAX_PROJECT_PROCESSES 个（每个 omp 约 260 MB，
 // 每打开一个 worktree 任务就是一个新目录），超出时先关最久没用、手上没活的。
 // 放进应用 Job Object，退出时经 command-handlers.ts 注册的 shutdown hook 全部关掉。

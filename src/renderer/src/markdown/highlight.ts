@@ -1,7 +1,8 @@
-// Shiki(JS 正则引擎，不用 WASM)+ CSS 变量主题：深浅主题不重新高亮，颜色直接取设计 token(markdown.css 里把 --shiki-* 映射到 --syn-*)。
+// Shiki(JS 正则引擎，不用 WASM)+ CSS 变量主题：深浅主题不重新高亮，颜色直接取设计 token(tokens.css 里把 --shiki-* 映射到 --syn-*)。
 // 分词在 worker 里（highlight-worker.ts）：同步分词一个几百行的文件要 100ms 以上，放在主线程会卡住界面。
 // 没高亮完时调用方先显示纯文本，结果到了只改颜色；代码变了、新结果没到时接着用上一次的颜色（highlight-tokens.ts 的 carryHighlight）。
 // 排队在主线程：worker 里同时只放 MAX_RUNNING 个请求，其余在这里等；等的时候所有调用方都卸载了（滚过去、折叠、换会话）就直接丢掉，worker 不白算。
+// worker 闲下来 IDLE_MS 就关掉（Shiki 和加载过的语言包都在它里面），下次要高亮时重建；主线程的结果缓存不受影响。
 import { useEffect, useMemo, useState } from "react";
 import type { HighlightReply, HighlightRequest } from "./highlight-worker.ts";
 import { resolveLanguage, type Language } from "./highlight-languages.ts";
@@ -20,12 +21,20 @@ interface Job {
   waiters: Set<Waiter>;
 }
 
-/** 最近用过的结果，超出上限丢最久没用的（Map 按插入顺序，命中时挪到末尾）。 */
-const CACHE_LIMIT = 200;
+/**
+ * 最近用过的结果，总大小超出上限丢最久没用的（Map 按插入顺序，命中时挪到末尾）。按大小不按段数：
+ * 一个大文件的预览、评审就能有几万个 token，按段数限会留住几百个这样的结果。
+ */
+const CACHE_BYTES = 8 * 1024 * 1024;
+/** 一个 token 对象连同它的文字大约占的字节数（估算，用来给缓存记账）。 */
+const TOKEN_BYTES = 80;
 /** 同时交给 worker 的请求数：两个让 worker 算完一个时下一个已经在它的队列里，不用等主线程回一趟。 */
 const MAX_RUNNING = 2;
+/** worker 没有请求在算、在排队多久后关掉：第一次高亮之后它一直占着几 MB 到十几 MB；重建后重新加载语言包约 100ms，期间显示纯文本。 */
+const IDLE_MS = 60_000;
 
-const cache = new Map<string, HighlightToken[][]>();
+const cache = new Map<string, { lines: HighlightToken[][]; bytes: number }>();
+let cacheBytes = 0;
 /** 还没出结果的 job（排队的 + 已交给 worker 的），按 cacheKey。 */
 const jobs = new Map<string, Job>();
 /** 还没交给 worker 的 job，按先来后到。 */
@@ -33,6 +42,7 @@ const queued = new Set<Job>();
 /** 已交给 worker 的 job，按请求 id。 */
 const running = new Map<number, Job>();
 let worker: Worker | null = null;
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
 let nextId = 0;
 
 function cacheKey(code: string, language: Language): string {
@@ -40,16 +50,23 @@ function cacheKey(code: string, language: Language): string {
 }
 
 function readCache(key: string): HighlightToken[][] | null {
-  const lines = cache.get(key);
-  if (lines === undefined) return null;
+  const entry = cache.get(key);
+  if (entry === undefined) return null;
   cache.delete(key);
-  cache.set(key, lines);
-  return lines;
+  cache.set(key, entry);
+  return entry.lines;
 }
 
 function writeCache(key: string, lines: HighlightToken[][]): void {
-  cache.set(key, lines);
-  if (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value!);
+  const bytes = key.length * 2 + lines.reduce((sum, line) => sum + line.length, 0) * TOKEN_BYTES;
+  cache.set(key, { lines, bytes });
+  cacheBytes += bytes;
+  // 刚写进的这一段总是留着，哪怕它自己就超过上限。
+  for (const [oldest, entry] of cache) {
+    if (cacheBytes <= CACHE_BYTES || oldest === key) break;
+    cache.delete(oldest);
+    cacheBytes -= entry.bytes;
+  }
 }
 
 function finish(job: Job, outcome: { lines: HighlightToken[][] } | { error: Error }): void {
@@ -86,9 +103,10 @@ function getWorker(): Worker {
 }
 
 function pump(): void {
+  clearTimeout(idleTimer);
   while (running.size < MAX_RUNNING) {
     const job = queued.values().next().value;
-    if (job === undefined) return;
+    if (job === undefined) break;
     queued.delete(job);
     const id = nextId++;
     running.set(id, job);
@@ -101,6 +119,12 @@ function pump(): void {
       finish(job, { error: error instanceof Error ? error : new Error(String(error)) });
     }
   }
+  // 没有在算的就没有在排队的（上面的循环会把它们交出去）。
+  if (worker !== null && running.size === 0)
+    idleTimer = setTimeout(() => {
+      worker?.terminate();
+      worker = null;
+    }, IDLE_MS);
 }
 
 /** signal 中止后这个调用方不再等；一段代码的调用方在它交给 worker 前全中止了，就不算了。 */

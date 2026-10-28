@@ -51,6 +51,14 @@ export function useTask(taskId: TaskId | null): TaskState | null {
   return useStoreValue(tasksStore, (state) => (taskId === null ? null : (state.byId[taskId] ?? null)));
 }
 
+/**
+ * 任务的一个字段（只在它变了时重渲染，任务状态事件很密）。`select` 要返回原始值或稳定引用：
+ * TaskState 经 IPC 来，里面的对象每个事件都是新的，选对象等于每次都重渲染。
+ */
+export function useTaskValue<S>(taskId: TaskId, select: (task: TaskState | null) => S): S {
+  return useStoreValue(tasksStore, (state) => select(state.byId[taskId] ?? null));
+}
+
 /** ids 里还存在的任务，顺序不变；只在这个结果变了时重渲染（任务状态事件很密）。 */
 export function useExistingTaskIds(ids: readonly TaskId[]): readonly TaskId[] {
   const key = useStoreValue(tasksStore, (state) => ids.filter((id) => state.byId[id] !== undefined).join("\n"));

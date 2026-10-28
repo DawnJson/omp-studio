@@ -12,21 +12,21 @@ import { registerShutdownHook } from "../window/shutdown.ts";
 import { GateNotifier, retainNotification } from "./gate-notifier.ts";
 import { t } from "../../shared/i18n/index.ts";
 import { forgetExport } from "./export-record.ts";
+import { tspFeed } from "./tsp-feed-instance.ts";
 import { emitEvent } from "../ipc/events.ts";
 import { forgetDraft } from "../ipc/draft-handlers.ts";
 import { appHandlers } from "../ipc/app-handlers.ts";
 import { buildTspLaunch, setTestOmpOverride } from "../omp/launch.ts";
 import { exportSessionHtml } from "../omp/export-session.ts";
 import { parseTestOmpOverride } from "../omp/launch-args.ts";
-import type { OmpConnection } from "../omp/omp-connection.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
 import { closeTaskTerminal } from "../terminal/active.ts";
-import { closeTaskBrowser, getBrowserManager } from "../browser/runtime.ts";
+import { closeTaskBrowser, getBrowserManager, setTaskBrowserOmpRunning } from "../browser/runtime.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
 import { log } from "../log/log.ts";
 import { listModelOptions, readDefaultModel } from "../service/default-model.ts";
 import { readNotifyEnabled, readProjectModelDefaults } from "../ipc/omp-handlers.ts";
-import { serviceOmp } from "../service/service-omp.ts";
+import { listSlashCommands, rememberSlashCommands } from "../service/slash-commands-instance.ts";
 import { projectOmp } from "../service/project-omp-instance.ts";
 import { createWorktree, removeWorktree } from "../git/worktree.ts";
 import { SetupConsent } from "../git/setup-consent.ts";
@@ -110,19 +110,17 @@ function createPool(): Promise<TaskPool> {
     beforeTaskClose: closeTaskTerminal,
     forkTitle: (title) => t(resolveLocale(), "task.forkTitle", { title }),
     knownModels: () => startupCache().models(),
-    listModels: () => listModelOptions(),
+    listModels: (refresh) => listModelOptions(refresh),
     newTaskDefaults: async (project) => {
       // 缓存优先：草稿页刚读过这个项目的默认值（getModelDefaults 会记进启动缓存），不再多跑一次 `omp config list`。
       const cache = startupCache().snapshot();
       const defaults = cache.modelDefaults?.[project.id] ?? (await readProjectModelDefaults(project.id, project.path));
-      const ompDefault = defaults.model !== null ? null : (cache.defaultModel ?? (await readDefaultModel()));
+      const ompDefault = defaults.model !== null ? null : await readDefaultModel(false);
       return { model: defaults.model, thinkingLevel: defaults.thinkingLevel, ompDefault };
     },
     // 任务的命令列表取任务目录里的项目 rpc-ui（项目 skill、自定义命令、扩展命令都在里面）；草稿页（没有目录）用服务进程。
-    listSlashCommands: async (cwd) => {
-      const request = (connection: OmpConnection) => connection.request("get_available_commands");
-      return (await (cwd === null ? serviceOmp.use(request) : projectOmp.use(cwd, request))).commands;
-    },
+    // 都先看按目录的缓存（service/slash-commands.ts），输入没变时不起 omp。
+    listSlashCommands,
     exportSession: exportSessionHtml,
     tsp: {
       buildLaunch: async (record, project) => {
@@ -153,15 +151,17 @@ function createPool(): Promise<TaskPool> {
       state: (state) => {
         emitEvent("taskState", state);
         void notifier.onState(state);
+        setTaskBrowserOmpRunning(state.id, state.status !== "stopped" && state.status !== "error");
         const tasks = taskPool.listTasks();
         refreshTray(tasks);
         refreshTaskbarProgress(tasks);
       },
-      tspBatch: (batch) => emitEvent("tspBatch", batch),
+      tspBatch: (batch) => tspFeed().push(batch),
       notice: (notice) => emitEvent("taskNotice", notice),
       taskRemoved: (id) => {
         forgetExport(id);
         notifier.forget(id);
+        tspFeed().release(id);
         void closeTaskBrowser(id).catch((error: unknown) => {
           log.warn(`close browser of ${id} failed`, { error: error instanceof Error ? error.message : String(error) });
         });
@@ -177,8 +177,11 @@ function createPool(): Promise<TaskPool> {
       composerPrefill: (taskId, draft) => emitEvent("composerPrefill", { taskId, draft }),
     },
   });
-  // 项目 rpc-ui 主动推来的命令列表（握手期间加载完技能 / 扩展、`/reload-plugins` 之后）：推给这个目录里的所有任务。
+  // 项目 rpc-ui 主动推来的命令列表（握手期间加载完技能 / 扩展、`/reload-plugins` 之后）：记进缓存，推给这个目录里的所有任务。
   projectOmp.onCommandsUpdate = (dir, commands) => {
+    rememberSlashCommands(dir, commands).catch((error: unknown) =>
+      log.warn("remembering the slash commands failed", error instanceof Error ? error.message : error),
+    );
     for (const task of taskPool.listTasks())
       if (pathKey(task.cwd) === pathKey(dir)) emitEvent("slashCommands", { taskId: task.id, commands });
   };

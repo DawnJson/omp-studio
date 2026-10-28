@@ -159,7 +159,7 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
         () =>
           page.evaluate(() =>
             globalThis.studio
-              .listModels()
+              .listModels(true)
               .then((models) =>
                 models.filter((model) => model.key.provider === "fake-proxy").map((model) => model.key.modelId),
               ),
@@ -289,7 +289,7 @@ test("只覆盖内置 provider 的条目（anthropic 下只有 modelOverrides）
         () =>
           page.evaluate(() =>
             globalThis.studio
-              .listModels()
+              .listModels(true)
               .then((models) =>
                 models
                   .filter((model) => model.key.provider === "anthropic" && model.key.modelId === "claude-opus-5")
@@ -368,7 +368,7 @@ test("自定义提供商：模型行里设思考、图片输入、上下文窗�
         () =>
           page.evaluate(() =>
             globalThis.studio
-              .listModels()
+              .listModels(true)
               .then((models) =>
                 models
                   .filter((model) => model.key.provider === "meta-proxy")
@@ -529,7 +529,7 @@ test("自定义提供商：自动发现模型——开关写 discovery、不用�
         () =>
           page.evaluate(() =>
             globalThis.studio
-              .listModels()
+              .listModels(true)
               .then((models) =>
                 models.filter((model) => model.key.provider === "fake-disco").map((model) => model.key.modelId),
               ),

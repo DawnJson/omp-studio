@@ -19,7 +19,7 @@ shell 起来后到第一个输出字节之间（pwsh 加载 profile 要 3–5 �
 | `src/main/terminal/input.ts` | IPC 参数校验（纯函数） |
 | `src/main/terminal/runtime.ts` | Electron 接线：任务池、node-pty 按需加载、Job Object、`taskkill`、退出 hook |
 | `src/main/terminal/active.ts` | 任务池结束任务终端的入口（避免 import 成环） |
-| `src/main/ipc/terminal-handlers.ts` | 五个 invoke：`openTerminal` `writeTerminal` `resizeTerminal` `closeTerminal` `rekeyTerminal` |
+| `src/main/ipc/terminal-handlers.ts` | 六个 invoke：`openTerminal` `writeTerminal` `resizeTerminal` `unsubscribeTerminal` `closeTerminal` `rekeyTerminal` |
 | `src/renderer/src/features/terminal/` | 面板、xterm 会话、打开状态 store、焦点动作 |
 | `src/shared/ui/terminal-model.ts` | 纯逻辑：高度夹取、输入分块、cwd 显示、从 token 推 xterm 配色 |
 
@@ -28,17 +28,18 @@ IPC（`src/shared/ipc.ts`）：
 - `openTerminal(key, cols, rows) → { cwd, shell, reopened, backlog }`：`key` 是 `TerminalKey` = `TaskId` 或 `DraftKey`（`new:<projectId>`，无项目的草稿是 `new:chats`；`draftKey()` 生成，`parseDraftKey()` 解析，和草稿输入框的存储键是同一个字符串）。
 - `writeTerminal(key, data)`：非空字符串，≤ 65536 字符（`limits.terminalInputMaxChars`）；没有终端时静默忽略。粘贴更大的文本时渲染进程按代理对边界分块发。
 - `resizeTerminal(key, cols, rows)`：2–1000 的整数。
+- `unsubscribeTerminal(key)`：面板卸载时发。shell 照跑，输出照进 backlog，但不再发 `terminalData`（2026-10-28 起；之前面板关着也一直往渲染进程推，渲染进程收到就丢）。下一次 `openTerminal` 重新订阅。没有终端时静默忽略。
 - `closeTerminal(key)`：结束整棵进程树后才 resolve；没有终端时静默成功。
 - `rekeyTerminal(from: DraftKey, to: TaskId) → boolean`：把草稿的终端交给新建的任务（同一个 pty、同一份 backlog）；草稿没有终端、或任务已有终端时返回 false 且什么也不动。草稿的终端还在起时先等它起好。
-- 事件 `terminalData {key, data}`、`terminalExit {key, exitCode}`。主动 `closeTerminal` 不发 `terminalExit`；交接之后事件带任务 id。
+- 事件 `terminalData {key, data}`（只发给已订阅的：`openTerminal` 订阅，`unsubscribeTerminal` 退订）、`terminalExit {key, exitCode}`（不管订没订阅都发）。主动 `closeTerminal` 不发 `terminalExit`；交接之后事件带任务 id，订阅状态跟着终端走。
 - 外壳状态 `ShellState.terminalHeight`（120–4000，默认 280，和侧栏宽度同一处持久化）。
 
 ## 生命周期
 
 1. 用户打开面板（Ctrl+`、任务条按钮、命令面板），渲染进程创建 xterm、`fit()` 得到 cols/rows，调用 `openTerminal`。
-2. 主进程：该键已有活着的终端 → **复用**：改成新尺寸，丢掉还没发出去的批次（已经在 backlog 里，否则界面收到两遍），返回 `reopened: true` 和 backlog；渲染进程 `reset()` 后写入 backlog 还原屏幕。否则 **新起**：解析目录、校验目录存在，起 shell，`reopened: false`。同一个键并发的 `openTerminal` 共用一次 spawn。
+2. 主进程：该键已有活着的终端 → **复用**：改成新尺寸，丢掉还没发出去的批次（已经在 backlog 里，否则界面收到两遍），重新订阅，返回 `reopened: true` 和 backlog；渲染进程 `reset()` 后写入 backlog 还原屏幕。否则 **新起**：解析目录、校验目录存在，起 shell，`reopened: false`（已订阅）。同一个键并发的 `openTerminal` 共用一次 spawn。
 3. 渲染进程在 `openTerminal` 返回之前先订阅事件并缓冲：新起的终端，缓冲的输出照写；复用的，缓冲丢弃（backlog 已覆盖）。主进程里"取 backlog"和"返回结果"在同一个同步段，之后的输出才会走事件。
-4. **隐藏面板 ≠ 结束 shell**：面板卸载只释放 xterm，shell 继续在主进程里跑，输出继续进 backlog。再打开 = 第 2 步的复用。面板的打开状态按终端键（任务或草稿）记在内存里（切到别的任务再回来仍是开着的），重启应用后默认收起。
+4. **隐藏面板 ≠ 结束 shell**：面板卸载只释放 xterm 并 `unsubscribeTerminal`，shell 继续在主进程里跑，输出继续进 backlog，但不经 IPC 发给渲染进程（没人显示）。再打开 = 第 2 步的复用，backlog 还原最近 256KB。卸载和再挂载的 IPC 按发出顺序处理（两个 handler 都只 await 同一个已就绪的管理器），先退订后订阅。新起的终端还没起好时到达的退订先记下，起好时不订阅；之后任何一次 `openTerminal`（包括并入同一次 spawn 的）把记下的退订清掉，所以 React StrictMode 在开发版里"挂载 → 卸载 → 挂载"最后仍是订阅的。面板的打开状态按终端键（任务或草稿）记在内存里（切到别的任务再回来仍是开着的），重启应用后默认收起。
 5. shell 自己退出：主进程先把剩余批次发出去，再发 `terminalExit`，并把这个终端从表里摘掉；界面追加一行灰色提示，按任意键调用 `openTerminal` 在同一目录起新的（新屏幕，不保留旧输出）。重启按钮 = `closeTerminal` + `openTerminal`。
 6. 结束：`closeTerminal`、任务归档（`TaskPool.archiveTask`）、丢弃 worktree（`discardWorktree`）、应用退出（`registerShutdownHook`）。任务池通过 `PoolDeps.beforeTaskClose` 在关 omp **之前**等终端被结束；丢弃 worktree 时这一步保证目录不再被占用。正在起的终端被结束时，等它起好再结束，不留孤儿。
 
@@ -88,7 +89,7 @@ IPC（`src/shared/ipc.ts`）：
 
 ## 数据通路
 
-pty `data` → 写进 backlog（立即）+ 进 `OutputBatcher`（空闲后第一批下一轮事件循环就发，连续输出时距上一批满 16ms 再发，攒够 64KB 立刻发 `terminalData`）→ 渲染进程 `term.write`。输入反向：`term.onData` → `writeTerminal`（IPC 先进先出，主进程按到达顺序写 pty）。尺寸：`FitAddon` 在面板 `ResizeObserver` 触发时 `fit()`，`term.onResize` 防抖 40ms 后发 `resizeTerminal`（ConPTY 每次 resize 都重排，拖动时合并成最后一次）。
+pty `data` → 写进 backlog（立即）+ 有面板订阅时进 `OutputBatcher`（空闲后第一批下一轮事件循环就发，连续输出时距上一批满 16ms 再发，攒够 64KB 立刻发 `terminalData`）→ 渲染进程 `term.write`。没订阅时只进 backlog。输入反向：`term.onData` → `writeTerminal`（IPC 先进先出，主进程按到达顺序写 pty）。尺寸：`FitAddon` 在面板 `ResizeObserver` 触发时 `fit()`，`term.onResize` 防抖 40ms 后发 `resizeTerminal`（ConPTY 每次 resize 都重排，拖动时合并成最后一次）。
 
 backlog 只留最近 256KB（`Backlog`）：超过上限 2 倍才裁剪，读取时收紧到上限，裁剪点后移到下一个换行开头（避免把转义序列从中间切开后在屏幕上留下乱码），没有换行时不切开代理对。代价：回放从行首开始，被裁掉部分里设置的颜色等状态不会带到回放里。
 

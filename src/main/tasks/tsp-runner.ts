@@ -77,11 +77,9 @@ import {
 import { resolveNewTaskDefault } from "../../shared/ui/new-task-default.ts";
 import { titleFromPrompt } from "./convert.ts";
 import { stripIconGlyphs } from "../../shared/ui/clean-title.ts";
-import { SessionExtrasAccumulator } from "../tsp/session-extras.ts";
-import { SessionFileReader } from "../tsp/session-file-reader.ts";
+import { holdSessionFile, readSessionFile, type SessionFileState } from "../tsp/session-files.ts";
 import { readSubagentRecord } from "../tsp/subagent-file.ts";
 import { HubDriver } from "./tsp-hub-driver.ts";
-import { SessionUsageAccumulator } from "../history/session-usage.ts";
 import type { RewindTarget } from "../tsp/session-tree-file.ts";
 import { initialMachineState, transition, type MachineInput, type MachineState } from "./task-machine.ts";
 import { pathKey, type TaskRecord } from "./task-registry.ts";
@@ -143,8 +141,11 @@ export interface TspRunnerHost {
   session: TspSessionDeps;
   /** 上次读到的模型目录（启动缓存）：服务进程的目录还没读到时，胶囊先按它显示模型名、上下文窗口和思考档位；没提供时为空。 */
   knownModels?(): ModelOption[];
-  /** 模型目录（服务进程的 get_available_models，和草稿输入框用的同一份）：把 omp 的模型显示名换成模型键、给 listTaskModels。 */
-  listModels?(): Promise<ModelOption[]>;
+  /**
+   * 模型目录（服务进程的 get_available_models，和草稿输入框用的同一份）：把 omp 的模型显示名换成模型键、给 listTaskModels。
+   * `refresh` 为 false 时可以给启动缓存里的（omp 的输入没变就不起服务进程），true 一定现读。
+   */
+  listModels?(refresh: boolean): Promise<ModelOption[]>;
   /** omp 的命令列表：任务目录里的项目 rpc-ui（项目 skill、自定义命令、扩展命令）；没提供时 TSP 任务的列表为空。 */
   listSlashCommands?(cwd: string): Promise<AvailableSlashCommand[]>;
   /** 把会话文件导出成 HTML（`omp --export`，见 omp/export-session.ts）；没提供时 TSP 任务不能导出。 */
@@ -323,12 +324,8 @@ export class TspRunner {
   #prNumber: number | null = null;
   /** 当前会话文档的整篇扫描结果（待办、toast、旁路弹窗、后台工作），相关节点变了才重扫（tsp-doc-scans.ts）。 */
   #scans: TspDocScans | null = null;
-  /** 当前会话文件的增量读取（token 合计和用量脚注共用，见 #readSessionFile）；会话文件换了就换一个。 */
-  #sessionReader: {
-    reader: SessionFileReader;
-    usage: SessionUsageAccumulator;
-    extras: SessionExtrasAccumulator;
-  } | null = null;
+  /** 占住的当前会话文件读取器（和按模型用量、会话树共用，见 tsp/session-files.ts）；会话文件换了就换一个。 */
+  #heldSessionFile: { file: string; release: () => void } | null = null;
   /** 用户按了停止、这一轮还没结束：这一轮的结局记为 aborted。 */
   #stopRequested = false;
   /** omp 报告的会话文件；文件在第一条回复之后才落盘，落盘之前不能存（恢复会失败）。undefined = 还没报过（用任务记录里的），null = omp 清空了它。 */
@@ -729,7 +726,7 @@ export class TspRunner {
       this.#observeFacts(session.document);
       this.#btw.sync(this.#scansFor(session.document).btwView);
       this.#notifyWaiters(session.document);
-      void this.#refreshCatalog();
+      void this.#refreshCatalog(false);
     } catch (error) {
       if (this.#closing || this.#disposed) {
         if (session) await this.#discard(session);
@@ -840,7 +837,8 @@ export class TspRunner {
     this.#disposed = true;
     await this.close();
     this.#failDocumentWaiters(new Error("task was removed"));
-    this.#sessionReader = null;
+    this.#heldSessionFile?.release();
+    this.#heldSessionFile = null;
     await rm(this.#imagesDir(), { recursive: true, force: true });
   }
 
@@ -1190,7 +1188,7 @@ export class TspRunner {
     if (!load || this.#record.model) return;
     try {
       const defaults = await load(this.#project);
-      const catalog = this.#catalog.length > 0 ? this.#catalog : await this.#refreshCatalog();
+      const catalog = this.#catalog.length > 0 ? this.#catalog : await this.#refreshCatalog(false);
       // 和草稿、起进程前的输入框同一份计算（shared/ui/new-task-default.ts）：档位按模型钳制，不会只有模型名没有强度。
       const { model, thinkingLevel } = resolveNewTaskDefault(defaults, defaults.ompDefault, catalog);
       this.#newTaskDefault = { model, thinkingLevel };
@@ -1201,14 +1199,15 @@ export class TspRunner {
   }
 
   /**
-   * 模型目录：构造时没有，进程起来后读一次（服务进程的 get_available_models，和草稿用的同一份）；失败时用上次的。
+   * 模型目录：构造时没有，进程起来后读一次（缓存优先：启动缓存里的目录还对得上 omp 的输入就不起服务进程，default-model.ts）；
+   * 打开模型选择器（listModels）时现读（新登录的 provider 要出现）。失败时用上次的。
    * 读到后马上按它重认输入框上的模型（之前可能是按启动缓存或名字占位认的）。
    */
-  async #refreshCatalog(): Promise<ModelOption[]> {
+  async #refreshCatalog(refresh: boolean): Promise<ModelOption[]> {
     const list = this.#host.listModels;
     if (!list) return this.#catalog;
     try {
-      this.#catalog = await list();
+      this.#catalog = await list(refresh);
     } catch (error) {
       log.warn(`task ${this.id} reading the model list failed`, { message: String(error) });
     }
@@ -1217,8 +1216,9 @@ export class TspRunner {
     return this.#catalog;
   }
 
+  /** 模型选择器打开时：现读。 */
   listModels(): Promise<ModelOption[]> {
-    return this.#refreshCatalog();
+    return this.#refreshCatalog(true);
   }
 
   /**
@@ -1265,20 +1265,17 @@ export class TspRunner {
 
   /**
    * 把当前会话文件新追加的部分读进累加器：只读上次之后的字节（会话文件动辄上百 MB，整份重读会卡主进程）。
-   * 会话文件换了（分叉、新会话、/move）换一个读取器从头读；还没有会话文件时为 null。
+   * 读取器按文件共用（tsp/session-files.ts），任务占住当前文件的那个；会话文件换了（分叉、新会话、/move）换着占。
+   * 已经 dispose 的任务不再占（池子删掉它之前还可能有 IPC 进来，占了就没人释放）。还没有会话文件时为 null。
    */
-  async #readSessionFile(): Promise<{ usage: SessionUsageAccumulator; extras: SessionExtrasAccumulator } | null> {
+  async #readSessionFile(): Promise<SessionFileState | null> {
     const file = this.#currentSessionFile();
     if (file === null) return null;
-    let session = this.#sessionReader;
-    if (session?.reader.file !== file) {
-      const usage = new SessionUsageAccumulator();
-      const extras = new SessionExtrasAccumulator();
-      session = { reader: new SessionFileReader(file, [usage, extras]), usage, extras };
-      this.#sessionReader = session;
+    if (!this.#disposed && this.#heldSessionFile?.file !== file) {
+      this.#heldSessionFile?.release();
+      this.#heldSessionFile = { file, release: holdSessionFile(file) };
     }
-    await session.reader.update();
-    return session;
+    return readSessionFile(file);
   }
 
   readContext(): Promise<ContextReport | null> {

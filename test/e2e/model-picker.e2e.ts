@@ -422,7 +422,14 @@ test("模型选择对话框：一张表、表头和数字列对齐；Tab 在框�
             .slice(0, 4)
             .map((cell) => Math.round(cell.getBoundingClientRect().right)),
         );
-    expect(await rightEdges('[data-testid="model-option"] .mp-num')).toEqual(await rightEdges(".mp-cols .mp-num"));
+    // 目录有缓存时行比弹窗的缩放入场先到，缩放中量会差 1px 取整：轮询到入场结束后两边一致。
+    await expect
+      .poll(async () => {
+        const header = await rightEdges(".mp-cols .mp-num");
+        const row = await rightEdges('[data-testid="model-option"] .mp-num');
+        return row.map((right, index) => right - (header[index] ?? Number.NaN));
+      })
+      .toEqual([0, 0, 0, 0]);
     for (let i = 0; i < 8; i++) {
       await page.keyboard.press("Tab");
       expect(

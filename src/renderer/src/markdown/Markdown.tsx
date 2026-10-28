@@ -137,6 +137,11 @@ export function Markdown({
     stream.current = parseStreaming(stream.current, stabilizeStreaming(source));
     return stream.current.blocks;
   }, [source, streaming, stream]);
+  // 画完就放掉 token（约是原文的 5–10 倍，对话里每条回答都留着）：memo 跳过的块不再用它，少数重画的块按原文重解析（parse.ts 的 blockTokens）。
+  // 流式时下一次增量解析只看块的原文和块首位置，不看 token。
+  useEffect(() => {
+    for (const block of blocks) block.tokens = null;
+  }, [blocks]);
   const katex = useKatex(
     blocks.some((block) => block.math),
     t,

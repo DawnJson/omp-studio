@@ -61,7 +61,7 @@ export function useDraftSlashCommands(): readonly AvailableSlashCommand[] {
   return useCommandsFor(DRAFT_KEY, null);
 }
 
-/** 用户开始敲 `/`：重新向主进程取一次这个任务的列表（项目里刚建的 skill / 自定义命令）。 */
+/** 用户开始敲 `/`：重新向主进程取一次这个任务的列表（项目里刚建的 skill / 自定义命令；主进程按目录缓存，输入没变时不起 omp）。 */
 export function refreshSlashCommands(taskId: TaskId): void {
   void loader.refresh(taskId);
 }

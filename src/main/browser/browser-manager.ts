@@ -1,5 +1,6 @@
 // 浏览器面板：每个任务一个 WebContentsView（叠在主窗口上，位置由渲染进程的占位元素给），同时是给这个任务的 omp 用的
-// CDP 浏览器（cdp-bridge.ts + cdp-server.ts）。页面在第一次显示或 omp 第一次连上时建，任务归档/删除或应用退出时销毁。
+// CDP 浏览器（cdp-bridge.ts + cdp-server.ts）。页面在面板显示或 omp 连上时建；omp 进程不在、面板关着、没有 CDP 客户端时关掉，
+// 记下地址等下次再载入；任务归档/删除或应用退出时连 CDP 口一起关。
 // 所有任务共用一个持久分区：登录状态记住，和应用页面（默认会话）隔开。设计和实测见 docs/architecture/browser.md。
 import { randomUUID } from "node:crypto";
 import { session, WebContentsView, type BrowserWindow, type Session } from "electron";
@@ -18,6 +19,8 @@ export interface BrowserManagerDeps {
   window(): BrowserWindow | null;
   emitState(state: BrowserState): void;
   emitConnected(taskId: TaskId): void;
+  /** 任务的 omp 进程现在在不在：TaskBrowser 建的时候取初值，之后由 setOmpRunning 更新。 */
+  ompRunning(taskId: TaskId): boolean;
 }
 
 let browserSession: Session | null = null;
@@ -102,12 +105,18 @@ class TaskBrowser implements CdpBridgeHost {
   #page: ElectronPage | null = null;
   #window: BrowserWindow | null = null;
   #bounds: BrowserBounds = DEFAULT_BOUNDS;
+  /** 面板开着（含被弹窗、菜单暂时挡住）。 */
+  #panelOpen = false;
+  #ompRunning: boolean;
+  /** 页面因为没人用被关掉时的地址：下次建页面、about:blank 载完时载入，用过（或被别的跳转打断）就清掉。 */
+  #restoreUrl: string | null = null;
   readonly #taskId: TaskId;
   readonly #deps: BrowserManagerDeps;
 
   constructor(taskId: TaskId, deps: BrowserManagerDeps) {
     this.#taskId = taskId;
     this.#deps = deps;
+    this.#ompRunning = deps.ompRunning(taskId);
   }
 
   page(create: boolean): ElectronPage | null {
@@ -115,8 +124,20 @@ class TaskBrowser implements CdpBridgeHost {
     return this.#page;
   }
 
+  /** omp 连上：关掉后台节流，隐藏的页面照常跑定时器、渲染，omp 在后台操作、截图不受影响。 */
   connected(): void {
+    this.#page?.view.webContents.setBackgroundThrottling(false);
     this.#deps.emitConnected(this.#taskId);
+  }
+
+  disconnected(): void {
+    this.#page?.view.webContents.setBackgroundThrottling(true);
+    this.#collect();
+  }
+
+  setOmpRunning(running: boolean): void {
+    this.#ompRunning = running;
+    this.#collect();
   }
 
   state(): BrowserState {
@@ -132,15 +153,24 @@ class TaskBrowser implements CdpBridgeHost {
     };
   }
 
-  /** bounds 是窗口内容区里的设备无关像素（已乘过应用页面的缩放）；null = 藏起来（仍在窗口里，omp 照样能截图）。 */
-  place(bounds: BrowserBounds | null): void {
+  /**
+   * bounds 是窗口内容区里的设备无关像素（已乘过应用页面的缩放）；"covered" = 藏起来（仍在窗口里，omp 照样能截图）；
+   * null = 面板关了：藏起来，omp 也不在的话关掉页面。
+   */
+  place(bounds: BrowserBounds | "covered" | null): void {
+    this.#panelOpen = bounds !== null;
+    if (bounds === null) {
+      this.#page?.view.setVisible(false);
+      this.#collect();
+      return;
+    }
     const page = this.page(true)!;
     this.#attachTo(this.#deps.window());
-    if (bounds !== null) {
+    if (bounds !== "covered") {
       this.#bounds = bounds;
       page.view.setBounds(bounds);
     }
-    page.view.setVisible(bounds !== null);
+    page.view.setVisible(bounds !== "covered");
   }
 
   destroy(): void {
@@ -150,6 +180,15 @@ class TaskBrowser implements CdpBridgeHost {
     if (this.#window !== null && !this.#window.isDestroyed()) this.#window.contentView.removeChildView(page.view);
     this.#window = null;
     page.destroy();
+  }
+
+  /** omp 进程不在、面板关着、没有 CDP 客户端：页面没人用，关掉它（省一个渲染进程），记下地址。 */
+  #collect(): void {
+    const page = this.#page;
+    if (page === null || this.#panelOpen || this.#ompRunning || this.bridge.clientCount > 0) return;
+    const url = page.url();
+    if (isBrowsableUrl(url) && url !== "about:blank") this.#restoreUrl = url;
+    this.destroy();
   }
 
   /** 视图挂在主窗口上：隐藏的视图仍能被 CDP 截图，不挂在窗口上的截图会一直等（2026-10-28 实测，Electron 44）。 */
@@ -172,8 +211,9 @@ class TaskBrowser implements CdpBridgeHost {
       },
     });
     const contents = view.webContents;
-    // 面板藏起来时页面照常运行、渲染：omp 在后台操作、截图不受影响。
-    contents.setBackgroundThrottling(false);
+    // 没有 CDP 客户端时开后台节流：面板藏着时定时器降到约 1 次/秒、不渲染（2026-10-28 实测，Electron 44）。
+    // omp 连上时（connected）关掉，见那里。
+    contents.setBackgroundThrottling(this.bridge.clientCount === 0);
     view.setBounds(this.#bounds);
     view.setVisible(false);
     const page = new ElectronPage(view, this.bridge);
@@ -199,11 +239,20 @@ class TaskBrowser implements CdpBridgeHost {
     this.#page = page;
     this.#attachTo(this.#deps.window());
     // 地址为空的目标 puppeteer 当作没初始化，`browser.targets()` 里没有它，omp 报 "No page targets available"
-    // （2026-10-28 实测 omp 18.13.1）：先载入 about:blank，载完发 targetInfoChanged。
-    // 紧接着就跳到别的地址时这次载入被打断（ERR_ABORTED），不算错。
-    contents.loadURL("about:blank").catch((error: unknown) => {
-      if (!String(error).includes("ERR_ABORTED")) log.warn("browser page failed to load about:blank", String(error));
-    });
+    // （2026-10-28 实测 omp 18.13.1）：先载入 about:blank，载完发 targetInfoChanged；之前因为没人用关掉过的，再载入原来的地址。
+    // 紧接着就跳到别的地址时这次载入被打断（ERR_ABORTED），不算错，也不再载入原来的地址。
+    contents.loadURL("about:blank").then(
+      () => {
+        if (this.#page !== page) return;
+        const restore = this.#restoreUrl;
+        this.#restoreUrl = null;
+        if (restore !== null && contents.getURL() === "about:blank") page.navigate(restore);
+      },
+      (error: unknown) => {
+        if (this.#page === page) this.#restoreUrl = null;
+        if (!String(error).includes("ERR_ABORTED")) log.warn("browser page failed to load about:blank", String(error));
+      },
+    );
     return page;
   }
 }
@@ -232,12 +281,12 @@ export class BrowserManager {
     return (await browser.server).url;
   }
 
-  place(taskId: TaskId, bounds: BrowserBounds | null): BrowserState {
+  place(taskId: TaskId, bounds: BrowserBounds | "covered" | null): BrowserState {
     const browser = this.#browser(taskId);
     const zoom = this.#deps.window()?.webContents.getZoomFactor() ?? 1;
     browser.place(
-      bounds === null
-        ? null
+      bounds === null || bounds === "covered"
+        ? bounds
         : {
             x: Math.round(bounds.x * zoom),
             y: Math.round(bounds.y * zoom),
@@ -261,6 +310,11 @@ export class BrowserManager {
     else if (action === "forward") contents.navigationHistory.goForward();
     else if (action === "reload") contents.reload();
     else contents.stop();
+  }
+
+  /** 任务的 omp 进程起了 / 没了（任务状态 stopped、error 算没了）。没开过浏览器的任务不建。 */
+  setOmpRunning(taskId: TaskId, running: boolean): void {
+    this.#browsers.get(taskId)?.setOmpRunning(running);
   }
 
   /** 任务归档、删除：关页面和 CDP 口。 */

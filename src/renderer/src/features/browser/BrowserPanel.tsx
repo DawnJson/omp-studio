@@ -38,31 +38,33 @@ function coveredByPortal(rect: DOMRect): boolean {
   return false;
 }
 
-function sameBounds(a: BrowserBounds | null, b: BrowserBounds | null): boolean {
-  if (a === null || b === null) return a === b;
+type Placement = BrowserBounds | "covered";
+
+function samePlacement(a: Placement, b: Placement): boolean {
+  if (a === "covered" || b === "covered") return a === b;
   return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
 }
 
-/** 把占位区的位置同步给主进程；卸载时藏起页面。 */
+/** 把占位区的位置同步给主进程；被挡住时藏起页面，卸载（面板关了、换了任务）时告诉主进程面板关了。 */
 function usePlaceBrowser(taskId: TaskId, slot: RefObject<HTMLDivElement | null>): void {
   useEffect(() => {
     const element = slot.current;
     if (element === null) return;
     let frame = 0;
-    let last: BrowserBounds | null | undefined;
+    let last: Placement | undefined;
     const place = () => {
       frame = 0;
       const rect = element.getBoundingClientRect();
       const hidden = scrimsOpen() || rect.width < 1 || rect.height < 1 || coveredByPortal(rect);
-      const bounds = hidden
-        ? null
+      const bounds: Placement = hidden
+        ? "covered"
         : {
             x: Math.round(rect.left),
             y: Math.round(rect.top),
             width: Math.round(rect.width),
             height: Math.round(rect.height),
           };
-      if (last !== undefined && sameBounds(last, bounds)) return;
+      if (last !== undefined && samePlacement(last, bounds)) return;
       last = bounds;
       window.studio.placeBrowser(taskId, bounds).then(setBrowserState, reportErrorNow);
     };

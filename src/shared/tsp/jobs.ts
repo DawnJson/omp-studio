@@ -8,7 +8,7 @@
 // - `/jobs` 弹窗（`omp.overlay.jobs`）里 `omp.jobs.master` 下的 `list`：每个 `item` 的 `title` 第二行是
 //   `<状态> · <类型> · <id>`（`Running|Done|Failed|Cancelled · bash · bg_1`），`label` 是命令，`value` 是时长（`43.9s`、`305ms`）。
 //   弹窗里有全部状态，但只有它开着的时候在文档里。
-// 终端里弹窗关了作业就只剩 hud；所以渲染进程每批消息后把快照并进已知作业（mergeTspJobs）：运行中消失的作业记为结束。
+// 终端里弹窗关了作业就只剩 hud；所以渲染进程在相关节点（JOBS_NODES）变了的批次后把快照并进已知作业（mergeTspJobs）：运行中消失的作业记为结束。
 // 纯函数，不碰 DOM；解析不了的行跳过，界面只是少一行，不会报错。
 import type { Job } from "../ui/jobs.ts";
 import { isRecord } from "../type-guards.ts";
@@ -16,6 +16,8 @@ import { findNode, nodeRole, spansText, type DocNode, type DocSurface, type TspD
 import type { NodeDeps } from "./node-watch.ts";
 
 type JobStatus = Job["status"];
+/** 子代理名 → 状态（agentStatuses）。 */
+type JobAgents = ReadonlyMap<string, JobStatus | null>;
 
 const HUD_JOBS_ROLE = "omp.hud.seg";
 const HUD_JOBS_ACTION = "jobs.open";
@@ -83,8 +85,8 @@ function liveSurfaces(doc: TspDocument): DocSurface[] {
   return out;
 }
 
-/** 文档里所有 `agent` 节点：名字 → 状态（子代理作业的类型和最终状态靠它）。 */
-function agentStatuses(doc: TspDocument): Map<string, JobStatus | null> {
+/** 文档里所有 `agent` 节点：名字 → 状态（子代理作业的类型和最终状态靠它）。一批算一次，deriveTspJobs 和 mergeTspJobs 共用。 */
+export function agentStatuses(doc: TspDocument): Map<string, JobStatus | null> {
   const out = new Map<string, JobStatus | null>();
   for (const surface of liveSurfaces(doc)) {
     for (const node of surface.nodes.values()) {
@@ -96,7 +98,7 @@ function agentStatuses(doc: TspDocument): Map<string, JobStatus | null> {
 }
 
 /** `/jobs` 弹窗列表里的作业（全部状态）。 */
-function overlayJobs(doc: TspDocument, now: number, agents: ReadonlyMap<string, JobStatus | null>): Job[] {
+function overlayJobs(doc: TspDocument, now: number, agents: JobAgents): Job[] {
   const jobs: Job[] = [];
   for (const surface of liveSurfaces(doc)) {
     const master = findNode(surface, (node) => nodeRole(node) === OVERLAY_MASTER_ROLE);
@@ -121,12 +123,12 @@ function overlayJobs(doc: TspDocument, now: number, agents: ReadonlyMap<string, 
  * `task`（后台子任务：子代理、vibe、安全扫描等）。id 有对应 `agent` 节点的 task = 子代理（`agent`）：药丸另有一段数子代理，不算作业。
  * 没见过的类型归 `task`（omp 的 hud 作业胶囊按 `type !== "task" || agentId` 数，这里同样把非子代理的都算作业）。
  */
-function jobType(kind: string, id: string, agents: ReadonlyMap<string, JobStatus | null>): Job["type"] {
+function jobType(kind: string, id: string, agents: JobAgents): Job["type"] {
   if (kind === "bash" || kind === "eval") return kind;
   return agents.has(id) ? "agent" : "task";
 }
 
-function overlayItem(item: DocNode, now: number, agents: ReadonlyMap<string, JobStatus | null>): Job | null {
+function overlayItem(item: DocNode, now: number, agents: JobAgents): Job | null {
   const title = typeof item.p["title"] === "string" ? item.p["title"] : "";
   const meta = /^(\S+) · (\S+) · (.+)$/.exec(title.split("\n")[1] ?? "");
   if (!meta) return null;
@@ -149,7 +151,7 @@ function overlayItem(item: DocNode, now: number, agents: ReadonlyMap<string, Job
 }
 
 /** hud 作业胶囊里的运行中作业。 */
-function hudJobs(doc: TspDocument, now: number, agents: ReadonlyMap<string, JobStatus | null>): Job[] {
+function hudJobs(doc: TspDocument, now: number, agents: JobAgents): Job[] {
   const jobs: Job[] = [];
   for (const surface of liveSurfaces(doc)) {
     for (const node of surface.nodes.values()) {
@@ -172,8 +174,7 @@ function hudJobs(doc: TspDocument, now: number, agents: ReadonlyMap<string, JobS
 /**
  * 文档里现在看得到的作业：`/jobs` 弹窗（有就以它为准，状态最全）加上 hud 里运行中的。`now` 只用来给"第一次看到"的作业定开始时间。
  */
-export function deriveTspJobs(doc: TspDocument, now: number): Job[] {
-  const agents = agentStatuses(doc);
+export function deriveTspJobs(doc: TspDocument, agents: JobAgents, now: number): Job[] {
   const byId = new Map<string, Job>();
   for (const job of hudJobs(doc, now, agents)) byId.set(job.id, job);
   for (const job of overlayJobs(doc, now, agents)) byId.set(job.id, job);
@@ -186,9 +187,13 @@ export function deriveTspJobs(doc: TspDocument, now: number): Job[] {
  * - 已知运行中、快照里没了：子代理看它的 `agent` 节点（done/failed/aborted），否则记为完成，时长 = 现在 − 开始；
  * - 快照里有的，状态和时长以快照为准。
  */
-export function mergeTspJobs(previous: readonly Job[], snapshot: readonly Job[], doc: TspDocument, now: number): Job[] {
+export function mergeTspJobs(
+  previous: readonly Job[],
+  snapshot: readonly Job[],
+  agents: JobAgents,
+  now: number,
+): Job[] {
   const seen = new Map(snapshot.map((job) => [job.id, job]));
-  const agents = agentStatuses(doc);
   const out: Job[] = [];
   for (const old of previous) {
     const fresh = seen.get(old.id);
@@ -269,6 +274,12 @@ export function findJobsOverlayItem(
   }
   return null;
 }
+
+/**
+ * deriveTspJobs / agentStatuses 读的节点（NodeWatch）：`agent`、hud 胶囊、弹窗的 master（它的子节点 = 列表，增删会换 master 的记录）
+ * 和列表项 `item`（master → list → item 是孙子，`children` 够不着；`item` 没有 role，按 kind 记，别处的列表项变了只是多算一次）。
+ */
+export const JOBS_NODES: NodeDeps = { kinds: ["agent", "item"], roles: [HUD_JOBS_ROLE, OVERLAY_MASTER_ROLE] };
 
 /** findJobsHudSeg / deriveJobTiles 读的节点（NodeWatch）：hud 胶囊（悬停卡片是它的属性）。 */
 export const JOB_HUD_NODES: NodeDeps = { roles: [HUD_JOBS_ROLE] };

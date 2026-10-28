@@ -48,6 +48,7 @@ function setup() {
     connected: () => {
       connected += 1;
     },
+    disconnected: () => {},
   };
   const bridge = new CdpBridge(host, VERSIONS);
   const inbox: Record<string, unknown>[] = [];

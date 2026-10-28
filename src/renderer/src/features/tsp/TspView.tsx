@@ -16,7 +16,7 @@ import { TspHosts } from "./TspHosts.tsx";
 import { TspChildren } from "./TspChildren.tsx";
 import { MainFlow } from "./MainFlow.tsx";
 import { StudioHeader } from "../empty/StudioHeader.tsx";
-import { useTask } from "../../store/index.ts";
+import { useTaskValue } from "../../store/index.ts";
 import { GoalStrip } from "../goal/GoalStrip.tsx";
 import { TspCtx, TspEndedAtCtx, TspParkedCtx } from "./tsp-context.ts";
 import {
@@ -236,15 +236,15 @@ function InlineSurface({
   const scroller = useRef<HTMLDivElement>(null);
   const column = useRef<HTMLDivElement>(null);
   const surface = useRef<HTMLDivElement>(null);
-  const task = useTask(taskId);
-  const cwd = task?.cwd ?? "";
-  const lastTurn = task?.lastTurn;
+  const cwd = useTaskValue(taskId, (task) => task?.cwd ?? "");
+  // 一轮结束的时刻（lastTurn 每个事件都是新对象，取它的数字）。
+  const lastTurnAt = useTaskValue(taskId, (task) => task?.lastTurn?.endedAt ?? null);
   const hasUser = useTspHasUserMessage(taskId, surfaceId);
   const { showJump, scrollToBottom } = useStickToBottom(taskId, scroller, column);
   useColumns(taskId, column, surface);
   // 恢复会话时 omp 不重发的用量脚注和回顾：挂载时取一次，一轮结束或新增一轮时再取。
   const turnCount = useTspTurnCount(taskId, surfaceId);
-  useEffect(() => refreshSessionExtras(taskId), [taskId, lastTurn, turnCount]);
+  useEffect(() => refreshSessionExtras(taskId), [taskId, lastTurnAt, turnCount]);
   // omp 回显了用户消息：首发的文字用完了。
   useEffect(() => {
     if (hasUser) clearFirstPrompt(taskId);
@@ -305,10 +305,8 @@ function useEndedAt(ended: boolean): number | null {
 export const TspView = memo(function TspView({ taskId, parked }: { taskId: TaskId; parked: boolean }) {
   const surfaces = useTspSurfaces(taskId);
   const firstPrompt = useFirstPrompt(taskId);
-  const task = useTask(taskId);
-  const status = task?.status;
+  const status = useTaskValue(taskId, (task) => task?.status);
   const endedAt = useEndedAt(status === "error" || status === "stopped");
-  const goal = task?.goal ?? null;
   useEffect(() => ensureTspDocument(taskId), [taskId]);
   useForwardOmpKeys(taskId, parked);
   useTaskCommands(taskId, parked);
@@ -336,7 +334,7 @@ export const TspView = memo(function TspView({ taskId, parked }: { taskId: TaskI
       <TspParkedCtx.Provider value={parked}>
         <TspEndedAtCtx.Provider value={endedAt}>
           {/* 目标条（`/goal`）：数据是主进程从输入框卡片上的"Goal …"行和会话文件得到的 TaskState.goal；omp 自己的输入框卡片（含那一行）不画。 */}
-          <GoalStrip key={`goal:${taskId}`} taskId={taskId} goal={goal} />
+          <GoalStrip key={`goal:${taskId}`} taskId={taskId} />
           {showInline ? (
             <InlineSurface
               key={`${taskId}:${inlineKey}`}

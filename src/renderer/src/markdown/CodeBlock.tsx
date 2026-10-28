@@ -6,6 +6,7 @@ import { Check, Code, CopyIcon } from "../icons.tsx";
 import { onThemeChange } from "../ui/theme-change.ts";
 import { useHighlighted } from "./highlight.ts";
 import { resolveLanguage } from "./highlight-languages.ts";
+import { tokenProps } from "./highlight-tokens.ts";
 import { useMermaid } from "./mermaid.ts";
 import { FIGURE_TOKENS, prepareMermaidSvg, prepareSvg, svgDataUrl } from "./svg-figure.ts";
 
@@ -103,14 +104,7 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlo
                 <span key={index} className={lineClass(line, isDiff)}>
                   {tokens?.[index]
                     ? tokens[index].map((token, i) => (
-                        <span
-                          key={i}
-                          style={{
-                            color: token.color,
-                            fontStyle: token.italic ? "italic" : undefined,
-                            fontWeight: token.bold ? "var(--fw-strong)" : undefined,
-                          }}
-                        >
+                        <span key={i} {...tokenProps(token)}>
                           {token.text}
                         </span>
                       ))

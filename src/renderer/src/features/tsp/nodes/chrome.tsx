@@ -100,11 +100,31 @@ export function Status(props: NodeProps) {
     const run = (): void => {
       key = fit(el, key);
     };
-    run();
+    // 条和每一项的尺寸变了才重新量：ResizeObserver 在浏览器自己排版之后回调（第一次也是，不在挂载时强制排版），
+    // 计时走字这类宽度没变的文字变化不回调，不再每一跳都读一次排版。
     const resize = new ResizeObserver(run);
     resize.observe(el);
-    // seg 里的文字变了不会重画 status，盯着内容变化重新量（指纹没变就只读一次排版）。
-    const mutation = new MutationObserver(run);
+    const watched = new WeakSet<Element>();
+    const watchItems = (): void => {
+      for (const item of el.querySelectorAll(":scope > * > *")) {
+        if (watched.has(item)) continue;
+        watched.add(item);
+        resize.observe(item);
+      }
+    };
+    watchItems();
+    // 量不到尺寸的变化：项增删、priority 变了、藏着的项（display: none）文字变了（指纹里记的是它的文字）。
+    const mutation = new MutationObserver((records) => {
+      let changed = false;
+      for (const record of records) {
+        const target = record.target instanceof Element ? record.target : record.target.parentElement;
+        if (record.type === "attributes" || target?.parentElement === el) {
+          watchItems();
+          changed = true;
+        } else if (target?.closest(".tsp-drop")) changed = true;
+      }
+      if (changed) run();
+    });
     mutation.observe(el, {
       childList: true,
       subtree: true,

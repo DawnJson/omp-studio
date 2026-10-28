@@ -12,8 +12,8 @@ async function existingTask(value: unknown): Promise<TaskId> {
   return id;
 }
 
-function parseBounds(value: unknown): BrowserBounds | null {
-  if (value === null) return null;
+function parseBounds(value: unknown): BrowserBounds | "covered" | null {
+  if (value === null || value === "covered") return value;
   const record = parseRecord(value, "bounds");
   return {
     x: parseInteger(record["x"], "bounds.x", 0, MAX_PIXELS),

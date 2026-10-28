@@ -53,7 +53,7 @@ export function useNewTaskDefault(
       rememberModels(value);
       setModels(value);
     };
-    window.studio.listModels().then(apply, () => setModels([]));
+    window.studio.listModels(false).then(apply, () => setModels([]));
   }, [enabled]);
   useEffect(() => {
     if (!enabled) return;

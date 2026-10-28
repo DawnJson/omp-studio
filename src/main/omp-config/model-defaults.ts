@@ -53,7 +53,7 @@ export async function writeModelRole(
   model: ModelKey | null,
   thinking: string | null,
 ): Promise<void> {
-  // 拷一份再改：同时在读的调用方共用同一份 list 结果（omp-handlers.ts 的 listsInFlight）。
+  // 拷一份再改：list 的结果按目录缓存、所有调用方共用（omp-handlers.ts 的 configLists）。
   const roles = { ...asRecord(valueOf(await deps.list(null), "modelRoles")) };
   if (model === null) delete roles[role];
   else roles[role] = joinRoleValue(`${model.provider}/${model.modelId}`, thinking);

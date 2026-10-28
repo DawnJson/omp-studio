@@ -3,7 +3,9 @@ import katex from "katex";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { renderMarkdown } from "../src/renderer/src/markdown/markdown-static.ts";
+import { renderBlock } from "../src/renderer/src/markdown/render.ts";
 import {
+  blockTokens,
   parseBlocks,
   parseStreaming,
   stabilizeStreaming,
@@ -128,7 +130,7 @@ describe("流式渲染", () => {
   it("未闭合的围栏在打开时就是代码块，闭合后 closed 才为 true", () => {
     const open = parseBlocks("```ts\nconst a = 1;");
     expect(open).toHaveLength(1);
-    expect(open[0]?.tokens[0]?.type).toBe("fence");
+    expect(blockTokens(open[0]!)[0]?.type).toBe("fence");
     expect(open[0]?.closed).toBe(false);
     expect(parseBlocks("```ts\nconst a = 1;\n```")[0]?.closed).toBe(true);
   });
@@ -323,9 +325,9 @@ describe("公式（KaTeX）", () => {
   it("未闭合的 $$ 和 $ 保持文字", () => {
     expect(html("$$\n\\frac{1}{2}")).not.toContain("katex");
     expect(html("开头 $x^2 没写完")).not.toContain("katex");
-    expect(parseBlocks("$$\na").every((block) => block.tokens.every((token) => token.type !== "math_block"))).toBe(
-      true,
-    );
+    expect(
+      parseBlocks("$$\na").every((block) => blockTokens(block).every((token) => token.type !== "math_block")),
+    ).toBe(true);
   });
 
   it("KaTeX 不放行 \\href 等 trust 能力", () => {
@@ -338,5 +340,49 @@ describe("公式（KaTeX）", () => {
     expect(out).toContain('<span class="md-math"><code>$x^2$</code></span>');
     expect(out).toContain('<div class="md-math-block"><code>$$\ny\n$$</code></div>');
     expect(parseBlocks("设 $x^2$\n\n文字").map((block) => block.math)).toEqual([true, false]);
+  });
+});
+
+// Markdown.tsx 画完就把块的 token 放掉，切语言、KaTeX 加载完时重画的块按原文重解析：重画出来必须和第一次一样。
+describe("放掉 token 后重画的块和原来一样", () => {
+  const doc = [
+    "# 标题 [引用链接][r]",
+    "",
+    "段落里有 [链接][r]、**粗体**、`代码`、$x^2$ 和 https://example.com/a",
+    "",
+    "- [x] 做完的",
+    "- [ ] 没做的",
+    "",
+    "  第二段仍在列表里",
+    "",
+    "3. 从三开始",
+    "4. 下一项",
+    "",
+    "> 引用里 [定义在后面的链接][r]",
+    "",
+    "| a | b |",
+    "| - | - |",
+    "| 1 | 2 |",
+    "",
+    "```ts",
+    "const a = 1;",
+    "```",
+    "",
+    "$$",
+    "y",
+    "$$",
+    "",
+    "    缩进代码",
+    "",
+    "[r]: https://example.com/ref",
+  ].join("\n");
+  const ctx = { openLink: () => {}, katex };
+
+  it("每一块重解析的输出逐字相同（含别的块里定义的链接引用、任务列表、公式）", () => {
+    const blocks = parseBlocks(doc);
+    const first = blocks.map((block) => renderToStaticMarkup(renderBlock(block, ctx)));
+    for (const block of blocks) block.tokens = null;
+    expect(blocks.map((block) => renderToStaticMarkup(renderBlock(block, ctx)))).toEqual(first);
+    expect(first.join("")).toContain('href="https://example.com/ref"');
   });
 });

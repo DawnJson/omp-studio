@@ -1,5 +1,6 @@
 // ```mermaid 代码块的图：源码交给 mermaid-worker.ts 画成 SVG 源码，结果按源码缓存（重开任务、切回来不重画）。
 // 和高亮不同，这里不排队：一条回答里的图很少，每张图在 worker 里也只要几毫秒（第一张要初始化布局）。
+// worker 里加载了 beautiful-mermaid 和 elkjs（打包后 1.6 MB 的 chunk）：没有图在画时闲 IDLE_MS 就关掉，下次要画时重建；主线程的结果缓存不受影响。
 import { useEffect, useState } from "react";
 import type { MermaidReply } from "./mermaid-worker.ts";
 
@@ -8,11 +9,14 @@ export type MermaidResult = { svg: string } | { error: string };
 
 /** 最近用过的结果，超出上限丢最久没用的（Map 按插入顺序，命中时挪到末尾）。 */
 const CACHE_LIMIT = 50;
+/** 没有图在画多久后关掉 worker。重建后第一张图要重新加载库、初始化布局。 */
+const IDLE_MS = 60_000;
 
 const cache = new Map<string, MermaidResult>();
 /** 已交给 worker、还没回来的源码：请求 id 和等结果的调用方。 */
 const pending = new Map<string, { id: number; waiters: Set<(result: MermaidResult) => void> }>();
 let worker: Worker | null = null;
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
 let nextId = 0;
 
 function finish(source: string, result: MermaidResult): void {
@@ -22,6 +26,11 @@ function finish(source: string, result: MermaidResult): void {
   cache.set(source, result);
   if (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value as string);
   for (const waiter of job.waiters) waiter(result);
+  if (pending.size === 0)
+    idleTimer = setTimeout(() => {
+      worker?.terminate();
+      worker = null;
+    }, IDLE_MS);
 }
 
 function getWorker(): Worker {
@@ -65,6 +74,7 @@ export function useMermaid(source: string | null): MermaidResult | null {
     if (!job) {
       job = { id: nextId++, waiters: new Set() };
       pending.set(source, job);
+      clearTimeout(idleTimer);
       getWorker().postMessage({ id: job.id, source });
     }
     job.waiters.add(waiter);

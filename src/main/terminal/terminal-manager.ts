@@ -58,6 +58,8 @@ interface Entry {
   cwd: string;
   backlog: Backlog;
   batcher: OutputBatcher;
+  /** 有面板在显示这个终端：没有时输出只进 backlog，不发给渲染进程（重新打开时 backlog 还原屏幕）。 */
+  subscribed: boolean;
   subscriptions: { dispose(): void }[];
   /** 关 shell 的 Job 句柄；没放进 Job 时是空操作。 */
   releaseJob: () => void;
@@ -76,6 +78,11 @@ export class TerminalManager {
   readonly #entries = new Map<TerminalKey, Entry>();
   /** 同一个键并发的 open 共用一次 spawn（面板快速开关、重载时会发生）。 */
   readonly #opening = new Map<TerminalKey, Promise<TerminalOpenResult>>();
+  /**
+   * shell 还在起时面板就卸载了（退订先到，终端还不在表里）：起好后不订阅。之后的 open（含并入同一次 spawn 的）把它清掉，
+   * 所以 StrictMode 的"挂载 → 卸载 → 挂载"最后仍是订阅的。
+   */
+  readonly #unsubscribedWhileOpening = new Set<TerminalKey>();
 
   constructor(deps: TerminalDeps) {
     this.#deps = deps;
@@ -86,6 +93,7 @@ export class TerminalManager {
   }
 
   open(key: TerminalKey, cols: number, rows: number): Promise<TerminalOpenResult> {
+    this.#unsubscribedWhileOpening.delete(key);
     const pending = this.#opening.get(key);
     if (pending) return pending;
     const promise = this.#open(key, cols, rows).finally(() => this.#opening.delete(key));
@@ -98,6 +106,7 @@ export class TerminalManager {
     if (existing) {
       // 还没发出去的输出已经在 backlog 里，丢掉它，否则界面会收到两遍。
       existing.batcher.discard();
+      existing.subscribed = true;
       this.#resize(existing, cols, rows);
       return { cwd: existing.cwd, shell: existing.shell.name, reopened: true, backlog: existing.backlog.snapshot() };
     }
@@ -124,13 +133,14 @@ export class TerminalManager {
         intervalMs: BATCH_INTERVAL_MS,
         maxChars: BATCH_MAX_CHARS,
       }),
+      subscribed: !this.#unsubscribedWhileOpening.delete(key),
       subscriptions: [],
       releaseJob,
     };
     entry.subscriptions.push(
       pty.onData((data) => {
         entry.backlog.append(data);
-        entry.batcher.push(data);
+        if (entry.subscribed) entry.batcher.push(data);
       }),
       pty.onExit(({ exitCode }) => {
         // 只处理还在表里的：主动 close 时已经摘掉监听并从表里删了，不会走到这里。
@@ -161,6 +171,18 @@ export class TerminalManager {
     entry.key = to;
     this.#entries.set(to, entry);
     return true;
+  }
+
+  /** 面板卸载：之后的输出只进 backlog；下次 open 重新订阅并用 backlog 还原。没有终端时静默忽略。 */
+  unsubscribe(key: TerminalKey): void {
+    const entry = this.#entries.get(key);
+    if (!entry) {
+      if (this.#opening.has(key)) this.#unsubscribedWhileOpening.add(key);
+      return;
+    }
+    entry.subscribed = false;
+    // 没发出去的批次已经在 backlog 里，面板不在了，不用再发。
+    entry.batcher.discard();
   }
 
   write(key: TerminalKey, data: string): void {

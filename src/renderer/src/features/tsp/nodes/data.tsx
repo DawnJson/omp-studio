@@ -1,5 +1,5 @@
 // 数据类节点：kv、table、tree、badge、kbd、icon、image（规范 Data）。
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { markHeight, piWidth } from "../../../../../shared/ui/pixel-pi.ts";
 import type { TspText, TspTableColumn, TspTreeNode } from "../../../../../shared/tsp/tsp.generated.ts";
 import { isRecord } from "../../../../../shared/type-guards.ts";
@@ -287,10 +287,7 @@ export function Icon(props: NodeProps) {
 
 // ───────── image ─────────
 
-function dataUrl(mime: string | null, data: string): string {
-  return `data:${mime ?? "application/octet-stream"};base64,${data}`;
-}
-
+// src 是 tsp-store 为每个 blob 建的 object URL（`blob:`，镜像释放时 revoke）。
 export function Image(props: NodeProps) {
   const { node, ctx } = props;
   const p = node.p;
@@ -299,7 +296,7 @@ export function Image(props: NodeProps) {
   const w = typeof p.w === "number" && p.w > 0 ? p.w : undefined;
   const h = typeof p.h === "number" && p.h > 0 ? p.h : undefined;
   const maxH = extentToCss(isRecord(p.max) ? p.max.h : undefined, "h");
-  const src = useMemo(() => (blob ? dataUrl(blob.mime, blob.data) : null), [blob]);
+  const src = blob?.url ?? null;
   const reduced = useReducedMotion();
   const missing = p.builtin !== "omp" && (src === null || !(blob?.mime ?? "").startsWith("image/"));
 
@@ -312,7 +309,7 @@ export function Image(props: NodeProps) {
       const sibling = peekTspNode(ctx.taskId, ctx.sf, id);
       const siblingBlob = sibling?.k === "image" ? peekTspBlob(ctx.taskId, asString(sibling.p.blob)) : null;
       if (sibling && siblingBlob && (siblingBlob.mime ?? "").startsWith("image/")) {
-        items.push({ src: dataUrl(siblingBlob.mime, siblingBlob.data), alt: asString(sibling.p.alt) ?? "", id });
+        items.push({ src: siblingBlob.url, alt: asString(sibling.p.alt) ?? "", id });
       }
     }
     const index = items.findIndex((item) => item.id === node.id);

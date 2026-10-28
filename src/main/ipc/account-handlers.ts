@@ -14,21 +14,16 @@ import { readyOmp } from "../omp-manager/index.ts";
 import { listTavilyKeyUsage, readBackupKeys, writeBackupKeys } from "../tavily/backup-keys.ts";
 import { answerLoginInput, cancelLogin, startLogin } from "../service/login.ts";
 import { terminalLogin } from "../login/terminal-login-instance.ts";
-import { listModelOptions } from "../service/default-model.ts";
+import { listModelOptions, reloadServiceModels } from "../service/default-model.ts";
 import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
 import { requireSuccess, runOmpCommand } from "../usage/usage-service.ts";
-import { parseApiKey, parseInteger, parseString } from "./validate.ts";
+import { parseApiKey, parseBoolean, parseInteger, parseString } from "./validate.ts";
 
 /** `omp models` 会先刷新没缓存的 provider 目录（联网），给足时间。 */
 const MODELS_TIMEOUT_MS = 60 * 1000;
 
 const parseProviderId = (value: unknown) => parseString(value, "providerId", 200);
-
-/** 凭据是另一个进程写进 omp 凭据库的：服务进程里 omp 缓存的认证状态（get_login_providers 的 authenticated）是旧的，关掉让下次读到新的。 */
-async function applyKeyChange(): Promise<void> {
-  await serviceOmp.close();
-}
 
 export const accountHandlers: HandlerGroup<
   | "listModels"
@@ -47,7 +42,7 @@ export const accountHandlers: HandlerGroup<
   | "tavilyBackupKeyCount"
   | "tavilyKeyUsage"
 > = {
-  listModels: () => listModelOptions(),
+  listModels: (refresh) => listModelOptions(parseBoolean(refresh, "refresh")),
   listRunnerModels: async () => {
     const run = runOmpCommand(readyOmp().path, await serviceCwd(), MODELS_TIMEOUT_MS);
     const result = await run(["models", "--kind", "all", "--json"]);
@@ -56,7 +51,12 @@ export const accountHandlers: HandlerGroup<
   },
   listLoginProviders: async () =>
     (await serviceOmp.use((connection) => connection.request("get_login_providers"))).providers,
-  startLogin: (providerId) => startLogin(parseProviderId(providerId)),
+  // 登录在服务进程里做，它自己的认证状态已经是新的；缓存的模型目录和默认模型作废，下次读时现读（新登录的 provider 的模型要出现）。
+  startLogin: async (providerId) => {
+    const outcome = await startLogin(parseProviderId(providerId));
+    if (outcome.ok) startupCache().forgetCatalog();
+    return outcome;
+  },
   answerLoginInput: (inputId, value) => {
     answerLoginInput(
       parseString(inputId, "inputId", 200),
@@ -66,9 +66,10 @@ export const accountHandlers: HandlerGroup<
   },
   cancelLogin: () => cancelLogin(),
   // providerId 不可信：TerminalLogin.start 在 omp 的登录 provider 列表里查，不在就 reject、不起进程。
+  // 凭据是另一个进程写进 omp 凭据库的：服务进程里 omp 缓存的认证状态是旧的，reloadServiceModels 关掉它并作废模型缓存。
   startTerminalLogin: async (providerId) => {
     const outcome = await terminalLogin().start(parseProviderId(providerId));
-    if (outcome.ok) await applyKeyChange();
+    if (outcome.ok) await reloadServiceModels();
     return outcome;
   },
   cancelTerminalLogin: () => terminalLogin().cancel(),
@@ -88,6 +89,7 @@ export const accountHandlers: HandlerGroup<
     const id = parseProviderId(providerId);
     const credential = parseInteger(credentialId, "credentialId", 0, Number.MAX_SAFE_INTEGER);
     await serviceOmp.use((connection) => connection.request("logout", { providerId: id, credentialId: credential }));
+    startupCache().forgetCatalog();
   },
   // omp 实际取 key 的变量（provider-keys.ts 的 providerKeyEnv）写在 agent 目录 `.env` 里时改那一行（omp 优先用它，存凭据库不生效，setEnvKey）；否则存凭据库。
   saveApiKey: async (providerId, key) => {
@@ -97,7 +99,7 @@ export const accountHandlers: HandlerGroup<
     const env = acceptsApiKey(id) ? providerKeyEnv(id, envSourceOf(await readEnvText(agentDir))) : null;
     const inEnvFile = env?.source === "env-file" && (await setEnvKey(agentDir, env.name, cleanApiKey(raw)));
     if (!inEnvFile) await importApiKey(readyOmp().path, await serviceCwd(), id, raw);
-    await applyKeyChange();
+    await reloadServiceModels();
   },
   apiKeyEnvSources: async () => {
     const sourceOf = envSourceOf(await readEnvText(resolveAgentDir()));

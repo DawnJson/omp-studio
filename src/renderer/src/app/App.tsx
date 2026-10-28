@@ -1,13 +1,21 @@
 // 应用布局（spec §3.1–3.3）：40px 通栏任务条 + 侧栏 + 四角圆的主区“纸面”；窄窗口侧栏变抽屉。
 // 各功能入口的导出名和 props 是约定（props 只有 id，数据从 store hook 取）。
 import { reportError } from "../ui/errors.ts";
-import { Activity, useEffect, useLayoutEffect, useRef, useSyncExternalStore, type CSSProperties } from "react";
+import {
+  Activity,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
 import type { TaskId } from "../../../shared/ipc.ts";
 import { getVisibleTaskIds } from "../features/sidebar/visible-order-store.ts";
 import { Composer } from "../features/composer/index.ts";
 import { BtwPanel } from "../features/btw/index.ts";
 import { SessionTreePanel } from "../features/conversation/index.ts";
-import { TspView } from "../features/tsp/index.ts";
+import { releaseTspDocument, TspView } from "../features/tsp/index.ts";
 import { NoticeLayer } from "../features/dialogs/index.ts";
 import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts";
 import { toggleFilesPanel, usePreviewPanel } from "../features/file-preview/index.ts";
@@ -67,6 +75,8 @@ import { EditMenu } from "./EditMenu.tsx";
 const narrowQuery = "(max-width: 999px)";
 /** 留着不卸载的对话区个数（同时跑四五个任务来回切的常见情形）。 */
 const KEPT_VIEWS = 5;
+/** 藏着的对话区这么久没再看就卸载（DOM 和文档镜像一起放掉），切回来重新拉快照、重画。 */
+const KEPT_IDLE_MS = 10 * 60 * 1000;
 /** 启动时等 first-contentful-paint 的上限：Windows 上 FCP 在导航后约 500ms 内就到，Linux 打包版有时一直不来。 */
 const firstFrameFallbackMs = 1000;
 
@@ -231,8 +241,34 @@ export function App() {
   const recent = useRef<TaskId[]>([]);
   if (taskId !== null && recent.current[0] !== taskId)
     recent.current = [taskId, ...recent.current.filter((id) => id !== taskId)].slice(0, KEPT_VIEWS);
+  // 藏起来的对话区 KEPT_IDLE_MS 没再看就从 recent 里拿掉：切走时起表，切回来取消。
+  const idleTimers = useRef(new Map<TaskId, ReturnType<typeof setTimeout>>());
+  const [, setEvictions] = useState(0);
+  useEffect(() => {
+    if (taskId === null) return;
+    const timers = idleTimers.current;
+    clearTimeout(timers.get(taskId));
+    timers.delete(taskId);
+    return () => {
+      timers.set(
+        taskId,
+        setTimeout(() => {
+          timers.delete(taskId);
+          recent.current = recent.current.filter((id) => id !== taskId);
+          setEvictions((count) => count + 1);
+        }, KEPT_IDLE_MS),
+      );
+    };
+  }, [taskId]);
   // 只订阅"这几个 id 里哪些还在"（不订阅整张任务表：任务状态事件很密，App 一重渲染整个外壳都跟着渲染）。
   const kept = useExistingTaskIds([...recent.current].sort());
+  // 离开 recent 的对话区（挤出去、藏太久）放掉文档镜像（主进程也就不再推它的批次）；折叠等界面状态留着。
+  // 被移除的任务还在 recent 里、只是不在 kept 里了：tsp-store 自己丢，主进程自己注销。
+  const previousKept = useRef(kept);
+  useEffect(() => {
+    for (const id of previousKept.current) if (!recent.current.includes(id)) releaseTspDocument(id);
+    previousKept.current = kept;
+  }, [kept]);
   const openTask = (id: TaskId | undefined) => {
     if (id !== undefined) selectTask(id).catch((error: unknown) => reportError(t, error));
   };

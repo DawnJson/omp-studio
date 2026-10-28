@@ -2,6 +2,7 @@
 // 渐隐收口，下面（lines）或上面（tail）一个"N more lines"按钮（文字是 omp 原样的英文，见 labels.ts）。行高取自 --tsp-lh；超出不到一行的零头不算。
 // 知道逻辑行数的内容（ansi / code）传 lineCount、children 写成函数：夹紧时只画露出的那几行，被跳过的行直接按行数计入"N more"。
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { ChevronDown } from "../../icons.tsx";
 import { labels } from "./labels.ts";
 
@@ -36,14 +37,14 @@ export function Clamp({ lines, tail = false, onExpand, className, lineCount, chi
       setMeasured(0);
       return;
     }
-    const measure = (): void => {
+    // 挂载 / 从隐藏的视图切回来时不同步量（content-visibility:auto 跳过的块会被强制排版）：ResizeObserver 第一次回调
+    // 在浏览器自己排版之后、绘制之前，用它给的高度；flushSync 让夹紧在同一帧画出来，不闪一帧没夹的。
+    const observer = new ResizeObserver(([entry]) => {
       const lh = lineHeight(el);
       // 零头不到四分之一行的不算被藏起来的行。
-      const extra = (el.offsetHeight - lines * lh) / lh;
-      setMeasured(extra > 0.25 ? Math.ceil(extra - 0.25) : 0);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
+      const extra = (entry!.contentRect.height - lines * lh) / lh;
+      flushSync(() => setMeasured(extra > 0.25 ? Math.ceil(extra - 0.25) : 0));
+    });
     observer.observe(el);
     return () => observer.disconnect();
   }, [lines, expanded]);

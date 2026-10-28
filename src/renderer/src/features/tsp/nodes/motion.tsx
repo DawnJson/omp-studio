@@ -24,8 +24,10 @@ export function Spinner(props: NodeProps) {
   const reduced = useReducedMotion();
   const kind = p.style === "dots" || p.style === "orbit" || p.style === "starburst" ? p.style : "braille";
   const frames = kind === "braille" || kind === "starburst" ? FRAMES[kind] : null;
-  // 只取帧号：帧没换（starburst 120ms 一帧）就不重画。
-  const frame = useClock(frames !== null && !reduced, (now) => (frames === null ? 0 : Math.floor(now / frames.ms)));
+  // 只取帧号、按帧长醒：帧没换（starburst 120ms 一帧）就不重画。
+  const frame = useClock(frames !== null && !reduced, frames?.ms ?? 1000, (now) =>
+    frames === null ? 0 : Math.floor(now / frames.ms),
+  );
   let indicator;
   if (frames !== null) {
     const { glyphs } = frames;

@@ -191,6 +191,54 @@ describe("TerminalManager", () => {
     }
   });
 
+  it("面板卸载后输出只进 backlog 不发事件；再次 open 用 backlog 还原全部输出，之后的输出照常发", async () => {
+    vi.useFakeTimers();
+    try {
+      const { manager, ptys, data } = setup();
+      await manager.open(task("t1"), 80, 24);
+      ptys[0]?.emit("shown ");
+      manager.unsubscribe(task("t1"));
+      ptys[0]?.emit("hidden");
+      vi.advanceTimersByTime(50);
+      expect(data).toEqual([]);
+      const again = await manager.open(task("t1"), 80, 24);
+      expect(again).toMatchObject({ reopened: true, backlog: "shown hidden" });
+      ptys[0]?.emit("live");
+      vi.advanceTimersByTime(20);
+      expect(data).toEqual([["t1", "live"]]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shell 还在起时面板就卸载：起好后不发输出；之后再挂载（含 StrictMode 的挂载→卸载→挂载）照常发", async () => {
+    vi.useFakeTimers();
+    try {
+      for (const remount of [false, true]) {
+        const release = Promise.withResolvers<void>();
+        const { manager, ptys, data } = setup({
+          spawn: async () => {
+            await release.promise;
+            const pty = new FakePty(100);
+            ptys.push(pty);
+            return pty;
+          },
+        });
+        const opened = manager.open(task("t1"), 80, 24);
+        manager.unsubscribe(task("t1"));
+        const again = remount ? manager.open(task("t1"), 80, 24) : opened;
+        release.resolve();
+        await Promise.all([opened, again]);
+        ptys[0]?.emit("out");
+        vi.advanceTimersByTime(50);
+        expect(data, `remount=${remount}`).toEqual(remount ? [["t1", "out"]] : []);
+        if (!remount) expect(await manager.open(task("t1"), 80, 24)).toMatchObject({ reopened: true, backlog: "out" });
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("主动 close 杀掉 pty，不发 exit 事件，也不再转发输出", async () => {
     vi.useFakeTimers();
     try {

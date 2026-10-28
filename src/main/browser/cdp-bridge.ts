@@ -21,6 +21,8 @@ export interface CdpBridgeHost {
   page(create: boolean): CdpPage | null;
   /** 有客户端连上了：AI 开始用这个浏览器。 */
   connected(): void;
+  /** 最后一个客户端断开了：没有 AI 在用这个浏览器。 */
+  disconnected(): void;
 }
 
 export interface CdpClient {
@@ -100,6 +102,7 @@ export class CdpBridge {
         if (!this.#clients.delete(client)) return;
         for (const [id, session] of this.#sessions) if (session.client === client) this.#sessions.delete(id);
         this.#releaseIfUnused();
+        if (this.#clients.size === 0) this.#host.disconnected();
       },
     };
   }

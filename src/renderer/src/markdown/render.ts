@@ -2,7 +2,7 @@
 // 链接只放行 http/https（调用方给了 openFile 时再加本地文件链接），图片只放行 markdown-it 已校验的 data:image。无 JSX，方便在 Node 里测试。
 import type Katex from "katex";
 import { createElement as h, Fragment, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import type { MarkdownBlock, Token } from "./parse.ts";
+import { blockTokens, type MarkdownBlock, type Token } from "./parse.ts";
 
 export interface RenderContext {
   /** 用户点了一个已放行的链接。 */
@@ -249,5 +249,5 @@ function renderBlockNode(
 
 /** 渲染一个顶层块。已闭合块的 src 不变，调用方用 React.memo 按 src 跳过重渲染。 */
 export function renderBlock(block: MarkdownBlock, ctx: RenderContext): ReactNode {
-  return buildTree(block.tokens).map((node, index) => renderBlockNode(node, index, ctx, block.closed));
+  return buildTree(blockTokens(block)).map((node, index) => renderBlockNode(node, index, ctx, block.closed));
 }

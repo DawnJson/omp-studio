@@ -232,7 +232,7 @@ export function DraftComposer({ projectId, projectTools }: { projectId: ProjectI
                   : models !== null && models.length > 0
                     ? { emptyLabel: t("composer.defaultModel") }
                     : {})}
-            loadModels={() => window.studio.listModels()}
+            loadModels={() => window.studio.listModels(true)}
             setModel={(modelKey) => Promise.resolve(chooseDraftModel(key, { model: modelKey }))}
             setThinking={(level) => Promise.resolve(chooseDraftModel(key, { thinkingLevel: level }))}
           />

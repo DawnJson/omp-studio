@@ -51,7 +51,15 @@
 
 **智能分和目录速度**（实测 omp 18.12.6，2026-10-22，临时 agent 目录 + 真实 key）：`get_available_models` 回的每个模型除了 wire 类型 `ModelInfo` 列出的字段，还带 omp 从模型目录补好的 `int`（智能分）和 `tps`（输出速度），没有就不带。omp 查目录前按 provider 的各种写法归一（`packages/catalog/src/identity/metrics.ts`），所以中转站（如 `relay-x/claude-fable-5-1`）也能查到；studio 原来自己按 `provider/id` 原样读 `models.db` 的 `model_cache`，同一批模型大多查不到。现在 `toModelOption`（`src/main/tasks/convert.ts`）直接取这两个值（`ModelOption.intelligence` / `catalogTps`，非有限数或 `tps ≤ 0` 当没有），`model-insights.ts` 只读 `agent.db` 的实测速度和压缩设置。启动缓存格式版本因此升到 2。
 
-启动缓存（`src/main/service/startup-cache.ts`，单例在 `startup-cache-instance.ts`）：服务进程每次现读成功（默认模型、`listModels`、各项目的 `getModelDefaults`、`listAccounts` 得出的"有没有 OAuth 凭据"、`tools.approvalMode`）就记进 `userData/startup-cache.json`（原子写，串行）。同一个文件还记着 `omp --version` 的结果（按可执行文件的路径、大小、修改时间；文件没变就不再跑，见 omp-install.md），它不在 `StartupSnapshot` 里。渲染进程在第一次渲染前取一次 `getStartupSnapshot()`，工具行先用它画，现读到了再替换；缓存只用来显示，不参与任何决定，文件坏了或版本不对当成没有。主窗口第一次淡入完成后（`main-window.ts` 的 `afterFirstReveal`）`prewarmToolbarData()` 才拉起服务进程读默认模型和模型目录，不和首帧抢 CPU。任务进程起来之前，`TaskRunner` 用缓存的模型目录（`knownModels`）给胶囊名字和上下文窗口，查不到才用模型 id；进程起来后服务进程的目录还没读到时，输入框上的模型名也先按它认（模型、思考档位），目录读到后换成现读的（见 tsp-migration.md 的 `model` 一行）。是不是唯一的模型、要不要记进任务记录仍只按现读的目录判断。
+启动缓存（`src/main/service/startup-cache.ts`，单例在 `startup-cache-instance.ts`）：服务进程每次现读成功（默认模型、`listModels`、各项目的 `getModelDefaults`、`listAccounts` 得出的"有没有 OAuth 凭据"、`tools.approvalMode`）就记进 `userData/startup-cache.json`（原子写，串行）。同一个文件还记着 `omp --version` 的结果（按可执行文件的路径、大小、修改时间；文件没变就不再跑，见 omp-install.md）和按目录的斜杠命令列表（见 composer-input.md），它们不在 `StartupSnapshot` 里。渲染进程在第一次渲染前取一次 `getStartupSnapshot()`，工具行先用它画，现读到了再替换；文件坏了或版本不对当成没有。主窗口第一次淡入完成后（`main-window.ts` 的 `afterFirstReveal`）`prewarmToolbarData()` 才读默认模型和模型目录，不和首帧抢 CPU。任务进程起来之前，`TaskRunner` 用缓存的模型目录（`knownModels`）给胶囊名字和上下文窗口，查不到才用模型 id；进程起来后服务进程的目录还没读到时，输入框上的模型名也先按它认（模型、思考档位），目录读到后换成现读的（见 tsp-migration.md 的 `model` 一行）。是不是唯一的模型、要不要记进任务记录仍只按读到的目录判断。
+
+**模型目录和默认模型缓存优先**（2026-10-28 起，`service/default-model.ts`；之前每次启动、每次任务启动、每次草稿挂载都问服务进程，服务进程不在就起一个，约 600 MB、几秒 CPU，omp 18.13.3）：读到时连同 omp 输入的指纹一起记（`catalogStamps`，`service/input-stamp.ts`：studio 版本（自带 studio-accounts 扩展注册 provider）+ omp 版本 + 系统环境里各内置 provider 的 key 变量的摘要（不存原值）+ agent 目录 `config.yml` / `config.yaml`、`models.yml`、`.env` 的修改时间）。
+
+- 缓存优先（指纹对得上、模型目录非空就直接用，不碰服务进程）：启动预读、任务启动（`TspRunner.#refreshCatalog(false)`）、新任务默认值、草稿和起进程前的输入框（`getDefaultModel`、`listModels(false)`）。缓存里两样都有、输入没变时，启动不起服务进程。
+- 一定现读：打开模型选择器（任务的 `listTaskModels`、草稿的 `listModels(true)`、`/model`）、设置页（`accounts-store.ts`）、omp 设置里改了模型相关项（`onOmpConfigChanged`，重载后）。`listModels(true)` 同时现读默认模型并推 `defaultModel` 事件；现读的目录和记着的不一样时默认模型也作废。新登录的 provider 的模型在选择器里一打开就有。
+- 作废（`StartupCache.forgetCatalog`，值留着给胶囊显示，下次读现读）：OAuth 登录成功、退出账号；凭据和模型注册表在服务进程之外变了的（应用内登录、保存 API key、自定义 provider 的保存 / 删除 / 覆盖、`omp models refresh`）走 `reloadServiceModels()`，作废并关掉服务进程。作废之前已经开始的读（`catalogGeneration`）结果晚到也不记，不会把登录前的目录当成现成的。
+- 盲区：终端里登录、OAuth 过期（凭据库 `agent.db` 一直在写，实测 omp 18.13.3 有任务在跑时 `agent.db-wal` 几秒就改一次，不进指纹）、provider 的在线目录变了，要等打开模型选择器或上面的作废。
+- 测试：`test/model-catalog-cache.test.ts`（数服务进程被用的次数）、`test/startup-cache.test.ts`。
 
 项目配置（实测 omp 18.12.1，2026-10-18，临时 agent 目录 + 带 `.omp/config.yml` 的临时项目）：
 
@@ -95,7 +103,7 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 - 进程管理全部复用 `TspSession`：node-pty 自带 ConPTY（`useConptyDll`）、`assignToOwnJob`（主进程被强杀时系统回收）、关闭时 `taskkill /T /F` 等退出事件再 `pty.kill()`、spawn / kill 都在 `withPtyLock` 里。退出入口：对话框取消（`cancelTerminalLogin`）、被新的登录顶掉、应用退出（`registerShutdownHook`，经 `window/shutdown.ts`，托盘退出 / 菜单退出 / 安装更新 / 注销都会走）。结果（`start` 的 Promise）在进程关掉**之后**才 resolve。
 - 同一时间一个登录：`start` 遇到还没结束的旧登录先结束它（渲染进程重载后旧对话框没了，不能被挡住）。
 - 启动：等握手（30 秒超时，`TspHandshakeError`）→ 等输入框就绪（`findMessageTarget` 是 `ready`，30 秒超时）→ 发 `send` 事件 `/login <providerId>`（和任务发话同一条路径）→ 每次文档变化用 `deriveLoginFlow` 判断。omp 在握手前退出：失败，原因是 omp 终端上最后几行文字或退出码。
-- 成功后 `serviceOmp.close()`：凭据是别的进程写进去的，服务进程里 omp 缓存的认证状态是旧的（同保存 API key 后的 `applyKeyChange`），下次用时重启读到新的；界面随后重读 provider、账号和模型。已经在跑的任务进程要等下次启动才用上新凭据（和终端版一样）。
+- 成功后 `reloadServiceModels()`（`service/default-model.ts`）：凭据是别的进程写进去的，服务进程里 omp 缓存的认证状态是旧的（同保存 API key），关掉它并作废缓存的模型目录和默认模型，下次用时重启读到新的；界面随后重读 provider、账号和模型。已经在跑的任务进程要等下次启动才用上新凭据（和终端版一样）。
 
 ### 渲染进程怎么画、怎么交互
 

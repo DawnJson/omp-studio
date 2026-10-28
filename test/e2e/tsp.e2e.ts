@@ -234,6 +234,38 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
   }
 });
 
+test("窗口藏起来时不推过程区的更新:任务跑着时隐藏窗口,omp 跑完后再显示,过程区直接是最新的(本轮用量、最后的回答都在)", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start("task");
+  try {
+    const { app, page } = launched;
+    await sendFirst(page, TASK_PROMPT);
+    const row = page.getByTestId("task-row").first();
+    await expect(row).toHaveAttribute("data-status", "running", { timeout: 20_000 });
+    await page.evaluate(() => {
+      const g = globalThis as unknown as { hiddenBatches: number; batchesOn: boolean };
+      g.hiddenBatches = 0;
+      g.batchesOn = false;
+      globalThis.studio.onTspBatch(() => {
+        if (g.batchesOn) g.hiddenBatches += 1;
+      });
+    });
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.hide());
+    await page.evaluate(() => {
+      (globalThis as unknown as { batchesOn: boolean }).batchesOn = true;
+    });
+    // 侧栏状态走 taskState，窗口藏着也照常更新：等 omp 跑完这一轮。
+    await expect(row).toHaveAttribute("data-status", "idle", { timeout: 60_000 });
+    expect(await page.evaluate(() => (globalThis as unknown as { hiddenBatches: number }).hiddenBatches)).toBe(0);
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.showInactive());
+    await expect(role(page, "omp.turn.usage")).toBeVisible({ timeout: 20_000 });
+    await expect(role(page, "omp.assistant").last()).toBeVisible();
+    await expect(role(page, "omp.tool.bash").first()).toContainText("pytest");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("流式吸底:对话长过视口后,omp 每次长出新内容,画出来的那一帧就已经在底部(不先在底边下面画一帧再跳上来)", async () => {
   test.setTimeout(120_000);
   const { launched, cleanup } = await start("task");
@@ -983,10 +1015,10 @@ test("过程卡片(resume 录制):diff 按 lang 有语法色并叠在增删底�
     });
     await openTaskRow(page);
     await expect(role(page, "omp.user")).toHaveCount(3, { timeout: 30_000 });
-    // diff:语言包异步加载,token 带 --shiki 变量色;增行的底色还在。
+    // diff:语言包异步加载,token 带 --shiki 变量色的类名;增行的底色还在。
     const diff = page.locator('[data-testid="tsp-view"] .tsp-diff').first();
     await expect(diff).toBeVisible();
-    await expect(diff.locator('.tsp-dl[data-kind="add"] .tsp-dt span[style*="--shiki-token"]').first()).toBeVisible({
+    await expect(diff.locator('.tsp-dl[data-kind="add"] .tsp-dt span[class*="hl-token"]').first()).toBeVisible({
       timeout: 15_000,
     });
     await expect(diff.locator('.tsp-dl[data-kind="add"]').first()).not.toHaveCSS(
@@ -2434,11 +2466,11 @@ test("流式追加的代码节点:已着色的字在追加时不退回无色(不
     const { page } = launched;
     await sendFirst(page, String(recordedUserEvents(loadTspFixture("cards"))[0]!.event["text"]));
     const node = page.locator('[data-id="e2e-stream-code"]');
-    const first = node.locator(".tsp-ln").first().locator("span[style]", { hasText: "桦木单板" });
+    const first = node.locator(".tsp-ln").first().locator("span[class*='hl-token']", { hasText: "桦木单板" });
     await expect(first).toHaveCount(1, { timeout: 30_000 });
     // 每次 DOM 变化后(画出来之前)看第一行的字符串还有没有颜色。
     await node.evaluate((element) => {
-      type Span = { textContent: string; getAttribute(name: string): string | null };
+      type Span = { textContent: string; className: string };
       const root = element as unknown as {
         querySelector(selector: string): { querySelectorAll(selector: string): ArrayLike<Span> } | null;
       };
@@ -2448,10 +2480,8 @@ test("流式追加的代码节点:已着色的字在追加时不退回无色(不
       };
       g.uncolored = 0;
       new g.MutationObserver(() => {
-        const spans = Array.from(root.querySelector(".tsp-ln")?.querySelectorAll("span[style]") ?? []);
-        if (
-          !spans.some((span) => span.textContent.includes("桦木单板") && span.getAttribute("style")?.includes("color"))
-        )
+        const spans = Array.from(root.querySelector(".tsp-ln")?.querySelectorAll("span") ?? []);
+        if (!spans.some((span) => span.textContent.includes("桦木单板") && span.className.includes("hl-token")))
           g.uncolored += 1;
       }).observe(element, { subtree: true, childList: true, characterData: true, attributes: true });
     });

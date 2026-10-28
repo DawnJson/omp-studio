@@ -29,7 +29,7 @@ async function fetchAccountData(): Promise<AccountData> {
     window.studio.listLoginProviders(),
     window.studio.apiKeyEnvSources(),
     window.studio.tavilyBackupKeyCount(),
-    window.studio.listModels(),
+    window.studio.listModels(true),
   ]);
   const accounts: Record<string, LogoutAccount[]> = {};
   await Promise.all(

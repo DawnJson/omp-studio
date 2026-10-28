@@ -180,12 +180,20 @@ export class SessionFileReader {
   }
 }
 
+interface CachedReader<T> {
+  reader: SessionFileReader;
+  consumers: T;
+  /** hold 了还没释放的次数；大于 0 时不会被挤出缓存。 */
+  holders: number;
+}
+
 /**
- * 按文件缓存的增量读取器（IPC 查询用：会话树、按模型的用量）。同一个文件再查只读新追加的部分，没变就不读；
- * 最多留 limit 个文件，最近查过的留着。累加器在读取器里一直更新，调用方拿到后同步取结果，不要跨 await 持有。
+ * 按文件缓存的增量读取器（一个文件一个，几个累加器共用一遍读取和 JSON.parse）。同一个文件再查只读新追加的部分，没变就不读。
+ * 没被 hold 的最多留 limit 个，最近查过的留着；hold 住的（任务的当前会话文件）一直留到释放。
+ * 累加器在读取器里一直更新，调用方拿到后同步取结果，不要跨 await 持有。
  */
-export class SessionReaderCache<T extends SessionEntryConsumer> {
-  readonly #readers = new Map<string, { reader: SessionFileReader; consumer: T }>();
+export class SessionReaderCache<T extends { readonly [K in keyof T]: SessionEntryConsumer }> {
+  readonly #readers = new Map<string, CachedReader<T>>();
   readonly #create: () => T;
   readonly #limit: number;
 
@@ -195,19 +203,47 @@ export class SessionReaderCache<T extends SessionEntryConsumer> {
   }
 
   async read(file: string): Promise<T> {
+    const cached = this.#touch(file);
+    await cached.reader.update();
+    return cached.consumers;
+  }
+
+  /** 占住 file 的读取器，释放之前不会被挤出缓存；返回释放函数（重复调用无效）。 */
+  hold(file: string): () => void {
+    const cached = this.#touch(file);
+    cached.holders += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      cached.holders -= 1;
+      this.#evict();
+    };
+  }
+
+  /** 取（没有就建）file 的读取器，标成最近用过。 */
+  #touch(file: string): CachedReader<T> {
     let cached = this.#readers.get(file);
     if (cached) {
       this.#readers.delete(file);
     } else {
-      const consumer = this.#create();
-      cached = { reader: new SessionFileReader(file, [consumer]), consumer };
+      const consumers = this.#create();
+      cached = { reader: new SessionFileReader(file, Object.values(consumers)), consumers, holders: 0 };
     }
     this.#readers.set(file, cached);
-    for (const oldest of this.#readers.keys()) {
-      if (this.#readers.size <= this.#limit) break;
-      this.#readers.delete(oldest);
+    this.#evict();
+    return cached;
+  }
+
+  /** 没被 hold 的超过 limit 个时，从最久没用的开始丢。 */
+  #evict(): void {
+    let unheld = 0;
+    for (const cached of this.#readers.values()) if (cached.holders === 0) unheld += 1;
+    for (const [file, cached] of this.#readers) {
+      if (unheld <= this.#limit) break;
+      if (cached.holders > 0) continue;
+      this.#readers.delete(file);
+      unheld -= 1;
     }
-    await cached.reader.update();
-    return cached.consumer;
   }
 }

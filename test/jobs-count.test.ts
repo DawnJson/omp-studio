@@ -4,7 +4,13 @@
 // 没有录到 eval 作业（要模型用 eval 工具起异步单元）：eval 类型的那一条是把真实 18.12.6 弹窗帧里的 `bash` 换成 `eval`，格式来自 omp 源码 `jobs-panel.ts`。
 import { describe, expect, it } from "vitest";
 import { applyMessage, createDocument, type TspDocument } from "../src/shared/tsp/document.ts";
-import { deriveTspJobs, findJobsOverlayItem, mergeTspJobs, runningJobs } from "../src/shared/tsp/jobs.ts";
+import {
+  agentStatuses,
+  deriveTspJobs,
+  findJobsOverlayItem,
+  mergeTspJobs,
+  runningJobs,
+} from "../src/shared/tsp/jobs.ts";
 import type { Job } from "../src/shared/ui/jobs.ts";
 import { loadTspFixture, tspDocMessages, type TspRecordLine } from "./tsp-fixtures.ts";
 
@@ -17,7 +23,7 @@ function docAt(lines: readonly TspRecordLine[], count?: number): TspDocument {
 describe("runningJobs：子代理不算", () => {
   it("hub-steer：hud 胶囊里列着 Alpha / Beta，但它们是子代理，作业数是 0", () => {
     const doc = docAt(loadTspFixture("hub-steer"), 120);
-    const jobs = deriveTspJobs(doc, 1);
+    const jobs = deriveTspJobs(doc, agentStatuses(doc), 1);
     expect(jobs.map((job) => [job.id, job.type])).toEqual([
       ["Alpha", "agent"],
       ["Beta", "agent"],
@@ -34,7 +40,8 @@ describe("runningJobs：子代理不算", () => {
     for (const { message } of tspDocMessages(lines)) {
       applyMessage(doc, message);
       now += 1000;
-      jobs = mergeTspJobs(jobs, deriveTspJobs(doc, now), doc, now);
+      const agents = agentStatuses(doc);
+      jobs = mergeTspJobs(jobs, deriveTspJobs(doc, agents, now), agents, now);
       counts.add(
         runningJobs(jobs)
           .map((job) => job.id)
@@ -55,7 +62,8 @@ describe("runningJobs：子代理不算", () => {
     for (const { message } of tspDocMessages(lines)) {
       applyMessage(doc, message);
       now += 1000;
-      jobs = mergeTspJobs(jobs, deriveTspJobs(doc, now), doc, now);
+      const agents = agentStatuses(doc);
+      jobs = mergeTspJobs(jobs, deriveTspJobs(doc, agents, now), agents, now);
       const running = runningJobs(jobs);
       if (running.length > most.length) most = running;
     }
@@ -82,7 +90,8 @@ describe("作业类型（18.12.6 的 /jobs 弹窗，真实帧）", () => {
   }
 
   it("hud 胶囊给出运行中的 bg_1，弹窗里是 Running · bash · bg_1，时长 37.9s 倒推出开始时间", () => {
-    const [job] = deriveTspJobs(overlayOpen(lines), 100_000);
+    const doc = overlayOpen(lines);
+    const [job] = deriveTspJobs(doc, agentStatuses(doc), 100_000);
     expect(job).toMatchObject({ id: "bg_1", type: "bash", label: "sleep 60", status: "running", durationMs: null });
     expect(job?.startedAt).toBeLessThan(100_000);
   });
@@ -94,7 +103,8 @@ describe("作业类型（18.12.6 的 /jobs 弹窗，真实帧）", () => {
         JSON.stringify(line.body).replaceAll("Running · bash · bg_1", "Running · eval · bg_1"),
       ) as unknown,
     }));
-    const jobs = deriveTspJobs(overlayOpen(swapped), 100_000);
+    const doc = overlayOpen(swapped);
+    const jobs = deriveTspJobs(doc, agentStatuses(doc), 100_000);
     expect(jobs.map((job) => [job.id, job.type])).toEqual([["bg_1", "eval"]]);
     expect(runningJobs(jobs)).toHaveLength(1);
   });
@@ -110,7 +120,7 @@ describe("作业类型（18.12.6 的 /jobs 弹窗，真实帧）", () => {
       output: null,
     };
     const hudGuess: Job = { ...evalJob, type: "bash" };
-    const merged = mergeTspJobs([evalJob], [hudGuess], createDocument(), 500);
+    const merged = mergeTspJobs([evalJob], [hudGuess], new Map(), 500);
     expect(merged[0]?.type).toBe("eval");
   });
 });

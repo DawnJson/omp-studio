@@ -15,15 +15,18 @@ import { readOmpKeybindings } from "../omp-config/keybindings.ts";
 import { notifyEnabled, type NotifyKind } from "../omp-config/notify-settings.ts";
 import { readApprovalMode, type ApprovalModeDeps } from "../omp-config/approval-mode.ts";
 import { listJson, OmpConfigService, runOmpConfig } from "../omp-config/config-service.ts";
+import { ConfigListCache, configListInputs } from "../omp-config/config-list-cache.ts";
 import {
   readModelDefaults,
   readModelRoles,
+  valueOf,
   writeModelRole,
   type ModelDefaultsDeps,
 } from "../omp-config/model-defaults.ts";
 import { readModelInsights } from "../omp-config/model-insights.ts";
 import { ompManager, readyOmp } from "../omp-manager/index.ts";
 import { onOmpConfigChanged, readDefaultModel } from "../service/default-model.ts";
+import { inputStamp } from "../service/input-stamp.ts";
 import { serviceCwd, serviceOmp } from "../service/service-omp.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
 import { updateSettings } from "../settings/settings-store.ts";
@@ -58,13 +61,7 @@ async function applyGoalContinuationDefaultOnStartup(): Promise<void> {
   try {
     await ompManager().ensureReady();
     const outcome = await applyGoalContinuationDefault({
-      readValue: async () => {
-        const json = (await listJson(runOmpConfig(readyOmp().path, await serviceCwd()))) as Record<
-          string,
-          { value?: unknown }
-        >;
-        return json[goalContinuationKey]?.value;
-      },
+      readValue: async () => valueOf(await listOmpConfig(null), goalContinuationKey),
       isExplicit: () => isGoalContinuationExplicit(resolveAgentDir()),
       write: async (modes) => {
         await configService().set(goalContinuationKey, JSON.stringify(modes));
@@ -106,22 +103,23 @@ export function applyOmpStartupDefaults(): Promise<void> {
 
 let config: OmpConfigService | null = null;
 
-/**
- * 同一目录同时来的 `omp config list --json` 共用一次：打开草稿页、模型选择对话框时会同时来 2–4 个，每个都是一次完整的 omp 启动
- * （约 150 ms、几百 MB 内存）。只合并正在跑的，不缓存结果；经 configService 写配置的前后清空，写之后的读另起一次。
- */
-const listsInFlight = new Map<string, Promise<unknown>>();
+/** `omp config list --json` 按目录缓存（config-list-cache.ts）：指纹 = omp 版本 + omp 读的设置文件（configListInputs）的修改时间。 */
+const configLists = new ConfigListCache({
+  stamp: (dir) => inputStamp(readyOmp().version, configListInputs(resolveAgentDir(), dir)),
+  run: (dir) => listJson(runOmpConfig(readyOmp().path, dir)),
+  key: pathKey,
+});
 
-/** omp config 子命令的执行者：用当前就绪的 omp，cwd 是中性目录。 */
+/** omp config 子命令的执行者：用当前就绪的 omp，cwd 是中性目录。写配置的前后清空 list 缓存，写之后的读另起一次。 */
 function configService(): OmpConfigService {
   config ??= new OmpConfigService({
     run: async (args, env) => {
       const writes = args[0] === "set" || args[0] === "reset";
-      if (writes) listsInFlight.clear();
+      if (writes) configLists.clear();
       try {
         return await runOmpConfig(readyOmp().path, await serviceCwd())(args, env);
       } finally {
-        if (writes) listsInFlight.clear();
+        if (writes) configLists.clear();
       }
     },
     version: async () => readyOmp().version,
@@ -130,27 +128,22 @@ function configService(): OmpConfigService {
   return config;
 }
 
+/** `omp config list --json` 在 `cwd`（项目或任务目录，项目配置盖过全局）里的结果；null = 中性目录（只有全局配置）。结果是共用的，调用方不能改。 */
+export async function listOmpConfig(cwd: string | null): Promise<unknown> {
+  return configLists.list(cwd ?? (await serviceCwd()));
+}
+
 const modelDefaultsDeps: ModelDefaultsDeps = {
-  list: async (cwd) => {
-    const dir = cwd ?? (await serviceCwd());
-    const key = pathKey(dir);
-    const running = listsInFlight.get(key);
-    if (running) return running;
-    const listing: Promise<unknown> = listJson(runOmpConfig(readyOmp().path, dir)).finally(() => {
-      if (listsInFlight.get(key) === listing) listsInFlight.delete(key);
-    });
-    listsInFlight.set(key, listing);
-    return listing;
-  },
+  list: listOmpConfig,
   async setGlobalRoles(roles) {
     if (roles === null) await configService().reset("modelRoles");
     else await configService().set("modelRoles", JSON.stringify(roles));
   },
 };
 
-/** omp 的 ask / completion / error 通知设置现在是开还是关（在这个项目目录里跑 `omp config list --json`，项目配置盖过全局）；供系统通知用。 */
+/** omp 的 ask / completion / error 通知设置现在是开还是关（在这个项目目录里读 `omp config list --json`，项目配置盖过全局）；供系统通知用。 */
 export async function readNotifyEnabled(kind: NotifyKind, cwd: string | null): Promise<boolean> {
-  return notifyEnabled(await modelDefaultsDeps.list(cwd), kind);
+  return notifyEnabled(await listOmpConfig(cwd), kind);
 }
 
 async function projectPath(projectId: unknown): Promise<string | null> {
@@ -167,7 +160,7 @@ export async function readProjectModelDefaults(projectId: ProjectId, cwd: string
 
 const approvalKey = "tools.approvalMode";
 
-const approvalModeDeps: ApprovalModeDeps = { list: modelDefaultsDeps.list };
+const approvalModeDeps: ApprovalModeDeps = { list: listOmpConfig };
 
 /** 输入框的审批胶囊读的是全局生效值：读到就记进启动缓存（项目覆盖的值不记，别的项目会读到）。 */
 function recordApprovalMode(value: unknown): void {
@@ -247,7 +240,7 @@ export const ompHandlers: HandlerGroup<
   setSoundOnDone: (on) => Promise.resolve(updateSettings({ soundOnDone: parseBoolean(on, "soundOnDone") })),
   setCopyOnSelect: (on) => Promise.resolve(updateSettings({ copyOnSelect: parseBoolean(on, "copyOnSelect") })),
   setYoloConfirmed: () => Promise.resolve(updateSettings({ yoloConfirmed: true })),
-  getDefaultModel: () => readDefaultModel(),
+  getDefaultModel: () => readDefaultModel(false),
   getStartupSnapshot: () => Promise.resolve(startupCache().snapshot()),
   getModelDefaults: async (projectId) => {
     const defaults = await readModelDefaults(modelDefaultsDeps, await projectPath(projectId));
@@ -275,7 +268,7 @@ export const ompHandlers: HandlerGroup<
     return readModelInsights(
       {
         readPerf: (keys) => readInDbWorker("modelPerf", resolveAgentDir(), keys),
-        list: modelDefaultsDeps.list,
+        list: listOmpConfig,
         warn: (message, error) => log.warn(message, error),
       },
       await projectPath(projectId),

@@ -2,17 +2,12 @@
 // 范围和 get_session_stats 一致（18.12.2 实测逐项相等）：沿 parentId 从最后一条走到根得到当前分支，
 // 只算最近一次压缩的 firstKeptEntryId 起的部分；压缩过时另给当前分支全部的合计（压缩前花掉的也是钱）。
 // 当前分支取文件最后一条：omp 只在叶子上追加；在会话树里跳到别处但还没发消息时会偏，这时只是数字差一些。
-// 规则只有 SessionUsageAccumulator 一份：整段文本（summarizeSessionUsage）和增量读文件（tsp/session-file-reader.ts）都喂给它。
+// 规则只有 SessionUsageAccumulator 一份：整段文本（summarizeSessionUsage）和增量读文件（tsp/session-files.ts）都喂给它。
 // 顺带按 omp 恢复会话的规则记当前分支上的模型（currentModel）：TSP 输入框卡片上只有模型显示名，多家 provider 重名时靠它认出是哪一家。
 import type { ModelKey, ModelUsage, SessionModelUsage } from "../../shared/ipc.ts";
 import type { TokenUsage } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { finiteOrZero as num, isRecord } from "../../shared/type-guards.ts";
-import {
-  feedSessionText,
-  SessionReaderCache,
-  type SessionEntryConsumer,
-  type SessionFileEntry,
-} from "../tsp/session-file-reader.ts";
+import { feedSessionText, type SessionEntryConsumer, type SessionFileEntry } from "../tsp/session-file-reader.ts";
 
 const str = (value: unknown): string | null => (typeof value === "string" ? value : null);
 
@@ -188,13 +183,4 @@ export function totalUsage(models: readonly ModelUsage[]): SessionTotals {
     requests += row.requests;
   }
   return { tokens, requests };
-}
-
-/** 按模型的用量浮层、会话信息反复读同一个会话文件：缓存增量读取器，只读新追加的完整行。 */
-const usageReaders = new SessionReaderCache(() => new SessionUsageAccumulator());
-
-/** 超过 MAX_SESSION_FILE_BYTES 的会话文件抛错、不读。新会话的文件在第一条回复之后才落盘：没有文件是空表。 */
-export async function readSessionUsage(file: string | null): Promise<SessionModelUsage> {
-  if (file === null) return new SessionUsageAccumulator().summary();
-  return (await usageReaders.read(file)).summary();
 }
