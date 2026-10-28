@@ -3,6 +3,7 @@ import { app, BrowserWindow, nativeTheme, shell, systemPreferences } from "elect
 import path from "node:path";
 import { defaultFontSize } from "../../shared/ipc.ts";
 import { appOrigin } from "./app-protocol.ts";
+import { loadWin32 } from "../platform/win32/ffi.ts";
 import { getSettings, offSettingsChanged, onSettingsChanged } from "../settings/settings-store.ts";
 import { blockZoom } from "./security.ts";
 import { registerShutdownHook } from "./shutdown.ts";
@@ -24,6 +25,16 @@ let titleBarDimmed = false;
 
 /** mac 没有 setTitleBarOverlay（Electron 类型声明标 @platform win32,linux），三键颜色相关逻辑全部跳过。 */
 const isMac = process.platform === "darwin";
+/**
+ * e2e 在后台跑（`test/e2e/launch.ts` 设 `STUDIO_E2E_BACKGROUND=1`）：窗口不进任务栏，显示时不抢焦点，Windows 上再 cloak 掉
+ * （系统不画、点不到，页面照常绘制），跑测试时不弹到用户面前、不打断用户打字。
+ */
+export const e2eBackground = process.env["STUDIO_E2E_BACKGROUND"] === "1";
+
+function showWindow(window: BrowserWindow): void {
+  if (e2eBackground) window.showInactive();
+  else window.show();
+}
 
 type Rgb = readonly [number, number, number];
 type OverlayColors = { color: Rgb; symbolColor: Rgb };
@@ -207,7 +218,7 @@ export function revealWindow(window: BrowserWindow): void {
   if (first) awaitingFirstFrame = null;
   if (!window.isVisible()) {
     window.setOpacity(0);
-    window.show();
+    showWindow(window);
   }
   const faded = window.getOpacity() < 1 ? fadeWindow(window, 1) : Promise.resolve(true);
   if (!first) return;
@@ -282,6 +293,7 @@ export function createMainWindow(): BrowserWindow {
     width: 1200,
     height: 800,
     ...restored.bounds,
+    ...(e2eBackground ? { skipTaskbar: true } : {}),
     minWidth: 800,
     minHeight: 560,
     show: false,
@@ -302,6 +314,9 @@ export function createMainWindow(): BrowserWindow {
       webSecurity: true,
     },
   });
+  // 不挪到屏幕外：屏幕外的窗口内容尺寸算错（多出边框的 16×8，2026-10-28 实测），量布局的用例会错。
+  if (e2eBackground && process.platform === "win32")
+    loadWin32().dwmapi.cloakWindow(Number(window.getNativeWindowHandle().readBigUInt64LE()));
   // 开发和 e2e 跑的是 node_modules 里没改过图标的 electron.exe，任务栏按钮用 exe 自带的 Electron 图标，不认上面的 icon。
   // 给任务栏按钮单独指定图标（实测有效）；appId 和安装版不同，测试窗口不会并进装好的 omp-studio 的任务栏按钮。
   if (!app.isPackaged && process.platform === "win32")
@@ -323,8 +338,8 @@ export function createMainWindow(): BrowserWindow {
   window.once("ready-to-show", () => {
     if (awaitingFirstFrame !== window) return;
     window.setOpacity(0);
-    if (restored.maximized) window.maximize();
-    window.show();
+    if (restored.maximized && !e2eBackground) window.maximize();
+    showWindow(window);
   });
   // 主题切换（设置或系统）时，系统三键的底色和符号色跟着顶栏走。
   const onThemeUpdated = () => fadeTitleBar(window, false);

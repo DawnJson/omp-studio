@@ -91,7 +91,9 @@ export async function launchApp(
   if (ownedAgentDir !== null) await seedFakeSessions(ownedAgentDir, path.join(os.tmpdir(), "omp studio 假项目"));
   const agentDir = ownedAgentDir ?? extraEnv["PI_CODING_AGENT_DIR"] ?? "";
   // 指向 Vite 开发服务器的变量会让应用去加载开发页面；e2e 只跑构建产物。
-  const { ELECTRON_RENDERER_URL: _devUrl, ...baseEnv } = process.env;
+  // 在 omp-studio 的任务里跑测试时，继承来的 STUDIO_BROWSER_CDP 是那个任务的浏览器：传下去的话，被测应用起的
+  // 后台 omp 会带着它，用例可能连到用户正在用的 omp-studio 的浏览器面板上。
+  const { ELECTRON_RENDERER_URL: _devUrl, STUDIO_BROWSER_CDP: _outerBrowser, ...baseEnv } = process.env;
   // Windows 上 Electron 退出后文件句柄可能还要一会儿才放（杀毒软件也会扫新文件）：EBUSY/EPERM 时重试。
   const removeDirs = async () => {
     try {
@@ -106,7 +108,14 @@ export async function launchApp(
     app = await electron.launch({
       args: [root],
       cwd: root,
-      env: { ...baseEnv, STUDIO_USER_DATA: userDataDir, PI_CODING_AGENT_DIR: agentDir, ...extraEnv },
+      // 窗口在屏幕外、不抢焦点（main-window.ts 的 e2eBackground）；要看着测试跑就在命令前设 STUDIO_E2E_BACKGROUND=0。
+      env: {
+        STUDIO_E2E_BACKGROUND: "1",
+        ...baseEnv,
+        STUDIO_USER_DATA: userDataDir,
+        PI_CODING_AGENT_DIR: agentDir,
+        ...extraEnv,
+      },
     });
     const page = await app.firstWindow();
     const launchedApp = app;

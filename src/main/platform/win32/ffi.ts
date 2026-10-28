@@ -1,4 +1,4 @@
-// koffi 载入 kernel32 / advapi32 / user32：整个主进程唯一一处 koffi.load（AGENTS.md "原生调用"）。
+// koffi 载入 kernel32 / advapi32 / user32 / dwmapi：整个主进程唯一一处 koffi.load（AGENTS.md "原生调用"）。
 // job-object.ts（Job Object）和 user-path.ts（用户 PATH 注册表 + 环境变量广播）只 import 这里导出的函数，不自己载入 DLL。
 // 句柄一律用 `uintptr`（number）：Win32 句柄是内核对象表的索引，远小于 2^53；HKEY 的预定义值（0x80000001…）同样放得下。
 // 懒加载：只有第一次调用 `loadWin32()` 时才载入 koffi，非 Windows 平台和单元测试 import 本文件没有副作用。
@@ -80,6 +80,10 @@ export interface Win32Api {
     /** 广播 `WM_SETTINGCHANGE`，lParam 是字符串（如 "Environment"）；在线程池里执行，不阻塞主线程。返回 SendMessageTimeoutW 的结果（0 = 失败或超时）。 */
     broadcastSettingChangeAsync(setting: string, timeoutMs: number): Promise<number>;
   };
+  dwmapi: {
+    /** 隐藏（cloak）窗口：系统不再画它、点不到它，窗口本身仍算显示着。返回 HRESULT（0 成功）。 */
+    cloakWindow(hwnd: Handle): number;
+  };
 }
 
 let api: Win32Api | undefined;
@@ -94,6 +98,7 @@ function createApi(): Win32Api {
   const kernel32 = koffi.load("kernel32.dll");
   const advapi32 = koffi.load("advapi32.dll");
   const user32 = koffi.load("user32.dll");
+  const dwmapi = koffi.load("dwmapi.dll");
 
   // ───── kernel32 ─────
   const IoCounters = koffi.struct("IO_COUNTERS", {
@@ -154,6 +159,11 @@ function createApi(): Win32Api {
   // ───── user32 ─────
   const SendMessageTimeoutW = user32.func(
     "intptr SendMessageTimeoutW(uintptr hwnd, uint32 msg, uintptr wParam, str16 lParam, uint32 flags, uint32 timeout, _Out_ uintptr *result)",
+  );
+
+  // ───── dwmapi ─────
+  const DwmSetWindowAttribute = dwmapi.func(
+    "int32 DwmSetWindowAttribute(uintptr hwnd, uint32 attribute, _In_ int32 *value, uint32 size)",
   );
 
   const c = win32Constants;
@@ -221,6 +231,10 @@ function createApi(): Win32Api {
         );
         return promise;
       },
+    },
+    dwmapi: {
+      // DWMWA_CLOAK = 13，值是 BOOL（4 字节）。
+      cloakWindow: (hwnd) => DwmSetWindowAttribute(hwnd, 13, [1], 4),
     },
   };
 }
