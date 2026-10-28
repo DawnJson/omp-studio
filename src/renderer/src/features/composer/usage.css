@@ -293,6 +293,11 @@
   line-height: var(--uq-month-h);
   white-space: nowrap;
 }
+/* 最后两列的月份：靠右，溢出往左，不被 .usage-scroll 的右边缘裁掉 */
+.uq-month[data-end] {
+  display: flex;
+  justify-content: flex-end;
+}
 .usage-week {
   display: flex;
   flex-direction: column;

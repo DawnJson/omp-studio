@@ -384,8 +384,9 @@ export function HeatmapView({ heatmap }: { heatmap: UsageHeatmap }) {
         </div>
         <div ref={scroller} className="usage-scroll">
           <div className="uq-months" aria-hidden="true">
+            {/* 最后两列放不下整个标签：改成靠右，文字在格子区右边缘结束（前一个标签至少隔 4 列，不会叠上）。 */}
             {weeks.map((week, i) => (
-              <span key={week[0]?.date} className="uq-month">
+              <span key={week[0]?.date} className="uq-month" data-end={i >= weekCount - 2 || undefined}>
                 {labels[i]}
               </span>
             ))}

@@ -250,6 +250,42 @@ test("空状态、对话里的用量", async () => {
     expect((gridBox?.x ?? 0) + (gridBox?.width ?? 0)).toBeGreaterThan(
       (sectionBox?.x ?? 0) + (sectionBox?.width ?? 0) - 24,
     );
+    // 月份标签不超出格子区右边：12 月 1 日落在最后一周（2026-12-01 是周二），"12月"写在最后一列，文字要在右边缘内结束。
+    await launched.app.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler("studio:getUsageHeatmap");
+      ipcMain.handle("studio:getUsageHeatmap", () => ({
+        from: "2025-12-02",
+        to: "2026-12-01",
+        days: [{ date: "2026-11-30", tokens: 1000, costUsd: 1, requests: 2 }],
+        hasDatabase: true,
+      }));
+    });
+    await overview.getByTestId("usage-refresh").click();
+    const scroller = overview.getByTestId("heatmap-section").locator(".usage-scroll");
+    await expect(scroller.locator(".uq-month").last()).toHaveText(/12|Dec/);
+    const overflow = await scroller.evaluate((element) => {
+      interface Box {
+        right: number;
+      }
+      interface Node {
+        getBoundingClientRect(): Box;
+        querySelectorAll(selector: string): ArrayLike<Node & { textContent: string | null }>;
+      }
+      const g = globalThis as unknown as {
+        document: { createRange(): { selectNodeContents(node: unknown): void; getBoundingClientRect(): Box } };
+      };
+      const root = element as unknown as Node;
+      const edge = root.getBoundingClientRect().right;
+      return Array.from(root.querySelectorAll(".uq-month"))
+        .filter((label) => (label.textContent ?? "") !== "")
+        .map((label) => {
+          const range = g.document.createRange();
+          range.selectNodeContents(label);
+          return range.getBoundingClientRect().right - edge;
+        })
+        .filter((over) => over > 0.5);
+    });
+    expect(overflow).toEqual([]);
     expect((await overview.boundingBox())?.height ?? 0).toBeLessThan(
       ((await page.evaluate("innerHeight")) as number) - 96 + 1,
     );
