@@ -29,6 +29,8 @@ export interface TspComposerObserverHost {
   ownModel(): ModelOption | null;
   /** 上次读到的模型目录。 */
   catalog(): ModelOption[];
+  /** 启动缓存里上次的模型目录（只用来显示）：`catalog()` 还空着时按它认模型。 */
+  knownModels(): ModelOption[];
   disposed(): boolean;
   /** 文档的扫描缓存（tsp-doc-scans.ts）。 */
   scans(document: TspDocument): TspDocScans;
@@ -151,9 +153,14 @@ export class TspComposerObserver {
     this.#syncToggles(document);
   }
 
-  /** omp 显示的模型名 → 模型：重名时先取刚选的、再取记录里的，最后取目录里第一个；目录里没有时用名字造一个只显示用的。 */
+  /**
+   * omp 显示的模型名 → 模型：重名时先取刚选的、再取记录里的，最后取目录里第一个；目录里没有时用名字造一个只显示用的。
+   * 目录还没读到（任务刚起来，服务进程的目录要一两秒）时先按启动缓存里上次的目录认，不然这段时间胶囊上没有思考档位。
+   */
   #resolveModel(name: string): ModelOption {
-    const candidates = this.#host.catalog().filter((option) => isShownModelName(option.name, name));
+    const live = this.#host.catalog();
+    const catalog = live.length > 0 ? live : this.#host.knownModels();
+    const candidates = catalog.filter((option) => isShownModelName(option.name, name));
     const own = this.#host.ownModel();
     if (own && isShownModelName(own.name, name) && !candidates.some((option) => sameKey(option.key, own.key)))
       candidates.push(own);

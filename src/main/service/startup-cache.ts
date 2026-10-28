@@ -4,14 +4,7 @@
 // 同一个文件里还记着 `omp --version` 的结果（按可执行文件的路径、大小、修改时间），启动时 omp 文件没变就不再跑一次（omp/discover.ts）；
 // 它不在 StartupSnapshot 里，不发给渲染进程。
 import { readFileSync } from "node:fs";
-import type {
-  ApprovalMode,
-  DefaultModelInfo,
-  ModelDefaults,
-  ModelKey,
-  ModelOption,
-  StartupSnapshot,
-} from "../../shared/ipc.ts";
+import type { ApprovalMode, DefaultModelInfo, ModelDefaults, ModelOption, StartupSnapshot } from "../../shared/ipc.ts";
 import type { OmpBinary, OmpVersionCache } from "../omp/discover.ts";
 
 /** 文件格式版本；StartupSnapshot 的形状变了就加一，旧文件整个作废。 */
@@ -45,12 +38,9 @@ export class StartupCache implements OmpVersionCache {
     return this.#load();
   }
 
-  /** 上次读到的模型目录里的这一项（任务进程还没起来时，胶囊先用它的名字和窗口）。 */
-  model(key: ModelKey): ModelOption | null {
-    return (
-      this.#load().models?.find((model) => model.key.provider === key.provider && model.key.modelId === key.modelId) ??
-      null
-    );
+  /** 上次读到的模型目录（任务进程和服务进程的目录还没读到时，胶囊先用它的名字、窗口和思考档位）。 */
+  models(): ModelOption[] {
+    return this.#load().models ?? [];
   }
 
   setDefaultModel(value: DefaultModelInfo | null): void {

@@ -81,8 +81,8 @@ export interface PoolDeps {
   beforeTaskClose?(id: TaskId): Promise<void>;
   /** 分叉出的新任务的标题（原标题加“分叉”后缀）；没传时沿用原标题。空标题不会走到这里。 */
   forkTitle?(title: string): string;
-  /** 上次读到的模型目录里的这一项（启动缓存）：任务进程起来之前，胶囊先显示它的名字和上下文窗口。 */
-  knownModel?(key: ModelKey): ModelOption | null;
+  /** 上次读到的模型目录（启动缓存）：任务进程起来之前和服务进程的目录读到之前，胶囊先按它显示名字、上下文窗口和思考档位。 */
+  knownModels?(): ModelOption[];
   /** 模型目录（服务进程的 get_available_models）：把 omp 的模型显示名换成模型键、给 listTaskModels；没传时列表为空。 */
   listModels?(): Promise<ModelOption[]>;
   /** omp 的命令列表：`cwd` 是任务目录（该目录的项目 rpc-ui，含项目 skill、自定义命令、扩展命令），`null` = 草稿页（服务进程）；没传时为空。 */
@@ -135,7 +135,7 @@ export class TaskPool {
       onComposerPrefill: (taskId, draft) => deps.events.composerPrefill?.(taskId, draft),
       onNotice: (notice) => deps.events.notice(notice),
       session: tsp.session,
-      knownModel: (key) => deps.knownModel?.(key) ?? null,
+      knownModels: () => deps.knownModels?.() ?? [],
       ...(deps.listModels && { listModels: () => deps.listModels!() }),
       ...(deps.newTaskDefaults && { newTaskDefaults: (project: Project) => deps.newTaskDefaults!(project) }),
       ...(deps.listSlashCommands && { listSlashCommands: (cwd: string) => deps.listSlashCommands!(cwd) }),

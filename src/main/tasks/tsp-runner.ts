@@ -141,8 +141,8 @@ export interface TspRunnerHost {
   /** omp 往它自己的输入框里写了 studio 没发的草稿（文字和挂着的图片）：已清空 omp 那边，放进 studio 的输入框；没提供（多数测试）时不推。 */
   onComposerPrefill?(taskId: TaskId, draft: RestoredDraft): void;
   session: TspSessionDeps;
-  /** 上次读到的模型目录里的这一项；没有（或没提供）时胶囊先显示模型 id。 */
-  knownModel?(key: ModelKey): ModelOption | null;
+  /** 上次读到的模型目录（启动缓存）：服务进程的目录还没读到时，胶囊先按它显示模型名、上下文窗口和思考档位；没提供时为空。 */
+  knownModels?(): ModelOption[];
   /** 模型目录（服务进程的 get_available_models，和草稿输入框用的同一份）：把 omp 的模型显示名换成模型键、给 listTaskModels。 */
   listModels?(): Promise<ModelOption[]>;
   /** omp 的命令列表：任务目录里的项目 rpc-ui（项目 skill、自定义命令、扩展命令）；没提供时 TSP 任务的列表为空。 */
@@ -345,10 +345,13 @@ export class TspRunner {
     this.#activityAt = record.updatedAt;
     this.#project = project;
     this.#host = host;
-    this.#model = record.model
-      ? (host.knownModel?.(record.model) ?? {
-          key: record.model,
-          name: record.model.modelId,
+    const key = record.model;
+    this.#model = key
+      ? (host
+          .knownModels?.()
+          .find((model) => model.key.provider === key.provider && model.key.modelId === key.modelId) ?? {
+          key,
+          name: key.modelId,
           contextWindow: null,
           reasoning: false,
           acceptsImages: false,
@@ -367,6 +370,7 @@ export class TspRunner {
       },
       ownModel: () => this.#model,
       catalog: () => this.#catalog,
+      knownModels: () => this.#host.knownModels?.() ?? [],
       disposed: () => this.#disposed,
       scans: (document) => this.#scansFor(document),
       readSessionFile: () => this.#readSessionFile(),
@@ -725,9 +729,7 @@ export class TspRunner {
       this.#observeFacts(session.document);
       this.#btw.sync(this.#scansFor(session.document).btwView);
       this.#notifyWaiters(session.document);
-      void this.#refreshCatalog().then(() => {
-        if (gen === this.#gen && this.#session) this.#composerState.syncComposer(this.#session.document);
-      });
+      void this.#refreshCatalog();
     } catch (error) {
       if (this.#closing || this.#disposed) {
         if (session) await this.#discard(session);
@@ -1198,7 +1200,10 @@ export class TspRunner {
     }
   }
 
-  /** 模型目录：构造时没有，进程起来后读一次（服务进程的 get_available_models，和草稿用的同一份）；失败时用上次的。 */
+  /**
+   * 模型目录：构造时没有，进程起来后读一次（服务进程的 get_available_models，和草稿用的同一份）；失败时用上次的。
+   * 读到后马上按它重认输入框上的模型（之前可能是按启动缓存或名字占位认的）。
+   */
   async #refreshCatalog(): Promise<ModelOption[]> {
     const list = this.#host.listModels;
     if (!list) return this.#catalog;
@@ -1207,14 +1212,13 @@ export class TspRunner {
     } catch (error) {
       log.warn(`task ${this.id} reading the model list failed`, { message: String(error) });
     }
+    const session = this.#session;
+    if (session && !this.#disposed) this.#composerState.syncComposer(session.document);
     return this.#catalog;
   }
 
-  async listModels(): Promise<ModelOption[]> {
-    const models = await this.#refreshCatalog();
-    const session = this.#session;
-    if (session) this.#composerState.syncComposer(session.document);
-    return models;
+  listModels(): Promise<ModelOption[]> {
+    return this.#refreshCatalog();
   }
 
   /**

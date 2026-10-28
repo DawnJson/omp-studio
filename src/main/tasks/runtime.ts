@@ -108,7 +108,7 @@ function createPool(): Promise<TaskPool> {
     worktrees: worktreeOps,
     beforeTaskClose: closeTaskTerminal,
     forkTitle: (title) => t(resolveLocale(), "task.forkTitle", { title }),
-    knownModel: (key) => startupCache().model(key),
+    knownModels: () => startupCache().models(),
     listModels: () => listModelOptions(),
     newTaskDefaults: async (project) => {
       // 缓存优先：草稿页刚读过这个项目的默认值（getModelDefaults 会记进启动缓存），不再多跑一次 `omp config list`。

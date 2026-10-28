@@ -707,6 +707,19 @@ describe("TSP 任务：输入框状态、切模型、提问时的发送", () => 
     expect(state.thinkingLevels).toEqual(["off", "low", "medium", "high"]);
   }, 60_000);
 
+  it("服务进程的模型目录还没读到时，按启动缓存里上次的目录认出模型和思考档位（不是只有名字、没有档位的占位）", async () => {
+    const { promise: listed, resolve: finishListing } = Promise.withResolvers<ModelOption[]>();
+    const h = await harness(undefined, { listModels: () => listed, knownModels: () => catalog });
+    try {
+      const created = await h.pool.createTask({ projectId: h.projectId });
+      const state = await h.events.until(created.id, (s) => s.contextUsage !== null);
+      expect(state.model).toEqual(catalog[0]);
+      expect(state.thinkingLevels).toEqual(["off", "low", "medium", "high"]);
+    } finally {
+      finishListing(catalog);
+    }
+  }, 60_000);
+
   it("setTaskModel：点模型胶囊、在选择器里 activate 那一项，omp 确认后 resolve", async () => {
     const h = await harness();
     h.next.fixture = "picker";

@@ -59,8 +59,6 @@ describe("StartupCache（startup-cache.json）", () => {
       subscriptions: { anthropic: true, openai: false },
       approvalMode: "yolo",
     });
-    expect(second.model({ provider: "anthropic", modelId: "claude-opus-5-5" })?.name).toBe("Claude Opus 5.5");
-    expect(second.model({ provider: "anthropic", modelId: "nope" })).toBeNull();
   });
 
   it("文件坏了或是别的格式版本：当成没有，不报错，下次记录照常写", async () => {
