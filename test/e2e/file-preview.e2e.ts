@@ -256,6 +256,34 @@ test("mermaid 围栏在 worker 里画成图，颜色跟主题；不支持的图�
     const light = await source();
     expect(light).toContain("读取配置");
     expect(light).not.toContain("@import");
+    // 节点底色、线条都按根标签的 --bg / --fg 混色：--bg 取不到值（token 被删掉）时整张图的方框涂成黑色、线条消失。
+    // 把图画到 canvas 上数接近黑色的像素：正常时只有文字和箭头是深色。
+    const dark = await figure.evaluate(async (element) => {
+      const img = element as unknown as { naturalWidth: number; naturalHeight: number };
+      const g = globalThis as unknown as {
+        document: {
+          createElement(tag: "canvas"): {
+            width: number;
+            height: number;
+            getContext(kind: "2d"): {
+              drawImage(image: unknown, x: number, y: number): void;
+              getImageData(x: number, y: number, w: number, h: number): { data: Uint8ClampedArray };
+            };
+          };
+        };
+      };
+      const canvas = g.document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const context = canvas.getContext("2d");
+      context.drawImage(img, 0, 0);
+      const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+      let count = 0;
+      for (let i = 0; i < data.length; i += 4)
+        if (data[i + 3]! > 200 && data[i]! < 60 && data[i + 1]! < 60 && data[i + 2]! < 60) count += 1;
+      return count / (data.length / 4);
+    });
+    expect(dark).toBeLessThan(0.03);
     await page.evaluate(() => globalThis.studio.setTheme("dark"));
     await expect.poll(source).not.toBe(light);
 

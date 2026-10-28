@@ -38,7 +38,7 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, closed }: CodeBlo
     (style: CSSStyleDeclaration) =>
       mermaidSvg === null
         ? prepareSvg(code, readPalette(style))
-        : prepareMermaidSvg(mermaidSvg, { bg: token(style, "--bg-inset"), fg: token(style, "--text") }),
+        : prepareMermaidSvg(mermaidSvg, { bg: token(style, "--bg-tool"), fg: token(style, "--text") }),
     [code, mermaidSvg],
   );
   const ready = figure && !failed && (kind === "svg" || mermaidSvg !== null);
