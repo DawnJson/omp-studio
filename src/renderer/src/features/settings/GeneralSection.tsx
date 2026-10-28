@@ -62,6 +62,7 @@ const shortcuts: { label: MessageKey; keys: string[] }[] = [
   { label: "shortcut.regions", keys: ["F6"] },
   { label: "shortcut.review", keys: ["Ctrl", "Shift", "D"] },
   { label: "shortcut.toggleFiles", keys: ["Ctrl", "Shift", "E"] },
+  { label: "shortcut.toggleBrowser", keys: ["Ctrl", "Shift", "B"] },
   { label: "shortcut.reviewFiles", keys: ["J / K"] },
   { label: "shortcut.reviewHunks", keys: ["N / P"] },
   { label: "shortcut.reviewLayout", keys: ["V"] },

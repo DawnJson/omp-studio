@@ -3,6 +3,7 @@
 import { ipcMain } from "electron";
 import { invokeChannel, type InvokeHandlers } from "../../shared/ipc.ts";
 import { accountHandlers } from "./account-handlers.ts";
+import { browserHandlers } from "./browser-handlers.ts";
 import { customModelHandlers } from "./custom-model-handlers.ts";
 import { appHandlers } from "./app-handlers.ts";
 import { fileHandlers } from "./file-handlers.ts";
@@ -50,6 +51,7 @@ const handlers: InvokeHandlers = {
   ...mcpHandlers,
   ...sessionInfoHandlers,
   ...agentsHandlers,
+  ...browserHandlers,
 };
 
 export function registerIpcHandlers(): void {

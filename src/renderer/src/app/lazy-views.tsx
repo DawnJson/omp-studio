@@ -1,4 +1,4 @@
-// 按需加载的视图（ui/lazy-view.ts，各自一个 chunk，不进入口包）：设置、评审、命令面板、子代理面板、文件预览、
+// 按需加载的视图（ui/lazy-view.ts，各自一个 chunk，不进入口包）：设置、评审、命令面板、子代理面板、浏览器面板、文件预览、
 // git 对话框、会话信息 / 分享、omp 准备页。内置终端的 xterm 在 features/terminal/TerminalPanel.tsx 里同样按需加载。
 // 挂载点（宿主）在第一次要打开时才挂上并开始加载，之后一直挂着：宿主自己管开关、放退出动画。
 import { useState } from "react";
@@ -14,6 +14,9 @@ const settingsView = lazyView(() =>
 );
 const settingsNav = lazyView(() => import("../features/settings/SettingsNav.tsx").then((module) => module.SettingsNav));
 const agentsPanel = lazyView(() => import("../features/agents/AgentsPanel.tsx").then((module) => module.AgentsPanel));
+const browserPanel = lazyView(() =>
+  import("../features/browser/BrowserPanel.tsx").then((module) => module.BrowserPanel),
+);
 const filePreviewPane = lazyView(() =>
   import("../features/file-preview/FilePreviewPane.tsx").then((module) => module.FilePreviewPane),
 );
@@ -50,6 +53,7 @@ function useLatched(on: boolean): boolean {
 export const SettingsView = settingsView.View;
 export const SettingsNav = settingsNav.View;
 export const AgentsPanel = agentsPanel.View;
+export const BrowserPanel = browserPanel.View;
 export const FilePreviewPane = filePreviewPane.View;
 
 export function ReviewHost() {

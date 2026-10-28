@@ -1,0 +1,18 @@
+/* 右栏的浏览器面板（spec §4.29）：外框沿用文件面板（.file-preview）。只用 tokens。
+   头部：后退 / 前进 / 刷新 + 地址栏（撑满）+ 关闭；下面的占位区由主进程的页面盖住。 */
+.browser-head {
+  gap: var(--space-1);
+  padding-left: var(--space-2);
+}
+
+.browser-address {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 页面没盖上来时（还在建、或被浮层挡住藏起来）露出的底 */
+.browser-view {
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-app);
+}

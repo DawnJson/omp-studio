@@ -980,6 +980,26 @@ export interface TerminalOpenResult {
   backlog: string;
 }
 
+export interface BrowserBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export const browserActions = ["back", "forward", "reload", "stop"] as const;
+export type BrowserAction = (typeof browserActions)[number];
+
+/** 任务页面的状态；还没建页面时 url 为空串。 */
+export interface BrowserState {
+  taskId: TaskId;
+  url: string;
+  title: string;
+  loading: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
+}
+
 export interface StudioInvokeApi {
   // 应用
   getAppInfo(): Promise<AppInfo>;
@@ -1070,6 +1090,13 @@ export interface StudioInvokeApi {
   closeTerminal(key: TerminalKey): Promise<void>;
   /** 草稿建出任务后把草稿的终端交给任务（同一个 shell、同一份 backlog）；草稿没有终端时返回 false。任务已有终端时不动草稿的。 */
   rekeyTerminal(from: DraftKey, to: TaskId): Promise<boolean>;
+
+  // 浏览器面板（右栏，docs/architecture/browser.md）：每个任务一个页面，也是给 omp 的 `browser` 工具用的 CDP 浏览器。
+  /** 面板占的位置（CSS 像素，相对窗口内容区左上角）；null = 不显示（面板关了、被弹窗或菜单挡住）。第一次显示时建页面。任务不存在时 reject。 */
+  placeBrowser(taskId: TaskId, bounds: BrowserBounds | null): Promise<BrowserState>;
+  /** 在任务的页面里打开地址栏里的文字：网址（没写协议补 https://，本机地址补 http://），带空格的当搜索词。只放行 http/https。 */
+  navigateBrowser(taskId: TaskId, text: string): Promise<void>;
+  browserAction(taskId: TaskId, action: BrowserAction): Promise<void>;
 
   // 会话历史
   /** projectId 为 null 时列出所有项目的会话。只读 ~/.omp。 */
@@ -1472,6 +1499,10 @@ export interface StudioEventPayloads {
   terminalData: { key: TerminalKey; data: string };
   /** 终端里的 shell 自己退出了（主动 closeTerminal 不发这个事件）。 */
   terminalExit: { key: TerminalKey; exitCode: number };
+  /** 浏览器面板的页面状态变了（地址、标题、加载中、能否前进后退）。 */
+  browserState: BrowserState;
+  /** omp 连上了这个任务的浏览器（AI 开始用它）：当前任务是它时，渲染进程打开浏览器面板。 */
+  browserConnected: TaskId;
   /** omp-studio 自身的更新状态变化。 */
   updateState: UpdateState;
 }
@@ -1607,6 +1638,9 @@ export const invokeNames = {
   resizeTerminal: true,
   closeTerminal: true,
   rekeyTerminal: true,
+  placeBrowser: true,
+  navigateBrowser: true,
+  browserAction: true,
   askBtw: true,
   cancelBtw: true,
   getBtw: true,
@@ -1733,4 +1767,6 @@ export const eventNames = {
   updateState: true,
   terminalData: true,
   terminalExit: true,
+  browserState: true,
+  browserConnected: true,
 } satisfies Record<keyof StudioEventPayloads, true>;

@@ -23,6 +23,7 @@ export const shortcut = {
   reviewLayout: "Review: unified / side by side",
   toggleTerminal: "Terminal: open / focus / return",
   toggleFiles: "File panel: open / close",
+  toggleBrowser: "Browser: open / close",
   ompThinkingCycle: "Cycle thinking level",
   ompThinkingToggle: "Toggle thinking mode",
   ompModelForward: "Cycle to next model",

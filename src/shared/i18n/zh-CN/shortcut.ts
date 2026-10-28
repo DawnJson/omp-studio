@@ -22,6 +22,7 @@ export const shortcut = {
   reviewLayout: "评审：切换统一 / 并排",
   toggleTerminal: "终端：打开 / 聚焦 / 回到输入框",
   toggleFiles: "文件面板：打开 / 关闭",
+  toggleBrowser: "浏览器：打开 / 关闭",
   // omp 自己的键（设置 → 通用 → omp 快捷键）：作用文字照 omp 的英文描述中文化。
   ompThinkingCycle: "切换思考强度",
   ompThinkingToggle: "显示 / 隐藏思考块",

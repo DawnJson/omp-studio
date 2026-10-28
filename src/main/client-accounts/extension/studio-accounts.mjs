@@ -7,9 +7,11 @@
 // 每个插件模块里的 `*Plugin` 导出都试一遍：provider id、名字、模型、传输都从插件自己的声明里读；
 // 登录方式只有"要打字输入"或"读别的应用的登录"的 provider 会被跳过（见 adapter.mjs 的 pickSignInMethod）。
 //
-// 另外给 Tavily 搜索装上备用 key（tavily-keys.mjs）：key 用完时同一个请求换下一个重发，并把 agent 目录 `.env` 里的 key 换掉。
+// 另外给 Tavily 搜索装上备用 key（tavily-keys.mjs）：key 用完时同一个请求换下一个重发，并把 agent 目录 `.env` 里的 key 换掉；
+// studio 起的进程把 `browser` 工具指到右栏的浏览器面板（studio-browser.mjs）。
 import { fileURLToPath } from "node:url";
 import { registerPluginProviders } from "./shim.mjs";
+import { pointBrowserToStudio } from "./studio-browser.mjs";
 import { installTavilyBackupKeys } from "./tavily-keys.mjs";
 import * as autoclaw from "./vendor/autoclaw/index.mjs";
 import * as codearts from "./vendor/codearts/index.mjs";
@@ -29,6 +31,7 @@ import * as zed from "./vendor/zed/index.mjs";
 import * as zenFree from "./vendor/zen-free/index.mjs";
 
 export default async function studioAccounts(pi) {
+  pointBrowserToStudio(pi);
   installTavilyBackupKeys(
     fileURLToPath(new URL("./tavily-keys.json", import.meta.url)),
     // 扩展在 <agent 目录>/extensions/studio-accounts/ 下。

@@ -12,6 +12,7 @@ import { NoticeLayer } from "../features/dialogs/index.ts";
 import { DropOverlay, EmptyState, startDraft } from "../features/empty/index.ts";
 import { toggleFilesPanel, usePreviewPanel } from "../features/file-preview/index.ts";
 import { closeAgentsPanel, useAgentsPanel } from "../features/agents/index.ts";
+import { closeBrowserPanel, openBrowserPanel, toggleBrowserPanel, useBrowserPanel } from "../features/browser/index.ts";
 import {
   TerminalPanel,
   toggleTerminalFocus,
@@ -21,6 +22,7 @@ import {
 } from "../features/terminal/index.ts";
 import {
   AgentsPanel,
+  BrowserPanel,
   CommandPalette,
   FilePreviewPane,
   GitDialogHost,
@@ -124,10 +126,25 @@ export function App() {
   const terminalOpen = useTerminalOpen(terminalKey);
   const panel = usePreviewPanel();
   const agentsPanel = useAgentsPanel();
-  // 子代理面板和文件面板共用右栏：文件面板一打开就收起子代理面板（反过来由 openAgentsPanel 关文件面板）。
+  const browserPanel = useBrowserPanel();
+  // 子代理、浏览器、文件三个面板共用右栏，同时只开一个：文件面板一打开就收起另外两个，子代理面板打开时收起浏览器
+  // （openAgentsPanel 关文件面板，openBrowserPanel 关另外两个）。
   useEffect(() => {
-    if (panel !== null) closeAgentsPanel(false);
+    if (panel === null) return;
+    closeAgentsPanel(false);
+    closeBrowserPanel(false);
   }, [panel]);
+  useEffect(() => {
+    if (agentsPanel !== null) closeBrowserPanel(false);
+  }, [agentsPanel]);
+  // omp 连上了当前任务的浏览器（AI 开始用它）：打开面板，不抢焦点。
+  useEffect(
+    () =>
+      window.studio.onBrowserConnected((id) => {
+        if (id === taskId && view === "conversation") openBrowserPanel(id, false);
+      }),
+    [taskId, view],
+  );
   useDraftTerminalCleanup(draftKey);
   const sidebarWidth = useShellValue("sidebarWidth");
   const sidebarCollapsed = useShellValue("sidebarCollapsed");
@@ -310,6 +327,9 @@ export function App() {
     toggleFilesPanel: () => {
       if (view === "conversation") toggleFilesPanel(terminalKey);
     },
+    toggleBrowserPanel: () => {
+      if (taskId !== null && view === "conversation") toggleBrowserPanel(taskId);
+    },
     restartSession: () => {
       const current = taskId === null ? null : getTask(taskId);
       if (current !== null && view === "conversation") void restartSession(t, current);
@@ -376,12 +396,15 @@ export function App() {
             </>
           )}
         </main>
-        {/* 右栏两个面板是兄弟，key 都要带前缀：同一个任务 id 当 key 时，从子代理面板换到文件面板的那一帧两者都在，React 会把文件面板画成两份。 */}
+        {/* 右栏三个面板是兄弟，key 都要带前缀：同一个任务 id 当 key 时，从子代理面板换到文件面板的那一帧两者都在，React 会把文件面板画成两份。 */}
         {view === "conversation" && panel?.key === terminalKey && (
           <FilePreviewPane key={`files:${panel.key}`} panelKey={panel.key} page={panel.page} path={panel.path} />
         )}
         {view === "conversation" && taskId !== null && agentsPanel?.taskId === taskId && (
           <AgentsPanel key={`agents:${taskId}`} taskId={taskId} selected={agentsPanel.selected} />
+        )}
+        {view === "conversation" && taskId !== null && browserPanel === taskId && (
+          <BrowserPanel key={`browser:${taskId}`} taskId={taskId} />
         )}
       </div>
       {aboutKey !== null && <AboutDialog key={aboutKey} onExited={() => about.closed(aboutKey)} />}

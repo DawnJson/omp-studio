@@ -166,6 +166,23 @@ export const Folder = (props: IconProps) => (
     <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z" />
   </Icon>
 );
+/** 浏览器面板：地球 */
+export const Globe = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="8" cy="8" r="5.5" />
+    <path d="M2.5 8h11M8 2.5c1.6 1.6 2.3 3.4 2.3 5.5S9.6 11.900 8 13.500M8 2.5C6.400 4.100 5.700 5.900 5.700 8s.7 3.900 2.300 5.500" />
+  </Icon>
+);
+export const ArrowLeft = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M13 8H3M7 4 3 8l4 4" />
+  </Icon>
+);
+export const ArrowRight = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M3 8h10M9 4l4 4-4 4" />
+  </Icon>
+);
 /** 会话开关：两根推杆 */
 export const Sliders = (props: IconProps) => (
   <Icon {...props}>

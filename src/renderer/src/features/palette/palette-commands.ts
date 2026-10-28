@@ -12,6 +12,7 @@ import { toggleTerminal } from "../terminal/index.ts";
 import { exportConversationReporting } from "../composer/export-html.ts";
 import { openSessionTree } from "../conversation/session-tree-store.ts";
 import { toggleAgentsPanel } from "../agents/agents-store.ts";
+import { toggleBrowserPanel } from "../browser/browser-store.ts";
 import { openBtw } from "../btw/index.ts";
 import { goalButtons } from "../goal/goal-model.ts";
 import { runGoalOp } from "../goal/goal-actions.ts";
@@ -95,6 +96,12 @@ export function buildCommands({ t, locale, theme, current, terminalKey, hasWaiti
     current && { id: "sessionTree", label: t("cmd.sessionTree"), run: () => openSessionTree(current.id) },
     // 子代理面板（右栏）。
     current && { id: "agents", label: t("agents.cmd"), run: () => toggleAgentsPanel(current.id) },
+    current && {
+      id: "browser",
+      label: t("browser.toggle"),
+      shortcut: "Ctrl Shift B",
+      run: () => toggleBrowserPanel(current.id),
+    },
     current && {
       id: "exportHtml",
       label: t("cmd.exportHtml"),

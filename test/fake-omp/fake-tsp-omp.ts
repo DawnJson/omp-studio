@@ -9,7 +9,7 @@
 //   --log：把收到的每条 TSP 消息、按键原样追加成 JSONL（{kind:"tsp", verb, body} / {kind:"keys", data}），测试据此断言 omp 收到了什么。
 //   --exit-after-end：回放完立刻以 0 退出（默认继续活着，和真实 omp 一样等输入）。
 // 环境变量：FAKE_TSP_SESSION_FILE（回放开始时发 OSC 1337 SetUserVar=omp_session_file）、FAKE_TSP_TITLE（OSC 0）、
-// FAKE_OMP_CWD_FILE / FAKE_OMP_PID_FILE（同 fake-omp.ts，e2e 用）。
+// FAKE_OMP_CWD_FILE / FAKE_OMP_PID_FILE（同 fake-omp.ts，e2e 用）、FAKE_OMP_BROWSER_FILE（记下浏览器面板的 CDP 地址）。
 // 必须跑在伪终端里（TspSession 总是 node-pty）：往 stdout 写 APC，从 stdin 读终端发来的事件。
 //
 // 行为：写 hello 查询和 DA1 → 收到 hello 回复后才开始回放 → 按录制的时间间隔写 `out` 消息 → 录制里的 `in`（ack 除外）
@@ -52,6 +52,9 @@ const fixturePath = /[\\/]|\.jsonl$/.test(fixtureArg)
 
 if (process.env["FAKE_OMP_CWD_FILE"]) appendFileSync(process.env["FAKE_OMP_CWD_FILE"], `${process.cwd()}\n`);
 if (process.env["FAKE_OMP_PID_FILE"]) appendFileSync(process.env["FAKE_OMP_PID_FILE"], `${process.pid}\n`);
+// e2e 用：把 studio 给的浏览器面板 CDP 地址（STUDIO_BROWSER_CDP）写进这个文件，测试当 omp 连上去。
+if (process.env["FAKE_OMP_BROWSER_FILE"])
+  appendFileSync(process.env["FAKE_OMP_BROWSER_FILE"], `${process.env["STUDIO_BROWSER_CDP"] ?? ""}\n`);
 
 const entries: Entry[] = readFileSync(fixturePath, "utf8")
   .split("\n")

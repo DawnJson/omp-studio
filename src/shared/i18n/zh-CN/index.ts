@@ -49,6 +49,7 @@ import { toggles } from "./toggles.ts";
 import { integrations } from "./integrations.ts";
 import { sessionInfo } from "./session-info.ts";
 import { agents } from "./agents.ts";
+import { browser } from "./browser.ts";
 import { board } from "./board.ts";
 import { modes } from "./modes.ts";
 
@@ -104,6 +105,7 @@ export const zhCN = {
   integrations,
   sessionInfo,
   agents,
+  browser,
   board,
   modes,
 };

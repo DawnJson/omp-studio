@@ -29,6 +29,8 @@ export interface ShortcutActions {
   openReview(): void;
   /** Ctrl Shift E：打开 / 关闭当前任务（或有项目的草稿）的文件面板。 */
   toggleFilesPanel(): void;
+  /** Ctrl Shift B：打开 / 关闭当前任务的浏览器面板。 */
+  toggleBrowserPanel(): void;
   /** Ctrl Shift R：重开当前任务的会话（restart-session.ts）。 */
   restartSession(): void;
   /** Ctrl `：终端 打开 / 聚焦 / 收起并回到输入框。 */
@@ -69,6 +71,7 @@ export function useShortcuts(actions: ShortcutActions): void {
               d: act.openReview,
               o: act.openFolder,
               e: act.toggleFilesPanel,
+              b: act.toggleBrowserPanel,
               r: act.restartSession,
             }
           : {

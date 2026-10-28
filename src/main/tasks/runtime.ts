@@ -21,6 +21,7 @@ import { parseTestOmpOverride } from "../omp/launch-args.ts";
 import type { OmpConnection } from "../omp/omp-connection.ts";
 import { getOmpExecutable } from "../omp-manager/index.ts";
 import { closeTaskTerminal } from "../terminal/active.ts";
+import { closeTaskBrowser, getBrowserManager } from "../browser/runtime.ts";
 import { startupCache } from "../service/startup-cache-instance.ts";
 import { log } from "../log/log.ts";
 import { listModelOptions, readDefaultModel } from "../service/default-model.ts";
@@ -124,18 +125,23 @@ function createPool(): Promise<TaskPool> {
     },
     exportSession: exportSessionHtml,
     tsp: {
-      buildLaunch: (record, project) => {
+      buildLaunch: async (record, project) => {
         // worktree 任务以 worktree 根为 cwd（omp 会话绑 cwd，只能在 spawn 时定）；omp 里 `/move` 过的任务从新目录恢复（会话文件已搬过去，OSC 7）。
         const cwd = record.cwd ?? record.worktreePath ?? project.path;
-        return buildTspLaunch({
-          cwd,
-          model: record.model,
-          thinkingLevel: record.thinkingLevel,
-          // 项目目录就是用户主目录时 omp 会自动换到临时目录（cli-reference.md --allow-home）。
-          allowHome: pathKey(cwd) === pathKey(os.homedir()),
-          resumeSessionFile: record.sessionFile,
-          forkSessionFile: record.forkFrom ?? null,
-        });
+        const [launch, browserCdp] = await Promise.all([
+          buildTspLaunch({
+            cwd,
+            model: record.model,
+            thinkingLevel: record.thinkingLevel,
+            // 项目目录就是用户主目录时 omp 会自动换到临时目录（cli-reference.md --allow-home）。
+            allowHome: pathKey(cwd) === pathKey(os.homedir()),
+            resumeSessionFile: record.sessionFile,
+            forkSessionFile: record.forkFrom ?? null,
+          }),
+          getBrowserManager().endpoint(record.id),
+        ]);
+        // 浏览器面板的 CDP 口：内置插件读到它就把这个进程的 `browser.cdpUrl` 指过来（docs/architecture/browser.md）。
+        return { ...launch, env: { ...launch.env, STUDIO_BROWSER_CDP: browserCdp } };
       },
       session: {
         appVersion: app.getVersion(),
@@ -156,6 +162,9 @@ function createPool(): Promise<TaskPool> {
       taskRemoved: (id) => {
         forgetExport(id);
         notifier.forget(id);
+        void closeTaskBrowser(id).catch((error: unknown) => {
+          log.warn(`close browser of ${id} failed`, { error: error instanceof Error ? error.message : String(error) });
+        });
         void forgetDraft(id).catch((error: unknown) => {
           log.warn(`forget draft of ${id} failed`, { error: error instanceof Error ? error.message : String(error) });
         });
