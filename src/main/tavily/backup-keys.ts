@@ -1,10 +1,11 @@
-// Tavily 备用 key：设置页存的几个 key 放在 studio 的 userData（tavily-keys.json，不进 omp 目录）。
-// studio 启动时、存了备用 key 后、之后每 30 分钟查一次 omp 当前用的 Tavily key 还有没有额度（key-credits.ts），
-// 用完了就换成第一个还有额度的备用 key，走和设置页"设置 API key"同一条路（save-api-key.ts）。之后起的 omp 进程用新 key。
+// Tavily 备用 key，第二层：设置页存的几个 key 放在 studio 内置扩展的目录里（tavily-keys.json，不在部署清单里，重新部署不删），
+// 第一层是扩展在 omp 进程里请求失败时当场换 key 重发（client-accounts/extension/tavily-keys.mjs，读同一个文件）。
+// 这一层在 studio 启动时、存了备用 key 后、之后每 30 分钟查一次 omp 存的 Tavily key 还有没有额度（key-credits.ts），
+// 用完了就换成第一个还有额度的备用 key，走和设置页"设置 API key"同一条路（save-api-key.ts）：新起的 omp 进程一开始就用好 key，不必先撞一次。
 // 见 docs/architecture/login.md「Tavily 备用 key」。key 只进不出：界面只拿到个数，日志只写第几个。
 import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { app } from "electron";
+import { ACCOUNT_EXTENSION_DIR } from "../client-accounts/deploy.ts";
 import { providerKeyEnv } from "../../shared/provider-keys.ts";
 import { resolveAgentDir } from "../history/session-index.ts";
 import { log } from "../log/log.ts";
@@ -19,7 +20,7 @@ import { fetchCredits, pickReplacement } from "./key-credits.ts";
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const TOKEN_TIMEOUT_MS = 30_000;
 
-const keysFile = () => path.join(app.getPath("userData"), "tavily-keys.json");
+const keysFile = () => path.join(resolveAgentDir(), "extensions", ACCOUNT_EXTENSION_DIR, "tavily-keys.json");
 
 export async function readBackupKeys(): Promise<string[]> {
   let text: string;

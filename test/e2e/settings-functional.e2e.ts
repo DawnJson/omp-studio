@@ -204,11 +204,11 @@ test("设置 API key：key 的变量写在 agent 目录 .env 里时改那一行�
     );
     await expectNoOverflow(flow);
     await flow.getByRole("textbox", { name: "API key", exact: true }).fill("  tvly-new  ");
-    // 备用 key：每行一个（重复的只存一次），和 key 一起保存；不进 .env 也不进凭据库，存在 studio 的 userData。
+    // 备用 key：每行一个（重复的只存一次），和 key 一起保存；不进 .env 也不进凭据库，写在 studio 内置扩展旁边。
     await flow.getByTestId("provider-backup-keys").fill("tvly-b1\ntvly-b2  tvly-b1\n");
     await page.getByTestId("provider-key-save").click();
     await expect(flow).toHaveCount(0);
-    const backupFile = path.join(launched.userDataDir, "tavily-keys.json");
+    const backupFile = path.join(agentDir, "extensions", "studio-accounts", "tavily-keys.json");
     expect(JSON.parse(await readFile(backupFile, "utf8"))).toEqual(["tvly-b1", "tvly-b2"]);
 
     expect(await readFile(path.join(agentDir, ".env"), "utf8")).toBe("# 搜索\nTAVILY_API_KEY=tvly-new\nOTHER=1\n");

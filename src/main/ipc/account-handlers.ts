@@ -2,7 +2,7 @@
 // 除 API key 和非对话模型外都走服务进程（src/main/service/）；非对话模型跑一次 `omp models --kind all --json`（rpc 没有这个命令）。
 // API key 经 `omp auth import` 存进 omp 的凭据库；omp 实际取 key 的那个变量已写在 agent 目录 `.env` 里时改那一行（omp 优先用 `.env`；login/save-api-key.ts）。
 // 清除就是 logout 那条 api_key 凭据。key 只进不出：返回值、事件、日志里都没有 key。
-// Tavily 的备用 key（额度用完时 studio 换上，tavily/backup-keys.ts）存在 studio 的 userData，不进 omp 的凭据库。
+// Tavily 的备用 key 存在 studio 内置扩展的目录里，不进 omp 的凭据库（tavily/backup-keys.ts）。
 import { limits, type HandlerGroup } from "../../shared/ipc.ts";
 import { parseRunnerModels } from "../../shared/omp-output/models.ts";
 import { keyEnvProviderIds, providerKeyEnv, type ProviderKeyEnv } from "../../shared/provider-keys.ts";
@@ -99,7 +99,7 @@ export const accountHandlers: HandlerGroup<
     }
     return result;
   },
-  // 备用 key 存在 studio 自己这里（tavily/backup-keys.ts），不进 omp；存完马上查一次，当前 key 已经用完的话立刻换。
+  // 备用 key 写进扩展目录（tavily/backup-keys.ts），正在跑的 omp 下次要换 key 时就读到；存完马上查一次，存的 key 已经用完的话立刻换。
   setTavilyBackupKeys: async (keys) => {
     const text = parseString(keys, "keys", limits.apiKeyMaxChars, { allowEmpty: true });
     const unique = [...new Set(text.split(/\s+/).filter((key) => key !== ""))];

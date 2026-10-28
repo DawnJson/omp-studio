@@ -1,6 +1,100 @@
-// Tavily 备用 key 的判断（src/main/tavily/key-credits.ts）：`GET /usage` 的回复怎么算用完，当前 key 用完时换哪一个。
+// Tavily 备用 key 的两层：主进程定时换 omp 存的 key（src/main/tavily/key-credits.ts：`GET /usage` 怎么算用完、换哪一个），
+// 扩展在 omp 进程里请求失败时当场换 key 重发（src/main/client-accounts/extension/tavily-keys.mjs）。
+// 真 omp 里两层的实测见 docs/architecture/login.md「Tavily 备用 key」。
 import { describe, expect, it } from "vitest";
+import { withBackupKeys } from "../src/main/client-accounts/extension/tavily-keys.mjs";
 import { creditsFromUsage, fetchCredits, pickReplacement, type Credits } from "../src/main/tavily/key-credits.ts";
+
+const SEARCH = "https://api.tavily.com/search";
+
+/** 假 Tavily：每个 key 回什么状态（没列的回 200）；记下每次请求用的 key 和请求体。 */
+function fakeTavily(statuses: Record<string, number>) {
+  const used: string[] = [];
+  const bodies: unknown[] = [];
+  const fetchImpl = async (input: unknown, init?: RequestInit) => {
+    const request = input instanceof Request ? input : null;
+    const headers = request?.headers ?? new Headers(init?.headers);
+    const key = headers.get("authorization")?.replace(/^Bearer /, "") ?? "";
+    used.push(key);
+    bodies.push(request ? await request.text() : init?.body);
+    return new Response("{}", { status: statuses[key] ?? 200 });
+  };
+  return { fetchImpl, used, bodies };
+}
+
+const post = (key: string) => ({
+  method: "POST",
+  headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+  body: '{"query":"q"}',
+});
+
+describe("请求失败时当场换 key（扩展）", () => {
+  it("当前 key 用完（432）：同一个请求按顺序换第一个能用的备用 key 重发，请求体不变，omp 拿到正常结果", async () => {
+    const tavily = fakeTavily({ k0: 432, b1: 433 });
+    const fetch = withBackupKeys(tavily.fetchImpl, () => ["b1", "b2", "b3"]);
+
+    const response = await fetch(SEARCH, post("k0"));
+
+    expect(response.status).toBe(200);
+    expect(tavily.used).toEqual(["k0", "b1", "b2"]);
+    expect(tavily.bodies).toEqual(Array(3).fill('{"query":"q"}'));
+  });
+
+  it("换过之后 omp 还拿用完的 key 来：直接用换上的那个，不再先撞一次", async () => {
+    const tavily = fakeTavily({ k0: 432 });
+    const fetch = withBackupKeys(tavily.fetchImpl, () => ["b1"]);
+    await fetch(SEARCH, post("k0"));
+    tavily.used.length = 0;
+
+    await fetch(SEARCH, post("k0"));
+
+    expect(tavily.used).toEqual(["b1"]);
+  });
+
+  it("无效 key（401）也换；被限流（429）这次换别的 key，之后照旧先用它", async () => {
+    const invalid = fakeTavily({ k0: 401 });
+    expect((await withBackupKeys(invalid.fetchImpl, () => ["b1"])(SEARCH, post("k0"))).status).toBe(200);
+    expect(invalid.used).toEqual(["k0", "b1"]);
+
+    const statuses: Record<string, number> = { k0: 429 };
+    const limited = fakeTavily(statuses);
+    const fetch = withBackupKeys(limited.fetchImpl, () => ["b1"]);
+    expect((await fetch(SEARCH, post("k0"))).status).toBe(200);
+    delete statuses["k0"];
+    await fetch(SEARCH, post("k0"));
+    expect(limited.used).toEqual(["k0", "b1", "k0"]);
+  });
+
+  it("URL 对象和 Request 形式的请求同样换 key 重发", async () => {
+    const tavily = fakeTavily({ k0: 432 });
+    const fetch = withBackupKeys(tavily.fetchImpl, () => ["b1"]);
+
+    expect((await fetch(new URL(SEARCH), post("k0"))).status).toBe(200);
+    expect((await fetch(new Request(SEARCH, post("k0")))).status).toBe(200);
+    expect(tavily.used).toEqual(["k0", "b1", "b1"]);
+    expect(tavily.bodies.at(-1)).toBe('{"query":"q"}');
+  });
+
+  it("全都用完：每个 key 只试一次，把最后的错误原样交给 omp", async () => {
+    const tavily = fakeTavily({ k0: 432, b1: 432, b2: 429 });
+    const fetch = withBackupKeys(tavily.fetchImpl, () => ["b1", "b2", "k0"]);
+
+    const response = await fetch(SEARCH, post("k0"));
+
+    expect(response.status).toBe(429);
+    expect(tavily.used).toEqual(["k0", "b1", "b2"]);
+  });
+
+  it("没出错、不是发给 Tavily 的请求：原样转发，不读备用 key", async () => {
+    const tavily = fakeTavily({ k0: 432 });
+    const fetch = withBackupKeys(tavily.fetchImpl, () => {
+      throw new Error("should not read the backup keys");
+    });
+
+    expect((await fetch(SEARCH, post("k1"))).status).toBe(200);
+    expect((await fetch("https://example.com/search", post("k0"))).status).toBe(432);
+  });
+});
 
 describe("额度算没算用完", () => {
   it("套餐用满：用完；还有按量付费额度：没用完", () => {

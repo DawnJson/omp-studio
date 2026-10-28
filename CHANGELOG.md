@@ -12,7 +12,7 @@ omp-studio 每个版本的变化，写给用户看。版本号按 [SemVer](https
 
 ### 新增
 
-- Tavily 可以存多个备用 key（设置 → 提供商 → Tavily → 设置 API key，每行一个）：studio 每 30 分钟查一次当前 key 的额度，用完就换成下一个还有额度的 key，之后新开的任务用新 key。
+- Tavily 可以存多个备用 key（设置 → 提供商 → Tavily → 设置 API key，每行一个）：当前 key 额度用完时，搜索当场换下一个 key 重发，模型看不到报错，正在跑的任务也一样；studio 还会每 30 分钟把 omp 存的 key 换成还有额度的。
 
 ## [0.4.35] - 2026-10-27
 

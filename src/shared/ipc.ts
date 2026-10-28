@@ -1215,8 +1215,8 @@ export interface StudioInvokeApi {
   apiKeyEnvSources(): Promise<Record<string, ProviderKeyEnv>>;
   /**
    * Tavily 备用 key：`keys` 是界面里粘贴的文字，按空白和换行拆成一个个 key，整体换掉已存的；空串清空。
-   * 存在 studio 的 userData（`tavily-keys.json`，不进 omp）。主进程启动时、存完时、之后每 30 分钟用 Tavily 的 `GET /usage` 查 omp 当前用的 key，
-   * 用完了就换成第一个还有额度的备用 key（和 saveApiKey 同一条路），之后起的 omp 进程用新 key。key 只进不出：返回存了几个。
+   * 存在 studio 内置扩展的目录里（`tavily-keys.json`）：扩展在 omp 的 Tavily 请求遇到 key 用完时当场换下一个重发（正在跑的任务也一样）；
+   * 主进程另外在启动时、存完时、之后每 30 分钟把 omp 存的 key 换成有额度的（和 saveApiKey 同一条路）。key 只进不出：返回存了几个。
    */
   setTavilyBackupKeys(keys: string): Promise<number>;
   /** 存了几个 Tavily 备用 key。 */
