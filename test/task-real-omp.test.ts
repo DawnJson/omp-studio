@@ -48,6 +48,7 @@ describe.skipIf(!enabled)("真实 omp", () => {
         locale: "en",
         theme: "system",
         maxLiveProcesses: 6,
+        idleClose: "1h",
         reduceMotion: false,
         enterWhileRunning: "steer",
         soundOnDone: false,

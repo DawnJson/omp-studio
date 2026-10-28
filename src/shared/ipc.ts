@@ -206,6 +206,8 @@ export interface StudioSettings {
   theme: ThemePreference;
   /** 同时存活的 omp 进程软上限；超过时回收最久未用的空闲任务。 */
   maxLiveProcesses: number;
+  /** 空闲多久关掉任务的 omp 进程（再打开时 `--resume` 接回同一个会话）；`never` 不按时间关。标了"保持运行"的任务不受它影响。 */
+  idleClose: IdleClose;
   /** 减少动效：只能强制开启，系统要求减少动效时始终生效。 */
   reduceMotion: boolean;
   /** 运行中按 Enter：插话（steer）还是稍后（followUp）。 */
@@ -219,6 +221,9 @@ export interface StudioSettings {
   /** 用户确认过"全自动"。 */
   yoloConfirmed: boolean;
 }
+
+/** 空闲任务关闭进程前等多久（StudioSettings.idleClose）。 */
+export type IdleClose = "15m" | "1h" | "4h" | "never";
 
 // ───────── 项目 ─────────
 
@@ -388,6 +393,8 @@ export interface TaskState {
   composerMode: TaskMode | null;
   /** 扩展 `ctx.ui.setStatus` 写的状态文字，按 omp 给的顺序；输入框卡片被换掉时沿用上一次的值。 */
   extStatuses: readonly string[];
+  /** 保持运行（setTaskKeepAlive）：空闲时不关进程。 */
+  keepAlive: boolean;
 }
 
 /** omp 的自动压缩（上下文圆环上的刻度和构成浮层里的说明）。百分数都是占上下文窗口的比例（0–100）。 */
@@ -1040,6 +1047,8 @@ export interface StudioInvokeApi {
   /** 停止：撤回排队消息并中止当前一轮。 */
   stopTask(taskId: TaskId): Promise<RestoredQueue>;
   renameTask(taskId: TaskId, title: string): Promise<void>;
+  /** 保持运行：空闲多久都不关这个任务的 omp 进程，进程数到上限时也不先关它。存进任务记录，重启应用后照旧。 */
+  setTaskKeepAlive(taskId: TaskId, on: boolean): Promise<void>;
   /** 关掉进程并从侧栏移除；会话文件不动。 */
   archiveTask(taskId: TaskId): Promise<void>;
   listTaskModels(taskId: TaskId): Promise<ModelOption[]>;
@@ -1340,6 +1349,7 @@ export interface StudioInvokeApi {
   saveMcpServerFile(input: McpEditInput, projectId: ProjectId | null): Promise<McpEditOutcome<null>>;
   setReduceMotion(on: boolean): Promise<void>;
   setEnterWhileRunning(mode: "steer" | "followUp"): Promise<void>;
+  setIdleClose(value: IdleClose): Promise<void>;
   setSoundOnDone(on: boolean): Promise<void>;
   setCopyOnSelect(on: boolean): Promise<void>;
   /** 记下用户已经确认过"全自动"，之后选它不再弹确认。 */
@@ -1545,6 +1555,7 @@ export const invokeNames = {
   sendPrompt: true,
   stopTask: true,
   renameTask: true,
+  setTaskKeepAlive: true,
   archiveTask: true,
   listTaskModels: true,
   setTaskModel: true,
@@ -1654,6 +1665,7 @@ export const invokeNames = {
   saveMcpServerFile: true,
   setReduceMotion: true,
   setEnterWhileRunning: true,
+  setIdleClose: true,
   setSoundOnDone: true,
   setCopyOnSelect: true,
   setYoloConfirmed: true,

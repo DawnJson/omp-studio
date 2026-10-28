@@ -4,6 +4,7 @@ import type { IpcMainInvokeEvent } from "electron";
 import {
   fontSizeSteps,
   limits,
+  type IdleClose,
   type LocalePreference,
   type ModelKey,
   type PromptImage,
@@ -122,6 +123,10 @@ export function parseThinkingLevel(value: unknown): ThinkingLevel {
 export function parseMaxLiveProcesses(value: unknown): number {
   const [min, max] = limits.maxLiveProcessesRange;
   return parseInteger(value, "maxLiveProcesses", min, max);
+}
+
+export function parseIdleClose(value: unknown): IdleClose {
+  return parseOneOf(value, "idleClose", ["15m", "1h", "4h", "never"]);
 }
 
 export function parseModelKey(value: unknown): ModelKey {

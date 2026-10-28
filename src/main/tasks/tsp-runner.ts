@@ -392,6 +392,10 @@ export class TspRunner {
     return this.#lastActiveAt;
   }
 
+  get keepAlive(): boolean {
+    return this.#record.keepAlive === true;
+  }
+
   /** 可回收：idle、没有等待、没有还在跑的工具或子代理（转到后台的任务）。前台任务由池排除。 */
   get recyclable(): boolean {
     const session = this.#session;
@@ -456,6 +460,7 @@ export class TspRunner {
       contextCompaction: this.#composerState.contextCompaction,
       composerMode: this.#factsTracker.mode,
       extStatuses: this.#factsTracker.extStatuses,
+      keepAlive: this.keepAlive,
     };
   }
 
@@ -839,6 +844,11 @@ export class TspRunner {
 
   async setArchived(archived: boolean): Promise<void> {
     this.#record = await this.#host.persist(this.id, { archived });
+  }
+
+  async setKeepAlive(keepAlive: boolean): Promise<void> {
+    this.#record = await this.#host.persist(this.id, { keepAlive });
+    this.#publish();
   }
 
   // ───── 会话文件、标题 ─────

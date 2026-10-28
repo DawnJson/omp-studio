@@ -56,6 +56,7 @@ function makeTask(
     goal: null,
     sessionToggles: emptySessionToggles(),
     workspaceDirs: [],
+    keepAlive: false,
     restartable: false,
     loaderText: null,
     prNumber: null,

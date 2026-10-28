@@ -121,6 +121,7 @@ function makeTask(status: TaskState["status"]): TaskState {
     goal: null,
     sessionToggles: emptySessionToggles(),
     workspaceDirs: [],
+    keepAlive: false,
     restartable: false,
     loaderText: null,
     prNumber: null,

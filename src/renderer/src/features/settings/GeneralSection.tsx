@@ -1,7 +1,13 @@
 // 设置 → 通用：外观（两两一行：语言、主题、字号；减少动效、选中即复制）；通知与回顾（omp 的 ask / completion / error 通知、空闲回顾 + studio 的完成提示音）；
-// 任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式，两两一行）；快捷键（只读，三列；studio 的键，加转发给 omp 的键）。格子排法见 settings.css 的 .st-cells。
+// 任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式，两两一行）；空闲任务多久关进程；快捷键（只读，三列；studio 的键，加转发给 omp 的键）。格子排法见 settings.css 的 .st-cells。
 import { Fragment, useEffect } from "react";
-import { defaultFontSize, fontSizeSteps, type LocalePreference, type ThemePreference } from "../../../../shared/ipc.ts";
+import {
+  defaultFontSize,
+  fontSizeSteps,
+  type IdleClose,
+  type LocalePreference,
+  type ThemePreference,
+} from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { chordKeys } from "../../../../shared/tsp/omp-keybindings.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -87,6 +93,10 @@ export function GeneralSection() {
     { value: "steer", label: t("settings.enterBehavior.steer") },
     { value: "followUp", label: t("settings.enterBehavior.later") },
   ] as const;
+  const idleCloseOptions = (["15m", "1h", "4h", "never"] as const).map((value) => ({
+    value,
+    label: t(`settings.idleClose.${value}`),
+  }));
 
   return (
     <>
@@ -186,6 +196,21 @@ export function GeneralSection() {
         {whileRunning.map((item) => (
           <ConfigRow key={item.key} item={item} />
         ))}
+      </div>
+      <SectionHead title={t("settings.idleTasks")} />
+      <div className="st-cells">
+        <Row label={t("settings.idleClose")} info={t("settings.idleClose.desc")}>
+          {(labelId) => (
+            <Select<IdleClose>
+              size="sm"
+              value={settings?.idleClose ?? "1h"}
+              options={idleCloseOptions}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setIdleClose(next)}
+              testId="setting-idle-close"
+            />
+          )}
+        </Row>
       </div>
       <section id="settings-shortcuts" tabIndex={-1} className="st-section">
         <SectionHead title={t("settings.shortcuts")} />

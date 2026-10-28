@@ -1,8 +1,8 @@
 // 任务菜单：侧栏任务行的 ⋯ / 右键和顶栏的 ⋯ 打开的是同一份（项一致、顺序一致）。
-// 第一组是任务本身（重命名、会话信息、请求记录、分享链接），第二组是文件（工作目录、会话文件、复制、导出），最后是归档。
+// 第一组是任务本身（重命名、保持运行、会话信息、请求记录、分享链接），第二组是文件（工作目录、会话文件、复制、导出），最后是归档。
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
-import { CopyIcon, External, FileIcon, Folder, Info, Pencil } from "../../icons.tsx";
+import { CopyIcon, External, FileIcon, Folder, Info, Pencil, Pin } from "../../icons.tsx";
 import { reportError } from "../../ui/errors.ts";
 import type { MenuEntry } from "../../ui/Menu.tsx";
 import { pushToast } from "../dialogs/index.ts";
@@ -30,12 +30,19 @@ async function copySession(t: TFunction, taskId: TaskId, pick: "sessionId" | "se
 export function buildTaskMenu(options: {
   t: TFunction;
   taskId: TaskId;
+  keepAlive: boolean;
   selectedTaskId: TaskId | null;
   onRename(): void;
 }): MenuEntry[] {
   const { t, taskId } = options;
   return [
     { id: "rename", label: t("task.rename"), icon: <Pencil />, shortcut: "F2", onSelect: options.onRename },
+    {
+      id: "keepAlive",
+      label: t(options.keepAlive ? "task.keepAliveOff" : "task.keepAlive"),
+      icon: <Pin />,
+      onSelect: () => void attempt(t, () => window.studio.setTaskKeepAlive(taskId, !options.keepAlive)),
+    },
     { id: "info", label: t("sessionInfo.menu.info"), icon: <Info />, onSelect: () => openSessionInfo(taskId, "info") },
     {
       id: "trace",

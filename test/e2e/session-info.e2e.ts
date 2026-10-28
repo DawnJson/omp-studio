@@ -8,7 +8,14 @@ import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { expect, test, type Page } from "@playwright/test";
-import { expandSidebarFolders, launchApp, openTaskRow, type LaunchedApp } from "./launch.ts";
+import {
+  expandSidebarFolders,
+  expectNoOverflow,
+  launchApp,
+  openTaskRow,
+  setLocaleTheme,
+  type LaunchedApp,
+} from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 const fakeOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -200,6 +207,52 @@ test("会话信息：顶栏任务菜单和 /session 都打开；概览有 ID、�
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("session-info-dialog")).toBeVisible();
     await expect(page.getByTestId("si-id")).toHaveText(SESSION_ID);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("保持运行：顶栏任务菜单打开 / 取消，记进任务记录；设置里空闲多久关进程写进 settings.json", async () => {
+  test.setTimeout(120_000);
+  const { launched, cleanup } = await start([SESSION_ID]);
+  try {
+    const { page } = launched;
+    await runErrorTurn(page);
+    const keepAlive = async () =>
+      (
+        JSON.parse(await readFile(path.join(launched.userDataDir, "tasks.json"), "utf8")) as {
+          tasks: { keepAlive?: boolean }[];
+        }
+      ).tasks[0]?.keepAlive;
+    await page.getByTestId("task-menu").click();
+    await page.getByRole("menuitem", { name: /^(保持运行|Keep running)$/ }).click();
+    await expect.poll(keepAlive).toBe(true);
+    // 菜单的退出动画放完（⋯ 的 aria-expanded 回到 false）才算关上；放完前再点 ⋯ 是"关菜单"。
+    await expect(page.getByTestId("task-menu")).toHaveAttribute("aria-expanded", "false");
+    await page.getByTestId("task-menu").click();
+    await page.getByRole("menuitem", { name: /取消保持运行|Stop keeping running/ }).click();
+    await expect.poll(keepAlive).toBe(false);
+
+    await page.keyboard.press("Control+,");
+    await page.getByTestId("settings-nav-general").click();
+    const select = page.getByTestId("setting-idle-close");
+    await expect(select).toContainText(/1 小时|1 hour/);
+    await select.click();
+    await page.getByRole("option", { name: /从不|Never/ }).click();
+    await expect
+      .poll(async () =>
+        readFile(path.join(launched.userDataDir, "settings.json"), "utf8").then(
+          (text) => (JSON.parse(text) as { idleClose?: string }).idleClose,
+          () => undefined,
+        ),
+      )
+      .toBe("never");
+    // 窄窗口、中英文下"空闲任务"这一行不越界。
+    await page.setViewportSize({ width: 900, height: 800 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(page.getByTestId("settings"));
+    }
   } finally {
     await cleanup();
   }

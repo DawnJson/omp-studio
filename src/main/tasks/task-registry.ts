@@ -34,6 +34,8 @@ export interface TaskRecord {
    * 没有或 null = 默认目录（`worktreePath ?? 项目目录`）。不写这个字段的记录行为不变。
    */
   cwd?: string | null;
+  /** 保持运行（TaskPool.setTaskKeepAlive）：空闲时不关进程，到软上限时也不先关它。没有这个字段 = 关。 */
+  keepAlive?: boolean;
 }
 
 interface TasksFile {

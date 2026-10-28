@@ -1,9 +1,11 @@
 // 任务池：持有所有任务的运行时，管进程上限、空闲回收、快照淘汰、关闭。
 // 规则见 docs/architecture/task-model.md（arch 2.3）：软上限默认 6，按最近使用回收可回收的空闲任务；
-// 没有可回收的就超出软上限照起，到硬上限（软上限 × 2）才拒绝；可回收状态持续 15 分钟定时关闭。
+// 没有可回收的就超出软上限照起，到硬上限（软上限 × 2）才拒绝；可回收状态持续到设置的时长（默认 1 小时）定时关闭；
+// 标了"保持运行"的任务两种回收都不碰。
 import { stat } from "node:fs/promises";
 import type {
   CreateTaskInput,
+  IdleClose,
   ModelKey,
   ModelOption,
   Project,
@@ -41,7 +43,13 @@ import {
 import type { TaskRecord, TaskRegistry } from "./task-registry.ts";
 import { taskCommandText, type TaskCommand } from "../../shared/omp-output/index.ts";
 
-export const IDLE_RECYCLE_MS = 15 * 60_000;
+/** 设置"空闲多久关闭"对应的毫秒数；null = 不按时间关。 */
+export const IDLE_CLOSE_MS: Readonly<Record<IdleClose, number | null>> = {
+  "15m": 15 * 60_000,
+  "1h": 60 * 60_000,
+  "4h": 4 * 60 * 60_000,
+  never: null,
+};
 const SNAPSHOT_LRU_SIZE = 10;
 const SHUTDOWN_CLOSE_TIMEOUT_MS = 5_000;
 const SWEEP_INTERVAL_MS = 60_000;
@@ -356,6 +364,10 @@ export class TaskPool {
     return this.#runner(id).rename(title);
   }
 
+  setTaskKeepAlive(id: TaskId, on: boolean): Promise<void> {
+    return this.#runner(id).setKeepAlive(on);
+  }
+
   /** 关掉进程并从侧栏移除；会话文件和 tasks.json 记录保留（resume() 能找回）。 */
   async archiveTask(id: TaskId): Promise<void> {
     const runner = this.#runner(id);
@@ -613,7 +625,7 @@ export class TaskPool {
     const live = this.#liveRunners(id);
     if (live.length >= soft) {
       const victim = live
-        .filter((runner) => runner.recyclable && runner.id !== this.#foreground)
+        .filter((runner) => runner.recyclable && !runner.keepAlive && runner.id !== this.#foreground)
         .sort((a, b) => a.lastActiveAt - b.lastActiveAt)[0];
       if (victim) await this.#recycle(victim);
       else if (live.length >= soft * 2) throw new TooManyTasksError("too many tasks are running at the same time");
@@ -634,16 +646,20 @@ export class TaskPool {
     for (const runner of stopped.slice(SNAPSHOT_LRU_SIZE)) runner.releaseSnapshot();
   }
 
-  /** 定时回收：可回收状态持续 IDLE_RECYCLE_MS 就关进程。`now` 由调用方传入，测试不依赖真实时钟。 */
+  /**
+   * 定时回收：可回收状态持续到设置的"空闲多久关闭"（IDLE_CLOSE_MS）就关进程；保持运行的任务不算可回收，
+   * 取消保持运行后从那一刻重新计时。`now` 由调用方传入，测试不依赖真实时钟。
+   */
   async sweep(now: number): Promise<void> {
+    const limit = IDLE_CLOSE_MS[(await this.#deps.getSettings()).idleClose] ?? null;
     for (const runner of this.#runners.values()) {
-      if (!runner.hasProcess || !runner.recyclable || runner.id === this.#foreground) {
+      if (!runner.hasProcess || !runner.recyclable || runner.keepAlive || runner.id === this.#foreground) {
         this.#recyclableSince.delete(runner.id);
         continue;
       }
       const since = this.#recyclableSince.get(runner.id) ?? now;
       this.#recyclableSince.set(runner.id, since);
-      if (now - since >= IDLE_RECYCLE_MS) await this.#recycle(runner);
+      if (limit !== null && now - since >= limit) await this.#recycle(runner);
     }
   }
 

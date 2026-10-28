@@ -4,9 +4,9 @@ import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import type { ProjectId, StudioSettings, TaskId, TaskState } from "../src/shared/ipc.ts";
+import type { IdleClose, ProjectId, StudioSettings, TaskId, TaskState } from "../src/shared/ipc.ts";
 import type { TspEvent } from "../src/shared/tsp/tsp.generated.ts";
-import { IDLE_RECYCLE_MS, TaskPool } from "../src/main/tasks/task-pool.ts";
+import { TaskPool } from "../src/main/tasks/task-pool.ts";
 import { TaskRegistry } from "../src/main/tasks/task-registry.ts";
 import { loadTspFixture, recordedUserEvents } from "./tsp-fixtures.ts";
 
@@ -25,10 +25,11 @@ afterAll(async () => {
   await rm(scratch, { recursive: true, force: true });
 });
 
-const settings = (maxLiveProcesses = 6): StudioSettings => ({
+const settings = (maxLiveProcesses = 6, idleClose: IdleClose = "1h"): StudioSettings => ({
   locale: "zh-CN",
   theme: "system",
   maxLiveProcesses,
+  idleClose,
   reduceMotion: false,
   enterWhileRunning: "steer",
   soundOnDone: false,
@@ -87,7 +88,7 @@ interface Harness {
 
 const pools: TaskPool[] = [];
 async function harness(
-  options: { maxLive?: number; buildLaunchError?: Error; gate?: Promise<void> } = {},
+  options: { maxLive?: number; idleClose?: IdleClose; buildLaunchError?: Error; gate?: Promise<void> } = {},
 ): Promise<Harness> {
   const events = new Events();
   const registry = new TaskRegistry(path.join(await mkdtemp(path.join(scratch, "ud-")), "tasks.json"));
@@ -95,7 +96,7 @@ async function harness(
   const launches: Launch[] = [];
   const pool = new TaskPool({
     registry,
-    getSettings: async () => settings(options.maxLive),
+    getSettings: async () => settings(options.maxLive, options.idleClose),
     events: events.sink,
     tsp: {
       buildLaunch: async (record, project) => {
@@ -255,6 +256,19 @@ describe("任务池：进程上限、回收", () => {
     expect(h.pool.listTasks().find((s) => s.id === c)?.status).toBe("stopped");
   }, 120_000);
 
+  it("保持运行的任务到软上限时不被回收，换成回收下一个最久未用的", async () => {
+    const h = await harness({ maxLive: 2 });
+    const a = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(a.id, (s) => s.status === "idle");
+    await h.pool.setTaskKeepAlive(a.id, true);
+    const b = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(b.id, (s) => s.status === "idle");
+    const c = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(c.id, (s) => s.status === "idle");
+    expect(h.pool.listTasks().find((s) => s.id === a.id)?.status).toBe("idle");
+    expect(h.pool.listTasks().find((s) => s.id === b.id)?.status).toBe("stopped");
+  }, 120_000);
+
   it("存活进程到硬上限（软上限 × 2）且没有可回收的任务时，新任务进 error(too_many_tasks)", async () => {
     const h = await harness({ maxLive: 1 });
     const { text } = approvalSend();
@@ -272,15 +286,45 @@ describe("任务池：进程上限、回收", () => {
     expect(h.pool.listTasks().map((s) => s.status)).toEqual(["needs_you", "needs_you", "error"]);
   }, 120_000);
 
-  it("可回收状态持续 15 分钟才关进程；没到点不关", async () => {
+  it("可回收状态持续到设置的时长（默认 1 小时）才关进程；没到点不关", async () => {
     const h = await harness();
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (s) => s.status === "idle");
     const t0 = 1_000_000;
     await h.pool.sweep(t0);
-    await h.pool.sweep(t0 + IDLE_RECYCLE_MS - 1);
+    await h.pool.sweep(t0 + 60 * 60_000 - 1);
     expect(h.pool.listTasks()[0]?.status).toBe("idle");
-    await h.pool.sweep(t0 + IDLE_RECYCLE_MS);
+    await h.pool.sweep(t0 + 60 * 60_000);
+    expect(h.pool.listTasks()[0]?.status).toBe("stopped");
+  }, 60_000);
+
+  it("设成「从不」时空闲多久都不关", async () => {
+    const h = await harness({ idleClose: "never" });
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (s) => s.status === "idle");
+    await h.pool.sweep(1_000_000);
+    await h.pool.sweep(1_000_000 + 30 * 24 * 60 * 60_000);
+    expect(h.pool.listTasks()[0]?.status).toBe("idle");
+  }, 60_000);
+
+  it("保持运行：定时回收不关它，记进任务记录；取消后从那一刻重新计时", async () => {
+    const h = await harness({ idleClose: "15m" });
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (s) => s.status === "idle");
+    await h.pool.setTaskKeepAlive(created.id, true);
+    expect(h.pool.listTasks()[0]?.keepAlive).toBe(true);
+    expect(h.registry.findTask(created.id)?.keepAlive).toBe(true);
+    const t0 = 1_000_000;
+    await h.pool.sweep(t0);
+    await h.pool.sweep(t0 + 24 * 60 * 60_000);
+    expect(h.pool.listTasks()[0]?.status).toBe("idle");
+
+    await h.pool.setTaskKeepAlive(created.id, false);
+    const t1 = t0 + 25 * 60 * 60_000;
+    await h.pool.sweep(t1);
+    await h.pool.sweep(t1 + 15 * 60_000 - 1);
+    expect(h.pool.listTasks()[0]?.status).toBe("idle");
+    await h.pool.sweep(t1 + 15 * 60_000);
     expect(h.pool.listTasks()[0]?.status).toBe("stopped");
   }, 60_000);
 

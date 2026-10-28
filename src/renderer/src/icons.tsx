@@ -219,6 +219,12 @@ export const Star = (props: IconProps) => (
     <path d="M8 2.5 9.7 6l3.8.5-2.8 2.6.7 3.8L8 11.1l-3.4 1.8.7-3.8-2.8-2.6L6.3 6 8 2.5Z" />
   </Icon>
 );
+/** 任务菜单"保持运行"：图钉 */
+export const Pin = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M6 2.5h4M6.8 2.5v3.8L4.5 9h7L9.2 6.3V2.5M8 9v4.5" />
+  </Icon>
+);
 /** 模型角色 slow（深度思考）：沙漏 */
 export const Hourglass = (props: IconProps) => (
   <Icon {...props}>

@@ -48,9 +48,10 @@ omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的�
 
 ## 进程上限和回收
 
-- `maxLiveProcesses`（设置，默认 6）是软上限。起新进程时存活数（含 starting）已到软上限：回收最久未用的**可回收**任务；没有可回收的就超出软上限照起，到硬上限（× 2）才失败，任务进 error（`spawn_failed`，"too many tasks…"）。
+- `maxLiveProcesses`（设置，默认 6）是软上限。起新进程时存活数（含 starting）已到软上限：回收最久未用的**可回收**、没标保持运行的任务；没有可回收的就超出软上限照起，到硬上限（× 2）才失败，任务进 error（`spawn_failed`，"too many tasks…"）。
 - 可回收（`TspRunner.recyclable`）：有进程、状态 idle、没有未答的门、文档里没有还在跑的 `tool` / `agent` 卡片（转到后台的任务）、没有在跑的旁路提问（`/btw`）；前台任务由池排除。
-- 定时回收：`sweep(now)` 每分钟跑一次，可回收状态持续 15 分钟（`IDLE_RECYCLE_MS`）关进程；`now` 由调用方传入，测试不依赖真实时钟。
+- 定时回收：`sweep(now)` 每分钟跑一次，可回收状态持续到设置的时长（`StudioSettings.idleClose`：15 分钟 / 1 小时 / 4 小时 / 从不，默认 1 小时，`IDLE_CLOSE_MS`；2026-10-28 仓库所有者定，原来固定 15 分钟）关进程；`now` 由调用方传入，测试不依赖真实时钟。
+- 保持运行（`TaskRecord.keepAlive`，任务菜单里开关，`setTaskKeepAlive`；记进 `tasks.json`，重启后还在）：定时回收和软上限回收都跳过它；硬上限照算，进程退出、用户停止照常。用途：Python eval 里的变量、`/add-dir` 加的目录、后台作业这些只在进程里的东西不丢。
 - 回收后的任务保留最后一份节点树快照，已停止的任务最多留 10 份（LRU），更久的释放，再打开时 `--resume` 由 omp 重发整段对话。
 - `shutdown()`：并行 `close(5000)`（先 `taskkill /T /F` 进程树，再 `pty.kill()`）。退出路径只有 Shell 的 `before-quit`：`runtime.ts` 用 `registerShutdownHook(() => pool.shutdown())` 接入。
 - 窗口 × 不退出：窗口只隐藏（`hide-on-close.ts`），任务池、状态机和 omp 子进程都不受影响，应用常驻托盘（决策见 [background-run.md](background-run.md)）。`sweep` 照旧只回收 idle 且已安静的任务；窗口隐藏期间的状态变化照常经 `taskState` 事件推给（隐藏的）渲染进程，并刷新托盘的提示和菜单。真正的退出入口（托盘"退出"、应用菜单退出、安装更新、系统注销）才会走上面的 `shutdown()`。

@@ -36,7 +36,13 @@ export function useSidebarMenus({ t, selectedTaskId, taskCount, onRename }: Menu
     setOpen({
       anchor: { x, y, returnFocus: trigger },
       label: t("task.more"),
-      items: buildTaskMenu({ t, taskId: task.id, selectedTaskId, onRename: () => onRename(task) }),
+      items: buildTaskMenu({
+        t,
+        taskId: task.id,
+        keepAlive: task.keepAlive,
+        selectedTaskId,
+        onRename: () => onRename(task),
+      }),
     });
 
   const openProjectMenu = (project: Project, x: number, y: number, trigger: HTMLElement) =>

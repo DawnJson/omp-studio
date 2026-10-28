@@ -34,6 +34,7 @@ import { registerShutdownHook } from "../window/shutdown.ts";
 import {
   IpcValidationError,
   parseBoolean,
+  parseIdleClose,
   parseModelKey,
   parseOneOf,
   parseProjectId,
@@ -194,6 +195,7 @@ export const ompHandlers: HandlerGroup<
   | "resetOmpConfig"
   | "setReduceMotion"
   | "setEnterWhileRunning"
+  | "setIdleClose"
   | "setSoundOnDone"
   | "setCopyOnSelect"
   | "setYoloConfirmed"
@@ -241,6 +243,7 @@ export const ompHandlers: HandlerGroup<
     Promise.resolve(
       updateSettings({ enterWhileRunning: parseOneOf(mode, "enterWhileRunning", ["steer", "followUp"]) }),
     ),
+  setIdleClose: (value) => Promise.resolve(updateSettings({ idleClose: parseIdleClose(value) })),
   setSoundOnDone: (on) => Promise.resolve(updateSettings({ soundOnDone: parseBoolean(on, "soundOnDone") })),
   setCopyOnSelect: (on) => Promise.resolve(updateSettings({ copyOnSelect: parseBoolean(on, "copyOnSelect") })),
   setYoloConfirmed: () => Promise.resolve(updateSettings({ yoloConfirmed: true })),

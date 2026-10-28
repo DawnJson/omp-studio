@@ -14,6 +14,7 @@ const settings: StudioSettings = {
   locale: "zh-CN",
   theme: "system",
   maxLiveProcesses: 6,
+  idleClose: "1h",
   reduceMotion: false,
   enterWhileRunning: "steer",
   soundOnDone: false,

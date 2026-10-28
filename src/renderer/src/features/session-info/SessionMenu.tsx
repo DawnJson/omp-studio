@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Dots } from "../../icons.tsx";
+import { useTask } from "../../store/index.ts";
 import { IconButton } from "../../ui/controls.tsx";
 import { Menu, anchorBelow, type MenuAnchor } from "../../ui/Menu.tsx";
 import { emitStudioCommand } from "../palette/studio-command.ts";
@@ -12,6 +13,7 @@ import { buildTaskMenu } from "../sidebar/task-menu.tsx";
 export function SessionMenu({ taskId }: { taskId: TaskId }) {
   const t = useT();
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
+  const task = useTask(taskId);
   return (
     <>
       <IconButton
@@ -29,6 +31,7 @@ export function SessionMenu({ taskId }: { taskId: TaskId }) {
           items={buildTaskMenu({
             t,
             taskId,
+            keepAlive: task?.keepAlive === true,
             selectedTaskId: taskId,
             onRename: () => emitStudioCommand("rename"),
           })}

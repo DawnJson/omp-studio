@@ -7,6 +7,7 @@ import { emitEvent } from "../ipc/events.ts";
 import {
   parseBoolean,
   parseFontSize,
+  parseIdleClose,
   parseOneOf,
   parseLocalePreference,
   parseMaxLiveProcesses,
@@ -22,6 +23,7 @@ const defaults: StudioSettings = {
   locale: "system",
   theme: "system",
   maxLiveProcesses: 6,
+  idleClose: "1h",
   reduceMotion: false,
   enterWhileRunning: "steer",
   soundOnDone: false,
@@ -58,6 +60,7 @@ function sanitize(raw: unknown): StudioSettings {
     locale: field(parseLocalePreference, record["locale"], defaults.locale),
     theme: field(parseThemePreference, record["theme"], defaults.theme),
     maxLiveProcesses: field(parseMaxLiveProcesses, record["maxLiveProcesses"], defaults.maxLiveProcesses),
+    idleClose: field(parseIdleClose, record["idleClose"], defaults.idleClose),
     reduceMotion: field((value) => parseBoolean(value, "reduceMotion"), record["reduceMotion"], defaults.reduceMotion),
     enterWhileRunning: field(
       (value) => parseOneOf(value, "enterWhileRunning", ["steer", "followUp"]),
