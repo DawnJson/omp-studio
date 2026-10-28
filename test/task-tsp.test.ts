@@ -720,6 +720,39 @@ describe("TSP 任务：输入框状态、切模型、提问时的发送", () => 
     }
   }, 60_000);
 
+  it("从历史恢复的会话、目录里有几家同名模型：按会话文件里最后切到的模型认出是哪一家，档位用那一家的，并记进任务记录", async () => {
+    const hfKey = { provider: "huggingface", modelId: "deepseek-ai/DeepSeek-V4-Flash" };
+    const sameName: ModelOption = { ...catalog[0]!, key: hfKey, thinkingEfforts: ["low", "high", "max"] };
+    const h = await harness(undefined, { listModels: async () => [catalog[0]!, sameName] });
+    const sessionFile = path.join(await mkdtemp(path.join(scratch, "同名 ")), "session.jsonl");
+    await writeFile(
+      sessionFile,
+      [
+        { type: "session", version: 3, id: "s-1", timestamp: "2026-10-28T00:00:00.000Z", cwd: projectDir },
+        { type: "model_change", id: "m1", parentId: null, model: "deepseek/deepseek-v4-flash" },
+        { type: "model_change", id: "m2", parentId: "m1", model: "huggingface/deepseek-ai/DeepSeek-V4-Flash" },
+      ]
+        .map((entry) => JSON.stringify(entry))
+        .join("\n") + "\n",
+      "utf8",
+    );
+    h.next.env = { FAKE_TSP_SESSION_FILE: sessionFile };
+    const resumed = await h.pool.resume({
+      sessionFile,
+      cwd: projectDir,
+      projectId: h.projectId,
+      title: null,
+      modifiedAt: Date.now(),
+    });
+    await h.events.until(resumed.id, (s) => s.contextUsage !== null);
+    await vi.waitFor(() => {
+      const state = h.events.states.findLast((s) => s.id === resumed.id);
+      expect(state?.model?.key).toEqual(hfKey);
+      expect(state?.thinkingLevels).toEqual(["off", "low", "high", "max"]);
+      expect(h.registry.findTask(resumed.id)?.model).toEqual(hfKey);
+    });
+  }, 60_000);
+
   it("setTaskModel：点模型胶囊、在选择器里 activate 那一项，omp 确认后 resolve", async () => {
     const h = await harness();
     h.next.fixture = "picker";

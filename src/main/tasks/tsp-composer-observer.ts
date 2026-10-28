@@ -87,6 +87,8 @@ export class TspComposerObserver {
   };
   /** 刚在选择器里选的模型：目录里有重名的显示名时以它为准。 */
   chosenKey: ModelKey | null = null;
+  /** 会话文件里当前分支上最后切到的模型（`#readTotals` 读）：没有刚选的时，重名靠它认 provider。 */
+  #sessionModel: ModelKey | null = null;
   #persistingChoice = false;
   /** `/slow` 的状态：omp 没有状态节点，按 toast 记；一开始未知，当关。 */
   #slowEnabled = false;
@@ -154,7 +156,8 @@ export class TspComposerObserver {
   }
 
   /**
-   * omp 显示的模型名 → 模型：重名时先取刚选的、再取记录里的，最后取目录里第一个；目录里没有时用名字造一个只显示用的。
+   * omp 显示的模型名 → 模型：重名时先取刚选的、再取会话文件里当前的、再取记录里的，最后取目录里第一个；
+   * 目录里没有时用名字造一个只显示用的。
    * 目录还没读到（任务刚起来，服务进程的目录要一两秒）时先按启动缓存里上次的目录认，不然这段时间胶囊上没有思考档位。
    */
   #resolveModel(name: string): ModelOption {
@@ -164,7 +167,7 @@ export class TspComposerObserver {
     const own = this.#host.ownModel();
     if (own && isShownModelName(own.name, name) && !candidates.some((option) => sameKey(option.key, own.key)))
       candidates.push(own);
-    const preferred = [this.chosenKey, this.#host.record().model];
+    const preferred = [this.chosenKey, this.#sessionModel, this.#host.record().model];
     for (const key of preferred) {
       const hit = key && candidates.find((option) => sameKey(option.key, key));
       if (hit) return hit;
@@ -257,12 +260,17 @@ export class TspComposerObserver {
   async #readTotals(): Promise<void> {
     try {
       const session = await this.#host.readSessionFile();
-      if (session === null) return;
+      if (session === null || this.#host.disposed()) return;
       const totals = totalUsage(session.usage.summary().models);
-      if (this.#host.disposed() || JSON.stringify(totals) === JSON.stringify(this.#totals)) return;
+      const sessionModel = session.usage.currentModel();
+      const sameModel =
+        sessionModel === null || this.#sessionModel === null
+          ? sessionModel === this.#sessionModel
+          : sameKey(sessionModel, this.#sessionModel);
+      if (sameModel && JSON.stringify(totals) === JSON.stringify(this.#totals)) return;
       this.#totals = totals;
-      this.#derived = { ...this.#derived, sessionUsage: this.#sessionUsageFor(this.#composer) };
-      this.#host.publish();
+      this.#sessionModel = sessionModel;
+      this.#derive();
     } catch (error) {
       log.warn("reading the session file for token totals failed", {
         taskId: this.#host.taskId,
@@ -298,6 +306,21 @@ export class TspComposerObserver {
       fast: info.fast,
     };
     this.#composer = composer;
+    // 费用或上下文用量变了 = 又结束了一次请求：会话文件里的 token 分项和请求数也该重读（见 #refreshTotals）。
+    // 不能只看费用：费用读不出来（omp 改了写法）或一直是 0 时，token 分项会永远停在 0。
+    // 模型名变了 = 切了模型（omp 往会话文件记了 model_change）：重读认出是哪一家。
+    if (
+      composer.cost !== previous.cost ||
+      composer.context?.tokens !== previous.context?.tokens ||
+      composer.modelName !== previous.modelName
+    )
+      void this.#refreshTotals();
+    this.#derive();
+  }
+
+  /** 按输入框卡片上最后读到的值、会话文件里的用量和模型算 TaskState 的字段；变了才发布。 */
+  #derive(): void {
+    const composer = this.#composer;
     const model = composer.modelName === null ? null : this.#resolveModel(composer.modelName);
     const thinkingLevel = toThinkingLevel(composer.effort);
     const window = composer.context?.contextWindow ?? model?.contextWindow ?? null;
@@ -309,18 +332,12 @@ export class TspComposerObserver {
             percent: composer.context.percent,
           }
         : null;
-    // 费用或上下文用量变了 = 又结束了一次请求：会话文件里的 token 分项和请求数也该重读（见 #refreshTotals）。
-    // 不能只看费用：费用读不出来（omp 改了写法）或一直是 0 时，token 分项会永远停在 0。
-    if (composer.cost !== previous.cost || composer.context?.tokens !== previous.context?.tokens)
-      void this.#refreshTotals();
-    const sessionUsage = this.#sessionUsageFor(composer);
-    const thinkingLevels = thinkingLevelsOf(model);
     const next: DerivedComposerState = {
       model,
       thinkingLevel,
-      thinkingLevels,
+      thinkingLevels: thinkingLevelsOf(model),
       contextUsage,
-      sessionUsage,
+      sessionUsage: this.#sessionUsageFor(composer),
       fastEnabled: composer.fast,
     };
     const changed = JSON.stringify(next) !== JSON.stringify(this.#derived);
@@ -331,7 +348,7 @@ export class TspComposerObserver {
 
   /**
    * 把当前模型和思考强度记进任务记录（下次 `--resume` 起来用）。只记目录里确有、且不会认错的模型：
-   * 显示用的占位（provider 为空）和目录里重名又没有明确选择的不记（记错 provider 会让下次 `--model` 指到别家）。
+   * 显示用的占位（provider 为空）和目录里重名、又没有明确选择或会话文件佐证的不记（记错 provider 会让下次 `--model` 指到别家）。
    */
   async #persistModelChoice(model: ModelOption | null, thinkingLevel: ThinkingLevel | null): Promise<void> {
     if (this.#persistingChoice || this.#host.disposed()) return;
@@ -343,6 +360,7 @@ export class TspComposerObserver {
       model.key.provider !== "" &&
       !(record.model && sameKey(model.key, record.model)) &&
       ((this.chosenKey !== null && sameKey(model.key, this.chosenKey)) ||
+        (this.#sessionModel !== null && sameKey(model.key, this.#sessionModel)) ||
         this.#host.catalog().filter((option) => option.name === model.name).length === 1)
     )
       patch.model = model.key;

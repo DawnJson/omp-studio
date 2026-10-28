@@ -4,8 +4,13 @@ import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readSessionUsage, summarizeSessionUsage, totalUsage } from "../src/main/history/session-usage.ts";
-import { MAX_SESSION_FILE_BYTES } from "../src/main/tsp/session-file-reader.ts";
+import {
+  readSessionUsage,
+  SessionUsageAccumulator,
+  summarizeSessionUsage,
+  totalUsage,
+} from "../src/main/history/session-usage.ts";
+import { feedSessionText, MAX_SESSION_FILE_BYTES } from "../src/main/tsp/session-file-reader.ts";
 
 let seq = 0;
 const reply = (id: string, parentId: string | null, model: string, total: number, cost: number) =>
@@ -73,6 +78,42 @@ describe("summarizeSessionUsage", () => {
       reply("a2", "c1", "opus", 5, 0.05),
     ].join("\n");
     expect(summarizeSessionUsage(text).models).toMatchObject([{ total: 5 }]);
+  });
+});
+
+describe("currentModel（输入框上的显示名有几家重名时认 provider）", () => {
+  const change = (id: string, parentId: string | null, model: string, role?: string) =>
+    JSON.stringify({ type: "model_change", id, parentId, model, ...(role === undefined ? {} : { role }) });
+  const current = (...lines: string[]) => {
+    const usage = new SessionUsageAccumulator();
+    feedSessionText(lines.join("\n"), [usage]);
+    return usage.currentModel();
+  };
+
+  it("和 omp 恢复会话一样：会话内临时切换（temporary）算数，重试时换的（fallback）不算；id 里可以有 /；只看当前分支", () => {
+    expect(current(user("u1", null))).toBeNull();
+    expect(
+      current(change("m1", null, "deepseek/deepseek-v4-flash"), change("m2", "m1", "huggingface/moonshotai/Kimi-K3")),
+    ).toEqual({ provider: "huggingface", modelId: "moonshotai/Kimi-K3" });
+    expect(
+      current(
+        change("m1", null, "deepseek/deepseek-v4-flash"),
+        change("m2", "m1", "anthropic/claude-opus-5-5", "temporary"),
+      ),
+    ).toEqual({ provider: "anthropic", modelId: "claude-opus-5-5" });
+    expect(
+      current(
+        change("m1", null, "deepseek/deepseek-v4-flash"),
+        change("m2", "m1", "anthropic/claude-opus-5-5", "fallback"),
+      ),
+    ).toEqual({ provider: "deepseek", modelId: "deepseek-v4-flash" });
+    expect(
+      current(
+        change("m1", null, "deepseek/deepseek-v4-flash"),
+        change("m2", "m1", "moonshot/kimi-k3"),
+        user("u2", "m1"),
+      ),
+    ).toEqual({ provider: "deepseek", modelId: "deepseek-v4-flash" });
   });
 });
 
