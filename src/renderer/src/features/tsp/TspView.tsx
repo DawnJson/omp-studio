@@ -4,7 +4,7 @@
 //   layer 是盖在整块上的浮层容器（选择器等）；
 //   screen（如 /settings）：盖住整个过程区（连 dock，不含 Composer），自己的 main 自己滚。
 // 对话列宽度按等宽字符数算成列数，变化时通知 omp（resize）。
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { reportErrorNow } from "../../ui/errors.ts";
@@ -18,7 +18,7 @@ import { MainFlow } from "./MainFlow.tsx";
 import { StudioHeader } from "../empty/StudioHeader.tsx";
 import { useTask } from "../../store/index.ts";
 import { GoalStrip } from "../goal/GoalStrip.tsx";
-import { TspCtx, TspParkedCtx } from "./tsp-context.ts";
+import { TspCtx, TspEndedAtCtx, TspParkedCtx } from "./tsp-context.ts";
 import {
   ensureTspDocument,
   useTspHasUserMessage,
@@ -291,6 +291,15 @@ function ScreenSurface({ taskId, sf }: { taskId: TaskId; sf: string }) {
   );
 }
 
+/** 进程不在了（ended）的时刻：第一次看到时记下，再起进程时清掉。 */
+function useEndedAt(ended: boolean): number | null {
+  const [at, setAt] = useState(() => (ended ? Date.now() : null));
+  useLayoutEffect(() => {
+    setAt((current) => (ended ? (current ?? Date.now()) : null));
+  }, [ended]);
+  return ended ? at : null;
+}
+
 /** parked：设置页盖着当前任务（spec §4.19）：节点和 effect 都留着、只停画（content-visibility），键盘和 omp 的弹层、通知不再作用。 */
 // memo：App 每次重渲染（切任务、开关面板）时，留着的几个对话区 props 没变就不重渲染（props 只有 id 和布尔值）。
 export const TspView = memo(function TspView({ taskId, parked }: { taskId: TaskId; parked: boolean }) {
@@ -298,6 +307,7 @@ export const TspView = memo(function TspView({ taskId, parked }: { taskId: TaskI
   const firstPrompt = useFirstPrompt(taskId);
   const task = useTask(taskId);
   const status = task?.status;
+  const endedAt = useEndedAt(status === "error" || status === "stopped");
   const goal = task?.goal ?? null;
   useEffect(() => ensureTspDocument(taskId), [taskId]);
   useForwardOmpKeys(taskId, parked);
@@ -321,22 +331,25 @@ export const TspView = memo(function TspView({ taskId, parked }: { taskId: TaskI
       data-task-id={taskId}
       data-covered={screen ? "" : undefined}
       data-parked={parked ? "" : undefined}
+      data-ended={endedAt !== null ? "" : undefined}
     >
       <TspParkedCtx.Provider value={parked}>
-        {/* 目标条（`/goal`）：数据是主进程从输入框卡片上的"Goal …"行和会话文件得到的 TaskState.goal；omp 自己的输入框卡片（含那一行）不画。 */}
-        <GoalStrip key={`goal:${taskId}`} taskId={taskId} goal={goal} />
-        {showInline ? (
-          <InlineSurface
-            key={`${taskId}:${inlineKey}`}
-            taskId={taskId}
-            sf={inline?.id ?? null}
-            pendingText={firstPrompt?.text}
-          />
-        ) : (
-          <div className="tsp-empty" role="status" />
-        )}
-        {screen && <ScreenSurface key={`${taskId}:${screen.id}`} taskId={taskId} sf={screen.id} />}
-        <TspHosts />
+        <TspEndedAtCtx.Provider value={endedAt}>
+          {/* 目标条（`/goal`）：数据是主进程从输入框卡片上的"Goal …"行和会话文件得到的 TaskState.goal；omp 自己的输入框卡片（含那一行）不画。 */}
+          <GoalStrip key={`goal:${taskId}`} taskId={taskId} goal={goal} />
+          {showInline ? (
+            <InlineSurface
+              key={`${taskId}:${inlineKey}`}
+              taskId={taskId}
+              sf={inline?.id ?? null}
+              pendingText={firstPrompt?.text}
+            />
+          ) : (
+            <div className="tsp-empty" role="status" />
+          )}
+          {screen && <ScreenSurface key={`${taskId}:${screen.id}`} taskId={taskId} sf={screen.id} />}
+          <TspHosts />
+        </TspEndedAtCtx.Provider>
       </TspParkedCtx.Provider>
     </div>
   );

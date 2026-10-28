@@ -34,6 +34,7 @@ import { peekTspNode } from "../tsp-store.ts";
 import { useFold } from "../use-fold.ts";
 import { useEntrance } from "../entrance.ts";
 import { useAge } from "../use-clock.ts";
+import { useTspEnded } from "../tsp-context.ts";
 
 // ───────── tool ─────────
 
@@ -201,7 +202,10 @@ function ToolTime({ status, age, took }: { status: ToolStatus; age: number | und
 export function Tool(props: NodeProps) {
   const { node, ctx } = props;
   const p = node.p;
-  const status = toolStatus(p.status);
+  const reported = toolStatus(p.status);
+  // 进程不在了：还在跑的卡片画成已取消（和 `/jobs kill` 之后 omp 自己画的一样），计时停在进程结束那一刻（ToolTime 仍按运行中算）。
+  const ended = useTspEnded();
+  const status = ended && (reported === "running" || reported === "pending") ? "cancelled" : reported;
   const [justFinished, settleFinished] = useJustFinished(status === "running");
   const collapsible = p.collapsible === true;
   const [collapsed, toggle] = useFold(props, collapsible && p.collapsed === true);
@@ -322,7 +326,7 @@ export function Tool(props: NodeProps) {
             </span>
           )}
         </span>
-        <ToolTime status={status} age={asNumber(p.age)} took={asNumber(p.took)} />
+        <ToolTime status={reported} age={asNumber(p.age)} took={asNumber(p.took)} />
         <span className="tsp-tool-st">
           <ToolStatusGlyph status={status} fresh={justFinished} settle={settleFinished} />
         </span>
@@ -405,7 +409,11 @@ export function Agent(props: NodeProps) {
   const { node, ctx } = props;
   const p = node.p;
   const statusRaw = asString(p.status);
-  const status = AGENT_STATUS.find((s) => s === statusRaw) ?? "pending";
+  const reported = AGENT_STATUS.find((s) => s === statusRaw) ?? "pending";
+  const running = reported === "running" || reported === "pending";
+  // 进程不在了：同工具卡，还在跑的子代理画成已中止，计时停住。
+  const ended = useTspEnded();
+  const status = ended && running ? "aborted" : reported;
   const collapsible = p.collapsible === true;
   const [collapsed, toggle] = useFold(props, collapsible && p.collapsed === true);
   const stats = isRecord(p.stats) ? p.stats : {};
@@ -416,7 +424,6 @@ export function Agent(props: NodeProps) {
   const thinkingTone = thinking !== undefined ? semanticOf(thinking) : null;
   const badges = asArray(p.badges).filter(isRecord);
   const depth = Math.min(6, Math.max(0, Math.floor(asNumber(p.depth) ?? 0)));
-  const running = status === "running" || status === "pending";
   const [justFinished] = useJustFinished(status === "running");
   const entrance = useEntrance(ctx.taskId, ctx.sf, node.id);
   const doneFraction = asNumber(stats.done);

@@ -768,7 +768,7 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 |---|---|---|
 | 侧栏无任务 | `sidebar.empty`（`--text-3`） | — |
 | 搜索/面板无结果 | `palette.noResults` | `palette.askNew` |
-| omp 进程意外退出 | 侧栏该行变错误态（`shared/ui/sidebar-model.ts`）；某个操作因此失败时弹错误 toast `error.exitedNoCode`（`TaskError.kind` 由 `shared/ui/errors.ts` 映射）。没有对话流末尾的内联条，也没有“重新连接”按钮 | — |
+| omp 进程意外退出 | 侧栏该行变错误态（`shared/ui/sidebar-model.ts`）；某个操作因此失败时弹错误 toast `error.exitedNoCode`（`TaskError.kind` 由 `shared/ui/errors.ts` 映射）。没有对话流末尾的内联条，也没有“重新连接”按钮。留下的对话（和主动关掉的 stopped 任务一样）不再像在跑：还在跑的工具卡画成已取消（⊘，同 `/jobs kill`）、子代理行画成已中止，计时停在进程结束那一刻，循环动画暂停（`TspView` 的 `data-ended` + `TspEndedAtCtx`，2026-10-28） | — |
 | 协议错误 | 同上：toast `error.protocol` | — |
 | `prompt` 被拒 | 错误 toast：`msg.sendFailed` · 原因；草稿放回输入框（`features/composer/actions.ts`） | 用户重发 |
 | 模型不可用 | 恢复任务时模型不可用：toast `error.modelUnavailable`（`TaskError.kind` = `restore_model_failed`）；没有输入框上方的内联条 | — |

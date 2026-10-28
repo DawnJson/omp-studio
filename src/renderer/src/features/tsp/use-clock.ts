@@ -1,8 +1,9 @@
 // 本地计时(elapsed、tool/agent 的 age、倒计时、spinner 帧):整个渲染进程共用一个 100ms 的定时器,有订阅者才跑。
 // "现在"由定时器写进 store,组件渲染时从 store 读,不在渲染里调 Date.now()。每个组件只取它显示要用的那一份
 // (spinner 的帧号、按显示精度取整的时长),那一份没变就不重画:整秒显示的计时每秒只画一次。
-import { useLayoutEffect, useState, useSyncExternalStore } from "react";
+import { useContext, useLayoutEffect, useState, useSyncExternalStore } from "react";
 import { elapsedStep, type ElapsedFormat } from "./fmt.ts";
+import { TspEndedAtCtx } from "./tsp-context.ts";
 
 const TICK_MS = 100;
 const subscribers = new Set<() => void>();
@@ -31,9 +32,11 @@ function subscribe(listener: () => void): () => void {
 const noSubscribe = (): (() => void) => () => undefined;
 
 /** active 为 true 时跟着共用时钟(100ms)走,返回 select(当前时刻 ms);结果没变(Object.is)就不重画。
- *  active 为 false 时时刻不更新,不能拿来算时长。select 只能依赖时刻和渲染时就定下的值。 */
+ *  active 为 false 时时刻不更新,不能拿来算时长。select 只能依赖时刻和渲染时就定下的值。
+ *  任务的进程已经不在(TspEndedAtCtx)时不走,时刻停在进程结束的那一刻。 */
 export function useClock<T>(active: boolean, select: (now: number) => T): T {
-  return useSyncExternalStore(active ? subscribe : noSubscribe, () => select(now));
+  const endedAt = useContext(TspEndedAtCtx);
+  return useSyncExternalStore(active && endedAt === null ? subscribe : noSubscribe, () => select(endedAt ?? now));
 }
 
 /**

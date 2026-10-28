@@ -32,7 +32,12 @@ interface Started {
   cleanup(): Promise<void>;
 }
 
-async function start(fixture: string, env: Record<string, string> = {}, speed = 20): Promise<Started> {
+async function start(
+  fixture: string,
+  env: Record<string, string> = {},
+  speed = 20,
+  args: string[] = [],
+): Promise<Started> {
   const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp e2e-"));
   const project = path.join(work, "项目 目录");
   await mkdir(project);
@@ -40,7 +45,7 @@ async function start(fixture: string, env: Record<string, string> = {}, speed = 
   const launched = await launchApp({
     STUDIO_TEST_OMP: JSON.stringify({
       command: process.execPath,
-      args: [fakeOmp, fixture, `--speed=${speed}`, `--log=${log}`],
+      args: [fakeOmp, fixture, `--speed=${speed}`, `--log=${log}`, ...args],
     }),
     ...env,
   });
@@ -1203,6 +1208,34 @@ test("后台作业弹窗:卡片不超出 tsp-view、作业列表顶对齐;输入
     expect(await jobsSent()).toBe(sentBefore);
   } finally {
     await cleanup();
+  }
+});
+
+// omp 进程退出后，留下的最后一份对话里不能还像在跑（反馈：侧栏已是出错，对话里的 Bash 卡还在转圈、计时一直走）。
+// jobs-chart 只回放到后台 bash 跑了约 6 秒（录制第 100 行），然后假 omp 退出，和 omp 意外退出一样。
+test("omp 进程退出后：还在跑的工具卡画成已取消，不转圈、计时停住", async () => {
+  test.setTimeout(90_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-exit-"));
+  const fixture = path.join(work, "jobs-chart-cut.jsonl");
+  const text = await readFile(path.join(root, "fixtures", "tsp", "jobs-chart.jsonl"), "utf8");
+  await writeFile(fixture, text.split("\n").slice(0, 101).join("\n") + "\n");
+  const { launched, cleanup } = await start(fixture, {}, 20, ["--exit-after-end"]);
+  try {
+    const { page } = launched;
+    await sendFirst(page, JOBS_PROMPT);
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "error", { timeout: 30_000 });
+    const card = role(page, "omp.tool.bash").last();
+    await expect(card).toHaveClass(/\bst-cancelled\b/);
+    await expect(page.locator('[data-testid="tsp-view"] .tsp-tool-spin')).toHaveCount(0);
+    const timer = card.locator(".tsp-tool-time");
+    const shown = await timer.textContent();
+    expect(shown).toMatch(/\ds/);
+    // 计时不走：隔开超过一个显示单位（1 s）再看，文字不变。
+    await page.waitForTimeout(1500);
+    await expect(timer).toHaveText(shown!);
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
 

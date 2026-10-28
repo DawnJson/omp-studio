@@ -82,6 +82,10 @@
   visibility: hidden;
   content-visibility: hidden;
 }
+/* 任务的 omp 进程不在了（TspView 的 ended）：留着的文档里循环动画（shimmer、spinner 的点和环、脉动）停住，不再像还在跑 */
+.tsp-view[data-ended] {
+  --play-state: paused;
+}
 
 .tsp-empty {
   flex: 1 1 auto;

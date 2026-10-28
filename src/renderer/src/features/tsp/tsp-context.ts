@@ -15,3 +15,14 @@ export const TspParkedCtx = createContext(false);
 export function useTspParked(): boolean {
   return useContext(TspParkedCtx);
 }
+
+/**
+ * 任务的 omp 进程不在了（stopped / error）的时刻；进程还在为 null。留着的最后一份文档照样画，但里面不再有东西在跑：
+ * 没人再更新这些卡片，Windows 上进程的 Job 一关，它起的进程（含后台作业）也一起结束。
+ * 所以计时停在这一刻（use-clock.ts），循环动画暂停（`.tsp-view[data-ended]`），运行中的工具卡、子代理行画成已中断（nodes/work.tsx）。
+ */
+export const TspEndedAtCtx = createContext<number | null>(null);
+
+export function useTspEnded(): boolean {
+  return useContext(TspEndedAtCtx) !== null;
+}
