@@ -40,7 +40,7 @@
 | 动效曲线 | [Bold] ease-out-quint 为默认，一条弹簧（`linear()`） | Calm 的弹簧过冲 6%，偏弹；Bold 的 ζ≈0.8、过冲 1.5% 更克制。砍掉第二条软弹簧，只用 ease-out |
 | 动效时长 | [Bold] 80/140/200/320/420 | — |
 | reduced-motion | [Calm] 系统开启或应用内开关任一为真即生效；应用内**只能强制开，不能在系统要求减少时关闭**；保留 100ms 纯透明度渐变；位移/缩放通过 `--travel-*` / `--scale-pop` 归零 | AGENTS 把它列为硬约束；token 化位移量后，组件不用逐个写 reduced 分支 |
-| 循环动画 | [新] 统一用 `animation-play-state: var(--play-state)`，keyframes 的 0% 帧即静态终态 | 比“时长设为 0 且无限循环”可靠，不依赖浏览器对 0s infinite 动画的行为 |
+| 循环动画 | [新] 统一用 `animation-play-state: var(--play-state)`，keyframes 的 0% 帧即静态终态；节奏用 `steps()` 跳着播，每秒约 30 帧（`tokens.css` 的 `--tick-*`：steps 数 = 一段 keyframes 的时长 × 30） | 比“时长设为 0 且无限循环”可靠，不依赖浏览器对 0s infinite 动画的行为。不跳帧时按屏幕刷新率（144 / 300Hz）每帧都画：一个转圈让 GPU 进程占约 20%，扫光文字连渲染进程一起占 20% 以上（2026-10-28 实测） |
 | 主题机制 | [新] CSS 默认跟随 `prefers-color-scheme`；`<html data-theme>` 显式覆盖 | 任务要求；Calm/Bold 都让主进程解析后写属性，仍然可以：主进程只在用户选择“浅色/深色”时写 `data-theme`，选“跟随系统”时移除属性 |
 | 滚动条 | [融合 → 2026-10-21 改] 全局统一：细灰滑块，无轨道无底色，只在滚动时（和悬停到滑块上时）显示，停下约 0.8s 后淡出；不画横向滚动条。实现见 §5.4 “滚动条与横向溢出”。`.scroller` 等少数容器仍用自绘 `OverlayScrollbar`（`scrollbar-width: none`） | 仓库所有者 2026-10-21：不要经典的 Windows 滚动条，照 Tern/macOS 的覆盖式；全局一套样式，组件里不再各写各的 |
 | 状态点 | [融合] 形状 + 颜色（2026-10-20 起改为图标）：进行中=转圈、等你=圆圈感叹号、未读完成=对勾、出错=圆圈叉号；已读完成与空闲**不画**（[Calm]） | 形状是第二信号（色盲友好）；已读无标记让列表安静。Bold 的“空心圆=空闲”和“卫星点”不要 |
@@ -236,8 +236,8 @@
 | 侧栏折叠/抽屉（`app.css` `.sidebar-column`） | `translateX`；主区宽度**立即变一次**，不逐帧（收起和抽屉时侧栏 `position: absolute` 盖在主区上滑出；2026-10-25 起不再过渡列宽：长对话每帧重排，1100 宽的窗口一次开合排版 60ms 以上） | `--dur-slow` `--ease-out` |
 | 右栏打开（文件面板、子代理面板，`file-preview.css` 的 `panel-in`） | 整块从窗口右边 `translateX` 滑进；主区宽度立即变一次。关闭不放动画 | `--dur-slow` `--ease-out` |
 | 状态点切换 | 旧点缩小淡出 + 新点放大淡入 | `--dur-fast` |
-| 进行中转圈（状态点） | 一段弧旋转，循环 | `--dur-spin` linear，`animation-play-state: var(--play-state)`；减少动效时静止 |
-| 加载环 | 旋转 | `--dur-spin` linear |
+| 进行中转圈（状态点） | 一段弧旋转，循环 | `--dur-spin` 按 `--tick-spin` 跳帧，`animation-play-state: var(--play-state)`；减少动效时静止 |
+| 加载环 | 旋转 | `--dur-spin` 按 `--tick-spin` 跳帧 |
 | 流式光标 | opacity 脉冲 | `--dur-caret` |
 | Toast | 从上方滑入：`translateY(calc(var(--travel-md) * -1))→0` + opacity | `max(--dur-base, --dur-fade)`（减少动效时位移为 0，只淡入 100ms），停留 5s；退出反向（向上滑回 + 淡出，`max(--dur-base-exit, --dur-fade)`） |
 | 浮层、菜单、对话框、toast **消失** | 反向：opacity→0 + 下沉 `--travel-sm` + 缩到 `--scale-pop`；遮罩只淡出 | `--dur-fast-exit` `--ease-in`；放完才卸载（`ui/presence.ts` 的 `usePresence`，`data-closing="pop"/"fade"`，规则在 `ui/motion.css`） |

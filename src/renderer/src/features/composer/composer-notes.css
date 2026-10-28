@@ -37,7 +37,8 @@
   width: 35%;
   background: var(--accent);
   border-radius: inherit;
-  animation: run-progress-sweep 1.2s var(--ease-out) infinite;
+  /* 1.2s 一整段：36 格约每秒 30 帧（tokens.css 的 --tick-*） */
+  animation: run-progress-sweep 1.2s steps(36) infinite;
 }
 @keyframes run-progress-sweep {
   from {

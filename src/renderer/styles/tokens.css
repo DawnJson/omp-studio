@@ -183,6 +183,14 @@
   --dur-write: 2600ms; /* 状态行"正在思考"的 π 写出 + 停住 + 褪掉一整轮（减少动效时靠 --play-state 停在完整的 π） */
   --dur-caret: 1200ms; /* 流式光标 */
   --dur-sweep: 1400ms; /* 骨架占位的扫光（减少动效时靠 --play-state 停在 0% 帧：光带在框外） */
+  /* 循环动画按 steps 跳着播，每秒约 30 帧：steps 数 = 一段 keyframes 的时长 × 30（steps 按段算，0%→50%→100% 的呼吸是两段）。
+   * 不跳的话合成器按屏幕刷新率（144 / 300Hz）每帧都画：一个 16px 的转圈让 GPU 进程占约 20%，扫光文字连渲染进程一起占 20% 以上；
+   * 跳到每秒约 30 帧后分别约 8% 和 10%（2026-10-28 实测）。时长改了这里一起改。 */
+  --tick-spin: steps(33); /* --dur-spin 一整段 */
+  --tick-breathe: steps(36); /* --dur-breathe 的半段（呼吸 0%→50%→100%） */
+  --tick-sweep: steps(72); /* --dur-breathe 一整段（扫光） */
+  --tick-caret: steps(18); /* --dur-caret 的半段 */
+  --tick-skeleton: steps(42); /* --dur-sweep 一整段 */
   /* 退出比进入快：时长的 60% */
   --dur-fast-exit: calc(var(--dur-fast) * 0.6);
   --dur-base-exit: calc(var(--dur-base) * 0.6);

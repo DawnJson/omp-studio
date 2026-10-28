@@ -104,7 +104,7 @@
   border: 2px solid var(--border-strong);
   border-top-color: var(--accent);
   border-radius: var(--radius-pill);
-  animation: step-spin var(--dur-spin) linear infinite;
+  animation: step-spin var(--dur-spin) var(--tick-spin) infinite;
   animation-play-state: var(--play-state);
 }
 @keyframes step-spin {

@@ -934,7 +934,7 @@
   height: 28px;
   border-radius: var(--radius-lg);
   background: var(--bg-sunken);
-  animation: tspi-breathe var(--dur-breathe) ease-in-out infinite;
+  animation: tspi-breathe var(--dur-breathe) var(--tick-breathe) infinite;
   animation-play-state: var(--play-state);
 }
 @keyframes tspi-breathe {

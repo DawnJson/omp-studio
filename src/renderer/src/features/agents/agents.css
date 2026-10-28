@@ -15,7 +15,7 @@
   background: var(--st-running);
   box-shadow: 0 0 0 3px var(--accent-soft);
   /* sb-halo 定义在 sidebar.css（keyframes 全局可用），0% 帧即静态终态 */
-  animation: sb-halo var(--dur-breathe) var(--ease-in-out) infinite;
+  animation: sb-halo var(--dur-breathe) var(--tick-breathe) infinite;
   animation-play-state: var(--play-state);
 }
 .agents-dot[data-status="failed"] {
@@ -53,7 +53,7 @@
   height: 8px;
   border-radius: var(--radius-pill);
   background: var(--st-running);
-  animation: sb-halo var(--dur-breathe) var(--ease-in-out) infinite;
+  animation: sb-halo var(--dur-breathe) var(--tick-breathe) infinite;
   animation-play-state: var(--play-state);
 }
 .agents-driving-text {

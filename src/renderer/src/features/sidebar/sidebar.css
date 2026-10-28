@@ -472,7 +472,7 @@
 }
 .sb-dot-turn {
   display: flex;
-  animation: sb-spin var(--dur-spin) linear infinite;
+  animation: sb-spin var(--dur-spin) var(--tick-spin) infinite;
   animation-play-state: var(--play-state);
 }
 @keyframes sb-spin {

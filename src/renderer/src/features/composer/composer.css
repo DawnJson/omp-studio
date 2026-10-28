@@ -260,23 +260,29 @@ button.usage-context:hover,
 .chip-effort[data-level="max"] :is(.effort-bars, svg) {
   filter: drop-shadow(0 0 2.5px color-mix(in srgb, var(--st-waiting) 75%, transparent));
 }
+/* --wave-tick：--wave 半段（0%→50%→100%）× 每秒 30 帧（tokens.css 的 --tick-*） */
 .chip-effort {
   --wave: var(--dur-breathe);
+  --wave-tick: var(--tick-breathe);
 }
 .chip-effort[data-level="medium"] {
   --wave: 1600ms;
+  --wave-tick: steps(24);
 }
 .chip-effort[data-level="high"] {
   --wave: 1200ms;
+  --wave-tick: steps(18);
 }
 .chip-effort[data-level="xhigh"] {
   --wave: 900ms;
+  --wave-tick: steps(14);
 }
 .chip-effort[data-level="max"] {
   --wave: 700ms;
+  --wave-tick: steps(11);
 }
 .chip-effort[data-running] .effort-bar[data-lit] {
-  animation: effort-wave var(--wave) var(--ease-in-out) infinite;
+  animation: effort-wave var(--wave) var(--wave-tick) infinite;
   animation-delay: calc(var(--i) * var(--wave) / 8);
   animation-play-state: var(--play-state);
 }
@@ -774,7 +780,8 @@ button.usage-context:hover,
 /* 每格同一段 keyframes，起点按笔画序号（--pi-step，0–1）错开整轮的 36%：前 36% 依次写出，全亮停一会儿，
  * 第 56% 起依次褪成淡影，最后 4% 再亮回来。0% 帧是亮着的，减少动效时停在这里就是完整的 π。 */
 .pi-cell {
-  animation: pi-write var(--dur-write) linear infinite backwards;
+  /* 变化的两段各约 100ms：每段 3 格约每秒 30 帧（tokens.css 的 --tick-*） */
+  animation: pi-write var(--dur-write) steps(3) infinite backwards;
   animation-delay: calc(var(--pi-step) * var(--dur-write) * 0.36);
   animation-play-state: var(--play-state);
 }
@@ -872,7 +879,7 @@ button.usage-context:hover,
 .todo-mark-turn {
   display: flex;
   flex: none;
-  animation: run-spin calc(var(--dur-spin) * 2) linear infinite;
+  animation: run-spin calc(var(--dur-spin) * 2) steps(66) infinite;
   animation-play-state: var(--play-state);
 }
 .todo-current {

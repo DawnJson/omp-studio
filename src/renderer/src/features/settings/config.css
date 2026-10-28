@@ -120,7 +120,7 @@
   border: 2px solid var(--border-strong);
   border-top-color: var(--accent);
   border-radius: var(--radius-pill);
-  animation: ui-spin var(--dur-spin) linear infinite;
+  animation: ui-spin var(--dur-spin) var(--tick-spin) infinite;
   animation-play-state: var(--play-state);
 }
 

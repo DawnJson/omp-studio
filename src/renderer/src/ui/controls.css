@@ -126,7 +126,7 @@
   border: 1.5px solid var(--text-2);
   border-right-color: transparent;
   border-radius: 50%;
-  animation: ui-spin var(--dur-spin) linear infinite;
+  animation: ui-spin var(--dur-spin) var(--tick-spin) infinite;
 }
 .ui-btn[data-variant="primary"][data-loading]::after {
   border-color: var(--text-on-primary);
@@ -1336,7 +1336,7 @@
   content: "";
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bg-overlay) 60%, transparent), transparent);
   transform: translateX(-100%);
-  animation: ui-skeleton-sweep var(--dur-sweep) linear infinite;
+  animation: ui-skeleton-sweep var(--dur-sweep) var(--tick-skeleton) infinite;
   animation-play-state: var(--play-state);
 }
 @keyframes ui-skeleton-sweep {
