@@ -44,6 +44,7 @@ idle → checking → up-to-date
 
 - 启动后等 10 秒检查一次，之后每小时一次（`UpdateService.start`）。
 - 手动检查走 `checkForUpdate`；检查中、下载中、已下载时不会重复发请求。
+- **已下载之后照常定时检查**（2026-10-28 起；原来检查一开始就把状态切成 `checking`，检查失败还会变成 `error`，"重启并安装"跟着消失）：`downloaded` 时不再显示检查中；没有更新的版本、检查失败都保持 `downloaded`（失败只记日志）；`update-available` 的版本和已下载的相同就忽略（electron-updater 核对缓存后直接再发 `update-downloaded`），比它新就切到 `downloading` 下载新的。electron-updater 6.8.9 下载新版本前会清掉缓存里待装的旧版本（`DownloadedUpdateHelper.validateDownloadedPath` → `cleanCacheDirForPendingUpdate`，读源码），新版本下载失败时就没有可装的了，状态是 `error`，下一次检查重来。
 - `checkForUpdates` 不带任何事件就结束（更新器判定不活跃）时回到 `idle`，不会卡在 `checking` 把后续检查挡住。
 - 所有状态变化通过 `updateState` 事件推给界面；设置 → 关于读 `getUpdateState` 拿初始值。
 
@@ -53,6 +54,7 @@ idle → checking → up-to-date
 
 - **退出时自动安装**：electron-updater 默认 `autoInstallOnAppQuit`，应用正常退出（托盘 / 菜单退出，都经 `window/shutdown.ts`）后静默运行安装器（`--updated /S`），不自动重启。窗口 × 只隐藏，不算退出。
 - **重启并安装**：侧栏的新版本标签、设置 → 关于、关于对话框三个入口共用 `features/settings/use-install-update.tsx`：有任务在 `running` / `needs_you` 时先弹确认框，否则直接 `installUpdate`：
+  0. 先 `checkForUpdates` 一次，有更新的版本就等它下完（`UpdateCheckResult.downloadPromise`）再装，不先装中间那一版（2026-10-28 起：原来 0.4.33 已下载 0.4.34 时 0.4.35 发布，点安装装的是 0.4.34，启动后才又下 0.4.35）。检查失败（离线）就装已下载的；新版本没下载成功则安装失败、不退出。
   1. `prepareInstall()` 调 `finishShutdown()`：跑一遍退出 hook，关掉所有 omp 子进程（`window/shutdown.ts`）。
   2. 再调 `autoUpdater.quitAndInstall(true, true)`：静默安装（`/S`）并在装完后重启（`--force-run`）。安装器是向导式的（`electron-builder.yml` 的 `nsis.oneClick: false`），不静默会弹出欢迎页、进度页、完成页等用户点；静默时向导安装器只有带 `--force-run` 才会重启应用（`app-builder-lib/templates/nsis/installSection.nsh`）。
 

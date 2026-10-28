@@ -8,6 +8,8 @@ class FakeUpdater implements Updater {
   autoDownload = false;
   checks = 0;
   checksToFail: Error | null = null;
+  /** 检查时模拟 electron-updater：发事件、返回带 downloadPromise 的结果。 */
+  onCheck: (() => { downloadPromise?: Promise<unknown> | null } | null) | null = null;
   installed = false;
   #listeners = new Map<string, ((payload: never) => void)[]>();
 
@@ -18,10 +20,10 @@ class FakeUpdater implements Updater {
     return this;
   }
 
-  async checkForUpdates(): Promise<unknown> {
+  async checkForUpdates(): Promise<{ downloadPromise?: Promise<unknown> | null } | null> {
     this.checks += 1;
     if (this.checksToFail !== null) throw this.checksToFail;
-    return null;
+    return this.onCheck?.() ?? null;
   }
 
   quitAndInstall(): void {
@@ -169,5 +171,88 @@ describe("UpdateService", () => {
     await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
     expect(updater.checks).toBe(0);
     service.dispose();
+  });
+
+  it("已下载之后的定时检查：没有更新的版本、检查失败都还是已下载；有更新的版本就换成下载它", async () => {
+    const { service, updater } = createService();
+    updater.emit("update-downloaded", { version: "0.2.0" });
+
+    updater.onCheck = () => {
+      updater.emit("checking-for-update");
+      updater.emit("update-available", { version: "0.2.0" });
+      updater.emit("update-downloaded", { version: "0.2.0" });
+      return null;
+    };
+    await service.check(false);
+    expect(service.state()).toMatchObject({ phase: "downloaded", latestVersion: "0.2.0" });
+
+    updater.onCheck = () => {
+      updater.emit("checking-for-update");
+      updater.emit("error", new Error("404 latest.yml"));
+      return null;
+    };
+    await service.check(false);
+    expect(service.state()).toMatchObject({ phase: "downloaded", latestVersion: "0.2.0", error: null });
+
+    updater.onCheck = () => {
+      updater.emit("checking-for-update");
+      updater.emit("update-available", { version: "0.3.0" });
+      updater.emit("download-progress", { percent: 30 });
+      return null;
+    };
+    await service.check(false);
+    expect(service.state()).toMatchObject({ phase: "downloading", latestVersion: "0.3.0", percent: 30 });
+    updater.emit("update-downloaded", { version: "0.3.0" });
+    expect(service.state()).toMatchObject({ phase: "downloaded", latestVersion: "0.3.0" });
+  });
+
+  it("重启并安装时有更新的版本：先下载它再装，不装中间那一版", async () => {
+    const order: string[] = [];
+    const { service, updater } = createService({
+      prepareInstall: async () => {
+        order.push(`shutdown ${service.state().latestVersion}`);
+      },
+    });
+    vi.spyOn(updater, "quitAndInstall").mockImplementation(() =>
+      order.push(`install ${service.state().latestVersion}`),
+    );
+    updater.emit("update-downloaded", { version: "0.2.0" });
+    updater.onCheck = () => {
+      updater.emit("update-available", { version: "0.3.0" });
+      return {
+        downloadPromise: Promise.resolve().then(() => updater.emit("update-downloaded", { version: "0.3.0" })),
+      };
+    };
+
+    await service.install();
+    expect(order).toEqual(["shutdown 0.3.0", "install 0.3.0"]);
+  });
+
+  it("重启并安装时更新的版本没下载成功：安装失败，不跑退出流程", async () => {
+    const { service, updater, calls } = createService();
+    updater.emit("update-downloaded", { version: "0.2.0" });
+    updater.onCheck = () => {
+      updater.emit("update-available", { version: "0.3.0" });
+      return {
+        downloadPromise: Promise.resolve().then(() => {
+          updater.emit("error", new Error("sha512 mismatch"));
+          throw new Error("sha512 mismatch");
+        }),
+      };
+    };
+
+    await expect(service.install()).rejects.toThrow("没有已下载的更新");
+    expect(calls).toEqual([]);
+    expect(updater.installed).toBe(false);
+    expect(service.state()).toMatchObject({ phase: "error", error: "sha512 mismatch" });
+  });
+
+  it("重启并安装时检查失败（离线）：装已下载的那一版", async () => {
+    const { service, updater, calls } = createService();
+    updater.emit("update-downloaded", { version: "0.2.0" });
+    updater.checksToFail = new Error("getaddrinfo ENOTFOUND github.com");
+    await service.install();
+    expect(calls).toEqual(["prepareInstall"]);
+    expect(updater.installed).toBe(true);
   });
 });

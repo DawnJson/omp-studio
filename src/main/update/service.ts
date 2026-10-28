@@ -1,4 +1,6 @@
 // omp-studio 自身的更新服务：检查（启动后延迟、每小时、手动）、下载进度、安装。
+// 已下载之后照常定时检查：发现更新的版本就换成下载它；没有更新的版本、检查失败都不动"已下载"（重启并安装、退出时安装照旧）。
+// 点"重启并安装"时先查一次，有更新的版本先下载它再装，不先装中间那一版。
 // 这里只做状态机和时间调度；electron-updater 通过 Updater 接口注入，测试用假实现（不需要 Electron）。
 import type { UpdateState } from "../../shared/ipc.ts";
 
@@ -14,7 +16,8 @@ export interface UpdaterEvents {
 export interface Updater {
   autoDownload: boolean;
   on<K extends keyof UpdaterEvents>(event: K, listener: (payload: UpdaterEvents[K]) => void): unknown;
-  checkForUpdates(): Promise<unknown>;
+  /** electron-updater 的 UpdateCheckResult：autoDownload 时带这次下载的 promise。 */
+  checkForUpdates(): Promise<{ downloadPromise?: Promise<unknown> | null } | null>;
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void;
 }
 
@@ -59,20 +62,27 @@ export class UpdateService {
     };
     if (!options.enabled) return;
     this.#updater.autoDownload = true;
-    this.#updater.on("checking-for-update", () => this.#set({ phase: "checking", error: null }));
-    this.#updater.on("update-available", (info) =>
-      this.#set({ phase: "downloading", latestVersion: info.version, percent: 0, error: null }),
-    );
-    this.#updater.on("update-not-available", () =>
+    const downloaded = () => this.#state.phase === "downloaded";
+    this.#updater.on("checking-for-update", () => {
+      if (!downloaded()) this.#set({ phase: "checking", error: null });
+    });
+    this.#updater.on("update-available", (info) => {
+      // 已下载的就是最新版：electron-updater 核对缓存后直接再发 update-downloaded，不用切到下载态。
+      if (downloaded() && info.version === this.#state.latestVersion) return;
+      this.#set({ phase: "downloading", latestVersion: info.version, percent: 0, error: null });
+    });
+    this.#updater.on("update-not-available", () => {
+      if (downloaded()) return;
       this.#set({
         phase: "up-to-date",
         latestVersion: null,
         percent: 0,
         lastCheckedAt: this.#options.now?.() ?? Date.now(),
-      }),
-    );
+      });
+    });
     this.#updater.on("download-progress", (progress) => {
       // 有些版本在 update-available 之前就发进度；照样进入下载态。
+      if (downloaded()) return;
       this.#set({ phase: "downloading", percent: clampPercent(progress.percent) });
     });
     this.#updater.on("update-downloaded", (info) =>
@@ -83,9 +93,13 @@ export class UpdateService {
         lastCheckedAt: this.#options.now?.() ?? Date.now(),
       }),
     );
-    this.#updater.on("error", (error) =>
-      this.#set({ phase: "error", error: error.message, lastCheckedAt: this.#options.now?.() ?? Date.now() }),
-    );
+    this.#updater.on("error", (error) => {
+      if (downloaded()) {
+        this.#options.log?.(`update: check failed after download (${error.message})`);
+        return;
+      }
+      this.#set({ phase: "error", error: error.message, lastCheckedAt: this.#options.now?.() ?? Date.now() });
+    });
   }
 
   state(): UpdateState {
@@ -111,7 +125,7 @@ export class UpdateService {
     if (!this.#options.enabled || this.#installing) return;
     if (this.#state.phase === "checking" || this.#state.phase === "downloading") return;
     if (manual && this.#state.phase === "downloaded") return;
-    this.#set({ phase: "checking", error: null });
+    if (this.#state.phase !== "downloaded") this.#set({ phase: "checking", error: null });
     try {
       await this.#updater.checkForUpdates();
       // 极少数情况下 checkForUpdates 不带任何事件就结束了（例如更新器判定不活跃）；
@@ -130,10 +144,20 @@ export class UpdateService {
     }
   }
 
-  /** 安装已下载的更新；必须等退出流程把 omp 关干净再交给 electron-updater。 */
+  /** 安装已下载的更新：先查有没有更新的版本（有就等它下完），再等退出流程把 omp 关干净，最后交给 electron-updater。 */
   async install(): Promise<void> {
     if (this.#installing || this.#state.phase !== "downloaded") throw new Error("没有已下载的更新");
     this.#installing = true;
+    try {
+      const result = await this.#updater.checkForUpdates();
+      await result?.downloadPromise;
+    } catch {
+      // 检查失败（错误已由 error 事件处理）：装已下载的那一版；新版本没下完时下面的判断会拦住。
+    }
+    if (this.#state.phase !== "downloaded") {
+      this.#installing = false;
+      throw new Error("没有已下载的更新");
+    }
     this.dispose();
     await this.#options.prepareInstall();
     // 静默（/S）+ 装完重启（--force-run）：安装器是向导式的，不静默会把欢迎页、进度页、完成页都弹出来等用户点。

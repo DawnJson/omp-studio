@@ -113,7 +113,7 @@ export const settings = {
   "about.checking": "正在检查…",
   "about.upToDate": "已是最新版本",
   "about.downloading": "正在下载 {version}（{percent}%）",
-  "about.downloaded": "新版本 {version} 已下载，退出时自动安装",
+  "about.downloaded": "新版本 {version} 已下载",
   "about.install": "重启并安装",
   "about.failed": "检查更新失败",
   "about.installFailed": "安装更新失败：{message}",

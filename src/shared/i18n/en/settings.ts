@@ -114,7 +114,7 @@ export const settings = {
   "about.checking": "Checking…",
   "about.upToDate": "You're up to date",
   "about.downloading": "Downloading {version} ({percent}%)",
-  "about.downloaded": "Version {version} is downloaded and installs automatically when you quit",
+  "about.downloaded": "Version {version} downloaded",
   "about.install": "Restart and install",
   "about.failed": "Couldn't check for updates",
   "about.installFailed": "Couldn't install the update: {message}",

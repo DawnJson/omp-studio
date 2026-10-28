@@ -209,10 +209,24 @@ test("更新下载好后侧栏出现新版本标签；有任务在进行时先�
     await expect.poll(() => installCalls(app)).toBe(2);
     await expect(dialog).toHaveCount(0);
 
-    // 设置 → 关于：状态写明退出时自动安装，按钮同样直接安装；返回任务。
+    // 设置 → 关于：状态只写版本，按钮同样直接安装；返回任务。
     await page.keyboard.press("Control+Comma");
     await page.getByTestId("settings-nav-about").click();
-    await expect(page.getByTestId("update-status")).toHaveText("新版本 9.9.9 已下载，退出时自动安装");
+    await expect(page.getByTestId("update-status")).toHaveText("新版本 9.9.9 已下载");
+    // 版本号、状态和"重启并安装"在同一行（以前状态太长，按钮被挤到下一行）：900 / 1200 宽、中英文。
+    const middle = async (testId: string) => {
+      const box = (await page.getByTestId(testId).boundingBox())!;
+      return box.y + box.height / 2;
+    };
+    for (const width of [900, 1200]) {
+      await page.setViewportSize({ width, height: 800 });
+      for (const locale of ["zh-CN", "en"] as const) {
+        await setLocaleTheme(page, locale, "light");
+        expect(Math.abs((await middle("update-install")) - (await middle("app-version")))).toBeLessThan(4);
+      }
+    }
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.setViewportSize({ width: 1200, height: 800 });
     await page.getByTestId("update-install").click();
     await expect.poll(() => installCalls(app)).toBe(3);
     await expect(dialog).toHaveCount(0);
