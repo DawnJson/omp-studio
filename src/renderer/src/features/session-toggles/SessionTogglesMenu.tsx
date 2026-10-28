@@ -133,7 +133,7 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
                   key={name}
                   id={name}
                   label={t(`toggles.${name}`)}
-                  tip={name === "extendedContext" || name === "computer" ? t(`toggles.${name}.hint`) : undefined}
+                  tip={name === "extendedContext" ? t("toggles.extendedContext.hint") : undefined}
                   checked={view.value ?? false}
                   session={view.session && !SAVED_TO_CONFIG.has(name)}
                   differs={view.differs}

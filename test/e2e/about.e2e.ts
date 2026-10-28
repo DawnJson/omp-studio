@@ -178,7 +178,7 @@ test("更新下载好后侧栏出现新版本标签；有任务在进行时先�
     }, updateDownloaded);
     await expect(chip).toBeVisible();
     await expect(chip).toHaveText("新版本 9.9.9");
-    await expect(chip).toHaveAttribute("title", "已下载，重启即可安装；退出软件时也会自动安装");
+    await expect(chip).toHaveAttribute("title", "重启并安装");
     await expect(dialog).toHaveCount(0);
 
     // 有任务在进行：确认框；取消不安装；再点一次确认才安装。

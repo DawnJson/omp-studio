@@ -35,7 +35,6 @@ export function ModeChip({ taskId, task }: { taskId: TaskId; task: TaskState }) 
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={`${t("modes.chip")}: ${label}`}
-        title={t("modes.chip")}
         onClick={() => setOpen((value) => !value)}
       >
         <Icon size={14} />

@@ -2,7 +2,7 @@ import type { MessageEntry } from "../index.ts";
 import type { model as zhCN } from "../zh-CN/model.ts";
 
 export const model = {
-  search: "Search, @ for roles",
+  search: "Search models",
   empty: "No models available",
   pinned: "Frequent",
   thinking: "Thinking",
@@ -41,10 +41,8 @@ export const model = {
   unknown: "Unknown",
   free: "Free or unpriced",
   fast: "Fast mode",
-  "fast.hint": "This session only",
   slow: "Slow mode",
-  "slow.scope.global": "Saved in the omp config, shared by every session",
-  "slow.scope.session": "This session only",
+  "slow.scope.global": "Shared by every session",
   on: "On",
   off: "Off",
   scopes: "Model scopes",
@@ -70,7 +68,6 @@ export const model = {
   "role.hint.speech": "text-to-speech",
   "role.hint.dictation": "speech-to-text",
   "role.hint.judge": "judgments (checking answers, comparing results)",
-  "role.hint.custom": "a custom role",
   all: "All models",
   matches: "Matches",
   rolesGroup: "Roles",

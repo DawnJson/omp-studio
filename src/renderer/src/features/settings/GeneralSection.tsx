@@ -116,7 +116,7 @@ export function GeneralSection() {
             />
           )}
         </Row>
-        <Row label={t("settings.fontSize")} info={t("settings.fontSize.desc")}>
+        <Row label={t("settings.fontSize")}>
           {(labelId) => (
             <Select<`${number}`>
               size="sm"
@@ -158,7 +158,7 @@ export function GeneralSection() {
         {notifyItems.map((item) => (
           <ConfigRow key={item.key} item={item} />
         ))}
-        <Row label={t("settings.soundOnDone")} info={t("settings.soundOnDone.desc")}>
+        <Row label={t("settings.soundOnDone")}>
           {(labelId) => (
             <Switch
               checked={settings?.soundOnDone ?? false}

@@ -6,5 +6,4 @@ export const status = {
   done: "完成",
   error: "出错",
   interrupted: "已中断",
-  interruptedTip: "中途停下，打开可继续",
 } satisfies Record<string, MessageEntry>;

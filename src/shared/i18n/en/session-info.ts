@@ -11,11 +11,11 @@ export const sessionInfo = {
   "cmd.share": "Share session link…",
   "cmd.pin": "Pin / unpin this session",
   "cmd.retry": "Retry the last turn",
-  "slash.session": "Show session info: title, ID, file, usage",
+  "slash.session": "Show session info",
   "slash.trace": "Show this session's request log",
-  "slash.pin": "Pin / unpin this session (sorted first in history)",
-  "slash.share": "Upload an encrypted snapshot of this session and get a share link",
-  "slash.retry": "Resend the last turn (retry after an error)",
+  "slash.pin": "Pin / unpin this session",
+  "slash.share": "Upload this session and create a share link",
+  "slash.retry": "Resend the last turn",
 
   title: "Session info",
   "tab.info": "Overview",
@@ -40,7 +40,6 @@ export const sessionInfo = {
   copied: "Copied",
   reveal: "Show in folder",
   "pin.label": "Pinned",
-  "pin.hint": "Sorted first in the sidebar's history",
   pinnedToast: "Session pinned.",
   unpinnedToast: "Session unpinned.",
   pinUnchanged: "The pin state did not change (omp gave no message).",
@@ -57,10 +56,9 @@ export const sessionInfo = {
   "usage.syncing": "Syncing…",
   "usage.syncFailed": "Stats sync failed: {message}",
   "usage.refresh": "Refresh",
-  "usage.note": "Counted from the session file, same as the composer; after a compaction only the kept part counts.",
 
   "trace.open": "Open in browser",
-  "trace.openTip": "Opens omp's request trace in your browser via /trace (not available while the task runs)",
+  "trace.openTip": "Unavailable while the task runs",
   "trace.opened": "omp opened the request trace in your browser",
   "trace.empty": "No requests recorded",
   "trace.summary": "{requests} requests · {failed} failed · {tools} tool calls · {cost}",
@@ -102,5 +100,4 @@ export const sessionInfo = {
   "share.raw": "omp's output (no link recognised)",
 
   "retry.button": "Retry",
-  "retry.title": "Resend the last turn (/retry)",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

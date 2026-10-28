@@ -171,11 +171,6 @@ export function CommitBox({
         onChange={setDescription}
         onKeyDown={onKeyDown}
       />
-      {amend && last?.pushed && (
-        <p className="rv-commit-warn" data-testid="review-commit-amend-note" data-pushed="true">
-          {t("review.commitAmendPushed")}
-        </p>
-      )}
       <div className="rv-commit-foot">
         <span className="rv-commit-opts">
           <Checkbox checked={stageAll} onChange={setStageAll} testId="review-commit-stage-all">

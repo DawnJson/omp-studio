@@ -103,7 +103,7 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
           testId="omp-info"
           info={
             source.kind === "studio_managed"
-              ? t("omp.autoUpdate.note")
+              ? undefined
               : source.kind === "managed_by_other"
                 ? `${t("omp.updateByManager", { name: source.managerName })} ${t("omp.autoUpdate.noteOther")}`
                 : t("omp.autoUpdate.noteOther")

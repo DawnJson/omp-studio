@@ -58,9 +58,9 @@ export function ProviderRow({
     badge = { tone: "neutral", text: t("login.unavailable") };
     meta = "";
   } else {
-    // 选择对话框里的行都是没连接的，"未登录"徽标没有信息；只有多步登录这一点从按钮看不出。
+    // 选择对话框里的行都是没连接的，"未登录"徽标没有信息；多步登录点"登录"后自然会看到，也不写。
     badge = null;
-    meta = loginKind === "terminal" ? t("login.kind.interactive") : "";
+    meta = "";
   }
 
   // 没有任何动作时（比如只有环境变量里的 key）不给 actions，ListRow 据此标 data-no-actions，卡片里不留动作那一行。

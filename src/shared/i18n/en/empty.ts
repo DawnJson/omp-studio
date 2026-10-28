@@ -17,7 +17,7 @@ export const empty = {
   title: "Start a task",
   usageTitle: "This week",
   usageToday: "Today {value}",
-  usageNoDatabase: "Usage shows up here after omp has run.",
+  usageNoDatabase: "No usage yet",
   usageChart: "Daily tokens over the last {weeks} weeks: {week} this week, {today} today",
   usageLoading: "Loading usage",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

@@ -15,7 +15,7 @@ export const sidebar = {
   empty: "No tasks yet",
   settings: "Settings",
   update: "Update {version}",
-  updateTip: "Downloaded. Restart to install; it also installs automatically when you quit",
+  updateTip: "Restart to install",
   newInProject: "New task in this project",
   label: "Tasks",
   projectMenu: "Project menu",

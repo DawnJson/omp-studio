@@ -36,8 +36,8 @@ export const preview = {
   addDir: "添加文件夹…",
   addDirTitle: "加入工作区，agent 可读写",
   removeDir: "移除 {name}",
-  removeDirTitle: "从工作区移除（不会删除文件夹）：{path}",
-  dirsNote: "额外目录只在这次运行里有效；任务重启后需要重新添加。",
+  removeDirTitle: "从工作区移除：{path}",
+  dirsNote: "任务重启后需重新添加",
   dirAdded: "已加入工作区：{name}",
   dirRemoved: "已从工作区移除：{name}",
 } satisfies Record<string, MessageEntry>;

@@ -167,7 +167,7 @@ export function SkillsCard({ scope }: { scope: ScopeKey }) {
         <Skeleton variant="card" label={t("integrations.loading")} testId="skills-skeleton" />
       )}
       {skills?.length === 0 && (
-        <p className="ig-note" title={t("integrations.skills.empty.tip")} data-testid="skills-empty">
+        <p className="ig-note" data-testid="skills-empty">
           {t("integrations.skills.empty")}
         </p>
       )}

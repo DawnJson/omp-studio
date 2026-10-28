@@ -3,7 +3,6 @@ import type { git as zhCN } from "../zh-CN/git.ts";
 
 export const git = {
   "draft.worktree": "Start in a separate worktree",
-  "draft.title": "Do this task in its own worktree (new studio/… branch); your main folder stays untouched",
   "draft.on": "new worktree",
   "draft.setup": "Will run {script} on creation",
   "draft.blocked": "Worktree unavailable: {reason}",

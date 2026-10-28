@@ -41,10 +41,7 @@ function ToolCell({ tool, configKey, devices }: { tool: ToolEntry; configKey: st
     );
   } else if (kind === "mountedMcp" || kind === "mounted") {
     badge = (
-      <Badge
-        title={t(kind === "mountedMcp" ? "integrations.tools.mounted.mcpTip" : "integrations.tools.mounted.tip")}
-        testId={testId}
-      >
+      <Badge title={kind === "mountedMcp" ? t("integrations.tools.mounted.mcpTip") : undefined} testId={testId}>
         {t("integrations.tools.mounted")}
       </Badge>
     );

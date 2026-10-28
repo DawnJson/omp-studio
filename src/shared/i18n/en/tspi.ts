@@ -17,7 +17,7 @@ export const tspi = {
   noSettingsMatch: "No settings match “{query}”",
   reset: "Reset",
   changedFromDefault: "Changed from default",
-  changedFromDefaultTo: "Changed from default: {value}",
+  changedFromDefaultTo: "Default: {value}",
   changedCount: "{count} changed from default",
   notSet: "Not set",
   decrease: "Decrease",

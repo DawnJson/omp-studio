@@ -533,7 +533,6 @@ test("评审：修改上一次提交（Amend）：预填上一次的信息；取
     await expect(summary).toHaveValue("init 标题");
     await expect(description).toHaveValue("原来的说明");
     await expect(submit).toHaveText("修改提交");
-    await expect(page.getByTestId("review-commit-amend-note")).toHaveCount(0);
     await amend.uncheck();
     await expect(summary).toHaveValue("我正在写的");
     await expect(submit).toHaveText("提交");
@@ -552,7 +551,7 @@ test("评审：修改上一次提交（Amend）：预填上一次的信息；取
     expect(git(repo, "show", "HEAD:README.md")).toContain("评审用的示例");
     await expect(amend).not.toBeChecked();
 
-    // 已推送的提交：勾上就有警告；提交前再确认，取消 = 什么都没发生；确认后本地改写，远端那份不动（不强推）。
+    // 已推送的提交：提交前再确认，取消 = 什么都没发生；确认后本地改写，远端那份不动（不强推）。
     const remote = path.join(work, "远端 仓库.git");
     git(work, "init", "-q", "--bare", remote);
     git(repo, "remote", "add", "origin", remote);
@@ -561,7 +560,6 @@ test("评审：修改上一次提交（Amend）：预填上一次的信息；取
     // 勾选要先异步读上一次提交，状态不会在点击瞬间变：用 click + 断言，不用 check()。
     await amend.click();
     await expect(amend).toBeChecked();
-    await expect(page.getByTestId("review-commit-amend-note")).toHaveAttribute("data-pushed", "true");
     await summary.fill("改写已推送的提交");
     await submit.click();
     await expect(page.getByTestId("review-amend-dialog")).toBeVisible();

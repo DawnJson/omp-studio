@@ -145,7 +145,6 @@ export function TodoBoard({
                       className="todo-phase-toggle"
                       data-testid="todo-phase-toggle"
                       aria-expanded={!collapsed}
-                      title={collapsed ? t("board.todoPhaseCollapsed") : undefined}
                       onClick={() =>
                         setOpened((previous) => {
                           const next = new Set(previous);

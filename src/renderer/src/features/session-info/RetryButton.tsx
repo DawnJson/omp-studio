@@ -15,12 +15,7 @@ export function RetryButton({ taskId, sf, id }: { taskId: TaskId; sf: string; id
   if (!trailing || task === null || task.status !== "idle") return null;
   return (
     <div className="si-retry">
-      <Button
-        size="sm"
-        testId="retry-turn"
-        title={t("sessionInfo.retry.title")}
-        onClick={() => void retryTask(t, taskId)}
-      >
+      <Button size="sm" testId="retry-turn" onClick={() => void retryTask(t, taskId)}>
         {t("sessionInfo.retry.button")}
       </Button>
     </div>

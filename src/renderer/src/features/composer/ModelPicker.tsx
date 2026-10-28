@@ -329,7 +329,15 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
     }
   };
 
-  const roleHint = (role: string) => t(roleHintKey(role));
+  // 角色的悬停说明（内置角色才有用途说明；自定义角色返回 undefined，不给 title）。
+  const roleHint = (role: string) => {
+    const key = roleHintKey(role);
+    return key === null ? undefined : t(key);
+  };
+  const roleTitle = (name: string, role: string) => {
+    const hint = roleHint(role);
+    return hint === undefined ? undefined : `${name}：${hint}`;
+  };
 
   const atRoles = roleMatches !== null;
   const primaryLabel = atRoles ? t("model.pickRole") : roleMode ? t("model.applyRole") : t("model.use");
@@ -374,7 +382,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
         data-current={isCurrent || undefined}
         title={
           item.kind === "role"
-            ? `${roleLabel(item.role)}：${roleHint(item.role)}`
+            ? roleTitle(roleLabel(item.role), item.role)
             : `${item.option.name}\n${item.option.key.provider}/${item.option.key.modelId}`
         }
         onClick={(event) => {
@@ -413,7 +421,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
                   data-role={role}
                   role="img"
                   aria-label={`@${role}`}
-                  title={`@${role}：${roleHint(role)}`}
+                  title={roleTitle(`@${role}`, role)}
                 >
                   <RoleIcon role={role} size={12} />
                 </span>

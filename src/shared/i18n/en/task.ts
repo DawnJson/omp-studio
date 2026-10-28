@@ -22,6 +22,6 @@ export const task = {
   restartBusyRunning: "Running; restart when it finishes",
   restartBusyWaiting: "Waiting for your answer; answer it first",
   restartBusyStarting: "The task is starting",
-  restartBusyBackground: "Background jobs, subagents or a side question are still running; restart when they finish",
+  restartBusyBackground: "Background work is still running; restart when it finishes",
   exportHtml: "Export as HTML…",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

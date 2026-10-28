@@ -12,8 +12,6 @@ export const omp = {
   progress: "{done} of {total} downloaded",
   verifying: "Verifying…",
   verifyFailed: "The file failed verification and was discarded.",
-  "install.note":
-    "omp-studio doesn't bundle omp. It downloads the official build, manages it, and keeps it up to date.",
   "takeover.title": "Found a script-based omp",
   "takeover.body":
     "omp-studio can't launch script-based installs (such as npm). It can install an official copy first on your user PATH; your existing one stays.",
@@ -39,8 +37,7 @@ export const omp = {
   "unusable.title": "Can't start this omp",
   reconsider: "Choose again",
   addPath: "Terminal",
-  "addPath.note":
-    "Only your user PATH changes. Your existing omp is untouched. Terminals that are already open need a restart.",
+  "addPath.note": "Restart open terminals to pick it up",
   "addPath.yes": "Add to PATH",
   "addPath.failed": "Couldn't change your user PATH: {message}",
   outdated: "omp {current} is too old. Version {min} or newer is required.",
@@ -53,9 +50,8 @@ export const omp = {
   checkUpdate: "Check for updates",
   checkFailed: "Couldn't check for updates: {message}",
   upToDate: "You're up to date",
-  "autoUpdate.note": "omp-studio checks for updates every hour",
   newVersion: "New version {version} available",
-  "autoUpdate.noteOther": "omp-studio checks for a newer version every hour but never installs it for you",
+  "autoUpdate.noteOther": "New versions are never installed automatically",
   path: "omp path",
   "error.title": "Couldn't start omp",
   "error.discover": "Couldn't find a usable omp.",
@@ -68,13 +64,12 @@ export const omp = {
   openSettings: "Open settings",
   "missing.title": "omp is required",
   "missing.body":
-    "omp-studio doesn't bundle omp. It can download the official build from {source} (about {size}), add it to your user PATH and keep it updated.",
-  "missing.bodyNoSize":
-    "omp-studio doesn't bundle omp. It can download the official build from {source}, add it to your user PATH and keep it updated.",
+    "Download the official build from {source} (about {size}); it's added to your user PATH and kept updated.",
+  "missing.bodyNoSize": "Download the official build from {source}; it's added to your user PATH and kept updated.",
   "missing.bodyStudioOnly":
-    "omp-studio doesn't bundle omp. It can download the official build from {source} (about {size}) for its own use and keep it updated.",
+    "Download the official build from {source} (about {size}) for omp-studio's own use; it's kept updated.",
   "missing.bodyNoSizeStudioOnly":
-    "omp-studio doesn't bundle omp. It can download the official build from {source} for its own use and keep it updated.",
+    "Download the official build from {source} for omp-studio's own use; it's kept updated.",
   "missing.titleVersion": "omp {version} is required",
   install: "Download and install",
   recheck: "I've installed it, check again",

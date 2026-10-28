@@ -525,13 +525,10 @@ test("自定义提供商：环境变量形式的 key——models.yml 只写变�
     expect(yml).not.toContain(SECRET);
     expect(await readFile(envFile, "utf8")).toBe(`# 我的 key\r\nHF_TOKEN=hf-keep\r\nPro_E2E_KEY=${SECRET}\r\n`);
 
-    // 编辑：变量名没改时值框提示“已写在 .env 里”，留空保存不动 .env。
+    // 编辑：变量名没改时值框提示“已设置”，留空保存不动 .env。
     await page.getByTestId("custom-edit-env-proxy").click();
     await expect(page.getByTestId("custom-key")).toHaveValue("Pro_E2E_KEY");
-    await expect(page.getByTestId("custom-key-env-value")).toHaveAttribute(
-      "placeholder",
-      "已写在 .env 里，留空保持不变",
-    );
+    await expect(page.getByTestId("custom-key-env-value")).toHaveAttribute("placeholder", "已设置，留空保持不变");
     await page.getByTestId("custom-save").click();
     await expect(form).toHaveCount(0);
     expect(await readFile(envFile, "utf8")).toContain(`Pro_E2E_KEY=${SECRET}`);

@@ -346,7 +346,7 @@ test("侧栏历史：停在工具调用上的会话画虚线圈暂停号，悬�
     const row = page.getByTestId("sidebar-session").filter({ hasText: "history-interrupted" });
     const mark = row.locator(".sb-dot-interrupted");
     await expect(mark).toHaveCount(1);
-    await expect(mark).toHaveAttribute("title", /中途停下|Stopped partway/);
+    await expect(mark).toHaveAttribute("title", /已中断|Interrupted/);
   } finally {
     await cleanup();
   }

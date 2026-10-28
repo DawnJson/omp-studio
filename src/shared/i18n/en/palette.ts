@@ -11,5 +11,4 @@ export const palette = {
   slash: "Slash commands",
   noResults: "No matches",
   askNew: "Ask in a new task",
-  hint: "↑↓ Select　↵ Run　Esc Close",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

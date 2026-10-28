@@ -121,13 +121,7 @@ export function InterruptedNote({ taskId }: { taskId: TaskId }) {
   return (
     <div className="run-main run-interrupted" data-testid="run-interrupted">
       <span className="run-activity">{t("modes.interrupted")}</span>
-      <Button
-        size="sm"
-        variant="quiet"
-        testId="run-interrupted-retry"
-        title={t("sessionInfo.retry.title")}
-        onClick={() => void retryTask(t, taskId)}
-      >
+      <Button size="sm" variant="quiet" testId="run-interrupted-retry" onClick={() => void retryTask(t, taskId)}>
         {t("sessionInfo.retry.button")}
       </Button>
     </div>

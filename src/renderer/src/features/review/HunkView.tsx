@@ -359,7 +359,7 @@ export function HunkView({
     >
       {blocks === null && (
         <header className="rv-hunk-head">
-          <code className="rv-hunk-range" title={pick === null ? undefined : t("review.pickHint")}>
+          <code className="rv-hunk-range">
             @@ −{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
           </code>
           {section !== "" && <span className="rv-hunk-section">{section}</span>}

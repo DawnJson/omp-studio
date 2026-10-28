@@ -137,8 +137,9 @@ export const customRoleNamePattern = /^[A-Za-z][A-Za-z0-9_-]{0,39}$/;
 /** 角色在界面上的名字：omp 的角色 id，首字母大写（smol → Smol）。 */
 export const roleLabel = (role: string) => role.charAt(0).toUpperCase() + role.slice(1);
 
-/** 角色用途的一句话（拼进 `model.roleUse`）：omp 的内置角色各有一句，其余都是"自定义角色"。 */
-export const roleHintKey = (role: string) => `model.role.hint.${isBuiltinRole(role) ? role : "custom"}` as MessageKey;
+/** 角色用途的一句话（拼进 `model.roleUse`）：omp 的内置角色各有一句；自定义角色没有，返回 null，调用方不出 ⓘ / 悬停说明。 */
+export const roleHintKey = (role: string): MessageKey | null =>
+  isBuiltinRole(role) ? (`model.role.hint.${role}` as MessageKey) : null;
 
 const thinkingSuffix = /:(?:off|minimal|low|medium|high|xhigh|max)$/;
 

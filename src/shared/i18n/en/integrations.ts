@@ -30,7 +30,7 @@ export const integrations = {
   "mcp.kind.stdio": "Local command",
   "mcp.command": "Command",
   "mcp.args": "Arguments",
-  "mcp.args.tip": "One per line; no double quotes",
+  "mcp.args.tip": "One per line, no quotes",
   "mcp.token": "Token",
   "mcp.token.tip": "Stored in the config file as an Authorization: Bearer header",
   "mcp.edit": "Edit",
@@ -62,12 +62,10 @@ export const integrations = {
   "ssh.key": "Key path",
   "ssh.desc": "Description",
   "ssh.compat": "Compat mode",
-  "ssh.compat.tip": "omp's --compat: for remotes that are not fully compatible (some routers, minimal systems).",
+  "ssh.compat.tip": "For remotes that aren't fully compatible, like routers or minimal systems",
 
   "skills.title": "Skills",
   "skills.empty": "No skills",
-  "skills.empty.tip":
-    "Click “Add skill…”, or put skill folders in ~/.agents/skills, ~/.omp/agent/skills or a project's .omp/skills",
   "skills.add": "Add skill…",
   "skills.disabled": "Disabled",
   "skills.plugin": "Plugin",
@@ -94,10 +92,9 @@ export const integrations = {
   "tools.device": "xd device",
   "tools.device.tip": "Another entry to the same tool",
   "tools.mounted": "On demand",
-  "tools.mounted.tip": "Mounted under xd://",
   "tools.mounted.mcpTip": "Follows its MCP server",
   "tools.inactive.tip": "Enabled by an omp mode",
-  "tools.note": "The global list, without project plugins and MCP tools",
+  "tools.note": "Excludes project plugins and MCP tools",
 
   "memory.title": "Memory",
   "memory.noProject": "Open a project first",
@@ -113,7 +110,7 @@ export const integrations = {
   "memory.clear.body":
     "Deletes this project's memory data; this cannot be undone. With Hindsight only local state is cleared, not the server bank.",
   "memory.cleared": "Memory cleared",
-  "memory.note": "Built by omp when a session starts; it calls a model and may cost money",
+  "memory.note": "Building memory calls a model and may cost money",
 
   "changelog.title": "Changelog",
 

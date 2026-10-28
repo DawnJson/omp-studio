@@ -48,7 +48,7 @@ export const plugins = {
   "marketplaces.add.label": "Marketplace source",
   "marketplaces.update": "Update catalog",
   "marketplaces.remove": "Remove",
-  "marketplaces.remove.hint": "Only removes this source; plugins already installed are not uninstalled.",
+  "marketplaces.remove.hint": "Installed plugins stay",
   "marketplaces.browse": "Browse",
   "marketplaces.browse.hide": "Hide",
   "marketplaces.search": "Search plugins",

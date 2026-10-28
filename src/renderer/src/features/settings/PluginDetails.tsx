@@ -76,7 +76,7 @@ function SettingRow({
   return (
     <Row
       label={settingKey}
-      info={[info, defaultText].filter(Boolean).join(" ") || undefined}
+      info={info || undefined}
       modified={isSet}
       reset={{
         tip: [t("plugins.settings.reset"), defaultText].filter(Boolean).join(" · "),

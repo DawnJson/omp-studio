@@ -55,7 +55,7 @@ export function SpeedToggle({ speed }: { speed: SpeedControls }) {
     <div className="mp-speed" data-testid="speed-controls">
       <OnOff
         label="model.fast"
-        hint="model.fast.hint"
+        hint={null}
         enabled={fast.enabled}
         onChange={(enabled) => speed.setFast(enabled).catch(report)}
       />

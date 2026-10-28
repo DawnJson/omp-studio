@@ -14,7 +14,7 @@ export const sidebar = {
   empty: "还没有任务",
   settings: "设置",
   update: "新版本 {version}",
-  updateTip: "已下载，重启即可安装；退出软件时也会自动安装",
+  updateTip: "重启并安装",
   newInProject: "在此项目新建任务",
   label: "任务列表",
   projectMenu: "项目菜单",

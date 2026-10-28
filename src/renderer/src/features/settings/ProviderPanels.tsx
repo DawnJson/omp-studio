@@ -164,12 +164,13 @@ export function KeyBody({
   backup: { count: number; value: string; onChange(next: string): void } | null;
 }) {
   const t = useT();
+  // 只有 key 不进凭据库的两种情况要说明：改写 .env 那一行，或系统环境变量里的才生效。
   const note =
     keyEnv?.source === "env-file"
       ? t("login.apiKey.noteEnvFile", { name: keyEnv.name })
       : keyEnv?.source === "system"
         ? t("login.apiKey.noteSystem", { name: keyEnv.name })
-        : t("login.apiKey.note");
+        : null;
   const placeholder =
     keyEnv?.source === "env-file"
       ? t("custom.form.key.envValue.keep")
@@ -178,7 +179,10 @@ export function KeyBody({
         : undefined;
   return (
     <div className="pv-flow">
-      <FormField label={t("login.apiKey")} help={<span data-testid="provider-key-note">{note}</span>}>
+      <FormField
+        label={t("login.apiKey")}
+        help={note === null ? undefined : <span data-testid="provider-key-note">{note}</span>}
+      >
         <TextField
           mono
           width="100%"

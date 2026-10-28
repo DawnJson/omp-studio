@@ -19,7 +19,6 @@ export function TroubleshootCard() {
             {t("settings.about.openLogs")}
           </Button>
         }
-        info={t("settings.about.logs.desc")}
       >
         {() => null}
       </Row>

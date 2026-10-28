@@ -57,7 +57,6 @@ export function AgentsActivity({
                 data-kind={item.kind}
                 data-agent={item.agent}
                 data-failed={item.failed || undefined}
-                title={t("agents.activityOpen", { name: item.agent })}
                 onClick={() => onOpenAgent(item.agent)}
               >
                 <span className="agents-act-time">{item.at > 0 ? clock.format(item.at) : ""}</span>

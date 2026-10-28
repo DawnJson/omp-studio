@@ -1,7 +1,7 @@
 import type { MessageEntry } from "../index.ts";
 
 export const model = {
-  search: "搜索，@ 选角色",
+  search: "搜索模型",
   empty: "没有可用模型",
   pinned: "常用",
   thinking: "思考强度",
@@ -40,10 +40,8 @@ export const model = {
   unknown: "未知",
   free: "免费或未标价",
   fast: "快速模式",
-  "fast.hint": "只对本会话生效",
   slow: "慢速模式",
-  "slow.scope.global": "写入 omp 配置，所有会话共用",
-  "slow.scope.session": "只对本会话生效",
+  "slow.scope.global": "所有会话共用",
   on: "开",
   off: "关",
   scopes: "模型范围",
@@ -69,7 +67,6 @@ export const model = {
   "role.hint.speech": "语音合成",
   "role.hint.dictation": "语音转文字",
   "role.hint.judge": "评判：检查答案、比较结果",
-  "role.hint.custom": "自定义角色",
   all: "全部模型",
   matches: "匹配",
   rolesGroup: "角色",

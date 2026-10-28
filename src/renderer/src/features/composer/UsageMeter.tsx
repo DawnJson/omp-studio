@@ -173,12 +173,7 @@ export function UsageMeter({ task }: { task: TaskState }) {
   if (speedText === null) return null;
   return (
     <div className="usage" role="group" aria-label={t("composer.usage.aria")} data-testid="usage-meter">
-      <span
-        className="usage-item usage-tps"
-        data-testid="usage-tps"
-        data-live={liveRate !== null || undefined}
-        title={t(liveRate !== null ? "modes.rate.tip" : "composer.usage.tpsTip")}
-      >
+      <span className="usage-item usage-tps" data-testid="usage-tps" data-live={liveRate !== null || undefined}>
         {t("composer.usage.tps", { n: speedText })}
       </span>
     </div>

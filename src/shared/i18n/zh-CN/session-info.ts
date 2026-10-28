@@ -11,11 +11,11 @@ export const sessionInfo = {
   "cmd.share": "分享会话链接…",
   "cmd.pin": "置顶 / 取消置顶本会话",
   "cmd.retry": "重试上一轮",
-  "slash.session": "查看会话信息：标题、ID、文件、用量",
+  "slash.session": "查看会话信息",
   "slash.trace": "查看本会话的请求记录",
-  "slash.pin": "置顶 / 取消置顶本会话（在历史会话里排在前面）",
-  "slash.share": "把本会话的加密快照上传并生成分享链接",
-  "slash.retry": "重新发送上一轮（出错后重试）",
+  "slash.pin": "置顶 / 取消置顶本会话",
+  "slash.share": "上传本会话并生成分享链接",
+  "slash.retry": "重新发送上一轮",
 
   // 对话框
   title: "会话信息",
@@ -42,7 +42,6 @@ export const sessionInfo = {
   copied: "已复制",
   reveal: "在文件夹中显示",
   "pin.label": "置顶",
-  "pin.hint": "在侧栏历史会话里排在前面",
   pinnedToast: "已置顶本会话。",
   unpinnedToast: "已取消置顶。",
   pinUnchanged: "置顶状态没有变化（omp 没有给出提示）。",
@@ -60,11 +59,10 @@ export const sessionInfo = {
   "usage.syncing": "同步中…",
   "usage.syncFailed": "同步统计失败：{message}",
   "usage.refresh": "刷新",
-  "usage.note": "按会话文件计算，和输入框一致；压缩过的会话只算压缩后保留的部分。",
 
   // 请求记录
   "trace.open": "在浏览器中打开",
-  "trace.openTip": "用 omp 的 /trace 在浏览器里打开请求记录（任务运行中不可用）",
+  "trace.openTip": "任务运行中不可用",
   "trace.opened": "omp 已在浏览器中打开请求记录",
   "trace.empty": "没有请求记录",
   "trace.summary": "{requests} 次请求 · {failed} 次失败 · {tools} 次工具调用 · {cost}",
@@ -108,5 +106,4 @@ export const sessionInfo = {
 
   // 重试
   "retry.button": "重试",
-  "retry.title": "重新发送上一轮（/retry）",
 } satisfies Record<string, MessageEntry>;

@@ -29,7 +29,7 @@ export const integrations = {
   "mcp.kind.stdio": "本地命令",
   "mcp.command": "命令",
   "mcp.args": "参数",
-  "mcp.args.tip": "一行一个，不含双引号",
+  "mcp.args.tip": "一行一个，不加引号",
   "mcp.token": "Token",
   "mcp.token.tip": "以 Authorization: Bearer 请求头存进配置文件",
   "mcp.edit": "编辑",
@@ -61,12 +61,10 @@ export const integrations = {
   "ssh.key": "密钥路径",
   "ssh.desc": "说明",
   "ssh.compat": "兼容模式",
-  "ssh.compat.tip": "omp 的 --compat：给不完全兼容的远端（如某些路由器、精简系统）用。",
+  "ssh.compat.tip": "给不完全兼容的远端用，如路由器、精简系统",
 
   "skills.title": "Skills",
   "skills.empty": "没有 skill",
-  "skills.empty.tip":
-    "点“添加 skill…”，或把 skill 文件夹放进 ~/.agents/skills、~/.omp/agent/skills 或项目的 .omp/skills",
   "skills.add": "添加 skill…",
   "skills.disabled": "已停用",
   "skills.plugin": "插件",
@@ -93,10 +91,9 @@ export const integrations = {
   "tools.device": "xd 设备",
   "tools.device.tip": "同一工具的入口",
   "tools.mounted": "按需调用",
-  "tools.mounted.tip": "挂在 xd:// 下",
   "tools.mounted.mcpTip": "随 MCP 服务器启停",
   "tools.inactive.tip": "由 omp 模式启用",
-  "tools.note": "全局列表，不含项目里的插件和 MCP 工具",
+  "tools.note": "不含项目里的插件和 MCP 工具",
 
   "memory.title": "记忆",
   "memory.noProject": "先打开一个项目",
@@ -111,7 +108,7 @@ export const integrations = {
   "memory.clear.title": "清空这个项目的记忆？",
   "memory.clear.body": "会删除这个项目的记忆数据，无法撤销。Hindsight 只清本地状态，不删服务器上的库。",
   "memory.cleared": "记忆已清空",
-  "memory.note": "会话启动时由 omp 生成，调用模型，可能产生费用",
+  "memory.note": "生成记忆会调用模型，可能产生费用",
 
   "changelog.title": "更新日志",
 

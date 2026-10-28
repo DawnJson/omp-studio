@@ -131,12 +131,9 @@ export function CustomModelList({ rows, onRows, hintOf, notice, onNotice, fetch,
             {t("custom.form.models.fetch")}
           </Button>
         )}
-        {/* 说明（停用时是原因）在悬停提示里，不另起一段（切接口类型时对话框大小不变）。 */}
+        {/* 停用时的原因在悬停提示里，不另起一段（切接口类型时对话框大小不变）。 */}
         {discovery !== undefined && (
-          <label
-            className="ui-choice"
-            title={discovery.supported ? t("custom.form.discovery.tip") : t("custom.form.discovery.unsupported")}
-          >
+          <label className="ui-choice" title={discovery.supported ? undefined : t("custom.form.discovery.unsupported")}>
             <Switch
               checked={discovery.on}
               disabled={!discovery.supported}

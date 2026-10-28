@@ -1,6 +1,6 @@
 // omp 的一项设置：一个 ui/Row = 标签（+ ⓘ 说明）| 控件（后面是保存反馈、被覆盖的徽标）| 改过才有的"恢复默认"图标。
 // 描述放进 ⓘ（悬停/聚焦/点击）；搜索命中的是描述而不是标签时，才在控件下面就地显示那一句。
-// 常用项显示人话标签；其余显示 key（等宽，高级页里去掉小标题已经写出的前缀），描述是 omp 原文（中文界面里在 ⓘ 里标"omp 原文"）。
+// 常用项显示人话标签；其余显示 key（等宽，高级页里去掉小标题已经写出的前缀），描述是 omp 原文。
 // 只有真有话要说时才多出一行：保存或校验错误。保存成功弹"已保存"气泡（toast），不在行里占位。
 import { memo } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
@@ -61,12 +61,6 @@ export const ConfigRow = memo(function ConfigRow({
           <>
             {text.label && <span className="ui-info-key">{item.key}</span>}
             {text.description}
-            {text.original && locale === "zh-CN" && text.description !== "" && (
-              <>
-                {" "}
-                <Badge>{t("settings.cfg.original")}</Badge>
-              </>
-            )}
             {item.redacted && <span className="ui-info-line">{t("settings.cfg.credentialNote")}</span>}
           </>
         ) : undefined

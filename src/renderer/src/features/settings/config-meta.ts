@@ -14,15 +14,12 @@ interface ConfigText {
   label: string | null;
   /** 描述；常用项是中/英文说明，其余是 omp 原文。 */
   description: string;
-  /** 描述是 omp 的英文原文（中文界面里要标出来）。 */
-  original: boolean;
 }
 
 export function configText(locale: Locale, item: OmpConfigItem): ConfigText {
   const label = entry(locale, `${item.key}.label`);
-  if (label !== undefined)
-    return { label, description: entry(locale, `${item.key}.desc`) ?? item.description, original: false };
-  return { label: null, description: item.description, original: true };
+  if (label !== undefined) return { label, description: entry(locale, `${item.key}.desc`) ?? item.description };
+  return { label: null, description: item.description };
 }
 
 /** 常用项的顺序就是 zh-CN 字典里的顺序（按模型角色、审批/工具、压缩、记忆、子代理、retry 排）。 */

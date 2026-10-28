@@ -7,5 +7,4 @@ export const status = {
   done: "Done",
   error: "Error",
   interrupted: "Interrupted",
-  interruptedTip: "Stopped partway; open it to continue",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

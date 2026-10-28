@@ -17,7 +17,7 @@ export const tspi = {
   noSettingsMatch: "没有匹配“{query}”的设置",
   reset: "重置",
   changedFromDefault: "与默认值不同",
-  changedFromDefaultTo: "与默认值不同：{value}",
+  changedFromDefaultTo: "默认值：{value}",
   changedCount: "{count} 项与默认值不同",
   notSet: "未设置",
   decrease: "减少",

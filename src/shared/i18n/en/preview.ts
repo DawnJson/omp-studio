@@ -36,8 +36,8 @@ export const preview = {
   addDir: "Add folder…",
   addDirTitle: "Add to the workspace; the agent can read and edit it",
   removeDir: "Remove {name}",
-  removeDirTitle: "Remove from the workspace (the folder is not deleted): {path}",
-  dirsNote: "Extra folders last only for this run; add them again after the task restarts.",
+  removeDirTitle: "Remove from workspace: {path}",
+  dirsNote: "Re-add after the task restarts",
   dirAdded: "Added to the workspace: {name}",
   dirRemoved: "Removed from the workspace: {name}",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

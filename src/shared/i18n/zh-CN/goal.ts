@@ -2,7 +2,7 @@ import type { MessageEntry } from "../index.ts";
 
 export const goal = {
   title: "目标",
-  slashDesc: "设定目标，omp 会连续推进直到完成；不带文字时显示当前目标",
+  slashDesc: "设定目标，omp 持续推进直到完成",
   pause: "暂停",
   resume: "继续",
   drop: "放弃",

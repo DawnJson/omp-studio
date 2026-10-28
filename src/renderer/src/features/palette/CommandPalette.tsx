@@ -186,9 +186,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onKeyDown}
           />
-          <kbd className="ui-kbd" title={t("palette.hint")}>
-            Esc
-          </kbd>
+          <kbd className="ui-kbd">Esc</kbd>
         </div>
         <div className="pl-list-host">
           <div className="pl-list ui-scroll-fade" ref={listRef} id={listId} role="listbox">

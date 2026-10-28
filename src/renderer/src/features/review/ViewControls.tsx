@@ -118,7 +118,6 @@ export function ViewControls({
       </IconButton>
       <IconButton
         label={t("review.ignoreSpace")}
-        tip={t("review.ignoreSpaceTip")}
         pressed={ignoreSpace}
         testId="ignore-space-toggle"
         onClick={() => onIgnoreSpace(!ignoreSpace)}

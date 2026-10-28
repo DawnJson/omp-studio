@@ -229,7 +229,6 @@ export function ComposerInput(props: ComposerInputProps) {
         aria-valuemin={bounds.min}
         aria-valuemax={Number.isFinite(bounds.max) ? bounds.max : undefined}
         aria-valuenow={shownHeight}
-        title={t("composer.resize")}
         tabIndex={0}
         data-testid="composer-resize"
         onPointerDown={onPointerDown}

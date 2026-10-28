@@ -21,9 +21,9 @@ describe("speedBadges", () => {
     ]);
   });
 
-  it("两种范围都有说明文案", () => {
+  it("只有全局范围有说明文案", () => {
     expect(slowScopeKey.global).toBe("model.slow.scope.global");
-    expect(slowScopeKey.session).toBe("model.slow.scope.session");
+    expect(slowScopeKey.session).toBeNull();
   });
 });
 

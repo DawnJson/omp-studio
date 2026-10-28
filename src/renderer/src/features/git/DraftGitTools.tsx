@@ -1,7 +1,7 @@
 // 新任务草稿的顶栏分支胶囊：草稿项目正好是 git 仓库根时显示当前分支，点开的菜单只有一个勾选项"在独立 worktree 里开始"；
 // 勾上后第一条消息在独立的 git worktree 里开任务（胶囊写成"分支 → 新 worktree"）。默认文件夹和不是仓库根的项目不显示。
 // 没提交、detached HEAD 这类前提在创建被主进程拒绝时记下，勾选项随之禁用并在悬停提示里写明原因。
-// 胶囊的悬停提示写明 worktree 是什么；项目里有 setup 脚本时也写明创建时会运行它。任务开始后由 GitTools 接手（提交 / 推送 / 合并回 / 丢弃）。
+// 胶囊的悬停提示写明当前分支；项目里有 setup 脚本时也写明创建时会运行它。任务开始后由 GitTools 接手（提交 / 推送 / 合并回 / 丢弃）。
 import { useEffect, useState } from "react";
 import type { DraftGitInfo } from "../../../../shared/git.ts";
 import type { ProjectId } from "../../../../shared/ipc.ts";
@@ -51,7 +51,6 @@ export function DraftGitTools({ projectId }: { projectId: ProjectId }) {
   const setupNote = loaded.script === null ? null : t("git.draft.setup", { script: loaded.script });
   const title = [
     t("git.bar.branch", { branch }),
-    t("git.draft.title"),
     setupNote,
     blocked === null ? null : t("git.draft.blocked", { reason: t(blocked) }),
   ]

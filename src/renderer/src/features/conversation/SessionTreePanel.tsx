@@ -246,13 +246,7 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
                     data-current={node.current}
                     data-kind={node.kind}
                     data-testid="session-tree-node"
-                    title={
-                      node.kind === "user"
-                        ? t("tree.pick")
-                        : node.kind === "branch_summary"
-                          ? t("tree.branchSummaryTitle")
-                          : t("tree.notRewindable")
-                    }
+                    title={node.kind === "user" ? t("tree.pick") : undefined}
                     style={{ "--indent": node.indent } as CSSProperties}
                     onMouseMove={() => setActive(index)}
                     onClick={() => pick(node)}
@@ -330,7 +324,6 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
                       <IconButton
                         className="tree-act"
                         label={t("tree.fork")}
-                        tip={`${t("tree.fork")}\n${t("tree.forkTitle")}`}
                         tabIndex={-1}
                         testId="session-tree-fork"
                         disabled={busy || !idle}
@@ -354,7 +347,6 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
             aria-hidden={discard > 0 ? undefined : true}
             data-testid={discard > 0 ? "session-tree-discard" : undefined}
             data-count={discard > 0 ? discard : undefined}
-            title={discard > 0 ? t("tree.discardHint") : undefined}
           >
             {discard > 0 ? t("tree.discard", { count: discard }) : "\u00a0"}
           </p>

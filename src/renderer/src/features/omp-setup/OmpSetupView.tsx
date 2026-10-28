@@ -183,7 +183,6 @@ export function OmpSetupView() {
       body = (
         <>
           {title(status.version ? t("omp.downloading", { version: status.version }) : t("omp.downloading.latest"))}
-          <p className="setup-text">{t("omp.install.note")}</p>
           <ProgressBar received={status.receivedBytes} total={status.totalBytes} />
           <p className="setup-meta" aria-live="off">
             {verifying

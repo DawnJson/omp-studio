@@ -136,7 +136,6 @@ export function CustomProviders() {
               variant="quiet"
               loading={refreshing}
               disabled={busy || data === null}
-              title={t("custom.refresh.tip")}
               onClick={() => void refreshModels()}
               testId="custom-refresh"
             >
@@ -145,7 +144,6 @@ export function CustomProviders() {
             <Button
               size="sm"
               variant="quiet"
-              title={t("custom.openEnv.tip")}
               onClick={() => void window.studio.openEnvFile().catch((e: unknown) => reportError(t, e))}
               testId="custom-open-env"
             >

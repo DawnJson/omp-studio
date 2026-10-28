@@ -132,7 +132,7 @@ export function TraceTab({ taskId, read }: { taskId: TaskId; read: SyncedRead<Se
             size="sm"
             icon={<External size={12} />}
             disabled={opening || task?.status === "running"}
-            title={t("sessionInfo.trace.openTip")}
+            title={opening || task?.status === "running" ? t("sessionInfo.trace.openTip") : undefined}
             testId="trace-open"
             onClick={() => {
               setOpening(true);

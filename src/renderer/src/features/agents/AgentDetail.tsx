@@ -167,7 +167,6 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
             size="sm"
             variant="primary"
             testId="agents-focus"
-            title={t("agents.focusTitle", { name: agent.name })}
             disabled={busy}
             onClick={() => void focusAgent(t, taskId, agent.name)}
           >

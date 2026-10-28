@@ -16,7 +16,7 @@ export const empty = {
   title: "开始一个任务",
   usageTitle: "本周用量",
   usageToday: "今天 {value}",
-  usageNoDatabase: "omp 跑过之后，这里会显示用量。",
+  usageNoDatabase: "暂无用量",
   usageChart: "近 {weeks} 周每天的 token 用量：本周 {week}，今天 {today}",
   usageLoading: "正在读取用量",
 } satisfies Record<string, MessageEntry>;

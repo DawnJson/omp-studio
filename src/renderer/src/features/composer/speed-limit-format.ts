@@ -11,9 +11,10 @@ export function speedBadges(fast: TaskState["fastMode"], slow: TaskState["slowMo
   return badges;
 }
 
-export const slowScopeKey: Record<SlowModeScope, MessageKey> = {
+/** 慢速模式范围的悬停说明：只有全局范围要说（会影响所有会话），本会话范围不用说。 */
+export const slowScopeKey: Record<SlowModeScope, MessageKey | null> = {
   global: "model.slow.scope.global",
-  session: "model.slow.scope.session",
+  session: null,
 };
 
 /** 输出速度：≥100 取整，否则一位小数；没有（null、0、负数、非有限）返回 null，界面据此隐藏。 */

@@ -81,7 +81,6 @@ export function ModelBreakdown({ task, load }: { task: TaskState; load: ModelUsa
       {load.kind === "ready" && load.data.whole !== null && (
         <p className="ctx-note" data-testid="model-usage-whole">
           {t("composer.breakdown.whole", {
-            count: load.data.compactions,
             tokens: formatCount(load.data.whole.total),
             cost: formatMoney(load.data.whole.cost),
           })}

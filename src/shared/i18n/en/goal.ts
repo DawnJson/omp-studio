@@ -3,7 +3,7 @@ import type { goal as zhCN } from "../zh-CN/goal.ts";
 
 export const goal = {
   title: "Goal",
-  slashDesc: "Set a goal; omp keeps working until it is done. Without text, shows the current goal",
+  slashDesc: "Set a goal; omp keeps working until it's done",
   pause: "Pause",
   resume: "Resume",
   completed: "Goal complete",

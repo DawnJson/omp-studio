@@ -7,7 +7,7 @@ export const approval = {
   write: "自动写入",
   yolo: "全自动",
   "desc.alwaysAsk": "读取自动；写入和执行前询问",
-  "desc.alwaysAskCached": "读取文件、写入和执行前都询问；批准时可记住这个文件或文件夹",
+  "desc.alwaysAskCached": "读取、写入和执行前都询问；可记住批准",
   "desc.write": "读取和写入自动；执行命令前询问",
   sourceProject: "项目配置",
   sourceGlobal: "全局配置",

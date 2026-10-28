@@ -48,7 +48,7 @@ export const plugins = {
   "marketplaces.add.label": "市场来源",
   "marketplaces.update": "更新目录",
   "marketplaces.remove": "移除",
-  "marketplaces.remove.hint": "只移除这个来源，已经装好的插件不会被卸载。",
+  "marketplaces.remove.hint": "已装的插件不会卸载",
   "marketplaces.browse": "浏览",
   "marketplaces.browse.hide": "收起",
   "marketplaces.search": "搜索插件",

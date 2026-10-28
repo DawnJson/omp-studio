@@ -194,13 +194,14 @@ function RoleRow({
   };
   // 一格是外层网格的四列（subgrid）：角色名 | 模型 | 思考强度 | 删除。主模型一行，每个备用模型各一行（和主模型同宽对齐），
   // 最后一行"添加备用…"放在模型那一列。
+  const hint = roleHintKey(role);
   return (
     <div className="st-roles-row" data-testid={`setting-role-row-${role}`}>
       <span className="ui-row-label st-role-label">
-        <span id={labelId} className="ui-info-lead">
+        <span id={labelId} className={hint === null ? undefined : "ui-info-lead"}>
           {roleLabel(role)}
         </span>
-        <InfoTip>{t("model.roleUse", { hint: t(roleHintKey(role)) })}</InfoTip>
+        {hint !== null && <InfoTip>{t("model.roleUse", { hint: t(hint) })}</InfoTip>}
       </span>
       <span className="st-role-model">
         <Select
@@ -420,10 +421,7 @@ export function ModelsSection() {
   const thinkingRow = (
     <div className="st-roles-row">
       <span className="ui-row-label st-role-label">
-        <span id={thinkingLabelId} className="ui-info-lead">
-          {t("settings.defaultThinking")}
-        </span>
-        <InfoTip>{t("settings.defaultThinkingHint")}</InfoTip>
+        <span id={thinkingLabelId}>{t("settings.defaultThinking")}</span>
       </span>
       <span className="st-role-model">
         <Select

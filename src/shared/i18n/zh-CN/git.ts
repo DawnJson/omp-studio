@@ -3,7 +3,6 @@ import type { MessageEntry } from "../index.ts";
 export const git = {
   // 新任务草稿的顶栏分支胶囊（项目是 git 仓库时）
   "draft.worktree": "在独立 worktree 里开始",
-  "draft.title": "在独立 worktree（新分支 studio/…）里做这个任务，不动主目录",
   "draft.on": "新 worktree",
   "draft.setup": "创建时会运行 {script}",
   "draft.blocked": "不能用 worktree：{reason}",

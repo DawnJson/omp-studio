@@ -80,6 +80,6 @@ export function StatusDot({ task, t }: { task: TaskState; t: TFunction }) {
 export function SessionStatusDot({ session, t }: { session: SessionSummary; t: TFunction }) {
   const kind = sessionDotKind(session);
   if (kind === "interrupted")
-    return <StatusMark kind={kind} label={t("status.interrupted")} title={t("status.interruptedTip")} />;
+    return <StatusMark kind={kind} label={t("status.interrupted")} title={t("status.interrupted")} />;
   return <StatusMark kind={kind} label={kind === "error" ? t("status.error") : t("status.done")} />;
 }

@@ -8,7 +8,7 @@ export const approval = {
   write: "Write",
   yolo: "Yolo",
   "desc.alwaysAsk": "Reads run automatically; asks before edits and commands",
-  "desc.alwaysAskCached": "Asks before reading files, edits and commands; an approval can remember the file or folder",
+  "desc.alwaysAskCached": "Asks before reads, edits and commands; can remember approvals",
   "desc.write": "Reads and edits run automatically; asks before commands",
   sourceProject: "project config",
   sourceGlobal: "global config",

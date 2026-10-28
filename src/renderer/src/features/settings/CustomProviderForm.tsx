@@ -424,7 +424,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
         }}
       >
         <div className="cp-conn">
-          <FormField label={t("custom.form.id")} htmlFor={`${uid}-id`} help={t("custom.form.id.tip")}>
+          <FormField label={t("custom.form.id")} htmlFor={`${uid}-id`}>
             <TextField
               id={`${uid}-id`}
               mono

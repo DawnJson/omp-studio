@@ -620,16 +620,6 @@
   min-width: 0;
 }
 
-.rv-commit-warn {
-  margin: 0;
-  padding: var(--space-1-5) var(--space-2);
-  color: var(--text-2);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-xs);
-  background: var(--bg-hover);
-  border-radius: var(--radius-sm);
-}
-
 /* 按行选择：改动行可点，选中的行高亮；头部出现"已选 N 行"和对应操作。 */
 .rv-row[data-pickable],
 .rv-half[data-pickable] {
