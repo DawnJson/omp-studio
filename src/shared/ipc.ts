@@ -46,6 +46,7 @@ import type {
   FetchModelsOutcome,
   ProviderOverrideInput,
   FetchModelsRequest,
+  ModelCapabilities,
 } from "./custom-models.ts";
 import type { BuiltinCommand, TaskCommand } from "./omp-output/index.ts";
 import type { DiscoverEntry, DoctorCheck, PluginAction, PluginConfig, PluginsSnapshot } from "./omp-output/plugins.ts";
@@ -1258,6 +1259,8 @@ export interface StudioInvokeApi {
   saveProviderOverride(providerId: string, input: ProviderOverrideInput): Promise<CustomModelsOutcome>;
   /** 一键拉取：主进程 GET <baseUrl>/models。key 为 keep 时用文件里这个 provider 已有的 key。 */
   fetchProviderModels(request: FetchModelsRequest): Promise<FetchModelsOutcome>;
+  /** 在公开模型目录（models.dev）里按 id 查能力，给表单预填 omp 认不出的模型；目录里没有的 id 不在结果里，下载失败返回空。 */
+  lookupModelCapabilities(ids: string[]): Promise<Record<string, ModelCapabilities>>;
   /** 用系统默认程序打开 models.yml（还不存在时打开它所在的目录）。 */
   openModelsFile(): Promise<void>;
   /** 用系统默认程序打开 omp agent 目录的 `.env`（omp 启动时读它，环境变量形式的 key 常写在这里；还不存在时打开目录）。 */
@@ -1632,6 +1635,7 @@ export const invokeNames = {
   deleteCustomProvider: true,
   saveProviderOverride: true,
   fetchProviderModels: true,
+  lookupModelCapabilities: true,
   openModelsFile: true,
   openEnvFile: true,
   envKeySource: true,

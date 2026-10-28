@@ -91,6 +91,16 @@ export interface CustomModelMeta {
   maxTokens: number | null;
 }
 
+/**
+ * 公开模型目录（models.dev）里查到的能力：自定义提供商表单拿它预填 omp 认不出的模型（omp 只按内置表给自定义 provider 补参数，
+ * 新模型查不到就当成不思考、128K）。只给"支持"和上下文，最大输出各家差别太大不填。
+ */
+export interface ModelCapabilities {
+  reasoning: boolean;
+  images: boolean;
+  contextWindow: number | null;
+}
+
 /** 从 `models.yml` 读出来的一个 provider。**不含 key 的内容**。 */
 export interface CustomProviderInfo {
   id: string;

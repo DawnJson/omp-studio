@@ -1,7 +1,7 @@
 // 自定义提供商的添加 / 编辑对话框：ID、Base URL、接口类型、key、模型（CustomModelList）。
 // 写 models.yml（和环境变量形式的 key 写进的 agent 目录 `.env`）在主进程（src/main/omp-config/models-file.ts）；
 // 这里只收集输入、把主进程返回的错误码翻成文案。
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   defaultDiscoveryType,
   defaultEnvName,
@@ -15,6 +15,7 @@ import {
   type CustomProviderInfo,
   type CustomProviderInput,
   type EnvSource,
+  type ModelCapabilities,
 } from "../../../../shared/custom-models.ts";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
@@ -214,6 +215,20 @@ export const tokenText = (value: number | null) => (value === null ? "" : String
 /** omp 不知道这一项（新模型、还没加载、文件里写了值）时的提示：全 null。 */
 export const noHint: CustomModelMeta = { reasoning: null, images: null, contextWindow: null, maxTokens: null };
 
+/** omp 给认不出的模型补的兜底值（omp 18.12.6 / 18.13.1 实测，custom-models.md「模型的能力参数」）。 */
+const ompFallback = { reasoning: false, images: false, contextWindow: 128_000 };
+
+/** 用公开模型目录查到的能力填还是"自动"的格子：只填"支持"和上下文，目录说不支持的留自动（omp 默认就是不支持）。 */
+export function prefillRow(row: ModelRow, caps: ModelCapabilities): ModelRow {
+  return {
+    ...row,
+    reasoning: row.reasoning === null && caps.reasoning ? true : row.reasoning,
+    images: row.images === null && caps.images ? true : row.images,
+    contextWindow:
+      row.contextWindow === "" && caps.contextWindow !== null ? String(caps.contextWindow) : row.contextWindow,
+  };
+}
+
 interface CustomProviderFormProps {
   mode: "add" | "edit";
   provider?: CustomProviderInfo;
@@ -281,6 +296,44 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
       maxTokens: file.maxTokens === null ? live.maxTokens : null,
     };
   };
+  // 已保存的模型里，omp 给"自动"的项补出了不是兜底的值 = omp 认识它（内置表里有），不拿公开目录的值覆盖。
+  // 不看最大输出：开了自动发现时 omp 会用中转站 /models 给的 max_completion_tokens，认不出的模型也可能不是 16384。
+  const ompKnows = (modelId: string): boolean => {
+    const live = loaded.get(modelId);
+    const file = provider?.models.find((model) => model.id === modelId);
+    if (live === undefined || file === undefined) return false;
+    return (
+      (file.reasoning === null && live.reasoning !== ompFallback.reasoning) ||
+      (file.images === null && live.acceptsImages !== ompFallback.images) ||
+      (file.contextWindow === null && live.contextWindow !== ompFallback.contextWindow)
+    );
+  };
+  const ompKnowsRef = useRef(ompKnows);
+  ompKnowsRef.current = ompKnows;
+
+  // 每个模型 id 查一次公开模型目录（models.dev），omp 认不出的模型按查到的值预填还是"自动"的格子；保存才写进文件。
+  // 编辑时等 omp 的模型列表读完（判断 omp 认不认识要用它）再查。
+  const settled =
+    provider === undefined || accounts.kind === "error" || (accounts.kind === "ready" && !accounts.refreshing);
+  const looked = useRef(new Set<string>());
+  const idsKey = rows.map((row) => row.id).join("\n");
+  useEffect(() => {
+    if (!settled) return;
+    const ids = idsKey.split("\n").filter((modelId) => modelId !== "" && !looked.current.has(modelId));
+    if (ids.length === 0) return;
+    for (const modelId of ids) looked.current.add(modelId);
+    window.studio
+      .lookupModelCapabilities(ids)
+      .then((found) =>
+        setRows((current) =>
+          current.map((row) => {
+            const caps = found[row.id];
+            return caps === undefined || ompKnowsRef.current(row.id) ? row : prefillRow(row, caps);
+          }),
+        ),
+      )
+      .catch((error: unknown) => reportErrorNow(error));
+  }, [idsKey, settled]);
 
   const keyInput = (): CustomKeyInput => {
     if (keyMode === "literal") return { kind: "literal", value: keyText };

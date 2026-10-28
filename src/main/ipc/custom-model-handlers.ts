@@ -17,6 +17,7 @@ import { envFilePath, envSourceOf, envValues, readEnvText } from "../omp-config/
 import { resolveAgentDir } from "../history/session-index.ts";
 import { log } from "../log/log.ts";
 import { fetchModelList, resolveKeyToken } from "../omp-config/fetch-models.ts";
+import { lookupCapabilities } from "../omp-config/model-catalog.ts";
 import {
   deleteCustomProvider,
   readModelsFile,
@@ -141,6 +142,7 @@ export const customModelHandlers: HandlerGroup<
   | "deleteCustomProvider"
   | "saveProviderOverride"
   | "fetchProviderModels"
+  | "lookupModelCapabilities"
   | "refreshModels"
   | "openModelsFile"
   | "openEnvFile"
@@ -175,6 +177,12 @@ export const customModelHandlers: HandlerGroup<
     return outcome;
   },
   fetchProviderModels,
+  lookupModelCapabilities: async (ids) => {
+    // 一键拉取最多 2000 个模型，加上已有的。
+    if (!Array.isArray(ids) || ids.length > 3000) throw new IpcValidationError("ids 必须是数组");
+    const parsed = (ids as unknown[]).map((id) => parseString(id, "id", limits.modelId));
+    return lookupCapabilities((url, init) => net.fetch(url, init), parsed);
+  },
   refreshModels: async () => {
     const run = runOmpCommand(readyOmp().path, await serviceCwd(), REFRESH_TIMEOUT_MS);
     requireSuccess("omp models refresh", await run(["models", "refresh"]));

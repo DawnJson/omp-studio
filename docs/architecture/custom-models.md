@@ -93,10 +93,11 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 对话框的模型表每个勾选的模型一行：思考（`reasoning`）、图片输入（`input: [text, image]` / `[text]`）、上下文窗口（`contextWindow`）、最大输出（`maxTokens`）。
 
 - **“自动” = 不写这一项**，由 omp 补：按模型 `id` 查它的内置目录（例如 `gpt-5.5` → 1,050,000 上下文、支持思考和图片），查不到用默认值 **不思考、只收文字、上下文 128,000、输出 16,384**（实测：临时 agent 目录里写只有 `id` 的模型，`omp models <provider> --json` 列出的值；源码 `config/model-registry.ts` 的自定义模型合并逻辑一致）。所以中转站把官方模型名原样转发时可以全留自动；改了名或本地模型才需要手填。
-- **id 带 `kimi` 的模型思考留“自动”会让 omp 崩**（实测 omp 18.13.1、18.13.2，2026-10-28；临时 agent 目录 + 假 OpenAI 服务，`--mode rpc --thinking off`）：自定义 provider 下 `kimi-k3.1-pro` 内置目录里没有（18.13.1 只有 `kimi-k3`），omp 补成不思考；思考档位是 off 时，带强制工具调用的那一轮（`/force:todo` 复现）omp 抛 `ConfigurationError: Model <provider>/<id> has no supported reasoning efforts`，未捕获，进程以 1 退出。普通 prompt 不崩；同一模型写 `reasoning: true` 不崩（omp 补上 low/high/max）。源码：catalog 的 compat 对 id 含 kimi、非 Moonshot 官方地址的模型开 `disableReasoningOnForcedToolChoice`、关思考方式是 `lowest-effort`，`C_` 去取最低档时模型的档位列表为空就抛错。所以中转站的 kimi 新模型要在"能力参数"里把思考设成支持。
+- **id 带 `kimi` 的模型思考留“自动”会让 omp 崩**（实测 omp 18.13.1、18.13.2，2026-10-28；临时 agent 目录 + 假 OpenAI 服务，`--mode rpc --thinking off`）：自定义 provider 下 `kimi-k3.1-pro` 内置目录里没有（18.13.1 只有 `kimi-k3`），omp 补成不思考；思考档位是 off 时，带强制工具调用的那一轮（`/force:todo` 复现）omp 抛 `ConfigurationError: Model <provider>/<id> has no supported reasoning efforts`，未捕获，进程以 1 退出。普通 prompt 不崩；同一模型写 `reasoning: true` 不崩（omp 补上 low/high/max）。源码：catalog 的 compat 对 id 含 kimi、非 Moonshot 官方地址的模型开 `disableReasoningOnForcedToolChoice`、关思考方式是 `lowest-effort`，`C_` 去取最低档时模型的档位列表为空就抛错。所以中转站的 kimi 新模型要把思考设成支持；表单现在按公开模型目录自动预填（见下）。
 - **上下文窗口只改 omp 自己的预算**（什么时候自动压缩、上下文圆环的分母），不改服务端的上限；典型用法是中转站只收 272K 的 `gpt-5.5`。输入框接受 `272000`、`272k`、`1m`（`parseTokenCount`，`src/shared/custom-models.ts`，k/m 按十进制、四舍五入到整数）；写不成正整数的标红，不能保存。
 - **只改和文件里不同的项**（`applyMeta`，`models-file.ts`）：值没变就不碰节点，`input: [ text, image ]` 这类原来的写法和行内注释不被重排；换回“自动”就删掉这一项。文件里的值是 omp 不认的形状时读成“自动”，保存时也不动它。
 - **“自动”后面显示 omp 现在用的值**（`hintOf`，`CustomProviderForm.tsx`）：来自模型列表（`listModels`，即服务进程的 `get_available_models`），只对“已保存、文件里没写这一项、omp 已经加载过”的模型显示（如“自动 · 128K”“自动 · 支持”）；新拉取、还没保存的模型只显示“自动”，因为 omp 还没算过它。
+- **omp 认不出的模型按公开模型目录预填**（2026-10-28，仓库所有者定：数据来源 models.dev，思考、图片输入、上下文都填，新模型和已保存留"自动"的都填）：表单里每个模型 id 查一次 `https://models.dev/api.json`（omp 的联网模型表也来自它；整份约 6 MB，主进程一次运行只下一次，失败记日志、下次再下；`model-catalog.ts`，IPC `lookupModelCapabilities`；测试用 `STUDIO_MODELS_DEV_URL` 指到假服务）。按 id 最后一段、不分大小写匹配；同一个模型有多家条目时用厂商自己的那条（别家 id 的前缀，如 `moonshotai/…`，又是目录里的 provider），没有就按多数。查到"支持"的思考 / 图片输入和上下文窗口填进还是"自动"的格子，目录说不支持的留自动（omp 默认就是不支持），最大输出各家差别太大不填；保存才写进文件。已保存的模型，omp 给"自动"项补出了不是兜底的值（思考、图片、上下文任一项不是不思考 / 只收文字 / 128000）就算 omp 认识它，不覆盖；最大输出不参与判断（开了自动发现时 omp 会用中转站 `/models` 给的值）。编辑时等 omp 的模型列表读完再查。
 - **输入**：`CustomProviderInput.models[]` 每项 `{ id, name?, reasoning, images, contextWindow, maxTokens }`，四项都可以是 null（自动）。
 
 ## 拉取失败标在卡片上（2026-10-24）
@@ -125,9 +126,10 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 
 - `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、自动发现开关（默认类型按 api、已有 `discovery` 原样保留、关掉只去 `discovery`、没有默认类型的 api 被拒）、能力参数（写入、改一项不动别的写法、换回自动删掉、非法值被拒、`parseTokenCount`）、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、大小写混合的变量名按 `.env` / 系统环境变量识别、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢；`.env` 只改一行（保留 `export`、CRLF、BOM、注释、别的变量，跨行引号值拒绝）、保存 / 换名 / 删除时同步 `.env`（没人用才删、内置变量名不删、系统同名变量提示、`unsafe-env` 时两个文件都不动）。
 - `test/custom-models-fetch.test.ts`：对本地假服务拉取成功、key 错、404、不通、超时、非 JSON、形状不对、Anthropic 路径和头、重定向不跟随。
+- `test/model-catalog.test.ts`：公开模型目录的汇总（厂商条目优先、按多数、形状不对跳过）和查找（id 最后一段不分大小写、下载失败返回空且下次重试、只下一次）。e2e 里"公开模型目录"一条：已保存留自动的 kimi-k3.1-pro 预填、omp 认识的 kimi-k3 不动、新拉取的预填、目录里没有的留自动；别的用例把 `STUDIO_MODELS_DEV_URL` 指到连不上的本机端口，不连真实服务。
 - `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt 并拿到回复；自动发现：只写 `discovery`、不列模型，`omp models refresh` 跑通，`omp models <provider>` 和 `get_available_models` 都列出假服务的模型（openai 兼容和 anthropic 两种 `discovery.type`）；环境变量形式的 key：大小写混合的变量名、值写进 agent 目录 `.env`，omp 读到并带着它拉到模型；能力参数：写进去的四项被 omp 采用，留空的由 omp 按 id 补。
 - `test/e2e/custom-models.e2e.ts`：设置页完整流程；"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）；"能力参数"一条（模型行里设四项、非法上下文不能保存、写进文件、omp 采用、自动的格子显示 omp 补的值、换回自动后从文件里去掉、对话框不越界）；"只覆盖内置 provider"一条（卡片元信息、编辑里覆盖项勾着带原值、设 key 和上下文并手动加模型后文件里别的覆盖项和注释原样、`omp token anthropic` 返回这个 key、omp 采用写进去的上下文窗口、再编辑改回不设置并取消一个模型后 apiKey 和它的覆盖项去掉）；"环境变量形式的 key"一条（变量名 + 值，拉取用刚填的值，`models.yml` 只有变量名、`.env` 追加一行且原有行和 CRLF 不变，卡片写 `（.env）`，编辑时值框提示已在 `.env` 里，删除后那一行去掉）。`test/custom-models-file.test.ts` 的 `applyKey` 一组覆盖设置、环境变量去掉 `auth: none`、清除后空条目删掉、拒绝的输入。
-- 假服务：`test/fake-openai/server.ts`（`GET /v1/models`、`POST /v1/chat/completions` 流式和非流式）。
+- 假服务：`test/fake-openai/server.ts`（`GET /v1/models`、`POST /v1/chat/completions` 流式和非流式、`GET /api.json` 假的公开模型目录）。
 
 ## 没做的
 

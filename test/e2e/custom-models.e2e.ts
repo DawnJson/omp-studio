@@ -10,10 +10,23 @@ import { startFakeOpenAi } from "../fake-openai/server.ts";
 import { expectNoOverflow, launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 const SECRET = "sk-fake-e2e-secret";
+/** 公开模型目录（models.dev）默认指到连不上的本机端口：表单查不到就不预填，测试不连真实服务。 */
+const NO_CATALOG = "http://127.0.0.1:9/api.json";
 
-async function launchSettings(): Promise<{ launched: LaunchedApp; agentDir: string }> {
+async function launchSettings(
+  options: { catalogUrl?: string; prepare?(agentDir: string): Promise<void> } = {},
+): Promise<{ launched: LaunchedApp; agentDir: string }> {
   const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio 代理 agent-"));
-  const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
+  try {
+    await options.prepare?.(agentDir);
+  } catch (error) {
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    throw error;
+  }
+  const launched = await launchApp({
+    PI_CODING_AGENT_DIR: agentDir,
+    STUDIO_MODELS_DEV_URL: options.catalogUrl ?? NO_CATALOG,
+  });
   try {
     await expect
       .poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
@@ -393,6 +406,76 @@ test("自定义提供商：模型行里设思考、图片输入、上下文窗�
     const cleared = await readFile(file, "utf8");
     expect(cleared).not.toContain("contextWindow");
     expect(cleared).toContain("maxTokens: 32000");
+  } finally {
+    await launched.close();
+    await fake.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
+test("自定义提供商：omp 认不出的模型按公开模型目录预填思考、图片输入、上下文（已保存留自动的和新拉取的）；omp 认识的不动", async () => {
+  // kimi-k3 在 omp 的内置表里（能思考、1M 上下文），目录里故意写成别的值：不能拿来覆盖。
+  const catalog = {
+    moonshotai: {
+      models: {
+        "kimi-k3.1-pro": { reasoning: true, modalities: { input: ["text", "image"] }, limit: { context: 1_048_576 } },
+        "kimi-k3": { reasoning: true, modalities: { input: ["text", "image"] }, limit: { context: 262_144 } },
+      },
+    },
+  };
+  const fake = await startFakeOpenAi({ models: ["kimi-k3.1-pro", "house-plain"], catalog });
+  const { launched, agentDir } = await launchSettings({
+    catalogUrl: fake.catalogUrl,
+    prepare: (dir) =>
+      writeFile(
+        path.join(dir, "models.yml"),
+        `providers:\n  saved-relay:\n    baseUrl: ${fake.baseUrl}\n    apiKey: sk-test\n    api: openai-completions\n    models:\n      - id: kimi-k3.1-pro\n      - id: kimi-k3\n`,
+      ),
+  });
+  const file = path.join(agentDir, "models.yml");
+  const modelsOf = async (provider: string) =>
+    (parseYaml(await readFile(file, "utf8")) as { providers: Record<string, { models: Record<string, unknown>[] }> })
+      .providers[provider]?.models;
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+
+    // 已保存、全是自动：omp 认不出的 kimi-k3.1-pro 预填，omp 认识的 kimi-k3 还是自动（后面是 omp 的值）。
+    await page.getByTestId("custom-edit-saved-relay").click();
+    await expect(page.getByTestId("custom-model-contextWindow-kimi-k3.1-pro")).toHaveValue("1048576", {
+      timeout: 30_000,
+    });
+    for (const column of ["reasoning", "images"]) {
+      const cell = page.getByTestId(`custom-model-${column}-kimi-k3.1-pro`);
+      await expect(cell).toContainText("支持");
+      await expect(cell).not.toContainText("自动");
+    }
+    await expect(page.getByTestId("custom-model-reasoning-kimi-k3")).toContainText("自动 · 支持");
+    await expect(page.getByTestId("custom-model-contextWindow-kimi-k3")).toHaveValue("");
+    await page.getByTestId("custom-save").click();
+    await expect(page.getByTestId("custom-provider-form")).toHaveCount(0);
+    expect(await modelsOf("saved-relay")).toEqual([
+      { id: "kimi-k3.1-pro", reasoning: true, input: ["text", "image"], contextWindow: 1_048_576 },
+      { id: "kimi-k3" },
+    ]);
+
+    // 新拉取的：目录里有的预填，没有的还是自动。
+    await page.getByTestId("custom-add").click();
+    await page.getByTestId("custom-id").fill("new-relay");
+    await page.getByTestId("custom-base-url").fill(fake.baseUrl);
+    await page.getByTestId("custom-key-mode-none").click();
+    await page.getByTestId("custom-fetch").click();
+    await page.getByTestId("custom-model-kimi-k3.1-pro").check();
+    await page.getByTestId("custom-model-house-plain").check();
+    await expect(page.getByTestId("custom-model-contextWindow-kimi-k3.1-pro")).toHaveValue("1048576");
+    await expect(page.getByTestId("custom-model-reasoning-house-plain")).toContainText("自动");
+    await expect(page.getByTestId("custom-model-contextWindow-house-plain")).toHaveValue("");
+    await page.getByTestId("custom-save").click();
+    await expect(page.getByTestId("custom-provider-form")).toHaveCount(0);
+    expect(await modelsOf("new-relay")).toEqual([
+      { id: "kimi-k3.1-pro", reasoning: true, input: ["text", "image"], contextWindow: 1_048_576 },
+      { id: "house-plain" },
+    ]);
   } finally {
     await launched.close();
     await fake.close();

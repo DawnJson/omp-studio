@@ -1,4 +1,5 @@
-// 本地假的 OpenAI 兼容服务（node http）：`GET /v1/models` 和 `POST /v1/chat/completions`（流式 SSE 和非流式）。
+// 本地假的 OpenAI 兼容服务（node http）：`GET /v1/models` 和 `POST /v1/chat/completions`（流式 SSE 和非流式），
+// 另有 `GET /api.json` 当假的公开模型目录（models.dev，STUDIO_MODELS_DEV_URL 指过来）。
 // 给"自定义模型"的单测、真实 omp 冒烟和 e2e 用：不连任何真实服务，也不需要 key。
 import http from "node:http";
 import type { AddressInfo } from "node:net";
@@ -8,11 +9,15 @@ export interface FakeOpenAiOptions {
   reply?: string;
   /** 设了就要求 `Authorization: Bearer <apiKey>`，否则回 401。 */
   apiKey?: string;
+  /** `GET /api.json` 回的公开模型目录（models.dev 的形状）；不设回 404。不要求 key。 */
+  catalog?: unknown;
 }
 
 export interface FakeOpenAi {
   /** 形如 `http://127.0.0.1:PORT/v1`。 */
   baseUrl: string;
+  /** 假的公开模型目录：`http://127.0.0.1:PORT/api.json`。 */
+  catalogUrl: string;
   /** 收到的 chat completions 请求体里最后一条用户消息文本（测"任务真的把 prompt 发到了这里"）。 */
   prompts: string[];
   /** 收到的请求数（按路径）。 */
@@ -47,6 +52,10 @@ export async function startFakeOpenAi(options: FakeOpenAiOptions = {}): Promise<
       response.writeHead(status, { "content-type": "application/json" });
       response.end(JSON.stringify(value));
     };
+    if (request.method === "GET" && url.pathname === "/api.json" && options.catalog !== undefined) {
+      json(200, options.catalog);
+      return;
+    }
     if (options.apiKey !== undefined && request.headers.authorization !== `Bearer ${options.apiKey}`) {
       json(401, { error: { message: "invalid api key", type: "invalid_request_error" } });
       return;
@@ -97,6 +106,7 @@ export async function startFakeOpenAi(options: FakeOpenAiOptions = {}): Promise<
   const { port } = server.address() as AddressInfo;
   return {
     baseUrl: `http://127.0.0.1:${port}/v1`,
+    catalogUrl: `http://127.0.0.1:${port}/api.json`,
     prompts,
     hits,
     close: () =>
