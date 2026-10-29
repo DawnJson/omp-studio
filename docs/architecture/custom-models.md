@@ -56,7 +56,7 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 
 - 实测（omp 18.13.3，临时 `PI_CODING_AGENT_DIR` 和 `USERPROFILE`，本机假 Anthropic 服务记 `system`，`omp -p` 各跑两次）：不写 `auth` 时两次的开头分别是 `cch=dc926`、`cch=0fd40`；`applyProvider` 写上 `auth: apiKey` 后 system 里没有这两段。`api` 只写在模型上、provider 这一级没写（手写的文件）时一样带 `cch`（同日同版本实测）；按表单 OpenAI 格式编辑保存后，模型上的 `api` 原样、补上 `auth: apiKey`，不再带。
 - 按模型算（`sendsAnthropic`）：模型自己写的 `api` 优先，没写的用 provider 这一级的；运行时发现模型（`discovery`）或没有模型时看 provider 这一级。有一个模型走 `anthropic-messages` 就算。
-- 保存（`applyProvider`）：走 Anthropic 时写 `auth: apiKey`；已有 `auth: none`（选了无需 key）、`auth: oauth`（用户手写）不动。旧条目编辑后保存一次就补上。不再走 Anthropic（接口类型改成别的）时去掉 `auth: apiKey`：它就是 omp 的默认值，留着只是多一行；`none`、`oauth` 照旧不动。
+- 保存（`applyProvider`）：走 Anthropic 时写 `auth: apiKey`；已有 `auth: none`（选了无需 key）、`auth: oauth`（用户手写）不动。旧条目编辑后保存一次就补上。不再走 Anthropic（接口类型改成别的）时去掉 `auth: apiKey`：它就是 omp 的默认值，留着只是多一行；`none`、`oauth` 照旧不动。新写的 `auth`（`setAuth`）紧跟在 `apiKey` 后面，已有的原地改；改成无需 key 时 `auth: none` 落在 `apiKey` 原来的位置（`yaml` 的 `YAMLMap.set` 遇到没有的键只会追加到最后，会落在 `models` 下面）。
 - 读（`parseProviders`）：走 Anthropic 且没写 `auth` 的条目 `oauthShaping: true`，卡片上标 warning 徽标「缓存不命中」（`custom-oauth-shaping-<id>`），悬停写修法。覆盖内置 provider 的条目走 `applyOverride`、不写 `auth`，不标。
 - 编辑时 key 是环境变量、而这个变量哪里都没设，`保存` 是停用的（原有规则，见下一节），这种条目要先填上值才能修。
 

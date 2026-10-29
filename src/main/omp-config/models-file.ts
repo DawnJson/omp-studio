@@ -332,8 +332,9 @@ export function applyProvider(text: string | null, input: CustomProviderInput, m
     provider.set("apiKey", key.kind === "literal" ? key.value : key.name);
     if (provider.get("auth") === "none") provider.delete("auth");
   } else if (key.kind === "none") {
+    // 先写 auth 再删 apiKey：auth 落在 apiKey 原来的位置。
+    setAuth(doc, provider, "none");
     provider.delete("apiKey");
-    provider.set("auth", "none");
   }
   provider.set("api", input.api);
   applyModels(doc, provider, input);
@@ -342,9 +343,21 @@ export function applyProvider(text: string | null, input: CustomProviderInput, m
   // `auth: apiKey` 就是 omp 的默认值，去掉。
   const auth: unknown = provider.get("auth");
   if (sendsAnthropic(provider.toJSON() as Record<string, unknown>)) {
-    if (auth !== "none" && auth !== "oauth") provider.set("auth", "apiKey");
+    if (auth !== "none" && auth !== "oauth") setAuth(doc, provider, "apiKey");
   } else if (auth === "apiKey") provider.delete("auth");
   return { ok: true, text: render(doc, source) };
+}
+
+/** 写 `auth`：已有就原地改；没有时紧跟在 `apiKey` 后面（没有 `apiKey` 才放到最后），不落在 `models` 下面。 */
+function setAuth(doc: Document, provider: YAMLMap, value: string): void {
+  if (provider.has("auth")) {
+    provider.set("auth", value);
+    return;
+  }
+  const at = provider.items.findIndex((pair) => (isScalar(pair.key) ? pair.key.value : pair.key) === "apiKey");
+  const pair = doc.createPair("auth", value);
+  if (at === -1) provider.items.push(pair);
+  else provider.items.splice(at + 1, 0, pair);
 }
 
 /** 删掉一个 provider；别的内容原样。 */

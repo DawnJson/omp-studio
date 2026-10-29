@@ -772,6 +772,8 @@ test("自定义提供商：anthropic-messages 没写 auth → 卡片标出缓存
     await expect(badge).toHaveCount(0);
     const saved = parseYaml(await readFile(file, "utf8")) as { providers: Record<string, Record<string, unknown>> };
     expect(saved.providers[id]).toMatchObject({ apiKey: SECRET, api: "anthropic-messages", auth: "apiKey" });
+    // 补写的 auth 紧跟在 apiKey 后面，不落在 models 下面。
+    expect(Object.keys(saved.providers[id] ?? {})).toEqual(["baseUrl", "apiKey", "auth", "api", "models"]);
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });

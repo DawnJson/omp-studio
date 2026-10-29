@@ -161,11 +161,33 @@ describe("models.yml 编辑（纯文本）", () => {
     const anthropic: Partial<CustomProviderInput> = { api: "anthropic-messages", models: [model("kimi-k3")] };
     expect(authOf(applied(null, input(anthropic)), "my-proxy")).toBe("apiKey");
 
+    // 新写的 auth 紧跟在 apiKey 后面，不落在 models 下面。
+    const keysOf = (text: string) =>
+      text
+        .split("\n")
+        .filter((line) => /^ {4}\w/.test(line))
+        .map((line) => line.trim().split(":")[0]);
+    expect(keysOf(applied(null, input(anthropic)))).toEqual(["baseUrl", "apiKey", "auth", "api", "models"]);
+
     const old =
       "providers:\n  relay:\n    baseUrl: https://relay.example.com\n    apiKey: RELAY_KEY\n    api: anthropic-messages\n    models:\n      - id: kimi-k3\n";
     expect(authOf(applied(old, input({ ...anthropic, id: "relay", key: { kind: "keep" } }), "edit"), "relay")).toBe(
       "apiKey",
     );
+    expect(keysOf(applied(old, input({ ...anthropic, id: "relay", key: { kind: "keep" } }), "edit"))).toEqual([
+      "baseUrl",
+      "apiKey",
+      "auth",
+      "api",
+      "models",
+    ]);
+    // 改成无需 key：auth: none 落在 apiKey 原来的位置。
+    expect(keysOf(applied(old, input({ ...anthropic, id: "relay", key: { kind: "none" } }), "edit"))).toEqual([
+      "baseUrl",
+      "auth",
+      "api",
+      "models",
+    ]);
 
     const none = applied(null, input({ ...anthropic, key: { kind: "none" } }));
     expect(authOf(none, "my-proxy")).toBe("none");
