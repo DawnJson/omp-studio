@@ -21,6 +21,8 @@ export const custom = {
   "fetchBadge.key": "key 无效",
   "fetchBadge.url": "地址不通",
   "fetchBadge.other": "拉取失败",
+  "oauthShaping.badge": "缓存不命中",
+  "oauthShaping.hint": "请求会带每次都变的 cch 标记，中转站缓存无法命中，费用更高。点「编辑」后保存一次即可修复。",
   override: "覆盖内置 provider",
   "key.unset": "未设置 key",
   "override.keyTip": "优先于登录的订阅",

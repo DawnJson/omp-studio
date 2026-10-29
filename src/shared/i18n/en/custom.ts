@@ -21,6 +21,9 @@ export const custom = {
   "fetchBadge.key": "Key rejected",
   "fetchBadge.url": "URL unreachable",
   "fetchBadge.other": "Fetch failed",
+  "oauthShaping.badge": "Cache misses",
+  "oauthShaping.hint":
+    "Requests carry a cch tag that changes every time, so the relay's cache never hits and costs more. Click Edit and save once to fix.",
   override: "Overrides a built-in provider",
   "key.unset": "No key",
   "override.keyTip": "Wins over a signed-in subscription",

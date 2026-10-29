@@ -158,6 +158,7 @@ export function parseProviders(text: string | null, sourceOf: SourceOf): ParseRe
       models: modelEntries(entry["models"]),
       discovery: typeof entry["discovery"] === "object" && entry["discovery"] !== null,
       overrides: overrideEntries(entry["modelOverrides"]),
+      oauthShaping: entry["api"] === "anthropic-messages" && entry["auth"] === undefined,
     });
   }
   return { ok: true, providers: out };
@@ -319,6 +320,10 @@ export function applyProvider(text: string | null, input: CustomProviderInput, m
     provider.set("auth", "none");
   }
   provider.set("api", input.api);
+  // 自定义 anthropic-messages 没写 `auth` 时 omp 按订阅（OAuth）组装请求，system 开头带每次都变的 `cch`，中转站缓存不命中
+  // （omp://models.md「Allowed auth/discovery values」）。`none`、`oauth` 是用户选的，不动。
+  if (input.api === "anthropic-messages" && provider.get("auth") !== "none" && provider.get("auth") !== "oauth")
+    provider.set("auth", "apiKey");
   applyModels(doc, provider, input);
   return { ok: true, text: render(doc, source) };
 }

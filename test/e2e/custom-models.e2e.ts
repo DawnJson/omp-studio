@@ -730,3 +730,50 @@ test("自定义提供商：编辑里用文件里的连接拉取失败 → 卡片
     await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });
+
+test("自定义提供商：anthropic-messages 没写 auth → 卡片标出缓存不命中；编辑后保存一次补上 auth: apiKey、徽标消失", async () => {
+  const { launched, agentDir } = await launchSettings();
+  const file = path.join(agentDir, "models.yml");
+  try {
+    const { page } = launched;
+    await writeFile(
+      file,
+      [
+        "providers:",
+        "  relay-with-a-rather-long-provider-name:",
+        "    baseUrl: http://127.0.0.1:9",
+        `    apiKey: ${SECRET}`,
+        "    api: anthropic-messages",
+        "    models:",
+        "      - id: kimi-k3",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    await page.getByTestId("settings-nav-general").click();
+    await page.getByTestId("settings-nav-providers").click();
+    const id = "relay-with-a-rather-long-provider-name";
+    const card = page.getByTestId(`custom-provider-${id}`);
+    const badge = card.getByTestId(`custom-oauth-shaping-${id}`);
+    await page.setViewportSize({ width: 900, height: 800 });
+    for (const [locale, text] of [
+      ["zh-CN", "缓存不命中"],
+      ["en", "Cache misses"],
+    ] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expect(badge).toHaveText(text);
+      await expectNoOverflow(page.getByTestId("custom-providers"));
+    }
+    await expect(badge).toHaveAttribute("title", /Edit/);
+
+    await card.getByTestId(`custom-edit-${id}`).click();
+    await page.getByTestId("custom-save").click();
+    await expect(page.getByTestId("custom-provider-form")).toHaveCount(0);
+    await expect(badge).toHaveCount(0);
+    const saved = parseYaml(await readFile(file, "utf8")) as { providers: Record<string, Record<string, unknown>> };
+    expect(saved.providers[id]).toMatchObject({ apiKey: SECRET, api: "anthropic-messages", auth: "apiKey" });
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});

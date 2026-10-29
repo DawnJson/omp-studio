@@ -50,6 +50,15 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 
 **key 只进不出**：`listCustomProviders` 返回的只有状态（`none` / `literal` / `env`+变量名 / `command`），没有 key 的内容；编辑时 key 留空 = "保持不变"（`keep`），主进程在内部读文件里的值。日志只记 provider id 和结果码（`custom provider add: saved`），不记 key，也不记 URL。这和 `login.md` 里设置页填的 API key 是两回事：那个经 `omp auth import` 存进 omp 的凭据库，不会出现在 `models.yml` 里。
 
+## Anthropic 格式要写 `auth: apiKey`（2026-10-29，omp 18.13.3）
+
+`omp://models.md`「Allowed auth/discovery values」：自定义 `anthropic-messages` 的条目**没写 `auth` 时按订阅（OAuth）组装请求**，`auth: apiKey` 才是普通 API key 的请求。订阅方式和 Claude Code 一样在 system 最前面加 `x-anthropic-billing-header: cc_version=…; cc_entrypoint=cli; cch=…;`，再加 "You are Claude Code…"；`cch` 每次请求都变，中转站的前缀缓存一直不命中，每次都按缓存写入计费。别的接口类型没有这条规则。
+
+- 实测（omp 18.13.3，临时 `PI_CODING_AGENT_DIR` 和 `USERPROFILE`，本机假 Anthropic 服务记 `system`，`omp -p` 各跑两次）：不写 `auth` 时两次的开头分别是 `cch=dc926`、`cch=0fd40`；`applyProvider` 写上 `auth: apiKey` 后 system 里没有这两段。
+- 保存（`applyProvider`）：接口是 `anthropic-messages` 时写 `auth: apiKey`；已有 `auth: none`（选了无需 key）、`auth: oauth`（用户手写）不动。旧条目编辑后保存一次就补上。
+- 读（`parseProviders`）：`anthropic-messages` 且没写 `auth` 的条目 `oauthShaping: true`，卡片上标 warning 徽标「缓存不命中」（`custom-oauth-shaping-<id>`），悬停写修法。覆盖内置 provider 的条目走 `applyOverride`、不写 `auth`，不标。
+- 编辑时 key 是环境变量、而这个变量哪里都没设，`保存` 是停用的（原有规则，见下一节），这种条目要先填上值才能修。
+
 ## 环境变量形式的 key 和 agent 目录的 `.env`（2026-10-24，omp 18.12.6）
 
 omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项目>/.env`、agent 目录的 `.env`、`~/.omp/.env`、`~/.env`，同一个变量第一个非空的赢（`omp://providers.md`「.env discovery」）。仓库所有者 2026-10-24 批准 studio 写 agent 目录的 `.env`（`AGENTS.md`「omp 的边界」第二处例外）：

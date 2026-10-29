@@ -91,6 +91,7 @@ describe("models.yml 编辑（纯文本）", () => {
         ],
         discovery: false,
         overrides: [],
+        oauthShaping: false,
       },
     ]);
   });
@@ -148,6 +149,49 @@ describe("models.yml 编辑（纯文本）", () => {
 
     const kept = applied(existing, input({ id: "openai", key: { kind: "keep" }, models: [model("m")] }), "edit");
     expect(kept).toContain("apiKey: OPENAI_API_KEY");
+  });
+
+  it("anthropic-messages 保存后写 auth: apiKey（否则 omp 按订阅组装请求，cch 每次变、缓存不命中）；none / oauth 原样，别的接口不写", () => {
+    // 刚由 applyProvider 输出的 YAML，形状已知。
+    type AuthDoc = { providers: Record<string, { auth?: string }> };
+    const authOf = (text: string, id: string) => {
+      const doc = parseYaml(text) as AuthDoc;
+      return doc.providers[id]?.auth;
+    };
+    const anthropic: Partial<CustomProviderInput> = { api: "anthropic-messages", models: [model("kimi-k3")] };
+    expect(authOf(applied(null, input(anthropic)), "my-proxy")).toBe("apiKey");
+
+    const old =
+      "providers:\n  relay:\n    baseUrl: https://relay.example.com\n    apiKey: RELAY_KEY\n    api: anthropic-messages\n    models:\n      - id: kimi-k3\n";
+    expect(authOf(applied(old, input({ ...anthropic, id: "relay", key: { kind: "keep" } }), "edit"), "relay")).toBe(
+      "apiKey",
+    );
+
+    const none = applied(null, input({ ...anthropic, key: { kind: "none" } }));
+    expect(authOf(none, "my-proxy")).toBe("none");
+    expect(authOf(applied(none, input({ ...anthropic, key: { kind: "keep" } }), "edit"), "my-proxy")).toBe("none");
+    const oauth = old.replace("    api:", "    auth: oauth\n    api:");
+    expect(authOf(applied(oauth, input({ ...anthropic, id: "relay", key: { kind: "keep" } }), "edit"), "relay")).toBe(
+      "oauth",
+    );
+
+    expect(authOf(applied(null, input()), "my-proxy")).toBeUndefined();
+  });
+
+  it("oauthShaping：只有 anthropic-messages 且没写 auth 时为 true", () => {
+    const file = `providers:
+  bare: { baseUrl: "https://a", apiKey: K, api: anthropic-messages, models: [{ id: m }] }
+  fixed: { baseUrl: "https://a", apiKey: K, api: anthropic-messages, auth: apiKey, models: [{ id: m }] }
+  free: { baseUrl: "https://a", api: anthropic-messages, auth: none, models: [{ id: m }] }
+  openai: { baseUrl: "https://a", apiKey: K, api: openai-completions, models: [{ id: m }] }
+`;
+    const parsed = parseProviders(file, noEnv);
+    expect(parsed.ok && Object.fromEntries(parsed.providers.map((p) => [p.id, p.oauthShaping]))).toEqual({
+      bare: true,
+      fixed: false,
+      free: false,
+      openai: false,
+    });
   });
 
   it("有 discovery 的条目可以清空 models；没有的不行", () => {

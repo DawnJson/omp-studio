@@ -187,15 +187,26 @@ export function CustomProviders() {
                 icon={<ProviderLogo id={provider.id} name={provider.id} />}
                 title={provider.id}
                 badges={
-                  failure !== undefined && (
-                    <Badge
-                      tone="error"
-                      title={customErrorText(t, `fetchErr.${failure.code}`, failure.status)}
-                      testId={`custom-fetch-failed-${provider.id}`}
-                    >
-                      {t(fetchBadgeKey(failure))}
-                    </Badge>
-                  )
+                  <>
+                    {failure !== undefined && (
+                      <Badge
+                        tone="error"
+                        title={customErrorText(t, `fetchErr.${failure.code}`, failure.status)}
+                        testId={`custom-fetch-failed-${provider.id}`}
+                      >
+                        {t(fetchBadgeKey(failure))}
+                      </Badge>
+                    )}
+                    {provider.oauthShaping && !override && (
+                      <Badge
+                        tone="warning"
+                        title={t("custom.oauthShaping.hint")}
+                        testId={`custom-oauth-shaping-${provider.id}`}
+                      >
+                        {t("custom.oauthShaping.badge")}
+                      </Badge>
+                    )}
+                  </>
                 }
                 meta={metaText(provider)}
                 actions={
