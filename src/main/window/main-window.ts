@@ -1,5 +1,5 @@
 // 主窗口：安全配置（AGENTS.md "Electron 安全"）、"当前主窗口"引用、窗口状态记忆和主题同步。
-import { app, BrowserWindow, nativeTheme, shell, systemPreferences } from "electron";
+import { app, BrowserWindow, nativeTheme, screen, shell, systemPreferences } from "electron";
 import path from "node:path";
 import { defaultFontSize } from "../../shared/ipc.ts";
 import { appOrigin } from "./app-protocol.ts";
@@ -9,6 +9,7 @@ import { blockZoom } from "./security.ts";
 import { registerShutdownHook } from "./shutdown.ts";
 import { attachTaskbarWindow } from "./taskbar-progress.ts";
 import { restoredBounds, trackWindowState } from "./window-state.ts";
+import { emitEvent } from "../ipc/events.ts";
 
 /**
  * 顶栏（通栏，高 40）的底色和系统三键符号色，取自 docs/design/spec.md §2.1；主题切换时用 win.setTitleBarOverlay 同步。
@@ -351,8 +352,16 @@ export function createMainWindow(): BrowserWindow {
   });
   applyFontSize(window);
   // 字号 = 整页缩放：重载/导航后 Chromium 会回到按源记的缩放，滚轮缩放（zoom-changed）也可能改动，统一拉回设置里的档位。
+  // 页面没处理的 Ctrl+滚轮转给渲染进程：文件预览的网页在沙箱 iframe 里，滚轮事件到不了应用页面，只能靠这个缩放。
+  // 事件不带位置，父页面也看不到指针在 iframe 里（:hover、pointer 事件都没有）：取光标位置换成页面的 CSS 像素一起发过去。
   window.webContents.on("did-finish-load", () => applyFontSize(window));
-  window.webContents.on("zoom-changed", () => applyFontSize(window));
+  window.webContents.on("zoom-changed", (_event, direction) => {
+    applyFontSize(window);
+    const cursor = screen.getCursorScreenPoint();
+    const content = window.getContentBounds();
+    const zoom = window.webContents.getZoomFactor();
+    emitEvent("zoomGesture", { direction, x: (cursor.x - content.x) / zoom, y: (cursor.y - content.y) / zoom });
+  });
   const onSettings = () => applyFontSize(window);
   onSettingsChanged(onSettings);
   window.once("closed", () => offSettingsChanged(onSettings));

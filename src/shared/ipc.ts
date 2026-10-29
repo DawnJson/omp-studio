@@ -1530,6 +1530,8 @@ export interface StudioEventPayloads {
   browserState: BrowserState;
   /** omp 连上了这个任务的浏览器（AI 开始用它）：当前任务是它时，渲染进程打开浏览器面板。 */
   browserConnected: TaskId;
+  /** 应用页面里一次 Ctrl+滚轮页面自己没处理（落在文件预览的网页 iframe 这类拦不到滚轮的地方）：整页缩放仍锁在字号档位上，渲染进程按光标位置（页面 CSS 像素）决定缩放什么。 */
+  zoomGesture: { direction: "in" | "out"; x: number; y: number };
   /** omp-studio 自身的更新状态变化。 */
   updateState: UpdateState;
 }
@@ -1798,4 +1800,5 @@ export const eventNames = {
   terminalExit: true,
   browserState: true,
   browserConnected: true,
+  zoomGesture: true,
 } satisfies Record<keyof StudioEventPayloads, true>;

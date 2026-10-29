@@ -6,7 +6,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, test } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
-import { launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
+import { expectNoOverflow, launchApp, openTaskRow, setLocaleTheme, testOmp, type LaunchedApp } from "./launch.ts";
 
 const svg =
   '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#0b7a66"/></svg>';
@@ -369,6 +369,130 @@ test("预览大图：适应窗口时缩小会更小、放大会更大；放大�
     await page.mouse.up();
     expect(await scroll()).toEqual({ left: 120, top: 80 });
     await expect(page.getByTestId("drop-overlay")).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("Ctrl+滚轮缩放预览：图片以指针处为中心，文本和网页整体缩放", async () => {
+  const { launched, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 1225, height: 756 });
+    const ctrlWheel = async (x: number, y: number, deltaY: number) => {
+      await page.mouse.move(x, y);
+      await page.keyboard.down("Control");
+      await page.mouse.wheel(0, deltaY);
+      await page.keyboard.up("Control");
+    };
+    const reset = page.getByTestId("file-preview-zoom-reset");
+    await page.getByTestId("topbar-files").click();
+
+    // 图片：从适应窗口开始放大；放大到两个方向都能滚以后，再放大一格，指针下还是图片上的同一点。
+    await page.locator('[data-testid=file-tree-row][data-path="big.svg"]').click();
+    const img = page.getByTestId("file-preview-image");
+    await expect(img).toBeVisible();
+    const fit = (await img.boundingBox())!;
+    const x = fit.x + fit.width * 0.75;
+    const y = fit.y + fit.height * 0.75;
+    // 每格 ×1.25，起点是适应窗口时的实际比例（同 − / + 按钮）；等百分比到了预期值再量，渲染是异步的。
+    let ratio = await img.evaluate((element) => {
+      const image = element as unknown as { clientWidth: number; naturalWidth: number };
+      return image.clientWidth / image.naturalWidth;
+    });
+    for (let i = 0; i < 5; i += 1) {
+      await ctrlWheel(x, y, -100);
+      ratio *= 1.25;
+    }
+    await expect(reset).toHaveText(`${Math.round(ratio * 100)}%`);
+    const before = (await img.boundingBox())!;
+    await ctrlWheel(x, y, -100);
+    await expect(reset).toHaveText(`${Math.round(ratio * 1.25 * 100)}%`);
+    const after = (await img.boundingBox())!;
+    expect(after.width).toBeGreaterThan(before.width);
+    expect((x - after.x) / after.width).toBeCloseTo((x - before.x) / before.width, 2);
+    expect((y - after.y) / after.height).toBeCloseTo((y - before.y) / before.height, 2);
+    for (let i = 0; i < 8; i += 1) await ctrlWheel(x, y, 100);
+    await expect.poll(async () => (await img.boundingBox())!.width).toBeLessThan(fit.width);
+
+    // Markdown：100% 时没有缩放组；Ctrl+滚轮放大一格，文字跟着变大，点百分比回到 100%。
+    await page.getByTestId("file-preview-page-files").click();
+    await page.locator('[data-testid=file-tree-row][data-path="notes.md"]').click();
+    const heading = page.getByTestId("file-preview-md").getByRole("heading", { name: "预览标题" });
+    await expect(heading).toBeVisible();
+    await expect(reset).toHaveCount(0);
+    const plain = (await heading.boundingBox())!.height;
+    const md = (await page.getByTestId("file-preview-md").boundingBox())!;
+    const center = { x: md.x + md.width / 2, y: md.y + md.height / 2 };
+    await ctrlWheel(center.x, center.y, -100);
+    await expect(reset).toHaveText("125%");
+    expect(Math.abs((await heading.boundingBox())!.height - plain * 1.25)).toBeLessThan(1.5);
+    await reset.click();
+    await expect(reset).toHaveCount(0);
+    expect((await heading.boundingBox())!.height).toBeCloseTo(plain, 0);
+    // 不按 Ctrl 的滚轮不缩放：它要是也放大了一格，接下来缩小一格会回到 100%，等不到 80%。
+    await page.mouse.wheel(0, -100);
+    await ctrlWheel(center.x, center.y, 100);
+    await expect(reset).toHaveText("80%");
+    await reset.click();
+    await expect(reset).toHaveCount(0);
+
+    // 网页：滚轮落在沙箱 iframe 里，应用页面收不到，父页面也看不出指针在 iframe 上；主进程转来的 zoom-changed
+    // （页面没处理的 Ctrl+滚轮）带着光标位置，光标在网页上才缩放它。Playwright 的鼠标不动系统光标，这里替换光标位置。
+    await page.getByTestId("file-preview-page-files").click();
+    await page.locator('[data-testid=file-tree-row][data-path="page.html"]').click();
+    const frame = page.getByTestId("file-preview-frame");
+    await expect(frame).toBeVisible();
+    const content = (await (await frame.elementHandle())!.contentFrame())!;
+    const innerWidth = () => content.evaluate(() => (globalThis as unknown as { innerWidth: number }).innerWidth);
+    const width = await innerWidth();
+    const unhandledCtrlWheel = (direction: "in" | "out", at: { x: number; y: number }) =>
+      launched.app.evaluate(
+        ({ BrowserWindow, screen }, [zoom, x, y]) => {
+          const window = BrowserWindow.getAllWindows()[0]!;
+          const bounds = window.getContentBounds();
+          screen.getCursorScreenPoint = () => ({ x: bounds.x + Number(x), y: bounds.y + Number(y) });
+          window.webContents.emit("zoom-changed", {}, zoom);
+        },
+        [direction, at.x, at.y] as const,
+      );
+    // 光标不在网页上的那次不算：它要是也放大了，网页上缩小一格会回到 100%，等不到 80%。
+    const composer = (await page.getByTestId("composer-input").boundingBox())!;
+    await unhandledCtrlWheel("in", { x: composer.x + 10, y: composer.y + 10 });
+    const box = (await frame.boundingBox())!;
+    await unhandledCtrlWheel("out", { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    await expect(reset).toHaveText("80%");
+    await expect.poll(innerWidth).toBeCloseTo(width / 0.8, -1);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("预览工具栏在 900 宽窗口、中英文下不越界（缩放过的文字、SVG、网页）", async () => {
+  const { launched, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 900, height: 700 });
+    await page.getByTestId("topbar-files").click();
+    const bar = page.locator(".file-preview-bar");
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      for (const file of ["notes.md", "logo.svg", "page.html"]) {
+        await page.getByTestId("file-preview-page-files").click();
+        await page.locator(`[data-testid=file-tree-row][data-path="${file}"]`).click();
+        await expect(page.getByTestId("file-preview-name")).toHaveText(file);
+        // 文字缩放换文件不复位：第一个文件放大一格，后面的网页也带着百分比。
+        if (file === "notes.md" && (await page.getByTestId("file-preview-zoom-reset").count()) === 0) {
+          const md = (await page.getByTestId("file-preview-md").boundingBox())!;
+          await page.mouse.move(md.x + md.width / 2, md.y + md.height / 2);
+          await page.keyboard.down("Control");
+          await page.mouse.wheel(0, -100);
+          await page.keyboard.up("Control");
+        }
+        await expect(page.getByTestId("file-preview-zoom-reset")).toBeVisible();
+        await expectNoOverflow(bar);
+      }
+    }
   } finally {
     await cleanup();
   }

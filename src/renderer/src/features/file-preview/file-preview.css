@@ -58,7 +58,9 @@
   white-space: nowrap;
 }
 
+/* 占满名字和右边控件之间的空隙（右边的控件靠它推到最右）；基准宽 0：换不换行只看名字和控件放不放得下，长路径只省略 */
 .file-preview-path {
+  flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
   color: var(--text-3);
@@ -97,13 +99,25 @@
 .file-preview-bar {
   display: flex;
   flex: none;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  height: var(--control-h-md);
-  padding: 0 var(--space-2) 0 var(--space-3);
+  gap: var(--space-1) var(--space-2);
+  min-height: var(--control-h-md);
+  padding: var(--space-0-5) var(--space-2) var(--space-0-5) var(--space-3);
   font-size: var(--fs-xs);
   color: var(--text-2);
   border-bottom: 1px solid var(--border-subtle);
+}
+/* 预览 / 源码、缩放、打开、在文件夹中显示：面板窄得和文件名放不进一行时整组换到第二行，靠右；还放不下就组内再折行 */
+.file-preview-actions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  margin-left: auto;
 }
 
 /* 文件页：虚拟化的树，行绝对定位在画布里 */
@@ -219,6 +233,13 @@
   margin: 0;
   border: 0;
   border-radius: 0;
+}
+
+/* 图片以外的内容按 Ctrl+滚轮整体缩放（PreviewPage 的 textZoom）；iframe 上的 zoom 连里面的网页一起缩放 */
+.file-preview-md,
+.file-preview-body > .md-codeblock,
+.file-preview-frame {
+  zoom: var(--preview-zoom);
 }
 
 .file-preview-image {
