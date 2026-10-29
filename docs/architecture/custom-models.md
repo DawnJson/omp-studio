@@ -144,7 +144,9 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 
 - 命名 profile（`OMP_PROFILE`）下的 agent 目录；
 - `models.yml` 里模型的其它字段（`cost`、`thinking` 档位表、`headers`、`compat` 等）的界面编辑：条目里有就保留，界面不改；
-- 跨进程的写锁。
+- 跨进程的写锁；
+- `api` 只写在模型上、provider 这一级没写的条目（只有手写的文件会这样，studio 写的 provider 这一级总有 `api`）：omp 照样按订阅方式组装请求（`omp://models.md` 说的是 "Custom `anthropic-messages` models"，按模型算；没有实测），但卡片不标「缓存不命中」，编辑保存时也只按表单的接口类型决定写不写 `auth: apiKey`。2026-10-29 仓库所有者定不处理；
+- 接口类型从 Anthropic 改成别的之后，`auth: apiKey` 留在文件里，不删：它就是 omp 的默认值（`omp://models.md`「Allowed auth/discovery values」），没有影响。
 
 ## 界面（3.2）
 
