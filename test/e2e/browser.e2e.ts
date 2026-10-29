@@ -112,6 +112,11 @@ test("浏览器面板：用户打开网页，omp 连上同一个页面，面板�
     await address.fill(site.url.replace("http://", ""));
     await address.press("Enter");
     await expect(address).toHaveValue(site.url);
+    // 面板用 transform 滑入，没停下时量到的占位区偏右：等滑入动画放完再量。
+    await panel.evaluate(async (element) => {
+      const animated = element as unknown as { getAnimations(): { finished: Promise<unknown> }[] };
+      await Promise.all(animated.getAnimations().map((animation) => animation.finished));
+    });
     const slot = (await page.getByTestId("browser-view").boundingBox())!;
     await expect
       .poll(() => pageView(launched))
@@ -124,6 +129,9 @@ test("浏览器面板：用户打开网页，omp 连上同一个页面，面板�
           height: Math.round(slot.height),
         },
       });
+    // 左缘的拖拽条不在页面视图下面：原生视图压住的地方点不到应用页面，拖不动（Playwright 的鼠标直接发给应用页面，拖一下看不出来）。
+    const resizer = (await panel.getByRole("separator").boundingBox())!;
+    expect(Math.round(slot.x)).toBeGreaterThanOrEqual(Math.round(resizer.x + resizer.width));
 
     // 命令面板（带遮罩）打开时页面藏起来，不挡住它；关掉后回来。
     await page.keyboard.press("Control+K");

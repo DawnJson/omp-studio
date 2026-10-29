@@ -869,7 +869,7 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 
 **入口**：顶栏子代理按钮右边的浏览器按钮（`BrowserToggle`，`topbar-browser`，`Globe` 图标，只有任务有）、快捷键 `Ctrl Shift B`（§5.1）、命令面板 `浏览器`；再按一次关闭。**omp 连上这个任务的浏览器时自动打开**（当前任务才开），不抢输入框的焦点。面板和文件面板、子代理面板同一栏，**同一时间只开一个**（`openBrowserPanel` 关另外两个；文件面板、子代理面板打开时 `App` 收起它）。Esc（焦点在面板头部时）或 × 关闭，焦点还给打开前的元素。宽度和文件面板共用（`usePreviewWidth`，左缘拖动 / ←→ 调宽，最宽 70%）。关闭只是藏起页面：页面、登录状态、omp 的连接都留着，再打开还是那一页；任务归档 / 删除时页面才销毁。
 
-**布局**（`browser-panel`）：头部（`file-preview-head browser-head`）= 后退 `browser-back` / 前进 `browser-forward`（不能走时停用）、刷新 `browser-reload`（加载中变停止，没打开过页面时停用）、地址栏（`TextField` sm 撑满，`browser-address`，`aria-label` `browser.address`；没在改时跟着页面地址走，改了没回车保持用户的字；回车打开：http/https 原样，`localhost` / `127.x` 补 `http://`，像域名的补 `https://`，其余当搜索词交给 Bing，别的协议不打开）、关闭 × `browser-close`。下面是占位区（`browser-view`，`--bg-app` 底），页面视图盖在上面。新页面是空白页（`about:blank`，地址栏留空）。
+**布局**（`browser-panel`）：头部（`file-preview-head browser-head`）= 后退 `browser-back` / 前进 `browser-forward`（不能走时停用）、刷新 `browser-reload`（加载中变停止，没打开过页面时停用）、地址栏（`TextField` sm 撑满，`browser-address`，`aria-label` `browser.address`；没在改时跟着页面地址走，改了没回车保持用户的字；回车打开：http/https 原样，`localhost` / `127.x` 补 `http://`，像域名的补 `https://`，其余当搜索词交给 Bing，别的协议不打开）、关闭 × `browser-close`。下面是占位区（`browser-view`，`--bg-app` 底），页面视图盖在上面；占位区左边让出拖拽条的宽度（`--space-1`），页面盖不住拖拽条，整条左缘都能拖（2026-10-29）。新页面是空白页（`about:blank`，地址栏留空）。
 
 **浮层**：页面是原生视图，会挡住应用里的浮层。遮罩弹窗开着、或菜单 / 下拉 / toast 这类挂在 body 下的浮层压到占位区时页面藏起来，露出占位区的底色；浮层关掉后回来。原生 `title` 提示不受影响。
 
