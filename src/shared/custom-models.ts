@@ -112,7 +112,7 @@ export interface CustomProviderInfo {
   discovery: boolean;
   /** `modelOverrides` 里写了能力参数的模型（只有 `name`、`compat` 这类别的键的不算）。 */
   overrides: ({ id: string } & CustomModelMeta)[];
-  /** `anthropic-messages` 且没写 `auth`：omp 按订阅（OAuth）组装请求，每次带不同的 `cch`，中转站缓存不命中。编辑后保存一次就补上 `auth: apiKey`。 */
+  /** 有模型走 `anthropic-messages`（provider 这一级或模型自己的 `api`）且没写 `auth`：omp 按订阅（OAuth）组装请求，每次带不同的 `cch`，中转站缓存不命中。编辑后保存一次就补上 `auth: apiKey`。 */
   oauthShaping: boolean;
 }
 

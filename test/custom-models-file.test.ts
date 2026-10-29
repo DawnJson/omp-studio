@@ -151,7 +151,7 @@ describe("models.yml 编辑（纯文本）", () => {
     expect(kept).toContain("apiKey: OPENAI_API_KEY");
   });
 
-  it("anthropic-messages 保存后写 auth: apiKey（否则 omp 按订阅组装请求，cch 每次变、缓存不命中）；none / oauth 原样，别的接口不写", () => {
+  it("走 anthropic-messages 时保存后写 auth: apiKey（否则 omp 按订阅组装请求，cch 每次变、缓存不命中）；none / oauth 原样；不再走 Anthropic 时去掉 auth: apiKey", () => {
     // 刚由 applyProvider 输出的 YAML，形状已知。
     type AuthDoc = { providers: Record<string, { auth?: string }> };
     const authOf = (text: string, id: string) => {
@@ -176,14 +176,36 @@ describe("models.yml 编辑（纯文本）", () => {
     );
 
     expect(authOf(applied(null, input()), "my-proxy")).toBeUndefined();
+
+    // api 只写在模型上（手写的文件）：表单里的接口类型是 OpenAI，模型节点原样留着、仍走 Anthropic。
+    const perModel =
+      "providers:\n  relay:\n    baseUrl: https://relay.example.com\n    apiKey: RELAY_KEY\n    models:\n      - id: kimi-k3\n        api: anthropic-messages\n";
+    const kept = applied(perModel, input({ id: "relay", key: { kind: "keep" }, models: [model("kimi-k3")] }), "edit");
+    expect(authOf(kept, "relay")).toBe("apiKey");
+    expect(kept).toContain("api: anthropic-messages");
+
+    // 改成 OpenAI 格式：auth: apiKey 是 omp 的默认值，去掉；none 留着。
+    const switched = input({ id: "relay", api: "openai-completions", key: { kind: "keep" }, models: [model("gpt-x")] });
+    expect(
+      authOf(
+        applied(applied(old, input({ ...anthropic, id: "relay", key: { kind: "keep" } }), "edit"), switched, "edit"),
+        "relay",
+      ),
+    ).toBeUndefined();
+    expect(authOf(applied(none, input({ api: "openai-completions", key: { kind: "keep" } }), "edit"), "my-proxy")).toBe(
+      "none",
+    );
   });
 
-  it("oauthShaping：只有 anthropic-messages 且没写 auth 时为 true", () => {
+  it("oauthShaping：有模型走 anthropic-messages（provider 这一级或模型自己的 api）且没写 auth 时为 true", () => {
     const file = `providers:
   bare: { baseUrl: "https://a", apiKey: K, api: anthropic-messages, models: [{ id: m }] }
   fixed: { baseUrl: "https://a", apiKey: K, api: anthropic-messages, auth: apiKey, models: [{ id: m }] }
   free: { baseUrl: "https://a", api: anthropic-messages, auth: none, models: [{ id: m }] }
   openai: { baseUrl: "https://a", apiKey: K, api: openai-completions, models: [{ id: m }] }
+  perModel: { baseUrl: "https://a", apiKey: K, models: [{ id: m, api: anthropic-messages }] }
+  overridden: { baseUrl: "https://a", apiKey: K, api: anthropic-messages, models: [{ id: m, api: openai-completions }] }
+  discovered: { baseUrl: "https://a", apiKey: K, api: anthropic-messages, discovery: { type: proxy } }
 `;
     const parsed = parseProviders(file, noEnv);
     expect(parsed.ok && Object.fromEntries(parsed.providers.map((p) => [p.id, p.oauthShaping]))).toEqual({
@@ -191,6 +213,9 @@ describe("models.yml 编辑（纯文本）", () => {
       fixed: false,
       free: false,
       openai: false,
+      perModel: true,
+      overridden: false,
+      discovered: true,
     });
   });
 

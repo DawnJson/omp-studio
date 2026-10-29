@@ -133,6 +133,22 @@ function overrideEntries(value: unknown): ({ id: string } & CustomModelMeta)[] {
   return out;
 }
 
+/**
+ * 这个条目有没有模型走 `anthropic-messages`：模型自己写的 `api` 优先，没写的用 provider 这一级的；
+ * 运行时发现模型（`discovery`）或没有模型时看 provider 这一级。
+ */
+function sendsAnthropic(entry: Record<string, unknown>): boolean {
+  const anthropic = "anthropic-messages";
+  const providerApi = entry["api"];
+  const models: unknown[] = Array.isArray(entry["models"]) ? entry["models"] : [];
+  const discovery = typeof entry["discovery"] === "object" && entry["discovery"] !== null;
+  if (providerApi === anthropic && (models.length === 0 || discovery)) return true;
+  return models.some((model) => {
+    const own = typeof model === "object" && model !== null && "api" in model ? model.api : undefined;
+    return (own ?? providerApi) === anthropic;
+  });
+}
+
 export type ParseResult = { ok: true; providers: CustomProviderInfo[] } | { ok: false; code: CustomModelsErrorCode };
 
 /** 从 models.yml 文本里读出 providers。文本为 null/空 = 没有任何 provider。`sourceOf` 判断 `apiKey` 里的变量名设在哪。 */
@@ -158,7 +174,7 @@ export function parseProviders(text: string | null, sourceOf: SourceOf): ParseRe
       models: modelEntries(entry["models"]),
       discovery: typeof entry["discovery"] === "object" && entry["discovery"] !== null,
       overrides: overrideEntries(entry["modelOverrides"]),
-      oauthShaping: entry["api"] === "anthropic-messages" && entry["auth"] === undefined,
+      oauthShaping: entry["auth"] === undefined && sendsAnthropic(entry),
     });
   }
   return { ok: true, providers: out };
@@ -320,11 +336,14 @@ export function applyProvider(text: string | null, input: CustomProviderInput, m
     provider.set("auth", "none");
   }
   provider.set("api", input.api);
-  // 自定义 anthropic-messages 没写 `auth` 时 omp 按订阅（OAuth）组装请求，system 开头带每次都变的 `cch`，中转站缓存不命中
-  // （omp://models.md「Allowed auth/discovery values」）。`none`、`oauth` 是用户选的，不动。
-  if (input.api === "anthropic-messages" && provider.get("auth") !== "none" && provider.get("auth") !== "oauth")
-    provider.set("auth", "apiKey");
   applyModels(doc, provider, input);
+  // 走 anthropic-messages 而没写 `auth` 时 omp 按订阅（OAuth）组装请求，system 开头带每次都变的 `cch`，中转站缓存不命中
+  // （omp://models.md「Allowed auth/discovery values」）。`none`、`oauth` 是用户选的，不动；不再走 Anthropic 时
+  // `auth: apiKey` 就是 omp 的默认值，去掉。
+  const auth: unknown = provider.get("auth");
+  if (sendsAnthropic(provider.toJSON() as Record<string, unknown>)) {
+    if (auth !== "none" && auth !== "oauth") provider.set("auth", "apiKey");
+  } else if (auth === "apiKey") provider.delete("auth");
   return { ok: true, text: render(doc, source) };
 }
 
