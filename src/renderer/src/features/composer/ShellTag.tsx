@@ -40,7 +40,7 @@ export function ShellTag({ taskId }: { taskId: TaskId }) {
         <Terminal size={14} />
         {name}
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} label={t("board.shellOptions")} width={320}>
+      <Popover open={open} onClose={() => setOpen(false)} label={t("board.shellOptions")} width={320} align="end">
         <div className="shell-pop" data-testid="shell-pop">
           <div className="shell-pop-row">
             <span id={labelId} className="shell-pop-label">

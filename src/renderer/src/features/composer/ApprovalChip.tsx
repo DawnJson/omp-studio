@@ -1,6 +1,7 @@
 // 审批模式胶囊（spec 5.8）：显示和修改的都是 omp 自己的 tools.approvalMode（按项目目录解析：项目配置盖过全局，见 use-approval-mode.ts），
 // omp-studio 不另存、启动时不传 --approval-mode。omp 的审批模式在进程启动时读一次：改了之后新启动的任务生效，已在运行的任务要重启。
-// 胶囊 = 图标 + 模式名（ui-chip，全自动用 warning 色）；点开是选择菜单（ui/MenuList，当前项只靠 ✓，第二行写说明）；切到全自动先出行内确认（Popover kind="confirm"）。
+// 胶囊 = 图标 + 模式名（ui-chip，全自动用 warning 色；还没读到模式时图标 + 骨架条，不写假的省略文字）；点开是选择菜单（ui/MenuList，
+// 当前项只靠 ✓，每档的说明放悬停提示，不写第二行）；切到全自动先出行内确认（Popover kind="confirm"，危险样式按钮）。
 import { reportError } from "../../ui/errors.ts";
 import { useEffect, useRef, useState } from "react";
 import type { ApprovalMode, ProjectId, TaskId } from "../../../../shared/ipc.ts";
@@ -15,7 +16,7 @@ import { MenuList, type MenuEntry } from "../../ui/Menu.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import { useApprovalMode } from "./use-approval-mode.ts";
 
-const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey | null; icon: typeof Shield }[] = [
+const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey; icon: typeof Shield }[] = [
   { mode: "always-ask", label: "approval.alwaysAsk", desc: "approval.desc.alwaysAsk", icon: Shield },
   {
     mode: "always-ask-cached",
@@ -24,7 +25,7 @@ const modes: readonly { mode: ApprovalMode; label: MessageKey; desc: MessageKey 
     icon: ShieldCheck,
   },
   { mode: "write", label: "approval.write", desc: "approval.desc.write", icon: Pencil },
-  { mode: "yolo", label: "approval.yolo", desc: null, icon: ShieldOff },
+  { mode: "yolo", label: "approval.yolo", desc: "approval.desc.yolo", icon: ShieldOff },
 ];
 
 /**
@@ -52,9 +53,8 @@ export function ApprovalChip({
     approval.info === null
       ? ""
       : ` · ${t(approval.info.source === "project" ? "approval.sourceProject" : "approval.sourceGlobal")}`;
-  const modeName = currentEntry ? t(currentEntry.label) : t("approval.loading");
-  // 胶囊上写模式名；来源（项目配置 / 全局配置）放进悬停提示和 aria-label。
-  const chipName = `${t("approval.title")} · ${modeName}${source}`;
+  // 胶囊上写模式名；来源（项目配置 / 全局配置）放进悬停提示和 aria-label。还没读到（也没有启动缓存）时只写"审批模式"。
+  const chipName = currentEntry ? `${t("approval.title")} · ${t(currentEntry.label)}${source}` : t("approval.title");
 
   // 项目 .omp/config.yml 设了它：omp 没有写项目层的命令，改全局不生效，所以四档不可选，只在菜单里说明（见 omp-config/approval-mode.ts）。
   const locked = approval.info?.source === "project";
@@ -91,28 +91,25 @@ export function ApprovalChip({
       .catch((error: unknown) => reportError(t, error, t("msg.sendFailed")));
   };
 
+  // 每档的说明只在悬停提示里（2026-10-29：菜单里每项第二行的说明是多余的字）；不可用的项灰显，原因也在悬停提示里。
   const items: MenuEntry[] = [
-    // 项目配置锁定：说明只在菜单顶上写一次；四项照常显示自己的第二行，只是灰显不可选。
+    // 项目配置锁定：说明只在菜单顶上写一次；四项灰显不可选。
     ...(locked ? [{ kind: "label" as const, id: "locked", label: t("approval.projectLocked") }] : []),
-    ...modes.map((entry) => {
-      // 全自动的名字已经说明"不询问"，只补 subagent 这条用户推断不出的后果。
-      const desc = entry.desc === null ? t("approval.subagents") : t(entry.desc);
-      return {
-        id: entry.mode,
-        label: t(entry.label),
-        // disabledReason 同时是"灰显"开关和第二行的文字；锁定时第二行还是描述本身。
-        ...(locked ? { disabledReason: desc } : { note: desc }),
-        checked: entry.mode === current,
-        testId: `approval-mode-${entry.mode}`,
-        onSelect: () => choose(entry.mode),
-      };
-    }),
+    ...modes.map((entry) => ({
+      id: entry.mode,
+      label: t(entry.label),
+      title: t(entry.desc),
+      disabled: locked,
+      checked: entry.mode === current,
+      testId: `approval-mode-${entry.mode}`,
+      onSelect: () => choose(entry.mode),
+    })),
     { kind: "separator", id: "sep" },
     {
       id: "forget",
       label: t("approval.forget"),
-      note: t("approval.desc.forget"),
-      ...(forgetTaskId === null ? { disabledReason: t("approval.forgetUnavailable") } : {}),
+      title: forgetTaskId === null ? t("approval.forgetUnavailable") : t("approval.desc.forget"),
+      disabled: forgetTaskId === null,
       onSelect: forget,
     },
   ];
@@ -129,18 +126,24 @@ export function ApprovalChip({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={chipName}
+        aria-busy={currentEntry === undefined || undefined}
         title={chipName}
         onClick={() => setOpen((value) => !value)}
       >
         <ModeIcon size={14} />
-        <span className="chip-mode">{modeName}</span>
+        {currentEntry ? (
+          <span className="chip-mode">{t(currentEntry.label)}</span>
+        ) : (
+          <span className="ui-skeleton chip-mode-skeleton" aria-hidden="true" />
+        )}
       </button>
       <Popover
         open={open}
         onClose={close}
         label={t("approval.title")}
         kind={confirming ? "confirm" : undefined}
-        width={confirming ? undefined : 320}
+        // 菜单只剩档位名（说明在悬停提示里），240 够放；项目锁定时顶上那行说明要 320（2026-10-29）
+        width={confirming ? undefined : locked ? 320 : 240}
       >
         {confirming ? (
           <div data-testid="approval-yolo-confirm">
@@ -152,7 +155,7 @@ export function ApprovalChip({
               </Button>
               <Button
                 size="sm"
-                variant="primary"
+                variant="danger-solid"
                 testId="approval-yolo-confirm-yes"
                 onClick={() => {
                   window.studio.setYoloConfirmed().catch((error: unknown) => reportError(t, error));

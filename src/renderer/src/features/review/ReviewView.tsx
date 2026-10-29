@@ -26,13 +26,14 @@ import {
 } from "../../store/review-store.ts";
 import { useSettings, useTask } from "../../store/index.ts";
 import { Button, IconButton } from "../../ui/controls.tsx";
-import { describeError, reportError } from "../../ui/errors.ts";
+import { explainError, reportError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { CommentQueue } from "./CommentQueue.tsx";
 import { CommitBox } from "./CommitBox.tsx";
 import { FileDiffView } from "./FileDiffView.tsx";
 import { FileTree } from "./FileTree.tsx";
 import { useReviewKeys } from "./review-keys.ts";
+import { refreshGit } from "../git/git-store.ts";
 import { useChangeStats, useFileDiff, useReviewStatus } from "./use-review-data.ts";
 import "./review.css";
 import { ViewControls } from "./ViewControls.tsx";
@@ -65,8 +66,14 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
   }, [entries, entry]);
 
   const diffState = useFileDiff(taskId, entry, scope, ignoreSpace, stamp);
-  const stats = useChangeStats(taskId, stamp);
+  // 不是 git 仓库 / 没装 git 时不取 +a −d（主进程会报错，弹一条没意义的 toast）。
+  const stats = useChangeStats(taskId, status?.kind === "ok" ? stamp : 0);
   const stagedCount = groups.find((group) => group.area === "staged")?.entries.length ?? 0;
+
+  // 评审每次重读状态（打开、刷新、暂存 / 提交之后）顶栏的分支胶囊跟着重读，两边的改动数不打架。
+  useEffect(() => {
+    if (stamp !== 0) refreshGit(taskId);
+  }, [taskId, stamp]);
 
   // 进入时把焦点放进评审、底下的页面不可达（inert）；退出（开始退出动画或卸载）时焦点回到触发它的元素，已经不在了就回输入框。
   const release = useRef<() => void>(() => undefined);
@@ -147,7 +154,7 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
     content = (
       <div className="rv-state" role="alert">
         <p>
-          {t("review.loadFailed")} · {describeError(t, error)}
+          {t("review.loadFailed")} · {explainError(t, error)}
         </p>
         <Button onClick={refresh}>{t("common.retry")}</Button>
       </div>
@@ -165,34 +172,35 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
         {t("review.notGit")}
       </div>
     );
-  else if (entry === null)
-    content = (
-      <div className="rv-state" data-testid="review-empty">
-        {t("review.noFiles")}
-      </div>
-    );
   else
+    // 没有改动也保留两栏框架（文件树空着、提交框还在），右边只说一句。
     content = (
       <div className="rv-body">
         <div className="rv-side">
-          <FileTree groups={groups} stats={stats} selectedKey={entry.key} onSelect={setSelectedKey} />
+          <FileTree groups={groups} stats={stats} selectedKey={entry?.key ?? null} onSelect={setSelectedKey} />
           <CommitBox taskId={taskId} stagedCount={stagedCount} onCommitted={refresh} />
         </div>
         <main className="rv-main">
-          <FileDiffView
-            key={entry.key}
-            taskId={taskId}
-            entry={entry}
-            state={diffState}
-            mode={mode}
-            scope={scope}
-            wrap={wrap}
-            ignoreSpace={ignoreSpace}
-            comments={comments.filter((comment) => comment.file === entry.path && comment.area === entry.area)}
-            reveal={reveal}
-            onRevealed={clearReveal}
-            onChanged={refresh}
-          />
+          {entry === null ? (
+            <div className="rv-state" data-testid="review-empty">
+              {t("review.noFiles")}
+            </div>
+          ) : (
+            <FileDiffView
+              key={entry.key}
+              taskId={taskId}
+              entry={entry}
+              state={diffState}
+              mode={mode}
+              scope={scope}
+              wrap={wrap}
+              ignoreSpace={ignoreSpace}
+              comments={comments.filter((comment) => comment.file === entry.path && comment.area === entry.area)}
+              reveal={reveal}
+              onRevealed={clearReveal}
+              onChanged={refresh}
+            />
+          )}
         </main>
       </div>
     );
@@ -218,7 +226,16 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
           </span>
         )}
         <span className="rv-spacer" />
-        <ViewControls mode={mode} scope={scope} wrap={wrap} ignoreSpace={ignoreSpace} onIgnoreSpace={setIgnoreSpace} />
+        {/* 视图切换只对 diff 有意义：不是 git 仓库、没装 git 时不显示。 */}
+        {status?.kind !== "not_git" && status?.kind !== "git_missing" && (
+          <ViewControls
+            mode={mode}
+            scope={scope}
+            wrap={wrap}
+            ignoreSpace={ignoreSpace}
+            onIgnoreSpace={setIgnoreSpace}
+          />
+        )}
         <IconButton label={t("review.refresh")} testId="review-refresh" onClick={refresh}>
           <Restart size={14} />
         </IconButton>
@@ -237,7 +254,7 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
       </header>
       {error !== null && status !== null && (
         <div className="rv-state" role="alert" data-testid="review-stale-error">
-          {t("review.loadFailed")} · {describeError(t, error)}
+          {t("review.loadFailed")} · {explainError(t, error)}
         </div>
       )}
       {content}

@@ -91,10 +91,10 @@ export function SkillForm({
             </Button>
             {picked !== null && (
               <div className="ig-picked" data-testid="skill-picked">
-                <span className="ig-raw" data-testid="skill-picked-folder">
+                <span className="ig-raw ig-picked-folder" data-testid="skill-picked-folder">
                   {picked.folderName}
                 </span>
-                <span className="ig-raw" data-testid="skill-picked-name">
+                <span className="ig-raw ig-picked-name" data-testid="skill-picked-name">
                   {picked.name}
                 </span>
                 <span className="ig-raw ig-clamp" title={picked.description} data-testid="skill-picked-description">

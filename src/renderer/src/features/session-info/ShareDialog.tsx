@@ -7,7 +7,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Button, Checkbox, Notice } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
 import { Reserve } from "../../ui/Reserve.tsx";
-import { describeError, reportError } from "../../ui/errors.ts";
+import { explainError, reportError } from "../../ui/errors.ts";
 import { copyText } from "./session-info-actions.ts";
 import { closeShareDialog } from "./session-info-store.ts";
 import "./session-info.css";
@@ -84,7 +84,7 @@ function Body({
       </Checkbox>
       {phase.kind === "error" && (
         <Notice tone="error" testId="share-error">
-          {t("sessionInfo.share.failed", { message: describeError(t, phase.error) })}
+          {t("sessionInfo.share.failed", { message: explainError(t, phase.error) })}
         </Notice>
       )}
     </>
@@ -133,26 +133,26 @@ export function ShareDialog({ taskId, open }: { taskId: TaskId; open: boolean })
       onClose={closeShareDialog}
       footer={
         done !== null ? (
-          <>
-            {done.url !== null && (
-              <>
-                <Button onClick={() => copyText(t, done.url ?? "")} testId="share-copy">
-                  {t("sessionInfo.share.copy")}
-                </Button>
-                <Button
-                  onClick={() =>
-                    void window.studio.openExternal(done.url ?? "").catch((error: unknown) => reportError(t, error))
-                  }
-                  testId="share-open"
-                >
-                  {t("sessionInfo.share.open")}
-                </Button>
-              </>
-            )}
-            <Button variant="primary" onClick={closeShareDialog}>
+          done.url !== null ? (
+            // 拿到链接后这一步要做的是复制：复制是主按钮并拿焦点（Enter 即复制），关闭交给 × / Esc（2026-10-29）。
+            <>
+              <Button
+                onClick={() =>
+                  void window.studio.openExternal(done.url ?? "").catch((error: unknown) => reportError(t, error))
+                }
+                testId="share-open"
+              >
+                {t("sessionInfo.share.open")}
+              </Button>
+              <Button variant="primary" autoFocus onClick={() => copyText(t, done.url ?? "")} testId="share-copy">
+                {t("sessionInfo.share.copy")}
+              </Button>
+            </>
+          ) : (
+            <Button variant="primary" autoFocus onClick={closeShareDialog}>
               {t("common.close")}
             </Button>
-          </>
+          )
         ) : (
           <>
             <Button onClick={closeShareDialog}>{t("common.cancel")}</Button>
@@ -171,7 +171,7 @@ export function ShareDialog({ taskId, open }: { taskId: TaskId; open: boolean })
     >
       {settingsError !== null && (
         <Notice tone="error">
-          {t("sessionInfo.share.settingsFailed", { message: describeError(t, settingsError) })}
+          {t("sessionInfo.share.settingsFailed", { message: explainError(t, settingsError) })}
         </Notice>
       )}
       {settings === null && settingsError === null && <p className="si-note">{t("sessionInfo.loading")}</p>}

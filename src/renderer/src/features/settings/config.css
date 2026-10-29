@@ -14,8 +14,24 @@
   overflow-wrap: anywhere;
 }
 
+/* 控件列按内容定宽（开关只有 36px），小字跟着它的宽就被挤成一词一行（2026-10-29 SET-01）：
+   有小字的行控件列占满余下的宽，恢复默认挪到行尾；格子（flex 排法）里控件格占满一行。 */
+.ui-row:has(> .ui-row-control > .cfg-note) {
+  grid-template-columns: var(--row-label-w, 200px) minmax(0, 1fr) 28px;
+}
+.st-cells .ui-row-control:has(> .cfg-note) {
+  flex-basis: 100%;
+}
+
 .cfg-error {
   color: var(--st-error);
+}
+
+/* JSON 编辑对话框：文本框 + 它下面占位的错误行，间距同表单字段内部（不是字段之间） */
+.cfg-json {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1-5);
 }
 
 /* ───────── 标签输入（字符串数组） ───────── */
@@ -124,9 +140,19 @@
   animation-play-state: var(--play-state);
 }
 
+/* 搜索没结果：居中，一句话（次要色）+ "清除搜索"，离页头留出一段空 */
+.cfg-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding-block: var(--space-12);
+  text-align: center;
+}
 .cfg-empty-title {
-  margin: 0 0 var(--space-1);
+  margin: 0;
   font-size: var(--fs-base);
+  color: var(--text-2);
 }
 
 /* ───────── 结构化编辑（模型角色、回退链；在"编辑…"对话框里） ───────── */

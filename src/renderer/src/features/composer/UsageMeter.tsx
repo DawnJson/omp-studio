@@ -20,7 +20,8 @@ const ringRadius = 8;
 const pieRadius = 3;
 const pieLength = 2 * Math.PI * pieRadius;
 
-/** 圆环：外圈是底，里面的扇形 = 已用；`autoAt`（0–100）是自动压缩触发点，在外圈上横穿一道刻度。 */
+/** 圆环：外圈是底，里面的扇形 = 已用；`autoAt`（0–100）是自动压缩触发点，在外圈上向里画一道刻度。
+ * 没用量时不画扇形（长度 0 的虚线 Chromium 仍画出一个小竖点），刻度也不伸出外圈：两者叠在一起像"刷新"图标（2026-10-29 审计）。 */
 function Ring({ percent, autoAt = null }: { percent: number; autoAt?: number | null }) {
   const filled = (Math.min(100, Math.max(0, percent)) / 100) * pieLength;
   const center = ringSize / 2;
@@ -33,23 +34,25 @@ function Ring({ percent, autoAt = null }: { percent: number; autoAt?: number | n
       aria-hidden="true"
     >
       <circle className="usage-ring-track" cx={center} cy={center} r={ringRadius} />
-      <circle
-        className="usage-ring-fill"
-        cx={center}
-        cy={center}
-        r={pieRadius}
-        strokeDasharray={`${filled} ${pieLength}`}
-        transform={`rotate(-90 ${center} ${center})`}
-      />
+      {filled > 0 && (
+        <circle
+          className="usage-ring-fill"
+          cx={center}
+          cy={center}
+          r={pieRadius}
+          strokeDasharray={`${filled} ${pieLength}`}
+          transform={`rotate(-90 ${center} ${center})`}
+        />
+      )}
       {autoAt !== null && (
         <line
           className="usage-ring-tick"
           data-testid="context-ring-tick"
           data-at={autoAt}
           x1={center}
-          y1={0}
+          y1={center - ringRadius}
           x2={center}
-          y2={4}
+          y2={center - ringRadius + 3}
           transform={`rotate(${(Math.min(100, Math.max(0, autoAt)) / 100) * 360} ${center} ${center})`}
         />
       )}

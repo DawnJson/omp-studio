@@ -183,7 +183,7 @@ export function ModeSection({ taskId, task }: { taskId: TaskId; task: TaskState 
       break;
     case "plan":
       body = mode.paused ? (
-        <div className="md-block">
+        <div className="tg-block">
           <div className="tg-actions">
             <Button
               size="sm"
@@ -198,7 +198,7 @@ export function ModeSection({ taskId, task }: { taskId: TaskId; task: TaskState 
       ) : (
         <>
           {planRow(true)}
-          <div className="md-block tg-actions">
+          <div className="tg-block tg-actions">
             <Button
               size="sm"
               disabled={disabled}
@@ -216,7 +216,7 @@ export function ModeSection({ taskId, task }: { taskId: TaskId; task: TaskState 
       break;
     case "prewalk":
       body = (
-        <div className="md-block">
+        <div className="tg-block">
           <p className="tg-note" data-testid="mode-prewalk">
             {t("modes.prewalk.on")}
           </p>
@@ -236,7 +236,7 @@ export function ModeSection({ taskId, task }: { taskId: TaskId; task: TaskState 
     case "loop": {
       const details = [loopLimitText(t, mode), loopConditionText(t, mode)].filter((text) => text !== null);
       body = (
-        <div className="md-block" data-testid="mode-loop-status" data-state={mode.state}>
+        <div className="tg-block" data-testid="mode-loop-status" data-state={mode.state}>
           <p className="tg-label">{t("modes.loop")}</p>
           <p className="tg-note" data-testid="mode-loop-state">
             {t(`modes.loop.${mode.state}`)}

@@ -66,7 +66,6 @@ export const review = {
   commitGenerate: "生成",
   commitGenerateTip: "用已暂存的改动生成提交信息",
   commitGenerateNone: "没有已暂存的改动，先暂存要提交的文件",
-  commitGenerating: "正在生成…",
   commitGenerateCancel: "取消",
   commitAmend: "修改上一次提交",
   commitAmendLoading: "正在读取上一次提交…",

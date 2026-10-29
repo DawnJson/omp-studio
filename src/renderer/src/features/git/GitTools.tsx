@@ -5,7 +5,7 @@ import type { GitStatus } from "../../../../shared/git.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { withShortcut } from "../../app/platform-keys.ts";
-import { ArrowUp, Branch, Check, ChevronDown, Diff, External, Trash } from "../../icons.tsx";
+import { ArrowUp, Branch, ChevronDown, Commit, Diff, External, Trash } from "../../icons.tsx";
 import { useTask } from "../../store/index.ts";
 import { openReview } from "../../store/review-store.ts";
 import { IconButton } from "../../ui/controls.tsx";
@@ -61,7 +61,7 @@ export function GitTools({ taskId }: { taskId: TaskId }) {
       {
         id: "commit",
         label: t("git.menu.commit"),
-        icon: <Check />,
+        icon: <Commit />,
         onSelect: () => openGitDialog({ kind: "commit", taskId }),
       },
       {

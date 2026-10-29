@@ -144,7 +144,7 @@ export function ConversationLine({ taskId, scroller }: { taskId: TaskId; scrolle
   };
 
   return (
-    <nav className="tsp-convline" aria-label={t("scroll.line")} data-testid="conversation-line">
+    <nav className="tsp-convline" aria-label={t("scroll.line")} data-testid="conversation-line" data-tip-side="left">
       {messages.map((message, index) => {
         const label = t("scroll.lineItem", { n: index + 1, text: preview(message.text) });
         return (

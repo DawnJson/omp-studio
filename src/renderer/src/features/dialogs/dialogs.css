@@ -38,14 +38,14 @@
   pointer-events: auto;
   animation: toast-in max(var(--dur-base), var(--dur-fade)) var(--ease-out);
 }
-/* 等级色：左侧一个小圆点；警告 / 错误再加一圈细框 */
+/* 等级色：左侧一个小圆点；警告 / 错误再加一圈细框。普通消息（已归档等）的点是灰的：强调色只给状态（2026-10-29） */
 .toast::before {
   content: "";
   flex: none;
   width: 8px;
   height: 8px;
   border-radius: var(--radius-pill);
-  background: var(--accent);
+  background: var(--text-3);
 }
 .toast[data-level="success"]::before {
   background: var(--st-done);

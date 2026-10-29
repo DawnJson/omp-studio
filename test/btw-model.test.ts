@@ -133,8 +133,13 @@ describe("面板的选择规则", () => {
     expect(canAsk([record("a")], "why")).toBe(false);
   });
 
-  it("话题标签只取问题的第一行并截断", () => {
+  it("话题标签只取问题的第一行，太长时从中间省略", () => {
     expect(topicLabel(record("a", { question: "first line\nsecond" }))).toBe("first line");
-    expect(topicLabel(record("a", { question: "x".repeat(40) }), 10)).toBe(`${"x".repeat(10)}…`);
+    expect(topicLabel(record("a", { question: `${"x".repeat(20)}${"y".repeat(20)}` }), 10)).toBe(
+      `${"x".repeat(5)}…${"y".repeat(5)}`,
+    );
+    expect(topicLabel(record("a", { question: "Reply with exactly the word: pong" }))).not.toBe(
+      topicLabel(record("b", { question: "Reply with exactly the word: ping" })),
+    );
   });
 });

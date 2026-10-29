@@ -110,23 +110,24 @@
   min-width: 160px;
 }
 
-/* 模式开关（ModeSection）：Plan / Vibe 用 .tg-row；Loop 的输入、其它模式的当前状态和动作成块排列。 */
+/* 模式开关（ModeSection）：Plan / Vibe 用 .tg-row；Loop 的输入、其它模式的当前状态和动作成块排列。
+ * 块用 .tg-block，不能叫 .md-block：那是 markdown 每一块的 class（markdown.css），同名会给所有正文加内边距（2026-10-29）。 */
 .md-section {
   display: flex;
   flex-direction: column;
   padding: var(--space-1) 0;
 }
 .md-loop,
-.md-block {
+.tg-block {
   display: flex;
   flex-direction: column;
   gap: var(--space-1-5);
   padding: var(--space-1-5) var(--space-2-5);
 }
-.md-block .tg-note {
+.tg-block .tg-note {
   margin: 0;
 }
-.md-block .tg-actions,
+.tg-block .tg-actions,
 .md-loop-form .tg-actions {
   justify-content: flex-end;
 }

@@ -81,12 +81,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 快捷键提示：平时不显示，悬停或键盘聚焦这一行时出现（占位不变，标题不跳） */
+/* 快捷键提示：平时不显示，悬停或键盘聚焦这一行时出现（占位不变，标题不跳）。
+   样式和搜索框里的 Ctrl F（.ui-affix）、菜单里的快捷键（.ui-menu-hint）一样：无衬线 --fs-xs 不画键帽（2026-10-29 统一） */
 .sb-new-hint {
   flex: none;
   color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--ls-label);
   white-space: nowrap;
   opacity: 0;
   transition: opacity var(--dur-instant) var(--ease-out);
@@ -348,12 +350,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 时间一列：所有行的右边对齐；任务行 hover 时 ⋯ 盖在这一格上（最小宽 = ⋯ 的宽），所以任务行不再另外让位 */
+/* 时间一列：所有行的右边对齐；任务行 hover 时 ⋯ 盖在这一格上（最小宽 = ⋯ 的宽），所以任务行不再另外让位。
+   无衬线 + 等宽数字（2026-10-29：原来等宽字体，"40 分钟"里中文落到回退字体、数字和中文之间空一大格，英文 Just now 又宽得挤掉标题） */
 .sb-row-tail {
   flex: none;
   min-width: var(--control-h-sm);
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -380,10 +383,12 @@
     opacity var(--dur-fast) var(--ease-out),
     visibility 0s linear var(--dur-fast);
 }
+/* 改名框的文字和原来的标题对齐：框往左伸出 内边距 + 描边，字不跳（2026-10-29：原来右移 7px） */
 .sb-rename {
   flex: 1;
   min-width: 0;
   height: var(--control-h-sm);
+  margin-left: calc(-1 * (var(--space-1-5) + 1px));
   padding: 0 var(--space-1-5);
   font: inherit;
   color: var(--text);

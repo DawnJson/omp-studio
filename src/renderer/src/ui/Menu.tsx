@@ -16,11 +16,15 @@ export interface MenuAction {
   note?: string | undefined;
   /** 右侧的快捷键提示，如 "F2"。 */
   shortcut?: string | undefined;
-  /** 给了就是选择项（menuitemradio）：选中的第一列画 ✓。同一个菜单里不和图标混用。 */
+  /** 给了就是选择项：选中的第一列画 ✓。一个菜单里多项可选是单选（menuitemradio），只有一项是开关（menuitemcheckbox）。同一个菜单里不和图标混用。 */
   checked?: boolean | undefined;
   tone?: "danger" | undefined;
   /** 有值表示这一项现在不能用（灰显、不执行），值写在第二行。 */
   disabledReason?: string | undefined;
+  /** 灰显、不执行，但不写第二行；原因放 title。 */
+  disabled?: boolean | undefined;
+  /** 悬停提示（全局 TooltipLayer 读 title）。 */
+  title?: string | undefined;
   testId?: string | undefined;
   onSelect(): void;
 }
@@ -32,15 +36,37 @@ export interface MenuAnchor {
   y: number;
   /** 关闭后接收焦点的元素（打开前的 activeElement）。 */
   returnFocus: HTMLElement | null;
-}
-
-/** 在按钮下沿左对齐弹出（⋯ 按钮、胶囊）。 */
-export function anchorBelow(button: HTMLElement): MenuAnchor {
-  const rect = button.getBoundingClientRect();
-  return { x: rect.left, y: rect.bottom + 4, returnFocus: button };
+  /** "end"：x 是菜单的右缘（触发器在窗口右侧时向左展开）。默认 x 是左缘。 */
+  align?: "start" | "end";
+  /** 下方放不下时菜单底边贴到这里（触发器上沿）；没有就贴到 y（右键位置）。 */
+  flipY?: number;
 }
 
 const edge = 8;
+const gap = 4;
+
+/** 在按钮下沿左对齐弹出（⋯ 按钮、胶囊）；下方放不下翻到按钮上方。 */
+export function anchorBelow(button: HTMLElement): MenuAnchor {
+  const rect = button.getBoundingClientRect();
+  return { x: rect.left, y: rect.bottom + gap, flipY: rect.top - gap, returnFocus: button };
+}
+
+/** 在按钮下沿右对齐弹出：给窗口右侧的触发器（工具栏右端、卡片右上角的 ⋯）。 */
+export function anchorBelowEnd(button: HTMLElement): MenuAnchor {
+  const rect = button.getBoundingClientRect();
+  return { x: rect.right, y: rect.bottom + gap, flipY: rect.top - gap, align: "end", returnFocus: button };
+}
+
+/** 菜单盒子在窗口里的位置：四周至少留 edge；下方放不下翻到锚点上方。 */
+function place(anchor: MenuAnchor, width: number, height: number): { left: number; top: number } {
+  const left = anchor.align === "end" ? anchor.x - width : anchor.x;
+  const fitsBelow = anchor.y + height <= window.innerHeight - edge;
+  const top = fitsBelow ? anchor.y : (anchor.flipY ?? anchor.y) - height;
+  return {
+    left: Math.max(edge, Math.min(left, window.innerWidth - width - edge)),
+    top: Math.max(edge, Math.min(top, window.innerHeight - height - edge)),
+  };
+}
 
 function isAction(entry: MenuEntry): entry is MenuAction {
   return !("kind" in entry);
@@ -54,7 +80,9 @@ function MenuItems({
   /** 选中一项后（执行前）调用：关菜单、还焦点。 */
   onPicked(): void;
 }) {
-  const selection = items.some((entry) => isAction(entry) && entry.checked !== undefined);
+  const checkable = items.filter((entry) => isAction(entry) && entry.checked !== undefined).length;
+  // 一组里选一个是单选（menuitemradio）；只有一项可勾的是开关（menuitemcheckbox，如"在独立 worktree 里开始"）。
+  const selection = checkable === 0 ? null : checkable === 1 ? "menuitemcheckbox" : "menuitemradio";
   return (
     <>
       {items.map((entry) => {
@@ -67,18 +95,19 @@ function MenuItems({
             </div>
           );
         }
-        const disabled = entry.disabledReason !== undefined;
+        const disabled = entry.disabled === true || entry.disabledReason !== undefined;
         const note = entry.disabledReason ?? entry.note;
         return (
           <button
             key={entry.id}
             type="button"
-            role={selection ? "menuitemradio" : "menuitem"}
-            aria-checked={selection ? entry.checked === true : undefined}
+            role={selection ?? "menuitem"}
+            aria-checked={selection !== null ? entry.checked === true : undefined}
             aria-disabled={disabled || undefined}
             className="ui-menu-item"
             data-tone={entry.tone}
             data-testid={entry.testId}
+            title={entry.title}
             onClick={() => {
               if (disabled) return;
               // 菜单项可能要弹重命名输入框或抢焦点，所以先关菜单、把焦点还回去，再执行。
@@ -148,15 +177,23 @@ export function Menu({
     setOpen(true);
   }
 
-  // 贴边时翻到锚点另一侧，保证整个菜单在窗口内。
+  // 贴边时翻到锚点另一侧，四周至少留 edge；内容或窗口尺寸变了（字体、异步项）重新夹紧。
   useLayoutEffect(() => {
-    const box = ref.current?.getBoundingClientRect();
-    if (!box) return;
-    setPosition({
-      left: Math.max(edge, Math.min(anchor.x, window.innerWidth - box.width - edge)),
-      top: Math.max(edge, Math.min(anchor.y, window.innerHeight - box.height - edge)),
-    });
-  }, [anchor.x, anchor.y]);
+    const node = ref.current;
+    if (!node) return;
+    const update = () => {
+      const next = place(anchor, node.offsetWidth, node.offsetHeight);
+      setPosition((prev) => (prev.left === next.left && prev.top === next.top ? prev : next));
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [anchor, presence.mounted]);
 
   // 退出动画中被重新打开（同一个实例换了锚点）也要把焦点放进菜单，不然 Esc 和方向键落在原来的元素上。
   useEffect(() => {

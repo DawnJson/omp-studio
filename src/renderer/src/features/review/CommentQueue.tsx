@@ -4,7 +4,7 @@ import { rangeText, sortComments, type QueuedComment } from "../../../../shared/
 import { useT } from "../../i18n/use-t.ts";
 import { Comment } from "../../icons.tsx";
 import { Badge, Button } from "../../ui/controls.tsx";
-import { anchorBelow, Menu, type MenuAnchor } from "../../ui/Menu.tsx";
+import { anchorBelowEnd, Menu, type MenuAnchor } from "../../ui/Menu.tsx";
 
 const NOTE_MAX = 80;
 
@@ -32,14 +32,15 @@ export function CommentQueue({
         aria-haspopup="menu"
         aria-expanded={menu !== null}
         data-testid="comment-queue-button"
-        onClick={(event) => setMenu(menu !== null ? null : anchorBelow(event.currentTarget))}
+        onClick={(event) => setMenu(menu !== null ? null : anchorBelowEnd(event.currentTarget))}
       >
         {t("review.tabComments")}
-        {!empty && (
-          <Badge tone="accent" testId="comment-count">
+        {/* 没有评论时徽标位置照留（隐藏），出现数字时工具条不横移。 */}
+        <span className="rv-queue-count" data-empty={empty || undefined} aria-hidden={empty || undefined}>
+          <Badge tone="accent" testId={empty ? undefined : "comment-count"}>
             {comments.length}
           </Badge>
-        )}
+        </span>
       </Button>
       {menu && !empty && (
         <Menu

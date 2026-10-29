@@ -17,6 +17,7 @@ import { runBuiltinText } from "./integrations-data.ts";
 import { setCardScope, useCardScope, type ScopeKey } from "./integrations-store.ts";
 import { useAsyncAction } from "./use-async-action.ts";
 import { ScopePicker } from "./ScopePicker.tsx";
+import { TitleTip } from "./TitleTip.tsx";
 
 // 只用 MEMORY_OPS 里的子集，编译期确认它们都在里面。
 const READ_OPS = ["stats", "diagnose", "queue", "view"] as const satisfies readonly (typeof MEMORY_OPS)[number][];
@@ -63,7 +64,7 @@ export function MemoryCard() {
   return (
     <section className="st-section" data-testid="memory-card">
       <SectionHead
-        title={t("integrations.memory.title")}
+        title={<TitleTip title={t("integrations.memory.title")} tip={t("integrations.memory.note")} />}
         actions={
           projects.length > 0 && (
             <>
@@ -87,7 +88,6 @@ export function MemoryCard() {
             </>
           )
         }
-        note={t("integrations.memory.note")}
       />
       {projects.length === 0 ? (
         <p className="st-muted" data-testid="memory-no-project">

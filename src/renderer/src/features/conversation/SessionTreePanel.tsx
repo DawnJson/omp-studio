@@ -203,8 +203,7 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
       ) : (
         <div className="tree-body" onKeyDown={onKeyDown}>
           <TextField
-            size="sm"
-            width="100%"
+            width="auto"
             className="tree-search"
             testId="session-tree-search"
             value={query}
@@ -246,7 +245,7 @@ function TreeDialog({ taskId, open, onExited }: { taskId: TaskId; open: boolean;
                     data-current={node.current}
                     data-kind={node.kind}
                     data-testid="session-tree-node"
-                    title={node.kind === "user" ? t("tree.pick") : undefined}
+                    title={node.kind === "user" && editing === null ? t("tree.pick") : undefined}
                     style={{ "--indent": node.indent } as CSSProperties}
                     onMouseMove={() => setActive(index)}
                     onClick={() => pick(node)}

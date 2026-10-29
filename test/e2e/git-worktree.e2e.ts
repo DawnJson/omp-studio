@@ -81,7 +81,7 @@ async function openGitMenu(page: Page, item: RegExp): Promise<void> {
 /** 草稿顶栏分支胶囊的菜单里勾上 / 取消"在独立 worktree 里开始"（点了菜单就收回）。 */
 async function toggleDraftWorktree(page: Page): Promise<void> {
   await page.getByTestId("draft-git-menu").click();
-  await page.getByRole("menuitemradio", { name: /在独立 worktree 里开始/ }).click();
+  await page.getByRole("menuitemcheckbox", { name: /在独立 worktree 里开始/ }).click();
 }
 
 /**
@@ -133,7 +133,7 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await expect(page.getByTestId("draft-git-worktree")).toHaveCount(0);
     await expect(page.getByTestId("draft-composer").getByText("Worktree")).toHaveCount(0);
     await chip.click();
-    const item = page.getByRole("menuitemradio", { name: /在独立 worktree 里开始/ });
+    const item = page.getByRole("menuitemcheckbox", { name: /在独立 worktree 里开始/ });
     await expect(item).toHaveAttribute("aria-checked", "false");
     await expect(chip).toHaveAttribute("title", /\.omp-studio\/setup\.(ps1|sh)/);
     await item.click();
@@ -409,7 +409,7 @@ test("仓库还没有提交：顶栏胶囊在，创建被拒绝后 worktree 勾�
     await expect(page.getByTestId("draft-git-worktree")).toHaveCount(0);
     await expect(chip).toHaveAttribute("title", /不能用 worktree：.*还没有任何提交/);
     await chip.click();
-    const item = page.getByRole("menuitemradio", { name: /在独立 worktree 里开始/ });
+    const item = page.getByRole("menuitemcheckbox", { name: /在独立 worktree 里开始/ });
     await expect(item).toHaveAttribute("aria-disabled", "true");
     await expect(item).toHaveAttribute("aria-checked", "false");
     await expect(item).toContainText(/不能用 worktree：.*还没有任何提交/);

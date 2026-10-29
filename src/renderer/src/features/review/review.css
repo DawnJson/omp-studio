@@ -54,6 +54,17 @@
   flex: 1;
 }
 
+/* "评论"按钮里的数字徽标：没有评论时占位隐藏，数字出现时工具条不横移。 */
+.rv-queue-count {
+  display: inline-flex;
+  /* 0 和 1 一样宽：数字变化时按钮宽度不变 */
+  font-variant-numeric: tabular-nums;
+}
+
+.rv-queue-count[data-empty] {
+  visibility: hidden;
+}
+
 .rv-file-row:focus-visible,
 .rv-no-btn:focus-visible,
 .rv-scroll:focus-visible {
@@ -123,7 +134,8 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-1) var(--space-2);
-  padding: 0 var(--space-0-5);
+  /* 和文件树的分组标题（.rv-tree 8 + 标题 8）同一条左边线 */
+  padding: 0 var(--space-2);
 }
 
 .rv-commit-title {
@@ -136,6 +148,7 @@
 .rv-commit-staged {
   color: var(--text-3);
   font-size: var(--fs-xs);
+  white-space: nowrap;
 }
 
 .rv-commit-foot {
@@ -277,13 +290,14 @@
   min-height: 0;
 }
 
+/* 右内边距 = 滚动区的滚动条槽 + hunk 卡片外边距和边框 + hunk 头右内边距：文件级和 hunk 级按钮右缘对齐。 */
 .rv-file-head {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--space-3);
   height: var(--panel-head-h);
-  padding: 0 var(--space-4);
+  padding: 0 calc(var(--scrollbar-hit) + var(--space-4) + 1px + var(--space-3)) 0 var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -326,6 +340,7 @@
   min-height: 0;
   padding: var(--space-3) 0 var(--space-6);
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .rv-note {
@@ -340,6 +355,9 @@
 /* ───────── hunk 与行 ───────── */
 
 .rv-hunk {
+  /* 行号列：4 位行号 + 左边留给悬停时的 ＋；符号列放 +/−。评论串（.rv-thread）按两列之和缩进，和代码列对齐。 */
+  --rv-no-w: calc(var(--space-12) + var(--space-2));
+  --rv-sign-w: var(--space-5);
   margin: 0 var(--space-4) var(--space-3);
   overflow: hidden;
   border: 1px solid var(--border-subtle);
@@ -356,7 +374,7 @@
   align-items: center;
   gap: var(--space-3);
   min-height: var(--control-h-md);
-  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-3);
   color: var(--text-3);
   font-size: var(--fs-xs);
   background: var(--bg-sunken);
@@ -377,8 +395,28 @@
   white-space: nowrap;
 }
 
+/* hunk 级"暂存 / 丢弃"只在悬停、键盘焦点在头里、或它是当前块时出现：一屏不再常驻一排描边按钮。
+   丢弃只留红字，不描边。触屏（没有悬停）一直显示。 */
 .rv-hunk-head .rv-hunk-actions {
   margin-left: auto;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.rv-hunk:hover .rv-hunk-actions,
+.rv-hunk[data-active] .rv-hunk-actions,
+.rv-hunk-head:focus-within .rv-hunk-actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .rv-hunk-head .rv-hunk-actions {
+    opacity: 1;
+  }
+}
+
+.rv-hunk-actions .ui-btn[data-variant="danger"]:not(:hover) {
+  border-color: transparent;
 }
 
 .rv-lines {
@@ -387,13 +425,11 @@
   line-height: var(--lh-code-sm);
   font-variant-ligatures: none;
   tab-size: 2;
-  /* 行号列：4 位行号 + 左边留给悬停时的 ＋。 */
-  --rv-no-w: calc(var(--space-12) + var(--space-2));
 }
 
 .rv-row {
   display: grid;
-  grid-template-columns: var(--rv-no-w) var(--space-5) minmax(0, 1fr);
+  grid-template-columns: var(--rv-no-w) var(--rv-sign-w) minmax(0, 1fr);
 }
 
 .rv-row-split {
@@ -546,7 +582,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3) var(--space-2) calc(var(--space-12) * 2);
+  padding: var(--space-2) var(--space-3) var(--space-2) calc(var(--rv-no-w) + var(--rv-sign-w));
   font-family: var(--font-sans);
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
@@ -605,10 +641,14 @@
   flex: none;
 }
 
-/* 提交框：生成按钮、勾选项、修改上一次提交的提醒。 */
+/* 提交框：生成按钮、勾选项、修改上一次提交的提醒。
+   工具行总是标题下面单独一行（已暂存数 / 取消 在左，生成在右，右缘和"提交"对齐）：放得下一行时也不并上去，
+   生成中、空闲时高度一样，左栏不跳（2026-10-29 复查：原来空闲两行、生成中一行，跳 27px）。 */
 .rv-commit-tools {
-  display: inline-flex;
+  display: flex;
+  flex-basis: 100%;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-1);
 }
 

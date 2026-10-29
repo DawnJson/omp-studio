@@ -130,14 +130,16 @@ export function CommitBox({
     <section className="rv-commit" aria-label={t("git.commit.title")} data-testid="review-commit">
       <div className="rv-commit-head">
         <h3 className="rv-commit-title">{t("git.commit.title")}</h3>
+        {/* 生成中"取消"顶替已暂存数的位置，按钮保持原宽（loading 只换成转圈），头部不折行、左栏不跳。 */}
         <span className="rv-commit-tools">
-          <span className="rv-commit-staged" data-testid="review-commit-staged">
-            {t("review.commitStaged", { count: stagedCount })}
-          </span>
-          {generating && (
+          {generating ? (
             <Button variant="quiet" size="sm" testId="review-commit-generate-cancel" onClick={cancelGenerate}>
               {t("review.commitGenerateCancel")}
             </Button>
+          ) : (
+            <span className="rv-commit-staged" data-testid="review-commit-staged">
+              {t("review.commitStaged", { count: stagedCount })}
+            </span>
           )}
           <Button
             size="sm"
@@ -148,7 +150,7 @@ export function CommitBox({
             title={stagedCount === 0 ? t("review.commitGenerateNone") : t("review.commitGenerateTip")}
             onClick={() => void generate()}
           >
-            {generating ? t("review.commitGenerating") : t("review.commitGenerate")}
+            {t("review.commitGenerate")}
           </Button>
         </span>
       </div>

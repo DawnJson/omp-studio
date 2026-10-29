@@ -314,6 +314,15 @@ test("设置分组、搜索：中英文；窄窗口不溢出", async () => {
       await search(page, "zzzz-no-such-setting");
       await expect(page.getByText(locale === "zh-CN" ? "没有匹配" : "No settings match")).toBeVisible();
     }
+    // 搜索命中的是说明文字时，说明显示在控件下面：要有正常的宽度，行不被挤成一词一行（2026-10-29 审计 SET-01：开关列只有 36px 宽，行高 600+）。
+    await setLocaleTheme(page, "zh-CN", "light");
+    await search(page, "retry.fallbackChains");
+    const hitRow = page.getByTestId("cfg-retry.rateLimitWalksChain");
+    const note = hitRow.locator(".cfg-note");
+    await expect(note).toBeVisible();
+    expect((await note.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(200);
+    // 1200 宽时半栏约 400px，说明折成三四行（实测 127）；修之前一词一行是 600+。
+    expect((await hitRow.boundingBox())?.height ?? Infinity).toBeLessThan(250);
     // 窄窗口：设置导航变成内容顶上的下拉，长文本不溢出。
     await setLocaleTheme(page, "zh-CN", "light");
     await search(page, "");

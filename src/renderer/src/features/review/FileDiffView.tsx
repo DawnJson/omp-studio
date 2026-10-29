@@ -23,7 +23,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { addComment, removeComment, updateComment } from "../../store/review-store.ts";
 import { Button } from "../../ui/controls.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
-import { describeError, reportError } from "../../ui/errors.ts";
+import { explainError, reportError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
 import { splitPath } from "./FileTree.tsx";
 import { HunkView, type CommentCtx, type HunkActions, type PickCtx } from "./HunkView.tsx";
@@ -271,7 +271,7 @@ export function FileDiffView({
     body = (
       <div className="rv-note" role="alert">
         <span>
-          {t("review.loadFailed")} · {describeError(t, state.error)}
+          {t("review.loadFailed")} · {explainError(t, state.error)}
         </span>
         <Button size="sm" onClick={onChanged}>
           {t("common.retry")}

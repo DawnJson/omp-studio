@@ -108,7 +108,11 @@ export function OmpSetupView() {
   let body;
   switch (status.state) {
     case "discovering":
-      body = <p className="setup-text">{t("omp.finding")}</p>;
+      body = (
+        <p className="setup-finding" role="status">
+          {t("omp.finding")}
+        </p>
+      );
       break;
     case "ask_takeover": {
       const other = status.managerName;
@@ -121,14 +125,6 @@ export function OmpSetupView() {
                 ? t("omp.takeover.exeTitle")
                 : t("omp.takeover.title"),
           )}
-          {status.version && (
-            <p className="setup-text">
-              {t("omp.found", {
-                version: status.version,
-                source: other !== null ? t("omp.source.other", { name: other }) : t("omp.source.user"),
-              })}
-            </p>
-          )}
           <p className="setup-text">
             {other !== null
               ? t(studioOnly ? "omp.takeover.otherBodyStudioOnly" : "omp.takeover.otherBody", { name: other })
@@ -136,7 +132,11 @@ export function OmpSetupView() {
                 ? t(studioOnly ? "omp.takeover.exeBodyStudioOnly" : "omp.takeover.exeBody")
                 : t(studioOnly ? "omp.takeover.bodyStudioOnly" : "omp.takeover.body")}
           </p>
-          <p className="setup-path">{t("omp.takeover.where", { path: status.path })}</p>
+          <p className="setup-path">
+            {status.version
+              ? t("omp.takeover.whereVersion", { path: status.path, version: status.version })
+              : t("omp.takeover.where", { path: status.path })}
+          </p>
           <div className="setup-actions">
             <Button autoFocus onClick={() => answer(window.studio.answerTakeover(false))} testId="takeover-no">
               {other !== null
@@ -180,24 +180,31 @@ export function OmpSetupView() {
       break;
     case "installing": {
       const verifying = status.totalBytes !== null && status.receivedBytes >= status.totalBytes;
+      // 校验时标题换成"正在校验"，进度行和取消按钮都留着（按钮禁用）：卡片高度不变，居中的卡片不跳。
       body = (
         <>
-          {title(status.version ? t("omp.downloading", { version: status.version }) : t("omp.downloading.latest"))}
+          {title(
+            verifying
+              ? t("omp.verifying")
+              : status.version
+                ? t("omp.downloading", { version: status.version })
+                : t("omp.downloading.latest"),
+          )}
           <ProgressBar received={status.receivedBytes} total={status.totalBytes} />
           <p className="setup-meta" aria-live="off">
-            {verifying
-              ? t("omp.verifying")
-              : status.totalBytes !== null
-                ? t("omp.progress", { done: bytes(status.receivedBytes), total: bytes(status.totalBytes) })
-                : null}
+            {status.totalBytes !== null
+              ? t("omp.progress", { done: bytes(status.receivedBytes), total: bytes(status.totalBytes) })
+              : null}
           </p>
-          {!verifying && (
-            <div className="setup-actions">
-              <Button onClick={() => answer(window.studio.cancelOmpInstall())} testId="install-cancel">
-                {t("omp.cancelDownload")}
-              </Button>
-            </div>
-          )}
+          <div className="setup-actions">
+            <Button
+              disabled={verifying}
+              onClick={() => answer(window.studio.cancelOmpInstall())}
+              testId="install-cancel"
+            >
+              {t("omp.cancelDownload")}
+            </Button>
+          </div>
         </>
       );
       break;

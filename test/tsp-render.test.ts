@@ -107,6 +107,7 @@ describe("span 样式 token", () => {
 
   it("私有区图标字符不画", () => {
     expect(cleanGlyphs("a\uF00Eb\u{F0001}c")).toBe("abc");
+    expect(cleanGlyphs("\u{F12B7} suspends")).toBe("Esc suspends");
   });
 });
 

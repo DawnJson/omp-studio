@@ -19,6 +19,7 @@ function Field({
   placeholder,
   testId,
   autoFocus = false,
+  mono = false,
 }: {
   id: string;
   label: string;
@@ -27,12 +28,14 @@ function Field({
   placeholder?: string | undefined;
   testId: string;
   autoFocus?: boolean;
+  /** 主机、密钥路径是机器读的标识，用等宽；名称、用户、端口、说明用正文字体（2026-10-29 审计 SET-08）。 */
+  mono?: boolean;
 }) {
   return (
     <FormField label={label} htmlFor={id}>
       <TextField
         id={id}
-        mono
+        mono={mono}
         width="100%"
         autoComplete="off"
         data-autofocus={autoFocus ? "" : undefined}
@@ -127,6 +130,7 @@ export function SshForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(messa
           onChange={setHost}
           placeholder="192.168.1.10"
           testId="ssh-host"
+          mono
         />
         <div className="ig-line">
           <Field
@@ -151,6 +155,7 @@ export function SshForm({ scopeKey, onDone }: { scopeKey: ScopeKey; onDone(messa
           value={keyPath}
           onChange={setKeyPath}
           testId="ssh-key"
+          mono
         />
         <Field
           id={`${uid}-desc`}

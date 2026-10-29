@@ -2,7 +2,6 @@ import type { MessageEntry } from "../index.ts";
 import type { agents as zhCN } from "../zh-CN/agents.ts";
 
 export const agents = {
-  title: "Subagents",
   panelLabel: "Subagents panel",
   close: "Close the subagents panel",
   resize: "Resize the panel",
@@ -11,7 +10,6 @@ export const agents = {
   slashDesc: "Subagents panel",
   listLabel: "Subagent list",
   empty: "No subagents yet",
-  focusedEmpty: "You're in {name}'s conversation",
   background: "background",
   statusPending: "Pending",
   statusRunning: "Running",

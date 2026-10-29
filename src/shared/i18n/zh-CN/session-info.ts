@@ -69,7 +69,7 @@ export const sessionInfo = {
   "trace.truncated": "只显示最近 {count} 条。",
   "trace.col.time": "时间",
   "trace.col.model": "模型",
-  "trace.col.tokens": "Token（入 / 出）",
+  "trace.col.tokens": "Token 入 / 出",
   "trace.col.cost": "费用",
   "trace.col.stop": "结果",
   "trace.agent": "Subagent {name}",

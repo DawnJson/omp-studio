@@ -178,6 +178,13 @@ html[data-platform="darwin"] .topbar-left {
   background: var(--border);
 }
 
+/* 准备页（omp 没就绪，问接管除外）盖住顶栏以下时，顶栏只留标志：任务标题、工具、侧栏开关都作用在还不能用的应用上；
+   工具藏起来后分隔线孤零零一条，也藏（2026-10-29）。问接管时底下的应用照常画、遮罩盖到顶栏，不用藏。
+   只看 #app 的直接子元素，DOM 变动不触发整页重算。 */
+#app:has(> .setup:not([data-state="ask_takeover"])) :is(.crumb, [data-testid="topbar-sidebar"], .topbar-tools) {
+  visibility: hidden;
+}
+
 /* ───────── 侧栏列和主区面板 ───────── */
 
 .body {
@@ -266,10 +273,12 @@ html[data-platform="darwin"] .topbar-left {
   box-shadow: var(--shadow-2);
 }
 
+/* 遮罩在主区里的一切之上（输入框 .composer-stack / .empty-draft 是 --z-sticky + 1），在抽屉（--z-popover）之下。
+   2026-10-29：原来是 --z-sticky，输入框浮在遮罩上面不变暗。 */
 .drawer-scrim {
   position: absolute;
   inset: 0;
-  z-index: var(--z-sticky);
+  z-index: calc(var(--z-popover) - 1);
   background: var(--bg-scrim);
   animation: fade-in var(--dur-fade) var(--ease-out);
 }
@@ -303,17 +312,24 @@ html[data-platform="darwin"] .topbar-left {
   animation: fade-in var(--dur-fade) var(--ease-out);
 }
 
-/* 关于（ui/Dialog sm 的正文）：标志 → 版本 → 更新状态，左对齐；动作在页脚右对齐。 */
+/* 关于（ui/Dialog sm 的正文）：标志在左、版本和更新状态在右一列（和新任务页的"π | 标题"同一种排法）；动作在页脚右对齐。
+   2026-10-29：原来标志夹在标题和版本中间一行，像标题和内容之间多出的装饰。 */
 .about-body {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
+  align-items: center;
+  gap: var(--space-4);
 }
 
 .about-mark {
   flex: none;
-  margin-bottom: var(--space-2);
+}
+
+.about-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .about-meta {

@@ -99,38 +99,40 @@ export function AboutDialog({ onExited }: { onExited(): void }) {
           >
             <PiMark />
           </svg>
-          <p className="about-meta" data-testid="about-version">
-            {version}
-            <span aria-hidden="true"> · </span>
-            {ompVersion === null ? t("window.aboutOmpMissing") : t("window.aboutOmp", { version: ompVersion })}
-          </p>
-          {showUpdate && (
-            <div className="about-update" data-testid="about-update">
-              <span>{updateStatusText(update, t)}</span>
-              {update.phase === "downloaded" ? (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  loading={installing.busy}
-                  onClick={installing.requestInstall}
-                  testId="about-update-install"
-                >
-                  {t("settings.about.install")}
-                </Button>
-              ) : (
-                canCheck && (
+          <div className="about-info">
+            <p className="about-meta" data-testid="about-version">
+              {version}
+              <span aria-hidden="true"> · </span>
+              {ompVersion === null ? t("window.aboutOmpMissing") : t("window.aboutOmp", { version: ompVersion })}
+            </p>
+            {showUpdate && (
+              <div className="about-update" data-testid="about-update">
+                <span>{updateStatusText(update, t)}</span>
+                {update.phase === "downloaded" ? (
                   <Button
+                    variant="primary"
                     size="sm"
-                    loading={busy}
-                    onClick={() => void run(() => window.studio.checkForUpdate())}
-                    testId="about-update-check"
+                    loading={installing.busy}
+                    onClick={installing.requestInstall}
+                    testId="about-update-install"
                   >
-                    {t("settings.about.check")}
+                    {t("settings.about.install")}
                   </Button>
-                )
-              )}
-            </div>
-          )}
+                ) : (
+                  canCheck && (
+                    <Button
+                      size="sm"
+                      loading={busy}
+                      onClick={() => void run(() => window.studio.checkForUpdate())}
+                      testId="about-update-check"
+                    >
+                      {t("settings.about.check")}
+                    </Button>
+                  )
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </Dialog>
       {installing.dialog}

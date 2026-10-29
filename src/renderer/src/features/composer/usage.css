@@ -11,11 +11,11 @@
 .uq-summary {
   container-type: inline-size;
 }
+/* 只用底色分层，不再加描边（2026-10-29：底色 + 描边 + 竖线三层容器太重） */
 .uq-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   overflow: hidden;
-  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--bg-sunken);
 }
@@ -337,4 +337,79 @@
   display: flex;
   align-items: center;
   gap: var(--uq-gap);
+}
+
+/* ───────── 费用点开的用量对话框（UsageDialog：ui/Dialog lg 再加宽到 --dialog-w-xl，className usage-dialog）─────────
+   高度跟内容走，没有额度账号时不留空；窗口矮了由 Dialog 正文滚动。账号之间只用一条分隔线（不画卡片：
+   汇总条已经是一块底色，再套卡片就是三种容器）；卡内窗口按两列排，每个窗口 = 名称 + 重置时间 + 剩余 / 整宽进度条。 */
+.ui-dialog.usage-dialog[data-size] {
+  --dialog-w: var(--dialog-w-xl);
+}
+/* 标题行右边、↻ 左边的"2 分钟前更新"（2026-10-24 起从额度区挪上来）：和 ↻ 一样高，竖直居中；离 ↻ 近一点，读成一组。 */
+.usage-dialog .usage-updated {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: var(--control-h-sm);
+  margin-right: calc(-1 * var(--space-2));
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.usage-dialog .qm {
+  gap: var(--space-5);
+}
+.qm-panel {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+/* 账号块：头一行 状态点 + provider + 账号（+ 备注），下面是窗口；块和块之间一条分隔线 */
+.usage-dialog .uq-block {
+  flex: none;
+}
+.usage-dialog .uq-block-grid {
+  gap: var(--space-3);
+}
+.usage-dialog .uq-block-head {
+  flex-flow: row wrap;
+  align-items: baseline;
+  gap: var(--space-0-5) var(--space-2);
+}
+/* provider 名不被套餐 / Daybreak 徽标挤成"ope…"：名字保持整宽，徽标放不下就换到下一行 */
+.usage-dialog .uq-block-name {
+  flex: none;
+  flex-wrap: wrap;
+  row-gap: var(--space-0-5);
+  max-width: 100%;
+}
+.usage-dialog .uq-block-name strong {
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+.usage-dialog .uq-limits {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-3) var(--space-6);
+}
+.usage-dialog .uq-limit {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "name reset left"
+    "bar bar bar";
+  gap: var(--space-1-5) var(--space-3);
+}
+.usage-dialog .uq-limit-name {
+  color: var(--text-2);
+}
+.usage-dialog .uq-limit-left {
+  color: var(--text);
+}
+.usage-dialog .uq-limit-reset {
+  text-align: right;
+}
+.usage-dialog .uq-untouched {
+  padding: var(--space-1) var(--space-1) 0;
 }

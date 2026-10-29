@@ -72,11 +72,25 @@
   gap: var(--space-2);
 }
 
+/* 选中的 skill：凹下去的一块，文件夹名（等宽、淡）在上，skill 名是主角，说明最多两行（2026-10-29 审计 SET-23：原来三行一样的灰字） */
 .ig-picked {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-1);
-  max-width: 100%;
+  justify-self: stretch;
+  padding: var(--space-2) var(--space-3);
   font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
   color: var(--text-2);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-md);
+}
+.ig-picked-folder {
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  color: var(--text-3);
+}
+.ig-picked-name {
+  font-weight: var(--fw-medium);
+  color: var(--text);
 }

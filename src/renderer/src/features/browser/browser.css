@@ -11,10 +11,12 @@
 }
 
 /* 页面没盖上来时（还在建、或被浮层挡住藏起来）露出的底。页面是原生视图，压住的地方点不到应用页面：
-   左边让出拖拽条（.file-preview-resizer）的宽度，拖拽条整条都拖得动，不只是头部那一段。 */
+   左边让出拖拽条（.file-preview-resizer）的宽度，拖拽条整条都拖得动，不只是头部那一段；右边和下边留同样宽，
+   圆角同主进程给页面设的 setBorderRadius（browser-manager.ts），页面不压住面板的圆角和描边（2026-10-29）。 */
 .browser-view {
   flex: 1;
   min-height: 0;
-  margin-left: var(--space-1);
+  margin: 0 var(--space-1) var(--space-1);
   background: var(--bg-app);
+  border-radius: var(--radius-md);
 }

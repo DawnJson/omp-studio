@@ -6,7 +6,7 @@ import { isFailedRequest, stopKind, summarizeTrace, tokensPerSecond } from "../.
 import { External } from "../../icons.tsx";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { useTask } from "../../store/index.ts";
-import { describeError } from "../../ui/errors.ts";
+import { explainError } from "../../ui/errors.ts";
 import { Button, Disclosure, Notice } from "../../ui/controls.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { formatCount, formatMoney } from "../composer/usage-format.ts";
@@ -112,7 +112,7 @@ export function TraceTab({ taskId, read }: { taskId: TaskId; read: SyncedRead<Se
   const [opening, setOpening] = useState(false);
   const trace = read.data;
   if (read.error !== null && trace === null)
-    return <Notice tone="error">{t("sessionInfo.loadFailed", { message: describeError(t, read.error) })}</Notice>;
+    return <Notice tone="error">{t("sessionInfo.loadFailed", { message: explainError(t, read.error) })}</Notice>;
   if (trace === null) return <p className="si-note">{t("sessionInfo.loading")}</p>;
   const summary = summarizeTrace(trace.requests);
   return (
@@ -148,7 +148,7 @@ export function TraceTab({ taskId, read }: { taskId: TaskId; read: SyncedRead<Se
       </div>
       {read.syncing && <p className="si-note">{t("sessionInfo.usage.syncing")}</p>}
       {read.syncError !== null && (
-        <Notice tone="error">{t("sessionInfo.usage.syncFailed", { message: describeError(t, read.syncError) })}</Notice>
+        <Notice tone="error">{t("sessionInfo.usage.syncFailed", { message: explainError(t, read.syncError) })}</Notice>
       )}
       {trace.requests.length === 0 && !read.syncing && (
         <p className="si-note" data-testid="trace-empty">

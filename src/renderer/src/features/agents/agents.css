@@ -27,13 +27,6 @@
   border-style: dashed;
 }
 
-.agents-title {
-  flex: none;
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-strong);
-  color: var(--text);
-}
-
 /* 后台驱动 omp 的 Agent Hub 时：面板顶部一条"正在发给 X"，点不到任何操作（按钮自己 disabled） */
 .agents-driving {
   display: flex;
@@ -61,13 +54,16 @@
   color: var(--text);
 }
 
+/* 左右 4px + 行内 8px：列表、详情、活动的内容都落在面板头页签的 12px 左线上（2026-10-29）。
+   底边 16px 渐隐：内容滚到钉在下面的插话框后面时看得出是"还有"，不是被切掉 */
 .agents-body {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding: var(--space-2);
+  padding: var(--space-1) var(--space-1) var(--space-4);
   overflow: auto;
+  mask-image: linear-gradient(to bottom, black calc(100% - var(--space-4)), transparent);
 }
 .agents-muted {
   margin: 0;
@@ -75,8 +71,14 @@
   line-height: var(--lh-xs);
   color: var(--text-3);
 }
+/* 空状态：一句话放在面板中间 */
 .agents-empty {
-  padding: var(--space-3) var(--space-2);
+  margin: auto;
+  padding: var(--space-6) var(--space-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text-2);
+  text-align: center;
 }
 
 /* 列表 */
@@ -88,6 +90,13 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  container-type: inline-size;
+}
+/* 窄面板（900 宽窗口里约 320px）：行里放不下名字、标签、Ctx 和状态，先收起 Ctx（详情的 Context 格里仍有） */
+@container (max-width: 360px) {
+  .agents-row .agents-ctx {
+    display: none;
+  }
 }
 .agents-item {
   display: flex;
@@ -106,7 +115,7 @@
   align-items: flex-start;
   gap: var(--space-2-5);
   min-width: 0;
-  padding: var(--space-2) var(--space-2-5);
+  padding: var(--space-2);
   font: inherit;
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
@@ -138,18 +147,25 @@
   gap: var(--space-1-5);
   min-width: 0;
 }
+/* 名字按自己的宽度，不被标签挤（最多占一行的 60%，再长才省略）；窄面板里先让标签省略：名字是这一行最要紧的（2026-10-29） */
 .agents-row-name {
+  flex: none;
+  max-width: 60%;
   overflow: hidden;
   font-weight: var(--fw-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .agents-chip {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   padding: 0 var(--space-1-5);
   font-size: var(--fs-2xs);
   line-height: var(--lh-2xs);
   color: var(--text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: var(--bg-sunken);
   border-radius: var(--radius-sm);
 }
@@ -208,7 +224,7 @@
   flex-direction: column;
   gap: var(--space-4);
   margin-top: var(--space-2);
-  padding: var(--space-4) var(--space-2-5) var(--space-2);
+  padding: var(--space-4) var(--space-2) var(--space-2);
   border-top: 1px solid var(--border-subtle);
 }
 .agents-detail-head {
@@ -266,9 +282,9 @@
   min-width: 0;
 }
 .agents-stat dt {
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-2xs);
-  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
+  color: var(--text-2);
 }
 /* 值单行（“23% · 81K / 350K”这类长值也不折行，2026-10-25 仓库所有者）；面板很窄放不下时省略号，悬停 title 是全文 */
 .agents-stat dd {
@@ -307,10 +323,12 @@
 .agents-task .md {
   color: var(--text-2);
 }
-/* 任务说明是 `# Target / # Change` 这类分段：标题和正文同字号，只加粗 */
+/* 任务说明是 `# Target / # Change` 这类分段：标题和正文同字号、同色，只略加重，比小节标题（任务 / 最终输出）低一级 */
 .agents-task .md :is(h1, h2, h3, h4, h5, h6) {
   font-size: inherit;
   line-height: inherit;
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
 }
 
 /* 对话记录：小节标题里放展开箭头 + 重新读取 */
@@ -381,16 +399,16 @@
   background: var(--st-error);
 }
 
-/* 页签（Agents / Activity）：头下面一条，和面板同宽 */
-.agents-tabs {
-  padding: 0 var(--space-2);
-}
-
-/* Activity 页：过滤页签 + 时间流（每行 = 时间、子代理、种类、一行文字） */
+/* Activity 页：过滤分段 + 时间流（每行 = 时间、子代理、种类、一行文字） */
 .agents-activity {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+/* 过滤和空状态文字落在行内容的 12px 左线上（.agents-body 4px + 8px） */
+.agents-activity-filter,
+.agents-activity > .agents-muted {
+  padding: var(--space-1) var(--space-2) 0;
 }
 .agents-activity-list {
   display: flex;

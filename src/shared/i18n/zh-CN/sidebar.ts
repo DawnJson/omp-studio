@@ -10,6 +10,7 @@ export const sidebar = {
   searchNone: "无匹配",
   clearSearch: "清除搜索",
   waitingOne: "1 个任务在等你 · {project}",
+  waitingOneBare: "1 个任务在等你",
   waitingMany: "{n} 个任务在等你",
   empty: "还没有任务",
   settings: "设置",

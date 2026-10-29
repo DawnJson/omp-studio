@@ -68,10 +68,12 @@
   background: var(--bg-active);
 }
 
+/* 版本号：和关于页里的版本一样用等宽（2026-10-29 审计 SET-16） */
 .snav-foot {
   margin-top: auto;
   padding: var(--space-2) var(--space-2-5) 0;
   text-align: center;
+  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   color: var(--text-3);
 }
@@ -157,23 +159,33 @@
 .settings-section > :first-child {
   margin-top: 0;
 }
+/* 没有分组标题、直接是格子的页（子代理）：第一行和页标题之间补上分组标题那一段的空，各页内容起点一致（2026-10-29 审计 SET-22） */
+.settings-section > .st-cells:first-child {
+  margin-top: var(--space-3);
+}
 
-/* 行：标签列 200，控件紧跟（ui/Row） */
+/* 行：标签列 200，控件紧跟（ui/Row；关于页的 omp 路径、记忆卡片的项目） */
 .st-rows {
   --row-label-w: 200px;
 }
 
-/* 格子：大框架是 --cols 列；每格是一条 ui/Row，标签和控件放得下一行就并排（标签靠左、控件靠右），放不下控件才换到标签下面（靠左）。
+/* 格子：大框架是 --cols 列；每格是一条 ui/Row，标签和控件放得下一行就并排（标签靠左、控件靠右），放不下控件才换到标签下面（仍靠右）。
    "恢复默认"夹在标签和控件之间，出现时控件不动。
-   列数随容器宽度（设置内容区；高级页是它右栏）：≤640 一列、到 1100 两列、到 1500 三列、再宽四列。 */
-.st-cells {
+   列数随容器宽度（设置内容区；高级页是它右栏）：≤640 一列、到 1100 两列、到 1500 三列、再宽四列。
+   快捷键表用同一个 --cols：上下两张表的列边界对齐（2026-10-29 审计：原来快捷键固定三列，和上面两列的格子错开）。 */
+.st-cells,
+.st-kb-grid {
   --cols: 2;
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   column-gap: var(--space-6);
 }
+/* 整行（各节页面上的文本框、标签输入，排在格子后面）：也是格子的排法，只是一行一格；控件靠右，右边和格子的控件对齐，不再从 200 的标签列后面起头 */
+.st-cells.st-wide {
+  --cols: 1;
+}
 /* 换不换行按"标签不折行的宽 + 控件的宽"放不放得下来定（2026-10-23 仓库所有者：原来三段以上的分段、文本框、标签输入一律另起一行）。
-   标签不收缩、占满余下的宽，控件被推到右边；标签比整格还长时自己折行（omp 的长 key 任意处断开），控件换到下一行。 */
+   标签不收缩、占满余下的宽，控件被推到右边；标签比整格还长时自己折行（omp 的长 key 只在点后面断开），控件换到下一行。 */
 .st-cells .ui-row {
   display: flex;
   flex-wrap: wrap;
@@ -201,19 +213,38 @@
   order: 1;
   flex: 0 1 auto;
   max-width: 100%;
+  margin-left: auto; /* 换到标签下面时也靠右，和同一列别的控件对齐 */
+}
+/* 文本框、标签输入：放得下就和标签并排（至少原来的宽），换到标签下面时占满整格（高级页），右边不再参差 */
+.st-cells .ui-row-control:has(> .st-tags) {
+  flex: 1 1 360px;
+}
+.st-cells .ui-row-control:has(> .ui-field:not(.ui-number, .ui-select)) {
+  flex: 1 1 260px;
+}
+.st-cells .ui-row-control > .st-tags,
+.st-cells .ui-row-control > .ui-field:not(.ui-number, .ui-select) {
+  width: 100%;
+}
+/* 整行只有一格，宽得很：文本框、标签输入保持原来的宽，靠右 */
+.st-wide .ui-row-control:has(> .st-tags, > .ui-field:not(.ui-number, .ui-select)) {
+  flex-grow: 0;
 }
 @container (max-width: 640px) {
-  .st-cells {
+  .st-cells,
+  .st-kb-grid {
     --cols: 1;
   }
 }
 @container (min-width: 1100px) {
-  .st-cells {
+  .st-cells,
+  .st-kb-grid {
     --cols: 3;
   }
 }
 @container (min-width: 1500px) {
-  .st-cells {
+  .st-cells,
+  .st-kb-grid {
     --cols: 4;
   }
 }
@@ -227,14 +258,18 @@
   }
 }
 
-/* 模型页的角色表（ModelsSection）：一行两个角色格，按阅读顺序从左到右填（第一格是默认思考强度）；分隔线和格子一样。
-   每格占外层四列（subgrid），同一列的格子共用列宽：角色名（按内容，最多 160，再长才折行）| 模型 | 思考强度（按内容）| 删除。
+/* 模型页的角色表（ModelsSection）：一行两个角色格，按阅读顺序从左到右填；分隔线和格子一样。默认思考强度不在表里，是表上面的一格普通设置。
+   每格占外层四列（subgrid），同一列的格子共用列宽：角色名 | 模型 | 思考强度 | 删除。
+   角色名列定宽 88（两半、对话角色表和特定能力表都一样，下拉的左边线上下对齐；更长的自定义角色名折行），
+   思考强度列至少 104（同结构化编辑器的 .se-entry），左右两半一样宽，除非某个选项本身更长（2026-10-29 审计）。
    格内第一行是主模型 + 它的思考强度；每个备用模型各占一行，模型和思考强度与第一行同列同宽；最后一行模型列里是"添加备用…"。
    一格要约 500（模型列至少约 200，否则 role-local/role-three 这种名字就被截断），所以内容区窄过 860 就一行一格。
    同一行左右两格高度不同（一边有备用模型）时，矮的那格内容靠上，和高的那格第一行对齐。 */
 .st-roles {
+  --role-label-w: 88px;
   display: grid;
-  grid-template-columns: repeat(2, fit-content(160px) minmax(0, 1fr) auto auto);
+  /* 删除列定宽（一个 sm 图标按钮）：没有自定义角色的表（特定能力）这一列也占位，上下两张表的列边界一致 */
+  grid-template-columns: repeat(2, var(--role-label-w) minmax(0, 1fr) minmax(104px, auto) var(--control-h-sm));
   column-gap: var(--space-6);
 }
 .st-roles-row {
@@ -251,6 +286,7 @@
 }
 .st-role-label {
   grid-column: 1;
+  overflow-wrap: anywhere;
 }
 .st-role-model {
   grid-column: 2;
@@ -266,11 +302,14 @@
 .st-role-act {
   grid-column: 4;
 }
-/* "添加备用…"是动作不是空字段：虚线框、次要文字，悬停才实起来 */
+/* "添加备用…"是动作不是空字段：只有次要文字，不画框（一屏十几个虚线框太吵）；悬停这一格或键盘到它时才出虚线框，悬停下拉本身才实起来 */
 .st-role-add > .ui-select:not(:hover, :focus-within) {
   color: var(--text-3);
   background: transparent;
   border-style: dashed;
+}
+.st-roles-row:not(:hover, :focus-within) .st-role-add > .ui-select {
+  border-color: transparent;
 }
 /* 添加自定义角色的对话框：名字、模型两个字段之间的距离同其他表单对话框 */
 .st-role-form {
@@ -287,15 +326,15 @@
 }
 @container (max-width: 860px) {
   .st-roles {
-    grid-template-columns: fit-content(160px) minmax(0, 1fr) auto auto;
+    grid-template-columns: var(--role-label-w) minmax(0, 1fr) minmax(104px, auto) var(--control-h-sm);
   }
 }
 
-/* 没有人话标签的行显示 key：等宽，不截断（长 key 在标签列里折行） */
+/* 没有人话标签的行显示 key：等宽，不截断；长 key 只在点后面折行（ConfigRow 在每个点后面放 <wbr>），不从单词中间断开 */
 .st-key {
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 /* provider 的 logo（ProviderLogo）：放在 ListRow 的 28px 图标格里 */
@@ -378,25 +417,9 @@
   font-size: var(--fs-sm);
 }
 
-/* ───────── 通用：快捷键三列（窄了减到 2 列、1 列，同 .st-cells） ───────── */
+/* ───────── 通用：快捷键表（列数同 .st-cells，见上） ───────── */
 
-.st-kb-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  column-gap: var(--space-6);
-}
-@container (max-width: 700px) {
-  .st-kb-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@container (max-width: 480px) {
-  .st-kb-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* 名字放不下时折成两行，不省略（2026-10-24 溢出检查：英文的 omp 快捷键名在 900 宽被截断）；同一行三格等高。 */
+/* 名字放不下时折成两行，不省略（2026-10-24 溢出检查：英文的 omp 快捷键名在 900 宽被截断）；同一行几格等高。 */
 .st-kb-row {
   display: flex;
   gap: var(--space-1);
@@ -445,12 +468,17 @@
   white-space: nowrap;
 }
 
-/* 开关位固定宽：没有对应设置项的格子，徽标也停在同一列 */
+/* 格尾：开关或状态徽标，靠右，两种格子的右边线一致 */
 .st-tool-slot {
   display: inline-flex;
   flex: none;
   justify-content: flex-end;
-  width: 36px;
+}
+
+/* 列表行末尾唯一的删除 / 移除（RowMenu）：安静按钮，悬停或键盘聚焦才显出危险色 */
+.ui-btn.st-quiet-danger:is(:hover, :focus-visible):not(:disabled) {
+  color: var(--st-error);
+  background: var(--st-error-soft);
 }
 
 /* ───────── 关于 ───────── */

@@ -11,7 +11,7 @@ import type { TaskId } from "../../../../shared/ipc.ts";
 import type { TodoPhase } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { todoItemOps, type TodoItemOp } from "../../../../shared/tsp/todos.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Dots, Plus } from "../../icons.tsx";
+import { CopyIcon, Dots, Plus } from "../../icons.tsx";
 import { Button, IconButton, TextField } from "../../ui/controls.tsx";
 import { MenuList, type MenuEntry } from "../../ui/Menu.tsx";
 import { Popover } from "../../ui/Popover.tsx";
@@ -42,7 +42,11 @@ export function TodoBoard({
   const [open, setOpen] = useState(false);
   // 斜杠命令 /todo：打开待办板。
   useEffect(() => onStudioCommand((command) => command === "todo" && setOpen(true)), []);
-  const close = useCallback(() => setOpen(false), []);
+  // 关掉浮层时条目菜单也收起：不然下次打开它还开着（2026-10-29 审计）。
+  const close = useCallback(() => {
+    setOpen(false);
+    setMenuFor(null);
+  }, []);
   const panelId = useId();
   const phaseListId = useId();
   const { done, total, current } = summary;
@@ -280,13 +284,20 @@ export function TodoBoard({
               testId="todo-add"
               icon={<Plus size={14} />}
               aria-expanded={adding}
-              onClick={() => setAdding((value) => !value)}
+              onClick={() => {
+                setMenuFor(null);
+                setAdding((value) => !value);
+              }}
             >
               {t("board.todoAdd")}
             </Button>
-            <Button size="sm" variant="quiet" testId="todo-copy" onClick={() => copyTodoMarkdown(t, phases)}>
-              {t("board.todoCopyMarkdown")}
-            </Button>
+            <IconButton
+              label={t("board.todoCopyMarkdown")}
+              testId="todo-copy"
+              onClick={() => copyTodoMarkdown(t, phases)}
+            >
+              <CopyIcon size={14} />
+            </IconButton>
             {(anyCollapsed || expandAll) && (
               <Button
                 size="sm"

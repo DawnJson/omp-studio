@@ -4,9 +4,9 @@ import type { model as zhCN } from "../zh-CN/model.ts";
 export const model = {
   search: "Search models",
   empty: "No models available",
+  noMatch: "No matching models",
   pinned: "Frequent",
   thinking: "Thinking",
-  "thinking.unsupported": "Not supported",
   addProvider: "Add a provider…",
   title: "Switch model",
   list: "Models",

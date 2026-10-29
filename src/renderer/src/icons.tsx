@@ -274,6 +274,19 @@ export const Tag = (props: IconProps) => (
     <circle cx="5.5" cy="5.5" r=".75" />
   </Icon>
 );
+/** 模型角色 vision（看图）：眼睛 */
+export const Eye = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z" />
+    <circle cx="8" cy="8" r="2" />
+  </Icon>
+);
+/** 没有专属图标的内置模型角色：中性的小圆点（占住图标列，不冒充别的角色） */
+export const RoleDot = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="8" cy="8" r="2" />
+  </Icon>
+);
 /** 生成（提交信息）：四角星 */
 export const Sparkle = (props: IconProps) => (
   <Icon {...props}>

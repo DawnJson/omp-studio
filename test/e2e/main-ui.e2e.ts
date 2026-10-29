@@ -334,14 +334,20 @@ test("空状态、对话里的用量", async () => {
     expect(approvalBox && projectBox && approvalBox.x + approvalBox.width <= projectBox.x).toBe(true);
     const midY = (box: { y: number; height: number }) => box.y + box.height / 2;
     expect(approvalBox && projectBox && Math.abs(midY(approvalBox) - midY(projectBox)) <= 2).toBe(true);
-    // 审批胶囊：图标 + 模式名，来源（项目 / 全局配置）在悬停提示和 aria-label 里；模型胶囊里项目草稿也显示思考强度（模型支持思考时）。
+    // 审批胶囊：图标 + 模式名，来源（项目 / 全局配置）在悬停提示和 aria-label 里；还没读到模式时图标 + 骨架条（aria-busy），
+    // 不写"审批…"这种像被截断的字。模型胶囊里项目草稿也显示思考强度（模型支持思考时）。
     const approvalChip = draftTools.getByTestId("approval-chip");
-    await expect(approvalChip).toHaveText(
-      /总是询问|询问并记住|自动写入|全自动|审批|Always ask|Ask and remember|Write|Yolo|Approval/,
-    );
     await expect(approvalChip.locator("svg")).toHaveCount(1);
-    await expect(approvalChip).toHaveAttribute("aria-label", /.+ · .+/);
-    await expect(approvalChip).toHaveAttribute("title", /.+ · .+/);
+    if ((await approvalChip.getAttribute("aria-busy")) === "true") {
+      await expect(approvalChip).toHaveText("");
+      await expect(approvalChip.locator(".ui-skeleton")).toHaveCount(1);
+    } else {
+      await expect(approvalChip).toHaveText(
+        /总是询问|询问并记住|自动写入|全自动|Always ask|Ask and remember|Write|Yolo/,
+      );
+      await expect(approvalChip).toHaveAttribute("aria-label", /.+ · .+/);
+      await expect(approvalChip).toHaveAttribute("title", /.+ · .+/);
+    }
     // 和模型胶囊同高（28），不被右栏挤窄：宽度至少放得下图标 + 文字。
     expect(approvalBox && approvalBox.height).toBe(28);
     // 不画成胶囊：没有底色。

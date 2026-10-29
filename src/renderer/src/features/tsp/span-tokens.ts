@@ -107,6 +107,7 @@ const KEYBOARD_GLYPHS: Readonly<Record<number, string>> = {
   0xf0636: "⇧",
   0xf0311: "⏎",
   0xf0312: "⇥",
+  0xf12b7: "Esc",
 };
 
 export function cleanGlyphs(text: string): string {

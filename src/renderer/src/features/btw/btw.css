@@ -15,7 +15,8 @@
   flex-direction: column;
   width: min(100% - 2 * var(--gutter), var(--content-w));
   margin: 0 auto var(--space-2);
-  border: 1px solid var(--border);
+  /* 和提问 / 审批门同一种面：白底 + 一道细线（2026-10-29：--border 在过程区里偏重） */
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--bg-raised);
   overflow: hidden;
@@ -50,6 +51,10 @@
   padding: var(--space-1) var(--space-3) var(--space-3);
   overflow-y: auto;
   font-size: var(--fs-sm);
+}
+/* 标签下面的正文和标签下划线拉开一行间距，不贴着下划线（2026-10-29 审计）。 */
+.btw-topics + .btw-body {
+  padding-top: var(--space-3);
 }
 .btw-turn {
   display: flex;

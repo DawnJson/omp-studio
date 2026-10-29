@@ -6,7 +6,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Dots } from "../../icons.tsx";
 import { useTask } from "../../store/index.ts";
 import { IconButton } from "../../ui/controls.tsx";
-import { Menu, anchorBelow, type MenuAnchor } from "../../ui/Menu.tsx";
+import { Menu, anchorBelowEnd, type MenuAnchor } from "../../ui/Menu.tsx";
 import { emitStudioCommand } from "../palette/studio-command.ts";
 import { buildTaskMenu } from "../sidebar/task-menu.tsx";
 
@@ -21,7 +21,7 @@ export function SessionMenu({ taskId }: { taskId: TaskId }) {
         testId="task-menu"
         expanded={menu !== null}
         aria-haspopup="menu"
-        onClick={(event) => setMenu(menu === null ? anchorBelow(event.currentTarget) : null)}
+        onClick={(event) => setMenu(menu === null ? anchorBelowEnd(event.currentTarget) : null)}
       >
         <Dots />
       </IconButton>

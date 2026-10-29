@@ -1,5 +1,6 @@
 // 管理列表一行末尾的删除 / 移除 / 卸载（提供商、自定义提供商、MCP、SSH、插件、市场共用）：
 // 只有一个动作时直接放一个 sm 按钮（2026-10-24 仓库所有者：一个按钮不收进 ⋯）；两个以上收进 ⋯ 菜单，红字放最后。
+// 单个删除按钮平时是安静的文字按钮，悬停才变红：一屏几张卡片不再各挂一个红框；后果由确认框说（2026-10-29 审计 SET-15）。
 import { useState } from "react";
 import { Dots } from "../../icons.tsx";
 import { Button, IconButton } from "../../ui/controls.tsx";
@@ -25,7 +26,8 @@ export function RowMenu({
     return (
       <Button
         size="sm"
-        variant={only.tone === "danger" ? "danger" : "secondary"}
+        variant="quiet"
+        className={only.tone === "danger" ? "st-quiet-danger" : undefined}
         disabled={disabled || only.disabledReason !== undefined}
         title={only.disabledReason ?? only.note}
         onClick={only.onSelect}

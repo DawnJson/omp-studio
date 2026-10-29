@@ -14,6 +14,7 @@ import { useDialogSlot } from "../../ui/presence.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
 import { skillsResource } from "./integrations-data.ts";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
+import { monogram } from "./monogram.ts";
 import { requestReload } from "./plugins-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
 import { SkillForm } from "./SkillForm.tsx";
@@ -39,7 +40,7 @@ function SkillRow({
   return (
     <ListRow
       testId={`skill-row-${skill.name}`}
-      icon={skill.name.slice(0, 2)}
+      icon={monogram(skill.name)}
       title={skill.name}
       badges={
         <>

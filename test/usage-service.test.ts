@@ -136,6 +136,10 @@ describe("omp 命令失败不被吞", () => {
     const { requireSuccess, runOmpCommand, fetchQuota } = await import("../src/main/usage/usage-service.ts");
     expect(() => requireSuccess("omp stats", { code: 0, stderr: "" })).not.toThrow();
     expect(() => requireSuccess("omp stats", { code: 2, stderr: "a\nb\nlock busy\n" })).toThrow(/code 2.*lock busy/);
+    // Node 崩溃：末尾的空行和 `Node.js vX` 不进错误文字。
+    expect(() =>
+      requireSuccess("omp stats", { code: 1, stderr: "TypeError: x is undefined\n    at f\n}\n\nNode.js v24.22.1\n" }),
+    ).toThrow("omp stats exited with code 1: TypeError: x is undefined | at f | }");
     await expect(fetchQuota(() => Promise.resolve({ code: 1, stdout: "", stderr: "no network" }))).rejects.toThrow(
       /omp usage exited with code 1: no network/,
     );

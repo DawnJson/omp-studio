@@ -313,6 +313,7 @@ export function Sidebar() {
         </button>
       </div>
 
+      {/* 只有一个在等时带上项目名；项目找不到（名字为空）时不写空的"· "（2026-10-29：原来是"1 个任务在等你 ·"） */}
       {firstWaiting !== null && (
         <button
           type="button"
@@ -322,9 +323,11 @@ export function Sidebar() {
         >
           <span className="sb-waiting-diamond" aria-hidden="true" />
           <span className="sb-waiting-text">
-            {waiting.length === 1
-              ? t("sidebar.waitingOne", { project: labelOf(firstWaiting.projectId) })
-              : t("sidebar.waitingMany", { n: waiting.length })}
+            {waiting.length !== 1
+              ? t("sidebar.waitingMany", { n: waiting.length })
+              : labelOf(firstWaiting.projectId) === ""
+                ? t("sidebar.waitingOneBare")
+                : t("sidebar.waitingOne", { project: labelOf(firstWaiting.projectId) })}
           </span>
         </button>
       )}

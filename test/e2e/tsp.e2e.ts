@@ -179,6 +179,12 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     await expect(role(page, "omp.tool.todo").first()).toBeVisible();
     await expect(role(page, "omp.tool.bash").first()).toContainText("pytest");
     await expect(role(page, "omp.assistant").last()).toBeVisible();
+    // 回答正文和过程卡片、本轮用量同一条左边线：markdown 的块没有内边距（别处同名的 class 曾把每段正文往里推 10px）。
+    const block = role(page, "omp.assistant").locator(".md-block").last();
+    await expect(block).toHaveCSS("padding", "0px");
+    const textLeft = (await block.locator("> *").first().boundingBox())!.x;
+    const cardLeft = (await role(page, "omp.tool.bash").first().boundingBox())!.x;
+    expect(Math.round(textLeft)).toBe(Math.round(cardLeft));
     // omp 收到的提交就是草稿原文,发给它的是 send 事件(不是逐字按键)。
     expect(await received()).toEqual([expect.objectContaining({ ev: "send", id: "j.line/input", text: TASK_PROMPT })]);
     // 混合形态:过程区是 omp 的节点,输入框是 studio 的 Composer(模型胶囊、思考强度、发送在它上面),omp 自己的输入框卡片不画。
@@ -1761,9 +1767,11 @@ test("子代理面板:点行只显示详情、不进入对话;点进入对话才
     await page.getByTestId("composer-input").fill(steerText);
     await page.getByTestId("composer-input").press("Enter");
     await expect.poll(async () => (await received()).at(-1)?.["text"], { timeout: 30_000 }).toBe(steerText);
-    // 聚焦中再打开面板:列表看不到(omp 画的是 Beta 的会话),写明原因。
+    // 聚焦中再打开面板:列表看不到(omp 画的是 Beta 的会话);原因输入框上方的聚焦提示已经写着,面板里不再写一遍。
     await page.getByTestId("topbar-agents").click();
-    await expect(page.getByTestId("agents-empty")).toContainText(/Beta/);
+    await expect(page.getByTestId("agents-panel")).toBeVisible();
+    await expect(page.getByTestId("agents-list")).toHaveCount(0);
+    await expect(page.getByTestId("agents-empty")).toHaveCount(0);
     await page.getByTestId("topbar-agents").click();
     await expect(page.getByTestId("agents-panel")).toHaveCount(0);
 

@@ -3,7 +3,6 @@ import type { omp as zhCN } from "../zh-CN/omp.ts";
 
 export const omp = {
   finding: "Looking for omp…",
-  found: "Found omp {version} ({source})",
   "source.other": "managed by {name}",
   "source.studio": "managed by omp-studio",
   "source.user": "installed by you",
@@ -30,6 +29,7 @@ export const omp = {
     "omp-studio can install an official copy for its own use. {name}'s copy, and the omp your terminal runs, stay as they are.",
   "takeover.keepOther": "Keep using {name}'s",
   "takeover.where": "Location: {path}",
+  "takeover.whereVersion": "Location: {path} · {version}",
   "takeover.yes": "Let omp-studio manage it",
   "takeover.no": "Cancel",
   "takeover.keep": "Keep using mine",

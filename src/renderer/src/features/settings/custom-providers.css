@@ -29,16 +29,30 @@
   gap: var(--space-4);
 }
 
-/* 连接信息两栏（ID | 接口类型、Base URL | key），窄到放不下两栏 320 时变一栏。 */
+/* 连接信息两栏：左栏 ID、接口类型、Base URL 上下排，右栏是 key（分段 + 预留最高那种方式的字段）占满三行，两栏底边差不多齐
+   （2026-10-29 审计 SET-11：原来按行填 ID | 接口类型、Base URL | key，key 那格高，Base URL 下面空出一大块）。
+   窄到放不下两栏 320 时变一栏，按 DOM 顺序。key 分段按内容宽，见 ui/controls.css 的 .ui-form-field > .ui-seg。 */
 .cp-conn {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-4) var(--space-6);
   align-items: start;
 }
-/* key 分段按内容宽，不随字段拉满一行。 */
-.cp-conn .ui-seg {
-  justify-self: start;
+.cp-conn > .ui-form-field {
+  grid-column: 1;
+}
+.cp-conn > .cp-key {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+}
+@media (max-width: 760px) {
+  .cp-conn {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cp-conn > .cp-key {
+    grid-column: 1;
+    grid-row: auto;
+  }
 }
 
 .cp-models-field {

@@ -5,7 +5,7 @@ import type { TaskId } from "../../../../shared/ipc.ts";
 import { ACTIVITY_FILTERS, filterActivity, type ActivityFilter } from "../../../../shared/tsp/agent-activity.ts";
 import type { HubAgent } from "../../../../shared/tsp/agent-hub.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Tabs } from "../../ui/controls.tsx";
+import { Segmented } from "../../ui/controls.tsx";
 import { useAgentsActivity } from "./use-agents-activity.ts";
 
 const clock = new Intl.DateTimeFormat(undefined, {
@@ -30,14 +30,17 @@ export function AgentsActivity({
   const shown = useMemo(() => filterActivity(items, filter), [items, filter]);
   return (
     <div className="agents-activity" data-testid="agents-activity">
-      <Tabs<ActivityFilter>
-        label={t("agents.activityFilter")}
-        idBase={`agents-activity-${taskId}`}
-        testId="agents-activity-filter"
-        value={filter}
-        tabs={ACTIVITY_FILTERS.map((id) => ({ id, label: t(`agents.filter.${id}`) }))}
-        onChange={setFilter}
-      />
+      {/* 过滤是次一级的控件，用分段，不和面板头的页签长得一样 */}
+      <div className="agents-activity-filter">
+        <Segmented<ActivityFilter>
+          size="sm"
+          label={t("agents.activityFilter")}
+          testId="agents-activity-filter"
+          value={filter}
+          options={ACTIVITY_FILTERS.map((id) => ({ value: id, label: t(`agents.filter.${id}`) }))}
+          onChange={setFilter}
+        />
+      </div>
       {shown.length === 0 ? (
         <p className="agents-muted" data-testid="agents-activity-empty">
           {loading

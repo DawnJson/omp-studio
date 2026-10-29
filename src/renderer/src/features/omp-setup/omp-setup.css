@@ -31,6 +31,44 @@
   animation: pop-in var(--dur-slow) var(--ease-spring);
 }
 
+/* 只有问接管时卡片浮在应用上面（有阴影）；其它状态卡片放在不透明的整页底色上，不是浮层，只留一圈淡描边（2026-10-29） */
+.setup:not([data-state="ask_takeover"]) .setup-card {
+  box-shadow: 0 0 0 1px var(--border-subtle);
+}
+
+/* 最后一个元素的下外边距不叠到卡片内边距上：上下都是 --space-6 */
+.setup-card > :last-child {
+  margin-bottom: 0;
+}
+
+/* 检测中只有一句话：不画卡片，居中一个和按钮加载一样的环 + 淡色字（2026-10-29：520 宽的空卡片像没内容的对话框） */
+.setup[data-state="discovering"] .setup-card {
+  width: auto;
+  background: none;
+  box-shadow: none;
+}
+
+.setup-finding {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+}
+
+.setup-finding::before {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  content: "";
+  border: 1.5px solid var(--text-3);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ui-spin var(--dur-spin) var(--tick-spin) infinite;
+}
+
 .setup-title {
   margin: 0 0 var(--space-3);
   font-family: var(--font-display);

@@ -516,7 +516,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
               onChange={setBaseUrl}
             />
           </FormField>
-          <FormField label={t("custom.form.key")}>
+          <FormField className="cp-key" label={t("custom.form.key")}>
             <Segmented
               value={keyMode}
               options={keyOptions}

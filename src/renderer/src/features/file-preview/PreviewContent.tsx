@@ -109,7 +109,7 @@ export function PreviewContent({
   const t = useT();
   switch (file.kind) {
     case "missing":
-      return <p className="file-preview-note">{t("preview.missing", { path: file.path })}</p>;
+      return <p className="file-preview-note">{t("preview.missing")}</p>;
     case "binary":
     case "too_large":
       return (

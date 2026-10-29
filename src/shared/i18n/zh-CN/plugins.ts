@@ -40,7 +40,6 @@ export const plugins = {
   "settings.dash": "值不能以 - 开头（omp 会把它当成选项）",
   // 市场
   marketplaces: "市场",
-  "marketplaces.presets": "推荐市场",
   "marketplaces.add.title": "添加市场",
   "marketplaces.add.open": "添加市场…",
   "marketplaces.add": "添加",

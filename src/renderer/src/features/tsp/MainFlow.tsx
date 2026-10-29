@@ -5,13 +5,14 @@ import { memo, type ReactNode } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import type { StatusNote } from "../../../../shared/tsp/status-notes.ts";
 import type { TspContext } from "./node-props.ts";
+import { cleanGlyphs } from "./span-tokens.ts";
 import { TspNode } from "./TspChildren.tsx";
 import { useTspNode, useTspStatusNotes } from "./tsp-store.ts";
 
 function StatusLine({ note }: { note: StatusNote }) {
   return (
     <div className="tsp-status-note" data-testid="tsp-status-note">
-      {note.text}
+      {cleanGlyphs(note.text)}
     </div>
   );
 }

@@ -21,7 +21,7 @@ import type { ModelInsights, ModelKey, ModelOption, ProjectId, TaskId } from "..
 import { clampThinkingLevel, thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Close, Plus, Search, Check, ChevronRight } from "../../icons.tsx";
+import { ArrowLeft, Plus, Search, Check, ChevronRight } from "../../icons.tsx";
 import { Badge, Button, IconButton, TextField } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
 import { Skeleton } from "../../ui/Skeleton.tsx";
@@ -350,15 +350,17 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
   const matched = atRoles ? (roleMatches?.length ?? 0) : rows.flat.length;
 
   const numbers = (option: ModelOption | null) => {
-    const fullKey = option === null ? null : `${option.key.provider}/${option.key.modelId}`;
-    const measured = fullKey === null ? undefined : insights?.perf[fullKey]?.tokensPerSecond;
-    const tps = measured ?? option?.catalogTps ?? null;
+    // 没指定模型的角色：数字列整行留空（不画一排 "-"，九个未指定角色就是 36 个破折号）。
+    if (option === null) return { intelligence: "", speed: "", context: "", price: "" };
+    const fullKey = `${option.key.provider}/${option.key.modelId}`;
+    const measured = insights?.perf[fullKey]?.tokensPerSecond;
+    const tps = measured ?? option.catalogTps ?? null;
     const cell = (value: string | null) => value ?? missing;
     return {
-      intelligence: option === null || option.intelligence === null ? missing : String(Math.round(option.intelligence)),
-      speed: option === null ? missing : tps !== null ? String(Math.round(tps)) : insights === null ? loading : missing,
-      context: option === null ? missing : cell(modelContextCell(option)),
-      price: option === null ? missing : cell(modelPriceCell(option)),
+      intelligence: option.intelligence === null ? missing : String(Math.round(option.intelligence)),
+      speed: tps !== null ? String(Math.round(tps)) : insights === null ? loading : missing,
+      context: cell(modelContextCell(option)),
+      price: cell(modelPriceCell(option)),
     };
   };
 
@@ -473,7 +475,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => toggleProvider(provider)}
           >
-            <ChevronRight size={12} />
+            <ChevronRight size={14} />
             {provider} <span className="mp-group-count">{list.length}</span>
           </button>
           <Reveal open={expanded}>{list.map(renderItem)}</Reveal>
@@ -490,7 +492,10 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
         </div>,
       ]
     : searching
-      ? [renderGroup("matches", t("model.matches"), items)]
+      ? // 搜不到时只留头部的"0 / N"和一句"没有匹配的模型"，不再画一个"匹配 0"的空组
+        items.length === 0
+        ? []
+        : [renderGroup("matches", t("model.matches"), items)]
       : [
           ...(pinnedCount > 0 ? [renderGroup("pinned", t("model.pinned"), items.slice(0, pinnedCount))] : []),
           ...providerGroups(),
@@ -543,14 +548,15 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
             onKeyDown={onSearchKey}
           />
           {roleTab !== null && (
+            // 改回"用于此任务"是返回，不是关对话框：← 放在胶囊前面，不用 ×（2026-10-29 审计 DLG-14）
             <span className="mp-target" data-testid="model-role-target" title={roleHint(roleTab)}>
+              <IconButton label={t("model.roleTargetClear")} testId="model-role-clear" onClick={() => selectRole(null)}>
+                <ArrowLeft size={14} />
+              </IconButton>
               <Badge tone="accent">
                 <RoleIcon role={roleTab} size={12} />
                 {t("model.roleTarget", { role: roleLabel(roleTab) })}
               </Badge>
-              <IconButton label={t("model.roleTargetClear")} testId="model-role-clear" onClick={() => selectRole(null)}>
-                <Close size={12} />
-              </IconButton>
             </span>
           )}
           {searching && (
@@ -582,6 +588,8 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
             variant="primary"
             testId="model-use"
             disabled={selectedItem === null}
+            // 写进全局配置的作用范围放在主按钮的悬停提示里，不在正文多写一行说明
+            title={roleMode && !atRoles ? t("model.roleSaved") : undefined}
             onClick={() => apply(selectedItem)}
           >
             {primaryLabel}
@@ -613,14 +621,17 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
           className="mp-table ui-scroll-fade"
           style={{ "--fade-inset": "var(--control-h-md)" } as CSSProperties}
         >
-          <div className="mp-cols" aria-hidden="true">
-            <span />
-            <span className="mp-num">{t("model.colIntelligence")}</span>
-            <span className="mp-num">{t("model.colSpeed")}</span>
-            <span className="mp-num">{t("model.colContext")}</span>
-            <span className="mp-num">{t("model.colPrice")}</span>
-            <span className="mp-tick" />
-          </div>
+          {/* 0 行时数字表头没有可对的列，跟着隐藏 */}
+          {(models === null || items.length > 0) && (
+            <div className="mp-cols" aria-hidden="true">
+              <span />
+              <span className="mp-num">{t("model.colIntelligence")}</span>
+              <span className="mp-num">{t("model.colSpeed")}</span>
+              <span className="mp-num">{t("model.colContext")}</span>
+              <span className="mp-num">{t("model.colPrice")}</span>
+              <span className="mp-tick" />
+            </div>
+          )}
           <div
             id={listId}
             className={models === null ? "mp-list" : "mp-list ui-data-in"}
@@ -637,31 +648,23 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
               />
             )}
             {models !== null && items.length === 0 && (
-              <p className="mp-empty">{atRoles ? t("model.noRoles") : t("model.empty")}</p>
+              <p className="mp-empty" data-testid="model-empty">
+                {atRoles ? t("model.noRoles") : searching ? t("model.noMatch") : t("model.empty")}
+              </p>
             )}
             {groups}
           </div>
         </div>
         <div className="mp-foot">
           {shown !== null && <ModelDetails option={shown} insights={insights} />}
-          {roleMode || atRoles ? (
-            roleMode &&
-            !atRoles && (
-              <div className="mp-hints">
-                <p className="mp-hint" data-testid="model-role-saved">
-                  {t("model.roleSaved")}
-                </p>
-              </div>
-            )
-          ) : (
+          {!roleMode && !atRoles && (
             <>
-              {shown !== null && (
+              {/* 不支持思考的模型没有这一行（不再占一行写"不支持"）；快速模式开关仍在时只留开关 */}
+              {shown !== null && (shownLevels.length > 0 || (props.speed && shownIsCurrent)) && (
                 <div className="mp-ctl">
-                  <span className="mp-ctl-label">{t("model.thinking")}</span>
+                  <span className="mp-ctl-label">{shownLevels.length > 0 && t("model.thinking")}</span>
                   <div className="mp-ctl-body">
-                    {shownLevels.length === 0 ? (
-                      <span className="mp-hint">{t("model.thinking.unsupported")}</span>
-                    ) : (
+                    {shownLevels.length > 0 && (
                       <>
                         <ThinkingSegments levels={shownLevels} level={shownLevel} onPick={setPickedLevel} />
                         {running && <span className="mp-hint">{t("composer.nextRequest")}</span>}

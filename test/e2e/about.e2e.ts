@@ -8,7 +8,7 @@ import type { ProjectId, TaskId, TaskState, UpdateState } from "../../src/shared
 import { emptySessionToggles } from "../../src/shared/omp-output/toggles.ts";
 import { expectNoOverflow, launchApp, setLocaleTheme } from "./launch.ts";
 
-test("关于页显示当前版本；开发版说明不检查更新；omp-studio 右边的 GitHub 图标用系统浏览器打开项目仓库", async () => {
+test("关于页显示当前版本；开发版不检查更新（原因在灰着的按钮的悬停提示里）；omp-studio 右边的 GitHub 图标用系统浏览器打开项目仓库", async () => {
   const { version } = JSON.parse(await readFile(path.resolve(import.meta.dirname, "..", "..", "package.json"), "utf8"));
   const launched = await launchApp();
   try {
@@ -18,8 +18,9 @@ test("关于页显示当前版本；开发版说明不检查更新；omp-studio 
     await page.getByTestId("settings-nav-about").click();
 
     await expect(page.getByTestId("app-version")).toHaveText(version);
-    await expect(page.getByTestId("update-status")).toContainText("不检查更新");
     await expect(page.getByTestId("update-check")).toBeDisabled();
+    await expect(page.getByTestId("update-check")).toHaveAttribute("title", /不检查更新/);
+    await expect(page.getByTestId("update-status")).toHaveCount(0);
 
     await app.evaluate(({ shell }) => {
       const opened: string[] = [];

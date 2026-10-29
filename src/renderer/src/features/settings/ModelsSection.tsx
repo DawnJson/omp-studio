@@ -3,13 +3,13 @@
 // 值就是 omp 自己的 modelRoles / retry.fallbackChains / defaultThinkingLevel（设计原则 7），和 omp 设置是同一份；
 // 改了就写全局（和模型选择对话框里给角色"应用"一样）。候选按角色能用的模型类别筛（role-options.ts）。
 // 自定义角色（omp：modelRoles 里内置角色以外的名字，只用对话模型）可以添加、删除；omp 只认有模型的角色，所以添加时名字和模型一起填。
-import { Fragment, useEffect, useId, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useState } from "react";
 import type { ModelKey } from "../../../../shared/ipc.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
 import { joinRoleValue, splitRoleValue } from "../../../../shared/ui/role-value.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Close, Plus } from "../../icons.tsx";
-import { Button, FormField, IconButton, Notice, TextField, type Option } from "../../ui/controls.tsx";
+import { Button, FormField, IconButton, Notice, Row, TextField, type Option } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
 import { describeError, reportError } from "../../ui/errors.ts";
 import { InfoTip } from "../../ui/InfoTip.tsx";
@@ -59,15 +59,12 @@ interface RoleTableProps {
   chains: Record<string, string[]>;
   /** 没设置时 omp 怎么办："未指定"（对话角色）或"由 omp 自动选择"。 */
   unsetLabel(role: string): string;
-  /** 放在角色前面、和角色共用列宽的行（默认思考强度）。 */
-  lead?: ReactNode;
 }
 
 /** 一组角色：每个角色一格（主模型 + 思考强度，每个备用模型各一行，"添加备用…"在最后）。 */
-function RoleTable({ roles, sources, values, chains, unsetLabel, lead }: RoleTableProps) {
+function RoleTable({ roles, sources, values, chains, unsetLabel }: RoleTableProps) {
   return (
     <div className="st-roles">
-      {lead}
       {roles.map((role) => (
         <RoleRow
           key={role}
@@ -395,7 +392,6 @@ function AddRoleDialog({
 
 export function ModelsSection() {
   const t = useT();
-  const thinkingLabelId = useId();
   const rolesValue = useOmpConfigValue("modelRoles");
   const chainsValue = useOmpConfigValue("retry.fallbackChains");
   const thinking = useOmpConfigValue("defaultThinkingLevel");
@@ -418,35 +414,35 @@ export function ModelsSection() {
   if (typeof thinking === "string" && !thinkingOptions.some((option) => option.value === thinking))
     thinkingOptions.push({ value: thinking, label: thinking });
 
+  // 默认思考强度是一项普通设置，不占角色表的一格（2026-10-29 审计：它的长标签把左半边的角色名列撑宽，左右两半的下拉对不齐）。
   const thinkingRow = (
-    <div className="st-roles-row">
-      <span className="ui-row-label st-role-label">
-        <span id={thinkingLabelId}>{t("settings.defaultThinking")}</span>
-      </span>
-      <span className="st-role-model">
-        <Select
-          size="sm"
-          value={typeof thinking === "string" ? thinking : ""}
-          options={thinkingOptions}
-          labelledBy={thinkingLabelId}
-          disabled={thinking === undefined}
-          onChange={(value) =>
-            saveOmpDefaultThinking(value as ThinkingLevel).catch((error: unknown) => reportError(t, error))
-          }
-          testId="setting-default-thinking"
-        />
-      </span>
+    <div className="st-cells">
+      <Row label={t("settings.defaultThinking")}>
+        {(labelId) => (
+          <Select
+            size="sm"
+            value={typeof thinking === "string" ? thinking : ""}
+            options={thinkingOptions}
+            labelledBy={labelId}
+            disabled={thinking === undefined}
+            onChange={(value) =>
+              saveOmpDefaultThinking(value as ThinkingLevel).catch((error: unknown) => reportError(t, error))
+            }
+            testId="setting-default-thinking"
+          />
+        )}
+      </Row>
     </div>
   );
   const chatLead = (
     <>
+      {thinkingRow}
       <RoleTable
         roles={[...chatRoles, ...custom]}
         sources={sources}
         values={values}
         chains={chains}
         unsetLabel={(role) => (role === "default" ? t("settings.ompPicksModel") : t("model.roleUnset"))}
-        lead={thinkingRow}
       />
       <div className="st-roles-foot">
         <Button

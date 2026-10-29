@@ -1397,12 +1397,12 @@
 }
 
 /* ───────────────────────── 提问 / 审批门（omp.editor.ask、omp.editor.ask.approval） ───────────────────────── */
-/* 门有外框（和输入框同宽同轴：dock 已经和输入框同宽），不再像对话正文。 */
+/* 门有外框（和输入框同宽同轴：dock 已经和输入框同宽），不再像对话正文。只用一道细线、不加阴影（2026-10-29：--border 偏重） */
 .tsp-col[data-role="omp.editor.ask"],
 .tsp-col[data-role="omp.editor.ask.approval"] {
   padding: var(--space-3) var(--space-4);
   background: var(--bg-raised);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
 }
 /* 根节点自己接键盘（Review 页没有 list），不画聚焦环。 */
@@ -1425,9 +1425,15 @@
 .tsp-col[data-role="omp.editor.ask.approval"] > * {
   grid-column: 1 / -1;
 }
+/* 标题是这张门的标题：正文色加粗，不用 omp 给的强调色（强调色只留给选中项的竖条），和"Command:"那行拉开层级 */
 .tsp-col[data-role="omp.editor.ask.approval"] > [data-role="omp.approval.title"] {
   grid-row: 1;
   grid-column: 1;
+  font-weight: var(--fw-strong);
+}
+.tsp-col[data-role="omp.editor.ask.approval"] > [data-role="omp.approval.title"],
+.tsp-col[data-role="omp.editor.ask.approval"] > [data-role="omp.approval.title"] * {
+  color: var(--text);
 }
 .tsp-col[data-role="omp.editor.ask.approval"] > [data-role="omp.actions"] {
   grid-row: 1;

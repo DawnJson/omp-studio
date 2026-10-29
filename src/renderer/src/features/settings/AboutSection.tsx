@@ -65,6 +65,9 @@ function StudioUpdate() {
     state.phase !== "checking" &&
     state.phase !== "disabled";
   const downloading = state.phase === "downloading";
+  const status = updateStatusText(state, t);
+  // 不检查更新的原因（开发版、免安装版……）是按钮为什么灰着，放进按钮的悬停提示，不在行里另写一句（2026-10-29 审计 SET-16）
+  const disabledWhy = state.phase === "disabled" ? status : undefined;
 
   return (
     <Row label={label} testId="about-info">
@@ -73,9 +76,11 @@ function StudioUpdate() {
           <span className="st-mono" data-testid="app-version">
             {info.version}
           </span>
-          <span className="st-muted" data-testid="update-status">
-            {updateStatusText(state, t)}
-          </span>
+          {disabledWhy === undefined && status !== "" && (
+            <span className="st-muted" data-testid="update-status">
+              {status}
+            </span>
+          )}
           {state.phase === "downloaded" ? (
             <Button
               variant="primary"
@@ -91,6 +96,7 @@ function StudioUpdate() {
               size="sm"
               loading={busy || state.phase === "checking"}
               disabled={!canCheck}
+              title={disabledWhy}
               onClick={() => void check()}
               testId="update-check"
             >

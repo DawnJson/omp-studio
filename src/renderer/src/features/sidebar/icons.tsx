@@ -72,12 +72,6 @@ export const CommandIcon = () => (
   </Icon>
 );
 
-export const SlashIcon = () => (
-  <Icon>
-    <path d="m10.5 3-5 10" />
-  </Icon>
-);
-
 // 以下是命令面板里各条命令的图标（按命令 id 对应，见 palette/command-icons.ts）。
 export const SidebarToggleIcon = () => (
   <Icon>

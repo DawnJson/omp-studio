@@ -80,20 +80,23 @@ export function useFileDiff(
   return state;
 }
 
-/** 文件树每行的 `+a −d`：随状态一起重取（stamp），取不到时保留上一份、报错（不吞）。 */
+/** 文件树每行的 `+a −d`：随状态一起重取（stamp；0 = 不取，比如不是 git 仓库），取不到时保留上一份、报错（不吞）。
+ *  切换语言不重取（t 走 ref），不然每切一次就多一次请求、失败时多一条 toast。 */
 export function useChangeStats(taskId: TaskId, stamp: number): ReadonlyMap<string, LineCounts> {
   const t = useT();
+  const tRef = useRef(t);
+  tRef.current = t;
   const [stats, setStats] = useState<ReadonlyMap<string, LineCounts>>(new Map());
   useEffect(() => {
     if (stamp === 0) return;
     let current = true;
     window.studio.getGitChangeStats(taskId).then(
       (list) => current && setStats(indexStats(list)),
-      (error: unknown) => current && reportError(t, error),
+      (error: unknown) => current && reportError(tRef.current, error),
     );
     return () => {
       current = false;
     };
-  }, [taskId, stamp, t]);
+  }, [taskId, stamp]);
   return stats;
 }

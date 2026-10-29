@@ -14,6 +14,7 @@ import { useOmpStatus } from "../../store/index.ts";
 import { Badge, IconButton, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
 import { ensureOmpConfigLoaded, saveOmpConfig, useConfigLoad, useOmpConfigValue, useRowState } from "./config-store.ts";
 import { toolsResource } from "./integrations-data.ts";
+import { TitleTip } from "./TitleTip.tsx";
 import { pushToast } from "../dialogs/toast-store.ts";
 
 function ToolCell({ tool, configKey, devices }: { tool: ToolEntry; configKey: string | null; devices: Set<string> }) {
@@ -57,9 +58,9 @@ function ToolCell({ tool, configKey, devices }: { tool: ToolEntry; configKey: st
       <span className="st-tool-name st-mono" title={tool.name}>
         {tool.name}
       </span>
-      {badge}
+      {/* 格尾是开关或状态徽标，同一条右边线（2026-10-29 审计：徽标原来停在空开关位前面，和开关错开 44px） */}
       <span className="st-tool-slot">
-        {hasSwitch && (
+        {hasSwitch ? (
           <Switch
             checked={value}
             disabled={row.phase === "saving"}
@@ -71,6 +72,8 @@ function ToolCell({ tool, configKey, devices }: { tool: ToolEntry; configKey: st
             }
             testId={`tool-switch-${tool.name}`}
           />
+        ) : (
+          badge
         )}
       </span>
     </div>
@@ -97,7 +100,7 @@ export function ToolsCard() {
   return (
     <section className="st-section" data-testid="tools-card">
       <SectionHead
-        title={t("integrations.tools.title")}
+        title={<TitleTip title={t("integrations.tools.title")} tip={t("integrations.tools.note")} />}
         actions={
           <IconButton
             label={t("integrations.refresh")}
@@ -108,7 +111,6 @@ export function ToolsCard() {
             <Restart />
           </IconButton>
         }
-        note={t("integrations.tools.note")}
       />
       {load.kind === "error" && (
         <Notice tone="error" testId="tools-load-failed">

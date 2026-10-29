@@ -78,11 +78,17 @@
   flex-direction: column;
   gap: var(--space-2);
 }
+/* 搜索框和标题、行文字同一条左边线（对话框内边距 20：正文 8 + 行内 12），和标题之间留 8（2026-10-29 审计 DLG-25） */
+.tree-search {
+  margin: var(--space-2) var(--space-3) 0;
+}
+/* 提示行常驻占位（外框高度不跳），紧贴列表，不再和列表隔一整格 */
 .tree-hint {
-  margin: 0;
+  margin: calc(-1 * var(--space-1)) 0 0;
   padding: 0 var(--space-3);
   color: var(--text-3);
   font-size: var(--fs-xs);
+  line-height: var(--lh-xs);
 }
 .tree-label-edit {
   flex: 1;

@@ -256,6 +256,8 @@
 .ui-field .ui-affix {
   flex: none;
   font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--ls-label);
   color: var(--text-3);
 }
 .ui-field.ui-number {
@@ -332,6 +334,13 @@
 .ui-textarea[data-invalid] {
   border-color: var(--st-error);
 }
+/* 和 .ui-field 一样：写错时聚焦只画红色的一圈，不叠紫色焦点环 */
+.ui-textarea[data-invalid]:focus {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px var(--st-error),
+    0 0 0 4px var(--st-error-soft);
+}
 .ui-textarea:disabled {
   color: var(--text-disabled);
   background: var(--bg-sunken);
@@ -354,6 +363,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-1-5);
+}
+/* 分段控件在竖排字段里按内容宽，不拉满整列 */
+.ui-form-field > .ui-seg {
+  justify-self: start;
 }
 .ui-form-field > label {
   font-size: var(--fs-sm);
@@ -505,7 +518,7 @@
 }
 .ui-seg.ui-mono > button {
   font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
+  font-size: var(--fs-code-sm);
 }
 .ui-seg > button:disabled {
   color: var(--text-disabled);
@@ -736,6 +749,8 @@
 }
 .ui-menu-hint {
   font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--ls-label);
   color: var(--text-3);
 }
 .ui-menu-sep {
@@ -814,6 +829,10 @@
   box-shadow: var(--shadow-3);
   animation: pop-in var(--dur-slow) var(--ease-spring);
 }
+/* 打开时焦点落在对话框本身（没有 data-autofocus 时，见 Dialog.tsx）：容器不画焦点环，Tab 进到控件才画 */
+.ui-dialog:focus {
+  outline: none;
+}
 .ui-dialog[data-size="sm"] {
   --dialog-w: var(--dialog-w-sm);
 }
@@ -831,6 +850,10 @@
   min-width: 0;
   padding-top: var(--space-1);
 }
+/* × 和标题首行的中线对齐（标题行从 padding-top 往下一个 --lh-lg） */
+.ui-dialog-head > .ui-icon-btn {
+  margin-top: calc(var(--space-1) + (var(--lh-lg) - var(--btn-h)) / 2);
+}
 .ui-dialog-title {
   margin: 0;
   font-size: var(--fs-lg);
@@ -840,7 +863,7 @@
   text-wrap: balance;
 }
 .ui-dialog-desc {
-  margin: var(--space-0-5) 0 0;
+  margin: var(--space-1) 0 0;
   font-size: var(--fs-sm);
   line-height: var(--lh-sm);
   color: var(--text-2);

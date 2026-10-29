@@ -23,8 +23,11 @@ export function canAsk(records: readonly BtwHistoryRecord[], text: string): bool
   return text.trim() !== "" && !isBtwRunning(records);
 }
 
-/** 话题标签里的一行问题摘要。 */
+/** 话题标签里的一行问题摘要。太长时从中间省略、留下开头和结尾：同一个开头的两个问题（"Reply with exactly the word: pong" /
+ * "… ping"）只截开头的话两个标签一模一样（2026-10-29 审计）。 */
 export function topicLabel(record: BtwHistoryRecord, maxChars = 28): string {
   const line = record.question.trim().split(/\r?\n/)[0] ?? "";
-  return line.length > maxChars ? `${line.slice(0, maxChars)}…` : line;
+  if (line.length <= maxChars) return line;
+  const tail = Math.floor(maxChars / 2);
+  return `${line.slice(0, maxChars - tail).trimEnd()}…${line.slice(line.length - tail).trimStart()}`;
 }

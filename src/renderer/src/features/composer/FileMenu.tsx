@@ -26,7 +26,7 @@ export function FileMenu({ id, open, files: liveFiles, active, onHover, onPick }
   if (!presence.mounted) return null;
   return (
     <div
-      className="slash"
+      className="slash file-menu"
       role="listbox"
       id={id}
       ref={listRef}

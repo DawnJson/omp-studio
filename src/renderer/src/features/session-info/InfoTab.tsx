@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import type { ModelUsage, SessionModelUsage, TaskSessionInfo, TaskState } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
-import { describeError, reportError } from "../../ui/errors.ts";
+import { explainError, reportError } from "../../ui/errors.ts";
 import { Button, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
 import { formatCount, formatMoney } from "../composer/usage-format.ts";
 import { copyText, togglePin } from "./session-info-actions.ts";
@@ -80,7 +80,7 @@ export function InfoTab({ task, read }: { task: TaskState; read: Read<TaskSessio
   const info = read.data;
 
   if (read.error !== null && info === null)
-    return <Notice tone="error">{t("sessionInfo.loadFailed", { message: describeError(t, read.error) })}</Notice>;
+    return <Notice tone="error">{t("sessionInfo.loadFailed", { message: explainError(t, read.error) })}</Notice>;
   if (info === null) return <p className="si-note">{t("sessionInfo.loading")}</p>;
 
   const onPin = async () => {
@@ -163,25 +163,27 @@ export function InfoTab({ task, read }: { task: TaskState; read: Read<TaskSessio
             <span className="si-mono">{dirs.join("\n")}</span>
           </Row>
         )}
+        {info.sessionId !== null && (
+          <>
+            <dt id={pinId}>{t("sessionInfo.pin.label")}</dt>
+            <dd>
+              <Switch
+                checked={info.pinned}
+                disabled={pinBusy}
+                labelledBy={pinId}
+                onChange={() => void onPin()}
+                testId="si-pin"
+              />
+            </dd>
+          </>
+        )}
       </dl>
       {info.sessionId === null ? (
         <p className="si-note" data-testid="si-no-file">
           {t("sessionInfo.noSessionFile")}
         </p>
       ) : (
-        <>
-          <div className="si-pin-row">
-            <span id={pinId}>{t("sessionInfo.pin.label")}</span>
-            <Switch
-              checked={info.pinned}
-              disabled={pinBusy}
-              labelledBy={pinId}
-              onChange={() => void onPin()}
-              testId="si-pin"
-            />
-          </div>
-          <UsageSection usage={info.usage} />
-        </>
+        <UsageSection usage={info.usage} />
       )}
     </>
   );

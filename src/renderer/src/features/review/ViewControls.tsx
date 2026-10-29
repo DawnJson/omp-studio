@@ -6,7 +6,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Sliders, Whitespace, Wrap } from "../../icons.tsx";
 import { setReviewMode, setReviewScope, setReviewWrap } from "../../store/review-store.ts";
 import { Button, IconButton, Segmented } from "../../ui/controls.tsx";
-import { anchorBelow, Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
+import { anchorBelowEnd, Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
 
 const narrowQuery = "(max-width: 1099px)";
 
@@ -74,7 +74,7 @@ export function ViewControls({
           aria-haspopup="menu"
           aria-expanded={menu !== null}
           data-testid="view-menu"
-          onClick={(event) => setMenu(menu !== null ? null : anchorBelow(event.currentTarget))}
+          onClick={(event) => setMenu(menu !== null ? null : anchorBelowEnd(event.currentTarget))}
         >
           {t("review.view")}
         </Button>

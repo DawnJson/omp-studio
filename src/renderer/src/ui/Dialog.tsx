@@ -1,7 +1,8 @@
 // 对话框（spec §4.23 Dialog）：唯一的外壳。sm 400 / md 520 / lg 720；标题 + 可选一句说明，右上 ×；正文竖排字段；
 // 页脚按钮右对齐、取消在前确认在后，附带选项放页脚左侧（footStart）。不叠对话框。
 // 选择器类对话框（模型选择）用 head 换掉标题行：顶上是搜索框，标题只作读屏名，没有 ×（Esc、点遮罩关）。
-// 行为：Esc 关闭（消耗掉，不触发"停止任务"），Tab 在对话框内循环，打开时焦点进 `[data-autofocus]`（没有就进 ×），
+// 行为：Esc 关闭（消耗掉，不触发"停止任务"），Tab 在对话框内循环，打开时焦点进 `[data-autofocus]`（没有就进对话框本身，
+// 不进 ×：2026-10-29 起，免得一打开焦点环就套在关闭按钮上，视觉重心落在 × 而不是内容），
 // 关闭时焦点回到打开前的元素；点遮罩关闭。关闭时先放退出动画再卸载，放完调 onExited。
 // 焦点掉到 body 时（按下的按钮转成 loading 被禁用、获得焦点的元素被卸载），按键不再经过对话框：
 // 窗口捕获阶段兜底，Esc 照样关最上面的对话框，Tab 把焦点拉回对话框。
@@ -51,6 +52,8 @@ export interface DialogProps {
   head?: ReactNode | undefined;
   /** 打开后高度只长不缩：列表被过滤变短时外框不跟着变矮。有 `tabs` 时自动开启。 */
   lockHeight?: boolean | undefined;
+  /** 不画右上 ×：纯告知、页脚只有一个"关闭"的对话框（冲突、清理报告），免得两个关闭入口。Esc、点遮罩照样关。 */
+  hideClose?: boolean | undefined;
 }
 
 export function Dialog({
@@ -70,6 +73,7 @@ export function Dialog({
   headAction,
   head,
   lockHeight = false,
+  hideClose = false,
 }: DialogProps) {
   const t = useT();
   const presence = usePresence(open);
@@ -93,10 +97,9 @@ export function Dialog({
     }
     wasMounted.current = true;
     openerRef.current = document.activeElement;
-    const target =
-      ref.current?.querySelector<HTMLElement>("[data-autofocus]") ??
-      ref.current?.querySelector<HTMLElement>("[data-dialog-close]");
-    target?.focus();
+    const dialog = ref.current;
+    const target = dialog?.querySelector<HTMLElement>("[data-autofocus]") ?? dialog;
+    target?.focus({ preventScroll: true });
     // 只在挂载时抢一次焦点。
   }, [mounted]);
   // 开始退出动画就还焦点，不等卸载。
@@ -161,7 +164,11 @@ export function Dialog({
     const first = items[0];
     const last = items.at(-1);
     if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
+    // 焦点在对话框本身（刚打开）时：Tab 进第一个，Shift+Tab 进最后一个，不跑出对话框。
+    if (document.activeElement === ref.current) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    } else if (event.shiftKey && document.activeElement === first) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && document.activeElement === last) {
@@ -174,6 +181,7 @@ export function Dialog({
     <div className="scrim" data-closing={presence.closing ? "fade" : undefined} onPointerDown={onClose}>
       <div
         ref={ref}
+        tabIndex={-1}
         className={className ? `ui-dialog ${className}` : "ui-dialog"}
         data-size={size === "md" ? undefined : size}
         role={role}
@@ -199,17 +207,18 @@ export function Dialog({
               )}
             </div>
             {headAction}
-            <button
-              type="button"
-              className="ui-icon-btn"
-              data-dialog-close=""
-              aria-label={t("common.close")}
-              title={t("common.close")}
-              onClick={onClose}
-              data-testid={testId === undefined ? undefined : `${testId}-close`}
-            >
-              <Close />
-            </button>
+            {!hideClose && (
+              <button
+                type="button"
+                className="ui-icon-btn"
+                aria-label={t("common.close")}
+                title={t("common.close")}
+                onClick={onClose}
+                data-testid={testId === undefined ? undefined : `${testId}-close`}
+              >
+                <Close />
+              </button>
+            )}
           </header>
         )}
         {tabs}

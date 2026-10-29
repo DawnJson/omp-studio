@@ -100,6 +100,7 @@ export function SessionTogglesMenu({ taskId, task }: { taskId: TaskId; task: Tas
         open={open}
         onClose={close}
         label={t("toggles.title")}
+        align="end"
         kind={confirming ? "confirm" : undefined}
         width={confirming ? undefined : 380}
       >

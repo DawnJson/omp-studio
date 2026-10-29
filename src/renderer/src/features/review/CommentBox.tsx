@@ -3,7 +3,7 @@ import { useState, type KeyboardEvent } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { Dots, Pencil, Trash } from "../../icons.tsx";
 import { Button, IconButton, Textarea } from "../../ui/controls.tsx";
-import { anchorBelow, Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
+import { anchorBelowEnd, Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
 import { rangeText } from "../../../../shared/ui/review-model.ts";
 
 export function CommentBox({
@@ -101,7 +101,7 @@ export function CommentCard({
         expanded={menu !== null}
         aria-haspopup="menu"
         testId="comment-more"
-        onClick={(event) => setMenu(menu !== null ? null : anchorBelow(event.currentTarget))}
+        onClick={(event) => setMenu(menu !== null ? null : anchorBelowEnd(event.currentTarget))}
       >
         <Dots size={14} />
       </IconButton>

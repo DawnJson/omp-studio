@@ -8,9 +8,9 @@ import type { TFunction } from "../../../../shared/i18n/index.ts";
 import { isUntouched, quotaFetchedAt } from "../../../../shared/ui/usage-summary.ts";
 import { Restart } from "../../icons.tsx";
 import { useT } from "../../i18n/use-t.ts";
-import { IconButton } from "../../ui/controls.tsx";
+import { Button, IconButton, Notice } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
-import { describeError } from "../../ui/errors.ts";
+import { explainError } from "../../ui/errors.ts";
 import { usePresence } from "../../ui/presence.ts";
 import { useNow } from "../conversation/use-now.ts";
 import { loadHeatmap, loadQuota, useUsageHeatmap, useUsageQuota } from "./usage-store.ts";
@@ -54,9 +54,17 @@ function DailyUsage() {
   return (
     <>
       {heatmap.error !== null && (
-        <p className="ctx-note" role="alert">
-          {t("usage.heatmap.failed", { message: describeError(t, heatmap.error) })}
-        </p>
+        <Notice
+          tone="error"
+          testId="usage-heatmap-error"
+          action={
+            <Button size="sm" disabled={heatmap.busy} onClick={() => void loadHeatmap()}>
+              {t("common.retry")}
+            </Button>
+          }
+        >
+          {t("usage.heatmap.failed", { message: explainError(t, heatmap.error) })}
+        </Notice>
       )}
       {heatmap.data?.hasDatabase && <HeatmapView heatmap={heatmap.data} />}
       {heatmap.data && !heatmap.data.hasDatabase && !heatmap.busy && (
@@ -80,9 +88,17 @@ function Quota({ provider }: { provider: string | null }) {
   return (
     <>
       {quota.error !== null && (
-        <p className="ctx-note" role="alert">
-          {t("usage.quota.failed", { message: describeError(t, quota.error) })}
-        </p>
+        <Notice
+          tone="error"
+          testId="usage-quota-error"
+          action={
+            <Button size="sm" disabled={quota.busy} onClick={() => void loadQuota(true)}>
+              {t("common.retry")}
+            </Button>
+          }
+        >
+          {t("usage.quota.failed", { message: explainError(t, quota.error) })}
+        </Notice>
       )}
       {quota.data === null && quota.busy && <p className="ctx-note">{t("usage.loading")}</p>}
       {quota.data !== null && accounts.length === 0 && (

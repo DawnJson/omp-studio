@@ -100,8 +100,19 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
         }}
         onKeyDown={onResizerKey}
       />
+      {/* 页签放在面板头里（同文件面板），不再另写一个和第一个页签重复的标题 */}
       <header className="file-preview-head">
-        <span className="agents-title">{t("agents.title")}</span>
+        <Tabs<"agents" | "activity">
+          label={t("agents.tabsLabel")}
+          idBase={`agents-${taskId}`}
+          testId="agents-tabs"
+          value={tab}
+          tabs={[
+            { id: "agents", label: t("agents.tabAgents"), count: agents.length > 0 ? agents.length : undefined },
+            { id: "activity", label: t("agents.tabActivity") },
+          ]}
+          onChange={setTab}
+        />
         <span className="file-preview-spacer" />
         <IconButton label={t("agents.close")} testId="agents-close" onClick={() => closeAgentsPanel()}>
           <Close size={14} />
@@ -120,21 +131,6 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
           <span className="agents-driving-text">{t(DRIVING_KEY[drive.op], { name: drive.name })}</span>
         </div>
       )}
-
-      <div className="agents-tabs">
-        <Tabs<"agents" | "activity">
-          label={t("agents.tabsLabel")}
-          idBase={`agents-${taskId}`}
-          testId="agents-tabs"
-          value={tab}
-          tabs={[
-            { id: "agents", label: t("agents.tabAgents"), count: agents.length },
-            { id: "activity", label: t("agents.tabActivity") },
-          ]}
-          onChange={setTab}
-        />
-      </div>
-
       <div className="agents-body" {...tabPanelProps(`agents-${taskId}`, tab)}>
         {tab === "activity" ? (
           <AgentsActivity
@@ -145,11 +141,7 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
               setTab("agents");
             }}
           />
-        ) : agents.length === 0 ? (
-          <p className="agents-muted agents-empty" data-testid="agents-empty">
-            {focusedAgent !== null ? t("agents.focusedEmpty", { name: focusedAgent }) : t("agents.empty")}
-          </p>
-        ) : (
+        ) : agents.length > 0 ? (
           <ul className="agents-list" aria-label={t("agents.listLabel")} data-testid="agents-list">
             {agents.map((agent) => (
               <AgentRow
@@ -160,6 +152,13 @@ export function AgentsPanel({ taskId, selected }: { taskId: TaskId; selected: st
               />
             ))}
           </ul>
+        ) : (
+          // 聚焦在某个子代理上时列表是空的，原因输入框上方的聚焦提示已经在说，这里不再写一遍。
+          focusedAgent === null && (
+            <p className="agents-empty" data-testid="agents-empty">
+              {t("agents.empty")}
+            </p>
+          )
         )}
         {tab === "agents" && current !== null && (
           <AgentDetail key={current.name} taskId={taskId} agent={current} busy={drive !== null} />

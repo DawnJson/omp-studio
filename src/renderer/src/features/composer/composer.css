@@ -290,6 +290,10 @@ button.usage-context:hover,
 .chip-mode {
   white-space: nowrap;
 }
+/* 还没读到审批模式：模式名的位置放一条骨架（共用 .ui-skeleton 的扫光），宽约一个两字模式名，不写"审批…"假省略（2026-10-29） */
+.chip-mode-skeleton {
+  width: 3em;
+}
 @container (max-width: 520px) {
   .chip-text {
     max-width: 18ch;
@@ -386,7 +390,7 @@ button.usage-context:hover,
   stroke: var(--text-3);
   stroke-width: 6;
 }
-/* 自动压缩触发点：横穿圆环的一道短刻度（UsageMeter 的 Ring），用已用弧和底圈之外的中性色 */
+/* 自动压缩触发点：从圆环向里的一道短刻度（UsageMeter 的 Ring；不伸出外圈，伸出去像箭头），用已用弧和底圈之外的中性色 */
 .usage-ring-tick {
   stroke: var(--text-2);
   stroke-width: 1.5;
@@ -434,28 +438,29 @@ button.usage-context:hover,
   flex: 0 1 0;
   min-width: 2px;
 }
-/* omp 的类别：同一个强调色由浅到深（系统一侧浅、消息一侧深），消息最深；omp 新加、界面还不认识的类别用中间色 */
+/* omp 的类别：同一个强调色由浅到深（系统一侧浅、消息一侧深），消息最深；omp 新加、界面还不认识的类别用中间色。
+ * 和浮层底色（--bg-overlay）混，最浅一档也有 35%：和 --border-subtle 混时浅色主题里头两档几乎是白的、暗色里分不开（2026-10-29 审计） */
 .ctx-seg,
 .ctx-swatch {
-  background: color-mix(in srgb, var(--accent) 55%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 60%, var(--bg-overlay));
 }
 .ctx-seg[data-part="systemPrompt"],
 .ctx-swatch[data-part="systemPrompt"] {
-  background: color-mix(in srgb, var(--accent) 25%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 35%, var(--bg-overlay));
 }
 .ctx-seg[data-part="systemTools"],
 .ctx-swatch[data-part="systemTools"],
 .ctx-seg[data-part="builtInTools"],
 .ctx-swatch[data-part="builtInTools"] {
-  background: color-mix(in srgb, var(--accent) 45%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 50%, var(--bg-overlay));
 }
 .ctx-seg[data-part="systemContext"],
 .ctx-swatch[data-part="systemContext"] {
-  background: color-mix(in srgb, var(--accent) 65%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 65%, var(--bg-overlay));
 }
 .ctx-seg[data-part="skills"],
 .ctx-swatch[data-part="skills"] {
-  background: color-mix(in srgb, var(--accent) 82%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 80%, var(--bg-overlay));
 }
 .ctx-seg[data-part="messages"],
 .ctx-swatch[data-part="messages"],
@@ -465,11 +470,11 @@ button.usage-context:hover,
 }
 .ctx-seg[data-part="userMessages"],
 .ctx-swatch[data-part="userMessages"] {
-  background: color-mix(in srgb, var(--accent) 70%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent) 72%, var(--bg-overlay));
 }
 .ctx-seg[data-part="assistantThinking"],
 .ctx-swatch[data-part="assistantThinking"] {
-  background: color-mix(in srgb, var(--accent) 78%, var(--bg-app));
+  background: color-mix(in srgb, var(--accent) 88%, var(--bg-overlay));
 }
 .ctx-seg[data-part="toolCalls"],
 .ctx-swatch[data-part="toolCalls"] {
@@ -479,9 +484,13 @@ button.usage-context:hover,
 .ctx-swatch[data-part="toolOutput"] {
   background: color-mix(in srgb, var(--accent) 72%, var(--text));
 }
+/* 剩余空间 = 轨道色（最轻的一档，不压过已用的各段）；图例方块再描一圈 --border，暗色里也看得见 */
 .ctx-seg[data-part="free"],
 .ctx-swatch[data-part="free"] {
   background: var(--border-subtle);
+}
+.ctx-swatch[data-part="free"] {
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 .ctx-seg[data-part="buffer"],
 .ctx-swatch[data-part="buffer"] {
@@ -593,78 +602,6 @@ button.usage-context:hover,
 }
 .mb-grid dd {
   margin: 0;
-}
-
-/* 费用点开的用量对话框（ui/Dialog lg 再加宽到 --dialog-w-xl，className usage-dialog）：高度跟内容走，没有额度账号时不留空；窗口矮了由 Dialog 正文滚动。
-   汇总条、账号块和热力图的组件、样式见 usage-views.tsx / usage.css，这里只改额度的版式：每个账号一张卡，卡内窗口按两列排，
-   每个窗口 = 名称 + 重置时间 + 剩余（重置在剩余左边，同一行，右对齐、等宽数字）/ 整宽进度条。 */
-.ui-dialog.usage-dialog[data-size] {
-  --dialog-w: var(--dialog-w-xl);
-}
-/* 标题行右边、↻ 左边的"2 分钟前更新"（2026-10-24 起从额度区挪上来）：和 ↻ 一样高，竖直居中；离 ↻ 近一点，读成一组。 */
-.usage-dialog .usage-updated {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  height: var(--control-h-sm);
-  margin-right: calc(-1 * var(--space-2));
-  font-size: var(--fs-xs);
-  color: var(--text-3);
-  white-space: nowrap;
-}
-.usage-dialog .qm {
-  gap: var(--space-5);
-}
-.qm-panel {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-}
-/* 账号卡：头一行 状态点 + provider + 账号（+ 备注），下面是窗口 */
-.usage-dialog .uq-block {
-  flex: none;
-  background: var(--bg-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-}
-.usage-dialog .uq-block-grid {
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-}
-.usage-dialog .uq-block-head {
-  flex-flow: row wrap;
-  align-items: baseline;
-  gap: var(--space-0-5) var(--space-2);
-}
-.usage-dialog .uq-block-name {
-  flex: none;
-  max-width: 100%;
-}
-.usage-dialog .uq-limits {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-  gap: var(--space-3) var(--space-6);
-}
-.usage-dialog .uq-limit {
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  grid-template-areas:
-    "name reset left"
-    "bar bar bar";
-  gap: var(--space-1-5) var(--space-3);
-}
-.usage-dialog .uq-limit-name {
-  color: var(--text-2);
-}
-.usage-dialog .uq-limit-left {
-  color: var(--text);
-}
-.usage-dialog .uq-limit-reset {
-  text-align: right;
-}
-.usage-dialog .uq-untouched {
-  padding: var(--space-1) var(--space-1) 0;
 }
 
 .send {
@@ -918,8 +855,10 @@ button.usage-context:hover,
   line-height: var(--lh-xs);
   color: var(--text-2);
 }
+/* 阶段序号（罗马数字）：比阶段名淡一档，读作编号而不是名字的一部分 */
 .todo-phase-no {
   flex: none;
+  color: var(--text-3);
   font-variant-numeric: tabular-nums;
 }
 .todo-phase-name {
@@ -985,8 +924,18 @@ button.usage-context:hover,
 .todo-more[aria-expanded="true"] {
   opacity: 1;
 }
+/* 条目的 ⋯ 菜单在条目里展开（inline）：没有图标，不留 16px 图标列；行高同工具行，删除前不画分隔线（危险色已经区分） */
 .todo-item .ui-menu[data-inline] {
   margin-top: var(--space-1);
+}
+.todo-item .ui-menu[data-inline] .ui-menu-item {
+  grid-template-columns: 0 minmax(0, 1fr) auto;
+  gap: 0;
+  min-height: var(--row-tool);
+  padding-left: var(--space-2);
+}
+.todo-item .ui-menu[data-inline] .ui-menu-sep {
+  display: none;
 }
 /* 已做完的阶段：整个阶段头是个按钮（点开 / 收起） */
 .todo-phase-toggle {
@@ -1005,22 +954,33 @@ button.usage-context:hover,
 .todo-phase[data-collapsed] .todo-phase-head {
   margin-bottom: 0;
 }
-/* 底部：添加条目表单 + 一排小按钮 */
+/* 底部：添加条目表单（一行：条目 / 阶段 / 添加）+ 一排小按钮。表单开着时只要它上面一道线，底栏不再画第二道 */
 .todo-add {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
   gap: var(--space-1-5);
+  align-items: center;
   padding: var(--space-2) var(--space-1) 0;
   margin-top: var(--space-2);
   border-top: 1px solid var(--border-subtle);
 }
+/* 阶段框的 datalist 箭头是 Chromium 自带的黑三角，不跟主题；候选在聚焦 / 输入时照样弹出。
+ * Chromium 给有 list 的输入框的这个箭头用 !important 定了 display，不加 !important 盖不掉（2026-10-29 实测） */
+.todo-add input::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
 .todo-foot {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: var(--space-1);
   padding-top: var(--space-2);
   margin-top: var(--space-2);
   border-top: 1px solid var(--border-subtle);
+}
+.todo-add + .todo-foot {
+  border-top: 0;
+  margin-top: 0;
 }
 /* 工具行里的 Shell / Python 标签（ShellTag）：输入框以 ! / $ 开头时出现；浮层只有一行开关 */
 .ui-chip.shell-tag {
@@ -1086,6 +1046,11 @@ button.usage-context:hover,
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-2);
   animation: pop-in var(--dur-base) var(--ease-out);
+}
+/* @ 文件菜单只有文件名 + 目录：不铺满整个输入框宽（840 宽一行里文字不到 100px），靠左、最宽同中号对话框 */
+.slash.file-menu {
+  right: auto;
+  width: min(var(--dialog-w-md), 100%);
 }
 .slash-row {
   display: flex;
@@ -1360,6 +1325,10 @@ button.usage-context:hover,
 .mp-group-toggle .mp-group-count {
   margin-left: 0;
 }
+/* 和可折叠的提供商组同列时，"常用"这类不可折叠的组标题留出 chevron 的位置，组名同一条左边线 */
+.mp-list:has(.mp-group-toggle) .mp-group:not(.mp-group-toggle) {
+  padding-left: calc(var(--space-2) + var(--icon-sm) + var(--space-1-5));
+}
 .mp-empty {
   margin: var(--space-1-5) var(--space-2-5);
   font-size: var(--fs-xs);
@@ -1431,6 +1400,10 @@ button.usage-context:hover,
   padding-top: var(--space-3);
   border-top: 1px solid var(--border-subtle);
 }
+/* 没有高亮行（搜不到）时底部什么都没有：不留一条孤零零的分隔线 */
+.mp-foot:empty {
+  display: none;
+}
 .mp-params {
   display: flex;
   flex-wrap: wrap;
@@ -1442,8 +1415,11 @@ button.usage-context:hover,
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
+/* 标签用正文字体（"Context""输出""价格"一套字），只有数值用等宽 */
 .mp-param-label {
   color: var(--text-3);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
 }
 .mp-pill {
   padding: 0 var(--space-2);
@@ -1476,11 +1452,6 @@ button.usage-context:hover,
 .mp-ctl-body > .ui-seg > button {
   flex: 1 1 0;
   min-width: 56px;
-}
-.mp-hints {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-1);
 }
 .mp-speed,
 .mp-speed-row {
@@ -1523,7 +1494,7 @@ button.usage-context:hover,
   display: inline-flex;
   flex: none;
   align-items: center;
-  height: 24px;
+  height: var(--control-h-xs);
   padding: 0 1px;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);

@@ -3,7 +3,7 @@ import type { preview as zhCN } from "../zh-CN/preview.ts";
 
 export const preview = {
   title: "File preview",
-  close: "Close preview",
+  close: "Close the file panel",
   open: "Open with default app",
   reveal: "Show in folder",
   modePreview: "Rendered",
@@ -15,7 +15,7 @@ export const preview = {
   zoomOut: "Zoom out",
   zoomFit: "Fit to pane",
   loading: "Reading…",
-  missing: "File not found: {path}",
+  missing: "File not found",
   binary: "This is a binary file and can't be previewed.",
   tooLarge: "File is too large to preview ({size}).",
   readFailed: "Failed to read: {message}",

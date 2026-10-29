@@ -18,7 +18,7 @@ export const tree = {
   searchPlaceholder: "搜索",
   searchLabel: "搜索会话树",
   noMatch: "没有匹配的消息",
-  compaction: "context 已压缩",
+  compaction: "Context 已压缩",
   compactionTokens: "压缩前 {tokens} tokens",
   branchSummary: "分支摘要",
   discard: "{count} 轮会离开当前对话",

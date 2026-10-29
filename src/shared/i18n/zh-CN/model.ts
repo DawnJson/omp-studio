@@ -3,9 +3,9 @@ import type { MessageEntry } from "../index.ts";
 export const model = {
   search: "搜索模型",
   empty: "没有可用模型",
+  noMatch: "没有匹配的模型",
   pinned: "常用",
   thinking: "思考强度",
-  "thinking.unsupported": "不支持",
   addProvider: "添加 provider…",
   title: "切换模型",
   list: "模型列表",

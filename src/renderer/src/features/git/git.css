@@ -111,9 +111,23 @@
   font-weight: var(--fw-strong);
   color: var(--text-2);
 }
+/* 提交对话框页脚左侧：勾选项和"评审改动"按中线对齐（行内排时按基线，按钮高 4px） */
+.git-foot-start {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* 冲突文件 / 清理报告的列表：一块凹底，行之间有间距，长路径在块里折行；太长时块内滚动（2026-10-29 审计 DLG-30） */
 .git-files {
+  display: grid;
+  gap: var(--space-1);
+  max-height: 40vh;
   margin: 0;
-  padding: 0;
+  padding: var(--space-2) var(--space-3);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
   list-style: none;
   font-family: var(--font-mono);
   font-size: var(--fs-code-sm);
@@ -124,6 +138,13 @@
   margin-left: var(--space-2);
   font-family: var(--font-sans);
   color: var(--text-3);
+}
+/* 确认框正文里的分支名 */
+.git-branch {
+  font-family: var(--font-mono);
+  font-size: var(--fs-code-sm);
+  color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 /* 侧栏任务行上的 worktree 标记：只有图标，分支名在悬停提示里。 */

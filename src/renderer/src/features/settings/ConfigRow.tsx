@@ -2,7 +2,7 @@
 // 描述放进 ⓘ（悬停/聚焦/点击）；搜索命中的是描述而不是标签时，才在控件下面就地显示那一句。
 // 常用项显示人话标签；其余显示 key（等宽，高级页里去掉小标题已经写出的前缀），描述是 omp 原文。
 // 只有真有话要说时才多出一行：保存或校验错误。保存成功弹"已保存"气泡（toast），不在行里占位。
-import { memo } from "react";
+import { Fragment, memo } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { enumLabel } from "../../../../shared/ui/config-labels.ts";
@@ -55,7 +55,7 @@ export const ConfigRow = memo(function ConfigRow({
 
   return (
     <Row
-      label={text.label ?? <span className="st-key">{shownKey}</span>}
+      label={text.label ?? <span className="st-key">{breakAfterDots(shownKey)}</span>}
       info={
         hasTip ? (
           <>
@@ -114,3 +114,17 @@ export const ConfigRow = memo(function ConfigRow({
     </Row>
   );
 });
+
+/** 长 key 只在点后面折行（compaction.<wbr>modelThresholdsEnabled），不从单词中间断开。 */
+function breakAfterDots(key: string) {
+  return key.split(".").map((part, index, parts) => (
+    <Fragment key={index}>
+      {part}
+      {index < parts.length - 1 && (
+        <>
+          .<wbr />
+        </>
+      )}
+    </Fragment>
+  ));
+}

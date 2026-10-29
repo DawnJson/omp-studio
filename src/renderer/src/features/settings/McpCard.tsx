@@ -17,7 +17,9 @@ import { pushToast } from "../dialogs/toast-store.ts";
 import { mcpResource, runMcpTest, runMcpWrite } from "./integrations-data.ts";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
 import { McpForm } from "./McpForm.tsx";
+import { monogram } from "./monogram.ts";
 import { RowMenu } from "./RowMenu.tsx";
+import { TitleTip } from "./TitleTip.tsx";
 import { useAsyncAction } from "./use-async-action.ts";
 import "./integrations.css";
 
@@ -58,7 +60,7 @@ function McpRow({
   return (
     <ListRow
       testId={`mcp-row-${row.name}`}
-      icon={row.name.slice(0, 2)}
+      icon={monogram(row.name)}
       title={row.name}
       badges={
         <>
@@ -194,7 +196,7 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
   return (
     <div className="st-section" data-testid="mcp-card">
       <SectionHead
-        title={t("integrations.mcp.title")}
+        title={<TitleTip title={t("integrations.mcp.title")} tip={t("integrations.mcp.note")} />}
         count={data?.servers.length}
         actions={
           <>
@@ -218,7 +220,6 @@ export function McpCard({ scope }: { scope: ScopeKey }) {
           </>
         }
       />
-      <p className="ig-note">{t("integrations.mcp.note")}</p>
       {load.kind === "error" && (
         <Notice tone="error" testId="mcp-load-failed">
           <span className="ig-raw">{t("integrations.loadFailed", { message: errorDetail(load.error) })}</span>

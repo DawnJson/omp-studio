@@ -2,7 +2,6 @@ import type { MessageEntry } from "../index.ts";
 
 /** TSP 任务的子代理面板（spec §4.28）。 */
 export const agents = {
-  title: "Subagent",
   panelLabel: "Subagent 面板",
   close: "关闭 subagent 面板",
   resize: "调整面板宽度",
@@ -11,7 +10,6 @@ export const agents = {
   slashDesc: "Subagent 面板",
   listLabel: "Subagent 列表",
   empty: "还没有 subagent",
-  focusedEmpty: "正在 {name} 的对话里",
   background: "后台",
   statusPending: "等待中",
   statusRunning: "运行中",
@@ -24,7 +22,7 @@ export const agents = {
   progress: "完成度",
   progressTitle: "完成度 {percent}%",
   cost: "费用",
-  tokens: "token",
+  tokens: "Token",
   requests: "请求",
   tools: "工具调用",
   time: "用时",

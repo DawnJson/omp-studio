@@ -9,6 +9,7 @@ import { Badge, Button, IconButton, ListRow, Notice, SectionHead, type Tone } fr
 import { Skeleton } from "../../ui/Skeleton.tsx";
 import { describeError } from "../../ui/errors.ts";
 import { MarketplacesCard } from "./MarketplacesCard.tsx";
+import { monogram } from "./monogram.ts";
 import { PluginRow } from "./PluginRow.tsx";
 import {
   dismissReload,
@@ -162,7 +163,7 @@ export function PluginsSection({ projectId }: { projectId: ProjectId | null }) {
             {state.doctor.data.map((check) => (
               <ListRow
                 key={check.name}
-                icon={check.name.slice(0, 2)}
+                icon={monogram(check.name)}
                 title={check.name}
                 badges={<Badge tone={STATUS_TONES[check.status]}>{t(STATUS_KEYS[check.status])}</Badge>}
                 meta={check.message}

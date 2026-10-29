@@ -140,10 +140,12 @@ export function SettingsCompactNav() {
   const searching = query.trim() !== "";
   return (
     <div className="snav-compact" data-testid="settings-nav-compact" onKeyDown={onSettingsKeyDown}>
+      {/* 搜索时下拉没有选中项（选回当前这一节也要能退出搜索），占位文字是当前节名（占位色，淡）；
+          2026-10-29 审计 SET-21：原来占位写"搜索设置"，像是有一节叫这个 */}
       <Select<SettingsPage>
         size="sm"
         value={searching ? ("" as SettingsPage) : page}
-        placeholder={t("settings.search")}
+        placeholder={t(`settings.${page}`)}
         options={settingsPages.map((item) => ({ value: item, label: t(`settings.${item}`) }))}
         label={t("settings.sections")}
         onChange={setSettingsPage}

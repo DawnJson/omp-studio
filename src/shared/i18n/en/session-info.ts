@@ -65,7 +65,7 @@ export const sessionInfo = {
   "trace.truncated": "Showing only the latest {count}.",
   "trace.col.time": "Time",
   "trace.col.model": "Model",
-  "trace.col.tokens": "Tokens (in / out)",
+  "trace.col.tokens": "Tokens in / out",
   "trace.col.cost": "Cost",
   "trace.col.stop": "Result",
   "trace.agent": "Subagent {name}",

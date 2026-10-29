@@ -215,6 +215,8 @@ class TaskBrowser implements CdpBridgeHost {
     // omp 连上时（connected）关掉，见那里。
     contents.setBackgroundThrottling(this.bridge.clientCount === 0);
     view.setBounds(this.#bounds);
+    // 圆角同占位区（.browser-view 的 --radius-md）：页面四边都和面板留出间距，方角会显得贴上去。
+    view.setBorderRadius(6);
     view.setVisible(false);
     const page = new ElectronPage(view, this.bridge);
     contents.setWindowOpenHandler(({ url }) => {

@@ -153,12 +153,17 @@
   border-radius: var(--radius-md);
 }
 
+/* 没有统计库时只有"标题 + 一句说明"：说明比标题轻一档，两行贴在一起（2026-10-29：原来说明 --fs-base 比标题还重，卡片空出 100 高） */
 .eu-note {
   margin: 0;
-  font-size: var(--fs-base);
-  line-height: var(--lh-base);
-  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
+  color: var(--text-3);
   text-wrap: pretty;
+}
+
+.eu[data-state="no-database"] {
+  gap: var(--space-1);
 }
 
 /* 点阵：每天一列，从下往上亮，铺满卡片宽（SVG 按 viewBox 等比缩放，点保持圆）。没用量的格子是很淡的点，

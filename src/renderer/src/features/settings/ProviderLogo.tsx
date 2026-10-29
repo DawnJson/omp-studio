@@ -2,6 +2,7 @@
 // 图形拷自 LobeHub Icons（@lobehub/icons-static-svg 1.98.0 的单色版 icons/<名字>.svg，MIT，https://github.com/lobehub/lobe-icons；
 // 许可证随包分发：provider-logos-LICENSE.txt → 安装目录 resources/licenses/）。只拷 omp 18.12.6 的 provider 列表里能对上的，
 // 由 ProviderLogo 用 currentColor 画成 React 元素，不用 innerHTML。新 provider 要 logo：从同一个包里拷 path，加进 logos 和 byProvider。
+import { monogram } from "./monogram.ts";
 
 interface Logo {
   title: string;
@@ -409,7 +410,7 @@ const byProvider: Readonly<Record<string, keyof typeof logos>> = {
 /** ListRow 的图标格：有 logo 画 logo（单色，跟文字颜色走），没有就是名字的首字母。 */
 export function ProviderLogo({ id, name }: { id: string; name: string }) {
   const logoName = byProvider[id];
-  if (logoName === undefined) return name.slice(0, 1).toUpperCase();
+  if (logoName === undefined) return monogram(name);
   const logo: Logo = logos[logoName];
   const size = logo.size ?? 24;
   return (

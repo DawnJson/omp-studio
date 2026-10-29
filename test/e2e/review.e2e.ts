@@ -414,6 +414,11 @@ test("评审：不是 git 仓库的任务目录给出明确提示；快捷键 Ct
     await page.keyboard.press("Control+Shift+D");
     await expect(page.getByTestId("review")).toBeVisible();
     await expect(page.getByTestId("review-not-git")).toBeVisible();
+    // 不是 git 仓库是正常状态：不取 +a −d，不弹错误 toast；视图切换也不显示。
+    await page.getByTestId("review-refresh").click();
+    await expect(page.getByTestId("review-not-git")).toBeVisible();
+    await expect(page.locator('[data-testid="toasts"] .toast[data-level="error"]')).toHaveCount(0);
+    await expect(page.getByTestId("mode-unified")).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("review")).toBeHidden();
     await expect(page.getByTestId("composer-input")).toBeFocused();

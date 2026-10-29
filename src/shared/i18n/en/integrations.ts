@@ -25,12 +25,11 @@ export const integrations = {
   "mcp.remove.body":
     "This removes the entry from omp's {scope} config. A server with the same name in the other scope is not affected.",
   "mcp.name": "Name",
-  "mcp.name.tip": "Letters, digits, . _ -",
+  "mcp.name.invalid": "Use only letters, digits, . _ -",
   "mcp.kind": "Type",
   "mcp.kind.stdio": "Local command",
   "mcp.command": "Command",
   "mcp.args": "Arguments",
-  "mcp.args.tip": "One per line, no quotes",
   "mcp.token": "Token",
   "mcp.token.tip": "Stored in the config file as an Authorization: Bearer header",
   "mcp.edit": "Edit",

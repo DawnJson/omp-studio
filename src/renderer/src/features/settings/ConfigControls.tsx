@@ -143,7 +143,7 @@ function parseJson(text: string, type: OmpConfigItem["type"], t: TFunction): Jso
   return { value: parsed };
 }
 
-/** 行内的"编辑…"按钮 + 等宽摘要；点开是一个对话框，内容由调用方给。 */
+/** 行内的"编辑…"按钮 + 等宽摘要（空值不写摘要：单独一个"{}"像个图标，不像值）；点开是一个对话框，内容由调用方给。 */
 function EditButton({ summary, onOpen, title }: { summary: string; onOpen(): void; title: string }) {
   const t = useT();
   return (
@@ -151,9 +151,11 @@ function EditButton({ summary, onOpen, title }: { summary: string; onOpen(): voi
       <Button size="sm" onClick={onOpen}>
         {t("settings.cfg.edit")}
       </Button>
-      <span className="st-summary" title={title}>
-        {summary}
-      </span>
+      {summary !== "" && (
+        <span className="st-summary" title={title}>
+          {summary}
+        </span>
+      )}
     </>
   );
 }
@@ -170,7 +172,7 @@ function JsonControl({ item, title, onSave }: ControlProps) {
   return (
     <>
       <EditButton
-        summary={item.hasValue ? shortValue(item.value, 40) : empty}
+        summary={JSON.stringify(current) === empty ? "" : shortValue(current, 40)}
         title={shortValue(current, 400)}
         onOpen={() => {
           setDraft(JSON.stringify(current, null, 2));
@@ -199,25 +201,28 @@ function JsonControl({ item, title, onSave }: ControlProps) {
         }
         testId="cfg-json-dialog"
       >
-        <Textarea
-          mono
-          rows={14}
-          value={draft}
-          invalid={error !== null}
-          onChange={setDraft}
-          aria-label={title}
-          data-autofocus=""
-          testId="cfg-json-text"
-        />
-        {/* 错误行始终占位（无错误时放不间断空格）：边输入边校验，对话框高度不随错误出现 / 消失而变 */}
-        <p
-          className="ui-help"
-          data-tone={error === null ? undefined : "error"}
-          role={error === null ? undefined : "alert"}
-          aria-hidden={error === null ? true : undefined}
-        >
-          {error ?? "\u00a0"}
-        </p>
+        {/* 错误行始终占位（无错误时放不间断空格）：边输入边校验，对话框高度不随错误出现 / 消失而变；
+            和文本框挨着（字段内的间距），不隔一整段表单间距，没有错误时底下不空出一大块 */}
+        <div className="cfg-json">
+          <Textarea
+            mono
+            rows={14}
+            value={draft}
+            invalid={error !== null}
+            onChange={setDraft}
+            aria-label={title}
+            data-autofocus=""
+            testId="cfg-json-text"
+          />
+          <p
+            className="ui-help"
+            data-tone={error === null ? undefined : "error"}
+            role={error === null ? undefined : "alert"}
+            aria-hidden={error === null ? true : undefined}
+          >
+            {error ?? "\u00a0"}
+          </p>
+        </div>
       </Dialog>
     </>
   );

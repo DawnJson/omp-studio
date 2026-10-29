@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import type { WorktreeCleanupResult, WorktreeSetupInfo } from "../../../../shared/git.ts";
 import type { ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { Diff } from "../../icons.tsx";
 import { primaryMod } from "../../app/platform-keys.ts";
 import { useSelectedTaskId } from "../../store/index.ts";
 import { openReview } from "../../store/review-store.ts";
@@ -40,13 +41,14 @@ function CommitDialog({ taskId, open }: { taskId: TaskId; open: boolean }) {
       title={t("git.commit.title")}
       testId="git-commit-dialog"
       footStart={
-        <>
+        <span className="git-foot-start">
           <Checkbox checked={stageAll} onChange={setStageAll} testId="git-commit-stage-all">
             {t("git.commit.stageAll")}
           </Checkbox>
           <Button
             variant="quiet"
             size="sm"
+            icon={<Diff size={14} />}
             testId="git-commit-review"
             onClick={() => {
               closeGitDialog();
@@ -55,7 +57,7 @@ function CommitDialog({ taskId, open }: { taskId: TaskId; open: boolean }) {
           >
             {t("git.commit.review")}
           </Button>
-        </>
+        </span>
       }
       footer={
         <>
@@ -148,11 +150,19 @@ function PullRequestDialog({ taskId, defaultTitle, open }: { taskId: TaskId; def
 function DiscardDialog({ taskId, branch }: { taskId: TaskId; branch: string }) {
   const t = useT();
   const selected = useSelectedTaskId();
+  // 分支名用等宽字（和正文分得开，"worktree 目录"不会和它连成一串）：译文里 {branch} 的位置切开，中间放 <code>
+  const [before, after] = t("git.discard.body", { branch: "\u0000" }).split("\u0000");
   return (
     <ConfirmDialog
       danger
       title={t("git.discard.title")}
-      body={t("git.discard.body", { branch })}
+      body={
+        <>
+          {before}
+          <code className="git-branch">{branch}</code>
+          {after}
+        </>
+      }
       confirmLabel={t("git.discard.confirm")}
       testId="git-discard-dialog"
       onCancel={closeGitDialog}
@@ -169,6 +179,7 @@ function ConflictDialog({ files, open }: { files: string[]; open: boolean }) {
       onClose={closeGitDialog}
       title={t("git.merge.conflictTitle")}
       desc={t("git.merge.conflictBody")}
+      hideClose
       testId="git-conflict-dialog"
       footer={
         <Button variant="primary" data-autofocus="" onClick={closeGitDialog}>
@@ -193,6 +204,7 @@ function CleanupDialog({ result, open }: { result: WorktreeCleanupResult; open: 
       open={open}
       onClose={closeGitDialog}
       title={t("git.cleanup.title")}
+      hideClose
       testId="git-cleanup-dialog"
       footer={
         <Button variant="primary" data-autofocus="" onClick={closeGitDialog}>

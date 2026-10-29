@@ -68,7 +68,6 @@ export const review = {
   commitGenerate: "Generate",
   commitGenerateTip: "Write a message from staged changes",
   commitGenerateNone: "Nothing is staged. Stage the files to commit first",
-  commitGenerating: "Generating…",
   commitGenerateCancel: "Cancel",
   commitAmend: "Amend previous commit",
   commitAmendLoading: "Reading the previous commit…",

@@ -13,6 +13,7 @@ import { useDialogSlot } from "../../ui/presence.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
 import { sshResource } from "./integrations-data.ts";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
+import { monogram } from "./monogram.ts";
 import { RowMenu } from "./RowMenu.tsx";
 import { SshForm } from "./SshForm.tsx";
 import { useAsyncAction } from "./use-async-action.ts";
@@ -99,7 +100,7 @@ export function SshCard({ scope }: { scope: ScopeKey }) {
             <ListRow
               key={`${host.scope}:${host.name}`}
               testId={`ssh-row-${host.name}`}
-              icon={host.name.slice(0, 2)}
+              icon={monogram(host.name)}
               title={host.name}
               badges={
                 <>

@@ -46,10 +46,14 @@ function compact(locale: Locale, value: number): string {
   return new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
 
-/** 有的 provider 把窗口写进了名字（"Claude 5 Hour"），有的没有（"Gemini" + "Weekly"）：没写进去才补。 */
+/** 名字里已经带了时长（数字或 小时 / 天 / 周 / 月 / hour / day / week / month 之类）的不再补窗口缩写。 */
+const DURATION_WORD = /\d|hour|day|week|month|daily|小时|天|日|周|月/i;
+
+/** 有的 provider 把窗口写进了名字（"Claude 5 Hour"、"Opus 每周"），有的没有（"Gemini"）：名字里没有时长才补
+ *  " · 7d"，不然就是"5 小时 · 5h"这种同一件事说两遍。 */
 function limitName(limit: QuotaLimit): string {
   const base = limit.label || limit.id;
-  return limit.windowLabel && !base.includes(limit.windowLabel) ? `${base} · ${limit.windowLabel}` : base;
+  return limit.windowLabel && !DURATION_WORD.test(base) ? `${base} · ${limit.windowLabel}` : base;
 }
 
 /** 一个额度窗口一行：名称 | 进度条（剩余） | 剩余百分比 | 重置时间。窄了名称在上、条在下。 */

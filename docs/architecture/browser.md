@@ -54,7 +54,8 @@ puppeteer 25 用 Chrome 的 tab 目标模型：每个页面有一个 `tab` 目�
 ## 和界面的配合
 
 - 页面是原生视图，叠在应用页面上面。渲染进程把占位区（`browser-view`）的位置告诉主进程（`placeBrowser`，CSS 像素，主进程乘页面缩放）：`ResizeObserver` + 窗口 resize + 面板滑入动画结束（`animationend`，滑入用 transform，`ResizeObserver` 看不到位置变化）。
-- 原生视图压住的地方鼠标点不到应用页面：占位区左边让出面板拖拽条（`.file-preview-resizer`，4px）的宽度（`browser.css` 的 `margin-left`），否则拖拽条只剩头部那一段拖得动（2026-10-29 修，此前用户反映调不了宽度）。拖动中指针移到页面上照样发给应用页面（按下时应用页面拿着捕获；窗口消息模拟拖动实测，Electron 44）。Playwright 的鼠标直接发给应用页面的 webContents，不经过这层命中，e2e 用占位区和拖拽条的位置关系守着。
+- 原生视图压住的地方鼠标点不到应用页面：占位区左边让出面板拖拽条（`.file-preview-resizer`，4px）的宽度（`browser.css` 的 `margin`），否则拖拽条只剩头部那一段拖得动（2026-10-29 修，此前用户反映调不了宽度）。右边和下边也留 4px，视图圆角 6px（主进程 `view.setBorderRadius(6)`，和占位区的 `--radius-md` 一致），不压住面板的圆角和描边。拖动中指针移到页面上照样发给应用页面（按下时应用页面拿着捕获；窗口消息模拟拖动实测，Electron 44）。Playwright 的鼠标直接发给应用页面的 webContents，不经过这层命中，e2e 用占位区和拖拽条的位置关系守着。
+- 页面视图盖在头部下面，头部按钮的悬停提示要画在上方（头部带 `data-tip-side="top"`，`ui/Tooltip.tsx`），画在下方会被页面挡住。
 - 遮罩弹窗开着（`ui/title-bar-dim.ts` 的计数）、或 body 下的浮层（菜单、下拉、toast）压到占位区时，把视图藏起来（`placeBrowser("covered")`），否则浮层会被它挡住。原生 `title` 提示不在页面里，不用管。面板关掉或换到别的任务（`BrowserPanel` 卸载）发 `placeBrowser(null)`：主进程据此区分“面板开着、暂时挡住”和“面板关了”，只有后者会关页面。
 - 面板关掉时视图隐藏，omp 还在时页面和 CDP 连接都留着：omp 在后台继续用，再打开还是原来那页。
 

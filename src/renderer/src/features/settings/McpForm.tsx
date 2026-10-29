@@ -120,11 +120,8 @@ export function McpForm({
           onChange={live ? setCommand : noop}
         />
       </FormField>
-      <FormField
-        label={t("integrations.mcp.args")}
-        htmlFor={live ? `${uid}-args` : undefined}
-        help={t("integrations.mcp.args.tip")}
-      >
+      {/* 一行一个：占位符的两行示例已经说明，不另写帮助文字（2026-10-29 审计 SET-18） */}
+      <FormField label={t("integrations.mcp.args")} htmlFor={live ? `${uid}-args` : undefined}>
         <Textarea
           id={live ? `${uid}-args` : undefined}
           mono
@@ -250,10 +247,11 @@ export function McpForm({
           if (canSave && !busy) void submit();
         }}
       >
+        {/* 名称的规则只在填错时说（2026-10-29 审计 SET-18：原来常驻一行"字母、数字、. _ -"） */}
         <FormField
           label={t("integrations.mcp.name")}
           htmlFor={`${uid}-name`}
-          help={edit === undefined ? t("integrations.mcp.name.tip") : undefined}
+          error={name !== "" && !nameOk ? t("integrations.mcp.name.invalid") : undefined}
         >
           <TextField
             id={`${uid}-name`}
@@ -261,6 +259,7 @@ export function McpForm({
             width="100%"
             autoComplete="off"
             data-autofocus={edit === undefined ? "" : undefined}
+            invalid={name !== "" && !nameOk}
             value={name}
             disabled={edit !== undefined}
             placeholder="my-server"

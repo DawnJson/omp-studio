@@ -3,7 +3,7 @@ import { describeError } from "../../ui/errors.ts";
 import { useEffect, useMemo } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { useOmpStatus } from "../../store/index.ts";
+import { setSettingsQuery, useOmpStatus } from "../../store/index.ts";
 import { Button, Notice } from "../../ui/controls.tsx";
 import { AdvancedConfig, CommonConfig, ConfigResults } from "./ConfigSection.tsx";
 import { groupConfigItems, groupOf, type ConfigGroup } from "../../../../shared/ui/config-groups.ts";
@@ -80,9 +80,13 @@ export function OmpConfigPane({ view }: { view: ConfigView }) {
   switch (view.kind) {
     case "search":
       if (results.length === 0) {
+        // 空状态：一句话 + 下一步（清除搜索），居中（2026-10-29 审计 SET-19）
         return (
-          <div className="cfg-state" role="status">
+          <div className="cfg-state cfg-empty" role="status" data-testid="settings-search-empty">
             <p className="cfg-empty-title">{t("settings.search.empty", { query })}</p>
+            <Button size="sm" variant="quiet" onClick={() => setSettingsQuery("")} testId="settings-search-reset">
+              {t("settings.search.clear")}
+            </Button>
           </div>
         );
       }

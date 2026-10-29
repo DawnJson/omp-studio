@@ -40,7 +40,7 @@ export function ModeChip({ taskId, task }: { taskId: TaskId; task: TaskState }) 
         <Icon size={14} />
         <span data-testid="mode-chip-label">{label}</span>
       </button>
-      <Popover open={open} onClose={() => setOpen(false)} label={t("modes.title")} width={340}>
+      <Popover open={open} onClose={() => setOpen(false)} label={t("modes.title")} width={340} align="end">
         <ModeSection taskId={taskId} task={task} />
       </Popover>
     </div>

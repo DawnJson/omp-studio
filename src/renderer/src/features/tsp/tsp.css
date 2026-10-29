@@ -218,7 +218,8 @@
 
 /* 对话线：贴对话区右缘（覆盖式滚动条左边），每条用户消息一个横刻度，从上往下排，整列在对话区上下各留 --space-6 的高度里竖直居中；
  * 消息多时刻度间距压缩（最小 3px），压到最小还放不下就在线里滚动（不显示滚动条；safe center 让溢出时从第一条排起）。
- * 刻度平时 --border-strong 短线，悬停 --text-2，正在读的那一条 --text 且更长。宽 12 落在对话列的最小留白（--gutter 24）里，不压正文；
+ * 刻度平时 --border-strong 短线，悬停 --text-2，正在读的那一条 --text 且更长。宽 8（2026-10-29 从 12 收窄）：对话列贴满留白（--gutter 24）时，
+ * 刻度和气泡右缘之间还留 4px，不再贴着用户气泡；
  * 刻度之外的空白不接点击，点得到下面的对话。 */
 .tsp-convline {
   position: absolute;
@@ -230,13 +231,13 @@
   flex-direction: column;
   align-items: flex-end;
   justify-content: safe center;
-  width: 12px;
+  width: var(--space-2);
   overflow-y: auto;
   scrollbar-width: none;
   pointer-events: none;
 }
 .tsp-convline-tick {
-  flex: 0 1 12px;
+  flex: 0 1 var(--space-3);
   min-height: 3px;
   width: 100%;
   padding: 0;
@@ -251,11 +252,11 @@
 /* 长短用 transform 缩放，不动 width：滚动时当前那一条一直在换，过渡 width 会让每一帧都重新排版、整个视口重画（2026-10-28 实测滚动卡顿的原因）。 */
 .tsp-convline-tick::after {
   content: "";
-  width: 12px;
+  width: var(--space-2);
   height: 2px;
   border-radius: 1px;
   background: var(--border-strong);
-  transform: scaleX(calc(8 / 12));
+  transform: scaleX(0.75);
   transform-origin: right center;
   transition:
     transform var(--dur-fast) var(--ease-out),
@@ -425,6 +426,44 @@
 .tsp-card[data-tone="neutral"] {
   background: var(--bg-tool);
   box-shadow: none;
+}
+/* 错误卡（omp.error）：和出错的过程卡片一样只染底色、不描边（白底加一圈淡红线在浅色下几乎看不出边，2026-10-29 审计）。
+ * omp 的动作（Copy error / Switch model）画成安静的小按钮，studio 的"重试"（session-info/RetryButton）排在同一行最前面。 */
+.tsp-card[data-role="omp.error"] {
+  background: var(--st-error-soft);
+  box-shadow: none;
+}
+.tsp-card[data-role="omp.error"] > .tsp-card-body {
+  flex-flow: row wrap;
+  align-items: center;
+}
+.tsp-card[data-role="omp.error"] > .tsp-card-body > * {
+  order: 1;
+}
+.tsp-card[data-role="omp.error"] > .tsp-card-body > :not([data-role="omp.error.actions"], .si-retry) {
+  flex: 1 0 100%;
+  order: 0;
+}
+.tsp-card[data-role="omp.error"] > .tsp-card-body > .si-retry {
+  order: 0;
+  margin-top: 0;
+}
+.tsp-row[data-role="omp.error.action"] {
+  gap: var(--space-1-5);
+  height: var(--control-h-sm);
+  align-items: center;
+  padding: 0 var(--space-2-5);
+  border-radius: var(--radius-md);
+  color: var(--text-2);
+  cursor: pointer;
+}
+/* 没有"重试"（任务还在跑、不是末尾那张卡）时，第一颗动作的字和上面的错误文字对齐：按钮的左内边距挪到卡片留白里 */
+.tsp-card[data-role="omp.error"] > .tsp-card-body:not(:has(> .si-retry)) > [data-role="omp.error.actions"] {
+  margin-left: calc(-1 * var(--space-2-5));
+}
+.tsp-row[data-role="omp.error.action"]:hover {
+  background: var(--bg-hover);
+  color: var(--text);
 }
 .tsp-card.selected {
   box-shadow:
@@ -921,9 +960,16 @@
   min-width: 0;
   flex: 1 1 auto;
 }
+/* 词级强调：跟行的增删色走（灰色的 currentColor 底在红 / 绿行上像选区，2026-10-29 审计）；不在增删行里的退回文字色 */
 .tsp-em {
   border-radius: var(--radius-xs);
   background: color-mix(in srgb, currentColor 22%, transparent);
+}
+.tsp-dl[data-kind="add"] .tsp-em {
+  background: color-mix(in srgb, var(--diff-add-fg) 24%, transparent);
+}
+.tsp-dl[data-kind="del"] .tsp-em {
+  background: color-mix(in srgb, var(--diff-del-fg) 22%, transparent);
 }
 .tsp-dsep {
   display: flex;
@@ -2142,13 +2188,25 @@
   padding: var(--space-1) var(--space-3);
 }
 /* bash 这类卡片的 body 是一层 col(omp.run):命令(code,自带内边距)+ 输出(ansi)+ 底栏(row,Done / Running / Exit)。
- * 输出和底栏也要和命令对齐,不贴卡片左边 */
-.tsp-tool.card > .tsp-tool-body > .tsp-col > :not(.tsp-code, .tsp-diff) {
+ * 输出和底栏也要和命令对齐,不贴卡片左边。折叠着按 preview 夹紧时 body 包在 Clamp 里(.tsp-tool-clamp),同样留边:
+ * wait 卡片的作业行(omp.wait.job)曾贴着卡片左边、压在状态竖条上(2026-10-29)。 */
+.tsp-tool.card > .tsp-tool-body > .tsp-col > :not(.tsp-code, .tsp-diff),
+.tsp-tool.card > .tsp-tool-clamp > .tsp-clamp > div > .tsp-tool-body > .tsp-col > :not(.tsp-code, .tsp-diff) {
   padding-left: var(--space-3);
   padding-right: var(--space-3);
 }
-.tsp-tool.card > .tsp-tool-body > .tsp-col > :last-child:not(.tsp-code, .tsp-diff) {
+.tsp-tool.card > .tsp-tool-body > .tsp-col:last-child > :last-child:not(.tsp-code, .tsp-diff),
+.tsp-tool.card
+  > .tsp-tool-clamp
+  > .tsp-clamp
+  > div
+  > .tsp-tool-body
+  > .tsp-col:last-child
+  > :last-child:not(.tsp-code, .tsp-diff) {
   padding-bottom: var(--space-2);
+}
+.tsp-tool.card > .tsp-tool-clamp > .tsp-more {
+  margin-left: var(--space-2);
 }
 /* 过程卡片(bash / eval 的 body 是一层 col)：命令和输出共用卡片底色，不再是一块灰底加一块白底；
  * 输入和输出之间一条细分隔线，输出下面是安静的底栏。code 在卡片里一律折行，不出横向滚动条。 */
@@ -2814,6 +2872,10 @@
   background: var(--bg-active);
   color: var(--text);
 }
+/* omp 在复制图标后面单独发一个 "·" 文本节点：图标不是一段文字，这个分隔点读起来像列表断了头，不画（2026-10-29 审计） */
+.tsp-row[data-role="omp.turn.usage"] > [data-role="omp.turn.copy"] + .tsp-text {
+  display: none;
+}
 
 /* /jobs 弹窗（omp.overlay.jobs）照 studio 自己的对话框排（2026-10-25）：标题栏、左边作业列表（侧栏底色、整列高）、
    右边详情自己滚动、底栏（摘要 + Close）钉在最下面；卡片高度固定，切作业时不跳。详情里命令 / 事实 / 进度 / 输出
@@ -2921,6 +2983,14 @@
 .tsp-row[data-role="omp.job.widget.spark"] {
   align-items: flex-end;
   gap: var(--space-3);
+}
+/* 作业卡片只留一个强调色：柱子是数据，压到六成浓度不压过文字；数字（omp 的 num 样式，代码高亮的橙色）用正文色等宽，
+ * 不和紫色的柱子、进度条撞成两种强调色（2026-10-29 审计）。 */
+.tsp-row[data-role="omp.job.widget.spark"] .tsp-chart-bars i {
+  opacity: 0.6;
+}
+[data-role^="omp.job."] .tsp-t-num {
+  color: var(--text);
 }
 .tsp-col[data-role="omp.jobs.out"] {
   gap: var(--space-2);

@@ -109,6 +109,8 @@ test("浏览器面板：用户打开网页，omp 连上同一个页面，面板�
     const panel = page.getByTestId("browser-panel");
     await expect(panel).toBeVisible();
     const address = page.getByTestId("browser-address");
+    // 用户打开、还没有页面：焦点直接在地址栏。
+    await expect(address).toBeFocused();
     await address.fill(site.url.replace("http://", ""));
     await address.press("Enter");
     await expect(address).toHaveValue(site.url);
@@ -132,6 +134,17 @@ test("浏览器面板：用户打开网页，omp 连上同一个页面，面板�
     // 左缘的拖拽条不在页面视图下面：原生视图压住的地方点不到应用页面，拖不动（Playwright 的鼠标直接发给应用页面，拖一下看不出来）。
     const resizer = (await panel.getByRole("separator").boundingBox())!;
     expect(Math.round(slot.x)).toBeGreaterThanOrEqual(Math.round(resizer.x + resizer.width));
+    // 右边和下边也留出和左边一样的间距，页面不压住面板的圆角和描边。
+    const frame = (await panel.boundingBox())!;
+    const inset = slot.x - frame.x;
+    expect(Math.round(frame.x + frame.width - (slot.x + slot.width))).toBe(Math.round(inset));
+    expect(Math.round(frame.y + frame.height - (slot.y + slot.height))).toBe(Math.round(inset));
+    // 头部按钮的悬停提示画在上方：画在下方会落在原生页面下面，看不见。
+    await page.getByTestId("browser-close").hover();
+    await expect(page.getByTestId("tooltip")).toBeVisible();
+    const tip = (await page.getByTestId("tooltip").boundingBox())!;
+    expect(tip.y + tip.height).toBeLessThanOrEqual(slot.y);
+    await page.mouse.move(0, frame.y + frame.height / 2);
 
     // 命令面板（带遮罩）打开时页面藏起来，不挡住它；关掉后回来。
     await page.keyboard.press("Control+K");

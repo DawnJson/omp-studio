@@ -252,7 +252,7 @@ export function Tool(props: NodeProps) {
   else {
     fold = OPEN_FOLD;
     content = (
-      <Clamp lines={preview.n} tail={preview.mode === "tail"} onExpand={toggle}>
+      <Clamp className="tsp-tool-clamp" lines={preview.n} tail={preview.mode === "tail"} onExpand={toggle}>
         {body}
       </Clamp>
     );

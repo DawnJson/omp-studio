@@ -177,8 +177,13 @@ export function runOmpCommand(exePath: string, cwd: string, timeoutMs: number): 
   };
 }
 
+/** stderr 最后几行有内容的行：空行和 Node 崩溃末尾的 `Node.js vX` 不算（2026-10-29 起，不然界面上是 "} | | Node.js v24"）。 */
 function stderrTail(stderr: string): string {
-  return stderr.trim().split(/\r?\n/).slice(-3).join(" | ").slice(-400);
+  const lines = stderr
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== "" && !/^Node\.js v\d/.test(line));
+  return lines.slice(-3).join(" | ").slice(-400);
 }
 
 /** 退出码非 0 就抛，带 stderr 末尾。 */

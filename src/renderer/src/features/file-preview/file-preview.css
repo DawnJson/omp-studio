@@ -19,7 +19,7 @@
   outline: none;
 }
 
-/* 左边缘拖拽条：命中区 4px */
+/* 左边缘拖拽条：命中区 4px（浏览器面板的页面视图让开的就是这 4px，browser.css）；悬停 / 聚焦时中间亮一条 1px 线，不刷一整条色块（2026-10-29） */
 .file-preview-resizer {
   position: absolute;
   top: 0;
@@ -28,11 +28,23 @@
   z-index: var(--z-sticky);
   width: var(--space-1);
   cursor: col-resize;
-  transition: background-color var(--dur-fast) var(--ease-out);
 }
-.file-preview-resizer:hover,
-.file-preview-resizer:focus-visible {
+.file-preview-resizer::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 0.5px);
+  width: 1px;
+  content: "";
   background: var(--border-strong);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.file-preview-resizer:hover::after,
+.file-preview-resizer:focus-visible::after {
+  opacity: 1;
+}
+.file-preview-resizer:focus-visible {
   outline: none;
 }
 
@@ -135,10 +147,12 @@
 .file-tree-canvas {
   position: relative;
 }
+/* 行左右各缩进 4px、圆角同子代理列表的行：选中、悬停、键盘光标不顶到面板的圆角描边；
+   4px + 行内 8px = 12px，展开箭头和面板头的页签同一条左线（2026-10-29） */
 .file-tree-row {
   position: absolute;
-  right: 0;
-  left: 0;
+  right: var(--space-1);
+  left: var(--space-1);
   display: flex;
   align-items: center;
   gap: var(--space-1-5);
@@ -146,6 +160,7 @@
   padding: 0 var(--space-2) 0 calc(var(--space-2) + var(--depth) * var(--space-4));
   font-size: var(--fs-sm);
   color: var(--text);
+  border-radius: var(--radius-md);
   cursor: pointer;
   user-select: none;
 }
@@ -195,15 +210,19 @@
   overflow: auto;
 }
 
+/* 不存在 / 二进制 / 太大：一句话（和打开按钮）放在预览区中间 */
 .file-preview-note {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  align-items: flex-start;
+  justify-content: center;
+  align-items: center;
   gap: var(--space-3);
   margin: 0;
   padding: var(--space-4);
   font-size: var(--fs-sm);
   color: var(--text-2);
+  text-align: center;
 }
 
 .file-preview-external {
@@ -324,7 +343,7 @@
   gap: var(--space-1);
   min-width: 0;
   max-width: 14em;
-  height: 22px;
+  height: var(--control-h-xs);
   padding: 0 var(--space-2);
   font: inherit;
   color: var(--text-2);
@@ -353,8 +372,17 @@
   outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
-.file-preview-root-remove {
-  width: 18px;
-  height: 18px;
-  margin-left: 2px;
+/* 一行里的胶囊、移除、添加同高（--control-h-xs），添加按钮的字和胶囊同号。
+   选择器带上 .file-preview-roots：单个类和 controls.css 的 .ui-icon-btn 同级，后加载的那个会把 --btn-h 改回 28 */
+.file-preview-roots .file-preview-root-remove {
+  --btn-h: var(--control-h-xs);
+  margin-left: var(--space-0-5);
+}
+.file-preview-roots .file-preview-root-remove svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.file-preview-roots .ui-btn[data-size="sm"] {
+  --btn-h: var(--control-h-xs);
+  font-size: var(--fs-xs);
 }

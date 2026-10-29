@@ -7,6 +7,7 @@ import { Badge, Button, Disclosure, ListRow, Switch } from "../../ui/controls.ts
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
+import { monogram } from "./monogram.ts";
 import { PluginDetails } from "./PluginDetails.tsx";
 import { runAction } from "./plugins-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
@@ -45,7 +46,7 @@ export function PluginRow({
   return (
     <div data-testid={`plugin-row-${rowKey}`}>
       <ListRow
-        icon={id.slice(0, 2)}
+        icon={monogram(id)}
         title={id}
         badges={scope === "project" ? <Badge>{t("plugins.scope.project")}</Badge> : undefined}
         meta={meta === "" ? undefined : meta}

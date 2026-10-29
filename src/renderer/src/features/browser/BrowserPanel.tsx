@@ -97,6 +97,7 @@ export function BrowserPanel({ taskId }: { taskId: TaskId }) {
   const t = useT();
   const root = useRef<HTMLElement>(null);
   const slot = useRef<HTMLDivElement>(null);
+  const address = useRef<HTMLInputElement>(null);
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
   const width = usePreviewWidth();
   const state = useBrowserState(taskId);
@@ -104,9 +105,13 @@ export function BrowserPanel({ taskId }: { taskId: TaskId }) {
   const [draft, setDraft] = useState<string | null>(null);
   usePlaceBrowser(taskId, slot);
 
-  // 打开时把焦点放进面板：Esc 才关得掉它；关闭后由 store 还焦点。AI 连上时自动打开的不抢焦点。
+  // 打开时把焦点放进面板：Esc 才关得掉它；关闭后由 store 还焦点。还没有页面时直接放进地址栏。AI 连上时自动打开的不抢焦点。
   useLayoutEffect(() => {
-    if (browserPanelTakesFocus()) root.current?.focus({ preventScroll: true });
+    if (!browserPanelTakesFocus()) return;
+    if ((state?.url ?? "") === "") address.current?.focus({ preventScroll: true });
+    else root.current?.focus({ preventScroll: true });
+    // 只在打开时决定一次。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -164,7 +169,8 @@ export function BrowserPanel({ taskId }: { taskId: TaskId }) {
         }}
         onKeyDown={onResizerKey}
       />
-      <header className="file-preview-head browser-head">
+      {/* 头部下面是原生页面，提示画在下方会被它盖住 */}
+      <header className="file-preview-head browser-head" data-tip-side="top">
         <IconButton
           label={t("browser.back")}
           testId="browser-back"
@@ -198,6 +204,7 @@ export function BrowserPanel({ taskId }: { taskId: TaskId }) {
           }}
         >
           <TextField
+            ref={address}
             size="sm"
             width="100%"
             value={draft ?? url}
@@ -207,6 +214,7 @@ export function BrowserPanel({ taskId }: { taskId: TaskId }) {
             }}
             onFocus={(event) => event.currentTarget.select()}
             aria-label={t("browser.address")}
+            placeholder={t("browser.address")}
             spellCheck={false}
             testId="browser-address"
           />

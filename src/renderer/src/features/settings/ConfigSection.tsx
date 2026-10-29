@@ -1,6 +1,6 @@
-// omp 设置的展示：各节页面上的常用项（小标题 + 格子）、"高级"（页内目录 + 选中分组的全部项平铺）、搜索结果（一列行）。
+// omp 设置的展示：各节页面上的常用项（小标题 + 格子）、"高级"（页内目录 + 选中分组的全部项平铺）、搜索结果（格子，同各节页面）。
 // 高级：左侧目录 = omp-studio 的 8 个分组（带个数）+ 当前分组下的前缀小组；右侧是选中分组的项，没有折叠，前缀做小标题。
-import { Fragment, useMemo, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { OmpConfigItem } from "../../../../shared/ipc.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
 import { SectionHead } from "../../ui/controls.tsx";
@@ -14,7 +14,8 @@ import { advancedGroups, commonBlocks, groupTitle, type CommonBlockId } from "./
 
 /**
  * 一组设置的排法（spec §4.19 格子排法）：按顺序逐行填进格子，列数随宽度（settings.css 的 .st-cells）。
- * 各节页面上：控件窄的进格子，文本框、标签输入、JSON 整行排在后面；`allCells`（高级页）：全部进格子，保持 omp 的顺序。
+ * 各节页面上：控件窄的进格子，文本框、标签输入、JSON 排在后面，一行一格（.st-wide，控件靠右，和格子的控件对齐）；
+ * `allCells`（高级页）：全部进格子，保持 omp 的顺序。
  */
 function ConfigGrid({
   items,
@@ -37,7 +38,7 @@ function ConfigGrid({
         </div>
       )}
       {rows.length > 0 && (
-        <div className="st-rows">
+        <div className="st-cells st-wide">
           {rows.map((item) => (
             <ConfigRow key={item.key} item={item} keyPrefix={keyPrefix} />
           ))}
@@ -87,8 +88,54 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
   const groups = useMemo(() => advancedGroups(items), [items]);
   const picked = useStoreValue(pickedStore, (state) => state);
   const current = groups.find((group) => group.group === picked.group) ?? groups[0];
+  // 目录跟着滚动：滚到哪个小组，目录就选中哪个（2026-10-29 审计 SET-05：原来只记最后点的那个）。
+  const [spied, setSpied] = useState<string | null>(null);
+  const rowsRef = useRef<HTMLDivElement>(null);
+  const clickedRef = useRef(false);
+  const sectionKey = current === undefined ? "" : current.group;
+  useEffect(() => {
+    const rows = rowsRef.current;
+    const root = rows?.closest<HTMLElement>(".settings-scroll");
+    if (rows === null || rows === undefined || root === null || root === undefined) return;
+    const sections = [...rows.querySelectorAll<HTMLElement>(".st-adv-sub")];
+    const first = sections[0];
+    if (first === undefined) return;
+    const margin = Number.parseFloat(getComputedStyle(first).scrollMarginTop) || 0;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const top = root.getBoundingClientRect().top + margin + 1;
+      const atBottom = root.scrollTop + root.clientHeight >= root.scrollHeight - 1;
+      // 滚到底时最后几个小组顶不到目录的高度：没点过目录就选最后一个看得见的小组
+      const reached = sections.filter((section) => section.getBoundingClientRect().top <= top);
+      const hit =
+        atBottom && !clickedRef.current
+          ? sections.findLast((section) => section.getBoundingClientRect().top < root.getBoundingClientRect().bottom)
+          : reached.at(-1);
+      setSpied((hit ?? first).dataset["prefix"] ?? "");
+    };
+    const onScroll = () => {
+      if (frame === 0) frame = requestAnimationFrame(update);
+    };
+    // 点了目录之后的那次滚动按点的算；用户自己再滚就重新跟着滚动走
+    const release = () => {
+      clickedRef.current = false;
+    };
+    update();
+    root.addEventListener("scroll", onScroll, { passive: true });
+    root.addEventListener("wheel", release, { passive: true });
+    root.addEventListener("pointerdown", release);
+    root.addEventListener("keydown", release);
+    return () => {
+      cancelAnimationFrame(frame);
+      root.removeEventListener("scroll", onScroll);
+      root.removeEventListener("wheel", release);
+      root.removeEventListener("pointerdown", release);
+      root.removeEventListener("keydown", release);
+    };
+  }, [sectionKey]);
   if (current === undefined) return null;
-  const activePrefix = picked.prefix ?? current.prefixes[0]?.prefix ?? "";
+  const activePrefix = spied ?? picked.prefix ?? current.prefixes[0]?.prefix ?? "";
 
   return (
     <div className="st-adv">
@@ -118,6 +165,8 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
                     className="st-toc-item"
                     aria-current={prefix === activePrefix ? "true" : undefined}
                     onClick={() => {
+                      clickedRef.current = true;
+                      setSpied(prefix);
                       pickedStore.set({ group: picked.group, prefix });
                       document.getElementById(anchorId(group.group, prefix))?.scrollIntoView({ block: "start" });
                     }}
@@ -131,12 +180,13 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
           );
         })}
       </nav>
-      <div className="st-adv-rows" data-testid={`cfg-advanced-${current.group}`}>
+      <div className="st-adv-rows" ref={rowsRef} data-testid={`cfg-advanced-${current.group}`}>
         {current.prefixes.map(({ prefix, items: bucket, modified }) => (
           <section
             key={prefix}
             id={anchorId(current.group, prefix)}
             className="st-adv-sub"
+            data-prefix={prefix}
             data-testid={`cfg-group-${current.group}-${prefix || "other"}`}
           >
             <SectionHead
@@ -157,7 +207,7 @@ export function AdvancedConfig({ items }: { items: readonly OmpConfigItem[] }) {
   );
 }
 
-/** 搜索结果：按 omp-studio 的分组分段，全部展开（匹配的项数通常不多）。 */
+/** 搜索结果：按 omp-studio 的分组分段，全部展开（匹配的项数通常不多）；排法同各节页面的格子，同一项在页面上和搜索里一个样子。 */
 export function ConfigResults({ items, query }: { items: readonly OmpConfigItem[]; query: string }) {
   const locale = useLocale();
   return (
@@ -165,7 +215,7 @@ export function ConfigResults({ items, query }: { items: readonly OmpConfigItem[
       {[...groupConfigItems(items)].map(([group, inGroup]) => (
         <section key={group} className="st-section" data-testid={`cfg-result-${group}`}>
           <SectionHead title={groupTitle(locale, group)} count={inGroup.length} />
-          <div className="st-rows">
+          <div className="st-cells">
             {inGroup.map((item) => (
               <ConfigRow key={item.key} item={item} query={query} />
             ))}

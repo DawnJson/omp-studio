@@ -63,6 +63,13 @@
 .run-cancel {
   flex: none;
 }
+/* 状态行上的动作（取消 / 重试）和药丸、扩展标签同一档 24 高、同 --fs-xs 字号：一行里不再 12 / 16 / 24 / 28 四种高度（2026-10-29 审计）。
+ * 加 [data-size] 压过 controls.css 里 sm 按钮自己的 --btn-h。 */
+.run-status .ui-btn[data-size] {
+  --btn-h: var(--control-h-xs);
+  padding: 0 var(--space-2);
+  font-size: var(--fs-xs);
+}
 .run-interrupted {
   color: var(--st-waiting-text);
 }
@@ -80,8 +87,11 @@
   margin-left: 0;
 }
 .run-ext-tag {
+  /* 块级盒才有省略号（flex 容器里的文字不省略）：高度靠行高撑成 24 */
+  display: inline-block;
   min-width: 0;
   max-width: 22ch;
+  line-height: var(--control-h-xs);
   padding: 0 var(--space-2);
   overflow: hidden;
   color: var(--text-2);

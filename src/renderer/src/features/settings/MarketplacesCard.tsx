@@ -14,6 +14,7 @@ import { Skeleton } from "../../ui/Skeleton.tsx";
 import { ConfirmDialog, Dialog } from "../../ui/Dialog.tsx";
 import { describeError } from "../../ui/errors.ts";
 import { useDialogSlot } from "../../ui/presence.ts";
+import { monogram } from "./monogram.ts";
 import { loadDiscover, runAction, usePluginsState } from "./plugins-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
 import "./integrations.css";
@@ -75,7 +76,7 @@ function Browse({
             <ListRow
               key={entry.name}
               testId={`discover-${id}`}
-              icon={entry.name.slice(0, 2)}
+              icon={monogram(entry.name)}
               title={entry.name}
               badges={entry.version !== null ? <Badge>{entry.version}</Badge> : undefined}
               meta={
@@ -252,7 +253,7 @@ export function MarketplacesCard({
           {snapshot?.marketplaces.map((marketplace) => (
             <div key={marketplace.name} data-testid={`marketplace-${marketplace.name}`}>
               <ListRow
-                icon={marketplace.name.slice(0, 2)}
+                icon={monogram(marketplace.name)}
                 title={marketplace.name}
                 meta={marketplace.source}
                 actions={
@@ -315,14 +316,14 @@ export function MarketplacesCard({
           ))}
         </div>
       )}
+      {/* 推荐的市场：行尾是"添加"，和已添加的市场一眼分得开，不另写一行"推荐市场"（2026-10-29 审计 SET-18） */}
       {presets.length > 0 && (
         <div data-testid="marketplace-presets">
-          <p className="pl-muted">{t("plugins.marketplaces.presets")}</p>
           <div>
             {presets.map((preset) => (
               <ListRow
                 key={preset.source}
-                icon={preset.name.slice(0, 2)}
+                icon={monogram(preset.label[locale])}
                 title={preset.label[locale]}
                 meta={preset.source}
                 testId={`marketplace-preset-${preset.name}`}

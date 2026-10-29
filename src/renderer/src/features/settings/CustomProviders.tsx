@@ -141,22 +141,25 @@ export function CustomProviders() {
             >
               {t("custom.refresh")}
             </Button>
-            <Button
-              size="sm"
-              variant="quiet"
-              onClick={() => void window.studio.openEnvFile().catch((e: unknown) => reportError(t, e))}
-              testId="custom-open-env"
-            >
-              {t("custom.openEnv")}
-            </Button>
-            <Button
-              size="sm"
-              variant="quiet"
-              onClick={() => void window.studio.openModelsFile().catch((e: unknown) => reportError(t, e))}
-              testId="custom-open"
-            >
-              {t("custom.open")}
-            </Button>
+            {/* 两个"打开文件"收进 ⋯：标题行只留一个文字按钮和一个主动作（2026-10-29 审计 SET-26） */}
+            <RowMenu
+              label={t("custom.more")}
+              testId="custom-files"
+              items={[
+                {
+                  id: "open-env",
+                  label: t("custom.openEnv"),
+                  onSelect: () => void window.studio.openEnvFile().catch((e: unknown) => reportError(t, e)),
+                  testId: "custom-open-env",
+                },
+                {
+                  id: "open-models",
+                  label: t("custom.open"),
+                  onSelect: () => void window.studio.openModelsFile().catch((e: unknown) => reportError(t, e)),
+                  testId: "custom-open",
+                },
+              ]}
+            />
             <Button
               size="sm"
               icon={<Plus size={14} />}

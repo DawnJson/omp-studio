@@ -73,6 +73,20 @@ test("侧栏底部只有设置（没有语言、主题菜单）；命令面板�
     await expect(bottom.locator(".sb-settings")).toBeVisible();
 
     await page.keyboard.press("Control+k");
+    // 空查询的列表比面板高：输入行不被压扁，仍是 52 高。
+    const inputRow = page.getByTestId("command-palette").locator(".pl-input-row");
+    await expect(inputRow).toBeVisible();
+    // e2e 的类型检查没有 DOM 类型：列表是普通元素，只读这两个尺寸。
+    type ScrollBox = { scrollHeight: number; clientHeight: number };
+    const listOverflows = await page
+      .getByTestId("command-palette")
+      .locator(".pl-list")
+      .evaluate((el) => {
+        const list: ScrollBox = el as unknown as ScrollBox;
+        return list.scrollHeight > list.clientHeight;
+      });
+    expect(listOverflows).toBe(true);
+    expect((await inputRow.boundingBox())?.height).toBe(52);
     const palette = page.getByTestId("command-palette");
     await palette.getByRole("combobox").fill("关于与反馈");
     await expect(palette.getByRole("option").first()).toContainText("关于与反馈");
@@ -138,6 +152,34 @@ test("窄于 1000px 侧栏变抽屉：开关打开，Esc 收起", async () => {
     await page.keyboard.press("Control+b");
     await expect(root).toHaveAttribute("data-sidebar", "shown");
     await expect(page.getByTestId("drawer-scrim")).toBeVisible();
+    // 遮罩盖住主区的一切（含输入框）：入场动画放完后（.empty 动画期间的 transform 会临时建层叠上下文，掩盖问题），
+    // 输入框中心点上命中的是遮罩，不是输入框。
+    const composer = page.getByTestId("composer-input");
+    await expect(composer).toBeVisible();
+    // e2e 的类型检查没有 DOM 类型：下面只用到 document / 元素的这几个成员。
+    type PageAnimation = { finished: Promise<unknown>; effect: { getTiming(): { iterations?: number } } | null };
+    type HitDocument = {
+      getAnimations(): PageAnimation[];
+      elementFromPoint(x: number, y: number): { closest(selector: string): unknown } | null;
+    };
+    type Rect = { x: number; y: number; width: number; height: number };
+    await page.evaluate(() => {
+      const doc: HitDocument = globalThis.document as unknown as HitDocument;
+      return Promise.all(
+        doc
+          .getAnimations()
+          .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+          .map((animation) => animation.finished),
+      );
+    });
+    const composerUnderScrim = await composer.evaluate((el) => {
+      const target: { getBoundingClientRect(): Rect } = el as unknown as { getBoundingClientRect(): Rect };
+      const doc: HitDocument = globalThis.document as unknown as HitDocument;
+      const r = target.getBoundingClientRect();
+      const hit = doc.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      return hit?.closest('[data-testid="drawer-scrim"]') != null;
+    });
+    expect(composerUnderScrim).toBe(true);
     await page.keyboard.press("Escape");
     await expect(root).toHaveAttribute("data-sidebar", "hidden");
   } finally {

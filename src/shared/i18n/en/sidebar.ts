@@ -11,6 +11,7 @@ export const sidebar = {
   searchNone: "No matches",
   clearSearch: "Clear search",
   waitingOne: "1 task waiting for you · {project}",
+  waitingOneBare: "1 task waiting for you",
   waitingMany: "{n} tasks waiting for you",
   empty: "No tasks yet",
   settings: "Settings",

@@ -17,7 +17,7 @@ import {
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
 import { useHiddenTasks } from "../sidebar/archive-store.ts";
 import { useLoadedHistorySessions } from "../sidebar/use-history-sessions.ts";
-import { CommandIcon, SearchIcon, SessionIcon, SlashIcon, TaskIcon } from "../sidebar/icons.tsx";
+import { CommandIcon, PlusIcon, SearchIcon, SessionIcon, TaskIcon } from "../sidebar/icons.tsx";
 import { useProjects } from "../sidebar/projects-store.ts";
 import { startDraft } from "../empty/index.ts";
 import { useDraftTerminalKey } from "../terminal/index.ts";
@@ -40,7 +40,10 @@ function Highlight({ text, indices }: { text: string; indices: number[] }): Reac
   );
 }
 
-const rowIcon = { task: TaskIcon, session: SessionIcon, command: CommandIcon, slash: SlashIcon } as const;
+/** 斜杠命令的标题本身以 / 开头，图标位留空（宽度照旧，标题仍和其它行左对齐），不再重复画一个 /。 */
+const IconSlot = () => <span className="pl-icon-slot" aria-hidden="true" />;
+
+const rowIcon = { task: TaskIcon, session: SessionIcon, command: CommandIcon, slash: IconSlot } as const;
 
 function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: boolean; exitProps: ExitProps }) {
   const t = useT();
@@ -240,7 +243,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={askInNewTask}
                 >
-                  <SlashIcon />
+                  <PlusIcon />
                   <span className="pl-row-title">{t("palette.askNew")}</span>
                   <kbd className="ui-kbd">↵</kbd>
                 </div>

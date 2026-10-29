@@ -2,7 +2,6 @@ import type { MessageEntry } from "../index.ts";
 
 export const omp = {
   finding: "正在查找 omp…",
-  found: "检测到 omp {version}（{source}）",
   "source.other": "由 {name} 管理",
   "source.studio": "由 omp-studio 管理",
   "source.user": "你自己安装的",
@@ -23,6 +22,7 @@ export const omp = {
   "takeover.otherBodyStudioOnly": "omp-studio 可以另装一份官方 omp 自己用；{name} 的那份、终端里用的 omp 都不变。",
   "takeover.keepOther": "继续用 {name} 的",
   "takeover.where": "位置：{path}",
+  "takeover.whereVersion": "位置：{path} · {version}",
   "takeover.yes": "由 omp-studio 管理",
   "takeover.no": "取消",
   "takeover.keep": "继续用我的",
