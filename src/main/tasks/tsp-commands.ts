@@ -90,6 +90,8 @@ export class TspCommands {
   /**
    * 切模型：点 omp 输入框上的模型胶囊（action `status.model` = Alt+P）打开选择器，在选择器里 `activate` 那一项
    * （item id 就是 `provider/model`）；omp 关掉选择器并给出 "Session-only model: <id>" 的提示（或输入框的模型名变了）才算完成。
+   * 会话上下文比目标模型的窗口大时，omp 先用当前模型压缩、压缩完才切（omp 18.14.0 实测，fixtures/tsp/switch-compact*.jsonl）：
+   * 选择器当场关掉、dock 里出现压缩行，这时改按压缩的上限等。omp 写出的错误行（如压缩失败）原文抛出，模型没换。
    */
   setModel(key: ModelKey): Promise<void> {
     return this.#host.exclusive(async () => {
@@ -109,18 +111,40 @@ export class TspCommands {
       }
       const previousChoice = this.#host.chosenKey();
       this.#host.setChosenKey(key);
+      const errorsBefore = errorLines(session.document);
       session.sendEvent({ ev: "activate", sf: picker.sf, id: picker.id, item: id });
+      /** 这次切换的结局：切过去了 error 为 null，omp 报了错是它的原文；还没有结局为 null。 */
+      const outcome = (document: TspDocument): { error: string | null } | null => {
+        const error = newErrorLine(document, errorsBefore);
+        if (error !== null) return { error };
+        if (findPicker(document) !== null) return null;
+        const confirmed = statusToastTexts(document).some((text) => text.includes(`Session-only model: ${id}`));
+        const renamed = deriveComposerInfo(document)?.modelName;
+        return confirmed || (renamed !== undefined && renamed !== null && renamed !== nameBefore)
+          ? { error: null }
+          : null;
+      };
       try {
-        await this.#host.awaitDocument(
-          (document) => {
-            if (findPicker(document) !== null) return null;
-            const confirmed = statusToastTexts(document).some((text) => text.includes(`Session-only model: ${id}`));
-            const renamed = deriveComposerInfo(document)?.modelName;
-            return confirmed || (renamed !== undefined && renamed !== null && renamed !== nameBefore) ? true : null;
-          },
+        let result = await this.#host.awaitDocument(
+          (document) =>
+            outcome(document) ??
+            (findPicker(document) === null && deriveComposerFacts(document).compaction !== null
+              ? ("compacting" as const)
+              : null),
           CONFIRM_TIMEOUT_MS,
           `omp did not confirm switching to ${id}`,
         );
+        if (result === "compacting")
+          result = await this.#host.awaitDocument(
+            outcome,
+            COMPACT_TIMEOUT_MS,
+            `omp did not finish compacting before switching to ${id}`,
+          );
+        if (result.error !== null) {
+          // 别的错误（没有 key 等，未实测）选择器可能还开着：关掉它，别挡着输入框。
+          if (findPicker(session.document) !== null) session.sendKeys(ESC_KEY);
+          throw new Error(result.error);
+        }
       } catch (error) {
         this.#host.setChosenKey(previousChoice);
         throw error;

@@ -1,11 +1,15 @@
-// omp 往对话里写的一行错误文字（斜杠命令失败时）：main 里新增一个 `text` 节点，span 样式含 `error`，文字以 `Error: ` 开头。
-// 没有 toast、没有节点 role。实测 omp 18.12.5 / 18.12.6：
-// - `/compact` 会话太小：`Error: Compaction failed: Nothing to compact (session too small)`（fixtures/tsp/compact-error.jsonl）；
-// - `/handoff`：`Error: Handoff failed: Nothing to hand off (already compacted)`；
-// - `/todo start zzz`：`Error: No task matched "zzz". Use /todo to list current tasks.`，`/todo start`：`Error: Usage: /todo start <task>`，
+// omp 往对话里写的一行错误（斜杠命令失败、压缩失败等，omp 的 `showError`），两种写法：
+// - omp 18.12.x：main 里新增一个 `text` 节点，span 样式含 `error`，文字以 `Error: ` 开头，没有 role。
+//   `/compact` 会话太小：`Error: Compaction failed: Nothing to compact (session too small)`（fixtures/tsp/compact-error.jsonl）；
+//   `/handoff`：`Error: Handoff failed: Nothing to hand off (already compacted)`；
+//   `/todo start zzz`：`Error: No task matched "zzz". Use /todo to list current tasks.`，`/todo start`：`Error: Usage: /todo start <task>`，
 //   `/todo bogus`：`Error: Unknown /todo verb "bogus".` 后面接用法清单（多行，同一个 span）。
+// - omp 18.14.0：main 里新增一个 `row role=omp.notice.error`（一个 error 图标 + 一个 `text`），文字不带 `Error: `，
+//   如 `Compaction failed: Turn prefix summarization failed: 400 …`（fixtures/tsp/switch-compact-error.jsonl）。
 // 命令发出前后比较节点 id（omp 的节点 id 只增不复用）就能认出"这条命令新写出来的错误"。
-import type { TspDocument } from "./document.ts";
+import { nodeRole, plainText, type TspDocument } from "./document.ts";
+
+const NOTICE_ERROR_ROLE = "omp.notice.error";
 
 /** 文档里所有 omp 错误行：`<surface>/<节点 id>` → 文字。 */
 export function errorLines(doc: TspDocument): Map<string, string> {
@@ -14,6 +18,14 @@ export function errorLines(doc: TspDocument): Map<string, string> {
     const surface = doc.surfaces.get(sf);
     if (!surface) continue;
     for (const node of surface.nodes.values()) {
+      if (node.k === "row" && nodeRole(node) === NOTICE_ERROR_ROLE) {
+        const text = node.c
+          .map((id) => surface.nodes.get(id))
+          .map((child) => (child?.k === "text" ? plainText(child) : ""))
+          .join("");
+        if (text !== "") lines.set(`${sf}/${node.id}`, text);
+        continue;
+      }
       if (node.k !== "text") continue;
       const spans = node.p["spans"];
       if (!Array.isArray(spans)) continue;

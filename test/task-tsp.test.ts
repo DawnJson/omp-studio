@@ -122,8 +122,8 @@ interface Harness {
   projectId: ProjectId;
   /** 每次起 TSP 进程时任务记录里的会话文件（恢复会话时 omp 用 `--resume` 拿到它）。 */
   launches: Launch[];
-  /** 下一次起进程用的录制和环境。 */
-  next: { fixture: string; env: Record<string, string> };
+  /** 下一次起进程用的录制、环境和回放速度。 */
+  next: { fixture: string; env: Record<string, string>; speed: number };
   /** 假 omp 的收件记录。 */
   log: string;
 }
@@ -138,7 +138,7 @@ async function harness(tasksFile?: string, extra: Partial<PoolDeps> = {}): Promi
   const registry = new TaskRegistry(file);
   const launches: Launch[] = [];
   const log = path.join(scratch, `omp-log-${counter}.jsonl`);
-  const next = { fixture: "slash", env: {} as Record<string, string> };
+  const next = { fixture: "slash", env: {} as Record<string, string>, speed: 100 };
   const pool = new TaskPool({
     registry,
     getSettings: async () => settings(),
@@ -155,7 +155,7 @@ async function harness(tasksFile?: string, extra: Partial<PoolDeps> = {}): Promi
         launches.push({ sessionFile: record.sessionFile });
         return {
           command: process.execPath,
-          args: [fakeTsp, next.fixture, "--speed=100", `--log=${log}`],
+          args: [fakeTsp, next.fixture, `--speed=${next.speed}`, `--log=${log}`],
           cwd: record.worktreePath ?? project.path,
           env: { ...process.env, ...next.env },
         };
@@ -773,6 +773,33 @@ describe("TSP 任务：输入框状态、切模型、提问时的发送", () => 
     await h.events.until(created.id, (s) => s.model !== null);
     await expect(h.pool.setTaskModel(created.id, { provider: "x", modelId: "nope" })).rejects.toThrow(/not available/);
     await waitForLog(h.log, (records) => records.some((record) => record.kind === "keys" && record.data === "\x1b"));
+  }, 60_000);
+
+  // omp 18.14.0 实录：会话 50000 tokens，目标 relay/narrow 窗口 32000，omp 先用当前模型压缩、压缩完才切。
+  async function switchAfterCompaction(fixture: string) {
+    const h = await harness();
+    h.next.fixture = fixture;
+    // 录制里压缩 3.5 秒；半速回放是 7 秒，超过切模型的确认时限（5 秒）。
+    h.next.speed = 0.5;
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (s) => s.status === "idle");
+    await h.pool.sendPrompt(created.id, { text: "hello", whenBusy: "steer" });
+    await h.events.until(created.id, (s) => s.lastTurn?.status === "completed");
+    return { h, id: created.id, switching: h.pool.setTaskModel(created.id, { provider: "relay", modelId: "narrow" }) };
+  }
+
+  it("setTaskModel：omp 先压缩再切，压缩比确认时限长也等到切过去", async () => {
+    const { h, id, switching } = await switchAfterCompaction("switch-compact");
+    await switching;
+    expect(h.events.states.findLast((s) => s.id === id)?.model?.name).toBe("Narrow");
+  }, 60_000);
+
+  it("setTaskModel：omp 先压缩而压缩失败时报 omp 的原文，模型不变", async () => {
+    const { h, id, switching } = await switchAfterCompaction("switch-compact-error");
+    await expect(switching).rejects.toThrow(
+      /^Compaction failed: Turn prefix summarization failed: 400 summarizer unavailable/,
+    );
+    expect(h.events.states.findLast((s) => s.id === id)?.model?.name).toBe("Wide");
   }, 60_000);
 
   it("审批在等：sendPrompt 往还在的输入框发 send（omp 把它当拒绝+理由）；切模型和思考强度立刻 reject", async () => {
