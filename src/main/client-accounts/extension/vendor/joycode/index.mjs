@@ -4,15 +4,17 @@
  * magpie / OpenCode provider.
  *
  * Protocol derived from the JoyCode IDE's bundled extension.js:
- *   POST https://api-ai.jd.com/api?appid=joycode_ide&functionId=chat_completions&t=<ms>&sign=<hmac>
+ *   POST https://api-ai.jd.com/api?appid=joycode_ide&functionId=<protocol>_completions&t=<ms>&sign=<hmac>
  *   headers: ptKey (account ticket), loginType, optional tenant
- *   body:    OpenAI chat completions JSON
+ *   body:    Chat Completions, Responses, or Anthropic Messages JSON
  *
- * magpie's gateway already converts any agent API into OpenAI chat
- * completions format before calling our fetch. We sign each request, inject
- * credential headers, and add authenticated account identity to the body.
- * We inspect response prefixes for bare JSON gateway errors; valid SSE bytes
- * are replayed unchanged, including tool-call deltas.
+ * The model catalogue's extJson.adapterType selects the model's SDK. We sign
+ * each request on the matching gateway, inject credential headers, and add
+ * authenticated account identity to the body. We inspect response prefixes
+ * for bare JSON gateway errors; valid SSE bytes are replayed unchanged,
+ * including tool-call deltas. JoyCode's Anthropic and Responses gateways add
+ * an extra SSE framing layer; we remove it incrementally so the official
+ * Anthropic and OpenAI SDKs receive standard events without extra buffering.
  *
  * Options (magpie plugin options joycode '{"…"}'):
  *   { "flatten": true }  — flatten multi-turn messages into a single prompt
@@ -26,7 +28,16 @@ const PROVIDER = 'joycode'
 const BASE = 'https://api-ai.jd.com'
 const GATEWAY_PATH = '/api'
 const APPID = 'joycode_ide'
-const FUNCTION_ID = 'chat_completions'
+const FUNCTION_IDS = {
+  chat: 'chat_completions',
+  responses: 'responses_completions',
+  anthropic: 'anthropic_completions',
+}
+const SDK = {
+  chat: '@ai-sdk/openai-compatible',
+  responses: '@ai-sdk/openai',
+  anthropic: '@ai-sdk/anthropic',
+}
 const LOGIN_TYPE = 'PIN_JD_CLOUD'
 
 // HMAC signing key, extracted from the JoyCode IDE's bundled extension.js.
@@ -117,6 +128,67 @@ function buildGatewayHeaders(ptKey, tenant, loginType = LOGIN_TYPE) {
     logintype: loginType,
     ...(tenant ? { tenant: encodeURIComponent(tenant) } : {}),
   }
+}
+
+/** JoyCode's model catalogue names the wire protocol in extJson.adapterType. */
+function adapterProtocol(model) {
+  let ext = model?.extJson
+  if (typeof ext === 'string') {
+    try { ext = JSON.parse(ext) } catch { ext = undefined }
+  }
+  const type = ext?.adapterType ?? model?.adapterType
+  if (typeof type !== 'string') return 'chat'
+  if (type === 'anthropic') return 'anthropic'
+  if (type === 'openai-response' || type === 'openai-responses' || type === 'responses') return 'responses'
+  return 'chat'
+}
+
+function requestPath(input) {
+  try {
+    return input instanceof Request ? new URL(input.url).pathname : new URL(String(input)).pathname
+  } catch {
+    return ''
+  }
+}
+
+function isCountTokensRequest(input) {
+  return /\/messages\/count_tokens\/?$/.test(requestPath(input))
+}
+
+/** The URL the host builds from a model's api.url says which request shape it sent. */
+function requestProtocol(input, payload) {
+  const path = requestPath(input)
+  if (/\/responses\/?$/.test(path)) return 'responses'
+  if (/\/messages(?:\/count_tokens)?\/?$/.test(path)) return 'anthropic'
+  if (/\/chat\/completions\/?$/.test(path)) return 'chat'
+
+  if (Array.isArray(payload?.system)) return 'anthropic'
+  const tools = Array.isArray(payload?.tools) ? payload.tools : []
+  if (tools.some(tool => tool && typeof tool === 'object' && 'input_schema' in tool && !tool.function)) {
+    return 'anthropic'
+  }
+  if (payload?.input !== undefined && payload?.messages === undefined) return 'responses'
+  return 'chat'
+}
+
+/**
+ * Reasoning ids belong to items the upstream stored. Codex replays reasoning
+ * history with `store: false`, so JoyCode cannot resolve those ids and rejects
+ * the whole Responses request ("Item with id 'rs_…' not found"). The item's
+ * summary and encrypted content remain valid inline; only the stored-item id
+ * has to go.
+ */
+function withoutUnstoredReasoningIds(payload) {
+  if (payload?.store === true || !Array.isArray(payload?.input)) return payload
+  let changed = false
+  const input = payload.input.map((item) => {
+    if (!item || typeof item !== 'object' || item.type !== 'reasoning' ||
+      !Object.prototype.hasOwnProperty.call(item, 'id')) return item
+    changed = true
+    const { id, ...inline } = item
+    return inline
+  })
+  return changed ? { ...payload, input } : payload
 }
 
 /**
@@ -303,7 +375,123 @@ function chatError(status, code, message) {
   })
 }
 
-async function normalizeChatResponse(response) {
+function isSuccessfulJson(json, protocol) {
+  if (!json || typeof json !== 'object') return false
+  if (protocol === 'chat') return Boolean(json.choices)
+  if (protocol === 'anthropic') {
+    return Boolean(Array.isArray(json.content) || json.type === 'message' || json.stop_reason)
+  }
+  if (protocol === 'responses') {
+    return Boolean(json.object === 'response' || (json.id && Array.isArray(json.output)))
+  }
+  return false
+}
+
+/**
+ * JoyCode returns Anthropic events with one extra SSE framing layer:
+ *
+ *   data: event: message_start
+ *   data: data: {"type":"message_start",…}
+ *
+ * The official Anthropic SDK ignores `data:` events without an `event:` line,
+ * so passing those bytes through produces an empty stream. Rewrite only the
+ * two non-standard prefixes and coalesce their separating blank line into one
+ * standard SSE event, incrementally and without buffering the model output.
+ * Standard Anthropic SSE is left untouched. Buffering until a newline also
+ * handles either prefix being split across upstream chunks.
+ */
+function normalizeAnthropicSse(source) {
+  const decoder = new TextDecoder()
+  const encoder = new TextEncoder()
+  let pending = ''
+  let heldEvent
+
+  const processLine = (line, controller) => {
+    const ending = line.endsWith('\r\n') ? '\r\n' : line.endsWith('\n') ? '\n' : line.endsWith('\r') ? '\r' : ''
+    const body = ending ? line.slice(0, -ending.length) : line
+
+    if (!body) {
+      // JoyCode puts a blank line between `data: event` and `data: data`.
+      // Hold that separator back until both halves become one SSE event.
+      if (!heldEvent) controller.enqueue(encoder.encode(ending))
+      return
+    }
+
+    if (body.startsWith('data: event: ')) {
+      if (heldEvent) controller.enqueue(encoder.encode(heldEvent.text + heldEvent.ending))
+      heldEvent = { text: `event: ${body.slice('data: event: '.length)}`, ending }
+      return
+    }
+
+    if (body.startsWith('data: data: ')) {
+      if (heldEvent) {
+        controller.enqueue(encoder.encode(heldEvent.text + heldEvent.ending))
+        heldEvent = undefined
+      }
+      controller.enqueue(encoder.encode(`data: ${body.slice('data: data: '.length)}${ending}`))
+      return
+    }
+
+    if (heldEvent) {
+      controller.enqueue(encoder.encode(heldEvent.text + heldEvent.ending))
+      heldEvent = undefined
+    }
+    controller.enqueue(encoder.encode(line))
+  }
+
+  return source.pipeThrough(new TransformStream({
+    transform(chunk, controller) {
+      pending += decoder.decode(chunk, { stream: true })
+      let newline
+      while ((newline = pending.indexOf('\n')) !== -1) {
+        processLine(pending.slice(0, newline + 1), controller)
+        pending = pending.slice(newline + 1)
+      }
+    },
+    flush(controller) {
+      pending += decoder.decode()
+      if (pending) processLine(pending, controller)
+      if (heldEvent) controller.enqueue(encoder.encode(heldEvent.text + heldEvent.ending))
+    },
+  }))
+}
+
+/**
+ * JoyCode's Responses gateway wraps each SSE payload as `data: data: {…}`.
+ * Remove that extra layer without waiting for the response to finish.
+ * Standard Responses SSE, and every other line, is passed through unchanged.
+ */
+function normalizeResponsesSse(source) {
+  const decoder = new TextDecoder()
+  const encoder = new TextEncoder()
+  let pending = ''
+
+  const processLine = (line, controller) => {
+    const ending = line.endsWith('\r\n') ? '\r\n' : line.endsWith('\n') ? '\n' : line.endsWith('\r') ? '\r' : ''
+    const body = ending ? line.slice(0, -ending.length) : line
+    const normalized = body.startsWith('data: data: ')
+      ? `data: ${body.slice('data: data: '.length)}${ending}`
+      : line
+    controller.enqueue(encoder.encode(normalized))
+  }
+
+  return source.pipeThrough(new TransformStream({
+    transform(chunk, controller) {
+      pending += decoder.decode(chunk, { stream: true })
+      let newline
+      while ((newline = pending.indexOf('\n')) !== -1) {
+        processLine(pending.slice(0, newline + 1), controller)
+        pending = pending.slice(newline + 1)
+      }
+    },
+    flush(controller) {
+      pending += decoder.decode()
+      if (pending) processLine(pending, controller)
+    },
+  }))
+}
+
+async function normalizeResponse(response, protocol = 'chat') {
   if (!response.ok) {
     const headers = new Headers(response.headers)
     headers.set('x-magpie-sign-in', response.status === 401 ? 'expired' : 'kept')
@@ -345,14 +533,14 @@ async function normalizeChatResponse(response) {
       const message = json.error?.message ?? json.message ?? json.msg
       return chatError(status, code, typeof message === 'string' ? message.slice(0, 500) : 'JoyCode 请求被拒绝')
     }
-    if (json?.choices) return Response.json(json)
+    if (isSuccessfulJson(json, protocol)) return Response.json(json)
     return chatError(502, 'invalid_response', 'JoyCode 未返回有效的对话响应')
   }
   // Replay the inspected bytes and then stream normally, preserving tool deltas.
   const headers = new Headers(response.headers)
   headers.delete('content-length')
   headers.delete('content-encoding')
-  return new Response(new ReadableStream({
+  const stream = new ReadableStream({
     async pull(controller) {
       if (buffered.length) { controller.enqueue(buffered.shift()); return }
       try {
@@ -362,7 +550,16 @@ async function normalizeChatResponse(response) {
       } catch (error) { controller.error(error) }
     },
     cancel(reason) { return reader.cancel(reason) },
-  }), { status: response.status, headers })
+  })
+  const normalized = protocol === 'anthropic'
+    ? normalizeAnthropicSse(stream)
+    : protocol === 'responses'
+      ? normalizeResponsesSse(stream)
+      : stream
+  return new Response(normalized, {
+    status: response.status,
+    headers,
+  })
 }
 
 // ---------------------------------------------------------------- account data
@@ -463,13 +660,14 @@ async function accountModels(provider, { auth } = {}) {
     const features = Array.isArray(model.features) ? model.features : []
     const image = features.includes('vision')
     const rate = multiplier(model.billingRate) ?? rates.get(id)
+    const protocol = adapterProtocol(model)
     // Remove old rate fields so unavailable pricing never becomes fake free usage.
     const { rate: oldRate, rateWas, free, ...rest } = base
     models[id] = {
       ...rest,
       id,
       name: model.label || id,
-      api: { id, url: `${BASE}/v1`, npm: '@ai-sdk/openai-compatible' },
+      api: { id, url: `${BASE}/v1`, npm: SDK[protocol] },
       limit: {
         ...base.limit,
         context: Number.isFinite(model.maxTotalTokens) ? model.maxTotalTokens : base.limit?.context ?? 200000,
@@ -548,37 +746,66 @@ export const JoyCodeAuthPlugin = async (_input, options) => {
         }
 
         return {
-          // Placeholder only — our fetch rewrites the full URL each request,
-          // because the signature embeds a fresh timestamp.
-          baseURL: `${BASE}/v1`,
+          // Each model's api.url carries the base. The fetch below rewrites the
+          // full URL because the gateway signature embeds a fresh timestamp.
+          baseURL: '',
 
-          async fetch(_input, init) {
+          async fetch(input, init) {
+            // JoyCode has no token-count endpoint. Let magpie fall back to its
+            // local estimator instead of signing a paid generation request.
+            if (isCountTokensRequest(input)) {
+              return Response.json({
+                error: {
+                  type: 'unsupported_endpoint',
+                  message: 'JoyCode does not provide token counting',
+                },
+              }, { status: 404 })
+            }
+
             // Preserve chat structure; the IDE also adds authenticated metadata.
             const account = await identity()
-            const source = typeof init?.body === 'string' ? init.body : new TextDecoder().decode(init?.body)
+            const request = input instanceof Request ? input : undefined
+            let source = init?.body
+            if (source === undefined && request) source = await request.clone().text()
+            source = typeof source === 'string'
+              ? source
+              : source == null
+                ? '{}'
+                : new TextDecoder().decode(source)
             const payload = JSON.parse(source)
+            const protocol = requestProtocol(request ?? input, payload)
+            const forwarded = protocol === 'responses' ? withoutUnstoredReasoningIds(payload) : payload
             const body = JSON.stringify({
-              ...(flatten ? flattenBody(payload) : payload),
+              ...(flatten && protocol === 'chat' ? flattenBody(payload) : forwarded),
               ...account,
               language: 'UNKNOWN',
             })
 
-            // 2) URL: fresh signature per request.
-            const url = buildGatewayUrl(FUNCTION_ID)
+            // 2) URL: fresh signature per request, on the model's wire protocol.
+            const url = buildGatewayUrl(FUNCTION_IDS[protocol])
 
             // 3) Headers: keep what magpie synthesized (content-type, …),
             //    add the gateway credentials, drop the OpenAI-style bearer
             //    JoyCode does not understand.
-            const headers = new Headers(init?.headers)
+            const headers = new Headers(init?.headers ?? request?.headers)
             for (const [k, v] of Object.entries(buildGatewayHeaders(ptKey, account.tenant, loginType))) {
               headers.set(k, v)
             }
             headers.delete('authorization')
+            headers.delete('x-api-key')
+            headers.delete('content-length')
+            headers.delete('host')
 
             // 4) Forward (...init carries the abort signal).
-            const resp = await fetch(url, { ...init, headers, body })
+            const resp = await fetch(url, {
+              ...init,
+              method: init?.method ?? request?.method,
+              headers,
+              body,
+              signal: init?.signal ?? request?.signal,
+            })
 
-            return normalizeChatResponse(resp)
+            return normalizeResponse(resp, protocol)
           },
         }
       },
@@ -603,7 +830,15 @@ export const JoyCodeAuthPlugin = async (_input, options) => {
 // Test surface (bun test). Everything testable lives on this object so the
 // entry module exports no bare functions besides the plugin — see the note
 // on the helpers above.
-export const _internal = { signQuery, buildGatewayUrl, buildGatewayHeaders, flattenMessages, MODELS }
+export const _internal = {
+  signQuery,
+  buildGatewayUrl,
+  buildGatewayHeaders,
+  flattenMessages,
+  adapterProtocol,
+  requestProtocol,
+  MODELS,
+}
 
 // OpenCode v1 form: with default { id, server } the host takes only
 // `server` as the plugin and never iterates the module's other exports.

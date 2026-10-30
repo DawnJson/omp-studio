@@ -139,7 +139,6 @@ function applyMessages(taskId: TaskId, mirror: Mirror, messages: readonly TspFee
         touchedSurfaces.add(message.body.id);
         break;
       case "f":
-      case "t":
         touchedSurfaces.add(message.body.sf);
         break;
     }

@@ -16,7 +16,7 @@ import { planTspBatch } from "../src/renderer/src/features/tsp/tsp-sync.ts";
 
 const batch = (firstSeq: number, count: number) => ({
   firstSeq,
-  messages: Array.from({ length: count }, () => ({ verb: "t" as const, body: { sf: "s:1" } })),
+  messages: Array.from({ length: count }, () => ({ verb: "x" as const, body: { id: "s:1", keep: true } })),
 });
 
 describe("planTspBatch（序号不连续就重新同步）", () => {

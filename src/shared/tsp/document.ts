@@ -6,7 +6,7 @@
 // 表（Map）本身原地改。
 import { isRecord } from "../type-guards.ts";
 import { mergeStatusNotes, statusNotesIn, type StatusNote } from "./status-notes.ts";
-import type { TspClose, TspFrame, TspNode, TspOpen, TspOp, TspPalette } from "./tsp.generated.ts";
+import type { TspClose, TspFrame, TspNode, TspOpen, TspOp } from "./tsp.generated.ts";
 
 export interface DocNode {
   readonly id: string;
@@ -48,7 +48,6 @@ export interface TspDocument {
   readonly surfaces: Map<string, DocSurface>;
   /** 仍然打开（没收到 x）的 surface id。 */
   readonly live: Set<string>;
-  readonly palettes: Map<string, TspPalette>;
   readonly blobs: Map<string, DocBlob>;
   /** reveal 的全局递增号，每应用一次 reveal 加一。 */
   revealSeq: number;
@@ -58,7 +57,6 @@ export interface TspDocument {
 export type TspDocMessage =
   | { verb: "o"; body: TspOpen }
   | { verb: "f"; body: TspFrame }
-  | { verb: "t"; body: TspPalette }
   | { verb: "x"; body: TspClose }
   | { verb: "b"; id: string; mime: string | null; data: string };
 
@@ -89,7 +87,7 @@ const TEXT_KINDS: ReadonlySet<string> = new Set([
 ]);
 
 export function createDocument(): TspDocument {
-  return { surfaces: new Map(), live: new Set(), palettes: new Map(), blobs: new Map(), revealSeq: 0 };
+  return { surfaces: new Map(), live: new Set(), blobs: new Map(), revealSeq: 0 };
 }
 
 export function applyMessage(doc: TspDocument, message: TspDocMessage): ApplyResult {
@@ -100,9 +98,6 @@ export function applyMessage(doc: TspDocument, message: TspDocMessage): ApplyRes
       break;
     case "f":
       applyFrame(doc, message.body, result);
-      break;
-    case "t":
-      doc.palettes.set(message.body.sf, message.body);
       break;
     case "x":
       closeSurface(doc, message.body, result);
@@ -155,7 +150,6 @@ function closeSurface(doc: TspDocument, close: TspClose, result: ApplyResult): v
   doc.live.delete(close.id);
   if (!close.keep) {
     doc.surfaces.delete(close.id);
-    doc.palettes.delete(close.id);
     changedSet(result, close.id).add(close.id);
     return;
   }
@@ -420,7 +414,6 @@ export interface DocumentSnapshot {
     statusNotes: readonly StatusNote[];
     live: boolean;
   }[];
-  palettes: TspPalette[];
   /** 文档里 blob 的 id，不带字节（图片一张常有上百 KB，每次拉快照都整份复制太贵）：渲染进程用到哪张再按 id 取（`getTspBlob`）。 */
   blobIds: string[];
   revealSeq: number;
@@ -441,7 +434,6 @@ export function snapshotDocument(doc: TspDocument): DocumentSnapshot {
       statusNotes: surface.statusNotes,
       live: doc.live.has(surface.id),
     })),
-    palettes: [...doc.palettes.values()],
     blobIds: [...doc.blobs.keys()],
     revealSeq: doc.revealSeq,
   };
@@ -464,7 +456,6 @@ export function restoreDocument(snapshot: DocumentSnapshot): TspDocument {
     });
     if (surface.live) doc.live.add(surface.id);
   }
-  for (const palette of snapshot.palettes) doc.palettes.set(palette.sf, palette);
   // blob 的字节不在快照里（见 DocumentSnapshot.blobIds），还原出的文档 blobs 为空。
   doc.revealSeq = snapshot.revealSeq;
   return doc;

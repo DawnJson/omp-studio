@@ -38,8 +38,9 @@ import { createCipheriv, createHash, publicEncrypt, randomBytes, randomUUID, con
 import { execFile } from "node:child_process"
 import { readdir, stat } from "node:fs/promises"
 import { STATUS_CODES } from "node:http"
-import { homedir } from "node:os"
+import { homedir, hostname } from "node:os"
 import { join, resolve } from "node:path"
+import { domainToASCII } from "node:url"
 
 const CHAT_PATH = "/algo/api/v2/service/pro/sse/agent_chat_generation?FetchKeys=llm_model_result&AgentId=agent_common&Encode=1"
 const MODELS_PATH = "/algo/api/v2/model/list?Encode=1"
@@ -55,6 +56,7 @@ const SIGN_IN_TIMEOUT = 15 * 60 * 1000
 const REFRESH_LEAD = 5 * 60 * 1000 // a chat token this close to its end is refreshed before a request
 const RENEW_LEAD = 10 * 60 * 1000 // and this close, magpie renews it ahead of time (auth.refresh)
 const KEEP_SPENT_MS = 60 * 60 * 1000 // how long what a spent refresh token gave is remembered
+const RELOGIN_GAP = 5 * 60 * 1000 // a token renewed this recently that Qoder refuses isn't renewed again
 const DAY = 24 * 60 * 60 * 1000
 const CHAT = "@ai-sdk/openai-compatible"
 
@@ -73,10 +75,33 @@ const hexID = () => randomUUID().replaceAll("-", "")
 
 // ---- the COSY envelope --------------------------------------------------------
 
-// machineOS names the machine as Qoder's desktop clients do.
-function machineOS() {
-  const arch = { x64: "x86_64", ia32: "x86", arm64: "aarch64" }[process.arch] ?? process.arch
-  return arch + "_" + process.platform
+// machineOS names the machine as Qoder's desktop client does: Node's
+// process.platform, so x86_64_win32 on Windows, aarch64_darwin on a Mac
+// (its worker runtime's COSY_MACHINE_OS, Qoder 0.4.3). Only x64 and arm64
+// are renamed; any other arch goes as Node names it.
+function machineOS(arch = process.arch, platform = process.platform) {
+  return ({ x64: "x86_64", arm64: "aarch64" }[arch] ?? arch) + "_" + platform
+}
+
+// machineHostname is the Cosy-MachineHostname Qoder's client puts on a chat
+// request: os.hostname(), sent as it is when it is printable ASCII, else
+// its punycode, else made safe and marked with a hash of the original, at
+// most 96 characters (its zei). "" (none is sent) for an empty name.
+const HOST_SAFE = /^[\x21-\x7e](?:[\x20-\x7e]*[\x21-\x7e])?$/u
+function machineHostname(name = hostname()) {
+  const hash = (v) => createHash("sha256").update(v, "utf8").digest("hex").slice(0, 8)
+  const cap = (v) => {
+    if (v.length <= 96) return v
+    const head = v.slice(0, 96 - 8 - 1).replace(/[-\s]+$/u, "")
+    return head ? `${head}-${hash(v)}` : `unknown-${hash(v)}`
+  }
+  const v = String(name ?? "").trim()
+  if (!v) return ""
+  if (HOST_SAFE.test(v)) return cap(v)
+  const ascii = domainToASCII(v)
+  if (ascii && HOST_SAFE.test(ascii)) return cap(ascii)
+  const safe = v.replace(/[^\x21-\x7e]+/gu, "-").replace(/-{2,}/gu, "-").replace(/^-+|-+$/gu, "")
+  return cap(safe ? `${safe}-${hash(v)}` : `unknown-${hash(v)}`)
 }
 
 // userBlob is the account as the envelope carries it: AES-128-CBC under a
@@ -98,7 +123,9 @@ function cosyHeaders(url, u, body, site, ts = Math.floor(Date.now() / 1000)) {
   const cosyVersion = site?.cosyVersion ?? COSY_VERSION
   const blob = userBlob(u, site?.rsaKey)
   const payload = Buffer.from(
-    JSON.stringify({ version: "v1", requestId: hexID(), info: blob.info, cosyVersion, ideVersion: "" }),
+    // the request id is a dashed UUID, as Qoder's signer makes it; its
+    // ideVersion is "" too
+    JSON.stringify({ version: "v1", requestId: randomUUID(), info: blob.info, cosyVersion, ideVersion: "" }),
   ).toString("base64")
   let path = new URL(url).pathname
   if (path.startsWith("/algo")) path = path.slice(5)
@@ -125,6 +152,25 @@ function cosyHeaders(url, u, body, site, ts = Math.floor(Date.now() / 1000)) {
     "Cosy-Version": cosyVersion,
     "Login-Version": "v2",
   }
+}
+
+// chatHeaders are the headers of a chat (agent_chat_generation) call, as
+// Qoder's client builds them (its prepareInferRequest, then Vai): no
+// Cosy-ClientIp; Cosy-MachineToken and Cosy-MachineType are its device
+// identity's (the runtime-info the check-in reads), or left off when it has
+// none, rather than the machine id cosyHeaders puts there; and the
+// machine's hostname. Every other call keeps cosyHeaders' set, which is
+// its prepareRequest's: there ClientIp, MachineId and MachineToken are all
+// the machine id (#443).
+function chatHeaders(url, u, body, site, model, identity = {}) {
+  const h = cosyHeaders(url, u, body, site)
+  delete h["Cosy-ClientIp"]
+  delete h["Cosy-MachineToken"]
+  delete h["Cosy-MachineType"]
+  for (const key of ["Cosy-MachineToken", "Cosy-MachineType"]) if (identity[key]) h[key] = identity[key]
+  const host = machineHostname()
+  if (host) h["Cosy-MachineHostname"] = host
+  return { ...h, Accept: "text/event-stream", "Cache-Control": "no-cache", "X-Model-Key": model.key, "X-Model-Source": model.source }
 }
 
 // ---- the body codec -----------------------------------------------------------
@@ -189,9 +235,33 @@ async function openapi(site, path, { method = "GET", token, body, query } = {}) 
   return { status: res.status, json, text }
 }
 
-// expiresAt is when a job token Qoder gave with expires_in (milliseconds)
-// runs out; a day when it said none.
-const expiresAt = (jt) => Date.now() + (jt.expires_in > 0 ? jt.expires_in : DAY)
+// expiresAt is when a job token Qoder gave runs out, read as Qoder's own
+// client reads it, for a refreshed token as for an exchanged PAT's: its
+// expire_time or expires_at first (a date, or an epoch in seconds or
+// milliseconds), then expires_in (milliseconds), then a day. A refreshed
+// token was read for expires_in alone, so an end Qoder said as a date was
+// put down as a day away, and renewed after it had run out (plugins#474).
+// An end already past is no end said.
+function expiresAt(jt) {
+  for (const k of ["expire_time", "expires_at"]) {
+    const at = whenSaid(jt?.[k])
+    if (at > Date.now()) return at
+  }
+  if (jt?.expires_in > 0) return Date.now() + jt.expires_in
+  return Date.now() + DAY
+}
+
+// whenSaid is the time a token's end field names, in milliseconds: a date,
+// or an epoch in seconds or milliseconds; 0 for none (absent, 0, unreadable).
+function whenSaid(v) {
+  if (typeof v === "number" || /^\d+$/.test(String(v ?? "").trim())) {
+    const n = Number(v)
+    if (!(n > 0)) return 0
+    return n < 1e12 ? n * 1000 : n
+  }
+  const at = Date.parse(String(v ?? "").trim())
+  return isNaN(at) ? 0 : at
+}
 
 // deviceExpiry is when a device token used for chat runs out: its
 // expires_at (a date) or expires_in (seconds), as Qoder's CLI reads it; a
@@ -305,10 +375,11 @@ async function deviceSignIn(site) {
       let email = ""
       let name = ""
       let uid = dt.user_id
+      let user = null
       try {
         const ui = await openapi(site, site.userInfoPath ?? "/api/v1/userinfo", { token: dt.token })
         if (ui.status >= 200 && ui.status < 300) {
-          const user = site.normalizeUser ? site.normalizeUser(ui.json) : ui.json
+          user = site.normalizeUser ? site.normalizeUser(ui.json) : ui.json
           ;[email, name] = [user?.email ?? "", user?.name ?? ""]
           if (site.deviceOnly) uid = String(user?.id ?? user?.user_id ?? user?.uid ?? uid ?? "") || undefined
           // a VPC poll may give the token alone: the user is then the one
@@ -323,7 +394,22 @@ async function deviceSignIn(site) {
         ...chat,
         // a VPC account is told apart from the same person's public one; a
         // device-only one is shown by name, falling back to its id
-        accountId: site.vpc ? `${email || uid} (${site.vpc})` : site.deviceOnly ? email || uid || name || dt.user_id : email || dt.user_id,
+        // accountId is the account's identity in magpie (its name, proxy,
+        // model picks and caps all hang off it, and a gateway key keys its
+        // list by it), so it stays exactly what main computes: the phone is a
+        // separate field, shown by usage's `user`, never the identity.
+        accountId: site.vpc
+          ? `${email || uid} (${site.vpc})`
+          : site.deviceOnly
+            ? email || uid || name || dt.user_id
+            : email || dt.user_id,
+        // the card's names: the phone on its own, and what magpie shows (a
+        // real email first, then the phone) — never the accountId
+        ...(() => {
+          const label = phoneLabelOf(user, email, name)
+          const suffix = (v) => (v ? (site.vpc ? `${v} (${site.vpc})` : v) : "")
+          return { phoneLabel: suffix(label), cardName: suffix(realEmailOf(email) || label) }
+        })(),
         uid,
         email,
         name: name || dt.user_name || "",
@@ -335,18 +421,6 @@ async function deviceSignIn(site) {
       }
     },
   }
-}
-
-// exchangeExpiry is when a job token from /api/v1/jobToken/exchange runs
-// out, as Qoder's own client reads it: expire_time or expires_at (a date)
-// first, then expires_in (milliseconds), then a day.
-function exchangeExpiry(jt) {
-  for (const k of ["expire_time", "expires_at"]) {
-    const at = Date.parse(String(jt?.[k] ?? "").trim())
-    if (!isNaN(at)) return at
-  }
-  if (jt?.expires_in > 0) return Date.now() + jt.expires_in
-  return Date.now() + DAY
 }
 
 // exchangeToken is the job token from an exchange response, as Qoder's
@@ -368,13 +442,15 @@ async function patSignIn(site, pat) {
   const token = exchangeToken(r.json)
   if (!token) throw new Error(`${site.name} PAT exchange: empty token in response`)
   const refresh = String(r.json?.refresh_token ?? r.json?.refreshToken ?? "").trim()
-  const chat = { access: token, refresh, expires: exchangeExpiry(r.json) }
+  const chat = { access: token, refresh, expires: expiresAt(r.json) }
   let email = ""
   let name = ""
   let uid = ""
+  let user = null
   try {
     const ui = await openapi(site, "/api/v1/userinfo", { token })
     if (ui.status >= 200 && ui.status < 300) {
+      user = ui.json
       ;[email, name] = [ui.json?.email ?? "", ui.json?.name ?? ""]
       uid = String(ui.json?.id ?? ui.json?.user_id ?? ui.json?.uid ?? "")
     }
@@ -388,6 +464,8 @@ async function patSignIn(site, pat) {
     // so a renewed PAT sign-in must keep naming the same account. A suffix
     // here would add a second row beside the lapsed one instead.
     accountId: email || uid,
+    phoneLabel: phoneLabelOf(user, email, name),
+    cardName: realEmailOf(email) || phoneLabelOf(user, email, name),
     uid,
     email,
     name: name || "",
@@ -629,10 +707,20 @@ async function fetchListing(site, cred) {
 }
 
 function configModel(m) {
+  const images = !!m.images
   return {
     name: m.name,
     limit: { context: m.context ?? 0, output: 0 },
-    ...(m.images ? { attachment: true, modalities: { input: ["text", "image"], output: ["text"] } } : {}),
+    // Said either way, image or no image. A kind left out is not "text only"
+    // to magpie: it is "the vendor didn't say", and magpie then falls back to
+    // models.dev's vote by bare model id — where a same-named model of
+    // another vendor may take images, so a text-only one here is sent them
+    // (the same mistake codearts 0.2.3 made, fixed there in 0.2.4). The list
+    // a site ships is what magpie has before anyone signs in, and what it
+    // keeps when a listing can't be fetched (provider.models falls back to
+    // it), so those models are the ones most likely to be asked for an image.
+    attachment: images,
+    modalities: { input: images ? ["text", "image"] : ["text"], output: ["text"] },
     ...(m.efforts?.length ? { reasoning: true, variants: Object.fromEntries(m.efforts.map((e) => [e, { reasoningEffort: e }])) } : {}),
     tool_call: true,
   }
@@ -747,6 +835,28 @@ function callID(at, k, c) {
   return "call_" + createHash("sha256").update(`${at}\0${k}\0${c.function?.name ?? ""}\0${said}`).digest("hex").slice(0, 32)
 }
 
+// reasoningOf is the thinking an assistant turn of the chat carries back:
+// reasoning_content (DeepSeek's spelling, which magpie and most clients
+// send), else reasoning (OpenRouter's), else reasoning_details' text, ""
+// when it carries none.
+function reasoningOf(m) {
+  let text = ""
+  for (const k of ["reasoning_content", "reasoning"]) if (!text && typeof m[k] === "string") text = m[k]
+  if (!text && Array.isArray(m.reasoning_details)) text = m.reasoning_details.map((d) => (typeof d?.text === "string" ? d.text : typeof d?.summary === "string" ? d.summary : "")).join("")
+  // A blank one (magpie's gateway sends " " for a tool turn with no
+  // thinking) is no thinking at all.
+  return text.trim() ? text : ""
+}
+
+// An assistant turn's thinking goes back in reasoning_content, as Qoder's
+// own client sends it (qoder-agent-sdk, Qoder.app 0.x: its converter sets
+// reasoning_content on every earlier assistant turn that had thinking).
+// It was left out from the plugin's first version on, so a model behind
+// Qoder never saw what it had thought on the turns before (uk.jent on
+// Discord): on Qoder, DeepSeek-V4-Pro in a tool loop now recalls what its
+// thinking before the call said, and said it had none without it. A turn
+// with thinking and nothing else is still left out, as that client leaves
+// it.
 function qoderMessages(msgs) {
   const out = []
   const names = {}
@@ -805,7 +915,8 @@ function qoderMessages(msgs) {
         const args = c.function?.arguments
         return { id, type: "function", function: { name: c.function?.name, arguments: typeof args === "string" ? args : JSON.stringify(args ?? {}) } }
       })
-      out.push({ role: "assistant", content: textOf(m.content), tool_calls: calls })
+      const think = reasoningOf(m)
+      out.push({ role: "assistant", content: textOf(m.content), ...(think ? { reasoning_content: think } : {}), tool_calls: calls })
       const open = calls.map((c) => c.id)
       const kept = new Set()
       for (let j = i + 1; j < msgs.length && msgs[j].role === "tool"; j++) {
@@ -819,7 +930,8 @@ function qoderMessages(msgs) {
     if (m.role === "assistant") blocks = blocks.filter((b) => b.type === "text")
     if (!blocks.length) continue
     if (m.role === "user" && seen.length) [blocks, seen] = [[...seen, ...blocks], []]
-    out.push({ role: m.role, content: blocks })
+    const think = m.role === "assistant" ? reasoningOf(m) : ""
+    out.push({ role: m.role, content: blocks, ...(think ? { reasoning_content: think } : {}) })
     // a result after the assistant's own words answers no call before it
     turn = null
   }
@@ -897,6 +1009,10 @@ function sessionOf(chat, named = "") {
 // conversation by, from the chat.headers hook to the loader's fetch. It
 // goes no further: nothing of the request's headers is sent to Qoder.
 const SESSION = "x-magpie-qoder-session"
+// FALLBACK is "1" when magpie has another candidate after this request
+// (another account, provider or routing group member): a queued request is
+// then answered at once rather than waited out
+const FALLBACK = "x-magpie-fallback"
 
 // namedSession is the session a chat.headers hook is told, "" when it
 // names none. magpie, with no session header from the agent, makes one of
@@ -1090,7 +1206,8 @@ function failure(status, text) {
     const n = Number(queue?.retryAfterSeconds)
     const wait = Number.isFinite(n) && n > 0 ? Math.ceil(n) : BUSY_WAIT
     const model = queue?.modelKey ? ` for ${queue.modelKey}` : ""
-    const tier = queue?.queueType ? ` (this plan's queue: ${queue.queueType})` : ""
+    const ahead = Number(queue?.queueCount) > 0 ? `, ${Math.floor(Number(queue.queueCount))} ahead` : ""
+    const tier = queue?.queueType ? ` (this plan's queue: ${queue.queueType}${ahead})` : ahead ? ` (${ahead.slice(2)})` : ""
     const what = queue?.isQueued === true ? "queued the request" : "is busy"
     return { status: 503, message: `Qoder ${what}${model}${tier}; try again in ${wait}s`, retryAfter: wait, signIn: "", queue: queue ?? {} }
   }
@@ -1101,9 +1218,11 @@ function failure(status, text) {
   // lapsed: only a refused refresh did (errorResponse says kept). Qoder's
   // own words go with it: a 401 right after signing in isn't a lapsed
   // sign-in, and its reason is what says what is (Yayoi_no_yume on X).
+  // lapsed: the job token the call carried was refused, which the loader
+  // renews once and asks again with (plugins#474) before it says so.
   if (status === 401 || status === 403) {
     const said = msg && msg !== STATUS_CODES[status] ? ` (Qoder said ${status}: ${msg.slice(0, 300)})` : ""
-    return { status: 401, message: "the sign-in lapsed — sign in again" + said }
+    return { status: 401, message: "the sign-in lapsed — sign in again" + said, lapsed: true }
   }
   if (status === 429 || msg.toLowerCase().includes("quota")) return { status: 429, message: "usage limit reached: " + msg }
   return { status, message: msg }
@@ -1131,8 +1250,9 @@ const errorResponse = ({ status, message, signIn = status === 401 ? "kept" : und
 // the request's requestSetId, the model and the plan's queueType, at once
 // and then every retryAfterSeconds (held to 0.5s..30s, 30s when unsaid),
 // while the state says isQueued or serviceAvailable false. Once isQueued is
-// false it waits that state's retryAfterSeconds, if any, and sends the same
-// request again, request_set_id and all, up to 10 times. Three failed asks
+// false it waits that state's retryAfterSeconds, if any, and sends the
+// request again in the same request_set_id under a new request_id and
+// chat_record_id, up to 10 times; the refused call's stream is closed. Three failed asks
 // in a row, a 404 (no queue there) or a state with neither field end the
 // wait. Qoder's client waits up to an hour; here the whole of it is held
 // under QUEUE.budget from the request's start, since nothing reaches the
@@ -1685,7 +1805,7 @@ async function opened(res, tools) {
   return { it, first: await it.next() }
 }
 
-async function answer({ it, first }, chat) {
+async function answer({ it, first }, chat, servedName = chat.model) {
   const id = "chatcmpl-" + hexID()
   const created = Math.floor(Date.now() / 1000)
   if (first.value?.error) return errorResponse(first.value.error)
@@ -1708,12 +1828,12 @@ async function answer({ it, first }, chat) {
     }
     if (reasoning) msg.reasoning_content = reasoning
     if (calls.length) msg.tool_calls = calls
-    return Response.json({ id, object: "chat.completion", created, model: chat.model, choices: [{ index: 0, message: msg, finish_reason: stop }], ...(usage ? { usage } : {}) })
+    return Response.json({ id, object: "chat.completion", created, model: servedName, choices: [{ index: 0, message: msg, finish_reason: stop }], ...(usage ? { usage } : {}) })
   }
 
   const enc = new TextEncoder()
   const chunk = (delta, finish_reason = null, extra = {}) =>
-    enc.encode(`data: ${JSON.stringify({ id, object: "chat.completion.chunk", created, model: chat.model, choices: [{ index: 0, delta, finish_reason }], ...extra })}\n\n`)
+    enc.encode(`data: ${JSON.stringify({ id, object: "chat.completion.chunk", created, model: servedName, choices: [{ index: 0, delta, finish_reason }], ...extra })}\n\n`)
   let pending = first
   let began = false
   const stream = new ReadableStream({
@@ -1762,6 +1882,70 @@ function signed(res, renewed) {
   const headers = new Headers(res.headers)
   headers.set("X-Magpie-Sign-In", said)
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers })
+}
+
+// ---- the card's name ----------------------------------------------------------
+//
+// The card's name is not `accountId` (a uuid is not a name, and accountId is
+// the identity magpie keys settings by). Both phone
+// sign-ins here carry the phone somewhere in their user info: Qoder CN answers
+// `security_mobile` (measured `13800138000`), QwenWork's phone accounts answer
+// only the last four digits as `name` plus a synthetic
+// `phone_<uuid>@phone.local` email (measured).
+const PHONE_EMAIL = /^phone_[0-9a-f-]+@phone\.local$/i
+
+/** A phone number as the cards show it: `0086-…`/`+86 …`/bare → `138****8000`. */
+function maskPhone(raw) {
+  let digits = String(raw ?? "").replace(/\D/g, "")
+  if (digits.startsWith("0086") && digits.length - 4 >= 7) digits = digits.slice(4)
+  else if (digits.startsWith("86") && digits.length - 2 >= 7) digits = digits.slice(2)
+  // a phone is 11 digits; a shorter run is not a number to mask
+  if (digits.length < 11) return ""
+  return `${digits.slice(0, 3)}****${digits.slice(-4)}`
+}
+
+/**
+ * What a renewal puts on the record for the card: `phoneLabel` (the phone the
+ * account signs in with, `138****8000` / `****8000`) and `cardName` (a real
+ * email first, then the phone) — both with the VPC suffix. It renames nothing:
+ * `accountId` is the identity and never changes.
+ *
+ * Read from the renewed token's user info. No cache: each renewal has a new
+ * token, so nothing is read twice (review #487, 6).
+ */
+async function refreshedNames(site, token) {
+  const key = String(token ?? "")
+  if (!key) return {}
+  try {
+    const ui = await openapi(site, site.userInfoPath ?? "/api/v1/userinfo", { token: key })
+    if (ui.status < 200 || ui.status >= 300) return {}
+    const user = site.normalizeUser ? site.normalizeUser(ui.json) : ui.json
+    const label = phoneLabelOf(user, user?.email, user?.name)
+    const suffix = (v) => (v ? (site.vpc ? `${v} (${site.vpc})` : v) : "")
+    // built as the sign-in builds it: a real email first, then the phone
+    return { phoneLabel: suffix(label), cardName: suffix(realEmailOf(user?.email) || label) }
+  } catch {
+    return {}
+  }
+}
+
+/** The account's own email, when it is a real one (a synthetic phone email is not). */
+function realEmailOf(email) {
+  const e = String(email ?? "").trim()
+  if (!e || PHONE_EMAIL.test(e)) return ""
+  return e
+}
+
+/** The phone-derived part of a card's name, or "" when the account has none. */
+function phoneLabelOf(user, email, name) {
+  const phone = maskPhone(user?.security_mobile ?? user?.phoneNumber ?? user?.phone ?? user?.mobile)
+  if (phone) return phone
+  // a synthetic phone email is never shown: its four digits are, or nothing
+  if (PHONE_EMAIL.test(String(email ?? ""))) {
+    const tail = String(name ?? "").trim()
+    if (/^\d{4}$/.test(tail)) return `****${tail}`
+  }
+  return ""
 }
 
 // changed is the fields of b that differ from a's: what auth.refresh gives.
@@ -2014,6 +2198,36 @@ function gfmt(n) {
 
 const RFC3339 = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|[+-]\d\d:\d\d)$/i
 
+// Qoder's daily credits are a campaign of their own each day, listed from
+// 10:00 (UTC+8) to 09:59 the next day: its startAt and endAt, and its own
+// words, "Daily reset: 10:00 (UTC+8)" (a live list, 2026-10-28; sdytman on
+// Discord: qoder每天10点开始签到). So the check-in's day is the campaign's,
+// not the calendar's in any zone: a check-in before 10:00 meets the day
+// before's campaign, and the next one opens a day after that one's start,
+// a minute after its end. A check-in says when (until, RFC 3339), and
+// magpie asks again then, whatever the machine's time zone.
+const DAY_MS = 86_400_000
+// a minute's room for a computer clock that runs ahead of Qoder's
+const OPEN_ROOM_MS = 60_000
+
+// at is a time Qoder gives, in seconds or milliseconds, as milliseconds.
+const at = (v) => {
+  const n = Number(v)
+  if (v === null || v === undefined || v === "" || !Number.isFinite(n) || n <= 0) return undefined
+  return n > 1e12 ? n : n * 1000
+}
+
+// nextOpens is when the campaign after c is expected to open: a day after
+// c's start, or c's end when it runs longer than a day.
+const nextOpens = (c) => {
+  const start = at(c?.startAt), end = at(c?.endAt)
+  if (end === undefined) return undefined
+  return start === undefined ? end : Math.max(end, start + DAY_MS)
+}
+
+// askAgain is a check-in's until: when to ask again, with room.
+const askAgain = (t) => (Number.isFinite(t) ? { until: new Date(t + OPEN_ROOM_MS).toISOString() } : {})
+
 // when is a time Qoder gives: an RFC 3339 string, else seconds or
 // milliseconds, as a number or its text.
 function when(v) {
@@ -2023,7 +2237,20 @@ function when(v) {
   return new Date(Math.trunc(n < 1e12 ? n * 1000 : n)).toISOString()
 }
 
-// parseUsage is the plan and each pool of credits the envelope tells.
+// SPENT_IN_TURN are the pools Qoder spends one after another before an
+// account stops: the plan's credits, the account's own add-on credits and,
+// on a team, the organisation's shared add-on credits (docs.qoder.com/Credits
+// and account/teams/shared-add-on-credits: the soonest to expire first, the
+// plan's before add-on on the same day). The envelope's own
+// totalUsagePercentage counts them as one too. So the account has left what
+// they have left together: a plan used up beside add-on credits is no
+// account used up (magpie-community/plugins#454).
+const SPENT_IN_TURN = new Set(["Credits", "Add-on credits", "Shared credits"])
+
+// parseUsage is the plan and each pool of credits the envelope tells. When
+// more than one of the pools spent in turn holds credits, "Total credits"
+// is what they hold together, the one routing counts, and each pool is
+// shown beside it, set aside.
 function parseUsage(env) {
   if (env.displayMode === "enterprise") return { plan: "Enterprise" }
   const u = env.qoderUsage
@@ -2043,13 +2270,33 @@ function parseUsage(env) {
     if (total == null || total <= 0 || (b.used == null && b.remaining == null)) return
     const used = b.used != null ? b.used : total - b.remaining
     if (used < 0) return
-    out.windows.push({ name: b.name || name, used: Math.min(100, (100 * used) / total), display: `${gfmt(used)} / ${gfmt(total)} ${b.unit || "credits"}` })
+    const unit = b.unit || "credits"
+    const w = { name: b.name || name, used: Math.min(100, (100 * used) / total), display: `${gfmt(used)} / ${gfmt(total)} ${unit}` }
+    out.windows.push(w)
+    if (SPENT_IN_TURN.has(name)) turn.push({ w, used: Math.min(used, total), total, unit })
   }
+  const turn = []
   add(field("userQuota", "user_quota"), "Credits")
   add(field("addOnQuota", "add_on_quota"), "Add-on credits")
   add(field("orgResourcePackage", "org_resource_package"), "Shared credits")
+  // one count only when every pool counts in the same unit
+  if (turn.length > 1 && turn.every((p) => p.unit === turn[0].unit)) {
+    const used = turn.reduce((a, p) => a + p.used, 0)
+    const total = turn.reduce((a, p) => a + p.total, 0)
+    for (const p of turn) p.w.aside = true
+    out.windows.unshift({ name: "Total credits", used: Math.min(100, (100 * used) / total), display: `${gfmt(used)} / ${gfmt(total)} ${turn[0].unit}` })
+  }
   const dedicated = field("dedicatedResourcePackages", "dedicated_resource_packages")
   for (const b of Array.isArray(dedicated) ? dedicated : []) add(b, "Dedicated credits")
+  // A free account (personal_standard) with no add-on credits has a plan of
+  // 0 and nothing else: Qoder's client shows that pool as 0/0 and counts the
+  // account as out of credits. Without a window of its own magpie showed no
+  // credits at all (Ariel on Discord), so it reads as none left.
+  if (out.windows.length === 0) {
+    const zero = (b) => b !== null && typeof b === "object" && !Array.isArray(b) && (b.total ?? b.cap) === 0
+    const pools = [field("userQuota", "user_quota"), field("addOnQuota", "add_on_quota"), field("orgResourcePackage", "org_resource_package")]
+    if (pools.some(zero)) out.windows.push({ name: "Credits", used: 100, display: "0 credits left" })
+  }
   return out
 }
 
@@ -2229,11 +2476,29 @@ const makePlugin = (site) => async ({ client }) => {
       campaignMachines.set(uid, entry)
     }
     try {
-      return await entry.promise
+      const got = await entry.promise
+      if (campaignMachines.get(uid) === entry) readIdentities.set(uid, { at: entry.at, headers: got })
+      return got
     } catch (e) {
       if (campaignMachines.get(uid) === entry) campaignMachines.delete(uid)
       throw e
     }
+  }
+  // chatIdentity: the device identity a chat carries, as Qoder's client puts
+  // its native identity on when it has one. Only one this process has
+  // already read (a check-in) is used, so a chat never waits on, or is the
+  // first to run, Qoder's helper; one an hour old is read again behind the
+  // chat, as the desktop client renews its own hourly. {}: none yet.
+  const readIdentities = new Map()
+  const chatIdentity = (uid) => {
+    const known = uid ? readIdentities.get(uid) : undefined
+    if (!known) return {}
+    const now = Date.now()
+    if (now - (known.tried ?? known.at) >= CAMPAIGN_MACHINE_TTL) {
+      known.tried = now
+      machineForCampaign(uid).catch(() => {})
+    }
+    return known.headers
   }
   // campaignIdentity: the headers a campaigns request carries, and why
   // there are none where the site goes on without them (Qoder CN).
@@ -2335,11 +2600,47 @@ const makePlugin = (site) => async ({ client }) => {
       return next
     })
 
+  // relogin is the account to ask again with once Qoder refused the job
+  // token refused (a chat's 401/403 "Login expired"), or undefined to say
+  // the refusal as it is. Under the lock, as fresh: the sign-in as saved
+  // now (another request, magpie's auth.refresh or another process may
+  // have renewed it meanwhile, and then that is what is used, with no
+  // refresh), else the job token renewed once and saved. Qoder has been
+  // seen to refuse a job token it had put down as a day away for minutes
+  // before magpie renewed it (plugins#474), and a request then failed
+  // until the renewal came. A token this process renewed only minutes ago
+  // that is refused too isn't renewed again: a refusal that isn't about the
+  // token's end would otherwise spend a refresh token on every request.
+  const relogin = (getAuth, refused) =>
+    locked(async () => {
+      const stored = await getAuth()
+      if (stored?.type !== "oauth" || !stored.access || !stored.uid) throw new SignInGone(`${site.name}: not signed in`)
+      siteOf(site, stored)
+      const a = latest(stored)
+      if (a.access !== refused) return a
+      const now = Date.now()
+      for (const v of spent.values()) if (v.got.access === refused && now - v.at < RELOGIN_GAP) return undefined
+      const next = { ...a, ...(await renew(a)) }
+      await client.auth.set({ path: { id: ID }, body: next })
+      renewals.add(next)
+      return next
+    })
+
+  // the ids Qoder serves: the site's shipped list and every key a listing
+  // has named, on or off
+  const served = new Set(site.models.map((m) => m.id))
+  const knows = (id) => served.has(id)
   const models = async (cred, again = false) => {
     const key = listingKey(cred)
     let l = listings.get(key)
     if (!l || again) {
-      l = modelInfos(await fetchListing(siteOf(site, cred), cred), siteOf(site, cred))
+      const s = siteOf(site, cred)
+      const listing = await fetchListing(s, cred)
+      for (const m of s.modelScene ? (Array.isArray(listing?.[s.modelScene]) ? listing[s.modelScene] : []) : sceneModels(listing)) {
+        const k = String(m?.key ?? "").trim()
+        if (k) served.add(k)
+      }
+      l = modelInfos(listing, s)
       listings.set(key, l)
     }
     return l
@@ -2359,6 +2660,26 @@ const makePlugin = (site) => async ({ client }) => {
       return dt.token
     })
 
+  // spareFree has the credit windows not count the models that cost none
+  // (notModels): Qoder's own docs say "When Credits run out, you can
+  // continue using free basic models, subject to daily and monthly limits"
+  // (docs.qoder.com/Credits; the zh page the same: "Credits 用尽后，仍可使用
+  // 免费基础模型"). Counted, a plan used up (or a free account's "0 credits
+  // left") put the account last for Qwen3.8-Flash and DeepSeek-Flash too,
+  // which it still serves (coeo91 on Discord). Free is the listing's own
+  // price (freeOf: 0×, not a discount's 0 for a while). A listing that can't
+  // be read leaves every model counted, as before. Qoder and Qoder CN only:
+  // QwenWork reads its usage elsewhere and says nothing of free models.
+  const spareFree = async (cred, out) => {
+    if (!out?.windows?.length) return out
+    let free = []
+    try {
+      free = (await models(cred)).filter((m) => m.free).map((m) => m.key)
+    } catch {}
+    if (free.length) for (const w of out.windows) w.notModels = free
+    return out
+  }
+
   // usage is the account's allowance, magpie's own hook. signIn is what the read means for the sign-in, as the built-in's did:
   // a refused job refresh marks it, a renewed one clears it, and nothing
   // else does — not a clean read, nor a refused device token, which serves
@@ -2368,6 +2689,8 @@ const makePlugin = (site) => async ({ client }) => {
     try {
       const cred = await fresh(getAuth)
       if (renewed(cred)) signIn = "renewed"
+      // the card's name: magpie takes usage's `user` for it and never as a key
+      const who = cred?.cardName ? { user: cred.cardName } : {}
       // a site with its own usage path (QwenWork's account-context, signed
       // like any other call and answered with its own envelope) is read
       // there; a 401 rotates the device token once, as the qoder path does
@@ -2398,7 +2721,7 @@ const makePlugin = (site) => async ({ client }) => {
         if (site.walletsPath && ctxUser?.is_biz !== true && ctxUser?.isBiz !== true) {
           try { wallets = await read(token, site.walletsPath) } catch {}
         }
-        return { ...(site.parseUsage ? site.parseUsage(env, wallets) : { windows: [] }), signIn }
+        return { ...(site.parseUsage ? site.parseUsage(env, wallets) : { windows: [] }), signIn, ...who }
       }
       // A PAT account has no device token: the usage endpoint takes the job
       // token the exchange gave — a live PAT account answered 200 with a
@@ -2406,7 +2729,7 @@ const makePlugin = (site) => async ({ client }) => {
       // no second token here to rotate and retry with.
       if (cred.patAuth && !cred.deviceToken) {
         const env = await fetchUsage(siteOf(site, cred), cred.access)
-        return { ...parseUsage(env), signIn }
+        return { ...(await spareFree(cred, parseUsage(env))), signIn, ...who }
       }
       let env
       try {
@@ -2415,7 +2738,7 @@ const makePlugin = (site) => async ({ client }) => {
         if (!(e instanceof UsageStatus) || (e.status !== 401 && e.status !== 403)) throw e
         env = await fetchUsage(siteOf(site, cred), await deviceToken(getAuth, cred.deviceToken))
       }
-      return { ...parseUsage(env), signIn }
+      return { ...(await spareFree(cred, parseUsage(env))), signIn, ...who }
     } catch (e) {
       return { error: e?.message ?? String(e), signIn: e?.expired ? "expired" : signIn }
     }
@@ -2493,16 +2816,21 @@ const makePlugin = (site) => async ({ client }) => {
       }
       if (listRes.status !== 200) return { outcome: "failed", message: `campaigns: HTTP ${listRes.status}` }
       const now = Date.now()
-      const active = (c) => (!c.startAt || c.startAt * 1000 <= now) && (!c.endAt || c.endAt * 1000 > now)
+      const active = (c) => (at(c.startAt) ?? -Infinity) <= now && now < (at(c.endAt) ?? Infinity)
       const campaigns = (Array.isArray(list.campaigns) ? list.campaigns : []).filter((x) => x?.actionType === "CLAIM_BENEFIT")
       const campaign = campaigns.find((x) => x.claimStatus === "CLAIMABLE")
       if (!campaign) {
         const done = campaigns.find((x) => x.claimStatus === "CLAIMED" && active(x))
         if (done) {
           const amount = Number(done.benefit?.amount)
-          return { outcome: "done", ...(Number.isFinite(amount) && amount > 0 ? { credit: amount } : {}) }
+          return { outcome: "done", ...(Number.isFinite(amount) && amount > 0 ? { credit: amount } : {}), ...askAgain(nextOpens(done)) }
         }
-        if (campaigns.length) return { outcome: "failed", message: "campaigns: today's credits aren't offered yet" }
+        // the next day's credits open at a time the list says: ask then,
+        // not half an hour later
+        if (campaigns.length) {
+          const next = Math.min(...campaigns.flatMap((c) => [at(c.startAt), nextOpens(c)]).filter((t) => t > now))
+          return { outcome: "failed", message: "campaigns: today's credits aren't offered yet", ...askAgain(next) }
+        }
         // Asked without Qoder CN's identity and offered nothing: what an
         // international list says to a request without one, so say why
         // (no Qoder CN on this machine) or ask again (it didn't answer).
@@ -2527,7 +2855,7 @@ const makePlugin = (site) => async ({ client }) => {
       if (claimRes.status !== 200) return { outcome: "failed", message: `claim: HTTP ${claimRes.status}` }
       if (said === "CLAIMED") {
         const amount = Number(claim?.benefit?.amount ?? claim?.data?.benefit?.amount ?? campaign.benefit?.amount)
-        return { outcome: "claimed", ...(Number.isFinite(amount) && amount > 0 ? { credit: amount } : {}) }
+        return { outcome: "claimed", ...(Number.isFinite(amount) && amount > 0 ? { credit: amount } : {}), ...askAgain(nextOpens(campaign)) }
       }
       return { outcome: "failed", message: `claim: ${said || "unknown answer"}` }
     } catch (e) {
@@ -2546,48 +2874,98 @@ const makePlugin = (site) => async ({ client }) => {
     })
 
   // ask is the answer to a chat completion on the live account cred.
-  const ask = async (chat, cred, init, named = "") => {
+  // asked is what ask asked with: the account it ended on, which a refused
+  // job token's renewal (relogin, given getAuth) changes.
+  const ask = async (chat, cred, init, named = "", fallback = false, getAuth, asked = {}) => {
+    asked.cred = cred
     let m
+    let relogged = false
+    const listed = (ms) => ms.find((x) => x.key === chat.model)
     try {
-      m = (await models(cred)).find((x) => x.key === chat.model) ?? (await models(cred, true)).find((x) => x.key === chat.model)
+      m = listed(await models(cred)) ?? listed(await models(cred, true))
+      // A model Qoder serves that the account's listing leaves out, or has
+      // off, on a job token Qoder no longer honours in full: the token is
+      // renewed once (relogin, as for a refused chat) and the list asked
+      // again. On an enterprise qoder.com account (plugins#484) the listing
+      // had only the free dfmodel and qfmodel on while the job token was
+      // stale, and every other model was answered 400 here, before a chat
+      // could be refused and renew it. An id Qoder has never served is said
+      // unknown at once, with no renewal spent on it.
+      if (!m && getAuth && knows(chat.model)) {
+        relogged = true
+        const next = await relogin(getAuth, cred.access)
+        if (next) {
+          cred = asked.cred = next
+          m = listed(await models(cred, true))
+        }
+      }
     } catch (e) {
       if (e instanceof SignInGone || e?.expired) return signedInError(e)
       return errorResponse({ status: 502, message: e?.message ?? String(e) })
     }
     if (!m) return errorResponse({ status: 400, message: `unknown or disabled model "${chat.model}"` })
+    const name = m.name?.trim()
+    const servedName = name && name !== m.key ? name : chat.model
     const api = siteOf(site, cred).api
     const CHAT_URL = api + CHAT_PATH
     const task = taskOf(sessionOf(chat, named), chat)
     const body = qoderBody(chat, m, named, task, siteOf(site, cred))
-    const wire = encodeBody(JSON.stringify(body))
-    // Qoder's queue is waited out (queueWait) and the same request, its
-    // request_set_id the one the queue knows, sent again
+    // Qoder's queue is waited out (queueWait) and the request sent again
+    // under the request_set_id the queue knows, with a new request_id and
+    // chat_record_id, as Qoder's client sends it (its o4i before each
+    // resend). On a real qoder.com account (plugins#427) the free models
+    // are queued in p3 for RESOURCE_LIMIT, about 30s at a time, and a
+    // resend can be queued again before it is answered.
     const deadline = QUEUE.now() + QUEUE.budget
     const ask = { requestSetId: body.request_set_id, requestId: body.request_id, sessionId: body.session_id, modelKey: m.key }
-    for (let waited = 0; ; waited++) {
-      const headers = {
-        ...cosyHeaders(CHAT_URL, cred, wire, siteOf(site, cred)),
-        Accept: "text/event-stream",
-        "Cache-Control": "no-cache",
-        "X-Model-Key": m.key,
-        "X-Model-Source": m.source,
+    for (let sent = 0, waited = 0; ; sent++) {
+      if (sent) {
+        body.request_id = body.chat_record_id = randomUUID()
+        ask.requestId = body.request_id
       }
+      const wire = encodeBody(JSON.stringify(body))
+      const headers = chatHeaders(CHAT_URL, cred, wire, siteOf(site, cred), m, chatIdentity(cred.uid))
+      // a refused call's stream is closed: Qoder keeps a 10605 stream open
+      // after its one event, and a connection held open while the call is
+      // waited out and sent again is one more the account holds
+      const call = new AbortController()
+      const signal = init.signal ? AbortSignal.any([init.signal, call.signal]) : call.signal
       let res, open
       try {
-        res = await fetch(CHAT_URL, { method: "POST", headers, body: wire, signal: init.signal })
+        res = await fetch(CHAT_URL, { method: "POST", headers, body: wire, signal })
         if (res.ok) open = await opened(res, chat.tool_choice !== "none" ? (chat.tools ?? []).filter((t) => t?.type === "function") : [])
       } catch (e) {
         return errorResponse({ status: 502, message: e.message })
       }
       const f = !res.ok ? failure(res.status, (await res.text()).slice(0, 1 << 20)) : open.first.value?.error
+      if (f) call.abort()
+      // a refused job token: renewed once (or the one renewed meanwhile)
+      // and the request sent again, before the refusal is said
+      if (f?.lapsed && getAuth && !relogged) {
+        relogged = true
+        let next
+        try {
+          next = await relogin(getAuth, cred.access)
+        } catch (e) {
+          return signedInError(e)
+        }
+        if (next) {
+          cred = asked.cred = next
+          continue
+        }
+      }
       // an answered call moves its task on, as Qoder's client moves it
       if (!f) task.answered = true
-      if (!f?.queue || waited >= QUEUE.recoveries) return f && !res.ok ? errorResponse(f) : answer(open, chat)
+      // with another account, provider or group member after this one
+      // (magpie's X-Magpie-Fallback), a queued request isn't waited out:
+      // its 503 goes back at once, saying the queue, and the next is asked
+      if (!f?.queue || waited >= QUEUE.recoveries || fallback) return f ? errorResponse(f) : answer(open, chat, servedName)
       try {
         if (!(await queueWait(api, cred, ask, f.queue, init.signal, deadline, siteOf(site, cred)))) return errorResponse(f)
       } catch (e) {
         return errorResponse({ status: 502, message: e?.message ?? String(e) })
       }
+      waited++
     }
   }
 
@@ -2612,19 +2990,35 @@ const makePlugin = (site) => async ({ client }) => {
       refreshLead: RENEW_LEAD,
       async refresh(auth) {
         if (auth?.type !== "oauth" || !auth.access || !auth.uid || !String(auth.refresh ?? "").trim()) return undefined
-        return locked(async () => {
+        const out = await locked(async () => {
           // a request renewed it meanwhile (or magpie hasn't saved this
           // hook's last answer): what that gave, not a second refresh
           const a = latest(auth)
-          if (a.access !== auth.access && a.expires - Date.now() > RENEW_LEAD) return changed(auth, a)
+          if (a.access !== auth.access && a.expires - Date.now() > RENEW_LEAD) return { next: a, renewed: false }
           try {
-            // magpie saves what this gives
-            return changed(auth, { ...a, ...(await renew(a)) })
+            return { next: { ...a, ...(await renew(a)) }, renewed: true }
           } catch (e) {
             if (e?.expired) throw Object.assign(new Error(e.message), { signIn: "expired" })
             throw e
           }
         })
+        const fields = changed(auth, out.next)
+        if (!out.renewed) return fields
+        // The name is read outside the lock: this lock is the plugin's, shared
+        // by every account, and a user-info call may take 20 seconds — a chat
+        // from another account must not wait on it (review #487, C). The
+        // account's own site, too: a public one would send an enterprise token
+        // to the public hosts (1), and the suffix must match the sign-in (2).
+        try {
+          const s = siteOf(site, out.next)
+          const { phoneLabel, cardName } = await refreshedNames(s, out.next.access)
+          const extra = {}
+          if (phoneLabel) extra.phoneLabel = phoneLabel
+          if (cardName) extra.cardName = cardName
+          return Object.keys(extra).length ? { ...fields, ...extra } : fields
+        } catch {
+          return fields
+        }
       },
       async loader(getAuth) {
         const a = await getAuth()
@@ -2656,7 +3050,9 @@ const makePlugin = (site) => async ({ client }) => {
             }
             const h = new Headers(input instanceof Request ? input.headers : undefined)
             new Headers(init.headers ?? {}).forEach((v, k) => h.set(k, v))
-            return signed(await ask(chat, cred, init, h.get(SESSION)?.trim().slice(0, 128) ?? ""), renewed(cred))
+            const asked = {}
+            const res = await ask(chat, cred, init, h.get(SESSION)?.trim().slice(0, 128) ?? "", h.get(FALLBACK) === "1", getAuth, asked)
+            return signed(res, renewed(cred) || (asked.cred !== cred && renewed(asked.cred)))
           },
         }
       },
@@ -2831,4 +3227,4 @@ export async function QwenWorkEnterpriseAuthPlugin({ client }) {
 export const protocol = { makePlugin, deviceSignIn, openapi, siteOf }
 
 // for tests
-export const _internal = { typedUnions, Splitter, campaignRuntime, RUNTIMES, campaignPage, campaignTarget, vpcInstance, vpcSite, parseUsage, gfmt, when, failure, modelInfo, qoderBody, qoderMessages, cacheMarked, sessionOf, namedSession, taskOf, TASKS, TASK_MAX, TASK_IDLE, SESSION, SITES, decodeBody, events, QUEUE, queueState }
+export const _internal = { maskPhone, phoneLabelOf, realEmailOf, chatHeaders, machineOS, machineHostname, cosyHeaders, typedUnions, Splitter, campaignRuntime, RUNTIMES, campaignPage, campaignTarget, vpcInstance, vpcSite, parseUsage, gfmt, when, failure, modelInfo, qoderBody, qoderMessages, cacheMarked, sessionOf, namedSession, taskOf, TASKS, TASK_MAX, TASK_IDLE, SESSION, SITES, decodeBody, events, QUEUE, queueState }

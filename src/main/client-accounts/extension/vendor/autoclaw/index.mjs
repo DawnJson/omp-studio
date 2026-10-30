@@ -17,8 +17,9 @@
  *        callback() 里用 code 调 {vendor}-oauth-login 换 token → {type:"success"}
  */
 
-import { createHash, randomBytes } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { Buffer } from "node:buffer";
 import * as http from "node:http";
 
@@ -30,13 +31,27 @@ const CLIENT_VERSION = "1.18.1";
 const CN_CHANNEL = "AutoClaw26";
 const CN_CLIENT_VERSION = "2.1.0";
 const PLATFORM = process.platform === "darwin" ? "mac" : process.platform === "win32" ? "win" : "linux";
-/** X-Tm: the official Linux client sends "linux-x64"; the overseas gateway
- * answers the bare "linux" with 403 {"message":"forbidden"} (#367). */
+/** X-Tm as the official AutoClaw 2.0.3 client builds it (managedPlatform()
+ * in its main.cjs): darwin is "mac", win32 is "win", anything else is
+ * process.platform as is, so Linux is "linux" on x64 and arm64 alike.
+ * The overseas gateway refuses "linux" only beside a non-official
+ * fingerprint (#367), so the overseas chat sends the official one. */
 function platformTm(platform = process.platform) {
-  return platform === "darwin" ? "mac" : platform === "win32" ? "win" : "linux-x64";
+  return platform === "darwin" ? "mac" : platform === "win32" ? "win" : platform;
 }
 const PLATFORM_TM = platformTm();
 const USER_AGENT = `AutoClaw/${CLIENT_VERSION} (${PLATFORM}-${process.arch})`;
+
+// The overseas chat fingerprint of the official AutoClaw 2.0.3 desktop
+// client (channel "official", read from its AppImage's dist/main.cjs:
+// createZworkManagedRequestHeaders and createZworkManagedModelRequestResolvers).
+// Its model requests go through the OpenAI SDK 6.26.0 inside Electron 42.6.1
+// (Node v24.18.0), which adds its own User-Agent and X-Stainless-* headers.
+const OFFICIAL_CHANNEL = "official";
+const OFFICIAL_CLIENT_VERSION = "2.0.3";
+const OFFICIAL_LANG = "en";
+const OPENAI_SDK_VERSION = "6.26.0";
+const OFFICIAL_NODE_VERSION = "v24.18.0";
 
 const GLOBAL_HOST = "https://autoglm-api.autoglm.ai";
 const CN_HOST = "https://autoglm-api.zhipuai.cn";
@@ -64,6 +79,31 @@ const FLAGGED = [
   [/You are Qwen Code/gi, "You are the Qwen Code agent"],
   [/You are ZCode/gi, "You are the ZCode agent"],
   [/operating inside pi, a coding agent harness/gi, "operating inside the pi coding agent harness"],
+  // ZCode's opening line is "This conversation is powered by GLM-<version>";
+  // the CN gateway refuses that wording with any GLM version, in any case,
+  // anywhere (#466: WorkBuddy renders it for a custom GLM model). A bare
+  // "GLM", "ChatGLM-5.3" or "the GLM-5.3 model" passes. The version stops
+  // before a sentence's closing period.
+  [/This conversation is powered by GLM-([\w-]+(?:\.[\w-]+)*)/gi, "This conversation is powered by the GLM-$1 model"],
+  // WorkBuddy's CLI template still opens "You are CodeBuddy Code." (#466);
+  // "You are CodeBuddy" alone passes.
+  [/You are CodeBuddy Code/gi, "You are the CodeBuddy Code CLI"],
+  // Hermes Agent (Nous Research) opens every chat with its SOUL.md, seeded
+  // from DEFAULT_SOUL_MD ("You are Hermes Agent, built by Nous Research. Be
+  // direct: ..."; agent/prompt_builder.py DEFAULT_AGENT_IDENTITY at v0.22.1
+  // to v0.22.5), and its help guidance says "You run on Hermes Agent (by
+  // Nous Research)". The CN gateway answers 406 for it (Discord, 10-30); the
+  // run it matches wasn't probed, so both "You are Hermes" and "Hermes Agent"
+  // are broken while the model keeps the name Hermes.
+  [/You are Hermes(?: Agent)?\b/gi, "You are the agent Hermes"],
+  [/Hermes Agent\b/gi, "Hermes-Agent"],
+  // Other agents magpie connects, whose opening line names them the same
+  // way (read from each one's source; not seen refused yet): Gemini CLI
+  // (packages/core/src/prompts/snippets.ts), the Python kimi-cli
+  // (agents/default/system.md) and goose (prompts/tiny_model_system.md).
+  [/You are Gemini CLI/gi, "You are the Gemini CLI agent"],
+  [/You are Kimi Code CLI/gi, "You are the Kimi Code CLI agent"],
+  [/You are goose\b/gi, "You are the goose agent"],
 ];
 
 function unflagged(text) {
@@ -96,7 +136,7 @@ function unflag(messages) {
 }
 
 const REFUSED_HINT =
-  "AutoClaw refuses chats whose system prompt carries another agent's identity line (Claude Code, Claude Agent SDK, Codex, opencode, Cursor, Cline, Qwen Code, ZCode, pi, DeepSeek Harness); this plugin rewrites the ones it knows, so an unknown one needs another provider in this group";
+  "AutoClaw refuses chats whose system prompt carries another agent's identity line (Claude Code, Claude Agent SDK, Codex, opencode, Cursor, Cline, Qwen Code, ZCode, pi, DeepSeek Harness, Hermes Agent); this plugin rewrites the ones it knows, so an unknown one needs another provider in this group";
 
 async function explained(res) {
   if (res.status < 400) return res;
@@ -194,6 +234,39 @@ async function refusedNotSignIn(res) {
   return (await quotaRefusal(res)) ?? (await accountRefusal(res));
 }
 
+// tidyBody puts right, in place, what an agent's history can hold that
+// AutoClaw's chat gateway can't read: it answers each with 500 {"message":
+// "parse response failed"} and nothing more (plugins#437, tmuer, who
+// reproduced each on the CN gateway). A message's null or missing content
+// goes as "", an earlier turn's reasoning_content is left off (AutoClaw's
+// own client sends none back), a tool call's arguments that aren't a
+// string go as their JSON ("{}" for none), and tools that aren't a
+// non-empty list are left off with their tool_choice. What already reads
+// right is sent as it was.
+function tidyBody(payload) {
+  if (Array.isArray(payload.messages)) {
+    payload.messages = payload.messages.map((m) => {
+      if (!m || typeof m !== "object") return m;
+      const out = { ...m };
+      if (out.content == null) out.content = "";
+      delete out.reasoning_content;
+      if (Array.isArray(out.tool_calls)) {
+        out.tool_calls = out.tool_calls.map((c) => {
+          const args = c?.function?.arguments;
+          if (!c?.function || typeof args === "string") return c;
+          return { ...c, function: { ...c.function, arguments: args == null ? "{}" : JSON.stringify(args) } };
+        });
+      }
+      return out;
+    });
+  }
+  if ("tools" in payload && !(Array.isArray(payload.tools) && payload.tools.length)) {
+    delete payload.tools;
+    delete payload.tool_choice;
+  }
+  return payload;
+}
+
 function autoclawRewriteBody(rawBody) {
   let payload;
   try {
@@ -203,6 +276,7 @@ function autoclawRewriteBody(rawBody) {
   }
   if (!payload || typeof payload !== "object" || !Array.isArray(payload.messages)) return null;
 
+  tidyBody(payload);
   unflag(payload.messages);
 
   const idx = payload.messages.findIndex((m) => m && m.role === "system");
@@ -302,6 +376,74 @@ function bizHeaders(accessToken) {
   return h;
 }
 
+/** The OpenAI SDK's names for an OS and a CPU (its normalizePlatform/normalizeArch). */
+function stainlessOs(platform = process.platform) {
+  const p = String(platform).toLowerCase();
+  if (p.includes("ios")) return "iOS";
+  if (p === "android") return "Android";
+  if (p === "darwin") return "MacOS";
+  if (p === "win32") return "Windows";
+  if (p === "freebsd") return "FreeBSD";
+  if (p === "openbsd") return "OpenBSD";
+  if (p === "linux") return "Linux";
+  return p ? `Other:${p}` : "Unknown";
+}
+function stainlessArch(arch = process.arch) {
+  if (arch === "x32") return "x32";
+  if (arch === "x86_64" || arch === "x64") return "x64";
+  if (arch === "arm") return "arm";
+  if (arch === "aarch64" || arch === "arm64") return "arm64";
+  return arch ? `other:${arch}` : "unknown";
+}
+
+/** UUID-shaped session id for one conversation: the official client sends its
+ * session's UUID as X-Session-Id, the same on every turn of that session. The
+ * plugin sees no session, so it derives one from the conversation's first
+ * message (stable across turns); with none, a fresh UUID. */
+function conversationSessionId(payload) {
+  const messages = Array.isArray(payload?.messages) ? payload.messages : [];
+  const first = messages.find((m) => m && m.role !== "system");
+  if (!first) return randomUUID();
+  const h = createHash("sha256").update(JSON.stringify([first.role, first.content ?? null])).digest("hex");
+  const variant = ((parseInt(h[16], 16) & 0x3) | 0x8).toString(16);
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
+/** The official client's overseas chat headers (see OFFICIAL_CHANNEL), set on `headers`. */
+function setOfficialChatHeaders(headers, { accessToken, model, sessionId, now = Date.now, platform = process.platform, arch = process.arch }) {
+  const ts = String(Math.floor(now() / 1000));
+  const rid = randomUUID();
+  headers.set("Accept", "application/json");
+  headers.set("User-Agent", `OpenAI/JS ${OPENAI_SDK_VERSION}`);
+  headers.set("X-Stainless-Retry-Count", "0");
+  headers.set("X-Stainless-Timeout", "600");
+  headers.set("X-Stainless-Lang", "js");
+  headers.set("X-Stainless-Package-Version", OPENAI_SDK_VERSION);
+  headers.set("X-Stainless-OS", stainlessOs(platform));
+  headers.set("X-Stainless-Arch", stainlessArch(arch));
+  headers.set("X-Stainless-Runtime", "node");
+  headers.set("X-Stainless-Runtime-Version", OFFICIAL_NODE_VERSION);
+  headers.set("X-Version", OFFICIAL_CLIENT_VERSION);
+  headers.set("X-Tm", platformTm(platform));
+  headers.set("X-Product", PRODUCT);
+  headers.set("X-Auth-Appid", APP_ID);
+  headers.set("X-Auth-TimeStamp", ts);
+  headers.set("X-Auth-Sign", md5Hex(`${APP_ID}&${ts}&${APP_KEY}`));
+  headers.set("X-Lang", OFFICIAL_LANG);
+  headers.set("X-Channel", OFFICIAL_CHANNEL);
+  headers.set("X-Trace-Id", rid);
+  headers.set("X-Request-Id", rid);
+  if (model) headers.set("X-Request-Model", model);
+  else headers.delete("X-Request-Model");
+  headers.set("X-Client-Type", "pc");
+  headers.set("x_trace_id", "autoclaw-desktop");
+  headers.set("X-Session-Id", sessionId);
+  headers.delete("Authorization");
+  headers.delete("X-Harness-Type");
+  headers.set("X-Authorization", `Bearer ${accessToken}`);
+  return headers;
+}
+
 function nonEmptyString(v) {
   return typeof v === "string" && v.length > 0 ? v : undefined;
 }
@@ -386,6 +528,89 @@ function tokenFields(data, fallbackRefresh) {
 // ---------------------------------------------------------------------------
 // 签到与积分
 // ---------------------------------------------------------------------------
+
+// 上游没有积分流水/用量接口（wallets.v2 只有余额，task-list 只有签到），
+// 「已用」只能用本地余额差值算：每次 usage() 观察一次余额，记下本轮峰值，
+// 峰值 − 当前 = 本轮已消耗；任何上涨（相对上次余额，含从 0 回升——池子花光
+// 后签到恰恰最常见）都开新一轮，峰值即当前、used 归零。
+// 状态放 magpie 的配置目录（~/.config/magpie 或 $XDG_CONFIG_HOME/magpie，跟
+// codearts 的台账一个思路）：插件更新不会删掉它，CI 的 HOME=$(mktemp -d) 也
+// 自然隔离；AUTOCLAW_USAGE_STATE_FILE 可改址。写入走临时文件 + rename，并发
+// 写不会留下半份文件；30 天没动的条目顺手清走（没 uid 的账号键是 refresh
+// 哈希，token 一刷新就换键，旧条目靠这个兜底）。北京日界另记当日 −消耗/+入账。
+let usageStatePath;
+function usageStatePathDefault() {
+  if (process.env.AUTOCLAW_USAGE_STATE_FILE) return process.env.AUTOCLAW_USAGE_STATE_FILE;
+  const cfgDir = process.env.XDG_CONFIG_HOME
+    ? `${process.env.XDG_CONFIG_HOME}/magpie`
+    : `${process.env.HOME ?? ""}/.config/magpie`;
+  return `${cfgDir}/autoclaw-usage.json`;
+}
+let usageState;
+/** 测试注入：指向临时目录，并丢掉内存缓存，测试之间互不沿用。 */
+function setUsageStatePath(p) {
+  usageStatePath = p;
+  usageState = undefined;
+}
+function usageStateLoad() {
+  if (usageState) return usageState;
+  try {
+    usageState = JSON.parse(readFileSync(usageStatePath ?? usageStatePathDefault(), "utf8"));
+    if (!usageState || typeof usageState !== "object" || typeof usageState.accts !== "object") usageState = { accts: {} };
+  } catch {
+    usageState = { accts: {} };
+  }
+  return usageState;
+}
+const USAGE_STATE_TTL_MS = 30 * 86400 * 1000;
+function usageStateSave() {
+  try {
+    const now = Date.now();
+    for (const [k, v] of Object.entries(usageState.accts)) {
+      const at = Date.parse(v?.at ?? "");
+      if (!Number.isFinite(at) || now - at > USAGE_STATE_TTL_MS) delete usageState.accts[k];
+    }
+    const path = usageStatePath ?? usageStatePathDefault();
+    mkdirSync(dirname(path), { recursive: true });
+    const tmp = `${path}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify(usageState), { mode: 0o600 });
+    renameSync(tmp, path);
+  } catch {}
+}
+/** 北京日期（UTC+8）的 YYYY-MM-DD，签到/每日赠送的日界。 */
+function beijingDayOf(d = new Date()) {
+  return new Date(d.getTime() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
+/**
+ * 记一次余额观察，返回 { peak, used, daySpent, dayGained }。
+ * 任何上涨（total > 上次余额，含从 0 回升）都开新一轮：峰值即当前，used 归零——
+ * 不等涨过旧峰值（签到常在花费之后到），也不把 0 当「没见过」（池子花光再签到
+ * 恰恰是最常见的循环）。
+ * daySpent/dayGained：北京当日观察到的 −消耗/+入账 累计。
+ */
+function balanceObserve(key, total) {
+  const st = usageStateLoad();
+  const day = beijingDayOf();
+  const prev = st.accts[key] ?? {};
+  const last = Number(prev.balance);
+  const sameDay = prev.day === day;
+  let daySpent = sameDay ? Number(prev.daySpent) || 0 : 0;
+  let dayGained = sameDay ? Number(prev.dayGained) || 0 : 0;
+  let peak;
+  if (Number.isFinite(last) && total > last) {
+    // 上涨：开新一轮（README 承诺的「余额上涨即新一轮开始」）
+    dayGained += total - last;
+    peak = total;
+  } else {
+    peak = Number(prev.peak);
+    if (!Number.isFinite(peak) || peak <= 0 || total > peak) peak = total;
+    if (Number.isFinite(last) && total < last) daySpent += last - total;
+  }
+  const used = Math.max(0, peak - total);
+  st.accts[key] = { peak, balance: total, day, daySpent, dayGained, at: new Date().toISOString() };
+  usageStateSave();
+  return { peak, used, daySpent, dayGained };
+}
 
 async function fetchWallets(accessToken, hosts) {
   for (const host of dedupe(hosts)) {
@@ -640,7 +865,7 @@ function managedHeaders(token, model) {
 }
 
 function rewriteManagedBody(body) {
-  const payload = JSON.parse(String(body ?? "{}"));
+  const payload = tidyBody(JSON.parse(String(body ?? "{}")));
   const model = typeof payload.model === "string" ? payload.model : "zai_auto";
   const messages = Array.isArray(payload.messages) ? payload.messages : [];
   payload.model = model;
@@ -708,32 +933,27 @@ function makeAutoclawPlugin({ providerId, providerName, homeHost, loginMethod })
               const headers = new Headers(init?.headers);
               // magpie's own hint headers (x-magpie-*) are for the plugin, never the vendor
               for (const k of [...headers.keys()]) if (k.toLowerCase().startsWith("x-magpie-")) headers.delete(k);
-              headers.set("User-Agent", USER_AGENT);
-              headers.set("X-Authorization", `Bearer ${accessToken}`);
-              headers.set("X-Client-Type", "pc");
-              headers.set("X-Product", PRODUCT);
-              headers.delete("X-Harness-Type");
-              headers.set("X-Tm", PLATFORM_TM);
-              headers.set("X-Version", CLIENT_VERSION);
-              headers.set("X-Lang", "zh-CN");
-              headers.set("X-Channel", CHANNEL);
-              headers.set("x_trace_id", "autoclaw-desktop");
-              headers.delete("Authorization");
+              // the caller's own SDK headers are not the official client's
+              for (const k of [...headers.keys()]) if (k.toLowerCase().startsWith("x-stainless-")) headers.delete(k);
 
               let routeModel = "";
               let nextBody = init?.body;
+              let sent = null;
               const rewritten = autoclawRewriteBody(init?.body);
               if (rewritten) {
+                sent = rewritten;
                 routeModel = String(rewritten.model ?? "");
                 nextBody = JSON.stringify(rewritten);
                 headers.delete("content-length");
               } else {
                 try {
-                  routeModel = String(JSON.parse(String(init?.body ?? "{}")).model ?? "");
+                  sent = JSON.parse(String(init?.body ?? "{}"));
+                  routeModel = String(sent?.model ?? "");
                 } catch {}
               }
-              if (routeModel) headers.set("X-Request-Model", routeModel);
-              headers.set("X-Request-Id", randomHex(16));
+              // the official 2.0.3 fingerprint: with it the gateway takes X-Tm
+              // "linux"; with the old AutoClaw4/1.18.1 one it refuses it (#367)
+              setOfficialChatHeaders(headers, { accessToken, model: routeModel, sessionId: conversationSessionId(sent) });
 
               const tryFetch = (host) =>
                 fetch(`${host}${CHAT_PATH}`, { ...init, headers, body: nextBody, signal: init?.signal });
@@ -799,8 +1019,13 @@ function makeAutoclawPlugin({ providerId, providerName, homeHost, loginMethod })
             ? signin
             : (await signinStatus(token, hosts[0]).then((s) => s ?? signinStatus(token, hosts[1] ?? hosts[0])) ?? signin);
           if (!data) return { error: "积分接口无数据（token 可能不属于该 host）", windows: [] };
-          const total = Number(data.total_balance);
-          if (!Number.isFinite(total)) return { error: "积分响应异常", windows: [] };
+          // total_balance 为 null/空串/非数时按「未知」处理，不记账：Number(null)===0
+          // 会把账号记成整池花光（used 100%），路由也会把它当成已耗尽。
+          const raw = data.total_balance;
+          if (raw == null || raw === "" || !Number.isFinite(Number(raw))) {
+            return { error: "积分响应异常", windows: [] };
+          }
+          const total = Number(raw);
 
           const rows = Array.isArray(data.wallets) ? data.wallets : [];
           const named = rows
@@ -817,10 +1042,37 @@ function makeAutoclawPlugin({ providerId, providerName, homeHost, loginMethod })
                 used: 0,
                 display: signinFinal.status === "completed"
                   ? `今日已签 ✓${signinFinal.reward ? ` +${signinFinal.reward}` : ""}`
-                  : `今日未签（+${signinFinal.reward || 400}）`,
+                  : `今日未签（+${signinFinal.reward || 200}）`,
                 aside: true,
               }]
             : [];
+
+          // 本轮消耗窗口：上游没有用量/流水接口，用本地余额差值算
+          // （峰值 − 当前；任何上涨即新一轮）。首日只有一次观察时不出这行。
+          // 键复用 signinAccountKey（#254）：显示名可以重复，没 uid 的旧账号按
+          // refresh token 哈希，同名的两个账号不能共用一本账。
+          const track = balanceObserve(signinAccountKey(providerId, auth), total);
+          // 预付余额窗口（magpie ≥ v0.1.1790，#3950）：balance 是「还剩多少」的
+          // 一等读数，路由按它认识账号、不发明百分比——池子大的排前、花光的
+          // 垫底；旧宿主不认识这个字段，账号维持原状（未知），无副作用。
+          const windows = [...signinWindow, { name: "积分余额", balance: total, unit: "积分" }];
+          if (track.used > 0) {
+            const pct = track.peak > 0 ? Math.min(100, Math.round((track.used / track.peak) * 1000) / 10) : 0;
+            windows.unshift({
+              name: "本轮消耗",
+              // aside：只展示，不参与路由。这个百分比是「自上次上涨以来花掉的比例」，
+              // 不是「池子还剩多少」——路由的池子比较交给上面的 balance 窗口。
+              aside: true,
+              // used/remaining 是 0–100 的百分比；amount/limit 是原始积分
+              used: pct,
+              remaining: Math.max(0, 100 - pct),
+              amount: Math.round(track.used),
+              limit: Math.round(track.peak),
+              display: `${Math.round(track.used)} / ${Math.round(track.peak)} 积分`
+                + (track.daySpent > 0 ? ` · 今日 -${Math.round(track.daySpent)}` : "")
+                + (track.dayGained > 0 ? ` · +${Math.round(track.dayGained)}` : ""),
+            });
+          }
 
           // 积分是纯余额，没有总量也没有已用量：只放在 balance 里。做成
           // used: 0 的窗口，卡片会给它配上「剩余 100%」（#376）。细分钱包
@@ -828,7 +1080,7 @@ function makeAutoclawPlugin({ providerId, providerName, homeHost, loginMethod })
           const parts = named.map((w) => `${w.name} ${Math.round(w.balance)}`);
           return {
             balance: `${Math.round(total)} 积分${parts.length ? `（${parts.join(" · ")}）` : ""}`,
-            windows: signinWindow,
+            windows,
           };
         } catch (e) {
           if (e?.banned) return { error: e.message, signIn: "kept", windows: [] };
@@ -1348,9 +1600,10 @@ export const AutoclawCnAuthPlugin = makeAutoclawPlugin({
 export const _internal = {
   quotaRefusal, accountRefusal, bannedSaid,
   makePluginForTest: makeAutoclawPlugin,
-  platformTm, md5Hex, jwtClaim, tokenFields, codeValue, bizHeaders, bareToken, newDeviceId,
+  platformTm, setOfficialChatHeaders, conversationSessionId, stainlessOs, stainlessArch, md5Hex, jwtClaim, tokenFields, codeValue, bizHeaders, bareToken, newDeviceId,
   dailySignin, signinStatus, maybeSignin, signinAccountKey, signinConfig, checkinOutcome, refreshTokens,
+  balanceObserve, usageStatePath: () => usageStatePath ?? usageStatePathDefault(), setUsageStatePath, beijingDayOf,
   fetchUserProfile, accountDeviceId, accountDisplayName, startLocalOAuth,
-  FLAGGED, unflagged, unflag, autoclawRewriteBody, explained, OFFICIAL_SYSTEM_PROMPT, REFUSED_HINT,
+  FLAGGED, unflagged, unflag, tidyBody, rewriteManagedBody, autoclawRewriteBody, explained, OFFICIAL_SYSTEM_PROMPT, REFUSED_HINT,
   guidePageHtml, callbackPageHtml,
 };

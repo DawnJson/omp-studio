@@ -42,6 +42,7 @@
 // replaces its browser sign-in + bearer-token requests with CodeArts' OAuth +
 // signed-request flow. See README.md.
 
+import { createHash } from "node:crypto"
 import { createServer } from "node:http"
 import fs from "node:fs"
 import os from "node:os"
@@ -66,6 +67,23 @@ const OPENGW_GATEWAY_CONFIG_URL = `${OPENGW_HOST}/api/v1/gateway/config`
 // two the plugin itself calls, by name. STS takes the refresh token, never a
 // signature, and the portal only ever opens in the browser.
 const SIGNED_HOSTS = new Set([SNAP_HOST, OPENGW_HOST].map((u) => new URL(u).host))
+
+// Huawei Cloud IAM: the one place an account's own phone number can be read
+// with the credentials a sign-in already carries (`GET /v3.0/OS-USER/users/
+// {principal_id}` answers `user.phone`, measured `0086-13800138000`).
+//
+// Deliberately NOT in SIGNED_HOSTS. magpie forwards requests through this
+// plugin's `fetch`, and that set is the fence around the account's temporary
+// credentials; adding IAM to it would let an `api` override carry them to
+// another service. The plugin's own GET is signed here, by this one function,
+// for this one URL — nothing forwarded ever reaches IAM signed.
+const IAM_HOST = "https://iam.cn-north-4.myhuaweicloud.com"
+const IAM_USER_URL = (userId) => `${IAM_HOST}/v3.0/OS-USER/users/${encodeURIComponent(userId)}`
+const IAM_TIMEOUT_MS = 8_000
+// The phone never changes for one IAM user, and the card asks often: one read
+// per account is enough, kept in memory for IAM_PHONE_TTL_MS (a failed read
+// included, so a card refresh does not ask IAM again every time).
+const IAM_PHONE_TTL_MS = 6 * 60 * 60 * 1000
 // The daily free token pool a `maas_type: benefit` chat draws on (never the
 // credit packages), so a free model's spend shows up in the usage panel.
 const BENEFIT_BALANCE_URL = `${OPENGW_HOST}/api/v1/user/tokens/balance`
@@ -156,6 +174,8 @@ const SESSION_HEADER = "x-ot-session-id"
 // sends the request again, and DELETEs it when it gives up.
 const TRACE_QUEUE_URL = (traceId) => `${SNAP_HOST}/api/v1/concurrency/trace-queues/${encodeURIComponent(traceId)}`
 const QUEUE_BUDGET_MS = 300_000
+/** magpie's: "1" when another candidate follows this request. */
+const FALLBACK_HEADER = "x-magpie-fallback"
 // Every chat of an account goes out under its one session id, so this gate is
 // what keeps the account within the vendor's 3 sessions: an option may only
 // lower it.
@@ -217,6 +237,14 @@ const CATALOG = [
   { id: "deepseek-v4-pro-0813", name: "DeepSeek V4 Pro" },
   { id: "deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash" },
 ]
+
+// Every model listed takes text alone: the vision ones (`-vl`) are left out
+// (parseModelInfo), and the rest answer an image with
+// `InferHub.001001020.406` "The request model is not multimodal". Said in so
+// many words (`image: false`, not left out, which magpie reads as unknown),
+// so magpie describes an image for the model or leaves it out, and an agent
+// is told it takes none.
+const TEXT_ONLY = { input: { text: true, image: false, audio: false, video: false, pdf: false } }
 
 // ---- small helpers ---------------------------------------------------------
 
@@ -471,23 +499,117 @@ function b64Json(s) {
   }
 }
 
+/** The signer's claims from the refresh token's `user_profile`, or null. */
+function profileOf(cred) {
+  const token = typeof cred?.refresh_token === "string" ? cred.refresh_token : ""
+  const parts = token.split(".")
+  if (parts.length !== 3) return null
+  const payload = b64Json(parts[1])
+  const raw = payload?.user_profile
+  return typeof raw === "string" ? (safeJson(raw) ?? b64Json(raw)) : asRecord(raw)
+}
+
 /**
  * Who signed in. STS answers with no user fields, so without this every
  * sign-in looked like a new account to magpie (one more `codearts#xxxxxx`);
  * the refresh_token is a JWT whose `user_profile` claim names the signer.
  * `id` tells accounts apart, `name` is what the usage card shows.
+ *
+ * The claim carries no phone number, only IAM's `account_name` (the `hw…`
+ * string) and `principal_urn` — which is why the card used to show
+ * `iam::<domain>:user:<name>`, an ID nobody can tell apart from another
+ * account's. `user_phone` (read from IAM after sign-in, see
+ * `fetchAccountPhone`) stands in front of them when it is there.
  */
 function accountIdentityOf(cred) {
   const legacy = { id: firstOf(cred?.user_name, cred?.user_id), name: firstOf(cred?.user_name) }
-  const token = typeof cred?.refresh_token === "string" ? cred.refresh_token : ""
-  const parts = token.split(".")
-  if (parts.length !== 3) return legacy
-  const payload = b64Json(parts[1])
-  const raw = payload?.user_profile
-  const profile = typeof raw === "string" ? (safeJson(raw) ?? b64Json(raw)) : asRecord(raw)
-  const id = firstOf(profile?.principal_urn, profile?.account_name, profile?.account_id, profile?.user_id, legacy.id)
-  const name = firstOf(profile?.user_name, profile?.account_name, profile?.domain_name, legacy.name)
+  const profile = profileOf(cred)
+  if (!profile) return { ...legacy, name: firstOf(cred?.user_phone, legacy.name) }
+  const id = firstOf(profile.principal_urn, profile.account_name, profile.account_id, profile.user_id, legacy.id)
+  const name = firstOf(cred?.user_phone, profile.user_name, profile.account_name, profile.domain_name, legacy.name)
   return { id, name }
+}
+
+/**
+ * A phone number as the cards show it: `0086-13800138000` → `138****8000`.
+ * The area code Huawei answers with is dropped, and any number too short to
+ * mask is not a name worth showing (empty, so the caller falls back).
+ */
+function maskPhone(raw) {
+  let digits = String(raw ?? "").replace(/\D/g, "")
+  // Huawei Cloud writes the country code as `0086-…`; a person's own number
+  // may come as `+86 …`. Either is dropped when an 11-digit number follows.
+  if (digits.length > 11 && digits.startsWith("0086")) digits = digits.slice(4)
+  else if (digits.length > 11 && digits.startsWith("86")) digits = digits.slice(2)
+  // a phone is 11 digits; a shorter run is not a number to mask
+  if (digits.length < 11) return ""
+  return `${digits.slice(0, 3)}****${digits.slice(-4)}`
+}
+
+// One phone read per IAM user, re-read after IAM_PHONE_TTL_MS. A failed read
+// is cached too (an empty answer): without that, a card refresh asks IAM again
+// every time, each able to wait the full timeout. Stale entries are dropped
+// past a cap, so the map does not grow for the life of the host.
+const IAM_PHONE_CAP = 1024
+const phoneByIamUser = new Map()
+
+function rememberPhone(iamUserId, phone) {
+  if (phoneByIamUser.size >= IAM_PHONE_CAP) {
+    for (const [k, v] of phoneByIamUser) if (Date.now() - v.at >= IAM_PHONE_TTL_MS) phoneByIamUser.delete(k)
+    if (phoneByIamUser.size >= IAM_PHONE_CAP * 2) phoneByIamUser.clear()
+  }
+  phoneByIamUser.set(iamUserId, { at: Date.now(), phone })
+}
+
+/**
+ * The account's own phone number, read from Huawei Cloud IAM with the
+ * credentials the sign-in already holds. Best effort: `""` when the claim has
+ * no `principal_id`, the call fails, or the answer carries no usable number —
+ * a display name must never cost anyone a sign-in.
+ */
+async function fetchAccountPhone(cred, fetcher = globalThis.fetch) {
+  const iamUserId = firstOf(profileOf(cred)?.principal_id, profileOf(cred)?.user_id)
+  if (!iamUserId || !cred?.access_key_id || !cred?.security_token) return ""
+  const hit = phoneByIamUser.get(iamUserId)
+  if (hit && Date.now() - hit.at < IAM_PHONE_TTL_MS) return hit.phone
+  try {
+    const url = IAM_USER_URL(iamUserId)
+    const signed = await signRequestHuawei(
+      cred.access_key_id, cred.secret_access_key, cred.security_token,
+      "GET", url, new Uint8Array(),
+    )
+    const headers = new Headers()
+    signed.forEach((value, key) => {
+      if (key !== "host") headers.set(key, value)
+    })
+    const res = await fetcher(url, {
+      method: "GET",
+      headers,
+      redirect: "error",
+      signal: AbortSignal.timeout(IAM_TIMEOUT_MS),
+    })
+    if (!res.ok) {
+      rememberPhone(iamUserId, "")
+      return ""
+    }
+    const body = await res.json().catch(() => null)
+    const phone = maskPhone(body?.user?.phone)
+    rememberPhone(iamUserId, phone)
+    return phone
+  } catch {
+    rememberPhone(iamUserId, "")
+    return ""
+  }
+}
+
+/** `{ user_phone }` when the account has one to show, else `{}` (never throws). */
+async function accountPhoneField(cred, fetcher) {
+  try {
+    const phone = await fetchAccountPhone(cred, fetcher)
+    return phone ? { user_phone: phone } : {}
+  } catch {
+    return {}
+  }
 }
 
 /** The credential a sign-in carries; magpie keeps it in the `access` field. */
@@ -800,12 +922,15 @@ function isRegularModel(model, state) {
  * - the output budget inside the gateway's 65536;
  * - always `stream: true`. CodeArts meters only streamed answers — a
  *   non-streaming 200 returns tokens yet leaves the credits untouched — so a
- *   caller that asked for JSON gets the stream folded back (`fold`).
+ *   caller that asked for JSON gets the stream folded back (`fold`);
+ * - tool names within the gateway's 64 characters (`names`, short → the
+ *   agent's own, to put back in the answer; null when none was cut).
  * A body that is not a chat (no `model` + `messages`) gives null.
  */
 function prepareChatBody(parsed, { thinking = true } = {}) {
   if (!parsed || typeof parsed.model !== "string" || !Array.isArray(parsed.messages)) return null
   const body = { ...parsed, model: upstreamModelId(parsed.model) }
+  const names = shortenToolNames(body)
   // `injected`: ours to take back should a model refuse the parameter.
   const injected = thinking && body.thinking === undefined
   if (injected) body.thinking = ENABLE_THINKING
@@ -814,7 +939,208 @@ function prepareChatBody(parsed, { thinking = true } = {}) {
   }
   const fold = body.stream !== true
   body.stream = true
-  return { body, fold, injected }
+  return { body, fold, injected, names }
+}
+
+// ---- tool names over the gateway's limit (#432) -----------------------------
+
+/**
+ * CodeArts turns away a function name over 64 characters ("Function name
+ * […] length over limit, maximum is 64", InferHub.001001017.413), and an
+ * agent's MCP tools are often longer: ZCode's android emulator tool is
+ * `mcp__plugin_android-emulator_android-emulator__android_discover_project`,
+ * 71. A longer name goes as magpie's FlatName cuts one: its first 55
+ * characters, `_`, and 8 hex of its SHA-256, 64 in all. The same name is cut
+ * the same way on every request, so a call in the history keeps matching its
+ * tool, and two names that start alike differ in their hash.
+ */
+const TOOL_NAME_LIMIT = 64
+const TOOL_NAME_KEEP = 55
+
+function cutToolName(name, salt) {
+  let head = name.slice(0, TOOL_NAME_KEEP)
+  // never half a surrogate pair
+  if (/[\uD800-\uDBFF]$/.test(head)) head = head.slice(0, -1)
+  const hex = createHash("sha256").update(salt ? `${name}\u0000${salt}` : name).digest("hex")
+  return `${head}_${hex.slice(0, 8)}`
+}
+
+/** Every place a body names a tool: its tools, its history's calls, tool_choice. */
+function toolNameSlots(body) {
+  const slots = []
+  const slot = (obj, key) => {
+    if (obj && typeof obj === "object" && typeof obj[key] === "string") slots.push({ obj, key })
+  }
+  for (const t of Array.isArray(body.tools) ? body.tools : []) slot(t?.function, "name")
+  for (const f of Array.isArray(body.functions) ? body.functions : []) slot(f, "name")
+  const choice = body.tool_choice
+  if (choice && typeof choice === "object") slot(choice.function, "name")
+  if (body.function_call && typeof body.function_call === "object") slot(body.function_call, "name")
+  for (const m of Array.isArray(body.messages) ? body.messages : []) {
+    if (!m || typeof m !== "object") continue
+    for (const c of Array.isArray(m.tool_calls) ? m.tool_calls : []) slot(c?.function, "name")
+    slot(m.function_call, "name")
+    if (m.role === "tool" || m.role === "function") slot(m, "name")
+  }
+  return slots
+}
+
+/**
+ * Cut every tool name over the limit in body, in place; the map of each cut
+ * name to the agent's own, or null when every name fits. A cut name that is
+ * another tool's own name, or another cut one's, is cut again with a salt,
+ * so the map always leads back to one name.
+ */
+function shortenToolNames(body) {
+  const slots = toolNameSlots(body)
+  if (!slots.some((s) => s.obj[s.key].length > TOOL_NAME_LIMIT)) return null
+  const taken = new Set(slots.map((s) => s.obj[s.key]).filter((n) => n.length <= TOOL_NAME_LIMIT))
+  const short = new Map() // the agent's name → the one sent
+  const names = new Map() // the one sent → the agent's name
+  // In a fixed order, so the same names are cut alike on every request.
+  const long = [...new Set(slots.map((s) => s.obj[s.key]).filter((n) => n.length > TOOL_NAME_LIMIT))].sort()
+  for (const name of long) {
+    let cut = cutToolName(name, 0)
+    for (let salt = 1; taken.has(cut) || names.has(cut); salt += 1) cut = cutToolName(name, salt)
+    short.set(name, cut)
+    names.set(cut, name)
+  }
+  // In place: the body is signedFetch's own parse of the request.
+  for (const s of slots) {
+    const cut = short.get(s.obj[s.key])
+    if (cut) s.obj[s.key] = cut
+  }
+  return names
+}
+
+/** The agent's own names back in a whole completion's tool calls. */
+function restoreToolNames(completion, names) {
+  if (!names) return completion
+  for (const choice of Array.isArray(completion?.choices) ? completion.choices : []) {
+    const msg = choice?.message
+    if (!msg || typeof msg !== "object") continue
+    for (const c of Array.isArray(msg.tool_calls) ? msg.tool_calls : []) {
+      const name = c?.function?.name
+      if (typeof name === "string" && names.has(name)) c.function.name = names.get(name)
+    }
+    if (msg.function_call && names.has(msg.function_call.name)) msg.function_call.name = names.get(msg.function_call.name)
+  }
+  return completion
+}
+
+/**
+ * A stream with the agent's own names back in its tool calls. A call's name
+ * usually comes whole in one delta; should the gateway send it in pieces, the
+ * pieces of a cut name past its first 55 characters (the part that differs
+ * from the agent's) are held until the name is whole, then the rest of the
+ * agent's name goes in their place. Events that name no cut tool pass as
+ * they came, byte for byte.
+ */
+function restoreToolNamesInStream(stream, names) {
+  if (!names) return stream
+  const cuts = [...names.keys()]
+  const calls = new Map() // `${choice}:${call}` → { got, sent }
+  const enc = new TextEncoder()
+  const dec = new TextDecoder()
+  let pending = ""
+  const named = (key, piece) => {
+    const c = calls.get(key) ?? { got: "", sent: 0 }
+    calls.set(key, c)
+    // A whole cut name in one piece, the call's first or a gateway's repeat
+    // of it in a later delta: the agent's name, whole.
+    if (names.has(piece)) {
+      const own = names.get(piece)
+      c.got = own
+      c.sent = own.length
+      return own
+    }
+    c.got += piece
+    let out
+    if (names.has(c.got)) {
+      const own = names.get(c.got)
+      out = own.slice(c.sent)
+      c.sent = own.length
+      c.got = own // a whole name, matched once
+    } else if (c.got.length < TOOL_NAME_LIMIT && cuts.some((cut) => cut.startsWith(c.got))) {
+      const upTo = Math.min(c.got.length, TOOL_NAME_KEEP)
+      out = upTo > c.sent ? c.got.slice(c.sent, upTo) : ""
+      c.sent = Math.max(c.sent, upTo)
+    } else {
+      out = c.got.slice(c.sent)
+      c.sent = c.got.length
+    }
+    return out
+  }
+  // what was held back of a name that never became whole
+  const held = () => {
+    const choices = []
+    for (const [key, c] of calls) {
+      if (c.sent >= c.got.length) continue
+      const [ci, ti] = key.split(":").map(Number)
+      choices.push({ index: ci, delta: { tool_calls: [{ index: ti, function: { name: c.got.slice(c.sent) } }] } })
+      c.sent = c.got.length
+    }
+    return choices.length ? `data: ${JSON.stringify({ choices })}\n\n` : ""
+  }
+  const line = (l) => {
+    const t = l.replace(/\r$/, "")
+    if (!t.startsWith("data:")) return l
+    const payload = t.slice(5).trim()
+    if (payload === "[DONE]") return held() + l
+    if (!payload.includes("tool_calls") && !payload.includes("function_call")) return l
+    const ev = safeJson(payload)
+    if (!ev || !Array.isArray(ev.choices)) return l
+    let changed = false
+    for (const [ci, choice] of ev.choices.entries()) {
+      const delta = choice?.delta
+      if (!delta || typeof delta !== "object") continue
+      const index = Number.isInteger(choice.index) ? choice.index : ci
+      for (const [k, call] of (Array.isArray(delta.tool_calls) ? delta.tool_calls : []).entries()) {
+        const fn = call?.function
+        if (!fn || typeof fn.name !== "string") continue
+        const out = named(`${index}:${Number.isInteger(call.index) ? call.index : k}`, fn.name)
+        if (out !== fn.name) {
+          fn.name = out
+          changed = true
+        }
+      }
+      if (delta.function_call && typeof delta.function_call.name === "string") {
+        const out = named(`${index}:fc`, delta.function_call.name)
+        if (out !== delta.function_call.name) {
+          delta.function_call.name = out
+          changed = true
+        }
+      }
+    }
+    return changed ? `data: ${JSON.stringify(ev)}${l.endsWith("\r") ? "\r" : ""}` : l
+  }
+  const reader = stream.getReader()
+  return new ReadableStream({
+    async pull(controller) {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) {
+          let rest = pending + dec.decode()
+          pending = ""
+          if (rest) rest = line(rest)
+          rest += held()
+          if (rest) controller.enqueue(enc.encode(rest))
+          controller.close()
+          return
+        }
+        pending += dec.decode(value, { stream: true })
+        const cut = pending.lastIndexOf("\n")
+        if (cut < 0) continue
+        const whole = pending.slice(0, cut)
+        pending = pending.slice(cut + 1)
+        controller.enqueue(enc.encode(whole.split("\n").map(line).join("\n") + "\n"))
+        return
+      }
+    },
+    cancel(reason) {
+      return reader.cancel(reason)
+    },
+  })
 }
 
 // ---- reading the gateway's answers -----------------------------------------
@@ -869,7 +1195,17 @@ function isRateLimitCode(code) {
 function embeddedErrorStatus(code) {
   if (isRateLimitCode(code)) return 429
   if (/(^|\.)40[0-4](\.|$)|InferHub\.400[0-9]\./.test(String(code ?? ""))) return 400
+  if (isNotMultimodal(code)) return 400
   return 502
+}
+
+/**
+ * An image sent to a text-only model (`InferHub.001001020.406` "The request
+ * model is not multimodal"): the request's content, which no retry and no
+ * other account changes.
+ */
+function isNotMultimodal(codeOrText) {
+  return /InferHub\.001001020\.406|not multimodal/i.test(String(codeOrText ?? ""))
 }
 
 /** Does this event carry part of an answer (not only a role or a keepalive)? */
@@ -1005,7 +1341,7 @@ function completionFromChunks(events) {
 }
 
 /** Answer a caller that asked for JSON: read the whole stream, fold it. */
-async function foldAnswer(res, head) {
+async function foldAnswer(res, head, names = null) {
   let text = head.text
   if (head.reader) {
     for (;;) {
@@ -1019,11 +1355,16 @@ async function foldAnswer(res, head) {
   headers.set("content-type", "application/json")
   const events = parseSseEvents(text)
   if (events.some((ev) => Array.isArray(ev.choices) && ev.choices.length > 0)) {
-    return new Response(JSON.stringify(completionFromChunks(events)), { status: res.status, statusText: res.statusText, headers })
+    return new Response(JSON.stringify(restoreToolNames(completionFromChunks(events), names)), { status: res.status, statusText: res.statusText, headers })
   }
   // The gateway answered JSON after all, or nothing at all.
-  if (Array.isArray(safeJson(text)?.choices)) return new Response(text, { status: res.status, statusText: res.statusText, headers })
-  return errorResponse(502, errorCodeOf(text), firstOf(errorMessageOf(text), "the gateway returned an empty answer"))
+  const whole = safeJson(text)
+  if (Array.isArray(whole?.choices)) {
+    const body = names ? JSON.stringify(restoreToolNames(whole, names)) : text
+    return new Response(body, { status: res.status, statusText: res.statusText, headers })
+  }
+  const code = errorCodeOf(text)
+  return errorResponse(code ? embeddedErrorStatus(code) : 502, code, firstOf(errorMessageOf(text), "the gateway returned an empty answer"))
 }
 
 /** An OpenAI-shaped error carrying the vendor's code and words (magpie adds the provider name). */
@@ -1275,6 +1616,11 @@ async function signedFetch(cred, input, init, context) {
   if (!isSignedHostUrl(url)) return errorResponse(400, "", refusalTo(url))
   const method = String(init?.method ?? req?.method ?? "GET").toUpperCase()
   const baseHeaders = new Headers(init?.headers ?? req?.headers)
+  // magpie says another account, provider or group member follows this
+  // request (X-Magpie-Fallback): a queued request isn't waited out then.
+  // magpie's own header, never CodeArts'
+  const fallback = baseHeaders.get(FALLBACK_HEADER) === "1"
+  baseHeaders.delete(FALLBACK_HEADER)
   let body
   if (init?.body != null) body = await toBytes(init.body)
   else if (req) body = new Uint8Array(await req.clone().arrayBuffer())
@@ -1344,6 +1690,13 @@ async function signedFetch(cred, input, init, context) {
         const queued = queueInfoOf(res.headers)
         if (queued) {
           void res.body?.cancel().catch(() => {})
+          if (fallback) {
+            // the next candidate is asked at once: this one leaves the
+            // queue, and says why it gave way and when to ask it again
+            void traceQueueCall("DELETE", active, queued.traceId, context, AbortSignal.timeout(REQUEST_TIMEOUT_MS)).catch(() => {})
+            const wait = Math.max(1, Math.ceil(queued.retryAfter))
+            return errorResponse(503, "", `CodeArts queued the request; try again in ${wait}s`, { "retry-after": String(wait) })
+          }
           queueDeadline ||= Date.now() + (context.queueBudgetMs ?? QUEUE_BUDGET_MS)
           if ((await waitInQueue(active, queued, context, signal, queueDeadline)) === "promoted") continue
           return errorResponse(429, "", "排队等待超时或已被移出队列，请稍后再试")
@@ -1352,9 +1705,10 @@ async function signedFetch(cred, input, init, context) {
       if (res.ok) {
         const head = await peekAnswer(res)
         if (!head.code) {
-          if (chat.fold) return await foldAnswer(res, head)
+          if (chat.fold) return await foldAnswer(res, head, chat.names)
           handedOver = true
-          return new Response(replayBody(head, release), { status: res.status, statusText: res.statusText, headers: streamHeaders(res.headers) })
+          const stream = restoreToolNamesInStream(replayBody(head, release), chat.names)
+          return new Response(stream, { status: res.status, statusText: res.statusText, headers: streamHeaders(res.headers) })
         }
         text = head.text
         code = head.code
@@ -1408,6 +1762,9 @@ async function signedFetch(cred, input, init, context) {
         }
         return errorResponse(429, SESSION_LIMIT_ERROR, firstOf(errorMessageOf(text), "并发会话数已达上限，请稍后再试"))
       }
+      // an image the model can't take is the request's fault, whatever
+      // status it came with
+      if (!res.ok && isNotMultimodal(code || text)) return errorResponse(400, code, firstOf(errorMessageOf(text), "the model takes no images"))
       if (!res.ok) return rebuildResponse(res, text)
       return errorResponse(embeddedErrorStatus(code), code, firstOf(errorMessageOf(text), "the gateway answered with an error"))
     }
@@ -2117,14 +2474,19 @@ export const CodeArtsAuthPlugin = async ({ client } = {}, options = {}) => {
     // Declared so a caller never sends its own, larger default.
     limit: { context: m.context ?? 0, output: MAX_OUTPUT_TOKENS },
     tool_call: true,
+    // Text only (TEXT_ONLY): said, not left out, so an agent sends no image.
+    attachment: false,
+    modalities: { input: ["text"], output: ["text"] },
   })
 
   const modelOf = (provider, live, state) => {
     const base = provider.models?.[live.id] ?? {}
     const capabilities = {
-      temperature: true, toolcall: true, attachment: false, input: { text: true }, output: { text: true },
+      temperature: true, toolcall: true, output: { text: true }, attachment: false,
       ...(base.capabilities ?? {}),
       ...(live.reasoning ? { reasoning: true } : {}),
+      // what the user's own config says of a kind stands; the rest is text only
+      input: { ...TEXT_ONLY.input, ...(base.capabilities?.input ?? {}) },
     }
     // magpie's own fields: `free` (from the free daily pool, the same answer
     // the signed `maas_type: benefit` header follows, so a model never shows
@@ -2181,13 +2543,28 @@ export const CodeArtsAuthPlugin = async ({ client } = {}, options = {}) => {
       async refresh(auth) {
         const cred = credentialOf(auth)
         if (!cred) return undefined
-        const next = await renewOnce(cred)
-        const accountId = auth.accountId ? "" : accountIdentityOf(next).id
+        const renewed = await renewOnce(cred)
+        // A rotation rebuilds the credential: keep the phone, which only the
+        // stored one knows (`renewOnce` carries `session_id` itself), and read
+        // it once for an account signed in before it was being read at all.
+        const next = {
+          ...renewed,
+          ...(cred.user_phone && !renewed.user_phone ? { user_phone: cred.user_phone } : {}),
+        }
+        const identified = next.user_phone ? next : { ...next, ...(await accountPhoneField(next, fetcher)) }
+        const identity = accountIdentityOf(identified)
+        // accountId is the account's identity in magpie (its user-set name,
+        // proxy, model picks and a gateway key's list hang off it), so a
+        // renewal never renames one. An account stored without an accountId at
+        // all gets the URN, as main does — otherwise signing it in again would
+        // add a second row.
+        const accountId = auth.accountId ? "" : identity.id
         return {
-          access: JSON.stringify(next),
-          refresh: next.refresh_token,
-          expires: expiresFromCredential(next),
+          access: JSON.stringify(identified),
+          refresh: identified.refresh_token,
+          expires: expiresFromCredential(identified),
           ...(accountId ? { accountId } : {}),
+          ...(identity.id ? { uid: identity.id } : {}),
         }
       },
 
@@ -2295,7 +2672,11 @@ export const CodeArtsAuthPlugin = async ({ client } = {}, options = {}) => {
             grants: readGrants(ledgerPath, await ledgerKey(cred)),
             benefitIds: state.benefit ? [...state.benefit] : BENEFIT_MODEL_FALLBACK,
           })
-          const user = accountIdentityOf(cred).name
+          // The card names the account by its phone, not by IAM's `hw…` id or
+          // its URN — read once here for an account whose credential predates
+          // that read (the next refresh stores it).
+          const phone = firstOf(cred.user_phone) || (await fetchAccountPhone(cred, fetcher))
+          const user = phone || accountIdentityOf(cred).name
           return user ? { ...usage, user } : usage
         } catch (e) {
           return { error: e?.message ?? String(e), windows: [] }
@@ -2349,15 +2730,21 @@ export const CodeArtsAuthPlugin = async ({ client } = {}, options = {}) => {
                   const outcome = await flow.result
                   const cred = safeJson(outcome.access)
                   if (!cred?.access_key_id) return { type: "failed", error: "CodeArts did not return a credential" }
-                  // Who signed in, so signing in again replaces the account
-                  // instead of adding a `codearts#xxxxxx` beside it.
-                  const accountId = accountIdentityOf(cred).id
+                  // The card's name is the phone (one read away, best effort:
+                  // a failed read still signs in), shown through usage's
+                  // `user`; the credential carries it as `user_phone`.
+                  const identified = { ...cred, ...(await accountPhoneField(cred, fetcher)) }
+                  const identity = accountIdentityOf(identified)
+                  // `accountId` is the account's identity — the URN, as main
+                  // gives it — so a re-sign-in replaces the account instead of
+                  // adding a `codearts#xxxxxx`; `uid` is that same URN.
                   return {
                     type: "success",
-                    access: outcome.access,
+                    access: JSON.stringify(identified),
                     refresh: cred.refresh_token,
                     expires: outcome.expires,
-                    ...(accountId ? { accountId } : {}),
+                    accountId: identity.id,
+                    ...(identity.id ? { uid: identity.id } : {}),
                   }
                 } catch (e) {
                   return { type: "failed", error: e?.message ?? String(e) }
@@ -2385,7 +2772,12 @@ function nearExpiry(cred) {
  * merged), so the account's other fields — its accountId — go along.
  */
 async function persistCredential(client, account, cred) {
-  const accountId = firstOf(account?.accountId, accountIdentityOf(cred).id)
+  const identity = accountIdentityOf(cred)
+  // `accountId` is the account's identity in magpie, so it stays what main
+  // stores: the URN, and what the record already had first. The phone is in
+  // the credential (`user_phone`) and shown by usage's `user`.
+  const accountId = firstOf(account?.accountId, identity.id)
+  const uid = firstOf(identity.id, account?.uid)
   const body = {
     ...asRecord(account),
     type: "oauth",
@@ -2393,6 +2785,7 @@ async function persistCredential(client, account, cred) {
     refresh: cred.refresh_token,
     expires: expiresFromCredential(cred),
     ...(accountId ? { accountId } : {}),
+    ...(uid ? { uid } : {}),
   }
   try {
     await client?.auth?.set?.({ path: { id: PROVIDER }, body })
@@ -2413,6 +2806,7 @@ export const _internal = {
   generatePkcePair, generateDpopKeyPair, keyPairFromStoredJwk, signDpopJws,
   buildCanonicalRequest, signRequestHuawei,
   credentialFromTokenResponse, credentialOf, expiresFromCredential, accountIdentityOf, accountSessionIds,
+  profileOf, maskPhone, fetchAccountPhone, accountPhoneField, IAM_HOST, IAM_USER_URL,
   requestToken, exchangeAuthorizationCode, exchangeRefreshToken, refreshCredential,
   isDeadRefreshToken, isPermanentRefreshFailure, nearExpiry, persistCredential,
   buildOAuthLoginUrl, buildPortalLoginResultUrl,
@@ -2423,7 +2817,8 @@ export const _internal = {
   readGrants, recordGrant, readUnconfirmed, recordUnconfirmed, grantExpiry, grantBatches, soonestLapse, fetchCreditBatches,
   PACKAGE_CREDIT_PAGE_URL, OPS_CREDIT_OVERVIEW_URL, OPS_CREDIT_CAMPAIGN_URL,
   toBytes, isBenefitModel, prepareChatBody, signedFetch, signedGet,
-  parseSseEvents, errorCodeOf, errorMessageOf, isStaleCredential, isRateLimitCode, embeddedErrorStatus, classifyHead,
+  TOOL_NAME_LIMIT, cutToolName, shortenToolNames, restoreToolNames, restoreToolNamesInStream,
+  parseSseEvents, errorCodeOf, errorMessageOf, isStaleCredential, isRateLimitCode, embeddedErrorStatus, isNotMultimodal, classifyHead,
   peekAnswer, completionFromChunks, createConcurrencyGate, delay, retryDelayMs,
   isRegularModel, queueInfoOf, waitInQueue, TRACE_QUEUE_URL, SESSION_HEADER,
   snapRequest, dailyCheckin,

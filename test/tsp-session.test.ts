@@ -114,7 +114,7 @@ describe("TspSession + 假 omp：整份录制回放", () => {
     expect(result.closing).toBe(false);
 
     const records = readLog(log);
-    // hello 回复：全部节点种类、我们处理得了的特性、apc 上限、信用值、列数和外观。
+    // hello 回复：除了没有组件的 json 之外的全部节点种类、我们处理得了的特性、apc 上限、信用值、列数和外观。
     const hello = records.find((record) => record.kind === "tsp" && record.verb === "r")?.body;
     expect(hello).toMatchObject({
       r: "hello",
@@ -127,8 +127,8 @@ describe("TspSession + 假 omp：整份录制回放", () => {
       dark: true,
       reduceMotion: false,
     });
-    expect(hello?.["kinds"]).toEqual([...TSP_KINDS]);
-    expect(hello?.["features"]).toEqual(["blobs", "settle", "adopt", "dock", "program-palette", "reduce-motion"]);
+    expect(hello?.["kinds"]).toEqual(TSP_KINDS.filter((kind) => kind !== "json"));
+    expect(hello?.["features"]).toEqual(["blobs", "settle", "adopt", "dock", "reduce-motion"]);
     // DA1 应答在 hello 回复之后。
     expect(records.findIndex((record) => record.kind === "da1-reply")).toBeGreaterThan(
       records.findIndex((record) => record.kind === "tsp" && record.verb === "r"),

@@ -22,7 +22,6 @@ import {
   type TspEvent,
   type TspFrame,
   type TspOpen,
-  type TspPalette,
 } from "../../shared/tsp/tsp.generated.ts";
 import { cwdFromFileUri } from "../../shared/tsp/osc7.ts";
 import type { RunStatusMessage } from "../../shared/tsp/run-status.ts";
@@ -57,11 +56,16 @@ const MAX_BLOB_BYTES = 16 * 1024 * 1024;
  * - `settle`：只是性能提示，文档不变。
  * - `adopt`：`o` 带 `adopt:true` 时接管已有 surface（document.ts 已实现）。
  * - `dock`：`dock` 区域贴着面板底部（渲染进程布局）。
- * - `program-palette`：`t` 消息（文档里存调色板，渲染进程着色）。
  * - `reduce-motion`：hello 的 `reduceMotion` 和 `motion` 事件（`setAppearance`；`theme` 事件不需要特性）。
- * 不声明：`aside`（prefs 贴在面板旁边）、`styles`（`s` 消息：程序自带 CSS 不支持）、`flow`（flow surface）。
+ * 不声明：`aside`（prefs 贴在面板旁边）、`styles`（`s` 消息：程序自带 CSS 不支持）、`flow`（flow surface）、
+ * `program-palette`（`t` 调色板消息，omp 18.14 已从协议删掉；更早的 omp 不看这个特性照发，按未知动词忽略）。
  */
-const TSP_TERMINAL_FEATURES = ["blobs", "settle", "adopt", "dock", "program-palette", "reduce-motion"] as const;
+const TSP_TERMINAL_FEATURES = ["blobs", "settle", "adopt", "dock", "reduce-motion"] as const;
+/**
+ * hello 回复的 `kinds`：除了 `json` 的全部种类。`json`（omp 18.14 新增，可折叠的 JSON 树）我们没有对应的组件；
+ * 不声明时 omp 把工具参数、结果里的 JSON 画成普通的 tree / 文字行（`cx.supports("json")`）。
+ */
+const TSP_DECLARED_KINDS = TSP_KINDS.filter((kind) => kind !== "json");
 
 /** 一个伪终端。和 node-pty 的 IPty 结构兼容（onData 在 `encoding: null` 时给 Buffer）。 */
 export interface TspPty {
@@ -425,7 +429,8 @@ export class TspSession {
       this.#blob(params, body);
       return;
     }
-    if (verb !== "q" && verb !== "o" && verb !== "f" && verb !== "t" && verb !== "x") return; // 未知动词按规范忽略（`s` 样式表我们不声明支持）
+    // 未知动词按规范忽略：`s` 样式表我们不声明支持；`t` 调色板是 omp 18.13 及更早照发的，界面不用。
+    if (verb !== "q" && verb !== "o" && verb !== "f" && verb !== "x") return;
     let json: unknown;
     try {
       json = JSON.parse(body);
@@ -460,7 +465,7 @@ export class TspSession {
         v: TSP_VERSION,
         term: TERM_NAME,
         ver: this.#options.appVersion,
-        kinds: TSP_KINDS,
+        kinds: TSP_DECLARED_KINDS,
         features: TSP_TERMINAL_FEATURES,
         apc: TSP_DEFAULT_APC_LIMIT,
         credits: TSP_DEFAULT_CREDITS,
@@ -487,7 +492,7 @@ export class TspSession {
 
   // ───── 文档 ─────
 
-  #documentMessage(verb: "o" | "f" | "t" | "x", body: Record<string, unknown>): void {
+  #documentMessage(verb: "o" | "f" | "x", body: Record<string, unknown>): void {
     let message: TspDocMessage;
     switch (verb) {
       case "o":
@@ -499,10 +504,6 @@ export class TspSession {
         break;
       case "f":
         message = { verb, body: body as unknown as TspFrame };
-        break;
-      case "t":
-        if (typeof body["sf"] !== "string") return this.#reject("t", "a t message needs sf");
-        message = { verb, body: body as unknown as TspPalette };
         break;
       case "x":
         if (typeof body["id"] !== "string") return this.#reject("x", "an x message needs an id");

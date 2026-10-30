@@ -211,16 +211,17 @@ class OAuthError extends Error {
 
 // postForm posts an OAuth form, as MiniMax Code's client does; ok is false
 // when the answer is an HTTP error or carries an "error".
-async function postForm(url, fields) {
+async function postForm(url, fields, timeoutMs = 30000) {
   const res = await fetch(url, {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(fields).toString(),
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(timeoutMs),
   })
+  const text = await res.text() // preserve transport errors while reading the body
   let body
   try {
-    body = obj(JSON.parse(await res.text()))
+    body = obj(JSON.parse(text))
   } catch {}
   if (!body) throw new OAuthError("invalid_json_response", res.status)
   const error = str(body, "error")
@@ -283,30 +284,54 @@ async function startDevice(site) {
   }
 }
 
+// Only device-code polling is retried. Refresh tokens may be single-use.
+function transientDeviceError(e) {
+  const code = e?.code ?? e?.cause?.code
+  if (["ECONNRESET", "ETIMEDOUT", "EPIPE", "ECONNREFUSED", "EAI_AGAIN"].includes(code) || e?.name === "TimeoutError") return true
+  if (!(e instanceof OAuthError)) return false
+  const status = e.httpStatus
+  if (["invalid_grant", "access_denied", "expired_token", "invalid_client", "unauthorized_client"].includes(e.code)) return false
+  return status === 408 || status === 429 || status >= 500 && status <= 599 ||
+    e.code === "invalid_json_response" && status === 400
+}
+
 async function pollDevice(site, d) {
   let wait = d.intervalMs
+  let failures = 0
+  let delay = wait
   while (Date.now() < d.deadline) {
-    await sleep(wait)
-    const r = await postForm(site.account + "/oauth2/token", {
-      grant_type: DEVICE_GRANT,
-      ...d.poll,
-      client_id: CLIENT_ID,
-      code_verifier: d.verifier,
-    })
+    await sleep(Math.min(delay, Math.max(0, d.deadline - Date.now())))
+    if (Date.now() >= d.deadline) break
+    let r
+    try {
+      r = await postForm(site.account + "/oauth2/token", {
+        grant_type: DEVICE_GRANT,
+        ...d.poll,
+        client_id: CLIENT_ID,
+        code_verifier: d.verifier,
+      }, Math.max(1, Math.min(30000, d.deadline - Date.now())))
+      if (!r.ok && r.error !== "authorization_pending" && r.error !== "slow_down") {
+        throw new OAuthError(r.error ?? "device_authorization_failed", r.status)
+      }
+    } catch (e) {
+      if (!transientDeviceError(e) || ++failures > 3) throw e
+      delay = Math.max(wait, Math.min(30000, Math.max(wait, 1000) * 2 ** failures))
+      // Fixed text and numeric status only: never log forms, URLs or tokens.
+      console.warn(`MiniMax device authorization: temporary transport/response failure${e.httpStatus ? ` (HTTP ${e.httpStatus})` : ""}; retry ${failures}/3`)
+      continue
+    }
+    failures = 0
+    delay = wait
     const status = str(r.body, "status")
-    if (r.ok && status === "pending") continue
-    if (r.ok && status === "slow_down") {
+    if (r.ok && status === "pending" || r.error === "authorization_pending") continue
+    if (r.ok && status === "slow_down" || r.error === "slow_down") {
       wait += 5000
+      delay = wait
       continue
     }
     if (r.ok && (status === "denied" || status === "access_denied")) throw new OAuthError("access_denied", 0, "the sign-in was turned down")
     if (r.ok && (status === "expired" || status === "expired_token")) throw new OAuthError("expired_token", 0, "the sign-in code expired")
     if (r.ok) return token(r.body)
-    if (r.error === "authorization_pending") continue
-    if (r.error === "slow_down") {
-      wait += 5000
-      continue
-    }
     throw new OAuthError(r.error ?? "device_authorization_failed", r.status)
   }
   throw new OAuthError("expired_token", 0, "the sign-in code expired")
@@ -513,6 +538,74 @@ function credits(b) {
   const n = Number(b)
   if (!Number.isFinite(n)) return String(b)
   return (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")) + " credits"
+}
+
+// ---- the credits ledger ----------------------------------------------------------
+
+// MiniMax's own client lists the account's credits batch by batch in
+// Settings → Usage → Credit details (积分明细): GET
+// /minimax-cloud/api/v1/credit/details, page_number, page_size 20 and
+// include_expired, answering { details, total_count }. Each batch has
+// credit_type (1 purchased, 2 check-in), granted_amount, consumed_amount
+// and remaining_amount as decimal strings ("1,200.5"; a remaining below 0
+// is 0), granted_at_ms and expire_at_ms; a batch past expire_at_ms is
+// Expired. It goes as the check-in's calls go, to the account host.
+const LEDGER_PAGE = 20
+const LEDGER_PAGES = 10
+
+// amountOf reads a ledger amount as the client does; null when it isn't one.
+function amountOf(v, clampNegative = false) {
+  if (v === null || v === undefined || v === "") return null
+  let t = String(v).replace(/,/g, "").trim()
+  if (clampNegative && t.startsWith("-")) return /^\d+(\.\d+)?$/.test(t.slice(1)) ? 0 : null
+  if (!/^\d+(\.\d+)?$/.test(t)) return null
+  const n = Number(t)
+  return Number.isFinite(n) ? n : null
+}
+
+// ledgerBatches is the batches of every page, or null when the list
+// couldn't be read whole: a part of the ledger would tell a wrong share.
+async function ledgerBatches(site, access, userID) {
+  const out = []
+  for (let page = 1; page <= LEDGER_PAGES; page++) {
+    const env = await accountCall(site, "/minimax-cloud/api/v1/credit/details", {
+      access, userID, origin: site.agent,
+      query: { ...CHECKIN_QUERY, page_number: String(page), page_size: String(LEDGER_PAGE), include_expired: "true" },
+    }, "credits")
+    const d = Array.isArray(env.details) ? env : obj(env.data)
+    if (!Array.isArray(d?.details) || typeof d.total_count !== "number") return null
+    out.push(...d.details)
+    if (out.length >= d.total_count || !d.details.length) return out.length >= d.total_count ? out : null
+  }
+  return null
+}
+
+// creditsWindow is the batches not yet expired as one window: what they
+// granted, what of it is used, and when the soonest of them runs out. None
+// when no batch is live or a batch can't be read.
+function creditsWindow(batches, now = Date.now()) {
+  let total = 0, left = 0, soonest
+  for (const b of batches) {
+    const granted = amountOf(b?.granted_amount), rest = amountOf(b?.remaining_amount, true), exp = Number(b?.expire_at_ms)
+    if (b?.credit_type !== 1 && b?.credit_type !== 2) continue
+    if (granted === null || rest === null || !Number.isFinite(exp)) return undefined
+    if (exp <= now) continue
+    total += granted
+    left += Math.min(rest, granted)
+    if (rest > 0 && (!soonest || exp < soonest.at)) soonest = { at: exp, n: rest }
+  }
+  if (!(total > 0)) return undefined
+  const used = Math.max(0, total - left)
+  const round = (n) => Math.round(n * 100) / 100
+  return {
+    name: "Credits",
+    used: (100 * used) / total,
+    display: `${round(used)} / ${round(total)}`,
+    amount: round(used),
+    limit: round(total),
+    unit: "credits",
+    ...(soonest ? { runsOutAt: new Date(soonest.at).toISOString(), runsOut: round(soonest.n) } : {}),
+  }
 }
 
 // usageOf is the card: the plan (the M Plan's tier, else Free), the credits
@@ -822,6 +915,14 @@ function makePlugin(site) {
                 error = e?.message ?? String(e)
               }
             }
+            // the credits as a share of what the live batches granted
+            // (#393); beside an M Plan they are its fallback, aside. A
+            // ledger that can't be read leaves the balance alone.
+            try {
+              const b = await ledgerBatches(site, a.access, who.realUserID)
+              const cw = b && creditsWindow(b)
+              if (cw) windows = [...windows, m.hasTokenPlan ? { ...cw, aside: true } : cw]
+            } catch {}
             return {
               ...usageOf(m, windows),
               ...(error ? { error } : {}),
@@ -908,4 +1009,4 @@ export const MiniMaxCodeAuthPlugin = makePlugin(SITES["minimax-code"])
 export const MiniMaxCodeGlobalAuthPlugin = makePlugin(SITES["minimax-code-global"])
 
 // for tests
-export const _internal = { SITES, MODELS, signed, md5, parseModels, planWindows, membershipOf, usageOf, credits, variants, renewing, renewed, startDevice, pollDevice, checkinOf }
+export const _internal = { SITES, MODELS, signed, md5, parseModels, planWindows, membershipOf, usageOf, credits, creditsWindow, ledgerBatches, variants, renewing, renewed, startDevice, pollDevice, checkinOf }

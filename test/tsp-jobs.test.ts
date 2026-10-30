@@ -175,7 +175,7 @@ describe("hub-steer 录制（两个后台子代理 Alpha / Beta）", () => {
 
 describe("jobs-kill 录制（/jobs kill bg_1、/jobs kill all 之后的 /jobs 弹窗）", () => {
   it("弹窗里三种终态：Cancelled / Cancelled / Failed", () => {
-    const doc = docAt("jobs-kill", 88);
+    const doc = docAt("jobs-kill", 86);
     const jobs = deriveTspJobs(doc, agentStatuses(doc), 0);
     expect(jobs.map((job) => [job.id, job.label, job.status, job.durationMs])).toEqual([
       ["bg_1", "sleep 300", "cancelled", 7600],

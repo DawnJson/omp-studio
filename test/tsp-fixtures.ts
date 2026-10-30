@@ -35,7 +35,7 @@ export function tspDocMessages(lines: readonly TspRecordLine[]): { t: number; me
           data: String(line.body),
         },
       });
-    else if (line.verb === "o" || line.verb === "f" || line.verb === "t" || line.verb === "x")
+    else if (line.verb === "o" || line.verb === "f" || line.verb === "x")
       out.push({ t: line.t, message: { verb: line.verb, body: line.body } as TspDocMessage });
   }
   return out;

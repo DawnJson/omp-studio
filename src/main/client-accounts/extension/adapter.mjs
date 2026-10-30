@@ -98,12 +98,14 @@ function positive(value, fallback) {
 }
 
 /**
- * 插件的一个模型（运行时行或 config 里的表行）→ omp 的模型行，带上 `transport`；传输不支持时返回 null。
+ * 插件的一个模型（运行时行或 config 里的表行）→ omp 的模型行，带上 `transport`；传输不支持、或是只做决策不能对话的模型
+ * （magpie 的 `decides: true`，如 Command Code 的 Jev：请求体是 `{state, questions}`，不是对话）时返回 null。
  * @param {string} key 模型表里的键（config 表行没有 id）
  * @param {object} model
  * @param {{ npm?: string, baseUrl?: string }} provider 插件 config 里的 provider 默认值
  */
 export function modelRow(key, model, provider = {}) {
+  if (model?.decides === true) return null;
   const transport = TRANSPORTS[model?.api?.npm ?? model?.provider?.npm ?? provider.npm ?? "@ai-sdk/openai-compatible"];
   if (!transport) return null;
   const id = String(model?.id ?? key ?? "");
@@ -144,6 +146,11 @@ const USAGE_UNITS = new Set(["percent", "tokens", "requests", "credits", "usd", 
 const finite = (value) => typeof value === "number" && Number.isFinite(value);
 const text = (value) => (typeof value === "string" ? value.trim() : "");
 
+/** 没有用量的窗口的说明：插件给的 display；没有时用 balance（+ unit）；都没有为空串。 */
+const windowNote = (window) =>
+  text(window.display) ||
+  (finite(window.balance) ? `${window.balance}${text(window.unit) ? ` ${text(window.unit)}` : ""}` : "");
+
 /** 插件的时间：ISO 串或时间戳（照 magpie 的 host.js，小于 1e11 的数是秒）→ 毫秒；读不出来是 undefined。 */
 function usageTime(value) {
   if (value === undefined || value === null || value === "") return undefined;
@@ -182,7 +189,7 @@ function resetCreditsOf(resets) {
  * 插件 `auth.usage(getAuth, provider)` 的结果 → omp 的 `UsageReport`（`@oh-my-pi/pi-ai` 的 `usage.ts`）。
  * 插件的契约是 magpie 的（`internal/plugin/host.js` 的 `usageOf`）：`{ plan?, user?, until?（套餐到期）, renew?（"auto" | "off"）,
  * balance?（余额，一段文字）, resets?（见 resetCreditsOf）, error?, windows: [{ name, used?（已用百分比 0-100，缺了是"没说"不是 0）,
- * resetsAt?, resetSecs?, span?（秒）, display?, amount?, limit?, unit?, aside?（用完也不挡账号） }] }`。
+ * resetsAt?, resetSecs?, span?（秒）, display?, amount?, limit?, unit?, balance?（只有余额的窗口：剩下多少）, aside?（用完也不挡账号） }] }`。
  * 套餐到期、自动续费 omp 没有对应字段，放进 `metadata.planEndsAt`（毫秒）/ `metadata.autoRenew`，studio 的用量对话框读它们。
  * 插件报错时抛出（omp 把这个账号列进"取不到用量"）；套餐、窗口、余额、重置都没有时返回 null。
  */
@@ -243,8 +250,9 @@ export function usageReport(provider, result, now = Date.now()) {
             : fraction >= 0.9
               ? "warning"
               : "ok",
-      // 只有一段文字、没有数的窗口（有的插件只给 display）：文字放进说明，不然什么都看不到。
-      ...(fraction === undefined && text(window.display) ? { notes: [text(window.display)] } : {}),
+      // 只有一段文字或只有余额、没有用量的窗口（有的插件只给 display，AutoClaw 的"积分余额"只给 balance + unit）：
+      // 文字放进说明，不然什么都看不到。
+      ...(fraction === undefined && windowNote(window) ? { notes: [windowNote(window)] } : {}),
     });
   });
   const plan = text(result.plan);

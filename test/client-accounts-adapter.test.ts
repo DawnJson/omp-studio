@@ -144,6 +144,10 @@ describe("模型行", () => {
     expect(modelRow("d", {}, { baseUrl: "https://a.example/v1" })).toMatchObject({ baseUrl: "https://a.example/v1" });
     expect(modelRow("x", {})).not.toHaveProperty("baseUrl");
   });
+
+  it("只做决策的模型（magpie 的 decides，如 Command Code 的 Jev）不进模型列表：它不能对话", () => {
+    expect(modelRow("typesafe/jev", { id: "typesafe/jev", name: "Jev", decides: true, tool_call: false })).toBeNull();
+  });
 });
 
 describe("请求地址", () => {
@@ -216,6 +220,12 @@ describe("额度（插件 auth.usage → omp 的 UsageReport）", () => {
     expect(limit?.status).toBe("unknown");
     expect(limit?.notes).toEqual(["unlimited"]);
     expect(limit?.window).toBeUndefined();
+  });
+
+  it("只有余额的窗口（AutoClaw 的积分余额只给 balance + unit）：余额和单位放进说明，不是一行空白", () => {
+    const [limit] =
+      usageReport("autoclaw", { windows: [{ name: "积分余额", balance: 1520, unit: "积分" }] }, now)?.limits ?? [];
+    expect(limit).toMatchObject({ label: "积分余额", status: "unknown", notes: ["1520 积分"] });
   });
 
   it("按量付费只有余额（MiniMax、AutoClaw）：不算取不到用量，余额进报告的说明；aside 窗口用完不标成用完", () => {
