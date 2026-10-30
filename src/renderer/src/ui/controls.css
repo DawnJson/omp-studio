@@ -1084,20 +1084,23 @@
 .ui-list-actions:empty {
   display: none;
 }
-/* 卡片排法（.ui-cards 包 ListRow，2026-10-29 仓库所有者定）：两行。第一行图标、名称、动作；
-   第二行从名称下面开始，徽标 + 元信息，可以伸到动作下面。同一行卡片等高。 */
+/* 卡片排法（.ui-cards 包 ListRow，2026-10-29 仓库所有者定）：两行。第一行名称、动作；
+   第二行从名称下面开始，徽标 + 元信息，可以伸到动作下面。同一行卡片等高。
+   2026-10-30 仓库所有者嫌难看：每格最小 260 → 320（3 列时名称和变量名都被截断），内边距加大，名称 14px，
+   图标块 36 方、描边不填底，跨两行放在左侧。 */
 .ui-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: var(--space-3);
 }
 .ui-cards > .ui-list-row {
   grid-template-rows: var(--control-h-sm) auto;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   align-content: start;
-  row-gap: 0;
+  row-gap: var(--space-0-5);
   height: 100%;
   min-height: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1108,14 +1111,25 @@
 .ui-cards > .ui-list-row .ui-list-name {
   grid-row: 1;
   grid-column: 2;
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
 }
 .ui-cards > .ui-list-row .ui-list-sub {
   grid-row: 2;
   grid-column: 2 / -1;
   align-self: start;
 }
+/* 两行合起来 48 高（28 + 2 + 徽标 18），36 方的图标块下移 6 居中；元信息多出几行时它仍和名称对齐，不跟着往下走。 */
 .ui-cards > .ui-list-row > .ui-list-icon {
-  grid-row: 1;
+  grid-row: 1 / 3;
+  align-self: start;
+  width: 36px;
+  height: 36px;
+  margin-top: var(--space-1-5);
+  font-size: var(--fs-sm);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
 }
 .ui-cards > .ui-list-row > .ui-list-actions {
   grid-row: 1;
@@ -1317,11 +1331,16 @@
 .ui-skeleton-card {
   display: flex;
   gap: var(--space-3);
-  align-items: flex-start;
-  height: var(--skeleton-h, 64px);
-  padding: var(--space-2) var(--space-3);
+  align-items: center;
+  height: var(--skeleton-h, 74px);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
   background: var(--bg-raised);
   border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.ui-skeleton-card > .ui-skeleton[data-shape="icon"] {
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-lg);
 }
 .ui-skeleton-lines {

@@ -337,10 +337,14 @@
   overflow-wrap: break-word;
 }
 
-/* provider 的 logo（ProviderLogo）：放在 ListRow 的 28px 图标格里 */
+/* provider 的 logo（ProviderLogo）：ListRow 的 28px 图标格里 16px，卡片的 36px 图标块里 20px */
 .provider-logo {
   width: 16px;
   height: 16px;
+}
+.ui-cards .provider-logo {
+  width: 20px;
+  height: 20px;
 }
 
 /* 数组 / 对象行："编辑…"旁的等宽摘要 */

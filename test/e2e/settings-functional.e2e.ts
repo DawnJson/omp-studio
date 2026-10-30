@@ -16,10 +16,11 @@ async function rect(locator: Locator): Promise<{ x: number; y: number; width: nu
   return box;
 }
 
-/** 紧凑卡片（2026-10-29 仓库所有者定）：两行约 64 高；动作和名称同在第一行，徽标在第二行（元信息行）开头、元信息跟在它后面。 */
+/** 紧凑卡片（2026-10-29 仓库所有者定，2026-10-30 加大）：两行约 74 高；动作和名称同在第一行，徽标在第二行（元信息行）开头、
+ *  元信息跟在它后面；图标块在左侧，和这两行一起居中。 */
 async function expectCompactCard(card: Locator, action: Locator): Promise<void> {
   const box = await rect(card);
-  expect(box.height).toBeLessThan(72);
+  expect(box.height).toBeLessThan(80);
   const name = await rect(card.locator(".ui-list-name"));
   const button = await rect(action);
   const centre = button.y + button.height / 2;
@@ -31,6 +32,9 @@ async function expectCompactCard(card: Locator, action: Locator): Promise<void> 
   const meta = await rect(card.locator(".ui-list-meta"));
   expect(meta.x).toBeGreaterThanOrEqual(badge.x + badge.width);
   expect(Math.abs(meta.y + meta.height / 2 - (badge.y + badge.height / 2))).toBeLessThanOrEqual(badge.height / 2);
+  const icon = await rect(card.locator(".ui-list-icon"));
+  expect(icon.x + icon.width).toBeLessThanOrEqual(name.x);
+  expect(Math.abs(icon.y + icon.height / 2 - (button.y + badge.y + badge.height) / 2)).toBeLessThanOrEqual(2);
 }
 
 /** 图标格是一个类别图标（svg），不是名字首字母（2026-10-29 仓库所有者定）。 */

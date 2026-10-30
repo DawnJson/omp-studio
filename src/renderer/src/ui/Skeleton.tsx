@@ -1,6 +1,6 @@
 // 等 omp 返回的列表用的骨架占位（样式在 controls.css 的 .ui-skeleton*）：与最终行同高的灰条，扫光受 --play-state 控制。
 // 数据到了换成真实列表，真实列表的容器加 className="ui-data-in" 淡入（--dur-fast）。
-// variant："row" 是分隔线列表的行（48 高，插件行等）；"card" 是 .ui-cards 里的两行卡片（64 高）。label 给读屏用（原来的"正在读取…"文字）。
+// variant："row" 是分隔线列表的行（48 高，插件行等）；"card" 是 .ui-cards 里的两行卡片（74 高）。label 给读屏用（原来的"正在读取…"文字）。
 
 import type { CSSProperties } from "react";
 
