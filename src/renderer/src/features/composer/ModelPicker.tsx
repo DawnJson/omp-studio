@@ -116,7 +116,7 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
       const height = dialog.offsetHeight;
       if (height <= tallest) return;
       tallest = height;
-      dialog.style.minHeight = `min(${height}px, 84vh, var(--content-w))`;
+      dialog.style.minHeight = `min(${height}px, 84vh, var(--content-w-min))`;
     });
     observer.observe(dialog);
     return () => observer.disconnect();

@@ -122,7 +122,11 @@
   --panel-head-h: 40px; /* 面板 / 评审的标题条（文件面板头、评审头、评审文件头） */
   --sidebar-w: 240px; /* 任务行标题 + 尾部时间放得下：中文约 10 个字、英文带 "Just now" 约 14 个字符 */
   --sidebar-w-min: 200px;
-  --content-w: 840px; /* 对话列与输入框同宽同轴 */
+  /* 对话列与输入框同宽同轴：约占主区面板 80%，最窄 840、最宽 1200（2026-10-30 仓库所有者：窗口放大时不能只有两边空白变宽）。
+     cqi 相对主区面板（.panel 是 inline-size 容器）；用的地方再和 100% − 2×--gutter 取小。面板外（对话框）用不到它。 */
+  --content-w-min: 840px;
+  --content-w-max: 1200px;
+  --content-w: clamp(var(--content-w-min), 80cqi, var(--content-w-max));
   --gutter: 24px; /* 对话区最小左右留白 */
   --review-tree-w: 240px; /* 评审：文件树 */
   --dialog-w-sm: 400px;

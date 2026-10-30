@@ -1131,7 +1131,7 @@ button.usage-context:hover,
   --mp-cols: minmax(0, 1fr) 36px 40px 48px 88px var(--space-5);
   align-self: flex-start;
   margin-top: 8vh;
-  max-height: min(84vh, var(--content-w));
+  max-height: min(84vh, var(--content-w-min));
 }
 .ui-dialog.mp-dialog[data-size] {
   --dialog-w: var(--dialog-w-xl);

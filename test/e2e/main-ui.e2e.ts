@@ -96,6 +96,43 @@ test("输入框：上面输入区、下面工具行，同一块底上没有分�
   }
 });
 
+// 2026-10-30 仓库所有者：窗口放大时对话列不能只是两边空白变宽。对话列和输入框同宽同轴，约占主区面板 80%，最窄 840、最宽 1200。
+test("窗口放大时对话列和输入框一起变宽：约占主区 80%，最窄 840、最宽 1200", async () => {
+  const { launched, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await sendFirst(page, "用一句中文回答：2+2 等于几？不要调用任何工具。");
+    const column = page.locator('[data-testid="tsp-view"] .tsp-column.tsp-main');
+    const measure = async () => {
+      const [panel, col, stack] = await Promise.all([
+        page.getByTestId("main-panel").evaluate((el) => (el as unknown as { clientWidth: number }).clientWidth),
+        column.boundingBox(),
+        page.getByTestId("composer-stack").boundingBox(),
+      ]);
+      if (col === null || stack === null) throw new Error("对话列或输入框不可见");
+      // 同宽同轴：输入框和对话列左右边一致。
+      expect(Math.abs(stack.x - col.x)).toBeLessThanOrEqual(1);
+      expect(Math.abs(stack.width - col.width)).toBeLessThanOrEqual(1);
+      return { panel, width: col.width };
+    };
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await expect.poll(async () => (await measure()).width).toBeCloseTo(840, 0);
+    await page.setViewportSize({ width: 1700, height: 800 });
+    await expect
+      .poll(async () => {
+        const { panel, width } = await measure();
+        return width - panel * 0.8;
+      })
+      .toBeCloseTo(0, 0);
+    expect((await measure()).width).toBeGreaterThan(1000);
+    await page.setViewportSize({ width: 2400, height: 800 });
+    await expect.poll(async () => (await measure()).width).toBeCloseTo(1200, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("没有项目时直接发送：在 chats 目录里建项目和任务，侧栏出现这个项目", async () => {
   const launched = await launchApp({ STUDIO_TEST_OMP: testOmp(fixture) });
   try {

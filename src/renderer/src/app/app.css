@@ -245,6 +245,8 @@ html[data-platform="darwin"] .topbar-left {
   min-width: var(--main-min-w);
   min-height: 0;
   overflow: hidden;
+  /* 对话列宽 --content-w 的 cqi 以主区面板为准（tokens.css） */
+  container-type: inline-size;
   background: var(--bg-app);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);

@@ -53,7 +53,7 @@
 | 标题栏内容 | **仓库所有者 2026-10-18 指定：照 Claude 桌面版**。窗口最上方一条通栏的顶栏，横跨侧栏和主区：左边依次是菜单 `≡`、侧栏开关、后退 `←`、前进 `→`；右边是一个文字链接位和系统三键。侧栏和主区都在顶栏下面，主区是一块左上角圆角的内容面板（见 §3.1、§3.2） | 参考图：Claude 桌面版 Windows 顶栏 |
 | 菜单栏 | 无系统菜单栏；顶栏左侧只有标志、切换侧栏按钮和“关于”按钮（帮助与反馈、关于；2026-10-19 起），其余命令在侧栏、快捷键和 `Ctrl K` | 菜单栏是“导航混乱”的来源（竞品的共同问题） |
 | 窗口尺寸 | [融合] 默认 1200×800，最小 800×560 | Calm 最小 720 太窄，Bold 900 太保守；800 时侧栏已是抽屉 |
-| 阅读列宽 | [融合] 840（2026-10-19 所有者要求输入框离两边近一些，由 720 加宽），输入框与对话列同宽同轴（[Bold] 的同轴） | Calm 把输入框做得更宽 40px，破坏同轴；列宽只改 `--content-w` |
+| 阅读列宽 | [融合] 约占主区面板 80%，最窄 840、最宽 1200（2026-10-30 仓库所有者：窗口放大时不能只有两边空白变宽；之前固定 840，2026-10-19 由 720 加宽），输入框与对话列同宽同轴（[Bold] 的同轴） | Calm 把输入框做得更宽 40px，破坏同轴；列宽只改 `--content-w`（上下限 `--content-w-min` / `--content-w-max`） |
 | 侧栏宽 | 默认 240，可拖 200–360；折叠为 0（不留图标条）。2026-10-21 起（原 264，可拖 220–360）：仓库所有者要求侧栏窄一些。240 是实测定的：行内宽 = 240 − 2×8（侧栏列表内边距）= 224，扣掉 16 状态槽、20 `⋯`、间距，标题剩约 134px（13px 字号中文约 10 个字）；尾部是 `Just now` 这类长时间文字时（英文约 52px）标题还有约 104px；试过 224，英文 `Just now` 时标题只剩 88px（七八个字符就省略），搜索框占位也被截；200 是下限，给想要更窄的人，标题靠省略号，悬停提示全文 | 一个主导航。磁盘上存着旧默认值 264 的人从没拖过，读取时按新默认 240 处理；其它拖出来的宽度原样保留（只夹到新范围） |
 | 窄窗口 | [融合] <1000px 侧栏改覆盖式抽屉 | 抽屉不挤压正文，保证“缩放后保住阅读位置” |
 | “等你确认”的呈现 | [Bold] 侧栏头下方一条提示条（计数，点击依次跳转）+ 行内菱形，**不把行搬出文件夹**（所在文件夹默认展开，折叠时头上有琥珀菱形） | Calm 把等待行移到顶部聚合段，确认后再移回——列表在用户眼皮下重排，与“稳定>灵动”冲突 |
@@ -296,7 +296,7 @@
 - 侧栏底色 `--bg-sidebar`，与顶栏连成一片；主区面板 `--bg-app` 带左上圆角，两者之间不画线。侧栏拖拽条（命中区 4px）贴在面板左缘，hover 显示 `--border`；双击恢复 240（`--sidebar-w`；范围 200 – 360，`app/shell-store.ts` 的 `sidebarWidthRange`）。
 - `.scroller` 铺满主区、滚动条贴窗口边缘；`.column` 在其中居中；底部 padding = 底部栈高度 + `--space-8`（栈高度由 `ResizeObserver` 写入组件私有变量 `--stack-h`）。
 - 输入框距窗口底 `--space-4`；其上有 24px 高 `linear-gradient(transparent, var(--bg-app))` 软遮罩，内容从输入框后面淡出而不是被切。
-- 对话列 840px：15px 正文下英文约 99 字符/行、中文约 54 字/行。
+- 对话列约占主区面板 80%，最窄 840、最宽 1200（2026-10-30 起；`--content-w` = `clamp(--content-w-min, 80cqi, --content-w-max)`，`cqi` 相对主区面板 `.panel`，它是 `container-type: inline-size`；用的地方再和 `100% − 2×--gutter` 取小）。默认窗口 1200×800 时仍是 840：15px 正文下英文约 99 字符/行、中文约 54 字/行；1200 宽时中文约 77 字/行。omp 拿到的列数随列宽变（`useColumns` → `resizeTsp`）。
 
 ### 3.3 响应式
 
@@ -495,7 +495,7 @@
 
 **ApprovalChip**：见 §5.8。
 
-**ModelPicker**（3.1 起照 Tern 改成一张表，`direction-3.1.md` §2 行 10；2026-10-22 起换成 `ui/Dialog`）：胶囊点开（`Alt M`、命令面板同）是 `ui/Dialog` lg 再加宽到 `--dialog-w-xl` 960（`className="mp-dialog"`，`data-testid="model-picker"`；遮罩、Esc、Tab 循环、关闭后还焦点按 Dialog 通则，§4.23），贴着窗口上方 8vh 放（`align-self: flex-start`），高度取左栏、右栏里较高的那个：正文最低 360、整框最高 `min(84vh, --content-w)`，表和左栏各自滚；打开以后**只长不缩**（`ModelPickerBody` 用 `ResizeObserver` 把见过的最大布局高度写进对话框的 `min-height`，同样封顶 84vh），换到模型少的提供商、打字过滤时对话框不变矮，左栏的提供商不被切掉（2026-10-23 起；2026-10-22 版高度只跟右栏走、左栏 `contain: size`，过滤时整框变矮、左栏下半截看不到）。2026-10-22 起照 Tern 里 omp 的 `/models` 排：顶上搜索框，下面两栏——左栏范围，右栏表 + 底部；搜索框和底部固定、表自己滚：
+**ModelPicker**（3.1 起照 Tern 改成一张表，`direction-3.1.md` §2 行 10；2026-10-22 起换成 `ui/Dialog`）：胶囊点开（`Alt M`、命令面板同）是 `ui/Dialog` lg 再加宽到 `--dialog-w-xl` 960（`className="mp-dialog"`，`data-testid="model-picker"`；遮罩、Esc、Tab 循环、关闭后还焦点按 Dialog 通则，§4.23），贴着窗口上方 8vh 放（`align-self: flex-start`），高度取左栏、右栏里较高的那个：正文最低 360、整框最高 `min(84vh, --content-w-min)`（840；2026-10-30 起对话列宽随窗口变，这里仍取 840），表和左栏各自滚；打开以后**只长不缩**（`ModelPickerBody` 用 `ResizeObserver` 把见过的最大布局高度写进对话框的 `min-height`，同样封顶 84vh），换到模型少的提供商、打字过滤时对话框不变矮，左栏的提供商不被切掉（2026-10-23 起；2026-10-22 版高度只跟右栏走、左栏 `contain: size`，过滤时整框变矮、左栏下半截看不到）。2026-10-22 起照 Tern 里 omp 的 `/models` 排：顶上搜索框，下面两栏——左栏范围，右栏表 + 底部；搜索框和底部固定、表自己滚：
 - 顶栏（Dialog 的 `head`：没有标题和 ×，`model.title` 只作读屏名，Esc、点遮罩关闭；2026-10-22 起，原来是标题行“切换模型” + ×）：搜索框 `TextField` md（通宽，前面放大镜，`model-search`，占位 `model.search`，打开时聚焦，`combobox` + `aria-activedescendant` 指向选中行）+ 给角色选模型时的标记（`model-role-target`：返回按钮 ←（`model.roleTargetClear` 改回用于此任务；2026-10-29 起在胶囊前面、不用 ×，免得当成关对话框）+ accent `Badge`：角色图标 + `model.roleTarget`“为 Task 选模型”）+ 右端总数（`model-count`，等宽 `--fs-xs` `--text-3`；2026-10-24 起只在有搜索词时显示 `匹配数 / 总数`）。搜不到时只说一次：头部 `0 / N` + 正文 `model.noMatch`（“没有匹配的模型”），不画空的“匹配”组和数字表头（2026-10-29）。角色列表里没指定模型的角色数字列留空，不画一排 `-`；常用内置角色各有图标（vision 眼睛、web 地球），其余内置角色一个中性小圆点，自定义角色用标签。
 - 左栏范围（`.mp-side`，宽 `--sidebar-w-min` 200，右边一条 `--border-subtle`；项的样子同设置页左栏 `.snav-item`：高 `--row-task`、选中 `--bg-active` 底，右端等宽计数）：`model.rolesGroup` 角色（`model-scope-roles`）、`model.all` 全部模型（`model-scope-all`，默认）、小标题 `model.providers` 下各提供商（`model-scope-provider`，按名称排，和表里的分组同序；正在生效的模型所在的提供商后面一个 6px `--accent` 圆点）（“添加提供商…”在页脚左边，见下）。角色范围列 omp 的对话角色（照 omp 18.12.6 的 `MODEL_ROLES`：Default / Smol / Slow / Vision / Plan / Commit / Tiny / Memory / Task / Advisor / Widget，外加 `modelRoles` 里指向可用模型的自定义角色；Image / Web / Speech / Dictation / Judge 这些特定能力的角色不选对话模型，在设置 → 模型里改；数据 `getModelRoles(projectId)`），这时搜索框过滤角色。点一个角色 = 之后选的模型给它：回到全部模型，顶栏出现角色标记。Default 是切换本任务的模型（草稿里是新任务默认模型）；其它角色选模型就写 `modelRoles.<role>`（`setModelRole`，遵循 `modelRoleStorage` 的全局 / 项目层，去掉 `:thinking` 后缀），不影响当前会话。（角色 2026-10-20 起有；原来在标题下的 `ui/Tabs` 页签里，2026-10-22 起挪进左栏）
 - 表：模型列没有表头，数字列表头照 omp 原文 `Int` | `t/s` | `Ctx` | `$/M`（`model.colIntelligence` / `.colSpeed` / `.colContext` / `.colPrice`，中英相同；2026-10-22 起）+ 勾，表头粘在顶部（`--fs-xs` `--text-3`）。模型列 = `provider/`（`--text-3`）+ 模型 id（`--text`），`--font-mono` `--fs-code-sm`，后面跟它被分配到的角色，只画图标（`mp-role-badge`：20×18、`--bg-hover` 底、`--radius-sm`，12px 角色图标，悬停提示 `@角色：用途`；2026-10-22 起，原来是写角色名的胶囊）。数字列按 px 定宽（36 / 40 / 48 / 88，表头和行共用 `--mp-cols`；2026-10-22 起，原来按 `ch` 定，表头和行字体不同、算出的列宽不同，表头和数字对不齐），等宽 `--fs-code-sm` `--text-2` 右对齐：智能分（`get_available_models` 每个模型带的 `int`，取整：omp 按 provider 的各种写法归一后查模型目录，和 omp 自己的 `/models` 一致；2026-10-22 起，原来 studio 按 provider/id 原样查 `models.db`，中转站和改过写法的 provider 大多查不到、显示 `–`，实测 omp 18.12.6）、速度（omp `agent.db` `model_perf` 实测的 t/s，没有实测时用 `get_available_models` 带的 `tps`，取整）、上下文（如 `1M`）、价格（输入·输出，美元 / 百万 token，如 `$0.3·1.2`）；没有数据写 `–`，智能分和速度读取中写 `…`（两个库都只读，`getModelInsights`，`src/main/omp-config/model-insights.ts`）。行高 `--control-h-md`、`--radius-md`；悬停行 `--bg-hover`；选中的行（点击、↑↓；打开时是当前模型）`--bg-active`；当前模型（给角色选时是该角色的模型）右端 14px `--accent` ✓。
@@ -1009,7 +1009,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 7. 流式更新节流：IPC 事件在渲染层按 `requestAnimationFrame` 合并；主进程用 `set_event_filter { messageUpdates: "delta" }`（`omp-rpc.md`：默认每帧完整快照，一轮短对话就 550KB）；子代理的 `message_update` 不受此设置影响，v1 只取 `subagent_progress` 级别。**不做**“积压 ≤250ms 追完”的平滑放出。
 8. 开启 `overflow-anchor: auto`；已完成消息 `contain: layout paint style`；字体不换入（系统字体，无 FOUT）。
 
-**窗口缩放保位置**：自由态下记录阅读锚点（视口顶部下方第一个可见块的 id 与相对偏移），`ResizeObserver` 观察 `.column`，重排后还原；吸底态保持吸底。列宽 = `min(100% − 2×--gutter, --content-w)`，主区宽 >约 890px 时缩放不改变列宽，不重排。侧栏折叠/抽屉切换：主区宽度**立即变一次**（一次重排 + 一次补偿），不逐帧；拖动侧栏分隔线时对话列宽度冻结为拖动开始时的像素值，松手时一次性提交并补偿；`ResizeObserver` 回调合并到 rAF，不在 `mousemove` 里同步测量。验收：滚到中间 → 窗口宽度 1200→800→1200，锚点块视口偏移变化 ≤2px。
+**窗口缩放保位置**：自由态下记录阅读锚点（视口顶部下方第一个可见块的 id 与相对偏移），`ResizeObserver` 观察 `.column`，重排后还原；吸底态保持吸底。列宽 = `min(100% − 2×--gutter, --content-w)`（§3.2）：主区宽约 888–1050px 时列宽停在 840，缩放不重排；更宽时列宽跟着主区变（2026-10-30 起，到 1200 为止），重排后靠阅读锚点补偿。侧栏折叠/抽屉切换：主区宽度**立即变一次**（一次重排 + 一次补偿），不逐帧；拖动侧栏分隔线时对话列跟着主区宽度变（这里原来写的"拖动中冻结列宽、松手一次提交"没有实现过，列宽固定 840 时看不出来；离屏的块有 `content-visibility: auto`，逐帧只排视口附近）；`ResizeObserver` 回调合并到 rAF，不在 `mousemove` 里同步测量。验收：滚到中间 → 窗口宽度 1200→800→1200，锚点块视口偏移变化 ≤2px。
 
 **滚动条与横向溢出**（仓库所有者 2026-10-21；`ui/scrollbars.css` + `ui/scroll-activity.ts`，`main.tsx` 里装一次，组件里没有任何滚动条代码）：
 1. 外观：`::-webkit-scrollbar` 宽 `--scrollbar-hit`（10px），滑块 `--scrollbar-thumb-w`（6px，两边各 2px 透明描边撑出来，`background-clip: content-box`）、`--radius-pill`、颜色 `--scrollbar-thumb`（浅 / 深各一份），悬停或拖动时 `--scrollbar-thumb-hover`；轨道、两端按钮、角落全部 `display: none`，没有任何底色。平时滑块透明，滚动时变成 `--scrollbar-thumb`，用 `--dur-fade` 淡入淡出（reduced-motion 下 100ms，不闪现）。
@@ -1608,7 +1608,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | 4 | API key 类提供商登录 | **已定（2026-10-24 改）**：设置页输入，主进程经 `omp auth import` 存进 omp 自己的凭据库，和终端版共用（`docs/architecture/login.md`）；原先 safeStorage 另存 + 环境变量注入的做法已删除 |
 | 5 | 新增运行时依赖 / 未定技术选型 | **已定**：语法高亮 `shiki`、Markdown `markdown-it`、公式 `katex`；i18n 和覆盖式滚动条自己写（`src/shared/i18n/`、`ui/OverlayScrollbar.tsx`） |
 | 6 | 字体是否打包 | **已定（0.3.29）**：打包 Geist / Geist Mono，中文仍用微软雅黑 UI；只改 `--font-*` |
-| 7 | 阅读列宽 / 正文 15px 是否偏大 | 已定 840（2026-10-19）；正文仍可凭肉眼调，只改 `--fs-prose` |
+| 7 | 阅读列宽 / 正文 15px 是否偏大 | 已定：约占主区 80%、840–1200（2026-10-30；之前固定 840，2026-10-19）；正文仍可凭肉眼调，只改 `--fs-prose` |
 | 8 | 任务完成不发系统通知 | 取“只有等你会叫你”的立场；若用户反馈需要，再加一个默认关闭的设置项 |
 | 9 | 产品名/Logo | 暂定名 omp-studio，侧栏头不放 Logo/应用名 |
 

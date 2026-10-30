@@ -168,7 +168,7 @@
   contain-intrinsic-inline-size: auto none;
 }
 .tsp-surface[data-mode="screen"] .tsp-column {
-  --content-w: 960px;
+  --content-w: clamp(960px, 80cqi, var(--content-w-max));
 }
 
 /* dock：对话列后面、studio 输入框上方（对话长过视口时停在过程区底部），和对话列同宽同轴 */
