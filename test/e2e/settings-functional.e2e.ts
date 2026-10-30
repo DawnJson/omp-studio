@@ -660,6 +660,21 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     }
     await page.setViewportSize({ width: 1200, height: 800 });
 
+    // 名称放不下时省略号截断，悬停看全名（2026-10-30 仓库所有者定）。
+    const longName = "remote-with-a-rather-long-name-for-the-card";
+    await page.getByTestId("mcp-add").click();
+    await page.getByTestId("mcp-name").fill(longName);
+    await page.getByTestId("mcp-command").fill("node");
+    await page.getByTestId("mcp-save").click();
+    const longRow = page.getByTestId(`mcp-row-${longName}`);
+    await expect(longRow).toBeVisible({ timeout: 30_000 });
+    await longRow.locator(".ui-list-name").hover();
+    await expect(page.getByTestId("tooltip")).toHaveText(longName);
+    await page.getByTestId(`mcp-more-${longName}`).click();
+    await page.getByTestId(`mcp-remove-${longName}`).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
+    await expect(longRow).toHaveCount(0);
+
     // 删除先确认。
     await page.getByTestId("mcp-more-demo").click();
     await page.getByTestId("mcp-remove-demo").click();
@@ -1023,7 +1038,8 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
       return el.getBoundingClientRect().height / Number.parseFloat(style.lineHeight);
     });
     expect(Math.round(lines)).toBe(1);
-    await expect(meta.locator("[title]")).toHaveAttribute("title", /^First local plugin\. A long description/);
+    await meta.hover();
+    await expect(page.getByTestId("tooltip")).toHaveText(/^First local plugin\. A long description/);
     await page.getByTestId("discover-install-p1@local-mk").click();
     const dialog = page.getByTestId("plugin-install-confirm");
     await expect(dialog).toContainText("third-party code");

@@ -6,6 +6,8 @@
 // 文字末尾的快捷键（"打开评审 (Ctrl Shift D)"；mac 上是 "(⌘⇧D)"，调用方用 platform-keys 的 withShortcut 生成）拆出来画成 Kbd。
 // 元素或它的祖先带 `data-tip-side` 时改放法：`top` 先画在上方（上方放不下再到下方；浏览器面板头部下面是原生页面，画在下方会被盖住），
 // `left` 画在左边、竖直居中（左边放不下退回默认；对话线的刻度贴着滚动区右缘，画在下方会盖住滚动条）。
+// 带 `data-tip-overflow` 的单行文字（省略号截断的名称、元信息）：只在被截断、显示不全时把全文当提示画出来；放得下时不出，
+// 免得把看得见的字再写一遍（2026-10-30 仓库所有者定）。它里面或外面离指针更近的 title 优先。
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { keyboardFocused } from "./input-modality.ts";
@@ -17,6 +19,7 @@ const GAP_PX = 6;
 const EDGE_PX = 8;
 /** iframe 的 title 是给读屏的框架名，不是提示。 */
 const TITLED = "[title]:not(iframe)";
+const TIPPED = `${TITLED}, [data-tip-overflow]`;
 const SHORTCUT = /^([\s\S]*?)\s*[(（]((?:(?:Ctrl|Alt|Shift|Esc|Enter|Tab|F\d+)\b|[⌘⇧⌥⌃])[^()（）]*)[)）]$/;
 
 type TipSide = "top" | "left" | null;
@@ -39,6 +42,19 @@ const tipFor = (el: HTMLElement, text: string): Tip => ({
   side: tipSide(el),
 });
 
+/** 指针下离它最近的提示：带 title 的元素，或带 data-tip-overflow 且文字被截断的元素（没截断就接着往外找）。 */
+function tipSource(node: Element): { el: HTMLElement; text: string; titled: boolean } | null {
+  for (
+    let el = node.closest<HTMLElement>(TIPPED);
+    el !== null;
+    el = el.parentElement?.closest<HTMLElement>(TIPPED) ?? null
+  ) {
+    if (el.matches(TITLED)) return { el, text: el.getAttribute("title") ?? "", titled: true };
+    if (el.scrollWidth > el.clientWidth) return { el, text: el.textContent ?? "", titled: false };
+  }
+  return null;
+}
+
 /** 文字和尾随快捷键（没有快捷键时 key 为 null）。 */
 export function splitShortcut(text: string): { body: string; key: string | null } {
   const match = SHORTCUT.exec(text.trim());
@@ -52,6 +68,8 @@ export function TooltipLayer() {
   useEffect(() => {
     let target: HTMLElement | null = null;
     let text = "";
+    /** 提示文字来自 target 的 title（悬停期间拿掉、收起时放回）；false = 来自被截断的文字本身。 */
+    let titled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let shown = false;
     let warmUntil = 0;
@@ -70,7 +88,7 @@ export function TooltipLayer() {
       observer.disconnect();
       if (shown) warmUntil = performance.now() + WARM_MS;
       shown = false;
-      if (target && !target.hasAttribute("title")) target.setAttribute("title", text);
+      if (target && titled && !target.hasAttribute("title")) target.setAttribute("title", text);
       target = null;
       setTip(null);
     };
@@ -80,18 +98,20 @@ export function TooltipLayer() {
       shown = true;
       setTip(tipFor(el, text));
     };
-    const begin = (el: HTMLElement, viaKeyboard: boolean) => {
-      const title = el.getAttribute("title") ?? "";
+    const begin = (el: HTMLElement, tipText: string, fromTitle: boolean, viaKeyboard: boolean) => {
       hide();
-      if (title.trim() === "") return;
+      if (tipText.trim() === "") return;
       target = el;
-      text = title;
+      text = tipText;
+      titled = fromTitle;
       if (viaKeyboard) {
         show(el);
         return;
       }
-      el.removeAttribute("title");
-      observer.observe(el, { attributes: true, attributeFilter: ["title"] });
+      if (fromTitle) {
+        el.removeAttribute("title");
+        observer.observe(el, { attributes: true, attributeFilter: ["title"] });
+      }
       if (performance.now() < warmUntil) show(el);
       else timer = setTimeout(() => show(el), SHOW_DELAY_MS);
     };
@@ -101,17 +121,17 @@ export function TooltipLayer() {
       const node = event.target instanceof Element ? event.target : null;
       if (node === null) return;
       if (target?.contains(node)) return;
-      const el = node.closest<HTMLElement>(TITLED);
-      if (el === null) {
+      const source = tipSource(node);
+      if (source === null) {
         if (target !== null) hide();
         return;
       }
-      begin(el, false);
+      begin(source.el, source.text, source.titled, false);
     };
     const onFocus = (event: FocusEvent) => {
       const el = event.target instanceof HTMLElement ? event.target : null;
       if (el === null || !keyboardFocused(el) || !el.matches(TITLED)) return;
-      begin(el, true);
+      begin(el, el.getAttribute("title") ?? "", true, true);
     };
     const onFocusOut = (event: FocusEvent) => {
       if (event.target === target) hide();

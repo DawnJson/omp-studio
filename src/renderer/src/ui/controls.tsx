@@ -594,7 +594,8 @@ export function Row({
   );
 }
 
-/** 管理列表的一行：28px 图标、名称，下面一行是徽标 + 元信息，动作在末尾（删除 / 移除收进 ⋯ 菜单）。 */
+/** 管理列表的一行：28px 图标、名称，下面一行是徽标 + 元信息，动作在末尾（删除 / 移除收进 ⋯ 菜单）。
+ *  名称和元信息放不下时省略号截断，悬停看全文（data-tip-overflow，见 Tooltip.tsx）。 */
 export function ListRow({
   icon,
   title,
@@ -616,11 +617,17 @@ export function ListRow({
         {icon}
       </span>
       <span className="ui-list-main">
-        <span className="ui-list-name">{title}</span>
+        <span className="ui-list-name" data-tip-overflow="">
+          {title}
+        </span>
         {(badges !== undefined || meta !== undefined) && (
           <span className="ui-list-sub">
             {badges}
-            {meta !== undefined && <span className="ui-list-meta">{meta}</span>}
+            {meta !== undefined && (
+              <span className="ui-list-meta" data-tip-overflow="">
+                {meta}
+              </span>
+            )}
           </span>
         )}
       </span>

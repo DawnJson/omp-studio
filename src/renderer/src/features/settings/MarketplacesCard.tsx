@@ -77,10 +77,8 @@ function Browse({
               icon={<Puzzle />}
               title={entry.name}
               badges={entry.version !== null ? <Badge>{entry.version}</Badge> : undefined}
-              meta={
-                // 和 Skills 卡片一样只占一行，完整描述在悬停提示里。
-                entry.description === "" ? undefined : <span title={entry.description}>{entry.description}</span>
-              }
+              // 和 Skills 卡片一样只占一行，被截断时完整描述在悬停提示里（ListRow 的 data-tip-overflow）。
+              meta={entry.description === "" ? undefined : entry.description}
               actions={
                 has ? (
                   <Badge tone="success">{t("plugins.installedBadge")}</Badge>

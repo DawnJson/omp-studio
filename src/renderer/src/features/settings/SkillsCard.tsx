@@ -62,7 +62,7 @@ function SkillRow({
           )}
         </>
       }
-      meta={skill.description === undefined ? undefined : <span title={skill.description}>{skill.description}</span>}
+      meta={skill.description}
       actions={
         <>
           <span title={skill.toggleable ? undefined : t("integrations.skills.toggle.project")}>
