@@ -914,6 +914,66 @@ test("恢复会话:omp 不重发的每轮用量脚注补回;history.db 里有回
   }
 });
 
+// omp 在一条助手消息结束（stop）之后可能不等用户、在同一轮里接着跑（计划模式提醒、目标续跑、插件的 follow-up：
+// agent 署名的消息，`#scheduleAgentContinue`），会话文件里这一轮已经有了结算过的用量，omp 的用量行要到整轮结束才画。
+// 补的用量行只给已经结束的轮：之前它挂在正在跑的这一轮最后一条助手消息下面，跟着新内容往下跳（"Thinking… 3.2s" 下面一行 32m56s）。
+test("一轮还在跑（会话文件里这一轮已有结算过的用量）时不补用量行；跑完由 omp 自己画", async () => {
+  test.setTimeout(90_000);
+  const scratch = await mkdtemp(path.join(os.tmpdir(), "omp tsp running footer "));
+  const sessionFile = path.join(scratch, "会话 文件.jsonl");
+  const userAt = 1_793_300_000_000;
+  const lines = [
+    {
+      type: "session",
+      version: 3,
+      id: "01a00000-0000-7000-8000-000000000001",
+      timestamp: "2026-10-30T00:00:00.000Z",
+      cwd: "E:\\work",
+    },
+    {
+      type: "message",
+      id: "a1",
+      parentId: null,
+      timestamp: "2026-10-30T00:00:00.000Z",
+      message: { role: "user", content: [{ type: "text", text: "run it" }], attribution: "user", timestamp: userAt },
+    },
+    {
+      type: "message",
+      id: "a2",
+      parentId: "a1",
+      timestamp: "2026-10-30T00:00:05.000Z",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "first pass" }],
+        stopReason: "stop",
+        usage: { input: 1000, output: 200, cacheRead: 0, cacheWrite: 0, cost: { total: 0.5 } },
+        duration: 5000,
+        ttft: 1000,
+        completedAt: userAt + 5000,
+        timestamp: userAt + 100,
+      },
+    },
+  ];
+  await writeFile(sessionFile, lines.map((line) => JSON.stringify(line)).join("\n") + "\n");
+  const { launched, cleanup } = await start("approval", { FAKE_TSP_SESSION_FILE: sessionFile });
+  try {
+    const { page } = launched;
+    await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
+    await expect(role(page, "omp.editor.ask.approval")).toBeVisible({ timeout: 30_000 });
+    // 工具行的速度取自同一份会话附加内容（这一条消息的 200 tok ÷ 4s）：它出来了，补的用量行要出来也已经出来了。
+    await expect(page.getByTestId("usage-tps")).toContainText("50");
+    const restored = page.locator('[data-testid="tsp-view"] [data-role="omp.turn.usage"][data-restored]');
+    await expect(restored).toHaveCount(0);
+    await page.getByTestId("composer-input").press("Control+Enter");
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
+    await expect(role(page, "omp.turn.usage")).toHaveCount(1);
+    await expect(restored).toHaveCount(0);
+  } finally {
+    await cleanup();
+    await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
 // fixtures/tsp/recap.jsonl:omp 18.12.6 实录(recap.idleSeconds 1),两轮各在结束后空闲出一条回顾,omp 两条都留在 main 里。
 test("空闲回顾:omp 发来的回顾用 ※ 斜体画在对话里;第二条来了第一条收起,只显示最新一条", async () => {
   test.setTimeout(90_000);

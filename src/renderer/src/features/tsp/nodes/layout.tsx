@@ -22,6 +22,7 @@ import { useFold } from "../use-fold.ts";
 import { peekTspNode, useBareTurnIndex, useIsLatestRecap, useTspNoVisibleChild } from "../tsp-store.ts";
 import { runOutputSpan } from "../../../../../shared/tsp/run-output.ts";
 import { useSessionExtras } from "../session-extras-store.ts";
+import { useTaskValue } from "../../../store/index.ts";
 import { formatTurnFooter } from "../turn-footer.ts";
 
 const GAPS: ReadonlySet<TspSpace> = new Set(["none", "xs", "sm", "md", "lg"]);
@@ -119,13 +120,14 @@ function PlainCol(props: NodeProps) {
 
 /**
  * omp 的助手消息容器。恢复会话时 omp 不重发每轮末尾的用量行（实测 18.12.4），这里在一轮的最后一个助手消息后面
- * 补一行（数据来自会话文件，见 main/tsp/session-extras.ts）；实时的轮 omp 自己带这一行，不补。
+ * 补一行（数据来自会话文件，见 main/tsp/session-extras.ts）；实时的轮 omp 自己带这一行，不补；还在跑的那一轮也不补（useBareTurnIndex）。
  */
 function AssistantCol(props: NodeProps) {
   const { taskId, sf } = props.ctx;
   // 只取轮数和自己那一轮的脚注：别的轮的用量刷新了不重画这一列。
   const turnCount = useSessionExtras(taskId, (extras) => extras.turns.length);
-  const index = useBareTurnIndex(taskId, sf, props.node.id, turnCount);
+  const running = useTaskValue(taskId, (task) => task?.status === "running" || task?.status === "needs_you");
+  const index = useBareTurnIndex(taskId, sf, props.node.id, turnCount, running);
   const footer = useSessionExtras(taskId, (extras) => (index >= 0 ? (extras.turns[index] ?? null) : null));
   const text = useMemo(() => (footer === null ? null : formatTurnFooter(footer)), [footer]);
   // 补的用量行是 children 之外的元素，有它就不算空。

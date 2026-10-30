@@ -550,14 +550,22 @@ function roleIds(taskId: TaskId, sf: string, role: string): readonly string[] {
 /**
  * 这个助手节点是不是一轮的最后一个、而这一轮 omp 没发用量行（恢复会话时 omp 不重发）：是则返回这一轮是第几轮（从 0 数），
  * 否则 -1。`fileTurns` 是会话文件里的轮数：和文档里的轮数不一致（正在发新消息、压缩过、文件还没读到）时一律 -1，
- * 宁可不补也不把别的轮的用量补错位置。
+ * 宁可不补也不把别的轮的用量补错位置。`lastTurnRunning`：最后一轮还在跑（任务在跑或等你确认）时它也不补：omp 一条消息
+ * stop 之后会在同一轮里接着跑（agent 署名的续跑），会话文件里这一轮已有结算的用量，omp 自己的用量行要到整轮结束才画。
  */
-export function useBareTurnIndex(taskId: TaskId, sf: string, assistantId: string, fileTurns: number): number {
+export function useBareTurnIndex(
+  taskId: TaskId,
+  sf: string,
+  assistantId: string,
+  fileTurns: number,
+  lastTurnRunning: boolean,
+): number {
   const sub = useMemo(() => (l: () => void) => subscribe(roleKey(taskId, sf), l), [taskId, sf]);
   return useSyncExternalStore(sub, () => {
     const index = roleIndex(taskId, sf);
     if (index === null || index.turnCount !== fileTurns) return -1;
-    return index.lastAssistantOfBareTurn.get(assistantId) ?? -1;
+    const turn = index.lastAssistantOfBareTurn.get(assistantId) ?? -1;
+    return lastTurnRunning && turn === index.turnCount - 1 ? -1 : turn;
   });
 }
 
