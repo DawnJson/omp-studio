@@ -44,6 +44,9 @@ extraResources:
   # omp 的协议类型（src/shared/omp-wire/rpc-wire.generated.ts、src/shared/tsp/tsp.generated.ts）拷自 oh-my-pi，MIT：许可证随软件一起带上。
   - from: src/shared/oh-my-pi-LICENSE.txt
     to: licenses/oh-my-pi-MIT.txt
+  # Dracula / Tokyo Night / Catppuccin / Nord / Rosé Pine 主题（src/renderer/styles/themes.css）的配色取自各自的 MIT 调色板：许可证随软件一起带上。
+  - from: src/renderer/styles/themes-LICENSE.txt
+    to: licenses/theme-palettes-MIT.txt
 # koffi 的原生 .node 在 @koromix/koffi-<平台> 包里，electron-builder 会自动把 .node 解出 asar；
 # 已在打包产物里实测 koffi 能加载并调用 kernel32。
 win:

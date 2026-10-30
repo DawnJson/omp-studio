@@ -21,6 +21,10 @@ const settings: StudioSettings = {
   copyOnSelect: true,
   fontSize: 15,
   yoloConfirmed: false,
+  backdrop: "theme",
+  backdropStrength: "medium",
+  customBackdrop: null,
+  glass: false,
 };
 
 let scratch: string;

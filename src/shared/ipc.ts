@@ -17,6 +17,7 @@ import type {
   TodoPhase,
   TokenUsage,
 } from "./omp-wire/rpc-wire.generated.ts";
+import type { ThemePreference } from "./themes.ts";
 import type {
   DraftGitInfo,
   GitCommitMessageResult,
@@ -128,7 +129,10 @@ export interface PreviewFile {
 
 export type Locale = "zh-CN" | "en";
 export type LocalePreference = Locale | "system";
-export type ThemePreference = "system" | "light" | "dark";
+/** 主区背景图：theme = 当前主题自带的插图（没有插图的主题不画），custom = 用户自己选的图片，none = 不画。 */
+export type BackdropMode = "theme" | "custom" | "none";
+/** 背景图的浓度（盖在图上的一层主区底色有多厚）。 */
+export type BackdropStrength = "low" | "medium" | "high";
 /** 字号档位（正文字号，pt；默认 15 = 设计稿正文 --fs-prose）：设置页的下拉和主进程校验共用。整个界面按 字号 / 15 等比缩放。 */
 export const fontSizeSteps = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22] as const;
 export const defaultFontSize = 15;
@@ -147,6 +151,8 @@ export interface AppInfo {
   /** 已按设置和系统语言解析好的界面语言。 */
   locale: Locale;
   isPackaged: boolean;
+  /** Windows 11 22H2 起（build ≥ 22621）才有系统画的毛玻璃（BrowserWindow 的 backgroundMaterial）；别的系统不给开关。 */
+  glassSupported: boolean;
   /** 没有项目时直接发送所用的目录（第一次发送时由 ensureChatsProject 创建并加入项目）。 */
   chatsDir: string;
   /** 升级后第一次启动时的"最近更新"摘要（照 omp 的 What's New）；这次启动不是升级后的第一次时为 null。 */
@@ -205,6 +211,12 @@ export interface ModelKey {
 export interface StudioSettings {
   locale: LocalePreference;
   theme: ThemePreference;
+  backdrop: BackdropMode;
+  backdropStrength: BackdropStrength;
+  /** 用户选的背景图：主进程复制进 userData/backdrops 的文件名（内容 sha256 + 扩展名），页面经 app://studio/@backdrop/<文件名> 读；没选过为 null。 */
+  customBackdrop: string | null;
+  /** Windows 11 毛玻璃：顶栏和侧栏透出系统的 Acrylic 材质。只在 AppInfo.glassSupported 时生效。 */
+  glass: boolean;
   /** 同时存活的 omp 进程软上限；超过时回收最久未用的空闲任务。 */
   maxLiveProcesses: number;
   /** 空闲多久关掉任务的 omp 进程（再打开时 `--resume` 接回同一个会话）；`never` 不按时间关。标了"保持运行"的任务不受它影响。 */
@@ -1025,6 +1037,11 @@ export interface StudioInvokeApi {
   getSettings(): Promise<StudioSettings>;
   setLocale(preference: LocalePreference): Promise<void>;
   setTheme(preference: ThemePreference): Promise<void>;
+  setBackdrop(mode: BackdropMode): Promise<void>;
+  setBackdropStrength(strength: BackdropStrength): Promise<void>;
+  /** 弹文件对话框选一张图（png / jpg / webp / gif / avif，不超过 limits.backdropMaxBytes），复制进 userData/backdrops 并把背景图切到 custom；用户取消返回 false。 */
+  chooseBackdropImage(): Promise<boolean>;
+  setGlass(on: boolean): Promise<void>;
   /** 整个软件的字号（正文 pt，fontSizeSteps 之一）：主进程 webContents.setZoomFactor(字号 / 15)。 */
   setFontSize(size: number): Promise<void>;
   /** 用系统浏览器打开链接；只接受 http/https。 */
@@ -1580,7 +1597,13 @@ export const limits = {
   maxLiveProcessesRange: [2, 16],
   /** `/goal` 的目标文字最大字符数。 */
   goalObjectiveMaxChars: 4_096,
+  /** 自选背景图的大小上限。 */
+  backdropMaxBytes: 20 * 1024 * 1024,
 } as const;
+
+/** userData/backdrops 里自选背景图的文件名：内容的 sha256 + 扩展名（复制进来时定的，见 main/settings/backdrop-image.ts）。
+ *  主进程校验设置、协议放行 app://studio/@backdrop/ 和渲染进程拼背景图地址都只认这种名字。 */
+export const backdropFilePattern = /^[0-9a-f]{64}\.(?:png|jpe?g|webp|gif|avif)$/;
 
 /**
  * StudioInvokeApi 的全部函数名（运行时可枚举；preload 靠它生成转发）。
@@ -1591,6 +1614,10 @@ export const invokeNames = {
   getSettings: true,
   setLocale: true,
   setTheme: true,
+  setBackdrop: true,
+  setBackdropStrength: true,
+  chooseBackdropImage: true,
+  setGlass: true,
   setFontSize: true,
   openExternal: true,
   openLogsFolder: true,

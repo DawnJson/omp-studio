@@ -4,11 +4,14 @@ import { editCommands, historyOrders, limits, type AppInfo, type HandlerGroup } 
 import { exportDiagnostics } from "../log/diagnostics.ts";
 import { openLogsFolder } from "../log/instance.ts";
 import { getSettings, resolveLocale, updateSettings } from "../settings/settings-store.ts";
+import { chooseBackdropImage } from "../settings/backdrop-image.ts";
 import { getShellState, setShellState, sidebarWidthRange } from "../window/window-state.ts";
-import { getMainWindow, revealOnFirstFrame, setTitleBarDimmed } from "../window/main-window.ts";
+import { getMainWindow, glassSupported, revealOnFirstFrame, setTitleBarDimmed } from "../window/main-window.ts";
 import { chatsDir } from "../tasks/chats-dir.ts";
 import { studioReleaseNotes, whatsNewForThisLaunch } from "../whats-new.ts";
 import {
+  parseBackdropMode,
+  parseBackdropStrength,
   parseBoolean,
   parseExternalUrl,
   parseInteger,
@@ -28,6 +31,10 @@ export const appHandlers: HandlerGroup<
   | "getSettings"
   | "setLocale"
   | "setTheme"
+  | "setBackdrop"
+  | "setBackdropStrength"
+  | "chooseBackdropImage"
+  | "setGlass"
   | "setFontSize"
   | "openExternal"
   | "openLogsFolder"
@@ -43,6 +50,7 @@ export const appHandlers: HandlerGroup<
     platform: platform(),
     locale: resolveLocale(),
     isPackaged: app.isPackaged,
+    glassSupported,
     chatsDir: chatsDir(),
     whatsNew: whatsNewForThisLaunch(),
     releaseNotes: studioReleaseNotes(app.getVersion()),
@@ -51,6 +59,16 @@ export const appHandlers: HandlerGroup<
   getSettings: async () => getSettings(),
   setLocale: async (value) => updateSettings({ locale: parseLocalePreference(value) }),
   setTheme: async (value) => updateSettings({ theme: parseThemePreference(value) }),
+  setBackdrop: async (value) => {
+    const backdrop = parseBackdropMode(value);
+    // custom 要先有图：渲染进程没选过图时走 chooseBackdropImage，那里复制好图再切过来。
+    if (backdrop === "custom" && getSettings().customBackdrop === null)
+      throw new Error("no custom backdrop chosen yet");
+    updateSettings({ backdrop });
+  },
+  setBackdropStrength: async (value) => updateSettings({ backdropStrength: parseBackdropStrength(value) }),
+  chooseBackdropImage: () => chooseBackdropImage(getMainWindow()),
+  setGlass: async (value) => updateSettings({ glass: parseBoolean(value, "glass") }),
   setFontSize: async (value) => updateSettings({ fontSize: parseFontSize(value) }),
   openExternal: async (value) => shell.openExternal(parseExternalUrl(value)),
   openLogsFolder: () => openLogsFolder(),

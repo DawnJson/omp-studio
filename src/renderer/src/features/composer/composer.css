@@ -22,6 +22,10 @@
   background: linear-gradient(transparent, var(--bg-app));
   pointer-events: none;
 }
+/* 主区有背景图时（app.css 的 .panel[data-backdrop]）不画：渐变尽头是实色 --bg-app，会在输入框上方横出一条盖住图的带子。 */
+.panel[data-backdrop] .composer-stack::before {
+  display: none;
+}
 .composer {
   container-type: inline-size;
   padding: var(--space-1-5) var(--space-1-5) var(--space-1-5) var(--space-2);

@@ -10,7 +10,8 @@ import {
   useSyncExternalStore,
   type CSSProperties,
 } from "react";
-import type { TaskId } from "../../../shared/ipc.ts";
+import { backdropFilePattern, type TaskId } from "../../../shared/ipc.ts";
+import { resolveTheme, themes } from "../../../shared/themes.ts";
 import { getVisibleTaskIds } from "../features/sidebar/visible-order-store.ts";
 import { Composer } from "../features/composer/index.ts";
 import { BtwPanel } from "../features/btw/index.ts";
@@ -80,14 +81,14 @@ const KEPT_IDLE_MS = 10 * 60 * 1000;
 /** 启动时等 first-contentful-paint 的上限：Windows 上 FCP 在导航后约 500ms 内就到，Linux 打包版有时一直不来。 */
 const firstFrameFallbackMs = 1000;
 
-function useNarrow(): boolean {
+function useMediaQuery(media: string): boolean {
   return useSyncExternalStore(
     (listener) => {
-      const query = window.matchMedia(narrowQuery);
+      const query = window.matchMedia(media);
       query.addEventListener("change", listener);
       return () => query.removeEventListener("change", listener);
     },
-    () => window.matchMedia(narrowQuery).matches,
+    () => window.matchMedia(media).matches,
   );
 }
 
@@ -160,7 +161,9 @@ export function App() {
   const sidebarCollapsed = useShellValue("sidebarCollapsed");
   const drawerOpen = useShellValue("drawerOpen");
   const sidebarColumn = useRef<HTMLDivElement>(null);
-  const narrow = useNarrow();
+  const narrow = useMediaQuery(narrowQuery);
+  // 跟随系统时实际用 light / dark（都没有插图）；用来判断"主题插图"这次画不画。
+  const systemDark = useMediaQuery("(prefers-color-scheme: dark)");
   const navigation = useNavigation();
   const about = useDialogSlot();
   const openAbout = about.open;
@@ -220,6 +223,20 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset["platform"] = platform;
   }, [platform]);
+  // Windows 11 毛玻璃（docs/architecture/themes.md「毛玻璃」）：主进程给窗口铺了 Acrylic，顶栏、侧栏改画半透明（app.css）。
+  const glass = settings?.glass === true && appInfo?.glassSupported === true;
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-glass", glass);
+  }, [glass]);
+  // 主区背景图（docs/architecture/themes.md「主区背景图」）：图和纱画在 .panel 自己的 background 上（app.css），
+  // 当前主题没有插图、自选图片的文件名不合规时都不画（不挂 data-backdrop）。
+  const customBackdrop = settings?.customBackdrop ?? null;
+  const backdrop =
+    settings?.backdrop === "theme" && themes[resolveTheme(settings.theme, systemDark)].art
+      ? "theme"
+      : settings?.backdrop === "custom" && customBackdrop !== null && backdropFilePattern.test(customBackdrop)
+        ? "custom"
+        : undefined;
 
   const sidebarShown = narrow ? drawerOpen : !sidebarCollapsed;
   const drawerScrim = usePresence(narrow && drawerOpen, "fade");
@@ -405,7 +422,17 @@ export function App() {
           {/* 进设置时侧栏位置换成设置导航；窄窗口的抽屉里仍是会话列表，设置导航改成内容顶上的下拉 */}
           {view === "settings" && !narrow ? <SettingsNav /> : <Sidebar />}
         </div>
-        <main className="panel" data-testid="main-panel">
+        <main
+          className="panel"
+          data-testid="main-panel"
+          data-backdrop={backdrop}
+          data-backdrop-strength={backdrop && settings?.backdropStrength}
+          style={
+            backdrop === "custom"
+              ? ({ "--bd-image": `url("app://studio/@backdrop/${customBackdrop}")` } as CSSProperties)
+              : undefined
+          }
+        >
           {!narrow && sidebarShown && <SidebarResizer width={sidebarWidth} column={sidebarColumn} />}
           {/* 过程区是 omp 的节点（TspView），输入框是 studio 的 Composer。最近看过的任务的 TspView 都在这里，只有当前任务的显示；
               进设置、回空状态时也留着。key 带前缀，和下面同一任务 id 的兄弟区分开。

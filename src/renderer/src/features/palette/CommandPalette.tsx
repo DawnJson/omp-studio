@@ -11,7 +11,6 @@ import {
   useMainView,
   usePaletteOpen,
   useSelectedTaskId,
-  useSettings,
   useTasks,
 } from "../../store/index.ts";
 import { OverlayScrollbar } from "../../ui/OverlayScrollbar.tsx";
@@ -53,7 +52,6 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
   const tasks = useTasks();
   const hidden = useHiddenTasks();
   const projects = useProjects();
-  const settings = useSettings();
   const selectedTaskId = useSelectedTaskId();
   const view = useMainView();
   const draftTerminalKey = useDraftTerminalKey();
@@ -86,7 +84,6 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
         commands: buildCommands({
           t,
           locale,
-          theme: settings?.theme ?? "system",
           current,
           terminalKey,
           hasWaiting: visibleTasks.some((task) => task.status === "needs_you"),
@@ -97,7 +94,7 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
         hasCurrentTask: current !== null,
         slashCommands,
       }),
-    [query, visibleTasks, sessions, t, locale, settings?.theme, current, terminalKey, labels, slashCommands],
+    [query, visibleTasks, sessions, t, locale, current, terminalKey, labels, slashCommands],
   );
   const rows = useMemo(() => sections.flatMap((section) => section.rows), [sections]);
   const trimmed = query.trim();

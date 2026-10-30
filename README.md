@@ -134,6 +134,7 @@ Architecture docs are in [`docs/architecture/`](docs/architecture/), the UI spec
 - [markdown-it](https://github.com/markdown-it/markdown-it), [KaTeX](https://katex.org/), [Shiki](https://shiki.style/): Markdown, math and code highlighting
 - [Geist](https://vercel.com/font): UI font (SIL OFL 1.1)
 - [LobeHub Icons](https://github.com/lobehub/lobe-icons): model provider logos
+- [Dracula](https://github.com/dracula/dracula-theme), [Tokyo Night](https://github.com/enkia/tokyo-night-vscode-theme), [Catppuccin](https://github.com/catppuccin/catppuccin), [Nord](https://github.com/nordtheme/nord), [Rosé Pine](https://github.com/rose-pine/rose-pine-palette): palettes of the themes with the same names (MIT, see [`src/renderer/styles/themes-LICENSE.txt`](src/renderer/styles/themes-LICENSE.txt))
 - [magpie](https://github.com/yetone/magpie) and the [magpie community plugins](https://github.com/magpie-community/plugins): the built-in client account sign-ins use the community plugins' code (MIT)
 
 ## License

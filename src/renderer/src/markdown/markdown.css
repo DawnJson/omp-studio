@@ -101,6 +101,7 @@
 .md-link {
   color: var(--link);
   text-decoration: none;
+  text-shadow: var(--accent-glow);
   cursor: pointer;
 }
 .md-link:hover {

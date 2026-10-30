@@ -1,24 +1,27 @@
-// 设置 → 通用：外观（两两一行：语言、主题、字号；减少动效、选中即复制）；通知与回顾（omp 的 ask / completion / error 通知、空闲回顾 + studio 的完成提示音）；
+// 设置 → 通用：外观（主题画廊；格子里背景图、浓度、毛玻璃、语言、字号、减少动效、选中即复制）；通知与回顾（omp 的 ask / completion / error 通知、空闲回顾 + studio 的完成提示音）；
 // 任务运行中发消息的方式（studio 的 Enter + omp 的插话/稍后处理方式，两两一行）；空闲任务多久关进程；快捷键（只读，三列；studio 的键，加转发给 omp 的键）。格子排法见 settings.css 的 .st-cells。
 import { Fragment, useEffect } from "react";
 import {
   defaultFontSize,
   fontSizeSteps,
+  type BackdropMode,
+  type BackdropStrength,
   type IdleClose,
   type LocalePreference,
-  type ThemePreference,
 } from "../../../../shared/ipc.ts";
 import type { MessageKey } from "../../../../shared/i18n/index.ts";
 import { chordKeys } from "../../../../shared/tsp/omp-keybindings.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { shortcutKeys } from "../../app/platform-keys.ts";
-import { useSettings } from "../../store/index.ts";
-import { Badge, Row, SectionHead, Segmented, Switch } from "../../ui/controls.tsx";
+import { useAppInfo, useSettings } from "../../store/index.ts";
+import { Badge, Button, Row, SectionHead, Segmented, Switch } from "../../ui/controls.tsx";
+import { reportError } from "../../ui/errors.ts";
 import { Select } from "../../ui/Select.tsx";
 import { ConfigRow } from "./ConfigRow.tsx";
 import { systemReducesMotion } from "./motion-preference.ts";
 import { refreshOmpKeybindings, useOmpKeybindings } from "./omp-keybindings-store.ts";
 import { useCommonConfigItems } from "./OmpConfigPane.tsx";
+import { ThemeGallery } from "./ThemeGallery.tsx";
 
 /** 通知和回顾：omp 自己的设置（和终端共用），放在"通知与回顾"一节，不混进"任务运行中"。 */
 const notifyKeys: ReadonlySet<string> = new Set([
@@ -71,7 +74,9 @@ const shortcuts: { label: MessageKey; keys: string[] }[] = [
 export function GeneralSection() {
   const t = useT();
   const settings = useSettings();
+  const glassSupported = useAppInfo()?.glassSupported ?? false;
   const systemMotion = systemReducesMotion();
+  const guard = (promise: Promise<unknown>) => void promise.catch((error: unknown) => reportError(t, error));
   // omp 的插话 / 稍后消息处理方式（"对话行为"组的常用项），和 Enter 的行为放在一起。
   const behavior = useCommonConfigItems("behavior");
   const notifyItems = behavior.filter((item) => notifyKeys.has(item.key));
@@ -84,11 +89,15 @@ export function GeneralSection() {
     { value: "zh-CN", label: t("settings.language.zh") },
     { value: "en", label: t("settings.language.en") },
   ] as const;
-  const themeOptions = [
-    { value: "system", label: t("settings.theme.system") },
-    { value: "light", label: t("settings.theme.light") },
-    { value: "dark", label: t("settings.theme.dark") },
-  ] as const;
+  const backdrop = settings?.backdrop ?? "theme";
+  const backdropOptions = (["theme", "custom", "none"] as const).map((value) => ({
+    value,
+    label: t(`settings.backdrop.${value}`),
+  }));
+  const strengthOptions = (["low", "medium", "high"] as const).map((value) => ({
+    value,
+    label: t(`settings.backdropStrength.${value}`),
+  }));
   const fontSizeOptions = fontSizeSteps.map((size) => ({ value: `${size}` as const, label: `${size}pt` }));
   const enterOptions = [
     { value: "steer", label: t("settings.enterBehavior.steer") },
@@ -102,7 +111,64 @@ export function GeneralSection() {
   return (
     <>
       <SectionHead title={t("settings.appearance")} />
+      <ThemeGallery value={settings?.theme ?? "system"} />
       <div className="st-cells">
+        <Row label={t("settings.backdrop")}>
+          {(labelId) => (
+            <>
+              <Segmented<BackdropMode>
+                size="sm"
+                value={backdrop}
+                options={backdropOptions}
+                labelledBy={labelId}
+                // 自选图片还没选过：先弹文件对话框（主进程复制好图再切到 custom；取消返回 false，什么都不改）。
+                onChange={(next) =>
+                  guard(
+                    next === "custom" && (settings?.customBackdrop ?? null) === null
+                      ? window.studio.chooseBackdropImage()
+                      : window.studio.setBackdrop(next),
+                  )
+                }
+                testId="setting-backdrop"
+              />
+              {backdrop === "custom" && (
+                <Button
+                  size="sm"
+                  onClick={() => guard(window.studio.chooseBackdropImage())}
+                  testId="setting-backdrop-choose"
+                >
+                  {t("settings.backdrop.choose")}
+                </Button>
+              )}
+            </>
+          )}
+        </Row>
+        {backdrop !== "none" && (
+          <Row label={t("settings.backdropStrength")}>
+            {(labelId) => (
+              <Segmented<BackdropStrength>
+                size="sm"
+                value={settings?.backdropStrength ?? "medium"}
+                options={strengthOptions}
+                labelledBy={labelId}
+                onChange={(next) => guard(window.studio.setBackdropStrength(next))}
+                testId="setting-backdrop-strength"
+              />
+            )}
+          </Row>
+        )}
+        {glassSupported && (
+          <Row label={t("settings.glass")}>
+            {(labelId) => (
+              <Switch
+                checked={settings?.glass ?? false}
+                labelledBy={labelId}
+                onChange={(next) => guard(window.studio.setGlass(next))}
+                testId="setting-glass"
+              />
+            )}
+          </Row>
+        )}
         <Row label={t("settings.language")}>
           {(labelId) => (
             <Segmented<LocalePreference>
@@ -112,18 +178,6 @@ export function GeneralSection() {
               labelledBy={labelId}
               onChange={(next) => void window.studio.setLocale(next)}
               testId="setting-language"
-            />
-          )}
-        </Row>
-        <Row label={t("settings.theme")}>
-          {(labelId) => (
-            <Segmented<ThemePreference>
-              size="sm"
-              value={settings?.theme ?? "system"}
-              options={themeOptions}
-              labelledBy={labelId}
-              onChange={(next) => void window.studio.setTheme(next)}
-              testId="setting-theme"
             />
           )}
         </Row>

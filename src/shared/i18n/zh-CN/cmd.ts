@@ -7,7 +7,7 @@ export const cmd = {
   openFolder: "打开文件夹…",
   settings: "设置",
   toggleSidebar: "切换侧栏",
-  theme: "切换主题",
+  theme: "选择主题…",
   language: "切换语言",
   model: "切换模型",
   thinking: "切换思考强度",

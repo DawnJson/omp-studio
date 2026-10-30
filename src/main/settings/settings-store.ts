@@ -2,9 +2,12 @@
 // 并把主题同步给 nativeTheme（渲染进程只靠 prefers-color-scheme 和 <html data-theme>）；写盘在后台串行做（原子写），退出前等它写完。
 import { app, nativeTheme } from "electron";
 import path from "node:path";
-import { defaultFontSize, type Locale, type StudioSettings } from "../../shared/ipc.ts";
+import { backdropFilePattern, defaultFontSize, type Locale, type StudioSettings } from "../../shared/ipc.ts";
+import { themes } from "../../shared/themes.ts";
 import { emitEvent } from "../ipc/events.ts";
 import {
+  parseBackdropMode,
+  parseBackdropStrength,
   parseBoolean,
   parseFontSize,
   parseIdleClose,
@@ -22,6 +25,10 @@ import { readJsonFile } from "./json-file.ts";
 const defaults: StudioSettings = {
   locale: "system",
   theme: "system",
+  backdrop: "theme",
+  backdropStrength: "medium",
+  customBackdrop: null,
+  glass: false,
   maxLiveProcesses: 6,
   idleClose: "1h",
   reduceMotion: false,
@@ -31,6 +38,19 @@ const defaults: StudioSettings = {
   fontSize: defaultFontSize,
   yoloConfirmed: false,
 };
+
+function parseBackdropFile(value: unknown): string | null {
+  if (value === null) return null;
+  if (typeof value === "string" && backdropFilePattern.test(value)) return value;
+  throw new Error("customBackdrop 不是 userData/backdrops 里的文件名");
+}
+
+/** nativeTheme 只认 system / light / dark：具名主题按它的深浅给（omp 的 theme 事件、网页的 prefers-color-scheme 都跟着 nativeTheme）。 */
+function themeSource(): "system" | "light" | "dark" {
+  const { theme } = settings;
+  if (theme === "system") return "system";
+  return themes[theme].dark ? "dark" : "light";
+}
 
 let settings: StudioSettings = defaults;
 /** 串行的写盘链：一次只写一个，写的是轮到时的最新设置；排着队的那次没开始写之前再改，不再多排一次。 */
@@ -59,6 +79,10 @@ function sanitize(raw: unknown): StudioSettings {
   return {
     locale: field(parseLocalePreference, record["locale"], defaults.locale),
     theme: field(parseThemePreference, record["theme"], defaults.theme),
+    backdrop: field(parseBackdropMode, record["backdrop"], defaults.backdrop),
+    backdropStrength: field(parseBackdropStrength, record["backdropStrength"], defaults.backdropStrength),
+    customBackdrop: field(parseBackdropFile, record["customBackdrop"], defaults.customBackdrop),
+    glass: field((value) => parseBoolean(value, "glass"), record["glass"], defaults.glass),
     maxLiveProcesses: field(parseMaxLiveProcesses, record["maxLiveProcesses"], defaults.maxLiveProcesses),
     idleClose: field(parseIdleClose, record["idleClose"], defaults.idleClose),
     reduceMotion: field((value) => parseBoolean(value, "reduceMotion"), record["reduceMotion"], defaults.reduceMotion),
@@ -81,7 +105,7 @@ function sanitize(raw: unknown): StudioSettings {
 /** 必须在 app.setPath("userData") 之后、创建窗口之前调用：窗口首帧的背景色取决于主题。 */
 export function loadSettings(): void {
   settings = sanitize(readJsonFile(settingsFile()));
-  nativeTheme.themeSource = settings.theme;
+  nativeTheme.themeSource = themeSource();
 }
 
 export function getSettings(): StudioSettings {
@@ -111,7 +135,7 @@ export function updateSettings(patch: Partial<StudioSettings>): void {
       })
       .catch((error: unknown) => log.error("saving settings.json failed", error));
   }
-  nativeTheme.themeSource = settings.theme;
+  nativeTheme.themeSource = themeSource();
   emitEvent("settings", settings);
   for (const listener of listeners) listener(settings);
 }

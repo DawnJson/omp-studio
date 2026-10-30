@@ -5,12 +5,13 @@
  *  - 本文件只含变量，不含任何组件样式、reset、字体声明（@font-face）。
  *  - 组件里的颜色、字号、间距、圆角、阴影、时长、曲线、位移量一律引用这里的变量，不写字面值。
  *  - 主题：未设置 data-theme 时跟随系统（prefers-color-scheme）；
- *    <html data-theme="light|dark"> 显式覆盖。主进程同步 BrowserWindow.backgroundColor
- *    与 titleBarOverlay 颜色，数值见 spec.md §3.1。
+ *    <html data-theme="light|dark|…"> 显式覆盖（其余配色在 themes.css，名字登记在 src/shared/themes.ts）。
+ *    主题块不写 :root，设置页主题画廊的预览块挂同样的 data-theme 就地取色。主进程按 themes.ts 同步
+ *    BrowserWindow.backgroundColor 与 titleBarOverlay 颜色。
  *  - 动效：prefers-reduced-motion: reduce 或 <html data-motion="reduced"> 生效。
  *    应用内开关只能强制开启，不能在系统要求减少动效时关闭它。
  *  - 下面“深色”色板出现两次（系统深色 / 显式深色），修改时两处必须逐行一致，
- *    spec.md §2.1 要求用一条测试校验。
+ *    test/themes.test.ts 校验。
  *  - 媒体查询不能使用变量，窄窗断点写在 spec.md §3.3：1000px 侧栏改为抽屉。
  */
 
@@ -278,7 +279,7 @@
 
 /* ───────────────────────── 浅色（默认；data-theme="light" 显式） ───────────────────────── */
 :root,
-:root[data-theme="light"] {
+[data-theme="light"] {
   color-scheme: light;
 
   /* 表面（由低到高）。略暖的中性灰（2026-10-24 仓库所有者：原来带紫的灰换成中性灰，紫色只留给强调）；侧栏/顶栏比主区略深，层级靠明度不靠颜色 */
@@ -363,12 +364,17 @@
 
   --scrollbar-thumb: rgba(20, 20, 18, 0.28);
   --scrollbar-thumb-hover: rgba(20, 20, 18, 0.46);
+
+  /* 强调色上的静态发光（开关、选中竖条、链接）；只有炫酷类主题（themes.css）给值 */
+  --accent-glow: none;
+  /* 主题自带插图（themes.css 的 themes/<名字>.svg）；浅色、深色没有 */
+  --theme-art: none;
 }
 
-/* ───────────────────────── 深色：跟随系统（未显式选择浅色时） ───────────────────────── */
-/* 与下方 :root[data-theme="dark"] 必须逐行一致 */
+/* ───────────────────────── 深色：跟随系统（没有显式选主题时） ───────────────────────── */
+/* 与下方 [data-theme="dark"] 必须逐行一致。只认没有 data-theme 的根：选了别的主题时系统深色不能盖过它 */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme]) {
     color-scheme: dark;
 
     --bg-sidebar: #0f0f0e;
@@ -441,11 +447,14 @@
 
     --scrollbar-thumb: rgba(232, 232, 228, 0.26);
     --scrollbar-thumb-hover: rgba(232, 232, 228, 0.44);
+
+    --accent-glow: none;
+    --theme-art: none;
   }
 }
 
 /* ───────────────────────── 深色：显式选择 ───────────────────────── */
-:root[data-theme="dark"] {
+[data-theme="dark"] {
   color-scheme: dark;
 
   --bg-sidebar: #0f0f0e;
@@ -517,6 +526,9 @@
 
   --scrollbar-thumb: rgba(232, 232, 228, 0.26);
   --scrollbar-thumb-hover: rgba(232, 232, 228, 0.44);
+
+  --accent-glow: none;
+  --theme-art: none;
 }
 
 /* ───────────────────────── 键盘焦点环 ───────────────────────── */

@@ -8,7 +8,7 @@ export const cmd = {
   openFolder: "Open folder…",
   settings: "Settings",
   toggleSidebar: "Toggle sidebar",
-  theme: "Switch theme",
+  theme: "Choose theme…",
   language: "Switch language",
   model: "Switch model",
   thinking: "Cycle thinking level",

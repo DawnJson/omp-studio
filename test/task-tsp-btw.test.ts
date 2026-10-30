@@ -37,6 +37,10 @@ const settings: StudioSettings = {
   copyOnSelect: true,
   fontSize: 15,
   yoloConfirmed: false,
+  backdrop: "theme",
+  backdropStrength: "medium",
+  customBackdrop: null,
+  glass: false,
 };
 
 const ids = { pong: "15af3d5a2937f9fd", ping: "15af3d67d7b7f9ff", essay: "15af3d7a2c37fa00" } as const;

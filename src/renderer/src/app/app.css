@@ -252,6 +252,37 @@ html[data-platform="darwin"] .topbar-left {
   border-radius: var(--radius-xl);
 }
 
+/* 主区背景图（App.tsx 挂 data-backdrop / data-backdrop-strength；docs/architecture/themes.md「主区背景图」）。
+   画在面板自己的 background 上，不另加图层元素：从下往上是底色 --bg-app → 图（cover，靠右下）→ 一层 --bg-app 色的纱。
+   纱越厚图越淡。三档按"图上最亮、最暗的一点上正文仍然好读"定：用每个主题的 --text / --bg-app 算图是纯白或纯黑时
+   正文的对比度（2026-10-30 按 tokens.css、themes.css 算）——
+   high 75%：图最明显；除 catppuccin-latte（3.9:1）外正文都在 4.5:1 以上。
+   medium 82%（默认）：所有主题正文都在 4.7:1 以上。
+   low 90%：图最淡；正文都在 5.6:1 以上。 */
+.panel[data-backdrop] {
+  --bd-veil: 82%;
+  background:
+    linear-gradient(
+      color-mix(in srgb, var(--bg-app) var(--bd-veil), transparent),
+      color-mix(in srgb, var(--bg-app) var(--bd-veil), transparent)
+    ),
+    var(--bd-art) right bottom / cover no-repeat,
+    var(--bg-app);
+}
+.panel[data-backdrop="theme"] {
+  --bd-art: var(--theme-art);
+}
+/* --bd-image 由 App.tsx 内联在面板上：url("app://studio/@backdrop/<文件名>") */
+.panel[data-backdrop="custom"] {
+  --bd-art: var(--bd-image);
+}
+.panel[data-backdrop-strength="high"] {
+  --bd-veil: 75%;
+}
+.panel[data-backdrop-strength="low"] {
+  --bd-veil: 90%;
+}
+
 .sidebar-resizer {
   position: absolute;
   top: 0;
@@ -290,6 +321,26 @@ html[data-platform="darwin"] .topbar-left {
   animation-duration: var(--dur-slow);
   animation-timing-function: var(--ease-out);
   animation-fill-mode: forwards;
+}
+
+/* ───────── Windows 11 毛玻璃（<html data-glass>，App.tsx 设；docs/architecture/themes.md「毛玻璃」） ─────────
+   窗口底下是系统的 Acrylic（main-window.ts）。顶栏、侧栏和面板四周那圈窗口底色只画一层半透明的侧栏色，铺在 #app 上：
+   html / body / 顶栏 / 侧栏列都透明，不然几层半透明叠起来越叠越深，三键区（透明，透出的是 #app 这层）也对不上。
+   75%：Acrylic 自己已经很模糊，60% 时彩色背景透得太多，浅色主题里文字发虚；90% 起几乎看不出玻璃（2026-10-30 实测）。
+   主区 .panel 不动，仍是实底（或背景图）。 */
+:root[data-glass],
+:root[data-glass] body,
+:root[data-glass] .topbar,
+:root[data-glass] .sidebar-column {
+  background: transparent;
+}
+:root[data-glass] #app {
+  background: color-mix(in srgb, var(--bg-sidebar) 75%, transparent);
+}
+/* 收起的侧栏和窄窗口的抽屉是盖在主区面板上的一张，底下是面板不是玻璃：照旧画实底（侧栏 .sb 跟着透明，露出这张底）。 */
+:root[data-glass] #app[data-sidebar="hidden"] .sidebar-column,
+:root[data-glass] #app[data-drawer="true"] .sidebar-column {
+  background: var(--bg-sidebar);
 }
 
 /* ───────── 快捷键 ───────── */

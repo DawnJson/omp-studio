@@ -19,4 +19,7 @@ export const error = {
   executableBlocked: "Executable files aren’t opened directly. Reveal it in the folder instead.",
   notFound: "That task or project no longer exists.",
   statsSchema: "omp's statistics database doesn't look like the version this app expects, so it can't be read.",
+  backdropTooLarge: "The image is larger than 20 MB. Pick a smaller one.",
+  backdropNotImage:
+    "This file isn’t a usable image (PNG, JPG, WebP, GIF, AVIF), or its content doesn’t match its extension.",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

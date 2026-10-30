@@ -1,7 +1,9 @@
 // 主窗口：安全配置（AGENTS.md "Electron 安全"）、"当前主窗口"引用、窗口状态记忆和主题同步。
 import { app, BrowserWindow, nativeTheme, screen, shell, systemPreferences } from "electron";
+import { release } from "node:os";
 import path from "node:path";
-import { defaultFontSize } from "../../shared/ipc.ts";
+import { defaultFontSize, type StudioSettings } from "../../shared/ipc.ts";
+import { resolveTheme, themes } from "../../shared/themes.ts";
 import { appOrigin } from "./app-protocol.ts";
 import { loadWin32 } from "../platform/win32/ffi.ts";
 import { getSettings, offSettingsChanged, onSettingsChanged } from "../settings/settings-store.ts";
@@ -12,15 +14,12 @@ import { restoredBounds, trackWindowState } from "./window-state.ts";
 import { emitEvent } from "../ipc/events.ts";
 
 /**
- * 顶栏（通栏，高 40）的底色和系统三键符号色，取自 docs/design/spec.md §2.1；主题切换时用 win.setTitleBarOverlay 同步。
+ * 顶栏（通栏，高 40）的底色和系统三键符号色 = 当前主题的 --bg-sidebar / --text（登记在 src/shared/themes.ts）；
+ * 主题切换时用 win.setTitleBarOverlay 同步。
  * dimmed：有遮罩弹窗时，系统三键要和网页里盖了 --bg-scrim 的顶栏同色。三键不是网页画的，遮罩盖不到，
- * 所以这里给出"顶栏色上叠一层 --bg-scrim"混合后的实色（浅色 rgba(17,24,22,.32)，深色 rgba(4,6,5,.56)）。
+ * 所以给出"顶栏色上叠一层 --bg-scrim"混合后的实色。
  */
 const titleBarHeight = 40;
-function titleBarColors(dark: boolean, dimmed = false): { color: string; symbolColor: string } {
-  if (dimmed) return dark ? { color: "#08070A", symbolColor: "#69676B" } : { color: "#A8A7AB", symbolColor: "#131118" };
-  return dark ? { color: "#0C0B0E", symbolColor: "#E8E6EC" } : { color: "#EEEDF0", symbolColor: "#131118" };
-}
 
 let titleBarDimmed = false;
 
@@ -31,6 +30,31 @@ const isMac = process.platform === "darwin";
  * （系统不画、点不到，页面照常绘制），跑测试时不弹到用户面前、不打断用户打字。
  */
 export const e2eBackground = process.env["STUDIO_E2E_BACKGROUND"] === "1";
+
+/**
+ * Windows 11 毛玻璃（设置 glass，docs/architecture/themes.md「毛玻璃」）：窗口用系统的 Acrylic（backgroundMaterial），
+ * 窗口和网页底色透明，顶栏、侧栏在网页里画半透明的侧栏色，主区面板仍是实底。
+ * DWMWA_SYSTEMBACKDROP_TYPE 从 Windows 11 22H2（build 22621）起才有，Electron 在更早的系统上直接忽略；mac 的 vibrancy 不做。
+ */
+export const glassSupported = process.platform === "win32" && Number(release().split(".")[2]) >= 22621;
+
+function glassOn(): boolean {
+  return glassSupported && getSettings().glass;
+}
+
+/** 窗口底色：平时是顶栏色（首帧前、拖大窗口时露出的那一块和顶栏一致）；毛玻璃时透明，否则盖住 Acrylic。 */
+function windowBackground(): string {
+  return glassOn() ? "#00000000" : formatHex(overlayColors(false).color);
+}
+
+/**
+ * 三键区底色。毛玻璃时全透明：三键画在网页上面，透出的就是网页顶栏那层半透明侧栏色，遮罩弹窗时网页的遮罩也盖得到
+ * （符号色照常随遮罩渐变）。不用"带 alpha 的侧栏色"：Electron 先给整个三键区铺一次底色、每个按钮再铺一次，
+ * 叠出来比网页顶栏深一截，按钮之间还有缝（Electron 44.10.0 实测）。
+ */
+function overlayBackground(color: Rgb): string {
+  return glassOn() ? "#00000000" : formatHex(color);
+}
 
 function showWindow(window: BrowserWindow): void {
   if (e2eBackground) window.showInactive();
@@ -50,14 +74,21 @@ function formatHex(rgb: Rgb): string {
 }
 
 function overlayColors(dimmed: boolean): OverlayColors {
-  const { color, symbolColor } = titleBarColors(nativeTheme.shouldUseDarkColors, dimmed);
-  return { color: parseHex(color), symbolColor: parseHex(symbolColor) };
+  const theme = themes[resolveTheme(getSettings().theme, nativeTheme.shouldUseDarkColors)];
+  const color = parseHex(theme.sidebar);
+  const symbolColor = parseHex(theme.text);
+  if (!dimmed) return { color, symbolColor };
+  const scrim = /^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/.exec(theme.scrim);
+  if (scrim === null) throw new Error(`theme scrim is not rgba(): ${theme.scrim}`);
+  const [, r, g, b, alpha] = scrim.map(Number);
+  const over: Rgb = [r ?? 0, g ?? 0, b ?? 0];
+  return { color: mix(color, over, alpha ?? 0), symbolColor: mix(symbolColor, over, alpha ?? 0) };
 }
 
 /** 页面缩放后顶栏（--titlebar-h = 40 CSS px）占 40 × 缩放 个窗口像素，系统三键区的高度要一起放大，否则和顶栏对不齐。 */
 function applyOverlay(window: BrowserWindow, colors: OverlayColors): void {
   window.setTitleBarOverlay({
-    color: formatHex(colors.color),
+    color: overlayBackground(colors.color),
     symbolColor: formatHex(colors.symbolColor),
     height: Math.round((titleBarHeight * getSettings().fontSize) / defaultFontSize),
   });
@@ -290,6 +321,7 @@ const trafficLightPosition = { x: 14, y: 13 } as const;
 
 export function createMainWindow(): BrowserWindow {
   const restored = restoredBounds();
+  const initialColors = overlayColors(false);
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -304,8 +336,16 @@ export function createMainWindow(): BrowserWindow {
     titleBarStyle: "hidden",
     ...(isMac
       ? { trafficLightPosition }
-      : { titleBarOverlay: { ...titleBarColors(nativeTheme.shouldUseDarkColors), height: titleBarHeight } }),
-    backgroundColor: titleBarColors(nativeTheme.shouldUseDarkColors).color,
+      : {
+          titleBarOverlay: {
+            color: overlayBackground(initialColors.color),
+            symbolColor: formatHex(initialColors.symbolColor),
+            height: titleBarHeight,
+          },
+        }),
+    backgroundColor: windowBackground(),
+    // 创建时就带上材质，第一帧就是毛玻璃；运行时开关见下面 onSettings（setBackgroundMaterial 不用重建窗口，实测）。
+    ...(glassOn() ? { backgroundMaterial: "acrylic" as const } : {}),
     webPreferences: {
       preload: path.join(import.meta.dirname, "..", "preload", "index.cjs"),
       contextIsolation: true,
@@ -342,8 +382,12 @@ export function createMainWindow(): BrowserWindow {
     if (restored.maximized && !e2eBackground) window.maximize();
     showWindow(window);
   });
-  // 主题切换（设置或系统）时，系统三键的底色和符号色跟着顶栏走。
-  const onThemeUpdated = () => fadeTitleBar(window, false);
+  // 主题切换（设置或系统深浅）时，窗口底色、系统三键的底色和符号色跟着顶栏走。
+  // 两个同为深色（或同为浅色）的主题之间切换时 nativeTheme 不发 updated，所以设置变化也要看。
+  const onThemeUpdated = () => {
+    window.setBackgroundColor(windowBackground());
+    fadeTitleBar(window, false);
+  };
   nativeTheme.on("updated", onThemeUpdated);
   window.once("closed", () => nativeTheme.off("updated", onThemeUpdated));
   // 渲染进程重载时弹窗都没了，不会再报"关闭"：先恢复。
@@ -362,7 +406,21 @@ export function createMainWindow(): BrowserWindow {
     const zoom = window.webContents.getZoomFactor();
     emitEvent("zoomGesture", { direction, x: (cursor.x - content.x) / zoom, y: (cursor.y - content.y) / zoom });
   });
-  const onSettings = () => applyFontSize(window);
+  let shownTheme = getSettings().theme;
+  let shownGlass = glassOn();
+  const onSettings = (next: StudioSettings) => {
+    const glass = glassOn();
+    if (glass !== shownGlass) {
+      shownGlass = glass;
+      // "none" 时 Electron 把底色重置成白色，紧接着换回顶栏色；三键区底色由下面的 applyFontSize 重铺。
+      window.setBackgroundMaterial(glass ? "acrylic" : "none");
+      window.setBackgroundColor(windowBackground());
+    }
+    applyFontSize(window);
+    if (next.theme === shownTheme) return;
+    shownTheme = next.theme;
+    onThemeUpdated();
+  };
   onSettingsChanged(onSettings);
   window.once("closed", () => offSettingsChanged(onSettings));
   blockZoom(window.webContents);

@@ -416,8 +416,10 @@
   box-shadow: var(--shadow-1);
   transition: transform var(--dur-fast) var(--ease-out);
 }
+/* 强调色小面积处叠一层主题的静态发光（--accent-glow，只有炫酷类主题有值，其余 none） */
 .ui-switch[aria-checked="true"] {
   background: var(--accent);
+  box-shadow: var(--accent-glow);
 }
 .ui-switch[aria-checked="true"]::after {
   transform: translateX(16px);
@@ -1024,6 +1026,7 @@
   content: "";
   background: var(--accent);
   border-radius: 1px;
+  box-shadow: var(--accent-glow);
 }
 
 .ui-list-row {

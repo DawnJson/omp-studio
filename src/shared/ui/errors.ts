@@ -34,6 +34,8 @@ const knownMessages: [RegExp, Parameters<TFunction>[0]][] = [
   [/repository is on a detached HEAD/i, "git.err.detached"],
   [/git was not found on PATH/i, "git.err.gitMissing"],
   [/^\.omp-studio\/setup\.\w+ failed/i, "git.err.setupFailed"],
+  [/^backdrop image is too large/i, "error.backdropTooLarge"],
+  [/^backdrop file is not a (valid \w+ image|supported image type)/i, "error.backdropNotImage"],
 ];
 
 /** 创建 worktree 任务被拒绝的原因（项目本身不满足条件，换个项目状态才行）；其他错误返回 null。 */

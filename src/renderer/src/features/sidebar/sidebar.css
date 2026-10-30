@@ -181,6 +181,15 @@
   padding-right: var(--space-1);
   background: var(--bg-sidebar);
 }
+/* 毛玻璃（app.css「Windows 11 毛玻璃」）：侧栏透明，露出 #app 那层半透明侧栏色。钉住的标题行不能再用实底（会是一条色带），
+   改成只模糊下面滚过的行；没有行在下面时看不出它。只有这一小条，滚动侧栏时才重新模糊，不碰对话区。 */
+:root[data-glass] .sb {
+  background: transparent;
+}
+:root[data-glass] .sb-history-head {
+  background: transparent;
+  backdrop-filter: blur(var(--space-4));
+}
 /* 文件夹：头部（箭头 + 名称，折叠时行数）+ 任务和会话混排的行 */
 .sb-folder + .sb-folder {
   margin-top: var(--space-1);

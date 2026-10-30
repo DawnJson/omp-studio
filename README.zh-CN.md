@@ -133,6 +133,7 @@ npm run dist:linux # Linux x64 的 AppImage，输出到 release/
 - [markdown-it](https://github.com/markdown-it/markdown-it)、[KaTeX](https://katex.org/)、[Shiki](https://shiki.style/)：Markdown、公式和代码高亮
 - [Geist](https://vercel.com/font)：界面字体（SIL OFL 1.1）
 - [LobeHub Icons](https://github.com/lobehub/lobe-icons)：模型提供商的 logo
+- [Dracula](https://github.com/dracula/dracula-theme)、[Tokyo Night](https://github.com/enkia/tokyo-night-vscode-theme)、[Catppuccin](https://github.com/catppuccin/catppuccin)、[Nord](https://github.com/nordtheme/nord)、[Rosé Pine](https://github.com/rose-pine/rose-pine-palette)：同名主题的配色（MIT，见 [`src/renderer/styles/themes-LICENSE.txt`](src/renderer/styles/themes-LICENSE.txt)）
 - [magpie](https://github.com/yetone/magpie) 和 [magpie 社区插件](https://github.com/magpie-community/plugins)：内置的客户端账号登录用的是社区插件的代码（MIT）
 
 ## 许可

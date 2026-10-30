@@ -4,15 +4,17 @@ import type { IpcMainInvokeEvent } from "electron";
 import {
   fontSizeSteps,
   limits,
+  type BackdropMode,
+  type BackdropStrength,
   type IdleClose,
   type LocalePreference,
   type ModelKey,
   type PromptImage,
   type PromptInput,
   type TaskId,
-  type ThemePreference,
   type ProjectId,
 } from "../../shared/ipc.ts";
+import { isThemeName, type ThemePreference } from "../../shared/themes.ts";
 import {
   parseBuiltinCommand,
   parseTaskCommand,
@@ -107,7 +109,16 @@ export function parseLocalePreference(value: unknown): LocalePreference {
 }
 
 export function parseThemePreference(value: unknown): ThemePreference {
-  return parseOneOf(value, "theme", ["system", "light", "dark"]);
+  if (value === "system" || (typeof value === "string" && isThemeName(value))) return value;
+  throw new IpcValidationError("theme 不是已知的主题");
+}
+
+export function parseBackdropMode(value: unknown): BackdropMode {
+  return parseOneOf(value, "backdrop", ["theme", "custom", "none"]);
+}
+
+export function parseBackdropStrength(value: unknown): BackdropStrength {
+  return parseOneOf(value, "backdropStrength", ["low", "medium", "high"]);
 }
 
 export function parseFontSize(value: unknown): number {

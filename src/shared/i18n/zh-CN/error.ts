@@ -18,4 +18,6 @@ export const error = {
   executableBlocked: "可执行文件不会被直接打开，请在文件夹中显示它。",
   notFound: "找不到对应的任务或项目，可能已被移除。",
   statsSchema: "omp 的统计库结构和当前 omp-studio 预期的对不上，读不了。",
+  backdropTooLarge: "图片超过 20 MB，换一张小一点的。",
+  backdropNotImage: "这个文件不是能用的图片（PNG、JPG、WebP、GIF、AVIF），或者内容和扩展名对不上。",
 } satisfies Record<string, MessageEntry>;

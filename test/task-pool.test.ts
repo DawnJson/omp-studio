@@ -36,6 +36,10 @@ const settings = (maxLiveProcesses = 6, idleClose: IdleClose = "1h"): StudioSett
   copyOnSelect: true,
   fontSize: 15,
   yoloConfirmed: false,
+  backdrop: "theme",
+  backdropStrength: "medium",
+  customBackdrop: null,
+  glass: false,
 });
 
 /** 收集池推送的事件；`until` 等到某个任务的状态满足条件（事件驱动，没有固定等待）。 */

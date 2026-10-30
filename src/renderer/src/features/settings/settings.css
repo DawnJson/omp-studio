@@ -445,6 +445,108 @@
   color: var(--text-3);
 }
 
+/* ───────── 通用 → 外观：主题画廊（ThemeGallery.tsx） ───────── */
+
+/* 卡片按宽度自动排列（每张至少 120 宽），窄窗口自己少几列。预览块挂 data-theme，下面的颜色都是那个主题自己的变量。 */
+.st-theme-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.st-theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  min-width: 0;
+  padding: var(--space-1) var(--space-1) var(--space-1-5);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  text-align: center;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-lg);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.st-theme-card:hover {
+  background: var(--bg-hover);
+}
+
+.st-theme-card:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.st-theme-card[aria-pressed="true"] {
+  color: var(--text);
+}
+
+/* 迷你界面：底色 = 侧栏 / 顶栏，主区面板在右下（主区底 + 主题插图），右上一个你的消息气泡，左下一个强调色点 */
+.st-theme-preview {
+  display: flex;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.st-theme-card[aria-pressed="true"] .st-theme-preview {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.st-theme-mini {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-sidebar);
+}
+
+.st-theme-side {
+  flex: none;
+  width: 22%;
+}
+
+.st-theme-main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  margin: var(--space-2) var(--space-1) var(--space-1) 0;
+  background-color: var(--bg-app);
+  background-image: var(--theme-art);
+  background-position: right bottom;
+  background-size: cover;
+  border-radius: var(--radius-sm);
+}
+
+.st-theme-bubble {
+  position: absolute;
+  top: 16%;
+  right: 10%;
+  width: 46%;
+  height: 18%;
+  background: var(--bg-bubble);
+  border-radius: var(--radius-sm);
+}
+
+.st-theme-dot {
+  position: absolute;
+  bottom: 14%;
+  left: 12%;
+  width: var(--space-2);
+  height: var(--space-2);
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--accent-glow);
+}
+
+.st-theme-name {
+  overflow-wrap: anywhere;
+}
+
 /* ───────── 工具与权限：工具网格，每格一样 ───────── */
 
 .st-tools {

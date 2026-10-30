@@ -55,6 +55,10 @@ describe.skipIf(!enabled)("真实 omp", () => {
         copyOnSelect: true,
         fontSize: 15,
         yoloConfirmed: false,
+        backdrop: "theme",
+        backdropStrength: "medium",
+        customBackdrop: null,
+        glass: false,
       }),
       tsp: {
         buildLaunch: async (record, project) => ({
