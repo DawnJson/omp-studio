@@ -7,7 +7,7 @@ import { isManageableMcpName, type McpServerRow, type McpTestResult } from "../.
 import type { McpEditErrorCode, McpServerFile } from "../../../../shared/mcp-edit.ts";
 import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Plus, Restart } from "../../icons.tsx";
+import { Plug, Plus, Restart } from "../../icons.tsx";
 import { useOmpStatus } from "../../store/index.ts";
 import { Badge, Button, IconButton, ListRow, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
 import { Skeleton } from "../../ui/Skeleton.tsx";
@@ -17,7 +17,6 @@ import { pushToast } from "../dialogs/toast-store.ts";
 import { mcpResource, runMcpTest, runMcpWrite } from "./integrations-data.ts";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
 import { McpForm } from "./McpForm.tsx";
-import { monogram } from "./monogram.ts";
 import { RowMenu } from "./RowMenu.tsx";
 import { TitleTip } from "./TitleTip.tsx";
 import { useAsyncAction } from "./use-async-action.ts";
@@ -55,12 +54,12 @@ function McpRow({
       : row.scope === "project"
         ? t("integrations.scope.project")
         : row.scope;
-  // 卡片（.ui-cards）：说明和"测试连接"成功的结果写在元信息下面；连不上时右上角一个红色徽标，omp 的原话在悬停里。
+  // 卡片（.ui-cards）：说明和"测试连接"成功的结果写在元信息下面；连不上时元信息行开头一个红色徽标，omp 的原话在悬停里。
   const failed = test !== undefined && test !== "running" && !test.connected ? test.message : null;
   return (
     <ListRow
       testId={`mcp-row-${row.name}`}
-      icon={monogram(row.name)}
+      icon={<Plug />}
       title={row.name}
       badges={
         <>

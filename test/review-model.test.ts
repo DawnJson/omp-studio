@@ -7,6 +7,7 @@ import {
   commentCovers,
   composeCommitMessage,
   countChangeBlocks,
+  countStaged,
   commentsEndingAt,
   entryKey,
   flattenGroups,
@@ -72,6 +73,17 @@ describe("groupChanges", () => {
   it("keeps the old path of a staged rename", () => {
     const [group] = groupChanges([{ path: "new.ts", oldPath: "old.ts", staged: "renamed", unstaged: null }]);
     expect(group?.entries[0]).toMatchObject({ path: "new.ts", oldPath: "old.ts", kind: "renamed" });
+  });
+
+  it("counts staged files, conflicted ones excluded", () => {
+    const groups = groupChanges([
+      file("a.ts", "modified", "modified"),
+      file("b.ts", "added", null),
+      file("c.txt", null, "untracked"),
+      file("m.ts", "conflicted", "conflicted"),
+    ]);
+    expect(countStaged(groups)).toBe(2);
+    expect(countStaged(groupChanges([file("c.txt", null, "untracked")]))).toBe(0);
   });
 });
 

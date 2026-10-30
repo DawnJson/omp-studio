@@ -3,11 +3,11 @@
 import { useId, useState } from "react";
 import type { MarketplaceInstall, MarketplacePlugin, NpmPlugin } from "../../../../shared/omp-output/plugins.ts";
 import { useT } from "../../i18n/use-t.ts";
+import { Puzzle } from "../../icons.tsx";
 import { Badge, Button, Disclosure, ListRow, Switch } from "../../ui/controls.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { useDialogSlot } from "../../ui/presence.ts";
 import { Reveal } from "../../ui/Reveal.tsx";
-import { monogram } from "./monogram.ts";
 import { PluginDetails } from "./PluginDetails.tsx";
 import { runAction } from "./plugins-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
@@ -46,7 +46,7 @@ export function PluginRow({
   return (
     <div data-testid={`plugin-row-${rowKey}`}>
       <ListRow
-        icon={monogram(id)}
+        icon={<Puzzle />}
         title={id}
         badges={scope === "project" ? <Badge>{t("plugins.scope.project")}</Badge> : undefined}
         meta={meta === "" ? undefined : meta}

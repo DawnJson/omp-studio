@@ -131,6 +131,13 @@
   outline-offset: -2px;
 }
 
+/* inline 对话区的滚动区按内容的高度排、放不下才缩（2026-10-29 仓库所有者：门跟着对话走）：对话短时 dock 紧跟在对话最后一项下面，
+ * 剩下的空白在 dock 下面；对话长过视口时滚动区缩到剩余的高度，dock 照旧停在过程区底部、Composer 正上方。
+ * 滚动区变高变矮（门出现、对话长过视口）时吸底照旧：use-stick-to-bottom.ts 看着滚动区的尺寸贴回底部。 */
+.tsp-surface[data-mode="inline"] > .tsp-scroller {
+  flex: 0 1 auto;
+}
+
 /* 对话列：和旧 ConversationView 同宽同轴（--content-w），块之间 --space-4 */
 .tsp-column {
   width: min(100% - 2 * var(--gutter), var(--content-w));
@@ -144,6 +151,10 @@
   flex: none;
   height: 1px;
   margin-top: calc(-1 * var(--space-4));
+}
+/* dock 里有东西时对话列底下只留一个块间距：对话最后一项和门之间就是普通的块间距（没有 dock 时留 --space-8 到 Composer）。 */
+.tsp-surface[data-mode="inline"]:has(> .tsp-dock:not([data-blank])) > .tsp-scroller > .tsp-column {
+  padding-bottom: var(--space-4);
 }
 /* 对话里的顶层块（main 的子节点，node-dom.ts 给它们 data-anchor）：离屏时不排版、不绘制，长会话的样式 / 排版 / 绘制只算视口附近。
  * 没画过的块按估计高度占位，画过一次后记住实际尺寸（auto）；估计值和实际的差由 useStickToBottom 按阅读锚点补偿、
@@ -160,7 +171,7 @@
   --content-w: 960px;
 }
 
-/* dock：贴在对话区下方、studio 输入框正上方，和对话列同宽同轴 */
+/* dock：对话列后面、studio 输入框上方（对话长过视口时停在过程区底部），和对话列同宽同轴 */
 .tsp-dock {
   flex: none;
   position: relative;
@@ -1308,7 +1319,7 @@
   max-width: 100%;
   max-height: 100%;
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-3);
+  box-shadow: var(--shadow-modal);
   cursor: default;
 }
 /* 开合放大图的 View Transition（zoom-store.ts）：只在 <html data-tsp-zoom-vt> 存在的这一次动画里生效，

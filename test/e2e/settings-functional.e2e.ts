@@ -7,8 +7,38 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { expectNoOverflow, launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+
+async function rect(locator: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
+  const box = await locator.boundingBox();
+  if (box === null) throw new Error("元素不可见，没有位置");
+  return box;
+}
+
+/** 紧凑卡片（2026-10-29 仓库所有者定）：两行约 64 高；动作和名称同在第一行，徽标在第二行（元信息行）开头、元信息跟在它后面。 */
+async function expectCompactCard(card: Locator, action: Locator): Promise<void> {
+  const box = await rect(card);
+  expect(box.height).toBeLessThan(72);
+  const name = await rect(card.locator(".ui-list-name"));
+  const button = await rect(action);
+  const centre = button.y + button.height / 2;
+  expect(centre).toBeGreaterThanOrEqual(name.y);
+  expect(centre).toBeLessThanOrEqual(name.y + name.height);
+  const badge = await rect(card.locator(".ui-badge").first());
+  expect(badge.y).toBeGreaterThanOrEqual(name.y + name.height - 1);
+  expect(Math.abs(badge.x - name.x)).toBeLessThanOrEqual(1);
+  const meta = await rect(card.locator(".ui-list-meta"));
+  expect(meta.x).toBeGreaterThanOrEqual(badge.x + badge.width);
+  expect(Math.abs(meta.y + meta.height / 2 - (badge.y + badge.height / 2))).toBeLessThanOrEqual(badge.height / 2);
+}
+
+/** 图标格是一个类别图标（svg），不是名字首字母（2026-10-29 仓库所有者定）。 */
+async function expectKindIcon(row: Locator): Promise<void> {
+  const icon = row.locator(".ui-list-icon").first();
+  await expect(icon.locator("svg")).toHaveCount(1);
+  await expect(icon).toHaveText("");
+}
 
 async function launchSettings(
   extraEnv: Record<string, string> = {},
@@ -138,15 +168,18 @@ test("填 API key：存进 omp 的凭据库（终端版也用），卡片写“�
     await page.getByTestId("provider-key-save").click();
     await expect(flow).toHaveCount(0);
 
-    // 回到"已连接"：徽标按凭据来源写，元信息是 omp 给这条凭据起的名字，按钮变成"更换 key"、"清除 key"。
+    // 回到"已连接"：徽标按凭据来源写，元信息是 omp 给这条凭据起的名字；卡片上一个"清除 key"，"更换 key"收在 ⋯ 里。
     const card = page.getByTestId("providers").getByTestId("provider-kagi");
     await expect(card).toContainText("已设置 key", { timeout: 30_000 });
     await expect(card).not.toContainText("已登录");
     await expect(card).toContainText("API key #");
-    await expect(card.getByTestId("provider-key-kagi")).toHaveText("更换 key");
     await expect(card.getByTestId("provider-signout-kagi")).toHaveText("清除 key");
+    await expectCompactCard(card, card.getByTestId("provider-signout-kagi"));
+    await expect(card.getByTestId("provider-key-kagi")).toHaveCount(0);
+    await card.getByTestId("provider-more-kagi").click();
+    await expect(page.getByTestId("provider-key-kagi")).toHaveText("更换 key");
     // 已经存过 key：更换时输入框写明留空保持不变。
-    await card.getByTestId("provider-key-kagi").click();
+    await page.getByTestId("provider-key-kagi").click();
     await expect(page.getByTestId("provider-flow-kagi").getByRole("textbox")).toHaveAttribute(
       "placeholder",
       "已设置，留空保持不变",
@@ -161,6 +194,13 @@ test("填 API key：存进 omp 的凭据库（终端版也用），卡片写“�
     await expect(envCard).toContainText("环境变量 · TAVILY_API_KEY");
     await expect(envCard.getByTestId("provider-signout-tavily")).toHaveCount(0);
     expect(storedKeys()).toEqual(["kagi-e2e-key"]);
+    await expectCompactCard(envCard, envCard.getByTestId("provider-key-tavily"));
+    // 900 宽、中英文：卡片里的名称、徽标、元信息和按钮都不越界。
+    await page.setViewportSize({ width: 900, height: 800 });
+    for (const locale of ["en", "zh-CN"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(page.getByTestId("providers"));
+    }
     // key 在系统环境变量里：设置 API key 的对话框说清楚这里存的不生效。
     await envCard.getByTestId("provider-key-tavily").click();
     await expect(page.getByTestId("provider-key-note")).toHaveText(
@@ -496,6 +536,7 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await page.getByTestId("mcp-args").fill("-e\nconsole.log('x y')\na b");
     await page.getByTestId("mcp-save").click();
     await expect(page.getByTestId("mcp-row-demo")).toBeVisible({ timeout: 30_000 });
+    await expectKindIcon(page.getByTestId("mcp-row-demo"));
     await expect
       .poll(async () => (await mcpServers(agentDir))["demo"])
       .toMatchObject({
@@ -533,11 +574,12 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect.poll(async () => (await mcpServers(agentDir))["remote1"]?.["enabled"]).toBe(false);
     await expect(page.getByTestId("mcp-enabled-remote1")).toHaveAttribute("aria-checked", "false");
 
-    // 测试连接：连不上时卡片右上角一个"连接失败"徽标，omp 的原话在悬停里，元信息下面不再写。
+    // 测试连接：连不上时元信息行开头一个"连接失败"徽标，omp 的原话在悬停里，元信息下面不再写。
     await page.getByTestId("mcp-test-remote1").click();
     const mcpFailed = page.getByTestId("mcp-row-remote1").getByTestId("mcp-test-failed-remote1");
     await expect(mcpFailed).toHaveText("Connection failed", { timeout: 60_000 });
     await expect(mcpFailed).not.toHaveAttribute("title", "");
+    await expectCompactCard(page.getByTestId("mcp-row-remote1"), page.getByTestId("mcp-test-remote1"));
     await expect(page.getByTestId("mcp-test-result-remote1")).toHaveCount(0);
     await expectNoOverflow(page.getByTestId("mcp-card"));
 
@@ -648,6 +690,12 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
         port: 2222,
         description: '- my box, with "quotes"',
       });
+    await expectKindIcon(page.getByTestId("ssh-row-box"));
+    await page.setViewportSize({ width: 900, height: 700 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(page.getByTestId("ssh-card"));
+    }
 
     // 同名再加：omp 的原话（错误在 stdout，退出码 1）。
     await page.getByTestId("ssh-add").click();
@@ -726,6 +774,7 @@ test("集成与插件：Skills 分组列出 omp 能用的 skill（名称、范�
     await expect(row).toBeVisible({ timeout: 60_000 });
     await expect(row).not.toContainText("User (global)");
     await expect(row).toContainText("E2E probe skill.");
+    await expectKindIcon(row);
     await expect(page.getByTestId("skills-empty")).toHaveCount(0);
     for (const locale of ["en", "zh-CN"] as const) {
       await setLocaleTheme(page, locale, "light");
@@ -838,7 +887,7 @@ test("集成与插件：Skills 添加（共用 / 只有 omp）、停用与启用
     await page.getByTestId("skill-save").click();
     await expect(page.getByTestId("skill-form")).toHaveCount(0);
     await expect(page.getByTestId(`skill-row-${sharedName}`)).toBeVisible({ timeout: 30_000 });
-    // 卡片右上角标出装在哪。
+    // 元信息行开头的徽标标出装在哪。
     await expect(page.getByTestId(`skill-source-${sharedName}`)).toHaveText("Shared");
     const sharedDir = path.join(home, ".agents", "skills", sharedName);
     expect(await readFile(path.join(sharedDir, "scripts", "run.txt"), "utf8")).toBe("你好\n");
@@ -956,24 +1005,25 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
     await page.getByTestId("marketplace-add").click();
     await expect(page.getByTestId("marketplace-add-dialog")).toHaveCount(0);
     await expect(page.getByTestId("marketplace-local-mk")).toBeVisible({ timeout: 60_000 });
+    await expectKindIcon(page.getByTestId("marketplace-local-mk"));
     // 添加市场不影响运行中的任务，不出现重新加载提示。
     await expect(page.getByTestId("plugins-reload")).toHaveCount(0);
 
     // 浏览并安装：先弹确认，取消不装。
     await page.getByTestId("marketplace-browse-btn-local-mk").click();
     await expect(page.getByTestId("discover-p1@local-mk")).toContainText("First local plugin", { timeout: 60_000 });
-    // 描述只显示两行（完整的在悬停提示里）。
-    const lines = await page
-      .getByTestId("discover-p1@local-mk")
-      .locator(".ui-list-meta")
-      .evaluate((element) => {
-        const el = element as unknown as { getBoundingClientRect(): { height: number } };
-        const style = (
-          globalThis as unknown as { getComputedStyle(node: unknown): { lineHeight: string } }
-        ).getComputedStyle(element);
-        return el.getBoundingClientRect().height / Number.parseFloat(style.lineHeight);
-      });
-    expect(Math.round(lines)).toBe(2);
+    await expectKindIcon(page.getByTestId("discover-p1@local-mk"));
+    // 卡片两行：描述只占元信息那一行（省略号），完整的在悬停提示里。
+    const meta = page.getByTestId("discover-p1@local-mk").locator(".ui-list-meta");
+    const lines = await meta.evaluate((element) => {
+      const el = element as unknown as { getBoundingClientRect(): { height: number } };
+      const style = (
+        globalThis as unknown as { getComputedStyle(node: unknown): { lineHeight: string } }
+      ).getComputedStyle(element);
+      return el.getBoundingClientRect().height / Number.parseFloat(style.lineHeight);
+    });
+    expect(Math.round(lines)).toBe(1);
+    await expect(meta.locator("[title]")).toHaveAttribute("title", /^First local plugin\. A long description/);
     await page.getByTestId("discover-install-p1@local-mk").click();
     const dialog = page.getByTestId("plugin-install-confirm");
     await expect(dialog).toContainText("third-party code");
@@ -985,6 +1035,7 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
     await page.getByTestId("discover-install-p1@local-mk").click();
     await page.getByTestId("plugin-install-confirm").getByRole("button", { name: "Install and trust" }).click();
     await expect(page.getByTestId("plugin-row-p1@local-mk")).toBeVisible({ timeout: 120_000 });
+    await expectKindIcon(page.getByTestId("plugin-row-p1@local-mk"));
     await expect(page.getByTestId("plugins-reload")).toBeVisible();
     await expect(page.getByTestId("discover-p1@local-mk")).toContainText("Installed");
     await expect(page.getByTestId("plugin-enabled-p1@local-mk")).toHaveAttribute("aria-checked", "true");
@@ -1047,6 +1098,7 @@ test("插件：预设市场行显示，已添加的预设隐藏，900 宽中英�
     await expect(page.getByTestId("plugins-empty")).toBeVisible({ timeout: 60_000 });
     const names = ["claude-plugins-official", "claude-community", "knowledge-work-plugins", "anthropic-agent-skills"];
     for (const name of names) await expect(page.getByTestId(`marketplace-preset-${name}`)).toBeVisible();
+    for (const name of names) await expectKindIcon(page.getByTestId(`marketplace-preset-${name}`));
     await expect(page.getByTestId("marketplace-preset-claude-plugins-official")).toContainText(
       "anthropics/claude-plugins-official",
     );

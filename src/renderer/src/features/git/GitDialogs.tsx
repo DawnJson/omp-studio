@@ -1,17 +1,19 @@
 // git 操作的模态对话框：提交、开 PR、丢弃确认（危险操作先确认）、合并冲突、清理报告。
 // 外壳、键盘（Esc / Tab 循环 / 焦点回位）都是 ui/Dialog 的；提交 / 推送是主按钮，丢弃是 danger 确认框。
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { WorktreeCleanupResult, WorktreeSetupInfo } from "../../../../shared/git.ts";
 import type { ProjectId, TaskId } from "../../../../shared/ipc.ts";
+import { composeCommitMessage, countStaged, groupChanges } from "../../../../shared/ui/review-model.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Diff } from "../../icons.tsx";
-import { primaryMod } from "../../app/platform-keys.ts";
-import { useSelectedTaskId } from "../../store/index.ts";
+import { useSelectedTaskId, useTask } from "../../store/index.ts";
 import { openReview } from "../../store/review-store.ts";
 import { Button, Checkbox, FormField, Textarea, TextField } from "../../ui/controls.tsx";
 import { ConfirmDialog, Dialog } from "../../ui/Dialog.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { usePresence } from "../../ui/presence.ts";
+import { useReviewStatus } from "../review/use-review-data.ts";
+import { CommitMessageFields } from "./CommitMessageFields.tsx";
 import { commitChanges, discardWorktree, pushAndCreatePullRequest } from "./git-actions.ts";
 import { closeGitDialog, useGitDialog, type GitDialogState } from "./git-dialog-store.ts";
 import "./git.css";
@@ -21,16 +23,21 @@ function CancelButton() {
   return <Button onClick={closeGitDialog}>{t("common.cancel")}</Button>;
 }
 
+/** 提交：和评审提交框同一份表单（摘要 / 说明 / 生成）；没有"修改上一次提交"，那只在评审里。 */
 function CommitDialog({ taskId, open }: { taskId: TaskId; open: boolean }) {
   const t = useT();
-  const [message, setMessage] = useState("");
+  const task = useTask(taskId);
+  const { status } = useReviewStatus(taskId, task?.status);
+  const stagedCount = useMemo(() => (status?.kind === "ok" ? countStaged(groupChanges(status.files)) : 0), [status]);
+  const [summary, setSummary] = useState("");
+  const [description, setDescription] = useState("");
   const [stageAll, setStageAll] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
-    if (busy || message.trim() === "") return;
+    if (busy || summary.trim() === "") return;
     setBusy(true);
-    if (await commitChanges(t, taskId, message.trim(), stageAll)) closeGitDialog();
+    if (await commitChanges(t, taskId, composeCommitMessage(summary, description), stageAll)) closeGitDialog();
     setBusy(false);
   };
 
@@ -66,7 +73,7 @@ function CommitDialog({ taskId, open }: { taskId: TaskId; open: boolean }) {
             variant="primary"
             testId="git-commit-confirm"
             loading={busy}
-            disabled={message.trim() === ""}
+            disabled={summary.trim() === ""}
             onClick={() => void submit()}
           >
             {t("git.commit.confirm")}
@@ -74,22 +81,18 @@ function CommitDialog({ taskId, open }: { taskId: TaskId; open: boolean }) {
         </>
       }
     >
-      <FormField label={t("git.commit.message")} htmlFor="git-commit-message">
-        <Textarea
-          id="git-commit-message"
-          data-autofocus=""
-          testId="git-commit-message"
-          rows={4}
-          value={message}
-          onChange={setMessage}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && primaryMod(event) && !event.nativeEvent.isComposing) {
-              event.preventDefault();
-              void submit();
-            }
-          }}
-        />
-      </FormField>
+      <CommitMessageFields
+        taskId={taskId}
+        testIdPrefix="git-commit"
+        autoFocus
+        stagedCount={stagedCount}
+        busy={busy}
+        summary={summary}
+        description={description}
+        onSummaryChange={setSummary}
+        onDescriptionChange={setDescription}
+        onSubmit={() => void submit()}
+      />
     </Dialog>
   );
 }

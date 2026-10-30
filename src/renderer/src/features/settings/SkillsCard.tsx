@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import type { SkillEntry } from "../../../../shared/omp-output/skills.ts";
 import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Plus, Restart } from "../../icons.tsx";
+import { Plus, Restart, Sparkle } from "../../icons.tsx";
 import { useOmpStatus } from "../../store/index.ts";
 import { Badge, Button, IconButton, ListRow, Notice, SectionHead, Switch } from "../../ui/controls.tsx";
 import { Skeleton } from "../../ui/Skeleton.tsx";
@@ -14,7 +14,6 @@ import { useDialogSlot } from "../../ui/presence.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
 import { skillsResource } from "./integrations-data.ts";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
-import { monogram } from "./monogram.ts";
 import { requestReload } from "./plugins-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
 import { SkillForm } from "./SkillForm.tsx";
@@ -40,7 +39,7 @@ function SkillRow({
   return (
     <ListRow
       testId={`skill-row-${skill.name}`}
-      icon={monogram(skill.name)}
+      icon={<Sparkle />}
       title={skill.name}
       badges={
         <>
@@ -63,13 +62,7 @@ function SkillRow({
           )}
         </>
       }
-      meta={
-        skill.description !== undefined && (
-          <span className="ig-clamp" title={skill.description}>
-            {skill.description}
-          </span>
-        )
-      }
+      meta={skill.description === undefined ? undefined : <span title={skill.description}>{skill.description}</span>}
       actions={
         <>
           <span title={skill.toggleable ? undefined : t("integrations.skills.toggle.project")}>

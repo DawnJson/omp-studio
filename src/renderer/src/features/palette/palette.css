@@ -25,7 +25,7 @@
   max-height: 70vh;
   background: var(--bg-overlay);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-3);
+  box-shadow: var(--shadow-modal);
   overflow: hidden;
 }
 @keyframes pl-fade {

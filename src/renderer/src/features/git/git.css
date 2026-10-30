@@ -117,6 +117,37 @@
   align-items: center;
   gap: var(--space-2);
 }
+/* 提交信息表单（CommitMessageFields：提交对话框和评审提交框共用）：工具行、摘要、说明竖排。 */
+.git-commit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* 有标题时（评审左栏，最窄 200）标题在上，工具行总是单独一行：已暂存数 / 取消 在左，生成在右，右缘和"提交"对齐；
+   生成中、空闲时高度一样，不跳 */
+.git-commit-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-2);
+}
+.git-commit-tools {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+.git-commit-staged {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.git-commit-form .git-commit-description {
+  min-height: 0;
+  resize: none;
+}
 /* 冲突文件 / 清理报告的列表：一块凹底，行之间有间距，长路径在块里折行；太长时块内滚动（2026-10-29 审计 DLG-30） */
 .git-files {
   display: grid;

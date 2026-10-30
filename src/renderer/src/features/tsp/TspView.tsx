@@ -1,6 +1,7 @@
 // TSP 任务的"过程区"：画 omp 发来的活 surface。输入框不在这里：下面紧接着的是 studio 的 Composer（App.tsx），
 // omp 自己的输入框卡片（role omp.editor）不画（TspChildren.tsx）。
-//   inline（omp.session）：main 在可滚动的对话区（贴底跟随，用户上滚后不跟随），dock（HUD、排队、提问/审批）贴在下面、Composer 正上方，
+//   inline（omp.session）：main 在可滚动的对话区（贴底跟随，用户上滚后不跟随），dock（HUD、排队、提问/审批）紧跟在对话后面
+//   （对话长过视口时停在底部、Composer 正上方），
 //   layer 是盖在整块上的浮层容器（选择器等）；
 //   screen（如 /settings）：盖住整个过程区（连 dock，不含 Composer），自己的 main 自己滚。
 // 对话列宽度按等宽字符数算成列数，变化时通知 omp（resize）。
@@ -236,7 +237,6 @@ function InlineSurface({
   const scroller = useRef<HTMLDivElement>(null);
   const column = useRef<HTMLDivElement>(null);
   const surface = useRef<HTMLDivElement>(null);
-  const cwd = useTaskValue(taskId, (task) => task?.cwd ?? "");
   // 一轮结束的时刻（lastTurn 每个事件都是新对象，取它的数字）。
   const lastTurnAt = useTaskValue(taskId, (task) => task?.lastTurn?.endedAt ?? null);
   const hasUser = useTspHasUserMessage(taskId, surfaceId);
@@ -258,7 +258,7 @@ function InlineSurface({
       column={column}
       surface={surface}
       mode="inline"
-      header={<StudioHeader compact path={cwd} />}
+      header={<StudioHeader compact />}
       tail={pendingText !== undefined && !hasUser ? <PendingUser text={pendingText} /> : null}
       line={<ConversationLine taskId={taskId} scroller={scroller} />}
       jump={

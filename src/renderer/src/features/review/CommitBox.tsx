@@ -1,19 +1,18 @@
-// 评审左栏底部的提交框：摘要 / 说明 / 提交。走和提交对话框同一条路径（git-actions 的 commitChanges → commitGit），
-// 提交信息 = 摘要 + 空行 + 说明（composeCommitMessage）。默认只提交已暂存的文件——评审里暂存是显式的动作，勾上"先暂存全部改动"才会 add -A。
-// "生成"：让 omp 为已暂存的改动写信息（omp commit --dry-run，主进程运行，可取消），只填进输入框。
+// 评审左栏底部的提交框：提交信息表单（git/CommitMessageFields，和提交对话框同一份）+ 勾选项 + 提交。
+// 走和提交对话框同一条路径（git-actions 的 commitChanges → commitGit），提交信息 = 摘要 + 空行 + 说明（composeCommitMessage）。
+// 默认只提交已暂存的文件——评审里暂存是显式的动作，勾上"先暂存全部改动"才会 add -A。
 // "修改上一次提交"：勾上时读出 HEAD 的信息预填；已推送的提交提交前要再确认（改写历史，studio 不强推）。
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useRef, useState } from "react";
 import { splitCommitMessage, type GitLastCommit } from "../../../../shared/git.ts";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import { composeCommitMessage } from "../../../../shared/ui/review-model.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { primaryMod } from "../../app/platform-keys.ts";
-import { Sparkle } from "../../icons.tsx";
-import { Button, Checkbox, Textarea, TextField } from "../../ui/controls.tsx";
+import { Button, Checkbox } from "../../ui/controls.tsx";
 import { ConfirmDialog } from "../../ui/Dialog.tsx";
 import { reportError } from "../../ui/errors.ts";
 import { pushToast } from "../dialogs/index.ts";
-import { commitChanges, generateCommitMessage } from "../git/git-actions.ts";
+import { CommitMessageFields } from "../git/CommitMessageFields.tsx";
+import { commitChanges } from "../git/git-actions.ts";
 
 export function CommitBox({
   taskId,
@@ -30,7 +29,6 @@ export function CommitBox({
   const [description, setDescription] = useState("");
   const [stageAll, setStageAll] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [amend, setAmend] = useState(false);
   const [loadingLast, setLoadingLast] = useState(false);
   const [last, setLast] = useState<GitLastCommit | null>(null);
@@ -41,33 +39,7 @@ export function CommitBox({
     description: string;
     prefill: { summary: string; description: string };
   } | null>(null);
-  const generatingRef = useRef(false);
   const canCommit = !busy && !loadingLast && summary.trim() !== "";
-  const canGenerate = !busy && !generating && stagedCount > 0;
-
-  // 评审关掉时别让 omp 白跑。
-  useEffect(
-    () => () => {
-      if (generatingRef.current) void window.studio.cancelCommitMessage(taskId).catch(() => undefined);
-    },
-    [taskId],
-  );
-
-  const generate = async () => {
-    if (!canGenerate) return;
-    generatingRef.current = true;
-    setGenerating(true);
-    const result = await generateCommitMessage(t, taskId);
-    generatingRef.current = false;
-    setGenerating(false);
-    if (result !== null) {
-      setSummary(result.title);
-      setDescription(result.body);
-    }
-  };
-  const cancelGenerate = () => {
-    window.studio.cancelCommitMessage(taskId).catch((error: unknown) => reportError(t, error));
-  };
 
   const toggleAmend = async (on: boolean) => {
     if (!on) {
@@ -119,59 +91,20 @@ export function CommitBox({
     if (amend && last?.pushed) setConfirmPushed(true);
     else void doCommit();
   };
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Enter" && primaryMod(event) && !event.nativeEvent.isComposing) {
-      event.preventDefault();
-      submit();
-    }
-  };
 
   return (
     <section className="rv-commit" aria-label={t("git.commit.title")} data-testid="review-commit">
-      <div className="rv-commit-head">
-        <h3 className="rv-commit-title">{t("git.commit.title")}</h3>
-        {/* 生成中"取消"顶替已暂存数的位置，按钮保持原宽（loading 只换成转圈），头部不折行、左栏不跳。 */}
-        <span className="rv-commit-tools">
-          {generating ? (
-            <Button variant="quiet" size="sm" testId="review-commit-generate-cancel" onClick={cancelGenerate}>
-              {t("review.commitGenerateCancel")}
-            </Button>
-          ) : (
-            <span className="rv-commit-staged" data-testid="review-commit-staged">
-              {t("review.commitStaged", { count: stagedCount })}
-            </span>
-          )}
-          <Button
-            size="sm"
-            icon={<Sparkle size={14} />}
-            testId="review-commit-generate"
-            loading={generating}
-            disabled={!canGenerate}
-            title={stagedCount === 0 ? t("review.commitGenerateNone") : t("review.commitGenerateTip")}
-            onClick={() => void generate()}
-          >
-            {t("review.commitGenerate")}
-          </Button>
-        </span>
-      </div>
-      <TextField
-        width="100%"
-        testId="review-commit-summary"
-        aria-label={t("review.commitSummary")}
-        placeholder={t("review.commitSummaryPlaceholder")}
-        value={summary}
-        onChange={setSummary}
-        onKeyDown={onKeyDown}
-      />
-      <Textarea
-        className="rv-commit-description"
-        testId="review-commit-description"
-        aria-label={t("review.commitDescription")}
-        placeholder={t("review.commitDescriptionPlaceholder")}
-        rows={3}
-        value={description}
-        onChange={setDescription}
-        onKeyDown={onKeyDown}
+      <CommitMessageFields
+        taskId={taskId}
+        testIdPrefix="review-commit"
+        heading={<h3 className="rv-commit-title">{t("git.commit.title")}</h3>}
+        stagedCount={stagedCount}
+        busy={busy}
+        summary={summary}
+        description={description}
+        onSummaryChange={setSummary}
+        onDescriptionChange={setDescription}
+        onSubmit={submit}
       />
       <div className="rv-commit-foot">
         <span className="rv-commit-opts">

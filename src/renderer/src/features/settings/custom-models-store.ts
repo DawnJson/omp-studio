@@ -31,7 +31,7 @@ export function useCustomProviderLoad(): CachedLoad<CustomModelsFileInfo> {
 export type FetchFailure = Omit<Extract<FetchModelsOutcome, { ok: false }>, "ok">;
 
 // 编辑对话框里用文件里的连接（Base URL、接口类型、key）最近一次拉取的结果，按 provider id，只在内存里：
-// 卡片右上角据此标出 key / 地址不可用；拉取成功、改了连接或删掉 provider 后去掉。
+// 卡片的元信息行开头据此标出 key / 地址不可用；拉取成功、改了连接或删掉 provider 后去掉。
 const fetchFailures = createStore<ReadonlyMap<string, FetchFailure>>(new Map());
 
 export function setFetchFailure(providerId: string, failure: FetchFailure | null): void {

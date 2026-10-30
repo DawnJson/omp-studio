@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { SshHost } from "../../../../shared/omp-output/ssh.ts";
 import { errorDetail } from "../../../../shared/ui/errors.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Plus, Restart } from "../../icons.tsx";
+import { Plus, Restart, Terminal } from "../../icons.tsx";
 import { useOmpStatus } from "../../store/index.ts";
 import { Badge, Button, IconButton, ListRow, Notice, SectionHead } from "../../ui/controls.tsx";
 import { Skeleton } from "../../ui/Skeleton.tsx";
@@ -13,7 +13,6 @@ import { useDialogSlot } from "../../ui/presence.ts";
 import { pushToast } from "../dialogs/toast-store.ts";
 import { sshResource } from "./integrations-data.ts";
 import { scopeProject, type ScopeKey } from "./integrations-store.ts";
-import { monogram } from "./monogram.ts";
 import { RowMenu } from "./RowMenu.tsx";
 import { SshForm } from "./SshForm.tsx";
 import { useAsyncAction } from "./use-async-action.ts";
@@ -100,7 +99,7 @@ export function SshCard({ scope }: { scope: ScopeKey }) {
             <ListRow
               key={`${host.scope}:${host.name}`}
               testId={`ssh-row-${host.name}`}
-              icon={monogram(host.name)}
+              icon={<Terminal />}
               title={host.name}
               badges={
                 <>

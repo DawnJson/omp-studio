@@ -4,6 +4,7 @@ import type { login as zhCN } from "../zh-CN/login.ts";
 export const login = {
   signIn: "Sign in",
   signOut: "Sign out",
+  more: "More actions",
   unavailable: "Unavailable right now",
   opening: "Opening your browser…",
   fallback: "Sign-in link",

@@ -98,8 +98,8 @@
   --radius-xs: 3px; /* 键帽、行内代码、勾选框 */
   --radius-sm: 4px; /* 过程行 hover、小按钮、输入控件 */
   --radius-md: 6px; /* 任务行、按钮、菜单项、代码块 */
-  --radius-lg: 8px; /* 卡片、popover、门 */
-  --radius-xl: 10px; /* 对话框、命令面板 */
+  --radius-lg: 8px; /* 卡片、popover、门、对话框（2026-10-29 起，原来 10） */
+  --radius-xl: 10px; /* 命令面板、主区面板 */
   --radius-bubble: 14px; /* 你的消息气泡（右下角用 --radius-sm 当"尾巴"，3.0） */
   --radius-composer: 22px; /* 输入框外框（3.0） */
   --radius-pill: 999px;
@@ -352,6 +352,8 @@
   --shadow-1: 0 1px 2px rgba(20, 20, 18, 0.06);
   --shadow-2: 0 8px 24px rgba(20, 20, 18, 0.1), 0 0 0 1px var(--border-subtle);
   --shadow-3: 0 24px 64px rgba(20, 20, 18, 0.18), 0 0 0 1px var(--border);
+  /* 盖在遮罩上的层（对话框、命令面板、看大图、omp 的选择面板）：浅色不画 1px 描边，靠阴影和遮罩分开；深色同 --shadow-3（2026-10-29 仓库所有者定） */
+  --shadow-modal: 0 24px 64px rgba(20, 20, 18, 0.18);
   --shadow-composer:
     0 1px 2px rgba(20, 20, 18, 0.04), 0 2px 6px rgba(20, 20, 18, 0.03); /* 贴着底色，靠边框分开，不做浮起 */
 
@@ -430,6 +432,7 @@
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
     --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border);
+    --shadow-modal: var(--shadow-3);
     --shadow-composer: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 3px rgba(0, 0, 0, 0.3);
 
     --scrollbar-thumb: rgba(232, 232, 228, 0.26);
@@ -505,10 +508,18 @@
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-subtle);
   --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--border);
+  --shadow-modal: var(--shadow-3);
   --shadow-composer: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 1px 3px rgba(0, 0, 0, 0.3);
 
   --scrollbar-thumb: rgba(232, 232, 228, 0.26);
   --scrollbar-thumb-hover: rgba(232, 232, 228, 0.44);
+}
+
+/* ───────────────────────── 键盘焦点环 ───────────────────────── */
+/* 最近一次输入是鼠标时（ui/input-modality.ts 写 <html data-input>）键盘焦点环不画：--focus-ring 只给 :focus-visible 的 outline 用，
+ * 选中态等别的强调一律用 --accent。放在主题块之后，同优先级时靠后的赢（2026-10-29 仓库所有者定）。 */
+:root[data-input="pointer"] {
+  --focus-ring: transparent;
 }
 
 /* ───────────────────────── 减少动效 ───────────────────────── */

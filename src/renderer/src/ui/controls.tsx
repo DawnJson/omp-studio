@@ -594,7 +594,7 @@ export function Row({
   );
 }
 
-/** 管理列表的一行：28px 图标、名称（+ 徽标）、一行元信息、动作（删除 / 移除收进 ⋯ 菜单）。 */
+/** 管理列表的一行：28px 图标、名称，下面一行是徽标 + 元信息，动作在末尾（删除 / 移除收进 ⋯ 菜单）。 */
 export function ListRow({
   icon,
   title,
@@ -611,20 +611,18 @@ export function ListRow({
   testId?: string | undefined;
 }) {
   return (
-    <div
-      className="ui-list-row"
-      data-no-actions={actions === undefined || actions === null || actions === false || undefined}
-      data-testid={testId}
-    >
+    <div className="ui-list-row" data-testid={testId}>
       <span className="ui-list-icon" aria-hidden="true">
         {icon}
       </span>
       <span className="ui-list-main">
-        <span className="ui-list-title">
-          <span className="ui-list-name">{title}</span>
-          {badges}
-        </span>
-        {meta !== undefined && <span className="ui-list-meta">{meta}</span>}
+        <span className="ui-list-name">{title}</span>
+        {(badges !== undefined || meta !== undefined) && (
+          <span className="ui-list-sub">
+            {badges}
+            {meta !== undefined && <span className="ui-list-meta">{meta}</span>}
+          </span>
+        )}
       </span>
       <span className="ui-list-actions">{actions}</span>
     </div>

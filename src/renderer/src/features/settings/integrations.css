@@ -13,7 +13,7 @@
   text-wrap: pretty;
 }
 
-/* skill 的说明可能很长：卡片里最多两行，完整文字在 title 里 */
+/* 添加 skill 时选中的说明可能很长：最多两行，完整文字在 title 里 */
 .ig-clamp {
   display: -webkit-box;
   overflow: hidden;
@@ -21,10 +21,14 @@
   -webkit-line-clamp: 2;
 }
 
-/* MCP 卡片里元信息下面的说明和"测试连接"结果 */
+/* MCP 卡片里元信息下面的说明和"测试连接"结果：各占一行，长的工具列表换行（卡片跟着变高），不省略 */
 .ig-card-note {
   display: block;
   margin-top: var(--space-1);
+}
+.ui-list-meta > .ig-card-note {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* omp 的原话：保留换行，长路径可以断开 */

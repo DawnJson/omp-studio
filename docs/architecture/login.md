@@ -169,4 +169,4 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 
 ## 界面（3.2）
 
-设置 → Provider 与订阅只列"已连接"（`ProviderRow` 卡片：provider 的单色 logo（`ProviderLogo.tsx`，图形拷自 LobeHub Icons，没有的写首字母）+ 徽标 + sm 按钮；清除 key 就是"退出登录"）和自定义提供商；没连接的不铺开，页头"连接提供商…"打开 `ProviderPickDialog`（可搜索），选中后进 `ProviderFlowDialog`——OAuth 进度、授权码 / API key 输入、选账号退出、失败重试都在这一个对话框里走。
+设置 → Provider 与订阅只列"已连接"（`ProviderRow` 卡片，两行：provider 的单色 logo（`ProviderLogo.tsx`，图形拷自 LobeHub Icons，没有的写首字母）+ 名称 + 一个 sm 按钮（有登录 / 退出时是它，"设置 / 更换 key"收进 ⋯），下面一行徽标 + 元信息；清除 key 就是"退出登录"）和自定义提供商；没连接的不铺开，页头"连接提供商…"打开 `ProviderPickDialog`（可搜索），选中后进 `ProviderFlowDialog`——OAuth 进度、授权码 / API key 输入、选账号退出、失败重试都在这一个对话框里走。

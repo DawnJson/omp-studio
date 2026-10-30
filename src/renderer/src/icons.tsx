@@ -299,3 +299,21 @@ export const Whitespace = (props: IconProps) => (
     <path d="M2.500 4.500h11M2.500 8h5M2.500 11.500h11M10 8h3.500M11.500 6.500l2 1.500-2 1.500" />
   </Icon>
 );
+/** MCP 服务器：插头 */
+export const Plug = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M6 2.5v3M10 2.5v3M4.5 5.5h7v2a3.5 3.5 0 0 1-7 0v-2ZM8 11v2.5" />
+  </Icon>
+);
+/** 插件：拼图块 */
+export const Puzzle = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M2.5 5h2.8a1.6 1.6 0 1 1 2.4 0h2.8v2.8a1.6 1.6 0 1 1 0 2.4V13h-8V5Z" />
+  </Icon>
+);
+/** 插件市场：带遮阳篷的小店 */
+export const Storefront = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M2.5 6.5 3.5 3h9l1 3.5a1.83 1.83 0 0 1-3.67 0 1.83 1.83 0 0 1-3.66 0 1.83 1.83 0 0 1-3.67 0ZM3.5 8.3v5.2h9V8.3M6.5 13.5v-3h3v3" />
+  </Icon>
+);

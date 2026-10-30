@@ -7,6 +7,7 @@ import { AskButtonRow, AskGateCol } from "../interactive/AskGate.tsx";
 import { ERROR_CARD_ROLE } from "../../../../../shared/tsp/error-turn.ts";
 import { RetryButton } from "../../session-info/RetryButton.tsx";
 import { Clamp } from "../Clamp.tsx";
+import { keyboardFocused } from "../../../ui/input-modality.ts";
 import { FoldCtx, NO_FOLD, OPEN_FOLD, useFoldState } from "../fold-context.ts";
 import { resolveIconName, toolIconName } from "../icon-names.ts";
 import { useEntrance } from "../entrance.ts";
@@ -225,7 +226,7 @@ function chipIcon(status: string): string {
 }
 
 /**
- * 用户气泡（omp.user）里有元素被键盘聚焦（:focus-visible；鼠标点出来的焦点不算）时给卡片加 data-kbd-focus，
+ * 用户气泡（omp.user）里有元素被键盘聚焦（ui/input-modality 的 keyboardFocused；鼠标点出来的焦点不算）时给卡片加 data-kbd-focus，
  * tsp.css 据此显示平时只在悬停时出现的工具行。focus / blur 事件里判断，不靠 CSS 的 :has(:focus-visible)。
  */
 function useKeyboardFocus(enabled: boolean): {
@@ -237,7 +238,7 @@ function useKeyboardFocus(enabled: boolean): {
   if (!enabled) return {};
   return {
     "data-kbd-focus": focused ? "" : undefined,
-    onFocus: (event) => setFocused(event.target.matches(":focus-visible")),
+    onFocus: (event) => setFocused(keyboardFocused(event.target)),
     onBlur: (event) => {
       if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget))
         setFocused(false);

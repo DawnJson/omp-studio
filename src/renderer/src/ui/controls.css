@@ -825,8 +825,8 @@
   max-width: calc(100vw - var(--space-8));
   max-height: calc(100vh - 96px);
   background: var(--bg-overlay);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-3);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
   animation: pop-in var(--dur-slow) var(--ease-spring);
 }
 /* 打开时焦点落在对话框本身（没有 data-autofocus 时，见 Dialog.tsx）：容器不画焦点环，Tab 进到控件才画 */
@@ -1050,21 +1050,25 @@
   display: grid;
   min-width: 0;
 }
-.ui-list-title {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  min-width: 0;
-  font-size: var(--fs-sm);
-  color: var(--text);
-}
 .ui-list-name {
   min-width: 0;
   overflow: hidden;
+  font-size: var(--fs-sm);
+  color: var(--text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 名称下面一行：徽标在前，元信息跟在后面（一行，放不下省略号） */
+.ui-list-sub {
+  display: flex;
+  gap: var(--space-1-5);
+  align-items: baseline;
+  min-width: 0;
+  overflow: hidden;
+}
 .ui-list-meta {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
@@ -1077,52 +1081,45 @@
   gap: var(--space-1-5);
   align-items: center;
 }
-/* 卡片排法（.ui-cards 包 ListRow）：一格一张卡片，图标 + 名称、元信息在上，动作在卡片底部靠右；同一行卡片等高 */
+.ui-list-actions:empty {
+  display: none;
+}
+/* 卡片排法（.ui-cards 包 ListRow，2026-10-29 仓库所有者定）：两行。第一行图标、名称、动作；
+   第二行从名称下面开始，徽标 + 元信息，可以伸到动作下面。同一行卡片等高。 */
 .ui-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--space-3);
 }
 .ui-cards > .ui-list-row {
-  grid-template-rows: auto 1fr;
-  grid-template-columns: 28px minmax(0, 1fr);
-  row-gap: var(--space-3);
+  grid-template-rows: var(--control-h-sm) auto;
+  align-content: start;
+  row-gap: 0;
   height: 100%;
   min-height: 0;
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
 }
-.ui-cards > .ui-list-row > .ui-list-actions {
-  grid-column: 1 / -1;
-  align-self: end;
-  justify-content: flex-end;
-}
-.ui-cards > .ui-list-row > .ui-list-icon {
-  align-self: start;
-}
-/* 卡片上名称可以换行，徽标固定在右上角 */
-.ui-cards > .ui-list-row .ui-list-title {
-  align-items: flex-start;
+.ui-cards > .ui-list-row > .ui-list-main {
+  display: contents;
 }
 .ui-cards > .ui-list-row .ui-list-name {
-  flex: 1 1 auto;
-  overflow-wrap: anywhere;
-  white-space: normal;
+  grid-row: 1;
+  grid-column: 2;
 }
-.ui-cards > .ui-list-row .ui-list-title > :not(.ui-list-name) {
-  flex: none;
+.ui-cards > .ui-list-row .ui-list-sub {
+  grid-row: 2;
+  grid-column: 2 / -1;
+  align-self: start;
 }
-.ui-cards > .ui-list-row .ui-list-meta {
-  overflow-wrap: anywhere;
-  white-space: normal;
+.ui-cards > .ui-list-row > .ui-list-icon {
+  grid-row: 1;
 }
-.ui-cards > .ui-list-row[data-no-actions] {
-  grid-template-rows: auto;
-}
-.ui-cards > .ui-list-row > .ui-list-actions:empty {
-  display: none;
+.ui-cards > .ui-list-row > .ui-list-actions {
+  grid-row: 1;
+  grid-column: 3;
 }
 
 /* ───────── Notice（内联提示条）、Toast、Kbd、Chip、Disclosure ───────── */
@@ -1321,8 +1318,8 @@
   display: flex;
   gap: var(--space-3);
   align-items: flex-start;
-  height: var(--skeleton-h, 96px);
-  padding: var(--space-3);
+  height: var(--skeleton-h, 64px);
+  padding: var(--space-2) var(--space-3);
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);

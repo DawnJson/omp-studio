@@ -13,6 +13,8 @@ import {
 } from "react";
 import type { TspPickerAction, TspText } from "../../../../../shared/tsp/tsp.generated.ts";
 import { isRecord } from "../../../../../shared/type-guards.ts";
+import { nodeRole } from "../../../../../shared/tsp/document.ts";
+import { ASK_TOOL_NODES, ASK_TOOL_ROLE, openAskTool, sameOpenAskTool } from "../../../../../shared/tsp/ask-gate.ts";
 import { labels } from "../labels.ts";
 import { Check, ChevronDown, CopyIcon } from "../../../icons.tsx";
 import { copyText, openHref, runAction } from "../actions.ts";
@@ -22,7 +24,7 @@ import { clamp01, formatCost, formatCount, formatElapsed } from "../fmt.ts";
 import { toolIconName } from "../icon-names.ts";
 import { TspIcon } from "../icons.tsx";
 import { nodeDomProps } from "../node-dom.ts";
-import type { NodeProps } from "../node-props.ts";
+import type { NodeProps, TspContext } from "../node-props.ts";
 import { asArray, asNumber, asString } from "../props-util.ts";
 import { tokenizeCommand } from "../shell-tokens.ts";
 import { resolveLanguage } from "../../../markdown/highlight-languages.ts";
@@ -30,7 +32,7 @@ import { useHighlighted } from "../../../markdown/highlight.ts";
 import { Tokens } from "../use-highlighted.tsx";
 import { plainText, semanticOf, TspSpans } from "../spans.tsx";
 import { TspNode } from "../TspChildren.tsx";
-import { peekTspNode } from "../tsp-store.ts";
+import { peekTspNode, useTspDerived } from "../tsp-store.ts";
 import { useFold } from "../use-fold.ts";
 import { useEntrance } from "../entrance.ts";
 import { useAge } from "../use-clock.ts";
@@ -137,6 +139,13 @@ function Target({ p }: { p: Readonly<Record<string, unknown>> }) {
       {body}
     </span>
   );
+}
+
+/** 提问工具卡头上的题目：提问对话框开着时它的标题就是这道题，卡片头上不再写（shared/tsp/ask-gate.ts 的 openAskTool）。 */
+function AskTarget({ p, id, ctx }: { p: Readonly<Record<string, unknown>>; id: string; ctx: TspContext }) {
+  const open = useTspDerived(ctx.taskId, openAskTool, sameOpenAskTool, ASK_TOOL_NODES);
+  if (open?.sf === ctx.sf && open.id === id) return null;
+  return <Target p={p} />;
 }
 
 /**
@@ -303,7 +312,7 @@ export function Tool(props: NodeProps) {
           <span className="tsp-tool-title">
             <TspSpans text={p.title as TspText | undefined} />
           </span>
-          <Target p={p} />
+          {nodeRole(node) === ASK_TOOL_ROLE ? <AskTarget p={p} id={node.id} ctx={ctx} /> : <Target p={p} />}
           {meta.map((m, index) => (
             <span key={index} className="tsp-tool-meta">
               <MetaText text={m} />

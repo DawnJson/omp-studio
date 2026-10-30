@@ -12,6 +12,7 @@ import { deriveJobTiles, JOB_HUD_NODES, sameJobTiles, type JobTile } from "../..
 import { useT } from "../../i18n/use-t.ts";
 import { Bolt, Users } from "../../icons.tsx";
 import { reportOmpError } from "../../ui/errors.ts";
+import { keyboardFocused } from "../../ui/input-modality.ts";
 import { toggleAgentsPanel, useAgentsPanel } from "../agents/index.ts";
 import { MeterView } from "../tsp/nodes/motion.tsx";
 import { useTspDerived } from "../tsp/tsp-store.ts";
@@ -100,7 +101,7 @@ function JobsSegment({ taskId, running }: { taskId: TaskId; running: readonly Jo
         }}
         onPointerLeave={hide}
         onFocus={(event) => {
-          if (event.currentTarget.matches(":focus-visible")) show(0);
+          if (keyboardFocused(event.currentTarget)) show(0);
         }}
         onBlur={hide}
         onKeyDown={(event) => {

@@ -514,6 +514,59 @@ test("评审：生成提交信息：omp 没有可用模型时给出提示，输�
   }
 });
 
+test("提交对话框：和评审同一份表单（摘要 / 说明 / 生成），关掉对话框取消生成，提交信息 = 摘要 + 空行 + 说明", async () => {
+  const { launched, repo, work, cleanup } = await start({ git: true, env: (dir) => commitOmpEnv(dir, "ok", 3000) });
+  try {
+    const { page } = launched;
+    await openTask(page);
+    const dialog = page.getByTestId("git-commit-dialog");
+    const openDialog = async () => {
+      await page.getByTestId("git-menu").click();
+      await page.getByRole("menuitem", { name: /^提交/ }).click();
+      await expect(dialog).toBeVisible();
+    };
+    await openDialog();
+    const summary = page.getByTestId("git-commit-summary");
+    const description = page.getByTestId("git-commit-description");
+    const generate = page.getByTestId("git-commit-generate");
+    await expect(summary).toBeFocused();
+    await expect(page.getByTestId("git-commit-staged")).toContainText("1");
+
+    // 窄窗中英文下不横向溢出。
+    const original = page.viewportSize();
+    await page.setViewportSize({ width: 900, height: 700 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(dialog);
+    }
+    await setLocaleTheme(page, "zh-CN", "light");
+    if (original) await page.setViewportSize(original);
+
+    // 生成中关掉对话框 = 取消生成（omp 进程被结束）：再打开马上能再生成，不会撞上"已在生成"。
+    await generate.click();
+    await expect(generate).toHaveAttribute("data-loading", "true");
+    await expect.poll(async () => (await readCalls(work)).length).toBe(1);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await openDialog();
+    await expect(summary).toHaveValue("");
+    await generate.click();
+    await expect(summary).toHaveValue("feat: 假 omp 生成的标题", { timeout: 30_000 });
+    await expect(description).toHaveValue("- 第一条说明\n- 第二条说明");
+    expect(await readCalls(work)).toHaveLength(2);
+
+    // 只提交已暂存的 README；提交信息和评审提交框一样拼。
+    await page.getByTestId("git-commit-stage-all").click();
+    await page.getByTestId("git-commit-confirm").click();
+    await expect(page.getByTestId("toasts")).toContainText("已提交");
+    await expect(dialog).toHaveCount(0);
+    expect(git(repo, "log", "-1", "--format=%B").trim()).toBe("feat: 假 omp 生成的标题\n\n- 第一条说明\n- 第二条说明");
+    expect(git(repo, "show", "--name-only", "--format=", "HEAD").trim()).toBe("README.md");
+  } finally {
+    await cleanup();
+  }
+});
+
 test("评审：修改上一次提交（Amend）：预填上一次的信息；取消勾选还原；已推送的提交要警告和确认", async () => {
   const { launched, repo, work, cleanup } = await start({ git: true });
   try {

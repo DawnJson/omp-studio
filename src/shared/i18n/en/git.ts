@@ -35,7 +35,9 @@ export const git = {
   "menu.cleanup": "Clean up orphan worktrees",
 
   "commit.title": "Commit changes",
-  "commit.message": "Commit message",
+  "commit.summary": "Summary",
+  "commit.description": "Description",
+  "commit.staged": { one: "{count} file staged", other: "{count} files staged" },
   "commit.stageAll": "Stage all changes first",
   "commit.confirm": "Commit",
   "commit.review": "Review changes",
@@ -44,6 +46,9 @@ export const git = {
   "commit.failed": "git rejected the commit",
   "commit.amended": "Amended the previous commit, now {commit}",
   "commit.noPrevious": "There is no commit yet, so there is nothing to amend.",
+  "generate.action": "Generate",
+  "generate.tip": "Write a message from staged changes",
+  "generate.cancel": "Cancel",
   "generate.nothing": "Nothing is staged. Stage the files to commit first.",
   "generate.noModel":
     "omp has no model for commit messages. Pick a model for the commit (or smol) role in settings and set its key.",

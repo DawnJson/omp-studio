@@ -3,13 +3,12 @@
 import { useEffect } from "react";
 import type { ProjectId } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
-import { Restart } from "../../icons.tsx";
+import { Puzzle, Restart } from "../../icons.tsx";
 import { useOmpStatus, useTasks } from "../../store/index.ts";
 import { Badge, Button, IconButton, ListRow, Notice, SectionHead, type Tone } from "../../ui/controls.tsx";
 import { Skeleton } from "../../ui/Skeleton.tsx";
 import { describeError } from "../../ui/errors.ts";
 import { MarketplacesCard } from "./MarketplacesCard.tsx";
-import { monogram } from "./monogram.ts";
 import { PluginRow } from "./PluginRow.tsx";
 import {
   dismissReload,
@@ -163,7 +162,7 @@ export function PluginsSection({ projectId }: { projectId: ProjectId | null }) {
             {state.doctor.data.map((check) => (
               <ListRow
                 key={check.name}
-                icon={monogram(check.name)}
+                icon={<Puzzle />}
                 title={check.name}
                 badges={<Badge tone={STATUS_TONES[check.status]}>{t(STATUS_KEYS[check.status])}</Badge>}
                 meta={check.message}

@@ -217,7 +217,7 @@ test("工作树任务：在 worktree 里运行 → 提交 → 合并 → 推送 
     await expect(page.getByTestId("review")).toBeHidden();
     await openGitMenu(page, /^提交/);
     await expect(page.getByTestId("git-commit-dialog")).toBeVisible();
-    await page.getByTestId("git-commit-message").fill("工作树里的提交");
+    await page.getByTestId("git-commit-summary").fill("工作树里的提交");
     await page.getByTestId("git-commit-confirm").click();
     await expect(page.getByTestId("toasts")).toContainText("已提交");
     await expect(page.getByTestId("git-commit-dialog")).toHaveCount(0);

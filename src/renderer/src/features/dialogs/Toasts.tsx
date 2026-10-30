@@ -1,10 +1,12 @@
-// 气泡 toast 列表：悬浮在主区面板上沿正中，向下叠放。不抢焦点；错误用 role=alert，其余 role=status。
+// 气泡 toast 列表：悬浮在主区面板上沿正中，向下叠放；有遮罩的弹窗（对话框、命令面板、看大图）开着时挪到窗口底部正中、向上叠放，
+// 不压住弹窗（2026-10-29 仓库所有者定）。不抢焦点；错误用 role=alert，其余 role=status。
 // 消失（点关闭 / 到时间 / 被挤掉）时先放退出动画：已移出 store 的 toast 在这里留一份"幽灵"，放完再卸载。
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { useT } from "../../i18n/use-t.ts";
 import { Close } from "../../icons.tsx";
 import { Button, IconButton } from "../../ui/controls.tsx";
 import { usePresence } from "../../ui/presence.ts";
+import { scrimsOpen, subscribeScrims } from "../../ui/title-bar-dim.ts";
 import { useFlip } from "../../ui/flip.ts";
 import { setToastHost } from "./toast-host.ts";
 import { dismissToast, useToasts, type Toast } from "./toast-store.ts";
@@ -74,7 +76,8 @@ function usePanelBounds(): CSSProperties {
 
 export function Toasts() {
   const t = useT();
-  const style = usePanelBounds();
+  const panel = usePanelBounds();
+  const overModal = useSyncExternalStore(subscribeScrims, scrimsOpen);
   const list = useRef<HTMLElement>(null);
   useFlip(list);
   const live = useToasts();
@@ -92,7 +95,14 @@ export function Toasts() {
     (a, b) => a.id - b.id,
   );
   return (
-    <section className="toasts" aria-label={t("dialogs.toastRegion")} data-testid="toasts" style={style} ref={list}>
+    <section
+      className="toasts"
+      aria-label={t("dialogs.toastRegion")}
+      data-testid="toasts"
+      data-place={overModal ? "bottom" : undefined}
+      style={overModal ? undefined : panel}
+      ref={list}
+    >
       {shown.map((toast) => (
         <ToastCard key={toast.id} toast={toast} open={live.some((item) => item.id === toast.id)} onGone={forget} />
       ))}

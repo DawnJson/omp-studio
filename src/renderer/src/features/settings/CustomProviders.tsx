@@ -30,7 +30,7 @@ type Editing = { kind: "add" } | { kind: "edit"; id: string } | { kind: "overrid
 
 const overridesBuiltin = (provider: CustomProviderInfo): boolean => provider.models.length === 0 && !provider.discovery;
 
-/** 卡片右上角的拉取失败徽标：key 被拒、地址不通，其余笼统写拉取失败；完整原因在悬停里。 */
+/** 卡片元信息行开头的拉取失败徽标：key 被拒、地址不通，其余笼统写拉取失败；完整原因在悬停里。 */
 const fetchBadgeKey = (failure: FetchFailure) =>
   failure.code === "unauthorized" || failure.code === "invalid-key"
     ? "custom.fetchBadge.key"
@@ -225,6 +225,7 @@ export function CustomProviders() {
                     <RowMenu
                       label={t("custom.more")}
                       disabled={busy}
+                      menuOnly
                       testId={`custom-more-${provider.id}`}
                       items={[
                         {

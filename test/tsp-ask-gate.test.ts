@@ -3,7 +3,14 @@
 //   select 单选的非高亮项、select 多选的高亮项（Logging）、select 多选的另一项（Cache）、action submit（Next）、
 //   select 第三题的非高亮项、action submit（Review 页的 Submit）。
 import { describe, expect, it } from "vitest";
-import { askItemClick, askItemDoubleActivates, askItemMarker } from "../src/shared/tsp/ask-gate.ts";
+import {
+  ASK_GATE_ROLE,
+  ASK_TOOL_ROLE,
+  askItemClick,
+  askItemDoubleActivates,
+  askItemMarker,
+  openAskTool,
+} from "../src/shared/tsp/ask-gate.ts";
 import { applyMessage, createDocument, findNode, nodeRole, type DocNode } from "../src/shared/tsp/document.ts";
 import { deriveTaskStatus } from "../src/shared/tsp/task-status.ts";
 import { loadTspFixture, recordedUserEvents, tspDocMessages } from "./tsp-fixtures.ts";
@@ -128,5 +135,53 @@ describe("提问选项的标记", () => {
     expect(askItemMarker("omp.ask.other.check")).toBe("check");
     expect(askItemMarker("omp.approval.choice")).toBeNull();
     expect(askItemMarker(undefined)).toBeNull();
+  });
+});
+
+describe("提问工具卡头上的题目：对话框开着时不写（openAskTool，2026-10-29 仓库所有者）", () => {
+  /** 逐条重放：每一步对话框开没开、openAskTool 的结果、提问工具卡（id 和头上的题目、状态）、对话框的题目。 */
+  function replayAsk(name: string) {
+    const doc = createDocument();
+    return tspDocMessages(loadTspFixture(name)).map(({ message }) => {
+      applyMessage(doc, message);
+      const sf = doc.surfaces.get("s:1");
+      const gate = sf ? findNode(sf, (n) => nodeRole(n) === ASK_GATE_ROLE) : null;
+      const tool = sf ? findNode(sf, (n) => nodeRole(n) === ASK_TOOL_ROLE) : null;
+      const question = sf && gate ? findNode(sf, (n) => nodeRole(n) === "omp.ask.question", gate.id) : null;
+      return {
+        gate: gate !== null,
+        open: openAskTool(doc),
+        tool: tool ? { id: tool.id, target: tool.p.target, status: tool.p.status } : null,
+        question: question?.p.text,
+      };
+    });
+  }
+
+  for (const name of ["ask", "ask-multi"]) {
+    it(`${name}.jsonl：对话框开着的每一步都指向那张还在跑的提问卡，第一页的标题和卡片头上的题目是同一句`, () => {
+      const steps = replayAsk(name);
+      const open = steps.filter((step) => step.gate);
+      expect(open.length).toBeGreaterThan(0);
+      for (const step of open) {
+        expect(step.tool?.status).toBe("running");
+        expect(step.open).toEqual({ sf: "s:1", id: step.tool!.id });
+      }
+      expect(open[0]!.question).toBe(open[0]!.tool!.target);
+    });
+
+    it(`${name}.jsonl：对话框出现前、答完以后都是 null（卡片头上照常写题目）`, () => {
+      const steps = replayAsk(name);
+      const first = steps.findIndex((step) => step.gate);
+      const last = steps.findLastIndex((step) => step.gate);
+      for (const step of [...steps.slice(0, first), ...steps.slice(last + 1)]) expect(step.open).toBeNull();
+      const end = steps.at(-1)!;
+      expect(end.tool?.status).toBe("done");
+      expect(end.tool?.target).toBe(steps[first]!.question);
+    });
+  }
+
+  it("approval.jsonl：审批门不是提问对话框，一直是 null", () => {
+    const steps = replayAsk("approval");
+    expect(steps.every((step) => step.open === null)).toBe(true);
   });
 });

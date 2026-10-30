@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TaskId, TaskState } from "../../../../shared/ipc.ts";
 import {
   entryKey,
+  countStaged,
   flattenGroups,
   groupChanges,
   resolveSelection,
@@ -68,7 +69,7 @@ export function ReviewView({ taskId, open, exit }: { taskId: TaskId; open: boole
   const diffState = useFileDiff(taskId, entry, scope, ignoreSpace, stamp);
   // 不是 git 仓库 / 没装 git 时不取 +a −d（主进程会报错，弹一条没意义的 toast）。
   const stats = useChangeStats(taskId, status?.kind === "ok" ? stamp : 0);
-  const stagedCount = groups.find((group) => group.area === "staged")?.entries.length ?? 0;
+  const stagedCount = countStaged(groups);
 
   // 评审每次重读状态（打开、刷新、暂存 / 提交之后）顶栏的分支胶囊跟着重读，两边的改动数不打架。
   useEffect(() => {

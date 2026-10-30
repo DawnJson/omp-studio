@@ -61,6 +61,11 @@ export function flattenGroups(groups: readonly ReviewGroup[]): ReviewEntry[] {
   return groups.flatMap((group) => group.entries);
 }
 
+/** 已暂存的文件数（提交表单的"已暂存 n 个文件"，没有时不能"生成"）。 */
+export function countStaged(groups: readonly ReviewGroup[]): number {
+  return groups.find((group) => group.area === "staged")?.entries.length ?? 0;
+}
+
 /** 当前选中的条目消失（暂存后换了一组、文件被还原）时选谁：同一个位置上的下一个，没有就取最后一个。 */
 export function resolveSelection(
   entries: readonly ReviewEntry[],
@@ -119,7 +124,7 @@ export function indexStats(stats: readonly GitChangeStat[]): ReadonlyMap<string,
 
 // ───────── 提交信息 ─────────
 
-/** 评审里的提交框有 摘要 / 说明 两栏，合成 git 的提交信息：摘要、空一行、说明（都去掉首尾空白；说明为空就只有摘要）。 */
+/** 提交表单（评审提交框和提交对话框）有 摘要 / 说明 两栏，合成 git 的提交信息：摘要、空一行、说明（都去掉首尾空白；说明为空就只有摘要）。 */
 export function composeCommitMessage(summary: string, description: string): string {
   const head = summary.trim();
   const body = description.trim();

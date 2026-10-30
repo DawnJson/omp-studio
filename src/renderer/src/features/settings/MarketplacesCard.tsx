@@ -8,16 +8,14 @@ import {
   type PluginsSnapshot,
 } from "../../../../shared/omp-output/plugins.ts";
 import { useLocale, useT } from "../../i18n/use-t.ts";
-import { Plus, Search } from "../../icons.tsx";
+import { Plus, Puzzle, Search, Storefront } from "../../icons.tsx";
 import { Badge, Button, FormField, ListRow, SectionHead, Segmented, TextField } from "../../ui/controls.tsx";
 import { Skeleton } from "../../ui/Skeleton.tsx";
 import { ConfirmDialog, Dialog } from "../../ui/Dialog.tsx";
 import { describeError } from "../../ui/errors.ts";
 import { useDialogSlot } from "../../ui/presence.ts";
-import { monogram } from "./monogram.ts";
 import { loadDiscover, runAction, usePluginsState } from "./plugins-store.ts";
 import { RowMenu } from "./RowMenu.tsx";
-import "./integrations.css";
 
 interface Pending {
   marketplace: string;
@@ -76,16 +74,12 @@ function Browse({
             <ListRow
               key={entry.name}
               testId={`discover-${id}`}
-              icon={monogram(entry.name)}
+              icon={<Puzzle />}
               title={entry.name}
               badges={entry.version !== null ? <Badge>{entry.version}</Badge> : undefined}
               meta={
-                // 和 Skills 卡片一样只显示两行，完整描述在悬停提示里。
-                entry.description !== "" && (
-                  <span className="ig-clamp" title={entry.description}>
-                    {entry.description}
-                  </span>
-                )
+                // 和 Skills 卡片一样只占一行，完整描述在悬停提示里。
+                entry.description === "" ? undefined : <span title={entry.description}>{entry.description}</span>
               }
               actions={
                 has ? (
@@ -253,7 +247,7 @@ export function MarketplacesCard({
           {snapshot?.marketplaces.map((marketplace) => (
             <div key={marketplace.name} data-testid={`marketplace-${marketplace.name}`}>
               <ListRow
-                icon={monogram(marketplace.name)}
+                icon={<Storefront />}
                 title={marketplace.name}
                 meta={marketplace.source}
                 actions={
@@ -323,7 +317,7 @@ export function MarketplacesCard({
             {presets.map((preset) => (
               <ListRow
                 key={preset.source}
-                icon={monogram(preset.label[locale])}
+                icon={<Storefront />}
                 title={preset.label[locale]}
                 meta={preset.source}
                 testId={`marketplace-preset-${preset.name}`}

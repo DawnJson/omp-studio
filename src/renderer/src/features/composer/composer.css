@@ -948,7 +948,7 @@ button.usage-context:hover,
   cursor: pointer;
 }
 .todo-phase-toggle:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 .todo-phase[data-collapsed] .todo-phase-head {

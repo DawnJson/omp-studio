@@ -127,14 +127,8 @@
   border-top: 1px solid var(--border-subtle);
 }
 
-/* 左栏最窄 200（窄窗）：标题、已暂存数、“生成”放不下一行就折行，不撑出左栏 */
-.rv-commit-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-1) var(--space-2);
-  /* 和文件树的分组标题（.rv-tree 8 + 标题 8）同一条左边线 */
+/* 提交表单的头部（标题 + 工具行，git.css 的 .git-commit-head）：和文件树的分组标题（.rv-tree 8 + 标题 8）同一条左边线 */
+.rv-commit .git-commit-head {
   padding: 0 var(--space-2);
 }
 
@@ -143,12 +137,6 @@
   font-size: var(--fs-xs);
   line-height: var(--lh-xs);
   font-weight: var(--fw-strong);
-}
-
-.rv-commit-staged {
-  color: var(--text-3);
-  font-size: var(--fs-xs);
-  white-space: nowrap;
 }
 
 .rv-commit-foot {
@@ -169,11 +157,6 @@
 }
 .rv-commit-foot .ui-choice {
   max-width: 100%;
-}
-
-.rv-commit .rv-commit-description {
-  min-height: 0;
-  resize: none;
 }
 
 .rv-tree ul {
@@ -641,17 +624,7 @@
   flex: none;
 }
 
-/* 提交框：生成按钮、勾选项、修改上一次提交的提醒。
-   工具行总是标题下面单独一行（已暂存数 / 取消 在左，生成在右，右缘和"提交"对齐）：放得下一行时也不并上去，
-   生成中、空闲时高度一样，左栏不跳（2026-10-29 复查：原来空闲两行、生成中一行，跳 27px）。 */
-.rv-commit-tools {
-  display: flex;
-  flex-basis: 100%;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-1);
-}
-
+/* 提交框：勾选项。 */
 .rv-commit-opts {
   display: flex;
   flex-direction: column;

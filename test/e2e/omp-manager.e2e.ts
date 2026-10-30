@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { findOmpOnPath, inspectOmp } from "../../src/main/omp/discover.ts";
 import type { OmpStatus } from "../../src/shared/ipc.ts";
 import { launchApp, type LaunchedApp } from "./launch.ts";
@@ -21,6 +21,16 @@ async function pushStatus(launched: LaunchedApp, status: OmpStatus): Promise<voi
     BrowserWindow.getAllWindows()[0]?.webContents.send("studio:event:ompStatus", payload);
   }, status);
 }
+
+/** 元素上画没画出键盘焦点环（outline 有样式且不是透明色）。e2e 的类型检查没有 DOM 类型，经 globalThis 取 getComputedStyle。 */
+const ringDrawn = (locator: Locator) =>
+  locator.evaluate((element) => {
+    const view = globalThis as unknown as {
+      getComputedStyle(target: unknown): { outlineStyle: string; outlineColor: string };
+    };
+    const style = view.getComputedStyle(element);
+    return style.outlineStyle !== "none" && style.outlineColor !== "rgba(0, 0, 0, 0)";
+  });
 
 test("PATH 上是 Tern 管理的 omp：问一次要不要接管，选继续用 Tern 的就直接用它", async () => {
   const onPath = await findOmpOnPath().catch(() => null);
@@ -133,6 +143,10 @@ test("接管询问：同意/拒绝的按钮把回答发给主进程", async () =
       managerName: null,
     });
     await expect(page.getByTestId("takeover-no")).toBeFocused();
+    // 还没碰过键盘：准备页自动聚焦的默认按钮不画焦点环；按一下 Tab 换成键盘后才画（2026-10-29 仓库所有者定）。
+    expect(await ringDrawn(page.getByTestId("takeover-no"))).toBe(false);
+    await page.keyboard.press("Tab");
+    expect(await ringDrawn(page.locator(":focus"))).toBe(true);
     // 遮罩盖到窗口顶上：系统三键这时被调暗，顶栏（高 40）也得在遮罩下面，否则顶栏亮、三键暗。
     const coversTitleBar = await page.evaluate(() => {
       const g = globalThis as unknown as {

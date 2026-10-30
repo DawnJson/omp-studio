@@ -1,6 +1,6 @@
 // 悬停提示（spec §4.23 Tooltip）：全应用的 title 属性都用这一个自绘提示显示，不再出 Windows 原生的提示框。
 // 做法：指针移到带 title 的元素上，先把 title 从元素上拿掉、暂存起来（原生提示就不会出），500ms 后在元素下方画提示
-// （下方放不下画在上方）；刚收起一个提示时移到下一个元素立即出。键盘聚焦（:focus-visible）时立即出，title 留在元素上
+// （下方放不下画在上方）；刚收起一个提示时移到下一个元素立即出。键盘聚焦（input-modality 的 keyboardFocused）时立即出，title 留在元素上
 // （原生提示不跟键盘出，读屏照常读到它）。离开、按下、按键、滚动、窗口失焦时收起，title 放回原处。
 // 悬停期间 React 改了 title（如"上次刷新于…"）：读出新文字、再拿掉。
 // 文字末尾的快捷键（"打开评审 (Ctrl Shift D)"；mac 上是 "(⌘⇧D)"，调用方用 platform-keys 的 withShortcut 生成）拆出来画成 Kbd。
@@ -8,6 +8,7 @@
 // `left` 画在左边、竖直居中（左边放不下退回默认；对话线的刻度贴着滚动区右缘，画在下方会盖住滚动条）。
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { keyboardFocused } from "./input-modality.ts";
 
 const SHOW_DELAY_MS = 500;
 /** 一个提示收起后这段时间内指到下一个元素，直接显示（spec："已有一个显示时 0ms"）。 */
@@ -109,7 +110,7 @@ export function TooltipLayer() {
     };
     const onFocus = (event: FocusEvent) => {
       const el = event.target instanceof HTMLElement ? event.target : null;
-      if (el === null || !el.matches(":focus-visible") || !el.matches(TITLED)) return;
+      if (el === null || !keyboardFocused(el) || !el.matches(TITLED)) return;
       begin(el, true);
     };
     const onFocusOut = (event: FocusEvent) => {

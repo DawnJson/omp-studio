@@ -123,6 +123,16 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await expect(page.getByTestId("custom-model-fake-chat")).toBeVisible();
     // 拉取结果只用气泡说一句总数，对话框里不留一段文字。
     await expect(page.getByTestId("toasts").getByText("拉取到 3 个模型")).toBeVisible();
+    // 对话框开着时气泡挪到窗口底部、对话框下面，不压住对话框的上沿（2026-10-29 仓库所有者定）。
+    await page.getByTestId("toasts").evaluate(async (element) => {
+      const animated = element as unknown as {
+        getAnimations(options: { subtree: boolean }): { finished: Promise<unknown> }[];
+      };
+      await Promise.all(animated.getAnimations({ subtree: true }).map((animation) => animation.finished));
+    });
+    const fetchedToast = (await page.getByTestId("toasts").getByText("拉取到 3 个模型").boundingBox())!;
+    const formBox = (await form.boundingBox())!;
+    expect(fetchedToast.y).toBeGreaterThanOrEqual(formBox.y + formBox.height);
     await expect(page.getByTestId("custom-fetch-notice")).toHaveCount(0);
     await expect(page.getByTestId("custom-model-fake-chat")).not.toBeChecked();
     await expect(page.getByTestId("custom-model-fake-mini")).not.toBeChecked();
@@ -202,10 +212,13 @@ test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模�
     await expect(form).toHaveCount(0);
     await expect(page.getByTestId("settings")).toBeVisible(); // Esc 只关了表单
 
-    // 删除：先取消，再确认；取消后马上再点（上一个确认框还在放退出动画）也要能打开新的。
+    // 删除：卡片上只有"编辑"一个文字按钮，删除收在 ⋯ 里。先取消，再确认；取消后马上再点（上一个确认框还在放退出动画）也要能打开新的。
+    await expect(row.getByTestId("custom-delete-fake-proxy")).toHaveCount(0);
+    await row.getByTestId("custom-more-fake-proxy").click();
     await page.getByTestId("custom-delete-fake-proxy").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "取消" }).click();
     await expect(row).toBeVisible();
+    await row.getByTestId("custom-more-fake-proxy").click();
     await page.getByTestId("custom-delete-fake-proxy").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();
     await expect(row).toHaveCount(0);
@@ -616,6 +629,7 @@ test("自定义提供商：环境变量形式的 key——models.yml 只写变�
     await expect(form).toHaveCount(0);
     expect(await readFile(envFile, "utf8")).toContain(`Pro_E2E_KEY=${SECRET}`);
 
+    await row.getByTestId("custom-more-env-proxy").click();
     await page.getByTestId("custom-delete-env-proxy").click();
     await expect(page.getByRole("alertdialog")).toContainText(".env");
     await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();
@@ -645,7 +659,7 @@ test("自定义提供商：读不懂的 models.yml 显示错误，不覆盖文�
   }
 });
 
-test("自定义提供商：编辑里用文件里的连接拉取失败 → 卡片右上角标出 key 无效 / 地址不通；换了能用的 key 拉取成功或改了地址后去掉", async () => {
+test("自定义提供商：编辑里用文件里的连接拉取失败 → 卡片元信息行开头标出 key 无效 / 地址不通；换了能用的 key 拉取成功或改了地址后去掉", async () => {
   const fake = await startFakeOpenAi({ apiKey: SECRET, models: ["fake-chat"] });
   const { launched, agentDir } = await launchSettings();
   try {

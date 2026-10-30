@@ -2,6 +2,7 @@
 
 /* toast：气泡，悬浮在主区面板上沿正中，向下叠放，不占布局。
    left / width 由 Toasts.tsx 按主区面板（侧栏之外的区域）量出来写进 --toasts-left / --toasts-width。
+   有遮罩的弹窗开着时（data-place="bottom"）挪到窗口底部正中、向上叠放：对话框居中、上下各留 48px，气泡在它下面，不压住它（2026-10-29）。
    studio 的 toast 和 omp 的 `omp.toast*` 节点（features/tsp/interactive/Toast.tsx portal 进 .toasts-host）共用这一套。 */
 .toasts {
   position: fixed;
@@ -16,6 +17,16 @@
   width: var(--toasts-width, 100%);
   padding: 0 var(--space-4);
   pointer-events: none;
+  /* 进出场的位移方向：上沿时从上方滑入，底部时从下方 */
+  --toast-travel: calc(var(--travel-md) * -1);
+}
+.toasts[data-place="bottom"] {
+  top: auto;
+  bottom: var(--space-2);
+  left: 0;
+  flex-direction: column-reverse;
+  width: 100%;
+  --toast-travel: var(--travel-md);
 }
 .toasts-host {
   display: contents;
@@ -66,7 +77,7 @@
     var(--shadow-2),
     0 0 0 1px var(--st-error);
 }
-/* 进入：从上方滑下并淡入；退出：向上滑回并淡出。位移令牌在减少动效时为 0，只剩淡入淡出。 */
+/* 进入：从上方（底部时从下方）滑入并淡入；退出：原路滑回并淡出。位移令牌在减少动效时为 0，只剩淡入淡出。 */
 :root .toast[data-closing] {
   animation-name: toast-out;
   animation-duration: max(var(--dur-base-exit), var(--dur-fade));
@@ -74,13 +85,13 @@
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(calc(var(--travel-md) * -1));
+    transform: translateY(var(--toast-travel));
   }
 }
 @keyframes toast-out {
   to {
     opacity: 0;
-    transform: translateY(calc(var(--travel-md) * -1));
+    transform: translateY(var(--toast-travel));
   }
 }
 .toast-text {

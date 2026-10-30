@@ -6,12 +6,14 @@ import "./ui/controls.css";
 import "./ui/motion.css";
 import "./ui/scrollbars.css";
 import { App } from "./app/App.tsx";
+import { installInputModality } from "./ui/input-modality.ts";
 import { installScrollActivity } from "./ui/scroll-activity.ts";
 import { startShellStore } from "./app/shell-store.ts";
 import { startStores } from "./store/index.ts";
 import { loadStartupSnapshot } from "./store/startup-snapshot.ts";
 
 installScrollActivity();
+installInputModality();
 startStores();
 startShellStore();
 

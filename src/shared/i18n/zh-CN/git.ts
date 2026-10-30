@@ -38,7 +38,9 @@ export const git = {
 
   // 提交
   "commit.title": "提交改动",
-  "commit.message": "提交信息",
+  "commit.summary": "摘要",
+  "commit.description": "说明",
+  "commit.staged": "已暂存 {count} 个文件",
   "commit.stageAll": "先暂存全部改动",
   "commit.confirm": "提交",
   "commit.review": "评审改动",
@@ -47,6 +49,9 @@ export const git = {
   "commit.failed": "提交被 git 拒绝",
   "commit.amended": "已修改上一次提交，现在是 {commit}",
   "commit.noPrevious": "还没有提交，没有可修改的。",
+  "generate.action": "生成",
+  "generate.tip": "用已暂存的改动生成提交信息",
+  "generate.cancel": "取消",
   "generate.nothing": "没有已暂存的改动，先暂存要提交的文件。",
   "generate.noModel": "omp 没有可用的 commit 模型。在设置里给 commit（或 smol）角色选一个模型并配好 key。",
   "generate.split": "omp 建议把这些改动拆成 {count} 个提交，这里只填了第一个的信息。",

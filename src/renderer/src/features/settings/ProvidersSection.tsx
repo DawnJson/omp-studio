@@ -46,7 +46,7 @@ export function ProvidersSection() {
       accounts={data?.accounts[provider.id] ?? []}
       loginKind={loginKind(provider.id)}
       keyEnv={data?.keyEnv[provider.id]}
-      shortName
+      card
       onFlow={(target, action) => openFlow(target, action, false)}
       onChanged={reload}
     />

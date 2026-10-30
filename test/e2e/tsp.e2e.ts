@@ -124,6 +124,25 @@ type PageStyle = {
 const TASK_PROMPT =
   "先用 todo 工具列出计划。然后用 task 工具并行派两个子代理:一个修 calc/ops.py 里的 bug,一个修 calc/text.py 里的 bug。子代理都完成后运行 python -m pytest -q 确认通过,最后用两句话总结。";
 
+/**
+ * dock 的位置(2026-10-29 仓库所有者:门跟着对话走):对话列最后一项的底边(.tsp-column-end 贴着它)到门顶边的距离、
+ * 门底边到过程区底边的距离,滚动区能滚多少、离底多远。
+ */
+async function dockLayout(
+  page: Page,
+  gateRole: string,
+): Promise<{ gap: number; belowGate: number; overflow: number; distance: number }> {
+  return page.evaluate(`(() => {
+    const surface = document.querySelector('[data-testid="tsp-view"] [data-testid="tsp-surface-inline"]');
+    const scroller = surface.querySelector(".tsp-scroller");
+    const end = surface.querySelector(".tsp-column-end").getBoundingClientRect();
+    const gate = surface.querySelector('.tsp-dock [data-role="${gateRole}"]').getBoundingClientRect();
+    const box = surface.getBoundingClientRect();
+    const overflow = scroller.scrollHeight - scroller.clientHeight;
+    return { gap: gate.top - end.top, belowGate: box.bottom - gate.bottom, overflow, distance: overflow - scroller.scrollTop };
+  })()`);
+}
+
 test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理、bash、回答按 omp 的节点画出来,跑完侧栏回到空闲", async () => {
   test.setTimeout(120_000);
   const { launched, received, cleanup } = await start("task");
@@ -193,14 +212,14 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     await expect(page.getByTestId("send-button")).toBeVisible();
     await expect(role(page, "omp.editor")).toHaveCount(0);
     await expect(page.locator('[data-testid="tsp-view"] .tspi-editor')).toHaveCount(0);
-    // omp 自己的欢迎块(logo、"omp"、版本、小提示)不画;过程区顶部是 studio 的标题块(像素标志 + 任务所在文件夹),随对话滚动。
+    // omp 自己的欢迎块(logo、"omp"、版本、小提示)不画;过程区顶部是 studio 的标题块(像素标志),随对话滚动。
+    // 标题块不写文件夹路径:输入框工具行的文件夹标签已经写着(2026-10-29 仓库所有者:删掉重复的)。
     await expect(role(page, "omp.welcome")).toHaveCount(0);
     await expect(
       page.locator('[data-testid="tsp-view"] [data-testid="studio-header"] [data-testid="pixel-logo"]'),
     ).toBeVisible();
-    await expect(page.locator('[data-testid="tsp-view"] [data-testid="studio-header-folder"]')).toContainText(
-      "项目 目录",
-    );
+    await expect(page.locator('[data-testid="tsp-view"] [data-testid="studio-header"]')).not.toContainText("项目 目录");
+    await expect(page.getByTestId("composer-folder")).toHaveText(/项目 目录$/);
     // TSP 任务没有改动摘要：过程区里没有改动卡片，输入框上方也没有改动条（评审从顶栏按钮 / Ctrl Shift D / 提交对话框进）。
     await expect(page.locator('.tsp-scroller [data-testid="change-card"]')).toHaveCount(0);
     await expect(page.getByTestId("change-strip")).toHaveCount(0);
@@ -328,6 +347,23 @@ test("审批:omp 的审批门出现时任务是等你确认;底栏只剩 Details
     expect(title && details).toBeTruthy();
     expect(Math.abs(title!.y + title!.height / 2 - (details!.y + details!.height / 2))).toBeLessThan(2);
     expect(details!.x).toBeGreaterThan(title!.x + title!.width);
+    // 对话短:门紧跟在对话最后一项下面(隔一个块间距 --space-4),不是贴在过程区底部、中间空一大块。
+    await page.setViewportSize({ width: 900, height: 900 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expect.poll(async () => (await dockLayout(page, "omp.editor.ask.approval")).overflow).toBe(0);
+      await expect.poll(async () => Math.round((await dockLayout(page, "omp.editor.ask.approval")).gap)).toBe(17);
+      await expectNoOverflow(page.getByTestId("tsp-view"));
+    }
+    await setLocaleTheme(page, "zh-CN", "light");
+    // 对话长过视口:门照旧停在过程区底部(下面只留 dock 的 --space-3),对话贴底、滚动区滚到底。
+    await page.setViewportSize({ width: 900, height: 420 });
+    await expect.poll(async () => (await dockLayout(page, "omp.editor.ask.approval")).overflow).toBeGreaterThan(40);
+    const tall = await dockLayout(page, "omp.editor.ask.approval");
+    expect(Math.round(tall.belowGate)).toBe(12);
+    expect(tall.distance).toBeLessThanOrEqual(1);
+    expect(Math.round(tall.gap)).toBe(17);
+    await page.setViewportSize({ width: 1400, height: 900 });
     // 输入框写的字 Enter 发出去 = omp 的"拒绝并说明理由":send 事件发到 omp 还在的输入框(假 omp 不会因多出的事件失败)。
     const input = page.getByTestId("composer-input");
     await expect(input).toHaveAttribute("placeholder", /Ctrl\+Enter/);
@@ -665,6 +701,13 @@ test("提问:选项是 omp 的列表,双击一项发 activate;提问期间 studi
     await expect(page.getByTestId("gate-slot")).toHaveCount(0);
     await expect(role(page, "omp.editor.ask")).toBeVisible();
     await expect(role(page, "omp.editor")).toHaveCount(0);
+    // 提问对话框的标题就是这道题:开着时提问卡片头上不再写同一句(2026-10-29 仓库所有者:删掉重复的);门紧跟在对话下面。
+    const question = "这个项目你最看重哪个方向?";
+    const askHead = role(page, "omp.tool.ask").locator(".tsp-tool-head");
+    await expect(role(page, "omp.editor.ask")).toContainText(question);
+    await expect(askHead).toBeVisible();
+    await expect(askHead).not.toContainText(question);
+    await expect.poll(async () => Math.round((await dockLayout(page, "omp.editor.ask")).gap)).toBe(17);
     await page.getByTestId("composer-input").fill("先别发");
     // 运行中右下角只有停止键；按 Enter 也不发（字留在输入框里）。
     await expect(page.getByTestId("send-button")).toHaveCount(0);
@@ -674,6 +717,8 @@ test("提问:选项是 omp 的列表,双击一项发 activate;提问期间 studi
     await option.dblclick();
     await expect(option).toHaveCount(0, { timeout: 30_000 });
     await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
+    // 答完、对话框没了:卡片头上又写着这道题。
+    await expect(askHead).toContainText(question);
     expect((await received()).filter((event) => event["ev"] === "activate")).toEqual([
       expect.objectContaining({ ev: "activate", id: "t.q0", item: "t.q0/option:1" }),
     ]);
