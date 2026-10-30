@@ -12,7 +12,7 @@
 
 ### 主进程
 
-- `nativeTheme.themeSource`：`system` 原样；具名主题按登记表的深浅给 `light` / `dark`（`settings-store.ts` 的 `themeSource()`）。omp 的 `{ev:"theme", dark}`、网页的 `prefers-color-scheme` 都跟着 nativeTheme，omp 只知道深浅。
+- `nativeTheme.themeSource`：`system` 原样；具名主题按登记表的深浅给 `light` / `dark`（`settings-store.ts` 的 `themeSource()`）。omp 的 `{ev:"theme", dark}`、网页的 `prefers-color-scheme` 都跟着 nativeTheme，omp 只知道深浅。实测（omp 18.14.0，2026-10-30，真实模型）：选鲸蓝·深后 `nativeTheme.shouldUseDarkColors` 为 true（TSP 会话的 appearance 取它），一轮 prompt 跑完；同一任务切到樱粉（浅）再发一轮照常。
 - 窗口底色、系统三键的底色和符号色取登记表（`main-window.ts` 的 `overlayColors`）；有遮罩弹窗时三键色 = 顶栏色叠一层该主题的 `--bg-scrim`。两个同为深色（或同为浅色）的主题之间切换时 nativeTheme 不发 `updated`，所以设置变化时也重算。
 
 ## 主区背景图
@@ -59,7 +59,7 @@
 - `glassSupported`（`main-window.ts`）：win32 且 `os.release()` 的 build ≥ 22621（Windows 11 22H2）。Electron 的 `setBackgroundMaterial` 在更早的系统上直接返回（源码 `native_window_views.cc` 判 `WIN11_22H2`），开了也没效果。
 - 窗口：`glass && glassSupported` 时创建就带 `backgroundMaterial: "acrylic"`、`backgroundColor: "#00000000"`；运行时开关在设置变化时 `setBackgroundMaterial("acrylic" | "none")` + `setBackgroundColor(...)`，不重建窗口。`"none"` 时 Electron 把窗口和网页底色重置成白色，所以紧接着设回顶栏色；`"acrylic"` 时 Electron 自己把底色设成透明，我们再设一次透明（主题切换走同一个 `windowBackground()`）。
 - 系统三键区：毛玻璃时底色 `#00000000`，三键画在网页上面，透出网页的顶栏层；遮罩弹窗时网页的遮罩本来就盖到三键底下，所以只有符号色还随 `fadeTitleBar` 渐变。
-- 网页：`<html data-glass>`（`App.tsx`）。`html`、`body`、`.topbar`、`.sidebar-column`、`.sb` 透明，只在 `#app` 上铺一层 `color-mix(in srgb, var(--bg-sidebar) 75%, transparent)`（`app.css`）；几层各自半透明会越叠越深、和三键区对不上。收起的侧栏 / 窄窗口抽屉盖在主区面板上，照旧画实底 `--bg-sidebar`。侧栏历史标题行（sticky）不能用实底，改成 `backdrop-filter` 模糊下面滚过的行（只有这一小条）。
+- 网页：`<html data-glass>`（`App.tsx`）。`html`、`body`、`.topbar`、`.sidebar-column`、`.sb` 透明，只在 `#app` 上铺一层 `color-mix(in srgb, var(--bg-sidebar) 75%, transparent)`（`app.css`）；几层各自半透明会越叠越深、和三键区对不上。收起的侧栏 / 窄窗口抽屉盖在主区面板上，照旧画实底 `--bg-sidebar`。侧栏历史标题行平时钉在滚动区顶部（sticky + 实底），毛玻璃时不钉住、跟着列表滚走：实底是一条色带，`backdrop-filter` 把 `#app` 那层半透明色又叠一遍，同样是一条更深的带子（见下面实测）。
 
 ### 实测（2026-10-30，Electron 44.10.0，Windows 11 build 26300，独立小脚本截屏，脚本已删）
 
@@ -70,6 +70,7 @@
 - 最大化、还原、改窗口大小之后 Acrylic 都还在（最大化后窗口边界 -8，和平时一样）。
 - 窗口失去焦点：Acrylic 换成系统的纯色兜底（深色时偏灰，浅色时浅灰），再叠 75% 的侧栏色，文字照样清楚。
 - 浓度：60% 时彩色背景透得多、浅色主题文字发虚；75%、80% 都清楚，取 75%。
+- 完整应用（前台窗口，假 omp 回放，Catppuccin Mocha / 樱粉 / 浅色）：顶栏和三键区同色无缝；命令面板的遮罩盖到三键底下；窄窗口抽屉实底；最大化、失焦、关掉毛玻璃后回到实底（窗口底色 `#EFEFED`）都正常。唯一的问题是侧栏"会话"标题行带 `backdrop-filter` 时比侧栏深一截，改成不钉住后消失。
 
 ### 推测、没实测
 

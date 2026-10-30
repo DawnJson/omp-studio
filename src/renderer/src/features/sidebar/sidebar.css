@@ -181,14 +181,15 @@
   padding-right: var(--space-1);
   background: var(--bg-sidebar);
 }
-/* 毛玻璃（app.css「Windows 11 毛玻璃」）：侧栏透明，露出 #app 那层半透明侧栏色。钉住的标题行不能再用实底（会是一条色带），
-   改成只模糊下面滚过的行；没有行在下面时看不出它。只有这一小条，滚动侧栏时才重新模糊，不碰对话区。 */
+/* 毛玻璃（app.css「Windows 11 毛玻璃」）：侧栏透明，露出 #app 那层半透明侧栏色。钉住的标题行没法再挡住下面滚过的行：
+   实底是一条色带；半透明底、backdrop-filter 都会把 #app 那层半透明色再叠一遍，成了一条更深的带子（2026-10-30 真窗截屏）。
+   所以毛玻璃下标题行不钉住，跟着列表一起滚走。 */
 :root[data-glass] .sb {
   background: transparent;
 }
 :root[data-glass] .sb-history-head {
+  position: static;
   background: transparent;
-  backdrop-filter: blur(var(--space-4));
 }
 /* 文件夹：头部（箭头 + 名称，折叠时行数）+ 任务和会话混排的行 */
 .sb-folder + .sb-folder {
