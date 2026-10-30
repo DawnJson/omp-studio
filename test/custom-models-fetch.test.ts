@@ -22,10 +22,51 @@ describe("一键拉取模型列表", () => {
     expect(result).toEqual({
       ok: true,
       models: [
-        { id: "fake-chat", name: null },
-        { id: "fake-mini", name: null },
+        { id: "fake-chat", name: null, imageModel: null },
+        { id: "fake-mini", name: null, imageModel: null },
       ],
     });
+  });
+
+  it("列表说没说生图：supported_endpoint_types 有 image-generation 就是，没有不算不是（new-api 按名字猜）；输出模态只有图片才是", async () => {
+    const relay = await startFakeOpenAi({
+      models: ["chat-x", "gpt-image-x", "seedream-x", "plain-x"],
+      endpointTypes: {
+        "chat-x": ["openai"],
+        "gpt-image-x": ["image-generation", "openai"],
+        "seedream-x": ["openai"],
+      },
+    });
+    try {
+      const result = await fetchModelList(fetch, { baseUrl: relay.baseUrl, api: "openai-completions", token: null });
+      expect(result.ok && result.models.map((model) => [model.id, model.imageModel])).toEqual([
+        ["chat-x", null],
+        ["gpt-image-x", true],
+        ["seedream-x", null],
+        ["plain-x", null],
+      ]);
+    } finally {
+      await relay.close();
+    }
+    // OpenRouter / Synthetic 式的输出模态：只有图片才算，又出文字的是对话模型（omp 的 openai-models-list 发现同样处理）。
+    const listed = await fetchModelList(
+      () =>
+        Promise.resolve(
+          Response.json({
+            data: [
+              { id: "or-image", architecture: { output_modalities: ["image"] } },
+              { id: "or-chat-image", architecture: { output_modalities: ["image", "text"] } },
+              { id: "syn-image", output_modalities: ["IMAGE"] },
+            ],
+          }),
+        ),
+      { baseUrl: "https://relay.example/v1", api: "openai-completions", token: null },
+    );
+    expect(listed.ok && listed.models.map((model) => [model.id, model.imageModel])).toEqual([
+      ["or-image", true],
+      ["or-chat-image", false],
+      ["syn-image", true],
+    ]);
   });
 
   it("key 错 → unauthorized；路径错 → not-found；不通 → network", async () => {
@@ -98,7 +139,7 @@ describe("一键拉取模型列表", () => {
       for (const base of [origin, `${origin}/v1`]) {
         expect(await fetchModelList(fetch, { baseUrl: base, api: "anthropic-messages", token: "ak" })).toEqual({
           ok: true,
-          models: [{ id: "claude-x", name: "Claude X" }],
+          models: [{ id: "claude-x", name: "Claude X", imageModel: null }],
         });
       }
       expect(seen.map((s) => s.url)).toEqual(["/v1/models", "/v1/models"]);
@@ -146,7 +187,7 @@ describe("一键拉取模型列表", () => {
     try {
       expect(await fetchModelList(fetch, { baseUrl, api: "google-generative-ai", token: "AIza-good" })).toEqual({
         ok: true,
-        models: [{ id: "gemini-2.5-flash", name: "Gemini 2.5 Flash" }],
+        models: [{ id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", imageModel: null }],
       });
       expect(seen[0]?.url).toBe("/v1beta/models?pageSize=1000");
       expect(seen[0]?.headers.get("authorization")).toBeNull();

@@ -11,6 +11,8 @@ export interface FakeOpenAiOptions {
   apiKey?: string;
   /** `GET /api.json` 回的公开模型目录（models.dev 的形状）；不设回 404。不要求 key。 */
   catalog?: unknown;
+  /** `/v1/models` 里给这些模型带 `supported_endpoint_types`（new-api 系中转站的写法），没列的模型不带。 */
+  endpointTypes?: Record<string, string[]>;
 }
 
 export interface FakeOpenAi {
@@ -61,7 +63,19 @@ export async function startFakeOpenAi(options: FakeOpenAiOptions = {}): Promise<
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/models") {
-      json(200, { object: "list", data: models.map((id) => ({ id, object: "model", created: 0, owned_by: "fake" })) });
+      json(200, {
+        object: "list",
+        data: models.map((id) => {
+          const endpoints = options.endpointTypes?.[id];
+          return {
+            id,
+            object: "model",
+            created: 0,
+            owned_by: "fake",
+            ...(endpoints !== undefined && { supported_endpoint_types: endpoints }),
+          };
+        }),
+      });
       return;
     }
     if (request.method === "POST" && url.pathname === "/v1/chat/completions") {

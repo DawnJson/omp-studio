@@ -537,6 +537,82 @@ test("自定义提供商：模型标成生图 → models.yml 写 api: openai-ima
   }
 });
 
+test("自定义提供商：认得出的生图模型类型自动填成生图（中转站标了生图端点 / 公开目录说只出图；只列 openai 端点不算不是）；改回对话后不再改", async () => {
+  const catalog = {
+    // 上下文只用来看出编辑时目录查完了（对话模型才预填）。
+    openai: {
+      models: { "dall-e-x": { modalities: { input: ["text"], output: ["image"] }, limit: { context: 4096 } } },
+    },
+    bfl: { models: { "flux-x": { modalities: { input: ["text"], output: ["image"] } } } },
+    google: { models: { "gem-image-x": { modalities: { input: ["text", "image"], output: ["text", "image"] } } } },
+    vendor: { models: { "seedream-x": { modalities: { input: ["text", "image"], output: ["image"] } } } },
+  };
+  const fake = await startFakeOpenAi({
+    models: ["chat-b", "relay-img", "dall-e-x", "gem-image-x", "seedream-x"],
+    // new-api 按名字猜端点：名字不在它表里的生图模型（seedream-x）只列 openai，要靠公开目录认出来。
+    endpointTypes: { "chat-b": ["openai"], "relay-img": ["image-generation", "openai"], "seedream-x": ["openai"] },
+    catalog,
+  });
+  const { launched, agentDir } = await launchSettings({ catalogUrl: fake.catalogUrl });
+  const file = path.join(agentDir, "models.yml");
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("custom-add").click();
+    await page.getByTestId("custom-id").fill("auto-img");
+    await page.getByTestId("custom-base-url").fill(fake.baseUrl);
+    await page.getByTestId("custom-key-mode-none").click();
+    await page.getByTestId("custom-fetch").click();
+    // 类型列只在勾选的行上。
+    for (const modelId of ["chat-b", "relay-img", "dall-e-x", "gem-image-x", "seedream-x"])
+      await page.getByTestId(`custom-model-${modelId}`).check();
+    const kind = (modelId: string) => page.getByTestId(`custom-model-kind-${modelId}`);
+    await expect(kind("relay-img")).toContainText("生图");
+    await expect(kind("dall-e-x")).toContainText("生图");
+    // 又出文字又出图的（Gemini 图片模型）在 OpenAI 兼容接口下不当生图。
+    await expect(kind("gem-image-x")).toContainText("对话");
+    await expect(kind("chat-b")).toContainText("对话");
+    await expect(kind("seedream-x")).toContainText("生图");
+    await expect(page.getByTestId("custom-model-reasoning-relay-img")).toHaveCount(0);
+
+    // 手动加的也认。
+    await page.getByTestId("custom-manual-model").fill("flux-x");
+    await page.getByTestId("custom-manual-add").click();
+    await expect(kind("flux-x")).toContainText("生图");
+
+    // 用户改回对话：不再被改回去。
+    await kind("dall-e-x").click();
+    await page
+      .getByTestId("custom-model-kind-dall-e-x-list")
+      .getByRole("option", { name: "对话", exact: true })
+      .click();
+    await expect(kind("dall-e-x")).toContainText("对话");
+    await page.getByTestId("custom-save").click();
+    await expect(page.getByTestId("custom-provider-form")).toHaveCount(0);
+    const written = parseYaml(await readFile(file, "utf8")) as {
+      providers: Record<string, { models: Record<string, unknown>[] }>;
+    };
+    expect(written.providers["auto-img"]?.models).toEqual([
+      { id: "chat-b" },
+      { id: "relay-img", api: "openai-images" },
+      { id: "dall-e-x" },
+      // 当对话模型照常预填（图片输入）。
+      { id: "gem-image-x", input: ["text", "image"] },
+      { id: "seedream-x", api: "openai-images" },
+      { id: "flux-x", api: "openai-images" },
+    ]);
+
+    await page.getByTestId("custom-edit-auto-img").click();
+    await expect(kind("relay-img")).toContainText("生图");
+    await expect(page.getByTestId("custom-model-contextWindow-dall-e-x")).toHaveValue("4096", { timeout: 30_000 });
+    await expect(kind("dall-e-x")).toContainText("对话");
+  } finally {
+    await launched.close();
+    await fake.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
 test("自定义提供商：omp 认不出的模型按公开模型目录预填思考、图片输入、上下文（已保存留自动的和新拉取的）；omp 认识的不动", async () => {
   // kimi-k3 在 omp 的内置表里（能思考、1M 上下文），目录里故意写成别的值：不能拿来覆盖。
   const catalog = {

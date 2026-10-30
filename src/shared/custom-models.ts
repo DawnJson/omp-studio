@@ -67,6 +67,17 @@ export function imageModelField(
   }
 }
 
+/**
+ * 公开模型目录（models.dev）说这是生图模型。OpenAI 兼容的两种只认生图专用的（`imageOnly`：gpt-image、dall-e、flux……；
+ * 和 omp 自己的 openai-models-list 发现一样，又出文字又出图的当对话模型，如 gpt-5-image，或是要走 `:generateContent` 的
+ * Gemini 图片模型）；Gemini 接口出图就算（gemini-*-image 同时出文字）。接口类型不能生图时一律不算。
+ */
+export function catalogSaysImage(api: string, caps: ModelCapabilities): boolean {
+  const field = imageModelField(api);
+  if (field === null) return false;
+  return field.key === "kind" ? caps.outputsImage : caps.imageOnly;
+}
+
 export const limits = {
   providerId: 64,
   url: 2048,
@@ -99,6 +110,15 @@ export interface CustomModelEntry {
 }
 
 /**
+ * 一键拉取到的一个模型。`imageModel`:中转站的列表说它是不是生图模型,没说为 null(这时看公开模型目录)。
+ * new-api 系给每个模型列 `supported_endpoint_types`,有 `image-generation` 就是(没有不算不是:那是按模型名猜的);
+ * 列了输出模态(`output` / `output_modalities` / `architecture.output_modalities`)的,只有图片才是(omp 自己的 openai-models-list 发现也这样认)。
+ */
+export interface FetchedModel extends CustomModelEntry {
+  imageModel: boolean | null;
+}
+
+/**
  * 模型条目上的能力参数（models.yml 的 `reasoning`、`input`、`contextWindow`、`maxTokens`，omp://models.md）。
  * null = 文件里没写：omp 按模型 id 从它的内置目录补，目录里没有就用默认（不思考、只收文字、上下文 128000、输出 16384；
  * omp 18.12.6 实测）。
@@ -113,12 +133,16 @@ export interface CustomModelMeta {
 
 /**
  * 公开模型目录（models.dev）里查到的能力：自定义提供商表单拿它预填 omp 认不出的模型（omp 只按内置表给自定义 provider 补参数，
- * 新模型查不到就当成不思考、128K）。只给"支持"和上下文，最大输出各家差别太大不填。
+ * 新模型查不到就当成不思考、128K）。只给"支持"和上下文，最大输出各家差别太大不填。认生图模型用（`catalogSaysImage`）：
+ * `outputsImage` = 输出里有图片；`imageOnly` = 生图专用、不是对话模型：输出只有图片，或者目录标了 `type: image` 又没有上下文窗口
+ * （OpenAI 自己的 gpt-image-1.5 写的输出是文字加图片）。
  */
 export interface ModelCapabilities {
   reasoning: boolean;
   images: boolean;
   contextWindow: number | null;
+  outputsImage: boolean;
+  imageOnly: boolean;
 }
 
 /** 从 `models.yml` 读出来的一个 provider。**不含 key 的内容**。 */
@@ -220,7 +244,7 @@ type FetchModelsErrorCode =
   | "format";
 
 export type FetchModelsOutcome =
-  { ok: true; models: CustomModelEntry[] } | { ok: false; code: FetchModelsErrorCode; status?: number };
+  { ok: true; models: FetchedModel[] } | { ok: false; code: FetchModelsErrorCode; status?: number };
 
 const providerIdPattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const envNamePattern = /^[A-Za-z_][A-Za-z0-9_]*$/;

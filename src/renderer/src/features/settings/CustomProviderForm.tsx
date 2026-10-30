@@ -3,6 +3,7 @@
 // 这里只收集输入、把主进程返回的错误码翻成文案。
 import { useEffect, useId, useRef, useState } from "react";
 import {
+  catalogSaysImage,
   defaultDiscoveryType,
   defaultEnvName,
   formApis,
@@ -27,7 +28,7 @@ import { Dialog } from "../../ui/Dialog.tsx";
 import { Select, type SelectOption } from "../../ui/Select.tsx";
 import { Reserve } from "../../ui/Reserve.tsx";
 import { useAccountLoad } from "./accounts-store.ts";
-import { CustomModelList, type FetchNotice, type ModelRow } from "./CustomModelList.tsx";
+import { CustomModelList, imageRowPatch, type FetchNotice, type ModelRow } from "./CustomModelList.tsx";
 import { setFetchFailure, type FetchFailure } from "./custom-models-store.ts";
 import { useAsyncAction } from "./use-async-action.ts";
 import "./custom-providers.css";
@@ -312,9 +313,11 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   };
   const ompKnowsRef = useRef(ompKnows);
   ompKnowsRef.current = ompKnows;
+  const apiRef = useRef(api);
+  apiRef.current = api;
 
-  // 每个模型 id 查一次公开模型目录（models.dev），omp 认不出的模型按查到的值预填还是"自动"的格子；保存才写进文件。
-  // 编辑时等 omp 的模型列表读完（判断 omp 认不认识要用它）再查。
+  // 每个模型 id 查一次公开模型目录（models.dev），omp 认不出的模型按查到的值预填还是"自动"的格子；新加的模型目录说是生图模型的，
+  // 类型填成生图。保存才写进文件。编辑时等 omp 的模型列表读完（判断 omp 认不认识要用它）再查。
   const settled =
     provider === undefined || accounts.kind === "error" || (accounts.kind === "ready" && !accounts.refreshing);
   const looked = useRef(new Set<string>());
@@ -330,9 +333,9 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
         setRows((current) =>
           current.map((row) => {
             const caps = found[row.id];
-            return caps === undefined || row.image === true || ompKnowsRef.current(row.id)
-              ? row
-              : prefillRow(row, caps);
+            if (caps === undefined || row.image === true || ompKnowsRef.current(row.id)) return row;
+            if (row.image === undefined && catalogSaysImage(apiRef.current, caps)) return { ...row, ...imageRowPatch };
+            return prefillRow(row, caps);
           }),
         ),
       )
@@ -416,6 +419,8 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
           images: null,
           contextWindow: "",
           maxTokens: "",
+          // 中转站的列表说了是不是生图模型就照它（接口类型不能生图时不标）；没说的等查公开模型目录（上面的 effect）。
+          ...(model.imageModel !== null && { image: model.imageModel && imageModelField(api) !== null }),
         })),
       ]);
       pushToast({ level: "info", message: t("custom.form.models.fetched", { count: outcome.models.length }) });

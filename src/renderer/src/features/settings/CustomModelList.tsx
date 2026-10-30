@@ -19,9 +19,18 @@ export interface ModelRow {
   /** 输入框里的原文（可以写 272k、1m）；保存时用 parseTokenCount 换成数。空 = 自动。 */
   contextWindow: string;
   maxTokens: string;
-  /** 生图模型（models.yml 里 `api: openai-images` / `kind: image`）：没有对话的四项参数。 */
+  /** 生图模型（models.yml 里 `api: openai-images` / `kind: image`）：没有对话的四项参数。undefined = 新加的、类型还没定。 */
   image?: boolean;
 }
+
+/** 改成生图时清掉对话的四项：生图模型用不上，留着会照样写进 models.yml。 */
+export const imageRowPatch = {
+  image: true,
+  reasoning: null,
+  images: null,
+  contextWindow: "",
+  maxTokens: "",
+} satisfies Partial<ModelRow>;
 
 export interface FetchNotice {
   tone: "ok" | "error";
@@ -100,7 +109,6 @@ export function CustomModelList({
     maxTokens: t("custom.form.meta.maxTokens"),
   };
 
-  // 改成生图时清掉对话的四项：生图模型用不上，留着会照样写进 models.yml。
   const kindCell = (row: ModelRow, supported: boolean) => (
     <div title={supported || row.image === true ? undefined : t("custom.form.meta.kind.unsupported")}>
       <Select<Kind>
@@ -114,14 +122,7 @@ export function CustomModelList({
         disabled={!supported && row.image !== true}
         label={t("custom.form.meta.cell", { column: columns.kind, model: row.id })}
         testId={`custom-model-kind-${row.id}`}
-        onChange={(next) =>
-          update(
-            row.id,
-            next === "image"
-              ? { image: true, reasoning: null, images: null, contextWindow: "", maxTokens: "" }
-              : { image: false },
-          )
-        }
+        onChange={(next) => update(row.id, next === "image" ? imageRowPatch : { image: false })}
       />
     </div>
   );

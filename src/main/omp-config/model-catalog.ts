@@ -1,5 +1,6 @@
-// 公开模型目录 models.dev（https://models.dev/api.json，omp 的联网模型表也来自它）：按模型 id 查能不能思考、收不收图片、上下文多大，
-// 给自定义提供商表单预填 omp 认不出的模型。整份目录一次运行只下一次（约 6 MB，压缩后约 600 KB），失败了下次再试。
+// 公开模型目录 models.dev（https://models.dev/api.json，omp 的联网模型表也来自它）：按模型 id 查能不能思考、收不收图片、上下文多大、
+// 输出文字还是图片，给自定义提供商表单预填 omp 认不出的模型、认出生图模型。整份目录一次运行只下一次（约 6 MB，压缩后约 600 KB），
+// 失败了下次再试。
 // 测试用 STUDIO_MODELS_DEV_URL 指到本地假服务。
 import type { ModelCapabilities } from "../../shared/custom-models.ts";
 import { log } from "../log/log.ts";
@@ -22,13 +23,18 @@ interface Entry {
 }
 
 function entryCaps(model: Record<string, unknown>): ModelCapabilities {
-  const modalities = model["modalities"] as { input?: unknown } | undefined;
+  const modalities = model["modalities"] as { input?: unknown; output?: unknown } | undefined;
   const limit = model["limit"] as { context?: unknown } | undefined;
   const context = limit?.context;
+  const contextWindow = typeof context === "number" && Number.isInteger(context) && context > 0 ? context : null;
+  const output = Array.isArray(modalities?.output) ? modalities.output : ["text"];
+  const outputsImage = output.includes("image");
   return {
     reasoning: model["reasoning"] === true,
     images: Array.isArray(modalities?.input) && modalities.input.includes("image"),
-    contextWindow: typeof context === "number" && Number.isInteger(context) && context > 0 ? context : null,
+    contextWindow,
+    outputsImage,
+    imageOnly: outputsImage && (!output.includes("text") || (model["type"] === "image" && contextWindow === null)),
   };
 }
 
@@ -62,10 +68,14 @@ function merge(entries: Entry[]): ModelCapabilities {
   }
   const half = entries.length / 2;
   const contexts = entries.flatMap((entry) => (entry.caps.contextWindow === null ? [] : [entry.caps.contextWindow]));
+  const supported = (flag: (caps: ModelCapabilities) => boolean) =>
+    entries.filter((entry) => flag(entry.caps)).length >= half;
   return {
-    reasoning: entries.filter((entry) => entry.caps.reasoning).length >= half,
-    images: entries.filter((entry) => entry.caps.images).length >= half,
+    reasoning: supported((caps) => caps.reasoning),
+    images: supported((caps) => caps.images),
     contextWindow: mostCommon(contexts),
+    outputsImage: supported((caps) => caps.outputsImage),
+    imageOnly: supported((caps) => caps.imageOnly),
   };
 }
 
