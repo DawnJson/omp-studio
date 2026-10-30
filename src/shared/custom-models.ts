@@ -47,6 +47,26 @@ export function defaultDiscoveryType(api: string): string | null {
   }
 }
 
+/**
+ * 把模型标成生图时写进模型条目的那一项，按 provider 的接口类型选（omp://models.md「runner API」，omp 18.14.0 实测）：
+ * OpenAI 兼容的两种写 `api: openai-images`（`POST <baseUrl>/images/generations`；Responses 上不用 `kind: image`，那要同一个
+ * provider 里有 GPT-5 以上的对话模型来带 hosted 生图）；Gemini 写 `kind: image`（`:generateContent`，只要图片）。
+ * 别的接口类型没有通用的生图请求，返回 null。
+ */
+export function imageModelField(
+  api: string,
+): { key: "api"; value: "openai-images" } | { key: "kind"; value: "image" } | null {
+  switch (api) {
+    case "openai-completions":
+    case "openai-responses":
+      return { key: "api", value: "openai-images" };
+    case "google-generative-ai":
+      return { key: "kind", value: "image" };
+    default:
+      return null;
+  }
+}
+
 export const limits = {
   providerId: 64,
   url: 2048,
@@ -107,7 +127,8 @@ export interface CustomProviderInfo {
   baseUrl: string | null;
   api: string | null;
   key: CustomKeyState;
-  models: (CustomModelEntry & CustomModelMeta)[];
+  /** `image` = 生图模型（条目写了 `api: openai-images` 或 `kind: image`），omp 只拿它给生图角色用，不出现在对话模型里。 */
+  models: (CustomModelEntry & CustomModelMeta & { image: boolean })[];
   /** 配了 `discovery`：模型由 omp 运行时发现，列表可以为空。 */
   discovery: boolean;
   /** `modelOverrides` 里写了能力参数的模型（只有 `name`、`compat` 这类别的键的不算）。 */
@@ -149,8 +170,11 @@ export interface CustomProviderInput {
   baseUrl: string;
   api: string;
   key: CustomKeyInput;
-  /** name 缺省 = 不动现有的名字；能力参数和文件里现有的值一样时不动（保留原来的写法），null = 去掉这一项。 */
-  models: ({ id: string; name?: string } & CustomModelMeta)[];
+  /**
+   * name 缺省 = 不动现有的名字；能力参数和文件里现有的值一样时不动（保留原来的写法），null = 去掉这一项。
+   * image：true = 标成生图（imageModelField），false = 改回对话，缺省 = 不动。
+   */
+  models: ({ id: string; name?: string; image?: boolean } & CustomModelMeta)[];
   /**
    * 自动发现模型（`providers.<id>.discovery`）：true = 没有就按 api 写默认的 `{type}`，已有的（含类型、timeoutMs 等）原样保留；
    * false = 去掉 `discovery`；缺省 = 不动。

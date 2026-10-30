@@ -110,6 +110,16 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 - **omp 认不出的模型按公开模型目录预填**（2026-10-28，仓库所有者定：数据来源 models.dev，思考、图片输入、上下文都填，新模型和已保存留"自动"的都填）：表单里每个模型 id 查一次 `https://models.dev/api.json`（omp 的联网模型表也来自它；整份约 6 MB，主进程一次运行只下一次，失败记日志、下次再下；`model-catalog.ts`，IPC `lookupModelCapabilities`；测试用 `STUDIO_MODELS_DEV_URL` 指到假服务）。按 id 最后一段、不分大小写匹配；同一个模型有多家条目时用厂商自己的那条（别家 id 的前缀，如 `moonshotai/…`，又是目录里的 provider），没有就按多数。查到"支持"的思考 / 图片输入和上下文窗口填进还是"自动"的格子，目录说不支持的留自动（omp 默认就是不支持），最大输出各家差别太大不填；保存才写进文件。已保存的模型，omp 给"自动"项补出了不是兜底的值（思考、图片、上下文任一项不是不思考 / 只收文字 / 128000）就算 omp 认识它，不覆盖；最大输出不参与判断（开了自动发现时 omp 会用中转站 `/models` 给的值）。编辑时等 omp 的模型列表读完再查。
 - **输入**：`CustomProviderInput.models[]` 每项 `{ id, name?, reasoning, images, contextWindow, maxTokens }`，四项都可以是 null（自动）。
 
+## 生图模型（2026-10-30，omp 18.14.0）
+
+omp 的 `generate_image` 工具用模型角色 `image`（`modelRoles.image`）的模型，工具本身要 `generate_image.enabled: true` 才注册（`omp://tools/generate_image.md`，默认关）。自定义 provider 里的模型要被 omp 当成生图模型，靠模型条目上的 runner 接口或 `kind`（`omp://models.md`「runner API」）：
+
+- **写法按 provider 的接口类型**（`imageModelField`，`src/shared/custom-models.ts`）：`openai-completions` / `openai-responses` → 模型上写 `api: openai-images`（`POST <baseUrl>/images/generations`，`n: 1`、`response_format: b64_json`）；`google-generative-ai` → 写 `kind: image`（同一个接口的 `:generateContent`，`responseModalities: ["IMAGE"]`）；其余接口（Anthropic、Azure、Bedrock）没有 omp 认的生图写法，表单里类型列只能选“对话”，原来就是生图的模型原样保留，新标成生图的存不了（主进程同样拒，`invalid-api`）。
+- **读**（`isImageModel`）：模型上 `api: openai-images` 或 `kind: image` 就是生图。**写**（`applyKind`）：只动这两个键，改回对话时去掉 `api: openai-images` / `kind: image`，模型上别的 `api` 不碰；`image` 缺省 = 不动。表单把模型标成生图时把对话的四项（`reasoning`、`input`、`contextWindow`、`maxTokens`）清成“自动”，`applyMeta` 照常从文件里去掉，生图行不显示这四格。
+- **输入**：`CustomProviderInput.models[].image?: boolean`；IPC 校验为布尔（`custom-model-handlers.ts`）。
+- 生图模型不在对话模型里（实测 18.14.0：默认的 `omp models --json` 不列 `kind: image` 的模型，`--kind all` 才列），所以出现在 设置 → 模型角色 → 特定能力的模型 → Image 的下拉里（`listRunnerModels`），不出现在输入框的模型选择里。工具与权限页的常用项里有“图片生成”开关（`generate_image.enabled`）。
+- **实测**（omp 18.14.0，2026-10-30，临时 `PI_CODING_AGENT_DIR`，本机假中转站；`models.yml` 由 `applyProvider` 生成，`config.yml` 写 `modelRoles.image` 和 `generate_image.enabled: true`，`omp -p` 让假对话模型写 `xd://generate_image`）：`openai-completions` 的 provider 下 `api: openai-images` 的模型收到 `POST /v1/images/generations`，Gemini 接口下 `kind: image` 的模型收到 `POST /v1beta/models/<id>:generateContent`，工具结果都是 `Generated 1 image(s)`。模型上既没写 `api: openai-images` 也没写 `kind`（如 `gpt-image-2`、`dall-e-3`）时 omp 把它列成对话模型。
+
 ## 拉取失败标在卡片上（2026-10-24）
 
 `CustomProviderForm` 记下最近一次拉取用的连接指纹（Base URL、接口类型、key 分段和输入）和结果。保存成功时：指纹和保存的一致，就把结果写进 `custom-models-store.ts` 的 `setFetchFailure`（失败记 code 和状态码，成功清掉）；不一致但连接改过，清掉（原来的结果不再适用）。不保存就关时，只有拉取用的是打开时原样的连接才记。`unsupported`、`command-key` 说明不了 key 和地址能不能用，不记。只在渲染进程内存里，不落盘、不进日志，key 不经过这里。
@@ -134,11 +144,11 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 
 ## 测试
 
-- `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、自动发现开关（默认类型按 api、已有 `discovery` 原样保留、关掉只去 `discovery`、没有默认类型的 api 被拒）、能力参数（写入、改一项不动别的写法、换回自动删掉、非法值被拒、`parseTokenCount`）、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、大小写混合的变量名按 `.env` / 系统环境变量识别、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢；`.env` 只改一行（保留 `export`、CRLF、BOM、注释、别的变量，跨行引号值拒绝）、保存 / 换名 / 删除时同步 `.env`（没人用才删、内置变量名不删、系统同名变量提示、`unsafe-env` 时两个文件都不动）。
+- `test/custom-models-file.test.ts`：保留注释/别的 provider/未知字段、增改删、key 三种写法、`discovery` 条目清空模型、自动发现开关（默认类型按 api、已有 `discovery` 原样保留、关掉只去 `discovery`、没有默认类型的 api 被拒）、能力参数（写入、改一项不动别的写法、换回自动删掉、非法值被拒、`parseTokenCount`）、生图模型（按接口类型写 `api: openai-images` / `kind: image`、读回、改回对话只去这两个键、不能生图的接口拒绝新标的、文件里原有的原样、`image` 不是布尔被拒）、CRLF、`providers:` 为空值、非法输入逐项被拒、读出来的信息不含 key、大小写混合的变量名按 `.env` / 系统环境变量识别、路径含空格和中文、yml/yaml 优先级、只有 `models.json` 时不写、读不懂的文件不动、并发写不丢；`.env` 只改一行（保留 `export`、CRLF、BOM、注释、别的变量，跨行引号值拒绝）、保存 / 换名 / 删除时同步 `.env`（没人用才删、内置变量名不删、系统同名变量提示、`unsafe-env` 时两个文件都不动）。
 - `test/custom-models-fetch.test.ts`：对本地假服务拉取成功、key 错、404、不通、超时、非 JSON、形状不对、Anthropic 路径和头、重定向不跟随。
 - `test/model-catalog.test.ts`：公开模型目录的汇总（厂商条目优先、按多数、形状不对跳过）和查找（id 最后一段不分大小写、下载失败返回空且下次重试、只下一次）。e2e 里"公开模型目录"一条：已保存留自动的 kimi-k3.1-pro 预填、omp 认识的 kimi-k3 不动、新拉取的预填、目录里没有的留自动；别的用例把 `STUDIO_MODELS_DEV_URL` 指到连不上的本机端口，不连真实服务。
 - `test/custom-models-real-omp.test.ts`（`STUDIO_REAL_OMP=1`，需要 PATH 上有 omp，不调真实模型）：真实 omp 列模型、同进程不重载、任务向假服务发 prompt 并拿到回复；自动发现：只写 `discovery`、不列模型，`omp models refresh` 跑通，`omp models <provider>` 和 `get_available_models` 都列出假服务的模型（openai 兼容和 anthropic 两种 `discovery.type`）；环境变量形式的 key：大小写混合的变量名、值写进 agent 目录 `.env`，omp 读到并带着它拉到模型；能力参数：写进去的四项被 omp 采用，留空的由 omp 按 id 补。
-- `test/e2e/custom-models.e2e.ts`：设置页完整流程；"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）；"能力参数"一条（模型行里设四项、非法上下文不能保存、写进文件、omp 采用、自动的格子显示 omp 补的值、换回自动后从文件里去掉、对话框不越界）；"只覆盖内置 provider"一条（卡片元信息、编辑里覆盖项勾着带原值、设 key 和上下文并手动加模型后文件里别的覆盖项和注释原样、`omp token anthropic` 返回这个 key、omp 采用写进去的上下文窗口、再编辑改回不设置并取消一个模型后 apiKey 和它的覆盖项去掉）；"环境变量形式的 key"一条（变量名 + 值，拉取用刚填的值，`models.yml` 只有变量名、`.env` 追加一行且原有行和 CRLF 不变，卡片写 `（.env）`，编辑时值框提示已在 `.env` 里，删除后那一行去掉）。`test/custom-models-file.test.ts` 的 `applyKey` 一组覆盖设置、环境变量去掉 `auth: none`、清除后空条目删掉、拒绝的输入。
+- `test/e2e/custom-models.e2e.ts`：设置页完整流程；"自动发现模型"一条（开关、写进文件的 discovery、omp 读到 /models 的模型、刷新模型按钮、关掉后去掉 discovery）；"能力参数"一条（模型行里设四项、非法上下文不能保存、写进文件、omp 采用、自动的格子显示 omp 补的值、换回自动后从文件里去掉、对话框不越界）；"生图"一条（类型列标成生图后四格消失、窄窗口中英文不越界、Anthropic 接口下存不了、文件里写 `api: openai-images`、omp 列为 `kind: image`、模型角色 Image 里选到并写 `modelRoles.image`、工具页打开图片生成写 `generate_image.enabled`、再编辑仍是生图）；"只覆盖内置 provider"一条（卡片元信息、编辑里覆盖项勾着带原值、设 key 和上下文并手动加模型后文件里别的覆盖项和注释原样、`omp token anthropic` 返回这个 key、omp 采用写进去的上下文窗口、再编辑改回不设置并取消一个模型后 apiKey 和它的覆盖项去掉）；"环境变量形式的 key"一条（变量名 + 值，拉取用刚填的值，`models.yml` 只有变量名、`.env` 追加一行且原有行和 CRLF 不变，卡片写 `（.env）`，编辑时值框提示已在 `.env` 里，删除后那一行去掉）。`test/custom-models-file.test.ts` 的 `applyKey` 一组覆盖设置、环境变量去掉 `auth: none`、清除后空条目删掉、拒绝的输入。
 - 假服务：`test/fake-openai/server.ts`（`GET /v1/models`、`POST /v1/chat/completions` 流式和非流式、`GET /api.json` 假的公开模型目录）。
 
 ## 没做的

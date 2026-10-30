@@ -62,7 +62,7 @@ export const model = {
   "role.hint.task": "Task subagent",
   "role.hint.advisor": "顾问咨询",
   "role.hint.widget": "后台作业的进度小部件",
-  "role.hint.image": "生成图片",
+  "role.hint.image": "生成图片（要先在 工具与权限 里打开图片生成）",
   "role.hint.web": "网页搜索",
   "role.hint.speech": "语音合成",
   "role.hint.dictation": "语音转文字",

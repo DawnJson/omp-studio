@@ -63,7 +63,7 @@ export const model = {
   "role.hint.task": "Task subagents",
   "role.hint.advisor": "advisor consultations",
   "role.hint.widget": "background-job progress widgets",
-  "role.hint.image": "image generation",
+  "role.hint.image": "image generation (turn on Image generation under Tools & permissions first)",
   "role.hint.web": "web search",
   "role.hint.speech": "text-to-speech",
   "role.hint.dictation": "speech-to-text",

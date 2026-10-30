@@ -25,6 +25,8 @@ export const ompcfg = {
   "tools.format.desc": "Auto: native tool calls, or the GLM format when unsupported",
   "bash.enabled.label": "Allow running commands",
   "bash.enabled.desc": "",
+  "generate_image.enabled.label": "Image generation",
+  "generate_image.enabled.desc": "Lets the model generate and edit images; pick the model under Model roles → Image",
   "steeringMode.label": "Steering message delivery",
   "steeringMode.desc": "",
   "followUpMode.label": "Follow-up delivery",

@@ -1,6 +1,6 @@
-// 自定义提供商对话框里的"模型"一栏：工具栏（全选方框、一键拉取、自动发现开关）、勾选、筛选、手动添加；勾选的模型在同一行设思考、
-// 图片输入、上下文窗口、最大输出（models.yml 模型条目或 `modelOverrides` 覆盖项的 reasoning / input / contextWindow / maxTokens）。
-// 状态（rows、提示）由对话框持有。覆盖内置 provider 的对话框不传 fetch / discovery，工具栏里就没有这两项。
+// 自定义提供商对话框里的"模型"一栏：工具栏（全选方框、一键拉取、自动发现开关）、勾选、筛选、手动添加；勾选的模型在同一行选对话 / 生图，
+// 对话模型再设思考、图片输入、上下文窗口、最大输出（models.yml 模型条目或 `modelOverrides` 覆盖项的 reasoning / input / contextWindow /
+// maxTokens）。状态（rows、提示）由对话框持有。覆盖内置 provider 的对话框不传 fetch / discovery / image，工具栏里没有前两项，表里没有类型列。
 import { useMemo, useState } from "react";
 import { parseTokenCount, type CustomModelMeta } from "../../../../shared/custom-models.ts";
 import { useT } from "../../i18n/use-t.ts";
@@ -19,6 +19,8 @@ export interface ModelRow {
   /** 输入框里的原文（可以写 272k、1m）；保存时用 parseTokenCount 换成数。空 = 自动。 */
   contextWindow: string;
   maxTokens: string;
+  /** 生图模型（models.yml 里 `api: openai-images` / `kind: image`）：没有对话的四项参数。 */
+  image?: boolean;
 }
 
 export interface FetchNotice {
@@ -37,13 +39,26 @@ interface CustomModelListProps {
   fetch?: { busy: boolean; disabled: boolean; run(): void };
   /** 自动发现模型（models.yml 里写 discovery）；接口类型没有通用发现方式时开关停用。 */
   discovery?: { on: boolean; supported: boolean; onChange(next: boolean): void };
+  /** 类型列（对话 / 生图）；接口类型不能生图时只能改回对话。 */
+  image?: { supported: boolean };
 }
 
 type Flag = "auto" | "yes" | "no";
 
 const flagOf = (value: boolean | null): Flag => (value === null ? "auto" : value ? "yes" : "no");
 
-export function CustomModelList({ rows, onRows, hintOf, notice, onNotice, fetch, discovery }: CustomModelListProps) {
+type Kind = "chat" | "image";
+
+export function CustomModelList({
+  rows,
+  onRows,
+  hintOf,
+  notice,
+  onNotice,
+  fetch,
+  discovery,
+  image,
+}: CustomModelListProps) {
   const t = useT();
   const [filter, setFilter] = useState("");
   const [manual, setManual] = useState("");
@@ -78,11 +93,38 @@ export function CustomModelList({ rows, onRows, hintOf, notice, onNotice, fetch,
   const autoLabel = (hint: string | null) =>
     hint === null ? t("custom.form.meta.auto") : t("custom.form.meta.autoIs", { value: hint });
   const columns = {
+    kind: t("custom.form.meta.kind"),
     reasoning: t("custom.form.meta.reasoning"),
     images: t("custom.form.meta.images"),
     contextWindow: t("custom.form.meta.contextWindow"),
     maxTokens: t("custom.form.meta.maxTokens"),
   };
+
+  // 改成生图时清掉对话的四项：生图模型用不上，留着会照样写进 models.yml。
+  const kindCell = (row: ModelRow, supported: boolean) => (
+    <div title={supported || row.image === true ? undefined : t("custom.form.meta.kind.unsupported")}>
+      <Select<Kind>
+        size="sm"
+        width="100%"
+        value={row.image === true ? "image" : "chat"}
+        options={[
+          { value: "chat", label: t("custom.form.meta.kind.chat") },
+          { value: "image", label: t("custom.form.meta.kind.image") },
+        ]}
+        disabled={!supported && row.image !== true}
+        label={t("custom.form.meta.cell", { column: columns.kind, model: row.id })}
+        testId={`custom-model-kind-${row.id}`}
+        onChange={(next) =>
+          update(
+            row.id,
+            next === "image"
+              ? { image: true, reasoning: null, images: null, contextWindow: "", maxTokens: "" }
+              : { image: false },
+          )
+        }
+      />
+    </div>
+  );
 
   const flagCell = (row: ModelRow, key: "reasoning" | "images", hint: boolean | null) => (
     <Select<Flag>
@@ -170,10 +212,11 @@ export function CustomModelList({ rows, onRows, hintOf, notice, onNotice, fetch,
       {rows.length === 0 ? (
         <p className="cp-text">{t("custom.form.models.empty")}</p>
       ) : (
-        <div className="cp-model-table" data-testid="custom-model-list">
+        <div className="cp-model-table" data-kinds={image !== undefined || undefined} data-testid="custom-model-list">
           {/* 列名只给看的人；每个控件自己的 aria-label 带着列名和模型 id。 */}
           <div className="cp-model-head" aria-hidden="true">
             <span />
+            {image !== undefined && <span>{columns.kind}</span>}
             <span>{columns.reasoning}</span>
             <span>{columns.images}</span>
             <span>{columns.contextWindow}</span>
@@ -192,7 +235,8 @@ export function CustomModelList({ rows, onRows, hintOf, notice, onNotice, fetch,
                     {row.id}
                   </span>
                 </Checkbox>
-                {hint !== null && (
+                {hint !== null && image !== undefined && kindCell(row, image.supported)}
+                {hint !== null && row.image !== true && (
                   <>
                     {flagCell(row, "reasoning", hint.reasoning)}
                     {flagCell(row, "images", hint.images)}

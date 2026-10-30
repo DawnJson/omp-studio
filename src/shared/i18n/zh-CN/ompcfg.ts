@@ -25,6 +25,8 @@ export const ompcfg = {
   "tools.format.desc": "自动：优先用原生工具调用，不支持时用 GLM 格式",
   "bash.enabled.label": "允许执行命令",
   "bash.enabled.desc": "",
+  "generate_image.enabled.label": "图片生成",
+  "generate_image.enabled.desc": "让模型能生成和编辑图片；用哪个模型在 模型角色 → Image 里选",
   "steeringMode.label": "插话的处理方式",
   "steeringMode.desc": "",
   "followUpMode.label": "稍后消息的处理方式",

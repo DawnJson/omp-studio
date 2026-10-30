@@ -426,6 +426,117 @@ test("自定义提供商：模型行里设思考、图片输入、上下文窗�
   }
 });
 
+test("自定义提供商：模型标成生图 → models.yml 写 api: openai-images、omp 当生图模型列出；角色 Image 里选得到；工具页打开图片生成", async () => {
+  const fake = await startFakeOpenAi({ models: ["chat-a", "img-a"] });
+  const { launched, agentDir } = await launchSettings();
+  const file = path.join(agentDir, "models.yml");
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("custom-add").click();
+    const form = page.getByTestId("custom-provider-form");
+    await page.getByTestId("custom-id").fill("img-proxy");
+    await page.getByTestId("custom-base-url").fill(fake.baseUrl);
+    await page.getByTestId("custom-key-mode-none").click();
+    await page.getByTestId("custom-fetch").click();
+    await page.getByTestId("custom-model-chat-a").check();
+    await page.getByTestId("custom-model-img-a").check();
+
+    // 标成生图：对话的四项参数不再出现。
+    await expect(page.getByTestId("custom-model-kind-img-a")).toContainText("对话");
+    await page.getByTestId("custom-model-kind-img-a").click();
+    await page.getByTestId("custom-model-kind-img-a-list").getByRole("option", { name: "生图", exact: true }).click();
+    await expect(page.getByTestId("custom-model-kind-img-a")).toContainText("生图");
+    await expect(page.getByTestId("custom-model-reasoning-img-a")).toHaveCount(0);
+    await expect(page.getByTestId("custom-model-contextWindow-img-a")).toHaveCount(0);
+    await expect(page.getByTestId("custom-model-reasoning-chat-a")).toBeVisible();
+    await page.setViewportSize({ width: 900, height: 900 });
+    for (const locale of ["zh-CN", "en"] as const) {
+      await setLocaleTheme(page, locale, "light");
+      await expectNoOverflow(form);
+    }
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.setViewportSize({ width: 1200, height: 900 });
+
+    // Anthropic 接口不能生图：新标的生图模型存不了，对话模型的类型改不成生图。
+    const api = page.getByTestId("custom-api");
+    await api.click();
+    await page
+      .getByTestId("custom-api-list")
+      .getByRole("option", { name: /Anthropic Messages/ })
+      .click();
+    await expect(page.getByTestId("custom-save")).toBeDisabled();
+    await expect(page.getByTestId("custom-model-kind-chat-a")).toBeDisabled();
+    await api.click();
+    await page
+      .getByTestId("custom-api-list")
+      .getByRole("option", { name: /OpenAI Chat Completions/ })
+      .click();
+    await expect(page.getByTestId("custom-save")).toBeEnabled();
+    await page.getByTestId("custom-save").click();
+    await expect(form).toHaveCount(0);
+
+    const written = parseYaml(await readFile(file, "utf8")) as {
+      providers: Record<string, { api: string; models: Record<string, unknown>[] }>;
+    };
+    expect(written.providers["img-proxy"]?.api).toBe("openai-completions");
+    expect(written.providers["img-proxy"]?.models).toEqual([{ id: "chat-a" }, { id: "img-a", api: "openai-images" }]);
+
+    // omp 把它当生图模型（不在对话模型里）。
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() =>
+            globalThis.studio
+              .listRunnerModels()
+              .then((models) =>
+                models
+                  .filter((model) => model.key.provider === "img-proxy")
+                  .map((model) => [model.key.modelId, model.kind]),
+              ),
+          ),
+        { timeout: 30_000 },
+      )
+      .toEqual([["img-a", "image"]]);
+
+    // 模型角色 → Image：选得到这个模型，写 modelRoles.image。
+    const config = path.join(agentDir, "config.yml");
+    const settings = async () =>
+      (parseYaml(await readFile(config, "utf8").catch(() => "")) ?? {}) as Record<string, unknown>;
+    await page.getByTestId("settings-nav-models").click();
+    await page.getByTestId("setting-role-image").click();
+    await page.getByTestId("setting-role-image-search").fill("img-a");
+    await expect(page.getByRole("option", { name: "chat-a" })).toHaveCount(0);
+    await page.getByRole("option", { name: "img-a" }).click();
+    await expect
+      .poll(async () => ((await settings())["modelRoles"] as Record<string, string> | undefined)?.["image"], {
+        timeout: 30_000,
+      })
+      .toBe("img-proxy/img-a");
+
+    // 工具与权限：图片生成在常用项里，打开写 generate_image.enabled。
+    await page.getByTestId("settings-nav-tools").click();
+    const toggle = page.getByTestId("cfg-generate_image.enabled").getByRole("switch");
+    await expect(toggle).toHaveAttribute("aria-checked", "false", { timeout: 30_000 });
+    await toggle.click();
+    await expect
+      .poll(async () => ((await settings())["generate_image"] as Record<string, unknown> | undefined)?.["enabled"], {
+        timeout: 10_000,
+      })
+      .toBe(true);
+
+    // 再打开：类型还是生图。
+    await page.getByTestId("settings-nav-providers").click();
+    await page.getByTestId("custom-edit-img-proxy").click();
+    await expect(page.getByTestId("custom-model-kind-img-a")).toContainText("生图");
+    await expect(page.getByTestId("custom-model-kind-chat-a")).toContainText("对话");
+  } finally {
+    await launched.close();
+    await fake.close();
+    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
 test("自定义提供商：omp 认不出的模型按公开模型目录预填思考、图片输入、上下文（已保存留自动的和新拉取的）；omp 认识的不动", async () => {
   // kimi-k3 在 omp 的内置表里（能思考、1M 上下文），目录里故意写成别的值：不能拿来覆盖。
   const catalog = {

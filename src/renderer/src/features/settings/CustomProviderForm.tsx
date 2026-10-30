@@ -6,6 +6,7 @@ import {
   defaultDiscoveryType,
   defaultEnvName,
   formApis,
+  imageModelField,
   isFetchableApi,
   isValidEnvName,
   parseTokenCount,
@@ -260,6 +261,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
         images: model.images,
         contextWindow: tokenText(model.contextWindow),
         maxTokens: tokenText(model.maxTokens),
+        image: model.image,
       })) ?? [],
   );
   const [notice, setNotice] = useState<FetchNotice | null>(null);
@@ -328,7 +330,9 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
         setRows((current) =>
           current.map((row) => {
             const caps = found[row.id];
-            return caps === undefined || ompKnowsRef.current(row.id) ? row : prefillRow(row, caps);
+            return caps === undefined || row.image === true || ompKnowsRef.current(row.id)
+              ? row
+              : prefillRow(row, caps);
           }),
         ),
       )
@@ -366,11 +370,17 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
   // 接口类型改成没有通用发现方式的：开关停用，开着也不写；条目里本来就有 discovery 的照旧能保存（原样保留）。
   const discoverySupported = defaultDiscoveryType(api) !== null || provider?.discovery === true;
   const discoveryOn = discovery && discoverySupported;
+  // 接口类型改成不能生图的：文件里本来就是生图的模型原样保留，新标成生图的存不了。
+  const imageSupported = imageModelField(api) !== null;
+  const imageRowsOk =
+    imageSupported ||
+    checkedRows.every((row) => row.image !== true || provider?.models.some((m) => m.id === row.id && m.image) === true);
   const canSave =
     (mode === "edit" || id.trim() !== "") &&
     baseUrl.trim() !== "" &&
     keyReady &&
     countsValid &&
+    imageRowsOk &&
     (selectedCount > 0 || discoveryOn);
 
   const fetchModels = () =>
@@ -426,6 +436,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
           images: row.images,
           contextWindow: parseTokenCount(row.contextWindow) ?? null,
           maxTokens: parseTokenCount(row.maxTokens) ?? null,
+          image: row.image === true,
         })),
         discovery: discoveryOn,
       };
@@ -557,6 +568,7 @@ export function CustomProviderForm({ mode, provider, onSaved, onClose }: CustomP
               run: () => void fetchModels(),
             }}
             discovery={{ on: discoveryOn, supported: discoverySupported, onChange: setDiscovery }}
+            image={{ supported: imageSupported }}
           />
         </FormField>
         {saveError !== null && (

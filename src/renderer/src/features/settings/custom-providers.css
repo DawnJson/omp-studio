@@ -85,8 +85,8 @@
 }
 
 /*
- * 模型表：模型 id | 思考 | 图片输入 | 上下文窗口 | 最大输出。每行是 subgrid，四列控件上下对齐；
- * 没勾选的模型只有勾选框和 id（拉取来的几百个模型不用每行都放控件）。
+ * 模型表：模型 id | （类型）| 思考 | 图片输入 | 上下文窗口 | 最大输出。每行是 subgrid，各列控件上下对齐；
+ * 没勾选的模型只有勾选框和 id（拉取来的几百个模型不用每行都放控件），生图模型只到类型列。
  */
 .cp-model-table {
   display: grid;
@@ -99,6 +99,10 @@
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+}
+
+.cp-model-table[data-kinds] {
+  grid-template-columns: minmax(0, 1fr) 88px repeat(2, 128px) repeat(2, 120px);
 }
 
 .cp-model-head,

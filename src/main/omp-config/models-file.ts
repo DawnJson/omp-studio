@@ -13,6 +13,7 @@ import path from "node:path";
 import { isMap, isScalar, isSeq, parseDocument, YAMLMap, YAMLSeq, type Document } from "yaml";
 import {
   defaultDiscoveryType,
+  imageModelField,
   isKnownApi,
   isValidEnvName,
   isValidLiteralKey,
@@ -25,7 +26,6 @@ import {
   unusedEnvName,
   type CustomKeyState,
   type ProviderOverrideInput,
-  type CustomModelEntry,
   type CustomModelMeta,
   type CustomModelsErrorCode,
   type CustomModelsFileInfo,
@@ -106,14 +106,19 @@ function metaOf(entry: Record<string, unknown>): CustomModelMeta {
   };
 }
 
-function modelEntries(value: unknown): (CustomModelEntry & CustomModelMeta)[] {
+/** 生图模型：写了 runner 接口 `api: openai-images`，或者 `kind: image`（Gemini、Responses 这类对话接口也能生图）。 */
+function isImageModel(entry: Record<string, unknown>): boolean {
+  return entry["api"] === "openai-images" || entry["kind"] === "image";
+}
+
+function modelEntries(value: unknown): CustomProviderInfo["models"] {
   if (!Array.isArray(value)) return [];
-  const out: (CustomModelEntry & CustomModelMeta)[] = [];
+  const out: CustomProviderInfo["models"] = [];
   for (const item of value as unknown[]) {
     if (typeof item !== "object" || item === null) continue;
     const entry = item as Record<string, unknown>;
     const id = str(entry["id"]);
-    if (id !== null) out.push({ id, name: str(entry["name"]), ...metaOf(entry) });
+    if (id !== null) out.push({ id, name: str(entry["name"]), ...metaOf(entry), image: isImageModel(entry) });
   }
   return out;
 }
@@ -213,6 +218,7 @@ function validateInput(input: CustomProviderInput, mode: "add" | "edit"): Custom
     if (!isValidModelId(model.id) || seen.has(model.id)) return "invalid-models";
     if (model.name !== undefined && !isValidModelName(model.name)) return "invalid-models";
     if (!isMetaValid(model)) return "invalid-models";
+    if (model.image !== undefined && typeof model.image !== "boolean") return "invalid-models";
     seen.add(model.id);
   }
   return null;
@@ -248,7 +254,8 @@ function providersMap(doc: Document): YAMLMap | null {
   return isMap(current) ? (current as YAMLMap) : null;
 }
 
-function applyModels(doc: Document, provider: YAMLMap, input: CustomProviderInput): void {
+/** 接口类型不能生图、却要把模型标成生图时返回 `invalid-api`。 */
+function applyModels(doc: Document, provider: YAMLMap, input: CustomProviderInput): CustomModelsErrorCode | null {
   const existing = provider.get("models", true);
   const byId = new Map<string, YAMLMap>();
   if (isSeq(existing))
@@ -257,15 +264,17 @@ function applyModels(doc: Document, provider: YAMLMap, input: CustomProviderInpu
       const id = item.get("id");
       if (typeof id === "string") byId.set(id, item as YAMLMap);
     }
-  const next = input.models.map((model) => {
+  const next: YAMLMap[] = [];
+  for (const model of input.models) {
     const node = byId.get(model.id) ?? (doc.createNode({ id: model.id }) as YAMLMap);
     if (model.name !== undefined) node.set("name", model.name);
+    if (!applyKind(node, model.image, input.api)) return "invalid-api";
     applyMeta(doc, node, model);
-    return node;
-  });
+    next.push(node);
+  }
   if (next.length === 0) {
     provider.delete("models");
-    return;
+    return null;
   }
   // 就地换 items，seq 上挂的注释留着。
   if (isSeq(existing)) {
@@ -275,6 +284,24 @@ function applyModels(doc: Document, provider: YAMLMap, input: CustomProviderInpu
     seq.items = next;
     provider.set("models", seq);
   }
+  return null;
+}
+
+/**
+ * 生图 / 对话（缺省不动）：已经是要的那种就不碰（手写的另一种写法也算）；标成生图写 imageModelField 给的那一项，
+ * 改回对话去掉 `api: openai-images` 和 `kind: image`，模型回到 provider 的接口类型。接口类型不能生图时返回 false。
+ */
+function applyKind(node: YAMLMap, image: boolean | undefined, api: string): boolean {
+  if (image === undefined || image === isImageModel(node.toJSON() as Record<string, unknown>)) return true;
+  if (!image) {
+    if (node.get("api") === "openai-images") node.delete("api");
+    if (node.get("kind") === "image") node.delete("kind");
+    return true;
+  }
+  const field = imageModelField(api);
+  if (field === null) return false;
+  node.set(field.key, field.value);
+  return true;
 }
 
 /** 只改和文件里现有值不同的项（`input: [ text, image ]` 这类原来的写法不被重排）；null = 去掉这一项。 */
@@ -337,7 +364,8 @@ export function applyProvider(text: string | null, input: CustomProviderInput, m
     provider.delete("apiKey");
   }
   provider.set("api", input.api);
-  applyModels(doc, provider, input);
+  const modelsFailed = applyModels(doc, provider, input);
+  if (modelsFailed !== null) return fail(modelsFailed);
   // 走 anthropic-messages 而没写 `auth` 时 omp 按订阅（OAuth）组装请求，system 开头带每次都变的 `cch`，中转站缓存不命中
   // （omp://models.md「Allowed auth/discovery values」）。`none`、`oauth` 是用户选的，不动；不再走 Anthropic 时
   // `auth: apiKey` 就是 omp 的默认值，去掉。

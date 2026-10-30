@@ -86,8 +86,8 @@ describe("models.yml 编辑（纯文本）", () => {
         api: "openai-completions",
         key: { kind: "literal" },
         models: [
-          { id: "gpt-x", name: null, ...auto },
-          { id: "gpt-y", name: "GPT Y", ...auto },
+          { id: "gpt-x", name: null, ...auto, image: false },
+          { id: "gpt-y", name: "GPT Y", ...auto, image: false },
         ],
         discovery: false,
         overrides: [],
@@ -315,8 +315,16 @@ describe("models.yml 编辑（纯文本）", () => {
     expect(text).toContain("input: [ text ]");
     const parsed = parseProviders(text, noEnv);
     expect(parsed.ok && parsed.providers[0]?.models).toEqual([
-      { id: "relay-gpt", name: null, reasoning: true, images: true, contextWindow: 272000, maxTokens: 32000 },
-      { id: "plain", name: null, reasoning: false, images: false, contextWindow: null, maxTokens: null },
+      {
+        id: "relay-gpt",
+        name: null,
+        reasoning: true,
+        images: true,
+        contextWindow: 272000,
+        maxTokens: 32000,
+        image: false,
+      },
+      { id: "plain", name: null, reasoning: false, images: false, contextWindow: null, maxTokens: null, image: false },
     ]);
   });
 
@@ -364,6 +372,82 @@ describe("models.yml 编辑（纯文本）", () => {
     });
     const text = applied(odd, input({ id: "other", key: { kind: "keep" }, models: [model("keep-me")] }), "edit");
     expect(text).toContain("contextWindow: big # 手写的");
+  });
+
+  /** 刚由 applyProvider 输出的 YAML 里某个 provider 的 models。 */
+  const modelsOf = (text: string, id: string) =>
+    (parseYaml(text) as { providers: Record<string, { models?: unknown[] }> }).providers[id]?.models;
+  const imageModel = (id: string) => ({ ...model(id), image: true });
+
+  it("生图：OpenAI 兼容的两种写 api: openai-images，Gemini 写 kind: image；读回来 image 为 true，对话模型不变", () => {
+    for (const [api, field] of [
+      ["openai-completions", { api: "openai-images" }],
+      ["openai-responses", { api: "openai-images" }],
+      ["google-generative-ai", { kind: "image" }],
+    ] as const) {
+      const text = applied(null, input({ api, models: [model("chat-x"), imageModel("img")] }));
+      expect(modelsOf(text, "my-proxy")).toEqual([{ id: "chat-x" }, { id: "img", ...field }]);
+      const parsed = parseProviders(text, noEnv);
+      expect(parsed.ok && parsed.providers[0]?.models.map((m) => m.image)).toEqual([false, true]);
+    }
+  });
+
+  it("生图：改回对话去掉 api: openai-images / kind: image；已经是生图的（另一种写法也算）和缺省的不动", () => {
+    const file = `providers:
+  relay:
+    baseUrl: https://relay.example.com/v1
+    apiKey: K
+    api: openai-completions
+    models:
+      - id: a
+        api: openai-images # 生图
+      - id: b
+        kind: image
+      - id: c
+        api: openai-images
+      - id: d
+        kind: image
+`;
+    const text = applied(
+      file,
+      input({
+        id: "relay",
+        key: { kind: "keep" },
+        models: [imageModel("a"), imageModel("b"), { ...model("c"), image: false }, model("d")],
+      }),
+      "edit",
+    );
+    expect(text).toContain("api: openai-images # 生图");
+    expect(modelsOf(text, "relay")).toEqual([
+      { id: "a", api: "openai-images" },
+      { id: "b", kind: "image" },
+      { id: "c" },
+      { id: "d", kind: "image" },
+    ]);
+  });
+
+  it("生图：接口类型不能生图时新标的被拒（invalid-api），文件里已经是生图的照样保存；image 不是布尔被拒", () => {
+    expect(applyProvider(null, input({ api: "anthropic-messages", models: [imageModel("img")] }), "add")).toEqual({
+      ok: false,
+      code: "invalid-api",
+    });
+    const file = `providers:
+  a:
+    baseUrl: https://a.example.com
+    apiKey: K
+    api: openai-completions
+    models:
+      - id: img
+        api: openai-images
+`;
+    const text = applied(
+      file,
+      input({ id: "a", api: "anthropic-messages", key: { kind: "keep" }, models: [imageModel("img")] }),
+      "edit",
+    );
+    expect(modelsOf(text, "a")).toEqual([{ id: "img", api: "openai-images" }]);
+    const bad = { ...model("img"), image: "yes" } as unknown as ReturnType<typeof imageModel>;
+    expect(applyProvider(null, input({ models: [bad] }), "add")).toEqual({ ok: false, code: "invalid-models" });
   });
 
   it.each([
@@ -604,7 +688,9 @@ describe("models.yml 文件读写", () => {
       await saveCustomProvider(agentDir, input({ key: { kind: "keep" }, models: [model("only")] }), "edit"),
     ).toEqual({ ok: true });
     expect(await readFile(`${file}.bak`, "utf8")).toBe(first);
-    expect((await readModelsFile(agentDir)).providers[0]?.models).toEqual([{ id: "only", name: null, ...auto }]);
+    expect((await readModelsFile(agentDir)).providers[0]?.models).toEqual([
+      { id: "only", name: null, ...auto, image: false },
+    ]);
 
     expect(await deleteCustomProvider(agentDir, "my-proxy")).toEqual({ ok: true });
     expect((await readModelsFile(agentDir)).providers).toEqual([]);

@@ -86,10 +86,12 @@ function parseInput(value: unknown): CustomProviderInput {
     key: parseKey(record["key"]),
     models: parseModels(record["models"]).map((model) => {
       const name = model["name"];
+      const image = model["image"];
       return {
         id: parseString(model["id"], "model.id", 1000, { allowEmpty: true }),
         ...(name !== undefined && { name: parseString(name, "model.name", 1000, { allowEmpty: true }) }),
         ...parseMeta(model),
+        ...(image !== undefined && { image: parseBoolean(image, "model.image") }),
       };
     }),
     ...(record["discovery"] !== undefined && { discovery: parseBoolean(record["discovery"], "discovery") }),
