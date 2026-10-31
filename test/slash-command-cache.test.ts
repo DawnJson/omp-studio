@@ -11,10 +11,13 @@ import { StartupCache } from "../src/main/service/startup-cache.ts";
 import { writeFileAtomic } from "../src/main/tasks/atomic-write.ts";
 
 let scratch: string;
+/** 用例里开过的启动缓存：它们在后台写盘（临时文件再换名），删目录前要等写完，否则 rm 碰上正在建的临时文件报 ENOTEMPTY（Linux CI 撞过）。 */
+const stores: StartupCache[] = [];
 beforeAll(async () => {
   scratch = await mkdtemp(path.join(os.tmpdir(), "omp-studio 斜杠缓存-"));
 });
 afterAll(async () => {
+  await Promise.all(stores.map((store) => store.flushed()));
   await rm(scratch, { recursive: true, force: true });
 });
 
@@ -36,6 +39,7 @@ async function setup(name: string) {
       write: (target, text) => writeFileAtomic(target, text, "test"),
       warn: () => {},
     });
+    stores.push(store);
     const cache = new SlashCommandCache({
       stamp: async (dir) =>
         inputStamp(state.version, await slashCommandInputs(dir, agentDir, path.join(home, ".omp"), home)),
