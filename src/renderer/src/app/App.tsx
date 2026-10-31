@@ -180,9 +180,35 @@ export function App() {
     };
     const previous = shownTheme.current;
     shownTheme.current = theme;
-    // 用户切换主题时整窗交叉淡入（View Transitions，时长见 app.css）；启动时第一次套用不动画。
-    if (previous === null || previous === theme) apply();
-    else document.startViewTransition(apply);
+    // 系统三键不是网页画的：网页换完 data-theme 告诉主进程，三键跟着换（main-window.ts 的 setTitleBarTheme）。
+    const report = (crossfade: boolean) => void window.studio.setTitleBarTheme(theme, crossfade);
+    // 用户切换主题时整窗交叉淡入（View Transitions，时长见 app.css），淡入开始时三键用同样的时长和曲线一起淡入；
+    // 启动时第一次套用不动画。淡入被跳过（窗口隐藏着、紧接着又换了主题）时 ready 失败，页面在 apply 后直接换，三键也直接换。
+    if (previous === null || previous === theme) {
+      apply();
+      report(false);
+      return;
+    }
+    const transition = document.startViewTransition(apply);
+    void transition.ready.then(
+      async () => {
+        // ready 时伪元素刚建好，淡入下一帧才开始（实测 ready 比动画的开始时刻早约 25ms，先报告三键就领先网页一截）。
+        // 这一帧里淡入被跳过（窗口隐藏、又起了一次 View Transition）时动画取消、它的 ready 失败：页面已是新主题，三键直接换。
+        const fade = document
+          .getAnimations()
+          .find(
+            (animation) => (animation.effect as KeyframeEffect | null)?.pseudoElement === "::view-transition-new(root)",
+          );
+        const started =
+          fade === undefined ||
+          (await fade.ready.then(
+            () => true,
+            () => false,
+          ));
+        report(started);
+      },
+      () => void transition.updateCallbackDone.then(() => report(false)),
+    );
   }, [theme]);
   // 设置读到（或读失败）、主题套上，并且页面第一次有内容的一帧已经真的显示出来（first-contentful-paint，按上屏时间记），
   // 才告诉主进程淡入窗口。只等 React 提交不够：窗口刚显示时绘制面还没准备好，提交后要再过约 250ms 内容才上屏，

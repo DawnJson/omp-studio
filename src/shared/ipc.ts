@@ -999,6 +999,13 @@ export const historyOrders: readonly HistoryOrder[] = ["folder", "time"];
 export const editCommands = ["undo", "cut", "copy", "paste", "selectAll"] as const;
 export type EditCommand = (typeof editCommands)[number];
 
+/**
+ * 系统三键随遮罩变暗 / 恢复时跟哪种遮罩动画（setTitleBarDimmed）：scrim = 弹窗的遮罩（淡入 --dur-fade）；
+ * palette = 命令面板（淡入 --dur-fast，减少动效时不淡入）；zoom = 过程区放大看图，遮罩随整窗交叉淡入出现、消失。
+ */
+export const titleBarFades = ["scrim", "palette", "zoom"] as const;
+export type TitleBarFade = (typeof titleBarFades)[number];
+
 /** openTerminal 的结果。 */
 export interface TerminalOpenResult {
   /** 终端的工作目录，只用于显示（任务 cwd：worktree 根或项目目录）。 */
@@ -1054,7 +1061,12 @@ export interface StudioInvokeApi {
   getShellState(): Promise<ShellState>;
   setShellState(patch: Partial<ShellState>): Promise<void>;
   /** 有遮罩的弹窗（模型选择、命令面板、确认框等）打开/全部关闭时调用：系统三键（titleBarOverlay）的颜色跟着遮罩一起变暗/恢复。 */
-  setTitleBarDimmed(dimmed: boolean): Promise<void>;
+  setTitleBarDimmed(dimmed: boolean, fade: TitleBarFade): Promise<void>;
+  /**
+   * 网页的 <html data-theme> 换了：系统三键跟着换。crossfade = 网页这次整窗交叉淡入，在淡入开始时调用，三键一起淡入；
+   * 否则（启动时第一次套用、淡入被跳过）直接换。
+   */
+  setTitleBarTheme(theme: ThemePreference, crossfade: boolean): Promise<void>;
   /** 渲染进程第一帧（设置已读到、主题已套上）画完了：主进程这时才把启动时的窗口淡入显示。只有第一次有效，重载页面不再显示窗口。 */
   windowReady(): Promise<void>;
   /** 输入框右键菜单：对当前获得焦点的输入框执行编辑命令（主进程调 webContents 的同名方法；粘贴不经过渲染进程读剪贴板）。 */
@@ -1625,6 +1637,7 @@ export const invokeNames = {
   getShellState: true,
   setShellState: true,
   setTitleBarDimmed: true,
+  setTitleBarTheme: true,
   windowReady: true,
   editField: true,
   listProjects: true,

@@ -57,8 +57,8 @@ function TspZoomHost() {
   const t = useT();
   const zoom = useZoom();
   const reduced = useReducedMotion();
-  // 放大图的遮罩盖住整个窗口（含顶栏），系统三键也要一起调暗。
-  useTitleBarDim(zoom !== null);
+  // 放大图的遮罩盖住整个窗口（含顶栏），系统三键也要一起调暗；遮罩随整窗交叉淡入出现、消失（zoom-store.ts），渐变按它的时长。
+  useTitleBarDim(zoom !== null, "zoom");
   useEffect(() => {
     if (!zoom) return;
     const onKey = (event: KeyboardEvent): void => {

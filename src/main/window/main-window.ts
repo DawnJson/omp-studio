@@ -2,8 +2,8 @@
 import { app, BrowserWindow, nativeTheme, screen, shell, systemPreferences } from "electron";
 import { release } from "node:os";
 import path from "node:path";
-import { defaultFontSize, type StudioSettings } from "../../shared/ipc.ts";
-import { resolveTheme, themes } from "../../shared/themes.ts";
+import { defaultFontSize, type TitleBarFade } from "../../shared/ipc.ts";
+import { resolveTheme, themes, type ThemePreference, type ThemeSpec } from "../../shared/themes.ts";
 import { appOrigin } from "./app-protocol.ts";
 import { loadWin32 } from "../platform/win32/ffi.ts";
 import { getSettings, offSettingsChanged, onSettingsChanged } from "../settings/settings-store.ts";
@@ -14,14 +14,15 @@ import { restoredBounds, trackWindowState } from "./window-state.ts";
 import { emitEvent } from "../ipc/events.ts";
 
 /**
- * 顶栏（通栏，高 40）的底色和系统三键符号色 = 当前主题的 --bg-sidebar / --text（登记在 src/shared/themes.ts）；
- * 主题切换时用 win.setTitleBarOverlay 同步。
- * dimmed：有遮罩弹窗时，系统三键要和网页里盖了 --bg-scrim 的顶栏同色。三键不是网页画的，遮罩盖不到，
- * 所以给出"顶栏色上叠一层 --bg-scrim"混合后的实色。
+ * 顶栏（通栏，高 40）的底色和系统三键符号色 = 网页正在显示的主题的 --bg-sidebar / --text（登记在 src/shared/themes.ts）。
+ * 三键不是网页画的，主进程用 win.setTitleBarOverlay 让它跟着网页走（docs/architecture/themes.md「系统三键」）：
+ * - 主题跟网页的 <html data-theme> 走，不跟设置走：设置改了以后网页要过几十毫秒才换、换时还要整窗交叉淡入，
+ *   三键跟设置就会先跳色（2026-10-31 实测：改设置后约 10ms 三键已换完，网页 26–118ms 后才开始淡入）。
+ *   渲染进程在淡入开始时报告（setTitleBarTheme），三键用同样的时长和曲线一起淡入。
+ * - 有遮罩弹窗时（setTitleBarDimmed），三键要和网页里盖了 --bg-scrim 的顶栏同色。遮罩盖不到三键，
+ *   所以给出"顶栏色上叠一层 --bg-scrim"混合后的实色。
  */
 const titleBarHeight = 40;
-
-let titleBarDimmed = false;
 
 /** mac 没有 setTitleBarOverlay（Electron 类型声明标 @platform win32,linux），三键颜色相关逻辑全部跳过。 */
 const isMac = process.platform === "darwin";
@@ -42,9 +43,9 @@ function glassOn(): boolean {
   return glassSupported && getSettings().glass;
 }
 
-/** 窗口底色：平时是顶栏色（首帧前、拖大窗口时露出的那一块和顶栏一致）；毛玻璃时透明，否则盖住 Acrylic。 */
+/** 窗口底色：平时是网页当前主题的顶栏色（首帧前、拖大窗口时露出的那一块和顶栏一致）；毛玻璃时透明，否则盖住 Acrylic。 */
 function windowBackground(): string {
-  return glassOn() ? "#00000000" : formatHex(overlayColors(false).color);
+  return glassOn() ? "#00000000" : pageThemeSpec().sidebar;
 }
 
 /**
@@ -63,6 +64,7 @@ function showWindow(window: BrowserWindow): void {
 
 type Rgb = readonly [number, number, number];
 type OverlayColors = { color: Rgb; symbolColor: Rgb };
+type Curve = readonly [number, number, number, number];
 
 function parseHex(hex: string): Rgb {
   const value = Number.parseInt(hex.slice(1), 16);
@@ -73,16 +75,36 @@ function formatHex(rgb: Rgb): string {
   return `#${rgb.map((channel) => Math.round(channel).toString(16).padStart(2, "0")).join("")}`;
 }
 
-function overlayColors(dimmed: boolean): OverlayColors {
-  const theme = themes[resolveTheme(getSettings().theme, nativeTheme.shouldUseDarkColors)];
+function mix(from: Rgb, to: Rgb, progress: number): Rgb {
+  return [
+    from[0] + (to[0] - from[0]) * progress,
+    from[1] + (to[1] - from[1]) * progress,
+    from[2] + (to[2] - from[2]) * progress,
+  ];
+}
+
+function mixColors(from: OverlayColors, to: OverlayColors, progress: number): OverlayColors {
+  return { color: mix(from.color, to.color, progress), symbolColor: mix(from.symbolColor, to.symbolColor, progress) };
+}
+
+/** 网页 <html data-theme> 现在的值（渲染进程报告；没有 data-theme = system）。窗口创建时取设置里的，页面第一次套用的也是它。 */
+let pageTheme: ThemePreference = "system";
+
+/** 网页正在显示的主题：跟随系统时和网页的 prefers-color-scheme 一样，按 nativeTheme 的深浅取 light / dark。 */
+function pageThemeSpec(): ThemeSpec {
+  return themes[resolveTheme(pageTheme, nativeTheme.shouldUseDarkColors)];
+}
+
+/** dim = 遮罩的不透明度（0 没有遮罩，1 全显）：顶栏色、符号色上叠 dim 倍的 --bg-scrim。 */
+function overlayColors(theme: ThemeSpec, dim: number): OverlayColors {
   const color = parseHex(theme.sidebar);
   const symbolColor = parseHex(theme.text);
-  if (!dimmed) return { color, symbolColor };
   const scrim = /^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/.exec(theme.scrim);
   if (scrim === null) throw new Error(`theme scrim is not rgba(): ${theme.scrim}`);
   const [, r, g, b, alpha] = scrim.map(Number);
   const over: Rgb = [r ?? 0, g ?? 0, b ?? 0];
-  return { color: mix(color, over, alpha ?? 0), symbolColor: mix(symbolColor, over, alpha ?? 0) };
+  const amount = (alpha ?? 0) * dim;
+  return { color: mix(color, over, amount), symbolColor: mix(symbolColor, over, amount) };
 }
 
 /** 页面缩放后顶栏（--titlebar-h = 40 CSS px）占 40 × 缩放 个窗口像素，系统三键区的高度要一起放大，否则和顶栏对不齐。 */
@@ -99,28 +121,43 @@ function applyFontSize(window: BrowserWindow): void {
   if (window.isDestroyed()) return;
   const factor = getSettings().fontSize / defaultFontSize;
   if (window.webContents.getZoomFactor() !== factor) window.webContents.setZoomFactor(factor);
-  if (!isMac) applyOverlay(window, shown ?? overlayColors(titleBarDimmed));
+  if (!isMac) applyOverlay(window, currentOverlay(Date.now()));
 }
 
 /**
- * 三键颜色的渐变要和网页里遮罩的淡入淡出同一时长、同一曲线（tokens.css）。遮罩是在顶栏色上叠 --bg-scrim，按不透明度渐变，
- * 所以颜色在两端之间线性插值即可吻合。
- * - 变暗 = 遮罩淡入：--dur-fade（140ms，系统开了"减少动画"时 100ms）+ --ease-out cubic-bezier(0.22, 1, 0.36, 1)。
- * - 恢复 = 遮罩淡出（motion.css 的 data-closing="fade"）：--dur-fast-exit（84ms，减少动画时 0）+ --ease-in cubic-bezier(0.64, 0, 0.78, 0)。
+ * 三键的渐变和网页里对应的那段动画同一时长、同一曲线（tokens.css）。遮罩是在顶栏色上叠 --bg-scrim、按不透明度渐变，
+ * 交叉淡入是新旧两张画面按不透明度混合，所以颜色在两端之间按曲线值线性插值即可吻合。
+ * reducedMs：减少动效（reducedMotion()）时的时长。
  */
-const dimMs = 140;
-const dimReducedMs = 100;
-const restoreMs = 84;
+type Fade = { ms: number; reducedMs: number; curve: Curve };
 const easeOut = [0.22, 1, 0.36, 1] as const;
 const easeIn = [0.64, 0, 0.78, 0] as const;
+const easeInOut = [0.65, 0, 0.35, 1] as const;
+const dimFades: Record<TitleBarFade, { dim: Fade; restore: Fade }> = {
+  // 遮罩淡入：--dur-fade（140ms，减少动效 100ms）+ --ease-out；
+  // 淡出（motion.css 的 data-closing="fade"）：--dur-fast-exit（84ms，减少动效 0）+ --ease-in。
+  scrim: { dim: { ms: 140, reducedMs: 100, curve: easeOut }, restore: { ms: 84, reducedMs: 0, curve: easeIn } },
+  // 命令面板（palette.css）：淡入 --dur-fast（140ms，减少动效 0）+ --ease-out，淡出同上。
+  palette: { dim: { ms: 140, reducedMs: 0, curve: easeOut }, restore: { ms: 84, reducedMs: 0, curve: easeIn } },
+  // 放大看图的整窗交叉淡入（tsp.css 的 :root[data-tsp-zoom-vt]），开和关都是
+  // max(--dur-base, --dur-fade)（200ms，减少动效 100ms）+ --ease-out。
+  zoom: { dim: { ms: 200, reducedMs: 100, curve: easeOut }, restore: { ms: 200, reducedMs: 100, curve: easeOut } },
+};
+/** 切换主题的整窗交叉淡入（app.css 的 ::view-transition-*(root)）：--dur-slow（320ms，减少动效时 --dur-fade 100ms）+ --ease-in-out。 */
+const themeFade: Fade = { ms: 320, reducedMs: 100, curve: easeInOut };
 /**
  * 逐帧定时器的间隔。Windows 的系统时钟约 15.6ms 一跳：间隔写 16 实际每 31ms 才跑一次（libuv 醒在第一跳时还差不到 1ms，
  * 要再等一跳），淡入淡出只有五六帧。写 10 就每跳都跑，约 64 帧/秒（2026-10-26 实测）。
  */
 const frameMs = 10;
 
+/** 减少动效：系统的"减少动画"或设置里的开关，和渲染进程的 data-motion / prefers-reduced-motion 同一判断。 */
+function reducedMotion(): boolean {
+  return systemPreferences.getAnimationSettings().prefersReducedMotion || getSettings().reduceMotion;
+}
+
 /** CSS cubic-bezier(x1, y1, x2, y2)：给定时间进度 x 求曲线值（牛顿迭代，退化时二分）。 */
-function cubicBezier([x1, y1, x2, y2]: readonly [number, number, number, number], x: number): number {
+function cubicBezier([x1, y1, x2, y2]: Curve, x: number): number {
   const at = (a: number, b: number, s: number) => 3 * a * (1 - s) ** 2 * s + 3 * b * (1 - s) * s ** 2 + s ** 3;
   let low = 0;
   let high = 1;
@@ -135,58 +172,96 @@ function cubicBezier([x1, y1, x2, y2]: readonly [number, number, number, number]
   return at(y1, y2, s);
 }
 
-let shown: OverlayColors | null = null;
-let fadeTimer: NodeJS.Timeout | undefined;
+/** 进行中的一段渐变：从 start 起 duration 毫秒，按 curve 走。 */
+type Tween = { start: number; duration: number; curve: Curve };
 
-function mix(from: Rgb, to: Rgb, progress: number): Rgb {
-  return [
-    from[0] + (to[0] - from[0]) * progress,
-    from[1] + (to[1] - from[1]) * progress,
-    from[2] + (to[2] - from[2]) * progress,
-  ];
+/** 走过的比例（按曲线算），1 = 走完。 */
+function eased(tween: Tween, now: number): number {
+  const progress = Math.min(1, (now - tween.start) / tween.duration);
+  return progress === 1 ? 1 : cubicBezier(tween.curve, progress);
 }
 
+/** 遮罩最终要到的不透明度：有遮罩弹窗开着为 1。 */
+let dimTarget: 0 | 1 = 0;
+/** 遮罩不透明度的渐变，from 是开始时的不透明度；被新的一次打断时从当前位置接着走。 */
+let dimTween: (Tween & { from: number }) | null = null;
 /**
- * 把三键从当前显示的颜色渐变到目标色；进行中的渐变被取消，从当前插值位置接着走。
- * animate=false（主题切换）立即换色。
+ * 主题的交叉淡入，照网页的 View Transition：from 是换主题那一刻三键的颜色（旧画面的快照，定住不动），
+ * 淡入的一层是实时颜色（遮罩照常变暗、恢复）。
  */
-function fadeTitleBar(window: BrowserWindow, animate: boolean): void {
-  if (isMac) return;
-  clearInterval(fadeTimer);
-  const target = overlayColors(titleBarDimmed);
-  const reduced = systemPreferences.getAnimationSettings().prefersReducedMotion;
-  const duration = titleBarDimmed ? (reduced ? dimReducedMs : dimMs) : reduced ? 0 : restoreMs;
-  if (!animate || duration === 0 || window.isMinimized() || !window.isVisible()) {
-    shown = target;
-    applyOverlay(window, target);
-    return;
+let themeTween: (Tween & { from: OverlayColors }) | null = null;
+let frameTimer: NodeJS.Timeout | undefined;
+
+function dimLevel(now: number): number {
+  if (dimTween === null) return dimTarget;
+  const progress = eased(dimTween, now);
+  if (progress < 1) return dimTween.from + (dimTarget - dimTween.from) * progress;
+  dimTween = null;
+  return dimTarget;
+}
+
+/** 此刻三键该是的颜色；走完的渐变顺手清掉。 */
+function currentOverlay(now: number): OverlayColors {
+  const live = overlayColors(pageThemeSpec(), dimLevel(now));
+  if (themeTween === null) return live;
+  const progress = eased(themeTween, now);
+  if (progress === 1) {
+    themeTween = null;
+    return live;
   }
-  // 窗口创建时的 titleBarOverlay 是未变暗的颜色，第一次渐变从它开始。
-  const from = shown ?? overlayColors(false);
-  const curve = titleBarDimmed ? easeOut : easeIn;
-  const start = Date.now();
-  fadeTimer = setInterval(() => {
-    const progress = Math.min(1, (Date.now() - start) / duration);
-    const eased = cubicBezier(curve, progress);
-    shown =
-      progress === 1
-        ? target
-        : {
-            color: mix(from.color, target.color, eased),
-            symbolColor: mix(from.symbolColor, target.symbolColor, eased),
-          };
-    if (!window.isDestroyed()) applyOverlay(window, shown);
-    if (progress === 1 || window.isDestroyed()) clearInterval(fadeTimer);
+  return mixColors(themeTween.from, live, progress);
+}
+
+/** 画一次三键；还有渐变没走完就逐帧接着画，走完停。窗口最小化或隐藏时看不见，渐变直接跳到终点。 */
+function paintTitleBar(window: BrowserWindow): void {
+  if (isMac || window.isDestroyed()) return;
+  clearInterval(frameTimer);
+  if (window.isMinimized() || !window.isVisible()) {
+    dimTween = null;
+    themeTween = null;
+  }
+  applyOverlay(window, currentOverlay(Date.now()));
+  if (dimTween === null && themeTween === null) return;
+  frameTimer = setInterval(() => {
+    if (window.isDestroyed()) {
+      clearInterval(frameTimer);
+      return;
+    }
+    applyOverlay(window, currentOverlay(Date.now()));
+    if (dimTween === null && themeTween === null) clearInterval(frameTimer);
   }, frameMs);
 }
 
 /** 渲染进程报告有没有遮罩弹窗开着；Windows 的系统三键跟着遮罩一起渐变变暗/恢复（mac 无此三键，空操作）。 */
-export function setTitleBarDimmed(dimmed: boolean): void {
+export function setTitleBarDimmed(dimmed: boolean, fade: TitleBarFade): void {
   if (isMac) return;
-  if (titleBarDimmed === dimmed) return;
-  titleBarDimmed = dimmed;
+  const target = dimmed ? 1 : 0;
+  if (dimTarget === target) return;
+  const now = Date.now();
+  const from = dimLevel(now);
+  dimTarget = target;
+  const timing = dimFades[fade][dimmed ? "dim" : "restore"];
+  const duration = reducedMotion() ? timing.reducedMs : timing.ms;
+  dimTween = duration === 0 ? null : { from, start: now, duration, curve: timing.curve };
   const window = getMainWindow();
-  if (window) fadeTitleBar(window, true);
+  if (window) paintTitleBar(window);
+}
+
+/**
+ * 渲染进程报告网页的 data-theme 换了：窗口底色立即换，三键 crossfade 时从此刻的颜色一起淡入（报告在网页淡入开始时发出），
+ * 否则直接换。
+ */
+export function setTitleBarTheme(theme: ThemePreference, crossfade: boolean): void {
+  if (theme === pageTheme && !crossfade) return;
+  const now = Date.now();
+  const from = overlayColors(pageThemeSpec(), dimLevel(now));
+  pageTheme = theme;
+  const window = getMainWindow();
+  if (window === null) return;
+  window.setBackgroundColor(windowBackground());
+  const duration = reducedMotion() ? themeFade.reducedMs : themeFade.ms;
+  themeTween = crossfade ? { from, start: now, duration, curve: themeFade.curve } : null;
+  paintTitleBar(window);
 }
 
 /**
@@ -210,7 +285,7 @@ let settleOpacity: ((completed: boolean) => void) | undefined;
 function fadeWindow(window: BrowserWindow, to: 0 | 1): Promise<boolean> {
   clearInterval(opacityTimer);
   settleOpacity?.(false);
-  const reduced = systemPreferences.getAnimationSettings().prefersReducedMotion || getSettings().reduceMotion;
+  const reduced = reducedMotion();
   const duration = reduced ? windowReducedMs : to === 1 ? windowEnterMs : windowExitMs;
   const from = window.getOpacity();
   const curve = to === 1 ? windowEnterCurve : windowExitCurve;
@@ -321,7 +396,8 @@ const trafficLightPosition = { x: 14, y: 13 } as const;
 
 export function createMainWindow(): BrowserWindow {
   const restored = restoredBounds();
-  const initialColors = overlayColors(false);
+  pageTheme = getSettings().theme;
+  const initialColors = overlayColors(pageThemeSpec(), 0);
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -382,17 +458,18 @@ export function createMainWindow(): BrowserWindow {
     if (restored.maximized && !e2eBackground) window.maximize();
     showWindow(window);
   });
-  // 主题切换（设置或系统深浅）时，窗口底色、系统三键的底色和符号色跟着顶栏走。
-  // 两个同为深色（或同为浅色）的主题之间切换时 nativeTheme 不发 updated，所以设置变化也要看。
-  const onThemeUpdated = () => {
+  // 跟随系统时，系统深浅一变网页的 prefers-color-scheme 立刻跟着变（不淡入），窗口底色和三键也立刻换。
+  // 设置里换主题不在这里：等渲染进程换完 data-theme 报告（setTitleBarTheme）。
+  const onNativeTheme = () => {
+    if (pageTheme !== "system") return;
     window.setBackgroundColor(windowBackground());
-    fadeTitleBar(window, false);
+    paintTitleBar(window);
   };
-  nativeTheme.on("updated", onThemeUpdated);
-  window.once("closed", () => nativeTheme.off("updated", onThemeUpdated));
+  nativeTheme.on("updated", onNativeTheme);
+  window.once("closed", () => nativeTheme.off("updated", onNativeTheme));
   // 渲染进程重载时弹窗都没了，不会再报"关闭"：先恢复。
   window.webContents.on("did-start-navigation", (details) => {
-    if (details.isMainFrame && !details.isSameDocument) setTitleBarDimmed(false);
+    if (details.isMainFrame && !details.isSameDocument) setTitleBarDimmed(false, "scrim");
   });
   applyFontSize(window);
   // 字号 = 整页缩放：重载/导航后 Chromium 会回到按源记的缩放，滚轮缩放（zoom-changed）也可能改动，统一拉回设置里的档位。
@@ -406,9 +483,8 @@ export function createMainWindow(): BrowserWindow {
     const zoom = window.webContents.getZoomFactor();
     emitEvent("zoomGesture", { direction, x: (cursor.x - content.x) / zoom, y: (cursor.y - content.y) / zoom });
   });
-  let shownTheme = getSettings().theme;
   let shownGlass = glassOn();
-  const onSettings = (next: StudioSettings) => {
+  const onSettings = () => {
     const glass = glassOn();
     if (glass !== shownGlass) {
       shownGlass = glass;
@@ -417,9 +493,6 @@ export function createMainWindow(): BrowserWindow {
       window.setBackgroundColor(windowBackground());
     }
     applyFontSize(window);
-    if (next.theme === shownTheme) return;
-    shownTheme = next.theme;
-    onThemeUpdated();
   };
   onSettingsChanged(onSettings);
   window.once("closed", () => offSettingsChanged(onSettings));

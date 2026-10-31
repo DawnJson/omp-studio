@@ -2,9 +2,9 @@
 // 主题的颜色只从 CSS 里读（tokens.css 的 light / dark、themes.css 的其余），不在测试里另抄一份。
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
-import { themeNames, type ThemeName } from "../../src/shared/themes.ts";
-import { expectNoOverflow, launchApp, setLocaleTheme } from "./launch.ts";
+import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
+import { themeNames, themes, type ThemeName } from "../../src/shared/themes.ts";
+import { expectNoOverflow, launchApp, setLocaleTheme, setTheme } from "./launch.ts";
 
 const stylesDir = path.resolve(import.meta.dirname, "..", "..", "src", "renderer", "styles");
 
@@ -142,6 +142,104 @@ test("外观的设置行：背景图选不用时没有浓度；不支持毛玻�
       await setLocaleTheme(page, locale, "light");
       await expectNoOverflow(page.getByTestId("settings"));
     }
+  } finally {
+    await launched.close();
+  }
+});
+
+/** 主进程每次 setTitleBarOverlay 的时刻和符号色（底色在毛玻璃时是透明，不看它）。 */
+async function spyOverlay(app: ElectronApplication): Promise<void> {
+  await app.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getAllWindows()[0];
+    if (window === undefined) throw new Error("没有主窗口");
+    const g = globalThis as unknown as { overlayCalls: { t: number; symbol: string }[] };
+    g.overlayCalls = [];
+    const original = window.setTitleBarOverlay.bind(window);
+    window.setTitleBarOverlay = (options) => {
+      g.overlayCalls.push({ t: Date.now(), symbol: options.symbolColor ?? "" });
+      original(options);
+    };
+  });
+}
+
+async function overlayCalls(app: ElectronApplication): Promise<{ t: number; symbol: string }[]> {
+  return app.evaluate(() => (globalThis as unknown as { overlayCalls: { t: number; symbol: string }[] }).overlayCalls);
+}
+
+async function lastSymbol(app: ElectronApplication): Promise<string | undefined> {
+  return (await overlayCalls(app)).at(-1)?.symbol;
+}
+
+/** 符号色上叠一层该主题的 --bg-scrim（遮罩弹窗开着时三键该有的颜色，spec §2.1 的表）。 */
+function dimmedSymbol(theme: ThemeName): string {
+  const { text, scrim } = themes[theme];
+  const match = /^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/.exec(scrim);
+  if (match === null) throw new Error(`${theme} 的 scrim 不是 rgba()`);
+  const [r, g, b, alpha] = match.slice(1).map(Number) as [number, number, number, number];
+  const over = [r, g, b];
+  const channels = [1, 3, 5].map((at) => Number.parseInt(text.slice(at, at + 2), 16));
+  const mixed = channels.map((c, i) => Math.round(c + ((over[i] ?? 0) - c) * alpha));
+  return `#${mixed.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
+test("系统三键跟着网页换主题：网页换之前不先变，和网页一起淡入；遮罩弹窗开着时换成新主题变暗的颜色；设置里减少动效时命令面板的变暗不渐变", async () => {
+  test.skip(process.platform === "darwin", "mac 没有 titleBarOverlay，三键是系统的红黄绿");
+  const launched = await launchApp();
+  try {
+    const { app, page } = launched;
+    await expect(page.getByTestId("app-root")).toBeVisible();
+    await setLocaleTheme(page, "zh-CN", "light");
+    await spyOverlay(app);
+    // 换成浅色时三键的淡入可能比网页晚收尾几毫秒：等它停在浅色，再从空记录开始量。
+    await expect.poll(async () => (await lastSymbol(app)) ?? themes.light.text).toBe(themes.light.text);
+    await app.evaluate(() => {
+      (globalThis as unknown as { overlayCalls: unknown[] }).overlayCalls.length = 0;
+    });
+    // 网页 <html data-theme> 第一次变化的时刻。
+    await page.evaluate(() => {
+      const g = globalThis as unknown as {
+        themeChangedAt: number | null;
+        document: { documentElement: object };
+        MutationObserver: new (callback: () => void) => { observe(target: object, options: object): void };
+      };
+      g.themeChangedAt = null;
+      new g.MutationObserver(() => (g.themeChangedAt ??= Date.now())).observe(g.document.documentElement, {
+        attributes: true,
+        attributeFilter: ["data-theme"],
+      });
+    });
+    await setTheme(page, "dracula");
+    await expect.poll(() => lastSymbol(app)).toBe(themes.dracula.text);
+    const changedAt = await page.evaluate(() => (globalThis as unknown as { themeChangedAt: number }).themeChangedAt);
+    const calls = await overlayCalls(app);
+    // 以前主进程一收到设置就直接换色，比网页早几十毫秒。
+    expect(calls.filter((call) => call.t < changedAt).every((call) => call.symbol === themes.light.text)).toBe(true);
+    // 淡入：中间有既不是旧色也不是新色的帧。
+    expect(calls.some((call) => call.symbol !== themes.light.text && call.symbol !== themes.dracula.text)).toBe(true);
+
+    // 遮罩弹窗开着时换主题：落在新主题变暗的颜色；关掉后恢复成新主题的颜色。
+    await page.keyboard.press("Control+k");
+    await expect(page.getByTestId("command-palette")).toBeVisible();
+    await expect.poll(() => lastSymbol(app)).toBe(dimmedSymbol("dracula"));
+    await setTheme(page, "catppuccin-mocha");
+    await expect.poll(() => lastSymbol(app)).toBe(dimmedSymbol("catppuccin-mocha"));
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("command-palette")).toBeHidden();
+    await expect.poll(() => lastSymbol(app)).toBe(themes["catppuccin-mocha"].text);
+
+    // 设置里的"减少动效"：命令面板的遮罩不淡入淡出，三键也直接换，没有中间色（以前主进程只看系统的"减少动画"）。
+    await page.evaluate(() => globalThis.studio.setReduceMotion(true));
+    await expect(page.locator("html")).toHaveAttribute("data-motion", "reduced");
+    await app.evaluate(() => {
+      (globalThis as unknown as { overlayCalls: unknown[] }).overlayCalls.length = 0;
+    });
+    const ends = new Set<string>([themes["catppuccin-mocha"].text, dimmedSymbol("catppuccin-mocha")]);
+    await page.keyboard.press("Control+k");
+    await expect.poll(() => lastSymbol(app)).toBe(dimmedSymbol("catppuccin-mocha"));
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("command-palette")).toBeHidden();
+    await expect.poll(() => lastSymbol(app)).toBe(themes["catppuccin-mocha"].text);
+    expect((await overlayCalls(app)).filter((call) => !ends.has(call.symbol))).toEqual([]);
   } finally {
     await launched.close();
   }

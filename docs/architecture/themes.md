@@ -13,7 +13,7 @@
 ### 主进程
 
 - `nativeTheme.themeSource`：`system` 原样；具名主题按登记表的深浅给 `light` / `dark`（`settings-store.ts` 的 `themeSource()`）。omp 的 `{ev:"theme", dark}`、网页的 `prefers-color-scheme` 都跟着 nativeTheme，omp 只知道深浅。实测（omp 18.14.0，2026-10-30，真实模型）：选鲸蓝·深后 `nativeTheme.shouldUseDarkColors` 为 true（TSP 会话的 appearance 取它），一轮 prompt 跑完；同一任务切到樱粉（浅）再发一轮照常。
-- 窗口底色、系统三键的底色和符号色取登记表（`main-window.ts` 的 `overlayColors`）；有遮罩弹窗时三键色 = 顶栏色叠一层该主题的 `--bg-scrim`。两个同为深色（或同为浅色）的主题之间切换时 nativeTheme 不发 `updated`，所以设置变化时也重算。
+- 窗口底色、系统三键的底色和符号色取登记表（`main-window.ts` 的 `overlayColors`），按**网页正在显示的主题**算，不直接跟设置：设置改了以后网页要等设置事件到达、再起 View Transition，三键跟设置会先跳色（2026-10-31 实测：改设置后约 10ms 三键已换完，网页 26–118ms 后才开始淡入）。渲染进程换完 `data-theme` 报告（`setTitleBarTheme(theme, crossfade)`）：用户切换主题时在 `::view-transition-new(root)` 动画真正开始后报告（`transition.ready` 比动画的开始时刻早约 25ms，早报告三键会领先网页），三键从旧主题的颜色用同样的 320ms（减少动效 100ms）+ `--ease-in-out` 淡入新主题，期间遮罩照常变暗 / 恢复；实测三键进度和网页动画进度相差 ≤ 0.07（e2e 时间线，2026-10-31）。启动时第一次套用、淡入被跳过时直接换。跟随系统时系统深浅一变，网页的 `prefers-color-scheme` 立即变，三键也立即换（nativeTheme `updated`）。有遮罩弹窗时三键色 = 顶栏色叠一层该主题的 `--bg-scrim`（spec §2.1）。
 
 ## 主区背景图
 
@@ -58,7 +58,7 @@
 
 - `glassSupported`（`main-window.ts`）：win32 且 `os.release()` 的 build ≥ 22621（Windows 11 22H2）。Electron 的 `setBackgroundMaterial` 在更早的系统上直接返回（源码 `native_window_views.cc` 判 `WIN11_22H2`），开了也没效果。
 - 窗口：`glass && glassSupported` 时创建就带 `backgroundMaterial: "acrylic"`、`backgroundColor: "#00000000"`；运行时开关在设置变化时 `setBackgroundMaterial("acrylic" | "none")` + `setBackgroundColor(...)`，不重建窗口。`"none"` 时 Electron 把窗口和网页底色重置成白色，所以紧接着设回顶栏色；`"acrylic"` 时 Electron 自己把底色设成透明，我们再设一次透明（主题切换走同一个 `windowBackground()`）。
-- 系统三键区：毛玻璃时底色 `#00000000`，三键画在网页上面，透出网页的顶栏层；遮罩弹窗时网页的遮罩本来就盖到三键底下，所以只有符号色还随 `fadeTitleBar` 渐变。
+- 系统三键区：毛玻璃时底色 `#00000000`，三键画在网页上面，透出网页的顶栏层；遮罩弹窗时网页的遮罩本来就盖到三键底下，所以只有符号色还随遮罩渐变。
 - 网页：`<html data-glass>`（`App.tsx`）。`html`、`body`、`.topbar`、`.sidebar-column`、`.sb` 透明，只在 `#app` 上铺一层 `color-mix(in srgb, var(--bg-sidebar) 75%, transparent)`（`app.css`）；几层各自半透明会越叠越深、和三键区对不上。收起的侧栏 / 窄窗口抽屉盖在主区面板上，照旧画实底 `--bg-sidebar`。侧栏历史标题行平时钉在滚动区顶部（sticky + 实底），毛玻璃时不钉住、跟着列表滚走：实底是一条色带，`backdrop-filter` 把 `#app` 那层半透明色又叠一遍，同样是一条更深的带子（见下面实测）。
 
 ### 实测（2026-10-30，Electron 44.10.0，Windows 11 build 26300，独立小脚本截屏，脚本已删）

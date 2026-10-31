@@ -46,7 +46,7 @@ const rowIcon = { task: TaskIcon, session: SessionIcon, command: CommandIcon, sl
 
 function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: boolean; exitProps: ExitProps }) {
   const t = useT();
-  useTitleBarDim(open);
+  useTitleBarDim(open, "palette");
   const locale = useLocale();
   const listId = useId();
   const tasks = useTasks();
