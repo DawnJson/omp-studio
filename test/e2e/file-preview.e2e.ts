@@ -6,7 +6,16 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, test } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
-import { expectNoOverflow, launchApp, openTaskRow, setLocaleTheme, testOmp, type LaunchedApp } from "./launch.ts";
+import {
+  expectNoOverflow,
+  launchApp,
+  openTaskRow,
+  setLocale,
+  setLocaleTheme,
+  setTheme,
+  testOmp,
+  type LaunchedApp,
+} from "./launch.ts";
 
 const svg =
   '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><rect width="40" height="20" fill="#0b7a66"/></svg>';
@@ -38,8 +47,8 @@ async function start(fixtureFor?: (work: string, project: string) => Promise<str
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
   const { page } = launched;
+  await setLocale(page, "zh-CN");
   await page.evaluate(async () => {
-    await globalThis.studio.setLocale("zh-CN");
     const added = await globalThis.studio.addProject();
     if (!added) throw new Error("addProject 没有返回项目");
     await globalThis.studio.createTask({ projectId: added.id });
@@ -204,7 +213,7 @@ test("svg 围栏画成图：颜色换成主题色，切主题重画；<> 看源�
   const { launched, project, cleanup } = await start();
   try {
     const { page } = launched;
-    await page.evaluate(() => globalThis.studio.setTheme("light"));
+    await setTheme(page, "light");
     await writeFile(
       path.join(project, "figure.md"),
       [
@@ -240,7 +249,7 @@ test("svg 围栏画成图：颜色换成主题色，切主题重画；<> 看源�
     const light = await source();
     expect(light).not.toContain("var(");
     expect(light).toContain(`fill="${await accent()}"`);
-    await page.evaluate(() => globalThis.studio.setTheme("dark"));
+    await setTheme(page, "dark");
     await expect.poll(source).not.toBe(light);
     expect(await source()).toContain(`fill="${await accent()}"`);
 
@@ -263,7 +272,7 @@ test("mermaid 围栏在 worker 里画成图，颜色跟主题；不支持的图�
   const { launched, project, cleanup } = await start();
   try {
     const { page } = launched;
-    await page.evaluate(() => globalThis.studio.setTheme("light"));
+    await setTheme(page, "light");
     await writeFile(
       path.join(project, "flow.md"),
       [
@@ -321,7 +330,7 @@ test("mermaid 围栏在 worker 里画成图，颜色跟主题；不支持的图�
       return count / (data.length / 4);
     });
     expect(dark).toBeLessThan(0.03);
-    await page.evaluate(() => globalThis.studio.setTheme("dark"));
+    await setTheme(page, "dark");
     await expect.poll(source).not.toBe(light);
 
     await expect(bad!.getByTestId("codeblock-figure")).toHaveCount(0);

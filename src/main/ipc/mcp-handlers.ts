@@ -1,5 +1,5 @@
 // 设置 → 集成 → MCP 编辑的 IPC：校验参数，文件路径按范围由主进程算（渲染进程只传名字、范围、字段），转调 src/main/integrations/mcp-file.ts。
-// 规则和边界见 AGENTS.md「omp 的边界」、docs/architecture/plugins.md「编辑 MCP 服务器」。token 只进不出。
+// 规则和边界见 docs/architecture/omp-boundaries.md「自己写 omp 配置的例外」、docs/architecture/plugins.md「编辑 MCP 服务器」。token 只进不出。
 import { isManageableMcpName } from "../../shared/omp-output/mcp.ts";
 import type { McpEditInput, McpEditScope, McpTokenInput } from "../../shared/mcp-edit.ts";
 import type { HandlerGroup, ProjectId } from "../../shared/ipc.ts";

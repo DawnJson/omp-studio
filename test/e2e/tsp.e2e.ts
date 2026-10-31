@@ -226,6 +226,7 @@ test("完整一轮:草稿的第一句话用 send 交给 omp;待办、子代理�
     // 在 studio 输入框里打字不会变成发给 omp 的按键。
     const before = (await received()).length;
     await page.getByTestId("composer-input").fill("还没发的草稿");
+    // oxlint-disable-next-line eslint/no-restricted-properties -- 断言打字不变成按键：没发东西就没有信号可等，留一段时间让误发的按键到达假 omp
     await page.waitForTimeout(300);
     expect((await received()).length).toBe(before);
     await page.getByTestId("composer-input").fill("");
@@ -1386,6 +1387,7 @@ test("omp 进程退出后：还在跑的工具卡画成已取消，不转圈、�
     const shown = await timer.textContent();
     expect(shown).toMatch(/\ds/);
     // 计时不走：隔开超过一个显示单位（1 s）再看，文字不变。
+    // oxlint-disable-next-line eslint/no-restricted-properties -- 断言计时在一段时间里不变：只能等过一个显示单位
     await page.waitForTimeout(1500);
     await expect(timer).toHaveText(shown!);
   } finally {

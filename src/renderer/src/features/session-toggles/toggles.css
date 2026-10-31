@@ -112,12 +112,12 @@
 
 /* 模式开关（ModeSection）：Plan / Vibe 用 .tg-row；Loop 的输入、其它模式的当前状态和动作成块排列。
  * 块用 .tg-block，不能叫 .md-block：那是 markdown 每一块的 class（markdown.css），同名会给所有正文加内边距（2026-10-29）。 */
-.md-section {
+.tg-section {
   display: flex;
   flex-direction: column;
   padding: var(--space-1) 0;
 }
-.md-loop,
+.tg-loop,
 .tg-block {
   display: flex;
   flex-direction: column;
@@ -128,31 +128,31 @@
   margin: 0;
 }
 .tg-block .tg-actions,
-.md-loop-form .tg-actions {
+.tg-loop-form .tg-actions {
   justify-content: flex-end;
 }
-/* Loop 表单：标签一列（宽度取最长的标签），控件占剩下的；每个 .md-field 用 display: contents 把标签和控件直接放进表单网格，各行的标签自然对齐。 */
-.md-loop-form {
+/* Loop 表单：标签一列（宽度取最长的标签），控件占剩下的；每个 .tg-field 用 display: contents 把标签和控件直接放进表单网格，各行的标签自然对齐。 */
+.tg-loop-form {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   align-items: center;
   gap: var(--space-2) var(--space-2-5);
 }
-.md-field {
+.tg-field {
   display: contents;
 }
-.md-loop-form .ui-seg {
+.tg-loop-form .ui-seg {
   justify-self: start;
 }
 /* 命令输入没有标签：跟在条件那一行下面，对齐控件列；校验提示和按钮占满整行。 */
-.md-field-cmd {
+.tg-field-cmd {
   grid-column: 2;
 }
-.md-loop-form > .md-invalid,
-.md-loop-form > .tg-actions {
+.tg-loop-form > .tg-invalid,
+.tg-loop-form > .tg-actions {
   grid-column: 1 / -1;
 }
-.md-invalid {
+.tg-invalid {
   margin: 0;
   color: var(--st-error);
 }

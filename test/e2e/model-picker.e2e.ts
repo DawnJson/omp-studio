@@ -43,6 +43,12 @@ test("角色范围：选 Task 再选模型并应用，modelRoles.task 写入 omp
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width: 1200, height: 900 });
     await openPicker(page);
+    // 关掉马上再打开（旧实例还没卸完）：是一份新的对话框，上次的搜索词不留（打开时读的角色表同理）。
+    await page.getByTestId("model-search").fill("role-t");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("model-picker")).toHaveCount(0);
+    await openPicker(page);
+    await expect(page.getByTestId("model-search")).toHaveValue("");
 
     // 左栏"角色"：omp 的 11 个对话角色各一行（特定能力的角色不在这里），默认在给 default 选（顶栏没有角色标记）。
     await page.getByTestId("model-scope-roles").click();

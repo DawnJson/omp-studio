@@ -1,5 +1,5 @@
 // omp agent 目录的 `.env`（omp 启动时读进进程环境，omp://providers.md「.env discovery」）：自定义 provider 的
-// `apiKey: 变量名` 引用的 key 写在这里。仓库所有者 2026-10-24 同意的例外（AGENTS.md「omp 的边界」）：
+// `apiKey: 变量名` 引用的 key 写在这里。仓库所有者 2026-10-24 同意的例外（docs/architecture/omp-boundaries.md「自己写 omp 配置的例外」）：
 // - 只改一个变量的那一行（新增追加到末尾，删除删掉它的行），注释、空行、别的变量、`export` 前缀、CRLF、BOM 原样；
 // - 改完用 `util.parseEnv`（和 omp 同一种语法）重新解析核对：别的变量的值一个都不能变、这个变量就是要写的值，
 //   对不上（比如原来是跨行的引号值）就不写，返回 unsafe-env；

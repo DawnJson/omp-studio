@@ -1,5 +1,5 @@
 // 分享会话链接：`omp share <会话文件> [--gist]`。**会把加密快照上传到外部服务器**（share.serverUrl，或 secret gist），
-// 所以先确认：说明上传到哪里、脱敏开没开，用户点"上传并生成链接"才真的发出（AGENTS.md "先停下来问"：对外发送内容）。
+// 所以先确认：说明上传到哪里、脱敏开没开，用户点"上传并生成链接"才真的发出（AGENTS.md「先停下来问」：发到外部服务）。
 // 成功后显示链接（可复制、可在浏览器打开）；omp 的输出里认不出链接时原样显示 omp 的输出，不猜。
 import { useEffect, useState } from "react";
 import type { ShareResult, ShareSettings, TaskId } from "../../../../shared/ipc.ts";

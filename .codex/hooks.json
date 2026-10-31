@@ -1,0 +1,17 @@
+{
+  "description": "结束一轮前跑 scripts/check.ts（工作区干净直接过）；没过就把检查结果交回去修，同一轮只拦一次。命令按会话 cwd 解析，从仓库根目录启动 Codex。",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/check.ts --stop-hook",
+            "timeout": 180,
+            "statusMessage": "npm run check"
+          }
+        ]
+      }
+    ]
+  }
+}

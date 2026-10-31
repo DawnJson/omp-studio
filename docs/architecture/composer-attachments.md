@@ -38,7 +38,7 @@ studio 通过 TSP 的 `send` 事件把整条消息当文字交给 omp（`tsp-run
 omp 没有文件附件占位符；它读文件靠 `@path` 提及（`@` 补全插入，文字里内联，带空格的路径用引号，studio 给图片追加的也是这个写法）。`omp://keybindings.md` 的 OSC 5522 / 括号粘贴说明里，只有"粘贴单个图片文件路径会被读成图片"是自动处理，别的文件路径只是文字。所以 studio 的文件附件**内联换成 `@"路径"`**：
 
 - 草稿里的占位符是 studio 自己的 `[File #N, 名字]`（图片之外另一类位置编号，规则同图片：删掉占位符文件就没了、后面的补号、没引用的不发）；输入框里是 `#N 名字` 芯片，顶部是文件卡片（文件图标 + `#N 名字` + 大小 + ✕）。
-- **路径不进渲染进程**（AGENTS：渲染进程传来的路径不可信）：拖到输入框（`[data-composer-drop]`）或粘贴的文件，由 preload 在隔离世界里用 `webUtils.getPathForFile` 取路径，经内部通道 `composerFilesChannel` 交给主进程（2026-10-22 起没有附件按钮和系统文件对话框，附件只来自拖入和粘贴）。主进程（`src/main/files/composer-files.ts`）校验：绝对路径、不含 `"`、确实是普通文件，一次最多 20 个，登记表最多 500 条；登记成不透明 id，推送 `composerFilesAdded`（id + 名字 + 大小）。目录不登记：拖放仍按"拖入文件夹 = 选项目"，粘贴的目录仍是把路径当文字插进输入框。
+- **路径不进渲染进程**（[security.md](security.md)：渲染进程传来的路径不可信）：拖到输入框（`[data-composer-drop]`）或粘贴的文件，由 preload 在隔离世界里用 `webUtils.getPathForFile` 取路径，经内部通道 `composerFilesChannel` 交给主进程（2026-10-22 起没有附件按钮和系统文件对话框，附件只来自拖入和粘贴）。主进程（`src/main/files/composer-files.ts`）校验：绝对路径、不含 `"`、确实是普通文件，一次最多 20 个，登记表最多 500 条；登记成不透明 id，推送 `composerFilesAdded`（id + 名字 + 大小）。目录不登记：拖放仍按"拖入文件夹 = 选项目"，粘贴的目录仍是把路径当文字插进输入框。
 - 发送：`buildSubmission` 把文件占位符换成 `\uE000file:N\uE001`，`PromptInput.fileIds[N-1]` 带 id；`tsp-runner.ts` 的 `sendPrompt` 在主进程用 id 换回路径（登记表里没有或文件已不在就 reject，草稿放回去），把占位符换成 `@"路径"`（反斜杠换成正斜杠）。第一句话的气泡里显示 `@名字`，不显示路径。
 - e2e 用 PowerShell 的 `Set-Clipboard -LiteralPath` 放真实的文件列表（CF_HDROP，同资源管理器里 Ctrl+C）再 Ctrl+V，覆盖粘贴文件 → 卡片 → 芯片 → 发送出去的 `@"路径"`（`test/e2e/tsp.e2e.ts`、`clipboard.e2e.ts`）；拖入造不出带磁盘路径的 File，没有 e2e；登记表的校验和占位符替换有单测（`test/composer-files.test.ts`）。
 

@@ -7,7 +7,7 @@
 - 登记表 `src/shared/themes.ts`：主题名（= 设置里存的值，也是 `<html data-theme>` 的值）、深浅、顶栏色（`--bg-sidebar`）、三键符号色（`--text`）、遮罩色（`--bg-scrim`）、有没有插图。排列顺序就是主题画廊的顺序。主进程和渲染进程都 import 它。
 - 颜色：浅色、深色在 `src/renderer/styles/tokens.css`，其余在 `themes.css`。每个主题一块 `[data-theme="<名字>"]`，**不带 `:root`**：画廊的预览块挂同样的 `data-theme`，子树里就地用那一套变量，不用另存颜色。浅色块同时是 `:root` 的默认值；跟随系统 = `<html>` 上没有 `data-theme`，系统深色时 `@media (prefers-color-scheme: dark) :root:not([data-theme])` 套深色（和显式深色块逐行一致）。
 - `test/themes.test.ts` 核对：每个主题声明的变量集合和浅色块相同（漏一个会悄悄退回浅色的值）；文字、状态色、代码色、图表色的对比度达到 spec §2.5；登记表里的顶栏色、遮罩色、深浅和 CSS 一致；有插图的主题图文件在。
-- `--accent-glow`：强调色上的静态发光（开关、选中指示、焦点环），只有炫酷类主题给值，其余是 `none`。不做动画（空闲时也会占 CPU，见 LESSONS.md）。
+- `--accent-glow`：强调色上的静态发光（开关、选中指示、焦点环），只有炫酷类主题给值，其余是 `none`。不做动画（空闲时也会占 CPU，见 [performance.md](performance.md)）。
 - Dracula、Tokyo Night、Catppuccin、Nord、Rosé Pine 的配色取自各自的 MIT 调色板，为对比度微调过；许可证 `src/renderer/styles/themes-LICENSE.txt`，打包进 `resources/licenses/theme-palettes-MIT.txt`。鲸蓝两套只取 DeepSeek 式的蓝色调，不用它的名字和鲸鱼标志。
 
 ### 主进程

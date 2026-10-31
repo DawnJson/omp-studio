@@ -1,4 +1,4 @@
-// IPC 入口校验：发送方校验 + 参数校验工具。渲染进程传来的一切都不可信（AGENTS.md "Electron 安全"）。
+// IPC 入口校验：发送方校验 + 参数校验工具。渲染进程传来的一切都不可信（docs/architecture/security.md「preload 和 IPC」）。
 // 这里只管"形状"：类型、长度、枚举。"id 是否存在"这类状态校验在各 handler 里做。
 import type { IpcMainInvokeEvent } from "electron";
 import {

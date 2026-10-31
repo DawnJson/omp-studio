@@ -8,7 +8,7 @@ import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Locator } from "@playwright/test";
-import { expectNoOverflow, launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { expectNoOverflow, launchApp, launchSettings, setLocaleTheme } from "./launch.ts";
 
 async function rect(locator: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
   const box = await locator.boundingBox();
@@ -42,34 +42,6 @@ async function expectKindIcon(row: Locator): Promise<void> {
   const icon = row.locator(".ui-list-icon").first();
   await expect(icon.locator("svg")).toHaveCount(1);
   await expect(icon).toHaveText("");
-}
-
-async function launchSettings(
-  extraEnv: Record<string, string> = {},
-  seedAgentDir?: (agentDir: string) => Promise<void>,
-): Promise<{ launched: LaunchedApp; agentDir: string }> {
-  const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
-  // omp 启动时才发现 skill：要放进 agent 目录的文件在应用启动前写好。
-  await seedAgentDir?.(agentDir);
-  const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir, ...extraEnv });
-  try {
-    await expect
-      .poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
-        timeout: 30_000,
-      })
-      .toBe("ready");
-    await launched.page.setViewportSize({ width: 1200, height: 800 });
-    // omp 可能比界面先就绪：等 React 挂上（快捷键监听才在），再按 Ctrl ,。
-    await expect(launched.page.getByTestId("app-root")).toBeVisible();
-    await launched.page.keyboard.press("Control+,");
-    await expect(launched.page.getByTestId("settings")).toBeVisible();
-  } catch (error) {
-    // 中途失败调用方拿不到 launched：在这里关掉应用、删掉目录，不留进程和临时目录。
-    await launched.close();
-    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-    throw error;
-  }
-  return { launched, agentDir };
 }
 
 test("提供商与账号：再次进入时立即显示上次的结果，不再出现“正在读取”", async () => {
@@ -126,14 +98,9 @@ test("提供商与账号：再次进入时立即显示上次的结果，不再�
 
 // 新装、一个凭据都没有：omp 18.12.6 的 rpc-ui 没有可用模型时握手前就退出，服务进程要用占位模型再起，
 // 否则设置页拿不到 provider 列表、没法登录（2026-10-26 用户反馈"没能读取账号信息：操作没有完成"）。
-// 开发机环境里有各家 key：全部置空，omp 才是"没有任何可用模型"。
+// `appEnv` 不把开发机环境里的各家 key 传给被测应用，omp 就是"没有任何可用模型"。
 test("没有任何凭据：设置页照样列出 provider，可以去连接", async () => {
-  const noKeys = Object.fromEntries(
-    Object.keys(process.env)
-      .filter((name) => /_(API_KEY|TOKEN|KEY)$/i.test(name))
-      .map((name) => [name, ""]),
-  );
-  const { launched, agentDir } = await launchSettings(noKeys);
+  const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
     await setLocaleTheme(page, "zh-CN", "light");
@@ -224,8 +191,9 @@ test("填 API key：存进 omp 的凭据库（终端版也用），卡片写“�
 
 test("设置 API key：key 的变量写在 agent 目录 .env 里时改那一行（omp 优先用 .env），不存凭据库", async () => {
   // 跑测试的 shell 可能真有 TAVILY_API_KEY：传空值，omp 和 studio 都当没设置。
-  const { launched, agentDir } = await launchSettings({ TAVILY_API_KEY: "" }, (dir) =>
-    writeFile(path.join(dir, ".env"), "# 搜索\nTAVILY_API_KEY=tvly-old\nOTHER=1\n", "utf8"),
+  const { launched, agentDir } = await launchSettings(
+    { TAVILY_API_KEY: "" },
+    { prepare: (dir) => writeFile(path.join(dir, ".env"), "# 搜索\nTAVILY_API_KEY=tvly-old\nOTHER=1\n", "utf8") },
   );
   const env = { ...process.env, PI_CODING_AGENT_DIR: agentDir, TAVILY_API_KEY: "" };
   try {
@@ -275,9 +243,9 @@ test("设置 API key：key 的变量写在 agent 目录 .env 里时改那一行�
 test("Hugging Face 的 key 写在 .env 的 HF_TOKEN（omp 的 fallback 变量）：卡片写出它，对话框一打开就是 .env 的说明，保存改 HF_TOKEN 那一行", async () => {
   // 跑测试的 shell 可能真有这两个变量：传空值，omp 和 studio 都当没设置。
   const unset = { HUGGINGFACE_HUB_TOKEN: "", HF_TOKEN: "" };
-  const { launched, agentDir } = await launchSettings(unset, (dir) =>
-    writeFile(path.join(dir, ".env"), "HF_TOKEN=hf-old\n", "utf8"),
-  );
+  const { launched, agentDir } = await launchSettings(unset, {
+    prepare: (dir) => writeFile(path.join(dir, ".env"), "HF_TOKEN=hf-old\n", "utf8"),
+  });
   const env = { ...process.env, PI_CODING_AGENT_DIR: agentDir, ...unset };
   try {
     const { page } = launched;
@@ -514,6 +482,9 @@ const sshHosts = async (agentDir: string): Promise<Entries> =>
   ((await readJson(path.join(agentDir, "ssh.json")))?.["hosts"] ?? {}) as Entries;
 
 test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 omp 并写进临时 agent 目录；工具、记忆卡片和更新日志能读到 omp 的输出", async () => {
+  // 十几次 omp 命令行调用（mcp / ssh 的增删改）。没有任何 provider 凭据时（launchApp 不传本机的 key）omp 每次多花约 3 秒，
+  // 整个用例约 70 秒；有凭据时约 25 秒。
+  test.setTimeout(120_000);
   // omp 会从用户目录里的别家工具配置（~/.claude.json、~/.cursor/mcp.json 等）发现 MCP 服务器：把用户目录指到空目录，列表才可预期。
   const home = await mkdtemp(path.join(os.tmpdir(), "omp-studio-home-"));
   const { launched, agentDir } = await launchSettings({ USERPROFILE: home, HOME: home });
@@ -777,14 +748,19 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
 test("集成与插件：Skills 分组列出 omp 能用的 skill（名称、范围、说明），中英文 900/1200 宽不越界", async () => {
   const home = await mkdtemp(path.join(os.tmpdir(), "omp-studio-home-"));
   const description = `E2E probe skill. ${"A long description that must be clamped inside the card. ".repeat(8)}`;
-  const { launched, agentDir } = await launchSettings({ USERPROFILE: home, HOME: home }, async (dir) => {
-    const skillDir = path.join(dir, "skills", "e2e-probe-skill");
-    await mkdir(skillDir, { recursive: true });
-    await writeFile(
-      path.join(skillDir, "SKILL.md"),
-      `---\nname: e2e-probe-skill\ndescription: ${description}\n---\nBody\n`,
-    );
-  });
+  const { launched, agentDir } = await launchSettings(
+    { USERPROFILE: home, HOME: home },
+    {
+      prepare: async (dir) => {
+        const skillDir = path.join(dir, "skills", "e2e-probe-skill");
+        await mkdir(skillDir, { recursive: true });
+        await writeFile(
+          path.join(skillDir, "SKILL.md"),
+          `---\nname: e2e-probe-skill\ndescription: ${description}\n---\nBody\n`,
+        );
+      },
+    },
+  );
   try {
     const { page } = launched;
     await setLocaleTheme(page, "en", "light");
@@ -831,12 +807,17 @@ test("集成与插件：Skills 添加（共用 / 只有 omp）、停用与启用
   await writeFile(path.join(ownSource, "SKILL.md"), `---\nname: ${ownName}\ndescription: Own skill\n---\nBody\n`);
   // 配置里原有一条别的停用项：停用 / 启用 skill 不能动它。
   const otherEntry = "context-file:user:E2E-OTHER.md";
-  const { launched, agentDir } = await launchSettings({ USERPROFILE: home, HOME: home }, async (dir) => {
-    execFileSync("omp", ["config", "set", "--json", "disabledExtensions", "--", JSON.stringify([otherEntry])], {
-      env: env(dir),
-      encoding: "utf8",
-    });
-  });
+  const { launched, agentDir } = await launchSettings(
+    { USERPROFILE: home, HOME: home },
+    {
+      prepare: async (dir) => {
+        execFileSync("omp", ["config", "set", "--json", "disabledExtensions", "--", JSON.stringify([otherEntry])], {
+          env: env(dir),
+          encoding: "utf8",
+        });
+      },
+    },
+  );
   const disabledEntries = () =>
     (
       JSON.parse(
@@ -1042,6 +1023,10 @@ test("插件：添加本地市场、浏览并安装（先确认第三方代码�
       return el.getBoundingClientRect().height / Number.parseFloat(style.lineHeight);
     });
     expect(Math.round(lines)).toBe(1);
+    // 上方的分区（各走一次 omp）读完前会把卡片往下推，指针从元信息上滑走、提示收起：先等它们都显示出空状态再悬停。
+    for (const id of ["mcp-empty", "ssh-empty", "skills-empty", "plugins-empty"]) {
+      await expect(page.getByTestId(id)).toBeVisible({ timeout: 60_000 });
+    }
     await meta.hover();
     await expect(page.getByTestId("tooltip")).toHaveText(/^First local plugin\. A long description/);
     await page.getByTestId("discover-install-p1@local-mk").click();

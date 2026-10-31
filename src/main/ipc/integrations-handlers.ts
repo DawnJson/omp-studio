@@ -1,4 +1,4 @@
-// 设置 → 集成 → SSH 主机、Skills 的 IPC：参数校验后转调 src/main/integrations/ssh.ts、skills.ts（都经 omp 自己的命令，skill 文件夹的复制 / 回收站是 AGENTS.md 批准的例外）。
+// 设置 → 集成 → SSH 主机、Skills 的 IPC：参数校验后转调 src/main/integrations/ssh.ts、skills.ts（都经 omp 自己的命令，skill 文件夹的复制 / 回收站是 docs/architecture/omp-boundaries.md「自己写 omp 配置的例外」之一）。
 // MCP / 记忆 / 工具 / 更新日志走 runBuiltin（command-handlers.ts），这里没有。
 import os from "node:os";
 import { dialog, shell } from "electron";

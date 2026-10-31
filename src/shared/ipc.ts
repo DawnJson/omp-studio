@@ -1,5 +1,5 @@
 // 渲染进程 ↔ 主进程的全部契约。preload 按 StudioApi 逐个实现；主进程按 InvokeHandlers 注册并校验参数。
-// 规则（AGENTS.md "Electron 安全"）：一个函数只做一件事；渲染进程传来的每个参数都当不可信输入；
+// 规则（docs/architecture/security.md「preload 和 IPC」）：一个函数只做一件事；渲染进程传来的每个参数都当不可信输入；
 // 渲染进程不传路径，只传主进程发的 id。
 import type {
   AvailableSlashCommand,
@@ -1317,7 +1317,7 @@ export interface StudioInvokeApi {
   /** omp 现在用的 Tavily key 和每个备用 key 的用量（联网查 Tavily，几秒）。 */
   tavilyKeyUsage(): Promise<TavilyKeyUsage[]>;
 
-  // 自定义模型：直接读写 omp 的 models.yml（src/main/omp-config/models-file.ts；规则见 AGENTS.md）
+  // 自定义模型：直接读写 omp 的 models.yml（src/main/omp-config/models-file.ts；规则见 docs/architecture/omp-boundaries.md「自己写 omp 配置的例外」）
   /** 读 models.yml 里的 providers。key 只有状态，没有内容。文件读不懂时 reject。 */
   listCustomProviders(): Promise<CustomModelsFileInfo>;
   /** 新增（add）或修改（edit）一个 provider；校验不过返回 {ok:false, code}。成功后主进程关掉服务进程，下次读模型列表时 omp 重新加载。 */

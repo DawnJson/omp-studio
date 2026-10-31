@@ -7,8 +7,9 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import type { TaskId } from "../../src/shared/ipc.ts";
 import { findOmp, makeRepo, put, sh } from "../git-helpers.ts";
-import { expandSidebarFolders, launchApp, testOmp, type LaunchedApp } from "./launch.ts";
+import { expandSidebarFolders, launchApp, setLocale, testOmp, type LaunchedApp } from "./launch.ts";
 
 interface Session {
   launched: LaunchedApp;
@@ -46,8 +47,7 @@ async function start(prepare: (work: string) => Promise<string>): Promise<Sessio
   }, project);
   await page.getByTestId("sidebar-open-folder").click();
   await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
-  await page.evaluate(() => globalThis.studio.setLocale("zh-CN"));
-  await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", "zh-CN");
+  await setLocale(page, "zh-CN");
   return {
     launched,
     page,
@@ -353,14 +353,15 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
       const g = globalThis as unknown as {
         document: { querySelector(selector: string): { getClientRects(): { length: number } } | null };
         requestAnimationFrame(callback: () => void): number;
-        __gitFrames?: { seen: number; stop: boolean };
+        __gitFrames?: { seen: number; onPlain: number; stop: boolean };
       };
-      const state = { seen: 0, stop: false };
+      const state = { seen: 0, onPlain: 0, stop: false };
       g.__gitFrames = state;
       const tick = () => {
         // 看过的任务的过程区藏着留在 DOM 里（App.tsx 的 KEPT_VIEWS）：显示着才算切到了普通任务。
         const plain = g.document.querySelector(`[data-testid="tsp-view"][data-task-id="${plainId}"]`);
         const onPlain = plain !== null && plain.getClientRects().length > 0;
+        if (onPlain) state.onPlain++;
         if (onPlain && g.document.querySelector('[data-testid="git-menu"], [data-testid="topbar-review"]') !== null)
           state.seen++;
         if (!state.stop) g.requestAnimationFrame(tick);
@@ -379,7 +380,17 @@ test("不是 git 仓库：输入框下面没有工作树开关，直接发送；
       "data-task-id",
       plainTaskId as string,
     );
-    await page.waitForTimeout(800);
+    // 顶栏的分支按钮只在这个任务的 git 状态回来、是 ok 时才画（GitTools.tsx）。普通目录的状态取回来之后再看 30 帧：
+    // 渲染进程切过来时自己也在取，按钮要出现（或上一个任务的还挂着）就在这些帧里。
+    const plainStatus = await page.evaluate(
+      (id) => globalThis.studio.getGitStatus(id as TaskId).then((status) => status.kind),
+      plainTaskId,
+    );
+    expect(plainStatus).not.toBe("ok");
+    const plainFrames = () =>
+      page.evaluate(() => (globalThis as unknown as { __gitFrames: { onPlain: number } }).__gitFrames.onPlain);
+    const framesBefore = await plainFrames();
+    await expect.poll(plainFrames).toBeGreaterThan(framesBefore + 30);
     const seen = await page.evaluate(() => {
       const g = globalThis as unknown as { __gitFrames: { seen: number; stop: boolean } };
       g.__gitFrames.stop = true;

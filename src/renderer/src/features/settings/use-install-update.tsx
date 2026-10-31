@@ -20,7 +20,7 @@ export function useInstallUpdate(): InstallUpdate {
   const t = useT();
   const tasks = useTasks();
   const [busy, setBusy] = useState(false);
-  // 确认框用 slot：退出动画没放完又点一次也能立刻开新的（LESSONS「界面」）。值是打开时正在进行的任务数。
+  // 确认框用 slot：退出动画没放完又点一次也能立刻开新的（docs/design/spec.md §4.23 Dialog）。值是打开时正在进行的任务数。
   const { slot, open, closed } = useDialogSlot<number>();
 
   const install = async () => {

@@ -5,12 +5,16 @@
 // 不碰 ~/.omp/natives/<版本>：终端可能还在用（omp-install.md）。
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { chmod, copyFile, mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
+// 把正在用的 bin/omp.exe 挪开、失败时放回去，不能用 renameWithRetry：它最终失败时会删掉源文件（这里的源文件是唯一一份 exe）。
+// oxlint-disable-next-line eslint/no-restricted-imports
+import { rename } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { downloadVerified, VerifyError, type BuildInfo, type BuildPatch, type FetchFn } from "./build-service.ts";
 import { applySingleStreamPatch } from "./hpatch.ts";
 import { log } from "../log/log.ts";
+import { renameWithRetry } from "../tasks/atomic-write.ts";
 import { compareVersions } from "../../shared/omp-version.ts";
 
 const KEEP_VERSIONS = 3;
@@ -107,7 +111,7 @@ async function installFromPatch(
     const result = await hashFile(partial);
     if (result.size !== options.build.file.size || result.sha256 !== options.build.file.sha256)
       throw new VerifyError("the patched file does not match the build");
-    await rename(partial, target);
+    await renameWithRetry(partial, target);
     return true;
   } catch (error) {
     if (signal?.aborted) throw error;
@@ -151,7 +155,7 @@ async function activateVersion(layout: ManagedLayout, version: string): Promise<
   const old = path.join(layout.binDir, `.${exeName}.old-${Date.now()}`);
   try {
     if (hadOld) await rename(layout.binExe, old);
-    await rename(staging, layout.binExe);
+    await renameWithRetry(staging, layout.binExe);
   } catch (error) {
     // 新文件没能就位：把旧的放回去，bin/omp.exe 不能因此消失。
     if (hadOld) await rename(old, layout.binExe).catch(() => {});

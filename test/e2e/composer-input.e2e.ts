@@ -42,7 +42,17 @@ test("斜杠菜单：任务目录里的项目命令出现；/plan 等终端版�
   const project = path.join(work, "项目 目录");
   await mkdir(agentDir, { recursive: true });
   await mkdir(path.join(project, ".omp", "commands"), { recursive: true });
-  await writeFile(path.join(agentDir, "config.yml"), "startup:\n  setupWizard: false\n", "utf8");
+  // omp 没有任何模型时 rpc-ui 直接退出（omp 18.14.0："No default model selected"），命令表也就读不到：给一个 auth: none 的本地 provider，不连任何服务。
+  await writeFile(
+    path.join(agentDir, "models.yml"),
+    "providers:\n  slash-local:\n    baseUrl: http://127.0.0.1:9/v1\n    auth: none\n    api: openai-completions\n    models:\n      - id: slash-one\n",
+    "utf8",
+  );
+  await writeFile(
+    path.join(agentDir, "config.yml"),
+    "startup:\n  setupWizard: false\nmodelRoles:\n  default: slash-local/slash-one\n",
+    "utf8",
+  );
   await writeFile(
     path.join(project, ".omp", "commands", "deploy-staging.md"),
     "---\ndescription: 部署到预发环境\n---\nDeploy $ARGUMENTS\n",

@@ -40,6 +40,16 @@ const COMPACT_TIMEOUT_MS = 5 * 60_000;
 const QUIET_SETTLED = "quiet-settled";
 /** 思考强度循环的最多步数（omp 最多 8 个级别，转满一圈就不会再有新的）。 */
 const MAX_THINKING_CYCLES = 10;
+/**
+ * omp 自己冒出来、和刚发的命令无关的状态 toast：新进程起来约一秒后的 MCP 挂载通知（`xdev: xd://: mounted …`）、
+ * 后台作业结束（`Background task … completed`）。等命令的回应时它们既不是结果也不是失败。
+ */
+const AMBIENT_TOAST = /^(?:xdev: |Background task .* completed)/;
+
+/** 发送后新出现的、不是 omp 自发通知的状态 toast。和发送前文字完全相同的认不出（omp 复用同一个 toast 节点，只换文字）。 */
+function freshToast(document: TspDocument, before: readonly string[]): string | undefined {
+  return statusToastTexts(document).find((toast) => !before.includes(toast) && !AMBIENT_TOAST.test(toast));
+}
 
 export interface TspCommandsHost {
   /** 起进程并等握手完成（已在运行时立即返回）。 */
@@ -220,7 +230,7 @@ export class TspCommands {
    * 把 `/命令` 当普通 `send` 交给 omp（实测:单独的 `/fast`、`/slow`、`/fast on` 在空闲和运行中都当命令执行；`/model <id>`
    * 带参数的当普通消息），等 omp 的状态 toast，返回它的原文。`success` 判定哪条 toast 算成功（返回 true 就返回该 toast）；
    * 没给时，第一条新出现的 toast 就是结果。给了 `success` 而出现新的、不满足它的 toast 就当失败，原文抛出。
-   * 局限：和发送前完全相同的 toast 文字认不出是新的（omp 每次复用同一个 toast 节点，只换文字）。
+   * omp 自发的通知（`AMBIENT_TOAST`）不算新 toast。局限见 `freshToast`。
    */
   async #runSlash(text: string, success?: (toast: string) => boolean): Promise<string> {
     await this.#host.start();
@@ -235,7 +245,7 @@ export class TspCommands {
           const hit = texts.find(success);
           if (hit !== undefined) return hit;
         }
-        const fresh = texts.find((toast) => !before.includes(toast));
+        const fresh = freshToast(document, before);
         if (fresh === undefined) return null;
         if (success) throw new Error(fresh);
         return fresh;
@@ -269,7 +279,7 @@ export class TspCommands {
       try {
         return await this.#host.awaitDocument<string>(
           (document) => {
-            const fresh = statusToastTexts(document).find((toast) => !before.includes(toast));
+            const fresh = freshToast(document, before);
             if (fresh !== undefined) throw new Error(fresh);
             return null;
           },
@@ -330,7 +340,7 @@ export class TspCommands {
         (document) => {
           const error = newErrorLine(document, errorsBefore);
           if (error !== null) throw new Error(error);
-          return statusToastTexts(document).find((toast) => !toastsBefore.includes(toast)) ?? null;
+          return freshToast(document, toastsBefore) ?? null;
         },
         CONFIRM_TIMEOUT_MS,
         `omp did not confirm ${text}`,
@@ -358,7 +368,7 @@ export class TspCommands {
       session.sendEvent({ ev: "send", sf: target.sf, id: target.id, text });
       return this.#host.awaitDocument(
         (document) => {
-          const toast = statusToastTexts(document).find((candidate) => !toastsBefore.includes(candidate));
+          const toast = freshToast(document, toastsBefore);
           // 输入框卡片被弹窗换掉时模式读不到，当作没变。
           const facts = deriveComposerFacts(document);
           const now = facts.composer ? facts.mode : before;
@@ -408,7 +418,7 @@ export class TspCommands {
     try {
       await this.#host.awaitDocument(
         (document) => {
-          const fresh = statusToastTexts(document).find((toast) => !before.includes(toast));
+          const fresh = freshToast(document, before);
           if (fresh !== undefined) throw new Error(fresh);
           return !hadGoal && tracker.goal !== null ? true : null;
         },
@@ -432,7 +442,7 @@ export class TspCommands {
       (document) => {
         const found = findGoalDropPrompt(document);
         if (found !== null) return found;
-        const fresh = statusToastTexts(document).find((toast) => !before.includes(toast));
+        const fresh = freshToast(document, before);
         if (fresh !== undefined) throw new Error(fresh);
         return null;
       },

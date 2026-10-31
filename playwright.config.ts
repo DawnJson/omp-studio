@@ -11,4 +11,6 @@ export default defineConfig({
   forbidOnly: !!process.env["CI"],
   timeout: 60_000,
   reporter: "list",
+  // 开跑前查 out/ 不比 src/ 旧；跑完查没有新留下的临时目录（返回的函数就是 globalTeardown）。见 test/e2e/global-setup.ts。
+  globalSetup: "./test/e2e/global-setup.ts",
 });

@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { _electron as electron, expect, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { findOmpOnPath } from "../../src/main/omp/discover.ts";
 import { parseTestOmpOverride } from "../../src/main/omp/launch-args.ts";
+import type { ThemeName } from "../../src/shared/themes.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 
@@ -70,8 +71,75 @@ async function seedTakeoverDeclined(userDataDir: string, exePaths: string[]): Pr
 }
 
 /**
+ * 被测应用从测试进程继承的环境变量只有这些（名字不分大小写，Windows 上是 `Path`、`SystemRoot` 这样的写法）：
+ * 系统和 Electron 要的路径、区域、显示，git 和真实 omp 找配置要的 HOME / USERPROFILE。
+ * 其余一律不传。agent 的 shell 是 omp-studio 的任务起的，带着那个任务的 `STUDIO_BROWSER_CDP`（用例会连到用户正在用的浏览器面板）、
+ * omp 的 `PI_*`、从 agent 目录 `.env` 读进来的 `*_API_KEY` / `*_TOKEN` / `*_BASE_URL`（提供商被算成已连接、"写在 .env 里"的用例失败），
+ * 还可能有 `ELECTRON_RUN_AS_NODE`、`GIT_DIR` 这类会让应用或 git 换行为的变量。用例要的变量一律经 `extraEnv` 显式传。
+ */
+const inheritedNames = new Set(
+  [
+    "PATH",
+    "PATHEXT",
+    "SystemRoot",
+    "SystemDrive",
+    "windir",
+    "ComSpec",
+    "OS",
+    "PROCESSOR_ARCHITECTURE",
+    "PROCESSOR_IDENTIFIER",
+    "NUMBER_OF_PROCESSORS",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+    "HOME",
+    "USERPROFILE",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "ProgramData",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
+    "CommonProgramFiles",
+    "CommonProgramFiles(x86)",
+    "CommonProgramW6432",
+    "ALLUSERSPROFILE",
+    "PUBLIC",
+    "USERNAME",
+    "USERDOMAIN",
+    "USER",
+    "LOGNAME",
+    "SHELL",
+    "LANG",
+    "LANGUAGE",
+    "DISPLAY",
+    "WAYLAND_DISPLAY",
+    "XAUTHORITY",
+    "DBUS_SESSION_BUS_ADDRESS",
+  ].map((name) => name.toLowerCase()),
+);
+const inheritedPrefixes = ["lc_", "xdg_"];
+
+/**
+ * 被测应用的环境：继承白名单里的系统变量，再叠上 `extraEnv`。窗口默认在屏幕外、不抢焦点（main-window.ts 的 e2eBackground）；
+ * 要看着测试跑就在命令前设 `STUDIO_E2E_BACKGROUND=0`，这是唯一从外面继承的 `STUDIO_*`。
+ */
+export function appEnv(extraEnv: Record<string, string>): Record<string, string> {
+  const env: Record<string, string> = { STUDIO_E2E_BACKGROUND: process.env["STUDIO_E2E_BACKGROUND"] ?? "1" };
+  for (const [name, value] of Object.entries(process.env)) {
+    const lower = name.toLowerCase();
+    if (value !== undefined && (inheritedNames.has(lower) || inheritedPrefixes.some((p) => lower.startsWith(p))))
+      env[name] = value;
+  }
+  return { ...env, ...extraEnv };
+}
+
+/**
  * askTakeover=false（默认）时预先替用户拒绝接管 PATH 上的 omp 和 STUDIO_TEST_OMP 的假 omp：
  * 不测接管的用例不该被接管弹窗挡住，也绝不能在测试里真的下载 omp、改用户 PATH。
+ * 环境变量见 `appEnv`。返回前等 `app-root` 挂上：主入口要先等字体和启动快照，拿到窗口时快捷键还没有监听。
  */
 export async function launchApp(
   extraEnv: Record<string, string> = {},
@@ -79,7 +147,7 @@ export async function launchApp(
 ): Promise<LaunchedApp> {
   const userDataDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-e2e-"));
   if (options.askTakeover !== true) {
-    const testOmp = extraEnv["STUDIO_TEST_OMP"] ?? process.env["STUDIO_TEST_OMP"];
+    const testOmp = extraEnv["STUDIO_TEST_OMP"];
     const onPath = await findOmpOnPath().catch(() => null);
     await seedTakeoverDeclined(userDataDir, [
       ...(testOmp ? [parseTestOmpOverride(testOmp).command] : []),
@@ -90,10 +158,6 @@ export async function launchApp(
     extraEnv["PI_CODING_AGENT_DIR"] === undefined ? await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-")) : null;
   if (ownedAgentDir !== null) await seedFakeSessions(ownedAgentDir, path.join(os.tmpdir(), "omp studio 假项目"));
   const agentDir = ownedAgentDir ?? extraEnv["PI_CODING_AGENT_DIR"] ?? "";
-  // 指向 Vite 开发服务器的变量会让应用去加载开发页面；e2e 只跑构建产物。
-  // 在 omp-studio 的任务里跑测试时，继承来的 STUDIO_BROWSER_CDP 是那个任务的浏览器：传下去的话，被测应用起的
-  // 后台 omp 会带着它，用例可能连到用户正在用的 omp-studio 的浏览器面板上。
-  const { ELECTRON_RENDERER_URL: _devUrl, STUDIO_BROWSER_CDP: _outerBrowser, ...baseEnv } = process.env;
   // Windows 上 Electron 退出后文件句柄可能还要一会儿才放（杀毒软件也会扫新文件）：EBUSY/EPERM 时重试。
   const removeDirs = async () => {
     try {
@@ -108,16 +172,10 @@ export async function launchApp(
     app = await electron.launch({
       args: [root],
       cwd: root,
-      // 窗口在屏幕外、不抢焦点（main-window.ts 的 e2eBackground）；要看着测试跑就在命令前设 STUDIO_E2E_BACKGROUND=0。
-      env: {
-        STUDIO_E2E_BACKGROUND: "1",
-        ...baseEnv,
-        STUDIO_USER_DATA: userDataDir,
-        PI_CODING_AGENT_DIR: agentDir,
-        ...extraEnv,
-      },
+      env: appEnv({ STUDIO_USER_DATA: userDataDir, PI_CODING_AGENT_DIR: agentDir, ...extraEnv }),
     });
     const page = await app.firstWindow();
+    await page.getByTestId("app-root").waitFor({ state: "attached" });
     const launchedApp = app;
     let exited = false;
     launchedApp.once("close", () => {
@@ -143,6 +201,50 @@ export async function launchApp(
     await removeDirs();
     throw error;
   }
+}
+
+/**
+ * 起真实 omp（PATH 上的）+ 临时 agent 目录的应用，等 omp 就绪后打开设置页：1200 宽、按一次 `Control+,`（是开关，多按就关掉）、
+ * 等 `settings` 出现；给了 `section` 再点 `settings-nav-<section>`。要查窄窗口就在到了目标页之后再缩到 900：
+ * 窄窗口下左侧导航不在，`settings-nav-*` 等到超时。
+ * `extraEnv` 照传给 `launchApp`。agent 目录由调用方删（`launchApp` 不管传进来的 agent 目录）；
+ * `prepare` 在应用启动前往里写文件（omp 启动时才发现 skill 等）；`agentDirPrefix` 可以带空格和中文，测路径处理。
+ */
+export async function launchSettings(
+  extraEnv: Record<string, string> = {},
+  options: {
+    prepare?: ((agentDir: string) => Promise<void>) | undefined;
+    section?: string;
+    height?: number;
+    agentDirPrefix?: string;
+  } = {},
+): Promise<{ launched: LaunchedApp; agentDir: string }> {
+  const agentDir = await mkdtemp(path.join(os.tmpdir(), options.agentDirPrefix ?? "omp-studio-agent-"));
+  const removeAgentDir = () => rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  const launched = await (async () => {
+    await options.prepare?.(agentDir);
+    return launchApp({ PI_CODING_AGENT_DIR: agentDir, ...extraEnv });
+  })().catch(async (error: unknown) => {
+    await removeAgentDir();
+    throw error;
+  });
+  try {
+    await expect
+      .poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
+        timeout: 30_000,
+      })
+      .toBe("ready");
+    await launched.page.setViewportSize({ width: 1200, height: options.height ?? 800 });
+    await launched.page.keyboard.press("Control+,");
+    await expect(launched.page.getByTestId("settings")).toBeVisible();
+    if (options.section !== undefined) await launched.page.getByTestId(`settings-nav-${options.section}`).click();
+  } catch (error) {
+    // 中途失败调用方拿不到 launched：在这里关掉应用、删掉目录，不留进程和临时目录。关闭也失败时照样抛原来的错误（原因在那里）。
+    await launched.close().catch((closeError: unknown) => console.error("launchSettings: 关闭应用失败", closeError));
+    await removeAgentDir();
+    throw error;
+  }
+  return { launched, agentDir };
 }
 
 const fakeTspOmp = path.join(root, "test", "fake-omp", "fake-tsp-omp.ts");
@@ -251,19 +353,18 @@ export async function expectInfoTipsOnLabelLine(container: Locator): Promise<voi
   expect(offenders, "ⓘ 单独掉到下一行的标签").toEqual([]);
 }
 
+/** 切换语言，等 `app-root` 的 `data-locale` 换好再返回。 */
+export async function setLocale(page: Page, locale: "zh-CN" | "en"): Promise<void> {
+  await page.evaluate((next) => globalThis.studio.setLocale(next), locale);
+  await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
+}
+
 /**
- * 切换语言和主题，等界面真的换好再返回。换主题是整窗交叉淡入（App.tsx 的 view transition）：
+ * 切换主题（登记表里的任何主题 id，如 `whale-dark`），等界面真的换好再返回。换主题是整窗交叉淡入（App.tsx 的 view transition）：
  * html 上的 data-theme 已经变了，淡入放完之前量到的还是过渡中的画面。
  */
-export async function setLocaleTheme(page: Page, locale: "zh-CN" | "en", theme: "light" | "dark"): Promise<void> {
-  await page.evaluate(
-    async ({ locale: nextLocale, theme: nextTheme }) => {
-      await globalThis.studio.setLocale(nextLocale);
-      await globalThis.studio.setTheme(nextTheme);
-    },
-    { locale, theme },
-  );
-  await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", locale);
+export async function setTheme(page: Page, theme: ThemeName): Promise<void> {
+  await page.evaluate((next) => globalThis.studio.setTheme(next), theme);
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
   await page.evaluate(async () => {
     const g = globalThis as unknown as {
@@ -283,6 +384,12 @@ export async function setLocaleTheme(page: Page, locale: "zh-CN" | "en", theme: 
         .map((animation) => animation.finished),
     );
   });
+}
+
+/** 切换语言和主题，等界面真的换好再返回（见 `setLocale`、`setTheme`）。 */
+export async function setLocaleTheme(page: Page, locale: "zh-CN" | "en", theme: "light" | "dark"): Promise<void> {
+  await setLocale(page, locale);
+  await setTheme(page, theme);
 }
 
 /** 展开侧栏里所有折叠着的文件夹（任务行只在文件夹展开时才画出来）；文件夹还没出现时先等它出现。 */

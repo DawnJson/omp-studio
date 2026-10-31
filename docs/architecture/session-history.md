@@ -5,7 +5,7 @@ omp 版本：文档依据 omp 18.12.0 随附的 `session.md`、`session-switchin
 
 ## 为什么读文件
 
-omp 没有"列出会话"的 RPC（wire 命令表里只有针对当前会话的 `get_messages*`）。omp 自己的文档给出存储格式，我们**只读**它：从不写 `~/.omp`（AGENTS.md "omp 的边界"）。格式不是协议契约，升级后可能变，所以：
+omp 没有"列出会话"的 RPC（wire 命令表里只有针对当前会话的 `get_messages*`）。omp 自己的文档给出存储格式，我们**只读**它：从不写 `~/.omp`（[omp-boundaries.md](omp-boundaries.md)）。格式不是协议契约，升级后可能变，所以：
 
 - 只解析文件前缀（标题槽、会话头、第一条用户消息），不解析正文；
 - 解析不了的文件计数跳过（`SessionScan.skipped`），不报错，其余会话照常列出；

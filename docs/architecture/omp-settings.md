@@ -102,7 +102,7 @@
 | 任务出错 | `error.notify` | 窗口看不见 |
 
 - **去掉了 studio 自己的 `notifyOnGate` 开关**（设置 → 通用里的“有任务在等你时通知我”）：它和 omp 的三项管同一件事，只留 omp 的。要关通知，在通用页“通知与回顾”里改 omp 的那三项（终端版 omp 共用）。“任务完成时响提示音”（`soundOnDone`）是另一件事（声音，不是系统通知），仍是 studio 自己的设置：窗口在托盘、且 `completion.notify` 开着时发了通知就不再另响；`completion.notify` 关着时照样按它响。
-- **没有迁移**（仓库所有者 2026-10-23 定）：AGENTS.md 只批准了两处自动写 omp 配置，studio 不为这个开关新增第三处。旧开关已删，`settings.json` 里残留的 `notifyOnGate` 由 `sanitize` 丢掉；以前关过它的用户需要在“通知与回顾”里自己把 omp 的三项关掉，否则会按 omp 的默认值收到通知。
+- **没有迁移**（仓库所有者 2026-10-23 定）：[omp-boundaries.md](omp-boundaries.md) 只批准了两处自动写 omp 配置，studio 不为这个开关新增第三处。旧开关已删，`settings.json` 里残留的 `notifyOnGate` 由 `sanitize` 丢掉；以前关过它的用户需要在“通知与回顾”里自己把 omp 的三项关掉，否则会按 omp 的默认值收到通知。
 - 行为变化：`error.notify` 默认是 `off`，所以不改设置的话，窗口在托盘时任务出错不再有系统通知（以前有）；要保留就在设置里把“任务出错时通知”打开。
 - `ask.notify` 在 omp 里的说明是 “Notify when the ask tool is waiting for input”；studio 的“等你处理”包括审批门（`needs_you` 状态），这里把审批也算在 `ask.notify` 下 [推测：omp 对审批门用不用同一项没有从源码里确认，omp 打包的 JS 里读这个键的位置没提取到]。
 
@@ -117,7 +117,7 @@
 - 取值（`omp config list` 的 enum 选项，omp 18.12.5）：`always-ask` | `always-ask-cached` | `write` | `yolo`；`always-ask-cached` 在 omp 里叫 Ask and remember（读文件也询问，批准可记住文件/文件夹，记住的批准用 `/forget-approvals` 清）。取值和 `toApprovalMode` 在 `src/shared/approval-mode.ts`；omp 给了不认识的值，胶囊显示 `approval.loading`，不当成别的档位。
 - **项目盖过全局**（实测 18.12.5，临时 `PI_CODING_AGENT_DIR`）：全局 `omp config set tools.approvalMode write`，项目 `.omp/config.yml` 写 `tools.approvalMode: always-ask-cached`；在项目目录里 `omp config list --json` / `omp config get` 给 `always-ask-cached`，在别处给 `write`。omp 只看 cwd 下的 `.omp/config.yml`，父目录里的不算（cwd 在 `proj/sub`、`proj/.omp/config.yml` 设了值：读到 omp 默认 `yolo`）。`PI_APPROVAL_MODE` 环境变量 [推测，未实测] 会盖过两者（`test/omp-config.test.ts` 的假数据里 `omp config set` 结果带 `overriddenBy`），studio 不处理。
 - **读**：`getApprovalMode(projectId)`（`omp-config/approval-mode.ts`）在项目目录里跑 `omp config list --json` 得生效值；`list` 不带来源，所以另外只读解析项目 `.omp/config.yml`，`tools.approvalMode` 是字符串就记 `source: "project"`，否则 `"global"`（项目文件解析不了会报错，不当成没设）。projectId 为 null（无项目的聊天）只看全局。只有全局来源的值记进启动缓存。
-- **写**：只经 `omp config set tools.approvalMode`（全局，用设置页同一条 `setOmpConfig`）。omp 没有写项目层的命令（实测 18.12.5：`omp config set --help` 只有 `--json`；在项目目录里 `omp config set tools.approvalMode write` 仍然写全局，项目文件不动，并提示 “Project settings override this value here; edit or remove it there for the saved value to apply.”），studio 不自己改项目文件（AGENTS 只允许两处例外）。所以项目 `.omp/config.yml` 设了这一项时，胶囊菜单里的四档置灰不可选，悬停提示加一句 `approval.projectLocked`（“由项目配置决定（.omp/config.yml）”）；「清除已记住的批准」不受影响。
+- **写**：只经 `omp config set tools.approvalMode`（全局，用设置页同一条 `setOmpConfig`）。omp 没有写项目层的命令（实测 18.12.5：`omp config set --help` 只有 `--json`；在项目目录里 `omp config set tools.approvalMode write` 仍然写全局，项目文件不动，并提示 “Project settings override this value here; edit or remove it there for the saved value to apply.”），studio 不自己改项目文件（[omp-boundaries.md](omp-boundaries.md) 的例外里没有它）。所以项目 `.omp/config.yml` 设了这一项时，胶囊菜单里的四档置灰不可选，悬停提示加一句 `approval.projectLocked`（“由项目配置决定（.omp/config.yml）”）；「清除已记住的批准」不受影响。
 - **清除已记住的批准**：胶囊菜单里给任务的 omp 会话发 `/forget-approvals`（`sendPrompt`，同 `/retry`）。实测 18.12.5 `omp --mode rpc-ui` 下 `prompt` 发 `/forget-approvals` 不调模型（应答 `agentInvoked:false`），先回一条 `command_output`：“Remembered approvals forgotten; the next read or write asks again.”。清的是整个 agent 目录的批准库，不分项目。草稿、标题为空（还没发过消息）的任务里禁用，否则第一次 `sendPrompt` 会拿这条命令当标题。
 - worktree 任务：胶囊按项目目录（不是 worktree 根）读；worktree 里没有的未提交 `.omp/config.yml` 在那里不生效，这种情况显示可能和 omp 实际行为不同。
 - 测试：`test/approval-mode.test.ts`（生效值与来源、四档文案）。
@@ -137,7 +137,7 @@
 
 ### 编辑 MCP 服务器（直接改 `mcp.json`，omp 18.12.6 实测 2026-10-24）
 
-omp 只有 `/mcp add|remove|enable|disable|test|list|reload…`，没有修改命令（`omp mcp …` 这个 CLI 也没有：`omp mcp add` 被当成 `launch` 的消息，`--url` 等报 unknown flags）。仓库所有者 2026-10-24 批准的例外（AGENTS.md「omp 的边界」第三项）：主进程直接改 omp 自己的 MCP 文件里的 `mcpServers.<name>`。代码：`src/main/integrations/mcp-file.ts`（读 / 改 / 写，纯 Node，不 import electron）、`src/main/ipc/mcp-handlers.ts`（校验参数、按范围算路径）、`src/shared/mcp-edit.ts`（类型）、界面 `McpForm.tsx` 的 `edit` 模式。
+omp 只有 `/mcp add|remove|enable|disable|test|list|reload…`，没有修改命令（`omp mcp …` 这个 CLI 也没有：`omp mcp add` 被当成 `launch` 的消息，`--url` 等报 unknown flags）。仓库所有者 2026-10-24 批准的例外（[omp-boundaries.md](omp-boundaries.md)「自己写 omp 配置的例外」第 3 项）：主进程直接改 omp 自己的 MCP 文件里的 `mcpServers.<name>`。代码：`src/main/integrations/mcp-file.ts`（读 / 改 / 写，纯 Node，不 import electron）、`src/main/ipc/mcp-handlers.ts`（校验参数、按范围算路径）、`src/shared/mcp-edit.ts`（类型）、界面 `McpForm.tsx` 的 `edit` 模式。
 
 - **`/mcp add` 写出的文件形状**（rpc-ui，临时 `PI_CODING_AGENT_DIR`，`/mcp add r1 --scope user --url http://127.0.0.1:9/mcp --transport http --token SECRET`、`/mcp add s1 --scope user -- npx -y @scope/server`）：2 空格缩进、LF、**没有末尾换行**，第一个键是 `$schema`（`https://raw.githubusercontent.com/can1357/oh-my-pi/main/packages/coding-agent/src/config/mcp-schema.json`）：
   ```json

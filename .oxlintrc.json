@@ -32,8 +32,128 @@
     // Spread in map is the immutable-update pattern for stores and React state; mutating instead would break change detection.
     "oxc/no-map-spread": "off",
     // Only Worker/MessagePort postMessage is used, which has no targetOrigin parameter.
-    "unicorn/require-post-message-target-origin": "off"
+    "unicorn/require-post-message-target-origin": "off",
+    // Repo rules (docs/architecture/security.md, performance.md). oxlint replaces a rule's options per override instead of merging them,
+    // so every override below repeats the full list minus the entry that file is allowed to use.
+    "eslint/no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          { "name": "koffi", "message": "koffi is only loaded in src/main/platform/win32/ffi.ts." },
+          { "name": "react", "importNames": ["lazy", "Suspense"], "message": "Use ui/lazy-view.ts." }
+        ],
+        "patterns": [
+          {
+            "group": ["@oh-my-pi/pi-coding-agent", "@oh-my-pi/pi-coding-agent/**"],
+            "message": "Copy wire types with npm run rpc:update-wire; only the omp extension imports omp at runtime."
+          }
+        ]
+      }
+    ],
+    "eslint/no-restricted-properties": [
+      "error",
+      { "object": "React", "property": "lazy", "message": "Use ui/lazy-view.ts." }
+    ]
   },
+  "overrides": [
+    {
+      // Atomic writes go through src/main/tasks/atomic-write.ts (renameWithRetry / writeFileAtomic).
+      "files": ["src/**"],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              { "name": "koffi", "message": "koffi is only loaded in src/main/platform/win32/ffi.ts." },
+              { "name": "react", "importNames": ["lazy", "Suspense"], "message": "Use ui/lazy-view.ts." },
+              { "name": "node:fs", "importNames": ["rename", "renameSync"], "message": "Use tasks/atomic-write.ts." },
+              { "name": "fs", "importNames": ["rename", "renameSync"], "message": "Use tasks/atomic-write.ts." },
+              { "name": "node:fs/promises", "importNames": ["rename"], "message": "Use tasks/atomic-write.ts." },
+              { "name": "fs/promises", "importNames": ["rename"], "message": "Use tasks/atomic-write.ts." }
+            ],
+            "patterns": [
+              {
+                "group": ["@oh-my-pi/pi-coding-agent", "@oh-my-pi/pi-coding-agent/**"],
+                "message": "Copy wire types with npm run rpc:update-wire; only the omp extension imports omp at runtime."
+              }
+            ]
+          }
+        ],
+        "eslint/no-restricted-properties": [
+          "error",
+          { "object": "React", "property": "lazy", "message": "Use ui/lazy-view.ts." },
+          { "object": "fs", "property": "renameSync", "message": "Use tasks/atomic-write.ts." },
+          { "object": "fs", "property": "rename", "message": "Use tasks/atomic-write.ts." }
+        ]
+      }
+    },
+    {
+      "files": ["src/main/platform/win32/ffi.ts"],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              { "name": "node:fs", "importNames": ["rename", "renameSync"], "message": "Use tasks/atomic-write.ts." },
+              { "name": "fs", "importNames": ["rename", "renameSync"], "message": "Use tasks/atomic-write.ts." },
+              { "name": "node:fs/promises", "importNames": ["rename"], "message": "Use tasks/atomic-write.ts." },
+              { "name": "fs/promises", "importNames": ["rename"], "message": "Use tasks/atomic-write.ts." }
+            ],
+            "patterns": [
+              {
+                "group": ["@oh-my-pi/pi-coding-agent", "@oh-my-pi/pi-coding-agent/**"],
+                "message": "Copy wire types with npm run rpc:update-wire; only the omp extension imports omp at runtime."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/main/tasks/atomic-write.ts"],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          {
+            "paths": [{ "name": "koffi", "message": "koffi is only loaded in src/main/platform/win32/ffi.ts." }],
+            "patterns": [
+              {
+                "group": ["@oh-my-pi/pi-coding-agent", "@oh-my-pi/pi-coding-agent/**"],
+                "message": "Copy wire types with npm run rpc:update-wire; only the omp extension imports omp at runtime."
+              }
+            ]
+          }
+        ],
+        "eslint/no-restricted-properties": "off"
+      }
+    },
+    {
+      // Runs inside the omp process: imports omp at runtime and cannot import atomic-write.ts.
+      "files": ["src/main/client-accounts/extension/**"],
+      "rules": {
+        "eslint/no-restricted-imports": [
+          "error",
+          { "paths": [{ "name": "koffi", "message": "koffi is only loaded in src/main/platform/win32/ffi.ts." }] }
+        ],
+        "eslint/no-restricted-properties": "off"
+      }
+    },
+    {
+      // e2e asserts what the user sees: no fixed waits, no screenshots (docs/architecture/testing.md「e2e 写法」).
+      "files": ["test/e2e/**"],
+      "rules": {
+        "eslint/no-restricted-properties": [
+          "error",
+          { "object": "React", "property": "lazy", "message": "Use ui/lazy-view.ts." },
+          {
+            "property": "waitForTimeout",
+            "message": "Wait for a user-visible condition (expect.poll / locator), not a fixed time."
+          },
+          { "property": "screenshot", "message": "e2e does not take screenshots; assert visible results instead." }
+        ]
+      }
+    }
+  ],
   "ignorePatterns": [
     "src/shared/omp-wire/rpc-wire.generated.ts",
     "src/shared/tsp/tsp.generated.ts",

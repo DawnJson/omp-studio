@@ -1,4 +1,4 @@
-// 主进程日志：防的是日志里漏出用户名、家目录、key（AGENTS.md 隐私），以及按天换文件、过期删除出错。
+// 主进程日志：防的是日志里漏出用户名、家目录、key（docs/architecture/security.md「日志和脱敏」），以及按天换文件、过期删除出错。
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";

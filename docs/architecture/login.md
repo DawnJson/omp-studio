@@ -99,7 +99,7 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 ### 主进程
 
 - 入口 `startTerminalLogin(providerId)` / `cancelTerminalLogin()`（`StudioInvokeApi`，`account-handlers.ts`）。`providerId` 不可信：`TerminalLogin.start` 先在 omp 的登录 provider 列表（服务进程的 `get_login_providers`）里查，不在就 reject `unknown login provider`，**不起进程**（`test/terminal-login.test.ts` 用 `nope`、`github-copilot --model x`、`../../x`、大小写不同、带换行的 id 验证；`settings-functional.e2e.ts` 的用例对真实 IPC 断言同样的拒绝）。
-- 临时 omp：`buildTspLaunch({ cwd, noSession: true })`——同一个 omp 可执行文件、同一套 PATH，参数多一个 `--no-session`（不在用户的会话目录留会话文件；探针跑完 `~/.omp/agent/sessions` 里没有当天新建的目录）。cwd 是 `userData/login-cwd`（studio 自己的空目录，不是任何项目，omp 不会读到项目配置）。**`PI_CODING_AGENT_DIR` 不动**：登录就是要把凭据写进用户真实的 agent 目录，由 omp 自己写（AGENTS.md "omp 的边界"：只经 omp 修改 `~/.omp`，studio 不碰凭据）。首次运行引导（`startup.setupWizard`）照任务的做法等启动默认写完再起。
+- 临时 omp：`buildTspLaunch({ cwd, noSession: true })`——同一个 omp 可执行文件、同一套 PATH，参数多一个 `--no-session`（不在用户的会话目录留会话文件；探针跑完 `~/.omp/agent/sessions` 里没有当天新建的目录）。cwd 是 `userData/login-cwd`（studio 自己的空目录，不是任何项目，omp 不会读到项目配置）。**`PI_CODING_AGENT_DIR` 不动**：登录就是要把凭据写进用户真实的 agent 目录，由 omp 自己写（[omp-boundaries.md](omp-boundaries.md)「`~/.omp`」：只经 omp 修改 `~/.omp`，studio 不碰凭据）。首次运行引导（`startup.setupWizard`）照任务的做法等启动默认写完再起。
 - 进程管理全部复用 `TspSession`：node-pty 自带 ConPTY（`useConptyDll`）、`assignToOwnJob`（主进程被强杀时系统回收）、关闭时 `taskkill /T /F` 等退出事件再 `pty.kill()`、spawn / kill 都在 `withPtyLock` 里。退出入口：对话框取消（`cancelTerminalLogin`）、被新的登录顶掉、应用退出（`registerShutdownHook`，经 `window/shutdown.ts`，托盘退出 / 菜单退出 / 安装更新 / 注销都会走）。结果（`start` 的 Promise）在进程关掉**之后**才 resolve。
 - 同一时间一个登录：`start` 遇到还没结束的旧登录先结束它（渲染进程重载后旧对话框没了，不能被挡住）。
 - 启动：等握手（30 秒超时，`TspHandshakeError`）→ 等输入框就绪（`findMessageTarget` 是 `ready`，30 秒超时）→ 发 `send` 事件 `/login <providerId>`（和任务发话同一条路径）→ 每次文档变化用 `deriveLoginFlow` 判断。omp 在握手前退出：失败，原因是 omp 终端上最后几行文字或退出码。
@@ -165,7 +165,7 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 - 自定义 provider 只能写在 `<agent 目录>/models.yml`（`omp://models.md`）：`providers.<id>` 下有 `baseUrl`、`apiKey`（环境变量名或字面量，`!命令` 取密钥）、`api`、`auth`、`models[]`（`id`、`name`、`contextWindow`、`maxTokens`、`reasoning`、`input`、`cost`…）和 `discovery`。非法文件时 omp 退回内置模型，错误经 `ModelRegistry.getError()` 暴露。
 - **写入接口：没有。** 查过：`omp config`（只有 `list/get/set/reset/path/init-xdg`，键必须是设置 schema 里的，`models.yml` 不是设置）；RPC wire schema 的全部命令（`rpc-wire.generated.ts`，没有任何 provider/models 的增删改；只有 `get_available_models`、`get_login_providers`、`login`、`logout`）；`omp models`（只有 `ls/find/refresh`）；`--config <overlay>`（是 `config.yml` 风格的设置叠加层，不含 `providers`）。文档里唯一的"程序化"入口是扩展 API `pi.registerProvider(...)`（进程内注册，不落盘）。
 - 读：`omp models --json` / RPC `get_available_models` 能读到最终合并后的模型列表（含自定义的），但不暴露 `models.yml` 的原文，也不暴露 transport `api`。
-- 按 `AGENTS.md`「omp 的边界」（omp 的设置就是 omp-studio 的设置，只经 omp 写），没有写入接口原本不该写 `models.yml`；仓库所有者 2026-10-18 在四个方案（直接改 `models.yml` / 只生成 YAML 片段 / 给 omp 提 PR / 自带扩展）里选了**方案 1：omp-studio 直接改 `models.yml`**，作为和"项目 `.omp/config.yml` 的 `modelRoles`"同一类的第二个例外。实现、校验、key 存法、一键拉取、保存后 omp 如何重新加载（实测：只在启动时读，同进程里改了不生效）见 `custom-models.md`。
+- 按 [omp-boundaries.md](omp-boundaries.md)（omp 的设置就是 omp-studio 的设置，只经 omp 写），没有写入接口原本不该写 `models.yml`；仓库所有者 2026-10-18 在四个方案（直接改 `models.yml` / 只生成 YAML 片段 / 给 omp 提 PR / 自带扩展）里选了**方案 1：omp-studio 直接改 `models.yml`**，作为和"项目 `.omp/config.yml` 的 `modelRoles`"同一类的第二个例外。实现、校验、key 存法、一键拉取、保存后 omp 如何重新加载（实测：只在启动时读，同进程里改了不生效）见 `custom-models.md`。
 
 ## 界面（3.2）
 

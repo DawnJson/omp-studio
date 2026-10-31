@@ -1,6 +1,6 @@
 # 主进程日志和诊断信息
 
-代码：`src/main/log/`。规则来源：`AGENTS.md` 的"日志和路径脱敏"。
+代码：`src/main/log/`。规则来源：[security.md](security.md)「日志和脱敏」。
 
 ## 日志
 

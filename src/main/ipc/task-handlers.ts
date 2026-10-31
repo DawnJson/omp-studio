@@ -1,4 +1,4 @@
-// 任务和项目的 IPC handler：校验参数，委托任务池。参数一律是 unknown，先校验再用（AGENTS.md "Electron 安全"）。
+// 任务和项目的 IPC handler：校验参数，委托任务池。参数一律是 unknown，先校验再用（docs/architecture/security.md「preload 和 IPC」）。
 // "id 是否存在"由任务池查表确认。
 import { app, dialog, shell } from "electron";
 import { mkdir } from "node:fs/promises";

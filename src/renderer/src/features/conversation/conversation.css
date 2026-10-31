@@ -453,23 +453,30 @@ html[data-motion="reduced"] .step-actions {
 }
 
 /* Todo：阶段行（状态环 + 名字 + 右侧 完成/总数）+ 任务行。 */
-.todo-list {
+.step-todo-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-0-5);
 }
-.todo-phase-head,
-.todo-task {
+.step-todo-phase + .step-todo-phase {
+  margin-top: var(--space-2-5);
+}
+.step-todo-phase-head,
+.step-todo-task {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-height: calc(var(--row-tool) - var(--space-1));
   font-size: var(--fs-sm);
 }
-.todo-phase-head {
+/* 外边距、字重、行高原来是从输入框待办（composer.css 的 .todo-phase-head）同名类漏过来的，改名后照原样写在这里。 */
+.step-todo-phase-head {
+  margin: 0 0 var(--space-1);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-xs);
   color: var(--text);
 }
-.todo-phase-name {
+.step-todo-phase-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -477,33 +484,33 @@ html[data-motion="reduced"] .step-actions {
   white-space: nowrap;
   font-weight: var(--fw-medium);
 }
-.todo-phase-count {
+.step-todo-phase-count {
   flex: none;
   color: var(--text-3);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
-.todo-task {
+.step-todo-task {
   padding-left: var(--space-5);
   color: var(--text-2);
 }
-.todo-task[data-status="completed"],
-.todo-task[data-status="abandoned"] {
+.step-todo-task[data-status="completed"],
+.step-todo-task[data-status="abandoned"] {
   color: var(--text-3);
 }
-.todo-task[data-status="abandoned"] .todo-task-text {
+.step-todo-task[data-status="abandoned"] .step-todo-task-text {
   text-decoration: line-through;
 }
-.todo-task-text {
+.step-todo-task-text {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.todo-task-note {
+.step-todo-task-note {
   color: var(--st-waiting-text);
   font-size: var(--fs-xs);
 }
-.todo-ring {
+.step-todo-ring {
   display: grid;
   place-items: center;
   flex: none;
@@ -514,23 +521,23 @@ html[data-motion="reduced"] .step-actions {
   border-radius: var(--radius-pill);
   color: var(--text-2);
 }
-.todo-ring[data-state="active"] {
+.step-todo-ring[data-state="active"] {
   border-color: var(--accent);
 }
-.todo-ring[data-state="active"]::after {
+.step-todo-ring[data-state="active"]::after {
   content: "";
   width: var(--space-1);
   height: var(--space-1);
   border-radius: var(--radius-pill);
   background: var(--accent);
 }
-.todo-ring[data-state="done"] {
+.step-todo-ring[data-state="done"] {
   border-color: var(--text-3);
 }
-.todo-ring[data-state="abandoned"] {
+.step-todo-ring[data-state="abandoned"] {
   border-color: var(--st-error);
 }
-.todo-ring[data-state="blocked"] {
+.step-todo-ring[data-state="blocked"] {
   border-color: var(--st-waiting);
 }
 

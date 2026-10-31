@@ -39,7 +39,7 @@
 | 阴影 | [Bold] 三级 + `--shadow-modal` + `--shadow-composer`；`--shadow-modal` 给盖在遮罩上的层（对话框、命令面板、看大图、omp 的选择面板）：浅色是 `--shadow-3` 去掉 1px 描边，靠阴影和遮罩分开，深色同 `--shadow-3`（2026-10-29 仓库所有者定） | 输入框是视觉焦点，值得单独一档；2026-10-22 起 `--shadow-composer` 只剩一层贴底的小阴影（浅色 `0 1px 2px` + `0 2px 6px` 3%，深色 `0 1px 3px`），输入框靠 1px 边框和底色分开，不再浮起 |
 | 动效曲线 | [Bold] ease-out-quint 为默认，一条弹簧（`linear()`） | Calm 的弹簧过冲 6%，偏弹；Bold 的 ζ≈0.8、过冲 1.5% 更克制。砍掉第二条软弹簧，只用 ease-out |
 | 动效时长 | [Bold] 80/140/200/320/420 | — |
-| reduced-motion | [Calm] 系统开启或应用内开关任一为真即生效；应用内**只能强制开，不能在系统要求减少时关闭**；保留 100ms 纯透明度渐变；位移/缩放通过 `--travel-*` / `--scale-pop` 归零 | AGENTS 把它列为硬约束；token 化位移量后，组件不用逐个写 reduced 分支 |
+| reduced-motion | [Calm] 系统开启或应用内开关任一为真即生效；应用内**只能强制开，不能在系统要求减少时关闭**；保留 100ms 纯透明度渐变；位移/缩放通过 `--travel-*` / `--scale-pop` 归零 | 最初的需求把它列为硬约束；token 化位移量后，组件不用逐个写 reduced 分支 |
 | 循环动画 | [新] 统一用 `animation-play-state: var(--play-state)`，keyframes 的 0% 帧即静态终态；节奏用 `steps()` 跳着播，每秒约 30 帧（`tokens.css` 的 `--tick-*`：steps 数 = 一段 keyframes 的时长 × 30） | 比“时长设为 0 且无限循环”可靠，不依赖浏览器对 0s infinite 动画的行为。不跳帧时按屏幕刷新率（144 / 300Hz）每帧都画：一个转圈让 GPU 进程占约 20%，扫光文字连渲染进程一起占 20% 以上（2026-10-28 实测） |
 | 主题机制 | [新] CSS 默认跟随 `prefers-color-scheme`；`<html data-theme>` 显式覆盖 | 任务要求；Calm/Bold 都让主进程解析后写属性，仍然可以：主进程只在用户选择“浅色/深色”时写 `data-theme`，选“跟随系统”时移除属性 |
 | 滚动条 | [融合 → 2026-10-21 改] 全局统一：细灰滑块，无轨道无底色，只在滚动时（和悬停到滑块上时）显示，停下约 0.8s 后淡出；不画横向滚动条。实现见 §5.4 “滚动条与横向溢出”。`.scroller` 等少数容器仍用自绘 `OverlayScrollbar`（`scrollbar-width: none`） | 仓库所有者 2026-10-21：不要经典的 Windows 滚动条，照 Tern/macOS 的覆盖式；全局一套样式，组件里不再各写各的 |
@@ -70,7 +70,7 @@
 |---|---|---|
 | 任务行高度 | [Bold] 32 | 比 Calm 36 更密，仍 ≥28 |
 | 选中行 | [Bold] `--bg-active` + 左侧 2×16 强调竖条 | 不靠字重 |
-| 任务删除 | [Bold] 只做“归档”（隐藏 + 8 秒撤销 toast），不弹确认、不删 omp 会话文件 | AGENTS 禁止直接写 `~/.omp`；omp 无删除会话 RPC（Calm 同样存疑） |
+| 任务删除 | [Bold] 只做“归档”（隐藏 + 8 秒撤销 toast），不弹确认、不删 omp 会话文件 | 不直接写 `~/.omp`（`docs/architecture/omp-boundaries.md`）；omp 无删除会话 RPC（Calm 同样存疑） |
 | 重命名 | [Calm] 存应用自己的元数据，不调 `set_session_name` | 休眠任务没有 omp 进程，改名不应触发启动；Bold 的 RPC 方案只在有进程时可用 |
 | 用户消息 | [Calm] 左对齐、`--bg-raised` 块、无气泡尾 | 与助手同一条阅读轴；长消息多行 |
 | 助手消息 | [Calm/Bold 一致] 无头像、无气泡、纯文本 | — |
@@ -192,6 +192,8 @@
 
 见 `tokens.css`。规则：**组件里不出现表外的数**（除了 1px 描边、2px 焦点环/竖条、组件私有的固定像素如 8px 状态点，这些在 §4 里逐个写明）。窄窗断点（媒体查询不能用变量）：`<1000px` 侧栏抽屉并 `--gutter` 改 16px。命令面板不用断点，宽 `min(var(--palette-w), calc(100vw - var(--space-8)))`。
 
+层叠上下文：`.composer-stack` 是 `--z-sticky + 1` 的层叠上下文，里面的 `--z-popover` 出不去。输入框上方要能和 omp 弹窗（过程区的 layer，`--z-popover`）同时出现的浮层挂到 body 上（`createPortal`，如 `StatusPills.tsx` 的 `JobsCard`），不在输入框里调 z-index。
+
 ### 2.5 颜色语义与对比度
 
 | 用途 | token | 规则 |
@@ -278,7 +280,7 @@
   - 其余空白全部 `-webkit-app-region: drag`，按钮和任务条 `no-drag`；双击空白最大化/还原（系统行为）。
 - **主区面板（“纸面”）**：顶栏下方，侧栏右边。底色 `--bg-app`，1px `--border`，**四个角都是 `--radius-xl`**，右边和下边各留 `--space-2` 的窗口底色，像一张放在桌上的纸；侧栏收起或作为抽屉时左边也留 `--space-2`。面板与侧栏之间不画分隔线。
 - 单实例（二次启动聚焦已有窗口）；记忆位置/尺寸/最大化/侧栏宽度/侧栏折叠/历史会话排列（文件夹或时间）。
-- 不用 Mica/毛玻璃。
+- Windows 11 毛玻璃是可选设置（`settings.glass`，默认关；做法、实测和限制见 `docs/architecture/themes.md`「毛玻璃」，§2.1）；改相关样式要在前台真窗口里截屏幕上那一块看，`page.screenshot` 和后台 e2e 看不到 Acrylic。
 
 ### 3.2 栅格
 
@@ -404,7 +406,7 @@
 | 表格 | 外层可横向滚动；单元格 `--space-2 --space-3`；表头 `--fs-xs` `--text-2`；行线 `--border-subtle`；无斑马纹 |
 | 分隔线 | 1px `--border-subtle`，上下 `--space-5` |
 | 链接 | `--link`，hover 才下划线；http/https 交给主进程用系统浏览器打开；tooltip 显示完整 URL。过程区回答（`md` 节点）里的文件链接（`file://` 和不带协议的路径，`#`、`?`、`//` 开头的不算）在右侧预览打开（`openHref`，和工具卡上的路径一样；越界、不存在由预览页说明），二进制文件在预览页给“用默认应用打开”（2026-10-28，照 omp 18.13.1 终端版只把这两种画成链接、Tern 在文件块里打开 `file://`）；其余地方的 Markdown 没有任务目录，这类链接只显示文字 |
-| 原始 HTML | **转义成文本**，不渲染（AGENTS 安全规则） |
+| 原始 HTML | **转义成文本**，不渲染（`docs/architecture/security.md`「不可信内容」） |
 | 图片 | 仅 `data:` 与本地附件；远程图片不加载，显示为链接 |
 | 公式 | KaTeX 渲染（3.1，`direction-3.1.md` §2 行 9；分隔符识别在 `markdown/math.ts`，渲染在 `render.ts` 的 `renderMath`）：行内 `$…$`、`\(…\)`；块级 `$$…$$`、`\[…\]`，分隔符在行首，块级居中、上下 `--space-3`、太宽时横向滚动。字号 1.1em，颜色 `--text`。`$` 按 pandoc 规则：开 `$` 后紧跟非空白，闭 `$` 前非空白且后面不是数字，所以 `$5 and $10` 不是公式；`\$` 是普通的 `$`。跨行的块级公式中间遇到空行就不算公式。没闭合的分隔符按普通文字显示（流式中公式还没写完时就是这样）。KaTeX 解析失败时显示原文（带分隔符），`--font-mono` 0.92em `--st-error`。`trust: false`：`\href`、`\url`、`\includegraphics` 不放行 |
 
@@ -437,7 +439,7 @@
   - **作业类型和计数**（2026-10-23）：药丸右半段的数 = 除子代理外所有运行中的作业（bash、eval、后台 task，`shared/tsp/jobs.ts` 的 `runningJobs`）；作业卡片每个作业名旁多一个类型小标签（`jobs-card-type`，`data-type`：bash / eval / task，omp 的叫法不翻译，等宽 `--fs-2xs`、1px `--border-subtle`）。
   - **状态行**（`.run-status`，§4.11）：左 = 运行图标 + 翻牌计时 `FlipText` + 细分隔线 + 当前活动；运行图标（`PiWriteMark`，20px，2026-10-24 仓库所有者定，代替立体点阵球）是标志里的像素 π（原色，不跟主题），按笔画顺序（横、左腿、右腿）一格格亮起，全亮停约 0.5 秒，再按同样顺序褪成 12% 的淡影，一轮 `--dur-write`（2.6s），纯 CSS；减少动效时停成完整的 π；等你确认时换成静止的琥珀色点。右 = `TodoBoard`（§4.6，点击展开阶段与条目，最宽 55%）。只在任务启动中 / 运行中 / 等你确认或有待办时出现。
   - **删掉的**：独立的 `后台任务` 按钮（`jobs-pill-bash`）和 `子代理` 按钮（`jobs-pill-task`）、`TspJobsBar` / `TspTodoBar`、rpc 的 `RunStatus` / `QueueStrip` / `UsageLimitBanner`；omp 自己的 HUD（`omp.hud` 里的作业 / 子代理胶囊——就是之前那个孤零零的 `▷ 1`——和 `omp.hud.activity` 里的运行状态行、待办药丸，`HIDDEN_HUD_ROLES`，`TspChildren.tsx`）不画，数据都在 ComposerTop 里。omp 的 Stop 键帽也随运行状态行去掉了：停止用输入框的发送 / 停止键和 `Esc`。
-  - **模式胶囊与状态区的 omp 信息**（2026-10-23，omp 18.12.6 实测，见 `docs/architecture/conversation.md`「模式与状态区」；`ModeChip.tsx`、`ComposerNotes.tsx`、`session-toggles/ModeSection.tsx`）：①工具行里会话开关右边的**模式胶囊**（`ui-chip.mode-chip`，`mode-chip`，`data-mode` / `data-paused`）只在 omp 状态行有模式（Plan / Plan (paused) / Prewalk / Vibe / Loop，Loop 带剩余次数或时长）时出现，强调色，暂停用警示色；点开 `Popover`（宽 340）是当前模式的控件：Plan 开着 = 开关 + “重新打开计划评审”，Plan 暂停 = “关闭 Plan 模式”，Vibe 开关，Prewalk “停用”，Loop 显示状态 / 限制 / 条件 + “暂停”（Esc，仅运行中）+ “停止”（`/loop`）。没有模式时同一组开关（Plan、Vibe 开关和 Loop 表单：次数或时长、直到 / 只要 + shell 命令、提示、开始）放在会话开关菜单底部（2026-10-24 起 Loop 表单每个标签和控件在同一行：`.md-loop-form` 网格 `max-content minmax(0, 1fr)`，命令输入在条件那行下面对齐控件列；Plan / Vibe / Loop 的灰字说明改成悬停，Plan 暂停时不再写 `modes.plan.paused`，提示标签写“提示”、去掉“（可选）”）；目标模式开着时都禁用并说明。界面只显示 `TaskState.composerMode`（omp 状态行回读），命令没生效就弹 omp 的原文错误。②状态行：自动重试 = 倒计时圆环 + “第 N/M 次重试 · Ns” + 取消（点 omp 的 `interrupt`）；压缩 = 不定进度条 + 取消；能取消的空闲 loader 带取消（Esc）；空闲时 omp 的 `omp.hint.retry` = “上一轮被中断” + 重试（`/retry`）；右侧只读小标签 = 扩展 `setStatus`（悬停看全文）。③输入框上方的**聚焦横幅**（`run-focus`）：omp 聚焦到子代理时写“正在给 X 发消息” + “回到主会话”，输入框占位符同步换成“给 X 发消息”。④工具行速度优先用 omp 的 `omp.composer.rate`（取整）。
+  - **模式胶囊与状态区的 omp 信息**（2026-10-23，omp 18.12.6 实测，见 `docs/architecture/conversation.md`「模式与状态区」；`ModeChip.tsx`、`ComposerNotes.tsx`、`session-toggles/ModeSection.tsx`）：①工具行里会话开关右边的**模式胶囊**（`ui-chip.mode-chip`，`mode-chip`，`data-mode` / `data-paused`）只在 omp 状态行有模式（Plan / Plan (paused) / Prewalk / Vibe / Loop，Loop 带剩余次数或时长）时出现，强调色，暂停用警示色；点开 `Popover`（宽 340）是当前模式的控件：Plan 开着 = 开关 + “重新打开计划评审”，Plan 暂停 = “关闭 Plan 模式”，Vibe 开关，Prewalk “停用”，Loop 显示状态 / 限制 / 条件 + “暂停”（Esc，仅运行中）+ “停止”（`/loop`）。没有模式时同一组开关（Plan、Vibe 开关和 Loop 表单：次数或时长、直到 / 只要 + shell 命令、提示、开始）放在会话开关菜单底部（2026-10-24 起 Loop 表单每个标签和控件在同一行：`.tg-loop-form` 网格 `max-content minmax(0, 1fr)`，命令输入在条件那行下面对齐控件列；Plan / Vibe / Loop 的灰字说明改成悬停，Plan 暂停时不再写 `modes.plan.paused`，提示标签写“提示”、去掉“（可选）”）；目标模式开着时都禁用并说明。界面只显示 `TaskState.composerMode`（omp 状态行回读），命令没生效就弹 omp 的原文错误。②状态行：自动重试 = 倒计时圆环 + “第 N/M 次重试 · Ns” + 取消（点 omp 的 `interrupt`）；压缩 = 不定进度条 + 取消；能取消的空闲 loader 带取消（Esc）；空闲时 omp 的 `omp.hint.retry` = “上一轮被中断” + 重试（`/retry`）；右侧只读小标签 = 扩展 `setStatus`（悬停看全文）。③输入框上方的**聚焦横幅**（`run-focus`）：omp 聚焦到子代理时写“正在给 X 发消息” + “回到主会话”，输入框占位符同步换成“给 X 发消息”。④工具行速度优先用 omp 的 `omp.composer.rate`（取整）。
   - **小窗口**（最小 800×600）：输入框和它上面这块是 `flex: none` 的整体，**永远完整可见**；让出高度的是上面的对话滚动区（`.tsp-view`、`.tsp-scroller` 都是 `min-height: 0`），e2e 在 1200×800 / 960×600 / 800×600 断言工具行底边在窗口内、药丸不压输入框、对话区 > 120px（`test/e2e/tsp.e2e.ts`）。
 - **过程里的作业磁贴**（`omp.job.tile`，Task / wait 工具卡的 body，`tsp.css`）：磁贴没有自己的底色和外框（2026-10-24 质感改版，原来 `--bg-sunken` + 一圈 `--border-subtle`）：每块上边一道 `--border-subtle` 细线和卡片头分开，并排的两块之间一道竖线。
 - 草稿的工具行在审批胶囊右边多出项目标签（§4.7；worktree 选项在顶栏的分支胶囊里，§3.1）；输入框下面不再有单独一行。发出第一句话换成任务的输入框时：文件夹标签留在原位（`composer-folder`），焦点在绘制前就落到新输入框（App 的 layout effect），边框不从灰色过渡回聚焦色（`data-from-draft` 时 `.composer` 无过渡），所以看不出换了一个输入框。
@@ -739,6 +741,7 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 | 输入框聚焦不画外描边 | 边框隐去，换成两层阴影 `0 0 0 1px --accent` + `0 0 0 4px --accent-soft`（错误态 `--st-error` / `--st-error-soft`），同时 `outline: 2px solid transparent`（Windows 高对比度模式清掉阴影时靠它显示焦点） | Field、Select、Textarea；按钮、菜单项、开关的键盘焦点仍是全局 `:focus-visible` 的 2px 外描边 |
 | 句子里的图标下移 0.125em | `vertical-align: -0.125em`（现在只有 ⓘ `.ui-info`）；设置行标签是普通文字块，ⓘ 跟在最后一个字后面，英文标签折两行时不漂到列尾。ⓘ 是 inline-block，前面总有折行机会（U+2060 词连接符在 Chromium 里也拦不住），所以 ⓘ 前面那个元素末尾留出 ⓘ 的位置（`padding-inline-end: 14px + --space-1`），ⓘ 用 `margin-left: -14px` 退回去：排版时 ⓘ 不占宽，放不下时最后一个字带着这块位置一起折行（`ui/controls.css`；e2e `expectInfoTipsOnLabelLine`） | 只给夹在文字里的图标；flex 容器里的图标（按钮、菜单项、胶囊）不加 |
 | 多行文字 `text-wrap: pretty`，短标题 `balance` | `pretty`：帮助文字、菜单项第二行、浮层正文、对话框说明、分组说明、提示条；`balance`：浮层标题、对话框标题 | 对话流正文属于过程区，不动 |
+| 几像素大的 SVG 图形取整 | 刻度条、细线的宽、间距、高度都取整数像素（高度 `Math.round`），`viewBox` 和 `width/height` 一比一；画完放大截图逐像素看。小数坐标在 1x 屏上被抗锯齿成两列半透明像素，暗色主题里低档的灰条几乎看不见（`ModelChip.tsx` 的 `EffortBars`，2026-10-22） | `ui/` 和各功能里手画的小 SVG |
 
 | 控件 | 规格 |
 |---|---|
@@ -765,6 +768,13 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 | Toast | **气泡**（2026-10-20 起，仓库所有者："所有提示都应该用气泡悬浮提示,上方中间"）。`position: fixed`，不占布局：顶边在顶栏下 `--space-2`，水平居中于主区面板（侧栏之外那块纸，不是整个窗口；`Toasts.tsx` 用 `ResizeObserver` 量 `[data-testid="main-panel"]` 的左缘和宽度写进 `--toasts-left` / `--toasts-width`，侧栏收起 / 拖宽 / 抽屉、窗口缩放都跟着）；**层级 `--z-toast`(75) 在对话框(50)、菜单(60)、命令面板(70)之上，只低于悬停提示(80)**（2026-10-24 仓库所有者：气泡在全局最上方，弹窗打开时也看得见）；**有遮罩的弹窗（对话框、命令面板、看大图）开着时挪到窗口底部正中、向上叠放**（`Toasts.tsx` 订阅 `ui/title-bar-dim.ts` 的遮罩计数，`.toasts[data-place="bottom"]`：对话框居中、上下各留 48px，气泡落在它下面，不压住对话框的标题和上沿；2026-10-29 仓库所有者定）；多条向下叠放，最多 3；每条是一个 `--radius-pill` 的单行气泡：`--bg-overlay`、`--shadow-2` + 1px `--border-subtle`，`--fs-sm`，`[8px 等级圆点][文字（单行省略，完整文字在悬停提示）][×N 合并计数][可选一个文字按钮][×]`，最宽 `--toast-w` × 2。等级色只落在圆点上（`info` `--text-3`（普通消息不是状态，不花强调色，2026-10-29）、`success` `--st-done`、`warning` `--st-waiting`、`error` `--st-error`），警告和错误再加一圈同色 1px 细框。5 秒（`common.copied` 这类确认 1.2 秒）；`role="status"`（错误 `role="alert"`）；跨任务"等你确认"toast 点击切到该任务，不抢焦点。动效见 §2.6。omp 自己的提示（TSP 的 `toast` 节点）画成同一种气泡、排在同一叠放区里（`features/tsp/interactive/Toast.tsx` portal 进 `Toasts.tsx` 的 `.toasts-host`），停留时间仍按 omp 节点的 `tone` / `ttl`（成功 2.2 秒、其余 5.2 秒，`ttl` 只能缩短），整个窗口同一时刻一条，点一下收起；**例外**：role `omp.toast.status` 的状态行（`Session-only model: …` 等）不弹，留在对话里（§4.14「omp 的状态行」） |
 | Kbd | 高 18，`padding: 0 5px`，`--fs-2xs`，`--bg-sunken`，`1px --border`，`--radius-xs`，`--font-mono`；Windows 显示 `Ctrl`，macOS 显示 `⌘` |
 | OverlayScrollbar | 命中区 `--scrollbar-hit`，滑块宽 `--scrollbar-thumb-w`（hover 8px），`--scrollbar-thumb`（hover `--scrollbar-thumb-hover`）；平时隐藏，滚动时出现，停止 800ms 后淡出；**覆盖**在内容上不占布局宽度；原生滚动行为与键盘不重写；reduced-motion：常显、无淡入淡出。用于 `.scroller`、侧栏列表、设置页、命令面板、下拉列表等自绘的容器；其余容器的滚动条走全局样式（§5.4 "滚动条与横向溢出"） |
+
+**样式约定**：
+
+- 在功能样式里改 `ui-*` 共享控件（`ui-icon-btn`、`ui-btn`）的尺寸，选择器要比单个类更具体（带上父级），不靠样式文件的加载顺序（`controls.css` 后加载，同优先级时它赢）。改完没变化时，先在探针里打出目标元素到容器的类名链，对着真实 DOM 改选择器。
+- 功能样式里的类名带本功能前缀，不用别的模块的前缀（`md-`、`ui-`、`tsp-`）：全局 CSS 没有作用域，同名规则会套到别的模块上（`scripts/check.ts` 的 `css-duplicate-class` 查两个功能目录定义同一个类）。
+- 删组件或删样式文件 / 规则前，逐个 grep 里面的类名在 `.tsx` 里还有没有人用：入口组件删掉后样式文件不再被 import，别的组件里的类名照样在、只是没有样式，类型检查和单测都发现不了（0.3.26 的 `conversation.css`、`.gate-btn`）。删 `tokens.css` 里的 token 同理，要连 TS 字符串里的 `"--名字"` 一起搜（`css-undeclared-var` 查引用了没声明的变量）。
+- 用 `usePresence` 的弹层（`ui/Menu` 等），挂载时做的事（聚焦第一项、量位置）要按"这次打开"的依赖重跑（`Menu.tsx` 依赖 `anchor`），不能只写 `[]`：退出动画还没放完时又打开，复用的是同一个实例，`[]` 的 effect 不再执行，菜单出来了焦点却还在原处。打开时读数据、记搜索词的对话框本体（模型选择、用量、命令面板）改用 `useOpenKey`（`ui/presence.ts`）当 key，每次打开挂一份新的：模型选择关掉后 400ms 内再打开，角色表还是上一次的，刚指定的角色徽标不出来。
 
 ### 4.24 空状态与错误汇总
 
@@ -835,6 +845,8 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 键盘（树有焦点时；打开文件页时焦点自动进树）：`↑ ↓` 移动光标，`→` 展开目录 / 已展开则进入第一个子项，`←` 收起 / 回到父目录，`Enter` 或空格 = 文件打开预览（切到预览页）、目录展开收起，`Home / End`，`Esc` 关闭面板。点击：目录展开收起，文件在同一面板里切到预览页。
 
 **预览页**：工具栏（`file-preview-bar`，一行高 `--control-h-md`）：文件图标 + 文件名 + 路径（和文件名相同时不重复，占满中间的空隙、放不下就省略）；右边一组控件（`file-preview-actions`）按需出现，面板窄得和文件名放不进一行时整组换到第二行、靠右，还放不下就组内再折行（2026-10-29 起；此前 900 宽窗口下 SVG 的控件会挤出面板）：`渲染 / 源码`（`Segmented` sm，`preview.mode`，`file-preview-mode-preview` / `file-preview-mode-source`；只有 Markdown、SVG、HTML 有）、HTML 渲染时的 `运行脚本` `Checkbox`、图片渲染时的缩放组（`−` / `+` 两个 `IconButton` 夹一个 quiet sm 按钮，按钮写 `适应窗口` 或当前百分比，点它回到适应窗口；每步 ×1.25，10%–800%；从适应窗口开始缩放时以当时的实际比例为起点，大图适应窗口只有 25% 时点 `−` 是变小不是变大；放大后按住左键拖动平移，`cursor: grab`，图片不能原生拖出，2026-10-22；Ctrl+滚轮同样缩放，每格一步，以指针处为中心，2026-10-29）、文字缩放的百分比（图片以外的内容——文本、Markdown、源码、HTML——用 Ctrl+滚轮整体缩放（CSS `zoom`，iframe 里的网页一起缩放），范围和步长同图片；不是 100% 时才出现一个 quiet sm 按钮写当前百分比，点它回到 100%，没有 `−` / `+`；换文件不复位，面板开着时一直沿用；2026-10-29）、用系统默认应用打开（`IconButton`，`file-preview-open`，`openTaskFile` 白名单里的类型才有）、在文件夹中显示（`IconButton`，`file-preview-reveal`，`revealTaskFile`）；后两个只有任务有，草稿的项目目录里没有。按类型渲染：`.md` / `.markdown` 渲染 Markdown，可切到源码；图片（png/jpg/gif/webp/svg）用 `<img>` 加载 data URL，适应面板宽度，可缩放，SVG 也只当图片、可切源码；`.html` 放进没有 `allow-same-origin` 的 `<iframe sandbox>`，脚本默认关，勾“运行脚本”才放行，可切源码；其他文本用 `CodeBlock` 语法高亮整段显示；二进制（前 8000 字节含 NUL）和过大（文本 > 2 MB、图片 > 20 MB）只给提示和“默认应用打开”，提示在预览区居中；文件不存在只写 `preview.missing`（`文件不存在`，文件名工具栏里已有；2026-10-29）。
+
+**指针在不在网页预览上**：网页预览是跨源沙箱 iframe（进程外），指针进了 iframe 后父页面收不到 `pointermove`，`:hover` 也会掉，所以不能用它们判断。Ctrl+滚轮缩放时由主进程读 `screen.getCursorScreenPoint()`，减去 `getContentBounds()`、除以页面缩放换成 CSS 像素，渲染进程用 `elementFromPoint` 判断（`main-window.ts` 的 `zoom-changed`、`PreviewPage.tsx` 的 `onZoomGesture`）。e2e 里 Playwright 的鼠标不动系统光标，要替换 `screen.getCursorScreenPoint`。
 
 主进程：内容一律经 `readPreviewFile(target, path)` 读，目录经 `listDirectory(target, relDir)` 列，`target` 是 `{ kind: "task", taskId }`、`{ kind: "project", projectId }` 或 `{ kind: "defaultFolder" }`（渲染进程不传根路径，由主进程按 id 查；`defaultFolder` 不带任何字段，主进程自己取 `chatsDir()`，`@` 补全用同一个 target，默认文件夹的草稿里也能用）。相对路径按根目录解析，落在根内的绝对路径先换成相对路径，越界（绝对路径、`..`、符号链接解析后在根外，`resolveInsideReal` / `listDirectory` 的 realpath 校验）拒绝；读文件不存在返回 `missing`，列目录不存在返回空列表，`@` 补全根目录不存在时没有候选（`@` 补全不收名字里有空白的文件，这是已有行为）。打开面板时焦点进面板（预览页）或进树（文件页），Esc 或 × 关闭并把焦点还给打开前的元素。实现在 `features/file-preview/`（`FilePreviewPane` 外壳、`FileTree` + `tree-model.ts` 纯逻辑、`PreviewPage`/`PreviewContent`）与 `src/main/files/`（`list-directory.ts`、`preview-file.ts`）、`src/main/ipc/file-handlers.ts`（`parseFilesTarget` / `targetCwd`）。参照说明：Tern 的命令行帮助里只有 `tern open [--preview] PATH`（在标签页旁开文件块），没有文件树（只查了 `tern help` / `tern open --help`，没有逐个点界面），所以树的交互参照常见编辑器的资源管理器。
 
@@ -990,6 +1002,8 @@ Windows / Linux 用 `Ctrl`，macOS 用 `⌘`（下文表里的 `Ctrl` 都指“�
 
 Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）→ 主区头 → 对话区（过程行、代码块按钮、卡片）→ 门 → 输入框 → 输入框工具行。对话区 `tabindex=0` 用于键盘滚动，Tab 序在输入框之后，聚焦环用 inset 样式。除 `autofocus` 与上表外，不用 JS 抢焦点；每个程序化聚焦都有对应用例。
 
+自动聚焦之前先看焦点在哪：在 `aria-modal="true"` 的对话框里或在输入框（`[data-composer-input]`）里就不抢。新出现的卡片、列表、弹层都照这条办（`DraftComposer.tsx` 曾抢走接管询问框的焦点，审批门的选项列表曾抢走写拒绝理由的输入框）。
+
 ### 5.4 滚动与流式不跳动
 
 **滚动**（单一 `.scroller`）：
@@ -1002,7 +1016,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 7. 门出现不改变滚动位置。
 8. 性能：离屏的已结束 turn 用 `content-visibility: auto; contain-intrinsic-size: auto 400px`（最近 20 轮不用）；不上虚拟列表。块内要量尺寸的地方（行数夹紧 `Clamp`、状态行藏 seg 的 `nodes/chrome.tsx` `Status`）只在 `ResizeObserver` 回调里量（浏览器自己排版之后），挂载、切回任务时不同步读 `offsetHeight` / `offsetWidth`，不把被跳过的离屏块强制排版；`Clamp` 在回调里 `flushSync`，夹紧和第一帧一起画出来（2026-10-28）。本地计时（`use-clock.ts`）按订阅者声明的周期醒，定时器对齐到周期的整倍数：整秒显示的计时每秒醒一次、同屏的一起跳，十分位（`short` 不到 1 分钟）100ms，spinner 按帧长（100 / 120ms），不再所有人一起每 100ms 醒（2026-10-28）。
 
-**流式不跳动**（AGENTS 硬要求，每条要有测试）：
+**流式不跳动**（硬要求，每条要有测试）：
 1. **块级增量渲染**：Markdown 按块解析，已闭合的块渲染一次后冻结（`React.memo`，DOM 节点不重建），只更新最后一个未闭合块；选区、hover、展开状态因此不丢。
 2. 歧义前缀延迟一行：行首 `|`、`#`、`>`、`-`、`*`、`1.`、围栏的未完成行，等该行结束再渲染，避免“先是普通文字再变表头”的跳变。
 3. 未闭合的行内标记按纯文本显示，闭合时才变样式。
@@ -1049,7 +1063,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 **设计**（仓库所有者 2026-10-18 定：审批模式完全按 omp 的设置来，omp-studio 不另设一层）
 1. **启动时从不传 `--approval-mode` / `--yolo` / `--auto-approve`。** omp 用配置里的 `tools.approvalMode`；没设置过就是 omp 的默认 `yolo`，此时不会出现审批门。`tools.approval.*` 与 `bash.patterns` 由 omp 按文档规则叠加，我们不改。
 2. **ApprovalChip 显示 omp 对这个项目目录实际生效的值和来源**：项目 `.omp/config.yml` 设了 `tools.approvalMode` 就盖过全局（实测 18.12.5：全局 `write`、项目 `always-ask-cached`，在项目目录里 `omp config list --json` 给 `always-ask-cached`；omp 只看 cwd 下的 `.omp/config.yml`，不找父目录）；没设置过显示 omp 默认值。主进程 `getApprovalMode(projectId)` 在项目目录里跑 `omp config list --json` 取值，来源 = 项目文件有没有设这一项（只读解析，`omp-config/approval-mode.ts`）；草稿和任务都按它的项目取（无项目的聊天只看全局）。来源写进悬停提示 / `aria-label` 的最后一段（`approval.sourceProject` / `approval.sourceGlobal`），不加新的行。读到之前先用上次读到的全局值（启动缓存，见 §4.14；项目覆盖的值不进缓存），从没读到过时胶囊是图标 + 骨架条（2026-10-29 起，原来写 `approval.loading`）。全局快照（`config-store.ts`）里的值变了会重读，设置页和胶囊一致。
-3. **在胶囊里选一个模式 = `omp config set tools.approvalMode <模式>`**（写入只经 omp，AGENTS；改的是用户全局配置，终端里的 omp 也跟着变）。**项目 `.omp/config.yml` 设了这一项时不可改**：omp 没有写项目层的命令（实测 18.12.5，在项目目录里 `omp config set` 仍写全局并提示被项目覆盖），studio 也不自己改项目文件，所以四档灰显，菜单顶上一行写 `approval.projectLocked`（2026-10-24 起；原来每项第二行各写一遍，现在每项照常写自己的描述）（“由项目配置决定（.omp/config.yml）”）。之后启动的任务生效，已在运行的任务要重启。弹层里不再写这段说明（2026-10-20 起去掉）；胶囊不再区分"有没有进程"。
+3. **在胶囊里选一个模式 = `omp config set tools.approvalMode <模式>`**（写入只经 omp，`docs/architecture/omp-boundaries.md`；改的是用户全局配置，终端里的 omp 也跟着变）。**项目 `.omp/config.yml` 设了这一项时不可改**：omp 没有写项目层的命令（实测 18.12.5，在项目目录里 `omp config set` 仍写全局并提示被项目覆盖），studio 也不自己改项目文件，所以四档灰显，菜单顶上一行写 `approval.projectLocked`（2026-10-24 起；原来每项第二行各写一遍，现在每项照常写自己的描述）（“由项目配置决定（.omp/config.yml）”）。之后启动的任务生效，已在运行的任务要重启。弹层里不再写这段说明（2026-10-20 起去掉）；胶囊不再区分"有没有进程"。
 4. **外观**（2026-10-22 起图标 + 模式名，`direction-3.2.md` §7 第 10 条；2026-10-21 到 10-22 只有图标）：`.ui-chip`（§4.23，28 高、无底色，悬停 / 打开时 `--bg-hover`，同其它胶囊）；一个 14px 线性图标（`always-ask` = 盾牌 `Shield`，`always-ask-cached` = 带勾的盾牌 `ShieldCheck`，`write` = 铅笔 `Pencil`，`yolo` = 划掉的盾牌 `ShieldOff`（2026-10-21 起；原来的闪电 `Bolt` 和输入框上方后台任务药丸的图标撞了，意思也不对），都在 `icons.tsx`）+ 模式名（`.chip-mode`：`approval.alwaysAsk` / `approval.alwaysAskCached` / `approval.write` / `approval.yolo`，没读到档位时一条约两字宽的 `.ui-skeleton` 骨架条），没有 `⌄`；完整名称 `审批模式 · {档位名} · {来源}`（`approval.title` · 档位名 · `approval.sourceProject` / `approval.sourceGlobal`，来源没读到前不写）放在悬停 `title` 和 `aria-label`；`yolo` 时胶囊的图标和文字用 `--st-waiting-text`（`data-tone="warning"`，不铺底色）。点开是胶囊上方的 `Popover`（宽 240；项目锁定、顶上多一行说明时 320，2026-10-29），里面是 `ui/MenuList` 选择菜单（§4.23 Menu）：四档，当前项第一列画 ✓，每档的描述（`approval.desc.*`）只放在这一项的悬停提示里，菜单里不写第二行（2026-10-29：四行说明是多余的字）；分隔线后一项「清除已记住的批准」（`approval.forget`，悬停提示 `approval.desc.forget`，不可用时 `approval.forgetUnavailable`）：给当前任务的 omp 会话发 `/forget-approvals`（`sendPrompt`，`whenBusy: "followUp"`，同 `/retry` 的做法；实测 18.12.5 rpc-ui 下会回一条 `command_output` “Remembered approvals forgotten; the next read or write asks again.”，显示在对话流里）。清的是整个 agent 目录的批准库和所有会话的临时批准，和模式、项目无关。草稿里、以及还没发过消息的任务里这一项灰显，第二行写 `approval.forgetUnavailable`（任务标题为空时发斜杠命令会被当成标题）。打开时焦点落在当前项，↑↓ / Home / End 在项之间移动（灰显项也停留，原因要能读到），Enter 选，Esc 关闭。
    四档灰显（项目覆盖）时菜单顶上一行是 `approval.projectLocked`，四项的描述仍在悬停提示里；「清除已记住的批准」不受影响。
 5. 在胶囊里把模式切到 `yolo`：首次在同一个 `Popover` 里换成确认（`kind="confirm"`，宽 300：标题 `approval.yoloConfirmTitle`、正文 `approval.yoloConfirmBody`、sm 按钮 `common.cancel` + 危险样式主按钮 `approval.yoloConfirmYes`（`danger-solid`，2026-10-29 起；后果是不再询问就执行命令），`approval-yolo-confirm`），确认后记住（`StudioSettings.yoloConfirmed`）。omp 本身默认就是 `yolo` 时不弹（没有"切换"动作）。

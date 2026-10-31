@@ -1,5 +1,5 @@
 // 编辑 MCP 服务器（设置 → 集成 → MCP）：界面和主进程共用的类型。
-// 主进程直接改 omp 自己的 MCP 配置文件里的 `mcpServers.<name>`（src/main/integrations/mcp-file.ts，规则见 AGENTS.md「omp 的边界」）。
+// 主进程直接改 omp 自己的 MCP 配置文件里的 `mcpServers.<name>`（src/main/integrations/mcp-file.ts，规则见 docs/architecture/omp-boundaries.md「自己写 omp 配置的例外」）。
 // 纯类型，不引 React、DOM 或 Node。
 
 export type McpEditScope = "user" | "project";

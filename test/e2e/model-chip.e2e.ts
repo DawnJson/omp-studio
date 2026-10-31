@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { readRecording, startRecording, type Frame } from "./chip-frames.ts";
-import { launchApp, setLocaleTheme } from "./launch.ts";
+import { launchApp, setLocale, setLocaleTheme } from "./launch.ts";
 
 const modelsYml = [
   "providers:",
@@ -140,7 +140,7 @@ test("切换项目：模型胶囊逐帧无闪变、无空白，档位随项目�
         timeout: 30_000,
       })
       .toBe("ready");
-    await page.evaluate(() => globalThis.studio.setLocale("zh-CN"));
+    await setLocale(page, "zh-CN");
     await page.setViewportSize({ width: 1200, height: 900 });
     await startRecording(page);
     for (const project of projects) {
@@ -165,12 +165,11 @@ test("切换项目：模型胶囊逐帧无闪变、无空白，档位随项目�
     await startRecording(page);
     const order = [1, 2, 0, 1, 2, 0, 2, 1, 0];
     const litBars: number[] = [];
+    const finals = projects.map((project) => `${project.model}·${project.level}`);
     for (const index of order) {
       await pick(index);
-      await page.waitForTimeout(1200);
-      const text = await chipText(page);
-      expect(text, `项目 ${index}`).toContain(projects[index]!.model);
-      expect(text, `项目 ${index} 的思考强度`).toContain(`·${projects[index]!.level}`);
+      // 相邻两次选的项目不同，胶囊文字一定要变：等到这个项目的最终值。
+      await expect.poll(() => chipText(page), `项目 ${index}`).toBe(finals[index]);
       litBars[index] = await page.getByTestId("chip-thinking").locator(".effort-bar[data-lit]").count();
     }
     const revisits = await readRecording(page);
@@ -180,7 +179,6 @@ test("切换项目：模型胶囊逐帧无闪变、无空白，档位随项目�
     expect(litBars[0]).toBeGreaterThan(litBars[2]!);
 
     // 第一阶段（添加三个项目，每个都是第一次读）：只许出现占位和最终值，不许出现"全局的模型配这个项目的强度"这类混合。
-    const finals = projects.map((project) => `${project.model}·${project.level}`);
     const dedupe = (frames: Frame[]) =>
       frames.map((frame) => frame.text).filter((text, i, all) => i === 0 || text !== all[i - 1]);
     const seen = dedupe(first.frames);

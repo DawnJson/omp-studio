@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
-import { launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, setLocale, testOmp, type LaunchedApp } from "./launch.ts";
 
 const bigCount = 1500;
 
@@ -94,8 +94,8 @@ async function start(options: { dirs?: boolean } = {}): Promise<Started> {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
   const { page } = launched;
+  await setLocale(page, "zh-CN");
   await page.evaluate(async () => {
-    await globalThis.studio.setLocale("zh-CN");
     const added = await globalThis.studio.addProject();
     if (!added) throw new Error("addProject 没有返回项目");
     await globalThis.studio.createTask({ projectId: added.id });

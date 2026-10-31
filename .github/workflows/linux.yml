@@ -11,7 +11,7 @@ on:
     tags: ["v*"]
     # 只对分支推送生效：GitHub 推 tag 时不看路径过滤，发版构建照跑。*.md 不进构建也不过 Prettier（.prettierignore），
     # 但 CHANGELOG.md 会打进主进程（whats-new.ts），不能列进来。
-    paths-ignore: ["docs/**", "README.md", "README.zh-CN.md", "AGENTS.md", "LESSONS.md"]
+    paths-ignore: ["docs/**", "README.md", "README.zh-CN.md", "AGENTS.md"]
 
 concurrency:
   group: linux-${{ github.ref }}
@@ -44,14 +44,9 @@ jobs:
       # node-pty 没有 Linux 预编译件，npm ci 时用 node-gyp 编译（runner 自带 python3、make、g++）。
       - run: npm ci
 
-      - name: 代码检查
-        run: npm run lint
-
-      - name: 格式检查
-        run: npm run format:check
-
-      - name: 类型检查
-        run: npm run typecheck
+      # lint、格式、类型检查加仓库扫描（scripts/check.ts）；私人信息等两份本地名单 CI 上没有，只警告、跳过那两项。
+      - name: 检查
+        run: npm run check
 
       - name: 单测
         run: npx vitest run

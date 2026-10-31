@@ -18,6 +18,7 @@
     "lint": "oxlint --deny-warnings",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "check": "node scripts/check.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
@@ -27,7 +28,7 @@
     "dist:mac": "electron-vite build && electron-builder --mac --arm64 --publish never && node scripts/check-package.ts release/mac-arm64/omp-studio.app/Contents/Resources/app.asar darwin-arm64",
     "dist:linux": "electron-vite build && electron-builder --linux AppImage --x64 --publish never && node scripts/check-package.ts release/linux-unpacked/resources/app.asar linux-x64",
     "release": "node scripts/release.ts",
-    "postinstall": "node scripts/fix-node-pty.ts"
+    "postinstall": "node scripts/postinstall.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

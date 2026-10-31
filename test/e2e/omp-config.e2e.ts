@@ -1,34 +1,8 @@
 // 设置页里 omp 的全部设置：真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR，不碰真实 ~/.omp。
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { expectNoOverflow, launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
-
-async function launchIsolated(
-  extraEnv: Record<string, string> = {},
-): Promise<{ launched: LaunchedApp; agentDir: string }> {
-  const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio-agent-"));
-  const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir, ...extraEnv });
-  try {
-    await expect
-      .poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
-        timeout: 30_000,
-      })
-      .toBe("ready");
-    await launched.page.setViewportSize({ width: 1200, height: 800 });
-    // omp 可能比界面先就绪：等 React 挂上（快捷键监听才在），再按 Ctrl ,。
-    await expect(launched.page.getByTestId("app-root")).toBeVisible();
-    await launched.page.keyboard.press("Control+,");
-    await expect(launched.page.getByTestId("settings")).toBeVisible();
-  } catch (error) {
-    // 中途失败调用方拿不到 launched：在这里关掉应用、删掉目录，不留进程和临时目录。
-    await launched.close();
-    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-    throw error;
-  }
-  return { launched, agentDir };
-}
+import { expectNoOverflow, launchSettings, setLocaleTheme } from "./launch.ts";
 
 async function search(page: Page, text: string): Promise<void> {
   await page.getByTestId("settings-search").fill(text);
@@ -42,7 +16,7 @@ async function configValue(page: Page, key: string): Promise<unknown> {
 }
 
 test("改一项：改过的标记 + 已保存气泡（行里不出字），值真的写进了 omp；恢复默认后回到默认值", async () => {
-  const { launched, agentDir } = await launchIsolated();
+  const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
     await search(page, "compaction.keepRecentTokens");
@@ -66,7 +40,7 @@ test("改一项：改过的标记 + 已保存气泡（行里不出字），值�
 });
 
 test("纯键盘：Tab 到开关，空格切换，保存后恢复默认图标出现", async () => {
-  const { launched, agentDir } = await launchIsolated();
+  const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
     await search(page, "compaction.idleEnabled");
@@ -82,7 +56,7 @@ test("纯键盘：Tab 到开关，空格切换，保存后恢复默认图标出�
 });
 
 test("被环境变量覆盖：保存成功但提示实际生效的值来自环境变量；对象设置的 JSON 写错就地报错、不保存", async () => {
-  const { launched, agentDir } = await launchIsolated({ HINDSIGHT_API_URL: "http://example.invalid:1" });
+  const { launched, agentDir } = await launchSettings({ HINDSIGHT_API_URL: "http://example.invalid:1" });
   try {
     const { page } = launched;
     await search(page, "hindsight.apiUrl");
@@ -108,7 +82,7 @@ test("被环境变量覆盖：保存成功但提示实际生效的值来自环�
 });
 
 test("默认模型：getDefaultModel 返回 null 或 {key,name,thinkingLevel}，不抛错", async () => {
-  const { launched, agentDir } = await launchIsolated();
+  const { launched, agentDir } = await launchSettings();
   try {
     const model = await launched.page.evaluate(() => globalThis.studio.getDefaultModel());
     console.log("defaultModel", JSON.stringify(model));
@@ -124,7 +98,7 @@ test("默认模型：getDefaultModel 返回 null 或 {key,name,thinkingLevel}，
 });
 
 test("只是打开设置页、切分组、搜索、展开编辑器，不会写 omp 的配置", async () => {
-  const { launched, agentDir } = await launchIsolated();
+  const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
     await page.getByTestId("settings-nav-tools").click();
@@ -142,7 +116,8 @@ test("只是打开设置页、切分组、搜索、展开编辑器，不会写 o
     await page.keyboard.press("Escape");
     await search(page, "compaction.methodOrder");
     await expect(page.getByTestId("cfg-compaction.methodOrder").getByRole("textbox")).toBeVisible();
-    // 防抖和卸载时的提交都已经过去：没有"正在保存"。
+    // 防抖（ConfigControls.tsx 的 700 ms）和卸载时的提交都已经过去：没有"正在保存"。
+    // oxlint-disable-next-line eslint/no-restricted-properties -- 断言一段时间内什么都没写：不写的话没有信号可等，只能等过防抖期
     await page.waitForTimeout(2500);
     await expect(page.getByText("正在保存…")).toHaveCount(0);
     // omp 的配置文件（临时 agent 目录里）只有启动时的两项默认（goal.continuationModes 加上 rpc、startup.setupWizard 关掉），界面操作没有写别的。
@@ -157,7 +132,7 @@ test("只是打开设置页、切分组、搜索、展开编辑器，不会写 o
 });
 
 test("自定义下拉：键盘 ↑↓ 选择、首字母跳转、Esc 只关弹层；选中即写进 omp", async () => {
-  const { launched, agentDir } = await launchIsolated();
+  const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
     // retry.fallbackOn 的三个值有了短的中文名后变成分段控件；换一个选项多、值没有翻译的键。
@@ -184,7 +159,7 @@ test("自定义下拉：键盘 ↑↓ 选择、首字母跳转、Esc 只关弹�
 });
 
 test("模型角色：结构化编辑，不用手写 JSON", async () => {
-  const { launched, agentDir } = await launchIsolated();
+  const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
     await search(page, "modelRoles");
@@ -215,7 +190,7 @@ async function rectOf(page: Page, testId: string): Promise<{ x: number; y: numbe
 }
 
 test("设置页排版：内容随窗口变宽、格子多列（备用模型、记忆后端、高级、关于），窄窗口不越界", async () => {
-  const { launched, agentDir } = await launchIsolated();
+  const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
     await setLocaleTheme(page, "zh-CN", "light");
@@ -297,7 +272,7 @@ test("设置页排版：内容随窗口变宽、格子多列（备用模型、�
 });
 
 test("设置分组、搜索：中英文；窄窗口不溢出", async () => {
-  const { launched, agentDir } = await launchIsolated();
+  const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
     await page.getByTestId("settings-nav-agents").click();
@@ -347,7 +322,7 @@ test("设置分组、搜索：中英文；窄窗口不溢出", async () => {
 });
 
 test("通用页：通知与回顾是 omp 自己的设置、改了写进 omp；快捷键表多一组“omp 快捷键”并跟着 keybindings.yml 变；模型页有思考块开关", async () => {
-  const { launched, agentDir } = await launchIsolated();
+  const { launched, agentDir } = await launchSettings();
   try {
     const { page } = launched;
     // 用户在终端版的 omp 里改过键位：改了模型切换键，禁用了重试。

@@ -10,7 +10,7 @@
 
 - studio 的输入框这期间一直显示"有 omp 面板开着(例如 Agent Hub),按 Esc 关掉"(`screen_open`,§10.7),发送被拒("Not sent");新手第一句话发不出去(草稿保留在输入框)。
 - 引导走完后模型胶囊显示 omp 的默认模型(`Opus 5.5`),没有 key 时第一次发送直接报 `Request failed`。
-- 关掉引导只需 `omp config set startup.setupWizard false`(探针里这样做了,之后一切正常)。**已处理(仓库所有者 2026-10-21 批准,AGENTS.md"omp 的边界"):** studio 启动时没设过就设一次,做法和"设过"的判断见 [omp-settings.md](omp-settings.md)(`startup.setupWizard` 一条)。任务启动(`buildTspLaunch`)先等这个启动默认(上限 15 s,失败/超时照常启动),所以第一个任务就没有引导。两个启动默认依次执行(并发的 `omp config set` 会互相覆盖)。服务进程和项目 rpc-ui 池(`--mode rpc-ui`)不画 TUI 引导,不受影响。
+- 关掉引导只需 `omp config set startup.setupWizard false`(探针里这样做了,之后一切正常)。**已处理(仓库所有者 2026-10-21 批准,[omp-boundaries.md](omp-boundaries.md)「`~/.omp`」):** studio 启动时没设过就设一次,做法和"设过"的判断见 [omp-settings.md](omp-settings.md)(`startup.setupWizard` 一条)。任务启动(`buildTspLaunch`)先等这个启动默认(上限 15 s,失败/超时照常启动),所以第一个任务就没有引导。两个启动默认依次执行(并发的 `omp config set` 会互相覆盖)。服务进程和项目 rpc-ui 池(`--mode rpc-ui`)不画 TUI 引导,不受影响。
 
 ## 2. 键盘
 
@@ -137,3 +137,8 @@ omp 给 Tern 和 studio 发的帧一样（bash 输出两边都是 23 次 `text a
 - 一轮结束时 omp 会把 bash 卡片 `del` 后重新 `add`，新卡片带完整输出。
 - 证据：当时两边的录制和截图（gitignore，已删）。
 
+## 20. Tern 隔离实例
+
+调研 Tern 里 omp 的表现时，另起一套隔离的 Tern（独立配置目录、daemon、pipe、网页服务），不连仓库所有者正在用的那个：用 `tern web serve` 连默认 daemon 点界面，会在他正在用的 Tern 里开出文件块和报错框（v0.3.23）。
+
+做法（2026-10-22，前后试错 5 次）：`TERN_CONFIG_DIR`、`TERN_DAEMON_SOCKET`（自定 pipe）、`PI_CODING_AGENT_DIR` 都指到临时目录（写成命令前缀，不 `export`），`tern serve --control <端口> --out <目录>` 无窗口起一份，`tern ctl --control <端口> shot <名>` 出 PNG + 布局 JSON（JSON 里有元素的类名、尺寸、颜色，比看图准）。`ctl run` 只收一个词：多词的提示写进场景文件、整句加双引号（`run "…"`），用 `tern ctl --file` 发；提示里别再有引号。连拍放进后台脚本，别在一个 eval 单元里循环 sleep（单元超时会把内核整个杀掉）。用完 `tern close` 关掉。

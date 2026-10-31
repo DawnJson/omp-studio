@@ -8,7 +8,7 @@ import path from "node:path";
 import electronPath from "electron";
 import { expect, test } from "@playwright/test";
 import { loadTspFixture, recordedUserEvents } from "../tsp-fixtures.ts";
-import { launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
+import { appEnv, launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 
@@ -110,12 +110,11 @@ test("关窗口只隐藏：主进程和 omp 还活着，任务还在；再次启
       .toBe("needs_you");
 
     // 第二个实例启动：拿不到单实例锁，通知第一个实例后自己退出。
-    const { ELECTRON_RENDERER_URL: _dev, ...baseEnv } = process.env;
     await new Promise<void>((resolve, reject) => {
       execFile(
         electronPath as unknown as string,
         [root],
-        { env: { ...baseEnv, STUDIO_USER_DATA: launched.userDataDir }, cwd: root, timeout: 30_000 },
+        { env: appEnv({ STUDIO_USER_DATA: launched.userDataDir }), cwd: root, timeout: 30_000 },
         (error) => (error ? reject(error) : resolve()),
       );
     });

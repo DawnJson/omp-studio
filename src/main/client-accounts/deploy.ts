@@ -2,7 +2,7 @@
 // `<agent 目录>/extensions/studio-accounts/`，omp 每个进程（studio 起的、终端里的、`omp commit` 这类子命令）都会自动加载它。
 // 为什么是扩展、为什么放在 omp 的扩展目录，见 docs/architecture/client-accounts.md。
 //
-// 只写这一个目录（AGENTS.md「omp 的边界」的例外）：内容没变的文件不碰，变了的原子替换；
+// 只写这一个目录（docs/architecture/omp-boundaries.md「自己写 omp 配置的例外」第 5 项）：内容没变的文件不碰，变了的原子替换；
 // 上一版写过、这一版没有的文件按清单删掉。插件自己写的模型缓存不在清单里，不受影响。
 import { readFile, rm } from "node:fs/promises";
 import path from "node:path";

@@ -65,7 +65,7 @@ Tern 0.9.4（`%LOCALAPPDATA%\Tern\updates\state.json` 的 `installed.release.ver
 
 - **文档**：计划任务页写明桌面版要"保持电脑开着、应用在运行"：*"Keep the computer on and the app running when a scheduled task needs local files."* <https://learn.chatgpt.com/docs/automations?surface=app>（同页还说本地项目的计划任务要求"the machine powered on and the ChatGPT desktop app running"）。
 - **架构（文档/二手）**：桌面版、VS Code 扩展等富客户端把 `codex app-server` 作为**子进程**拉起，用 stdio 上的 JSON-RPC 通信，一个 server 里托管多个 thread。<https://www.infoq.com/news/2026/02/opanai-codex-app-server>、<https://www.promptfoo.dev/docs/providers/openai-codex-app-server>。这和 omp-studio 现在的结构（主进程拉 omp 子进程、stdio）是同一类。
-- **Windows 上关窗口的实际表现是 bug，不是功能**：关掉窗口后残留多个 `codex.exe` 和 `conhost.exe`，阻止重新启动。<https://github.com/openai/codex/issues/13970>（有人定位到是一个无参数的 `pwsh.exe` 子进程拽着它们不退）、<https://community.openai.com/t/codex-windows-app-ui-closes-but-background-processes-remain-blocking-relaunch/1379095>。这正是 `AGENTS.md` 要求"不能留下孤儿进程"、并用 Job Object 兜底的原因。
+- **Windows 上关窗口的实际表现是 bug，不是功能**：关掉窗口后残留多个 `codex.exe` 和 `conhost.exe`，阻止重新启动。<https://github.com/openai/codex/issues/13970>（有人定位到是一个无参数的 `pwsh.exe` 子进程拽着它们不退）、<https://community.openai.com/t/codex-windows-app-ui-closes-but-background-processes-remain-blocking-relaunch/1379095>。这正是 `omp-boundaries.md`「进程」要求"不能留下孤儿进程"、并用 Job Object 兜底的原因。
 - 没有查到 Codex 桌面版在 Windows 上"关窗口后任务继续跑"的官方说明。**推测**：关窗口即结束，与文档要求"应用在运行"一致。
 
 ### Claude Code 桌面版
@@ -190,7 +190,7 @@ Tern 0.9.4（`%LOCALAPPDATA%\Tern\updates\state.json` 的 `installed.release.ver
 | 会话绑 stdin | 不改规则，但持有者换成服务进程 | 实测 C 证明 detached 持有者可行 |
 | 退出时关子进程 | **要改** | "退出 omp-studio"和"关闭后台服务"成了两件事；要有明确的 UI 区分 |
 | Job Object | **要改** | 现有应用级 Job 属于窗口主进程；服务进程要有自己的 Job（同样 `KILL_ON_JOB_CLOSE`，omp 放进它），而且**服务进程不能被放进窗口进程的 Job**；窗口崩溃不再收 omp，服务崩溃收 omp |
-| `AGENTS.md` "孤儿进程" | **要改** | 新增"服务进程自身是否孤儿"的规则：单实例锁、版本不匹配、没有客户端时的空闲退出 |
+| `omp-boundaries.md`「进程」 | **要改** | 新增"服务进程自身是否孤儿"的规则：单实例锁、版本不匹配、没有客户端时的空闲退出 |
 
 **其他代价：**
 - `StudioApi` 的 20 个任务函数、全部事件（`taskState`、`tspBatch`、`taskNotice`、旁路提问……）、历史列表、`getTspSnapshot` 快照都要走服务的 IPC；需要自定协议、帧格式、鉴权（本机命名管道要设 ACL，Tern 的日志里有 `os error 1314` 的权限类告警可以参考这类坑的存在）、版本协商。
@@ -201,7 +201,7 @@ Tern 0.9.4（`%LOCALAPPDATA%\Tern\updates\state.json` 的 `installed.release.ver
 **通知：** 服务进程发（前提是它是 Electron 进程）；点通知要能唤起窗口进程，需要服务能启动窗口，或窗口进程常驻托盘。
 
 **工作量：** 约 2–3 周（协议 + 服务拆分 + 重连/补事件 + 更新处理 + 测试）。
-**风险：** 事件补发（窗口离线期间的事件靠服务端缓冲或重取历史，Claude helper 用 16 MiB 缓冲，缓冲溢出就丢，Tern 也有"运行中命令输出丢失"）；服务和窗口版本漂移；多一个长期驻留进程要管；`AGENTS.md` 的进程树规则复杂度翻倍；测试矩阵翻倍（e2e 现在以单进程为前提）。
+**风险：** 事件补发（窗口离线期间的事件靠服务端缓冲或重取历史，Claude helper 用 16 MiB 缓冲，缓冲溢出就丢，Tern 也有"运行中命令输出丢失"）；服务和窗口版本漂移；多一个长期驻留进程要管；`omp-boundaries.md` 的进程树规则复杂度翻倍；测试矩阵翻倍（e2e 现在以单进程为前提）。
 
 ### 方案 3：其他做法
 
@@ -234,12 +234,12 @@ Tern 0.9.4（`%LOCALAPPDATA%\Tern\updates\state.json` 的 `installed.release.ver
 4. 通知：`GateNotifier` 加"完成/出错"类通知（同样的"没焦点才发"规则，没窗口也算没焦点）；设置项复用已有的 `notifyOnGate` 还是新增，见决策。
 5. 更新保护：`installUpdate` 在后台有任务时先确认；明确 `autoInstallOnAppQuit` 的行为并测掉托盘退出路径。
 6. `sweep`：无窗口时停掉回收。
-7. 文档：`task-model.md`（"进程上限和回收"、退出路径）、`AGENTS.md`（"窗口关闭 ≠ 退出"）。
+7. 文档：`task-model.md`（"进程上限和回收"、退出路径）、`omp-boundaries.md`「进程」（"窗口关闭 ≠ 退出"）。
 
 **验证步骤：**
 
 - 单测：`hasBackgroundWork` 覆盖每个状态；`GateNotifier` 无窗口时仍发通知；回收在无窗口时不触发。
-- 集成（用 `test/fake-omp/fake-tsp-omp.ts`）：任务在跑时触发窗口关闭决策 → 进程仍存活、伪终端仍连着、任务跑完后进程自动退出且没有残留 omp 进程（沿用 `AGENTS.md` 的"检查有没有残留进程"）。
+- 集成（用 `test/fake-omp/fake-tsp-omp.ts`）：任务在跑时触发窗口关闭决策 → 进程仍存活、伪终端仍连着、任务跑完后进程自动退出且没有残留 omp 进程（沿用 `testing.md` 的"检查有没有残留进程"）。
 - e2e（Playwright，单个 spec）：开任务 → 关窗口 → 托盘/进程还在 → 重新打开窗口 → 状态和历史一致（`tspBatch` 序号对得上）。
 - 手工：真实 omp，跑一个 30 秒的 bash 命令，关窗口，确认完成通知并自动退出；等确认的审批在窗口关闭状态下弹通知，点击后窗口出现并定位到该任务。
 - 更新：用 `auto-update.md` 的本地验证流程，在后台有任务时点安装，确认弹确认，选"等待"后任务完成再安装成功。

@@ -55,6 +55,16 @@ export function usePresence(open: boolean, kind: "pop" | "fade" = "pop"): Presen
   };
 }
 
+/**
+ * 每打开一次换一个值，给"挂载时读数据、记搜索词"的本体当 React key（`ModelPicker`、`UsageDialog`、命令面板）。
+ * 退出动画还没放完又打开时 usePresence 不卸载，本体会带着上一次的状态接着用（角色表、额度都是旧的）；换 key 就挂一份新的。
+ */
+export function useOpenKey(open: boolean): number {
+  const [last, setLast] = useState({ open, key: 0 });
+  if (last.open !== open) setLast({ open, key: open ? last.key + 1 : last.key });
+  return last.key;
+}
+
 export interface DialogSlot<T> {
   /** 开着的那一次：key 给对话框当 React key，value 是打开时带的参数。 */
   slot: { key: number; value: T } | null;

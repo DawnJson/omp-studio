@@ -6,7 +6,7 @@
 
 ## 为什么直接写 `models.yml`
 
-omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一节）。仓库所有者 2026-10-18 选了 `login.md` 里的方案 1：omp-studio 自己改 `models.yml`，作为"自己写 omp 配置"的例外（原来还有一个是项目 `.omp/config.yml` 的 `modelRoles`，2026-10-22 去掉，现在只剩这一个），规则写在 `AGENTS.md`「omp 的边界」。不扩大：别的配置文件、别的键仍然只经 omp 写。
+omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一节）。仓库所有者 2026-10-18 选了 `login.md` 里的方案 1：omp-studio 自己改 `models.yml`，作为"自己写 omp 配置"的例外（原来还有一个是项目 `.omp/config.yml` 的 `modelRoles`，2026-10-22 去掉），规则写在 [omp-boundaries.md](omp-boundaries.md)「自己写 omp 配置的例外」第 1 项。不扩大：别的配置文件、别的键仍然只经 omp 写。
 
 ## 文件在哪、认哪个
 
@@ -62,7 +62,7 @@ omp 没有写它的命令或 RPC（查证见 `login.md`「自定义模型」一�
 
 ## 环境变量形式的 key 和 agent 目录的 `.env`（2026-10-24，omp 18.12.6）
 
-omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项目>/.env`、agent 目录的 `.env`、`~/.omp/.env`、`~/.env`，同一个变量第一个非空的赢（`omp://providers.md`「.env discovery」）。仓库所有者 2026-10-24 批准 studio 写 agent 目录的 `.env`（`AGENTS.md`「omp 的边界」第二处例外）：
+omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项目>/.env`、agent 目录的 `.env`、`~/.omp/.env`、`~/.env`，同一个变量第一个非空的赢（`omp://providers.md`「.env discovery」）。仓库所有者 2026-10-24 批准 studio 写 agent 目录的 `.env`（[omp-boundaries.md](omp-boundaries.md)「自己写 omp 配置的例外」第 2 项）：
 
 - 读：`env-file.ts` 用 `util.parseEnv`（和 omp 同一种 dotenv 语法）解析，只给主进程内部用；渲染进程只拿到每个变量名设在哪（`CustomKeyState.env.source`：`env-file` / `system` / `missing`），卡片显示"环境变量 X（.env / 系统 / 未设置）"。
 - 变量名识别：全大写的 `apiKey` 一律当变量名；大小写混合的（`Pro_KIMI_KEY`）只有在 `.env` 或系统环境变量里确实设了才当变量名，否则当字面量 key，免得把真 key 显示到界面上。
@@ -92,7 +92,7 @@ omp 启动时按顺序读 4 个 `.env`，进程环境变量优先，然后 `<项
 表单里的“自动发现模型”开关写 `providers.<id>.discovery: {type: …}`：omp 运行时从这个地址的模型列表接口读模型，新上架的模型不用再手动添加。**保留原来“拉取并手动挑选”的路径**，两者可以同时用（勾选的模型仍写进 `models[]`，发现的模型不写进文件）。
 
 - **类型按接口类型选**（`defaultDiscoveryType`，`src/shared/custom-models.ts`；取值范围见 `omp://models.md`「Allowed auth/discovery values」和 `config/model-registry.ts`：`ollama`、`llama.cpp`、`lm-studio`、`openai-models-list`、`proxy`、`litellm`、`apple-foundation-models`）：`openai-completions`、`openai-responses` → `openai-models-list`（读 `{baseUrl}/v1/models`，不会再多加一个 `/v1`）；`anthropic-messages` → `proxy`（Anthropic + OpenAI 兼容的转发站：`GET /v1/models`，每个模型的 api 由它的 `supported_endpoint_types` 决定，没有时退回 provider 的 `api`）。别的接口类型（Google、Bedrock…）没有通用的发现方式：新开启时返回 `invalid-api`，表单里开关停用。
-- **只改这一层、只整体增删**：`discovery` 已存在时（用户在终端里写过 `ollama`、`timeoutMs`、`injectV1` 等）开着就原样保留，不覆盖类型；关掉就整个去掉。这个键仍受 AGENTS.md 里 models.yml 例外的全部规则约束：`yaml` Document API、注释和别的内容原样、原子写、写前 `.bak`。
+- **只改这一层、只整体增删**：`discovery` 已存在时（用户在终端里写过 `ollama`、`timeoutMs`、`injectV1` 等）开着就原样保留，不覆盖类型；关掉就整个去掉。这个键仍受 [omp-boundaries.md](omp-boundaries.md) 里 models.yml 例外的全部规则约束：`yaml` Document API、注释和别的内容原样、原子写、写前 `.bak`。
 - 有 `discovery` 时可以一个模型都不选（`needs-model` 的判断看写完之后条目里有没有 `discovery`）；表单里“没有勾选模型、也没开自动发现”不能保存。
 - **输入**：`CustomProviderInput.discovery?: boolean`：`true` 确保有，`false` 去掉，缺省不动。
 - **刷新模型按钮**（设置 → Provider 与订阅 → 自定义提供商，标题行）：IPC `refreshModels`（`custom-model-handlers.ts`）在中性目录里跑 `omp models refresh`（`runOmpCommand` + `requireSuccess`，参数数组，超时 120 秒，env 带 omp-studio 存的 API key），完成后 `reloadServiceModels()`（关掉服务进程：它的模型注册表是启动时建的；并作废缓存的模型目录，见 login.md「模型目录和默认模型缓存优先」），渲染进程 `reloadAfterChange()` 重读 models.yml 和模型列表；失败时 toast 显示 omp 的 stderr 末尾。

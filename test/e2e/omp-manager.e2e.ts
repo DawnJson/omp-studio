@@ -6,7 +6,7 @@ import { findOmpOnPath, inspectOmp } from "../../src/main/omp/discover.ts";
 import type { OmpStatus } from "../../src/shared/ipc.ts";
 import { launchApp, type LaunchedApp } from "./launch.ts";
 
-/** 测试用的 agent 目录：服务进程不读真实 ~/.omp（AGENTS.md "开发和测试时隔离用户数据"）。 */
+/** 测试用的 agent 目录：服务进程不读真实 ~/.omp（docs/architecture/testing.md「隔离用户数据、不留残留」）。 */
 async function launchIsolated(
   options: { askTakeover?: boolean } = {},
   extraEnv: Record<string, string> = {},

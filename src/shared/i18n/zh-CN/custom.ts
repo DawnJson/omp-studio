@@ -69,7 +69,7 @@ export const custom = {
   "form.meta.kind.unsupported": "只有 OpenAI 兼容和 Gemini 接口能生图。",
   "form.meta.reasoning": "思考",
   "form.meta.images": "图片输入",
-  "form.meta.contextWindow": "上下文窗口",
+  "form.meta.contextWindow": "Context 窗口",
   "form.meta.maxTokens": "最大输出",
   "form.meta.auto": "自动",
   "form.meta.autoIs": "自动 · {value}",
@@ -95,7 +95,7 @@ export const custom = {
   "err.invalid-api": "不认识这个接口类型。",
   "err.invalid-key": "key 不合法：不能为空、不能含换行，也不能以 ! 开头（那是 omp 的“命令取 key”语法）。",
   "err.invalid-models":
-    "模型 id 不能为空、不能重复、也不能带首尾空格或控制字符；上下文窗口和最大输出要是大于 0 的整数。",
+    "模型 id 不能为空、不能重复、也不能带首尾空格或控制字符；context 窗口和最大输出要是大于 0 的整数。",
   "err.needs-model": "至少要有一个模型，或者打开“自动发现模型”。",
   "err.exists": "已经有同名的 provider。",
   "err.not-found": "models.yml 里没有这个 provider 了，可能在终端里被改过。",

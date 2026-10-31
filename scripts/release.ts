@@ -1,8 +1,9 @@
-// 发版：改版本号 → 把 CHANGELOG 的"未发布"改成这个版本 → 类型检查和受改动影响的单测 → 提交并打 tag → 打安装包 → 删 release\ 里旧版本的安装包。
+// 发版：改版本号 → 把 CHANGELOG 的"未发布"改成这个版本 → scripts/check.ts（lint、格式、类型检查、仓库扫描，含"未发布"里的客户端名）
+// 和受改动影响的单测 → 提交并打 tag → 打安装包 → 删 release\ 里旧版本的安装包。
 // 用法：npm run release -- <版本，如 0.1.0> [--dry-run]
 // 只在本地做，不推送。
 import { execFileSync } from "node:child_process";
-import { readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { compareVersions } from "../src/shared/omp-version.ts";
 import { promoteUnreleased } from "./changelog.ts";
@@ -46,10 +47,14 @@ if (dryRun) {
 }
 
 // 先检查再改文件：检查失败时工作区还是干净的。
+// check.ts 缺本地黑名单时只警告并跳过；发版时 CHANGELOG 会公开，客户端名那份必须在。
+await access(path.join(root, ".githooks", "no-mention.local.txt")).catch((error: unknown) => {
+  throw new Error("缺 .githooks/no-mention.local.txt，查不了 CHANGELOG 里的第三方客户端名", { cause: error });
+});
+execFileSync(process.execPath, [path.join(root, "scripts", "check.ts")], { cwd: root, stdio: "inherit" });
 // 单测只跑上一个 tag 以来改过的文件影响到的（vitest --changed，按 import 关系算；录制、假 omp、依赖和配置一改就跑全量，
 // 见 vitest.config.ts）。还没有 tag 时跑全量。
 const lastTag = git("tag", "--list", "v*", "--sort=-v:refname").split("\n")[0] ?? "";
-npm("run", "typecheck");
 npm("test", "--", ...(lastTag === "" ? [] : ["--changed", lastTag, "--passWithNoTests"]));
 await writeFile(changelogPath, changelog, "utf8");
 npm("version", version, "--no-git-tag-version", "--allow-same-version");
@@ -64,7 +69,8 @@ const stale = (await readdir(releaseDir)).filter(
   (file) => /^omp-studio-.+-setup\.exe(\.blockmap)?$/.test(file) && !file.startsWith(installer),
 );
 await Promise.all(stale.map((file) => rm(path.join(releaseDir, file), { force: true })));
-const assets = ["latest.yml", installer, `${installer}.blockmap`].map((file) => `release\\${file}`).join(" ");
+// 正斜杠：这条命令会被贴进 bash，反斜杠会被吃掉；node 两种都认。
+const assets = ["latest.yml", installer, `${installer}.blockmap`].map((file) => `release/${file}`).join(" ");
 console.log(
   `\n已提交并打 tag v${version}（未推送）。推送后上传到 GitHub Release（装着的旧版本从那里自动更新）：\n` +
     `node scripts/publish-release.ts ${version} ${assets}`,

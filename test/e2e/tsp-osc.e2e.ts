@@ -6,7 +6,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { makeRepo } from "../git-helpers.ts";
-import { launchApp, testOmp, type LaunchedApp } from "./launch.ts";
+import { launchApp, setLocale, testOmp, type LaunchedApp } from "./launch.ts";
 
 const root = path.resolve(import.meta.dirname, "..", "..");
 
@@ -29,8 +29,7 @@ async function start(omp: (work: string) => Promise<string>, env: Record<string,
     }, project);
     await page.getByTestId("sidebar-open-folder").click();
     await expect(page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
-    await page.evaluate(() => globalThis.studio.setLocale("zh-CN"));
-    await expect(page.getByTestId("app-root")).toHaveAttribute("data-locale", "zh-CN");
+    await setLocale(page, "zh-CN");
     return {
       launched,
       page,

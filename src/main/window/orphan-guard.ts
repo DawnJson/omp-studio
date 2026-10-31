@@ -1,4 +1,4 @@
-// 测试隔离模式（未打包 + STUDIO_USER_DATA，AGENTS.md）下的兜底：启动应用的进程（Playwright 的 worker、
+// 测试隔离模式（未打包 + STUDIO_USER_DATA，docs/architecture/testing.md「隔离用户数据、不留残留」）下的兜底：启动应用的进程（Playwright 的 worker、
 // 一次性脚本）没了，应用就退出。测试进程被强杀、管道被 `| head` 提前关掉时，用例的 finally 不会跑，
 // 不退出的话这个 Electron 连同它起的 omp、MCP 子进程会一直挂在后台。
 // 正常用户启动的应用不装这个：从资源管理器、开始菜单启动时父进程本来就会先退出。

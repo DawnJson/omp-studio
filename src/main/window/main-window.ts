@@ -1,4 +1,4 @@
-// 主窗口：安全配置（AGENTS.md "Electron 安全"）、"当前主窗口"引用、窗口状态记忆和主题同步。
+// 主窗口：安全配置（docs/architecture/security.md「窗口和页面」）、"当前主窗口"引用、窗口状态记忆和主题同步。
 import { app, BrowserWindow, nativeTheme, screen, shell, systemPreferences } from "electron";
 import { release } from "node:os";
 import path from "node:path";

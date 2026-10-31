@@ -1,0 +1,54 @@
+---
+name: review
+description: 改动做完、提交前让独立的评审员看 diff：收集 diff、在全新上下文里起评审子代理（可再加一个别家模型）、合并去重、修 Important、最多 3 轮。用户说"评审""review""看看这次改动"，或中等以上改动收尾时用。
+---
+
+# 评审一次改动
+
+评审员的完整说明在 `docs/agents/reviewer.md`，这里只讲主代理怎么组织。评审员只读，修改由你来做。
+
+## 1. 准备
+
+1. 先跑 `npm run check`，过了再评审：lint、格式、类型和仓库规则扫描由它机械拦截，评审员不看这些；没过就先修。
+2. 定范围，写成评审员能直接执行的命令：
+   - 已提交在分支上：`git diff <基准>...HEAD`（基准一般是 `main`）。
+   - 还没提交：`git diff` 加上新文件（`git ls-files --others --exclude-standard` 列出的，评审员要读全文：`git diff` 不含它们）；只评暂存的：`git diff --staged`。
+   - 第 2、3 轮只给上一轮之后的改动。每轮开始前记下 `git rev-parse HEAD`，并把未提交的改动存一份到系统临时目录（`git diff > <临时目录>/review-<轮次>.diff`，新文件整个复制过去）；下一轮给评审员 `git diff <上一轮的 HEAD>` 和上一轮存的内容，让它只看两者之间的差别，或者直接列出这一轮改了哪些 `文件:行号`。评审结束删掉这些临时文件。
+3. 写一段改动说明：目标、改了哪些文件、跑过哪些命令和结果（原样，不美化）、哪些没试。
+
+## 2. 起评审员（全新上下文）
+
+把范围和改动说明交给评审员，不要把你的推理过程、怀疑点或期望的结论塞进去。
+
+| 工具 | 怎么起 |
+|---|---|
+| omp | `task` 工具，`agent: "reviewer"`（项目里的 `.omp/agents/reviewer.md` 覆盖内置的同名 agent）。默认和主会话同一个模型；换模型的做法写在那个文件的注释里。 |
+| Claude Code | 子代理 `reviewer`（`.claude/agents/reviewer.md`）：直接说"用 reviewer 子代理评审 …"或 `@agent-reviewer`。 |
+| Codex | 自定义 agent `reviewer`（`.codex/agents/reviewer.toml`）：说"spawn the reviewer agent to review …"。内置 `/review`（或 `codex review --base main` / `--uncommitted`）也能用，但它不读 `docs/agents/reviewer.md`，只当第二意见。 |
+
+**可选：第二个评审员用另一家的模型**（改动有风险、或第一个评审员和你是同一家模型时建议加）。和第一个并行起，同样只给范围和说明。在任何工具里都能用命令行起一个只读的：
+
+- Codex：`codex exec -s read-only -o <临时文件> "按 docs/agents/reviewer.md 评审：<范围命令>。改动说明：<…>"`
+- Claude Code：`claude -p --agent reviewer "评审：<范围命令>。改动说明：<…>"`
+- 输出写进系统临时目录，看完删掉。命令行起的评审员也会触发项目的 Stop hook，所以第 1 步的 `npm run check` 要先过。
+
+## 3. 合并结果
+
+1. 把各评审员的条目合在一起去重：指同一处、同一原因的算一条，保留证据最强的那份。
+2. 自己核一遍每条 Important：按它给的命令复现，或读它给的 `文件:行号`。不成立的标"不采纳"并写一句原因，不默默丢掉。
+3. 两个评审员对同一处意见相反时，以能复现的一方为准；都复现不了就列给仓库所有者。
+
+## 4. 修和复审
+
+1. 修所有采纳的 Important；Nit 顺手能改的改，不改的列出来。Pre-existing 不在这次修，列出来。
+2. 修完重跑相关测试和 `npm run check`。
+3. 再评审一轮，只给新 diff（见 1.2）。**最多 3 轮**，第 3 轮后还剩的 Important 不再自己处理，交给仓库所有者决定。
+
+## 5. 报告
+
+完成说明里加一节"评审"：
+
+- 评审了几轮，用了哪些评审员（工具和模型）。
+- 已修的 Important：一句话 + `文件:行号`。
+- 没修的：Important（为什么，证据）、Nit、Pre-existing、"不采纳"及原因。
+- 评审员写在"没看 / 没法核实"里的项目。

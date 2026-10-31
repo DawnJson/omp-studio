@@ -55,6 +55,7 @@ omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的�
 - 回收后的任务保留最后一份节点树快照，已停止的任务最多留 10 份（LRU），更久的释放，再打开时 `--resume` 由 omp 重发整段对话。意外退出（error）同样留着最后一份。进程不在时（stopped / error）快照里可能还有 `running` 的工具卡、子代理（退出时正在跑、转到后台的作业）和计时节点：渲染进程不改文档，只按 `TspEndedAtCtx` 把它们画成已取消 / 已中止、计时停在看到进程结束的那一刻（`use-clock.ts`），见 spec「omp 进程意外退出」。Windows 上 pty 的 Job 在进程退出时关掉，后台作业随之结束，所以这样画是真实状态。
 - `shutdown()`：并行 `close(5000)`（先 `taskkill /T /F` 进程树，再 `pty.kill()`）。退出路径只有 Shell 的 `before-quit`：`runtime.ts` 用 `registerShutdownHook(() => pool.shutdown())` 接入。
 - 窗口 × 不退出：窗口只隐藏（`hide-on-close.ts`），任务池、状态机和 omp 子进程都不受影响，应用常驻托盘（决策见 [background-run.md](background-run.md)）。`sweep` 照旧只回收 idle 且已安静的任务；窗口隐藏期间的状态变化照常经 `taskState` 事件推给（隐藏的）渲染进程，并刷新托盘的提示和菜单。节点树批次（`tspBatch`）则在窗口隐藏或最小化期间压下不发，窗口出来时渲染进程重拉快照（`main/tasks/tsp-feed.ts`，见 [tsp-migration.md](tsp-migration.md) §8）。真正的退出入口（托盘"退出"、应用菜单退出、安装更新、系统注销）才会走上面的 `shutdown()`。
+- 新加一种以某个目录为 cwd 的常驻子进程（项目 rpc-ui、终端、pty）时，同时检查所有会删这个目录的路径（丢弃 worktree、清理无主 worktree）有没有先把它关掉：cwd 占着目录，`rmdir` 报 EBUSY（2026-10-23，项目 rpc-ui 空闲 60 秒才关，`service/project-omp.ts` 的 `closeUnder` 由 `runtime.ts` 的 `worktreeOps.remove` 先调）。
 
 ## 进程树兜底（Job Object）
 
@@ -71,5 +72,7 @@ omp 不给的数据从会话文件补（只读，不写 `~/.omp`）：每轮的�
 ## 对外接口
 
 `getTaskPool(): Promise<TaskPool>`（`runtime.ts`）。`TaskPool` 的方法对应 `ipc.ts` 里任务相关的 IPC 函数（`createTask`、`openTask`、`sendPrompt`、`stopTask`、`compactTask`、`runTaskCommand`、`getSessionTree`、`forkTask`……，渲染进程只传 id 和封闭的参数），另有 `listSessionLinks()`、`ensureProject(cwd)`、`resume({sessionFile, cwd, projectId, title})`（供历史列表）、`sweep(now)`、`shutdown()`。`openTask` 只负责拉起进程，不返回对话内容：对话是节点树，渲染进程按 `getTspSnapshot` + `tspBatch` 同步（[tsp-migration.md](tsp-migration.md) §8）。
+
+IPC 调用一返回，不要马上从 store 里读这次改动的结果：主进程推送的 `taskState` 可能比 invoke 的应答晚到。要用新值就从应答里取，或者把要做的事挂起、等 store 跟上再做（`file-preview/roots-store.ts` 的 `selectRootWhenListed`，v0.3.25）。节点树批次同理，见 [tsp-migration.md](tsp-migration.md) §8「按序号等镜像」。
 
 测试：`test/task-pool.test.ts`、`test/task-tsp.test.ts`、`test/task-tsp-tree.test.ts`、`test/task-tsp-btw.test.ts`、`test/task-registry.test.ts`、`test/task-machine.test.ts`（都跑 `fake-tsp-omp` 回放 `fixtures/tsp/*.jsonl`）；真实 omp 冒烟 `test/task-real-omp.test.ts`（`STUDIO_REAL_OMP=1`）。

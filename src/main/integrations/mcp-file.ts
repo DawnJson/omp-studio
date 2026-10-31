@@ -1,5 +1,5 @@
 // 编辑 MCP 服务器：直接改 omp 自己的 MCP 配置文件（用户级 agent 目录 `mcp.json`、项目 `.omp/mcp.json`）里的 `mcpServers.<name>`
-// （仓库所有者 2026-10-24 同意的例外，见 AGENTS.md「omp 的边界」和 docs/architecture/plugins.md「编辑 MCP 服务器」）：omp 没有修改命令。
+// （仓库所有者 2026-10-24 同意的例外，见 docs/architecture/omp-boundaries.md「自己写 omp 配置的例外」和 docs/architecture/plugins.md「编辑 MCP 服务器」）：omp 没有修改命令。
 // 规则（不扩大）：
 // - 只改表单管的字段：stdio 的 command / args，远程的 url / type（http ↔ sse）/ `headers.Authorization`（omp `/mcp add --token` 写的
 //   `Bearer <token>`，实测 18.12.6）；这一项里别的字段、别的服务器、顶层别的键、键的顺序、缩进、换行风格、BOM、末尾换行原样；

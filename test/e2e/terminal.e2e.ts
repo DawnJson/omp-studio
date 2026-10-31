@@ -7,7 +7,7 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import type { TaskId } from "../../src/shared/ipc.ts";
 import { findOmp, makeRepo, makeScratch } from "../git-helpers.ts";
-import { launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
+import { launchApp, openTaskRow, setLocale, testOmp, type LaunchedApp } from "./launch.ts";
 
 interface Started {
   launched: LaunchedApp;
@@ -25,8 +25,8 @@ async function start(): Promise<Started> {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
   }, project);
   const { page } = launched;
+  await setLocale(page, "zh-CN");
   await page.evaluate(async () => {
-    await globalThis.studio.setLocale("zh-CN");
     const added = await globalThis.studio.addProject();
     if (!added) throw new Error("addProject 没有返回项目");
     await globalThis.studio.createTask({ projectId: added.id });
@@ -311,8 +311,10 @@ test("拖拽条和键盘调整高度：最小 120px、最大主区 70%，松手�
     await page.mouse.move(box2.x + box2.width / 2, panel.y + panel.height + 200, { steps: 6 });
     await page.mouse.up();
     expect(await height()).toBe(120);
-    await page.waitForTimeout(100);
-    expect((await page.evaluate(() => globalThis.studio.getShellState())).terminalHeight).toBe(120);
+    // 松手后才存：等主进程里的值跟上。
+    await expect
+      .poll(() => page.evaluate(() => globalThis.studio.getShellState().then((s) => s.terminalHeight)))
+      .toBe(120);
   } finally {
     await cleanup();
   }
@@ -363,8 +365,8 @@ test("worktree 任务的终端在 worktree 目录里；丢弃 worktree 时先结
     await launched.app.evaluate(({ dialog }, dir) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
     }, repo);
+    await setLocale(page, "zh-CN");
     await page.evaluate(async () => {
-      await globalThis.studio.setLocale("zh-CN");
       const added = await globalThis.studio.addProject();
       if (!added) throw new Error("addProject 没有返回项目");
       await globalThis.studio.createTask({ projectId: added.id, worktree: true });

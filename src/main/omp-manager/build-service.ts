@@ -3,10 +3,11 @@
 // 带 `?from_version=` 时应答多一个 `patch`（HDiffPatch 单流补丁，应用在 hpatch.ts），补丁的下载同样按 size + sha256 校验。
 import { createHash } from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { rename, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
+import { renameWithRetry } from "../tasks/atomic-write.ts";
 
 export const DEFAULT_BUILD_URL = "https://build.stencil.so";
 
@@ -174,7 +175,7 @@ export async function downloadVerified(options: DownloadOptions): Promise<void> 
     if (received !== source.size)
       throw new VerifyError(`size mismatch: expected ${source.size} bytes, got ${received}`);
     if (digest !== source.sha256) throw new VerifyError("sha256 mismatch");
-    await rename(partial, dest);
+    await renameWithRetry(partial, dest);
   } catch (error) {
     await rm(partial, { force: true });
     throw error;

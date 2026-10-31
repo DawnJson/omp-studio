@@ -62,6 +62,8 @@ idle → checking → up-to-date
 
 `finishShutdown` 只跑一次，完成后 `before-quit` 不再拦截，所以 `quitAndInstall` 触发的退出不会被自己的退出流程挡住。
 
+**改 NSIS 安装方式（`oneClick`、页面）之后**，用装好的旧版本真点一次"重启并安装"，看过程中有没有安装器窗口、版本变没变、应用有没有自己重开；只装一次新安装包不算验证。换成向导式后 `quitAndInstall(false, true)` 让安装器不静默运行，欢迎页、进度页、完成页全弹出来等人点，版本停在旧的；一键安装时同样的参数只闪一个进度窗，看不出问题（2026-10-25）。现在欢迎页加了 `skipPageIfUpdated`（`resources/installer.nsh`），旧版本升上来那一次只剩进度页和完成页。
+
 **差分下载要的本地文件**：缓存目录 `%LOCALAPPDATA%\omp-studio-updater`（`app-update.yml` 的 `updaterCacheDirName`）里的 `installer.exe`（NSIS 安装器每次安装时把自己拷进来）和 `current.blockmap`（electron-updater 下载完成时写入新版本的 blockmap）。两者对不上（比如下载了但没装）时差分结果校验不过，自动退回整包下载。
 
 ## 界面
@@ -86,6 +88,14 @@ idle → checking → up-to-date
 实测（2026-10-18，omp-studio 0.1.0 → 0.1.1，Windows 10）：状态依次为"尚未检查 / 正在检查… / 正在下载（0%）/ 已下载"，点击后应用关闭、安装完成、自动重启，安装目录里的版本变成 0.1.1。
 
 实测（2026-10-19，固定目录 + 本机回环服务，Windows 11 26300）：临时打一个 0.0.9 安装，不设 `STUDIO_UPDATE_URL`，检查 → `downloading 0.1.0` → `downloaded 0.1.0` → 安装后应用自动重启，安装目录里的版本变成 0.1.0。
+
+## 发版排障（Windows）
+
+步骤见 skill `release`（`.agents/skills/release/SKILL.md`）。
+
+- **`release\` 里的文件被占着（EBUSY）**：从 `release\` 下启动的 omp-studio 先结束（按路径筛，不按名字，装好的版本不碰）。eval 内核里用 `pefile` 读 exe 后要立刻 `pe.close()`（或在一次性子进程里读）：内核常驻，`pefile.PE` 会一直映射着文件，下次发版 electron-builder 删不掉这个 exe（v0.3.20，用 Restart Manager 查到占用的是 eval 的 Python 进程）。
+- **makensis 报 `Can't open output file`**（`release\omp-studio-<版本>-setup.exe`），又查不到占用它的进程：commit 和 tag 已经打好，不要重跑 `npm run release`；直接重跑 `npm run dist`，再删 `release\` 里旧版本的安装包和 `.blockmap`。electron-builder 先编一个小的 `setup.exe` 运行一次生成卸载器，再写真正的安装包到同一路径，第二遍写入时文件可能被短暂占着（推测是运行完的桩程序或杀毒扫描；v0.4.47，几秒后重跑 dist 一次通过）。
+- **改了应用图标后资源管理器里还是旧图标**：同一路径的 exe 是图标缓存，不是打包错了。先读 exe 里的 RT_GROUP_ICON 确认每个尺寸，别重复改图标；缓存要重启资源管理器才清，`ie4uinit -ClearIconCache`、`SHChangeNotify` 都不管用（v0.3.18）。
 
 ## 待定
 

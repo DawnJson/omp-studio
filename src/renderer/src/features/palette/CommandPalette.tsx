@@ -29,7 +29,7 @@ import { studioSlashCommands } from "../composer/studio-slash-table.ts";
 import { emitComposerText, setPendingDraftText } from "./studio-command.ts";
 import { buildSections, type PaletteRow } from "../../../../shared/ui/palette-model.ts";
 import "./palette.css";
-import { usePresence, type ExitProps } from "../../ui/presence.ts";
+import { useOpenKey, usePresence, type ExitProps } from "../../ui/presence.ts";
 
 function Highlight({ text, indices }: { text: string; indices: number[] }): ReactNode {
   if (indices.length === 0) return text;
@@ -255,10 +255,11 @@ function PaletteDialog({ open, closing, exitProps }: { open: boolean; closing: b
 }
 
 export function CommandPalette() {
-  // 每次打开都重新挂载：查询、高亮行都从头来；关闭时留着放完退出动画。
+  // 每次打开都重新挂载（退出动画中又打开也是，见 useOpenKey）：查询、高亮行都从头来；关闭时留着放完退出动画。
   const open = usePaletteOpen();
   const presence = usePresence(open, "fade");
+  const key = useOpenKey(open);
   return presence.mounted ? (
-    <PaletteDialog open={open} closing={presence.closing} exitProps={presence.exitProps} />
+    <PaletteDialog key={key} open={open} closing={presence.closing} exitProps={presence.exitProps} />
   ) : null;
 }

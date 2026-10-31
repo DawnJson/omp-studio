@@ -10,7 +10,7 @@ import { askViews, type AskView } from "./tool-view.ts";
 
 function TodoRing({ state }: { state: "pending" | "active" | "done" | "abandoned" | "blocked" }) {
   return (
-    <span className="todo-ring" data-state={state} aria-hidden="true">
+    <span className="step-todo-ring" data-state={state} aria-hidden="true">
       {state === "done" ? <Check size={10} /> : null}
     </span>
   );
@@ -19,16 +19,16 @@ function TodoRing({ state }: { state: "pending" | "active" | "done" | "abandoned
 export function TodoView({ phases }: { phases: readonly TodoPhase[] }) {
   const t = useT();
   return (
-    <div className="todo-list" data-testid="todo-list">
+    <div className="step-todo-list" data-testid="todo-list">
       {phases.map((phase, index) => {
         const progress = summarizePhase(phase);
         const finished = progress.total > 0 && progress.done === progress.total;
         return (
-          <div key={`${phase.name}:${index}`} className="todo-phase">
-            <div className="todo-phase-head">
+          <div key={`${phase.name}:${index}`} className="step-todo-phase">
+            <div className="step-todo-phase-head">
               <TodoRing state={finished ? "done" : progress.active ? "active" : "pending"} />
-              <span className="todo-phase-name">{phase.name}</span>
-              <span className="todo-phase-count">
+              <span className="step-todo-phase-name">{phase.name}</span>
+              <span className="step-todo-phase-count">
                 {progress.done}/{progress.total}
               </span>
             </div>
@@ -36,7 +36,7 @@ export function TodoView({ phases }: { phases: readonly TodoPhase[] }) {
               phase.tasks.map((task, taskIndex) => (
                 <div
                   key={`${task.content}:${taskIndex}`}
-                  className="todo-task"
+                  className="step-todo-task"
                   data-status={task.status}
                   title={t(`tool.todo.${task.status}`)}
                 >
@@ -51,8 +51,8 @@ export function TodoView({ phases }: { phases: readonly TodoPhase[] }) {
                             : task.status
                     }
                   />
-                  <span className="todo-task-text">{task.content}</span>
-                  {task.blocker !== undefined && <span className="todo-task-note">{task.blocker}</span>}
+                  <span className="step-todo-task-text">{task.content}</span>
+                  {task.blocker !== undefined && <span className="step-todo-task-note">{task.blocker}</span>}
                 </div>
               ))}
           </div>

@@ -1,5 +1,5 @@
 // omp 斜杠命令的"确定性文本"：渲染进程只能传下面两个封闭的联合类型，主进程把它们拼成 `/命令` 文本再交给 omp。
-// 渲染进程从不发自由文本（AGENTS.md "preload 不暴露执行任意命令"）。
+// 渲染进程从不发自由文本（docs/architecture/security.md「preload 和 IPC」：preload 不暴露执行任意命令）。
 //
 // - TaskCommand：会话级命令，在任务自己的 omp 进程里执行（走伪终端里的 `send`）。
 // - BuiltinCommand：和会话无关的内置命令，在服务进程（用户范围）或项目目录里的短命 rpc-ui（项目范围）里执行。

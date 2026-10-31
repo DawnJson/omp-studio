@@ -19,7 +19,7 @@ import { installShutdown } from "./window/shutdown.ts";
 import { quitWhenParentExits } from "./window/orphan-guard.ts";
 import { createTray } from "./window/tray.ts";
 
-// 测试隔离（AGENTS.md）：只在未打包时生效。启动它的测试进程没了就跟着退出，不留后台进程。
+// 测试隔离（docs/architecture/testing.md「隔离用户数据、不留残留」）：只在未打包时生效。启动它的测试进程没了就跟着退出，不留后台进程。
 const testUserData = app.isPackaged ? undefined : process.env["STUDIO_USER_DATA"];
 if (testUserData) app.setPath("userData", testUserData);
 initLog();

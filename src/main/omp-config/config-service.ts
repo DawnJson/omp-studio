@@ -1,4 +1,4 @@
-// 读写 omp 的全部设置：只通过 `omp config` 命令（带锁的写入，不直接碰 config.yml，AGENTS.md "omp 的边界"）。
+// 读写 omp 的全部设置：只通过 `omp config` 命令（带锁的写入，不直接碰 config.yml，docs/architecture/omp-boundaries.md「`~/.omp`」）。
 //   读：`omp config list --json`（值）；schema（tab、枚举可选值、类型、描述、默认值）来自**空 agent 目录**里的
 //       `list --json` + `list` 文本，按 omp 版本缓存，同时给出"已修改"的比较基准。
 //   写：`omp config set --json <key> -- <value>` / `omp config reset --json <key>`。`--` 是必须的：负数（`-1`）否则被当成选项。

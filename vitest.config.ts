@@ -10,5 +10,8 @@ export default defineConfig({
     // 发版脚本用 `--changed <上一个 tag>` 只跑受改动影响的单测，影响靠 import 关系算。录制和假 omp 是读文件、起子进程用的，
     // 不在 import 关系里：它们一改就跑全量。
     forceRerunTriggers: [...configDefaults.forceRerunTriggers, "**/fixtures/**", "**/test/fake-omp/**"],
+    // Vitest 5 默认把转换结果缓存在 node_modules/.vitest-cache，按模块自己的内容做键。`import.meta.glob` 收的目录里加了文件，
+    // 模块本身没变，就拿旧的文件表跑，单测说"找不到这个文件"（src/main/client-accounts/deploy.ts）。关掉，每次现转。
+    fsModuleCache: false,
   },
 });

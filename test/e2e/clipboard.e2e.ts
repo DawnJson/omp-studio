@@ -4,7 +4,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { copyFilesToClipboard as copyFiles, launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
 
 // 输入框里的粘贴 / 撤销是系统编辑键：mac 是 Cmd，其他是 Ctrl。mac 分支没有在 mac 上跑过（推测）。
@@ -46,6 +46,37 @@ async function start(): Promise<Started> {
 
 function clipboardText(launched: LaunchedApp): Promise<string> {
   return launched.app.evaluate(({ clipboard }) => clipboard.readText());
+}
+
+interface ClipboardProbe {
+  navigator: { clipboard: { writeText(text: string): Promise<void> } };
+  clipboardWrites: string[];
+}
+
+/** 记下渲染进程之后每次调 `navigator.clipboard.writeText` 的文字（照常写剪贴板）。 */
+async function recordClipboardWrites(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const g = globalThis as unknown as ClipboardProbe;
+    g.clipboardWrites = [];
+    const original = g.navigator.clipboard.writeText.bind(g.navigator.clipboard);
+    g.navigator.clipboard.writeText = (text) => {
+      g.clipboardWrites.push(text);
+      return original(text);
+    };
+  });
+}
+
+/**
+ * 选中即复制（use-copy-on-select.ts）在 mouseup 里排一个 0 ms 的定时器，在里面决定写不写剪贴板。
+ * 鼠标点击返回时 mouseup 已经派发过：排在它后面的定时器跑到时，该写的已经调过 writeText，记下的就是全部。
+ */
+function clipboardWritesAfterMouseUp(page: Page): Promise<string[]> {
+  return page.evaluate(async () => {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    setTimeout(resolve, 0);
+    await promise;
+    return (globalThis as unknown as ClipboardProbe).clipboardWrites;
+  });
 }
 
 test("粘贴文件：普通文件变成附件卡片和 #N 芯片，文件夹插入路径（有空格的加引号）；图片以外不弹提示；输入框没有附件按钮，也没有 file input", async () => {
@@ -110,17 +141,18 @@ test("选中即复制：对话里鼠标选中就进剪贴板并提示；输入�
 
     // 输入框里选中：剪贴板不变。
     await launched.app.evaluate(({ clipboard }) => clipboard.writeText("原来的内容"));
+    await recordClipboardWrites(page);
     const input = page.getByTestId("composer-input");
     await input.fill("这段字不该被复制");
     await input.click({ clickCount: 3 });
-    await page.waitForTimeout(200);
+    expect(await clipboardWritesAfterMouseUp(page)).toEqual([]);
     expect(await clipboardText(launched)).toBe("原来的内容");
 
     // 关掉设置：对话里选中也不复制。
     await page.evaluate(() => globalThis.studio.setCopyOnSelect(false));
     await page.locator("body").click({ position: { x: 5, y: 300 } });
     await answer.click({ clickCount: 3 });
-    await page.waitForTimeout(200);
+    expect(await clipboardWritesAfterMouseUp(page)).toEqual([]);
     expect(await clipboardText(launched)).toBe("原来的内容");
   } finally {
     await cleanup();

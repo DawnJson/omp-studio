@@ -35,6 +35,16 @@ describe("CHANGELOG", () => {
     expect(releaseNotes(next, "0.1.0")).toBe("### 新增\n\n- 第一个版本。");
   });
 
+  it("工作区是 CRLF 时照样能发版，写回时保持 CRLF；发版说明和条目数也不受影响", () => {
+    const crlf = text.replaceAll("\n", "\r\n");
+    const next = promoteUnreleased(crlf, "0.1.1", "2026-10-20");
+    expect(next).toBe(promoteUnreleased(text, "0.1.1", "2026-10-20").replaceAll("\n", "\r\n"));
+    expect(next).not.toMatch(/[^\r]\n/);
+    expect(releaseNotes(next, "0.1.1")?.replaceAll("\r\n", "\n")).toBe("### 修复\n\n- 修了 B。");
+    expect(releaseDate(next, "0.1.1")).toBe("2026-10-20");
+    expect(countEntries(releaseNotes(next, "0.1.1") ?? "")).toEqual({ added: 0, changed: 0, fixed: 1, total: 1 });
+  });
+
   it("未发布下面没有条目、或者版本已经存在时拒绝发版", () => {
     const empty = promoteUnreleased(text, "0.1.1", "2026-10-20");
     expect(() => promoteUnreleased(empty, "0.1.2", "2026-10-21")).toThrow(/没有任何条目/);

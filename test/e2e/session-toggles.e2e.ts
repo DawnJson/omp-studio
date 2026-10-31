@@ -80,6 +80,10 @@ async function start(): Promise<Started> {
       items: Object.entries(config).map(([key, value]) => item(key, value)),
     }));
   }, project);
+  // 换掉的 IPC 只对之后的调用有效：launchApp 等到 app-root 挂上才返回，这时渲染进程已经读过一次真实配置（ApprovalChip 挂载时读），
+  // 重新载入页面才会读到上面的快照。
+  await launched.page.reload();
+  await expect(launched.page.getByTestId("app-root")).toBeAttached();
   await launched.page.getByTestId("sidebar-open-folder").click();
   await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
   return {

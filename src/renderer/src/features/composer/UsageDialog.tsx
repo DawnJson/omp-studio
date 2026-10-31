@@ -11,7 +11,7 @@ import { useT } from "../../i18n/use-t.ts";
 import { Button, IconButton, Notice } from "../../ui/controls.tsx";
 import { Dialog } from "../../ui/Dialog.tsx";
 import { explainError } from "../../ui/errors.ts";
-import { usePresence } from "../../ui/presence.ts";
+import { useOpenKey, usePresence } from "../../ui/presence.ts";
 import { useNow } from "../conversation/use-now.ts";
 import { loadHeatmap, loadQuota, useUsageHeatmap, useUsageQuota } from "./usage-store.ts";
 import { HeatmapView, QuotaBlock, SummaryStrip, UnavailableRow, UntouchedRow } from "./usage-views.tsx";
@@ -173,6 +173,7 @@ function UsageDialogBody({ provider, open, onClose }: { provider: string | null;
 /** provider：当前模型的 provider（草稿里是默认模型的），它的账号排在最前。 */
 export function UsageDialog(props: { provider: string | null; open: boolean; onClose: () => void }) {
   const presence = usePresence(props.open);
+  const key = useOpenKey(props.open);
   if (!presence.mounted) return null;
-  return <UsageDialogBody {...props} />;
+  return <UsageDialogBody key={key} {...props} />;
 }

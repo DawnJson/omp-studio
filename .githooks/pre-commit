@@ -1,0 +1,9 @@
+#!/bin/sh
+# 提交前（git config core.hooksPath .githooks，npm install 时由 scripts/postinstall.ts 设好）：
+# 提交身份必须是仓库的 noreply 地址，再跑 scripts/check.ts --staged（lint、格式、类型检查、仓库扫描；私人信息查暂存的内容）。
+expected="165480087+DawnJson@users.noreply.github.com"
+if [ "$(git config user.email)" != "$expected" ]; then
+  echo "pre-commit: 这个仓库的提交邮箱要用 $expected（git config user.email $expected），不用全局配置里的邮箱" >&2
+  exit 1
+fi
+exec node scripts/check.ts --staged

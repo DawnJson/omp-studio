@@ -36,7 +36,7 @@ spawn(ompPath, ["--mode", "rpc-ui", "--model", model], {
 ```
 
 - 参数用数组，不用 `shell: true`。key 走环境变量，不用 `--api-key`。
-- 开发和测试时 `PI_CODING_AGENT_DIR` 指向临时目录，见 `AGENTS.md`。
+- 开发和测试时 `PI_CODING_AGENT_DIR` 指向临时目录，见 [testing.md](testing.md)「隔离用户数据、不留残留」。
 - omp 会在自己下面起一个 `conhost.exe`，这是正常的。
 
 ## 握手

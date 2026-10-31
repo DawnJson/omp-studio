@@ -16,7 +16,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { usePresence } from "../../ui/presence.ts";
+import { useOpenKey, usePresence } from "../../ui/presence.ts";
 import type { ModelInsights, ModelKey, ModelOption, ProjectId, TaskId } from "../../../../shared/ipc.ts";
 import { clampThinkingLevel, thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
 import type { ThinkingLevel } from "../../../../shared/omp-wire/rpc-wire.generated.ts";
@@ -686,9 +686,10 @@ function ModelPickerBody(props: ModelPickerProps & { open: boolean }) {
   );
 }
 
-/** open 变 false 后等 Dialog 放完退出动画再卸载；每次打开都是全新的对话框状态。 */
+/** open 变 false 后等 Dialog 放完退出动画再卸载；每次打开都是全新的对话框状态（退出动画中又打开也是，见 useOpenKey）。 */
 export function ModelPicker(props: ModelPickerProps & { open: boolean }) {
   const presence = usePresence(props.open);
+  const key = useOpenKey(props.open);
   if (!presence.mounted) return null;
-  return <ModelPickerBody {...props} />;
+  return <ModelPickerBody key={key} {...props} />;
 }

@@ -416,6 +416,52 @@ describe("任务池：TSP 任务", () => {
     expect(texts).toEqual(["/modelpreset list", "/dirs"]);
   }, 60_000);
 
+  /**
+   * slash-status 录制改写：omp 回应 `/modelpreset list` 的那一帧里先冒出一条无关的 toast（新进程起来约一秒后的 MCP 挂载通知）。
+   * `quiet` 时改成发 `/jobs kill bg_1`、omp 不回 toast（成功）、只有这条无关的 toast。
+   */
+  async function slashStatusWithAmbientToast(dir: string, quiet: boolean): Promise<string> {
+    const lines = readFileSync(path.join(root, "fixtures", "tsp", "slash-status.jsonl"), "utf8")
+      .split("\n")
+      .filter((line) => line !== "");
+    const send = lines.findIndex((line) => line.includes('"text":"/modelpreset list"'));
+    const reply = JSON.parse(lines[send + 1]!) as { body: { ops: unknown[][] } };
+    const ambient = [
+      "add",
+      "zz",
+      "main",
+      null,
+      {
+        id: "zz",
+        k: "toast",
+        p: { text: "xdev: xd://: mounted mcp__demo_search", ttl: 2400, role: "omp.toast.status" },
+      },
+    ];
+    reply.body.ops = quiet ? [ambient] : [ambient, ...reply.body.ops];
+    const head = lines.slice(0, send);
+    const sent = quiet ? lines[send]!.replace("/modelpreset list", "/jobs kill bg_1") : lines[send]!;
+    const file = path.join(dir, `slash-status-ambient-${quiet ? "quiet" : "toast"}.jsonl`);
+    await writeFile(file, `${[...head, sent, JSON.stringify(reply)].join("\n")}\n`);
+    return file;
+  }
+
+  it("runTaskCommand：发送后先冒出无关的 toast（MCP 挂载通知）时，结果仍是命令自己的 toast", async () => {
+    const h = await harness();
+    h.next.fixture = await slashStatusWithAmbientToast(path.dirname(h.log), false);
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    const preset = await h.pool.runTaskCommand(created.id, { kind: "modelPreset", op: "list" });
+    expect(preset.text).toBe("No model presets saved. Use /modelpreset save <name> to create one.");
+  }, 60_000);
+
+  it("runTaskCommand（成功时没有 toast 的命令，/jobs kill）：只冒出无关的 toast 不算失败", async () => {
+    const h = await harness();
+    h.next.fixture = await slashStatusWithAmbientToast(path.dirname(h.log), true);
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await expect(h.pool.runTaskCommand(created.id, { kind: "jobsKill", id: "bg_1" })).resolves.toEqual({ text: "" });
+  }, 60_000);
+
   it("compactTask（TSP）：会话太小时以 omp 的 'Error: Compaction failed…' 原文 reject（omp 18.12.5 录制 compact-error）", async () => {
     const h = await harness();
     h.next.fixture = "compact-error";

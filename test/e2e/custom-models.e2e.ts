@@ -1,51 +1,25 @@
 // 设置 → 模型与账号 → 自定义提供商（阶段 2.6）：添加（含一键拉取、勾选、手动添加）→ 编辑 → 删除，直接改 models.yml。
 // 真实 omp（PATH 上的）+ 临时 PI_CODING_AGENT_DIR + 本地假的 OpenAI 兼容服务；不连任何真实服务。
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { parse as parseYaml } from "yaml";
 import { startFakeOpenAi } from "../fake-openai/server.ts";
-import { expectNoOverflow, launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { expectNoOverflow, launchSettings as launchSettingsPage, setLocaleTheme, type LaunchedApp } from "./launch.ts";
 
 const SECRET = "sk-fake-e2e-secret";
 /** 公开模型目录（models.dev）默认指到连不上的本机端口：表单查不到就不预填，测试不连真实服务。 */
 const NO_CATALOG = "http://127.0.0.1:9/api.json";
 
-async function launchSettings(
+/** 设置 → 模型与账号；agent 目录名带空格和中文。 */
+function launchSettings(
   options: { catalogUrl?: string; prepare?(agentDir: string): Promise<void> } = {},
 ): Promise<{ launched: LaunchedApp; agentDir: string }> {
-  const agentDir = await mkdtemp(path.join(os.tmpdir(), "omp-studio 代理 agent-"));
-  try {
-    await options.prepare?.(agentDir);
-  } catch (error) {
-    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-    throw error;
-  }
-  const launched = await launchApp({
-    PI_CODING_AGENT_DIR: agentDir,
-    STUDIO_MODELS_DEV_URL: options.catalogUrl ?? NO_CATALOG,
-  });
-  try {
-    await expect
-      .poll(() => launched.page.evaluate(() => globalThis.studio.getOmpStatus().then((status) => status.state)), {
-        timeout: 30_000,
-      })
-      .toBe("ready");
-    await launched.page.setViewportSize({ width: 1200, height: 900 });
-    // omp 可能比界面先就绪：等 React 挂上（快捷键监听才在），再按 Ctrl ,。
-    await expect(launched.page.getByTestId("app-root")).toBeVisible();
-    await launched.page.keyboard.press("Control+,");
-    await expect(launched.page.getByTestId("settings")).toBeVisible();
-    await launched.page.getByTestId("settings-nav-providers").click();
-  } catch (error) {
-    // 中途失败调用方拿不到 launched：在这里关掉应用、删掉目录，不留进程和临时目录。
-    await launched.close();
-    await rm(agentDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-    throw error;
-  }
-  return { launched, agentDir };
+  return launchSettingsPage(
+    { STUDIO_MODELS_DEV_URL: options.catalogUrl ?? NO_CATALOG },
+    { prepare: options.prepare, section: "providers", height: 900, agentDirPrefix: "omp-studio 代理 agent-" },
+  );
 }
 
 test("自定义提供商：添加（拉取、勾选、手动添加）→ 新模型出现在 omp 的模型列表 → 编辑 → 删除；注释和其它 provider 原样保留", async () => {

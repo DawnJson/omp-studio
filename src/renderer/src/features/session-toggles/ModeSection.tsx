@@ -42,8 +42,8 @@ function LoopForm({ busy, onStart }: { busy: boolean; onStart(command: TaskComma
     }
   })();
   return (
-    <div className="md-loop-form" data-testid="mode-loop-form">
-      <label className="md-field">
+    <div className="tg-loop-form" data-testid="mode-loop-form">
+      <label className="tg-field">
         <span className="tg-label">{t("modes.loop.limit")}</span>
         <TextField
           size="sm"
@@ -56,14 +56,14 @@ function LoopForm({ busy, onStart }: { busy: boolean; onStart(command: TaskComma
           testId="mode-loop-limit"
         />
       </label>
-      <div className="md-field">
-        <span id="md-loop-cond-label" className="tg-label">
+      <div className="tg-field">
+        <span id="tg-loop-cond-label" className="tg-label">
           {t("modes.loop.condition")}
         </span>
         <Segmented<Condition>
           size="sm"
           value={condition}
-          labelledBy="md-loop-cond-label"
+          labelledBy="tg-loop-cond-label"
           testId="mode-loop-condition"
           options={[
             { value: "none", label: t("modes.loop.condNone") },
@@ -73,7 +73,7 @@ function LoopForm({ busy, onStart }: { busy: boolean; onStart(command: TaskComma
           onChange={setCondition}
         />
         {condition !== "none" && (
-          <div className="md-field-cmd">
+          <div className="tg-field-cmd">
             <TextField
               size="sm"
               width="100%"
@@ -86,7 +86,7 @@ function LoopForm({ busy, onStart }: { busy: boolean; onStart(command: TaskComma
           </div>
         )}
       </div>
-      <label className="md-field">
+      <label className="tg-field">
         <span className="tg-label">{t("modes.loop.prompt")}</span>
         <TextField
           size="sm"
@@ -98,7 +98,7 @@ function LoopForm({ busy, onStart }: { busy: boolean; onStart(command: TaskComma
         />
       </label>
       {!valid && (limit !== "" || prompt !== "" || command !== "") && (
-        <p className="tg-hint md-invalid" data-testid="mode-loop-invalid">
+        <p className="tg-hint tg-invalid" data-testid="mode-loop-invalid">
           {t("modes.loop.invalid")}
         </p>
       )}
@@ -172,7 +172,7 @@ export function ModeSection({ taskId, task }: { taskId: TaskId; task: TaskState 
           )}
           {planRow(false)}
           {vibeRow(false)}
-          <div className="md-loop">
+          <div className="tg-loop">
             <div className="tg-text" title={t("modes.loop.hint")}>
               <span className="tg-label">{t("modes.loop")}</span>
             </div>
@@ -273,7 +273,7 @@ export function ModeSection({ taskId, task }: { taskId: TaskId; task: TaskState 
   }
   return (
     <div
-      className="md-section"
+      className="tg-section"
       role="group"
       aria-label={t("modes.title")}
       aria-busy={busy !== null}

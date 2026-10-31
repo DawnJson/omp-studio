@@ -1,6 +1,5 @@
-# Windows 版（x64，主要平台）：在 GitHub 的 Windows 机器上跑类型检查、单测、一条真正发 prompt 的 e2e，打免安装目录（npm run pack 的产物）
-# 并启动它做冒烟。只做检查：Windows 安装包和更新源由本机发版脚本（npm run release）打、传。
-# 代码检查和格式检查与平台无关，只在 linux / mac 上跑。
+# Windows 版（x64，主要平台）：在 GitHub 的 Windows 机器上跑 npm run check（lint、格式、类型检查和仓库扫描）、单测、一条真正发 prompt 的 e2e，
+# 打免安装目录（npm run pack 的产物）并启动它做冒烟。只做检查：Windows 安装包和更新源由本机发版脚本（npm run release）打、传。
 # 推到 main（只改文档的推送不跑）、推版本 tag 或手动触发时跑；同一分支连推时只留最新一次。
 name: windows
 
@@ -11,7 +10,7 @@ on:
     tags: ["v*"]
     # 只对分支推送生效：GitHub 推 tag 时不看路径过滤，发版构建照跑。*.md 不进构建也不过 Prettier（.prettierignore），
     # 但 CHANGELOG.md 会打进主进程（whats-new.ts），不能列进来。
-    paths-ignore: ["docs/**", "README.md", "README.zh-CN.md", "AGENTS.md", "LESSONS.md"]
+    paths-ignore: ["docs/**", "README.md", "README.zh-CN.md", "AGENTS.md"]
 
 concurrency:
   group: windows-${{ github.ref }}
@@ -48,8 +47,9 @@ jobs:
       # node-pty 用自带的 win32-x64 预编译件，不编译。
       - run: npm ci
 
-      - name: 类型检查
-        run: npm run typecheck
+      # lint、格式、类型检查加仓库扫描（scripts/check.ts）；私人信息等两份本地名单 CI 上没有，只警告、跳过那两项。
+      - name: 检查
+        run: npm run check
 
       - name: 单测
         run: npx vitest run

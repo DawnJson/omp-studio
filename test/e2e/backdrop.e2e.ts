@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { crc32, deflateSync } from "node:zlib";
 import { expect, test, type Page } from "@playwright/test";
-import { launchApp, setLocaleTheme, type LaunchedApp } from "./launch.ts";
+import { launchApp, setLocaleTheme, setTheme, type LaunchedApp } from "./launch.ts";
 
 /** 一张 1×1 的真 PNG（颜色不同、内容就不同）。 */
 function onePixelPng(rgb: [number, number, number]): Buffer {
@@ -75,8 +75,7 @@ test("主题插图：有插图的主题画在主区面板上，浅色主题不�
     const panel = page.getByTestId("main-panel");
     await expect(panel).not.toHaveAttribute("data-backdrop");
 
-    await page.evaluate(() => globalThis.studio.setTheme("whale-dark"));
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "whale-dark");
+    await setTheme(page, "whale-dark");
     await expect(panel).toHaveAttribute("data-backdrop", "theme");
     await expect(panel).toHaveAttribute("data-backdrop-strength", "medium");
     // 构建后插图名带哈希（whale-dark-<hash>.svg）；地址要真的取得到，不只是写进了样式。
@@ -87,8 +86,7 @@ test("主题插图：有插图的主题画在主区面板上，浅色主题不�
     await page.evaluate(() => globalThis.studio.setBackdropStrength("high"));
     await expect(panel).toHaveAttribute("data-backdrop-strength", "high");
 
-    await page.evaluate(() => globalThis.studio.setTheme("light"));
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await setTheme(page, "light");
     await expect(panel).not.toHaveAttribute("data-backdrop");
     await expect(panel).not.toHaveAttribute("data-backdrop-strength");
     expect(await panelBackground(page)).toBe("none");

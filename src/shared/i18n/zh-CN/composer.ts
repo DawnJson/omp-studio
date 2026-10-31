@@ -38,7 +38,7 @@ export const composer = {
   "usage.premium": "{n} 次高级请求",
   "usage.costTip": "按 API 价格估算",
   "usage.costTipSub": "按 API 价格估算；计入订阅额度，不另收费",
-  "usage.subagents": "括号内：子代理 {cost}，未计入前数",
+  "usage.subagents": "括号内：subagent {cost}，未计入前数",
   "usage.cacheWrite": "缓存写入",
   "context.title": "Context 构成",
   "context.systemPrompt": "System prompt",

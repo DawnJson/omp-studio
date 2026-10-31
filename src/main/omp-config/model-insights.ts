@@ -1,4 +1,4 @@
-// 模型选择对话框的补充参数，全部只读（AGENTS.md "omp 的边界"：~/.omp 只读可以）：
+// 模型选择对话框的补充参数，全部只读（docs/architecture/omp-boundaries.md「`~/.omp`」：~/.omp 只读可以）：
 //   实测速度：agent 目录的 agent.db `model_perf`（model-perf.ts，在 SQLite worker 里读，经 deps.readPerf 进来）。
 //   压缩设置：`omp config list --json` 的 compaction.*；在项目目录读到的和中性目录不同，就是项目配置改过。
 // 智能分和目录速度不在这里：get_available_models 的模型自带 omp 补好的值（ModelOption.intelligence / catalogTps）。

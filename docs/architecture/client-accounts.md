@@ -14,7 +14,7 @@
 | B studio 主进程网关 | 主进程起 `127.0.0.1:<port>` 网关 + 自己加密存 token + 写 `providers.<id>` | 能实现，但四样新东西（本地端口、网关密钥、safeStorage 凭据库、`models.yml` 的自动写）都要单独批准和维护；omp 侧全靠 `openai-completions` 反推 |
 | **C omp 扩展** | 扩展里 `pi.registerProvider(id, {api, oauth, fetchDynamicModels, streamSimple, models, usage})`；studio 只负责把扩展文件放进 omp 的扩展目录 | **推荐**：端口、网关密钥、凭据库、`models.yml` 全不需要；登录走 omp 自己的 OAuth（凭据进 agent.db，和终端版共用、由 omp 加密和刷新）；模型进 omp 的模型列表；请求整形全部在扩展里 |
 
-C 的代价：多一份随应用发布的第三方 JS（MIT），并且 studio 要往 `~/.omp` 里写一个目录（AGENTS.md「omp 的边界」的例外，仓库所有者 2026-10-26 批准）。0.4.24–0.4.27 是写在 userData、每个 omp 进程传 `-e`，这些 provider 只在 studio 起的 omp 里有；结果 `omp commit` 不认 `-e`（生成提交信息用不了账号模型），终端版 omp 也看不到，studio 把默认模型设成账号模型后，终端版会悄悄换成别的模型（实测 omp 18.12.6：不报错，stderr 也没有提示）。放进扩展目录后两边看到的 provider 一样，每个 omp 进程启动多约 0.1 秒（实测：rpc-ui 到 `ready` 中位数 437 → 547 ms，和 `-e` 一样）。
+C 的代价：多一份随应用发布的第三方 JS（MIT），并且 studio 要往 `~/.omp` 里写一个目录（[omp-boundaries.md](omp-boundaries.md)「自己写 omp 配置的例外」第 5 项，仓库所有者 2026-10-26 批准）。0.4.24–0.4.27 是写在 userData、每个 omp 进程传 `-e`，这些 provider 只在 studio 起的 omp 里有；结果 `omp commit` 不认 `-e`（生成提交信息用不了账号模型），终端版 omp 也看不到，studio 把默认模型设成账号模型后，终端版会悄悄换成别的模型（实测 omp 18.12.6：不报错，stderr 也没有提示）。放进扩展目录后两边看到的 provider 一样，每个 omp 进程启动多约 0.1 秒（实测：rpc-ui 到 `ready` 中位数 437 → 547 ms，和 `-e` 一样）。
 
 ## 1. 依据（npm 上的 `@oh-my-pi/pi-coding-agent` / `pi-ai` 18.12.6 源码；还没跑）
 
@@ -36,7 +36,7 @@ flowchart LR
   EXT -->|streamSimple → omp 自带的 chat / Messages / Responses 流<br/>fetch = 插件 loader.fetch| V[各厂商的服务]
 ```
 
-- studio 不碰 token：登录、刷新、存取都在 omp 里（AGENTS.md「omp 的边界」不用加例外）。
+- studio 不碰 token：登录、刷新、存取都在 omp 里（[omp-boundaries.md](omp-boundaries.md) 不用加例外）。
 - studio 不写 `models.yml`：provider 是运行时注册的。
 - 扩展不是子进程，没有孤儿进程；扩展加载失败会让 omp 起不来，所以部署和参数都要先校验。
 
@@ -45,7 +45,7 @@ flowchart LR
 ### 3.1 文件、部署、加载
 
 - 源文件（相对 studio 仓库）：`src/main/client-accounts/extension/` —— `studio-accounts.mjs`（入口，列出要加载的插件模块）+ `shim.mjs`（通用宿主：插件 → `pi.registerProvider`）+ `adapter.mjs`（纯映射，能被单测直接 import）+ `adapter.d.mts`（它的类型声明，只给仓库里的 TS 用，不部署）+ `models-cache.mjs` + `vendor/<插件>/`（MIT，原样 vendor）+ `vendor/LICENSE`（magpie 社区仓库的 MIT 全文）+ `NOTICE.md`（每个插件的包名、版本、更新步骤）。
-- 打包：`deploy.ts` 用 `import.meta.glob(..., { query: "?raw", eager: true })` 把 `extension/` 下全部文件（`.d.mts` 除外）的原文并进主进程 bundle，启动时写到 `<agent 目录>/extensions/studio-accounts/`（agent 目录同 `resolveAgentDir`：`PI_CODING_AGENT_DIR`，否则 `<家目录>/<PI_CONFIG_DIR 或 .omp>/agent`），另加一个 `index.js`（`export { default } from "./studio-accounts.mjs"`：omp 只认目录里的 `index.ts` / `index.js`）。加插件只要把文件放进 `vendor/`、在入口里 import，不用改部署表。**不放进 asar**：omp 是另一个进程，读不了 asar。这样 `electron-builder.yml` 的 `files` 不用改（AGENTS.md「安装包里只有应用本身」）。
+- 打包：`deploy.ts` 用 `import.meta.glob(..., { query: "?raw", eager: true })` 把 `extension/` 下全部文件（`.d.mts` 除外）的原文并进主进程 bundle，启动时写到 `<agent 目录>/extensions/studio-accounts/`（agent 目录同 `resolveAgentDir`：`PI_CODING_AGENT_DIR`，否则 `<家目录>/<PI_CONFIG_DIR 或 .omp>/agent`），另加一个 `index.js`（`export { default } from "./studio-accounts.mjs"`：omp 只认目录里的 `index.ts` / `index.js`）。加插件只要把文件放进 `vendor/`、在入口里 import，不用改部署表。**不放进 asar**：omp 是另一个进程，读不了 asar。这样 `electron-builder.yml` 的 `files` 不用改（[security.md](security.md)「安装包里只有应用本身」）。
 - 写入规则：只写这一个目录。全部文件并行读出来比较，内容一样的文件不碰，变了的先写临时文件再换名（`tasks/atomic-write.ts` 的 `writeFileAtomic`，Windows 上换名遇到短暂占用会重试；终端里的 omp 可能正在读）；写过的文件清单记在 `.studio-files.json`（清单没变就不重写），下次启动按清单删掉新版本没有的文件，清单里指向目录外的路径一律忽略；插件自己写的模型缓存（`models-cache-v3.json`）不在清单里，不动。启动时 `prepareAccountExtension()`（`prepare.ts`）部署一次：窗口不等它，和窗口同时开始；起任何子进程之前都要等它做完（`platform/spawn-gate.ts` 的 `spawnsReady()`：omp 发现流程、`buildOmpLaunch` / `buildTspLaunch`、`runCommand`、内置终端）。部署失败只记日志，不拦任何功能。顺带删掉 0.4.24–0.4.27 写在 `userData/omp-extensions/` 的旧部署。
 - 加载：所有 omp 进程和子命令都不带参数，由 omp 自己从扩展目录加载。实测 omp 18.12.6（2026-10-26）：`-e` 只有 `models`、`usage` 认，`stats`、`ssh`、`plugin`、`skill`、`config`、`share`、`commit`、`auth` 报 `Unknown option '-e'` 退出 1（0.4.24–0.4.27 曾在 `runOmpCommand` 里给所有子命令都加，设置页的 SSH、插件、Skills、用量统计、分享会话、"生成提交信息"全都失败）；扩展目录对这些子命令都有效。
 - 入口另外装上 Tavily 备用 key 的 `fetch` 包装（`tavily-keys.mjs`，读同目录不在清单里的 `tavily-keys.json`；换上的 key 写进 agent 目录 `.env` 的 `TAVILY_API_KEY`），见 `docs/architecture/login.md`「Tavily 备用 key」。

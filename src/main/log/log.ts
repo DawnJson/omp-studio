@@ -1,5 +1,5 @@
 // 主进程日志：写 <userData>/logs/main-<本地日期>.log，按天换文件，保留最近 RETAIN_DAYS 天。
-// 每一行写之前过一遍脱敏（家目录、用户名、key/token、带签名的 URL 参数），规则见 AGENTS.md "日志和路径脱敏"。
+// 每一行写之前过一遍脱敏（家目录、用户名、key/token、带签名的 URL 参数），规则见 docs/architecture/security.md「日志和脱敏」。
 // 写盘是异步的：行先进队列，同一时间只有一个 appendFile 在途，在途期间来的行攒成一批、下一次一起写，顺序不变。
 // 退出前（window/shutdown.ts）等 flush()；进程直接退出时（app.exit 等）instance.ts 在 exit 事件里 flushSync() 写掉还没开始写的行。
 // 这个文件不 import electron：单元测试和被测模块（installer.ts 等）可以直接用 `log`；

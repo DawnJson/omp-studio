@@ -1,6 +1,6 @@
 // 设置 → 集成与插件 → Skills 的主进程部分（不 import electron，单测直接用；回收站和选文件夹对话框由 ipc/integrations-handlers.ts 注入）。
 // 读：`omp skill list --json`；停用 / 启用：`omp config get|set disabledExtensions`，只加减 `skill:<name>`；
-// 添加 / 删除：AGENTS.md "omp 的边界"里仓库所有者 2026-10-24 批准的 skill 文件夹例外。
+// 添加 / 删除：docs/architecture/omp-boundaries.md「自己写 omp 配置的例外」里仓库所有者 2026-10-24 批准的 skill 文件夹例外。
 // 用户范围的命令在中性目录（userData/service）里跑：omp 18.12.6 实测，家目录下的 cwd 不会把 `~/.agents/skills` 标成 project
 // （19 个 `agents:user` + 3 个 `native:user`）；cwd 就是家目录本身时 `~/.codex/skills` 等才会按 project 算，所以不用家目录当 cwd。
 // omp 找项目层 skill 会沿 cwd 往上走：中性目录或项目在某个带 `.agents/skills` 的目录下面时，那个祖先目录里的 skill 也被标成 project
