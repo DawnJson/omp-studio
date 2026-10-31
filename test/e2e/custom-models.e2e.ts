@@ -794,7 +794,8 @@ test("自定义提供商：环境变量形式的 key——models.yml 只写变�
     await page.getByTestId("custom-delete-env-proxy").click();
     await expect(page.getByRole("alertdialog")).toContainText(".env");
     await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();
-    await expect(row).toHaveCount(0);
+    // 删除后主进程先关掉服务进程的 omp、等它退出（reloadServiceModels）再返回，行才消失：等的是 omp。
+    await expect(row).toHaveCount(0, { timeout: 30_000 });
     expect(await readFile(envFile, "utf8")).toBe("# 我的 key\r\nHF_TOKEN=hf-keep\r\n");
   } finally {
     await launched.close();

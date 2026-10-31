@@ -31,6 +31,3 @@ key.txt
 
 # 本机的 hook 名单（私人信息正则、不能出现的名字），不进仓库
 .githooks/*.local.txt
-
-# Claude Code 的 skill 镜像，由 scripts/sync-agent-adapters.ts 从 .agents/skills/ 生成
-.claude/skills/

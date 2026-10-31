@@ -4,6 +4,8 @@
 // - 跑完后：launchApp / launchSettings 的临时目录（omp-studio-e2e-*、omp-studio-agent-*、custom-models 的 `omp-studio 代理 agent-*`）
 //   有本次新留下的，说明哪个用例的启动助手或 cleanup 没走完（Electron 进程可能也还活着），整轮失败并列出来。开跑前就在的残留不算；
 //   同一台机器上同时跑两轮 Playwright 时，另一轮还在用的目录也会被算进来，所以不要并行跑两轮 e2e。
+// - 把 Playwright 主进程降到"低于正常"优先级：之后起的 worker、Electron、omp 都继承它（Windows 的 CreateProcess 和
+//   POSIX 的 nice 都往子进程传），跑 e2e 时用户手上的程序先拿 CPU，不卡。
 import { readdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -46,6 +48,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     );
   }
 
+  os.setPriority(os.constants.priority.PRIORITY_BELOW_NORMAL);
   const before = await leftoverTempDirs();
   return async function globalTeardown() {
     const added = [...(await leftoverTempDirs())].filter((name) => !before.has(name));

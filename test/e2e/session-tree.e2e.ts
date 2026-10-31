@@ -46,15 +46,23 @@ async function start(
   }, project);
   await launched.page.getByTestId("sidebar-open-folder").click();
   await expect(launched.page.getByTestId("empty-state")).toHaveAttribute("data-kind", "project");
-  await launched.page.evaluate(async () => {
+  const taskId = await launched.page.evaluate(async () => {
     const [first] = await globalThis.studio.listProjects();
-    await globalThis.studio.createTask({ projectId: first!.id });
+    return (await globalThis.studio.createTask({ projectId: first!.id })).id;
   });
   await openTaskRow(launched.page);
   // 录制是 `--resume` 一个会话：默认两轮、两张用户消息卡片画出来（压缩过的会话 omp 只画压缩点之后的内容，没有用户消息卡片）。
   await expect(launched.page.locator('[data-testid="tsp-view"] [data-role="omp.user"]')).toHaveCount(cards, {
     timeout: 30_000,
   });
+  // 会话文件是假 omp 开始回放时报的（OSC omp_session_file）；没报之前打开 /tree，面板读到的是空树，之后也不重读。
+  // cards 为 0 时上面的等待立刻就过，机器忙时 /tree 会抢在假 omp 起来之前，所以等主进程认到会话文件。
+  await expect
+    .poll(
+      () => launched.page.evaluate(async (id) => (await globalThis.studio.getSessionTree(id)).nodes.length, taskId),
+      { timeout: 30_000 },
+    )
+    .toBeGreaterThan(0);
   return {
     launched,
     sessionFile,

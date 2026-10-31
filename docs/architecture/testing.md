@@ -8,7 +8,7 @@
 
 - **收工前**：`npm run check`（lint、格式、类型检查和仓库规则扫描，十几秒）。
 - **单测**：`npx vitest related <改过的源文件> --run` 跑依赖它们的测试（顺着 import 关系往上找，`ipc.ts` 这类到处被引用的模块也一样，不用另跑全量）；新写或改了的测试文件直接 `npx vitest run <文件>`。改了录制（`fixtures/`）或假 omp（`test/fake-omp/`）时，跑用到它们的测试文件：它们是读文件、起子进程用的，不在 import 关系里。
-- **e2e**：`npm run build` 后 `npx playwright test test/e2e/<功能>.e2e.ts`。e2e 跑的是 `out/`，没重新构建就是在测旧代码（Playwright 的 globalSetup 会检查 `out/` 是否比 `src/` 旧）。改了 `test/e2e/launch.ts` 里的某个辅助函数，就跑用到它的 spec；只有改了 `launchApp` 本身、preload、窗口或退出流程时才跑全量 `npm run test:e2e`。全量有失败时，修好后用 `npx playwright test --last-failed` 只重跑失败的，修复碰到的代码别的 spec 也用的话再加跑那几个。合并子代理的改动之后先 build 再跑一遍相关 e2e，子代理自己报的"通过"不算数。
+- **e2e**：`npm run build` 后 `npx playwright test test/e2e/<功能>.e2e.ts`。e2e 跑的是 `out/`，没重新构建就是在测旧代码（Playwright 的 globalSetup 会检查 `out/` 是否比 `src/` 旧）。改了 `test/e2e/launch.ts` 里的某个辅助函数，就跑用到它的 spec；只有改了 `launchApp` 本身、preload、窗口或退出流程时才跑全量 `npm run test:e2e`。全量有失败时，修好后用 `npx playwright test --last-failed` 只重跑失败的，修复碰到的代码别的 spec 也用的话再加跑那几个。合并子代理的改动之后先 build 再跑一遍相关 e2e，子代理自己报的"通过"不算数。并行和 worker 数见下面「e2e 并行」。
 - **发版脚本**只跑上一个 tag 以来改过的文件影响到的单测（`vitest --changed`）；录制、假 omp、依赖或 vitest 配置有改动时它自动跑全量（`vitest.config.ts` 的 `forceRerunTriggers`）。
 - **真实 omp 冒烟**（默认跳过）：`STUDIO_REAL_OMP=1 npx vitest run test/task-real-omp.test.ts`，需要仓库根 `.env` 里的 `STUDIO_TEST_MODEL` 和 key；同类的还有 `test/*-real-omp.test.ts`。
 - 改了主进程或协议处理，启动应用真的发一次 prompt，看到事件流跑完。只读代码不算验证。
@@ -16,21 +16,12 @@
 
 ## 收工检查的 hook
 
-`scripts/check.ts` 由下面几处自动调用，配置都在仓库里，不碰用户目录下各工具的配置。Claude Code、Codex 用 `--stop-hook`：工作区干净直接过；没过且这一轮还没被拦过，就在 stdout 写 `{"decision":"block","reason":…}` 把检查结果交回去修；已经拦过一次（`stop_hook_active`）就只写 `systemMessage` 提示、放它结束。
+`scripts/check.ts` 由下面几处自动调用，配置都在仓库里，不碰用户目录下的配置。
 
 | 入口 | 配置 | 实测（2026-10-30，仓库副本里放一个没格式化的文件） |
 |---|---|---|
 | git | `.githooks/pre-commit`（`--staged`，另查提交邮箱）、`.githooks/commit-msg`（`--commit-msg`），`npm install` 时 `scripts/postinstall.ts` 设 `core.hooksPath` | 暂存文件里的私人信息、提交信息里的客户端名都被拦，正常提交信息放行 |
 | omp | `.omp/extensions/check-gate.ts`（`session_stop`，`--gate`），omp 对 block 不设上限，扩展自己数，连续拦 3 次后放行并提示 | omp 18.14.0 `-p`：拦满 3 次后结束，每次 agent 都收到检查输出。handler 超过 30 秒 omp 就不等了、放它结束（只打一行 `Extension error … handler timed out after 30000ms`，没有设置项能调）；检查热启动 10-15 秒，变慢到接近 30 秒时这道门会悄悄失效 |
-| Claude Code | `.claude/settings.json` 的 Stop，exec 形式（`command: node` + `args`，不经 shell） | 2.1.290 `-p`：第一次结束被拦，模型收到 `Stop hook feedback` 并照着回复；第二次显示提示后结束 |
-| Codex | `.codex/hooks.json` 的 Stop，命令按会话 cwd 解析，要从仓库根目录启动 | 0.160.1 `exec`：项目信任 + hook 已批准时，第一次结束被拦，模型照着检查结果继续；第二次结束放行（Codex 的事件里也带 `stop_hook_active`） |
-
-Codex 的两个前提（0.160.1 实测）：
-
-- 项目层 `.codex/` 只在仓库根目录本身被信任时加载（`~/.codex/config.toml` 的 `projects.<路径>.trust_level = "trusted"`，交互启动时 Codex 会问）；只信任上级目录不算。
-- hook 要在 Codex 的 `/hooks` 里批准一次（按定义的哈希记，改了 `hooks.json` 要重新批准）；没批准时 `exec` 不报错、直接跳过。
-
-探针里给 Codex 临时信任一个目录用内联表 `-c "projects={'<路径>'={trust_level=\"trusted\"}}"`，`-c projects.'<路径>'.trust_level=…` 这种点号写法不生效；`--dangerously-bypass-hook-trust` 跳过批准。Claude Code 的探针用临时 `CLAUDE_CONFIG_DIR`，不碰真实登录。
 
 ## 测什么
 
@@ -48,11 +39,22 @@ Codex 的两个前提（0.160.1 实测）：
 - agent 的常驻 shell 里，隔离变量只写成命令前缀（`PI_CODING_AGENT_DIR="$d" omp …`）或放进子 shell，不 `export`；读用户真实配置前先 `echo ${PI_CODING_AGENT_DIR:-unset} $HOME` 确认。`export` 过的变量会留着，后面的 `omp config get`、`omp search` 都读临时目录，结论全错，还可能把东西写进真实 `~/.omp`。子代理拿到的环境未必隔离，写探针前先 `echo` 一次。
 - 启动应用的测试和脚本都设 `STUDIO_USER_DATA`：这样启动它的进程没了应用会自己退出（`window/orphan-guard.ts`，软退出 15 秒后 `app.exit(0)`）。查孤儿保护时 Windows 上要 `spawn(..., { detached: true })`（Node 子进程默认随父进程被杀），并看 userData 的 `logs` 里有没有 "the launching process exited"。
 - 主进程里用到 `app.getPath("userData")` 的单例（`startupCache()` 之类）只能在第一次用到时建，不能在模块顶层建：`index.ts` 先 import 整条依赖链、后 `app.setPath("userData", STUDIO_USER_DATA)`，顶层建的单例拿到的是用户正在用的 `%APPDATA%\omp-studio`（2026-10-28，斜杠命令缓存让 e2e 读到了开发者真实缓存里的默认模型）。
-- `launchApp` 只把白名单里的环境变量传给被测应用（`test/e2e/launch.ts` 的 `appEnv`）：agent 自己可能跑在 omp-studio 的任务里，shell 带着那个任务的 `STUDIO_*` / `PI_*` 和各家 key（omp 会把 agent 目录 `.env` 读进进程环境）。要用就经 `extraEnv` 显式传；单测里用 provider key 变量时用测试专用的变量名。所以 e2e 里没有任何 provider 凭据，真 omp 命令每次多花约 3 秒，连着调几次 omp 的用例要放宽超时（`settings-functional` 的 MCP 用例 120 秒）。
+- `launchApp` 只把白名单里的环境变量传给被测应用（`test/e2e/launch.ts` 的 `appEnv`）：agent 自己可能跑在 omp-studio 的任务里，shell 带着那个任务的 `STUDIO_*` / `PI_*` 和各家 key（omp 会把 agent 目录 `.env` 读进进程环境）。要用就经 `extraEnv` 显式传；单测里用 provider key 变量时用测试专用的变量名。所以 e2e 里没有任何 provider 凭据，真 omp 命令每次多花约 3 秒，连着调几次 omp 的用例要放宽超时（`settings-functional` 的 MCP 用例 120 秒）；每个要等一次 omp 命令（经服务进程或命令行，包括保存后经 omp 重读列表）才会变的断言写明超时（`{ timeout: 30_000 }`，MCP 用例里叫 `ompWait`），默认的 5 秒不够。
 - 跑会起 Electron 的命令，输出不要接 `| head` 这类读够就退出的命令（管道一关测试进程就死，来不及清理），要截取就用 `grep` 或先写进文件；不要 `taskkill /F` 正在跑的测试。
 - 删 `mkdtemp` 建的目录要删它返回的那一层，`rm` 加 `maxRetries`。启动助手里 `launchApp` 之后的任何步骤都放进 try，失败时先 `close()` 再抛（Playwright 的 globalTeardown 查残留）。
 - 探针脚本连真实 omp 时，结束后删掉它在 `~/.omp/agent/sessions/` 里新建的 `-tmp-` 会话目录，脚本用完就删。
-- 跑完 e2e 或探针检查残留：父进程已不在的 `electron.exe`（命令行带 `playwright-core\lib\server\electron\loader.js`）及其下的 `omp.exe`，临时目录里的 `omp-studio-e2e-*`、`omp-studio-agent-*`。有残留先查原因再清理。
+- 跑完 e2e 或探针检查残留：父进程已不在的 `electron.exe`（命令行带 `playwright-core\lib\server\electron\loader.js`）及其下的 `omp.exe`，临时目录里的 `omp-studio-e2e-*`（包括剪贴板锁文件）、`omp-studio-agent-*`。有残留先查原因再清理。用例超时后 worker 被结束，`finally` 来不及走完，它的临时目录会留下：先修超时。
+
+## e2e 并行
+
+- 按用例并行（`playwright.config.ts` 的 `fullyParallel`），默认 worker 数是逻辑核的八分之一（32 线程的开发机上 4 个）：跑 e2e 时机器还有人在用。临时要改就 `--workers N`。
+- e2e 的进程都在"低于正常"优先级跑：`global-setup.ts` 先降 Playwright 主进程（worker、Electron 主进程、omp 都继承）；GPU 进程（"高于正常"）和渲染进程（"正常"）是 Chromium 自己设的、不继承，`launchApp` 起好应用后按 `app.getAppMetrics()` 逐个降回去。实测（2026-10-31，跑 `terminal.e2e.ts` 时隔 12 秒取样两次）：主进程、GPU、渲染、utility 四类进程都是"低于正常"，Chromium 没再改回。用户开着别的程序时，它们先拿 CPU。
+- 实测（2026-10-31，211 个用例，机器上同时开着别的程序）：串行 1252 秒；4 个 worker 450–480 秒，被测进程（Electron + node）平均约 5 个核、峰值约 2 GB 内存，整机 CPU 平均 70% 多；8 个 worker 415 秒，但整机 CPU 一直 100%、空闲内存跌到 1 GB 左右，真 omp 的用例开始超时。时间主要花在每个用例自己起停应用（起约 1.4 秒、关约 1.9 秒）和真 omp 命令上，worker 再多也只是互相拖慢。
+- 用例之间不能共享任何东西：临时目录用 `mkdtemp`，不用固定名字；端口取 0；不读写真实 `~/.omp`、`%APPDATA%\omp-studio`。新加整台机器共用的东西（全局快捷键、固定端口、固定文件）之前先想清楚并行时会不会撞。
+- **系统剪贴板整台机器只有一个**：写剪贴板再读回来或粘贴的那一段，用 `launch.ts` 的 `lockClipboard()` 包住（拿锁、`finally` 里放锁），只包这一段；点复制按钮再读剪贴板的也算。锁文件是临时目录里的 `omp-studio-e2e-clipboard.lock`，持有者进程没了下一个等锁的会接手。锁只管得住用例之间：跑 e2e 时人在这台机器上复制东西，剪贴板用例可能读到它而失败（2026-10-31 一次读到不属于任何用例的 "python"，推测是这样来的），用例结束时恢复的旧内容也会盖掉人刚复制的东西。
+- 机器忙时动画和真 omp 都会变慢：量位置前等动画放完（设置页换节有 view-in 上移动画，`omp-config.e2e.ts` 的 `sectionSettled`），等真 omp 命令结果的断言写明超时（见上面"真 omp 命令每次多花约 3 秒"），不靠默认的 5 秒。
+- 主进程另外异步做的事，页面上量一次就断言会抢在前面：改字号后三键区高度（`shell.e2e.ts` 改成 poll）；`/tree` 前假 omp 还没报会话文件（`session-tree.e2e.ts` 的 `start` 先等 `getSessionTree` 有节点）。串行跑时碰不上，4 个 worker 的全量里各撞过一次（2026-10-31）。
+- 没查清的一次（2026-10-31，第 6 遍全量）：`omp-config.e2e.ts`"自定义下拉"超时 60 秒，报错只有一句 `Test timeout ... exceeded`、不带步骤，接着 `Worker teardown timeout`，留下这个用例的两个临时目录。临时 agent 目录的 `config.yml` 里已经写进 `edit.mode: patch`，说明用例正文走到了最后几步；正文剩下的都是有超时的断言，没有超时的只有收尾的 `launched.close()`。用一个让 `before-quit` 永远拦住的探针复现出一模一样的报错，所以推测是应用退出卡住了（某个退出 hook 没结束），但主进程日志在启动后 4 秒就没有新行，没法确认是哪个 hook。同一个用例单独 4 个 worker 连跑 24 遍、其余 5 遍全量都没再出现。再碰到时先看留下的 userData 里 `logs/` 和 agent 目录。
 
 ## 给仓库所有者开一个开发版窗口
 

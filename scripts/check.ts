@@ -3,7 +3,6 @@
 //   node scripts/check.ts                  全量
 //   node scripts/check.ts --staged         pre-commit 用：私人信息只查暂存区里改动的文件（查暂存的内容），其余同全量
 //   node scripts/check.ts --gate           工作区没有改动就直接通过，否则全量（agent 结束前的钩子）
-//   node scripts/check.ts --stop-hook      Claude Code / Codex 的 Stop 钩子：同 --gate，按它们的约定退出（见 stopHook）
 //   node scripts/check.ts --commit-msg <文件>   commit-msg 钩子：提交信息对照两份本地黑名单
 // 每条问题一行 `路径:行: 检查名: 说明`，最多 40 行。退出码 0 = 通过，1 = 有问题。
 // 本地黑名单（被 gitignore，不进仓库）：.githooks/private-patterns.local.txt（私人信息）、.githooks/no-mention.local.txt
@@ -13,7 +12,6 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { nextHeading, UNRELEASED_HEADING } from "../src/shared/changelog.ts";
-import { syncSkills } from "./sync-agent-adapters.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const MAX_LINES = 40;
@@ -492,19 +490,6 @@ function runTool(tool: ToolRun): Promise<Finding[]> {
   return promise;
 }
 
-/** `.claude/skills` 是 `.agents/skills` 的镜像（postinstall 建）：加了 skill 没重建，Claude Code 就看不到它。 */
-async function scanAgentAdapters(): Promise<Finding[]> {
-  return (await syncSkills(root, true)).map((entry) => {
-    const colon = entry.indexOf(": ");
-    return {
-      file: entry.slice(0, colon),
-      line: 1,
-      id: "agent-adapters",
-      message: `${entry.slice(colon + 2)}，运行 node scripts/sync-agent-adapters.ts`,
-    };
-  });
-}
-
 /** `.agents/`、`docs/` 是给 agent 和人看的规则，被 .gitignore 误伤就进不了仓库（不带 `/` 的 `release/` 曾把 release skill 忽略掉）。 */
 function scanIgnoredRules(): Finding[] {
   return git(["ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--", ".agents", "docs"])
@@ -538,7 +523,6 @@ async function repoScans(staged: boolean): Promise<Finding[]> {
     ...scanDuplicateClasses(rules),
     ...scanShikiVars(files),
     ...scanUndeclaredVars(files),
-    ...(await scanAgentAdapters()),
     ...scanIgnoredRules(),
   ];
 }
@@ -554,42 +538,8 @@ function formatFindings(findings: Finding[], room: number): string[] {
   return [...lines.slice(0, room - 1), `…还有 ${lines.length - room + 1} 条`];
 }
 
-async function readStdinJson(): Promise<Record<string, unknown>> {
-  if (process.stdin.isTTY) return {};
-  let text = "";
-  for await (const chunk of process.stdin) text += String(chunk);
-  try {
-    const value: unknown = JSON.parse(text);
-    return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
-  } catch {
-    // 钩子的事件 JSON 读不出来时按"没有事件"处理：只影响要不要防止反复续跑。
-    return {};
-  }
-}
-
-/**
- * Claude Code / Codex 的 Stop 钩子，一律退出 0，stdout 只写 JSON（Codex 把非 JSON 的 stdout 当错误）：通过时什么也不写；
- * 没通过时写 `{"decision":"block","reason":问题}`，两边都把 reason 当作继续干活的提示。不用"退出 2 + stderr"：
- * Codex 0.160.1（Windows，exec）收到退出 2 照样结束这一轮，不续跑（2026-10-30 实测）。已经因为这个钩子续跑过一次
- * （stop_hook_active）还没通过，就只给一行 systemMessage 放行，免得来回打转（Codex 没有续跑次数上限）。
- */
-async function stopHook(): Promise<number> {
-  const event = await readStdinJson();
-  if (git(["status", "--porcelain"]) === "") return 0;
-  const findings = await runChecks(false);
-  if (findings.length === 0) return 0;
-  const lines = formatFindings(findings, MAX_LINES);
-  const output =
-    event["stop_hook_active"] !== true
-      ? { decision: "block", reason: lines.join("\n") }
-      : { systemMessage: `scripts/check.ts 仍未通过，运行 npm run check 查看：${lines[0] ?? ""}` };
-  process.stdout.write(`${JSON.stringify(output)}\n`);
-  return 0;
-}
-
 async function main(): Promise<number> {
   const args = process.argv.slice(2);
-  if (args.includes("--stop-hook")) return stopHook();
   const started = performance.now();
   if (args[0] === "--commit-msg") {
     const file = args[1];

@@ -1,5 +1,5 @@
 // omp 项目扩展：主会话要结束一轮时跑 `node scripts/check.ts --gate`（工作区干净直接过，否则跑 lint、格式、类型和仓库规则扫描），
-// 没过就用 `{ decision: "block", reason }` 拒绝结束，把检查输出交回给 agent 去修。Claude Code、Codex 的 Stop hook 跑同一个脚本。
+// 没过就用 `{ decision: "block", reason }` 拒绝结束，把检查输出交回给 agent 去修。
 // omp 对 block 不设上限（直到 hook 放行或用户打断），所以这里自己数：连续拦 MAX_BLOCKS 次还没过就放行并提示，避免死循环。
 // session_stop 只在主会话触发，子代理不跑。omp 从 <cwd>/.omp/extensions 自动加载本文件（omp://extension-loading.md）。
 // handler 超过 30 秒 omp 就放行（omp 18.14.0 实测），检查本身要保持在这之内。

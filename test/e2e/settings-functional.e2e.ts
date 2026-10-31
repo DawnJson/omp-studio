@@ -228,9 +228,11 @@ test("设置 API key：key 的变量写在 agent 目录 .env 里时改那一行�
     expect(exported.credentials.filter((entry) => entry.provider === "tavily")).toEqual([]);
     await expect(card).toContainText("Env var · TAVILY_API_KEY");
 
-    // 再打开：已存的备用 key 只说个数；清除后文件删掉。
+    // 再打开：已存的备用 key 只说个数；清除后文件删掉。个数随账号数据重读（保存时重启了服务进程的 omp），等的是 omp。
     await card.getByTestId("provider-key-tavily").click();
-    await expect(flow.getByTestId("provider-backup-keys")).toHaveAttribute("placeholder", /^2 saved/);
+    await expect(flow.getByTestId("provider-backup-keys")).toHaveAttribute("placeholder", /^2 saved/, {
+      timeout: 30_000,
+    });
     await flow.getByTestId("provider-backup-clear").click();
     await expect(flow).toHaveCount(0);
     await expect(access(backupFile)).rejects.toThrow();
@@ -483,8 +485,11 @@ const sshHosts = async (agentDir: string): Promise<Entries> =>
 
 test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 omp 并写进临时 agent 目录；工具、记忆卡片和更新日志能读到 omp 的输出", async () => {
   // 十几次 omp 命令行调用（mcp / ssh 的增删改）。没有任何 provider 凭据时（launchApp 不传本机的 key）omp 每次多花约 3 秒，
-  // 整个用例约 70 秒；有凭据时约 25 秒。
-  test.setTimeout(120_000);
+  // 单独跑约 70 秒；有凭据时约 25 秒。全量 4 个 worker 并行、e2e 进程又是低于正常优先级时，omp 每次起进程都更慢，
+  // 实测 1.9–2.0 分钟（2026-10-31，两次撞上原来的 120 秒上限），所以给 240 秒。
+  test.setTimeout(240_000);
+  // 每一步增删改都要等 omp 命令跑完、列表再经 omp 重读：这类等待用 ompWait，不用默认 5 秒（omp 一次就要 3 秒以上，机器忙时更久）。
+  const ompWait = { timeout: 30_000 };
   // omp 会从用户目录里的别家工具配置（~/.claude.json、~/.cursor/mcp.json 等）发现 MCP 服务器：把用户目录指到空目录，列表才可预期。
   const home = await mkdtemp(path.join(os.tmpdir(), "omp-studio-home-"));
   const { launched, agentDir } = await launchSettings({ USERPROFILE: home, HOME: home });
@@ -525,7 +530,7 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await page.getByTestId("mcp-name").fill("demo");
     await page.getByTestId("mcp-command").fill("node");
     await page.getByTestId("mcp-save").click();
-    await expect(page.getByTestId("mcp-form-error")).toContainText("already exists");
+    await expect(page.getByTestId("mcp-form-error")).toContainText("already exists", ompWait);
     await page.getByTestId("mcp-cancel").click();
 
     // HTTP 服务器 + 令牌：omp 写成 Authorization 请求头。
@@ -546,8 +551,8 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
 
     // 开关：关掉后配置里 enabled:false，列表同步。
     await page.getByTestId("mcp-enabled-remote1").click();
-    await expect.poll(async () => (await mcpServers(agentDir))["remote1"]?.["enabled"]).toBe(false);
-    await expect(page.getByTestId("mcp-enabled-remote1")).toHaveAttribute("aria-checked", "false");
+    await expect.poll(async () => (await mcpServers(agentDir))["remote1"]?.["enabled"], ompWait).toBe(false);
+    await expect(page.getByTestId("mcp-enabled-remote1")).toHaveAttribute("aria-checked", "false", ompWait);
 
     // 测试连接：连不上时元信息行开头一个"连接失败"徽标，omp 的原话在悬停里，元信息下面不再写。
     await page.getByTestId("mcp-test-remote1").click();
@@ -581,7 +586,8 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(page.getByTestId("mcp-form")).not.toContainText("tok123");
     await page.getByTestId("mcp-url").fill("http://127.0.0.1:9/changed");
     await page.getByTestId("mcp-save").click();
-    await expect(page.getByTestId("mcp-form")).toHaveCount(0);
+    // 写完文件后表单先经 omp 重读 MCP 列表（McpForm 的 mcpResource.load）才关。
+    await expect(page.getByTestId("mcp-form")).toHaveCount(0, ompWait);
     await expect
       .poll(async () => (await mcpServers(agentDir))["remote1"])
       .toEqual({
@@ -602,7 +608,7 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(page.getByTestId("mcp-save")).toBeDisabled();
     await page.getByTestId("mcp-token").fill("tok456");
     await page.getByTestId("mcp-save").click();
-    await expect(page.getByTestId("mcp-form")).toHaveCount(0);
+    await expect(page.getByTestId("mcp-form")).toHaveCount(0, ompWait);
     await expect
       .poll(async () => (await mcpServers(agentDir))["remote1"]?.["headers"])
       .toEqual({ "X-Trace": "on", Authorization: "Bearer tok456" });
@@ -612,7 +618,7 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(page.getByTestId("mcp-kind")).toHaveCount(0);
     await page.getByTestId("mcp-args").fill("-v\nserver.js");
     await page.getByTestId("mcp-save").click();
-    await expect(page.getByTestId("mcp-form")).toHaveCount(0);
+    await expect(page.getByTestId("mcp-form")).toHaveCount(0, ompWait);
     await expect
       .poll(async () => (await mcpServers(agentDir))["demo"])
       .toEqual({ type: "stdio", command: "node", args: ["-v", "server.js"], env: { A: "1" } });
@@ -648,19 +654,19 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await page.getByTestId(`mcp-more-${longName}`).click();
     await page.getByTestId(`mcp-remove-${longName}`).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
-    await expect(longRow).toHaveCount(0);
+    await expect(longRow).toHaveCount(0, ompWait);
 
     // 删除先确认。
     await page.getByTestId("mcp-more-demo").click();
     await page.getByTestId("mcp-remove-demo").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
-    await expect(page.getByTestId("mcp-row-demo")).toHaveCount(0);
-    await expect.poll(async () => Object.keys(await mcpServers(agentDir))).toEqual(["remote1"]);
+    await expect(page.getByTestId("mcp-row-demo")).toHaveCount(0, ompWait);
+    await expect.poll(async () => Object.keys(await mcpServers(agentDir)), ompWait).toEqual(["remote1"]);
     await page.getByTestId("mcp-more-remote1").click();
     await page.getByTestId("mcp-remove-remote1").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
-    await expect(page.getByTestId("mcp-empty")).toBeVisible();
-    await expect.poll(async () => Object.keys(await mcpServers(agentDir))).toEqual([]);
+    await expect(page.getByTestId("mcp-empty")).toBeVisible(ompWait);
+    await expect.poll(async () => Object.keys(await mcpServers(agentDir)), ompWait).toEqual([]);
 
     // ── SSH ──
     await expect(page.getByTestId("ssh-empty")).toBeVisible({ timeout: 30_000 });
@@ -701,13 +707,13 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await page.getByTestId("ssh-name").fill("box");
     await page.getByTestId("ssh-host").fill("10.0.0.1");
     await page.getByTestId("ssh-save").click();
-    await expect(page.getByTestId("ssh-form-error")).toContainText("already exists");
+    await expect(page.getByTestId("ssh-form-error")).toContainText("already exists", ompWait);
     await page.getByTestId("ssh-cancel").click();
 
     await page.getByTestId("ssh-remove-box").click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
-    await expect(page.getByTestId("ssh-row-box")).toHaveCount(0);
-    await expect.poll(async () => Object.keys(await sshHosts(agentDir))).toEqual([]);
+    await expect(page.getByTestId("ssh-row-box")).toHaveCount(0, ompWait);
+    await expect.poll(async () => Object.keys(await sshHosts(agentDir)), ompWait).toEqual([]);
 
     // ── 可用工具：omp 的 /tools，read 一定在 ──
     await page.getByTestId("settings-nav-tools").click();
@@ -1296,9 +1302,10 @@ test("应用内终端登录：对话框里看到企业域名输入、设备码�
     await setLocaleTheme(page, "zh-CN", "light");
     await page.getByTestId("settings-nav-providers").click();
 
-    // 第一次：走到设备码页，按 Esc 关对话框 → 进程结束。
+    // 第一次：走到设备码页，按 Esc 关对话框 → 进程结束。起假 omp 之前主进程先向服务进程的 omp 要登录 provider 列表
+    // （get_login_providers，没有凭据时 3 秒以上），所以第一帧等 omp。
     await openDialog();
-    await expect(terminal).toContainText("GitHub Enterprise URL/domain");
+    await expect(terminal).toContainText("GitHub Enterprise URL/domain", { timeout: 30_000 });
     await ompButton("submit").click();
     const code = terminal.locator('[data-role="omp.login.code"]');
     await expect(code).toContainText("WDJB-MJHT");
@@ -1315,7 +1322,7 @@ test("应用内终端登录：对话框里看到企业域名输入、设备码�
 
     // 第二次：重新打开是一个新进程，从企业域名那一步重新开始（上一次的画面不残留）；点页脚的取消。
     await openDialog();
-    await expect(terminal).toContainText("GitHub Enterprise URL/domain");
+    await expect(terminal).toContainText("GitHub Enterprise URL/domain", { timeout: 30_000 });
     await expect(code).toHaveCount(0);
     await ompButton("submit").click();
     await expect(code).toContainText("WDJB-MJHT");

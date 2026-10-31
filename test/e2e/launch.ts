@@ -1,9 +1,10 @@
 // 启动构建产物（先 npm run build）：Playwright 的 _electron.launch。userData 和 omp 的 agent 目录都指到临时目录，
 // 和真实数据隔离：会话索引读的是 PI_CODING_AGENT_DIR，里面只有这里造的假会话，真实 ~/.omp 不会出现在界面里。
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { promisify } from "node:util";
 import { _electron as electron, expect, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { findOmpOnPath } from "../../src/main/omp/discover.ts";
@@ -21,8 +22,39 @@ export interface LaunchedApp {
   close(): Promise<void>;
 }
 
+const clipboardLock = path.join(os.tmpdir(), "omp-studio-e2e-clipboard.lock");
+
+function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
 /**
- * 像在文件管理器里选中这些文件按 Cmd/Ctrl+C，往系统剪贴板放真实的文件列表。会改系统剪贴板。
+ * 系统剪贴板整台机器共用，e2e 又是多个 worker 并行跑：往剪贴板写东西再读回来（或粘贴）的用例，从写之前到最后一次读之后
+ * 都拿着这把跨进程锁，返回的函数放锁（放进 finally）。只锁这一段，别的部分照常并行。锁是临时目录里的一个文件，内容是持有者的 pid；
+ * 持有者被杀（用例超时后 worker 被结束）留下的锁，下一个等锁的发现 pid 不在了就接手。
+ */
+export async function lockClipboard(): Promise<() => Promise<void>> {
+  for (;;) {
+    try {
+      await writeFile(clipboardLock, String(process.pid), { flag: "wx" });
+      return () => rm(clipboardLock, { force: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
+    // 刚建好还没写进 pid 时读到空串：当作有人持有，接着等。
+    const holder = Number(await readFile(clipboardLock, "utf8").catch(() => ""));
+    if (holder > 0 && !processAlive(holder)) await rm(clipboardLock, { force: true });
+    else await sleep(50);
+  }
+}
+
+/**
+ * 像在文件管理器里选中这些文件按 Cmd/Ctrl+C，往系统剪贴板放真实的文件列表。会改系统剪贴板：调用方先拿 `lockClipboard`。
  * Windows：PowerShell 的 Set-Clipboard -LiteralPath（CF_HDROP）。
  * macOS：osascript 的 `set the clipboard to {POSIX file …}`（文件 URL 列表）。mac 分支没有在 mac 上跑过（推测），这台开发机是 Windows。
  */
@@ -176,6 +208,17 @@ export async function launchApp(
     });
     const page = await app.firstWindow();
     await page.getByTestId("app-root").waitFor({ state: "attached" });
+    // globalSetup 已把测试进程降到"低于正常"，Electron 主进程继承了；GPU 进程（"高于正常"）和渲染进程（"正常"）的优先级是
+    // Chromium 自己设的，不继承，起好后逐个降回去，跑 e2e 时不和用户手上的程序抢 CPU。量到的进程刚好退出时跳过。
+    const pids = await app.evaluate(({ app: electronApp }) => electronApp.getAppMetrics().map((metric) => metric.pid));
+    for (const pid of pids) {
+      try {
+        os.setPriority(pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
+      } catch (error) {
+        // os.setPriority 抛的是 SystemError：code 是 ERR_SYSTEM_ERROR，底层错误码在 info.code。
+        if ((error as { info?: { code?: string } }).info?.code !== "ESRCH") throw error;
+      }
+    }
     const launchedApp = app;
     let exited = false;
     launchedApp.once("close", () => {

@@ -15,6 +15,7 @@ import {
   copyFilesToClipboard,
   expectNoOverflow,
   launchApp,
+  lockClipboard,
   openTaskRow,
   setLocaleTheme,
   type LaunchedApp,
@@ -513,9 +514,14 @@ test("输入框附件：大段粘贴折叠成芯片，原文不在输入框里�
     await input.pressSequentially("对比 ");
     // 大段粘贴（30 行）折叠成 `#1 +30 行` 芯片，原文不在输入框里。
     const big = Array.from({ length: 30 }, (_, index) => `line ${index + 1}`).join("\n");
-    await launched.app.evaluate(({ clipboard }, text) => clipboard.writeText(text), big);
-    await page.keyboard.press("Control+V");
-    await expect(input).toHaveValue(/#1\u00a0\+30\u00a0(行|lines)/);
+    const unlock = await lockClipboard();
+    try {
+      await launched.app.evaluate(({ clipboard }, text) => clipboard.writeText(text), big);
+      await page.keyboard.press("Control+V");
+      await expect(input).toHaveValue(/#1\u00a0\+30\u00a0(行|lines)/);
+    } finally {
+      await unlock();
+    }
     await expect(input).not.toHaveValue(/line 30/);
     // 发送第一句话（创建任务）：展开的原文到 omp。
     await input.press("Enter");
@@ -626,9 +632,14 @@ test("输入框附件：删掉文字里的 #1 芯片就删掉对应的图片；C
     await expect(input).toHaveValue("");
     // Ctrl+Shift+V：同样的大段文字，原样进输入框。
     const big = Array.from({ length: 30 }, (_, index) => `line ${index + 1}`).join("\n");
-    await launched.app.evaluate(({ clipboard }, text) => clipboard.writeText(text), big);
-    await page.keyboard.press("Control+Shift+V");
-    await expect(input).toHaveValue(new RegExp(`line 30`));
+    const unlock = await lockClipboard();
+    try {
+      await launched.app.evaluate(({ clipboard }, text) => clipboard.writeText(text), big);
+      await page.keyboard.press("Control+Shift+V");
+      await expect(input).toHaveValue(new RegExp(`line 30`));
+    } finally {
+      await unlock();
+    }
     await input.fill("");
     // 拖拽条：向上拖高度变大，不超过主区的 60%；双击还原。
     const grip = page.getByTestId("composer-resize");
@@ -655,8 +666,10 @@ test('输入框附件：粘贴资源管理器复制的文件 = 文件卡片（�
   const dir = await mkdtemp(path.join(os.tmpdir(), "omp attach e2e-"));
   const file = path.join(dir, "报告 final.txt");
   await writeFile(file, "hello");
-  const savedClipboard = await launched.app.evaluate(({ clipboard }) => clipboard.readText());
+  const unlock = await lockClipboard();
+  let savedClipboard: string | null = null;
   try {
+    savedClipboard = await launched.app.evaluate(({ clipboard }) => clipboard.readText());
     const { page } = launched;
     const input = page.getByTestId("composer-input");
     await input.click();
@@ -681,9 +694,11 @@ test('输入框附件：粘贴资源管理器复制的文件 = 文件卡片（�
     const sent = String((await received()).find((event) => String(event["text"]).includes('@"'))!["text"]);
     expect(sent).toBe(`看 @"${file.replaceAll("\\", "/")}" 谢谢`);
   } finally {
-    await launched.app
-      .evaluate(({ clipboard }, text) => clipboard.writeText(text), savedClipboard)
-      .catch(() => undefined);
+    if (savedClipboard !== null)
+      await launched.app
+        .evaluate(({ clipboard }, text) => clipboard.writeText(text), savedClipboard)
+        .catch(() => undefined);
+    await unlock();
     await cleanup();
     await rm(dir, { recursive: true, force: true, maxRetries: 5 });
   }
@@ -2161,11 +2176,16 @@ test("旁路提问面板(TSP):/btw 问 → 再问 → 对第一个话题追问 �
     await expect(turns.nth(1)).toHaveAttribute("data-status", "complete", { timeout: 30_000 });
     await expect(turns.nth(1)).toContainText("gamma");
     // 复制答案:头部的按钮把当前话题最新一问的答案写进系统剪贴板(渲染进程剪贴板),出"已复制"toast。
-    await launched.app.evaluate(({ clipboard }) => clipboard.writeText("原来的内容"));
-    await panel.getByTestId("btw-copy-answer").click();
-    await expect
-      .poll(() => launched.app.evaluate(({ clipboard }) => clipboard.readText()), { timeout: 10_000 })
-      .toContain("gamma");
+    const unlock = await lockClipboard();
+    try {
+      await launched.app.evaluate(({ clipboard }) => clipboard.writeText("原来的内容"));
+      await panel.getByTestId("btw-copy-answer").click();
+      await expect
+        .poll(() => launched.app.evaluate(({ clipboard }) => clipboard.readText()), { timeout: 10_000 })
+        .toContain("gamma");
+    } finally {
+      await unlock();
+    }
     // 4) 长回答:回答中面板显示"取消提问",点它 → 已取消,保留已收到的部分。
     await panel.getByTestId("btw-new-topic").click();
     await panel.getByTestId("btw-input").fill("Write a 400 word essay about trees.");
@@ -2293,12 +2313,17 @@ test("待办板(omp 18.12.6 录制 todo-commands):⋯ 菜单发 /todo drop,添�
 
     // 复制为 Markdown：本地拼，剪贴板里和 omp `/todo` 弹出的 Markdown 同文（末尾多一个换行）。
     // Windows 上 Chromium 写系统剪贴板时把 \n 换成 \r\n，比较前换回来。
-    await page.getByTestId("todo-copy").click();
-    await expect
-      .poll(async () =>
-        (await todo.launched.app.evaluate(({ clipboard }) => clipboard.readText())).replace(/\r\n/g, "\n"),
-      )
-      .toBe("# Alpha\n- [x] Write tests\n- [x] Fix bug\n\n# Beta\n- [x] Ship it\n");
+    const unlock = await lockClipboard();
+    try {
+      await page.getByTestId("todo-copy").click();
+      await expect
+        .poll(async () =>
+          (await todo.launched.app.evaluate(({ clipboard }) => clipboard.readText())).replace(/\r\n/g, "\n"),
+        )
+        .toBe("# Alpha\n- [x] Write tests\n- [x] Fix bug\n\n# Beta\n- [x] Ship it\n");
+    } finally {
+      await unlock();
+    }
 
     // ⋯ 菜单：已完成的条目只剩 放弃 / 删除；点放弃 → omp 收到 /todo drop <内容>。
     await page.getByTestId("todo-item-more").first().click();

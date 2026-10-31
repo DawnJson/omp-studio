@@ -189,6 +189,17 @@ async function rectOf(page: Page, testId: string): Promise<{ x: number; y: numbe
   return box;
 }
 
+/**
+ * 等设置页这一节的换节动画（.settings-section 的 view-in：淡入加上移）放完。量位置是一个个 boundingBox 先后取的，
+ * 动画中途取，后取的元素已经又往上挪了一点，同一行的两格 y 对不上（机器忙时动画拖得长，更容易碰上）。
+ */
+async function sectionSettled(page: Page): Promise<void> {
+  await page.locator(".settings-section").evaluate(async (element) => {
+    const animated = element as unknown as { getAnimations(): { finished: Promise<unknown> }[] };
+    await Promise.all(animated.getAnimations().map((animation) => animation.finished));
+  });
+}
+
 test("设置页排版：内容随窗口变宽、格子多列（备用模型、记忆后端、高级、关于），窄窗口不越界", async () => {
   const { launched, agentDir } = await launchSettings();
   try {
@@ -197,6 +208,7 @@ test("设置页排版：内容随窗口变宽、格子多列（备用模型、�
     const contentWidth = async () => (await page.locator(".settings-content").boundingBox())?.width ?? 0;
     await page.getByTestId("settings-nav-models").click();
     await expect(page.getByTestId("cfg-retry.fallbackOn")).toBeVisible({ timeout: 30_000 });
+    await sectionSettled(page);
 
     // 1200 宽：备用模型三项排成两行两列（同一行两个、第三个在第一个正下方）。
     const narrowWidth = await contentWidth();
@@ -211,6 +223,7 @@ test("设置页排版：内容随窗口变宽、格子多列（备用模型、�
     // 记忆后端：下拉和两个后端的设置都只占一格（不独占整行），同一行放得下两个。
     await page.getByTestId("settings-nav-context").click();
     await expect(page.getByTestId("cfg-memory.backend")).toBeVisible({ timeout: 30_000 });
+    await sectionSettled(page);
     const grid = await page
       .locator(".st-cells")
       .filter({ has: page.getByTestId("cfg-memory.backend") })
@@ -227,6 +240,7 @@ test("设置页排版：内容随窗口变宽、格子多列（备用模型、�
     await page.getByTestId("settings-nav-about").click();
     await expect(page.getByTestId("omp-info")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("about-info")).toBeVisible();
+    await sectionSettled(page);
     const studio = await rectOf(page, "about-info");
     const omp = await rectOf(page, "omp-info");
     expect(Math.abs(omp.y - studio.y)).toBeLessThan(3);
@@ -235,6 +249,7 @@ test("设置页排版：内容随窗口变宽、格子多列（备用模型、�
     // 高级：右栏的项两列排。
     await page.getByTestId("settings-nav-advanced").click();
     await expect(page.locator(".st-adv-sub").first()).toBeVisible({ timeout: 30_000 });
+    await sectionSettled(page);
     await page.setViewportSize({ width: 1500, height: 900 });
     const advRow = (index: number) => page.locator(".st-adv-sub").first().locator(".ui-row").nth(index).boundingBox();
     const a = await advRow(0);
@@ -249,6 +264,7 @@ test("设置页排版：内容随窗口变宽、格子多列（备用模型、�
     expect(await contentWidth()).toBeGreaterThan(narrowWidth + 400);
     await page.getByTestId("settings-nav-models").click();
     await expect(page.getByTestId("cfg-retry.fallbackOn")).toBeVisible();
+    await sectionSettled(page);
     const wideFirst = await rectOf(page, "cfg-retry.modelFallback");
     const wideThird = await rectOf(page, "cfg-retry.waitForUsageReset");
     expect(Math.abs(wideThird.y - wideFirst.y)).toBeLessThan(3); // 三列：三项同一行

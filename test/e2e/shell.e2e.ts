@@ -335,9 +335,10 @@ test("字号：设置里选一档（pt）立即整体缩放（含三键区高度
     // 18pt / 15pt = 1.2 倍。
     await expect.poll(() => zoomFactor(first)).toBe(1.2);
     await expect(select).toContainText("18pt");
+    // 三键区高度是主进程在缩放之后另外设的（setTitleBarOverlay），页面稍后才收到新的矩形：等它到 40，不是只量一次。
+    await expect.poll(async () => (await measure(first)).titlebarArea).toBe(40);
     const scaled = await measure(first);
     expect(scaled.dpr / base.dpr).toBeCloseTo(1.2, 2);
-    expect(scaled.titlebarArea).toBe(40);
 
     // Ctrl +/-、Ctrl+滚轮、重载都不改变档位。
     await first.page.keyboard.press("Control+=");

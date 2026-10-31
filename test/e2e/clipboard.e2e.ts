@@ -1,11 +1,18 @@
 // 剪贴板的端到端：在输入框里粘贴资源管理器复制的文件 → 插入路径（preload 取路径）；对话里鼠标选中文字 → 自动复制（设置项可关），
 // 输入框里选中不动剪贴板。Windows 用 PowerShell 的 Set-Clipboard -LiteralPath 放真实的文件列表（CF_HDROP），mac 用 osascript（见 launch.ts 的 copyFilesToClipboard）。
-// 测试会改系统剪贴板，结束时恢复原来的文字内容（文件列表等其它格式恢复不了）。
+// 测试会改系统剪贴板，结束时恢复原来的文字内容（文件列表等其它格式恢复不了）。每个用例从读原内容到恢复都拿着剪贴板锁（launch.ts 的 lockClipboard）。
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { copyFilesToClipboard as copyFiles, launchApp, openTaskRow, testOmp, type LaunchedApp } from "./launch.ts";
+import {
+  copyFilesToClipboard as copyFiles,
+  launchApp,
+  lockClipboard,
+  openTaskRow,
+  testOmp,
+  type LaunchedApp,
+} from "./launch.ts";
 
 // 输入框里的粘贴 / 撤销是系统编辑键：mac 是 Cmd，其他是 Ctrl。mac 分支没有在 mac 上跑过（推测）。
 const mod = process.platform === "darwin" ? "Meta" : "Control";
@@ -22,26 +29,32 @@ async function start(): Promise<Started> {
   await mkdir(project);
   // resume 录制：omp 起来就把整段旧对话（用户消息、工具卡片、回答）画出来，不用先发消息。
   const launched = await launchApp({ STUDIO_TEST_OMP: testOmp("resume") });
-  const saved = await launched.app.evaluate(({ clipboard }) => clipboard.readText());
-  await launched.app.evaluate(({ dialog }, dir) => {
-    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
-  }, project);
-  await launched.page.evaluate(async () => {
-    const added = await globalThis.studio.addProject();
-    if (!added) throw new Error("addProject 没有返回项目");
-    await globalThis.studio.createTask({ projectId: added.id });
-  });
-  await openTaskRow(launched.page);
-  await expect(launched.page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
-  return {
-    launched,
-    work,
-    async cleanup() {
+  const unlock = await lockClipboard();
+  let saved: string | null = null;
+  const cleanup = async () => {
+    if (saved !== null)
       await launched.app.evaluate(({ clipboard }, text) => clipboard.writeText(text), saved).catch(() => undefined);
-      await launched.close();
-      await rm(work, { recursive: true, force: true });
-    },
+    await unlock();
+    await launched.close();
+    await rm(work, { recursive: true, force: true });
   };
+  try {
+    saved = await launched.app.evaluate(({ clipboard }) => clipboard.readText());
+    await launched.app.evaluate(({ dialog }, dir) => {
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
+    }, project);
+    await launched.page.evaluate(async () => {
+      const added = await globalThis.studio.addProject();
+      if (!added) throw new Error("addProject 没有返回项目");
+      await globalThis.studio.createTask({ projectId: added.id });
+    });
+    await openTaskRow(launched.page);
+    await expect(launched.page.getByTestId("tsp-view")).toBeVisible({ timeout: 20_000 });
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
+  return { launched, work, cleanup };
 }
 
 function clipboardText(launched: LaunchedApp): Promise<string> {

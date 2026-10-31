@@ -20,17 +20,12 @@ description: 改动做完、提交前让独立的评审员看 diff：收集 diff
 
 把范围和改动说明交给评审员，不要把你的推理过程、怀疑点或期望的结论塞进去。
 
-| 工具 | 怎么起 |
-|---|---|
-| omp | `task` 工具，`agent: "reviewer"`（项目里的 `.omp/agents/reviewer.md` 覆盖内置的同名 agent）。默认和主会话同一个模型；换模型的做法写在那个文件的注释里。 |
-| Claude Code | 子代理 `reviewer`（`.claude/agents/reviewer.md`）：直接说"用 reviewer 子代理评审 …"或 `@agent-reviewer`。 |
-| Codex | 自定义 agent `reviewer`（`.codex/agents/reviewer.toml`）：说"spawn the reviewer agent to review …"。内置 `/review`（或 `codex review --base main` / `--uncommitted`）也能用，但它不读 `docs/agents/reviewer.md`，只当第二意见。 |
+评审员是用户所用 harness 里一个全新上下文的子代理，按 `docs/agents/reviewer.md` 干活。本仓库用 omp：`task` 工具，条目里写 `agent: "reviewer"`（项目里的 `.omp/agents/reviewer.md` 覆盖内置的同名 agent）。
 
-**可选：第二个评审员用另一家的模型**（改动有风险、或第一个评审员和你是同一家模型时建议加）。和第一个并行起，同样只给范围和说明。在任何工具里都能用命令行起一个只读的：
+**可选：第二意见＝同一个评审员换一个模型**，最好是另一家的（改动有风险、或第一个评审员和你是同一家模型时建议加）。和第一个并行起，同样只给范围和说明。omp 的 task 条目不能指定模型：模型按 `task.agentModelOverrides.reviewer` → agent 文件的 `model` → 主会话的模型取，同名的两个 `reviewer` 一定是同一个模型。所以：
 
-- Codex：`codex exec -s read-only -o <临时文件> "按 docs/agents/reviewer.md 评审：<范围命令>。改动说明：<…>"`
-- Claude Code：`claude -p --agent reviewer "评审：<范围命令>。改动说明：<…>"`
-- 输出写进系统临时目录，看完删掉。命令行起的评审员也会触发项目的 Stop hook，所以第 1 步的 `npm run check` 要先过。
+- 请用户在输入框里用 `^` 标一个模型，得到 `m1` 这样的代号；第二个条目写 `agent: "m1"`，task 里写"只读，按 `docs/agents/reviewer.md` 评审：<范围命令>。改动说明：<…>"。它用的是通用 task 模板，没有 reviewer 的只读工具限制，靠这句说明约束。
+- 用户没标模型就不起第二个，报告里写明。想让评审员固定用另一家模型，见 `.omp/agents/reviewer.md` 的注释（`modelRoles.review` 要先设好）。
 
 ## 3. 合并结果
 
@@ -48,7 +43,7 @@ description: 改动做完、提交前让独立的评审员看 diff：收集 diff
 
 完成说明里加一节"评审"：
 
-- 评审了几轮，用了哪些评审员（工具和模型）。
+- 评审了几轮，用了哪些评审员（agent 和模型）。
 - 已修的 Important：一句话 + `文件:行号`。
 - 没修的：Important（为什么，证据）、Nit、Pre-existing、"不采纳"及原因。
 - 评审员写在"没看 / 没法核实"里的项目。
