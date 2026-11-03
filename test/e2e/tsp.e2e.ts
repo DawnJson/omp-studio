@@ -2576,6 +2576,50 @@ test("回答里的裸网址可点:用系统浏览器打开,句末的中文句号
   }
 });
 
+// omp 18.15.0 把 eval 里 pandas 的表格输出画成 table 节点（下面是实录的节点）。量列宽的 layout effect 曾经每次渲染都重跑、
+// setState 又触发渲染，React 报 #185 把整棵树卸掉，窗口只剩毛玻璃（2026-11-03）。
+test("eval 的表格节点：按列画出单元格，界面不被卸掉", async () => {
+  test.setTimeout(90_000);
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp table-"));
+  const fixture = await writeCardsFixture(
+    work,
+    [],
+    [
+      {
+        id: "e2e-table",
+        k: "table",
+        p: {
+          cols: [
+            { id: "c0", head: "bibtype" },
+            { id: "c1", head: "count", align: "end" },
+          ],
+          rows: [
+            { id: "r0", cells: { c0: "article", c1: "133" } },
+            { id: "r1", cells: { c0: "inproceedings", c1: "43" } },
+            { id: "r2", cells: { c0: "incollection", c1: "10" } },
+          ],
+          role: "omp.tool.eval.table",
+        },
+        c: [],
+      },
+    ],
+  );
+  const { launched, cleanup } = await start(fixture);
+  try {
+    const { page } = launched;
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("cards"))[0]!.event["text"]));
+    const table = page.locator('[data-id="e2e-table"]');
+    await expect(table.getByRole("cell")).toHaveText(["article", "133", "inproceedings", "43", "incollection", "10"], {
+      timeout: 30_000,
+    });
+    await expect(table.getByRole("columnheader")).toHaveText(["bibtype", "count"]);
+    await expect(page.getByTestId("app-root")).toBeAttached();
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
 // omp 边生成边往 eval / 写文件卡片的代码节点里追加文字(`text append`):每追加一次重新高亮,新结果到之前
 // 已经着色的字要保持着色,不能先退回无色再变绿(2026-10-27 仓库所有者:绿色的字符串一直闪)。
 test("流式追加的代码节点:已着色的字在追加时不退回无色(不闪)", async () => {

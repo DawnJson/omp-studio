@@ -1,5 +1,5 @@
 // 数据类节点：kv、table、tree、badge、kbd、icon、image（规范 Data）。
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { markHeight, piWidth } from "../../../../../shared/ui/pixel-pi.ts";
 import type { TspText, TspTableColumn, TspTreeNode } from "../../../../../shared/tsp/tsp.generated.ts";
 import { isRecord } from "../../../../../shared/type-guards.ts";
@@ -92,11 +92,15 @@ function visibleColumns(
 }
 
 export function Table(props: NodeProps) {
-  const cols = asArray(props.node.p.cols).filter(isRecord) as unknown as TspTableColumn[];
-  const rows = asArray(props.node.p.rows).filter(isRecord) as unknown as {
-    id: string;
-    cells: Record<string, unknown>;
-  }[];
+  // 量列宽的 layout effect 依赖这两个数组：每次渲染都新建的话，effect 每次都重跑、setShown 新 Set 又触发渲染，
+  // 死循环到 React 报 #185 把整棵树卸掉（窗口只剩毛玻璃，2026-11-03）。只在节点属性换了时重建。
+  const colsProp = props.node.p.cols;
+  const rowsProp = props.node.p.rows;
+  const cols = useMemo(() => asArray(colsProp).filter(isRecord) as unknown as TspTableColumn[], [colsProp]);
+  const rows = useMemo(
+    () => asArray(rowsProp).filter(isRecord) as unknown as { id: string; cells: Record<string, unknown> }[],
+    [rowsProp],
+  );
   const root = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState<Set<string> | null>(null);
 
