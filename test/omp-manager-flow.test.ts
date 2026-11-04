@@ -227,6 +227,35 @@ describe("OmpManager", () => {
     await expect(h.manager.upgradePathOmp()).rejects.toThrow(/only run for an omp the user installed/);
   });
 
+  it("takes over a declined Tern omp from settings: downloads in the background staying ready, then puts bin first and remembers it", async () => {
+    const h = harness({ kind: "exe", install: ternExe });
+    const running = h.manager.start();
+    await expect.poll(() => h.manager.status.state).toBe("ask_takeover");
+    await h.manager.answerTakeover(false);
+    await running;
+    const before = h.statuses.length;
+    const a = h.manager.takeOver();
+    expect(h.manager.takeOver()).toBe(a);
+    await a;
+    // 下载期间一直是 ready（界面不切到准备页），装好才换成自管的。
+    expect(h.statuses.slice(before).every((s) => s.state === "ready")).toBe(true);
+    expect(h.manager.status).toMatchObject({
+      state: "ready",
+      path: h.manager.layout.binExe,
+      source: { kind: "studio_managed", onUserPath: true },
+    });
+    expect(h.userPathAdds).toEqual([h.manager.layout.binDir]);
+    await expect(h.manager.takeOver()).rejects.toThrow(/does not manage yet/);
+    await h.manager.stop();
+
+    // 重启：Tern 的 omp 还在 PATH 上，但已记下同意，不再问、直接用自管的。
+    const again = harness({ kind: "exe", install: ternExe }, path.dirname(h.stateFile));
+    await again.manager.start();
+    expect(again.statuses.some((s) => s.state === "ask_takeover")).toBe(false);
+    expect(again.manager.status).toMatchObject({ state: "ready", path: again.manager.layout.binExe });
+    await again.manager.stop();
+  });
+
   it("ensureReady hands managed callers the bin dir to put on the child PATH, others nothing", async () => {
     const managed = harness({ kind: "none" });
     await managed.manager.start();

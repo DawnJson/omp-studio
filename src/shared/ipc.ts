@@ -1358,6 +1358,11 @@ export interface StudioInvokeApi {
   answerTakeover(accept: boolean): Promise<void>;
   /** 自管 omp 的 bin 不在用户 PATH 上时，放回最前面。 */
   addManagedOmpToPath(): Promise<void>;
+  /**
+   * 拒绝过接管的 omp（他人管理 / 用户自装）改由 omp-studio 管理：后台下载自管副本、放到用户 PATH 最前，装好后状态换成 studio_managed；
+   * 期间状态保持 ready、用原来的 omp。原来那份不动。
+   */
+  takeOverOmp(): Promise<void>;
   /** 下载、校验或发现失败后重试。 */
   retryOmpSetup(): Promise<void>;
   /** 只对 PATH 上用户自装的 omp 执行 omp update；自管和他人管理的会拒绝。 */
@@ -1748,6 +1753,7 @@ export const invokeNames = {
   getOmpStatus: true,
   answerTakeover: true,
   addManagedOmpToPath: true,
+  takeOverOmp: true,
   retryOmpSetup: true,
   checkOmpUpdate: true,
   upgradePathOmp: true,

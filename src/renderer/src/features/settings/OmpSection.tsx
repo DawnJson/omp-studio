@@ -2,8 +2,9 @@
 // 以及对应来源的更新方式（spec §4.19、§4.21）。omp-studio 和 omp 两格并排（.st-pair：内容宽，标签在上、内容在下），路径等整行排在下面。
 //   自管：检查更新（omp-studio 自己请求构建服务）、加入用户 PATH；
 //   用户自装（拒绝了接管）：升级 = 对它执行 omp update；
-//   别人管理（如 Tern）：只提示去管理者那里更新，没有按钮。
-import { describeError } from "../../ui/errors.ts";
+//   别人管理（如 Tern）：提示去管理者那里更新；
+//   后两种都能改由 omp-studio 管理（确认后后台下载，和首次同意接管一样放到用户 PATH 最前）。
+import { describeError, explainError } from "../../ui/errors.ts";
 import { useState, type ReactNode } from "react";
 import type { TFunction } from "../../../../shared/i18n/index.ts";
 import type { OmpSource, OmpStatus, OmpUpgradeResult } from "../../../../shared/ipc.ts";
@@ -11,6 +12,7 @@ import { MIN_OMP_VERSION } from "../../../../shared/omp-version.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { useAppInfo, useOmpStatus } from "../../store/index.ts";
 import { Badge, Button, Notice, Row } from "../../ui/controls.tsx";
+import { ConfirmDialog } from "../../ui/Dialog.tsx";
 
 type Ready = Extract<OmpStatus, { state: "ready" }>;
 
@@ -39,8 +41,9 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
   const status = useOmpStatus();
   const platform = useAppInfo()?.platform;
   const [note, setNote] = useState<{ text: string; error: boolean } | null>(null);
-  const [busy, setBusy] = useState<"check" | "upgrade" | "path" | null>(null);
+  const [busy, setBusy] = useState<"check" | "upgrade" | "path" | "takeover" | null>(null);
   const [upgrade, setUpgrade] = useState<OmpUpgradeResult | null>(null);
+  const [confirmTakeover, setConfirmTakeover] = useState(false);
 
   if (status?.state !== "ready")
     return (
@@ -51,7 +54,7 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
     );
   const ready: Ready = status;
 
-  const run = async (kind: "check" | "upgrade" | "path", job: () => Promise<void>) => {
+  const run = async (kind: "check" | "upgrade" | "path" | "takeover", job: () => Promise<void>) => {
     setBusy(kind);
     setNote(null);
     try {
@@ -64,7 +67,7 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
             ? t("omp.checkFailed", { message })
             : kind === "path"
               ? t("omp.addPath.failed", { message })
-              : message,
+              : explainError(t, error),
         error: true,
       });
     } finally {
@@ -138,6 +141,17 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
                   {busy === "upgrade" ? t("omp.upgrading") : t("omp.upgrade")}
                 </Button>
               )}
+              {source.kind !== "studio_managed" && (
+                <Button
+                  size="sm"
+                  loading={busy === "takeover"}
+                  disabled={busy !== null}
+                  onClick={() => setConfirmTakeover(true)}
+                  testId="omp-take-over"
+                >
+                  {t("omp.takeover.switch")}
+                </Button>
+              )}
             </>
           )}
         </Row>
@@ -181,6 +195,25 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
             </>
           )}
         </div>
+      )}
+      {confirmTakeover && source.kind !== "studio_managed" && (
+        <ConfirmDialog
+          testId="omp-take-over-confirm"
+          title={t("omp.takeover.confirmTitle")}
+          body={
+            source.kind === "managed_by_other"
+              ? t(platform === "win32" ? "omp.takeover.otherBody" : "omp.takeover.otherBodyStudioOnly", {
+                  name: source.managerName,
+                })
+              : t(platform === "win32" ? "omp.takeover.exeBody" : "omp.takeover.exeBodyStudioOnly")
+          }
+          confirmLabel={t("omp.takeover.yes")}
+          onConfirm={() => {
+            setConfirmTakeover(false);
+            void run("takeover", () => window.studio.takeOverOmp());
+          }}
+          onCancel={() => setConfirmTakeover(false)}
+        />
       )}
     </>
   );

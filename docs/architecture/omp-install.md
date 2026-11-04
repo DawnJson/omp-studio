@@ -78,6 +78,7 @@ Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次�
 - **后台更新**：自管时每小时请求一次最新版，更新了就在后台下载换掉 `bin\omp.exe`，状态里 `stagedUpdate` 是装上的版本；不切到 `installing`（那会把界面换成准备页）。`update.lock` 用 `open(…, "wx")` 独占，超过 30 分钟的残留当作崩溃遗留。设置 → 关于 → omp 的"检查更新"走同一条路径（`checkOmpUpdate`）。
 - **差量补丁**：后台更新带 `fromVersion` 请求；`installBuild` 收到 `patch` 且当前 `bin\omp.exe` 的 sha256 等于 `from_sha256` 时，下载补丁到 `versions\<版本>.exe.patch`（按 size + sha256 校验），应用到 `.partial`，结果再按完整文件的 size + sha256 校验通过才改名。补丁的任何一步失败（起点不对、格式不支持、数据损坏、结果对不上）都退回全量下载，不报错。首次安装没有起点，总是全量。`pruneVersions` 顺带清掉残留的 `.patch`。实测（2026-10-18，Tern 的 18.12.0 副本 → 18.12.1）：只请求了补丁，约 7.6 秒，结果 sha256 和官方一致。测试用的补丁由 `test/hpatch-encoder.ts` 手工编码。
 - **升级按钮**（`upgradePathOmp`）只在"用户自装且拒绝了接管"时对 PATH 上那个 omp 执行 `omp update`（不用 shell，输出原样返回，界面显示末 3 行）。自管、他人管理的会被拒绝。
+- **事后改由 omp-studio 管理**（`takeOverOmp` → `OmpManager.takeOver`，2026-11-04 仓库所有者要的：Tern 管的 omp studio 更新不了，`omp update` 被 omp 自己拦住，Tern 也没有让外部触发更新的命令）：拒绝过接管的（用户自装、他人管理）在设置 → 关于 → omp 有 `改由 omp-studio 管理`，确认后结果和首次同意接管一样：装自管副本、`bin` 放到用户 PATH 最前、`takeover[原路径]` 记成 `accepted`（下次启动直接用自管的，不再问）。和首次接管的区别：在后台下载，状态一直是 `ready`、用原来的 omp，不切到 `installing`（那会把整个界面换成准备页、挡住正在跑的任务），装好才换成 `studio_managed`，之后的新任务用自管的、已经在跑的不受影响。补丁起点用原来那份 exe（`fromVersion` + `fromExe`，只读：算 sha256、读内容），Tern 装的是同一个官方构建，对得上就只下补丁，对不上退回全量。先改 PATH 再记 `accepted`：PATH 写失败时照旧用原来的 omp，按钮还在。下载和首次安装共用 `#installing`，`stop()` 会取消它。没有在真实机器上点过（会下载约 220 MB 并改所有者的 PATH）：`test/omp-manager-flow.test.ts` 用假构建服务覆盖流程，界面用构建服务返回 500 的 e2e 探针走过一次（确认框、取消、出错时结果行显示原因、来源不变）。
 - **启动子进程**时 `getOmpExecutable()` 返回 `{ path, managedBin }`，自管时 `managedBin` 非空，调用方把它前置到子进程 PATH，让 `omp update` 认到 `manager.json`。
 
 测试注入（仅未打包）：`STUDIO_TEST_OMP` 设了之后，发现流程把它当作"别人管理的 omp"，不查 PATH、不下载；它同样会问接管，所以 e2e 的 `launchApp` 默认在临时 userData 里预先记下"拒绝"（PATH 上的 omp 和假 omp 都记），只有 `askTakeover: true` 的用例看得到弹窗。
@@ -98,7 +99,7 @@ Tern 换 exe 时，已经在跑的 omp-studio 子进程不受影响，下一次�
 |---|---|---|
 | 自管（`studio_managed`） | 构建服务最新稳定版 vs `bin\omp.exe` 的版本（请求带 `from_version`，优先补丁） | 后台下载、校验、换 `bin\omp.exe`（新任务用新版本），状态 `stagedUpdate`；从不对它执行 `omp update` |
 | 用户自装、拒绝了接管（`user_installed`） | 同一个接口，只比版本号（不带 `from_version`，不下载） | 状态 `availableVersion`，设置页显示"有新版本 X"；升级仍是已有的"升级"按钮（对 PATH 上的 omp 执行 `omp update`） |
-| 他人管理（如 Tern，`managed_by_other`） | 同上 | 同上显示"有新版本 X"，没有按钮，提示去管理者（Tern）那里更新 |
+| 他人管理（如 Tern，`managed_by_other`） | 同上 | 同上显示"有新版本 X"，没有升级按钮，提示去管理者（Tern）那里更新；可以改由 omp-studio 管理（见上面"事后改由 omp-studio 管理"） |
 
 - **自动：** omp 进入 `ready` 后马上查一次，之后每小时一次（`UPDATE_INTERVAL_MS`，定时器 `unref`，`stop()` 清掉）。之前定时器只在自管时启动、而且要等一小时才有第一次；现在所有来源都启动，第一次不用等。后台检查失败只记日志（`warn`），下个小时再试。
 - **手动：** 设置 → 关于 → omp 的"检查更新"按钮（所有来源都有）走同一个 `checkOmpUpdate`，返回 `{ installedVersion, availableVersion }`：装上了新版本 / 有新版本但没装 / 都是 null（已最新）；失败时界面显示错误。

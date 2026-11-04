@@ -332,6 +332,48 @@ export class OmpManager {
     await this.#refreshReady((current) => ({ ...current, source: { kind: "studio_managed", onUserPath: true } }));
   }
 
+  /**
+   * 设置 → 关于 → omp：拒绝过接管的 omp（他人管理如 Tern / 用户自装）改由 omp-studio 管理，和首次同意接管的结果一样：
+   * 装好自管副本、放到用户 PATH 最前、记下"已同意"，以后由 omp-studio 自动更新；原来那份只读（能做补丁起点就用它少下载）。
+   * 在后台下载，期间保持 ready 用原来的 omp（不切到 installing，那会把界面换成准备页），装好才换过去，新任务用自管的。
+   */
+  takeOver(): Promise<void> {
+    if (this.#installing) return this.#installing;
+    const status = this.#status;
+    if (status.state !== "ready" || status.source.kind === "studio_managed")
+      return Promise.reject(new Error("only an omp that omp-studio does not manage yet can be taken over"));
+    const run = this.#takeOver(status.path, status.version).finally(() => {
+      this.#installing = null;
+    });
+    this.#installing = run;
+    return run;
+  }
+
+  async #takeOver(currentPath: string, currentVersion: string): Promise<void> {
+    let install = await this.#inspectManaged();
+    if (install === null) {
+      const abort = new AbortController();
+      this.#abort = abort;
+      try {
+        const options = { fetch: this.#deps.fetch, signal: abort.signal };
+        const build = await fetchBuild({ ...options, baseUrl: this.#deps.baseUrl, fromVersion: currentVersion });
+        await this.#withLock(() => installBuild(this.#layout, { ...options, build, fromExe: currentPath }));
+      } finally {
+        this.#abort = null;
+      }
+      install = await this.#deps.inspect(this.#layout.binExe);
+    }
+    // 先改 PATH 再记"已同意"：PATH 改失败就照旧用原来的 omp，按钮还在，可以再点。
+    this.#deps.userPath?.addFront(this.#layout.binDir);
+    const state = await readState(this.#deps.stateFile);
+    state.takeover[takeoverKey(currentPath)] = "accepted";
+    await writeState(this.#deps.stateFile, state);
+    this.#ready(install.path, install.version, {
+      kind: "studio_managed",
+      onUserPath: this.#deps.userPath?.contains(this.#layout.binDir) ?? false,
+    });
+  }
+
   /** 出错后重新跑发现流程；unusable（拒绝了脚本形式的接管）时忘掉那次拒绝，让用户重新选择。 */
   async retry(): Promise<void> {
     const status = this.#status;

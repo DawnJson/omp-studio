@@ -24,6 +24,8 @@ export const omp = {
   "takeover.where": "位置：{path}",
   "takeover.whereVersion": "位置：{path} · {version}",
   "takeover.yes": "由 omp-studio 管理",
+  "takeover.confirmTitle": "改由 omp-studio 管理 omp？",
+  "takeover.switch": "改由 omp-studio 管理",
   "takeover.no": "取消",
   "takeover.keep": "继续用我的",
   "takeover.declined": "这种安装方式暂时用不了。",

@@ -178,6 +178,7 @@ export const ompHandlers: HandlerGroup<
   | "getOmpStatus"
   | "answerTakeover"
   | "addManagedOmpToPath"
+  | "takeOverOmp"
   | "retryOmpSetup"
   | "upgradePathOmp"
   | "checkOmpUpdate"
@@ -209,6 +210,7 @@ export const ompHandlers: HandlerGroup<
   },
   answerTakeover: (accept) => ompManager().answerTakeover(parseBoolean(accept, "accept")),
   addManagedOmpToPath: () => ompManager().addManagedOmpToPath(),
+  takeOverOmp: () => ompManager().takeOver(),
   retryOmpSetup: () => ompManager().retry(),
   upgradePathOmp: () => ompManager().upgradePathOmp(),
   checkOmpUpdate: () => ompManager().checkUpdate(),

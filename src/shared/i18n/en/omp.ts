@@ -31,6 +31,8 @@ export const omp = {
   "takeover.where": "Location: {path}",
   "takeover.whereVersion": "Location: {path} · {version}",
   "takeover.yes": "Let omp-studio manage it",
+  "takeover.confirmTitle": "Let omp-studio manage omp?",
+  "takeover.switch": "Switch to omp-studio",
   "takeover.no": "Cancel",
   "takeover.keep": "Keep using mine",
   "takeover.declined": "This kind of install can't be used right now.",
