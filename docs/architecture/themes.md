@@ -10,6 +10,12 @@
 - `--accent-glow`：强调色上的静态发光（开关、选中指示、焦点环），只有炫酷类主题给值，其余是 `none`。不做动画（空闲时也会占 CPU，见 [performance.md](performance.md)）。
 - Dracula、Tokyo Night、Catppuccin、Nord、Rosé Pine 的配色取自各自的 MIT 调色板，为对比度微调过；许可证 `src/renderer/styles/themes-LICENSE.txt`，打包进 `resources/licenses/theme-palettes-MIT.txt`。鲸蓝两套只取 DeepSeek 式的蓝色调，不用它的名字和鲸鱼标志。
 
+### 主题画廊的缩略图
+
+- 画廊预览里的插图是预先画好的 WebP（`src/renderer/styles/themes/thumbs/<名字>.webp`，480×300），`ThemeGallery.tsx` 用 `import.meta.glob` 取地址、内联成 `background-image`；不用 `--theme-art` 的 SVG。主区背景图仍用 SVG（只有一张）。
+- 原因（2026-11-04 实测，打包前的构建，Playwright 点侧栏"设置"、页面里逐帧记 `requestAnimationFrame`、CDP trace）：插图带 `feGaussianBlur`，画廊里 16 张一起栅格化，GPU 进程（`RasterDecoderImpl::DoEndRasterCHROMIUM`，外加 ANGLE 编着色器）每次打开设置都卡 300–550ms，主线程 JS 只有几毫秒；换页的 `view-in` 只有约 200ms，整段落在卡顿里，看起来没有动画。只去掉画廊的插图，卡顿就没了；换成 WebP 后最长一帧：第一次打开约 40–76ms，之后没有超过 25ms 的帧。运行时把 SVG 画成位图也能消掉卡顿，但 16 张要在主线程上画约 2 秒（单张最多约 590ms），所以在仓库里预先画好。
+- 改了或新增插图后跑 `node scripts/make-theme-thumbs.ts`（用仓库里的 Electron 在隐藏窗口的 canvas 上画）；`thumbs/sources.json` 记每张 SVG 的 sha256（按 LF），`npm run check` 的 `theme-thumbs` 对不上就报错。
+
 ### 主进程
 
 - `nativeTheme.themeSource`：`system` 原样；具名主题按登记表的深浅给 `light` / `dark`（`settings-store.ts` 的 `themeSource()`）。omp 的 `{ev:"theme", dark}`、网页的 `prefers-color-scheme` 都跟着 nativeTheme，omp 只知道深浅。实测（omp 18.14.0，2026-10-30，真实模型）：选鲸蓝·深后 `nativeTheme.shouldUseDarkColors` 为 true（TSP 会话的 appearance 取它），一轮 prompt 跑完；同一任务切到樱粉（浅）再发一轮照常。

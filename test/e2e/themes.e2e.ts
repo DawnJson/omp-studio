@@ -71,9 +71,11 @@ test("主题画廊：跟随系统在最前、其余按登记表的顺序；每�
     expect(order).toEqual(["theme-card-system", ...themeNames.map((name) => `theme-card-${name}`)]);
 
     // 预览块挂 data-theme 就地取色：主区底色就是那个主题的 --bg-app（不管当前界面是什么主题）。
+    // 自带插图的主题画自己的缩略图（themes/thumbs/<名字>.webp，不是 SVG），没有插图的不画。
     for (const name of themeNames) {
       const main = page.getByTestId(`theme-card-${name}`).locator(".st-theme-main");
       await expect(main).toHaveCSS("background-color", rgb(await cssBgApp(name)));
+      await expect(main).toHaveCSS("background-image", themes[name].art ? new RegExp(`/${name}-[^/]*\\.webp`) : "none");
     }
     // 跟随系统：左半浅色、右半深色。
     const halves = page.getByTestId("theme-card-system").locator(".st-theme-main");

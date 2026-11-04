@@ -8,7 +8,8 @@
 // 本地黑名单（被 gitignore，不进仓库）：.githooks/private-patterns.local.txt（私人信息）、.githooks/no-mention.local.txt
 // （CHANGELOG 和提交信息里不写的第三方客户端名）。每行一个正则，不区分大小写，`#` 开头是注释；文件不在就警告一行并跳过。
 import { execFileSync, spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { nextHeading, UNRELEASED_HEADING } from "../src/shared/changelog.ts";
@@ -503,6 +504,37 @@ function scanIgnoredRules(): Finding[] {
     }));
 }
 
+/**
+ * 主题画廊的缩略图（scripts/make-theme-thumbs.ts 生成，提交进仓库）跟着插图走：每张 themes/<名字>.svg 都有 thumbs/<名字>.webp，
+ * sources.json 里记的 sha256 和现在的 SVG 一致（按 LF 算）。改了插图忘了重画，画廊里就是旧图。
+ */
+async function scanThemeThumbs(): Promise<Finding[]> {
+  const dir = "src/renderer/styles/themes";
+  const message = "主题插图和画廊缩略图对不上，重跑 node scripts/make-theme-thumbs.ts";
+  const svgs = (await readdir(path.join(root, dir))).filter((file) => file.endsWith(".svg"));
+  const thumbs = new Set(await readdir(path.join(root, dir, "thumbs")));
+  const sources = JSON.parse(await readFile(path.join(root, dir, "thumbs", "sources.json"), "utf8")) as Record<
+    string,
+    string
+  >;
+  const findings: Finding[] = [];
+  for (const file of svgs) {
+    const name = file.slice(0, -".svg".length);
+    const text = (await readFile(path.join(root, dir, file), "utf8")).replaceAll("\r\n", "\n");
+    if (!thumbs.has(`${name}.webp`) || sources[name] !== createHash("sha256").update(text).digest("hex"))
+      findings.push({ file: `${dir}/${file}`, line: 1, id: "theme-thumbs", message });
+  }
+  for (const name of Object.keys(sources))
+    if (!svgs.includes(`${name}.svg`))
+      findings.push({
+        file: `${dir}/thumbs/sources.json`,
+        line: 1,
+        id: "theme-thumbs",
+        message: `${name}.svg 已不在：${message}`,
+      });
+  return findings;
+}
+
 // ───────── 入口 ─────────
 
 async function repoScans(staged: boolean): Promise<Finding[]> {
@@ -524,6 +556,7 @@ async function repoScans(staged: boolean): Promise<Finding[]> {
     ...scanShikiVars(files),
     ...scanUndeclaredVars(files),
     ...scanIgnoredRules(),
+    ...(await scanThemeThumbs()),
   ];
 }
 

@@ -510,13 +510,13 @@
   width: 22%;
 }
 
+/* 插图是 ThemeGallery.tsx 内联的缩略图（不用 --theme-art 的 SVG，见那里的说明） */
 .st-theme-main {
   position: relative;
   flex: 1;
   min-width: 0;
   margin: var(--space-2) var(--space-1) var(--space-1) 0;
   background-color: var(--bg-app);
-  background-image: var(--theme-art);
   background-position: right bottom;
   background-size: cover;
   border-radius: var(--radius-sm);

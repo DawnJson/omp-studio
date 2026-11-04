@@ -23,3 +23,4 @@
 - 单个 DOM 改动的代价：Playwright + CDP `Performance.getMetrics` 看样式 / 排版耗时，再对改动强制读一次 `offsetHeight` 计时。
 - 侧栏、面板的开合不要过渡 `width`：主区每帧变宽，整段对话每帧重排（1100 宽的窗口里一次开合排版 60ms+）。
 - 主进程限速、合批或逐帧动画不写 `setTimeout(16)` / `setInterval(16)`：Windows 上按系统时钟格（约 15.6ms）对齐，实际要等约 31ms。合批用 `src/main/platform/batch-timer.ts`，逐帧动画写 10ms。动画"不明显"时先把每一帧的时间和值打出来看。
+- **换页动画"没有了"先看 GPU 进程**：主线程 JS 只有几毫秒、LoAF 里也没有脚本，帧却断了几百毫秒时，CDP trace 带上 `gpu`、`cc`、`viz` 看 GPU 进程的 `RasterDecoderImpl::DoEndRasterCHROMIUM`。设置页的主题画廊曾因 16 张带模糊滤镜的 SVG 每次打开卡 300–550ms，200ms 的淡入整段被吞（2026-11-04，[themes.md](themes.md)「主题画廊的缩略图」）。带滤镜的 SVG 不要成批当背景图用。
