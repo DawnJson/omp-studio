@@ -92,6 +92,9 @@ describe("SlashCommandCache", () => {
     const { cache } = open();
     await cache.list(project, fetch);
     await mkdir(path.join(agentDir, "skills", "global-skill"));
+    // 目录的修改时间在 Windows CI 上偶尔和上一次取指纹时一样（2026-11-04 v0.4.54 的 windows 构建撞过）：显式往后拨，同下面的 config.yml。
+    const skillsLater = new Date(Date.now() + 30_000);
+    await utimes(path.join(agentDir, "skills"), skillsLater, skillsLater);
     await cache.list(project, fetch);
     expect(state.fetches).toBe(2);
 
