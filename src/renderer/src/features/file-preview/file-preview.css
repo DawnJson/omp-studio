@@ -247,8 +247,10 @@
   padding: var(--space-4) var(--space-5);
 }
 
-/* 源码：代码块贴满面板宽度 */
+/* 源码：代码块贴满面板宽度。不收缩：代码块是 overflow: hidden（markdown.css），作为列方向的弹性子项最小高度会变成 0，
+   被压到预览区的高度、超出的行直接裁掉，外框没有可滚的内容，滚轮滚不动（2026-11-03）。 */
 .file-preview-body > .md-codeblock {
+  flex-shrink: 0;
   margin: 0;
   border: 0;
   border-radius: 0;

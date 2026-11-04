@@ -477,6 +477,45 @@ test("Ctrl+滚轮缩放预览：图片以指针处为中心，文本和网页整
   }
 });
 
+// 源码预览（txt、json 等不是 Markdown 的文本）是一个 overflow: hidden 的代码块：以前在列方向的预览区里被压到预览区高度，
+// 超出的行被裁掉，外框没有可滚的内容，滚轮滚不动（2026-11-03）。
+test("源码预览（txt、json）：内容比预览区高时滚轮往下滚，滚到的行看得见；Ctrl+滚轮缩放后照样能滚", async () => {
+  const { launched, project, cleanup } = await start();
+  try {
+    const { page } = launched;
+    await page.setViewportSize({ width: 1225, height: 756 });
+    const lines = Array.from({ length: 300 }, (_, i) => `line ${i}`);
+    await writeFile(path.join(project, "long.txt"), lines.join("\n"));
+    await writeFile(path.join(project, "data.json"), JSON.stringify({ items: lines }, null, 2));
+    await page.getByTestId("topbar-files").click();
+    const body = page.getByTestId("file-preview-body");
+    const scrollTop = () => body.evaluate((el) => (el as unknown as { scrollTop: number }).scrollTop);
+    for (const name of ["long.txt", "data.json"]) {
+      await page.locator(`[data-testid=file-tree-row][data-path="${name}"]`).click();
+      await expect(body.locator(".md-codebody")).toContainText("line 299");
+      const area = (await body.boundingBox())!;
+      await page.mouse.move(area.x + area.width / 2, area.y + area.height / 2);
+      await page.mouse.wheel(0, 3000);
+      await expect.poll(scrollTop).toBeGreaterThan(1000);
+      // 滚过去的行真的在预览区里（不是外框滚了、内容还被裁着）。
+      const last = body.locator(".md-codebody > code > span").last();
+      await page.mouse.wheel(0, 100_000);
+      await expect(last).toBeInViewport();
+      await page.keyboard.down("Control");
+      await page.mouse.wheel(0, -100);
+      await page.keyboard.up("Control");
+      await expect(page.getByTestId("file-preview-zoom-reset")).toHaveText("125%");
+      const zoomed = await scrollTop();
+      await page.mouse.wheel(0, -500);
+      await expect.poll(scrollTop).toBeLessThan(zoomed);
+      await page.getByTestId("file-preview-zoom-reset").click();
+      await page.getByTestId("file-preview-page-files").click();
+    }
+  } finally {
+    await cleanup();
+  }
+});
+
 test("预览工具栏在 900 宽窗口、中英文下不越界（缩放过的文字、SVG、网页）", async () => {
   const { launched, cleanup } = await start();
   try {
