@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.4.56] - 2026-11-06
+
 ### Added
 
 - Settings → Providers: a signed-in provider's card (such as Anthropic) now has "Add account" in its ⋯ menu; sign in with another account in the browser to add it, and omp switches to another account when one runs out of quota.
