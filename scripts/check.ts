@@ -12,7 +12,7 @@ import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { stripVTControlCharacters } from "node:util";
-import { nextHeading, UNRELEASED_HEADING } from "../src/shared/changelog.ts";
+import { CHANGELOGS, nextHeading } from "../src/shared/changelog.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 const MAX_LINES = 40;
@@ -387,18 +387,20 @@ function scanUndeclaredVars(files: SourceFile[]): Finding[] {
 // ───────── CHANGELOG 和提交信息 ─────────
 
 function scanUnreleasedMentions(files: SourceFile[], patterns: RegExp[]): Finding[] {
-  const changelog = files.find((file) => file.path === "CHANGELOG.md");
-  if (changelog === undefined) return [];
-  const text = changelog.lines.join("\n");
-  const start = text.indexOf(`${UNRELEASED_HEADING}\n`);
-  if (start === -1) return [];
-  const end = nextHeading(text, start + UNRELEASED_HEADING.length);
-  const first = lineAt(text, start);
-  const section = { path: changelog.path, lines: changelog.lines.slice(first - 1, lineAt(text, end) - 1) };
-  return mentions([section], patterns, "changelog-mention").map((finding) => ({
-    ...finding,
-    line: finding.line + first - 1,
-  }));
+  return Object.values(CHANGELOGS).flatMap(({ file, unreleased }) => {
+    const changelog = files.find((candidate) => candidate.path === file);
+    if (changelog === undefined) return [];
+    const text = changelog.lines.join("\n");
+    const start = text.indexOf(`${unreleased}\n`);
+    if (start === -1) return [];
+    const end = nextHeading(text, start + unreleased.length);
+    const first = lineAt(text, start);
+    const section = { path: changelog.path, lines: changelog.lines.slice(first - 1, lineAt(text, end) - 1) };
+    return mentions([section], patterns, "changelog-mention").map((finding) => ({
+      ...finding,
+      line: finding.line + first - 1,
+    }));
+  });
 }
 
 function mentions(files: SourceFile[], patterns: RegExp[], id: string): Finding[] {

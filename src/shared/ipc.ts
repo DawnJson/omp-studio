@@ -157,7 +157,7 @@ export interface AppInfo {
   chatsDir: string;
   /** 升级后第一次启动时的"最近更新"摘要（照 omp 的 What's New）；这次启动不是升级后的第一次时为 null。 */
   whatsNew: WhatsNew | null;
-  /** 当前版本在 CHANGELOG.md 里的那一节（设置 → 关于 → 更新日志）；没有这一节（测试用的临时版本）时为 null。 */
+  /** 当前版本在界面语言的更新日志（CHANGELOG.md / CHANGELOG.en.md，英文没有这一版时用中文）里的那一节（设置 → 关于 → 更新日志）；没有这一节（测试用的临时版本）时为 null。 */
   releaseNotes: ReleaseNotes | null;
   /** 运行时版本（process.versions），关于对话框显示。 */
   runtime: { electron: string; chromium: string; node: string };

@@ -37,7 +37,7 @@
 
 - 仓库所有者的用户名、电脑名、私人邮箱，以及能认出人的本机路径（带用户名的 `C:\Users\<用户名>\…`、个人目录）都不能写进被跟踪的文件，包括代码、测试、录制（`fixtures/`）、文档、截图、提交信息。测试里要用路径就用占位值（`C:\Users\someone\…`、`E:\work\…`）。截图里只出现测试项目。
 - 机械检查：`scripts/check.ts` 的 `private-info` 按 `.githooks/private-patterns.local.txt`（gitignore，每台机器自己维护，一行一个正则）查被跟踪的文件（pre-commit 时 `--staged` 只查暂存的文件），commit-msg hook 查提交信息（`commit-msg-private`）。文件不存在时只打一行警告、跳过这项检查，所以新机器上先把它建好。
-- CHANGELOG 和提交信息里不写第三方客户端或插件的名字，只说用户得到的能力（"账号额度可见""客户端账号可登录"）：更新日志显示在应用里、提交信息推到公开仓库，事后改要改写历史。名单在 `.githooks/no-mention.local.txt`（gitignore），commit-msg hook（`commit-msg-mention`）和发版脚本（查「未发布」，`changelog-mention`）按它查。
+- CHANGELOG 和提交信息里不写第三方客户端或插件的名字，只说用户得到的能力（"账号额度可见""客户端账号可登录"）：更新日志显示在应用里、提交信息推到公开仓库，事后改要改写历史。名单在 `.githooks/no-mention.local.txt`（gitignore），commit-msg hook（`commit-msg-mention`）和发版脚本（查 `CHANGELOG.md` / `CHANGELOG.en.md` 的「未发布」，`changelog-mention`）按它查。
 - **提交身份**：提交邮箱是 GitHub 的 noreply 地址 `165480087+DawnJson@users.noreply.github.com`（仓库级 `git config user.email`，仓库所有者 2026-10-25 定），tag 用同一个身份。不能用全局配置里的私人邮箱；`.githooks/pre-commit` 会拦。hook 由 `npm install` 时的 `scripts/postinstall.ts` 启用（`git config core.hooksPath .githooks`），没启用时上面这些提交前的检查都不会跑。
 
 ## 安装包里只有应用本身

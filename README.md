@@ -6,7 +6,7 @@
   <p>
     <a href="#download">Download</a> ·
     <a href="docs/architecture/">Docs</a> ·
-    <a href="CHANGELOG.md">Changelog</a> ·
+    <a href="CHANGELOG.en.md">Changelog</a> ·
     <a href="https://github.com/DawnJson/omp-studio/issues">Feedback</a>
   </p>
   <p>
@@ -122,7 +122,7 @@ npm run dist:mac   # macOS arm64 dmg and zip, written to release/
 npm run dist:linux # Linux x64 AppImage, written to release/
 ```
 
-Architecture docs are in [`docs/architecture/`](docs/architecture/), the UI spec in [`docs/design/spec.md`](docs/design/spec.md), and version history in [`CHANGELOG.md`](CHANGELOG.md).
+Architecture docs are in [`docs/architecture/`](docs/architecture/), the UI spec in [`docs/design/spec.md`](docs/design/spec.md), and version history in [`CHANGELOG.en.md`](CHANGELOG.en.md) (Chinese, with releases before 0.4.55: [`CHANGELOG.md`](CHANGELOG.md)).
 
 ## Acknowledgements
 

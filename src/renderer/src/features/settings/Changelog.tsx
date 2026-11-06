@@ -1,5 +1,5 @@
 // 设置 → 关于 → 更新日志（spec §4.19）：omp-studio 和 omp 各一项，都只显示最新一版，默认收起，点开看正文。
-// omp-studio 的是当前版本在打包进来的 CHANGELOG.md 里的那一节（AppInfo.releaseNotes）；
+// omp-studio 的是当前版本在打包进来的更新日志里的那一节，主进程按界面语言取 CHANGELOG.md 或 CHANGELOG.en.md（AppInfo.releaseNotes）；
 // omp 的来自 omp 自带的 `/changelog`（输出很长，点开时才读），取最新的那一节。
 // 渲染用对话流同一个 Markdown（markdown-it 的 token，不用 dangerouslySetInnerHTML）；链接经主进程打开系统浏览器。
 import { useId, useState, type ReactNode } from "react";

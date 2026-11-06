@@ -1,20 +1,33 @@
 // "最近更新"：照 omp 的 What's New（startup.changelogMode = summary）。升级后第一次启动时，在新任务页标志下面
 // 显示自上次看过的版本以来的条目统计；随即把当前版本记进 userData/last-changelog-version，下次启动就不再显示。
-// 没有记录（第一次装）当作从上一个版本升级来，只算当前版本这一节。说明来自打进主进程包里的 CHANGELOG.md。
-// 设置 → 关于 → 更新日志里 omp-studio 那一项也从这里取当前版本的那一节（studioReleaseNotes）。
+// 没有记录（第一次装）当作从上一个版本升级来，只算当前版本这一节。条目数来自打进主进程包里的 CHANGELOG.md（中文，所有版本都有）。
+// 设置 → 关于 → 更新日志里 omp-studio 那一项也从这里取当前版本的那一节（studioReleaseNotes），按界面语言取 CHANGELOG.md 或 CHANGELOG.en.md。
 import { app } from "electron";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import changelogEn from "../../CHANGELOG.en.md?raw";
 import changelog from "../../CHANGELOG.md?raw";
 import { countEntries, releaseDate, releasedVersions, releaseNotes } from "../shared/changelog.ts";
-import type { ReleaseNotes, WhatsNew } from "../shared/ipc.ts";
+import type { Locale, ReleaseNotes, WhatsNew } from "../shared/ipc.ts";
 import { log } from "./log/log.ts";
 import { compareVersions } from "../shared/omp-version.ts";
 
-/** 当前版本在打包进来的 CHANGELOG.md 里的那一节；没有这一节时为 null。 */
-export function studioReleaseNotes(version: string): ReleaseNotes | null {
-  const body = releaseNotes(changelog, version);
-  return body === null ? null : { version, date: releaseDate(changelog, version), body };
+/** 这个版本在界面语言的更新日志里的那一节；英文文件里没有这一版（0.4.55 之前只有中文）时用中文的。都没有为 null。 */
+export function localizedReleaseNotes(
+  texts: Readonly<Record<Locale, string>>,
+  version: string,
+  locale: Locale,
+): ReleaseNotes | null {
+  for (const text of locale === "en" ? [texts.en, texts["zh-CN"]] : [texts["zh-CN"]]) {
+    const body = releaseNotes(text, version);
+    if (body !== null) return { version, date: releaseDate(text, version), body };
+  }
+  return null;
+}
+
+/** 当前版本在打包进来的更新日志里的那一节。 */
+export function studioReleaseNotes(version: string, locale: Locale): ReleaseNotes | null {
+  return localizedReleaseNotes({ "zh-CN": changelog, en: changelogEn }, version, locale);
 }
 
 /** lastSeen 之后、current 为止各版本的条目统计；lastSeen 为 null 时只算 current。没有可说的返回 null。 */

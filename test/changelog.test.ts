@@ -1,9 +1,15 @@
 // 发版时改写 CHANGELOG、更新目录取说明、启动时的"最近更新"统计：写错会让用户看到别的版本的说明，
 // 发出一个没有说明的版本，或者升级后看到错的改动数。
 import { describe, expect, it, vi } from "vitest";
-import { promoteUnreleased } from "../scripts/changelog.ts";
-import { summarizeWhatsNew } from "../src/main/whats-new.ts";
-import { countEntries, releaseDate, releaseNotes } from "../src/shared/changelog.ts";
+import { promoteUnreleased, releaseBody } from "../scripts/changelog.ts";
+import { localizedReleaseNotes, summarizeWhatsNew } from "../src/main/whats-new.ts";
+import {
+  countEntries,
+  releaseDate,
+  releaseNotes,
+  UNRELEASED_HEADING as ZH,
+  UNRELEASED_HEADING_EN as EN,
+} from "../src/shared/changelog.ts";
 
 // whats-new.ts 引用了 electron 的 app（只在启动时读写记录用到）；vi.mock 会提升到导入之前。
 vi.mock("electron", () => ({ app: {} }));
@@ -27,7 +33,7 @@ const text = `# 更新日志
 
 describe("CHANGELOG", () => {
   it("发版把未发布一节记成新版本，上面留一个空的未发布，旧版本原样保留", () => {
-    const next = promoteUnreleased(text, "0.1.1", "2026-10-20");
+    const next = promoteUnreleased(text, "0.1.1", "2026-10-20", ZH);
     expect(next).toContain(
       "## [未发布]\n\n## [0.1.1] - 2026-10-20\n\n### 修复\n\n- 修了 B。\n\n## [0.1.0] - 2026-10-18",
     );
@@ -37,8 +43,8 @@ describe("CHANGELOG", () => {
 
   it("工作区是 CRLF 时照样能发版，写回时保持 CRLF；发版说明和条目数也不受影响", () => {
     const crlf = text.replaceAll("\n", "\r\n");
-    const next = promoteUnreleased(crlf, "0.1.1", "2026-10-20");
-    expect(next).toBe(promoteUnreleased(text, "0.1.1", "2026-10-20").replaceAll("\n", "\r\n"));
+    const next = promoteUnreleased(crlf, "0.1.1", "2026-10-20", ZH);
+    expect(next).toBe(promoteUnreleased(text, "0.1.1", "2026-10-20", ZH).replaceAll("\n", "\r\n"));
     expect(next).not.toMatch(/[^\r]\n/);
     expect(releaseNotes(next, "0.1.1")?.replaceAll("\r\n", "\n")).toBe("### 修复\n\n- 修了 B。");
     expect(releaseDate(next, "0.1.1")).toBe("2026-10-20");
@@ -46,9 +52,9 @@ describe("CHANGELOG", () => {
   });
 
   it("未发布下面没有条目、或者版本已经存在时拒绝发版", () => {
-    const empty = promoteUnreleased(text, "0.1.1", "2026-10-20");
-    expect(() => promoteUnreleased(empty, "0.1.2", "2026-10-21")).toThrow(/没有任何条目/);
-    expect(() => promoteUnreleased(text, "0.1.0", "2026-10-21")).toThrow(/已经有 0.1.0/);
+    const empty = promoteUnreleased(text, "0.1.1", "2026-10-20", ZH);
+    expect(() => promoteUnreleased(empty, "0.1.2", "2026-10-21", ZH)).toThrow(/没有任何条目/);
+    expect(() => promoteUnreleased(text, "0.1.0", "2026-10-21", ZH)).toThrow(/已经有 0.1.0/);
   });
 
   it("没有这个版本的一节时不编造说明", () => {
@@ -68,6 +74,35 @@ describe("CHANGELOG", () => {
       fixed: 1,
       total: 4,
     });
+  });
+
+  it("英文更新日志按 Unreleased 发版；英文那边没写条目时拒绝发版，不只发一种语言", () => {
+    const en = "# Changelog\n\n## [Unreleased]\n\n### Fixed\n\n- Fixed B.\n\n## [0.1.0] - 2026-10-18\n\n- First.\n";
+    const next = promoteUnreleased(en, "0.1.1", "2026-10-20", EN);
+    expect(next).toContain("## [Unreleased]\n\n## [0.1.1] - 2026-10-20\n\n### Fixed\n\n- Fixed B.");
+    expect(() => promoteUnreleased(next, "0.1.2", "2026-10-21", EN)).toThrow(/没有任何条目/);
+    expect(() => promoteUnreleased(en, "0.1.1", "2026-10-20", ZH)).toThrow(/没有 "## \[未发布\]"/);
+  });
+
+  it("GitHub Release 正文英文在前、中文在后；任一边缺这一版就不发", () => {
+    const en = "## [0.1.0] - 2026-10-18\n\n### Added\n\n- First.\n";
+    expect(releaseBody(en, text, "0.1.0")).toBe("### Added\n\n- First.\n\n---\n\n### 新增\n\n- 第一个版本。\n");
+    expect(() => releaseBody(en, text, "0.1.1")).toThrow(/CHANGELOG\.en\.md 里没有 0\.1\.1/);
+    expect(() => releaseBody("## [0.1.1] - x\n\n- a\n", text, "0.1.1")).toThrow(/CHANGELOG\.md 里没有 0\.1\.1/);
+  });
+
+  it("关于页按界面语言取说明；英文里没有这一版（早期只有中文）时英文界面退回中文，中文界面不读英文", () => {
+    const en = "## [0.2.0] - 2026-10-20\n\n### Added\n\n- Two.\n";
+    const zh = "## [0.2.0] - 2026-10-20\n\n### 新增\n\n- 二。\n\n## [0.1.0] - 2026-10-18\n\n- 一。\n";
+    const texts = { en, "zh-CN": zh };
+    expect(localizedReleaseNotes(texts, "0.2.0", "en")).toEqual({
+      version: "0.2.0",
+      date: "2026-10-20",
+      body: "### Added\n\n- Two.",
+    });
+    expect(localizedReleaseNotes(texts, "0.2.0", "zh-CN")?.body).toBe("### 新增\n\n- 二。");
+    expect(localizedReleaseNotes(texts, "0.1.0", "en")?.body).toBe("- 一。");
+    expect(localizedReleaseNotes({ en: zh, "zh-CN": "" }, "0.1.0", "zh-CN")).toBeNull();
   });
 });
 

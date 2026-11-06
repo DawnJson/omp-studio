@@ -59,17 +59,20 @@ export const appHandlers: HandlerGroup<
   | "windowReady"
   | "editField"
 > = {
-  getAppInfo: async () => ({
-    version: app.getVersion(),
-    platform: platform(),
-    locale: resolveLocale(),
-    isPackaged: app.isPackaged,
-    glassSupported,
-    chatsDir: chatsDir(),
-    whatsNew: whatsNewForThisLaunch(),
-    releaseNotes: studioReleaseNotes(app.getVersion()),
-    runtime: { electron: process.versions.electron, chromium: process.versions.chrome, node: process.versions.node },
-  }),
+  getAppInfo: async () => {
+    const locale = resolveLocale();
+    return {
+      version: app.getVersion(),
+      platform: platform(),
+      locale,
+      isPackaged: app.isPackaged,
+      glassSupported,
+      chatsDir: chatsDir(),
+      whatsNew: whatsNewForThisLaunch(),
+      releaseNotes: studioReleaseNotes(app.getVersion(), locale),
+      runtime: { electron: process.versions.electron, chromium: process.versions.chrome, node: process.versions.node },
+    };
+  },
   getSettings: async () => getSettings(),
   setLocale: async (value) => updateSettings({ locale: parseLocalePreference(value) }),
   setTheme: async (value) => updateSettings({ theme: parseThemePreference(value) }),

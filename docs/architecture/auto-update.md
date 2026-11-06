@@ -24,8 +24,8 @@ omp-studio 自己的版本更新，和 omp 的更新是两套（omp 的见 `omp-
 
 ## 发一个新版本（装好的应用会自己更新）
 
-1. 在"未发布"里记好改动，`npm run release -- <新版本>`（先 `--dry-run`）：改版本号、CHANGELOG、提交、打 tag、`npm run dist`（electron-builder 同时生成 `release\latest.yml`、安装包和 `.blockmap`）。
-2. 推送 `main` 和 tag，再按脚本最后打印的命令运行 `node scripts/publish-release.ts <版本> release\latest.yml release\omp-studio-<版本>-setup.exe release\omp-studio-<版本>-setup.exe.blockmap`。这个 Release 没有就新建（说明取 CHANGELOG 里这一版）。推 tag 也会触发 mac 和 Linux 构建（`.github/workflows/mac.yml`、`linux.yml`），它们把 dmg / zip、AppImage / `latest-linux.yml` 传到同一个 Release，谁先到谁建。
+1. 在 `CHANGELOG.md` 的"未发布"和 `CHANGELOG.en.md` 的"Unreleased"里记好改动，`npm run release -- <新版本>`（先 `--dry-run`）：改版本号、CHANGELOG、提交、打 tag、`npm run dist`（electron-builder 同时生成 `release\latest.yml`、安装包和 `.blockmap`）。
+2. 推送 `main` 和 tag，再按脚本最后打印的命令运行 `node scripts/publish-release.ts <版本> release\latest.yml release\omp-studio-<版本>-setup.exe release\omp-studio-<版本>-setup.exe.blockmap`。这个 Release 没有就新建（说明是两个更新日志里这一版，英文在前、中文在后，`scripts/changelog.ts` 的 `releaseBody`）。推 tag 也会触发 mac 和 Linux 构建（`.github/workflows/mac.yml`、`linux.yml`），它们把 dmg / zip、AppImage / `latest-linux.yml` 传到同一个 Release，谁先到谁建。
 3. 装着旧版本的应用启动 10 秒后检查，之后每小时一次，也可以在 设置 → 关于 点"检查更新"；有新版本就在后台下载。
 4. **版本号必须比装着的高**：同一个版本重新打包，已装的应用不会当成更新。
 5. `publish-release.ts` 最后才传 `latest.yml`，免得应用读到它时安装包还没传完。mac 构建先建好 Release、Windows 的文件还没传上去的那几分钟里，检查更新会因为找不到 `latest.yml` 报错，下一次检查就好了。

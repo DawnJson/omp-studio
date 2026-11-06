@@ -9,7 +9,7 @@ description: 发一个新版本：结束占着 release\ 的进程、跑发版脚
 
 ## 1. 定版本号
 
-修 bug 和小改动升第三位（0.3.16 → 0.3.17），加功能升第二位。版本号必须比已发布的高：同一个版本重新打包，装好的应用不会当成更新。`CHANGELOG.md` 的「未发布」不能是空的。
+修 bug 和小改动升第三位（0.3.16 → 0.3.17），加功能升第二位。版本号必须比已发布的高：同一个版本重新打包，装好的应用不会当成更新。`CHANGELOG.md` 的「未发布」和 `CHANGELOG.en.md` 的「Unreleased」都不能是空的，两边写的是同一批改动。
 
 ## 2. 结束占着 `release\` 的进程
 
@@ -36,7 +36,7 @@ npm run release -- <版本> --dry-run
 npm run release -- <版本>
 ```
 
-脚本会：要求本地名单 `.githooks/no-mention.local.txt` 在（不在直接失败），查「未发布」里有没有名单里的名字 → 跑 `scripts/check.ts`（lint、格式、类型检查、仓库扫描）和受改动影响的单测（`vitest --changed`，不跑 e2e）→ 把「未发布」改成这个版本 → 改版本号 → 提交 `chore(release): v<版本>` 并打 tag → `npm run dist`（`release\` 里的 `latest.yml`、安装包、`.blockmap`，`scripts/check-package.ts` 检查 `app.asar`）→ 删掉 `release\` 里旧版本的安装包。只在本地做，不推送。
+脚本会：要求本地名单 `.githooks/no-mention.local.txt` 在（不在直接失败），查两个更新日志的「未发布」里有没有名单里的名字 → 跑 `scripts/check.ts`（lint、格式、类型检查、仓库扫描）和受改动影响的单测（`vitest --changed`，不跑 e2e）→ 把两个文件的「未发布」改成这个版本（任一边没有条目就停下） → 改版本号 → 提交 `chore(release): v<版本>` 并打 tag → `npm run dist`（`release\` 里的 `latest.yml`、安装包、`.blockmap`，`scripts/check-package.ts` 检查 `app.asar`）→ 删掉 `release\` 里旧版本的安装包。只在本地做，不推送。
 
 - **打包时 makensis 报 `Can't open output file`**，又查不到占用的进程：commit 和 tag 已经打好，**不要重跑 `npm run release`**；直接重跑 `npm run dist`，再删 `release\` 里旧版本的安装包和 `.blockmap`。
 - 其他打包排障见 `docs/architecture/auto-update.md`「发版排障」。
@@ -51,7 +51,7 @@ git push origin v<版本>
 env -u GITHUB_TOKEN node scripts/publish-release.ts <版本> release/latest.yml release/omp-studio-<版本>-setup.exe release/omp-studio-<版本>-setup.exe.blockmap
 ```
 
-最后一条是发版脚本最后打印的命令，前面加上 `env -u GITHUB_TOKEN`。它把三个文件传到这个版本的 GitHub Release（没有就按 CHANGELOG 建；仓库所有者 2026-10-25 批准），`latest.yml` 最后传。装着的旧版本从这个 Release 自动更新（`docs/architecture/auto-update.md`），三个文件缺一不可。
+最后一条是发版脚本最后打印的命令，前面加上 `env -u GITHUB_TOKEN`。它把三个文件传到这个版本的 GitHub Release（没有就建，说明是 `CHANGELOG.en.md` 和 `CHANGELOG.md` 里这一版，英文在前、中文在后；仓库所有者 2026-10-25 批准），`latest.yml` 最后传。装着的旧版本从这个 Release 自动更新（`docs/architecture/auto-update.md`），三个文件缺一不可。
 
 ## 5. 确认 mac 和 Linux 构建
 

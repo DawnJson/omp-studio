@@ -1,4 +1,4 @@
-// 发版：改版本号 → 把 CHANGELOG 的"未发布"改成这个版本 → scripts/check.ts（lint、格式、类型检查、仓库扫描，含"未发布"里的客户端名）
+// 发版：改版本号 → 把 CHANGELOG.md 和 CHANGELOG.en.md 的"未发布"改成这个版本（两边都要有条目）→ scripts/check.ts（lint、格式、类型检查、仓库扫描，含"未发布"里的客户端名）
 // 和受改动影响的单测 → 提交并打 tag → 打安装包 → 删 release\ 里旧版本的安装包。
 // 用法：npm run release -- <版本，如 0.1.0> [--dry-run]
 // 只在本地做，不推送。
@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import { access, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { compareVersions } from "../src/shared/omp-version.ts";
+import { CHANGELOGS } from "../src/shared/changelog.ts";
 import { promoteUnreleased } from "./changelog.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -35,9 +36,14 @@ if (typeof pkg !== "object" || pkg === null || !("version" in pkg) || typeof pkg
 const current = pkg.version;
 if (compareVersions(version, current) < 0) throw new Error(`新版本 ${version} 比当前的 ${current} 还小`);
 
-const changelogPath = path.join(root, "CHANGELOG.md");
 const date = new Date().toLocaleDateString("sv-SE"); // 本地日期，YYYY-MM-DD
-const changelog = promoteUnreleased(await readFile(changelogPath, "utf8"), version, date);
+// 两种语言都改好了才写盘：一边没有条目时整个发版停下，不留半份。
+const changelogs = await Promise.all(
+  Object.values(CHANGELOGS).map(async ({ file, unreleased }) => {
+    const target = path.join(root, file);
+    return { file, target, text: promoteUnreleased(await readFile(target, "utf8"), version, date, unreleased) };
+  }),
+);
 
 if (dryRun) {
   console.log(
@@ -56,9 +62,9 @@ execFileSync(process.execPath, [path.join(root, "scripts", "check.ts")], { cwd: 
 // 见 vitest.config.ts）。还没有 tag 时跑全量。
 const lastTag = git("tag", "--list", "v*", "--sort=-v:refname").split("\n")[0] ?? "";
 npm("test", "--", ...(lastTag === "" ? [] : ["--changed", lastTag, "--passWithNoTests"]));
-await writeFile(changelogPath, changelog, "utf8");
+await Promise.all(changelogs.map(({ target, text }) => writeFile(target, text, "utf8")));
 npm("version", version, "--no-git-tag-version", "--allow-same-version");
-git("add", "package.json", "package-lock.json", "CHANGELOG.md");
+git("add", "package.json", "package-lock.json", ...changelogs.map(({ file }) => file));
 git("commit", "-m", `chore(release): v${version}`);
 git("tag", "-a", `v${version}`, "-m", `v${version}`);
 npm("run", "dist");

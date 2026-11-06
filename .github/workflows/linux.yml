@@ -10,7 +10,7 @@ on:
     branches: [main]
     tags: ["v*"]
     # 只对分支推送生效：GitHub 推 tag 时不看路径过滤，发版构建照跑。*.md 不进构建也不过 Prettier（.prettierignore），
-    # 但 CHANGELOG.md 会打进主进程（whats-new.ts），不能列进来。
+    # 但 CHANGELOG.md、CHANGELOG.en.md 会打进主进程（whats-new.ts），不能列进来。
     paths-ignore: ["docs/**", "README.md", "README.zh-CN.md", "AGENTS.md"]
 
 concurrency:

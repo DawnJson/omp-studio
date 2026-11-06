@@ -1,6 +1,16 @@
-// CHANGELOG.md 的读取：发版脚本、更新目录和应用里的"最近更新"共用。
-// 约定见 CHANGELOG.md 开头：二级标题 `## [未发布]` 或 `## [<版本>] - <日期>`，三级标题 `### 新增 / 变更 / 修复`，每条一个 `- `。
+// CHANGELOG.md（中文）和 CHANGELOG.en.md（英文）的读取：发版脚本、更新目录和应用里的"最近更新"共用。
+// 约定见两个文件开头：二级标题 `## [未发布]` / `## [Unreleased]` 或 `## [<版本>] - <日期>`，
+// 三级标题 `### 新增 / 变更 / 修复`（英文 `### Added / Changed / Fixed`），每条一个 `- `。
+import type { Locale } from "./ipc.ts";
+
 export const UNRELEASED_HEADING = "## [未发布]";
+export const UNRELEASED_HEADING_EN = "## [Unreleased]";
+
+/** 每种语言的更新日志文件和它的"未发布"标题。 */
+export const CHANGELOGS: Readonly<Record<Locale, { file: string; unreleased: string }>> = {
+  "zh-CN": { file: "CHANGELOG.md", unreleased: UNRELEASED_HEADING },
+  en: { file: "CHANGELOG.en.md", unreleased: UNRELEASED_HEADING_EN },
+};
 
 /** 取出 `## [<版本>]` 这一节的正文（不含标题），去掉首尾空行。没有这一节（比如测试更新用的临时版本）返回 null。 */
 export function releaseNotes(text: string, version: string): string | null {

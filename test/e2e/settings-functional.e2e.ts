@@ -9,6 +9,9 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Locator } from "@playwright/test";
 import { expectNoOverflow, launchApp, launchSettings, setLocaleTheme, testOmp } from "./launch.ts";
+import { releaseNotes } from "../../src/shared/changelog.ts";
+
+const root = path.resolve(import.meta.dirname, "..", "..");
 
 async function rect(locator: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
   const box = await locator.boundingBox();
@@ -801,6 +804,13 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(studioEntry.getByTestId("changelog-studio-toggle")).toHaveAttribute("aria-expanded", "false");
     await studioEntry.getByTestId("changelog-studio-toggle").click();
     await expect(studioEntry.locator(".md")).toBeVisible();
+    // 正文跟界面语言走：中文界面是 CHANGELOG.md 那一节，切到英文换成 CHANGELOG.en.md 那一节（比第一个小标题：新增 / Added…）。
+    const firstGroup = async (file: string): Promise<string> =>
+      /^### (.+)$/m.exec(releaseNotes(await readFile(path.join(root, file), "utf8"), info.version) ?? "")?.[1] ?? "";
+    await setLocaleTheme(page, "zh-CN", "light");
+    await expect(studioEntry.locator(".md h3").first()).toHaveText(await firstGroup("CHANGELOG.md"));
+    await setLocaleTheme(page, "en", "light");
+    await expect(studioEntry.locator(".md h3").first()).toHaveText(await firstGroup("CHANGELOG.en.md"));
     const ompEntry = page.getByTestId("changelog-omp");
     await expect(ompEntry.locator(".md")).toHaveCount(0);
     await ompEntry.getByTestId("changelog-omp-toggle").click();
