@@ -1,7 +1,7 @@
 // 折叠状态（规范 Layout/card "Collapse state is local"）：用户翻一下立刻生效、不等往返，
 // 记在 (任务, surface, 父节点, key 或 id) 上——同一父节点下删掉再加一个同 key 的节点，折叠状态保留。
 // `collapsed` 属性是起始状态：用户翻过之后本地状态说了算，直到程序发来一个不同的 collapsed 值才重置。
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { createStore, useStoreValue } from "../../store/create-store.ts";
 import type { NodeProps } from "./node-props.ts";
 import { onTspDocumentDropped } from "./tsp-store.ts";
@@ -32,7 +32,15 @@ export function useFold(props: NodeProps, initial: boolean): [collapsed: boolean
   const { node, ctx } = props;
   const key = foldKey(props);
   const entry = useStoreValue(folds, (state) => state[key]);
-  const collapsed = entry !== undefined && entry.prop === initial ? entry.value : initial;
+  const stale = entry !== undefined && entry.prop !== initial;
+  const collapsed = entry !== undefined && !stale ? entry.value : initial;
+  // 程序发来了不同的值（omp 回显了这次翻转、或 Ctrl+O 全部展开/收起）：本地记的作废，删掉。
+  // 留着的话程序再发回原来的值时它又生效，Ctrl+O 收不起点开过的卡。
+  useEffect(() => {
+    if (!stale) return;
+    const { [key]: _dropped, ...rest } = folds.get();
+    folds.set(rest);
+  }, [stale, key]);
   const nodeKey = typeof node.p.key === "string" ? node.p.key : undefined;
   const toggle = useCallback(() => {
     const next = !collapsed;

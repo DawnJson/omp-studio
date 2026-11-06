@@ -193,6 +193,9 @@ export function cleanOmpTitle(raw: string): string {
   return title === "omp" ? "" : title;
 }
 
+/** 留几条最近的终端标题（见 TspRunner.#syncPullRequest）。 */
+const TERMINAL_TITLES_KEPT = 8;
+
 export class TspRunner {
   readonly id: TaskId;
   #record: TaskRecord;
@@ -334,7 +337,10 @@ export class TspRunner {
   /** 标题的来源：用户改名之后（既不是空、也不是下面两个）omp 的标题不再覆盖。 */
   #provisionalTitle: string | null = null;
   #adoptedTitle: string | null = null;
-  #lastOmpTitle: string | null = null;
+  /** omp 记在会话文件里的标题（去掉图标字形，见 tsp/session-files.ts 的 SessionTitleTracker）；还没有为 ""。 */
+  #sessionTitle = "";
+  /** 最近几次终端标题（OSC 0/2）原文，只用来取 PR 号；别的进程的标题会夹在中间，所以留几条（TERMINAL_TITLES_KEPT）。 */
+  #terminalTitles: string[] = [];
 
   constructor(record: TaskRecord, project: Project, host: TspRunnerHost) {
     this.id = record.id;
@@ -569,8 +575,9 @@ export class TspRunner {
           at: endedAt,
           foreground: this.#host.isForeground(this.id),
         });
-        // 回合结束：会话文件这时一定落盘了。
+        // 回合结束：会话文件这时一定落盘了；omp 在第一条回复落盘之前定的标题这时才读得到。
         void this.#persistSessionFile();
+        this.#refreshTitle();
       }
     }
     const open = this.#machine.dialogs.find(
@@ -627,6 +634,17 @@ export class TspRunner {
         ))
       )
         throw new StartError({ kind: "worktree_missing", message: "the task's worktree no longer exists" });
+      // 会话文件被删了（在 omp 的会话列表里删的，issue #8）：`--resume` 会让 omp 报 `Session … not found` 退出。不起进程，
+      // 报 session_missing；输入框说明原因，发消息时在这个任务里开新会话（sendPrompt）。
+      const sessionFile = this.#record.sessionFile;
+      if (
+        sessionFile !== null &&
+        !(await stat(sessionFile).then(
+          () => true,
+          () => false,
+        ))
+      )
+        throw new StartError({ kind: "session_missing", message: "the task's session file no longer exists" });
       const movedTo = this.#record.cwd;
       if (
         movedTo != null &&
@@ -894,15 +912,47 @@ export class TspRunner {
       );
   }
 
+  /**
+   * 终端标题（OSC 0/2）不直接当任务标题：ConPTY 把伪终端里任何进程改的控制台标题都转成 OSC 0，omp 跑工具时起的
+   * cmd、PowerShell、npm 都会改（实测，issue #8）。它只是"omp 可能改了标题"的信号：去读会话文件，标题以文件里的为准。
+   */
   #onTitle(raw: string): void {
+    if (raw === this.#terminalTitles.at(-1)) return;
+    this.#terminalTitles.push(raw);
+    if (this.#terminalTitles.length > TERMINAL_TITLES_KEPT) this.#terminalTitles.shift();
+    this.#syncPullRequest();
+    this.#refreshTitle();
+  }
+
+  /**
+   * PR 号只从 omp 自己的终端标题里取：去掉后缀后和会话标题一样，或是没有标题时的占位 `omp`；取最近的一条。
+   * 别的进程的标题不动它；会话文件还没读到标题时先不动，读到后再对一遍。
+   */
+  #syncPullRequest(): void {
+    const raw = this.#terminalTitles.findLast((title) => {
+      const shown = cleanOmpTitle(title);
+      return shown === "" || shown === this.#sessionTitle;
+    });
+    if (raw === undefined) return;
     const prNumber = ompTitlePullRequest(raw);
-    if (prNumber !== this.#prNumber) {
-      this.#prNumber = prNumber;
-      this.#publish();
-    }
-    const title = cleanOmpTitle(raw);
-    if (title === "" || title === this.#lastOmpTitle) return;
-    this.#lastOmpTitle = title;
+    if (prNumber === this.#prNumber) return;
+    this.#prNumber = prNumber;
+    this.#publish();
+  }
+
+  /** 读一次会话文件新追加的部分（标题在 #readSessionFile 里跟着更新）。 */
+  #refreshTitle(): void {
+    this.#readSessionFile().catch((error: unknown) =>
+      log.warn(`task ${this.id} reading the session title failed`, { message: String(error) }),
+    );
+  }
+
+  #onSessionTitle(raw: string | null): void {
+    const title = raw === null ? "" : stripIconGlyphs(raw);
+    if (title === this.#sessionTitle) return;
+    this.#sessionTitle = title;
+    this.#syncPullRequest();
+    if (title === "") return;
     const current = this.#record.title;
     if (title === current) {
       this.#adoptedTitle = title;
@@ -921,7 +971,7 @@ export class TspRunner {
   }
 
   /** 改名：只改本地记录。omp 没有可以从外部调用的"改会话名"入口，
-   *  往输入框塞 `/rename` 会混进用户的草稿，所以不同步给 omp；之后 omp 自己改标题时也不会覆盖用户起的名字（见 #onTitle）。 */
+   *  往输入框塞 `/rename` 会混进用户的草稿，所以不同步给 omp；之后 omp 自己改标题时也不会覆盖用户起的名字（见 #onSessionTitle）。 */
   async rename(title: string): Promise<void> {
     this.#record = await this.#host.persist(this.id, { title });
     this.#publish();
@@ -937,6 +987,11 @@ export class TspRunner {
   async sendPrompt(input: PromptInput): Promise<void> {
     // 文件附件：id → 路径，文字里的占位符换成 omp 的 `@"路径"` 提及（omp 自己读文件）。
     const body = fillFileSlots(input.text, input.fileIds ? await resolveComposerFiles(input.fileIds) : []);
+    if (this.#machine.error?.kind === "session_missing") {
+      // 会话文件没了：清掉记录里的路径，这次不带 `--resume` 起进程 = 新会话；标题、模型这些任务设置留着。
+      this.#record = await this.#host.persist(this.id, { sessionFile: null });
+      this.#sessionFile = undefined;
+    }
     await this.start();
     const target = await this.#awaitComposer(true);
     const session = this.#session;
@@ -1275,7 +1330,9 @@ export class TspRunner {
       this.#heldSessionFile?.release();
       this.#heldSessionFile = { file, release: holdSessionFile(file) };
     }
-    return readSessionFile(file);
+    const state = await readSessionFile(file);
+    if (!this.#disposed && file === this.#currentSessionFile()) this.#onSessionTitle(state.title.current());
+    return state;
   }
 
   readContext(): Promise<ContextReport | null> {

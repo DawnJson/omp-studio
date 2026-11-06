@@ -94,6 +94,7 @@ export const settings = {
   soundOnDone: "Sound when a task finishes",
   copyOnSelect: "Copy on select",
   "copyOnSelect.desc": "Except the input box and terminal",
+  toolHeadsOnly: "Show tool calls as titles only",
   fontSize: "Text size",
   search: "Search settings",
   "search.hint": "Search by name, description or key",

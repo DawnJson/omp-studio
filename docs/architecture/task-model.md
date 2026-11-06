@@ -10,9 +10,10 @@
 - 记录字段：`id, projectId, sessionFile|null, title, createdAt, updatedAt, archived, model, thinkingLevel, worktreePath, worktreeBranch, worktreeBase`，分叉出的任务另有 `forkFrom`。`updatedAt` 只由用户发消息和一轮结束写入（侧栏按它排序，改名、存会话文件、归档等记账写入不碰它）。
 - 读老记录：`load` 丢掉记录里已经没有意义的 `engine` 字段，其余原样保留；下次保存时落盘。设置文件里残留的 `taskEngine` 在下次写设置时丢掉（`sanitize` 只认已知字段）。
 - `sessionFile`：omp 在启动时就用 `OSC 1337 SetUserVar=omp_session_file=<base64 路径>` 报出路径，但新会话的文件要到第一条回复之后才落盘，所以只在文件存在时才记进任务；之后每次文档变化（每批帧）、回合结束、进程退出、关闭时重试，记上之后只比一次字符串。2026-10-26 之前只在回合结束、退出、关闭时重试：第一轮跑上几个小时时记录里一直是 null，会话列表（`SessionSummary.taskId` 按记录里的会话文件匹配）就把同一个会话当成另一条列出来；点开它 `TaskPool.resume` 找不到任务，新建一条再 `--resume` 同一个文件，omp 发现文件被别的 omp 进程开着就分叉出新文件（见 [session-history.md](session-history.md) 「终端正在使用同一个会话时恢复」），侧栏出现两条同名任务（`test/task-tsp.test.ts`「一轮进行中」；真实 omp 18.12.6 + `sleep 12` 的一轮实测：还在 running 时就记上了）。
-- 标题：新任务标题是 `""`；第一次 `sendPrompt` 取首条消息第一行（60 字符）；omp 的 OSC 0/2 标题去掉私有区图标后只在"记录里标题为空、是草稿第一句话临时取的、或是上一次采用的 omp 标题"时才覆盖，用户改过名就不再动。**改名只改本地记录**：交互模式没有从外部改会话名的入口，往输入框塞 `/rename` 会混进用户的草稿。不手写 `~/.omp` 里的会话文件。
+- 标题：新任务标题是 `""`；第一次 `sendPrompt` 取首条消息第一行（60 字符）；之后以 omp **记在会话文件里的标题**为准：omp 每次定标题（自动生成、`/rename`）都在文件末尾追加 `{"type":"title_change","title":…}`（omp 18.16.0 实测，本机 293 个会话文件带这种条目），`SessionTitleTracker`（`tsp/session-files.ts`）跟着读，取最后一条，去掉私有区图标后只在"记录里标题为空、是草稿第一句话临时取的、或是上一次采用的 omp 标题"时才覆盖，用户改过名就不再动。**终端标题（OSC 0/2）不再当标题**：Windows 上 ConPTY 把伪终端里任何程序改的控制台标题都转发成 OSC 0，omp 跑的 cmd、PowerShell、npm 会把它改成 `C:\WINDOWS\system32\cmd.exe` 之类，2026-11-06 之前这些会被当成会话标题存下来（issue #8）。OSC 标题只用来取 ` · #12` 的 PR 号，而且只认去掉后缀后和会话文件标题一致（或是占位 `omp`）的那条；读会话文件的时机：收到 OSC 标题时（omp 改标题的信号）和每轮结束时。**改名只改本地记录**：交互模式没有从外部改会话名的入口，往输入框塞 `/rename` 会混进用户的草稿。不手写 `~/.omp` 里的会话文件。
 - 审批模式不在任务里存：启动时从不传 `--approval-mode`，omp 读自己配置里的 `tools.approvalMode`（项目 `.omp/config.yml` 盖过全局，见 [omp-settings.md](omp-settings.md)「审批模式」）。
-- 归档：关进程，记录保留 `archived:true`；`TaskPool.resume()` 找到同一会话文件的任务会把它恢复成未归档（同一 id）。
+- 归档：关进程，记录保留 `archived:true`；已归档任务的会话文件不再算"挂在任务上"（`listSessionLinks` 跳过它），所以会话回到历史列表，点开走 `TaskPool.resume()`，找到同一会话文件的任务会把它恢复成未归档（同一 id）。2026-11-06 之前归档的会话从侧栏彻底消失、也找不回来（issue #8）。
+- 会话文件被删（在 omp 的会话列表里删的）：起进程前 `stat` 一次，不在就报 `session_missing`，不起 omp（`--resume=<不存在的文件>` 会让 omp 打 `Session … not found` 后退出 1，界面只看到一个红点）。输入框占位换成 `error.sessionMissing`；用户照常发消息时清掉记录里的 `sessionFile`、不带 `--resume` 起进程，在这个任务里开新会话（标题、模型等任务设置保留）。
 - 分叉 / 回溯见 [session-tree.md](session-tree.md)：`TaskPool.forkTask` 新增一条记录，`forkFrom` 记要 `omp --fork` 的原会话文件，新会话文件一落盘就记进 `sessionFile` 并清掉它（worktree 任务的分叉共用同一个 worktree，所以 `discardWorktree` 在还有别的任务（含已归档的）用它时拒绝）；回溯不换会话文件。
 
 ## 启动
@@ -21,7 +22,7 @@
 
 默认模型和 omp 启动同时进行（2026-10-26 起；之前在 `buildLaunch` 之后先等它）：没有启动缓存、服务进程要冷启动拉模型目录时，它要约 0.6 秒，omp 自己到握手约 0.7 秒，两段不再相加。实测（omp 18.12.6，真实 omp + 临时 agent 目录，模型目录每次新起 rpc-ui 拉）：新任务从 `openTask` 到 `idle` 1361–1406 ms → 756–819 ms，到输入框可发送 1639–1694 ms → 1045–1096 ms（各 3 次）。默认模型只在新任务（记录里没有模型）时读，`--model` 不依赖它。
 
-启动失败的 `TaskError.kind`：`omp_unavailable`（找不到 omp）、`spawn_failed`、`worktree_missing`；进程意外退出 `exited`。失败时状态是 `error`，promise 也 reject。`STUDIO_TEST_OMP`（JSON `{command,args}`，仅未打包）替换整条命令，e2e 和单测用它跑 `fake-tsp-omp`。
+启动失败的 `TaskError.kind`：`omp_unavailable`（找不到 omp）、`spawn_failed`、`worktree_missing`、`session_missing`；进程意外退出 `exited`。失败时状态是 `error`，promise 也 reject。`STUDIO_TEST_OMP`（JSON `{command,args}`，仅未打包）替换整条命令，e2e 和单测用它跑 `fake-tsp-omp`。
 
 ## 状态机
 

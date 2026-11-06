@@ -21,14 +21,16 @@
   -webkit-line-clamp: 2;
 }
 
-/* MCP 卡片里元信息下面的说明和"测试连接"结果：各占一行，长的工具列表换行（卡片跟着变高），不省略 */
+/* MCP 卡片里元信息下面的说明：另起一行，但也只有一行，放不下省略号（悬停看全文，ListRow 的 data-tip-overflow）。
+   卡片里不许有会把卡片撑高的长文字（2026-11-06 仓库所有者：测试连接的工具列表曾经整串换行摊开）。 */
 .ig-card-note {
   display: block;
   margin-top: var(--space-1);
 }
 .ui-list-meta > .ig-card-note {
-  white-space: normal;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* omp 的原话：保留换行，长路径可以断开 */

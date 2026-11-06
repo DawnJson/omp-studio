@@ -1,6 +1,6 @@
 // 任务池：进程上限、回收、归档、恢复历史会话、失败路径、启动过程中的归档和退出。
 // 进程是 test/fake-omp/fake-tsp-omp.ts（伪终端里回放 fixtures/tsp 的录制）；任务状态推导和 omp 交互见 test/task-tsp.test.ts。
-import { access, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -34,6 +34,7 @@ const settings = (maxLiveProcesses = 6, idleClose: IdleClose = "1h"): StudioSett
   enterWhileRunning: "steer",
   soundOnDone: false,
   copyOnSelect: true,
+  toolHeadsOnly: false,
   fontSize: 15,
   yoloConfirmed: false,
   backdrop: "theme",
@@ -141,6 +142,13 @@ function approvalSend(): { text: string; approve: TspEvent } {
 }
 
 describe("任务池：恢复历史会话", () => {
+  // 恢复前 studio 会确认会话文件还在（不在就是 session_missing，不起 omp）。
+  beforeAll(async () => {
+    await mkdir(path.join(scratch, "sessions"), { recursive: true });
+    for (const name of ["旧 会话.jsonl", "带图标 会话.jsonl"])
+      await writeFile(path.join(scratch, "sessions", name), "{}\n");
+  });
+
   it("以会话文件起进程（--resume）；已挂着该会话的任务不重复建；点开历史会话不算活动", async () => {
     const h = await harness();
     const sessionFile = path.join(scratch, "sessions", "旧 会话.jsonl");
@@ -183,16 +191,20 @@ describe("任务池：恢复历史会话", () => {
     await h.events.until(state.id, (s) => s.status === "idle");
   }, 60_000);
 
-  it("归档：关进程、从列表移除、tasks.json 保留记录；resume 同一会话文件把它恢复成未归档（同一 id）", async () => {
+  it("归档：关进程、从列表移除、tasks.json 保留记录、会话回到历史列表；resume 同一会话文件把它恢复成未归档（同一 id）", async () => {
     const h = await harness();
     const sessionFile = path.join(scratch, "sessions", "归档.jsonl");
     const created = await h.pool.createTask({ projectId: h.projectId });
     await h.events.until(created.id, (s) => s.status === "idle");
     await h.registry.updateTask(created.id, { sessionFile });
+    const linked = (): (string | null)[] => h.pool.listSessionLinks().map((link) => link.sessionFile);
+    expect(linked()).toEqual([sessionFile]);
     await h.pool.archiveTask(created.id);
     expect(h.events.removed).toEqual([created.id]);
     expect(h.pool.listTasks()).toEqual([]);
     expect(h.registry.findTask(created.id)).toMatchObject({ archived: true, sessionFile });
+    // 已归档任务的会话不算"挂在任务上"：历史列表照常列出它，点开才找得回来（issue #8）。
+    expect(linked()).toEqual([]);
 
     const back = await h.pool.resume({
       sessionFile,
@@ -204,6 +216,7 @@ describe("任务池：恢复历史会话", () => {
     expect(back.id).toBe(created.id);
     expect(h.registry.findTask(created.id)?.archived).toBe(false);
     expect(h.pool.listTasks()).toHaveLength(1);
+    expect(linked()).toEqual([sessionFile]);
   }, 60_000);
 
   it("项目下还有未归档任务时不能移除项目，归档后可以", async () => {

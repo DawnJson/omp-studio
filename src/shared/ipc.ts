@@ -229,6 +229,8 @@ export interface StudioSettings {
   soundOnDone: boolean;
   /** 在对话等处用鼠标选中文字后自动复制到剪贴板（输入框、终端除外）。默认开。 */
   copyOnSelect: boolean;
+  /** 折叠着的工具卡只画标题行，不画 omp 给的输出预览（点开看全部）。默认关（issue #8）。 */
+  toolHeadsOnly: boolean;
   /** 整个软件的字号（正文 pt，fontSizeSteps 之一），默认 15；页面缩放 = fontSize / 15。 */
   fontSize: number;
   /** 用户确认过"全自动"。 */
@@ -262,7 +264,9 @@ export interface TaskError {
     | "protocol"
     | "too_many_tasks"
     /** 任务的 worktree 目录已被删除（和 omp 一致：只能查看记录，不能继续聊）。 */
-    | "worktree_missing";
+    | "worktree_missing"
+    /** 任务的会话文件已被删除（在 omp 里删的）；发消息时在这个任务里开新会话。 */
+    | "session_missing";
   message: string;
 }
 
@@ -1443,6 +1447,7 @@ export interface StudioInvokeApi {
   setIdleClose(value: IdleClose): Promise<void>;
   setSoundOnDone(on: boolean): Promise<void>;
   setCopyOnSelect(on: boolean): Promise<void>;
+  setToolHeadsOnly(on: boolean): Promise<void>;
   /** 记下用户已经确认过"全自动"，之后选它不再弹确认。 */
   setYoloConfirmed(): Promise<void>;
   /** 新任务实际会用的默认模型和思考强度：服务进程 get_state 读出的当前值（缓存优先，同 listModels(false)）；读不到（没登录、没有可用模型）时为 null。 */
@@ -1783,6 +1788,7 @@ export const invokeNames = {
   setIdleClose: true,
   setSoundOnDone: true,
   setCopyOnSelect: true,
+  setToolHeadsOnly: true,
   setYoloConfirmed: true,
   getDefaultModel: true,
   getStartupSnapshot: true,

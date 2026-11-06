@@ -217,6 +217,16 @@ export function GeneralSection() {
             />
           )}
         </Row>
+        <Row label={t("settings.toolHeadsOnly")}>
+          {(labelId) => (
+            <Switch
+              checked={settings?.toolHeadsOnly ?? false}
+              labelledBy={labelId}
+              onChange={(next) => void window.studio.setToolHeadsOnly(next)}
+              testId="setting-tool-heads-only"
+            />
+          )}
+        </Row>
       </div>
       <SectionHead title={t("settings.notifications")} />
       <div className="st-cells" data-testid="notify-settings">

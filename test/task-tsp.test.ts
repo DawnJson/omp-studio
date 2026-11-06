@@ -56,6 +56,7 @@ const settings = (): StudioSettings => ({
   enterWhileRunning: "steer",
   soundOnDone: false,
   copyOnSelect: true,
+  toolHeadsOnly: false,
   fontSize: 15,
   yoloConfirmed: false,
   backdrop: "theme",
@@ -341,10 +342,13 @@ describe("任务池：TSP 任务", () => {
     expect(Date.now() - started).toBeLessThan(1_000);
   }, 60_000);
 
-  it("omp 的会话文件落盘后才记进任务（没落盘的不记），标题跟着 omp，重启后用记录里的会话文件恢复", async () => {
+  it("omp 的会话文件落盘后才记进任务（没落盘的不记），标题跟着 omp 记在会话文件里的标题，重启后用记录里的会话文件恢复", async () => {
     const sessionFile = path.join(scratch, "sessions 一", "a.jsonl");
     await mkdir(path.dirname(sessionFile), { recursive: true });
-    await writeFile(sessionFile, "{}\n");
+    await writeFile(
+      sessionFile,
+      `${JSON.stringify({ type: "title_change", id: "t1", title: "\u{f1821} 修复 登录 bug" })}\n`,
+    );
     const h = await harness();
     h.next.env = { FAKE_TSP_SESSION_FILE: sessionFile, FAKE_TSP_TITLE: "\u{f1821} 修复 登录 bug" };
     const first = await h.pool.createTask({ projectId: h.projectId });
@@ -371,16 +375,38 @@ describe("任务池：TSP 任务", () => {
     expect(again.launches).toEqual([{ sessionFile }]);
   }, 60_000);
 
+  it("会话文件在 omp 里被删了（issue #8）：打开不起 omp、报 session_missing；发消息时清掉旧路径、不带 --resume 开新会话", async () => {
+    const sessionFile = path.join(scratch, "sessions 删", "deleted.jsonl");
+    await mkdir(path.dirname(sessionFile), { recursive: true });
+    await writeFile(sessionFile, "{}\n");
+    const h = await harness();
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    await h.events.until(created.id, (state) => state.status === "idle");
+    await h.registry.updateTask(created.id, { sessionFile, title: "旧任务" });
+    await h.pool.shutdown();
+    await rm(sessionFile);
+
+    const again = await harness(h.tasksFile);
+    await again.pool.openTask(created.id);
+    const failed = await again.events.until(created.id, (state) => state.status === "error");
+    expect(failed.error?.kind).toBe("session_missing");
+    expect(again.launches).toEqual([]);
+
+    await again.pool.sendPrompt(created.id, { text: "继续", whenBusy: "steer" });
+    expect(again.launches).toEqual([{ sessionFile: null }]);
+    expect(again.registry.findTask(created.id)).toMatchObject({ sessionFile: null, title: "旧任务" });
+  }, 60_000);
+
   it("会话文件在一轮进行中落盘就记进任务，不等这一轮结束（长的第一轮里会话列表不会把它当成另一条会话）", async () => {
     const events = approvalEvents();
     const sessionFile = path.join(scratch, "sessions 二", "first-turn.jsonl");
     await mkdir(path.dirname(sessionFile), { recursive: true });
     const h = await harness();
     h.next.fixture = "approval";
-    // 标题 OSC 紧跟在会话文件 OSC 后面发：标题到了，说明 omp 报路径的那一下（文件还没有）已经处理完。
-    h.next.env = { FAKE_TSP_SESSION_FILE: sessionFile, FAKE_TSP_TITLE: "第一轮 很长" };
+    // 终端标题 OSC 紧跟在会话文件 OSC 后面发：`omp · #3` 的 PR 号到了，说明 omp 报路径的那一下（文件还没有）已经处理完。
+    h.next.env = { FAKE_TSP_SESSION_FILE: sessionFile, FAKE_TSP_TITLE: "omp · #3" };
     const created = await h.pool.createTask({ projectId: h.projectId });
-    await h.events.until(created.id, (state) => state.status === "idle" && state.title === "第一轮 很长");
+    await h.events.until(created.id, (state) => state.status === "idle" && state.prNumber === 3);
     expect(h.registry.findTask(created.id)?.sessionFile).toBeNull();
 
     // 第一条消息之后 omp 写出文件；这一轮停在审批门上（不批准就不会结束）。
@@ -902,6 +928,12 @@ describe("TSP 任务：输入框状态、切模型、提问时的发送", () => 
 
 describe("rpc 引擎时代的老任务：按记录里的会话文件用 TSP 恢复", () => {
   const sessionFile = () => path.join(scratch, "sessions 二", "old.jsonl");
+  // 恢复前 studio 会确认会话文件还在（不在就是 session_missing，不起 omp）。
+  beforeAll(async () => {
+    await mkdir(path.join(scratch, "sessions 二"), { recursive: true });
+    for (const name of ["old.jsonl", "archived.jsonl"])
+      await writeFile(path.join(scratch, "sessions 二", name), "{}\n");
+  });
 
   async function legacyTasksFile(tasks: Record<string, unknown>[]): Promise<{ file: string; projectId: string }> {
     const file = path.join(await mkdtemp(path.join(scratch, "legacy-")), "tasks.json");

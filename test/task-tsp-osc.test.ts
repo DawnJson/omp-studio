@@ -36,6 +36,7 @@ const settings = (): StudioSettings => ({
   enterWhileRunning: "steer",
   soundOnDone: false,
   copyOnSelect: true,
+  toolHeadsOnly: false,
   fontSize: 15,
   yoloConfirmed: false,
   backdrop: "theme",
@@ -342,10 +343,21 @@ describe("OSC 7 当前目录", () => {
   }, 60_000);
 });
 
+/** 一个会话文件：omp 定过的标题记成 title_change（omp 18.16 的写法）。 */
+async function sessionWithTitle(name: string, title: string): Promise<string> {
+  const file = path.join(scratch, "sessions", `${name}.jsonl`);
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify({ type: "title_change", id: "t1", title, source: "auto" })}\n`, "utf8");
+  return file;
+}
+
 describe("标题后缀 ` · #PR`", () => {
   it("标题去掉后缀，PR 号进 TaskState.prNumber；`omp · #7`（没有标题只有 PR）标题为空", async () => {
     const h = await harness();
-    h.next.env = { FAKE_TSP_TITLE: "\u{f1821} 修复 登录 bug · #12" };
+    h.next.env = {
+      FAKE_TSP_SESSION_FILE: await sessionWithTitle("pr", "\u{f1821} 修复 登录 bug"),
+      FAKE_TSP_TITLE: "\u{f1821} 修复 登录 bug · #12",
+    };
     const first = await h.pool.createTask({ projectId: h.projectId });
     const titled = await h.events.until(first.id, (state) => state.prNumber === 12 && state.title !== "");
     expect(titled.title).toBe("修复 登录 bug");
@@ -354,5 +366,26 @@ describe("标题后缀 ` · #PR`", () => {
     const second = await h.pool.createTask({ projectId: h.projectId });
     const bare = await h.events.until(second.id, (state) => state.prNumber === 7);
     expect(bare.title).toBe("");
+  }, 60_000);
+});
+
+describe("终端标题（issue #8）", () => {
+  it("伪终端里别的进程改的控制台标题（ConPTY 转成 OSC 0）不当任务标题，也不清掉 PR 号；标题以会话文件为准", async () => {
+    const h = await harness();
+    h.next.env = {
+      FAKE_TSP_SESSION_FILE: await sessionWithTitle("child", "\u{f1821} 修复 登录 bug"),
+      // omp 自己的标题之后，工具起的 cmd / PowerShell 改了控制台标题（实测 ConPTY 原样转发，子进程退出后不还原）。
+      FAKE_TSP_TITLE: ["\u{f1821} 修复 登录 bug · #12", "C:\\WINDOWS\\system32\\cmd.exe", "Windows PowerShell"].join(
+        "\n",
+      ),
+    };
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    const titled = await h.events.until(created.id, (state) => state.title !== "" && state.prNumber === 12);
+    expect(titled.title).toBe("修复 登录 bug");
+    await h.events.until(created.id, (state) => state.status === "idle");
+    const latest = h.pool.listTasks().find((state) => state.id === created.id);
+    expect(latest?.title).toBe("修复 登录 bug");
+    expect(latest?.prNumber).toBe(12);
+    expect(h.registry.findTask(created.id)?.title).toBe("修复 登录 bug");
   }, 60_000);
 });

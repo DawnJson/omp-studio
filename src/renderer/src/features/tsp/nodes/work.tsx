@@ -37,6 +37,7 @@ import { useFold } from "../use-fold.ts";
 import { useEntrance } from "../entrance.ts";
 import { useAge } from "../use-clock.ts";
 import { useTspEnded } from "../tsp-context.ts";
+import { useSettings } from "../../../store/settings-store.ts";
 
 // ───────── tool ─────────
 
@@ -219,6 +220,8 @@ export function Tool(props: NodeProps) {
   const collapsible = p.collapsible === true;
   const [collapsed, toggle] = useFold(props, collapsible && p.collapsed === true);
   const preview = toolPreview(p.preview);
+  // 设置"工具调用只显示标题"（toolHeadsOnly）：折叠时不画 omp 给的预览。wait 卡除外：它的预览就是后台作业的进度磁贴。
+  const headsOnly = (useSettings()?.toolHeadsOnly ?? false) && p.name !== "wait";
   const inline = p.frame === "inline";
   const exit = asNumber(p.exit);
   const command =
@@ -254,6 +257,7 @@ export function Tool(props: NodeProps) {
   const hasBody = childIds.length > 0;
   if (!hasBody) content = null;
   else if (!collapsed) content = body;
+  else if (headsOnly) content = null;
   else if (preview.mode === "children") {
     fold = previewFold;
     content = body;
@@ -271,7 +275,7 @@ export function Tool(props: NodeProps) {
     inline ? "inline" : "card",
     collapsible && "collapsible",
     collapsed && "collapsed",
-    collapsed && (preview.mode === "none" || !hasBody) && "nopreview",
+    collapsed && (preview.mode === "none" || !hasBody || headsOnly) && "nopreview",
     `st-${status}`,
   ].filter((c): c is string => typeof c === "string");
 

@@ -158,8 +158,7 @@ export function Sidebar() {
   const { menu, openTaskMenu, openProjectMenu } = useSidebarMenus({
     t,
     selectedTaskId,
-    taskCount: (project) =>
-      tasksState.list.filter((task) => task.projectId === project.id && !hidden.has(task.id)).length,
+    projectTaskIds: (project) => tasksState.list.filter((task) => task.projectId === project.id).map((task) => task.id),
     onRename: (task) => setRenamingId(task.id),
   });
 

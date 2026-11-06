@@ -12,6 +12,7 @@ export const error = {
   protocol: "Communication with omp failed and was disconnected. The version may be incompatible.",
   tooManyTasks: "Too many tasks are running. Stop or archive a few and try again.",
   worktreeMissing: "This task's worktree was deleted, so the record is view-only and the chat cannot continue.",
+  sessionMissing: "This task's session file was deleted. Sending a message starts a new session.",
   model: "The model returned an error: {message}",
   modelUnavailable: "The model used by this session isn't available.",
   generic: "That didn’t work.",

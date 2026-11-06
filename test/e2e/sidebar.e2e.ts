@@ -134,6 +134,7 @@ async function stubMain(app: Awaited<ReturnType<typeof launchApp>>["app"], local
       stub("openTask", () => undefined);
       stub("renameTask", () => undefined);
       stub("archiveTask", () => undefined);
+      stub("removeProject", () => undefined);
       stub("createTask", () => data.tasks[0]);
       stub("listSlashCommands", () => data.slash);
       stub("getShellState", () => ({ sidebarWidth: 264, sidebarCollapsed: false, historyOrder: "folder" }));
@@ -433,6 +434,50 @@ test("文件夹里等你确认 / 在跑的任务结束后，自动展开的文�
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(deploy).toHaveCount(0);
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
+test("窗口重新获得焦点时重扫历史会话；刚归档（还在撤销期）的任务不挡移除文件夹：先提交归档再移除（issue #8）", async () => {
+  const agentDir = await makeAgentDir();
+  const launched = await launchApp({ PI_CODING_AGENT_DIR: agentDir });
+  const { app, page } = launched;
+  try {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await stubMain(app, "zh-CN");
+    await page.reload();
+    const apiServer = page.getByTestId("sidebar").getByRole("region", { name: "api server" });
+    await expect(apiServer.getByTestId("task-row")).toHaveCount(2);
+    await expect(apiServer.getByTestId("sidebar-session")).toHaveCount(0);
+
+    // 终端 omp 在这期间建了一个会话：窗口一回到前台就列出来。
+    const bucket = path.join(agentDir, "sessions", "--E--work-api server--");
+    await mkdir(bucket, { recursive: true });
+    await writeFile(
+      path.join(bucket, "d_new.jsonl"),
+      headerLine("sess-new", projectB.path) + userLine("终端里新开的会话"),
+    );
+    await page.evaluate(() => globalThis.dispatchEvent(new Event("focus")));
+    await expect(apiServer.getByTestId("sidebar-session")).toContainText("终端里新开的会话");
+
+    for (const title of ["Deploy pipeline", "Write API docs"]) {
+      await apiServer.getByTestId("task-row").filter({ hasText: title }).locator(".sb-row-main").focus();
+      await page.keyboard.press("Delete");
+    }
+    await expect(apiServer.getByTestId("task-row")).toHaveCount(0);
+    await apiServer.locator(".sb-group-more").click();
+    await page.getByRole("menuitem", { name: "从列表移除" }).click();
+    await expect
+      .poll(() =>
+        app.evaluate(() =>
+          (Reflect.get(globalThis, "__calls") as [string, unknown[]][])
+            .filter(([name]) => name === "archiveTask" || name === "removeProject")
+            .map(([name, args]) => `${name}:${String(args[0])}`),
+        ),
+      )
+      .toEqual(["archiveTask:t8", "archiveTask:t9", "removeProject:pb"]);
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

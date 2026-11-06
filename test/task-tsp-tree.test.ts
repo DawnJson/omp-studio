@@ -35,6 +35,7 @@ const settings: StudioSettings = {
   enterWhileRunning: "steer",
   soundOnDone: false,
   copyOnSelect: true,
+  toolHeadsOnly: false,
   fontSize: 15,
   yoloConfirmed: false,
   backdrop: "theme",

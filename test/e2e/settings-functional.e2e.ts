@@ -603,6 +603,30 @@ test("集成：MCP 服务器和 SSH 主机的添加、开关、删除走真实 o
     await expect(page.getByTestId("mcp-test-result-remote1")).toHaveCount(0);
     await expectNoOverflow(page.getByTestId("mcp-card"));
 
+    // 测试连接成功（真实 omp 连一个真实的 stdio MCP 服务器，60 个长名字的工具）：卡片仍是两行，结果只是一个
+    // `Connected, 60 tools` 徽标，工具名在悬停里，不在卡片里摊开（2026-11-06 仓库所有者）。
+    const manyServer = path.resolve(import.meta.dirname, "..", "fake-mcp", "many-tools-server.ts");
+    await page.getByTestId("mcp-add").click();
+    await page.getByTestId("mcp-name").fill("many");
+    await page.getByTestId("mcp-command").fill(process.execPath);
+    await page.getByTestId("mcp-args").fill(manyServer);
+    await page.getByTestId("mcp-save").click();
+    const manyRow = page.getByTestId("mcp-row-many");
+    await expect(manyRow).toBeVisible(ompWait);
+    await page.getByTestId("mcp-test-many").click();
+    const manyResult = manyRow.getByTestId("mcp-test-result-many");
+    await expect(manyResult).toHaveText("Connected, 60 tools", { timeout: 60_000 });
+    const manyTip = await manyResult.getAttribute("title");
+    expect(manyTip?.split("\n")).toHaveLength(60);
+    expect(manyTip).toContain("workspace_long_tool_name_number_060");
+    await expect(manyRow).not.toContainText("workspace_long_tool_name_number_001");
+    await expectCompactCard(manyRow, page.getByTestId("mcp-test-many"));
+    await expectNoOverflow(page.getByTestId("mcp-card"));
+    await page.getByTestId("mcp-more-many").click();
+    await page.getByTestId("mcp-remove-many").click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Remove" }).click();
+    await expect(manyRow).toHaveCount(0, ompWait);
+
     // 编辑：直接改 omp 的 mcp.json 里这一项，别的字段原样。先在文件里补上表单不管的字段（timeout、oauth、别的 header、env），再改。
     const mcpFile = path.join(agentDir, "mcp.json");
     const seeded = JSON.parse(await readFile(mcpFile, "utf8")) as { mcpServers: Entries };

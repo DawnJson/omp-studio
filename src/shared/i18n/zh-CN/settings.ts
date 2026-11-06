@@ -93,6 +93,7 @@ export const settings = {
   soundOnDone: "任务完成时响提示音",
   copyOnSelect: "选中即复制",
   "copyOnSelect.desc": "输入框和终端除外",
+  toolHeadsOnly: "工具调用只显示标题",
   fontSize: "字号",
   search: "搜索设置",
   "search.hint": "按名称、说明或键名搜索",

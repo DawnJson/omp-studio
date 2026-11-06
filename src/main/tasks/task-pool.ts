@@ -198,9 +198,15 @@ export class TaskPool {
     await this.#deps.registry.removeProject(projectId);
   }
 
-  /** 含已归档的任务；历史列表据此填 SessionSummary.taskId。 */
+  /**
+   * 未归档任务挂着的会话文件；历史列表据此填 SessionSummary.taskId（有 taskId 的不在历史里列出）。
+   * 已归档的不算：它的会话回到历史列表，点开走 resume() 恢复成同一个任务（issue #8：归档后会话再也找不到）。
+   */
   listSessionLinks(): { id: TaskId; projectId: ProjectId; sessionFile: string | null }[] {
-    return this.#deps.registry.listTasks().map(({ id, projectId, sessionFile }) => ({ id, projectId, sessionFile }));
+    return this.#deps.registry
+      .listTasks()
+      .filter((task) => !task.archived)
+      .map(({ id, projectId, sessionFile }) => ({ id, projectId, sessionFile }));
   }
 
   /** 任务的会话文件（含已归档的任务）；还没有会话文件时为 null，任务不存在就抛错。 */

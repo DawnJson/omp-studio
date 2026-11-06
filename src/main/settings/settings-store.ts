@@ -35,6 +35,7 @@ const defaults: StudioSettings = {
   enterWhileRunning: "steer",
   soundOnDone: false,
   copyOnSelect: true,
+  toolHeadsOnly: false,
   fontSize: defaultFontSize,
   yoloConfirmed: false,
 };
@@ -93,6 +94,11 @@ function sanitize(raw: unknown): StudioSettings {
     ),
     soundOnDone: field((value) => parseBoolean(value, "soundOnDone"), record["soundOnDone"], defaults.soundOnDone),
     copyOnSelect: field((value) => parseBoolean(value, "copyOnSelect"), record["copyOnSelect"], defaults.copyOnSelect),
+    toolHeadsOnly: field(
+      (value) => parseBoolean(value, "toolHeadsOnly"),
+      record["toolHeadsOnly"],
+      defaults.toolHeadsOnly,
+    ),
     fontSize: field(parseFontSize, record["fontSize"], defaults.fontSize),
     yoloConfirmed: field(
       (value) => parseBoolean(value, "yoloConfirmed"),

@@ -8,7 +8,7 @@
 //   --speed：回放速度，录制里的间隔除以它（默认 1；测试用大数，免得等真实的 59 秒）。
 //   --log：把收到的每条 TSP 消息、按键原样追加成 JSONL（{kind:"tsp", verb, body} / {kind:"keys", data}），测试据此断言 omp 收到了什么。
 //   --exit-after-end：回放完立刻以 0 退出（默认继续活着，和真实 omp 一样等输入）。
-// 环境变量：FAKE_TSP_SESSION_FILE（回放开始时发 OSC 1337 SetUserVar=omp_session_file）、FAKE_TSP_TITLE（OSC 0）、
+// 环境变量：FAKE_TSP_SESSION_FILE（回放开始时发 OSC 1337 SetUserVar=omp_session_file）、FAKE_TSP_TITLE（OSC 0，换行分隔的几条依次发）、
 // FAKE_OMP_CWD_FILE / FAKE_OMP_PID_FILE（同 fake-omp.ts，e2e 用）、FAKE_OMP_BROWSER_FILE（记下浏览器面板的 CDP 地址）。
 // 必须跑在伪终端里（TspSession 总是 node-pty）：往 stdout 写 APC，从 stdin 读终端发来的事件。
 //
@@ -186,7 +186,7 @@ const { credits } = await helloReplied.promise;
 const sessionFile = process.env["FAKE_TSP_SESSION_FILE"];
 if (sessionFile)
   process.stdout.write(`${ESC}]1337;SetUserVar=omp_session_file=${Buffer.from(sessionFile).toString("base64")}\x07`);
-if (process.env["FAKE_TSP_TITLE"]) process.stdout.write(`${ESC}]0;${process.env["FAKE_TSP_TITLE"]}\x07`);
+for (const title of process.env["FAKE_TSP_TITLE"]?.split("\n") ?? []) process.stdout.write(`${ESC}]0;${title}\x07`);
 
 let lastT = entries[0]?.t ?? 0;
 for (const entry of entries) {

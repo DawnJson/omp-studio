@@ -53,6 +53,7 @@ describe.skipIf(!enabled)("真实 omp", () => {
         enterWhileRunning: "steer",
         soundOnDone: false,
         copyOnSelect: true,
+        toolHeadsOnly: false,
         fontSize: 15,
         yoloConfirmed: false,
         backdrop: "theme",

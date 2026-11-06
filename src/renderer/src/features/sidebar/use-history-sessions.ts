@@ -29,17 +29,19 @@ function refreshHistorySessions(): void {
 
 /**
  * 侧栏用：refreshKey 变了就重取一次（侧栏传任务 id 列表：恢复了一个会话、或第一条消息建了任务，它的会话就该从历史里消失）；
- * 每次从"没在搜"进入"在搜"也重取：期间终端里可能新建了会话。
+ * 每次从"没在搜"进入"在搜"、窗口重新获得焦点时也重取：期间终端里可能新建或删掉了会话（issue #8）。
  */
 export function useHistorySessions(searching: boolean, refreshKey: string): readonly SessionSummary[] {
   useEffect(() => refreshHistorySessions(), [searching, refreshKey]);
+  useEffect(() => {
+    window.addEventListener("focus", refreshHistorySessions);
+    return () => window.removeEventListener("focus", refreshHistorySessions);
+  }, []);
   return useStoreValue(store, (sessions) => sessions ?? none);
 }
 
-/** 命令面板用：沿用侧栏已经取到的列表，从没取过（侧栏没挂过）时才取一次。 */
+/** 命令面板用：先用已经取到的列表，每次打开再重取一次。 */
 export function useLoadedHistorySessions(): readonly SessionSummary[] {
-  useEffect(() => {
-    if (store.get() === null) refreshHistorySessions();
-  }, []);
+  useEffect(() => refreshHistorySessions(), []);
   return useStoreValue(store, (sessions) => sessions ?? none);
 }

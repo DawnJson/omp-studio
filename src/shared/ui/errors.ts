@@ -14,6 +14,7 @@ const taskErrorKinds: Record<TaskError["kind"], Parameters<TFunction>[0]> = {
   protocol: "error.protocol",
   too_many_tasks: "error.tooManyTasks",
   worktree_missing: "error.worktreeMissing",
+  session_missing: "error.sessionMissing",
 };
 
 /** 主进程里可预期错误的措辞 → 文案。主进程改了措辞只会退化成通用句，不会显示错的内容。 */

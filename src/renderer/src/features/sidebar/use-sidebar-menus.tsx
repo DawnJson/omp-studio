@@ -7,6 +7,7 @@ import { Branch, Folder, Trash } from "../../icons.tsx";
 import { Menu, type MenuAnchor, type MenuEntry } from "../../ui/Menu.tsx";
 import { pushToast } from "../dialogs/index.ts";
 import { cleanupOrphans } from "../git/git-actions.ts";
+import { archivePending, commitPendingArchives } from "./archive-store.ts";
 import { refreshProjects } from "./projects-store.ts";
 import { attempt, buildTaskMenu } from "./task-menu.tsx";
 
@@ -19,12 +20,12 @@ interface OpenMenu {
 interface MenusOptions {
   t: TFunction;
   selectedTaskId: TaskId | null;
-  /** 项目下还没归档的任务数（侧栏看到的），用于在调用主进程之前就拒绝移除。 */
-  taskCount(project: Project): number;
+  /** 项目下侧栏知道的任务（含正在等撤销的归档）。 */
+  projectTaskIds(project: Project): readonly TaskId[];
   onRename(task: TaskState): void;
 }
 
-export function useSidebarMenus({ t, selectedTaskId, taskCount, onRename }: MenusOptions): {
+export function useSidebarMenus({ t, selectedTaskId, projectTaskIds, onRename }: MenusOptions): {
   menu: ReactNode;
   openTaskMenu(task: TaskState, x: number, y: number, trigger: HTMLElement): void;
   openProjectMenu(project: Project, x: number, y: number, trigger: HTMLElement): void;
@@ -69,11 +70,14 @@ export function useSidebarMenus({ t, selectedTaskId, taskCount, onRename }: Menu
           icon: <Trash />,
           tone: "danger",
           onSelect: () => {
-            if (taskCount(project) > 0) {
+            const taskIds = projectTaskIds(project);
+            if (taskIds.some((taskId) => !archivePending(taskId))) {
               pushToast({ level: "warning", message: t("project.removeBlocked") });
               return;
             }
             void attempt(t, async () => {
+              // 刚归档、还在撤销期的任务主进程还当它没归档：先提交，否则移除被拒（issue #8）。
+              await commitPendingArchives(taskIds, t);
               await window.studio.removeProject(project.id);
               await refreshProjects();
             });

@@ -54,8 +54,10 @@ function McpRow({
       : row.scope === "project"
         ? t("integrations.scope.project")
         : row.scope;
-  // 卡片（.ui-cards）：说明和"测试连接"成功的结果写在元信息下面；连不上时元信息行开头一个红色徽标，omp 的原话在悬停里。
+  // 卡片（.ui-cards）固定两行：测试连接的结果只是元信息行开头的一个徽标，不另起一行。连上了是 success 徽标
+  // `已连接，N 个工具`，工具名在悬停里；连不上是 error 徽标，omp 的原话在悬停里（2026-11-06 仓库所有者：工具列表不能整串摊在卡片里）。
   const failed = test !== undefined && test !== "running" && !test.connected ? test.message : null;
+  const connected = test !== undefined && test !== "running" && test.connected ? test : null;
   return (
     <ListRow
       testId={`mcp-row-${row.name}`}
@@ -69,18 +71,21 @@ function McpRow({
               {t("integrations.mcp.testFailed")}
             </Badge>
           )}
+          {connected !== null && (
+            <Badge
+              tone="success"
+              title={connected.tools.length > 0 ? connected.tools.join("\n") : undefined}
+              testId={`mcp-test-result-${row.name}`}
+            >
+              {t("integrations.mcp.connected", { count: connected.toolCount })}
+            </Badge>
+          )}
         </>
       }
       meta={
         <>
           {[row.transport, row.target].filter((part) => part !== "").join(" · ")}
           {!manageable && <span className="ig-card-note">{t("integrations.mcp.unmanageable")}</span>}
-          {test !== undefined && test !== "running" && test.connected && (
-            <span className="ig-card-note" role="status" data-testid={`mcp-test-result-${row.name}`}>
-              {t("integrations.mcp.connected", { count: test.toolCount }) +
-                (test.tools.length > 0 ? `：${test.tools.join(", ")}` : "")}
-            </span>
-          )}
         </>
       }
       actions={

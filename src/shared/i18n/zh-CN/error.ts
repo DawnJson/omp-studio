@@ -11,6 +11,7 @@ export const error = {
   protocol: "和 omp 的通信出错了，已断开。可能是版本不兼容。",
   tooManyTasks: "同时运行的任务太多。先停掉或归档几个再试。",
   worktreeMissing: "这个任务的工作区已被删除，只能查看记录，不能继续对话。",
+  sessionMissing: "这个任务的会话文件已被删除，发送消息会开始新会话。",
   model: "模型返回错误：{message}",
   modelUnavailable: "这个会话用的模型现在不可用。",
   generic: "操作没有完成。",

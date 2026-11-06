@@ -835,6 +835,33 @@ test("过程卡片:diff 的上下文行和增删行一样是一行(行号在左�
   }
 });
 
+test("设置「工具调用只显示标题」：折叠着的工具卡不画输出预览，点开才有；关掉后照 omp 的预览画", async () => {
+  // cards 录制里 bash 卡是 omp 给的 collapsed:true + preview "children"（默认画命令和输出尾部）。
+  const { launched, cleanup } = await start("cards");
+  try {
+    const { page } = launched;
+    await page.evaluate(() => globalThis.studio.setToolHeadsOnly(true));
+    await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
+    await expect(role(page, "omp.editor.ask.approval")).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("composer-input").press("Control+Enter");
+    const bash = role(page, "omp.tool.bash");
+    const head = bash.locator(".tsp-tool-head");
+    await expect(head).toHaveAttribute("aria-expanded", "false", { timeout: 30_000 });
+    await expect(page.getByTestId("task-row").first()).toHaveAttribute("data-status", "idle", { timeout: 30_000 });
+    await expect(bash.locator(".tsp-tool-body")).toHaveCount(0);
+    await head.click();
+    await expect(head).toHaveAttribute("aria-expanded", "true");
+    await expect(bash.locator('[data-role="omp.tool.bash.output"]')).toBeVisible();
+    await head.click();
+    await expect(bash.locator(".tsp-tool-body")).toHaveCount(0);
+    await page.evaluate(() => globalThis.studio.setToolHeadsOnly(false));
+    await expect(head).toHaveAttribute("aria-expanded", "false");
+    await expect(bash.locator('[data-role="omp.tool.bash.output"]')).toBeVisible();
+  } finally {
+    await cleanup();
+  }
+});
+
 test("用户消息悬停:从气泡分步移向复制按钮的整条路上按钮都在,点击发出 copy-message;Tab 到按钮也显示", async () => {
   test.setTimeout(120_000);
   const { launched, received, cleanup } = await start("task");
@@ -2802,3 +2829,54 @@ for (const reduced of [false, true]) {
     }
   });
 }
+
+test("点开过的工具卡，omp 回显之后再按 Ctrl+O（omp 发 collapsed:true）能收起来：本地记的翻转在程序值变了以后作废", async () => {
+  // agent-progress 录制到"点开 Task 卡片、omp 回显 collapsed:false"为止，后面接手搓的两帧：回显之后 target 换成 echoed
+  // （界面上看得到回显已经画出来）；收到 ⌃O 后 omp 把这张卡设回 collapsed:true。
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp fold e2e-"));
+  const lines = (await readFile(path.join(root, "fixtures", "tsp", "agent-progress.jsonl"), "utf8"))
+    .split("\n")
+    .filter((line) => line.trim() !== "");
+  const echo = lines.findIndex((line) => line.includes('"ev":"toggle"')) + 1;
+  const echoed = JSON.parse(lines[echo]!) as {
+    t: number;
+    body: { s: number; ops: [string, string, Record<string, unknown>][] };
+  };
+  const props = { ...echoed.body.ops.find((op) => op[0] === "set" && op[1] === "t")![2], target: "echoed" };
+  const frame = (dt: number, ds: number, collapsed: boolean) =>
+    JSON.stringify({
+      t: echoed.t + dt,
+      dir: "out",
+      verb: "f",
+      body: { sf: "s:1", s: echoed.body.s + ds, ops: [["set", "t", { ...props, collapsed }]] },
+    });
+  const fixture = path.join(work, "fold-ctrl-o.jsonl");
+  await writeFile(
+    fixture,
+    [
+      ...lines.slice(0, echo + 2),
+      frame(5, 1, false),
+      JSON.stringify({ t: echoed.t + 10, dir: "in", verb: "k", body: "\u000f" }),
+      frame(20, 2, true),
+    ].join("\n"),
+  );
+  const { launched, receivedKeys, cleanup } = await start(fixture);
+  try {
+    const { page } = launched;
+    await sendFirst(page, String(recordedUserEvents(loadTspFixture("agent-progress"))[0]!.event["text"]));
+    const task = role(page, "omp.tool.task");
+    const taskHead = task.locator(".tsp-tool-head");
+    await expect(taskHead).toHaveAttribute("aria-expanded", "false", { timeout: 30_000 });
+    await taskHead.click();
+    await expect(taskHead).toHaveAttribute("aria-expanded", "true");
+    // 回显画出来了：本地记的那次翻转（collapsed 从 true 点成 false）在这一刻作废。
+    await expect(taskHead).toContainText("echoed", { timeout: 30_000 });
+    await expect(taskHead).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Control+o");
+    await expect.poll(receivedKeys).toContain("\x0f");
+    await expect(taskHead).toHaveAttribute("aria-expanded", "false");
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true });
+  }
+});

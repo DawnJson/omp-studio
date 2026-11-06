@@ -59,6 +59,18 @@ export function archiveWithUndo(taskId: TaskId, selectedTaskId: TaskId | null, t
   });
 }
 
+/** 还在撤销期（侧栏已藏起来、主进程还没归档）。 */
+export function archivePending(taskId: TaskId): boolean {
+  return timers.has(taskId);
+}
+
+/** 这些任务里还在撤销期的归档立刻提交，等主进程处理完（移除文件夹前用：主进程只认已经归档的任务，issue #8）。 */
+export async function commitPendingArchives(taskIds: readonly TaskId[], t: TFunction): Promise<void> {
+  const pending = taskIds.filter((taskId) => timers.has(taskId));
+  for (const taskId of pending) window.clearTimeout(timers.get(taskId));
+  await Promise.all(pending.map((taskId) => commitArchive(taskId, t)));
+}
+
 // 窗口关闭或重载时，还没到点的归档立刻提交（IPC 请求已发出，主进程会处理完）。
 window.addEventListener("pagehide", () => {
   for (const [taskId, timer] of timers) {

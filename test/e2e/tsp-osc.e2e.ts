@@ -54,7 +54,15 @@ async function sendFirstMessage(page: Page): Promise<void> {
 }
 
 test("PR 徽标：标题后缀 ` · #12` 变成分支胶囊旁的 #12 按钮，任务标题里没有后缀", async () => {
+  // 任务标题以 omp 记在会话文件里的为准（title_change），终端标题只用来取 PR 号（issue #8）。
+  const sessions = await mkdtemp(path.join(os.tmpdir(), "omp osc 会话 e2e-"));
+  const sessionFile = path.join(sessions, "pr.jsonl");
+  await writeFile(
+    sessionFile,
+    `${JSON.stringify({ type: "title_change", id: "t1", title: "\u{f1821} 修复 登录 bug" })}\n`,
+  );
   const session = await start(async () => testOmp("slash-status"), {
+    FAKE_TSP_SESSION_FILE: sessionFile,
     FAKE_TSP_TITLE: "\u{f1821} 修复 登录 bug · #12",
   });
   try {
@@ -63,11 +71,14 @@ test("PR 徽标：标题后缀 ` · #12` 变成分支胶囊旁的 #12 按钮，�
     const badge = page.getByTestId("git-pr-badge");
     await expect(badge).toHaveText("#12");
     await expect(page.getByTestId("git-menu")).toBeVisible();
+    await expect
+      .poll(async () => (await page.evaluate(() => globalThis.studio.listTasks())).map((task) => task.title))
+      .toContain("修复 登录 bug");
     const tasks = await page.evaluate(() => globalThis.studio.listTasks());
-    expect(tasks.map((task) => task.title)).toContain("修复 登录 bug");
     expect(tasks.every((task) => !task.title.includes("#12"))).toBe(true);
   } finally {
     await session.cleanup();
+    await rm(sessions, { recursive: true, force: true });
   }
 });
 

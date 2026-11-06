@@ -2,7 +2,7 @@
 // 验证：1) 新进程的 get_available_models 里有这些模型；2) 同一个进程里改文件不会重新加载（所以保存后要重启服务进程）；
 // 3) 任务（伪终端里的交互式 omp）能把 prompt 发到假服务并拿到它的回复。三种 key 写法都跑：字面量、环境变量名、auth: none。
 // 不调真实模型、不需要 key，但需要 PATH 上有 omp；默认跳过：`STUDIO_REAL_OMP=1 npx vitest run test/custom-models-real-omp.test.ts`。
-import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -29,6 +29,10 @@ const SECRET = "sk-fake-secret";
 beforeAll(async () => {
   scratch = await mkdtemp(path.join(os.tmpdir(), "omp 自定义 模型-"));
   agentDir = path.join(scratch, "agent");
+  // 新的 agent 目录里 omp 会先弹首次运行引导（screen 面板），挡住任务的发送；应用启动时经 `omp config set` 关掉它
+  // （setup-wizard-default.ts），这里同 task-real-omp.test.ts 直接写进临时目录的配置。
+  await mkdir(agentDir, { recursive: true });
+  await writeFile(path.join(agentDir, "config.yml"), "startup:\n  setupWizard: false\n", "utf8");
   keyed = await startFakeOpenAi({ apiKey: SECRET, models: ["fake-chat", "fake-mini"], reply: "FAKE-REPLY-KEYED" });
   keyless = await startFakeOpenAi({ models: ["local-one"], reply: "FAKE-REPLY-KEYLESS" });
 });
@@ -138,6 +142,7 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
         enterWhileRunning: "steer",
         soundOnDone: false,
         copyOnSelect: true,
+        toolHeadsOnly: false,
         fontSize: 15,
         yoloConfirmed: false,
         backdrop: "theme",
@@ -198,8 +203,9 @@ describe.skipIf(!enabled)("自定义模型 × 真实 omp", () => {
       await pool.sendPrompt(created.id, { text: prompt, whenBusy: "steer" });
       const done = await until((s) => s.id === created.id && s.lastTurn !== null && s.status === "idle");
       expect(done.lastTurn?.status).toBe("completed");
-      expect(server.prompts.length).toBe(before + 1);
-      expect(server.prompts.at(-1)).toContain(prompt);
+      // omp 18.16 起同一个模型还会收到后台调用：压缩工具 / skill 说明（"Compress into one routing hint …"）、
+      // 起标题（`<user>…</user>`，也带着这句 prompt），所以不数请求条数，只看这句 prompt 到了假服务、回复回到了界面。
+      expect(server.prompts.slice(before).some((sent) => sent.includes(prompt))).toBe(true);
       expect(JSON.stringify(pool.getTspSnapshot(created.id).document)).toContain(reply);
     }
   }, 240_000);

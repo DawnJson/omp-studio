@@ -158,19 +158,21 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
   const focusedAgent = useTspDerived(taskId, focusedAgentName, Object.is);
   const placeholder = worktreeGone
     ? t("error.worktreeMissing")
-    : screenOpen
-      ? t("composer.placeholderScreen")
-      : focusedAgent !== null
-        ? t("modes.focus.placeholder", { name: focusedAgent })
-        : tspAsking
-          ? t("composer.placeholderAsk")
-          : gate
-            ? localizeKeys(t("composer.placeholderGate"))
-            : running
-              ? t("composer.placeholderRunning")
-              : task !== null && task.title !== ""
-                ? t("composer.placeholder")
-                : t("composer.placeholderNew");
+    : task?.error?.kind === "session_missing"
+      ? t("error.sessionMissing")
+      : screenOpen
+        ? t("composer.placeholderScreen")
+        : focusedAgent !== null
+          ? t("modes.focus.placeholder", { name: focusedAgent })
+          : tspAsking
+            ? t("composer.placeholderAsk")
+            : gate
+              ? localizeKeys(t("composer.placeholderGate"))
+              : running
+                ? t("composer.placeholderRunning")
+                : task !== null && task.title !== ""
+                  ? t("composer.placeholder")
+                  : t("composer.placeholderNew");
 
   useEffect(() => {
     if (slashNotice !== null && slashNotice.text !== draft.text.trim()) setSlashNotice(null);
