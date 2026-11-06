@@ -4,6 +4,7 @@
 // 树的累加器留着用户消息的整条内容（含图片），任务一直占着的读取器不能带着它。
 // 用量要每一条带 id 的记录（沿 parentId 走分支），所以没有可以不解析就跳过的行。
 import type { SessionModelUsage } from "../../shared/ipc.ts";
+import { isRecord } from "../../shared/type-guards.ts";
 import { SessionUsageAccumulator } from "../history/session-usage.ts";
 import { SessionExtrasAccumulator } from "./session-extras.ts";
 import { SessionReaderCache, type SessionEntryConsumer, type SessionFileEntry } from "./session-file-reader.ts";
@@ -38,18 +39,29 @@ export class SessionTitleTracker implements SessionEntryConsumer {
 
 /**
  * omp 的 retry fallback（`retry.fallbackChains`）：出错换模型时往会话文件追加
- * `{"type":"model_change","model":"<provider/id>","role":"fallback","resolvedModelIsFallback":true}`，
- * 冷却过后换回原模型、用户自己换模型也各追加一条 `model_change`（omp 18.17 实测）。所以最后一条 `model_change` 是 fallback
- * = 现在在用备用模型。omp 只在对话里画一行普通警告，很容易看漏（2026-11-06：所有者的 Opus 被悄悄换成 Gemini）。
+ * `{"type":"model_change","model":"<provider/id>","role":"fallback","resolvedModelIsFallback":true}`（omp 18.17 实测）。
+ * 冷却过后换回原模型时**不追加** `model_change`，只是之后的回复换成了原模型（所有者 10-31 的会话：最后一条 model_change
+ * 是换到 Gemini，之后几天的回复全是 Opus，2026-11-06 发现徽标一直挂着）。所以：fallback 那条之后，有一条不是错误的助手回复
+ * 来自别的模型就算换回去了；出错的那条原模型回复写在 model_change 之后，不算。用户自己换模型（普通 model_change）也清掉。
+ * omp 只在对话里画一行普通警告，很容易看漏（2026-11-06：所有者的 Opus 被悄悄换成 Gemini）。
  */
 export class ModelFallbackTracker implements SessionEntryConsumer {
   #model: string | null = null;
 
   entry(entry: SessionFileEntry): void {
-    if (entry["type"] !== "model_change") return;
-    const model = entry["model"];
-    const fallback = entry["role"] === "fallback" || entry["resolvedModelIsFallback"] === true;
-    this.#model = fallback && typeof model === "string" ? model : null;
+    if (entry["type"] === "model_change") {
+      const model = entry["model"];
+      const fallback = entry["role"] === "fallback" || entry["resolvedModelIsFallback"] === true;
+      this.#model = fallback && typeof model === "string" ? model : null;
+      return;
+    }
+    if (this.#model === null || entry["type"] !== "message") return;
+    const message = entry["message"];
+    if (!isRecord(message) || message["role"] !== "assistant" || message["stopReason"] === "error") return;
+    const provider = message["provider"];
+    const model = message["model"];
+    if (typeof provider !== "string" || typeof model !== "string") return;
+    if (`${provider}/${model}` !== this.#model) this.#model = null;
   }
 
   reset(): void {

@@ -35,9 +35,35 @@ beforeAll(async () => {
       model,
       ...(fallback ? { role: "fallback", resolvedModelIsFallback: true } : {}),
     });
+  const reply = (model: string, stopReason: string) =>
+    JSON.stringify({
+      type: "message",
+      message: {
+        role: "assistant",
+        provider: model.split("/")[0],
+        model: model.split("/")[1],
+        stopReason,
+        content: [],
+      },
+    });
+  // omp 18.17 实测的顺序：model_change(fallback) 之后先写出错的那条原模型回复，再是备用模型的回复。
   await writeFile(
     path.join(dir, "Fell.jsonl"),
-    [change("anthropic/claude-opus-5-5", false), change("google-antigravity/gemini-3.8-flash", true)].join("\n"),
+    [
+      change("anthropic/claude-opus-5-5", false),
+      change("google-antigravity/gemini-3.8-flash", true),
+      reply("anthropic/claude-opus-5-5", "error"),
+      reply("google-antigravity/gemini-3.8-flash", "toolUse"),
+    ].join("\n"),
+  );
+  // 冷却过后 omp 悄悄换回原模型：没有 model_change，只是回复又是 Opus 的。
+  await writeFile(
+    path.join(dir, "Reverted.jsonl"),
+    [
+      change("google-antigravity/gemini-3.8-flash", true),
+      reply("google-antigravity/gemini-3.8-flash", "stop"),
+      reply("anthropic/claude-opus-5-5", "stop"),
+    ].join("\n"),
   );
   await writeFile(
     path.join(dir, "Back.jsonl"),
@@ -63,8 +89,9 @@ describe("subagentPaths", () => {
 });
 
 describe("readSubagentRecord fallbackModel", () => {
-  it("最后一条 model_change 是 fallback：给出备用模型；之后换回原模型：null", async () => {
+  it("fallback 之后：出错的原模型回复不算换回；备用模型回复照旧；别的模型正常回复了就是换回（omp 不写 model_change）", async () => {
     expect((await readSubagentRecord(sessionFile, "Fell")).fallbackModel).toBe("google-antigravity/gemini-3.8-flash");
+    expect((await readSubagentRecord(sessionFile, "Reverted")).fallbackModel).toBeNull();
     expect((await readSubagentRecord(sessionFile, "Back")).fallbackModel).toBeNull();
     expect((await readSubagentRecord(sessionFile, "Beta")).fallbackModel).toBeNull();
   });
