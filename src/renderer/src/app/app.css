@@ -253,7 +253,10 @@ html[data-platform="darwin"] .topbar-left {
 }
 
 /* 主区背景图（App.tsx 挂 data-backdrop / data-backdrop-strength；docs/architecture/themes.md「主区背景图」）。
-   画在面板自己的 background 上，不另加图层元素：从下往上是底色 --bg-app → 图（cover，靠右下）→ 一层 --bg-app 色的纱。
+   画在面板的 ::before 上：从下往上是面板底色 --bg-app → 图（cover，靠右下）→ 一层 --bg-app 色的纱。
+   ::before 单独成一个合成层（will-change），只栅格化一次。原来画在面板自己的 background 上：GPU 栅格化的瓦片和窗口一样宽，
+   侧栏一行变色、输入框里打一个字都要把同一条瓦片里的插图（带 feGaussianBlur）重画一遍，悬停每次多一帧
+   （所有者反馈侧栏悬停、打字卡；1600×1000 窗口、113 个任务实测悬停 16 → 24ms，2026-11-06）。
    纱越厚图越淡。三档按"图上最亮、最暗的一点上正文仍然好读"定：用每个主题的 --text / --bg-app 算图是纯白或纯黑时
    正文的对比度（2026-10-30 按 tokens.css、themes.css 算）——
    high 75%：图最明显；除 catppuccin-latte（3.9:1）外正文都在 4.5:1 以上。
@@ -261,13 +264,21 @@ html[data-platform="darwin"] .topbar-left {
    low 90%：图最淡；正文都在 5.6:1 以上。 */
 .panel[data-backdrop] {
   --bd-veil: 82%;
+  isolation: isolate;
+}
+.panel[data-backdrop]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  will-change: transform;
   background:
     linear-gradient(
       color-mix(in srgb, var(--bg-app) var(--bd-veil), transparent),
       color-mix(in srgb, var(--bg-app) var(--bd-veil), transparent)
     ),
-    var(--bd-art) right bottom / cover no-repeat,
-    var(--bg-app);
+    var(--bd-art) right bottom / cover no-repeat;
 }
 .panel[data-backdrop="theme"] {
   --bd-art: var(--theme-art);

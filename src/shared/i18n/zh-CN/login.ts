@@ -3,6 +3,7 @@ import type { MessageEntry } from "../index.ts";
 export const login = {
   signIn: "登录",
   signOut: "退出登录",
+  addAccount: "添加账号",
   more: "更多操作",
   unavailable: "当前不可用",
   opening: "正在打开浏览器…",

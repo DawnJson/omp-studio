@@ -46,10 +46,13 @@ async function launch(): Promise<LaunchedApp> {
   return launched;
 }
 
+/** 背景图画在面板的 ::before 上（单独的合成层，app.css「主区背景图」）。 */
 function panelBackground(page: Page): Promise<string> {
   return page.getByTestId("main-panel").evaluate((element) => {
-    const g = globalThis as unknown as { getComputedStyle(e: unknown): { backgroundImage: string } };
-    return g.getComputedStyle(element).backgroundImage;
+    const g = globalThis as unknown as {
+      getComputedStyle(e: unknown, pseudo: string): { backgroundImage: string };
+    };
+    return g.getComputedStyle(element, "::before").backgroundImage;
   });
 }
 

@@ -104,21 +104,46 @@ export function ProviderRow({
       {t("login.signIn")}
     </Button>
   ) : null;
-  const key = !withKey ? null : card && account !== null ? (
-    <RowMenu
-      label={t("login.more")}
-      disabled={busy}
-      menuOnly
-      testId={`provider-more-${provider.id}`}
-      items={[
-        { id: "key", label: keyLabel, testId: `provider-key-${provider.id}`, onSelect: () => onFlow(provider, "key") },
-      ]}
-    />
-  ) : (
-    <Button size="sm" disabled={busy} onClick={() => onFlow(provider, "key")} testId={`provider-key-${provider.id}`}>
-      {keyLabel}
-    </Button>
-  );
+  // 已用 OAuth 登录的再登录一次是加一个账号（omp 按账号身份去重：同一个账号只是刷新，见 docs/architecture/login.md「多个账号」）。
+  const addAccount: FlowAction | null =
+    hasOauth && provider.available
+      ? loginKind === "oauth"
+        ? "login"
+        : loginKind === "terminal"
+          ? "terminal"
+          : null
+      : null;
+  const menuItems = [
+    ...(addAccount === null
+      ? []
+      : [
+          {
+            id: "add",
+            label: t("login.addAccount"),
+            testId: `provider-add-account-${provider.id}`,
+            onSelect: () => onFlow(provider, addAccount),
+          },
+        ]),
+    ...(withKey
+      ? [{ id: "key", label: keyLabel, testId: `provider-key-${provider.id}`, onSelect: () => onFlow(provider, "key") }]
+      : []),
+  ];
+  const key =
+    card && account !== null ? (
+      menuItems.length === 0 ? null : (
+        <RowMenu
+          label={t("login.more")}
+          disabled={busy}
+          menuOnly
+          testId={`provider-more-${provider.id}`}
+          items={menuItems}
+        />
+      )
+    ) : !withKey ? null : (
+      <Button size="sm" disabled={busy} onClick={() => onFlow(provider, "key")} testId={`provider-key-${provider.id}`}>
+        {keyLabel}
+      </Button>
+    );
   return (
     <ListRow
       testId={`provider-${provider.id}`}

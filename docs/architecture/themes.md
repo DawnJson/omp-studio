@@ -42,7 +42,8 @@
 ### 图层（`App.tsx`、`app.css`）
 
 - `App.tsx` 在 `<main className="panel">` 上挂 `data-backdrop="theme" | "custom"`（不画时不挂）和 `data-backdrop-strength`。`theme` 只在 `themes[resolveTheme(theme, 系统深浅)].art` 为真时挂（跟随系统 = light / dark，没有插图）；`custom` 要求 `customBackdrop` 匹配 `backdropFilePattern`，再内联 `--bd-image: url("app://studio/@backdrop/<文件名>")`。
-- `.panel[data-backdrop]` 的 background 从下往上：底色 `--bg-app` → 图（`--theme-art` 或 `--bd-image`；`cover`、靠右下、不平铺）→ 一层纱 `color-mix(in srgb, var(--bg-app) <浓度>, transparent)`。不在面板里另加图层元素（层叠顺序会压住内容）。
+- 图画在 `.panel[data-backdrop]::before` 上（`position: absolute; inset: 0; z-index: -1`，面板 `isolation: isolate`，所以压在面板底色之上、内容之下），从下往上：面板底色 `--bg-app` → 图（`--theme-art` 或 `--bd-image`；`cover`、靠右下、不平铺）→ 一层纱 `color-mix(in srgb, var(--bg-app) <浓度>, transparent)`。
+- `::before` 带 `will-change: transform`，单独成一个合成层，只栅格化一次。2026-11-06 之前图画在面板自己的 background 上：GPU 栅格化的瓦片和窗口一样宽，侧栏一行悬停变色、输入框里打字、流式文字、spinner 都会让同一条瓦片里的插图重画一遍，主题插图都带 2–3 个 `feGaussianBlur`。实测（1600×1000 窗口、14 个文件夹 113 个任务、ink + 主题插图浓 + 毛玻璃，Event Timing）：侧栏悬停每个事件 24ms（多一帧），只开毛玻璃 16ms、只开插图 24ms；改后 16ms，和不开背景图一样。打字改后量了三次，两次 p90 24ms（改前一次 16ms，不开背景图 16ms），差别在一帧以内，没有定论。
 - 纱的三档按"图上最亮 / 最暗的一点上正文仍然好读"定：拿每个主题的 `--text`、`--bg-app` 算图是纯白或纯黑时正文的对比度（2026-10-30）：
   - `high` 75%（图最明显）：除 catppuccin-latte（3.9:1）外都在 4.5:1 以上；
   - `medium` 82%（默认）：全部在 4.7:1 以上；

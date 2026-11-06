@@ -1290,6 +1290,66 @@ test("OAuth 登录对话框：进度按顺序保留并按级别着色，omp 撤�
   }
 });
 
+test("已登录的 OAuth 提供商：⋯ 里「添加账号」走同一个登录对话框，登录完卡片上多一个账号（omp 和登录换成替身）", async () => {
+  const { launched, agentDir } = await launchSettings();
+  try {
+    const { page, app } = launched;
+    // 一个已用 OAuth 登录的 anthropic；startLogin 挂起到测试放行，放行时凭据库里多一个账号（omp 的 upsertOAuth 对不同账号是追加）。
+    await app.evaluate(({ ipcMain }) => {
+      const state = globalThis as unknown as { finishLogin?: () => void; loginCalls: string[]; accounts: unknown[] };
+      state.loginCalls = [];
+      const account = (credentialId: number, label: string) => ({
+        credentialId,
+        provider: "anthropic",
+        label,
+        detail: "",
+        type: "oauth",
+        active: credentialId === 1,
+      });
+      state.accounts = [account(1, "first@example.com")];
+      ipcMain.removeHandler("studio:listLoginProviders");
+      ipcMain.handle("studio:listLoginProviders", () => [
+        { id: "anthropic", name: "Anthropic (Claude Pro/Max)", available: true, authenticated: true },
+      ]);
+      ipcMain.removeHandler("studio:listAccounts");
+      ipcMain.handle("studio:listAccounts", (_event, providerId: string) =>
+        providerId === "anthropic" ? state.accounts : [],
+      );
+      ipcMain.removeHandler("studio:startLogin");
+      ipcMain.handle("studio:startLogin", (_event, providerId: string) => {
+        state.loginCalls.push(providerId);
+        return new Promise((resolve) => {
+          state.finishLogin = () => {
+            state.accounts.push(account(2, "second@example.com"));
+            resolve({ ok: true, providerId });
+          };
+        });
+      });
+    });
+
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("settings-nav-providers").click();
+    const card = page.getByTestId("provider-anthropic");
+    await expect(card).toContainText("first@example.com", { timeout: 30_000 });
+    await card.getByTestId("provider-more-anthropic").click();
+    await page.getByTestId("provider-add-account-anthropic").click();
+    await expect(page.getByTestId("provider-flow-anthropic")).toBeVisible();
+    await expect
+      .poll(() => app.evaluate(() => (globalThis as unknown as { loginCalls: string[] }).loginCalls))
+      .toEqual(["anthropic"]);
+
+    await app.evaluate(() => (globalThis as unknown as { finishLogin: () => void }).finishLogin());
+    await expect(page.getByTestId("provider-flow-anthropic")).toHaveCount(0);
+    await expect(card).toContainText("first@example.com +1");
+    // 两个账号时"退出登录"先让用户选退出哪一个。
+    await card.getByTestId("provider-signout-anthropic").click();
+    await expect(page.getByTestId("provider-flow-anthropic")).toContainText("second@example.com");
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+  }
+});
+
 /**
  * 应用内终端登录（docs/architecture/login.md "应用内登录"）：github-copilot 这类 rpc 里被 omp 拒绝的 provider，应用起一个临时 omp 跑 `/login`。
  * 未打包时 STUDIO_TEST_LOGIN_OMP（JSON `{command, args}`，同 STUDIO_TEST_OMP）指向假 omp，回放 omp 18.12.6 的真实录制
