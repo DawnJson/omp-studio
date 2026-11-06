@@ -433,6 +433,7 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
             setModel={(key) => window.studio.setTaskModel(taskId, key)}
             setThinking={(level) => window.studio.setTaskThinkingLevel(taskId, level)}
             taskId={taskId}
+            fallbackModel={task.fallbackModel}
             speed={{
               fast: task.fastMode,
               slow: task.slowMode,

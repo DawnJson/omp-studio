@@ -23,12 +23,14 @@ const optimisticTimeoutMs = 2000;
 export interface ModelChipProps extends Omit<ModelPickerProps, "onClose"> {
   /** 没有具体模型时显示什么（缺省"未连接模型"）。 */
   emptyLabel?: string;
+  /** 在用的 omp 备用模型（TaskState.fallbackModel）：模型名后面挂一个警告色的"备用"徽标。 */
+  fallbackModel?: string | null;
 }
 
 export function ModelChip(task: ModelChipProps) {
   const t = useT();
   const report = (error: unknown) => reportError(t, error);
-  const { emptyLabel, ...pickerProps } = task;
+  const { emptyLabel, fallbackModel = null, ...pickerProps } = task;
   const [open, setOpen] = useState(false);
   // `/model sonnet`、`/model @task` 带来的搜索词和范围；点胶囊打开时没有。
   const [request, setRequest] = useState<ModelPickerRequest | null>(null);
@@ -133,6 +135,16 @@ export function ModelChip(task: ModelChipProps) {
           {badges.includes("slow") && (
             <span className="chip-badge" data-testid="speed-badge-slow">
               {t("composer.badge.slow")}
+            </span>
+          )}
+          {fallbackModel !== null && (
+            <span
+              className="chip-badge"
+              data-tone="warning"
+              data-testid="model-fallback-badge"
+              title={t("composer.badge.fallbackTip", { model: fallbackModel })}
+            >
+              {t("composer.badge.fallback")}
             </span>
           )}
         </button>

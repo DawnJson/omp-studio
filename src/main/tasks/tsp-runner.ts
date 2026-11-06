@@ -341,6 +341,8 @@ export class TspRunner {
   #sessionTitle = "";
   /** 最近几次终端标题（OSC 0/2）原文，只用来取 PR 号；别的进程的标题会夹在中间，所以留几条（TERMINAL_TITLES_KEPT）。 */
   #terminalTitles: string[] = [];
+  /** 会话文件里记的在用备用模型（ModelFallbackTracker，TaskState.fallbackModel）。 */
+  #fallbackModel: string | null = null;
 
   constructor(record: TaskRecord, project: Project, host: TspRunnerHost) {
     this.id = record.id;
@@ -468,6 +470,7 @@ export class TspRunner {
       composerMode: this.#factsTracker.mode,
       extStatuses: this.#factsTracker.extStatuses,
       keepAlive: this.keepAlive,
+      fallbackModel: this.#fallbackModel,
     };
   }
 
@@ -1331,7 +1334,14 @@ export class TspRunner {
       this.#heldSessionFile = { file, release: holdSessionFile(file) };
     }
     const state = await readSessionFile(file);
-    if (!this.#disposed && file === this.#currentSessionFile()) this.#onSessionTitle(state.title.current());
+    if (!this.#disposed && file === this.#currentSessionFile()) {
+      this.#onSessionTitle(state.title.current());
+      const fallback = state.fallback.current();
+      if (fallback !== this.#fallbackModel) {
+        this.#fallbackModel = fallback;
+        this.#publish();
+      }
+    }
     return state;
   }
 

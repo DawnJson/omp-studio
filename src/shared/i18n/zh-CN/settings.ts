@@ -168,6 +168,5 @@ export const settings = {
   "cfg.save": "保存",
   "cfg.done": "完成",
   "cfg.removeTag": "删除 {name}",
-  "cfg.chainCount": "{count} 条回退链",
   "cfg.modifiedCount": "{count} 项改过",
 } satisfies Record<string, MessageEntry>;

@@ -173,6 +173,5 @@ export const settings = {
   "cfg.save": "Save",
   "cfg.done": "Done",
   "cfg.removeTag": "Remove {name}",
-  "cfg.chainCount": { one: "{count} fallback chain", other: "{count} fallback chains" },
   "cfg.modifiedCount": "{count} modified",
 } satisfies Record<keyof typeof zhCN, MessageEntry>;

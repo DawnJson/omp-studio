@@ -375,6 +375,28 @@ describe("任务池：TSP 任务", () => {
     expect(again.launches).toEqual([{ sessionFile }]);
   }, 60_000);
 
+  it("会话文件最后一条 model_change 是 omp 的 retry fallback：TaskState.fallbackModel 是换上的备用模型", async () => {
+    const sessionFile = path.join(scratch, "sessions 备用", "fallback.jsonl");
+    await mkdir(path.dirname(sessionFile), { recursive: true });
+    const line = (entry: object) => `${JSON.stringify(entry)}\n`;
+    await writeFile(
+      sessionFile,
+      line({ type: "model_change", id: "m1", model: "anthropic/claude-opus-5-5" }) +
+        line({
+          type: "model_change",
+          id: "m2",
+          model: "google-antigravity/gemini-3.8-flash",
+          role: "fallback",
+          resolvedModelIsFallback: true,
+        }),
+    );
+    const h = await harness();
+    h.next.env = { FAKE_TSP_SESSION_FILE: sessionFile };
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    const state = await h.events.until(created.id, (next) => next.fallbackModel !== null);
+    expect(state.fallbackModel).toBe("google-antigravity/gemini-3.8-flash");
+  }, 60_000);
+
   it("会话文件在 omp 里被删了（issue #8）：打开不起 omp、报 session_missing；发消息时清掉旧路径、不带 --resume 开新会话", async () => {
     const sessionFile = path.join(scratch, "sessions 删", "deleted.jsonl");
     await mkdir(path.dirname(sessionFile), { recursive: true });

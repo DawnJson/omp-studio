@@ -36,17 +36,45 @@ export class SessionTitleTracker implements SessionEntryConsumer {
   }
 }
 
+/**
+ * omp 的 retry fallback（`retry.fallbackChains`）：出错换模型时往会话文件追加
+ * `{"type":"model_change","model":"<provider/id>","role":"fallback","resolvedModelIsFallback":true}`，
+ * 冷却过后换回原模型、用户自己换模型也各追加一条 `model_change`（omp 18.17 实测）。所以最后一条 `model_change` 是 fallback
+ * = 现在在用备用模型。omp 只在对话里画一行普通警告，很容易看漏（2026-11-06：所有者的 Opus 被悄悄换成 Gemini）。
+ */
+export class ModelFallbackTracker implements SessionEntryConsumer {
+  #model: string | null = null;
+
+  entry(entry: SessionFileEntry): void {
+    if (entry["type"] !== "model_change") return;
+    const model = entry["model"];
+    const fallback = entry["role"] === "fallback" || entry["resolvedModelIsFallback"] === true;
+    this.#model = fallback && typeof model === "string" ? model : null;
+  }
+
+  reset(): void {
+    this.#model = null;
+  }
+
+  /** 在用的备用模型 `provider/id`；没在用为 null。 */
+  current(): string | null {
+    return this.#model;
+  }
+}
+
 /** 一个会话文件读到目前为止的累加器；同步取结果，不要跨 await 持有。 */
 export interface SessionFileState {
   usage: SessionUsageAccumulator;
   extras: SessionExtrasAccumulator;
   title: SessionTitleTracker;
+  fallback: ModelFallbackTracker;
 }
 
 const sessionFiles = new SessionReaderCache<SessionFileState>(() => ({
   usage: new SessionUsageAccumulator(),
   extras: new SessionExtrasAccumulator(),
   title: new SessionTitleTracker(),
+  fallback: new ModelFallbackTracker(),
 }));
 
 /** 把 file 新追加的完整行读进累加器。文件不存在（第一条回复之后才落盘）时累加器为空；超过 MAX_SESSION_FILE_BYTES 抛错。 */

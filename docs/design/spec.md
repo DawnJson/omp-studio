@@ -140,7 +140,7 @@
 - 默认：浅色 `:root`；`@media (prefers-color-scheme: dark)` 下，只要 `<html>` 没有 `data-theme` 就套深色（`:root:not([data-theme])`）。
 - 显式：`<html data-theme="<名字>">`。设置页选“跟随系统”时主进程**移除**该属性。主题共 18 个，名字、深浅和主进程要用的颜色登记在 `src/shared/themes.ts`（`themes`，顺序即主题画廊的顺序）：`light` `dark`（`tokens.css`）+ `whale-dark` `whale-light` `sakura` `night-sakura` `leek` `synthwave` `matrix` `dracula` `tokyo-night` `catppuccin-latte` `catppuccin-mocha` `nord` `rose-pine` `celadon` `ink` `vermilion`（`themes.css`）。主题块的选择器只写 `[data-theme="<名字>"]`、不带 `:root`：任何元素挂上 `data-theme` 就在它的子树里用那一套变量（主题画廊的预览块就这样就地取色，不复制颜色值）。每个主题块声明的变量和浅色块逐个对应，对比度按 §2.5（`test/themes.test.ts` 核对）。主进程按主题深浅设 `nativeTheme.themeSource`（omp 的 theme 事件、网页的 `prefers-color-scheme` 跟着它）。
 - 每个主题都有的两个装饰 token：`--theme-art` = 主题自带插图 `url("./themes/<名字>.svg")`（`src/renderer/styles/themes/`；`light` / `dark` 为 `none`），背景图选“主题插图”时画在主区面板上；主题画廊的预览用同一张插图预先画好的 WebP 缩略图（`themes/thumbs/`，见 `docs/architecture/themes.md`「主题画廊的缩略图」）；`--accent-glow` = 强调色上的静态发光（`box-shadow` / `text-shadow` 都能直接用的值，只有 `synthwave`、`matrix` 有值，其余 `none`），只叠在强调色的小面积处：开关的打开态（`.ui-switch[aria-checked="true"]`）、改过的设置行的竖线（`.ui-row[data-modified]::before`）、命令面板和会话树当前行的高亮条、Markdown 链接（`text-shadow`）、主题画廊预览里的强调色点；不加在大面积元素上，也不拼进已有的多层 `box-shadow`（值为 `none` 时整条声明会失效）。
-- 主区背景图（`StudioSettings.backdrop`：`theme` 主题插图 / `custom` 自选图片 / `none` 不用，默认 `theme`；浓度 `backdropStrength` 淡 / 中 / 浓）：画在主区面板 `.panel` 自己的 background 上，底色 `--bg-app` → 图（`cover`，靠右下）→ 一层 `--bg-app` 色的纱，浓度决定纱有多厚；只在当前主题有插图时画 `theme`。盖住对话区的面保持不透明。
+- 主区背景图（`StudioSettings.backdrop`：`theme` 主题插图 / `custom` 自选图片 / `none` 不用，默认 `theme`；浓度 `backdropStrength` 淡 / 中 / 浓）：画在主区面板 `.panel` 的 `::before` 上（单独的合成层，内容重绘时不重画插图，见 `docs/architecture/themes.md`），底色 `--bg-app` → 图（`cover`，靠右下）→ 一层 `--bg-app` 色的纱，浓度决定纱有多厚；只在当前主题有插图时画 `theme`。盖住对话区的面保持不透明。
 - Windows 11 毛玻璃（`StudioSettings.glass`，只在 `AppInfo.glassSupported` 时生效）：`<html data-glass>` 时顶栏和侧栏（`--bg-sidebar` 那一层）透出系统 Acrylic，主区面板仍是实底或背景图。
 - 切换过渡（2026-10-22 仓库所有者要求）：用户切换主题时整页交叉淡入（`App.tsx` 用 `document.startViewTransition` 包住 `data-theme` 的改动，`app.css` 的 `::view-transition-old/new(root)` 时长 `--dur-slow`（320ms）+ `--ease-in-out`，期间 `pointer-events: none`）；启动时第一次套用主题不过渡；减少动效（系统或应用内）时缩到 `--dur-fade`（100ms）的纯透明度渐变。系统三键跟着一起淡入，见下方。
 - 深色色板在 CSS 里出现两次（系统深色、显式深色），必须逐行一致——**加一条 Vitest 测试**，解析 `tokens.css`，比较两个深色块与两个 reduced-motion 块的声明集合，防止改一处漏一处。
@@ -522,7 +522,7 @@
 
 新任务草稿（`DraftComposer`）的工具行同一位置放 `DraftContextMeter`：还没有会话，圆环是 0，窗口取胶囊上默认模型的 `contextWindow`（模型还没读到或没报窗口时是不能点的空环），构成里只有消息 0、剩余空间和自动压缩预留，没有“会话用量”。费用显示 `$0.00`，同样能点开 `UsageDialog`（额度按默认模型的 provider 排序）。
 
-**速度开关与指示**（`get_state.fastModeEnabled/fastModeActive/slowModeSupported/slowModeEnabled/slowModeScope`；命令 `set_fast_mode` / `set_slow_mode`）：ModelPicker 底部控件行里、思考强度右边（3.1，`direction-3.1.md` §2 行 10），只在高亮行是**正在生效的模型**时出现（草稿里没有任务，不出现）。两个开关在一行里排开，每个是标签 + `ui/Segmented` sm 两段（`model.off` / `model.on`；2026-10-22 起，原来是自绘的分段），方向键切换，说明在悬停提示里。`快速模式`始终可点（没有悬停说明；RPC 没有“是否支持”字段；不支持的模型 omp 返回错误 `Fast mode is unavailable for the current model.`，原文进 toast）。`慢速模式`只在 `slowModeSupported` 时出现，范围是 `global` 时悬停 `model.slow.scope.global`（「所有会话共用」），`session` 时没有悬停；不支持时这一项不画（2026-10-24 起删掉 `model.slow.unsupported`）。ModelChip：`fastModeActive` 为真时一个 8px 实心闪电（`chip-fast`，`--st-waiting`）挂在思考强度刻度（`chip-effort`）左上角当角标，刻度颜色照旧表示强度；模型不支持思考、没有刻度时闪电 12px 跟在模型名后面（2026-10-23 起；2026-10-22 版 12px 闪电总在模型名后面，再往前是 `快速` 文字小胶囊；悬停提示仍写 `{模型} · 快速`）；刻度按钮内边距左 `--space-1`、右 `--space-1-5`（原来右边 `--space-2-5`，刻度后面空一大块）；慢速开着时 `--fs-2xs` 的 `--accent-soft` 小胶囊 `慢速`；都关时不显示。实测（Tern omp，临时 agent 目录）：fast 只对本会话有效，**不落配置**，切到不支持的模型会自动关；slow 在 Anthropic 模型上 scope 是 `global`，**落在 omp 配置里**并跨进程保留（`session` 范围对应 OpenAI/Google 的 flex 层级，未能实测）。studio 不存副本；键入的 `/fast`、`/slow` 照常走 omp，本地完成的斜杠命令（prompt 应答 `agentInvoked:false`）之后主进程会重读 `get_state`。
+**速度开关与指示**（`get_state.fastModeEnabled/fastModeActive/slowModeSupported/slowModeEnabled/slowModeScope`；命令 `set_fast_mode` / `set_slow_mode`）：ModelPicker 底部控件行里、思考强度右边（3.1，`direction-3.1.md` §2 行 10），只在高亮行是**正在生效的模型**时出现（草稿里没有任务，不出现）。两个开关在一行里排开，每个是标签 + `ui/Segmented` sm 两段（`model.off` / `model.on`；2026-10-22 起，原来是自绘的分段），方向键切换，说明在悬停提示里。`快速模式`始终可点（没有悬停说明；RPC 没有“是否支持”字段；不支持的模型 omp 返回错误 `Fast mode is unavailable for the current model.`，原文进 toast）。`慢速模式`只在 `slowModeSupported` 时出现，范围是 `global` 时悬停 `model.slow.scope.global`（「所有会话共用」），`session` 时没有悬停；不支持时这一项不画（2026-10-24 起删掉 `model.slow.unsupported`）。ModelChip：`fastModeActive` 为真时一个 8px 实心闪电（`chip-fast`，`--st-waiting`）挂在思考强度刻度（`chip-effort`）左上角当角标，刻度颜色照旧表示强度；模型不支持思考、没有刻度时闪电 12px 跟在模型名后面（2026-10-23 起；2026-10-22 版 12px 闪电总在模型名后面，再往前是 `快速` 文字小胶囊；悬停提示仍写 `{模型} · 快速`）；刻度按钮内边距左 `--space-1`、右 `--space-1-5`（原来右边 `--space-2-5`，刻度后面空一大块）；慢速开着时 `--fs-2xs` 的 `--accent-soft` 小胶囊 `慢速`；都关时不显示。omp 出错换成了备用模型（`TaskState.fallbackModel`）时模型名后同形的警告色小胶囊 `备用`（`model-fallback-badge`，`data-tone="warning"`，悬停 `composer.badge.fallbackTip` 写出换成的模型；2026-11-06 起，子代理详情头行同一个徽标 `agents-fallback-badge`）；omp 的警告行 `row role=omp.notice.warning`（备用切换的 `Fallback: a -> b` 就是这一行）画成警告色底条，不再和普通行一样。实测（Tern omp，临时 agent 目录）：fast 只对本会话有效，**不落配置**，切到不支持的模型会自动关；slow 在 Anthropic 模型上 scope 是 `global`，**落在 omp 配置里**并跨进程保留（`session` 范围对应 OpenAI/Google 的 flex 层级，未能实测）。studio 不存副本；键入的 `/fast`、`/slow` 照常走 omp，本地完成的斜杠命令（prompt 应答 `agentInvoked:false`）之后主进程会重读 `get_state`。
 
 **输出速度**（`get_state.tokensPerSecond`）：UsageMeter 末尾一项，等宽 `--text-3`，`composer.usage.tps`，只在任务运行（running / needs_you）且值为有限正数时显示。实测 omp 在一条回复流式输出期间给 `null`，回复结束（message_end 之后）才有值，所以运行中显示的是上一条回复的速度；主进程在 `message_end` 等事件后按 1 秒节流重读 `get_state`，不另外轮询。
 
@@ -618,7 +618,7 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 | number | `NumberField` sm（112 宽，右对齐，单位写在框内，从 key 末段后缀推：`Ms` → ms、`Seconds` → 秒 / s、`Percent` → %，标签里不再写单位）。omp 说明里写了特殊含义的值（`compaction.thresholdPercent`、`compaction.thresholdTokens` 的 -1，`task.maxRuntimeMs`、`retry.maxDelayMs` 的 0）在框里显示成占位文字，清空即存回这个值 | 停手 700ms、失焦或 Enter；不是数字时不存，就地报错 |
 | string | `TextField` sm，260 宽 | 同上 |
 | 字符串数组（如 `task.disabledAgents`） | 标签输入（`TagInput.tsx`：Enter 或逗号添加，输入框空时 Backspace 删最后一个） | 每次增删即存 |
-| `modelRoles`、`retry.fallbackChains` | `编辑…` sm 按钮 + 等宽摘要（角色名 / `N 条回退链`），点开对话框里是专门的编辑器（`StructuredEditors.tsx`：角色 → 模型下拉；角色或模型 → 有序的回退模型，可增删、上下移，每项模型后一个思考强度下拉（同模型页，`chain-level-<key>-<序号>`，没得选时留空位），换模型时后缀的档位新模型也支持才保留；候选和设置 → 模型的角色表是同一份，按角色或备用链的 key 能用的模型类别筛，`role-options.ts`）；值的结构认不出时退回下一行 | 编辑器里改动即存，`完成` 关闭 |
+| `modelRoles`、`retry.fallbackChains` | `编辑…` sm 按钮 + 等宽摘要（角色名 / 每条回退链的 key，空时 `settings.cfg.noFallbacks`），点开对话框里是专门的编辑器（`StructuredEditors.tsx`：角色 → 模型下拉；角色或模型 → 有序的回退模型，可增删、上下移，每项模型后一个思考强度下拉（同模型页，`chain-level-<key>-<序号>`，没得选时留空位），换模型时后缀的档位新模型也支持才保留；候选和设置 → 模型的角色表是同一份，按角色或备用链的 key 能用的模型类别筛，`role-options.ts`）；值的结构认不出时退回下一行 | 编辑器里改动即存，`完成` 关闭 |
 | 其余对象 / 数组 | `编辑…` + 等宽摘要，对话框里是等宽 `Textarea`；JSON 能解析、类型对（数组 / 对象）且有改动时 `保存` 才可用 | 点 `保存` |
 | `goal.continuationModes` | 开关「目标自动推进」（见本节末） | 切换即存 |
 
@@ -688,7 +688,7 @@ BtwPanel 头部在“新话题”左边多一个“复制答案”`IconButton`�
 | omp 报不可用 | `当前不可用` | — |
 | 其余 | 无（2026-10-24 起选择对话框里整张列表都是未连接的，不画「未登录」） | 无（2026-10-28 起多步登录也不写，`登录` 按钮已说明） |
 
-- **按钮**（都是 sm 次要按钮）：能填 key 的（`provider-keys.ts` 的 `acceptsApiKey`：有已知环境变量名，或登录方式就是粘贴 key）给 `设置 API key`（已有 `api_key` 账号时写 `更换 key`），打开 key 对话框；有账号的给退出按钮（有 OAuth 账号时写 `退出登录`，只有 key 账号时写 `清除 key`）——只有一个账号时直接 `logout`，多个时打开对话框选账号（key 是一条 `API key #<n>` 账号，没有单独的 ⋯）；只有环境变量 / 配置文件的没有退出按钮（要去掉就改 `.env` 或 `models.yml`，自定义提供商分组标题旁有 `打开 .env`）；没登录的 OAuth 类给 `登录`；多步登录的（`loginKind` = `terminal`，omp 的 rpc `login` 直接拒绝）也给 `登录`（`provider-terminal-login-<id>`），打开流程对话框的"应用内登录"（下表）。**卡片上最多一个可见的文字按钮**（2026-10-29，仓库所有者定）：有 `登录` / 退出按钮时它留在卡片上，`设置 API key` / `更换 key` 收进它后面的 ⋯（`provider-more-<id>`，读屏名 `login.more`；菜单项仍是 `provider-key-<id>`）；只有 key 一个动作时是直接的按钮。选择对话框里两个按钮照旧并排（`设置 API key` 在前），直接选连接方式。登录方式按实测分类（omp 的 `get_login_providers` 没有这个字段；`src/shared/provider-login.ts`，`docs/architecture/login.md`），表里没有的按 OAuth 处理。
+- **按钮**（都是 sm 次要按钮）：能填 key 的（`provider-keys.ts` 的 `acceptsApiKey`：有已知环境变量名，或登录方式就是粘贴 key）给 `设置 API key`（已有 `api_key` 账号时写 `更换 key`），打开 key 对话框；有账号的给退出按钮（有 OAuth 账号时写 `退出登录`，只有 key 账号时写 `清除 key`）——只有一个账号时直接 `logout`，多个时打开对话框选账号（key 是一条 `API key #<n>` 账号，没有单独的 ⋯）；只有环境变量 / 配置文件的没有退出按钮（要去掉就改 `.env` 或 `models.yml`，自定义提供商分组标题旁有 `打开 .env`）；没登录的 OAuth 类给 `登录`；多步登录的（`loginKind` = `terminal`，omp 的 rpc `login` 直接拒绝）也给 `登录`（`provider-terminal-login-<id>`），打开流程对话框的"应用内登录"（下表）。**卡片上最多一个可见的文字按钮**（2026-10-29，仓库所有者定）：有 `登录` / 退出按钮时它留在卡片上，其余动作收进它后面的 ⋯（`provider-more-<id>`，读屏名 `login.more`），依次是 `添加账号`（`login.addAccount`，`provider-add-account-<id>`；已有 OAuth 账号、登录方式是 OAuth 或多步登录时有，打开同一个登录 / 应用内登录对话框，换一个账号登录就多一个账号，2026-11-06 起）和 `设置 API key` / `更换 key`（`provider-key-<id>`）；⋯ 里没有项时不画；没有登录 / 退出按钮、只有 key 一个动作时是直接的按钮。选择对话框里两个按钮照旧并排（`设置 API key` 在前），直接选连接方式。登录方式按实测分类（omp 的 `get_login_providers` 没有这个字段；`src/shared/provider-login.ts`，`docs/architecture/login.md`），表里没有的按 OAuth 处理。
 - **连接提供商…**（`ProviderPickDialog.tsx`，`ui/Dialog` md，`provider-pick`）：标题 `login.connect.title`（2026-10-24 起没有说明）；顶上搜索框（`login.search`，打开时焦点在它上，`provider-search`），按名称和 id 过滤，每个词都要命中；下面是未连接提供商的行（同上面的行，最高 360 后滚动），没有匹配时 `login.noMatch`；页脚只有 `关闭`。点行里的按钮，选择对话框换成流程对话框（同一时间只有一个对话框）。
 - **流程对话框**（`ProviderFlowDialog.tsx`，`ui/Dialog` md，标题是提供商名，`provider-flow-<id>`）：从选择对话框进来、且不在登录进行中时，页脚左侧有 quiet `返回`，回到选择对话框。五种内容：
 
@@ -1218,6 +1218,8 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `composer.context` | Context {p}% | Context {p}% |
 | `composer.usage.tps` | {n} token/s | {n} tok/s |
 | `composer.badge.fast` / `composer.badge.slow` | 快速 / 慢速 | Fast / Slow |
+| `composer.badge.fallback` | 备用 | Fallback |
+| `composer.badge.fallbackTip` | omp 出错后自动换成了备用模型 {model} | omp hit an error and switched to the fallback model {model} |
 | `composer.noModel` | 未连接模型 | No model connected |
 | `composer.modelLoading` | 模型… | Model… |
 | `composer.versionTooOld` | omp 版本过旧 | omp is too old |
@@ -1494,6 +1496,7 @@ Tab 顺序：侧栏头 → 任务列表（一个停靠点，内部方向键）�
 | `settings.ompPicksModel` | 由 omp 自动选择 | Let omp choose |
 | `login.signIn` | 登录 | Sign in |
 | `login.signOut` | 退出登录 | Sign out |
+| `login.addAccount` | 添加账号 | Add account |
 | `login.opening` | 正在打开浏览器… | Opening your browser… |
 | `login.fallback` | 登录链接 | Sign-in link |
 | `login.reopen` | 重新打开浏览器 | Open the browser again |

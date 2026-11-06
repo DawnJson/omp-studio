@@ -9,6 +9,7 @@ import type { AgentMessage } from "../../shared/omp-wire/rpc-wire.generated.ts";
 import { subagentLimits } from "../../shared/subagents.ts";
 import { isAgentName } from "../../shared/tsp/agent-hub.ts";
 import { isRecord } from "../../shared/type-guards.ts";
+import { ModelFallbackTracker } from "./session-files.ts";
 
 /** 详情里的完整记录：保留最近的 detailMessages 条，且序列化后不超过 detailBytes。 */
 export function trimSubagentMessages<T>(messages: T[]): { messages: T[]; truncated: boolean } {
@@ -43,8 +44,8 @@ export function subagentPaths(sessionFile: string, name: string): SubagentPaths 
   return inside(jsonl) && inside(md) ? { jsonl, md } : null;
 }
 
-/** 会话文件内容 → 消息；坏行（含写到一半的最后一行）跳过。 */
-export function parseSubagentMessages(text: string): AgentMessage[] {
+/** 会话文件内容 → 消息；坏行（含写到一半的最后一行）跳过。给了 fallback 时每条记录也喂给它（子代理换了备用模型没有）。 */
+export function parseSubagentMessages(text: string, fallback?: ModelFallbackTracker): AgentMessage[] {
   const messages: AgentMessage[] = [];
   for (const line of text.split("\n")) {
     if (line.trim() === "") continue;
@@ -54,7 +55,9 @@ export function parseSubagentMessages(text: string): AgentMessage[] {
     } catch {
       continue;
     }
-    if (isRecord(entry) && entry["type"] === "message" && isRecord(entry["message"]))
+    if (!isRecord(entry)) continue;
+    fallback?.entry(entry);
+    if (entry["type"] === "message" && isRecord(entry["message"]))
       messages.push(entry["message"] as unknown as AgentMessage);
   }
   return messages;
@@ -81,15 +84,28 @@ async function readTail(file: string, max: number): Promise<{ text: string; trun
 
 /** 读一个子代理的记录和最终输出；文件不存在、读失败都以 `unavailable` + 原因返回，不抛错（界面照常显示别的内容）。 */
 export async function readSubagentRecord(sessionFile: string | null, name: string): Promise<TspSubagentRecord> {
-  const empty: TspSubagentRecord = { messages: null, truncated: false, output: null, unavailable: null, error: null };
+  const empty: TspSubagentRecord = {
+    messages: null,
+    truncated: false,
+    output: null,
+    unavailable: null,
+    error: null,
+    fallbackModel: null,
+  };
   if (sessionFile === null) return { ...empty, unavailable: "no_session" };
   const paths = subagentPaths(sessionFile, name);
   if (!paths) return { ...empty, unavailable: "error", error: `invalid subagent name: ${name}` };
   let record: TspSubagentRecord = { ...empty };
   try {
     const { text, truncated } = await readTail(paths.jsonl, subagentLimits.detailBytes);
-    const trimmed = trimSubagentMessages(parseSubagentMessages(text));
-    record = { ...record, messages: trimmed.messages, truncated: truncated || trimmed.truncated };
+    const fallback = new ModelFallbackTracker();
+    const trimmed = trimSubagentMessages(parseSubagentMessages(text, fallback));
+    record = {
+      ...record,
+      messages: trimmed.messages,
+      truncated: truncated || trimmed.truncated,
+      fallbackModel: fallback.current(),
+    };
   } catch (error) {
     record = isMissing(error)
       ? { ...record, unavailable: "no_file" }

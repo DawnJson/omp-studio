@@ -1018,6 +1018,35 @@ test("一轮还在跑（会话文件里这一轮已有结算过的用量）时�
   }
 });
 
+// omp 的 retry fallback 在会话文件里记一条 role=fallback 的 model_change（omp 18.17 实测）：模型胶囊挂"备用"徽标，悬停说换成了哪个模型。
+test("会话文件最后一条 model_change 是备用模型时，模型胶囊上有备用徽标", async () => {
+  test.setTimeout(90_000);
+  const scratch = await mkdtemp(path.join(os.tmpdir(), "omp tsp fallback "));
+  const sessionFile = path.join(scratch, "会话 文件.jsonl");
+  const lines = [
+    { type: "model_change", id: "m1", model: "anthropic/claude-opus-5-5" },
+    {
+      type: "model_change",
+      id: "m2",
+      model: "google-antigravity/gemini-3.8-flash",
+      role: "fallback",
+      resolvedModelIsFallback: true,
+    },
+  ];
+  await writeFile(sessionFile, lines.map((line) => JSON.stringify(line)).join("\n") + "\n");
+  const { launched, cleanup } = await start("approval", { FAKE_TSP_SESSION_FILE: sessionFile });
+  try {
+    const { page } = launched;
+    await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
+    const badge = page.getByTestId("model-fallback-badge");
+    await expect(badge).toBeVisible({ timeout: 30_000 });
+    await expect(badge).toHaveAttribute("title", /google-antigravity\/gemini-3\.8-flash/);
+  } finally {
+    await cleanup();
+    await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
+
 // fixtures/tsp/recap.jsonl:omp 18.12.6 实录(recap.idleSeconds 1),两轮各在结束后空闲出一条回顾,omp 两条都留在 main 里。
 test("空闲回顾:omp 发来的回顾用 ※ 斜体画在对话里;第二条来了第一条收起,只显示最新一条", async () => {
   test.setTimeout(90_000);

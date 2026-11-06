@@ -349,6 +349,9 @@ test("备用模型链的结构化编辑器：带后缀的值显示档位，改�
     await page.setViewportSize({ width: 1200, height: 900 });
     await expect(page.getByTestId("app-root")).toBeVisible();
     await page.keyboard.press("Control+,");
+    // 模型角色页上就有备用链这一行，摘要列出每条链的 key（按 provider/* 设的链在角色表里看不到，只能在这里看到）。
+    await page.getByTestId("settings-nav-models").click();
+    await expect(page.getByTestId("cfg-retry.fallbackChains")).toContainText("smol", { timeout: 30_000 });
     await page.getByTestId("settings-search").fill("fallbackChains");
     await page
       .getByTestId("cfg-retry.fallbackChains")

@@ -412,6 +412,8 @@ export interface TaskState {
   extStatuses: readonly string[];
   /** 保持运行（setTaskKeepAlive）：空闲时不关进程。 */
   keepAlive: boolean;
+  /** omp 出错后自动换上的备用模型（会话文件最后一条 `model_change` 是 retry fallback，`provider/model`）；在用原来的模型为 null。 */
+  fallbackModel: string | null;
 }
 
 /** omp 的自动压缩（上下文圆环上的刻度和构成浮层里的说明）。百分数都是占上下文窗口的比例（0–100）。 */
@@ -604,6 +606,8 @@ export interface TspSubagentRecord {
   output: string | null;
   unavailable: "no_session" | "no_file" | "error" | null;
   error: string | null;
+  /** 同 TaskState.fallbackModel：这个子代理当前在用的备用模型。 */
+  fallbackModel: string | null;
 }
 
 export interface TspSnapshot {

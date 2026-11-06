@@ -204,6 +204,11 @@ button.usage-context:hover,
   font-size: var(--fs-2xs);
   line-height: var(--lh-2xs);
 }
+/* 在用 omp 的备用模型（TaskState.fallbackModel）：警告色，和慢速徽标同形 */
+.chip-badge[data-tone="warning"] {
+  background: color-mix(in srgb, var(--st-waiting) 16%, transparent);
+  color: var(--st-waiting-text);
+}
 /* 快速模式：实心闪电。没有刻度时跟在模型名后面（12px）；有刻度时是刻度左上角的 8px 角标，
    落在最矮几根竖条上方的空角里，不挡亮条，刻度颜色照旧表示思考强度。 */
 .chip-fast {

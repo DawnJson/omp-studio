@@ -71,6 +71,8 @@ export const composer = {
   "usage.tps": "{n} token/s",
   "badge.fast": "快速",
   "badge.slow": "慢速",
+  "badge.fallback": "备用",
+  "badge.fallbackTip": "omp 出错后自动换成了备用模型 {model}",
   "pills.aria": "Subagent 与后台任务",
   "pills.agents": "Subagent：{count} 个运行中",
   "pills.jobs": "后台任务：{count} 个运行中",

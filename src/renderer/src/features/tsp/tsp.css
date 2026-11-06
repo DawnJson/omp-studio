@@ -2879,6 +2879,14 @@
   line-height: var(--lh-sm);
   overflow-wrap: anywhere;
 }
+/* omp 的警告行（`row role=omp.notice.warning`，警告图标 + 文字）：备用模型切换 "Fallback: a -> b" 也是这一行。
+   原来照普通行画，混在对话里看不出来（2026-11-06）；画成警告色的底条。 */
+.tsp-row[data-role="omp.notice.warning"] {
+  padding: var(--space-1-5) var(--space-2-5);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--st-waiting) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--st-waiting) 30%, transparent);
+}
 .tsp-icon[data-role="omp.turn.copy"] {
   border-radius: var(--radius-sm);
 }

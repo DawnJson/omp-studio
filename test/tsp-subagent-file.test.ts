@@ -29,6 +29,20 @@ beforeAll(async () => {
   await writeFile(path.join(dir, "Beta.jsonl"), lines.join("\n"));
   await writeFile(path.join(dir, "Beta.md"), "DONE\n");
   await writeFile(path.join(dir, "Alpha.jsonl"), lines[1] ?? "");
+  const change = (model: string, fallback: boolean) =>
+    JSON.stringify({
+      type: "model_change",
+      model,
+      ...(fallback ? { role: "fallback", resolvedModelIsFallback: true } : {}),
+    });
+  await writeFile(
+    path.join(dir, "Fell.jsonl"),
+    [change("anthropic/claude-opus-5-5", false), change("google-antigravity/gemini-3.8-flash", true)].join("\n"),
+  );
+  await writeFile(
+    path.join(dir, "Back.jsonl"),
+    [change("google-antigravity/gemini-3.8-flash", true), change("anthropic/claude-opus-5-5", false)].join("\n"),
+  );
 });
 afterAll(async () => {
   await rm(scratch, { recursive: true, force: true });
@@ -45,6 +59,14 @@ describe("subagentPaths", () => {
   it("名字带路径、不是 .jsonl 的会话文件：null", () => {
     for (const bad of ["../Beta", "a/b", "a\\b", "..", ""]) expect(subagentPaths(sessionFile, bad)).toBeNull();
     expect(subagentPaths(path.join(scratch, "session.txt"), "Beta")).toBeNull();
+  });
+});
+
+describe("readSubagentRecord fallbackModel", () => {
+  it("最后一条 model_change 是 fallback：给出备用模型；之后换回原模型：null", async () => {
+    expect((await readSubagentRecord(sessionFile, "Fell")).fallbackModel).toBe("google-antigravity/gemini-3.8-flash");
+    expect((await readSubagentRecord(sessionFile, "Back")).fallbackModel).toBeNull();
+    expect((await readSubagentRecord(sessionFile, "Beta")).fallbackModel).toBeNull();
   });
 });
 

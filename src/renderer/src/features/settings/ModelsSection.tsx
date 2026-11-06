@@ -48,8 +48,10 @@ import { useAsyncAction } from "./use-async-action.ts";
 
 const thinkingLevels = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
 const unset = "";
-// 这几项在角色表里已经有了，omp 的同一项不再重复一行（搜索里照旧有）。
-const shownAbove = ["defaultThinkingLevel", "modelRoles", "retry.fallbackChains"];
+// 这两项在角色表里已经有了，omp 的同一项不再重复一行（搜索里照旧有）。
+// retry.fallbackChains 照样一行：角色表只画以角色为 key 的链，`anthropic/*` 这种按模型 / provider 的链（omp 里优先于角色的）
+// 只在这一行看得到（2026-11-06，所有者的 Opus 出错悄悄换成 Gemini，设置里却哪儿都看不到这条链）。
+const shownAbove = ["defaultThinkingLevel", "modelRoles"];
 
 interface RoleTableProps {
   roles: readonly string[];

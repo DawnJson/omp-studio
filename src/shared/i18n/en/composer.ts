@@ -75,6 +75,8 @@ export const composer = {
   "usage.tps": "{n} tok/s",
   "badge.fast": "Fast",
   "badge.slow": "Slow",
+  "badge.fallback": "Fallback",
+  "badge.fallbackTip": "omp hit an error and switched to the fallback model {model}",
   "pills.aria": "Subagents and background jobs",
   "pills.agents": "Subagents: {count} running",
   "pills.jobs": "Background jobs: {count} running",

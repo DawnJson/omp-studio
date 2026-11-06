@@ -75,11 +75,11 @@ export function canEditStructured(item: { key: string; value: unknown; hasValue:
   return false;
 }
 
-/** 设置行上"编辑…"旁边的等宽摘要：角色名 / 回退链个数。 */
+/** 设置行上"编辑…"旁边的等宽摘要：角色名 / 每条回退链的 key（`anthropic/*` 这种也一眼看得到）。 */
 export function structuredSummary(item: OmpConfigItem, t: TFunction): string {
   if (item.key === "modelRoles") return isStringRecord(item.value) ? Object.keys(item.value).join(" · ") : "";
-  const count = isChainRecord(item.value) ? Object.keys(item.value).length : 0;
-  return t("settings.cfg.chainCount", { count });
+  const keys = isChainRecord(item.value) ? Object.keys(item.value) : [];
+  return keys.length === 0 ? t("settings.cfg.noFallbacks") : keys.join(" · ");
 }
 
 export function RolesEditor({ item, labelId, onSave }: ControlProps) {

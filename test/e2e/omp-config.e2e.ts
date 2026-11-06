@@ -210,15 +210,18 @@ test("设置页排版：内容随窗口变宽、格子多列（备用模型、�
     await expect(page.getByTestId("cfg-retry.fallbackOn")).toBeVisible({ timeout: 30_000 });
     await sectionSettled(page);
 
-    // 1200 宽：备用模型三项排成两行两列（同一行两个、第三个在第一个正下方）。
+    // 1200 宽：备用模型四项排成两行两列（备用链在第一项正下方，等额度重置在第二项正下方）。
     const narrowWidth = await contentWidth();
     const first = await rectOf(page, "cfg-retry.modelFallback");
     const second = await rectOf(page, "cfg-retry.fallbackOn");
-    const third = await rectOf(page, "cfg-retry.waitForUsageReset");
+    const third = await rectOf(page, "cfg-retry.fallbackChains");
+    const fourth = await rectOf(page, "cfg-retry.waitForUsageReset");
     expect(Math.abs(second.y - first.y)).toBeLessThan(3);
     expect(second.x).toBeGreaterThan(first.x + 100);
     expect(third.y).toBeGreaterThan(first.y + 20);
     expect(Math.abs(third.x - first.x)).toBeLessThan(3);
+    expect(Math.abs(fourth.y - third.y)).toBeLessThan(3);
+    expect(Math.abs(fourth.x - second.x)).toBeLessThan(3);
 
     // 记忆后端：下拉和两个后端的设置都只占一格（不独占整行），同一行放得下两个。
     await page.getByTestId("settings-nav-context").click();
@@ -266,8 +269,8 @@ test("设置页排版：内容随窗口变宽、格子多列（备用模型、�
     await expect(page.getByTestId("cfg-retry.fallbackOn")).toBeVisible();
     await sectionSettled(page);
     const wideFirst = await rectOf(page, "cfg-retry.modelFallback");
-    const wideThird = await rectOf(page, "cfg-retry.waitForUsageReset");
-    expect(Math.abs(wideThird.y - wideFirst.y)).toBeLessThan(3); // 三列：三项同一行
+    const wideThird = await rectOf(page, "cfg-retry.fallbackChains");
+    expect(Math.abs(wideThird.y - wideFirst.y)).toBeLessThan(3); // 三列：前三项同一行
 
     // 窄窗口 900：中英文都不越界。
     for (const locale of ["zh-CN", "en"] as const) {

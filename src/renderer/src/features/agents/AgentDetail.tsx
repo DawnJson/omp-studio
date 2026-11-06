@@ -7,7 +7,7 @@ import type { TaskId } from "../../../../shared/ipc.ts";
 import { isAgentActive, type HubAgent } from "../../../../shared/tsp/agent-hub.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { Markdown } from "../../markdown/index.ts";
-import { Button, Disclosure, SectionHead } from "../../ui/controls.tsx";
+import { Badge, Button, Disclosure, SectionHead } from "../../ui/controls.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { formatDuration } from "../conversation/format.ts";
@@ -160,6 +160,15 @@ export function AgentDetail({ taskId, agent, busy }: { taskId: TaskId; agent: Hu
             <span className="agents-detail-model" title={agent.model}>
               {shortModel(agent.model)}
             </span>
+          )}
+          {typeof record?.fallbackModel === "string" && (
+            <Badge
+              tone="warning"
+              testId="agents-fallback-badge"
+              title={t("composer.badge.fallbackTip", { model: record.fallbackModel })}
+            >
+              {t("composer.badge.fallback")}
+            </Badge>
           )}
         </span>
         {canFocus(agent.status) && (

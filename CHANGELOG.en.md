@@ -10,6 +10,16 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- Settings → Providers: a signed-in provider's card (such as Anthropic) now has "Add account" in its ⋯ menu; sign in with another account in the browser to add it, and omp switches to another account when one runs out of quota.
+- When omp hits an error and switches to a fallback model, a "Fallback" badge appears after the model name in the input box (hover to see which model), and in the subagent details too; the switch notice in the conversation is drawn as a visible warning bar.
+- Settings → Model roles: a new "Fallback chains" row shows chains set by model or provider (such as `anthropic/*`); before, only chains keyed by a role were shown.
+
+### Fixed
+
+- With a theme illustration as the background, moving the mouse over the sidebar task list no longer lags a frame on every move: the illustration is no longer redrawn with every repaint of the sidebar or the input box.
+
 ### Changed
 
 - omp status lines in the conversation show at most two lines: with many MCP tools, the startup notice listing every mounted tool no longer fills the screen; click "more lines" to see all of it.

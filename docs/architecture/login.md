@@ -33,6 +33,13 @@
 - `logout`：1 个账号直接退出，多个先让用户选（`login.chooseAccount`）。选择列表里 `LogoutAccount.active` 为 true 的账号（omp 报告它正被使用）带"正在使用"徽标（`login.accountActive`，`account-active-<credentialId>`），让用户知道退出的是正在用的凭据；只有 1 个账号时不弹选择，看不到徽标。
 - 清除 API key 就是退出那条 `api_key` 账号：只有 key 账号时按钮写 `清除 key`（`login.apiKey.remove`），有 OAuth 账号时写 `退出登录`。只有环境变量 / 配置文件的没有退出按钮。
 
+## 多个账号
+
+- **添加**（2026-11-06 起）：已有 OAuth 账号的卡片 ⋯ 里 `添加账号`（`ProviderRow.tsx`），走和第一次登录一样的 `login`（OAuth 类）或应用内登录（多步登录类），在浏览器里换一个账号（或同一邮箱的另一个组织 / 工作区）授权。
+- **omp 怎么存**（omp 18.16.0 二进制里的源码 `AuthStorage.upsertOAuth`，没有用真实账号跑过）：把这个 provider 已有的凭据和新的一起按账号身份去重后写回，所以不同账号是追加，同一个账号只刷新那一条；API key 是 `replaceAuthCredentials`，一个 provider 只留一条。终端里 `omp login <provider>` / `/login` 也是同一条路。
+- **怎么轮换**（omp 文档 `providers.md`、`non-compaction-retry-policy.md`、`auth-broker-gateway.md`「How sessions choose and keep an account」，omp 自己做，studio 不参与）：额度用尽时换同一 provider 的另一个账号重发这一轮，用尽的账号屏蔽一段时间；运行中的会话固定在用过的账号上，账号坏了才移走，恢复了也不移回；`retry.usageAwareFallback` 打开才在请求前按配额挑账号。
+- 已经在跑的任务进程什么时候认得新账号没有实测 [推测：同"应用内登录"成功后，下次启动才用上]。
+
 ## 内置 magpie 插件：第三方客户端账号
 
 `src/main/client-accounts/`（设计、注册出来的 provider 列表和实测见 `client-accounts.md`）：studio 内置 magpie 社区的账号插件，包在一个 omp 扩展里，启动时写进 omp 的扩展目录 `<agent 目录>/extensions/studio-accounts/`，omp 的每个进程（studio 起的和终端里的）自动加载。扩展按每个插件自己的声明在 omp 里注册带 `oauth` 的 provider（`qoder-cn`、`workbuddy`、`trae-cn`、`kiro`……），所以它们和别的 provider 一样出现在上面的列表里，登录走同一条 RPC `login`（`onAuth` → `open_url`、`onProgress` → `notify`），凭据进 omp 自己的 agent.db；登录后 omp 自己 `refreshProvider` 重新发现模型。
@@ -83,6 +90,7 @@ omp 的角色（读源码 omp 18.12.6 `packages/coding-agent/src/config/model-ro
 - 候选按角色筛（`src/renderer/src/features/settings/role-options.ts`）：角色 → 能用的类别（`composer/model-groups.ts` 的 `roleKinds`）→ 那些类别的模型。`retry.fallbackChains` 的 key 可以是角色、`provider/model` 或 `provider/*`：角色按角色筛；具体模型按它的类别；`provider/*` 按那个 provider 有的全部类别；认不出的当对话模型。设置页的角色表和搜索里 `modelRoles` / `retry.fallbackChains` 的“编辑…”对话框用同一份候选。
 - 备用模型（`retry.fallbackChains.<角色>`）是请求出错时依次换用的列表，和 `modelRoles` 的值里用逗号分开的多个选择器不是一回事（后者是“第一个能用的”，omp 文档 `docs/models.md`）。omp 的默认值是空对象；移除一个角色的最后一个备用模型时整条 key 去掉，不留空列表。
 - **备用模型的思考强度**（读 omp 18.12.6 文档 `settings.md`、`advisor-watchdog.md`，2026-10-23；没有另外起 omp 实测）：`retry.fallbackChains` 的条目可以带 `:<档位>` 后缀（文档示例 `anthropic/claude-sonnet-4-5:medium`），没有后缀的条目沿用出错那一轮的思考强度，显式后缀替换它；非对话模型（web、image 等）不用对话的思考预算。所以模型页给每个备用模型一个思考强度下拉（`ChainLevel.tsx`，档位来源同主模型：`thinkingLevelOptions`），写回 `provider/model:档位`，选“沿用当前”去掉后缀；解析用 `role-value.ts` 的 `splitRoleValue` / `joinRoleValue`。去重（`添加备用…` 里不再列已加的）按去掉后缀的选择器比。`provider/*` 条目、不支持思考的模型没有下拉。e2e：`test/e2e/model-picker.e2e.ts`（模型页写入 `role-local/role-two:high`、编辑器改档位 / 换模型去后缀、900/1200 × 中英文不越界）。
+- **在用备用模型的标记**（实测 omp 18.17.0，2026-11-06，所有者真实会话只读）：omp 的 retry fallback 换模型时往会话文件追加 `{"type":"model_change","model":"<provider/id>","role":"fallback","resolvedModelIsFallback":true}`，冷却后换回、用户自己换模型也各追加一条 `model_change`；TSP 里只多一行 `row role=omp.notice.warning`（`Fallback: anthropic/claude-opus-5-5:high -> google-antigravity/gemini-3.8-flash:high`）。所以会话文件里最后一条 `model_change` 是 fallback 就是在用备用模型：`ModelFallbackTracker`（`src/main/tsp/session-files.ts`）读出 `TaskState.fallbackModel`，子代理按它自己的记录文件读出 `TspSubagentRecord.fallbackModel`，界面在模型名后挂 `备用` 徽标。按 `provider/*` 设的链（omp 里优先于角色）在模型页的角色表里没有，模型页另有 `retry.fallbackChains` 一行，摘要列出每条链的 key。
 
 ## 没有实测的
 
