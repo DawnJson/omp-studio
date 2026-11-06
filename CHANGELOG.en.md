@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.4.57] - 2026-11-06
+
 ### Fixed
 
 - The "Fallback" badge after the model name now goes away once omp switches back to the original model after the cooldown (it used to stay even while Opus was answering).
