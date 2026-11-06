@@ -44,6 +44,8 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
   const [busy, setBusy] = useState<"check" | "upgrade" | "path" | "takeover" | null>(null);
   const [upgrade, setUpgrade] = useState<OmpUpgradeResult | null>(null);
   const [confirmTakeover, setConfirmTakeover] = useState(false);
+  /** 上一次手动检查的结果（没有新版本时）：和 omp-studio 那一格一样写在"检查更新"左边；存版本号不存文字，切语言跟着变。 */
+  const [checked, setChecked] = useState<{ installedVersion: string | null } | null>(null);
 
   if (status?.state !== "ready")
     return (
@@ -57,6 +59,7 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
   const run = async (kind: "check" | "upgrade" | "path" | "takeover", job: () => Promise<void>) => {
     setBusy(kind);
     setNote(null);
+    setChecked(null);
     try {
       await job();
     } catch (error) {
@@ -78,15 +81,8 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
   const checkUpdate = () =>
     run("check", async () => {
       const { installedVersion, availableVersion } = await window.studio.checkOmpUpdate();
-      // 有新版本时不写提示：那一行（omp-available）常驻显示，随语言切换。
-      setNote(
-        availableVersion
-          ? null
-          : {
-              text: installedVersion ? t("omp.updatedTo", { version: installedVersion }) : t("omp.upToDate"),
-              error: false,
-            },
-      );
+      // 有新版本时不写：那一句（omp-available）常驻显示在同一个位置。
+      if (!availableVersion) setChecked({ installedVersion });
     });
   const upgradeOmp = () =>
     run("upgrade", async () => {
@@ -118,8 +114,16 @@ export function OmpSection({ studio }: { studio: ReactNode }) {
                 {ready.version}
               </span>
               <Badge testId="omp-source">{sourceLabel(source, t)}</Badge>
-              {ready.availableVersion && (
+              {ready.availableVersion ? (
                 <span data-testid="omp-available">{t("omp.newVersion", { version: ready.availableVersion })}</span>
+              ) : (
+                checked !== null && (
+                  <span className="st-muted" data-testid="omp-update-status">
+                    {checked.installedVersion
+                      ? t("omp.updatedTo", { version: checked.installedVersion })
+                      : t("omp.upToDate")}
+                  </span>
+                )
               )}
               <Button
                 size="sm"

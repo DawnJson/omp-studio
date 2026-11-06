@@ -8,7 +8,7 @@ import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { expect, test, type Locator } from "@playwright/test";
-import { expectNoOverflow, launchApp, launchSettings, setLocaleTheme } from "./launch.ts";
+import { expectNoOverflow, launchApp, launchSettings, setLocaleTheme, testOmp } from "./launch.ts";
 
 async function rect(locator: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
   const box = await locator.boundingBox();
@@ -305,7 +305,8 @@ test("关于 → omp：用户自装/他人管理的 omp 也会检查，有新版
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  const { launched, agentDir } = await launchSettings({ PI_BUILD_URL: baseUrl });
+  // 用假 omp（当作别人管理的）：PATH 上的 omp 可能已经是 omp-studio 管理的（所有者 2026-11-04 接管过），那样会去下载。
+  const { launched, agentDir } = await launchSettings({ PI_BUILD_URL: baseUrl, STUDIO_TEST_OMP: testOmp("resume") });
   try {
     const { page } = launched;
     await page.getByTestId("settings-nav-about").click();
@@ -321,6 +322,45 @@ test("关于 → omp：用户自装/他人管理的 omp 也会检查，有新版
     const status = await page.evaluate(() => globalThis.studio.getOmpStatus());
     expect(status).toMatchObject({ state: "ready" });
     expect(status.state === "ready" && status.version).not.toBe("99.0.0");
+  } finally {
+    await launched.close();
+    await rm(agentDir, { recursive: true, force: true });
+    server.close();
+  }
+});
+
+test("关于 → omp：手动检查已是最新时，结果写在 omp 那一格“检查更新”的左边（和 omp-studio 一样），不在下面另起一行", async () => {
+  const server = http.createServer((request, response) => {
+    if (request.url?.startsWith("/api/")) {
+      response.writeHead(200, { "content-type": "application/json" }).end(
+        JSON.stringify({
+          build: { version: "0.0.1" },
+          file: { name: "omp.exe", size: 1, sha256: createHash("sha256").update("x").digest("hex") },
+          download: "/d/omp.exe",
+        }),
+      );
+      return;
+    }
+    response.writeHead(404).end();
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { launched, agentDir } = await launchSettings({
+    PI_BUILD_URL: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+    STUDIO_TEST_OMP: testOmp("resume"),
+  });
+  try {
+    const { page } = launched;
+    await setLocaleTheme(page, "zh-CN", "light");
+    await page.getByTestId("settings-nav-about").click();
+    const row = page.getByTestId("omp-info");
+    await row.getByTestId("omp-check-update").click();
+    const status = row.getByTestId("omp-update-status");
+    await expect(status).toHaveText("已是最新版本");
+    const text = await rect(status);
+    const button = await rect(row.getByTestId("omp-check-update"));
+    expect(text.x + text.width).toBeLessThanOrEqual(button.x);
+    expect(Math.abs(text.y + text.height / 2 - (button.y + button.height / 2))).toBeLessThanOrEqual(2);
+    await expect(page.locator(".st-result")).toHaveCount(0);
   } finally {
     await launched.close();
     await rm(agentDir, { recursive: true, force: true });

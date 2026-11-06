@@ -157,9 +157,14 @@ const inheritedPrefixes = ["lc_", "xdg_"];
 /**
  * 被测应用的环境：继承白名单里的系统变量，再叠上 `extraEnv`。窗口默认在屏幕外、不抢焦点（main-window.ts 的 e2eBackground）；
  * 要看着测试跑就在命令前设 `STUDIO_E2E_BACKGROUND=0`，这是唯一从外面继承的 `STUDIO_*`。
+ * 构建服务默认指向连不上的本机端口：PATH 上第一个 omp 是 omp-studio 管理的时，应用直接用它、每次启动都查更新，
+ * 有新版就往临时 userData 里下载约 220 MB（2026-11-04 所有者接管 Tern 的 omp 之后才会出现）。要测更新的用例自己传假服务。
  */
 export function appEnv(extraEnv: Record<string, string>): Record<string, string> {
-  const env: Record<string, string> = { STUDIO_E2E_BACKGROUND: process.env["STUDIO_E2E_BACKGROUND"] ?? "1" };
+  const env: Record<string, string> = {
+    STUDIO_E2E_BACKGROUND: process.env["STUDIO_E2E_BACKGROUND"] ?? "1",
+    PI_BUILD_URL: "http://127.0.0.1:9/",
+  };
   for (const [name, value] of Object.entries(process.env)) {
     const lower = name.toLowerCase();
     if (value !== undefined && (inheritedNames.has(lower) || inheritedPrefixes.some((p) => lower.startsWith(p))))
