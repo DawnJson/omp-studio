@@ -119,6 +119,7 @@ type PageStyle = {
     display: string;
     fontSize: string;
     color: string;
+    lineHeight: string;
   };
 };
 
@@ -1321,6 +1322,48 @@ test("压缩分隔画成整行横线夹文字;切模型后 omp 的状态行留�
     await notes.nth(0).scrollIntoViewIfNeeded();
   } finally {
     await cleanup();
+  }
+});
+
+test("MCP 工具很多时启动的挂载状态行只露两行,多出的点 N more lines 展开、Show less 收回", async () => {
+  test.setTimeout(120_000);
+  // compact 录制回放到 omp 发 `xdev: xd://: mounted …` 那一帧为止,把工具名换成 150 个长名字(仓库所有者截图里约 20 行)。
+  const work = await mkdtemp(path.join(os.tmpdir(), "omp tsp 状态行 e2e-"));
+  const lines = (await readFile(path.join(root, "fixtures", "tsp", "compact.jsonl"), "utf8"))
+    .split("\n")
+    .filter((line) => line.trim() !== "");
+  const mounted = lines.findIndex((line) => line.includes("xdev: xd://: mounted"));
+  const names = Array.from({ length: 150 }, (_, i) => `mcp__workspace_long_tool_name_${String(i).padStart(3, "0")}`);
+  const text = `xdev: xd://: mounted ${names.join(", ")}`;
+  const fixture = path.join(work, "long-status-note.jsonl");
+  await writeFile(
+    fixture,
+    [...lines.slice(0, mounted), lines[mounted]!.replace(/xdev: xd:\/\/: mounted [^"]*/, text)].join("\n"),
+  );
+  const { launched, cleanup } = await start(fixture);
+  try {
+    const { page } = launched;
+    await page.evaluate(async () => {
+      const [project] = await globalThis.studio.listProjects();
+      await globalThis.studio.createTask({ projectId: project!.id });
+    });
+    await openTaskRow(page);
+    const note = page.getByTestId("tsp-status-note");
+    const more = note.getByRole("button", { name: /more lines/ });
+    await expect(more).toBeVisible({ timeout: 30_000 });
+    // 两行文字(行高随字号设置变)加一行按钮,不再是一整屏。
+    const clamp = note.locator(".tsp-clamp");
+    const lineHeight = await note.evaluate((el) =>
+      Number.parseFloat((globalThis as unknown as PageStyle).getComputedStyle(el).lineHeight),
+    );
+    expect((await clamp.boundingBox())!.height).toBeLessThanOrEqual(2 * lineHeight + 1);
+    await more.click();
+    await expect.poll(async () => (await clamp.boundingBox())!.height).toBeGreaterThan(100);
+    await note.getByRole("button", { name: "Show less" }).click();
+    await expect(more).toBeVisible();
+  } finally {
+    await cleanup();
+    await rm(work, { recursive: true, force: true });
   }
 });
 

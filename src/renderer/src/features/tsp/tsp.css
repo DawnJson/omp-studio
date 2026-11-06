@@ -2870,10 +2870,13 @@
   font-style: normal;
   flex: none;
 }
-/* omp 状态行（切模型的 "Session-only model: …" 等）：终端里是对话里一行暗色文字，留在原地（MainFlow.tsx）。 */
+/* omp 状态行（切模型的 "Session-only model: …" 等）：终端里是对话里一行暗色文字，留在原地（MainFlow.tsx）。
+   最多露两行（Clamp 按 --tsp-lh 量行数，所以它跟着这里的行高）。 */
 .tsp-status-note {
+  --tsp-lh: var(--lh-sm);
   color: var(--text-3);
   font-size: var(--fs-sm);
+  line-height: var(--lh-sm);
   overflow-wrap: anywhere;
 }
 .tsp-icon[data-role="omp.turn.copy"] {

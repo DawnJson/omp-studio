@@ -12,6 +12,7 @@ How to write it:
 
 ### Changed
 
+- omp status lines in the conversation show at most two lines: with many MCP tools, the startup notice listing every mounted tool no longer fills the screen; click "more lines" to see all of it.
 - Settings → About → Changelog follows the UI language: the English UI shows English notes (releases before 0.4.55 are in Chinese only); release notes on GitHub list English first, then Chinese.
 
 ## [0.4.55] - 2026-11-05

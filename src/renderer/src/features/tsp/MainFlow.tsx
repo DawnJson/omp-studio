@@ -1,18 +1,23 @@
 // 对话区的 main：omp 发来的子节点，加上 omp 终端里有、TSP 文档里留不住的状态行（切模型的 "Session-only model: …" 等）：
 // 文档里记下来的（shared/tsp/status-notes.ts），停在它出现时前面的那个节点后面。那个节点没了（压缩、/tree、恢复会话
 // 这类整段重建对话，omp 删掉旧节点重画）就不再画：终端里重建也会清掉状态行（omp 18.12.5 实录 session-tree-compacted.jsonl）。
+// 状态行最多露两行：MCP 工具多时启动的 `xdev: xd://: mounted …` 会列出全部工具名，占满一屏（2026-11-06 仓库所有者），
+// 多出的收进和工具输出一样的"N more lines"。
 import { memo, type ReactNode } from "react";
 import type { TaskId } from "../../../../shared/ipc.ts";
 import type { StatusNote } from "../../../../shared/tsp/status-notes.ts";
+import { Clamp } from "./Clamp.tsx";
 import type { TspContext } from "./node-props.ts";
 import { cleanGlyphs } from "./span-tokens.ts";
 import { TspNode } from "./TspChildren.tsx";
 import { useTspNode, useTspStatusNotes } from "./tsp-store.ts";
 
+const STATUS_NOTE_LINES = 2;
+
 function StatusLine({ note }: { note: StatusNote }) {
   return (
     <div className="tsp-status-note" data-testid="tsp-status-note">
-      {cleanGlyphs(note.text)}
+      <Clamp lines={STATUS_NOTE_LINES}>{cleanGlyphs(note.text)}</Clamp>
     </div>
   );
 }
