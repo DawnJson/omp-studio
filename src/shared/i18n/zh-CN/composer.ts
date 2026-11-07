@@ -30,7 +30,6 @@ export const composer = {
   stoppedBackground: "后台任务还在运行，它结束后 omp 可能自己继续",
   nextRequest: "下一次请求生效",
   context: "Context {p}%",
-  "usage.aria": "回复速度",
   "usage.context": "Context {used} / {total}",
   "usage.input": "输入",
   "usage.output": "输出",

@@ -397,6 +397,23 @@ describe("任务池：TSP 任务", () => {
     expect(state.fallbackModel).toBe("google-antigravity/gemini-3.8-flash");
   }, 60_000);
 
+  it("会话文件里的 credential_pin：TaskState.credentialPins 是每个 provider 最后一条的 hash（omp 额度用完换账号会再追加一条）", async () => {
+    const sessionFile = path.join(scratch, "sessions 账号", "pins.jsonl");
+    await mkdir(path.dirname(sessionFile), { recursive: true });
+    const line = (entry: object) => `${JSON.stringify(entry)}\n`;
+    await writeFile(
+      sessionFile,
+      line({ type: "credential_pin", id: "p1", provider: "anthropic", hash: "first" }) +
+        line({ type: "credential_pin", id: "p2", provider: "google-antigravity", hash: "google" }) +
+        line({ type: "credential_pin", id: "p3", provider: "anthropic", hash: "second" }),
+    );
+    const h = await harness();
+    h.next.env = { FAKE_TSP_SESSION_FILE: sessionFile };
+    const created = await h.pool.createTask({ projectId: h.projectId });
+    const state = await h.events.until(created.id, (next) => Object.keys(next.credentialPins).length > 0);
+    expect(state.credentialPins).toEqual({ anthropic: "second", "google-antigravity": "google" });
+  }, 60_000);
+
   it("会话文件在 omp 里被删了（issue #8）：打开不起 omp、报 session_missing；发消息时清掉旧路径、不带 --resume 开新会话", async () => {
     const sessionFile = path.join(scratch, "sessions 删", "deleted.jsonl");
     await mkdir(path.dirname(sessionFile), { recursive: true });

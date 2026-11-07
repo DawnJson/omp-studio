@@ -288,16 +288,70 @@ test("空状态、对话里的用量", async () => {
       (sectionBox?.x ?? 0) + (sectionBox?.width ?? 0) - 24,
     );
     // 月份标签不超出格子区右边：12 月 1 日落在最后一周（2026-12-01 是周二），"12月"写在最后一列，文字要在右边缘内结束。
+    // 热力图晚 1.5 秒回来，看刷新时的"同步中…"；额度给同一 provider 的两个账号，任务的会话在用第二个。
     await launched.app.evaluate(({ ipcMain }) => {
       ipcMain.removeHandler("studio:getUsageHeatmap");
-      ipcMain.handle("studio:getUsageHeatmap", () => ({
-        from: "2025-12-02",
-        to: "2026-12-01",
-        days: [{ date: "2026-11-30", tokens: 1000, costUsd: 1, requests: 2 }],
-        hasDatabase: true,
+      ipcMain.handle(
+        "studio:getUsageHeatmap",
+        () =>
+          new Promise((resolve) =>
+            setTimeout(
+              () =>
+                resolve({
+                  from: "2025-12-02",
+                  to: "2026-12-01",
+                  days: [{ date: "2026-11-30", tokens: 1000, costUsd: 1, requests: 2 }],
+                  hasDatabase: true,
+                }),
+              1500,
+            ),
+          ),
+      );
+      const account = (email: string, identityHash: string) => ({
+        provider: "anthropic",
+        account: email,
+        limits: [{ id: "5h", label: "5 Hour", windowLabel: "5 Hour", usedFraction: 0.4, resetsAt: null, status: "ok" }],
+        notes: [],
+        fetchedAt: Date.now(),
+        planType: null,
+        planEndsAt: null,
+        autoRenew: null,
+        daybreak: false,
+        resetCredits: null,
+        identityHash,
+      });
+      ipcMain.removeHandler("studio:getUsageQuota");
+      ipcMain.handle("studio:getUsageQuota", () => ({
+        generatedAt: Date.now(),
+        accounts: [account("first@example.com", "h1"), account("second@example.com", "h2")],
+        unavailable: [],
       }));
     });
+    const [current] = await page.evaluate(() => globalThis.studio.listTasks());
+    await launched.app.evaluate(
+      ({ BrowserWindow }, state) => BrowserWindow.getAllWindows()[0]?.webContents.send("studio:event:taskState", state),
+      { ...current, credentialPins: { anthropic: "h2" } },
+    );
     await overview.getByTestId("usage-refresh").click();
+    // 刷新时"同步中…"在标题行（更新时间左边），和 ↻ 竖直居中在同一条线上；热力图那里不再写。
+    const head = overview.locator(".ui-dialog-head");
+    await expect(head.getByTestId("usage-syncing")).toBeVisible();
+    await expect(overview.getByTestId("heatmap-section").getByTestId("usage-syncing")).toHaveCount(0);
+    const [statusBox, refreshBox, titleBox] = await Promise.all(
+      [head.locator(".usage-updated"), head.getByTestId("usage-refresh"), head.locator(".ui-dialog-title")].map(
+        (locator) => locator.boundingBox(),
+      ),
+    );
+    const middle = (box: { y: number; height: number } | null | undefined) => (box?.y ?? 0) + (box?.height ?? 0) / 2;
+    expect(Math.abs(middle(statusBox) - middle(refreshBox))).toBeLessThanOrEqual(1);
+    expect(Math.abs(middle(statusBox) - middle(titleBox))).toBeLessThanOrEqual(1);
+    expect((statusBox?.x ?? 0) + (statusBox?.width ?? 0)).toBeLessThanOrEqual(refreshBox?.x ?? 0);
+    await expect(head.getByTestId("usage-syncing")).toHaveCount(0, { timeout: 30_000 });
+    // 同一 provider 两个账号：只有任务会话在用的那个（credential_pin 和 identityHash 对上）挂"使用中"。
+    const accounts = overview.getByTestId("usage-account");
+    await expect(accounts).toHaveCount(2);
+    await expect(overview.getByTestId("usage-in-use")).toHaveCount(1);
+    await expect(accounts.filter({ hasText: "second@example.com" }).getByTestId("usage-in-use")).toBeVisible();
     const scroller = overview.getByTestId("heatmap-section").locator(".usage-scroll");
     await expect(scroller.locator(".uq-month").last()).toHaveText(/12|Dec/);
     const overflow = await scroller.evaluate((element) => {

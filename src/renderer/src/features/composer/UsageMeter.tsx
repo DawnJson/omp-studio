@@ -1,17 +1,12 @@
-// 输入框工具行里的用量仪表（输入框下方不再有单独一行）：
-// 模型、审批胶囊右边是速度（UsageMeter，只在运行中）；发送键左边依次是上下文圆环（ContextMeter）和费用（SessionCost）。
-// 点圆环弹出上下文构成；任务里有回复后，构成左边一直带着按模型的本会话用量（ModelBreakdown）。
+// 输入框工具行里的用量仪表（输入框下方不再有单独一行）：发送键左边依次是上下文圆环（ContextMeter）和费用（SessionCost）。
+// 点圆环弹出上下文构成；任务里有回复后，构成左边一直带着按模型的本会话用量（ModelBreakdown，输出速度也在那里，2026-11-07 起不再挂在工具行里）。
 import { useEffect, useState, type ReactNode } from "react";
 import type { ModelOption, ProjectId, TaskState } from "../../../../shared/ipc.ts";
 import { useT } from "../../i18n/use-t.ts";
 import { DraftContextBreakdown, prefetchCompaction, TaskContextBreakdown } from "./ContextBreakdown.tsx";
-import { hasModelUsage, ModelBreakdown, useModelUsage } from "./ModelBreakdown.tsx";
+import { hasModelUsage, ModelBreakdown, useModelUsage, useSpeed, type Speed } from "./ModelBreakdown.tsx";
 import { Popover } from "../../ui/Popover.tsx";
 import { onStudioCommand } from "../palette/studio-command.ts";
-import { useSessionExtras } from "../tsp/session-extras-store.ts";
-import { formatTokensPerSecond } from "./speed-limit-format.ts";
-import { useTspDerived } from "../tsp/tsp-store.ts";
-import { deriveComposerFacts, sameComposerFacts } from "../../../../shared/tsp/composer-facts.ts";
 import { formatCount, formatPercent } from "./usage-format.ts";
 
 const ringSize = 20;
@@ -65,15 +60,17 @@ const usageWidth = 300;
 
 /**
  * 上下文占用：只有圆环（百分比和已用/总量在悬停提示和构成里），点开是上下文构成（children，浮层开着时才挂载）。
- * 给了 task（任务里）且会话里已有回复时，浮层左边一直带着按模型的本会话用量（右边的构成不动）；还没有回复时浮层是单栏。
+ * 给了 task（任务里）且会话里已有回复或有输出速度时，浮层左边一直带着本会话用量（右边的构成不动）；否则浮层是单栏。
  */
 function ContextButton({
   context,
   task,
+  speed = null,
   children,
 }: {
   context: NonNullable<TaskState["contextUsage"]>;
   task?: TaskState;
+  speed?: Speed | null;
   children: ReactNode;
 }) {
   const t = useT();
@@ -83,7 +80,7 @@ function ContextButton({
   useEffect(() => onStudioCommand((command) => command === "context" && setOpen(true)), []);
   const close = () => setOpen(false);
   const label = t("composer.context", { p: formatPercent(context.percent) });
-  const expanded = task !== undefined && hasModelUsage(usage);
+  const expanded = task !== undefined && (hasModelUsage(usage) || speed !== null);
   // omp 的自动压缩触发点（输入框卡片的 meter 里读到的生效值）；圆环上画一道刻度。
   const autoAt = task?.contextCompaction?.autoAtPercent ?? null;
   return (
@@ -114,7 +111,7 @@ function ContextButton({
         <div className="ctx-pop" data-expanded={expanded || undefined}>
           {expanded && task !== undefined && (
             <div className="ctx-pop-aside" data-testid="session-usage">
-              <ModelBreakdown task={task} load={usage} />
+              <ModelBreakdown task={task} load={usage} speed={speed} />
             </div>
           )}
           <div className="ctx-pop-main">{children}</div>
@@ -137,10 +134,11 @@ function ContextPlaceholder() {
 
 /** 任务的上下文圆环（发送键左边、费用之前）；omp 还没给出上下文占用时是占位圆环。 */
 export function ContextMeter({ task }: { task: TaskState }) {
+  const speed = useSpeed(task);
   const context = task.contextUsage;
   if (context === null) return <ContextPlaceholder />;
   return (
-    <ContextButton context={context} task={task}>
+    <ContextButton context={context} task={task} speed={speed}>
       <TaskContextBreakdown key={task.id} taskId={task.id} context={context} task={task} />
     </ContextButton>
   );
@@ -155,30 +153,5 @@ export function DraftContextMeter({ model, projectId }: { model: ModelOption | n
     <ContextButton context={{ tokens: 0, contextWindow: window, percent: 0 }}>
       <DraftContextBreakdown window={window} modelKey={model?.key ?? null} projectId={projectId} />
     </ContextButton>
-  );
-}
-
-/**
- * 工具行里模型/审批胶囊右边的速度：有 omp 的实时速度（输入框卡片里的 `omp.composer.rate`，只在 omp 设置 `composer.tokenRate` 开着时有，
- * shared/tsp/composer-facts.ts）就用它（取整，避免每秒十几次数字乱跳）；没有就取会话文件里最近一条回复的
- * （`useSessionExtras().tokensPerSecond`，output ÷ (duration − ttft)，一轮结束时刷新）。运行中才显示，空闲时不显示。
- */
-export function UsageMeter({ task }: { task: TaskState }) {
-  const t = useT();
-  const tokensPerSecond = useSessionExtras(task.id, (extras) => extras.tokensPerSecond);
-  const liveRate = useTspDerived(task.id, deriveComposerFacts, sameComposerFacts)?.rate ?? null;
-  const busy = task.status === "running" || task.status === "needs_you";
-  const speedText = !busy
-    ? null
-    : liveRate !== null
-      ? String(Math.max(1, Math.round(liveRate)))
-      : formatTokensPerSecond(tokensPerSecond);
-  if (speedText === null) return null;
-  return (
-    <div className="usage" role="group" aria-label={t("composer.usage.aria")} data-testid="usage-meter">
-      <span className="usage-item usage-tps" data-testid="usage-tps" data-live={liveRate !== null || undefined}>
-        {t("composer.usage.tps", { n: speedText })}
-      </span>
-    </div>
   );
 }

@@ -74,12 +74,40 @@ export class ModelFallbackTracker implements SessionEntryConsumer {
   }
 }
 
+/**
+ * omp 这个会话在用哪个订阅账号：换账号（首次请求、额度用完轮到另一个号、恢复会话时）往会话文件追加
+ * `{"type":"credential_pin","provider","hash"}`，hash = sha256(`provider\0accountId\0email\0orgId\0projectId`)
+ * （omp `session/credential-pin.ts`；18.17 实测和 `omp usage --json` 的 metadata 算出来的一致，见 usage-service `identityHash`）。
+ * 按文件顺序取每个 provider 最后一条；omp 自己沿当前分支取，分叉回到旧分支时可能不同 [推测：很少见]。
+ */
+export class CredentialPinTracker implements SessionEntryConsumer {
+  #pins: Readonly<Record<string, string>> = {};
+
+  entry(entry: SessionFileEntry): void {
+    if (entry["type"] !== "credential_pin") return;
+    const provider = entry["provider"];
+    const hash = entry["hash"];
+    if (typeof provider !== "string" || typeof hash !== "string" || this.#pins[provider] === hash) return;
+    this.#pins = { ...this.#pins, [provider]: hash };
+  }
+
+  reset(): void {
+    this.#pins = {};
+  }
+
+  /** provider → 在用账号的 hash；没变过时返回同一个对象。 */
+  current(): Readonly<Record<string, string>> {
+    return this.#pins;
+  }
+}
+
 /** 一个会话文件读到目前为止的累加器；同步取结果，不要跨 await 持有。 */
 export interface SessionFileState {
   usage: SessionUsageAccumulator;
   extras: SessionExtrasAccumulator;
   title: SessionTitleTracker;
   fallback: ModelFallbackTracker;
+  pins: CredentialPinTracker;
 }
 
 const sessionFiles = new SessionReaderCache<SessionFileState>(() => ({
@@ -87,6 +115,7 @@ const sessionFiles = new SessionReaderCache<SessionFileState>(() => ({
   extras: new SessionExtrasAccumulator(),
   title: new SessionTitleTracker(),
   fallback: new ModelFallbackTracker(),
+  pins: new CredentialPinTracker(),
 }));
 
 /** 把 file 新追加的完整行读进累加器。文件不存在（第一条回复之后才落盘）时累加器为空；超过 MAX_SESSION_FILE_BYTES 抛错。 */

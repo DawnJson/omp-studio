@@ -1004,8 +1004,10 @@ test("一轮还在跑（会话文件里这一轮已有结算过的用量）时�
     const { page } = launched;
     await sendFirst(page, '用 bash 运行 python -c "print(1+1)",只运行这一条命令。');
     await expect(role(page, "omp.editor.ask.approval")).toBeVisible({ timeout: 30_000 });
-    // 工具行的速度取自同一份会话附加内容（这一条消息的 200 tok ÷ 4s）：它出来了，补的用量行要出来也已经出来了。
-    await expect(page.getByTestId("usage-tps")).toContainText("50");
+    // 上下文浮层里的速度取自同一份会话附加内容（这一条消息的 200 tok ÷ 4s）：它出来了，补的用量行要出来也已经出来了。
+    await page.getByTestId("context-meter").click();
+    await expect(page.getByTestId("session-usage").getByTestId("usage-tps")).toContainText("50");
+    await page.keyboard.press("Escape");
     const restored = page.locator('[data-testid="tsp-view"] [data-role="omp.turn.usage"][data-restored]');
     await expect(restored).toHaveCount(0);
     await page.getByTestId("composer-input").press("Control+Enter");

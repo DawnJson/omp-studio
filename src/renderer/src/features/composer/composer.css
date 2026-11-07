@@ -152,12 +152,10 @@ button.usage-context:hover,
   color: var(--text-3);
 }
 
-.usage-item,
 .send {
   font: inherit;
 }
 .send:focus-visible,
-.usage-item:focus-visible,
 .session-cost:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
@@ -322,39 +320,6 @@ button.usage-context:hover,
   }
 }
 
-/* 工具行里模型、审批胶囊之后的速度（只在运行中），数字一律等宽字体 + --text-2；输入框变窄时收起。 */
-/* 仪表本身不收缩（会让按钮互相压住）：空间不够时由模型胶囊省略名字，再按下面的宽度逐级收起。 */
-.usage {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 0 var(--space-1);
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  line-height: var(--lh-2xs);
-  font-variant-numeric: tabular-nums;
-}
-.usage-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  white-space: nowrap;
-}
-.usage-tps {
-  color: var(--text-3);
-}
-@container (max-width: 860px) {
-  .usage-tps {
-    display: none;
-  }
-}
 /* 圆环的浮层：不继承工具行的等宽小字，数字列自己用等宽 */
 .usage-context-anchor .ui-popover {
   color: var(--text);

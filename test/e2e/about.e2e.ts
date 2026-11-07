@@ -124,6 +124,7 @@ function makeTask(status: TaskState["status"]): TaskState {
     workspaceDirs: [],
     keepAlive: false,
     fallbackModel: null,
+    credentialPins: {},
     restartable: false,
     loaderText: null,
     prNumber: null,

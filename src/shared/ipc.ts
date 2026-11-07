@@ -414,6 +414,11 @@ export interface TaskState {
   keepAlive: boolean;
   /** omp 出错后自动换上的备用模型（会话文件最后一条 `model_change` 是 retry fallback，`provider/model`）；在用原来的模型为 null。 */
   fallbackModel: string | null;
+  /**
+   * 这个会话在用的订阅账号：provider → omp 的账号 hash（会话文件里每个 provider 最后一条 `credential_pin`）。
+   * 和 QuotaAccount.identityHash 对上的那个账号就是在用的；还没用过订阅账号是空表。
+   */
+  credentialPins: Readonly<Record<string, string>>;
 }
 
 /** omp 的自动压缩（上下文圆环上的刻度和构成浮层里的说明）。百分数都是占上下文窗口的比例（0–100）。 */
@@ -840,6 +845,8 @@ export interface QuotaAccount {
   /** omp 标成 Daybreak 账号（`metadata.daybreak`）。 */
   daybreak: boolean;
   resetCredits: QuotaResetCredits | null;
+  /** omp 给这个账号算的 hash（和会话文件 `credential_pin` 同一算法）；没有 accountId / email 时 null。 */
+  identityHash: string | null;
 }
 
 /** 登录了但 omp 取不到用量的账号（`accountsWithoutUsage`）；label 是 omp 的取名（邮箱 / 账号 id / "API key"）。 */

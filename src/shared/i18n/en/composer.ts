@@ -34,7 +34,6 @@ export const composer = {
   stoppedBackground: "A background job is still running; omp may continue by itself when it finishes",
   nextRequest: "Applies from the next request",
   context: "Context {p}%",
-  "usage.aria": "Reply speed",
   "usage.context": "Context {used} / {total}",
   "usage.input": "Input",
   "usage.output": "Output",

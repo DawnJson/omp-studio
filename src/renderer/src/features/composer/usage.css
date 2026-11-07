@@ -345,12 +345,15 @@
 .ui-dialog.usage-dialog[data-size] {
   --dialog-w: var(--dialog-w-xl);
 }
-/* 标题行右边、↻ 左边的"2 分钟前更新"（2026-10-24 起从额度区挪上来）：和 ↻ 一样高，竖直居中；离 ↻ 近一点，读成一组。 */
+/* 标题行右边、↻ 左边的"同步中… 2 分钟前更新"（2026-10-24 起从额度区挪上来，"同步中…"2026-11-07 从热力图下面挪上来）：
+   和 ↻ 一样高、和 ↻ / × 一样往下让到标题首行的中线（Dialog 的 head 是顶对齐，controls.css .ui-dialog-head > .ui-icon-btn）；离 ↻ 近一点，读成一组。 */
 .usage-dialog .usage-updated {
   display: inline-flex;
   flex: none;
+  gap: var(--space-2);
   align-items: center;
   height: var(--control-h-sm);
+  margin-top: calc(var(--space-1) + (var(--lh-lg) - var(--control-h-sm)) / 2);
   margin-right: calc(-1 * var(--space-2));
   font-size: var(--fs-xs);
   color: var(--text-3);

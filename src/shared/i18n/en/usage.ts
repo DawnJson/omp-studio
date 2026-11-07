@@ -22,6 +22,8 @@ export const usage = {
   "quota.exhausted": "Exhausted",
   "quota.untouched": "Untouched",
   "quota.daybreak": "Daybreak",
+  "quota.inUse": "In use",
+  "quota.inUseTip": "This task is using this account",
   "quota.plan.renews": "Renews {date}",
   "quota.plan.ends": "Ends {date}",
   "quota.plan.ended": "Ended {date}",

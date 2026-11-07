@@ -22,6 +22,8 @@ export const usage = {
   "quota.exhausted": "已用尽",
   "quota.untouched": "未使用",
   "quota.daybreak": "Daybreak",
+  "quota.inUse": "使用中",
+  "quota.inUseTip": "这个任务正在用这个账号",
   "quota.plan.renews": "{date} 自动续费",
   "quota.plan.ends": "{date} 到期",
   "quota.plan.ended": "已于 {date} 到期",

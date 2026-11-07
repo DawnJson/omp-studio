@@ -129,6 +129,25 @@ describe("订阅额度", () => {
   it("没有登录账号时是空列表", () => {
     expect(parseQuota({ generatedAt: 1, reports: [], accountsWithoutUsage: [] }).accounts).toEqual([]);
   });
+
+  it("identityHash 和 omp 会话文件 credential_pin 的 hash 同一算法（字段顺序、\\0 分隔、缺的项是空串）；没有账号 id 和邮箱时 null", () => {
+    const quota = parseQuota({
+      reports: [
+        {
+          provider: "anthropic",
+          metadata: { accountId: "acc-1", email: "a@example.com", orgId: "org-1", orgName: "X" },
+        },
+        { provider: "google-antigravity", metadata: { email: "g@example.com", projectId: "proj-1" } },
+        { provider: "workbuddy", metadata: { planType: "Free plan" } },
+      ],
+    });
+    // 期望值用 Python hashlib 独立算出（sha256("provider\0accountId\0email\0orgId\0projectId")）。
+    expect(quota.accounts.map((account) => account.identityHash)).toEqual([
+      "d9290d67ee7568adfc673559ff6ba1826348dd0f722e96b3a94f7f166cb90e5d",
+      "988b8335959ffaa5fb6f6c85d1fea04c2c05111c63d4eb039d17d12717050b2d",
+      null,
+    ]);
+  });
 });
 
 describe("omp 命令失败不被吞", () => {

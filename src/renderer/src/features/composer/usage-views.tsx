@@ -152,8 +152,11 @@ function planTermText(account: QuotaAccount, now: number, t: ReturnType<typeof u
   return autoRenew === false ? `${ends} · ${t("usage.quota.plan.noRenew")}` : ends;
 }
 
-/** 一个账号一块：左边状态点 + provider（套餐 / Daybreak）+ 账号 + 套餐到期 / 续费 + 备注 + 重置券，右边是各窗口的行。 */
-export function QuotaBlock({ account }: { account: QuotaAccount }) {
+/**
+ * 一个账号一块：左边状态点 + provider（套餐 / Daybreak / 使用中）+ 账号 + 套餐到期 / 续费 + 备注 + 重置券，右边是各窗口的行。
+ * inUse：当前任务的会话正在用这个账号（会话文件的 credential_pin 和 QuotaAccount.identityHash 对上）。
+ */
+export function QuotaBlock({ account, inUse = false }: { account: QuotaAccount; inUse?: boolean }) {
   const t = useT();
   const now = useCoarseNow();
   const term = planTermText(account, now, t);
@@ -172,6 +175,11 @@ export function QuotaBlock({ account }: { account: QuotaAccount }) {
             {account.daybreak && (
               <Badge tone="success" testId="usage-daybreak">
                 {t("usage.quota.daybreak")}
+              </Badge>
+            )}
+            {inUse && (
+              <Badge tone="accent" testId="usage-in-use" title={t("usage.quota.inUseTip")}>
+                {t("usage.quota.inUse")}
               </Badge>
             )}
           </div>

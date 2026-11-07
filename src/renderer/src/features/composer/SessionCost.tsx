@@ -9,7 +9,18 @@ import { UsageDialog } from "./UsageDialog.tsx";
 import { setUsageDialogOpen, useUsageDialogOpen } from "./usage-store.ts";
 import { useSubscription } from "./use-subscription.ts";
 
-export function SessionCost({ usage, provider }: { usage: TaskState["sessionUsage"]; provider: string | null }) {
+const noPins: TaskState["credentialPins"] = {};
+
+/** credentialPins：这个任务在用的订阅账号（TaskState.credentialPins），用量对话框里标"使用中"；草稿没有。 */
+export function SessionCost({
+  usage,
+  provider,
+  credentialPins = noPins,
+}: {
+  usage: TaskState["sessionUsage"];
+  provider: string | null;
+  credentialPins?: TaskState["credentialPins"];
+}) {
   const t = useT();
   const open = useUsageDialogOpen();
   const subscription = useSubscription(provider);
@@ -57,7 +68,12 @@ export function SessionCost({ usage, provider }: { usage: TaskState["sessionUsag
           </span>
         )}
       </button>
-      <UsageDialog provider={provider} open={open} onClose={() => setUsageDialogOpen(false)} />
+      <UsageDialog
+        provider={provider}
+        credentialPins={credentialPins}
+        open={open}
+        onClose={() => setUsageDialogOpen(false)}
+      />
     </div>
   );
 }

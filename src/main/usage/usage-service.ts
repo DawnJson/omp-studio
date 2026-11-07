@@ -2,6 +2,7 @@
 //   额度：`omp usage --json`（omp 自己去各 provider 查，带缓存；没有登录账号时 reports 为空）。
 //   每日消耗：omp 的 `stats.db`（`message_rollup`，小时桶）。这个库**只有 `omp stats` 运行时才会同步新会话**，
 //   所以"刷新"= 先让 omp 自己跑一次 `omp stats --json`（它负责读会话文件、加锁、写库），再用 node:sqlite 只读地查（heatmap.ts，在 worker 里跑）。
+import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { runCommand } from "../git/exec.ts";
@@ -85,6 +86,24 @@ export function parseResetCredits(raw: unknown, now: number): QuotaResetCredits 
 }
 
 /**
+ * omp `session/credential-pin.ts` 的账号 hash：sha256(`provider\0accountId\0email\0orgId\0projectId`)，没有 accountId 也没有 email 时没有。
+ * omp 18.17 实测：`omp usage --json` 每个报告 metadata 里的这几项算出来，和会话文件 `credential_pin` 的 hash 一致。
+ */
+export function identityHash(provider: string, metadata: Record<string, unknown>): string | null {
+  const accountId = str(metadata["accountId"]);
+  const email = str(metadata["email"]);
+  if (accountId === null && email === null) return null;
+  const parts = [
+    provider,
+    accountId ?? "",
+    email ?? "",
+    str(metadata["orgId"]) ?? "",
+    str(metadata["projectId"]) ?? "",
+  ];
+  return createHash("sha256").update(parts.join("\0")).digest("hex");
+}
+
+/**
  * `omp usage --json` → 按（provider, 账号）分组的额度。结构不认识的条目跳过，不抛错。
  * 字段来源：packages/ai/src/usage.ts 的 UsageReport 类型和 `omp usage --json` 的源码（packages/coding-agent/src/cli/usage-cli.ts）；
  * `planType`：openai-codex 和内置账号插件（`client-accounts/extension/adapter.mjs` 的 `usageReport`）在 metadata 里带，别的 provider 为 null；
@@ -113,6 +132,7 @@ export function parseQuota(json: unknown, now: number = Date.now()): QuotaSnapsh
       autoRenew: typeof metadata["autoRenew"] === "boolean" ? metadata["autoRenew"] : null,
       daybreak: metadata["daybreak"] === true,
       resetCredits: parseResetCredits(report["resetCredits"], now),
+      identityHash: identityHash(provider, metadata),
     });
   }
   // 登录了、但 omp 没能取到用量的账号（`accountsWithoutUsage`）：omp 的面板写 "<账号>: usage unavailable"（`LNe` 的取名规则）。

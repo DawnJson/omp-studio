@@ -10,6 +10,15 @@ How to write it:
 
 ## [Unreleased]
 
+### Added
+
+- Usage and quota: when a provider has several signed-in accounts, the one the current task is using is marked "In use".
+
+### Changed
+
+- Usage and quota: "Syncing…" during a refresh now sits in the title row, left of the update time, aligned with it and the refresh button.
+- Output speed (tok/s) moved out of the input box toolbar into "Session usage" in the context ring popover, where the last reply's speed shows even when nothing is generating.
+
 ## [0.4.57] - 2026-11-06
 
 ### Fixed

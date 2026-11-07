@@ -29,7 +29,7 @@ import { SendStop } from "./SendStop.tsx";
 import { useNewTaskDefault } from "./use-new-task-default.ts";
 import { thinkingLevelOptions } from "../../../../shared/ui/new-task-default.ts";
 import { SessionCost } from "./SessionCost.tsx";
-import { ContextMeter, UsageMeter } from "./UsageMeter.tsx";
+import { ContextMeter } from "./UsageMeter.tsx";
 import { Reveal } from "../../ui/Reveal.tsx";
 import { useHeld } from "./use-held.ts";
 import { useAttach } from "./use-attach.ts";
@@ -452,11 +452,14 @@ export function Composer({ taskId, fromDraft = false }: { taskId: TaskId; fromDr
           <SessionTogglesMenu taskId={taskId} task={task} />
           <ModeChip taskId={taskId} task={task} />
           <ShellTag taskId={taskId} />
-          <UsageMeter task={task} />
           <span className="composer-spacer" />
           {tooOld && <span className="composer-note">{t("composer.versionTooOld")}</span>}
           <ContextMeter task={task} />
-          <SessionCost usage={task.sessionUsage} provider={task.model?.key.provider ?? null} />
+          <SessionCost
+            usage={task.sessionUsage}
+            provider={task.model?.key.provider ?? null}
+            credentialPins={task.credentialPins}
+          />
           <SendStop
             running={running}
             stopping={stopping}

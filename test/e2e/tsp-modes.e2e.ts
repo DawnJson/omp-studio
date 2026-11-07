@@ -130,9 +130,10 @@ test("模式胶囊(composer-loop):无模式时开关在会话开关菜单,Loop �
       "/loop",
     ]);
 
-    // 速度：omp 开了 composer.tokenRate 时生成中出现 omp.composer.rate，工具行用它（取整，title 写明来源）。
-    // 只在生成中显示。真实录制里第一帧 rate 到这一轮结束只有 80 毫秒，录制在这之后的帧（第 105 行起）手工整体推后了 40 秒
+    // 速度：omp 开了 composer.tokenRate 时生成中出现 omp.composer.rate，上下文浮层的本会话用量里用它（取整）。
+    // 只在生成中用。真实录制里第一帧 rate 到这一轮结束只有 80 毫秒，录制在这之后的帧（第 105 行起）手工整体推后了 40 秒
     // （回放速度 20 下约 2 秒），模拟一段更长的生成；仍按帧查，拿到就读文字。
+    await page.getByTestId("context-meter").click();
     await sendPrompt(page, taskId, "Write the numbers from 1 to 60, one per line, nothing else.");
     const live = await page.waitForFunction(
       () => {

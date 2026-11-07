@@ -343,6 +343,8 @@ export class TspRunner {
   #terminalTitles: string[] = [];
   /** 会话文件里记的在用备用模型（ModelFallbackTracker，TaskState.fallbackModel）。 */
   #fallbackModel: string | null = null;
+  /** 会话文件里记的在用订阅账号（CredentialPinTracker，TaskState.credentialPins）。 */
+  #credentialPins: Readonly<Record<string, string>> = {};
 
   constructor(record: TaskRecord, project: Project, host: TspRunnerHost) {
     this.id = record.id;
@@ -471,6 +473,7 @@ export class TspRunner {
       extStatuses: this.#factsTracker.extStatuses,
       keepAlive: this.keepAlive,
       fallbackModel: this.#fallbackModel,
+      credentialPins: this.#credentialPins,
     };
   }
 
@@ -1337,8 +1340,10 @@ export class TspRunner {
     if (!this.#disposed && file === this.#currentSessionFile()) {
       this.#onSessionTitle(state.title.current());
       const fallback = state.fallback.current();
-      if (fallback !== this.#fallbackModel) {
+      const pins = state.pins.current();
+      if (fallback !== this.#fallbackModel || pins !== this.#credentialPins) {
         this.#fallbackModel = fallback;
+        this.#credentialPins = pins;
         this.#publish();
       }
     }

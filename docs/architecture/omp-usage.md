@@ -53,3 +53,10 @@ omp-studio 启动 omp 子进程用的是 `{...process.env, 额外的 API key}`�
 - **刷新绕过缓存**：omp 把用量报告缓存在 agent.db（约 5 分钟，`UsageCache`）。对话框的 ↻ 先跑 `omp usage invalidate` 再 `omp usage --json`（`usage-cli.ts` 的 invalidate 分支，清全部 provider）；打开对话框只读缓存。invalidate 失败直接报错。
 - **表结构自检**：`usage/stats-schema.ts` 列出 studio 读的表和列（对照 18.12.6 真实库核过）；`readHeatmap`、请求记录读之前先检查，缺表缺列抛 `StatsSchemaError`（文字以 `omp stats.db schema mismatch` 开头，界面显示"统计库结构对不上"）。
 
+## 任务在用哪个账号（"使用中"）
+
+（omp 18.17.0 实测，2026-11-07。）omp 每当会话换订阅账号（第一次请求、额度用完轮到同一 provider 的另一个号、恢复会话）就往会话文件追加 `{"type":"credential_pin","provider","hash"}`，hash = sha256(`provider\0accountId\0email\0orgId\0projectId`)（omp `session/credential-pin.ts`，缺的项是空串）。`omp usage --json` 每个报告的 `metadata` 带同样几项，算出来和会话文件里的 hash 一致（所有者本机两个 anthropic 号、一个 google-antigravity 号都对上）。所以：
+
+- `parseQuota` 给每个账号算 `identityHash`（没有 accountId 也没有 email 时 null）；
+- 主进程读任务会话文件时 `CredentialPinTracker` 取每个 provider 最后一条，放 `TaskState.credentialPins`（一轮结束等读会话文件的时机刷新）；
+- 用量对话框里 hash 对上的账号挂 `usage.quota.inUse` 徽标。按文件顺序取最后一条，omp 自己沿当前分支取，回到旧分支时可能不同 [推测：很少见]。

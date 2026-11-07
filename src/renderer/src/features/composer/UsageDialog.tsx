@@ -1,6 +1,7 @@
-// 点发送键左边的费用弹出的用量对话框（ui/Dialog lg，居中，盖一层遮罩；高度跟内容走，没有额度账号时下面不留空）：标题"用量与额度"，标题行只有 ↻ 图标按钮（悬停提示里写额度的取得时间）和 ×，下面一页滚动内容，没有页签：
+// 点发送键左边的费用弹出的用量对话框（ui/Dialog lg，居中，盖一层遮罩；高度跟内容走，没有额度账号时下面不留空）：标题"用量与额度"，标题行右边依次是
+// "同步中…"（额度或热力图在读时）、"N 分钟前更新"（omp 取得额度的时间，omp 有约 5 分钟缓存，可能比打开对话框早）、↻ 和 ×，三者和标题首行竖直居中；下面一页滚动内容，没有页签：
 // 先是汇总条（最紧的额度、过去一年、最近 30 天、最忙的一天），再是各订阅账号的额度（当前 provider 排最前，每个账号一张卡，每个窗口一格；
-// 套餐、Daybreak、重置券徽章；取不到用量的账号一行说明），额度上方一行小字写 omp 取得额度的时间（omp 有约 5 分钟缓存，可能比打开对话框早），
+// 套餐、Daybreak、重置券徽章，这个任务正在用的账号挂"使用中"；取不到用量的账号一行说明），
 // 最后是最近一年的每日用量热力图（不带小标题），格子按花费着色，悬停给金额和请求数。
 // 数据在 usage-store（omp usage --json / stats.db）：打开时额度读 omp 的缓存，热力图还没有数据时才读；点 ↻ 先让 omp 清掉额度缓存（omp usage invalidate）再重读，热力图也重读。
 import { useEffect } from "react";
@@ -29,11 +30,7 @@ function updatedText(t: TFunction, at: number, now: number): string {
 function UpdatedText({ at }: { at: number }) {
   const t = useT();
   const now = useNow(true);
-  return (
-    <span className="usage-updated" data-testid="usage-checked">
-      {updatedText(t, at, now)}
-    </span>
-  );
+  return <span data-testid="usage-checked">{updatedText(t, at, now)}</span>;
 }
 
 function Summary() {
@@ -70,16 +67,17 @@ function DailyUsage() {
       {heatmap.data && !heatmap.data.hasDatabase && !heatmap.busy && (
         <p className="ctx-note">{t("usage.heatmap.noDatabase")}</p>
       )}
-      {heatmap.busy && (
-        <p className="ctx-note" data-testid="usage-syncing">
-          {t("usage.heatmap.syncing")}
-        </p>
-      )}
     </>
   );
 }
 
-function Quota({ provider }: { provider: string | null }) {
+function Quota({
+  provider,
+  credentialPins,
+}: {
+  provider: string | null;
+  credentialPins: Readonly<Record<string, string>>;
+}) {
   const t = useT();
   const quota = useUsageQuota();
   const accounts = [...(quota.data?.accounts ?? [])].sort(
@@ -109,7 +107,11 @@ function Quota({ provider }: { provider: string | null }) {
       {accounts
         .filter((account) => !isUntouched(account))
         .map((account) => (
-          <QuotaBlock key={`${account.provider}/${account.account ?? ""}`} account={account} />
+          <QuotaBlock
+            key={`${account.provider}/${account.account ?? ""}`}
+            account={account}
+            inUse={account.identityHash !== null && credentialPins[account.provider] === account.identityHash}
+          />
         ))}
       {accounts.some(isUntouched) && <UntouchedRow accounts={accounts.filter(isUntouched)} />}
       {(quota.data?.unavailable ?? []).map((item) => (
@@ -120,7 +122,17 @@ function Quota({ provider }: { provider: string | null }) {
 }
 
 /** 对话框本体：打开（挂载）时读一次数据；退出动画由 Dialog 放，放完由外层卸载。 */
-function UsageDialogBody({ provider, open, onClose }: { provider: string | null; open: boolean; onClose: () => void }) {
+function UsageDialogBody({
+  provider,
+  credentialPins,
+  open,
+  onClose,
+}: {
+  provider: string | null;
+  credentialPins: Readonly<Record<string, string>>;
+  open: boolean;
+  onClose: () => void;
+}) {
   const t = useT();
   const heatmap = useUsageHeatmap();
   const quota = useUsageQuota();
@@ -141,7 +153,12 @@ function UsageDialogBody({ provider, open, onClose }: { provider: string | null;
       title={t("composer.usage.overview")}
       headAction={
         <>
-          {fetchedAt !== null && <UpdatedText at={fetchedAt} />}
+          {(quota.busy || heatmap.busy || fetchedAt !== null) && (
+            <span className="usage-updated">
+              {(quota.busy || heatmap.busy) && <span data-testid="usage-syncing">{t("usage.heatmap.syncing")}</span>}
+              {fetchedAt !== null && <UpdatedText at={fetchedAt} />}
+            </span>
+          )}
           <IconButton
             label={t("usage.refresh")}
             tip={t("usage.refresh")}
@@ -160,7 +177,7 @@ function UsageDialogBody({ provider, open, onClose }: { provider: string | null;
       <div className="qm">
         <Summary />
         <section className="qm-panel" data-testid="quota-section">
-          <Quota provider={provider} />
+          <Quota provider={provider} credentialPins={credentialPins} />
         </section>
         <section className="qm-panel" data-testid="heatmap-section">
           <DailyUsage />
@@ -170,8 +187,13 @@ function UsageDialogBody({ provider, open, onClose }: { provider: string | null;
   );
 }
 
-/** provider：当前模型的 provider（草稿里是默认模型的），它的账号排在最前。 */
-export function UsageDialog(props: { provider: string | null; open: boolean; onClose: () => void }) {
+/** provider：当前模型的 provider（草稿里是默认模型的），它的账号排在最前；credentialPins：任务在用的账号（TaskState.credentialPins）。 */
+export function UsageDialog(props: {
+  provider: string | null;
+  credentialPins: Readonly<Record<string, string>>;
+  open: boolean;
+  onClose: () => void;
+}) {
   const presence = usePresence(props.open);
   const key = useOpenKey(props.open);
   if (!presence.mounted) return null;
