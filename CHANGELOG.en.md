@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.4.58] - 2026-11-06
+
 ### Added
 
 - Usage and quota: when a provider has several signed-in accounts, the one the current task is using is marked "In use".
