@@ -10,6 +10,8 @@ How to write it:
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-09
+
 ### Added
 
 - Subagent panel: the details show the subagent's thinking level after its model name (such as `· High`).
